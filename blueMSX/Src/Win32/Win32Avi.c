@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -30,10 +33,12 @@
 #include "Actions.h"
 #include "Board.h"
 #include "Win32Sound.h"
+#include "Win32TextUtf8.h"
 #include "ArchFile.h"
 #include "Emulator.h"
 #include "Resource.h"
 #include "Language.h"
+#include "PacketFileSystem.h"
 
 static PAVIFILE     aviFile;
 static PAVISTREAM   aviStream;
@@ -339,7 +344,7 @@ char* aviGetFilename(Properties* properties)
         char langBuffer[200];
         fclose(file);
         sprintf(langBuffer, "%s %s", langWarningOverwriteFile(), filename);
-        if (IDOK != MessageBox(NULL, langBuffer, langWarningTitle(), MB_OKCANCEL)) {
+        if (IDOK != MessageBoxU(NULL, langBuffer, langWarningTitle(), MB_OKCANCEL)) {
             return NULL;
         }
 
@@ -374,7 +379,7 @@ static BOOL CALLBACK statusDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM l
         return TRUE;
 
     case WM_TIMER:
-        SendDlgItemMessage(hDlg, IDC_VIDEOPROGRESSTEXT, WM_SETTEXT, 0, (LPARAM)progressText());
+        SetDlgItemTextU(hDlg, IDC_VIDEOPROGRESSTEXT, progressText());
         if (!boardCaptureIsPlaying()) {
             EndDialog(hDlg, TRUE);
         }
@@ -385,8 +390,8 @@ static BOOL CALLBACK statusDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM l
         return 0;
 
     case WM_INITDIALOG:
-        SetWindowText(hDlg, langDlgRenderVideoCapture());
-        SendDlgItemMessage(hDlg, IDC_VIDEOPROGRESSTEXT, WM_SETTEXT, 0, (LPARAM)progressText());
+        SetWindowTextU(hDlg, langDlgRenderVideoCapture());
+        SetDlgItemTextU(hDlg, IDC_VIDEOPROGRESSTEXT, progressText());
         SetTimer(hDlg, 2, 250, NULL);
         return FALSE;
     }

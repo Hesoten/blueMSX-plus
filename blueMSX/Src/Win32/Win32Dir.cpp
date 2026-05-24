@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -32,34 +35,35 @@
 #include <windows.h> 
 #include <shlobj.h> 
 #include <objbase.h> 
+#include "Win32TextUtf8.h"
 
 
 static bool initialized = false;
-static char* defaultDirectory;
+static wchar_t wDefaultDirectory[MAX_PATH];
 
 static int CALLBACK browseCallbackProc(HWND hwnd, UINT uMsg, LPARAM lParam, LPARAM lpData)
 {
     switch (uMsg) {
     case BFFM_INITIALIZED:
 #if 0
-        HWND cbohWnd = CreateWindow("COMBOBOX", NULL, CBS_DROPDOWNLIST|WS_VSCROLL|CBS_AUTOHSCROLL|WS_CHILD|WS_VISIBLE,
-            17, 30, 286, 150, hwnd, (HMENU)1005, (HINSTANCE) GetWindowLong(hwnd, GWL_HINSTANCE), NULL); 
+        HWND cbohWnd = CreateWindowW(L"COMBOBOX", NULL, CBS_DROPDOWNLIST|WS_VSCROLL|CBS_AUTOHSCROLL|WS_CHILD|WS_VISIBLE,
+            17, 30, 286, 150, hwnd, (HMENU)1005, (HINSTANCE) GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
 
         SendMessage(cbohWnd, CB_RESETCONTENT, 0, 0);
-        SendMessage(cbohWnd, CB_ADDSTRING, 0, (LPARAM)"MSX 3.5\" DSDD");
-        SendMessage(cbohWnd, CB_ADDSTRING, 0, (LPARAM)"MSX2 CP/M 3.0 DSDD");
-        SendMessage(cbohWnd, CB_ADDSTRING, 0, (LPARAM)"MSX2 CP/M 3.0 SSDD");
-        SendMessage(cbohWnd, CB_ADDSTRING, 0, (LPARAM)"SVI-328 CP/M 2.24 DSDD");
-        SendMessage(cbohWnd, CB_ADDSTRING, 0, (LPARAM)"SVI-328 CP/M 2.24 SSDD");
-        SendMessage(cbohWnd, CB_ADDSTRING, 0, (LPARAM)"SVI-328 Disk Basic DSDD");
-        SendMessage(cbohWnd, CB_ADDSTRING, 0, (LPARAM)"SVI-328 Disk Basic SSDD");
-        SendMessage(cbohWnd, CB_ADDSTRING, 0, (LPARAM)"SVI-328 Z-CPR3 DSDD");
-        SendMessage(cbohWnd, CB_ADDSTRING, 0, (LPARAM)"SVI-738 CP/M 2.28 SSDD");
+        ComboAddStringU(cbohWnd, "MSX 3.5\" DSDD");
+        ComboAddStringU(cbohWnd, "MSX2 CP/M 3.0 DSDD");
+        ComboAddStringU(cbohWnd, "MSX2 CP/M 3.0 SSDD");
+        ComboAddStringU(cbohWnd, "SVI-328 CP/M 2.24 DSDD");
+        ComboAddStringU(cbohWnd, "SVI-328 CP/M 2.24 SSDD");
+        ComboAddStringU(cbohWnd, "SVI-328 Disk Basic DSDD");
+        ComboAddStringU(cbohWnd, "SVI-328 Disk Basic SSDD");
+        ComboAddStringU(cbohWnd, "SVI-328 Z-CPR3 DSDD");
+        ComboAddStringU(cbohWnd, "SVI-738 CP/M 2.28 SSDD");
         SendMessage(cbohWnd, CB_SETCURSEL, 0, 0);
 
 #endif
-        if (*defaultDirectory) {
-            SendMessage(hwnd, BFFM_SETSELECTION, 1, (LPARAM)defaultDirectory);
+        if (wDefaultDirectory[0]) {
+            SendMessageW(hwnd, BFFM_SETSELECTION, 1, (LPARAM)wDefaultDirectory);
         }
         break;
     }
@@ -67,14 +71,15 @@ static int CALLBACK browseCallbackProc(HWND hwnd, UINT uMsg, LPARAM lParam, LPAR
 }
 
 
-extern "C" char* openDir(HWND hwnd, char* pTitle, char* defDir) { 
-    static char pFileName[MAX_PATH];
+extern "C" char* openDir(HWND hwnd, char* pTitle, char* defDir) {
+    static char pFileName[MAX_PATH * 4];
     LPMALLOC pMalloc; 
-    BROWSEINFO bi; 
-    char* pBuffer = pFileName; 
+    BROWSEINFOW bi;
+    wchar_t wTitle[256];
+    wchar_t wPath[MAX_PATH];
     LPITEMIDLIST pidl; 
 
-    defaultDirectory = defDir;
+    Utf8ToWide(defDir ? defDir : "", wDefaultDirectory, _countof(wDefaultDirectory));
 
 	if (!initialized) {
 		initialized = true;
@@ -85,22 +90,29 @@ extern "C" char* openDir(HWND hwnd, char* pTitle, char* defDir) {
         return NULL; 
     } 
 
-    bi.hwndOwner = hwnd; 
-    bi.pidlRoot = NULL; 
-    bi.pszDisplayName = pBuffer; 
-    bi.lpszTitle = pTitle; 
-    bi.ulFlags = BIF_RETURNFSANCESTORS | BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE; 
-    bi.lpfn = browseCallbackProc; 
-    bi.lParam = 0; 
+    Utf8ToWide(pTitle ? pTitle : "", wTitle, _countof(wTitle));
     
-    if ((pidl = SHBrowseForFolder(&bi)) != NULL) { 
-        if (!SHGetPathFromIDList(pidl, pBuffer)) { 
-            pBuffer = NULL; 
+    bi.hwndOwner      = hwnd;
+    bi.pidlRoot       = NULL;
+    bi.pszDisplayName = wPath;
+    bi.lpszTitle      = wTitle;
+    bi.ulFlags        = BIF_RETURNFSANCESTORS | BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
+    bi.lpfn           = browseCallbackProc;
+    bi.lParam         = 0;
+
+    if ((pidl = SHBrowseForFolderW(&bi)) != NULL) {
+        if (!SHGetPathFromIDListW(pidl, wPath)) {
+            pMalloc->Free(pidl);
+            pMalloc->Release();
+            return NULL;
         } 
+        WideToUtf8(wPath, pFileName, sizeof(pFileName));
         pMalloc->Free(pidl); 
+    } else {
+        pMalloc->Release();
+        return NULL;
     } 
 
     pMalloc->Release(); 
-
-    return pBuffer; 
-} 
+    return pFileName;
+}

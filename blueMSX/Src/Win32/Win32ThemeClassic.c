@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -30,6 +33,7 @@
 #include "Win32ThemeClassic.h"
 #include "ArchBitmap.h"
 #include "ArchText.h"
+#include "Win32TextUtf8.h"
 #include "Resource.h"
 #include "FileHistory.h"
 #include "Properties.h"
@@ -243,7 +247,7 @@ void themeClassicTitlebarUpdate(HWND wnd)
 	char baseName[128];
 	Properties* pProperties = propGetGlobalProperties();
 	
-	if (!GetWindowText(wnd,(LPTSTR)title_old,1024)||!strlen(pProperties->emulation.machineName)) return;
+	if (!GetWindowTextU(wnd, title_old, 1024) || !strlen(pProperties->emulation.machineName)) return;
 	
 	sprintf(title,"  blueMSX - %s",pProperties->emulation.machineName);
 	if (createSaveFileBaseName(baseName, pProperties, 0)) {
@@ -251,7 +255,7 @@ void themeClassicTitlebarUpdate(HWND wnd)
 		strcat(title,baseName);
 	}
 	
-	if (strcmp(title,title_old)) SetWindowText(wnd,title);
+	if (strcmp(title,title_old)) SetWindowTextU(wnd,title);
 }
 
 #endif

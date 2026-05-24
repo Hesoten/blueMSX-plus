@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -69,6 +72,7 @@
 #include "Win32file.h"
 #include "Win32Help.h"
 #include "Win32Menu.h"
+#include "Win32TextUtf8.h"
 #include "Win32Eth.h"
 #include "Win32VideoIn.h"
 #include "Win32ScreenShot.h"
@@ -256,16 +260,14 @@ static BOOL CALLBACK langDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPa
         {
             char buffer[64];
             HIMAGELIST himlSmall;
-            LV_COLUMN lvc = {0};
-            LV_ITEM lvi = { 0 };
             int i;
 
             lang = (int*)lParam;
 
-            SetWindowText(hDlg, langDlgLangTitle());
-            SendMessage(GetDlgItem(hDlg, IDC_LANGTXT), WM_SETTEXT, 0, (LPARAM)langDlgLangLangText());
-            SetWindowText(GetDlgItem(hDlg, IDOK), langDlgOK());
-            SetWindowText(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
+            SetWindowTextU(hDlg, langDlgLangTitle());
+            SetDlgItemTextU(hDlg, IDC_LANGTXT, langDlgLangLangText());
+            SetWindowTextU(GetDlgItem(hDlg, IDOK), langDlgOK());
+            SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
 
             ListView_SetExtendedListViewStyle(GetDlgItem(hDlg, IDC_LANGLIST), LVS_EX_FULLROWSELECT);
 
@@ -292,31 +294,38 @@ static BOOL CALLBACK langDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPa
 
             SetFocus(GetDlgItem(hDlg, IDC_LANGLIST));
 
-            lvc.mask       = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT;
-            lvc.fmt        = LVCFMT_LEFT;
-            lvc.cx         = 185;
-            lvc.pszText    = buffer;
-	        lvc.cchTextMax = sizeof(buffer);
-            sprintf(buffer, "       %s", langMenuPropsLanguage());
+            /* Insert via LVM_INSERTCOLUMNW / LVM_INSERTITEMW; UTF-8 source
+               literals are converted to UTF-16 explicitly. */
+            {
+                HWND hList = GetDlgItem(hDlg, IDC_LANGLIST);
+                wchar_t wbuf[64];
+                LVCOLUMNW lvcw = {0};
+                LVITEMW lviw = {0};
 
-            ListView_InsertColumn(GetDlgItem(hDlg, IDC_LANGLIST), 0, &lvc);
+                SendMessageW(hList, LVM_SETUNICODEFORMAT, TRUE, 0);
 
-            for (i = 0; langGetType(i) != EMU_LANG_UNKNOWN; i++) {
-                lvi.mask       = LVIF_IMAGE | LVIF_TEXT;
-                lvi.iItem      = i;
-                lvi.pszText    = buffer;
-	            lvi.cchTextMax = sizeof(buffer);
-                lvi.iImage     = i;
+                sprintf(buffer, "       %s", langMenuPropsLanguage());
+                Utf8ToWide(buffer, wbuf, _countof(wbuf));
+                lvcw.mask     = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT;
+                lvcw.fmt      = LVCFMT_LEFT;
+                lvcw.cx       = 185;
+                lvcw.pszText  = wbuf;
+                SendMessageW(hList, LVM_INSERTCOLUMNW, 0, (LPARAM)&lvcw);
 
-                sprintf(buffer, "   %s", langToName(langGetType(i), 1));
-
-                ListView_InsertItem(GetDlgItem(hDlg, IDC_LANGLIST), &lvi);
+                for (i = 0; langGetType(i) != EMU_LANG_UNKNOWN; i++) {
+                    sprintf(buffer, "   %s", langToName(langGetType(i), 1));
+                    Utf8ToWide(buffer, wbuf, _countof(wbuf));
+                    lviw.mask    = LVIF_IMAGE | LVIF_TEXT;
+                    lviw.iItem   = i;
+                    lviw.iImage  = i;
+                    lviw.pszText = wbuf;
+                    SendMessageW(hList, LVM_INSERTITEMW, 0, (LPARAM)&lviw);
  
-                if (langGetType(i) == *lang) {
-                    ListView_SetItemState(GetDlgItem(hDlg, IDC_LANGLIST), i, LVIS_SELECTED, LVIS_SELECTED);
+                    if (langGetType(i) == *lang) {
+                        ListView_SetItemState(hList, i, LVIS_SELECTED, LVIS_SELECTED);
+                    }
                 }
-           }
-
+            }
             return FALSE;
         }
 
@@ -396,9 +405,17 @@ static BOOL CALLBACK dskProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
             x = r1.left + (r1.right - r1.left - r2.right + r2.left) / 2;
             y = r1.top  + (r1.bottom - r1.top - r2.bottom + r2.top) / 2;
 
-            SetWindowText(GetDlgItem(hDlg, IDC_DISKIMAGE), 
-                          stripPath(*pProperties->media.disks[0].fileNameInZip ? 
-                          pProperties->media.disks[0].fileNameInZip : pProperties->media.disks[0].fileName));
+            {
+                /* fileNameInZip is the zip entry in the zip's stored encoding
+                ** (typically ACP / CP932). Pass it through AnyToUtf8 so the
+                ** Unicode SetWindowTextW path renders the entry name correctly. */
+                char displayName[512];
+                const char* src = stripPath(*pProperties->media.disks[0].fileNameInZip ?
+                                            pProperties->media.disks[0].fileNameInZip :
+                                            pProperties->media.disks[0].fileName);
+                AnyToUtf8(src, displayName, sizeof(displayName));
+                SetWindowTextU(GetDlgItem(hDlg, IDC_DISKIMAGE), displayName);
+            }
             if (!show) {
                 enterDialogShow();
                 SetWindowPos(hDlg, NULL, x, y, 0, 0, SWP_NOZORDER | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
@@ -458,9 +475,24 @@ static void updateRomTypeList(HWND hDlg, ZipFileDlgInfo* dlgInfo) {
     char* buf = NULL;
     int index;
 
-    index = SendDlgItemMessage(hDlg, IDC_DSKLIST, LB_GETCURSEL, 0, 0);
-    SendDlgItemMessage(hDlg, IDC_DSKLIST, LB_GETTEXT, index, (LPARAM)fileName);
-    
+    {
+        /* LBS_SORT: convert sorted-display row to raw fileList index via the
+        ** item data we bound at insertion. */
+        LRESULT row = SendDlgItemMessage(hDlg, IDC_DSKLIST, LB_GETCURSEL, 0, 0);
+        LRESULT rawIdx = (row == LB_ERR) ? LB_ERR :
+            SendDlgItemMessage(hDlg, IDC_DSKLIST, LB_GETITEMDATA, (WPARAM)row, 0);
+        index = (int)row;
+        if (rawIdx == LB_ERR || rawIdx < 0 || rawIdx >= dlgInfo->fileListCount) {
+            fileName[0] = 0;
+        } else {
+            const char* p = dlgInfo->fileList;
+            int i;
+            for (i = 0; i < (int)rawIdx; i++) p += strlen(p) + 1;
+            strncpy(fileName, p, sizeof(fileName) - 1);
+            fileName[sizeof(fileName) - 1] = 0;
+        }
+    }
+
     if (isFileExtension(fileName, ".rom") || isFileExtension(fileName, ".ri") ||
         isFileExtension(fileName, ".mx1") || isFileExtension(fileName, ".mx2") || 
         isFileExtension(fileName, ".sms") || isFileExtension(fileName, ".col") ||
@@ -514,21 +546,21 @@ static BOOL CALLBACK dskZipDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM l
 
             dlgInfo->openRomType = ROM_UNKNOWN;
 
-            SetWindowText(hDlg, dlgInfo->title);
+            SetWindowTextU(hDlg, dlgInfo->title);
 
-            SendMessage(GetDlgItem(hDlg, IDC_DSKLOADTXT), WM_SETTEXT, 0, (LPARAM)dlgInfo->description);
-            SetWindowText(GetDlgItem(hDlg, IDC_DSKRESET), langDlgZipReset());
-            SetWindowText(GetDlgItem(hDlg, IDOK), langDlgOK());
-            SetWindowText(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
-            SetWindowText(GetDlgItem(hDlg, IDC_OPEN_ROMTEXT), langDlgRomType());
+            SetDlgItemTextU(hDlg, IDC_DSKLOADTXT, dlgInfo->description);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_DSKRESET), langDlgZipReset());
+            SetWindowTextU(GetDlgItem(hDlg, IDOK), langDlgOK());
+            SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
+            SetWindowTextU(GetDlgItem(hDlg, IDC_OPEN_ROMTEXT), langDlgRomType());
 
             fileList = dlgInfo->fileList;
 
             for (i = 0; opendialog_getromtype(i) != ROM_UNKNOWN; i++) {
-                SendDlgItemMessage(hDlg, IDC_OPEN_ROMTYPE, CB_ADDSTRING, 0, (LPARAM)romTypeToString(opendialog_getromtype(i)));
+                ComboAddStringU(GetDlgItem(hDlg, IDC_OPEN_ROMTYPE), romTypeToString(opendialog_getromtype(i)));
                 SendDlgItemMessage(hDlg, IDC_ROMTYPE, CB_SETCURSEL, i, 0);
             }
-            SendDlgItemMessage(hDlg, IDC_OPEN_ROMTYPE, CB_ADDSTRING, 0, (LPARAM)romTypeToString(ROM_UNKNOWN));
+            ComboAddStringU(GetDlgItem(hDlg, IDC_OPEN_ROMTYPE), romTypeToString(ROM_UNKNOWN));
             EnableWindow(GetDlgItem(hDlg, IDC_OPEN_ROMTYPE), 0);
             EnableWindow(GetDlgItem(hDlg, IDC_OPEN_ROMTEXT), 0);
 
@@ -537,10 +569,21 @@ static BOOL CALLBACK dskZipDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM l
             }
 
             for (i = 0; i < dlgInfo->fileListCount; i++) {
-                if (dlgInfo->selectFileIndex != -1 && 0 == strcmp(dlgInfo->selectFile, fileList)) {
-                    sel = i;
+                /* Zip entries are typically the host ACP on legacy archives.
+                ** AnyToUtf8 leaves valid UTF-8 alone (modern EFS-flagged zips). */
+                char displayName[512];
+                LRESULT row;
+                AnyToUtf8(fileList, displayName, sizeof(displayName));
+                row = ListBoxAddStringU(GetDlgItem(hDlg, IDC_DSKLIST), displayName);
+                /* IDC_DSKLIST has LBS_SORT, so the inserted row index is not i.
+                ** Bind raw fileList index to the row so IDOK can recover the
+                ** original (ACP) bytes for unzLocateFile. */
+                if (row != LB_ERR) {
+                    SendDlgItemMessage(hDlg, IDC_DSKLIST, LB_SETITEMDATA, (WPARAM)row, (LPARAM)i);
+                    if (dlgInfo->selectFileIndex != -1 && 0 == strcmp(dlgInfo->selectFile, fileList)) {
+                        sel = (int)row;
+                    }
                 }
-                SendMessage(GetDlgItem(hDlg, IDC_DSKLIST), LB_ADDSTRING, 0, (LPARAM)fileList);
                 fileList += strlen(fileList) + 1;
             }
 
@@ -588,8 +631,24 @@ static BOOL CALLBACK dskZipDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM l
             }
             // else, fall through
         case IDOK:
-            dlgInfo->selectFileIndex = SendMessage(GetDlgItem(hDlg, IDC_DSKLIST), LB_GETCURSEL, 0, 0);
-            SendMessage(GetDlgItem(hDlg, IDC_DSKLIST), LB_GETTEXT, dlgInfo->selectFileIndex, (LPARAM)dlgInfo->selectFile);
+            {
+                /* LBS_SORT means LB_GETCURSEL returns a sorted-display row, not
+                ** the insertion index.  Recover the raw fileList index from
+                ** the item data we bound at insertion time. */
+                LRESULT row = SendMessage(GetDlgItem(hDlg, IDC_DSKLIST), LB_GETCURSEL, 0, 0);
+                LRESULT rawIdx = (row == LB_ERR) ? LB_ERR :
+                    SendMessage(GetDlgItem(hDlg, IDC_DSKLIST), LB_GETITEMDATA, (WPARAM)row, 0);
+                dlgInfo->selectFileIndex = (int)row;
+                if (rawIdx == LB_ERR || rawIdx < 0 || rawIdx >= dlgInfo->fileListCount) {
+                    dlgInfo->selectFile[0] = '\0';
+                } else {
+                    const char* p = dlgInfo->fileList;
+                    int i;
+                    for (i = 0; i < (int)rawIdx; i++) p += strlen(p) + 1;
+                    strncpy(dlgInfo->selectFile, p, sizeof(dlgInfo->selectFile) - 1);
+                    dlgInfo->selectFile[sizeof(dlgInfo->selectFile) - 1] = 0;
+                }
+            }
             EndDialog(hDlg, TRUE);
             return TRUE;
         case IDCANCEL:
@@ -632,25 +691,25 @@ static void tapeDlgUpdate(HWND hwnd, TapeContent* tc, int tcCount, int showCusto
     curPos = tapeGetCurrentPos();
 
     for (i = 0; i < tcCount; i++) {
-        char buffer[64] = {0};
-        LV_ITEM lvi = {0};
+        wchar_t wbuf[512] = {0};
+        LVITEMW lviw = {0};
 
         if (showCustomFiles || tc[i].type != TAPE_CUSTOM) {
-            lvi.mask       = LVIF_TEXT;
-            lvi.iItem      = idx;
-            lvi.pszText    = buffer;
-	        lvi.cchTextMax = 64;
+            lviw.mask       = LVIF_TEXT;
+            lviw.iItem      = idx;
+            lviw.pszText    = wbuf;
+            lviw.cchTextMax = _countof(wbuf);
             
-            sprintf(buffer, convertTapePos(tc[i].pos));
-            ListView_InsertItem(hwnd, &lvi);
-            lvi.iSubItem++;
+            Utf8ToWide(convertTapePos(tc[i].pos), wbuf, _countof(wbuf));
+            SendMessageW(hwnd, LVM_INSERTITEMW, 0, (LPARAM)&lviw);
+            lviw.iSubItem++;
             
-            sprintf(buffer, typeNames[tc[i].type]);
-            ListView_SetItem(hwnd, &lvi);
-            lvi.iSubItem++;
+            Utf8ToWide(typeNames[tc[i].type], wbuf, _countof(wbuf));
+            SendMessageW(hwnd, LVM_SETITEMW, 0, (LPARAM)&lviw);
+            lviw.iSubItem++;
             
-            sprintf(buffer, tc[i].fileName);
-            ListView_SetItem(hwnd, &lvi);
+            Utf8ToWide(tc[i].fileName, wbuf, _countof(wbuf));
+            SendMessageW(hwnd, LVM_SETITEMW, 0, (LPARAM)&lviw);
 
             if (tc[i].pos <= curPos) {
                 SetFocus(hwnd);
@@ -677,21 +736,18 @@ static BOOL CALLBACK tapePosDlg(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
 
     case WM_INITDIALOG:
         {
-            char buffer[32];
-            LV_COLUMN lvc = {0};
-
             showCustomFiles = (int*)lParam;
          
             updateDialogPos(hDlg, DLG_ID_TAPEPOS, 0, 1);
 
             currIndex = -1;
 
-            SetWindowText(hDlg, langDlgTapeTitle());
+            SetWindowTextU(hDlg, langDlgTapeTitle());
 
-            SendMessage(GetDlgItem(hDlg, IDC_SETTAPEPOSTXT), WM_SETTEXT, 0, (LPARAM)langDlgTapeSetPosText());
-            SetWindowText(GetDlgItem(hDlg, IDC_SETTAPECUSTOM), langDlgTapeCustom());
-            SetWindowText(GetDlgItem(hDlg, IDOK), langDlgOK());
-            SetWindowText(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
+            SetDlgItemTextU(hDlg, IDC_SETTAPEPOSTXT, langDlgTapeSetPosText());
+            SetWindowTextU(GetDlgItem(hDlg, IDC_SETTAPECUSTOM), langDlgTapeCustom());
+            SetWindowTextU(GetDlgItem(hDlg, IDOK), langDlgOK());
+            SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
 
             SendMessage(GetDlgItem(hDlg, IDC_SETTAPECUSTOM), BM_SETCHECK, *showCustomFiles ? BST_CHECKED : BST_UNCHECKED, 0);
 
@@ -702,22 +758,24 @@ static BOOL CALLBACK tapePosDlg(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
             EnableWindow(GetDlgItem(hDlg, IDOK), FALSE);
 
             ListView_SetExtendedListViewStyle(hwnd, LVS_EX_FULLROWSELECT);
+            SendMessageW(hwnd, LVM_SETUNICODEFORMAT, TRUE, 0);
 
-            lvc.mask       = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM;
-            lvc.fmt        = LVCFMT_LEFT;
-            lvc.cx         = 100;
-            lvc.pszText    = buffer;
-	        lvc.cchTextMax = 32;
-
-            sprintf(buffer, langDlgTabPosition());
-            lvc.cx = 95;
-            ListView_InsertColumn(hwnd, 0, &lvc);
-            sprintf(buffer, langDlgTabType());
-            lvc.cx = 65;
-            ListView_InsertColumn(hwnd, 1, &lvc);
-            sprintf(buffer, langDlgTabFilename());
-            lvc.cx = 105;
-            ListView_InsertColumn(hwnd, 2, &lvc);
+            {
+                wchar_t wbuf[64];
+                LVCOLUMNW lvcw = {0};
+                lvcw.mask     = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM;
+                lvcw.fmt      = LVCFMT_LEFT;
+                lvcw.pszText  = wbuf;
+                Utf8ToWide(langDlgTabPosition(), wbuf, _countof(wbuf));
+                lvcw.cx = 95;
+                SendMessageW(hwnd, LVM_INSERTCOLUMNW, 0, (LPARAM)&lvcw);
+                Utf8ToWide(langDlgTabType(), wbuf, _countof(wbuf));
+                lvcw.cx = 65;
+                SendMessageW(hwnd, LVM_INSERTCOLUMNW, 1, (LPARAM)&lvcw);
+                Utf8ToWide(langDlgTabFilename(), wbuf, _countof(wbuf));
+                lvcw.cx = 105;
+                SendMessageW(hwnd, LVM_INSERTCOLUMNW, 2, (LPARAM)&lvcw);
+            }
         }
 
         tapeDlgUpdate(hwnd, tc, tcCount, *showCustomFiles);
@@ -1439,7 +1497,7 @@ void themeSet(char* themeName, int forceMatch) {
         st.hBitmap = CreateCompatibleBitmap(st.hdc, 640, 480);
     }
     
-    if (strcmp(themeName,"Classic")) SetWindowText(st.hwnd, "  blueMSX");
+    if (strcmp(themeName,"Classic")) SetWindowTextU(st.hwnd, "  blueMSX");
 
     if (st.rgnData != NULL) {
 //        SetWindowRgn(st.hwnd, NULL, TRUE);
@@ -1560,7 +1618,7 @@ void archUpdateWindow() {
                                                 pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO);
 
             if (rv != DXE_OK) {
-                MessageBox(NULL, langErrorEnterFullscreen(), langErrorTitle(), MB_OK);
+                MessageBoxU(NULL, langErrorEnterFullscreen(), langErrorTitle(), MB_OK);
                 if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D)
                     D3DExitFullscreenMode();
                 else
@@ -1589,7 +1647,7 @@ void archUpdateWindow() {
                                               pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO, 
                                               pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO);
             if (rv != DXE_OK) {
-                MessageBox(NULL, langErrorDirectXFailed(), langErrorTitle(), MB_OK);
+                MessageBoxU(NULL, langErrorDirectXFailed(), langErrorTitle(), MB_OK);
                 pProperties->video.driver = P_VIDEO_DRVGDI;
             }
         }
@@ -1862,15 +1920,17 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 
     case WM_DROPFILES:
         {
-            char fname[MAX_PATH];
+            char fname[MAX_PATH * 4];
+            wchar_t wfname[MAX_PATH];
             HDROP hDrop;
             DWORD fa;
 
             hDrop = (HDROP)wParam;
-            DragQueryFile(hDrop, 0, fname, 512);
+            DragQueryFileW(hDrop, 0, wfname, MAX_PATH);
+            WideToUtf8(wfname, fname, sizeof(fname));
             DragFinish(hDrop);
-            
-		    fa = GetFileAttributes(fname);
+
+            fa = GetFileAttributesA(fname);
             if (fa & FILE_ATTRIBUTE_DIRECTORY) {
                 insertDiskette(pProperties, 0, fname, NULL, 0);
             }
@@ -2577,7 +2637,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
     scrDepth = getScreenBitDepth();
     if (scrDepth != 16 && scrDepth != 32) {
-        MessageBox(NULL, "blueMSX works best in 16 or 32 bits color depth", "blueMSX Info", MB_OK | MB_ICONINFORMATION);
+        MessageBoxU(NULL, "blueMSX works best in 16 or 32 bits color depth", "blueMSX Info", MB_OK | MB_ICONINFORMATION);
     }
 
     hwnd = FindWindow("blueMSX", "  blueMSX");
@@ -2708,7 +2768,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     }
 
     if (readOnlyDir && pProperties->settings.portable) {
-        MessageBox(NULL, langErrorPortableReadonly(), langErrorTitle(), MB_OK);
+        MessageBoxU(NULL, langErrorPortableReadonly(), langErrorTitle(), MB_OK);
         return 0;
     }
 
@@ -3008,7 +3068,7 @@ void archShowHelpDialog()
         rv = ShellExecute(getMainHwnd(), "open", "blueMSX.chm", NULL, NULL, SW_SHOWNORMAL);
     }
     if (rv <= (HINSTANCE)32) {
-        MessageBox(NULL, langErrorNoHelp(), langErrorTitle(), MB_OK);
+        MessageBoxU(NULL, langErrorNoHelp(), langErrorTitle(), MB_OK);
     }
 }
 
@@ -3021,24 +3081,24 @@ void archShowAboutDialog()
 
 void archShowNoRomInZipDialog() {
     enterDialogShow();
-    MessageBox(NULL, langErrorNoRomInZip(), langErrorTitle(), MB_OK);
+    MessageBoxU(NULL, langErrorNoRomInZip(), langErrorTitle(), MB_OK);
     exitDialogShow();
 }
 
 void archShowNoDiskInZipDialog() {
     enterDialogShow();
-    MessageBox(NULL, langErrorNoDskInZip(), langErrorTitle(), MB_OK);
+    MessageBoxU(NULL, langErrorNoDskInZip(), langErrorTitle(), MB_OK);
     enterDialogShow();
 }
 
 void archShowNoCasInZipDialog() {
     enterDialogShow();
-    MessageBox(NULL, langErrorNoCasInZip(), langErrorTitle(), MB_OK);
+    MessageBoxU(NULL, langErrorNoCasInZip(), langErrorTitle(), MB_OK);
     enterDialogShow();
 }
 
 void archShowStartEmuFailDialog() {
-    MessageBox(NULL, langErrorStartEmu(), langErrorTitle(), MB_ICONHAND | MB_OK);
+    MessageBoxU(NULL, langErrorStartEmu(), langErrorTitle(), MB_ICONHAND | MB_OK);
 }
 
 void archShowLanguageDialog()
@@ -3103,7 +3163,7 @@ void archShowKeyboardEditor()
     }
 
     if (tc == NULL) {
-        MessageBox(NULL, "Could not find the Keyboard Editor Theme", langErrorTitle(), MB_ICONERROR | MB_OK);
+        MessageBoxU(NULL, "Could not find the Keyboard Editor Theme", langErrorTitle(), MB_ICONERROR | MB_OK);
     }
     else {
         themeCollectionOpenWindow(tc, themeGetNameHash("blueMSX - Input Editor"));
@@ -3122,7 +3182,7 @@ void archShowMixer()
     }
 
     if (tc == NULL) {
-        MessageBox(NULL, "Could not find the Mixer Theme", langErrorTitle(), MB_ICONERROR | MB_OK);
+        MessageBoxU(NULL, "Could not find the Mixer Theme", langErrorTitle(), MB_ICONERROR | MB_OK);
     }
     else {
         themeCollectionOpenWindow(tc, themeGetNameHash("blueMSX - Sound Mixer"));
@@ -3648,7 +3708,7 @@ int archGetFramesPerSecond() {
 
 void archEmulationStartFailure() {
     aviStopRender();
-    MessageBox(NULL, langErrorStartEmu(), langErrorTitle(), MB_ICONHAND | MB_OK);
+    MessageBoxU(NULL, langErrorStartEmu(), langErrorTitle(), MB_ICONHAND | MB_OK);
 }
 
 int archFileExists(const char* fileName)
@@ -3753,11 +3813,11 @@ static BOOL CALLBACK loadMemorProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM l
 
     switch (iMsg) {
     case WM_INITDIALOG:
-        SetWindowText(hDlg, langMenuToolsLoadMemory());
-        SetWindowText(GetDlgItem(hDlg, IDC_LDMEM_CAPFIL), langConfEditMemFile());
-        SetWindowText(GetDlgItem(hDlg, IDC_LDMEM_CAPADR), langConfEditMemAddress());
-        SetWindowText(GetDlgItem(hDlg, IDOK), langDlgOK());
-        SetWindowText(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
+        SetWindowTextU(hDlg, langMenuToolsLoadMemory());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_LDMEM_CAPFIL), langConfEditMemFile());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_LDMEM_CAPADR), langConfEditMemAddress());
+        SetWindowTextU(GetDlgItem(hDlg, IDOK), langDlgOK());
+        SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
 
         if (hIconBtBrowse == NULL) {
             hIconBtBrowse = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_BROWSE));
@@ -3784,7 +3844,7 @@ static BOOL CALLBACK loadMemorProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM l
 
                 fileName = openFile(hDlg, langConfOpenRom(), extensionList, defDir, -1, NULL, NULL);
                 if (fileName != NULL) {
-                   SetWindowText(GetDlgItem(hDlg, IDC_LDMEM_FILENAME), fileName);
+                   SetWindowTextU(GetDlgItem(hDlg, IDC_LDMEM_FILENAME), fileName);
                 }
 
                 SetFocus(GetDlgItem(hDlg, IDC_LDMEM_ADDRESS));
@@ -3796,8 +3856,8 @@ static BOOL CALLBACK loadMemorProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM l
                 char data[5];
                 int addr, rv;
 
-                GetWindowText(GetDlgItem(hDlg, IDC_LDMEM_FILENAME), fileName, sizeof(fileName));
-                GetWindowText(GetDlgItem(hDlg, IDC_LDMEM_ADDRESS), data, sizeof(data));
+                GetWindowTextU(GetDlgItem(hDlg, IDC_LDMEM_FILENAME), fileName, sizeof(fileName));
+                GetWindowTextU(GetDlgItem(hDlg, IDC_LDMEM_ADDRESS), data, sizeof(data));
 
                 rv = sscanf(data, "%x", &addr);
                 if (rv == 1) {

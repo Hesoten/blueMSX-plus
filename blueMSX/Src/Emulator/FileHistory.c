@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -42,6 +45,19 @@
 #include <sys/stat.h>
 #include <stdlib.h>
 #include <string.h>
+#include "Utf8Conv.h"
+
+#ifndef _WIN32
+/* Non-Windows: paths are already UTF-8 (or whatever the host filesystem uses),
+** so no conversion is needed. */
+static void AnyToUtf8(const char* src, char* dst, int dstCap)
+{
+    if (dstCap <= 0) return;
+    if (!src) { dst[0] = 0; return; }
+    strncpy(dst, src, dstCap - 1);
+    dst[dstCap - 1] = 0;
+}
+#endif
 
 static char extendedName[PROP_MAX_CARTS][256];
 static char extendedDiskName[PROP_MAX_DISKS][256];
@@ -295,7 +311,10 @@ void updateExtendedRomName(int drive, char* filename, char* zipFile) {
         strcpy(extendedName[drive], mediaDbGetPrettyString(mediaDbLookupRom(buf, size)));
         free(buf);
         if (extendedName[drive][0] == 0) {
-            strcpy(extendedName[drive], stripPathExt(zipFile[0] ? zipFile : filename));
+            /* zipFile is in the zip's stored encoding (typically ACP). Display
+            ** sites expect UTF-8 (theme archTextDraw -> DrawTextW). */
+            AnyToUtf8(stripPathExt(zipFile[0] ? zipFile : filename),
+                        extendedName[drive], (int)sizeof(extendedName[drive]));
         }
     }
 }
@@ -314,7 +333,9 @@ void updateExtendedDiskName(int drive, char* filename, char* zipFile) {
             strcpy(extendedDiskName[drive], mediaDbGetPrettyString(mediaDbLookupDisk(buf, size)));
             free(buf);
             if (extendedDiskName[drive][0] == 0) {
-                strcpy(extendedDiskName[drive], stripPathExt(zipFile[0] ? zipFile : filename));
+                /* zip entries are typically ACP; theme display expects UTF-8. */
+                AnyToUtf8(stripPathExt(zipFile[0] ? zipFile : filename),
+                            extendedDiskName[drive], (int)sizeof(extendedDiskName[drive]));
             }
         }
     } else {
@@ -324,7 +345,8 @@ void updateExtendedDiskName(int drive, char* filename, char* zipFile) {
         name = zipFile[0] ? zipFile : filename;
         if ((name != NULL) && name[0]) {
             archFileExists(name);
-            strcpy(extendedDiskName[drive], stripPathExt(name));
+            AnyToUtf8(stripPathExt(name),
+                        extendedDiskName[drive], (int)sizeof(extendedDiskName[drive]));
         }
     }
 /*
@@ -351,7 +373,8 @@ void updateExtendedCasName(int drive, char* filename, char* zipFile) {
         strcpy(extendedCasName[drive], mediaDbGetPrettyString(mediaDbLookupCas(buf, size)));
         free(buf);
         if (extendedCasName[drive][0] == 0) {
-            strcpy(extendedCasName[drive], stripPathExt(zipFile[0] ? zipFile : filename));
+            AnyToUtf8(stripPathExt(zipFile[0] ? zipFile : filename),
+                        extendedCasName[drive], (int)sizeof(extendedCasName[drive]));
         }
     }
 }
@@ -461,7 +484,9 @@ int createSaveFileBaseName(char* fileBase,Properties* properties, int useExtende
 #ifdef WII      // Use the same name for state files for every disk image within one zip file
                 strcpy(fileBase, stripPathExt(properties->media.disks[i].fileName));
 #else
-                strcpy(fileBase, stripPathExt(properties->media.disks[i].fileNameInZip));
+                /* fileNameInZip is in zip-stored encoding (typically ACP). */
+                AnyToUtf8(stripPathExt(properties->media.disks[i].fileNameInZip),
+                            fileBase, 256);
 #endif
             }
             else {
@@ -477,7 +502,8 @@ int createSaveFileBaseName(char* fileBase,Properties* properties, int useExtende
                 strcpy(fileBase, extendedCasName[i]);
             }
             else if (*properties->media.tapes[i].fileNameInZip) {
-                strcpy(fileBase, stripPathExt(properties->media.tapes[i].fileNameInZip));
+                AnyToUtf8(stripPathExt(properties->media.tapes[i].fileNameInZip),
+                            fileBase, 256);
             }
             else {
                 strcpy(fileBase, stripPathExt(properties->media.tapes[i].fileName));

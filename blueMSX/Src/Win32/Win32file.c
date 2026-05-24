@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -36,7 +39,11 @@
 #include "ziphelper.h"
 #include "Win32Common.h"
 #include "Win32ScreenShot.h"
+#include "Win32TextUtf8.h"
 #include "Language.h"
+
+/* After stdio.h: pkg_fopen overrides fopen for UTF-8 paths. */
+#include "PacketFileSystem.h"
 
 #define WM_DIALOGRESIZE (WM_USER + 1500)
 
@@ -183,10 +190,10 @@ UINT_PTR CALLBACK hookRomProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam
             int i;
 
             for (i = 0; romTypeList[i] != ROM_UNKNOWN; i++) {
-                SendDlgItemMessage(hDlg, IDC_OPEN_ROMTYPE, CB_ADDSTRING, 0, (LPARAM)romTypeToString(romTypeList[i]));
+                ComboAddStringU(GetDlgItem(hDlg, IDC_OPEN_ROMTYPE), romTypeToString(romTypeList[i]));
             }
-            SendDlgItemMessage(hDlg, IDC_OPEN_ROMTYPE, CB_ADDSTRING, 0, (LPARAM)romTypeToString(ROM_UNKNOWN));
-            SetWindowText(GetDlgItem(hDlg, IDC_OPEN_ROMTEXT), langDlgRomType());
+            ComboAddStringU(GetDlgItem(hDlg, IDC_OPEN_ROMTYPE), romTypeToString(ROM_UNKNOWN));
+            SetWindowTextU(GetDlgItem(hDlg, IDC_OPEN_ROMTEXT), langDlgRomType());
             EnableWindow(GetDlgItem(hDlg, IDC_OPEN_ROMTYPE), 0);
         }
         return 0;
@@ -240,10 +247,17 @@ UINT_PTR CALLBACK hookRomProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam
 
             case CDN_SELCHANGE:
                 {
-                    char fileName[MAX_PATH];
-                    int fileSize = SendMessage(GetParent(hDlg), CDM_GETFILEPATH, MAX_PATH, (LPARAM)fileName);
+                    /* Parent dialog is Unicode (GetOpenFileNameW). Decode as UTF-8
+                    ** (file I/O is wrapped via fopenU / etc.). */
+                    wchar_t wFileName[MAX_PATH];
+                    char fileName[MAX_PATH * 4];
+                    int fileSize;
                     int size;
                     char* buf = NULL;
+
+                    SendMessageW(GetParent(hDlg), CDM_GETFILEPATH, MAX_PATH, (LPARAM)wFileName);
+                    fileSize = WideCharToMultiByte(CP_UTF8, 0, wFileName, -1,
+                                                   fileName, sizeof(fileName), NULL, NULL);
 
                     if (isFileExtension(fileName, ".zip")) {
                         int countRom;
@@ -372,7 +386,7 @@ char* openRomFile(HWND hwndOwner, char* pTitle, char* pFilter, char* pDir, int m
     ofn.lpfnHook = hookRomProc; 
     ofn.lpTemplateName = MAKEINTRESOURCE(IDD_OPEN_ROMDROPDOWN); 
 
-    rv = GetOpenFileName(&ofn); 
+    rv = GetOpenFileNameU(&ofn); 
 
     if (!rv) {
         return NULL; 
@@ -433,8 +447,8 @@ UINT_PTR CALLBACK hookStateProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
         return 0;
 
     case WM_INITDIALOG:
-        SetWindowText(GetDlgItem(hDlg, IDC_PREVIEWBUTTON), langDlgSavePreview());
-        SetWindowText(GetDlgItem(hDlg, IDC_PREVIEWDATETEXT), langDlgSaveDate());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_PREVIEWBUTTON), langDlgSavePreview());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_PREVIEWDATETEXT), langDlgSaveDate());
         SendDlgItemMessage(hDlg, IDC_PREVIEWBUTTON, BM_SETCHECK, doShowPreview ? BST_CHECKED : BST_UNCHECKED, 0);
         return 0;
 
@@ -491,22 +505,27 @@ UINT_PTR CALLBACK hookStateProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
 
             case CDN_SELCHANGE:
                 {
-                    char fileName[MAX_PATH];
+                    /* Parent dialog is Unicode (GetOpenFileNameW). Decode as UTF-8. */
+                    wchar_t wFileName[MAX_PATH];
+                    char fileName[MAX_PATH * 4];
                     void* buffer;
                     Int32 size;
+                    int fileSize;
 
-                    int fileSize = SendMessage(GetParent(hDlg), CDM_GETFILEPATH, MAX_PATH, (LPARAM)fileName);
+                    SendMessageW(GetParent(hDlg), CDM_GETFILEPATH, MAX_PATH, (LPARAM)wFileName);
+                    fileSize = WideCharToMultiByte(CP_UTF8, 0, wFileName, -1,
+                                                   fileName, sizeof(fileName), NULL, NULL);
 
                     if (hBmp != INVALID_HANDLE_VALUE) {
                         DeleteObject(hBmp);
                         hBmp = INVALID_HANDLE_VALUE;
                     }
 
-                    SetWindowText(GetDlgItem(hDlg, IDC_PREVIEWDATE), "");                     
+                    SetWindowTextU(GetDlgItem(hDlg, IDC_PREVIEWDATE), "");                     
                     buffer = zipLoadFile(fileName, "date.txt", &size);
 
                     if (buffer != 0) {
-                        SetWindowText(GetDlgItem(hDlg, IDC_PREVIEWDATE), buffer);     
+                        SetWindowTextU(GetDlgItem(hDlg, IDC_PREVIEWDATE), buffer);     
 
                         free(buffer);
 
@@ -611,7 +630,7 @@ char* openStateFile(HWND hwndOwner, char* pTitle, char* pFilter, char* pDir,
     ofn.lpfnHook = hookStateProc; 
     ofn.lpTemplateName = MAKEINTRESOURCE(IDD_OPEN_STATEDIALOG); 
 
-    rv = GetOpenFileName(&ofn); 
+    rv = GetOpenFileNameU(&ofn); 
 
     if (showPreview != NULL) {
         *showPreview = doShowPreview;
@@ -694,7 +713,7 @@ char* saveStateFile(HWND hwndOwner, char* pTitle, char* pFilter, int* pFilterInd
     ofn.lpfnHook = hookStateProc; 
     ofn.lpTemplateName = MAKEINTRESOURCE(IDD_OPEN_STATEDIALOG); 
 
-    rv = GetSaveFileName(&ofn); 
+    rv = GetSaveFileNameU(&ofn); 
 
     if (showPreview != NULL) {
         *showPreview = doShowPreview;
@@ -746,12 +765,12 @@ UINT_PTR CALLBACK hookHdProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
             int i;
 
             for (i = 0; hdFileSizes[i].size; i++) {
-                SendDlgItemMessage(hDlg, IDC_OPEN_HDSIZE, CB_ADDSTRING, 0, (LPARAM)hdFileSizes[i].text);
+                ComboAddStringU(GetDlgItem(hDlg, IDC_OPEN_HDSIZE), hdFileSizes[i].text);
                 if (newHdFileSize == hdFileSizes[i].size || i == 0) {
                     SendDlgItemMessage(hDlg, IDC_OPEN_HDSIZE, CB_SETCURSEL, i, 0);
                 }
             }
-            SetWindowText(GetDlgItem(hDlg, IDC_OPEN_HDSIZETEXT), langDlgDiskSize());
+            SetWindowTextU(GetDlgItem(hDlg, IDC_OPEN_HDSIZETEXT), langDlgDiskSize());
         }
         return 0;
 
@@ -781,7 +800,7 @@ UINT_PTR CALLBACK hookHdProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
             if (idx < 0) {
                 char buf[128];
                 int size;
-                GetDlgItemText(hDlg, IDC_OPEN_HDSIZE, buf, 127);
+                GetDlgItemTextU(hDlg, IDC_OPEN_HDSIZE, buf, 127);
                 size = atoi(buf);
                 if (size <= 0 && size > 1024) {
                     size = 5;
@@ -845,7 +864,7 @@ char* openNewHdFile(HWND hwndOwner, char* pTitle, char* pFilter, char* pDir,
     ofn.lpfnHook = hookHdProc; 
     ofn.lpTemplateName = MAKEINTRESOURCE(IDD_OPEN_HDSIZEDROPDOWN); 
 
-    rv = GetOpenFileName(&ofn); 
+    rv = GetOpenFileNameU(&ofn); 
 
     if (!rv) {
         return NULL; 
@@ -864,7 +883,7 @@ char* openNewHdFile(HWND hwndOwner, char* pTitle, char* pFilter, char* pDir,
         char langBuffer[200];
         fclose(file);
         sprintf(langBuffer, "%s %s", langWarningOverwriteFile(), pFileName);
-        if (IDOK != MessageBox(NULL, langBuffer, langWarningTitle(), MB_OKCANCEL)) {
+        if (IDOK != MessageBoxU(NULL, langBuffer, langWarningTitle(), MB_OKCANCEL)) {
             return NULL;
         }
     }
@@ -933,12 +952,12 @@ UINT_PTR CALLBACK hookDskProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam
             for (i = 0; dskFileSizes[i].size; i++) {
                 char text[128];
                 sprintf(text, "%dkB - %s", dskFileSizes[i].size / ONEKB, dskFileSizes[i].translation());
-                SendDlgItemMessage(hDlg, IDC_OPEN_HDSIZE, CB_ADDSTRING, 0, (LPARAM)text);
+                ComboAddStringU(GetDlgItem(hDlg, IDC_OPEN_HDSIZE), text);
                 if (newDskFileSize == dskFileSizes[i].size || i == 0) {
                     SendDlgItemMessage(hDlg, IDC_OPEN_HDSIZE, CB_SETCURSEL, i, 0);
                 }
             }
-            SetWindowText(GetDlgItem(hDlg, IDC_OPEN_HDSIZETEXT), langDlgDiskSize());
+            SetWindowTextU(GetDlgItem(hDlg, IDC_OPEN_HDSIZETEXT), langDlgDiskSize());
         }
         return 0;
 
@@ -1020,7 +1039,7 @@ char* openNewDskFile(HWND hwndOwner, char* pTitle, char* pFilter, char* pDir,
     ofn.lpfnHook = hookDskProc; 
     ofn.lpTemplateName = MAKEINTRESOURCE(IDD_OPEN_HDSIZEDROPDOWN); 
 
-    rv = GetOpenFileName(&ofn); 
+    rv = GetOpenFileNameU(&ofn); 
 
     if (!rv) {
         return NULL; 
@@ -1039,7 +1058,7 @@ char* openNewDskFile(HWND hwndOwner, char* pTitle, char* pFilter, char* pDir,
         char langBuffer[200];
         fclose(file);
         sprintf(langBuffer, "%s %s", langWarningOverwriteFile(), pFileName);
-        if (IDOK != MessageBox(NULL, langBuffer, langWarningTitle(), MB_OKCANCEL)) {
+        if (IDOK != MessageBoxU(NULL, langBuffer, langWarningTitle(), MB_OKCANCEL)) {
             return NULL;
         }
     }
@@ -1140,7 +1159,7 @@ char* openFile(HWND hwndOwner, char* pTitle, char* pFilter, char* pDir,
     ofn.lpfnHook = hookProc; 
     ofn.lpTemplateName = NULL; 
 
-    rv = GetOpenFileName(&ofn); 
+    rv = GetOpenFileNameU(&ofn); 
 
     if (!rv) {
         return NULL; 
@@ -1217,7 +1236,7 @@ char* saveFile(HWND hwndOwner, char* pTitle, char* pFilter, int* pFilterIndex, c
     ofn.lpfnHook = hookProc; 
     ofn.lpTemplateName = NULL; 
 
-    rv = GetSaveFileName(&ofn); 
+    rv = GetSaveFileNameU(&ofn); 
 
     if (!rv) { 
         return NULL; 
@@ -1276,15 +1295,15 @@ static BOOL CALLBACK saveAsProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
     case WM_INITDIALOG:
         sdi = (SaveAsDlgInfo*)lParam;
 
-        SetWindowText(hwnd, sdi->title);
-        SetWindowText(GetDlgItem(hwnd, IDC_MACHINENAMETEXT), sdi->description);
-        SetWindowText(GetDlgItem(hwnd, IDOK), langDlgSave());
-        SetWindowText(GetDlgItem(hwnd, IDCANCEL), langDlgCancel());
+        SetWindowTextU(hwnd, sdi->title);
+        SetWindowTextU(GetDlgItem(hwnd, IDC_MACHINENAMETEXT), sdi->description);
+        SetWindowTextU(GetDlgItem(hwnd, IDOK), langDlgSave());
+        SetWindowTextU(GetDlgItem(hwnd, IDCANCEL), langDlgCancel());
 
         for (i = 0; sdi->itemList[i] != NULL; i++) {
-            SendDlgItemMessage(hwnd, IDC_MACHINELIST, LB_ADDSTRING, 0, (LPARAM)sdi->itemList[i]);
+            ListBoxAddStringU(GetDlgItem(hwnd, IDC_MACHINELIST), sdi->itemList[i]);
             if (0 == strcmpnocase(sdi->itemList[i], sdi->defaultName)) {
-                SetWindowText(GetDlgItem(hwnd, IDC_MACHINENAME), sdi->defaultName);
+                SetWindowTextU(GetDlgItem(hwnd, IDC_MACHINENAME), sdi->defaultName);
                 SendDlgItemMessage(hwnd, IDC_MACHINELIST, LB_SETCURSEL, i, 0);
                 EnableWindow(GetDlgItem(hwnd, IDOK), TRUE);
             }
@@ -1298,7 +1317,7 @@ static BOOL CALLBACK saveAsProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
                 char buffer[64];
                 int index = SendMessage(GetDlgItem(hwnd, IDC_MACHINELIST), LB_GETCURSEL, 0, 0);
                 SendMessage(GetDlgItem(hwnd, IDC_MACHINELIST), LB_GETTEXT, index, (LPARAM)buffer);
-                SetWindowText(GetDlgItem(hwnd, IDC_MACHINENAME), buffer);
+                SetWindowTextU(GetDlgItem(hwnd, IDC_MACHINENAME), buffer);
                 if (HIWORD(wParam) == 2) {
                     SendMessage(hwnd, WM_COMMAND, IDOK, 0);
                 }
@@ -1306,7 +1325,7 @@ static BOOL CALLBACK saveAsProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             return TRUE;
 
         case IDC_MACHINENAME:
-            GetWindowText(GetDlgItem(hwnd, IDC_MACHINENAME), buffer, 63);
+            GetWindowTextU(GetDlgItem(hwnd, IDC_MACHINENAME), buffer, 63);
 
             EnableWindow(GetDlgItem(hwnd, IDOK), strlen(buffer) != 0);      
 
@@ -1319,7 +1338,7 @@ static BOOL CALLBACK saveAsProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             }
             return TRUE;
         case IDOK:
-            GetWindowText(GetDlgItem(hwnd, IDC_MACHINENAME), sdi->returnName, 63);
+            GetWindowTextU(GetDlgItem(hwnd, IDC_MACHINENAME), sdi->returnName, 63);
             EndDialog(hwnd, TRUE);
             return TRUE;
         case IDCANCEL:

@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -28,6 +31,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef _WIN32
+#include <wchar.h>
+#include <sys/stat.h>
+#include "Utf8Conv.h"   /* PathToWide / Utf8ToWide */
+#endif
 
 #include "strcmpnocase.h"
 
@@ -185,7 +193,20 @@ FILE* pkg_fopen(const char* fname, const char* mode)
         }
     }
 
+#ifdef _WIN32
+    {
+        /* Path is UTF-8; use _wfopen so codepoints outside the runtime ACP
+        ** still open. PathToWide also handles legacy ACP-encoded paths from
+        ** old INI / history files. */
+        wchar_t wPath[1024];
+        wchar_t wMode[16];
+        PathToWide(fname, wPath, (int)(sizeof(wPath) / sizeof(wPath[0])));
+        Utf8ToWide(mode, wMode, (int)(sizeof(wMode) / sizeof(wMode[0])));
+        return _wfopen(wPath, wMode);
+    }
+#else
     return fopen(fname, mode);
+#endif
 }
 
 int pkg_fclose(FILE* file)

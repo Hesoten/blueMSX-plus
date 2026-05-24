@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -33,6 +36,7 @@
 #include "Win32Keyboard.h"
 #include "Win32File.h"
 #include "Win32Menu.h"
+#include "Win32TextUtf8.h"
 #include "Theme.h"
 #include "Machine.h"
 #include "ArchNotifications.h"
@@ -385,7 +389,7 @@ static LRESULT CALLBACK keyboardDlgProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
 
     case WM_CLOSE:
         if (keyboardConfigIsModified()) {
-            if (IDNO == MessageBox(NULL, langWarningDiscardChanges(), langWarningTitle(), MB_ICONWARNING | MB_YESNO)) {
+            if (IDNO == MessageBoxU(NULL, langWarningDiscardChanges(), langWarningTitle(), MB_ICONWARNING | MB_YESNO)) {
                 return WM_CLOSE_RESULT_CANCEL;
             }
         }
@@ -660,7 +664,7 @@ void* archWindowCreate(Theme* theme, int childWindow)
 
     static int initialized = 0;
     if (!initialized) {
-        static WNDCLASSEX wndClass;
+        static WNDCLASSEXW wndClass;
         wndClass.cbSize         = sizeof(wndClass);
         wndClass.style          = CS_OWNDC;
         wndClass.lpfnWndProc    = windowProc;
@@ -672,9 +676,9 @@ void* archWindowCreate(Theme* theme, int childWindow)
         wndClass.hCursor        = LoadCursor(NULL, IDC_ARROW);
         wndClass.hbrBackground  = NULL;
         wndClass.lpszMenuName   = NULL;
-        wndClass.lpszClassName  = "blueMSX Popup";
+        wndClass.lpszClassName  = L"blueMSX Popup";
 
-        RegisterClassEx(&wndClass);
+        RegisterClassExW(&wndClass);
 
         initialized = 1;
     }
@@ -682,19 +686,23 @@ void* archWindowCreate(Theme* theme, int childWindow)
     wi = calloc(1, sizeof(WindowInfo));
     wi->theme = theme;
 #define childWindow 0
-    if (childWindow) {
-        return CreateWindowEx(WS_EX_TOOLWINDOW, "blueMSX Popup", theme->name, 
-                            WS_OVERLAPPED | WS_CLIPCHILDREN | WS_BORDER | WS_DLGFRAME | 
-                            WS_SYSMENU | WS_MINIMIZEBOX, 
-                            CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, getMainHwnd(), NULL, 
-                            hInstance, wi);
-    }
-    else {
-        return CreateWindow("blueMSX Popup", theme->name, 
-                            WS_OVERLAPPED | WS_CLIPCHILDREN | WS_BORDER | WS_DLGFRAME | 
-                            WS_SYSMENU | WS_MINIMIZEBOX, 
-                            CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, NULL, NULL, 
-                            hInstance, wi);
+    {
+        wchar_t wTitle[128];
+        Utf8ToWide(theme->name, wTitle, _countof(wTitle));
+        if (childWindow) {
+            return CreateWindowExW(WS_EX_TOOLWINDOW, L"blueMSX Popup", wTitle,
+                                WS_OVERLAPPED | WS_CLIPCHILDREN | WS_BORDER | WS_DLGFRAME |
+                                WS_SYSMENU | WS_MINIMIZEBOX,
+                                CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, getMainHwnd(), NULL,
+                                hInstance, wi);
+        }
+        else {
+            return CreateWindowW(L"blueMSX Popup", wTitle,
+                                WS_OVERLAPPED | WS_CLIPCHILDREN | WS_BORDER | WS_DLGFRAME |
+                                WS_SYSMENU | WS_MINIMIZEBOX,
+                                CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, NULL, NULL,
+                                hInstance, wi);
+        }
     }
 }
 
@@ -865,7 +873,7 @@ static BOOL CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
                     iterator = arrayListCreateIterator(machineList);
                     while (arrayListCanIterate(iterator)) {
                         char *machineInList = (char *)arrayListIterate(iterator);
-                        SendDlgItemMessage(hwnd, IDC_CONTROL, CB_ADDSTRING, 0, (LPARAM)machineInList);
+                        ComboAddStringU(GetDlgItem(hwnd, IDC_CONTROL), machineInList);
 
                         if (index == 0 || 0 == strcmp(machineInList, oi->text))
                             SendDlgItemMessage(hwnd, IDC_CONTROL, CB_SETCURSEL, index, 0);
@@ -885,7 +893,7 @@ static BOOL CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
             }
 
             while (*items != NULL) {
-                SendDlgItemMessage(hwnd, IDC_CONTROL, CB_ADDSTRING, 0, (LPARAM)*items);
+                ComboAddStringU(GetDlgItem(hwnd, IDC_CONTROL), *items);
 
                 if (index == 0 || 0 == strcmp(*items, oi->text)) {
                     SendDlgItemMessage(hwnd, IDC_CONTROL, CB_SETCURSEL, index, 0);
@@ -989,7 +997,7 @@ static BOOL CALLBACK buttonProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         oi = (ButtonInfo*)lParam;
         SetWindowPos(hwnd, NULL, oi->x, oi->y, oi->width, oi->height, SWP_NOZORDER | SWP_SHOWWINDOW);
         SetWindowPos(GetDlgItem(hwnd, IDC_CONTROL), NULL, 0, 0, oi->width, oi->height, SWP_NOZORDER);
-        SetWindowText(GetDlgItem(hwnd, IDC_CONTROL), oi->text);
+        SetWindowTextU(GetDlgItem(hwnd, IDC_CONTROL), oi->text);
         windowDataSet(hwnd, oi->notifyId, (void*)oi->notifyId);
         return FALSE;
     case WM_COMMAND:

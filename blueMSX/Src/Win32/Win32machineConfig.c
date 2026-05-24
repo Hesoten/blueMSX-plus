@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -35,6 +38,7 @@
 #include "Win32machineConfig.h"
 #include "Win32Common.h"
 #include "Win32file.h"
+#include "Win32TextUtf8.h"
 #include "Resource.h"
 #include "Language.h"
 #include "Machine.h"
@@ -111,7 +115,7 @@ static void updateMachineList(HWND hDlg) {
         char buffer[128];
         _snprintf(buffer, sizeof(buffer) - 1, "%s", arrayListIterate(iterator));
 
-        SendDlgItemMessage(hDlg, IDC_CONF_CONFIGS, CB_ADDSTRING, 0, (LPARAM)buffer);
+        ComboAddStringU(GetDlgItem(hDlg, IDC_CONF_CONFIGS), buffer);
         if (index == 0 || 0 == strcmp(buffer, machineName)) {
             SendDlgItemMessage(hDlg, IDC_CONF_CONFIGS, CB_SETCURSEL, index, 0);
             foundMachine = 1;
@@ -208,18 +212,18 @@ static void setSubSlotsEnable(HWND hDlg, int nEnable) {
 static void setBoardDropdown(HWND hDlg) {
     while (CB_ERR != SendDlgItemMessage(hDlg, IDC_CONFBOARD, CB_DELETESTRING, 0, 0));
 
-    SendDlgItemMessage(hDlg, IDC_CONFBOARD, CB_ADDSTRING, 0, (LPARAM)"MSX");
-    SendDlgItemMessage(hDlg, IDC_CONFBOARD, CB_ADDSTRING, 0, (LPARAM)"MSX S-3527");
-    SendDlgItemMessage(hDlg, IDC_CONFBOARD, CB_ADDSTRING, 0, (LPARAM)"MSX S-1985");
-    SendDlgItemMessage(hDlg, IDC_CONFBOARD, CB_ADDSTRING, 0, (LPARAM)"MSX T-9769B");
-    SendDlgItemMessage(hDlg, IDC_CONFBOARD, CB_ADDSTRING, 0, (LPARAM)"MSX T-9769C");
-    SendDlgItemMessage(hDlg, IDC_CONFBOARD, CB_ADDSTRING, 0, (LPARAM)"MSX Forte II");
-    SendDlgItemMessage(hDlg, IDC_CONFBOARD, CB_ADDSTRING, 0, (LPARAM)"SVI");
-    SendDlgItemMessage(hDlg, IDC_CONFBOARD, CB_ADDSTRING, 0, (LPARAM)"ColecoVision");
-    SendDlgItemMessage(hDlg, IDC_CONFBOARD, CB_ADDSTRING, 0, (LPARAM)"ColecoAdam");
-    SendDlgItemMessage(hDlg, IDC_CONFBOARD, CB_ADDSTRING, 0, (LPARAM)"SG-1000");
-    SendDlgItemMessage(hDlg, IDC_CONFBOARD, CB_ADDSTRING, 0, (LPARAM)"SC-3000");
-    SendDlgItemMessage(hDlg, IDC_CONFBOARD, CB_ADDSTRING, 0, (LPARAM)"SF-7000");
+    ComboAddStringU(GetDlgItem(hDlg, IDC_CONFBOARD), "MSX");
+    ComboAddStringU(GetDlgItem(hDlg, IDC_CONFBOARD), "MSX S-3527");
+    ComboAddStringU(GetDlgItem(hDlg, IDC_CONFBOARD), "MSX S-1985");
+    ComboAddStringU(GetDlgItem(hDlg, IDC_CONFBOARD), "MSX T-9769B");
+    ComboAddStringU(GetDlgItem(hDlg, IDC_CONFBOARD), "MSX T-9769C");
+    ComboAddStringU(GetDlgItem(hDlg, IDC_CONFBOARD), "MSX Forte II");
+    ComboAddStringU(GetDlgItem(hDlg, IDC_CONFBOARD), "SVI");
+    ComboAddStringU(GetDlgItem(hDlg, IDC_CONFBOARD), "ColecoVision");
+    ComboAddStringU(GetDlgItem(hDlg, IDC_CONFBOARD), "ColecoAdam");
+    ComboAddStringU(GetDlgItem(hDlg, IDC_CONFBOARD), "SG-1000");
+    ComboAddStringU(GetDlgItem(hDlg, IDC_CONFBOARD), "SC-3000");
+    ComboAddStringU(GetDlgItem(hDlg, IDC_CONFBOARD), "SF-7000");
 
     switch (machine->board.type) {
     default:
@@ -387,7 +391,7 @@ static void setCartSlotDropdown(HWND hDlg, int cart, int dropdownId) {
             for (j = 0; j < 4; j++) {
                 char buffer[128];
                 sprintf(buffer, "%s% d-%d", langConfSlot(), i, j);
-                SendDlgItemMessage(hDlg, dropdownId, CB_ADDSTRING, 0, (LPARAM)buffer);
+                ComboAddStringU(GetDlgItem(hDlg, dropdownId), buffer);
                 if (machine->cart[cart].slot == i && machine->cart[cart].subslot == j) {
                     SendDlgItemMessage(hDlg, dropdownId, CB_SETCURSEL, index, 0);
                 }
@@ -397,7 +401,7 @@ static void setCartSlotDropdown(HWND hDlg, int cart, int dropdownId) {
         else {
             char buffer[128];
             sprintf(buffer, "%s %d", langConfSlot(), i);
-            SendDlgItemMessage(hDlg, dropdownId, CB_ADDSTRING, 0, (LPARAM)buffer);
+            ComboAddStringU(GetDlgItem(hDlg, dropdownId), buffer);
             if (machine->cart[cart].slot == i) {
                 SendDlgItemMessage(hDlg, dropdownId, CB_SETCURSEL, index, 0);
             }
@@ -412,30 +416,30 @@ static BOOL CALLBACK slotProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam
 
     switch (iMsg) {
     case WM_INITDIALOG:
-        SetWindowText(GetDlgItem(hDlg, IDC_CONFSLOTLAYOUTGB), langConfSlotLayoutGB());
-        SetWindowText(GetDlgItem(hDlg, IDC_CONFBOARDGB), langConfBoardGB());
-        SetWindowText(GetDlgItem(hDlg, IDC_CONFEXTSLOTSGB), langConfSlotExtSlotGB());
-        SetWindowText(GetDlgItem(hDlg, IDC_CONFBOARDTEXT), langConfBoardText());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CONFSLOTLAYOUTGB), langConfSlotLayoutGB());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CONFBOARDGB), langConfBoardGB());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CONFEXTSLOTSGB), langConfSlotExtSlotGB());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CONFBOARDTEXT), langConfBoardText());
         sprintf(text, "%s 0", langConfSlot());
-        SetWindowText(GetDlgItem(hDlg, IDC_SLOT0), text);
+        SetWindowTextU(GetDlgItem(hDlg, IDC_SLOT0), text);
         sprintf(text, "%s 1", langConfSlot());
-        SetWindowText(GetDlgItem(hDlg, IDC_SLOT1), text);
+        SetWindowTextU(GetDlgItem(hDlg, IDC_SLOT1), text);
         sprintf(text, "%s 2", langConfSlot());
-        SetWindowText(GetDlgItem(hDlg, IDC_SLOT2), text);
+        SetWindowTextU(GetDlgItem(hDlg, IDC_SLOT2), text);
         sprintf(text, "%s 3", langConfSlot());
-        SetWindowText(GetDlgItem(hDlg, IDC_SLOT3), text);
+        SetWindowTextU(GetDlgItem(hDlg, IDC_SLOT3), text);
         sprintf(text, "%s 1:", langConfCartridge());
-        SetWindowText(GetDlgItem(hDlg, IDC_CARTSLOT1), text);
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CARTSLOT1), text);
         sprintf(text, "%s 2:", langConfCartridge());
-        SetWindowText(GetDlgItem(hDlg, IDC_CARTSLOT2), text);
-        SetWindowText(GetDlgItem(hDlg, IDC_CONF_SLOTPRIMARY1), langConfSlotPrimary());
-        SetWindowText(GetDlgItem(hDlg, IDC_CONF_SLOTSUBSLOTTED1), langConfSlotExpanded());
-        SetWindowText(GetDlgItem(hDlg, IDC_CONF_SLOTPRIMARY2), langConfSlotPrimary());
-        SetWindowText(GetDlgItem(hDlg, IDC_CONF_SLOTSUBSLOTTED2), langConfSlotExpanded());
-        SetWindowText(GetDlgItem(hDlg, IDC_CONF_SLOTPRIMARY3), langConfSlotPrimary());
-        SetWindowText(GetDlgItem(hDlg, IDC_CONF_SLOTSUBSLOTTED3), langConfSlotExpanded());
-        SetWindowText(GetDlgItem(hDlg, IDC_CONF_SLOTPRIMARY4), langConfSlotPrimary());
-        SetWindowText(GetDlgItem(hDlg, IDC_CONF_SLOTSUBSLOTTED4), langConfSlotExpanded());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CARTSLOT2), text);
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CONF_SLOTPRIMARY1), langConfSlotPrimary());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CONF_SLOTSUBSLOTTED1), langConfSlotExpanded());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CONF_SLOTPRIMARY2), langConfSlotPrimary());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CONF_SLOTSUBSLOTTED2), langConfSlotExpanded());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CONF_SLOTPRIMARY3), langConfSlotPrimary());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CONF_SLOTSUBSLOTTED3), langConfSlotExpanded());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CONF_SLOTPRIMARY4), langConfSlotPrimary());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CONF_SLOTSUBSLOTTED4), langConfSlotExpanded());
 
         SendMessage(hDlg, WM_UPDATEMAHCINE, 0, 0);
         return FALSE;
@@ -686,7 +690,7 @@ static void getAddressControl(HWND hDlg)
 static void endEditControls(HWND hDlg)
 {
     char fileName[512];
-    GetWindowText(GetDlgItem(hDlg, IDC_ROMIMAGE), fileName, sizeof(fileName));
+    GetWindowTextU(GetDlgItem(hDlg, IDC_ROMIMAGE), fileName, sizeof(fileName));
     strcpy(editSlotInfo.name, fileName);
 
     switch (editSlotInfo.romType) {
@@ -974,7 +978,7 @@ static void setEditControls(HWND hDlg)
         else {
             sprintf(buffer, "%d MB", romSize / 1024 / 1024);
         }
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMSIZE), buffer);
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMSIZE), buffer);
         EnableWindow(GetDlgItem(hDlg, IDC_ROMSIZE), FALSE);
     }
 
@@ -993,7 +997,7 @@ static void setEditControls(HWND hDlg)
         romType == ROM_SVI328PRN || romType == ROM_MSXPRN || romType == ROM_SVI328RS232 || romType == ROM_SVI328RSIDE)
     {
         EnableWindow(GetDlgItem(hDlg, IDC_ROMSLOT), FALSE);
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMSLOT), "Unmapped");
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMSLOT), "Unmapped");
     }
     else {
         int index = 0;
@@ -1004,7 +1008,7 @@ static void setEditControls(HWND hDlg)
                 for (j = 0; j < 4; j++) {
                     char buffer[128];
                     sprintf(buffer, "%s %d-%d", langConfSlot(), i, j);
-                    SendDlgItemMessage(hDlg, IDC_ROMSLOT, CB_ADDSTRING, 0, (LPARAM)buffer);
+                    ComboAddStringU(GetDlgItem(hDlg, IDC_ROMSLOT), buffer);
                     if (editSlotInfo.slot == i && editSlotInfo.subslot == j) {
                         SendDlgItemMessage(hDlg, IDC_ROMSLOT, CB_SETCURSEL, index, 0);
                     }
@@ -1014,7 +1018,7 @@ static void setEditControls(HWND hDlg)
             else {
                 char buffer[128];
                 sprintf(buffer, "%s %d", langConfSlot(), i);
-                SendDlgItemMessage(hDlg, IDC_ROMSLOT, CB_ADDSTRING, 0, (LPARAM)buffer);
+                ComboAddStringU(GetDlgItem(hDlg, IDC_ROMSLOT), buffer);
                 if (editSlotInfo.slot == i) {
                     SendDlgItemMessage(hDlg, IDC_ROMSLOT, CB_SETCURSEL, index, 0);
                 }
@@ -1043,7 +1047,7 @@ static void setEditControls(HWND hDlg)
         for (i = 0; i <= end; i++) {
             char buffer[32];
             sprintf(buffer, "%.4X - %.4X", i * 0x2000, (i + size) * 0x2000 - 1);
-            SendDlgItemMessage(hDlg, IDC_ROMADDR, CB_ADDSTRING, 0, (LPARAM)buffer);
+            ComboAddStringU(GetDlgItem(hDlg, IDC_ROMADDR), buffer);
             if (i == start) {
                 SendDlgItemMessage(hDlg, IDC_ROMADDR, CB_SETCURSEL, i, 0);
             }
@@ -1057,14 +1061,14 @@ static void setEditControls(HWND hDlg)
             int index = 0;
             for (i = 8; i <= 64; i += 8) {
                 sprintf(buffer, "%d kB", i);
-                SendDlgItemMessage(hDlg, IDC_ROMSIZE, CB_ADDSTRING, 0, (LPARAM)buffer);
+                ComboAddStringU(GetDlgItem(hDlg, IDC_ROMSIZE), buffer);
                 if (index == 0 || i == editRamMirroredSize / 1024) {
                     SendDlgItemMessage(hDlg, IDC_ROMSIZE, CB_SETCURSEL, index, 0);
                 }
                 index++;
             }
 
-            SetWindowText(GetDlgItem(hDlg, IDC_ROMIMAGE), "");
+            SetWindowTextU(GetDlgItem(hDlg, IDC_ROMIMAGE), "");
             EnableWindow(GetDlgItem(hDlg, IDC_ROMIMAGE), FALSE);
         }
         break;
@@ -1075,14 +1079,14 @@ static void setEditControls(HWND hDlg)
             int index = 0;
             for (i = 0; i < sizeof(RamSizes) / sizeof(RamSizes[0]); i++) {
                 sprintf(buffer, "%d kB", RamSizes[i]);
-                SendDlgItemMessage(hDlg, IDC_ROMSIZE, CB_ADDSTRING, 0, (LPARAM)buffer);
+                ComboAddStringU(GetDlgItem(hDlg, IDC_ROMSIZE), buffer);
                 if (index == 0 || RamSizes[i] == editRamNormalSize / 1024) {
                     SendDlgItemMessage(hDlg, IDC_ROMSIZE, CB_SETCURSEL, index, 0);
                 }
                 index++;
             }
 
-            SetWindowText(GetDlgItem(hDlg, IDC_ROMIMAGE), "");
+            SetWindowTextU(GetDlgItem(hDlg, IDC_ROMIMAGE), "");
             EnableWindow(GetDlgItem(hDlg, IDC_ROMIMAGE), FALSE);
         }
         break;
@@ -1100,7 +1104,7 @@ static void setEditControls(HWND hDlg)
                 else {
                     sprintf(buffer, "%d MB", i / 1024);
                 }
-                SendDlgItemMessage(hDlg, IDC_ROMSIZE, CB_ADDSTRING, 0, (LPARAM)buffer);
+                ComboAddStringU(GetDlgItem(hDlg, IDC_ROMSIZE), buffer);
                 if (index == 0 || i == editRamMapperSize / 1024) {
                     SendDlgItemMessage(hDlg, IDC_ROMSIZE, CB_SETCURSEL, index, 0);
                 }
@@ -1108,8 +1112,8 @@ static void setEditControls(HWND hDlg)
             }
 
             EnableWindow(GetDlgItem(hDlg, IDC_ROMADDR), FALSE);
-            SetWindowText(GetDlgItem(hDlg, IDC_ROMADDR), "0x0000 - 0xFFFF");
-            SetWindowText(GetDlgItem(hDlg, IDC_ROMIMAGE), "");
+            SetWindowTextU(GetDlgItem(hDlg, IDC_ROMADDR), "0x0000 - 0xFFFF");
+            SetWindowTextU(GetDlgItem(hDlg, IDC_ROMIMAGE), "");
             EnableWindow(GetDlgItem(hDlg, IDC_ROMIMAGE), FALSE);
         }            
         break;
@@ -1125,7 +1129,7 @@ static void setEditControls(HWND hDlg)
                 else {
                     sprintf(buffer, "%d MB", size / 1024);
                 }
-                SendDlgItemMessage(hDlg, IDC_ROMSIZE, CB_ADDSTRING, 0, (LPARAM)buffer);
+                ComboAddStringU(GetDlgItem(hDlg, IDC_ROMSIZE), buffer);
                 if (index == 0 || size == editExtRamSize / 1024) {
                     SendDlgItemMessage(hDlg, IDC_ROMSIZE, CB_SETCURSEL, index, 0);
                 }
@@ -1133,8 +1137,8 @@ static void setEditControls(HWND hDlg)
             }
 
             EnableWindow(GetDlgItem(hDlg, IDC_ROMADDR), FALSE);
-            SetWindowText(GetDlgItem(hDlg, IDC_ROMADDR), "0x0000 - 0xFFFF");
-            SetWindowText(GetDlgItem(hDlg, IDC_ROMIMAGE), "");
+            SetWindowTextU(GetDlgItem(hDlg, IDC_ROMADDR), "0x0000 - 0xFFFF");
+            SetWindowTextU(GetDlgItem(hDlg, IDC_ROMIMAGE), "");
             EnableWindow(GetDlgItem(hDlg, IDC_ROMIMAGE), FALSE);
         }
         break;
@@ -1150,7 +1154,7 @@ static void setEditControls(HWND hDlg)
                 else {
                     sprintf(buffer, "%d MB", size / 1024);
                 }
-                SendDlgItemMessage(hDlg, IDC_ROMSIZE, CB_ADDSTRING, 0, (LPARAM)buffer);
+                ComboAddStringU(GetDlgItem(hDlg, IDC_ROMSIZE), buffer);
                 if (index == 0 || size == editMegaRamSize / 1024) {
                     SendDlgItemMessage(hDlg, IDC_ROMSIZE, CB_SETCURSEL, index, 0);
                 }
@@ -1158,8 +1162,8 @@ static void setEditControls(HWND hDlg)
             }
 
             EnableWindow(GetDlgItem(hDlg, IDC_ROMADDR), FALSE);
-            SetWindowText(GetDlgItem(hDlg, IDC_ROMADDR), "0x0000 - 0xFFFF");
-            SetWindowText(GetDlgItem(hDlg, IDC_ROMIMAGE), "");
+            SetWindowTextU(GetDlgItem(hDlg, IDC_ROMADDR), "0x0000 - 0xFFFF");
+            SetWindowTextU(GetDlgItem(hDlg, IDC_ROMIMAGE), "");
             EnableWindow(GetDlgItem(hDlg, IDC_ROMIMAGE), FALSE);
         }            
         break;
@@ -1200,16 +1204,16 @@ static void setEditControls(HWND hDlg)
                 else {
                     sprintf(buffer, "%d MB", size / 1024);
                 }
-                SendDlgItemMessage(hDlg, IDC_ROMSIZE, CB_ADDSTRING, 0, (LPARAM)buffer);
+                ComboAddStringU(GetDlgItem(hDlg, IDC_ROMSIZE), buffer);
                 if ((index == 0) || (size == src_size)) {
                     SendDlgItemMessage(hDlg, IDC_ROMSIZE, CB_SETCURSEL, index, 0);
                 }
                 index++;
             }
             EnableWindow(GetDlgItem(hDlg, IDC_ROMSIZE), editSlotInfo.name[0] ? FALSE : TRUE);
-            SetWindowText(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
             EnableWindow(GetDlgItem(hDlg, IDC_ROMADDR), FALSE);
-            SetWindowText(GetDlgItem(hDlg, IDC_ROMADDR), "0x4000 - 0xBFFF");
+            SetWindowTextU(GetDlgItem(hDlg, IDC_ROMADDR), "0x4000 - 0xBFFF");
         }
         break;
 
@@ -1227,25 +1231,25 @@ static void setEditControls(HWND hDlg)
     case ROM_BUNSETU:
     case ROM_MSXMUSIC:
     case ROM_MICROSOL80:
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
         break;
 
     case ROM_SF7000IPL:
     case ROM_YAMAHASFG01:
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMADDR), "0x0000 - 0x3FFF");
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMADDR), "0x0000 - 0x3FFF");
         EnableWindow(GetDlgItem(hDlg, IDC_ROMADDR), FALSE);
         break;
 
     case ROM_FSA1FMMODEM:
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMADDR), "0x4000 - 0x7FFF");
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMADDR), "0x4000 - 0x7FFF");
         EnableWindow(GetDlgItem(hDlg, IDC_ROMADDR), FALSE);
         break;
 
     case ROM_YAMAHASFG05:
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMADDR), "0x0000 - 0x7FFF");
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMADDR), "0x0000 - 0x7FFF");
         EnableWindow(GetDlgItem(hDlg, IDC_ROMADDR), FALSE);
         break;
 
@@ -1259,45 +1263,45 @@ static void setEditControls(HWND hDlg)
     case ROM_MSXAUDIO:
     case ROM_FMDAS:
     case ROM_FORTEII:
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMADDR), "0x0000 - 0xFFFF");
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMADDR), "0x0000 - 0xFFFF");
         EnableWindow(GetDlgItem(hDlg, IDC_ROMADDR), FALSE);
         break;
 
     case ROM_LODERUNNER:
     case ROM_BASIC:
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMADDR), "0x8000 - 0xBFFF");
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMADDR), "0x8000 - 0xBFFF");
         EnableWindow(GetDlgItem(hDlg, IDC_ROMADDR), FALSE);
         break;
 
     case ROM_OPCODEBIOS:
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMADDR), "0x0000 - 0x1FFF");
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMADDR), "0x0000 - 0x1FFF");
         EnableWindow(GetDlgItem(hDlg, IDC_ROMADDR), FALSE);
         break;
 
     case ROM_OPCODEMEGA:
     case ROM_OPCODESAVE:
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMADDR), "0x8000 - 0xFFFF");
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMADDR), "0x8000 - 0xFFFF");
         EnableWindow(GetDlgItem(hDlg, IDC_ROMADDR), FALSE);
         break;
 
     case ROM_0x4000:
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
         if (romPages > 6) romPages = 6;
         {
             char buffer[32];
             sprintf(buffer, "%.4X - %.4X", 0x4000, 0x4000 + romPages * 0x2000 - 1);
-            SetWindowText(GetDlgItem(hDlg, IDC_ROMADDR), buffer);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_ROMADDR), buffer);
         }
         EnableWindow(GetDlgItem(hDlg, IDC_ROMADDR), FALSE);
         break;
 
     case ROM_0xC000:
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMADDR), "0xC000 - 0xFFFF");
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMADDR), "0xC000 - 0xFFFF");
         EnableWindow(GetDlgItem(hDlg, IDC_ROMADDR), FALSE);
         break;
 
@@ -1336,8 +1340,8 @@ static void setEditControls(HWND hDlg)
     case ROM_NETTOUYAKYUU:
     case ROM_YAMAHANET:
     case ROM_ARC:
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMADDR), "0x4000 - 0xBFFF");
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMADDR), "0x4000 - 0xBFFF");
         EnableWindow(GetDlgItem(hDlg, IDC_ROMADDR), FALSE);
         break;
 
@@ -1345,27 +1349,27 @@ static void setEditControls(HWND hDlg)
     case ROM_NOWIND:
     case ROM_PANASONIC8:
     case ROM_PANASONICWX16:
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMADDR), "0x0000 - 0xBFFF");
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMADDR), "0x0000 - 0xBFFF");
         EnableWindow(GetDlgItem(hDlg, IDC_ROMADDR), FALSE);
         break;
 
     case ROM_GAMEREADER:
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMADDR), "0x0000 - 0xFFFF");
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMADDR), "0x0000 - 0xFFFF");
         EnableWindow(GetDlgItem(hDlg, IDC_ROMADDR), FALSE);
         break;
         
     case ROM_PAC:
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMADDR), "0x4000 - 0x7FFF");
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMADDR), "0x4000 - 0x7FFF");
         EnableWindow(GetDlgItem(hDlg, IDC_ROMADDR), FALSE);
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMIMAGE), "");
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMIMAGE), "");
         EnableWindow(GetDlgItem(hDlg, IDC_ROMIMAGE), FALSE);
         break;
 
     case ROM_GOUDASCSI:
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMADDR), "0x4000 - 0x7FFF");
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMADDR), "0x4000 - 0x7FFF");
         EnableWindow(GetDlgItem(hDlg, IDC_ROMADDR), FALSE);
         break;
 
@@ -1374,9 +1378,9 @@ static void setEditControls(HWND hDlg)
     case ROM_SCCMIRRORED:
     case ROM_SCCEXTENDED:
     case ROM_SONYHBI55:
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMADDR), "0x4000 - 0xBFFF");
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMADDR), "0x4000 - 0xBFFF");
         EnableWindow(GetDlgItem(hDlg, IDC_ROMADDR), FALSE);
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMIMAGE), "");
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMIMAGE), "");
         EnableWindow(GetDlgItem(hDlg, IDC_ROMIMAGE), FALSE);
         break;
 
@@ -1386,8 +1390,8 @@ static void setEditControls(HWND hDlg)
     case ROM_MOONSOUND:
     case ROM_SVI328COL80:
     case ROM_SVI727COL80:
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMADDR), "n/a");
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMADDR), "n/a");
         EnableWindow(GetDlgItem(hDlg, IDC_ROMADDR), FALSE);
         break;
 
@@ -1414,12 +1418,12 @@ static void setEditControls(HWND hDlg)
     case ROM_MSXPRN:
     case ROM_GIDE:
     case ROM_NMS1210:
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMIMAGE), "");
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMIMAGE), "");
         EnableWindow(GetDlgItem(hDlg, IDC_ROMIMAGE), FALSE);
         EnableWindow(GetDlgItem(hDlg, IDC_ROMBROWSE), FALSE);
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMADDR), "n/a");
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMADDR), "n/a");
         EnableWindow(GetDlgItem(hDlg, IDC_ROMADDR), FALSE);
-        SetWindowText(GetDlgItem(hDlg, IDC_ROMSIZE), "");
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ROMSIZE), "");
         EnableWindow(GetDlgItem(hDlg, IDC_ROMSIZE), FALSE);
         break;
     }
@@ -1624,15 +1628,15 @@ static BOOL CALLBACK slotEditProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
 
     switch (iMsg) {
     case WM_INITDIALOG:
-        SetWindowText(hDlg, langConfEditMemTitle());
-        SetWindowText(GetDlgItem(hDlg, IDC_EDITMEMGB), langConfEditMemGB());
-        SetWindowText(GetDlgItem(hDlg, IDC_EDITMEMTYPE), langConfEditMemType());
-        SetWindowText(GetDlgItem(hDlg, IDC_EDITMEMFILE), langConfEditMemFile());
-        SetWindowText(GetDlgItem(hDlg, IDC_EDITMEMADDRESS), langConfEditMemAddress());
-        SetWindowText(GetDlgItem(hDlg, IDC_EDITMEMSIZE), langConfEditMemSize());
-        SetWindowText(GetDlgItem(hDlg, IDC_EDITMEMSLOT), langConfEditMemSlot());
-        SetWindowText(GetDlgItem(hDlg, IDOK), langDlgOK());
-        SetWindowText(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
+        SetWindowTextU(hDlg, langConfEditMemTitle());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_EDITMEMGB), langConfEditMemGB());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_EDITMEMTYPE), langConfEditMemType());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_EDITMEMFILE), langConfEditMemFile());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_EDITMEMADDRESS), langConfEditMemAddress());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_EDITMEMSIZE), langConfEditMemSize());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_EDITMEMSLOT), langConfEditMemSlot());
+        SetWindowTextU(GetDlgItem(hDlg, IDOK), langDlgOK());
+        SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
 
         if (hIconBtBrowse == NULL) {
             hIconBtBrowse = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_BROWSE));
@@ -1641,7 +1645,7 @@ static BOOL CALLBACK slotEditProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
         SendMessage(GetDlgItem(hDlg, IDC_ROMBROWSE),   BM_SETIMAGE, IMAGE_ICON, (LPARAM)hIconBtBrowse);
 
         for (i = 0; romTypeList[i] != ROM_UNKNOWN; i++) {
-            SendDlgItemMessage(hDlg, IDC_ROMTYPE, CB_ADDSTRING, 0, (LPARAM)romTypeToString(romTypeList[i]));
+            ComboAddStringU(GetDlgItem(hDlg, IDC_ROMTYPE), romTypeToString(romTypeList[i]));
             if (romTypeList[i] == editSlotInfo.romType) {
                 SendDlgItemMessage(hDlg, IDC_ROMTYPE, CB_SETCURSEL, i, 0);
             }
@@ -1752,43 +1756,43 @@ static BOOL CALLBACK slotEditProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
 }
 
 static void addMachineEntry(HWND hwnd, int entry) {
-    char buffer[512] = {0};
-    LV_ITEM lvi = {0};
+    char abuf[512] = {0};
+    wchar_t wbuf[512] = {0};
+    LVITEMW lviw = {0};
     UInt32 start;
     UInt32 end;
-    
-    lvi.mask       = LVIF_IMAGE;
-    lvi.iItem      = entry;
-    lvi.pszText    = buffer;
-    lvi.cchTextMax = 512;
 
-    lvi.iImage = machine->slotInfo[entry].error;
+    lviw.mask       = LVIF_IMAGE;
+    lviw.iItem      = entry;
+    lviw.pszText    = wbuf;
+    lviw.cchTextMax = _countof(wbuf);
+    lviw.iImage     = machine->slotInfo[entry].error;
 
     machine->slotInfo[entry].error = 0;
 
-    ListView_InsertItem(hwnd, &lvi);
-    lvi.mask = LVIF_TEXT;
+    SendMessageW(hwnd, LVM_INSERTITEMW, 0, (LPARAM)&lviw);
+    lviw.mask = LVIF_TEXT;
 
-    lvi.iSubItem++;
+    lviw.iSubItem++;
     if (machine->slotInfo[entry].pageCount == 0) {
-        sprintf(buffer, "");
+        wbuf[0] = 0;
     }
     else if (machine->slotInfo[entry].subslot || machine->slot[machine->slotInfo[entry].slot].subslotted) {
-        sprintf(buffer, "%d - %d", machine->slotInfo[entry].slot, machine->slotInfo[entry].subslot);
+        wsprintfW(wbuf, L"%d - %d", machine->slotInfo[entry].slot, machine->slotInfo[entry].subslot);
     }
     else {
-        sprintf(buffer, "%d", machine->slotInfo[entry].slot);
+        wsprintfW(wbuf, L"%d", machine->slotInfo[entry].slot);
     }
-    ListView_SetItem(hwnd, &lvi);
+    SendMessageW(hwnd, LVM_SETITEMW, 0, (LPARAM)&lviw);
 
-    lvi.iSubItem++;
+    lviw.iSubItem++;
 
     if (machine->slotInfo[entry].slot == 0 && 
         machine->slotInfo[entry].subslot == 0 &&
         machine->slotInfo[entry].startPage == 0 &&
         machine->slotInfo[entry].pageCount == 0) 
     {
-        sprintf(buffer, "");
+        wbuf[0] = 0;
     }
     else {
         if  (machine->slotInfo[entry].romType == SRAM_MEGASCSI ||
@@ -1800,15 +1804,15 @@ static void addMachineEntry(HWND hwnd, int entry) {
             end   = 0xbfff;
         }
         else {
-        start = machine->slotInfo[entry].startPage * 0x2000;
-        end   = start + machine->slotInfo[entry].pageCount * 0x2000 - 1;
-        if (end > 0xffff) end = 0xffff;
+            start = machine->slotInfo[entry].startPage * 0x2000;
+            end   = start + machine->slotInfo[entry].pageCount * 0x2000 - 1;
+            if (end > 0xffff) end = 0xffff;
         }
-        sprintf(buffer, "%.4X-%.4X", start, end);
+        wsprintfW(wbuf, L"%.4X-%.4X", start, end);
     }
-    ListView_SetItem(hwnd, &lvi);
+    SendMessageW(hwnd, LVM_SETITEMW, 0, (LPARAM)&lviw);
 
-    lvi.iSubItem++;
+    lviw.iSubItem++;
     if (machine->slotInfo[entry].romType == RAM_MAPPER ||
         machine->slotInfo[entry].romType == RAM_NORMAL ||
         machine->slotInfo[entry].romType == ROM_EXTRAM ||
@@ -1820,23 +1824,24 @@ static void addMachineEntry(HWND hwnd, int entry) {
     {
         int size = machine->slotInfo[entry].pageCount * 8;
         if (size < 1024) {
-            sprintf(buffer, "%d kB %s", size, romTypeToString(machine->slotInfo[entry].romType));
+            sprintf(abuf, "%d kB %s", size, romTypeToString(machine->slotInfo[entry].romType));
         }
         else {
-            sprintf(buffer, "%d MB %s", size / 1024, romTypeToString(machine->slotInfo[entry].romType));
+            sprintf(abuf, "%d MB %s", size / 1024, romTypeToString(machine->slotInfo[entry].romType));
         }
+        Utf8ToWide(abuf, wbuf, _countof(wbuf));
     }
     else {
-        sprintf(buffer, romTypeToString(machine->slotInfo[entry].romType));
+        Utf8ToWide(romTypeToString(machine->slotInfo[entry].romType), wbuf, _countof(wbuf));
     }
-    ListView_SetItem(hwnd, &lvi);
+    SendMessageW(hwnd, LVM_SETITEMW, 0, (LPARAM)&lviw);
 
-    lvi.iSubItem++;
-    sprintf(buffer, romTypeToString(machine->slotInfo[entry].romType));
-    ListView_InsertItem(hwnd, &lvi);
+    lviw.iSubItem++;
+    Utf8ToWide(romTypeToString(machine->slotInfo[entry].romType), wbuf, _countof(wbuf));
+    SendMessageW(hwnd, LVM_INSERTITEMW, 0, (LPARAM)&lviw);
 
-    sprintf(buffer, stripPath(machine->slotInfo[entry].name));
-    ListView_SetItem(hwnd, &lvi);
+    Utf8ToWide(stripPath(machine->slotInfo[entry].name), wbuf, _countof(wbuf));
+    SendMessageW(hwnd, LVM_SETITEMW, 0, (LPARAM)&lviw);
 }
 
 int showListDetailDlg(HWND hwnd, int index) {
@@ -1874,15 +1879,13 @@ static BOOL CALLBACK memoryProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
 
     switch (iMsg) {
     case WM_INITDIALOG:
-        SetWindowText(GetDlgItem(hDlg, IDC_CONFADD), langConfMemAdd());
-        SetWindowText(GetDlgItem(hDlg, IDC_CONFEDIT), langConfMemEdit());
-        SetWindowText(GetDlgItem(hDlg, IDC_CONFREMOVE), langConfMemRemove());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CONFADD), langConfMemAdd());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CONFEDIT), langConfMemEdit());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CONFREMOVE), langConfMemRemove());
 
         {
-            char buffer[32];
-            LV_COLUMN lvc = {0};
             HIMAGELIST himlSmall;
-    
+
             hwnd = GetDlgItem(hDlg, IDC_CONF_SLOTINFO);
 
             EnableWindow(GetDlgItem(hDlg, IDC_CONFEDIT), FALSE);
@@ -1890,6 +1893,7 @@ static BOOL CALLBACK memoryProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
 
             currIndex = -1;
             ListView_SetExtendedListViewStyle(hwnd, LVS_EX_FULLROWSELECT);
+            SendMessageW(hwnd, LVM_SETUNICODEFORMAT, TRUE, 0);
 
             himlSmall = ImageList_Create(GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), TRUE, 1, 1); 
 
@@ -1897,28 +1901,29 @@ static BOOL CALLBACK memoryProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
             ImageList_AddIcon(himlSmall, LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_EXCMARK))); 
             ListView_SetImageList(hwnd, himlSmall, LVSIL_SMALL);
 
+            {
+                wchar_t wbuf[64];
+                LVCOLUMNW lvcw = {0};
+                lvcw.mask     = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM;
+                lvcw.fmt      = LVCFMT_LEFT;
+                lvcw.pszText  = wbuf;
 
-            lvc.mask       = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM;
-            lvc.fmt        = LVCFMT_LEFT;
-            lvc.cx         = 100;
-            lvc.pszText    = buffer;
-            lvc.cchTextMax = 32;
-
-            sprintf(buffer, "");
-            lvc.cx = 20;
-            ListView_InsertColumn(hwnd, 0, &lvc);
-            sprintf(buffer, langConfMemSlot());
-            lvc.cx = 40;
-            ListView_InsertColumn(hwnd, 1, &lvc);
-            sprintf(buffer, langConfMemAddress());
-            lvc.cx = 70;
-            ListView_InsertColumn(hwnd, 2, &lvc);
-            sprintf(buffer, langConfMemType());
-            lvc.cx = 110;
-            ListView_InsertColumn(hwnd, 3, &lvc);
-            sprintf(buffer, langConfMemRomImage());
-            lvc.cx = 150;
-            ListView_InsertColumn(hwnd, 4, &lvc);
+                wbuf[0] = 0;
+                lvcw.cx = 20;
+                SendMessageW(hwnd, LVM_INSERTCOLUMNW, 0, (LPARAM)&lvcw);
+                Utf8ToWide(langConfMemSlot(), wbuf, _countof(wbuf));
+                lvcw.cx = 40;
+                SendMessageW(hwnd, LVM_INSERTCOLUMNW, 1, (LPARAM)&lvcw);
+                Utf8ToWide(langConfMemAddress(), wbuf, _countof(wbuf));
+                lvcw.cx = 70;
+                SendMessageW(hwnd, LVM_INSERTCOLUMNW, 2, (LPARAM)&lvcw);
+                Utf8ToWide(langConfMemType(), wbuf, _countof(wbuf));
+                lvcw.cx = 110;
+                SendMessageW(hwnd, LVM_INSERTCOLUMNW, 3, (LPARAM)&lvcw);
+                Utf8ToWide(langConfMemRomImage(), wbuf, _countof(wbuf));
+                lvcw.cx = 150;
+                SendMessageW(hwnd, LVM_INSERTCOLUMNW, 4, (LPARAM)&lvcw);
+            }
         }
 
         SendMessage(hDlg, WM_UPDATEMAHCINE, 0, 0);
@@ -2058,12 +2063,12 @@ static void updateCpuFreqList(HWND hDlg) {
     for (i = 0; i < sizeof(cpuFreq) / sizeof(cpuFreq[0]); i++) {
        char buffer[128];
         sprintf(buffer, "%d.%.3d MHz", cpuFreq[i] / 1000000, (cpuFreq[i] / 1000) % 1000);
-        SendDlgItemMessage(hDlg, IDC_CPUZ80FREQ, CB_ADDSTRING, 0, (LPARAM)buffer);
+        ComboAddStringU(GetDlgItem(hDlg, IDC_CPUZ80FREQ), buffer);
         if (machine->cpu.freqZ80 <= cpuFreq[i]) {
             SendDlgItemMessage(hDlg, IDC_CPUZ80FREQ, CB_SETCURSEL, i, 0);
             selZ80 = cpuFreq[i];
         }
-        SendDlgItemMessage(hDlg, IDC_CPUR800FREQ, CB_ADDSTRING, 0, (LPARAM)buffer);
+        ComboAddStringU(GetDlgItem(hDlg, IDC_CPUR800FREQ), buffer);
         if (machine->cpu.freqR800 <= cpuFreq[i]) {
             SendDlgItemMessage(hDlg, IDC_CPUR800FREQ, CB_SETCURSEL, i, 0);
             selR800 = cpuFreq[i];
@@ -2079,8 +2084,8 @@ static void updateFdcCountList(HWND hDlg) {
     while (CB_ERR != SendDlgItemMessage(hDlg, IDC_FDCNUMDRIVES, CB_DELETESTRING, 0, 0));
 
     if (machine->fdc.enabled) {
-        SendDlgItemMessage(hDlg, IDC_FDCNUMDRIVES, CB_ADDSTRING, 0, (LPARAM)"1");
-        SendDlgItemMessage(hDlg, IDC_FDCNUMDRIVES, CB_ADDSTRING, 0, (LPARAM)"2");
+        ComboAddStringU(GetDlgItem(hDlg, IDC_FDCNUMDRIVES), "1");
+        ComboAddStringU(GetDlgItem(hDlg, IDC_FDCNUMDRIVES), "2");
         if (machine->fdc.count == 1) {
             SendDlgItemMessage(hDlg, IDC_FDCNUMDRIVES, CB_SETCURSEL, 0, 0);
         }
@@ -2090,7 +2095,7 @@ static void updateFdcCountList(HWND hDlg) {
         }
     }
     else {
-        SendDlgItemMessage(hDlg, IDC_FDCNUMDRIVES, CB_ADDSTRING, 0, (LPARAM)"0");
+        ComboAddStringU(GetDlgItem(hDlg, IDC_FDCNUMDRIVES), "0");
         SendDlgItemMessage(hDlg, IDC_FDCNUMDRIVES, CB_SETCURSEL, 0, 0);
     }
 
@@ -2117,15 +2122,15 @@ static BOOL CALLBACK extrasProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
 {
     switch (iMsg) {
     case WM_INITDIALOG:
-        SetWindowText(GetDlgItem(hDlg, IDC_CPUFREQGROUPBOX),  langConfChipCpuFreqGB());
-        SetWindowText(GetDlgItem(hDlg, IDC_CPUZ80FREQTEXT),   langConfChipZ80FreqText());
-        SetWindowText(GetDlgItem(hDlg, IDC_CPUR800FREQTEXT),  langConfChipR800FreqText());
-        SetWindowText(GetDlgItem(hDlg, IDC_FDCNUMGROUPBOX),   langConfChipFdcGB());
-        SetWindowText(GetDlgItem(hDlg, IDC_FDCNUMDRIVESTEXT), langConfChipFdcNumDrivesText());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CPUFREQGROUPBOX),  langConfChipCpuFreqGB());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CPUZ80FREQTEXT),   langConfChipZ80FreqText());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CPUR800FREQTEXT),  langConfChipR800FreqText());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_FDCNUMGROUPBOX),   langConfChipFdcGB());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_FDCNUMDRIVESTEXT), langConfChipFdcNumDrivesText());
 
-        SetWindowText(GetDlgItem(hDlg, IDC_CMOSGROUPBOX), langConfCmosGB());
-        SetWindowText(GetDlgItem(hDlg, IDC_CMOSENABLE), langConfCmosEnableText());
-        SetWindowText(GetDlgItem(hDlg, IDC_CMOSBATTERY), langConfCmosBatteryText());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CMOSGROUPBOX), langConfCmosGB());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CMOSENABLE), langConfCmosEnableText());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CMOSBATTERY), langConfCmosBatteryText());
         SendMessage(hDlg, WM_UPDATEMAHCINE, 0, 0);
         return FALSE;
 
@@ -2200,7 +2205,7 @@ static void updateVramList(HWND hDlg) {
         if (vram == 256) vram = 192;
         if (vram == 32) vram = 64;
         sprintf(buffer, "%d kB", vram);
-        SendDlgItemMessage(hDlg, IDC_CONF_VRAM, CB_ADDSTRING, 0, (LPARAM)buffer);
+        ComboAddStringU(GetDlgItem(hDlg, IDC_CONF_VRAM), buffer);
         if (machine->video.vramSize >= 1024 * vram) {
             SendDlgItemMessage(hDlg, IDC_CONF_VRAM, CB_SETCURSEL, i, 0);
             selVram = 1024 * vram;
@@ -2237,17 +2242,17 @@ static BOOL CALLBACK chipsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPara
 {
     switch (iMsg) {
     case WM_INITDIALOG:
-        SetWindowText(GetDlgItem(hDlg, IDC_VIDEOGROUPBOX), langConfChipVideoGB());
-        SetWindowText(GetDlgItem(hDlg, IDC_VIDEOCHIP), langConfChipVideoChip());
-        SetWindowText(GetDlgItem(hDlg, IDC_VIDEORAM), langConfChipVideoRam());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_VIDEOGROUPBOX), langConfChipVideoGB());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_VIDEOCHIP), langConfChipVideoChip());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_VIDEORAM), langConfChipVideoRam());
 
-        SendDlgItemMessage(hDlg, IDC_CONF_VIDEOCHIP, CB_ADDSTRING, 0, (LPARAM)"TMS9929A   (PAL)");
-        SendDlgItemMessage(hDlg, IDC_CONF_VIDEOCHIP, CB_ADDSTRING, 0, (LPARAM)"TMS99x8A   (NTSC)");
-        SendDlgItemMessage(hDlg, IDC_CONF_VIDEOCHIP, CB_ADDSTRING, 0, (LPARAM)"V9938");
-        SendDlgItemMessage(hDlg, IDC_CONF_VIDEOCHIP, CB_ADDSTRING, 0, (LPARAM)"V9958");
+        ComboAddStringU(GetDlgItem(hDlg, IDC_CONF_VIDEOCHIP), "TMS9929A   (PAL)");
+        ComboAddStringU(GetDlgItem(hDlg, IDC_CONF_VIDEOCHIP), "TMS99x8A   (NTSC)");
+        ComboAddStringU(GetDlgItem(hDlg, IDC_CONF_VIDEOCHIP), "V9938");
+        ComboAddStringU(GetDlgItem(hDlg, IDC_CONF_VIDEOCHIP), "V9958");
 
-        SetWindowText(GetDlgItem(hDlg, IDC_AUDIOGROUPBOX), langConfChipSoundGB());
-        SetWindowText(GetDlgItem(hDlg, IDC_AUDIOPSGSTEREO), langConfChipPsgStereoText());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_AUDIOGROUPBOX), langConfChipSoundGB());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_AUDIOPSGSTEREO), langConfChipPsgStereoText());
         
         SendMessage(hDlg, WM_UPDATEMAHCINE, 0, 0);
 
@@ -2331,13 +2336,13 @@ static BOOL CALLBACK saveProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam
     case WM_INITDIALOG:
         {
             char buffer[128];
-            SetWindowText(hDlg, langConfSaveTitle());
+            SetWindowTextU(hDlg, langConfSaveTitle());
 
             sprintf(buffer, "%s\n\n    \"%s\" ?", langConfSaveText(), tmpMachineName);
 
-            SetWindowText(GetDlgItem(hDlg, IDC_CONF_SAVEDLG_TEXT), buffer);
-            SetWindowText(GetDlgItem(hDlg, IDOK), langDlgOK());
-            SetWindowText(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
+            SetWindowTextU(GetDlgItem(hDlg, IDC_CONF_SAVEDLG_TEXT), buffer);
+            SetWindowTextU(GetDlgItem(hDlg, IDOK), langDlgOK());
+            SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
         }
         return FALSE;
 
@@ -2364,10 +2369,10 @@ static BOOL CALLBACK closeProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPara
 {
     switch (iMsg) {        
     case WM_INITDIALOG:
-        SetWindowText(hDlg, langConfExitSaveTitle());
-        SetWindowText(GetDlgItem(hDlg, IDOK), langDlgOK());
-        SetWindowText(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
-        SetWindowText(GetDlgItem(hDlg, IDC_CONF_SAVEDLG_TEXT), langConfExitSaveText());
+        SetWindowTextU(hDlg, langConfExitSaveTitle());
+        SetWindowTextU(GetDlgItem(hDlg, IDOK), langDlgOK());
+        SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CONF_SAVEDLG_TEXT), langConfExitSaveText());
 
         return FALSE;
 
@@ -2394,10 +2399,10 @@ static BOOL CALLBACK discardProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPa
 {
     switch (iMsg) {        
     case WM_INITDIALOG:
-        SetWindowText(hDlg, langConfDiscardTitle());
-        SetWindowText(GetDlgItem(hDlg, IDOK), langDlgOK());
-        SetWindowText(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
-        SetWindowText(GetDlgItem(hDlg, IDC_CONF_SAVEDLG_TEXT), langConfExitSaveText());
+        SetWindowTextU(hDlg, langConfDiscardTitle());
+        SetWindowTextU(GetDlgItem(hDlg, IDOK), langDlgOK());
+        SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CONF_SAVEDLG_TEXT), langConfExitSaveText());
 
         return FALSE;
 
@@ -2426,10 +2431,10 @@ static BOOL CALLBACK saveAsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
 
     switch (iMsg) {
     case WM_INITDIALOG:
-        SetWindowText(hDlg, langConfSaveAsTitle());
-        SetWindowText(GetDlgItem(hDlg, IDC_MACHINENAMETEXT), langConfSaveAsMachineName());
-        SetWindowText(GetDlgItem(hDlg, IDOK), langDlgSave());
-        SetWindowText(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
+        SetWindowTextU(hDlg, langConfSaveAsTitle());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_MACHINENAMETEXT), langConfSaveAsMachineName());
+        SetWindowTextU(GetDlgItem(hDlg, IDOK), langDlgSave());
+        SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
 
         {
             int index = 0;
@@ -2443,10 +2448,10 @@ static BOOL CALLBACK saveAsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
             iterator = arrayListCreateIterator(machineList);
             while (arrayListCanIterate(iterator)) {
                 char *machineInList = (char *)arrayListIterate(iterator);
-                SendDlgItemMessage(hDlg, IDC_MACHINELIST, LB_ADDSTRING, 0, (LPARAM)machineInList);
+                ListBoxAddStringU(GetDlgItem(hDlg, IDC_MACHINELIST), machineInList);
 
                 if (0 == strcmpnocase(machineInList, machineName)) {
-                    SetWindowText(GetDlgItem(hDlg, IDC_MACHINENAME), machineName);
+                    SetWindowTextU(GetDlgItem(hDlg, IDC_MACHINENAME), machineName);
                     SendDlgItemMessage(hDlg, IDC_MACHINELIST, LB_SETCURSEL, index, 0);
                     EnableWindow(GetDlgItem(hDlg, IDOK), TRUE);
                 }
@@ -2464,7 +2469,7 @@ static BOOL CALLBACK saveAsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
                 char buffer[64];
                 int index = SendMessage(GetDlgItem(hDlg, IDC_MACHINELIST), LB_GETCURSEL, 0, 0);
                 SendMessage(GetDlgItem(hDlg, IDC_MACHINELIST), LB_GETTEXT, index, (LPARAM)buffer);
-                SetWindowText(GetDlgItem(hDlg, IDC_MACHINENAME), buffer);
+                SetWindowTextU(GetDlgItem(hDlg, IDC_MACHINENAME), buffer);
                 if (HIWORD(wParam) == 2) {
                     SendMessage(hDlg, WM_COMMAND, IDOK, 0);
                 }
@@ -2477,7 +2482,7 @@ static BOOL CALLBACK saveAsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
                 int index = 0;
 				ArrayListIterator *iterator;
 
-                GetWindowText(GetDlgItem(hDlg, IDC_MACHINENAME), buffer, 63);
+                GetWindowTextU(GetDlgItem(hDlg, IDC_MACHINENAME), buffer, 63);
 
                 EnableWindow(GetDlgItem(hDlg, IDOK), strlen(buffer) != 0);      
 
@@ -2495,7 +2500,7 @@ static BOOL CALLBACK saveAsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
             }
             return TRUE;
         case IDOK:
-            GetWindowText(GetDlgItem(hDlg, IDC_MACHINENAME), tmpMachineName, 63);
+            GetWindowTextU(GetDlgItem(hDlg, IDC_MACHINENAME), tmpMachineName, 63);
             EndDialog(hDlg, TRUE);
             return TRUE;
         case IDCANCEL:
@@ -2522,12 +2527,12 @@ static BOOL CALLBACK configProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
         updateDialogPos(hDlg, DLG_ID_MACHINECONFIG, 0, 1);
         hDlgMain = hDlg;
 
-        SetWindowText(hDlg, langConfTitle());
-        SetWindowText(GetDlgItem(hDlg, IDC_CONFSAVE), langDlgSave());
-        SetWindowText(GetDlgItem(hDlg, IDC_CONFSAVEAS), langDlgSaveAs());
-        SetWindowText(GetDlgItem(hDlg, IDC_CONFRUN), langDlgRun());
-        SetWindowText(GetDlgItem(hDlg, IDC_CLOSE), langDlgClose());
-        SetWindowText(GetDlgItem(hDlg, IDC_CONF_CONFIGTEXT), langConfConfigText());
+        SetWindowTextU(hDlg, langConfTitle());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CONFSAVE), langDlgSave());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CONFSAVEAS), langDlgSaveAs());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CONFRUN), langDlgRun());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CLOSE), langDlgClose());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CONF_CONFIGTEXT), langConfConfigText());
 
         hDlgSlots  = CreateDialog(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_CONF_SLOTS),  GetDlgItem(hDlg, IDC_CONF_TAB), slotProc);
         hDlgMemory = CreateDialog(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_CONF_MEMORY), GetDlgItem(hDlg, IDC_CONF_TAB), memoryProc);
@@ -2542,23 +2547,15 @@ static BOOL CALLBACK configProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
         ShowWindow(hDlgSlots, SW_NORMAL);
 
         {
-            TCITEM tcItem = { TCIF_TEXT, 0, 0, 0, 0, -1, 0 };
-
-            tcItem.pszText = langConfSlotLayout();
-            TabCtrl_InsertItem(GetDlgItem(hDlg, IDC_CONF_TAB), 0, &tcItem);
-
-            tcItem.pszText = langConfMemory();
-            TabCtrl_InsertItem(GetDlgItem(hDlg, IDC_CONF_TAB), 1, &tcItem);
-
-            tcItem.pszText = langConfChipEmulation();
-            TabCtrl_InsertItem(GetDlgItem(hDlg, IDC_CONF_TAB), 2, &tcItem);
-
-            tcItem.pszText = langConfChipExtras();
-            TabCtrl_InsertItem(GetDlgItem(hDlg, IDC_CONF_TAB), 3, &tcItem);
+            HWND hTab = GetDlgItem(hDlg, IDC_CONF_TAB);
+            TabInsertItemU(hTab, 0, langConfSlotLayout());
+            TabInsertItemU(hTab, 1, langConfMemory());
+            TabInsertItemU(hTab, 2, langConfChipEmulation());
+            TabInsertItemU(hTab, 3, langConfChipExtras());
         }
 
         if (CB_ERRSPACE == SendMessage(GetDlgItem(hDlg, IDC_CONF_CONFIGS), CB_INITSTORAGE, (WPARAM)256, (LPARAM)64))
-            MessageBox(NULL, "Error allocating machine config", "blueMSX Error", MB_OK |  MB_ICONERROR);
+            MessageBoxU(NULL, "Error allocating machine config", "blueMSX Error", MB_OK |  MB_ICONERROR);
 
         updateMachineList(hDlg);
 

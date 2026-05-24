@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -36,6 +39,7 @@
 #include "Win32ShortcutsConfig.h"
 #include "Win32Common.h"
 #include "Win32keyboard.h"
+#include "Win32TextUtf8.h"
 #include "IniFileParser.h"
 #include "Resource.h"
 
@@ -369,13 +373,13 @@ static BOOL CALLBACK saveProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam
     case WM_INITDIALOG:
         {
             char buffer[128];
-            SetWindowText(hDlg, langShortcutSaveConfig());
+            SetWindowTextU(hDlg, langShortcutSaveConfig());
 
             sprintf(buffer, "%s\n\n    \"%s\" ?", langShortcutOverwriteConfig(), shortcutProfile);
 
-            SetWindowText(GetDlgItem(hDlg, IDC_CONF_SAVEDLG_TEXT), buffer);
-            SetWindowText(GetDlgItem(hDlg, IDOK), langDlgOK());
-            SetWindowText(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
+            SetWindowTextU(GetDlgItem(hDlg, IDC_CONF_SAVEDLG_TEXT), buffer);
+            SetWindowTextU(GetDlgItem(hDlg, IDOK), langDlgOK());
+            SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
         }
         return FALSE;
 
@@ -401,10 +405,10 @@ static BOOL CALLBACK closeProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPara
 {
     switch (iMsg) {        
     case WM_INITDIALOG:
-        SetWindowText(hDlg, langShortcutExitConfig());
-        SetWindowText(GetDlgItem(hDlg, IDOK), langDlgOK());
-        SetWindowText(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
-        SetWindowText(GetDlgItem(hDlg, IDC_CONF_SAVEDLG_TEXT), langShortcutDiscardConfig());
+        SetWindowTextU(hDlg, langShortcutExitConfig());
+        SetWindowTextU(GetDlgItem(hDlg, IDOK), langDlgOK());
+        SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CONF_SAVEDLG_TEXT), langShortcutDiscardConfig());
 
         return FALSE;
 
@@ -430,10 +434,10 @@ static BOOL CALLBACK discardProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPa
 {
     switch (iMsg) {        
     case WM_INITDIALOG:
-        SetWindowText(hDlg, "blueMSX - Shortcut Configuration");
-        SetWindowText(GetDlgItem(hDlg, IDOK), langDlgOK());
-        SetWindowText(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
-        SetWindowText(GetDlgItem(hDlg, IDC_CONF_SAVEDLG_TEXT), "Do you want to discard changes to the current configuration?");
+        SetWindowTextU(hDlg, "blueMSX - Shortcut Configuration");
+        SetWindowTextU(GetDlgItem(hDlg, IDOK), langDlgOK());
+        SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CONF_SAVEDLG_TEXT), "Do you want to discard changes to the current configuration?");
         return FALSE;
 
     case WM_COMMAND:
@@ -460,10 +464,10 @@ static BOOL CALLBACK saveAsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
 {
     switch (iMsg) {        
     case WM_INITDIALOG:
-        SetWindowText(hDlg, langShortcutSaveConfigAs());
-        SetWindowText(GetDlgItem(hDlg, IDC_MACHINENAMETEXT), langShortcutConfigName());
-        SetWindowText(GetDlgItem(hDlg, IDOK), langDlgSave());
-        SetWindowText(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
+        SetWindowTextU(hDlg, langShortcutSaveConfigAs());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_MACHINENAMETEXT), langShortcutConfigName());
+        SetWindowTextU(GetDlgItem(hDlg, IDOK), langDlgSave());
+        SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
 
         {
             char** profileList = getProfileList();
@@ -472,9 +476,9 @@ static BOOL CALLBACK saveAsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
             EnableWindow(GetDlgItem(hDlg, IDOK), FALSE);
                     
             while (profileList[index] != NULL) {
-                SendDlgItemMessage(hDlg, IDC_MACHINELIST, LB_ADDSTRING, 0, (LPARAM)profileList[index]);
+                ListBoxAddStringU(GetDlgItem(hDlg, IDC_MACHINELIST), profileList[index]);
                 if (0 == strcmpnocase(profileList[index], shortcutProfile) && strcmp(shortcutProfile, langShortcutNewProfile())) {
-                    SetWindowText(GetDlgItem(hDlg, IDC_MACHINENAME), shortcutProfile);
+                    SetWindowTextU(GetDlgItem(hDlg, IDC_MACHINENAME), shortcutProfile);
                     SendDlgItemMessage(hDlg, IDC_MACHINELIST, LB_SETCURSEL, index, 0);
                     EnableWindow(GetDlgItem(hDlg, IDOK), TRUE);
                 }
@@ -491,7 +495,7 @@ static BOOL CALLBACK saveAsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
                 char buffer[64];
                 int index = SendMessage(GetDlgItem(hDlg, IDC_MACHINELIST), LB_GETCURSEL, 0, 0);
                 SendMessage(GetDlgItem(hDlg, IDC_MACHINELIST), LB_GETTEXT, index, (LPARAM)buffer);
-                SetWindowText(GetDlgItem(hDlg, IDC_MACHINENAME), buffer);
+                SetWindowTextU(GetDlgItem(hDlg, IDC_MACHINENAME), buffer);
                 if (HIWORD(wParam) == 2) {
                     SendMessage(hDlg, WM_COMMAND, IDOK, 0);
                 }
@@ -502,7 +506,7 @@ static BOOL CALLBACK saveAsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
             {
                 char sel[64];
 
-                GetWindowText(GetDlgItem(hDlg, IDC_MACHINENAME), sel, 63);
+                GetWindowTextU(GetDlgItem(hDlg, IDC_MACHINENAME), sel, 63);
 
                 EnableWindow(GetDlgItem(hDlg, IDOK), strlen(sel) != 0);      
 
@@ -523,7 +527,7 @@ static BOOL CALLBACK saveAsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
             return TRUE;
 
         case IDOK:
-            GetWindowText(GetDlgItem(hDlg, IDC_MACHINENAME), tmpShortcutProfile, 63);
+            GetWindowTextU(GetDlgItem(hDlg, IDC_MACHINENAME), tmpShortcutProfile, 63);
             EndDialog(hDlg, TRUE);
             return TRUE;
         case IDCANCEL:
@@ -683,7 +687,7 @@ static LRESULT CALLBACK hotkeyCtrlProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPAR
             }
             hFont = SelectObject(hdc, (HFONT)SendMessage(baseHwnd, WM_GETFONT, 0, 0));
             
-            TextOut(hdc, 2, 1, buf, strlen(buf));
+            TextOutU(hdc, 2, 1, buf, (int)strlen(buf));
 
             SelectObject(hdc, hFont);
             EndPaint(hwnd, &ps);
@@ -916,21 +920,21 @@ static void saveShortcuts(char* profileName, Shortcuts* shortcuts)
 }
 
 static void addShortcutEntry(HWND hwnd, int entry, char* description, ShotcutHotkey hotkey) {
-    char buffer[512] = {0};
-    LV_ITEM lvi = {0};
+    /* Listview is in Unicode mode (LVM_SETUNICODEFORMAT). Source strings are
+       UTF-8 (/utf-8 build flag). */
+    wchar_t wbuf[512];
+    LVITEMW lviw = {0};
     
-    lvi.mask       = LVIF_TEXT;
-    lvi.iItem      = entry;
-    lvi.pszText    = buffer;
-	lvi.cchTextMax = 512;
-    
-    strcpy(buffer, description);
+    lviw.mask    = LVIF_TEXT;
+    lviw.iItem   = entry;
+    lviw.pszText = wbuf;
 
-    ListView_InsertItem(hwnd, &lvi);
+    Utf8ToWide(description, wbuf, _countof(wbuf));
+    SendMessageW(hwnd, LVM_INSERTITEMW, 0, (LPARAM)&lviw);
 
-    lvi.iSubItem++;
-    strcpy(buffer, shortcutsToString(hotkey));
-    ListView_SetItem(hwnd, &lvi);
+    lviw.iSubItem++;
+    Utf8ToWide(shortcutsToString(hotkey), wbuf, _countof(wbuf));
+    SendMessageW(hwnd, LVM_SETITEMW, 0, (LPARAM)&lviw);
 }
 
 #define ADD_SHORTCUT(hotkey, destcription)                                      \
@@ -1139,13 +1143,13 @@ static updateShortcutsList(HWND hDlg)
     while (CB_ERR != SendDlgItemMessage(hDlg, IDC_SCUTCONFIGS, CB_DELETESTRING, 0, 0));
 
     if (0 == strcmp(shortcutProfile, langShortcutNewProfile())) {
-        SendDlgItemMessage(hDlg, IDC_SCUTCONFIGS, CB_ADDSTRING, 0, (LPARAM)langShortcutNewProfile());
+        ComboAddStringU(GetDlgItem(hDlg, IDC_SCUTCONFIGS), langShortcutNewProfile());
         SendDlgItemMessage(hDlg, IDC_SCUTCONFIGS, CB_SETCURSEL, index, 0);
         indexMod = 1;
     }
     
     while (profileList[index]) {
-        SendDlgItemMessage(hDlg, IDC_SCUTCONFIGS, CB_ADDSTRING, 0, (LPARAM)profileList[index]);
+        ComboAddStringU(GetDlgItem(hDlg, IDC_SCUTCONFIGS), profileList[index]);
         
         if (index + indexMod == 0 || 0 == strcmp(profileList[index], shortcutProfile)) {
             SendDlgItemMessage(hDlg, IDC_SCUTCONFIGS, CB_SETCURSEL, index + indexMod, 0);
@@ -1161,15 +1165,14 @@ static BOOL CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM l
 
     switch (iMsg) {
     case WM_INITDIALOG:
-        SetWindowText(hDlg, langShortcutConfigTitle());
-        SetWindowText(GetDlgItem(hDlg, IDC_OK), langDlgOK());
-        SetWindowText(GetDlgItem(hDlg, IDC_SAVE), langDlgSave());
-        SetWindowText(GetDlgItem(hDlg, IDC_SAVEAS), langDlgSaveAs());
-        SetWindowText(GetDlgItem(hDlg, IDC_SCUTASSIGN), langShortcutAssign());
-        SetWindowText(GetDlgItem(hDlg, IDC_SCUTHOTKEYTEXT), langShortcutPressText());
-        SetWindowText(GetDlgItem(hDlg, IDC_SCUTCONFIGTEXT), langShortcutScheme());
+        SetWindowTextU(hDlg, langShortcutConfigTitle());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_OK), langDlgOK());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_SAVE), langDlgSave());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_SAVEAS), langDlgSaveAs());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_SCUTASSIGN), langShortcutAssign());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_SCUTHOTKEYTEXT), langShortcutPressText());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_SCUTCONFIGTEXT), langShortcutScheme());
         {
-            LV_COLUMN lvc = {0};
             char buffer[32];
             
 //            inputReset(hDlg);
@@ -1182,18 +1185,26 @@ static BOOL CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM l
 
             ListView_SetExtendedListViewStyle(hwnd, LVS_EX_FULLROWSELECT);
             
-            lvc.mask       = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM;
-            lvc.fmt        = LVCFMT_LEFT;
-            lvc.cx         = 100;
-            lvc.pszText    = buffer;
-	        lvc.cchTextMax = 32;
-            
-            sprintf(buffer, langShortcutKey());
-            lvc.cx = 244;
-            ListView_InsertColumn(hwnd, 0, &lvc);
-            sprintf(buffer, langShortcutDescription());
-            lvc.cx = 120;
-            ListView_InsertColumn(hwnd, 1, &lvc);
+            /* Source strings are UTF-8 (/utf-8 build flag); use Unicode-mode
+               ListView + explicit UTF-8 -> UTF-16 conversion. */
+            SendMessageW(hwnd, LVM_SETUNICODEFORMAT, TRUE, 0);
+            {
+                LVCOLUMNW lvcw = {0};
+                wchar_t wbuf[64];
+                lvcw.mask    = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM;
+                lvcw.fmt     = LVCFMT_LEFT;
+                lvcw.pszText = wbuf;
+
+                sprintf(buffer, langShortcutKey());
+                Utf8ToWide(buffer, wbuf, _countof(wbuf));
+                lvcw.cx = 244;
+                SendMessageW(hwnd, LVM_INSERTCOLUMNW, 0, (LPARAM)&lvcw);
+
+                sprintf(buffer, langShortcutDescription());
+                Utf8ToWide(buffer, wbuf, _countof(wbuf));
+                lvcw.cx = 120;
+                SendMessageW(hwnd, LVM_INSERTCOLUMNW, 1, (LPARAM)&lvcw);
+            }
 
             updateShortcutsList(hDlg);
             updateShortcutEntries(hDlg);

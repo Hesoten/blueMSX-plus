@@ -30,6 +30,7 @@
 */
 #include "Win32Help.h"
 #include "Win32Common.h"
+#include "Win32TextUtf8.h"
 #include "Language.h"
 #include "build_number.h"
 #include "Resource.h"
@@ -158,10 +159,10 @@ static BOOL CALLBACK aboutDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
                         langDlgAboutLisence());
 
             updateDialogPos(hDlg, DLG_ID_ABOUT, 0, 1);
-            SetWindowText(hDlg, langDlgAboutTitle());
-            SetWindowText(GetDlgItem(hDlg, IDOK), langDlgOK());
+            SetWindowTextU(hDlg, langDlgAboutTitle());
+            SetWindowTextU(GetDlgItem(hDlg, IDOK), langDlgOK());
 
-            SendMessage(GetDlgItem(hDlg, IDC_ABOUTTEXT), WM_SETTEXT, 0, (LPARAM)aboutText);
+            SetDlgItemTextU(hDlg, IDC_ABOUTTEXT, aboutText);
         }
         return 1;
     }
