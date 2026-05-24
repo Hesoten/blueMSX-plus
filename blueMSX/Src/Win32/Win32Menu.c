@@ -222,6 +222,7 @@ static HWND     parentHwnd     = NULL;
 static HBRUSH   menuBrush      = NULL;
 static COLORREF menuText       = 0;
 static HBRUSH   menuFocusBrush = NULL;
+static HFONT    g_menuFont     = NULL;
 static int      menuItemCount  = 0;
 static int      menuX          = 0;
 static int      menuY          = 0;
@@ -1240,11 +1241,21 @@ static HMENU menuCreateRun(Properties* pProperties, Shortcuts* shortcuts, int is
 
 static void menuDrawItem(HDC hdc, MenuInfo* mi, int focused) 
 {
+    SIZE sz;
+    int ty;
+    HFONT hOldFont = g_menuFont ? (HFONT)SelectObject(hdc, g_menuFont) : NULL;
     HBRUSH hBrush = (HBRUSH)SelectObject(hdc, focused ? menuFocusBrush : menuBrush);
+
+    SetBkMode(hdc, TRANSPARENT);
+    SetTextColor(hdc, menuText);
 
     Rectangle(hdc, mi->x, mi->y, mi->x + mi->w, mi->y + mi->h); 
 
-    TextOutU(hdc, mi->x + 8, mi->y + 2, mi->text, strlen(mi->text));
+    GetTextExtentPoint32U(hdc, mi->text, (int)strlen(mi->text), &sz);
+    ty = mi->y + (mi->h - sz.cy) / 2;
+    TextOutU(hdc, mi->x + 8, ty, mi->text, (int)strlen(mi->text));
+
+    if (hOldFont) SelectObject(hdc, hOldFont);
     SelectObject(hdc, hBrush);
 }
 
@@ -1381,13 +1392,14 @@ void addMenuItem(char* text, void (*action)(int, int), int append)
     }
 
     hdc = GetDC(menuHwnd);
-    GetTextExtentPoint32U(hdc, text, strlen(text), &size);
+    if (g_menuFont) SelectObject(hdc, g_menuFont);
+    GetTextExtentPoint32U(hdc, text, (int)strlen(text), &size);
     ReleaseDC(menuHwnd, hdc);
     
     menuInfo[menuItemCount].x = offset;
     menuInfo[menuItemCount].y = 0;
     menuInfo[menuItemCount].w = size.cx + 17;
-    menuInfo[menuItemCount].h = 20;
+    menuInfo[menuItemCount].h = GetSystemMetricsForDpi(SM_CYMENU, GetDpiForWindow(menuHwnd));
     menuInfo[menuItemCount].text = text;
     menuInfo[menuItemCount].focused = 0;
     menuInfo[menuItemCount].action = action;
@@ -1423,7 +1435,7 @@ void menuSetInfo(COLORREF color, COLORREF focusColor, COLORREF textColor, int x,
     menuX = x;
     menuY = y;
 
-    SetWindowPos(menuHwnd, HWND_TOP, x, y, width, 20, 0);
+    SetWindowPos(menuHwnd, HWND_TOP, x, y, width, GetSystemMetricsForDpi(SM_CYMENU, GetDpiForWindow(menuHwnd)), 0);
 
     hdc = GetDC(menuHwnd);
     SetTextColor(hdc, textColor);
@@ -1486,10 +1498,6 @@ void menuUpdate(Properties* pProperties,
     InvalidateRect(menuHwnd, NULL, TRUE);
 }
 
-static BOOL_DLG_RET CALLBACK dummyProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
-    return FALSE;
-}
-
 void menuCreate(HWND parent)
 {
     static WNDCLASSEX wndClass;
@@ -1520,7 +1528,15 @@ void menuCreate(HWND parent)
     
     hdc = GetDC(menuHwnd);
     SelectObject(hdc, CreatePen(PS_NULL, 0, 0));
-    SelectObject(hdc, (HFONT)SendMessage(CreateDialog(hInstance, MAKEINTRESOURCE(IDD_DISKIMAGE), menuHwnd, dummyProc), WM_GETFONT, 0, 0));
+    {
+        UINT dpiY = GetDeviceCaps(hdc, LOGPIXELSY);
+        NONCLIENTMETRICS ncm;
+        ncm.cbSize = sizeof(ncm);
+        SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0);
+        ncm.lfMenuFont.lfHeight = MulDiv(ncm.lfMenuFont.lfHeight, dpiY, 96);
+        g_menuFont = CreateFontIndirect(&ncm.lfMenuFont);
+        SelectObject(hdc, g_menuFont);
+    }
     SetBkMode (hdc, TRANSPARENT);
     SetTextColor(hdc, 0);
     ReleaseDC(menuHwnd, hdc);
