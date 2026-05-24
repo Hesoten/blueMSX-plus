@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -25,13 +28,14 @@
 **
 ******************************************************************************
 */
-#define DIRECTINPUT_VERSION     0x0500
+#define DIRECTINPUT_VERSION     0x0800
 #include "Win32keyboard.h"
 #include "Language.h"
 #include "InputEvent.h"
 #include "IniFileParser.h"
 #include "Properties.h"
 #include <windows.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <winioctl.h>
 #include <dinput.h>
@@ -474,7 +478,7 @@ static BOOL CALLBACK enumKeyboards(LPCDIDEVICEINSTANCE devInst, LPVOID ref)
         return DIENUM_CONTINUE;
     }
 
-    rv = IDirectInput_CreateDevice(dinput, &devInst->guidInstance, &kbdDevice, NULL);
+    rv = IDirectInput8_CreateDevice(dinput, &devInst->guidInstance, &kbdDevice, NULL);
     if (rv != DI_OK) {
         return DIENUM_CONTINUE;
     }
@@ -603,17 +607,13 @@ int inputReset(HWND hwnd)
     for (i = 0; i < 2; i++) {
         dinputWindow = hwnd;
         dinputVersion = DIRECTINPUT_VERSION;
-	    rv = DirectInputCreate(GetModuleHandle(NULL), dinputVersion, &dinput, NULL);
+	    rv = DirectInput8Create(GetModuleHandle(NULL), dinputVersion, &IID_IDirectInput8, &dinput, NULL);
         if (rv != DI_OK) {
-            dinputVersion = 0x0300;
-    	    rv = DirectInputCreate(GetModuleHandle(NULL), dinputVersion, &dinput, NULL);
-            if (rv != DI_OK) {
-                printf("Failed to initialize DirectInput\n");
-                return 0;
-            }
+            printf("Failed to initialize DirectInput\n");
+            return 0;
         }
 
-	    rv = IDirectInput_EnumDevices(dinput, DIDEVTYPE_KEYBOARD, enumKeyboards, 0, DIEDFL_ATTACHEDONLY);
+	    rv = IDirectInput_EnumDevices(dinput, DI8DEVTYPE_KEYBOARD, enumKeyboards, 0, DIEDFL_ATTACHEDONLY);
         if (rv != DI_OK) {
             IDirectInput_Release(dinput);
             printf("Failed to find DirectInput device\n");
@@ -627,7 +627,7 @@ int inputReset(HWND hwnd)
 
 	    rv = IDirectInputDevice_SetProperty(kbdDevice, DIPROP_BUFFERSIZE,&dipdw.diph);
 
-        rv = IDirectInput_EnumDevices(dinput, DIDEVTYPE_JOYSTICK, enumJoysticksCallback, 0, DIEDFL_ATTACHEDONLY);
+        rv = IDirectInput_EnumDevices(dinput, DI8DEVTYPE_JOYSTICK, enumJoysticksCallback, 0, DIEDFL_ATTACHEDONLY);
 
         if (foundInputDevices) {
             // We found input devices that supports background input so lets not

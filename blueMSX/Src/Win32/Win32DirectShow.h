@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik, Tomas Karlsson
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -32,7 +35,7 @@
 #include <streams.h>
 #include <stdio.h>
 #include <comdef.h>
-#include <qedit.h>
+#include "qedit.h"
 #include <vector>
 #include <string>
 
@@ -68,7 +71,7 @@ private:
     _COM_SMARTPTR_TYPEDEF(IPin,                  __uuidof(IPin));
     _COM_SMARTPTR_TYPEDEF(IPropertyBag,          __uuidof(IPropertyBag));
     _COM_SMARTPTR_TYPEDEF(IRunningObjectTable,   __uuidof(IRunningObjectTable));
-    _COM_SMARTPTR_TYPEDEF(ISampleGrabber,        __uuidof(ISampleGrabber));
+    //_COM_SMARTPTR_TYPEDEF(ISampleGrabber,        __uuidof(ISampleGrabber));
     _COM_SMARTPTR_TYPEDEF(ISpecifyPropertyPages, __uuidof(ISpecifyPropertyPages));
     _COM_SMARTPTR_TYPEDEF(IVideoWindow,          __uuidof(IVideoWindow));
     IGraphBuilderPtr  m_pGraph;
