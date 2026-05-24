@@ -38,6 +38,9 @@ int  D3D12EnterFullscreenMode(HWND hwnd, int useVideoBackBuffer, int useSysMemBu
 BOOL D3D12EnterWindowedMode(HWND hwnd, int width, int height, int useVideoBackBuffer, int useSysMemBuffering);
 int  D3D12UpdateWindowedMode(HWND hwnd, int width, int height, int useVideoBackBuffer, int useSysMemBuffering);
 int  D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* d3dProperties);
+/* Wipe textures + present black so the emu hwnd doesn't flash the previous
+** run when SW_NORMAL re-exposes it.  No-op if the device isn't ready. */
+void D3D12ClearToBlack(HWND hwnd);
 
 /* Synchronously bring the device + swap chain up at the current window
 ** size; used by callers (recorder) that need to bind to the swap chain

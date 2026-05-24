@@ -3750,6 +3750,12 @@ void archEmulationStartNotification() {
     if (st.renderVideo) {
         return;
     }
+    /* The D3D12 swap chain's backbuffer still holds the previous run's last
+    ** frame; SW_NORMAL would re-expose it briefly before the first new
+    ** render lands. */
+    if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12 && st.emuHwnd) {
+        D3D12ClearToBlack(st.emuHwnd);
+    }
     ShowWindow(st.emuHwnd, SW_NORMAL);
 
     if (kbdLockEnable != NULL && pProperties->emulation.disableWinKeys) {

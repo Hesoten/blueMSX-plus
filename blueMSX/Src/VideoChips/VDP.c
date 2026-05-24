@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -618,11 +621,20 @@ static void onDisplay(VDP* vdp, UInt32 time)
             canFlipFrameBuffer++;
         }
         frameBufferSetLineCount(frameBuffer, 240);
-        if (vdpIsInterlaceOn(vdp->vdpRegs)) {
-            frameBufferSetInterlace(frameBuffer, (vdp->vdpStatus[2] & 0x02) && (vdp->vdpRegs[9]  & 0x04) && vdp->vram128 ? INTERLACE_EVEN : INTERLACE_ODD );
-        }
-        else {
-            frameBufferSetInterlace(frameBuffer, INTERLACE_NONE);
+        {
+            // Reg 9 IL,!EO (mode 1) = single page on interlaced raster: treat
+            // as NONE + interlaceRaster=1 (no phantom field, no scanlines);
+            // only IL+EO+vram128 (mode 3) is true ODD/EVEN alternation.
+            int il = vdpIsInterlaceOn(vdp->vdpRegs) ? 1 : 0;
+            int eo = (vdp->vdpRegs[9] & 0x04) ? 1 : 0;
+            frameBuffer->interlaceRaster = il;
+            if (il && eo && vdp->vram128) {
+                frameBufferSetInterlace(frameBuffer,
+                    (vdp->vdpStatus[2] & 0x02) ? INTERLACE_EVEN : INTERLACE_ODD);
+            }
+            else {
+                frameBufferSetInterlace(frameBuffer, INTERLACE_NONE);
+            }
         }
     }
 

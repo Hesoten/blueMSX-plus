@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -52,6 +55,9 @@ typedef void FrameBuffer;
 typedef struct {
     int age;           // Internal use
     InterlaceMode interlace;
+    int interlaceRaster; // 1 if VDP IL bit set (480-raster).  Independent
+                         // of `interlace`: Mode 1 has raster=1, interlace=
+                         // NONE; Mode 3 sets both.  Suppresses scanlines.
     int maxWidth;
     int lines;         // Number of lines in frame buffer
     LineBuffer line[FB_MAX_LINES];
