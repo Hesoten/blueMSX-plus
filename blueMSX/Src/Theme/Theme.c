@@ -438,6 +438,23 @@ void themePageAddObject(ThemePage* themePage, void* object, ThemeTrigger visible
     themePageAddLast(themePage, ITEM_OBJECT, object, THEME_TRIGGER_NONE, visible, THEME_TRIGGER_NONE);
 }
 
+int themePageHoverSliderPercent(ThemePage* themePage, int x, int y)
+{
+    ThemeItem* item;
+
+    if (themePage == NULL) {
+        return -1;
+    }
+    for (item = themePage->itemList; item != NULL; item = item->next) {
+        if (item->type == ITEM_SLIDER &&
+            activeSliderHitTest((ActiveSlider*)item->object, x, y))
+        {
+            return activeSliderGetPercent((ActiveSlider*)item->object);
+        }
+    }
+    return -1;
+}
+
 void themePageMouseMove(ThemePage* themePage, void*  dc, int x, int y)
 {
     ThemeItem* item;
@@ -891,8 +908,9 @@ void themeCollectionDestroy(ThemeCollection* tc)
 {
     int i;
 
-    if (tc->little)          themeDestroy(tc->little);
-    if (tc->normal)          themeDestroy(tc->normal);
+    for (i = 1; i < THEME_ZOOM_COUNT; i++) {
+        if (tc->zoom[i]) themeDestroy(tc->zoom[i]);
+    }
     if (tc->fullscreen)      themeDestroy(tc->fullscreen);
 
     for (i = 0; i < THEME_MAX_WINDOWS; i++) {

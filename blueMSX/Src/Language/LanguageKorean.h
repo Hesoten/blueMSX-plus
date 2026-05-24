@@ -151,8 +151,14 @@ void langInitKorean(LanguageStrings* ls)
 
     ls->menuPrnFormfeed         = "폼피드";
 
-    ls->menuZoomNormal          = "보통 크기";
-    ls->menuZoomDouble          = "두배 크기";
+    ls->menuZoom1x              = "1x 창";
+    ls->menuZoom2x              = "2x 창";
+    ls->menuZoom3x              = "3x 창";
+    ls->menuZoom4x              = "4x 창";
+    ls->menuZoom5x              = "5x 창";
+    ls->menuZoom6x              = "6x 창";
+    ls->menuZoom7x              = "7x 창";
+    ls->menuZoom8x              = "8x 창";
     ls->menuZoomFullscreen      = "전체 화면";
     
     ls->menuPropsEmulation      = "에뮬레이션";
@@ -332,7 +338,6 @@ void langInitKorean(LanguageStrings* ls)
     ls->propMonTypeText         = "모니터 유형:";
     ls->propMonEmuText          = "모니터 에뮬레이션:";
     ls->propVideoTypeText       = "비디오 유형:";
-    ls->propWindowSizeText      = "윈도우 크기:";
     ls->propMonHorizStretch      = " 수평 스트레치";
     ls->propMonVertStretch       = " 수직 스트레치";
     ls->propMonDeInterlace      = " 디인터레이스";
@@ -452,9 +457,6 @@ void langInitKorean(LanguageStrings* ls)
     ls->enumVideoEmuScale2x     = "Scale 2x";
     ls->enumVideoEmuHq2x        = "Hq2x";
 
-    ls->enumVideoSize1x         = "보통 - 320x200";
-    ls->enumVideoSize2x         = "두배 - 640x400";
-    ls->enumVideoSizeFullscreen = "전체 화면";
 
     ls->enumVideoDrvDirectDrawHW = "DirectDraw HW 가속";
     ls->enumVideoDrvDirectDraw  = "DirectDraw";
@@ -629,8 +631,14 @@ void langInitKorean(LanguageStrings* ls)
     ls->shortcutResetHard       = "하드 리셋";
     ls->shortcutResetSoft       = "소프트 리셋";
     ls->shortcutResetClean      = "전체 리셋";
-    ls->shortcutSizeSmall       = "작은 윈도우 크기로 설정";
-    ls->shortcutSizeNormal      = "보통 윈도우 크기로 설정";
+    ls->shortcutSize1x          = "1x 창 크기 설정";
+    ls->shortcutSize2x          = "2x 창 크기 설정";
+    ls->shortcutSize3x          = "3x 창 크기 설정";
+    ls->shortcutSize4x          = "4x 창 크기 설정";
+    ls->shortcutSize5x          = "5x 창 크기 설정";
+    ls->shortcutSize6x          = "6x 창 크기 설정";
+    ls->shortcutSize7x          = "7x 창 크기 설정";
+    ls->shortcutSize8x          = "8x 창 크기 설정";
     ls->shortcutSizeFullscreen  = "전체 화면으로 설정";
     ls->shortcutSizeMinimized   = "윈도우 최소화";
     ls->shortcutToggleFullscren = "전체 화면 변환";

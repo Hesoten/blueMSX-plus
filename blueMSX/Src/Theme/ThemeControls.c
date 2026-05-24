@@ -1034,6 +1034,23 @@ int activeSliderUp(ActiveSlider* activeSlider, int x, int y)
     return 0;
 }
 
+int activeSliderHitTest(ActiveSlider* activeSlider, int x, int y)
+{
+    if (!activeImageIsVisible(activeSlider->bitmap)) {
+        return 0;
+    }
+    return (UInt32)(x - activeSlider->x) < activeSlider->width &&
+           (UInt32)(y - activeSlider->y) < activeSlider->height;
+}
+
+int activeSliderGetPercent(ActiveSlider* activeSlider)
+{
+    if (activeSlider->count <= 1) {
+        return 0;
+    }
+    return activeSlider->index * 100 / (activeSlider->count - 1);
+}
+
 int activeSliderMouseMove(ActiveSlider* activeSlider, int x, int y)
 {
     int step;

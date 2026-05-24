@@ -149,8 +149,14 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->menuVideoStop           = "停止";                
     ls->menuVideoRender         = "渲染视频文件";   
 
-    ls->menuZoomNormal          = "标准尺寸";
-    ls->menuZoomDouble          = "两倍尺寸";
+    ls->menuZoom1x              = "1x 窗口";
+    ls->menuZoom2x              = "2x 窗口";
+    ls->menuZoom3x              = "3x 窗口";
+    ls->menuZoom4x              = "4x 窗口";
+    ls->menuZoom5x              = "5x 窗口";
+    ls->menuZoom6x              = "6x 窗口";
+    ls->menuZoom7x              = "7x 窗口";
+    ls->menuZoom8x              = "8x 窗口";
     ls->menuZoomFullscreen      = "全屏幕";
     
     ls->menuPrnFormfeed         = "换页";
@@ -332,7 +338,6 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->propMonTypeText         = "显示器类型:";
     ls->propMonEmuText          = "显示器模拟:";
     ls->propVideoTypeText       = "视频类型:";
-    ls->propWindowSizeText      = "窗口大小:";
     ls->propMonHorizStretch      = " 水平拉伸";
     ls->propMonVertStretch       = " 垂直拉伸";
     ls->propMonDeInterlace      = " 高画质除网格技术";
@@ -452,9 +457,6 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->enumVideoEmuScale2x     = "2 倍柔化";
     ls->enumVideoEmuHq2x        = "Hq2x";
 
-    ls->enumVideoSize1x         = "标准 - 320x200";
-    ls->enumVideoSize2x         = "两倍 - 640x400";
-    ls->enumVideoSizeFullscreen = "全屏幕";
 
     ls->enumVideoDrvDirectDrawHW = "DirectDraw HW 加速"; 
     ls->enumVideoDrvDirectDraw  = "DirectDraw";
@@ -629,8 +631,14 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->shortcutResetHard       = "硬件重置";
     ls->shortcutResetSoft       = "软件重置";
     ls->shortcutResetClean      = "常规重置";
-    ls->shortcutSizeSmall       = "设为标准窗口";
-    ls->shortcutSizeNormal      = "设为两倍窗口";
+    ls->shortcutSize1x          = "设置 1x 窗口大小";
+    ls->shortcutSize2x          = "设置 2x 窗口大小";
+    ls->shortcutSize3x          = "设置 3x 窗口大小";
+    ls->shortcutSize4x          = "设置 4x 窗口大小";
+    ls->shortcutSize5x          = "设置 5x 窗口大小";
+    ls->shortcutSize6x          = "设置 6x 窗口大小";
+    ls->shortcutSize7x          = "设置 7x 窗口大小";
+    ls->shortcutSize8x          = "设置 8x 窗口大小";
     ls->shortcutSizeFullscreen  = "设为全屏幕";
     ls->shortcutSizeMinimized   = "最小化窗口";
     ls->shortcutToggleFullscren = "切换全屏幕";

@@ -151,8 +151,14 @@ void langInitPolish(LanguageStrings* ls)
 
     ls->menuPrnFormfeed         = "Wysuñ papier";
 
-    ls->menuZoomNormal          = "Standardowe";
-    ls->menuZoomDouble          = "Podwójne";
+    ls->menuZoom1x              = "Okno 1x";
+    ls->menuZoom2x              = "Okno 2x";
+    ls->menuZoom3x              = "Okno 3x";
+    ls->menuZoom4x              = "Okno 4x";
+    ls->menuZoom5x              = "Okno 5x";
+    ls->menuZoom6x              = "Okno 6x";
+    ls->menuZoom7x              = "Okno 7x";
+    ls->menuZoom8x              = "Okno 8x";
     ls->menuZoomFullscreen      = "Pe³ny ekran";
     
     ls->menuPropsEmulation      = "Emulacja";
@@ -333,7 +339,6 @@ void langInitPolish(LanguageStrings* ls)
     ls->propMonTypeText         = "Typ monitora:";
     ls->propMonEmuText          = "Emulacja monitora:";
     ls->propVideoTypeText       = "Typ obrazu:";
-    ls->propWindowSizeText      = "Rozmiar okna:";
     ls->propMonHorizStretch      = " Rozci¹gaj w poziomie";
     ls->propMonVertStretch       = " Rozci¹gaj w pionie";
     ls->propMonDeInterlace      = " Usuwaj przeplot";
@@ -453,9 +458,6 @@ void langInitPolish(LanguageStrings* ls)
     ls->enumVideoEmuScale2x     = "Skalowanie 2x";
     ls->enumVideoEmuHq2x        = "Hq2x";
 
-    ls->enumVideoSize1x         = "Pojedyncza - 320x200";
-    ls->enumVideoSize2x         = "Podwójna - 640x400";
-    ls->enumVideoSizeFullscreen = "Pe³ny ekran";
 
     ls->enumVideoDrvDirectDrawHW = "DirectDraw (sprzêtowy)"; 
     ls->enumVideoDrvDirectDraw  = "DirectDraw";
@@ -630,8 +632,14 @@ void langInitPolish(LanguageStrings* ls)
     ls->shortcutResetHard       = "Twardy Reset";
     ls->shortcutResetSoft       = "Miêkki Reset";
     ls->shortcutResetClean      = "Ogólny Reset";
-    ls->shortcutSizeSmall       = "Ustaw ma³y rozmiar okna";
-    ls->shortcutSizeNormal      = "Ustaw normalny rozmiar okna";
+    ls->shortcutSize1x          = "Ustaw rozmiar okna 1x";
+    ls->shortcutSize2x          = "Ustaw rozmiar okna 2x";
+    ls->shortcutSize3x          = "Ustaw rozmiar okna 3x";
+    ls->shortcutSize4x          = "Ustaw rozmiar okna 4x";
+    ls->shortcutSize5x          = "Ustaw rozmiar okna 5x";
+    ls->shortcutSize6x          = "Ustaw rozmiar okna 6x";
+    ls->shortcutSize7x          = "Ustaw rozmiar okna 7x";
+    ls->shortcutSize8x          = "Ustaw rozmiar okna 8x";
     ls->shortcutSizeFullscreen  = "Ustaw pe³ny ekran";
     ls->shortcutSizeMinimized   = "Minimalizuj okno";
     ls->shortcutToggleFullscren = "Prze³¹czaj pe³ny ekran";

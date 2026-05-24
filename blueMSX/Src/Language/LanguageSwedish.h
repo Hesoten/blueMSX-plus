@@ -151,8 +151,14 @@ void langInitSwedish(LanguageStrings* ls)
 
     ls->menuPrnFormfeed         = "Pappersmatning";
 
-    ls->menuZoomNormal          = "Normal storlek";
-    ls->menuZoomDouble          = "Dubbel storlek";
+    ls->menuZoom1x              = "1x-fönster";
+    ls->menuZoom2x              = "2x-fönster";
+    ls->menuZoom3x              = "3x-fönster";
+    ls->menuZoom4x              = "4x-fönster";
+    ls->menuZoom5x              = "5x-fönster";
+    ls->menuZoom6x              = "6x-fönster";
+    ls->menuZoom7x              = "7x-fönster";
+    ls->menuZoom8x              = "8x-fönster";
     ls->menuZoomFullscreen      = "Fullskärm";
     
     ls->menuPropsEmulation      = "Emulering";
@@ -334,7 +340,6 @@ void langInitSwedish(LanguageStrings* ls)
     ls->propMonTypeText         = "Monitor typ:";
     ls->propMonEmuText          = "Monitoremulering:";
     ls->propVideoTypeText       = "Videotyp:";
-    ls->propWindowSizeText      = "Fönsterstorlek:";
     ls->propMonHorizStretch     = " Horizontell utsträckning";
     ls->propMonVertStretch      = " Vertikal utsträckning";
     ls->propMonDeInterlace      = " De-interlace";
@@ -454,9 +459,6 @@ void langInitSwedish(LanguageStrings* ls)
     ls->enumVideoEmuScale2x     = "Scale 2x";
     ls->enumVideoEmuHq2x        = "Hq2x";
 
-    ls->enumVideoSize1x         = "Normal - 320x200";
-    ls->enumVideoSize2x         = "Dubbel - 640x400";
-    ls->enumVideoSizeFullscreen = "Fullskärm";
 
     ls->enumVideoDrvDirectDrawHW= "DirectDraw HW accel.";
     ls->enumVideoDrvDirectDraw  = "DirectDraw";
@@ -631,8 +633,14 @@ void langInitSwedish(LanguageStrings* ls)
     ls->shortcutResetHard       = "Hård Omstart";
     ls->shortcutResetSoft       = "Mjuk Omstart";
     ls->shortcutResetClean      = "Full Omstart";
-    ls->shortcutSizeSmall       = "Växla till Liten Fönsterstorlek";
-    ls->shortcutSizeNormal      = "Växla till Normal Fönsterstorlek";
+    ls->shortcutSize1x          = "Ange 1x-fönsterstorlek";
+    ls->shortcutSize2x          = "Ange 2x-fönsterstorlek";
+    ls->shortcutSize3x          = "Ange 3x-fönsterstorlek";
+    ls->shortcutSize4x          = "Ange 4x-fönsterstorlek";
+    ls->shortcutSize5x          = "Ange 5x-fönsterstorlek";
+    ls->shortcutSize6x          = "Ange 6x-fönsterstorlek";
+    ls->shortcutSize7x          = "Ange 7x-fönsterstorlek";
+    ls->shortcutSize8x          = "Ange 8x-fönsterstorlek";
     ls->shortcutSizeFullscreen  = "Växla till Fullskärm";
     ls->shortcutSizeMinimized   = "Minimera fönster";
     ls->shortcutToggleFullscren = "Växla till/från Fullskärm";

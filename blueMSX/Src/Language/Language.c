@@ -368,8 +368,14 @@ char* langMenuVideoRender() { return ls->menuVideoRender; }
 
 char* langMenuPrnFormfeed() { return ls->menuPrnFormfeed; }
 
-char* langMenuZoomNormal() { return ls->menuZoomNormal; }
-char* langMenuZoomDouble() { return ls->menuZoomDouble; }
+char* langMenuZoom1x() { return ls->menuZoom1x; }
+char* langMenuZoom2x() { return ls->menuZoom2x; }
+char* langMenuZoom3x() { return ls->menuZoom3x; }
+char* langMenuZoom4x() { return ls->menuZoom4x; }
+char* langMenuZoom5x() { return ls->menuZoom5x; }
+char* langMenuZoom6x() { return ls->menuZoom6x; }
+char* langMenuZoom7x() { return ls->menuZoom7x; }
+char* langMenuZoom8x() { return ls->menuZoom8x; }
 char* langMenuZoomFullscreen() { return ls->menuZoomFullscreen; }
 
 char* langMenuPropsEmulation() { return ls->menuPropsEmulation; }
@@ -540,7 +546,6 @@ char* langPropMonMonGB() { return ls->propMonMonGB; }
 char* langPropMonTypeText() { return ls->propMonTypeText; }
 char* langPropMonEmuText() { return ls->propMonEmuText; }
 char* langPropVideoTypeText() { return ls->propVideoTypeText; }
-char* langPropWindowSizeText() { return ls->propWindowSizeText; }
 char* langPropMonHorizStretch() { return ls->propMonHorizStretch; }
 char* langPropMonVertStretch() { return ls->propMonVertStretch; }
 char* langPropMonDeInterlace() { return ls->propMonDeInterlace; }
@@ -646,9 +651,6 @@ char* langEnumVideoEmuCompBlur() { return ls->enumVideoEmuCompBlur; }
 char* langEnumVideoEmuScale2x() { return ls->enumVideoEmuScale2x; }
 char* langEnumVideoEmuHq2x() { return ls->enumVideoEmuHq2x; }
 
-char* langEnumVideoSize1x() { return ls->enumVideoSize1x; }
-char* langEnumVideoSize2x() { return ls->enumVideoSize2x; }
-char* langEnumVideoSizeFullscreen() { return ls->enumVideoSizeFullscreen; }
 
 char* langEnumVideoDrvDirectDrawHW() { return ls->enumVideoDrvDirectDrawHW; }
 char* langEnumVideoDrvDirectDraw() { return ls->enumVideoDrvDirectDraw; }
@@ -841,8 +843,14 @@ char* langShortcutStop() { return ls->shortcutStop; }
 char* langShortcutResetHard() { return ls->shortcutResetHard; }
 char* langShortcutResetSoft() { return ls->shortcutResetSoft; }
 char* langShortcutResetClean() { return ls->shortcutResetClean; }
-char* langShortcutSizeSmall() { return ls->shortcutSizeSmall; }
-char* langShortcutSizeNormal() { return ls->shortcutSizeNormal; }
+char* langShortcutSize1x() { return ls->shortcutSize1x; }
+char* langShortcutSize2x() { return ls->shortcutSize2x; }
+char* langShortcutSize3x() { return ls->shortcutSize3x; }
+char* langShortcutSize4x() { return ls->shortcutSize4x; }
+char* langShortcutSize5x() { return ls->shortcutSize5x; }
+char* langShortcutSize6x() { return ls->shortcutSize6x; }
+char* langShortcutSize7x() { return ls->shortcutSize7x; }
+char* langShortcutSize8x() { return ls->shortcutSize8x; }
 char* langShortcutSizeFullscreen() { return ls->shortcutSizeFullscreen; }
 char* langShortcutSizeMinimized() { return ls->shortcutSizeMinimized; }
 char* langShortcutToggleFullscren() { return ls->shortcutToggleFullscren; }

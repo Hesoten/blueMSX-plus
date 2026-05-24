@@ -177,8 +177,14 @@ char* langMenuVideoRender();
 
 char* langMenuPrnFormfeed();
 
-char* langMenuZoomNormal();
-char* langMenuZoomDouble();
+char* langMenuZoom1x();
+char* langMenuZoom2x();
+char* langMenuZoom3x();
+char* langMenuZoom4x();
+char* langMenuZoom5x();
+char* langMenuZoom6x();
+char* langMenuZoom7x();
+char* langMenuZoom8x();
 char* langMenuZoomFullscreen();
 
 char* langMenuPropsEmulation();
@@ -354,7 +360,6 @@ char* langPropMonMonGB();
 char* langPropMonTypeText();
 char* langPropMonEmuText();
 char* langPropVideoTypeText();
-char* langPropWindowSizeText();
 char* langPropMonHorizStretch();
 char* langPropMonVertStretch();
 char* langPropMonDeInterlace();
@@ -474,9 +479,6 @@ char* langEnumVideoEmuScale2x();
 char* langEnumVideoEmuHq2x();
 char* langEnumVideoEmuStreched();
 
-char* langEnumVideoSize1x();
-char* langEnumVideoSize2x();
-char* langEnumVideoSizeFullscreen();
 
 char* langEnumVideoDrvDirectDrawHW();
 char* langEnumVideoDrvDirectDraw();
@@ -650,8 +652,14 @@ char* langShortcutStop();
 char* langShortcutResetHard();
 char* langShortcutResetSoft();
 char* langShortcutResetClean();
-char* langShortcutSizeSmall();
-char* langShortcutSizeNormal();
+char* langShortcutSize1x();
+char* langShortcutSize2x();
+char* langShortcutSize3x();
+char* langShortcutSize4x();
+char* langShortcutSize5x();
+char* langShortcutSize6x();
+char* langShortcutSize7x();
+char* langShortcutSize8x();
 char* langShortcutSizeMinimized();
 char* langShortcutSizeFullscreen();
 char* langShortcutToggleFullscren();

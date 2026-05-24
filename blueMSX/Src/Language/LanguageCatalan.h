@@ -151,8 +151,14 @@ void langInitCatalan(LanguageStrings* ls)
 
     ls->menuPrnFormfeed         = "Pàgina següent";
 
-    ls->menuZoomNormal          = "Finestra petita";
-    ls->menuZoomDouble          = "Finestra normal";
+    ls->menuZoom1x              = "Finestra 1x";
+    ls->menuZoom2x              = "Finestra 2x";
+    ls->menuZoom3x              = "Finestra 3x";
+    ls->menuZoom4x              = "Finestra 4x";
+    ls->menuZoom5x              = "Finestra 5x";
+    ls->menuZoom6x              = "Finestra 6x";
+    ls->menuZoom7x              = "Finestra 7x";
+    ls->menuZoom8x              = "Finestra 8x";
     ls->menuZoomFullscreen      = "Pantalla completa";
     
     ls->menuPropsEmulation      = "Emulació";
@@ -333,7 +339,6 @@ void langInitCatalan(LanguageStrings* ls)
     ls->propMonTypeText         = "Tipus de monitor:";
     ls->propMonEmuText          = "Emulació del monitor:";
     ls->propVideoTypeText       = "Tipus de vídeo:";
-    ls->propWindowSizeText      = "Mida de la finestra:";
     ls->propMonHorizStretch     = " Ampliació horitzontal";
     ls->propMonVertStretch      = " Ampliació vertical";
     ls->propMonDeInterlace      = " Desentrellaçat";
@@ -453,9 +458,6 @@ void langInitCatalan(LanguageStrings* ls)
     ls->enumVideoEmuScale2x     = "Escala 2x";
     ls->enumVideoEmuHq2x        = "Hq2x";
 
-    ls->enumVideoSize1x         = "Normal - 320x200";
-    ls->enumVideoSize2x         = "Doble - 640x400";
-    ls->enumVideoSizeFullscreen = "Pantalla completa";
 
     ls->enumVideoDrvDirectDrawHW= "Acceleració DirectDraw de maquinari";  
     ls->enumVideoDrvDirectDraw  = "DirectDraw";
@@ -630,8 +632,14 @@ void langInitCatalan(LanguageStrings* ls)
     ls->shortcutResetHard       = "Reinicialització dura";
     ls->shortcutResetSoft       = "Reinicialització suau";
     ls->shortcutResetClean      = "Reinicialització completa";
-    ls->shortcutSizeSmall       = "Fixa la dimensió de finestra petita";
-    ls->shortcutSizeNormal      = "Fixa la dimensió de finestra normal";
+    ls->shortcutSize1x          = "Estableix mida finestra 1x";
+    ls->shortcutSize2x          = "Estableix mida finestra 2x";
+    ls->shortcutSize3x          = "Estableix mida finestra 3x";
+    ls->shortcutSize4x          = "Estableix mida finestra 4x";
+    ls->shortcutSize5x          = "Estableix mida finestra 5x";
+    ls->shortcutSize6x          = "Estableix mida finestra 6x";
+    ls->shortcutSize7x          = "Estableix mida finestra 7x";
+    ls->shortcutSize8x          = "Estableix mida finestra 8x";
     ls->shortcutSizeFullscreen  = "Fixa la pantalla completa";
     ls->shortcutSizeMinimized   = "Minimitza la finestra";
     ls->shortcutToggleFullscren = "Commuta la pantalla completa";

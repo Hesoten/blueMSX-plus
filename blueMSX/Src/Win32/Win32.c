@@ -73,6 +73,7 @@
 #include "Win32Help.h"
 #include "Win32Menu.h"
 #include "Win32TextUtf8.h"
+#include "ArchMenu.h"
 #include "Win32Eth.h"
 #include "Win32VideoIn.h"
 #include "Win32ScreenShot.h"
@@ -103,6 +104,80 @@
 #include "PacketFileSystem.h"
 
 void vdpSetDisplayEnable(int enable);
+
+void win32SliderTooltipUpdate(HWND* phwndTip, HWND parent, int percent)
+{
+    /* Explicit TTM_*W: without UNICODE the unsuffixed macros expand to ANSI
+       IDs and TOOLTIPS_CLASSW renders our wide string as ANSI
+       (= truncated at first 0x00 byte). */
+    static HFONT s_tipFont = NULL;
+    wchar_t buf[24];
+    POINT pt;
+    TOOLINFOW ti;
+
+    if (percent < 0) {
+        if (phwndTip && *phwndTip) {
+            TOOLINFOW tih = { 0 };
+            tih.cbSize = sizeof(tih);
+            tih.hwnd   = parent;
+            tih.uId    = 0;
+            SendMessageW(*phwndTip, TTM_TRACKACTIVATE, FALSE, (LPARAM)&tih);
+        }
+        return;
+    }
+
+    if (!phwndTip || !parent) return;
+
+    /* Larger-than-default font so the percent value is easy to read. */
+    if (s_tipFont == NULL) {
+        s_tipFont = CreateFontW(-22, 0, 0, 0, FW_SEMIBOLD,
+                                FALSE, FALSE, FALSE,
+                                DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+                                CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                                DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+    }
+
+    if (*phwndTip == NULL) {
+        INITCOMMONCONTROLSEX iccex = { sizeof(iccex), ICC_BAR_CLASSES };
+        TOOLINFOW tin = { 0 };
+        InitCommonControlsEx(&iccex);
+        *phwndTip = CreateWindowExW(0, TOOLTIPS_CLASSW, NULL,
+            WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP,
+            CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+            parent, NULL, GetModuleHandle(NULL), NULL);
+        if (*phwndTip == NULL) return;
+
+        /* Themed (Comctl32 v6) tooltips ignore WM_SETFONT and pull their
+           font from the visual style.  Disable the theme so WM_SETFONT applies. */
+        SetWindowTheme(*phwndTip, L"", L"");
+
+        if (s_tipFont) {
+            SendMessageW(*phwndTip, WM_SETFONT, (WPARAM)s_tipFont, TRUE);
+        }
+
+        tin.cbSize   = sizeof(tin);
+        tin.uFlags   = TTF_TRACK | TTF_ABSOLUTE;
+        tin.hwnd     = parent;
+        tin.uId      = 0;
+        tin.lpszText = L"";
+        SendMessageW(*phwndTip, TTM_ADDTOOLW, 0, (LPARAM)&tin);
+    }
+
+    swprintf(buf, 24, L" %d %% ", percent);
+
+    GetCursorPos(&pt);
+    pt.x += 20;
+    pt.y -= 40;
+
+    memset(&ti, 0, sizeof(ti));
+    ti.cbSize   = sizeof(ti);
+    ti.hwnd     = parent;
+    ti.uId      = 0;
+    ti.lpszText = buf;
+    SendMessageW(*phwndTip, TTM_UPDATETIPTEXTW, 0, (LPARAM)&ti);
+    SendMessageW(*phwndTip, TTM_TRACKPOSITION, 0, MAKELPARAM(pt.x, pt.y));
+    SendMessageW(*phwndTip, TTM_TRACKACTIVATE, TRUE, (LPARAM)&ti);
+}
 
 
 static EmuLanguageType getLangType()
@@ -971,8 +1046,14 @@ static void checkKeyUp(Shortcuts* s, ShotcutHotkey key)
     if (hotkeyEq(key, s->emuSpeedInc))                  actionEmuSpeedIncrease();
     if (hotkeyEq(key, s->emuSpeedToggle))               actionMaxSpeedToggle();
     if (hotkeyEq(key, s->emuSpeedDec))                  actionEmuSpeedDecrease();
-    if (hotkeyEq(key, s->windowSizeSmall))              actionWindowSizeSmall();
-    if (hotkeyEq(key, s->windowSizeNormal))             actionWindowSizeNormal();
+    if (hotkeyEq(key, s->windowSize1x))                 actionWindowSize1x();
+    if (hotkeyEq(key, s->windowSize2x))                 actionWindowSize2x();
+    if (hotkeyEq(key, s->windowSize3x))                 actionWindowSize3x();
+    if (hotkeyEq(key, s->windowSize4x))                 actionWindowSize4x();
+    if (hotkeyEq(key, s->windowSize5x))                 actionWindowSize5x();
+    if (hotkeyEq(key, s->windowSize6x))                 actionWindowSize6x();
+    if (hotkeyEq(key, s->windowSize7x))                 actionWindowSize7x();
+    if (hotkeyEq(key, s->windowSize8x))                 actionWindowSize8x();
     if (hotkeyEq(key, s->windowSizeMinimized))          actionWindowSizeMinimized();
     if (hotkeyEq(key, s->windowSizeFullscreen))         actionWindowSizeFullscreen();
     if (hotkeyEq(key, s->windowSizeFullscreenToggle))   actionFullscreenToggle();
@@ -1085,6 +1166,7 @@ typedef struct {
 	int clientWidth;
 	int clientHeight;
 
+	HWND hwndSliderTip;  /* lazily created tracking tooltip for sliders */
 } WinState;
 
 
@@ -1435,9 +1517,9 @@ static int getZoom() {
         pProperties->video.driver == P_VIDEO_DRVDIRECTX))
     {
         DxDisplayMode* ddm = DirectDrawGetDisplayMode();
-        return ddm->width < 640 || ddm->height < 480 ? 1 : 2;
+        return min(min(ddm->width / 320, ddm->height / 240), 8);
     }
-    return pProperties->video.windowSize == P_VIDEO_SIZEX1 ? 1 : 2;
+    return pProperties->video.windowSize + 1;
 }
 
 
@@ -1472,16 +1554,14 @@ void themeSet(char* themeName, int forceMatch) {
     strcpy(pProperties->settings.themeName, themeName);
     strcpy(pProperties->settings.themeName, st.themeList[st.themeIndex]->name);
 
-    switch (pProperties->video.windowSize) {
-    case P_VIDEO_SIZEX1:
-        st.themePageActive = themeGetCurrentPage(st.themeList[st.themeIndex]->little);
-        break;
-    case P_VIDEO_SIZEX2:
-        st.themePageActive = themeGetCurrentPage(st.themeList[st.themeIndex]->normal);
-        break;
-    case P_VIDEO_SIZEFULLSCREEN:
+    if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN) {
         st.themePageActive = themeGetCurrentPage(st.themeList[st.themeIndex]->fullscreen);
-        break;
+    }
+    else {
+        int zoomIdx = pProperties->video.windowSize + 1;  /* P_VIDEO_SIZEX1..X8 -> 1..8 */
+        Theme* page = st.themeList[st.themeIndex]->zoom[zoomIdx];
+        if (page == NULL) page = st.themeList[st.themeIndex]->zoom[2];  /* fallback to normal */
+        st.themePageActive = themeGetCurrentPage(page);
     }
 
     if (st.themePageActive) {
@@ -1504,19 +1584,26 @@ void themeSet(char* themeName, int forceMatch) {
     }
 
     if (pProperties->video.windowSize != P_VIDEO_SIZEFULLSCREEN) {
+        int zoom = getZoom();
+        int clientW, clientH;
         x = pProperties->video.windowX;
         y = pProperties->video.windowY;
+        DWORD dwStyle = (DWORD)GetWindowLongPtr(st.hwnd, GWL_STYLE);
+        ex = st.themePageActive->emuWinX;
+        ey = st.themePageActive->emuWinY;
+        ew = zoom * WIDTH;
+        eh = zoom * HEIGHT;
+        // Enclose both the theme bitmap and the emu rect: at zoom>=5 the
+        // x2 fallback theme is smaller than the emu extent and would
+        // otherwise clip it against the window frame.
+        clientW = max((int)st.themePageActive->width,  ex + ew);
+        clientH = max((int)st.themePageActive->height, ey + eh);
         {
-            DWORD dwStyle = GetWindowLongPtr(st.hwnd, GWL_STYLE);
-            RECT rc = { 0, 0, st.themePageActive->width, st.themePageActive->height };
+            RECT rc = { 0, 0, clientW, clientH };
             adjustWindowRectForDpi(&rc, dwStyle, getDpiForWindow(st.hwnd));
             w = rc.right - rc.left;
             h = rc.bottom - rc.top;
         }
-        ex = st.themePageActive->emuWinX;
-        ey = st.themePageActive->emuWinY;
-        ew = getZoom() * WIDTH;
-        eh = getZoom() * HEIGHT;
         z  = HWND_NOTOPMOST;
 
         if (pProperties->video.windowSize == P_VIDEO_SIZEX2) {
@@ -2163,10 +2250,35 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
     case WM_DPICHANGED:
         {
             RECT* r = (RECT*)lParam;
-            SetWindowPos(hwnd, NULL,
-                r->left, r->top,
-                r->right - r->left, r->bottom - r->top,
-                SWP_NOZORDER | SWP_NOACTIVATE);
+            /* Windowed: skip the suggested-rect resize (themeSet's own
+               SetWindowPos lands the final size); fullscreen needs it. */
+            if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN) {
+                SetWindowPos(hwnd, NULL,
+                    r->left, r->top,
+                    r->right - r->left, r->bottom - r->top,
+                    SWP_NOZORDER | SWP_NOACTIVATE);
+            } else {
+                pProperties->video.windowX = r->left;
+                pProperties->video.windowY = r->top;
+            }
+            /* Pin archMenuStripHeight() to LOWORD(wParam) (GetDpiForWindow
+               can still return the old DPI mid-transition) and rebuild
+               Classic so cached topShift / vy pick up the new DPI. */
+            archSetDpiOverride(LOWORD(wParam));
+
+            if (st.themePageActive) {
+                themePageActivate(st.themePageActive, NULL);
+            }
+            st.themePageActive = NULL;
+
+            menuRebuildForDpi(LOWORD(wParam));
+
+            if (st.themeList && st.themeList[0]) {
+                themeClassicRebuild(st.themeList[0]);
+            }
+            themeSet(pProperties->settings.themeName, 1);
+
+            archSetDpiOverride(0);
         }
         return 0;
 
@@ -2198,10 +2310,12 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         {
             LRESULT rv = DefWindowProc(hwnd, iMsg, wParam, lParam);
             MINMAXINFO* mmi = (MINMAXINFO*)lParam;
-            mmi->ptMaxSize.x      = 2048;
-            mmi->ptMaxSize.y      = 2048;
-            mmi->ptMaxTrackSize.x = 2048;
-            mmi->ptMaxTrackSize.y = 2048;
+            /* x8 zoom needs 2564x1971; allow 8K headroom so the window can
+               exceed the physical screen without WM_GETMINMAXINFO clamping. */
+            mmi->ptMaxSize.x      = 16384;
+            mmi->ptMaxSize.y      = 16384;
+            mmi->ptMaxTrackSize.x = 16384;
+            mmi->ptMaxTrackSize.y = 16384;
             return 0;
         }
 
@@ -2247,12 +2361,18 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             GetCursorPos(&pt);
             ScreenToClient(hwnd, &pt);
             themePageMouseMove(st.themePageActive, hdc, pt.x, pt.y);
+            win32SliderTooltipUpdate(&st.hwndSliderTip, hwnd,
+                                     themePageHoverSliderPercent(st.themePageActive, pt.x, pt.y));
             ReleaseDC(hwnd, hdc);
             checkClipRegion();
+            {
+                TRACKMOUSEEVENT tme = { sizeof(tme), TME_LEAVE, hwnd, 0 };
+                TrackMouseEvent(&tme);
+            }
         }
         if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN) {
             /* Show on cursor at top edge, auto-hide on cursor leaving menu strip. */
-            int menuStripH = GetSystemMetrics(SM_CYMENU);
+            int menuStripH = archMenuStripHeight();
             int y = HIWORD(lParam);
             if (y < 8) {
                 if (!st.showMenu) updateMenu(1);
@@ -2264,6 +2384,10 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         SetTimer(hwnd, TIMER_THEME, 250, NULL);
 
         break;
+
+    case WM_MOUSELEAVE:
+        win32SliderTooltipUpdate(&st.hwndSliderTip, hwnd, -1);
+        return 0;
 
     case WM_LBUTTONDOWN:
         {
@@ -2314,7 +2438,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN
                 && !st.trackMenu) {
                 POINT pt;
-                int menuStripH = GetSystemMetrics(SM_CYMENU);
+                int menuStripH = archMenuStripHeight();
                 GetCursorPos(&pt);
                 ScreenToClient(hwnd, &pt);
                 if (pt.y < 8) {

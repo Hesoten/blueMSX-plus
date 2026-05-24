@@ -781,8 +781,14 @@ static Shortcuts* loadShortcuts(char* profileName)
     LOAD_SHORTCUT(shortcutFile, emuSpeedNormal);
     LOAD_SHORTCUT(shortcutFile, emuSpeedInc);
     LOAD_SHORTCUT(shortcutFile, emuSpeedDec);
-    LOAD_SHORTCUT(shortcutFile, windowSizeSmall);
-    LOAD_SHORTCUT(shortcutFile, windowSizeNormal);
+    LOAD_SHORTCUT(shortcutFile, windowSize1x);
+    LOAD_SHORTCUT(shortcutFile, windowSize2x);
+    LOAD_SHORTCUT(shortcutFile, windowSize3x);
+    LOAD_SHORTCUT(shortcutFile, windowSize4x);
+    LOAD_SHORTCUT(shortcutFile, windowSize5x);
+    LOAD_SHORTCUT(shortcutFile, windowSize6x);
+    LOAD_SHORTCUT(shortcutFile, windowSize7x);
+    LOAD_SHORTCUT(shortcutFile, windowSize8x);
     LOAD_SHORTCUT(shortcutFile, windowSizeFullscreen);
     LOAD_SHORTCUT(shortcutFile, windowSizeMinimized);
     LOAD_SHORTCUT(shortcutFile, windowSizeFullscreenToggle);
@@ -886,8 +892,14 @@ static void saveShortcuts(char* profileName, Shortcuts* shortcuts)
     SAVE_SHORTCUT(shortcutFile, emuSpeedNormal);
     SAVE_SHORTCUT(shortcutFile, emuSpeedInc);
     SAVE_SHORTCUT(shortcutFile, emuSpeedDec);
-    SAVE_SHORTCUT(shortcutFile, windowSizeSmall);
-    SAVE_SHORTCUT(shortcutFile, windowSizeNormal);
+    SAVE_SHORTCUT(shortcutFile, windowSize1x);
+    SAVE_SHORTCUT(shortcutFile, windowSize2x);
+    SAVE_SHORTCUT(shortcutFile, windowSize3x);
+    SAVE_SHORTCUT(shortcutFile, windowSize4x);
+    SAVE_SHORTCUT(shortcutFile, windowSize5x);
+    SAVE_SHORTCUT(shortcutFile, windowSize6x);
+    SAVE_SHORTCUT(shortcutFile, windowSize7x);
+    SAVE_SHORTCUT(shortcutFile, windowSize8x);
     SAVE_SHORTCUT(shortcutFile, windowSizeFullscreen);
     SAVE_SHORTCUT(shortcutFile, windowSizeMinimized);
     SAVE_SHORTCUT(shortcutFile, windowSizeFullscreenToggle);
@@ -1030,8 +1042,14 @@ static void updateShortcutEntries(HWND hDlg)
     
     ADD_SHORTCUTSEPARATOR();
     
-    ADD_SHORTCUT(windowSizeSmall, langShortcutSizeSmall());
-    ADD_SHORTCUT(windowSizeNormal, langShortcutSizeNormal());
+    ADD_SHORTCUT(windowSize1x, langShortcutSize1x());
+    ADD_SHORTCUT(windowSize2x, langShortcutSize2x());
+    ADD_SHORTCUT(windowSize3x, langShortcutSize3x());
+    ADD_SHORTCUT(windowSize4x, langShortcutSize4x());
+    ADD_SHORTCUT(windowSize5x, langShortcutSize5x());
+    ADD_SHORTCUT(windowSize6x, langShortcutSize6x());
+    ADD_SHORTCUT(windowSize7x, langShortcutSize7x());
+    ADD_SHORTCUT(windowSize8x, langShortcutSize8x());
     ADD_SHORTCUT(windowSizeFullscreen, langShortcutSizeFullscreen());
     ADD_SHORTCUT(windowSizeMinimized, langShortcutSizeMinimized());
     ADD_SHORTCUT(windowSizeFullscreenToggle, langShortcutToggleFullscren());

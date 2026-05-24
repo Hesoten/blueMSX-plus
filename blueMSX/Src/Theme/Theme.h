@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -43,10 +46,13 @@ typedef struct {
 #define THEME_MAX_WINDOWS 64
 #define THEME_MAX_PAGES   64
 
+/* Index 0 is unused; index 1..8 corresponds to zoom factor x1..x8.
+   Indices 1..4 cover the historical little/normal/triple/quad slots. */
+#define THEME_ZOOM_COUNT 9
+
 typedef struct ThemeCollection {
     char   name[64];
-    Theme* little;
-    Theme* normal;
+    Theme* zoom[THEME_ZOOM_COUNT];
     Theme* fullscreen;
     Theme* theme[THEME_MAX_WINDOWS];
 } ThemeCollection;
@@ -145,6 +151,9 @@ void themePageActivate(ThemePage* theme, void* window);
 void themePageUpdate(ThemePage* theme, void* dc);
 void themePageDraw(ThemePage* theme, void* dc, ThemeItem* startItem);
 void themePageMouseMove(ThemePage* theme, void* dc, int x, int y);
+/* Return the percent value (0..100) of the slider under (x, y), or -1 if
+   none.  Used to drive a hover tooltip on slider controls. */
+int  themePageHoverSliderPercent(ThemePage* theme, int x, int y);
 void themePageMouseButtonUp(ThemePage* theme, void* dc, int x, int y);
 void themePageMouseButtonDown(ThemePage* theme, void* dc, int x, int y);
 void themePageSetActive(ThemePage* theme, void* dc, int active);

@@ -617,30 +617,17 @@ static int renderNoStretch(Video* pVideo, FrameBuffer* frameBuffer, int bitCount
 
     zoom = videoRender(pVideo, frameBuffer, bitCount, zoom, 
                        dstBuffer, dstOffset, dstPitch, canChangeZoom);
-
-    if (borderWidth > 0) {
-        borderWidth *= zoom;
-        if (bitCount == 16) {
-            UInt16* ptr  = dstBuffer;                    
-            int h = zoom * 240;
-            while (h--) {
-                memset(ptr, 0, borderWidth * sizeof(UInt16));
-                memset(ptr + zoom * 320 - borderWidth, 0, borderWidth * sizeof(UInt16));
-                ptr += dstPitch / sizeof(UInt16);
-            }
-        }
-        else if (bitCount == 32) {
-            UInt32* ptr  = dstBuffer;                 
-            int h = zoom * 240;
-            while (h--) {
-                memset(ptr, 0, borderWidth * sizeof(UInt32));
-                memset(ptr + zoom * 320 - borderWidth, 0, borderWidth * sizeof(UInt32));
-                ptr += dstPitch / sizeof(UInt32);
-            }
-        }
-    }
-
     return zoom;
+}
+
+void ScaleRectInPlace(RECT* pRect, float scale)
+{
+    if (pRect != NULL) {
+        pRect->left = (LONG)(pRect->left * scale);
+        pRect->top = (LONG)(pRect->top * scale);
+        pRect->right = (LONG)(pRect->right * scale);
+        pRect->bottom = (LONG)(pRect->bottom * scale);
+    }
 }
 
 int DirectXUpdateSurface(Video* pVideo, 
@@ -808,6 +795,10 @@ int DirectXUpdateSurface(Video* pVideo,
         destRect.left   -= deltaWidth;
         destRect.top    -= deltaHeight;
         destRect.bottom -= deltaHeight;
+    }
+    if (isFullscreen) {
+        float invScale = (float)GetSystemMetrics(SM_CYSCREEN) / screenHeight;
+        ScaleRectInPlace(&destRect, invScale);
     }
 
     if (syncVblank) {

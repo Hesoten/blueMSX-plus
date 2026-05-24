@@ -61,4 +61,9 @@ HWND getMainHwnd();
 void enterDialogShow();
 void exitDialogShow();
 
+/* Show / update / hide a tracking tooltip showing a slider's value next to
+** the cursor.  *phwndTip caches the tooltip HWND (one per parent window),
+** created lazily on first show.  Pass percent < 0 to hide. */
+void win32SliderTooltipUpdate(HWND* phwndTip, HWND parent, int percent);
+
 #endif

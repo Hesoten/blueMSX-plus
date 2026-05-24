@@ -3002,9 +3002,204 @@ static int videoRender480(Video* pVideo, FrameBuffer* frame, int bitDepth, int z
     return zoom;
 }
 
+static inline UInt32 interpolateColor(UInt32 color1, UInt32 color2, int bitDepth)
+{
+    if (bitDepth == 32) {
+        return (((color1 & 0xFF00FF) + (color2 & 0xFF00FF)) >> 1 & 0xFF00FF) |
+            (((color1 & 0x00FF00) + (color2 & 0x00FF00)) >> 1 & 0x00FF00);
+    }
+    else {
+        return (((color1 & 0xF81F) + (color2 & 0xF81F)) >> 1 & 0xF81F) |
+            (((color1 & 0x07E0) + (color2 & 0x07E0)) >> 1 & 0x07E0);
+    }
+}
+
+static inline UInt32 interpolateFourColors(UInt32 colorA, UInt32 colorB, UInt32 colorC, UInt32 colorD, int bitDepth)
+{
+    if (bitDepth == 32) {
+        return ((((colorA & 0xFF00FF) + (colorB & 0xFF00FF) + (colorC & 0xFF00FF) + (colorD & 0xFF00FF)) >> 2) & 0xFF00FF) |
+            ((((colorA & 0x00FF00) + (colorB & 0x00FF00) + (colorC & 0x00FF00) + (colorD & 0x00FF00)) >> 2) & 0x00FF00);
+    }
+    else {
+        return ((((colorA & 0xF81F) + (colorB & 0xF81F) + (colorC & 0xF81F) + (colorD & 0xF81F)) >> 2) & 0xF81F) |
+            ((((colorA & 0x07E0) + (colorB & 0x07E0) + (colorC & 0x07E0) + (colorD & 0x07E0)) >> 2) & 0x07E0);
+    }
+}
+
+void upscaleImage_2x2_to_3x3(void* pDst, int width, int height, int bitDepth, int pitch)
+{
+    int bytesPerPixel = (bitDepth == 16) ? 2 : 4;
+    unsigned char* pDstBytes = (unsigned char*)pDst;
+
+    // Loop in reverse order to avoid overwriting source data in place
+    for (int y = height - 2; y >= 0; y -= 2) {
+        for (int x = width - 2; x >= 0; x -= 2) {
+            UInt32 colorA = (bitDepth == 32)
+                ? *(UInt32*)(pDstBytes + y * pitch + x * bytesPerPixel)
+                : *(UInt16*)(pDstBytes + y * pitch + x * bytesPerPixel);
+            UInt32 colorB = (bitDepth == 32)
+                ? *(UInt32*)(pDstBytes + y * pitch + (x + 1) * bytesPerPixel)
+                : *(UInt16*)(pDstBytes + y * pitch + (x + 1) * bytesPerPixel);
+            UInt32 colorC = (bitDepth == 32)
+                ? *(UInt32*)(pDstBytes + (y + 1) * pitch + x * bytesPerPixel)
+                : *(UInt16*)(pDstBytes + (y + 1) * pitch + x * bytesPerPixel);
+            UInt32 colorD = (bitDepth == 32)
+                ? *(UInt32*)(pDstBytes + (y + 1) * pitch + (x + 1) * bytesPerPixel)
+                : *(UInt16*)(pDstBytes + (y + 1) * pitch + (x + 1) * bytesPerPixel);
+
+            unsigned char* dstRow1 = pDstBytes + (y * 3 / 2) * pitch + (x * 3 / 2) * bytesPerPixel;
+            unsigned char* dstRow2 = dstRow1 + pitch;
+            unsigned char* dstRow3 = dstRow2 + pitch;
+
+            if (bitDepth == 32) {
+                *(UInt32*)(dstRow1) = colorA;
+                *(UInt32*)(dstRow1 + bytesPerPixel) = interpolateColor(colorA, colorB, bitDepth);
+                *(UInt32*)(dstRow1 + 2 * bytesPerPixel) = colorB;
+
+                *(UInt32*)(dstRow2) = interpolateColor(colorA, colorC, bitDepth);
+                *(UInt32*)(dstRow2 + bytesPerPixel) = interpolateFourColors(colorA, colorB, colorC, colorD, bitDepth);
+                *(UInt32*)(dstRow2 + 2 * bytesPerPixel) = interpolateColor(colorB, colorD, bitDepth);
+
+                *(UInt32*)(dstRow3) = colorC;
+                *(UInt32*)(dstRow3 + bytesPerPixel) = interpolateColor(colorC, colorD, bitDepth);
+                *(UInt32*)(dstRow3 + 2 * bytesPerPixel) = colorD;
+            }
+            else {
+                *(UInt16*)(dstRow1) = (UInt16)colorA;
+                *(UInt16*)(dstRow1 + bytesPerPixel) = (UInt16)interpolateColor(colorA, colorB, bitDepth);
+                *(UInt16*)(dstRow1 + 2 * bytesPerPixel) = (UInt16)colorB;
+
+                *(UInt16*)(dstRow2) = (UInt16)interpolateColor(colorA, colorC, bitDepth);
+                *(UInt16*)(dstRow2 + bytesPerPixel) = (UInt16)interpolateFourColors(colorA, colorB, colorC, colorD, bitDepth);
+                *(UInt16*)(dstRow2 + 2 * bytesPerPixel) = (UInt16)interpolateColor(colorB, colorD, bitDepth);
+
+                *(UInt16*)(dstRow3) = (UInt16)colorC;
+                *(UInt16*)(dstRow3 + bytesPerPixel) = (UInt16)interpolateColor(colorC, colorD, bitDepth);
+                *(UInt16*)(dstRow3 + 2 * bytesPerPixel) = (UInt16)colorD;
+            }
+        }
+    }
+}
+
+void upscaleImage_1x1_to_2x2(void* pDst, int width, int height, int bitDepth, int pitch)
+{
+    int bytesPerPixel = (bitDepth == 16) ? 2 : 4;
+    unsigned char* pDstBytes = (unsigned char*)pDst;
+
+    // Loop in reverse order to avoid overwriting source data in place
+    for (int y = height - 1; y >= 0; --y) {
+        for (int x = width - 1; x >= 0; --x) {
+            UInt32 srcColor = (bitDepth == 32)
+                ? *(UInt32*)(pDstBytes + y * pitch + x * bytesPerPixel)
+                : *(UInt16*)(pDstBytes + y * pitch + x * bytesPerPixel);
+
+            unsigned char* dstRow1 = pDstBytes + (y * 2) * pitch + (x * 2) * bytesPerPixel;
+            unsigned char* dstRow2 = dstRow1 + pitch;
+
+            if (bitDepth == 32) {
+                *(UInt32*)(dstRow1) = srcColor;
+                *(UInt32*)(dstRow1 + bytesPerPixel) = srcColor;
+                *(UInt32*)(dstRow2) = srcColor;
+                *(UInt32*)(dstRow2 + bytesPerPixel) = srcColor;
+            }
+            else {
+                *(UInt16*)(dstRow1) = (UInt16)srcColor;
+                *(UInt16*)(dstRow1 + bytesPerPixel) = (UInt16)srcColor;
+                *(UInt16*)(dstRow2) = (UInt16)srcColor;
+                *(UInt16*)(dstRow2 + bytesPerPixel) = (UInt16)srcColor;
+            }
+        }
+    }
+}
+
+/* In-place NN upscaler walked bottom-right to top-left so src reads
+   precede dst writes.  Used for non-integer / >2x ratios. */
+static void upscaleImage_general(void* pDst, int srcW, int srcH, int bitDepth, float scale, int pitch)
+{
+    unsigned char* pDstBytes = (unsigned char*)pDst;
+    int dstW = (int)(srcW * scale + 0.5f);
+    int dstH = (int)(srcH * scale + 0.5f);
+    int dy;
+    /* dstW is at most 320 * 8 = 2560 -- small enough for stack. */
+    int sxTbl[2560];
+
+    if (dstW > (int)(sizeof(sxTbl) / sizeof(sxTbl[0]))) {
+        dstW = (int)(sizeof(sxTbl) / sizeof(sxTbl[0]));
+    }
+
+    {
+        int dx;
+        for (dx = 0; dx < dstW; ++dx) {
+            int sx = (int)(dx / scale);
+            if (sx >= srcW) sx = srcW - 1;
+            sxTbl[dx] = sx;
+        }
+    }
+
+    for (dy = dstH - 1; dy >= 0; --dy) {
+        int sy = (int)(dy / scale);
+        int dx;
+        if (sy >= srcH) sy = srcH - 1;
+        if (bitDepth == 32) {
+            UInt32* dstRow = (UInt32*)(pDstBytes + dy * pitch);
+            UInt32* srcRow = (UInt32*)(pDstBytes + sy * pitch);
+            for (dx = dstW - 1; dx >= 0; --dx) {
+                dstRow[dx] = srcRow[sxTbl[dx]];
+            }
+        }
+        else {
+            UInt16* dstRow = (UInt16*)(pDstBytes + dy * pitch);
+            UInt16* srcRow = (UInt16*)(pDstBytes + sy * pitch);
+            for (dx = dstW - 1; dx >= 0; --dx) {
+                dstRow[dx] = srcRow[sxTbl[dx]];
+            }
+        }
+    }
+}
+
+// Main scaling function: dispatches integer/half ratios to the optimised
+// blends and everything else (2.5x, 3x, 3.5x, 4x at zoom_final 5..8) to
+// the generic NN upscaler.
+void upscaleImageInPlace(void* pDst, int width, int height, int bitDepth, float scale, int pitch)
+{
+    if (scale == 1.5f) {
+        upscaleImage_2x2_to_3x3(pDst, width, height, bitDepth, pitch);
+    }
+    else if (scale == 2.0f) {
+        upscaleImage_1x1_to_2x2(pDst, width, height, bitDepth, pitch);
+    }
+    else if (scale > 1.0f) {
+        upscaleImage_general(pDst, width, height, bitDepth, scale, pitch);
+    }
+}
+
+void clearBorders(void* pDst, FrameBuffer* frame, int dstOffset, int zoom, int bitDepth, int dstPitch)
+{
+    int bytesPerPixel = (bitDepth == 16) ? sizeof(UInt16) : sizeof(UInt32);
+    int width = 320 * zoom * bytesPerPixel;
+    int leftLen = dstOffset * zoom;
+    int frameLen = frame->maxWidth * zoom * bytesPerPixel;
+    int rightLen = width - frameLen - leftLen;
+    unsigned char* ptr = (unsigned char*)pDst;
+    int h = zoom * 240;
+
+    while (h--) {
+        if (dstOffset > 0) {
+            memset(ptr, 0, leftLen);
+        }
+        if (rightLen > 0) {
+            memset(ptr + leftLen + frameLen, 0, rightLen);
+        }
+        ptr += dstPitch;
+    }
+}
+
 int videoRender(Video* pVideo, FrameBuffer* frame, int bitDepth, int zoom, 
                 void* pDst, int dstOffset, int dstPitch, int canChangeZoom)
 {
+    int zoom_final;
+    InterlaceMode interlace = frame->interlace; // interlace mode before Deinterlacing
+
     if (frame == NULL) {
         return zoom;
     }
@@ -3013,12 +3208,15 @@ int videoRender(Video* pVideo, FrameBuffer* frame, int bitDepth, int zoom,
         frame = frameBufferDeinterlace(frame);
     }
 
+    zoom_final = zoom;
+    zoom = min(zoom, 2);
     if (frame->lines <= 240) {
         zoom = videoRender240(pVideo, frame, bitDepth, zoom, pDst, dstOffset, dstPitch, canChangeZoom);
     }
     else {
         zoom = videoRender480(pVideo, frame, bitDepth, zoom, pDst, dstOffset, dstPitch, canChangeZoom);
     }
+    clearBorders(pDst, frame, dstOffset, zoom, bitDepth, dstPitch);
 
     switch (bitDepth) {
     case 16:
@@ -3026,7 +3224,7 @@ int videoRender(Video* pVideo, FrameBuffer* frame, int bitDepth, int zoom,
             colorSaturation_16(pDst, 320 * zoom, 240 * zoom, dstPitch, pVideo->colorSaturationWidth);
         }
 
-        if (pVideo->scanLinesEnable && !frame->interlaceRaster) {
+        if (pVideo->scanLinesEnable && (interlace == INTERLACE_NONE) && !frame->interlaceRaster) {
             scanLines_16(pDst, 320 * zoom, 240 * zoom, dstPitch, pVideo->scanLinesPct);
         }
 
@@ -3036,12 +3234,15 @@ int videoRender(Video* pVideo, FrameBuffer* frame, int bitDepth, int zoom,
             colorSaturation_32(pDst, 320 * zoom, 240 * zoom, dstPitch, pVideo->colorSaturationWidth);
         }
 
-        if (pVideo->scanLinesEnable && !frame->interlaceRaster) {
+        if (pVideo->scanLinesEnable && (interlace == INTERLACE_NONE) && !frame->interlaceRaster) {
             scanLines_32(pDst, 320 * zoom, 240 * zoom, dstPitch, pVideo->scanLinesPct);
         }
         break;
     }
+    if (zoom_final >= 3) {
+        upscaleImageInPlace(pDst, 640, 480, bitDepth, (float)zoom_final / zoom, dstPitch);
+    }
 
-    return zoom;
+    return zoom_final;
 }
 #endif

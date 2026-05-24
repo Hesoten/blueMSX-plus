@@ -151,8 +151,14 @@ void langInitGerman(LanguageStrings* ls)
 
     ls->menuPrnFormfeed          = "Seitenvorschub";
 
-    ls->menuZoomNormal           = "Normale Größe";
-    ls->menuZoomDouble           = "Doppelte Größe";
+    ls->menuZoom1x               = "1x-Fenster";
+    ls->menuZoom2x               = "2x-Fenster";
+    ls->menuZoom3x               = "3x-Fenster";
+    ls->menuZoom4x               = "4x-Fenster";
+    ls->menuZoom5x               = "5x-Fenster";
+    ls->menuZoom6x               = "6x-Fenster";
+    ls->menuZoom7x               = "7x-Fenster";
+    ls->menuZoom8x               = "8x-Fenster";
     ls->menuZoomFullscreen       = "Ganzer Bildschirm";
     
     ls->menuPropsEmulation       = "Emulation";
@@ -333,7 +339,6 @@ void langInitGerman(LanguageStrings* ls)
     ls->propMonTypeText          = "Typ des Monitors:";
     ls->propMonEmuText           = "Monitoremulation:";
     ls->propVideoTypeText        = "Videotyp:";
-    ls->propWindowSizeText       = "Fenstergröße:";
     ls->propMonHorizStretch      = " Horizontale Ausdehnung";
     ls->propMonVertStretch       = " Vertikale Ausdehnung";
     ls->propMonDeInterlace       = " De-interlace";
@@ -453,9 +458,6 @@ void langInitGerman(LanguageStrings* ls)
     ls->enumVideoEmuScale2x      = "Scale 2x";
     ls->enumVideoEmuHq2x         = "Hq2x";
 
-    ls->enumVideoSize1x          = "Normal - 320x200";
-    ls->enumVideoSize2x          = "Double - 640x400";
-    ls->enumVideoSizeFullscreen  = "Fullscreen";
 
     ls->enumVideoDrvDirectDrawHW = "DirectDraw HW accel."; 
     ls->enumVideoDrvDirectDraw   = "DirectDraw";
@@ -630,8 +632,14 @@ void langInitGerman(LanguageStrings* ls)
     ls->shortcutResetHard          = "Hard-Reset";
     ls->shortcutResetSoft          = "Soft-Reset";
     ls->shortcutResetClean         = "Allgemeiner Reset";
-    ls->shortcutSizeSmall          = "Kleine Fenstergröße einstellen";
-    ls->shortcutSizeNormal         = "Normale Fenstergröße einstellen";
+    ls->shortcutSize1x             = "1x-Fenstergröße setzen";
+    ls->shortcutSize2x             = "2x-Fenstergröße setzen";
+    ls->shortcutSize3x             = "3x-Fenstergröße setzen";
+    ls->shortcutSize4x             = "4x-Fenstergröße setzen";
+    ls->shortcutSize5x             = "5x-Fenstergröße setzen";
+    ls->shortcutSize6x             = "6x-Fenstergröße setzen";
+    ls->shortcutSize7x             = "7x-Fenstergröße setzen";
+    ls->shortcutSize8x             = "8x-Fenstergröße setzen";
     ls->shortcutSizeFullscreen     = "Volle Bildschirmgröße einstellen";
     ls->shortcutToggleFullscren    = "Bildschirmgröße umschalten";
     ls->shortcutSizeMinimized      = "Fenster minimieren";

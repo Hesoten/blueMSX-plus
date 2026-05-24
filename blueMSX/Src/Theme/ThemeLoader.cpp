@@ -57,6 +57,8 @@ struct ThemeDefaultInfo {
 } themeDefaultInfo[] = {
     { "small",           320, 240 },
     { "normal",          640, 480 },
+    { "triple",          960, 720 },
+    { "quad",           1280, 960 },
     { "fullscreen",      640, 480 }
 };
 
@@ -81,7 +83,7 @@ const char* fullPath(const char* filename)
     return path;
 }
 
-enum ThemeInfo { THEME_SMALL = 0, THEME_NORMAL = 1, THEME_FULLSCREEN = 2 };
+enum ThemeInfo { THEME_SMALL = 0, THEME_NORMAL = 1, THEME_TRIPLE = 2, THEME_QUAD = 3, THEME_FULLSCREEN = 4 };
 
 static ButtonEvent getAction(TiXmlElement* el, const char* actionTag, 
                              const char* arg1Tag, const char* arg2Tag, LONG_PTR* arg1, LONG_PTR* arg2,
@@ -181,8 +183,8 @@ static ButtonEvent getAction(TiXmlElement* el, const char* actionTag,
     if (0 == strcmp(action, "cas-toggleautorewind"))    return (ButtonEvent)actionToggleCasAutoRewind;
     if (0 == strcmp(action, "cas-save"))                return (ButtonEvent)actionCasSave;
     
-    if (0 == strcmp(action, "window-small"))            return (ButtonEvent)actionWindowSizeSmall;
-    if (0 == strcmp(action, "window-normal"))           return (ButtonEvent)actionWindowSizeNormal;
+    if (0 == strcmp(action, "window-small"))            return (ButtonEvent)actionWindowSize1x;
+    if (0 == strcmp(action, "window-normal"))           return (ButtonEvent)actionWindowSize2x;
     if (0 == strcmp(action, "window-minimized"))        return (ButtonEvent)actionWindowSizeMinimized;
     if (0 == strcmp(action, "window-fullscreen"))       return (ButtonEvent)actionWindowSizeFullscreen;
     if (0 == strcmp(action, "window-togglefullscreen")) return (ButtonEvent)actionFullscreenToggle;
@@ -1367,14 +1369,18 @@ extern "C" ThemeCollection* themeLoad(const char* themePath)
 
     strcpy(themeCollection->name, name);
 
-    themeCollection->little          = loadMainTheme(themeCollection, root, THEME_SMALL);
-    themeCollection->normal          = loadMainTheme(themeCollection, root, THEME_NORMAL);
+    themeCollection->zoom[1]         = loadMainTheme(themeCollection, root, THEME_SMALL);
+    themeCollection->zoom[2]         = loadMainTheme(themeCollection, root, THEME_NORMAL);
+    themeCollection->zoom[3]         = loadMainTheme(themeCollection, root, THEME_TRIPLE);
+    themeCollection->zoom[4]         = loadMainTheme(themeCollection, root, THEME_QUAD);
+    /* zoom[5..8] are not loaded from XML themes; they fall back to the
+       default theme via createThemeList() below. */
     themeCollection->fullscreen      = loadMainTheme(themeCollection, root, THEME_FULLSCREEN);
 
     int count = loadThemeWindows(themeCollection, root);
 
-    if (count == 0 && themeCollection->little == NULL && themeCollection->normal == NULL &&
-        themeCollection->fullscreen == NULL) 
+    if (count == 0 && themeCollection->zoom[1] == NULL && themeCollection->zoom[2] == NULL &&
+        themeCollection->fullscreen == NULL)
     {
         themeCollectionDestroy(themeCollection);
         themeCollection = NULL;
@@ -1402,9 +1408,10 @@ extern "C" ThemeCollection** createThemeList(ThemeCollection* defaultTheme)
         strcat(themeName, singleTheme);
         ThemeCollection* themeCollection = themeLoad(themeName);
         if (themeCollection != NULL) {
-            if (themeCollection->little == NULL)          themeCollection->little =          themeList[0]->little;
-            if (themeCollection->normal == NULL)          themeCollection->normal =          themeList[0]->normal;
-            if (themeCollection->fullscreen == NULL)      themeCollection->fullscreen =      themeList[0]->fullscreen;
+            for (int z = 1; z < THEME_ZOOM_COUNT; z++) {
+                if (themeCollection->zoom[z] == NULL) themeCollection->zoom[z] = themeList[0]->zoom[z];
+            }
+            if (themeCollection->fullscreen == NULL) themeCollection->fullscreen = themeList[0]->fullscreen;
             themeList[index++] = themeCollection;
         }
 
@@ -1429,9 +1436,10 @@ extern "C" ThemeCollection** createThemeList(ThemeCollection* defaultTheme)
             for (int i = 0; i < glob->count; i++) {
                 ThemeCollection* themeCollection = themeLoad(glob->pathVector[i]);
                 if (themeCollection != NULL) {
-                    if (themeCollection->little == NULL)          themeCollection->little =          themeList[0]->little;
-                    if (themeCollection->normal == NULL)          themeCollection->normal =          themeList[0]->normal;
-                    if (themeCollection->fullscreen == NULL)      themeCollection->fullscreen =      themeList[0]->fullscreen;
+                    for (int z = 1; z < THEME_ZOOM_COUNT; z++) {
+                        if (themeCollection->zoom[z] == NULL) themeCollection->zoom[z] = themeList[0]->zoom[z];
+                    }
+                    if (themeCollection->fullscreen == NULL) themeCollection->fullscreen = themeList[0]->fullscreen;
                     themeList[index++] = themeCollection;
                 }
             }

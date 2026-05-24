@@ -83,10 +83,16 @@
 #define ID_RUN_CLEANRESET               40030
 
 #define ID_VIDEO_AUTODETECT             40031
-#define ID_SIZE_NORMAL                  40032
+#define ID_SIZE_X1                      40032
 #define ID_SIZE_X2                      40033
-#define ID_SIZE_FULLSCREEN              40034
-#define ID_SIZE_MINIMIZED               40035
+#define ID_SIZE_X3                      40034
+#define ID_SIZE_X4                      40035
+#define ID_SIZE_X5                      40053
+#define ID_SIZE_X6                      40054
+#define ID_SIZE_X7                      40055
+#define ID_SIZE_X8                      40056
+#define ID_SIZE_FULLSCREEN              40068
+#define ID_SIZE_MINIMIZED               40069
 
 #define ID_OPTIONS_EMULATION            40041
 #define ID_OPTIONS_AUDIO                40042
@@ -1011,11 +1017,29 @@ static HMENU menuCreateZoom(Properties* pProperties, Shortcuts* shortcuts)
 
     setMenuColor(hMenu);
 
-    sprintf(langBuffer, "%s      \t%hs", langMenuZoomNormal(), shortcutsToString(shortcuts->windowSizeSmall));
-    AppendMenuU(hMenu, MF_STRING | (pProperties->video.windowSize == P_VIDEO_SIZEX1 ? MFS_CHECKED : 0), ID_SIZE_NORMAL, langBuffer);
+    sprintf(langBuffer, "%s      \t%hs", langMenuZoom1x(), shortcutsToString(shortcuts->windowSize1x));
+    AppendMenuU(hMenu, MF_STRING | (pProperties->video.windowSize == P_VIDEO_SIZEX1 ? MFS_CHECKED : 0), ID_SIZE_X1, langBuffer);
 
-    sprintf(langBuffer, "%s      \t%hs", langMenuZoomDouble(), shortcutsToString(shortcuts->windowSizeNormal));
+    sprintf(langBuffer, "%s      \t%hs", langMenuZoom2x(), shortcutsToString(shortcuts->windowSize2x));
     AppendMenuU(hMenu, MF_STRING | (pProperties->video.windowSize == P_VIDEO_SIZEX2 ? MFS_CHECKED : 0), ID_SIZE_X2, langBuffer);
+
+    sprintf(langBuffer, "%s      \t%hs", langMenuZoom3x(), shortcutsToString(shortcuts->windowSize3x));
+    AppendMenuU(hMenu, MF_STRING | (pProperties->video.windowSize == P_VIDEO_SIZEX3 ? MFS_CHECKED : 0), ID_SIZE_X3, langBuffer);
+
+    sprintf(langBuffer, "%s      \t%hs", langMenuZoom4x(), shortcutsToString(shortcuts->windowSize4x));
+    AppendMenuU(hMenu, MF_STRING | (pProperties->video.windowSize == P_VIDEO_SIZEX4 ? MFS_CHECKED : 0), ID_SIZE_X4, langBuffer);
+
+    sprintf(langBuffer, "%s      \t%hs", langMenuZoom5x(), shortcutsToString(shortcuts->windowSize5x));
+    AppendMenuU(hMenu, MF_STRING | (pProperties->video.windowSize == P_VIDEO_SIZEX5 ? MFS_CHECKED : 0), ID_SIZE_X5, langBuffer);
+
+    sprintf(langBuffer, "%s      \t%hs", langMenuZoom6x(), shortcutsToString(shortcuts->windowSize6x));
+    AppendMenuU(hMenu, MF_STRING | (pProperties->video.windowSize == P_VIDEO_SIZEX6 ? MFS_CHECKED : 0), ID_SIZE_X6, langBuffer);
+
+    sprintf(langBuffer, "%s      \t%hs", langMenuZoom7x(), shortcutsToString(shortcuts->windowSize7x));
+    AppendMenuU(hMenu, MF_STRING | (pProperties->video.windowSize == P_VIDEO_SIZEX7 ? MFS_CHECKED : 0), ID_SIZE_X7, langBuffer);
+
+    sprintf(langBuffer, "%s      \t%hs", langMenuZoom8x(), shortcutsToString(shortcuts->windowSize8x));
+    AppendMenuU(hMenu, MF_STRING | (pProperties->video.windowSize == P_VIDEO_SIZEX8 ? MFS_CHECKED : 0), ID_SIZE_X8, langBuffer);
 
     sprintf(langBuffer, "%s      \t%hs", langMenuZoomFullscreen(), shortcutsToString(shortcuts->windowSizeFullscreen));
     AppendMenuU(hMenu, MF_STRING | (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN ? MFS_CHECKED : 0), ID_SIZE_FULLSCREEN, langBuffer);
@@ -1399,7 +1423,7 @@ void addMenuItem(char* text, void (*action)(int, int), int append)
     menuInfo[menuItemCount].x = offset;
     menuInfo[menuItemCount].y = 0;
     menuInfo[menuItemCount].w = size.cx + 17;
-    menuInfo[menuItemCount].h = GetSystemMetricsForDpi(SM_CYMENU, GetDpiForWindow(menuHwnd));
+    menuInfo[menuItemCount].h = archMenuStripHeight();
     menuInfo[menuItemCount].text = text;
     menuInfo[menuItemCount].focused = 0;
     menuInfo[menuItemCount].action = action;
@@ -1414,6 +1438,50 @@ int menuExitMenuLoop() {
         return 1;
     }
     return 0;
+}
+
+static UINT g_archDpiOverride = 0;
+
+void archSetDpiOverride(unsigned int dpi)
+{
+    g_archDpiOverride = (UINT)dpi;
+}
+
+/* Menu font: 11pt to match Win11 modern menu surfaces; _BASE = system's
+   9pt SM_CYMENU calibration.  Both strip height and text scale off the
+   PT / PT_BASE ratio so they grow together. */
+#define MENU_FONT_PT       11
+#define MENU_FONT_PT_BASE   9
+
+/* Menu strip height scaled by PT/PT_BASE to fit our larger font.
+   DPI priority: archSetDpiOverride > GetDpiForWindow > GetDpiForSystem. */
+int archMenuStripHeight(void)
+{
+    typedef UINT (WINAPI *PFN_GETDPIFORWINDOW)(HWND);
+    typedef int  (WINAPI *PFN_GETDPIFORSYSTEM)(VOID);
+    typedef int  (WINAPI *PFN_GETSYSMETRICSDPI)(int, UINT);
+    static PFN_GETDPIFORWINDOW   pGetDpiForWindow   = (PFN_GETDPIFORWINDOW)(LONG_PTR)-1;
+    static PFN_GETDPIFORSYSTEM   pGetDpiForSystem   = (PFN_GETDPIFORSYSTEM)(LONG_PTR)-1;
+    static PFN_GETSYSMETRICSDPI  pGetSysMetricsDpi  = (PFN_GETSYSMETRICSDPI)(LONG_PTR)-1;
+    int sysH;
+
+    if (pGetDpiForSystem == (PFN_GETDPIFORSYSTEM)(LONG_PTR)-1) {
+        HMODULE u32 = GetModuleHandleA("user32.dll");
+        pGetDpiForWindow  = (PFN_GETDPIFORWINDOW)GetProcAddress(u32, "GetDpiForWindow");
+        pGetDpiForSystem  = (PFN_GETDPIFORSYSTEM)GetProcAddress(u32, "GetDpiForSystem");
+        pGetSysMetricsDpi = (PFN_GETSYSMETRICSDPI)GetProcAddress(u32, "GetSystemMetricsForDpi");
+    }
+    if (pGetSysMetricsDpi) {
+        UINT dpi = g_archDpiOverride;
+        if (dpi == 0 && menuHwnd && pGetDpiForWindow) dpi = pGetDpiForWindow(menuHwnd);
+        if (dpi == 0 && pGetDpiForSystem) dpi = pGetDpiForSystem();
+        if (dpi != 0) {
+            sysH = pGetSysMetricsDpi(SM_CYMENU, dpi);
+            return MulDiv(sysH, MENU_FONT_PT, MENU_FONT_PT_BASE);
+        }
+    }
+    sysH = GetSystemMetrics(SM_CYMENU);
+    return MulDiv(sysH, MENU_FONT_PT, MENU_FONT_PT_BASE);
 }
 
 int menuShow(int show) 
@@ -1435,7 +1503,7 @@ void menuSetInfo(COLORREF color, COLORREF focusColor, COLORREF textColor, int x,
     menuX = x;
     menuY = y;
 
-    SetWindowPos(menuHwnd, HWND_TOP, x, y, width, GetSystemMetricsForDpi(SM_CYMENU, GetDpiForWindow(menuHwnd)), 0);
+    SetWindowPos(menuHwnd, HWND_TOP, x, y, width, archMenuStripHeight(), 0);
 
     hdc = GetDC(menuHwnd);
     SetTextColor(hdc, textColor);
@@ -1498,6 +1566,68 @@ void menuUpdate(Properties* pProperties,
     InvalidateRect(menuHwnd, NULL, TRUE);
 }
 
+/* Recreate the menu font for the given DPI.  Keep the system typeface,
+   override lfHeight to MulDiv(MENU_FONT_PT, dpi, 72) so the size
+   doesn't compound off SPI's already-scaled metric. */
+static void menuRebuildFont(UINT dpi)
+{
+    typedef UINT (WINAPI *PFN_GDFW)(HWND);
+    static PFN_GDFW pGdfw = (PFN_GDFW)(LONG_PTR)-1;
+    NONCLIENTMETRICS ncm;
+    HFONT newFont;
+
+    if (pGdfw == (PFN_GDFW)(LONG_PTR)-1) {
+        pGdfw = (PFN_GDFW)GetProcAddress(GetModuleHandleA("user32.dll"),
+                                         "GetDpiForWindow");
+    }
+
+    if (dpi == 0) dpi = g_archDpiOverride;
+    if (dpi == 0 && menuHwnd && pGdfw) dpi = pGdfw(menuHwnd);
+    if (dpi == 0) dpi = 96;
+
+    memset(&ncm, 0, sizeof(ncm));
+    ncm.cbSize = sizeof(ncm);
+    SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0);
+
+    /* Keep the OS menu typeface from lfMenuFont, just pin the height
+    ** to MENU_FONT_PT at the target dpi. */
+    ncm.lfMenuFont.lfHeight = -MulDiv(MENU_FONT_PT, (int)dpi, 72);
+
+    newFont = CreateFontIndirect(&ncm.lfMenuFont);
+    if (newFont) {
+        if (g_menuFont) DeleteObject(g_menuFont);
+        g_menuFont = newFont;
+    }
+}
+
+/* Rebuild the menu font + recompute cached item widths (item w is sticky
+   from addMenuItem time, h is read live).  Caller repaints the strip. */
+void menuRebuildForDpi(unsigned int dpi)
+{
+    HDC hdc;
+    int offset;
+    int i;
+    int stripH;
+    if (!menuHwnd) return;
+    menuRebuildFont(dpi);
+
+    hdc = GetDC(menuHwnd);
+    if (g_menuFont) SelectObject(hdc, g_menuFont);
+    offset = 0;
+    stripH = archMenuStripHeight();
+    for (i = 0; i < menuItemCount; i++) {
+        SIZE size;
+        GetTextExtentPoint32U(hdc, menuInfo[i].text, (int)strlen(menuInfo[i].text), &size);
+        menuInfo[i].x = offset;
+        menuInfo[i].w = size.cx + 17;
+        menuInfo[i].h = stripH;
+        offset += menuInfo[i].w;
+    }
+    ReleaseDC(menuHwnd, hdc);
+
+    InvalidateRect(menuHwnd, NULL, TRUE);
+}
+
 void menuCreate(HWND parent)
 {
     static WNDCLASSEX wndClass;
@@ -1528,16 +1658,9 @@ void menuCreate(HWND parent)
     
     hdc = GetDC(menuHwnd);
     SelectObject(hdc, CreatePen(PS_NULL, 0, 0));
-    {
-        UINT dpiY = GetDeviceCaps(hdc, LOGPIXELSY);
-        NONCLIENTMETRICS ncm;
-        ncm.cbSize = sizeof(ncm);
-        SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0);
-        ncm.lfMenuFont.lfHeight = MulDiv(ncm.lfMenuFont.lfHeight, dpiY, 96);
-        g_menuFont = CreateFontIndirect(&ncm.lfMenuFont);
-        SelectObject(hdc, g_menuFont);
-    }
-    SetBkMode (hdc, TRANSPARENT);
+    menuRebuildFont(0);  /* picks up GetDpiForWindow(menuHwnd) */
+    if (g_menuFont) SelectObject(hdc, g_menuFont);
+    SetBkMode(hdc, TRANSPARENT);
     SetTextColor(hdc, 0);
     ReleaseDC(menuHwnd, hdc);
 }
@@ -1962,8 +2085,14 @@ int menuCommand(Properties* pProperties, int command)
     case ID_FILE_VIDEOCAPSTOP:              actionVideoCaptureStop();       return 0;
     case ID_FILE_VIDEOCAPSAVE:              actionVideoCaptureSave();       return 0;
     case ID_FILE_EXIT:                      actionQuit();                   return 0;
-    case ID_SIZE_NORMAL:                    actionWindowSizeSmall();        return 0;
-    case ID_SIZE_X2:                        actionWindowSizeNormal();       return 0;
+    case ID_SIZE_X1:                        actionWindowSize1x();           return 0;
+    case ID_SIZE_X2:                        actionWindowSize2x();           return 0;
+    case ID_SIZE_X3:                        actionWindowSize3x();           return 0;
+    case ID_SIZE_X4:                        actionWindowSize4x();           return 0;
+    case ID_SIZE_X5:                        actionWindowSize5x();           return 0;
+    case ID_SIZE_X6:                        actionWindowSize6x();           return 0;
+    case ID_SIZE_X7:                        actionWindowSize7x();           return 0;
+    case ID_SIZE_X8:                        actionWindowSize8x();           return 0;
     case ID_SIZE_MINIMIZED:                 actionWindowSizeMinimized();    return 0;
     case ID_SIZE_FULLSCREEN:                actionWindowSizeFullscreen();   return 0;
     case ID_RUN_RUN:                        actionEmuTogglePause();         return 0;

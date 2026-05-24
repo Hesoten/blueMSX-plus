@@ -151,8 +151,14 @@ void langInitPortuguese(LanguageStrings* ls)
 
     ls->menuPrnFormfeed         = "Página seguinte"; 
 
-    ls->menuZoomNormal          = "Tamanho Pequeno";
-    ls->menuZoomDouble          = "Tamanho Normal";
+    ls->menuZoom1x              = "Janela 1x";
+    ls->menuZoom2x              = "Janela 2x";
+    ls->menuZoom3x              = "Janela 3x";
+    ls->menuZoom4x              = "Janela 4x";
+    ls->menuZoom5x              = "Janela 5x";
+    ls->menuZoom6x              = "Janela 6x";
+    ls->menuZoom7x              = "Janela 7x";
+    ls->menuZoom8x              = "Janela 8x";
     ls->menuZoomFullscreen      = "Tela Cheia";
     
     ls->menuPropsEmulation      = "Emulação";
@@ -333,7 +339,6 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->propMonTypeText         = "Tipo de Monitor:";
     ls->propMonEmuText          = "Emulação de Monitor:";
     ls->propVideoTypeText       = "Tipo de Video:";
-    ls->propWindowSizeText      = "Tamanho Janela:";
     ls->propMonHorizStretch     = " Estiramento Horizontal"; 
     ls->propMonVertStretch      = " Estiramento Vertical"; 
     ls->propMonDeInterlace      = " De-entrelaçar";
@@ -453,9 +458,6 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->enumVideoEmuScale2x     = "Escala 2x";
     ls->enumVideoEmuHq2x        = "Hq2x"; 
 
-    ls->enumVideoSize1x         = "Normal - 320x200";
-    ls->enumVideoSize2x         = "Duplo  - 640x400";
-    ls->enumVideoSizeFullscreen = "Tela Cheia";
 
     ls->enumVideoDrvDirectDrawHW= "DirectDraw HW acel.";
     ls->enumVideoDrvDirectDraw  = "DirectDraw";
@@ -630,8 +632,14 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->shortcutResetHard       = "Reset Hardware";
     ls->shortcutResetSoft       = "Reset Software";
     ls->shortcutResetClean      = "Reset Completo";
-    ls->shortcutSizeSmall       = "Passar em modo Janela Tamanho Pequeno";
-    ls->shortcutSizeNormal      = "Passar em modo Janela Tamanho Normal";
+    ls->shortcutSize1x          = "Definir janela 1x";
+    ls->shortcutSize2x          = "Definir janela 2x";
+    ls->shortcutSize3x          = "Definir janela 3x";
+    ls->shortcutSize4x          = "Definir janela 4x";
+    ls->shortcutSize5x          = "Definir janela 5x";
+    ls->shortcutSize6x          = "Definir janela 6x";
+    ls->shortcutSize7x          = "Definir janela 7x";
+    ls->shortcutSize8x          = "Definir janela 8x";
     ls->shortcutSizeFullscreen  = "Passar em modo Tela Cheia";
     ls->shortcutSizeMinimized   = "Reduzir a Janela"; 
     ls->shortcutToggleFullscren = "Troca de modo Janela/Tela Cheia";

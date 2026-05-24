@@ -151,8 +151,14 @@ void langInitFrench(LanguageStrings* ls)
 
     ls->menuPrnFormfeed         = "Page suivante"; 
 
-    ls->menuZoomNormal          = "Petite fenêtre";
-    ls->menuZoomDouble          = "Fenêtre normale";
+    ls->menuZoom1x              = "Fenêtre 1x";
+    ls->menuZoom2x              = "Fenêtre 2x";
+    ls->menuZoom3x              = "Fenêtre 3x";
+    ls->menuZoom4x              = "Fenêtre 4x";
+    ls->menuZoom5x              = "Fenêtre 5x";
+    ls->menuZoom6x              = "Fenêtre 6x";
+    ls->menuZoom7x              = "Fenêtre 7x";
+    ls->menuZoom8x              = "Fenêtre 8x";
     ls->menuZoomFullscreen      = "Plein écran";
 
     ls->menuPropsEmulation      = "Emulation";
@@ -334,7 +340,6 @@ void langInitFrench(LanguageStrings* ls)
     ls->propMonTypeText         = "Type de moniteur:";
     ls->propMonEmuText          = "Emulation du moniteur:";
     ls->propVideoTypeText       = "Mode:";
-    ls->propWindowSizeText      = "Taille de la fenêtre:";
     ls->propMonHorizStretch     = " Etirement Horizontal";
     ls->propMonVertStretch      = " Etirement Vertical"; 
     ls->propMonDeInterlace      = " Dé-entrelacé";
@@ -453,9 +458,6 @@ void langInitFrench(LanguageStrings* ls)
     ls->enumVideoEmuScale2x     = "Echelle 2x";
     ls->enumVideoEmuHq2x        = "Hq2x"; 
 
-    ls->enumVideoSize1x         = "Normal - 320x200";
-    ls->enumVideoSize2x         = "Double - 640x400";
-    ls->enumVideoSizeFullscreen = "Plein écran";
 
     ls->enumVideoDrvDirectDrawHW = "DirectDraw HW accél.";
     ls->enumVideoDrvDirectDraw  = "DirectDraw";
@@ -630,8 +632,14 @@ void langInitFrench(LanguageStrings* ls)
     ls->shortcutResetHard       = "Reset matériel";
     ls->shortcutResetSoft       = "Reset logiciel";
     ls->shortcutResetClean      = "Reset complet";
-    ls->shortcutSizeSmall       = "Passer en mode petite fenêtre";
-    ls->shortcutSizeNormal      = "Passer en mode fenêtre normal";
+    ls->shortcutSize1x          = "Définir la fenêtre à 1x";
+    ls->shortcutSize2x          = "Définir la fenêtre à 2x";
+    ls->shortcutSize3x          = "Définir la fenêtre à 3x";
+    ls->shortcutSize4x          = "Définir la fenêtre à 4x";
+    ls->shortcutSize5x          = "Définir la fenêtre à 5x";
+    ls->shortcutSize6x          = "Définir la fenêtre à 6x";
+    ls->shortcutSize7x          = "Définir la fenêtre à 7x";
+    ls->shortcutSize8x          = "Définir la fenêtre à 8x";
     ls->shortcutSizeFullscreen  = "Passer en mode plein écran";
     ls->shortcutSizeMinimized   = "Réduire la fenêtre";
     ls->shortcutToggleFullscren = "Balance mode fenêtre/mode plein écran";

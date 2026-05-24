@@ -152,8 +152,14 @@ void langInitItalian(LanguageStrings* ls)
 
     ls->menuPrnFormfeed                 = "Salta alla pagina successiva";
 
-    ls->menuZoomNormal                  = "Finestra ridotta";
-    ls->menuZoomDouble                  = "Finestra normale";
+    ls->menuZoom1x                      = "Finestra 1x";
+    ls->menuZoom2x                      = "Finestra 2x";
+    ls->menuZoom3x                      = "Finestra 3x";
+    ls->menuZoom4x                      = "Finestra 4x";
+    ls->menuZoom5x                      = "Finestra 5x";
+    ls->menuZoom6x                      = "Finestra 6x";
+    ls->menuZoom7x                      = "Finestra 7x";
+    ls->menuZoom8x                      = "Finestra 8x";
     ls->menuZoomFullscreen              = "Schermo intero";
     
     ls->menuPropsEmulation              = "Emulazione...";
@@ -334,7 +340,6 @@ void langInitItalian(LanguageStrings* ls)
     ls->propMonTypeText                 = "Tipo di schermo:";
     ls->propMonEmuText                  = "Segnale video emulato:";
     ls->propVideoTypeText               = "Video:";
-    ls->propWindowSizeText              = "Dimensioni della finestra:";
     ls->propMonHorizStretch             = " Allungamento orizzontale";
     ls->propMonVertStretch              = " Allungamento verticale";
     ls->propMonDeInterlace              = " Deinterlacciato";
@@ -454,9 +459,6 @@ void langInitItalian(LanguageStrings* ls)
     ls->enumVideoEmuScale2x             = "In scala 2:1";
     ls->enumVideoEmuHq2x                = "In scala 2:1 ad alta qualità";
 
-    ls->enumVideoSize1x                 = "Normale - 320x200";
-    ls->enumVideoSize2x                 = "Doppia - 640x400";
-    ls->enumVideoSizeFullscreen         = "Schermo intero";
 
     ls->enumVideoDrvDirectDrawHW        = "DirectDraw HW accelerato";
     ls->enumVideoDrvDirectDraw          = "DirectDraw";
@@ -631,8 +633,14 @@ void langInitItalian(LanguageStrings* ls)
     ls->shortcutResetHard               = "Riavvia hardware";
     ls->shortcutResetSoft               = "Riavvia software";
     ls->shortcutResetClean              = "Espelli e riavvia";
-    ls->shortcutSizeSmall               = "Passa alla finestra ridotta";
-    ls->shortcutSizeNormal              = "Passa alla finestra normale";
+    ls->shortcutSize1x                  = "Imposta finestra 1x";
+    ls->shortcutSize2x                  = "Imposta finestra 2x";
+    ls->shortcutSize3x                  = "Imposta finestra 3x";
+    ls->shortcutSize4x                  = "Imposta finestra 4x";
+    ls->shortcutSize5x                  = "Imposta finestra 5x";
+    ls->shortcutSize6x                  = "Imposta finestra 6x";
+    ls->shortcutSize7x                  = "Imposta finestra 7x";
+    ls->shortcutSize8x                  = "Imposta finestra 8x";
     ls->shortcutSizeFullscreen          = "Passa a schermo intero";
     ls->shortcutSizeMinimized           = "Riduci a icona la finestra";
     ls->shortcutToggleFullscren         = "Visualizza a schermo intero o finestra";

@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -596,30 +599,28 @@ void actionDiskQuickChange() {
     archUpdateMenu(0);
 }
 
-void actionWindowSizeSmall() {
-    state.windowedSize = P_VIDEO_SIZEX1;
-    if (state.properties->video.windowSize != P_VIDEO_SIZEX1) {
-        state.properties->video.windowSize = P_VIDEO_SIZEX1;
+static void actionChangeWindowSize(int zoom) {
+    if (zoom != P_VIDEO_SIZEFULLSCREEN) {
+        state.windowedSize = zoom;
+    }
+    if (state.properties->video.windowSize != zoom) {
+        state.properties->video.windowSize = zoom;
         state.properties->video.windowSizeChanged = 1;
         archUpdateWindow();
     }
 }
 
-void actionWindowSizeNormal() {
-    state.windowedSize = P_VIDEO_SIZEX2;
-    if (state.properties->video.windowSize != P_VIDEO_SIZEX2) {
-        state.properties->video.windowSize = P_VIDEO_SIZEX2;
-        state.properties->video.windowSizeChanged = 1;
-        archUpdateWindow();
-    }
-}
+void actionWindowSize1x()     { actionChangeWindowSize(P_VIDEO_SIZEX1); }
+void actionWindowSize2x()     { actionChangeWindowSize(P_VIDEO_SIZEX2); }
+void actionWindowSize3x()     { actionChangeWindowSize(P_VIDEO_SIZEX3); }
+void actionWindowSize4x()     { actionChangeWindowSize(P_VIDEO_SIZEX4); }
+void actionWindowSize5x()     { actionChangeWindowSize(P_VIDEO_SIZEX5); }
+void actionWindowSize6x()     { actionChangeWindowSize(P_VIDEO_SIZEX6); }
+void actionWindowSize7x()     { actionChangeWindowSize(P_VIDEO_SIZEX7); }
+void actionWindowSize8x()     { actionChangeWindowSize(P_VIDEO_SIZEX8); }
 
 void actionWindowSizeFullscreen() {
-    if (state.properties->video.windowSize != P_VIDEO_SIZEFULLSCREEN) {
-        state.properties->video.windowSize = P_VIDEO_SIZEFULLSCREEN;
-        state.properties->video.windowSizeChanged = 1;
-        archUpdateWindow();
-    }
+    actionChangeWindowSize(P_VIDEO_SIZEFULLSCREEN);
 }
 
 void actionWindowSizeMinimized() {
@@ -632,12 +633,7 @@ void actionMaxSpeedToggle() {
 
 void actionFullscreenToggle() {
     if (state.properties->video.windowSize == P_VIDEO_SIZEFULLSCREEN) {
-        if (state.windowedSize == P_VIDEO_SIZEX2) {
-            actionWindowSizeNormal();
-        }
-        else {
-            actionWindowSizeSmall();
-        }
+        actionChangeWindowSize(state.windowedSize);
     }
     else {
         actionWindowSizeFullscreen();
@@ -1360,10 +1356,10 @@ void actionSetMouseCapture(int value) {
 void actionSetFullscreen(int value) {
     if (value == 0 && state.properties->video.windowSize == P_VIDEO_SIZEFULLSCREEN) {
         if (state.windowedSize == P_VIDEO_SIZEX2) {
-            actionWindowSizeNormal();
+            actionWindowSize2x();
         }
         else {
-            actionWindowSizeSmall();
+            actionWindowSize1x();
         }
     }
     else if (state.properties->video.windowSize != P_VIDEO_SIZEFULLSCREEN) {

@@ -119,7 +119,6 @@
 #define IDC_MONTYPE                     1007
 #define IDC_PALEMU                      1008
 #define IDC_SNDFREQ                     1009
-#define IDC_MONSIZE                     1010
 #define IDC_SNDDRIVER                   1011
 #define IDC_EMUFAMILY                   1012
 #define IDC_VIDEODRV                    1013
@@ -172,7 +171,6 @@
 #define IDC_MONTYPETEXT                 1901
 #define IDC_MONEMUTEXT                  1902
 #define IDC_MONVIDEOTYPETEXT            1903
-#define IDC_MONWINDOWSIZETEXT           1904
 
 #define IDC_MONBRIGHTNESSTEXT           1910
 #define IDC_MONCONTRASTTEXT             1911

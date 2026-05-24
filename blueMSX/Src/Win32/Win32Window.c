@@ -31,6 +31,7 @@
 #define DIRECTINPUT_VERSION     0x0700
 
 #include <windows.h>
+#include <commctrl.h>     /* TRACKMOUSEEVENT for slider hover tooltip */
 #include "MsxTypes.h"
 #include "Win32Common.h"
 #include "Win32Keyboard.h"
@@ -181,6 +182,8 @@ typedef struct WindowInfo {
     int      rgnSize;
     RGNDATA* rgnData;
     int      rgnEnable;
+
+    HWND     hwndSliderTip;   /* lazily created on first slider hover */
 } WindowInfo;
 
 
@@ -563,12 +566,26 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
             GetCursorPos(&pt);
             ScreenToClient(hwnd, &pt);
             themePageMouseMove(themePage, hdc, pt.x, pt.y);
+            win32SliderTooltipUpdate(&wi->hwndSliderTip, hwnd,
+                                     themePageHoverSliderPercent(themePage, pt.x, pt.y));
             ReleaseDC(hwnd, hdc);
             windowCheckClipRegion(wi);
+            /* Request WM_MOUSELEAVE so the slider tooltip is hidden when
+               the cursor exits the window. */
+            {
+                TRACKMOUSEEVENT tme = { sizeof(tme), TME_LEAVE, hwnd, 0 };
+                TrackMouseEvent(&tme);
+            }
         }
         SetTimer(hwnd, TIMER_THEME, 250, NULL);
 
         break;
+
+    case WM_MOUSELEAVE:
+        if (wi != NULL) {
+            win32SliderTooltipUpdate(&wi->hwndSliderTip, hwnd, -1);
+        }
+        return 0;
 
     case WM_LBUTTONDOWN:
         if (wi != NULL) {

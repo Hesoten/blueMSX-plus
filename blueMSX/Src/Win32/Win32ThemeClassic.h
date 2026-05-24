@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -32,6 +35,10 @@
 #include "Theme.h"
 
 ThemeCollection* themeClassicCreate();
+/* Re-run themeCreateSmall/Zoom/Fullscreen against the current DPI so the
+   built-in zoom variants pick up the new SM_CYMENU value after a monitor
+   move (WM_DPICHANGED). */
+void themeClassicRebuild(ThemeCollection* tc);
 void themeClassicTitlebarUpdate(HWND);
 
 #endif //WIN32_THEME_CLASSIC_H

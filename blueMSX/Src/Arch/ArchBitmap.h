@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -33,6 +36,9 @@ typedef struct ArchBitmap ArchBitmap;
 ArchBitmap* archBitmapCreate(int width, int height);
 ArchBitmap* archBitmapCreateFromFile(const char* filename);
 ArchBitmap* archBitmapCreateFromId(int id);
+/* Returns a new ArchBitmap scaled (NN) from src to (dstWidth, dstHeight).
+   The caller owns the returned bitmap and must free it; src is not consumed. */
+ArchBitmap* archBitmapCreateScaledCopy(ArchBitmap* src, int dstWidth, int dstHeight);
 void archBitmapDestroy(ArchBitmap* bm);
 int archBitmapGetWidth(ArchBitmap* bm);
 int archBitmapGetHeight(ArchBitmap* bm);

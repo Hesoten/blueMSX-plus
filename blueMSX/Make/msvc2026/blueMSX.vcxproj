@@ -252,7 +252,7 @@
     </ResourceCompile>
     <Link>
       <AdditionalOptions>/nodefaultlib:"libcmt.lib" %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Vfw32.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;ddraw.lib;dsound.lib;dinput8.lib;..\..\Src\ThirdParty\DirectShowSamples\STRMBASE.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Vfw32.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;..\..\Src\ThirdParty\DirectShowSamples\STRMBASE.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)blueMSX.exe</OutputFile>
       <IgnoreSpecificDefaultLibraries>libc.lib;atlthunk.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -287,7 +287,7 @@
       <AdditionalIncludeDirectories>..\..\Src\BuildInfo;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Vfw32.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;ddraw.lib;dsound.lib;dinput8.lib;..\..\Src\ThirdParty\DirectShowSamples\STRMBASE.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Vfw32.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;..\..\Src\ThirdParty\DirectShowSamples\STRMBASE.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)blueMSX.exe</OutputFile>
       <IgnoreSpecificDefaultLibraries>libc.lib;atlthunk.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -313,7 +313,7 @@
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Vfw32.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;ddraw.lib;dsound.lib;dinput8.lib;..\..\Src\ThirdParty\DirectShowSamples\STRMBASE.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Vfw32.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;..\..\Src\ThirdParty\DirectShowSamples\STRMBASE.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)blueMSX.exe</OutputFile>
       <IgnoreSpecificDefaultLibraries>libc.lib;atlthunk.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -356,7 +356,7 @@
       <AdditionalIncludeDirectories>..\..\Src\BuildInfo;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Vfw32.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;ddraw.lib;dsound.lib;dinput8.lib;..\..\Src\ThirdParty\DirectShowSamples\STRMBASE.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Vfw32.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;..\..\Src\ThirdParty\DirectShowSamples\STRMBASE.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)blueMSX.exe</OutputFile>
       <IgnoreSpecificDefaultLibraries>libc.lib;atlthunk.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -394,7 +394,7 @@
       <AdditionalIncludeDirectories>..\..\Src\BuildInfo;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Vfw32.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;ddraw.lib;dsound.lib;dinput8.lib;..\..\Src\ThirdParty\DirectShowSamples\STRMBASE.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Vfw32.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;..\..\Src\ThirdParty\DirectShowSamples\STRMBASE.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)blueMSX.exe</OutputFile>
       <IgnoreSpecificDefaultLibraries>libc.lib;atlthunk.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -427,7 +427,7 @@
     </ResourceCompile>
     <Link>
       <AdditionalOptions>/nodefaultlib:"libcmt.lib" %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Vfw32.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;ddraw.lib;dsound.lib;dinput8.lib;..\..\Src\ThirdParty\DirectShowSamples\STRMBASE.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Vfw32.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;..\..\Src\ThirdParty\DirectShowSamples\STRMBASE.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)blueMSX.exe</OutputFile>
       <IgnoreSpecificDefaultLibraries>libc.lib;atlthunk.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -458,7 +458,7 @@
     </ResourceCompile>
     <Link>
       <AdditionalOptions>/nodefaultlib:"libcmt.lib" %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Vfw32.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;ddraw.lib;dsound.lib;dinput8.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Vfw32.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)blueMSX.exe</OutputFile>
       <IgnoreSpecificDefaultLibraries>libc.lib;atlthunk.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -488,7 +488,7 @@
       <AdditionalIncludeDirectories>..\..\Src\BuildInfo;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Vfw32.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;ddraw.lib;dsound.lib;dinput8.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Vfw32.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)blueMSX.exe</OutputFile>
       <IgnoreSpecificDefaultLibraries>libc.lib;atlthunk.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -511,7 +511,7 @@
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Vfw32.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;ddraw.lib;dsound.lib;dinput8.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Vfw32.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)blueMSX.exe</OutputFile>
       <IgnoreSpecificDefaultLibraries>libc.lib;atlthunk.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -548,7 +548,7 @@
     </ResourceCompile>
     <Link>
       <AdditionalOptions>/nodefaultlib:"libcmt.lib" %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Vfw32.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;ddraw.lib;dsound.lib;dinput8.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Vfw32.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)blueMSX.exe</OutputFile>
       <IgnoreSpecificDefaultLibraries>libc.lib;atlthunk.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -582,7 +582,7 @@
       <AdditionalIncludeDirectories>..\..\Src\BuildInfo;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Vfw32.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;ddraw.lib;dsound.lib;dinput8.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Vfw32.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)blueMSX.exe</OutputFile>
       <IgnoreSpecificDefaultLibraries>libc.lib;atlthunk.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -616,7 +616,7 @@
       <AdditionalIncludeDirectories>..\..\Src\BuildInfo;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Vfw32.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;ddraw.lib;dsound.lib;dinput8.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Vfw32.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)blueMSX.exe</OutputFile>
       <IgnoreSpecificDefaultLibraries>libc.lib;atlthunk.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>

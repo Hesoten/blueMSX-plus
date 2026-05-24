@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -71,8 +74,14 @@ void actionMaxSpeedRelease();
 void actionStartPlayReverse();
 void actionStopPlayReverse();
 void actionDiskQuickChange();
-void actionWindowSizeSmall();
-void actionWindowSizeNormal();
+void actionWindowSize1x();
+void actionWindowSize2x();
+void actionWindowSize3x();
+void actionWindowSize4x();
+void actionWindowSize5x();
+void actionWindowSize6x();
+void actionWindowSize7x();
+void actionWindowSize8x();
 void actionWindowSizeMinimized();
 void actionWindowSizeFullscreen();
 void actionEmuSpeedNormal();

@@ -153,8 +153,14 @@ void langInitJapanese(LanguageStrings* ls)
     
     ls->menuPrnFormfeed         = "紙送り"; 
 
-    ls->menuZoomNormal          = "標準サイズ";
-    ls->menuZoomDouble          = "2倍サイズ";
+    ls->menuZoom1x              = "1倍サイズ";
+    ls->menuZoom2x              = "2倍サイズ";
+    ls->menuZoom3x              = "3倍サイズ";
+    ls->menuZoom4x              = "4倍サイズ";
+    ls->menuZoom5x              = "5倍サイズ";
+    ls->menuZoom6x              = "6倍サイズ";
+    ls->menuZoom7x              = "7倍サイズ";
+    ls->menuZoom8x              = "8倍サイズ";
     ls->menuZoomFullscreen      = "フルスクリーン";
     
     ls->menuPropsEmulation      = "エミュレーション";
@@ -334,7 +340,6 @@ void langInitJapanese(LanguageStrings* ls)
     ls->propMonTypeText         = "モニターの種類:";
     ls->propMonEmuText          = "モニターエミュレーション:";
     ls->propVideoTypeText       = "映像方式:";
-    ls->propWindowSizeText      = "ウィンドウサイズ:";
     ls->propMonHorizStretch      = " 水平方向に拡大";
     ls->propMonVertStretch       = " 垂直方向に拡大";
     ls->propMonDeInterlace      = " インターレース除去";
@@ -453,9 +458,6 @@ void langInitJapanese(LanguageStrings* ls)
     ls->enumVideoEmuScale2x     = "Scale 2x";
     ls->enumVideoEmuHq2x        = "Hq2x";
 
-    ls->enumVideoSize1x         = "標準サイズ - 320x200";
-    ls->enumVideoSize2x         = "2倍サイズ - 640x400";
-    ls->enumVideoSizeFullscreen = "フルスクリーン";
 
     ls->enumVideoDrvDirectDrawHW= "DirectDraw ハードウェア";
     ls->enumVideoDrvDirectDraw  = "DirectDraw ソフトウェア";
@@ -630,8 +632,14 @@ void langInitJapanese(LanguageStrings* ls)
     ls->shortcutResetHard       = "ハードリセット";
     ls->shortcutResetSoft       = "ソフトリセット";
     ls->shortcutResetClean      = "クリーンリセット";
-    ls->shortcutSizeSmall       = "標準サイズ";
-    ls->shortcutSizeNormal      = "2倍サイズ";
+    ls->shortcutSize1x          = "1倍サイズ";
+    ls->shortcutSize2x          = "2倍サイズ";
+    ls->shortcutSize3x          = "3倍サイズ";
+    ls->shortcutSize4x          = "4倍サイズ";
+    ls->shortcutSize5x          = "5倍サイズ";
+    ls->shortcutSize6x          = "6倍サイズ";
+    ls->shortcutSize7x          = "7倍サイズ";
+    ls->shortcutSize8x          = "8倍サイズ";
     ls->shortcutSizeFullscreen  = "フルスクリーン";
     ls->shortcutSizeMinimized   = "ウィンドウ 最小化";
     ls->shortcutToggleFullscren = "フルスクリーン化";

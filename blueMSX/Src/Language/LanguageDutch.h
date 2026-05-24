@@ -151,8 +151,14 @@ void langInitDutch(LanguageStrings* ls)
 
     ls->menuPrnFormfeed         = "Paginadoorvoer";
 
-    ls->menuZoomNormal          = "Normale grootte";
-    ls->menuZoomDouble          = "Dubbele grootte";
+    ls->menuZoom1x              = "1x venster";
+    ls->menuZoom2x              = "2x venster";
+    ls->menuZoom3x              = "3x venster";
+    ls->menuZoom4x              = "4x venster";
+    ls->menuZoom5x              = "5x venster";
+    ls->menuZoom6x              = "6x venster";
+    ls->menuZoom7x              = "7x venster";
+    ls->menuZoom8x              = "8x venster";
     ls->menuZoomFullscreen      = "Volledig scherm";
 
     ls->menuPropsEmulation      = "Emulatie";
@@ -333,7 +339,6 @@ void langInitDutch(LanguageStrings* ls)
     ls->propMonTypeText         = "Monitortype:";
     ls->propMonEmuText          = "Monitoremulatie:";
     ls->propVideoTypeText       = "Beeldtype:";
-    ls->propWindowSizeText      = "Schermgrootte:";
     ls->propMonHorizStretch     = " Horizontaal uitrekken";
     ls->propMonVertStretch      = " Verticaal uitrekken";
     ls->propMonDeInterlace      = " Deïnterlace";
@@ -453,9 +458,6 @@ void langInitDutch(LanguageStrings* ls)
     ls->enumVideoEmuScale2x     = "Schaal 2x";
     ls->enumVideoEmuHq2x        = "Hq2x";
 
-    ls->enumVideoSize1x         = "Normaal - 320x200";
-    ls->enumVideoSize2x         = "Dubbel - 640x400";
-    ls->enumVideoSizeFullscreen = "Volledig Scherm";
 
     ls->enumVideoDrvDirectDrawHW = "DirectDraw HW accel.";
     ls->enumVideoDrvDirectDraw  = "DirectDraw";
@@ -630,8 +632,14 @@ void langInitDutch(LanguageStrings* ls)
     ls->shortcutResetHard       = "Harde Herstart";
     ls->shortcutResetSoft       = "Zachte Herstart";
     ls->shortcutResetClean      = "Algemene Herstart";
-    ls->shortcutSizeSmall       = "Kiezen normale grootte voor het scherm";
-    ls->shortcutSizeNormal      = "Kiezen dubbele grootte voor het scherm";
+    ls->shortcutSize1x          = "Stel 1x venstergrootte in";
+    ls->shortcutSize2x          = "Stel 2x venstergrootte in";
+    ls->shortcutSize3x          = "Stel 3x venstergrootte in";
+    ls->shortcutSize4x          = "Stel 4x venstergrootte in";
+    ls->shortcutSize5x          = "Stel 5x venstergrootte in";
+    ls->shortcutSize6x          = "Stel 6x venstergrootte in";
+    ls->shortcutSize7x          = "Stel 7x venstergrootte in";
+    ls->shortcutSize8x          = "Stel 8x venstergrootte in";
     ls->shortcutSizeFullscreen  = "Kiezen volledig scherm";
     ls->shortcutSizeMinimized   = "Minimaliseer scherm";
     ls->shortcutToggleFullscren = "Kiezen volledig scherm of onvolledig scherm";

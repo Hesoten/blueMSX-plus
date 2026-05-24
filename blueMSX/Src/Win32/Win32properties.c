@@ -160,13 +160,6 @@ static char* pVideoPalEmu[] = {
     NULL
 };
 
-static char pVideoSizeData[6][64];
-static char* pVideoMonSize[] = {
-    pVideoSizeData[0],
-    pVideoSizeData[1],
-    pVideoSizeData[2],
-    NULL
-};
 
 static char pVideoDriverData[4][64];
 static char* pVideoDriver[] = {
@@ -1224,7 +1217,6 @@ static BOOL_DLG_RET CALLBACK videoSoftwareDlgProc(HWND hDlg, UINT iMsg, WPARAM w
         SetDlgItemTextU(hDlg, IDC_MONTYPETEXT, langPropMonTypeText());
         SetDlgItemTextU(hDlg, IDC_MONEMUTEXT, langPropMonEmuText());
         SetDlgItemTextU(hDlg, IDC_MONVIDEOTYPETEXT, langPropVideoTypeText());
-        SetDlgItemTextU(hDlg, IDC_MONWINDOWSIZETEXT, langPropWindowSizeText());
         SetDlgItemTextU(hDlg, IDC_MONDEINTERLACE, langPropMonDeInterlace());
         SetDlgItemTextU(hDlg, IDC_MONBLENDFRAMES, langPropMonBlendFrames());
         SetDlgItemTextU(hDlg, IDC_EFFECTSGB, langPropMonEffectsGB());
@@ -1241,7 +1233,6 @@ static BOOL_DLG_RET CALLBACK videoSoftwareDlgProc(HWND hDlg, UINT iMsg, WPARAM w
         /* Init dropdown lists */
         initDropList(hDlg, IDC_MONTYPE, pVideoMon, pProperties->video.monitorColor);
         initDropList(hDlg, IDC_PALEMU, pVideoPalEmu, pProperties->video.monitorType);
-        initDropList(hDlg, IDC_MONSIZE, pVideoMonSize, pProperties->video.windowSize);
 
         monitorType             = pProperties->video.monitorType;
         monitorColor            = pProperties->video.monitorColor;
@@ -2614,10 +2605,6 @@ int showProperties(Properties* pProperties, HWND hwndOwner, PropPage desiredStar
     sprintf(pVideoPalEmu[5], "%s", langEnumVideoEmuCompBlur());
     sprintf(pVideoPalEmu[6], "%s", langEnumVideoEmuScale2x());
     sprintf(pVideoPalEmu[7], "%s", langEnumVideoEmuHq2x());
-
-    sprintf(pVideoMonSize[0], "%s", langEnumVideoSize1x());
-    sprintf(pVideoMonSize[1], "%s", langEnumVideoSize2x());
-    sprintf(pVideoMonSize[2], "%s", langEnumVideoSizeFullscreen());
 
     sprintf(pVideoDriver[0], "%s", langEnumVideoDrvDirectDrawHW());
     sprintf(pVideoDriver[1], "%s", langEnumVideoDrvDirectDraw());

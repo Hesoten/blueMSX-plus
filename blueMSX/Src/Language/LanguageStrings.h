@@ -148,8 +148,14 @@ typedef struct {
 
     char* menuPrnFormfeed;
 
-    char* menuZoomNormal;
-    char* menuZoomDouble;
+    char* menuZoom1x;
+    char* menuZoom2x;
+    char* menuZoom3x;
+    char* menuZoom4x;
+    char* menuZoom5x;
+    char* menuZoom6x;
+    char* menuZoom7x;
+    char* menuZoom8x;
     char* menuZoomFullscreen;
 
     char* menuPropsEmulation;
@@ -326,7 +332,6 @@ typedef struct {
     char* propMonTypeText;
     char* propMonEmuText;
     char* propVideoTypeText;
-    char* propWindowSizeText;
     char* propMonHorizStretch;
     char* propMonVertStretch;
     char* propMonDeInterlace;
@@ -446,9 +451,6 @@ typedef struct {
     char* enumVideoEmuScale2x;
     char* enumVideoEmuHq2x;
 
-    char* enumVideoSize1x;
-    char* enumVideoSize2x;
-    char* enumVideoSizeFullscreen;
 
     char* enumVideoDrvDirectDrawHW;
     char* enumVideoDrvDirectDraw;
@@ -623,8 +625,14 @@ typedef struct {
     char* shortcutResetHard;
     char* shortcutResetSoft;
     char* shortcutResetClean;
-    char* shortcutSizeSmall;
-    char* shortcutSizeNormal;
+    char* shortcutSize1x;
+    char* shortcutSize2x;
+    char* shortcutSize3x;
+    char* shortcutSize4x;
+    char* shortcutSize5x;
+    char* shortcutSize6x;
+    char* shortcutSize7x;
+    char* shortcutSize8x;
     char* shortcutSizeFullscreen;
     char* shortcutSizeMinimized;
     char* shortcutToggleFullscren;

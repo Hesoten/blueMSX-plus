@@ -153,8 +153,14 @@ void langInitFinnish(LanguageStrings* ls)
 
     ls->menuPrnFormfeed         = "Paperin vaihto";
 
-    ls->menuZoomNormal          = "Pieni koko";
-    ls->menuZoomDouble          = "Normaali koko";
+    ls->menuZoom1x              = "1x-ikkuna";
+    ls->menuZoom2x              = "2x-ikkuna";
+    ls->menuZoom3x              = "3x-ikkuna";
+    ls->menuZoom4x              = "4x-ikkuna";
+    ls->menuZoom5x              = "5x-ikkuna";
+    ls->menuZoom6x              = "6x-ikkuna";
+    ls->menuZoom7x              = "7x-ikkuna";
+    ls->menuZoom8x              = "8x-ikkuna";
     ls->menuZoomFullscreen      = "Kokoruututila";
 
     ls->menuPropsEmulation      = "Emulaatio";
@@ -334,7 +340,6 @@ void langInitFinnish(LanguageStrings* ls)
     ls->propMonTypeText         = "Monitorin tyyppi:";
     ls->propMonEmuText          = "Monitorin emulointi:";
     ls->propVideoTypeText       = "Videotyyppi:";
-    ls->propWindowSizeText      = "Ikkunan koko:";
     ls->propMonHorizStretch     = " Vaakavenytys";
     ls->propMonVertStretch      = " Pystyvenytys";
     ls->propMonDeInterlace      = " Lomituksen purku";
@@ -454,9 +459,6 @@ void langInitFinnish(LanguageStrings* ls)
     ls->enumVideoEmuScale2x     = "Scale 2x";
     ls->enumVideoEmuHq2x        = "Hq2x";
 
-    ls->enumVideoSize1x         = "Pieni - 320x200";
-    ls->enumVideoSize2x         = "Normaali - 640x400";
-    ls->enumVideoSizeFullscreen = "Kokoruututila";
 
     ls->enumVideoDrvDirectDrawHW= "Kiihdytetty DirectDraw";
     ls->enumVideoDrvDirectDraw  = "DirectDraw";
@@ -631,8 +633,14 @@ void langInitFinnish(LanguageStrings* ls)
     ls->shortcutResetHard       = "Kylmäkäynnistys";
     ls->shortcutResetSoft       = "Lämminkäynnistys";
     ls->shortcutResetClean      = "Täydellinen uudelleenkäynnistys";
-    ls->shortcutSizeSmall       = "Aseta pieni ikkunan koko";
-    ls->shortcutSizeNormal      = "Aseta normaali ikkunan koko";
+    ls->shortcutSize1x          = "Aseta 1x-ikkunakoko";
+    ls->shortcutSize2x          = "Aseta 2x-ikkunakoko";
+    ls->shortcutSize3x          = "Aseta 3x-ikkunakoko";
+    ls->shortcutSize4x          = "Aseta 4x-ikkunakoko";
+    ls->shortcutSize5x          = "Aseta 5x-ikkunakoko";
+    ls->shortcutSize6x          = "Aseta 6x-ikkunakoko";
+    ls->shortcutSize7x          = "Aseta 7x-ikkunakoko";
+    ls->shortcutSize8x          = "Aseta 8x-ikkunakoko";
     ls->shortcutSizeFullscreen  = "Aseta kokoruututila";
     ls->shortcutSizeMinimized   = "Pienennä ikkuna";
     ls->shortcutToggleFullscren = "Vaihda kokoruututilaa";

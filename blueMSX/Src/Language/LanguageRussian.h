@@ -151,8 +151,14 @@ void langInitRussian(LanguageStrings* ls)
 
     ls->menuPrnFormfeed         = "Печать страницы";
 
-    ls->menuZoomNormal          = "Маленькое окно";
-    ls->menuZoomDouble          = "Обычное окно";
+    ls->menuZoom1x              = "Окно 1x";
+    ls->menuZoom2x              = "Окно 2x";
+    ls->menuZoom3x              = "Окно 3x";
+    ls->menuZoom4x              = "Окно 4x";
+    ls->menuZoom5x              = "Окно 5x";
+    ls->menuZoom6x              = "Окно 6x";
+    ls->menuZoom7x              = "Окно 7x";
+    ls->menuZoom8x              = "Окно 8x";
     ls->menuZoomFullscreen      = "На весь экран";
     
     ls->menuPropsEmulation      = "Эмуляция";
@@ -332,7 +338,6 @@ void langInitRussian(LanguageStrings* ls)
     ls->propMonTypeText         = "Тип монитора:";
     ls->propMonEmuText          = "Эмуляция монитора:";
     ls->propVideoTypeText       = "Тип видео:";
-    ls->propWindowSizeText      = "Размер окна:";
     ls->propMonHorizStretch     = " Растянуть по горизонтали";
     ls->propMonVertStretch      = " Растянуть по вертикали";
     ls->propMonDeInterlace      = " Убрать черезполосицу";
@@ -452,9 +457,6 @@ void langInitRussian(LanguageStrings* ls)
     ls->enumVideoEmuScale2x     = "Scale 2x";
     ls->enumVideoEmuHq2x        = "Hq2x";
 
-    ls->enumVideoSize1x         = "Нормальное - 320x200";
-    ls->enumVideoSize2x         = "Удвоенное - 640x400";
-    ls->enumVideoSizeFullscreen = "Во весь экран";
 
     ls->enumVideoDrvDirectDrawHW= "DirectDraw аппаратно"; 
     ls->enumVideoDrvDirectDraw  = "DirectDraw";
@@ -629,8 +631,14 @@ void langInitRussian(LanguageStrings* ls)
     ls->shortcutResetHard       = "Аппаратный сброс";
     ls->shortcutResetSoft       = "Программный сброс";
     ls->shortcutResetClean      = "Полный сброс";
-    ls->shortcutSizeSmall       = "Установить малый размер окна";
-    ls->shortcutSizeNormal      = "Установить обычный размер окна";
+    ls->shortcutSize1x          = "Установить окно 1x";
+    ls->shortcutSize2x          = "Установить окно 2x";
+    ls->shortcutSize3x          = "Установить окно 3x";
+    ls->shortcutSize4x          = "Установить окно 4x";
+    ls->shortcutSize5x          = "Установить окно 5x";
+    ls->shortcutSize6x          = "Установить окно 6x";
+    ls->shortcutSize7x          = "Установить окно 7x";
+    ls->shortcutSize8x          = "Установить окно 8x";
     ls->shortcutSizeFullscreen  = "Установить на полный экран";
     ls->shortcutSizeMinimized   = "Свернуть";
     ls->shortcutToggleFullscren = "Во весь экран";
