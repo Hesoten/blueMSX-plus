@@ -281,6 +281,7 @@ static IDirectDraw7* DirectDrawCreateFromWindow(HWND hwnd) {
 void DirectXExitFullscreenMode()
 {
     lpTheDD = NULL;
+    lpDDSBack = NULL;  // attached back buffer -- lives/dies with lpDDSPrimary
 
     if( lpDDSPrimary != NULL ) {
         IDirectDrawSurface7_Release(lpDDSPrimary);
@@ -297,6 +298,12 @@ void DirectXExitFullscreenMode()
     if ( lpDDSDraw != NULL ) {
         IDirectDrawSurface7_Release(lpDDSDraw);
         lpDDSDraw = NULL;
+    }
+    // Release the clipper before the DirectDraw object; its SetHWnd()
+    // reference to the emu HWND would otherwise leak per driver switch.
+    if (lpClipper != NULL) {
+        IDirectDrawClipper_Release(lpClipper);
+        lpClipper = NULL;
     }
     if( lpDD != NULL ) {
         IDirectDraw7_SetCooperativeLevel(lpDD, NULL, DDSCL_NORMAL);

@@ -66,6 +66,7 @@
 #include "Win32Printer.h"
 #include "Win32directx.h"
 #include "Win32D3D.h"
+#include "Win32D3D12.h"
 #include "Win32Avi.h"
 #include "FileHistory.h"
 #include "Win32Dir.h"
@@ -1020,6 +1021,7 @@ static void checkKeyUp(Shortcuts* s, ShotcutHotkey key)
 #define TIMER_THEME                         17
 #define TIMER_MENUUPDATE                    18
 #define TIMER_CLIP_REGION                   19
+#define TIMER_FULLSCREEN_MENU               21
 
 void  PatchDiskSetBusy(int driveId, int busy);
 
@@ -1231,13 +1233,12 @@ void archShowPropertiesDialog(PropPage  startPane) {
     }
 
     if (oldProp.emulation.syncMethod != pProperties->emulation.syncMethod) {
+        /* All sync methods use 3 buffers (FlipViewFrame3); SYNCNONE = 1.
+        ** FlipViewFrame4's tween path is incompatible with the D3D12
+        ** backend's SM5/SM7 mid-frame transitions. */
         switch(pProperties->emulation.syncMethod) {
         case P_EMU_SYNCNONE:
             frameBufferSetFrameCount(1);
-            break;
-        case P_EMU_SYNCTOVBLANK:
-        case P_EMU_SYNCTOVBLANKASYNC:
-            frameBufferSetFrameCount(4);
             break;
         default:
             frameBufferSetFrameCount(3);
@@ -1333,12 +1334,16 @@ void updateMenu(int show) {
         show = 1;
     }
 
-    emulatorSuspend();
+    /* DirectXSetGDISurface (DDraw FlipToGDISurface) needs the emulator
+       paused; D3D12 / GDI don't, and skipping the suspend avoids an
+       audible WASAPI click on every Properties apply. */
+    int ddrawNeedsFlip = doDelay
+                         && pProperties->video.driver != P_VIDEO_DRVGDI
+                         && pProperties->video.driver != P_VIDEO_DRVDIRECTX_D3D12;
 
-    if (pProperties->video.driver != P_VIDEO_DRVGDI) {
-         if (doDelay) { 
-             DirectXSetGDISurface();
-         }
+    if (ddrawNeedsFlip) {
+        emulatorSuspend();
+        DirectXSetGDISurface();
     }
 
     if (boardGetType() != BOARD_MSX) {
@@ -1356,7 +1361,9 @@ void updateMenu(int show) {
 
     st.showMenu = menuShow(show);
 
-    emulatorResume();
+    if (ddrawNeedsFlip) {
+        emulatorResume();
+    }
 
     if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN) {
         mouseEmuActivate(!show);
@@ -1625,10 +1632,11 @@ void archUpdateWindow() {
     st.enteringFullscreen = 1;
     emulatorSuspend();
 
-    if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D)
-        D3DExitFullscreenMode();
-    else
-        DirectXExitFullscreenMode();
+    // Tear down ALL drivers (each Exit no-ops if inactive); tearing down
+    // only the current one leaks the previous swap chain on the HWND.
+    D3D12ExitFullscreenMode();
+    D3DExitFullscreenMode();
+    DirectXExitFullscreenMode();
 
     if (st.bmBitsGDI != NULL) {
         free(st.bmBitsGDI);
@@ -1643,7 +1651,11 @@ void archUpdateWindow() {
             int rv;
             SetWindowLongPtr(st.hwnd, GWL_STYLE, WS_POPUP | WS_CLIPCHILDREN | WS_VISIBLE);
 
-            if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D)
+            if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12)
+                rv = D3D12EnterFullscreenMode(st.emuHwnd,
+                                                pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO, 
+                                                pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO);
+            else if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D)
                 rv = D3DEnterFullscreenMode(st.emuHwnd, 
                                                 pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO, 
                                                 pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO);
@@ -1654,7 +1666,9 @@ void archUpdateWindow() {
 
             if (rv != DXE_OK) {
                 MessageBoxU(NULL, langErrorEnterFullscreen(), langErrorTitle(), MB_OK);
-                if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D)
+                if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12)
+                    D3D12ExitFullscreenMode();
+                else if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D)
                     D3DExitFullscreenMode();
                 else
                     DirectXExitFullscreenMode();
@@ -1673,8 +1687,12 @@ void archUpdateWindow() {
         if (pProperties->video.driver != P_VIDEO_DRVGDI) {
             int rv;
 
-            if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D)
-                rv = D3DEnterWindowedMode(st.emuHwnd, zoom * WIDTH, zoom * HEIGHT, 
+            if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12)
+                rv = D3D12EnterWindowedMode(st.emuHwnd, zoom * WIDTH, zoom * HEIGHT,
+                                              pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO, 
+                                              pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO);
+            else if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D)
+                rv = D3DEnterWindowedMode(st.emuHwnd, zoom * WIDTH, zoom * HEIGHT,
                                               pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO, 
                                               pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO);
             else
@@ -1697,6 +1715,19 @@ void archUpdateWindow() {
     setClipRegion(0);
     themeSet(pProperties->settings.themeName, 1);
     updateMenu(0);
+
+    /* Re-own open aux theme windows (Mixer etc.) for the new fullscreen /
+    ** windowed state; they live in static caches, not st.themeList. */
+    archWindowApplyOwnershipAll();
+
+    /* Poll cursor position in fullscreen so the menu strip auto-shows
+       on top-edge hover and auto-hides on cursor leave, regardless of
+       whether mouse messages route through emuHwnd or menuHwnd. */
+    if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN) {
+        SetTimer(st.hwnd, TIMER_FULLSCREEN_MENU, 100, NULL);
+    } else {
+        KillTimer(st.hwnd, TIMER_FULLSCREEN_MENU);
+    }
 
     {
         RECT r = { 0, 0, zoom * WIDTH, zoom * HEIGHT };
@@ -1723,6 +1754,7 @@ void archUpdateWindow() {
     emulatorResume();
 
     st.enteringFullscreen = 0;
+    SetEvent(st.ddrawEvent);
 
     InvalidateRect(NULL, NULL, TRUE);
 }
@@ -1743,6 +1775,7 @@ static void emuWindowDraw(int onlyOnVblank)
     if (!st.enteringFullscreen && 
         (pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO || 
         (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D) || 
+        (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12) ||
         (pProperties->video.driver == P_VIDEO_DRVDIRECTX)))
     {
 #define PRINT_RENDERING_TIME 0
@@ -1756,7 +1789,9 @@ static void emuWindowDraw(int onlyOnVblank)
         st.diplaySync |= onlyOnVblank;
 
 
-        if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D) 
+        if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12)
+            rv = D3D12UpdateSurface(st.emuHwnd, st.pVideo, st.diplaySync, &pProperties->video.d3d);
+        else if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D)
             rv = D3DUpdateSurface(st.emuHwnd, st.pVideo, st.diplaySync, &pProperties->video.d3d);
         else
             rv = DirectXUpdateSurface(st.pVideo, 
@@ -1877,6 +1912,19 @@ static LRESULT CALLBACK emuWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
             int borderWidth;
             HDC hdc;   
             int zoom = getZoom();
+
+            // Refresh client size + bmInfo every paint; WM_WINDOWPOSCHANGED
+            // only updates them while driver==GDI, so they go stale across
+            // a driver switch and StretchDIBits would paint a 0x0 rect.
+            {
+                RECT cr;
+                GetClientRect(hwnd, &cr);
+                st.clientWidth  = cr.right  - cr.left;
+                st.clientHeight = cr.bottom - cr.top;
+                st.bmInfo.bmiHeader.biWidth    = zoom * WIDTH;
+                st.bmInfo.bmiHeader.biHeight   = zoom * HEIGHT;
+                st.bmInfo.bmiHeader.biBitCount = 32;
+            }
 
             if (st.bmBitsGDI == 0) {
                 st.bmBitsGDI = malloc(4096 * 4096 * sizeof(UInt32));
@@ -2149,7 +2197,11 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         if (pProperties->video.driver != P_VIDEO_DRVGDI) {
             int zoom = getZoom();
             if (st.enteringFullscreen) {
-                if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D)
+                if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12)
+                    D3D12UpdateWindowedMode(st.emuHwnd, zoom * WIDTH, zoom * HEIGHT,
+                                              pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO, 
+                                              pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO);
+                else if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D)
                     D3DUpdateWindowedMode(st.emuHwnd, zoom * WIDTH, zoom * HEIGHT,
                                               pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO, 
                                               pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO);
@@ -2218,10 +2270,13 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             checkClipRegion();
         }
         if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN) {
-            if (HIWORD(lParam) < 2) {
-                if (!st.showMenu) {
-                    updateMenu(1);
-                }
+            /* Show on cursor at top edge, auto-hide on cursor leaving menu strip. */
+            int menuStripH = GetSystemMetrics(SM_CYMENU);
+            int y = HIWORD(lParam);
+            if (y < 8) {
+                if (!st.showMenu) updateMenu(1);
+            } else if (y > menuStripH + 4) {
+                if (st.showMenu) updateMenu(0);
             }
         }
         archWindowMove();
@@ -2272,6 +2327,23 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 
     case WM_TIMER:
         switch (wParam) {
+        case TIMER_FULLSCREEN_MENU:
+            /* st.trackMenu = popup submenu is open; skip the poll so we
+               don't toggle mouseEmuActivate and re-hide the cursor. */
+            if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN
+                && !st.trackMenu) {
+                POINT pt;
+                int menuStripH = GetSystemMetrics(SM_CYMENU);
+                GetCursorPos(&pt);
+                ScreenToClient(hwnd, &pt);
+                if (pt.y < 8) {
+                    if (!st.showMenu) updateMenu(1);
+                } else if (pt.y > menuStripH + 4) {
+                    if (st.showMenu) updateMenu(0);
+                }
+            }
+            break;
+
         case TIMER_CLIP_REGION:
             updateClipRegion();
             break;
@@ -2462,7 +2534,9 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             pProperties->video.windowY = r.top;
         }
         st.enteringFullscreen = 1;
-        if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D)
+        if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12)
+            D3D12ExitFullscreenMode();
+        else if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D)
             D3DExitFullscreenMode();
         else
             DirectXExitFullscreenMode();
@@ -2828,13 +2902,10 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
     videoInInitialize(pProperties);
 
+    /* Init-time selection; same logic as the apply path above. */
     switch(pProperties->emulation.syncMethod) {
     case P_EMU_SYNCNONE:
         frameBufferSetFrameCount(1);
-        break;
-    case P_EMU_SYNCTOVBLANK:
-    case P_EMU_SYNCTOVBLANKASYNC:
-        frameBufferSetFrameCount(4);
         break;
     default:
         frameBufferSetFrameCount(3);

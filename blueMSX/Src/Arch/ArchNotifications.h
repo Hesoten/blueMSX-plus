@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -59,6 +62,13 @@ void archMinimizeMainWindow();
 int archGetFramesPerSecond();
 
 void* archWindowCreate(struct Theme* theme, int childWindow);
+/* Sync an aux theme window's owner + Z-order with the current display
+** mode; without it the window hides behind the topmost fullscreen main. */
+void archWindowApplyOwnership(void* hwnd);
+
+/* archWindowApplyOwnership for every open aux theme window (found via
+** window class -- tool themes aren't reachable from st.themeList). */
+void archWindowApplyOwnershipAll(void);
 void archWindowStartMove();
 void archWindowMove();
 void archWindowEndMove();

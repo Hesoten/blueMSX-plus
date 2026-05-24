@@ -585,7 +585,9 @@ int D3DUpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties * d
 
 void D3DExitFullscreenMode()
 {
-	g_bCleanUpAsked = true;
+	// Tear down immediately; driver switching won't call D3DUpdateSurface
+	// again to drain a deferred g_bCleanUpAsked flag.
+	vCleanup();
 }
 
 

@@ -269,7 +269,7 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->video.windowSizeChanged     = 0;
     properties->video.windowX               = -1;
     properties->video.windowY               = -1;
-    properties->video.driver                = P_VIDEO_DRVDIRECTX_VIDEO;
+    properties->video.driver                = P_VIDEO_DRVDIRECTX_D3D12;
     properties->video.frameSkip             = 0;
     properties->video.fullscreen.width      = 640;
     properties->video.fullscreen.height     = 480;

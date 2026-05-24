@@ -39,6 +39,7 @@
 #include "Win32TextUtf8.h"
 #include "Theme.h"
 #include "Machine.h"
+#include "Properties.h"
 #include "ArchNotifications.h"
 #include "ArchMenu.h"
 #include "Language.h"
@@ -656,11 +657,17 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
 ///
 /// Description:
 ///     Creates a window based on the theme configuration
+///
+///     Always created unowned; archWindowApplyOwnership applies the
+///     mode-appropriate owner.  childWindow is kept for ABI but ignored.
 //////////////////////////////////////////////////////////////////////////
 void* archWindowCreate(Theme* theme, int childWindow) 
 {
     HINSTANCE hInstance = GetModuleHandle(NULL);
     WindowInfo* wi;
+    wchar_t wTitle[128];
+
+    (void)childWindow;
 
     static int initialized = 0;
     if (!initialized) {
@@ -685,25 +692,70 @@ void* archWindowCreate(Theme* theme, int childWindow)
 
     wi = calloc(1, sizeof(WindowInfo));
     wi->theme = theme;
-#define childWindow 0
-    {
-        wchar_t wTitle[128];
-        Utf8ToWide(theme->name, wTitle, _countof(wTitle));
-        if (childWindow) {
-            return CreateWindowExW(WS_EX_TOOLWINDOW, L"blueMSX Popup", wTitle,
-                                WS_OVERLAPPED | WS_CLIPCHILDREN | WS_BORDER | WS_DLGFRAME |
-                                WS_SYSMENU | WS_MINIMIZEBOX,
-                                CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, getMainHwnd(), NULL,
-                                hInstance, wi);
+    Utf8ToWide(theme->name, wTitle, _countof(wTitle));
+    return CreateWindowW(L"blueMSX Popup", wTitle,
+                        WS_OVERLAPPED | WS_CLIPCHILDREN | WS_BORDER | WS_DLGFRAME |
+                        WS_SYSMENU | WS_MINIMIZEBOX,
+                        CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, NULL, NULL,
+                        hInstance, wi);
+}
+
+void archWindowApplyOwnership(void* p)
+{
+    HWND hwnd = (HWND)p;
+    Properties* pProperties;
+    HWND newOwner;
+    HWND currentOwner;
+    HWND zPos;
+    BOOL isFullscreen;
+
+    if (hwnd == NULL) {
+        return;
+    }
+    pProperties = propGetGlobalProperties();
+    isFullscreen = (pProperties != NULL &&
+                    pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN);
+    /* Fullscreen: owned by main so the aux floats above it; windowed:
+    ** unowned independent window. */
+    newOwner = isFullscreen ? getMainHwnd() : NULL;
+    /* The fullscreen main is HWND_TOPMOST, so the aux must join the same
+    ** topmost group or it sinks below the main (= invisible). */
+    zPos = isFullscreen ? HWND_TOPMOST : HWND_NOTOPMOST;
+
+    currentOwner = (HWND)GetWindowLongPtr(hwnd, GWLP_HWNDPARENT);
+    if (currentOwner != newOwner) {
+        /* GWLP_HWNDPARENT only settles reliably while the window is
+        ** hidden; the hide/show dance is skipped on no-change so mass
+        ** refresh doesn't flicker every open aux window. */
+        BOOL wasVisible = IsWindowVisible(hwnd);
+        if (wasVisible) {
+            ShowWindow(hwnd, SW_HIDE);
         }
-        else {
-            return CreateWindowW(L"blueMSX Popup", wTitle,
-                                WS_OVERLAPPED | WS_CLIPCHILDREN | WS_BORDER | WS_DLGFRAME |
-                                WS_SYSMENU | WS_MINIMIZEBOX,
-                                CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, NULL, NULL,
-                                hInstance, wi);
+        SetWindowLongPtr(hwnd, GWLP_HWNDPARENT, (LONG_PTR)newOwner);
+        if (wasVisible) {
+            ShowWindow(hwnd, SW_SHOWNOACTIVATE);
         }
     }
+
+    SetWindowPos(hwnd, zPos, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+}
+
+static BOOL CALLBACK reownEnumProc(HWND hwnd, LPARAM lParam)
+{
+    wchar_t className[64];
+    (void)lParam;
+    /* All aux theme windows share the "blueMSX Popup" class; the class
+    ** filter is what makes a desktop-wide EnumWindows walk safe. */
+    if (GetClassNameW(hwnd, className, _countof(className)) > 0 &&
+        wcscmp(className, L"blueMSX Popup") == 0) {
+        archWindowApplyOwnership(hwnd);
+    }
+    return TRUE;
+}
+
+void archWindowApplyOwnershipAll(void)
+{
+    EnumWindows(reownEnumProc, 0);
 }
 
 

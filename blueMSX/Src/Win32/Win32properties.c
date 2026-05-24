@@ -165,12 +165,13 @@ static char* pVideoMonSize[] = {
     NULL
 };
 
-static char pVideoDriverData[4][64];
+static char pVideoDriverData[5][64];
 static char* pVideoDriver[] = {
     pVideoDriverData[0],
     pVideoDriverData[1],
     pVideoDriverData[2],
     pVideoDriverData[3],
+    pVideoDriverData[4],
     NULL
 };
 
@@ -915,27 +916,35 @@ static BOOL_DLG_RET CALLBACK direct3dProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
     case WM_NOTIFY:
         {
             char acBuffer[32];
+            int  cropMoved = 0;
 
             if (wParam == IDC_D3D_CROPPING_LEFT) {
                 pProperties->video.d3d.cropLeft = SendMessage(GetDlgItem(hDlg, IDC_D3D_CROPPING_LEFT), TBM_GETPOS, 0, 0);
                 sprintf(acBuffer, "%d", pProperties->video.d3d.cropLeft);
                 SetDlgItemTextU(hDlg, IDC_D3D_CROPPING_LEFTVALUETEXT, acBuffer);
+                cropMoved = 1;
             }
             if (wParam == IDC_D3D_CROPPING_RIGHT) {
                 pProperties->video.d3d.cropRight = SendMessage(GetDlgItem(hDlg, IDC_D3D_CROPPING_RIGHT), TBM_GETPOS, 0, 0);
                 sprintf(acBuffer, "%d", pProperties->video.d3d.cropRight);
                 SetDlgItemTextU(hDlg, IDC_D3D_CROPPING_RIGHTVALUETEXT, acBuffer);
+                cropMoved = 1;
             }
             if (wParam == IDC_D3D_CROPPING_TOP) {
                 pProperties->video.d3d.cropTop = SendMessage(GetDlgItem(hDlg, IDC_D3D_CROPPING_TOP), TBM_GETPOS, 0, 0);
                 sprintf(acBuffer, "%d", pProperties->video.d3d.cropTop);
                 SetDlgItemTextU(hDlg, IDC_D3D_CROPPING_TOPVALUETEXT, acBuffer);
+                cropMoved = 1;
             }
             if (wParam == IDC_D3D_CROPPING_BOTTOM) {
                 pProperties->video.d3d.cropBottom = SendMessage(GetDlgItem(hDlg, IDC_D3D_CROPPING_BOTTOM), TBM_GETPOS, 0, 0);
                 sprintf(acBuffer, "%d", pProperties->video.d3d.cropBottom);
                 SetDlgItemTextU(hDlg, IDC_D3D_CROPPING_BOTTOMVALUETEXT, acBuffer);
+                cropMoved = 1;
             }
+            /* Slider live-preview: D3D12 reads crop from pProperties
+            ** every frame, so a redraw nudge is enough. */
+            if (cropMoved) updateEmuWindow();
         }
         return TRUE;
 
@@ -952,6 +961,10 @@ static BOOL_DLG_RET CALLBACK direct3dProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
         pProperties->video.d3d.cropLeft = SendMessage(GetDlgItem(hDlg, IDC_D3D_CROPPING_LEFT), TBM_GETPOS, 0, 0);
 
         D3DUpdateItems(hDlg, pProperties);
+        /* Combobox / checkbox live-preview: nudge the renderer after each
+        ** WM_COMMAND so aspect ratio / crop type / extend-border /
+        ** force-high-res reflect instantly, not only on Apply / OK. */
+        updateEmuWindow();
         return TRUE;
 
     case WM_UPDATEPROPERTIES:
@@ -977,12 +990,17 @@ static BOOL_DLG_RET CALLBACK performanceDlgProc(HWND hDlg, UINT iMsg, WPARAM wPa
         pProperties = (Properties*)((PROPSHEETPAGE*)lParam)->lParam;
         pCurrentProperties = pProperties;
 
-        hDlgDirectDraw = CreateDialog(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_PERF_DIRECTDRAW), hDlg, directDraWProc);
-        SetWindowPos(hDlgDirectDraw,  NULL, 18, 74, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
-        hDlgGdi = CreateDialog(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_PERF_GDI), hDlg, gdiProc);
-        SetWindowPos(hDlgGdi,  NULL, 18, 74, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
-        hDlgDirect3d = CreateDialog(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_PERF_DIRECT3D), hDlg, direct3dProc);
-        SetWindowPos(hDlgDirect3d,  NULL, 18, 74, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+        {
+            /* Align sub-panel groupbox with parent "Video Driver" groupbox via DLUs. */
+            RECT subRect = {12, 47, 0, 0};
+            MapDialogRect(hDlg, &subRect);
+            hDlgDirectDraw = CreateDialog(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_PERF_DIRECTDRAW), hDlg, directDraWProc);
+            SetWindowPos(hDlgDirectDraw, NULL, subRect.left, subRect.top, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+            hDlgGdi = CreateDialog(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_PERF_GDI), hDlg, gdiProc);
+            SetWindowPos(hDlgGdi,        NULL, subRect.left, subRect.top, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+            hDlgDirect3d = CreateDialog(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_PERF_DIRECT3D), hDlg, direct3dProc);
+            SetWindowPos(hDlgDirect3d,   NULL, subRect.left, subRect.top, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+        }
 
         /* Init language specific dialog items */
         SetDlgItemTextU(hDlg, IDC_PERFVIDEODRVGROUPBOX, langPropPerfVideoDrvGB());
@@ -991,8 +1009,8 @@ static BOOL_DLG_RET CALLBACK performanceDlgProc(HWND hDlg, UINT iMsg, WPARAM wPa
         initDropList(hDlg, IDC_VIDEODRV, pVideoDriver, pProperties->video.driver);
         
         ShowWindow(hDlgDirectDraw,  pProperties->video.driver < 2 ? SW_NORMAL : SW_HIDE);
-        ShowWindow(hDlgGdi,  pProperties->video.driver == 2 ? SW_NORMAL : SW_HIDE);
-        ShowWindow(hDlgDirect3d,  pProperties->video.driver == 3 ? SW_NORMAL : SW_HIDE);
+        ShowWindow(hDlgGdi,         pProperties->video.driver == 2 ? SW_NORMAL : SW_HIDE);
+        ShowWindow(hDlgDirect3d,    pProperties->video.driver >= 3 ? SW_NORMAL : SW_HIDE);
 
         return FALSE;
 
@@ -1003,8 +1021,8 @@ static BOOL_DLG_RET CALLBACK performanceDlgProc(HWND hDlg, UINT iMsg, WPARAM wPa
             if (HIWORD(wParam) == CBN_SELCHANGE) {
                 int index = getDropListIndex(hDlg, IDC_VIDEODRV, pVideoDriver);
                 ShowWindow(hDlgDirectDraw, index < 2 ? SW_NORMAL : SW_HIDE);
-                ShowWindow(hDlgGdi,  index == 2 ? SW_NORMAL : SW_HIDE);
-                ShowWindow(hDlgDirect3d,  index == 3 ? SW_NORMAL : SW_HIDE);
+                ShowWindow(hDlgGdi,        index == 2 ? SW_NORMAL : SW_HIDE);
+                ShowWindow(hDlgDirect3d,   index >= 3 ? SW_NORMAL : SW_HIDE);
                 SendMessage(hDlgVideo, WM_VIDEO_DRIVER_CHANGED, index, 0);
                 return TRUE;
             }
@@ -1393,14 +1411,17 @@ static BOOL_DLG_RET CALLBACK videoDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
         hDlgVideoDirect3d = CreateDialog(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_VIDEO_DIRECT3D), hDlg, videoDirect3dDlgProc);
         SetWindowPos(hDlgVideoDirect3d,  NULL, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
 
-        ShowWindow(hDlgVideoSoftware,  pProperties->video.driver != 3 ? SW_NORMAL : SW_HIDE);
-        ShowWindow(hDlgVideoDirect3d,  pProperties->video.driver == 3 ? SW_NORMAL : SW_HIDE);
+        /* D3D9 (3): show direct3d tab (linear filter + deinterlace + blend)
+           D3D12 (4): show software tab (scanlines, gamma, contrast, etc.)
+           others   : show software tab */
+        ShowWindow(hDlgVideoSoftware,  pProperties->video.driver != P_VIDEO_DRVDIRECTX_D3D  ? SW_NORMAL : SW_HIDE);
+        ShowWindow(hDlgVideoDirect3d,  pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D  ? SW_NORMAL : SW_HIDE);
 
         return FALSE;
 
     case WM_VIDEO_DRIVER_CHANGED:
-        ShowWindow(hDlgVideoSoftware,  wParam != 3 ? SW_NORMAL : SW_HIDE);
-        ShowWindow(hDlgVideoDirect3d,  wParam == 3 ? SW_NORMAL : SW_HIDE);
+        ShowWindow(hDlgVideoSoftware,  (int)wParam != P_VIDEO_DRVDIRECTX_D3D  ? SW_NORMAL : SW_HIDE);
+        ShowWindow(hDlgVideoDirect3d,  (int)wParam == P_VIDEO_DRVDIRECTX_D3D  ? SW_NORMAL : SW_HIDE);
         return TRUE;
 
     case WM_NOTIFY:
@@ -2371,6 +2392,7 @@ int showProperties(Properties* pProperties, HWND hwndOwner, PropPage desiredStar
     sprintf(pVideoDriver[1], "%s", langEnumVideoDrvDirectDraw());
     sprintf(pVideoDriver[2], "%s", langEnumVideoDrvGDI());
     sprintf(pVideoDriver[3], "%s", langEnumVideoDrvD3D());
+    sprintf(pVideoDriver[4], "Direct3D 12");
 
     sprintf(pVideoFrameSkip[0], "%s", langEnumVideoFrameskip0());
     sprintf(pVideoFrameSkip[1], "%s", langEnumVideoFrameskip1());
