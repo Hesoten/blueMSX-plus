@@ -34,6 +34,7 @@
 #include "Board.h"
 #include "Win32Sound.h"
 #include "Win32TextUtf8.h"
+#include "Win32Common.h"
 #include "ArchFile.h"
 #include "Emulator.h"
 #include "Resource.h"
@@ -393,6 +394,7 @@ static BOOL CALLBACK statusDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM l
         SetWindowTextU(hDlg, langDlgRenderVideoCapture());
         SetDlgItemTextU(hDlg, IDC_VIDEOPROGRESSTEXT, progressText());
         SetTimer(hDlg, 2, 250, NULL);
+        win32CommonApplyDark(hDlg);
         return FALSE;
     }
 

@@ -99,11 +99,733 @@
 #include "SlotManager.h"
 
 #pragma warning(disable: 4996)
+#pragma comment(lib, "dwmapi.lib")
 
 // PacketFileSystem.h Need to be included after all other includes
 #include "PacketFileSystem.h"
+#include <dwmapi.h>
+#include <uxtheme.h>
+
+#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
+#define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+#endif
+
+/* Dark mode palette: matches Windows 11 / Explorer dark theme background and
+** controls; tuned to keep contrast against system-rendered focus rings and
+** modal scrollbars. */
+#define DARK_BG       RGB( 32,  32,  32)
+#define DARK_FG       RGB(240, 240, 240)
+#define DARK_EDIT_BG  RGB( 48,  48,  48)
+
+#define WIN32_DARK_SUBCLASS_ID 0xD8B41
 
 void vdpSetDisplayEnable(int enable);
+
+static HBRUSH  s_darkBkBrush   = NULL;
+static HBRUSH  s_darkEditBrush = NULL;
+
+/* Cached AppsUseLightTheme (-1 = unprobed): per-message registry reads
+** froze message floods for ~2 s.  Invalidated on WM_SETTINGCHANGE
+** "ImmersiveColorSet". */
+static volatile LONG g_darkModeCached = -1;
+
+void win32InvalidateDarkModeCache(void) {
+    g_darkModeCached = -1;
+}
+
+static BOOL win32IsDarkMode(void) {
+    DWORD value = 1;
+    DWORD size = sizeof(value);
+    DWORD type = REG_DWORD;
+    HKEY hKey;
+    LONG cached = g_darkModeCached;
+    if (cached >= 0) return (BOOL)cached;
+
+    if (RegOpenKeyExW(HKEY_CURRENT_USER,
+            L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+            0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+        RegQueryValueExW(hKey, L"AppsUseLightTheme", NULL, &type, (LPBYTE)&value, &size);
+        RegCloseKey(hKey);
+    }
+    g_darkModeCached = (value == 0) ? 1 : 0;
+    return value == 0;
+}
+
+/* Opt the app into uxtheme dark mode via undocumented ordinals:
+   1809 = 132 (AllowDarkModeForApp), 1903+ = 135 (SetPreferredAppMode) +
+   104 (RefreshImmersiveColorPolicyState). Required for IFileDialog and
+   common-menu dark theming on first show. */
+typedef enum {
+    BLUEMSX_AppMode_Default = 0,
+    BLUEMSX_AppMode_AllowDark = 1,
+    BLUEMSX_AppMode_ForceDark = 2,
+    BLUEMSX_AppMode_ForceLight = 3
+} BLUEMSX_PREFERREDAPPMODE;
+
+static void win32EnableDarkModeForApp(void) {
+    HMODULE huxtheme;
+    DWORD build = 0;
+    BOOL dark = win32IsDarkMode();
+
+    /* RtlGetVersion: GetVersionEx caps to 6.2 with our Win10/11 manifest. */
+    {
+        HMODULE hntdll = GetModuleHandleW(L"ntdll.dll");
+        if (hntdll) {
+            typedef LONG (WINAPI *PFN_RtlGetVersion)(POSVERSIONINFOW);
+            PFN_RtlGetVersion p = (PFN_RtlGetVersion)GetProcAddress(hntdll, "RtlGetVersion");
+            if (p) {
+                OSVERSIONINFOW os;
+                ZeroMemory(&os, sizeof(os));
+                os.dwOSVersionInfoSize = sizeof(os);
+                if (p(&os) == 0) build = os.dwBuildNumber;
+            }
+        }
+    }
+
+    huxtheme = LoadLibraryExW(L"uxtheme.dll", NULL, LOAD_LIBRARY_SEARCH_SYSTEM32);
+    if (!huxtheme) return;
+
+    /* ForceDark/ForceLight (not AllowDark) so out-of-process IFileDialog
+       shell content and popup menus follow the same polarity as the app. */
+    if (build >= 18362) {
+        typedef int (WINAPI *PFN_SetPreferredAppMode)(BLUEMSX_PREFERREDAPPMODE);
+        PFN_SetPreferredAppMode p =
+            (PFN_SetPreferredAppMode)GetProcAddress(huxtheme, MAKEINTRESOURCEA(135));
+        if (p) p(dark ? BLUEMSX_AppMode_ForceDark : BLUEMSX_AppMode_ForceLight);
+    } else if (build >= 17763) {
+        typedef BOOL (WINAPI *PFN_AllowDarkModeForApp)(BOOL);
+        PFN_AllowDarkModeForApp p =
+            (PFN_AllowDarkModeForApp)GetProcAddress(huxtheme, MAKEINTRESOURCEA(132));
+        if (p) p(dark);
+    }
+
+    {
+        typedef void (WINAPI *PFN_RefreshImmersiveColorPolicyState)(void);
+        PFN_RefreshImmersiveColorPolicyState p =
+            (PFN_RefreshImmersiveColorPolicyState)GetProcAddress(huxtheme,
+                                                                  MAKEINTRESOURCEA(104));
+        if (p) p();
+    }
+    {
+        /* uxtheme!FlushMenuThemes (ordinal 136): reset cached menu theme so
+        ** the new app mode takes effect on subsequently opened menus and
+        ** common dialogs without needing a focus-change repaint. */
+        typedef void (WINAPI *PFN_FlushMenuThemes)(void);
+        PFN_FlushMenuThemes p =
+            (PFN_FlushMenuThemes)GetProcAddress(huxtheme, MAKEINTRESOURCEA(136));
+        if (p) p();
+    }
+    /* Keep the library loaded; uxtheme uses its own globals after this. */
+}
+
+static void win32ApplyDarkTitle(HWND hwnd) {
+    BOOL dark = win32IsDarkMode();
+    DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark, sizeof(dark));
+}
+
+/* uxtheme!AllowDarkModeForWindow (ordinal 133): needed on top of
+** SetPreferredAppMode so IFileDialog parts go dark on first show. */
+static void win32AllowDarkForWindow(HWND hwnd, BOOL allow) {
+    HMODULE huxtheme = GetModuleHandleW(L"uxtheme.dll");
+    if (!huxtheme) return;
+    {
+        typedef BOOL (WINAPI *PFN_AllowDarkModeForWindow)(HWND, BOOL);
+        PFN_AllowDarkModeForWindow p =
+            (PFN_AllowDarkModeForWindow)GetProcAddress(huxtheme, MAKEINTRESOURCEA(133));
+        if (p) p(hwnd, allow);
+    }
+}
+
+
+
+static HBRUSH win32GetDarkBkBrush(void) {
+    if (!s_darkBkBrush) s_darkBkBrush = CreateSolidBrush(DARK_BG);
+    return s_darkBkBrush;
+}
+
+/* Public dark-mode helpers (declared in Win32Common.h) used by custom-paint
+** child controls (msctls_hotkey32 etc.) that miss the WM_CTLCOLOR* path. */
+BOOL win32CommonIsDarkMode(void) { return win32IsDarkMode(); }
+COLORREF win32CommonDarkBg(void) { return DARK_BG; }
+COLORREF win32CommonDarkFg(void) { return DARK_FG; }
+HBRUSH   win32CommonDarkBgBrush(void) { return win32GetDarkBkBrush(); }
+
+/* Forward declared so this wrapper can sit alongside the other public dark
+** helpers; the actual win32ApplyDarkToDialog body is later in this file. */
+static void win32ApplyDarkToDialog(HWND hwnd);
+void win32CommonApplyDark(HWND hDlg) { win32ApplyDarkToDialog(hDlg); }
+
+static HBRUSH win32GetDarkEditBrush(void) {
+    if (!s_darkEditBrush) s_darkEditBrush = CreateSolidBrush(DARK_EDIT_BG);
+    return s_darkEditBrush;
+}
+
+#define WIN32_DARK_TAB_SUBCLASS_ID      0xD8B42
+#define WIN32_DARK_GROUPBOX_SUBCLASS_ID 0xD8B43
+#define WIN32_DARK_HEADER_SUBCLASS_ID   0xD8B44
+
+/* Tab control WM_PAINT subclass: NM_CUSTOMDRAW is unreliable for
+** PropSheet tabs, so own the full painting cycle instead. */
+static LRESULT CALLBACK win32DarkTabSubclassProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp,
+                                                 UINT_PTR id, DWORD_PTR data) {
+    (void)data;
+    if (win32IsDarkMode()) {
+        switch (msg) {
+        case WM_ERASEBKGND:
+            return 1; /* paint in WM_PAINT */
+        case WM_PAINT: {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hwnd, &ps);
+            RECT rcClient;
+            int count, sel, i;
+            HFONT hFont = (HFONT)SendMessageW(hwnd, WM_GETFONT, 0, 0);
+            HFONT hOld  = hFont ? (HFONT)SelectObject(hdc, hFont) : NULL;
+
+            GetClientRect(hwnd, &rcClient);
+            FillRect(hdc, &rcClient, win32GetDarkBkBrush());
+
+            count = TabCtrl_GetItemCount(hwnd);
+            sel   = TabCtrl_GetCurSel(hwnd);
+            SetBkMode(hdc, TRANSPARENT);
+            SetTextColor(hdc, DARK_FG);
+            for (i = 0; i < count; i++) {
+                RECT rcItem;
+                wchar_t buf[256];
+                TCITEMW tci = {0};
+                HBRUSH bg = (i == sel) ? win32GetDarkEditBrush() : win32GetDarkBkBrush();
+
+                if (!TabCtrl_GetItemRect(hwnd, i, &rcItem)) continue;
+                tci.mask = TCIF_TEXT;
+                tci.pszText = buf;
+                tci.cchTextMax = (int)_countof(buf);
+                SendMessageW(hwnd, TCM_GETITEMW, (WPARAM)i, (LPARAM)&tci);
+
+                FillRect(hdc, &rcItem, bg);
+                DrawTextW(hdc, buf, -1, &rcItem, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+            }
+
+            if (hOld) SelectObject(hdc, hOld);
+            EndPaint(hwnd, &ps);
+            return 0;
+        }
+        case WM_NCDESTROY:
+            RemoveWindowSubclass(hwnd, win32DarkTabSubclassProc, id);
+            break;
+        }
+    } else if (msg == WM_NCDESTROY) {
+        RemoveWindowSubclass(hwnd, win32DarkTabSubclassProc, id);
+    }
+    return DefSubclassProc(hwnd, msg, wp, lp);
+}
+
+/* Radio / checkbox POSTPAINT: DarkMode_Explorer darkens the indicator
+** but not the label, so redraw the caption in DARK_FG ourselves. */
+static LRESULT win32DarkButtonCustomDraw(LPNMCUSTOMDRAW cd) {
+    HWND hwnd = cd->hdr.hwndFrom;
+    LONG style = GetWindowLongW(hwnd, GWL_STYLE);
+    UINT type  = (UINT)(style & BS_TYPEMASK);
+
+    /* GROUPBOX is owner-painted by its own subclass. Push buttons accept the
+    ** themed dark text just fine in Win11, so leave them alone. */
+    if (type != BS_AUTORADIOBUTTON && type != BS_RADIOBUTTON &&
+        type != BS_AUTOCHECKBOX   && type != BS_CHECKBOX    &&
+        type != BS_AUTO3STATE     && type != BS_3STATE) {
+        return CDRF_DODEFAULT;
+    }
+
+    switch (cd->dwDrawStage) {
+    case CDDS_PREPAINT:
+        return CDRF_NOTIFYPOSTPAINT;
+    case CDDS_POSTPAINT: {
+        wchar_t buf[256];
+        int len = GetWindowTextW(hwnd, buf, (int)_countof(buf));
+        if (len > 0) {
+            HDC hdc = cd->hdc;
+            RECT r = cd->rc;
+            HFONT hFont = (HFONT)SendMessageW(hwnd, WM_GETFONT, 0, 0);
+            HFONT hOld  = hFont ? (HFONT)SelectObject(hdc, hFont) : NULL;
+            int dpi = GetDeviceCaps(hdc, LOGPIXELSY);
+            /* Indicator size scales with DPI; classic 13 px at 96 DPI. */
+            int indW = MulDiv(13, dpi, 96) + 4;
+            BOOL leftText = (style & BS_LEFTTEXT) != 0;
+
+            if (leftText) {
+                /* Indicator on right, text on left. Erase to indicator left edge. */
+                r.right -= indW;
+            } else {
+                /* Indicator on left, text on right. Erase from text start. */
+                r.left += indW;
+            }
+            FillRect(hdc, &r, win32GetDarkBkBrush());
+            SetTextColor(hdc, DARK_FG);
+            SetBkMode(hdc, TRANSPARENT);
+            DrawTextW(hdc, buf, len, &r,
+                      DT_VCENTER | DT_SINGLELINE | (leftText ? DT_RIGHT : DT_LEFT));
+
+            if (hOld) SelectObject(hdc, hOld);
+        }
+        return CDRF_DODEFAULT;
+    }
+    }
+    return CDRF_DODEFAULT;
+}
+
+/* SysHeader32 direct subclass: ListView column headers stay light-themed
+** even with SetWindowTheme; owner-draw via WM_PAINT to apply dark colors. */
+static LRESULT CALLBACK win32DarkHeaderSubclassProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp,
+                                                    UINT_PTR id, DWORD_PTR data) {
+    (void)data;
+    if (win32IsDarkMode()) {
+        switch (msg) {
+        case WM_ERASEBKGND:
+            return 1;
+        case WM_PAINT: {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hwnd, &ps);
+            RECT rcClient;
+            int count, i;
+            HFONT hFont = (HFONT)SendMessageW(hwnd, WM_GETFONT, 0, 0);
+            HFONT hOld  = hFont ? (HFONT)SelectObject(hdc, hFont) : NULL;
+            HPEN  pen   = CreatePen(PS_SOLID, 1, RGB(96, 96, 96));
+
+            GetClientRect(hwnd, &rcClient);
+            FillRect(hdc, &rcClient, win32GetDarkBkBrush());
+
+            count = (int)SendMessageW(hwnd, HDM_GETITEMCOUNT, 0, 0);
+            SetTextColor(hdc, DARK_FG);
+            SetBkMode(hdc, TRANSPARENT);
+            for (i = 0; i < count; i++) {
+                RECT rc;
+                wchar_t buf[256];
+                HDITEMW hdi = {0};
+                HPEN oldPen;
+
+                if (!Header_GetItemRect(hwnd, i, &rc)) continue;
+                hdi.mask = HDI_TEXT;
+                hdi.pszText = buf;
+                hdi.cchTextMax = (int)_countof(buf);
+                SendMessageW(hwnd, HDM_GETITEMW, (WPARAM)i, (LPARAM)&hdi);
+
+                FillRect(hdc, &rc, win32GetDarkBkBrush());
+
+                /* Right and bottom 1 px borders for visual separation. */
+                oldPen = (HPEN)SelectObject(hdc, pen);
+                MoveToEx(hdc, rc.right - 1, rc.top, NULL);
+                LineTo  (hdc, rc.right - 1, rc.bottom);
+                MoveToEx(hdc, rc.left,      rc.bottom - 1, NULL);
+                LineTo  (hdc, rc.right,     rc.bottom - 1);
+                SelectObject(hdc, oldPen);
+
+                {
+                    RECT t = rc;
+                    t.left += 8;
+                    t.right -= 8;
+                    DrawTextW(hdc, buf, -1, &t, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+                }
+            }
+
+            DeleteObject(pen);
+            if (hOld) SelectObject(hdc, hOld);
+            EndPaint(hwnd, &ps);
+            return 0;
+        }
+        case WM_NCDESTROY:
+            RemoveWindowSubclass(hwnd, win32DarkHeaderSubclassProc, id);
+            break;
+        }
+    } else if (msg == WM_NCDESTROY) {
+        RemoveWindowSubclass(hwnd, win32DarkHeaderSubclassProc, id);
+    }
+    return DefSubclassProc(hwnd, msg, wp, lp);
+}
+
+/* GROUPBOX direct subclass. The BUTTON-with-BS_GROUPBOX style draws its
+** caption with hard-coded system text color, so WM_PAINT is intercepted
+** to draw frame + caption in dark-mode colours. */
+static LRESULT CALLBACK win32DarkGroupBoxSubclassProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp,
+                                                      UINT_PTR id, DWORD_PTR data) {
+    (void)data;
+    if (win32IsDarkMode()) {
+        switch (msg) {
+        case WM_ERASEBKGND:
+            return 1;
+        case WM_PAINT: {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hwnd, &ps);
+            RECT rc;
+            wchar_t text[256];
+            int len;
+            HFONT hFont = (HFONT)SendMessageW(hwnd, WM_GETFONT, 0, 0);
+            HFONT hOld  = hFont ? (HFONT)SelectObject(hdc, hFont) : NULL;
+            SIZE sz = {0, 0};
+
+            GetClientRect(hwnd, &rc);
+            len = GetWindowTextW(hwnd, text, (int)_countof(text));
+            if (len > 0) GetTextExtentPoint32W(hdc, text, len, &sz);
+
+            FillRect(hdc, &rc, win32GetDarkBkBrush());
+
+            /* Frame, sunk by half-cap-height so the caption sits across the top edge. */
+            {
+                RECT frame = rc;
+                HBRUSH oldBr = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
+                HPEN   pen   = CreatePen(PS_SOLID, 1, RGB(96, 96, 96));
+                HPEN   oldPn = (HPEN)SelectObject(hdc, pen);
+                if (sz.cy > 0) frame.top += sz.cy / 2;
+                Rectangle(hdc, frame.left, frame.top, frame.right, frame.bottom);
+                SelectObject(hdc, oldPn);
+                DeleteObject(pen);
+                SelectObject(hdc, oldBr);
+            }
+
+            /* Caption: erase a 4 px-padded box behind it so the frame line does
+            ** not strike through, then draw the label in the dark foreground. */
+            if (len > 0) {
+                RECT t;
+                t.left   = rc.left + 8;
+                t.top    = rc.top;
+                t.right  = t.left + sz.cx + 4;
+                t.bottom = t.top + sz.cy;
+                FillRect(hdc, &t, win32GetDarkBkBrush());
+                SetTextColor(hdc, DARK_FG);
+                SetBkMode(hdc, TRANSPARENT);
+                DrawTextW(hdc, text, len, &t, DT_LEFT | DT_TOP | DT_SINGLELINE);
+            }
+
+            if (hOld) SelectObject(hdc, hOld);
+            EndPaint(hwnd, &ps);
+            return 0;
+        }
+        case WM_NCDESTROY:
+            RemoveWindowSubclass(hwnd, win32DarkGroupBoxSubclassProc, id);
+            break;
+        }
+    } else if (msg == WM_NCDESTROY) {
+        RemoveWindowSubclass(hwnd, win32DarkGroupBoxSubclassProc, id);
+    }
+    return DefSubclassProc(hwnd, msg, wp, lp);
+}
+
+/* WM_UAHDRAWMENU/ITEM (0x91/0x92) carry dark-menu paint requests once the
+   window is opted into AllowDarkModeForWindow + ForceDark. Used for
+   plugin / sub-windows; main window uses custom strip in Win32Menu.c. */
+#ifndef WM_UAHDRAWMENU
+#define WM_UAHDRAWMENU       0x0091
+#define WM_UAHDRAWMENUITEM   0x0092
+#endif
+
+typedef union tagWIN32_UAHMENUITEMMETRICS {
+    struct { DWORD cx; DWORD cy; } rgsizeBar[2];
+    struct { DWORD cx; DWORD cy; } rgsizePopup[4];
+} WIN32_UAHMENUITEMMETRICS;
+
+typedef struct tagWIN32_UAHMENUPOPUPMETRICS {
+    DWORD rgcx[4];
+    DWORD fUpdateMaxWidths : 2;
+} WIN32_UAHMENUPOPUPMETRICS;
+
+typedef struct tagWIN32_UAHMENU {
+    HMENU hmenu;
+    HDC   hdc;
+    DWORD dwFlags;
+} WIN32_UAHMENU;
+
+typedef struct tagWIN32_UAHMENUITEM {
+    int                       iPosition;
+    WIN32_UAHMENUITEMMETRICS  umim;
+    WIN32_UAHMENUPOPUPMETRICS umpm;
+} WIN32_UAHMENUITEM;
+
+typedef struct tagWIN32_UAHDRAWMENUITEM {
+    DRAWITEMSTRUCT     dis;
+    WIN32_UAHMENU      um;
+    WIN32_UAHMENUITEM  umi;
+} WIN32_UAHDRAWMENUITEM;
+
+static HFONT s_darkMenuFont    = NULL;
+static UINT  s_darkMenuFontDpi = 0;
+
+/* Cache one menu font per DPI.  lfHeight is scaled at half the DPI
+** ratio so sub-window menu bars don't overwhelm the strip when the
+** monitor is > 96 DPI. */
+static HFONT win32GetDarkMenuFont(UINT dpi) {
+    NONCLIENTMETRICS ncm;
+    if (dpi == 0) dpi = 96;
+    if (s_darkMenuFont && s_darkMenuFontDpi == dpi) return s_darkMenuFont;
+    if (s_darkMenuFont) DeleteObject(s_darkMenuFont);
+    s_darkMenuFont = NULL;
+    s_darkMenuFontDpi = 0;
+
+    memset(&ncm, 0, sizeof(ncm));
+    ncm.cbSize = sizeof(ncm);
+    SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0);
+    if (dpi > 96) {
+        double factor = 1.0 + ((double)dpi / 96.0 - 1.0) * 0.5;
+        ncm.lfMenuFont.lfHeight = (LONG)(ncm.lfMenuFont.lfHeight * factor);
+    }
+    s_darkMenuFont    = CreateFontIndirect(&ncm.lfMenuFont);
+    s_darkMenuFontDpi = dpi;
+    return s_darkMenuFont;
+}
+
+static UINT win32QueryWindowDpi(HWND hwnd) {
+    typedef UINT (WINAPI *PFN_GetDpiForWindow)(HWND);
+    static PFN_GetDpiForWindow pGetDpi = (PFN_GetDpiForWindow)(LONG_PTR)-1;
+    if (pGetDpi == (PFN_GetDpiForWindow)(LONG_PTR)-1) {
+        pGetDpi = (PFN_GetDpiForWindow)GetProcAddress(GetModuleHandleW(L"user32.dll"),
+                                                      "GetDpiForWindow");
+    }
+    if (pGetDpi) return pGetDpi(hwnd);
+    return 96;
+}
+
+/* Repaint the 1-pixel light line that the system NC paint draws at the
+** bottom of the menu bar. Called from WM_NCPAINT / WM_NCACTIVATE after
+** DefSubclassProc returns (which is what draws the offending line). */
+static void win32DarkOverpaintMenuBarLine(HWND hwnd) {
+    MENUBARINFO mbi;
+    RECT wndR, lineR;
+    HDC hdc;
+    if (!GetMenu(hwnd)) return;
+    memset(&mbi, 0, sizeof(mbi));
+    mbi.cbSize = sizeof(mbi);
+    if (!GetMenuBarInfo(hwnd, OBJID_MENU, 0, &mbi)) return;
+    GetWindowRect(hwnd, &wndR);
+    lineR = mbi.rcBar;
+    OffsetRect(&lineR, -wndR.left, -wndR.top);
+    lineR.top    = lineR.bottom;
+    lineR.bottom = lineR.top + 1;
+    hdc = GetWindowDC(hwnd);
+    if (hdc) {
+        FillRect(hdc, &lineR, win32GetDarkBkBrush());
+        ReleaseDC(hwnd, hdc);
+    }
+}
+
+/* Dialog subclass: WM_CTLCOLOR* dark painting + radio/checkbox NM_CUSTOMDRAW
+   forward + WM_UAHDRAWMENU* for plugin windows with a standard menu bar. */
+static LRESULT CALLBACK win32DarkSubclassProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp,
+                                              UINT_PTR id, DWORD_PTR data) {
+    (void)data;
+    if (win32IsDarkMode()) {
+        switch (msg) {
+        case WM_CTLCOLORDLG:
+        case WM_CTLCOLORSTATIC:
+        case WM_CTLCOLORBTN: {
+            HDC hdc = (HDC)wp;
+            SetTextColor(hdc, DARK_FG);
+            SetBkColor(hdc, DARK_BG);
+            return (LRESULT)win32GetDarkBkBrush();
+        }
+        case WM_CTLCOLOREDIT:
+        case WM_CTLCOLORLISTBOX: {
+            HDC hdc = (HDC)wp;
+            SetTextColor(hdc, DARK_FG);
+            SetBkColor(hdc, DARK_EDIT_BG);
+            return (LRESULT)win32GetDarkEditBrush();
+        }
+        case WM_NOTIFY: {
+            LPNMHDR nm = (LPNMHDR)lp;
+            if (nm && nm->code == NM_CUSTOMDRAW) {
+                wchar_t cls[64];
+                if (GetClassNameW(nm->hwndFrom, cls, (int)_countof(cls)) > 0 &&
+                    lstrcmpiW(cls, L"Button") == 0) {
+                    return win32DarkButtonCustomDraw((LPNMCUSTOMDRAW)nm);
+                }
+            }
+            break;
+        }
+        case WM_UAHDRAWMENU: {
+            WIN32_UAHMENU* pUDM = (WIN32_UAHMENU*)lp;
+            MENUBARINFO mbi;
+            memset(&mbi, 0, sizeof(mbi));
+            mbi.cbSize = sizeof(mbi);
+            if (GetMenuBarInfo(hwnd, OBJID_MENU, 0, &mbi)) {
+                RECT wndR, rcBar;
+                GetWindowRect(hwnd, &wndR);
+                rcBar = mbi.rcBar;
+                OffsetRect(&rcBar, -wndR.left, -wndR.top);
+                FillRect(pUDM->hdc, &rcBar, win32GetDarkBkBrush());
+            }
+            return 0;
+        }
+        case WM_UAHDRAWMENUITEM: {
+            WIN32_UAHDRAWMENUITEM* pUDMI = (WIN32_UAHDRAWMENUITEM*)lp;
+            HDC hdc = pUDMI->um.hdc;
+            BOOL hot      = (pUDMI->dis.itemState & ODS_HOTLIGHT) != 0;
+            BOOL selected = (pUDMI->dis.itemState & ODS_SELECTED) != 0;
+            BOOL disabled = (pUDMI->dis.itemState & (ODS_DISABLED | ODS_GRAYED | ODS_INACTIVE)) != 0;
+            HBRUSH bgBrush;
+            COLORREF fgColor;
+            wchar_t menuStr[256];
+            MENUITEMINFOW mii;
+            UINT dpi;
+            HFONT font, oldFont;
+            UINT dtFlags = DT_CENTER | DT_VCENTER | DT_SINGLELINE;
+
+            if (!hdc) hdc = pUDMI->dis.hDC;
+
+            /* Hot/selected use the slightly-lighter edit-background color so
+            ** there is a visible highlight against the menu strip's DARK_BG. */
+            bgBrush = (hot || selected) ? win32GetDarkEditBrush()
+                                        : win32GetDarkBkBrush();
+            fgColor = disabled ? RGB(128, 128, 128) : DARK_FG;
+
+            FillRect(hdc, &pUDMI->dis.rcItem, bgBrush);
+
+            menuStr[0] = 0;
+            memset(&mii, 0, sizeof(mii));
+            mii.cbSize     = sizeof(mii);
+            mii.fMask      = MIIM_STRING;
+            mii.dwTypeData = menuStr;
+            mii.cch        = (UINT)_countof(menuStr) - 1;
+            GetMenuItemInfoW(pUDMI->um.hmenu, pUDMI->umi.iPosition, TRUE, &mii);
+
+            dpi     = win32QueryWindowDpi(hwnd);
+            font    = win32GetDarkMenuFont(dpi);
+            oldFont = font ? (HFONT)SelectObject(hdc, font) : NULL;
+            SetTextColor(hdc, fgColor);
+            SetBkMode(hdc, TRANSPARENT);
+
+            /* Honor "hide accelerator underline until Alt is pressed" the same
+            ** way the system does for the un-customized menu bar. */
+            if (pUDMI->dis.itemState & ODS_NOACCEL) dtFlags |= DT_HIDEPREFIX;
+
+            DrawTextW(hdc, menuStr, -1, &pUDMI->dis.rcItem, dtFlags);
+
+            if (oldFont) SelectObject(hdc, oldFont);
+            return 0;
+        }
+        case WM_NCPAINT:
+        case WM_NCACTIVATE: {
+            LRESULT r = DefSubclassProc(hwnd, msg, wp, lp);
+            /* Default NC paint draws a 1-pixel light line at the bottom of
+            ** the menu bar. Overpaint it dark. Cheap, no-op when no menu. */
+            win32DarkOverpaintMenuBarLine(hwnd);
+            return r;
+        }
+        case WM_NCDESTROY:
+            RemoveWindowSubclass(hwnd, win32DarkSubclassProc, id);
+            break;
+        }
+    } else if (msg == WM_NCDESTROY) {
+        RemoveWindowSubclass(hwnd, win32DarkSubclassProc, id);
+    }
+    return DefSubclassProc(hwnd, msg, wp, lp);
+}
+
+/* STATIC/GROUPBOX/TabControl owner-paint; List/Tree get explicit colors;
+   combo DarkMode_CFD; rest DarkMode_Explorer. */
+static BOOL CALLBACK win32DarkApplyChild(HWND child, LPARAM lp) {
+    BOOL dark = (BOOL)lp;
+    wchar_t className[64];
+    if (GetClassNameW(child, className, (int)_countof(className)) <= 0) return TRUE;
+
+    /* Per-window opt-in for the dark visual style is required for every
+    ** themed common control on Windows 10 1809+. */
+    win32AllowDarkForWindow(child, dark);
+
+    if (lstrcmpiW(className, L"STATIC") == 0) {
+        return TRUE;
+    }
+
+    if (lstrcmpiW(className, L"SysTabControl32") == 0) {
+        if (dark) SetWindowSubclass(child, win32DarkTabSubclassProc, WIN32_DARK_TAB_SUBCLASS_ID, 0);
+        else      RemoveWindowSubclass(child, win32DarkTabSubclassProc, WIN32_DARK_TAB_SUBCLASS_ID);
+        InvalidateRect(child, NULL, TRUE);
+        return TRUE;
+    }
+    if (lstrcmpiW(className, L"Button") == 0) {
+        LONG style = GetWindowLongW(child, GWL_STYLE);
+        if ((style & BS_TYPEMASK) == BS_GROUPBOX) {
+            if (dark) SetWindowSubclass(child, win32DarkGroupBoxSubclassProc, WIN32_DARK_GROUPBOX_SUBCLASS_ID, 0);
+            else      RemoveWindowSubclass(child, win32DarkGroupBoxSubclassProc, WIN32_DARK_GROUPBOX_SUBCLASS_ID);
+            InvalidateRect(child, NULL, TRUE);
+            return TRUE;
+        }
+        SetWindowTheme(child, dark ? L"DarkMode_Explorer" : L"Explorer", NULL);
+        return TRUE;
+    }
+
+    if (lstrcmpiW(className, L"SysHeader32") == 0) {
+        if (dark) SetWindowSubclass(child, win32DarkHeaderSubclassProc, WIN32_DARK_HEADER_SUBCLASS_ID, 0);
+        else      RemoveWindowSubclass(child, win32DarkHeaderSubclassProc, WIN32_DARK_HEADER_SUBCLASS_ID);
+        SetWindowTheme(child, dark ? L"DarkMode_ItemsView" : L"Explorer", NULL);
+        InvalidateRect(child, NULL, TRUE);
+        return TRUE;
+    }
+    if (lstrcmpiW(className, L"SysListView32") == 0) {
+        ListView_SetBkColor    (child, dark ? DARK_BG : GetSysColor(COLOR_WINDOW));
+        ListView_SetTextBkColor(child, dark ? DARK_BG : GetSysColor(COLOR_WINDOW));
+        ListView_SetTextColor  (child, dark ? DARK_FG : GetSysColor(COLOR_WINDOWTEXT));
+        SetWindowTheme(child, dark ? L"DarkMode_Explorer" : L"Explorer", NULL);
+    }
+    else if (lstrcmpiW(className, L"SysTreeView32") == 0) {
+        TreeView_SetBkColor  (child, dark ? DARK_BG : (COLORREF)-1);
+        TreeView_SetTextColor(child, dark ? DARK_FG : (COLORREF)-1);
+        SetWindowTheme(child, dark ? L"DarkMode_Explorer" : L"Explorer", NULL);
+    }
+    else if (lstrcmpiW(className, L"ComboBox") == 0) {
+        SetWindowTheme(child, dark ? L"DarkMode_CFD" : L"Explorer", NULL);
+        /* Clear edit selection so CBS_DROPDOWN combos don't open
+           highlighted from CB_SETCURSEL during WM_INITDIALOG. */
+        SendMessage(child, CB_SETEDITSEL, 0, (LPARAM)MAKELPARAM(-1, 0));
+    }
+    else {
+        SetWindowTheme(child, dark ? L"DarkMode_Explorer" : L"Explorer", NULL);
+    }
+    return TRUE;
+}
+
+static BOOL CALLBACK win32InvalidateChildProc(HWND child, LPARAM lp) {
+    (void)lp;
+    InvalidateRect(child, NULL, TRUE);
+    return TRUE;
+}
+
+static void win32ApplyDarkToDialog(HWND hwnd) {
+    BOOL dark = win32IsDarkMode();
+    /* Titlebar via DWM. Skip for childless / parented dialogs without a
+    ** caption (sub-panel pages mounted inside a parent dialog). */
+    if (GetWindowLong(hwnd, GWL_STYLE) & WS_CAPTION) {
+        win32ApplyDarkTitle(hwnd);
+    }
+    /* Walk up to the system-owned property sheet outer dialog (#32770) and
+       apply dark there too -- we never see WM_INITDIALOG for that frame. */
+    {
+        HWND parent = GetParent(hwnd);
+        if (parent) {
+            wchar_t cls[32];
+            if (GetClassNameW(parent, cls, (int)_countof(cls)) > 0 &&
+                lstrcmpW(cls, L"#32770") == 0) {
+                if (GetWindowLong(parent, GWL_STYLE) & WS_CAPTION) {
+                    win32ApplyDarkTitle(parent);
+                }
+                win32AllowDarkForWindow(parent, dark);
+                SetWindowTheme(parent, dark ? L"DarkMode_Explorer" : L"Explorer", NULL);
+                EnumChildWindows(parent, win32DarkApplyChild, (LPARAM)dark);
+                SetWindowSubclass(parent, win32DarkSubclassProc, WIN32_DARK_SUBCLASS_ID, 0);
+                SendMessageW(parent, WM_THEMECHANGED, 0, 0);
+                InvalidateRect(parent, NULL, TRUE);
+            }
+        }
+    }
+    win32AllowDarkForWindow(hwnd, dark);
+    SetWindowTheme(hwnd, dark ? L"DarkMode_Explorer" : L"Explorer", NULL);
+    EnumChildWindows(hwnd, win32DarkApplyChild, (LPARAM)dark);
+    SetWindowSubclass(hwnd, win32DarkSubclassProc, WIN32_DARK_SUBCLASS_ID, 0);
+    /* WM_THEMECHANGED forces every themed control under hwnd to re-query its
+    ** colours. Without it the IFileDialog navigation pane / breadcrumb stay
+    ** light until the first WM_ACTIVATE re-fires. */
+    SendMessageW(hwnd, WM_THEMECHANGED, 0, 0);
+    /* Invalidate the dialog and every child: subclass + theme switch only
+    ** apply to subsequent paints, and WS_CLIPCHILDREN means parent
+    ** invalidation does not propagate to children. */
+    InvalidateRect(hwnd, NULL, TRUE);
+    EnumChildWindows(hwnd, win32InvalidateChildProc, 0);
+}
+
+
 
 void win32SliderTooltipUpdate(HWND* phwndTip, HWND parent, int percent)
 {
@@ -410,6 +1132,7 @@ static BOOL_DLG_RET CALLBACK langDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LP
                     }
                 }
             }
+            win32CommonApplyDark(hDlg);
             return FALSE;
         }
 
@@ -473,6 +1196,7 @@ static BOOL_DLG_RET CALLBACK dskProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM
     switch (iMsg) {
     case WM_INITDIALOG:
         centerDialog(hDlg, 0);
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
     case WM_SHOWDSKWIN:
@@ -681,6 +1405,7 @@ static BOOL_DLG_RET CALLBACK dskZipDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
         
             updateRomTypeList(hDlg, dlgInfo);
 
+            win32CommonApplyDark(hDlg);
             return FALSE;
         }
 
@@ -863,6 +1588,7 @@ static BOOL_DLG_RET CALLBACK tapePosDlg(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
         }
 
         tapeDlgUpdate(hwnd, tc, tcCount, *showCustomFiles);
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
     case WM_NOTIFY:
@@ -2677,6 +3403,19 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
     case WM_INPUTLANGCHANGE:
         break;
 
+    case WM_SETTINGCHANGE:
+        if (lParam && strcmp((const char*)lParam, "ImmersiveColorSet") == 0) {
+            /* System dark/light toggled -- drop the cached registry value so
+            ** subclass procs pick up the new state on their next message. */
+            win32InvalidateDarkModeCache();
+            win32ApplyDarkTitle(hwnd);
+            /* Re-evaluate ForceDark vs ForceLight against the new system
+            ** theme, then refresh and flush the cached menu theme so already
+            ** populated popup/submenu visuals don't keep the previous mode. */
+            win32EnableDarkModeForApp();
+        }
+        break;
+
     case WM_PAINT:
         {
             PAINTSTRUCT ps;
@@ -3185,10 +3924,17 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     pProperties->language = emuCheckLanguageArgument(szLine, pProperties->language);
     langSetLanguage(pProperties->language);
 
-    st.hwnd = CreateWindow("blueMSX", "  blueMSX", 
+    /* Enable dark for process-wide themed controls before any dialog shows. */
+    win32EnableDarkModeForApp();
+
+    st.hwnd = CreateWindow("blueMSX", "  blueMSX",
                             WS_OVERLAPPED | WS_CLIPCHILDREN | WS_BORDER | WS_DLGFRAME | 
                             WS_SYSMENU | WS_MINIMIZEBOX | (pProperties->video.maximizeIsFullscreen?WS_MAXIMIZEBOX:0), 
                             CW_USEDEFAULT, CW_USEDEFAULT, 800, 200, NULL, NULL, hInstance, NULL);
+
+    /* Main window is not a dialog so it doesn't go through win32CommonApplyDark.
+    ** Apply the immersive dark titlebar directly. */
+    win32ApplyDarkTitle(st.hwnd);
 
     menuCreate(st.hwnd);
 
@@ -4230,6 +4976,7 @@ static BOOL_DLG_RET CALLBACK loadMemorProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
         }
         SendMessage(GetDlgItem(hDlg, IDC_LDMEM_BROWSE), BM_SETIMAGE, IMAGE_ICON, (LPARAM)hIconBtBrowse);
 
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
     case WM_COMMAND:

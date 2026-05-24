@@ -442,6 +442,7 @@ static INT_PTR CALLBACK slotProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPa
         SetWindowTextU(GetDlgItem(hDlg, IDC_CONF_SLOTSUBSLOTTED4), langConfSlotExpanded());
 
         SendMessage(hDlg, WM_UPDATEMAHCINE, 0, 0);
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
     case WM_CTLCOLORBTN:
@@ -1664,6 +1665,7 @@ static BOOL_DLG_RET CALLBACK slotEditProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
 
         setEditControls(hDlg);
 
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
     case WM_COMMAND:
@@ -1945,6 +1947,7 @@ static BOOL_DLG_RET CALLBACK memoryProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
         }
 
         SendMessage(hDlg, WM_UPDATEMAHCINE, 0, 0);
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
     case WM_ERASEBKGND:
@@ -2150,6 +2153,7 @@ static INT_PTR CALLBACK extrasProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM l
         SetWindowTextU(GetDlgItem(hDlg, IDC_CMOSENABLE), langConfCmosEnableText());
         SetWindowTextU(GetDlgItem(hDlg, IDC_CMOSBATTERY), langConfCmosBatteryText());
         SendMessage(hDlg, WM_UPDATEMAHCINE, 0, 0);
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
     case WM_CTLCOLORBTN:
@@ -2274,6 +2278,7 @@ static INT_PTR CALLBACK chipsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
         
         SendMessage(hDlg, WM_UPDATEMAHCINE, 0, 0);
 
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
     case WM_CTLCOLORBTN:
@@ -2362,6 +2367,7 @@ static BOOL_DLG_RET CALLBACK saveProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARA
             SetWindowTextU(GetDlgItem(hDlg, IDOK), langDlgOK());
             SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
         }
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
     case WM_COMMAND:
@@ -2392,6 +2398,7 @@ static BOOL_DLG_RET CALLBACK closeProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPAR
         SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
         SetWindowTextU(GetDlgItem(hDlg, IDC_CONF_SAVEDLG_TEXT), langConfExitSaveText());
 
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
     case WM_COMMAND:
@@ -2422,6 +2429,7 @@ static BOOL_DLG_RET CALLBACK discardProc(HWND hDlg, UINT iMsg, WPARAM wParam, LP
         SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
         SetWindowTextU(GetDlgItem(hDlg, IDC_CONF_SAVEDLG_TEXT), langConfExitSaveText());
 
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
     case WM_COMMAND:
@@ -2478,6 +2486,7 @@ static BOOL_DLG_RET CALLBACK saveAsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
             arrayListDestroyIterator(iterator);
         }
 
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
     case WM_COMMAND:
@@ -2577,6 +2586,7 @@ static BOOL_DLG_RET CALLBACK configProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
 
         updateMachineList(hDlg);
 
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
     case WM_NOTIFY:

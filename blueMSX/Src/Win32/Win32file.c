@@ -1308,6 +1308,7 @@ static BOOL_DLG_RET CALLBACK saveAsProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
                 EnableWindow(GetDlgItem(hwnd, IDOK), TRUE);
             }
         }
+        win32CommonApplyDark(hwnd);
         return FALSE;
 
     case WM_COMMAND:

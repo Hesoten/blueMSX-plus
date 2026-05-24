@@ -55,6 +55,7 @@ static HRESULT StringCchLength(LPCTSTR s, size_t m, size_t *l) { *l = strlen(s);
 #include "Win32DirectX.h"
 #include "ThemeLoader.h"
 #include "Win32keyboard.h"
+#include "Win32Common.h"
 #include "resource.h"
 #include "Language.h"
 #include "Machine.h"
@@ -369,6 +370,7 @@ static BOOL_DLG_RET CALLBACK emulationDlgProc(HWND hDlg, UINT iMsg, WPARAM wPara
         SendMessage(GetDlgItem(hDlg, IDC_EMUSPEED), TBM_SETRANGE, 0, (LPARAM)MAKELONG(0, 100));
         SendMessage(GetDlgItem(hDlg, IDC_EMUSPEED), TBM_SETPOS,   1, (LPARAM)curSpeed);
 
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
     case WM_COMMAND:
@@ -518,6 +520,7 @@ static BOOL_DLG_RET CALLBACK filesDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
         setButtonCheck(hDlg, IDC_SETTINGSDRIVEA, pProperties->diskdrive.quickStartDrive == 0, 1);
         setButtonCheck(hDlg, IDC_SETTINGSDRIVEB, pProperties->diskdrive.quickStartDrive == 1, 1);
 
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
     case WM_COMMAND:
@@ -657,6 +660,7 @@ static BOOL_DLG_RET CALLBACK settingsDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam
     
         EnableWindow(GetDlgItem(hDlg, IDC_SETTINGSFILETYPES), !pProperties->settings.portable);
 
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
     case WM_COMMAND:
@@ -765,6 +769,7 @@ static BOOL_DLG_RET CALLBACK directDraWProc(HWND hDlg, UINT iMsg, WPARAM wParam,
         setButtonCheck(hDlg, IDC_MONVERTSTRETCH, pProperties->video.verticalStretch, 1);
 
         updateFullscreenResList(hDlg);
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
     case WM_COMMAND:
@@ -816,6 +821,7 @@ static BOOL_DLG_RET CALLBACK gdiProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM
         initDropList(hDlg, IDC_FRAMESKIP, pVideoFrameSkip, pProperties->video.frameSkip);
         initDropList(hDlg, IDC_EMUSYNC, pEmuGdiSync, pProperties->emulation.syncMethodGdi);
 
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
     case WM_UPDATEPROPERTIES:
@@ -940,6 +946,7 @@ static BOOL_DLG_RET CALLBACK direct3dProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
             SendMessage(GetDlgItem(hDlg, IDC_HDRMODELABEL), WM_SETTEXT, 0, (LPARAM)tag);
         }
 
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
     case WM_NOTIFY:
@@ -1072,6 +1079,7 @@ static BOOL_DLG_RET CALLBACK performanceDlgProc(HWND hDlg, UINT iMsg, WPARAM wPa
         ShowWindow(hDlgGdi,         pProperties->video.driver == 2 ? SW_NORMAL : SW_HIDE);
         ShowWindow(hDlgDirect3d,    pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12 ? SW_NORMAL : SW_HIDE);
 
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
 
@@ -1338,6 +1346,7 @@ static BOOL_DLG_RET CALLBACK videoSoftwareDlgProc(HWND hDlg, UINT iMsg, WPARAM w
         EnableWindow(GetDlgItem(hDlg, IDC_MONSATURATIONVALUE), monitorColor == P_VIDEO_COLOR);
         EnableWindow(GetDlgItem(hDlg, IDC_MONSATURATIONTEXT), monitorColor == P_VIDEO_COLOR);
 
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
     case WM_COMMAND:
@@ -1640,6 +1649,7 @@ static BOOL_DLG_RET CALLBACK videoDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
         ** the software panel covers every remaining driver. */
         ShowWindow(hDlgVideoSoftware, SW_NORMAL);
 
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
     case WM_VIDEO_DRIVER_CHANGED:
@@ -1906,6 +1916,7 @@ static BOOL_DLG_RET CALLBACK soundDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
         SetWindowTextU(GetDlgItem(hDlg, IDI_MIDIOUTFILENAME), pProperties->sound.MidiOut.fileName);
         SetWindowTextU(GetDlgItem(hDlg, IDI_MIDIINFILENAME),  pProperties->sound.MidiIn.fileName);
 #endif
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
     case WM_COMMAND:
@@ -2120,6 +2131,7 @@ static BOOL_DLG_RET CALLBACK diskDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LP
             EnableWindow(hMethod, FALSE);
         }
 
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
     case WM_COMMAND:
@@ -2491,6 +2503,7 @@ static BOOL_DLG_RET CALLBACK portsDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
             EnableWindow(hMethod, FALSE);
         }
 
+        win32CommonApplyDark(hDlg);
         return FALSE;
         
     case WM_COMMAND:
@@ -2572,6 +2585,19 @@ static BOOL_DLG_RET CALLBACK portsDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
 
 //////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////
+
+/* PropertySheet callback: PropertySheet adds WS_EX_CONTEXTHELP by default but
+** no help is wired up, so the title-bar '?' button only generates dead
+** clicks. Strip it on PSCB_INITIALIZED. */
+static int CALLBACK propSheetInitCallback(HWND hwnd, UINT uMsg, LPARAM lParam)
+{
+    (void)lParam;
+    if (uMsg == PSCB_INITIALIZED) {
+        LONG_PTR exStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+        SetWindowLongPtr(hwnd, GWL_EXSTYLE, exStyle & ~WS_EX_CONTEXTHELP);
+    }
+    return 0;
+}
 
 int showProperties(Properties* pProperties, HWND hwndOwner, PropPage desiredStartPage, Mixer* mixer, Video* video) {
 	HINSTANCE       hInst = (HINSTANCE)GetModuleHandle(NULL);
@@ -2768,7 +2794,7 @@ int showProperties(Properties* pProperties, HWND hwndOwner, PropPage desiredStar
     }
 
     psh.dwSize = sizeof(PROPSHEETHEADERW);
-    psh.dwFlags = PSH_USEICONID | PSH_PROPSHEETPAGE | PSH_NOAPPLYNOW;
+    psh.dwFlags = PSH_USEICONID | PSH_PROPSHEETPAGE | PSH_NOAPPLYNOW | PSH_USECALLBACK;
     psh.hwndParent = hwndOwner;
     psh.hInstance = hInst;
     psh.pszIcon = NULL;
@@ -2777,7 +2803,7 @@ int showProperties(Properties* pProperties, HWND hwndOwner, PropPage desiredStar
     psh.nPages = curPage;
     psh.nStartPage = startPage;
     psh.ppsp = (LPCPROPSHEETPAGEW) &psp;
-    psh.pfnCallback = NULL;
+    psh.pfnCallback = propSheetInitCallback;
 
     propModified = 0;
 

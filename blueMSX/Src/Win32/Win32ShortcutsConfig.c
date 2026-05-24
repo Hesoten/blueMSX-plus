@@ -381,6 +381,7 @@ static BOOL_DLG_RET CALLBACK saveProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARA
             SetWindowTextU(GetDlgItem(hDlg, IDOK), langDlgOK());
             SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
         }
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
     case WM_COMMAND:
@@ -410,6 +411,7 @@ static BOOL_DLG_RET CALLBACK closeProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPAR
         SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
         SetWindowTextU(GetDlgItem(hDlg, IDC_CONF_SAVEDLG_TEXT), langShortcutDiscardConfig());
 
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
     case WM_COMMAND:
@@ -438,6 +440,7 @@ static BOOL_DLG_RET CALLBACK discardProc(HWND hDlg, UINT iMsg, WPARAM wParam, LP
         SetWindowTextU(GetDlgItem(hDlg, IDOK), langDlgOK());
         SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
         SetWindowTextU(GetDlgItem(hDlg, IDC_CONF_SAVEDLG_TEXT), "Do you want to discard changes to the current configuration?");
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
     case WM_COMMAND:
@@ -486,6 +489,7 @@ static BOOL_DLG_RET CALLBACK saveAsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
             }
         }
 
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
     case WM_COMMAND:
@@ -666,6 +670,9 @@ static LRESULT CALLBACK hotkeyCtrlProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPAR
             char buf[64] = "";
             RECT r;
             HFONT hFont;
+            BOOL dark = win32CommonIsDarkMode();
+            COLORREF prevText;
+            int prevBkMode;
 
             GetClientRect(hwnd, &r);
 
@@ -678,7 +685,9 @@ static LRESULT CALLBACK hotkeyCtrlProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPAR
             if (modifiers & KBD_LWIN)   strcat(buf, "LWin + ");
             if (modifiers & KBD_RWIN)   strcat(buf, "RWin + ");
              
-            FillRect(hdc, &r, GetStockObject(WHITE_BRUSH)); 
+            /* msctls_hotkey32 misses WM_CTLCOLOR* so the dialog dark subclass
+            ** cannot tint the background. Paint it directly to match. */
+            FillRect(hdc, &r, dark ? win32CommonDarkBgBrush() : (HBRUSH)GetStockObject(WHITE_BRUSH));
 
             strcat(buf, virtualKeys[virtKey]);
 
@@ -686,9 +695,13 @@ static LRESULT CALLBACK hotkeyCtrlProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPAR
                 sprintf(buf, "%s %d", "Joystick Button", joyButton + 1);
             }
             hFont = SelectObject(hdc, (HFONT)SendMessage(baseHwnd, WM_GETFONT, 0, 0));
+            prevText   = SetTextColor(hdc, dark ? win32CommonDarkFg() : GetSysColor(COLOR_WINDOWTEXT));
+            prevBkMode = SetBkMode(hdc, TRANSPARENT);
             
             TextOutU(hdc, 2, 1, buf, (int)strlen(buf));
 
+            SetBkMode(hdc, prevBkMode);
+            SetTextColor(hdc, prevText);
             SelectObject(hdc, hFont);
             EndPaint(hwnd, &ps);
 
@@ -1242,6 +1255,7 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
             EnableWindow(GetDlgItem(hDlg, IDC_SAVE), strcmp(shortcutProfile, langShortcutNewProfile()) &&
                                     memcmp(shortcutsRef, shortcuts, sizeof(Shortcuts)));
         }
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
     case WM_ACTIVATE:

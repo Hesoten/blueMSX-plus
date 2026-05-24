@@ -66,4 +66,14 @@ void exitDialogShow();
 ** created lazily on first show.  Pass percent < 0 to hide. */
 void win32SliderTooltipUpdate(HWND* phwndTip, HWND parent, int percent);
 
+/* Theme query helpers for custom-paint controls (no WM_CTLCOLOR* path). */
+BOOL win32CommonIsDarkMode(void);
+COLORREF win32CommonDarkBg(void);
+COLORREF win32CommonDarkFg(void);
+HBRUSH   win32CommonDarkBgBrush(void);
+
+/* Per-DLGPROC opt-in: apply dark titlebar / SetWindowTheme / WM_CTLCOLOR*
+** subclass.  Call from WM_INITDIALOG.  Safe in light mode (no-op). */
+void win32CommonApplyDark(HWND hDlg);
+
 #endif
