@@ -4,6 +4,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -37,13 +40,13 @@ public:
         loadCheatCaption        = "Charger Triches";
         pause                   = "Pause";
         run                     = "Lancer";
-        truncated               = "tronqué...";
+        truncated               = "tronquÃ©...";
         newCheat                = "Nouvelle Triche";
         address                 = "Adresse";
         oldValue                = "Ancienne Valeur";
         newValue                = "Nouvelle Valeur";
         change                  = "Changer";
-        disable                 = "Désactiver";
+        disable                 = "DÃ©sactiver";
         enable                  = "Activer";
         description             = "Description";
         value                   = "Valeur";
@@ -56,21 +59,21 @@ public:
         ok                      = "OK";
         cancel                  = "Annuler";
         displayValueAs          = "Afficher la valeur ";
-        decimal                 = "Décimale";
-        hexadecimal             = "Hexadécimale";
-        dataSize                = "Format des données ";
+        decimal                 = "DÃ©cimale";
+        hexadecimal             = "HexadÃ©cimale";
+        dataSize                = "Format des donnÃ©es ";
         eightBit                = "8 bit";
         sixteenBit              = "16 bit";
         compareType             = "Mode de comparaison ";
         equal                   = "Egal";
-        notEqual                = "Pas égal";
+        notEqual                = "Pas Ã©gal";
         lessThan                = "Moins que";
-        lessOrEqual             = "Moins ou égal";
+        lessOrEqual             = "Moins ou Ã©gal";
         greaterThan             = "Plus grand que";
-        greaterOrEqual          = "Plus grand ou égal";
+        greaterOrEqual          = "Plus grand ou Ã©gal";
         display                 = "Afficher ";
         compareNewValueWith     = "Comparer la nouvelle valeur avec ";
-        specificValue           = "Valeur spécifique: ";
+        specificValue           = "Valeur spÃ©cifique: ";
         snapshot                = "Snapshot";
         search                  = "Rechercher";
         undo                    = "Annuler";

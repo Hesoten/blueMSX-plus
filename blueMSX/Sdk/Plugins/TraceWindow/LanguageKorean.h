@@ -4,6 +4,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -33,23 +36,23 @@ public:
     LanguageKorean() {
         traceWindowName         = "Trace Logger";
         traceWindowCaption      = "blueMSX - Trace Logger";
-        openWindowCaption       = "·Î±× ÆÄÀÏ ¿­±â";
+        openWindowCaption       = "ë¡œê·¸ íŒŒì¼ ì—´ê¸°";
 
-        menuFile                = "ÆÄÀÏ";
-        menuFileLogToFile       = "·Î±×¸¦ ÆÄÀÏ·Î ±â·Ï";
-        menuFileStopLogToFile   = "ÆÄÀÏ·Î ±â·ÏÇÏ±â ÁßÁö";
-        menuFileExit            = "³¡³»±â";
+        menuFile                = "íŒŒì¼";
+        menuFileLogToFile       = "ë¡œê·¸ë¥¼ íŒŒì¼ë¡œ ê¸°ë¡";
+        menuFileStopLogToFile   = "íŒŒì¼ë¡œ ê¸°ë¡í•˜ê¸° ì¤‘ì§€";
+        menuFileExit            = "ëë‚´ê¸°";
         
-        menuEdit                = "ÆíÁı";
-        menuEditSelectAll       = "¸ğµÎ ¼±ÅÃ";
-        menuEditCopy            = "º¹»ç";
-        menuEditClearWindow     = "À©µµ¿ì Å¬¸®¾î";
+        menuEdit                = "í¸ì§‘";
+        menuEditSelectAll       = "ëª¨ë‘ ì„ íƒ";
+        menuEditCopy            = "ë³µì‚¬";
+        menuEditClearWindow     = "ìœˆë„ìš° í´ë¦¬ì–´";
 
-        menuHelp                = "µµ¿ò¸»";
-        menuHelpAbout           = "Trace Logger¿¡ ´ëÇØ¼­";
+        menuHelp                = "ë„ì›€ë§";
+        menuHelpAbout           = "Trace Loggerì— ëŒ€í•´ì„œ";
 
-        aboutBuilt              = "ºôµå:";
-        aboutVisit              = "ÀÚ¼¼ÇÑ °ÍÀº http://www.bluemsx.com À» ¹æ¹®ÇÏ¼¼¿ä.";
+        aboutBuilt              = "ë¹Œë“œ:";
+        aboutVisit              = "ìì„¸í•œ ê²ƒì€ http://www.bluemsx.com ì„ ë°©ë¬¸í•˜ì„¸ìš”.";
     }
 };
 

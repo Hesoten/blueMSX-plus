@@ -4,6 +4,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -31,87 +34,87 @@ class LanguageChineseSimplified : public LanguageEnglish
 {
 public:
     LanguageChineseSimplified() {
-        genericOk                   = "È·¶¨";
-        genericCancel               = "È¡Ïû";
+        genericOk                   = "ç¡®å®š";
+        genericCancel               = "å–æ¶ˆ";
 
-        toolbarResume               = "¿ªÊ¼/¼ÌĞø";
-        toolbarPause                = "È«ÌåÖĞ¶Ï";
-        toolbarStop                 = "Í£Ö¹µ÷ÊÔ";
-        toolbarRun                  = "ÖØÖÃ";
-        toolbarShowNext             = "ÏÔÊ¾ÏÂÒ»ÌõÓï¾ä";
-        toolbarStepIn               = "µ¥²½Ö´ĞĞ";
-        toolbarStepOver             = "Ìø³ö";
-        toolbarStepOut              = "Öğ¹ı³Ì";
-        toolbarRunTo                = "ÔËĞĞµ½¹â±ê´¦";
-        toolbarBpToggle             = "Éè¶¨/ÒÆ³ı¶Ïµã";
-        toolbarBpEnable             = "ÆôÓÃ/½ûÓÃ¶Ïµã";
-        toolbarBpEnableAll          = "ÆôÓÃËùÓĞ¶Ïµã";
-        toolbarBpDisableAll         = "½ûÓÃËùÓĞ¶Ïµã";
-        toolbarBpRemoveAll          = "ÒÆ³ıËùÓĞ¶Ïµã";
+        toolbarResume               = "å¼€å§‹/ç»§ç»­";
+        toolbarPause                = "å…¨ä½“ä¸­æ–­";
+        toolbarStop                 = "åœæ­¢è°ƒè¯•";
+        toolbarRun                  = "é‡ç½®";
+        toolbarShowNext             = "æ˜¾ç¤ºä¸‹ä¸€æ¡è¯­å¥";
+        toolbarStepIn               = "å•æ­¥æ‰§è¡Œ";
+        toolbarStepOver             = "è·³å‡º";
+        toolbarStepOut              = "é€è¿‡ç¨‹";
+        toolbarRunTo                = "è¿è¡Œåˆ°å…‰æ ‡å¤„";
+        toolbarBpToggle             = "è®¾å®š/ç§»é™¤æ–­ç‚¹";
+        toolbarBpEnable             = "å¯ç”¨/ç¦ç”¨æ–­ç‚¹";
+        toolbarBpEnableAll          = "å¯ç”¨æ‰€æœ‰æ–­ç‚¹";
+        toolbarBpDisableAll         = "ç¦ç”¨æ‰€æœ‰æ–­ç‚¹";
+        toolbarBpRemoveAll          = "ç§»é™¤æ‰€æœ‰æ–­ç‚¹";
 
-        menuFile                    = "ÎÄ¼ş";
-        menuFileLoadSymbolFile      = "¶ÁÈ¡·ûºÅÎÄ¼ş";
-        menuFileSaveDisassembly     = "±£´æ·´»ã±à";
-        menuFileSaveMemory          = "±£´æÄÚ´æ";
-        menuFileExit                = "ÍË³ö";
+        menuFile                    = "æ–‡ä»¶";
+        menuFileLoadSymbolFile      = "è¯»å–ç¬¦å·æ–‡ä»¶";
+        menuFileSaveDisassembly     = "ä¿å­˜åæ±‡ç¼–";
+        menuFileSaveMemory          = "ä¿å­˜å†…å­˜";
+        menuFileExit                = "é€€å‡º";
 
-        menuDebug                   = "µ÷ÊÔ";
-        menuDebugStart              = "¿ªÊ¼";
-        menuDebugContinue           = "¼ÌĞø";
-        menuDebugBreakAll           = "È«ÌåÖĞ¶Ï";
-        menuDebugStop               = "Í£Ö¹µ÷ÊÔ";
-        menuDebugRestart            = "ÖØĞÂ¿ªÊ¼";
-        menuDebugStepIn             = "µ¥²½Ö´ĞĞ";
-        menuDebugStepOver           = "Ìø³ö";
-        menuDebugStepOut            = "Öğ¹ı³Ì";
-        menuDebugRunTo              = "ÔËĞĞµ½¹â±ê´¦";
-        menuDebugShowSymbols        = "ÏÔÊ¾·ûºÅĞÅÏ¢";
-        menuDebugGoto               = "×ªµ½";
-        menuDebugFind               = "ËÑË÷";
-        menuDebugBpAdd              = "Ìí¼ÓĞÂ¶Ïµã";
-        menuDebugBpToggle           = "Éè¶¨/ÒÆ³ı ";
-        menuDebugEnable             = "ÆôÓÃ/½ûÓÃ¶Ïµã";
-        menuDebugRemoveAll          = "ÒÆ³ıËùÓĞ¶Ïµã";
-        menuDebugEnableAll          = "ÆôÓÃËùÓĞ¶Ïµã";
-        menuDebugDisableAll         = "½ûÓÃËùÓĞ¶Ïµã";
-        menuDebugShowAssemblyFlags  = "ÏÔÊ¾»ã±à±êÖ¾";
+        menuDebug                   = "è°ƒè¯•";
+        menuDebugStart              = "å¼€å§‹";
+        menuDebugContinue           = "ç»§ç»­";
+        menuDebugBreakAll           = "å…¨ä½“ä¸­æ–­";
+        menuDebugStop               = "åœæ­¢è°ƒè¯•";
+        menuDebugRestart            = "é‡æ–°å¼€å§‹";
+        menuDebugStepIn             = "å•æ­¥æ‰§è¡Œ";
+        menuDebugStepOver           = "è·³å‡º";
+        menuDebugStepOut            = "é€è¿‡ç¨‹";
+        menuDebugRunTo              = "è¿è¡Œåˆ°å…‰æ ‡å¤„";
+        menuDebugShowSymbols        = "æ˜¾ç¤ºç¬¦å·ä¿¡æ¯";
+        menuDebugGoto               = "è½¬åˆ°";
+        menuDebugFind               = "æœç´¢";
+        menuDebugBpAdd              = "æ·»åŠ æ–°æ–­ç‚¹";
+        menuDebugBpToggle           = "è®¾å®š/ç§»é™¤ ";
+        menuDebugEnable             = "å¯ç”¨/ç¦ç”¨æ–­ç‚¹";
+        menuDebugRemoveAll          = "ç§»é™¤æ‰€æœ‰æ–­ç‚¹";
+        menuDebugEnableAll          = "å¯ç”¨æ‰€æœ‰æ–­ç‚¹";
+        menuDebugDisableAll         = "ç¦ç”¨æ‰€æœ‰æ–­ç‚¹";
+        menuDebugShowAssemblyFlags  = "æ˜¾ç¤ºæ±‡ç¼–æ ‡å¿—";
         menuDebugFastVram           = "Break on too fast VRAM access";
 
-        menuWindow                  = "´°¿Ú";
+        menuWindow                  = "çª—å£";
 
-        menuHelp                    = "°ïÖú";
-        menuHelpAbout               = "¹ØÓÚ";
+        menuHelp                    = "å¸®åŠ©";
+        menuHelpAbout               = "å…³äº";
 
-        debuggerName                = "µ÷ÊÔ¹¤¾ß";
-        windowDebugger              = "blueMSX - µ÷ÊÔ¹¤¾ß";
-        windowDisassembly           = "·´»ã±à";
-        windowDisassemblyUnavail    = "·´»ã±à²»¿ÉÓÃ¡£";
-        windowCpuRegisters          = "CPU¼Ä´æÆ÷¡£";
-        windowCpuRegistersFlags     = "Æì±ê";
-        windowStack                 = "Õ»";
-        windowStackUnavail          = "Õ»²»¿ÉÓÃ¡£";
-        windowCallstack             = "µ÷ÓÃÕ»";
-        windowCallstackUnavail      = "µ÷ÓÃÕ»²»¿ÉÓÃ¡£";
-        windowMemory                = "ÄÚ´æ";
-        windowPeripheralRegisters   = "ÍâÎ§¼Ä´æÆ÷";
-        windowIoPorts               = "I/O ¶Ë¿Ú";
+        debuggerName                = "è°ƒè¯•å·¥å…·";
+        windowDebugger              = "blueMSX - è°ƒè¯•å·¥å…·";
+        windowDisassembly           = "åæ±‡ç¼–";
+        windowDisassemblyUnavail    = "åæ±‡ç¼–ä¸å¯ç”¨ã€‚";
+        windowCpuRegisters          = "CPUå¯„å­˜å™¨ã€‚";
+        windowCpuRegistersFlags     = "æ——æ ‡";
+        windowStack                 = "æ ˆ";
+        windowStackUnavail          = "æ ˆä¸å¯ç”¨ã€‚";
+        windowCallstack             = "è°ƒç”¨æ ˆ";
+        windowCallstackUnavail      = "è°ƒç”¨æ ˆä¸å¯ç”¨ã€‚";
+        windowMemory                = "å†…å­˜";
+        windowPeripheralRegisters   = "å¤–å›´å¯„å­˜å™¨";
+        windowIoPorts               = "I/O ç«¯å£";
 
-        memWindowRegisters          = "¼Ä´æÆ÷:";
+        memWindowRegisters          = "å¯„å­˜å™¨:";
 
-        memWindowMemory             = "ÄÚ´æ:";
-        memWindowAddress            = "µØÖ·:";
+        memWindowMemory             = "å†…å­˜:";
+        memWindowAddress            = "åœ°å€:";
 
-        setBpWindowCaption          = "Ìí¼ÓĞÂ¶Ïµã";
-        gotoWindowCaption           = "×ªµ½µØÖ·";
-        gotoWindowText              = "µØÖ·»ò±êÇ©:";
+        setBpWindowCaption          = "æ·»åŠ æ–°æ–­ç‚¹";
+        gotoWindowCaption           = "è½¬åˆ°åœ°å€";
+        gotoWindowText              = "åœ°å€æˆ–æ ‡ç­¾:";
 
-        symbolWindowCaption         = "´ò¿ª·ûºÅÎÄ¼ş";
-        symbolWindowText            = "¸²¸Ç¾ÉµÄ·ûºÅ";
+        symbolWindowCaption         = "æ‰“å¼€ç¬¦å·æ–‡ä»¶";
+        symbolWindowText            = "è¦†ç›–æ—§çš„ç¬¦å·";
 
-        popupOverwrite              = "ÎÄ¼şÒÑ´æÔÚ¡£Òª¸²¸ÇÔ­ÓĞÎÄ¼şÂğ£¿";
+        popupOverwrite              = "æ–‡ä»¶å·²å­˜åœ¨ã€‚è¦è¦†ç›–åŸæœ‰æ–‡ä»¶å—ï¼Ÿ";
         
-        aboutBuilt                  = "´´½¨:";
-        aboutVisit                  = "¸ü¶àÏêÇéÇëµÇÂ½£ºwww.bluemsx.com ";
+        aboutBuilt                  = "åˆ›å»º:";
+        aboutVisit                  = "æ›´å¤šè¯¦æƒ…è¯·ç™»é™†ï¼šwww.bluemsx.com ";
     }
 };
 

@@ -4,6 +4,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -31,49 +34,49 @@ class LanguageRussian : public Language
 {
 public:
     LanguageRussian() {
-        trainerName             = "Коды";
-        trainerCaption          = "blueMSX - Коды";
-        saveCheatCaption        = "Сохранить код";
-        loadCheatCaption        = "Загрузить код";
-        pause                   = "Пауза";
-        run                     = "Запуск";
-        truncated               = "искаженный...";
-        newCheat                = "Новый код";
-        address                 = "Адрес";
-        oldValue                = "Старое значение";
-        newValue                = "Новое значение";
-        change                  = "Изменить";
-        disable                 = "Отключить";
-        enable                  = "Включить";
-        description             = "Описание";
-        value                   = "Значение";
-        activeCheats            = "Активные коды ";
-        findCheats              = "Найти код ";
-        removeAll               = "Убрать все";
-        remove                  = "Убрать";
-        addCheat                = "Добавить код";
-        cheatFile               = "Файл кода:";
+        trainerName             = "РљРѕРґС‹";
+        trainerCaption          = "blueMSX - РљРѕРґС‹";
+        saveCheatCaption        = "РЎРѕС…СЂР°РЅРёС‚СЊ РєРѕРґ";
+        loadCheatCaption        = "Р—Р°РіСЂСѓР·РёС‚СЊ РєРѕРґ";
+        pause                   = "РџР°СѓР·Р°";
+        run                     = "Р—Р°РїСѓСЃРє";
+        truncated               = "РёСЃРєР°Р¶РµРЅРЅС‹Р№...";
+        newCheat                = "РќРѕРІС‹Р№ РєРѕРґ";
+        address                 = "РђРґСЂРµСЃ";
+        oldValue                = "РЎС‚Р°СЂРѕРµ Р·РЅР°С‡РµРЅРёРµ";
+        newValue                = "РќРѕРІРѕРµ Р·РЅР°С‡РµРЅРёРµ";
+        change                  = "РР·РјРµРЅРёС‚СЊ";
+        disable                 = "РћС‚РєР»СЋС‡РёС‚СЊ";
+        enable                  = "Р’РєР»СЋС‡РёС‚СЊ";
+        description             = "РћРїРёСЃР°РЅРёРµ";
+        value                   = "Р—РЅР°С‡РµРЅРёРµ";
+        activeCheats            = "РђРєС‚РёРІРЅС‹Рµ РєРѕРґС‹ ";
+        findCheats              = "РќР°Р№С‚Рё РєРѕРґ ";
+        removeAll               = "РЈР±СЂР°С‚СЊ РІСЃРµ";
+        remove                  = "РЈР±СЂР°С‚СЊ";
+        addCheat                = "Р”РѕР±Р°РІРёС‚СЊ РєРѕРґ";
+        cheatFile               = "Р¤Р°Р№Р» РєРѕРґР°:";
         ok                      = "OK";
-        cancel                  = "Отмена";
-        displayValueAs          = "Показывать значение как ";
-        decimal                 = "Двоичное";
-        hexadecimal             = "Шестнадцатеричное";
-        dataSize                = "Размер данных ";
-        eightBit                = "8 бит";
-        sixteenBit              = "16 бит";
-        compareType             = "Сравнительный тип ";
-        equal                   = "Равный";
-        notEqual                = "Не равный";
-        lessThan                = "Меньше чем";
-        lessOrEqual             = "Меньше или равен";
-        greaterThan             = "Больше чем";
-        greaterOrEqual          = "Больше или равен";
-        display                 = "Показать ";
-        compareNewValueWith     = "Сравнить новое значение с ";
-        specificValue           = "Особым значением: ";
-        snapshot                = "Снимок";
-        search                  = "Поиск";
-        undo                    = "Отмена";
+        cancel                  = "РћС‚РјРµРЅР°";
+        displayValueAs          = "РџРѕРєР°Р·С‹РІР°С‚СЊ Р·РЅР°С‡РµРЅРёРµ РєР°Рє ";
+        decimal                 = "Р”РІРѕРёС‡РЅРѕРµ";
+        hexadecimal             = "РЁРµСЃС‚РЅР°РґС†Р°С‚РµСЂРёС‡РЅРѕРµ";
+        dataSize                = "Р Р°Р·РјРµСЂ РґР°РЅРЅС‹С… ";
+        eightBit                = "8 Р±РёС‚";
+        sixteenBit              = "16 Р±РёС‚";
+        compareType             = "РЎСЂР°РІРЅРёС‚РµР»СЊРЅС‹Р№ С‚РёРї ";
+        equal                   = "Р Р°РІРЅС‹Р№";
+        notEqual                = "РќРµ СЂР°РІРЅС‹Р№";
+        lessThan                = "РњРµРЅСЊС€Рµ С‡РµРј";
+        lessOrEqual             = "РњРµРЅСЊС€Рµ РёР»Рё СЂР°РІРµРЅ";
+        greaterThan             = "Р‘РѕР»СЊС€Рµ С‡РµРј";
+        greaterOrEqual          = "Р‘РѕР»СЊС€Рµ РёР»Рё СЂР°РІРµРЅ";
+        display                 = "РџРѕРєР°Р·Р°С‚СЊ ";
+        compareNewValueWith     = "РЎСЂР°РІРЅРёС‚СЊ РЅРѕРІРѕРµ Р·РЅР°С‡РµРЅРёРµ СЃ ";
+        specificValue           = "РћСЃРѕР±С‹Рј Р·РЅР°С‡РµРЅРёРµРј: ";
+        snapshot                = "РЎРЅРёРјРѕРє";
+        search                  = "РџРѕРёСЃРє";
+        undo                    = "РћС‚РјРµРЅР°";
     }
 };
 

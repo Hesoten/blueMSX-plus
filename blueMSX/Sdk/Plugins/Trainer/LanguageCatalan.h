@@ -4,6 +4,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -39,13 +42,13 @@ public:
         run                     = "Executa";
         truncated               = "truncat...";
         newCheat                = "Nou truc";
-        address                 = "Adreça";
+        address                 = "AdreÃ§a";
         oldValue                = "Valor antic";
         newValue                = "Valor nou";
         change                  = "Canvia";
         disable                 = "Desactiva";
         enable                  = "Activa";
-        description             = "Descripció";
+        description             = "DescripciÃ³";
         value                   = "Valor";
         activeCheats            = "Trucs actius ";
         findCheats              = "Cerca trucs ";
@@ -54,26 +57,26 @@ public:
         addCheat                = "Afegeix un truc";
         cheatFile               = "Fitxer de trucs:";
         ok                      = "D'acord";
-        cancel                  = "Cancel·la";
+        cancel                  = "CancelÂ·la";
         displayValueAs          = "Mostra el valor com ";
         decimal                 = "Decimal";
         hexadecimal             = "Hexadecimal";
         dataSize                = "Mida de les dades ";
         eightBit                = "8 bit";
         sixteenBit              = "16 bit";
-        compareType             = "Tipus de comparació ";
+        compareType             = "Tipus de comparaciÃ³ ";
         equal                   = "Igual";
         notEqual                = "No igual";
         lessThan                = "Menor de";
         lessOrEqual             = "Menor o igual";
         greaterThan             = "Major de";
         greaterOrEqual          = "Major de o igual";
-        display                 = "Visualització ";
+        display                 = "VisualitzaciÃ³ ";
         compareNewValueWith     = "Compara el nou valor amb ";
-        specificValue           = "Valor específic: ";
-        snapshot                = "Instantània";
+        specificValue           = "Valor especÃ­fic: ";
+        snapshot                = "InstantÃ nia";
         search                  = "Cerca";
-        undo                    = "Desfés";
+        undo                    = "DesfÃ©s";
     }
 };
 

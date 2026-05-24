@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -37,74 +40,74 @@ void langInitKorean(LanguageStrings* ls)
     //----------------------
 
     ls->langCatalan             = "Catalan";
-    ls->langChineseSimplified   = "Áß±¹¾î °£Ã¼";
-    ls->langChineseTraditional  = "Áß±¹¾î ¹øÃ¼";
-    ls->langDutch               = "³×´ú¶õµå¾î";
-    ls->langEnglish             = "¿µ¾î";
-    ls->langFinnish             = "ÇÉ¶õµå¾î";
-    ls->langFrench              = "ÇÁ¶û½º¾î";
-    ls->langGerman              = "µ¶ÀÏ¾î";
-    ls->langItalian             = "ÀÌÅ»¸®¾Æ¾î";
-    ls->langJapanese            = "ÀÏº»¾î";
-    ls->langKorean              = "ÇÑ±¹¾î";
-    ls->langPolish              = "Æú¶õµå¾î";
-    ls->langPortuguese          = "Æ÷¸£Åõ°¥¾î";
+    ls->langChineseSimplified   = "ì¤‘êµ­ì–´ ê°„ì²´";
+    ls->langChineseTraditional  = "ì¤‘êµ­ì–´ ë²ˆì²´";
+    ls->langDutch               = "ë„¤ëœë€ë“œì–´";
+    ls->langEnglish             = "ì˜ì–´";
+    ls->langFinnish             = "í•€ë€ë“œì–´";
+    ls->langFrench              = "í”„ë‘ìŠ¤ì–´";
+    ls->langGerman              = "ë…ì¼ì–´";
+    ls->langItalian             = "ì´íƒˆë¦¬ì•„ì–´";
+    ls->langJapanese            = "ì¼ë³¸ì–´";
+    ls->langKorean              = "í•œêµ­ì–´";
+    ls->langPolish              = "í´ë€ë“œì–´";
+    ls->langPortuguese          = "í¬ë¥´íˆ¬ê°ˆì–´";
     ls->langRussian             = "Russian";            // v2.8
-    ls->langSpanish             = "½ºÆäÀÎ¾î";
-    ls->langSwedish             = "½º¿şµ§¾î";
+    ls->langSpanish             = "ìŠ¤í˜ì¸ì–´";
+    ls->langSwedish             = "ìŠ¤ì›¨ë´ì–´";
 
 
     //----------------------
     // Generic lines
     //----------------------
 
-    ls->textDevice              = "ÀåÄ¡:";
-    ls->textFilename            = "ÆÄÀÏ ÀÌ¸§:";
-    ls->textFile                = "ÆÄÀÏ";
-    ls->textNone                = "¾øÀ½";
-    ls->textUnknown             = "¾Ë·ÁÁöÁö ¾ÊÀ½";                            
+    ls->textDevice              = "ì¥ì¹˜:";
+    ls->textFilename            = "íŒŒì¼ ì´ë¦„:";
+    ls->textFile                = "íŒŒì¼";
+    ls->textNone                = "ì—†ìŒ";
+    ls->textUnknown             = "ì•Œë ¤ì§€ì§€ ì•ŠìŒ";                            
 
 
     //----------------------
     // Warning and Error lines
     //----------------------
 
-    ls->warningTitle             = "blueMSX - °æ°í";
-    ls->warningDiscardChanges   = "º¯°æÇÑ ¼³Á¤ÀÌ Àû¿ëµÇ±â À§ÇØ¼± ÀúÀåÀ» ÇØ¾ß ÇÕ´Ï´Ù. ÇöÀç ¼³Á¤¿¡ ¾Æ¹«·± ¿µÇâÀ» ÁÖÁö¾Ê°í ±×³É ³ª°¡°Ú½À´Ï±î?";
-    ls->warningOverwriteFile    = "ÆÄÀÏÀ» µ¤¾î ¾²½Ã°Ú½À´Ï±î:"; 
-    ls->errorTitle              = "blueMSX - ¿¡·¯";
-    ls->errorEnterFullscreen    = "ÀüÃ¼ È­¸é¸ğµå ÁøÀÔ ½ÇÆĞ.           \n";
-    ls->errorDirectXFailed      = "DirectX ¿ÀºêÁ§Æ® ¸¸µé±â ½ÇÆĞ.           \nGDI·Î ´ëÃ¼ÇØ¼­ »ç¿ëÇÕ´Ï´Ù.\n±×·¡ÇÈÄ«µå µî·ÏÁ¤º¸¸¦ È®ÀÎÇÏ¼¼¿ä.";
-    ls->errorNoRomInZip         = "zipÆÄÀÏ ³»ºÎÀÇ romÀ» Ã£À» ¼ö ¾ø½À´Ï´Ù.";
-    ls->errorNoDskInZip         = "zipÆÄÀÏ ³»ºÎÀÇ dsk¸¦ Ã£À» ¼ö ¾ø½À´Ï´Ù.";
-    ls->errorNoCasInZip         = "zipÆÄÀÏ ³»ºÎÀÇ cas¸¦ Ã£À» ¼ö ¾ø½À´Ï´Ù.";
-    ls->errorNoHelp             = "blueMSX µµ¿ò¸»À» Ã£À» ¼ö ¾ø½À´Ï´Ù.";
-    ls->errorStartEmu           = "MSX ¿¡¹Ä·¹ÀÌÅÍ¸¦ ½ÃÀÛÇÒ ¼ö ¾ø½À´Ï´Ù.";
-    ls->errorPortableReadonly   = "ÀÌµ¿ ÀåÄ¡´Â ÀĞ±â Àü¿ëÀÔ´Ï´Ù.";        
+    ls->warningTitle             = "blueMSX - ê²½ê³ ";
+    ls->warningDiscardChanges   = "ë³€ê²½í•œ ì„¤ì •ì´ ì ìš©ë˜ê¸° ìœ„í•´ì„  ì €ì¥ì„ í•´ì•¼ í•©ë‹ˆë‹¤. í˜„ì¬ ì„¤ì •ì— ì•„ë¬´ëŸ° ì˜í–¥ì„ ì£¼ì§€ì•Šê³  ê·¸ëƒ¥ ë‚˜ê°€ê² ìŠµë‹ˆê¹Œ?";
+    ls->warningOverwriteFile    = "íŒŒì¼ì„ ë®ì–´ ì“°ì‹œê² ìŠµë‹ˆê¹Œ:"; 
+    ls->errorTitle              = "blueMSX - ì—ëŸ¬";
+    ls->errorEnterFullscreen    = "ì „ì²´ í™”ë©´ëª¨ë“œ ì§„ì… ì‹¤íŒ¨.           \n";
+    ls->errorDirectXFailed      = "DirectX ì˜¤ë¸Œì íŠ¸ ë§Œë“¤ê¸° ì‹¤íŒ¨.           \nGDIë¡œ ëŒ€ì²´í•´ì„œ ì‚¬ìš©í•©ë‹ˆë‹¤.\nê·¸ë˜í”½ì¹´ë“œ ë“±ë¡ì •ë³´ë¥¼ í™•ì¸í•˜ì„¸ìš”.";
+    ls->errorNoRomInZip         = "zipíŒŒì¼ ë‚´ë¶€ì˜ romì„ ì°¾ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤.";
+    ls->errorNoDskInZip         = "zipíŒŒì¼ ë‚´ë¶€ì˜ dskë¥¼ ì°¾ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤.";
+    ls->errorNoCasInZip         = "zipíŒŒì¼ ë‚´ë¶€ì˜ casë¥¼ ì°¾ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤.";
+    ls->errorNoHelp             = "blueMSX ë„ì›€ë§ì„ ì°¾ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤.";
+    ls->errorStartEmu           = "MSX ì—ë®¬ë ˆì´í„°ë¥¼ ì‹œì‘í•  ìˆ˜ ì—†ìŠµë‹ˆë‹¤.";
+    ls->errorPortableReadonly   = "ì´ë™ ì¥ì¹˜ëŠ” ì½ê¸° ì „ìš©ì…ë‹ˆë‹¤.";        
 
 
     //----------------------
     // File related lines
     //----------------------
 
-    ls->fileRom                 = "·Ò ÀÌ¹ÌÁö";
-    ls->fileAll                 = "¸ğµç ÆÄÀÏ";
-    ls->fileCpuState            = "CPU »óÅÂ";
-    ls->fileVideoCapture        = "³ìÈ­µÈ ¿µ»ó"; 
-    ls->fileDisk                = "µğ½ºÅ© ÀÌ¹ÌÁö";
-    ls->fileCas                 = "Å×ÀÌÇÁ ÀÌ¹ÌÁö";
-    ls->fileAvi                 = "µ¿¿µ»ó Å¬¸³";    
+    ls->fileRom                 = "ë¡¬ ì´ë¯¸ì§€";
+    ls->fileAll                 = "ëª¨ë“  íŒŒì¼";
+    ls->fileCpuState            = "CPU ìƒíƒœ";
+    ls->fileVideoCapture        = "ë…¹í™”ëœ ì˜ìƒ"; 
+    ls->fileDisk                = "ë””ìŠ¤í¬ ì´ë¯¸ì§€";
+    ls->fileCas                 = "í…Œì´í”„ ì´ë¯¸ì§€";
+    ls->fileAvi                 = "ë™ì˜ìƒ í´ë¦½";    
 
 
     //----------------------
     // Menu related lines
     //----------------------
 
-    ls->menuNoRecentFiles       = "- ¿­¾îº» ÆÄÀÏ ¾øÀ½ -";
-    ls->menuInsert              = "»ğÀÔ";
-    ls->menuEject               = "²¨³»±â";
+    ls->menuNoRecentFiles       = "- ì—´ì–´ë³¸ íŒŒì¼ ì—†ìŒ -";
+    ls->menuInsert              = "ì‚½ì…";
+    ls->menuEject               = "êº¼ë‚´ê¸°";
 
-    ls->menuCartGameReader      = "°ÔÀÓ ¸®´õ";                        
+    ls->menuCartGameReader      = "ê²Œì„ ë¦¬ë”";                        
     ls->menuCartIde             = "IDE";                                
     ls->menuCartBeerIde         = "Beer";                               
     ls->menuCartGIde            = "GIDE";                               
@@ -113,292 +116,292 @@ void langInitKorean(LanguageStrings* ls)
     ls->menuCartMegaSCSI        = "MEGA-SCSI";           // New in 2.7
     ls->menuCartWaveSCSI        = "WAVE-SCSI";           // New in 2.7
     ls->menuCartGoudaSCSI       = "Gouda SCSI";          // New in 2.7
-    ls->menuJoyrexPsg           = "Joyrex PSG Ä«Æ®¸®Áö"; // New in 2.9
-    ls->menuCartSCC             = "SCC Ä«Æ®¸®Áö";
-    ls->menuCartSCCPlus         = "SCC-I Ä«Æ®¸®Áö";
-    ls->menuCartFMPac           = "FM-PAC Ä«Æ®¸®Áö";
-    ls->menuCartPac             = "PAC Ä«Æ®¸®Áö";
-    ls->menuCartHBI55           = "Sony HBI-55 Ä«Æ®¸®Áö";
-    ls->menuCartInsertSpecial   = "Æ¯¼ö Ä«Æ®¸®Áö »ğÀÔ";                     
-    ls->menuCartMegaRam         = "¸Ş°¡·¥";                            
-    ls->menuCartExternalRam     = "¿ÜÀå·¥";
+    ls->menuJoyrexPsg           = "Joyrex PSG ì¹´íŠ¸ë¦¬ì§€"; // New in 2.9
+    ls->menuCartSCC             = "SCC ì¹´íŠ¸ë¦¬ì§€";
+    ls->menuCartSCCPlus         = "SCC-I ì¹´íŠ¸ë¦¬ì§€";
+    ls->menuCartFMPac           = "FM-PAC ì¹´íŠ¸ë¦¬ì§€";
+    ls->menuCartPac             = "PAC ì¹´íŠ¸ë¦¬ì§€";
+    ls->menuCartHBI55           = "Sony HBI-55 ì¹´íŠ¸ë¦¬ì§€";
+    ls->menuCartInsertSpecial   = "íŠ¹ìˆ˜ ì¹´íŠ¸ë¦¬ì§€ ì‚½ì…";                     
+    ls->menuCartMegaRam         = "ë©”ê°€ë¨";                            
+    ls->menuCartExternalRam     = "ì™¸ì¥ë¨";
     ls->menuCartEseRam          = "Ese-RAM";             // New in 2.7
     ls->menuCartEseSCC          = "Ese-SCC";             // New in 2.7
     ls->menuCartMegaFlashRom    = "Mega Flash ROM";      // New in 2.7
 
-    ls->menuDiskInsertNew       = "»õ·Î¿î µğ½ºÅ© ÀÌ¹ÌÁö »ğÀÔ";              
-    ls->menuDiskInsertCdrom     = "½Ãµğ·Ò »ğÀÔ";       // New in 2.7
-    ls->menuDiskDirInsert       = "µğ·ºÅä¸® »ğÀÔ";
-    ls->menuDiskAutoStart       = "»ğÀÔÈÄ¿¡ Àç½ÃÀÛ";
-    ls->menuCartAutoReset       = "»ğÀÔ/Á¦°Å ÈÄ¿¡ Àç½ÃÀÛ";
+    ls->menuDiskInsertNew       = "ìƒˆë¡œìš´ ë””ìŠ¤í¬ ì´ë¯¸ì§€ ì‚½ì…";              
+    ls->menuDiskInsertCdrom     = "ì‹œë””ë¡¬ ì‚½ì…";       // New in 2.7
+    ls->menuDiskDirInsert       = "ë””ë ‰í† ë¦¬ ì‚½ì…";
+    ls->menuDiskAutoStart       = "ì‚½ì…í›„ì— ì¬ì‹œì‘";
+    ls->menuCartAutoReset       = "ì‚½ì…/ì œê±° í›„ì— ì¬ì‹œì‘";
 
-    ls->menuCasRewindAfterInsert = "»ğÀÔÈÄ¿¡ µÇ°¨±â";
-    ls->menuCasUseReadOnly       = "ÀĞ±âÀü¿ë";
-    ls->lmenuCasSaveAs           = "´Ù¸¥ ÀÌ¸§À¸·Î ÀúÀå...";
-    ls->menuCasSetPosition      = "À§Ä¡ ¼³Á¤";
-    ls->menuCasRewind           = "µÇ°¨±â";
+    ls->menuCasRewindAfterInsert = "ì‚½ì…í›„ì— ë˜ê°ê¸°";
+    ls->menuCasUseReadOnly       = "ì½ê¸°ì „ìš©";
+    ls->lmenuCasSaveAs           = "ë‹¤ë¥¸ ì´ë¦„ìœ¼ë¡œ ì €ì¥...";
+    ls->menuCasSetPosition      = "ìœ„ì¹˜ ì„¤ì •";
+    ls->menuCasRewind           = "ë˜ê°ê¸°";
 
-    ls->menuVideoLoad           = "ºÒ·¯¿À±â...";             
-    ls->menuVideoPlay           = "¸¶Áö¸·À¸·Î ³ìÈ­ÇÑ ¿µ»ó Àç»ı";   
-    ls->menuVideoRecord         = "³ìÈ­";              
-    ls->menuVideoRecording      = "³ìÈ­Áß";           
-    ls->menuVideoRecAppend      = "³ìÈ­ (Ãß°¡)";     
-    ls->menuVideoStop           = "Á¤Áö";                
-    ls->menuVideoRender         = "µ¿¿µ»ó ÆÄÀÏ·Î ÀúÀå";   
+    ls->menuVideoLoad           = "ë¶ˆëŸ¬ì˜¤ê¸°...";             
+    ls->menuVideoPlay           = "ë§ˆì§€ë§‰ìœ¼ë¡œ ë…¹í™”í•œ ì˜ìƒ ì¬ìƒ";   
+    ls->menuVideoRecord         = "ë…¹í™”";              
+    ls->menuVideoRecording      = "ë…¹í™”ì¤‘";           
+    ls->menuVideoRecAppend      = "ë…¹í™” (ì¶”ê°€)";     
+    ls->menuVideoStop           = "ì •ì§€";                
+    ls->menuVideoRender         = "ë™ì˜ìƒ íŒŒì¼ë¡œ ì €ì¥";   
 
-    ls->menuPrnFormfeed         = "ÆûÇÇµå";
+    ls->menuPrnFormfeed         = "í¼í”¼ë“œ";
 
-    ls->menuZoomNormal          = "º¸Åë Å©±â";
-    ls->menuZoomDouble          = "µÎ¹è Å©±â";
-    ls->menuZoomFullscreen      = "ÀüÃ¼ È­¸é";
+    ls->menuZoomNormal          = "ë³´í†µ í¬ê¸°";
+    ls->menuZoomDouble          = "ë‘ë°° í¬ê¸°";
+    ls->menuZoomFullscreen      = "ì „ì²´ í™”ë©´";
     
-    ls->menuPropsEmulation      = "¿¡¹Ä·¹ÀÌ¼Ç";
-    ls->menuPropsVideo          = "ºñµğ¿À";
-    ls->menuPropsSound          = "»ç¿îµå";
-    ls->menuPropsControls       = "ÄÁÆ®·Ñ";
+    ls->menuPropsEmulation      = "ì—ë®¬ë ˆì´ì…˜";
+    ls->menuPropsVideo          = "ë¹„ë””ì˜¤";
+    ls->menuPropsSound          = "ì‚¬ìš´ë“œ";
+    ls->menuPropsControls       = "ì»¨íŠ¸ë¡¤";
     ls->menuPropsEffects        = "Effects";               // New in 2.9
-    ls->menuPropsSettings        = "¿ÜºÎ ¼³Á¤";
-    ls->menuPropsFile           = "ÆÄÀÏ";
-    ls->menuPropsDisk           = "µğ½ºÅ©";               // New in 2.7
-    ls->menuPropsLanguage       = "¾ğ¾î";
-    ls->menuPropsPorts          = "Æ÷Æ®"; 
+    ls->menuPropsSettings        = "ì™¸ë¶€ ì„¤ì •";
+    ls->menuPropsFile           = "íŒŒì¼";
+    ls->menuPropsDisk           = "ë””ìŠ¤í¬";               // New in 2.7
+    ls->menuPropsLanguage       = "ì–¸ì–´";
+    ls->menuPropsPorts          = "í¬íŠ¸"; 
     
-    ls->menuVideoSource         = "ºñµğ¿À Ãâ·Â ¼Ò½º";                   
-    ls->menuVideoSourceDefault  = "ºñµğ¿À Ãâ·Â ¼Ò½º ¿¬°á¾ÈµÊ";      
-    ls->menuVideoChipAutodetect = "ºñµğ¿À Ä¨ ÀÚµ¿°¨Áö";    
-    ls->menuVideoInSource       = "ºñµğ¿À ÀÔ·Â ¼Ò½º";                    
-    ls->menuVideoInBitmap       = "ºñÆ®¸Ê ÆÄÀÏ";                        
+    ls->menuVideoSource         = "ë¹„ë””ì˜¤ ì¶œë ¥ ì†ŒìŠ¤";                   
+    ls->menuVideoSourceDefault  = "ë¹„ë””ì˜¤ ì¶œë ¥ ì†ŒìŠ¤ ì—°ê²°ì•ˆë¨";      
+    ls->menuVideoChipAutodetect = "ë¹„ë””ì˜¤ ì¹© ìë™ê°ì§€";    
+    ls->menuVideoInSource       = "ë¹„ë””ì˜¤ ì…ë ¥ ì†ŒìŠ¤";                    
+    ls->menuVideoInBitmap       = "ë¹„íŠ¸ë§µ íŒŒì¼";                        
     
-    ls->menuEthInterface        = "ÀÌ´õ³İ ÀÎÅÍÆäÀÌ½º"; 
+    ls->menuEthInterface        = "ì´ë”ë„· ì¸í„°í˜ì´ìŠ¤"; 
 
-    ls->menuHelpHelp            = "µµ¿ò¸» Ç×¸ñ";
-    ls->menuHelpAbout           = "blueMSX¿¡ ´ëÇÏ¿©";
+    ls->menuHelpHelp            = "ë„ì›€ë§ í•­ëª©";
+    ls->menuHelpAbout           = "blueMSXì— ëŒ€í•˜ì—¬";
 
-    ls->menuFileCart            = "Ä«Æ®¸®Áö ½½·Ô";
-    ls->menuFileDisk            = "µğ½ºÅ© µå¶óÀÌºê";
-    ls->menuFileCas             = "Ä«¼¼Æ®";
-    ls->menuFilePrn             = "ÇÁ¸°ÅÍ";
-    ls->menuFileLoadState       = "CPU »óÅÂ ºÒ·¯¿À±â";
-    ls->menuFileSaveState       = "CPU »óÅÂ ÀúÀå";
-    ls->menuFileQLoadState      = "»óÅÂ ¹Ù·Î ºÒ·¯¿À±â";
-    ls->menuFileQSaveState      = "»óÅÂ ¹Ù·Î ÀúÀå";
-    ls->menuFileCaptureAudio    = "¼Ò¸® ÀúÀå";
-    ls->menuFileCaptureVideo    = "¿µ»ó ³ìÈ­"; 
-    ls->menuFileScreenShot      = "È­¸é ÀúÀå";
-    ls->menuFileExit            = "³¡³»±â";
+    ls->menuFileCart            = "ì¹´íŠ¸ë¦¬ì§€ ìŠ¬ë¡¯";
+    ls->menuFileDisk            = "ë””ìŠ¤í¬ ë“œë¼ì´ë¸Œ";
+    ls->menuFileCas             = "ì¹´ì„¸íŠ¸";
+    ls->menuFilePrn             = "í”„ë¦°í„°";
+    ls->menuFileLoadState       = "CPU ìƒíƒœ ë¶ˆëŸ¬ì˜¤ê¸°";
+    ls->menuFileSaveState       = "CPU ìƒíƒœ ì €ì¥";
+    ls->menuFileQLoadState      = "ìƒíƒœ ë°”ë¡œ ë¶ˆëŸ¬ì˜¤ê¸°";
+    ls->menuFileQSaveState      = "ìƒíƒœ ë°”ë¡œ ì €ì¥";
+    ls->menuFileCaptureAudio    = "ì†Œë¦¬ ì €ì¥";
+    ls->menuFileCaptureVideo    = "ì˜ìƒ ë…¹í™”"; 
+    ls->menuFileScreenShot      = "í™”ë©´ ì €ì¥";
+    ls->menuFileExit            = "ëë‚´ê¸°";
 
-    ls->menuFileHarddisk        = "ÇÏµå µğ½ºÅ©";                          
-    ls->menuFileHarddiskNoPesent= "ÄÁÆ®·Ñ·¯ Á¸ÀçÇÏÁö ¾ÊÀ½";             
-    ls->menuFileHarddiskRemoveAll= "¸ğµç ÇÏµå µğ½ºÅ© Á¦°Å";    // New in 2.7
+    ls->menuFileHarddisk        = "í•˜ë“œ ë””ìŠ¤í¬";                          
+    ls->menuFileHarddiskNoPesent= "ì»¨íŠ¸ë¡¤ëŸ¬ ì¡´ì¬í•˜ì§€ ì•ŠìŒ";             
+    ls->menuFileHarddiskRemoveAll= "ëª¨ë“  í•˜ë“œ ë””ìŠ¤í¬ ì œê±°";    // New in 2.7
 
-    ls->menuRunRun              = "½ÇÇà";
-    ls->menuRunPause            = "ÀÏ½Ã Á¤Áö";
-    ls->menuRunStop             = "ÁßÁö";
-    ls->menuRunSoftReset        = "¼ÒÇÁÆ® ¸®¼Â";
-    ls->menuRunHardReset        = "ÇÏµå ¸®¼Â";
-    ls->menuRunCleanReset       = "ÀüÃ¼ ¸®¼Â";
+    ls->menuRunRun              = "ì‹¤í–‰";
+    ls->menuRunPause            = "ì¼ì‹œ ì •ì§€";
+    ls->menuRunStop             = "ì¤‘ì§€";
+    ls->menuRunSoftReset        = "ì†Œí”„íŠ¸ ë¦¬ì…‹";
+    ls->menuRunHardReset        = "í•˜ë“œ ë¦¬ì…‹";
+    ls->menuRunCleanReset       = "ì „ì²´ ë¦¬ì…‹";
 
-    ls->menuTools                = "µµ±¸";
-    ls->menuToolsMachine         = "¸Ó½Å ÆíÁı±â";
-    ls->menuToolsShortcuts      = "´ÜÃàÅ° ÆíÁı±â";
-    ls->menuToolsCtrlEditor     = "ÄÁÆ®·Ñ·¯ / Å°º¸µå ÆíÁı±â"; 
-    ls->menuToolsDebugger       = "µğ¹ö°Å";               
-    ls->menuToolsTrainer        = "Æ®·¹ÀÌ³Ê";                
-    ls->menuToolsTraceLogger    = "Æ®·¹ÀÌ½º ±â·Ï";           
+    ls->menuTools                = "ë„êµ¬";
+    ls->menuToolsMachine         = "ë¨¸ì‹  í¸ì§‘ê¸°";
+    ls->menuToolsShortcuts      = "ë‹¨ì¶•í‚¤ í¸ì§‘ê¸°";
+    ls->menuToolsCtrlEditor     = "ì»¨íŠ¸ë¡¤ëŸ¬ / í‚¤ë³´ë“œ í¸ì§‘ê¸°"; 
+    ls->menuToolsDebugger       = "ë””ë²„ê±°";               
+    ls->menuToolsTrainer        = "íŠ¸ë ˆì´ë„ˆ";                
+    ls->menuToolsTraceLogger    = "íŠ¸ë ˆì´ìŠ¤ ê¸°ë¡";           
 
-    ls->menuFile                = "ÆÄÀÏ";
-    ls->menuRun                 = "½ÇÇà";
-    ls->menuWindow              = "À©µµ¿ì";
-    ls->menuToolsMixer          = "¹Í¼­";
-    ls->menuOptions             = "¿É¼Ç";
-    ls->menuHelp                = "µµ¿ò¸»";
+    ls->menuFile                = "íŒŒì¼";
+    ls->menuRun                 = "ì‹¤í–‰";
+    ls->menuWindow              = "ìœˆë„ìš°";
+    ls->menuToolsMixer          = "ë¯¹ì„œ";
+    ls->menuOptions             = "ì˜µì…˜";
+    ls->menuHelp                = "ë„ì›€ë§";
 
 
     //----------------------
     // Dialog related lines
     //----------------------
 
-    ls->dlgOK                   = "È®ÀÎ";
-    ls->dlgOpen                 = "¿­±â";
-    ls->dlgCancel               = "Ãë¼Ò";
-    ls->dlgSave                 = "ÀúÀå";
-    ls->dlgSaveAs               = "´Ù¸¥ ÀÌ¸§À¸·Î...";
-    ls->dlgRun                  = "½ÇÇà";
-    ls->dlgClose                = "´İ±â";
+    ls->dlgOK                   = "í™•ì¸";
+    ls->dlgOpen                 = "ì—´ê¸°";
+    ls->dlgCancel               = "ì·¨ì†Œ";
+    ls->dlgSave                 = "ì €ì¥";
+    ls->dlgSaveAs               = "ë‹¤ë¥¸ ì´ë¦„ìœ¼ë¡œ...";
+    ls->dlgRun                  = "ì‹¤í–‰";
+    ls->dlgClose                = "ë‹«ê¸°";
 
-    ls->dlgLoadRom              = "blueMSX - Ä«Æ®¸®Áö¿¡ »ğÀÔÇÒ rom ÀÌ¹ÌÁö ¼±ÅÃ";
-    ls->dlgLoadDsk              = "blueMSX - µå¶óÀÌºê¿¡ »ğÀÔÇÒ dsk ÀÌ¹ÌÁö ¼±ÅÃ";
-    ls->dlgLoadCas              = "blueMSX - Ä«¼¼Æ® ÇÃ·¹ÀÌ¾î¿¡ ³ÖÀ» cas ÀÌ¹ÌÁö ¼±ÅÃ";
-    ls->dlgLoadRomDskCas        = "blueMSX - ÀĞ¾î µéÀÏ rom, dsk, cas ÀÌ¹ÌÁö ¼±ÅÃ";
-    ls->dlgLoadRomDesc          = "Ä«Æ®¸®Áö¿¡ »ğÀÔÇÒ ·Ò ÀÌ¹ÌÁö¸¦ ¼±ÅÃÇØ ÁÖ¼¼¿ä:";
-    ls->dlgLoadDskDesc          = "µå¶óÀÌºê¿¡ »ğÀÔÇÒ Ã¹¹øÂ° Àå µğ½ºÅ© ¶Ç´Â µğ½ºÅ© ÀÌ¹ÌÁö¸¦ ¼±ÅÃÇØ ÁÖ¼¼¿ä(±³È¯Àº ALT+F9. ÆÄÀÏ¸í°ú ¼ıÀÚ°¡ ÀÏÁ¤ÇØ¾ß µË´Ï´Ù):";
-    ls->dlgLoadCasDesc          = "Ä«¼¼Æ® ÇÃ·¹ÀÌ¾î¿¡ ³ÖÀ» Å×ÀÙ ÀÌ¹ÌÁö¸¦ ¼±ÅÃÇØ ÁÖ¼¼¿ä:";
-    ls->dlgLoadRomDskCasDesc    = "ÀĞ¾î µéÀÏ ·Ò,µğ½ºÅ©,¶Ç´Â Å×ÀÙ ÀÌ¹ÌÁö¸¦ ¼±ÅÃÇØ ÁÖ¼¼¿ä:";
-    ls->dlgLoadState            = "CPU »óÅÂ ºÒ·¯¿À±â";
-    ls->dlgLoadVideoCapture     = "³ìÈ­µÈ ¿µ»ó ºÒ·¯¿À±â";      
-    ls->dlgSaveState            = "CPU »óÅÂ ÀúÀå";
-    ls->dlgSaveCassette          = "blueMSX - Å×ÀÙ ÀÌ¹ÌÁö ÀúÀå";
-    ls->dlgSaveVideoClipAs      = "´Ù¸¥ ÀÌ¸§À¸·Î ¿µ»ó Å¬¸³ ÀúÀå...";      
-    ls->dlgAmountCompleted      = "ÀúÀå ¿Ï·áÀ²:";          
-    ls->dlgInsertRom1           = "½½·Ô 1¿¡ ROM Ä«Æ®¸®Áö »ğÀÔ";
-    ls->dlgInsertRom2           = "½½·Ô 2¿¡ ROM Ä«Æ®¸®Áö »ğÀÔ";
-    ls->dlgInsertDiskA          = "µå¶óÀÌºê A¿¡ µğ½ºÅ© »ğÀÔ";
-    ls->dlgInsertDiskB          = "µå¶óÀÌºê B¿¡ µğ½ºÅ© »ğÀÔ";
-    ls->dlgInsertHarddisk       = "ÇÏµå µğ½ºÅ© »ğÀÔ";                   
-    ls->dlgInsertCas            = "Ä«¼¼Æ® Å×ÀÙ »ğÀÔ";
-    ls->dlgRomType              = "·Ò Çü½Ä:";
-    ls->dlgDiskSize             = "µğ½ºÅ© »çÀÌÁî:";             
+    ls->dlgLoadRom              = "blueMSX - ì¹´íŠ¸ë¦¬ì§€ì— ì‚½ì…í•  rom ì´ë¯¸ì§€ ì„ íƒ";
+    ls->dlgLoadDsk              = "blueMSX - ë“œë¼ì´ë¸Œì— ì‚½ì…í•  dsk ì´ë¯¸ì§€ ì„ íƒ";
+    ls->dlgLoadCas              = "blueMSX - ì¹´ì„¸íŠ¸ í”Œë ˆì´ì–´ì— ë„£ì„ cas ì´ë¯¸ì§€ ì„ íƒ";
+    ls->dlgLoadRomDskCas        = "blueMSX - ì½ì–´ ë“¤ì¼ rom, dsk, cas ì´ë¯¸ì§€ ì„ íƒ";
+    ls->dlgLoadRomDesc          = "ì¹´íŠ¸ë¦¬ì§€ì— ì‚½ì…í•  ë¡¬ ì´ë¯¸ì§€ë¥¼ ì„ íƒí•´ ì£¼ì„¸ìš”:";
+    ls->dlgLoadDskDesc          = "ë“œë¼ì´ë¸Œì— ì‚½ì…í•  ì²«ë²ˆì§¸ ì¥ ë””ìŠ¤í¬ ë˜ëŠ” ë””ìŠ¤í¬ ì´ë¯¸ì§€ë¥¼ ì„ íƒí•´ ì£¼ì„¸ìš”(êµí™˜ì€ ALT+F9. íŒŒì¼ëª…ê³¼ ìˆ«ìê°€ ì¼ì •í•´ì•¼ ë©ë‹ˆë‹¤):";
+    ls->dlgLoadCasDesc          = "ì¹´ì„¸íŠ¸ í”Œë ˆì´ì–´ì— ë„£ì„ í…Œì ì´ë¯¸ì§€ë¥¼ ì„ íƒí•´ ì£¼ì„¸ìš”:";
+    ls->dlgLoadRomDskCasDesc    = "ì½ì–´ ë“¤ì¼ ë¡¬,ë””ìŠ¤í¬,ë˜ëŠ” í…Œì ì´ë¯¸ì§€ë¥¼ ì„ íƒí•´ ì£¼ì„¸ìš”:";
+    ls->dlgLoadState            = "CPU ìƒíƒœ ë¶ˆëŸ¬ì˜¤ê¸°";
+    ls->dlgLoadVideoCapture     = "ë…¹í™”ëœ ì˜ìƒ ë¶ˆëŸ¬ì˜¤ê¸°";      
+    ls->dlgSaveState            = "CPU ìƒíƒœ ì €ì¥";
+    ls->dlgSaveCassette          = "blueMSX - í…Œì ì´ë¯¸ì§€ ì €ì¥";
+    ls->dlgSaveVideoClipAs      = "ë‹¤ë¥¸ ì´ë¦„ìœ¼ë¡œ ì˜ìƒ í´ë¦½ ì €ì¥...";      
+    ls->dlgAmountCompleted      = "ì €ì¥ ì™„ë£Œìœ¨:";          
+    ls->dlgInsertRom1           = "ìŠ¬ë¡¯ 1ì— ROM ì¹´íŠ¸ë¦¬ì§€ ì‚½ì…";
+    ls->dlgInsertRom2           = "ìŠ¬ë¡¯ 2ì— ROM ì¹´íŠ¸ë¦¬ì§€ ì‚½ì…";
+    ls->dlgInsertDiskA          = "ë“œë¼ì´ë¸Œ Aì— ë””ìŠ¤í¬ ì‚½ì…";
+    ls->dlgInsertDiskB          = "ë“œë¼ì´ë¸Œ Bì— ë””ìŠ¤í¬ ì‚½ì…";
+    ls->dlgInsertHarddisk       = "í•˜ë“œ ë””ìŠ¤í¬ ì‚½ì…";                   
+    ls->dlgInsertCas            = "ì¹´ì„¸íŠ¸ í…Œì ì‚½ì…";
+    ls->dlgRomType              = "ë¡¬ í˜•ì‹:";
+    ls->dlgDiskSize             = "ë””ìŠ¤í¬ ì‚¬ì´ì¦ˆ:";             
 
-    ls->dlgTapeTitle            = "blueMSX - Å×ÀÙ À§Ä¡";
-    ls->dlgTapeFrameText        = "Å×ÀÙ À§Ä¡";
-    ls->dlgTapeCurrentPos       = "ÇöÀç À§Ä¡";
-    ls->dlgTapeTotalTime        = "ÃÑ ½Ã°£";
-    ls->dlgTapeSetPosText        = "Å×ÀÙ À§Ä¡:";
-    ls->dlgTapeCustom            = "»ç¿ëÀÚ ÁöÁ¤ ÆÄÀÏ º¸±â";
-    ls->dlgTabPosition           = "À§Ä¡";
-    ls->dlgTabType               = "Çü½Ä";
-    ls->dlgTabFilename           = "ÆÄÀÏ ÀÌ¸§";
-    ls->dlgZipReset             = "»ğÀÔÈÄ Àç½ÃÀÛ";
+    ls->dlgTapeTitle            = "blueMSX - í…Œì ìœ„ì¹˜";
+    ls->dlgTapeFrameText        = "í…Œì ìœ„ì¹˜";
+    ls->dlgTapeCurrentPos       = "í˜„ì¬ ìœ„ì¹˜";
+    ls->dlgTapeTotalTime        = "ì´ ì‹œê°„";
+    ls->dlgTapeSetPosText        = "í…Œì ìœ„ì¹˜:";
+    ls->dlgTapeCustom            = "ì‚¬ìš©ì ì§€ì • íŒŒì¼ ë³´ê¸°";
+    ls->dlgTabPosition           = "ìœ„ì¹˜";
+    ls->dlgTabType               = "í˜•ì‹";
+    ls->dlgTabFilename           = "íŒŒì¼ ì´ë¦„";
+    ls->dlgZipReset             = "ì‚½ì…í›„ ì¬ì‹œì‘";
 
-    ls->dlgAboutTitle           = "blueMSX¿¡ ´ëÇÏ¿©";
+    ls->dlgAboutTitle           = "blueMSXì— ëŒ€í•˜ì—¬";
 
-    ls->dlgLangLangText         = "blueMSX¿¡ »ç¿ëÇÒ ¾ğ¾î ¼±ÅÃ";
-    ls->dlgLangLangTitle        = "blueMSX - ¾ğ¾î";
+    ls->dlgLangLangText         = "blueMSXì— ì‚¬ìš©í•  ì–¸ì–´ ì„ íƒ";
+    ls->dlgLangLangTitle        = "blueMSX - ì–¸ì–´";
 
-    ls->dlgAboutAbout           = "blueMSX¿¡ ´ëÇÏ¿©\r\n=====";
-    ls->dlgAboutVersion         = "¹öÀü:";
-    ls->dlgAboutBuildNumber     = "ºôµå:";
-    ls->dlgAboutBuildDate       = "³¯Â¥:";
-    ls->dlgAboutCreat           = "Á¦ÀÛÀÚ: Daniel Vik";
-    ls->dlgAboutDevel           = "°³¹ßÀÚ ºĞµé\r\n========";
-    ls->dlgAboutThanks          = "µµ¿òÀ» ÁÖ½Å ºĞµé\r\n===========";       // New in 2.7 (retranslate, see english)
-    ls->dlgAboutLisence         = "¶óÀÌ¼¾½º\r\n"
+    ls->dlgAboutAbout           = "blueMSXì— ëŒ€í•˜ì—¬\r\n=====";
+    ls->dlgAboutVersion         = "ë²„ì „:";
+    ls->dlgAboutBuildNumber     = "ë¹Œë“œ:";
+    ls->dlgAboutBuildDate       = "ë‚ ì§œ:";
+    ls->dlgAboutCreat           = "ì œì‘ì: Daniel Vik";
+    ls->dlgAboutDevel           = "ê°œë°œì ë¶„ë“¤\r\n========";
+    ls->dlgAboutThanks          = "ë„ì›€ì„ ì£¼ì‹  ë¶„ë“¤\r\n===========";       // New in 2.7 (retranslate, see english)
+    ls->dlgAboutLisence         = "ë¼ì´ì„¼ìŠ¤\r\n"
                                   "======\r\n\r\n"
-				  "ÀÌ ¼ÒÇÁÆ®¿ş¾î´Â ¿øº» ±×´ë·Î ¹èÆ÷µÇ¾î¾ß ÇÏ¸ç, ¸í½ÃÀûÀÌµç ¾Ï¹¬ÀûÀÌµç "
-				  "¾î¶² º¸Áõµµ ÇÏÁö ¾Ê½À´Ï´Ù.\r\nÀÌ ¼ÒÇÁÆ®¿ş¾îÀÇ »ç¿ëÀ¸·Î ÀÏ¾î³ª´Â "
-				  "¾î¶°ÇÑ ¹®Á¦¿¡ ´ëÇØ¼­µµ Á¦ÀÛÀÚ¿¡°Ô´Â Ã¥ÀÓÀÌ ¾ø½À´Ï´Ù.\r\n\r\n"
-                                  "´õ ÀÚ¼¼ÇÑ °ÍÀº www.bluemsx.com¿¡ ¹æ¹®ÇØ ÁÖ¼¼¿ä.";
+				  "ì´ ì†Œí”„íŠ¸ì›¨ì–´ëŠ” ì›ë³¸ ê·¸ëŒ€ë¡œ ë°°í¬ë˜ì–´ì•¼ í•˜ë©°, ëª…ì‹œì ì´ë“  ì•”ë¬µì ì´ë“  "
+				  "ì–´ë–¤ ë³´ì¦ë„ í•˜ì§€ ì•ŠìŠµë‹ˆë‹¤.\r\nì´ ì†Œí”„íŠ¸ì›¨ì–´ì˜ ì‚¬ìš©ìœ¼ë¡œ ì¼ì–´ë‚˜ëŠ” "
+				  "ì–´ë– í•œ ë¬¸ì œì— ëŒ€í•´ì„œë„ ì œì‘ìì—ê²ŒëŠ” ì±…ì„ì´ ì—†ìŠµë‹ˆë‹¤.\r\n\r\n"
+                                  "ë” ìì„¸í•œ ê²ƒì€ www.bluemsx.comì— ë°©ë¬¸í•´ ì£¼ì„¸ìš”.";
 
-    ls->dlgSavePreview          = "¹Ì¸® º¸±â";
-    ls->dlgSaveDate             = "½Ã°£ ÀúÀåµÊ:";
+    ls->dlgSavePreview          = "ë¯¸ë¦¬ ë³´ê¸°";
+    ls->dlgSaveDate             = "ì‹œê°„ ì €ì¥ë¨:";
 
-    ls->dlgRenderVideoCapture   = "blueMSX - µ¿¿µ»ó ÆÄÀÏ·Î ÀúÀå...";  
+    ls->dlgRenderVideoCapture   = "blueMSX - ë™ì˜ìƒ íŒŒì¼ë¡œ ì €ì¥...";  
 
 
     //----------------------
     // Properties related lines
     //----------------------
 
-    ls->propTitle               = "blueMSX - ¼Ó¼º";
-    ls->propEmulation           = "¿¡¹Ä·¹ÀÌ¼Ç";
-    ls->propVideo               = "ºñµğ¿À";
-    ls->propSound               = "»ç¿îµå";
-    ls->propControls            = "ÄÜÆ®·Ñ";
-    ls->propPerformance         = "¼º´É";
+    ls->propTitle               = "blueMSX - ì†ì„±";
+    ls->propEmulation           = "ì—ë®¬ë ˆì´ì…˜";
+    ls->propVideo               = "ë¹„ë””ì˜¤";
+    ls->propSound               = "ì‚¬ìš´ë“œ";
+    ls->propControls            = "ì½˜íŠ¸ë¡¤";
+    ls->propPerformance         = "ì„±ëŠ¥";
     ls->propEffects             = "Effects";             // New in 2.9
-    ls->propSettings             = "¿ÜºÎ ¼³Á¤";
-    ls->propFile                = "ÆÄÀÏ";
-    ls->propDisk                = "µğ½ºÅ©";              // New in 2.7
-    ls->propPorts               = "Æ÷Æ®";
+    ls->propSettings             = "ì™¸ë¶€ ì„¤ì •";
+    ls->propFile                = "íŒŒì¼";
+    ls->propDisk                = "ë””ìŠ¤í¬";              // New in 2.7
+    ls->propPorts               = "í¬íŠ¸";
     
-    ls->propEmuGeneralGB        = "ÀÏ¹İ ";
-    ls->propEmuFamilyText       = "MSX ¸Ó½Å:";
-    ls->propEmuMemoryGB         = "¸Ş¸ğ¸® ";
-    ls->propEmuRamSizeText      = "·¥ Å©±â:";
-    ls->propEmuVramSizeText     = "ºñµğ¿À·¥ Å©±â:";
-    ls->propEmuSpeedGB          = "¿¡¹Ä·¹ÀÌ¼Ç ¼Óµµ ";
-    ls->propEmuSpeedText        = "¿¡¹Ä·¹ÀÌ¼Ç ¼Óµµ:";
-    ls->propEmuFrontSwitchGB     = "ÆÄ³ª¼Ò´Ğ ½ºÀ§Ä¡ ";
-    ls->propEmuFrontSwitch       = " ÇÁ·ĞÆ® ½ºÀ§Ä¡";
+    ls->propEmuGeneralGB        = "ì¼ë°˜ ";
+    ls->propEmuFamilyText       = "MSX ë¨¸ì‹ :";
+    ls->propEmuMemoryGB         = "ë©”ëª¨ë¦¬ ";
+    ls->propEmuRamSizeText      = "ë¨ í¬ê¸°:";
+    ls->propEmuVramSizeText     = "ë¹„ë””ì˜¤ë¨ í¬ê¸°:";
+    ls->propEmuSpeedGB          = "ì—ë®¬ë ˆì´ì…˜ ì†ë„ ";
+    ls->propEmuSpeedText        = "ì—ë®¬ë ˆì´ì…˜ ì†ë„:";
+    ls->propEmuFrontSwitchGB     = "íŒŒë‚˜ì†Œë‹‰ ìŠ¤ìœ„ì¹˜ ";
+    ls->propEmuFrontSwitch       = " í”„ë¡ íŠ¸ ìŠ¤ìœ„ì¹˜";
     ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emulate MSX keyboard quirk";  // New in 2.9
-    ls->propEmuFdcTiming        = " ÇÃ·ÎÇÇ µå¶óÀÌºê Å¸ÀÌ¹Ö »ç¿ë ¾ÈÇÔ";
+    ls->propEmuFdcTiming        = " í”Œë¡œí”¼ ë“œë¼ì´ë¸Œ íƒ€ì´ë° ì‚¬ìš© ì•ˆí•¨";
     ls->propEmuReversePlay      = " Enable reverse playback"; // New in 2.8.3
-    ls->propEmuPauseSwitch      = " ÀÏ½Ã Á¤Áö ½ºÀ§Ä¡";
-    ls->propEmuAudioSwitch       = " MSX-AUDIO Ä«Æ®¸®Áö ½ºÀ§Ä¡";
-    ls->propVideoFreqText       = "ºñµğ¿À ÁÖÆÄ¼ö:";
-    ls->propVideoFreqAuto       = "ÀÚµ¿";
-    ls->propSndOversampleText   = "¿À¹ö»ùÇÃ:";
-    ls->propSndYkInGB           = "YK-01/YK-10/YK-20 ÀÔ·Â ";                
-    ls->propSndMidiInGB         = "MIDI ÀÔ·Â ";
-    ls->propSndMidiOutGB        = "MIDI Ãâ·Â ";
-    ls->propSndMidiChannel      = "MIDI Ã¤³Î:";                      
-    ls->propSndMidiAll          = "ÀüºÎ";                                
+    ls->propEmuPauseSwitch      = " ì¼ì‹œ ì •ì§€ ìŠ¤ìœ„ì¹˜";
+    ls->propEmuAudioSwitch       = " MSX-AUDIO ì¹´íŠ¸ë¦¬ì§€ ìŠ¤ìœ„ì¹˜";
+    ls->propVideoFreqText       = "ë¹„ë””ì˜¤ ì£¼íŒŒìˆ˜:";
+    ls->propVideoFreqAuto       = "ìë™";
+    ls->propSndOversampleText   = "ì˜¤ë²„ìƒ˜í”Œ:";
+    ls->propSndYkInGB           = "YK-01/YK-10/YK-20 ì…ë ¥ ";                
+    ls->propSndMidiInGB         = "MIDI ì…ë ¥ ";
+    ls->propSndMidiOutGB        = "MIDI ì¶œë ¥ ";
+    ls->propSndMidiChannel      = "MIDI ì±„ë„:";                      
+    ls->propSndMidiAll          = "ì „ë¶€";                                
 
-    ls->propMonMonGB            = "¸ğ´ÏÅÍ ";
-    ls->propMonTypeText         = "¸ğ´ÏÅÍ À¯Çü:";
-    ls->propMonEmuText          = "¸ğ´ÏÅÍ ¿¡¹Ä·¹ÀÌ¼Ç:";
-    ls->propVideoTypeText       = "ºñµğ¿À À¯Çü:";
-    ls->propWindowSizeText      = "À©µµ¿ì Å©±â:";
-    ls->propMonHorizStretch      = " ¼öÆò ½ºÆ®·¹Ä¡";
-    ls->propMonVertStretch       = " ¼öÁ÷ ½ºÆ®·¹Ä¡";
-    ls->propMonDeInterlace      = " µğÀÎÅÍ·¹ÀÌ½º";
-    ls->propBlendFrames         = " ÀÎÁ¢ÇÑ ÇÁ·¹ÀÓ »ö»óÈ¥ÇÕ";           
-    ls->propMonColorGhosting    = " RF¸ğµâ·¹ÀÌÅÍ:";
-    ls->propMonBrightness       = "¹à±â:";
-    ls->propMonContrast         = "´ëºñ:";
-    ls->propMonSaturation       = "Ã¤µµ:";
-    ls->propMonGamma            = "°¨¸¶:";
-    ls->propMonScanlines        = " ½ºÄµ¶óÀÎ:";
-    ls->propMonEffectsGB        = "È¿°ú ";
+    ls->propMonMonGB            = "ëª¨ë‹ˆí„° ";
+    ls->propMonTypeText         = "ëª¨ë‹ˆí„° ìœ í˜•:";
+    ls->propMonEmuText          = "ëª¨ë‹ˆí„° ì—ë®¬ë ˆì´ì…˜:";
+    ls->propVideoTypeText       = "ë¹„ë””ì˜¤ ìœ í˜•:";
+    ls->propWindowSizeText      = "ìœˆë„ìš° í¬ê¸°:";
+    ls->propMonHorizStretch      = " ìˆ˜í‰ ìŠ¤íŠ¸ë ˆì¹˜";
+    ls->propMonVertStretch       = " ìˆ˜ì§ ìŠ¤íŠ¸ë ˆì¹˜";
+    ls->propMonDeInterlace      = " ë””ì¸í„°ë ˆì´ìŠ¤";
+    ls->propBlendFrames         = " ì¸ì ‘í•œ í”„ë ˆì„ ìƒ‰ìƒí˜¼í•©";           
+    ls->propMonColorGhosting    = " RFëª¨ë“ˆë ˆì´í„°:";
+    ls->propMonBrightness       = "ë°ê¸°:";
+    ls->propMonContrast         = "ëŒ€ë¹„:";
+    ls->propMonSaturation       = "ì±„ë„:";
+    ls->propMonGamma            = "ê°ë§ˆ:";
+    ls->propMonScanlines        = " ìŠ¤ìº”ë¼ì¸:";
+    ls->propMonEffectsGB        = "íš¨ê³¼ ";
 
-    ls->propPerfVideoDrvGB      = "ºñµğ¿À µå¶óÀÌ¹ö ";
-    ls->propPerfVideoDispDrvText= "È­¸é µå¶óÀÌ¹ö:";
-    ls->propPerfFrameSkipText   = "ÇÁ·¹ÀÓ °Ç³Ê¶ç±â:";
-    ls->propPerfAudioDrvGB      = "¿Àµğ¿À µå¶óÀÌ¹ö ";
-    ls->propPerfAudioDrvText    = "»ç¿îµå µå¶óÀÌ¹ö:";
-    ls->propPerfAudioBufSzText  = "»ç¿îµå ¹öÆÛ »çÀÌÁî:";
-    ls->propPerfEmuGB           = "Å¬·° ¿¡¹Ä·¹ÀÌ¼Ç ";
-    ls->propPerfSyncModeText    = "µ¿±âÈ­ ¸ğµå:";
-    ls->propFullscreenResText   = "ÀüÃ¼ È­¸é ÇØ»óµµ:";
+    ls->propPerfVideoDrvGB      = "ë¹„ë””ì˜¤ ë“œë¼ì´ë²„ ";
+    ls->propPerfVideoDispDrvText= "í™”ë©´ ë“œë¼ì´ë²„:";
+    ls->propPerfFrameSkipText   = "í”„ë ˆì„ ê±´ë„ˆë„ê¸°:";
+    ls->propPerfAudioDrvGB      = "ì˜¤ë””ì˜¤ ë“œë¼ì´ë²„ ";
+    ls->propPerfAudioDrvText    = "ì‚¬ìš´ë“œ ë“œë¼ì´ë²„:";
+    ls->propPerfAudioBufSzText  = "ì‚¬ìš´ë“œ ë²„í¼ ì‚¬ì´ì¦ˆ:";
+    ls->propPerfEmuGB           = "í´ëŸ­ ì—ë®¬ë ˆì´ì…˜ ";
+    ls->propPerfSyncModeText    = "ë™ê¸°í™” ëª¨ë“œ:";
+    ls->propFullscreenResText   = "ì „ì²´ í™”ë©´ í•´ìƒë„:";
 
-    ls->propSndChipEmuGB        = "»ç¿îµå Ä¨ ¿¡¹Ä·¹ÀÌ¼Ç ";
+    ls->propSndChipEmuGB        = "ì‚¬ìš´ë“œ ì¹© ì—ë®¬ë ˆì´ì…˜ ";
     ls->propSndMsxMusic         = " MSX-MUSIC";
     ls->propSndMsxAudio         = " MSX-AUDIO";
     ls->propSndMoonsound         = " Moonsound";
-    ls->propSndMt32ToGm         = " GM¿¡ MT-32 ¾Ç±â¹è¿­";
+    ls->propSndMt32ToGm         = " GMì— MT-32 ì•…ê¸°ë°°ì—´";
 
-    ls->propPortsLptGB          = "ÆĞ·¯·² Æ÷Æ® "; 
-    ls->propPortsComGB          = "½Ã¸®¾ó Æ÷Æ® "; 
-    ls->propPortsLptText        = "Æ÷Æ®:"; 
-    ls->propPortsCom1Text       = "Æ÷Æ® 1:";
-    ls->propPortsNone           = "¾øÀ½";
+    ls->propPortsLptGB          = "íŒ¨ëŸ¬ëŸ´ í¬íŠ¸ "; 
+    ls->propPortsComGB          = "ì‹œë¦¬ì–¼ í¬íŠ¸ "; 
+    ls->propPortsLptText        = "í¬íŠ¸:"; 
+    ls->propPortsCom1Text       = "í¬íŠ¸ 1:";
+    ls->propPortsNone           = "ì—†ìŒ";
     ls->propPortsSimplCovox     = "SiMPL / Covox DAC";
-    ls->propPortsFile           = "ÆÄÀÏ¿¡ Ãâ·ÂÇÏ±â";
-    ls->propPortsComFile        = "ÆÄÀÏ¿¡ º¸³»±â";
-    ls->propPortsOpenLogFile    = "·Î±×ÆÄÀÏ ¿­±â";
-    ls->propPortsEmulateMsxPrn  = "Èä³»³»±â:";
+    ls->propPortsFile           = "íŒŒì¼ì— ì¶œë ¥í•˜ê¸°";
+    ls->propPortsComFile        = "íŒŒì¼ì— ë³´ë‚´ê¸°";
+    ls->propPortsOpenLogFile    = "ë¡œê·¸íŒŒì¼ ì—´ê¸°";
+    ls->propPortsEmulateMsxPrn  = "í‰ë‚´ë‚´ê¸°:";
 
-    ls->propSetFileHistoryGB     = "¿­¾îº» ÆÄÀÏ ¸ñ·Ï ";
-    ls->propSetFileHistorySize   = "ÆÄÀÏ º¸°ü Å©±â:";
-    ls->propSetFileHistoryClear  = "¸ñ·Ï Áö¿ì±â";
-    ls->propFileTypes            = " blueMSX¿¡ ÆÄÀÏÇü½Ä(.rom .dsk .cas .sta) ¿¬°á";
-    ls->propWindowsEnvGB         = "À©µµ¿ìÁî È¯°æ "; 
-    ls->propSetScreenSaver       = " blueMSX ½ÇÇàÁß¿¡´Â È­¸é º¸È£±â ±â´É ÁßÁö";
-    ls->propDisableWinKeys       = " blueMSX ½ÇÇàÁß¿¡´Â ¿Ş/¿À¸¥ÂÊ À©µµ¿ì Å° »ç¿ë ¾ÈÇÔ"; 
-    ls->propPriorityBoost        = " blueMSX¿¡ ÀÛ¾÷ ¿ì¼±±Ç ÁÖ±â";
-    ls->propScreenshotPng       = " Portable Network Graphics (.png) ½ºÅ©¸°¼¦ »ç¿ë";  
+    ls->propSetFileHistoryGB     = "ì—´ì–´ë³¸ íŒŒì¼ ëª©ë¡ ";
+    ls->propSetFileHistorySize   = "íŒŒì¼ ë³´ê´€ í¬ê¸°:";
+    ls->propSetFileHistoryClear  = "ëª©ë¡ ì§€ìš°ê¸°";
+    ls->propFileTypes            = " blueMSXì— íŒŒì¼í˜•ì‹(.rom .dsk .cas .sta) ì—°ê²°";
+    ls->propWindowsEnvGB         = "ìœˆë„ìš°ì¦ˆ í™˜ê²½ "; 
+    ls->propSetScreenSaver       = " blueMSX ì‹¤í–‰ì¤‘ì—ëŠ” í™”ë©´ ë³´í˜¸ê¸° ê¸°ëŠ¥ ì¤‘ì§€";
+    ls->propDisableWinKeys       = " blueMSX ì‹¤í–‰ì¤‘ì—ëŠ” ì™¼/ì˜¤ë¥¸ìª½ ìœˆë„ìš° í‚¤ ì‚¬ìš© ì•ˆí•¨"; 
+    ls->propPriorityBoost        = " blueMSXì— ì‘ì—… ìš°ì„ ê¶Œ ì£¼ê¸°";
+    ls->propScreenshotPng       = " Portable Network Graphics (.png) ìŠ¤í¬ë¦°ìƒ· ì‚¬ìš©";  
     ls->propEjectMediaOnExit    = " Eject media when blueMSX exits";        // New in 2.8
-    ls->propClearHistory         = "¿­¾îº» ÆÄÀÏ ¸ñ·ÏÀ» Áö¿ï±î¿ä?";
-    ls->propOpenRomGB           = "¿­¶§ Ç×»ó ÇöÀç ¼³Á¤ »ç¿ë ";
-    ls->propDefaultRomType      = "±âº» ·Ò Çü½Ä:";
-    ls->propGuessRomType        = "ÀÚµ¿ ÆÇ´Ü";
+    ls->propClearHistory         = "ì—´ì–´ë³¸ íŒŒì¼ ëª©ë¡ì„ ì§€ìš¸ê¹Œìš”?";
+    ls->propOpenRomGB           = "ì—´ë•Œ í•­ìƒ í˜„ì¬ ì„¤ì • ì‚¬ìš© ";
+    ls->propDefaultRomType      = "ê¸°ë³¸ ë¡¬ í˜•ì‹:";
+    ls->propGuessRomType        = "ìë™ íŒë‹¨";
 
-    ls->propSettDefSlotGB       = "¸¶¿ì½º·Î ²ø¾î¼­ ³õÀ»¶§ ";
-    ls->propSettDefSlots        = "ÇöÀç ½½·Ô¿¡ ·Ò »ğÀÔ:";
-    ls->propSettDefSlot         = " ½½·Ô";
-    ls->propSettDefDrives       = "ÇöÀç µå¶óÀÌºê¿¡ µğ½ºÄÏ »ğÀÔ:";
-    ls->propSettDefDrive       = " µå¶óÀÌºê";
+    ls->propSettDefSlotGB       = "ë§ˆìš°ìŠ¤ë¡œ ëŒì–´ì„œ ë†“ì„ë•Œ ";
+    ls->propSettDefSlots        = "í˜„ì¬ ìŠ¬ë¡¯ì— ë¡¬ ì‚½ì…:";
+    ls->propSettDefSlot         = " ìŠ¬ë¡¯";
+    ls->propSettDefDrives       = "í˜„ì¬ ë“œë¼ì´ë¸Œì— ë””ìŠ¤ì¼“ ì‚½ì…:";
+    ls->propSettDefDrive       = " ë“œë¼ì´ë¸Œ";
 
-    ls->propThemeGB             = "Å×¸¶ ";
-    ls->propTheme               = "±âº» Å×¸¶:";
+    ls->propThemeGB             = "í…Œë§ˆ ";
+    ls->propTheme               = "ê¸°ë³¸ í…Œë§ˆ:";
 
-    ls->propCdromGB             = "½Ãµğ·Ò ";         // New in 2.7
-    ls->propCdromMethod         = "¾×¼¼½º ¹æ¹ı:";  // New in 2.7
-    ls->propCdromMethodNone     = "¾øÀ½";            // New in 2.7
+    ls->propCdromGB             = "ì‹œë””ë¡¬ ";         // New in 2.7
+    ls->propCdromMethod         = "ì•¡ì„¸ìŠ¤ ë°©ë²•:";  // New in 2.7
+    ls->propCdromMethodNone     = "ì—†ìŒ";            // New in 2.7
     ls->propCdromMethodIoctl    = "IOCTL";           // New in 2.7
     ls->propCdromMethodAspi     = "ASPI";            // New in 2.7
-    ls->propCdromDrive          = "µå¶óÀÌºê:";          // New in 2.7
+    ls->propCdromDrive          = "ë“œë¼ì´ë¸Œ:";          // New in 2.7
 
     ls->propD3DParametersGB         = "Parameters ";                // New in 2.9
     ls->propD3DAspectRatioText      = "Aspect ratio";               // New in 2.9
@@ -418,38 +421,38 @@ void langInitKorean(LanguageStrings* ls)
     // Dropdown related lines
     //----------------------
 
-    ls->enumVideoMonColor       = "ÄÃ·¯";
-    ls->enumVideoMonGrey        = "°ËÁ¤°ú Èò»ö";
-    ls->enumVideoMonGreen       = "³ì»ö";
-    ls->enumVideoMonAmber       = "È£¹Ú»ö"; 
+    ls->enumVideoMonColor       = "ì»¬ëŸ¬";
+    ls->enumVideoMonGrey        = "ê²€ì •ê³¼ í°ìƒ‰";
+    ls->enumVideoMonGreen       = "ë…¹ìƒ‰";
+    ls->enumVideoMonAmber       = "í˜¸ë°•ìƒ‰"; 
 
     ls->enumVideoTypePAL        = "PAL";
     ls->enumVideoTypeNTSC       = "NTSC";
 
-    ls->enumVideoEmuNone        = "¾øÀ½";
-    ls->enumVideoEmuYc          = "Y/C ÄÉÀÌºí (¼±¸í)";
-    ls->enumVideoEmuMonitor     = "¸ğ´ÏÅÍ";
-    ls->enumVideoEmuYcBlur      = "ÀâÀ½ÀÖ´Â Y/C ÄÉÀÌºí (¼±¸í)";
-    ls->enumVideoEmuComp        = "ÄÄÆ÷ÁöÆ® (Èå¸´)";
-    ls->enumVideoEmuCompBlur    = "ÀâÀ½ÀÖ´Â ÄÄÆ÷ÁöÆ® (Èå¸´)";
+    ls->enumVideoEmuNone        = "ì—†ìŒ";
+    ls->enumVideoEmuYc          = "Y/C ì¼€ì´ë¸” (ì„ ëª…)";
+    ls->enumVideoEmuMonitor     = "ëª¨ë‹ˆí„°";
+    ls->enumVideoEmuYcBlur      = "ì¡ìŒìˆëŠ” Y/C ì¼€ì´ë¸” (ì„ ëª…)";
+    ls->enumVideoEmuComp        = "ì»´í¬ì§€íŠ¸ (íë¦¿)";
+    ls->enumVideoEmuCompBlur    = "ì¡ìŒìˆëŠ” ì»´í¬ì§€íŠ¸ (íë¦¿)";
     ls->enumVideoEmuScale2x     = "Scale 2x";
     ls->enumVideoEmuHq2x        = "Hq2x";
 
-    ls->enumVideoSize1x         = "º¸Åë - 320x200";
-    ls->enumVideoSize2x         = "µÎ¹è - 640x400";
-    ls->enumVideoSizeFullscreen = "ÀüÃ¼ È­¸é";
+    ls->enumVideoSize1x         = "ë³´í†µ - 320x200";
+    ls->enumVideoSize2x         = "ë‘ë°° - 640x400";
+    ls->enumVideoSizeFullscreen = "ì „ì²´ í™”ë©´";
 
-    ls->enumVideoDrvDirectDrawHW = "DirectDraw HW °¡¼Ó";
+    ls->enumVideoDrvDirectDrawHW = "DirectDraw HW ê°€ì†";
     ls->enumVideoDrvDirectDraw  = "DirectDraw";
     ls->enumVideoDrvGDI         = "GDI";
     ls->enumVideoDrvD3D         = "Direct3D";
 
-    ls->enumVideoFrameskip0     = "¾øÀ½";
-    ls->enumVideoFrameskip1     = "1 ÇÁ·¹ÀÓ";
-    ls->enumVideoFrameskip2     = "2 ÇÁ·¹ÀÓ";
-    ls->enumVideoFrameskip3     = "3 ÇÁ·¹ÀÓ";
-    ls->enumVideoFrameskip4     = "4 ÇÁ·¹ÀÓ";
-    ls->enumVideoFrameskip5     = "5 ÇÁ·¹ÀÓ";
+    ls->enumVideoFrameskip0     = "ì—†ìŒ";
+    ls->enumVideoFrameskip1     = "1 í”„ë ˆì„";
+    ls->enumVideoFrameskip2     = "2 í”„ë ˆì„";
+    ls->enumVideoFrameskip3     = "3 í”„ë ˆì„";
+    ls->enumVideoFrameskip4     = "4 í”„ë ˆì„";
+    ls->enumVideoFrameskip5     = "5 í”„ë ˆì„";
 
     ls->enumD3DARAuto           = "Auto";           // New in 2.9
     ls->enumD3DARStretch        = "Stretch";        // New in 2.9
@@ -464,210 +467,210 @@ void langInitKorean(LanguageStrings* ls)
     ls->enumD3DCropMSX2Plus8    = "MSX2+8";         // New in 2.9
     ls->enumD3DCropCustom       = "Custom";         // New in 2.9
 
-    ls->enumSoundDrvNone        = "¼Ò¸®¾øÀ½";
-    ls->enumSoundDrvWMM         = "WMM µå¶óÀÌ¹ö";
-    ls->enumSoundDrvDirectX     = "´ÙÀÌ·ºÆ®X µå¶óÀÌ¹ö";
+    ls->enumSoundDrvNone        = "ì†Œë¦¬ì—†ìŒ";
+    ls->enumSoundDrvWMM         = "WMM ë“œë¼ì´ë²„";
+    ls->enumSoundDrvDirectX     = "ë‹¤ì´ë ‰íŠ¸X ë“œë¼ì´ë²„";
 
-    ls->enumEmuSync1ms          = "MSXÀÇ ¼Óµµ¿¡ µ¿±â";
-    ls->enumEmuSyncAuto         = "ÀÚµ¿ (ºü¸§)";
-    ls->enumEmuSyncNone         = "ÇÏÁö¾ÊÀ½";
-    ls->enumEmuSyncVblank       = "PCÀÇ ¼öÁ÷ÁÖÆÄ¼ö¿¡ µ¿±â";
-    ls->enumEmuAsyncVblank      = "PCÀÇ ¼öÁ÷ÁÖÆÄ¼ö¿¡ ºñµ¿±â";             
+    ls->enumEmuSync1ms          = "MSXì˜ ì†ë„ì— ë™ê¸°";
+    ls->enumEmuSyncAuto         = "ìë™ (ë¹ ë¦„)";
+    ls->enumEmuSyncNone         = "í•˜ì§€ì•ŠìŒ";
+    ls->enumEmuSyncVblank       = "PCì˜ ìˆ˜ì§ì£¼íŒŒìˆ˜ì— ë™ê¸°";
+    ls->enumEmuAsyncVblank      = "PCì˜ ìˆ˜ì§ì£¼íŒŒìˆ˜ì— ë¹„ë™ê¸°";             
 
-    ls->enumControlsJoyNone     = "¾øÀ½";
-    ls->enumControlsJoyMouse    = "¸¶¿ì½º";
-    ls->enumControlsJoyTetris2Dongle = "Å×Æ®¸®½º 2 µ¿±Û";
-    ls->enumControlsJoyTMagicKeyDongle = "¸ÅÁ÷Å° µ¿±Û";             
-    ls->enumControlsJoy2Button = "2¹öÆ° Á¶ÀÌ½ºÆ½";                   
-    ls->enumControlsJoyGunstick  = "°Ç ½ºÆ½";                         
-    ls->enumControlsJoyAsciiLaser="¾Æ½ºÅ° ÇÃ·¯½º-X ÅÍ¹Ì³×ÀÌÅÍ ·¹ÀÌÀú";      
+    ls->enumControlsJoyNone     = "ì—†ìŒ";
+    ls->enumControlsJoyMouse    = "ë§ˆìš°ìŠ¤";
+    ls->enumControlsJoyTetris2Dongle = "í…ŒíŠ¸ë¦¬ìŠ¤ 2 ë™ê¸€";
+    ls->enumControlsJoyTMagicKeyDongle = "ë§¤ì§í‚¤ ë™ê¸€";             
+    ls->enumControlsJoy2Button = "2ë²„íŠ¼ ì¡°ì´ìŠ¤í‹±";                   
+    ls->enumControlsJoyGunstick  = "ê±´ ìŠ¤í‹±";                         
+    ls->enumControlsJoyAsciiLaser="ì•„ìŠ¤í‚¤ í”ŒëŸ¬ìŠ¤-X í„°ë¯¸ë„¤ì´í„° ë ˆì´ì €";      
     ls->enumControlsArkanoidPad  ="Arkanoid Pad";                   // New in 2.7.1
-    ls->enumControlsJoyColeco = "ColecoVision Á¶ÀÌ½ºÆ½";                
+    ls->enumControlsJoyColeco = "ColecoVision ì¡°ì´ìŠ¤í‹±";                
 
-    ls->enumDiskMsx35Dbl9Sect    = "MSX 3.5\" ¾ç¸é, 9 ¼½ÅÍ";     
-    ls->enumDiskMsx35Dbl8Sect    = "MSX 3.5\" ¾ç¸é, 8 ¼½ÅÍ";     
-    ls->enumDiskMsx35Sgl9Sect    = "MSX 3.5\" ´Ü¸é, 9 ¼½ÅÍ";     
-    ls->enumDiskMsx35Sgl8Sect    = "MSX 3.5\" ´Ü¸é, 8 ¼½ÅÍ";     
-    ls->enumDiskSvi525Dbl        = "SVI-328 5.25\" ¾ç¸é";           
-    ls->enumDiskSvi525Sgl        = "SVI-328 5.25\" ´Ü¸é";  
-    ls->enumDiskSf3Sgl           = "Sega SF-7000 3\" ´Ü¸é";             
+    ls->enumDiskMsx35Dbl9Sect    = "MSX 3.5\" ì–‘ë©´, 9 ì„¹í„°";     
+    ls->enumDiskMsx35Dbl8Sect    = "MSX 3.5\" ì–‘ë©´, 8 ì„¹í„°";     
+    ls->enumDiskMsx35Sgl9Sect    = "MSX 3.5\" ë‹¨ë©´, 9 ì„¹í„°";     
+    ls->enumDiskMsx35Sgl8Sect    = "MSX 3.5\" ë‹¨ë©´, 8 ì„¹í„°";     
+    ls->enumDiskSvi525Dbl        = "SVI-328 5.25\" ì–‘ë©´";           
+    ls->enumDiskSvi525Sgl        = "SVI-328 5.25\" ë‹¨ë©´";  
+    ls->enumDiskSf3Sgl           = "Sega SF-7000 3\" ë‹¨ë©´";             
 
 
     //----------------------
     // Configuration related lines
     //----------------------
 
-    ls->confTitle                = "blueMSX - ¸Ó½Å ¼³Á¤ ÆíÁı±â";
-    ls->confConfigText           = "¸Ó½Å ¼³Á¤";
-    ls->confSlotLayout           = "½½·Ô ¹èÄ¡";
-    ls->confMemory               = "¸Ş¸ğ¸®";
-    ls->confChipEmulation        = "Ä¨ ¿¡¹Ä·¹ÀÌ¼Ç";
-    ls->confChipExtras          = "±âÅ¸";
+    ls->confTitle                = "blueMSX - ë¨¸ì‹  ì„¤ì • í¸ì§‘ê¸°";
+    ls->confConfigText           = "ë¨¸ì‹  ì„¤ì •";
+    ls->confSlotLayout           = "ìŠ¬ë¡¯ ë°°ì¹˜";
+    ls->confMemory               = "ë©”ëª¨ë¦¬";
+    ls->confChipEmulation        = "ì¹© ì—ë®¬ë ˆì´ì…˜";
+    ls->confChipExtras          = "ê¸°íƒ€";
 
-    ls->confOpenRom             = "·Ò ÀÌ¹ÌÁö ¿­±â";
-    ls->confSaveTitle            = "blueMSX - ¼³Á¤ ÀúÀå";
-    ls->confSaveText             = "ÀÌ¹Ì ÆÄÀÏÀÌ ÀÖ½À´Ï´Ù. ±âÁ¸ ÆÄÀÏÀ» ÀÌ ÆÄÀÏ·Î ¹Ù²Ù½Ã°Ú½À´Ï±î?";
-    ls->confSaveAsTitle         = "´Ù¸¥ ÀÌ¸§À¸·Î ¼³Á¤ ÀúÀå...";
-    ls->confSaveAsMachineName    = "¸Ó½Å ÀÌ¸§:";
-    ls->confDiscardTitle         = "blueMSX - ¼³Á¤";
-    ls->confExitSaveTitle        = "blueMSX - ¸Ó½Å ¼³Á¤ ÆíÁı±â ³ª°¡±â";
-    ls->confExitSaveText         = "º¯°æÇÑ ¼³Á¤ÀÌ Àû¿ëµÇ±â À§ÇØ¼± ÀúÀåÀ» ÇØ¾ß ÇÕ´Ï´Ù. ÇöÀç ¼³Á¤¿¡ ¾Æ¹«·± ¿µÇâÀ» ÁÖÁö¾Ê°í ±×³É ³ª°¡°Ú½À´Ï±î?";
+    ls->confOpenRom             = "ë¡¬ ì´ë¯¸ì§€ ì—´ê¸°";
+    ls->confSaveTitle            = "blueMSX - ì„¤ì • ì €ì¥";
+    ls->confSaveText             = "ì´ë¯¸ íŒŒì¼ì´ ìˆìŠµë‹ˆë‹¤. ê¸°ì¡´ íŒŒì¼ì„ ì´ íŒŒì¼ë¡œ ë°”ê¾¸ì‹œê² ìŠµë‹ˆê¹Œ?";
+    ls->confSaveAsTitle         = "ë‹¤ë¥¸ ì´ë¦„ìœ¼ë¡œ ì„¤ì • ì €ì¥...";
+    ls->confSaveAsMachineName    = "ë¨¸ì‹  ì´ë¦„:";
+    ls->confDiscardTitle         = "blueMSX - ì„¤ì •";
+    ls->confExitSaveTitle        = "blueMSX - ë¨¸ì‹  ì„¤ì • í¸ì§‘ê¸° ë‚˜ê°€ê¸°";
+    ls->confExitSaveText         = "ë³€ê²½í•œ ì„¤ì •ì´ ì ìš©ë˜ê¸° ìœ„í•´ì„  ì €ì¥ì„ í•´ì•¼ í•©ë‹ˆë‹¤. í˜„ì¬ ì„¤ì •ì— ì•„ë¬´ëŸ° ì˜í–¥ì„ ì£¼ì§€ì•Šê³  ê·¸ëƒ¥ ë‚˜ê°€ê² ìŠµë‹ˆê¹Œ?";
 
-    ls->confSlotLayoutGB         = "½½·Ô ¹èÄ¡ ";
-    ls->confSlotExtSlotGB        = "¿ÜºÎ ½½·Ô ";
-    ls->confBoardGB             = "½Ã½ºÅÛ ";
-    ls->confBoardText           = "½Ã½ºÅÛ Çü½Ä:";
-    ls->confSlotPrimary          = "±âº»";
-    ls->confSlotExpanded         = "È®Àå (4°³ÀÇ ¼­ºê½½·Ô)";
+    ls->confSlotLayoutGB         = "ìŠ¬ë¡¯ ë°°ì¹˜ ";
+    ls->confSlotExtSlotGB        = "ì™¸ë¶€ ìŠ¬ë¡¯ ";
+    ls->confBoardGB             = "ì‹œìŠ¤í…œ ";
+    ls->confBoardText           = "ì‹œìŠ¤í…œ í˜•ì‹:";
+    ls->confSlotPrimary          = "ê¸°ë³¸";
+    ls->confSlotExpanded         = "í™•ì¥ (4ê°œì˜ ì„œë¸ŒìŠ¬ë¡¯)";
 
-    ls->confSlotCart            = "Ä«Æ®¸®Áö";
-    ls->confSlot                = "½½·Ô";
-    ls->confSubslot             = "¼­ºê ½½·Ô";
+    ls->confSlotCart            = "ì¹´íŠ¸ë¦¬ì§€";
+    ls->confSlot                = "ìŠ¬ë¡¯";
+    ls->confSubslot             = "ì„œë¸Œ ìŠ¬ë¡¯";
 
-    ls->confMemAdd               = "Ãß°¡...";
-    ls->confMemEdit              = "ÆíÁı...";
-    ls->confMemRemove            = "Á¦°Å";
-    ls->confMemSlot              = "½½·Ô";
-    ls->confMemAddresss          = "ÁÖ¼Ò";
-    ls->confMemType              = "Çü½Ä";
-    ls->confMemRomImage          = "·Ò ÀÌ¹ÌÁö";
+    ls->confMemAdd               = "ì¶”ê°€...";
+    ls->confMemEdit              = "í¸ì§‘...";
+    ls->confMemRemove            = "ì œê±°";
+    ls->confMemSlot              = "ìŠ¬ë¡¯";
+    ls->confMemAddresss          = "ì£¼ì†Œ";
+    ls->confMemType              = "í˜•ì‹";
+    ls->confMemRomImage          = "ë¡¬ ì´ë¯¸ì§€";
     
-    ls->confChipVideoGB          = "ºñµğ¿À ";
-    ls->confChipVideoChip        = "ºñµğ¿À Ä¨:";
-    ls->confChipVideoRam         = "ºñµğ¿À ·¥:";
-    ls->confChipSoundGB          = "»ç¿îµå ";
-    ls->confChipPsgStereoText    = " PSG ½ºÅ×·¹¿À º¯È¯";
+    ls->confChipVideoGB          = "ë¹„ë””ì˜¤ ";
+    ls->confChipVideoChip        = "ë¹„ë””ì˜¤ ì¹©:";
+    ls->confChipVideoRam         = "ë¹„ë””ì˜¤ ë¨:";
+    ls->confChipSoundGB          = "ì‚¬ìš´ë“œ ";
+    ls->confChipPsgStereoText    = " PSG ìŠ¤í…Œë ˆì˜¤ ë³€í™˜";
 
     ls->confCmosGB                = "CMOS ";
-    ls->confCmosEnable            = " CMOS »ç¿ë";
-    ls->confCmosBattery           = " ÃæÀüÁö »ç¿ë";
+    ls->confCmosEnable            = " CMOS ì‚¬ìš©";
+    ls->confCmosBattery           = " ì¶©ì „ì§€ ì‚¬ìš©";
 
-    ls->confCpuFreqGB            = "CPU ÁÖÆÄ¼ö ";
-    ls->confZ80FreqText          = "Z80 ÁÖÆÄ¼ö:";
-    ls->confR800FreqText         = "R800 ÁÖÆÄ¼ö:";
-    ls->confFdcGB                = "ÇÃ·ÎÇÇ µğ½ºÅ© ÄÁÆ®·Ñ·¯ ";
-    ls->confCFdcNumDrivesText    = "µå¶óÀÌºêÀÇ °¹¼ö:";
+    ls->confCpuFreqGB            = "CPU ì£¼íŒŒìˆ˜ ";
+    ls->confZ80FreqText          = "Z80 ì£¼íŒŒìˆ˜:";
+    ls->confR800FreqText         = "R800 ì£¼íŒŒìˆ˜:";
+    ls->confFdcGB                = "í”Œë¡œí”¼ ë””ìŠ¤í¬ ì»¨íŠ¸ë¡¤ëŸ¬ ";
+    ls->confCFdcNumDrivesText    = "ë“œë¼ì´ë¸Œì˜ ê°¯ìˆ˜:";
 
-    ls->confEditMemTitle         = "blueMSX - ¸ÊÆÛ ÆíÁı";
-    ls->confEditMemGB            = "¸ÊÆÛ Ç×¸ñ ";
-    ls->confEditMemType          = "Çü½Ä:";
-    ls->confEditMemFile          = "ÆÄÀÏ:";
-    ls->confEditMemAddress       = "ÁÖ¼Ò";
-    ls->confEditMemSize          = "Å©±â";
-    ls->confEditMemSlot          = "½½·Ô";
+    ls->confEditMemTitle         = "blueMSX - ë§µí¼ í¸ì§‘";
+    ls->confEditMemGB            = "ë§µí¼ í•­ëª© ";
+    ls->confEditMemType          = "í˜•ì‹:";
+    ls->confEditMemFile          = "íŒŒì¼:";
+    ls->confEditMemAddress       = "ì£¼ì†Œ";
+    ls->confEditMemSize          = "í¬ê¸°";
+    ls->confEditMemSlot          = "ìŠ¬ë¡¯";
 
 
     //----------------------
     // Shortcut lines
     //----------------------
 
-	ls->shortcutKey             = "ÇÖÅ°";
-    ls->shortcutDescription     = "´ÜÃàÅ°";
+	ls->shortcutKey             = "í•«í‚¤";
+    ls->shortcutDescription     = "ë‹¨ì¶•í‚¤";
 
-    ls->shortcutSaveConfig      = "blueMSX - ¼³Á¤ ÀúÀå";
-    ls->shortcutOverwriteConfig = "ÀÌ¹Ì ÆÄÀÏÀÌ ÀÖ½À´Ï´Ù. ±âÁ¸ ÆÄÀÏÀ» ÀÌ ÆÄÀÏ·Î ¹Ù²Ù½Ã°Ú½À´Ï±î?";
-    ls->shortcutExitConfig      = "blueMSX - ´ÜÃàÅ° ÆíÁı±â ³ª°¡±â";
-    ls->shortcutDiscardConfig   = "º¯°æÇÑ ¼³Á¤ÀÌ Àû¿ëµÇ±â À§ÇØ¼± ÀúÀåÀ» ÇÏ¼Å¾ß ÇÕ´Ï´Ù¸¸ ÇöÀç ¼³Á¤¿¡´Â ¾Æ¹«·± ¿µÇâµµ ÁÖÁö¾Ê°í ±×³É ³ª°¡°Ú½À´Ï±î?";
-    ls->shortcutSaveConfigAs    = "blueMSX - ´Ù¸¥ÀÌ¸§À¸·Î ´ÜÃàÅ° ¼³Á¤ ÀúÀå...";
-    ls->shortcutConfigName      = "¼³Á¤ ÀÌ¸§:";
-    ls->shortcutNewProfile      = "< »õ·Î¿î ÇÁ·ÎÇÊ >";
-    ls->shortcutConfigTitle     = "blueMSX - ´ÜÃàÅ° ¸ÅÇÎ ÆíÁı±â";
-    ls->shortcutAssign          = "Àû¿ë";
-    ls->shortcutPressText       = "´ÜÃàÅ° »õ·Î ¼³Á¤:";
-    ls->shortcutScheme          = "´ÜÃàÅ° ½ºÅ¸ÀÏ:";
-    ls->shortcutCartInsert1     = "Ä«Æ®¸®Áö 1 »ğÀÔ";
-    ls->shortcutCartRemove1     = "Ä«Æ®¸®Áö 1 Á¦°Å";
-    ls->shortcutCartInsert2     = "Ä«Æ®¸®Áö 2 »ğÀÔ";
-    ls->shortcutCartRemove2     = "Ä«Æ®¸®Áö 2 Á¦°Å";
-    ls->shortcutSpecialMenu1    = "Ä«Æ®¸®Áö 1 - »ç¿ëÀÚ ÁöÁ¤ Ä«Æ®¸®Áö";
-    ls->shortcutSpecialMenu2    = "Ä«Æ®¸®Áö 2 - »ç¿ëÀÚ ÁöÁ¤ Ä«Æ®¸®Áö";
-    ls->shortcutCartAutoReset   = "Ä«Æ®¸®Áö »ğÀÔÈÄ ¿¡¹Ä·¹ÀÌÅÍ Àç½ÃÀÛ";
-    ls->shortcutDiskInsertA     = "µğ½ºÄÏ A »ğÀÔ";
-    ls->shortcutDiskDirInsertA  = "µğ½ºÄÏ A·Î µğ·ºÅä¸® »ğÀÔ";
-    ls->shortcutDiskRemoveA     = "µğ½ºÄÏ A ²¨³»±â";
-    ls->shortcutDiskChangeA     = "µğ½ºÄÏ A ºü¸¥ ±³È¯(zip¾ĞÃà ÆÄÀÏ)";
-    ls->shortcutDiskAutoResetA  = "µğ½ºÄÏ A »ğÀÔÈÄ ¿¡¹Ä·¹ÀÌÅÍ Àç½ÃÀÛ";
-    ls->shortcutDiskInsertB     = "µğ½ºÄÏ B »ğÀÔ";
-    ls->shortcutDiskDirInsertB  = "µğ½ºÄÏ B·Î µğ·ºÅä¸® »ğÀÔ";
-    ls->shortcutDiskRemoveB     = "µğ½ºÄÏ B ²¨³»±â";
-    ls->shortcutCasInsert       = "Ä«¼¼Æ® »ğÀÔ";
-    ls->shortcutCasEject        = "Ä«¼¼Æ® ²¨³»±â";
-    ls->shortcutCasAutorewind   = "Ä«¼¼Æ® ÀÚµ¿ µÇ°¨±â ±â´É º¯È¯";
-    ls->shortcutCasReadOnly     = "Ä«¼¼Æ® ÀĞ±âÀü¿ë º¯È¯";
-    ls->shortcutCasSetPosition  = "Å×ÀÙ À§Ä¡ ¼³Á¤";
-    ls->shortcutCasRewind       = "Ä«¼¼Æ® µÇ°¨±â";
-    ls->shortcutCasSave         = "Ä«¼¼Æ® ÀÌ¹ÌÁö ÀúÀå";
-    ls->shortcutPrnFormFeed     = "ÇÁ¸°ÅÍ ÆûÇÇµå";
-    ls->shortcutCpuStateLoad    = "CPU »óÅÂ ºÒ·¯¿À±â";
-    ls->shortcutCpuStateSave    = "CPU »óÅÂ ÀúÀå";
-    ls->shortcutCpuStateQload   = "»óÅÂ ¹Ù·Î ºÒ·¯¿À±â";
-    ls->shortcutCpuStateQsave   = "»óÅÂ ¹Ù·Î ÀúÀå";
-    ls->shortcutAudioCapture    = "¼Ò¸® ÀúÀå ½ÃÀÛ/ÁßÁö";
-    ls->shortcutScreenshotOrig  = "È­¸é ÀúÀå";
-    ls->shortcutScreenshotSmall = "ÀÛÀº Å©±â·Î È­¸é ÀúÀå(¿øº»)";
-    ls->shortcutScreenshotLarge = "Å« Å©±â·Î È­¸é ÀúÀå(¿øº»)";
-    ls->shortcutQuit            = "blueMSX ³¡³»±â";
-    ls->shortcutRunPause        = "¿¡¹Ä·¹ÀÌ¼Ç ½ÃÀÛ/ÀÏ½Ã Á¤Áö";
-    ls->shortcutStop            = "¿¡¹Ä·¹ÀÌ¼Ç ÁßÁö";
-    ls->shortcutResetHard       = "ÇÏµå ¸®¼Â";
-    ls->shortcutResetSoft       = "¼ÒÇÁÆ® ¸®¼Â";
-    ls->shortcutResetClean      = "ÀüÃ¼ ¸®¼Â";
-    ls->shortcutSizeSmall       = "ÀÛÀº À©µµ¿ì Å©±â·Î ¼³Á¤";
-    ls->shortcutSizeNormal      = "º¸Åë À©µµ¿ì Å©±â·Î ¼³Á¤";
-    ls->shortcutSizeFullscreen  = "ÀüÃ¼ È­¸éÀ¸·Î ¼³Á¤";
-    ls->shortcutSizeMinimized   = "À©µµ¿ì ÃÖ¼ÒÈ­";
-    ls->shortcutToggleFullscren = "ÀüÃ¼ È­¸é º¯È¯";
-    ls->shortcutVolumeIncrease  = "º¼·ı Áõ°¡";
-    ls->shortcutVolumeDecrease  = "º¼·ı °¨¼Ò";
-    ls->shortcutVolumeMute      = "À½¼Ò°Å";
-    ls->shortcutVolumeStereo    = "¸ğ³ë/½ºÅ×·¹¿À º¯È¯";
-    ls->shortcutSwitchMsxAudio  = "MSX-AUDIO ½ºÀ§Ä¡ º¯È¯";
-    ls->shortcutSwitchFront     = "ÆÄ³ª¼Ò´Ğ ÇÁ·ĞÆ® ½ºÀ§Ä¡ º¯È¯";
-    ls->shortcutSwitchPause     = "ÀÏ½Ã Á¤Áö ½ºÀ§Ä¡";
-    ls->shortcutToggleMouseLock = "¸¶¿ì½º °íÁ¤ º¯È¯";
-    ls->shortcutEmuSpeedMax     = "ÃÖ´ë ¿¡¹Ä·¹ÀÌ¼Ç ¼Óµµ";
+    ls->shortcutSaveConfig      = "blueMSX - ì„¤ì • ì €ì¥";
+    ls->shortcutOverwriteConfig = "ì´ë¯¸ íŒŒì¼ì´ ìˆìŠµë‹ˆë‹¤. ê¸°ì¡´ íŒŒì¼ì„ ì´ íŒŒì¼ë¡œ ë°”ê¾¸ì‹œê² ìŠµë‹ˆê¹Œ?";
+    ls->shortcutExitConfig      = "blueMSX - ë‹¨ì¶•í‚¤ í¸ì§‘ê¸° ë‚˜ê°€ê¸°";
+    ls->shortcutDiscardConfig   = "ë³€ê²½í•œ ì„¤ì •ì´ ì ìš©ë˜ê¸° ìœ„í•´ì„  ì €ì¥ì„ í•˜ì…”ì•¼ í•©ë‹ˆë‹¤ë§Œ í˜„ì¬ ì„¤ì •ì—ëŠ” ì•„ë¬´ëŸ° ì˜í–¥ë„ ì£¼ì§€ì•Šê³  ê·¸ëƒ¥ ë‚˜ê°€ê² ìŠµë‹ˆê¹Œ?";
+    ls->shortcutSaveConfigAs    = "blueMSX - ë‹¤ë¥¸ì´ë¦„ìœ¼ë¡œ ë‹¨ì¶•í‚¤ ì„¤ì • ì €ì¥...";
+    ls->shortcutConfigName      = "ì„¤ì • ì´ë¦„:";
+    ls->shortcutNewProfile      = "< ìƒˆë¡œìš´ í”„ë¡œí•„ >";
+    ls->shortcutConfigTitle     = "blueMSX - ë‹¨ì¶•í‚¤ ë§¤í•‘ í¸ì§‘ê¸°";
+    ls->shortcutAssign          = "ì ìš©";
+    ls->shortcutPressText       = "ë‹¨ì¶•í‚¤ ìƒˆë¡œ ì„¤ì •:";
+    ls->shortcutScheme          = "ë‹¨ì¶•í‚¤ ìŠ¤íƒ€ì¼:";
+    ls->shortcutCartInsert1     = "ì¹´íŠ¸ë¦¬ì§€ 1 ì‚½ì…";
+    ls->shortcutCartRemove1     = "ì¹´íŠ¸ë¦¬ì§€ 1 ì œê±°";
+    ls->shortcutCartInsert2     = "ì¹´íŠ¸ë¦¬ì§€ 2 ì‚½ì…";
+    ls->shortcutCartRemove2     = "ì¹´íŠ¸ë¦¬ì§€ 2 ì œê±°";
+    ls->shortcutSpecialMenu1    = "ì¹´íŠ¸ë¦¬ì§€ 1 - ì‚¬ìš©ì ì§€ì • ì¹´íŠ¸ë¦¬ì§€";
+    ls->shortcutSpecialMenu2    = "ì¹´íŠ¸ë¦¬ì§€ 2 - ì‚¬ìš©ì ì§€ì • ì¹´íŠ¸ë¦¬ì§€";
+    ls->shortcutCartAutoReset   = "ì¹´íŠ¸ë¦¬ì§€ ì‚½ì…í›„ ì—ë®¬ë ˆì´í„° ì¬ì‹œì‘";
+    ls->shortcutDiskInsertA     = "ë””ìŠ¤ì¼“ A ì‚½ì…";
+    ls->shortcutDiskDirInsertA  = "ë””ìŠ¤ì¼“ Aë¡œ ë””ë ‰í† ë¦¬ ì‚½ì…";
+    ls->shortcutDiskRemoveA     = "ë””ìŠ¤ì¼“ A êº¼ë‚´ê¸°";
+    ls->shortcutDiskChangeA     = "ë””ìŠ¤ì¼“ A ë¹ ë¥¸ êµí™˜(zipì••ì¶• íŒŒì¼)";
+    ls->shortcutDiskAutoResetA  = "ë””ìŠ¤ì¼“ A ì‚½ì…í›„ ì—ë®¬ë ˆì´í„° ì¬ì‹œì‘";
+    ls->shortcutDiskInsertB     = "ë””ìŠ¤ì¼“ B ì‚½ì…";
+    ls->shortcutDiskDirInsertB  = "ë””ìŠ¤ì¼“ Bë¡œ ë””ë ‰í† ë¦¬ ì‚½ì…";
+    ls->shortcutDiskRemoveB     = "ë””ìŠ¤ì¼“ B êº¼ë‚´ê¸°";
+    ls->shortcutCasInsert       = "ì¹´ì„¸íŠ¸ ì‚½ì…";
+    ls->shortcutCasEject        = "ì¹´ì„¸íŠ¸ êº¼ë‚´ê¸°";
+    ls->shortcutCasAutorewind   = "ì¹´ì„¸íŠ¸ ìë™ ë˜ê°ê¸° ê¸°ëŠ¥ ë³€í™˜";
+    ls->shortcutCasReadOnly     = "ì¹´ì„¸íŠ¸ ì½ê¸°ì „ìš© ë³€í™˜";
+    ls->shortcutCasSetPosition  = "í…Œì ìœ„ì¹˜ ì„¤ì •";
+    ls->shortcutCasRewind       = "ì¹´ì„¸íŠ¸ ë˜ê°ê¸°";
+    ls->shortcutCasSave         = "ì¹´ì„¸íŠ¸ ì´ë¯¸ì§€ ì €ì¥";
+    ls->shortcutPrnFormFeed     = "í”„ë¦°í„° í¼í”¼ë“œ";
+    ls->shortcutCpuStateLoad    = "CPU ìƒíƒœ ë¶ˆëŸ¬ì˜¤ê¸°";
+    ls->shortcutCpuStateSave    = "CPU ìƒíƒœ ì €ì¥";
+    ls->shortcutCpuStateQload   = "ìƒíƒœ ë°”ë¡œ ë¶ˆëŸ¬ì˜¤ê¸°";
+    ls->shortcutCpuStateQsave   = "ìƒíƒœ ë°”ë¡œ ì €ì¥";
+    ls->shortcutAudioCapture    = "ì†Œë¦¬ ì €ì¥ ì‹œì‘/ì¤‘ì§€";
+    ls->shortcutScreenshotOrig  = "í™”ë©´ ì €ì¥";
+    ls->shortcutScreenshotSmall = "ì‘ì€ í¬ê¸°ë¡œ í™”ë©´ ì €ì¥(ì›ë³¸)";
+    ls->shortcutScreenshotLarge = "í° í¬ê¸°ë¡œ í™”ë©´ ì €ì¥(ì›ë³¸)";
+    ls->shortcutQuit            = "blueMSX ëë‚´ê¸°";
+    ls->shortcutRunPause        = "ì—ë®¬ë ˆì´ì…˜ ì‹œì‘/ì¼ì‹œ ì •ì§€";
+    ls->shortcutStop            = "ì—ë®¬ë ˆì´ì…˜ ì¤‘ì§€";
+    ls->shortcutResetHard       = "í•˜ë“œ ë¦¬ì…‹";
+    ls->shortcutResetSoft       = "ì†Œí”„íŠ¸ ë¦¬ì…‹";
+    ls->shortcutResetClean      = "ì „ì²´ ë¦¬ì…‹";
+    ls->shortcutSizeSmall       = "ì‘ì€ ìœˆë„ìš° í¬ê¸°ë¡œ ì„¤ì •";
+    ls->shortcutSizeNormal      = "ë³´í†µ ìœˆë„ìš° í¬ê¸°ë¡œ ì„¤ì •";
+    ls->shortcutSizeFullscreen  = "ì „ì²´ í™”ë©´ìœ¼ë¡œ ì„¤ì •";
+    ls->shortcutSizeMinimized   = "ìœˆë„ìš° ìµœì†Œí™”";
+    ls->shortcutToggleFullscren = "ì „ì²´ í™”ë©´ ë³€í™˜";
+    ls->shortcutVolumeIncrease  = "ë³¼ë¥¨ ì¦ê°€";
+    ls->shortcutVolumeDecrease  = "ë³¼ë¥¨ ê°ì†Œ";
+    ls->shortcutVolumeMute      = "ìŒì†Œê±°";
+    ls->shortcutVolumeStereo    = "ëª¨ë…¸/ìŠ¤í…Œë ˆì˜¤ ë³€í™˜";
+    ls->shortcutSwitchMsxAudio  = "MSX-AUDIO ìŠ¤ìœ„ì¹˜ ë³€í™˜";
+    ls->shortcutSwitchFront     = "íŒŒë‚˜ì†Œë‹‰ í”„ë¡ íŠ¸ ìŠ¤ìœ„ì¹˜ ë³€í™˜";
+    ls->shortcutSwitchPause     = "ì¼ì‹œ ì •ì§€ ìŠ¤ìœ„ì¹˜";
+    ls->shortcutToggleMouseLock = "ë§ˆìš°ìŠ¤ ê³ ì • ë³€í™˜";
+    ls->shortcutEmuSpeedMax     = "ìµœëŒ€ ì—ë®¬ë ˆì´ì…˜ ì†ë„";
     ls->shortcutEmuPlayReverse  = "Rewind emulation";                     // New in 2.8.3
-    ls->shortcutEmuSpeedToggle  = "¿¡¹Ä·¹ÀÌ¼Ç ¼Óµµ ÃÖ´ëÈ­ º¯È¯";
-    ls->shortcutEmuSpeedNormal  = "º¸Åë ¿¡¹Ä·¹ÀÌ¼Ç ¼Óµµ";
-    ls->shortcutEmuSpeedInc     = "¿¡¹Ä·¹ÀÌ¼Ç ¼Óµµ Áõ°¡";
-    ls->shortcutEmuSpeedDec     = "¿¡¹Ä·¹ÀÌ¼Ç ¼Óµµ °¨¼Ò";
-    ls->shortcutThemeSwitch     = "Å×¸¶ º¯È¯";
-    ls->shortcutShowEmuProp     = "¿¡¹Ä·¹ÀÌ¼Ç ¼Ó¼º º¸±â";
-    ls->shortcutShowVideoProp   = "ºñµğ¿À ¼Ó¼º º¸±â";
-    ls->shortcutShowAudioProp   = "¿Àµğ¿À ¼Ó¼º º¸±â";
-    ls->shortcutShowCtrlProp    = "ÄÜÆ®·Ñ ¼Ó¼º º¸±â";
+    ls->shortcutEmuSpeedToggle  = "ì—ë®¬ë ˆì´ì…˜ ì†ë„ ìµœëŒ€í™” ë³€í™˜";
+    ls->shortcutEmuSpeedNormal  = "ë³´í†µ ì—ë®¬ë ˆì´ì…˜ ì†ë„";
+    ls->shortcutEmuSpeedInc     = "ì—ë®¬ë ˆì´ì…˜ ì†ë„ ì¦ê°€";
+    ls->shortcutEmuSpeedDec     = "ì—ë®¬ë ˆì´ì…˜ ì†ë„ ê°ì†Œ";
+    ls->shortcutThemeSwitch     = "í…Œë§ˆ ë³€í™˜";
+    ls->shortcutShowEmuProp     = "ì—ë®¬ë ˆì´ì…˜ ì†ì„± ë³´ê¸°";
+    ls->shortcutShowVideoProp   = "ë¹„ë””ì˜¤ ì†ì„± ë³´ê¸°";
+    ls->shortcutShowAudioProp   = "ì˜¤ë””ì˜¤ ì†ì„± ë³´ê¸°";
+    ls->shortcutShowCtrlProp    = "ì½˜íŠ¸ë¡¤ ì†ì„± ë³´ê¸°";
     ls->shortcutShowEffectsProp = "Show Effects Properties";     // New in 2.9
-    ls->shortcutShowSettProp    = "¿ÜºÎ ¼³Á¤ ¼Ó¼º º¸±â";
-    ls->shortcutShowPorts       = "Æ÷Æ® ¼Ó¼º º¸±â";
-    ls->shortcutShowLanguage    = "¾ğ¾î º¸±â";
-    ls->shortcutShowMachines    = "¸Ó½Å ÆíÁı±â º¸±â";
-    ls->shortcutShowShortcuts   = "´ÜÃàÅ° ÆíÁı±â º¸±â";
-    ls->shortcutShowKeyboard    = "Å°º¸µå ÆíÁı±â º¸±â";
-    ls->shortcutShowDebugger    = "µğ¹ö°Å º¸±â"; 
-    ls->shortcutShowTrainer     = "Æ®·¹ÀÌ³Ê º¸±â"; 
-    ls->shortcutShowMixer       = "¹Í¼­ º¸±â";
-    ls->shortcutShowHelp        = "µµ¿ò¸» º¸±â";
-    ls->shortcutShowAbout       = "blueMSX¿¡ ´ëÇÏ¿© º¸±â";
-    ls->shortcutShowFiles       = "ÆÄÀÏ ¼Ó¼º º¸±â";
-    ls->shortcutToggleSpriteEnable = "½ºÇÁ¶óÀÌÆ® º¸ÀÌ±â/¼û±â±â º¯È¯";
-    ls->shortcutToggleFdcTiming = "ÇÃ·ÎÇÇ µå¶óÀÌºê Å¸ÀÌ¹Ö »ç¿ë/¾ÊÇÔ º¯È¯";
+    ls->shortcutShowSettProp    = "ì™¸ë¶€ ì„¤ì • ì†ì„± ë³´ê¸°";
+    ls->shortcutShowPorts       = "í¬íŠ¸ ì†ì„± ë³´ê¸°";
+    ls->shortcutShowLanguage    = "ì–¸ì–´ ë³´ê¸°";
+    ls->shortcutShowMachines    = "ë¨¸ì‹  í¸ì§‘ê¸° ë³´ê¸°";
+    ls->shortcutShowShortcuts   = "ë‹¨ì¶•í‚¤ í¸ì§‘ê¸° ë³´ê¸°";
+    ls->shortcutShowKeyboard    = "í‚¤ë³´ë“œ í¸ì§‘ê¸° ë³´ê¸°";
+    ls->shortcutShowDebugger    = "ë””ë²„ê±° ë³´ê¸°"; 
+    ls->shortcutShowTrainer     = "íŠ¸ë ˆì´ë„ˆ ë³´ê¸°"; 
+    ls->shortcutShowMixer       = "ë¯¹ì„œ ë³´ê¸°";
+    ls->shortcutShowHelp        = "ë„ì›€ë§ ë³´ê¸°";
+    ls->shortcutShowAbout       = "blueMSXì— ëŒ€í•˜ì—¬ ë³´ê¸°";
+    ls->shortcutShowFiles       = "íŒŒì¼ ì†ì„± ë³´ê¸°";
+    ls->shortcutToggleSpriteEnable = "ìŠ¤í”„ë¼ì´íŠ¸ ë³´ì´ê¸°/ìˆ¨ê¸°ê¸° ë³€í™˜";
+    ls->shortcutToggleFdcTiming = "í”Œë¡œí”¼ ë“œë¼ì´ë¸Œ íƒ€ì´ë° ì‚¬ìš©/ì•Ší•¨ ë³€í™˜";
     ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
     ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
-    ls->shortcutToggleCpuTrace  = "CPU Æ®·¹ÀÌ½º º¯È¯";
-    ls->shortcutVideoLoad       = "³ìÈ­µÈ ¿µ»ó ºÒ·¯¿À±â";             
-    ls->shortcutVideoPlay       = "¸¶Áö¸·À¸·Î ³ìÈ­ÇÑ ¿µ»ó Àç»ı";   
-    ls->shortcutVideoRecord     = "¿µ»ó ³ìÈ­";              
-    ls->shortcutVideoStop       = "¿µ»ó ³ìÈ­ Á¤Áö";                
-    ls->shortcutVideoRender     = "µ¿¿µ»ó ÆÄÀÏ·Î ÀúÀå";   
+    ls->shortcutToggleCpuTrace  = "CPU íŠ¸ë ˆì´ìŠ¤ ë³€í™˜";
+    ls->shortcutVideoLoad       = "ë…¹í™”ëœ ì˜ìƒ ë¶ˆëŸ¬ì˜¤ê¸°";             
+    ls->shortcutVideoPlay       = "ë§ˆì§€ë§‰ìœ¼ë¡œ ë…¹í™”í•œ ì˜ìƒ ì¬ìƒ";   
+    ls->shortcutVideoRecord     = "ì˜ìƒ ë…¹í™”";              
+    ls->shortcutVideoStop       = "ì˜ìƒ ë…¹í™” ì •ì§€";                
+    ls->shortcutVideoRender     = "ë™ì˜ìƒ íŒŒì¼ë¡œ ì €ì¥";   
 
 
     //----------------------
     // Keyboard config lines
     //----------------------
 
-    ls->keyconfigSelectedKey    = "¼±ÅÃµÈ Å°:";
-    ls->keyconfigMappedTo       = "´ëÀÀµÈ Å°:";
-    ls->keyconfigMappingScheme  = "¸ÅÇÎ ½ºÅ¸ÀÏ:";
+    ls->keyconfigSelectedKey    = "ì„ íƒëœ í‚¤:";
+    ls->keyconfigMappedTo       = "ëŒ€ì‘ëœ í‚¤:";
+    ls->keyconfigMappingScheme  = "ë§¤í•‘ ìŠ¤íƒ€ì¼:";
 
     
     //----------------------

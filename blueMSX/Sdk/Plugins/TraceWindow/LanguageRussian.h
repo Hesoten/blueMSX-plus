@@ -4,6 +4,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -31,25 +34,25 @@ class LanguageRussian : public Language
 {
 public:
     LanguageRussian() {
-        traceWindowName         = "Логгер клавиатуры";
-        traceWindowCaption      = "blueMSX - Логгер клавиатуры";
-        openWindowCaption       = "Открыть лог-файл";
+        traceWindowName         = "Р›РѕРіРіРµСЂ РєР»Р°РІРёР°С‚СѓСЂС‹";
+        traceWindowCaption      = "blueMSX - Р›РѕРіРіРµСЂ РєР»Р°РІРёР°С‚СѓСЂС‹";
+        openWindowCaption       = "РћС‚РєСЂС‹С‚СЊ Р»РѕРі-С„Р°Р№Р»";
 
-        menuFile                = "Файл";
-        menuFileLogToFile       = "Записывать в файл";
-        menuFileStopLogToFile   = "Остановить записывание";
-        menuFileExit            = "Выход";
+        menuFile                = "Р¤Р°Р№Р»";
+        menuFileLogToFile       = "Р—Р°РїРёСЃС‹РІР°С‚СЊ РІ С„Р°Р№Р»";
+        menuFileStopLogToFile   = "РћСЃС‚Р°РЅРѕРІРёС‚СЊ Р·Р°РїРёСЃС‹РІР°РЅРёРµ";
+        menuFileExit            = "Р’С‹С…РѕРґ";
         
-        menuEdit                = "Правка";
-        menuEditSelectAll       = "Выделить все";
-        menuEditCopy            = "Копировать";
-        menuEditClearWindow     = "Очистить окно";
+        menuEdit                = "РџСЂР°РІРєР°";
+        menuEditSelectAll       = "Р’С‹РґРµР»РёС‚СЊ РІСЃРµ";
+        menuEditCopy            = "РљРѕРїРёСЂРѕРІР°С‚СЊ";
+        menuEditClearWindow     = "РћС‡РёСЃС‚РёС‚СЊ РѕРєРЅРѕ";
 
-        menuHelp                = "Помощь";
-        menuHelpAbout           = "О программе";
+        menuHelp                = "РџРѕРјРѕС‰СЊ";
+        menuHelpAbout           = "Рћ РїСЂРѕРіСЂР°РјРјРµ";
 
-        aboutBuilt              = "Сборка:";
-        aboutVisit              = "Посетите www.bluemsx.com для подробностей";
+        aboutBuilt              = "РЎР±РѕСЂРєР°:";
+        aboutVisit              = "РџРѕСЃРµС‚РёС‚Рµ www.bluemsx.com РґР»СЏ РїРѕРґСЂРѕР±РЅРѕСЃС‚РµР№";
     }
 };
 

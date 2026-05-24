@@ -4,6 +4,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -31,49 +34,49 @@ class LanguageKorean : public LanguageEnglish
 {
 public:
     LanguageKorean() {
-        trainerName             = "Æ®·¹ÀÌ³Ê";
-        trainerCaption          = "blueMSX - Æ®·¹ÀÌ³Ê";
-        saveCheatCaption        = "Ä¡Æ® ÀúÀåÇÏ±â";
-        loadCheatCaption        = "Ä¡Æ® ÀĞ¾î¿À±â";
-        pause                   = "ÀÏ½ÃÁ¤Áö";
-        run                     = "½ÃÀÛ";
-        truncated               = "»ı·«...";
-        newCheat                = "»õ·Î¿î Ä¡Æ®";
-        address                 = "ÁÖ¼Ò";
-        oldValue                = "ÀÌÀü °ª";
-        newValue                = "»õ·Î¿î °ª";
-        change                  = "º¯È­";
-        disable                 = "ºñÈ°¼º";
-        enable                  = "È°¼º";
-        description             = "¼³¸í";
-        value                   = "°ª";
-        activeCheats            = "»ç¿ë°¡´É Ä¡Æ® ";
-        findCheats              = "Ä¡Æ® Ã£±â ";
-        removeAll               = "¸ğµÎ Á¦°Å";
-        remove                  = "Á¦°Å";
-        addCheat                = "Ä¡Æ® Ãß°¡";
-        cheatFile               = "Ä¡Æ® ÆÄÀÏ:";
-        ok                      = "È®ÀÎ";
-        cancel                  = "Ãë¼Ò";
-        displayValueAs          = "°ª Ç¥½Ã ¹æ¹ı ";
-        decimal                 = "10 Áø¼ö";
-        hexadecimal             = "16 Áø¼ö";
-        dataSize                = "µ¥ÀÌÅÍ Å©±â ";
-        eightBit                = "8 ºñÆ®";
-        sixteenBit              = "16 ºñÆ®";
-        compareType             = "ºñ±³ ¹æ¹ı ";
-        equal                   = "°°Àº";
-        notEqual                = "°°Áö ¾ÊÀº";
-        lessThan                = "ÀÛÀº";
-        lessOrEqual             = "ÀÛ°Å³ª °°Àº";
-        greaterThan             = "Å«";
-        greaterOrEqual          = "Å©°Å³ª °°Àº";
-        display                 = "Ç¥½Ã ¹æ¹ı ";
-        compareNewValueWith     = "»õ·Î¿î °ª°ú ºñ±³ ";
-        specificValue           = "Æ¯Á¤ °ª: ";
-        snapshot                = "½º³À¼¦";
-        search                  = "Ã£±â";
-        undo                    = "½ÇÇà Ãë¼Ò";
+        trainerName             = "íŠ¸ë ˆì´ë„ˆ";
+        trainerCaption          = "blueMSX - íŠ¸ë ˆì´ë„ˆ";
+        saveCheatCaption        = "ì¹˜íŠ¸ ì €ì¥í•˜ê¸°";
+        loadCheatCaption        = "ì¹˜íŠ¸ ì½ì–´ì˜¤ê¸°";
+        pause                   = "ì¼ì‹œì •ì§€";
+        run                     = "ì‹œì‘";
+        truncated               = "ìƒëµ...";
+        newCheat                = "ìƒˆë¡œìš´ ì¹˜íŠ¸";
+        address                 = "ì£¼ì†Œ";
+        oldValue                = "ì´ì „ ê°’";
+        newValue                = "ìƒˆë¡œìš´ ê°’";
+        change                  = "ë³€í™”";
+        disable                 = "ë¹„í™œì„±";
+        enable                  = "í™œì„±";
+        description             = "ì„¤ëª…";
+        value                   = "ê°’";
+        activeCheats            = "ì‚¬ìš©ê°€ëŠ¥ ì¹˜íŠ¸ ";
+        findCheats              = "ì¹˜íŠ¸ ì°¾ê¸° ";
+        removeAll               = "ëª¨ë‘ ì œê±°";
+        remove                  = "ì œê±°";
+        addCheat                = "ì¹˜íŠ¸ ì¶”ê°€";
+        cheatFile               = "ì¹˜íŠ¸ íŒŒì¼:";
+        ok                      = "í™•ì¸";
+        cancel                  = "ì·¨ì†Œ";
+        displayValueAs          = "ê°’ í‘œì‹œ ë°©ë²• ";
+        decimal                 = "10 ì§„ìˆ˜";
+        hexadecimal             = "16 ì§„ìˆ˜";
+        dataSize                = "ë°ì´í„° í¬ê¸° ";
+        eightBit                = "8 ë¹„íŠ¸";
+        sixteenBit              = "16 ë¹„íŠ¸";
+        compareType             = "ë¹„êµ ë°©ë²• ";
+        equal                   = "ê°™ì€";
+        notEqual                = "ê°™ì§€ ì•Šì€";
+        lessThan                = "ì‘ì€";
+        lessOrEqual             = "ì‘ê±°ë‚˜ ê°™ì€";
+        greaterThan             = "í°";
+        greaterOrEqual          = "í¬ê±°ë‚˜ ê°™ì€";
+        display                 = "í‘œì‹œ ë°©ë²• ";
+        compareNewValueWith     = "ìƒˆë¡œìš´ ê°’ê³¼ ë¹„êµ ";
+        specificValue           = "íŠ¹ì • ê°’: ";
+        snapshot                = "ìŠ¤ëƒ…ìƒ·";
+        search                  = "ì°¾ê¸°";
+        undo                    = "ì‹¤í–‰ ì·¨ì†Œ";
     }
 };
 

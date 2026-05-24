@@ -4,6 +4,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -39,19 +42,19 @@ public:
         run                     = "Ejecutar";
         truncated               = "truncado...";
         newCheat                = "Nuevo Cheat";
-        address                 = "Dirección";
+        address                 = "DirecciÃ³n";
         oldValue                = "Viejo Valor";
         newValue                = "Nuevo Valor";
         change                  = "Editar";
         disable                 = "Desactivar";
         enable                  = "Activar";
-        description             = "Descripción";
+        description             = "DescripciÃ³n";
         value                   = "Valor";
         activeCheats            = "Activos Cheats ";
         findCheats              = "Encontrar Cheats ";
         removeAll               = "Borrar Todos";
         remove                  = "Borrar";
-        addCheat                = "Añadir Cheat";
+        addCheat                = "AÃ±adir Cheat";
         cheatFile               = "Cheat Archivo:";
         ok                      = "OK";
         cancel                  = "Cancelar";
@@ -61,7 +64,7 @@ public:
         dataSize                = "Formato de los datos ";
         eightBit                = "8 bit";
         sixteenBit              = "16 bit";
-        compareType             = "Método de comparación ";
+        compareType             = "MÃ©todo de comparaciÃ³n ";
         equal                   = "Igual";
         notEqual                = "No igual";
         lessThan                = "Menos que";
@@ -70,7 +73,7 @@ public:
         greaterOrEqual          = "Mayor o igual";
         display                 = "Mostrar ";
         compareNewValueWith     = "Comparar el nuevo valor con ";
-        specificValue           = "Valor específico: ";
+        specificValue           = "Valor especÃ­fico: ";
         snapshot                = "Snapshot";
         search                  = "Buscar";
         undo                    = "Cancelar";

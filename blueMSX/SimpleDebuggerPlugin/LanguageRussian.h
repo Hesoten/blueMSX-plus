@@ -4,6 +4,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -32,88 +35,88 @@ class LanguageRussian : public Language
 public:
     LanguageRussian() {
         genericOk                   = "OK";
-        genericCancel               = "Отмена";
+        genericCancel               = "РћС‚РјРµРЅР°";
 
-        toolbarResume               = "Начать/Продолжить";
-        toolbarPause                = "Приостановить все";
-        toolbarStop                 = "Остановить отладку";
-        toolbarRun                  = "Перезапуск";
-        toolbarShowNext             = "Показать следующего оператора";
-        toolbarStepIn               = "Следующий шаг";
-        toolbarStepOver             = "Следующий шаг и выполнение кода";
-        toolbarStepOut              = "Выйти и продолжить эмуляцию";
-        toolbarRunTo                = "Запустить эмуляцию до курсора";
-        toolbarBpToggle             = "Поставить/Убрать прерывание";
-        toolbarBpEnable             = "Включить/Выключить прерывание";
-        toolbarBpEnableAll          = "Включить все прерывания";
-        toolbarBpDisableAll         = "Отключить все прерывания";
-        toolbarBpRemoveAll          = "Убрать все прерывания";
+        toolbarResume               = "РќР°С‡Р°С‚СЊ/РџСЂРѕРґРѕР»Р¶РёС‚СЊ";
+        toolbarPause                = "РџСЂРёРѕСЃС‚Р°РЅРѕРІРёС‚СЊ РІСЃРµ";
+        toolbarStop                 = "РћСЃС‚Р°РЅРѕРІРёС‚СЊ РѕС‚Р»Р°РґРєСѓ";
+        toolbarRun                  = "РџРµСЂРµР·Р°РїСѓСЃРє";
+        toolbarShowNext             = "РџРѕРєР°Р·Р°С‚СЊ СЃР»РµРґСѓСЋС‰РµРіРѕ РѕРїРµСЂР°С‚РѕСЂР°";
+        toolbarStepIn               = "РЎР»РµРґСѓСЋС‰РёР№ С€Р°Рі";
+        toolbarStepOver             = "РЎР»РµРґСѓСЋС‰РёР№ С€Р°Рі Рё РІС‹РїРѕР»РЅРµРЅРёРµ РєРѕРґР°";
+        toolbarStepOut              = "Р’С‹Р№С‚Рё Рё РїСЂРѕРґРѕР»Р¶РёС‚СЊ СЌРјСѓР»СЏС†РёСЋ";
+        toolbarRunTo                = "Р—Р°РїСѓСЃС‚РёС‚СЊ СЌРјСѓР»СЏС†РёСЋ РґРѕ РєСѓСЂСЃРѕСЂР°";
+        toolbarBpToggle             = "РџРѕСЃС‚Р°РІРёС‚СЊ/РЈР±СЂР°С‚СЊ РїСЂРµСЂС‹РІР°РЅРёРµ";
+        toolbarBpEnable             = "Р’РєР»СЋС‡РёС‚СЊ/Р’С‹РєР»СЋС‡РёС‚СЊ РїСЂРµСЂС‹РІР°РЅРёРµ";
+        toolbarBpEnableAll          = "Р’РєР»СЋС‡РёС‚СЊ РІСЃРµ РїСЂРµСЂС‹РІР°РЅРёСЏ";
+        toolbarBpDisableAll         = "РћС‚РєР»СЋС‡РёС‚СЊ РІСЃРµ РїСЂРµСЂС‹РІР°РЅРёСЏ";
+        toolbarBpRemoveAll          = "РЈР±СЂР°С‚СЊ РІСЃРµ РїСЂРµСЂС‹РІР°РЅРёСЏ";
 
-        menuFile                    = "Файл";
-        menuFileLoadSymbolFile      = "Открыть символьный файл";
-        menuFileSaveDisassembly     = "Сохранить дизассемблирование";
-        menuFileSaveMemory          = "Сохранить память";
-        menuFileExit                = "Выход";
+        menuFile                    = "Р¤Р°Р№Р»";
+        menuFileLoadSymbolFile      = "РћС‚РєСЂС‹С‚СЊ СЃРёРјРІРѕР»СЊРЅС‹Р№ С„Р°Р№Р»";
+        menuFileSaveDisassembly     = "РЎРѕС…СЂР°РЅРёС‚СЊ РґРёР·Р°СЃСЃРµРјР±Р»РёСЂРѕРІР°РЅРёРµ";
+        menuFileSaveMemory          = "РЎРѕС…СЂР°РЅРёС‚СЊ РїР°РјСЏС‚СЊ";
+        menuFileExit                = "Р’С‹С…РѕРґ";
 
-        menuDebug                   = "Отладка";
-        menuDebugStart              = "Начать";
-        menuDebugContinue           = "Продолжить";
-        menuDebugBreakAll           = "Приостановить все";
-        menuDebugStop               = "Остановить отладку";
-        menuDebugRestart            = "Перезапуск";
-        menuDebugStepIn             = "Следующий шаг";
-        menuDebugStepOver           = "Следующий шаг и выполнение кода";
-        menuDebugStepOut            = "Выйти и продолжить эмуляцию";
-        menuDebugRunTo              = "Запустить эмуляцию до курсора";
-        menuDebugShowSymbols        = "Показать символьную информацию";
-        menuDebugGoto               = "Перейти к";
-        menuDebugFind               = "Найти";
-        menuDebugBpAdd              = "Добавить новое прерывание";
-        menuDebugBpToggle           = "Поставить/Убрать прерывание";
-        menuDebugEnable             = "Включить/Выключить прерывание";
-        menuDebugRemoveAll          = "Убрать все прерывания";
-        menuDebugEnableAll          = "Включить все прерывания";
-        menuDebugDisableAll         = "Отключить все прерывания";
-        menuDebugShowAssemblyFlags  = "Показать метки ассемблера";
+        menuDebug                   = "РћС‚Р»Р°РґРєР°";
+        menuDebugStart              = "РќР°С‡Р°С‚СЊ";
+        menuDebugContinue           = "РџСЂРѕРґРѕР»Р¶РёС‚СЊ";
+        menuDebugBreakAll           = "РџСЂРёРѕСЃС‚Р°РЅРѕРІРёС‚СЊ РІСЃРµ";
+        menuDebugStop               = "РћСЃС‚Р°РЅРѕРІРёС‚СЊ РѕС‚Р»Р°РґРєСѓ";
+        menuDebugRestart            = "РџРµСЂРµР·Р°РїСѓСЃРє";
+        menuDebugStepIn             = "РЎР»РµРґСѓСЋС‰РёР№ С€Р°Рі";
+        menuDebugStepOver           = "РЎР»РµРґСѓСЋС‰РёР№ С€Р°Рі Рё РІС‹РїРѕР»РЅРµРЅРёРµ РєРѕРґР°";
+        menuDebugStepOut            = "Р’С‹Р№С‚Рё Рё РїСЂРѕРґРѕР»Р¶РёС‚СЊ СЌРјСѓР»СЏС†РёСЋ";
+        menuDebugRunTo              = "Р—Р°РїСѓСЃС‚РёС‚СЊ СЌРјСѓР»СЏС†РёСЋ РґРѕ РєСѓСЂСЃРѕСЂР°";
+        menuDebugShowSymbols        = "РџРѕРєР°Р·Р°С‚СЊ СЃРёРјРІРѕР»СЊРЅСѓСЋ РёРЅС„РѕСЂРјР°С†РёСЋ";
+        menuDebugGoto               = "РџРµСЂРµР№С‚Рё Рє";
+        menuDebugFind               = "РќР°Р№С‚Рё";
+        menuDebugBpAdd              = "Р”РѕР±Р°РІРёС‚СЊ РЅРѕРІРѕРµ РїСЂРµСЂС‹РІР°РЅРёРµ";
+        menuDebugBpToggle           = "РџРѕСЃС‚Р°РІРёС‚СЊ/РЈР±СЂР°С‚СЊ РїСЂРµСЂС‹РІР°РЅРёРµ";
+        menuDebugEnable             = "Р’РєР»СЋС‡РёС‚СЊ/Р’С‹РєР»СЋС‡РёС‚СЊ РїСЂРµСЂС‹РІР°РЅРёРµ";
+        menuDebugRemoveAll          = "РЈР±СЂР°С‚СЊ РІСЃРµ РїСЂРµСЂС‹РІР°РЅРёСЏ";
+        menuDebugEnableAll          = "Р’РєР»СЋС‡РёС‚СЊ РІСЃРµ РїСЂРµСЂС‹РІР°РЅРёСЏ";
+        menuDebugDisableAll         = "РћС‚РєР»СЋС‡РёС‚СЊ РІСЃРµ РїСЂРµСЂС‹РІР°РЅРёСЏ";
+        menuDebugShowAssemblyFlags  = "РџРѕРєР°Р·Р°С‚СЊ РјРµС‚РєРё Р°СЃСЃРµРјР±Р»РµСЂР°";
         menuDebugFastVram           = "Break on too fast VRAM access";
 
-        menuWindow                  = "Окно";
+        menuWindow                  = "РћРєРЅРѕ";
 
-        menuHelp                    = "Помощь";
-        menuHelpAbout               = "О программе";
+        menuHelp                    = "РџРѕРјРѕС‰СЊ";
+        menuHelpAbout               = "Рћ РїСЂРѕРіСЂР°РјРјРµ";
 
-        debuggerName                = "Дебаггер";
-        windowDebugger              = "blueMSX - Дебаггер";
-        windowDisassembly           = "Дизассемблирование";
-        windowDisassemblyUnavail    = "Дизассемблирование невозможно.";
-        windowCpuRegisters          = "CPU регистры";
-        windowCpuRegistersFlags     = "Метки";
-        windowStack                 = "Стек";
-        windowStackUnavail          = "Стек недоступен.";
-        windowCallstack             = "Стек вызовов";
-        windowCallstackUnavail      = "Стек вызовов недоступен.";
-        windowMemory                = "Память";
-        windowPeripheralRegisters   = "Регистры оборудования";
-        windowIoPorts               = "Порты ввода/вывода";
+        debuggerName                = "Р”РµР±Р°РіРіРµСЂ";
+        windowDebugger              = "blueMSX - Р”РµР±Р°РіРіРµСЂ";
+        windowDisassembly           = "Р”РёР·Р°СЃСЃРµРјР±Р»РёСЂРѕРІР°РЅРёРµ";
+        windowDisassemblyUnavail    = "Р”РёР·Р°СЃСЃРµРјР±Р»РёСЂРѕРІР°РЅРёРµ РЅРµРІРѕР·РјРѕР¶РЅРѕ.";
+        windowCpuRegisters          = "CPU СЂРµРіРёСЃС‚СЂС‹";
+        windowCpuRegistersFlags     = "РњРµС‚РєРё";
+        windowStack                 = "РЎС‚РµРє";
+        windowStackUnavail          = "РЎС‚РµРє РЅРµРґРѕСЃС‚СѓРїРµРЅ.";
+        windowCallstack             = "РЎС‚РµРє РІС‹Р·РѕРІРѕРІ";
+        windowCallstackUnavail      = "РЎС‚РµРє РІС‹Р·РѕРІРѕРІ РЅРµРґРѕСЃС‚СѓРїРµРЅ.";
+        windowMemory                = "РџР°РјСЏС‚СЊ";
+        windowPeripheralRegisters   = "Р РµРіРёСЃС‚СЂС‹ РѕР±РѕСЂСѓРґРѕРІР°РЅРёСЏ";
+        windowIoPorts               = "РџРѕСЂС‚С‹ РІРІРѕРґР°/РІС‹РІРѕРґР°";
 
-        memWindowRegisters          = "Регистры:";
+        memWindowRegisters          = "Р РµРіРёСЃС‚СЂС‹:";
 
-        memWindowMemory             = "Память:";
-        memWindowAddress            = "Адрес:";
+        memWindowMemory             = "РџР°РјСЏС‚СЊ:";
+        memWindowAddress            = "РђРґСЂРµСЃ:";
 
-        setBpWindowCaption          = "Добавить новое прерывание";
-        gotoWindowCaption           = "Перейти к адресу";
-        gotoWindowText              = "Адрес или метка:";
-        findWindowCaption           = "Найти";
-        findWindowText              = "Строка или значение:";
+        setBpWindowCaption          = "Р”РѕР±Р°РІРёС‚СЊ РЅРѕРІРѕРµ РїСЂРµСЂС‹РІР°РЅРёРµ";
+        gotoWindowCaption           = "РџРµСЂРµР№С‚Рё Рє Р°РґСЂРµСЃСѓ";
+        gotoWindowText              = "РђРґСЂРµСЃ РёР»Рё РјРµС‚РєР°:";
+        findWindowCaption           = "РќР°Р№С‚Рё";
+        findWindowText              = "РЎС‚СЂРѕРєР° РёР»Рё Р·РЅР°С‡РµРЅРёРµ:";
 
-        symbolWindowCaption         = "Открыть символьный файл";
-        symbolWindowText            = "Заменить старые символы";
+        symbolWindowCaption         = "РћС‚РєСЂС‹С‚СЊ СЃРёРјРІРѕР»СЊРЅС‹Р№ С„Р°Р№Р»";
+        symbolWindowText            = "Р—Р°РјРµРЅРёС‚СЊ СЃС‚Р°СЂС‹Рµ СЃРёРјРІРѕР»С‹";
         
-        popupOverwrite              = "Файл уже существует. Хотите перезаписать его?";
+        popupOverwrite              = "Р¤Р°Р№Р» СѓР¶Рµ СЃСѓС‰РµСЃС‚РІСѓРµС‚. РҐРѕС‚РёС‚Рµ РїРµСЂРµР·Р°РїРёСЃР°С‚СЊ РµРіРѕ?";
         
-        aboutBuilt                  = "Сборка:";
-        aboutVisit                  = "Посетите www.bluemsx.com для подробностей";
+        aboutBuilt                  = "РЎР±РѕСЂРєР°:";
+        aboutVisit                  = "РџРѕСЃРµС‚РёС‚Рµ www.bluemsx.com РґР»СЏ РїРѕРґСЂРѕР±РЅРѕСЃС‚РµР№";
     }
 };
 

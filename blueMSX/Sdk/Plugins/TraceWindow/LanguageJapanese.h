@@ -4,6 +4,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -47,8 +50,8 @@ public:
         menuHelp                = "Help";
         menuHelpAbout           = "About";
 
-        aboutBuilt              = "ƒrƒ‹ƒh:";
-        aboutVisit              = "Ú‚µ‚¢î•ñ‚Í http://www.bluemsx.com ‚Ü‚Å";
+        aboutBuilt              = "ãƒ“ãƒ«ãƒ‰:";
+        aboutVisit              = "è©³ã—ã„æƒ…å ±ã¯ http://www.bluemsx.com ã¾ã§";
     }
 };
 

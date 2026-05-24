@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -89,7 +92,7 @@ static void createAboutInfo(char* buffer, int length, unsigned int clk)
                 "Marcelo Tini,  "
                 "Tanni,  "
                 "Eduardo Mello,  "
-                "Jon Cort·zar Abraido,  "
+                "Jon Cort√°zar Abraido,  "
                 "Hondarer,  "
                 "Wouter Vermaelen,  "
                 "Manuel Bilderbeek,  "
@@ -100,11 +103,11 @@ static void createAboutInfo(char* buffer, int length, unsigned int clk)
                 "Glafouk,  "
                 "Ulver,  "
                 "Nicolas Beyaert,  "
-                "VÌctor Fern·ndez S·nchez,  "
+                "V√≠ctor Fern√°ndez S√°nchez,  "
                 "William Ouwehand,  "
                 "Jacek Bogucki (Gucek),  "
                 "Miikka \"MP83\" Poikela,  "
-                "Jussi Pitk‰nen,  "
+                "Jussi Pitk√§nen,  "
                 "Atarulum,  "
                 "MkII,  "
                 "Kobayashi Michiko,  "

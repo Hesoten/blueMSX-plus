@@ -4,6 +4,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -39,13 +42,13 @@ public:
         run                     = "Executar";
         truncated               = "truncado...";
         newCheat                = "Novo cheat";
-        address                 = "Endereço";
+        address                 = "EndereÃ§o";
         oldValue                = "Velho Valor";
         newValue                = "Novo Valor";
         change                  = "Editar";
         disable                 = "Desativar";
         enable                  = "Activar";
-        description             = "Descrição";
+        description             = "DescriÃ§Ã£o";
         value                   = "Valor";
         activeCheats            = "Ativas Cheats ";
         findCheats              = "Encontrar Cheats ";
@@ -61,16 +64,16 @@ public:
         dataSize                = "Formato dos dados ";
         eightBit                = "8 bit";
         sixteenBit              = "16 bit";
-        compareType             = "Modo de comparação ";
+        compareType             = "Modo de comparaÃ§Ã£o ";
         equal                   = "Igual";
-        notEqual                = "Não igual";
+        notEqual                = "NÃ£o igual";
         lessThan                = "Menos que";
         lessOrEqual             = "Menos ou igual";
         greaterThan             = "Mais grande que";
         greaterOrEqual          = "Mais grande ou igual";
         display                 = "Mostrar ";
         compareNewValueWith     = "Comparar o novo valor com ";
-        specificValue           = "Valor específico: ";
+        specificValue           = "Valor especÃ­fico: ";
         snapshot                = "Snapshot";
         search                  = "Buscar";
         undo                    = "Cancelar";

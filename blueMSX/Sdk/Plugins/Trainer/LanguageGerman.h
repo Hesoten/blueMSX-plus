@@ -4,6 +4,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -42,7 +45,7 @@ public:
         address                 = "Adresse";
         oldValue                = "Alter Wert";
         newValue                = "Neuer Wert";
-        change                  = "Ändern";
+        change                  = "Ã„ndern";
         disable                 = "Sperren";
         enable                  = "Freigeben";
         description             = "Beschreibung";
@@ -51,14 +54,14 @@ public:
         findCheats              = "Finde Cheats ";
         removeAll               = "Entferne alles";
         remove                  = "Entfernen";
-        addCheat                = "Cheat hinzufügen";
+        addCheat                = "Cheat hinzufÃ¼gen";
         cheatFile               = "Cheat-File:";
         ok                      = "OK";
-        cancel                  = "Zurücknehmen";
+        cancel                  = "ZurÃ¼cknehmen";
         displayValueAs          = "Werte darstellen als ";
         decimal                 = "dezimal";
         hexadecimal             = "hexadezimal";
-        dataSize                = "Datengröße ";
+        dataSize                = "DatengrÃ¶ÃŸe ";
         eightBit                = "8-Bit";
         sixteenBit              = "16-Bit";
         compareType             = "Vergleiche Typ ";
@@ -66,14 +69,14 @@ public:
         notEqual                = "ungleich";
         lessThan                = "kleiner als";
         lessOrEqual             = "kleiner gleich";
-        greaterThan             = "größer als";
-        greaterOrEqual          = "größer gleich";
+        greaterThan             = "grÃ¶ÃŸer als";
+        greaterOrEqual          = "grÃ¶ÃŸer gleich";
         display                 = "Display ";
         compareNewValueWith     = "Vergleiche neuen Wert mit ";
         specificValue           = "Spezifischer Wert: ";
         snapshot                = "Snapshot";
         search                  = "Suche";
-        undo                    = "Rückgängig";
+        undo                    = "RÃ¼ckgÃ¤ngig";
     }
 };
 

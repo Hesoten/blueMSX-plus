@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -72,7 +75,7 @@ static BOOL CALLBACK aboutDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
                                 "%s\r\n\r\n"
                         
                                 "Daniel Vik\r\n"
-                                "BenoÓt Delvaux\r\n"
+                                "Beno√Æt Delvaux\r\n"
                                 "Tomas Karlsson\r\n"
                                 "Ray Zero\r\n"
                                 "hap\r\n"
@@ -100,9 +103,9 @@ static BOOL CALLBACK aboutDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
                                 "Jacek Bogucki (Gucek)\r\n"
                                 "Jarek Burczynski\r\n"
                                 "Johan van Leur\r\n"
-                                "Jon Cort·zar Abraido\r\n"
+                                "Jon Cort√°zar Abraido\r\n"
                                 "Jorrith Schaap\r\n"
-                                "Jussi Pitk‰nen\r\n"
+                                "Jussi Pitk√§nen\r\n"
                                 "Kobayashi Michiko\r\n"
                                 "Laurent Halter\r\n"
                                 "Luciano Sturaro\r\n"
@@ -136,7 +139,7 @@ static BOOL CALLBACK aboutDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
                                 "Tobias Keizer\r\n"
                                 "UC_ARS\r\n"
                                 "Ulver\r\n"
-                                "VÌctor Fern·ndez S·nchez\r\n"
+                                "V√≠ctor Fern√°ndez S√°nchez\r\n"
                                 "Vincent van Dam\r\n"
                                 "William Ouwehand\r\n"
                                 "Wouter Vermaelen\r\n\r\n\r\n"
