@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik, Tomas Karlsson
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -33,6 +36,7 @@
 #include "AppConfig.h"
 #include "build_number.h"
 #include "version.h"
+#include "Win32TextUtf8.h"
 
 #ifndef NO_TOOL_SUPPORT
 
@@ -286,7 +290,7 @@ static Interface toolInterface = {
 
 void toolLoadAll(const char* path, int languageId)
 {
-    WIN32_FIND_DATA wfd;
+    WIN32_FIND_DATAA wfd;
     char  curDir[MAX_PATH];
     HANDLE handle;
 
@@ -294,24 +298,24 @@ void toolLoadAll(const char* path, int languageId)
         return;
     }
 
-    GetCurrentDirectory(MAX_PATH, curDir);
+    GetCurrentDirectoryU(MAX_PATH, curDir);
     strcat(toolDir, curDir);
     strcat(toolDir, "\\Tools");
 
-    if (!SetCurrentDirectory(toolDir)) {
+    if (!SetCurrentDirectoryU(toolDir)) {
         return;
     }
 
-    handle = FindFirstFile("*.dll", &wfd);
+    handle = FindFirstFileU("*.dll", &wfd);
 
     if (handle == INVALID_HANDLE_VALUE) {
-        SetCurrentDirectory(curDir);
+        SetCurrentDirectoryU(curDir);
         return;
     }
 
     do {
         ToolInfo* toolInfo;
-        HINSTANCE lib = LoadLibrary(wfd.cFileName);
+        HINSTANCE lib = LoadLibraryU(wfd.cFileName);
 
         if (lib != NULL) {
             char description[32] = "Unknown";
@@ -397,11 +401,11 @@ void toolLoadAll(const char* path, int languageId)
 
             toolInfoSetLanguage(toolInfo, languageId);
         }
-    } while (FindNextFile(handle, &wfd));
+    } while (FindNextFileU(handle, &wfd));
 	
 	FindClose( handle );
 
-    SetCurrentDirectory(curDir);
+    SetCurrentDirectoryU(curDir);
 }
 
 void toolUnLoadAll()

@@ -41,6 +41,7 @@
 #include <errno.h>
 #ifdef WIN32
 #include <direct.h>
+#include "Utf8Conv.h"        /* AnyToUtf8 for the propLoad migration helper */
 #endif
 #include "PacketFileSystem.h"
 
@@ -724,6 +725,86 @@ char* zipGetFileList(const char* zipName, const char* ext, int* count) {
     unzClose(zip);
 
     return fileArray;
+}
+
+int zipResolveUtf8EntryName(const char* zipName, const char* utf8Name,
+                            char* outRaw, int outSize)
+{
+#ifdef _WIN32
+    /* Sized to match the runtime fileNameInZip slot (PROP_MAXPATH = 512
+    ** in Emulator/Properties.h).  Local constant so this file does not
+    ** depend on the Emulator headers. */
+    enum { ZIPENTRY_MAX = 512 };
+    /* UTF-8 of CP932 expands at most ~1.5x bytes (2-byte CP932 -> 3-byte
+    ** UTF-8), so 4x is a safe upper bound on conversion growth. */
+    enum { ZIPENTRY_UTF8_MAX = ZIPENTRY_MAX * 4 };
+
+    unzFile zip;
+    unz_file_info info;
+    char tempName[ZIPENTRY_MAX];
+    int found = 0;
+
+    if (!zipName || !utf8Name || !outRaw || outSize <= 0) {
+        return 0;
+    }
+    if (utf8Name[0] == '\0' || zipName[0] == '\0') {
+        return 0;
+    }
+
+    zip = unzOpen(zipName);
+    if (!zip) {
+        return 0;
+    }
+
+    if (unzGoToFirstFile(zip) == UNZ_OK) {
+        do {
+            char entryUtf8[ZIPENTRY_UTF8_MAX];
+            int rawLen;
+
+            if (unzGetCurrentFileInfo(zip, &info, tempName, sizeof(tempName),
+                                      NULL, 0, NULL, 0) != UNZ_OK) {
+                continue;
+            }
+            /* size_filename is the full on-disk length; skip overflowing
+            ** entries (truncated bytes won't match our UTF-8 stored name). */
+            if (info.size_filename >= sizeof(tempName)) {
+                continue;
+            }
+            tempName[info.size_filename] = 0;
+
+            AnyToUtf8(tempName, entryUtf8, sizeof(entryUtf8));
+            /* If AnyToUtf8 truncated to fill the buffer, the comparison
+            ** below would be against a partial string -- skip. */
+            if (entryUtf8[sizeof(entryUtf8) - 1] != 0) {
+                continue;
+            }
+            if (strcmp(entryUtf8, utf8Name) != 0) {
+                continue;
+            }
+            /* Found.  Refuse to write past caller's outSize -- caller's
+            ** buffer is typically PROP_MAXPATH (= ZIPENTRY_MAX), which
+            ** matches the size_filename ceiling we already enforced. */
+            rawLen = (int)info.size_filename;
+            if (rawLen >= outSize) {
+                /* Should not happen in practice given the matched check
+                ** above, but never overrun the caller's buffer. */
+                break;
+            }
+            memcpy(outRaw, tempName, (size_t)rawLen);
+            outRaw[rawLen] = 0;
+            found = 1;
+            break;
+        } while (unzGoToNextFile(zip) == UNZ_OK);
+    }
+
+    unzClose(zip);
+    return found;
+#else
+    /* Non-Windows builds don't have the ACP-vs-UTF-8 mismatch class --
+    ** the stored UTF-8 name is what unzLocateFile expects directly. */
+    (void)zipName; (void)utf8Name; (void)outRaw; (void)outSize;
+    return 0;
+#endif
 }
 
 /******************************************************************************

@@ -39,6 +39,7 @@
 #include <stdio.h>
 #include <winioctl.h>
 #include <dinput.h>
+#include "Win32TextUtf8.h"
 
 
 // PacketFileSystem.h Need to be included after all other includes
@@ -915,13 +916,13 @@ char** keyboardGetConfigs()
     char         fileName[MAX_PATH];
     static char  keyboardArray[256][64];
 	HANDLE       handle;
-	WIN32_FIND_DATA wfd;
+	WIN32_FIND_DATAA wfd;
     int index = 0;
     BOOL cont = TRUE;
 
     sprintf(fileName, "%s/*.config", keyboardConfigDir);
 
-    handle = FindFirstFile(fileName, &wfd);
+    handle = FindFirstFileU(fileName, &wfd);
 
     if (handle == INVALID_HANDLE_VALUE) {
         keyboardNames[0] = NULL;
@@ -939,7 +940,7 @@ char** keyboardGetConfigs()
             keyboardNames[index] = keyboardArray[index];
             index++;
         }
-        cont = FindNextFile(handle, &wfd);
+        cont = FindNextFileU(handle, &wfd);
     }
 
 	FindClose(handle);

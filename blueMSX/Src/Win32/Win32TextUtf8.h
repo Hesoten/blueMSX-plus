@@ -546,6 +546,21 @@ static __inline BOOL SetCurrentDirectoryU(const char* path)
     return SetCurrentDirectoryW(wPath);
 }
 
+static __inline DWORD GetModuleFileNameU(HMODULE hModule, char* buf, DWORD bufSize)
+{
+    wchar_t wbuf[1024];
+    DWORD n = GetModuleFileNameW(hModule, wbuf, _countof(wbuf));
+    if (n == 0) return 0;
+    return (DWORD)WideToUtf8(wbuf, buf, (int)bufSize);
+}
+
+static __inline HMODULE LoadLibraryU(const char* path)
+{
+    wchar_t wPath[1024];
+    PathToWide(path, wPath, _countof(wPath));
+    return LoadLibraryW(wPath);
+}
+
 static __inline UINT GetPrivateProfileStringU(const char* section, const char* key,
                                               const char* defaultValue, char* buf,
                                               UINT bufSize, const char* iniPath)

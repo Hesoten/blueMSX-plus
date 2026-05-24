@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -44,6 +47,11 @@ void* zipLoadFile(const char* zipName, const char* fileName, int* size);
 int zipSaveFile(const char* zipName, const char* fileName, int append, void* buffer, int size);
 int zipFileExists(const char* zipName, const char* fileName);
 char* zipGetFileList(const char* zipName, const char* ext, int* count);
+/* Walk a zip TOC and return the raw entry bytes whose UTF-8 form equals
+** utf8Name. Used by propLoad to migrate UTF-8 fileNameInZip ini entries
+** back to the form unzLocateFile / strcmp expect. Returns 1 on match. */
+int zipResolveUtf8EntryName(const char* zipName, const char* utf8Name,
+                            char* outRaw, int outSize);
 int zipHasFileType(char* zipName, char* ext);
 int zipExtractCurrentfile(unzFile uf, int overwrite, const char* password);
 int zipExtract(unzFile uf, int overwrite, const char* password, ZIP_EXTRACT_CB progress_callback);

@@ -114,11 +114,11 @@ static int openLogFile(HWND hwndOwner, char* fileName)
     ofn.lpfnHook = NULL; 
     ofn.lpTemplateName = NULL; 
 
-    GetCurrentDirectory(MAX_PATH, curDir);
+    GetCurrentDirectoryU(MAX_PATH, curDir);
 
     rv = GetSaveFileName(&ofn); 
 
-    SetCurrentDirectory(curDir);
+    SetCurrentDirectoryU(curDir);
 
     if (rv) {
         strcpy(fileName, pFileName);
@@ -1928,29 +1928,36 @@ static BOOL CALLBACK diskDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPa
 
 
 static void getPortsLptList(HWND hDlg, int id, Properties* pProperties) {
-    char buffer[MAX_PATH];
     int idx = SendDlgItemMessage(hDlg, id, CB_GETCURSEL, 0, 0);
-    int rv = SendDlgItemMessage(hDlg, id, CB_GETLBTEXT, idx, (LPARAM)buffer);
 
     if (idx < P_LPT_HOST) {
         pProperties->ports.Lpt.type = idx;
+        return;
     }
-    else {
-        char* prnName = buffer;
-        // Find the printer name from string
-        while (*prnName && *prnName != '-') {
-            prnName++;
-        }
-        
-        strcpy(pProperties->ports.Lpt.portName, buffer);
-        pProperties->ports.Lpt.portName[prnName - buffer - 2] = 0;
 
-        if (*prnName) prnName++;
-        if (*prnName) prnName++;
+    /* Combo holds wide PrinterPort entries (CB_GETLBTEXT returns wide).
+    ** Decode to UTF-8 and split "PortName - PrinterName". */
+    wchar_t wbuf[MAX_PATH];
+    SendDlgItemMessageW(hDlg, id, CB_GETLBTEXT, idx, (LPARAM)wbuf);
+    char buffer[MAX_PATH * 4];
+    WideToUtf8(wbuf, buffer, sizeof(buffer));
 
-        pProperties->ports.Lpt.type = P_LPT_HOST;
-        strcpy(pProperties->ports.Lpt.name, prnName);
+    /* Split at " - " separator. */
+    char* sep = strstr(buffer, " - ");
+    if (sep == NULL) {
+        /* Malformed entry; treat as port-only. */
+        strncpy(pProperties->ports.Lpt.portName, buffer, PROP_MAXPATH - 1);
+        pProperties->ports.Lpt.portName[PROP_MAXPATH - 1] = 0;
+        pProperties->ports.Lpt.name[0] = 0;
+    } else {
+        *sep = 0;
+        const char* prnName = sep + 3;
+        strncpy(pProperties->ports.Lpt.portName, buffer, PROP_MAXPATH - 1);
+        pProperties->ports.Lpt.portName[PROP_MAXPATH - 1] = 0;
+        strncpy(pProperties->ports.Lpt.name, prnName, sizeof(pProperties->ports.Lpt.name) - 1);
+        pProperties->ports.Lpt.name[sizeof(pProperties->ports.Lpt.name) - 1] = 0;
     }
+    pProperties->ports.Lpt.type = P_LPT_HOST;
 }
 
 static void getPortsLptEmulList(HWND hDlg, int id, Properties* pProperties) 
@@ -1984,8 +1991,10 @@ static BOOL updatePortsLptEmulList(HWND hDlg, int id, Properties* pProperties)
 
 static BOOL updatePortsLptList(HWND hDlg, int id, Properties* pProperties)
 {
-    LPPRINTER_INFO_2 lpPrinterInfo = NULL;
-    TCHAR sBuf[MAX_PATH];
+    /* EnumPrintersW + PRINTER_INFO_2W: pPrinterName / pPortName carry locale
+    ** text on non-ASCII systems.  The ANSI variant returned ACP bytes
+    ** which mojibake'd through ComboAddStringU. */
+    PRINTER_INFO_2W* lpPrinterInfo = NULL;
     DWORD dwNeeded;
     DWORD dwReturned;
     DWORD dwItem;
@@ -1993,15 +2002,17 @@ static BOOL updatePortsLptList(HWND hDlg, int id, Properties* pProperties)
     while (CB_ERR != SendDlgItemMessage(hDlg, id, CB_DELETESTRING, 0, 0));
 
     // Get buffer size
-    EnumPrinters(PRINTER_ENUM_LOCAL|PRINTER_ENUM_CONNECTIONS, NULL, 2, NULL, 0, &dwNeeded, &dwReturned);
+    EnumPrintersW(PRINTER_ENUM_LOCAL|PRINTER_ENUM_CONNECTIONS, NULL, 2, NULL, 0, &dwNeeded, &dwReturned);
 
     // Allocate memory
-    lpPrinterInfo = (LPPRINTER_INFO_2)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, dwNeeded);
+    lpPrinterInfo = (PRINTER_INFO_2W*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, dwNeeded);
     if (lpPrinterInfo == NULL)
         return FALSE;
 
-    if (!EnumPrinters(PRINTER_ENUM_LOCAL|PRINTER_ENUM_CONNECTIONS, NULL, 2, (LPBYTE)lpPrinterInfo, dwNeeded, &dwNeeded, &dwReturned))
+    if (!EnumPrintersW(PRINTER_ENUM_LOCAL|PRINTER_ENUM_CONNECTIONS, NULL, 2, (LPBYTE)lpPrinterInfo, dwNeeded, &dwNeeded, &dwReturned)) {
+        HeapFree(GetProcessHeap(), 0, lpPrinterInfo);
         return FALSE;
+    }
 
     // Add NONE:
     ComboAddStringU(GetDlgItem(hDlg, id), langPropPortsNone());
@@ -2019,11 +2030,16 @@ static BOOL updatePortsLptList(HWND hDlg, int id, Properties* pProperties)
 
     // Add printers 
     for (dwItem = 0; dwItem < dwReturned; dwItem++) {
-        if SUCCEEDED(StringCchPrintf(sBuf, MAX_PATH-1, "%s - %s", lpPrinterInfo[dwItem].pPortName, lpPrinterInfo[dwItem].pPrinterName)) {
-            ComboAddStringU(GetDlgItem(hDlg, id), sBuf);
-            if (pProperties->ports.Lpt.type == P_LPT_HOST && 0 == strcmp(pProperties->ports.Lpt.name, lpPrinterInfo[dwItem].pPrinterName)) 
-                SendDlgItemMessage(hDlg, id, CB_SETCURSEL, 3 + dwItem, 0);
-        }
+        char utf8PortName[MAX_PATH];
+        char utf8PrinterName[MAX_PATH];
+        char sBuf[MAX_PATH * 2];
+        WideToUtf8(lpPrinterInfo[dwItem].pPortName, utf8PortName, sizeof(utf8PortName));
+        WideToUtf8(lpPrinterInfo[dwItem].pPrinterName, utf8PrinterName, sizeof(utf8PrinterName));
+        snprintf(sBuf, sizeof(sBuf), "%s - %s", utf8PortName, utf8PrinterName);
+        ComboAddStringU(GetDlgItem(hDlg, id), sBuf);
+        if (pProperties->ports.Lpt.type == P_LPT_HOST &&
+            0 == strcmp(pProperties->ports.Lpt.name, utf8PrinterName))
+            SendDlgItemMessage(hDlg, id, CB_SETCURSEL, 3 + dwItem, 0);
     }
 
     // Free memory
@@ -2052,35 +2068,36 @@ static BOOL IsNumeric(LPCTSTR pszString, BOOL bIgnoreColon)
 }
 
 static void getPortsComList(HWND hDlg, int id, Properties* pProperties) {
-    char buffer[MAX_PATH];
     int idx = SendDlgItemMessage(hDlg, id, CB_GETCURSEL, 0, 0);
-    int rv = SendDlgItemMessage(hDlg, id, CB_GETLBTEXT, idx, (LPARAM)buffer);
 
     if (idx < P_COM_HOST) {
         pProperties->ports.Com.type = idx;
+        return;
     }
-    else {
-        char* portName = buffer;
-        // Find the printer name from string
-        while (*portName && *portName != '-') {
-            portName++;
-        }
-        
-        strcpy(pProperties->ports.Com.portName, buffer);
-        pProperties->ports.Com.portName[portName - buffer - 2] = 0;
 
-        if (*portName) portName++;
-        if (*portName) portName++;
+    /* Combo holds wide COM entries (CB_GETLBTEXT returns wide). Decode
+    ** to UTF-8 and split "COM1 - Description"; only the port name is used. */
+    wchar_t wbuf[MAX_PATH];
+    SendDlgItemMessageW(hDlg, id, CB_GETLBTEXT, idx, (LPARAM)wbuf);
+    char buffer[MAX_PATH * 4];
+    WideToUtf8(wbuf, buffer, sizeof(buffer));
 
-        pProperties->ports.Com.type = P_COM_HOST;
-        strcpy(pProperties->ports.Com.name, portName);
-    }
+    char* p = buffer;
+    while (*p && *p != ' ' && *p != '-') p++;
+    *p = 0;
+
+    strncpy(pProperties->ports.Com.portName, buffer, PROP_MAXPATH - 1);
+    pProperties->ports.Com.portName[PROP_MAXPATH - 1] = 0;
+    strncpy(pProperties->ports.Com.name, buffer, sizeof(pProperties->ports.Com.name) - 1);
+    pProperties->ports.Com.name[sizeof(pProperties->ports.Com.name) - 1] = 0;
+    pProperties->ports.Com.type = P_COM_HOST;
 }
 
 static BOOL updatePortsComList(HWND hDlg, int id, Properties* pProperties)
 {
-    PORT_INFO_2 *lpPortInfo = NULL;
-    TCHAR sBuf[MAX_PATH];
+    /* EnumPortsW + PORT_INFO_2W: read pDescription as wide text and
+    ** convert to UTF-8 (ANSI variant returned ACP, mojibake'd combo). */
+    PORT_INFO_2W* lpPortInfo = NULL;
     DWORD dwNeeded;
     DWORD dwReturned;
     DWORD dwItem;
@@ -2088,15 +2105,17 @@ static BOOL updatePortsComList(HWND hDlg, int id, Properties* pProperties)
     while (CB_ERR != SendDlgItemMessage(hDlg, id, CB_DELETESTRING, 0, 0));
 
     // Get buffer size
-    EnumPorts(NULL, 2, NULL, 0, &dwNeeded, &dwReturned);
+    EnumPortsW(NULL, 2, NULL, 0, &dwNeeded, &dwReturned);
 
     // Allocate memory
-    lpPortInfo = (PORT_INFO_2*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, dwNeeded);
+    lpPortInfo = (PORT_INFO_2W*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, dwNeeded);
     if (lpPortInfo == NULL)
         return FALSE;
 
-    if (!EnumPorts(NULL, 2, (LPBYTE)lpPortInfo, dwNeeded, &dwNeeded, &dwReturned))
+    if (!EnumPortsW(NULL, 2, (LPBYTE)lpPortInfo, dwNeeded, &dwNeeded, &dwReturned)) {
+        HeapFree(GetProcessHeap(), 0, lpPortInfo);
         return FALSE;
+    }
 
     // Add NONE:
     ComboAddStringU(GetDlgItem(hDlg, id), langPropPortsNone());
@@ -2110,15 +2129,20 @@ static BOOL updatePortsComList(HWND hDlg, int id, Properties* pProperties)
 
     // Add COM ports 
     for (dwItem = 0; dwItem < dwReturned; dwItem++) {
-        size_t cch;
-        if SUCCEEDED(StringCchLength(lpPortInfo[dwItem].pPortName, MAX_PATH-1, &cch))
-            if (cch > 3)
-                if ((strncmp(lpPortInfo[dwItem].pPortName, "COM", 3) == 0) && IsNumeric(&lpPortInfo[dwItem].pPortName[3], TRUE))
-                    if SUCCEEDED(StringCchPrintf(sBuf, MAX_PATH-1, "%s - %s", lpPortInfo[dwItem].pPortName, lpPortInfo[dwItem].pDescription)) {
-                        ComboAddStringU(GetDlgItem(hDlg, id), sBuf);
-                        if (pProperties->ports.Com.type == P_COM_HOST && 0 == strcmp(pProperties->ports.Com.name, lpPortInfo[dwItem].pPortName)) 
-                            SendDlgItemMessage(hDlg, id, CB_SETCURSEL, 2 + dwItem, 0);
-                    }
+        char  utf8PortName[64];
+        char  utf8Desc[MAX_PATH];
+        char  sBuf[MAX_PATH];
+        WideToUtf8(lpPortInfo[dwItem].pPortName, utf8PortName, sizeof(utf8PortName));
+        if (strlen(utf8PortName) <= 3) continue;
+        if (strncmp(utf8PortName, "COM", 3) != 0) continue;
+        if (!IsNumeric(&utf8PortName[3], TRUE)) continue;
+
+        WideToUtf8(lpPortInfo[dwItem].pDescription, utf8Desc, sizeof(utf8Desc));
+        snprintf(sBuf, sizeof(sBuf), "%s - %s", utf8PortName, utf8Desc);
+        ComboAddStringU(GetDlgItem(hDlg, id), sBuf);
+        if (pProperties->ports.Com.type == P_COM_HOST &&
+            0 == strcmp(pProperties->ports.Com.name, utf8PortName))
+            SendDlgItemMessage(hDlg, id, CB_SETCURSEL, 2 + dwItem, 0);
     }
 
     // Free memory

@@ -1696,7 +1696,7 @@ static BOOL CALLBACK slotEditProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
                 char* fileName;
                 char extensionList[512];
 
-                GetCurrentDirectory(MAX_PATH, curDir);
+                GetCurrentDirectoryU(MAX_PATH, curDir);
                 if (strlen(defDir) == 0) {
                     strcpy(defDir, curDir);
                 }
@@ -1704,7 +1704,7 @@ static BOOL CALLBACK slotEditProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
                 replaceCharInString(extensionList, '#', 0);
 
                 fileName = openFile(hDlg, langConfOpenRom(), extensionList, defDir, -1, NULL, NULL);
-                SetCurrentDirectory(curDir);
+                SetCurrentDirectoryU(curDir);
 
                 if (fileName != NULL) {
                     strcat(curDir, "\\");

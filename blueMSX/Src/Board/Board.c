@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -47,9 +50,25 @@
 #include "MediaDb.h"
 #include "RomLoader.h"
 #include "JoystickPort.h"
+#include "Utf8Conv.h"
+
+#ifndef _WIN32
+/* Non-Windows: paths are already UTF-8, so just copy. */
+static void AnyToUtf8(const char* src, char* dst, int dstCap) {
+    if (dstCap <= 0) return;
+    if (!src) { dst[0] = 0; return; }
+    strncpy(dst, src, dstCap - 1);
+    dst[dstCap - 1] = 0;
+}
+#endif
 #include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+/* Route fopen() through pkg_fopen so UTF-8 .cap paths (e.g. ROM names with
+** Japanese characters) reach _wfopen instead of being mangled by the runtime
+** ACP. Must come after <stdio.h>. */
+#include "PacketFileSystem.h"
 
 extern void PatchReset(BoardType boardType);
 

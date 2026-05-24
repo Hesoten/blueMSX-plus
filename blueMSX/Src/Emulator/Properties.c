@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -37,6 +40,10 @@
 #include "JoystickPort.h"
 #include "Board.h"
 #include "AppConfig.h"
+#include "ziphelper.h"           /* zipResolveUtf8EntryName for fileNameInZip migration */
+#ifdef _WIN32
+#include "Utf8Conv.h"            /* AnyToUtf8 for fileNameInZip save-side conversion */
+#endif
 
 
 // PacketFileSystem.h Need to be included after all other includes
@@ -734,6 +741,16 @@ static void propLoad(Properties* properties)
         GET_STR_VALUE_2i1(histFile, media, carts, i, directory);
         GET_INT_VALUE_2i1(histFile, media, carts, i, extensionFilter);
         GET_INT_VALUE_2i1(histFile, media, carts, i, type);
+        /* ini stores fileNameInZip as UTF-8; resolve back to the zip TOC's
+        ** raw bytes so unzLocateFile / strcmp match. */
+        if (properties->media.carts[i].fileNameInZip[0] != '\0') {
+            char raw[PROP_MAXPATH];
+            if (zipResolveUtf8EntryName(properties->media.carts[i].fileName,
+                                        properties->media.carts[i].fileNameInZip,
+                                        raw, sizeof(raw))) {
+                strcpy(properties->media.carts[i].fileNameInZip, raw);
+            }
+        }
     }
     
     for (i = 0; i < PROP_MAX_DISKS; i++) {
@@ -742,6 +759,14 @@ static void propLoad(Properties* properties)
         GET_STR_VALUE_2i1(histFile, media, disks, i, directory);
         GET_INT_VALUE_2i1(histFile, media, disks, i, extensionFilter);
         GET_INT_VALUE_2i1(histFile, media, disks, i, type);
+        if (properties->media.disks[i].fileNameInZip[0] != '\0') {
+            char raw[PROP_MAXPATH];
+            if (zipResolveUtf8EntryName(properties->media.disks[i].fileName,
+                                        properties->media.disks[i].fileNameInZip,
+                                        raw, sizeof(raw))) {
+                strcpy(properties->media.disks[i].fileNameInZip, raw);
+            }
+        }
     }
     
     for (i = 0; i < PROP_MAX_TAPES; i++) {
@@ -750,6 +775,14 @@ static void propLoad(Properties* properties)
         GET_STR_VALUE_2i1(histFile, media, tapes, i, directory);
         GET_INT_VALUE_2i1(histFile, media, tapes, i, extensionFilter);
         GET_INT_VALUE_2i1(histFile, media, tapes, i, type);
+        if (properties->media.tapes[i].fileNameInZip[0] != '\0') {
+            char raw[PROP_MAXPATH];
+            if (zipResolveUtf8EntryName(properties->media.tapes[i].fileName,
+                                        properties->media.tapes[i].fileNameInZip,
+                                        raw, sizeof(raw))) {
+                strcpy(properties->media.tapes[i].fileNameInZip, raw);
+            }
+        }
     }
     
     for (i = 0; i < MAX_HISTORY; i++) {
@@ -992,25 +1025,79 @@ void propSave(Properties* properties)
     
     SET_STR_VALUE_2(histFile, cassette, defDir);
 
+    /* Convert raw zip TOC bytes to UTF-8 for ini storage; propLoad
+    ** restores raw bytes via zipResolveUtf8EntryName. *4 buffer leaves
+    ** headroom for CP932 -> UTF-8 expansion. */
     for (i = 0; i < PROP_MAX_CARTS; i++) {
+        char keyBuf[64];
+        char utf8Buf[PROP_MAXPATH * 4];
+        const char* src = properties->media.carts[i].fileNameInZip;
         SET_STR_VALUE_2i1(histFile, media, carts, i, fileName);
-        SET_STR_VALUE_2i1(histFile, media, carts, i, fileNameInZip);
+#ifdef _WIN32
+        AnyToUtf8(src, utf8Buf, (int)sizeof(utf8Buf));
+#else
+        {
+            size_t n = strlen(src);
+            if (n >= sizeof(utf8Buf)) n = sizeof(utf8Buf) - 1;
+            memcpy(utf8Buf, src, n);
+            utf8Buf[n] = 0;
+        }
+#endif
+        if ((size_t)snprintf(keyBuf, sizeof(keyBuf),
+                             "media.carts.i%d.fileNameInZip", i) >= sizeof(keyBuf)) {
+            keyBuf[sizeof(keyBuf) - 1] = 0;
+        }
+        iniFileWriteString(histFile, ROOT_ELEMENT, keyBuf, utf8Buf);
         SET_STR_VALUE_2i1(histFile, media, carts, i, directory);
         SET_INT_VALUE_2i1(histFile, media, carts, i, extensionFilter);
         SET_INT_VALUE_2i1(histFile, media, carts, i, type);
     }
     
     for (i = 0; i < PROP_MAX_DISKS; i++) {
+        char keyBuf[64];
+        char utf8Buf[PROP_MAXPATH * 4];
+        const char* src = properties->media.disks[i].fileNameInZip;
         SET_STR_VALUE_2i1(histFile, media, disks, i, fileName);
-        SET_STR_VALUE_2i1(histFile, media, disks, i, fileNameInZip);
+#ifdef _WIN32
+        AnyToUtf8(src, utf8Buf, (int)sizeof(utf8Buf));
+#else
+        {
+            size_t n = strlen(src);
+            if (n >= sizeof(utf8Buf)) n = sizeof(utf8Buf) - 1;
+            memcpy(utf8Buf, src, n);
+            utf8Buf[n] = 0;
+        }
+#endif
+        if ((size_t)snprintf(keyBuf, sizeof(keyBuf),
+                             "media.disks.i%d.fileNameInZip", i) >= sizeof(keyBuf)) {
+            keyBuf[sizeof(keyBuf) - 1] = 0;
+        }
+        iniFileWriteString(histFile, ROOT_ELEMENT, keyBuf, utf8Buf);
         SET_STR_VALUE_2i1(histFile, media, disks, i, directory);
         SET_INT_VALUE_2i1(histFile, media, disks, i, extensionFilter);
         SET_INT_VALUE_2i1(histFile, media, disks, i, type);
     }
     
     for (i = 0; i < PROP_MAX_TAPES; i++) {
+        char keyBuf[64];
+        char utf8Buf[PROP_MAXPATH * 4];
+        const char* src = properties->media.tapes[i].fileNameInZip;
         SET_STR_VALUE_2i1(histFile, media, tapes, i, fileName);
-        SET_STR_VALUE_2i1(histFile, media, tapes, i, fileNameInZip);
+#ifdef _WIN32
+        AnyToUtf8(src, utf8Buf, (int)sizeof(utf8Buf));
+#else
+        {
+            size_t n = strlen(src);
+            if (n >= sizeof(utf8Buf)) n = sizeof(utf8Buf) - 1;
+            memcpy(utf8Buf, src, n);
+            utf8Buf[n] = 0;
+        }
+#endif
+        if ((size_t)snprintf(keyBuf, sizeof(keyBuf),
+                             "media.tapes.i%d.fileNameInZip", i) >= sizeof(keyBuf)) {
+            keyBuf[sizeof(keyBuf) - 1] = 0;
+        }
+        iniFileWriteString(histFile, ROOT_ELEMENT, keyBuf, utf8Buf);
         SET_STR_VALUE_2i1(histFile, media, tapes, i, directory);
         SET_INT_VALUE_2i1(histFile, media, tapes, i, extensionFilter);
         SET_INT_VALUE_2i1(histFile, media, tapes, i, type);

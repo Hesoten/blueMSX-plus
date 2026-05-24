@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2007 Daniel Vik, Tomas Karlsson
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -56,6 +59,9 @@
 #define O_BINARY 0
 #endif
 #endif
+
+/* After stdio.h: pkg_fopen overrides fopen for UTF-8 paths. */
+#include "PacketFileSystem.h"
 
 static const unsigned char msxboot[] = { 
 	0xeb,0xfe,0x90,0x44,0x53,0x4b,0x54,0x4f,

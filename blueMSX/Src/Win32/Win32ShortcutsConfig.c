@@ -336,13 +336,13 @@ static char** getProfileList()
     static char* profileList[128];
     char fileName[MAX_PATH];
 	HANDLE handle;
-	WIN32_FIND_DATA wfd;
+	WIN32_FIND_DATAA wfd;
     int index = 0;
     BOOL cont;
     
     sprintf(fileName, "%s/*.shortcuts", profileDir);
 
-    handle = FindFirstFile(fileName, &wfd);
+    handle = FindFirstFileU(fileName, &wfd);
     
     cont = handle != INVALID_HANDLE_VALUE;
     
@@ -358,7 +358,7 @@ static char** getProfileList()
             profileList[index] = (char*)profileArray[index];
             index++;
         }   
-        cont = FindNextFile(handle, &wfd);
+        cont = FindNextFileU(handle, &wfd);
     }
     
     if (handle != INVALID_HANDLE_VALUE) FindClose(handle);

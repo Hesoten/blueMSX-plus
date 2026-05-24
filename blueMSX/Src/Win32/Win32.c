@@ -2481,12 +2481,12 @@ int setDefaultPath() {
     char* ptr;
 
     // Set current directory to where the exe is located
-    GetModuleFileName((HINSTANCE)GetModuleHandle(NULL), buffer, 512);
+    GetModuleFileNameU((HINSTANCE)GetModuleHandle(NULL), buffer, 512);
     ptr = (char*)stripPath(buffer);
     *ptr = 0;
-    chdir(buffer);
+    chdirU(buffer);
 
-    GetCurrentDirectory(MAX_PATH - 1, st.pCurDir);
+    GetCurrentDirectoryU(MAX_PATH - 1, st.pCurDir);
 
     readOnlyDir = 0;
 
@@ -2508,21 +2508,23 @@ int setDefaultPath() {
     }
 
     if (!readOnlyDir) {
-        GetCurrentDirectory(MAX_PATH - 1, rootDir); 
+        GetCurrentDirectoryU(MAX_PATH - 1, rootDir); 
     }
     else {
         // Get user's My Documents folder 
         LPITEMIDLIST Root; 
+        wchar_t wBuffer2[MAX_PATH];
         SHGetSpecialFolderLocation(NULL, CSIDL_PERSONAL, &Root); 
-        SHGetPathFromIDList(Root, buffer2); 
+        SHGetPathFromIDListW(Root, wBuffer2);
+        WideToUtf8(wBuffer2, buffer2, 512);
 
-        chdir(buffer2); 
+        chdirU(buffer2); 
         sprintf(buffer, "%s\\blueMSX Temporary Files", buffer2); 
-        mkdir(buffer); 
-        chdir(buffer); 
+        mkdirU(buffer); 
+        chdirU(buffer); 
 
-        GetCurrentDirectory(MAX_PATH - 1, rootDir); 
-        SetCurrentDirectory(st.pCurDir);
+        GetCurrentDirectoryU(MAX_PATH - 1, rootDir); 
+        SetCurrentDirectoryU(st.pCurDir);
     }
 
     // Set up temp directories
@@ -2532,35 +2534,35 @@ int setDefaultPath() {
 	machineSetDirectory(buffer);
 
     sprintf(buffer, "%s\\Audio Capture", rootDir);
-    mkdir(buffer);
+    mkdirU(buffer);
     actionSetAudioCaptureSetDirectory(buffer, "");
 
     sprintf(buffer, "%s\\Video Capture", rootDir);
-    mkdir(buffer);
+    mkdirU(buffer);
     actionSetVideoCaptureSetDirectory(buffer, "");
 
     sprintf(buffer, "%s\\QuickSave", rootDir);
-    mkdir(buffer);
+    mkdirU(buffer);
     actionSetQuickSaveSetDirectory(buffer, "");
 
     sprintf(buffer, "%s\\SRAM", rootDir);
-    mkdir(buffer);
+    mkdirU(buffer);
     boardSetDirectory(buffer);
 
     sprintf(buffer, "%s\\Keyboard Config", rootDir);
-    mkdir(buffer);
+    mkdirU(buffer);
     keyboardSetDirectory(buffer);
 
     sprintf(buffer, "%s\\Screenshots", rootDir);
-    mkdir(buffer);
+    mkdirU(buffer);
     screenshotSetDirectory(buffer, "");
 
     sprintf(buffer, "%s\\Casinfo", rootDir);
-    mkdir(buffer);
+    mkdirU(buffer);
     tapeSetDirectory(buffer, "");
 
     sprintf(buffer, "%s\\Databases", rootDir);
-    mkdir(buffer);
+    mkdirU(buffer);
     mediaDbLoad(buffer);
 
     mediaDbCreateRomdb();
@@ -2698,17 +2700,17 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     {
         // Set current directory to where the exe is located
         char* ptr;
-        GetModuleFileName((HINSTANCE)GetModuleHandle(NULL), buffer, 512);
+        GetModuleFileNameU((HINSTANCE)GetModuleHandle(NULL), buffer, 512);
         ptr = (char*)stripPath(buffer);
         *ptr = 0;
-        SetCurrentDirectory(buffer);
+        SetCurrentDirectoryU(buffer);
     }
 
     pkg_load("Packages/BombaPack.bpk", NULL, 0);
 
     appConfigLoad();
 
-    kbdLockInst = LoadLibrary("kbdlock.dll");
+    kbdLockInst = LoadLibraryU("kbdlock.dll");
 
     if (kbdLockInst != NULL) {
         kbdLockEnable  = (KbdLockFun)GetProcAddress(kbdLockInst, (LPCSTR)2);
@@ -3014,7 +3016,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     shortcutsDestroyProfile(st.shortcuts);
     videoDestroy(st.pVideo);
     
-    SetCurrentDirectory(st.pCurDir);
+    SetCurrentDirectoryU(st.pCurDir);
 
     videoInCleanup(pProperties);
     ethIfCleanup(pProperties);
@@ -3157,7 +3159,7 @@ void archShowKeyboardEditor()
     
     if (tc == NULL) {
         char themePath[MAX_PATH];
-        GetCurrentDirectory(MAX_PATH, themePath);
+        GetCurrentDirectoryU(MAX_PATH, themePath);
         strcat(themePath, "\\Keyboard Config\\Theme");
         tc = themeLoad(themePath);
     }
@@ -3176,7 +3178,7 @@ void archShowMixer()
     
     if (tc == NULL) {
         char themePath[MAX_PATH];
-        GetCurrentDirectory(MAX_PATH, themePath);
+        GetCurrentDirectoryU(MAX_PATH, themePath);
         strcat(themePath, "\\Properties\\Mixer");
         tc = themeLoad(themePath);
     }
@@ -3272,7 +3274,7 @@ char* archFileSave(char* title, char* extensionList, char* defaultDir, char* ext
     enterDialogShow();
     fileName = saveFile(getMainHwnd(), title, extensionList, selectedExtension, defaultDir, defExt);
     exitDialogShow();
-    SetCurrentDirectory(st.pCurDir);
+    SetCurrentDirectoryU(st.pCurDir);
 
     return fileName;
 }
@@ -3280,18 +3282,18 @@ char* archFileSave(char* title, char* extensionList, char* defaultDir, char* ext
 const char* archGetCurrentDirectory()
 {
     static char pathname[512];
-    GetCurrentDirectory(512, pathname);
+    GetCurrentDirectoryU(512, pathname);
     return pathname;
 }
 
 int archCreateDirectory(const char* pathname)
 {
-    return mkdir(pathname);
+    return mkdirU(pathname);
 }
 
 void archSetCurrentDirectory(const char* pathname)
 {
-    SetCurrentDirectory(pathname);
+    SetCurrentDirectoryU(pathname);
 }
 
 char* archDirnameGetOpenDisk(Properties* properties, int drive)
@@ -3303,7 +3305,7 @@ char* archDirnameGetOpenDisk(Properties* properties, int drive)
     enterDialogShow();
     filename = openDir(getMainHwnd(), title, defaultDir);
     exitDialogShow();
-    SetCurrentDirectory(st.pCurDir);
+    SetCurrentDirectoryU(st.pCurDir);
 
     return filename;
 }
@@ -3315,7 +3317,7 @@ char* archFileOpen(char* title, char* extensionList, char* defaultDir, char* ext
     enterDialogShow();
     fileName = openFile(getMainHwnd(), title, extensionList, defaultDir, createFileSize, defautExtension, selectedExtension);
     exitDialogShow();
-    SetCurrentDirectory(st.pCurDir);
+    SetCurrentDirectoryU(st.pCurDir);
 
     return fileName;
 }
@@ -3338,7 +3340,7 @@ char* archFilenameGetOpenState(Properties* properties)
     fileName = openStateFile(getMainHwnd(), title, extensionList, defaultDir, createFileSize, defautExtension, 
                              selectedExtension, &pProperties->settings.showStatePreview);
     exitDialogShow();
-    SetCurrentDirectory(st.pCurDir);
+    SetCurrentDirectoryU(st.pCurDir);
 
     return fileName;
 }
@@ -3361,7 +3363,7 @@ char* archFilenameGetOpenCapture(Properties* properties)
     fileName = openStateFile(getMainHwnd(), title, extensionList, defaultDir, createFileSize, defautExtension, 
                              selectedExtension, &pProperties->settings.showStatePreview);
     exitDialogShow();
-    SetCurrentDirectory(st.pCurDir);
+    SetCurrentDirectoryU(st.pCurDir);
 
     return fileName;
 }
@@ -3391,7 +3393,7 @@ char* archFilenameGetOpenRom(Properties* properties, int cartSlot, RomType* romT
     enterDialogShow();
     fileName = openRomFile(getMainHwnd(), title, extensionList, defaultDir, 1, defautExtension, selectedExtension, romType);
     exitDialogShow();
-    SetCurrentDirectory(st.pCurDir);
+    SetCurrentDirectoryU(st.pCurDir);
 
     return fileName;
 }
@@ -3413,7 +3415,7 @@ char* archFilenameGetOpenCas(Properties* properties)
     enterDialogShow();
     fileName = openFile(getMainHwnd(), title, extensionList, defaultDir, createFileSize, defautExtension, selectedExtension);
     exitDialogShow();
-    SetCurrentDirectory(st.pCurDir);
+    SetCurrentDirectoryU(st.pCurDir);
 
     return fileName;
 }
@@ -3440,7 +3442,7 @@ char* archFilenameGetOpenDisk(Properties* properties, int drive, int allowCreate
         fileName = openFile(getMainHwnd(), title, extensionList, defaultDir, createFileSize, defautExtension, selectedExtension);
     }
     exitDialogShow();
-    SetCurrentDirectory(st.pCurDir);
+    SetCurrentDirectoryU(st.pCurDir);
 
     return fileName;
 }
@@ -3466,7 +3468,7 @@ char* archFilenameGetOpenHarddisk(Properties* properties, int drive, int allowCr
         fileName = openFile(getMainHwnd(), title, extensionList, defaultDir, -1, defautExtension, selectedExtension);
     }
     exitDialogShow();
-    SetCurrentDirectory(st.pCurDir);
+    SetCurrentDirectoryU(st.pCurDir);
 
     return fileName;
 }
@@ -3500,7 +3502,7 @@ char* archFilenameGetSaveState(Properties* properties)
     enterDialogShow();
     fileName = saveStateFile(getMainHwnd(), title, extensionList, selectedExtension, defaultDir, &pProperties->settings.showStatePreview);
     exitDialogShow();
-    SetCurrentDirectory(st.pCurDir);
+    SetCurrentDirectoryU(st.pCurDir);
 
     return fileName;
 }
@@ -3713,12 +3715,16 @@ void archEmulationStartFailure() {
 
 int archFileExists(const char* fileName)
 {
-    return PathFileExists(fileName);
+    /* fileName is UTF-8 (file dialog / history). PathFileExistsA interprets
+    ** bytes as the runtime ACP, which mojibakes non-ACP filenames. */
+    wchar_t wFileName[1024];
+    PathToWide(fileName, wFileName, _countof(wFileName));
+    return PathFileExistsW(wFileName);
 }
 
 int archFileDelete(const char* fileName)
 {
-    return DeleteFile(fileName);
+    return DeleteFileU(fileName);
 }
 
 void archMaximizeWindow() {
@@ -3835,7 +3841,7 @@ static BOOL CALLBACK loadMemorProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM l
                 char* fileName;
                 char extensionList[512];
 
-                GetCurrentDirectory(MAX_PATH, curDir);
+                GetCurrentDirectoryU(MAX_PATH, curDir);
                 if (strlen(defDir) == 0) {
                     strcpy(defDir, curDir);
                 }

@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -30,6 +33,9 @@
 #include "TokenExtract.h"
 #include <stdio.h>
 #include <string.h>
+
+/* After stdio.h: pkg_fopen overrides fopen for UTF-8 paths. */
+#include "PacketFileSystem.h"
 
 static char romdbFilename[512]  = "romdb.dat";
 static RomType romdbDefaultType = ROM_UNKNOWN;
