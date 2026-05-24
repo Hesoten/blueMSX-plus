@@ -27,6 +27,34 @@
 #define IDB_CLASSIC_FPS                 2150
 #define IDB_CLASSIC_FREQ                2151
 
+/* Dark variants (light + 100; plain integers because rc.exe rejects
+   parenthesised arithmetic in resource-id fields). */
+#define IDB_CLASSIC_BG_DARK             2200
+#define IDB_CLASSIC_FONT_DARK           2201
+#define IDB_CLASSIC_DISKA_DARK          2202
+#define IDB_CLASSIC_DISKB_DARK          2203
+#define IDB_CLASSIC_CAS_DARK            2204
+#define IDB_CLASSIC_CAPS_DARK           2205
+#define IDB_CLASSIC_KANA_DARK           2206
+#define IDB_CLASSIC_FS_DARK             2207
+#define IDB_CLASSIC_AS_DARK             2208
+#define IDB_CLASSIC_RESET_DARK          2209
+#define IDB_CLASSIC_PLAY_DARK           2210
+#define IDB_CLASSIC_PAUSE_DARK          2211
+#define IDB_CLASSIC_STOP_DARK           2212
+#define IDB_CLASSIC_CART1_DARK          2213
+#define IDB_CLASSIC_CART2_DARK          2214
+#define IDB_CLASSIC_BTDISKA_DARK        2215
+#define IDB_CLASSIC_BTDISKB_DARK        2216
+#define IDB_CLASSIC_BTCAS_DARK          2217
+#define IDB_CLASSIC_BTSIZE_DARK         2218
+#define IDB_CLASSIC_BTOPTIONS_DARK      2219
+#define IDB_CLASSIC_BTHELP_DARK         2220
+#define IDB_CLASSIC_FONT2_DARK          2221
+#define IDB_CLASSIC_BGSMALL_DARK        2240
+#define IDB_CLASSIC_FPS_DARK            2250
+#define IDB_CLASSIC_FREQ_DARK           2251
+
 #endif
 
 #define IDI_BLUEMSX                     30102

@@ -34,10 +34,15 @@
 #include <windows.h>
 #include "Theme.h"
 
+/* Two built-in variants: light (original artwork) and dark (the
+   classic_dark/ resource set).  Both appear as separate entries in the
+   theme combo so the user picks light or dark explicitly. */
 ThemeCollection* themeClassicCreate();
+ThemeCollection* themeClassicCreateDark();
 /* Re-run themeCreateSmall/Zoom/Fullscreen against the current DPI so the
    built-in zoom variants pick up the new SM_CYMENU value after a monitor
-   move (WM_DPICHANGED). */
+   move (WM_DPICHANGED).  Inspects tc->name to keep the light / dark
+   variant intact across the rebuild. */
 void themeClassicRebuild(ThemeCollection* tc);
 void themeClassicTitlebarUpdate(HWND);
 

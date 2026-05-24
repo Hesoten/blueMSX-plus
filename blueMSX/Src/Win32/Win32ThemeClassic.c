@@ -49,6 +49,11 @@ ThemeCollection* themeClassicCreate()
     return NULL;
 }
 
+ThemeCollection* themeClassicCreateDark()
+{
+    return NULL;
+}
+
 void themeClassicTitlebarUpdate(HWND wnd)
 {
 	return;
@@ -60,6 +65,77 @@ void themeClassicRebuild(ThemeCollection* tc)
 }
 
 #else
+
+/* Resolve the _DARK resource ID paired with a Classic light bitmap.
+   Returns 0 when no _DARK pair exists. */
+static int classicDarkIdFor(int lightId)
+{
+    switch (lightId) {
+    case IDB_CLASSIC_BG:        return IDB_CLASSIC_BG_DARK;
+    case IDB_CLASSIC_FONT:      return IDB_CLASSIC_FONT_DARK;
+    case IDB_CLASSIC_DISKA:     return IDB_CLASSIC_DISKA_DARK;
+    case IDB_CLASSIC_DISKB:     return IDB_CLASSIC_DISKB_DARK;
+    case IDB_CLASSIC_CAS:       return IDB_CLASSIC_CAS_DARK;
+    case IDB_CLASSIC_CAPS:      return IDB_CLASSIC_CAPS_DARK;
+    case IDB_CLASSIC_KANA:      return IDB_CLASSIC_KANA_DARK;
+    case IDB_CLASSIC_FS:        return IDB_CLASSIC_FS_DARK;
+    case IDB_CLASSIC_AS:        return IDB_CLASSIC_AS_DARK;
+    case IDB_CLASSIC_RESET:     return IDB_CLASSIC_RESET_DARK;
+    case IDB_CLASSIC_PLAY:      return IDB_CLASSIC_PLAY_DARK;
+    case IDB_CLASSIC_PAUSE:     return IDB_CLASSIC_PAUSE_DARK;
+    case IDB_CLASSIC_STOP:      return IDB_CLASSIC_STOP_DARK;
+    case IDB_CLASSIC_CART1:     return IDB_CLASSIC_CART1_DARK;
+    case IDB_CLASSIC_CART2:     return IDB_CLASSIC_CART2_DARK;
+    case IDB_CLASSIC_BTDISKA:   return IDB_CLASSIC_BTDISKA_DARK;
+    case IDB_CLASSIC_BTDISKB:   return IDB_CLASSIC_BTDISKB_DARK;
+    case IDB_CLASSIC_BTCAS:     return IDB_CLASSIC_BTCAS_DARK;
+    case IDB_CLASSIC_BTSIZE:    return IDB_CLASSIC_BTSIZE_DARK;
+    case IDB_CLASSIC_BTOPTIONS: return IDB_CLASSIC_BTOPTIONS_DARK;
+    case IDB_CLASSIC_BTHELP:    return IDB_CLASSIC_BTHELP_DARK;
+    case IDB_CLASSIC_FONT2:     return IDB_CLASSIC_FONT2_DARK;
+    case IDB_CLASSIC_BGSMALL:   return IDB_CLASSIC_BGSMALL_DARK;
+    case IDB_CLASSIC_FPS:       return IDB_CLASSIC_FPS_DARK;
+    case IDB_CLASSIC_FREQ:      return IDB_CLASSIC_FREQ_DARK;
+    default:                    return 0;
+    }
+}
+
+/* Set during theme construction (single-threaded) so loadClassicResBitmap
+   knows which resource set to load. */
+static int s_classicBuildDark = 0;
+
+/* Menu strip palette for themePageCreate; dark values match the
+   per-pixel transform applied to the classic_dark bitmaps. */
+static unsigned long classicMenuBgColor(void)
+{
+    return s_classicBuildDark ? archRGB(45, 46, 46)
+                              : archRGB(219, 221, 224);
+}
+static unsigned long classicMenuFocusColor(void)
+{
+    return s_classicBuildDark ? archRGB(64, 64, 110)
+                              : archRGB(128, 128, 255);
+}
+static unsigned long classicMenuTextColor(void)
+{
+    return s_classicBuildDark ? archRGB(220, 220, 224)
+                              : archRGB(0, 0, 0);
+}
+
+/* Load a Classic bitmap, preferring the _DARK variant during a dark
+   build.  Missing _DARK entries fall back to the light artwork so the
+   dark set can be filled in incrementally. */
+static ArchBitmap* loadClassicResBitmap(int id)
+{
+    if (s_classicBuildDark) {
+        int darkId = classicDarkIdFor(id);
+        if (darkId != 0) {
+            ArchBitmap* darkBm = archBitmapCreateFromId(darkId);
+            if (darkBm != NULL) return darkBm;
+        }
+    }
+    return archBitmapCreateFromId(id);
+}
 
 /* Design-y of the divider band's top row in the Classic background
    bitmap; anchoring here avoids odd-zoom rounding wobble. */
@@ -81,56 +157,56 @@ static ThemePage* themeCreateSmall()
                                0, 
                                0, 
                                328,                 // Menu width (= page width, no right gap)
-                               archRGB(219, 221, 224),
-                               archRGB(128, 128, 255),
-                               archRGB(0, 0, 0),
+                               classicMenuBgColor(),
+                               classicMenuFocusColor(),
+                               classicMenuTextColor(),
                                0,
                                0,
                                NULL);
 
     /* Background drawn at (0, vy) so the bitmap divider (design-y
        CLASSIC_BG_DIVIDER_Y) sits right below the menu strip. */
-    themePageAddImage(theme, activeImageCreate(0, vy, 1, archBitmapCreateFromId(IDB_CLASSIC_BGSMALL), 1),    THEME_TRIGGER_NONE, THEME_TRIGGER_NONE);
+    themePageAddImage(theme, activeImageCreate(0, vy, 1, loadClassicResBitmap(IDB_CLASSIC_BGSMALL), 1),    THEME_TRIGGER_NONE, THEME_TRIGGER_NONE);
 
-    themePageAddText(theme, activeTextCreate(283, 278 + vy, 256, archBitmapCreateFromId(IDB_CLASSIC_FONT2), 0, 256, 5, 0, 0, 0), THEME_TRIGGER_TEXT_VERSION, THEME_TRIGGER_NONE);
+    themePageAddText(theme, activeTextCreate(283, 278 + vy, 256, loadClassicResBitmap(IDB_CLASSIC_FONT2), 0, 256, 5, 0, 0, 0), THEME_TRIGGER_TEXT_VERSION, THEME_TRIGGER_NONE);
 
-    themePageAddImage(theme, activeImageCreate(204, 300 + vy, 2, archBitmapCreateFromId(IDB_CLASSIC_DISKA), 2),  THEME_TRIGGER_IMG_DISKA, THEME_TRIGGER_NONE);
-    themePageAddImage(theme, activeImageCreate(222, 300 + vy, 2, archBitmapCreateFromId(IDB_CLASSIC_DISKB), 2),  THEME_TRIGGER_IMG_DISKB, THEME_TRIGGER_NONE);
-    themePageAddImage(theme, activeImageCreate(240, 300 + vy, 2, archBitmapCreateFromId(IDB_CLASSIC_CAS), 2),    THEME_TRIGGER_IMG_CAS, THEME_TRIGGER_NONE);
-    themePageAddImage(theme, activeImageCreate(269, 302 + vy, 2, archBitmapCreateFromId(IDB_CLASSIC_CAPS), 2),   THEME_TRIGGER_IMG_CAPS, THEME_TRIGGER_NONE);
-    themePageAddImage(theme, activeImageCreate(284, 302 + vy, 2, archBitmapCreateFromId(IDB_CLASSIC_KANA), 2),   THEME_TRIGGER_IMG_KANA, THEME_TRIGGER_NONE);
-    themePageAddImage(theme, activeImageCreate(299, 302 + vy, 2, archBitmapCreateFromId(IDB_CLASSIC_FS), 2),     THEME_TRIGGER_IMG_FS, THEME_TRIGGER_NONE);
-    themePageAddImage(theme, activeImageCreate(314, 302 + vy, 2, archBitmapCreateFromId(IDB_CLASSIC_AS), 2),     THEME_TRIGGER_IMG_AS, THEME_TRIGGER_NONE);
+    themePageAddImage(theme, activeImageCreate(204, 300 + vy, 2, loadClassicResBitmap(IDB_CLASSIC_DISKA), 2),  THEME_TRIGGER_IMG_DISKA, THEME_TRIGGER_NONE);
+    themePageAddImage(theme, activeImageCreate(222, 300 + vy, 2, loadClassicResBitmap(IDB_CLASSIC_DISKB), 2),  THEME_TRIGGER_IMG_DISKB, THEME_TRIGGER_NONE);
+    themePageAddImage(theme, activeImageCreate(240, 300 + vy, 2, loadClassicResBitmap(IDB_CLASSIC_CAS), 2),    THEME_TRIGGER_IMG_CAS, THEME_TRIGGER_NONE);
+    themePageAddImage(theme, activeImageCreate(269, 302 + vy, 2, loadClassicResBitmap(IDB_CLASSIC_CAPS), 2),   THEME_TRIGGER_IMG_CAPS, THEME_TRIGGER_NONE);
+    themePageAddImage(theme, activeImageCreate(284, 302 + vy, 2, loadClassicResBitmap(IDB_CLASSIC_KANA), 2),   THEME_TRIGGER_IMG_KANA, THEME_TRIGGER_NONE);
+    themePageAddImage(theme, activeImageCreate(299, 302 + vy, 2, loadClassicResBitmap(IDB_CLASSIC_FS), 2),     THEME_TRIGGER_IMG_FS, THEME_TRIGGER_NONE);
+    themePageAddImage(theme, activeImageCreate(314, 302 + vy, 2, loadClassicResBitmap(IDB_CLASSIC_AS), 2),     THEME_TRIGGER_IMG_AS, THEME_TRIGGER_NONE);
 
-    themePageAddImage(theme, activeImageCreate(68, 298 + vy, 2, archBitmapCreateFromId(IDB_CLASSIC_FPS), 2), THEME_TRIGGER_IMG_NOT_STOPPED, THEME_TRIGGER_NONE);
-    themePageAddImage(theme, activeImageCreate(177, 298 + vy, 2, archBitmapCreateFromId(IDB_CLASSIC_FREQ), 2), THEME_TRIGGER_IMG_NOT_STOPPED, THEME_TRIGGER_NONE);
+    themePageAddImage(theme, activeImageCreate(68, 298 + vy, 2, loadClassicResBitmap(IDB_CLASSIC_FPS), 2), THEME_TRIGGER_IMG_NOT_STOPPED, THEME_TRIGGER_NONE);
+    themePageAddImage(theme, activeImageCreate(177, 298 + vy, 2, loadClassicResBitmap(IDB_CLASSIC_FREQ), 2), THEME_TRIGGER_IMG_NOT_STOPPED, THEME_TRIGGER_NONE);
 
-    themePageAddText(theme, activeTextCreate(143, 299 + vy, 256, archBitmapCreateFromId(IDB_CLASSIC_FONT), 0, 256, 5, 0, 0, 1),  THEME_TRIGGER_TEXT_FREQ, THEME_TRIGGER_NONE);
-    themePageAddText(theme, activeTextCreate(55,  299 + vy, 256, archBitmapCreateFromId(IDB_CLASSIC_FONT), 0, 256, 2, 0, 0, 1),  THEME_TRIGGER_TEXT_FPS, THEME_TRIGGER_NONE);
-    themePageAddText(theme, activeTextCreate(96, 299 + vy, 256, archBitmapCreateFromId(IDB_CLASSIC_FONT), 0, 256, 5, 0, 0, 0),   THEME_TRIGGER_TEXT_CPU, THEME_TRIGGER_NONE);
+    themePageAddText(theme, activeTextCreate(143, 299 + vy, 256, loadClassicResBitmap(IDB_CLASSIC_FONT), 0, 256, 5, 0, 0, 1),  THEME_TRIGGER_TEXT_FREQ, THEME_TRIGGER_NONE);
+    themePageAddText(theme, activeTextCreate(55,  299 + vy, 256, loadClassicResBitmap(IDB_CLASSIC_FONT), 0, 256, 2, 0, 0, 1),  THEME_TRIGGER_TEXT_FPS, THEME_TRIGGER_NONE);
+    themePageAddText(theme, activeTextCreate(96, 299 + vy, 256, loadClassicResBitmap(IDB_CLASSIC_FONT), 0, 256, 5, 0, 0, 0),   THEME_TRIGGER_TEXT_CPU, THEME_TRIGGER_NONE);
 
-    themePageAddDualButton(theme, activeDualButtonCreate(8, 22 + vy, 5, 0, archBitmapCreateFromId(IDB_CLASSIC_RESET),
+    themePageAddDualButton(theme, activeDualButtonCreate(8, 22 + vy, 5, 0, loadClassicResBitmap(IDB_CLASSIC_RESET),
                                               (ButtonEvent)actionEmuResetHard, 0, 0, 
                                               (ButtonEvent)actionMenuReset, 8, 47 + vy, 0), THEME_TRIGGER_NONE, THEME_TRIGGER_NONE, THEME_TRIGGER_NONE);
-    themePageAddDualButton(theme, activeDualButtonCreate(52, 22 + vy, 5, 0, archBitmapCreateFromId(IDB_CLASSIC_CART1),
+    themePageAddDualButton(theme, activeDualButtonCreate(52, 22 + vy, 5, 0, loadClassicResBitmap(IDB_CLASSIC_CART1),
                                               (ButtonEvent)actionCartInsert1, 0, 0, 
                                               (ButtonEvent)actionMenuCart1, 52, 47 + vy, 0), THEME_TRIGGER_NONE, THEME_TRIGGER_NONE, THEME_TRIGGER_NONE);
-    themePageAddDualButton(theme, activeDualButtonCreate(90, 22 + vy, 5, 0, archBitmapCreateFromId(IDB_CLASSIC_CART2),
+    themePageAddDualButton(theme, activeDualButtonCreate(90, 22 + vy, 5, 0, loadClassicResBitmap(IDB_CLASSIC_CART2),
                                               (ButtonEvent)actionCartInsert2, 0, 0, 
                                               (ButtonEvent)actionMenuCart2, 90, 47 + vy, 0), THEME_TRIGGER_NONE, THEME_TRIGGER_NONE, THEME_TRIGGER_NONE);
-    themePageAddDualButton(theme, activeDualButtonCreate(128, 22 + vy, 5, 0, archBitmapCreateFromId(IDB_CLASSIC_BTDISKA),
+    themePageAddDualButton(theme, activeDualButtonCreate(128, 22 + vy, 5, 0, loadClassicResBitmap(IDB_CLASSIC_BTDISKA),
                                               (ButtonEvent)actionDiskInsertA, 0, 0, 
                                               (ButtonEvent)actionMenuDiskA, 128, 47 + vy, 0), THEME_TRIGGER_NONE, THEME_TRIGGER_NONE, THEME_TRIGGER_NONE);
-    themePageAddDualButton(theme, activeDualButtonCreate(166, 22 + vy, 5, 0, archBitmapCreateFromId(IDB_CLASSIC_BTDISKB),
+    themePageAddDualButton(theme, activeDualButtonCreate(166, 22 + vy, 5, 0, loadClassicResBitmap(IDB_CLASSIC_BTDISKB),
                                               (ButtonEvent)actionDiskInsertB, 0, 0, 
                                               (ButtonEvent)actionMenuDiskB, 166, 47 + vy, 0), THEME_TRIGGER_NONE, THEME_TRIGGER_NONE, THEME_TRIGGER_NONE);
-    themePageAddDualButton(theme, activeDualButtonCreate(204, 22 + vy, 5, 0, archBitmapCreateFromId(IDB_CLASSIC_BTCAS),
+    themePageAddDualButton(theme, activeDualButtonCreate(204, 22 + vy, 5, 0, loadClassicResBitmap(IDB_CLASSIC_BTCAS),
                                               (ButtonEvent)actionCasInsert, 0, 0, 
                                               (ButtonEvent)actionMenuCassette, 204, 47 + vy, 0), THEME_TRIGGER_NONE, THEME_TRIGGER_NONE, THEME_TRIGGER_NONE);
-    themePageAddDualButton(theme, activeDualButtonCreate(251, 22 + vy, 5, 0, archBitmapCreateFromId(IDB_CLASSIC_BTSIZE),
+    themePageAddDualButton(theme, activeDualButtonCreate(251, 22 + vy, 5, 0, loadClassicResBitmap(IDB_CLASSIC_BTSIZE),
                                               (ButtonEvent)actionWindowSize2x, 0, 0, 
                                               (ButtonEvent)actionMenuZoom, 251, 47 + vy, 0), THEME_TRIGGER_NONE, THEME_TRIGGER_NONE, THEME_TRIGGER_NONE);
-    themePageAddDualButton(theme, activeDualButtonCreate(289, 22 + vy, 5, 0, archBitmapCreateFromId(IDB_CLASSIC_BTOPTIONS),
+    themePageAddDualButton(theme, activeDualButtonCreate(289, 22 + vy, 5, 0, loadClassicResBitmap(IDB_CLASSIC_BTOPTIONS),
                                               (ButtonEvent)actionPropShowEmulation, 0, 0, 
                                               (ButtonEvent)actionMenuOptions, 289, 47 + vy, 0), THEME_TRIGGER_NONE, THEME_TRIGGER_NONE, THEME_TRIGGER_NONE);
 
@@ -142,7 +218,7 @@ static ThemePage* themeCreateSmall()
    integer so odd zooms don't garble sprite-sheet glyphs. */
 static ArchBitmap* loadClassicBitmap(int z, int idX2, int frameCount)
 {
-    ArchBitmap* base = archBitmapCreateFromId(idX2);
+    ArchBitmap* base = loadClassicResBitmap(idX2);
     ArchBitmap* scaled;
     int origW, origH, dstW, dstH;
 
@@ -199,9 +275,9 @@ static ThemePage* themeCreateZoom(int z)
                             0,                     // Menu pos x
                             0,                     // Menu pos y
                             SC(648),               // Menu width (= page width, no right gap)
-                            archRGB(219, 221, 224),
-                            archRGB(128, 128, 255),
-                            archRGB(0, 0, 0),
+                            classicMenuBgColor(),
+                            classicMenuFocusColor(),
+                            classicMenuTextColor(),
                             0,
                             0,
                             NULL);
@@ -300,17 +376,17 @@ static ThemePage* themeCreateFullscreen()
                                0, 
                                0, 
                                640,
-                               archRGB(219, 221, 224),
-                               archRGB(128, 128, 255),
-                               archRGB(0, 0, 0),
+                               classicMenuBgColor(),
+                               classicMenuFocusColor(),
+                               classicMenuTextColor(),
                                0,
                                0,
                                NULL);
 
-    themePageAddImage(theme, activeImageCreate(-4, -51, 1, archBitmapCreateFromId(IDB_CLASSIC_BG), 1), THEME_TRIGGER_NONE, THEME_TRIGGER_NONE);
+    themePageAddImage(theme, activeImageCreate(-4, -51, 1, loadClassicResBitmap(IDB_CLASSIC_BG), 1), THEME_TRIGGER_NONE, THEME_TRIGGER_NONE);
 
-    themePageAddText(theme, activeTextCreate(534, 463, 256, archBitmapCreateFromId(IDB_CLASSIC_FONT2), 0, 256, 5, 0, 0, 0), THEME_TRIGGER_TEXT_VERSION, THEME_TRIGGER_NONE);
-    themePageAddText(theme, activeTextCreate(602, 463, 256, archBitmapCreateFromId(IDB_CLASSIC_FONT2), 0, 256, 5, 0, 0, 0), THEME_TRIGGER_TEXT_BUILDNUMBER, THEME_TRIGGER_NONE);
+    themePageAddText(theme, activeTextCreate(534, 463, 256, loadClassicResBitmap(IDB_CLASSIC_FONT2), 0, 256, 5, 0, 0, 0), THEME_TRIGGER_TEXT_VERSION, THEME_TRIGGER_NONE);
+    themePageAddText(theme, activeTextCreate(602, 463, 256, loadClassicResBitmap(IDB_CLASSIC_FONT2), 0, 256, 5, 0, 0, 0), THEME_TRIGGER_TEXT_BUILDNUMBER, THEME_TRIGGER_NONE);
 
     return theme;
 }
@@ -339,16 +415,27 @@ ThemeCollection* themeClassicCreate()
 {
     ThemeCollection* themeCollection = themeCollectionCreate();
     strcpy(themeCollection->name, "Classic");
+    s_classicBuildDark = 0;
     themeClassicPopulate(themeCollection);
     return themeCollection;
 }
 
-/* Called from WM_DPICHANGED: discards every zoom variant and the fullscreen
-   page, then re-runs themeCreateSmall/Zoom/Fullscreen so the embedded
-   archMenuStripHeight() lookups pick up the new monitor's DPI. */
+ThemeCollection* themeClassicCreateDark()
+{
+    ThemeCollection* themeCollection = themeCollectionCreate();
+    strcpy(themeCollection->name, "Classic Dark");
+    s_classicBuildDark = 1;
+    themeClassicPopulate(themeCollection);
+    s_classicBuildDark = 0;
+    return themeCollection;
+}
+
+/* Called from WM_DPICHANGED: re-runs theme creation so the embedded
+   archMenuStripHeight() lookups pick up the new DPI. */
 void themeClassicRebuild(ThemeCollection* tc)
 {
     int z;
+    int prevDark;
     if (tc == NULL) return;
     
     for (z = 1; z < THEME_ZOOM_COUNT; z++) {
@@ -361,7 +448,11 @@ void themeClassicRebuild(ThemeCollection* tc)
         themeDestroy(tc->fullscreen);
         tc->fullscreen = NULL;
     }
+
+    prevDark = s_classicBuildDark;
+    s_classicBuildDark = (strcmp(tc->name, "Classic Dark") == 0) ? 1 : 0;
     themeClassicPopulate(tc);
+    s_classicBuildDark = prevDark;
 }
 
 void themeClassicTitlebarUpdate(HWND wnd)

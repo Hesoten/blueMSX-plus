@@ -47,6 +47,33 @@ IDB_CLASSIC_BTSIZE      BITMAP                  "classic/buttonSize.bmp"
 IDB_CLASSIC_BTOPTIONS   BITMAP                  "classic/buttonOptions.bmp"
 IDB_CLASSIC_BTHELP      BITMAP                  "classic/buttonHelp.bmp"
 
+/* Dark counterparts under classic_dark/ for the Classic Dark theme. */
+IDB_CLASSIC_BG_DARK         BITMAP              "classic_dark/background.bmp"
+IDB_CLASSIC_BGSMALL_DARK    BITMAP              "classic_dark/backgroundsmall.bmp"
+IDB_CLASSIC_FONT_DARK       BITMAP              "classic_dark/font.bmp"
+IDB_CLASSIC_FONT2_DARK      BITMAP              "classic_dark/font2.bmp"
+IDB_CLASSIC_DISKA_DARK      BITMAP              "classic_dark/ledDiskA.bmp"
+IDB_CLASSIC_DISKB_DARK      BITMAP              "classic_dark/ledDiskB.bmp"
+IDB_CLASSIC_CAS_DARK        BITMAP              "classic_dark/ledCas.bmp"
+IDB_CLASSIC_CAPS_DARK       BITMAP              "classic_dark/ledCaps.bmp"
+IDB_CLASSIC_KANA_DARK       BITMAP              "classic_dark/ledKana.bmp"
+IDB_CLASSIC_FS_DARK         BITMAP              "classic_dark/ledFs.bmp"
+IDB_CLASSIC_AS_DARK         BITMAP              "classic_dark/ledAs.bmp"
+IDB_CLASSIC_FPS_DARK        BITMAP              "classic_dark/fpsUnit.bmp"
+IDB_CLASSIC_FREQ_DARK       BITMAP              "classic_dark/freqUnit.bmp"
+IDB_CLASSIC_RESET_DARK      BITMAP              "classic_dark/buttonReset.bmp"
+IDB_CLASSIC_PLAY_DARK       BITMAP              "classic_dark/buttonPlay.bmp"
+IDB_CLASSIC_PAUSE_DARK      BITMAP              "classic_dark/buttonPause.bmp"
+IDB_CLASSIC_STOP_DARK       BITMAP              "classic_dark/buttonStop.bmp"
+IDB_CLASSIC_CART1_DARK      BITMAP              "classic_dark/buttonCart1.bmp"
+IDB_CLASSIC_CART2_DARK      BITMAP              "classic_dark/buttonCart2.bmp"
+IDB_CLASSIC_BTDISKA_DARK    BITMAP              "classic_dark/buttonDiskA.bmp"
+IDB_CLASSIC_BTDISKB_DARK    BITMAP              "classic_dark/buttonDiskB.bmp"
+IDB_CLASSIC_BTCAS_DARK      BITMAP              "classic_dark/buttonCas.bmp"
+IDB_CLASSIC_BTSIZE_DARK     BITMAP              "classic_dark/buttonSize.bmp"
+IDB_CLASSIC_BTOPTIONS_DARK  BITMAP              "classic_dark/buttonOptions.bmp"
+IDB_CLASSIC_BTHELP_DARK     BITMAP              "classic_dark/buttonHelp.bmp"
+
 #endif
 
 /////////////////////////////////////////////////////////////////////////////

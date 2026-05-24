@@ -3057,8 +3057,9 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
                 pProperties->video.windowY = r->top;
             }
             /* Pin archMenuStripHeight() to LOWORD(wParam) (GetDpiForWindow
-               can still return the old DPI mid-transition) and rebuild
-               Classic so cached topShift / vy pick up the new DPI. */
+               can still return the old DPI mid-transition); rebuild every
+               built-in theme and force-unload external themes so they
+               pick up the new DPI. */
             archSetDpiOverride(LOWORD(wParam));
 
             if (st.themePageActive) {
@@ -3070,11 +3071,17 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
                startup-DPI font and overflows after DPI transitions. */
             menuRebuildForDpi(LOWORD(wParam));
 
-            if (st.themeList && st.themeList[0]) {
-                themeClassicRebuild(st.themeList[0]);
-            }
-            for (int i = 1; st.themeList && st.themeList[i] != NULL; i++) {
-                themeCollectionUnload(st.themeList[i]);
+            /* Rebuild built-ins (path=="") in place; drop externals so
+               themeSet below lazy-reloads them at the new DPI. */
+            if (st.themeList) {
+                for (int i = 0; st.themeList[i] != NULL; i++) {
+                    ThemeCollection* tc = st.themeList[i];
+                    if (tc->path[0] == 0) {
+                        themeClassicRebuild(tc);
+                    } else {
+                        themeCollectionUnload(tc);
+                    }
+                }
             }
             themeSet(pProperties->settings.themeName, 1);
 
@@ -3270,7 +3277,11 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
                     }
                 }
 
-                if (!strcmp(pProperties->settings.themeName,"Classic")) themeClassicTitlebarUpdate(hwnd);
+                /* Classic / Classic Dark drive their full title from this
+                   100ms poller; other themes set theirs at theme change. */
+                if (!strcmp(pProperties->settings.themeName, "Classic") ||
+                    !strcmp(pProperties->settings.themeName, "Classic Dark"))
+                    themeClassicTitlebarUpdate(hwnd);
 
                 if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN) {
                     int drv = pProperties->video.driver;
@@ -4051,7 +4062,13 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     }
 
     st.themePageActive = NULL;
-    st.themeList = createThemeList(themeClassicCreate());
+    {
+        ThemeCollection* builtins[3];
+        builtins[0] = themeClassicCreate();
+        builtins[1] = themeClassicCreateDark();
+        builtins[2] = NULL;
+        st.themeList = createThemeList(builtins);
+    }
     themeSet(emuCheckThemeArgument(szLine), 0);
 
     archUpdateWindow();

@@ -50,7 +50,10 @@ ThemeCollection* themeLoadSkeleton(const char* themePath);
 int themeCollectionEnsureLoaded(ThemeCollection* tc);
 int themeCollectionEnsureZoom(ThemeCollection* tc, int z);
 
-ThemeCollection** createThemeList(ThemeCollection* defaultTheme);
+/* defaultThemes: NULL-terminated array of fully-loaded built-in themes
+   (e.g. Classic + Classic Dark) prepended to the list before any
+   external XML themes discovered under Themes/. */
+ThemeCollection** createThemeList(ThemeCollection** defaultThemes);
 ThemeCollection** themeGetAvailable();
 
 int getThemeListIndex(ThemeCollection** themeList, const char* name, int forceMatch);

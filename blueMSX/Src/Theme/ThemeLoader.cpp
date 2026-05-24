@@ -1810,17 +1810,17 @@ extern "C" ThemeCollection* themeLoadAtScale(const char* themePath, double scale
 
 static ThemeCollection** currentWin32Theme = NULL;
 
-extern "C" ThemeCollection** createThemeList(ThemeCollection* defaultTheme)
+extern "C" ThemeCollection** createThemeList(ThemeCollection** defaultThemes)
 {
     const char* singleTheme = appConfigGetString("singletheme", NULL);
     ThemeCollection** themeList = (ThemeCollection**)calloc(1, 128 * sizeof(ThemeCollection*));
     int index = 0;
 
-    /* Built-in default (Classic) is fully loaded; mark it so the lazy gate
-       doesn't try to re-parse a non-existent theme.xml. */
-    if (defaultTheme != NULL) {
-        defaultTheme->loaded = 1;
-        themeList[index++] = defaultTheme;
+    /* Built-ins are fully loaded; mark loaded=1 so EnsureLoaded short-circuits. */
+    while (defaultThemes != NULL && *defaultThemes != NULL) {
+        (*defaultThemes)->loaded = 1;
+        themeList[index++] = *defaultThemes;
+        defaultThemes++;
     }
 
     if (singleTheme != NULL) {
