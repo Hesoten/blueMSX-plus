@@ -1511,6 +1511,36 @@ static void adjustWindowRectForDpi(RECT* rc, DWORD style, UINT dpi) {
         AdjustWindowRect(rc, style, FALSE);
 }
 
+/* Composite theme through the 640x480 buffer onto the emu area.  Uses
+   MonitorFromWindow to avoid pre-SetWindowPos client size in fullscreen. */
+typedef void (*ThemePageDrawFn)(ThemePage*, HDC);
+static void themeDrawAllAdapter(ThemePage* page, HDC hdc) {
+    themePageDraw(page, hdc, NULL);
+}
+static void drawThemeOnEmuArea(HWND hwnd, HDC hdc, ThemePageDrawFn drawFn) {
+    HDC hMemDC = CreateCompatibleDC(hdc);
+    HBITMAP oldBmp = (HBITMAP)SelectObject(hMemDC, st.hBitmap);
+    HMONITOR hMon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY);
+    MONITORINFO mi = { sizeof(mi) };
+    int dstW, dstH;
+    if (hMon && GetMonitorInfo(hMon, &mi)) {
+        dstW = mi.rcMonitor.right  - mi.rcMonitor.left;
+        dstH = mi.rcMonitor.bottom - mi.rcMonitor.top;
+    } else {
+        RECT r;
+        GetClientRect(hwnd, &r);
+        dstW = r.right;
+        dstH = r.bottom;
+    }
+    drawFn(st.themePageActive, hMemDC);
+    StretchBlt(hdc, 0, 0, dstW, dstH,
+               hMemDC, 0, 0,
+               st.themePageActive->width,
+               st.themePageActive->height, SRCCOPY);
+    SelectObject(hMemDC, oldBmp);
+    DeleteDC(hMemDC);
+}
+
 static int getZoom() {
     if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN && 
         (pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO || 
@@ -1547,21 +1577,51 @@ void themeSet(char* themeName, int forceMatch) {
     if (st.themePageActive) {
         themePageActivate(st.themePageActive, NULL);
     }
+    /* Drop the dangling pointer before unloading the theme it belongs to. */
+    st.themePageActive = NULL;
 
     st.rgnEnable = -1;
     setClipRegion(0);
     st.themeIndex = index;
-    strcpy(pProperties->settings.themeName, themeName);
-    strcpy(pProperties->settings.themeName, st.themeList[st.themeIndex]->name);
 
-    if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN) {
-        st.themePageActive = themeGetCurrentPage(st.themeList[st.themeIndex]->fullscreen);
-    }
-    else {
-        int zoomIdx = pProperties->video.windowSize + 1;  /* P_VIDEO_SIZEX1..X8 -> 1..8 */
-        Theme* page = st.themeList[st.themeIndex]->zoom[zoomIdx];
-        if (page == NULL) page = st.themeList[st.themeIndex]->zoom[2];  /* fallback to normal */
-        st.themePageActive = themeGetCurrentPage(page);
+    {
+        ThemeCollection* tc = st.themeList[st.themeIndex];
+        /* Unload other external themes (~700 bitmaps each) before loading
+           the new one; repeated switches otherwise exhaust GDI quota.
+           themeList[0] stays loaded as Classic fallback. */
+        for (int i = 0; st.themeList[i] != NULL; i++) {
+            if (i == 0) continue;
+            if (st.themeList[i] == tc) continue;
+            themeCollectionUnload(st.themeList[i]);
+        }
+        /* Lazy parse on first selection.  Must precede themeName write:
+           tc->name is the directory placeholder until EnsureLoaded reads
+           the XML display name, and writing the placeholder back to INI
+           used to silently fall back to Classic on next launch. */
+        themeCollectionEnsureLoaded(tc);
+        strcpy(pProperties->settings.themeName, tc->name);
+
+        if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN) {
+            Theme* page = tc->fullscreen;
+            if (page == NULL && st.themeList[0] != NULL) page = st.themeList[0]->fullscreen;
+            st.themePageActive = themeGetCurrentPage(page);
+        }
+        else {
+            int zoomIdx = pProperties->video.windowSize + 1;  /* P_VIDEO_SIZEX1..X8 -> 1..8 */
+            /* External themes ship zoom[2]+fullscreen; synthesise
+               zoom[3..8] from "normal".  z=1 falls back to Classic. */
+            if (zoomIdx >= 3 && tc->zoom[zoomIdx] == NULL && tc->zoom[2] != NULL) {
+                themeCollectionEnsureZoom(tc, zoomIdx);
+            }
+            Theme* page = tc->zoom[zoomIdx];
+            if (page == NULL) page = tc->zoom[2];                    /* fallback to normal */
+            if (page == NULL && st.themeList[0] != NULL) {
+                /* Last-resort Classic fallback (typically zoom[1]). */
+                page = st.themeList[0]->zoom[zoomIdx];
+                if (page == NULL) page = st.themeList[0]->zoom[2];
+            }
+            st.themePageActive = themeGetCurrentPage(page);
+        }
     }
 
     if (st.themePageActive) {
@@ -1650,8 +1710,17 @@ void themeSet(char* themeName, int forceMatch) {
             int i;
             HRGN hrgn;
             POINT pt[512];
-            int dx = GetSystemMetrics(SM_CXFIXEDFRAME);
-            int dy = GetSystemMetrics(SM_CYFIXEDFRAME) + GetSystemMetrics(SM_CYCAPTION);
+            /* SM_CXFIXEDFRAME is non-DPI-aware 3px; adjustWindowRectForDpi
+               gives actual WS_DLGFRAME margins so SetWindowRgn doesn't
+               clip the bitmap. */
+            int dx, dy;
+            {
+                RECT frameRc = { 0, 0, 0, 0 };
+                DWORD style = (DWORD)GetWindowLongPtr(st.hwnd, GWL_STYLE);
+                adjustWindowRectForDpi(&frameRc, style, getDpiForWindow(st.hwnd));
+                dx = -frameRc.left;
+                dy = -frameRc.top;
+            }
 
             if (clipCount == 0) {
                 pt[0].x = 0 + dx;
@@ -2271,10 +2340,15 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             }
             st.themePageActive = NULL;
 
+            /* Rebuild menu font for new DPI; otherwise strip keeps the
+               startup-DPI font and overflows after DPI transitions. */
             menuRebuildForDpi(LOWORD(wParam));
 
             if (st.themeList && st.themeList[0]) {
                 themeClassicRebuild(st.themeList[0]);
+            }
+            for (int i = 1; st.themeList && st.themeList[i] != NULL; i++) {
+                themeCollectionUnload(st.themeList[i]);
             }
             themeSet(pProperties->settings.themeName, 1);
 
@@ -2291,6 +2365,8 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         }
 
     case WM_DISPLAYCHANGE:
+        /* WM_MOVE above lacks `break`; st.enteringFullscreen guard below
+           makes the fall-through harmless during normal moves. */
         if (pProperties->video.driver != P_VIDEO_DRVGDI) {
             int zoom = getZoom();
             if (st.enteringFullscreen) {
@@ -2469,7 +2545,20 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
                 }
 
                 if (!strcmp(pProperties->settings.themeName,"Classic")) themeClassicTitlebarUpdate(hwnd);
-                themePageUpdate(st.themePageActive, hdc);
+
+                if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN) {
+                    int drv = pProperties->video.driver;
+                    /* DDraw: parent stays windowed; status update goes
+                       direct to hdc (no monitor-sized stretch). */
+                    if (drv == P_VIDEO_DRVDIRECTX_VIDEO ||
+                        drv == P_VIDEO_DRVDIRECTX) {
+                        themePageUpdate(st.themePageActive, hdc);
+                    } else {
+                        drawThemeOnEmuArea(hwnd, hdc, themePageUpdate);
+                    }
+                } else {
+                    themePageUpdate(st.themePageActive, hdc);
+                }
                 ReleaseDC(hwnd, hdc);
 
                 PatchDiskSetBusy(0, 0);
@@ -2596,21 +2685,36 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
                 HDC hMemDC = CreateCompatibleDC(hdc);
                 HBITMAP hBitmap = (HBITMAP)SelectObject(hMemDC, st.hBitmap);
 
-                 if (pProperties->video.windowSize != P_VIDEO_SIZEFULLSCREEN) {
-					// the theme is only drawn when not in fullscreen mode
-					themePageDraw(st.themePageActive, hMemDC, NULL);
+                if (pProperties->video.windowSize != P_VIDEO_SIZEFULLSCREEN) {
+                    themePageDraw(st.themePageActive, hMemDC, NULL);
                     BitBlt(hdc, 0, 0, st.themePageActive->width, st.themePageActive->height, hMemDC, 0, 0, SRCCOPY);
+                    SelectObject(hMemDC, hBitmap);
+                    DeleteDC(hMemDC);
                 }
                 else {
-                    RECT r;
-                    GetClientRect(hwnd, &r);
-					themePageDraw(st.themePageActive, hMemDC, NULL);
-                    StretchBlt(hdc, 0, 0, r.right, r.bottom, 
-                               hMemDC, 0, 0, st.themePageActive->width, st.themePageActive->height, SRCCOPY);
+                    int drv = pProperties->video.driver;
+                    /* DDraw fullscreen keeps the parent at windowed size,
+                       so drawThemeOnEmuArea's monitor-sized StretchBlt
+                       clips and races DDraw flips; use GetClientRect. */
+                    if (drv == P_VIDEO_DRVDIRECTX_VIDEO ||
+                        drv == P_VIDEO_DRVDIRECTX) {
+                        RECT r;
+                        GetClientRect(hwnd, &r);
+                        themePageDraw(st.themePageActive, hMemDC, NULL);
+                        StretchBlt(hdc, 0, 0, r.right, r.bottom,
+                                   hMemDC, 0, 0,
+                                   st.themePageActive->width,
+                                   st.themePageActive->height, SRCCOPY);
+                        SelectObject(hMemDC, hBitmap);
+                        DeleteDC(hMemDC);
+                    } else {
+                        /* D3D12: parent already at monitor pixels;
+                           MonitorFromWindow avoids racing SetWindowPos. */
+                        SelectObject(hMemDC, hBitmap);
+                        DeleteDC(hMemDC);
+                        drawThemeOnEmuArea(hwnd, hdc, themeDrawAllAdapter);
+                    }
                 }
-
-                SelectObject(hMemDC, hBitmap);
-                DeleteDC(hMemDC);                
             }
             EndPaint(hwnd, &ps);
         }
@@ -3372,41 +3476,112 @@ void archShowShortcutsEditor()
     exitDialogShow();
 }
 
+/* Tool-window scale = (mainZoom + 1) / 2 clamped to [1.0, 4.0]; cache
+   keyed on halfSteps = (int)(scale * 2), range 2..8.  Non-DDraw
+   fullscreen derives equivalent zoom from the host monitor. */
+#define TOOLTHEME_MIN_HALFSTEPS 2  /* scale 1.0 */
+#define TOOLTHEME_MAX_HALFSTEPS 8  /* scale 4.0 */
+#define TOOLTHEME_CACHE_SIZE    (TOOLTHEME_MAX_HALFSTEPS + 1)
+
+static int toolThemeHalfSteps(void)
+{
+    int isDDrawFs = pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN &&
+                    (pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO ||
+                     pProperties->video.driver == P_VIDEO_DRVDIRECTX);
+    int halfSteps;
+    if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN && !isDDrawFs) {
+        /* D3D12 fullscreen lacks a display mode; derive zoom from the
+           main window's monitor (matches DDraw's getZoom formula). */
+        int eqZoom = 4;
+        HMONITOR hMon = MonitorFromWindow(st.hwnd, MONITOR_DEFAULTTOPRIMARY);
+        MONITORINFO mi = { sizeof(mi) };
+        if (hMon && GetMonitorInfo(hMon, &mi)) {
+            int screenW = mi.rcMonitor.right  - mi.rcMonitor.left;
+            int screenH = mi.rcMonitor.bottom - mi.rcMonitor.top;
+            eqZoom = min(min(screenW / 320, screenH / 240), 8);
+            if (eqZoom < 1) eqZoom = 1;
+        }
+        halfSteps = eqZoom + 1;
+    }
+    else {
+        halfSteps = getZoom() + 1;
+    }
+    if (halfSteps < TOOLTHEME_MIN_HALFSTEPS) halfSteps = TOOLTHEME_MIN_HALFSTEPS;
+    if (halfSteps > TOOLTHEME_MAX_HALFSTEPS) halfSteps = TOOLTHEME_MAX_HALFSTEPS;
+    return halfSteps;
+}
+
+/* Walk every per-scale cache slot for an existing instance of the
+   requested aux window so a zoom toggle doesn't spawn a duplicate. */
+static int toolWindowBringExistingToFront(ThemeCollection** cache,
+                                          int cacheSize,
+                                          unsigned long hash)
+{
+    int h, i;
+    for (h = 0; h < cacheSize; h++) {
+        if (cache[h] == NULL) continue;
+        for (i = 0; i < THEME_MAX_WINDOWS; i++) {
+            if (cache[h]->theme[i] != NULL &&
+                cache[h]->theme[i]->reference != NULL &&
+                themeGetNameHash(cache[h]->theme[i]->name) == hash)
+            {
+                SetForegroundWindow((HWND)cache[h]->theme[i]->reference);
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
 void archShowKeyboardEditor()
 {
-    static ThemeCollection* tc = NULL;
+    static ThemeCollection* tc[TOOLTHEME_CACHE_SIZE] = { NULL };
+    unsigned long hash = themeGetNameHash("blueMSX - Input Editor");
+    int hs;
     
-    if (tc == NULL) {
+    if (toolWindowBringExistingToFront(tc, TOOLTHEME_CACHE_SIZE, hash)) {
+        return;
+    }
+
+    hs = toolThemeHalfSteps();
+    if (tc[hs] == NULL) {
         char themePath[MAX_PATH];
         GetCurrentDirectoryU(MAX_PATH, themePath);
         strcat(themePath, "\\Keyboard Config\\Theme");
-        tc = themeLoad(themePath);
+        tc[hs] = themeLoadAtScale(themePath, hs / 2.0);
     }
 
-    if (tc == NULL) {
+    if (tc[hs] == NULL) {
         MessageBoxU(NULL, "Could not find the Keyboard Editor Theme", langErrorTitle(), MB_ICONERROR | MB_OK);
     }
     else {
-        themeCollectionOpenWindow(tc, themeGetNameHash("blueMSX - Input Editor"));
+        themeCollectionOpenWindow(tc[hs], hash);
     }
 }
 
 void archShowMixer()
 {
-    static ThemeCollection* tc = NULL;
+    static ThemeCollection* tc[TOOLTHEME_CACHE_SIZE] = { NULL };
+    unsigned long hash = themeGetNameHash("blueMSX - Sound Mixer");
+    int hs;
     
-    if (tc == NULL) {
+    if (toolWindowBringExistingToFront(tc, TOOLTHEME_CACHE_SIZE, hash)) {
+        return;
+    }
+
+    hs = toolThemeHalfSteps();
+    if (tc[hs] == NULL) {
         char themePath[MAX_PATH];
         GetCurrentDirectoryU(MAX_PATH, themePath);
         strcat(themePath, "\\Properties\\Mixer");
-        tc = themeLoad(themePath);
+        tc[hs] = themeLoadAtScale(themePath, hs / 2.0);
     }
 
-    if (tc == NULL) {
+    if (tc[hs] == NULL) {
         MessageBoxU(NULL, "Could not find the Mixer Theme", langErrorTitle(), MB_ICONERROR | MB_OK);
     }
     else {
-        themeCollectionOpenWindow(tc, themeGetNameHash("blueMSX - Sound Mixer"));
+        themeCollectionOpenWindow(tc[hs], hash);
     }
 }
 

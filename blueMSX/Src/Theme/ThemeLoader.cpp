@@ -37,6 +37,7 @@ extern "C" {
 #include "StrcmpNoCase.h"
 #include "AppConfig.h"
 #include "ArchBitmap.h"
+#include "ArchMenu.h"
 #include "ArchText.h"
 #include "ArchFile.h"
 #ifdef USE_ARCH_GLOB
@@ -63,6 +64,36 @@ struct ThemeDefaultInfo {
 };
 
 static char rootPath[512];
+
+/* Scale used when re-parsing "normal" mode to synthesise zoom[N]. */
+static double g_themeScale = 1.0;
+
+/* XML's 22 px menu band is fixed-pixel: below-menu elements shift by
+   topShift to sit flush against the runtime menu strip. */
+#define DESIGN_MENU_H 22
+/* Reveal area below the menu band so theme-author dividers placed just
+   under the strip stay visible. */
+#define EXTERNAL_THEME_TOP_GAP 6
+static int g_topShift         = 0;
+static int g_designMenuY      = -1;  /* sentinel = no menu band on this page */
+static int g_designMenuBottom = -1;  /* = g_designMenuY + DESIGN_MENU_H */
+
+static int themeScaledCoord(int v)
+{
+    if (g_themeScale == 1.0) return v;
+    return (int)(v * g_themeScale + 0.5);
+}
+
+/* Zoom-scale; subtract topShift below the menu band so content sits
+   flush against the runtime strip. */
+static int themeScaledY(int v)
+{
+    int scaled = themeScaledCoord(v);
+    if (g_designMenuBottom >= 0 && v >= g_designMenuBottom) {
+        scaled -= g_topShift;
+    }
+    return scaled;
+}
 
 const char* fullPath(const char* filename)
 {
@@ -121,24 +152,28 @@ static ButtonEvent getAction(TiXmlElement* el, const char* actionTag,
     if (0 == strcmp(action, "switch-frontswitch"))      return (ButtonEvent)actionToggleFrontSwitch;
     if (0 == strcmp(action, "switch-pauseswitch"))      return (ButtonEvent)actionTogglePauseSwitch;
     
-    if (0 == strcmp(action, "menu-specialcart1"))       { *arg1 += dx; *arg2 += dy; return (ButtonEvent)actionMenuSpecialCart1; }
-    if (0 == strcmp(action, "menu-specialcart2"))       { *arg1 += dx; *arg2 += dy; return (ButtonEvent)actionMenuSpecialCart2; }
-    if (0 == strcmp(action, "menu-reset"))              { *arg1 += dx; *arg2 += dy; return (ButtonEvent)actionMenuReset; }
-    if (0 == strcmp(action, "menu-run"))                { *arg1 += dx; *arg2 += dy; return (ButtonEvent)actionMenuRun; }
-    if (0 == strcmp(action, "menu-file"))               { *arg1 += dx; *arg2 += dy; return (ButtonEvent)actionMenuFile; }
-    if (0 == strcmp(action, "menu-cart1"))              { *arg1 += dx; *arg2 += dy; return (ButtonEvent)actionMenuCart1; }
-    if (0 == strcmp(action, "menu-cart2"))              { *arg1 += dx; *arg2 += dy; return (ButtonEvent)actionMenuCart2; }
-    if (0 == strcmp(action, "menu-harddisk"))           { *arg1 += dx; *arg2 += dy; return (ButtonEvent)actionMenuHarddisk; }
-    if (0 == strcmp(action, "menu-diska"))              { *arg1 += dx; *arg2 += dy; return (ButtonEvent)actionMenuDiskA; }
-    if (0 == strcmp(action, "menu-diskb"))              { *arg1 += dx; *arg2 += dy; return (ButtonEvent)actionMenuDiskB; }
-    if (0 == strcmp(action, "menu-cassette"))           { *arg1 += dx; *arg2 += dy; return (ButtonEvent)actionMenuCassette; }
-    if (0 == strcmp(action, "menu-printer"))            { *arg1 += dx; *arg2 += dy; return (ButtonEvent)actionMenuPrinter; }
-    if (0 == strcmp(action, "menu-joyport1"))           { *arg1 += dx; *arg2 += dy; return (ButtonEvent)actionMenuJoyPort1; }   
-    if (0 == strcmp(action, "menu-joyport2"))           { *arg1 += dx; *arg2 += dy; return (ButtonEvent)actionMenuJoyPort2; } 
-    if (0 == strcmp(action, "menu-windowsize"))         { *arg1 += dx; *arg2 += dy; return (ButtonEvent)actionMenuZoom; }
-    if (0 == strcmp(action, "menu-options"))            { *arg1 += dx; *arg2 += dy; return (ButtonEvent)actionMenuOptions; }
-    if (0 == strcmp(action, "menu-help"))               { *arg1 += dx; *arg2 += dy; return (ButtonEvent)actionMenuHelp; }
-    if (0 == strcmp(action, "menu-tools"))              { *arg1 += dx; *arg2 += dy; return (ButtonEvent)actionMenuTools; }
+    /* TrackPopupMenu wants client-rendered (post-zoom) coords. */
+#define MENU_XY()  do { *arg1 = themeScaledCoord((int)*arg1 + dx); \
+                        *arg2 = themeScaledY   ((int)*arg2 + dy); } while (0)
+    if (0 == strcmp(action, "menu-specialcart1"))       { MENU_XY(); return (ButtonEvent)actionMenuSpecialCart1; }
+    if (0 == strcmp(action, "menu-specialcart2"))       { MENU_XY(); return (ButtonEvent)actionMenuSpecialCart2; }
+    if (0 == strcmp(action, "menu-reset"))              { MENU_XY(); return (ButtonEvent)actionMenuReset; }
+    if (0 == strcmp(action, "menu-run"))                { MENU_XY(); return (ButtonEvent)actionMenuRun; }
+    if (0 == strcmp(action, "menu-file"))               { MENU_XY(); return (ButtonEvent)actionMenuFile; }
+    if (0 == strcmp(action, "menu-cart1"))              { MENU_XY(); return (ButtonEvent)actionMenuCart1; }
+    if (0 == strcmp(action, "menu-cart2"))              { MENU_XY(); return (ButtonEvent)actionMenuCart2; }
+    if (0 == strcmp(action, "menu-harddisk"))           { MENU_XY(); return (ButtonEvent)actionMenuHarddisk; }
+    if (0 == strcmp(action, "menu-diska"))              { MENU_XY(); return (ButtonEvent)actionMenuDiskA; }
+    if (0 == strcmp(action, "menu-diskb"))              { MENU_XY(); return (ButtonEvent)actionMenuDiskB; }
+    if (0 == strcmp(action, "menu-cassette"))           { MENU_XY(); return (ButtonEvent)actionMenuCassette; }
+    if (0 == strcmp(action, "menu-printer"))            { MENU_XY(); return (ButtonEvent)actionMenuPrinter; }
+    if (0 == strcmp(action, "menu-joyport1"))           { MENU_XY(); return (ButtonEvent)actionMenuJoyPort1; }
+    if (0 == strcmp(action, "menu-joyport2"))           { MENU_XY(); return (ButtonEvent)actionMenuJoyPort2; }
+    if (0 == strcmp(action, "menu-windowsize"))         { MENU_XY(); return (ButtonEvent)actionMenuZoom; }
+    if (0 == strcmp(action, "menu-options"))            { MENU_XY(); return (ButtonEvent)actionMenuOptions; }
+    if (0 == strcmp(action, "menu-help"))               { MENU_XY(); return (ButtonEvent)actionMenuHelp; }
+    if (0 == strcmp(action, "menu-tools"))              { MENU_XY(); return (ButtonEvent)actionMenuTools; }
+#undef MENU_XY
     
     if (0 == strcmp(action, "dlg-emulation"))           return (ButtonEvent)actionPropShowEmulation;
     if (0 == strcmp(action, "dlg-controls"))            return (ButtonEvent)actionPropShowEmulation;
@@ -577,7 +612,143 @@ static ArchBitmap* loadBitmap(TiXmlElement* el, int* x, int* y, int* columns)
         return NULL;
     }
     
+    /* Per-frame scaling deferred to applyThemeScale (frame count is
+       caller-specific; naive round on raw bitmap smears sprite frames). */
     return archBitmapCreateFromFile(fullPath(src));
+}
+
+/* Pre-stretch to g_themeScale.  Sprite frames stay NN; single-frame uses
+   HALFTONE at non-integer zoom.  Returns input on failure. */
+static ArchBitmap* applyThemeScale(ArchBitmap* bm, int frameCount)
+{
+    if (bm == NULL || g_themeScale == 1.0) {
+        return bm;
+    }
+    int origW = archBitmapGetWidth(bm);
+    int origH = archBitmapGetHeight(bm);
+    int dstW;
+    bool useSprite = (frameCount > 1 && origW % frameCount == 0);
+    if (useSprite) {
+        int frameW    = origW / frameCount;
+        int dstFrameW = themeScaledCoord(frameW);
+        dstW          = dstFrameW * frameCount;
+    } else {
+        dstW = themeScaledCoord(origW);
+    }
+    int dstH = themeScaledCoord(origH);
+
+    /* x3/x5/x7 are half-integer scales (N/2.0 with odd N). */
+    bool integerZoom = (g_themeScale == (double)(int)g_themeScale);
+
+    ArchBitmap* scaled;
+    if (!useSprite && !integerZoom) {
+        scaled = archBitmapCreateScaledCopySmooth(bm, dstW, dstH);
+    } else {
+        scaled = archBitmapCreateScaledCopy(bm, dstW, dstH);
+    }
+    if (scaled == NULL) {
+        return bm;
+    }
+    archBitmapDestroy(bm);
+    return scaled;
+}
+
+/* Explicit srcColumns wins over caller's known count (999 = unset). */
+static int spriteFrameCount(int columns, int count)
+{
+    if (columns > 1 && columns < 999) return columns;
+    if (count > 1) return count;
+    return 1;
+}
+
+/* Split a background spanning the menu band into top/menu/below sub-
+   bitmaps; the menu portion is stretched to the runtime strip height so
+   no black strip leaks beside the Win32 menu.  Returns 1 on split
+   (consumes *bm), 0 otherwise. */
+static int splitImageAtMenuBand(ArchBitmap** bm, ArchBitmap* designBm,
+                                int absDesignY, int designH,
+                                ArchBitmap** outTopBm,   int* outTopDstY,
+                                ArchBitmap** outMenuBm,  int* outMenuDstY,
+                                ArchBitmap** outBelowBm, int* outBelowDstY)
+{
+    *outTopBm   = NULL; *outTopDstY   = 0;
+    *outMenuBm  = NULL; *outMenuDstY  = 0;
+    *outBelowBm = NULL; *outBelowDstY = 0;
+
+    if (g_designMenuBottom < 0)                           return 0;
+    if (absDesignY + designH <= g_designMenuY)            return 0; /* entirely above */
+    if (absDesignY >= g_designMenuBottom)                 return 0; /* entirely below */
+
+    int topRowsDesign = g_designMenuY - absDesignY;
+    int botRowsDesign = g_designMenuBottom - absDesignY;
+    if (topRowsDesign < 0)        topRowsDesign = 0;
+    if (botRowsDesign > designH)  botRowsDesign = designH;
+    int menuRowsDesign = botRowsDesign - topRowsDesign;
+
+    ArchBitmap* src     = *bm;
+    int scaledW         = archBitmapGetWidth(src);
+    int scaledH         = archBitmapGetHeight(src);
+    int topRowsScaled   = themeScaledCoord(topRowsDesign);
+    int botRowsScaled   = themeScaledCoord(botRowsDesign);
+    if (botRowsScaled > scaledH)  botRowsScaled = scaledH;
+    if (topRowsScaled > scaledH)  topRowsScaled = scaledH;
+
+    int menuHRuntime = archMenuStripHeight();
+    if (menuHRuntime <= 0) menuHRuntime = DESIGN_MENU_H;
+
+    /* Top portion (above-menu rows). */
+    if (topRowsScaled > 0) {
+        ArchBitmap* topBm = archBitmapCreate(scaledW, topRowsScaled);
+        archBitmapCopy(topBm, 0, 0, src, 0, 0, scaledW, topRowsScaled);
+        *outTopBm   = topBm;
+        *outTopDstY = themeScaledCoord(absDesignY);  /* unshifted */
+    }
+
+    /* Stretch in a single NN step from the design bitmap -- double-interp
+       via applyThemeScale smears 1-px dividers at x3/x5/x7. */
+    if (botRowsScaled > topRowsScaled && menuRowsDesign > 0) {
+        int menuRowsSrcH = botRowsScaled - topRowsScaled;
+        int menuDstHRuntime = menuHRuntime + EXTERNAL_THEME_TOP_GAP;
+        int menuPortionDstH = (menuRowsDesign * menuDstHRuntime + DESIGN_MENU_H/2) / DESIGN_MENU_H;
+        if (menuPortionDstH < 1) menuPortionDstH = 1;
+
+        ArchBitmap* menuBm;
+        if (designBm != NULL) {
+            int designW = archBitmapGetWidth(designBm);
+            int topRowsFromDesign = (g_designMenuY > absDesignY) ? (g_designMenuY - absDesignY) : 0;
+            ArchBitmap* menuDesignSrc = archBitmapCreate(designW, menuRowsDesign);
+            archBitmapCopy(menuDesignSrc, 0, 0, designBm, 0, topRowsFromDesign,
+                           designW, menuRowsDesign);
+            menuBm = archBitmapCreateScaledCopy(menuDesignSrc, scaledW, menuPortionDstH);
+            archBitmapDestroy(menuDesignSrc);
+        } else {
+            ArchBitmap* menuSrc = archBitmapCreate(scaledW, menuRowsSrcH);
+            archBitmapCopy(menuSrc, 0, 0, src, 0, topRowsScaled, scaledW, menuRowsSrcH);
+            if (menuPortionDstH != menuRowsSrcH) {
+                menuBm = archBitmapCreateScaledCopy(menuSrc, scaledW, menuPortionDstH);
+                archBitmapDestroy(menuSrc);
+            } else {
+                menuBm = menuSrc;
+            }
+        }
+        *outMenuBm   = menuBm;
+        /* Menu portion starts at the band top (or image top if inside). */
+        *outMenuDstY = themeScaledCoord(absDesignY + topRowsDesign);
+    }
+
+    /* Below portion (below-menu rows). */
+    if (botRowsScaled < scaledH) {
+        int belowH = scaledH - botRowsScaled;
+        ArchBitmap* belowBm = archBitmapCreate(scaledW, belowH);
+        archBitmapCopy(belowBm, 0, 0, src, 0, botRowsScaled, scaledW, belowH);
+        *outBelowBm = belowBm;
+        /* Design start >= g_designMenuBottom, so themeScaledY applies topShift. */
+        *outBelowDstY = themeScaledY(absDesignY + botRowsDesign);
+    }
+
+    archBitmapDestroy(src);
+    *bm = NULL;
+    return 1;
 }
 
 
@@ -590,8 +761,24 @@ static void addImage(ThemeCollection* themeCollection, Theme* theme, ThemePage* 
     if (bitmap == NULL) {
         return;
     }
-    x += dx;
-    y += dy;
+    int designH = archBitmapGetHeight(bitmap);
+    int absDesignX = x + dx;
+    int absDesignY = y + dy;
+
+    /* Clone the design bitmap before applyThemeScale destroys it, so the
+       menu-band split can do single-step NN at odd zooms. */
+    ArchBitmap* designClone = NULL;
+    if (g_designMenuBottom >= 0
+        && absDesignY + designH > g_designMenuY
+        && absDesignY < g_designMenuBottom) {
+        int designW = archBitmapGetWidth(bitmap);
+        designClone = archBitmapCreate(designW, designH);
+        if (designClone != NULL) {
+            archBitmapCopy(designClone, 0, 0, bitmap, 0, 0, designW, designH);
+        }
+    }
+
+    bitmap = applyThemeScale(bitmap, spriteFrameCount(cols, 1));
 
     if (visible == THEME_TRIGGER_NONE) {
         visible = (ThemeTrigger)getTrigger(el, "visible");
@@ -600,7 +787,33 @@ static void addImage(ThemeCollection* themeCollection, Theme* theme, ThemePage* 
         }
     }
 
-    themePageAddImage(themePage, activeImageCreate(x, y, cols, bitmap, 1), THEME_TRIGGER_NONE, visible);
+    ArchBitmap *topBm, *menuBm, *belowBm;
+    int topDstY, menuDstY, belowDstY;
+    int dstX = themeScaledCoord(absDesignX);
+    if (splitImageAtMenuBand(&bitmap, designClone, absDesignY, designH,
+                             &topBm,   &topDstY,
+                             &menuBm,  &menuDstY,
+                             &belowBm, &belowDstY)) {
+        if (topBm != NULL) {
+            themePageAddImage(themePage, activeImageCreate(dstX, topDstY, cols, topBm, 1),
+                              THEME_TRIGGER_NONE, visible);
+        }
+        if (menuBm != NULL) {
+            themePageAddImage(themePage, activeImageCreate(dstX, menuDstY, cols, menuBm, 1),
+                              THEME_TRIGGER_NONE, visible);
+        }
+        if (belowBm != NULL) {
+            themePageAddImage(themePage, activeImageCreate(dstX, belowDstY, cols, belowBm, 1),
+                              THEME_TRIGGER_NONE, visible);
+        }
+    } else {
+        int dstY = themeScaledY(absDesignY);
+        themePageAddImage(themePage, activeImageCreate(dstX, dstY, cols, bitmap, 1),
+                          THEME_TRIGGER_NONE, visible);
+    }
+    if (designClone != NULL) {
+        archBitmapDestroy(designClone);
+    }
 }
 
 static void addGrabImage(ThemeCollection* themeCollection, Theme* theme, ThemePage* themePage, 
@@ -612,8 +825,26 @@ static void addGrabImage(ThemeCollection* themeCollection, Theme* theme, ThemePa
     if (bitmap == NULL) {
         return;
     }
-    x += dx;
-    y += dy;
+    int activenotify = 0;
+    el->QueryIntAttribute("activenotify", &activenotify);
+    int count = activenotify ? 2 : 1;
+    int designH = archBitmapGetHeight(bitmap);
+    int absDesignX = x + dx;
+    int absDesignY = y + dy;
+
+    /* Same single-step menu-portion path as addImage. */
+    ArchBitmap* designClone = NULL;
+    if (g_designMenuBottom >= 0
+        && absDesignY + designH > g_designMenuY
+        && absDesignY < g_designMenuBottom) {
+        int designW = archBitmapGetWidth(bitmap);
+        designClone = archBitmapCreate(designW, designH);
+        if (designClone != NULL) {
+            archBitmapCopy(designClone, 0, 0, bitmap, 0, 0, designW, designH);
+        }
+    }
+
+    bitmap = applyThemeScale(bitmap, spriteFrameCount(cols, count));
 
     if (visible == THEME_TRIGGER_NONE) {
         visible = (ThemeTrigger)getTrigger(el, "visible");
@@ -622,11 +853,34 @@ static void addGrabImage(ThemeCollection* themeCollection, Theme* theme, ThemePa
         }
     }
 
-    int activenotify = 0;
-    el->QueryIntAttribute("activenotify", &activenotify);
-    int count = activenotify ? 2 : 1;
-
-    themePageAddGrabImage(themePage, activeGrabImageCreate(x, y, cols, bitmap, count), THEME_TRIGGER_NONE, visible);
+    ArchBitmap *topBm, *menuBm, *belowBm;
+    int topDstY, menuDstY, belowDstY;
+    int dstX = themeScaledCoord(absDesignX);
+    if (splitImageAtMenuBand(&bitmap, designClone, absDesignY, designH,
+                             &topBm,   &topDstY,
+                             &menuBm,  &menuDstY,
+                             &belowBm, &belowDstY)) {
+        if (topBm != NULL) {
+            themePageAddGrabImage(themePage, activeGrabImageCreate(dstX, topDstY, cols, topBm, count),
+                                  THEME_TRIGGER_NONE, visible);
+        }
+        if (menuBm != NULL) {
+            /* runtime menu strip overlays this band; grab would be useless. */
+            themePageAddImage(themePage, activeImageCreate(dstX, menuDstY, cols, menuBm, 1),
+                              THEME_TRIGGER_NONE, visible);
+        }
+        if (belowBm != NULL) {
+            themePageAddGrabImage(themePage, activeGrabImageCreate(dstX, belowDstY, cols, belowBm, count),
+                                  THEME_TRIGGER_NONE, visible);
+        }
+    } else {
+        int dstY = themeScaledY(absDesignY);
+        themePageAddGrabImage(themePage, activeGrabImageCreate(dstX, dstY, cols, bitmap, count),
+                              THEME_TRIGGER_NONE, visible);
+    }
+    if (designClone != NULL) {
+        archBitmapDestroy(designClone);
+    }
 }
 
 static void addLed(ThemeCollection* themeCollection, Theme* theme, ThemePage* themePage, 
@@ -638,8 +892,9 @@ static void addLed(ThemeCollection* themeCollection, Theme* theme, ThemePage* th
     if (bitmap == NULL) {
         return;
     }
-    x += dx;
-    y += dy;
+    bitmap = applyThemeScale(bitmap, spriteFrameCount(cols, 2));  /* 2 LED frames (on/off) */
+    x = themeScaledCoord(x + dx);
+    y = themeScaledY(y + dy);
 
     ThemeTrigger trigger = (ThemeTrigger)getTrigger(el, "trigger");
     if (trigger == -1) {
@@ -665,8 +920,11 @@ static void addMeter(ThemeCollection* themeCollection, Theme* theme, ThemePage* 
     if (bitmap == NULL) {
         return;
     }
-    x += dx;
-    y += dy;
+    int max = 1;
+    el->QueryIntAttribute("max", &max);
+    bitmap = applyThemeScale(bitmap, spriteFrameCount(cols, max));
+    x = themeScaledCoord(x + dx);
+    y = themeScaledY(y + dy);
 
     ThemeTrigger trigger = (ThemeTrigger)getTrigger(el, "trigger");
     if (trigger == -1) {
@@ -680,9 +938,6 @@ static void addMeter(ThemeCollection* themeCollection, Theme* theme, ThemePage* 
         }
     }
 
-    int max = 1;
-    el->QueryIntAttribute("max", &max);
-
     themePageAddMeter(themePage, activeMeterCreate(x, y, cols, bitmap, max), trigger, visible);
 }
 
@@ -695,8 +950,13 @@ static void addSlider(ThemeCollection* themeCollection, Theme* theme, ThemePage*
     if (bitmap == NULL) {
         return;
     }
-    x += dx;
-    y += dy;
+    int max = 1;
+    el->QueryIntAttribute("max", &max);
+    /* Align to `max` frames so per-frame width stays integer at non-
+       integer zoom (sub-pixel accumulation otherwise smears the dial). */
+    bitmap = applyThemeScale(bitmap, spriteFrameCount(cols, max));
+    x = themeScaledCoord(x + dx);
+    y = themeScaledY(y + dy);
 
     ThemeTrigger trigger = (ThemeTrigger)getTrigger(el, "trigger");
     if (trigger == -1) {
@@ -712,9 +972,6 @@ static void addSlider(ThemeCollection* themeCollection, Theme* theme, ThemePage*
 
     LONG_PTR arga, argb;
     SliderEvent action = (SliderEvent)getAction(el, "action", "arga", "argb", &arga, &argb, themeCollection, theme, dx, dy);
-
-    int max = 1;
-    el->QueryIntAttribute("max", &max);
 
     AsDirection direction = AS_BOTH;
     const char* align = el->Attribute("direction");
@@ -733,6 +990,15 @@ static void addSlider(ThemeCollection* themeCollection, Theme* theme, ThemePage*
         sensitivity *= -1;
     }
 
+    /* Sensitivity is in design pixels; activeSliderMouseMove sees the raw
+       mouse delta in rendered pixels.  Scale to keep drag feel zoom-stable. */
+    {
+        int sign = sensitivity < 0 ? -1 : 1;
+        int absScaled = themeScaledCoord(abs(sensitivity));
+        if (absScaled < 1) absScaled = 1;
+        sensitivity = sign * absScaled;
+    }
+
     LONG_PTR relArga, relArgb;
     ButtonEvent release = getAction(el, "release", "relarga", "relargb", &relArga, &relArgb, themeCollection, theme, dx, dy);
 
@@ -749,8 +1015,13 @@ static void addButton(ThemeCollection* themeCollection, Theme* theme, ThemePage*
     if (bitmap == NULL) {
         return;
     }
-    x += dx;
-    y += dy;
+    int activeNotify = 0;
+    el->QueryIntAttribute("activenotify", &activeNotify);
+    activeNotify = activeNotify ? 1 : 0;
+    /* 4 frames (normal/hover/pressed/disabled), x2 with activenotify. */
+    bitmap = applyThemeScale(bitmap, spriteFrameCount(cols, activeNotify ? 8 : 4));
+    x = themeScaledCoord(x + dx);
+    y = themeScaledY(y + dy);
 
     ThemeTrigger trigger = (ThemeTrigger)getTrigger(el, "trigger");
     if (trigger == -1) {
@@ -767,10 +1038,6 @@ static void addButton(ThemeCollection* themeCollection, Theme* theme, ThemePage*
     LONG_PTR arga, argb;
     ButtonEvent action = getAction(el, "action", "arga", "argb", &arga, &argb, themeCollection, theme, dx, dy);
 
-    int activeNotify = 0;
-    el->QueryIntAttribute("activenotify", &activeNotify);
-    activeNotify = activeNotify ? 1 : 0;
-
     themePageAddButton(themePage, activeButtonCreate(x, y, cols, activeNotify, bitmap, action, arga, argb), trigger, visible, THEME_TRIGGER_NONE);
 }
 
@@ -783,8 +1050,11 @@ static void addToggleButton(ThemeCollection* themeCollection, Theme* theme, Them
     if (bitmap == NULL) {
         return;
     }
-    x += dx;
-    y += dy;
+    int tbActiveNotify = 0;
+    el->QueryIntAttribute("activenotify", &tbActiveNotify);
+    bitmap = applyThemeScale(bitmap, spriteFrameCount(cols, tbActiveNotify ? 8 : 4));
+    x = themeScaledCoord(x + dx);
+    y = themeScaledY(y + dy);
 
     ThemeTrigger trigger = (ThemeTrigger)getTrigger(el, "trigger");
     if (trigger == -1) {
@@ -818,8 +1088,13 @@ static void addDualButton(ThemeCollection* themeCollection, Theme* theme, ThemeP
     if (bitmap == NULL) {
         return;
     }
-    x += dx;
-    y += dy;
+    int activeNotify = 0;
+    el->QueryIntAttribute("activenotify", &activeNotify);
+    activeNotify = activeNotify ? 1 : 0;
+    /* 5 frames (x2 with activenotify); activeDualButtonCreate cols=5. */
+    bitmap = applyThemeScale(bitmap, spriteFrameCount(cols, activeNotify ? 8 : 5));
+    x = themeScaledCoord(x + dx);
+    y = themeScaledY(y + dy);
 
     ThemeTrigger trigger = (ThemeTrigger)getTrigger(el, "trigger");
     if (trigger == -1) {
@@ -845,10 +1120,6 @@ static void addDualButton(ThemeCollection* themeCollection, Theme* theme, ThemeP
         vertical = 1;
     }
 
-    int activeNotify = 0;
-    el->QueryIntAttribute("activenotify", &activeNotify);
-    activeNotify = activeNotify ? 1 : 0;
-
     themePageAddDualButton(themePage, activeDualButtonCreate(x, y, cols, activeNotify, bitmap, action1, arg1x, arg1y,
                                                       action2, arg2x, arg2y, vertical), 
                        trigger, visible, THEME_TRIGGER_NONE);
@@ -858,17 +1129,13 @@ static void addKeyButton(ThemeCollection* themeCollection, Theme* theme, ThemePa
                          int srcX, int srcY, 
                      ThemeTrigger visible = THEME_TRIGGER_NONE)
 {
-    int x      = -1;
-    int y      = -1;
-    int width  = -1;
-    int height = -1;
+    int xDesign = -1, yDesign = -1, widthDesign = -1, heightDesign = -1;
+    el->QueryIntAttribute("x",      &xDesign);
+    el->QueryIntAttribute("y",      &yDesign);
+    el->QueryIntAttribute("width",  &widthDesign);
+    el->QueryIntAttribute("height", &heightDesign);
     
-    el->QueryIntAttribute("x", &x);
-    el->QueryIntAttribute("y", &y);
-    el->QueryIntAttribute("width", &width);
-    el->QueryIntAttribute("height", &height);
-
-    if (x < 0 || y < 0 || width < 0 || height < 0) {
+    if (xDesign < 0 || yDesign < 0 || widthDesign < 0 || heightDesign < 0) {
         return;
     }
 
@@ -876,6 +1143,12 @@ static void addKeyButton(ThemeCollection* themeCollection, Theme* theme, ThemePa
     if (keycode < 0) {
         return;
     }
+
+    /* srcBitmap is pre-stretched in addKeyboard; crop/offset use same scale. */
+    int x      = themeScaledCoord(xDesign);
+    int y      = themeScaledCoord(yDesign);
+    int width  = themeScaledCoord(widthDesign);
+    int height = themeScaledCoord(heightDesign);
 
     ArchBitmap* bitmap = archBitmapCreate(6 * width, height);
     int srcWidth = archBitmapGetWidth(srcBitmap) / 6;
@@ -901,8 +1174,10 @@ static void addKeyboard(ThemeCollection* themeCollection, Theme* theme, ThemePag
     if (bitmap == NULL) {
         return;
     }
-    x += dx;
-    y += dy;
+    /* 6 horizontal frames (one per state); pre-stretch for per-key crops. */
+    bitmap = applyThemeScale(bitmap, 6);
+    x = themeScaledCoord(x + dx);
+    y = themeScaledY(y + dy);
 
     if (visible == THEME_TRIGGER_NONE) {
         visible = (ThemeTrigger)getTrigger(el, "visible");
@@ -942,9 +1217,12 @@ static void addObject(ThemeCollection* themeCollection, Theme* theme, ThemePage*
     el->QueryIntAttribute("width", &width);
     el->QueryIntAttribute("height", &height);
 
-    x += dx;
-    y += dy;
-    
+    x = themeScaledCoord(x + dx);
+    y = themeScaledY(y + dy);
+    if (width  > 0) width  = themeScaledCoord(width);
+    if (height > 0) height = themeScaledCoord(height);
+
+
     const char* id = el->Attribute("id");
     if (id == NULL) {
         return;
@@ -972,22 +1250,26 @@ static void addText(ThemeCollection* themeCollection, Theme* theme, ThemePage* t
     if (bitmap == NULL) {
         return;
     }
-    x += dx;
-    y += dy;
-
-    ThemeTrigger trigger = (ThemeTrigger)getTrigger(el, "trigger");
-    if (trigger == -1) {
-        return;
-    }
-
     int startChar = 0;
     el->QueryIntAttribute("startchar", &startChar);
 
     int charCount = 256;
     el->QueryIntAttribute("charcount", &charCount);
 
+    /* charCount-glyph sprite sheet; integer-align per-glyph stretch. */
+    bitmap = applyThemeScale(bitmap, spriteFrameCount(cols, charCount));
+    x = themeScaledCoord(x + dx);
+    y = themeScaledY(y + dy);
+
+    ThemeTrigger trigger = (ThemeTrigger)getTrigger(el, "trigger");
+    if (trigger == -1) {
+        return;
+    }
+
     int width = 10;
     el->QueryIntAttribute("width", &width);
+    /* width = character count (memset buffer length), NOT pixels.  Pixel
+       width already scales via the pre-stretched glyph cells. */
     
     int type = 0;
     const char* typeStr = el->Attribute("type");
@@ -1084,6 +1366,11 @@ static ThemePage* loadThemePage(ThemeCollection* themeCollection, Theme* theme,
 {
     ThemePage* themePage = NULL;
 
+    /* Reset top-band shift; recomputed below for pages with <menu>. */
+    g_topShift         = 0;
+    g_designMenuY      = -1;
+    g_designMenuBottom = -1;
+
     TiXmlElement* infoEl;
     ClipPoint clipPointList[MAX_CLIP_POINTS];  
     int clipPointCount = 0;      
@@ -1091,7 +1378,10 @@ static ThemePage* loadThemePage(ThemeCollection* themeCollection, Theme* theme,
     int emuY           = 0;
     int menuX          = 0;
     int menuY          = -100;
-    int menuWidth      = 357;
+    int menuYxml       = -100;  /* raw XML menu y for topShift calc */
+    /* Span most of the page so localized menu text fits when <menu width=>
+       is omitted (the historical 357 default truncated CJK locales). */
+    int menuWidth      = width > 0 ? width - 8 : 800;
     int menuColor      = archRGB(219, 221, 224);
     int menuFocusColor = archRGB(128, 128, 255);
     int menuTextColor  = archRGB(0, 0, 0);
@@ -1110,6 +1400,7 @@ static ThemePage* loadThemePage(ThemeCollection* themeCollection, Theme* theme,
                 infoEl->QueryIntAttribute("x", &menuX);
                 infoEl->QueryIntAttribute("y", &menuY);
                 infoEl->QueryIntAttribute("width", &menuWidth);
+                menuYxml = menuY;
             }
             else {
                 menuX = 0;
@@ -1153,9 +1444,36 @@ static ThemePage* loadThemePage(ThemeCollection* themeCollection, Theme* theme,
         }
     }
 
+    /* Set menu band globals: themeScaledY shifts only below-band content;
+       above-band decoration / title bar stays at natural SC(y). */
+    if (!fullscreen && menuYxml >= 0) {
+        int menuHRuntime  = archMenuStripHeight();
+        if (menuHRuntime <= 0) menuHRuntime = DESIGN_MENU_H;
+        g_designMenuY      = menuYxml;
+        g_designMenuBottom = menuYxml + DESIGN_MENU_H;
+        g_topShift         = themeScaledCoord(DESIGN_MENU_H) - menuHRuntime - EXTERNAL_THEME_TOP_GAP;
+    }
+
+    // Scale page-level coords after reading all XML values
+    emuX      = themeScaledCoord(emuX);
+    emuY      = themeScaledY(emuY);
+    if (!fullscreen) {
+        menuX     = themeScaledCoord(menuX);
+        /* Preserve XML menu y so above-band decoration stays visible
+           (Classic with menuYxml=0 lands at y=0 as before). */
+        menuY     = themeScaledCoord(menuY);
+        menuWidth = themeScaledCoord(menuWidth);
+    }
+
+    /* Apply topShift to clipregion points (page-relative shape). */
+    for (int i = 0; i < clipPointCount; i++) {
+        clipPointList[i].x = themeScaledCoord(clipPointList[i].x);
+        clipPointList[i].y = themeScaledY(clipPointList[i].y);
+    }
+
     themePage = themePageCreate(name,
-                        width,
-                        height,
+                        themeScaledCoord(width),
+                        themeScaledCoord(height) - g_topShift,
                         emuX,
                         emuY,
                         emuWidth,
@@ -1171,6 +1489,11 @@ static ThemePage* loadThemePage(ThemeCollection* themeCollection, Theme* theme,
                         clipPointList);
 
     addBlock(themeCollection, theme, themePage, root, 0, 0);
+
+    /* Reset for the next page so popup windows / fullscreen don't inherit. */
+    g_topShift         = 0;
+    g_designMenuY      = -1;
+    g_designMenuBottom = -1;
 
     return themePage;
 }
@@ -1321,7 +1644,22 @@ static Theme* loadMainTheme(ThemeCollection* themeCollection, TiXmlElement* root
     return theme;
 }
 
-extern "C" ThemeCollection* themeLoad(const char* themePath) 
+/* Basename of themePath; fallback when XML has no <bluemsxtheme name=>. */
+static const char* themePathToName(const char* themePath)
+{
+    const char* themeName = strrchr(themePath, '/');
+    if (themeName == NULL) {
+        themeName = strrchr(themePath, '\\');
+    }
+    if (themeName == NULL) {
+        themeName = themePath - 1;
+    }
+    return themeName + 1;
+}
+
+/* Parse theme.xml; sets rootPath for loadBitmap's relative resolution.
+   Returns NULL on failure. */
+static TiXmlElement* themeOpenXml(const char* themePath, TiXmlDocument& doc)
 {
     static char themeData[256 * 1024];
 
@@ -1331,7 +1669,6 @@ extern "C" ThemeCollection* themeLoad(const char* themePath)
     if (f == NULL) {
         return NULL;
     }
-
     int len = fread(themeData, 1, sizeof(themeData), f);
 	fclose(f);
     if (len <= 0) {
@@ -1339,54 +1676,136 @@ extern "C" ThemeCollection* themeLoad(const char* themePath)
     }
     themeData[len] = 0;
 
-    TiXmlDocument doc;
     doc.Parse(themeData);
-
     if (doc.Error()) {
         return NULL;
     }
-
     TiXmlElement* root = doc.RootElement();
-
     if (root == NULL || strcmp(root->Value(), "bluemsxtheme") != 0) {
         return NULL;
     }
+    return root;
+}
 
-    const char* name = root->Attribute( "name" );
-    if (name == NULL) {
-        const char* themeName = strrchr(themePath, '/');
-        if (themeName == NULL) {
-            themeName = strrchr(themePath, '\\');
-        }
-        if (themeName == NULL) {
-            themeName = themePath - 1;
-        }
-        themeName++;
-        name = themeName;
+/* Read just <bluemsxtheme name=> so picker / settings.themeName match
+   without parsing the full XML. */
+extern "C" ThemeCollection* themeLoadSkeleton(const char* themePath)
+{
+    TiXmlDocument doc;
+    TiXmlElement* root = themeOpenXml(themePath, doc);
+    if (root == NULL) {
+        return NULL;
+    }
+    const char* xmlName = root->Attribute("name");
+
+    ThemeCollection* tc = themeCollectionCreate();
+    strncpy(tc->path, themePath, sizeof(tc->path) - 1);
+    tc->path[sizeof(tc->path) - 1] = 0;
+    /* Prefer XML's display name over directory name so settings.themeName
+       from a prior session matches and doesn't fall back to Classic. */
+    if (xmlName != NULL && *xmlName != 0) {
+        strncpy(tc->name, xmlName, sizeof(tc->name) - 1);
+    } else {
+        strncpy(tc->name, themePathToName(themePath), sizeof(tc->name) - 1);
+    }
+    tc->name[sizeof(tc->name) - 1] = 0;
+    tc->loaded = 0;
+    return tc;
+}
+
+/* Idempotent: parse + populate zoom[1..4]/fullscreen/theme[]. */
+extern "C" int themeCollectionEnsureLoaded(ThemeCollection* tc)
+{
+    if (tc == NULL || tc->loaded) {
+        return tc != NULL;
+    }
+    if (tc->path[0] == 0) {
+        /* Built-in defensive path; createThemeList already marks loaded=1. */
+        tc->loaded = 1;
+        return 1;
     }
 
-    ThemeCollection* themeCollection = themeCollectionCreate();
-
-    strcpy(themeCollection->name, name);
-
-    themeCollection->zoom[1]         = loadMainTheme(themeCollection, root, THEME_SMALL);
-    themeCollection->zoom[2]         = loadMainTheme(themeCollection, root, THEME_NORMAL);
-    themeCollection->zoom[3]         = loadMainTheme(themeCollection, root, THEME_TRIPLE);
-    themeCollection->zoom[4]         = loadMainTheme(themeCollection, root, THEME_QUAD);
-    /* zoom[5..8] are not loaded from XML themes; they fall back to the
-       default theme via createThemeList() below. */
-    themeCollection->fullscreen      = loadMainTheme(themeCollection, root, THEME_FULLSCREEN);
-
-    int count = loadThemeWindows(themeCollection, root);
-
-    if (count == 0 && themeCollection->zoom[1] == NULL && themeCollection->zoom[2] == NULL &&
-        themeCollection->fullscreen == NULL)
-    {
-        themeCollectionDestroy(themeCollection);
-        themeCollection = NULL;
+    TiXmlDocument doc;
+    TiXmlElement* root = themeOpenXml(tc->path, doc);
+    if (root == NULL) {
+        return 0;
     }
 
-    return themeCollection;
+    const char* name = root->Attribute("name");
+    if (name != NULL) {
+        strncpy(tc->name, name, sizeof(tc->name) - 1);
+        tc->name[sizeof(tc->name) - 1] = 0;
+    }
+
+    tc->zoom[1]    = loadMainTheme(tc, root, THEME_SMALL);
+    tc->zoom[2]    = loadMainTheme(tc, root, THEME_NORMAL);
+    tc->zoom[3]    = loadMainTheme(tc, root, THEME_TRIPLE);
+    tc->zoom[4]    = loadMainTheme(tc, root, THEME_QUAD);
+    tc->fullscreen = loadMainTheme(tc, root, THEME_FULLSCREEN);
+    loadThemeWindows(tc, root);
+    tc->loaded = 1;
+    return 1;
+}
+
+/* Re-parse "normal" at scale=z/2.0 to synthesise zoom[z].  Caller must
+   invoke themeCollectionEnsureLoaded() first. */
+extern "C" int themeCollectionEnsureZoom(ThemeCollection* tc, int z)
+{
+    if (tc == NULL || z < 1 || z >= THEME_ZOOM_COUNT) {
+        return 0;
+    }
+    if (tc->zoom[z] != NULL) {
+        return 1;
+    }
+    if (tc->path[0] == 0 || tc->zoom[2] == NULL) {
+        /* Built-in or no normal mode to scale from. */
+        return 0;
+    }
+
+    TiXmlDocument doc;
+    TiXmlElement* root = themeOpenXml(tc->path, doc);
+    if (root == NULL) {
+        return 0;
+    }
+
+    g_themeScale = (double)z / 2.0;
+    tc->zoom[z]  = loadMainTheme(tc, root, THEME_NORMAL);
+    g_themeScale = 1.0;
+    return tc->zoom[z] != NULL;
+}
+
+/* Eager-load entry; most callers should prefer the skeleton + EnsureLoaded path. */
+extern "C" ThemeCollection* themeLoad(const char* themePath)
+{
+    ThemeCollection* tc = themeLoadSkeleton(themePath);
+    if (tc == NULL) {
+        return NULL;
+    }
+    if (!themeCollectionEnsureLoaded(tc)) {
+        themeCollectionDestroy(tc);
+        return NULL;
+    }
+    /* Drop themes that loaded nothing meaningful. */
+    if (tc->zoom[1] == NULL && tc->zoom[2] == NULL && tc->fullscreen == NULL) {
+        int hasWindow = 0;
+        for (int i = 0; i < THEME_MAX_WINDOWS; i++) {
+            if (tc->theme[i] != NULL) { hasWindow = 1; break; }
+        }
+        if (!hasWindow) {
+            themeCollectionDestroy(tc);
+            return NULL;
+        }
+    }
+    return tc;
+}
+
+extern "C" ThemeCollection* themeLoadAtScale(const char* themePath, double scale)
+{
+    double saved = g_themeScale;
+    g_themeScale = scale;
+    ThemeCollection* tc = themeLoad(themePath);
+    g_themeScale = saved;
+    return tc;
 }
 
 static ThemeCollection** currentWin32Theme = NULL;
@@ -1394,65 +1813,43 @@ static ThemeCollection** currentWin32Theme = NULL;
 extern "C" ThemeCollection** createThemeList(ThemeCollection* defaultTheme)
 {
     const char* singleTheme = appConfigGetString("singletheme", NULL);
+    ThemeCollection** themeList = (ThemeCollection**)calloc(1, 128 * sizeof(ThemeCollection*));
+    int index = 0;
+
+    /* Built-in default (Classic) is fully loaded; mark it so the lazy gate
+       doesn't try to re-parse a non-existent theme.xml. */
+    if (defaultTheme != NULL) {
+        defaultTheme->loaded = 1;
+        themeList[index++] = defaultTheme;
+    }
 
     if (singleTheme != NULL) {
-        ThemeCollection** themeList = (ThemeCollection**)calloc(1, 128 * sizeof(ThemeCollection*));
-        int index = 0;
-
-        // Set default theme
-        if (defaultTheme != NULL) {
-            themeList[index++] = defaultTheme;
-        }
-
         char themeName[64] = "Themes/";
         strcat(themeName, singleTheme);
-        ThemeCollection* themeCollection = themeLoad(themeName);
-        if (themeCollection != NULL) {
-            for (int z = 1; z < THEME_ZOOM_COUNT; z++) {
-                if (themeCollection->zoom[z] == NULL) themeCollection->zoom[z] = themeList[0]->zoom[z];
-            }
-            if (themeCollection->fullscreen == NULL) themeCollection->fullscreen = themeList[0]->fullscreen;
-            themeList[index++] = themeCollection;
+        ThemeCollection* tc = themeLoadSkeleton(themeName);
+        if (tc != NULL) {
+            themeList[index++] = tc;
         }
-
-        themeList[index] = NULL;
-
-        currentWin32Theme = themeList;
-
-        return themeList;
     }
     else {
-        ThemeCollection** themeList = (ThemeCollection**)calloc(1, 128 * sizeof(ThemeCollection*));
-        int index = 0;
-
-        // Set default theme
-        if (defaultTheme != NULL) {
-            themeList[index++] = defaultTheme;
-        }
-
         ArchGlob* glob = archGlob("Themes/*", ARCH_GLOB_DIRS);
-
         if (glob != NULL) {
             for (int i = 0; i < glob->count; i++) {
-                ThemeCollection* themeCollection = themeLoad(glob->pathVector[i]);
-                if (themeCollection != NULL) {
-                    for (int z = 1; z < THEME_ZOOM_COUNT; z++) {
-                        if (themeCollection->zoom[z] == NULL) themeCollection->zoom[z] = themeList[0]->zoom[z];
-                    }
-                    if (themeCollection->fullscreen == NULL) themeCollection->fullscreen = themeList[0]->fullscreen;
-                    themeList[index++] = themeCollection;
+                ThemeCollection* tc = themeLoadSkeleton(glob->pathVector[i]);
+                if (tc != NULL) {
+                    themeList[index++] = tc;
                 }
             }
             archGlobFree(glob);
         }
-        themeList[index] = NULL;
-
-        currentWin32Theme = themeList;
-
-        return themeList;
     }
+    themeList[index] = NULL;
 
-    return NULL;
+    /* Skeletons only; EnsureLoaded does the parse on first selection to
+       keep GDI handle usage bounded to the active theme + zoom. */
+
+    currentWin32Theme = themeList;
+    return themeList;
 }
 
 extern "C" ThemeCollection** themeGetAvailable()

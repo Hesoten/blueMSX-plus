@@ -50,8 +50,12 @@ typedef struct {
    Indices 1..4 cover the historical little/normal/triple/quad slots. */
 #define THEME_ZOOM_COUNT 9
 
+/* loaded=1 once XML is parsed; built-ins start loaded=1.  Skeleton phase
+   keeps GDI bounded to the active external theme. */
 typedef struct ThemeCollection {
     char   name[64];
+    char   path[256];   /* Filesystem path for lazy XML loading; empty for built-ins */
+    int    loaded;      /* 0=skeleton (XML not parsed yet); 1=parsed */
     Theme* zoom[THEME_ZOOM_COUNT];
     Theme* fullscreen;
     Theme* theme[THEME_MAX_WINDOWS];
@@ -123,6 +127,9 @@ unsigned long themeGetNameHash(const char* name);
 
 ThemeCollection* themeCollectionCreate();
 void themeCollectionDestroy(ThemeCollection* tc);
+/* Free zoom/fullscreen/theme; keep skeleton (name+path) for re-parse on
+   next selection.  No-op for built-ins (path == ""). */
+void themeCollectionUnload(ThemeCollection* tc);
 void themeCollectionAddWindow(ThemeCollection* tc, Theme* theme);
 void themeCollectionOpenWindow(ThemeCollection* themeCollection, unsigned long hash);
 

@@ -39,6 +39,9 @@ ArchBitmap* archBitmapCreateFromId(int id);
 /* Returns a new ArchBitmap scaled (NN) from src to (dstWidth, dstHeight).
    The caller owns the returned bitmap and must free it; src is not consumed. */
 ArchBitmap* archBitmapCreateScaledCopy(ArchBitmap* src, int dstWidth, int dstHeight);
+/* HALFTONE-stretched copy: removes NN stair-step at non-integer zoom
+   (x3=1.5x, x5=2.5x).  Not for pixel-art sprites. */
+ArchBitmap* archBitmapCreateScaledCopySmooth(ArchBitmap* src, int dstWidth, int dstHeight);
 void archBitmapDestroy(ArchBitmap* bm);
 int archBitmapGetWidth(ArchBitmap* bm);
 int archBitmapGetHeight(ArchBitmap* bm);

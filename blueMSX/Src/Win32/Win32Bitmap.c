@@ -192,7 +192,7 @@ ArchBitmap* archBitmapCreateFromId(int id)
     return bitmapCreate(hBitmap);
 }
 
-ArchBitmap* archBitmapCreateScaledCopy(ArchBitmap* src, int dstWidth, int dstHeight)
+static ArchBitmap* bitmapCreateScaledCopyMode(ArchBitmap* src, int dstWidth, int dstHeight, int mode)
 {
     HDC screenDC;
     HBITMAP hDst;
@@ -215,13 +215,28 @@ ArchBitmap* archBitmapCreateScaledCopy(ArchBitmap* src, int dstWidth, int dstHei
         return NULL;
     }
 
-    /* COLORONCOLOR = nearest-neighbour stretch -- keeps the pixel-art look
-       crisp at non-integer multiples (e.g. x6 from x2 base). */
-    SetStretchBltMode(dst->hMemDC, COLORONCOLOR);
+    SetStretchBltMode(dst->hMemDC, mode);
+    if (mode == HALFTONE) {
+        /* HALFTONE requires SetBrushOrgEx for tiled output, otherwise
+           subsequent fills can land on a fractional grid origin. */
+        SetBrushOrgEx(dst->hMemDC, 0, 0, NULL);
+    }
     StretchBlt(dst->hMemDC, 0, 0, dstWidth, dstHeight,
                src->hMemDC,  0, 0, src->width, src->height,
                SRCCOPY);
     return dst;
+}
+
+ArchBitmap* archBitmapCreateScaledCopy(ArchBitmap* src, int dstWidth, int dstHeight)
+{
+    /* COLORONCOLOR = nearest-neighbour stretch -- keeps the pixel-art look
+       crisp at non-integer multiples (e.g. x6 from x2 base). */
+    return bitmapCreateScaledCopyMode(src, dstWidth, dstHeight, COLORONCOLOR);
+}
+
+ArchBitmap* archBitmapCreateScaledCopySmooth(ArchBitmap* src, int dstWidth, int dstHeight)
+{
+    return bitmapCreateScaledCopyMode(src, dstWidth, dstHeight, HALFTONE);
 }
 
 void archBitmapDestroy(ArchBitmap* bm)

@@ -169,7 +169,6 @@ static void* windowDataGet(HWND hwnd)
 //////////////////////////////////////////////////////////////////////////
 typedef struct WindowInfo {
     HWND hwnd;
-    int  captionHeight;
     int  isMinimized;
     int  isMoving;
     Theme* theme;
@@ -185,6 +184,40 @@ typedef struct WindowInfo {
 
     HWND     hwndSliderTip;   /* lazily created on first slider hover */
 } WindowInfo;
+
+/* AdjustWindowRectExForDpi-based frame metrics; SM_CXFIXEDFRAME under-
+   counts on Win10/11 PerMonitor DPI for WS_DLGFRAME, clipping the
+   theme bitmap. */
+static void windowFrameMetrics(HWND hwnd, int clientW, int clientH,
+                               int* offX, int* offY,
+                               int* outerW, int* outerH)
+{
+    DWORD style   = (DWORD)GetWindowLongPtr(hwnd, GWL_STYLE);
+    DWORD exStyle = (DWORD)GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+    RECT  rc      = { 0, 0, clientW, clientH };
+
+    typedef BOOL (WINAPI *PFN_AdjustForDpi)(LPRECT, DWORD, BOOL, DWORD, UINT);
+    typedef UINT (WINAPI *PFN_GetDpi)(HWND);
+    static PFN_AdjustForDpi pAdjust = (PFN_AdjustForDpi)(LONG_PTR)-1;
+    static PFN_GetDpi       pGetDpi = (PFN_GetDpi)(LONG_PTR)-1;
+    if (pAdjust == (PFN_AdjustForDpi)(LONG_PTR)-1) {
+        HMODULE u32 = GetModuleHandleA("user32.dll");
+        pAdjust = u32 ? (PFN_AdjustForDpi)GetProcAddress(u32, "AdjustWindowRectExForDpi") : NULL;
+        pGetDpi = u32 ? (PFN_GetDpi)GetProcAddress(u32, "GetDpiForWindow") : NULL;
+    }
+
+    if (pAdjust && pGetDpi) {
+        UINT dpi = pGetDpi(hwnd);
+        if (!dpi) dpi = 96;
+        pAdjust(&rc, style, FALSE, exStyle, dpi);
+    } else {
+        AdjustWindowRectEx(&rc, style, FALSE, exStyle);
+    }
+    if (offX)   *offX   = -rc.left;
+    if (offY)   *offY   = -rc.top;
+    if (outerW) *outerW = rc.right - rc.left;
+    if (outerH) *outerH = rc.bottom - rc.top;
+}
 
 
 //////////////////////////////////////////////////////////////////////////
@@ -271,8 +304,9 @@ static void windowCreateClipRegion(WindowInfo* wi)
         int i;
         HRGN hrgn;
         POINT pt[512];
-        int dx = GetSystemMetrics(SM_CXFIXEDFRAME);
-        int dy = GetSystemMetrics(SM_CYFIXEDFRAME) + wi->captionHeight;
+        int dx, dy;
+        windowFrameMetrics(wi->hwnd, themePage->width, themePage->height,
+                           &dx, &dy, NULL, NULL);
 
         if (clipCount == 0) {
             pt[0].x = 0 + dx;
@@ -309,8 +343,9 @@ static void windowCreateClipRegion(WindowInfo* wi)
                 wi->rgnData = NULL;
             }
             else {
-                int width  = themePage->width  + 2 * GetSystemMetrics(SM_CXFIXEDFRAME);
-                int height = themePage->height + 2 * GetSystemMetrics(SM_CYFIXEDFRAME) + wi->captionHeight;
+                int width, height;
+                windowFrameMetrics(wi->hwnd, themePage->width, themePage->height,
+                                   NULL, NULL, &width, &height);
 
                 if (wi->hrgn) { DeleteObject(wi->hrgn); wi->hrgn=NULL; }
                 wi->hrgn = CreateRectRgn(0, 0, width, height);
@@ -436,8 +471,6 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
             windowDataSet(hwnd, 1, wi);
 
             wi->hwnd = hwnd;
-            wi->captionHeight = GetSystemMetrics((GetWindowLongPtr(hwnd, GWL_EXSTYLE) & WS_EX_TOOLWINDOW) ? SM_CYSMCAPTION : SM_CYCAPTION);
-            
             themePage = themeGetCurrentPage(wi->theme);
             SendMessage(hwnd, WM_UPDATE, 0, 0);
 
@@ -525,8 +558,8 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
             int width;
             int height;
 
-            width  = themePage->width  + 2 * GetSystemMetrics(SM_CXFIXEDFRAME);
-            height = themePage->height + 2 * GetSystemMetrics(SM_CYFIXEDFRAME) + wi->captionHeight;
+            windowFrameMetrics(hwnd, themePage->width, themePage->height,
+                               NULL, NULL, &width, &height);
             
             if (wi->hBitmap) { DeleteObject(wi->hBitmap); wi->hBitmap=NULL; }
             if (wi->hdc) { ReleaseDC(hwnd,wi->hdc); wi->hdc=NULL; }

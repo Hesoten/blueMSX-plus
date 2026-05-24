@@ -921,6 +921,30 @@ void themeCollectionDestroy(ThemeCollection* tc)
     }
 }
 
+void themeCollectionUnload(ThemeCollection* tc)
+{
+    int i;
+    if (tc == NULL || !tc->loaded || tc->path[0] == 0) return;
+
+    for (i = 1; i < THEME_ZOOM_COUNT; i++) {
+        if (tc->zoom[i]) {
+            themeDestroy(tc->zoom[i]);
+            tc->zoom[i] = NULL;
+        }
+    }
+    if (tc->fullscreen) {
+        themeDestroy(tc->fullscreen);
+        tc->fullscreen = NULL;
+    }
+    for (i = 0; i < THEME_MAX_WINDOWS; i++) {
+        if (tc->theme[i] != NULL) {
+            themeDestroy(tc->theme[i]);
+            tc->theme[i] = NULL;
+        }
+    }
+    tc->loaded = 0;
+}
+
 
 void themeCollectionAddWindow(ThemeCollection* tc, Theme* theme)
 {
@@ -929,6 +953,7 @@ void themeCollectionAddWindow(ThemeCollection* tc, Theme* theme)
     for (i = 0; i < THEME_MAX_WINDOWS; i++) {
         if (tc->theme[i] == NULL) {
             tc->theme[i] = theme;
+            break;
         }
     }
 }
