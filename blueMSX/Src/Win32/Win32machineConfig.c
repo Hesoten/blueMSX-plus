@@ -1902,26 +1902,44 @@ static BOOL_DLG_RET CALLBACK memoryProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
             ListView_SetImageList(hwnd, himlSmall, LVSIL_SMALL);
 
             {
+                /* Proportional columns (Slot:Address:Type:ROM=12:18:35:35)
+                ** plus a reserved scrollbar gutter. */
                 wchar_t wbuf[64];
                 LVCOLUMNW lvcw = {0};
+                RECT      rcLv;
+                int       totalW, iconW, remain;
+                int       slotW, addrW, typeW, romW;
+
+                GetClientRect(hwnd, &rcLv);
+                totalW = rcLv.right - rcLv.left - GetSystemMetrics(SM_CXVSCROLL);
+                iconW  = GetSystemMetrics(SM_CXSMICON) + 8;
+                if (iconW < 20)         iconW  = 20;
+                if (iconW > totalW / 6) iconW  = totalW / 6;
+                remain = totalW - iconW;
+                if (remain < 200) remain = 200;
+                slotW = remain * 12 / 100;
+                addrW = remain * 18 / 100;
+                typeW = remain * 35 / 100;
+                romW  = remain - slotW - addrW - typeW;
+
                 lvcw.mask     = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM;
                 lvcw.fmt      = LVCFMT_LEFT;
                 lvcw.pszText  = wbuf;
 
                 wbuf[0] = 0;
-                lvcw.cx = 20;
+                lvcw.cx = iconW;
                 SendMessageW(hwnd, LVM_INSERTCOLUMNW, 0, (LPARAM)&lvcw);
                 Utf8ToWide(langConfMemSlot(), wbuf, _countof(wbuf));
-                lvcw.cx = 40;
+                lvcw.cx = slotW;
                 SendMessageW(hwnd, LVM_INSERTCOLUMNW, 1, (LPARAM)&lvcw);
                 Utf8ToWide(langConfMemAddress(), wbuf, _countof(wbuf));
-                lvcw.cx = 70;
+                lvcw.cx = addrW;
                 SendMessageW(hwnd, LVM_INSERTCOLUMNW, 2, (LPARAM)&lvcw);
                 Utf8ToWide(langConfMemType(), wbuf, _countof(wbuf));
-                lvcw.cx = 110;
+                lvcw.cx = typeW;
                 SendMessageW(hwnd, LVM_INSERTCOLUMNW, 3, (LPARAM)&lvcw);
                 Utf8ToWide(langConfMemRomImage(), wbuf, _countof(wbuf));
-                lvcw.cx = 150;
+                lvcw.cx = romW;
                 SendMessageW(hwnd, LVM_INSERTCOLUMNW, 4, (LPARAM)&lvcw);
             }
         }

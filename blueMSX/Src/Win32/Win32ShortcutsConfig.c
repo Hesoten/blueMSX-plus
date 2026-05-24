@@ -1195,14 +1195,25 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
                 lvcw.fmt     = LVCFMT_LEFT;
                 lvcw.pszText = wbuf;
 
+                /* Split listview width 2:1 (Key : Description). */
+                int totalW;
+                {
+                    RECT lr;
+                    GetClientRect(hwnd, &lr);
+                    totalW = lr.right - lr.left - GetSystemMetrics(SM_CXVSCROLL);
+                    if (totalW < 200) totalW = 200;
+                }
+                int col0W = (totalW * 2) / 3;
+                int col1W = totalW - col0W;
+
                 sprintf(buffer, langShortcutKey());
                 Utf8ToWide(buffer, wbuf, _countof(wbuf));
-                lvcw.cx = 244;
+                lvcw.cx = col0W;
                 SendMessageW(hwnd, LVM_INSERTCOLUMNW, 0, (LPARAM)&lvcw);
 
                 sprintf(buffer, langShortcutDescription());
                 Utf8ToWide(buffer, wbuf, _countof(wbuf));
-                lvcw.cx = 120;
+                lvcw.cx = col1W;
                 SendMessageW(hwnd, LVM_INSERTCOLUMNW, 1, (LPARAM)&lvcw);
             }
 

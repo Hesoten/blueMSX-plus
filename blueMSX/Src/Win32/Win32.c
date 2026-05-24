@@ -304,11 +304,20 @@ static BOOL_DLG_RET CALLBACK langDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LP
 
                 SendMessageW(hList, LVM_SETUNICODEFORMAT, TRUE, 0);
 
+                /* Fill the listview client width minus the vertical scrollbar. */
+                int colWidth;
+                {
+                    RECT lr;
+                    GetClientRect(hList, &lr);
+                    colWidth = lr.right - lr.left - GetSystemMetrics(SM_CXVSCROLL);
+                    if (colWidth < 100) colWidth = 100;
+                }
+
                 sprintf(buffer, "       %s", langMenuPropsLanguage());
                 Utf8ToWide(buffer, wbuf, _countof(wbuf));
                 lvcw.mask     = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT;
                 lvcw.fmt      = LVCFMT_LEFT;
-                lvcw.cx       = 185;
+                lvcw.cx       = colWidth;
                 lvcw.pszText  = wbuf;
                 SendMessageW(hList, LVM_INSERTCOLUMNW, 0, (LPARAM)&lvcw);
 
@@ -1393,6 +1402,27 @@ static void checkClipRegion() {
     }
 }
 
+// DPI helpers: load Windows 10 1607+ APIs dynamically so the binary
+// still runs on older Windows (where Per-Monitor V2 is not active anyway).
+static UINT getDpiForWindow(HWND hwnd) {
+    typedef UINT (WINAPI *PFN)(HWND);
+    static PFN pfn = (PFN)(LONG_PTR)-1;
+    if (pfn == (PFN)(LONG_PTR)-1)
+        pfn = (PFN)GetProcAddress(GetModuleHandleA("user32.dll"), "GetDpiForWindow");
+    return pfn ? pfn(hwnd) : 96;
+}
+
+static void adjustWindowRectForDpi(RECT* rc, DWORD style, UINT dpi) {
+    typedef BOOL (WINAPI *PFN)(LPRECT, DWORD, BOOL, DWORD, UINT);
+    static PFN pfn = (PFN)(LONG_PTR)-1;
+    if (pfn == (PFN)(LONG_PTR)-1)
+        pfn = (PFN)GetProcAddress(GetModuleHandleA("user32.dll"), "AdjustWindowRectExForDpi");
+    if (pfn)
+        pfn(rc, style, FALSE, 0, dpi);
+    else
+        AdjustWindowRect(rc, style, FALSE);
+}
+
 static int getZoom() {
     if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN && 
         (pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO || 
@@ -1470,8 +1500,13 @@ void themeSet(char* themeName, int forceMatch) {
     if (pProperties->video.windowSize != P_VIDEO_SIZEFULLSCREEN) {
         x = pProperties->video.windowX;
         y = pProperties->video.windowY;
-        w = st.themePageActive->width + 2 * GetSystemMetrics(SM_CXFIXEDFRAME);
-        h = st.themePageActive->height + 2 * GetSystemMetrics(SM_CYFIXEDFRAME) + GetSystemMetrics(SM_CYCAPTION);
+        {
+            DWORD dwStyle = GetWindowLongPtr(st.hwnd, GWL_STYLE);
+            RECT rc = { 0, 0, st.themePageActive->width, st.themePageActive->height };
+            adjustWindowRectForDpi(&rc, dwStyle, getDpiForWindow(st.hwnd));
+            w = rc.right - rc.left;
+            h = rc.bottom - rc.top;
+        }
         ex = st.themePageActive->emuWinX;
         ey = st.themePageActive->emuWinY;
         ew = getZoom() * WIDTH;
@@ -2089,6 +2124,16 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
                 }
                 st.trackMenu = 0;
             }
+        }
+        return 0;
+
+    case WM_DPICHANGED:
+        {
+            RECT* r = (RECT*)lParam;
+            SetWindowPos(hwnd, NULL,
+                r->left, r->top,
+                r->right - r->left, r->bottom - r->top,
+                SWP_NOZORDER | SWP_NOACTIVATE);
         }
         return 0;
 
