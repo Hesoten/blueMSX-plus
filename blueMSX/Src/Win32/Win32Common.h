@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -32,6 +35,10 @@
 
 #include "StrcmpNoCase.h"
 #include "IsFileExtension.h"
+
+/* DLGPROC return slot for TRUE/FALSE replies; INT_PTR for x64 ABI safety.
+** DLGPROCs returning HBRUSH / HCURSOR / etc. use plain INT_PTR. */
+typedef INT_PTR BOOL_DLG_RET;
 
 typedef enum {
     DLG_ID_PROPERTIES = 1,

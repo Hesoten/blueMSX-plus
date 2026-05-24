@@ -367,7 +367,7 @@ static char** getProfileList()
     return profileList;
 }
 
-static BOOL CALLBACK saveProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static BOOL_DLG_RET CALLBACK saveProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (iMsg) {        
     case WM_INITDIALOG:
@@ -401,7 +401,7 @@ static BOOL CALLBACK saveProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam
     return FALSE;
 }
 
-static BOOL CALLBACK closeProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static BOOL_DLG_RET CALLBACK closeProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (iMsg) {        
     case WM_INITDIALOG:
@@ -430,7 +430,7 @@ static BOOL CALLBACK closeProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPara
     return FALSE;
 }
 
-static BOOL CALLBACK discardProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static BOOL_DLG_RET CALLBACK discardProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (iMsg) {        
     case WM_INITDIALOG:
@@ -460,7 +460,7 @@ static BOOL CALLBACK discardProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPa
 
 #include "Win32machineConfig.h"
 
-static BOOL CALLBACK saveAsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static BOOL_DLG_RET CALLBACK saveAsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (iMsg) {        
     case WM_INITDIALOG:
@@ -1158,7 +1158,7 @@ static updateShortcutsList(HWND hDlg)
     }
 }
 
-static BOOL CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     static int currIndex;
     static HWND hwnd;
@@ -1177,7 +1177,7 @@ static BOOL CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM l
             
 //            inputReset(hDlg);
             baseHwnd = hDlg;
-            baseHotkeyCtrlProc = (WNDPROC)SetWindowLong(GetDlgItem(hDlg, IDC_SCUTHOTKEY), GWL_WNDPROC, (LONG)hotkeyCtrlProc);
+            baseHotkeyCtrlProc = (WNDPROC)SetWindowLongPtr(GetDlgItem(hDlg, IDC_SCUTHOTKEY), GWLP_WNDPROC, (LONG_PTR)hotkeyCtrlProc);
             SendDlgItemMessage(hDlg, IDC_SCUTHOTKEY, WM_INITIALIZE, 0, 0);
 
             currIndex = -1;

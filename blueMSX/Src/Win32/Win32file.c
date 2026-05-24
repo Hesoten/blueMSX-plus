@@ -1284,7 +1284,7 @@ typedef struct {
 
 
 
-static BOOL CALLBACK saveAsProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static BOOL_DLG_RET CALLBACK saveAsProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
 
     static SaveAsDlgInfo* sdi;

@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -52,7 +55,9 @@ struct WmmSound {
 
 WmmSound theWmmSound;
 
-static void CALLBACK waveOutProc(HWAVEOUT hwo, UINT uMsg, DWORD dwInstance, DWORD dwParam1, DWORD dwParam2)
+/* dwParam* must be DWORD_PTR so the LPWAVEHDR pointer winmm hands back
+** for MM_WOM_DONE survives on x64 (DWORD truncates and AVs). */
+static void CALLBACK waveOutProc(HWAVEOUT hwo, UINT uMsg, DWORD_PTR dwInstance, DWORD_PTR dwParam1, DWORD_PTR dwParam2)
 {
     LPWAVEHDR pHdr = (LPWAVEHDR)dwParam1;
     Int16* buffer;

@@ -534,13 +534,15 @@ void archMidiOutTransmit(ArchMidi* archMidi, UInt8 value)
     }
 }
 
+/* dwParam* must be DWORD_PTR so the MIDIHDR pointer winmm hands back
+** for MM_MIM_LONGDATA survives on x64 (DWORD truncates and AVs). */
 static void CALLBACK midiInCallback(HMIDIIN hMidiIn,  
-                                    UINT wMsg,        
-                                    DWORD dwInstance, 
-                                    DWORD dwParam1,   
-                                    DWORD dwParam2)
+                                    UINT      wMsg,
+                                    DWORD_PTR dwInstance,
+                                    DWORD_PTR dwParam1,
+                                    DWORD_PTR dwParam2)
 {
-    DWORD id = dwInstance;
+    DWORD id = (DWORD)dwInstance;
     char buffer[4];
     int length = 0;
     MIDIHDR* hdr;

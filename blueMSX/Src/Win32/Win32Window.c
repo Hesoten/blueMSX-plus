@@ -85,8 +85,8 @@ extern void SetCurrentWindow(HWND hwnd);
 
 static void objectShow(HWND parent, int notifyId, int show);
 static void objectEnable(HWND parent, int notifyId, int enable);
-static void objectUpdate(HWND parent, int notifyId, int arg);
-static int objectGet(HWND parent, int notifyId);
+static void objectUpdate(HWND parent, int notifyId, LPARAM arg);
+static LRESULT objectGet(HWND parent, int notifyId);
 
 
 //////////////////////////////////////////////////////////////////////////
@@ -342,7 +342,7 @@ static LRESULT CALLBACK keyboardDlgProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
     switch (iMsg) {
     case WM_CREATE:
         keyboardStartConfig();
-        objectUpdate(hwnd, WM_DROPDOWN_KEYBOARDCONFIG, (int)keyboardGetCurrentConfig());
+        objectUpdate(hwnd, WM_DROPDOWN_KEYBOARDCONFIG, (LPARAM)keyboardGetCurrentConfig());
         SetTimer(hwnd, TIMER_POLL_INPUT, 500, NULL);
         return 0;
 
@@ -432,7 +432,7 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
             windowDataSet(hwnd, 1, wi);
 
             wi->hwnd = hwnd;
-            wi->captionHeight = GetSystemMetrics((GetWindowLong(hwnd, GWL_EXSTYLE) & WS_EX_TOOLWINDOW) ? SM_CYSMCAPTION : SM_CYCAPTION);
+            wi->captionHeight = GetSystemMetrics((GetWindowLongPtr(hwnd, GWL_EXSTYLE) & WS_EX_TOOLWINDOW) ? SM_CYSMCAPTION : SM_CYCAPTION);
             
             themePage = themeGetCurrentPage(wi->theme);
             SendMessage(hwnd, WM_UPDATE, 0, 0);
@@ -714,18 +714,21 @@ void* archWindowCreate(Theme* theme, int childWindow)
 /// Description:
 ///     Updates the child windows of parent with type notifyId 
 //////////////////////////////////////////////////////////////////////////
-static void objectUpdate(HWND parent, int notifyId, int arg)
+static void objectUpdate(HWND parent, int notifyId, LPARAM arg)
 {
     int i;
     for (i = 0; windowData[i].hwnd != NULL; i++) {
         if (GetParent(windowData[i].hwnd) == parent && windowData[i].id == notifyId) {
-            SendMessage(windowData[i].hwnd, WM_OBJECT_UPDATE, 0, (LPARAM)arg);
+            SendMessage(windowData[i].hwnd, WM_OBJECT_UPDATE, 0, arg);
         }
     }
 }
 
-static int objectGet(HWND parent, int notifyId)
+static LRESULT objectGet(HWND parent, int notifyId)
 {
+    /* Returns LRESULT so callers that cast the result to char* / void*
+    ** (via DWLP_MSGRESULT, e.g. keyboardDlgProc::WM_CLOSE) keep the
+    ** upper 32 bits intact on x64. */
     int i;
     for (i = 0; windowData[i].hwnd != NULL; i++) {
         if (GetParent(windowData[i].hwnd) == parent && windowData[i].id == notifyId) {
@@ -798,7 +801,7 @@ typedef struct {
 /// Description:
 ///     Window handler for a dropdown menu controls
 //////////////////////////////////////////////////////////////////////////
-static BOOL CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static BOOL_DLG_RET CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     DropdownInfo* oi;
 
@@ -843,11 +846,11 @@ static BOOL CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
             int idx = SendDlgItemMessage(hwnd, IDC_CONTROL, CB_GETCURSEL, 0, 0);
             int rv = SendDlgItemMessage(hwnd, IDC_CONTROL, CB_GETLBTEXT, idx, (LPARAM)buffer);
             if (rv != CB_ERR) {
-                SetWindowLong(hwnd, DWL_MSGRESULT, (LRESULT)buffer);
+                SetWindowLongPtr(hwnd, DWLP_MSGRESULT, (LRESULT)(LPVOID)buffer);
                 return TRUE;
             }
         }
-        SetWindowLong(hwnd, DWL_MSGRESULT, 0);
+        SetWindowLongPtr(hwnd, DWLP_MSGRESULT, 0);
         return TRUE;
 
     case WM_OBJECT_UPDATE:
@@ -921,7 +924,7 @@ static BOOL CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
 /// Description:
 ///     Function to create dropdown menu controls (from within themes)
 //////////////////////////////////////////////////////////////////////////
-static void* objectDropdownCreate(HWND hwnd, char* id, int x, int y, int width, int height, int arg1, int arg2)
+static void* objectDropdownCreate(HWND hwnd, char* id, int x, int y, int width, int height, LONG_PTR arg1, LONG_PTR arg2)
 {
     DropdownInfo oi = { x, y, width, height, 0, 0 };
 
@@ -988,7 +991,7 @@ typedef struct {
 /// Description:
 ///     Window handler for a button controls
 //////////////////////////////////////////////////////////////////////////
-static BOOL CALLBACK buttonProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static BOOL_DLG_RET CALLBACK buttonProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     static ButtonInfo* oi;
 
@@ -998,11 +1001,14 @@ static BOOL CALLBACK buttonProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         SetWindowPos(hwnd, NULL, oi->x, oi->y, oi->width, oi->height, SWP_NOZORDER | SWP_SHOWWINDOW);
         SetWindowPos(GetDlgItem(hwnd, IDC_CONTROL), NULL, 0, 0, oi->width, oi->height, SWP_NOZORDER);
         SetWindowTextU(GetDlgItem(hwnd, IDC_CONTROL), oi->text);
-        windowDataSet(hwnd, oi->notifyId, (void*)oi->notifyId);
+        /* Stash notifyId in the void* slot.  Cast through UINT_PTR so x64
+        ** does not warn about int<->pointer size mismatch (the message id
+        ** is always small enough to fit). */
+        windowDataSet(hwnd, oi->notifyId, (void*)(UINT_PTR)oi->notifyId);
         return FALSE;
     case WM_COMMAND:
         if (wParam == IDC_CONTROL) {
-            SendMessage(GetParent(hwnd), (UINT)windowDataGet(hwnd), 0, 0);
+            SendMessage(GetParent(hwnd), (UINT)(UINT_PTR)windowDataGet(hwnd), 0, 0);
         }
         return TRUE;
     case WM_CLOSE:
@@ -1080,7 +1086,7 @@ static void objectButtonDestroy(void* object)
 ///     Creates a control based on the id string. The method is used to
 ///     create host specific controls from the themes.
 //////////////////////////////////////////////////////////////////////////
-void* archObjectCreate(char* id, void* window, int x, int y, int width, int height, int arg1, int arg2)
+void* archObjectCreate(char* id, void* window, int x, int y, int width, int height, LONG_PTR arg1, LONG_PTR arg2)
 {
     if (0 == strncmp(id, "button-", 7)) {
         return objectButtonCreate(window, id, x, y, width, height);

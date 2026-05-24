@@ -278,7 +278,7 @@ static char* strEmuSpeed(int logFrequency) {
     return buffer;
 }
 
-static BOOL CALLBACK emulationDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
+static BOOL_DLG_RET CALLBACK emulationDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
     static Properties* pProperties;
     static int curSpeed;
     static char machineName[64];
@@ -460,7 +460,7 @@ static BOOL CALLBACK emulationDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARA
     return FALSE;
 }
 
-static BOOL CALLBACK filesDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
+static BOOL_DLG_RET CALLBACK filesDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
     static Properties* pProperties;
     int i;
 
@@ -614,7 +614,7 @@ static BOOL CALLBACK filesDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
 
 extern void archUpdateWindow();
 
-static BOOL CALLBACK settingsDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
+static BOOL_DLG_RET CALLBACK settingsDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
     static Properties* pProperties;
     static char oldTheme[128];
 
@@ -745,7 +745,7 @@ static void getFullscreenResList(HWND hDlg, int* width, int* height, int* bitCou
 
 static Properties* pCurrentProperties;
 
-static BOOL CALLBACK directDraWProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
+static BOOL_DLG_RET CALLBACK directDraWProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
     static Properties* pProperties;
 
     switch (iMsg) {
@@ -805,7 +805,7 @@ static BOOL CALLBACK directDraWProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM 
     return FALSE;
 }
 
-static BOOL CALLBACK gdiProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
+static BOOL_DLG_RET CALLBACK gdiProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
     static Properties* pProperties;
 
     switch (iMsg) {
@@ -853,7 +853,7 @@ static void D3DUpdateItems(HWND hDlg, Properties* pProperties)
     EnableWindow(GetDlgItem(hDlg, IDC_D3D_CROPPING_BOTTOMVALUETEXT), b);
 }
 
-static BOOL CALLBACK direct3dProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
+static BOOL_DLG_RET CALLBACK direct3dProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
     static Properties* pProperties;
 
     switch (iMsg) {
@@ -965,7 +965,7 @@ static BOOL CALLBACK direct3dProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
     return FALSE;
 }
 
-static BOOL CALLBACK performanceDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
+static BOOL_DLG_RET CALLBACK performanceDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
     static Properties* pProperties;
 
     switch (iMsg) {
@@ -1103,7 +1103,7 @@ static BOOL CALLBACK videoDirect3dDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
     return FALSE;
 }
 
-static BOOL CALLBACK videoSoftwareDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
+static BOOL_DLG_RET CALLBACK videoSoftwareDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
     static Properties* pProperties;
     static int monitorType;
     static int monitorColor;
@@ -1374,7 +1374,7 @@ static BOOL CALLBACK videoSoftwareDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
     return FALSE;
 }
 
-static BOOL CALLBACK videoDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
+static BOOL_DLG_RET CALLBACK videoDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
     static Properties* pProperties;
 
     switch (iMsg) {
@@ -1567,7 +1567,7 @@ static void updateMidiChannelList(HWND hDlg, int id, Properties* pProperties)
 
 
 
-static BOOL CALLBACK soundDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
+static BOOL_DLG_RET CALLBACK soundDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
     static Properties* pProperties;
     int index;
 
@@ -1815,10 +1815,11 @@ static void updateCdromListAspi(HWND hWnd, Properties* pProperties)
     SendMessage(hWnd, CB_SETCURSEL, (WPARAM)drvidx, 0);
 }
 
-static BOOL CALLBACK diskDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
+static BOOL_DLG_RET CALLBACK diskDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
     HWND hMethod, hDrive;
     static Properties* pProperties;
-    int index, data;
+    int index;
+    INT_PTR data;
     const char* list;
     const int* tbl;
     int methodIdx[3];
@@ -1884,7 +1885,7 @@ static BOOL CALLBACK diskDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPa
             if (HIWORD(wParam) == CBN_SELCHANGE) {
                 hMethod = (HWND)lParam;
                 index = SendMessage(hMethod, CB_GETCURSEL, 0, 0);
-                data  = (int)SendMessage(hMethod, CB_GETITEMDATA, index, 0);
+                data  = (INT_PTR)SendMessage(hMethod, CB_GETITEMDATA, index, 0);
                 hDrive = GetDlgItem(hDlg, IDC_CDROMDRIVELIST);
                 EnableWindow(hDrive, data > 0);
                 switch (data) {
@@ -2152,11 +2153,12 @@ static BOOL updatePortsComList(HWND hDlg, int id, Properties* pProperties)
 }
 
 
-static BOOL CALLBACK portsDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
+static BOOL_DLG_RET CALLBACK portsDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     static Properties* pProperties;
     HWND hMethod, hDrive;
-    int index, data;
+    int index;
+    INT_PTR data;
     const char* list;
     const int* tbl;
     int methodIdx[3];
@@ -2282,7 +2284,7 @@ static BOOL CALLBACK portsDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
             if (HIWORD(wParam) == CBN_SELCHANGE) {
                 hMethod = (HWND)lParam;
                 index = SendMessage(hMethod, CB_GETCURSEL, 0, 0);
-                data  = (int)SendMessage(hMethod, CB_GETITEMDATA, index, 0);
+                data  = (INT_PTR)SendMessage(hMethod, CB_GETITEMDATA, index, 0);
                 hDrive = GetDlgItem(hDlg, IDC_CDROMDRIVELIST);
                 EnableWindow(hDrive, data > 0);
                 switch (data) {

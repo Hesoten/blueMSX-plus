@@ -251,7 +251,7 @@ void saveDialogPos(HWND hwnd, int dialogID)
 
 ///////////////////////////////////////////////////////////////////////////
 
-static BOOL CALLBACK langDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static BOOL_DLG_RET CALLBACK langDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     static int* lang = NULL;
 
@@ -383,7 +383,7 @@ int langShowDlg(HWND hwnd, int oldLanguage) {
 
 #define TIMER_DSKDIALOGSHOW 20
 
-static BOOL CALLBACK dskProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
+static BOOL_DLG_RET CALLBACK dskProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
     static int show = 0;
 
     switch (iMsg) {
@@ -526,7 +526,7 @@ static void updateRomTypeList(HWND hDlg, ZipFileDlgInfo* dlgInfo) {
     }
 }
 
-static BOOL CALLBACK dskZipDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
+static BOOL_DLG_RET CALLBACK dskZipDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
     static ZipFileDlgInfo* dlgInfo;
 
     switch (iMsg) {
@@ -721,7 +721,7 @@ static void tapeDlgUpdate(HWND hwnd, TapeContent* tc, int tcCount, int showCusto
 }
 
 
-static BOOL CALLBACK tapePosDlg(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static BOOL_DLG_RET CALLBACK tapePosDlg(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     static int currIndex;
     static HWND hwnd;
@@ -1606,7 +1606,7 @@ void archUpdateWindow() {
         }
         else {
             int rv;
-            SetWindowLong(st.hwnd, GWL_STYLE, WS_POPUP | WS_CLIPCHILDREN | WS_VISIBLE);
+            SetWindowLongPtr(st.hwnd, GWL_STYLE, WS_POPUP | WS_CLIPCHILDREN | WS_VISIBLE);
 
             if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D)
                 rv = D3DEnterFullscreenMode(st.emuHwnd, 
@@ -1629,9 +1629,9 @@ void archUpdateWindow() {
     }
 
     if (pProperties->video.windowSize != P_VIDEO_SIZEFULLSCREEN) {
-        if (GetWindowLong(st.hwnd, GWL_STYLE) & WS_POPUP) {
+        if (GetWindowLongPtr(st.hwnd, GWL_STYLE) & WS_POPUP) {
             mouseEmuActivate(1);
-            SetWindowLong(st.hwnd, GWL_STYLE, WS_OVERLAPPED | WS_CLIPCHILDREN | WS_BORDER | WS_DLGFRAME | 
+            SetWindowLongPtr(st.hwnd, GWL_STYLE, WS_OVERLAPPED | WS_CLIPCHILDREN | WS_BORDER | WS_DLGFRAME |
                                 WS_SYSMENU | WS_MINIMIZEBOX | (pProperties->video.maximizeIsFullscreen?WS_MAXIMIZEBOX:0));
         }
 
@@ -3813,7 +3813,7 @@ static int LoadMemory(const char* fileName, UInt16 address)
     return 0;
 }
 
-static BOOL CALLBACK loadMemorProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static BOOL_DLG_RET CALLBACK loadMemorProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
 {
     static HICON hIconBtBrowse = NULL;
 

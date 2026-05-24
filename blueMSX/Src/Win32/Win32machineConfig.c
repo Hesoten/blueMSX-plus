@@ -410,7 +410,7 @@ static void setCartSlotDropdown(HWND hDlg, int cart, int dropdownId) {
     }
 }
 
-static BOOL CALLBACK slotProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static INT_PTR CALLBACK slotProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     char text[32];
 
@@ -447,7 +447,7 @@ static BOOL CALLBACK slotProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam
     case WM_CTLCOLORBTN:
     case WM_CTLCOLORSTATIC:
         SetBkColor((HDC)wParam, GetSysColor(COLOR_MENU));
-        return (BOOL)hBrush;
+        return (INT_PTR)hBrush;
         
     case WM_ERASEBKGND:
         return TRUE;
@@ -1621,7 +1621,7 @@ static void setEditProps(HWND hDlg, char* fileName)
     SendMessage(GetDlgItem(hDlg, IDC_ROMTYPE), CB_SETCURSEL, idx, 0);
 }
 
-static BOOL CALLBACK slotEditProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static BOOL_DLG_RET CALLBACK slotEditProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     static HICON hIconBtBrowse = NULL;
     int i;
@@ -1872,7 +1872,7 @@ int showListDetailDlg(HWND hwnd, int index) {
     return 1;
 }
 
-static BOOL CALLBACK memoryProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static BOOL_DLG_RET CALLBACK memoryProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     static int currIndex;
     static HWND hwnd;
@@ -2118,7 +2118,7 @@ static int getFdcCountList(HWND hDlg) {
 }
 
 
-static BOOL CALLBACK extrasProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static INT_PTR CALLBACK extrasProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (iMsg) {
     case WM_INITDIALOG:
@@ -2137,7 +2137,7 @@ static BOOL CALLBACK extrasProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
     case WM_CTLCOLORBTN:
     case WM_CTLCOLORSTATIC:
         SetBkColor((HDC)wParam, GetSysColor(COLOR_MENU));
-        return (BOOL)hBrush;
+        return (INT_PTR)hBrush;
 
     case WM_ERASEBKGND:
         return TRUE;
@@ -2238,7 +2238,7 @@ static int getVramList(HWND hDlg) {
     return vramSize != machine->video.vramSize;
 }
 
-static BOOL CALLBACK chipsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static INT_PTR CALLBACK chipsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (iMsg) {
     case WM_INITDIALOG:
@@ -2261,7 +2261,7 @@ static BOOL CALLBACK chipsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPara
     case WM_CTLCOLORBTN:
     case WM_CTLCOLORSTATIC:
         SetBkColor((HDC)wParam, GetSysColor(COLOR_MENU));
-        return (BOOL)hBrush;
+        return (INT_PTR)hBrush;
         
     case WM_ERASEBKGND:
         return TRUE;
@@ -2330,7 +2330,7 @@ static BOOL CALLBACK chipsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPara
     return FALSE;
 }
 
-static BOOL CALLBACK saveProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static BOOL_DLG_RET CALLBACK saveProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (iMsg) {        
     case WM_INITDIALOG:
@@ -2365,7 +2365,7 @@ static BOOL CALLBACK saveProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam
     return FALSE;
 }
 
-static BOOL CALLBACK closeProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static BOOL_DLG_RET CALLBACK closeProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (iMsg) {        
     case WM_INITDIALOG:
@@ -2395,7 +2395,7 @@ static BOOL CALLBACK closeProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPara
     return FALSE;
 }
 
-static BOOL CALLBACK discardProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static BOOL_DLG_RET CALLBACK discardProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (iMsg) {        
     case WM_INITDIALOG:
@@ -2425,7 +2425,7 @@ static BOOL CALLBACK discardProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPa
     return FALSE;
 }
 
-static BOOL CALLBACK saveAsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static BOOL_DLG_RET CALLBACK saveAsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     static ArrayList *machineList = NULL;
 
@@ -2519,7 +2519,7 @@ static BOOL CALLBACK saveAsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
     return FALSE;
 }
 
-static BOOL CALLBACK configProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static BOOL_DLG_RET CALLBACK configProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (iMsg) {
         

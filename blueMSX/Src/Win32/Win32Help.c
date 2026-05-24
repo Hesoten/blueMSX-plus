@@ -37,7 +37,9 @@
 #include "version.h"
 #include <stdio.h>
  
-static BOOL CALLBACK aboutDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+/* DLGPROC returns INT_PTR: BOOL truncates HBRUSH replies from
+** WM_CTLCOLOR* messages on x64. */
+static INT_PTR CALLBACK aboutDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (iMsg) {
     case WM_COMMAND:
@@ -48,7 +50,7 @@ static BOOL CALLBACK aboutDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
         break;
 
     case WM_CTLCOLORSTATIC:
-        return (BOOL)GetSysColorBrush(COLOR_WINDOW);
+        return (INT_PTR)GetSysColorBrush(COLOR_WINDOW);
     
     case WM_CLOSE:
         EndDialog(hDlg, TRUE);

@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik, Laurent Halter
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -49,7 +52,9 @@ static LPDIRECTDRAWSURFACE7  lpDDSTemp2 = NULL;       // DirectDraw temp surface
 static LPDIRECTDRAWSURFACE7  lpDDSDraw = NULL;       // DirectDraw temp surface
 static LPDIRECTDRAWCLIPPER  lpClipper = NULL;       // clipper for primary
 static HWND    hwndThis;
-static int     MyDevice;
+/* HMONITOR-sized so the pointer-width comparison keeps the upper 32 bits
+** of a kernel handle on x64. */
+static INT_PTR MyDevice;
 static int     sysMemBuffering = 0;
 static int     screenWidth  = 320;
 static int     screenHeight = 240;
@@ -110,7 +115,7 @@ static HMONITOR OneMonitorFromWindow(HWND hwnd) {
     return hMonitor;
 }
 
-static int DirectDrawDeviceFromWindow(HWND hwnd, LPSTR szDevice, RECT *prc) {
+static INT_PTR DirectDrawDeviceFromWindow(HWND hwnd, LPSTR szDevice, RECT *prc) {
     HMONITOR hMonitor;
 
     if (GetSystemMetrics(SM_CMONITORS) <= 1) {
@@ -134,7 +139,7 @@ static int DirectDrawDeviceFromWindow(HWND hwnd, LPSTR szDevice, RECT *prc) {
             if (prc) *prc = mi.rcMonitor;
             if (szDevice) lstrcpy(szDevice, mi.szDevice);
         }
-        return (int)hMonitor;
+        return (INT_PTR)hMonitor;
     }
 }
 

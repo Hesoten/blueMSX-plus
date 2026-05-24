@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -81,7 +84,7 @@ const char* fullPath(const char* filename)
 enum ThemeInfo { THEME_SMALL = 0, THEME_NORMAL = 1, THEME_FULLSCREEN = 2 };
 
 static ButtonEvent getAction(TiXmlElement* el, const char* actionTag, 
-                             const char* arg1Tag, const char* arg2Tag, int* arg1, int* arg2, 
+                             const char* arg1Tag, const char* arg2Tag, LONG_PTR* arg1, LONG_PTR* arg2,
                              ThemeCollection* themeCollection, Theme* theme, int dx, int dy)
 {
     ButtonEvent buttonEvent = 0;
@@ -89,8 +92,13 @@ static ButtonEvent getAction(TiXmlElement* el, const char* actionTag,
     *arg1 = 1;
     *arg2 = 1;
 
-    el->QueryIntAttribute(arg1Tag, arg1);
-    el->QueryIntAttribute(arg2Tag, arg2);
+    {
+        int iArg1 = 1, iArg2 = 1;
+        el->QueryIntAttribute(arg1Tag, &iArg1);
+        el->QueryIntAttribute(arg2Tag, &iArg2);
+        *arg1 = iArg1;
+        *arg2 = iArg2;
+    }
 
     const char* action = el->Attribute(actionTag);
     if (action == NULL) {
@@ -296,10 +304,10 @@ static ButtonEvent getAction(TiXmlElement* el, const char* actionTag,
             *arg2 = themeGetNameHash(argaStr);
 
             if (buttonEvent == (ButtonEvent)themeSetPageFromHash) {
-                *arg1 = (int)theme;
+                *arg1 = (LONG_PTR)theme;
             }
             if (buttonEvent == (ButtonEvent)themeCollectionOpenWindow) {
-                *arg1 = (int)themeCollection;
+                *arg1 = (LONG_PTR)themeCollection;
             }
         }
     }
@@ -700,7 +708,7 @@ static void addSlider(ThemeCollection* themeCollection, Theme* theme, ThemePage*
         }
     }
 
-    int arga, argb;
+    LONG_PTR arga, argb;
     SliderEvent action = (SliderEvent)getAction(el, "action", "arga", "argb", &arga, &argb, themeCollection, theme, dx, dy);
 
     int max = 1;
@@ -723,7 +731,7 @@ static void addSlider(ThemeCollection* themeCollection, Theme* theme, ThemePage*
         sensitivity *= -1;
     }
 
-    int relArga, relArgb;
+    LONG_PTR relArga, relArgb;
     ButtonEvent release = getAction(el, "release", "relarga", "relargb", &relArga, &relArgb, themeCollection, theme, dx, dy);
 
 
@@ -754,7 +762,7 @@ static void addButton(ThemeCollection* themeCollection, Theme* theme, ThemePage*
         }
     }
 
-    int arga, argb;
+    LONG_PTR arga, argb;
     ButtonEvent action = getAction(el, "action", "arga", "argb", &arga, &argb, themeCollection, theme, dx, dy);
 
     int activeNotify = 0;
@@ -788,7 +796,7 @@ static void addToggleButton(ThemeCollection* themeCollection, Theme* theme, Them
         }
     }
 
-    int arga, argb;
+    LONG_PTR arga, argb;
     ButtonEvent action = getAction(el, "action", "arga", "argb", &arga, &argb, themeCollection, theme, dx, dy);
 
     int activeNotify = 0;
@@ -823,10 +831,10 @@ static void addDualButton(ThemeCollection* themeCollection, Theme* theme, ThemeP
         }
     }
 
-    int arg1x, arg1y;
+    LONG_PTR arg1x, arg1y;
     ButtonEvent action1 = getAction(el, "action1", "arg1x", "arg1y", &arg1x, &arg1y, themeCollection, theme, dx, dy);
     
-    int arg2x, arg2y;
+    LONG_PTR arg2x, arg2y;
     ButtonEvent action2 = getAction(el, "action2", "arg2x", "arg2y", &arg2x, &arg2y, themeCollection, theme, dx, dy);
 
     int vertical = 0;
@@ -947,8 +955,8 @@ static void addObject(ThemeCollection* themeCollection, Theme* theme, ThemePage*
         }
     }
 
-    int arg1 = 0;
-    if (0 == strcmp(id, "dropdown-themepages")) arg1 = (int)theme;
+    LONG_PTR arg1 = 0;
+    if (0 == strcmp(id, "dropdown-themepages")) arg1 = (LONG_PTR)theme;
 
     themePageAddObject(themePage, activeObjectCreate(x, y, width, height, id, arg1, 0), visible);
 }
