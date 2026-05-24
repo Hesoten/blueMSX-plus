@@ -1948,11 +1948,48 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
     return 1;
 }
 
-// --- windowing helpers (match D3D9 interface) ---------------------------------
+// --- windowing helpers --------------------------------------------------------
 
-// Defined in Win32D3D.cpp: finds the monitor containing the window and
-// resizes parent+child to cover it (borderless windowed fullscreen).
-extern void vSetFullscreen(HWND hWnd);
+// Finds the monitor containing the parent window's centre and resizes
+// parent + child to cover that monitor (borderless windowed fullscreen).
+static void vSetFullscreen(HWND hWnd)
+{
+    DISPLAY_DEVICE  oDisplayDevice;
+    WINDOWPLACEMENT oWindowPlacement;
+    DEVMODE         oDevMode;
+    int             iIndex;
+    int             iX, iY;
+
+    oDevMode.dmSize        = sizeof(oDevMode);
+    oDevMode.dmDriverExtra = 0;
+    oDisplayDevice.cb      = sizeof(oDisplayDevice);
+
+    GetWindowPlacement(GetParent(hWnd), &oWindowPlacement);
+
+    iX = (oWindowPlacement.rcNormalPosition.left + oWindowPlacement.rcNormalPosition.right) / 2;
+    iY = (oWindowPlacement.rcNormalPosition.top  + oWindowPlacement.rcNormalPosition.bottom) / 2;
+    iIndex = 0;
+
+    while (EnumDisplayDevices(NULL, iIndex++, &oDisplayDevice, 0)) {
+        if ((oDisplayDevice.StateFlags & DISPLAY_DEVICE_ATTACHED_TO_DESKTOP) &&
+            EnumDisplaySettings(oDisplayDevice.DeviceName, ENUM_CURRENT_SETTINGS, &oDevMode)) {
+            if ((oDevMode.dmPosition.x                            <= iX) &&
+                (oDevMode.dmPosition.y                            <= iY) &&
+                (oDevMode.dmPosition.x + (signed)oDevMode.dmPelsWidth  > iX) &&
+                (oDevMode.dmPosition.y + (signed)oDevMode.dmPelsHeight > iY)) {
+                SetWindowPos(GetParent(hWnd), HWND_TOPMOST,
+                             oDevMode.dmPosition.x, oDevMode.dmPosition.y,
+                             oDevMode.dmPelsWidth,  oDevMode.dmPelsHeight,
+                             SWP_SHOWWINDOW);
+                SetWindowPos(hWnd, NULL,
+                             0, 0,
+                             oDevMode.dmPelsWidth,  oDevMode.dmPelsHeight,
+                             SWP_NOZORDER);
+                return;
+            }
+        }
+    }
+}
 
 extern "C" int D3D12IsHdrActive(void)
 {

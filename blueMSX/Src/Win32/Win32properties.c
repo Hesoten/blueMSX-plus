@@ -76,7 +76,6 @@ static HWND hDlgDirectDraw = NULL;
 static HWND hDlgDirect3d  = NULL;
 static HWND hDlgGdi = NULL;
 static HWND hDlgVideoSoftware = NULL;
-static HWND hDlgVideoDirect3d = NULL;
 static HWND hDlgVideo = NULL;
 static HWND hDlgSound = NULL;
 static int propModified = 0;
@@ -169,13 +168,12 @@ static char* pVideoMonSize[] = {
     NULL
 };
 
-static char pVideoDriverData[5][64];
+static char pVideoDriverData[4][64];
 static char* pVideoDriver[] = {
     pVideoDriverData[0],
     pVideoDriverData[1],
     pVideoDriverData[2],
     pVideoDriverData[3],
-    pVideoDriverData[4],
     NULL
 };
 
@@ -1079,7 +1077,7 @@ static BOOL_DLG_RET CALLBACK performanceDlgProc(HWND hDlg, UINT iMsg, WPARAM wPa
         
         ShowWindow(hDlgDirectDraw,  pProperties->video.driver < 2 ? SW_NORMAL : SW_HIDE);
         ShowWindow(hDlgGdi,         pProperties->video.driver == 2 ? SW_NORMAL : SW_HIDE);
-        ShowWindow(hDlgDirect3d,    pProperties->video.driver >= 3 ? SW_NORMAL : SW_HIDE);
+        ShowWindow(hDlgDirect3d,    pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12 ? SW_NORMAL : SW_HIDE);
 
         return FALSE;
 
@@ -1091,7 +1089,7 @@ static BOOL_DLG_RET CALLBACK performanceDlgProc(HWND hDlg, UINT iMsg, WPARAM wPa
                 int index = getDropListIndex(hDlg, IDC_VIDEODRV, pVideoDriver);
                 ShowWindow(hDlgDirectDraw, index < 2 ? SW_NORMAL : SW_HIDE);
                 ShowWindow(hDlgGdi,        index == 2 ? SW_NORMAL : SW_HIDE);
-                ShowWindow(hDlgDirect3d,   index >= 3 ? SW_NORMAL : SW_HIDE);
+                ShowWindow(hDlgDirect3d,   index == P_VIDEO_DRVDIRECTX_D3D12 ? SW_NORMAL : SW_HIDE);
                 SendMessage(hDlgVideo, WM_VIDEO_DRIVER_CHANGED, index, 0);
                 return TRUE;
             }
@@ -1147,47 +1145,6 @@ static char* strPt(int value) {
     static char buffer[32];
     sprintf(buffer, "%d.%d", value / 2, 5 * (value & 1));
     return buffer;
-}
-
-static BOOL CALLBACK videoDirect3dDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
-    static Properties* pProperties;
-
-    switch (iMsg) {
-    case WM_INITDIALOG:    
-        pProperties = pCurrentProperties;
-
-        SetDlgItemTextU(hDlg, IDC_D3D_PARAMETERSGROUPBOX, langPropD3DParametersGB());
-        SetDlgItemTextU(hDlg, IDC_MONDEINTERLACE, langPropMonDeInterlace());
-        SetDlgItemTextU(hDlg, IDC_MONBLENDFRAMES, langPropMonBlendFrames());
-		SetDlgItemTextU(hDlg, IDC_D3D_LINEARFILTERING, langPropD3DLinearFilteringText());
-
-		setButtonCheck(hDlg, IDC_D3D_LINEARFILTERING, pProperties->video.d3d.linearFiltering, 1);
-        
-        setButtonCheck(hDlg, IDC_MONDEINTERLACE, pProperties->video.deInterlace, 1);
-        setButtonCheck(hDlg, IDC_MONBLENDFRAMES, pProperties->video.blendFrames, 1);
-
-        return FALSE;
-
-    case WM_COMMAND:
-        switch (LOWORD(wParam)) {
-        case IDC_D3D_LINEARFILTERING:
-            pProperties->video.d3d.linearFiltering = getButtonCheck(hDlg, IDC_D3D_LINEARFILTERING);
-            break;
-        case IDC_MONDEINTERLACE:
-            pProperties->video.deInterlace   = getButtonCheck(hDlg, IDC_MONDEINTERLACE);
-            videoSetDeInterlace(theVideo, pProperties->video.deInterlace);
-            updateEmuWindow();
-            break;
-        case IDC_MONBLENDFRAMES:
-            pProperties->video.blendFrames   = getButtonCheck(hDlg, IDC_MONBLENDFRAMES);
-            videoSetBlendFrames(theVideo, pProperties->video.blendFrames);
-            updateEmuWindow();
-            break;
-        }
-        return TRUE;
-    }
-
-    return FALSE;
 }
 
 /* Format a multiplier x100 (e.g. 100 = 1.00x, 170 = 1.70x). */
@@ -1687,20 +1644,14 @@ static BOOL_DLG_RET CALLBACK videoDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
 
         hDlgVideoSoftware = CreateDialog(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_VIDEO_SOFTWARE), hDlg, videoSoftwareDlgProc);
         SetWindowPos(hDlgVideoSoftware,  NULL, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
-        hDlgVideoDirect3d = CreateDialog(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_VIDEO_DIRECT3D), hDlg, videoDirect3dDlgProc);
-        SetWindowPos(hDlgVideoDirect3d,  NULL, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
 
-        /* D3D9 (3): show direct3d tab (linear filter + deinterlace + blend)
-           D3D12 (4): show software tab (scanlines, gamma, contrast, etc.)
-           others   : show software tab */
-        ShowWindow(hDlgVideoSoftware,  pProperties->video.driver != P_VIDEO_DRVDIRECTX_D3D  ? SW_NORMAL : SW_HIDE);
-        ShowWindow(hDlgVideoDirect3d,  pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D  ? SW_NORMAL : SW_HIDE);
+        /* The dedicated DX9 sub-panel was removed along with the DX9 driver;
+        ** the software panel covers every remaining driver. */
+        ShowWindow(hDlgVideoSoftware, SW_NORMAL);
 
         return FALSE;
 
     case WM_VIDEO_DRIVER_CHANGED:
-        ShowWindow(hDlgVideoSoftware,  (int)wParam != P_VIDEO_DRVDIRECTX_D3D  ? SW_NORMAL : SW_HIDE);
-        ShowWindow(hDlgVideoDirect3d,  (int)wParam == P_VIDEO_DRVDIRECTX_D3D  ? SW_NORMAL : SW_HIDE);
         /* Forward to children so e.g. Linear Filter checkbox enable state
            updates without needing the user to reopen Properties. */
         SendMessage(hDlgVideoSoftware, WM_VIDEO_DRIVER_CHANGED, wParam, 0);
@@ -1714,13 +1665,11 @@ static BOOL_DLG_RET CALLBACK videoDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
         if ((((NMHDR FAR *)lParam)->code) != PSN_APPLY) {
             if ((((NMHDR FAR *)lParam)->code) == PSN_QUERYCANCEL) {
                SendMessage(hDlgVideoSoftware,  WM_CANCELUPDATEPROPERTIES, 0, 0);
-               SendMessage(hDlgVideoDirect3d,  WM_CANCELUPDATEPROPERTIES, 0, 0);
             }
             return FALSE;
         }
-        
+
         SendMessage(hDlgVideoSoftware,  WM_UPDATEPROPERTIES, 0, 0);
-        SendMessage(hDlgVideoDirect3d,  WM_UPDATEPROPERTIES, 0, 0);
             
         propModified = 1;
         return TRUE;
@@ -2673,8 +2622,7 @@ int showProperties(Properties* pProperties, HWND hwndOwner, PropPage desiredStar
     sprintf(pVideoDriver[0], "%s", langEnumVideoDrvDirectDrawHW());
     sprintf(pVideoDriver[1], "%s", langEnumVideoDrvDirectDraw());
     sprintf(pVideoDriver[2], "%s", langEnumVideoDrvGDI());
-    sprintf(pVideoDriver[3], "%s", langEnumVideoDrvD3D());
-    sprintf(pVideoDriver[4], "Direct3D 12");
+    sprintf(pVideoDriver[3], "Direct3D 12");
 
     sprintf(pVideoFrameSkip[0], "%s", langEnumVideoFrameskip0());
     sprintf(pVideoFrameSkip[1], "%s", langEnumVideoFrameskip1());

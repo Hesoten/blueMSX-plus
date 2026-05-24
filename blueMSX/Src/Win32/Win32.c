@@ -65,7 +65,6 @@
 #include "Win32keyboard.h"
 #include "Win32Printer.h"
 #include "Win32directx.h"
-#include "Win32D3D.h"
 #include "Win32D3D12.h"
 #include "Win32Avi.h"
 #include "FileHistory.h"
@@ -1635,7 +1634,6 @@ void archUpdateWindow() {
     // Tear down ALL drivers (each Exit no-ops if inactive); tearing down
     // only the current one leaks the previous swap chain on the HWND.
     D3D12ExitFullscreenMode();
-    D3DExitFullscreenMode();
     DirectXExitFullscreenMode();
 
     if (st.bmBitsGDI != NULL) {
@@ -1655,10 +1653,6 @@ void archUpdateWindow() {
                 rv = D3D12EnterFullscreenMode(st.emuHwnd,
                                                 pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO, 
                                                 pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO);
-            else if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D)
-                rv = D3DEnterFullscreenMode(st.emuHwnd, 
-                                                pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO, 
-                                                pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO);
             else
                 rv = DirectXEnterFullscreenMode(st.emuHwnd, 
                                                 pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO, 
@@ -1668,8 +1662,6 @@ void archUpdateWindow() {
                 MessageBoxU(NULL, langErrorEnterFullscreen(), langErrorTitle(), MB_OK);
                 if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12)
                     D3D12ExitFullscreenMode();
-                else if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D)
-                    D3DExitFullscreenMode();
                 else
                     DirectXExitFullscreenMode();
                 pProperties->video.windowSize = P_VIDEO_SIZEX2;
@@ -1689,10 +1681,6 @@ void archUpdateWindow() {
 
             if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12)
                 rv = D3D12EnterWindowedMode(st.emuHwnd, zoom * WIDTH, zoom * HEIGHT,
-                                              pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO, 
-                                              pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO);
-            else if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D)
-                rv = D3DEnterWindowedMode(st.emuHwnd, zoom * WIDTH, zoom * HEIGHT,
                                               pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO, 
                                               pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO);
             else
@@ -1774,7 +1762,6 @@ static void emuWindowDraw(int onlyOnVblank)
 
     if (!st.enteringFullscreen && 
         (pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO || 
-        (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D) || 
         (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12) ||
         (pProperties->video.driver == P_VIDEO_DRVDIRECTX)))
     {
@@ -1791,8 +1778,6 @@ static void emuWindowDraw(int onlyOnVblank)
 
         if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12)
             rv = D3D12UpdateSurface(st.emuHwnd, st.pVideo, st.diplaySync, &pProperties->video.d3d);
-        else if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D)
-            rv = D3DUpdateSurface(st.emuHwnd, st.pVideo, st.diplaySync, &pProperties->video.d3d);
         else
             rv = DirectXUpdateSurface(st.pVideo, 
                                       st.showMenu | st.showDialog || emulatorGetState() != EMU_RUNNING, 
@@ -2201,10 +2186,6 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
                     D3D12UpdateWindowedMode(st.emuHwnd, zoom * WIDTH, zoom * HEIGHT,
                                               pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO, 
                                               pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO);
-                else if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D)
-                    D3DUpdateWindowedMode(st.emuHwnd, zoom * WIDTH, zoom * HEIGHT,
-                                              pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO, 
-                                              pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO);
                 else
                     DirectXUpdateWindowedMode(st.emuHwnd, zoom * WIDTH, zoom * HEIGHT,
                                               pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO, 
@@ -2536,8 +2517,6 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         st.enteringFullscreen = 1;
         if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12)
             D3D12ExitFullscreenMode();
-        else if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D)
-            D3DExitFullscreenMode();
         else
             DirectXExitFullscreenMode();
         PostQuitMessage(0);

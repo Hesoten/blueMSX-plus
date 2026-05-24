@@ -192,8 +192,7 @@ enum {
     P_VIDEO_DRVDIRECTX_VIDEO = 0, 
     P_VIDEO_DRVDIRECTX       = 1,
     P_VIDEO_DRVGDI           = 2,
-    P_VIDEO_DRVDIRECTX_D3D   = 3,
-    P_VIDEO_DRVDIRECTX_D3D12 = 4
+    P_VIDEO_DRVDIRECTX_D3D12 = 3
 };
 
 enum { 

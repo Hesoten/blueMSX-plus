@@ -145,7 +145,8 @@ ValueNamePair VideoDriverPair[] = {
     { P_VIDEO_DRVDIRECTX_VIDEO,    "directx hw" },
     { P_VIDEO_DRVDIRECTX,          "directx" },
     { P_VIDEO_DRVGDI,              "gdi" },
-    { P_VIDEO_DRVDIRECTX_D3D,      "directx d3d" },
+    { P_VIDEO_DRVDIRECTX_D3D12,    "d3d12" },
+    { P_VIDEO_DRVDIRECTX_D3D12,    "directx d3d" },
     { -1,                           "" },
 };
 #endif
