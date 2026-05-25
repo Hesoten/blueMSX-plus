@@ -29,6 +29,7 @@
 ******************************************************************************
 */
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "Win32Menu.h"
 #include "Win32TextUtf8.h"
@@ -51,6 +52,8 @@
 #include "JoystickPort.h"
 #include "GameReader.h"
 #include "AppConfig.h"
+#include "IsFileExtension.h"
+#include "ziphelper.h"
 
 
 
@@ -187,6 +190,12 @@
 #define ID_FILE_DISK_AUTOSTART          41303
 #define ID_FILE_DISK_INSERTNEW          41304
 #define ID_FILE_DISK_HISTORY            41305
+
+/* Inner-zip dispatch IDs for multi-disk .zip history submenus.
+   ID = BASE + drive*DRIVE_STRIDE + hist_idx*MAX_INNER + inner_idx. */
+#define ID_FILE_DISK_HISTORYINNER         50000
+#define ID_FILE_DISK_HISTORYINNER_DRIVE   1000
+#define MAX_INNER_DSK_PER_ZIP             16
 
 #define ID_FILE_TAPE_INSERT             41500
 #define ID_FILE_TAPE_REMOVE             41501
@@ -806,6 +815,48 @@ static HMENU menuCreateVideoCapture(Properties* pProperties, Shortcuts* shortcut
     return hMenu;
 }
 
+static int diskNameCmp(const void* a, const void* b)
+{
+    return _stricmp((const char*)a, (const char*)b);
+}
+
+/* Enumerate disk-image filenames inside zipPath, sorted ASCII-ci. */
+static void zipListDiskImages(const char* zipPath,
+                              char names[MAX_INNER_DSK_PER_ZIP][256],
+                              int* count)
+{
+    static const char* exts[] = { ".dsk", ".di1", ".di2",
+                                  ".360", ".720", ".Sf7" };
+    int total = 0;
+    int e;
+
+    *count = 0;
+    if (!zipPath || !*zipPath) return;
+    if (!isFileExtension((char*)zipPath, ".zip")) return;
+
+    /* Keep names in zip-native encoding so insertDiskette's TOC lookup
+       matches; menu display converts to UTF-8 at AppendMenuU time. */
+    for (e = 0; e < (int)(sizeof(exts) / sizeof(exts[0])) &&
+                total < MAX_INNER_DSK_PER_ZIP; e++) {
+        int countThis = 0;
+        char* list = zipGetFileList(zipPath, exts[e], &countThis);
+        if (list) {
+            const char* p = list;
+            int i;
+            for (i = 0; i < countThis && total < MAX_INNER_DSK_PER_ZIP; i++) {
+                strncpy(names[total], p, sizeof(names[0]) - 1);
+                names[total][sizeof(names[0]) - 1] = 0;
+                total++;
+                p += strlen(p) + 1;
+            }
+            free(list);
+        }
+    }
+
+    qsort(names, total, sizeof(names[0]), diskNameCmp);
+    *count = total;
+}
+
 static HMENU menuCreateDisk(int diskNo, Properties* pProperties, Shortcuts* shortcuts) 
 {
     int idOffset = diskNo * ID_FILE_DISK_OFFSET;
@@ -854,8 +905,34 @@ static HMENU menuCreateDisk(int diskNo, Properties* pProperties, Shortcuts* shor
         }
 
         for (i = 0; i < pProperties->filehistory.count && *pProperties->filehistory.diskdrive[diskNo][i]; i++) {
-            sprintf(langBuffer, "%hs", getCleanFileName(pProperties->filehistory.diskdrive[diskNo][i]));
-            AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_DISK_HISTORY + i, langBuffer);
+            const char* histPath = pProperties->filehistory.diskdrive[diskNo][i];
+            char innerNames[MAX_INNER_DSK_PER_ZIP][256];
+            int innerCount = 0;
+
+            sprintf(langBuffer, "%hs", getCleanFileName(histPath));
+            zipListDiskImages(histPath, innerNames, &innerCount);
+
+            if (innerCount >= 2) {
+                /* Multi-disk zip: submenu lists each inner image; clicking
+                   an inner item inserts it directly. */
+                HMENU subMenu = CreatePopupMenu();
+                int j;
+                setMenuColor(subMenu);
+                for (j = 0; j < innerCount; j++) {
+                    int innerId = ID_FILE_DISK_HISTORYINNER
+                                  + diskNo * ID_FILE_DISK_HISTORYINNER_DRIVE
+                                  + i * MAX_INNER_DSK_PER_ZIP
+                                  + j;
+                    /* innerNames[j] is zip-native (e.g. CP932); convert. */
+                    char displayName[512];
+                    AnyToUtf8(innerNames[j], displayName, (int)sizeof(displayName));
+                    AppendMenuU(subMenu, MF_STRING, innerId, displayName);
+                }
+                AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)subMenu, langBuffer);
+            }
+            else {
+                AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_DISK_HISTORY + i, langBuffer);
+            }
         }
     }
 #endif
@@ -2040,6 +2117,33 @@ int menuCommand(Properties* pProperties, int command)
             return 0;
         }
     }
+
+#ifndef NO_FILE_HISTORY
+    /* Zip-inner history click: dispatch by inner ID range. */
+    if (appConfigGetInt("filehistory", 1) != 0) {
+        int innerCmd = command - ID_FILE_DISK_HISTORYINNER;
+        if (innerCmd >= 0 && innerCmd < 2 * ID_FILE_DISK_HISTORYINNER_DRIVE) {
+            int innerDrive = innerCmd / ID_FILE_DISK_HISTORYINNER_DRIVE;
+            int innerLocal = innerCmd % ID_FILE_DISK_HISTORYINNER_DRIVE;
+            int historyIdx = innerLocal / MAX_INNER_DSK_PER_ZIP;
+            int dskIdx     = innerLocal % MAX_INNER_DSK_PER_ZIP;
+            if (innerDrive >= 0 && innerDrive < 2 &&
+                historyIdx >= 0 && historyIdx < MAX_HISTORY) {
+                const char* zipPath = pProperties->filehistory.diskdrive[innerDrive][historyIdx];
+                if (*zipPath) {
+                    char innerNames[MAX_INNER_DSK_PER_ZIP][256];
+                    int innerCount = 0;
+                    zipListDiskImages(zipPath, innerNames, &innerCount);
+                    if (dskIdx < innerCount) {
+                        insertDiskette(pProperties, innerDrive,
+                                       zipPath, innerNames[dskIdx], 0);
+                        return 1;
+                    }
+                }
+            }
+        }
+    }
+#endif
 
     // Parse Disk Menu Items
     for (i = 0; i < 2; i++) {
