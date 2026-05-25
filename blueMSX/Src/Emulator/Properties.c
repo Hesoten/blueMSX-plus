@@ -356,6 +356,13 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->sound.chip.y8950BackendOpenmsxEnabled     = 1;
     properties->sound.chip.y8950BackendActive             = PROP_Y8950_BACKEND_FMOPL;
 
+    /* OPLL analog stage filter defaults.  The Custom Hz fields persist
+    ** even while a named preset is selected, so toggling back to Custom
+    ** restores the user's last edit. */
+    properties->sound.chip.ym2413AnalogFilterMode  = PROP_OPLL_FILTER_STANDARD;
+    properties->sound.chip.ym2413AnalogFilterLpfHz = 5000;
+    properties->sound.chip.ym2413AnalogFilterHpfHz = 20;
+
     properties->sound.mixerChannel[MIXER_CHANNEL_PSG].enable = 1;
     properties->sound.mixerChannel[MIXER_CHANNEL_PSG].pan = 40;
     properties->sound.mixerChannel[MIXER_CHANNEL_PSG].volume = 100;
@@ -677,6 +684,9 @@ static void propLoad(Properties* properties)
     GET_ENUM_VALUE_3(propFile, sound, chip, y8950BackendEmu8950Enabled,   BoolPair);
     GET_ENUM_VALUE_3(propFile, sound, chip, y8950BackendOpenmsxEnabled,   BoolPair);
     GET_INT_VALUE_3 (propFile, sound, chip, y8950BackendActive);
+    GET_INT_VALUE_3 (propFile, sound, chip, ym2413AnalogFilterMode);
+    GET_INT_VALUE_3 (propFile, sound, chip, ym2413AnalogFilterLpfHz);
+    GET_INT_VALUE_3 (propFile, sound, chip, ym2413AnalogFilterHpfHz);
 #ifndef YM2413_BUILD_OPENMSX_INITIAL
     /* openmsx (initial) is dead-coded -- never carry an enabled flag at runtime. */
     properties->sound.chip.ym2413BackendOpenmsxEnabled = 0;
@@ -987,6 +997,9 @@ void propSave(Properties* properties)
     SET_ENUM_VALUE_3(propFile, sound, chip, y8950BackendEmu8950Enabled,   YesNoPair);
     SET_ENUM_VALUE_3(propFile, sound, chip, y8950BackendOpenmsxEnabled,   YesNoPair);
     SET_INT_VALUE_3 (propFile, sound, chip, y8950BackendActive);
+    SET_INT_VALUE_3 (propFile, sound, chip, ym2413AnalogFilterMode);
+    SET_INT_VALUE_3 (propFile, sound, chip, ym2413AnalogFilterLpfHz);
+    SET_INT_VALUE_3 (propFile, sound, chip, ym2413AnalogFilterHpfHz);
     SET_ENUM_VALUE_3(propFile, sound, YkIn, type, MidiTypePair);
     SET_STR_VALUE_3(propFile, sound, YkIn, name);
 //    SET_STR_VALUE_3(sound, YkIn, fileName);
@@ -1201,6 +1214,39 @@ static Properties* globalProperties = NULL;
 Properties* propGetGlobalProperties()
 {
     return globalProperties;
+}
+
+void propertiesGetOpllFilterHz(int mode, const SoundChip* chip,
+                               int* outLpfHz, int* outHpfHz)
+{
+    int lpf = 0, hpf = 0;
+    /* HPF is fixed at 20 Hz across every preset (DC-block; not user
+    ** tunable from the dialog).  Only the LPF Hz value differs. */
+    switch (mode) {
+    case PROP_OPLL_FILTER_OFF:
+        lpf = 0;     hpf = 0;  break;
+    case PROP_OPLL_FILTER_BRIGHT:
+        lpf = 12000; hpf = 20; break;
+    case PROP_OPLL_FILTER_CLEAR:
+        lpf = 8000;  hpf = 20; break;
+    case PROP_OPLL_FILTER_STANDARD:
+        lpf = 5000;  hpf = 20; break;
+    case PROP_OPLL_FILTER_SOFT:
+        lpf = 3500;  hpf = 20; break;
+    case PROP_OPLL_FILTER_MELLOW:
+        lpf = 2300;  hpf = 20; break;
+    case PROP_OPLL_FILTER_CUSTOM:
+    default:
+        if (chip) {
+            lpf = chip->ym2413AnalogFilterLpfHz;
+            hpf = chip->ym2413AnalogFilterHpfHz;
+        } else {
+            lpf = 5000;  hpf = 20;
+        }
+        break;
+    }
+    if (outLpfHz) *outLpfHz = lpf;
+    if (outHpfHz) *outHpfHz = hpf;
 }
 
 void propertiesSetDirectory(const char* defDir, const char* altDir)

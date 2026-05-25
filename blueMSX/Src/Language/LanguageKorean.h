@@ -384,6 +384,15 @@ void langInitKorean(LanguageStrings* ls)
     ls->propSoundChipsHint      = "여러 백엔드가 활성화된 경우, 실행 중에 A/B 비교할 수 있습니다.";
     ls->propSoundChipsYm2413GB  = " MSX-MUSIC 백엔드 ";
     ls->propSoundChipsY8950GB   = " MSX-AUDIO 백엔드 ";
+    ls->propSndOpllAnalogText   = "아날로그 필터:";
+    ls->propSndOpllAnalogLpfText = "LPF 차단:";
+    ls->enumOpllFilterOff       = "끔";
+    ls->enumOpllFilterBright    = "밝음 (LPF 12 kHz)";
+    ls->enumOpllFilterClear     = "맑음 (LPF 8 kHz)";
+    ls->enumOpllFilterStandard  = "표준 (LPF 5 kHz)";
+    ls->enumOpllFilterSoft      = "부드러움 (LPF 3.5 kHz)";
+    ls->enumOpllFilterMellow    = "따뜻함 (LPF 2.3 kHz)";
+    ls->enumOpllFilterCustom    = "사용자 정의";
     ls->propSndMsxMusic         = " MSX-MUSIC";
     ls->propSndMsxAudio         = " MSX-AUDIO";
     ls->propSndMoonsound         = " Moonsound";

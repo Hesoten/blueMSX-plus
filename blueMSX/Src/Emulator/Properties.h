@@ -347,6 +347,17 @@ typedef struct {
 #define PROP_Y8950_BACKEND_OPENMSX    2
 #define PROP_Y8950_BACKEND_COUNT      3
 
+/* OPLL analogue output LPF preset (HPF is fixed 20 Hz DC block).
+** Order = combobox order, bright -> mellow. */
+#define PROP_OPLL_FILTER_OFF          0   /* bypass            */
+#define PROP_OPLL_FILTER_BRIGHT       1   /* LPF 12000         */
+#define PROP_OPLL_FILTER_CLEAR        2   /* LPF 8000          */
+#define PROP_OPLL_FILTER_STANDARD     3   /* LPF 5000          */
+#define PROP_OPLL_FILTER_SOFT         4   /* LPF 3500          */
+#define PROP_OPLL_FILTER_MELLOW       5   /* LPF 2300          */
+#define PROP_OPLL_FILTER_CUSTOM       6   /* slider-set value  */
+#define PROP_OPLL_FILTER_COUNT        7
+
 typedef struct {
     int enableY8950;
     int enableYM2413;
@@ -367,6 +378,14 @@ typedef struct {
     int y8950BackendEmu8950Enabled;
     int y8950BackendOpenmsxEnabled;
     int y8950BackendActive;             /* PROP_Y8950_BACKEND_* */
+    /* OPLL analog post-filter (PROP_OPLL_FILTER_* + custom Hz fields).
+    ** Custom Hz values are honoured only when filterMode == CUSTOM; the
+    ** other preset modes derive cutoffs from PROP_OPLL_FILTER_* and the
+    ** Hz fields are kept around so re-entering Custom remembers the last
+    ** manual edit. */
+    int ym2413AnalogFilterMode;
+    int ym2413AnalogFilterLpfHz;
+    int ym2413AnalogFilterHpfHz;
 } SoundChip;
 
 typedef struct {
@@ -546,5 +565,12 @@ void propDestroy(Properties* pProperties);
 void propertiesSetDirectory(const char* defDir, const char* altDir);
 
 Properties* propGetGlobalProperties();
+
+/* Resolves an OPLL analog filter preset to (lpfHz, hpfHz).  For
+** PROP_OPLL_FILTER_CUSTOM the values stored in `chip` are returned
+** unchanged; for the other presets the documented reference cutoffs
+** are returned regardless of `chip`. */
+void propertiesGetOpllFilterHz(int mode, const SoundChip* chip,
+                               int* outLpfHz, int* outHpfHz);
 
 #endif

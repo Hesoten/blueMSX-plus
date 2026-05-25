@@ -57,11 +57,15 @@ void ym2413GetDebugInfo(YM_2413* ym2413, DbgDevice* dbgDevice);
 ** See Ym2413MultiBackend.h. */
 int         ym2413BackendActiveGet(void);
 void        ym2413BackendActiveSet(int idx);
+int         ym2413BackendIsEnabled(int idx);
 int         ym2413BackendCycle(void);
 const char* ym2413BackendName(int idx);
 
 extern const int ym2413BackendDisplayOrder[];
 extern const int ym2413BackendDisplayCount;
+
+/* Hot-apply analog post-filter cutoffs (LPF / HPF, 0 = bypass). */
+void        ym2413AnalogFilterSet(int lpfHz, int hpfHz);
 
 #ifdef __cplusplus
 }

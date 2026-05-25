@@ -385,6 +385,15 @@ void langInitCatalan(LanguageStrings* ls)
     ls->propSoundChipsHint      = "Diversos backends actius permeten comparació A/B en temps real.";
     ls->propSoundChipsYm2413GB  = " Backend MSX-MUSIC ";
     ls->propSoundChipsY8950GB   = " Backend MSX-AUDIO ";
+    ls->propSndOpllAnalogText   = "Filtre analògic:";
+    ls->propSndOpllAnalogLpfText = "Tall LPF:";
+    ls->enumOpllFilterOff       = "Desactivat";
+    ls->enumOpllFilterBright    = "Brillant (LPF 12 kHz)";
+    ls->enumOpllFilterClear     = "Clar (LPF 8 kHz)";
+    ls->enumOpllFilterStandard  = "Estàndard (LPF 5 kHz)";
+    ls->enumOpllFilterSoft      = "Suau (LPF 3.5 kHz)";
+    ls->enumOpllFilterMellow    = "Càlid (LPF 2.3 kHz)";
+    ls->enumOpllFilterCustom    = "Personalitzat";
     ls->propSndMsxMusic         = " MSX-MUSIC";
     ls->propSndMsxAudio         = " MSX-AUDIO";
     ls->propSndMoonsound        = " Moonsound";

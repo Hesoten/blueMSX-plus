@@ -386,6 +386,15 @@ void langInitSwedish(LanguageStrings* ls)
     ls->propSoundChipsHint      = "När flera backends är aktiverade kan du A/B-jämföra dem under körning.";
     ls->propSoundChipsYm2413GB  = " MSX-MUSIC backend ";
     ls->propSoundChipsY8950GB   = " MSX-AUDIO backend ";
+    ls->propSndOpllAnalogText   = "Analog filter:";
+    ls->propSndOpllAnalogLpfText = "LPF-brytfrekvens:";
+    ls->enumOpllFilterOff       = "Av";
+    ls->enumOpllFilterBright    = "Ljus (LPF 12 kHz)";
+    ls->enumOpllFilterClear     = "Klar (LPF 8 kHz)";
+    ls->enumOpllFilterStandard  = "Standard (LPF 5 kHz)";
+    ls->enumOpllFilterSoft      = "Mjuk (LPF 3.5 kHz)";
+    ls->enumOpllFilterMellow    = "Varm (LPF 2.3 kHz)";
+    ls->enumOpllFilterCustom    = "Anpassad";
     ls->propSndMsxMusic         = " MSX-MUSIC";
     ls->propSndMsxAudio         = " MSX-AUDIO";
     ls->propSndMoonsound        = " Moonsound";

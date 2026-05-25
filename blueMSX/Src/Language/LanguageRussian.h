@@ -384,6 +384,15 @@ void langInitRussian(LanguageStrings* ls)
     ls->propSoundChipsHint      = "Активные бэкенды можно A/B сравнить в реальном времени.";
     ls->propSoundChipsYm2413GB  = " Бэкенд MSX-MUSIC ";
     ls->propSoundChipsY8950GB   = " Бэкенд MSX-AUDIO ";
+    ls->propSndOpllAnalogText   = "Аналог. фильтр:";
+    ls->propSndOpllAnalogLpfText = "Срез LPF:";
+    ls->enumOpllFilterOff       = "Откл.";
+    ls->enumOpllFilterBright    = "Яркий (LPF 12 kHz)";
+    ls->enumOpllFilterClear     = "Чистый (LPF 8 kHz)";
+    ls->enumOpllFilterStandard  = "Стандарт (LPF 5 kHz)";
+    ls->enumOpllFilterSoft      = "Мягкий (LPF 3.5 kHz)";
+    ls->enumOpllFilterMellow    = "Тёплый (LPF 2.3 kHz)";
+    ls->enumOpllFilterCustom    = "Польз.";
     ls->propSndMsxMusic         = " MSX-MUSIC";
     ls->propSndMsxAudio         = " MSX-AUDIO";
     ls->propSndMoonsound        = " Moonsound";

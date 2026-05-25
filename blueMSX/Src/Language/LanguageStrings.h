@@ -326,6 +326,15 @@ typedef struct {
     char* propVideoFreqText;
     char* propVideoFreqAuto;
     char* propSndOversampleText;
+    char* propSndOpllAnalogText;        /* "Analog filter:" label */
+    char* propSndOpllAnalogLpfText;     /* "LPF cutoff:" label */
+    char* enumOpllFilterOff;
+    char* enumOpllFilterBright;
+    char* enumOpllFilterClear;
+    char* enumOpllFilterStandard;
+    char* enumOpllFilterSoft;
+    char* enumOpllFilterMellow;
+    char* enumOpllFilterCustom;
     char* propSndMidiInGB;
     char* propSndYkInGB;
     char* propSndMidiOutGB;

@@ -385,6 +385,15 @@ void langInitDutch(LanguageStrings* ls)
     ls->propSoundChipsHint      = "Meerdere actieve backends maken A/B-vergelijking mogelijk.";
     ls->propSoundChipsYm2413GB  = " MSX-MUSIC backend ";
     ls->propSoundChipsY8950GB   = " MSX-AUDIO backend ";
+    ls->propSndOpllAnalogText   = "Analoge filter:";
+    ls->propSndOpllAnalogLpfText = "LPF afsnijding:";
+    ls->enumOpllFilterOff       = "Uit";
+    ls->enumOpllFilterBright    = "Helder (LPF 12 kHz)";
+    ls->enumOpllFilterClear     = "Zuiver (LPF 8 kHz)";
+    ls->enumOpllFilterStandard  = "Standaard (LPF 5 kHz)";
+    ls->enumOpllFilterSoft      = "Zacht (LPF 3.5 kHz)";
+    ls->enumOpllFilterMellow    = "Mild (LPF 2.3 kHz)";
+    ls->enumOpllFilterCustom    = "Aangepast";
     ls->propSndMsxMusic         = " MSX-MUSIC";
     ls->propSndMsxAudio         = " MSX-AUDIO";
     ls->propSndMoonsound        = " Moonsound";

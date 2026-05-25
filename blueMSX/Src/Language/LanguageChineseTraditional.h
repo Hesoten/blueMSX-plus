@@ -384,6 +384,15 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->propSoundChipsHint      = "啟用多個後端時,可在執行時進行 A/B 比較。";
     ls->propSoundChipsYm2413GB  = " MSX-MUSIC 後端 ";
     ls->propSoundChipsY8950GB   = " MSX-AUDIO 後端 ";
+    ls->propSndOpllAnalogText   = "類比濾波:";
+    ls->propSndOpllAnalogLpfText = "LPF 截止:";
+    ls->enumOpllFilterOff       = "關閉";
+    ls->enumOpllFilterBright    = "明亮 (LPF 12 kHz)";
+    ls->enumOpllFilterClear     = "清晰 (LPF 8 kHz)";
+    ls->enumOpllFilterStandard  = "標準 (LPF 5 kHz)";
+    ls->enumOpllFilterSoft      = "柔和 (LPF 3.5 kHz)";
+    ls->enumOpllFilterMellow    = "溫和 (LPF 2.3 kHz)";
+    ls->enumOpllFilterCustom    = "自訂";
     ls->propSndMsxMusic         = " MSX 音樂";
     ls->propSndMsxAudio         = " MSX 音效";
     ls->propSndMoonsound        = " MoonSound";

@@ -336,6 +336,15 @@ void langInitEnglish(LanguageStrings* ls)
     ls->propVideoFreqText       = "Video Frequency:";
     ls->propVideoFreqAuto       = "Auto";
     ls->propSndOversampleText   = "Oversample:";
+    ls->propSndOpllAnalogText   = "Analog filter:";
+    ls->propSndOpllAnalogLpfText = "LPF cutoff:";
+    ls->enumOpllFilterOff       = "Off";
+    ls->enumOpllFilterBright    = "Bright (LPF 12 kHz)";
+    ls->enumOpllFilterClear     = "Clear (LPF 8 kHz)";
+    ls->enumOpllFilterStandard  = "Standard (LPF 5 kHz)";
+    ls->enumOpllFilterSoft      = "Soft (LPF 3.5 kHz)";
+    ls->enumOpllFilterMellow    = "Mellow (LPF 2.3 kHz)";
+    ls->enumOpllFilterCustom    = "Custom";
     ls->propSndYkInGB           = "YK-01/YK-10/YK-20 In ";
     ls->propSndMidiInGB         = "MIDI In ";
     ls->propSndMidiOutGB        = "MIDI Out ";

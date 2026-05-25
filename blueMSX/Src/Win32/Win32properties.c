@@ -1843,6 +1843,18 @@ static int soundChipsActiveFromCombo(HWND hCombo, int fallback)
     return (int)SendMessage(hCombo, CB_GETITEMDATA, idx, 0);
 }
 
+/* openmsx_2 applies its own 5-tap FIR internally; the common LPF/HPF
+** is bypassed (YM2413.cpp:ym2413Sync), so disable the matching UI. */
+static void soundChipsUpdateOpllFilterEnable(HWND hDlg, int activeBackend)
+{
+    BOOL en = (activeBackend != PROP_YM2413_BACKEND_OPENMSX_2);
+    EnableWindow(GetDlgItem(hDlg, IDC_SNDCHIPS_OPLL_ANALOGTEXT),     en);
+    EnableWindow(GetDlgItem(hDlg, IDC_SNDCHIPS_OPLL_ANALOG_MODE),    en);
+    EnableWindow(GetDlgItem(hDlg, IDC_SNDCHIPS_OPLL_ANALOG_LPFTEXT), en);
+    EnableWindow(GetDlgItem(hDlg, IDC_SNDCHIPS_OPLL_ANALOG_LPFSLIDE),en);
+    EnableWindow(GetDlgItem(hDlg, IDC_SNDCHIPS_OPLL_ANALOG_LPFVALUE),en);
+}
+
 /* Read the current Enable-checkbox state into the per-backend flag
 ** arrays.  openmsx (initial) is dead-coded -- forced 0. */
 static void soundChipsReadEnabled(HWND hDlg, int* ymEnabled, int* yEnabled)
@@ -1869,6 +1881,12 @@ static int soundChipsClampActive(int active, const int* enabled, const int* orde
 
 static BOOL_DLG_RET CALLBACK soundDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
     static Properties* pProperties;
+    /* Snapshot for Cancel: combobox/slider apply changes live via
+    ** ym2413AnalogFilterSet, so Cancel re-pushes the originals to the
+    ** chip directly. */
+    static int  s_origAnalogFilterMode;
+    static int  s_origAnalogFilterLpfHz;
+    static int  s_origAnalogFilterHpfHz;
 
     switch (iMsg) {
     case WM_INITDIALOG:
@@ -1879,6 +1897,10 @@ static BOOL_DLG_RET CALLBACK soundDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
         hDlgSound = hDlg;
 
         pProperties = (Properties*)((PROPSHEETPAGE*)lParam)->lParam;
+
+        s_origAnalogFilterMode  = pProperties->sound.chip.ym2413AnalogFilterMode;
+        s_origAnalogFilterLpfHz = pProperties->sound.chip.ym2413AnalogFilterLpfHz;
+        s_origAnalogFilterHpfHz = pProperties->sound.chip.ym2413AnalogFilterHpfHz;
 
         {
             int sndDrvIdx = 0;  /* fallback to first entry (None) */
@@ -1969,6 +1991,48 @@ static BOOL_DLG_RET CALLBACK soundDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
                                 pProperties->sound.chip.y8950BackendActive);
         }
 
+        SetDlgItemTextU(hDlg, IDC_SNDCHIPS_OPLL_ANALOGTEXT,     langPropSndOpllAnalogText());
+        SetDlgItemTextU(hDlg, IDC_SNDCHIPS_OPLL_ANALOG_LPFTEXT, langPropSndOpllAnalogLpfText());
+        {
+            HWND hCombo  = GetDlgItem(hDlg, IDC_SNDCHIPS_OPLL_ANALOG_MODE);
+            HWND hSlide  = GetDlgItem(hDlg, IDC_SNDCHIPS_OPLL_ANALOG_LPFSLIDE);
+            int  mode    = pProperties->sound.chip.ym2413AnalogFilterMode;
+            int  lpf, hpf;
+            char buf[24];
+            SendMessage(hCombo, CB_RESETCONTENT, 0, 0);
+            /* Combobox visual order matches PROP_OPLL_FILTER_* enum
+            ** (bright -> mellow). */
+            ComboAddStringU(hCombo, langEnumOpllFilterOff());
+            ComboAddStringU(hCombo, langEnumOpllFilterBright());
+            ComboAddStringU(hCombo, langEnumOpllFilterClear());
+            ComboAddStringU(hCombo, langEnumOpllFilterStandard());
+            ComboAddStringU(hCombo, langEnumOpllFilterSoft());
+            ComboAddStringU(hCombo, langEnumOpllFilterMellow());
+            ComboAddStringU(hCombo, langEnumOpllFilterCustom());
+            if (mode < 0 || mode >= PROP_OPLL_FILTER_COUNT) mode = PROP_OPLL_FILTER_STANDARD;
+            SendMessage(hCombo, CB_SETCURSEL, mode, 0);
+
+            /* Slider: 0 (= bypass) .. 15000 Hz, 50 Hz line step, 500 Hz
+            ** page step.  15 kHz covers all built-in presets with margin
+            ** plus enough headroom for "almost no filtering" experiments. */
+            SendMessage(hSlide, TBM_SETRANGE, FALSE, (LPARAM)MAKELONG(0, 15000));
+            SendMessage(hSlide, TBM_SETLINESIZE, 0, 50);
+            SendMessage(hSlide, TBM_SETPAGESIZE, 0, 500);
+
+            propertiesGetOpllFilterHz(mode, &pProperties->sound.chip, &lpf, &hpf);
+            if (lpf > 15000) lpf = 15000;
+            SendMessage(hSlide, TBM_SETPOS, TRUE, (LPARAM)lpf);
+            if (lpf == 0) {
+                SetDlgItemTextU(hDlg, IDC_SNDCHIPS_OPLL_ANALOG_LPFVALUE,
+                                langEnumOpllFilterOff());
+            } else {
+                sprintf(buf, "%d Hz", lpf);
+                SetDlgItemTextU(hDlg, IDC_SNDCHIPS_OPLL_ANALOG_LPFVALUE, buf);
+            }
+        }
+        soundChipsUpdateOpllFilterEnable(hDlg,
+            pProperties->sound.chip.ym2413BackendActive);
+
         win32CommonApplyDark(hDlg);
         return FALSE;
         
@@ -1989,6 +2053,7 @@ static BOOL_DLG_RET CALLBACK soundDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
                 soundChipsComboFill(GetDlgItem(hDlg, IDC_SNDCHIPS_YM2413_ACTIVE),
                                     ym2413BackendDisplayOrder, ym2413BackendDisplayCount,
                                     sndChipsYm2413DisplayName, ymEnabled, active);
+                soundChipsUpdateOpllFilterEnable(hDlg, active);
             }
             return TRUE;
         case IDC_SNDCHIPS_Y8950_FMOPL_EN:
@@ -2013,6 +2078,7 @@ static BOOL_DLG_RET CALLBACK soundDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
                 int active = soundChipsActiveFromCombo((HWND)lParam,
                                                        pProperties->sound.chip.ym2413BackendActive);
                 ym2413BackendActiveSet(active);
+                soundChipsUpdateOpllFilterEnable(hDlg, active);
             }
             return TRUE;
         case IDC_SNDCHIPS_Y8950_ACTIVE:
@@ -2021,6 +2087,63 @@ static BOOL_DLG_RET CALLBACK soundDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
                                                        pProperties->sound.chip.y8950BackendActive);
                 y8950BackendActiveSet(active);
             }
+            return TRUE;
+        case IDC_SNDCHIPS_OPLL_ANALOG_MODE:
+            if (HIWORD(wParam) == CBN_SELCHANGE) {
+                int sel = (int)SendMessage((HWND)lParam, CB_GETCURSEL, 0, 0);
+                int lpf = 0, hpf = 0;
+                char buf[24];
+                if (sel < 0 || sel >= PROP_OPLL_FILTER_COUNT) sel = PROP_OPLL_FILTER_STANDARD;
+                pProperties->sound.chip.ym2413AnalogFilterMode = sel;
+                propertiesGetOpllFilterHz(sel, &pProperties->sound.chip, &lpf, &hpf);
+                /* Presets overwrite the stored LPF Hz; Custom keeps the
+                ** slider-set value. */
+                if (sel != PROP_OPLL_FILTER_CUSTOM) {
+                    pProperties->sound.chip.ym2413AnalogFilterLpfHz = lpf;
+                    pProperties->sound.chip.ym2413AnalogFilterHpfHz = hpf;
+                }
+                {
+                    int sliderLpf = lpf;
+                    if (sliderLpf > 15000) sliderLpf = 15000;
+                    SendDlgItemMessage(hDlg, IDC_SNDCHIPS_OPLL_ANALOG_LPFSLIDE,
+                                       TBM_SETPOS, TRUE, (LPARAM)sliderLpf);
+                }
+                if (lpf == 0) {
+                    SetDlgItemTextU(hDlg, IDC_SNDCHIPS_OPLL_ANALOG_LPFVALUE,
+                                    langEnumOpllFilterOff());
+                } else {
+                    sprintf(buf, "%d Hz", lpf);
+                    SetDlgItemTextU(hDlg, IDC_SNDCHIPS_OPLL_ANALOG_LPFVALUE, buf);
+                }
+                ym2413AnalogFilterSet(lpf, hpf);
+            }
+            return TRUE;
+        }
+        break;
+
+    case WM_HSCROLL:
+        /* Live OPLL analog LPF slider.  WM_HSCROLL fires throughout the
+        ** drag (TB_THUMBTRACK etc.) so the filter audibly tracks; pick
+        ** up the new position, snap mode to Custom, push to YM2413. */
+        if ((HWND)lParam == GetDlgItem(hDlg, IDC_SNDCHIPS_OPLL_ANALOG_LPFSLIDE)) {
+            int lpf = (int)SendDlgItemMessage(hDlg, IDC_SNDCHIPS_OPLL_ANALOG_LPFSLIDE, TBM_GETPOS, 0, 0);
+            int hpf;
+            char buf[24];
+            if (lpf < 0)     lpf = 0;
+            if (lpf > 15000) lpf = 15000;
+            pProperties->sound.chip.ym2413AnalogFilterMode  = PROP_OPLL_FILTER_CUSTOM;
+            pProperties->sound.chip.ym2413AnalogFilterLpfHz = lpf;
+            hpf = pProperties->sound.chip.ym2413AnalogFilterHpfHz;
+            SendDlgItemMessage(hDlg, IDC_SNDCHIPS_OPLL_ANALOG_MODE,
+                               CB_SETCURSEL, PROP_OPLL_FILTER_CUSTOM, 0);
+            if (lpf == 0) {
+                SetDlgItemTextU(hDlg, IDC_SNDCHIPS_OPLL_ANALOG_LPFVALUE,
+                                langEnumOpllFilterOff());
+            } else {
+                sprintf(buf, "%d Hz", lpf);
+                SetDlgItemTextU(hDlg, IDC_SNDCHIPS_OPLL_ANALOG_LPFVALUE, buf);
+            }
+            ym2413AnalogFilterSet(lpf, hpf);
             return TRUE;
         }
         break;
@@ -2057,8 +2180,31 @@ static BOOL_DLG_RET CALLBACK soundDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
                 GetDlgItem(hDlg, IDC_SNDCHIPS_Y8950_ACTIVE),
                 pProperties->sound.chip.y8950BackendActive);
 
+            /* Persist the OPLL analog filter mode + slider position one
+            ** last time so a Cancel does not lose hot-applied changes. */
+            {
+                int sel = (int)SendDlgItemMessage(hDlg, IDC_SNDCHIPS_OPLL_ANALOG_MODE, CB_GETCURSEL, 0, 0);
+                int lpf = (int)SendDlgItemMessage(hDlg, IDC_SNDCHIPS_OPLL_ANALOG_LPFSLIDE, TBM_GETPOS, 0, 0);
+                if (sel < 0 || sel >= PROP_OPLL_FILTER_COUNT) sel = PROP_OPLL_FILTER_STANDARD;
+                if (lpf < 0)     lpf = 0;
+                if (lpf > 15000) lpf = 15000;
+                pProperties->sound.chip.ym2413AnalogFilterMode  = sel;
+                pProperties->sound.chip.ym2413AnalogFilterLpfHz = lpf;
+                /* HPF stays at whatever the preset resolved to (set on
+                ** preset change above) -- the UI does not expose it. */
+            }
+
             propModified = 1;
             return TRUE;
+        case PSN_QUERYCANCEL:
+            /* Restore live-edited OPLL filter values to both Properties
+            ** (so later consumers see the rolled-back state) and the chip
+            ** (so audio reverts immediately). */
+            pProperties->sound.chip.ym2413AnalogFilterMode  = s_origAnalogFilterMode;
+            pProperties->sound.chip.ym2413AnalogFilterLpfHz = s_origAnalogFilterLpfHz;
+            pProperties->sound.chip.ym2413AnalogFilterHpfHz = s_origAnalogFilterHpfHz;
+            ym2413AnalogFilterSet(s_origAnalogFilterLpfHz, s_origAnalogFilterHpfHz);
+            return FALSE;
         }
         break;
     }

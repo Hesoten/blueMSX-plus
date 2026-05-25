@@ -386,6 +386,15 @@ void langInitFinnish(LanguageStrings* ls)
     ls->propSoundChipsHint      = "Useat aktiiviset taustaohjaimet mahdollistavat A/B-vertailun ajossa.";
     ls->propSoundChipsYm2413GB  = " MSX-MUSIC taustaohjain ";
     ls->propSoundChipsY8950GB   = " MSX-AUDIO taustaohjain ";
+    ls->propSndOpllAnalogText   = "Analogiasuodatin:";
+    ls->propSndOpllAnalogLpfText = "LPF-rajataajuus:";
+    ls->enumOpllFilterOff       = "Pois";
+    ls->enumOpllFilterBright    = "Kirkas (LPF 12 kHz)";
+    ls->enumOpllFilterClear     = "Selkeä (LPF 8 kHz)";
+    ls->enumOpllFilterStandard  = "Vakio (LPF 5 kHz)";
+    ls->enumOpllFilterSoft      = "Pehmeä (LPF 3.5 kHz)";
+    ls->enumOpllFilterMellow    = "Lämmin (LPF 2.3 kHz)";
+    ls->enumOpllFilterCustom    = "Mukautettu";
     ls->propSndMsxMusic         = " MSX-MUSIC";
     ls->propSndMsxAudio         = " MSX-AUDIO";
     ls->propSndMoonsound        = " Moonsound";

@@ -48,6 +48,7 @@
 #include "ArchInput.h"
 #include "ArchDialog.h"
 #include "ArchNotifications.h"
+#include "YM2413.h"
 #include <math.h>
 #include <string.h>
 
@@ -495,6 +496,16 @@ void emulatorStart(const char* stateName) {
         boardSetYm2413Oversampling(properties->sound.chip.ym2413Oversampling);
         boardSetY8950Oversampling(properties->sound.chip.y8950Oversampling);
         boardSetMoonsoundOversampling(properties->sound.chip.moonsoundOversampling);
+        /* Push the OPLL analog filter cutoffs into the YM2413 global so the
+        ** chip picks them up at create time and Hot-applied changes survive
+        ** machine restarts.  Preset modes resolve to documented Hz values;
+        ** Custom uses the explicit fields the user edited. */
+        {
+            int lpf = 0, hpf = 0;
+            propertiesGetOpllFilterHz(properties->sound.chip.ym2413AnalogFilterMode,
+                                      &properties->sound.chip, &lpf, &hpf);
+            ym2413AnalogFilterSet(lpf, hpf);
+        }
 
         strcpy(properties->emulation.machineName, machine->name);
 

@@ -38,12 +38,23 @@ extern "C" {
 #include "MediaDb.h"
 #include "DeviceManager.h"
 #include "Language.h"
+#include "AnalogFilter.h"
 #include "Properties.h"
 }
 
 
 #define FREQUENCY        3579545
  
+
+#define YM2413_DEFAULT_LPF_HZ 5000
+#define YM2413_DEFAULT_HPF_HZ 20
+
+/* Back-pointer to the live chip so the Properties dialog can apply
+** filter changes in place (assumes a single OPLL is active at a time). */
+static int      g_ym2413AnalogLpfHz = YM2413_DEFAULT_LPF_HZ;
+static int      g_ym2413AnalogHpfHz = YM2413_DEFAULT_HPF_HZ;
+static YM_2413* g_ym2413Instance    = NULL;
+
 struct YM_2413 {
     YM_2413() : address(0) {
         /* Active backend selection persists across sessions via
@@ -53,6 +64,11 @@ struct YM_2413 {
         if (p) ym2413BackendActiveSet(p->sound.chip.ym2413BackendActive);
         ym2413 = new Ym2413MultiBackend(100);
         memset(defaultBuffer, 0, sizeof(defaultBuffer));
+
+        analogSampleRate = AUDIO_SAMPLERATE;
+        analogLpfHz      = g_ym2413AnalogLpfHz;
+        analogHpfHz      = g_ym2413AnalogHpfHz;
+        analogFilterInit(&analog, analogSampleRate, analogLpfHz, analogHpfHz);
     }
 
     ~YM_2413() {
@@ -67,6 +83,11 @@ struct YM_2413 {
     UInt8  registers[256];
     Int32  buffer[AUDIO_MONO_BUFFER_SIZE];
     Int32  defaultBuffer[AUDIO_MONO_BUFFER_SIZE];
+
+    AnalogFilter analog;
+    UInt32 analogSampleRate;
+    int    analogLpfHz;
+    int    analogHpfHz;
 };
 
 extern "C" {
@@ -108,6 +129,7 @@ void ym2413Reset(YM_2413* ref)
     YM_2413* ym2413 = (YM_2413*)ref;
 
     ym2413->ym2413->reset(boardSystemTime());
+    analogFilterReset(&ym2413->analog);
 }
 
 void ym2413WriteAddress(YM_2413* ym2413, UInt8 address)
@@ -137,6 +159,11 @@ static Int32* ym2413Sync(void* ref, UInt32 count)
 
     for (i = 0; i < count; i++) {
         ym2413->buffer[i] = genBuf[i];
+    }
+
+    /* openmsx_2 already applies its own 5-tap FIR per sample. */
+    if (ym2413BackendActiveGet() != PROP_YM2413_BACKEND_OPENMSX_2) {
+        analogFilterProcess(&ym2413->analog, ym2413->buffer, count);
     }
 
     return ym2413->buffer;
@@ -178,6 +205,8 @@ void ym2413SetSampleRate(void* ref, UInt32 rate)
 {
     YM_2413* ym2413 = (YM_2413*)ref;
     ym2413->ym2413->setSampleRate(rate, boardGetYm2413Oversampling());
+    ym2413->analogSampleRate = rate;
+    analogFilterInit(&ym2413->analog, rate, ym2413->analogLpfHz, ym2413->analogHpfHz);
 }
 
 YM_2413* ym2413Create(Mixer* mixer)
@@ -190,16 +219,37 @@ YM_2413* ym2413Create(Mixer* mixer)
 
     ym2413->handle = mixerRegisterChannel(mixer, MIXER_CHANNEL_MSXMUSIC, 0, ym2413Sync, ym2413SetSampleRate, ym2413);
 
-    ym2413->ym2413->setSampleRate(mixerGetSampleRate(mixer), boardGetYm2413Oversampling());
+    UInt32 rate = mixerGetSampleRate(mixer);
+    ym2413->ym2413->setSampleRate(rate, boardGetYm2413Oversampling());
 	ym2413->ym2413->setVolume(32767 * 9 / 10);
+    ym2413->analogSampleRate = rate;
+    analogFilterInit(&ym2413->analog, rate, ym2413->analogLpfHz, ym2413->analogHpfHz);
+
+    g_ym2413Instance = ym2413;
 
     return ym2413;
 }
 
 void ym2413Destroy(YM_2413* ym2413) 
 {
+    if (g_ym2413Instance == ym2413) g_ym2413Instance = NULL;
     mixerUnregisterChannel(ym2413->mixer, ym2413->handle);
     delete ym2413;
+}
+
+/* Hot-apply: update globals (next ym2413Create) + the live instance's
+** filter (current playback).  0 bypasses the respective stage. */
+void ym2413AnalogFilterSet(int lpfHz, int hpfHz)
+{
+    g_ym2413AnalogLpfHz = lpfHz;
+    g_ym2413AnalogHpfHz = hpfHz;
+    if (g_ym2413Instance) {
+        g_ym2413Instance->analogLpfHz = lpfHz;
+        g_ym2413Instance->analogHpfHz = hpfHz;
+        analogFilterInit(&g_ym2413Instance->analog,
+                         g_ym2413Instance->analogSampleRate,
+                         lpfHz, hpfHz);
+    }
 }
 
 

@@ -385,6 +385,15 @@ void langInitSpanish(LanguageStrings* ls)
     ls->propSoundChipsHint      = "Varios backends activos permiten comparación A/B en tiempo real.";
     ls->propSoundChipsYm2413GB  = " Backend MSX-MUSIC ";
     ls->propSoundChipsY8950GB   = " Backend MSX-AUDIO ";
+    ls->propSndOpllAnalogText   = "Filtro analógico:";
+    ls->propSndOpllAnalogLpfText = "Corte LPF:";
+    ls->enumOpllFilterOff       = "Desactivado";
+    ls->enumOpllFilterBright    = "Brillante (LPF 12 kHz)";
+    ls->enumOpllFilterClear     = "Claro (LPF 8 kHz)";
+    ls->enumOpllFilterStandard  = "Estándar (LPF 5 kHz)";
+    ls->enumOpllFilterSoft      = "Suave (LPF 3.5 kHz)";
+    ls->enumOpllFilterMellow    = "Aterciopelado (LPF 2.3 kHz)";
+    ls->enumOpllFilterCustom    = "Person.";
     ls->propSndMsxMusic         = " MSX-MUSIC";
     ls->propSndMsxAudio         = " MSX-AUDIO";
     ls->propSndMoonsound         = " Moonsound";

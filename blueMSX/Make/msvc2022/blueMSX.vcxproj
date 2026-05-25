@@ -863,8 +863,10 @@
     <ClCompile Include="..\..\Src\TinyXML\tinyxml.cpp" />
     <ClCompile Include="..\..\Src\TinyXML\tinyxmlerror.cpp" />
     <ClCompile Include="..\..\Src\TinyXML\tinyxmlparser.cpp" />
+    <ClCompile Include="..\..\Src\SoundChips\AnalogFilter.c" />
     <ClCompile Include="..\..\Src\SoundChips\AudioMixer.c" />
     <ClCompile Include="..\..\Src\SoundChips\AY8910.c" />
+    <ClCompile Include="..\..\Src\SoundChips\BlipBuffer.cpp" />
     <ClCompile Include="..\..\Src\SoundChips\DAC.c" />
     <ClCompile Include="..\..\Src\SoundChips\Fmopl.c" />
     <ClCompile Include="..\..\Src\SoundChips\FmoplBackend.cpp" />
@@ -1215,8 +1217,10 @@
     <ClInclude Include="..\..\Src\BuildInfo\version.h" />
     <ClInclude Include="..\..\Src\TinyXML\TinyStr.h" />
     <ClInclude Include="..\..\Src\TinyXML\tinyxml.h" />
+    <ClInclude Include="..\..\Src\SoundChips\AnalogFilter.h" />
     <ClInclude Include="..\..\Src\SoundChips\AudioMixer.h" />
     <ClInclude Include="..\..\Src\SoundChips\AY8910.h" />
+    <ClInclude Include="..\..\Src\SoundChips\BlipBuffer.h" />
     <ClInclude Include="..\..\Src\SoundChips\DAC.h" />
     <ClInclude Include="..\..\Src\SoundChips\Fmopl.h" />
     <ClInclude Include="..\..\Src\SoundChips\FmoplBackend.h" />

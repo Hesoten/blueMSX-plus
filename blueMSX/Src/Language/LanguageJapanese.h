@@ -334,6 +334,15 @@ void langInitJapanese(LanguageStrings* ls)
     ls->propVideoFreqText       = "ビデオ周波数:";
     ls->propVideoFreqAuto       = "自動";
     ls->propSndOversampleText   = "サンプリング:";
+    ls->propSndOpllAnalogText   = "アナログフィルタ:";
+    ls->propSndOpllAnalogLpfText = "LPF カットオフ:";
+    ls->enumOpllFilterOff       = "オフ";
+    ls->enumOpllFilterBright    = "ブライト (LPF 12 kHz)";
+    ls->enumOpllFilterClear     = "クリア (LPF 8 kHz)";
+    ls->enumOpllFilterStandard  = "標準 (LPF 5 kHz)";
+    ls->enumOpllFilterSoft      = "ソフト (LPF 3.5 kHz)";
+    ls->enumOpllFilterMellow    = "メロウ (LPF 2.3 kHz)";
+    ls->enumOpllFilterCustom    = "カスタム";
     ls->propSndYkInGB           = " YK-01/YK-10/YK-20 イン ";
     ls->propSndMidiInGB         = " MIDI イン ";
     ls->propSndMidiOutGB        = " MIDI アウト ";

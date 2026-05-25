@@ -540,6 +540,15 @@ char* langPropEmuAudioSwitch() { return ls->propEmuAudioSwitch; }
 char* langPropVideoFreqText() { return ls->propVideoFreqText; }
 char* langPropVideoFreqAuto() { return ls->propVideoFreqAuto; }
 char* langPropSndOversampleText() { return ls->propSndOversampleText; }
+char* langPropSndOpllAnalogText()       { return ls->propSndOpllAnalogText; }
+char* langPropSndOpllAnalogLpfText()    { return ls->propSndOpllAnalogLpfText; }
+char* langEnumOpllFilterOff()           { return ls->enumOpllFilterOff; }
+char* langEnumOpllFilterBright()        { return ls->enumOpllFilterBright; }
+char* langEnumOpllFilterClear()         { return ls->enumOpllFilterClear; }
+char* langEnumOpllFilterStandard()      { return ls->enumOpllFilterStandard; }
+char* langEnumOpllFilterSoft()          { return ls->enumOpllFilterSoft; }
+char* langEnumOpllFilterMellow()        { return ls->enumOpllFilterMellow; }
+char* langEnumOpllFilterCustom()        { return ls->enumOpllFilterCustom; }
 char* langPropSndYkInGB() { return ls->propSndYkInGB; }
 char* langPropSndMidiInGB() { return ls->propSndMidiInGB; }
 char* langPropSndMidiOutGB() { return ls->propSndMidiOutGB; }
