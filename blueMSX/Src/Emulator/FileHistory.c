@@ -169,6 +169,7 @@ void verifyFileHistory(char* history, RomType* historyType) {
             strcmp(fname, CARTNAME_ESERAM1MB)   &&
             strcmp(fname, CARTNAME_MEGAFLSHSCC) &&
             strcmp(fname, CARTNAME_MEGAFLSHSCCPLUS) &&
+            strcmp(fname, CARTNAME_MEGAFLSHSCCPLUS_SD) &&
             strcmp(fname, CARTNAME_WAVESCSI128) &&
             strcmp(fname, CARTNAME_WAVESCSI256) &&
             strcmp(fname, CARTNAME_WAVESCSI512) &&

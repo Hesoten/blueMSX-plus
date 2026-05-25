@@ -234,7 +234,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->menuFileScreenShot      = "スクリーンショット撮影";
     ls->menuFileExit            = "終了";
 
-    ls->menuFileHarddisk        = "ハードディスク";
+    ls->menuFileHarddisk        = "ハードディスク / SDカード";
     ls->menuFileHarddiskNoPesent= "ハードディスクは無効です";
     ls->menuFileHarddiskRemoveAll= "ハードディスクを全て取り出す"; // New in 2.7
 

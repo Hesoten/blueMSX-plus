@@ -73,6 +73,7 @@ static RomType romTypeList[] = {
     ROM_HAMARAJANIGHT, /* contains SCC */
     ROM_MEGAFLSHSCC, /* contains SCC */
     ROM_MEGAFLSHSCCPLUS, /* contains SCC */
+    ROM_MEGAFLSHSCCPLUS_SD, /* contains SCC + SD */
     SRAM_ESESCC, /* contains SCC */
     SRAM_ESERAM,
     ROM_CROSSBLAIM,

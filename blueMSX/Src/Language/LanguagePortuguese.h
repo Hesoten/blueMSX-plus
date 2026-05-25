@@ -232,7 +232,7 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->menuFileScreenShot      = "Salvar Tela";
     ls->menuFileExit            = "Sair";
 
-    ls->menuFileHarddisk        = "Disco Rígido";                          
+    ls->menuFileHarddisk        = "Disco Rígido / Cartão SD";                          
     ls->menuFileHarddiskNoPesent= "Não há controladores";             
     ls->menuFileHarddiskRemoveAll= "Ejetar todos os discos duros";    // New in 2.7
 

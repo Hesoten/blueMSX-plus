@@ -206,3 +206,12 @@ const string& SHA1::hex_digest()
 	assert(!digest.empty());
 	return digest;
 }
+
+extern "C" void calcSha1Hex(const UInt8* data, unsigned len, char outHex[41])
+{
+	SHA1 sha;
+	sha.update(data, len);
+	const string& hex = sha.hex_digest();
+	memcpy(outHex, hex.c_str(), 40);
+	outHex[40] = '\0';
+}

@@ -1120,6 +1120,7 @@ void boardSetMachine(Machine* machine)
         case SRAM_MEGASCSI:   hdType[hdIndex++] = HD_MEGASCSI;   break;
         case SRAM_WAVESCSI:   hdType[hdIndex++] = HD_WAVESCSI;   break;
         case ROM_GOUDASCSI:   hdType[hdIndex++] = HD_GOUDASCSI;  break;
+        case ROM_MEGAFLSHSCCPLUS_SD: hdType[hdIndex++] = HD_MFRSD; break;
         }
     }
 
@@ -1479,6 +1480,7 @@ void boardChangeCartridge(int cartNo, RomType romType, char* cart, char* cartZip
         if (currentRomType[cartNo] == SRAM_WAVESCSI512) hdType[cartNo] = HD_WAVESCSI;
         if (currentRomType[cartNo] == SRAM_WAVESCSI1MB) hdType[cartNo] = HD_WAVESCSI;
         if (currentRomType[cartNo] == ROM_GOUDASCSI)    hdType[cartNo] = HD_GOUDASCSI;
+        if (currentRomType[cartNo] == ROM_MEGAFLSHSCCPLUS_SD) hdType[cartNo] = HD_MFRSD;
     }
 
     if (boardRunning && cartNo < boardInfo.cartridgeCount) {

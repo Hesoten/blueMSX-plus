@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -201,7 +204,8 @@ enum  {
     ROM_ACTIVISIONPCB_256K = 171,
     ROM_ACTIVISIONPCB = 172,
     ROM_ACTIVISIONPCB_16K = 173,
-    ROM_MAXROMID    = 173
+    ROM_MEGAFLSHSCCPLUS_SD = 174,    /* MegaFlashROM SCC+ SD */
+    ROM_MAXROMID    = 174
 };
 
 typedef struct MediaType MediaType;

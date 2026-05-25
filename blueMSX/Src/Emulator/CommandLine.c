@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -484,6 +487,7 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
         case ROM_SONYHBI55:   strcat(rom1, CARTNAME_SONYHBI55); break;
         case ROM_MEGAFLSHSCC: strcat(rom1, CARTNAME_MEGAFLSHSCC); break;
         case ROM_MEGAFLSHSCCPLUS:   strcat(rom1, CARTNAME_MEGAFLSHSCCPLUS); break;
+        case ROM_MEGAFLSHSCCPLUS_SD: strcat(rom1, CARTNAME_MEGAFLSHSCCPLUS_SD); break;
         }
     }
 
@@ -507,6 +511,7 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
         case ROM_SONYHBI55:   strcat(rom2, CARTNAME_SONYHBI55); break;
         case ROM_MEGAFLSHSCC: strcat(rom2, CARTNAME_MEGAFLSHSCC); break;
         case ROM_MEGAFLSHSCCPLUS:   strcat(rom2, CARTNAME_MEGAFLSHSCCPLUS); break;
+        case ROM_MEGAFLSHSCCPLUS_SD: strcat(rom2, CARTNAME_MEGAFLSHSCCPLUS_SD); break;
         }
     }
 

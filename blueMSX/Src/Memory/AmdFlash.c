@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -51,20 +54,30 @@ struct AmdFlash
     int    state;
     int    flashSize;
     int    sectorSize;
+    int    isX8X16;             /* x16 chip in x8 mode: cmd-decode address is byte_addr >> 1 */
     AmdCmd cmd[8];
     int    cmdIdx;
     int    writeProtectMask;
     char   sramFilename[512];
 };
 
+/* On x8/x16 chips wired in x8 mode the internal command decoder inspects
+** native word addresses; the byte address the host writes is right-shifted
+** by one before matching against cmdAddr1/cmdAddr2. */
+static UInt32 cmdAddrBits(AmdFlash* rm, UInt32 addr)
+{
+    if (rm->isX8X16) addr >>= 1;
+    return addr & 0x7ff;
+}
+
 static int checkCommandEraseSector(AmdFlash* rm) 
 {
-    if (rm->cmdIdx > 0 && ((rm->cmd[0].address & 0x7ff) != rm->cmdAddr1 || rm->cmd[0].value != 0xaa)) return 0;
-    if (rm->cmdIdx > 1 && ((rm->cmd[1].address & 0x7ff) != rm->cmdAddr2 || rm->cmd[1].value != 0x55)) return 0;
-    if (rm->cmdIdx > 2 && ((rm->cmd[2].address & 0x7ff) != rm->cmdAddr1 || rm->cmd[2].value != 0x80)) return 0;
-    if (rm->cmdIdx > 3 && ((rm->cmd[3].address & 0x7ff) != rm->cmdAddr1 || rm->cmd[3].value != 0xaa)) return 0;
-    if (rm->cmdIdx > 4 && ((rm->cmd[4].address & 0x7ff) != rm->cmdAddr2 || rm->cmd[4].value != 0x55)) return 0;
-    if (rm->cmdIdx > 5 && (                                                rm->cmd[5].value != 0x30)) return 0;
+    if (rm->cmdIdx > 0 && (cmdAddrBits(rm, rm->cmd[0].address) != rm->cmdAddr1 || rm->cmd[0].value != 0xaa)) return 0;
+    if (rm->cmdIdx > 1 && (cmdAddrBits(rm, rm->cmd[1].address) != rm->cmdAddr2 || rm->cmd[1].value != 0x55)) return 0;
+    if (rm->cmdIdx > 2 && (cmdAddrBits(rm, rm->cmd[2].address) != rm->cmdAddr1 || rm->cmd[2].value != 0x80)) return 0;
+    if (rm->cmdIdx > 3 && (cmdAddrBits(rm, rm->cmd[3].address) != rm->cmdAddr1 || rm->cmd[3].value != 0xaa)) return 0;
+    if (rm->cmdIdx > 4 && (cmdAddrBits(rm, rm->cmd[4].address) != rm->cmdAddr2 || rm->cmd[4].value != 0x55)) return 0;
+    if (rm->cmdIdx > 5 && (                                                       rm->cmd[5].value != 0x30)) return 0;
 
     if (rm->cmdIdx < 6) return 1;
 
@@ -76,12 +89,12 @@ static int checkCommandEraseSector(AmdFlash* rm)
 
 static int checkCommandEraseChip(AmdFlash* rm) 
 {
-    if (rm->cmdIdx > 0 && ((rm->cmd[0].address & 0x7ff) != rm->cmdAddr1 || rm->cmd[0].value != 0xaa)) return 0;
-    if (rm->cmdIdx > 1 && ((rm->cmd[1].address & 0x7ff) != rm->cmdAddr2 || rm->cmd[1].value != 0x55)) return 0;
-    if (rm->cmdIdx > 2 && ((rm->cmd[2].address & 0x7ff) != rm->cmdAddr1 || rm->cmd[2].value != 0x80)) return 0;
-    if (rm->cmdIdx > 3 && ((rm->cmd[3].address & 0x7ff) != rm->cmdAddr1 || rm->cmd[3].value != 0xaa)) return 0;
-    if (rm->cmdIdx > 4 && ((rm->cmd[4].address & 0x7ff) != rm->cmdAddr2 || rm->cmd[4].value != 0x55)) return 0;
-    if (rm->cmdIdx > 5 && (                                         rm->cmd[5].value != 0x10)) return 0;
+    if (rm->cmdIdx > 0 && (cmdAddrBits(rm, rm->cmd[0].address) != rm->cmdAddr1 || rm->cmd[0].value != 0xaa)) return 0;
+    if (rm->cmdIdx > 1 && (cmdAddrBits(rm, rm->cmd[1].address) != rm->cmdAddr2 || rm->cmd[1].value != 0x55)) return 0;
+    if (rm->cmdIdx > 2 && (cmdAddrBits(rm, rm->cmd[2].address) != rm->cmdAddr1 || rm->cmd[2].value != 0x80)) return 0;
+    if (rm->cmdIdx > 3 && (cmdAddrBits(rm, rm->cmd[3].address) != rm->cmdAddr1 || rm->cmd[3].value != 0xaa)) return 0;
+    if (rm->cmdIdx > 4 && (cmdAddrBits(rm, rm->cmd[4].address) != rm->cmdAddr2 || rm->cmd[4].value != 0x55)) return 0;
+    if (rm->cmdIdx > 5 && (                                                       rm->cmd[5].value != 0x10)) return 0;
 
     if (rm->cmdIdx < 6) return 1;
 
@@ -91,9 +104,9 @@ static int checkCommandEraseChip(AmdFlash* rm)
 
 static int checkCommandProgram(AmdFlash* rm) 
 {
-    if (rm->cmdIdx > 0 && ((rm->cmd[0].address & 0x7ff) != rm->cmdAddr1 || rm->cmd[0].value != 0xaa)) return 0;
-    if (rm->cmdIdx > 1 && ((rm->cmd[1].address & 0x7ff) != rm->cmdAddr2 || rm->cmd[1].value != 0x55)) return 0;
-    if (rm->cmdIdx > 2 && ((rm->cmd[2].address & 0x7ff) != rm->cmdAddr1 || rm->cmd[2].value != 0xa0)) return 0;
+    if (rm->cmdIdx > 0 && (cmdAddrBits(rm, rm->cmd[0].address) != rm->cmdAddr1 || rm->cmd[0].value != 0xaa)) return 0;
+    if (rm->cmdIdx > 1 && (cmdAddrBits(rm, rm->cmd[1].address) != rm->cmdAddr2 || rm->cmd[1].value != 0x55)) return 0;
+    if (rm->cmdIdx > 2 && (cmdAddrBits(rm, rm->cmd[2].address) != rm->cmdAddr1 || rm->cmd[2].value != 0xa0)) return 0;
 
     if (rm->cmdIdx < 4) return 1;
 
@@ -103,11 +116,31 @@ static int checkCommandProgram(AmdFlash* rm)
     return 0;
 }
 
+/* Quadruple-Byte fast Program command (opcode 0x56, no unlock prefix,
+** followed by 4 data byte writes).  MFR SCC+ SD's OPFXSD path relies
+** on this to program 4 bytes at a time. */
+static int checkCommandQuadrupleByteProgram(AmdFlash* rm)
+{
+    if (rm->cmdIdx > 0 && rm->cmd[0].value != 0x56) return 0;
+    if (rm->cmdIdx < 5) return 1;
+
+    {
+        int i;
+        for (i = 1; i <= 4; i++) {
+            UInt32 a = rm->cmd[i].address & (rm->flashSize - 1);
+            if (((rm->writeProtectMask >> (a / rm->sectorSize)) & 1) == 0) {
+                rm->romData[a] &= rm->cmd[i].value;
+            }
+        }
+    }
+    return 0;
+}
+
 static int checkCommandManifacturer(AmdFlash* rm) 
 {
-    if (rm->cmdIdx > 0 && ((rm->cmd[0].address & 0x7ff) != rm->cmdAddr1 || rm->cmd[0].value != 0xaa)) return 0;
-    if (rm->cmdIdx > 1 && ((rm->cmd[1].address & 0x7ff) != rm->cmdAddr2 || rm->cmd[1].value != 0x55)) return 0;
-    if (rm->cmdIdx > 2 && ((rm->cmd[2].address & 0x7ff) != rm->cmdAddr1 || rm->cmd[2].value != 0x90)) return 0;
+    if (rm->cmdIdx > 0 && (cmdAddrBits(rm, rm->cmd[0].address) != rm->cmdAddr1 || rm->cmd[0].value != 0xaa)) return 0;
+    if (rm->cmdIdx > 1 && (cmdAddrBits(rm, rm->cmd[1].address) != rm->cmdAddr2 || rm->cmd[1].value != 0x55)) return 0;
+    if (rm->cmdIdx > 2 && (cmdAddrBits(rm, rm->cmd[2].address) != rm->cmdAddr1 || rm->cmd[2].value != 0x90)) return 0;
 
     if (rm->cmdIdx == 3) {
         rm->state = ST_IDENT;
@@ -122,6 +155,19 @@ UInt8 amdFlashRead(AmdFlash* rm, UInt32 address)
     if (rm->state == ST_IDENT) {
         rm->cmdIdx = 0;
 //        printf("R %.4x: XX\n", address);
+        /* Auto-select / device-id.  x8 mode: mfr @ 0x00, dev @ 0x01.
+        ** x8-of-x16 mode: addresses are word-shifted per MFR SCC+ SD. */
+        if (rm->isX8X16) {
+            switch (address & 0x7F) {
+            case 0x00: return 0x20;
+            case 0x02: return 0x7E;
+            case 0x04: return (rm->writeProtectMask >> (address / rm->sectorSize)) & 1;
+            case 0x06: return 0x08;
+            case 0x1C: return 0x10;
+            case 0x1E: return 0x00;
+            default:   return 0x00;
+            }
+        }
         switch (address & 0x03) {
         case 0: 
             return 0x01;
@@ -154,13 +200,10 @@ void amdFlashWrite(AmdFlash* rm, UInt32 address, UInt8 value)
         stateValid |= checkCommandManifacturer(rm);
         stateValid |= checkCommandEraseSector(rm);
         stateValid |= checkCommandProgram(rm);
+        stateValid |= checkCommandQuadrupleByteProgram(rm);
         stateValid |= checkCommandEraseChip(rm);
-        if (stateValid) {
-            if (value == 0xf0) {
-                rm->state = ST_IDLE;
-                rm->cmdIdx = 0;
-            }
-        }
+        /* 0xF0 resets only when stateValid=0; mid-sequence 0xF0 is data
+        ** (e.g. QBP data phase) and must not drop the command buffer. */
 
         if (!stateValid) {
             rm->state = ST_IDLE;
@@ -237,6 +280,12 @@ AmdFlash* amdFlashCreate(AmdType type, int flashSize, int sectorSize, UInt32 wri
         rm->cmdAddr2 = 0x2aa;
     }
 
+    /* 8 MB image size selects the x8/x16 dual-mode part MFR SCC+ SD
+    ** ships with; MSX wiring runs it in x8 mode so command and ID
+    ** addresses are word-shifted relative to the byte address the Z80
+    ** puts on the bus. */
+    rm->isX8X16 = (flashSize == 0x800000);
+
     if (sramFilename != NULL) {
         strcpy(rm->sramFilename, sramFilename);
     }
@@ -249,8 +298,11 @@ AmdFlash* amdFlashCreate(AmdType type, int flashSize, int sectorSize, UInt32 wri
         size = flashSize;
     }
 
+    /* Always start from a blank-flash baseline so callers can omit both
+    ** the seed buffer and the SRAM filename without inheriting garbage. */
+    memset(rm->romData, 0xff, flashSize);
+
     if (rm->sramFilename[0]) {
-        memset(rm->romData + size, 0xff, flashSize - size);
         sramLoad(rm->sramFilename, rm->romData, rm->flashSize, NULL, 0);
     }
 

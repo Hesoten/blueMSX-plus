@@ -54,6 +54,7 @@ typedef unsigned __int64 UInt64;
 typedef signed   char    Int8;
 typedef signed   short   Int16;
 typedef signed   long    Int32;
+typedef signed   __int64 Int64;
 
 // Define color stuff
 #if PIXEL_WIDTH==32

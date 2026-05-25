@@ -233,7 +233,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->menuFileScreenShot              = "Salva una schermata";
     ls->menuFileExit                    = "Esci";
 
-    ls->menuFileHarddisk                = "Interfaccia disco rigido";
+    ls->menuFileHarddisk                = "Disco rigido / Scheda SD";
     ls->menuFileHarddiskNoPesent        = "Controller non presente";
     ls->menuFileHarddiskRemoveAll       = "Espelli tutti i dispositivi";    // New in 2.7
 

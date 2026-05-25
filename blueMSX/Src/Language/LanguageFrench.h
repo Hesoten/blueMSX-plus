@@ -232,7 +232,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->menuFileScreenShot      = "Capture d'écran";
     ls->menuFileExit            = "Quitter";
 
-    ls->menuFileHarddisk        = "Disque dur";                          
+    ls->menuFileHarddisk        = "Disque dur / Carte SD";                          
     ls->menuFileHarddiskNoPesent= "Aucun contrôleur";             
     ls->menuFileHarddiskRemoveAll= "Ejecter tous les disques durs";    // New in 2.7
 

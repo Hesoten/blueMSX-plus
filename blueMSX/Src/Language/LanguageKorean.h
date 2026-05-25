@@ -232,7 +232,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->menuFileScreenShot      = "화면 저장";
     ls->menuFileExit            = "끝내기";
 
-    ls->menuFileHarddisk        = "하드 디스크";                          
+    ls->menuFileHarddisk        = "하드 디스크 / SD 카드";                          
     ls->menuFileHarddiskNoPesent= "컨트롤러 존재하지 않음";             
     ls->menuFileHarddiskRemoveAll= "모든 하드 디스크 제거";    // New in 2.7
 

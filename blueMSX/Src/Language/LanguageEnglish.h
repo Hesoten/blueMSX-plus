@@ -232,7 +232,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->menuFileScreenShot      = "Take Screenshot";
     ls->menuFileExit            = "Exit";
 
-    ls->menuFileHarddisk        = "Hard Disk";
+    ls->menuFileHarddisk        = "Hard Disk / SD Card";
     ls->menuFileHarddiskNoPesent= "No Controllers Present";
     ls->menuFileHarddiskRemoveAll= "Eject All Harddisks";    // New in 2.7
 

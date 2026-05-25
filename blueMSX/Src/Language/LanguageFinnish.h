@@ -233,7 +233,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->menuFileCaptureVideo    = "Videokaappaus"; 
     ls->menuFileScreenShot      = "Tallenna kuvaruutukaappaus";
     ls->menuFileExit            = "Poistu";
-    ls->menuFileHarddisk        = "Kovalevy";
+    ls->menuFileHarddisk        = "Kovalevy / SD-kortti";
     ls->menuFileHarddiskNoPesent= "Ohjaimia ei ole kytketty";
     ls->menuFileHarddiskRemoveAll= "Poista kaikki kovalevyt";    // New in 2.7
 

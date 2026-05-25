@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -103,6 +106,7 @@
 #include "romMapperNoWind.h"
 #include "romMapperGoudaSCSI.h"
 #include "romMapperMegaFlashRomScc.h"
+#include "romMapperMegaFlashRomSccPlusSD.h"
 #include "romMapperForteII.h"
 #include "romMapperMatraINK.h"
 #include "romMapperNettouYakyuu.h"
@@ -377,6 +381,10 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
             case ROM_MEGAFLSHSCCPLUS:
                 success &= romMapperMegaFlashRomSccCreate("MegaFlashRomScc.rom", NULL, 0, slot, sslot, 2, 0, 0x100000, 1);
                 break;
+
+            case ROM_MEGAFLSHSCCPLUS_SD:
+                success &= romMapperMegaFlashRomSccPlusSDCreate(cartNo, slot, sslot, 2);
+                break;
             }
             break;
         }
@@ -459,6 +467,10 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
 
         case ROM_MEGAFLSHSCCPLUS:
             success &= romMapperMegaFlashRomSccCreate(romName, buf, size, slot, sslot, 2, 0, 0x100000, 1);
+            break;
+
+        case ROM_MEGAFLSHSCCPLUS_SD:
+            success &= romMapperMegaFlashRomSccPlusSDCreate(cartNo, slot, sslot, 2);
             break;
 
         case ROM_OBSONET:

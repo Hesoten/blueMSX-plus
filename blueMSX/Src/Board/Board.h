@@ -160,7 +160,8 @@ int boardGetNoSpriteLimits();
 RomType boardGetRomType(int cartNo);
 
 typedef enum { HD_NONE, HD_SUNRISEIDE, HD_BEERIDE, HD_GIDE, HD_RSIDE,
-               HD_MEGASCSI, HD_WAVESCSI, HD_GOUDASCSI, HD_NOWIND } HdType;
+               HD_MEGASCSI, HD_WAVESCSI, HD_GOUDASCSI, HD_NOWIND,
+               HD_MFRSD } HdType;
 HdType boardGetHdType(int hdIndex);
 
 const char* boardGetBaseDirectory();

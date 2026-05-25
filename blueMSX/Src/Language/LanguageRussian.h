@@ -232,7 +232,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->menuFileScreenShot      = "Сделать скриншот";
     ls->menuFileExit            = "Выход";
 
-    ls->menuFileHarddisk        = "Жесткий диск";
+    ls->menuFileHarddisk        = "Жесткий диск / SD-карта";
     ls->menuFileHarddiskNoPesent= "Пока нет контроллера";
     ls->menuFileHarddiskRemoveAll= "Извлечь все жесткие диски";    // New in 2.7
 

@@ -232,7 +232,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->menuFileScreenShot      = "截图";
     ls->menuFileExit            = "退出";
 
-    ls->menuFileHarddisk        = "硬盘";                          
+    ls->menuFileHarddisk        = "硬盘 / SD 卡";                          
     ls->menuFileHarddiskNoPesent= "当前无控制器";             
     ls->menuFileHarddiskRemoveAll= "Eject All Harddisk";    // New in 2.7
 

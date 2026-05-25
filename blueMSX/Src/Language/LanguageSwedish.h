@@ -232,7 +232,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->menuFileScreenShot      = "Spara skärmdump";
     ls->menuFileExit            = "Avsluta";
 
-    ls->menuFileHarddisk        = "Hårddisk";
+    ls->menuFileHarddisk        = "Hårddisk / SD-kort";
     ls->menuFileHarddiskNoPesent= "Inga enheter tillgängliga";
     ls->menuFileHarddiskRemoveAll= "Ta ur alla hårddiskar";    // New in 2.7
 

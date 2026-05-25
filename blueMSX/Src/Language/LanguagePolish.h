@@ -232,7 +232,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->menuFileScreenShot      = "Zapisz ekran";
     ls->menuFileExit            = "Wyjœcie";
 
-    ls->menuFileHarddisk        = "Dysk Twardy";                          
+    ls->menuFileHarddisk        = "Dysk Twardy / Karta SD";                          
     ls->menuFileHarddiskNoPesent= "Brak sterownika";             
     ls->menuFileHarddiskRemoveAll= "Eject All Harddisk";    // New in 2.7
 

@@ -232,7 +232,7 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->menuFileScreenShot      = "儲存螢幕抓圖";
     ls->menuFileExit            = "結束";
 
-    ls->menuFileHarddisk        = "硬碟機";                          
+    ls->menuFileHarddisk        = "硬碟機 / SD 卡";                          
     ls->menuFileHarddiskNoPesent= "沒有硬碟機顯示";             
     ls->menuFileHarddiskRemoveAll= "Eject All Harddisk";    // New in 2.7
 

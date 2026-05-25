@@ -42,6 +42,15 @@
 #define DISK_ERRORS_HEADER_SIZE 0x14
 #define DISK_ERRORS_SIZE        ((MAXSECTOR+7)/8)
 
+/* SDHC images can exceed 2GB; bridge to 64-bit seek (Win uses _fseeki64). */
+#if defined(_WIN32)
+#  define disk_fseek(fp, off, whence) _fseeki64((fp), (Int64)(off), (whence))
+#  define disk_ftell(fp)              _ftelli64((fp))
+#else
+#  define disk_fseek(fp, off, whence) fseeko((fp), (off_t)(off), (whence))
+#  define disk_ftell(fp)              ftello((fp))
+#endif
+
 static int   drivesEnabled[MAXDRIVES] = { 1, 1 };
 static int   drivesIsCdrom[MAXDRIVES];
 static FILE* drives[MAXDRIVES];
@@ -50,7 +59,7 @@ static char* ramImageBuffer[MAXDRIVES];
 static int   ramImageSize[MAXDRIVES];
 static int   sectorsPerTrack[MAXDRIVES];
 static int   sectorSize[MAXDRIVES];
-static int   fileSize[MAXDRIVES];
+static Int64 fileSize[MAXDRIVES];        /* hold >2 GB image sizes */
 static int   sides[MAXDRIVES];
 static int   tracks[MAXDRIVES];
 static int   changed[MAXDRIVES];
@@ -127,9 +136,9 @@ int diskGetSectorSize(int driveId, int side, int track, int density)
     return secSize;
 }
 
-static int diskGetSectorOffset(int driveId, int sector, int side, int track, int density)
+static Int64 diskGetSectorOffset(int driveId, int sector, int side, int track, int density)
 {
-    int offset;
+    Int64 offset;
     int secSize;
 
     if (driveId >= MAXDRIVES)
@@ -139,12 +148,13 @@ static int diskGetSectorOffset(int driveId, int sector, int side, int track, int
 
     if (diskType[driveId] == SVI328_DISK) {
         if (track==0 && side==0 && density==1)
-            offset = (sector-1)*128; 
+            offset = (Int64)(sector-1) * 128;
         else
-            offset = ((track*sides[driveId]+side)*17+sector-1)*256-2048;
+            offset = ((Int64)(track*sides[driveId]+side)*17 + sector-1) * 256 - 2048;
     }
     else {
-        offset =  sector - 1 + diskGetSectorsPerTrack(driveId) * (track * diskGetSides(driveId) + side);
+        /* 8GB HD has ~16M sectorsPerTrack (returns total sectors); 32-bit overflows. */
+        offset = (Int64)(sector - 1) + (Int64)diskGetSectorsPerTrack(driveId) * (track * diskGetSides(driveId) + side);
         offset *= secSize;
     }
     return offset;
@@ -178,7 +188,7 @@ DSKE diskRead(int driveId, UInt8* buffer, int sector)
         return DSKE_NO_DATA;
 
     if (ramImageBuffer[driveId] != NULL) {
-        int offset = sector * sectorSize[driveId];
+        Int64 offset = (Int64)sector * sectorSize[driveId];
 
         if (ramImageSize[driveId] < offset + sectorSize[driveId]) {
             return DSKE_NO_DATA;
@@ -189,7 +199,7 @@ DSKE diskRead(int driveId, UInt8* buffer, int sector)
     }
     else {
         if ((drives[driveId] != NULL)) {
-            if (0 == fseek(drives[driveId], sector * sectorSize[driveId], SEEK_SET)) {
+            if (0 == disk_fseek(drives[driveId], (Int64)sector * sectorSize[driveId], SEEK_SET)) {
                 UInt8 success = fread(buffer, 1, sectorSize[driveId], drives[driveId]) == sectorSize[driveId];
                 return success? diskReadError(driveId, sector) : DSKE_NO_DATA;
             }
@@ -201,7 +211,7 @@ DSKE diskRead(int driveId, UInt8* buffer, int sector)
 DSKE diskReadSector(int driveId, UInt8* buffer, int sector, int side, int track, int density, int *sectorSize)
 {
     int secSize;
-    int offset;
+    Int64 offset;
 
     if (!diskPresent(driveId))
         return DSKE_NO_DATA;
@@ -220,7 +230,7 @@ DSKE diskReadSector(int driveId, UInt8* buffer, int sector, int side, int track,
 
     if (ramImageBuffer[driveId] != NULL) {
         int sectornum;
-        if (ramImageSize[driveId] < offset + secSize) {
+        if ((Int64)ramImageSize[driveId] < offset + secSize) {
             return DSKE_NO_DATA;
         }
 
@@ -230,7 +240,7 @@ DSKE diskReadSector(int driveId, UInt8* buffer, int sector, int side, int track,
     }
     else {
         if ((drives[driveId] != NULL)) {
-            if (0 == fseek(drives[driveId], offset, SEEK_SET)) {
+            if (0 == disk_fseek(drives[driveId], offset, SEEK_SET)) {
                 UInt8 success = fread(buffer, 1, secSize, drives[driveId]) == secSize;
                 int sectornum = sector - 1 + diskGetSectorsPerTrack(driveId) * (track * diskGetSides(driveId) + side);
                 return success? diskReadError(driveId, sectornum) : DSKE_NO_DATA;
@@ -463,9 +473,9 @@ UInt8 diskWrite(int driveId, UInt8 *buffer, int sector)
     }
 
     if (ramImageBuffer[driveId] != NULL) {
-        int offset = sector * sectorSize[driveId];
+        Int64 offset = (Int64)sector * sectorSize[driveId];
 
-        if (ramImageSize[driveId] < offset + sectorSize[driveId]) {
+        if ((Int64)ramImageSize[driveId] < offset + sectorSize[driveId]) {
             return 0;
         }
 
@@ -474,7 +484,7 @@ UInt8 diskWrite(int driveId, UInt8 *buffer, int sector)
     }
     else {
         if (drives[driveId] != NULL && !RdOnly[driveId]) {
-            if (0 == fseek(drives[driveId], sector * sectorSize[driveId], SEEK_SET)) {
+            if (0 == disk_fseek(drives[driveId], (Int64)sector * sectorSize[driveId], SEEK_SET)) {
                 UInt8 success = fwrite(buffer, 1, sectorSize[driveId], drives[driveId]) == sectorSize[driveId];
                 if (success && sector == 0) {
                     diskUpdateInfo(driveId);
@@ -489,7 +499,7 @@ UInt8 diskWrite(int driveId, UInt8 *buffer, int sector)
 UInt8 diskWriteSector(int driveId, UInt8 *buffer, int sector, int side, int track, int density)
 {
     int secSize;
-    int offset;
+    Int64 offset;
 
     if (!diskPresent(driveId))
         return 0;
@@ -505,7 +515,7 @@ UInt8 diskWriteSector(int driveId, UInt8 *buffer, int sector, int side, int trac
     secSize = diskGetSectorSize(driveId, side, track, density);
 
     if (ramImageBuffer[driveId] != NULL) {
-        if (ramImageSize[driveId] < offset + secSize) {
+        if ((Int64)ramImageSize[driveId] < offset + secSize) {
             return 0;
         }
 
@@ -514,7 +524,7 @@ UInt8 diskWriteSector(int driveId, UInt8 *buffer, int sector, int side, int trac
     }
     else {
         if (drives[driveId] != NULL && !RdOnly[driveId]) {
-            if (0 == fseek(drives[driveId], offset, SEEK_SET)) {
+            if (0 == disk_fseek(drives[driveId], offset, SEEK_SET)) {
                 UInt8 success = fwrite(buffer, 1, secSize, drives[driveId]) == secSize;
                 return success;
             }
@@ -643,8 +653,8 @@ UInt8 diskChange(int driveId, const char* fileName, const char* fileInZipFile)
         free(fname);
     }
 
-    fseek(drives[driveId],0,SEEK_END);
-    fileSize[driveId] = ftell(drives[driveId]);
+    disk_fseek(drives[driveId], 0, SEEK_END);
+    fileSize[driveId] = disk_ftell(drives[driveId]);
 
     diskUpdateInfo(driveId);
 
@@ -690,7 +700,10 @@ static const UInt8 hdIdentifyBlock[512] = {
 
 static void diskReadHdIdentifySector(int driveId, UInt8* buffer)
 {
-    UInt32 totalSectors = fileSize[driveId] / 512;
+    /* IDE-IDENTIFY's LBA-sector field is 32-bit, so cap at 2^32-1
+    ** sectors (~2TB).  Larger images would need LBA48 which Sunrise
+    ** IDE doesn't speak. */
+    UInt32 totalSectors = (UInt32)(fileSize[driveId] / 512);
     UInt16 heads = 16;
     UInt16 sectors = 32;
     UInt16 cylinders = (UInt16)(totalSectors / (heads * sectors));
@@ -730,7 +743,7 @@ static void diskHdUpdateInfo(int driveId)
 int _diskGetTotalSectors(int driveId)
 {
     if ((diskPresent(driveId)) && (driveId < MAXDRIVES))
-        return fileSize[driveId] / 512;
+        return (int)(fileSize[driveId] / 512);
     return 0;
 }
 
@@ -745,13 +758,13 @@ int _diskRead2(int driveId, UInt8* buffer, int sector, int numSectors)
 
     if (ramImageBuffer[driveId] == NULL) {
         if ((drives[driveId] != NULL)) {
-            if (0 == fseek(drives[driveId], sector * 512, SEEK_SET))
+            if (0 == disk_fseek(drives[driveId], (Int64)sector * 512, SEEK_SET))
                 return (fread(buffer, 1, length, drives[driveId]) == length);
         }
         return 0;
     }
 
-    memcpy(buffer, ramImageBuffer[driveId] + sector * 512, numSectors * 512);
+    memcpy(buffer, ramImageBuffer[driveId] + (Int64)sector * 512, numSectors * 512);
     return 1;
 }
 
@@ -766,12 +779,12 @@ int _diskWrite2(int driveId, UInt8* buffer, int sector, int numSectors)
 
     if (ramImageBuffer[driveId] == NULL) {
         if ((drives[driveId] != NULL)) {
-            if (0 == fseek(drives[driveId], sector * 512, SEEK_SET))
+            if (0 == disk_fseek(drives[driveId], (Int64)sector * 512, SEEK_SET))
                 return (fwrite(buffer, 1, length, drives[driveId]) == length);
         }
         return 0;
     }
 
-    memcpy(ramImageBuffer[driveId] + sector * 512, buffer, length);
+    memcpy(ramImageBuffer[driveId] + (Int64)sector * 512, buffer, length);
     return 1;
 }

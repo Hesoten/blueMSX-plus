@@ -232,7 +232,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->menuFileScreenShot      = "Schermafdruk maken";
     ls->menuFileExit            = "Afsluiten";
 
-    ls->menuFileHarddisk        = "Harde schijf";
+    ls->menuFileHarddisk        = "Harde schijf / SD-kaart";
     ls->menuFileHarddiskNoPesent= "Geen harde schijfcontrollers aanwezig";
     ls->menuFileHarddiskRemoveAll= "Werp alle harde schijven uit";
 

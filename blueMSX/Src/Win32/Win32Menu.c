@@ -169,6 +169,7 @@
 #define ID_FILE_CART_GOUDASCSI          41107
 #define ID_FILE_CART_MEGAFLASHROMSCC    41108
 #define ID_FILE_CART_MEGAFLSHSCCPLUS    41109
+#define ID_FILE_CART_MEGAFLSHSCCPLUS_SD 41118
 #define ID_FILE_CART_JOYREXPSG          41110
 #define ID_FILE_CART_EXTRAM16KB         41111
 #define ID_FILE_CART_EXTRAM32KB         41112
@@ -566,6 +567,7 @@ static HMENU menuCreateCartSpecial(int cartNo, Properties* pProperties, Shortcut
     
     AppendMenuU(hMenuFlashRom, MF_STRING, idOffset + ID_FILE_CART_MEGAFLASHROMSCC, langRomTypeMegaFlashRomScc());
     AppendMenuU(hMenuFlashRom, MF_STRING, idOffset + ID_FILE_CART_MEGAFLSHSCCPLUS, "Mega Flash Rom SCC+");
+    AppendMenuU(hMenuFlashRom, MF_STRING, idOffset + ID_FILE_CART_MEGAFLSHSCCPLUS_SD, "Mega Flash Rom SCC+ SD");
 
     AppendMenuU(hMenuWaveSCSI, MF_STRING, idOffset + ID_FILE_CART_WAVESCSI128, "128 kB");
     AppendMenuU(hMenuWaveSCSI, MF_STRING, idOffset + ID_FILE_CART_WAVESCSI256, "256 kB");
@@ -963,6 +965,13 @@ static HMENU menuCreateHarddisk(Properties* pProperties, Shortcuts* shortcuts)
                 sprintf(langBuffer, "SCSI%d Gouda SCSI #%d", i, j);
                 AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, j), pProperties, shortcuts, 1), langBuffer);
             }
+            break;
+        case HD_MFRSD:
+            hasHd = 1;
+            sprintf(langBuffer, "SD%d - MFR SCC+ SD slot 1", i);
+            AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 0), pProperties, shortcuts, 0), langBuffer);
+            sprintf(langBuffer, "SD%d - MFR SCC+ SD slot 2", i);
+            AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 1), pProperties, shortcuts, 0), langBuffer);
             break;
         }
     }
@@ -1992,6 +2001,9 @@ int menuCommand(Properties* pProperties, int command)
             return 1;
         case ID_FILE_CART_MEGAFLSHSCCPLUS:
             insertCartridge(pProperties, i, CARTNAME_MEGAFLSHSCCPLUS, NULL, ROM_MEGAFLSHSCCPLUS, 0);
+            return 1;
+        case ID_FILE_CART_MEGAFLSHSCCPLUS_SD:
+            insertCartridge(pProperties, i, CARTNAME_MEGAFLSHSCCPLUS_SD, NULL, ROM_MEGAFLSHSCCPLUS_SD, 0);
             return 1;
         case ID_FILE_CART_WAVESCSI128:
             insertCartridge(pProperties, i, CARTNAME_WAVESCSI128, NULL, SRAM_WAVESCSI128, 0);

@@ -753,6 +753,7 @@
     <ClCompile Include="..\..\Src\Memory\romMapperMajutsushi.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperMatraINK.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperMegaFlashRomScc.c" />
+    <ClCompile Include="..\..\Src\Memory\romMapperMegaFlashRomSccPlusSD.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperMegaRAM.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperMicrosol.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperMicrosolVmx80.c" />
@@ -841,6 +842,7 @@
     <ClCompile Include="..\..\Src\IoDevice\rtl8019.c" />
     <ClCompile Include="..\..\Src\IoDevice\Sc3000PPI.c" />
     <ClCompile Include="..\..\Src\IoDevice\ScsiDevice.c" />
+    <ClCompile Include="..\..\Src\IoDevice\SdCard.c" />
     <ClCompile Include="..\..\Src\IoDevice\Sf7000PPI.c" />
     <ClCompile Include="..\..\Src\IoDevice\sl811hs.c" />
     <ClCompile Include="..\..\Src\IoDevice\SunriseIDE.c" />
@@ -1036,6 +1038,7 @@
     <ClInclude Include="..\..\Src\Memory\romMapperJoyrexPsg.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperMatraINK.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperMegaFlashRomScc.h" />
+    <ClInclude Include="..\..\Src\Memory\romMapperMegaFlashRomSccPlusSD.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperNet.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperNettouYakyuu.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperNoWind.h" />
@@ -1177,6 +1180,7 @@
     <ClInclude Include="..\..\Src\IoDevice\rtl8019.h" />
     <ClInclude Include="..\..\Src\IoDevice\Sc3000PPI.h" />
     <ClInclude Include="..\..\Src\IoDevice\ScsiDevice.h" />
+    <ClInclude Include="..\..\Src\IoDevice\SdCard.h" />
     <ClInclude Include="..\..\Src\IoDevice\Sf7000PPI.h" />
     <ClInclude Include="..\..\Src\IoDevice\sl811hs.h" />
     <ClInclude Include="..\..\Src\IoDevice\SunriseIDE.h" />

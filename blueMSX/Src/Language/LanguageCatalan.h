@@ -232,7 +232,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->menuFileScreenShot      = "Desa la captura de pantalla";
     ls->menuFileExit            = "Surt";
 
-    ls->menuFileHarddisk        = "Disc dur";
+    ls->menuFileHarddisk        = "Disc dur / Targeta SD";
     ls->menuFileHarddiskNoPesent= "No hi ha controladors";
     ls->menuFileHarddiskRemoveAll= "Expulsa tots els discs durs";    // New in 2.7
 
