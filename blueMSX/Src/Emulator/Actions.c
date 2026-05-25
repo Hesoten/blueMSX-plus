@@ -137,6 +137,7 @@ void actionDiskInsertDir(int diskNo)
     filename = archDirnameGetOpenDisk(state.properties, diskNo);
     if (filename != NULL) {        
         strcpy(state.properties->media.disks[diskNo].directory, filename);
+        diskPreviewDirOverflow(diskNo, filename);
         insertDiskette(state.properties, diskNo, filename, NULL, 0);
     }
     emulatorResume();

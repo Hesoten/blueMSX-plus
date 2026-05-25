@@ -81,6 +81,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->errorNoRomInZip         = "Could not locate a .ROM file in the ZIP archive.";
     ls->errorNoDskInZip         = "Could not locate a .DSK file in the ZIP archive.";
     ls->errorNoCasInZip         = "Could not locate a .CAS file in the ZIP archive.";
+    ls->errorDirAsDskOverflow   = "%d file(s) (%d KB total) did not fit in the 720 KB disk image and were skipped.";
     ls->errorNoHelp             = "Could not locate the blueMSX help file.";
     ls->errorStartEmu           = "Failed to Start MSX emulator.";
     ls->errorMissingFiles       = "The following files referenced by the saved state could not be loaded:";

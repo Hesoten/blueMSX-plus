@@ -81,6 +81,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->errorNoRomInZip         = "Не нашлось .rom файла в zip архиве.";
     ls->errorNoDskInZip         = "Не нашлось .dsk файла в zip архиве.";
     ls->errorNoCasInZip         = "Не нашлось .cas файла в zip архиве.";
+    ls->errorDirAsDskOverflow   = "%d файл(ов) (всего %d КБ) не поместились в образ диска 720 КБ и были пропущены.";
     ls->errorNoHelp             = "Не нашлось файла помощи blueMSX.";
     ls->errorStartEmu           = "Не удалось начать эмуляцию.";
     ls->errorMissingFiles       = "Следующие файлы, указанные в сохранённом состоянии, не могут быть загружены:";

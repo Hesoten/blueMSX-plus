@@ -4350,6 +4350,14 @@ void archShowNoCasInZipDialog() {
     enterDialogShow();
 }
 
+void archShowDirAsDskOverflowDialog(int skippedCount, int skippedBytes) {
+    char msg[512];
+    enterDialogShow();
+    sprintf(msg, langErrorDirAsDskOverflow(), skippedCount, (skippedBytes + 1023) / 1024);
+    MessageBoxU(NULL, msg, langMenuDiskDirInsert(), MB_OK | MB_ICONWARNING);
+    exitDialogShow();
+}
+
 /* IDD_LARGEMSG custom dialog backing MessageBoxLargeU: 11pt, ~800px wide,
 ** auto-sized to text, optional 48px MB_ICON*; localized button captions. */
 typedef struct {

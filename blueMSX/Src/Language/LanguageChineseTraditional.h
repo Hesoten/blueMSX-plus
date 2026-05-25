@@ -81,6 +81,7 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->errorNoRomInZip         = "無法在 zip 壓縮檔案中找出 .rom 檔案。";
     ls->errorNoDskInZip         = "無法在 zip 壓縮檔案中找出 .dsk 檔案。";
     ls->errorNoCasInZip         = "無法在 zip 壓縮檔案中找出 .cas 檔案。";
+    ls->errorDirAsDskOverflow   = "%d 個檔案 (共 %d KB) 無法容納於 720 KB 磁碟鏡像，已跳過。";
     ls->errorNoHelp             = "無法找到 blueMSX 說明檔案。";
     ls->errorStartEmu           = "無法啟動 MSX 模擬器。";
     ls->errorMissingFiles       = "無法載入存檔引用的以下檔案：";

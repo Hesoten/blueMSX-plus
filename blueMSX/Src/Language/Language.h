@@ -107,6 +107,7 @@ char* langErrorDirectXFailed();
 char* langErrorNoRomInZip();
 char* langErrorNoDskInZip();
 char* langErrorNoCasInZip();
+char* langErrorDirAsDskOverflow();
 char* langErrorNoHelp();
 char* langErrorStartEmu();
 char* langErrorMissingFiles();

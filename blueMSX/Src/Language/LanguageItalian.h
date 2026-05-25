@@ -82,6 +82,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->errorNoRomInZip                 = "Nessun file .ROM trovato nell'archivio compresso.";
     ls->errorNoDskInZip                 = "Nessun file .DSK trovato nell'archivio compresso.";
     ls->errorNoCasInZip                 = "Nessun file .CAS trovato nell'archivio compresso.";
+    ls->errorDirAsDskOverflow           = "%d file (%d KB totali) non sono entrati nell'immagine disco da 720 KB e sono stati saltati.";
     ls->errorNoHelp                     = "Non trovo il file della guida in linea di blueMSX.";
     ls->errorStartEmu                   = "Avvio dell'emulatore fallito!";
     ls->errorMissingFiles               = "I seguenti file referenziati dallo stato salvato non possono essere caricati:";

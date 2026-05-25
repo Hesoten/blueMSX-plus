@@ -275,6 +275,14 @@ typedef struct {
   int attr;
 } fileinfo;
 
+/* Per-call counters for files that overflowed the 720 KB image during
+** dirLoadFile(); exposed via dirLoadLastSkipped*() so callers can warn. */
+static int dirLoadOverflowCount = 0;
+static int dirLoadOverflowBytes = 0;
+
+int dirLoadLastSkippedCount(void) { return dirLoadOverflowCount; }
+int dirLoadLastSkippedBytes(void) { return dirLoadOverflowBytes; }
+
 static int dskimagesize = 0;
 static byte *dskimage=NULL;
 static byte *fat;
@@ -415,6 +423,8 @@ static int getfilelength(int fd) {
     return length;
 }
 
+/* Cast to unsigned char before toupper: UCRT fast-fails on negative
+** signed-char values (UTF-8 lead bytes). */
 static int match(fileinfo *file, char *name) {
   char *p=file->name;
   int status=0,i;
@@ -429,8 +439,9 @@ static int match(fileinfo *file, char *name) {
     }
     if (*name=='.')
       break;
-    if (toupper (*name++)!=toupper (*p++))
+    if (toupper((unsigned char)*name) != toupper((unsigned char)*p))
       return 0;
+    name++; p++;
   }
   if (!status && i<8 && *p!=0) 
     return 0;
@@ -440,8 +451,9 @@ static int match(fileinfo *file, char *name) {
   for (i=0; i<3; i++) {
     if (*name=='*')
       return 1;
-    if (toupper (*name++)!=toupper (*p++))
+    if (toupper((unsigned char)*name) != toupper((unsigned char)*p))
       return 0;
+    name++; p++;
   }
   return 1;
 }
@@ -533,6 +545,156 @@ static void store_fat(int link, int next) {
   }
 }
 
+/* Return 1 if src already fits N+M short-name (one dot, no spaces / controls). */
+static int short_name_fits(const char* src, int name_max, int ext_max)
+{
+    const char* dot = strrchr(src, '.');
+    const char* p;
+    int n_len;
+    int e_len;
+    int sep_off;
+
+    if (dot == src) {
+        dot = NULL;
+    }
+    if (dot != NULL) {
+        n_len = (int)(dot - src);
+        e_len = (int)strlen(dot + 1);
+    } else {
+        n_len = (int)strlen(src);
+        e_len = 0;
+    }
+    if (n_len <= 0 || n_len > name_max || e_len > ext_max) {
+        return 0;
+    }
+    sep_off = (dot != NULL) ? n_len : -1;
+    for (p = src; *p; p++) {
+        unsigned char c = (unsigned char)*p;
+        if ((int)(p - src) == sep_off) {
+            continue;
+        }
+        if (c == '.' || c == ' ' || c < 0x20 || c == 0x7f) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+/* Build VFAT short name into out_name/out_ext (pre-filled 0x20).
+** tilde_index >= 1 leaves room for "~N"; illegal chars become '_'. */
+static void build_short_name(const char* src,
+                             int name_max, int ext_max,
+                             int tilde_index,
+                             char* out_name, char* out_ext)
+{
+    const char* dot = strrchr(src, '.');
+    int n_len;
+    int e_len;
+    int prefix_len;
+    int tag_len = 0;
+    char tag[8];
+    int i;
+
+    if (dot == src) {
+        dot = NULL;
+    }
+    if (dot != NULL) {
+        n_len = (int)(dot - src);
+        e_len = (int)strlen(dot + 1);
+    } else {
+        n_len = (int)strlen(src);
+        e_len = 0;
+    }
+
+    memset(out_name, 0x20, name_max);
+    memset(out_ext, 0x20, ext_max);
+
+    if (tilde_index <= 0) {
+        prefix_len = (n_len < name_max) ? n_len : name_max;
+    } else {
+        sprintf(tag, "~%d", tilde_index);
+        tag_len = (int)strlen(tag);
+        if (tag_len >= name_max) {
+            tag_len = name_max - 1;
+        }
+        prefix_len = name_max - tag_len;
+        if (prefix_len > n_len) {
+            prefix_len = n_len;
+        }
+        if (prefix_len < 1) {
+            prefix_len = 1;
+        }
+    }
+
+    for (i = 0; i < prefix_len; i++) {
+        unsigned char c = (unsigned char)src[i];
+        if (c == '.' || c == ' ' || c < 0x20 || c == 0x7f) {
+            c = '_';
+        }
+        out_name[i] = (char)toupper(c);
+    }
+    if (tilde_index > 0) {
+        for (i = 0; i < tag_len; i++) {
+            out_name[prefix_len + i] = tag[i];
+        }
+    }
+
+    if (dot != NULL) {
+        int limit = (e_len < ext_max) ? e_len : ext_max;
+        for (i = 0; i < limit; i++) {
+            unsigned char c = (unsigned char)dot[1 + i];
+            if (c == ' ' || c < 0x20 || c == 0x7f) {
+                c = '_';
+            }
+            out_ext[i] = (char)toupper(c);
+        }
+    }
+}
+
+/* True if direc[pos] is live and its 8.3 name/ext matches candidate. */
+static int msx_dirent_name_eq(int pos, const char* name8, const char* ext3)
+{
+    byte* e = direc + pos * 32;
+    if (e[0] < 0x20 || e[0] >= 0x80) {
+        return 0;
+    }
+    return memcmp(e, name8, 8) == 0 && memcmp(e + 8, ext3, 3) == 0;
+}
+
+/* Write 8.3 short name into FAT entry (BASE~N.EXT for long host names)
+** without overrunning the trailing attribute byte. */
+static void msx_assign_short_name(const char* src, int self_pos, byte* out)
+{
+    char name8[8];
+    char ext3[3];
+
+    if (short_name_fits(src, 8, 3)) {
+        build_short_name(src, 8, 3, 0, name8, ext3);
+    } else {
+        int tilde;
+        for (tilde = 1; tilde < 100000; tilde++) {
+            int scan;
+            int collision = 0;
+            build_short_name(src, 8, 3, tilde, name8, ext3);
+            for (scan = 0; scan < direlements; scan++) {
+                if (scan == self_pos) {
+                    continue;
+                }
+                if (msx_dirent_name_eq(scan, name8, ext3)) {
+                    collision = 1;
+                    break;
+                }
+            }
+            if (!collision) {
+                break;
+            }
+        }
+    }
+
+    memcpy(out, name8, 8);
+    memcpy(out + 8, ext3, 3);
+}
+
 static int add_single_file(char *name, const char *pathname) {
   int i,total;
   fileinfo *file;
@@ -546,13 +708,15 @@ static int add_single_file(char *name, const char *pathname) {
   int current;
   int next;
   int pos;
-  char *p;
-  char fullname[250];
+  /* UTF-8 path: PROP_MAXPATH (512) prefix + '/' + UTF-8 basename can exceed
+  ** legacy 250 easily; use snprintf to clamp instead of strcpy+strcat overrun. */
+  char fullname[1024];
   int result;
 
-  strcpy (fullname,pathname);
-  strcat (fullname,"/");
-  strcat (fullname,name);
+  if ((int)snprintf(fullname, sizeof(fullname), "%s/%s", pathname, name)
+      >= (int)sizeof(fullname)) {
+      return -1;
+  }
   fileid=open (fullname,O_BINARY|O_RDONLY);
   
   if (fileid < 0) {
@@ -570,6 +734,8 @@ static int add_single_file(char *name, const char *pathname) {
 
   if ((size=getfilelength(fileid))>bytes_free())
   {
+    dirLoadOverflowCount++;
+    dirLoadOverflowBytes += size;
     close (fileid);
     return 1;
   }
@@ -579,6 +745,8 @@ static int add_single_file(char *name, const char *pathname) {
       break;
   if (i==direlements)
   {
+    dirLoadOverflowCount++;
+    dirLoadOverflowBytes += size;
     close (fileid);
     return 2;
   }
@@ -606,14 +774,7 @@ static int add_single_file(char *name, const char *pathname) {
 
   memset (direc+pos*32,0,32);
   memset (direc+pos*32,0x20,11);
-  i=0; 
-  for (p=name;*p;p++) {
-    if (*p=='.') {
-      i=8;
-      continue;
-    }
-    direc[pos*32+i++]=toupper (*p);
-  }
+  msx_assign_short_name(name, pos, direc + pos * 32);
 
   result = stat(fullname, &s);
 
@@ -638,12 +799,14 @@ static int add_single_file(char *name, const char *pathname) {
   return result;
 }
 
-/* strupr is not a standard ANSI function, so define our own version */
+/* strupr is not a standard ANSI function, so define our own version.
+** Cast through unsigned char: signed-char UTF-8 bytes are negative ints
+** that UCRT toupper rejects via _invalid_parameter (fast-fail). */
 static char* my_strupr(char* s)
 {
     char* p = s;
     while (*p) {
-        *p = toupper(*p);
+        *p = (char)toupper((unsigned char)*p);
         ++p;
     }
     return s;
@@ -661,12 +824,12 @@ static int add_single_file_svi(int diskType, char *name, const char *pathname)
     } DirectoryEntry;
 
     FILE *fpImport;
-    char fullname[250];
+    char fullname[1024];
     char filename[80];
     char extension[10];
     char *pname;
     char *pext;
-    char myname[250];
+    char myname[1024];
     byte fileBuf[17 * 256];
     int bytesRead;
     int fileDone;
@@ -693,23 +856,33 @@ static int add_single_file_svi(int diskType, char *name, const char *pathname)
         break;
     }
 
-    strcpy(fullname, pathname);
-    strcat(fullname, "/");
-    strcat(fullname, name);
-
-    strcpy(myname, name);
+    if ((int)snprintf(fullname, sizeof(fullname), "%s/%s", pathname, name)
+        >= (int)sizeof(fullname)) {
+        return 1;
+    }
+    if ((int)snprintf(myname, sizeof(myname), "%s", name)
+        >= (int)sizeof(myname)) {
+        return 1;
+    }
     memset(&filename, 0x20, sizeof(filename));
     memset(&extension, 0x20, sizeof(extension));
     pname = strtok(name, ".");
     if (pname != NULL) {
-        memcpy(filename, pname, strlen(pname));
+        /* Bound copies: prior strlen()-based copy overran extension[10]. */
+        size_t n = strlen(pname);
+        if (n > sizeof(filename)) n = sizeof(filename);
+        memcpy(filename, pname, n);
         pext = strrchr(myname, '.');
         if (pext != NULL) {
-            memcpy(extension, pext + 1, strlen(pext));
+            size_t e = strlen(pext + 1);
+            if (e > sizeof(extension)) e = sizeof(extension);
+            memcpy(extension, pext + 1, e);
         }
     }
     else {
-        memcpy(filename, myname, strlen(myname));
+        size_t n = strlen(myname);
+        if (n > sizeof(filename)) n = sizeof(filename);
+        memcpy(filename, myname, n);
     }
 
     do {
@@ -816,12 +989,12 @@ static int add_single_file_cpm(int diskType, char *name, const char *pathname)
 
     DirectoryEntry myDir;
     FILE *fpImport;
-    char fullname[250];
+    char fullname[1024];
     int drm = 0;
     int drmFound = 0;
     byte fileBuf[2048];
     int fileSize;
-    char myname[250];
+    char myname[1024];
     char filename[80];
     char extension[10];
     char *pname;
@@ -864,26 +1037,36 @@ static int add_single_file_cpm(int diskType, char *name, const char *pathname)
         break;
     }
 
-    strcpy(fullname, pathname);
-    strcat(fullname, "/");
-    strcat(fullname, name);
+    if ((int)snprintf(fullname, sizeof(fullname), "%s/%s", pathname, name)
+        >= (int)sizeof(fullname)) {
+        return 1;
+    }
 
     name = my_strupr(name);
-    strcpy(myname, name);
+    if ((int)snprintf(myname, sizeof(myname), "%s", name)
+        >= (int)sizeof(myname)) {
+        return 1;
+    }
 
     memset(filename, 0x20, sizeof(filename));
     memset(extension, 0x20, sizeof(extension));
 
     pname = strtok(name, ".");
     if (pname != NULL) {
-        memcpy(filename, pname, strlen(pname));
+        size_t n = strlen(pname);
+        if (n > sizeof(filename)) n = sizeof(filename);
+        memcpy(filename, pname, n);
         pext = strrchr(myname, '.');
         if (pext != NULL) {
-            memcpy(extension, pext + 1, strlen(pext));
+            size_t e = strlen(pext + 1);
+            if (e > sizeof(extension)) e = sizeof(extension);
+            memcpy(extension, pext + 1, e);
         }
     }
     else {
-        memcpy(filename, myname, strlen(myname));
+        size_t n = strlen(myname);
+        if (n > sizeof(filename)) n = sizeof(filename);
+        memcpy(filename, myname, n);
     }
 
     fpImport = fopen(fullname, "rb");
@@ -960,7 +1143,10 @@ static int add_single_file_cpm(int diskType, char *name, const char *pathname)
 void* dirLoadFile(DirDiskType diskType, const char* directory, int* size)
 {
     ArchGlob* glob;
-    static char filename[512];
+    static char filename[1024];
+
+    dirLoadOverflowCount = 0;
+    dirLoadOverflowBytes = 0;
 
     if (diskType == 0) {
         load_dsk_msx();
@@ -969,7 +1155,11 @@ void* dirLoadFile(DirDiskType diskType, const char* directory, int* size)
         load_dsk_svi(diskType);
     }
 
-    sprintf(filename, "%s/*", directory);
+    if ((int)snprintf(filename, sizeof(filename), "%s/*", directory)
+        >= (int)sizeof(filename)) {
+        *size = dskimagesize;
+        return dskimage;
+    }
 
     glob = archGlob(filename, ARCH_GLOB_FILES);
 
@@ -995,10 +1185,10 @@ void* dirLoadFile(DirDiskType diskType, const char* directory, int* size)
                 rv = add_single_file_cpm(diskType, fileName, directory);
             }
 
+            /* rv=1 means file didn't fit (overflow counter already bumped);
+            ** keep going so smaller files still make it onto the disk. */
             if (rv) {
-                free(dskimage);
-                dskimage = NULL;
-                break;
+                continue;
             }
         }
 

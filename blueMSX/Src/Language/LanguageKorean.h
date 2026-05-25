@@ -81,6 +81,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->errorNoRomInZip         = "zip파일 내부의 rom을 찾을 수 없습니다.";
     ls->errorNoDskInZip         = "zip파일 내부의 dsk를 찾을 수 없습니다.";
     ls->errorNoCasInZip         = "zip파일 내부의 cas를 찾을 수 없습니다.";
+    ls->errorDirAsDskOverflow   = "%d 개의 파일(총 %d KB)이 720 KB 디스크 이미지에 맞지 않아 건너뛰었습니다.";
     ls->errorNoHelp             = "blueMSX 도움말을 찾을 수 없습니다.";
     ls->errorStartEmu           = "MSX 에뮬레이터를 시작할 수 없습니다.";
     ls->errorMissingFiles       = "저장된 상태가 참조하는 다음 파일을 로드할 수 없습니다:";

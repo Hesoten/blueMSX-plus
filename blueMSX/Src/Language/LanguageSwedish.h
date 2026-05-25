@@ -81,6 +81,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->errorNoRomInZip         = "Kunde inte hitta en .rom fil i zip arkivet.";
     ls->errorNoDskInZip         = "Kunde inte hitta en .dsk fil i zip arkivet.";
     ls->errorNoCasInZip         = "Kunde inte hitta en .cas fil i zip arkivet.";
+    ls->errorDirAsDskOverflow   = "%d fil(er) (%d KB totalt) får inte plats i 720 KB-diskavbilden och hoppades över.";
     ls->errorNoHelp             = "Kunde inte hitta hjälpfilen.";
     ls->errorStartEmu           = "Misslyckades att starta emulatorn.";
     ls->errorMissingFiles       = "Följande filer som refereras av sparat tillstånd kunde inte laddas:";

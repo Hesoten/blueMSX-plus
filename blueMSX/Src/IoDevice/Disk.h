@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik, Tomas Karlsson
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -48,6 +51,11 @@ typedef enum {
 } DSKE;
 
 UInt8 diskChange(int driveId, const char* fileName, const char* fileInZipFile);
+
+/* Surface the 720 KB overflow dialog at insert time (not next emu
+** start); marks (driveId, path) so the next diskChange remount of the
+** same dir doesn't repeat it. */
+void diskPreviewDirOverflow(int driveId, const char* path);
 void diskSetInfo(int driveId, char* fileName, const char* fileInZipFile);
 void  diskEnable(int driveId, int enable);
 UInt8 diskEnabled(int driveId);

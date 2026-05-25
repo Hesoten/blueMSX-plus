@@ -83,6 +83,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->errorNoRomInZip         = "zipファイルの中に.romファイルが見つかりません。";
     ls->errorNoDskInZip         = "zipファイルの中に.dskファイルが見つかりません。";
     ls->errorNoCasInZip         = "zipファイルの中に.casファイルが見つかりません。";
+    ls->errorDirAsDskOverflow   = "%d 個のファイル (合計 %d KB) が 720 KB ディスクイメージに収まらず除外されました。";
     ls->errorNoHelp             = "blueMSX のヘルプファイルが見つかりません。";
     ls->errorStartEmu           = "blueMSX の開始に失敗しました。";
     ls->errorMissingFiles       = "セーブステートから参照されている以下のファイルが読み込めませんでした:";

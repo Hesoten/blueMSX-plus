@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik, Tomas Karlsson
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -27,6 +30,7 @@
 */
 #include "Disk.h"
 #include "DirAsDisk.h"
+#include "ArchDialog.h"
 #include "ziphelper.h"
 #include <stdlib.h>
 #include <string.h>
@@ -66,11 +70,43 @@ static int   changed[MAXDRIVES];
 static int   diskType[MAXDRIVES];
 static int   maxSector[MAXDRIVES];
 static char* drivesErrors[MAXDRIVES];
+/* Per-drive memory of the directory whose 720 KB overflow dialog has
+** already been shown -- shared by diskChange() and diskPreviewDirOverflow()
+** to dedupe the warning across insert + emulator-start. */
+static char  dirOverflowShownPath[MAXDRIVES][1024];
 static const UInt8 svi328Cpm80track[] = "CP/M-80";
 static void diskHdUpdateInfo(int driveId);
 static void diskReadHdIdentifySector(int driveId, UInt8* buffer);
 
 enum { MSX_DISK, SVI328_DISK, IDEHD_DISK } diskTypes;
+
+/* Show the 720 KB overflow dialog once per (driveId, path). The path key
+** lets a later remount of the SAME directory suppress the duplicate that
+** would otherwise pop up at emulator-start after the insert-time preview. */
+static void notifyDirOverflowIfAny(int driveId, const char* path)
+{
+    if (driveId < 0 || driveId >= MAXDRIVES) return;
+    if (dirLoadLastSkippedCount() <= 0) return;
+    if (path != NULL && strcmp(dirOverflowShownPath[driveId], path) == 0) return;
+    archShowDirAsDskOverflowDialog(dirLoadLastSkippedCount(),
+                                   dirLoadLastSkippedBytes());
+    if (path != NULL) {
+        snprintf(dirOverflowShownPath[driveId],
+                 sizeof(dirOverflowShownPath[driveId]), "%s", path);
+    }
+}
+
+void diskPreviewDirOverflow(int driveId, const char* path)
+{
+    struct stat s;
+    void* preview;
+    int previewSize = 0;
+    if (path == NULL) return;
+    if (stat(path, &s) != 0 || !(s.st_mode & S_IFDIR)) return;
+    preview = dirLoadFile(DDT_MSX, path, &previewSize);
+    free(preview);
+    notifyDirOverflowIfAny(driveId, path);
+}
 
 UInt8 diskEnabled(int driveId)
 {
@@ -596,6 +632,7 @@ UInt8 diskChange(int driveId, const char* fileName, const char* fileInZipFile)
             ramImageBuffer[driveId] = dirLoadFile(DDT_MSX, fileName, &ramImageSize[driveId]);
             fileSize[driveId] = ramImageSize[driveId];
             diskUpdateInfo(driveId);
+            notifyDirOverflowIfAny(driveId, fileName);
             return ramImageBuffer[driveId] != NULL;
         }
     }
