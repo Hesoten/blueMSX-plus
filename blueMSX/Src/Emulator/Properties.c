@@ -293,8 +293,8 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->emulation.vdpCmdSpeed       = 100;
 
     properties->video.monitorColor          = P_VIDEO_COLOR;
-    properties->video.monitorType           = P_VIDEO_PALMON;
-    properties->video.windowSize            = P_VIDEO_SIZEX2;
+    properties->video.monitorType           = P_VIDEO_PALNONE;
+    properties->video.windowSize            = P_VIDEO_SIZEX4;
     properties->video.windowSizeInitial     = properties->video.windowSize;
     properties->video.windowSizeChanged     = 0;
     properties->video.windowX               = -1;
@@ -315,7 +315,7 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->video.gamma                 = 100;
     properties->video.scanlinesEnable       = 0;
     properties->video.colorSaturationEnable = 0;
-    properties->video.scanlinesPct          = 92;
+    properties->video.scanlinesPct          = 0;     /* matches Standard CRT preset (depth=100% on UI) */
     properties->video.scanlinesBrightAuto   = 1;     /* default: auto-comp on */
     properties->video.scanlinesBrightPct    = 100;   /* manual multiplier x100 (100 = 1.00x = no boost) */
     properties->video.scanlinesShapeMode    = 1;     /* default: Standard CRT (p=2)
@@ -330,10 +330,10 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->video.captureFps            = 60;
     properties->video.captureSize           = 1;
     
-    properties->video.d3d.aspectRatioType   = P_D3D_AR_NTSC;
-    properties->video.d3d.cropType          = P_D3D_CROP_SIZE_MSX2_PLUS_8;
-    properties->video.d3d.extendBorderColor = 1;
-    properties->video.d3d.linearFiltering   = 1;
+    properties->video.d3d.aspectRatioType   = P_D3D_AR_AUTO;
+    properties->video.d3d.cropType          = P_D3D_CROP_SIZE_NONE;
+    properties->video.d3d.extendBorderColor = 0;
+    properties->video.d3d.linearFiltering   = 0;
     properties->video.d3d.forceHighRes      = 0;
 
     properties->video.d3d.cropLeft          = 0;
@@ -346,7 +346,7 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->videoIn.inputName[0]        = 0;
 
     properties->sound.driver                = P_SOUND_DRVWASAPI;
-    properties->sound.bufSize               = 100;
+    properties->sound.bufSize               = 50;
     properties->sound.stabilizeDSoundTiming = 1;
     
     properties->sound.stereo = 1;
@@ -381,7 +381,7 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     /* OPLL analog stage filter defaults.  The Custom Hz fields persist
     ** even while a named preset is selected, so toggling back to Custom
     ** restores the user's last edit. */
-    properties->sound.chip.ym2413AnalogFilterMode  = PROP_OPLL_FILTER_STANDARD;
+    properties->sound.chip.ym2413AnalogFilterMode  = PROP_OPLL_FILTER_OFF;
     properties->sound.chip.ym2413AnalogFilterLpfHz = 5000;
     properties->sound.chip.ym2413AnalogFilterHpfHz = 20;
 
