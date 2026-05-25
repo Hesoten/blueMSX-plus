@@ -911,8 +911,28 @@ static BOOL_DLG_RET CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, L
     case WM_INITDIALOG:
         oi = (DropdownInfo*)malloc(sizeof(DropdownInfo));
         *oi = *(DropdownInfo*)lParam;
-        SetWindowPos(hwnd, NULL, oi->x, oi->y, oi->width, oi->height, SWP_NOZORDER | SWP_SHOWWINDOW);
-        SetWindowPos(GetDlgItem(hwnd, IDC_CONTROL), NULL, 0, 0, oi->width, 96, SWP_NOZORDER);
+        /* Centre the combobox at its natural (font-derived) collapsed height
+        ** inside the theme rect (which scales with the theme); set the
+        ** combobox window height to natural+96 so the popup list stays
+        ** usable regardless of the rect's height. +8 covers the border. */
+        {
+            HWND  combo = GetDlgItem(hwnd, IDC_CONTROL);
+            int   natural;
+            int   yOffset;
+            {
+                HFONT hFont   = (HFONT)SendMessage(combo, WM_GETFONT, 0, 0);
+                HDC   hdc     = GetDC(combo);
+                HFONT oldFont = hFont ? (HFONT)SelectObject(hdc, hFont) : NULL;
+                TEXTMETRIC tm = {};
+                GetTextMetrics(hdc, &tm);
+                if (oldFont) SelectObject(hdc, oldFont);
+                ReleaseDC(combo, hdc);
+                natural = tm.tmHeight + tm.tmExternalLeading + 8;
+            }
+            yOffset = (oi->height > natural) ? (oi->height - natural) / 2 : 0;
+            SetWindowPos(hwnd, NULL, oi->x, oi->y + yOffset, oi->width, natural, SWP_NOZORDER | SWP_SHOWWINDOW);
+            SetWindowPos(combo, NULL, 0, 0, oi->width, natural + 96, SWP_NOZORDER);
+        }
         windowDataSet(hwnd, oi->notifyId, oi);
         SendMessage(hwnd, WM_OBJECT_UPDATE, 0, 0);
         return FALSE;
@@ -1031,7 +1051,14 @@ static void* objectDropdownCreate(HWND hwnd, char* id, int x, int y, int width, 
     DropdownInfo oi = { x, y, width, height, 0, 0 };
 
     if (0 == strcmp(id, "dropdown-keyconfigs")) {
-        oi.text[0] = 0;
+        /* Seed with current config so tab-switch reselects it. */
+        char* cur = keyboardGetCurrentConfig();
+        if (cur != NULL) {
+            strncpy(oi.text, cur, sizeof(oi.text) - 1);
+            oi.text[sizeof(oi.text) - 1] = 0;
+        } else {
+            oi.text[0] = 0;
+        }
         oi.notifyId = WM_DROPDOWN_KEYBOARDCONFIG;
     }
     

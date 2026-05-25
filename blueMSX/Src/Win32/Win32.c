@@ -3929,6 +3929,12 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
                 kbdLang = P_KBD_JAPANESE;
             }
         }
+        /* Also default to the JP MSX keyboard when the user's system
+           locale is Japanese, even if the active Windows keyboard layout
+           is non-JIS (e.g. US physical keyboard with ja-JP region). */
+        if (PRIMARYLANGID(LANGIDFROMLCID(GetUserDefaultLCID())) == LANG_JAPANESE) {
+            kbdLang = P_KBD_JAPANESE;
+        }
 
         resetRegistry = emuCheckResetArgument(szLine);
         if (resetRegistry) {

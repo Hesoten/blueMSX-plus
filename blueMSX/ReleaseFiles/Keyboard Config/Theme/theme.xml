@@ -35,9 +35,12 @@
 
             <button x="128" y="38" src="TurboRN/JOY1-JOY2-BUTTON.bmp" action="theme-setpage" arga="joystick2"/>
             <button x="220" y="38" src="TurboRN/JOY1-KEYBOARD-BUTTON.bmp" action="theme-setpage" arga="keyboard"/>
-            <object x="140" y="287" width="100" height="21" id="button-ok" />
-            <object x="280" y="287" width="100" height="21" id="button-cancel" />
-        
+            <text x="20" y="292" width="100" fgcolor="D8E0E7" src="TurboRN/SEL-TEXT.bmp" type="native"
+                trigger="lang-kbd-mapscheme" />
+            <object x="150" y="287" width="135" height="21" id="dropdown-keyconfigs" />
+            <object x="310" y="287" width="80" height="21" id="button-ok" />
+            <object x="400" y="287" width="80" height="21" id="button-cancel" />
+
             <text x="150" y="90" width="140" fgcolor="000000" src="TurboRN/SEL-DROP.bmp" type="native"
                 trigger="text-joyport1"/>
 	        <button x="350" y="87" src="TurboRN/joybutton.bmp" action="menu-joyport1" arga="143" argb="104"/>
@@ -197,8 +200,11 @@
 
             <button x="33" y="38" src="TurboRN/JOY2-JOY1-BUTTON.bmp" action="theme-setpage" arga="joystick1"/>
             <button x="220" y="38" src="TurboRN/JOY2-KEYBOARD-BUTTON.bmp" action="theme-setpage" arga="keyboard"/>
-            <object x="140" y="287" width="100" height="21" id="button-ok" />
-            <object x="280" y="287" width="100" height="21" id="button-cancel" />
+            <text x="20" y="292" width="100" fgcolor="D8E0E7" src="TurboRN/SEL-TEXT.bmp" type="native"
+                trigger="lang-kbd-mapscheme" />
+            <object x="150" y="287" width="135" height="21" id="dropdown-keyconfigs" />
+            <object x="310" y="287" width="80" height="21" id="button-ok" />
+            <object x="400" y="287" width="80" height="21" id="button-cancel" />
             
             <text x="150" y="90" width="140" fgcolor="000000" src="TurboRN/SEL-DROP.bmp" type="native"
                 trigger="text-joyport2"/>
@@ -372,8 +378,11 @@
                 trigger="lang-kbd-mappedto" />
             <text x="200" y="240" width="300" fgcolor="000000" src="TurboRN/SEL-BOX.bmp" align="right"
                 type="native" trigger="text-mappedkey" />
-            <object x="140" y="287" width="100" height="21" id="button-ok" />
-            <object x="280" y="287" width="100" height="21" id="button-cancel" />
+            <text x="20" y="292" width="100" fgcolor="D8E0E7" src="TurboRN/SEL-TEXT.bmp" type="native"
+                trigger="lang-kbd-mapscheme" />
+            <object x="150" y="287" width="135" height="21" id="dropdown-keyconfigs" />
+            <object x="310" y="287" width="80" height="21" id="button-ok" />
+            <object x="400" y="287" width="80" height="21" id="button-cancel" />
             <keyboard x="62" y="94" src="TurboRN/EOS-key.bmp">
                 <key code="f1" x="10" y="4" width="27" height="15" />
                 <key code="f2" x="37" y="4" width="26" height="15" />

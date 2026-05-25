@@ -1142,8 +1142,10 @@ char** keyboardGetConfigs()
     }
 
     while (cont) {
-		DWORD fa = GetFileAttributes(wfd.cFileName);
-        if (fa & FILE_ATTRIBUTE_DIRECTORY) {
+        DWORD fa = wfd.dwFileAttributes;
+        /* Use wfd.dwFileAttributes (not GetFileAttributes on basename); same
+        ** fix as Win32ShortcutsConfig.c::getProfileList. */
+        if (!(fa & FILE_ATTRIBUTE_DIRECTORY)) {
             char buffer[128];
             int length = strlen(wfd.cFileName) - 7;
             strcpy(buffer, wfd.cFileName);
