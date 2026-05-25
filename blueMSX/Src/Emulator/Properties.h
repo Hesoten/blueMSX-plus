@@ -340,6 +340,10 @@ typedef struct {
 #define PROP_YM2413_BACKEND_NUKED     3
 #define PROP_YM2413_BACKEND_COUNT     4
 
+/* Y8950 backend slot indices, matching Y8950MultiBackend.cpp. */
+#define PROP_Y8950_BACKEND_FMOPL      0
+#define PROP_Y8950_BACKEND_COUNT      1
+
 typedef struct {
     int enableY8950;
     int enableYM2413;
@@ -356,6 +360,8 @@ typedef struct {
     int ym2413BackendEmu2413Enabled;
     int ym2413BackendNukedEnabled;
     int ym2413BackendActive;            /* PROP_YM2413_BACKEND_* */
+    int y8950BackendFmoplEnabled;
+    int y8950BackendActive;             /* PROP_Y8950_BACKEND_* */
 } SoundChip;
 
 typedef struct {

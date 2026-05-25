@@ -154,7 +154,8 @@ int OPLTimerOver(FM_OPL *OPL,int c);
 
 int Y8950UpdateOne(FM_OPL *OPL);
 
-void Y8950LoadState(FM_OPL *OPL);
+/* Returns 1 if "fmopl" section loaded, 0 if absent (chip untouched). */
+int  Y8950LoadState(FM_OPL *OPL);
 void Y8950SaveState(FM_OPL *OPL);
 
 #endif

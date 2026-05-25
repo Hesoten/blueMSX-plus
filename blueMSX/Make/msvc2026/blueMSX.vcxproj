@@ -867,14 +867,21 @@
     <ClCompile Include="..\..\Src\SoundChips\AY8910.c" />
     <ClCompile Include="..\..\Src\SoundChips\DAC.c" />
     <ClCompile Include="..\..\Src\SoundChips\Fmopl.c" />
+    <ClCompile Include="..\..\Src\SoundChips\FmoplBackend.cpp" />
     <ClCompile Include="..\..\Src\SoundChips\KeyClick.c" />
     <ClCompile Include="..\..\Src\SoundChips\MameVLM5030.c" />
     <ClCompile Include="..\..\Src\SoundChips\MameYM2151.c" />
     <ClCompile Include="..\..\Src\SoundChips\Moonsound.cpp" />
-    <ClCompile Include="..\..\Src\SoundChips\MsxAudio.cpp" />
+    <ClCompile Include="..\..\Src\SoundChips\MsxAudio.cpp">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="..\..\Src\SoundChips\MsxPsg.c" />
-    <ClCompile Include="..\..\Src\SoundChips\OpenMsxY8950.cpp" />
-    <ClCompile Include="..\..\Src\SoundChips\OpenMsxY8950Adpcm.cpp" />
+    <ClCompile Include="..\..\Src\SoundChips\OpenMsxY8950.cpp">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\SoundChips\OpenMsxY8950Adpcm.cpp">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="..\..\Src\SoundChips\OpenMsxYM2413.cpp">
       <!-- openmsx (initial port) YM2413 backend is dead-coded.  See
            Ym2413MultiBackend.h.  To re-enable: drop ExcludedFromBuild and
@@ -893,7 +900,8 @@
     <ClCompile Include="..\..\Src\SoundChips\SCC.c" />
     <ClCompile Include="..\..\Src\SoundChips\SN76489.c" />
     <ClCompile Include="..\..\Src\SoundChips\VLM5030.c" />
-    <ClCompile Include="..\..\Src\SoundChips\Y8950.c" />
+    <ClCompile Include="..\..\Src\SoundChips\Y8950.cpp" />
+    <ClCompile Include="..\..\Src\SoundChips\Y8950MultiBackend.cpp" />
     <ClCompile Include="..\..\Src\SoundChips\YM2151.c" />
     <ClCompile Include="..\..\Src\SoundChips\YM2413.cpp" />
     <ClCompile Include="..\..\Src\SoundChips\Ymdeltat.c" />
@@ -1199,6 +1207,8 @@
     <ClInclude Include="..\..\Src\SoundChips\AY8910.h" />
     <ClInclude Include="..\..\Src\SoundChips\DAC.h" />
     <ClInclude Include="..\..\Src\SoundChips\Fmopl.h" />
+    <ClInclude Include="..\..\Src\SoundChips\FmoplBackend.h" />
+    <ClInclude Include="..\..\Src\SoundChips\Y8950BackendBase.h" />
     <ClInclude Include="..\..\Src\SoundChips\KeyClick.h" />
     <ClInclude Include="..\..\Src\SoundChips\MameVLM5030.h" />
     <ClInclude Include="..\..\Src\SoundChips\MameYM2151.h" />
@@ -1221,6 +1231,7 @@
     <ClInclude Include="..\..\Src\SoundChips\SN76489.h" />
     <ClInclude Include="..\..\Src\SoundChips\VLM5030.h" />
     <ClInclude Include="..\..\Src\SoundChips\Y8950.h" />
+    <ClInclude Include="..\..\Src\SoundChips\Y8950MultiBackend.h" />
     <ClInclude Include="..\..\Src\SoundChips\YM2151.h" />
     <ClInclude Include="..\..\Src\SoundChips\YM2413.h" />
     <ClInclude Include="..\..\Src\SoundChips\Ymdeltat.h" />

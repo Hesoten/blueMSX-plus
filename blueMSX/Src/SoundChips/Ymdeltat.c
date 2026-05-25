@@ -302,9 +302,15 @@ void YM_DELTAT_ADPCM_CALC(YM_DELTAT *DELTAT)
 }
 
 
-void YM_DELTAT_ADPCM_LoadState(YM_DELTAT *DELTAT)
+int YM_DELTAT_ADPCM_LoadState(YM_DELTAT *DELTAT)
 {
     SaveState* state = saveStateOpenForRead("ymdeltat");
+
+    /* Empty section: default-0 reads would zero memory_size. */
+    if (saveStateIsEmpty(state)) {
+        saveStateClose(state);
+        return 0;
+    }
 
     DELTAT->memory_size   = saveStateGet(state, "memory_size",   0);
     DELTAT->output_range  = saveStateGet(state, "output_range",  0);
@@ -341,6 +347,7 @@ void YM_DELTAT_ADPCM_LoadState(YM_DELTAT *DELTAT)
     saveStateClose(state);
 
 	DELTAT->pan = &DELTAT->output_pointer[(DELTAT->portcontrol>>6)&0x03];
+    return 1;
 }
 
 void YM_DELTAT_ADPCM_SaveState(YM_DELTAT *DELTAT)
@@ -376,7 +383,8 @@ void YM_DELTAT_ADPCM_SaveState(YM_DELTAT *DELTAT)
     saveStateSet(state, "sample_step",   DELTAT->sample_step);
     saveStateSet(state, "arrivedFlag",   DELTAT->arrivedFlag);
 
-    saveStateSetBuffer(state, "memory",  DELTAT->memory, DELTAT->memory_size);
+    /* RAM lives in the dispatcher's y8950_adpcm_ram section; load still
+    ** reads the "memory" tag for legacy save compat. */
     saveStateSetBuffer(state, "reg",     DELTAT->reg, sizeof(DELTAT->reg));
 
     saveStateClose(state);

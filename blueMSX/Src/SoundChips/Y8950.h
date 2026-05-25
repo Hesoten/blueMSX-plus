@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -32,6 +35,10 @@
 #include "AudioMixer.h"
 #include "DebugDeviceManager.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Type definitions */
 typedef struct Y8950 Y8950;
 
@@ -45,5 +52,19 @@ UInt8 y8950Peek(Y8950* y8950, UInt16 ioPort);
 UInt8 y8950Read(Y8950* y8950, UInt16 ioPort);
 void y8950Write(Y8950* y8950, UInt16 ioPort, UInt8 value);
 void y8950GetDebugInfo(Y8950* y8950, DbgDevice* dbgDevice);
+
+/* Process-wide active Y8950 backend selector.  See Y8950MultiBackend.h. */
+int         y8950BackendActiveGet(void);
+void        y8950BackendActiveSet(int idx);
+int         y8950BackendIsEnabled(int idx);
+int         y8950BackendCycle(void);
+const char* y8950BackendName(int idx);
+
+extern const int y8950BackendDisplayOrder[];
+extern const int y8950BackendDisplayCount;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

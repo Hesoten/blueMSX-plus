@@ -43,6 +43,7 @@
 #include "VideoManager.h"
 #include "VDP.h"
 #include "../SoundChips/YM2413.h"
+#include "../SoundChips/Y8950.h"
 
 #include "ArchMenu.h"
 #include "ArchDialog.h"
@@ -376,6 +377,12 @@ void actionYm2413BackendCycle(void) {
     Properties* p = propGetGlobalProperties();
     int next = ym2413BackendCycle();
     if (p) p->sound.chip.ym2413BackendActive = next;
+}
+
+void actionY8950BackendCycle(void) {
+    Properties* p = propGetGlobalProperties();
+    int next = y8950BackendCycle();
+    if (p) p->sound.chip.y8950BackendActive = next;
 }
 
 void actionVideoCaptureStop() {
