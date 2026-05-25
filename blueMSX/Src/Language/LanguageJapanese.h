@@ -232,6 +232,8 @@ void langInitJapanese(LanguageStrings* ls)
     ls->dlgOK                   = "OK";
     ls->dlgOpen                  = "開く";
     ls->dlgCancel               = "キャンセル";
+    ls->dlgYes                  = "はい";
+    ls->dlgNo                   = "いいえ";
     ls->dlgSave                 = "保存";
     ls->dlgSaveAs               = "別名保存...";
     ls->dlgRun                  = "起動";

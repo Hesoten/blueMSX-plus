@@ -232,6 +232,8 @@ void langInitItalian(LanguageStrings* ls)
     ls->dlgOK                           = "OK";
     ls->dlgOpen                         = "Apri...";
     ls->dlgCancel                       = "Annulla";
+    ls->dlgYes                          = "Sì";
+    ls->dlgNo                           = "No";
     ls->dlgSave                         = "Salva";
     ls->dlgSaveAs                       = "Salva come...";
     ls->dlgRun                          = "Esegui";

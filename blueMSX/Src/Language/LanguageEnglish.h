@@ -231,6 +231,8 @@ void langInitEnglish(LanguageStrings* ls)
     ls->dlgOK                   = "OK";
     ls->dlgOpen                 = "Open";
     ls->dlgCancel               = "Cancel";
+    ls->dlgYes                  = "Yes";
+    ls->dlgNo                   = "No";
     ls->dlgSave                 = "Save";
     ls->dlgSaveAs               = "Save As...";
     ls->dlgRun                  = "Run";

@@ -230,6 +230,8 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->dlgOK                   = "確定";
     ls->dlgOpen                 = "開啟";
     ls->dlgCancel               = "取消";
+    ls->dlgYes                  = "是";
+    ls->dlgNo                   = "否";
     ls->dlgSave                 = "儲存";
     ls->dlgSaveAs               = "另存新檔...";
     ls->dlgRun                  = "執行";

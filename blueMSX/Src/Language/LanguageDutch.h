@@ -231,6 +231,8 @@ void langInitDutch(LanguageStrings* ls)
     ls->dlgOK                   = "OK";
     ls->dlgOpen                 = "Openen";
     ls->dlgCancel               = "Annuleren";
+    ls->dlgYes                  = "Ja";
+    ls->dlgNo                   = "Nee";
     ls->dlgSave                 = "Opslaan";
     ls->dlgSaveAs               = "Opslaan als...";
     ls->dlgRun                  = "Start";

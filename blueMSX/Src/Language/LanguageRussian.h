@@ -230,6 +230,8 @@ void langInitRussian(LanguageStrings* ls)
     ls->dlgOK                   = "OK";
     ls->dlgOpen                 = "Открыть";
     ls->dlgCancel               = "Отмена";
+    ls->dlgYes                  = "Да";
+    ls->dlgNo                   = "Нет";
     ls->dlgSave                 = "Сохранить";
     ls->dlgSaveAs               = "Сохранить как...";
     ls->dlgRun                  = "Пуск";

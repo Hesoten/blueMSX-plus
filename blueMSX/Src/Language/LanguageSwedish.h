@@ -232,6 +232,8 @@ void langInitSwedish(LanguageStrings* ls)
     ls->dlgOK                   = "OK";
     ls->dlgOpen                 = "Öppna";
     ls->dlgCancel               = "Avbryt";
+    ls->dlgYes                  = "Ja";
+    ls->dlgNo                   = "Nej";
     ls->dlgSave                 = "Spara";
     ls->dlgSaveAs               = "Spara Som...";
     ls->dlgRun                  = "Kör";

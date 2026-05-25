@@ -228,6 +228,8 @@ typedef struct {
     char* dlgOK;
     char* dlgOpen;
     char* dlgCancel;
+    char* dlgYes;
+    char* dlgNo;
     char* dlgSave;
     char* dlgSaveAs;
     char* dlgRun;

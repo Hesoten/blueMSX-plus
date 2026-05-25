@@ -231,6 +231,8 @@ void langInitFrench(LanguageStrings* ls)
     ls->dlgOK                   = "OK";
     ls->dlgOpen                 = "Ouvrir";
     ls->dlgCancel               = "Annuler";
+    ls->dlgYes                  = "Oui";
+    ls->dlgNo                   = "Non";
     ls->dlgSave                 = "Sauver";
     ls->dlgSaveAs               = "Sauver Sous...";
     ls->dlgRun                  = "Lancer";

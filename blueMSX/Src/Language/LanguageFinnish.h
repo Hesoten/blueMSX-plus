@@ -232,6 +232,8 @@ void langInitFinnish(LanguageStrings* ls)
     ls->dlgOK                   = "OK";
     ls->dlgOpen                 = "Avaa";
     ls->dlgCancel               = "Peruuta";
+    ls->dlgYes                  = "Kyllä";
+    ls->dlgNo                   = "Ei";
     ls->dlgSave                 = "Tallenna";
     ls->dlgSaveAs               = "Tallenna nimellä";
     ls->dlgRun                  = "Käynnistä";

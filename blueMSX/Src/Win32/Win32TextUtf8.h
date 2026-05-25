@@ -118,14 +118,30 @@ static __inline LRESULT SendWmSetTextU(HWND hwnd, const char* utf8)
     return ret;
 }
 
+/* MessageBoxLargeU: 11pt ~800px IDD_LARGEMSG dialog impl in Win32.c.
+** mainInstr renders as heading above content (NULL = content only).
+** EXE-only; plugin DLLs (_USRDLL) fall back to plain MessageBoxW. */
+#ifndef _USRDLL
+int MessageBoxLargeU(HWND hwnd, const char* mainInstr, const char* content,
+                     const char* caption, UINT type);
+
 static __inline int MessageBoxU(HWND hwnd, const char* text, const char* caption, UINT type)
 {
-    wchar_t wtext[2048];
-    wchar_t wcap[256];
-    Utf8ToWide(text,    wtext, _countof(wtext));
-    Utf8ToWide(caption, wcap,  _countof(wcap));
-    return MessageBoxW(hwnd, wtext, wcap, type);
+    return MessageBoxLargeU(hwnd, NULL, text, caption, type);
 }
+#else
+static __inline int MessageBoxU(HWND hwnd, const char* text, const char* caption, UINT type)
+{
+    wchar_t wtextStack[1024];
+    wchar_t wcap[256];
+    wchar_t* wtext = Utf8ToWideAlloc(text ? text : "", wtextStack, (int)_countof(wtextStack));
+    int rv;
+    Utf8ToWide(caption ? caption : "", wcap, _countof(wcap));
+    rv = MessageBoxW(hwnd, wtext, wcap, type);
+    FreeWideMaybe(wtext, wtextStack);
+    return rv;
+}
+#endif
 
 /* Menu helpers forward NULL/MF_SEPARATOR/MF_BITMAP unchanged. */
 static __inline BOOL AppendMenuU(HMENU hMenu, UINT flags, UINT_PTR id, const char* utf8)

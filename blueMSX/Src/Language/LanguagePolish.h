@@ -231,6 +231,8 @@ void langInitPolish(LanguageStrings* ls)
     ls->dlgOK                   = "OK";
     ls->dlgOpen                 = "Otwórz";
     ls->dlgCancel               = "Anuluj";
+    ls->dlgYes                  = "Tak";
+    ls->dlgNo                   = "Nie";
     ls->dlgSave                 = "Zapisz";
     ls->dlgSaveAs               = "Zapisz jako...";
     ls->dlgRun                  = "Uruchom";

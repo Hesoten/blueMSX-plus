@@ -447,6 +447,8 @@ char* langMenuHelp() { return ls->menuHelp; }
 char* langDlgOK() { return ls->dlgOK; }
 char* langDlgOpen() { return ls->dlgOpen; }
 char* langDlgCancel() { return ls->dlgCancel; }
+char* langDlgYes()    { return ls->dlgYes; }
+char* langDlgNo()     { return ls->dlgNo; }
 char* langDlgSave() { return ls->dlgSave; }
 char* langDlgSaveAs() { return ls->dlgSaveAs; }
 char* langDlgRun() { return ls->dlgRun; }

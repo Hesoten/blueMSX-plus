@@ -4219,6 +4219,234 @@ void archShowNoCasInZipDialog() {
     enterDialogShow();
 }
 
+/* IDD_LARGEMSG custom dialog backing MessageBoxLargeU: 11pt, ~800px wide,
+** auto-sized to text, optional 48px MB_ICON*; localized button captions. */
+typedef struct {
+    const wchar_t* mainInstr;
+    const wchar_t* content;
+    const wchar_t* caption;
+    UINT           type;
+} LargeMsgInfo;
+
+static INT_PTR CALLBACK largeMsgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    static LargeMsgInfo* info;
+    switch (msg) {
+    case WM_INITDIALOG: {
+        info = (LargeMsgInfo*)lParam;
+        SetWindowTextW(hDlg, info->caption ? info->caption : L"");
+
+        /* Combine optional main instruction + body (Win32 needs \r\n). */
+        wchar_t fullText[8192];
+        if (info->mainInstr && info->mainInstr[0]) {
+            _snwprintf(fullText, _countof(fullText) - 1, L"%s\r\n\r\n%s",
+                       info->mainInstr,
+                       info->content ? info->content : L"");
+        } else {
+            _snwprintf(fullText, _countof(fullText) - 1, L"%s",
+                       info->content ? info->content : L"");
+        }
+        fullText[_countof(fullText) - 1] = 0;
+        SetDlgItemTextW(hDlg, IDC_LARGEMSG_TEXT, fullText);
+
+        /* SS_NOPREFIX: paths with '&' must not become accelerator hints. */
+        HWND hStatic = GetDlgItem(hDlg, IDC_LARGEMSG_TEXT);
+        SetWindowLong(hStatic, GWL_STYLE,
+                      GetWindowLong(hStatic, GWL_STYLE) | SS_NOPREFIX);
+
+        /* Localize Cancel/Yes/No; OK stays universal. */
+        SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
+        SetWindowTextU(GetDlgItem(hDlg, IDYES),    langDlgYes());
+        SetWindowTextU(GetDlgItem(hDlg, IDNO),     langDlgNo());
+
+        /* MB_ICON* -> 48x48 system icon; NULL hides the icon column. */
+        const int iconSize = 48;
+        HICON hIcon = NULL;
+        UINT iconFlag = info->type & 0xF0;
+        switch (iconFlag) {
+            case MB_ICONINFORMATION:
+                hIcon = (HICON)LoadImageW(NULL, (LPCWSTR)IDI_INFORMATION, IMAGE_ICON,
+                                          iconSize, iconSize, LR_SHARED); break;
+            case MB_ICONWARNING:
+                hIcon = (HICON)LoadImageW(NULL, (LPCWSTR)IDI_WARNING, IMAGE_ICON,
+                                          iconSize, iconSize, LR_SHARED); break;
+            case MB_ICONHAND:        /* alias of MB_ICONERROR */
+                hIcon = (HICON)LoadImageW(NULL, (LPCWSTR)IDI_ERROR, IMAGE_ICON,
+                                          iconSize, iconSize, LR_SHARED); break;
+            case MB_ICONQUESTION:
+                hIcon = (HICON)LoadImageW(NULL, (LPCWSTR)IDI_QUESTION, IMAGE_ICON,
+                                          iconSize, iconSize, LR_SHARED); break;
+        }
+        HWND hIconCtrl = GetDlgItem(hDlg, IDC_LARGEMSG_ICON);
+        if (hIcon) {
+            SendMessageW(hIconCtrl, STM_SETICON, (WPARAM)hIcon, 0);
+            ShowWindow(hIconCtrl, SW_SHOW);
+        } else {
+            ShowWindow(hIconCtrl, SW_HIDE);
+        }
+
+        /* Collect visible buttons in display order; hide the rest. */
+        UINT btnFlags = info->type & 0x0F;
+        int showOk     = (btnFlags == MB_OK || btnFlags == MB_OKCANCEL);
+        int showCancel = (btnFlags == MB_OKCANCEL || btnFlags == MB_YESNOCANCEL);
+        int showYes    = (btnFlags == MB_YESNO || btnFlags == MB_YESNOCANCEL);
+        int showNo     = (btnFlags == MB_YESNO || btnFlags == MB_YESNOCANCEL);
+
+        HWND btnHwnds[4];
+        int  btnCount = 0;
+        if (showOk)     btnHwnds[btnCount++] = GetDlgItem(hDlg, IDOK);
+        if (showYes)    btnHwnds[btnCount++] = GetDlgItem(hDlg, IDYES);
+        if (showNo)     btnHwnds[btnCount++] = GetDlgItem(hDlg, IDNO);
+        if (showCancel) btnHwnds[btnCount++] = GetDlgItem(hDlg, IDCANCEL);
+        if (btnCount == 0) {
+            /* Fall back to OK so the dialog is dismissable. */
+            btnHwnds[btnCount++] = GetDlgItem(hDlg, IDOK);
+        }
+        ShowWindow(GetDlgItem(hDlg, IDOK),     showOk     || btnCount == 1 ? SW_SHOW : SW_HIDE);
+        ShowWindow(GetDlgItem(hDlg, IDCANCEL), showCancel ? SW_SHOW : SW_HIDE);
+        ShowWindow(GetDlgItem(hDlg, IDYES),    showYes    ? SW_SHOW : SW_HIDE);
+        ShowWindow(GetDlgItem(hDlg, IDNO),     showNo     ? SW_SHOW : SW_HIDE);
+
+        /* Measure text and size dialog to fit; maxTextW caps long paths. */
+        HFONT font = (HFONT)SendMessageW(hStatic, WM_GETFONT, 0, 0);
+        HDC   hdc  = GetDC(hStatic);
+        HFONT oldFont = (HFONT)SelectObject(hdc, font);
+
+        TEXTMETRICW tm;
+        GetTextMetricsW(hdc, &tm);
+        int lineHeight = tm.tmHeight + tm.tmExternalLeading;
+
+        RECT  measureRect = { 0, 0, 0, 0 };
+        DrawTextW(hdc, fullText, -1, &measureRect,
+                  DT_CALCRECT | DT_LEFT | DT_NOPREFIX);
+        int rawW = measureRect.right  - measureRect.left;
+        int rawH = measureRect.bottom - measureRect.top;
+
+        int minTextW = 200;
+        int maxTextW = 720;
+        int textW    = rawW;
+        int textH    = rawH;
+        if (textW > maxTextW) {
+            textW = maxTextW;
+            RECT wrapRect = { 0, 0, maxTextW, 10000 };
+            DrawTextW(hdc, fullText, -1, &wrapRect,
+                      DT_CALCRECT | DT_LEFT | DT_NOPREFIX | DT_WORDBREAK);
+            textH = wrapRect.bottom - wrapRect.top;
+        }
+        if (textW < minTextW) textW = minTextW;
+
+        SelectObject(hdc, oldFont);
+        ReleaseDC(hStatic, hdc);
+
+        /* Button geometry from .rc template (DPI / theme honoured). */
+        RECT btnRect;
+        GetWindowRect(btnHwnds[0], &btnRect);
+        int btnW = btnRect.right  - btnRect.left;
+        int btnH = btnRect.bottom - btnRect.top;
+
+        int padX     = 20;   // left/right inset for content
+        int padTop   = 14;   // top inset
+        int padMid   = 18;   // gap between text row and button row
+        int padBot   = 14;   // bottom inset under button row
+        int btnGap   = 10;   // px between buttons
+        int iconW    = hIcon ? iconSize : 0;
+        int iconH    = hIcon ? iconSize : 0;
+        int iconGap  = hIcon ? 16 : 0;   // space between icon and text
+
+        /* Vertically align icon center with first text line. */
+        int topShift = 4;
+        int iconY    = padTop + topShift;
+        int textY    = padTop + topShift;
+        if (hIcon && iconH > lineHeight) {
+            textY += (iconH - lineHeight) / 2;
+        }
+        int rowBottom = iconY + iconH;
+        if (textY + textH > rowBottom) rowBottom = textY + textH;
+        int rowH     = rowBottom - padTop;
+
+        int buttonsW = btnCount * btnW + (btnCount - 1) * btnGap;
+        int rowW     = iconW + iconGap + textW;
+        int clientW  = (rowW > buttonsW ? rowW : buttonsW) + padX * 2;
+        int clientH  = padTop + rowH + padMid + btnH + padBot;
+
+        int rowX     = (clientW - rowW) / 2;
+        int iconX    = rowX;
+        int textX    = rowX + iconW + iconGap;
+        int btnY     = padTop + rowH + padMid;
+        int btnsX    = (clientW - buttonsW) / 2;
+
+        if (hIcon) {
+            SetWindowPos(hIconCtrl, NULL, iconX, iconY, iconW, iconH, SWP_NOZORDER);
+        }
+        SetWindowPos(hStatic, NULL, textX, textY, textW, textH, SWP_NOZORDER);
+        for (int i = 0; i < btnCount; i++) {
+            SetWindowPos(btnHwnds[i], NULL,
+                         btnsX + i * (btnW + btnGap), btnY,
+                         0, 0, SWP_NOSIZE | SWP_NOZORDER);
+        }
+
+        /* Resize dialog to fit client area + non-client overhead. */
+        RECT wr, cr;
+        GetWindowRect(hDlg, &wr);
+        GetClientRect(hDlg, &cr);
+        int ncW = (wr.right - wr.left) - (cr.right - cr.left);
+        int ncH = (wr.bottom - wr.top) - (cr.bottom - cr.top);
+        int newW = clientW + ncW;
+        int newH = clientH + ncH;
+
+        /* Resize first, then center via shared helper (handles missing owner). */
+        SetWindowPos(hDlg, NULL, 0, 0, newW, newH, SWP_NOMOVE | SWP_NOZORDER);
+        win32CommonCenterOnOwner(hDlg);
+
+        win32CommonApplyDark(hDlg);
+        return TRUE;
+    }
+    case WM_COMMAND: {
+        int id = LOWORD(wParam);
+        if (id == IDOK || id == IDCANCEL || id == IDYES || id == IDNO) {
+            EndDialog(hDlg, id);
+            return TRUE;
+        }
+        break;
+    }
+    case WM_CLOSE:
+        EndDialog(hDlg, IDCANCEL);
+        return TRUE;
+    }
+    return FALSE;
+}
+
+int MessageBoxLargeU(HWND hwnd, const char* mainInstr, const char* content,
+                     const char* caption, UINT type)
+{
+    wchar_t wmain[1024];
+    wchar_t wcontent[8192];
+    wchar_t wcap[256];
+    if (mainInstr && *mainInstr) {
+        Utf8ToWide(mainInstr, wmain, _countof(wmain));
+    } else {
+        wmain[0] = 0;
+    }
+    Utf8ToWide(content ? content : "", wcontent, _countof(wcontent));
+    Utf8ToWide(caption ? caption : "", wcap,     _countof(wcap));
+
+    LargeMsgInfo info;
+    info.mainInstr = wmain[0] ? wmain : NULL;
+    info.content   = wcontent;
+    info.caption   = wcap;
+    info.type      = type;
+
+    INT_PTR rv = DialogBoxParamW(GetModuleHandle(NULL),
+                                 MAKEINTRESOURCEW(IDD_LARGEMSG),
+                                 hwnd, largeMsgProc, (LPARAM)&info);
+    if (rv == -1 || rv == 0) {
+        /* Dialog template missing or load failed: fall back to plain
+        ** MessageBox so callers still get a visible dialog. */
+        return MessageBoxW(hwnd, wcontent, wcap, type);
+    }
+    return (int)rv;
+}
+
 void archShowStartEmuFailDialog() {
     MessageBoxU(NULL, langErrorStartEmu(), langErrorTitle(), MB_ICONHAND | MB_OK);
 }

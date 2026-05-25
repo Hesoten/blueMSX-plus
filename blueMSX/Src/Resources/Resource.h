@@ -136,6 +136,8 @@
 
 #define IDD_LOAD_MEMORY                 134
 
+#define IDD_LARGEMSG                    138
+
 #define IDC_JOY1                        1000
 #define IDC_JOY2                        1001
 #define IDC_CHARSET                     1002
@@ -489,6 +491,9 @@
 #define IDC_D3D_CROPPING_BOTTOMTEXT			3018
 #define IDC_D3D_CROPPING_BOTTOM				3019
 #define IDC_D3D_CROPPING_BOTTOMVALUETEXT	3020
+
+#define IDC_LARGEMSG_TEXT                   3200
+#define IDC_LARGEMSG_ICON                   3201
 
 #define IDC_STATIC                      -1
 

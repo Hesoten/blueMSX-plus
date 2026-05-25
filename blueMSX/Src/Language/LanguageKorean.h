@@ -230,6 +230,8 @@ void langInitKorean(LanguageStrings* ls)
     ls->dlgOK                   = "확인";
     ls->dlgOpen                 = "열기";
     ls->dlgCancel               = "취소";
+    ls->dlgYes                  = "예";
+    ls->dlgNo                   = "아니오";
     ls->dlgSave                 = "저장";
     ls->dlgSaveAs               = "다른 이름으로...";
     ls->dlgRun                  = "실행";

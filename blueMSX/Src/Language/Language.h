@@ -256,6 +256,8 @@ char* langMenuHelp();
 char* langDlgOK();
 char* langDlgOpen();
 char* langDlgCancel();
+char* langDlgYes();
+char* langDlgNo();
 char* langDlgSave();
 char* langDlgSaveAs();
 char* langDlgRun();

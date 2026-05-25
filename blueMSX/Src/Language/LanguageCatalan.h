@@ -231,6 +231,8 @@ void langInitCatalan(LanguageStrings* ls)
     ls->dlgOK                   = "D'acord";
     ls->dlgOpen                 = "Obri";
     ls->dlgCancel               = "Cancel·la";
+    ls->dlgYes                  = "Sí";
+    ls->dlgNo                   = "No";
     ls->dlgSave                 = "Desa";
     ls->dlgSaveAs               = "Anomena i desa...";
     ls->dlgRun                  = "Executa";
