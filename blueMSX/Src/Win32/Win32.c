@@ -4578,8 +4578,35 @@ int MessageBoxLargeU(HWND hwnd, const char* mainInstr, const char* content,
     return (int)rv;
 }
 
+/* Common start-failed dialog: appends boardRun's missing-files list. */
+static void showStartEmuFailDialogShared(void)
+{
+    int n = boardGetMissingFileCount();
+    if (n > 0) {
+        /* Use the TaskDialog "main instruction" line for the headline so the
+        ** missing-files list (small body text) is visually distinct from the
+        ** "load failed" headline (large heading text). */
+        char body[4096];
+        int  off = 0;
+        int  i;
+        off += _snprintf(body + off, sizeof(body) - off - 1, "%s",
+                         langErrorMissingFiles());
+        for (i = 0; i < n && off < (int)sizeof(body) - 256; i++) {
+            off += _snprintf(body + off, sizeof(body) - off - 1, "\n  - %s",
+                             boardGetMissingFile(i));
+        }
+        body[sizeof(body) - 1] = 0;
+        MessageBoxLargeU(NULL, langErrorStartEmu(), body, langErrorTitle(),
+                         MB_ICONHAND | MB_OK);
+        boardClearMissingFiles();
+    } else {
+        MessageBoxLargeU(NULL, langErrorStartEmu(), NULL, langErrorTitle(),
+                         MB_ICONHAND | MB_OK);
+    }
+}
+
 void archShowStartEmuFailDialog() {
-    MessageBoxU(NULL, langErrorStartEmu(), langErrorTitle(), MB_ICONHAND | MB_OK);
+    showStartEmuFailDialogShared();
 }
 
 void archShowLanguageDialog()
@@ -5373,7 +5400,7 @@ int archGetFramesPerSecond() {
 
 void archEmulationStartFailure() {
     recorderStopRender();
-    MessageBoxU(NULL, langErrorStartEmu(), langErrorTitle(), MB_ICONHAND | MB_OK);
+    showStartEmuFailDialogShared();
 }
 
 void archReplaySaveFailure(const char* fileName) {

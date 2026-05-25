@@ -85,6 +85,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->errorNoCasInZip         = "Zip paketista ei löytynyt .CAS tiedostoa.";
     ls->errorNoHelp             = "blueMSX:n ohjetiedostoa ei löytynyt.";
     ls->errorStartEmu           = "MSX emulaattorin käynnistys epäonnistui.";
+    ls->errorMissingFiles       = "Seuraavia tallennustilan viittaamia tiedostoja ei voitu ladata:";
     ls->errorPortableReadonly   = "Kannettava laite tukee vain lukemista.";
     ls->errorRecorderTitle      = "blueMSX - Tallennin";
     ls->errorRecorderSaveReplay = "Uusintatiedoston tallennus epäonnistui:\n  %s\n\nTarkista, että kohdehakemisto on olemassa ja kirjoitettavissa.";

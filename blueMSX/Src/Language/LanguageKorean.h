@@ -83,6 +83,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->errorNoCasInZip         = "zip파일 내부의 cas를 찾을 수 없습니다.";
     ls->errorNoHelp             = "blueMSX 도움말을 찾을 수 없습니다.";
     ls->errorStartEmu           = "MSX 에뮬레이터를 시작할 수 없습니다.";
+    ls->errorMissingFiles       = "저장된 상태가 참조하는 다음 파일을 로드할 수 없습니다:";
     ls->errorPortableReadonly   = "이동 장치는 읽기 전용입니다.";        
     ls->errorRecorderTitle      = "blueMSX - 녹화";
     ls->errorRecorderSaveReplay = "재생 파일을 저장하지 못했습니다:\n  %s\n\n대상 폴더가 존재하고 쓰기 가능한지 확인하세요.";

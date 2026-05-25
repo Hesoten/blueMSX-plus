@@ -83,6 +83,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->errorNoCasInZip         = "Er zijn geen .CAS-bestanden gevonden in het ZIP-bestand.";
     ls->errorNoHelp             = "Het blueMSX helpbestand is niet gevonden.";
     ls->errorStartEmu           = "Het is niet gelukt om de MSX emulator te starten.";
+    ls->errorMissingFiles       = "De volgende bestanden waarnaar de opgeslagen status verwijst, konden niet geladen worden:";
     ls->errorPortableReadonly   = "Het draagbare apparaat is Alleen-Lezen";
     ls->errorRecorderTitle      = "blueMSX - Recorder";
     ls->errorRecorderSaveReplay = "Replaybestand kon niet worden opgeslagen:\n  %s\n\nControleer of de doelmap bestaat en beschrijfbaar is.";

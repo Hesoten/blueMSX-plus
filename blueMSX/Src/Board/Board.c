@@ -50,6 +50,7 @@
 #include "MediaDb.h"
 #include "RomLoader.h"
 #include "JoystickPort.h"
+#include "FileHistory.h"
 #include "Utf8Conv.h"
 
 #ifndef _WIN32
@@ -110,6 +111,57 @@ static RomType currentRomType[2];
 
 static BoardType boardLoadState(void);
 static void boardUpdateDisketteInfo();
+
+/* Missing-file list populated by boardRun pre-validation; surfaced via
+** boardGetMissingFile* in the failure dialog. */
+#define MISSING_FILES_MAX 16
+static char missingFiles[MISSING_FILES_MAX][512];
+static int  missingFileCount = 0;
+
+void boardClearMissingFiles(void) {
+    missingFileCount = 0;
+}
+
+int boardGetMissingFileCount(void) {
+    return missingFileCount;
+}
+
+const char* boardGetMissingFile(int idx) {
+    if (idx < 0 || idx >= missingFileCount) return NULL;
+    return missingFiles[idx];
+}
+
+static void boardReportMissingFile(const char* file, const char* inZip) {
+    if (missingFileCount >= MISSING_FILES_MAX) return;
+    /* Convert the host ACP path to UTF-8 (older .cap/.sta stored paths
+    ** in whatever ACP the saving host used). */
+    char fileUtf8[260];
+    char inZipUtf8[260];
+    AnyToUtf8(file ? file : "",   fileUtf8,  sizeof(fileUtf8));
+    AnyToUtf8(inZip ? inZip : "", inZipUtf8, sizeof(inZipUtf8));
+    if (inZipUtf8[0]) {
+        sprintf_s(missingFiles[missingFileCount], sizeof(missingFiles[0]),
+                  "%s (in %s)", inZipUtf8, fileUtf8);
+    } else {
+        sprintf_s(missingFiles[missingFileCount], sizeof(missingFiles[0]),
+                  "%s", fileUtf8);
+    }
+    missingFileCount++;
+}
+
+static void boardProbeMissingFile(const char* file, const char* inZip) {
+    if (!file || *file == 0) return;
+    /* fileExist(memberName, zipPath) for zip case, else plain path. */
+    int exists;
+    if (inZip && *inZip) {
+        exists = fileExist((char*)inZip, (char*)file);
+    } else {
+        exists = fileExist((char*)file, NULL);
+    }
+    if (!exists) {
+        boardReportMissingFile(file, inZip);
+    }
+}
 
 static char saveStateVersion[32] = "blueMSX - state  v 8";
 
@@ -874,6 +926,47 @@ int boardRun(Machine* machine,
                 machineLoadState(boardMachine);
             }
             free(version);
+        }
+    }
+
+    /* Pre-validate state-referenced files so missing paths surface as a
+    ** dialog instead of silently broken slots / failed BIOS reads. */
+    if (loadState) {
+        int i;
+        boardClearMissingFiles();
+        if (deviceInfo != NULL) {
+            for (i = 0; i < 2; i++) {
+                /* Special Carts (MEGA-SCSI, MFR SCC+ SD, ExtraRAM, ...) use
+                ** a fixed marker in .name and have no real ROM path; skip. */
+                if (deviceInfo->carts[i].inserted &&
+                    !propertiesIsSpecialCartName(deviceInfo->carts[i].name)) {
+                    boardProbeMissingFile(deviceInfo->carts[i].name,
+                                          deviceInfo->carts[i].inZipName);
+                }
+            }
+            for (i = 0; i < MAXDRIVES; i++) {
+                if (deviceInfo->disks[i].inserted) {
+                    boardProbeMissingFile(deviceInfo->disks[i].name,
+                                          deviceInfo->disks[i].inZipName);
+                }
+            }
+            if (deviceInfo->tapes[0].inserted) {
+                boardProbeMissingFile(deviceInfo->tapes[0].name,
+                                      deviceInfo->tapes[0].inZipName);
+            }
+        }
+        if (machine != NULL) {
+            for (i = 0; i < machine->slotInfoCount; i++) {
+                /* Skip slotInfo entries with no ROM file (RAM/CMOS/etc). */
+                if (machine->slotInfo[i].name[0] != 0) {
+                    boardProbeMissingFile(machine->slotInfo[i].name,
+                                          machine->slotInfo[i].inZipName);
+                }
+            }
+        }
+        if (boardGetMissingFileCount() > 0) {
+            saveStateDestroy();
+            return 0;   // emulator.c surfaces the list via archEmulationStartFailure
         }
     }
 

@@ -83,6 +83,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->errorNoCasInZip         = "Nie znaleziono pliku .cas w archiwum zip.";
     ls->errorNoHelp             = "Nie znaleziono pliku pomocy blueMSX.";
     ls->errorStartEmu           = "Nie uda³o siê uruchomiæ emulatora MSX.";
+    ls->errorMissingFiles       = "Następujące pliki wskazane przez zapisany stan nie mogą zostać wczytane:";
     ls->errorPortableReadonly   = "Urz¹dzenie przenoœne - tylko do odczytu";        
     ls->errorRecorderTitle      = "blueMSX - Nagrywanie";
     ls->errorRecorderSaveReplay = "Nie można zapisać pliku powtórki:\n  %s\n\nUpewnij się, że folder docelowy istnieje i ma uprawnienia do zapisu.";

@@ -80,6 +80,7 @@ typedef struct {
     char* errorNoCasInZip;
     char* errorNoHelp;
     char* errorStartEmu;
+    char* errorMissingFiles;
     char* errorPortableReadonly;
     char* errorRecorderTitle;
     char* errorRecorderSaveReplay;

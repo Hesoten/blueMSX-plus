@@ -126,6 +126,11 @@ int boardCaptureCheckFinish(void);
 ** cause a record-end (emulatorStop, menu Stop, per-frame poll for RLE overflow). */
 int boardCaptureConsumePendingToast(char* out, int outSize);
 
+/* Missing-file report populated by boardRun's state pre-validation. */
+void        boardClearMissingFiles(void);
+int         boardGetMissingFileCount(void);
+const char* boardGetMissingFile(int idx);
+
 UInt8 boardCaptureUInt8(UInt8 logId, UInt8 value);
 
 void boardSaveState(const char* stateFile, int screenshot);

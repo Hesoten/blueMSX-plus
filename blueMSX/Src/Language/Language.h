@@ -109,6 +109,7 @@ char* langErrorNoDskInZip();
 char* langErrorNoCasInZip();
 char* langErrorNoHelp();
 char* langErrorStartEmu();
+char* langErrorMissingFiles();
 char* langErrorPortableReadonly();
 char* langErrorRecorderTitle();
 char* langErrorRecorderSaveReplay();

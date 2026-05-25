@@ -83,6 +83,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->errorNoCasInZip         = "Не нашлось .cas файла в zip архиве.";
     ls->errorNoHelp             = "Не нашлось файла помощи blueMSX.";
     ls->errorStartEmu           = "Не удалось начать эмуляцию.";
+    ls->errorMissingFiles       = "Следующие файлы, указанные в сохранённом состоянии, не могут быть загружены:";
     ls->errorPortableReadonly   = "Портативное устройство только для чтения";
     ls->errorRecorderTitle      = "blueMSX - Запись";
     ls->errorRecorderSaveReplay = "Не удалось сохранить файл повтора:\n  %s\n\nПроверьте, что папка назначения существует и доступна для записи.";

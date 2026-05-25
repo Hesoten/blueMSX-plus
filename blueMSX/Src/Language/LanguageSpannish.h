@@ -83,6 +83,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->errorNoCasInZip         = "No hay archivo .cas en el archivo zip.";
     ls->errorNoHelp             = "Imposible encontrar archivo de ayuda de BlueMSX.";
     ls->errorStartEmu           = "Error al iniciar MSX emulator.";
+    ls->errorMissingFiles       = "Los siguientes archivos referenciados por el estado guardado no pudieron cargarse:";
     ls->errorPortableReadonly   = "El dispositivo portable es sólo lectura";        
     ls->errorRecorderTitle      = "blueMSX - Grabador";
     ls->errorRecorderSaveReplay = "No se pudo guardar el archivo de replay:\n  %s\n\nCompruebe que la carpeta de destino existe y tiene permisos de escritura.";

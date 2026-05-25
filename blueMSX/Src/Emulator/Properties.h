@@ -603,4 +603,8 @@ Properties* propGetGlobalProperties();
 void propertiesGetOpllFilterHz(int mode, const SoundChip* chip,
                                int* outLpfHz, int* outHpfHz);
 
+/* True when `name` is a CARTNAME_* Special-Cart marker rather than a
+** real ROM file path. */
+int propertiesIsSpecialCartName(const char* name);
+
 #endif

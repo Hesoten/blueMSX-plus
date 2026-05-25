@@ -83,6 +83,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->errorNoCasInZip         = "Il n'y a pas de fichier .cas dans votre archive zip";
     ls->errorNoHelp             = "Impossible de trouver le fichier d'aide.";
     ls->errorStartEmu           = "Erreur lors du lancement de l'émulateur.";
+    ls->errorMissingFiles       = "Les fichiers suivants référencés par l'état sauvegardé n'ont pas pu être chargés :";
     ls->errorPortableReadonly   = "Ce dispositif portable est uniquement en mode écriture";        
     ls->errorRecorderTitle      = "blueMSX - Enregistreur";
     ls->errorRecorderSaveReplay = "Échec de l'enregistrement du fichier de rediffusion :\n  %s\n\nVérifiez que le dossier de destination existe et est accessible en écriture.";

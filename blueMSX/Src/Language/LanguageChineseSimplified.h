@@ -83,6 +83,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->errorNoCasInZip         = "无法在 zip 压缩包内找到 .cas 文件。";
     ls->errorNoHelp             = "无法找到 blueMSX 帮助文件。";
     ls->errorStartEmu           = "无法启动 MSX 模拟器。";
+    ls->errorMissingFiles       = "无法加载存档引用的以下文件：";
     ls->errorPortableReadonly   = "便携设备为只读";        
     ls->errorRecorderTitle      = "blueMSX - 录制器";
     ls->errorRecorderSaveReplay = "无法保存回放文件：\n  %s\n\n请确认目标目录存在且可写入。";

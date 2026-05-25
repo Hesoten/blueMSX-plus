@@ -85,6 +85,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->errorNoCasInZip         = "zipファイルの中に.casファイルが見つかりません。";
     ls->errorNoHelp             = "blueMSX のヘルプファイルが見つかりません。";
     ls->errorStartEmu           = "blueMSX の開始に失敗しました。";
+    ls->errorMissingFiles       = "セーブステートから参照されている以下のファイルが読み込めませんでした:";
     ls->errorPortableReadonly   = "ポータブルデバイスは読込専用です。";
     ls->errorRecorderTitle      = "blueMSX - リプレイ録画";
     ls->errorRecorderSaveReplay = "リプレイファイルの保存に失敗しました:\n  %s\n\n保存先ディレクトリが存在し書き込み可能か確認してください。";

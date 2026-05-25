@@ -84,6 +84,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->errorNoCasInZip                 = "Nessun file .CAS trovato nell'archivio compresso.";
     ls->errorNoHelp                     = "Non trovo il file della guida in linea di blueMSX.";
     ls->errorStartEmu                   = "Avvio dell'emulatore fallito!";
+    ls->errorMissingFiles               = "I seguenti file referenziati dallo stato salvato non possono essere caricati:";
     ls->errorPortableReadonly           = "Il dispositivo rimovibile è di sola lettura";
     ls->errorRecorderTitle              = "blueMSX - Registratore";
     ls->errorRecorderSaveReplay         = "Impossibile salvare il file replay:\n  %s\n\nVerifica che la cartella di destinazione esista e sia scrivibile.";

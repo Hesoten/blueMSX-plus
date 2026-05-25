@@ -300,6 +300,7 @@ char* langErrorNoDskInZip() { return ls->errorNoDskInZip; }
 char* langErrorNoCasInZip() { return ls->errorNoCasInZip; }
 char* langErrorNoHelp() { return ls->errorNoHelp; }
 char* langErrorStartEmu() { return ls->errorStartEmu; }
+char* langErrorMissingFiles() { return ls->errorMissingFiles; }
 char* langErrorPortableReadonly()  {return ls->errorPortableReadonly; }
 char* langErrorRecorderTitle()             { return ls->errorRecorderTitle; }
 char* langErrorRecorderSaveReplay()        { return ls->errorRecorderSaveReplay; }

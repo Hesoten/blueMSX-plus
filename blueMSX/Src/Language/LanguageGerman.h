@@ -83,6 +83,7 @@ void langInitGerman(LanguageStrings* ls)
     ls->errorNoCasInZip          = "Konnte kein .cas-File im Zip-Archiv finden.";
     ls->errorNoHelp              = "Konnte kein blueMSX-Hilfe-File finden.";
     ls->errorStartEmu            = "Der MSX-Emulator konnte nicht gestartet werden.";
+    ls->errorMissingFiles        = "Folgende vom Speicherstand referenzierten Dateien konnten nicht geladen werden:";
     ls->errorPortableReadonly    = "Austauschbarer Datenträger ist nur lesbar"; // "Portable device is readonly";        
     ls->errorRecorderTitle       = "blueMSX - Aufnahme";
     ls->errorRecorderSaveReplay  = "Replay-Datei konnte nicht gespeichert werden:\n  %s\n\nPrüfen Sie, ob das Zielverzeichnis vorhanden und beschreibbar ist.";

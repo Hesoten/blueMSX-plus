@@ -83,6 +83,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->errorNoCasInZip         = "No s'ha pogut trobar un fitxer .cas dins de l'arxiu zip.";
     ls->errorNoHelp             = "No s'ha pogut trobar el fitxer d'ajuda de blueMSX.";
     ls->errorStartEmu           = "No s'ha pogut iniciar l'emulador MSX.";
+    ls->errorMissingFiles       = "No s'han pogut carregar els següents fitxers referenciats per l'estat desat:";
     ls->errorPortableReadonly   = "El dispositiu portàtil és de només lectura";
     ls->errorRecorderTitle      = "blueMSX - Enregistrador";
     ls->errorRecorderSaveReplay = "No s'ha pogut desar el fitxer de repetició:\n  %s\n\nComproveu que la carpeta de destinació existeix i és modificable.";

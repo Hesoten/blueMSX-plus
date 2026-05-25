@@ -83,6 +83,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->errorNoCasInZip         = "Kunde inte hitta en .cas fil i zip arkivet.";
     ls->errorNoHelp             = "Kunde inte hitta hjälpfilen.";
     ls->errorStartEmu           = "Misslyckades att starta emulatorn.";
+    ls->errorMissingFiles       = "Följande filer som refereras av sparat tillstånd kunde inte laddas:";
     ls->errorPortableReadonly   = "Flyttbar enhet är inte skrivbar";
     ls->errorRecorderTitle      = "blueMSX - Inspelare";
     ls->errorRecorderSaveReplay = "Kunde inte spara replayfil:\n  %s\n\nKontrollera att målmappen finns och är skrivbar.";
