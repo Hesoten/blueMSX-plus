@@ -543,7 +543,8 @@ char* generateSaveFilename(Properties* properties, char* directory, char* prefix
     int extensionLen = strlen(extension);
     int i;
     int numMod = 1;
-    char filenameFormat[32] = "%s/%s%s_";
+    /* Use the platform-native separator so composed paths don't mix slashes. */
+    char filenameFormat[32] = "%s" DIR_SEPARATOR "%s%s_";
     char destfileFormat[32];
 
     for (i = 0; i < digits; i++) {
@@ -551,7 +552,7 @@ char* generateSaveFilename(Properties* properties, char* directory, char* prefix
         numMod *= 10;
     }
     strcat(filenameFormat, "%s");
-    sprintf(destfileFormat, "%%s/%%s%%s_%%0%di%%s", digits);
+    sprintf(destfileFormat, "%%s" DIR_SEPARATOR "%%s%%s_%%0%di%%s", digits);
 
     createSaveFileBaseName(baseName, properties, 0);
 
