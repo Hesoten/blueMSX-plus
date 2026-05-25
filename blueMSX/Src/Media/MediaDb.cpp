@@ -198,9 +198,11 @@ RomType mediaDbStringToType(const char* romName)
     if (iequals(name, "fsa1fm1"))      return ROM_FSA1FMMODEM;
     if (iequals(name, "FSA1FM1"))      return ROM_FSA1FMMODEM;
     if (iequals(name, "Standard16K"))  return ROM_MSXDOS2;
+    if (iequals(name, "MSX-DOS2"))     return ROM_MSXDOS2;     // matches systemrom <type> in *db.xml
     if (iequals(name, "SVI328CART"))   return ROM_SVI328CART;
     if (iequals(name, "SVI328COL80"))  return ROM_SVI328COL80;
     if (iequals(name, "SVI727COL80"))  return ROM_SVI727COL80;
+    if (iequals(name, "SVI727"))       return ROM_SVI727COL80; // matches systemrom <type> in *db.xml
     if (iequals(name, "SVI707FDC"))    return ROM_SVI707FDC;
     if (iequals(name, "SVI738FDC"))    return ROM_SVI738FDC;
     if (iequals(name, "MSX-AUDIO"))    return ROM_MSXAUDIO;
@@ -209,6 +211,7 @@ RomType mediaDbStringToType(const char* romName)
     if (iequals(name, "CX5M-MUSIC"))   return ROM_YAMAHASFG05;
     if (iequals(name, "VMX80"))        return ROM_MICROSOL80;
     if (iequals(name, "HBI-V1"))       return ROM_SONYHBIV1;
+    if (iequals(name, "SonyHBI-V1"))   return ROM_SONYHBIV1;  // matches systemrom <type> in *db.xml
     if (iequals(name, "SFG-01"))       return ROM_YAMAHASFG01;
     if (iequals(name, "SFG-05"))       return ROM_YAMAHASFG05;
     if (iequals(name, "NET"))          return ROM_YAMAHANET;
