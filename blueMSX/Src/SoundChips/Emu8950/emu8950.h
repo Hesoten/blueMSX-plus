@@ -1,3 +1,7 @@
+/*
+   Modified 2026 by Hesoten for blueMSX+ fork.
+   See https://github.com/Hesoten/blueMSX-plus for change history.
+*/
 #ifndef _EMU8950_H_
 #define _EMU8950_H_
 
@@ -39,6 +43,8 @@ void OPL_RateConv_reset(OPL_RateConv *conv);
 void OPL_RateConv_putData(OPL_RateConv *conv, int ch, int16_t data);
 int16_t OPL_RateConv_getData(OPL_RateConv *conv, int ch);
 void OPL_RateConv_delete(OPL_RateConv *conv);
+/* sinc history length per channel (=LW). blueMSX addition for save-state. */
+int OPL_RateConv_getBufferLength(void);
 
 /* slot */
 typedef struct __OPL_SLOT {
@@ -148,6 +154,11 @@ OPL *OPL_new(uint32_t clk, uint32_t rate);
 void OPL_delete(OPL *);
 
 void OPL_reset(OPL *);
+
+/* blueMSX addition: re-link OPL_SLOT pointers (patch -> &__patch,
+** wave_table -> &wave_table_map[__patch.WS & 3][0]) after a save-state
+** restore that bulk-copied the OPL struct. */
+void OPL_relinkAfterRestore(OPL *opl);
 
 /** 
  * Set output wave sampling rate. 

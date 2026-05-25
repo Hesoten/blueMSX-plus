@@ -349,8 +349,11 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->sound.chip.ym2413BackendNukedEnabled      = 1;
     properties->sound.chip.ym2413BackendActive            = PROP_YM2413_BACKEND_OPENMSX_2;
 
-    /* Y8950: fmopl enabled by default and selected as active. */
+    /* Y8950: fmopl + emu8950 + openmsx all enabled by default.  Active =
+    ** fmopl (historical default). */
     properties->sound.chip.y8950BackendFmoplEnabled       = 1;
+    properties->sound.chip.y8950BackendEmu8950Enabled     = 1;
+    properties->sound.chip.y8950BackendOpenmsxEnabled     = 1;
     properties->sound.chip.y8950BackendActive             = PROP_Y8950_BACKEND_FMOPL;
 
     properties->sound.mixerChannel[MIXER_CHANNEL_PSG].enable = 1;
@@ -671,6 +674,8 @@ static void propLoad(Properties* properties)
     GET_ENUM_VALUE_3(propFile, sound, chip, ym2413BackendNukedEnabled,    BoolPair);
     GET_INT_VALUE_3 (propFile, sound, chip, ym2413BackendActive);
     GET_ENUM_VALUE_3(propFile, sound, chip, y8950BackendFmoplEnabled,     BoolPair);
+    GET_ENUM_VALUE_3(propFile, sound, chip, y8950BackendEmu8950Enabled,   BoolPair);
+    GET_ENUM_VALUE_3(propFile, sound, chip, y8950BackendOpenmsxEnabled,   BoolPair);
     GET_INT_VALUE_3 (propFile, sound, chip, y8950BackendActive);
 #ifndef YM2413_BUILD_OPENMSX_INITIAL
     /* openmsx (initial) is dead-coded -- never carry an enabled flag at runtime. */
@@ -979,6 +984,8 @@ void propSave(Properties* properties)
     SET_ENUM_VALUE_3(propFile, sound, chip, ym2413BackendNukedEnabled,    YesNoPair);
     SET_INT_VALUE_3 (propFile, sound, chip, ym2413BackendActive);
     SET_ENUM_VALUE_3(propFile, sound, chip, y8950BackendFmoplEnabled,     YesNoPair);
+    SET_ENUM_VALUE_3(propFile, sound, chip, y8950BackendEmu8950Enabled,   YesNoPair);
+    SET_ENUM_VALUE_3(propFile, sound, chip, y8950BackendOpenmsxEnabled,   YesNoPair);
     SET_INT_VALUE_3 (propFile, sound, chip, y8950BackendActive);
     SET_ENUM_VALUE_3(propFile, sound, YkIn, type, MidiTypePair);
     SET_STR_VALUE_3(propFile, sound, YkIn, name);

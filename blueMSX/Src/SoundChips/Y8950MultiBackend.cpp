@@ -22,6 +22,8 @@
 */
 #include "Y8950MultiBackend.h"
 #include "FmoplBackend.h"
+#include "Emu8950Backend.h"
+#include "OpenMsxY8950Backend.h"
 extern "C" {
 #include "SaveState.h"
 }
@@ -31,6 +33,8 @@ extern "C" {
 static int s_active = PROP_Y8950_BACKEND_FMOPL;
 
 extern "C" const int y8950BackendDisplayOrder[] = {
+    PROP_Y8950_BACKEND_EMU8950,
+    PROP_Y8950_BACKEND_OPENMSX,
     PROP_Y8950_BACKEND_FMOPL,
 };
 extern "C" const int y8950BackendDisplayCount =
@@ -41,7 +45,9 @@ static int backendEnabledFromProperties(int idx)
     Properties* p = propGetGlobalProperties();
     if (p == NULL) return 1;
     switch (idx) {
-    case PROP_Y8950_BACKEND_FMOPL: return p->sound.chip.y8950BackendFmoplEnabled ? 1 : 0;
+    case PROP_Y8950_BACKEND_FMOPL:   return p->sound.chip.y8950BackendFmoplEnabled   ? 1 : 0;
+    case PROP_Y8950_BACKEND_EMU8950: return p->sound.chip.y8950BackendEmu8950Enabled ? 1 : 0;
+    case PROP_Y8950_BACKEND_OPENMSX: return p->sound.chip.y8950BackendOpenmsxEnabled ? 1 : 0;
     default: return 0;
     }
 }
@@ -76,7 +82,9 @@ extern "C" int y8950BackendCycle(void)
 extern "C" const char* y8950BackendName(int idx)
 {
     switch (idx) {
-    case PROP_Y8950_BACKEND_FMOPL: return "fmopl";
+    case PROP_Y8950_BACKEND_FMOPL:   return "fmopl";
+    case PROP_Y8950_BACKEND_EMU8950: return "emu8950";
+    case PROP_Y8950_BACKEND_OPENMSX: return "openmsx";
     default: return "?";
     }
 }
@@ -89,6 +97,12 @@ Y8950MultiBackend::Y8950MultiBackend(void* hostRef)
 
     if (backendEnabledFromProperties(PROP_Y8950_BACKEND_FMOPL)) {
         backends[PROP_Y8950_BACKEND_FMOPL] = new FmoplBackend(hostRef);
+    }
+    if (backendEnabledFromProperties(PROP_Y8950_BACKEND_EMU8950)) {
+        backends[PROP_Y8950_BACKEND_EMU8950] = new Emu8950Backend();
+    }
+    if (backendEnabledFromProperties(PROP_Y8950_BACKEND_OPENMSX)) {
+        backends[PROP_Y8950_BACKEND_OPENMSX] = new OpenMsxY8950Backend();
     }
 
     /* Snap s_active onto an enabled slot so audio dispatch never sees a

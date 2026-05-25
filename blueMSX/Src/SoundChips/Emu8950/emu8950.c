@@ -3,6 +3,10 @@
  * https://github.com/digital-sound-antiques/emu8950
  * Copyright (C) 2001-2020 Mitsutaka Okazaki
  */
+/*
+   Modified 2026 by Hesoten for blueMSX+ fork.
+   See https://github.com/Hesoten/blueMSX-plus for change history.
+*/
 #include "emu8950.h"
 #include <math.h>
 #include <stdio.h>
@@ -224,6 +228,8 @@ void OPL_RateConv_reset(OPL_RateConv *conv) {
     memset(conv->buf[i], 0, sizeof(conv->buf[i][0]) * LW);
   }
 }
+
+int OPL_RateConv_getBufferLength(void) { return LW; }
 
 /* put original data to this converter at f_inp. */
 void OPL_RateConv_putData(OPL_RateConv *conv, int ch, int16_t data) {
@@ -1351,5 +1357,18 @@ void OPL_writeADPCMData(OPL *opl, uint8_t type, uint32_t start, uint32_t length,
     } else {
       OPL_ADPCM_writeROM(opl->adpcm, start, length, data);
     }
+  }
+}
+
+/* blueMSX addition: see header comment.  Re-link slot.patch to its own
+** embedded __patch and slot.wave_table from __patch.WS so a verbatim
+** memcpy of OPL during save-state restore does not leave stale
+** pointers from the saving process. */
+void OPL_relinkAfterRestore(OPL *opl) {
+  int i;
+  if (opl == NULL) return;
+  for (i = 0; i < 18; i++) {
+    opl->slot[i].patch = &opl->slot[i].__patch;
+    opl->slot[i].wave_table = wave_table_map[opl->slot[i].__patch.WS & 3];
   }
 }
