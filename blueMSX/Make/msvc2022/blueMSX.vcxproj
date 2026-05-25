@@ -252,7 +252,7 @@
     </ResourceCompile>
     <Link>
       <AdditionalOptions>/nodefaultlib:"libcmt.lib" %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Mf.lib;Mfplat.lib;Mfreadwrite.lib;Mfuuid.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;xinput.lib;..\..\Src\ThirdParty\DirectShowSamples\STRMBASE.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;avrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Mf.lib;Mfplat.lib;Mfreadwrite.lib;Mfuuid.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;xinput.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;avrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)blueMSX.exe</OutputFile>
       <IgnoreSpecificDefaultLibraries>libc.lib;atlthunk.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -281,13 +281,13 @@
       <DebugInformationFormat>
       </DebugInformationFormat>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalIncludeDirectories>..\..\Src\Bios;..\..\Src\Board;..\..\Src\Theme;..\..\Src\Utils;..\..\Src\Emulator;..\..\Src\BuildInfo;..\..\Src\Common;..\..\Src\IoDevice;..\..\Src\Resources;..\..\Src\SoundChips;..\..\Src\Unzip;..\..\Src\VideoChips;..\..\Src\VideoRender;..\..\Src\Z80;..\..\Src\Language;..\..\Src\Memory;..\..\Src\TinyXML;..\..\Src\Arch;..\..\Src\Media;..\..\Src\Debugger;..\..\Src\Input;..\..\Src\ThirdParty\DirectShowSamples;..\..\Src\ThirdParty\WinPCap</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\Src\Bios;..\..\Src\Board;..\..\Src\Theme;..\..\Src\Utils;..\..\Src\Emulator;..\..\Src\BuildInfo;..\..\Src\Common;..\..\Src\IoDevice;..\..\Src\Resources;..\..\Src\SoundChips;..\..\Src\Unzip;..\..\Src\VideoChips;..\..\Src\VideoRender;..\..\Src\Z80;..\..\Src\Language;..\..\Src\Memory;..\..\Src\TinyXML;..\..\Src\Arch;..\..\Src\Media;..\..\Src\Debugger;..\..\Src\Input;..\..\Src\ThirdParty\WinPCap</AdditionalIncludeDirectories>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\..\Src\BuildInfo;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Mf.lib;Mfplat.lib;Mfreadwrite.lib;Mfuuid.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;xinput.lib;..\..\Src\ThirdParty\DirectShowSamples\STRMBASE.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;avrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Mf.lib;Mfplat.lib;Mfreadwrite.lib;Mfuuid.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;xinput.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;avrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)blueMSX.exe</OutputFile>
       <IgnoreSpecificDefaultLibraries>libc.lib;atlthunk.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -313,7 +313,7 @@
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Mf.lib;Mfplat.lib;Mfreadwrite.lib;Mfuuid.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;xinput.lib;..\..\Src\ThirdParty\DirectShowSamples\STRMBASE.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;avrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Mf.lib;Mfplat.lib;Mfreadwrite.lib;Mfuuid.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;xinput.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;avrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)blueMSX.exe</OutputFile>
       <IgnoreSpecificDefaultLibraries>libc.lib;atlthunk.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -356,7 +356,7 @@
       <AdditionalIncludeDirectories>..\..\Src\BuildInfo;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Mf.lib;Mfplat.lib;Mfreadwrite.lib;Mfuuid.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;xinput.lib;..\..\Src\ThirdParty\DirectShowSamples\STRMBASE.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;avrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Mf.lib;Mfplat.lib;Mfreadwrite.lib;Mfuuid.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;xinput.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;avrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)blueMSX.exe</OutputFile>
       <IgnoreSpecificDefaultLibraries>libc.lib;atlthunk.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -394,7 +394,7 @@
       <AdditionalIncludeDirectories>..\..\Src\BuildInfo;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Mf.lib;Mfplat.lib;Mfreadwrite.lib;Mfuuid.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;xinput.lib;..\..\Src\ThirdParty\DirectShowSamples\STRMBASE.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;avrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Mf.lib;Mfplat.lib;Mfreadwrite.lib;Mfuuid.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;xinput.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;avrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)blueMSX.exe</OutputFile>
       <IgnoreSpecificDefaultLibraries>libc.lib;atlthunk.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -427,7 +427,7 @@
     </ResourceCompile>
     <Link>
       <AdditionalOptions>/nodefaultlib:"libcmt.lib" %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Mf.lib;Mfplat.lib;Mfreadwrite.lib;Mfuuid.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;xinput.lib;..\..\Src\ThirdParty\DirectShowSamples\STRMBASE.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;avrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Mf.lib;Mfplat.lib;Mfreadwrite.lib;Mfuuid.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;xinput.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;avrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)blueMSX.exe</OutputFile>
       <IgnoreSpecificDefaultLibraries>libc.lib;atlthunk.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -482,7 +482,7 @@
       <DebugInformationFormat>
       </DebugInformationFormat>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalIncludeDirectories>..\..\Src\Bios;..\..\Src\Board;..\..\Src\Theme;..\..\Src\Utils;..\..\Src\Emulator;..\..\Src\BuildInfo;..\..\Src\Common;..\..\Src\IoDevice;..\..\Src\Resources;..\..\Src\SoundChips;..\..\Src\Unzip;..\..\Src\VideoChips;..\..\Src\VideoRender;..\..\Src\Z80;..\..\Src\Language;..\..\Src\Memory;..\..\Src\TinyXML;..\..\Src\Arch;..\..\Src\Media;..\..\Src\Debugger;..\..\Src\Input;..\..\Src\ThirdParty\DirectShowSamples;..\..\Src\ThirdParty\WinPCap</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\Src\Bios;..\..\Src\Board;..\..\Src\Theme;..\..\Src\Utils;..\..\Src\Emulator;..\..\Src\BuildInfo;..\..\Src\Common;..\..\Src\IoDevice;..\..\Src\Resources;..\..\Src\SoundChips;..\..\Src\Unzip;..\..\Src\VideoChips;..\..\Src\VideoRender;..\..\Src\Z80;..\..\Src\Language;..\..\Src\Memory;..\..\Src\TinyXML;..\..\Src\Arch;..\..\Src\Media;..\..\Src\Debugger;..\..\Src\Input;..\..\Src\ThirdParty\WinPCap</AdditionalIncludeDirectories>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\..\Src\BuildInfo;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -652,9 +652,6 @@
     <ClCompile Include="..\..\Src\Win32\Win32Cdrom.c" />
     <ClCompile Include="..\..\Src\Win32\Win32D3D12.cpp" />
     <ClCompile Include="..\..\Src\Win32\Win32Dir.cpp" />
-    <ClCompile Include="..\..\Src\Win32\Win32DirectShow.cpp">
-      <ExcludedFromBuild Condition="'$(Platform)'=='x64'">true</ExcludedFromBuild>
-    </ClCompile>
     <ClCompile Include="..\..\Src\Win32\Win32directX.c" />
     <ClCompile Include="..\..\Src\Win32\Win32directXSound.c" />
     <ClCompile Include="..\..\Src\Win32\Win32Eth.c" />
@@ -680,12 +677,7 @@
     <ClCompile Include="..\..\Src\Win32\Win32Toast.cpp" />
     <ClCompile Include="..\..\Src\Win32\Win32ToolLoader.c" />
     <ClCompile Include="..\..\Src\Win32\Win32Uart.c" />
-    <ClCompile Include="..\..\Src\Win32\Win32VideoIn.cpp">
-      <ExcludedFromBuild Condition="'$(Platform)'=='x64'">true</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="..\..\Src\Win32\Win32VideoInStub.c">
-      <ExcludedFromBuild Condition="'$(Platform)'=='Win32'">true</ExcludedFromBuild>
-    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\Win32VideoIn.cpp" />
     <ClCompile Include="..\..\Src\Win32\Win32Window.c" />
     <ClCompile Include="..\..\Src\Win32\Win32WasapiSound.cpp" />
     <ClCompile Include="..\..\Src\Bios\Patch.c" />
@@ -988,7 +980,6 @@
     <ClInclude Include="..\..\Src\Memory\romMapperSvi328RsIDE.h" />
     <ClInclude Include="..\..\Src\SoundChips\VLM5030VoiceData.h" />
     <ClInclude Include="..\..\Src\Utils\ZipFromMem.h" />
-    <ClInclude Include="..\..\Src\Win32\qedit.h" />
     <ClInclude Include="..\..\Src\Win32\Win32D3D12.h" />
     <ClInclude Include="..\..\Src\Win32\Win32Printer.h" />
     <ClInclude Include="..\..\Src\Win32\BlueMSXToolInterface.h" />
@@ -997,7 +988,6 @@
     <ClInclude Include="..\..\Src\Win32\Win32Cdrom.h" />
     <ClInclude Include="..\..\Src\Win32\Win32Common.h" />
     <ClInclude Include="..\..\Src\Win32\Win32Dir.h" />
-    <ClInclude Include="..\..\Src\Win32\Win32DirectShow.h" />
     <ClInclude Include="..\..\Src\Win32\Win32directx.h" />
     <ClInclude Include="..\..\Src\Win32\Win32directXSound.h" />
     <ClInclude Include="..\..\Src\Win32\Win32Eth.h" />

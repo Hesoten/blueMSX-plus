@@ -3636,6 +3636,9 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
                 inputMarkDirty();
                 inputRefreshDevicesIfDirty();
                 inputResolveShadowBindings();
+                /* Reconcile the video-in device cache and gracefully
+                ** transition to None if the active camera was unplugged. */
+                videoInOnDeviceChange();
                 break;
             }
         }
