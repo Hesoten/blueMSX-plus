@@ -84,6 +84,11 @@ void langInitPolish(LanguageStrings* ls)
     ls->errorNoHelp             = "Nie znaleziono pliku pomocy blueMSX.";
     ls->errorStartEmu           = "Nie uda³o siê uruchomiæ emulatora MSX.";
     ls->errorPortableReadonly   = "Urz¹dzenie przenoœne - tylko do odczytu";        
+    ls->errorRecorderTitle      = "blueMSX - Nagrywanie";
+    ls->errorRecorderSaveReplay = "Nie można zapisać pliku powtórki:\n  %s\n\nUpewnij się, że folder docelowy istnieje i ma uprawnienia do zapisu.";
+    ls->errorRecorderReplayMissing = "Plik powtórki nie znaleziony:\n  %s\n\nNajpierw nagraj powtórkę lub użyj Wczytaj, by wybrać istniejący plik .cap.";
+    ls->errorRecorderNoReplay   = "No replay (.cap) file is loaded.\n\nRecord a replay first, then choose 'Render to video file'.\n\nLast replay path:\n%s";
+    ls->infoRecorderComplete    = "Plik wideo zapisany:\n  %s";
     ls->infoToastSaved          = "Zapisano: %s";
 
 

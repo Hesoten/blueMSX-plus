@@ -117,6 +117,12 @@ struct Mixer
 { 
     MixerWriteCallback writeCallback;
     void*  writeRef;
+    /* Optional read-only tap that sees the same fragment buffer the audio
+    ** driver receives, invoked right after writeCallback. Used by the live
+    ** recorder so it can encode the master mix without displacing the
+    ** playback driver. Null when no tap is registered. */
+    MixerWriteCallback tapCallback;
+    void*  tapRef;
     Int32  fragmentSize;
     UInt32 refTime;
     UInt32 refFrag;
@@ -393,6 +399,12 @@ void mixerSetWriteCallback(Mixer* mixer, MixerWriteCallback callback, void* ref,
     }
 }
 
+void mixerSetTapCallback(Mixer* mixer, MixerWriteCallback callback, void* ref)
+{
+    mixer->tapCallback = callback;
+    mixer->tapRef = ref;
+}
+
 Int32 mixerRegisterChannel(Mixer* mixer, Int32 audioType, Int32 stereo, MixerUpdateCallback callback, MixerSetSampleRateCallback rateCallback, void* ref)
 {
     MixerChannel*  channel = mixer->channels + mixer->channelCount;
@@ -485,6 +497,9 @@ void mixerSync(Mixer* mixer)
                 if (mixer->writeCallback != NULL) {
                     mixer->writeCallback(mixer->writeRef, buffer, mixer->fragmentSize);
                 }
+                if (mixer->tapCallback != NULL) {
+                    mixer->tapCallback(mixer->tapRef, buffer, mixer->fragmentSize);
+                }
                 if (mixer->logging) {
                     fwrite(buffer, 2 * mixer->fragmentSize, 1, mixer->file);
                 }
@@ -549,6 +564,9 @@ void mixerSync(Mixer* mixer)
         if (mixer->index == mixer->fragmentSize) {
             if (mixer->writeCallback != NULL) {
                 mixer->writeCallback(mixer->writeRef, buffer, mixer->fragmentSize);
+            }
+            if (mixer->tapCallback != NULL) {
+                mixer->tapCallback(mixer->tapRef, buffer, mixer->fragmentSize);
             }
             if (mixer->logging) {
                 fwrite(buffer, 2 * mixer->fragmentSize, 1, mixer->file);

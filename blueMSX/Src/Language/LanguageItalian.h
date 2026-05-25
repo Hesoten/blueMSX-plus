@@ -85,6 +85,11 @@ void langInitItalian(LanguageStrings* ls)
     ls->errorNoHelp                     = "Non trovo il file della guida in linea di blueMSX.";
     ls->errorStartEmu                   = "Avvio dell'emulatore fallito!";
     ls->errorPortableReadonly           = "Il dispositivo rimovibile è di sola lettura";
+    ls->errorRecorderTitle              = "blueMSX - Registratore";
+    ls->errorRecorderSaveReplay         = "Impossibile salvare il file replay:\n  %s\n\nVerifica che la cartella di destinazione esista e sia scrivibile.";
+    ls->errorRecorderReplayMissing      = "File replay non trovato:\n  %s\n\nRegistra prima un replay, oppure usa Carica per scegliere un file .cap esistente.";
+    ls->errorRecorderNoReplay           = "No replay (.cap) file is loaded.\n\nRecord a replay first, then choose 'Render to video file'.\n\nLast replay path:\n%s";
+    ls->infoRecorderComplete            = "File video salvato:\n  %s";
     ls->infoToastSaved                  = "Salvato: %s";
 
 

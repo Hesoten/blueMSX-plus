@@ -236,6 +236,11 @@ void actionSetVideoCaptureSetDirectory(char* dir, char* prefix)
     strcpy(videoPrefix, prefix);
 }
 
+const char* actionGetVideoCaptureDir(void)
+{
+    return videoDir;
+}
+
 void actionSetQuickSaveSetDirectory(char* dir, char* prefix)
 {
     strcpy(stateDir, dir);

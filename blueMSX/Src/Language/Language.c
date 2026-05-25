@@ -301,6 +301,11 @@ char* langErrorNoCasInZip() { return ls->errorNoCasInZip; }
 char* langErrorNoHelp() { return ls->errorNoHelp; }
 char* langErrorStartEmu() { return ls->errorStartEmu; }
 char* langErrorPortableReadonly()  {return ls->errorPortableReadonly; }
+char* langErrorRecorderTitle()             { return ls->errorRecorderTitle; }
+char* langErrorRecorderSaveReplay()        { return ls->errorRecorderSaveReplay; }
+char* langErrorRecorderReplayMissing()     { return ls->errorRecorderReplayMissing; }
+char* langErrorRecorderNoReplay()          { return ls->errorRecorderNoReplay; }
+char* langInfoRecorderComplete()           { return ls->infoRecorderComplete; }
 char* langInfoToastSaved()                 { return ls->infoToastSaved; }
 
 

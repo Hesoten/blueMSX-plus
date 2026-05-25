@@ -110,6 +110,11 @@ char* langErrorNoCasInZip();
 char* langErrorNoHelp();
 char* langErrorStartEmu();
 char* langErrorPortableReadonly();
+char* langErrorRecorderTitle();
+char* langErrorRecorderSaveReplay();
+char* langErrorRecorderReplayMissing();
+char* langErrorRecorderNoReplay();
+char* langInfoRecorderComplete();
 char* langInfoToastSaved();
 
 

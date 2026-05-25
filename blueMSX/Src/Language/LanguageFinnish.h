@@ -86,6 +86,11 @@ void langInitFinnish(LanguageStrings* ls)
     ls->errorNoHelp             = "blueMSX:n ohjetiedostoa ei löytynyt.";
     ls->errorStartEmu           = "MSX emulaattorin käynnistys epäonnistui.";
     ls->errorPortableReadonly   = "Kannettava laite tukee vain lukemista.";
+    ls->errorRecorderTitle      = "blueMSX - Tallennin";
+    ls->errorRecorderSaveReplay = "Uusintatiedoston tallennus epäonnistui:\n  %s\n\nTarkista, että kohdehakemisto on olemassa ja kirjoitettavissa.";
+    ls->errorRecorderReplayMissing = "Uusintatiedostoa ei löydy:\n  %s\n\nTallenna uusinta ensin tai valitse aiempi .cap-tiedosto Lataa-toiminnolla.";
+    ls->errorRecorderNoReplay   = "No replay (.cap) file is loaded.\n\nRecord a replay first, then choose 'Render to video file'.\n\nLast replay path:\n%s";
+    ls->infoRecorderComplete    = "Videotiedosto tallennettu:\n  %s";
     ls->infoToastSaved          = "Tallennettu: %s";
 
 

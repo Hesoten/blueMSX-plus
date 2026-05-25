@@ -66,7 +66,7 @@
 #include "Win32Printer.h"
 #include "Win32directx.h"
 #include "Win32D3D12.h"
-#include "Win32Avi.h"
+#include "Win32Recorder.h"
 #include "FileHistory.h"
 #include "Win32Dir.h"
 #include "Win32file.h"
@@ -2686,6 +2686,13 @@ static void emuWindowDraw(int onlyOnVblank)
     static void* lock = NULL;
     int rv = 0;
 
+    /* Offline render runs at fixed capture FPS with the recorder grabbing
+    ** frames directly from the framebuffer; the main window stays covered by
+    ** the modal progress dialog, so skip its render path to avoid GPU races. */
+    if (st.renderVideo) {
+        return;
+    }
+
     if (lock == NULL) {
         lock = archSemaphoreCreate(1);
     }
@@ -4169,6 +4176,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
     pProperties->joy1.typeId = joystickPortGetType(0);
     pProperties->joy2.typeId = joystickPortGetType(1);
+    recorderRestorePropsAtExit();
     propDestroy(pProperties);
 
     archSoundDestroy();
@@ -4793,7 +4801,10 @@ char* archFilenameGetOpenCapture(Properties* properties)
 {
     char* title = langDlgLoadVideoCapture();
     char extensionList[512];
-    char* defaultDir = properties->emulation.statsDefDir;
+    /* Default to the Video Capture directory (set by actionSetVideoCaptureSetDirectory
+    ** at startup), not the savestate dir. */
+    const char* vdir = actionGetVideoCaptureDir();
+    char* defaultDir = (vdir && vdir[0]) ? (char*)vdir : properties->emulation.statsDefDir;
     char* extensions = ".cap\0";
     int* selectedExtension = NULL;
     char* defautExtension = NULL;
@@ -5159,8 +5170,39 @@ int archGetFramesPerSecond() {
 }
 
 void archEmulationStartFailure() {
-    aviStopRender();
+    recorderStopRender();
     MessageBoxU(NULL, langErrorStartEmu(), langErrorTitle(), MB_ICONHAND | MB_OK);
+}
+
+void archReplaySaveFailure(const char* fileName) {
+    char buf[1024];
+    /* Surface the silent fopen failure inside boardCaptureStop -- otherwise
+    ** Stop appears successful but no .cap is on disk, and a later "Render to
+    ** video" looks empty/broken without any clue why. */
+    _snprintf_s(buf, sizeof(buf), _TRUNCATE, langErrorRecorderSaveReplay(),
+                fileName ? fileName : "");
+    MessageBoxU(NULL, buf, langErrorRecorderTitle(), MB_ICONERROR | MB_OK);
+}
+
+void archReplayMissing(const char* fileName) {
+    char buf[1024];
+    /* Triggered when Play Replay is invoked with no .cap loaded / on disk.
+    ** Surface a modal warning instead of silently stopping the emulator. */
+    _snprintf_s(buf, sizeof(buf), _TRUNCATE, langErrorRecorderReplayMissing(),
+                (fileName && fileName[0]) ? fileName : "");
+    MessageBoxU(NULL, buf, langErrorRecorderTitle(), MB_ICONWARNING | MB_OK);
+}
+
+void archPumpEmuDisplay(void) {
+    /* Called from the recorder status dialog's WM_TIMER (main thread) to drain
+    ** st.ddrawEvent, which the dialog's own message loop does not wait on; without
+    ** this the recorded MP4 stays stuck on the frame captured at emu stop. */
+    if (st.ddrawEvent && WaitForSingleObject(st.ddrawEvent, 0) == WAIT_OBJECT_0) {
+        if (!st.minimized) {
+            emuWindowDraw(st.diplayUpdateOnVblank);
+        }
+        SetEvent(st.ddrawAckEvent);
+    }
 }
 
 int archFileExists(const char* fileName)
@@ -5227,7 +5269,7 @@ void archVideoCaptureSave()
     actionEmuStop();
 
     st.renderVideo = 1;
-    aviStartRender(getMainHwnd(), propGetGlobalProperties(), st.pVideo);
+    recorderStartRender(getMainHwnd(), propGetGlobalProperties(), st.pVideo);
     st.renderVideo = 0;
 }
 

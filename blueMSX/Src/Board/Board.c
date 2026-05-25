@@ -300,6 +300,18 @@ static void boardTimerCb(void* dummy, UInt32 time)
     }
 }
 
+/* Per-frame finish poll: cap.timer's ~50 emu sec resolution would let
+** short replays overrun by tens of seconds. Returns 1 on transition to IDLE. */
+int boardCaptureCheckFinish(void)
+{
+    if (cap.state != CAPTURE_PLAY) return 0;
+    boardSystemTime64();   // sync 64-bit clock from r800
+    if (boardCaptureCompleteAmount() < 1000) return 0;
+    actionEmuTogglePause();
+    cap.state = CAPTURE_IDLE;
+    return 1;
+}
+
 void boardCaptureInit()
 {
     cap.timer = boardTimerCreate(boardTimerCb, NULL);

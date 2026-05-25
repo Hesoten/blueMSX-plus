@@ -31,7 +31,7 @@
 #include "Win32Sound.h"
 #include "Win32directXSound.h"
 #include "Win32WasapiSound.h"
-#include "Win32Avi.h"
+#include "Win32Recorder.h"
 
 #include "ArchSound.h"
 
@@ -40,7 +40,7 @@
 
 static DxSound* dxSound = NULL;
 static WasapiSound* wasapiSound = NULL;
-static AviSound* aviSound = NULL;
+static RecorderSound* recorderSnd = NULL;
 
 static HWND        cfgHwnd   = NULL;
 static SoundDriver cfgDriver = SOUND_DRV_NONE;
@@ -69,7 +69,8 @@ void archSoundCreate(Mixer* mixer, UInt32 sampleRate, UInt32 bufferSize, Int16 c
         }
         break;
     case SOUND_DRV_AVI:
-        aviSound = aviSoundCreate(cfgHwnd, mixer, sampleRate, bufferSize, channels);
+        /* Legacy enum name kept for INI-file compatibility; routes to the MF recorder. */
+        recorderSnd = recorderSoundCreate(cfgHwnd, mixer, sampleRate, bufferSize, channels);
         break;
     }
 }
@@ -84,9 +85,9 @@ void archSoundDestroy(void)
         wasapiSoundDestroy(wasapiSound);
         wasapiSound = NULL;
     }
-    if (aviSound) {
-        aviSoundDestroy(aviSound);
-        aviSound = NULL;
+    if (recorderSnd) {
+        recorderSoundDestroy(recorderSnd);
+        recorderSnd = NULL;
     }
 }
 
@@ -98,8 +99,8 @@ void archSoundResume(void)
     if (wasapiSound) {
         wasapiSoundResume(wasapiSound);
     }
-    if (aviSound) {
-        aviSoundResume(aviSound);
+    if (recorderSnd) {
+        recorderSoundResume(recorderSnd);
     }
 }
 
@@ -112,7 +113,7 @@ void archSoundSuspend(void)
     if (wasapiSound) {
         wasapiSoundSuspend(wasapiSound);
     }
-    if (aviSound) {
-        aviSoundSuspend(aviSound);
+    if (recorderSnd) {
+        recorderSoundSuspend(recorderSnd);
     }
 }

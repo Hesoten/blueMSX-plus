@@ -84,6 +84,11 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->errorNoHelp             = "无法找到 blueMSX 帮助文件。";
     ls->errorStartEmu           = "无法启动 MSX 模拟器。";
     ls->errorPortableReadonly   = "便携设备为只读";        
+    ls->errorRecorderTitle      = "blueMSX - 录制器";
+    ls->errorRecorderSaveReplay = "无法保存回放文件：\n  %s\n\n请确认目标目录存在且可写入。";
+    ls->errorRecorderReplayMissing = "找不到回放文件：\n  %s\n\n请先录制回放，或使用加载选择现有的 .cap 文件。";
+    ls->errorRecorderNoReplay   = "No replay (.cap) file is loaded.\n\nRecord a replay first, then choose 'Render to video file'.\n\nLast replay path:\n%s";
+    ls->infoRecorderComplete    = "视频文件已保存：\n  %s";
     ls->infoToastSaved          = "已保存：%s";
 
 

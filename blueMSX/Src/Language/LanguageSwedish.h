@@ -84,6 +84,11 @@ void langInitSwedish(LanguageStrings* ls)
     ls->errorNoHelp             = "Kunde inte hitta hjälpfilen.";
     ls->errorStartEmu           = "Misslyckades att starta emulatorn.";
     ls->errorPortableReadonly   = "Flyttbar enhet är inte skrivbar";
+    ls->errorRecorderTitle      = "blueMSX - Inspelare";
+    ls->errorRecorderSaveReplay = "Kunde inte spara replayfil:\n  %s\n\nKontrollera att målmappen finns och är skrivbar.";
+    ls->errorRecorderReplayMissing = "Replayfil hittades inte:\n  %s\n\nSpela in en replay först, eller använd Ladda för att välja en befintlig .cap-fil.";
+    ls->errorRecorderNoReplay   = "No replay (.cap) file is loaded.\n\nRecord a replay first, then choose 'Render to video file'.\n\nLast replay path:\n%s";
+    ls->infoRecorderComplete    = "Videofil sparad:\n  %s";
     ls->infoToastSaved          = "Sparat: %s";
 
 

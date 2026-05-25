@@ -38,6 +38,7 @@
 void actionInit(Video* video, Properties* properties, Mixer* mixer);
 void actionSetAudioCaptureSetDirectory(char* dir, char* prefix);
 void actionSetVideoCaptureSetDirectory(char* dir, char* prefix);
+const char* actionGetVideoCaptureDir(void);
 void actionSetQuickSaveSetDirectory(char* dir, char* prefix);
 
 void actionCartInsert(int cartNo);

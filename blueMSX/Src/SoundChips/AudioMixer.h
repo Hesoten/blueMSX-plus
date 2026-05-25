@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -84,6 +87,13 @@ Int32 mixerIsChannelTypeActive(Mixer* mixer, Int32 channelType, Int32 reset);
 
 /* Write callback registration for audio drivers */
 void mixerSetWriteCallback(Mixer* mixer, MixerWriteCallback callback, void*, int);
+
+/* Optional read-only tap that fires right after the audio driver's write
+** callback for every fragment. Used by the live recorder so it can encode
+** the master mix without displacing the playback driver. The tap reuses
+** the same fragment cadence the playback driver established via
+** mixerSetWriteCallback. Pass callback=NULL to remove the tap. */
+void mixerSetTapCallback(Mixer* mixer, MixerWriteCallback callback, void* ref);
 
 /* File logging methods */
 void mixerStartLog(Mixer* mixer, char* fileName);

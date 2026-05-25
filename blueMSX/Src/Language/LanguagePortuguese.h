@@ -84,6 +84,11 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->errorNoHelp             = "Nao foi localizado arquivo ajuda do blueMSX";
     ls->errorStartEmu           = "Falha ao Iniciar o emulador MSX.";
     ls->errorPortableReadonly   = "O dispositivo portátil é somente leitura";        
+    ls->errorRecorderTitle      = "blueMSX - Gravador";
+    ls->errorRecorderSaveReplay = "Falha ao salvar arquivo de replay:\n  %s\n\nVerifique se a pasta de destino existe e tem permissão de escrita.";
+    ls->errorRecorderReplayMissing = "Arquivo de replay não encontrado:\n  %s\n\nGrave um replay primeiro ou use Carregar para escolher um .cap existente.";
+    ls->errorRecorderNoReplay   = "No replay (.cap) file is loaded.\n\nRecord a replay first, then choose 'Render to video file'.\n\nLast replay path:\n%s";
+    ls->infoRecorderComplete    = "Arquivo de vídeo salvo:\n  %s";
     ls->infoToastSaved          = "Salvo: %s";
 
 

@@ -84,6 +84,11 @@ void langInitGerman(LanguageStrings* ls)
     ls->errorNoHelp              = "Konnte kein blueMSX-Hilfe-File finden.";
     ls->errorStartEmu            = "Der MSX-Emulator konnte nicht gestartet werden.";
     ls->errorPortableReadonly    = "Austauschbarer Datenträger ist nur lesbar"; // "Portable device is readonly";        
+    ls->errorRecorderTitle       = "blueMSX - Aufnahme";
+    ls->errorRecorderSaveReplay  = "Replay-Datei konnte nicht gespeichert werden:\n  %s\n\nPrüfen Sie, ob das Zielverzeichnis vorhanden und beschreibbar ist.";
+    ls->errorRecorderReplayMissing = "Replay-Datei nicht gefunden:\n  %s\n\nNehmen Sie zuerst ein Replay auf, oder wählen Sie über Laden eine vorhandene .cap-Datei.";
+    ls->errorRecorderNoReplay    = "No replay (.cap) file is loaded.\n\nRecord a replay first, then choose 'Render to video file'.\n\nLast replay path:\n%s";
+    ls->infoRecorderComplete     = "Videodatei gespeichert:\n  %s";
     ls->infoToastSaved           = "Gespeichert: %s";
 
 

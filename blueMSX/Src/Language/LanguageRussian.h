@@ -84,6 +84,11 @@ void langInitRussian(LanguageStrings* ls)
     ls->errorNoHelp             = "Не нашлось файла помощи blueMSX.";
     ls->errorStartEmu           = "Не удалось начать эмуляцию.";
     ls->errorPortableReadonly   = "Портативное устройство только для чтения";
+    ls->errorRecorderTitle      = "blueMSX - Запись";
+    ls->errorRecorderSaveReplay = "Не удалось сохранить файл повтора:\n  %s\n\nПроверьте, что папка назначения существует и доступна для записи.";
+    ls->errorRecorderReplayMissing = "Файл повтора не найден:\n  %s\n\nСначала запишите повтор или используйте Загрузить, чтобы выбрать существующий файл .cap.";
+    ls->errorRecorderNoReplay   = "No replay (.cap) file is loaded.\n\nRecord a replay first, then choose 'Render to video file'.\n\nLast replay path:\n%s";
+    ls->infoRecorderComplete    = "Видеофайл сохранён:\n  %s";
     ls->infoToastSaved          = "Сохранено: %s";
 
 

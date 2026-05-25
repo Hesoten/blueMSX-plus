@@ -84,6 +84,11 @@ void langInitDutch(LanguageStrings* ls)
     ls->errorNoHelp             = "Het blueMSX helpbestand is niet gevonden.";
     ls->errorStartEmu           = "Het is niet gelukt om de MSX emulator te starten.";
     ls->errorPortableReadonly   = "Het draagbare apparaat is Alleen-Lezen";
+    ls->errorRecorderTitle      = "blueMSX - Recorder";
+    ls->errorRecorderSaveReplay = "Replaybestand kon niet worden opgeslagen:\n  %s\n\nControleer of de doelmap bestaat en beschrijfbaar is.";
+    ls->errorRecorderReplayMissing = "Replaybestand niet gevonden:\n  %s\n\nNeem eerst een replay op, of gebruik Laden om een bestaand .cap-bestand te kiezen.";
+    ls->errorRecorderNoReplay   = "No replay (.cap) file is loaded.\n\nRecord a replay first, then choose 'Render to video file'.\n\nLast replay path:\n%s";
+    ls->infoRecorderComplete    = "Videobestand opgeslagen:\n  %s";
     ls->infoToastSaved          = "Opgeslagen: %s";
 
 

@@ -84,6 +84,11 @@ void langInitCatalan(LanguageStrings* ls)
     ls->errorNoHelp             = "No s'ha pogut trobar el fitxer d'ajuda de blueMSX.";
     ls->errorStartEmu           = "No s'ha pogut iniciar l'emulador MSX.";
     ls->errorPortableReadonly   = "El dispositiu portàtil és de només lectura";
+    ls->errorRecorderTitle      = "blueMSX - Enregistrador";
+    ls->errorRecorderSaveReplay = "No s'ha pogut desar el fitxer de repetició:\n  %s\n\nComproveu que la carpeta de destinació existeix i és modificable.";
+    ls->errorRecorderReplayMissing = "No s'ha trobat el fitxer de repetició:\n  %s\n\nEnregistreu una repetició abans, o utilitzeu Carrega per seleccionar un .cap existent.";
+    ls->errorRecorderNoReplay   = "No replay (.cap) file is loaded.\n\nRecord a replay first, then choose 'Render to video file'.\n\nLast replay path:\n%s";
+    ls->infoRecorderComplete    = "Fitxer de vídeo desat:\n  %s";
     ls->infoToastSaved          = "Desat: %s";
 
 

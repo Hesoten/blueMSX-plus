@@ -84,6 +84,11 @@ void langInitFrench(LanguageStrings* ls)
     ls->errorNoHelp             = "Impossible de trouver le fichier d'aide.";
     ls->errorStartEmu           = "Erreur lors du lancement de l'émulateur.";
     ls->errorPortableReadonly   = "Ce dispositif portable est uniquement en mode écriture";        
+    ls->errorRecorderTitle      = "blueMSX - Enregistreur";
+    ls->errorRecorderSaveReplay = "Échec de l'enregistrement du fichier de rediffusion :\n  %s\n\nVérifiez que le dossier de destination existe et est accessible en écriture.";
+    ls->errorRecorderReplayMissing = "Fichier de rediffusion introuvable :\n  %s\n\nEnregistrez d'abord une rediffusion, ou utilisez Charger pour sélectionner un .cap existant.";
+    ls->errorRecorderNoReplay   = "No replay (.cap) file is loaded.\n\nRecord a replay first, then choose 'Render to video file'.\n\nLast replay path:\n%s";
+    ls->infoRecorderComplete    = "Fichier vidéo enregistré :\n  %s";
     ls->infoToastSaved          = "Enregistré : %s";
 
 

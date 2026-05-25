@@ -81,6 +81,11 @@ typedef struct {
     char* errorNoHelp;
     char* errorStartEmu;
     char* errorPortableReadonly;
+    char* errorRecorderTitle;
+    char* errorRecorderSaveReplay;
+    char* errorRecorderReplayMissing;
+    char* errorRecorderNoReplay;
+    char* infoRecorderComplete;
     char* infoToastSaved;
 
 

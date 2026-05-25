@@ -115,6 +115,7 @@ int boardCaptureHasData();
 int boardCaptureIsRecording();
 int boardCaptureIsPlaying();
 int boardCaptureCompleteAmount();
+int boardCaptureCheckFinish(void);
 
 UInt8 boardCaptureUInt8(UInt8 logId, UInt8 value);
 

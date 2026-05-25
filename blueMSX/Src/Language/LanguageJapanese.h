@@ -86,6 +86,11 @@ void langInitJapanese(LanguageStrings* ls)
     ls->errorNoHelp             = "blueMSX のヘルプファイルが見つかりません。";
     ls->errorStartEmu           = "blueMSX の開始に失敗しました。";
     ls->errorPortableReadonly   = "ポータブルデバイスは読込専用です。";
+    ls->errorRecorderTitle      = "blueMSX - リプレイ録画";
+    ls->errorRecorderSaveReplay = "リプレイファイルの保存に失敗しました:\n  %s\n\n保存先ディレクトリが存在し書き込み可能か確認してください。";
+    ls->errorRecorderReplayMissing = "リプレイファイルが見つかりません:\n  %s\n\nまずリプレイを録画するか、Load から既存の .cap ファイルを選択してください。";
+    ls->errorRecorderNoReplay   = "リプレイ (.cap) ファイルが読み込まれていません。\n\n先にリプレイを録画してから「動画ファイルへ書き出し」を選択してください。\n\n直近のリプレイパス:\n%s";
+    ls->infoRecorderComplete    = "動画ファイルを保存しました:\n  %s";
     ls->infoToastSaved          = "保存しました: %s";
 
 
