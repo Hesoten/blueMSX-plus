@@ -45,11 +45,15 @@ static int tmp;
 #define VDP_VRMP6R(s, X, Y) ((s)->vramRead + (((Y & 1023) << 7) + (((X & 511) >> 2)) & (s)->maskRead))
 #define VDP_VRMP7R(s, X, Y) ((s)->vramRead + (((Y &  511) << 7) + ((((X & 511) >> 2) + ((X & 2) << 15))) & (s)->maskRead))
 #define VDP_VRMP8R(s, X, Y) ((s)->vramRead + (((Y &  511) << 7) + ((((X & 255) >> 1) + ((X & 1) << 16))) & (s)->maskRead))
+/* Address the VDP as a linear 1-byte/pixel plane instead of the planar
+** bitmap modes (SM=0..3). */
+#define VDP_VRMP_NB_R(s, X, Y) ((s)->vramRead + (((Y &  511) << 8) + (X & 255) & (s)->maskRead))
 
 #define VDP_VRMP5W(s, X, Y) (tmp = ((Y & 1023) << 7) + (((X & 255) >> 1)), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
 #define VDP_VRMP6W(s, X, Y) (tmp = ((Y & 1023) << 7) + (((X & 511) >> 2)), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
 #define VDP_VRMP7W(s, X, Y) (tmp = ((Y &  511) << 7) + ((((X & 511) >> 2) + ((X & 2) << 15))), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
 #define VDP_VRMP8W(s, X, Y) (tmp = ((Y &  511) << 7) + ((((X & 255) >> 1) + ((X & 1) << 16))), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
+#define VDP_VRMP_NB_W(s, X, Y) (tmp = ((Y &  511) << 8) + (X & 255), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
 
 #define CM_ABRT  0x0
 #define CM_NOOP1 0x1
@@ -188,12 +192,14 @@ static UInt8 getPixel5(VdpCmdState* vdpCmd, int SX, int SY);
 static UInt8 getPixel6(VdpCmdState* vdpCmd, int SX, int SY);
 static UInt8 getPixel7(VdpCmdState* vdpCmd, int SX, int SY);
 static UInt8 getPixel8(VdpCmdState* vdpCmd, int SX, int SY);
+static UInt8 getPixelNB(VdpCmdState* vdpCmd, int SX, int SY);
 
 static void setPixel(VdpCmdState* vdpCmd, UInt8 SM, int DX, int DY, UInt8 CL, UInt8 OP);
 static void setPixel5(VdpCmdState* vdpCmd, int DX, int DY, UInt8 CL, UInt8 OP);
 static void setPixel6(VdpCmdState* vdpCmd, int DX, int DY, UInt8 CL, UInt8 OP);
 static void setPixel7(VdpCmdState* vdpCmd, int DX, int DY, UInt8 CL, UInt8 OP);
 static void setPixel8(VdpCmdState* vdpCmd, int DX, int DY, UInt8 CL, UInt8 OP);
+static void setPixelNB(VdpCmdState* vdpCmd, int DX, int DY, UInt8 CL, UInt8 OP);
 
 static void setPixelLow(UInt8 *P, UInt8 CL, UInt8 M, UInt8 OP);
 
@@ -213,9 +219,12 @@ static void HmmcEngine(VdpCmdState* vdpCmd);
 ** Constants
 **************************************************************
 */
-static UInt8 Mask[4] = { 0x0f, 0x03, 0x0f, 0xff };
-static int   PPB[4]  = { 2, 4, 2, 1 };
-static int   PPL[4]  = { 256, 512, 512, 256 };
+/* Index 4 = linear (non-bitmap) addressing: 1 pixel/byte, 256 px/line,
+** no even/odd 64KB plane split.
+*/
+static UInt8 Mask[5] = { 0x0f, 0x03, 0x0f, 0xff, 0xff };
+static int   PPB[5]  = { 2, 4, 2, 1, 1 };
+static int   PPL[5]  = { 256, 512, 512, 256, 256 };
 
 
 static int srch_timing[8] = { 92,  125, 92,  92  };
@@ -245,6 +254,8 @@ INLINE UInt8 *getVramPointerW(VdpCmdState* vdpCmd, UInt8 M,int X,int Y)
         return VDP_VRMP7W(vdpCmd, X, Y);
     case 3: 
         return VDP_VRMP8W(vdpCmd, X, Y);
+    case 4:
+        return VDP_VRMP_NB_W(vdpCmd, X, Y);
     }
 
     return vdpCmd->vramWrite;
@@ -298,6 +309,12 @@ INLINE UInt8 getPixel8(VdpCmdState* vdpCmd, int SX, int SY)
     return *VDP_VRMP8R(vdpCmd, SX, SY);
 }
 
+/* Linear (non-bitmap) read; 1 byte/pixel. */
+INLINE UInt8 getPixelNB(VdpCmdState* vdpCmd, int SX, int SY)
+{
+    return *VDP_VRMP_NB_R(vdpCmd, SX, SY);
+}
+
 /*************************************************************
 ** getPixel
 **
@@ -315,6 +332,8 @@ INLINE UInt8 getPixel(VdpCmdState* vdpCmd, UInt8 SM, int SX, int SY)
         return getPixel7(vdpCmd, SX, SY);
     case 3: 
         return getPixel8(vdpCmd, SX, SY);
+    case 4:
+        return getPixelNB(vdpCmd, SX, SY);
     }
 
     return 0;
@@ -421,6 +440,12 @@ INLINE void setPixel8(VdpCmdState* vdpCmd, int DX, int DY, UInt8 CL, UInt8 OP)
     setPixelLow(VDP_VRMP8W(vdpCmd, DX, DY), CL, 0, OP);
 }
 
+/* Linear (non-bitmap) write; 1 byte/pixel. */
+INLINE void setPixelNB(VdpCmdState* vdpCmd, int DX, int DY, UInt8 CL, UInt8 OP)
+{
+    setPixelLow(VDP_VRMP_NB_W(vdpCmd, DX, DY), CL, 0, OP);
+}
+
 /*************************************************************
 ** setPixel
 **
@@ -435,6 +460,7 @@ INLINE void setPixel(VdpCmdState* vdpCmd, UInt8 SM, int DX, int DY, UInt8 CL, UI
     case 1: setPixel6(vdpCmd, DX, DY, CL, OP); break;
     case 2: setPixel7(vdpCmd, DX, DY, CL, OP); break;
     case 3: setPixel8(vdpCmd, DX, DY, CL, OP); break;
+    case 4: setPixelNB(vdpCmd, DX, DY, CL, OP); break;
     }
 }
 
@@ -484,6 +510,9 @@ static void SrchEngine(VdpCmdState* vdpCmd)
         break;
     case 3: 
         pre_srch getPixel8(vdpCmd, SX, SY) post_srch(256)
+        break;
+    case 4: 
+        pre_srch getPixelNB(vdpCmd, SX, SY) post_srch(256)
         break;
     }
 
@@ -561,6 +590,9 @@ static void LineEngine(VdpCmdState* vdpCmd)
         case 3: 
             pre_loop setPixel8(vdpCmd, DX, DY, CL, LO); post_linexmaj(256)
             break;
+        case 4: 
+            pre_loop setPixelNB(vdpCmd, DX, DY, CL, LO); post_linexmaj(256)
+            break;
         }
     }
     else {
@@ -577,6 +609,9 @@ static void LineEngine(VdpCmdState* vdpCmd)
             break;
         case 3: 
             pre_loop setPixel8(vdpCmd, DX, DY, CL, LO); post_lineymaj(256)
+            break;
+        case 4: 
+            pre_loop setPixelNB(vdpCmd, DX, DY, CL, LO); post_lineymaj(256)
             break;
         }
     }
@@ -631,6 +666,9 @@ static void LmmvEngine(VdpCmdState* vdpCmd)
         break;
     case 3: 
         pre_loop setPixel8(vdpCmd, ADX, DY, CL, LO); post__x_y(256)
+        break;
+    case 4: 
+        pre_loop setPixelNB(vdpCmd, ADX, DY, CL, LO); post__x_y(256)
         break;
     }
 
@@ -687,6 +725,9 @@ static void LmmmEngine(VdpCmdState* vdpCmd)
         break;
     case 3: 
         pre_loop setPixel8(vdpCmd, ADX, DY, getPixel8(vdpCmd, ASX, SY), LO); post_xxyy(256)
+        break;
+    case 4: 
+        pre_loop setPixelNB(vdpCmd, ADX, DY, getPixelNB(vdpCmd, ASX, SY), LO); post_xxyy(256)
         break;
     }
 
@@ -801,6 +842,9 @@ static void HmmvEngine(VdpCmdState* vdpCmd)
     case 3: 
         pre_loop *VDP_VRMP8W(vdpCmd, ADX, DY) = CL; post__x_y(256)
         break;
+    case 4: 
+        pre_loop *VDP_VRMP_NB_W(vdpCmd, ADX, DY) = CL; post__x_y(256)
+        break;
     }
 
     if ((vdpCmd->VdpOpsCnt=cnt)>0) {
@@ -841,6 +885,9 @@ static void HmmmEngine(VdpCmdState* vdpCmd)
         break;
     case 3: 
         pre_loop2 *VDP_VRMP8W(vdpCmd, vdpCmd->ADX, vdpCmd->DY) = *VDP_VRMP8R(vdpCmd, vdpCmd->ASX, vdpCmd->SY); post_xxyy2(256)
+        break;
+    case 4: 
+        pre_loop2 *VDP_VRMP_NB_W(vdpCmd, vdpCmd->ADX, vdpCmd->DY) = *VDP_VRMP_NB_R(vdpCmd, vdpCmd->ASX, vdpCmd->SY); post_xxyy2(256)
         break;
     }
 
@@ -884,6 +931,9 @@ static void YmmmEngine(VdpCmdState* vdpCmd)
         break;
     case 3: 
         pre_loop *VDP_VRMP8W(vdpCmd, ADX, DY) = *VDP_VRMP8R(vdpCmd, ADX, SY); post__xyy(256)
+        break;
+    case 4: 
+        pre_loop *VDP_VRMP_NB_W(vdpCmd, ADX, DY) = *VDP_VRMP_NB_R(vdpCmd, ADX, SY); post__xyy(256)
         break;
     }
 
@@ -1144,7 +1194,9 @@ void vdpSetScreenMode(VdpCmdState* vdpCmd, int screenMode, int commandEnable) {
     }
     else if (screenMode < 5 || screenMode > 12) {
         if (commandEnable) {
-            screenMode = 2;
+            /* R#25 bit 6 (CMD) with a non-bitmap screen selects the */
+            /* linear (SM=4) addressing path.                        */
+            screenMode = 4;
         }
         else {
             screenMode = -1;
