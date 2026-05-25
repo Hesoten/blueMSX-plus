@@ -5,6 +5,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -78,7 +81,7 @@ void InputDialog::setPosition(int x, int y)
     SetWindowPos(hwnd, NULL, x, y, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
 }
 
-BOOL CALLBACK InputDialog::dlgStaticProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
+INT_PTR CALLBACK InputDialog::dlgStaticProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     if (iMsg == WM_INITDIALOG) {
         ((InputDialog*)lParam)->initControl(hwnd);
@@ -101,6 +104,23 @@ void InputDialog::initControl(HWND thisHwnd)
     RECT r;
     GetClientRect(hwnd, &r);
     SetWindowPos(GetDlgItem(hwnd, IDC_ADDRESS), NULL, 0, 0, r.right, r.bottom, SWP_NOZORDER);
+
+    /* Apply dark background + caret to the richedit child so Memory's
+    ** address textbox stops rendering as a white island. */
+    if (IsDarkMode()) {
+        ApplyDarkMode(hwnd);
+        HWND hEdit = GetDlgItem(hwnd, IDC_ADDRESS);
+        if (hEdit) {
+            CHARFORMAT2W cf;
+            memset(&cf, 0, sizeof(cf));
+            cf.cbSize = sizeof(cf);
+            cf.dwMask = CFM_COLOR | CFM_BACKCOLOR;
+            cf.crTextColor = GetDarkFg();
+            cf.crBackColor = GetDarkBg();
+            SendMessageW(hEdit, EM_SETCHARFORMAT, SCF_ALL, (LPARAM)&cf);
+            SendMessageW(hEdit, EM_SETBKGNDCOLOR, FALSE, GetDarkBg());
+        }
+    }
 }
 
 void InputDialog::initRichEditControlDll()
@@ -298,7 +318,7 @@ BOOL HexInputDialog::dlgProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
                                     SendMessage(GetParent(hwnd), EC_NEWVALUE, (WPARAM)this, fastValue);
                                 }
                             }
-                            SetWindowLong(hwnd, DWL_MSGRESULT, 1);
+                            SetWindowLong(hwnd, DWLP_MSGRESULT, 1);
                             return TRUE;
                         }
 
@@ -311,7 +331,7 @@ BOOL HexInputDialog::dlgProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
                                 if (keyCode >= 'a' && keyCode <= 'f') {
                                     keyfilter->wParam -= 'a' - 'A';
                                 }
-                                SetWindowLong(hwnd, DWL_MSGRESULT, 0);
+                                SetWindowLong(hwnd, DWLP_MSGRESULT, 0);
                                 return TRUE;
                             }
                         }
@@ -319,11 +339,11 @@ BOOL HexInputDialog::dlgProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
                             SendMessage(GetParent(hwnd), EC_NEWVALUE, (WPARAM)this, getValue());
                         }
                         else if (symbolInfo != NULL || cpuRegisters != NULL) {
-                            SetWindowLong(hwnd, DWL_MSGRESULT, 0);
+                            SetWindowLong(hwnd, DWLP_MSGRESULT, 0);
                             return TRUE;
                         }
 
-                        SetWindowLong(hwnd, DWL_MSGRESULT, 1);
+                        SetWindowLong(hwnd, DWLP_MSGRESULT, 1);
                         return TRUE;
                     }
                 }
@@ -424,22 +444,22 @@ BOOL TextInputDialog::dlgProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
                             if (charCount == chars) {
                                 SendMessage(GetParent(hwnd), EC_NEWVALUE, (WPARAM)this, (LPARAM)text);
                             }
-                            SetWindowLong(hwnd, DWL_MSGRESULT, 1);
+                            SetWindowLong(hwnd, DWLP_MSGRESULT, 1);
                             return TRUE;
                         }
 
 
                         if (keyCode == '\r' || keyCode == '\n') {
                             SendMessage(GetParent(hwnd), EC_NEWVALUE, (WPARAM)this, (LPARAM)getValue());
-                            SetWindowLong(hwnd, DWL_MSGRESULT, 1);
+                            SetWindowLong(hwnd, DWLP_MSGRESULT, 1);
                             return TRUE;
                         }
                         
                         if (len - selLen < chars) {
-                            SetWindowLong(hwnd, DWL_MSGRESULT, 0);
+                            SetWindowLong(hwnd, DWLP_MSGRESULT, 0);
                         }
                         else {
-                            SetWindowLong(hwnd, DWL_MSGRESULT, 1);
+                            SetWindowLong(hwnd, DWLP_MSGRESULT, 1);
                         }
                         return TRUE;
                     }

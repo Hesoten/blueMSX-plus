@@ -34,21 +34,22 @@ class LanguageJapanese : public LanguageEnglish
 {
 public:
     LanguageJapanese() {
-        traceWindowName         = "Trace Logger";
-        traceWindowCaption      = "blueMSX - Trace Logger";
-        openWindowCaption       = "Open Log File";
+        traceWindowName         = "トレースロガー";
+        traceWindowCaption      = "blueMSX - トレースロガー";
+        openWindowCaption       = "ログファイルを開く";
 
-        menuFile                = "File";
-        menuFileLogToFile       = "Log to File";
-        menuFileExit            = "Exit";
+        menuFile                = "ファイル";
+        menuFileLogToFile       = "ファイルにログ出力...";
+        menuFileStopLogToFile   = "ログ出力を停止";
+        menuFileExit            = "終了";
         
-        menuEdit                = "Edit";
-        menuEditSelectAll       = "Select All";
-        menuEditCopy            = "Copy";
-        menuEditClearWindow     = "Clear Window";
+        menuEdit                = "編集";
+        menuEditSelectAll       = "すべて選択";
+        menuEditCopy            = "コピー";
+        menuEditClearWindow     = "ウインドウをクリア";
 
-        menuHelp                = "Help";
-        menuHelpAbout           = "About";
+        menuHelp                = "ヘルプ";
+        menuHelpAbout           = "バージョン情報...";
 
         aboutBuilt              = "ビルド:";
         aboutVisit              = "詳しい情報は http://www.bluemsx.com まで";

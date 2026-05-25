@@ -5,6 +5,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -26,6 +29,8 @@
 #include "PeripheralRegs.h"
 #include "Resource.h"
 #include "Language.h"
+#include "Win32TextUtf8.h"
+#include "ToolInterface.h"
 #include <stdio.h>
 #include <string>
 
@@ -46,22 +51,23 @@ static LRESULT CALLBACK regViewWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPAR
     return DefWindowProc(hwnd, iMsg, wParam, lParam);
 }
 
-static BOOL CALLBACK wndToolProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static INT_PTR CALLBACK wndToolProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     return periRegs->toolDlgProc(hwnd, iMsg, wParam, lParam);
 }
 
 void PeripheralRegs::updateDropdown()
 {
-    while (CB_ERR != SendDlgItemMessage(toolHwnd, IDC_REGISTERS, CB_DELETESTRING, 0, 0));
+    HWND hCombo = GetDlgItem(toolHwnd, IDC_REGISTERS);
+    while (CB_ERR != SendMessageW(hCombo, CB_DELETESTRING, 0, 0));
 
     int index = 0;
     MemList::iterator it;
     for (it = regList.begin(); it != regList.end(); ++it) {
         RegisterItem* r = *it;
-        SendDlgItemMessage(toolHwnd, IDC_REGISTERS, CB_ADDSTRING, 0, (LPARAM)r->title.c_str());
+        ComboAddStringU(hCombo, r->title.c_str());
         if (index == 0 || (currentRegs && currentRegs->title == r->title)) {
-            SendDlgItemMessage(toolHwnd, IDC_REGISTERS, CB_SETCURSEL, index, 0);
+            SendMessageW(hCombo, CB_SETCURSEL, index, 0);
         }
     }
 }
@@ -84,7 +90,8 @@ BOOL PeripheralRegs::toolDlgProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPa
 {
     switch (iMsg) {
     case WM_INITDIALOG:
-        SendDlgItemMessage(hwnd, IDC_TEXT_REGISTERS, WM_SETTEXT, 0, (LPARAM)Language::memWindowRegisters);
+        ApplyDarkMode(hwnd);
+        SetDlgItemTextU(hwnd, IDC_TEXT_REGISTERS, Language::memWindowRegisters);
         return FALSE;
 
     case WM_LBUTTONDOWN:
@@ -95,11 +102,13 @@ BOOL PeripheralRegs::toolDlgProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPa
         switch (LOWORD(wParam)) {
         case IDC_REGISTERS:
             if (HIWORD(wParam) == CBN_SELCHANGE) {
-                char buffer[128];
-                int idx = SendDlgItemMessage(hwnd, IDC_REGISTERS, CB_GETCURSEL, 0, 0);
-                int rv = SendDlgItemMessage(hwnd, IDC_REGISTERS, CB_GETLBTEXT, idx, (LPARAM)buffer);
+                wchar_t wbuf[128];
+                int idx = (int)SendDlgItemMessageW(hwnd, IDC_REGISTERS, CB_GETCURSEL, 0, 0);
+                int rv  = (int)SendDlgItemMessageW(hwnd, IDC_REGISTERS, CB_GETLBTEXT, idx, (LPARAM)wbuf);
                 if (rv != CB_ERR) {
-                    setNewRegisters(buffer);
+                    char utf8[256];
+                    WideCharToMultiByte(CP_UTF8, 0, wbuf, -1, utf8, sizeof(utf8), NULL, NULL);
+                    setNewRegisters(utf8);
                 }
             }
             break;
@@ -155,16 +164,17 @@ LRESULT PeripheralRegs::regWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
         HDC hdc = GetDC(hwnd);
         hMemdc = CreateCompatibleDC(hdc);
         ReleaseDC(hwnd, hdc);
-        colorBlack = RGB(0, 0, 0);
-        colorGray  = RGB(128, 128, 128);
-        colorRed   = RGB(255, 0, 0);
+        BOOL dark = IsDarkMode();
+        colorBlack = dark ? GetDarkFg()        : RGB(0, 0, 0);
+        colorGray  = dark ? RGB(180, 180, 180) : RGB(128, 128, 128);
+        colorRed   = dark ? RGB(255, 100, 100) : RGB(255, 0, 0);
         SetBkMode(hMemdc, TRANSPARENT);
-        hFont = CreateFont(-MulDiv(10, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
-        hFontBold = CreateFont(-MulDiv(10, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, FW_SEMIBOLD, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
+        hFont = CreateFont(-MulDiv(12, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
+        hFontBold = CreateFont(-MulDiv(12, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, FW_SEMIBOLD, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
         
-        hBrushWhite  = CreateSolidBrush(RGB(255, 255, 255));
-        hBrushLtGray = CreateSolidBrush(RGB(239, 237, 222));
-        hBrushDkGray = CreateSolidBrush(RGB(128, 128, 128));
+        hBrushWhite  = CreateSolidBrush(dark ? GetDarkBg()        : RGB(255, 255, 255));
+        hBrushLtGray = CreateSolidBrush(dark ? RGB( 48,  48,  48) : RGB(239, 237, 222));
+        hBrushDkGray = CreateSolidBrush(dark ? RGB( 70,  70,  70) : RGB(128, 128, 128));
 
         SelectObject(hMemdc, hFont); 
         TEXTMETRIC tm;
@@ -177,6 +187,7 @@ LRESULT PeripheralRegs::regWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
         dataInput4 = new HexInputDialog(hwnd, -100,0,45,22,4);
         dataInput2->hide();
         dataInput4->hide();
+        darkSubWindow(hwnd);
         return 0;
     }
 

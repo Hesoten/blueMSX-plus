@@ -5,6 +5,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -26,6 +29,8 @@
 #include "Memory.h"
 #include "Resource.h"
 #include "Language.h"
+#include "Win32TextUtf8.h"
+#include "ToolInterface.h"
 #include <stdio.h>
 #include <string>
 
@@ -46,22 +51,23 @@ static LRESULT CALLBACK memViewWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPAR
     return DefWindowProc(hwnd, iMsg, wParam, lParam);
 }
 
-static BOOL CALLBACK wndToolProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static INT_PTR CALLBACK wndToolProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     return memory->toolDlgProc(hwnd, iMsg, wParam, lParam);
 }
 
 void Memory::updateDropdown()
 {
-    while (CB_ERR != SendDlgItemMessage(toolHwnd, IDC_MEMORY, CB_DELETESTRING, 0, 0));
+    HWND hCombo = GetDlgItem(toolHwnd, IDC_MEMORY);
+    while (CB_ERR != SendMessageW(hCombo, CB_DELETESTRING, 0, 0));
 
     int index = 0;
     MemList::iterator it;
     for (it = memList.begin(); it != memList.end(); ++it) {
         MemoryItem* mi = *it;
-        SendDlgItemMessage(toolHwnd, IDC_MEMORY, CB_ADDSTRING, 0, (LPARAM)mi->title.c_str());
+        ComboAddStringU(hCombo, mi->title.c_str());
         if (index == 0 || (currentMemory && currentMemory->title == mi->title)) {
-            SendDlgItemMessage(toolHwnd, IDC_MEMORY, CB_SETCURSEL, index, 0);
+            SendMessageW(hCombo, CB_SETCURSEL, index, 0);
         }
     }
 }
@@ -84,9 +90,20 @@ BOOL Memory::toolDlgProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (iMsg) {
     case WM_INITDIALOG:
-        addressInput = new HexInputDialog(hwnd, 330,3,75,22,6, true, symbolInfo, cpuRegisters);
-        SendDlgItemMessage(hwnd, IDC_TEXT_ADDRESS, WM_SETTEXT, 0, (LPARAM)Language::memWindowAddress);
-        SendDlgItemMessage(hwnd, IDC_TEXT_MEMORY, WM_SETTEXT, 0, (LPARAM)Language::memWindowMemory);
+        ApplyDarkMode(hwnd);
+        SetDlgItemTextU(hwnd, IDC_TEXT_ADDRESS, Language::memWindowAddress);
+        SetDlgItemTextU(hwnd, IDC_TEXT_MEMORY,  Language::memWindowMemory);
+        /* Anchor the hex input to the label's actual right edge -- the old
+        ** hard-coded x=330 (96-DPI) overlaps the memory dropdown when scaled. */
+        {
+            HWND lbl = GetDlgItem(hwnd, IDC_TEXT_ADDRESS);
+            RECT lblR;
+            GetWindowRect(lbl, &lblR);
+            POINT pt = { lblR.right, lblR.top };
+            ScreenToClient(hwnd, &pt);
+            int inH = lblR.bottom - lblR.top + 6;
+            addressInput = new HexInputDialog(hwnd, pt.x + 5, pt.y - 2, 75, inH, 6, true, symbolInfo, cpuRegisters);
+        }
         return FALSE;
 
     case WM_LBUTTONDOWN:
@@ -97,11 +114,13 @@ BOOL Memory::toolDlgProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
         switch (LOWORD(wParam)) {
         case IDC_MEMORY:
             if (HIWORD(wParam) == CBN_SELCHANGE) {
-                char buffer[128];
-                int idx = SendDlgItemMessage(hwnd, IDC_MEMORY, CB_GETCURSEL, 0, 0);
-                int rv = SendDlgItemMessage(hwnd, IDC_MEMORY, CB_GETLBTEXT, idx, (LPARAM)buffer);
+                wchar_t wbuf[128];
+                int idx = (int)SendDlgItemMessageW(hwnd, IDC_MEMORY, CB_GETCURSEL, 0, 0);
+                int rv  = (int)SendDlgItemMessageW(hwnd, IDC_MEMORY, CB_GETLBTEXT, idx, (LPARAM)wbuf);
                 if (rv != CB_ERR) {
-                    setNewMemory(buffer);
+                    char utf8[256];
+                    WideCharToMultiByte(CP_UTF8, 0, wbuf, -1, utf8, sizeof(utf8), NULL, NULL);
+                    setNewMemory(utf8);
                 }
             }
             break;
@@ -164,16 +183,17 @@ LRESULT Memory::memWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
         HDC hdc = GetDC(hwnd);
         hMemdc = CreateCompatibleDC(hdc);
         ReleaseDC(hwnd, hdc);
-        colorBlack = RGB(0, 0, 0);
-        colorGray  = RGB(128, 128, 128);
-        colorLtGray  = RGB(192, 192, 192);
-        colorRed   = RGB(255, 0, 0);
+        BOOL dark = IsDarkMode();
+        colorBlack  = dark ? GetDarkFg()        : RGB(0, 0, 0);
+        colorGray   = dark ? RGB(180, 180, 180) : RGB(128, 128, 128);
+        colorLtGray = dark ? RGB(140, 140, 140) : RGB(192, 192, 192);
+        colorRed    = dark ? RGB(255, 100, 100) : RGB(255, 0, 0);
         SetBkMode(hMemdc, TRANSPARENT);
-        hFont = CreateFont(-MulDiv(10, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
+        hFont = CreateFont(-MulDiv(12, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
 
-        hBrushWhite  = CreateSolidBrush(RGB(255, 255, 255));
-        hBrushLtGray = CreateSolidBrush(RGB(239, 237, 222));
-        hBrushDkGray = CreateSolidBrush(RGB(128, 128, 128));
+        hBrushWhite  = CreateSolidBrush(dark ? GetDarkBg()        : RGB(255, 255, 255));
+        hBrushLtGray = CreateSolidBrush(dark ? RGB( 48,  48,  48) : RGB(239, 237, 222));
+        hBrushDkGray = CreateSolidBrush(dark ? RGB( 70,  70,  70) : RGB(128, 128, 128));
 
         SelectObject(hMemdc, hFont); 
         TEXTMETRIC tm;
@@ -186,6 +206,7 @@ LRESULT Memory::memWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
         dataInput2 = new HexInputDialog(hwnd, -100,0,22,22,2);
         dataInput1->hide();
         dataInput2->hide();
+        darkSubWindow(hwnd);
         return 0;
     }
 
@@ -443,7 +464,7 @@ void Memory::showEdit(InputDialog* dataInput, DWORD address)
 
 bool Memory::writeToFile(const char* fileName)
 {
-    FILE* f = fopen(fileName, "wb+");
+    FILE* f = fopenU(fileName, "wb+");
     if (f == NULL) {
         return false;
     }
@@ -724,7 +745,7 @@ void Memory::drawText(int top, int bottom)
             char addrText[16];
             for (j = 0; j < memPerRow; j++) {
                 sprintf(addrText, "+%.1X", j & 15);
-                DrawText(hMemdc, addrText, strlen(addrText), &r, DT_LEFT);
+                DrawTextU(hMemdc, addrText, (int)strlen(addrText), &r, DT_LEFT);
                 
                 r.left  += textWidth * 3;
                 r.right += textWidth * 3;
@@ -735,7 +756,7 @@ void Memory::drawText(int top, int bottom)
 
             for (j = 0; j < memPerRow; j++) {
                 sprintf(addrText, "%.1X", j & 15);
-                DrawText(hMemdc, addrText, strlen(addrText), &r, DT_LEFT);
+                DrawTextU(hMemdc, addrText, (int)strlen(addrText), &r, DT_LEFT);
                 r.left  += textWidth * 1;
                 r.right += textWidth * 1;
             }
@@ -749,7 +770,7 @@ void Memory::drawText(int top, int bottom)
         sprintf(addrText, "%.6X", addr);
 
         SetTextColor(hMemdc, colorGray);
-        DrawText(hMemdc, addrText, strlen(addrText), &r, DT_LEFT);
+        DrawTextU(hMemdc, addrText, (int)strlen(addrText), &r, DT_LEFT);
 
         r.left  += textWidth * 8;
         r.right += textWidth * 8;
@@ -771,7 +792,7 @@ void Memory::drawText(int top, int bottom)
             }
             
             sprintf(addrText, "%.2x", val);
-            DrawText(hMemdc, addrText, strlen(addrText), &r, DT_LEFT);
+            DrawTextU(hMemdc, addrText, (int)strlen(addrText), &r, DT_LEFT);
             
             r.left  += textWidth * 3;
             r.right += textWidth * 3;
@@ -795,9 +816,13 @@ void Memory::drawText(int top, int bottom)
                 SetTextColor(hMemdc, colorRed);
             }
 
-            sprintf(addrText, "%c", val);
+            /* Replace non-printable bytes (control chars + high-bit) with '.'
+            ** so the ASCII column shows readable glyphs instead of system
+            ** "missing glyph" boxes / CP932 lead-byte mojibake. */
+            char ch = (val >= 0x20 && val < 0x7F) ? (char)val : '.';
+            sprintf(addrText, "%c", ch);
             
-            DrawText(hMemdc, addrText, strlen(addrText), &r, DT_LEFT);
+            DrawTextU(hMemdc, addrText, (int)strlen(addrText), &r, DT_LEFT);
             
             r.left  += textWidth * 1;
             r.right += textWidth * 1;

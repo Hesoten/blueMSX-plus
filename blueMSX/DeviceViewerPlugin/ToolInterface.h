@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -74,6 +77,20 @@ void SetWatchpoint(DeviceType devType, int address, WatchpointCondition conditio
 void ClearWatchpoint(DeviceType devType, int address);
 
 HINSTANCE GetDllHinstance();
+
+/* Host extensions: dark mode + IFileDialog. Each helper degrades to
+** no-op / FALSE / RGB(255,255,255) when loaded by an older host. */
+void ApplyDarkMode(HWND hWnd);
+bool IsDarkMode();
+COLORREF GetDarkBg();
+COLORREF GetDarkFg();
+HBRUSH GetDarkBgBrush();
+bool ShellOpenFileDialog(HWND owner, const char* title, const char* filter,
+                         const char* initialDir, const char* defExt,
+                         int* filterIndex, char* outPath, int outPathCap);
+bool ShellSaveFileDialog(HWND owner, const char* title, const char* filter,
+                         const char* initialDir, const char* defExt,
+                         int* filterIndex, char* outPath, int outPathCap);
 
 //
 // To be implemented by the user....

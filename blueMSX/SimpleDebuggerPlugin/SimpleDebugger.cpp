@@ -16,12 +16,30 @@
 #include "IniFileParser.h"
 #include "InputDialogs.h"
 #include "resrc1.h"
+#include "Win32TextUtf8.h"
 #include <string>
 #include <commctrl.h>
 #include <sstream>
 #include <iomanip>
 
 using namespace std;
+
+/* DPI scaling helper: returns the input pixel value scaled for the window's
+** monitor DPI. Falls back to 96 DPI on pre-1607 Windows. */
+static int dpiScale(HWND hRef, int px96)
+{
+    typedef UINT (WINAPI *PFN_GetDpiForWindow)(HWND);
+    static PFN_GetDpiForWindow pGetDpi = NULL;
+    static BOOL resolved = FALSE;
+    if (!resolved) {
+        HMODULE h = GetModuleHandleW(L"user32.dll");
+        if (h) pGetDpi = (PFN_GetDpiForWindow)GetProcAddress(h, "GetDpiForWindow");
+        resolved = TRUE;
+    }
+    UINT dpi = (pGetDpi && hRef) ? pGetDpi(hRef) : 96;
+    if (dpi <= 0) dpi = 96;
+    return MulDiv(px96, dpi, 96);
+}
 
 static int x;
 static int y;
@@ -181,13 +199,13 @@ static void updateStatusBar()
 
     switch (GetEmulatorState()) {
     case EMULATOR_RUNNING:
-        statusBar->setField(1, "Running");
+        statusBar->setField(1, Language::statusRunning);
         break;
     case EMULATOR_PAUSED:
-        statusBar->setField(1, "Paused");
+        statusBar->setField(1, Language::statusPaused);
         break;
     case EMULATOR_STOPPED:
-        statusBar->setField(1, "Stopped");
+        statusBar->setField(1, Language::statusStopped);
         break;
     }
 }
@@ -240,120 +258,120 @@ static void updateWindowMenu()
     HMENU hMenuFile = CreatePopupMenu();
 
     sprintf(buf, "%s", Language::menuFileLoadSymbolFile);
-    AppendMenu(hMenuFile, MF_STRING, MENU_FILE_LOADSYM, buf);
+    AppendMenuU(hMenuFile, MF_STRING, MENU_FILE_LOADSYM, buf);
 
     sprintf(buf, "%s", Language::menuFileSaveDisassembly);
-    AppendMenu(hMenuFile, MF_STRING, MENU_FILE_SAVEDASM, buf);
+    AppendMenuU(hMenuFile, MF_STRING, MENU_FILE_SAVEDASM, buf);
 
     sprintf(buf, "%s", Language::menuFileSaveMemory);
-    AppendMenu(hMenuFile, MF_STRING, MENU_FILE_SAVEMEM, buf);
+    AppendMenuU(hMenuFile, MF_STRING, MENU_FILE_SAVEMEM, buf);
     
-    AppendMenu(hMenuFile, MF_SEPARATOR, 0, NULL);
+    AppendMenuU(hMenuFile, MF_SEPARATOR, 0, NULL);
 
     sprintf(buf, "%s", Language::menuFileExit);
-    AppendMenu(hMenuFile, MF_STRING, MENU_FILE_EXIT, buf);
+    AppendMenuU(hMenuFile, MF_STRING, MENU_FILE_EXIT, buf);
 
     HMENU hMenuDebug = CreatePopupMenu();
     if (state == EMULATOR_STOPPED) {
         sprintf(buf, "%s\tF5", Language::menuDebugStart);
-        AppendMenu(hMenuDebug, MF_STRING, MENU_DEBUG_CONTINUE, buf);
+        AppendMenuU(hMenuDebug, MF_STRING, MENU_DEBUG_CONTINUE, buf);
     }
     else {
         sprintf(buf, "%s\tF5", Language::menuDebugContinue);
-        AppendMenu(hMenuDebug, MF_STRING | (state != EMULATOR_RUNNING ? 0 : MF_GRAYED), MENU_DEBUG_CONTINUE, buf);
+        AppendMenuU(hMenuDebug, MF_STRING | (state != EMULATOR_RUNNING ? 0 : MF_GRAYED), MENU_DEBUG_CONTINUE, buf);
         sprintf(buf, "%s\tCtrl+Alt+Break", Language::menuDebugBreakAll);
-        AppendMenu(hMenuDebug, MF_STRING | (state == EMULATOR_RUNNING ? 0 : MF_GRAYED), MENU_DEBUG_BREAKALL, buf);
+        AppendMenuU(hMenuDebug, MF_STRING | (state == EMULATOR_RUNNING ? 0 : MF_GRAYED), MENU_DEBUG_BREAKALL, buf);
         sprintf(buf, "%s\tShift+F5", Language::menuDebugStop);
-        AppendMenu(hMenuDebug, MF_STRING                                              , MENU_DEBUG_STOP,     buf);
+        AppendMenuU(hMenuDebug, MF_STRING                                              , MENU_DEBUG_STOP,     buf);
         sprintf(buf, "%s\tCtrl+Shift+F5", Language::menuDebugRestart);
-        AppendMenu(hMenuDebug, MF_STRING                                              , MENU_DEBUG_RESTART,  buf);
+        AppendMenuU(hMenuDebug, MF_STRING                                              , MENU_DEBUG_RESTART,  buf);
     }
     sprintf(buf, "%s\tCtrl+F11", Language::menuDebugStepBack);
-    AppendMenu(hMenuDebug, MF_STRING | (state == EMULATOR_PAUSED                  ? 0 : MF_GRAYED), MENU_DEBUG_STEP_BACK, buf);
+    AppendMenuU(hMenuDebug, MF_STRING | (state == EMULATOR_PAUSED                  ? 0 : MF_GRAYED), MENU_DEBUG_STEP_BACK, buf);
     sprintf(buf, "%s\tF11", Language::menuDebugStepIn);
-    AppendMenu(hMenuDebug, MF_STRING | (state == EMULATOR_PAUSED                  ? 0 : MF_GRAYED), MENU_DEBUG_STEP, buf);
+    AppendMenuU(hMenuDebug, MF_STRING | (state == EMULATOR_PAUSED                  ? 0 : MF_GRAYED), MENU_DEBUG_STEP, buf);
     sprintf(buf, "%s\tF10", Language::menuDebugStepOver);
-    AppendMenu(hMenuDebug, MF_STRING | (state == EMULATOR_PAUSED                  ? 0 : MF_GRAYED), MENU_DEBUG_STEP_OVER, buf);
+    AppendMenuU(hMenuDebug, MF_STRING | (state == EMULATOR_PAUSED                  ? 0 : MF_GRAYED), MENU_DEBUG_STEP_OVER, buf);
     sprintf(buf, "%s\tShift+F11", Language::menuDebugStepOut);
-    AppendMenu(hMenuDebug, MF_STRING | (state == EMULATOR_PAUSED && callstack->getMostRecent() >= 0? 0 : MF_GRAYED), MENU_DEBUG_STEP_OUT, buf);
+    AppendMenuU(hMenuDebug, MF_STRING | (state == EMULATOR_PAUSED && callstack->getMostRecent() >= 0? 0 : MF_GRAYED), MENU_DEBUG_STEP_OUT, buf);
 
     sprintf(buf, "%s\tShift+F10", Language::menuDebugRunTo);
-    AppendMenu(hMenuDebug, MF_STRING | (state == EMULATOR_PAUSED && disassembly->isCursorPresent() ? 0 : MF_GRAYED), MENU_DEBUG_RUNTO, buf);
+    AppendMenuU(hMenuDebug, MF_STRING | (state == EMULATOR_PAUSED && disassembly->isCursorPresent() ? 0 : MF_GRAYED), MENU_DEBUG_RUNTO, buf);
 
-    AppendMenu(hMenuDebug, MF_SEPARATOR, 0, NULL);
+    AppendMenuU(hMenuDebug, MF_SEPARATOR, 0, NULL);
 
     sprintf(buf, "%s\tF8", Language::menuDebugShowSymbols);
-    AppendMenu(hMenuDebug, MF_STRING | (symbolInfo->getShowStatus() ? MF_CHECKED : 0), MENU_DEBUG_SHOWSYMBOLS, buf);
+    AppendMenuU(hMenuDebug, MF_STRING | (symbolInfo->getShowStatus() ? MF_CHECKED : 0), MENU_DEBUG_SHOWSYMBOLS, buf);
 
-    AppendMenu(hMenuDebug, MF_SEPARATOR, 0, NULL);
+    AppendMenuU(hMenuDebug, MF_SEPARATOR, 0, NULL);
 
     sprintf(buf, "%s\tCtrl+F", Language::menuDebugFind);
-    AppendMenu(hMenuDebug, MF_STRING | (1 ? 0 : MF_GRAYED), MENU_DEBUG_FIND, buf);
+    AppendMenuU(hMenuDebug, MF_STRING | (1 ? 0 : MF_GRAYED), MENU_DEBUG_FIND, buf);
 
-    AppendMenu(hMenuDebug, MF_SEPARATOR, 0, NULL);
+    AppendMenuU(hMenuDebug, MF_SEPARATOR, 0, NULL);
 
     sprintf(buf, "%s\tCtrl+G", Language::menuDebugGoto);
-    AppendMenu(hMenuDebug, MF_STRING | (1 ? 0 : MF_GRAYED), MENU_DEBUG_GOTO, buf);
+    AppendMenuU(hMenuDebug, MF_STRING | (1 ? 0 : MF_GRAYED), MENU_DEBUG_GOTO, buf);
 
-    AppendMenu(hMenuDebug, MF_SEPARATOR, 0, NULL);
+    AppendMenuU(hMenuDebug, MF_SEPARATOR, 0, NULL);
     
     sprintf(buf, "%s\tCtrl+B", Language::menuDebugBpAdd);
-    AppendMenu(hMenuDebug, MF_STRING | (state != EMULATOR_STOPPED && disassembly->isCursorPresent() ? 0 : MF_GRAYED), MENU_DEBUG_SETBP, buf);
+    AppendMenuU(hMenuDebug, MF_STRING | (state != EMULATOR_STOPPED && disassembly->isCursorPresent() ? 0 : MF_GRAYED), MENU_DEBUG_SETBP, buf);
     
     sprintf(buf, "%s\tF9", Language::menuDebugBpToggle);
-    AppendMenu(hMenuDebug, MF_STRING | (state != EMULATOR_STOPPED && disassembly->isCursorPresent() ? 0 : MF_GRAYED), MENU_DEBUG_BPTOGGLE, buf);
+    AppendMenuU(hMenuDebug, MF_STRING | (state != EMULATOR_STOPPED && disassembly->isCursorPresent() ? 0 : MF_GRAYED), MENU_DEBUG_BPTOGGLE, buf);
     sprintf(buf, "%s\tShift+F9", Language::menuDebugEnable);
-    AppendMenu(hMenuDebug, MF_STRING | (state != EMULATOR_STOPPED && disassembly->isBpOnCcursor() ? 0 : MF_GRAYED), MENU_DEBUG_BPENABLE, buf);
+    AppendMenuU(hMenuDebug, MF_STRING | (state != EMULATOR_STOPPED && disassembly->isBpOnCcursor() ? 0 : MF_GRAYED), MENU_DEBUG_BPENABLE, buf);
 
-    AppendMenu(hMenuDebug, MF_SEPARATOR, 0, NULL);
+    AppendMenuU(hMenuDebug, MF_SEPARATOR, 0, NULL);
 
     sprintf(buf, "%s\tCtrl+W", Language::menuDebugWpAdd);
-    AppendMenu(hMenuDebug, MF_STRING | (state != EMULATOR_STOPPED && disassembly->isCursorPresent() ? 0 : MF_GRAYED), MENU_DEBUG_SETWP, buf);
+    AppendMenuU(hMenuDebug, MF_STRING | (state != EMULATOR_STOPPED && disassembly->isCursorPresent() ? 0 : MF_GRAYED), MENU_DEBUG_SETWP, buf);
 
-    AppendMenu(hMenuDebug, MF_SEPARATOR, 0, NULL);
+    AppendMenuU(hMenuDebug, MF_SEPARATOR, 0, NULL);
 
     sprintf(buf, "%s\tCtrl+Shift+F9", Language::menuDebugRemoveAll);
-    AppendMenu(hMenuDebug, MF_STRING | (breakpoints->getEnabledBpCount() || breakpoints->getDisabledBpCount() ? 0 : MF_GRAYED), MENU_DEBUG_BPREMOVEALL, buf);
+    AppendMenuU(hMenuDebug, MF_STRING | (breakpoints->getEnabledBpCount() || breakpoints->getDisabledBpCount() ? 0 : MF_GRAYED), MENU_DEBUG_BPREMOVEALL, buf);
     sprintf(buf, "%s", Language::menuDebugEnableAll);
-    AppendMenu(hMenuDebug, MF_STRING | (breakpoints->getDisabledBpCount() ? 0 : MF_GRAYED), MENU_DEBUG_BPENABLEALL, buf);
+    AppendMenuU(hMenuDebug, MF_STRING | (breakpoints->getDisabledBpCount() ? 0 : MF_GRAYED), MENU_DEBUG_BPENABLEALL, buf);
     sprintf(buf, "%s", Language::menuDebugDisableAll);
-    AppendMenu(hMenuDebug, MF_STRING | (breakpoints->getEnabledBpCount() ? 0 : MF_GRAYED), MENU_DEBUG_BPDISABLEALL, buf);
+    AppendMenuU(hMenuDebug, MF_STRING | (breakpoints->getEnabledBpCount() ? 0 : MF_GRAYED), MENU_DEBUG_BPDISABLEALL, buf);
 
 
-    AppendMenu(hMenuDebug, MF_SEPARATOR, 0, NULL);
+    AppendMenuU(hMenuDebug, MF_SEPARATOR, 0, NULL);
 
     sprintf(buf, "%s\tCtrl+V", Language::menuDebugFastVram);
-    AppendMenu(hMenuDebug, MF_STRING | (vramCheckAccess ? MF_CHECKED : 0), MENU_DEBUG_CHECK_VRAM, buf);
+    AppendMenuU(hMenuDebug, MF_STRING | (vramCheckAccess ? MF_CHECKED : 0), MENU_DEBUG_CHECK_VRAM, buf);
 
-    AppendMenu(hMenuDebug, MF_SEPARATOR, 0, NULL);
+    AppendMenuU(hMenuDebug, MF_SEPARATOR, 0, NULL);
 
     sprintf(buf, "%s\tCtrl+M", Language::menuDebugShowAssemblyFlags);
-    AppendMenu(hMenuDebug, MF_STRING | (cpuRegisters->getFlagMode() == CpuRegisters::FM_CPU ? 0 : MF_CHECKED), MENU_DEBUG_FLAGMODE, buf);
+    AppendMenuU(hMenuDebug, MF_STRING | (cpuRegisters->getFlagMode() == CpuRegisters::FM_CPU ? 0 : MF_CHECKED), MENU_DEBUG_FLAGMODE, buf);
 
     
     HMENU hMenuWindow = CreatePopupMenu();
 
     sprintf(buf, "%s", Language::windowDisassembly);
-    AppendMenu(hMenuWindow, MF_STRING | (disassembly  && disassembly->isVisible()  ? MFS_CHECKED : 0), MENU_WINDOW_DISASSEMBLY, buf);
+    AppendMenuU(hMenuWindow, MF_STRING | (disassembly  && disassembly->isVisible()  ? MFS_CHECKED : 0), MENU_WINDOW_DISASSEMBLY, buf);
     sprintf(buf, "%s", Language::windowCpuRegisters);
-    AppendMenu(hMenuWindow, MF_STRING | (cpuRegisters && cpuRegisters->isVisible() ? MFS_CHECKED : 0), MENU_WINDOW_CPUREGISTERS, buf);
+    AppendMenuU(hMenuWindow, MF_STRING | (cpuRegisters && cpuRegisters->isVisible() ? MFS_CHECKED : 0), MENU_WINDOW_CPUREGISTERS, buf);
     sprintf(buf, "%s", Language::windowStack);
-    AppendMenu(hMenuWindow, MF_STRING | (stack        && stack->isVisible()        ? MFS_CHECKED : 0), MENU_WINDOW_STACK, buf);
+    AppendMenuU(hMenuWindow, MF_STRING | (stack        && stack->isVisible()        ? MFS_CHECKED : 0), MENU_WINDOW_STACK, buf);
     sprintf(buf, "%s", Language::windowCallstack);
-    AppendMenu(hMenuWindow, MF_STRING | (callstack    && callstack->isVisible()    ? MFS_CHECKED : 0), MENU_WINDOW_CALLSTACK, buf);
+    AppendMenuU(hMenuWindow, MF_STRING | (callstack    && callstack->isVisible()    ? MFS_CHECKED : 0), MENU_WINDOW_CALLSTACK, buf);
     sprintf(buf, "%s", Language::windowBreakpoints);
-    AppendMenu(hMenuWindow, MF_STRING | (breakpoints  && breakpoints->isVisible()  ? MFS_CHECKED : 0), MENU_WINDOW_BREAKPOINTS, buf);
+    AppendMenuU(hMenuWindow, MF_STRING | (breakpoints  && breakpoints->isVisible()  ? MFS_CHECKED : 0), MENU_WINDOW_BREAKPOINTS, buf);
     sprintf(buf, "%s", Language::windowMemory);
-    AppendMenu(hMenuWindow, MF_STRING | (memory       && memory->isVisible()       ? MFS_CHECKED : 0), MENU_WINDOW_MEMORY, buf);
+    AppendMenuU(hMenuWindow, MF_STRING | (memory       && memory->isVisible()       ? MFS_CHECKED : 0), MENU_WINDOW_MEMORY, buf);
     sprintf(buf, "%s", Language::windowPeripheralRegisters);
-    AppendMenu(hMenuWindow, MF_STRING | (periRegisters&& periRegisters->isVisible()       ? MFS_CHECKED : 0), MENU_WINDOW_PERIREGISTERS, buf);
+    AppendMenuU(hMenuWindow, MF_STRING | (periRegisters&& periRegisters->isVisible()       ? MFS_CHECKED : 0), MENU_WINDOW_PERIREGISTERS, buf);
     sprintf(buf, "%s", Language::windowIoPorts);
-    AppendMenu(hMenuWindow, MF_STRING | (ioPorts      && ioPorts->isVisible()       ? MFS_CHECKED : 0), MENU_WINDOW_IOPORTS, buf);
+    AppendMenuU(hMenuWindow, MF_STRING | (ioPorts      && ioPorts->isVisible()       ? MFS_CHECKED : 0), MENU_WINDOW_IOPORTS, buf);
     
     HMENU hMenuHelp = CreatePopupMenu();
 
     sprintf(buf, "%s", Language::menuHelpAbout);
-    AppendMenu(hMenuHelp, MF_STRING, MENU_HELP_ABOUT, buf);
+    AppendMenuU(hMenuHelp, MF_STRING, MENU_HELP_ABOUT, buf);
 
     static HMENU hMenu = NULL;
     if (hMenu != NULL) {
@@ -361,10 +379,10 @@ static void updateWindowMenu()
     }
 
     hMenu = CreateMenu();
-    AppendMenu(hMenu, MF_POPUP, (UINT)hMenuFile, Language::menuFile);
-    AppendMenu(hMenu, MF_POPUP, (UINT)hMenuDebug, Language::menuDebug);
-    AppendMenu(hMenu, MF_POPUP, (UINT)hMenuWindow, Language::menuWindow);
-    AppendMenu(hMenu, MF_POPUP, (UINT)hMenuHelp, Language::menuHelp);
+    AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuFile, Language::menuFile);
+    AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuDebug, Language::menuDebug);
+    AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuWindow, Language::menuWindow);
+    AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuHelp, Language::menuHelp);
     
     SetMenu(dbgHwnd, hMenu);
 }
@@ -376,7 +394,7 @@ UINT_PTR CALLBACK hookProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (iMsg) {
     case WM_INITDIALOG:
-        SetWindowText(GetDlgItem(hDlg, IDC_SYMBOLSAPPEND), Language::symbolWindowText);
+        SetWindowTextU(GetDlgItem(hDlg, IDC_SYMBOLSAPPEND), Language::symbolWindowText);
         SendDlgItemMessage(hDlg, IDC_SYMBOLSAPPEND, BM_SETCHECK, replaceSymbols ? BST_CHECKED : BST_UNCHECKED, 0);
         return 0;
 
@@ -454,7 +472,7 @@ void loadSymbolFile(HWND hwndOwner)
         return; 
     }
 
-    FILE* file = fopen(pFileName, "r");
+    FILE* file = fopenU(pFileName, "r");
     if (file == NULL) {
         return;
     }
@@ -520,10 +538,10 @@ void saveDisassembly(HWND hwndOwner)
         strcat(pFileName, ".asm");
     }
 
-    FILE* f = fopen(pFileName, "r");
+    FILE* f = fopenU(pFileName, "r");
     if (f != NULL) {
         fclose(f);
-        int rv = MessageBox(NULL, Language::popupOverwrite, Language::windowDebugger, MB_YESNO | MB_ICONWARNING);
+        int rv = MessageBoxU(NULL, Language::popupOverwrite, Language::windowDebugger, MB_YESNO | MB_ICONWARNING);
         if (rv != IDYES) {
             return;
         }
@@ -578,10 +596,10 @@ void saveMemory(HWND hwndOwner)
         strcat(pFileName, ".bin");
     }
 
-    FILE* f = fopen(pFileName, "r");
+    FILE* f = fopenU(pFileName, "r");
     if (f != NULL) {
         fclose(f);
-        int rv = MessageBox(NULL, Language::popupOverwrite, Language::windowDebugger, MB_YESNO | MB_ICONWARNING);
+        int rv = MessageBoxU(NULL, Language::popupOverwrite, Language::windowDebugger, MB_YESNO | MB_ICONWARNING);
         if (rv != IDYES) {
             return;
         }
@@ -902,7 +920,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
                 char text[256];
                 sprintf(text, "%s\r\n\r\n%s: " __DATE__ "\r\n\r\n%s    \r\n\r\n\r\n",
                     Language::windowDebugger, Language::aboutBuilt, Language::aboutVisit);
-                MessageBox(NULL, text, Language::windowDebugger, MB_ICONINFORMATION | MB_OK);
+                MessageBoxU(NULL, text, Language::windowDebugger, MB_ICONINFORMATION | MB_OK);
             }
             return 0;
 
@@ -1150,12 +1168,34 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             }
             return 0;
 
-        case TTN_GETDISPINFO: 
+        case TTN_GETDISPINFOW: {
+            /* Toolbar tooltip configured for Unicode (TTM_SETUNICODEFORMAT) so
+            ** the UTF-8 Language strings render without CP932 mojibake. */
+            LPNMTTDISPINFOW lpttt = (LPNMTTDISPINFOW)lParam;
+            static wchar_t wbuf[256];
+            char buf[256] = {0};
+            updateTooltip((int)lpttt->hdr.idFrom, buf);
+            MultiByteToWideChar(CP_UTF8, 0, buf, -1, wbuf, (int)_countof(wbuf));
+            lpttt->hinst    = NULL;
+            lpttt->lpszText = wbuf;
+            break;
+        }
+
+        case TTN_GETDISPINFOA:
+            /* Some controls still send the ANSI variant; fall through with
+            ** a CP932 round-trip so we never put UTF-8 bytes into szText. */
             { 
-                LPTOOLTIPTEXT lpttt = (LPTOOLTIPTEXT)lParam; 
-                lpttt->hinst = GetDllHinstance(); 
-                updateTooltip(lpttt->hdr.idFrom, lpttt->szText);
+                LPNMTTDISPINFOA lpttt = (LPNMTTDISPINFOA)lParam;
+                char buf[256] = {0};
+                wchar_t wbuf[256];
+                updateTooltip((int)lpttt->hdr.idFrom, buf);
+                if (MultiByteToWideChar(CP_UTF8, 0, buf, -1, wbuf, (int)_countof(wbuf)) > 0) {
+                    WideCharToMultiByte(CP_ACP, 0, wbuf, -1, lpttt->szText,
+                                        (int)_countof(lpttt->szText), NULL, NULL);
+                }
+                lpttt->hinst = NULL;
             }
+            break;
         }
         break;
 
@@ -1263,8 +1303,11 @@ void OnShowTool() {
 
     x       = iniFileGetInt( "Main Window", "x", CW_USEDEFAULT );
     y       = iniFileGetInt( "Main Window", "y", CW_USEDEFAULT );
-    width   = iniFileGetInt( "Main Window", "width", 800 );
-    height  = iniFileGetInt( "Main Window", "height", 740 );
+    /* Default size: 800x740 logical at 96 DPI -- DPI-scale at runtime so
+    ** initial window is comfortable on 150% / 200% monitors. Saved INI
+    ** values are stored in actual pixels and used as-is. */
+    width   = iniFileGetInt( "Main Window", "width",  dpiScale(NULL, 800) );
+    height  = iniFileGetInt( "Main Window", "height", dpiScale(NULL, 740) );
     vramCheckAccess = iniFileGetInt( "Main Window", "check vram access", 0 );
     
     if (vramCheckAccess) {
@@ -1278,22 +1321,31 @@ void OnShowTool() {
         y = GetSystemMetrics(SM_CYSCREEN) - 200;
     }
 
-    dbgHwnd = CreateWindow("msxdebugger", Language::windowDebugger, 
+    dbgHwnd = CreateWindow("msxdebugger", NULL,
                            WS_OVERLAPPEDWINDOW, 
                            x, y, width, height, NULL, NULL, GetDllHinstance(), NULL);
+    SetWindowTextU(dbgHwnd, Language::windowDebugger);
 
     viewHwnd = CreateWindow("msxdebuggerview", "", 
-                            WS_OVERLAPPED | WS_CHILD | WS_CLIPCHILDREN, CW_USEDEFAULT, CW_USEDEFAULT, 600, 500, dbgHwnd, NULL, GetDllHinstance(), NULL);
+                            WS_OVERLAPPED | WS_CHILD | WS_CLIPCHILDREN,
+                            CW_USEDEFAULT, CW_USEDEFAULT,
+                            dpiScale(dbgHwnd, 600), dpiScale(dbgHwnd, 500),
+                            dbgHwnd, NULL, GetDllHinstance(), NULL);
 
     ShowWindow(dbgHwnd, TRUE);
     ShowWindow(viewHwnd, TRUE);
+
+    /* Dark titlebar / frame / scrollbars on the debugger main window. */
+    ApplyDarkMode(dbgHwnd);
 
     symbolInfo = new SymbolInfo;
 
     std::vector<int> fieldVector;
     fieldVector.push_back(0);
-    fieldVector.push_back(70);
-    fieldVector.push_back(20);
+    /* 110px wide center field fits the JP "PAUSED" 4-char label plus
+    ** padding; DPI-scale so it still fits at 200% monitors. */
+    fieldVector.push_back(dpiScale(dbgHwnd, 110));
+    fieldVector.push_back(dpiScale(dbgHwnd,  30));
     statusBar = new StatusBar(GetDllHinstance(), dbgHwnd, fieldVector);
     updateStatusBar();
     statusBar->show();

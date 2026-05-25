@@ -5,6 +5,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -26,6 +29,8 @@
 #include "CpuRegisters.h"
 #include "Resource.h"
 #include "Language.h"
+#include "Win32TextUtf8.h"
+#include "ToolInterface.h"
 #include <stdio.h>
 
 #ifndef max
@@ -70,17 +75,18 @@ LRESULT CpuRegisters::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
         HDC hdc = GetDC(hwnd);
         hMemdc = CreateCompatibleDC(hdc);
         ReleaseDC(hwnd, hdc);
-        colorBlack = RGB(0, 0, 0);
-        colorLtGray = RGB(240, 240, 240);
-        colorGray  = RGB(64, 64, 64);
-        colorRed   = RGB(255, 0, 0);
+        BOOL dark = IsDarkMode();
+        colorBlack  = dark ? GetDarkFg()        : RGB(0, 0, 0);
+        colorLtGray = dark ? RGB( 60,  60,  60) : RGB(240, 240, 240);
+        colorGray   = dark ? RGB(180, 180, 180) : RGB(64, 64, 64);
+        colorRed    = dark ? RGB(255, 100, 100) : RGB(255, 0, 0);
         SetBkMode(hMemdc, TRANSPARENT);
-        hFont = CreateFont(-MulDiv(10, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
-        hFontBold = CreateFont(-MulDiv(10, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, FW_SEMIBOLD, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
+        hFont = CreateFont(-MulDiv(12, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
+        hFontBold = CreateFont(-MulDiv(12, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, FW_SEMIBOLD, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
 
-        hBrushWhite  = CreateSolidBrush(RGB(255, 255, 255));
-        hBrushLtGray = CreateSolidBrush(RGB(239, 237, 222));
-        hBrushDkGray = CreateSolidBrush(RGB(128, 128, 128));
+        hBrushWhite  = CreateSolidBrush(dark ? GetDarkBg()        : RGB(255, 255, 255));
+        hBrushLtGray = CreateSolidBrush(dark ? RGB( 48,  48,  48) : RGB(239, 237, 222));
+        hBrushDkGray = CreateSolidBrush(dark ? RGB( 70,  70,  70) : RGB(128, 128, 128));
 
         SelectObject(hMemdc, hFont); 
         TEXTMETRIC tm;
@@ -93,6 +99,7 @@ LRESULT CpuRegisters::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
         dataInput4 = new HexInputDialog(hwnd, -100,0,45,22,4);
         dataInput2->hide();
         dataInput4->hide();
+        darkSubWindow(hwnd);
         return 0;
     }
 
@@ -433,7 +440,7 @@ void CpuRegisters::drawText(int top, int bottom)
             SelectObject(hMemdc, hFontBold);
             SetTextColor(hMemdc, colorBlack);
             RECT r = { 10, 1, textWidth * 8, textHeight };
-            DrawText(hMemdc, Language::windowCpuRegistersFlags, 5, &r, DT_LEFT);
+            DrawTextU(hMemdc, Language::windowCpuRegistersFlags, -1, &r, DT_LEFT);
             SelectObject(hMemdc, hFont);
 
             if (flagMode == FM_CPU) {
@@ -443,7 +450,7 @@ void CpuRegisters::drawText(int top, int bottom)
                     if (regValue[0] >= 0) {
                         RECT r = { x + 1, 1, x + textWidth + 2, textHeight };
                         SetTextColor(hMemdc, (regVal & 0x80) ? colorBlack : colorLtGray);
-                        DrawText(hMemdc, "SZYHXPNC" + j, 1, &r, DT_LEFT);
+                        DrawTextU(hMemdc, "SZYHXPNC" + j, 1, &r, DT_LEFT);
                         regVal <<= 1;
                     }
                 }
@@ -463,7 +470,7 @@ void CpuRegisters::drawText(int top, int bottom)
                         case 3: txt = (regVal & 0x80) ? " M" : " P"; break;
                         case 4: txt = regValue[15] > 0 ? "EI" : "DI"; break;
                         }
-                        DrawText(hMemdc, txt, 2, &r, DT_LEFT);
+                        DrawTextU(hMemdc, txt, 2, &r, DT_LEFT);
                     }
                 }
             }
@@ -482,7 +489,7 @@ void CpuRegisters::drawText(int top, int bottom)
 
             SetTextColor(hMemdc, colorBlack);
             SelectObject(hMemdc, hFontBold);
-            DrawText(hMemdc, regName[reg], strlen(regName[reg]), &r, DT_LEFT);
+            DrawTextU(hMemdc, regName[reg], (int)strlen(regName[reg]), &r, DT_LEFT);
             SelectObject(hMemdc, hFont); 
             r.left  += 4 * textWidth;
             r.right += 4 * textWidth;
@@ -501,7 +508,7 @@ void CpuRegisters::drawText(int top, int bottom)
                     sprintf(text, "%.2X", regValue[reg]);
                 }
             }
-            DrawText(hMemdc, text, strlen(text), &r, DT_LEFT);
+            DrawTextU(hMemdc, text, (int)strlen(text), &r, DT_LEFT);
             r.left  += 6 * textWidth;
             r.right += 6 * textWidth;
         }

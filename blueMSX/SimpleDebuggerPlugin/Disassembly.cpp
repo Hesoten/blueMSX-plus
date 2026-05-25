@@ -5,6 +5,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -27,6 +30,7 @@
 #include "ToolInterface.h"
 #include "Resource.h"
 #include "Language.h"
+#include "Win32TextUtf8.h"
 #include <stdio.h>
 
 #ifndef max
@@ -415,16 +419,17 @@ LRESULT Disassembly::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
         hMemdc = CreateCompatibleDC(hdc);
         ReleaseDC(hwnd, hdc);
         SetBkMode(hMemdc, TRANSPARENT);
-        hFont = CreateFont(-MulDiv(10, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
+        hFont = CreateFont(-MulDiv(12, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
 
-        hBrushWhite  = CreateSolidBrush(RGB(255, 255, 255));
-        hBrushLtGray = CreateSolidBrush(RGB(239, 237, 222));
-        hBrushDkGray = CreateSolidBrush(RGB(232, 232, 232));
-        hBrushBlack  = CreateSolidBrush(RGB(200, 200, 255));
+        BOOL dark = IsDarkMode();
+        hBrushWhite  = CreateSolidBrush(dark ? GetDarkBg()        : RGB(255, 255, 255));
+        hBrushLtGray = CreateSolidBrush(dark ? RGB( 48,  48,  48) : RGB(239, 237, 222));
+        hBrushDkGray = CreateSolidBrush(dark ? RGB( 70,  70,  70) : RGB(232, 232, 232));
+        hBrushBlack  = CreateSolidBrush(dark ? RGB( 60,  60, 110) : RGB(200, 200, 255));
         
-        colorBlack = RGB(0, 0, 0);
+        colorBlack = dark ? GetDarkFg()        : RGB(0, 0, 0);
         colorGray  = RGB(160, 160, 160);
-        colorWhite = RGB(255, 255, 255);
+        colorWhite = dark ? GetDarkBg()        : RGB(255, 255, 255);
 
         SelectObject(hMemdc, hFont); 
         TEXTMETRIC tm;
@@ -432,6 +437,7 @@ LRESULT Disassembly::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
             textHeight = tm.tmHeight;
             textWidth = tm.tmAveCharWidth;
         }
+        darkSubWindow(hwnd);
         return 0;
     }
 
@@ -628,7 +634,7 @@ void Disassembly::refresh()
 
 bool Disassembly::writeToFile(const char* fileName)
 {
-    FILE* f = fopen(fileName, "w+");
+    FILE* f = fopenU(fileName, "w+");
     if (f == NULL) {
         return false;
     }
@@ -953,7 +959,7 @@ void Disassembly::drawText(int top, int bottom)
         if (lineInfo[i].isLabel) {
             SetTextColor(hMemdc, colorGray);
             r.left += 14 * textWidth;
-            DrawText(hMemdc, lineInfo[i].text, lineInfo[i].textLength, &r, DT_LEFT);
+            DrawTextU(hMemdc, lineInfo[i].text, lineInfo[i].textLength, &r, DT_LEFT);
             r.left -= 14 * textWidth;
         }
         else {
@@ -979,13 +985,13 @@ void Disassembly::drawText(int top, int bottom)
 
             SetTextColor(hMemdc, colorGray);
             r.left += 6 * textWidth;
-            DrawText(hMemdc, lineInfo[i].dataText, lineInfo[i].dataTextLength, &r, DT_LEFT);
+            DrawTextU(hMemdc, lineInfo[i].dataText, lineInfo[i].dataTextLength, &r, DT_LEFT);
             r.left -= 6 * textWidth;
             SetTextColor(hMemdc, i == currentLine && hasKeyboardFocus ? colorWhite : colorBlack);
 
-            DrawText(hMemdc, lineInfo[i].addr, lineInfo[i].addrLength, &r, DT_LEFT);
+            DrawTextU(hMemdc, lineInfo[i].addr, lineInfo[i].addrLength, &r, DT_LEFT);
             r.left += 18 * textWidth;
-            DrawText(hMemdc, lineInfo[i].text, lineInfo[i].textLength, &r, DT_LEFT);
+            DrawTextU(hMemdc, lineInfo[i].text, lineInfo[i].textLength, &r, DT_LEFT);
             r.left -= 18 * textWidth;
         }
         r.top += textHeight;

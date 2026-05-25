@@ -5,6 +5,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -27,6 +30,7 @@
 #include "ToolInterface.h"
 #include "Resource.h"
 #include "Language.h"
+#include "Win32TextUtf8.h"
 #include <stdio.h>
 
 #ifndef max
@@ -44,14 +48,15 @@ LRESULT StackWindow::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
         hMemdc = CreateCompatibleDC(hdc);
         ReleaseDC(hwnd, hdc);
         SetBkMode(hMemdc, TRANSPARENT);
-        hFont = CreateFont(-MulDiv(10, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
+        hFont = CreateFont(-MulDiv(12, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
 
-        hBrushWhite  = CreateSolidBrush(RGB(255, 255, 255));
-        hBrushLtGray = CreateSolidBrush(RGB(239, 237, 222));
-        hBrushDkGray = CreateSolidBrush(RGB(232, 232, 232));
+        BOOL dark = IsDarkMode();
+        hBrushWhite  = CreateSolidBrush(dark ? GetDarkBg()        : RGB(255, 255, 255));
+        hBrushLtGray = CreateSolidBrush(dark ? RGB( 48,  48,  48) : RGB(239, 237, 222));
+        hBrushDkGray = CreateSolidBrush(dark ? RGB( 70,  70,  70) : RGB(232, 232, 232));
         
-        colorRed   = RGB(255, 0, 0);
-        colorBlack = RGB(0, 0, 0);
+        colorRed   = dark ? RGB(255, 100, 100) : RGB(255, 0, 0);
+        colorBlack = dark ? GetDarkFg()        : RGB(0, 0, 0);
         colorGray  = RGB(160, 160, 160);
 
         SelectObject(hMemdc, hFont); 
@@ -60,6 +65,7 @@ LRESULT StackWindow::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
             textHeight = tm.tmHeight;
             textWidth = tm.tmMaxCharWidth;
         }
+        darkSubWindow(hwnd);
         return 0;
     }
 
@@ -297,11 +303,11 @@ void StackWindow::drawText(int top, int bottom)
 
         SetTextColor(hMemdc, lineInfo[i].modified ? colorRed : colorBlack);
         r.left += 6 * textWidth;
-        DrawText(hMemdc, lineInfo[i].dataText, lineInfo[i].dataTextLength, &r, DT_LEFT);
+        DrawTextU(hMemdc, lineInfo[i].dataText, lineInfo[i].dataTextLength, &r, DT_LEFT);
         r.left -= 6 * textWidth;
         
         SetTextColor(hMemdc, colorGray);
-        DrawText(hMemdc, lineInfo[i].text, lineInfo[i].textLength, &r, DT_LEFT);
+        DrawTextU(hMemdc, lineInfo[i].text, lineInfo[i].textLength, &r, DT_LEFT);
         r.top += textHeight;
         r.bottom += textHeight;
     }

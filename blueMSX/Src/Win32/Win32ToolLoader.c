@@ -36,6 +36,8 @@
 #include "AppConfig.h"
 #include "build_number.h"
 #include "version.h"
+#include "Win32Common.h"
+#include "Win32FileDialog.h"
 #include "Win32TextUtf8.h"
 
 #ifndef NO_TOOL_SUPPORT
@@ -257,6 +259,49 @@ void __stdcall toolGetEmulatorVersion(int* major, int* minor, int* buildNumber)
     *buildNumber = BUILD_NUMBER;
 }
 
+/* ABI extensions: dark mode + IFileDialog. Plugins null-check before
+** calling, so adding (or removing) entries is safe across host/plugin skews. */
+static void __stdcall toolApplyDarkMode(HWND hWnd)
+{
+    win32CommonApplyDark(hWnd);
+}
+
+static int __stdcall toolIsDarkMode(void)
+{
+    return win32CommonIsDarkMode() ? 1 : 0;
+}
+
+static UInt32 __stdcall toolGetDarkBg(void)
+{
+    return (UInt32)win32CommonDarkBg();
+}
+
+static UInt32 __stdcall toolGetDarkFg(void)
+{
+    return (UInt32)win32CommonDarkFg();
+}
+
+static HBRUSH __stdcall toolGetDarkBgBrush(void)
+{
+    return win32CommonDarkBgBrush();
+}
+
+static int __stdcall toolShellOpenFileDialog(HWND owner, const char* title, const char* filter,
+                                             const char* initialDir, const char* defExt,
+                                             int* filterIndex, char* outPath, int outPathCap)
+{
+    return ShellOpenFileDialog(owner, title, filter, initialDir, defExt,
+                               filterIndex, outPath, outPathCap) ? 1 : 0;
+}
+
+static int __stdcall toolShellSaveFileDialog(HWND owner, const char* title, const char* filter,
+                                             const char* initialDir, const char* defExt,
+                                             int* filterIndex, char* outPath, int outPathCap)
+{
+    return ShellSaveFileDialog(owner, title, filter, initialDir, defExt,
+                               filterIndex, outPath, outPathCap) ? 1 : 0;
+}
+
 static Interface toolInterface = {
     toolSnapshotCreate,
     toolSnapshotDestroy,
@@ -286,6 +331,14 @@ static Interface toolInterface = {
     toolSetWatchpoint,
     toolClearWatchpoint,
     toolStepBack,
+    /* dark-mode + IFileDialog entries */
+    toolApplyDarkMode,
+    toolIsDarkMode,
+    toolGetDarkBg,
+    toolGetDarkFg,
+    toolGetDarkBgBrush,
+    toolShellOpenFileDialog,
+    toolShellSaveFileDialog,
 };
 
 void toolLoadAll(const char* path, int languageId)

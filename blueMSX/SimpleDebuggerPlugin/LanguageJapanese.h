@@ -43,19 +43,20 @@ public:
         toolbarRun                  = "リスタート";
         toolbarShowNext             = "次のステートメント表示";
         toolbarStepIn               = "ステップ イン";
+        toolbarStepBack             = "ステップ バック";
         toolbarStepOver             = "ステップ オーバー";
         toolbarStepOut              = "ステップ アウト";
         toolbarRunTo                = "カーソルまで実行";
-        toolbarBpToggle             = "ブレイクポイント/除去";
-        toolbarBpEnable             = "ブレイクポイント有/無";
-        toolbarBpEnableAll          = "ブレイクポイント全有効化";
-        toolbarBpDisableAll         = "ブレイクポイント全無効化";
-        toolbarBpRemoveAll          = "ブレイクポイント全消去";
+        toolbarBpToggle             = "ブレークポイント設定/除去";
+        toolbarBpEnable             = "ブレークポイント有効/無効";
+        toolbarBpEnableAll          = "ブレークポイント全有効化";
+        toolbarBpDisableAll         = "ブレークポイント全無効化";
+        toolbarBpRemoveAll          = "ブレークポイント全消去";
 
         menuFile                    = "ファイル";
         menuFileLoadSymbolFile      = "シンボルファイルのロード";
-        menuFileSaveDisassembly     = "Save Disassembly";
-        menuFileSaveMemory          = "Save Memory";
+        menuFileSaveDisassembly     = "逆アセンブルを保存";
+        menuFileSaveMemory          = "メモリを保存";
         menuFileExit                = "終了";
 
         menuDebug                   = "デバッグ";
@@ -65,19 +66,22 @@ public:
         menuDebugStop               = "デバッグ中止";
         menuDebugRestart            = "リスタート";
         menuDebugStepIn             = "ステップ イン";
+        menuDebugStepBack           = "ステップ バック";
         menuDebugStepOver           = "ステップ オーバー";
         menuDebugStepOut            = "ステップ アウト";
         menuDebugRunTo              = "カーソルまで実行";
         menuDebugShowSymbols        = "シンボル情報表示";
         menuDebugGoto               = "移動";
-        menuDebugBpAdd              = "ブレイクポイントを追加";
-        menuDebugBpToggle           = "ブレイクポイントのセット/消去";
-        menuDebugEnable             = "ブレイクポイント有/無";
-        menuDebugRemoveAll          = "ブレイクポイント全消去";
-        menuDebugEnableAll          = "ブレイクポイント全有効化";
-        menuDebugDisableAll         = "ブレイクポイント全無効化";
-        menuDebugShowAssemblyFlags  = "アセンブリフラッグ表示";
-        menuDebugFastVram           = "Break on too fast VRAM access";
+        menuDebugFind               = "検索";
+        menuDebugBpAdd              = "ブレークポイントを追加";
+        menuDebugWpAdd              = "ウォッチポイントを追加";
+        menuDebugBpToggle           = "ブレークポイントのセット/消去";
+        menuDebugEnable             = "ブレークポイント有効/無効";
+        menuDebugRemoveAll          = "ブレークポイント全消去";
+        menuDebugEnableAll          = "ブレークポイント全有効化";
+        menuDebugDisableAll         = "ブレークポイント全無効化";
+        menuDebugShowAssemblyFlags  = "アセンブリフラグ表示";
+        menuDebugFastVram           = "速過ぎる VRAM アクセス時にブレーク";
 
         menuWindow                  = "ウィンドウ";
 
@@ -87,30 +91,38 @@ public:
         debuggerName                = "デバッガ";
         windowDebugger              = "blueMSX - デバッガ";
         windowDisassembly           = "逆アセンブル";
-        windowDisassemblyUnavail    = "Disassembly unavailable.";
+        windowDisassemblyUnavail    = "逆アセンブル: 利用不可";
         windowCpuRegisters          = "CPU レジスタ";
-        windowCpuRegistersFlags     = "Flags";
+        windowCpuRegistersFlags     = "フラグ";
         windowStack                 = "スタック";
-        windowStackUnavail          = "Stack unavailable.";
+        windowStackUnavail          = "スタック: 利用不可";
         windowCallstack             = "コールスタック";
-        windowCallstackUnavail      = "Callstack unavailable.";
+        windowBreakpoints           = "ブレークポイント";
+        windowCallstackUnavail      = "コールスタック: 利用不可";
         windowMemory                = "メモリ";
-        windowPeripheralRegisters   = "Peripheral Registers";
-        windowIoPorts               = "I/O Ports";
+        windowPeripheralRegisters   = "周辺レジスタ";
+        windowIoPorts               = "I/O ポート";
 
-        memWindowRegisters          = "Registers:";
+        memWindowRegisters          = "レジスタ:";
 
         memWindowMemory             = "メモリ:";
         memWindowAddress            = "アドレス:";
 
-        setBpWindowCaption          = "ブレイクポイントを追加";
+        setBpWindowCaption          = "ブレークポイントを追加";
+        setWpWindowCaption          = "ウォッチポイントを追加";
         gotoWindowCaption           = "アドレスに移動";
         gotoWindowText              = "アドレスまたはラベル:";
+        findWindowCaption           = "検索";
+        findWindowText              = "文字列または値:";
 
-        symbolWindowCaption         = "シンボルファイルのロード";
-        symbolWindowText            = "シンボルの入れ替え";
+        symbolWindowCaption         = "シンボルファイルを開く";
+        symbolWindowText            = "既存シンボルを置き換える";
         
-        popupOverwrite              = "File already exists. Do you want to overwrite it?";
+        popupOverwrite              = "ファイルが既に存在します。上書きしますか?";
+
+        statusRunning               = "実行中";
+        statusPaused                = "一時停止";
+        statusStopped               = "停止";
         
         aboutBuilt                  = "ビルド:";
         aboutVisit                  = "詳しい情報は http://www.bluemsx.com まで";

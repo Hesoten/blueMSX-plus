@@ -4,6 +4,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -31,49 +34,49 @@ class LanguageJapanese : public LanguageEnglish
 {
 public:
     LanguageJapanese() {
-        trainerName             = "Trainer";
-        trainerCaption          = "blueMSX - Trainer";
-        saveCheatCaption        = "Save Cheat";
-        loadCheatCaption        = "Load Cheat";
-        pause                   = "Pause";
-        run                     = "Run";
-        truncated               = "truncated...";
-        newCheat                = "New cheat";
-        address                 = "Address";
-        oldValue                = "Old Value";
-        newValue                = "New Value";
-        change                  = "Change";
-        disable                 = "Disable";
-        enable                  = "Enable";
-        description             = "Description";
-        value                   = "Value";
-        activeCheats            = "Active Cheats ";
-        findCheats              = "Find Cheats ";
-        removeAll               = "Remove All";
-        remove                  = "Remove";
-        addCheat                = "Add Cheat";
-        cheatFile               = "Cheat File:";
+        trainerName             = "トレーナー";
+        trainerCaption          = "blueMSX - トレーナー";
+        saveCheatCaption        = "チートを保存";
+        loadCheatCaption        = "チートを読み込み";
+        pause                   = "一時停止";
+        run                     = "実行";
+        truncated               = "省略...";
+        newCheat                = "新規チート";
+        address                 = "アドレス";
+        oldValue                = "旧値";
+        newValue                = "新値";
+        change                  = "変化";
+        disable                 = "無効化";
+        enable                  = "有効化";
+        description             = "説明";
+        value                   = "値";
+        activeCheats            = "有効チート ";
+        findCheats              = "チート探索 ";
+        removeAll               = "すべて削除";
+        remove                  = "削除";
+        addCheat                = "チートを追加";
+        cheatFile               = "チートファイル:";
         ok                      = "OK";
-        cancel                  = "Cancel";
-        displayValueAs          = "Display value as ";
-        decimal                 = "Decimal";
-        hexadecimal             = "Hexadecimal";
-        dataSize                = "Data size ";
-        eightBit                = "8 bit";
-        sixteenBit              = "16 bit";
-        compareType             = "Compare type ";
-        equal                   = "Equal";
-        notEqual                = "Not equal";
-        lessThan                = "Less than";
-        lessOrEqual             = "Less or equal";
-        greaterThan             = "Greater than";
-        greaterOrEqual          = "Greater or equal";
-        display                 = "Display ";
-        compareNewValueWith     = "Compare new value with ";
-        specificValue           = "Specific value: ";
-        snapshot                = "Snapshot";
-        search                  = "Search";
-        undo                    = "Undo";
+        cancel                  = "キャンセル";
+        displayValueAs          = "値の表示形式 ";
+        decimal                 = "10進";
+        hexadecimal             = "16進";
+        dataSize                = "データサイズ ";
+        eightBit                = "8 ビット";
+        sixteenBit              = "16 ビット";
+        compareType             = "比較条件 ";
+        equal                   = "等しい";
+        notEqual                = "等しくない";
+        lessThan                = "より小さい";
+        lessOrEqual             = "以下";
+        greaterThan             = "より大きい";
+        greaterOrEqual          = "以上";
+        display                 = "表示 ";
+        compareNewValueWith     = "新値の比較対象 ";
+        specificValue           = "特定の値: ";
+        snapshot                = "スナップショット";
+        search                  = "検索";
+        undo                    = "元に戻す";
     }
 };
 

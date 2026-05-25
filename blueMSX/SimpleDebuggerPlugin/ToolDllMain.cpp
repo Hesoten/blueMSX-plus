@@ -34,6 +34,15 @@ static ToolSetWatchpoint               toolSetWatchpoint;
 static ToolClearWatchpoint             toolClearWatchpoint;
 static ToolAction                      toolDeviceStepBack;
 
+/* the newer ABI (zero on hosts that predate these entries -- always null-check before use). */
+static ToolApplyDarkMode               toolApplyDarkMode;
+static ToolIsDarkMode                  toolIsDarkMode;
+static ToolGetDarkColor                toolGetDarkBg;
+static ToolGetDarkColor                toolGetDarkFg;
+static ToolGetDarkBrush                toolGetDarkBgBrush;
+static ToolShellOpenFile               toolShellOpenFileDialog;
+static ToolShellSaveFile               toolShellSaveFileDialog;
+
 static HINSTANCE hInstance;
 
 
@@ -170,6 +179,43 @@ HINSTANCE GetDllHinstance()
     return hInstance;
 }
 
+/* these helpers are safe to call on hosts that predate them (no-op / FALSE). */
+void ApplyDarkMode(HWND hWnd) {
+    if (toolApplyDarkMode != NULL) toolApplyDarkMode(hWnd);
+}
+
+bool IsDarkMode() {
+    return toolIsDarkMode != NULL && toolIsDarkMode() != 0;
+}
+
+COLORREF GetDarkBg() {
+    return toolGetDarkBg != NULL ? (COLORREF)toolGetDarkBg() : RGB(255, 255, 255);
+}
+
+COLORREF GetDarkFg() {
+    return toolGetDarkFg != NULL ? (COLORREF)toolGetDarkFg() : RGB(0, 0, 0);
+}
+
+HBRUSH GetDarkBgBrush() {
+    return toolGetDarkBgBrush != NULL ? toolGetDarkBgBrush() : NULL;
+}
+
+bool ShellOpenFileDialog(HWND owner, const char* title, const char* filter,
+                         const char* initialDir, const char* defExt,
+                         int* filterIndex, char* outPath, int outPathCap) {
+    return toolShellOpenFileDialog != NULL &&
+           toolShellOpenFileDialog(owner, title, filter, initialDir, defExt,
+                                   filterIndex, outPath, outPathCap) != 0;
+}
+
+bool ShellSaveFileDialog(HWND owner, const char* title, const char* filter,
+                         const char* initialDir, const char* defExt,
+                         int* filterIndex, char* outPath, int outPathCap) {
+    return toolShellSaveFileDialog != NULL &&
+           toolShellSaveFileDialog(owner, title, filter, initialDir, defExt,
+                                   filterIndex, outPath, outPathCap) != 0;
+}
+
 extern "C" __declspec(dllexport) int __stdcall Create12(Interface* toolInterface, char* name, int length)
 {
     strcpy(name, OnGetName());
@@ -202,53 +248,60 @@ extern "C" __declspec(dllexport) int __stdcall Create12(Interface* toolInterface
     toolSetWatchpoint               = toolInterface->setWatchpoint;
     toolClearWatchpoint             = toolInterface->clearWatchpoint;
     toolDeviceStepBack              = toolInterface->stepBack;
+    toolApplyDarkMode               = toolInterface->applyDarkMode;
+    toolIsDarkMode                  = toolInterface->isDarkMode;
+    toolGetDarkBg                   = toolInterface->getDarkBg;
+    toolGetDarkFg                   = toolInterface->getDarkFg;
+    toolGetDarkBgBrush              = toolInterface->getDarkBgBrush;
+    toolShellOpenFileDialog         = toolInterface->shellOpenFileDialog;
+    toolShellSaveFileDialog         = toolInterface->shellSaveFileDialog;
 
     OnCreateTool();
 
     return 1;
 }
 
-extern "C"__declspec(dllexport) void __stdcall Destroy()
+extern "C" __declspec(dllexport) void __stdcall Destroy()
 {
     OnDestroyTool();
 }
 
-extern "C"__declspec(dllexport) void __stdcall Show()
+extern "C" __declspec(dllexport) void __stdcall Show()
 {
     OnShowTool();
 }
 
-extern "C"__declspec(dllexport) void __stdcall NotifyEmulatorStart()
+extern "C" __declspec(dllexport) void __stdcall NotifyEmulatorStart()
 {
     OnEmulatorStart();
 }
 
-extern "C"__declspec(dllexport) void __stdcall NotifyEmulatorStop()
+extern "C" __declspec(dllexport) void __stdcall NotifyEmulatorStop()
 {
     OnEmulatorStop();
 }
 
-extern "C"__declspec(dllexport) void __stdcall NotifyEmulatorPause()
+extern "C" __declspec(dllexport) void __stdcall NotifyEmulatorPause()
 {
     OnEmulatorPause();
 }
 
-extern "C"__declspec(dllexport) void __stdcall NotifyEmulatorResume()
+extern "C" __declspec(dllexport) void __stdcall NotifyEmulatorResume()
 {
     OnEmulatorResume();
 }
 
-extern "C"__declspec(dllexport) void __stdcall NotifyEmulatorReset()
+extern "C" __declspec(dllexport) void __stdcall NotifyEmulatorReset()
 {
     OnEmulatorReset();
 }
 
-extern "C"__declspec(dllexport) void __stdcall EmulatorTrace(const char* message)
+extern "C" __declspec(dllexport) void __stdcall EmulatorTrace(const char* message)
 {
     OnEmulatorTrace(message);
 }
 
-extern "C"__declspec(dllexport) void __stdcall EmulatorSetBreakpoint(UInt16 slot, UInt16 page, UInt16 address)
+extern "C" __declspec(dllexport) void __stdcall EmulatorSetBreakpoint(UInt16 slot, UInt16 page, UInt16 address)
 {
     if (page == 0xffff) {
         if (slot == 0xffff) {
@@ -259,7 +312,7 @@ extern "C"__declspec(dllexport) void __stdcall EmulatorSetBreakpoint(UInt16 slot
         }
     }
     else {
-        if (slot = 0xffff) {
+        if (slot == 0xffff) {
             OnEmulatorSetBreakpoint(address);
         }
         else {

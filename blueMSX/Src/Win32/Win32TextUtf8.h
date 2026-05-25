@@ -239,6 +239,43 @@ static __inline LRESULT TabInsertItemU(HWND hTab, int index, const char* utf8)
     return SendMessageW(hTab, TCM_INSERTITEMW, (WPARAM)index, (LPARAM)&tci);
 }
 
+/* ListView column header: insert a wide LVCOLUMNW with converted text. */
+static __inline LRESULT ListViewInsertColumnU(HWND hList, int index, int cx, const char* utf8)
+{
+    wchar_t buf[256];
+    LVCOLUMNW lvc = {0};
+    Utf8ToWide(utf8 ? utf8 : "", buf, _countof(buf));
+    lvc.mask    = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM;
+    lvc.fmt     = LVCFMT_LEFT;
+    lvc.cx      = cx;
+    lvc.pszText = buf;
+    return SendMessageW(hList, LVM_INSERTCOLUMNW, (WPARAM)index, (LPARAM)&lvc);
+}
+
+/* ListView row insert: empty row at index. Returns the inserted row index. */
+static __inline int ListViewInsertItemU(HWND hList, int index, const char* utf8)
+{
+    wchar_t buf[512];
+    LVITEMW lvi = {0};
+    Utf8ToWide(utf8 ? utf8 : "", buf, _countof(buf));
+    lvi.mask     = LVIF_TEXT;
+    lvi.iItem    = index;
+    lvi.iSubItem = 0;
+    lvi.pszText  = buf;
+    return (int)SendMessageW(hList, LVM_INSERTITEMW, 0, (LPARAM)&lvi);
+}
+
+/* ListView cell text update (sub-item or main text). */
+static __inline LRESULT ListViewSetItemTextU(HWND hList, int item, int subItem, const char* utf8)
+{
+    wchar_t buf[512];
+    LVITEMW lvi = {0};
+    Utf8ToWide(utf8 ? utf8 : "", buf, _countof(buf));
+    lvi.iSubItem = subItem;
+    lvi.pszText  = buf;
+    return SendMessageW(hList, LVM_SETITEMTEXTW, (WPARAM)item, (LPARAM)&lvi);
+}
+
 /* OPENFILENAMEA wrapper: convert UTF-8 -> UTF-16, call GetOpenFileNameW, write
 ** the chosen path back as UTF-8. */
 static __inline BOOL GetOpenFileNameU(LPOPENFILENAMEA ofnA)
