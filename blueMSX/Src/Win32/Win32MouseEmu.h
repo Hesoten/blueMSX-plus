@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -35,5 +38,10 @@ void mouseEmuSetCaptureInfo(RECT* captureRect, RECT* displayRect);
 int mouseEmuSetCursor();
 void mouseEmuActivate(int activate);
 void mouseEmuSetRunState(int isRunning);
+
+/* Reset the auto-hide-cursor idle timer and unhide if currently hidden.
+** Called from emuWndProc on any mouse activity (move / button) so the
+** cursor reappears and the next idle countdown starts fresh. */
+void mouseEmuOnUserMouseActivity(void);
 
 #endif

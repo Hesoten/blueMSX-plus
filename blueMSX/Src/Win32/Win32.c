@@ -2788,6 +2788,7 @@ static LRESULT CALLBACK emuWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
     case WM_MBUTTONUP:
     case WM_RBUTTONDOWN:
     case WM_RBUTTONUP:
+        mouseEmuOnUserMouseActivity();
         return SendMessage(GetParent(hwnd), iMsg, wParam, lParam);
 
 	case WM_WINDOWPOSCHANGED :
@@ -3198,6 +3199,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         break;
 
     case WM_MOUSEMOVE:
+        mouseEmuOnUserMouseActivity();
         if (st.themePageActive) {
             HDC hdc = GetDC(hwnd);
             POINT pt;
@@ -3378,7 +3380,9 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 
                 st.buttonState = buttonState;
 
-                mouseEmuSetRunState(emulatorGetState() == EMU_RUNNING);
+                /* Pause cursor fade only on EMU_STOPPED; keep alive on
+                   PAUSED/SUSPENDED so a paused game still fades. */
+                mouseEmuSetRunState(emulatorGetState() != EMU_STOPPED);
             }
             break;
 
