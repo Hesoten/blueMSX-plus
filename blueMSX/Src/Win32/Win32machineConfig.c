@@ -2273,6 +2273,7 @@ static INT_PTR CALLBACK chipsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
 
         ComboAddStringU(GetDlgItem(hDlg, IDC_CONF_VIDEOCHIP), "TMS9929A   (PAL)");
         ComboAddStringU(GetDlgItem(hDlg, IDC_CONF_VIDEOCHIP), "TMS99x8A   (NTSC)");
+        ComboAddStringU(GetDlgItem(hDlg, IDC_CONF_VIDEOCHIP), "TMS9918A   (NTSC)");
         ComboAddStringU(GetDlgItem(hDlg, IDC_CONF_VIDEOCHIP), "V9938");
         ComboAddStringU(GetDlgItem(hDlg, IDC_CONF_VIDEOCHIP), "V9958");
 
@@ -2311,6 +2312,9 @@ static INT_PTR CALLBACK chipsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
                         if (0 == strcmp(videoSel, "TMS99x8A   (NTSC)")) {
                             machine->video.vdpVersion = VDP_TMS99x8A;
                         }
+                        if (0 == strcmp(videoSel, "TMS9918A   (NTSC)")) {
+                            machine->video.vdpVersion = VDP_TMS9918A;
+                        }
                         if (0 == strcmp(videoSel, "V9938")) {
                             machine->video.vdpVersion = VDP_V9938;
                         }
@@ -2345,8 +2349,9 @@ static INT_PTR CALLBACK chipsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
         switch (machine->video.vdpVersion) {
         case VDP_TMS9929A:  SendDlgItemMessage(hDlg, IDC_CONF_VIDEOCHIP, CB_SETCURSEL, 0, 0); break;
         case VDP_TMS99x8A:  SendDlgItemMessage(hDlg, IDC_CONF_VIDEOCHIP, CB_SETCURSEL, 1, 0); break;
-        case VDP_V9938: SendDlgItemMessage(hDlg, IDC_CONF_VIDEOCHIP, CB_SETCURSEL, 2, 0); break;
-        case VDP_V9958: SendDlgItemMessage(hDlg, IDC_CONF_VIDEOCHIP, CB_SETCURSEL, 3, 0); break;
+        case VDP_TMS9918A:  SendDlgItemMessage(hDlg, IDC_CONF_VIDEOCHIP, CB_SETCURSEL, 2, 0); break;
+        case VDP_V9938: SendDlgItemMessage(hDlg, IDC_CONF_VIDEOCHIP, CB_SETCURSEL, 3, 0); break;
+        case VDP_V9958: SendDlgItemMessage(hDlg, IDC_CONF_VIDEOCHIP, CB_SETCURSEL, 4, 0); break;
         }
         updateVramList(hDlg);
         setBtCheck(hDlg, IDC_AUDIOPSGSTEREO, machine->audio.psgstereo, 1);

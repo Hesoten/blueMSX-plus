@@ -985,6 +985,7 @@ char* langDbgDevS1985();
 char* langDbgDevCrtc6845();
 char* langDbgDevTms9929A();
 char* langDbgDevTms99x8A();
+char* langDbgDevTms9918A();
 char* langDbgDevV9938();
 char* langDbgDevV9958();
 char* langDbgDevZ80();

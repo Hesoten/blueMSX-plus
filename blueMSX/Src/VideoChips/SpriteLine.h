@@ -117,7 +117,7 @@ UInt8* spritesLine(VDP* vdp, int line) {
 #else
             if ((vdp->vdpRegs[3] & 0x40) == 0 && (vdp->vdpRegs[4] & 0x01) == 0 &&
                 vdp->screenMode == 2 &&
-                (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A)) 
+                (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A || vdp->vdpVersion == VDP_TMS9918A)) 
             {
                 if (line < 56) {
                     continue;

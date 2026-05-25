@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -31,11 +34,11 @@
 #include "MsxTypes.h"
 #include "VideoManager.h"
 
-typedef enum { VDP_V9938, VDP_V9958, VDP_TMS9929A, VDP_TMS99x8A } VdpVersion;
+typedef enum { VDP_V9938, VDP_V9958, VDP_TMS9929A, VDP_TMS99x8A, VDP_TMS9918A } VdpVersion;
 typedef enum { VDP_SYNC_AUTO, VDP_SYNC_50HZ, VDP_SYNC_60HZ } VdpSyncMode; 
 typedef enum { VDP_MSX, VDP_SVI, VDP_COLECO, VDP_SG1000 } VdpConnector;
 
-static const char* VdpNames[] = { "V9938", "V9958", "TMS9929A", "TMS99x8A" };
+static const char* VdpNames[] = { "V9938", "V9958", "TMS9929A", "TMS99x8A", "TMS9918A" };
 
 void vdpCreate(VdpConnector connector, VdpVersion version, VdpSyncMode sync, int vramPages);
 

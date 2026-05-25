@@ -226,6 +226,7 @@ static struct {
     { 0xcc, 0xcc, 0xcc }, 
     { 0xff, 0xff, 0xff }
 #else
+	// TMS9929A
 	{   0,   0,   0 },
 	{   0,   0,   0 },
 	{  62, 184,  73 },
@@ -243,6 +244,30 @@ static struct {
 	{ 204, 204, 204 },
 	{ 255, 255, 255 }
 #endif
+};
+
+static struct {
+    int r;
+    int g;
+    int b;
+} msx1Palette_9918a[16] = {
+	// TMS9918A
+	{   0,   0,   0 },
+	{   0,   0,   0 },
+	{  79, 176,  69 },
+	{ 129, 202, 119 },
+	{  95,  81, 237 },
+	{ 129, 116, 255 },
+	{ 173, 101,  77 },
+	{ 103, 195, 228 },
+	{ 204, 110,  80 },
+	{ 240, 146, 116 },
+	{ 193, 202,  81 },
+	{ 209, 215, 129 },
+	{  72, 156,  59 },
+	{ 176, 104, 190 },
+	{ 204, 204, 204 },
+	{ 255, 255, 255 }
 };
 
 static struct {
@@ -509,7 +534,7 @@ static void scheduleVint(VDP* vdp)
     vdp->timeDrawAreaEndEn = 1;
     boardTimerAdd(vdp->timerDrawAreaEnd, vdp->timeDrawAreaEnd);
 #if 0
-    if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A) {
+    if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A || vdp->vdpVersion == VDP_TMS9918A) {
         vdp->timeTmsVint = vdp->timeVint + 1176;
         boardTimerAdd(vdp->timerTmsVint, vdp->timeTmsVint);
     }
@@ -551,7 +576,7 @@ static void onVint(VDP* vdp, UInt32 time)
 //    vdp->lineOffset = -1;
     vdp->vdpStatus[0] |= 0x80;
     vdp->vdpStatus[2] |= 0x40;
-//    if (vdp->vdpVersion != VDP_TMS9929A && vdp->vdpVersion != VDP_TMS99x8A) {
+//    if (vdp->vdpVersion != VDP_TMS9929A && vdp->vdpVersion != VDP_TMS99x8A && vdp->vdpVersion != VDP_TMS9918A) {
         if (vdp->vdpRegs[1] & 0x20) {
             boardSetInt(INT_IE0);
         }
@@ -757,7 +782,7 @@ static int updateScreenMode(VDP* vdp) {
         break;
     case 16:
         screenMode = 0;
-        if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A) {
+        if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A || vdp->vdpVersion == VDP_TMS9918A) {
             vdp->RefreshLine = RefreshLine0Plus; 
         }
         else {
@@ -766,7 +791,7 @@ static int updateScreenMode(VDP* vdp) {
         break;
     case 32:
         screenMode = 0;
-        if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A) {
+        if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A || vdp->vdpVersion == VDP_TMS9918A) {
             vdp->RefreshLine = RefreshLine0Mix; 
         }
         else {
@@ -804,7 +829,7 @@ static void onScrModeChange(VDP* vdp, UInt32 time)
     vdp->sprGenBase = (((int)vdp->vdpRegs[6] << 11) | ~(-1 << 11)) & vdp->vramMask;
 
 #ifdef ENABLE_VRAM_DECAY
-    if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A) {
+    if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A || vdp->vdpVersion == VDP_TMS9918A) {
         if ((vdp->screenOn ^ vdp->vdpRegs[1]) & 0x40) {
             if ((~vdp->vdpRegs[1] & 0x80) && !vdp->screenOn) {
                simulateVramDecay(vdp);
@@ -1031,7 +1056,7 @@ static UInt8 readNoTimingCheck(VDP* vdp, UInt16 ioPort)
 
 static UInt8 read(VDP* vdp, UInt16 ioPort) 
 {
-    if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A) {
+    if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A || vdp->vdpVersion == VDP_TMS9918A) {
         checkVramAccessTimeTms(vdp);
     }
 
@@ -1043,7 +1068,7 @@ static UInt8 peekStatus(VDP* vdp, UInt16 ioPort)
     UInt8 vdpStatus;
 
     sync(vdp, boardSystemTime());
-    if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A) {
+    if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A || vdp->vdpVersion == VDP_TMS9918A) {
         return vdp->vdpStatus[0];
     }
     vdpStatus = vdp->vdpStatus[vdp->vdpRegs[15]];
@@ -1099,7 +1124,7 @@ static UInt8 readStatus(VDP* vdp, UInt16 ioPort)
 
     vdp->vdpKey = 0;
 
-    if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A) {
+    if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A || vdp->vdpVersion == VDP_TMS9918A) {
         vdpStatus = vdp->vdpStatus[0];
         vdp->vdpStatus[0] &= 0x1f;
         boardClearInt(INT_IE0);
@@ -1166,7 +1191,7 @@ static void write(VDP* vdp, UInt16 ioPort, UInt8 value)
 {
     sync(vdp, boardSystemTime());
 
-    if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A) {
+    if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A || vdp->vdpVersion == VDP_TMS9918A) {
         checkVramAccessTimeTms(vdp);
     }
 
@@ -1197,6 +1222,7 @@ static void writeLatch(VDP* vdp, UInt16 ioPort, UInt8 value)
 		
 		/* MSX1 VDP: address always updates */
         case VDP_TMS9929A: case VDP_TMS99x8A:
+        case VDP_TMS9918A:
 			if (vdp->vdpKey) {
 				vdp->vramAddress = ((UInt16)value << 8 | (vdp->vramAddress & 0xff)) & 0x3fff;
 				if (!(value & 0x40)) {
@@ -1593,6 +1619,7 @@ static void loadState(VDP* vdp)
     switch (vdp->vdpVersion) {
     case VDP_TMS9929A:
     case VDP_TMS99x8A:
+    case VDP_TMS9918A:
         vdp->registerValueMask = registerValueMaskMSX1;
         vdp->registerMask      = 0x07;
         break;
@@ -1632,7 +1659,7 @@ static void loadState(VDP* vdp)
         boardTimerAdd(vdp->timerDisplay, vdp->timeDisplay);
     }
 
-//    if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A) {
+//    if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A || vdp->vdpVersion == VDP_TMS9918A) {
 //        boardTimerAdd(vdp->timerTmsVint, vdp->timeTmsVint);
 //    }
 
@@ -1882,6 +1909,9 @@ static void getDebugInfo(VDP* vdp, DbgDevice* dbgDevice)
         break;
     case VDP_TMS99x8A:
         vdpVersionName = "TMS99x8A";
+        break;
+    case VDP_TMS9918A:
+        vdpVersionName = "TMS9918A";
         break;
     case VDP_V9938:
         vdpVersionName = "V9938";
@@ -2133,7 +2163,12 @@ static void reset(VDP* vdp)
     vdp->vdpRegs[21] = 0x3b;
     vdp->vdpRegs[22] = 0x05;
 
-    if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A) {
+    if (vdp->vdpVersion == VDP_TMS9918A) {
+        for (i = 0; i < 16; i++) {
+            updatePalette(vdp, i, msx1Palette_9918a[i].r, msx1Palette_9918a[i].g, msx1Palette_9918a[i].b);
+        }
+    }
+    else if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A) {
         for (i = 0; i < 16; i++) {
             updatePalette(vdp, i, msx1Palette[i].r, msx1Palette[i].g, msx1Palette[i].b);
         }
@@ -2306,6 +2341,13 @@ void vdpCreate(VdpConnector connector, VdpVersion version, VdpSyncMode sync, int
         vdp->registerMask      = 0x07;
         vdp->vdpRegs[9]          &= ~0x02;
         vdpVersionString       = langDbgDevTms99x8A();
+        vdp->hAdjustSc0        = -2; // 6
+        break;
+    case VDP_TMS9918A:
+        vdp->registerValueMask = registerValueMaskMSX1;
+        vdp->registerMask      = 0x07;
+        vdp->vdpRegs[9]          &= ~0x02;
+        vdpVersionString       = langDbgDevTms9918A();
         vdp->hAdjustSc0        = -2; // 6
         break;
     case VDP_V9938:

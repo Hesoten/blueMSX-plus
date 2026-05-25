@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -250,6 +253,7 @@ static int readMachine(Machine* machine, const char* machineName, const char* fi
     else if (0 == strcmp(buffer, "V9958"))    machine->video.vdpVersion = VDP_V9958;
     else if (0 == strcmp(buffer, "TMS9929A")) machine->video.vdpVersion = VDP_TMS9929A;
     else if (0 == strcmp(buffer, "TMS99x8A")) machine->video.vdpVersion = VDP_TMS99x8A;
+    else if (0 == strcmp(buffer, "TMS9918A")) machine->video.vdpVersion = VDP_TMS9918A;
     else { iniFileClose(configIni); return 0; }
 
     iniFileGetString(configIni, "Video", "vram size", "none", buffer, 10000);
@@ -513,6 +517,7 @@ void machineSave(Machine* machine)
     case VDP_V9938:     iniFileWriteString(configIni, "Video", "version", "V9938"); break;
     case VDP_TMS9929A:  iniFileWriteString(configIni, "Video", "version", "TMS9929A"); break;
     case VDP_TMS99x8A:  iniFileWriteString(configIni, "Video", "version", "TMS99x8A"); break;
+    case VDP_TMS9918A:  iniFileWriteString(configIni, "Video", "version", "TMS9918A"); break;
     }
 
     sprintf(buffer, "%dkB", machine->video.vramSize / 0x400);
