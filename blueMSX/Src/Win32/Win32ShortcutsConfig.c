@@ -1227,6 +1227,10 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
 
     switch (iMsg) {
     case WM_INITDIALOG:
+        /* Pick up any controller hot-plugged since the last time the
+        ** dialog was opened so the assignment list reflects the live
+        ** input device set. */
+        inputRefreshDevicesIfDirty();
         SetWindowTextU(hDlg, langShortcutConfigTitle());
         SetWindowTextU(GetDlgItem(hDlg, IDC_OK), langDlgOK());
         SetWindowTextU(GetDlgItem(hDlg, IDC_SAVE), langDlgSave());

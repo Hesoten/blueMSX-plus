@@ -3621,13 +3621,21 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             switch(wParam) {
             case DBT_DEVICEARRIVAL:
             case DBT_DEVICEREMOVECOMPLETE:
-                if (lpdb->dbch_devicetype == DBT_DEVTYP_VOLUME) {
+                if (lpdb && lpdb->dbch_devicetype == DBT_DEVTYP_VOLUME) {
                     PDEV_BROADCAST_VOLUME lpdbv = (PDEV_BROADCAST_VOLUME)lpdb;
 
                     if (lpdbv->dbcv_flags & DBTF_MEDIA) {
                         cdromOnMediaChange(lpdbv->dbcv_unitmask);
                     }
                 }
+                /* fallthrough */
+            case DBT_DEVNODES_CHANGED:
+                /* Refresh right away so a fresh pad works without opening
+                ** a config dialog.  Refresh is idempotent (append-only);
+                ** ResolveShadowBindings materialises pending DIK strings. */
+                inputMarkDirty();
+                inputRefreshDevicesIfDirty();
+                inputResolveShadowBindings();
                 break;
             }
         }
