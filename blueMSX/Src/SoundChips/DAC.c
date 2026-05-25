@@ -124,11 +124,14 @@ void dacDestroy(DAC* dac)
     free(dac);
 }
 
-void dacWrite(DAC* dac, DacChannel channel, UInt8 value)
+/* Internal common path: enqueue a BlipBuffer delta for `value` at board
+** cycle `time`. dacWrite passes time=boardSystemTime(); dacWriteAt passes
+** an explicit timer cycle. */
+static void dacWriteAtInternal(DAC* dac, DacChannel channel, UInt8 value, UInt32 time)
 {
     Int32  newValue;
     Int32  delta;
-    UInt32 now;
+    Int32  elapsedSigned;
     UInt32 elapsed;
     UInt32 rate;
     UInt64 num;
@@ -141,9 +144,11 @@ void dacWrite(DAC* dac, DacChannel channel, UInt8 value)
     delta    = newValue - dac->currentValue[channel];
     if (delta == 0) return;
 
-    now     = boardSystemTime();
-    elapsed = now - dac->lastSyncTime;
-    rate    = mixerGetSampleRate(dac->mixer);
+    /* Clamp negative offsets to zero -- another callback in the same
+    ** dispatch may have advanced lastSyncTime past `time`. */
+    elapsedSigned = (Int32)(time - dac->lastSyncTime);
+    elapsed       = elapsedSigned < 0 ? 0u : (UInt32)elapsedSigned;
+    rate          = mixerGetSampleRate(dac->mixer);
 
     /* time_fp = elapsed * rate * BLIP_PHASE_UNIT / boardFreq, with the
     ** integer part being the sample index inside the next sync window and
@@ -155,6 +160,16 @@ void dacWrite(DAC* dac, DacChannel channel, UInt8 value)
 
     dac->currentValue[channel] = newValue;
     dac->enabled = 1;
+}
+
+void dacWrite(DAC* dac, DacChannel channel, UInt8 value)
+{
+    dacWriteAtInternal(dac, channel, value, boardSystemTime());
+}
+
+void dacWriteAt(DAC* dac, DacChannel channel, UInt8 value, UInt32 time)
+{
+    dacWriteAtInternal(dac, channel, value, time);
 }
 
 static Int32* dacSyncMono(void* ref, UInt32 count)
