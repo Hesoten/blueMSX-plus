@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -464,7 +467,7 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
 
         linePtr = lineBuf + attrib->horizontalPos;
         pattern = attrib->pattern;
-        offset  = scale * 15;
+        offset  = scale * (size - 1) + (16 - size);
 
         if (attrib->color & 0x60) {
             if (scale == 2) {
@@ -550,7 +553,7 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
             }
             linePtr = lineBuf + attrib->horizontalPos;
             pattern = attrib->pattern;
-            offset  = scale * 15;
+            offset  = scale * (size - 1) + (16 - size);
             
             if (scale == 2) {
                 while (pattern) {
