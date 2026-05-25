@@ -164,6 +164,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->menuPropsEmulation      = "에뮬레이션";
     ls->menuPropsVideo          = "비디오";
     ls->menuPropsSound          = "사운드";
+    ls->menuPropsMidi           = "MIDI";
     ls->menuPropsControls       = "컨트롤";
     ls->menuPropsEffects        = "Effects";               // New in 2.9
     ls->menuPropsSettings        = "외부 설정";
@@ -304,6 +305,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->propEmulation           = "에뮬레이션";
     ls->propVideo               = "비디오";
     ls->propSound               = "사운드";
+    ls->propMidi                = "MIDI";
     ls->propControls            = "콘트롤";
     ls->propPerformance         = "성능";
     ls->propEffects             = "Effects";             // New in 2.9
@@ -378,6 +380,10 @@ void langInitKorean(LanguageStrings* ls)
     ls->propFullscreenResText   = "전체 화면 해상도:";
 
     ls->propSndChipEmuGB        = "사운드 칩 에뮬레이션 ";
+    ls->propSoundChipsActive    = "활성 백엔드:";
+    ls->propSoundChipsHint      = "여러 백엔드가 활성화된 경우, 실행 중에 A/B 비교할 수 있습니다.";
+    ls->propSoundChipsYm2413GB  = " MSX-MUSIC 백엔드 ";
+    ls->propSoundChipsY8950GB   = " MSX-AUDIO 백엔드 ";
     ls->propSndMsxMusic         = " MSX-MUSIC";
     ls->propSndMsxAudio         = " MSX-AUDIO";
     ls->propSndMoonsound         = " Moonsound";
@@ -645,6 +651,8 @@ void langInitKorean(LanguageStrings* ls)
     ls->shortcutSize7x          = "7x 창 크기 설정";
     ls->shortcutSize8x          = "8x 창 크기 설정";
     ls->shortcutSizeFullscreen  = "전체 화면으로 설정";
+    ls->shortcutYm2413BackendCycle = "MSX-MUSIC 오디오 백엔드 전환";
+    ls->shortcutY8950BackendCycle  = "MSX-AUDIO 오디오 백엔드 전환";
     ls->shortcutSizeMinimized   = "윈도우 최소화";
     ls->shortcutToggleFullscren = "전체 화면 변환";
     ls->shortcutVolumeIncrease  = "볼륨 증가";

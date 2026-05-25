@@ -161,6 +161,7 @@ typedef struct {
     char* menuPropsEmulation;
     char* menuPropsVideo;
     char* menuPropsSound;
+    char* menuPropsMidi;
     char* menuPropsControls;
     char* menuPropsEffects;
     char* menuPropsSettings;
@@ -305,6 +306,7 @@ typedef struct {
     char* propFile;
     char* propDisk;
     char* propPorts;
+    char* propMidi;
 
     char* propEmuGeneralGB;
     char* propEmuFamilyText;
@@ -376,6 +378,10 @@ typedef struct {
     char* propSndMsxAudio;
     char* propSndMoonsound;
     char* propSndMt32ToGm;
+    char* propSoundChipsActive;
+    char* propSoundChipsHint;
+    char* propSoundChipsYm2413GB;
+    char* propSoundChipsY8950GB;
 
     char* propPortsLptGB;
     char* propPortsComGB;
@@ -645,6 +651,8 @@ typedef struct {
     char* shortcutVolumeDecrease;
     char* shortcutVolumeMute;
     char* shortcutVolumeStereo;
+    char* shortcutYm2413BackendCycle;
+    char* shortcutY8950BackendCycle;
     char* shortcutSwitchMsxAudio;
     char* shortcutSwitchFront;
     char* shortcutSwitchPause;

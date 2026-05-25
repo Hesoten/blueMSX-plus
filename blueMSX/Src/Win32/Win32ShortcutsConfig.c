@@ -753,6 +753,8 @@ static Shortcuts* loadShortcuts(char* profileName)
     LOAD_SHORTCUT(shortcutFile, videoCapRec);
     LOAD_SHORTCUT(shortcutFile, videoCapStop);
     LOAD_SHORTCUT(shortcutFile, videoCapSave);
+    LOAD_SHORTCUT(shortcutFile, ym2413BackendCycle);
+    LOAD_SHORTCUT(shortcutFile, y8950BackendCycle);
     LOAD_SHORTCUT(shortcutFile, screenCapture);
     LOAD_SHORTCUT(shortcutFile, screenCaptureUnfilteredSmall);
     LOAD_SHORTCUT(shortcutFile, screenCaptureUnfilteredLarge);
@@ -861,6 +863,8 @@ static void saveShortcuts(char* profileName, Shortcuts* shortcuts)
     SAVE_SHORTCUT(shortcutFile, videoCapRec);
     SAVE_SHORTCUT(shortcutFile, videoCapStop);
     SAVE_SHORTCUT(shortcutFile, videoCapSave);
+    SAVE_SHORTCUT(shortcutFile, ym2413BackendCycle);
+    SAVE_SHORTCUT(shortcutFile, y8950BackendCycle);
     SAVE_SHORTCUT(shortcutFile, screenCapture);
     SAVE_SHORTCUT(shortcutFile, screenCaptureUnfilteredSmall);
     SAVE_SHORTCUT(shortcutFile, screenCaptureUnfilteredLarge);
@@ -1034,6 +1038,11 @@ static void updateShortcutEntries(HWND hDlg)
     ADD_SHORTCUT(videoCapRec,  langShortcutVideoRecord());
     ADD_SHORTCUT(videoCapStop, langShortcutVideoStop());
     ADD_SHORTCUT(videoCapSave, langShortcutVideoRender());
+    
+    ADD_SHORTCUTSEPARATOR();
+
+    ADD_SHORTCUT(ym2413BackendCycle, langShortcutYm2413BackendCycle());
+    ADD_SHORTCUT(y8950BackendCycle,  langShortcutY8950BackendCycle());
     
     ADD_SHORTCUTSEPARATOR();
 

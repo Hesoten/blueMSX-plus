@@ -164,6 +164,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->menuPropsEmulation      = "Эмуляция";
     ls->menuPropsVideo          = "Видео";
     ls->menuPropsSound          = "Звук";
+    ls->menuPropsMidi           = "MIDI";
     ls->menuPropsControls       = "Управление";
     ls->menuPropsEffects        = "Effects";               // New in 2.9
     ls->menuPropsSettings       = "Настройка";
@@ -304,6 +305,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->propEmulation           = "Эмуляция";
     ls->propVideo               = "Видео";
     ls->propSound               = "Звук";
+    ls->propMidi                = "MIDI";
     ls->propControls            = "Управление";
     ls->propPerformance         = "Быстродействие";
     ls->propEffects             = "Effects";             // New in 2.9
@@ -378,6 +380,10 @@ void langInitRussian(LanguageStrings* ls)
     ls->propFullscreenResText   = "Полноэкранное разрешение:";
 
     ls->propSndChipEmuGB        = "Эмуляция звукового чипа ";
+    ls->propSoundChipsActive    = "Активный бэкенд:";
+    ls->propSoundChipsHint      = "Активные бэкенды можно A/B сравнить в реальном времени.";
+    ls->propSoundChipsYm2413GB  = " Бэкенд MSX-MUSIC ";
+    ls->propSoundChipsY8950GB   = " Бэкенд MSX-AUDIO ";
     ls->propSndMsxMusic         = " MSX-MUSIC";
     ls->propSndMsxAudio         = " MSX-AUDIO";
     ls->propSndMoonsound        = " Moonsound";
@@ -645,6 +651,8 @@ void langInitRussian(LanguageStrings* ls)
     ls->shortcutSize7x          = "Установить окно 7x";
     ls->shortcutSize8x          = "Установить окно 8x";
     ls->shortcutSizeFullscreen  = "Установить на полный экран";
+    ls->shortcutYm2413BackendCycle = "Переключить бэкенд MSX-MUSIC";
+    ls->shortcutY8950BackendCycle  = "Переключить бэкенд MSX-AUDIO";
     ls->shortcutSizeMinimized   = "Свернуть";
     ls->shortcutToggleFullscren = "Во весь экран";
     ls->shortcutVolumeIncrease  = "Увеличить громкость";

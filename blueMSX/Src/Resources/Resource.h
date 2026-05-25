@@ -136,6 +136,8 @@
 
 #define IDD_LOAD_MEMORY                 134
 
+#define IDD_MIDI                        136
+
 #define IDD_LARGEMSG                    138
 
 #define IDC_JOY1                        1000
@@ -492,6 +494,22 @@
 #define IDC_D3D_CROPPING_BOTTOMTEXT			3018
 #define IDC_D3D_CROPPING_BOTTOM				3019
 #define IDC_D3D_CROPPING_BOTTOMVALUETEXT	3020
+
+/* Sound Chips property page (IDD_SOUNDCHIPS): per-backend Enable
+** checkboxes + Active dropdown for YM2413 and Y8950. */
+#define IDC_SNDCHIPS_YM2413_GB              3100
+#define IDC_SNDCHIPS_YM2413_EMU2413_EN      3101
+#define IDC_SNDCHIPS_YM2413_OPENMSX2_EN     3102
+#define IDC_SNDCHIPS_YM2413_NUKED_EN        3103
+#define IDC_SNDCHIPS_YM2413_ACTIVETEXT      3104
+#define IDC_SNDCHIPS_YM2413_ACTIVE          3105
+#define IDC_SNDCHIPS_Y8950_GB               3110
+#define IDC_SNDCHIPS_Y8950_FMOPL_EN         3111
+#define IDC_SNDCHIPS_Y8950_EMU8950_EN       3112
+#define IDC_SNDCHIPS_Y8950_OPENMSX_EN       3113
+#define IDC_SNDCHIPS_Y8950_ACTIVETEXT       3114
+#define IDC_SNDCHIPS_Y8950_ACTIVE           3115
+#define IDC_SNDCHIPS_HINT                   3120
 
 #define IDC_LARGEMSG_TEXT                   3200
 #define IDC_LARGEMSG_ICON                   3201

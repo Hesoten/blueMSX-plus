@@ -164,6 +164,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->menuPropsEmulation      = "Emulation";
     ls->menuPropsVideo          = "Video";
     ls->menuPropsSound          = "Sound";
+    ls->menuPropsMidi           = "MIDI";
     ls->menuPropsControls       = "Controls";
     ls->menuPropsEffects        = "Effects";               // New in 2.9
     ls->menuPropsSettings       = "Settings";
@@ -313,6 +314,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->propFile                = "Files";
     ls->propDisk                = "Disks";              // New in 2.7
     ls->propPorts               = "Ports";
+    ls->propMidi                = "MIDI";
     
     ls->propEmuGeneralGB        = "General ";
     ls->propEmuFamilyText       = "MSX machine:";
@@ -386,6 +388,10 @@ void langInitEnglish(LanguageStrings* ls)
     ls->propSndMsxAudio         = " MSX-AUDIO";
     ls->propSndMoonsound        = " Moonsound";
     ls->propSndMt32ToGm         = " Map MT-32 instruments to General MIDI";
+    ls->propSoundChipsActive    = "Active backend:";
+    ls->propSoundChipsHint      = "When several backends are enabled, you can A/B compare them at runtime.";
+    ls->propSoundChipsYm2413GB  = " MSX-MUSIC backend ";
+    ls->propSoundChipsY8950GB   = " MSX-AUDIO backend ";
 
     ls->propPortsLptGB          = "Parallel port ";
     ls->propPortsComGB          = "Serial ports ";
@@ -654,6 +660,8 @@ void langInitEnglish(LanguageStrings* ls)
     ls->shortcutVolumeDecrease  = "Decrease Volume";
     ls->shortcutVolumeMute      = "Mute Volume";
     ls->shortcutVolumeStereo    = "Toggle mono/stereo";
+    ls->shortcutYm2413BackendCycle = "Cycle MSX-MUSIC audio backend";
+    ls->shortcutY8950BackendCycle  = "Cycle MSX-AUDIO audio backend";
     ls->shortcutSwitchMsxAudio  = "Toggle MSX-AUDIO switch";
     ls->shortcutSwitchFront     = "Toggle Panasonic front switch";
     ls->shortcutSwitchPause     = "Toggle pause switch";

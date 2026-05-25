@@ -66,6 +66,8 @@ static HRESULT StringCchLength(LPCTSTR s, size_t m, size_t *l) { *l = strlen(s);
 #include "Win32FileDialog.h"
 #include "Win32WasapiSound.h"
 #include "Emulator.h"
+#include "../SoundChips/YM2413.h"
+#include "../SoundChips/Y8950.h"
 
 /* From Win32D3D12.cpp; no header pulled in here to keep the C/C++
 ** boundary minimal. */
@@ -276,14 +278,9 @@ static BOOL_DLG_RET CALLBACK emulationDlgProc(HWND hDlg, UINT iMsg, WPARAM wPara
 
         pProperties = (Properties*)((PROPSHEETPAGE*)lParam)->lParam;
        
-        SetDlgItemTextU(hDlg, IDC_SNDCHIPEMUGROUPBOX, langPropSndChipEmuGB());
-
         SetDlgItemTextU(hDlg, IDC_OVERSAMPLETEXT1, langPropSndOversampleText());
         SetDlgItemTextU(hDlg, IDC_OVERSAMPLETEXT2, langPropSndOversampleText());
         SetDlgItemTextU(hDlg, IDC_OVERSAMPLETEXT3, langPropSndOversampleText());
-        SetWindowTextU(GetDlgItem(hDlg, IDC_ENABLEMSXMUSIC), langPropSndMsxMusic());
-        SetWindowTextU(GetDlgItem(hDlg, IDC_ENABLEMSXAUDIO), langPropSndMsxAudio());
-        SetWindowTextU(GetDlgItem(hDlg, IDC_ENABLEMOONSOUND), langPropSndMoonsound());
 
         SetDlgItemTextU(hDlg, IDC_EMUGENERALGROUPBOX, langPropEmuGeneralGB());
         SetDlgItemTextU(hDlg, IDC_EMUFAMILYTEXT, langPropEmuFamilyText());
@@ -299,10 +296,6 @@ static BOOL_DLG_RET CALLBACK emulationDlgProc(HWND hDlg, UINT iMsg, WPARAM wPara
         SetWindowTextU(GetDlgItem(hDlg, IDC_EMUPAUSESWITCH), langPropEmuPauseSwitch());
         SetWindowTextU(GetDlgItem(hDlg, IDC_EMUAUDIOSWITCH), langPropEmuAudioSwitch());
         SetWindowTextU(GetDlgItem(hDlg, IDC_EMUREVERSEPLAY), langPropEmuReversePlay());
-        
-        setButtonCheck(hDlg, IDC_ENABLEMSXMUSIC, pProperties->sound.chip.enableYM2413, 1);
-        setButtonCheck(hDlg, IDC_ENABLEMSXAUDIO, pProperties->sound.chip.enableY8950, 1);
-        setButtonCheck(hDlg, IDC_ENABLEMOONSOUND, pProperties->sound.chip.enableMoonsound, 1);
 
         setButtonCheck(hDlg, IDC_EMUFDCTIMING,   !pProperties->emulation.enableFdcTiming, 1);
         setButtonCheck(hDlg, IDC_NOSPRITELIMITS, pProperties->emulation.noSpriteLimits, 1);
@@ -399,9 +392,6 @@ static BOOL_DLG_RET CALLBACK emulationDlgProc(HWND hDlg, UINT iMsg, WPARAM wPara
 			machineList = arrayListCreate();
             machineFillAvailable(machineList, 1);
 
-            pProperties->sound.chip.enableYM2413 = getButtonCheck(hDlg, IDC_ENABLEMSXMUSIC);
-            pProperties->sound.chip.enableY8950 = getButtonCheck(hDlg, IDC_ENABLEMSXAUDIO);
-            pProperties->sound.chip.enableMoonsound = getButtonCheck(hDlg, IDC_ENABLEMOONSOUND);
             index = SendDlgItemMessage(hDlg, IDC_OVERSAMPLEMSXMUSIC, CB_GETCURSEL, 0, 0);
             pProperties->sound.chip.ym2413Oversampling = 1 << index;
             index = SendDlgItemMessage(hDlg, IDC_OVERSAMPLEMSXAUDIO, CB_GETCURSEL, 0, 0);
@@ -1806,10 +1796,79 @@ static void updateMidiChannelList(HWND hDlg, int id, Properties* pProperties)
 }
 
 
+/* IDD_SOUND multi-backend model:
+**   - Enable checkbox instantiates the backend; disabled backends are
+**     dropped from the Active dropdown and cycle hotkey (zero CPU).
+**   - Multiple enabled backends run in lockstep so the Active source
+**     can flip without glitching.
+**   - Enable changes take effect on the next chip creation, so the
+**     boxes grey out while the emulator is running; PSN_APPLY persists. */
+
+/* Display order is owned by the MultiBackend modules so the cycle
+** hotkey and this dialog stay in lock-step. Names live here because
+** they are user-visible labels and do not belong in the audio core. */
+static const char* const sndChipsYm2413DisplayName[PROP_YM2413_BACKEND_COUNT] = {
+    /* indexed by PROP_YM2413_BACKEND_* */
+    "openmsx",          /* OPENMSX   = 0 (initial backend, dead-coded) */
+    "original blueMSX", /* OPENMSX_2 = 1 */
+    "emu2413",          /* EMU2413   = 2 */
+    "Nuked OPLL",       /* NUKED     = 3 */
+};
+static const char* const sndChipsY8950DisplayName[PROP_Y8950_BACKEND_COUNT] = {
+    "original blueMSX", "emu8950", "openMSX"
+};
+
+static int soundChipsComboFill(HWND hCombo, const int* order, int orderCount,
+                               const char* const* names, const int* enabled, int active)
+{
+    int i;
+    int sel = -1;
+    SendMessage(hCombo, CB_RESETCONTENT, 0, 0);
+    for (i = 0; i < orderCount; i++) {
+        int slot = order[i];
+        if (!enabled[slot]) continue;
+        int idx = (int)ComboAddStringU(hCombo, (char*)names[slot]);
+        SendMessage(hCombo, CB_SETITEMDATA, idx, (LPARAM)slot);
+        if (slot == active) sel = idx;
+    }
+    if (sel < 0) sel = 0;
+    SendMessage(hCombo, CB_SETCURSEL, sel, 0);
+    return sel;
+}
+
+static int soundChipsActiveFromCombo(HWND hCombo, int fallback)
+{
+    int idx = (int)SendMessage(hCombo, CB_GETCURSEL, 0, 0);
+    if (idx == CB_ERR) return fallback;
+    return (int)SendMessage(hCombo, CB_GETITEMDATA, idx, 0);
+}
+
+/* Read the current Enable-checkbox state into the per-backend flag
+** arrays.  openmsx (initial) is dead-coded -- forced 0. */
+static void soundChipsReadEnabled(HWND hDlg, int* ymEnabled, int* yEnabled)
+{
+    ymEnabled[PROP_YM2413_BACKEND_EMU2413]   = getButtonCheck(hDlg, IDC_SNDCHIPS_YM2413_EMU2413_EN);
+    ymEnabled[PROP_YM2413_BACKEND_OPENMSX]   = 0;
+    ymEnabled[PROP_YM2413_BACKEND_OPENMSX_2] = getButtonCheck(hDlg, IDC_SNDCHIPS_YM2413_OPENMSX2_EN);
+    ymEnabled[PROP_YM2413_BACKEND_NUKED]     = getButtonCheck(hDlg, IDC_SNDCHIPS_YM2413_NUKED_EN);
+
+    yEnabled[PROP_Y8950_BACKEND_FMOPL]   = getButtonCheck(hDlg, IDC_SNDCHIPS_Y8950_FMOPL_EN);
+    yEnabled[PROP_Y8950_BACKEND_EMU8950] = getButtonCheck(hDlg, IDC_SNDCHIPS_Y8950_EMU8950_EN);
+    yEnabled[PROP_Y8950_BACKEND_OPENMSX] = getButtonCheck(hDlg, IDC_SNDCHIPS_Y8950_OPENMSX_EN);
+}
+
+static int soundChipsClampActive(int active, const int* enabled, const int* order, int orderCount, int fallbackSlot)
+{
+    int i;
+    if (active >= 0 && enabled[active]) return active;
+    for (i = 0; i < orderCount; i++) {
+        if (enabled[order[i]]) return order[i];
+    }
+    return fallbackSlot;
+}
 
 static BOOL_DLG_RET CALLBACK soundDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
     static Properties* pProperties;
-    int index;
 
     switch (iMsg) {
     case WM_INITDIALOG:
@@ -1859,136 +1918,110 @@ static BOOL_DLG_RET CALLBACK soundDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
             }
             SetDlgItemTextU(hDlg, IDC_SNDBUFSZ_ACTUAL, buf);
         }
-        SetDlgItemTextU(hDlg, IDC_YKINGROUPBOX, langPropSndYkInGB());
-        SetDlgItemTextU(hDlg, IDC_YKINTEXT, langTextDevice());
-        SetDlgItemTextU(hDlg, IDC_YKINCHANTEXT, langPropSndMidiChannel());
-        SetDlgItemTextU(hDlg, IDC_MIDIINGROUPBOX, langPropSndMidiInGB());
-        SetDlgItemTextU(hDlg, IDC_MIDIINTEXT, langTextDevice());
-#if 0
-        SetDlgItemTextU(hDlg, IDI_MIDIINFILENAMETEXT, langTextFilename());
-#endif
-        SetDlgItemTextU(hDlg, IDC_MIDIOUTGROUPBOX, langPropSndMidiOutGB());
-        SetDlgItemTextU(hDlg, IDC_MIDIOUTTEXT, langTextDevice());
-#if 0
-        SetDlgItemTextU(hDlg, IDI_MIDIOUTFILENAMETEXT, langTextFilename());
-#endif
-        SetWindowTextU(GetDlgItem(hDlg, IDC_MIDIOUTMT32TOGM), langPropSndMt32ToGm());
 
-        {
-            int index = 0;
-            int oversampling = 1;
-            for (; index < 4; index++, oversampling <<= 1) {
-                const char* modes[] = { "1 x", "2 x", "4 x", "8 x"} ;
-                ComboAddStringU(GetDlgItem(hDlg, IDC_OVERSAMPLEMSXMUSIC), modes[index]);
-                if (oversampling <= pProperties->sound.chip.ym2413Oversampling) {
-                    SendDlgItemMessage(hDlg, IDC_OVERSAMPLEMSXMUSIC, CB_SETCURSEL, index, 0);
-                }
-                
-                ComboAddStringU(GetDlgItem(hDlg, IDC_OVERSAMPLEMSXAUDIO), modes[index]);
-                if (oversampling <= pProperties->sound.chip.y8950Oversampling) {
-                    SendDlgItemMessage(hDlg, IDC_OVERSAMPLEMSXAUDIO, CB_SETCURSEL, index, 0);
-                }
-                
-                ComboAddStringU(GetDlgItem(hDlg, IDC_OVERSAMPLEMOONSOUND), modes[index]);
-                if (oversampling <= pProperties->sound.chip.moonsoundOversampling) {
-                    SendDlgItemMessage(hDlg, IDC_OVERSAMPLEMOONSOUND, CB_SETCURSEL, index, 0);
-                }
-            }
+        SetDlgItemTextU(hDlg, IDC_SNDCHIPEMUGROUPBOX,         langPropSndChipEmuGB());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ENABLEMSXMUSIC),  langPropSndMsxMusic());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ENABLEMSXAUDIO),  langPropSndMsxAudio());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_ENABLEMOONSOUND), langPropSndMoonsound());
+
+        SetDlgItemTextU(hDlg, IDC_SNDCHIPS_YM2413_GB,         langPropSoundChipsYm2413GB());
+        SetDlgItemTextU(hDlg, IDC_SNDCHIPS_Y8950_GB,          langPropSoundChipsY8950GB());
+        SetDlgItemTextU(hDlg, IDC_SNDCHIPS_YM2413_ACTIVETEXT, langPropSoundChipsActive());
+        SetDlgItemTextU(hDlg, IDC_SNDCHIPS_Y8950_ACTIVETEXT,  langPropSoundChipsActive());
+        SetDlgItemTextU(hDlg, IDC_SNDCHIPS_HINT,              langPropSoundChipsHint());
+
+        setButtonCheck(hDlg, IDC_ENABLEMSXMUSIC,              pProperties->sound.chip.enableYM2413,                 1);
+        setButtonCheck(hDlg, IDC_ENABLEMSXAUDIO,              pProperties->sound.chip.enableY8950,                  1);
+        setButtonCheck(hDlg, IDC_ENABLEMOONSOUND,             pProperties->sound.chip.enableMoonsound,              1);
+
+        setButtonCheck(hDlg, IDC_SNDCHIPS_YM2413_EMU2413_EN,  pProperties->sound.chip.ym2413BackendEmu2413Enabled,  1);
+        setButtonCheck(hDlg, IDC_SNDCHIPS_YM2413_OPENMSX2_EN, pProperties->sound.chip.ym2413BackendOpenmsx2Enabled, 1);
+        setButtonCheck(hDlg, IDC_SNDCHIPS_YM2413_NUKED_EN,    pProperties->sound.chip.ym2413BackendNukedEnabled,    1);
+        setButtonCheck(hDlg, IDC_SNDCHIPS_Y8950_FMOPL_EN,     pProperties->sound.chip.y8950BackendFmoplEnabled,     1);
+        setButtonCheck(hDlg, IDC_SNDCHIPS_Y8950_EMU8950_EN,   pProperties->sound.chip.y8950BackendEmu8950Enabled,   1);
+        setButtonCheck(hDlg, IDC_SNDCHIPS_Y8950_OPENMSX_EN,   pProperties->sound.chip.y8950BackendOpenmsxEnabled,   1);
+
+        /* Lock restart-causing controls + backend-enable checkboxes
+        ** while running.  Active dropdown is hot-applied. */
+        if (emulatorGetState() != EMU_STOPPED) {
+            EnableWindow(GetDlgItem(hDlg, IDC_ENABLEMSXMUSIC),              FALSE);
+            EnableWindow(GetDlgItem(hDlg, IDC_ENABLEMSXAUDIO),              FALSE);
+            EnableWindow(GetDlgItem(hDlg, IDC_ENABLEMOONSOUND),             FALSE);
+            EnableWindow(GetDlgItem(hDlg, IDC_SNDCHIPS_YM2413_EMU2413_EN),  FALSE);
+            EnableWindow(GetDlgItem(hDlg, IDC_SNDCHIPS_YM2413_OPENMSX2_EN), FALSE);
+            EnableWindow(GetDlgItem(hDlg, IDC_SNDCHIPS_YM2413_NUKED_EN),    FALSE);
+            EnableWindow(GetDlgItem(hDlg, IDC_SNDCHIPS_Y8950_FMOPL_EN),     FALSE);
+            EnableWindow(GetDlgItem(hDlg, IDC_SNDCHIPS_Y8950_EMU8950_EN),   FALSE);
+            EnableWindow(GetDlgItem(hDlg, IDC_SNDCHIPS_Y8950_OPENMSX_EN),   FALSE);
         }
 
-        updateMidiList(hDlg, IDC_MIDIOUT, pProperties);
-        updateMidiList(hDlg, IDC_MIDIIN,  pProperties);
-        updateMidiList(hDlg, IDC_YKIN,  pProperties);
-        updateMidiChannelList(hDlg, IDC_YKINCHAN, pProperties);
-
-        setButtonCheck(hDlg, IDC_MIDIOUTMT32TOGM, pProperties->sound.MidiOut.mt32ToGm, 1);
-
         {
-            int idx = SendDlgItemMessage(hDlg, IDC_MIDIOUT, CB_GETCURSEL, 0, 0) + 1;
-#if 0
-            EnableWindow(GetDlgItem(hDlg, IDC_MIDIOUTFILENAMEBROWSE), idx == P_MIDI_FILE);
-            EnableWindow(GetDlgItem(hDlg, IDI_MIDIOUTFILENAME), idx == P_MIDI_FILE);
-#endif
-            EnableWindow(GetDlgItem(hDlg, IDC_MIDIOUTMT32TOGM), idx >= P_MIDI_HOST);
-
-            idx = SendDlgItemMessage(hDlg, IDC_MIDIIN, CB_GETCURSEL, 0, 0);
-#if 0
-            EnableWindow(GetDlgItem(hDlg, IDC_MIDIINFILENAMEBROWSE), idx == P_MIDI_FILE);
-            EnableWindow(GetDlgItem(hDlg, IDI_MIDIINFILENAME), idx == P_MIDI_FILE);
-#endif
-
-            idx = SendDlgItemMessage(hDlg, IDC_YKIN, CB_GETCURSEL, 0, 0) + 1;
-            EnableWindow(GetDlgItem(hDlg, IDC_YKINCHANTEXT), idx >= P_MIDI_HOST);
-            EnableWindow(GetDlgItem(hDlg, IDC_YKINCHAN), idx >= P_MIDI_HOST);
+            int ymEnabled[PROP_YM2413_BACKEND_COUNT];
+            int yEnabled[PROP_Y8950_BACKEND_COUNT];
+            soundChipsReadEnabled(hDlg, ymEnabled, yEnabled);
+            soundChipsComboFill(GetDlgItem(hDlg, IDC_SNDCHIPS_YM2413_ACTIVE),
+                                ym2413BackendDisplayOrder, ym2413BackendDisplayCount,
+                                sndChipsYm2413DisplayName, ymEnabled,
+                                pProperties->sound.chip.ym2413BackendActive);
+            soundChipsComboFill(GetDlgItem(hDlg, IDC_SNDCHIPS_Y8950_ACTIVE),
+                                y8950BackendDisplayOrder, y8950BackendDisplayCount,
+                                sndChipsY8950DisplayName, yEnabled,
+                                pProperties->sound.chip.y8950BackendActive);
         }
 
-#if 0
-        SetWindowTextU(GetDlgItem(hDlg, IDI_MIDIOUTFILENAME), pProperties->sound.MidiOut.fileName);
-        SetWindowTextU(GetDlgItem(hDlg, IDI_MIDIINFILENAME),  pProperties->sound.MidiIn.fileName);
-#endif
         win32CommonApplyDark(hDlg);
         return FALSE;
-
+        
     case WM_COMMAND:
-        switch(LOWORD(wParam)) {
-        case IDC_MIDIOUT:
+        switch (LOWORD(wParam)) {
+        case IDC_SNDCHIPS_YM2413_EMU2413_EN:
+        case IDC_SNDCHIPS_YM2413_OPENMSX2_EN:
+        case IDC_SNDCHIPS_YM2413_NUKED_EN:
             {
-                int idx = SendDlgItemMessage(hDlg, IDC_MIDIOUT, CB_GETCURSEL, 0, 0) + 1;
-#if 0
-                EnableWindow(GetDlgItem(hDlg, IDC_MIDIOUTFILENAMEBROWSE), idx == P_MIDI_FILE);
-                EnableWindow(GetDlgItem(hDlg, IDI_MIDIOUTFILENAME), idx == P_MIDI_FILE);
-#endif
-                EnableWindow(GetDlgItem(hDlg, IDC_MIDIOUTMT32TOGM), idx >= P_MIDI_HOST);
+                int ymEnabled[PROP_YM2413_BACKEND_COUNT];
+                int yEnabled[PROP_Y8950_BACKEND_COUNT];
+                soundChipsReadEnabled(hDlg, ymEnabled, yEnabled);
+                int active = soundChipsActiveFromCombo(GetDlgItem(hDlg, IDC_SNDCHIPS_YM2413_ACTIVE),
+                                                       pProperties->sound.chip.ym2413BackendActive);
+                active = soundChipsClampActive(active, ymEnabled,
+                                               ym2413BackendDisplayOrder, ym2413BackendDisplayCount,
+                                               PROP_YM2413_BACKEND_EMU2413);
+                soundChipsComboFill(GetDlgItem(hDlg, IDC_SNDCHIPS_YM2413_ACTIVE),
+                                    ym2413BackendDisplayOrder, ym2413BackendDisplayCount,
+                                    sndChipsYm2413DisplayName, ymEnabled, active);
             }
             return TRUE;
-        case IDC_MIDIIN:
+        case IDC_SNDCHIPS_Y8950_FMOPL_EN:
+        case IDC_SNDCHIPS_Y8950_EMU8950_EN:
+        case IDC_SNDCHIPS_Y8950_OPENMSX_EN:
             {
-                int idx = SendDlgItemMessage(hDlg, IDC_MIDIIN, CB_GETCURSEL, 0, 0) + 1;
-#if 0
-                EnableWindow(GetDlgItem(hDlg, IDC_MIDIINFILENAMEBROWSE), idx == P_MIDI_FILE);
-                EnableWindow(GetDlgItem(hDlg, IDI_MIDIINFILENAME), idx == P_MIDI_FILE);
-#endif
+                int ymEnabled[PROP_YM2413_BACKEND_COUNT];
+                int yEnabled[PROP_Y8950_BACKEND_COUNT];
+                soundChipsReadEnabled(hDlg, ymEnabled, yEnabled);
+                int active = soundChipsActiveFromCombo(GetDlgItem(hDlg, IDC_SNDCHIPS_Y8950_ACTIVE),
+                                                       pProperties->sound.chip.y8950BackendActive);
+                active = soundChipsClampActive(active, yEnabled,
+                                               y8950BackendDisplayOrder, y8950BackendDisplayCount,
+                                               PROP_Y8950_BACKEND_FMOPL);
+                soundChipsComboFill(GetDlgItem(hDlg, IDC_SNDCHIPS_Y8950_ACTIVE),
+                                    y8950BackendDisplayOrder, y8950BackendDisplayCount,
+                                    sndChipsY8950DisplayName, yEnabled, active);
             }
             return TRUE;
-        case IDC_YKIN:
-            {
-                int idx = SendDlgItemMessage(hDlg, IDC_YKIN, CB_GETCURSEL, 0, 0) + 1;
-                EnableWindow(GetDlgItem(hDlg, IDC_YKINCHANTEXT), idx >= P_MIDI_HOST);
-                EnableWindow(GetDlgItem(hDlg, IDC_YKINCHAN), idx >= P_MIDI_HOST);
+        case IDC_SNDCHIPS_YM2413_ACTIVE:
+            if (HIWORD(wParam) == CBN_SELCHANGE) {
+                int active = soundChipsActiveFromCombo((HWND)lParam,
+                                                       pProperties->sound.chip.ym2413BackendActive);
+                ym2413BackendActiveSet(active);
             }
             return TRUE;
-#if 0
-        case IDC_MIDIOUTFILENAMEBROWSE:
-            {
-                char fileName[MAX_PATH];
-                GetWindowTextU(GetDlgItem(hDlg, IDI_MIDIOUTFILENAME), fileName, MAX_PATH - 1);
-                if (openLogFile(hDlg, fileName)) {
-                    SetWindowTextU(GetDlgItem(hDlg, IDI_MIDIOUTFILENAME), fileName);
-                }
+        case IDC_SNDCHIPS_Y8950_ACTIVE:
+            if (HIWORD(wParam) == CBN_SELCHANGE) {
+                int active = soundChipsActiveFromCombo((HWND)lParam,
+                                                       pProperties->sound.chip.y8950BackendActive);
+                y8950BackendActiveSet(active);
             }
             return TRUE;
-        case IDC_MIDIINFILENAMEBROWSE:
-            {
-                char fileName[MAX_PATH];
-                GetWindowTextU(GetDlgItem(hDlg, IDI_MIDIINFILENAME), fileName, MAX_PATH - 1);
-                if (openLogFile(hDlg, pProperties->sound.MidiIn.fileName)) {
-                    SetWindowTextU(GetDlgItem(hDlg, IDI_MIDIINFILENAME), fileName);
-                }
-            }
-            return TRUE;
-#endif
-        case IDC_OVERSAMPLEMSXMUSIC:
-            index = SendDlgItemMessage(hDlg, IDC_OVERSAMPLEMSXMUSIC, CB_GETCURSEL, 0, 0);
-            boardSetYm2413Oversampling(1 << index);
-            break;
-        case IDC_OVERSAMPLEMSXAUDIO:
-            index = SendDlgItemMessage(hDlg, IDC_OVERSAMPLEMSXAUDIO, CB_GETCURSEL, 0, 0);
-            boardSetY8950Oversampling(1 << index);
-            break;
-        case IDC_OVERSAMPLEMOONSOUND:
-            index = SendDlgItemMessage(hDlg, IDC_OVERSAMPLEMOONSOUND, CB_GETCURSEL, 0, 0);
-            boardSetMoonsoundOversampling(1 << index);
-            break;
         }
         break;
 
@@ -2006,36 +2039,111 @@ static BOOL_DLG_RET CALLBACK soundDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
                 }
                 pProperties->sound.driver = pSoundDriverEnum[sndDrvIdx];
             }
-            pProperties->sound.bufSize          = soundBufSizes[getDropListIndex(hDlg, IDC_SNDBUFSZ, pSoundBufferSize)];
+            pProperties->sound.bufSize = soundBufSizes[getDropListIndex(hDlg, IDC_SNDBUFSZ, pSoundBufferSize)];
 
-            getMidiList(hDlg, IDC_MIDIOUT, pProperties);
-#if 0
-            GetWindowTextU(GetDlgItem(hDlg, IDI_MIDIOUTFILENAME), pProperties->sound.MidiOut.fileName, MAX_PATH - 1);
-#endif
-            getMidiList(hDlg, IDC_MIDIIN, pProperties);
-#if 0
-            GetWindowTextU(GetDlgItem(hDlg, IDI_MIDIINFILENAME), pProperties->sound.MidiIn.fileName, MAX_PATH - 1);
-#endif
-            pProperties->sound.MidiOut.mt32ToGm = getButtonCheck(hDlg, IDC_MIDIOUTMT32TOGM);
-
-            getMidiList(hDlg, IDC_YKIN, pProperties);
-            getMidiChannelList(hDlg, IDC_YKINCHAN, pProperties);
+            pProperties->sound.chip.enableYM2413                 = getButtonCheck(hDlg, IDC_ENABLEMSXMUSIC);
+            pProperties->sound.chip.enableY8950                  = getButtonCheck(hDlg, IDC_ENABLEMSXAUDIO);
+            pProperties->sound.chip.enableMoonsound              = getButtonCheck(hDlg, IDC_ENABLEMOONSOUND);
+            pProperties->sound.chip.ym2413BackendEmu2413Enabled  = getButtonCheck(hDlg, IDC_SNDCHIPS_YM2413_EMU2413_EN);
+            pProperties->sound.chip.ym2413BackendOpenmsx2Enabled = getButtonCheck(hDlg, IDC_SNDCHIPS_YM2413_OPENMSX2_EN);
+            pProperties->sound.chip.ym2413BackendNukedEnabled    = getButtonCheck(hDlg, IDC_SNDCHIPS_YM2413_NUKED_EN);
+            pProperties->sound.chip.y8950BackendFmoplEnabled     = getButtonCheck(hDlg, IDC_SNDCHIPS_Y8950_FMOPL_EN);
+            pProperties->sound.chip.y8950BackendEmu8950Enabled   = getButtonCheck(hDlg, IDC_SNDCHIPS_Y8950_EMU8950_EN);
+            pProperties->sound.chip.y8950BackendOpenmsxEnabled   = getButtonCheck(hDlg, IDC_SNDCHIPS_Y8950_OPENMSX_EN);
+            pProperties->sound.chip.ym2413BackendActive = soundChipsActiveFromCombo(
+                GetDlgItem(hDlg, IDC_SNDCHIPS_YM2413_ACTIVE),
+                pProperties->sound.chip.ym2413BackendActive);
+            pProperties->sound.chip.y8950BackendActive = soundChipsActiveFromCombo(
+                GetDlgItem(hDlg, IDC_SNDCHIPS_Y8950_ACTIVE),
+                pProperties->sound.chip.y8950BackendActive);
 
             propModified = 1;
             return TRUE;
-
-        case PSN_QUERYCANCEL:
-            emulatorRestartSound();
-
-            boardSetYm2413Oversampling(pProperties->sound.chip.ym2413Oversampling);
-            boardSetY8950Oversampling(pProperties->sound.chip.y8950Oversampling);
-            boardSetMoonsoundOversampling(pProperties->sound.chip.moonsoundOversampling);
-
-            return FALSE;
         }
         break;
     }
 
+    return FALSE;
+}
+
+/* IDD_MIDI: MIDI In, MIDI Out, Yamaha Keyboard input.  Split out from
+** the Sound page so the chip / backend controls do not crowd the same
+** dialog.  PSN_APPLY persists the device names + MT-32-to-GM toggle. */
+static BOOL_DLG_RET CALLBACK midiDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
+    static Properties* pProperties;
+
+    switch (iMsg) {
+    case WM_INITDIALOG:
+        if (!centered) {
+            updateDialogPos(GetParent(hDlg), DLG_ID_PROPERTIES, 0, 1);
+            centered = 1;
+        }
+        hDlgSound = hDlg;
+
+        pProperties = (Properties*)((PROPSHEETPAGE*)lParam)->lParam;
+
+        SetDlgItemTextU(hDlg, IDC_MIDIINGROUPBOX,  langPropSndMidiInGB());
+        SetDlgItemTextU(hDlg, IDC_MIDIINTEXT,      langTextDevice());
+        SetDlgItemTextU(hDlg, IDC_MIDIOUTGROUPBOX, langPropSndMidiOutGB());
+        SetDlgItemTextU(hDlg, IDC_MIDIOUTTEXT,     langTextDevice());
+        SetDlgItemTextU(hDlg, IDC_YKINGROUPBOX,    langPropSndYkInGB());
+        SetDlgItemTextU(hDlg, IDC_YKINTEXT,        langTextDevice());
+        SetDlgItemTextU(hDlg, IDC_YKINCHANTEXT,    langPropSndMidiChannel());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_MIDIOUTMT32TOGM), langPropSndMt32ToGm());
+
+        updateMidiList(hDlg, IDC_MIDIOUT, pProperties);
+        updateMidiList(hDlg, IDC_MIDIIN,  pProperties);
+        updateMidiList(hDlg, IDC_YKIN,    pProperties);
+        updateMidiChannelList(hDlg, IDC_YKINCHAN, pProperties);
+
+        setButtonCheck(hDlg, IDC_MIDIOUTMT32TOGM, pProperties->sound.MidiOut.mt32ToGm, 1);
+
+        {
+            int idx = SendDlgItemMessage(hDlg, IDC_MIDIOUT, CB_GETCURSEL, 0, 0) + 1;
+            EnableWindow(GetDlgItem(hDlg, IDC_MIDIOUTMT32TOGM), idx >= P_MIDI_HOST);
+
+            idx = SendDlgItemMessage(hDlg, IDC_YKIN, CB_GETCURSEL, 0, 0) + 1;
+            EnableWindow(GetDlgItem(hDlg, IDC_YKINCHANTEXT), idx >= P_MIDI_HOST);
+            EnableWindow(GetDlgItem(hDlg, IDC_YKINCHAN),     idx >= P_MIDI_HOST);
+        }
+
+        win32CommonApplyDark(hDlg);
+        return FALSE;
+
+    case WM_COMMAND:
+        switch (LOWORD(wParam)) {
+        case IDC_MIDIOUT:
+            {
+                int idx = SendDlgItemMessage(hDlg, IDC_MIDIOUT, CB_GETCURSEL, 0, 0) + 1;
+                EnableWindow(GetDlgItem(hDlg, IDC_MIDIOUTMT32TOGM), idx >= P_MIDI_HOST);
+            }
+            return TRUE;
+        case IDC_YKIN:
+            {
+                int idx = SendDlgItemMessage(hDlg, IDC_YKIN, CB_GETCURSEL, 0, 0) + 1;
+                EnableWindow(GetDlgItem(hDlg, IDC_YKINCHANTEXT), idx >= P_MIDI_HOST);
+                EnableWindow(GetDlgItem(hDlg, IDC_YKINCHAN),     idx >= P_MIDI_HOST);
+            }
+            return TRUE;
+        }
+        break;
+
+    case WM_NOTIFY:
+        if (((NMHDR FAR*)lParam)->code == PSN_APPLY || ((NMHDR FAR*)lParam)->code == PSN_QUERYCANCEL) {
+            saveDialogPos(GetParent(hDlg), DLG_ID_PROPERTIES);
+        }
+        switch (((NMHDR FAR *)lParam)->code) {
+        case PSN_APPLY:
+            getMidiList(hDlg, IDC_MIDIOUT, pProperties);
+            getMidiList(hDlg, IDC_MIDIIN,  pProperties);
+            getMidiList(hDlg, IDC_YKIN,    pProperties);
+            getMidiChannelList(hDlg, IDC_YKINCHAN, pProperties);
+            pProperties->sound.MidiOut.mt32ToGm = getButtonCheck(hDlg, IDC_MIDIOUTMT32TOGM);
+            propModified = 1;
+            return TRUE;
+        }
+        break;
+    }
     return FALSE;
 }
 
@@ -2634,9 +2742,9 @@ static int CALLBACK propSheetInitCallback(HWND hwnd, UINT uMsg, LPARAM lParam)
 
 int showProperties(Properties* pProperties, HWND hwndOwner, PropPage desiredStartPage, Mixer* mixer, Video* video) {
 	HINSTANCE       hInst = (HINSTANCE)GetModuleHandle(NULL);
-    PROPSHEETPAGEW   psp[9];
+    PROPSHEETPAGEW   psp[10];
     PROPSHEETHEADERW psh;
-    wchar_t          wTitle[9][64];
+    wchar_t          wTitle[10][64];
     wchar_t          wCaption[128];
     Properties oldProp = *pProperties;
     UINT startPage = -1;
@@ -2751,6 +2859,23 @@ int showProperties(Properties* pProperties, HWND hwndOwner, PropPage desiredStar
         psp[curPage].lParam = (LPARAM)pProperties;
         psp[curPage].pfnCallback = NULL;
         if (desiredStartPage == PROP_SOUND || startPage == -1) {
+            startPage = curPage;
+        }
+        curPage++;
+    }
+
+    if (appConfigGetInt("properties.midi", 1) != 0) {
+        psp[curPage].dwSize = sizeof(PROPSHEETPAGEW);
+        psp[curPage].dwFlags = PSP_USEICONID | PSP_USETITLE;
+        psp[curPage].hInstance = hInst;
+        psp[curPage].pszTemplate = MAKEINTRESOURCEW(IDD_MIDI);
+        psp[curPage].pszIcon = NULL;
+        psp[curPage].pfnDlgProc = midiDlgProc;
+        Utf8ToWide(langPropMidi(), wTitle[curPage], _countof(wTitle[curPage]));
+        psp[curPage].pszTitle = wTitle[curPage];
+        psp[curPage].lParam = (LPARAM)pProperties;
+        psp[curPage].pfnCallback = NULL;
+        if (desiredStartPage == PROP_MIDI || startPage == -1) {
             startPage = curPage;
         }
         curPage++;

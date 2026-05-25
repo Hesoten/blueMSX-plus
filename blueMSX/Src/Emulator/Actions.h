@@ -106,6 +106,7 @@ void actionCasSave();
 void actionPropShowEmulation();
 void actionPropShowVideo();
 void actionPropShowAudio();
+void actionPropShowMidi();
 void actionPropShowSettings();
 void actionPropShowDisk();
 void actionPropShowApearance();

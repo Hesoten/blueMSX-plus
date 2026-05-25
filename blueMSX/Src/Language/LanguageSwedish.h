@@ -164,6 +164,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->menuPropsEmulation      = "Emulering";
     ls->menuPropsVideo          = "Video";
     ls->menuPropsSound          = "Ljud";
+    ls->menuPropsMidi           = "MIDI";
     ls->menuPropsControls       = "Kontroller";
     ls->menuPropsEffects        = "Effekter";               // New in 2.9
     ls->menuPropsSettings       = "Inställningar";
@@ -306,6 +307,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->propEmulation           = "Emulering";
     ls->propVideo               = "Video";
     ls->propSound               = "Ljud";
+    ls->propMidi                = "MIDI";
     ls->propControls            = "Kontroller";
     ls->propPerformance         = "Prestanda";
     ls->propEffects             = "Effekter";             // New in 2.9
@@ -380,6 +382,10 @@ void langInitSwedish(LanguageStrings* ls)
     ls->propFullscreenResText   = "Fullskärmsupplösning:";
 
     ls->propSndChipEmuGB        = "Emulering av ljudchip ";
+    ls->propSoundChipsActive    = "Aktiv backend:";
+    ls->propSoundChipsHint      = "När flera backends är aktiverade kan du A/B-jämföra dem under körning.";
+    ls->propSoundChipsYm2413GB  = " MSX-MUSIC backend ";
+    ls->propSoundChipsY8950GB   = " MSX-AUDIO backend ";
     ls->propSndMsxMusic         = " MSX-MUSIC";
     ls->propSndMsxAudio         = " MSX-AUDIO";
     ls->propSndMoonsound        = " Moonsound";
@@ -647,6 +653,8 @@ void langInitSwedish(LanguageStrings* ls)
     ls->shortcutSize7x          = "Ange 7x-fönsterstorlek";
     ls->shortcutSize8x          = "Ange 8x-fönsterstorlek";
     ls->shortcutSizeFullscreen  = "Växla till Fullskärm";
+    ls->shortcutYm2413BackendCycle = "Växla MSX-MUSIC ljudbackend";
+    ls->shortcutY8950BackendCycle  = "Växla MSX-AUDIO ljudbackend";
     ls->shortcutSizeMinimized   = "Minimera fönster";
     ls->shortcutToggleFullscren = "Växla till/från Fullskärm";
     ls->shortcutVolumeIncrease  = "Öka Volymen";

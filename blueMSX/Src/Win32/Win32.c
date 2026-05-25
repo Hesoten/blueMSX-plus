@@ -1764,6 +1764,8 @@ static void checkKeyUp(Shortcuts* s, ShotcutHotkey key)
     if (hotkeyEq(key, s->videoCapRec))                  actionVideoCaptureRec();
     if (hotkeyEq(key, s->videoCapStop))                 actionVideoCaptureStop();
     if (hotkeyEq(key, s->videoCapSave))                 actionVideoCaptureSave();
+    if (hotkeyEq(key, s->ym2413BackendCycle))           actionYm2413BackendCycle();
+    if (hotkeyEq(key, s->y8950BackendCycle))            actionY8950BackendCycle();
     if (hotkeyEq(key, s->screenCapture))                actionScreenCapture();
     if (hotkeyEq(key, s->screenCaptureUnfilteredSmall)) actionScreenCaptureUnfilteredSmall();
     if (hotkeyEq(key, s->screenCaptureUnfilteredLarge)) actionScreenCaptureUnfilteredLarge();

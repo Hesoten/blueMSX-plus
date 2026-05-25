@@ -381,6 +381,7 @@ char* langMenuZoomFullscreen() { return ls->menuZoomFullscreen; }
 char* langMenuPropsEmulation() { return ls->menuPropsEmulation; }
 char* langMenuPropsVideo() { return ls->menuPropsVideo; }
 char* langMenuPropsSound() { return ls->menuPropsSound; }
+char* langMenuPropsMidi() { return ls->menuPropsMidi; }
 char* langMenuPropsControls() { return ls->menuPropsControls; }
 char* langMenuPropsEffects() { return ls->menuPropsEffects; }
 char* langMenuPropsSettings() { return ls->menuPropsSettings; }
@@ -519,6 +520,7 @@ char* langPropSettings() { return ls->propSettings; }
 char* langPropFile()  { return ls->propFile; }
 char* langPropDisk()  { return ls->propDisk; }
 char* langPropPorts() { return ls->propPorts; }
+char* langPropMidi()  { return ls->propMidi; }
 
 char* langPropEmuGeneralGB() { return ls->propEmuGeneralGB; }
 char* langPropEmuFamilyText() { return ls->propEmuFamilyText; }
@@ -590,6 +592,10 @@ char* langPropSndMsxMusic() { return ls->propSndMsxMusic; }
 char* langPropSndMsxAudio() { return ls->propSndMsxAudio; }
 char* langPropSndMoonsound() { return ls->propSndMoonsound; }
 char* langPropSndMt32ToGm() { return ls->propSndMt32ToGm; }
+char* langPropSoundChipsActive() { return ls->propSoundChipsActive; }
+char* langPropSoundChipsHint() { return ls->propSoundChipsHint; }
+char* langPropSoundChipsYm2413GB() { return ls->propSoundChipsYm2413GB; }
+char* langPropSoundChipsY8950GB() { return ls->propSoundChipsY8950GB; }
 
 char* langPropPortsLptGB() { return ls->propPortsLptGB; }
 char* langPropPortsComGB() { return ls->propPortsComGB; }
@@ -863,6 +869,8 @@ char* langShortcutVolumeIncrease() { return ls->shortcutVolumeIncrease; }
 char* langShortcutVolumeDecrease() { return ls->shortcutVolumeDecrease; }
 char* langShortcutVolumeMute() { return ls->shortcutVolumeMute; }
 char* langShortcutVolumeStereo() { return ls->shortcutVolumeStereo; }
+char* langShortcutYm2413BackendCycle() { return ls->shortcutYm2413BackendCycle; }
+char* langShortcutY8950BackendCycle() { return ls->shortcutY8950BackendCycle; }
 char* langShortcutSwitchMsxAudio() { return ls->shortcutSwitchMsxAudio; }
 char* langShortcutSwitchFront() { return ls->shortcutSwitchFront; }
 char* langShortcutSwitchPause() { return ls->shortcutSwitchPause; }

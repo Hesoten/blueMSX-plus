@@ -164,6 +164,7 @@ void langInitGerman(LanguageStrings* ls)
     ls->menuPropsEmulation       = "Emulation";
     ls->menuPropsVideo           = "Video";
     ls->menuPropsSound           = "Sound";
+    ls->menuPropsMidi            = "MIDI";
     ls->menuPropsControls        = "Controls";
     ls->menuPropsEffects        = "Effects";               // New in 2.9
     ls->menuPropsSettings        = "Einstellungen";
@@ -305,6 +306,7 @@ void langInitGerman(LanguageStrings* ls)
     ls->propEmulation            = "Emulation";
     ls->propVideo                = "Video";
     ls->propSound                = "Sound";
+    ls->propMidi                 = "MIDI";
     ls->propControls             = "Controls";
     ls->propPerformance          = "Performance";
     ls->propEffects              = "Effects";             // New in 2.9
@@ -379,6 +381,10 @@ void langInitGerman(LanguageStrings* ls)
     ls->propFullscreenResText    = "Bildschirmauflösung:";
 
     ls->propSndChipEmuGB         = "Emulation des Soundchips ";
+    ls->propSoundChipsActive     = "Aktives Backend:";
+    ls->propSoundChipsHint       = "Mehrere aktive Backends erlauben A/B-Vergleich zur Laufzeit.";
+    ls->propSoundChipsYm2413GB   = " MSX-MUSIC Backend ";
+    ls->propSoundChipsY8950GB    = " MSX-AUDIO Backend ";
     ls->propSndMsxMusic          = " MSX-MUSIC";
     ls->propSndMsxAudio          = " MSX-AUDIO";
     ls->propSndMoonsound         = " Moonsound";
@@ -646,6 +652,8 @@ void langInitGerman(LanguageStrings* ls)
     ls->shortcutSize7x             = "7x-Fenstergröße setzen";
     ls->shortcutSize8x             = "8x-Fenstergröße setzen";
     ls->shortcutSizeFullscreen     = "Volle Bildschirmgröße einstellen";
+    ls->shortcutYm2413BackendCycle = "MSX-MUSIC Audio-Backend wechseln";
+    ls->shortcutY8950BackendCycle  = "MSX-AUDIO Audio-Backend wechseln";
     ls->shortcutToggleFullscren    = "Bildschirmgröße umschalten";
     ls->shortcutSizeMinimized      = "Fenster minimieren";
     ls->shortcutVolumeIncrease     = "Lautstärke erhöhen";

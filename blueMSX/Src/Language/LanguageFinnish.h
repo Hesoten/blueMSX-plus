@@ -166,6 +166,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->menuPropsEmulation      = "Emulaatio";
     ls->menuPropsVideo          = "Video";
     ls->menuPropsSound          = "Ääni";
+    ls->menuPropsMidi           = "MIDI";
     ls->menuPropsControls       = "Kontrollit";
     ls->menuPropsEffects        = "Effects";               // New in 2.9
     ls->menuPropsSettings       = "Asetukset";
@@ -306,6 +307,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->propEmulation           = "Emulaatio";
     ls->propVideo               = "Video";
     ls->propSound               = "Ääni";
+    ls->propMidi                = "MIDI";
     ls->propControls            = "Kontrollit";
     ls->propPerformance         = "Suorituskyky";
     ls->propEffects             = "Effects";             // New in 2.9
@@ -380,6 +382,10 @@ void langInitFinnish(LanguageStrings* ls)
     ls->propFullscreenResText   = "Resoluutio kokoruututilassa:";
 
     ls->propSndChipEmuGB        = "Äänipiirien emulointi ";
+    ls->propSoundChipsActive    = "Aktiivinen taustaohjain:";
+    ls->propSoundChipsHint      = "Useat aktiiviset taustaohjaimet mahdollistavat A/B-vertailun ajossa.";
+    ls->propSoundChipsYm2413GB  = " MSX-MUSIC taustaohjain ";
+    ls->propSoundChipsY8950GB   = " MSX-AUDIO taustaohjain ";
     ls->propSndMsxMusic         = " MSX-MUSIC";
     ls->propSndMsxAudio         = " MSX-AUDIO";
     ls->propSndMoonsound        = " Moonsound";
@@ -647,6 +653,8 @@ void langInitFinnish(LanguageStrings* ls)
     ls->shortcutSize7x          = "Aseta 7x-ikkunakoko";
     ls->shortcutSize8x          = "Aseta 8x-ikkunakoko";
     ls->shortcutSizeFullscreen  = "Aseta kokoruututila";
+    ls->shortcutYm2413BackendCycle = "Vaihda MSX-MUSIC taustaohjainta";
+    ls->shortcutY8950BackendCycle  = "Vaihda MSX-AUDIO taustaohjainta";
     ls->shortcutSizeMinimized   = "Pienennä ikkuna";
     ls->shortcutToggleFullscren = "Vaihda kokoruututilaa";
     ls->shortcutVolumeIncrease  = "Nosta äänenvoimakkuutta";

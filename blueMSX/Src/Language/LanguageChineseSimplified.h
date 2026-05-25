@@ -164,6 +164,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->menuPropsEmulation      = "模拟";
     ls->menuPropsVideo          = "视频";
     ls->menuPropsSound          = "声音";
+    ls->menuPropsMidi           = "MIDI";
     ls->menuPropsControls       = "控制器";
     ls->menuPropsEffects        = "Effects";               // New in 2.9
     ls->menuPropsSettings        = "设定";
@@ -304,6 +305,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->propEmulation           = "模拟";
     ls->propVideo               = "视频";
     ls->propSound               = "声音";
+    ls->propMidi                = "MIDI";
     ls->propControls            = "控制器";
     ls->propPerformance         = "性能";
     ls->propEffects             = "Effects";             // New in 2.9
@@ -378,6 +380,10 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->propFullscreenResText   = "全屏幕分辨率:";
 
     ls->propSndChipEmuGB        = "声音芯片模拟 ";
+    ls->propSoundChipsActive    = "活动后端:";
+    ls->propSoundChipsHint      = "启用多个后端时,可以在运行时进行 A/B 比较。";
+    ls->propSoundChipsYm2413GB  = " MSX-MUSIC 后端 ";
+    ls->propSoundChipsY8950GB   = " MSX-AUDIO 后端 ";
     ls->propSndMsxMusic         = " MSX-MUSIC";
     ls->propSndMsxAudio         = " MSX-AUDIO";
     ls->propSndMoonsound         = " Moonsound";
@@ -645,6 +651,8 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->shortcutSize7x          = "设置 7x 窗口大小";
     ls->shortcutSize8x          = "设置 8x 窗口大小";
     ls->shortcutSizeFullscreen  = "设为全屏幕";
+    ls->shortcutYm2413BackendCycle = "切换 MSX-MUSIC 音频后端";
+    ls->shortcutY8950BackendCycle  = "切换 MSX-AUDIO 音频后端";
     ls->shortcutSizeMinimized   = "最小化窗口";
     ls->shortcutToggleFullscren = "切换全屏幕";
     ls->shortcutVolumeIncrease  = "增大音量";

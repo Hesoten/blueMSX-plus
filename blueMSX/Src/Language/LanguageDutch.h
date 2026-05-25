@@ -164,6 +164,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->menuPropsEmulation      = "Emulatie";
     ls->menuPropsVideo          = "Beeld";
     ls->menuPropsSound          = "Geluid";
+    ls->menuPropsMidi           = "MIDI";
     ls->menuPropsControls       = "Besturing";
     ls->menuPropsEffects        = "Effects";               // New in 2.9
     ls->menuPropsSettings       = "Instellingen";
@@ -305,6 +306,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->propEmulation           = "Emulatie";
     ls->propVideo               = "Beeld";
     ls->propSound               = "Geluid";
+    ls->propMidi                = "MIDI";
     ls->propControls            = "Besturing";
     ls->propPerformance         = "Prestaties";
     ls->propEffects             = "Effects";             // New in 2.9
@@ -379,6 +381,10 @@ void langInitDutch(LanguageStrings* ls)
     ls->propFullscreenResText   = "Resolutie volledig scherm:";
 
     ls->propSndChipEmuGB        = "Emulatie geluidschip ";
+    ls->propSoundChipsActive    = "Actieve backend:";
+    ls->propSoundChipsHint      = "Meerdere actieve backends maken A/B-vergelijking mogelijk.";
+    ls->propSoundChipsYm2413GB  = " MSX-MUSIC backend ";
+    ls->propSoundChipsY8950GB   = " MSX-AUDIO backend ";
     ls->propSndMsxMusic         = " MSX-MUSIC";
     ls->propSndMsxAudio         = " MSX-AUDIO";
     ls->propSndMoonsound        = " Moonsound";
@@ -646,6 +652,8 @@ void langInitDutch(LanguageStrings* ls)
     ls->shortcutSize7x          = "Stel 7x venstergrootte in";
     ls->shortcutSize8x          = "Stel 8x venstergrootte in";
     ls->shortcutSizeFullscreen  = "Kiezen volledig scherm";
+    ls->shortcutYm2413BackendCycle = "Schakel MSX-MUSIC audio backend";
+    ls->shortcutY8950BackendCycle  = "Schakel MSX-AUDIO audio backend";
     ls->shortcutSizeMinimized   = "Minimaliseer scherm";
     ls->shortcutToggleFullscren = "Kiezen volledig scherm of onvolledig scherm";
     ls->shortcutVolumeIncrease  = "Geluidsterkte verhogen";

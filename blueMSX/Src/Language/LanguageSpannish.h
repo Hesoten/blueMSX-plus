@@ -164,6 +164,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->menuPropsEmulation      = "Emulación";
     ls->menuPropsVideo          = "Vídeo";
     ls->menuPropsSound          = "Sonido";
+    ls->menuPropsMidi           = "MIDI";
     ls->menuPropsControls       = "Controles";
     ls->menuPropsEffects        = "Effects";               // New in 2.9
     ls->menuPropsSettings        = "Configuraciones";
@@ -305,6 +306,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->propEmulation           = "Emulación";
     ls->propVideo               = "Video";
     ls->propSound               = "Sonido";
+    ls->propMidi                = "MIDI";
     ls->propControls            = "Controles";
     ls->propPerformance         = "Rendimiento";
     ls->propEffects             = "Effects";             // New in 2.9
@@ -379,6 +381,10 @@ void langInitSpanish(LanguageStrings* ls)
     ls->propFullscreenResText   = "Resolución pantalla completa:"; 
 
     ls->propSndChipEmuGB        = "Emulación Chip de Sonido ";
+    ls->propSoundChipsActive    = "Backend activo:";
+    ls->propSoundChipsHint      = "Varios backends activos permiten comparación A/B en tiempo real.";
+    ls->propSoundChipsYm2413GB  = " Backend MSX-MUSIC ";
+    ls->propSoundChipsY8950GB   = " Backend MSX-AUDIO ";
     ls->propSndMsxMusic         = " MSX-MUSIC";
     ls->propSndMsxAudio         = " MSX-AUDIO";
     ls->propSndMoonsound         = " Moonsound";
@@ -646,6 +652,8 @@ void langInitSpanish(LanguageStrings* ls)
     ls->shortcutSize7x          = "Establecer ventana 7x";
     ls->shortcutSize8x          = "Establecer ventana 8x";
     ls->shortcutSizeFullscreen  = "Pasar en método pantalla completa";
+    ls->shortcutYm2413BackendCycle = "Cambiar backend de audio MSX-MUSIC";
+    ls->shortcutY8950BackendCycle  = "Cambiar backend de audio MSX-AUDIO";
     ls->shortcutSizeMinimized   = "Reducir la ventana"; 
     ls->shortcutToggleFullscren = "Balanza método ventana/método pantalla completa";
     ls->shortcutVolumeIncrease  = "Aumentar el volumen sonoro";

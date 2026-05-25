@@ -94,6 +94,7 @@ typedef enum {
     PROP_EMULATION = 0, 
     PROP_VIDEO, 
     PROP_SOUND, 
+    PROP_MIDI,
     PROP_PERFORMANCE, 
     PROP_SETTINGS, 
     PROP_DISK,

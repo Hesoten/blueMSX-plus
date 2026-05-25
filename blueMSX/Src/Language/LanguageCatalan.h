@@ -164,6 +164,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->menuPropsEmulation      = "Emulació";
     ls->menuPropsVideo          = "Vídeo";
     ls->menuPropsSound          = "So";
+    ls->menuPropsMidi           = "MIDI";
     ls->menuPropsControls       = "Controls";
     ls->menuPropsEffects        = "Effects";               // New in 2.9
     ls->menuPropsSettings       = "Paràmetres";
@@ -305,6 +306,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->propEmulation           = "Emulació";
     ls->propVideo               = "Vídeo";
     ls->propSound               = "So";
+    ls->propMidi                = "MIDI";
     ls->propControls            = "Controls";
     ls->propPerformance         = "Rendiment";
     ls->propEffects             = "Effects";             // New in 2.9
@@ -379,6 +381,10 @@ void langInitCatalan(LanguageStrings* ls)
     ls->propFullscreenResText   = "Resolució a pantalla completa:";
 
     ls->propSndChipEmuGB        = "Emulació del xip de so ";
+    ls->propSoundChipsActive    = "Backend actiu:";
+    ls->propSoundChipsHint      = "Diversos backends actius permeten comparació A/B en temps real.";
+    ls->propSoundChipsYm2413GB  = " Backend MSX-MUSIC ";
+    ls->propSoundChipsY8950GB   = " Backend MSX-AUDIO ";
     ls->propSndMsxMusic         = " MSX-MUSIC";
     ls->propSndMsxAudio         = " MSX-AUDIO";
     ls->propSndMoonsound        = " Moonsound";
@@ -646,6 +652,8 @@ void langInitCatalan(LanguageStrings* ls)
     ls->shortcutSize7x          = "Estableix mida finestra 7x";
     ls->shortcutSize8x          = "Estableix mida finestra 8x";
     ls->shortcutSizeFullscreen  = "Fixa la pantalla completa";
+    ls->shortcutYm2413BackendCycle = "Canvia el backend MSX-MUSIC";
+    ls->shortcutY8950BackendCycle  = "Canvia el backend MSX-AUDIO";
     ls->shortcutSizeMinimized   = "Minimitza la finestra";
     ls->shortcutToggleFullscren = "Commuta la pantalla completa";
     ls->shortcutVolumeIncrease  = "Augmenta el volum";

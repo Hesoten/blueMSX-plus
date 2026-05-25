@@ -62,6 +62,8 @@ typedef struct {
     ShotcutHotkey videoCapRec;
     ShotcutHotkey videoCapStop;
     ShotcutHotkey videoCapSave;
+    ShotcutHotkey ym2413BackendCycle;
+    ShotcutHotkey y8950BackendCycle;
     ShotcutHotkey screenCapture;
     ShotcutHotkey screenCaptureUnfilteredSmall;
     ShotcutHotkey screenCaptureUnfilteredLarge;

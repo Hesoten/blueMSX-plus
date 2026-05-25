@@ -165,6 +165,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->menuPropsEmulation              = "Emulazione...";
     ls->menuPropsVideo                  = "Video...";
     ls->menuPropsSound                  = "Audio...";
+    ls->menuPropsMidi                   = "MIDI";
     ls->menuPropsControls               = "Controlli...";
     ls->menuPropsEffects        = "Effects";               // New in 2.9
     ls->menuPropsSettings               = "Impostazioni...";
@@ -306,6 +307,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->propEmulation                   = "Emulazione";
     ls->propVideo                       = "Video";
     ls->propSound                       = "Audio";
+    ls->propMidi                        = "MIDI";
     ls->propControls                    = "Controlli";
     ls->propPerformance                 = "Prestazioni";
     ls->propEffects                     = "Effects";             // New in 2.9
@@ -380,6 +382,10 @@ void langInitItalian(LanguageStrings* ls)
     ls->propFullscreenResText           = "Risoluzione a schermo intero:";
 
     ls->propSndChipEmuGB                = "Emulazione chip sonoro ";
+    ls->propSoundChipsActive            = "Backend attivo:";
+    ls->propSoundChipsHint              = "Più backend attivi permettono confronto A/B in tempo reale.";
+    ls->propSoundChipsYm2413GB          = " Backend MSX-MUSIC ";
+    ls->propSoundChipsY8950GB           = " Backend MSX-AUDIO ";
     ls->propSndMsxMusic                 = " MSX-MUSIC";
     ls->propSndMsxAudio                 = " MSX-AUDIO";
     ls->propSndMoonsound                = " Moonsound";
@@ -647,6 +653,8 @@ void langInitItalian(LanguageStrings* ls)
     ls->shortcutSize7x                  = "Imposta finestra 7x";
     ls->shortcutSize8x                  = "Imposta finestra 8x";
     ls->shortcutSizeFullscreen          = "Passa a schermo intero";
+    ls->shortcutYm2413BackendCycle      = "Cambia backend audio MSX-MUSIC";
+    ls->shortcutY8950BackendCycle       = "Cambia backend audio MSX-AUDIO";
     ls->shortcutSizeMinimized           = "Riduci a icona la finestra";
     ls->shortcutToggleFullscren         = "Visualizza a schermo intero o finestra";
     ls->shortcutVolumeIncrease          = "Aumenta il volume";

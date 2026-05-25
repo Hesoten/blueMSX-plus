@@ -892,6 +892,10 @@ void actionPropShowAudio() {
     archShowPropertiesDialog(PROP_SOUND);
 }
 
+void actionPropShowMidi() {
+    archShowPropertiesDialog(PROP_MIDI);
+}
+
 void actionPropShowVideo() {
     archShowPropertiesDialog(PROP_PERFORMANCE);
 }

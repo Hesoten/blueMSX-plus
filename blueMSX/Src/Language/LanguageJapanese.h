@@ -166,6 +166,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->menuPropsEmulation      = "エミュレーション";
     ls->menuPropsVideo          = "ビデオ";
     ls->menuPropsSound          = "サウンド";
+    ls->menuPropsMidi           = "MIDI";
     ls->menuPropsControls       = "コントロール";
     ls->menuPropsEffects        = "Effects";               // New in 2.9
     ls->menuPropsSettings       = "その他";
@@ -313,6 +314,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->propFile                = "ファイル";
     ls->propDisk                = "ディスク";            // New in 2.7
     ls->propPorts               = "ポート";
+    ls->propMidi                = "MIDI";
     
     ls->propEmuGeneralGB        = " 一般 ";
     ls->propEmuFamilyText       = "マシン構成:";
@@ -384,6 +386,10 @@ void langInitJapanese(LanguageStrings* ls)
     ls->propSndMsxAudio         = " MSX-AUDIO";
     ls->propSndMoonsound         = " Moonsound";
     ls->propSndMt32ToGm         = " MT-32の音色をGM音源に割り当て"; 
+    ls->propSoundChipsActive    = "出音バックエンド:";
+    ls->propSoundChipsHint      = "複数のバックエンドを有効にした場合、実行中に切替(聴き比べ)が可能です。";
+    ls->propSoundChipsYm2413GB  = " MSX-MUSIC バックエンド ";
+    ls->propSoundChipsY8950GB   = " MSX-AUDIO バックエンド ";
 
     ls->propPortsLptGB          = " パラレルポート ";
     ls->propPortsComGB          = " シリアルポート ";
@@ -652,6 +658,8 @@ void langInitJapanese(LanguageStrings* ls)
     ls->shortcutVolumeDecrease  = "ボリュームを下げる";
     ls->shortcutVolumeMute      = "ミュート";
     ls->shortcutVolumeStereo    = "モノラル/ステレオの切り替え";
+    ls->shortcutYm2413BackendCycle = "MSX-MUSIC 出音バックエンドの切替";
+    ls->shortcutY8950BackendCycle  = "MSX-AUDIO 出音バックエンドの切替";
     ls->shortcutSwitchMsxAudio  = "MSX-AUDIO カートリッジスイッチ";
     ls->shortcutSwitchFront     = "パナソニック系 前面[内蔵ソフト]スイッチ";
     ls->shortcutSwitchPause     = "パナソニック系 ポーズスイッチ";

@@ -103,6 +103,7 @@
 #define ID_OPTIONS_APEARANCE            40047
 #define ID_OPTIONS_PORTS                40048
 #define ID_OPTIONS_DISK                 40049
+#define ID_OPTIONS_MIDI                 40050
 
 #define ID_HELP_HELP                    40051
 #define ID_HELP_ABOUT                   40052
@@ -1073,6 +1074,9 @@ static HMENU menuCreateOptions(Properties* pProperties, Shortcuts* shortcuts, in
     }
     if (appConfigGetInt("menu.options.sound", 1) != 0) {
         AppendMenuU(hMenu, MF_STRING, ID_OPTIONS_AUDIO, langMenuPropsSound());
+    }
+    if (appConfigGetInt("menu.options.midi", 1) != 0) {
+        AppendMenuU(hMenu, MF_STRING, ID_OPTIONS_MIDI, langMenuPropsMidi());
     }
     if (appConfigGetInt("menu.options.ports", 1) != 0) {
         AppendMenuU(hMenu, MF_STRING, ID_OPTIONS_PORTS, langMenuPropsPorts());
@@ -2104,6 +2108,7 @@ int menuCommand(Properties* pProperties, int command)
     case ID_OPTIONS_EMULATION:              actionPropShowEmulation();      return 0;
     case ID_OPTIONS_VIDEO:                  actionPropShowVideo();          return 0;
     case ID_OPTIONS_AUDIO:                  actionPropShowAudio();          return 0;
+    case ID_OPTIONS_MIDI:                   actionPropShowMidi();           return 0;
     case ID_OPTIONS_SETTINGS:               actionPropShowSettings();       return 0;
     case ID_OPTIONS_DISK:                   actionPropShowDisk();           return 0;
     case ID_OPTIONS_APEARANCE:              actionPropShowApearance();      return 0;

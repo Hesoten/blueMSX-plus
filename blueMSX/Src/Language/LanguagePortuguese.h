@@ -164,6 +164,7 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->menuPropsEmulation      = "Emulação";
     ls->menuPropsVideo          = "Vídeo";
     ls->menuPropsSound          = "Som";
+    ls->menuPropsMidi           = "MIDI";
     ls->menuPropsControls       = "Controles";
     ls->menuPropsEffects        = "Effects";               // New in 2.9
     ls->menuPropsSettings       = "Ajustes";
@@ -305,6 +306,7 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->propEmulation           = "Emulação";
     ls->propVideo               = "Video";
     ls->propSound               = "Som";
+    ls->propMidi                = "MIDI";
     ls->propControls            = "Controles";
     ls->propPerformance         = "Performance";
     ls->propEffects             = "Effects";             // New in 2.9
@@ -379,6 +381,10 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->propFullscreenResText   = "Resolução de Tela Cheia:"; 
 
     ls->propSndChipEmuGB        = "Emulação do Chip de Som ";
+    ls->propSoundChipsActive    = "Backend ativo:";
+    ls->propSoundChipsHint      = "Vários backends ativos permitem comparação A/B em tempo real.";
+    ls->propSoundChipsYm2413GB  = " Backend MSX-MUSIC ";
+    ls->propSoundChipsY8950GB   = " Backend MSX-AUDIO ";
     ls->propSndMsxMusic         = " MSX-MUSIC";
     ls->propSndMsxAudio         = " MSX-AUDIO";
     ls->propSndMoonsound         = " Moonsound";
@@ -646,6 +652,8 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->shortcutSize7x          = "Definir janela 7x";
     ls->shortcutSize8x          = "Definir janela 8x";
     ls->shortcutSizeFullscreen  = "Passar em modo Tela Cheia";
+    ls->shortcutYm2413BackendCycle = "Alternar backend de áudio MSX-MUSIC";
+    ls->shortcutY8950BackendCycle  = "Alternar backend de áudio MSX-AUDIO";
     ls->shortcutSizeMinimized   = "Reduzir a Janela"; 
     ls->shortcutToggleFullscren = "Troca de modo Janela/Tela Cheia";
     ls->shortcutVolumeIncrease  = "Aumentar Volume sonoro";
