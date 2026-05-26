@@ -36,7 +36,6 @@
 
 typedef enum {
     SOUND_DRV_NONE,
-    SOUND_DRV_WMM,
     SOUND_DRV_DIRECTX,
     SOUND_DRV_WASAPI,
     SOUND_DRV_AVI

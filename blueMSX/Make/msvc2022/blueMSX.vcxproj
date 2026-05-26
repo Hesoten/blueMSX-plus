@@ -685,7 +685,6 @@
       <ExcludedFromBuild Condition="'$(Platform)'=='Win32'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="..\..\Src\Win32\Win32Window.c" />
-    <ClCompile Include="..\..\Src\Win32\Win32wmmSound.c" />
     <ClCompile Include="..\..\Src\Win32\Win32WasapiSound.cpp" />
     <ClCompile Include="..\..\Src\Bios\Patch.c" />
     <ClCompile Include="..\..\Src\Unzip\adler32.c" />
@@ -986,7 +985,6 @@
     <ClInclude Include="..\..\Src\Win32\Win32Uart.h" />
     <ClInclude Include="..\..\Src\Win32\Win32VideoIn.h" />
     <ClInclude Include="..\..\Src\Win32\Win32Window.h" />
-    <ClInclude Include="..\..\Src\Win32\Win32wmmSound.h" />
     <ClInclude Include="..\..\Src\Win32\Win32WasapiSound.h" />
     <ClInclude Include="..\..\Src\Unzip\crc32.h" />
     <ClInclude Include="..\..\Src\Unzip\crypt.h" />

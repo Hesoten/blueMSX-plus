@@ -30,14 +30,15 @@
 */
 #include "Win32Sound.h"
 #include "Win32directXSound.h"
-#include "Win32wmmSound.h"
 #include "Win32WasapiSound.h"
 #include "Win32Avi.h"
 
 #include "ArchSound.h"
 
+/* Sound backends: None / DirectX / WASAPI.  Ini values containing
+** "wmm" fall back to WASAPI via stringToEnum() returning -1. */
+
 static DxSound* dxSound = NULL;
-static WmmSound* wmmSound = NULL;
 static WasapiSound* wasapiSound = NULL;
 static AviSound* aviSound = NULL;
 
@@ -60,9 +61,6 @@ void archSoundCreate(Mixer* mixer, UInt32 sampleRate, UInt32 bufferSize, Int16 c
     case SOUND_DRV_DIRECTX:
         dxSound = dxSoundCreate(cfgHwnd, mixer, sampleRate, bufferSize, channels);
         break;
-    case SOUND_DRV_WMM:
-        wmmSound = wmmSoundCreate(cfgHwnd, mixer, sampleRate, bufferSize, channels);
-        break;
     case SOUND_DRV_WASAPI:
         wasapiSound = wasapiSoundCreate(cfgHwnd, mixer, sampleRate, bufferSize, channels);
         if (!wasapiSound) {
@@ -82,10 +80,6 @@ void archSoundDestroy(void)
         dxSoundDestroy(dxSound);
         dxSound = NULL;
     }
-    if (wmmSound) {
-        wmmSoundDestroy(wmmSound);
-        wmmSound = NULL;
-    }
     if (wasapiSound) {
         wasapiSoundDestroy(wasapiSound);
         wasapiSound = NULL;
@@ -101,9 +95,6 @@ void archSoundResume(void)
     if (dxSound) {
         dxSoundResume(dxSound);
     }
-    if (wmmSound) {
-        wmmSoundResume(wmmSound);
-    }
     if (wasapiSound) {
         wasapiSoundResume(wasapiSound);
     }
@@ -117,9 +108,6 @@ void archSoundSuspend(void)
 {
     if (dxSound) {
         dxSoundSuspend(dxSound);
-    }
-    if (wmmSound) {
-        wmmSoundSuspend(wmmSound);
     }
     if (wasapiSound) {
         wasapiSoundSuspend(wasapiSound);

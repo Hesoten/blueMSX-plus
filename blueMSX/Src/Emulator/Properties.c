@@ -160,16 +160,17 @@ ValueNamePair VideoDriverPair[] = {
 #ifdef USE_SDL
 ValueNamePair SoundDriverPair[] = {
     { P_SOUND_DRVNONE,             "none" },
-    { P_SOUND_DRVWMM,              "sdl" },
     { P_SOUND_DRVDIRECTX,          "sdl" },
     { -1,                           "" },
 };
 #else
 ValueNamePair SoundDriverPair[] = {
     { P_SOUND_DRVNONE,             "none" },
-    { P_SOUND_DRVWMM,              "wmm" },
     { P_SOUND_DRVDIRECTX,          "directx" },
     { P_SOUND_DRVWASAPI,           "wasapi" },
+    /* "wmm" intentionally absent so ini values containing "wmm" don't
+    ** match; GET_ENUM_VALUE_2 leaves the field at its default
+    ** (P_SOUND_DRVWASAPI). */
     { -1,                           "" },
 };
 #endif

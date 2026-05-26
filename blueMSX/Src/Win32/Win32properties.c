@@ -162,14 +162,21 @@ static char* pVideoFrameSkip[] = {
     NULL
 };
 
-static char pSoundDriverData[4][64];
+/* Dropdown: None / DirectX / WASAPI.  Index <-> enum is not 1:1
+** (enum WMM=1 is skipped), so use the helper arrays below. */
+static char pSoundDriverData[3][64];
 static char* pSoundDriver[] = {
     pSoundDriverData[0],
     pSoundDriverData[1],
     pSoundDriverData[2],
-    pSoundDriverData[3],
     NULL
 };
+static int  pSoundDriverEnum[] = {
+    P_SOUND_DRVNONE,
+    P_SOUND_DRVDIRECTX,
+    P_SOUND_DRVWASAPI
+};
+#define PSOUND_DRIVER_COUNT (sizeof(pSoundDriverEnum) / sizeof(pSoundDriverEnum[0]))
 
 static char pEmuSyncData[5][64];
 static char* pEmuSync[] = {
@@ -1814,7 +1821,17 @@ static BOOL_DLG_RET CALLBACK soundDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
 
         pProperties = (Properties*)((PROPSHEETPAGE*)lParam)->lParam;
 
-        initDropList(hDlg, IDC_SNDDRIVER, pSoundDriver, pProperties->sound.driver);
+        {
+            int sndDrvIdx = 0;  /* fallback to first entry (None) */
+            unsigned i;
+            for (i = 0; i < PSOUND_DRIVER_COUNT; i++) {
+                if (pSoundDriverEnum[i] == pProperties->sound.driver) {
+                    sndDrvIdx = (int)i;
+                    break;
+                }
+            }
+            initDropList(hDlg, IDC_SNDDRIVER, pSoundDriver, sndDrvIdx);
+        }
         {
             int index = 0;
             while (pProperties->sound.bufSize > soundBufSizes[index]) {
@@ -1982,7 +1999,13 @@ static BOOL_DLG_RET CALLBACK soundDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
 
         switch (((NMHDR FAR *)lParam)->code) {
         case PSN_APPLY:
-            pProperties->sound.driver           = getDropListIndex(hDlg, IDC_SNDDRIVER, pSoundDriver);
+            {
+                int sndDrvIdx = getDropListIndex(hDlg, IDC_SNDDRIVER, pSoundDriver);
+                if (sndDrvIdx < 0 || (unsigned)sndDrvIdx >= PSOUND_DRIVER_COUNT) {
+                    sndDrvIdx = 0;
+                }
+                pProperties->sound.driver = pSoundDriverEnum[sndDrvIdx];
+            }
             pProperties->sound.bufSize          = soundBufSizes[getDropListIndex(hDlg, IDC_SNDBUFSZ, pSoundBufferSize)];
 
             getMidiList(hDlg, IDC_MIDIOUT, pProperties);
@@ -2655,9 +2678,8 @@ int showProperties(Properties* pProperties, HWND hwndOwner, PropPage desiredStar
     sprintf(pVideoFrameSkip[5], "%s", langEnumVideoFrameskip5());
 
     sprintf(pSoundDriver[0], "%s", langEnumSoundDrvNone());
-    sprintf(pSoundDriver[1], "%s", langEnumSoundDrvWMM());
-    sprintf(pSoundDriver[2], "%s", langEnumSoundDrvDirectX());
-    sprintf(pSoundDriver[3], "%s", langEnumSoundDrvWasapi());
+    sprintf(pSoundDriver[1], "%s", langEnumSoundDrvDirectX());
+    sprintf(pSoundDriver[2], "%s", langEnumSoundDrvWasapi());
 
     sprintf(pEmuSync[0], "%s", langEnumEmuSyncNone());
     sprintf(pEmuSync[1], "%s", langEnumEmuSyncAuto());
