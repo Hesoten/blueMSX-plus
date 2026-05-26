@@ -88,6 +88,10 @@ void langInitFinnish(LanguageStrings* ls)
     ls->errorStartEmu           = "MSX emulaattorin käynnistys epäonnistui.";
     ls->errorMissingFiles       = "Seuraavia tallennustilan viittaamia tiedostoja ei voitu ladata:";
     ls->errorPortableReadonly   = "Kannettava laite tukee vain lukemista.";
+    ls->infoTitle               = "blueMSX-tiedot";
+    ls->infoColorDepth          = "blueMSX toimii parhaiten 16 tai 32 bitin värisyvyydellä.";
+    ls->errorKeyboardThemeMissing = "Näppäimistön muokkaus -teemaa ei löydy.";
+    ls->errorMixerThemeMissing    = "Mikserin teemaa ei löydy.";
     ls->errorRecorderTitle      = "blueMSX - Tallennin";
     ls->errorRecorderSaveReplay = "Uusintatiedoston tallennus epäonnistui:\n  %s\n\nTarkista, että kohdehakemisto on olemassa ja kirjoitettavissa.";
     ls->errorRecorderReplayMissing = "Uusintatiedostoa ei löydy:\n  %s\n\nTallenna uusinta ensin tai valitse aiempi .cap-tiedosto Lataa-toiminnolla.";
@@ -202,7 +206,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->menuPropsSound          = "Ääni";
     ls->menuPropsMidi           = "MIDI";
     ls->menuPropsControls       = "Kontrollit";
-    ls->menuPropsEffects        = "Effects";               // New in 2.9
+    ls->menuPropsEffects        = "Tehosteet";               // New in 2.9
     ls->menuPropsSettings       = "Asetukset";
     ls->menuPropsFile           = "Tiedostot";
     ls->menuPropsDisk           = "Levyt";               // New in 2.7
@@ -345,12 +349,13 @@ void langInitFinnish(LanguageStrings* ls)
 
     ls->propTitle               = "blueMSX - Ominaisuudet";
     ls->propEmulation           = "Emulaatio";
+    ls->propD3D                 = "Direct3D";
     ls->propVideo               = "Video";
     ls->propSound               = "Ääni";
     ls->propMidi                = "MIDI";
     ls->propControls            = "Kontrollit";
     ls->propPerformance         = "Suorituskyky";
-    ls->propEffects             = "Effects";             // New in 2.9
+    ls->propEffects             = "Tehosteet";             // New in 2.9
     ls->propSettings            = "Asetukset";
     ls->propFile                = "Tiedostot";
     ls->propDisk                = "Levyt";              // New in 2.7
@@ -366,8 +371,8 @@ void langInitFinnish(LanguageStrings* ls)
     ls->propEmuVdpCmdSpeedText  = "VDP-komennon odotusaika:";
     ls->propEmuFrontSwitchGB     = "Panasonicin kytkimet ";
     ls->propEmuFrontSwitch       = " Aplikaatiokytkin";
-    ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9
-    ls->propEnableMsxKeyboardQuirk = " Emulate MSX keyboard quirk";  // New in 2.9
+    ls->propEmuNoSpriteLimits   = " Poista spritejen rajoitus";  // New in 2.9
+    ls->propEnableMsxKeyboardQuirk = " Emuloi MSX-näppäimistön erikoisuus";  // New in 2.9
     ls->propEmuFdcTiming        = " Kiihdytä FDD-käyttöä";
     ls->propEmuHddSdBoost       = " Kiihdytä HDD/SD-kortin käytön aikana";
     ls->propEmuReversePlay      = " Salli taaksepäin suoritus"; // New in 2.8.3
@@ -485,18 +490,18 @@ void langInitFinnish(LanguageStrings* ls)
     ls->propCdromMethodAspi     = "ASPI";            // New in 2.7
     ls->propCdromDrive          = "Asema:";          // New in 2.7
 
-    ls->propD3DParametersGB         = "Parameters ";                // New in 2.9
-    ls->propD3DAspectRatioText      = "Aspect ratio";               // New in 2.9
-    ls->propD3DLinearFilteringText  = " Linear filtering";          // New in 2.9
-    ls->propD3DForceHighResText     = " Force high resolution";     // New in 2.9
-    ls->propD3DExtendBorderColorText    = " Extend border color";   // New in 2.9
+    ls->propD3DParametersGB         = "Parametrit ";                // New in 2.9
+    ls->propD3DAspectRatioText      = "Kuvasuhde";               // New in 2.9
+    ls->propD3DLinearFilteringText  = " Lineaarinen suodatus";          // New in 2.9
+    ls->propD3DForceHighResText     = " Pakota korkea resoluutio";     // New in 2.9
+    ls->propD3DExtendBorderColorText    = " Laajenna reunan väri";   // New in 2.9
 
-    ls->propD3DCroppingGB               = "Cropping ";              // New in 2.9
-    ls->propD3DCroppingTypeText         = "Cropping type:";         // New in 2.9
-    ls->propD3DCroppingLeftText         = "Left:";                  // New in 2.9
-    ls->propD3DCroppingRightText        = "Right:";                 // New in 2.9
-    ls->propD3DCroppingTopText          = "Top:";                   // New in 2.9
-    ls->propD3DCroppingBottomText       = "Bottom:";                // New in 2.9
+    ls->propD3DCroppingGB               = "Rajaus ";              // New in 2.9
+    ls->propD3DCroppingTypeText         = "Rajaustyyppi:";         // New in 2.9
+    ls->propD3DCroppingLeftText         = "Vasen:";                  // New in 2.9
+    ls->propD3DCroppingRightText        = "Oikea:";                 // New in 2.9
+    ls->propD3DCroppingTopText          = "Ylä:";                   // New in 2.9
+    ls->propD3DCroppingBottomText       = "Ala:";                // New in 2.9
 
 
     //----------------------
@@ -533,18 +538,18 @@ void langInitFinnish(LanguageStrings* ls)
     ls->enumVideoFrameskip4     = "4 päivitystä";
     ls->enumVideoFrameskip5     = "5 päivitystä";
 
-    ls->enumD3DARAuto           = "Auto";           // New in 2.9
-    ls->enumD3DARStretch        = "Stretch";        // New in 2.9
+    ls->enumD3DARAuto           = "Automaattinen";           // New in 2.9
+    ls->enumD3DARStretch        = "Venytys";        // New in 2.9
     ls->enumD3DARPAL            = "PAL";            // New in 2.9
     ls->enumD3DARNTSC           = "NTSC";           // New in 2.9
     ls->enumD3DAR11             = "1:1";            // New in 2.9
 
-    ls->enumD3DCropNone         = "None";           // New in 2.9
+    ls->enumD3DCropNone         = "Ei mitään";           // New in 2.9
     ls->enumD3DCropMSX1         = "MSX1";           // New in 2.9
     ls->enumD3DCropMSX1Plus8    = "MSX1+8";         // New in 2.9
     ls->enumD3DCropMSX2         = "MSX2";           // New in 2.9
     ls->enumD3DCropMSX2Plus8    = "MSX2+8";         // New in 2.9
-    ls->enumD3DCropCustom       = "Custom";         // New in 2.9
+    ls->enumD3DCropCustom       = "Mukautettu";         // New in 2.9
 
     ls->enumSoundDrvNone        = "Ei ääntä";
     ls->enumSoundDrvWMM         = "WMM-ajuri";
@@ -731,7 +736,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->shortcutShowVideoProp   = "Näytä videoasetukset";
     ls->shortcutShowAudioProp   = "Näytä ääniasetukset";
     ls->shortcutShowCtrlProp    = "Näytä kontrolliasetukset";
-    ls->shortcutShowEffectsProp = "Show Effects Properties";     // New in 2.9
+    ls->shortcutShowEffectsProp = "Näytä tehostetiedot";     // New in 2.9
     ls->shortcutShowSettProp    = "Näytä yleisasetukset";
     ls->shortcutShowPorts       = "Näytä liitäntäasetukset";
     ls->shortcutShowLanguage    = "Näytä kielivalinnat";
@@ -747,8 +752,8 @@ void langInitFinnish(LanguageStrings* ls)
     ls->shortcutToggleSpriteEnable = "Näytä/Piilota Spritet";
     ls->shortcutToggleFdcTiming = "Vaihda FDD-käytön kiihdytys";
     ls->shortcutToggleHddSdBoost = "Vaihda HDD/SD-käytön kiihdytys";
-    ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
-    ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
+    ls->shortcutToggleNoSpriteLimits = "Vaihda spritejen rajoitus";                 // New in 2.9
+    ls->shortcutEnableMsxKeyboardQuirk = "Emuloi MSX-näppäimistön erikoisuus";              // New in 2.9
     ls->shortcutToggleCpuTrace  = "Ota käyttöön/Poista käytöstä Prosessorin jäljitystoiminto";
     ls->shortcutVideoLoad       = "Uusinta: Lataa tiedostosta";             
     ls->shortcutVideoPlay       = "Uusinta: Toista viimeisin";   
@@ -817,6 +822,7 @@ void langInitFinnish(LanguageStrings* ls)
 
     ls->romTypeSvi328Cart       = "SVI-328 Moduli";
     ls->romTypeSvi328Fdc        = "SVI-328 Levyasemaohjain";
+    ls->romTypeSvi328RsIde      = "SVI-328 RS IDE";
     ls->romTypeSvi328Prn        = "SVI-328 Tulostin";
     ls->romTypeSvi328Uart       = "SVI-328 Sarjaportti";
     ls->romTypeSvi328col80      = "SVI-328 80-merkin kortti";

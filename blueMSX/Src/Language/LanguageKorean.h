@@ -86,6 +86,10 @@ void langInitKorean(LanguageStrings* ls)
     ls->errorStartEmu           = "MSX 에뮬레이터를 시작할 수 없습니다.";
     ls->errorMissingFiles       = "저장된 상태가 참조하는 다음 파일을 로드할 수 없습니다:";
     ls->errorPortableReadonly   = "이동 장치는 읽기 전용입니다.";        
+    ls->infoTitle               = "blueMSX 정보";
+    ls->infoColorDepth          = "blueMSX 는 16 또는 32 비트 색상 심도에서 가장 잘 작동합니다.";
+    ls->errorKeyboardThemeMissing = "키보드 편집기 테마를 찾을 수 없습니다.";
+    ls->errorMixerThemeMissing    = "믹서 테마를 찾을 수 없습니다.";
     ls->errorRecorderTitle      = "blueMSX - 녹화";
     ls->errorRecorderSaveReplay = "재생 파일을 저장하지 못했습니다:\n  %s\n\n대상 폴더가 존재하고 쓰기 가능한지 확인하세요.";
     ls->errorRecorderReplayMissing = "재생 파일을 찾을 수 없습니다:\n  %s\n\n먼저 재생을 녹화하거나 불러오기로 기존 .cap 파일을 선택하세요.";
@@ -200,7 +204,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->menuPropsSound          = "사운드";
     ls->menuPropsMidi           = "MIDI";
     ls->menuPropsControls       = "컨트롤";
-    ls->menuPropsEffects        = "Effects";               // New in 2.9
+    ls->menuPropsEffects        = "효과";               // New in 2.9
     ls->menuPropsSettings        = "외부 설정";
     ls->menuPropsFile           = "파일";
     ls->menuPropsDisk           = "디스크";               // New in 2.7
@@ -256,6 +260,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->menuRun                 = "실행";
     ls->menuWindow              = "윈도우";
     ls->menuToolsMixer          = "믹서";
+    ls->menuToolsLoadMemory     = "메모리 불러오기";
     ls->menuOptions             = "옵션";
     ls->menuHelp                = "도움말";
 
@@ -343,12 +348,13 @@ void langInitKorean(LanguageStrings* ls)
 
     ls->propTitle               = "blueMSX - 속성";
     ls->propEmulation           = "에뮬레이션";
+    ls->propD3D                 = "Direct3D";
     ls->propVideo               = "비디오";
     ls->propSound               = "사운드";
     ls->propMidi                = "MIDI";
     ls->propControls            = "콘트롤";
     ls->propPerformance         = "성능";
-    ls->propEffects             = "Effects";             // New in 2.9
+    ls->propEffects             = "효과";             // New in 2.9
     ls->propSettings             = "외부 설정";
     ls->propFile                = "파일";
     ls->propDisk                = "디스크";              // New in 2.7
@@ -364,11 +370,11 @@ void langInitKorean(LanguageStrings* ls)
     ls->propEmuVdpCmdSpeedText  = "VDP 명령 대기 시간:";
     ls->propEmuFrontSwitchGB     = "파나소닉 스위치 ";
     ls->propEmuFrontSwitch       = " 프론트 스위치";
-    ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9
-    ls->propEnableMsxKeyboardQuirk = " Emulate MSX keyboard quirk";  // New in 2.9
+    ls->propEmuNoSpriteLimits   = " 스프라이트 제한 해제";  // New in 2.9
+    ls->propEnableMsxKeyboardQuirk = " MSX 키보드 특성 에뮬레이션";  // New in 2.9
     ls->propEmuFdcTiming        = " FDD 액세스 시 가속";
     ls->propEmuHddSdBoost       = " HDD/SD 카드 접근 중 가속";
-    ls->propEmuReversePlay      = " Enable reverse playback"; // New in 2.8.3
+    ls->propEmuReversePlay      = " 역재생 사용"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " 일시 정지 스위치";
     ls->propEmuAudioSwitch       = " MSX-AUDIO 카트리지 스위치";
     ls->propVideoFreqText       = "비디오 주파수:";
@@ -483,18 +489,18 @@ void langInitKorean(LanguageStrings* ls)
     ls->propCdromMethodAspi     = "ASPI";            // New in 2.7
     ls->propCdromDrive          = "드라이브:";          // New in 2.7
 
-    ls->propD3DParametersGB         = "Parameters ";                // New in 2.9
-    ls->propD3DAspectRatioText      = "Aspect ratio";               // New in 2.9
-    ls->propD3DLinearFilteringText  = " Linear filtering";          // New in 2.9
-    ls->propD3DForceHighResText     = " Force high resolution";     // New in 2.9
-    ls->propD3DExtendBorderColorText    = " Extend border color";   // New in 2.9
+    ls->propD3DParametersGB         = "매개 변수 ";                // New in 2.9
+    ls->propD3DAspectRatioText      = "화면 비율";               // New in 2.9
+    ls->propD3DLinearFilteringText  = " 선형 필터링";          // New in 2.9
+    ls->propD3DForceHighResText     = " 고해상도 강제";     // New in 2.9
+    ls->propD3DExtendBorderColorText    = " 테두리 색 확장";   // New in 2.9
 
-    ls->propD3DCroppingGB               = "Cropping ";              // New in 2.9
-    ls->propD3DCroppingTypeText         = "Cropping type:";         // New in 2.9
-    ls->propD3DCroppingLeftText         = "Left:";                  // New in 2.9
-    ls->propD3DCroppingRightText        = "Right:";                 // New in 2.9
-    ls->propD3DCroppingTopText          = "Top:";                   // New in 2.9
-    ls->propD3DCroppingBottomText       = "Bottom:";                // New in 2.9
+    ls->propD3DCroppingGB               = "자르기 ";              // New in 2.9
+    ls->propD3DCroppingTypeText         = "자르기 유형:";         // New in 2.9
+    ls->propD3DCroppingLeftText         = "왼쪽:";                  // New in 2.9
+    ls->propD3DCroppingRightText        = "오른쪽:";                 // New in 2.9
+    ls->propD3DCroppingTopText          = "위:";                   // New in 2.9
+    ls->propD3DCroppingBottomText       = "아래:";                // New in 2.9
 
 
     //----------------------
@@ -531,18 +537,18 @@ void langInitKorean(LanguageStrings* ls)
     ls->enumVideoFrameskip4     = "4 프레임";
     ls->enumVideoFrameskip5     = "5 프레임";
 
-    ls->enumD3DARAuto           = "Auto";           // New in 2.9
-    ls->enumD3DARStretch        = "Stretch";        // New in 2.9
+    ls->enumD3DARAuto           = "자동";           // New in 2.9
+    ls->enumD3DARStretch        = "늘리기";        // New in 2.9
     ls->enumD3DARPAL            = "PAL";            // New in 2.9
     ls->enumD3DARNTSC           = "NTSC";           // New in 2.9
     ls->enumD3DAR11             = "1:1";            // New in 2.9
 
-    ls->enumD3DCropNone         = "None";           // New in 2.9
+    ls->enumD3DCropNone         = "없음";           // New in 2.9
     ls->enumD3DCropMSX1         = "MSX1";           // New in 2.9
     ls->enumD3DCropMSX1Plus8    = "MSX1+8";         // New in 2.9
     ls->enumD3DCropMSX2         = "MSX2";           // New in 2.9
     ls->enumD3DCropMSX2Plus8    = "MSX2+8";         // New in 2.9
-    ls->enumD3DCropCustom       = "Custom";         // New in 2.9
+    ls->enumD3DCropCustom       = "사용자 지정";         // New in 2.9
 
     ls->enumSoundDrvNone        = "소리없음";
     ls->enumSoundDrvWMM         = "WMM 드라이버";
@@ -719,7 +725,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->shortcutSwitchPause     = "일시 정지 스위치";
     ls->shortcutToggleMouseLock = "마우스 고정 변환";
     ls->shortcutEmuSpeedMax     = "최대 에뮬레이션 속도";
-    ls->shortcutEmuPlayReverse  = "Rewind emulation";                     // New in 2.8.3
+    ls->shortcutEmuPlayReverse  = "에뮬레이션 되감기";                     // New in 2.8.3
     ls->shortcutEmuSpeedToggle  = "에뮬레이션 속도 최대화 변환";
     ls->shortcutEmuSpeedNormal  = "보통 에뮬레이션 속도";
     ls->shortcutEmuSpeedInc     = "에뮬레이션 속도 증가";
@@ -729,7 +735,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->shortcutShowVideoProp   = "비디오 속성 보기";
     ls->shortcutShowAudioProp   = "오디오 속성 보기";
     ls->shortcutShowCtrlProp    = "콘트롤 속성 보기";
-    ls->shortcutShowEffectsProp = "Show Effects Properties";     // New in 2.9
+    ls->shortcutShowEffectsProp = "효과 속성 표시";     // New in 2.9
     ls->shortcutShowSettProp    = "외부 설정 속성 보기";
     ls->shortcutShowPorts       = "포트 속성 보기";
     ls->shortcutShowLanguage    = "언어 보기";
@@ -745,8 +751,8 @@ void langInitKorean(LanguageStrings* ls)
     ls->shortcutToggleSpriteEnable = "스프라이트 보이기/숨기기 변환";
     ls->shortcutToggleFdcTiming = "FDD 액세스 가속 켜기/끄기";
     ls->shortcutToggleHddSdBoost = "HDD/SD 액세스 가속 켜기/끄기";
-    ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
-    ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
+    ls->shortcutToggleNoSpriteLimits = "스프라이트 제한 전환";                 // New in 2.9
+    ls->shortcutEnableMsxKeyboardQuirk = "MSX 키보드 특성 에뮬레이션";              // New in 2.9
     ls->shortcutToggleCpuTrace  = "CPU 트레이스 변환";
     ls->shortcutVideoLoad       = "리플레이: 파일에서 불러오기";             
     ls->shortcutVideoPlay       = "리플레이: 마지막 녹화 재생";   
@@ -807,6 +813,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->romTypeExtRam4mb        = "4MB External RAM";
     ls->romTypeSvi328Cart       = "SVI-328 Cartridge";
     ls->romTypeSvi328Fdc        = "SVI-328 Disk Controller";
+    ls->romTypeSvi328RsIde      = "SVI-328 RS IDE";
     ls->romTypeSvi328Prn        = "SVI-328 Printer";
     ls->romTypeSvi328Uart       = "SVI-328 Serial Port";
     ls->romTypeSvi328col80      = "SVI-328 80 Column Card";

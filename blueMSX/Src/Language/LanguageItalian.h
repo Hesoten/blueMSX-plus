@@ -87,6 +87,10 @@ void langInitItalian(LanguageStrings* ls)
     ls->errorStartEmu                   = "Avvio dell'emulatore fallito!";
     ls->errorMissingFiles               = "I seguenti file referenziati dallo stato salvato non possono essere caricati:";
     ls->errorPortableReadonly           = "Il dispositivo rimovibile è di sola lettura";
+    ls->infoTitle                       = "Info blueMSX";
+    ls->infoColorDepth                  = "blueMSX funziona al meglio con una profondità di colore di 16 o 32 bit.";
+    ls->errorKeyboardThemeMissing       = "Impossibile trovare il tema dell'editor di tastiera.";
+    ls->errorMixerThemeMissing          = "Impossibile trovare il tema del mixer.";
     ls->errorRecorderTitle              = "blueMSX - Registratore";
     ls->errorRecorderSaveReplay         = "Impossibile salvare il file replay:\n  %s\n\nVerifica che la cartella di destinazione esista e sia scrivibile.";
     ls->errorRecorderReplayMissing      = "File replay non trovato:\n  %s\n\nRegistra prima un replay, oppure usa Carica per scegliere un file .cap esistente.";
@@ -201,7 +205,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->menuPropsSound                  = "Audio...";
     ls->menuPropsMidi                   = "MIDI";
     ls->menuPropsControls               = "Controlli...";
-    ls->menuPropsEffects        = "Effects";               // New in 2.9
+    ls->menuPropsEffects        = "Effetti";               // New in 2.9
     ls->menuPropsSettings               = "Impostazioni...";
     ls->menuPropsFile                   = "File...";
     ls->menuPropsDisk                   = "Dischi...";               // New in 2.7
@@ -345,12 +349,13 @@ void langInitItalian(LanguageStrings* ls)
 
     ls->propTitle                       = "blueMSX - Proprietà";
     ls->propEmulation                   = "Emulazione";
+    ls->propD3D                         = "Direct3D";
     ls->propVideo                       = "Video";
     ls->propSound                       = "Audio";
     ls->propMidi                        = "MIDI";
     ls->propControls                    = "Controlli";
     ls->propPerformance                 = "Prestazioni";
-    ls->propEffects                     = "Effects";             // New in 2.9
+    ls->propEffects                     = "Effetti";             // New in 2.9
     ls->propSettings                    = "Impostazioni";
     ls->propFile                        = "File";
     ls->propDisk                        = "Dischi";              // New in 2.7
@@ -366,8 +371,8 @@ void langInitItalian(LanguageStrings* ls)
     ls->propEmuVdpCmdSpeedText  = "Attesa comandi VDP:";
     ls->propEmuFrontSwitchGB            = "Opzioni Panasonic ";
     ls->propEmuFrontSwitch              = " Interruttore frontale";
-    ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9
-    ls->propEnableMsxKeyboardQuirk = " Emulate MSX keyboard quirk";  // New in 2.9
+    ls->propEmuNoSpriteLimits   = " Disabilita limite sprite";  // New in 2.9
+    ls->propEnableMsxKeyboardQuirk = " Emula peculiarità tastiera MSX";  // New in 2.9
     ls->propEmuFdcTiming                = " Accelera l'accesso FDD";
     ls->propEmuHddSdBoost               = " Accelera durante l'accesso HDD/SD";
     ls->propEmuReversePlay              = " Abilita la riproduzione a ritroso"; // New in 2.8.3
@@ -485,18 +490,18 @@ void langInitItalian(LanguageStrings* ls)
     ls->propCdromMethodAspi             = "ASPI";                // New in 2.7
     ls->propCdromDrive                  = "Lettera:";            // New in 2.7
 
-    ls->propD3DParametersGB         = "Parameters ";                // New in 2.9
-    ls->propD3DAspectRatioText      = "Aspect ratio";               // New in 2.9
-    ls->propD3DLinearFilteringText  = " Linear filtering";          // New in 2.9
-    ls->propD3DForceHighResText     = " Force high resolution";     // New in 2.9
-    ls->propD3DExtendBorderColorText    = " Extend border color";   // New in 2.9
+    ls->propD3DParametersGB         = "Parametri ";                // New in 2.9
+    ls->propD3DAspectRatioText      = "Proporzioni";               // New in 2.9
+    ls->propD3DLinearFilteringText  = " Filtro lineare";          // New in 2.9
+    ls->propD3DForceHighResText     = " Forza alta risoluzione";     // New in 2.9
+    ls->propD3DExtendBorderColorText    = " Estendi colore bordo";   // New in 2.9
 
-    ls->propD3DCroppingGB               = "Cropping ";              // New in 2.9
-    ls->propD3DCroppingTypeText         = "Cropping type:";         // New in 2.9
-    ls->propD3DCroppingLeftText         = "Left:";                  // New in 2.9
-    ls->propD3DCroppingRightText        = "Right:";                 // New in 2.9
-    ls->propD3DCroppingTopText          = "Top:";                   // New in 2.9
-    ls->propD3DCroppingBottomText       = "Bottom:";                // New in 2.9
+    ls->propD3DCroppingGB               = "Ritaglio ";              // New in 2.9
+    ls->propD3DCroppingTypeText         = "Tipo di ritaglio:";         // New in 2.9
+    ls->propD3DCroppingLeftText         = "Sinistra:";                  // New in 2.9
+    ls->propD3DCroppingRightText        = "Destra:";                 // New in 2.9
+    ls->propD3DCroppingTopText          = "Alto:";                   // New in 2.9
+    ls->propD3DCroppingBottomText       = "Basso:";                // New in 2.9
 
 
     //------------------------
@@ -534,17 +539,17 @@ void langInitItalian(LanguageStrings* ls)
     ls->enumVideoFrameskip5             = "5 fotogrammi";
 
     ls->enumD3DARAuto           = "Auto";           // New in 2.9
-    ls->enumD3DARStretch        = "Stretch";        // New in 2.9
+    ls->enumD3DARStretch        = "Allunga";        // New in 2.9
     ls->enumD3DARPAL            = "PAL";            // New in 2.9
     ls->enumD3DARNTSC           = "NTSC";           // New in 2.9
     ls->enumD3DAR11             = "1:1";            // New in 2.9
 
-    ls->enumD3DCropNone         = "None";           // New in 2.9
+    ls->enumD3DCropNone         = "Nessuno";           // New in 2.9
     ls->enumD3DCropMSX1         = "MSX1";           // New in 2.9
     ls->enumD3DCropMSX1Plus8    = "MSX1+8";         // New in 2.9
     ls->enumD3DCropMSX2         = "MSX2";           // New in 2.9
     ls->enumD3DCropMSX2Plus8    = "MSX2+8";         // New in 2.9
-    ls->enumD3DCropCustom       = "Custom";         // New in 2.9
+    ls->enumD3DCropCustom       = "Personalizzato";         // New in 2.9
 
     ls->enumSoundDrvNone                = "Nessuno";
     ls->enumSoundDrvWMM                 = "Driver WMM";
@@ -731,7 +736,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->shortcutShowVideoProp           = "Mostra le proprietà del video";
     ls->shortcutShowAudioProp           = "Mostra le proprietà dell'audio";
     ls->shortcutShowCtrlProp            = "Mostra le proprietà dei controlli";
-    ls->shortcutShowEffectsProp = "Show Effects Properties";     // New in 2.9
+    ls->shortcutShowEffectsProp = "Mostra proprietà effetti";     // New in 2.9
     ls->shortcutShowSettProp            = "Mostra le proprietà delle impostazioni";
     ls->shortcutShowPorts               = "Mostra le proprietà delle porte";
     ls->shortcutShowLanguage            = "Visualizza il menù della lingua";
@@ -747,8 +752,8 @@ void langInitItalian(LanguageStrings* ls)
     ls->shortcutToggleSpriteEnable      = "Mostra/Nascondi gli sprite";
     ls->shortcutToggleFdcTiming         = "Commuta accelerazione FDD";
     ls->shortcutToggleHddSdBoost        = "Commuta accelerazione HDD/SD";
-    ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
-    ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
+    ls->shortcutToggleNoSpriteLimits = "Attiva/disattiva limite sprite";                 // New in 2.9
+    ls->shortcutEnableMsxKeyboardQuirk = "Emula peculiarità tastiera MSX";              // New in 2.9
     ls->shortcutToggleCpuTrace          = "Avvia/Interrompi l'azione del trace logger";
     ls->shortcutVideoLoad               = "Replay: Carica da file";                              
     ls->shortcutVideoPlay               = "Replay: Riproduci l'ultimo";                     
@@ -809,6 +814,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->romTypeExtRam4mb                = "4MB External RAM";
     ls->romTypeSvi328Cart               = "SVI-328 Cartridge";
     ls->romTypeSvi328Fdc                = "SVI-328 Disk Controller";
+    ls->romTypeSvi328RsIde              = "SVI-328 RS IDE";
     ls->romTypeSvi328Prn                = "SVI-328 Printer";
     ls->romTypeSvi328Uart               = "SVI-328 Serial Port";
     ls->romTypeSvi328col80              = "SVI-328 80 Column Card";

@@ -86,6 +86,10 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->errorStartEmu           = "无法启动 MSX 模拟器。";
     ls->errorMissingFiles       = "无法加载存档引用的以下文件：";
     ls->errorPortableReadonly   = "便携设备为只读";        
+    ls->infoTitle               = "blueMSX 信息";
+    ls->infoColorDepth          = "blueMSX 在 16 或 32 位色深下运行最佳。";
+    ls->errorKeyboardThemeMissing = "无法找到键盘编辑器主题。";
+    ls->errorMixerThemeMissing    = "无法找到混音器主题。";
     ls->errorRecorderTitle      = "blueMSX - 录制器";
     ls->errorRecorderSaveReplay = "无法保存回放文件：\n  %s\n\n请确认目标目录存在且可写入。";
     ls->errorRecorderReplayMissing = "找不到回放文件：\n  %s\n\n请先录制回放，或使用加载选择现有的 .cap 文件。";
@@ -200,7 +204,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->menuPropsSound          = "声音";
     ls->menuPropsMidi           = "MIDI";
     ls->menuPropsControls       = "控制器";
-    ls->menuPropsEffects        = "Effects";               // New in 2.9
+    ls->menuPropsEffects        = "特效";               // New in 2.9
     ls->menuPropsSettings        = "设定";
     ls->menuPropsFile           = "文件";
     ls->menuPropsDisk           = "Disks";               // New in 2.7
@@ -248,6 +252,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->menuToolsShortcuts      = "快捷键编辑工具";
     ls->menuToolsCtrlEditor     = "控制器 / 键盘编辑器"; 
     ls->menuToolsMixer          = "混音器";
+    ls->menuToolsLoadMemory     = "加载内存";
     ls->menuToolsDebugger       = "调试工具";               
     ls->menuToolsTrainer        = "作弊工具";                
     ls->menuToolsTraceLogger    = "追踪记录工具";           
@@ -343,12 +348,13 @@ void langInitChineseSimplified(LanguageStrings* ls)
 
     ls->propTitle               = "blueMSX - 属性";
     ls->propEmulation           = "模拟";
+    ls->propD3D                 = "Direct3D";
     ls->propVideo               = "视频";
     ls->propSound               = "声音";
     ls->propMidi                = "MIDI";
     ls->propControls            = "控制器";
     ls->propPerformance         = "性能";
-    ls->propEffects             = "Effects";             // New in 2.9
+    ls->propEffects             = "特效";             // New in 2.9
     ls->propSettings             = "其他";
     ls->propFile                = "文件";
     ls->propDisk                = "Disks";              // New in 2.7
@@ -364,11 +370,11 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->propEmuVdpCmdSpeedText  = "VDP命令等待时间:";
     ls->propEmuFrontSwitchGB     = "Panasonic 开关 ";
     ls->propEmuFrontSwitch       = " 前端开关";
-    ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9
-    ls->propEnableMsxKeyboardQuirk = " Emulate MSX keyboard quirk";  // New in 2.9
+    ls->propEmuNoSpriteLimits   = " 禁用精灵数量限制";  // New in 2.9
+    ls->propEnableMsxKeyboardQuirk = " 模拟 MSX 键盘特殊行为";  // New in 2.9
     ls->propEmuFdcTiming        = " 软盘访问时加速";
     ls->propEmuHddSdBoost       = " HDD/SD 卡访问时加速";
-    ls->propEmuReversePlay      = " Enable reverse playback"; // New in 2.8.3
+    ls->propEmuReversePlay      = " 启用倒放"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " 暂停开关";
     ls->propEmuAudioSwitch       = " MSX-AUDIO 卡开关";
     ls->propVideoFreqText       = "视频频率:";
@@ -483,18 +489,18 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->propCdromMethodAspi     = "ASPI";            // New in 2.7
     ls->propCdromDrive          = "Drive:";          // New in 2.7
 
-    ls->propD3DParametersGB         = "Parameters ";                // New in 2.9
-    ls->propD3DAspectRatioText      = "Aspect ratio";               // New in 2.9
-    ls->propD3DLinearFilteringText  = " Linear filtering";          // New in 2.9
-    ls->propD3DForceHighResText     = " Force high resolution";     // New in 2.9
-    ls->propD3DExtendBorderColorText    = " Extend border color";   // New in 2.9
+    ls->propD3DParametersGB         = "参数 ";                // New in 2.9
+    ls->propD3DAspectRatioText      = "宽高比";               // New in 2.9
+    ls->propD3DLinearFilteringText  = " 线性过滤";          // New in 2.9
+    ls->propD3DForceHighResText     = " 强制高分辨率";     // New in 2.9
+    ls->propD3DExtendBorderColorText    = " 扩展边框颜色";   // New in 2.9
 
-    ls->propD3DCroppingGB               = "Cropping ";              // New in 2.9
-    ls->propD3DCroppingTypeText         = "Cropping type:";         // New in 2.9
-    ls->propD3DCroppingLeftText         = "Left:";                  // New in 2.9
-    ls->propD3DCroppingRightText        = "Right:";                 // New in 2.9
-    ls->propD3DCroppingTopText          = "Top:";                   // New in 2.9
-    ls->propD3DCroppingBottomText       = "Bottom:";                // New in 2.9
+    ls->propD3DCroppingGB               = "裁剪 ";              // New in 2.9
+    ls->propD3DCroppingTypeText         = "裁剪类型:";         // New in 2.9
+    ls->propD3DCroppingLeftText         = "左:";                  // New in 2.9
+    ls->propD3DCroppingRightText        = "右:";                 // New in 2.9
+    ls->propD3DCroppingTopText          = "上:";                   // New in 2.9
+    ls->propD3DCroppingBottomText       = "下:";                // New in 2.9
 
 
     //----------------------
@@ -531,18 +537,18 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->enumVideoFrameskip4     = "4个帧";
     ls->enumVideoFrameskip5     = "5个帧";
 
-    ls->enumD3DARAuto           = "Auto";           // New in 2.9
-    ls->enumD3DARStretch        = "Stretch";        // New in 2.9
+    ls->enumD3DARAuto           = "自动";           // New in 2.9
+    ls->enumD3DARStretch        = "拉伸";        // New in 2.9
     ls->enumD3DARPAL            = "PAL";            // New in 2.9
     ls->enumD3DARNTSC           = "NTSC";           // New in 2.9
     ls->enumD3DAR11             = "1:1";            // New in 2.9
 
-    ls->enumD3DCropNone         = "None";           // New in 2.9
+    ls->enumD3DCropNone         = "无";           // New in 2.9
     ls->enumD3DCropMSX1         = "MSX1";           // New in 2.9
     ls->enumD3DCropMSX1Plus8    = "MSX1+8";         // New in 2.9
     ls->enumD3DCropMSX2         = "MSX2";           // New in 2.9
     ls->enumD3DCropMSX2Plus8    = "MSX2+8";         // New in 2.9
-    ls->enumD3DCropCustom       = "Custom";         // New in 2.9
+    ls->enumD3DCropCustom       = "自定义";         // New in 2.9
 
     ls->enumSoundDrvNone        = "无声";
     ls->enumSoundDrvWMM         = "WMM 驱动";
@@ -719,7 +725,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->shortcutSwitchPause     = "切换暂停开关";
     ls->shortcutToggleMouseLock = "切换鼠标锁定";
     ls->shortcutEmuSpeedMax     = "最高速模拟";
-    ls->shortcutEmuPlayReverse  = "Rewind emulation";                     // New in 2.8.3
+    ls->shortcutEmuPlayReverse  = "回退模拟";                     // New in 2.8.3
     ls->shortcutEmuSpeedToggle  = "锁定最高速模拟";
     ls->shortcutEmuSpeedNormal  = "正常模拟速度";
     ls->shortcutEmuSpeedInc     = "加快模拟速度";
@@ -729,7 +735,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->shortcutShowVideoProp   = "显示视频属性";
     ls->shortcutShowAudioProp   = "显示音频属性";
     ls->shortcutShowCtrlProp    = "显示控制属性";
-    ls->shortcutShowEffectsProp = "Show Effects Properties";     // New in 2.9
+    ls->shortcutShowEffectsProp = "显示特效属性";     // New in 2.9
     ls->shortcutShowSettProp    = "显示其他属性";
     ls->shortcutShowPorts       = "显示端口设定";
     ls->shortcutShowLanguage    = "显示语言对话框";
@@ -745,8 +751,8 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->shortcutToggleSpriteEnable = "显示/隐藏活动块";
     ls->shortcutToggleFdcTiming = "切换软盘访问加速";
     ls->shortcutToggleHddSdBoost = "切换硬盘/SD访问加速";
-    ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
-    ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
+    ls->shortcutToggleNoSpriteLimits = "切换精灵数量限制";                 // New in 2.9
+    ls->shortcutEnableMsxKeyboardQuirk = "模拟 MSX 键盘特殊行为";              // New in 2.9
     ls->shortcutToggleCpuTrace  = "启用/禁用 CPU 追踪";
     ls->shortcutVideoLoad       = "回放：从文件载入";        
     ls->shortcutVideoPlay       = "回放：播放最后录制";   
@@ -807,6 +813,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->romTypeExtRam4mb        = "4MB External RAM";
     ls->romTypeSvi328Cart       = "SVI-328 Cartridge";
     ls->romTypeSvi328Fdc        = "SVI-328 Disk Controller";
+    ls->romTypeSvi328RsIde      = "SVI-328 RS IDE";
     ls->romTypeSvi328Prn        = "SVI-328 Printer";
     ls->romTypeSvi328Uart       = "SVI-328 Serial Port";
     ls->romTypeSvi328col80      = "SVI-328 80 Column Card";

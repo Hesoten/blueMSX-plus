@@ -86,6 +86,10 @@ void langInitEnglish(LanguageStrings* ls)
     ls->errorStartEmu           = "Failed to Start MSX emulator.";
     ls->errorMissingFiles       = "The following files referenced by the saved state could not be loaded:";
     ls->errorPortableReadonly   = "Portable device is readonly";
+    ls->infoTitle                  = "blueMSX Info";
+    ls->infoColorDepth             = "blueMSX works best in 16 or 32 bit color depth.";
+    ls->errorKeyboardThemeMissing  = "Could not find the Keyboard Editor theme.";
+    ls->errorMixerThemeMissing     = "Could not find the Mixer theme.";
     ls->errorRecorderTitle      = "blueMSX - Recorder";
     ls->errorRecorderSaveReplay = "Failed to save replay file:\n  %s\n\nCheck that the destination directory exists and is writable.";
     ls->errorRecorderReplayMissing = "Replay file not found:\n  %s\n\nRecord a replay first, or use Load to pick an existing .cap file.";

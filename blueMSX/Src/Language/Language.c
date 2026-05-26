@@ -303,6 +303,10 @@ char* langErrorNoHelp() { return ls->errorNoHelp; }
 char* langErrorStartEmu() { return ls->errorStartEmu; }
 char* langErrorMissingFiles() { return ls->errorMissingFiles; }
 char* langErrorPortableReadonly()  {return ls->errorPortableReadonly; }
+char* langInfoColorDepth()                 { return ls->infoColorDepth; }
+char* langInfoTitle()                      { return ls->infoTitle; }
+char* langErrorKeyboardThemeMissing()      { return ls->errorKeyboardThemeMissing; }
+char* langErrorMixerThemeMissing()         { return ls->errorMixerThemeMissing; }
 char* langErrorRecorderTitle()             { return ls->errorRecorderTitle; }
 char* langErrorRecorderSaveReplay()        { return ls->errorRecorderSaveReplay; }
 char* langErrorRecorderReplayMissing()     { return ls->errorRecorderReplayMissing; }

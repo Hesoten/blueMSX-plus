@@ -83,6 +83,10 @@ typedef struct {
     char* errorStartEmu;
     char* errorMissingFiles;
     char* errorPortableReadonly;
+    char* infoColorDepth;
+    char* infoTitle;
+    char* errorKeyboardThemeMissing;
+    char* errorMixerThemeMissing;
     char* errorRecorderTitle;
     char* errorRecorderSaveReplay;
     char* errorRecorderReplayMissing;

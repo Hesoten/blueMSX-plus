@@ -86,6 +86,10 @@ void langInitDutch(LanguageStrings* ls)
     ls->errorStartEmu           = "Het is niet gelukt om de MSX emulator te starten.";
     ls->errorMissingFiles       = "De volgende bestanden waarnaar de opgeslagen status verwijst, konden niet geladen worden:";
     ls->errorPortableReadonly   = "Het draagbare apparaat is Alleen-Lezen";
+    ls->infoTitle               = "blueMSX Info";
+    ls->infoColorDepth          = "blueMSX werkt het best met 16 of 32 bits kleurdiepte.";
+    ls->errorKeyboardThemeMissing = "Kon het thema van de Toetsenbord-editor niet vinden.";
+    ls->errorMixerThemeMissing    = "Kon het thema van de Mixer niet vinden.";
     ls->errorRecorderTitle      = "blueMSX - Recorder";
     ls->errorRecorderSaveReplay = "Replaybestand kon niet worden opgeslagen:\n  %s\n\nControleer of de doelmap bestaat en beschrijfbaar is.";
     ls->errorRecorderReplayMissing = "Replaybestand niet gevonden:\n  %s\n\nNeem eerst een replay op, of gebruik Laden om een bestaand .cap-bestand te kiezen.";
@@ -200,7 +204,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->menuPropsSound          = "Geluid";
     ls->menuPropsMidi           = "MIDI";
     ls->menuPropsControls       = "Besturing";
-    ls->menuPropsEffects        = "Effects";               // New in 2.9
+    ls->menuPropsEffects        = "Effecten";               // New in 2.9
     ls->menuPropsSettings       = "Instellingen";
     ls->menuPropsFile           = "Bestand";
     ls->menuPropsDisk           = "Diskettes";
@@ -344,12 +348,13 @@ void langInitDutch(LanguageStrings* ls)
 
     ls->propTitle               = "blueMSX - Eigenschappen";
     ls->propEmulation           = "Emulatie";
+    ls->propD3D                 = "Direct3D";
     ls->propVideo               = "Beeld";
     ls->propSound               = "Geluid";
     ls->propMidi                = "MIDI";
     ls->propControls            = "Besturing";
     ls->propPerformance         = "Prestaties";
-    ls->propEffects             = "Effects";             // New in 2.9
+    ls->propEffects             = "Effecten";             // New in 2.9
     ls->propSettings            = "Instellingen";
     ls->propFile                = "Bestand";
     ls->propDisk                = "Diskettes";
@@ -365,11 +370,11 @@ void langInitDutch(LanguageStrings* ls)
     ls->propEmuVdpCmdSpeedText  = "VDP-commando wachttijd:";
     ls->propEmuFrontSwitchGB    = "Panasonic schakelaars ";
     ls->propEmuFrontSwitch      = " Voorpanel Schakelaar";
-    ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9
-    ls->propEnableMsxKeyboardQuirk = " Emulate MSX keyboard quirk";  // New in 2.9
+    ls->propEmuNoSpriteLimits   = " Sprite-limiet uitschakelen";  // New in 2.9
+    ls->propEnableMsxKeyboardQuirk = " MSX-toetsenbord eigenaardigheid emuleren";  // New in 2.9
     ls->propEmuFdcTiming        = " Versnellen bij FDD-toegang";
     ls->propEmuHddSdBoost       = " Versnellen tijdens HDD/SD-kaart toegang";
-    ls->propEmuReversePlay      = " Enable reverse playback"; // New in 2.8.3
+    ls->propEmuReversePlay      = " Achterwaarts afspelen inschakelen"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " Pauze Schakelaar";
     ls->propEmuAudioSwitch      = " MSX-AUDIO cartridge Schakelaar";
     ls->propVideoFreqText       = "Videofrequentie:";
@@ -485,17 +490,17 @@ void langInitDutch(LanguageStrings* ls)
     ls->propCdromDrive          = "Station:";
 
     ls->propD3DParametersGB         = "Parameters ";                // New in 2.9
-    ls->propD3DAspectRatioText      = "Aspect ratio";               // New in 2.9
-    ls->propD3DLinearFilteringText  = " Linear filtering";          // New in 2.9
-    ls->propD3DForceHighResText     = " Force high resolution";     // New in 2.9
-    ls->propD3DExtendBorderColorText    = " Extend border color";   // New in 2.9
+    ls->propD3DAspectRatioText      = "Beeldverhouding";               // New in 2.9
+    ls->propD3DLinearFilteringText  = " Lineair filteren";          // New in 2.9
+    ls->propD3DForceHighResText     = " Hoge resolutie forceren";     // New in 2.9
+    ls->propD3DExtendBorderColorText    = " Randkleur uitbreiden";   // New in 2.9
 
-    ls->propD3DCroppingGB               = "Cropping ";              // New in 2.9
-    ls->propD3DCroppingTypeText         = "Cropping type:";         // New in 2.9
-    ls->propD3DCroppingLeftText         = "Left:";                  // New in 2.9
-    ls->propD3DCroppingRightText        = "Right:";                 // New in 2.9
-    ls->propD3DCroppingTopText          = "Top:";                   // New in 2.9
-    ls->propD3DCroppingBottomText       = "Bottom:";                // New in 2.9
+    ls->propD3DCroppingGB               = "Bijsnijden ";              // New in 2.9
+    ls->propD3DCroppingTypeText         = "Bijsnijdtype:";         // New in 2.9
+    ls->propD3DCroppingLeftText         = "Links:";                  // New in 2.9
+    ls->propD3DCroppingRightText        = "Rechts:";                 // New in 2.9
+    ls->propD3DCroppingTopText          = "Boven:";                   // New in 2.9
+    ls->propD3DCroppingBottomText       = "Onder:";                // New in 2.9
 
 
     //----------------------
@@ -533,17 +538,17 @@ void langInitDutch(LanguageStrings* ls)
     ls->enumVideoFrameskip5     = "5 frames";
 
     ls->enumD3DARAuto           = "Auto";           // New in 2.9
-    ls->enumD3DARStretch        = "Stretch";        // New in 2.9
+    ls->enumD3DARStretch        = "Uitrekken";        // New in 2.9
     ls->enumD3DARPAL            = "PAL";            // New in 2.9
     ls->enumD3DARNTSC           = "NTSC";           // New in 2.9
     ls->enumD3DAR11             = "1:1";            // New in 2.9
 
-    ls->enumD3DCropNone         = "None";           // New in 2.9
+    ls->enumD3DCropNone         = "Geen";           // New in 2.9
     ls->enumD3DCropMSX1         = "MSX1";           // New in 2.9
     ls->enumD3DCropMSX1Plus8    = "MSX1+8";         // New in 2.9
     ls->enumD3DCropMSX2         = "MSX2";           // New in 2.9
     ls->enumD3DCropMSX2Plus8    = "MSX2+8";         // New in 2.9
-    ls->enumD3DCropCustom       = "Custom";         // New in 2.9
+    ls->enumD3DCropCustom       = "Aangepast";         // New in 2.9
 
     ls->enumSoundDrvNone        = "Geen Geluid";
     ls->enumSoundDrvWMM         = "WMM-stuurprogramma";
@@ -720,7 +725,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->shortcutSwitchPause     = "Pauze schakelaar aan/uit";
     ls->shortcutToggleMouseLock = "Muis vastzetten aan/uit";
     ls->shortcutEmuSpeedMax     = "Maximale emulatie snelheid";
-    ls->shortcutEmuPlayReverse  = "Rewind emulation";                     // New in 2.8.3
+    ls->shortcutEmuPlayReverse  = "Emulatie terugspoelen";                     // New in 2.8.3
     ls->shortcutEmuSpeedToggle  = "Maximum snelheid van de emulatie aan/uit";
     ls->shortcutEmuSpeedNormal  = "Normale emulatie snelheid";
     ls->shortcutEmuSpeedInc     = "Verhoog emulatie snelheid";
@@ -730,7 +735,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->shortcutShowVideoProp   = "Toon Beeldeigenschappen";
     ls->shortcutShowAudioProp   = "Toon Geluidseigenschappen";
     ls->shortcutShowCtrlProp    = "Toon Besturingseigenschappen";
-    ls->shortcutShowEffectsProp = "Show Effects Properties";     // New in 2.9
+    ls->shortcutShowEffectsProp = "Effect-eigenschappen tonen";     // New in 2.9
     ls->shortcutShowSettProp    = "Toon Instellingen eigenschappen";
     ls->shortcutShowPorts       = "Toon Poorteigenschappen";
     ls->shortcutShowLanguage    = "Taalconfiguratie weergeven";
@@ -746,8 +751,8 @@ void langInitDutch(LanguageStrings* ls)
     ls->shortcutToggleSpriteEnable = "Tonen/Verbergen sprites";
     ls->shortcutToggleFdcTiming = "FDD-toegangversnelling in/uit";
     ls->shortcutToggleHddSdBoost = "HDD/SD-toegangversnelling in/uit";
-    ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
-    ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
+    ls->shortcutToggleNoSpriteLimits = "Sprite-limiet aan/uit";                 // New in 2.9
+    ls->shortcutEnableMsxKeyboardQuirk = "MSX-toetsenbord eigenaardigheid emuleren";              // New in 2.9
     ls->shortcutToggleCpuTrace  = "CPU tracer aan/uit";
     ls->shortcutVideoLoad       = "Replay: Laden uit bestand";
     ls->shortcutVideoPlay       = "Replay: Laatste opname afspelen";
@@ -808,6 +813,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->romTypeExtRam4mb        = "4MB External RAM";
     ls->romTypeSvi328Cart       = "SVI-328 Cartridge";
     ls->romTypeSvi328Fdc        = "SVI-328 Disk Controller";
+    ls->romTypeSvi328RsIde      = "SVI-328 RS IDE";
     ls->romTypeSvi328Prn        = "SVI-328 Printer";
     ls->romTypeSvi328Uart       = "SVI-328 Serial Port";
     ls->romTypeSvi328col80      = "SVI-328 80 Column Card";

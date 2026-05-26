@@ -86,6 +86,10 @@ void langInitSwedish(LanguageStrings* ls)
     ls->errorStartEmu           = "Misslyckades att starta emulatorn.";
     ls->errorMissingFiles       = "Följande filer som refereras av sparat tillstånd kunde inte laddas:";
     ls->errorPortableReadonly   = "Flyttbar enhet är inte skrivbar";
+    ls->infoTitle               = "blueMSX Info";
+    ls->infoColorDepth          = "blueMSX fungerar bäst med 16 eller 32 bitars färgdjup.";
+    ls->errorKeyboardThemeMissing = "Tangentbordsredigerarens tema kunde inte hittas.";
+    ls->errorMixerThemeMissing    = "Mixerns tema kunde inte hittas.";
     ls->errorRecorderTitle      = "blueMSX - Inspelare";
     ls->errorRecorderSaveReplay = "Kunde inte spara replayfil:\n  %s\n\nKontrollera att målmappen finns och är skrivbar.";
     ls->errorRecorderReplayMissing = "Replayfil hittades inte:\n  %s\n\nSpela in en replay först, eller använd Ladda för att välja en befintlig .cap-fil.";
@@ -345,6 +349,7 @@ void langInitSwedish(LanguageStrings* ls)
 
     ls->propTitle               = "blueMSX - Egenskaper";
     ls->propEmulation           = "Emulering";
+    ls->propD3D                 = "Direct3D";
     ls->propVideo               = "Video";
     ls->propSound               = "Ljud";
     ls->propMidi                = "MIDI";
@@ -486,7 +491,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->propCdromDrive          = "Enhet:";          // New in 2.7
 
     ls->propD3DParametersGB         = "Parametrar ";                // New in 2.9
-    ls->propD3DAspectRatioText      = "Aspect ratio";               // New in 2.9
+    ls->propD3DAspectRatioText      = "Bildförhållande";               // New in 2.9
     ls->propD3DLinearFilteringText  = " Linjärt filter";          // New in 2.9
     ls->propD3DForceHighResText     = " Tvinga högupplösning";     // New in 2.9
     ls->propD3DExtendBorderColorText    = " Expandera ramfärger";   // New in 2.9
@@ -809,6 +814,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->romTypeExtRam4mb        = "4MB External RAM";
     ls->romTypeSvi328Cart       = "SVI-328 Cartridge";
     ls->romTypeSvi328Fdc        = "SVI-328 Disk Controller";
+    ls->romTypeSvi328RsIde      = "SVI-328 RS IDE";
     ls->romTypeSvi328Prn        = "SVI-328 Printer";
     ls->romTypeSvi328Uart       = "SVI-328 Serial Port";
     ls->romTypeSvi328col80      = "SVI-328 80 Column Card";

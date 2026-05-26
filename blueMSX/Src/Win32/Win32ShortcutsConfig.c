@@ -444,10 +444,10 @@ static BOOL_DLG_RET CALLBACK discardProc(HWND hDlg, UINT iMsg, WPARAM wParam, LP
 {
     switch (iMsg) {        
     case WM_INITDIALOG:
-        SetWindowTextU(hDlg, "blueMSX - Shortcut Configuration");
+        SetWindowTextU(hDlg, langShortcutConfigTitle());
         SetWindowTextU(GetDlgItem(hDlg, IDOK), langDlgOK());
         SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
-        SetWindowTextU(GetDlgItem(hDlg, IDC_CONF_SAVEDLG_TEXT), "Do you want to discard changes to the current configuration?");
+        SetWindowTextU(GetDlgItem(hDlg, IDC_CONF_SAVEDLG_TEXT), langShortcutDiscardConfig());
         win32CommonApplyDark(hDlg);
         return FALSE;
 

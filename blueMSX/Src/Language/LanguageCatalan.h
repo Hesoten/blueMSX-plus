@@ -86,6 +86,10 @@ void langInitCatalan(LanguageStrings* ls)
     ls->errorStartEmu           = "No s'ha pogut iniciar l'emulador MSX.";
     ls->errorMissingFiles       = "No s'han pogut carregar els següents fitxers referenciats per l'estat desat:";
     ls->errorPortableReadonly   = "El dispositiu portàtil és de només lectura";
+    ls->infoTitle               = "blueMSX Informació";
+    ls->infoColorDepth          = "blueMSX funciona millor amb 16 o 32 bits de profunditat de color.";
+    ls->errorKeyboardThemeMissing = "No s'ha pogut trobar el tema de l'editor de teclat.";
+    ls->errorMixerThemeMissing    = "No s'ha pogut trobar el tema del mesclador.";
     ls->errorRecorderTitle      = "blueMSX - Enregistrador";
     ls->errorRecorderSaveReplay = "No s'ha pogut desar el fitxer de repetició:\n  %s\n\nComproveu que la carpeta de destinació existeix i és modificable.";
     ls->errorRecorderReplayMissing = "No s'ha trobat el fitxer de repetició:\n  %s\n\nEnregistreu una repetició abans, o utilitzeu Carrega per seleccionar un .cap existent.";
@@ -200,7 +204,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->menuPropsSound          = "So";
     ls->menuPropsMidi           = "MIDI";
     ls->menuPropsControls       = "Controls";
-    ls->menuPropsEffects        = "Effects";               // New in 2.9
+    ls->menuPropsEffects        = "Efectes";               // New in 2.9
     ls->menuPropsSettings       = "Paràmetres";
     ls->menuPropsFile           = "Fitxers";
     ls->menuPropsDisk           = "Discs";               // New in 2.7
@@ -344,12 +348,13 @@ void langInitCatalan(LanguageStrings* ls)
 
     ls->propTitle               = "blueMSX - Propietats";
     ls->propEmulation           = "Emulació";
+    ls->propD3D                 = "Direct3D";
     ls->propVideo               = "Vídeo";
     ls->propSound               = "So";
     ls->propMidi                = "MIDI";
     ls->propControls            = "Controls";
     ls->propPerformance         = "Rendiment";
-    ls->propEffects             = "Effects";             // New in 2.9
+    ls->propEffects             = "Efectes";             // New in 2.9
     ls->propSettings            = "Paràmetres";
     ls->propFile                = "Fitxers";
     ls->propDisk                = "Discs";              // New in 2.7
@@ -365,11 +370,11 @@ void langInitCatalan(LanguageStrings* ls)
     ls->propEmuVdpCmdSpeedText  = "Espera comandes VDP:";
     ls->propEmuFrontSwitchGB    = "Commutadors Panasonic ";
     ls->propEmuFrontSwitch      = " Commutador frontal";
-    ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9
-    ls->propEnableMsxKeyboardQuirk = " Emulate MSX keyboard quirk";  // New in 2.9
+    ls->propEmuNoSpriteLimits   = " Desactiva la limitació d'sprites";  // New in 2.9
+    ls->propEnableMsxKeyboardQuirk = " Emula la particularitat del teclat MSX";  // New in 2.9
     ls->propEmuFdcTiming        = " Accelera durant l'accés FDD";
     ls->propEmuHddSdBoost       = " Acceleració durant l'accés HDD/SD";
-    ls->propEmuReversePlay      = " Enable reverse playback"; // New in 2.8.3
+    ls->propEmuReversePlay      = " Activa la reproducció inversa"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " Commutador de pausa";
     ls->propEmuAudioSwitch      = " Commutador del cartutx MSX-AUDIO";
     ls->propVideoFreqText       = "Freqüència de vídeo:";
@@ -484,18 +489,18 @@ void langInitCatalan(LanguageStrings* ls)
     ls->propCdromMethodAspi     = "ASPI";            // New in 2.7
     ls->propCdromDrive          = "Unitat:";          // New in 2.7
 
-    ls->propD3DParametersGB         = "Parameters ";                // New in 2.9
-    ls->propD3DAspectRatioText      = "Aspect ratio";               // New in 2.9
-    ls->propD3DLinearFilteringText  = " Linear filtering";          // New in 2.9
-    ls->propD3DForceHighResText     = " Force high resolution";     // New in 2.9
-    ls->propD3DExtendBorderColorText    = " Extend border color";   // New in 2.9
+    ls->propD3DParametersGB         = "Paràmetres ";                // New in 2.9
+    ls->propD3DAspectRatioText      = "Relació d'aspecte";               // New in 2.9
+    ls->propD3DLinearFilteringText  = " Filtratge lineal";          // New in 2.9
+    ls->propD3DForceHighResText     = " Força alta resolució";     // New in 2.9
+    ls->propD3DExtendBorderColorText    = " Estén el color del marc";   // New in 2.9
 
-    ls->propD3DCroppingGB               = "Cropping ";              // New in 2.9
-    ls->propD3DCroppingTypeText         = "Cropping type:";         // New in 2.9
-    ls->propD3DCroppingLeftText         = "Left:";                  // New in 2.9
-    ls->propD3DCroppingRightText        = "Right:";                 // New in 2.9
-    ls->propD3DCroppingTopText          = "Top:";                   // New in 2.9
-    ls->propD3DCroppingBottomText       = "Bottom:";                // New in 2.9
+    ls->propD3DCroppingGB               = "Retall ";              // New in 2.9
+    ls->propD3DCroppingTypeText         = "Tipus de retall:";         // New in 2.9
+    ls->propD3DCroppingLeftText         = "Esquerra:";                  // New in 2.9
+    ls->propD3DCroppingRightText        = "Dreta:";                 // New in 2.9
+    ls->propD3DCroppingTopText          = "Superior:";                   // New in 2.9
+    ls->propD3DCroppingBottomText       = "Inferior:";                // New in 2.9
 
 
     //----------------------
@@ -532,18 +537,18 @@ void langInitCatalan(LanguageStrings* ls)
     ls->enumVideoFrameskip4     = "4 marcs";
     ls->enumVideoFrameskip5     = "5 marcs";
 
-    ls->enumD3DARAuto           = "Auto";           // New in 2.9
-    ls->enumD3DARStretch        = "Stretch";        // New in 2.9
+    ls->enumD3DARAuto           = "Automàtic";           // New in 2.9
+    ls->enumD3DARStretch        = "Estirar";        // New in 2.9
     ls->enumD3DARPAL            = "PAL";            // New in 2.9
     ls->enumD3DARNTSC           = "NTSC";           // New in 2.9
     ls->enumD3DAR11             = "1:1";            // New in 2.9
 
-    ls->enumD3DCropNone         = "None";           // New in 2.9
+    ls->enumD3DCropNone         = "Cap";           // New in 2.9
     ls->enumD3DCropMSX1         = "MSX1";           // New in 2.9
     ls->enumD3DCropMSX1Plus8    = "MSX1+8";         // New in 2.9
     ls->enumD3DCropMSX2         = "MSX2";           // New in 2.9
     ls->enumD3DCropMSX2Plus8    = "MSX2+8";         // New in 2.9
-    ls->enumD3DCropCustom       = "Custom";         // New in 2.9
+    ls->enumD3DCropCustom       = "Personalitzat";         // New in 2.9
 
     ls->enumSoundDrvNone        = "Sense so";
     ls->enumSoundDrvWMM         = "Controlador WMM";
@@ -720,7 +725,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->shortcutSwitchPause     = "Commuta el commutador de pausa";
     ls->shortcutToggleMouseLock = "Commuta el blocatge del ratolí";
     ls->shortcutEmuSpeedMax     = "Velocitat d'emulació màxima";
-    ls->shortcutEmuPlayReverse  = "Rewind emulation";                     // New in 2.8.3
+    ls->shortcutEmuPlayReverse  = "Rebobina l'emulació";                     // New in 2.8.3
     ls->shortcutEmuSpeedToggle  = "Commuta la velocitat d'emulació màxima";
     ls->shortcutEmuSpeedNormal  = "Velocitat d'emulació normal";
     ls->shortcutEmuSpeedInc     = "Augmenta la velocitat d'emulació";
@@ -730,7 +735,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->shortcutShowVideoProp   = "Mostra les propietats de vídeo";
     ls->shortcutShowAudioProp   = "Mostra les propietats d'àudio";
     ls->shortcutShowCtrlProp    = "Mostra les propietats dels controls";
-    ls->shortcutShowEffectsProp = "Show Effects Properties";     // New in 2.9
+    ls->shortcutShowEffectsProp = "Mostra les propietats d'efectes";     // New in 2.9
     ls->shortcutShowSettProp    = "Mostra les propietats dels paràmetres";
     ls->shortcutShowPorts       = "Mostra les propietats dels ports";
     ls->shortcutShowLanguage    = "Mostra el diàlog de l'idioma";
@@ -746,8 +751,8 @@ void langInitCatalan(LanguageStrings* ls)
     ls->shortcutToggleSpriteEnable = "Mostra/Amaga els Sprites";
     ls->shortcutToggleFdcTiming = "Commuta acceleració accés FDD";
     ls->shortcutToggleHddSdBoost = "Commuta acceleració accés HDD/SD";
-    ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
-    ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
+    ls->shortcutToggleNoSpriteLimits = "Alterna la limitació d'sprites";                 // New in 2.9
+    ls->shortcutEnableMsxKeyboardQuirk = "Emula la particularitat del teclat MSX";              // New in 2.9
     ls->shortcutToggleCpuTrace  = "Activa/Desactiva el rastre de la CPU";
     ls->shortcutVideoLoad       = "Repetició: Carrega des d'arxiu";             
     ls->shortcutVideoPlay       = "Repetició: Reprodueix la darrera gravació";   
@@ -808,6 +813,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->romTypeExtRam4mb        = "RAM externa de 4MB";
     ls->romTypeSvi328Cart       = "Cartutx del SVI-328";
     ls->romTypeSvi328Fdc        = "Controladora de disc del SVI-328";
+    ls->romTypeSvi328RsIde      = "SVI-328 RS IDE";
     ls->romTypeSvi328Prn        = "Impressora del SVI-328";
     ls->romTypeSvi328Uart       = "Port sèrie del SVI-328";
     ls->romTypeSvi328col80      = "Tarja de 80 columnes del SVI-328 80";

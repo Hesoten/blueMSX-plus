@@ -3842,7 +3842,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
     scrDepth = getScreenBitDepth();
     if (scrDepth != 16 && scrDepth != 32) {
-        MessageBoxU(NULL, "blueMSX works best in 16 or 32 bits color depth", "blueMSX Info", MB_OK | MB_ICONINFORMATION);
+        MessageBoxU(NULL, langInfoColorDepth(), langInfoTitle(), MB_OK | MB_ICONINFORMATION);
     }
 
     hwnd = FindWindow("blueMSX", "  blueMSX");
@@ -4748,7 +4748,7 @@ void archShowKeyboardEditor()
     }
 
     if (tc[hs] == NULL) {
-        MessageBoxU(NULL, "Could not find the Keyboard Editor Theme", langErrorTitle(), MB_ICONERROR | MB_OK);
+        MessageBoxU(NULL, langErrorKeyboardThemeMissing(), langErrorTitle(), MB_ICONERROR | MB_OK);
     }
     else {
         themeCollectionOpenWindow(tc[hs], hash);
@@ -4774,7 +4774,7 @@ void archShowMixer()
     }
 
     if (tc[hs] == NULL) {
-        MessageBoxU(NULL, "Could not find the Mixer Theme", langErrorTitle(), MB_ICONERROR | MB_OK);
+        MessageBoxU(NULL, langErrorMixerThemeMissing(), langErrorTitle(), MB_ICONERROR | MB_OK);
     }
     else {
         themeCollectionOpenWindow(tc[hs], hash);

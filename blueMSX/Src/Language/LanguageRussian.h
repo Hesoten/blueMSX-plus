@@ -86,6 +86,10 @@ void langInitRussian(LanguageStrings* ls)
     ls->errorStartEmu           = "Не удалось начать эмуляцию.";
     ls->errorMissingFiles       = "Следующие файлы, указанные в сохранённом состоянии, не могут быть загружены:";
     ls->errorPortableReadonly   = "Портативное устройство только для чтения";
+    ls->infoTitle               = "Информация blueMSX";
+    ls->infoColorDepth          = "blueMSX лучше всего работает при глубине цвета 16 или 32 бита.";
+    ls->errorKeyboardThemeMissing = "Не удалось найти тему редактора клавиатуры.";
+    ls->errorMixerThemeMissing    = "Не удалось найти тему микшера.";
     ls->errorRecorderTitle      = "blueMSX - Запись";
     ls->errorRecorderSaveReplay = "Не удалось сохранить файл повтора:\n  %s\n\nПроверьте, что папка назначения существует и доступна для записи.";
     ls->errorRecorderReplayMissing = "Файл повтора не найден:\n  %s\n\nСначала запишите повтор или используйте Загрузить, чтобы выбрать существующий файл .cap.";
@@ -200,7 +204,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->menuPropsSound          = "Звук";
     ls->menuPropsMidi           = "MIDI";
     ls->menuPropsControls       = "Управление";
-    ls->menuPropsEffects        = "Effects";               // New in 2.9
+    ls->menuPropsEffects        = "Эффекты";               // New in 2.9
     ls->menuPropsSettings       = "Настройка";
     ls->menuPropsFile           = "Файлы";
     ls->menuPropsDisk           = "Дискеты";               // New in 2.7
@@ -248,6 +252,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->menuToolsShortcuts      = "Настройка быстрого вызова";
     ls->menuToolsCtrlEditor     = "Настройка контроллеров / клавиатуры"; 
     ls->menuToolsMixer          = "Эквалайзер";
+    ls->menuToolsLoadMemory     = "Загрузить память";
     ls->menuToolsDebugger       = "Дебаггер";               
     ls->menuToolsTrainer        = "Коды";                
     ls->menuToolsTraceLogger    = "Логгер клавиатуры";           
@@ -343,12 +348,13 @@ void langInitRussian(LanguageStrings* ls)
 
     ls->propTitle               = "blueMSX - Настройки";
     ls->propEmulation           = "Эмуляция";
+    ls->propD3D                 = "Direct3D";
     ls->propVideo               = "Видео";
     ls->propSound               = "Звук";
     ls->propMidi                = "MIDI";
     ls->propControls            = "Управление";
     ls->propPerformance         = "Быстродействие";
-    ls->propEffects             = "Effects";             // New in 2.9
+    ls->propEffects             = "Эффекты";             // New in 2.9
     ls->propSettings            = "Опции";
     ls->propFile                = "Файлы";
     ls->propDisk                = "Диски";              // New in 2.7
@@ -364,11 +370,11 @@ void langInitRussian(LanguageStrings* ls)
     ls->propEmuVdpCmdSpeedText  = "Ожидание команды VDP:";
     ls->propEmuFrontSwitchGB    = "Переключатели Panasonic ";
     ls->propEmuFrontSwitch      = " Передний выключатель";
-    ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9
-    ls->propEnableMsxKeyboardQuirk = " Emulate MSX keyboard quirk";  // New in 2.9
+    ls->propEmuNoSpriteLimits   = " Отключить ограничение спрайтов";  // New in 2.9
+    ls->propEnableMsxKeyboardQuirk = " Эмулировать особенность клавиатуры MSX";  // New in 2.9
     ls->propEmuFdcTiming        = " Ускорение при доступе к FDD";
     ls->propEmuHddSdBoost       = " Ускорять при доступе к HDD/SD";
-    ls->propEmuReversePlay      = " Enable reverse playback"; // New in 2.8.3
+    ls->propEmuReversePlay      = " Включить обратное воспроизведение"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " Кнопка паузы";
     ls->propEmuAudioSwitch      = " Переключатель картриджа MSX-AUDIO";
     ls->propVideoFreqText       = "Частота экрана:";
@@ -483,18 +489,18 @@ void langInitRussian(LanguageStrings* ls)
     ls->propCdromMethodAspi     = "ASPI";            // New in 2.7
     ls->propCdromDrive          = "Привод:";          // New in 2.7
 
-    ls->propD3DParametersGB         = "Parameters ";                // New in 2.9
-    ls->propD3DAspectRatioText      = "Aspect ratio";               // New in 2.9
-    ls->propD3DLinearFilteringText  = " Linear filtering";          // New in 2.9
-    ls->propD3DForceHighResText     = " Force high resolution";     // New in 2.9
-    ls->propD3DExtendBorderColorText    = " Extend border color";   // New in 2.9
+    ls->propD3DParametersGB         = "Параметры ";                // New in 2.9
+    ls->propD3DAspectRatioText      = "Соотношение сторон";               // New in 2.9
+    ls->propD3DLinearFilteringText  = " Линейная фильтрация";          // New in 2.9
+    ls->propD3DForceHighResText     = " Принудительное высокое разрешение";     // New in 2.9
+    ls->propD3DExtendBorderColorText    = " Расширить цвет рамки";   // New in 2.9
 
-    ls->propD3DCroppingGB               = "Cropping ";              // New in 2.9
-    ls->propD3DCroppingTypeText         = "Cropping type:";         // New in 2.9
-    ls->propD3DCroppingLeftText         = "Left:";                  // New in 2.9
-    ls->propD3DCroppingRightText        = "Right:";                 // New in 2.9
-    ls->propD3DCroppingTopText          = "Top:";                   // New in 2.9
-    ls->propD3DCroppingBottomText       = "Bottom:";                // New in 2.9
+    ls->propD3DCroppingGB               = "Обрезка ";              // New in 2.9
+    ls->propD3DCroppingTypeText         = "Тип обрезки:";         // New in 2.9
+    ls->propD3DCroppingLeftText         = "Слева:";                  // New in 2.9
+    ls->propD3DCroppingRightText        = "Справа:";                 // New in 2.9
+    ls->propD3DCroppingTopText          = "Сверху:";                   // New in 2.9
+    ls->propD3DCroppingBottomText       = "Снизу:";                // New in 2.9
 
 
     //----------------------
@@ -531,18 +537,18 @@ void langInitRussian(LanguageStrings* ls)
     ls->enumVideoFrameskip4     = "4 кадра";
     ls->enumVideoFrameskip5     = "5 кадров";
 
-    ls->enumD3DARAuto           = "Auto";           // New in 2.9
-    ls->enumD3DARStretch        = "Stretch";        // New in 2.9
+    ls->enumD3DARAuto           = "Авто";           // New in 2.9
+    ls->enumD3DARStretch        = "Растянуть";        // New in 2.9
     ls->enumD3DARPAL            = "PAL";            // New in 2.9
     ls->enumD3DARNTSC           = "NTSC";           // New in 2.9
     ls->enumD3DAR11             = "1:1";            // New in 2.9
 
-    ls->enumD3DCropNone         = "None";           // New in 2.9
+    ls->enumD3DCropNone         = "Нет";           // New in 2.9
     ls->enumD3DCropMSX1         = "MSX1";           // New in 2.9
     ls->enumD3DCropMSX1Plus8    = "MSX1+8";         // New in 2.9
     ls->enumD3DCropMSX2         = "MSX2";           // New in 2.9
     ls->enumD3DCropMSX2Plus8    = "MSX2+8";         // New in 2.9
-    ls->enumD3DCropCustom       = "Custom";         // New in 2.9
+    ls->enumD3DCropCustom       = "Пользовательский";         // New in 2.9
 
     ls->enumSoundDrvNone        = "Нет звука";
     ls->enumSoundDrvWMM         = "Драйвер WMM";
@@ -719,7 +725,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->shortcutSwitchPause     = "Включить переключатель паузы";
     ls->shortcutToggleMouseLock = "Включить блокировку мышки";
     ls->shortcutEmuSpeedMax     = "Максимальная скорость эмуляции";
-    ls->shortcutEmuPlayReverse  = "Rewind emulation";                     // New in 2.8.3
+    ls->shortcutEmuPlayReverse  = "Перемотать эмуляцию";                     // New in 2.8.3
     ls->shortcutEmuSpeedToggle  = "Включить максимальную скорость эмуляции";
     ls->shortcutEmuSpeedNormal  = "Обыная скорость эмуляции";
     ls->shortcutEmuSpeedInc     = "Увеличить скорость эмуляции";
@@ -729,7 +735,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->shortcutShowVideoProp   = "Показать настройки видео";
     ls->shortcutShowAudioProp   = "Показать настройки аудио";
     ls->shortcutShowCtrlProp    = "Показать настройки управления";
-    ls->shortcutShowEffectsProp = "Show Effects Properties";     // New in 2.9
+    ls->shortcutShowEffectsProp = "Показать свойства эффектов";     // New in 2.9
     ls->shortcutShowSettProp    = "Показать настройки";
     ls->shortcutShowPorts       = "Показать настройки портов";
     ls->shortcutShowLanguage    = "Показать выбор языка";
@@ -745,8 +751,8 @@ void langInitRussian(LanguageStrings* ls)
     ls->shortcutToggleSpriteEnable = "показать/спрятать спрайты";
     ls->shortcutToggleFdcTiming = "Переключить ускорение FDD";
     ls->shortcutToggleHddSdBoost = "Переключить ускорение HDD/SD";
-    ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
-    ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
+    ls->shortcutToggleNoSpriteLimits = "Переключить ограничение спрайтов";                 // New in 2.9
+    ls->shortcutEnableMsxKeyboardQuirk = "Эмулировать особенность клавиатуры MSX";              // New in 2.9
     ls->shortcutToggleCpuTrace  = "Включить/выключить CPU Trace";
     ls->shortcutVideoLoad       = "Повтор: Загрузить из файла";             
     ls->shortcutVideoPlay       = "Повтор: Воспроизвести последнюю запись";   
@@ -807,6 +813,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->romTypeExtRam4mb        = "4MB внешняя RAM";
     ls->romTypeSvi328Cart       = "SVI-328 картридж";
     ls->romTypeSvi328Fdc        = "SVI-328 контроллер дисковода";
+    ls->romTypeSvi328RsIde      = "SVI-328 RS IDE";
     ls->romTypeSvi328Prn        = "SVI-328 Принтер";
     ls->romTypeSvi328Uart       = "SVI-328 последовательный порт";
     ls->romTypeSvi328col80      = "SVI-328 80 Column Card";

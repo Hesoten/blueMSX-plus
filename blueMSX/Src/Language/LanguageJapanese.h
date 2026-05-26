@@ -88,6 +88,10 @@ void langInitJapanese(LanguageStrings* ls)
     ls->errorStartEmu           = "blueMSX の開始に失敗しました。";
     ls->errorMissingFiles       = "セーブステートから参照されている以下のファイルが読み込めませんでした:";
     ls->errorPortableReadonly   = "ポータブルデバイスは読込専用です。";
+    ls->infoTitle                  = "blueMSX 情報";
+    ls->infoColorDepth             = "blueMSX は 16 または 32 ビット色深度で最も適切に動作します。";
+    ls->errorKeyboardThemeMissing  = "キーボードエディターのテーマが見つかりません。";
+    ls->errorMixerThemeMissing     = "ミキサーのテーマが見つかりません。";
     ls->errorRecorderTitle      = "blueMSX - リプレイ録画";
     ls->errorRecorderSaveReplay = "リプレイファイルの保存に失敗しました:\n  %s\n\n保存先ディレクトリが存在し書き込み可能か確認してください。";
     ls->errorRecorderReplayMissing = "リプレイファイルが見つかりません:\n  %s\n\nまずリプレイを録画するか、Load から既存の .cap ファイルを選択してください。";
@@ -202,7 +206,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->menuPropsSound          = "サウンド";
     ls->menuPropsMidi           = "MIDI";
     ls->menuPropsControls       = "コントロール";
-    ls->menuPropsEffects        = "Effects";               // New in 2.9
+    ls->menuPropsEffects        = "エフェクト";
     ls->menuPropsSettings       = "その他";
     ls->menuPropsFile           = "ファイル";
     ls->menuPropsDisk           = "ディスク";            // New in 2.7
@@ -240,7 +244,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->menuFileHarddiskRemoveAll= "ハードディスクを全て取り出す"; // New in 2.7
 
     ls->menuRunRun              = "実行";
-    ls->menuRunPause            = "中断";
+    ls->menuRunPause            = "一時停止";
     ls->menuRunStop             = "停止";
     ls->menuRunSoftReset        = "ソフトリセット";
     ls->menuRunHardReset        = "ハードリセット";
@@ -253,6 +257,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->menuToolsDebugger       = "デバッガー";
     ls->menuToolsTrainer        = "トレーナー";
     ls->menuToolsTraceLogger    = "トレースロガー";
+    ls->menuToolsLoadMemory     = "メモリ読み込み";
 
     ls->menuFile                = "ファイル";
     ls->menuRun                 = "実行";
@@ -349,7 +354,8 @@ void langInitJapanese(LanguageStrings* ls)
     ls->propSound               = "サウンド";
     ls->propControls            = "コントロール";
     ls->propPerformance         = "パフォーマンス";
-    ls->propEffects             = "Effects";             // New in 2.9
+    ls->propEffects             = "エフェクト";
+    ls->propD3D                 = "Direct3D";
     ls->propSettings            = "その他";
     ls->propFile                = "ファイル";
     ls->propDisk                = "ディスク";            // New in 2.7
@@ -366,11 +372,11 @@ void langInitJapanese(LanguageStrings* ls)
     ls->propEmuVdpCmdSpeedText  = "VDPコマンド待ち時間:";
     ls->propEmuFrontSwitchGB     = " パナソニックスイッチ "; 
     ls->propEmuFrontSwitch       = " 前面[内蔵ソフト]スイッチ"; 
-    ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9
-    ls->propEnableMsxKeyboardQuirk = " Emulate MSX keyboard quirk";  // New in 2.9
+    ls->propEmuNoSpriteLimits   = " スプライト数制限を解除";
+    ls->propEnableMsxKeyboardQuirk = " MSX キーボードの癖をエミュレート";
     ls->propEmuFdcTiming        = " FDDアクセス時に高速化";
     ls->propEmuHddSdBoost       = " HDD/SDカードアクセス時に高速化";
-    ls->propEmuReversePlay      = " Enable reverse playback"; // New in 2.8.3
+    ls->propEmuReversePlay      = " 巻き戻し再生を有効化";
     ls->propEmuPauseSwitch      = " ポーズスイッチ";
     ls->propEmuAudioSwitch       = " MSX-AUDIO カートリッジスイッチ"; 
     ls->propVideoFreqText       = "ビデオ周波数:";
@@ -398,7 +404,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->propMonHorizStretch      = " 水平方向に拡大";
     ls->propMonVertStretch       = " 垂直方向に拡大";
     ls->propMonDeInterlace      = " インターレース除去";
-    ls->propBlendFrames         = " 残像を残す"; 
+    ls->propBlendFrames         = " 前後フレームを合成表示";
     ls->propMonBrightness       = "明るさ:";
     ls->propMonContrast         = "コントラスト:";
     ls->propMonSaturation       = "彩度:";
@@ -463,7 +469,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->propDisableWinKeys      = " Windows キー及び漢字キーを blueMSX に割り当てる";
     ls->propPriorityBoost       = " Windows で blueMSX の優先度を高くする";
     ls->propScreenshotPng       = " スクリーンショットを PNG 形式で取得する";
-    ls->propEjectMediaOnExit    = " Eject media when blueMSX exits";        // New in 2.8
+    ls->propEjectMediaOnExit    = " blueMSX 終了時にメディアを取り出す";
     ls->propClearHistory        = "ヒストリの消去を実行してよろしいですか?";
     ls->propOpenRomGB           = " ROM イメージ ";
     ls->propDefaultRomType      = "デフォルトROMタイプ:";
@@ -485,18 +491,18 @@ void langInitJapanese(LanguageStrings* ls)
     ls->propCdromMethodAspi     = "ASPI";           // New in 2.7
     ls->propCdromDrive          = "ドライブ:";      // New in 2.7
 
-    ls->propD3DParametersGB         = "Parameters ";                // New in 2.9
-    ls->propD3DAspectRatioText      = "Aspect ratio";               // New in 2.9
-    ls->propD3DLinearFilteringText  = " Linear filtering";          // New in 2.9
-    ls->propD3DForceHighResText     = " Force high resolution";     // New in 2.9
-    ls->propD3DExtendBorderColorText    = " Extend border color";   // New in 2.9
+    ls->propD3DParametersGB         = " パラメータ ";
+    ls->propD3DAspectRatioText      = "アスペクト比:";
+    ls->propD3DLinearFilteringText  = " リニアフィルタリング";
+    ls->propD3DForceHighResText     = " 高解像度を強制";
+    ls->propD3DExtendBorderColorText    = " ボーダー色を拡張";
 
-    ls->propD3DCroppingGB               = "Cropping ";              // New in 2.9
-    ls->propD3DCroppingTypeText         = "Cropping type:";         // New in 2.9
-    ls->propD3DCroppingLeftText         = "Left:";                  // New in 2.9
-    ls->propD3DCroppingRightText        = "Right:";                 // New in 2.9
-    ls->propD3DCroppingTopText          = "Top:";                   // New in 2.9
-    ls->propD3DCroppingBottomText       = "Bottom:";                // New in 2.9
+    ls->propD3DCroppingGB               = " クロッピング ";
+    ls->propD3DCroppingTypeText         = "クロッピング種別:";
+    ls->propD3DCroppingLeftText         = "左:";
+    ls->propD3DCroppingRightText        = "右:";
+    ls->propD3DCroppingTopText          = "上:";
+    ls->propD3DCroppingBottomText       = "下:";
 
     //----------------------
     // Dropdown related lines
@@ -532,23 +538,23 @@ void langInitJapanese(LanguageStrings* ls)
     ls->enumVideoFrameskip4     = "4フレーム";
     ls->enumVideoFrameskip5     = "5フレーム";
 
-    ls->enumD3DARAuto           = "Auto";           // New in 2.9
-    ls->enumD3DARStretch        = "Stretch";        // New in 2.9
-    ls->enumD3DARPAL            = "PAL";            // New in 2.9
-    ls->enumD3DARNTSC           = "NTSC";           // New in 2.9
-    ls->enumD3DAR11             = "1:1";            // New in 2.9
+    ls->enumD3DARAuto           = "自動";
+    ls->enumD3DARStretch        = "引き伸ばし";
+    ls->enumD3DARPAL            = "PAL";
+    ls->enumD3DARNTSC           = "NTSC";
+    ls->enumD3DAR11             = "1:1";
 
-    ls->enumD3DCropNone         = "None";           // New in 2.9
-    ls->enumD3DCropMSX1         = "MSX1";           // New in 2.9
-    ls->enumD3DCropMSX1Plus8    = "MSX1+8";         // New in 2.9
-    ls->enumD3DCropMSX2         = "MSX2";           // New in 2.9
-    ls->enumD3DCropMSX2Plus8    = "MSX2+8";         // New in 2.9
-    ls->enumD3DCropCustom       = "Custom";         // New in 2.9
+    ls->enumD3DCropNone         = "なし";
+    ls->enumD3DCropMSX1         = "MSX1";
+    ls->enumD3DCropMSX1Plus8    = "MSX1+8";
+    ls->enumD3DCropMSX2         = "MSX2";
+    ls->enumD3DCropMSX2Plus8    = "MSX2+8";
+    ls->enumD3DCropCustom       = "カスタム";
 
     ls->enumSoundDrvNone        = "なし";
     ls->enumSoundDrvWMM         = "WMM";
     ls->enumSoundDrvDirectX     = "DirectX";
-    ls->enumSoundDrvWasapi      = "WASAPI driver";
+    ls->enumSoundDrvWasapi      = "WASAPI";
     
     ls->enumEmuSync1ms          = "MSXに同期"; 
     ls->enumEmuSyncAuto         = "オート(高速)";
@@ -693,7 +699,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->shortcutScreenshotSmall = "無フィルター標準サイズ スクリーンショット";
     ls->shortcutScreenshotLarge = "無フィルター2倍サイズ スクリーンショット";
     ls->shortcutQuit            = "blueMSX の終了";
-    ls->shortcutRunPause        = "エミュレーションの実行/中断";
+    ls->shortcutRunPause        = "エミュレーションの実行/一時停止";
     ls->shortcutStop            = "停止";
     ls->shortcutResetHard       = "ハードリセット";
     ls->shortcutResetSoft       = "ソフトリセット";
@@ -708,7 +714,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->shortcutSize8x          = "8倍サイズ";
     ls->shortcutSizeFullscreen  = "フルスクリーン";
     ls->shortcutSizeMinimized   = "ウィンドウ 最小化";
-    ls->shortcutToggleFullscren = "フルスクリーン化";
+    ls->shortcutToggleFullscren = "フルスクリーン切替";
     ls->shortcutVolumeIncrease  = "ボリュームを上げる";
     ls->shortcutVolumeDecrease  = "ボリュームを下げる";
     ls->shortcutVolumeMute      = "ミュート";
@@ -720,7 +726,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->shortcutSwitchPause     = "パナソニック系 ポーズスイッチ";
     ls->shortcutToggleMouseLock = "マウスロック";
     ls->shortcutEmuSpeedMax     = "エミュレーション実行速度を最速化";
-    ls->shortcutEmuPlayReverse  = "Rewind emulation";                     // New in 2.8.3
+    ls->shortcutEmuPlayReverse  = "巻き戻し再生";
     ls->shortcutEmuSpeedToggle  = "最速動作の有無";
     ls->shortcutEmuSpeedNormal  = "エミュレーション実行速度を標準化";
     ls->shortcutEmuSpeedInc     = "エミュレーション速度を加速";
@@ -730,7 +736,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->shortcutShowVideoProp   = "ビデオ設定画面の表示";
     ls->shortcutShowAudioProp   = "サウンド設定画面の表示";
     ls->shortcutShowCtrlProp    = "コントロール設定画面の表示";
-    ls->shortcutShowEffectsProp = "Show Effects Properties";     // New in 2.9
+    ls->shortcutShowEffectsProp = "エフェクト設定画面の表示";
     ls->shortcutShowSettProp    = "その他設定画面の表示";
     ls->shortcutShowPorts       = "ポート設定画面の表示";
     ls->shortcutShowLanguage    = "言語ダイアログの表示";
@@ -746,8 +752,8 @@ void langInitJapanese(LanguageStrings* ls)
     ls->shortcutToggleSpriteEnable = "スプライトの表示/非表示";
     ls->shortcutToggleFdcTiming = "FDDアクセス高速化の有効/無効";
     ls->shortcutToggleHddSdBoost = "HDD/SDアクセス高速化の有効/無効";
-    ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
-    ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
+    ls->shortcutToggleNoSpriteLimits = "スプライト数制限の有効/無効";
+    ls->shortcutEnableMsxKeyboardQuirk = "MSX キーボードの癖をエミュレート";
     ls->shortcutToggleCpuTrace  = "CPUトレースの有効/無効";
     ls->shortcutVideoLoad       = "リプレイ: ファイルから読み込み";             
     ls->shortcutVideoPlay       = "リプレイ: 直前の記録を再生";   
@@ -811,6 +817,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->romTypeSvi328Fdc        = "SVI-328 Disk Controller";
     ls->romTypeSvi328Prn        = "SVI-328 Printer";
     ls->romTypeSvi328Uart       = "SVI-328 Serial Port";
+    ls->romTypeSvi328RsIde      = "SVI-328 RS IDE";
     ls->romTypeSvi328col80      = "SVI-328 80 Column Card";
     ls->romTypeSvi727col80      = "SVI-727 80 Column Card";
     ls->romTypeColecoCart       = "Coleco Cartridge";

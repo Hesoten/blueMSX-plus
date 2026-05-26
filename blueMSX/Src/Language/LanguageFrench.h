@@ -86,6 +86,10 @@ void langInitFrench(LanguageStrings* ls)
     ls->errorStartEmu           = "Erreur lors du lancement de l'émulateur.";
     ls->errorMissingFiles       = "Les fichiers suivants référencés par l'état sauvegardé n'ont pas pu être chargés :";
     ls->errorPortableReadonly   = "Ce dispositif portable est uniquement en mode écriture";        
+    ls->infoTitle               = "Info blueMSX";
+    ls->infoColorDepth          = "blueMSX fonctionne mieux avec une profondeur de couleur 16 ou 32 bits.";
+    ls->errorKeyboardThemeMissing = "Impossible de trouver le thème de l'éditeur de clavier.";
+    ls->errorMixerThemeMissing    = "Impossible de trouver le thème du mixeur.";
     ls->errorRecorderTitle      = "blueMSX - Enregistreur";
     ls->errorRecorderSaveReplay = "Échec de l'enregistrement du fichier de rediffusion :\n  %s\n\nVérifiez que le dossier de destination existe et est accessible en écriture.";
     ls->errorRecorderReplayMissing = "Fichier de rediffusion introuvable :\n  %s\n\nEnregistrez d'abord une rediffusion, ou utilisez Charger pour sélectionner un .cap existant.";
@@ -200,7 +204,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->menuPropsSound          = "Son";
     ls->menuPropsMidi           = "MIDI";
     ls->menuPropsControls       = "Contrôles";
-    ls->menuPropsEffects        = "Effects";               // New in 2.9
+    ls->menuPropsEffects        = "Effets";               // New in 2.9
     ls->menuPropsSettings       = "Réglages";
     ls->menuPropsFile           = "Fichiers";
     ls->menuPropsDisk           = "Disques";               // New in 2.7
@@ -350,7 +354,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->propMidi                = "MIDI";
     ls->propControls            = "Contrôles";
     ls->propPerformance         = "Performances";
-    ls->propEffects             = "Effects";             // New in 2.9
+    ls->propEffects             = "Effets";             // New in 2.9
     ls->propSettings             = "Réglages";
     ls->propFile                = "Fichiers"; 
     ls->propDisk                = "Disques";              // New in 2.7
@@ -369,8 +373,8 @@ void langInitFrench(LanguageStrings* ls)
     ls->propEmuFdcTiming        = " Accélérer l'accès FDD"; 
     ls->propEmuHddSdBoost       = " Accélérer durant l'accès HDD/SD";
     ls->propEmuNoSpriteLimits   = " Pas de limite de sprites";  // New in 2.9
-    ls->propEnableMsxKeyboardQuirk = " Emulate MSX keyboard quirk";  // New in 2.9
-    ls->propEmuReversePlay      = " Enable reverse playback"; // New in 2.8.3
+    ls->propEnableMsxKeyboardQuirk = " Émuler la particularité du clavier MSX";  // New in 2.9
+    ls->propEmuReversePlay      = " Activer la lecture inversée"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " Commutateur Pause";
     ls->propEmuAudioSwitch      = " Commutateur MSX-AUDIO"; 
     ls->propVideoFreqText       = "Fréquence Vidéo:";
@@ -720,7 +724,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->shortcutSwitchPause     = "Actionner le commutateur Pause";
     ls->shortcutToggleMouseLock = "Activer/désactiver le blocage de la souris";
     ls->shortcutEmuSpeedMax     = "Vitesse maximale d'émulation";
-    ls->shortcutEmuPlayReverse  = "Rewind emulation";                     // New in 2.8.3
+    ls->shortcutEmuPlayReverse  = "Rembobiner l'émulation";                     // New in 2.8.3
     ls->shortcutEmuSpeedToggle  = "Balance vitesse maximale d'émulation";
     ls->shortcutEmuSpeedNormal  = "Vitesse normale d'émulation";
     ls->shortcutEmuSpeedInc     = "Augmenter la vitesse d'émulation";
@@ -730,7 +734,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->shortcutShowVideoProp   = "Accéder au menu Video";
     ls->shortcutShowAudioProp   = "Accéder au menu Son";
     ls->shortcutShowCtrlProp    = "Accéder au menu Contrôles";
-    ls->shortcutShowEffectsProp = "Show Effects Properties";     // New in 2.9
+    ls->shortcutShowEffectsProp = "Afficher les propriétés d'effets";     // New in 2.9
     ls->shortcutShowSettProp    = "Accéder au menu Réglages";
     ls->shortcutShowPorts       = "Accéder au menu Ports";
     ls->shortcutShowLanguage    = "Accéder au menu Langue";
@@ -747,7 +751,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->shortcutToggleFdcTiming = "Basculer l'accélération FDD"; 
     ls->shortcutToggleHddSdBoost = "Basculer l'accélération HDD/SD";
     ls->shortcutToggleNoSpriteLimits = "Basculer limitation de l'affichage des sprites";
-    ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
+    ls->shortcutEnableMsxKeyboardQuirk = "Émuler la particularité du clavier MSX";              // New in 2.9
     ls->shortcutToggleCpuTrace  = "Valider/Invalider la trace du CPU";
     ls->shortcutVideoLoad       = "Replay : Charger depuis un fichier";             
     ls->shortcutVideoPlay       = "Replay : Lire le dernier enregistrement";   
@@ -808,6 +812,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->romTypeExtRam4mb        = "4MB External RAM";
     ls->romTypeSvi328Cart       = "SVI-328 Cartridge";
     ls->romTypeSvi328Fdc        = "SVI-328 Disk Controller";
+    ls->romTypeSvi328RsIde      = "SVI-328 RS IDE";
     ls->romTypeSvi328Prn        = "SVI-328 Printer";
     ls->romTypeSvi328Uart       = "SVI-328 Serial Port";
     ls->romTypeSvi328col80      = "SVI-328 80 Column Card";
