@@ -373,6 +373,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->propPerfAudioDrvGB      = "Geluidsinstellingen ";
     ls->propPerfAudioDrvText    = "Stuurprogramma:";
     ls->propPerfAudioBufSzText  = "Buffergrootte:";
+    ls->propPerfAudioBufSzActualFmt = "(actuele buffer: %u ms)";
     ls->propPerfEmuGB           = "Emulatie ";
     ls->propPerfSyncModeText    = "Synchronisatiemodus";
     ls->propFullscreenResText   = "Resolutie volledig scherm:";
@@ -489,6 +490,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->enumSoundDrvNone        = "Geen Geluid";
     ls->enumSoundDrvWMM         = "WMM-stuurprogramma";
     ls->enumSoundDrvDirectX     = "DirectX-stuurprogramma";
+    ls->enumSoundDrvWasapi      = "WASAPI-stuurprogramma";
 
     ls->enumEmuSync1ms          = "Synchroniseren tijdens MSX refresh";
     ls->enumEmuSyncAuto         = "Automatisch (snel)";

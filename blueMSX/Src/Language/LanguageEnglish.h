@@ -376,6 +376,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->propPerfAudioDrvGB      = "Audio Driver ";
     ls->propPerfAudioDrvText    = "Sound driver:";
     ls->propPerfAudioBufSzText  = "Sound buffer size:";
+    ls->propPerfAudioBufSzActualFmt = "(actual buffer: %u ms)";
     ls->propPerfEmuGB           = "Emulation ";
     ls->propPerfSyncModeText    = "SYNC Mode:";
     ls->propFullscreenResText   = "Fullscreen Resolution:";
@@ -491,6 +492,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->enumSoundDrvNone        = "No Sound";
     ls->enumSoundDrvWMM         = "WMM driver";
     ls->enumSoundDrvDirectX     = "DirectX driver";
+    ls->enumSoundDrvWasapi      = "WASAPI driver";
 
     ls->enumEmuSync1ms          = "Sync on MSX refresh";
     ls->enumEmuSyncAuto         = "Auto (fast)";

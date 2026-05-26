@@ -373,6 +373,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->propPerfAudioDrvGB      = "Ustawienia Audio ";
     ls->propPerfAudioDrvText    = "Sterownik dŸwiêku:";
     ls->propPerfAudioBufSzText  = "Rozmiar bufora dŸwiêku:";
+    ls->propPerfAudioBufSzActualFmt = "(rzeczywisty bufor: %u ms)";
     ls->propPerfEmuGB           = "Emulacja ";
     ls->propPerfSyncModeText    = "Tryb synchronizacji:";
     ls->propFullscreenResText   = "Pe³ny ekran:";
@@ -489,6 +490,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->enumSoundDrvNone        = "Brak dŸwiêku";
     ls->enumSoundDrvWMM         = "Driver WMM";
     ls->enumSoundDrvDirectX     = "Driver DirectX";
+    ls->enumSoundDrvWasapi      = "Driver WASAPI";
 
     ls->enumEmuSync1ms          = "Synchronizuj z odœwie¿aniem MSX";
     ls->enumEmuSyncAuto         = "Auto (szybkie)";

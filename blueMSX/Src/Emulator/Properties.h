@@ -191,7 +191,8 @@ enum {
 enum { 
     P_SOUND_DRVNONE = 0, 
     P_SOUND_DRVWMM, 
-    P_SOUND_DRVDIRECTX 
+    P_SOUND_DRVDIRECTX, 
+    P_SOUND_DRVWASAPI
 };
 
 enum { 

@@ -366,6 +366,7 @@ typedef struct {
     char* propPerfAudioDrvGB;
     char* propPerfAudioDrvText;
     char* propPerfAudioBufSzText;
+    char* propPerfAudioBufSzActualFmt;
     char* propPerfEmuGB;
     char* propPerfSyncModeText;
     char* propFullscreenResText;
@@ -482,6 +483,7 @@ typedef struct {
     char* enumSoundDrvNone;
     char* enumSoundDrvWMM;
     char* enumSoundDrvDirectX;
+    char* enumSoundDrvWasapi;
 
     char* enumEmuSync1ms;
     char* enumEmuSyncAuto;

@@ -373,6 +373,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->propPerfAudioDrvGB      = "Controlador d'àudio ";
     ls->propPerfAudioDrvText    = "Controlador de so:";
     ls->propPerfAudioBufSzText  = "Mida de la memòria intermèdia de so:";
+    ls->propPerfAudioBufSzActualFmt = "(buffer real: %u ms)";
     ls->propPerfEmuGB           = "Emulació ";
     ls->propPerfSyncModeText    = "Mode SYNC:";
     ls->propFullscreenResText   = "Resolució a pantalla completa:";
@@ -489,6 +490,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->enumSoundDrvNone        = "Sense so";
     ls->enumSoundDrvWMM         = "Controlador WMM";
     ls->enumSoundDrvDirectX     = "Controlador DirectX";
+    ls->enumSoundDrvWasapi      = "Controlador WASAPI";
 
     ls->enumEmuSync1ms          = "Sincronitza al refresc de MSX";
     ls->enumEmuSyncAuto         = "Auto (ràpid)";

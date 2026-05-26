@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -28,12 +31,14 @@
 #include "Win32Sound.h"
 #include "Win32directXSound.h"
 #include "Win32wmmSound.h"
+#include "Win32WasapiSound.h"
 #include "Win32Avi.h"
 
 #include "ArchSound.h"
 
 static DxSound* dxSound = NULL;
 static WmmSound* wmmSound = NULL;
+static WasapiSound* wasapiSound = NULL;
 static AviSound* aviSound = NULL;
 
 static HWND        cfgHwnd   = NULL;
@@ -58,6 +63,13 @@ void archSoundCreate(Mixer* mixer, UInt32 sampleRate, UInt32 bufferSize, Int16 c
     case SOUND_DRV_WMM:
         wmmSound = wmmSoundCreate(cfgHwnd, mixer, sampleRate, bufferSize, channels);
         break;
+    case SOUND_DRV_WASAPI:
+        wasapiSound = wasapiSoundCreate(cfgHwnd, mixer, sampleRate, bufferSize, channels);
+        if (!wasapiSound) {
+            /* Fall back to DirectSound if WASAPI initialisation fails. */
+            dxSound = dxSoundCreate(cfgHwnd, mixer, sampleRate, bufferSize, channels);
+        }
+        break;
     case SOUND_DRV_AVI:
         aviSound = aviSoundCreate(cfgHwnd, mixer, sampleRate, bufferSize, channels);
         break;
@@ -74,6 +86,10 @@ void archSoundDestroy(void)
         wmmSoundDestroy(wmmSound);
         wmmSound = NULL;
     }
+    if (wasapiSound) {
+        wasapiSoundDestroy(wasapiSound);
+        wasapiSound = NULL;
+    }
     if (aviSound) {
         aviSoundDestroy(aviSound);
         aviSound = NULL;
@@ -88,6 +104,9 @@ void archSoundResume(void)
     if (wmmSound) {
         wmmSoundResume(wmmSound);
     }
+    if (wasapiSound) {
+        wasapiSoundResume(wasapiSound);
+    }
     if (aviSound) {
         aviSoundResume(aviSound);
     }
@@ -101,6 +120,9 @@ void archSoundSuspend(void)
     }
     if (wmmSound) {
         wmmSoundSuspend(wmmSound);
+    }
+    if (wasapiSound) {
+        wasapiSoundSuspend(wasapiSound);
     }
     if (aviSound) {
         aviSoundSuspend(aviSound);

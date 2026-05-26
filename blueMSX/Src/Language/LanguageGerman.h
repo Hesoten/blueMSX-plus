@@ -373,6 +373,7 @@ void langInitGerman(LanguageStrings* ls)
     ls->propPerfAudioDrvGB       = "Audio-Treiber ";
     ls->propPerfAudioDrvText     = "Sound-Treiber:";
     ls->propPerfAudioBufSzText   = "Größe des Sound-Buffers:";
+    ls->propPerfAudioBufSzActualFmt = "(tatsächlicher Puffer: %u ms)";
     ls->propPerfEmuGB            = "Emulation ";
     ls->propPerfSyncModeText     = "SYNC-Mode:";
     ls->propFullscreenResText    = "Bildschirmauflösung:";
@@ -489,6 +490,7 @@ void langInitGerman(LanguageStrings* ls)
     ls->enumSoundDrvNone         = "Kein Sound";
     ls->enumSoundDrvWMM          = "WMM-Treiber";
     ls->enumSoundDrvDirectX      = "DirectX-Treiber";
+    ls->enumSoundDrvWasapi       = "WASAPI-Treiber";
 
     ls->enumEmuSync1ms           = "Sync am MSX refresh";
     ls->enumEmuSyncAuto          = "Automatisch (schnell)";

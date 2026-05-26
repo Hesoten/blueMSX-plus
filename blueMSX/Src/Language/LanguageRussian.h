@@ -372,6 +372,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->propPerfAudioDrvGB      = "Аудио драйвер ";
     ls->propPerfAudioDrvText    = "Аудио драйвер:";
     ls->propPerfAudioBufSzText  = "Размер буфера аудио:";
+    ls->propPerfAudioBufSzActualFmt = "(реальный буфер: %u ms)";
     ls->propPerfEmuGB           = "Эмуляция ";
     ls->propPerfSyncModeText    = "Синхронизация:";
     ls->propFullscreenResText   = "Полноэкранное разрешение:";
@@ -488,6 +489,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->enumSoundDrvNone        = "Нет звука";
     ls->enumSoundDrvWMM         = "Драйвер WMM";
     ls->enumSoundDrvDirectX     = "DirectX драйвер";
+    ls->enumSoundDrvWasapi      = "Драйвер WASAPI";
 
     ls->enumEmuSync1ms          = "Синхрон. с MSX";
     ls->enumEmuSyncAuto         = "Авто (быстр.)";

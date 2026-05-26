@@ -374,6 +374,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->propPerfAudioDrvGB      = " サウンドドライバ ";
     ls->propPerfAudioDrvText    = "サウンドドライバ:";
     ls->propPerfAudioBufSzText  = "サウンドバッファ:";
+    ls->propPerfAudioBufSzActualFmt = "(実バッファ: %u ms)";
     ls->propPerfEmuGB           = " ビデオのエミュレーション ";
     ls->propPerfSyncModeText    = "同期モード:";
     ls->propFullscreenResText   = "フルスクリーンの解像度:";
@@ -489,6 +490,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->enumSoundDrvNone        = "なし";
     ls->enumSoundDrvWMM         = "WMM";
     ls->enumSoundDrvDirectX     = "DirectX";
+    ls->enumSoundDrvWasapi      = "WASAPI driver";
     
     ls->enumEmuSync1ms          = "MSXに同期"; 
     ls->enumEmuSyncAuto         = "オート(高速)";

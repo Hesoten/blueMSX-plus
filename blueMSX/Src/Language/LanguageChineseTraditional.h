@@ -372,6 +372,7 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->propPerfAudioDrvGB      = "音訊驅動程式 ";
     ls->propPerfAudioDrvText    = "音效驅動程式:";
     ls->propPerfAudioBufSzText  = "音效緩衝區大小:";
+    ls->propPerfAudioBufSzActualFmt = "(實際緩衝: %u ms)";
     ls->propPerfEmuGB           = "模擬 ";
     ls->propPerfSyncModeText    = "同步模式:";
     ls->propFullscreenResText   = "全螢幕解析度:";
@@ -488,6 +489,7 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->enumSoundDrvNone        = "沒有音效";
     ls->enumSoundDrvWMM         = "WMM 驅動程式";
     ls->enumSoundDrvDirectX     = "DirectX 驅動程式";
+    ls->enumSoundDrvWasapi      = "WASAPI 驅動程式";
 
     ls->enumEmuSync1ms          = "同步於 MSX 重新整理";
     ls->enumEmuSyncAuto         = "自動 (快速)";

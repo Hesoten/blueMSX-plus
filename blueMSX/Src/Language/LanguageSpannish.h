@@ -373,6 +373,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->propPerfAudioDrvGB      = "Controlador de Audio ";
     ls->propPerfAudioDrvText    = "Controlador de Sonido:";
     ls->propPerfAudioBufSzText  = "Tamaño del Buffer de sonido:";
+    ls->propPerfAudioBufSzActualFmt = "(buffer real: %u ms)";
     ls->propPerfEmuGB           = "Emulación ";
     ls->propPerfSyncModeText    = "Modo SYNC:";
     ls->propFullscreenResText   = "Resolución pantalla completa:"; 
@@ -489,6 +490,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->enumSoundDrvNone        = "Sin Sonido";
     ls->enumSoundDrvWMM         = "Controlador WMM";
     ls->enumSoundDrvDirectX     = "Controlador DirectX";
+    ls->enumSoundDrvWasapi      = "Controlador WASAPI";
 
     ls->enumEmuSync1ms          = "Sinc sobre MSX refresh"; 
     ls->enumEmuSyncAuto         = "Auto (rápido)"; 

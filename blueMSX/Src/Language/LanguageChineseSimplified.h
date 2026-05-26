@@ -372,6 +372,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->propPerfAudioDrvGB      = "音频驱动 ";
     ls->propPerfAudioDrvText    = "声音驱动:";
     ls->propPerfAudioBufSzText  = "声音缓冲:";
+    ls->propPerfAudioBufSzActualFmt = "(实际缓冲: %u ms)";
     ls->propPerfEmuGB           = "模拟 ";
     ls->propPerfSyncModeText    = "同步模式:";
     ls->propFullscreenResText   = "全屏幕分辨率:";
@@ -488,6 +489,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->enumSoundDrvNone        = "无声";
     ls->enumSoundDrvWMM         = "WMM 驱动";
     ls->enumSoundDrvDirectX     = "DirectX 驱动";
+    ls->enumSoundDrvWasapi      = "WASAPI 驱动";
 
     ls->enumEmuSync1ms          = "同步于 MSX 的刷新";
     ls->enumEmuSyncAuto         = "自动 (快速)";

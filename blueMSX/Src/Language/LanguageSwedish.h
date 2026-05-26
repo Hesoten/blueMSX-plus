@@ -374,6 +374,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->propPerfAudioDrvGB      = "Lkuddriver ";
     ls->propPerfAudioDrvText    = "Ljuddriver:";
     ls->propPerfAudioBufSzText  = "Storlek på ljudbuffer:";
+    ls->propPerfAudioBufSzActualFmt = "(faktisk buffert: %u ms)";
     ls->propPerfEmuGB           = "Emulering ";
     ls->propPerfSyncModeText    = "Synkronisering:";
     ls->propFullscreenResText   = "Fullskärmsupplösning:";
@@ -490,6 +491,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->enumSoundDrvNone        = "Inget ljud";
     ls->enumSoundDrvWMM         = "WMM driver";
     ls->enumSoundDrvDirectX     = "DirectX driver";
+    ls->enumSoundDrvWasapi      = "WASAPI driver";
 
     ls->enumEmuSync1ms          = "Synkronisera till MSX refresh";
     ls->enumEmuSyncVblank       = "Synkronisera till PC Vertikal Blank";

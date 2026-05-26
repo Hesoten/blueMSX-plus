@@ -195,6 +195,7 @@
 #define IDC_EMUREVERSEPLAY              1811
 #define IDC_NOSPRITELIMITS              1812
 #define IDC_ENABLEMSXKEYBOARDQUIRK      1813
+#define IDC_SNDBUFSZ_ACTUAL             1814
 
 #define IDC_MONGROUPBOX                 1900
 #define IDC_MONTYPETEXT                 1901

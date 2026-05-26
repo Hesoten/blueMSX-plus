@@ -374,6 +374,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->propPerfAudioDrvGB      = "Ääniajuri ";
     ls->propPerfAudioDrvText    = "Ääniajuri:";
     ls->propPerfAudioBufSzText  = "Äänipuskurin koko:";
+    ls->propPerfAudioBufSzActualFmt = "(todellinen puskuri: %u ms)";
     ls->propPerfEmuGB           = "Emulaatio ";
     ls->propPerfSyncModeText    = "Tahdistutapa:";
     ls->propFullscreenResText   = "Resoluutio kokoruututilassa:";
@@ -490,6 +491,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->enumSoundDrvNone        = "Ei ääntä";
     ls->enumSoundDrvWMM         = "WMM-ajuri";
     ls->enumSoundDrvDirectX     = "DirectX-ajuri";
+    ls->enumSoundDrvWasapi      = "WASAPI-ajuri";
 
     ls->enumEmuSync1ms          = "Tahdistus MSX:n ruudunpäivitykseen";
     ls->enumEmuSyncAuto         = "Automaattinen (nopea)";

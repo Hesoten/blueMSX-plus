@@ -394,6 +394,7 @@ char* langPropPerfFrameSkipText();
 char* langPropPerfAudioDrvGB();
 char* langPropPerfAudioDrvText();
 char* langPropPerfAudioBufSzText();
+char* langPropPerfAudioBufSzActualFmt();
 char* langPropPerfEmuGB();
 char* langPropPerfSyncModeText();
 char* langPropFullscreenResText();
@@ -510,6 +511,7 @@ char* langEnumD3DCropCustom();
 char* langEnumSoundDrvNone();
 char* langEnumSoundDrvWMM();
 char* langEnumSoundDrvDirectX();
+char* langEnumSoundDrvWasapi();
 
 char* langEnumEmuSync1ms();
 char* langEnumEmuSyncAuto();

@@ -1,22 +1,14 @@
 /*****************************************************************************
-** $Source: /cygdrive/d/Private/_SVNROOT/bluemsx/blueMSX/Src/Win32/Win32Sound.h,v $
 **
-** $Revision: 1.6 $
-**
-** $Date: 2008-03-30 18:38:48 $
-**
-** More info: http://www.bluemsx.com
-**
-** Copyright (C) 2003-2006 Daniel Vik
-**
-** Modified 2026 by Hesoten for blueMSX+ fork.
+** WASAPI audio output backend.
+** Copyright (C) 2026 Hesoten
 ** See https://github.com/Hesoten/blueMSX-plus for change history.
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
 ** (at your option) any later version.
-** 
+**
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
 ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -28,24 +20,29 @@
 **
 ******************************************************************************
 */
-#ifndef WIN32_SOUND_H
-#define WIN32_SOUND_H
+#ifndef WIN32_WASAPI_SOUND_H
+#define WIN32_WASAPI_SOUND_H
 
 #include <windows.h>
+#include "MsxTypes.h"
 #include "AudioMixer.h"
 
-typedef enum {
-    SOUND_DRV_NONE,
-    SOUND_DRV_WMM,
-    SOUND_DRV_DIRECTX,
-    SOUND_DRV_WASAPI,
-    SOUND_DRV_AVI
-} SoundDriver;
-
-void soundDriverConfig(HWND hwnd, SoundDriver driver);
-void archSoundCreate(Mixer* mixer, UInt32 sampleRate, UInt32 bufferSize, Int16 channels);
-void archSoundDestroy(void);
-void archSoundResume(void); 
-void archSoundSuspend(void);
-
+#ifdef __cplusplus
+extern "C" {
 #endif
+
+typedef struct WasapiSound WasapiSound;
+
+WasapiSound* wasapiSoundCreate(HWND hwnd, Mixer* mixer, UInt32 sampleRate, UInt32 bufferSizeMs, Int16 channels);
+void wasapiSoundDestroy(WasapiSound* ws);
+void wasapiSoundSuspend(WasapiSound* ws);
+void wasapiSoundResume(WasapiSound* ws);
+
+/* Actual endpoint buffer size in ms (rounded), 0 if WASAPI not active. */
+UInt32 wasapiSoundGetActualBufferMs(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // WIN32_WASAPI_SOUND_H

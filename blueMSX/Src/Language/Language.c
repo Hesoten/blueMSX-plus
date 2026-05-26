@@ -580,6 +580,7 @@ char* langPropPerfFrameSkipText() { return ls->propPerfFrameSkipText; }
 char* langPropPerfAudioDrvGB() { return ls->propPerfAudioDrvGB; }
 char* langPropPerfAudioDrvText() { return ls->propPerfAudioDrvText; }
 char* langPropPerfAudioBufSzText() { return ls->propPerfAudioBufSzText; }
+char* langPropPerfAudioBufSzActualFmt() { return ls->propPerfAudioBufSzActualFmt; }
 char* langPropPerfEmuGB() { return ls->propPerfEmuGB; }
 char* langPropPerfSyncModeText() { return ls->propPerfSyncModeText; }
 char* langPropFullscreenResText() { return ls->propFullscreenResText; }
@@ -692,9 +693,10 @@ char* langpropD3DCroppingRightText() { return ls->propD3DCroppingRightText; }
 char* langpropD3DCroppingTopText() { return ls->propD3DCroppingTopText; }
 char* langpropD3DCroppingBottomText() { return ls->propD3DCroppingBottomText; }
 
-char* langEnumSoundDrvNone() { return ls->enumSoundDrvNone; }
-char* langEnumSoundDrvWMM() { return ls->enumSoundDrvWMM; }
+char* langEnumSoundDrvNone()    { return ls->enumSoundDrvNone; }
+char* langEnumSoundDrvWMM()     { return ls->enumSoundDrvWMM; }
 char* langEnumSoundDrvDirectX() { return ls->enumSoundDrvDirectX; }
+char* langEnumSoundDrvWasapi()  { return ls->enumSoundDrvWasapi; }
 
 char* langEnumEmuSync1ms() { return ls->enumEmuSync1ms; }
 char* langEnumEmuSyncAuto() { return ls->enumEmuSyncAuto; }

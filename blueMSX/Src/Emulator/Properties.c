@@ -169,6 +169,7 @@ ValueNamePair SoundDriverPair[] = {
     { P_SOUND_DRVNONE,             "none" },
     { P_SOUND_DRVWMM,              "wmm" },
     { P_SOUND_DRVDIRECTX,          "directx" },
+    { P_SOUND_DRVWASAPI,           "wasapi" },
     { -1,                           "" },
 };
 #endif
@@ -321,7 +322,7 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->videoIn.inputIndex          = 0;
     properties->videoIn.inputName[0]        = 0;
 
-    properties->sound.driver                = P_SOUND_DRVDIRECTX;
+    properties->sound.driver                = P_SOUND_DRVWASAPI;
     properties->sound.bufSize               = 100;
     properties->sound.stabilizeDSoundTiming = 1;
     

@@ -64,6 +64,8 @@ static HRESULT StringCchLength(LPCTSTR s, size_t m, size_t *l) { *l = strlen(s);
 #include "Win32Cdrom.h"
 #include "Win32File.h"
 #include "Win32FileDialog.h"
+#include "Win32WasapiSound.h"
+#include "Emulator.h"
 
 /* From Win32D3D12.cpp; no header pulled in here to keep the C/C++
 ** boundary minimal. */
@@ -160,11 +162,12 @@ static char* pVideoFrameSkip[] = {
     NULL
 };
 
-static char pSoundDriverData[3][64];
+static char pSoundDriverData[4][64];
 static char* pSoundDriver[] = {
     pSoundDriverData[0],
     pSoundDriverData[1],
     pSoundDriverData[2],
+    pSoundDriverData[3],
     NULL
 };
 
@@ -183,19 +186,18 @@ static char* pEmuGdiSync[] = {
     NULL
 };
 
-static int soundBufSizes[] = { 10, 25, 50, 75, 100, 150, 200, 250, 300, 350 };
+static int soundBufSizes[] = { 5, 10, 15, 25, 50, 75, 100, 150, 200 };
 
 static char* pSoundBufferSize[] = {
+    "5 ms",
     "10 ms",
+    "15 ms",
     "25 ms",
     "50 ms",
     "75 ms",
     "100 ms",
     "150 ms",
     "200 ms",
-    "250 ms",
-    "300 ms",
-    "350 ms",
     NULL
 };
 
@@ -1816,7 +1818,7 @@ static BOOL_DLG_RET CALLBACK soundDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
         {
             int index = 0;
             while (pProperties->sound.bufSize > soundBufSizes[index]) {
-                if (soundBufSizes[index] == 350) {
+                if (soundBufSizes[index] == 200) {
                     break;
                 }
                 index++;
@@ -1827,6 +1829,19 @@ static BOOL_DLG_RET CALLBACK soundDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
         SetDlgItemTextU(hDlg, IDC_AUDIODRVGROUPBOX, langPropPerfAudioDrvGB());
         SetDlgItemTextU(hDlg, IDC_PERFSNDDRVTEXT, langPropPerfAudioDrvText());
         SetDlgItemTextU(hDlg, IDC_PERFSNDBUFSZTEXT, langPropPerfAudioBufSzText());
+        {
+            /* (actual buffer: N ms) label next to combobox: shows the endpoint
+            ** buffer the audio engine actually allocated (often >= request). */
+            UInt32 actualMs = wasapiSoundGetActualBufferMs();
+            char buf[64];
+            if (actualMs > 0) {
+                _snprintf(buf, sizeof(buf), langPropPerfAudioBufSzActualFmt(), actualMs);
+                buf[sizeof(buf) - 1] = '\0';
+            } else {
+                buf[0] = '\0';
+            }
+            SetDlgItemTextU(hDlg, IDC_SNDBUFSZ_ACTUAL, buf);
+        }
         SetDlgItemTextU(hDlg, IDC_YKINGROUPBOX, langPropSndYkInGB());
         SetDlgItemTextU(hDlg, IDC_YKINTEXT, langTextDevice());
         SetDlgItemTextU(hDlg, IDC_YKINCHANTEXT, langPropSndMidiChannel());
@@ -2642,6 +2657,7 @@ int showProperties(Properties* pProperties, HWND hwndOwner, PropPage desiredStar
     sprintf(pSoundDriver[0], "%s", langEnumSoundDrvNone());
     sprintf(pSoundDriver[1], "%s", langEnumSoundDrvWMM());
     sprintf(pSoundDriver[2], "%s", langEnumSoundDrvDirectX());
+    sprintf(pSoundDriver[3], "%s", langEnumSoundDrvWasapi());
 
     sprintf(pEmuSync[0], "%s", langEnumEmuSyncNone());
     sprintf(pEmuSync[1], "%s", langEnumEmuSyncAuto());

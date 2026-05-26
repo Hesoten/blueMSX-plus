@@ -374,6 +374,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->propPerfAudioDrvGB      = "Audio ";
     ls->propPerfAudioDrvText    = "Pilote audio:";
     ls->propPerfAudioBufSzText  = "Taille du buffer:";
+    ls->propPerfAudioBufSzActualFmt = "(buffer réel: %u ms)";
     ls->propPerfEmuGB           = "Emulation ";
     ls->propPerfSyncModeText    = "Synchronisation:";
     ls->propFullscreenResText   = "Résolution plein écran:"; 
@@ -489,6 +490,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->enumSoundDrvNone        = "Pas de son";
     ls->enumSoundDrvWMM         = "Pilote WMM";
     ls->enumSoundDrvDirectX     = "Pilote DirectX";
+    ls->enumSoundDrvWasapi      = "Pilote WASAPI";
 
     ls->enumEmuSync1ms          = "Sync sur MSX refresh";
     ls->enumEmuSyncAuto         = "Auto (rapide)";

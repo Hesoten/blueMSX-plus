@@ -372,6 +372,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->propPerfAudioDrvGB      = "오디오 드라이버 ";
     ls->propPerfAudioDrvText    = "사운드 드라이버:";
     ls->propPerfAudioBufSzText  = "사운드 버퍼 사이즈:";
+    ls->propPerfAudioBufSzActualFmt = "(실제 버퍼: %u ms)";
     ls->propPerfEmuGB           = "클럭 에뮬레이션 ";
     ls->propPerfSyncModeText    = "동기화 모드:";
     ls->propFullscreenResText   = "전체 화면 해상도:";
@@ -488,6 +489,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->enumSoundDrvNone        = "소리없음";
     ls->enumSoundDrvWMM         = "WMM 드라이버";
     ls->enumSoundDrvDirectX     = "다이렉트X 드라이버";
+    ls->enumSoundDrvWasapi      = "WASAPI 드라이버";
 
     ls->enumEmuSync1ms          = "MSX의 속도에 동기";
     ls->enumEmuSyncAuto         = "자동 (빠름)";

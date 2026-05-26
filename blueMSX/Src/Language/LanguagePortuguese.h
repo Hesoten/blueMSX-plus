@@ -373,6 +373,7 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->propPerfAudioDrvGB      = "Driver de Audio ";
     ls->propPerfAudioDrvText    = "Driver de Som:";
     ls->propPerfAudioBufSzText  = "Tamanho do buffer de som:";
+    ls->propPerfAudioBufSzActualFmt = "(buffer real: %u ms)";
     ls->propPerfEmuGB           = "Emulação ";
     ls->propPerfSyncModeText    = "Modo de sincronismo:";
     ls->propFullscreenResText   = "Resolução de Tela Cheia:"; 
@@ -489,6 +490,7 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->enumSoundDrvNone        = "Sem Som";
     ls->enumSoundDrvWMM         = "Driver WMM";
     ls->enumSoundDrvDirectX     = "Driver DirectX";
+    ls->enumSoundDrvWasapi      = "Driver WASAPI";
 
     ls->enumEmuSync1ms          = "Sinc sobre MSX refresh"; 
     ls->enumEmuSyncAuto         = "Auto (rapido)"; 
