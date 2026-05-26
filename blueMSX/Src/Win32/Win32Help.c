@@ -64,14 +64,8 @@ static INT_PTR CALLBACK aboutDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM
         {
             char aboutText[4096];
 
-            char buildDate[32] = BUILD_DATE;
-            int i;
-
-            for (i = 0; buildDate[i] != ' '; i++);
-            buildDate[i] = '/';
-
             sprintf(aboutText, "%s\r\n\r\n"
-                                "%s\t%s\r\n"
+                                "%s\t%s (%s %s)\r\n"
                                 "%s\t%d\r\n"
                                 "%s\t%s\r\n\r\n"
                                 "%s\r\n\r\n\r\n"
@@ -150,11 +144,11 @@ static INT_PTR CALLBACK aboutDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM
                                 "%s",
                         langDlgAboutAbout(),
                         langDlgAboutVersion(),
-                        BLUE_MSX_VERSION,
+                        BLUE_MSX_VERSION, BUILD_PLATFORM, BUILD_CONFIG,
                         langDlgAboutBuildNumber(),
                         BUILD_NUMBER,
                         langDlgAboutBuildDate(),
-                        buildDate,
+                        BUILD_DATE,
                         langDlgAboutCreat(),
                         langDlgAboutDevel(),
                         langDlgAboutThanks(),

@@ -3,6 +3,6 @@
 
 #define BUILD_NUMBER 34858
 
-#define BUILD_DATE "4/15 2014 11:30pm"
+#define BUILD_DATE __DATE__ " " __TIME__
 
 #endif

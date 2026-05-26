@@ -56,7 +56,6 @@
 #include "MidiIO.h"
 #include "RomLoader.h"
 #include "MediaDb.h"
-#include "build_number.h"
 #include "FrameBuffer.h"
 #include "Win32Midi.h"
 #include "Win32Sound.h"

@@ -234,6 +234,11 @@
     <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />
     <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />
   </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <PreprocessorDefinitions>BUILD_CONFIG="$(Configuration)";BUILD_PLATFORM="$(Platform)";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
@@ -1440,4 +1445,13 @@ buildnumber.exe
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
+  <!-- Touch Win32Help.c every build so BUILD_DATE (= __DATE__ " " __TIME__)
+       expands to the current build time. Win32Help.c is the only TU that
+       references BUILD_DATE, so forcing just this ~180-line file to
+       recompile keeps the About dialog fresh without pulling in Win32.c
+       or the other heavier build_number.h includers. -->
+  <Target Name="TouchWin32Help" BeforeTargets="ClCompile">
+    <Touch Files="..\..\Src\Win32\Win32Help.c" AlwaysCreate="true" />
+  </Target>
 </Project>
+
