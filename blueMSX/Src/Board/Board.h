@@ -105,6 +105,10 @@ void boardEnableSnapshots(int enable);
 
 BoardType boardGetType();
 
+/* Non-zero while loading an old (2.8.2 era) format state; per-device LoadState
+** routines use this to gate the old-format compatibility fallbacks. */
+int boardStateLoadIsOldFormat(void);
+
 void boardSetMachine(Machine* machine);
 void boardReset();
 

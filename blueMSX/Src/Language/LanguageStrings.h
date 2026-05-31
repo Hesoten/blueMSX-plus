@@ -72,6 +72,7 @@ typedef struct {
     char* warningTitle;
     char* warningDiscardChanges;
     char* warningOverwriteFile;
+    char* warningStateOldFormat;
     char* errorTitle;
     char* errorEnterFullscreen;
     char* errorDirectXFailed;

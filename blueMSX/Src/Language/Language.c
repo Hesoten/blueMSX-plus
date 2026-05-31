@@ -292,6 +292,7 @@ char* langTextUnknown() { return ls->textUnknown; }
 char* langWarningTitle() { return ls->warningTitle; }
 char* langWarningDiscardChanges()  {return ls->warningDiscardChanges; }
 char* langWarningOverwriteFile() { return ls->warningOverwriteFile; }
+char* langWarningStateOldFormat() { return ls->warningStateOldFormat; }
 char* langErrorTitle() { return ls->errorTitle; }
 char* langErrorEnterFullscreen() { return ls->errorEnterFullscreen; }
 char* langErrorDirectXFailed() { return ls->errorDirectXFailed; }

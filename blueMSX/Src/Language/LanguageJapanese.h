@@ -77,6 +77,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->warningTitle            = "blueMSX - 警告";
     ls->warningDiscardChanges   = "構成が失われますが、よろしいですか?";
     ls->warningOverwriteFile    = "このファイルに上書きしてもよろしいですか:"; 
+    ls->warningStateOldFormat   = "古い形式のステートセーブをロードしようとしています。正常に再開できない可能性があります。ロードしますか?";
     ls->errorTitle              = "blueMSX - エラー";
     ls->errorEnterFullscreen    = "フルスクリーンモードにできません。          \n";
     ls->errorDirectXFailed      = "DirectX オブジェクトを作成できません。          \nGDIを代わりに使用します。\nグラフィックカードの設定を確認してください。";

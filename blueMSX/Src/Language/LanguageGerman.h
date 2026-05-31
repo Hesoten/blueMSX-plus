@@ -75,6 +75,7 @@ void langInitGerman(LanguageStrings* ls)
     ls->warningTitle             = "blueMSX - Warnung";
     ls->warningDiscardChanges    = "Möchten Sie die Änderungen verwerfen?";
     ls->warningOverwriteFile     = "Möchten Sie das File überschreiben:"; 
+    ls->warningStateOldFormat    = "Speicherstand im alten Format. Fortsetzung möglicherweise fehlerhaft. Trotzdem laden?";
     ls->errorTitle               = "blueMSX - Fehler";
     ls->errorEnterFullscreen     = "Konnte nicht in den Fullscreen-Modus gehen.           \n";
     ls->errorDirectXFailed       = "DirectX objects konnten nicht erzeugt werden.\nBenutze stattdessen GDI.\nÜberprüfe die Video-Eigenschaften.";

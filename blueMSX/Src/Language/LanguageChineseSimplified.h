@@ -75,6 +75,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->warningTitle             = "blueMSX - 警告";
     ls->warningDiscardChanges   = "要放弃修改吗？";
     ls->warningOverwriteFile    = "要覆盖原有文件吗:"; 
+    ls->warningStateOldFormat   = "这是旧格式的即时存档，可能无法正确恢复。仍要载入吗？";
     ls->errorTitle              = "blueMSX - 错误";
     ls->errorEnterFullscreen    = "无法进入全屏模式。           \n";
     ls->errorDirectXFailed      = "无法创建 DirectX 对象。           \n改为使用GDI。\n请检查显卡设置。";

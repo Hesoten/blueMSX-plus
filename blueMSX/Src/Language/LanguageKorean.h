@@ -75,6 +75,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->warningTitle             = "blueMSX - 경고";
     ls->warningDiscardChanges   = "변경한 설정이 적용되기 위해선 저장을 해야 합니다. 현재 설정에 아무런 영향을 주지않고 그냥 나가겠습니까?";
     ls->warningOverwriteFile    = "파일을 덮어 쓰시겠습니까:"; 
+    ls->warningStateOldFormat   = "이전 형식의 상태 저장입니다. 정상적으로 재개되지 않을 수 있습니다. 그래도 불러오시겠습니까?";
     ls->errorTitle              = "blueMSX - 에러";
     ls->errorEnterFullscreen    = "전체 화면모드 진입 실패.           \n";
     ls->errorDirectXFailed      = "DirectX 오브젝트 만들기 실패.           \nGDI로 대체해서 사용합니다.\n그래픽카드 등록정보를 확인하세요.";

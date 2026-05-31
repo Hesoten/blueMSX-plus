@@ -101,6 +101,7 @@ char* langTextUnknown();
 char* langWarningTitle();
 char* langWarningDiscardChanges();
 char* langWarningOverwriteFile();
+char* langWarningStateOldFormat();
 char* langErrorTitle();
 char* langErrorEnterFullscreen();
 char* langErrorDirectXFailed();

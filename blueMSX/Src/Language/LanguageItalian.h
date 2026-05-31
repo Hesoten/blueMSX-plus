@@ -76,6 +76,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->warningTitle                    = "blueMSX - Attenzione";
     ls->warningDiscardChanges           = "Vuoi veramente annullare le modifiche effettuate?";
     ls->warningOverwriteFile            = "Vuoi veramente sovrascrivere il file: ";
+    ls->warningStateOldFormat           = "Salvataggio di stato in formato vecchio. Potrebbe non riprendere correttamente. Caricare comunque?";
     ls->errorTitle                      = "blueMSX - Errore";
     ls->errorEnterFullscreen            = "Non riesco ad attivare la visualizzazione a schermo intero.           \n";
     ls->errorDirectXFailed              = "Non riesco a creare gli oggetti DirectX.          \nHo selezionato automaticamente le GDI.\nVerifica le proprietà video.";

@@ -75,6 +75,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->warningTitle             = "blueMSX - Advertencia";
     ls->warningDiscardChanges   = "Quieres descartar cambios de la configuración actual?"; 
     ls->warningOverwriteFile    = "Usted desea sobreescribir este archivo?:"; 
+    ls->warningStateOldFormat   = "Estado guardado en formato antiguo. Podría no reanudarse correctamente. ¿Cargar de todos modos?";
     ls->errorTitle              = "blueMSX - Error";
     ls->errorEnterFullscreen    = "Error al intentar Modo Pantalla Completa             \n";
     ls->errorDirectXFailed      = "Error al crear objetos DirectX.           \n.\nComprueba configuración de Vídeo.";

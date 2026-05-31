@@ -75,6 +75,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->warningTitle            = "blueMSX - Varning";
     ls->warningDiscardChanges   = "Vill du stänga verktyget utan att spara dina ändringar?";
     ls->warningOverwriteFile    = "Vill du skriva över filen:";
+    ls->warningStateOldFormat   = "Detta är en sparad status i äldre format. Kan inte återupptas korrekt. Ladda ändå?";
     ls->errorTitle              = "blueMSX - Fel";
     ls->errorEnterFullscreen    = "Misslyckades att byta till fullskärm.           \n";
     ls->errorDirectXFailed      = "Misslyckades att skapa DirectX objekt.          \nAnvänder GDI istället.\nKontrollera video inställningarna.";

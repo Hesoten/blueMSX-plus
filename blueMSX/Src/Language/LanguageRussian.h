@@ -75,6 +75,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->warningTitle            = "blueMSX - Внимание";
     ls->warningDiscardChanges   = "Вы хотите отказаться от изменений?";
     ls->warningOverwriteFile    = "Вы хотите перезаписать файл:";
+    ls->warningStateOldFormat   = "Это сохранение состояния в старом формате. Может не возобновиться корректно. Всё равно загрузить?";
     ls->errorTitle              = "blueMSX - Ошибка";
     ls->errorEnterFullscreen    = "Не удалось перейти в полноэкранный режим.           \n";
     ls->errorDirectXFailed      = "Не удалось создать DirectX объекты.           \nUsing GDI instead.\nCheck Video properties.";

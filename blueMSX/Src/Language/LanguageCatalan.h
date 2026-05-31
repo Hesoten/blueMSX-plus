@@ -75,6 +75,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->warningTitle            = "blueMSX - Avís";
     ls->warningDiscardChanges   = "Voleu descartar els canvis?";
     ls->warningOverwriteFile    = "Voleu sobreescriure el fitxer?:";
+    ls->warningStateOldFormat   = "Aquest és un estat desat en format antic. Pot no reprendre correctament. Voleu carregar-lo igualment?";
     ls->errorTitle              = "blueMSX - Error";
     ls->errorEnterFullscreen    = "No s'ha pogut entrar en el mode pantalla completa.           \n";
     ls->errorDirectXFailed      = "No s'ha pogut crear els objectes DirectX.           \nFent servir GDI.\nComprobeu les propietat del vídeo.";

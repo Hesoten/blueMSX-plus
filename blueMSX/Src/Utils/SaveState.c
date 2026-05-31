@@ -258,3 +258,37 @@ void saveStateGetBuffer(SaveState* state, const char* tagName, void* buffer, UIn
 
     state->offset = offset;
 }
+
+int saveStateFileFormatIsOld(const char* fileName)
+{
+    /* Classify a .sta as "old" = the pre-reverse-step (blueMSX 2.8.2 era)
+    ** generation. Such files are stamped "v 8" AND their VDP section uses the
+    ** old tag names (no "paletteNo0"). v10+ always carries the new tag set.
+    ** Used to gate the old-format load fallbacks and to warn the user. */
+    int   size;
+    int   isOld = 0;
+    char* version = zipLoadFile((char*)fileName, "version", &size);
+
+    if (version != NULL) {
+        if (0 == strncmp(version, "blueMSX - state  v 8", 20)) {
+            int   vdpSize;
+            char* vdp = zipLoadFile((char*)fileName, "vdp_00", &vdpSize);
+            if (vdp != NULL) {
+                UInt32  want  = tagFromName("paletteNo0");
+                UInt32* words = (UInt32*)vdp;
+                int     n     = vdpSize / (int)sizeof(UInt32);
+                int     off   = 0;
+                int     found = 0;
+                while (off + 2 <= n) {
+                    UInt32 elemLen = words[off + 1];
+                    if (words[off] == want) { found = 1; break; }
+                    off += 2 + (int)((elemLen + sizeof(UInt32) - 1) / sizeof(UInt32));
+                }
+                isOld = !found;
+                free(vdp);
+            }
+        }
+        free(version);
+    }
+    return isOld;
+}

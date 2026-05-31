@@ -166,7 +166,20 @@ static void boardProbeMissingFile(const char* file, const char* inZip) {
     }
 }
 
-static char saveStateVersion[32] = "blueMSX - state  v 8";
+/* Version stamped into states this build writes. Bumped from "v 8" to "v 10":
+** the on-disk device serialization diverged from upstream 2.8.2 ("v 8") without
+** a version bump, so "v 8" ambiguously covered two incompatible generations.
+** Loading still accepts both "v 8" and "v 10" (see boardRun). */
+static char saveStateVersion[32] = "blueMSX - state  v 10";
+
+/* Set per load: non-zero when the state being loaded is the old (2.8.2 era)
+** format, enabling the per-device old-format load fallbacks. */
+static int boardLoadOldFormat = 0;
+
+int boardStateLoadIsOldFormat(void)
+{
+    return boardLoadOldFormat;
+}
 
 static BoardTimerCb periodicCb;
 static void*        periodicRef;
@@ -1101,6 +1114,7 @@ int boardRun(Machine* machine,
 {
     int loadState = 0;
     int success = 0;
+    boardLoadOldFormat = 0;
     /* Stash boardSysTime64 across msxCreate / boardInfo.loadState since
     ** boardInit clobbers it; reapply after all init runs. */
     UInt64 stashedSysTime64 = 0;
@@ -1124,8 +1138,11 @@ int boardRun(Machine* machine,
 
         version = zipLoadFile(stateFile, "version", &size);
         if (version != NULL) {
-            if (0 == strncmp(version, saveStateVersion, sizeof(saveStateVersion) - 1)) {
+            /* Accept both the current "v 10" and the legacy "v 8" generation. */
+            if (0 == strncmp(version, "blueMSX - state  v 10", 21) ||
+                0 == strncmp(version, "blueMSX - state  v 8",  20)) {
                 loadState = 1;
+                boardLoadOldFormat = saveStateFileFormatIsOld(stateFile);
 
                 boardType = boardLoadState();
                 stashedSysTime64 = boardSysTime64;
@@ -1258,6 +1275,7 @@ int boardRun(Machine* machine,
         }
         else {
             stateTimer = NULL;
+            breakpointTimer = NULL;
         }
 
         boardTimerAdd(syncTimer, boardSystemTime() + 1);
@@ -1283,14 +1301,20 @@ int boardRun(Machine* machine,
 
         boardInfo.destroy();
 
-        boardTimerDestroy(fdcTimer);
-        boardTimerDestroy(syncTimer);
-        boardTimerDestroy(mixerTimer);
+        /* Null each pointer after destroy. breakpointTimer is created only
+        ** when reverse is enabled (stateFrequency > 0); a later reverse-off
+        ** run skips the re-create, so a stale (freed) pointer here would be
+        ** double-freed at the next teardown -> heap corruption / crash. */
+        boardTimerDestroy(fdcTimer);   fdcTimer = NULL;
+        boardTimerDestroy(syncTimer);  syncTimer = NULL;
+        boardTimerDestroy(mixerTimer); mixerTimer = NULL;
         if (breakpointTimer != NULL) {
             boardTimerDestroy(breakpointTimer);
+            breakpointTimer = NULL;
         }
         if (stateTimer != NULL) {
             boardTimerDestroy(stateTimer);
+            stateTimer = NULL;
             memZipFileSystemDestroy();
         }
     }

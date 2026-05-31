@@ -75,6 +75,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->warningTitle             = "blueMSX - Avertissement";
     ls->warningDiscardChanges   = "Voulez-vous ignorer les changements apportés à cette configuration ?"; 
     ls->warningOverwriteFile    = "Voulez-vous remplacer ce fichier ?:"; 
+    ls->warningStateOldFormat   = "État de sauvegarde en ancien format. Peut ne pas reprendre correctement. Charger quand même ?";
     ls->errorTitle              = "blueMSX - Erreur";
     ls->errorEnterFullscreen    = "Impossible de passer en mode plein écran.              \n";
     ls->errorDirectXFailed      = "Impossible de créer les objets DirectX.              \nUVeuillez sélectionner GDI à la place.\ndans le menu \"Video\".";

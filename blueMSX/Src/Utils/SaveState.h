@@ -53,5 +53,10 @@ void saveStateSet(SaveState* state, const char* tagName, UInt32 value);
 void saveStateGetBuffer(SaveState* state, const char* tagName, void* buffer, UInt32 length);
 void saveStateSetBuffer(SaveState* state, const char* tagName, void* buffer, UInt32 length);
 
+/* Non-zero if fileName is an old (blueMSX 2.8.2 era: "v 8" + pre-rename VDP
+** tags) state save. Such states need the old-format load fallbacks and resume
+** unreliably; the UI warns before loading one. */
+int saveStateFileFormatIsOld(const char* fileName);
+
 #endif /* SAVE_STATE_H */
 

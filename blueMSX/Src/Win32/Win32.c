@@ -48,6 +48,7 @@
 #include "VideoRender.h"
 #include "CommandLine.h"
 #include "Language.h"   
+#include "SaveState.h"
 #include "resource.h"
 #include "Casette.h"
 #include "PrinterIO.h"
@@ -4977,6 +4978,14 @@ char* archFilenameGetOpenState(Properties* properties)
                              selectedExtension, &pProperties->settings.showStatePreview);
     exitDialogShow();
     SetCurrentDirectoryU(st.pCurDir);
+
+    /* Old (2.8.2 era) states resume unreliably; warn and require confirmation. */
+    if (fileName != NULL && saveStateFileFormatIsOld(fileName)) {
+        if (MessageBoxU(getMainHwnd(), langWarningStateOldFormat(), langWarningTitle(),
+                        MB_OKCANCEL | MB_ICONWARNING) != IDOK) {
+            return NULL;
+        }
+    }
 
     return fileName;
 }

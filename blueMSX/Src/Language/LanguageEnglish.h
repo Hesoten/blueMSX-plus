@@ -75,6 +75,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->warningTitle            = "blueMSX - Warning";
     ls->warningDiscardChanges   = "Do you want to discard changes?";
     ls->warningOverwriteFile    = "Do you want to overwrite the file:";
+    ls->warningStateOldFormat   = "This is an old-format state save. It may not resume correctly. Load anyway?";
     ls->errorTitle              = "blueMSX - Error";
     ls->errorEnterFullscreen    = "Failed to enter fullscreen mode.           \n";
     ls->errorDirectXFailed      = "Failed to create DirectX objects.           \nUsing GDI instead.\nCheck Video properties.";

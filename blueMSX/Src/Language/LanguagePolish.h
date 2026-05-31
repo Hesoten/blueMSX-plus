@@ -75,6 +75,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->warningTitle             = "blueMSX - Uwaga";
     ls->warningDiscardChanges   = "Czy chcesz zniszczyæ zmiany?";
     ls->warningOverwriteFile    = "Czy chcesz nadpisaæ plik:"; 
+    ls->warningStateOldFormat   = "To zapis stanu w starym formacie. Wznowienie moze byc niepoprawne. Wczytac mimo to?";
     ls->errorTitle              = "blueMSX - b³¹d";
     ls->errorEnterFullscreen    = "Nie mogê prze³¹czyæ na pe³ny ekran.           \n";
     ls->errorDirectXFailed      = "Nie mogê stworzyæ obiektów DirectX.           \nPrze³¹czam w tryb GDI.\nSprawdŸ w³aœciwoœci wideo.";

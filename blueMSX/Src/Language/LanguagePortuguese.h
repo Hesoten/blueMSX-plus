@@ -75,6 +75,7 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->warningTitle             = "blueMSX - Advertência";
     ls->warningDiscardChanges   = "Você quer desfazer as alterações da configuração atual?"; 
     ls->warningOverwriteFile    = "Você quer substituir esto arquivo? "; 
+    ls->warningStateOldFormat   = "Este é um estado salvo em formato antigo. Pode não retomar corretamente. Carregar mesmo assim?";
     ls->errorTitle              = "blueMSX - Erro";
     ls->errorEnterFullscreen    = "Falha ao entrar em Tela Cheia.             \n";
     ls->errorDirectXFailed      = "Falha ao Criar Objetos DirectX.             \nUsando GDI ao invés.\nCheque as propriedades Video.";

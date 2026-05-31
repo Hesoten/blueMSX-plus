@@ -77,6 +77,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->warningTitle            = "blueMSX - Varoitus";
     ls->warningDiscardChanges   = "Haluatko perua tekemäsi muutokset?";
     ls->warningOverwriteFile    = "Haluatko korvata tiedoston:";
+    ls->warningStateOldFormat   = "Tämä on vanhamuotoinen tilatallennus. Ei välttämättä jatku oikein. Ladataanko silti?";
     ls->errorTitle              = "blueMSX - Virhe";
     ls->errorEnterFullscreen    = "Siirtyminen kokoruututilaan epäonnistui.  \n";
     ls->errorDirectXFailed      = "DirectX objektien luonti epäonnistui.      \nDirectX on korvattu GDI:llä.\nTarkista video asetukset.";

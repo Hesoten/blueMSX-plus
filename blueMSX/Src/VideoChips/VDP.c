@@ -1769,6 +1769,10 @@ static void loadState(VDP* vdp)
     UInt32 systemTime = boardSystemTime() + 100;
     char tag[32];
     int i;
+    /* Old (blueMSX 2.8.2 era) state: apply the pre-rename tag fallbacks and
+    ** rebuild the register-derived fields it does not serialize. New states
+    ** take the original path unchanged. */
+    int isOldFormat = boardStateLoadIsOldFormat();
 
     vdp->scr0splitLine = saveStateGet(state, "scr0splitLine",         0);
 
@@ -1849,6 +1853,19 @@ static void loadState(VDP* vdp)
 
     vdp->vramAccMask = saveStateGet(state, "vramAccMask",         0);
 
+    if (isOldFormat) {
+        /* Old (2.8.2) tag-name overrides:
+        **   status / paletteTmp0 / vdp->palette%d / xfgColor / xbgColor */
+        saveStateGetBuffer(state, "status", vdp->vdpStatus, sizeof(vdp->vdpStatus));
+        vdp->palette0 = saveStateGet(state, "paletteTmp0", vdp->palette0);
+        vdp->XFGColor = saveStateGet(state, "xfgColor", vdp->XFGColor);
+        vdp->XBGColor = saveStateGet(state, "xbgColor", vdp->XBGColor);
+        for (i = 0; i < sizeof(vdp->palette) / sizeof(vdp->palette[0]); i++) {
+            sprintf(tag, "vdp->palette%d", i);
+            vdp->palette[i] = saveStateGet(state, tag, vdp->palette[i]);
+        }
+    }
+
     saveStateGetBuffer(state, "vram", vdp->vram, sizeof(vdp->vram));
 
     saveStateClose(state);
@@ -1859,7 +1876,47 @@ static void loadState(VDP* vdp)
 
     canFlipFrameBuffer = 0;
 
-    updateScreenMode(vdp);
+    if (isOldFormat) {
+        /* Reconstruct derived state from vdpRegs; old states only
+        ** serialize raw registers and the renderer would otherwise read
+        ** its tables from VRAM offset 0. */
+        vdp->screenMode = updateScreenMode(vdp);
+
+        vdp->chrTabBase = ((((int)vdp->vdpRegs[2] << 10) & ~((int)(vdp->vdpRegs[25] & 1) << 15)) | ~(-1 << 10)) & vdp->vramMask;
+        vdp->chrGenBase = (((int)vdp->vdpRegs[4] << 11) | ~(-1 << 11)) & vdp->vramMask;
+        vdp->colTabBase = (((int)vdp->vdpRegs[10] << 14) | ((int)vdp->vdpRegs[3] << 6) | ~(-1 << 6)) & vdp->vramMask;
+        vdp->sprTabBase = (((int)vdp->vdpRegs[11] << 15) | ((int)vdp->vdpRegs[5] << 7) | ~(-1 << 7)) & vdp->vramMask;
+        vdp->sprGenBase = (((int)vdp->vdpRegs[6] << 11) | ~(-1 << 11)) & vdp->vramMask;
+        vdp->vramAccMask = vdp->vramMasks[((vdp->vdpRegs[8] & 0x08) >> 2) | (((vdp->vdpRegs[0x2d] >> 6) & 1))];
+
+        vdp->screenOn   = vdp->vdpRegs[1] & 0x40;
+        vdp->vramEnable = vdp->vram192 || !((vdp->vdpRegs[0x2d] >> 6) & 1);
+        vdpSetScreenMode(vdp->cmdEngine, vdp->screenMode & 0x0f, vdp->vdpRegs[25] & 0x40);
+        if (vdp->screenMode == 0 || vdp->screenMode == 13) {
+            vdp->displayArea = 960;
+            vdp->leftBorder  = 102 + 92;
+        }
+        else {
+            vdp->displayArea = 1024;
+            vdp->leftBorder  = 102 + 56;
+        }
+        vdp->HAdjust = (-((Int8)(vdp->vdpRegs[18] << 4) >> 4));
+        if (vdp->vdpRegs[25] & 0x08) {
+            vdp->HAdjust += 4;
+        }
+        vdp->leftBorder += vdp->HAdjust;
+
+        /* FGColor/BGColor from reg7 and palette0 from the resolved color-0, so
+        ** the next reg7/reg8 write does not repaint color 0 / the backdrop
+        ** with a wrong (gray) palette0. */
+        vdp->FGColor = vdp->vdpRegs[7] >> 4;
+        vdp->BGColor = vdp->vdpRegs[7] & 0x0F;
+        vdp->palette0 = vdp->palette[0];
+        updateOutputMode(vdp);
+    }
+    else {
+        updateScreenMode(vdp);
+    }
 
     if (vdp->timeScrModeEn) {
         boardTimerAdd(vdp->timerScrModeChange, vdp->timeScrMode);

@@ -75,6 +75,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->warningTitle            = "blueMSX - Waarschuwing";
     ls->warningDiscardChanges   = "Wilt u de wijzigingen ongedaan maken?";
     ls->warningOverwriteFile    = "Wilt u het volgende bestand overschrijven?";
+    ls->warningStateOldFormat   = "Dit is een state save in oud formaat. Hervatten kan mislukken. Toch laden?";
     ls->errorTitle              = "blueMSX - Foutmelding";
     ls->errorEnterFullscreen    = "Het is niet gelukt om over te schakelen naar de volledige schermmodus.          \n";
     ls->errorDirectXFailed      = "Het is niet gelukt om DirectX te initialiseren. \nDe GDI wordt nu gebruikt.\nKijk de videoinstellingen na...";
