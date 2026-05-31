@@ -114,6 +114,7 @@ char* langErrorMissingFiles();
 char* langErrorPortableReadonly();
 char* langInfoColorDepth();
 char* langInfoTitle();
+char* langInfoGameReaderRedirect();
 char* langErrorKeyboardThemeMissing();
 char* langErrorMixerThemeMissing();
 char* langErrorRecorderTitle();

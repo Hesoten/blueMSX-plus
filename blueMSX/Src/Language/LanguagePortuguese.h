@@ -87,6 +87,7 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->errorMissingFiles       = "Os seguintes arquivos referenciados pelo estado salvo não pôde ser carregados:";
     ls->errorPortableReadonly   = "O dispositivo portátil é somente leitura";        
     ls->infoTitle               = "Info blueMSX";
+    ls->infoGameReaderRedirect  = "O blueMSX não suporta diretamente o MSX Game Reader (o driver original da ASCII da era XP não funciona mais no Windows moderno).\n\nAbrir o MSX Game Reader - Web Dumper (por Kunihiko Ohnaka) no seu navegador?";
     ls->infoColorDepth          = "blueMSX funciona melhor com profundidade de cor de 16 ou 32 bits.";
     ls->errorKeyboardThemeMissing = "Não foi possível encontrar o tema do editor de teclado.";
     ls->errorMixerThemeMissing    = "Não foi possível encontrar o tema do mixer.";

@@ -87,6 +87,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->errorMissingFiles       = "Les fichiers suivants référencés par l'état sauvegardé n'ont pas pu être chargés :";
     ls->errorPortableReadonly   = "Ce dispositif portable est uniquement en mode écriture";        
     ls->infoTitle               = "Info blueMSX";
+    ls->infoGameReaderRedirect  = "blueMSX ne prend pas directement en charge le MSX Game Reader (le pilote d'origine d'ASCII de l'ère XP ne fonctionne plus sous Windows moderne).\n\nOuvrir le MSX Game Reader - Web Dumper (par Kunihiko Ohnaka) dans votre navigateur à la place?";
     ls->infoColorDepth          = "blueMSX fonctionne mieux avec une profondeur de couleur 16 ou 32 bits.";
     ls->errorKeyboardThemeMissing = "Impossible de trouver le thème de l'éditeur de clavier.";
     ls->errorMixerThemeMissing    = "Impossible de trouver le thème du mixeur.";

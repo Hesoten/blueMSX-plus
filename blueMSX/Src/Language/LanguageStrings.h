@@ -85,6 +85,7 @@ typedef struct {
     char* errorPortableReadonly;
     char* infoColorDepth;
     char* infoTitle;
+    char* infoGameReaderRedirect;
     char* errorKeyboardThemeMissing;
     char* errorMixerThemeMissing;
     char* errorRecorderTitle;

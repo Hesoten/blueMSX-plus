@@ -87,6 +87,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->errorMissingFiles       = "Följande filer som refereras av sparat tillstånd kunde inte laddas:";
     ls->errorPortableReadonly   = "Flyttbar enhet är inte skrivbar";
     ls->infoTitle               = "blueMSX Info";
+    ls->infoGameReaderRedirect  = "blueMSX stöder inte MSX Game Reader direkt (den ursprungliga XP-drivrutinen från ASCII fungerar inte längre på moderna Windows).\n\nÖppna MSX Game Reader - Web Dumper (av Kunihiko Ohnaka) i webbläsaren istället?";
     ls->infoColorDepth          = "blueMSX fungerar bäst med 16 eller 32 bitars färgdjup.";
     ls->errorKeyboardThemeMissing = "Tangentbordsredigerarens tema kunde inte hittas.";
     ls->errorMixerThemeMissing    = "Mixerns tema kunde inte hittas.";

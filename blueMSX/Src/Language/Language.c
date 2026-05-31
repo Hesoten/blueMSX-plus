@@ -305,6 +305,7 @@ char* langErrorMissingFiles() { return ls->errorMissingFiles; }
 char* langErrorPortableReadonly()  {return ls->errorPortableReadonly; }
 char* langInfoColorDepth()                 { return ls->infoColorDepth; }
 char* langInfoTitle()                      { return ls->infoTitle; }
+char* langInfoGameReaderRedirect()         { return ls->infoGameReaderRedirect; }
 char* langErrorKeyboardThemeMissing()      { return ls->errorKeyboardThemeMissing; }
 char* langErrorMixerThemeMissing()         { return ls->errorMixerThemeMissing; }
 char* langErrorRecorderTitle()             { return ls->errorRecorderTitle; }

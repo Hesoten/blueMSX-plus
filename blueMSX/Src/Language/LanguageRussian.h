@@ -87,6 +87,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->errorMissingFiles       = "Следующие файлы, указанные в сохранённом состоянии, не могут быть загружены:";
     ls->errorPortableReadonly   = "Портативное устройство только для чтения";
     ls->infoTitle               = "Информация blueMSX";
+    ls->infoGameReaderRedirect  = "blueMSX не поддерживает MSX Game Reader напрямую (оригинальный драйвер ASCII эпохи XP больше не работает на современном Windows).\n\nОткрыть MSX Game Reader - Web Dumper (автор Kunihiko Ohnaka) в браузере?";
     ls->infoColorDepth          = "blueMSX лучше всего работает при глубине цвета 16 или 32 бита.";
     ls->errorKeyboardThemeMissing = "Не удалось найти тему редактора клавиатуры.";
     ls->errorMixerThemeMissing    = "Не удалось найти тему микшера.";

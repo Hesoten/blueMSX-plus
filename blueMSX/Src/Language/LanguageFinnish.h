@@ -89,6 +89,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->errorMissingFiles       = "Seuraavia tallennustilan viittaamia tiedostoja ei voitu ladata:";
     ls->errorPortableReadonly   = "Kannettava laite tukee vain lukemista.";
     ls->infoTitle               = "blueMSX-tiedot";
+    ls->infoGameReaderRedirect  = "blueMSX ei tue MSX Game Readeria suoraan (ASCII:n alkuperäinen XP-aikakauden ajuri ei enää toimi nykyaikaisessa Windowsissa).\n\nAvataanko sen sijaan MSX Game Reader - Web Dumper (tekijä Kunihiko Ohnaka) selaimessa?";
     ls->infoColorDepth          = "blueMSX toimii parhaiten 16 tai 32 bitin värisyvyydellä.";
     ls->errorKeyboardThemeMissing = "Näppäimistön muokkaus -teemaa ei löydy.";
     ls->errorMixerThemeMissing    = "Mikserin teemaa ei löydy.";

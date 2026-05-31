@@ -87,6 +87,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->errorMissingFiles       = "De volgende bestanden waarnaar de opgeslagen status verwijst, konden niet geladen worden:";
     ls->errorPortableReadonly   = "Het draagbare apparaat is Alleen-Lezen";
     ls->infoTitle               = "blueMSX Info";
+    ls->infoGameReaderRedirect  = "blueMSX ondersteunt de MSX Game Reader niet direct (de originele XP-driver van ASCII werkt niet meer op moderne Windows).\n\nWilt u in plaats daarvan de MSX Game Reader - Web Dumper (van Kunihiko Ohnaka) in uw browser openen?";
     ls->infoColorDepth          = "blueMSX werkt het best met 16 of 32 bits kleurdiepte.";
     ls->errorKeyboardThemeMissing = "Kon het thema van de Toetsenbord-editor niet vinden.";
     ls->errorMixerThemeMissing    = "Kon het thema van de Mixer niet vinden.";

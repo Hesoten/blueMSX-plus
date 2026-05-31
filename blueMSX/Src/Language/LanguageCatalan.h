@@ -87,6 +87,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->errorMissingFiles       = "No s'han pogut carregar els següents fitxers referenciats per l'estat desat:";
     ls->errorPortableReadonly   = "El dispositiu portàtil és de només lectura";
     ls->infoTitle               = "blueMSX Informació";
+    ls->infoGameReaderRedirect  = "blueMSX no admet directament el MSX Game Reader (el controlador original d'ASCII de l'era XP ja no funciona a Windows modern).\n\nVoleu obrir el MSX Game Reader - Web Dumper (per Kunihiko Ohnaka) al vostre navegador?";
     ls->infoColorDepth          = "blueMSX funciona millor amb 16 o 32 bits de profunditat de color.";
     ls->errorKeyboardThemeMissing = "No s'ha pogut trobar el tema de l'editor de teclat.";
     ls->errorMixerThemeMissing    = "No s'ha pogut trobar el tema del mesclador.";

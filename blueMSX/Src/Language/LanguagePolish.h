@@ -87,6 +87,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->errorMissingFiles       = "Następujące pliki wskazane przez zapisany stan nie mogą zostać wczytane:";
     ls->errorPortableReadonly   = "Urz¹dzenie przenoœne - tylko do odczytu";        
     ls->infoTitle               = "Informacje blueMSX";
+    ls->infoGameReaderRedirect  = "blueMSX nie obsługuje bezpośrednio MSX Game Reader (oryginalny sterownik ASCII z ery XP nie działa już w nowoczesnym Windowsie).\n\nOtworzyć MSX Game Reader - Web Dumper (autorstwa Kunihiko Ohnaka) w przeglądarce?";
     ls->infoColorDepth          = "blueMSX najlepiej działa przy głębi kolorów 16 lub 32 bit.";
     ls->errorKeyboardThemeMissing = "Nie można znaleźć motywu edytora klawiatury.";
     ls->errorMixerThemeMissing    = "Nie można znaleźć motywu miksera.";

@@ -1984,7 +1984,17 @@ int menuCommand(Properties* pProperties, int command)
             insertCartridge(pProperties, i, CARTNAME_EXTRAM4MB, NULL, ROM_EXTRAM4MB, 0);
             return 1;
         case ID_FILE_CART_GAMEREADER:
-            insertCartridge(pProperties, i, CARTNAME_GAMEREADER, NULL, ROM_GAMEREADER, 0);
+            /* MSXGr.dll no longer installs cleanly; redirect to the
+            ** WebUSB-based dumper instead. */
+            if (MessageBoxU(getMainHwnd(),
+                            langInfoGameReaderRedirect(),
+                            langInfoTitle(),
+                            MB_OKCANCEL | MB_ICONINFORMATION) == IDOK) {
+                const char* url = (pProperties->language == EMU_LANG_JAPANESE)
+                                  ? "https://kunichiko.github.io/MSX-GameReader-web/?lang=ja"
+                                  : "https://kunichiko.github.io/MSX-GameReader-web/?lang=en";
+                ShellExecuteA(getMainHwnd(), "open", url, NULL, NULL, SW_SHOWNORMAL);
+            }
             return 1;
         case ID_FILE_CART_SUNRISEIDE:
             insertCartridge(pProperties, i, CARTNAME_SUNRISEIDE, NULL, ROM_SUNRISEIDE, 0);

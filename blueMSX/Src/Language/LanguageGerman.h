@@ -87,6 +87,7 @@ void langInitGerman(LanguageStrings* ls)
     ls->errorMissingFiles        = "Folgende vom Speicherstand referenzierten Dateien konnten nicht geladen werden:";
     ls->errorPortableReadonly    = "Austauschbarer Datenträger ist nur lesbar"; // "Portable device is readonly";        
     ls->infoTitle                = "blueMSX Info";
+    ls->infoGameReaderRedirect   = "blueMSX unterstützt den MSX Game Reader nicht direkt (der Original-Treiber von ASCII aus der XP-Ära funktioniert unter modernem Windows nicht mehr).\n\nStattdessen den MSX Game Reader - Web Dumper (von Kunihiko Ohnaka) im Browser öffnen?";
     ls->infoColorDepth           = "blueMSX funktioniert am besten mit 16 oder 32 Bit Farbtiefe.";
     ls->errorKeyboardThemeMissing = "Das Tastatur-Editor-Theme konnte nicht gefunden werden.";
     ls->errorMixerThemeMissing    = "Das Mixer-Theme konnte nicht gefunden werden.";

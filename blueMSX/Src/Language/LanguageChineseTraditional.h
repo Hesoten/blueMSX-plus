@@ -87,6 +87,7 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->errorMissingFiles       = "無法載入存檔引用的以下檔案：";
     ls->errorPortableReadonly   = "可攜式裝置為唯讀屬性";        
     ls->infoTitle               = "blueMSX 資訊";
+    ls->infoGameReaderRedirect  = "blueMSX 不直接支援 MSX Game Reader (ASCII 公司 XP 時代的原版驅動程式無法在現代 Windows 上運作)。\n\n是否改為在瀏覽器中開啟 MSX Game Reader - Web Dumper (Kunihiko Ohnaka 製作)?";
     ls->infoColorDepth          = "blueMSX 在 16 或 32 位元色深下運行最佳。";
     ls->errorKeyboardThemeMissing = "無法找到鍵盤編輯器佈景主題。";
     ls->errorMixerThemeMissing    = "無法找到混音器佈景主題。";

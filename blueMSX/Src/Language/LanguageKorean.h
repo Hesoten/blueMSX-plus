@@ -87,6 +87,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->errorMissingFiles       = "저장된 상태가 참조하는 다음 파일을 로드할 수 없습니다:";
     ls->errorPortableReadonly   = "이동 장치는 읽기 전용입니다.";        
     ls->infoTitle               = "blueMSX 정보";
+    ls->infoGameReaderRedirect  = "blueMSX 는 MSX Game Reader 를 직접 지원하지 않습니다 (ASCII 사의 XP 시대 정품 드라이버는 최신 Windows 에서 작동하지 않습니다).\n\n대신 MSX Game Reader - Web Dumper (Kunihiko Ohnaka 제작) 를 브라우저에서 열까요?";
     ls->infoColorDepth          = "blueMSX 는 16 또는 32 비트 색상 심도에서 가장 잘 작동합니다.";
     ls->errorKeyboardThemeMissing = "키보드 편집기 테마를 찾을 수 없습니다.";
     ls->errorMixerThemeMissing    = "믹서 테마를 찾을 수 없습니다.";
