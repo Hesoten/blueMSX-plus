@@ -2067,11 +2067,12 @@ void archShowPropertiesDialog(PropPage  startPane) {
         archUpdateWindow();
     }
 
-    if (pProperties->cartridge.defaultType != oldProp.cartridge.defaultType) {
-        for (i = 0; i < PROP_MAX_CARTS; i++) {
-            if (pProperties->media.carts[i].fileName[0]) insertCartridge(pProperties, i, pProperties->media.carts[i].fileName, pProperties->media.carts[i].fileNameInZip, pProperties->media.carts[i].type, -1);
-        }
-    }
+    /* defaultType is only the heuristic-fallback for newly loaded ROMs
+    ** (mediaDbGuessRom). Re-inserting currently-loaded carts on change
+    ** would tear down the live mapper (slotRemove + recreate), reset the
+    ** SCC oscillators (silencing music) and remount SCSI/SD storage --
+    ** for no benefit, because the existing cart's type is already known
+    ** and is passed back unchanged. */
     boardSetFdcTimingEnable(pProperties->emulation.enableFdcTiming);
     boardSetHddSdBoostEnable(pProperties->emulation.enableHddSdBoost);
     boardSetNoSpriteLimits(pProperties->emulation.noSpriteLimits);

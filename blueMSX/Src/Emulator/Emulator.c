@@ -330,8 +330,9 @@ static void getDeviceInfo(BoardDeviceInfo* deviceInfo)
     for (i = 0; i < PROP_MAX_CARTS; i++) {
         strcpy(properties->media.carts[i].fileName, deviceInfo->carts[i].name);
         strcpy(properties->media.carts[i].fileNameInZip, deviceInfo->carts[i].inZipName);
-        // Don't save rom type
-        // properties->media.carts[i].type = deviceInfo->carts[i].type;
+        /* Keep type in sync with fileName so .sta restore + re-insert
+        ** doesn't feed a stale type into updateFileHistory. */
+        properties->media.carts[i].type = deviceInfo->carts[i].type;
         updateExtendedRomName(i, properties->media.carts[i].fileName, properties->media.carts[i].fileNameInZip);
     }
 
