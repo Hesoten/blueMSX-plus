@@ -1,5 +1,82 @@
-This file contains the license agreement on individual file in the blueMSX
-source tree.
+This file contains the license agreement on individual file in the
+blueMSX/blueMSX+ source tree.
+
+========================================================================
+blueMSX+
+========================================================================
+
+Newly-added source code in blueMSX+ falls into three groups:
+
+  1. Third-party sources imported as-is (each keeps its own license):
+
+       Src/SoundChips/NukedOPLL/          GPLv2-or-later  (Nuke.YKT; see LICENSE)
+       Src/SoundChips/Emu2413/            MIT             (Mitsutaka Okazaki; see LICENSE)
+       Src/SoundChips/Emu8950/            MIT             (Mitsutaka Okazaki; see LICENSE)
+       Src/SoundChips/OpenMsxY8950Latest/ GPLv2-or-later  (openMSX; reference only, ported into OpenMsxY8950Latest*.cpp/.h)
+
+  2. Files newly written for this fork that derive from blueMSX / openMSX
+     GPL-licensed sources, or extend a GPL-licensed base class / interface,
+     or wrap a GPL-licensed third-party import: licensed under
+     GPL-2.0-or-later (the majority of the added code).
+
+  3. Files newly written for this fork that are truly independent
+     implementations (no derivation from GPL-licensed sources, no
+     extension of GPL-licensed base classes): licensed under the
+     3-Clause BSD License (SPDX: BSD-3-Clause).
+
+The per-file header of each source file is the authoritative statement
+of its license.  Always consult the header when in doubt, and when
+adding new files to the fork.
+
+The lists below are an informative snapshot of the files present as
+of blueMSX+ 3.0.0.  They are not intended to be kept exhaustively in
+sync with later revisions -- files added after 3.0.0 may not appear
+here, so treat this section as a historical cross-reference rather
+than a live index.
+
+  GPL-2.0-or-later (as of 3.0.0):
+    Src/IoDevice/DiskFormat.{c,h}
+    Src/Memory/romMapperMegaFlashRomSccPlusSD.{c,h}
+    Src/SoundChips/BlipBuffer.{cpp,h}
+    Src/SoundChips/Emu2413Backend.{cpp,h}
+    Src/SoundChips/Emu8950Backend.{cpp,h}
+    Src/SoundChips/FmoplBackend.{cpp,h}
+    Src/SoundChips/NukedOpllBackend.{cpp,h}
+    Src/SoundChips/OpenMsxY8950Backend.{cpp,h}
+    Src/SoundChips/OpenMsxY8950Latest.{cpp,h}
+    Src/SoundChips/OpenMsxY8950LatestAdpcm.{cpp,h}
+    Src/SoundChips/Y8950.cpp
+    Src/SoundChips/Y8950BackendBase.h
+    Src/SoundChips/Y8950MultiBackend.{cpp,h}
+    Src/SoundChips/Ym2413MultiBackend.{cpp,h}
+    Src/Win32/Win32D3D12.{cpp,h}
+    Src/Win32/Win32FileDialog.{cpp,h}
+    Src/Win32/Win32Recorder.{cpp,h}
+    Src/Win32/Win32WasapiSound.cpp
+
+  BSD-3-Clause (as of 3.0.0):
+    Src/IoDevice/SdCard.{c,h}
+    Src/SoundChips/AnalogFilter.{c,h}
+    Src/Utils/Utf8Conv.h
+    Src/Win32/Win32MediaFoundation.{cpp,h}
+    Src/Win32/Win32TextUtf8.h
+    Src/Win32/Win32Toast.{cpp,h}
+
+Existing blueMSX files (GPL-2.0-or-later header inherited from upstream)
+that this fork has modified carry a per-file "Modified 2026 by Hesoten
+for blueMSX+ fork" notice, as required by GPL v2 section 2(a).
+
+Newly-added resource files (Src/Resources/classic_dark/*.bmp) are
+derivatives of upstream Src/Resources/classic/*.bmp with the same
+licensing terms as the upstream Classic theme resources.
+
+========================================================================
+blueMSX
+========================================================================
+NOTE: The text below dates from around 2004 and describes blueMSX as
+"BSD style".  In practice the majority of blueMSX-developed .c/.h files
+carry a GPLv2-or-later header; the per-file header is authoritative.
+------------------------------------------------------------------------
 
 blueMSX was originally derived from fMSX but now it is free from all
 fMSX source. All source used in blueMSX is either under BSD license,
