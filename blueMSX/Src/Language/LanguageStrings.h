@@ -457,7 +457,6 @@ typedef struct {
     char* propFileTypes;
     char* propWindowsEnvGB;
     char* propSetScreenSaver;
-    char* propDisableWinKeys;
     char* propPriorityBoost;
     char* propScreenshotPng;
     char* propEjectMediaOnExit;

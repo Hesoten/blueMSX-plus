@@ -466,7 +466,6 @@ void langInitJapanese(LanguageStrings* ls)
     ls->propFileTypes           = " blueMSX で使用するファイル (rom, dsk, cas, sta) を関連付け";
     ls->propWindowsEnvGB        = " Windows ";
     ls->propSetScreenSaver      = " blueMSX の動作中はスクリーンセーバを無効にする";
-    ls->propDisableWinKeys      = " Windows キー及び漢字キーを blueMSX に割り当てる";
     ls->propPriorityBoost       = " Windows で blueMSX の優先度を高くする";
     ls->propScreenshotPng       = " スクリーンショットを PNG 形式で取得する";
     ls->propEjectMediaOnExit    = " blueMSX 終了時にメディアを取り出す";

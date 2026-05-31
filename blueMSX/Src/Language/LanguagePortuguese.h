@@ -464,7 +464,6 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->propFileTypes           = " Associar certos tipos de arquivo com blueMSX";
     ls->propWindowsEnvGB        = "Ambiente Windows ";
     ls->propSetScreenSaver      = " Desabilitar Proteção de Tela Quando blueMSX estiver ativo";
-    ls->propDisableWinKeys      = " Função MSX automática para as teclas Windows"; 
     ls->propPriorityBoost       = " Dar ao blueMSX uma prioridade elevada";
     ls->propScreenshotPng       = " Utilizar o formato PNG para as capturas da tela";  
     ls->propEjectMediaOnExit    = " Ejetar a mídia quando o blueMSX encerrar";        // New in 2.8

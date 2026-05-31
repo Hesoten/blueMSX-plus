@@ -286,7 +286,6 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->emulation.audioSwitch       = 0;
     properties->emulation.ejectMediaOnExit  = 0;
     properties->emulation.registerFileTypes = 0;
-    properties->emulation.disableWinKeys    = 0;
     properties->emulation.priorityBoost     = 0;
     properties->emulation.reverseEnable     = 1;
     properties->emulation.reverseMaxTime    = 15;
@@ -632,7 +631,6 @@ static void propLoad(Properties* properties)
 
     GET_ENUM_VALUE_2(propFile, emulation, ejectMediaOnExit, BoolPair);
     GET_ENUM_VALUE_2(propFile, emulation, registerFileTypes, BoolPair);
-    GET_ENUM_VALUE_2(propFile, emulation, disableWinKeys, BoolPair);
     GET_STR_VALUE_2(propFile, emulation, statsDefDir);
     GET_STR_VALUE_2(propFile, emulation, machineName);
     GET_STR_VALUE_2(propFile, emulation, shortcutProfile);
@@ -958,7 +956,6 @@ void propSave(Properties* properties)
 
     SET_ENUM_VALUE_2(propFile, emulation, ejectMediaOnExit, YesNoPair);
     SET_ENUM_VALUE_2(propFile, emulation, registerFileTypes, YesNoPair);
-    SET_ENUM_VALUE_2(propFile, emulation, disableWinKeys, YesNoPair);
     SET_STR_VALUE_2(propFile, emulation, statsDefDir);
     if (appConfigGetString("singlemachine", NULL) == NULL) {
         SET_STR_VALUE_2(propFile, emulation, machineName);

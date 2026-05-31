@@ -231,7 +231,6 @@ typedef struct {
     int  speed;
     int  ejectMediaOnExit;
     int  registerFileTypes;
-    int  disableWinKeys;
     int  priorityBoost;
     int  syncMethod;
     int  syncMethodGdi;

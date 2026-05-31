@@ -466,7 +466,6 @@ void langInitEnglish(LanguageStrings* ls)
     ls->propFileTypes           = " Register file types with blueMSX (.ROM, .DSK, .CAS, .STA)";
     ls->propWindowsEnvGB        = "Windows Environment "; 
     ls->propSetScreenSaver      = " Disable screen saver when blueMSX is running";
-    ls->propDisableWinKeys      = " Automatic MSX function for Windows menu keys"; 
     ls->propPriorityBoost       = " Boost the priority of blueMSX";
     ls->propScreenshotPng       = " Save screenshots in PNG format instead of BMP";
     ls->propEjectMediaOnExit    = " Eject all media when blueMSX exits";        // New in 2.8

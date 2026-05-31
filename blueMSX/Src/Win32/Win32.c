@@ -1879,11 +1879,6 @@ void  PatchDiskSetBusy(int driveId, int busy);
 
 void updateMenu(int show);
 
-typedef void (*KbdLockFun)(); 
-
-KbdLockFun kbdLockEnable = NULL;
-KbdLockFun kbdLockDisable = NULL;
-
 static Properties* pProperties;
 
 typedef struct {
@@ -2134,15 +2129,6 @@ void archShowPropertiesDialog(PropPage  startPane) {
         }
     }
 
-    if (pProperties->emulation.disableWinKeys && !oldProp.emulation.disableWinKeys) {
-        if (kbdLockEnable && emulatorGetState() == EMU_RUNNING && pProperties->emulation.disableWinKeys) {
-            kbdLockEnable();
-        }
-        else if (kbdLockDisable) {
-            kbdLockDisable();
-        }
-    }
-    
     if (pProperties->emulation.priorityBoost && !oldProp.emulation.priorityBoost) {
         if (pProperties->emulation.priorityBoost) {
             SetPriorityClass(GetCurrentProcess(), ABOVE_NORMAL_PRIORITY_CLASS);
@@ -3247,19 +3233,11 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         
     case WM_ACTIVATE:
         if (LOWORD(wParam) == WA_INACTIVE) {
-            if (kbdLockDisable != NULL) {
-                kbdLockDisable(0);
-            }
-            else {
-                inputReset(hwnd);
-            }
+            inputReset(hwnd);
             mouseEmuActivate(0);
             actionMaxSpeedRelease();
         }
         else {
-            if (kbdLockEnable != NULL && emulatorGetState() == EMU_RUNNING && pProperties->emulation.disableWinKeys) {
-                kbdLockEnable();
-            }
             mouseEmuActivate(1);
         }
         if (st.themePageActive) {
@@ -3828,7 +3806,6 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     RECT wr;
     MSG msg;
     int i;
-    HINSTANCE kbdLockInst;
     int readOnlyDir;
     const char* tempName;
     int scrDepth;
@@ -3913,13 +3890,6 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
     appConfigLoad();
 
-    kbdLockInst = LoadLibraryU("kbdlock.dll");
-
-    if (kbdLockInst != NULL) {
-        kbdLockEnable  = (KbdLockFun)GetProcAddress(kbdLockInst, (LPCSTR)2);
-        kbdLockDisable = (KbdLockFun)GetProcAddress(kbdLockInst, (LPCSTR)3);
-    }
-
     readOnlyDir = setDefaultPath();
 
     {
@@ -3959,7 +3929,6 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
         
         if (resetRegistry == 2) {
             propDestroy(pProperties);
-            FreeLibrary(kbdLockInst);
 
             exit(0);
             return 0;
@@ -4287,12 +4256,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     mixerDestroy(st.mixer);
     midiShutdown();
 
-    SystemParametersInfo(SPI_SETSCREENSAVEACTIVE, screensaverActive, 0, SPIF_SENDWININICHANGE); 
-
-    if (kbdLockDisable) {
-        kbdLockDisable();
-    }
-    FreeLibrary(kbdLockInst);
+    SystemParametersInfo(SPI_SETSCREENSAVEACTIVE, screensaverActive, 0, SPIF_SENDWININICHANGE);
 
     CoUninitialize();
 
@@ -5338,10 +5302,6 @@ void archEmulationStartNotification() {
         D3D12ClearToBlack(st.emuHwnd);
     }
     ShowWindow(st.emuHwnd, SW_NORMAL);
-
-    if (kbdLockEnable != NULL && pProperties->emulation.disableWinKeys) {
-        kbdLockEnable();
-    }
 }
 
 void archEmulationStopNotification()
@@ -5352,10 +5312,6 @@ void archEmulationStopNotification()
 
     DirectXSetGDISurface();
     ShowWindow(st.emuHwnd, SW_HIDE);
-
-    if (kbdLockDisable != NULL) {
-        kbdLockDisable();
-    }
 }
 
 int archUpdateEmuDisplay(int syncMode) {

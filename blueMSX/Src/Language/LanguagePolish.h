@@ -464,7 +464,6 @@ void langInitPolish(LanguageStrings* ls)
     ls->propFileTypes            = " Skoja¿ pliki z blueMSX (.rom, .dsk, .cas, .sta)";
     ls->propWindowsEnvGB         = "Otoczenie Windows "; 
     ls->propSetScreenSaver       = " Wy³¹cz wygaszacz podczas pracy blueMSX";
-    ls->propDisableWinKeys       = " Automatyczna konfiguracja klawiszy Windows w MSX"; 
     ls->propPriorityBoost       = " Podnieœ priorytet blueMSX";
     ls->propScreenshotPng       = " u¿ywaj PNG do zapisywania ekranów";  
     ls->propEjectMediaOnExit    = " Eject media when blueMSX exits";        // New in 2.8

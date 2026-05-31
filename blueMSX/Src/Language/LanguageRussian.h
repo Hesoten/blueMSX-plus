@@ -464,7 +464,6 @@ void langInitRussian(LanguageStrings* ls)
     ls->propFileTypes           = " Зарегистрировать типы файлов с blueMSX (.rom, .dsk, .cas, .sta)";
     ls->propWindowsEnvGB        = "Настройки Windows "; 
     ls->propSetScreenSaver      = " Отключить скринсейвер когда blueMSX работает";
-    ls->propDisableWinKeys      = " Отключение кнопок Windows для работы MSX"; 
     ls->propPriorityBoost       = " Повышенный приоритет для blueMSX";
     ls->propScreenshotPng       = " Использовать тип PNG файлов для скриншотов";
     ls->propEjectMediaOnExit    = " Eject media when blueMSX exits";        // New in 2.8

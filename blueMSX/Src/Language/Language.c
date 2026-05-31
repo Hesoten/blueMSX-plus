@@ -670,7 +670,6 @@ char* langPropSetFileHistoryClear() { return ls->propSetFileHistoryClear; }
 char* langPropFileTypes() { return ls->propFileTypes; }
 char* langPropWindowsEnvGB() { return ls->propWindowsEnvGB; }
 char* langPropScreenSaver() { return ls->propSetScreenSaver; }
-char* langPropDisableWinKeys() { return ls->propDisableWinKeys; }
 char* langPropPriorityBoost() { return ls->propPriorityBoost; }
 char* langPropScreenshotPng() { return ls->propScreenshotPng; }
 char* langPropEjectMediaOnExit() { return ls->propEjectMediaOnExit; }

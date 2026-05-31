@@ -465,7 +465,6 @@ void langInitItalian(LanguageStrings* ls)
     ls->propFileTypes                   = " Associa alcuni tipi di file a blueMSX (.ROM, .DSK, .CAS, .STA)";
     ls->propWindowsEnvGB                = "Ambiente Windows ";
     ls->propSetScreenSaver              = " Disattiva il salva schermo quando blueMSX è in esecuzione";
-    ls->propDisableWinKeys              = " Associa automaticamente le funzionalità MSX ai tasti Windows";
     ls->propPriorityBoost               = " Utilizza blueMSX a priorità elevata";
     ls->propScreenshotPng               = " Utilizza il formato PNG per il salvataggio delle schermate";
     ls->propEjectMediaOnExit            = " Espelli tutti i supporti quando esci da blueMSX";                      // New in 2.8
