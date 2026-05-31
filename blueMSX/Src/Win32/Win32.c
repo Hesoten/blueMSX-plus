@@ -2723,6 +2723,10 @@ void archUpdateWindow() {
 
 
 
+/* FPS counts distinct emulated frames (age changes), not host presents,
+** so it stays at ~60/50 on high-refresh monitors. */
+static int viewFrameLastAge = -1;
+
 static void emuWindowDraw(int onlyOnVblank)
 {      
     static void* lock = NULL;
@@ -2782,7 +2786,12 @@ static void emuWindowDraw(int onlyOnVblank)
 #endif
         st.diplaySync = 0;
         if (rv) {
-            st.frameCount++;
+            FrameBuffer* vf = frameBufferGetViewFrame();
+            int age = vf ? vf->age : viewFrameLastAge;
+            if (age != viewFrameLastAge) {
+                viewFrameLastAge = age;
+                st.frameCount++;
+            }
         }
     }
     st.diplayUpdated = rv;
