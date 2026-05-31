@@ -1913,6 +1913,11 @@ typedef struct {
 
     HANDLE ddrawEvent;
     HANDLE ddrawAckEvent;
+    /* Manual-reset event raised by archEmuSuspendSignal so any
+    ** WaitForMultipleObjects sitting in archWaitForAckOrSuspend wakes
+    ** even when several emu-thread wait sites are coalesced. Reset
+    ** explicitly inside the wrapper once consumed. */
+    HANDLE suspendCancelEvent;
     int    diplayUpdated;
     int    diplaySync;
     int    diplayUpdateOnVblank;
@@ -4014,8 +4019,9 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     st.bmInfo.bmiHeader.biCompression    = BI_RGB;
     st.bmInfo.bmiHeader.biClrUsed        = 0;
     st.bmInfo.bmiHeader.biClrImportant   = 0;
-    st.ddrawEvent    = CreateEvent(NULL, FALSE, FALSE, NULL);
-    st.ddrawAckEvent = CreateEvent(NULL, FALSE, FALSE, NULL);    
+    st.ddrawEvent         = CreateEvent(NULL, FALSE, FALSE, NULL);
+    st.ddrawAckEvent      = CreateEvent(NULL, FALSE, FALSE, NULL);
+    st.suspendCancelEvent = CreateEvent(NULL, TRUE,  FALSE, NULL);  /* manual-reset */
 	
 
 
@@ -5315,6 +5321,41 @@ void archEmulationStopNotification()
     ShowWindow(st.emuHwnd, SW_HIDE);
 }
 
+/* Wake archWaitForAckOrSuspend waits so the emu thread can promptly
+** observe the new emuState. Manual-reset so concurrent waits on multiple
+** wait sites all see the signal; the wrapper resets it once consumed. */
+void archEmuSuspendSignal(void) {
+    if (st.suspendCancelEvent) SetEvent(st.suspendCancelEvent);
+}
+
+/* Suspend-cooperative wait for the emu-thread ack event: raw
+** WaitForSingleObject(ack, 500) would burn the full timeout when the
+** main thread is parked in a modal loop, so a suspend signal here
+** short-circuits the wait and defers to emuWaitForResume. */
+int archWaitForAckOrSuspend(void* ackEvent, int timeoutMs) {
+    HANDLE events[2] = { (HANDLE)ackEvent, st.suspendCancelEvent };
+    for (;;) {
+        DWORD rv = WaitForMultipleObjects(2, events, FALSE, (DWORD)timeoutMs);
+        if (rv == WAIT_OBJECT_0)     return ARCH_WAIT_ACK;
+        if (rv == WAIT_TIMEOUT)      return ARCH_WAIT_TIMEOUT;
+        if (rv == WAIT_OBJECT_0 + 1) {
+            /* Manual-reset: clear before delegating so a fresh suspend
+            ** during emuWaitForResume can re-trigger this branch. */
+            ResetEvent(st.suspendCancelEvent);
+            if (emuWaitForResume()) {
+                /* emulatorStop set emuExitFlag while we were parked --
+                ** abandon the ack wait so the emu thread can exit. */
+                return ARCH_WAIT_TIMEOUT;
+            }
+            /* Resumed; loop back to wait for the real ack. */
+            continue;
+        }
+        /* WAIT_FAILED or unexpected -- treat as timeout to avoid
+        ** indefinite block in unexpected error paths. */
+        return ARCH_WAIT_TIMEOUT;
+    }
+}
+
 int archUpdateEmuDisplay(int syncMode) {
     st.diplayUpdateOnVblank = syncMode == 4;
     if (pProperties->video.driver == P_VIDEO_DRVGDI) {
@@ -5325,15 +5366,19 @@ int archUpdateEmuDisplay(int syncMode) {
     else if (syncMode == 4) { // VBlank async
         SetEvent(st.ddrawEvent);
     }
-    else if (syncMode == 3) { // VBlank sync
-        st.diplaySync = 1;
-        emuWindowDraw(0);
+    else if (syncMode == 3) { // VBlank sync -- route Present through main thread
+        /* Drive presents from the main thread and block on the ack so
+        ** this call still returns synchronously. archWaitForAckOrSuspend
+        ** avoids the ~500 ms freeze at every modal-loop entry. */
+        st.diplayUpdateOnVblank = 1;
+        SetEvent(st.ddrawEvent);
+        archWaitForAckOrSuspend(st.ddrawAckEvent, 500);
         return st.diplayUpdated;
     }
     else {
         SetEvent(st.ddrawEvent);
         if (syncMode > 1) {
-            WaitForSingleObject(st.ddrawAckEvent, 500);
+            archWaitForAckOrSuspend(st.ddrawAckEvent, 500);
             return st.diplayUpdated;
         }
     }

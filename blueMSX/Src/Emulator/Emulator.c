@@ -534,9 +534,13 @@ void emulatorStop() {
 
     emuState = EMU_STOPPED;
 
-    do {
-        archThreadSleep(10);
-    } while (!emuSuspendFlag);
+    /* Same modal-loop-aware wake as emulatorSuspend: if the emu thread
+    ** is parked in archWaitForAckOrSuspend, signal it so it observes
+    ** the new emuState without running out the wrapper's safety timeout. */
+    archEmuSuspendSignal();
+    while (!emuSuspendFlag) {
+        archThreadSleep(1);
+    }
 
     emuExitFlag = 1;
 #ifndef WII
@@ -584,12 +588,31 @@ void emulatorSetFrequency(int logFrequency, int* frequency) {
 void emulatorSuspend() {
     if (emuState == EMU_RUNNING) {
         emuState = EMU_SUSPENDED;
-        do {
-            archThreadSleep(10);
-        } while (!emuSuspendFlag);
+        /* Wake the emu thread if it is mid-wait inside
+        ** archWaitForAckOrSuspend so it observes the suspend immediately
+        ** instead of running out the wrapper's safety timeout. The hook
+        ** is a no-op on platforms without modal-loop coupling. */
+        archEmuSuspendSignal();
+        while (!emuSuspendFlag) {
+            archThreadSleep(1);
+        }
         archSoundSuspend();
         archMidiEnable(0);
     }
+}
+
+/* Cancel-cooperative wait used by archWaitForAckOrSuspend. Mirrors the
+** suspend tail of WaitForSync (set emuSuspendFlag, archEventWait on
+** emuSyncEvent until emuState == EMU_RUNNING) so the emu thread can
+** honour a suspend that arrives while it is blocked on a platform
+** event wait. */
+int emuWaitForResume(void) {
+    emuSuspendFlag = 1;
+    while (emuState != EMU_RUNNING && !emuExitFlag) {
+        archEventWait(emuSyncEvent, -1);
+    }
+    emuSuspendFlag = 0;
+    return emuExitFlag;
 }
 
 void emulatorResume() {
