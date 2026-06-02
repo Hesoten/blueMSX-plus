@@ -465,7 +465,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->propSetFileHistoryClear  = "清除历史文件";
     ls->propFileTypes            = " 用 blueMSX 关联文件 ( .rom, .dsk, .cas, .sta)";
     ls->propWindowsEnvGB         = "Windows 环境设定 "; 
-    ls->propSetScreenSaver       = " blueMSX 运行时关闭屏幕保护";
+    ls->propSetScreenSaver       = " blueMSX 运行时保持显示 (阻止关屏/睡眠/屏保)";
     ls->propPriorityBoost       = " 提升 blueMSX 的优先级";
     ls->propScreenshotPng       = " 使用便携网络图像格式 (.png) 的屏幕截图";  
     ls->propEjectMediaOnExit    = " Eject media when blueMSX exits";        // New in 2.8

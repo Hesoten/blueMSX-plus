@@ -465,7 +465,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->propSetFileHistoryClear = "Neteja l'historial";
     ls->propFileTypes           = " Registra els tipus de fitxer amb blueMSX (.rom, .dsk, .cas, .sta)";
     ls->propWindowsEnvGB        = "Entorn Windows "; 
-    ls->propSetScreenSaver      = " Desactiva l'estalvi de pantalla quan s'execute blueMSX";
+    ls->propSetScreenSaver      = " Mantén la pantalla activa mentre blueMSX funcioni (sense apagat/repòs/estalvi)";
     ls->propPriorityBoost       = " Augmenta la prioritat de blueMSX";
     ls->propScreenshotPng       = " Empra captures de pantalla Portable Network Graphics (.png)";
     ls->propEjectMediaOnExit    = " Eject media when blueMSX exits";        // New in 2.8

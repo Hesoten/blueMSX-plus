@@ -465,7 +465,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->propSetFileHistoryClear  = "Borrar Hostórico";
     ls->propFileTypes            = " Asociar algunos tipos de archivo con blueMSX";
     ls->propWindowsEnvGB         = "Ambiente Windows ";
-    ls->propSetScreenSaver       = " Deshabilitar Salvapantallas mientras blueMSX esté en ejecución";
+    ls->propSetScreenSaver       = " Mantener pantalla activa mientras blueMSX esté en ejecución (sin apagado/suspensión/salvapantallas)";
     ls->propPriorityBoost       = " Dar a blueMSX una elevada prioridad";
     ls->propScreenshotPng       = " Utilizar el formato PNG para las capturas de pantalla";  
     ls->propEjectMediaOnExit    = " Eject media when blueMSX exits";        // New in 2.8

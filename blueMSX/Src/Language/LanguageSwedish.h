@@ -466,7 +466,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->propSetFileHistoryClear = "Rensa historia";
     ls->propFileTypes           = " Registrera filtyper med blueMSX (.rom, .dsk, .cas, .sta)";
     ls->propWindowsEnvGB        = "Windows Miljö ";
-    ls->propSetScreenSaver      = " Deaktivera skärmsläckare när blueMSX kör";
+    ls->propSetScreenSaver      = " Håll skärmen på när blueMSX kör (ingen skärmavstängning/vila/skärmsläckare)";
     ls->propPriorityBoost       = " Höj prioriteten på blueMSX";
     ls->propScreenshotPng       = " Använd Portable Network Graphics (.png) skärmdump";
     ls->propEjectMediaOnExit    = " Ta ur media när blueMSX avslutas";

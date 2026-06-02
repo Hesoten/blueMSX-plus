@@ -1879,6 +1879,7 @@ static void checkKeyUp(Shortcuts* s, ShotcutHotkey key)
 void  PatchDiskSetBusy(int driveId, int busy);
 
 void updateMenu(int show);
+void archUpdateDisplayKeepalive(void);
 
 static Properties* pProperties;
 
@@ -2149,10 +2150,7 @@ void archShowPropertiesDialog(PropPage  startPane) {
     mixerEnableMaster(st.mixer, pProperties->sound.masterEnable);
 
     if (oldProp.settings.disableScreensaver != pProperties->settings.disableScreensaver) {
-        POINT pt;
-        SystemParametersInfo(SPI_SETSCREENSAVEACTIVE, !pProperties->settings.disableScreensaver, 0, SPIF_SENDWININICHANGE); 
-        GetCursorPos(&pt);
-        SetCursorPos(pt.x + 1, pt.y);
+        archUpdateDisplayKeepalive();
     }
 
     updateMenu(0);
@@ -3815,7 +3813,6 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     static WNDCLASSEX wndClass;
     HINSTANCE hInstance = (HINSTANCE)GetModuleHandle(NULL);
     char buffer[512];  
-    BOOL screensaverActive;
     int  resetRegistry;
     HWND hwnd;
     int doExit = 0;
@@ -4064,9 +4061,6 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
     st.shortcuts = shortcutsCreateProfile(pProperties->emulation.shortcutProfile);
 
-    SystemParametersInfo(SPI_GETSCREENSAVEACTIVE, 0, &screensaverActive, SPIF_SENDWININICHANGE); 
-    SystemParametersInfo(SPI_SETSCREENSAVEACTIVE, !pProperties->settings.disableScreensaver, 0, SPIF_SENDWININICHANGE); 
-
     if(!pProperties->settings.portable) {
         if (pProperties->emulation.registerFileTypes) {
             registerFileTypes();
@@ -4246,6 +4240,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
             }
             SetEvent(st.ddrawAckEvent);
         }
+        archUpdateDisplayKeepalive();
         /* Covers record-end paths that never hit emulatorStop (RLE buffer
         ** overflow inside boardCaptureUInt8); no-op when nothing pending. */
         actionReplayFlushCompletionToast();
@@ -4273,7 +4268,8 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     mixerDestroy(st.mixer);
     midiShutdown();
 
-    SystemParametersInfo(SPI_SETSCREENSAVEACTIVE, screensaverActive, 0, SPIF_SENDWININICHANGE);
+    /* SetThreadExecutionState scopes to this process; the kernel clears
+    ** the keepalive on process exit, so no explicit revert is needed. */
 
     CoUninitialize();
 
@@ -5313,6 +5309,24 @@ char* archFilenameGetOpenRomZip(Properties* properties, int cartSlot, const char
     *autostart = dlgInfo.autoReset;
     strcpy(filename, dlgInfo.selectFile);
     return filename;
+}
+
+
+/* Suppress display sleep while emu is running.  Cached state avoids
+** redundant SetThreadExecutionState calls. */
+void archUpdateDisplayKeepalive(void) {
+    static EXECUTION_STATE lastState = 0;
+    EXECUTION_STATE desired = ES_CONTINUOUS;
+
+    if (pProperties && pProperties->settings.disableScreensaver
+            && emulatorGetState() == EMU_RUNNING) {
+        desired |= ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED;
+    }
+
+    if (desired != lastState) {
+        SetThreadExecutionState(desired);
+        lastState = desired;
+    }
 }
 
 
