@@ -549,13 +549,27 @@ int emuTryStartWithArguments(Properties* properties, char* cmdLine, char *gamedi
         int success;
         if (0 == strncmp(cmdLine, "/onearg ", 8)) {
             char args[2048];
-            char* ptr;
-            sprintf(args, "\"%s", cmdLine + 8);
-            ptr = args + strlen(args);
-            while(*--ptr == ' ') {
-                *ptr = 0;
+            /* Mirror Win32.c's robust /onearg handling: accept both
+            ** shell-quoted ("%1") and bare paths, then emit exactly one
+            ** quote pair so extractToken sees a single quoted token. */
+            const char* rest = cmdLine + 8;
+            int len;
+            while (*rest == ' ' || *rest == '\t') rest++;
+            strcpy(args, rest);
+            len = (int)strlen(args);
+            while (len > 0 && (args[len-1] == ' ' || args[len-1] == '\t'
+                            || args[len-1] == '\r' || args[len-1] == '\n')) {
+                args[--len] = 0;
             }
-            strcat(args, "\"");
+            if (len >= 2 && args[0] == '"' && args[len-1] == '"') {
+                args[len-1] = 0;
+                memmove(args, args + 1, len - 1);
+                len -= 2;
+            }
+            memmove(args + 1, args, len + 1);
+            args[0] = '"';
+            args[len + 1] = '"';
+            args[len + 2] = 0;
             success = emuStartWithArguments(properties, args, gamedir);
         }
         else {

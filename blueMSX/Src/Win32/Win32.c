@@ -3836,13 +3836,27 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
         char* cmdLine = args;
 
         if (0 == strncmp(szLine, "/onearg ", 8)) {
-            char* ptr;
-            sprintf(args, "\"%s", szLine + 8);
-            ptr = args + strlen(args);
-            while(*--ptr == ' ') {
-                *ptr = 0; 
+            /* /onearg <rest> -- treat the entire rest as one file path.
+            ** Handle both shell-quoted (HKCU "%1") and bare command-line
+            ** input by re-wrapping in exactly one quote pair. */
+            const char* rest = szLine + 8;
+            int len;
+            while (*rest == ' ' || *rest == '\t') rest++;
+            strcpy(args, rest);
+            len = (int)strlen(args);
+            while (len > 0 && (args[len-1] == ' ' || args[len-1] == '\t'
+                            || args[len-1] == '\r' || args[len-1] == '\n')) {
+                args[--len] = 0;
             }
-            strcat(args, "\"");
+            if (len >= 2 && args[0] == '"' && args[len-1] == '"') {
+                args[len-1] = 0;
+                memmove(args, args + 1, len - 1);
+                len -= 2;
+            }
+            memmove(args + 1, args, len + 1);
+            args[0] = '"';
+            args[len + 1] = '"';
+            args[len + 2] = 0;
         }
         else {
             cmdLine = szLine;

@@ -433,6 +433,11 @@ static void emulatorThread() {
 //extern int xxxx;
 
 void emulatorStart(const char* stateName) {
+    /* stateName may point to extractToken()'s static argBuf via the
+    ** /onearg -> tryLaunchUnknownFile path; machineCreate() below calls
+    ** extractToken on machine config and clobbers that buffer, so copy
+    ** the path into emuStateName up-front before any such call. */
+    strcpy(emuStateName, stateName ? stateName : "");
         dbgEnable();
 
     archEmulationStartNotification();
@@ -482,7 +487,6 @@ void emulatorStart(const char* stateName) {
 
     emuState = EMU_PAUSED;
     emulationStartFailure = 0;
-    strcpy(emuStateName, stateName ? stateName : "");
 
     clearlog();
 
