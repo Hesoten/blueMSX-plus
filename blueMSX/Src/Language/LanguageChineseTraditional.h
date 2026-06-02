@@ -463,7 +463,8 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->propSetFileHistoryGB     = "檔案記錄 ";
     ls->propSetFileHistorySize   = "檔案記錄的項目數:";
     ls->propSetFileHistoryClear  = "清除記錄";
-    ls->propFileTypes            = " 註冊 blueMSX 關聯的檔案類型 (.rom, .dsk, .cas, .sta)";
+    ls->propFileTypes            = " 在「開啟檔案」選單中註冊 .rom/.dsk/.cas/.sta";
+    ls->propOpenDefaultApps      = "開啟 Windows 預設應用程式設定";
     ls->propWindowsEnvGB         = "Windows 環境 "; 
     ls->propSetScreenSaver       = " blueMSX 執行時保持顯示 (阻止關螢幕/睡眠/螢幕保護)";
     ls->propPriorityBoost        = " 使用 Windows 遊戲排程器 (MMCSS) 進行模擬";

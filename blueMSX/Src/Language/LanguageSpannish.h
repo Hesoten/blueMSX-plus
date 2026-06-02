@@ -463,7 +463,8 @@ void langInitSpanish(LanguageStrings* ls)
     ls->propSetFileHistoryGB     = "Histórico de Archivos ";
     ls->propSetFileHistorySize   = "Número de items en Histórico de Archivos:";
     ls->propSetFileHistoryClear  = "Borrar Hostórico";
-    ls->propFileTypes            = " Asociar algunos tipos de archivo con blueMSX";
+    ls->propFileTypes            = " Registrar .rom/.dsk/.cas/.sta en el menú \"Abrir con\"";
+    ls->propOpenDefaultApps      = "Abrir configuración de aplicaciones predeterminadas de Windows";
     ls->propWindowsEnvGB         = "Ambiente Windows ";
     ls->propSetScreenSaver       = " Mantener pantalla activa mientras blueMSX esté en ejecución (sin apagado/suspensión/salvapantallas)";
     ls->propPriorityBoost       = " Usar el planificador de juegos de Windows (MMCSS) para la emulación";

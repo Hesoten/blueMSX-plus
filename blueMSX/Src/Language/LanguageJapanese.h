@@ -465,7 +465,8 @@ void langInitJapanese(LanguageStrings* ls)
     ls->propSetFileHistoryGB    = " ファイルヒストリ ";
     ls->propSetFileHistorySize  = "ファイルヒストリの個数:";
     ls->propSetFileHistoryClear = "ヒストリの消去";
-    ls->propFileTypes           = " blueMSX で使用するファイル (rom, dsk, cas, sta) を関連付け";
+    ls->propFileTypes           = " 拡張子 .rom/.dsk/.cas/.sta を「プログラムから開く」に登録";
+    ls->propOpenDefaultApps     = "Windows の既定アプリ設定を開く";
     ls->propWindowsEnvGB        = " Windows ";
     ls->propSetScreenSaver      = " blueMSX 動作中は画面オフ/スリープ/スクリーンセーバを抑制";
     ls->propPriorityBoost       = " Windows のゲームスケジューラ (MMCSS) を使用";

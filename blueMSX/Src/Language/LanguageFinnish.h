@@ -464,7 +464,8 @@ void langInitFinnish(LanguageStrings* ls)
     ls->propSetFileHistoryGB    = "Tiedostohistoria ";
     ls->propSetFileHistorySize  = "Tiedostojen lukumäärä:";
     ls->propSetFileHistoryClear = "Tyhjennä historia";
-    ls->propFileTypes           = " Rekisteröi tiedostotyypit blueMSX:ään (.rom, .dsk, .cas, .sta)";
+    ls->propFileTypes           = " Rekisteröi .rom/.dsk/.cas/.sta \"Avaa sovelluksessa\" -valikkoon";
+    ls->propOpenDefaultApps     = "Avaa Windowsin oletussovellusten asetukset";
     ls->propWindowsEnvGB        = "Windows Ympäristö ";
     ls->propSetScreenSaver      = " Pidä näyttö päällä blueMSX käynnissä (ei näytön sammutusta/lepotilaa/säästäjää)";
     ls->propPriorityBoost       = " Käytä Windowsin peliajastinta (MMCSS) emulointiin";

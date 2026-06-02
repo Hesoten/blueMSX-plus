@@ -485,6 +485,7 @@ char* langPropSetFileHistoryClear();
 char* langPropWindowsEnvGB();
 char* langPropScreenSaver();
 char* langPropFileTypes();
+char* langPropOpenDefaultApps();
 char* langPropPriorityBoost();
 char* langPropScreenshotPng();
 char* langPropEjectMediaOnExit();

@@ -463,7 +463,8 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->propSetFileHistoryGB     = "历史文件 ";
     ls->propSetFileHistorySize   = "历史文件的数量:";
     ls->propSetFileHistoryClear  = "清除历史文件";
-    ls->propFileTypes            = " 用 blueMSX 关联文件 ( .rom, .dsk, .cas, .sta)";
+    ls->propFileTypes            = " 在\"打开方式\"菜单中注册 .rom/.dsk/.cas/.sta";
+    ls->propOpenDefaultApps      = "打开 Windows 默认应用设置";
     ls->propWindowsEnvGB         = "Windows 环境设定 "; 
     ls->propSetScreenSaver       = " blueMSX 运行时保持显示 (阻止关屏/睡眠/屏保)";
     ls->propPriorityBoost       = " 使用 Windows 游戏调度器 (MMCSS) 进行仿真";

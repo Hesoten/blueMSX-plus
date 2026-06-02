@@ -463,7 +463,8 @@ void langInitKorean(LanguageStrings* ls)
     ls->propSetFileHistoryGB     = "열어본 파일 목록 ";
     ls->propSetFileHistorySize   = "파일 보관 크기:";
     ls->propSetFileHistoryClear  = "목록 지우기";
-    ls->propFileTypes            = " blueMSX에 파일형식(.rom .dsk .cas .sta) 연결";
+    ls->propFileTypes            = " .rom/.dsk/.cas/.sta 를 \"연결 프로그램\" 메뉴에 등록";
+    ls->propOpenDefaultApps      = "Windows 기본 앱 설정 열기";
     ls->propWindowsEnvGB         = "윈도우즈 환경 "; 
     ls->propSetScreenSaver       = " blueMSX 실행중 디스플레이 유지 (화면 끄기/절전/보호기 억제)";
     ls->propPriorityBoost        = " 에뮬레이션에 Windows 게임 스케줄러 (MMCSS) 사용";

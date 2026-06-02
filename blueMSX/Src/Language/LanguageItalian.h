@@ -464,7 +464,8 @@ void langInitItalian(LanguageStrings* ls)
     ls->propSetFileHistoryGB            = "File recenti ";
     ls->propSetFileHistorySize          = "Numero di file recenti:";
     ls->propSetFileHistoryClear         = "Svuota la cronologia";
-    ls->propFileTypes                   = " Associa alcuni tipi di file a blueMSX (.ROM, .DSK, .CAS, .STA)";
+    ls->propFileTypes                   = " Registra .rom/.dsk/.cas/.sta nel menu \"Apri con\"";
+    ls->propOpenDefaultApps             = "Apri le impostazioni delle app predefinite di Windows";
     ls->propWindowsEnvGB                = "Ambiente Windows ";
     ls->propSetScreenSaver              = " Mantieni l'immagine attiva quando blueMSX è in esecuzione (no schermo off/sospensione/salva)";
     ls->propPriorityBoost               = " Usa lo scheduler giochi di Windows (MMCSS) per l'emulazione";

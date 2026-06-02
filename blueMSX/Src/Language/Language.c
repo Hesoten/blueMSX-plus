@@ -670,6 +670,7 @@ char* langPropSetFileHistoryGB() { return ls->propSetFileHistoryGB; }
 char* langPropSetFileHistorySize() { return ls->propSetFileHistorySize; }
 char* langPropSetFileHistoryClear() { return ls->propSetFileHistoryClear; }
 char* langPropFileTypes() { return ls->propFileTypes; }
+char* langPropOpenDefaultApps() { return ls->propOpenDefaultApps; }
 char* langPropWindowsEnvGB() { return ls->propWindowsEnvGB; }
 char* langPropScreenSaver() { return ls->propSetScreenSaver; }
 char* langPropPriorityBoost() { return ls->propPriorityBoost; }

@@ -1881,6 +1881,7 @@ void  PatchDiskSetBusy(int driveId, int busy);
 void updateMenu(int show);
 void archUpdateDisplayKeepalive(void);
 void archApplyGameSchedulerPolicy(int enable);
+void archApplyFileTypeRegistration(int enable);
 
 static Properties* pProperties;
 
@@ -1954,6 +1955,8 @@ typedef struct {
 static WinState st;
 
 
+/* One ProgID per system family so each extension's description in
+** Default Apps stays accurate. */
 static void registerFileTypes() {
     registerFileType(".dsk", "blueMSXdsk", "DSK Image", 1);
     registerFileType(".di1", "blueMSXdsk", "DSK Image", 1);
@@ -1961,17 +1964,18 @@ static void registerFileTypes() {
     registerFileType(".360", "blueMSXdsk", "DSK Image", 1);
     registerFileType(".720", "blueMSXdsk", "DSK Image", 1);
     registerFileType(".sf7", "blueMSXdsk", "DSK Image", 1);
-    registerFileType(".rom", "blueMSXrom", "ROM Image", 2);
-    registerFileType(".ri",  "blueMSXrom", "ROM Image", 2);
-    registerFileType(".mx1", "blueMSXrom", "ROM Image", 2);
-    registerFileType(".mx2", "blueMSXrom", "ROM Image", 2);
-    registerFileType(".sms", "blueMSXrom", "Sega ROM Image", 2);
-    registerFileType(".col", "blueMSXrom", "Coleco ROM Image", 2);
-    registerFileType(".sg",  "blueMSXrom", "Sega ROM Image", 2);
-    registerFileType(".sc",  "blueMSXrom", "Sega ROM Image", 2);
+    registerFileType(".rom", "blueMSXrom",       "MSX ROM Image", 2);
+    registerFileType(".ri",  "blueMSXrom",       "MSX ROM Image", 2);
+    registerFileType(".mx1", "blueMSXrom",       "MSX ROM Image", 2);
+    registerFileType(".mx2", "blueMSXrom",       "MSX ROM Image", 2);
+    registerFileType(".sms", "blueMSXromSega",   "Sega ROM Image", 2);
+    registerFileType(".sg",  "blueMSXromSega",   "Sega ROM Image", 2);
+    registerFileType(".sc",  "blueMSXromSega",   "Sega ROM Image", 2);
+    registerFileType(".col", "blueMSXromColeco", "ColecoVision ROM Image", 2);
     registerFileType(".cas", "blueMSXcas", "CAS Image", 3);
     registerFileType(".sta", "blueMSXsta", "blueMSX State", 4);
     registerFileType(".cap", "blueMSXcap", "blueMSX Video Capture", 4);
+    registerApplicationOpenWith();
 }
 
 static void unregisterFileTypes() {
@@ -1981,17 +1985,18 @@ static void unregisterFileTypes() {
     unregisterFileType(".360", "blueMSXdsk", "DSK Image", 1);
     unregisterFileType(".720", "blueMSXdsk", "DSK Image", 1);
     unregisterFileType(".sf7", "blueMSXdsk", "DSK Image", 1);
-    unregisterFileType(".rom", "blueMSXrom", "ROM Image", 2);
-    unregisterFileType(".ri",  "blueMSXrom", "ROM Image", 2);
-    unregisterFileType(".mx1", "blueMSXrom", "ROM Image", 2);
-    unregisterFileType(".mx2", "blueMSXrom", "ROM Image", 2);
-    unregisterFileType(".sms", "blueMSXrom", "Sega ROM Image", 2);
-    unregisterFileType(".col", "blueMSXrom", "Coleco ROM Image", 2);
-    unregisterFileType(".sg",  "blueMSXrom", "Sega ROM Image", 2);
-    unregisterFileType(".sc",  "blueMSXrom", "Sega ROM Image", 2);
+    unregisterFileType(".rom", "blueMSXrom",       "MSX ROM Image", 2);
+    unregisterFileType(".ri",  "blueMSXrom",       "MSX ROM Image", 2);
+    unregisterFileType(".mx1", "blueMSXrom",       "MSX ROM Image", 2);
+    unregisterFileType(".mx2", "blueMSXrom",       "MSX ROM Image", 2);
+    unregisterFileType(".sms", "blueMSXromSega",   "Sega ROM Image", 2);
+    unregisterFileType(".sg",  "blueMSXromSega",   "Sega ROM Image", 2);
+    unregisterFileType(".sc",  "blueMSXromSega",   "Sega ROM Image", 2);
+    unregisterFileType(".col", "blueMSXromColeco", "ColecoVision ROM Image", 2);
     unregisterFileType(".cas", "blueMSXcas", "CAS Image", 3);
     unregisterFileType(".sta", "blueMSXsta", "blueMSX State", 4);
     unregisterFileType(".cap", "blueMSXcap", "blueMSX Video Capture", 4);
+    unregisterApplicationOpenWith();
 }
 
 HWND getMainHwnd()
@@ -2129,14 +2134,8 @@ void archShowPropertiesDialog(PropPage  startPane) {
         mixerEnableChannelType(st.mixer, i, pProperties->sound.mixerChannel[i].enable);
     }
     
-    if(!pProperties->settings.portable) {
-        if (pProperties->emulation.registerFileTypes && !oldProp.emulation.registerFileTypes) {
-            registerFileTypes();
-        }
-        else if (!pProperties->emulation.registerFileTypes) {
-            unregisterFileTypes();
-        }
-    }
+    /* File-type registration is applied live from the BN_CLICKED handler
+    ** in Win32properties.c, so PSN_APPLY does not repeat it here. */
 
     if (pProperties->emulation.priorityBoost != oldProp.emulation.priorityBoost) {
         archApplyGameSchedulerPolicy(pProperties->emulation.priorityBoost);
@@ -4057,13 +4056,11 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
     st.shortcuts = shortcutsCreateProfile(pProperties->emulation.shortcutProfile);
 
-    if(!pProperties->settings.portable) {
-        if (pProperties->emulation.registerFileTypes) {
-            registerFileTypes();
-        }
-        else {
-            unregisterFileTypes();
-        }
+    if (!pProperties->settings.portable && pProperties->emulation.registerFileTypes) {
+        /* Refresh HKCU registration each launch to pick up a new exe
+        ** path; the off branch only fires from the dialog. */
+        registerFileTypes();
+        fileTypesNotifyShell();
     }
 
     pProperties->language = emuCheckLanguageArgument(szLine, pProperties->language);
@@ -5303,6 +5300,18 @@ char* archFilenameGetOpenRomZip(Properties* properties, int cartSlot, const char
     *autostart = dlgInfo.autoReset;
     strcpy(filename, dlgInfo.selectFile);
     return filename;
+}
+
+
+/* Apply (or remove) the HKCU file-type registration and notify the
+** shell so Explorer / Default Apps picks it up immediately. */
+void archApplyFileTypeRegistration(int enable) {
+    if (enable) {
+        registerFileTypes();
+    } else {
+        unregisterFileTypes();
+    }
+    fileTypesNotifyShell();
 }
 
 

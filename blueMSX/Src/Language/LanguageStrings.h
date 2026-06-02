@@ -457,6 +457,7 @@ typedef struct {
     char* propSetFileHistorySize;
     char* propSetFileHistoryClear;
     char* propFileTypes;
+    char* propOpenDefaultApps;
     char* propWindowsEnvGB;
     char* propSetScreenSaver;
     char* propPriorityBoost;

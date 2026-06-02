@@ -463,7 +463,8 @@ void langInitFrench(LanguageStrings* ls)
     ls->propSetFileHistoryGB     = "Historique des fichiers ";
     ls->propSetFileHistorySize   = "Nombre d'éléments dans l'historique";
     ls->propSetFileHistoryClear  = "Purger l'historique";
-    ls->propFileTypes            = " Associer certains types de fichiers avec blueMSX"; 
+    ls->propFileTypes            = " Enregistrer .rom/.dsk/.cas/.sta dans le menu \"Ouvrir avec\""; 
+    ls->propOpenDefaultApps      = "Ouvrir les paramètres d'applications par défaut de Windows";
     ls->propWindowsEnvGB         = "Environnement Windows "; 
     ls->propSetScreenSaver       = " Garder l'affichage actif quand blueMSX est lancé (pas d'écran off/veille/économiseur)";
     ls->propPriorityBoost       = " Utiliser l'ordonnanceur de jeux Windows (MMCSS) pour l'émulation";

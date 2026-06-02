@@ -463,7 +463,8 @@ void langInitDutch(LanguageStrings* ls)
     ls->propSetFileHistoryGB     = "Bestandsgeschiedenis ";
     ls->propSetFileHistorySize   = "Aantal bestanden in geschiedenis:";
     ls->propSetFileHistoryClear  = "Leegmaken Geschiedenis";
-    ls->propFileTypes            = " Bestanden registreren bij blueMSX (.ROM, .DSK, .CAS, .STA)";
+    ls->propFileTypes            = " .rom/.dsk/.cas/.sta registreren in \"Openen met\"";
+    ls->propOpenDefaultApps      = "Windows-standaardapps openen";
     ls->propWindowsEnvGB         = "Windows Omgeving ";
     ls->propSetScreenSaver       = " Scherm aan houden terwijl blueMSX draait (geen scherm-uit/slaap/beveiliger)";
     ls->propPriorityBoost       = " Windows game-scheduler (MMCSS) gebruiken voor emulatie";

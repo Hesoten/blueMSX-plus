@@ -463,7 +463,8 @@ void langInitPolish(LanguageStrings* ls)
     ls->propSetFileHistoryGB     = "Historia plików ";
     ls->propSetFileHistorySize   = "Iloœc elementów w historii plików:";
     ls->propSetFileHistoryClear  = "Wyczyœæ historiê";
-    ls->propFileTypes            = " Skoja¿ pliki z blueMSX (.rom, .dsk, .cas, .sta)";
+    ls->propFileTypes            = " Zarejestruj .rom/.dsk/.cas/.sta w menu \"Otworz za pomoca\"";
+    ls->propOpenDefaultApps      = "Otworz ustawienia domyslnych aplikacji Windows";
     ls->propWindowsEnvGB         = "Otoczenie Windows "; 
     ls->propSetScreenSaver       = " Utrzymuj wyswietlacz podczas pracy blueMSX (bez wylaczenia/uspienia/wygaszacza)";
     ls->propPriorityBoost       = " Uzyj harmonogramu gier Windows (MMCSS) do emulacji";

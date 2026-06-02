@@ -463,7 +463,8 @@ void langInitCatalan(LanguageStrings* ls)
     ls->propSetFileHistoryGB    = "Historial del fitxer ";
     ls->propSetFileHistorySize  = "Nombre d'elements en el historial del fitxer:";
     ls->propSetFileHistoryClear = "Neteja l'historial";
-    ls->propFileTypes           = " Registra els tipus de fitxer amb blueMSX (.rom, .dsk, .cas, .sta)";
+    ls->propFileTypes           = " Registra .rom/.dsk/.cas/.sta al menú \"Obri amb\"";
+    ls->propOpenDefaultApps     = "Obri la configuració d'aplicacions predeterminades de Windows";
     ls->propWindowsEnvGB        = "Entorn Windows "; 
     ls->propSetScreenSaver      = " Mantén la pantalla activa mentre blueMSX funcioni (sense apagat/repòs/estalvi)";
     ls->propPriorityBoost       = " Usa el planificador de jocs de Windows (MMCSS) per a l'emulació";

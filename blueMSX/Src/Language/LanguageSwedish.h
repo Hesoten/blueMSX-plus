@@ -464,7 +464,8 @@ void langInitSwedish(LanguageStrings* ls)
     ls->propSetFileHistoryGB    = "Filhistoria ";
     ls->propSetFileHistorySize  = "Antal element i filhistorian:";
     ls->propSetFileHistoryClear = "Rensa historia";
-    ls->propFileTypes           = " Registrera filtyper med blueMSX (.rom, .dsk, .cas, .sta)";
+    ls->propFileTypes           = " Registrera .rom/.dsk/.cas/.sta i \"Öppna med\"-menyn";
+    ls->propOpenDefaultApps     = "Öppna Windows standardappar";
     ls->propWindowsEnvGB        = "Windows Miljö ";
     ls->propSetScreenSaver      = " Håll skärmen på när blueMSX kör (ingen skärmavstängning/vila/skärmsläckare)";
     ls->propPriorityBoost       = " Använd Windows spelschemaläggare (MMCSS) för emuleringen";

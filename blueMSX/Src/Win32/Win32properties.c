@@ -31,6 +31,7 @@
 #include <windows.h>
 #include <math.h>
 #include <commctrl.h>
+#include <shellapi.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -638,10 +639,12 @@ static BOOL_DLG_RET CALLBACK filesDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
 }
 
 extern void archUpdateWindow();
+extern void archApplyFileTypeRegistration(int enable);
 
 static BOOL_DLG_RET CALLBACK settingsDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
     static Properties* pProperties;
     static char oldTheme[128];
+    static int oldRegisterFileTypes;
 
     switch (iMsg) {
     case WM_INITDIALOG:
@@ -651,6 +654,7 @@ static BOOL_DLG_RET CALLBACK settingsDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam
         }
         pProperties = (Properties*)((PROPSHEETPAGE*)lParam)->lParam;
         strcpy(oldTheme, pProperties->settings.themeName);
+        oldRegisterFileTypes = pProperties->emulation.registerFileTypes;
 
         SetWindowTextU(GetDlgItem(hDlg, IDC_APEARANCETHEMEGB), langPropThemeGB());
         SetWindowTextU(GetDlgItem(hDlg, IDC_APEARANCETHEMETEXT), langPropTheme());
@@ -674,6 +678,7 @@ static BOOL_DLG_RET CALLBACK settingsDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam
         SetWindowTextU(GetDlgItem(hDlg, IDC_SETTINGSFILETYPES), langPropFileTypes());
         SetWindowTextU(GetDlgItem(hDlg, IDC_SETTINGSPRIORITYBOOST), langPropPriorityBoost());
         SetWindowTextU(GetDlgItem(hDlg, IDC_SETTINGSEJECTMEDIAONEXIT), langPropEjectMediaOnExit());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_SETTINGSOPENDEFAULTAPPS), langPropOpenDefaultApps());
 
         setButtonCheck(hDlg, IDC_SETTINGSFILETYPES, pProperties->emulation.registerFileTypes, 1);
         setButtonCheck(hDlg, IDC_SETTINGSPRIORITYBOOST, pProperties->emulation.priorityBoost, 1);
@@ -700,6 +705,24 @@ static BOOL_DLG_RET CALLBACK settingsDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam
                 }
             }
             break;
+        case IDC_SETTINGSOPENDEFAULTAPPS:
+            if (HIWORD(wParam) == BN_CLICKED) {
+                /* The Settings panel is the only path that wins the
+                ** UserChoice ProgID hash on Win10/11. */
+                ShellExecuteW(hDlg, L"open", L"ms-settings:defaultapps",
+                              NULL, NULL, SW_SHOWNORMAL);
+            }
+            break;
+        case IDC_SETTINGSFILETYPES:
+            if (HIWORD(wParam) == BN_CLICKED && !pProperties->settings.portable) {
+                /* Apply live so Default Apps reflects the toggle.
+                ** Portable mode leaves HKCU untouched (checkbox is also
+                ** disabled at WM_INITDIALOG). */
+                int checked = getButtonCheck(hDlg, IDC_SETTINGSFILETYPES);
+                pProperties->emulation.registerFileTypes = checked;
+                archApplyFileTypeRegistration(checked);
+            }
+            break;
         }
         return 0;
 
@@ -711,6 +734,10 @@ static BOOL_DLG_RET CALLBACK settingsDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam
         if ((((NMHDR FAR *)lParam)->code) == PSN_QUERYCANCEL) {
             strcpy(pProperties->settings.themeName, oldTheme);
             archUpdateWindow();
+            if (pProperties->emulation.registerFileTypes != oldRegisterFileTypes) {
+                pProperties->emulation.registerFileTypes = oldRegisterFileTypes;
+                archApplyFileTypeRegistration(oldRegisterFileTypes);
+            }
             return FALSE;
         }
         if ((((NMHDR FAR *)lParam)->code) == PSN_APPLY) {
