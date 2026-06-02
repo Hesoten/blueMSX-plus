@@ -466,7 +466,7 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->propFileTypes            = " 註冊 blueMSX 關聯的檔案類型 (.rom, .dsk, .cas, .sta)";
     ls->propWindowsEnvGB         = "Windows 環境 "; 
     ls->propSetScreenSaver       = " blueMSX 執行時保持顯示 (阻止關螢幕/睡眠/螢幕保護)";
-    ls->propPriorityBoost        = " 提高 blueMSX 的優先權";
+    ls->propPriorityBoost        = " 使用 Windows 遊戲排程器 (MMCSS) 進行模擬";
     ls->propScreenshotPng        = " 使用可攜式網路圖形 (.png) 螢幕抓圖";  
     ls->propEjectMediaOnExit    = " Eject media when blueMSX exits";        // New in 2.8
     ls->propClearHistory         = "您是否確定要清除檔案記錄？";

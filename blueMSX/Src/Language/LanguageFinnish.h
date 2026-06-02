@@ -467,7 +467,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->propFileTypes           = " Rekisteröi tiedostotyypit blueMSX:ään (.rom, .dsk, .cas, .sta)";
     ls->propWindowsEnvGB        = "Windows Ympäristö ";
     ls->propSetScreenSaver      = " Pidä näyttö päällä blueMSX käynnissä (ei näytön sammutusta/lepotilaa/säästäjää)";
-    ls->propPriorityBoost       = " Nosta blueMSX:n prioriteettia";
+    ls->propPriorityBoost       = " Käytä Windowsin peliajastinta (MMCSS) emulointiin";
     ls->propScreenshotPng       = " Tallenna kuvaruutukaappaukset PNG-muodossa";
     ls->propEjectMediaOnExit    = " Poista mediat kun ohjelma suljetaan";        // New in 2.8
     ls->propClearHistory        = "Oletko varma, että haluat poistaa kaikki tiedostohistorian tiedot?";

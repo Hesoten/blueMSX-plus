@@ -466,7 +466,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->propFileTypes            = " Bestanden registreren bij blueMSX (.ROM, .DSK, .CAS, .STA)";
     ls->propWindowsEnvGB         = "Windows Omgeving ";
     ls->propSetScreenSaver       = " Scherm aan houden terwijl blueMSX draait (geen scherm-uit/slaap/beveiliger)";
-    ls->propPriorityBoost       = " blueMSX een hogere prioriteit geven";
+    ls->propPriorityBoost       = " Windows game-scheduler (MMCSS) gebruiken voor emulatie";
     ls->propScreenshotPng       = " Gebruik PNG formaat in plaats van BMP bij schermafdrukken";
     ls->propEjectMediaOnExit    = " Werp alle media uit bij afsluiten";
     ls->propClearHistory         = "Weet u zeker dat u de bestandsgeschiedenis wilt wissen?";

@@ -466,7 +466,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->propFileTypes            = " blueMSX에 파일형식(.rom .dsk .cas .sta) 연결";
     ls->propWindowsEnvGB         = "윈도우즈 환경 "; 
     ls->propSetScreenSaver       = " blueMSX 실행중 디스플레이 유지 (화면 끄기/절전/보호기 억제)";
-    ls->propPriorityBoost        = " blueMSX에 작업 우선권 주기";
+    ls->propPriorityBoost        = " 에뮬레이션에 Windows 게임 스케줄러 (MMCSS) 사용";
     ls->propScreenshotPng       = " Portable Network Graphics (.png) 스크린샷 사용";  
     ls->propEjectMediaOnExit    = " Eject media when blueMSX exits";        // New in 2.8
     ls->propClearHistory         = "열어본 파일 목록을 지울까요?";

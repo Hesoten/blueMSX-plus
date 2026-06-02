@@ -466,7 +466,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->propFileTypes            = " Asociar algunos tipos de archivo con blueMSX";
     ls->propWindowsEnvGB         = "Ambiente Windows ";
     ls->propSetScreenSaver       = " Mantener pantalla activa mientras blueMSX esté en ejecución (sin apagado/suspensión/salvapantallas)";
-    ls->propPriorityBoost       = " Dar a blueMSX una elevada prioridad";
+    ls->propPriorityBoost       = " Usar el planificador de juegos de Windows (MMCSS) para la emulación";
     ls->propScreenshotPng       = " Utilizar el formato PNG para las capturas de pantalla";  
     ls->propEjectMediaOnExit    = " Eject media when blueMSX exits";        // New in 2.8
     ls->propClearHistory         = "¿Desean realmente borrar hostórico?";

@@ -468,7 +468,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->propFileTypes           = " Register file types with blueMSX (.ROM, .DSK, .CAS, .STA)";
     ls->propWindowsEnvGB        = "Windows Environment "; 
     ls->propSetScreenSaver      = " Keep display on while blueMSX is running (no screen-off / sleep / saver)";
-    ls->propPriorityBoost       = " Boost the priority of blueMSX";
+    ls->propPriorityBoost       = " Use Windows game scheduler (MMCSS) for emulation";
     ls->propScreenshotPng       = " Save screenshots in PNG format instead of BMP";
     ls->propEjectMediaOnExit    = " Eject all media when blueMSX exits";        // New in 2.8
     ls->propClearHistory        = "Are you sure you want to clear the file history?";

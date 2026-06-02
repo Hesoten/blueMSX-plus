@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -27,6 +30,7 @@
 */
 #include "ArchThread.h"
 #include <windows.h>
+#include <avrt.h>
 
 void* archThreadCreate(void (*entryPoint)(), int priority)
 {
@@ -36,6 +40,22 @@ void* archThreadCreate(void (*entryPoint)(), int priority)
         SetThreadPriority(h, THREAD_PRIORITY_ABOVE_NORMAL);
     }
     return h;
+}
+
+void* archThreadBeginEmulationProfile(int enable)
+{
+    DWORD taskIndex = 0;
+    if (!enable) {
+        return NULL;
+    }
+    return (void*)AvSetMmThreadCharacteristicsW(L"Games", &taskIndex);
+}
+
+void archThreadEndEmulationProfile(void* handle)
+{
+    if (handle != NULL) {
+        AvRevertMmThreadCharacteristics((HANDLE)handle);
+    }
 }
 
 void archThreadDestroy(void* thread)

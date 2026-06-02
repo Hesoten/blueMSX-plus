@@ -1880,6 +1880,7 @@ void  PatchDiskSetBusy(int driveId, int busy);
 
 void updateMenu(int show);
 void archUpdateDisplayKeepalive(void);
+void archApplyGameSchedulerPolicy(int enable);
 
 static Properties* pProperties;
 
@@ -2137,13 +2138,8 @@ void archShowPropertiesDialog(PropPage  startPane) {
         }
     }
 
-    if (pProperties->emulation.priorityBoost && !oldProp.emulation.priorityBoost) {
-        if (pProperties->emulation.priorityBoost) {
-            SetPriorityClass(GetCurrentProcess(), ABOVE_NORMAL_PRIORITY_CLASS);
-        }
-        else {
-            SetPriorityClass(GetCurrentProcess(), NORMAL_PRIORITY_CLASS);
-        }
+    if (pProperties->emulation.priorityBoost != oldProp.emulation.priorityBoost) {
+        archApplyGameSchedulerPolicy(pProperties->emulation.priorityBoost);
     }
 
     mixerSetMasterVolume(st.mixer, pProperties->sound.masterVolume);
@@ -4220,9 +4216,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     ShowWindow(st.hwnd, SW_NORMAL);
     UpdateWindow(st.hwnd);
 
-    if (pProperties->emulation.priorityBoost) {
-        SetPriorityClass(GetCurrentProcess(), ABOVE_NORMAL_PRIORITY_CLASS);
-    }
+    archApplyGameSchedulerPolicy(pProperties->emulation.priorityBoost);
 
     while (!doExit) {
         DWORD rv = MsgWaitForMultipleObjects(1, &st.ddrawEvent, FALSE, INFINITE, QS_ALLINPUT);    
@@ -5309,6 +5303,24 @@ char* archFilenameGetOpenRomZip(Properties* properties, int cartSlot, const char
     *autostart = dlgInfo.autoReset;
     strcpy(filename, dlgInfo.selectFile);
     return filename;
+}
+
+
+/* Opt out of EcoQoS while the priority boost is on so hybrid-CPU
+** schedulers keep us on P-cores; Win10/11 only. */
+void archApplyGameSchedulerPolicy(int enable) {
+    PROCESS_POWER_THROTTLING_STATE pt;
+    ZeroMemory(&pt, sizeof(pt));
+    pt.Version = PROCESS_POWER_THROTTLING_CURRENT_VERSION;
+    if (enable) {
+        pt.ControlMask = PROCESS_POWER_THROTTLING_EXECUTION_SPEED;
+        pt.StateMask   = 0;  /* 0 = explicitly disable throttling */
+    } else {
+        pt.ControlMask = 0;  /* 0/0 = reset to system default */
+        pt.StateMask   = 0;
+    }
+    SetProcessInformation(GetCurrentProcess(), ProcessPowerThrottling,
+                          &pt, sizeof(pt));
 }
 
 

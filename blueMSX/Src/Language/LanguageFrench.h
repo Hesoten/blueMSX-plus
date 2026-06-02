@@ -466,7 +466,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->propFileTypes            = " Associer certains types de fichiers avec blueMSX"; 
     ls->propWindowsEnvGB         = "Environnement Windows "; 
     ls->propSetScreenSaver       = " Garder l'affichage actif quand blueMSX est lancé (pas d'écran off/veille/économiseur)";
-    ls->propPriorityBoost       = " Donner à blueMSX une priorité élevée";
+    ls->propPriorityBoost       = " Utiliser l'ordonnanceur de jeux Windows (MMCSS) pour l'émulation";
     ls->propScreenshotPng       = " Utiliser le format PNG pour les captures d'écran";  
     ls->propEjectMediaOnExit    = " Eject media when blueMSX exits";        // New in 2.8
     ls->propClearHistory         = "Désirez-vous vraiment purger l'historique ?";

@@ -466,7 +466,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->propFileTypes            = " Skoja¿ pliki z blueMSX (.rom, .dsk, .cas, .sta)";
     ls->propWindowsEnvGB         = "Otoczenie Windows "; 
     ls->propSetScreenSaver       = " Utrzymuj wyswietlacz podczas pracy blueMSX (bez wylaczenia/uspienia/wygaszacza)";
-    ls->propPriorityBoost       = " Podnieœ priorytet blueMSX";
+    ls->propPriorityBoost       = " Uzyj harmonogramu gier Windows (MMCSS) do emulacji";
     ls->propScreenshotPng       = " u¿ywaj PNG do zapisywania ekranów";  
     ls->propEjectMediaOnExit    = " Eject media when blueMSX exits";        // New in 2.8
     ls->propClearHistory         = "Na pewno wyczyœciæ historiê plików?";

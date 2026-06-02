@@ -391,6 +391,7 @@ static void emulatorThread() {
     int success = 0;
     int reversePeriod = 0;
     int reverseBufferCnt = 0;
+    void* mmcssHandle;
 
     emulatorSetFrequency(properties->emulation.speed, &frequency);
 
@@ -402,6 +403,9 @@ static void emulatorThread() {
         reversePeriod = 50;
         reverseBufferCnt = properties->emulation.reverseMaxTime * 1000 / reversePeriod;
     }
+
+    mmcssHandle = archThreadBeginEmulationProfile(properties->emulation.priorityBoost);
+
     success = boardRun(machine,
                        &deviceInfo,
                        mixer,
@@ -410,6 +414,8 @@ static void emulatorThread() {
                        reversePeriod,
                        reverseBufferCnt,
                        WaitForSync);
+
+    archThreadEndEmulationProfile(mmcssHandle);
 
     ledSetAll(0);
     emuState = EMU_STOPPED;
