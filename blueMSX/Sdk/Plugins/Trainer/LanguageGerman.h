@@ -35,7 +35,7 @@ class LanguageGerman : public LanguageEnglish
 public:
     LanguageGerman() {
         trainerName             = "Trainer";
-        trainerCaption          = "blueMSX - Trainer";
+        trainerCaption          = "blueMSX+ - Trainer";
         saveCheatCaption        = "Speichere Cheat";
         loadCheatCaption        = "Lade Cheat";
         pause                   = "Pause";

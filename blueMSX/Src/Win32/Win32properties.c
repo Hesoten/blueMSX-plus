@@ -1100,7 +1100,7 @@ static BOOL_DLG_RET CALLBACK direct3dProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
                     s_lastHdrEnableSeen = newHdr;
                     MessageBoxU(hDlg,
                         langPropMonHdrRestartHint(),
-                        "blueMSX",
+                        "blueMSX+",
                         MB_OK | MB_ICONINFORMATION);
                 }
             }

@@ -68,6 +68,9 @@ static INT_PTR CALLBACK aboutDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM
                                 "%s\t%s (%s %s)\r\n"
                                 "%s\t%d\r\n"
                                 "%s\t%s\r\n\r\n"
+                                "%s\r\n\r\n"
+                                "%s\r\n\r\n"
+                                "%s\r\n\r\n"
                                 "%s\r\n\r\n\r\n"
                                 "%s\r\n\r\n"
                         
@@ -139,9 +142,7 @@ static INT_PTR CALLBACK aboutDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM
                                 "Víctor Fernández Sánchez\r\n"
                                 "Vincent van Dam\r\n"
                                 "William Ouwehand\r\n"
-                                "Wouter Vermaelen\r\n\r\n\r\n"
-    
-                                "%s",
+                                "Wouter Vermaelen\r\n",
                         langDlgAboutAbout(),
                         langDlgAboutVersion(),
                         BLUE_MSX_VERSION, BUILD_PLATFORM, BUILD_CONFIG,
@@ -149,10 +150,12 @@ static INT_PTR CALLBACK aboutDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM
                         BUILD_NUMBER,
                         langDlgAboutBuildDate(),
                         BUILD_DATE,
+                        langDlgAboutForkNote(),
+                        langDlgAboutLisence(),
+                        langDlgAboutOrigDevel(),
                         langDlgAboutCreat(),
                         langDlgAboutDevel(),
-                        langDlgAboutThanks(),
-                        langDlgAboutLisence());
+                        langDlgAboutThanks());
 
             updateDialogPos(hDlg, DLG_ID_ABOUT, 0, 1);
             SetWindowTextU(hDlg, langDlgAboutTitle());

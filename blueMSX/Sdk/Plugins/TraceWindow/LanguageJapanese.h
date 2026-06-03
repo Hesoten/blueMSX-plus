@@ -35,7 +35,7 @@ class LanguageJapanese : public LanguageEnglish
 public:
     LanguageJapanese() {
         traceWindowName         = "トレースロガー";
-        traceWindowCaption      = "blueMSX - トレースロガー";
+        traceWindowCaption      = "blueMSX+ - トレースロガー";
         openWindowCaption       = "ログファイルを開く";
 
         menuFile                = "ファイル";

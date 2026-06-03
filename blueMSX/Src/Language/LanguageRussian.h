@@ -72,35 +72,35 @@ void langInitRussian(LanguageStrings* ls)
     // Warning and Error lines
     //----------------------
 
-    ls->warningTitle            = "blueMSX - Внимание";
+    ls->warningTitle            = "blueMSX+ - Внимание";
     ls->warningDiscardChanges   = "Вы хотите отказаться от изменений?";
     ls->warningOverwriteFile    = "Вы хотите перезаписать файл:";
     ls->warningStateOldFormat   = "Это сохранение состояния в старом формате. Может не возобновиться корректно. Всё равно загрузить?";
-    ls->errorTitle              = "blueMSX - Ошибка";
+    ls->errorTitle              = "blueMSX+ - Ошибка";
     ls->errorEnterFullscreen    = "Не удалось перейти в полноэкранный режим.           \n";
     ls->errorDirectXFailed      = "Не удалось создать DirectX объекты.           \nUsing GDI instead.\nCheck Video properties.";
     ls->errorNoRomInZip         = "Не нашлось .rom файла в zip архиве.";
     ls->errorNoDskInZip         = "Не нашлось .dsk файла в zip архиве.";
     ls->errorNoCasInZip         = "Не нашлось .cas файла в zip архиве.";
     ls->errorDirAsDskOverflow   = "%d файл(ов) (всего %d КБ) не поместились в образ диска 720 КБ и были пропущены.";
-    ls->errorNoHelp             = "Не нашлось файла помощи blueMSX.";
+    ls->errorNoHelp             = "Не нашлось файла помощи blueMSX+.";
     ls->errorStartEmu           = "Не удалось начать эмуляцию.";
     ls->errorMissingFiles       = "Следующие файлы, указанные в сохранённом состоянии, не могут быть загружены:";
     ls->errorPortableReadonly   = "Портативное устройство только для чтения";
-    ls->infoTitle               = "Информация blueMSX";
-    ls->infoGameReaderRedirect  = "blueMSX не поддерживает MSX Game Reader напрямую (оригинальный драйвер ASCII эпохи XP больше не работает на современном Windows).\n\nОткрыть MSX Game Reader - Web Dumper (автор Kunihiko Ohnaka) в браузере?";
-    ls->infoColorDepth          = "blueMSX лучше всего работает при глубине цвета 16 или 32 бита.";
+    ls->infoTitle               = "Информация blueMSX+";
+    ls->infoGameReaderRedirect  = "blueMSX+ не поддерживает MSX Game Reader напрямую (оригинальный драйвер ASCII эпохи XP больше не работает на современном Windows).\n\nОткрыть MSX Game Reader - Web Dumper (автор Kunihiko Ohnaka) в браузере?";
+    ls->infoColorDepth          = "blueMSX+ лучше всего работает при глубине цвета 16 или 32 бита.";
     ls->errorKeyboardThemeMissing = "Не удалось найти тему редактора клавиатуры.";
     ls->errorMixerThemeMissing    = "Не удалось найти тему микшера.";
-    ls->errorRecorderTitle      = "blueMSX - Запись";
+    ls->errorRecorderTitle      = "blueMSX+ - Запись";
     ls->errorRecorderSaveReplay = "Не удалось сохранить файл повтора:\n  %s\n\nПроверьте, что папка назначения существует и доступна для записи.";
     ls->errorRecorderReplayMissing = "Файл повтора не найден:\n  %s\n\nСначала запишите повтор или используйте Загрузить, чтобы выбрать существующий файл .cap.";
     ls->errorRecorderRequiresDX12   = "Переключить видеодрайвер на Direct3D 12 и начать запись?";
-    ls->errorRecorderRequiresDX12Title = "blueMSX - Смена видеодрайвера";
+    ls->errorRecorderRequiresDX12Title = "blueMSX+ - Смена видеодрайвера";
     ls->infoRecorderComplete    = "Видеофайл сохранён:\n  %s";
     ls->infoToastSaved          = "Сохранено: %s";
     ls->infoToastAlreadyRecording   = "Запись уже идёт";
-    ls->dlgRecorderPickTitle        = "blueMSX - Преобразовать повтор в видео";
+    ls->dlgRecorderPickTitle        = "blueMSX+ - Преобразовать повтор в видео";
     ls->dlgRecorderPickSourceCap    = "Файл повтора для обработки (.cap):";
     ls->dlgRecorderPickOutputMp4    = "Выходной видеофайл (.mp4):";
     ls->menuFileRecordVideo         = "Запись видео";
@@ -223,7 +223,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->menuEthInterface        = "Сетевой интерфейс"; 
 
     ls->menuHelpHelp            = "Помощь";
-    ls->menuHelpAbout           = "О blueMSX";
+    ls->menuHelpAbout           = "О blueMSX+";
 
     ls->menuFileCart            = "Слот для картриджа";
     ls->menuFileDisk            = "Дисковод";
@@ -281,10 +281,10 @@ void langInitRussian(LanguageStrings* ls)
     ls->dlgRun                  = "Пуск";
     ls->dlgClose                = "Закрыть";
 
-    ls->dlgLoadRom              = "blueMSX - Выбрать rom образ для загрузки";
-    ls->dlgLoadDsk              = "blueMSX - Выбрать dsk образ для загрузки";
-    ls->dlgLoadCas              = "blueMSX - Выбрать cas образ для загрузки";
-    ls->dlgLoadRomDskCas        = "blueMSX - Выбрать rom, dsk или cas файлы для загрузки";
+    ls->dlgLoadRom              = "blueMSX+ - Выбрать rom образ для загрузки";
+    ls->dlgLoadDsk              = "blueMSX+ - Выбрать dsk образ для загрузки";
+    ls->dlgLoadCas              = "blueMSX+ - Выбрать cas образ для загрузки";
+    ls->dlgLoadRomDskCas        = "blueMSX+ - Выбрать rom, dsk или cas файлы для загрузки";
     ls->dlgLoadRomDesc          = "Выберите rom образ для загрузки:";
     ls->dlgLoadDskDesc          = "Выберите disk образ для загрузки:";
     ls->dlgLoadCasDesc          = "Выберите tape образ для загрузки:";
@@ -292,7 +292,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->dlgLoadState            = "Загрузить";
     ls->dlgLoadVideoCapture     = "Загрузить захваченное видео";      
     ls->dlgSaveState            = "Сохранить как...";
-    ls->dlgSaveCassette         = "blueMSX - Сохранить образ кассеты";
+    ls->dlgSaveCassette         = "blueMSX+ - Сохранить образ кассеты";
     ls->dlgSaveVideoClipAs      = "Сохранить видеоклип как...";      
     ls->dlgSaveCaptureAudio     = "Сохранить запись звука как";
     ls->dlgSaveCaptureVideo     = "Сохранить запись видео как";
@@ -308,7 +308,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->dlgRomType              = "Rom тип:";
     ls->dlgDiskSize             = "Емкость:";             
 
-    ls->dlgTapeTitle            = "blueMSX - Позиция кассеты";
+    ls->dlgTapeTitle            = "blueMSX+ - Позиция кассеты";
     ls->dlgTapeFrameText        = "Позиция кассеты";
     ls->dlgTapeCurrentPos       = "Текущая позиция";
     ls->dlgTapeTotalTime        = "Всего времени";
@@ -319,12 +319,12 @@ void langInitRussian(LanguageStrings* ls)
     ls->dlgTabFilename          = "Название";
     ls->dlgZipReset             = "Сбросить после загрузки";
 
-    ls->dlgAboutTitle           = "blueMSX - О blueMSX";
+    ls->dlgAboutTitle           = "blueMSX+ - О blueMSX+";
 
-    ls->dlgLangLangText         = "Выберите язык для blueMSX";
-    ls->dlgLangLangTitle        = "blueMSX - Язык";
+    ls->dlgLangLangText         = "Выберите язык для blueMSX+";
+    ls->dlgLangLangTitle        = "blueMSX+ - Язык";
 
-    ls->dlgAboutAbout           = "О blueMSX\r\n====";
+    ls->dlgAboutAbout           = "О blueMSX+\r\n====";
     ls->dlgAboutVersion         = "Версия:";
     ls->dlgAboutBuildNumber     = "Сборка:";
     ls->dlgAboutBuildDate       = "Дата:";
@@ -341,14 +341,14 @@ void langInitRussian(LanguageStrings* ls)
     ls->dlgSavePreview          = "Показать превью";
     ls->dlgSaveDate             = "Время:";
 
-    ls->dlgRenderVideoCapture   = "blueMSX - Сжатие захваченного видео...";  
+    ls->dlgRenderVideoCapture   = "blueMSX+ - Сжатие захваченного видео...";  
 
 
     //----------------------
     // Properties related lines
     //----------------------
 
-    ls->propTitle               = "blueMSX - Настройки";
+    ls->propTitle               = "blueMSX+ - Настройки";
     ls->propEmulation           = "Эмуляция";
     ls->propD3D                 = "Direct3D";
     ls->propVideo               = "Видео";
@@ -466,10 +466,10 @@ void langInitRussian(LanguageStrings* ls)
     ls->propFileTypes           = " Зарегистрировать .rom/.dsk/.cas/.sta в меню \"Открыть с помощью\"";
     ls->propOpenDefaultApps     = "Открыть параметры приложений по умолчанию";
     ls->propWindowsEnvGB        = "Настройки Windows "; 
-    ls->propSetScreenSaver      = " Держать дисплей включённым, пока blueMSX работает (без выкл/сна/скринсейвера)";
+    ls->propSetScreenSaver      = " Держать дисплей включённым, пока blueMSX+ работает (без выкл/сна/скринсейвера)";
     ls->propPriorityBoost       = " Использовать планировщик игр Windows (MMCSS) для эмуляции";
     ls->propScreenshotPng       = " Использовать тип PNG файлов для скриншотов";
-    ls->propEjectMediaOnExit    = " Eject media when blueMSX exits";        // New in 2.8
+    ls->propEjectMediaOnExit    = " Eject media when blueMSX+ exits";        // New in 2.8
     ls->propClearHistory        = "Вы точно хотите очистить файл истории?";
     ls->propOpenRomGB           = "Диалог открытия Rom файла ";
     ls->propDefaultRomType      = "Тип файла Rom по умолчанию:";
@@ -589,7 +589,7 @@ void langInitRussian(LanguageStrings* ls)
     // Configuration related lines
     //----------------------
 
-    ls->confTitle               = "blueMSX - Конфигурация машин";
+    ls->confTitle               = "blueMSX+ - Конфигурация машин";
     ls->confConfigText          = "Название профиля";
     ls->confSlotLayout          = "Расположение слота";
     ls->confMemory              = "Память";
@@ -597,12 +597,12 @@ void langInitRussian(LanguageStrings* ls)
     ls->confChipExtras          = "Дополнительно";
 
     ls->confOpenRom             = "Открыть ROM образ";
-    ls->confSaveTitle           = "blueMSX - Сохранить конфигурацию";
+    ls->confSaveTitle           = "blueMSX+ - Сохранить конфигурацию";
     ls->confSaveText            = "Вы хотите перезаписать конфигурацию:";
     ls->confSaveAsTitle         = "Сохранить конфигурацию как...";
     ls->confSaveAsMachineName   = "Имя машины:";
-    ls->confDiscardTitle        = "blueMSX - Конфигурация";
-    ls->confExitSaveTitle       = "blueMSX - Выход из редактора конфигураций";
+    ls->confDiscardTitle        = "blueMSX+ - Конфигурация";
+    ls->confExitSaveTitle       = "blueMSX+ - Выход из редактора конфигураций";
     ls->confExitSaveText        = "Вы хотите отменить все изменения текущей конфигурации?";
 
     ls->confSlotLayoutGB        = "Расположение слота ";
@@ -640,7 +640,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->confFdcGB                = "Контроллер дисковода ";
     ls->confCFdcNumDrivesText    = "Количество дисководов:";
 
-    ls->confEditMemTitle         = "blueMSX - Изменение маппера";
+    ls->confEditMemTitle         = "blueMSX+ - Изменение маппера";
     ls->confEditMemGB            = "Подробности маппера ";
     ls->confEditMemType          = "Тип:";
     ls->confEditMemFile          = "Файл:";
@@ -656,15 +656,15 @@ void langInitRussian(LanguageStrings* ls)
     ls->shortcutKey             = "Действие";
     ls->shortcutDescription     = "Кнопки";
 
-    ls->shortcutSaveConfig      = "blueMSX - Сохранить конфигурацию";
+    ls->shortcutSaveConfig      = "blueMSX+ - Сохранить конфигурацию";
     ls->shortcutOverwriteConfig = "Вы хотите перезаписать конфигурацию кнопок:";
     ls->shortcutCreateConfig    = "Вы хотите сохранить новую конфигурацию кнопок:";
-    ls->shortcutExitConfig      = "blueMSX - Выход из редактора кнопок";
+    ls->shortcutExitConfig      = "blueMSX+ - Выход из редактора кнопок";
     ls->shortcutDiscardConfig   = "Вы хотите отменить все текущие изменени?";
-    ls->shortcutSaveConfigAs    = "blueMSX - Сохранить конфигурацию как...";
+    ls->shortcutSaveConfigAs    = "blueMSX+ - Сохранить конфигурацию как...";
     ls->shortcutConfigName      = "Имя конфига:";
     ls->shortcutNewProfile      = "< Новый профайл >";
-    ls->shortcutConfigTitle     = "blueMSX - Редактор кнопок";
+    ls->shortcutConfigTitle     = "blueMSX+ - Редактор кнопок";
     ls->shortcutAssign          = "Назначить";
     ls->shortcutPressText       = "Нажмите кнопки:";
     ls->shortcutScheme          = "Схема:";
@@ -699,7 +699,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->shortcutScreenshotOrig  = "Снять скриншот";
     ls->shortcutScreenshotSmall = "Небольшой скриншот без фильтра";
     ls->shortcutScreenshotLarge = "Большой скриншот без фильтра";
-    ls->shortcutQuit            = "Выйти из blueMSX";
+    ls->shortcutQuit            = "Выйти из blueMSX+";
     ls->shortcutRunPause        = "Пуск/Пауза эмуляции";
     ls->shortcutStop            = "Остановить эмуляцию";
     ls->shortcutResetHard       = "Аппаратный сброс";

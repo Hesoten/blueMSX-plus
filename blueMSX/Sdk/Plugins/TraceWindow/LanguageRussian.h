@@ -35,7 +35,7 @@ class LanguageRussian : public Language
 public:
     LanguageRussian() {
         traceWindowName         = "Логгер клавиатуры";
-        traceWindowCaption      = "blueMSX - Логгер клавиатуры";
+        traceWindowCaption      = "blueMSX+ - Логгер клавиатуры";
         openWindowCaption       = "Открыть лог-файл";
 
         menuFile                = "Файл";

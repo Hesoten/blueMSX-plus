@@ -35,7 +35,7 @@ class LanguageRussian : public Language
 public:
     LanguageRussian() {
         trainerName             = "Коды";
-        trainerCaption          = "blueMSX - Коды";
+        trainerCaption          = "blueMSX+ - Коды";
         saveCheatCaption        = "Сохранить код";
         loadCheatCaption        = "Загрузить код";
         pause                   = "Пауза";

@@ -35,7 +35,7 @@ class LanguageChineseTraditional : public LanguageEnglish
 public:
     LanguageChineseTraditional() {
         traceWindowName         = "追蹤記錄器";
-        traceWindowCaption      = "blueMSX - 追蹤記錄器";
+        traceWindowCaption      = "blueMSX+ - 追蹤記錄器";
         openWindowCaption       = "開啟記錄檔";
 
         menuFile                = "檔案";

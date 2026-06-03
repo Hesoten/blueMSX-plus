@@ -35,7 +35,7 @@ class LanguageKorean : public LanguageEnglish
 public:
     LanguageKorean() {
         traceWindowName         = "Trace Logger";
-        traceWindowCaption      = "blueMSX - Trace Logger";
+        traceWindowCaption      = "blueMSX+ - Trace Logger";
         openWindowCaption       = "로그 파일 열기";
 
         menuFile                = "파일";

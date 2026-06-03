@@ -544,6 +544,8 @@ char* langDlgAboutAbout() { return ls->dlgAboutAbout; }
 char* langDlgAboutVersion() { return ls->dlgAboutVersion; }
 char* langDlgAboutBuildNumber() { return ls->dlgAboutBuildNumber; }
 char* langDlgAboutBuildDate() { return ls->dlgAboutBuildDate; }
+char* langDlgAboutForkNote() { return ls->dlgAboutForkNote; }
+char* langDlgAboutOrigDevel() { return ls->dlgAboutOrigDevel; }
 char* langDlgAboutCreat() { return ls->dlgAboutCreat; }
 char* langDlgAboutDevel() { return ls->dlgAboutDevel; }
 char* langDlgAboutThanks() { return ls->dlgAboutThanks; }

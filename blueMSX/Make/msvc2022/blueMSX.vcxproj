@@ -173,21 +173,27 @@
     <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(Platform)\$(Configuration)\</OutDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(Platform)\$(Configuration)\</IntDir>
     <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</LinkIncremental>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">blueMSX+</TargetName>
     <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(Platform)\$(Configuration)\</OutDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(Platform)\$(Configuration)\</IntDir>
     <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkIncremental>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">blueMSX+</TargetName>
     <OutDir Condition="'$(Configuration)|$(Platform)'=='Final|x64'">$(Platform)\$(Configuration)\</OutDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Final|x64'">$(Platform)\$(Configuration)\</IntDir>
     <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Final|x64'">false</LinkIncremental>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Final|x64'">blueMSX+</TargetName>
     <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug Canned|x64'">$(Platform)\$(Configuration)\</OutDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug Canned|x64'">$(Platform)\$(Configuration)\</IntDir>
     <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug Canned|x64'">true</LinkIncremental>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug Canned|x64'">blueMSX+</TargetName>
     <OutDir Condition="'$(Configuration)|$(Platform)'=='Release Canned|x64'">$(Platform)\$(Configuration)\</OutDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Release Canned|x64'">$(Platform)\$(Configuration)\</IntDir>
     <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release Canned|x64'">false</LinkIncremental>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release Canned|x64'">blueMSX+</TargetName>
     <OutDir Condition="'$(Configuration)|$(Platform)'=='Release Console|x64'">$(Platform)\$(Configuration)\</OutDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Release Console|x64'">$(Platform)\$(Configuration)\</IntDir>
     <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release Console|x64'">false</LinkIncremental>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release Console|x64'">blueMSX+</TargetName>
     <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">AllRules.ruleset</CodeAnalysisRuleSet>
     <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" />
     <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" />
@@ -200,21 +206,27 @@
     <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Debug\</OutDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Debug\</IntDir>
     <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</LinkIncremental>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">blueMSX+</TargetName>
     <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Release\</OutDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Release\</IntDir>
     <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</LinkIncremental>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">blueMSX+</TargetName>
     <OutDir Condition="'$(Configuration)|$(Platform)'=='Final|Win32'">$(Configuration)\</OutDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Final|Win32'">$(Configuration)\</IntDir>
     <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Final|Win32'">false</LinkIncremental>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Final|Win32'">blueMSX+</TargetName>
     <OutDir Condition="'$(Configuration)|$(Platform)'=='Release Console|Win32'">$(Configuration)\</OutDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Release Console|Win32'">$(Configuration)\</IntDir>
     <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release Console|Win32'">false</LinkIncremental>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release Console|Win32'">blueMSX+</TargetName>
     <OutDir Condition="'$(Configuration)|$(Platform)'=='Release Canned|Win32'">$(Configuration)\</OutDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Release Canned|Win32'">$(Configuration)\</IntDir>
     <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release Canned|Win32'">false</LinkIncremental>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release Canned|Win32'">blueMSX+</TargetName>
     <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug Canned|Win32'">$(Configuration)\</OutDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug Canned|Win32'">$(Configuration)\</IntDir>
     <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug Canned|Win32'">true</LinkIncremental>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug Canned|Win32'">blueMSX+</TargetName>
     <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Debug Canned|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
     <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Debug Canned|Win32'" />
     <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Debug Canned|Win32'" />
@@ -258,7 +270,7 @@
     <Link>
       <AdditionalOptions>/nodefaultlib:"libcmt.lib" %(AdditionalOptions)</AdditionalOptions>
       <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Mf.lib;Mfplat.lib;Mfreadwrite.lib;Mfuuid.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;xinput.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;avrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(OutDir)blueMSX.exe</OutputFile>
+      <OutputFile>$(OutDir)blueMSX+.exe</OutputFile>
       <IgnoreSpecificDefaultLibraries>libc.lib;atlthunk.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ProgramDatabaseFile>$(OutDir)blueMSX.pdb</ProgramDatabaseFile>
@@ -293,7 +305,7 @@
     </ResourceCompile>
     <Link>
       <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Mf.lib;Mfplat.lib;Mfreadwrite.lib;Mfuuid.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;xinput.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;avrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(OutDir)blueMSX.exe</OutputFile>
+      <OutputFile>$(OutDir)blueMSX+.exe</OutputFile>
       <IgnoreSpecificDefaultLibraries>libc.lib;atlthunk.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <GenerateMapFile>true</GenerateMapFile>
@@ -319,7 +331,7 @@
     </ClCompile>
     <Link>
       <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Mf.lib;Mfplat.lib;Mfreadwrite.lib;Mfuuid.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;xinput.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;avrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(OutDir)blueMSX.exe</OutputFile>
+      <OutputFile>$(OutDir)blueMSX+.exe</OutputFile>
       <IgnoreSpecificDefaultLibraries>libc.lib;atlthunk.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <GenerateMapFile>true</GenerateMapFile>
@@ -362,7 +374,7 @@
     </ResourceCompile>
     <Link>
       <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Mf.lib;Mfplat.lib;Mfreadwrite.lib;Mfuuid.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;xinput.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;avrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(OutDir)blueMSX.exe</OutputFile>
+      <OutputFile>$(OutDir)blueMSX+.exe</OutputFile>
       <IgnoreSpecificDefaultLibraries>libc.lib;atlthunk.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <GenerateMapFile>true</GenerateMapFile>
@@ -400,7 +412,7 @@
     </ResourceCompile>
     <Link>
       <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Mf.lib;Mfplat.lib;Mfreadwrite.lib;Mfuuid.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;xinput.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;avrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(OutDir)blueMSX.exe</OutputFile>
+      <OutputFile>$(OutDir)blueMSX+.exe</OutputFile>
       <IgnoreSpecificDefaultLibraries>libc.lib;atlthunk.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <GenerateMapFile>true</GenerateMapFile>
@@ -433,7 +445,7 @@
     <Link>
       <AdditionalOptions>/nodefaultlib:"libcmt.lib" %(AdditionalOptions)</AdditionalOptions>
       <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Mf.lib;Mfplat.lib;Mfreadwrite.lib;Mfuuid.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;xinput.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;avrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(OutDir)blueMSX.exe</OutputFile>
+      <OutputFile>$(OutDir)blueMSX+.exe</OutputFile>
       <IgnoreSpecificDefaultLibraries>libc.lib;atlthunk.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ProgramDatabaseFile>$(OutDir)blueMSX.pdb</ProgramDatabaseFile>
@@ -464,10 +476,10 @@
     <Link>
       <AdditionalOptions>/nodefaultlib:"libcmt.lib" %(AdditionalOptions)</AdditionalOptions>
       <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Mf.lib;Mfplat.lib;Mfreadwrite.lib;Mfuuid.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;xinput.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;avrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(OutDir)blueMSX.exe</OutputFile>
+      <OutputFile>$(OutDir)blueMSX+.exe</OutputFile>
       <IgnoreSpecificDefaultLibraries>libc.lib;atlthunk.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <ProgramDatabaseFile>$(OutDir)blueMSX.pdb</ProgramDatabaseFile>
+      <ProgramDatabaseFile>$(OutDir)blueMSX+.pdb</ProgramDatabaseFile>
       <GenerateMapFile>true</GenerateMapFile>
       <SubSystem>Windows</SubSystem>
       <TargetMachine>MachineX64</TargetMachine>
@@ -494,7 +506,7 @@
     </ResourceCompile>
     <Link>
       <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Mf.lib;Mfplat.lib;Mfreadwrite.lib;Mfuuid.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;xinput.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;avrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(OutDir)blueMSX.exe</OutputFile>
+      <OutputFile>$(OutDir)blueMSX+.exe</OutputFile>
       <IgnoreSpecificDefaultLibraries>libc.lib;atlthunk.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <GenerateMapFile>true</GenerateMapFile>
@@ -517,7 +529,7 @@
     </ClCompile>
     <Link>
       <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Mf.lib;Mfplat.lib;Mfreadwrite.lib;Mfuuid.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;xinput.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;avrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(OutDir)blueMSX.exe</OutputFile>
+      <OutputFile>$(OutDir)blueMSX+.exe</OutputFile>
       <IgnoreSpecificDefaultLibraries>libc.lib;atlthunk.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <GenerateMapFile>true</GenerateMapFile>
@@ -554,10 +566,10 @@
     <Link>
       <AdditionalOptions>/nodefaultlib:"libcmt.lib" %(AdditionalOptions)</AdditionalOptions>
       <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Mf.lib;Mfplat.lib;Mfreadwrite.lib;Mfuuid.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;xinput.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;avrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(OutDir)blueMSX.exe</OutputFile>
+      <OutputFile>$(OutDir)blueMSX+.exe</OutputFile>
       <IgnoreSpecificDefaultLibraries>libc.lib;atlthunk.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <ProgramDatabaseFile>$(OutDir)blueMSX.pdb</ProgramDatabaseFile>
+      <ProgramDatabaseFile>$(OutDir)blueMSX+.pdb</ProgramDatabaseFile>
       <GenerateMapFile>true</GenerateMapFile>
       <SubSystem>Console</SubSystem>
       <TargetMachine>MachineX64</TargetMachine>
@@ -588,7 +600,7 @@
     </ResourceCompile>
     <Link>
       <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Mf.lib;Mfplat.lib;Mfreadwrite.lib;Mfuuid.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;xinput.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;avrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(OutDir)blueMSX.exe</OutputFile>
+      <OutputFile>$(OutDir)blueMSX+.exe</OutputFile>
       <IgnoreSpecificDefaultLibraries>libc.lib;atlthunk.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <GenerateMapFile>true</GenerateMapFile>
@@ -622,7 +634,7 @@
     </ResourceCompile>
     <Link>
       <AdditionalDependencies>wsock32.lib;ws2_32.lib;dxguid.lib;Mf.lib;Mfplat.lib;Mfreadwrite.lib;Mfuuid.lib;winmm.lib;ComCtl32.Lib;shlwapi.lib;uxtheme.lib;ddraw.lib;dsound.lib;dinput8.lib;xinput.lib;comsuppwd.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;avrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(OutDir)blueMSX.exe</OutputFile>
+      <OutputFile>$(OutDir)blueMSX+.exe</OutputFile>
       <IgnoreSpecificDefaultLibraries>libc.lib;atlthunk.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <GenerateMapFile>true</GenerateMapFile>

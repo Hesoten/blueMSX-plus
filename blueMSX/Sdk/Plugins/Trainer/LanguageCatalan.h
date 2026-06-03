@@ -35,7 +35,7 @@ class LanguageCatalan : public LanguageEnglish
 public:
     LanguageCatalan() {
         trainerName             = "Trainer";
-        trainerCaption          = "blueMSX - Trainer";
+        trainerCaption          = "blueMSX+ - Trainer";
         saveCheatCaption        = "Desa el truc";
         loadCheatCaption        = "Carrega el truc";
         pause                   = "Posa en pausa";

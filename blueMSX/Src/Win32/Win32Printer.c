@@ -2220,7 +2220,7 @@ static int printerCreate(void)
 
     initPixelBitmaps();
 
-    lstrcpy(szDocTitle, "blueMSX");
+    lstrcpy(szDocTitle, "blueMSX+");
 
     if (printerType == P_LPT_MSXPRN) {
         MsxPrnSetFont(MSXFontRaw);

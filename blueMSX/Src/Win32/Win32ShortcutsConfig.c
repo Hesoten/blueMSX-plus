@@ -977,7 +977,7 @@ static void saveShortcuts(char* profileName, Shortcuts* shortcuts)
     if (!closeRc) {
         char msg[MAX_PATH + 64];
         sprintf(msg, "Failed to write shortcut profile:\n%s", fileName);
-        MessageBoxU(NULL, msg, "blueMSX", MB_OK | MB_ICONERROR);
+        MessageBoxU(NULL, msg, "blueMSX+", MB_OK | MB_ICONERROR);
     }
 }
 

@@ -35,7 +35,7 @@ class LanguageJapanese : public LanguageEnglish
 public:
     LanguageJapanese() {
         trainerName             = "トレーナー";
-        trainerCaption          = "blueMSX - トレーナー";
+        trainerCaption          = "blueMSX+ - トレーナー";
         saveCheatCaption        = "チートを保存";
         loadCheatCaption        = "チートを読み込み";
         pause                   = "一時停止";

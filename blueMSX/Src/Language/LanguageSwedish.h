@@ -72,11 +72,11 @@ void langInitSwedish(LanguageStrings* ls)
     // Warning and Error lines
     //----------------------
 
-    ls->warningTitle            = "blueMSX - Varning";
+    ls->warningTitle            = "blueMSX+ - Varning";
     ls->warningDiscardChanges   = "Vill du stänga verktyget utan att spara dina ändringar?";
     ls->warningOverwriteFile    = "Vill du skriva över filen:";
     ls->warningStateOldFormat   = "Detta är en sparad status i äldre format. Kan inte återupptas korrekt. Ladda ändå?";
-    ls->errorTitle              = "blueMSX - Fel";
+    ls->errorTitle              = "blueMSX+ - Fel";
     ls->errorEnterFullscreen    = "Misslyckades att byta till fullskärm.           \n";
     ls->errorDirectXFailed      = "Misslyckades att skapa DirectX objekt.          \nAnvänder GDI istället.\nKontrollera video inställningarna.";
     ls->errorNoRomInZip         = "Kunde inte hitta en .rom fil i zip arkivet.";
@@ -87,20 +87,20 @@ void langInitSwedish(LanguageStrings* ls)
     ls->errorStartEmu           = "Misslyckades att starta emulatorn.";
     ls->errorMissingFiles       = "Följande filer som refereras av sparat tillstånd kunde inte laddas:";
     ls->errorPortableReadonly   = "Flyttbar enhet är inte skrivbar";
-    ls->infoTitle               = "blueMSX Info";
-    ls->infoGameReaderRedirect  = "blueMSX stöder inte MSX Game Reader direkt (den ursprungliga XP-drivrutinen från ASCII fungerar inte längre på moderna Windows).\n\nÖppna MSX Game Reader - Web Dumper (av Kunihiko Ohnaka) i webbläsaren istället?";
-    ls->infoColorDepth          = "blueMSX fungerar bäst med 16 eller 32 bitars färgdjup.";
+    ls->infoTitle               = "blueMSX+ Info";
+    ls->infoGameReaderRedirect  = "blueMSX+ stöder inte MSX Game Reader direkt (den ursprungliga XP-drivrutinen från ASCII fungerar inte längre på moderna Windows).\n\nÖppna MSX Game Reader - Web Dumper (av Kunihiko Ohnaka) i webbläsaren istället?";
+    ls->infoColorDepth          = "blueMSX+ fungerar bäst med 16 eller 32 bitars färgdjup.";
     ls->errorKeyboardThemeMissing = "Tangentbordsredigerarens tema kunde inte hittas.";
     ls->errorMixerThemeMissing    = "Mixerns tema kunde inte hittas.";
-    ls->errorRecorderTitle      = "blueMSX - Inspelare";
+    ls->errorRecorderTitle      = "blueMSX+ - Inspelare";
     ls->errorRecorderSaveReplay = "Kunde inte spara replayfil:\n  %s\n\nKontrollera att målmappen finns och är skrivbar.";
     ls->errorRecorderReplayMissing = "Replayfil hittades inte:\n  %s\n\nSpela in en replay först, eller använd Ladda för att välja en befintlig .cap-fil.";
     ls->errorRecorderRequiresDX12   = "Byt videodrivrutin till Direct3D 12 och starta inspelningen?";
-    ls->errorRecorderRequiresDX12Title = "blueMSX - Byte av videodrivrutin";
+    ls->errorRecorderRequiresDX12Title = "blueMSX+ - Byte av videodrivrutin";
     ls->infoRecorderComplete    = "Videofil sparad:\n  %s";
     ls->infoToastSaved          = "Sparat: %s";
     ls->infoToastAlreadyRecording   = "Spelar redan in";
-    ls->dlgRecorderPickTitle        = "blueMSX - Rendera replay till video";
+    ls->dlgRecorderPickTitle        = "blueMSX+ - Rendera replay till video";
     ls->dlgRecorderPickSourceCap    = "Replayfil att rendera (.cap):";
     ls->dlgRecorderPickOutputMp4    = "Utdatavideofil (.mp4):";
     ls->menuFileRecordVideo         = "Spela in video";
@@ -223,7 +223,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->menuEthInterface        = "Nätverksanslutning"; 
 
     ls->menuHelpHelp            = "Hjälp";
-    ls->menuHelpAbout           = "Om blueMSX";
+    ls->menuHelpAbout           = "Om blueMSX+";
 
     ls->menuFileCart            = "Cartridge slot";
     ls->menuFileDisk            = "Diskettstation";
@@ -282,10 +282,10 @@ void langInitSwedish(LanguageStrings* ls)
     ls->dlgRun                  = "Kör";
     ls->dlgClose                = "Stäng";
 
-    ls->dlgLoadRom              = "blueMSX - Ladda en rom fil";
-    ls->dlgLoadDsk              = "blueMSX - Ladda en dsk fil";
-    ls->dlgLoadCas              = "blueMSX - Ladda en cas fil";
-    ls->dlgLoadRomDskCas        = "blueMSX - Ladda en rom, dsk eller cas fil";
+    ls->dlgLoadRom              = "blueMSX+ - Ladda en rom fil";
+    ls->dlgLoadDsk              = "blueMSX+ - Ladda en dsk fil";
+    ls->dlgLoadCas              = "blueMSX+ - Ladda en cas fil";
+    ls->dlgLoadRomDskCas        = "blueMSX+ - Ladda en rom, dsk eller cas fil";
     ls->dlgLoadRomDesc          = "Välj en cartridge fil:";
     ls->dlgLoadDskDesc          = "Välj en diskett fil:";
     ls->dlgLoadCasDesc          = "Välj en kassett fil:";
@@ -293,7 +293,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->dlgLoadState            = "Ladda CPU-tillstånd";
     ls->dlgLoadVideoCapture     = "Ladda videoinspelning";      
     ls->dlgSaveState            = "Spara CPU-tillstånd";
-    ls->dlgSaveCassette         = "blueMSX - Spara Kassett";
+    ls->dlgSaveCassette         = "blueMSX+ - Spara Kassett";
     ls->dlgSaveVideoClipAs      = "Spara videoinspeling som...";      
     ls->dlgSaveCaptureAudio     = "Spara ljudinspelning som";
     ls->dlgSaveCaptureVideo     = "Spara videoinspelning som";
@@ -309,7 +309,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->dlgRomType              = "Rom Typ:";
     ls->dlgDiskSize             = "Diskettstorlek:";             
 
-    ls->dlgTapeTitle            = "blueMSX - Kassettposition";
+    ls->dlgTapeTitle            = "blueMSX+ - Kassettposition";
     ls->dlgTapeFrameText        = "Kassettposition";
     ls->dlgTapeCurrentPos       = "Aktuell position";
     ls->dlgTapeTotalTime        = "Total längd";
@@ -320,10 +320,10 @@ void langInitSwedish(LanguageStrings* ls)
     ls->dlgTabFilename          = "Filnamn";
     ls->dlgZipReset             = "Starta om efter insättning";
     
-    ls->dlgAboutTitle           = "blueMSX - Information";
+    ls->dlgAboutTitle           = "blueMSX+ - Information";
 
-    ls->dlgLangLangText         = "Välj språk som blueMSX ska använda";
-    ls->dlgLangLangTitle        = "blueMSX - Språk";
+    ls->dlgLangLangText         = "Välj språk som blueMSX+ ska använda";
+    ls->dlgLangLangTitle        = "blueMSX+ - Språk";
 
     ls->dlgAboutAbout           = "INFORMATION\r\n========";
     ls->dlgAboutVersion         = "Version:";
@@ -342,14 +342,14 @@ void langInitSwedish(LanguageStrings* ls)
     ls->dlgSavePreview          = "Förvisning";
     ls->dlgSaveDate             = "Tid Sparad:";
 
-    ls->dlgRenderVideoCapture   = "blueMSX - Generera videofil...";  
+    ls->dlgRenderVideoCapture   = "blueMSX+ - Generera videofil...";  
 
 
     //----------------------
     // Properties related lines
     //----------------------
 
-    ls->propTitle               = "blueMSX - Egenskaper";
+    ls->propTitle               = "blueMSX+ - Egenskaper";
     ls->propEmulation           = "Emulering";
     ls->propD3D                 = "Direct3D";
     ls->propVideo               = "Video";
@@ -467,10 +467,10 @@ void langInitSwedish(LanguageStrings* ls)
     ls->propFileTypes           = " Registrera .rom/.dsk/.cas/.sta i \"Öppna med\"-menyn";
     ls->propOpenDefaultApps     = "Öppna Windows standardappar";
     ls->propWindowsEnvGB        = "Windows Miljö ";
-    ls->propSetScreenSaver      = " Håll skärmen på när blueMSX kör (ingen skärmavstängning/vila/skärmsläckare)";
+    ls->propSetScreenSaver      = " Håll skärmen på när blueMSX+ kör (ingen skärmavstängning/vila/skärmsläckare)";
     ls->propPriorityBoost       = " Använd Windows spelschemaläggare (MMCSS) för emuleringen";
     ls->propScreenshotPng       = " Använd Portable Network Graphics (.png) skärmdump";
-    ls->propEjectMediaOnExit    = " Ta ur media när blueMSX avslutas";
+    ls->propEjectMediaOnExit    = " Ta ur media när blueMSX+ avslutas";
     ls->propClearHistory        = "Vill du verkligen radera filhistorien?";
     ls->propOpenRomGB           = "Öppna Rom Dialog ";
     ls->propDefaultRomType      = "Default Rom Typ:";
@@ -590,7 +590,7 @@ void langInitSwedish(LanguageStrings* ls)
     // Configuration related lines
     //----------------------
 
-    ls->confTitle               = "blueMSX - Konfigureringsverktyg";
+    ls->confTitle               = "blueMSX+ - Konfigureringsverktyg";
     ls->confConfigText          = "Konfigurering:";
     ls->confSlotLayout          = "Slot mappning";
     ls->confMemory              = "Minne";
@@ -598,12 +598,12 @@ void langInitSwedish(LanguageStrings* ls)
     ls->confChipExtras          = "Extra";
 
     ls->confOpenRom             = "Öppna Rom fil";
-    ls->confSaveTitle           = "blueMSX - Spara Konfigurering";
+    ls->confSaveTitle           = "blueMSX+ - Spara Konfigurering";
     ls->confSaveText            = "Vill du skriva över maskinkonfigureringen? :";
     ls->confSaveAsTitle         = "Spara Konfigurering Som...";
     ls->confSaveAsMachineName   = "Maskinnamn:";
-    ls->confDiscardTitle        = "blueMSX - Konfigurering";
-    ls->confExitSaveTitle       = "blueMSX - Avsluta Konfigureringsverktyg";
+    ls->confDiscardTitle        = "blueMSX+ - Konfigurering";
+    ls->confExitSaveTitle       = "blueMSX+ - Avsluta Konfigureringsverktyg";
     ls->confExitSaveText        = "Vill du stanga konfigureringsverktyget utan att spara dina ändringar?";
 
     ls->confSlotLayoutGB        = "Slot Layout ";
@@ -641,7 +641,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->confFdcGB                = "Kontroller för Diskettenhet ";
     ls->confCFdcNumDrivesText    = "Antal Diskettenheter:";
 
-    ls->confEditMemTitle         = "blueMSX - Ändra Minnesmap";
+    ls->confEditMemTitle         = "blueMSX+ - Ändra Minnesmap";
     ls->confEditMemGB            = "Detailjer ";
     ls->confEditMemType          = "Typ:";
     ls->confEditMemFile          = "Fil:";
@@ -657,15 +657,15 @@ void langInitSwedish(LanguageStrings* ls)
     ls->shortcutKey             = "Tangentkombination";
     ls->shortcutDescription     = "Kortkommando";
 
-    ls->shortcutSaveConfig      = "blueMSX - Spara Konfigurering";
+    ls->shortcutSaveConfig      = "blueMSX+ - Spara Konfigurering";
     ls->shortcutOverwriteConfig = "Vill du skriva över kortkommando konfigureringen:";
     ls->shortcutCreateConfig    = "Vill du spara den nya kortkommando konfigureringen:";
-    ls->shortcutExitConfig      = "blueMSX - Avsluta Kortkommandoverktyget";
+    ls->shortcutExitConfig      = "blueMSX+ - Avsluta Kortkommandoverktyget";
     ls->shortcutDiscardConfig   = "Vill du stanga konfigureringsverktyget utan att spara dina ändringar?";
-    ls->shortcutSaveConfigAs    = "blueMSX - Spara Kortkommando Konfigurering Som...";
+    ls->shortcutSaveConfigAs    = "blueMSX+ - Spara Kortkommando Konfigurering Som...";
     ls->shortcutConfigName      = "Konfigurering:";
     ls->shortcutNewProfile      = "< Ny Profil >";
-    ls->shortcutConfigTitle     = "blueMSX - Konfigurering av Kortkommandon";
+    ls->shortcutConfigTitle     = "blueMSX+ - Konfigurering av Kortkommandon";
     ls->shortcutAssign          = "Tilldela";
     ls->shortcutPressText       = "Tryck kortkommando:";
     ls->shortcutScheme          = "Kommandoschema:";
@@ -700,7 +700,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->shortcutScreenshotOrig  = "Spar Skärmdump";
     ls->shortcutScreenshotSmall = "Spar Liten Ofiltrerad Skärmdump";
     ls->shortcutScreenshotLarge = "Spar Stor Ofiltrerad Skärmdump";
-    ls->shortcutQuit            = "Avsluta blueMSX";
+    ls->shortcutQuit            = "Avsluta blueMSX+";
     ls->shortcutRunPause        = "Kör/Pause Emuleringen";
     ls->shortcutStop            = "Stanna Emuleringen";
     ls->shortcutResetHard       = "Hård Omstart";
@@ -749,7 +749,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->shortcutShowTrainer     = "Visa Trainer";
     ls->shortcutShowMixer       = "Visa Mixer";
     ls->shortcutShowHelp        = "Öppna Hjälpfönstret";
-    ls->shortcutShowAbout       = "Öppna \"Om blueMSX\"-fönstret";
+    ls->shortcutShowAbout       = "Öppna \"Om blueMSX+\"-fönstret";
     ls->shortcutShowFiles       = "Öppna Filerfönstret";
     ls->shortcutToggleSpriteEnable = "Visa/Dölj Sprites";
     ls->shortcutToggleFdcTiming = "Växla FDD-åtkomstacceleration";

@@ -86,7 +86,7 @@ public:
         menuHelpAbout               = "О программе";
 
         debuggerName                = "Дебаггер";
-        windowDebugger              = "blueMSX - Дебаггер";
+        windowDebugger              = "blueMSX+ - Дебаггер";
         windowDisassembly           = "Дизассемблирование";
         windowDisassemblyUnavail    = "Дизассемблирование невозможно.";
         windowCpuRegisters          = "CPU регистры";

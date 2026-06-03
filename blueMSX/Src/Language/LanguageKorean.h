@@ -72,35 +72,35 @@ void langInitKorean(LanguageStrings* ls)
     // Warning and Error lines
     //----------------------
 
-    ls->warningTitle             = "blueMSX - 경고";
+    ls->warningTitle             = "blueMSX+ - 경고";
     ls->warningDiscardChanges   = "변경한 설정이 적용되기 위해선 저장을 해야 합니다. 현재 설정에 아무런 영향을 주지않고 그냥 나가겠습니까?";
     ls->warningOverwriteFile    = "파일을 덮어 쓰시겠습니까:"; 
     ls->warningStateOldFormat   = "이전 형식의 상태 저장입니다. 정상적으로 재개되지 않을 수 있습니다. 그래도 불러오시겠습니까?";
-    ls->errorTitle              = "blueMSX - 에러";
+    ls->errorTitle              = "blueMSX+ - 에러";
     ls->errorEnterFullscreen    = "전체 화면모드 진입 실패.           \n";
     ls->errorDirectXFailed      = "DirectX 오브젝트 만들기 실패.           \nGDI로 대체해서 사용합니다.\n그래픽카드 등록정보를 확인하세요.";
     ls->errorNoRomInZip         = "zip파일 내부의 rom을 찾을 수 없습니다.";
     ls->errorNoDskInZip         = "zip파일 내부의 dsk를 찾을 수 없습니다.";
     ls->errorNoCasInZip         = "zip파일 내부의 cas를 찾을 수 없습니다.";
     ls->errorDirAsDskOverflow   = "%d 개의 파일(총 %d KB)이 720 KB 디스크 이미지에 맞지 않아 건너뛰었습니다.";
-    ls->errorNoHelp             = "blueMSX 도움말을 찾을 수 없습니다.";
+    ls->errorNoHelp             = "blueMSX+ 도움말을 찾을 수 없습니다.";
     ls->errorStartEmu           = "MSX 에뮬레이터를 시작할 수 없습니다.";
     ls->errorMissingFiles       = "저장된 상태가 참조하는 다음 파일을 로드할 수 없습니다:";
     ls->errorPortableReadonly   = "이동 장치는 읽기 전용입니다.";        
-    ls->infoTitle               = "blueMSX 정보";
-    ls->infoGameReaderRedirect  = "blueMSX 는 MSX Game Reader 를 직접 지원하지 않습니다 (ASCII 사의 XP 시대 정품 드라이버는 최신 Windows 에서 작동하지 않습니다).\n\n대신 MSX Game Reader - Web Dumper (Kunihiko Ohnaka 제작) 를 브라우저에서 열까요?";
-    ls->infoColorDepth          = "blueMSX 는 16 또는 32 비트 색상 심도에서 가장 잘 작동합니다.";
+    ls->infoTitle               = "blueMSX+ 정보";
+    ls->infoGameReaderRedirect  = "blueMSX+ 는 MSX Game Reader 를 직접 지원하지 않습니다 (ASCII 사의 XP 시대 정품 드라이버는 최신 Windows 에서 작동하지 않습니다).\n\n대신 MSX Game Reader - Web Dumper (Kunihiko Ohnaka 제작) 를 브라우저에서 열까요?";
+    ls->infoColorDepth          = "blueMSX+ 는 16 또는 32 비트 색상 심도에서 가장 잘 작동합니다.";
     ls->errorKeyboardThemeMissing = "키보드 편집기 테마를 찾을 수 없습니다.";
     ls->errorMixerThemeMissing    = "믹서 테마를 찾을 수 없습니다.";
-    ls->errorRecorderTitle      = "blueMSX - 녹화";
+    ls->errorRecorderTitle      = "blueMSX+ - 녹화";
     ls->errorRecorderSaveReplay = "재생 파일을 저장하지 못했습니다:\n  %s\n\n대상 폴더가 존재하고 쓰기 가능한지 확인하세요.";
     ls->errorRecorderReplayMissing = "재생 파일을 찾을 수 없습니다:\n  %s\n\n먼저 재생을 녹화하거나 불러오기로 기존 .cap 파일을 선택하세요.";
     ls->errorRecorderRequiresDX12   = "비디오 드라이버를 Direct3D 12로 전환하고 녹화를 시작할까요?";
-    ls->errorRecorderRequiresDX12Title = "blueMSX - 비디오 드라이버 변경";
+    ls->errorRecorderRequiresDX12Title = "blueMSX+ - 비디오 드라이버 변경";
     ls->infoRecorderComplete    = "동영상 파일 저장됨:\n  %s";
     ls->infoToastSaved          = "저장됨: %s";
     ls->infoToastAlreadyRecording   = "이미 녹화 중";
-    ls->dlgRecorderPickTitle        = "blueMSX - 재생을 동영상으로 변환";
+    ls->dlgRecorderPickTitle        = "blueMSX+ - 재생을 동영상으로 변환";
     ls->dlgRecorderPickSourceCap    = "변환할 재생 파일 (.cap):";
     ls->dlgRecorderPickOutputMp4    = "출력 동영상 파일 (.mp4):";
     ls->menuFileRecordVideo         = "동영상 녹화";
@@ -223,7 +223,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->menuEthInterface        = "이더넷 인터페이스"; 
 
     ls->menuHelpHelp            = "도움말 항목";
-    ls->menuHelpAbout           = "blueMSX에 대하여";
+    ls->menuHelpAbout           = "blueMSX+에 대하여";
 
     ls->menuFileCart            = "카트리지 슬롯";
     ls->menuFileDisk            = "디스크 드라이브";
@@ -281,10 +281,10 @@ void langInitKorean(LanguageStrings* ls)
     ls->dlgRun                  = "실행";
     ls->dlgClose                = "닫기";
 
-    ls->dlgLoadRom              = "blueMSX - 카트리지에 삽입할 rom 이미지 선택";
-    ls->dlgLoadDsk              = "blueMSX - 드라이브에 삽입할 dsk 이미지 선택";
-    ls->dlgLoadCas              = "blueMSX - 카세트 플레이어에 넣을 cas 이미지 선택";
-    ls->dlgLoadRomDskCas        = "blueMSX - 읽어 들일 rom, dsk, cas 이미지 선택";
+    ls->dlgLoadRom              = "blueMSX+ - 카트리지에 삽입할 rom 이미지 선택";
+    ls->dlgLoadDsk              = "blueMSX+ - 드라이브에 삽입할 dsk 이미지 선택";
+    ls->dlgLoadCas              = "blueMSX+ - 카세트 플레이어에 넣을 cas 이미지 선택";
+    ls->dlgLoadRomDskCas        = "blueMSX+ - 읽어 들일 rom, dsk, cas 이미지 선택";
     ls->dlgLoadRomDesc          = "카트리지에 삽입할 롬 이미지를 선택해 주세요:";
     ls->dlgLoadDskDesc          = "드라이브에 삽입할 첫번째 장 디스크 또는 디스크 이미지를 선택해 주세요(교환은 ALT+F9. 파일명과 숫자가 일정해야 됩니다):";
     ls->dlgLoadCasDesc          = "카세트 플레이어에 넣을 테잎 이미지를 선택해 주세요:";
@@ -292,7 +292,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->dlgLoadState            = "CPU 상태 불러오기";
     ls->dlgLoadVideoCapture     = "녹화된 영상 불러오기";      
     ls->dlgSaveState            = "CPU 상태 저장";
-    ls->dlgSaveCassette          = "blueMSX - 테잎 이미지 저장";
+    ls->dlgSaveCassette          = "blueMSX+ - 테잎 이미지 저장";
     ls->dlgSaveVideoClipAs      = "다른 이름으로 영상 클립 저장...";      
     ls->dlgSaveCaptureAudio     = "오디오 녹음 다른 이름으로 저장";
     ls->dlgSaveCaptureVideo     = "동영상 녹화 다른 이름으로 저장";
@@ -308,7 +308,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->dlgRomType              = "롬 형식:";
     ls->dlgDiskSize             = "디스크 사이즈:";             
 
-    ls->dlgTapeTitle            = "blueMSX - 테잎 위치";
+    ls->dlgTapeTitle            = "blueMSX+ - 테잎 위치";
     ls->dlgTapeFrameText        = "테잎 위치";
     ls->dlgTapeCurrentPos       = "현재 위치";
     ls->dlgTapeTotalTime        = "총 시간";
@@ -319,12 +319,12 @@ void langInitKorean(LanguageStrings* ls)
     ls->dlgTabFilename           = "파일 이름";
     ls->dlgZipReset             = "삽입후 재시작";
 
-    ls->dlgAboutTitle           = "blueMSX에 대하여";
+    ls->dlgAboutTitle           = "blueMSX+에 대하여";
 
-    ls->dlgLangLangText         = "blueMSX에 사용할 언어 선택";
-    ls->dlgLangLangTitle        = "blueMSX - 언어";
+    ls->dlgLangLangText         = "blueMSX+에 사용할 언어 선택";
+    ls->dlgLangLangTitle        = "blueMSX+ - 언어";
 
-    ls->dlgAboutAbout           = "blueMSX에 대하여\r\n=====";
+    ls->dlgAboutAbout           = "blueMSX+에 대하여\r\n=====";
     ls->dlgAboutVersion         = "버전:";
     ls->dlgAboutBuildNumber     = "빌드:";
     ls->dlgAboutBuildDate       = "날짜:";
@@ -341,14 +341,14 @@ void langInitKorean(LanguageStrings* ls)
     ls->dlgSavePreview          = "미리 보기";
     ls->dlgSaveDate             = "시간 저장됨:";
 
-    ls->dlgRenderVideoCapture   = "blueMSX - 동영상 파일로 저장...";  
+    ls->dlgRenderVideoCapture   = "blueMSX+ - 동영상 파일로 저장...";  
 
 
     //----------------------
     // Properties related lines
     //----------------------
 
-    ls->propTitle               = "blueMSX - 속성";
+    ls->propTitle               = "blueMSX+ - 속성";
     ls->propEmulation           = "에뮬레이션";
     ls->propD3D                 = "Direct3D";
     ls->propVideo               = "비디오";
@@ -466,10 +466,10 @@ void langInitKorean(LanguageStrings* ls)
     ls->propFileTypes            = " .rom/.dsk/.cas/.sta 를 \"연결 프로그램\" 메뉴에 등록";
     ls->propOpenDefaultApps      = "Windows 기본 앱 설정 열기";
     ls->propWindowsEnvGB         = "윈도우즈 환경 "; 
-    ls->propSetScreenSaver       = " blueMSX 실행중 디스플레이 유지 (화면 끄기/절전/보호기 억제)";
+    ls->propSetScreenSaver       = " blueMSX+ 실행중 디스플레이 유지 (화면 끄기/절전/보호기 억제)";
     ls->propPriorityBoost        = " 에뮬레이션에 Windows 게임 스케줄러 (MMCSS) 사용";
     ls->propScreenshotPng       = " Portable Network Graphics (.png) 스크린샷 사용";  
-    ls->propEjectMediaOnExit    = " Eject media when blueMSX exits";        // New in 2.8
+    ls->propEjectMediaOnExit    = " Eject media when blueMSX+ exits";        // New in 2.8
     ls->propClearHistory         = "열어본 파일 목록을 지울까요?";
     ls->propOpenRomGB           = "열때 항상 현재 설정 사용 ";
     ls->propDefaultRomType      = "기본 롬 형식:";
@@ -589,7 +589,7 @@ void langInitKorean(LanguageStrings* ls)
     // Configuration related lines
     //----------------------
 
-    ls->confTitle                = "blueMSX - 머신 설정 편집기";
+    ls->confTitle                = "blueMSX+ - 머신 설정 편집기";
     ls->confConfigText           = "머신 설정";
     ls->confSlotLayout           = "슬롯 배치";
     ls->confMemory               = "메모리";
@@ -597,12 +597,12 @@ void langInitKorean(LanguageStrings* ls)
     ls->confChipExtras          = "기타";
 
     ls->confOpenRom             = "롬 이미지 열기";
-    ls->confSaveTitle            = "blueMSX - 설정 저장";
+    ls->confSaveTitle            = "blueMSX+ - 설정 저장";
     ls->confSaveText             = "이미 파일이 있습니다. 기존 파일을 이 파일로 바꾸시겠습니까?";
     ls->confSaveAsTitle         = "다른 이름으로 설정 저장...";
     ls->confSaveAsMachineName    = "머신 이름:";
-    ls->confDiscardTitle         = "blueMSX - 설정";
-    ls->confExitSaveTitle        = "blueMSX - 머신 설정 편집기 나가기";
+    ls->confDiscardTitle         = "blueMSX+ - 설정";
+    ls->confExitSaveTitle        = "blueMSX+ - 머신 설정 편집기 나가기";
     ls->confExitSaveText         = "변경한 설정이 적용되기 위해선 저장을 해야 합니다. 현재 설정에 아무런 영향을 주지않고 그냥 나가겠습니까?";
 
     ls->confSlotLayoutGB         = "슬롯 배치 ";
@@ -640,7 +640,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->confFdcGB                = "플로피 디스크 컨트롤러 ";
     ls->confCFdcNumDrivesText    = "드라이브의 갯수:";
 
-    ls->confEditMemTitle         = "blueMSX - 맵퍼 편집";
+    ls->confEditMemTitle         = "blueMSX+ - 맵퍼 편집";
     ls->confEditMemGB            = "맵퍼 항목 ";
     ls->confEditMemType          = "형식:";
     ls->confEditMemFile          = "파일:";
@@ -656,15 +656,15 @@ void langInitKorean(LanguageStrings* ls)
 	ls->shortcutKey             = "핫키";
     ls->shortcutDescription     = "단축키";
 
-    ls->shortcutSaveConfig      = "blueMSX - 설정 저장";
+    ls->shortcutSaveConfig      = "blueMSX+ - 설정 저장";
     ls->shortcutOverwriteConfig = "이미 파일이 있습니다. 기존 파일을 이 파일로 바꾸시겠습니까?";
     ls->shortcutCreateConfig    = "새 단축키 설정을 저장하시겠습니까?";
-    ls->shortcutExitConfig      = "blueMSX - 단축키 편집기 나가기";
+    ls->shortcutExitConfig      = "blueMSX+ - 단축키 편집기 나가기";
     ls->shortcutDiscardConfig   = "변경한 설정이 적용되기 위해선 저장을 하셔야 합니다만 현재 설정에는 아무런 영향도 주지않고 그냥 나가겠습니까?";
-    ls->shortcutSaveConfigAs    = "blueMSX - 다른이름으로 단축키 설정 저장...";
+    ls->shortcutSaveConfigAs    = "blueMSX+ - 다른이름으로 단축키 설정 저장...";
     ls->shortcutConfigName      = "설정 이름:";
     ls->shortcutNewProfile      = "< 새로운 프로필 >";
-    ls->shortcutConfigTitle     = "blueMSX - 단축키 매핑 편집기";
+    ls->shortcutConfigTitle     = "blueMSX+ - 단축키 매핑 편집기";
     ls->shortcutAssign          = "적용";
     ls->shortcutPressText       = "단축키 새로 설정:";
     ls->shortcutScheme          = "단축키 스타일:";
@@ -699,7 +699,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->shortcutScreenshotOrig  = "화면 저장";
     ls->shortcutScreenshotSmall = "작은 크기로 화면 저장(원본)";
     ls->shortcutScreenshotLarge = "큰 크기로 화면 저장(원본)";
-    ls->shortcutQuit            = "blueMSX 끝내기";
+    ls->shortcutQuit            = "blueMSX+ 끝내기";
     ls->shortcutRunPause        = "에뮬레이션 시작/일시 정지";
     ls->shortcutStop            = "에뮬레이션 중지";
     ls->shortcutResetHard       = "하드 리셋";
@@ -748,7 +748,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->shortcutShowTrainer     = "트레이너 보기"; 
     ls->shortcutShowMixer       = "믹서 보기";
     ls->shortcutShowHelp        = "도움말 보기";
-    ls->shortcutShowAbout       = "blueMSX에 대하여 보기";
+    ls->shortcutShowAbout       = "blueMSX+에 대하여 보기";
     ls->shortcutShowFiles       = "파일 속성 보기";
     ls->shortcutToggleSpriteEnable = "스프라이트 보이기/숨기기 변환";
     ls->shortcutToggleFdcTiming = "FDD 액세스 가속 켜기/끄기";

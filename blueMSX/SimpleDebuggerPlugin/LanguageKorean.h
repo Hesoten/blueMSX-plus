@@ -86,7 +86,7 @@ public:
         menuHelpAbout               = "Debugger에 대하여";
 
         debuggerName                = "Debugger";
-        windowDebugger              = "blueMSX - Debugger";
+        windowDebugger              = "blueMSX+ - Debugger";
         windowDisassembly           = "디스어셈블리";
         windowDisassemblyUnavail    = "Disassembly unavailable.";
         windowCpuRegisters          = "CPU 레지스터";

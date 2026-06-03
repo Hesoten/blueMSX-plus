@@ -74,35 +74,35 @@ void langInitJapanese(LanguageStrings* ls)
     // Warning and Error lines
     //----------------------
 
-    ls->warningTitle            = "blueMSX - 警告";
+    ls->warningTitle            = "blueMSX+ - 警告";
     ls->warningDiscardChanges   = "構成が失われますが、よろしいですか?";
     ls->warningOverwriteFile    = "このファイルに上書きしてもよろしいですか:"; 
     ls->warningStateOldFormat   = "古い形式のステートセーブをロードしようとしています。正常に再開できない可能性があります。ロードしますか?";
-    ls->errorTitle              = "blueMSX - エラー";
+    ls->errorTitle              = "blueMSX+ - エラー";
     ls->errorEnterFullscreen    = "フルスクリーンモードにできません。          \n";
     ls->errorDirectXFailed      = "DirectX オブジェクトを作成できません。          \nGDIを代わりに使用します。\nグラフィックカードの設定を確認してください。";
     ls->errorNoRomInZip         = "zipファイルの中に.romファイルが見つかりません。";
     ls->errorNoDskInZip         = "zipファイルの中に.dskファイルが見つかりません。";
     ls->errorNoCasInZip         = "zipファイルの中に.casファイルが見つかりません。";
     ls->errorDirAsDskOverflow   = "%d 個のファイル (合計 %d KB) が 720 KB ディスクイメージに収まらず除外されました。";
-    ls->errorNoHelp             = "blueMSX のヘルプファイルが見つかりません。";
-    ls->errorStartEmu           = "blueMSX の開始に失敗しました。";
+    ls->errorNoHelp             = "blueMSX+ のヘルプファイルが見つかりません。";
+    ls->errorStartEmu           = "blueMSX+ の開始に失敗しました。";
     ls->errorMissingFiles       = "セーブステートから参照されている以下のファイルが読み込めませんでした:";
     ls->errorPortableReadonly   = "ポータブルデバイスは読込専用です。";
-    ls->infoTitle                  = "blueMSX 情報";
-    ls->infoGameReaderRedirect     = "blueMSX では MSX Game Reader を直接サポートしていません (ASCII 社の XP 時代の純正ドライバは現代の Windows では動作しません)。\n\n代わりに MSX Game Reader - Web Dumper (Kunihiko Ohnaka 氏作成) をブラウザで開きますか?";
-    ls->infoColorDepth             = "blueMSX は 16 または 32 ビット色深度で最も適切に動作します。";
+    ls->infoTitle                  = "blueMSX+ 情報";
+    ls->infoGameReaderRedirect     = "blueMSX+ では MSX Game Reader を直接サポートしていません (ASCII 社の XP 時代の純正ドライバは現代の Windows では動作しません)。\n\n代わりに MSX Game Reader - Web Dumper (Kunihiko Ohnaka 氏作成) をブラウザで開きますか?";
+    ls->infoColorDepth             = "blueMSX+ は 16 または 32 ビット色深度で最も適切に動作します。";
     ls->errorKeyboardThemeMissing  = "キーボードエディターのテーマが見つかりません。";
     ls->errorMixerThemeMissing     = "ミキサーのテーマが見つかりません。";
-    ls->errorRecorderTitle      = "blueMSX - リプレイ録画";
+    ls->errorRecorderTitle      = "blueMSX+ - リプレイ録画";
     ls->errorRecorderSaveReplay = "リプレイファイルの保存に失敗しました:\n  %s\n\n保存先ディレクトリが存在し書き込み可能か確認してください。";
     ls->errorRecorderReplayMissing = "リプレイファイルが見つかりません:\n  %s\n\nまずリプレイを録画するか、Load から既存の .cap ファイルを選択してください。";
     ls->errorRecorderRequiresDX12      = "ビデオドライバを Direct3D 12 に切り換えて録画を開始しますか?";
-    ls->errorRecorderRequiresDX12Title = "blueMSX - ビデオドライバの変更";
+    ls->errorRecorderRequiresDX12Title = "blueMSX+ - ビデオドライバの変更";
     ls->infoRecorderComplete    = "動画ファイルを保存しました:\n  %s";
     ls->infoToastSaved          = "保存しました: %s";
     ls->infoToastAlreadyRecording  = "既に記録中です";
-    ls->dlgRecorderPickTitle       = "blueMSX - リプレイから動画書き出し";
+    ls->dlgRecorderPickTitle       = "blueMSX+ - リプレイから動画書き出し";
     ls->dlgRecorderPickSourceCap   = "動画化するリプレイファイル (.cap):";
     ls->dlgRecorderPickOutputMp4   = "出力先動画ファイル (.mp4):";
     ls->menuFileRecordVideo        = "録画開始";
@@ -225,7 +225,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->menuEthInterface        = "イーサーネット　インターフェース"; 
 
     ls->menuHelpHelp            = "ヘルプ目次";
-    ls->menuHelpAbout           = "blueMSXについて";
+    ls->menuHelpAbout           = "blueMSX+ について";
 
     ls->menuFileCart            = "ROMスロット";
     ls->menuFileDisk            = "ディスクドライブ";
@@ -283,10 +283,10 @@ void langInitJapanese(LanguageStrings* ls)
     ls->dlgRun                  = "起動";
     ls->dlgClose                = "閉じる";
 
-    ls->dlgLoadRom              = "blueMSX - romイメージを選択";
-    ls->dlgLoadDsk              = "blueMSX - dskイメージを選択";
-    ls->dlgLoadCas              = "blueMSX - casイメージを選択";
-    ls->dlgLoadRomDskCas        = "blueMSX - rom, dsk, またはcasイメージを選択";
+    ls->dlgLoadRom              = "blueMSX+ - romイメージを選択";
+    ls->dlgLoadDsk              = "blueMSX+ - dskイメージを選択";
+    ls->dlgLoadCas              = "blueMSX+ - casイメージを選択";
+    ls->dlgLoadRomDskCas        = "blueMSX+ - rom, dsk, またはcasイメージを選択";
     ls->dlgLoadRomDesc          = "読み込むromイメージ:";
     ls->dlgLoadDskDesc          = "読み込むdskイメージ:";
     ls->dlgLoadCasDesc          = "読み込むcasイメージ:";
@@ -294,7 +294,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->dlgLoadState            = "CPUステート 読み込み";
     ls->dlgLoadVideoCapture     = "キャプチャ映像の読み込み";      
     ls->dlgSaveState            = "CPUステート 保存";
-    ls->dlgSaveCassette          = "blueMSX - テープを保存";
+    ls->dlgSaveCassette          = "blueMSX+ - テープを保存";
     ls->dlgSaveVideoClipAs      = "ビデオクリップを別名で保存...";      
     ls->dlgSaveCaptureAudio     = "録音ファイルを名前を付けて保存";
     ls->dlgSaveCaptureVideo     = "録画ファイルを名前を付けて保存";
@@ -310,7 +310,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->dlgRomType              = "ROM タイプ:"; 
     ls->dlgDiskSize             = "ディスク要領:";             
 
-    ls->dlgTapeTitle            = "blueMSX - カセットテープ";
+    ls->dlgTapeTitle            = "blueMSX+ - カセットテープ";
     ls->dlgTapeFrameText        = "テープ位置";
     ls->dlgTapeCurrentPos       = "現在位置";
     ls->dlgTapeTotalTime        = "トータルタイム";
@@ -321,15 +321,22 @@ void langInitJapanese(LanguageStrings* ls)
     ls->dlgTabFilename           = "ファイル名";
     ls->dlgZipReset             = "挿入後リセット";
 
-    ls->dlgAboutTitle           = "blueMSX について";
+    ls->dlgAboutTitle           = "blueMSX+ について";
 
-    ls->dlgLangLangText         = "blueMSX で使用する言語を選択してください";
-    ls->dlgLangLangTitle        = "blueMSX - 言語";
+    ls->dlgLangLangText         = "blueMSX+ で使用する言語を選択してください";
+    ls->dlgLangLangTitle        = "blueMSX+ - 言語";
 
     ls->dlgAboutAbout           = "このソフトについて\r\n===========";
     ls->dlgAboutVersion         = "バージョン:";
     ls->dlgAboutBuildNumber     = "ビルド:";
     ls->dlgAboutBuildDate       = "ビルド日付:";
+    ls->dlgAboutForkNote        = "このソフトウェアは blueMSX 2.8.3 をベースに Windows 11 向けに改良を加えたものです。\r\n\r\n"
+                                  "製作:\tHesoten\r\n\r\n"
+                                  "詳しい説明については、https://github.com/Hesoten/bluemsx-plus をご覧ください。\r\n\r\n"
+                                  "オリジナルの blueMSX については、https://msxblue.com/bluemsx をご覧ください。";
+    ls->dlgAboutOrigDevel       = "オリジナルの blueMSX について\r\n"
+                                  "==================\r\n\r\n"
+                                  "オリジナルの blueMSX 2.8.3 は以下の開発者達によって開発されました:";
     ls->dlgAboutCreat           = "製作:\tDaniel Vik";
     ls->dlgAboutDevel           = "開発者\r\n=====";
     ls->dlgAboutThanks          = "ご協力いただいた方々\r\n=============";       // New in 2.7 (retranslate, see english)
@@ -337,20 +344,19 @@ void langInitJapanese(LanguageStrings* ls)
                                   "======\r\n\r\n"
                                   "このソフトウェアは現状をそのままの状態で配布するものであり、明示的または"
                                   "黙示的を問わず一切の保証はありません。また、このソフトウェアの使用の結果生じた"
-                                  "いかなる損害についても、作者は責任を負いません。\r\n\r\n"
-                                  "詳しい説明については、www.bluemsx.com をご覧ください。";
+                                  "いかなる損害についても、作者は責任を負いません。";
 
     ls->dlgSavePreview          = "プレビュー表示";
     ls->dlgSaveDate             = "セーブ時刻:";
 
-    ls->dlgRenderVideoCapture   = "blueMSX - リプレイ動画を書き出し中...";  
+    ls->dlgRenderVideoCapture   = "blueMSX+ - リプレイ動画を書き出し中...";  
 
 
     //----------------------
     // Properties related lines
     //----------------------
 
-    ls->propTitle               = "blueMSX - 設定";
+    ls->propTitle               = "blueMSX+ - 設定";
     ls->propEmulation           = "エミュレーション";
     ls->propVideo               = "ビデオ";
     ls->propSound               = "サウンド";
@@ -425,7 +431,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->propMonHdrEnable        = " HDR";
     ls->propMonHdrPaperWhite    = "白の明るさ:";
     ls->propMonHdrSystemMode    = "現在の HDR モード:";
-    ls->propMonHdrRestartHint   = "HDR モードの変更を反映するには blueMSX を再起動してください。";
+    ls->propMonHdrRestartHint   = "HDR モードの変更を反映するには blueMSX+ を再起動してください。";
     ls->propMonHdrRecord        = " HDR で録画";
     ls->propMonColorGhosting    = " RFモジュレータ:";
     ls->propMonEffectsGB        = " エフェクト "; 
@@ -468,10 +474,10 @@ void langInitJapanese(LanguageStrings* ls)
     ls->propFileTypes           = " 拡張子 .rom/.dsk/.cas/.sta を「プログラムから開く」に登録";
     ls->propOpenDefaultApps     = "Windows の既定アプリ設定を開く";
     ls->propWindowsEnvGB        = " Windows ";
-    ls->propSetScreenSaver      = " blueMSX 動作中は画面オフ/スリープ/スクリーンセーバを抑制";
+    ls->propSetScreenSaver      = " blueMSX+ 動作中は画面オフ/スリープ/スクリーンセーバを抑制";
     ls->propPriorityBoost       = " Windows のゲームスケジューラ (MMCSS) を使用";
     ls->propScreenshotPng       = " スクリーンショットを PNG 形式で取得する";
-    ls->propEjectMediaOnExit    = " blueMSX 終了時にメディアを取り出す";
+    ls->propEjectMediaOnExit    = " blueMSX+ 終了時にメディアを取り出す";
     ls->propClearHistory        = "ヒストリの消去を実行してよろしいですか?";
     ls->propOpenRomGB           = " ROM イメージ ";
     ls->propDefaultRomType      = "デフォルトROMタイプ:";
@@ -590,7 +596,7 @@ void langInitJapanese(LanguageStrings* ls)
     // Configuration related lines
     //----------------------
 
-    ls->confTitle                = "blueMSX - マシン構成編集";
+    ls->confTitle                = "blueMSX+ - マシン構成編集";
     ls->confConfigText           = "マシン構成:";
     ls->confSlotLayout           = "スロット";
     ls->confMemory               = "メモリ";
@@ -598,12 +604,12 @@ void langInitJapanese(LanguageStrings* ls)
     ls->confChipExtras          = "その他";
 
     ls->confOpenRom             = "ROMイメージを開く"; 
-    ls->confSaveTitle            = "blueMSX - マシン構成編集の終了";
+    ls->confSaveTitle            = "blueMSX+ - マシン構成編集の終了";
     ls->confSaveText             = "現在の構成が失われますが、よろしいですか?";
     ls->confSaveAsTitle         = "別名で保存...";
     ls->confSaveAsMachineName    = "構成名:";
-    ls->confDiscardTitle         = "blueMSX - マシン構成編集";
-    ls->confExitSaveTitle        = "blueMSX - マシン構成編集の終了";
+    ls->confDiscardTitle         = "blueMSX+ - マシン構成編集";
+    ls->confExitSaveTitle        = "blueMSX+ - マシン構成編集の終了";
     ls->confExitSaveText         = "現在の構成が失われますが、よろしいですか?";
 
     ls->confSlotLayoutGB         = " スロット構成 ";
@@ -641,7 +647,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->confFdcGB                = " フロッピーディスクコントローラー ";
     ls->confCFdcNumDrivesText    = "ドライブの数:";
 
-    ls->confEditMemTitle         = "blueMSX - マッパの編集";
+    ls->confEditMemTitle         = "blueMSX+ - マッパの編集";
     ls->confEditMemGB            = " マッパの詳細 ";
     ls->confEditMemType          = "タイプ:";
     ls->confEditMemFile          = "ファイル:";
@@ -657,15 +663,15 @@ void langInitJapanese(LanguageStrings* ls)
     ls->shortcutKey             = "機能"; 
     ls->shortcutDescription     = "ショートカット"; 
 
-    ls->shortcutSaveConfig      = "blueMSX - 構成の保存";
+    ls->shortcutSaveConfig      = "blueMSX+ - 構成の保存";
     ls->shortcutOverwriteConfig = "ショートカット構成を上書きしてよろしいですか?:";
     ls->shortcutCreateConfig    = "ショートカット構成を新規保存してよろしいですか?:";
-    ls->shortcutExitConfig      = "blueMSX - ショートカット構成編集の終了";
+    ls->shortcutExitConfig      = "blueMSX+ - ショートカット構成編集の終了";
     ls->shortcutDiscardConfig   = "現在の構成が失われますが、よろしいですか?";
-    ls->shortcutSaveConfigAs    = "blueMSX - ショートカット構成を別名で保存";
+    ls->shortcutSaveConfigAs    = "blueMSX+ - ショートカット構成を別名で保存";
     ls->shortcutConfigName      = "構成名:";
     ls->shortcutNewProfile      = "< 新規プロファイル >";
-    ls->shortcutConfigTitle     = "blueMSX - ショートカット構成編集";
+    ls->shortcutConfigTitle     = "blueMSX+ - ショートカット構成編集";
     ls->shortcutAssign          = "割り当て";
     ls->shortcutPressText       = "ショートカットキー入力欄:";
     ls->shortcutScheme          = "構成名:";
@@ -700,7 +706,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->shortcutScreenshotOrig  = "スクリーンショット";
     ls->shortcutScreenshotSmall = "無フィルター標準サイズ スクリーンショット";
     ls->shortcutScreenshotLarge = "無フィルター2倍サイズ スクリーンショット";
-    ls->shortcutQuit            = "blueMSX の終了";
+    ls->shortcutQuit            = "blueMSX+ の終了";
     ls->shortcutRunPause        = "エミュレーションの実行/一時停止";
     ls->shortcutStop            = "停止";
     ls->shortcutResetHard       = "ハードリセット";
@@ -749,7 +755,7 @@ void langInitJapanese(LanguageStrings* ls)
 	ls->shortcutShowDebugger    = "デバッガー表示";
     ls->shortcutShowTrainer     = "トレーナー表示";
     ls->shortcutShowHelp        = "ヘルプダイアログの表示";
-    ls->shortcutShowAbout       = "blueMSX についての表示";
+    ls->shortcutShowAbout       = "blueMSX+ についての表示";
     ls->shortcutShowFiles       = "ファイルダイアログを表示";
     ls->shortcutToggleSpriteEnable = "スプライトの表示/非表示";
     ls->shortcutToggleFdcTiming = "FDDアクセス高速化の有効/無効";

@@ -88,7 +88,7 @@ public:
         menuHelpAbout               = "About";
 
         debuggerName                = "Debugger";
-        windowDebugger              = "blueMSX - Debugger";
+        windowDebugger              = "blueMSX+ - Debugger";
         windowDisassembly           = "Disassembly";
         windowDisassemblyUnavail    = "Disassembly unavailable.";
         windowCpuRegisters          = "CPU Registers";

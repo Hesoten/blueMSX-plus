@@ -72,35 +72,35 @@ void langInitPortuguese(LanguageStrings* ls)
     // Warning and Error lines
     //----------------------
 
-    ls->warningTitle             = "blueMSX - Advertência";
+    ls->warningTitle             = "blueMSX+ - Advertência";
     ls->warningDiscardChanges   = "Você quer desfazer as alterações da configuração atual?"; 
     ls->warningOverwriteFile    = "Você quer substituir esto arquivo? "; 
     ls->warningStateOldFormat   = "Este é um estado salvo em formato antigo. Pode não retomar corretamente. Carregar mesmo assim?";
-    ls->errorTitle              = "blueMSX - Erro";
+    ls->errorTitle              = "blueMSX+ - Erro";
     ls->errorEnterFullscreen    = "Falha ao entrar em Tela Cheia.             \n";
     ls->errorDirectXFailed      = "Falha ao Criar Objetos DirectX.             \nUsando GDI ao invés.\nCheque as propriedades Video.";
     ls->errorNoRomInZip         = "Nao foi localizado arquivo .ROM dentro do arquivo zip.";
     ls->errorNoDskInZip         = "Nao foi localizado arquivo .DSK dentro do arquivo zip.";
     ls->errorNoCasInZip         = "Nao foi localizado arquivo .CAS dentro do arquivo zip.";
     ls->errorDirAsDskOverflow   = "%d arquivo(s) (%d KB no total) não couberam na imagem de disco de 720 KB e foram ignorados.";
-    ls->errorNoHelp             = "Nao foi localizado arquivo ajuda do blueMSX";
+    ls->errorNoHelp             = "Nao foi localizado arquivo ajuda do blueMSX+";
     ls->errorStartEmu           = "Falha ao Iniciar o emulador MSX.";
     ls->errorMissingFiles       = "Os seguintes arquivos referenciados pelo estado salvo não pôde ser carregados:";
     ls->errorPortableReadonly   = "O dispositivo portátil é somente leitura";        
-    ls->infoTitle               = "Info blueMSX";
-    ls->infoGameReaderRedirect  = "O blueMSX não suporta diretamente o MSX Game Reader (o driver original da ASCII da era XP não funciona mais no Windows moderno).\n\nAbrir o MSX Game Reader - Web Dumper (por Kunihiko Ohnaka) no seu navegador?";
-    ls->infoColorDepth          = "blueMSX funciona melhor com profundidade de cor de 16 ou 32 bits.";
+    ls->infoTitle               = "Info blueMSX+";
+    ls->infoGameReaderRedirect  = "O blueMSX+ não suporta diretamente o MSX Game Reader (o driver original da ASCII da era XP não funciona mais no Windows moderno).\n\nAbrir o MSX Game Reader - Web Dumper (por Kunihiko Ohnaka) no seu navegador?";
+    ls->infoColorDepth          = "blueMSX+ funciona melhor com profundidade de cor de 16 ou 32 bits.";
     ls->errorKeyboardThemeMissing = "Não foi possível encontrar o tema do editor de teclado.";
     ls->errorMixerThemeMissing    = "Não foi possível encontrar o tema do mixer.";
-    ls->errorRecorderTitle      = "blueMSX - Gravador";
+    ls->errorRecorderTitle      = "blueMSX+ - Gravador";
     ls->errorRecorderSaveReplay = "Falha ao salvar arquivo de replay:\n  %s\n\nVerifique se a pasta de destino existe e tem permissão de escrita.";
     ls->errorRecorderReplayMissing = "Arquivo de replay não encontrado:\n  %s\n\nGrave um replay primeiro ou use Carregar para escolher um .cap existente.";
     ls->errorRecorderRequiresDX12   = "Mudar o driver de vídeo para Direct3D 12 e iniciar a gravação?";
-    ls->errorRecorderRequiresDX12Title = "blueMSX - Alteração do driver de vídeo";
+    ls->errorRecorderRequiresDX12Title = "blueMSX+ - Alteração do driver de vídeo";
     ls->infoRecorderComplete    = "Arquivo de vídeo salvo:\n  %s";
     ls->infoToastSaved          = "Salvo: %s";
     ls->infoToastAlreadyRecording   = "Já em gravação";
-    ls->dlgRecorderPickTitle        = "blueMSX - Renderizar replay para vídeo";
+    ls->dlgRecorderPickTitle        = "blueMSX+ - Renderizar replay para vídeo";
     ls->dlgRecorderPickSourceCap    = "Arquivo de replay para renderizar (.cap):";
     ls->dlgRecorderPickOutputMp4    = "Arquivo de vídeo de saída (.mp4):";
     ls->menuFileRecordVideo         = "Gravar vídeo";
@@ -223,7 +223,7 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->menuEthInterface        = "Ethernet"; 
 
     ls->menuHelpHelp            = "Tópicos Ajuda";
-    ls->menuHelpAbout           = "Sobre o blueMSX";
+    ls->menuHelpAbout           = "Sobre o blueMSX+";
 
     ls->menuFileCart            = "Cartucho Slot";
     ls->menuFileDisk            = "Disco drive";
@@ -281,10 +281,10 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->dlgRun                  = "Executar";
     ls->dlgClose                = "Fechar";
 
-    ls->dlgLoadRom              = "blueMSX - Selecione uma ROM para carregar";
-    ls->dlgLoadDsk              = "blueMSX - Selecione uma DSK para carregar";
-    ls->dlgLoadCas              = "blueMSX - Selecione uma CAS para carregar";
-    ls->dlgLoadRomDskCas        = "blueMSX - Selecione uma ROM, DSK, ou CAS para carregar";
+    ls->dlgLoadRom              = "blueMSX+ - Selecione uma ROM para carregar";
+    ls->dlgLoadDsk              = "blueMSX+ - Selecione uma DSK para carregar";
+    ls->dlgLoadCas              = "blueMSX+ - Selecione uma CAS para carregar";
+    ls->dlgLoadRomDskCas        = "blueMSX+ - Selecione uma ROM, DSK, ou CAS para carregar";
     ls->dlgLoadRomDesc          = "Escolha uma ROM para carregar:";
     ls->dlgLoadDskDesc          = "Escolha um disco para carregar:";
     ls->dlgLoadCasDesc          = "Escolha um tape para carregar:";
@@ -292,7 +292,7 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->dlgLoadState            = "Carregar Status da CPU";
     ls->dlgLoadVideoCapture     = "Carregar captura vídeo";      
     ls->dlgSaveState            = "Salvar Status da CPU";
-    ls->dlgSaveCassette          = "blueMSX - Salvar Imagem Tape";
+    ls->dlgSaveCassette          = "blueMSX+ - Salvar Imagem Tape";
     ls->dlgSaveVideoClipAs      = "Salvar video clip como...";      
     ls->dlgSaveCaptureAudio     = "Salvar gravação de áudio como";
     ls->dlgSaveCaptureVideo     = "Salvar gravação de vídeo como";
@@ -308,7 +308,7 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->dlgRomType              = "Tipo rom:"; 
     ls->dlgDiskSize             = "Tamanho do disco:";             
 
-    ls->dlgTapeTitle            = "blueMSX - Posição do Tape";
+    ls->dlgTapeTitle            = "blueMSX+ - Posição do Tape";
     ls->dlgTapeFrameText        = "Posição do Tape";
     ls->dlgTapeCurrentPos       = "Posição Atual";
     ls->dlgTapeTotalTime        = "Tempo Total";
@@ -319,10 +319,10 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->dlgTabFilename           = "Nome do Arquivo";
     ls->dlgZipReset             = "Reset após inserir";
 
-    ls->dlgAboutTitle           = "blueMSX - Sobre";
+    ls->dlgAboutTitle           = "blueMSX+ - Sobre";
 
-    ls->dlgLangLangText         = "Escolha uma linguagem que blueMSX irá usar";
-    ls->dlgLangLangTitle        = "blueMSX - Linguagem";
+    ls->dlgLangLangText         = "Escolha uma linguagem que blueMSX+ irá usar";
+    ls->dlgLangLangTitle        = "blueMSX+ - Linguagem";
 
     ls->dlgAboutAbout           = "Sobre\r\n====";
     ls->dlgAboutVersion         = "Versão:";
@@ -341,14 +341,14 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->dlgSavePreview          = "Visualizar"; 
     ls->dlgSaveDate             = "Data:"; 
 
-    ls->dlgRenderVideoCapture   = "blueMSX - Criar video clip...";  
+    ls->dlgRenderVideoCapture   = "blueMSX+ - Criar video clip...";  
 
 
     //----------------------
     // Properties related lines
     //----------------------
 
-    ls->propTitle               = "blueMSX - Propriedades";
+    ls->propTitle               = "blueMSX+ - Propriedades";
     ls->propEmulation           = "Emulação";
     ls->propD3D                 = "Direct3D";
     ls->propVideo               = "Video";
@@ -466,10 +466,10 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->propFileTypes           = " Registrar .rom/.dsk/.cas/.sta no menu \"Abrir com\"";
     ls->propOpenDefaultApps     = "Abrir configurações de aplicativos padrão do Windows";
     ls->propWindowsEnvGB        = "Ambiente Windows ";
-    ls->propSetScreenSaver      = " Manter tela ativa enquanto blueMSX estiver ativo (sem desligar/suspender/proteger)";
+    ls->propSetScreenSaver      = " Manter tela ativa enquanto blueMSX+ estiver ativo (sem desligar/suspender/proteger)";
     ls->propPriorityBoost       = " Usar o agendador de jogos do Windows (MMCSS) para emulação";
     ls->propScreenshotPng       = " Utilizar o formato PNG para as capturas da tela";  
-    ls->propEjectMediaOnExit    = " Ejetar a mídia quando o blueMSX encerrar";        // New in 2.8
+    ls->propEjectMediaOnExit    = " Ejetar a mídia quando o blueMSX+ encerrar";        // New in 2.8
     ls->propClearHistory        = "Deseja realmente limpar histórico?";
     ls->propOpenRomGB           = "Abrir arquivo rom "; 
     ls->propDefaultRomType      = "Tipo de ROM Padrão:"; 
@@ -589,7 +589,7 @@ void langInitPortuguese(LanguageStrings* ls)
     // Configuration related lines
     //----------------------
 
-    ls->confTitle               = "blueMSX - Editor de Configuração da Maquina";
+    ls->confTitle               = "blueMSX+ - Editor de Configuração da Maquina";
     ls->confConfigText          = "Configuração";
     ls->confSlotLayout          = "Slot Layout";
     ls->confMemory              = "Memória";
@@ -597,12 +597,12 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->confChipExtras          = "Extras"; 
 
     ls->confOpenRom             = "Abrir ROM image"; 
-    ls->confSaveTitle           = "blueMSX - Salvar Configuração";
+    ls->confSaveTitle           = "blueMSX+ - Salvar Configuração";
     ls->confSaveText            = "Você quer substituir esta configuração da máquina? :";
     ls->confSaveAsTitle         = "Salvar Como"; 
     ls->confSaveAsMachineName   = "Nome da Maquina:";
-    ls->confDiscardTitle        = "blueMSX - Configuração";
-    ls->confExitSaveTitle       = "blueMSX - Sair do Editor de Configuração";
+    ls->confDiscardTitle        = "blueMSX+ - Configuração";
+    ls->confExitSaveTitle       = "blueMSX+ - Sair do Editor de Configuração";
     ls->confExitSaveText        = "Voce quer desfazer as alterações da Configuração atual?";
 
     ls->confSlotLayoutGB        = "Layout do Slot ";
@@ -640,7 +640,7 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->confFdcGB                = "Controlador do Drive "; 
     ls->confCFdcNumDrivesText    = "Número das Drives:"; 
 
-    ls->confEditMemTitle         = "blueMSX - Editar Mapper";
+    ls->confEditMemTitle         = "blueMSX+ - Editar Mapper";
     ls->confEditMemGB            = "Detalhes do Mapper ";
     ls->confEditMemType          = "Tipo:";
     ls->confEditMemFile          = "Arquivo:";
@@ -656,15 +656,15 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->shortcutKey             = "Hotkey"; 
     ls->shortcutDescription     = "Shortcut"; 
 
-    ls->shortcutSaveConfig      = "blueMSX - Salvar Configuração";
+    ls->shortcutSaveConfig      = "blueMSX+ - Salvar Configuração";
     ls->shortcutOverwriteConfig = "Você quer  substituir esta configuração da máquina?:";
     ls->shortcutCreateConfig    = "Você quer salvar a nova configuração de atalhos?:";
-    ls->shortcutExitConfig      = "blueMSX - Sair do Editor de Atalhos";
+    ls->shortcutExitConfig      = "blueMSX+ - Sair do Editor de Atalhos";
     ls->shortcutDiscardConfig   = "Voce quer desfazer as alterações da Configuração atual?";
-    ls->shortcutSaveConfigAs    = "blueMSX - Salvar Configuração de Atalhos Como...";
+    ls->shortcutSaveConfigAs    = "blueMSX+ - Salvar Configuração de Atalhos Como...";
     ls->shortcutConfigName      = "Nome da Configuração:";
     ls->shortcutNewProfile      = "< Novo Perfil >";
-    ls->shortcutConfigTitle     = "blueMSX - Editor do Mapa dos Atalhos";
+    ls->shortcutConfigTitle     = "blueMSX+ - Editor do Mapa dos Atalhos";
     ls->shortcutAssign          = "Atribuir";
     ls->shortcutPressText       = "Apoiar sobre Tecla(s) :";
     ls->shortcutScheme          = "Disposição:";
@@ -699,7 +699,7 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->shortcutScreenshotOrig  = "Salvar Tela";
     ls->shortcutScreenshotSmall = "Pequena captura da tela sem filtro";
     ls->shortcutScreenshotLarge = "Grande captura da tela sem filtro";
-    ls->shortcutQuit            = "Sair blueMSX";
+    ls->shortcutQuit            = "Sair blueMSX+";
     ls->shortcutRunPause        = "Executar/Pausa Emulação";
     ls->shortcutStop            = "Parar Emulação";
     ls->shortcutResetHard       = "Reset Hardware";
@@ -748,7 +748,7 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->shortcutShowDebugger    = "Mostrar Debugger"; 
     ls->shortcutShowTrainer     = "Mostrar Trainer"; 
     ls->shortcutShowHelp        = "Ver Rubricas da Ajuda";
-    ls->shortcutShowAbout       = "Ver Rubrica Sobre blueMSX";
+    ls->shortcutShowAbout       = "Ver Rubrica Sobre blueMSX+";
     ls->shortcutShowFiles       = "Mostrar Propriedades de Arquivos";
     ls->shortcutToggleSpriteEnable = "Mostrar/esconder os sprites";
     ls->shortcutToggleFdcTiming = "Alternar aceleração FDD"; 

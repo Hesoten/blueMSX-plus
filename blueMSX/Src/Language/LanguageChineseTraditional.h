@@ -72,35 +72,35 @@ void langInitChineseTraditional(LanguageStrings* ls)
     // Warning and Error lines
     //----------------------
 
-    ls->warningTitle            = "blueMSX - 警告";
+    ls->warningTitle            = "blueMSX+ - 警告";
     ls->warningDiscardChanges   = "您確定要放棄變更嗎？";
     ls->warningOverwriteFile    = "您確定要覆寫檔案:"; 
     ls->warningStateOldFormat   = "這是舊格式的即時存檔，可能無法正確恢復。仍要載入嗎？";
-    ls->errorTitle              = "blueMSX - 錯誤";
+    ls->errorTitle              = "blueMSX+ - 錯誤";
     ls->errorEnterFullscreen    = "無法進入全螢幕模式。           \n";
     ls->errorDirectXFailed      = "無法建立 DirectX 物件。           \n替代為使用 GDI。\n請檢查視訊內容。";
     ls->errorNoRomInZip         = "無法在 zip 壓縮檔案中找出 .rom 檔案。";
     ls->errorNoDskInZip         = "無法在 zip 壓縮檔案中找出 .dsk 檔案。";
     ls->errorNoCasInZip         = "無法在 zip 壓縮檔案中找出 .cas 檔案。";
     ls->errorDirAsDskOverflow   = "%d 個檔案 (共 %d KB) 無法容納於 720 KB 磁碟鏡像，已跳過。";
-    ls->errorNoHelp             = "無法找到 blueMSX 說明檔案。";
+    ls->errorNoHelp             = "無法找到 blueMSX+ 說明檔案。";
     ls->errorStartEmu           = "無法啟動 MSX 模擬器。";
     ls->errorMissingFiles       = "無法載入存檔引用的以下檔案：";
     ls->errorPortableReadonly   = "可攜式裝置為唯讀屬性";        
-    ls->infoTitle               = "blueMSX 資訊";
-    ls->infoGameReaderRedirect  = "blueMSX 不直接支援 MSX Game Reader (ASCII 公司 XP 時代的原版驅動程式無法在現代 Windows 上運作)。\n\n是否改為在瀏覽器中開啟 MSX Game Reader - Web Dumper (Kunihiko Ohnaka 製作)?";
-    ls->infoColorDepth          = "blueMSX 在 16 或 32 位元色深下運行最佳。";
+    ls->infoTitle               = "blueMSX+ 資訊";
+    ls->infoGameReaderRedirect  = "blueMSX+ 不直接支援 MSX Game Reader (ASCII 公司 XP 時代的原版驅動程式無法在現代 Windows 上運作)。\n\n是否改為在瀏覽器中開啟 MSX Game Reader - Web Dumper (Kunihiko Ohnaka 製作)?";
+    ls->infoColorDepth          = "blueMSX+ 在 16 或 32 位元色深下運行最佳。";
     ls->errorKeyboardThemeMissing = "無法找到鍵盤編輯器佈景主題。";
     ls->errorMixerThemeMissing    = "無法找到混音器佈景主題。";
-    ls->errorRecorderTitle      = "blueMSX - 錄製器";
+    ls->errorRecorderTitle      = "blueMSX+ - 錄製器";
     ls->errorRecorderSaveReplay = "無法儲存回放檔案：\n  %s\n\n請確認目標目錄存在且可寫入。";
     ls->errorRecorderReplayMissing = "找不到回放檔案：\n  %s\n\n請先錄製回放，或使用載入選擇現有的 .cap 檔案。";
     ls->errorRecorderRequiresDX12   = "切換視訊驅動到 Direct3D 12 並開始錄製？";
-    ls->errorRecorderRequiresDX12Title = "blueMSX - 視訊驅動變更";
+    ls->errorRecorderRequiresDX12Title = "blueMSX+ - 視訊驅動變更";
     ls->infoRecorderComplete    = "視訊檔案已儲存：\n  %s";
     ls->infoToastSaved          = "已儲存：%s";
     ls->infoToastAlreadyRecording   = "已在錄製中";
-    ls->dlgRecorderPickTitle        = "blueMSX - 將回放轉換為視訊";
+    ls->dlgRecorderPickTitle        = "blueMSX+ - 將回放轉換為視訊";
     ls->dlgRecorderPickSourceCap    = "要轉換的回放檔案 (.cap)：";
     ls->dlgRecorderPickOutputMp4    = "輸出視訊檔案 (.mp4)：";
     ls->menuFileRecordVideo         = "錄製視訊";
@@ -223,7 +223,7 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->menuEthInterface        = "Ethernet"; 
 
     ls->menuHelpHelp            = "說明主題";
-    ls->menuHelpAbout           = "關於 blueMSX";
+    ls->menuHelpAbout           = "關於 blueMSX+";
 
     ls->menuFileCart            = "卡匣插槽";
     ls->menuFileDisk            = "磁碟機";
@@ -281,10 +281,10 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->dlgRun                  = "執行";
     ls->dlgClose                = "關閉";
     
-    ls->dlgLoadRom              = "blueMSX - 選擇卡匣映像檔載入";
-    ls->dlgLoadDsk              = "blueMSX - 選擇磁碟映像檔載入";
-    ls->dlgLoadCas              = "blueMSX - 選擇磁帶映像檔載入";
-    ls->dlgLoadRomDskCas        = "blueMSX - 選擇卡匣、磁碟或磁帶映像檔載入";
+    ls->dlgLoadRom              = "blueMSX+ - 選擇卡匣映像檔載入";
+    ls->dlgLoadDsk              = "blueMSX+ - 選擇磁碟映像檔載入";
+    ls->dlgLoadCas              = "blueMSX+ - 選擇磁帶映像檔載入";
+    ls->dlgLoadRomDskCas        = "blueMSX+ - 選擇卡匣、磁碟或磁帶映像檔載入";
     ls->dlgLoadRomDesc          = "請選擇要載入的卡匣映像檔:";
     ls->dlgLoadDskDesc          = "請選擇要載入的磁碟映像檔:";
     ls->dlgLoadCasDesc          = "請選擇要載入的磁帶映像檔:";
@@ -292,7 +292,7 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->dlgLoadState            = "載入 CPU 狀態";
     ls->dlgLoadVideoCapture     = "載入擷取視訊";      
     ls->dlgSaveState            = "儲存 CPU 狀態";
-    ls->dlgSaveCassette          = "blueMSX - 儲存磁帶映像檔";
+    ls->dlgSaveCassette          = "blueMSX+ - 儲存磁帶映像檔";
     ls->dlgSaveVideoClipAs      = "儲存視訊裁剪為...";      
     ls->dlgSaveCaptureAudio     = "音訊錄製另存為";
     ls->dlgSaveCaptureVideo     = "視訊錄製另存為";
@@ -308,7 +308,7 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->dlgRomType              = "ROM 類型:";
     ls->dlgDiskSize             = "磁碟大小:";             
 
-    ls->dlgTapeTitle            = "blueMSX - 磁帶位置";
+    ls->dlgTapeTitle            = "blueMSX+ - 磁帶位置";
     ls->dlgTapeFrameText        = "磁帶位置";
     ls->dlgTapeCurrentPos       = "目前的位置";
     ls->dlgTapeTotalTime        = "總時間";
@@ -319,10 +319,10 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->dlgTabFilename           = "檔案名稱";
     ls->dlgZipReset             = "插入之後重置";
 
-    ls->dlgAboutTitle           = "blueMSX - 關於";
+    ls->dlgAboutTitle           = "blueMSX+ - 關於";
 
-    ls->dlgLangLangText         = "請選擇 blueMSX 要使用的語言";
-    ls->dlgLangLangTitle        = "blueMSX - 語言";
+    ls->dlgLangLangText         = "請選擇 blueMSX+ 要使用的語言";
+    ls->dlgLangLangTitle        = "blueMSX+ - 語言";
 
     ls->dlgAboutAbout           = "關於\r\n====";
     ls->dlgAboutVersion         = "版本:";
@@ -341,14 +341,14 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->dlgSavePreview          = "顯示預覽";
     ls->dlgSaveDate             = "儲存時間:";
 
-    ls->dlgRenderVideoCapture   = "blueMSX - 正在渲染擷取視訊...";  
+    ls->dlgRenderVideoCapture   = "blueMSX+ - 正在渲染擷取視訊...";  
 
 
     //----------------------
     // Properties related lines
     //----------------------
 
-    ls->propTitle               = "blueMSX - 內容";
+    ls->propTitle               = "blueMSX+ - 內容";
     ls->propEmulation           = "模擬";
     ls->propD3D                 = "Direct3D";
     ls->propVideo               = "視訊";
@@ -466,10 +466,10 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->propFileTypes            = " 在「開啟檔案」選單中註冊 .rom/.dsk/.cas/.sta";
     ls->propOpenDefaultApps      = "開啟 Windows 預設應用程式設定";
     ls->propWindowsEnvGB         = "Windows 環境 "; 
-    ls->propSetScreenSaver       = " blueMSX 執行時保持顯示 (阻止關螢幕/睡眠/螢幕保護)";
+    ls->propSetScreenSaver       = " blueMSX+ 執行時保持顯示 (阻止關螢幕/睡眠/螢幕保護)";
     ls->propPriorityBoost        = " 使用 Windows 遊戲排程器 (MMCSS) 進行模擬";
     ls->propScreenshotPng        = " 使用可攜式網路圖形 (.png) 螢幕抓圖";  
-    ls->propEjectMediaOnExit    = " Eject media when blueMSX exits";        // New in 2.8
+    ls->propEjectMediaOnExit    = " Eject media when blueMSX+ exits";        // New in 2.8
     ls->propClearHistory         = "您是否確定要清除檔案記錄？";
     ls->propOpenRomGB            = "開啟 ROM 對話方塊 ";
     ls->propDefaultRomType       = "預設 ROM 類型:";
@@ -589,7 +589,7 @@ void langInitChineseTraditional(LanguageStrings* ls)
     // Configuration related lines
     //----------------------
 
-    ls->confTitle                = "blueMSX - 機種組態編輯器";
+    ls->confTitle                = "blueMSX+ - 機種組態編輯器";
     ls->confConfigText           = "設定";
     ls->confSlotLayout           = "插槽配置";
     ls->confMemory               = "記憶體";
@@ -597,12 +597,12 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->confChipExtras          = "額外";
 
     ls->confOpenRom             = "開啟 ROM 映像檔";
-    ls->confSaveTitle            = "blueMSX - 儲存設定";
+    ls->confSaveTitle            = "blueMSX+ - 儲存設定";
     ls->confSaveText             = "您確定要覆寫機種設定嗎:";
     ls->confSaveAsTitle         = "另存設定為...";
     ls->confSaveAsMachineName    = "機種名稱:";
-    ls->confDiscardTitle         = "blueMSX - 設定";
-    ls->confExitSaveTitle        = "blueMSX - 離開設定編輯器";
+    ls->confDiscardTitle         = "blueMSX+ - 設定";
+    ls->confExitSaveTitle        = "blueMSX+ - 離開設定編輯器";
     ls->confExitSaveText         = "您確定要放棄目前的設定及變更嗎？";
 
     ls->confSlotLayoutGB         = "插槽布局 ";
@@ -640,7 +640,7 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->confFdcGB                = "軟式磁碟控制器 ";
     ls->confCFdcNumDrivesText    = "磁碟機代號:";
 
-    ls->confEditMemTitle         = "blueMSX - 編輯對應器";
+    ls->confEditMemTitle         = "blueMSX+ - 編輯對應器";
     ls->confEditMemGB            = "對應器細節 ";
     ls->confEditMemType          = "類型:";
     ls->confEditMemFile          = "檔案:";
@@ -656,15 +656,15 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->shortcutKey             = "快速鍵";
     ls->shortcutDescription     = "捷徑";
 
-    ls->shortcutSaveConfig      = "blueMSX - 儲存設定";
+    ls->shortcutSaveConfig      = "blueMSX+ - 儲存設定";
     ls->shortcutOverwriteConfig = "您確定要覆寫快速鍵設定嗎:";
     ls->shortcutCreateConfig    = "您確定要儲存新的快速鍵設定嗎:";
-    ls->shortcutExitConfig      = "blueMSX - 離開快速鍵編輯器";
+    ls->shortcutExitConfig      = "blueMSX+ - 離開快速鍵編輯器";
     ls->shortcutDiscardConfig   = "您確定要放棄目前的設定及變更嗎？";
-    ls->shortcutSaveConfigAs    = "blueMSX - 另存快速鍵設定為...";
+    ls->shortcutSaveConfigAs    = "blueMSX+ - 另存快速鍵設定為...";
     ls->shortcutConfigName      = "設定名稱:";
     ls->shortcutNewProfile      = "< 新的設定檔 >";
-    ls->shortcutConfigTitle     = "blueMSX - 快速鍵對應編輯器";
+    ls->shortcutConfigTitle     = "blueMSX+ - 快速鍵對應編輯器";
     ls->shortcutAssign          = "指派";
     ls->shortcutPressText       = "請按下快速鍵按鍵:";
     ls->shortcutScheme          = "對應配置:";
@@ -699,7 +699,7 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->shortcutScreenshotOrig  = "螢幕抓圖 (原始)";
     ls->shortcutScreenshotSmall = "未過濾的螢幕抓圖 (較小)";
     ls->shortcutScreenshotLarge = "未過濾的螢幕抓圖 (較大)";
-    ls->shortcutQuit            = "結束 blueMSX";
+    ls->shortcutQuit            = "結束 blueMSX+";
     ls->shortcutRunPause        = "執行/暫停模擬";
     ls->shortcutStop            = "停止模擬";
     ls->shortcutResetHard       = "硬體重置";

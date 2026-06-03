@@ -1973,8 +1973,8 @@ static void registerFileTypes() {
     registerFileType(".sc",  "blueMSXromSega",   "Sega ROM Image", 2);
     registerFileType(".col", "blueMSXromColeco", "ColecoVision ROM Image", 2);
     registerFileType(".cas", "blueMSXcas", "CAS Image", 3);
-    registerFileType(".sta", "blueMSXsta", "blueMSX State", 4);
-    registerFileType(".cap", "blueMSXcap", "blueMSX Video Capture", 4);
+    registerFileType(".sta", "blueMSXsta", "blueMSX+ State", 4);
+    registerFileType(".cap", "blueMSXcap", "blueMSX+ Video Capture", 4);
     registerApplicationOpenWith();
 }
 
@@ -1994,8 +1994,8 @@ static void unregisterFileTypes() {
     unregisterFileType(".sc",  "blueMSXromSega",   "Sega ROM Image", 2);
     unregisterFileType(".col", "blueMSXromColeco", "ColecoVision ROM Image", 2);
     unregisterFileType(".cas", "blueMSXcas", "CAS Image", 3);
-    unregisterFileType(".sta", "blueMSXsta", "blueMSX State", 4);
-    unregisterFileType(".cap", "blueMSXcap", "blueMSX Video Capture", 4);
+    unregisterFileType(".sta", "blueMSXsta", "blueMSX+ State", 4);
+    unregisterFileType(".cap", "blueMSXcap", "blueMSX+ Video Capture", 4);
     unregisterApplicationOpenWith();
 }
 
@@ -2466,7 +2466,7 @@ void themeSet(char* themeName, int forceMatch) {
         st.hBitmap = CreateCompatibleBitmap(st.hdc, 640, 480);
     }
     
-    if (strcmp(themeName,"Classic")) SetWindowTextU(st.hwnd, "  blueMSX");
+    if (strcmp(themeName,"Classic")) SetWindowTextU(st.hwnd, "  blueMSX+");
 
     if (st.rgnData != NULL) {
 //        SetWindowRgn(st.hwnd, NULL, TRUE);
@@ -3830,7 +3830,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
         MessageBoxU(NULL, langInfoColorDepth(), langInfoTitle(), MB_OK | MB_ICONINFORMATION);
     }
 
-    hwnd = FindWindow("blueMSX", "  blueMSX");
+    hwnd = FindWindow("blueMSX", "  blueMSX+");
     if (hwnd != NULL && *szLine) {
         char args[2048];
         char* cmdLine = args;
@@ -4083,7 +4083,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     /* Enable dark for process-wide themed controls before any dialog shows. */
     win32EnableDarkModeForApp();
 
-    st.hwnd = CreateWindow("blueMSX", "  blueMSX",
+    st.hwnd = CreateWindow("blueMSX", "  blueMSX+",
                             WS_OVERLAPPED | WS_CLIPCHILDREN | WS_BORDER | WS_DLGFRAME | 
                             WS_SYSMENU | WS_MINIMIZEBOX | (pProperties->video.maximizeIsFullscreen?WS_MAXIMIZEBOX:0), 
                             CW_USEDEFAULT, CW_USEDEFAULT, 800, 200, NULL, NULL, hInstance, NULL);

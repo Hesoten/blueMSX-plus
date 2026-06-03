@@ -89,7 +89,7 @@ public:
         menuHelpAbout               = "デバッガについて";
 
         debuggerName                = "デバッガ";
-        windowDebugger              = "blueMSX - デバッガ";
+        windowDebugger              = "blueMSX+ - デバッガ";
         windowDisassembly           = "逆アセンブル";
         windowDisassemblyUnavail    = "逆アセンブル: 利用不可";
         windowCpuRegisters          = "CPU レジスタ";

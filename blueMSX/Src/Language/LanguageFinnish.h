@@ -74,35 +74,35 @@ void langInitFinnish(LanguageStrings* ls)
     // Warning and Error lines
     //----------------------
 
-    ls->warningTitle            = "blueMSX - Varoitus";
+    ls->warningTitle            = "blueMSX+ - Varoitus";
     ls->warningDiscardChanges   = "Haluatko perua tekemäsi muutokset?";
     ls->warningOverwriteFile    = "Haluatko korvata tiedoston:";
     ls->warningStateOldFormat   = "Tämä on vanhamuotoinen tilatallennus. Ei välttämättä jatku oikein. Ladataanko silti?";
-    ls->errorTitle              = "blueMSX - Virhe";
+    ls->errorTitle              = "blueMSX+ - Virhe";
     ls->errorEnterFullscreen    = "Siirtyminen kokoruututilaan epäonnistui.  \n";
     ls->errorDirectXFailed      = "DirectX objektien luonti epäonnistui.      \nDirectX on korvattu GDI:llä.\nTarkista video asetukset.";
     ls->errorNoRomInZip         = "Zip paketista ei löytynyt .ROM tiedostoa.";
     ls->errorNoDskInZip         = "Zip paketista ei löytynyt .DSK tiedostoa.";
     ls->errorNoCasInZip         = "Zip paketista ei löytynyt .CAS tiedostoa.";
     ls->errorDirAsDskOverflow   = "%d tiedosto(a) (yhteensä %d KB) ei mahtunut 720 KB:n levykuvaan ja jäi väliin.";
-    ls->errorNoHelp             = "blueMSX:n ohjetiedostoa ei löytynyt.";
+    ls->errorNoHelp             = "blueMSX+:n ohjetiedostoa ei löytynyt.";
     ls->errorStartEmu           = "MSX emulaattorin käynnistys epäonnistui.";
     ls->errorMissingFiles       = "Seuraavia tallennustilan viittaamia tiedostoja ei voitu ladata:";
     ls->errorPortableReadonly   = "Kannettava laite tukee vain lukemista.";
-    ls->infoTitle               = "blueMSX-tiedot";
-    ls->infoGameReaderRedirect  = "blueMSX ei tue MSX Game Readeria suoraan (ASCII:n alkuperäinen XP-aikakauden ajuri ei enää toimi nykyaikaisessa Windowsissa).\n\nAvataanko sen sijaan MSX Game Reader - Web Dumper (tekijä Kunihiko Ohnaka) selaimessa?";
-    ls->infoColorDepth          = "blueMSX toimii parhaiten 16 tai 32 bitin värisyvyydellä.";
+    ls->infoTitle               = "blueMSX+-tiedot";
+    ls->infoGameReaderRedirect  = "blueMSX+ ei tue MSX Game Readeria suoraan (ASCII:n alkuperäinen XP-aikakauden ajuri ei enää toimi nykyaikaisessa Windowsissa).\n\nAvataanko sen sijaan MSX Game Reader - Web Dumper (tekijä Kunihiko Ohnaka) selaimessa?";
+    ls->infoColorDepth          = "blueMSX+ toimii parhaiten 16 tai 32 bitin värisyvyydellä.";
     ls->errorKeyboardThemeMissing = "Näppäimistön muokkaus -teemaa ei löydy.";
     ls->errorMixerThemeMissing    = "Mikserin teemaa ei löydy.";
-    ls->errorRecorderTitle      = "blueMSX - Tallennin";
+    ls->errorRecorderTitle      = "blueMSX+ - Tallennin";
     ls->errorRecorderSaveReplay = "Uusintatiedoston tallennus epäonnistui:\n  %s\n\nTarkista, että kohdehakemisto on olemassa ja kirjoitettavissa.";
     ls->errorRecorderReplayMissing = "Uusintatiedostoa ei löydy:\n  %s\n\nTallenna uusinta ensin tai valitse aiempi .cap-tiedosto Lataa-toiminnolla.";
     ls->errorRecorderRequiresDX12   = "Vaihda videoajuriksi Direct3D 12 ja aloita tallennus?";
-    ls->errorRecorderRequiresDX12Title = "blueMSX - Videoajurin vaihto";
+    ls->errorRecorderRequiresDX12Title = "blueMSX+ - Videoajurin vaihto";
     ls->infoRecorderComplete    = "Videotiedosto tallennettu:\n  %s";
     ls->infoToastSaved          = "Tallennettu: %s";
     ls->infoToastAlreadyRecording   = "Tallennus jo käynnissä";
-    ls->dlgRecorderPickTitle        = "blueMSX - Tee uusinnasta video";
+    ls->dlgRecorderPickTitle        = "blueMSX+ - Tee uusinnasta video";
     ls->dlgRecorderPickSourceCap    = "Renderöitävä uusintatiedosto (.cap):";
     ls->dlgRecorderPickOutputMp4    = "Tulosvideotiedosto (.mp4):";
     ls->menuFileRecordVideo         = "Tallenna video";
@@ -225,7 +225,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->menuEthInterface        = "Verkkokortti"; 
 
     ls->menuHelpHelp            = "Ohjeen aiheet";
-    ls->menuHelpAbout           = "Tietoja blueMSX:stä";
+    ls->menuHelpAbout           = "Tietoja blueMSX+:stä";
 
     ls->menuFileCart            = "Moduliportti";
     ls->menuFileDisk            = "Levyasema";
@@ -282,10 +282,10 @@ void langInitFinnish(LanguageStrings* ls)
     ls->dlgRun                  = "Käynnistä";
     ls->dlgClose                = "Sulje";
 
-    ls->dlgLoadRom              = "blueMSX - Lataa rom tiedosto";
-    ls->dlgLoadDsk              = "blueMSX - Lataa dsk tiedosto";
-    ls->dlgLoadCas              = "blueMSX - Lataa cas tiedosto";
-    ls->dlgLoadRomDskCas        = "blueMSX - Valitse ladattava rom, dsk tai cas tiedosto";
+    ls->dlgLoadRom              = "blueMSX+ - Lataa rom tiedosto";
+    ls->dlgLoadDsk              = "blueMSX+ - Lataa dsk tiedosto";
+    ls->dlgLoadCas              = "blueMSX+ - Lataa cas tiedosto";
+    ls->dlgLoadRomDskCas        = "blueMSX+ - Valitse ladattava rom, dsk tai cas tiedosto";
     ls->dlgLoadRomDesc          = "Valitse ladattava ROM-tiedosto:";
     ls->dlgLoadDskDesc          = "Valitse ladattava levytiedosto:";
     ls->dlgLoadCasDesc          = "Valitse ladattava kasettitiedosto:";
@@ -293,7 +293,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->dlgLoadState            = "Lataa tila";
     ls->dlgLoadVideoCapture     = "Lataa videokaappaus";      
     ls->dlgSaveState            = "Tallenna tila nimellä";
-    ls->dlgSaveCassette         = "blueMSX - Tallenna kasetti";
+    ls->dlgSaveCassette         = "blueMSX+ - Tallenna kasetti";
     ls->dlgSaveVideoClipAs      = "Tallenna videokaappaus nimellä";      
     ls->dlgSaveCaptureAudio     = "Tallenna äänitallennus nimellä";
     ls->dlgSaveCaptureVideo     = "Tallenna videotallennus nimellä";
@@ -309,7 +309,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->dlgRomType              = "ROM-malli:";
     ls->dlgDiskSize             = "Levyn koko:";             
 
-    ls->dlgTapeTitle            = "blueMSX - Kasetin kohta";
+    ls->dlgTapeTitle            = "blueMSX+ - Kasetin kohta";
     ls->dlgTapeFrameText        = "Kasetin kohta";
     ls->dlgTapeCurrentPos       = "Tämänhetkinen kohta";
     ls->dlgTapeTotalTime        = "Kokonaispituus";
@@ -320,10 +320,10 @@ void langInitFinnish(LanguageStrings* ls)
     ls->dlgTabFilename          = "Tiedostonimi";
     ls->dlgZipReset             = "Uudelleenkäynnistys asettamisen jälkeen";
 
-    ls->dlgAboutTitle           = "Tietoja blueMSX:stä";
+    ls->dlgAboutTitle           = "Tietoja blueMSX+:stä";
 
     ls->dlgLangLangText         = "Valitse käytettävä kieli";
-    ls->dlgLangLangTitle        = "blueMSX - Kielivalinta";
+    ls->dlgLangLangTitle        = "blueMSX+ - Kielivalinta";
 
     ls->dlgAboutAbout           = "TIEDOT\r\n====";
     ls->dlgAboutVersion         = "Versio:";
@@ -342,14 +342,14 @@ void langInitFinnish(LanguageStrings* ls)
     ls->dlgSavePreview          = "Näytä esikatselu";
     ls->dlgSaveDate             = "Tallennettu:";
 
-    ls->dlgRenderVideoCapture   = "blueMSX - Videokaappauksen koostaminen...";  
+    ls->dlgRenderVideoCapture   = "blueMSX+ - Videokaappauksen koostaminen...";  
 
 
     //----------------------
     // Properties related lines
     //----------------------
 
-    ls->propTitle               = "blueMSX - Ominaisuudet";
+    ls->propTitle               = "blueMSX+ - Ominaisuudet";
     ls->propEmulation           = "Emulaatio";
     ls->propD3D                 = "Direct3D";
     ls->propVideo               = "Video";
@@ -467,7 +467,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->propFileTypes           = " Rekisteröi .rom/.dsk/.cas/.sta \"Avaa sovelluksessa\" -valikkoon";
     ls->propOpenDefaultApps     = "Avaa Windowsin oletussovellusten asetukset";
     ls->propWindowsEnvGB        = "Windows Ympäristö ";
-    ls->propSetScreenSaver      = " Pidä näyttö päällä blueMSX käynnissä (ei näytön sammutusta/lepotilaa/säästäjää)";
+    ls->propSetScreenSaver      = " Pidä näyttö päällä blueMSX+ käynnissä (ei näytön sammutusta/lepotilaa/säästäjää)";
     ls->propPriorityBoost       = " Käytä Windowsin peliajastinta (MMCSS) emulointiin";
     ls->propScreenshotPng       = " Tallenna kuvaruutukaappaukset PNG-muodossa";
     ls->propEjectMediaOnExit    = " Poista mediat kun ohjelma suljetaan";        // New in 2.8
@@ -590,7 +590,7 @@ void langInitFinnish(LanguageStrings* ls)
     // Configuration related lines
     //----------------------
 
-    ls->confTitle               = "blueMSX - Tietokonemuokkain";
+    ls->confTitle               = "blueMSX+ - Tietokonemuokkain";
     ls->confConfigText          = "Tietokoneprofiili:";
     ls->confSlotLayout          = "Slottijärjestys";
     ls->confMemory              = "Muisti";
@@ -598,12 +598,12 @@ void langInitFinnish(LanguageStrings* ls)
     ls->confChipExtras          = "Muuta";
 
     ls->confOpenRom             = "Valitse ROM tiedosto";
-    ls->confSaveTitle           = "blueMSX - Tallenna tietokoneprofiili";
+    ls->confSaveTitle           = "blueMSX+ - Tallenna tietokoneprofiili";
     ls->confSaveText            = "Haluatko korvata tietokoneprofiilin:";
     ls->confSaveAsTitle         = "Tallenna tietokoneprofiili nimellä...";
     ls->confSaveAsMachineName   = "Tietokoneprofiili:";
-    ls->confDiscardTitle        = "blueMSX - Tietokonemuokkain";
-    ls->confExitSaveTitle       = "blueMSX - Poistu tietokonemuokkaimesta";
+    ls->confDiscardTitle        = "blueMSX+ - Tietokonemuokkain";
+    ls->confExitSaveTitle       = "blueMSX+ - Poistu tietokonemuokkaimesta";
     ls->confExitSaveText        = "Haluatko hylätä tekemäsi muutokset nykyiseen tietokoneprofiiliin?";
 
     ls->confSlotLayoutGB        = "Slotti jako ";
@@ -641,7 +641,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->confFdcGB                = "Levyasemaohjain ";
     ls->confCFdcNumDrivesText    = "Levyasemien lukumäärä:";
 
-    ls->confEditMemTitle         = "blueMSX - Muistin hallinta";
+    ls->confEditMemTitle         = "blueMSX+ - Muistin hallinta";
     ls->confEditMemGB            = "Muistin tiedot ";
     ls->confEditMemType          = "Tyyppi:";
     ls->confEditMemFile          = "Tiedosto:";
@@ -657,15 +657,15 @@ void langInitFinnish(LanguageStrings* ls)
     ls->shortcutKey             = "Tapahtuma";
     ls->shortcutDescription     = "Pikanäppäin";
 
-    ls->shortcutSaveConfig      = "blueMSX - Tallenna Asetukset";
+    ls->shortcutSaveConfig      = "blueMSX+ - Tallenna Asetukset";
     ls->shortcutOverwriteConfig = "Haluatko korvata pikanäppäinasetukset:";
     ls->shortcutCreateConfig    = "Haluatko tallentaa uudet pikanäppäinasetukset:";
-    ls->shortcutExitConfig      = "blueMSX - Poistu pikanäppäinasetuksista";
+    ls->shortcutExitConfig      = "blueMSX+ - Poistu pikanäppäinasetuksista";
     ls->shortcutDiscardConfig   = "Haluatko hylätä tekemäsi muutokset pikanäppäinasetuksiin?";
-    ls->shortcutSaveConfigAs    = "blueMSX - Tallenna pikanäppäinasetukset";
+    ls->shortcutSaveConfigAs    = "blueMSX+ - Tallenna pikanäppäinasetukset";
     ls->shortcutConfigName      = "Asetusten nimi:";
     ls->shortcutNewProfile      = "< Uusi profiili >";
-    ls->shortcutConfigTitle     = "blueMSX - Pikanäppäinasetukset";
+    ls->shortcutConfigTitle     = "blueMSX+ - Pikanäppäinasetukset";
     ls->shortcutAssign          = "Käytä";
     ls->shortcutPressText       = "Pikanäppäin (paina):";
     ls->shortcutScheme          = "Pikanäppäin profiili:";
@@ -700,7 +700,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->shortcutScreenshotOrig  = "Ota ruudunkaappaus";
     ls->shortcutScreenshotSmall = "Pieni filtteröimätön ruudunkaappaus";
     ls->shortcutScreenshotLarge = "Suuri filtteröimätön ruudunkaappaus";
-    ls->shortcutQuit            = "Poistu blueMSX:stä";
+    ls->shortcutQuit            = "Poistu blueMSX+:stä";
     ls->shortcutRunPause        = "Käynnistä/Keskeytä emulaatio";
     ls->shortcutStop            = "Pysäytä emulaatio";
     ls->shortcutResetHard       = "Kylmäkäynnistys";
@@ -749,7 +749,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->shortcutShowDebugger    = "Näytä Debugger";
     ls->shortcutShowTrainer     = "Näytä Trainer";
     ls->shortcutShowHelp        = "Näytä ohjeet";
-    ls->shortcutShowAbout       = "Näytä Tietoja blueMSX:stä";
+    ls->shortcutShowAbout       = "Näytä Tietoja blueMSX+:stä";
     ls->shortcutShowFiles       = "Näytä tiedosto asetukset";
     ls->shortcutToggleSpriteEnable = "Näytä/Piilota Spritet";
     ls->shortcutToggleFdcTiming = "Vaihda FDD-käytön kiihdytys";

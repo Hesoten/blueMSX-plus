@@ -468,7 +468,7 @@ void themeClassicTitlebarUpdate(HWND wnd)
 	GetWindowTextU(wnd, title_old, 1024);
 	if (!strlen(pProperties->emulation.machineName)) return;
 	
-	sprintf(title,"  blueMSX - %s",pProperties->emulation.machineName);
+	sprintf(title,"  blueMSX+ - %s",pProperties->emulation.machineName);
 	if (createSaveFileBaseName(baseName, pProperties, 0)) {
 		strcat(title," - ");
 		strcat(title,baseName);

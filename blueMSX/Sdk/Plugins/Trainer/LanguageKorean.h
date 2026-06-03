@@ -35,7 +35,7 @@ class LanguageKorean : public LanguageEnglish
 public:
     LanguageKorean() {
         trainerName             = "트레이너";
-        trainerCaption          = "blueMSX - 트레이너";
+        trainerCaption          = "blueMSX+ - 트레이너";
         saveCheatCaption        = "치트 저장하기";
         loadCheatCaption        = "치트 읽어오기";
         pause                   = "일시정지";

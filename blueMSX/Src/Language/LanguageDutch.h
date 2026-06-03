@@ -72,35 +72,35 @@ void langInitDutch(LanguageStrings* ls)
     // Warning and Error lines
     //----------------------
 
-    ls->warningTitle            = "blueMSX - Waarschuwing";
+    ls->warningTitle            = "blueMSX+ - Waarschuwing";
     ls->warningDiscardChanges   = "Wilt u de wijzigingen ongedaan maken?";
     ls->warningOverwriteFile    = "Wilt u het volgende bestand overschrijven?";
     ls->warningStateOldFormat   = "Dit is een state save in oud formaat. Hervatten kan mislukken. Toch laden?";
-    ls->errorTitle              = "blueMSX - Foutmelding";
+    ls->errorTitle              = "blueMSX+ - Foutmelding";
     ls->errorEnterFullscreen    = "Het is niet gelukt om over te schakelen naar de volledige schermmodus.          \n";
     ls->errorDirectXFailed      = "Het is niet gelukt om DirectX te initialiseren. \nDe GDI wordt nu gebruikt.\nKijk de videoinstellingen na...";
     ls->errorNoRomInZip         = "Er zijn geen .ROM-bestanden gevonden in het ZIP-bestand.";
     ls->errorNoDskInZip         = "Er zijn geen .DSK-bestanden gevonden in het ZIP-bestand.";
     ls->errorNoCasInZip         = "Er zijn geen .CAS-bestanden gevonden in het ZIP-bestand.";
     ls->errorDirAsDskOverflow   = "%d bestand(en) (%d KB totaal) pasten niet op de 720 KB-schijfkopie en zijn overgeslagen.";
-    ls->errorNoHelp             = "Het blueMSX helpbestand is niet gevonden.";
+    ls->errorNoHelp             = "Het blueMSX+ helpbestand is niet gevonden.";
     ls->errorStartEmu           = "Het is niet gelukt om de MSX emulator te starten.";
     ls->errorMissingFiles       = "De volgende bestanden waarnaar de opgeslagen status verwijst, konden niet geladen worden:";
     ls->errorPortableReadonly   = "Het draagbare apparaat is Alleen-Lezen";
-    ls->infoTitle               = "blueMSX Info";
-    ls->infoGameReaderRedirect  = "blueMSX ondersteunt de MSX Game Reader niet direct (de originele XP-driver van ASCII werkt niet meer op moderne Windows).\n\nWilt u in plaats daarvan de MSX Game Reader - Web Dumper (van Kunihiko Ohnaka) in uw browser openen?";
-    ls->infoColorDepth          = "blueMSX werkt het best met 16 of 32 bits kleurdiepte.";
+    ls->infoTitle               = "blueMSX+ Info";
+    ls->infoGameReaderRedirect  = "blueMSX+ ondersteunt de MSX Game Reader niet direct (de originele XP-driver van ASCII werkt niet meer op moderne Windows).\n\nWilt u in plaats daarvan de MSX Game Reader - Web Dumper (van Kunihiko Ohnaka) in uw browser openen?";
+    ls->infoColorDepth          = "blueMSX+ werkt het best met 16 of 32 bits kleurdiepte.";
     ls->errorKeyboardThemeMissing = "Kon het thema van de Toetsenbord-editor niet vinden.";
     ls->errorMixerThemeMissing    = "Kon het thema van de Mixer niet vinden.";
-    ls->errorRecorderTitle      = "blueMSX - Recorder";
+    ls->errorRecorderTitle      = "blueMSX+ - Recorder";
     ls->errorRecorderSaveReplay = "Replaybestand kon niet worden opgeslagen:\n  %s\n\nControleer of de doelmap bestaat en beschrijfbaar is.";
     ls->errorRecorderReplayMissing = "Replaybestand niet gevonden:\n  %s\n\nNeem eerst een replay op, of gebruik Laden om een bestaand .cap-bestand te kiezen.";
     ls->errorRecorderRequiresDX12   = "Schakel het videostuurprogramma over naar Direct3D 12 en start opname?";
-    ls->errorRecorderRequiresDX12Title = "blueMSX - Videostuurprogramma wijzigen";
+    ls->errorRecorderRequiresDX12Title = "blueMSX+ - Videostuurprogramma wijzigen";
     ls->infoRecorderComplete    = "Videobestand opgeslagen:\n  %s";
     ls->infoToastSaved          = "Opgeslagen: %s";
     ls->infoToastAlreadyRecording   = "Opname al actief";
-    ls->dlgRecorderPickTitle        = "blueMSX - Replay naar video renderen";
+    ls->dlgRecorderPickTitle        = "blueMSX+ - Replay naar video renderen";
     ls->dlgRecorderPickSourceCap    = "Replaybestand om te renderen (.cap):";
     ls->dlgRecorderPickOutputMp4    = "Uitvoer-videobestand (.mp4):";
     ls->menuFileRecordVideo         = "Video opnemen";
@@ -223,7 +223,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->menuEthInterface        = "Ethernet koppeling";
 
     ls->menuHelpHelp            = "Help";
-    ls->menuHelpAbout           = "Over blueMSX";
+    ls->menuHelpAbout           = "Over blueMSX+";
 
     ls->menuFileCart            = "Cartridgeslot";
     ls->menuFileDisk            = "Diskettestation";
@@ -281,10 +281,10 @@ void langInitDutch(LanguageStrings* ls)
     ls->dlgRun                  = "Start";
     ls->dlgClose                = "Afsluiten";
 
-    ls->dlgLoadRom              = "blueMSX - Selecteer een ROM om te laden";
-    ls->dlgLoadDsk              = "blueMSX - Selecteer een DSK om te laden";
-    ls->dlgLoadCas              = "blueMSX - Selecteer een CAS om te laden";
-    ls->dlgLoadRomDskCas        = "blueMSX - Selecteer een ROM, DSK, of CAS-bestand om te laden";
+    ls->dlgLoadRom              = "blueMSX+ - Selecteer een ROM om te laden";
+    ls->dlgLoadDsk              = "blueMSX+ - Selecteer een DSK om te laden";
+    ls->dlgLoadCas              = "blueMSX+ - Selecteer een CAS om te laden";
+    ls->dlgLoadRomDskCas        = "blueMSX+ - Selecteer een ROM, DSK, of CAS-bestand om te laden";
     ls->dlgLoadRomDesc          = "Selecteer een ROM om te laden:";
     ls->dlgLoadDskDesc          = "Selecteer een diskette om te laden:";
     ls->dlgLoadCasDesc          = "Selecteer een cassette om te laden:";
@@ -292,7 +292,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->dlgLoadState            = "Laad CPU-status";
     ls->dlgLoadVideoCapture     = "Laad Video-opname";
     ls->dlgSaveState            = "Opslaan CPU-status";
-    ls->dlgSaveCassette         = "blueMSX - Opslaan Cassettebestand";
+    ls->dlgSaveCassette         = "blueMSX+ - Opslaan Cassettebestand";
     ls->dlgSaveVideoClipAs      = "Videoclip opslaan als...";
     ls->dlgSaveCaptureAudio     = "Audio-opname opslaan als";
     ls->dlgSaveCaptureVideo     = "Video-opname opslaan als";
@@ -308,7 +308,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->dlgRomType              = "ROM Type:";
     ls->dlgDiskSize             = "Diskomvang:";
 
-    ls->dlgTapeTitle            = "blueMSX - Cassettepositie";
+    ls->dlgTapeTitle            = "blueMSX+ - Cassettepositie";
     ls->dlgTapeFrameText        = "Cassettepositie";
     ls->dlgTapeCurrentPos       = "Huidige positie";
     ls->dlgTapeTotalTime        = "Totale tijd";
@@ -319,10 +319,10 @@ void langInitDutch(LanguageStrings* ls)
     ls->dlgTabFilename          = "Bestandsnaam";
     ls->dlgZipReset             = "Herstart na invoeren";
 
-    ls->dlgAboutTitle           = "Over blueMSX";
+    ls->dlgAboutTitle           = "Over blueMSX+";
 
-    ls->dlgLangLangText         = "Kies de taal die blueMSX moet gebruiken";
-    ls->dlgLangLangTitle        = "blueMSX - Taal";
+    ls->dlgLangLangText         = "Kies de taal die blueMSX+ moet gebruiken";
+    ls->dlgLangLangTitle        = "blueMSX+ - Taal";
 
     ls->dlgAboutAbout           = "Info\r\n===";
     ls->dlgAboutVersion         = "Versie:";
@@ -341,14 +341,14 @@ void langInitDutch(LanguageStrings* ls)
     ls->dlgSavePreview          = "Voorbeeld weergeven";
     ls->dlgSaveDate             = "Opgeslagen op:";
 
-    ls->dlgRenderVideoCapture   = "blueMSX - Videoclip wordt gemaakt...";
+    ls->dlgRenderVideoCapture   = "blueMSX+ - Videoclip wordt gemaakt...";
 
 
     //----------------------
     // Properties related lines
     //----------------------
 
-    ls->propTitle               = "blueMSX - Eigenschappen";
+    ls->propTitle               = "blueMSX+ - Eigenschappen";
     ls->propEmulation           = "Emulatie";
     ls->propD3D                 = "Direct3D";
     ls->propVideo               = "Beeld";
@@ -466,7 +466,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->propFileTypes            = " .rom/.dsk/.cas/.sta registreren in \"Openen met\"";
     ls->propOpenDefaultApps      = "Windows-standaardapps openen";
     ls->propWindowsEnvGB         = "Windows Omgeving ";
-    ls->propSetScreenSaver       = " Scherm aan houden terwijl blueMSX draait (geen scherm-uit/slaap/beveiliger)";
+    ls->propSetScreenSaver       = " Scherm aan houden terwijl blueMSX+ draait (geen scherm-uit/slaap/beveiliger)";
     ls->propPriorityBoost       = " Windows game-scheduler (MMCSS) gebruiken voor emulatie";
     ls->propScreenshotPng       = " Gebruik PNG formaat in plaats van BMP bij schermafdrukken";
     ls->propEjectMediaOnExit    = " Werp alle media uit bij afsluiten";
@@ -589,7 +589,7 @@ void langInitDutch(LanguageStrings* ls)
     // Configuration related lines
     //----------------------
 
-    ls->confTitle               = "blueMSX - Machineconfiguratie aanpassen";
+    ls->confTitle               = "blueMSX+ - Machineconfiguratie aanpassen";
     ls->confConfigText          = "Configuratie:";
     ls->confSlotLayout          = "Slotinstellingen";
     ls->confMemory              = "Geheugen";
@@ -597,12 +597,12 @@ void langInitDutch(LanguageStrings* ls)
     ls->confChipExtras          = "Extra's";
 
     ls->confOpenRom             = "Open ROM bestand";
-    ls->confSaveTitle           = "blueMSX - Machineconfiguratie opslaan";
+    ls->confSaveTitle           = "blueMSX+ - Machineconfiguratie opslaan";
     ls->confSaveText            = "Deze machine configuratie vervangen? :";
     ls->confSaveAsTitle         = "Configuratie opslaan als...";
     ls->confSaveAsMachineName   = "Configuratienaam:";
-    ls->confDiscardTitle        = "blueMSX - Configuratie";
-    ls->confExitSaveTitle       = "blueMSX - Machineconfiguratie afsluiten";
+    ls->confDiscardTitle        = "blueMSX+ - Configuratie";
+    ls->confExitSaveTitle       = "blueMSX+ - Machineconfiguratie afsluiten";
     ls->confExitSaveText        = "De gemaakte wijzigingen in de huidige configuratie worden niet opgeslagen. Wilt u doorgaan?";
 
     ls->confSlotLayoutGB        = "Slotinstellingen ";
@@ -640,7 +640,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->confFdcGB               = "Diskettecontroller ";
     ls->confCFdcNumDrivesText   = "Aantal stations:";
 
-    ls->confEditMemTitle        = "blueMSX - Aanpassen Mapper";
+    ls->confEditMemTitle        = "blueMSX+ - Aanpassen Mapper";
     ls->confEditMemGB           = "Mapperdetails ";
     ls->confEditMemType         = "Type:";
     ls->confEditMemFile         = "Bestand:";
@@ -656,15 +656,15 @@ void langInitDutch(LanguageStrings* ls)
     ls->shortcutKey             = "Sneltoets";
     ls->shortcutDescription     = "Snelkoppeling";
 
-    ls->shortcutSaveConfig      = "blueMSX - Configuratie opslaan";
+    ls->shortcutSaveConfig      = "blueMSX+ - Configuratie opslaan";
     ls->shortcutOverwriteConfig = "Huidige configuratie overschrijven?:";
     ls->shortcutCreateConfig    = "Nieuwe configuratie opslaan?:";
-    ls->shortcutExitConfig      = "blueMSX - Snelkoppelingconfiguratie afsluiten";
+    ls->shortcutExitConfig      = "blueMSX+ - Snelkoppelingconfiguratie afsluiten";
     ls->shortcutDiscardConfig   = "Weet u zeker dat u de gemaakte wijzigingen in de huidige configuratie niet wilt toepassen?";
-    ls->shortcutSaveConfigAs    = "blueMSX - Configuratie opslaan als...";
+    ls->shortcutSaveConfigAs    = "blueMSX+ - Configuratie opslaan als...";
     ls->shortcutConfigName      = "Snelkoppelingsnaam:";
     ls->shortcutNewProfile      = "< Nieuw Profiel >";
-    ls->shortcutConfigTitle     = "blueMSX - Snelkoppelingconfiguratie";
+    ls->shortcutConfigTitle     = "blueMSX+ - Snelkoppelingconfiguratie";
     ls->shortcutAssign          = "Toewijzen";
     ls->shortcutPressText       = "Snelkoppelingstoets(en):";
     ls->shortcutScheme          = "Schema:";
@@ -699,7 +699,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->shortcutScreenshotOrig  = "Opslaan schermafdruk";
     ls->shortcutScreenshotSmall = "Opslaan klein ongefilterde schermafdruk";
     ls->shortcutScreenshotLarge = "Opslaan groot ongefilterde schermafdruk";
-    ls->shortcutQuit            = "Afsluiten blueMSX";
+    ls->shortcutQuit            = "Afsluiten blueMSX+";
     ls->shortcutRunPause        = "Starten/Pauseren emulatie";
     ls->shortcutStop            = "Stoppen emulatie";
     ls->shortcutResetHard       = "Harde Herstart";
@@ -748,7 +748,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->shortcutShowDebugger    = "Debugger weergeven";
     ls->shortcutShowTrainer     = "Trainer weergeven";
     ls->shortcutShowHelp        = "Help weergeven";
-    ls->shortcutShowAbout       = "Toon 'Over blueMSX' venster";
+    ls->shortcutShowAbout       = "Toon 'Over blueMSX+' venster";
     ls->shortcutShowFiles       = "Toon Bestandseigenschappen";
     ls->shortcutToggleSpriteEnable = "Tonen/Verbergen sprites";
     ls->shortcutToggleFdcTiming = "FDD-toegangversnelling in/uit";

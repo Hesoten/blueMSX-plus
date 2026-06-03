@@ -72,35 +72,35 @@ void langInitCatalan(LanguageStrings* ls)
     // Warning and Error lines
     //----------------------
 
-    ls->warningTitle            = "blueMSX - Avís";
+    ls->warningTitle            = "blueMSX+ - Avís";
     ls->warningDiscardChanges   = "Voleu descartar els canvis?";
     ls->warningOverwriteFile    = "Voleu sobreescriure el fitxer?:";
     ls->warningStateOldFormat   = "Aquest és un estat desat en format antic. Pot no reprendre correctament. Voleu carregar-lo igualment?";
-    ls->errorTitle              = "blueMSX - Error";
+    ls->errorTitle              = "blueMSX+ - Error";
     ls->errorEnterFullscreen    = "No s'ha pogut entrar en el mode pantalla completa.           \n";
     ls->errorDirectXFailed      = "No s'ha pogut crear els objectes DirectX.           \nFent servir GDI.\nComprobeu les propietat del vídeo.";
     ls->errorNoRomInZip         = "No s'ha pogut trobar un fitxer .rom dins de l'arxiu zip.";
     ls->errorNoDskInZip         = "No s'ha pogut trobar un fitxer .dsk dins de l'arxiu zip.";
     ls->errorNoCasInZip         = "No s'ha pogut trobar un fitxer .cas dins de l'arxiu zip.";
     ls->errorDirAsDskOverflow   = "%d fitxer(s) (%d KB en total) no caben a la imatge de disc de 720 KB i s'han ignorat.";
-    ls->errorNoHelp             = "No s'ha pogut trobar el fitxer d'ajuda de blueMSX.";
+    ls->errorNoHelp             = "No s'ha pogut trobar el fitxer d'ajuda de blueMSX+.";
     ls->errorStartEmu           = "No s'ha pogut iniciar l'emulador MSX.";
     ls->errorMissingFiles       = "No s'han pogut carregar els següents fitxers referenciats per l'estat desat:";
     ls->errorPortableReadonly   = "El dispositiu portàtil és de només lectura";
-    ls->infoTitle               = "blueMSX Informació";
-    ls->infoGameReaderRedirect  = "blueMSX no admet directament el MSX Game Reader (el controlador original d'ASCII de l'era XP ja no funciona a Windows modern).\n\nVoleu obrir el MSX Game Reader - Web Dumper (per Kunihiko Ohnaka) al vostre navegador?";
-    ls->infoColorDepth          = "blueMSX funciona millor amb 16 o 32 bits de profunditat de color.";
+    ls->infoTitle               = "blueMSX+ Informació";
+    ls->infoGameReaderRedirect  = "blueMSX+ no admet directament el MSX Game Reader (el controlador original d'ASCII de l'era XP ja no funciona a Windows modern).\n\nVoleu obrir el MSX Game Reader - Web Dumper (per Kunihiko Ohnaka) al vostre navegador?";
+    ls->infoColorDepth          = "blueMSX+ funciona millor amb 16 o 32 bits de profunditat de color.";
     ls->errorKeyboardThemeMissing = "No s'ha pogut trobar el tema de l'editor de teclat.";
     ls->errorMixerThemeMissing    = "No s'ha pogut trobar el tema del mesclador.";
-    ls->errorRecorderTitle      = "blueMSX - Enregistrador";
+    ls->errorRecorderTitle      = "blueMSX+ - Enregistrador";
     ls->errorRecorderSaveReplay = "No s'ha pogut desar el fitxer de repetició:\n  %s\n\nComproveu que la carpeta de destinació existeix i és modificable.";
     ls->errorRecorderReplayMissing = "No s'ha trobat el fitxer de repetició:\n  %s\n\nEnregistreu una repetició abans, o utilitzeu Carrega per seleccionar un .cap existent.";
     ls->errorRecorderRequiresDX12   = "Voleu canviar el controlador de vídeo a Direct3D 12 i començar la gravació?";
-    ls->errorRecorderRequiresDX12Title = "blueMSX - Canvi de controlador de vídeo";
+    ls->errorRecorderRequiresDX12Title = "blueMSX+ - Canvi de controlador de vídeo";
     ls->infoRecorderComplete    = "Fitxer de vídeo desat:\n  %s";
     ls->infoToastSaved          = "Desat: %s";
     ls->infoToastAlreadyRecording   = "Ja s'està gravant";
-    ls->dlgRecorderPickTitle        = "blueMSX - Renderitza la repetició a vídeo";
+    ls->dlgRecorderPickTitle        = "blueMSX+ - Renderitza la repetició a vídeo";
     ls->dlgRecorderPickSourceCap    = "Fitxer de repetició a renderitzar (.cap):";
     ls->dlgRecorderPickOutputMp4    = "Fitxer de vídeo de sortida (.mp4):";
     ls->menuFileRecordVideo         = "Grava vídeo";
@@ -223,7 +223,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->menuEthInterface        = "Interfície Ethernet"; 
 
     ls->menuHelpHelp            = "Temes d'ajuda";
-    ls->menuHelpAbout           = "Al voltant de blueMSX";
+    ls->menuHelpAbout           = "Al voltant de blueMSX+";
 
     ls->menuFileCart            = "Ranura de cartutx";
     ls->menuFileDisk            = "Unitat de disc";
@@ -281,10 +281,10 @@ void langInitCatalan(LanguageStrings* ls)
     ls->dlgRun                  = "Executa";
     ls->dlgClose                = "Tanca";
 
-    ls->dlgLoadRom              = "blueMSX - Selecciona i carrega una imatge rom";
-    ls->dlgLoadDsk              = "blueMSX - Selecciona i carrega una imatge dsk";
-    ls->dlgLoadCas              = "blueMSX - Selecciona i carrega una imatge cas";
-    ls->dlgLoadRomDskCas        = "blueMSX - Selecciona i carrega una imatge rom, dsk, o cas";
+    ls->dlgLoadRom              = "blueMSX+ - Selecciona i carrega una imatge rom";
+    ls->dlgLoadDsk              = "blueMSX+ - Selecciona i carrega una imatge dsk";
+    ls->dlgLoadCas              = "blueMSX+ - Selecciona i carrega una imatge cas";
+    ls->dlgLoadRomDskCas        = "blueMSX+ - Selecciona i carrega una imatge rom, dsk, o cas";
     ls->dlgLoadRomDesc          = "Tria i carrega una imatge rom:";
     ls->dlgLoadDskDesc          = "Tria i carrega una imatge de disc:";
     ls->dlgLoadCasDesc          = "Tria i carrega una imatge de cinta:";
@@ -292,7 +292,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->dlgLoadState            = "Carrega l'estat";
     ls->dlgLoadVideoCapture     = "Load video capture";      
     ls->dlgSaveState            = "Anomena i desa l'estat...";
-    ls->dlgSaveCassette         = "blueMSX - Desa la imatge de cinta";
+    ls->dlgSaveCassette         = "blueMSX+ - Desa la imatge de cinta";
     ls->dlgSaveVideoClipAs      = "Desa i anomena el videoclip...";      
     ls->dlgSaveCaptureAudio     = "Anomena i desa la gravació d'àudio";
     ls->dlgSaveCaptureVideo     = "Anomena i desa la gravació de vídeo";
@@ -308,7 +308,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->dlgRomType              = "Tipus de Rom:";
     ls->dlgDiskSize             = "Mida del disc:";             
 
-    ls->dlgTapeTitle            = "blueMSX - Posició de la cinta";
+    ls->dlgTapeTitle            = "blueMSX+ - Posició de la cinta";
     ls->dlgTapeFrameText        = "Posició de la cinta";
     ls->dlgTapeCurrentPos       = "Posció actual";
     ls->dlgTapeTotalTime        = "Temps total";
@@ -319,10 +319,10 @@ void langInitCatalan(LanguageStrings* ls)
     ls->dlgTabFilename          = "Nom del fitxer:";
     ls->dlgZipReset             = "Reinicia després de la inserció";
 
-    ls->dlgAboutTitle           = "blueMSX - Al voltant de";
+    ls->dlgAboutTitle           = "blueMSX+ - Al voltant de";
 
-    ls->dlgLangLangText         = "Trieu el idioma que blueMSX emprarà";
-    ls->dlgLangLangTitle        = "blueMSX - Idioma";
+    ls->dlgLangLangText         = "Trieu el idioma que blueMSX+ emprarà";
+    ls->dlgLangLangTitle        = "blueMSX+ - Idioma";
 
     ls->dlgAboutAbout           = "AL VOLTANT DE\r\n====";
     ls->dlgAboutVersion         = "Versió:";
@@ -341,14 +341,14 @@ void langInitCatalan(LanguageStrings* ls)
     ls->dlgSavePreview          = "Mostra previsualització";
     ls->dlgSaveDate             = "Temps desat:";
 
-    ls->dlgRenderVideoCapture   = "blueMSX - Rendering Video Capture...";  
+    ls->dlgRenderVideoCapture   = "blueMSX+ - Rendering Video Capture...";  
 
 
     //----------------------
     // Properties related lines
     //----------------------
 
-    ls->propTitle               = "blueMSX - Propietats";
+    ls->propTitle               = "blueMSX+ - Propietats";
     ls->propEmulation           = "Emulació";
     ls->propD3D                 = "Direct3D";
     ls->propVideo               = "Vídeo";
@@ -466,10 +466,10 @@ void langInitCatalan(LanguageStrings* ls)
     ls->propFileTypes           = " Registra .rom/.dsk/.cas/.sta al menú \"Obri amb\"";
     ls->propOpenDefaultApps     = "Obri la configuració d'aplicacions predeterminades de Windows";
     ls->propWindowsEnvGB        = "Entorn Windows "; 
-    ls->propSetScreenSaver      = " Mantén la pantalla activa mentre blueMSX funcioni (sense apagat/repòs/estalvi)";
+    ls->propSetScreenSaver      = " Mantén la pantalla activa mentre blueMSX+ funcioni (sense apagat/repòs/estalvi)";
     ls->propPriorityBoost       = " Usa el planificador de jocs de Windows (MMCSS) per a l'emulació";
     ls->propScreenshotPng       = " Empra captures de pantalla Portable Network Graphics (.png)";
-    ls->propEjectMediaOnExit    = " Eject media when blueMSX exits";        // New in 2.8
+    ls->propEjectMediaOnExit    = " Eject media when blueMSX+ exits";        // New in 2.8
     ls->propClearHistory        = "Esteu segur que voleu buidar l'historial del fitxer?";
     ls->propOpenRomGB           = "Obri el diàlog Rom ";
     ls->propDefaultRomType      = "Tipus predeterminat de Rom:";
@@ -589,7 +589,7 @@ void langInitCatalan(LanguageStrings* ls)
     // Configuration related lines
     //----------------------
 
-    ls->confTitle               = "blueMSX - Editor de configuració de la màquina";
+    ls->confTitle               = "blueMSX+ - Editor de configuració de la màquina";
     ls->confConfigText          = "Nom del perfil";
     ls->confSlotLayout          = "Format de la ranura";
     ls->confMemory              = "Memòria";
@@ -597,12 +597,12 @@ void langInitCatalan(LanguageStrings* ls)
     ls->confChipExtras          = "Extras";
 
     ls->confOpenRom             = "Obri la imatge ROM";
-    ls->confSaveTitle           = "blueMSX - Desa la configuració";
+    ls->confSaveTitle           = "blueMSX+ - Desa la configuració";
     ls->confSaveText            = "Voleu sobreescriure la configuració de la màquina? :";
     ls->confSaveAsTitle         = "Anomena i desa la configuració...";
     ls->confSaveAsMachineName   = "Nom de la màquina:";
-    ls->confDiscardTitle        = "blueMSX - Configuració";
-    ls->confExitSaveTitle       = "blueMSX - Surt de l'editor de configuració";
+    ls->confDiscardTitle        = "blueMSX+ - Configuració";
+    ls->confExitSaveTitle       = "blueMSX+ - Surt de l'editor de configuració";
     ls->confExitSaveText        = "Voleu descartar els canvis de la configuració actual?";
 
     ls->confSlotLayoutGB        = "Format de la ranura ";
@@ -640,7 +640,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->confFdcGB                = "Controlador del disquet ";
     ls->confCFdcNumDrivesText    = "Nombre d'unitats:";
 
-    ls->confEditMemTitle         = "blueMSX - Edita el mapejador";
+    ls->confEditMemTitle         = "blueMSX+ - Edita el mapejador";
     ls->confEditMemGB            = "Detalls del mapejador ";
     ls->confEditMemType          = "Tipus:";
     ls->confEditMemFile          = "Fitxer:";
@@ -656,15 +656,15 @@ void langInitCatalan(LanguageStrings* ls)
     ls->shortcutKey             = "Acció";
     ls->shortcutDescription     = "Drecera";
 
-    ls->shortcutSaveConfig      = "blueMSX - Desa la configuració";
+    ls->shortcutSaveConfig      = "blueMSX+ - Desa la configuració";
     ls->shortcutOverwriteConfig = "Voleu sobreescriure la configuració de drecera? :";
     ls->shortcutCreateConfig    = "Voleu desar la nova configuració de drecera? :";
-    ls->shortcutExitConfig      = "blueMSX - Surt de l'editor de drecera";
+    ls->shortcutExitConfig      = "blueMSX+ - Surt de l'editor de drecera";
     ls->shortcutDiscardConfig   = "Voleu descartar els canvis de la configuració actual?";
-    ls->shortcutSaveConfigAs    = "blueMSX - Anomena i desa la configuració de drecera...";
+    ls->shortcutSaveConfigAs    = "blueMSX+ - Anomena i desa la configuració de drecera...";
     ls->shortcutConfigName      = "Nom de la configuració:";
     ls->shortcutNewProfile      = "< Nou perfil >";
-    ls->shortcutConfigTitle     = "blueMSX - Editor de mapatge de drecera";
+    ls->shortcutConfigTitle     = "blueMSX+ - Editor de mapatge de drecera";
     ls->shortcutAssign          = "Assigna";
     ls->shortcutPressText       = "Prem la tecla(es) de drecera:";
     ls->shortcutScheme          = "Esquema de mapatge:";
@@ -699,7 +699,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->shortcutScreenshotOrig  = "Fes una captura de pantalla";
     ls->shortcutScreenshotSmall = "Captura de pantalla petita no filtrada";
     ls->shortcutScreenshotLarge = "Captura de pantalla gran no filtrada";
-    ls->shortcutQuit            = "Surt de blueMSX";
+    ls->shortcutQuit            = "Surt de blueMSX+";
     ls->shortcutRunPause        = "Executa/posa en pausa l'emulació";
     ls->shortcutStop            = "Atura l'emulació";
     ls->shortcutResetHard       = "Reinicialització dura";

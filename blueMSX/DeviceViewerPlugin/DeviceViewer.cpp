@@ -32,13 +32,13 @@ struct DvLang {
 static const DvLang DvEn = {
     "Refresh", ">", "O", "''", "]",
     "Status: ", "RUNNING", "PAUSED", "STOPPED",
-    "blueMSX - Device Viewer", "Device Viewer"
+    "blueMSX+ - Device Viewer", "Device Viewer"
 };
 
 static const DvLang DvJa = {
     "更新", ">", "O", "''", "]",
     "状態: ", "実行中", "一時停止", "停止",
-    "blueMSX - デバイスビューア", "デバイスビューア"
+    "blueMSX+ - デバイスビューア", "デバイスビューア"
 };
 
 static const DvLang& dvL()
