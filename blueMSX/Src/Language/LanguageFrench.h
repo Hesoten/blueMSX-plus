@@ -362,7 +362,8 @@ void langInitFrench(LanguageStrings* ls)
     ls->propEmuRamSizeText      = "Taille de la RAM:";
     ls->propEmuVramSizeText     = "Taille de la VRAM:";
     ls->propEmuSpeedGB          = "Vitesse de l'émulation ";
-    ls->propEmuSpeedText        = "Vitesse de l'émulation:";
+    ls->propEmuSpeedText        = "Cœur de l'émulateur:";
+    ls->propEmuVdpCmdSpeedText  = "Attente commande VDP:";
     ls->propEmuFrontSwitchGB    = "Commutateurs Panasonic "; 
     ls->propEmuFrontSwitch      = " Commutateur frontal"; 
     ls->propEmuFdcTiming        = " Accélérer l'accès FDD"; 

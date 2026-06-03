@@ -360,7 +360,8 @@ void langInitRussian(LanguageStrings* ls)
     ls->propEmuRamSizeText      = "Объем RAM:";
     ls->propEmuVramSizeText     = "Объем VRAM:";
     ls->propEmuSpeedGB          = "Скорость эмуляции ";
-    ls->propEmuSpeedText        = "Скорость эмуляции:";
+    ls->propEmuSpeedText        = "Ядро эмулятора:";
+    ls->propEmuVdpCmdSpeedText  = "Ожидание команды VDP:";
     ls->propEmuFrontSwitchGB    = "Переключатели Panasonic ";
     ls->propEmuFrontSwitch      = " Передний выключатель";
     ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9

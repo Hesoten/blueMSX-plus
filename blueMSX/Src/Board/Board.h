@@ -157,6 +157,9 @@ int boardUseFmPac();
 void boardSetNoSpriteLimits(int enable);
 int boardGetNoSpriteLimits();
 
+void boardSetVdpCmdSpeed(int percent);
+int  boardGetVdpCmdSpeed();
+
 /* Drop the FDC core boost on melodic sound-chip writes (FM key-on,
 ** PSG R8-R10 audible volume, etc.); address latches are tracked
 ** off-boost so only audible writes trigger. VBLANK keyboard scans

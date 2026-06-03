@@ -361,7 +361,8 @@ void langInitDutch(LanguageStrings* ls)
     ls->propEmuRamSizeText      = "RAM-grootte:";
     ls->propEmuVramSizeText     = "VRAM-grootte:";
     ls->propEmuSpeedGB          = "Emulatiesnelheid ";
-    ls->propEmuSpeedText        = "Emulatiesnelheid:";
+    ls->propEmuSpeedText        = "Emulatorkern:";
+    ls->propEmuVdpCmdSpeedText  = "VDP-commando wachttijd:";
     ls->propEmuFrontSwitchGB    = "Panasonic schakelaars ";
     ls->propEmuFrontSwitch      = " Voorpanel Schakelaar";
     ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9

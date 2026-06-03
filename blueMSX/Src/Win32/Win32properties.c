@@ -283,6 +283,7 @@ static char* strEmuSpeed(int logFrequency) {
 static BOOL_DLG_RET CALLBACK emulationDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
     static Properties* pProperties;
     static int curSpeed;
+    static int curVdpCmdSpeed;
     static char machineName[64];
 
     switch (iMsg) {
@@ -303,6 +304,7 @@ static BOOL_DLG_RET CALLBACK emulationDlgProc(HWND hDlg, UINT iMsg, WPARAM wPara
         SetDlgItemTextU(hDlg, IDC_VDPFREQTEXT, langPropVideoFreqText());
         SetDlgItemTextU(hDlg, IDC_EMUSPEEDTEXT, langPropEmuSpeedText());
         SetDlgItemTextU(hDlg, IDC_EMUSPEEDGROUPBOX, langPropEmuSpeedGB());
+        SetDlgItemTextU(hDlg, IDC_VDPCMDSPEEDTEXT, langPropEmuVdpCmdSpeedText());
         SetDlgItemTextU(hDlg, IDC_EMUFRONTSWITCHGROUPBOX, langPropEmuFrontSwitchGB());
         
         SetWindowTextU(GetDlgItem(hDlg, IDC_EMUFDCTIMING),   langPropEmuFdcTiming());
@@ -368,6 +370,17 @@ static BOOL_DLG_RET CALLBACK emulationDlgProc(HWND hDlg, UINT iMsg, WPARAM wPara
         SendMessage(GetDlgItem(hDlg, IDC_EMUSPEED), TBM_SETRANGE, 0, (LPARAM)MAKELONG(0, 100));
         SendMessage(GetDlgItem(hDlg, IDC_EMUSPEED), TBM_SETPOS,   1, (LPARAM)curSpeed);
 
+        curVdpCmdSpeed = pProperties->emulation.vdpCmdSpeed;
+        if (curVdpCmdSpeed < 0)   curVdpCmdSpeed = 0;
+        if (curVdpCmdSpeed > 100) curVdpCmdSpeed = 100;
+        {
+            char buf[16];
+            sprintf(buf, "%d%%", curVdpCmdSpeed);
+            SetDlgItemTextU(hDlg, IDC_VDPCMDSPEEDCUR, buf);
+        }
+        SendMessage(GetDlgItem(hDlg, IDC_VDPCMDSPEED), TBM_SETRANGE, 0, (LPARAM)MAKELONG(0, 100));
+        SendMessage(GetDlgItem(hDlg, IDC_VDPCMDSPEED), TBM_SETPOS,   1, (LPARAM)curVdpCmdSpeed);
+
         /* Lock restart-causing controls while running. Sound-chip
         ** enable checkboxes are locked in soundDlgProc alongside the
         ** backend-enable rows. */
@@ -402,6 +415,14 @@ static BOOL_DLG_RET CALLBACK emulationDlgProc(HWND hDlg, UINT iMsg, WPARAM wPara
         if (wParam == IDC_EMUSPEED) {
             curSpeed = SendMessage(GetDlgItem(hDlg, IDC_EMUSPEED), TBM_GETPOS, 0, 0);
             SetDlgItemTextU(hDlg, IDC_EMUSPEEDCUR, strEmuSpeed(curSpeed));
+            return TRUE;
+        }
+
+        if (wParam == IDC_VDPCMDSPEED) {
+            char buf[16];
+            curVdpCmdSpeed = (int)SendMessage(GetDlgItem(hDlg, IDC_VDPCMDSPEED), TBM_GETPOS, 0, 0);
+            sprintf(buf, "%d%%", curVdpCmdSpeed);
+            SetDlgItemTextU(hDlg, IDC_VDPCMDSPEEDCUR, buf);
             return TRUE;
         }
 
@@ -453,6 +474,7 @@ static BOOL_DLG_RET CALLBACK emulationDlgProc(HWND hDlg, UINT iMsg, WPARAM wPara
         }
 
         pProperties->emulation.speed        = curSpeed;
+        pProperties->emulation.vdpCmdSpeed  = curVdpCmdSpeed;
 
         propModified = 1;
         

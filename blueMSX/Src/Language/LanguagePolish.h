@@ -361,7 +361,8 @@ void langInitPolish(LanguageStrings* ls)
     ls->propEmuRamSizeText      = "Rozmiar RAMu:";
     ls->propEmuVramSizeText     = "Rozmiar VRAMu:";
     ls->propEmuSpeedGB          = "Szybkoœæ emulacji ";
-    ls->propEmuSpeedText        = "Szybkoœæ emulacji:";
+    ls->propEmuSpeedText        = "Rdzeń emulatora:";
+    ls->propEmuVdpCmdSpeedText  = "Czas oczekiwania VDP:";
     ls->propEmuFrontSwitchGB     = "Prze³¹czniki Panasonic ";
     ls->propEmuFrontSwitch       = " Prze³¹cznik g³ówny";
     ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9

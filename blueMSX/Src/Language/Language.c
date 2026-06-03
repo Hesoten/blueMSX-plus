@@ -569,6 +569,7 @@ char* langPropEmuRamSizeText() { return ls->propEmuRamSizeText; }
 char* langPropEmuVramSizeText() { return ls->propEmuVramSizeText; }
 char* langPropEmuSpeedGB() { return ls->propEmuSpeedGB; }
 char* langPropEmuSpeedText() { return ls->propEmuSpeedText; }
+char* langPropEmuVdpCmdSpeedText() { return ls->propEmuVdpCmdSpeedText; }
 char* langPropEmuFrontSwitchGB() { return ls->propEmuFrontSwitchGB; }
 char* langPropEmuFrontSwitch() { return ls->propEmuFrontSwitch; }
 char* langPropEmuFdcTiming() { return ls->propEmuFdcTiming; }

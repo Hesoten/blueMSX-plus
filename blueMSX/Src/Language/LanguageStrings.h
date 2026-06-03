@@ -356,6 +356,7 @@ typedef struct {
     char* propEmuVramSizeText;
     char* propEmuSpeedGB;
     char* propEmuSpeedText;
+    char* propEmuVdpCmdSpeedText;
     char* propEmuFrontSwitchGB;
     char* propEmuFrontSwitch;
     char* propEmuFdcTiming;

@@ -382,6 +382,7 @@ char* langPropEmuRamSizeText();
 char* langPropEmuVramSizeText();
 char* langPropEmuSpeedGB();
 char* langPropEmuSpeedText();
+char* langPropEmuVdpCmdSpeedText();
 char* langPropEmuFrontSwitchGB();
 char* langPropEmuFrontSwitch();
 char* langPropEmuFdcTiming();

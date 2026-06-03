@@ -361,7 +361,8 @@ void langInitSpanish(LanguageStrings* ls)
     ls->propEmuRamSizeText      = "Tamaño RAM:";
     ls->propEmuVramSizeText     = "Tamaño VRAM:";
     ls->propEmuSpeedGB          = "Velocidad de la Emulación ";
-    ls->propEmuSpeedText        = "Velocidad de la Emulación:";
+    ls->propEmuSpeedText        = "Núcleo del emulador:";
+    ls->propEmuVdpCmdSpeedText  = "Espera comando VDP:";
     ls->propEmuFrontSwitchGB     = "Botones Panasonic "; 
     ls->propEmuFrontSwitch       = " Botón Frontal"; 
     ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9

@@ -360,7 +360,8 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->propEmuRamSizeText      = "主内存:";
     ls->propEmuVramSizeText     = "显存:";
     ls->propEmuSpeedGB          = "模拟速度 ";
-    ls->propEmuSpeedText        = "模拟速度:";
+    ls->propEmuSpeedText        = "模拟器内核:";
+    ls->propEmuVdpCmdSpeedText  = "VDP命令等待时间:";
     ls->propEmuFrontSwitchGB     = "Panasonic 开关 ";
     ls->propEmuFrontSwitch       = " 前端开关";
     ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9

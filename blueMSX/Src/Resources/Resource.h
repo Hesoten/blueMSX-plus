@@ -164,6 +164,9 @@
 #define IDC_EMUSPEED                    1018
 #define IDC_EMUSPEEDTEXT                1019
 #define IDC_EMUSPEEDCUR                 1020
+#define IDC_VDPCMDSPEED                 1043
+#define IDC_VDPCMDSPEEDTEXT             1044
+#define IDC_VDPCMDSPEEDCUR              1045
 #define IDC_FULLRES                     1021
 #define IDC_EMURAM                      1022
 #define IDC_EMUVRAM                     1023

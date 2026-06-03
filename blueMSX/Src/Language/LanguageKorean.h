@@ -360,7 +360,8 @@ void langInitKorean(LanguageStrings* ls)
     ls->propEmuRamSizeText      = "램 크기:";
     ls->propEmuVramSizeText     = "비디오램 크기:";
     ls->propEmuSpeedGB          = "에뮬레이션 속도 ";
-    ls->propEmuSpeedText        = "에뮬레이션 속도:";
+    ls->propEmuSpeedText        = "에뮬레이터 코어:";
+    ls->propEmuVdpCmdSpeedText  = "VDP 명령 대기 시간:";
     ls->propEmuFrontSwitchGB     = "파나소닉 스위치 ";
     ls->propEmuFrontSwitch       = " 프론트 스위치";
     ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9

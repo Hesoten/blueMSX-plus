@@ -43,6 +43,7 @@
 #include "ArchNotifications.h"
 #include "VideoManager.h"
 #include "DebugDeviceManager.h"
+#include "V9938.h"
 #include "MegaromCartridge.h"
 #include "Disk.h"
 #include "VideoManager.h"
@@ -681,6 +682,14 @@ int boardGetNoSpriteLimits() {
 
 void boardSetNoSpriteLimits(int enable) {
     vdpSetNoSpriteLimits(enable);
+}
+
+int boardGetVdpCmdSpeed() {
+    return vdpCmdGetWaitPct();
+}
+
+void boardSetVdpCmdSpeed(int percent) {
+    vdpCmdSetWaitPct(percent);
 }
 
 RomType boardGetRomType(int cartNo)

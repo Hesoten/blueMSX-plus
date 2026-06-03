@@ -240,6 +240,7 @@ typedef struct {
     int  vdpSyncMode;
     int  reverseEnable;
     int  reverseMaxTime;
+    int  vdpCmdSpeed;   /* VDP command engine wait scale, 0..100 (% of stock timing) */
 } EmulationProperties;
 
 typedef struct {

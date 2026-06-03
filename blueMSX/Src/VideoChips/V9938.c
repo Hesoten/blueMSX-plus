@@ -227,14 +227,53 @@ static int   PPB[5]  = { 2, 4, 2, 1, 1 };
 static int   PPL[5]  = { 256, 512, 512, 256, 256 };
 
 
+/* Baseline (accurate) per-step wait values. Runtime arrays below are derived
+** from these scaled by vdpCmdWaitPct so the boost slider can shorten them.
+*/
+static const int srch_timing_base[8] = { 92,  125, 92,  92  };
+static const int line_timing_base[8] = { 120, 147, 120, 120 };
+//static const int line_timing_base[8] = { 120, 147, 120, 132 };
+static const int hmmv_timing_base[8] = { 49,  65,  49,  62  };
+static const int lmmv_timing_base[8] = { 98,  137, 98,  124 };
+static const int ymmm_timing_base[8] = { 65,  125, 65,  68  };
+static const int hmmm_timing_base[8] = { 92,  136, 92,  97  };
+static const int lmmm_timing_base[8] = { 129, 197, 129, 132 };
+
 static int srch_timing[8] = { 92,  125, 92,  92  };
 static int line_timing[8] = { 120, 147, 120, 120 };
-//static int line_timing[8] = { 120, 147, 120, 132 };
 static int hmmv_timing[8] = { 49,  65,  49,  62  };
 static int lmmv_timing[8] = { 98,  137, 98,  124 };
 static int ymmm_timing[8] = { 65,  125, 65,  68  };
 static int hmmm_timing[8] = { 92,  136, 92,  97  };
 static int lmmm_timing[8] = { 129, 197, 129, 132 };
+
+static int vdpCmdWaitPct = 100;
+
+static void recomputeVdpCmdTimings(void) {
+    int i;
+    for (i = 0; i < 8; i++) {
+        int v;
+        v = (srch_timing_base[i] * vdpCmdWaitPct) / 100; srch_timing[i] = v < 1 ? 1 : v;
+        v = (line_timing_base[i] * vdpCmdWaitPct) / 100; line_timing[i] = v < 1 ? 1 : v;
+        v = (hmmv_timing_base[i] * vdpCmdWaitPct) / 100; hmmv_timing[i] = v < 1 ? 1 : v;
+        v = (lmmv_timing_base[i] * vdpCmdWaitPct) / 100; lmmv_timing[i] = v < 1 ? 1 : v;
+        v = (ymmm_timing_base[i] * vdpCmdWaitPct) / 100; ymmm_timing[i] = v < 1 ? 1 : v;
+        v = (hmmm_timing_base[i] * vdpCmdWaitPct) / 100; hmmm_timing[i] = v < 1 ? 1 : v;
+        v = (lmmm_timing_base[i] * vdpCmdWaitPct) / 100; lmmm_timing[i] = v < 1 ? 1 : v;
+    }
+}
+
+void vdpCmdSetWaitPct(int percent) {
+    if (percent < 0) percent = 0;
+    if (percent > 100) percent = 100;
+    if (percent == vdpCmdWaitPct) return;
+    vdpCmdWaitPct = percent;
+    recomputeVdpCmdTimings();
+}
+
+int vdpCmdGetWaitPct(void) {
+    return vdpCmdWaitPct;
+}
 
 /*************************************************************
 ** getVramPointerW

@@ -53,6 +53,10 @@ UInt8 vdpCmdPeek(VdpCmdState* vdpCmd, UInt8 reg, UInt32 systemTime);
 void vdpSetScreenMode(VdpCmdState* state, int screenMode, int commandEnable);
 void vdpSetTimingMode(VdpCmdState* state, UInt8 timingMode);
 
+/* VDP command-engine wait scaling: 100 = accurate, 0 = turbo. */
+void vdpCmdSetWaitPct(int percent);
+int  vdpCmdGetWaitPct(void);
+
 
 UInt8 vdpGetStatus(VdpCmdState* state);
 UInt16 vdpGetBorderX(VdpCmdState* state);

@@ -362,7 +362,8 @@ void langInitSwedish(LanguageStrings* ls)
     ls->propEmuRamSizeText      = "RAM storlek:";
     ls->propEmuVramSizeText     = "VRAM storlek:";
     ls->propEmuSpeedGB          = "Emuleringshastighet ";
-    ls->propEmuSpeedText        = "Emuleringshastighet:";
+    ls->propEmuSpeedText        = "Emulatorkärna:";
+    ls->propEmuVdpCmdSpeedText  = "VDP-kommandots väntetid:";
     ls->propEmuFrontSwitchGB    = "Panasonicbrytare ";
     ls->propEmuFrontSwitch      = " Frontbrytare";
     ls->propEmuNoSpriteLimits   = " Ignorera sprite begränsning";  // New in 2.9

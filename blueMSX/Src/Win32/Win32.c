@@ -2080,6 +2080,7 @@ void archShowPropertiesDialog(PropPage  startPane) {
     boardSetFdcTimingEnable(pProperties->emulation.enableFdcTiming);
     boardSetHddSdBoostEnable(pProperties->emulation.enableHddSdBoost);
     boardSetNoSpriteLimits(pProperties->emulation.noSpriteLimits);
+    boardSetVdpCmdSpeed(pProperties->emulation.vdpCmdSpeed);
 
     /* Update switches */
     switchSetAudio(pProperties->emulation.audioSwitch);
@@ -4212,6 +4213,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     boardSetFdcTimingEnable(pProperties->emulation.enableFdcTiming);
     boardSetHddSdBoostEnable(pProperties->emulation.enableHddSdBoost);
     boardSetNoSpriteLimits(pProperties->emulation.noSpriteLimits);
+    boardSetVdpCmdSpeed(pProperties->emulation.vdpCmdSpeed);
     boardSetY8950Enable(pProperties->sound.chip.enableY8950);
     boardSetYm2413Enable(pProperties->sound.chip.enableYM2413);
     boardSetMoonsoundEnable(pProperties->sound.chip.enableMoonsound);

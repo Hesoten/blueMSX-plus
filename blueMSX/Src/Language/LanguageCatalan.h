@@ -361,7 +361,8 @@ void langInitCatalan(LanguageStrings* ls)
     ls->propEmuRamSizeText      = "Mida de la RAM:";
     ls->propEmuVramSizeText     = "Mida de la VRAM:";
     ls->propEmuSpeedGB          = "Velocitat d'emulació ";
-    ls->propEmuSpeedText        = "Velocitat d'emulació:";
+    ls->propEmuSpeedText        = "Nucli emulador:";
+    ls->propEmuVdpCmdSpeedText  = "Espera comandes VDP:";
     ls->propEmuFrontSwitchGB    = "Commutadors Panasonic ";
     ls->propEmuFrontSwitch      = " Commutador frontal";
     ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9

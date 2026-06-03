@@ -361,8 +361,9 @@ void langInitJapanese(LanguageStrings* ls)
     ls->propEmuMemoryGB         = " メモリ ";
     ls->propEmuRamSizeText      = "メインRAM:";
     ls->propEmuVramSizeText     = "VRAM:";
-    ls->propEmuSpeedGB          = " スピード ";
-    ls->propEmuSpeedText        = "スピード:";
+    ls->propEmuSpeedGB          = " エミュレーションスピード ";
+    ls->propEmuSpeedText        = "エミュレータコア:";
+    ls->propEmuVdpCmdSpeedText  = "VDPコマンド待ち時間:";
     ls->propEmuFrontSwitchGB     = " パナソニックスイッチ "; 
     ls->propEmuFrontSwitch       = " 前面[内蔵ソフト]スイッチ"; 
     ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9

@@ -362,7 +362,8 @@ void langInitFinnish(LanguageStrings* ls)
     ls->propEmuRamSizeText      = "RAM koko:";
     ls->propEmuVramSizeText     = "VRAM koko:";
     ls->propEmuSpeedGB          = "Emulaationopeus ";
-    ls->propEmuSpeedText        = "Emulaationopeus:";
+    ls->propEmuSpeedText        = "Emulaattorin ydin:";
+    ls->propEmuVdpCmdSpeedText  = "VDP-komennon odotusaika:";
     ls->propEmuFrontSwitchGB     = "Panasonicin kytkimet ";
     ls->propEmuFrontSwitch       = " Aplikaatiokytkin";
     ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9
