@@ -366,7 +366,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->propEmuFrontSwitch       = " Botón Frontal"; 
     ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emulate MSX keyboard quirk";  // New in 2.9
-    ls->propEmuFdcTiming        = " No sincronizar unidad de disco"; 
+    ls->propEmuFdcTiming        = " Acelerar acceso FDD"; 
     ls->propEmuReversePlay      = " Enable reverse playback"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " Botón Pause"; 
     ls->propEmuAudioSwitch       = " Botón cartucho MSX-AUDIO"; 
@@ -742,7 +742,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->shortcutShowAbout       = "Ver la rúbrica acerca de blueMSX";
     ls->shortcutShowFiles       = "Mostrar las propiedades de los archivos";
     ls->shortcutToggleSpriteEnable = "Mostrar/ocultar los sprites";
-    ls->shortcutToggleFdcTiming = "Sincronizar o no unidade disco"; 
+    ls->shortcutToggleFdcTiming = "Alternar aceleración FDD"; 
     ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
     ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
     ls->shortcutToggleCpuTrace  = "Activar/Desactivar Rastro de la CPU"; 

@@ -365,7 +365,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->propEmuFrontSwitch      = " Передний выключатель";
     ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emulate MSX keyboard quirk";  // New in 2.9
-    ls->propEmuFdcTiming        = " Disable Floppy Drive Timing";
+    ls->propEmuFdcTiming        = " Ускорение при доступе к FDD";
     ls->propEmuReversePlay      = " Enable reverse playback"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " Кнопка паузы";
     ls->propEmuAudioSwitch      = " Переключатель картриджа MSX-AUDIO";
@@ -741,7 +741,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->shortcutShowAbout       = "Показать об эмуляторе";    
     ls->shortcutShowFiles       = "Показать настройки файлов";
     ls->shortcutToggleSpriteEnable = "показать/спрятать спрайты";
-    ls->shortcutToggleFdcTiming = "Включить/выключить таймнг дисковода";
+    ls->shortcutToggleFdcTiming = "Переключить ускорение FDD";
     ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
     ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
     ls->shortcutToggleCpuTrace  = "Включить/выключить CPU Trace";

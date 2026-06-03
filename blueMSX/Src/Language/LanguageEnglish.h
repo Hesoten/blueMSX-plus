@@ -367,7 +367,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->propEmuFrontSwitch      = " Front Switch";
     ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emulate MSX keyboard quirk";  // New in 2.9
-    ls->propEmuFdcTiming        = " Disable Floppy Drive Timing";
+    ls->propEmuFdcTiming        = " Accelerate during FDD access";
     ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emulate MSX keyboard quirk";  // New in 2.9
     ls->propEmuReversePlay      = " Enable reverse playback"; // New in 2.8.3
@@ -744,7 +744,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->shortcutShowAbout       = "Show About Dialog";    
     ls->shortcutShowFiles       = "Show Files Properties";
     ls->shortcutToggleSpriteEnable = "Show/Hide Sprites";
-    ls->shortcutToggleFdcTiming = "Enable/Disable Floppy Drive Timing";
+    ls->shortcutToggleFdcTiming = "Toggle FDD access acceleration";
     ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
     ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
     ls->shortcutToggleCpuTrace  = "Enable/Disable CPU Trace";

@@ -365,7 +365,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->propEmuSpeedText        = "Vitesse de l'émulation:";
     ls->propEmuFrontSwitchGB    = "Commutateurs Panasonic "; 
     ls->propEmuFrontSwitch      = " Commutateur frontal"; 
-    ls->propEmuFdcTiming        = " Ne pas synchroniser le lecteur de disquettes"; 
+    ls->propEmuFdcTiming        = " Accélérer l'accès FDD"; 
     ls->propEmuNoSpriteLimits   = " Pas de limite de sprites";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emulate MSX keyboard quirk";  // New in 2.9
     ls->propEmuReversePlay      = " Enable reverse playback"; // New in 2.8.3
@@ -742,7 +742,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->shortcutShowAbout       = "Voir la rubrique A propos de blueMSX";
     ls->shortcutShowFiles       = "Accéder au menu Fichiers";
     ls->shortcutToggleSpriteEnable = "Montrer/Cacher les sprites";
-    ls->shortcutToggleFdcTiming = "Synchroniser ou non le lecteur de disquettes"; 
+    ls->shortcutToggleFdcTiming = "Basculer l'accélération FDD"; 
     ls->shortcutToggleNoSpriteLimits = "Basculer limitation de l'affichage des sprites";
     ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
     ls->shortcutToggleCpuTrace  = "Valider/Invalider la trace du CPU";

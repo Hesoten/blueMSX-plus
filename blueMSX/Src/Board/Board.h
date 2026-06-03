@@ -157,6 +157,17 @@ int boardUseFmPac();
 void boardSetNoSpriteLimits(int enable);
 int boardGetNoSpriteLimits();
 
+/* Drop the FDC core boost on melodic sound-chip writes (FM key-on,
+** PSG R8-R10 audible volume, etc.); address latches are tracked
+** off-boost so only audible writes trigger. VBLANK keyboard scans
+** and VDP VRAM streaming stay excluded. */
+void boardCheckFdcBoostKill(UInt16 port, UInt8 value);
+
+/* Drop the FDC/HDD boost on SCC volume / channel-enable writes;
+** called from sccWrite() because SCC is memory-mapped (the I/O hook
+** doesn't see it).  address is the SCC register offset. */
+void boardCheckSccBoostKill(UInt8 address, UInt8 value);
+
 RomType boardGetRomType(int cartNo);
 
 typedef enum { HD_NONE, HD_SUNRISEIDE, HD_BEERIDE, HD_GIDE, HD_RSIDE,
@@ -205,6 +216,7 @@ void boardSetDirectory(const char* dir);
 
 void boardSetFdcTimingEnable(int enable);
 int  boardGetFdcTimingEnable();
+int  boardGetFdcActive(void);
 void boardSetFdcActive();
 
 void boardSetYm2413Oversampling(int value);

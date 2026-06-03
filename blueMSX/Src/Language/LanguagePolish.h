@@ -366,7 +366,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->propEmuFrontSwitch       = " Prze³¹cznik g³ówny";
     ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emulate MSX keyboard quirk";  // New in 2.9
-    ls->propEmuFdcTiming        = " Wy³¹cz timing stacji dyskietek";
+    ls->propEmuFdcTiming        = " Przyspiesz podczas dostępu FDD";
     ls->propEmuReversePlay      = " Enable reverse playback"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " Prze³¹cznik pauzy";
     ls->propEmuAudioSwitch       = " Prze³¹cznik kartrid¿a MSX-AUDIO";
@@ -742,7 +742,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->shortcutShowAbout       = "Wyœwietl informacje O programie";
     ls->shortcutShowFiles       = "Poka¿ w³aœciwoœci pliku";
     ls->shortcutToggleSpriteEnable = "Poka¿/ukryj sprite'y";
-    ls->shortcutToggleFdcTiming = "W³./wy³. timing stacji dyskietek";
+    ls->shortcutToggleFdcTiming = "Przełącz przyspieszenie FDD";
     ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
     ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
     ls->shortcutToggleCpuTrace  = "W³./wy³. œledzenie CPU";

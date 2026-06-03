@@ -84,6 +84,7 @@ static UInt32 oldTime;
 static UInt32 boardFreq = boardFrequency();
 static int fdcTimingEnable = 1;
 static int fdcActive       = 0;
+static UInt32 fdcSectorCount = 0;   /* sectors accessed since the current boost session began */
 static BoardTimer* fdcTimer;
 static BoardTimer* syncTimer;
 static BoardTimer* mixerTimer;
@@ -690,14 +691,194 @@ int boardGetFdcTimingEnable() {
     return fdcTimingEnable;
 }
 
+/* True while the FDC/HDD access boost is engaged. Used by the emulator core
+** to decouple the display during the boost (same as user max-speed) so the
+** per-frame present is not on the fast-forward critical path. */
+int boardGetFdcActive(void) {
+    return fdcActive;
+}
+
 void boardSetFdcTimingEnable(int enable) {
     fdcTimingEnable = enable;
 }
 
+/* Boost-release idle tail (ms emu time): scales with the boost
+** session's sector count, clamped to [MIN, MAX]. Short reads keep
+** it tight so animations don't visibly accelerate; long loads need
+** a wider tail to span between-sector CPU work. */
+#define FDC_TAIL_MIN_MS         200
+#define FDC_TAIL_MAX_MS        1000
+#define FDC_TAIL_PER_SECTOR_MS   20
+
+static void fdcScheduleTail(void) {
+    UInt32 tail;
+    if (!fdcActive) fdcSectorCount = 0;
+    fdcSectorCount++;
+    tail = (UInt32)FDC_TAIL_PER_SECTOR_MS * fdcSectorCount;
+    if (tail < FDC_TAIL_MIN_MS) tail = FDC_TAIL_MIN_MS;
+    if (tail > FDC_TAIL_MAX_MS) tail = FDC_TAIL_MAX_MS;
+    boardTimerAdd(fdcTimer, boardSystemTime() + (UInt32)((UInt64)tail * boardFrequency() / 1000));
+    fdcActive = 1;
+}
+
+/* End the current boost session: clear the flag and cancel the
+** pending release timer to keep "fdcActive iff timer scheduled". */
+static void fdcKillBoost(void) {
+    fdcActive = 0;
+    boardTimerRemove(fdcTimer);
+}
+
 void boardSetFdcActive() {
     if (!fdcTimingEnable) {
-        boardTimerAdd(fdcTimer, boardSystemTime() + (UInt32)((UInt64)500 * boardFrequency() / 1000));
-        fdcActive = 1;
+        fdcScheduleTail();
+    }
+}
+
+/* PSG channel ch (0=A,1=B,2=C) produces an audible AC signal only if
+** its tone or noise is enabled in mixer R7 (bit set = disabled): with
+** both off, a fixed level is just silent DC (see AY8910.c). */
+static int psgChannelAudibleViaMixer(UInt8 r7, int ch) {
+    return !(r7 & (1 << ch)) || !(r7 & (1 << (ch + 3)));
+}
+
+/* Drop the FDC boost on melodic sound-chip writes that cause the
+** audible "BGM at double speed" tail. Excluded: VDP VRAM (sector
+** streaming), PPI (VBLANK keyboard scan), PSG R15. Included: VDP
+** palette R0x9A (fades) plus key-on / non-mute volume / TL writes
+** on YM2413, Y8950, OPL3, OPL4, Turbo-R PCM. */
+void boardCheckFdcBoostKill(UInt16 port, UInt8 value) {
+    static UInt8  ym2413LatchedReg = 0;
+    static UInt8  y8950LatchedReg  = 0;
+    static UInt16 ymf262LatchedReg = 0;     /* low byte = reg, 0x100 = bank 1 */
+    static UInt8  ymf278LatchedReg = 0;
+    static UInt8  psgLatchedReg    = 0;
+    static UInt8  psgReg7          = 0xff;  /* PSG mixer R7 (1 = ch disabled) */
+    static UInt8  psgVol[3]        = { 0, 0, 0 }; /* PSG R8-R10 ch volumes */
+    static UInt8  pcmStatus        = 0;     /* Turbo-R PCM status (port 0xA5), low 5 bits */
+    UInt8 p = (UInt8)(port & 0xff);
+
+    /* Address latches: keep in sync regardless of boost state. */
+    if (p == 0x7c) { ym2413LatchedReg = value;           return; }
+    if (p == 0xc0) { y8950LatchedReg  = value;           return; }
+    if (p == 0xc4) { ymf262LatchedReg = value;           return; }
+    if (p == 0xc6) { ymf262LatchedReg = value | 0x100;   return; }
+    if (p == 0x7e) { ymf278LatchedReg = value;           return; }
+    if (p == 0xa0) { psgLatchedReg    = value & 0x0f;    return; }
+
+    /* PSG data-register value latches: track the mixer (R7) and per-channel
+    ** volumes (R8-R10) regardless of boost state so the audibility test below
+    ** stays in sync with the chip across boost on/off transitions. */
+    if (p == 0xa1) {
+        if (psgLatchedReg == 7)                             psgReg7 = value;
+        else if (psgLatchedReg >= 8 && psgLatchedReg <= 10) psgVol[psgLatchedReg - 8] = value;
+    }
+    /* Turbo-R PCM status (port 0xA5): low 5 bits matter (see romMapperTurboRPcm
+    ** write handler). Tracked regardless of boost state so the 0xA4 sample
+    ** audibility test stays correct across boost on/off transitions. */
+    if (p == 0xa5) pcmStatus = value & 0x1f;
+
+    if (!fdcActive) return;
+
+    if (p == 0x9a) {                                    /* VDP palette data (V9938+) */
+        /* A palette write during a load is the signature of a visible fade.
+        ** Drop the boost so the fade animates at real speed; the next FDC
+        ** access re-engages the boost if the load continues. */
+        fdcKillBoost();
+        return;
+    }
+    if (p == 0xa5) {                                    /* Turbo-R PCM status */
+        /* Bit 1 = mixer enable. Kill on the un-mute itself, not on the
+        ** first 0xA4 sample after it, so no PCM frame slips out at
+        ** fast-forward. */
+        if (value & 0x02) {
+            fdcKillBoost();
+        }
+        return;
+    }
+    if (p == 0xa4) {                                    /* Turbo-R PCM sample */
+        /* Sample reaches the DAC only when status bit 1 is set. Skip 0x80
+        ** (DAC mid-level = silence) so an explicit-silence write is not a
+        ** false positive. */
+        if ((pcmStatus & 0x02) && value != 0x80) {
+            fdcKillBoost();
+        }
+        return;
+    }
+    if (p == 0x7d) {                                    /* YM2413 data */
+        if ((ym2413LatchedReg >= 0x20 && ym2413LatchedReg <= 0x28 && (value & 0x10)) ||
+            (ym2413LatchedReg >= 0x30 && ym2413LatchedReg <= 0x38 && (value & 0x0f) != 0x0f) ||
+            (ym2413LatchedReg == 0x0e && (value & 0x1f))) {
+            fdcKillBoost();
+        }
+        return;
+    }
+    if (p == 0xc1) {                                    /* Y8950 data */
+        if ((y8950LatchedReg >= 0xb0 && y8950LatchedReg <= 0xb8 && (value & 0x20)) ||
+            (y8950LatchedReg >= 0x40 && y8950LatchedReg <= 0x55 && (value & 0x3f) != 0x3f) ||
+            (y8950LatchedReg == 0xbd && (value & 0x1f)) ||
+            (y8950LatchedReg == 0x07 && (value & 0x80) && !(value & 0x40))) {
+            fdcKillBoost();
+        }
+        return;
+    }
+    if (p == 0xc5 || p == 0xc7) {                       /* YMF262 data, either bank */
+        UInt8 reg   = (UInt8)(ymf262LatchedReg & 0xff);
+        int   bank1 = (ymf262LatchedReg & 0x100) != 0;
+        if ((reg >= 0xb0 && reg <= 0xb8 && (value & 0x20)) ||
+            (reg >= 0x40 && reg <= 0x55 && (value & 0x3f) != 0x3f) ||
+            (!bank1 && reg == 0xbd && (value & 0x1f))) {
+            fdcKillBoost();
+        }
+        return;
+    }
+    if (p == 0x7f) {                                    /* YMF278 data */
+        if (ymf278LatchedReg >= 0x68 && ymf278LatchedReg <= 0x7f &&
+            (value & 0xc0) == 0x80) {
+            fdcKillBoost();
+        }
+        return;
+    }
+    if (p == 0xa1) {                                    /* PSG data */
+        /* Volume registers 8-10. Fixed level (bit 4 clear) is audible only
+        ** when the channel's tone or noise is enabled in mixer R7 -- a level
+        ** written to a fully-disabled channel just sets a DC offset (common
+        ** false positive: drivers poke levels on silenced channels).
+        ** Envelope mode (bit 4) plays through even with tone+noise off, so
+        ** it always counts. R11-15 (env period/shape, keyboard scan) and
+        ** R0-6 (tone / noise period, audible only after volume) are skipped. */
+        if (psgLatchedReg >= 8 && psgLatchedReg <= 10) {
+            int ch = psgLatchedReg - 8;
+            if ((value & 0x10) ||
+                ((value & 0x0f) && psgChannelAudibleViaMixer(psgReg7, ch))) {
+                fdcKillBoost();
+            }
+        }
+        /* R7 (mixer) write: catch the "set level first, enable channel later"
+        ** ordering. If un-muting a channel now makes a fixed-level channel
+        ** audible, drop the boost; envelope-mode was caught at volume write. */
+        else if (psgLatchedReg == 7) {
+            int ch;
+            for (ch = 0; ch < 3; ch++) {
+                if (psgChannelAudibleViaMixer(value, ch) &&
+                    (psgVol[ch] & 0x0f) && !(psgVol[ch] & 0x10)) {
+                    fdcKillBoost();
+                    break;
+                }
+            }
+        }
+        return;
+    }
+}
+
+void boardCheckSccBoostKill(UInt8 address, UInt8 value)
+{
+    if (!fdcActive) return;
+    /* address has been masked to low 4 bits by sccUpdateFreqAndVol's
+    ** dispatch. 0x0a-0x0e = per-channel volume (lower 4 bits = level
+    ** 0-15); 0x0f = channel enable bitmask (bit 0-4 = ch A-E). */
+    if ((address >= 0x0a && address <= 0x0e && (value & 0x0f)) ||
+        (address == 0x0f && (value & 0x1f))) {
+        fdcKillBoost();
     }
 }
 
@@ -1030,6 +1211,11 @@ int boardRun(Machine* machine,
     }
 
     if (success) {
+        /* fdcActive is module-static and survives across boardRun cycles
+        ** (hard reset = stop + start). If a previous run left it engaged
+        ** the old fdcTimer was destroyed without firing onFdcDone, so force
+        ** a fresh boost-off state before scheduling new timers. */
+        fdcActive = 0;
         syncTimer = boardTimerCreate(onSync, NULL);
         fdcTimer = boardTimerCreate(onFdcDone, NULL);
         mixerTimer = boardTimerCreate(onMixerSync, NULL);

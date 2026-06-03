@@ -367,7 +367,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->propEmuFrontSwitch      = " Frontbrytare";
     ls->propEmuNoSpriteLimits   = " Ignorera sprite begränsning";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emulera MSX tangentbordsfel";  // New in 2.9
-    ls->propEmuFdcTiming        = " Slå av diskettstationstiming";
+    ls->propEmuFdcTiming        = " Snabba upp vid FDD-åtkomst";
     ls->propEmuReversePlay      = " Tillåt baklänges uppspelning";
     ls->propEmuPauseSwitch      = " Pausbrytare";
     ls->propEmuAudioSwitch      = " MSX-AUDIO cartridge switch";
@@ -743,7 +743,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->shortcutShowAbout       = "Öppna \"Om blueMSX\"-fönstret";
     ls->shortcutShowFiles       = "Öppna Filerfönstret";
     ls->shortcutToggleSpriteEnable = "Visa/Dölj Sprites";
-    ls->shortcutToggleFdcTiming = "Slå på/av Diskettstationstiming";
+    ls->shortcutToggleFdcTiming = "Växla FDD-åtkomstacceleration";
     ls->shortcutToggleNoSpriteLimits = "Sla på/av Spritebegränsning";                 // New in 2.9
     ls->shortcutEnableMsxKeyboardQuirk = "Emulera MSX Keyboardfel";              // New in 2.9
     ls->shortcutToggleCpuTrace  = "Slå på/av CPU trace";

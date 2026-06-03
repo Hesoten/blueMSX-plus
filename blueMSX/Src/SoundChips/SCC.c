@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -238,6 +241,11 @@ static void sccUpdateWave(SCC* scc, UInt8 channel, UInt8 address, UInt8 value)
 static void sccUpdateFreqAndVol(SCC* scc, UInt8 address, UInt8 value)
 {
     address &= 0x0f;
+    /* Drop the FDC/HDD boost on writes that make any voice audible
+    ** (non-zero volume or channel-enable bit). Setup writes (frequency
+    ** 0x00-0x09, zero-volume mutes) stay free so loaders touching SCC
+    ** during transfer keep the boost. */
+    boardCheckSccBoostKill(address, value);
     if (address < 0x0a) {
         UInt8 channel = address / 2;
         UInt32 period;

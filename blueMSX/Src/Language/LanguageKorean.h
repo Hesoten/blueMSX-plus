@@ -365,7 +365,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->propEmuFrontSwitch       = " 프론트 스위치";
     ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emulate MSX keyboard quirk";  // New in 2.9
-    ls->propEmuFdcTiming        = " 플로피 드라이브 타이밍 사용 안함";
+    ls->propEmuFdcTiming        = " FDD 액세스 시 가속";
     ls->propEmuReversePlay      = " Enable reverse playback"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " 일시 정지 스위치";
     ls->propEmuAudioSwitch       = " MSX-AUDIO 카트리지 스위치";
@@ -741,7 +741,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->shortcutShowAbout       = "blueMSX에 대하여 보기";
     ls->shortcutShowFiles       = "파일 속성 보기";
     ls->shortcutToggleSpriteEnable = "스프라이트 보이기/숨기기 변환";
-    ls->shortcutToggleFdcTiming = "플로피 드라이브 타이밍 사용/않함 변환";
+    ls->shortcutToggleFdcTiming = "FDD 액세스 가속 켜기/끄기";
     ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
     ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
     ls->shortcutToggleCpuTrace  = "CPU 트레이스 변환";

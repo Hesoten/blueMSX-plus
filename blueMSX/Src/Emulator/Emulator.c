@@ -69,6 +69,10 @@ static UInt32 emuFrequency = 3579545;
 int           emuMaxSpeed = 0;
 int           emuPlayReverse = 0;
 int           emuMaxEmuSpeed = 0; // Max speed issued by emulation
+
+/* Fast-forward multiplier (max-speed and FDC/HDD boost); higher =
+** faster, capped by host emu throughput.  Stock blueMSX used 10. */
+#define EMU_MAXSPEED_FACTOR 15
 static char   emuStateName[512];
 static volatile int      emuSuspendFlag;
 static volatile EmuState emuState = EMU_STOPPED;
@@ -198,10 +202,13 @@ static int emuUseSynchronousUpdate()
 
     if (properties->emulation.speed == 50 &&
         enableSynchronousUpdate &&
-        emulatorGetMaxSpeed() == 0)
+        emulatorGetMaxSpeed() == 0 &&
+        !boardGetFdcActive())
     {
         return properties->emulation.syncMethod;
     }
+    /* During boost / max-speed, fall back to async AUTO so the emu
+    ** thread doesn't block on per-frame present-ack. */
     return P_EMU_SYNCAUTO;
 }
 
@@ -850,9 +857,9 @@ static int WaitForSync(int maxSpeed, int breakpointHit) {
     }
 #endif
     if (emuMaxSpeed || emuMaxEmuSpeed) {
-        diffTime *= 10;
-        if (diffTime > 20 * syncPeriod) {
-            diffTime =  20 * syncPeriod;
+        diffTime *= EMU_MAXSPEED_FACTOR;
+        if (diffTime > 2 * EMU_MAXSPEED_FACTOR * syncPeriod) {
+            diffTime =  2 * EMU_MAXSPEED_FACTOR * syncPeriod;
         }
     }
 
