@@ -1124,8 +1124,10 @@ static BOOL_DLG_RET CALLBACK performanceDlgProc(HWND hDlg, UINT iMsg, WPARAM wPa
         pCurrentProperties = pProperties;
 
         {
-            /* Align sub-panel groupbox with parent "Video Driver" groupbox via DLUs. */
-            RECT subRect = {12, 47, 0, 0};
+            /* X=12 lines the sub-panel groupbox up with the parent
+            ** "Video Driver" groupbox; Y=39 keeps the Video tab content
+            ** inside the tab area after the dialog-wide compact. */
+            RECT subRect = {12, 39, 0, 0};
             MapDialogRect(hDlg, &subRect);
             hDlgDirectDraw = CreateDialog(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_PERF_DIRECTDRAW), hDlg, directDraWProc);
             SetWindowPos(hDlgDirectDraw, NULL, subRect.left, subRect.top, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
