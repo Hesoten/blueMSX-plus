@@ -510,6 +510,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->enumDiskSvi525Dbl        = "SVI-328 5.25\" 양면";           
     ls->enumDiskSvi525Sgl        = "SVI-328 5.25\" 단면";  
     ls->enumDiskSf3Sgl           = "Sega SF-7000 3\" 단면";             
+    ls->enumDiskSize             = "디스크 크기";
 
 
     //----------------------

@@ -40,6 +40,7 @@
 #include "Win32Common.h"
 #include "Win32ScreenShot.h"
 #include "Win32TextUtf8.h"
+#include "Win32FileDialog.h"
 #include "Language.h"
 
 /* After stdio.h: pkg_fopen overrides fopen for UTF-8 paths. */
@@ -176,741 +177,176 @@ RomType opendialog_getromtype(int i)
 	return romTypeList[i];
 }
 
-static RomType openRomType;
-
-UINT_PTR CALLBACK hookRomProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
-{
-    switch (iMsg) {
-	case WM_DIALOGRESIZE:
-        updateDialogPos(GetParent(hDlg), DLG_ID_OPEN, 0, 0);
-        return 0;
-
-    case WM_INITDIALOG:
-        {
-            int i;
-
-            for (i = 0; romTypeList[i] != ROM_UNKNOWN; i++) {
-                ComboAddStringU(GetDlgItem(hDlg, IDC_OPEN_ROMTYPE), romTypeToString(romTypeList[i]));
-            }
-            ComboAddStringU(GetDlgItem(hDlg, IDC_OPEN_ROMTYPE), romTypeToString(ROM_UNKNOWN));
-            SetWindowTextU(GetDlgItem(hDlg, IDC_OPEN_ROMTEXT), langDlgRomType());
-            EnableWindow(GetDlgItem(hDlg, IDC_OPEN_ROMTYPE), 0);
-        }
-        return 0;
-
-    case WM_SIZE:
-        {
-            RECT r;
-            int height;
-            int width;
-            HWND hwnd;
-
-            GetClientRect(GetParent(hDlg), &r);
-            
-            height = r.bottom - r.top;
-            width  = r.right - r.left;
-
-            hwnd = GetDlgItem(hDlg, IDC_OPEN_ROMTEXT);
-            SetWindowPos(hwnd, NULL, 8, height - 29, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
-
-            hwnd = GetDlgItem(hDlg, IDC_OPEN_ROMTYPE);
-            SetWindowPos(hwnd, NULL, 81, height - 32, width - 187, 12, SWP_NOZORDER);
-        }
-        return 0;
-        
-    case WM_COMMAND:
-        switch(LOWORD(wParam)) {
-        case IDC_OPEN_ROMTYPE:
-            if (HIWORD(wParam) == 1 || HIWORD(wParam) == 2) {
-                int idx = SendMessage(GetDlgItem(hDlg, IDC_OPEN_ROMTYPE), CB_GETCURSEL, 0, 0);
-
-                openRomType = idx == CB_ERR ? -1 : romTypeList[idx];
-            }
-            return 0;
-        }
-
-        return 0;
-
-    case WM_DESTROY:
-        saveDialogPos(GetParent(hDlg), DLG_ID_OPEN);
-        return 0;
-        
-    case WM_NOTIFY:
-        {
-            OFNOTIFY* ofn = (OFNOTIFY*)lParam;
-            switch (ofn->hdr.code) {
-			case CDN_INITDONE:
-				//It is not effective since the second times why. 
-				updateDialogPos(GetParent(hDlg), DLG_ID_OPEN, 0, 1);
-				PostMessage(hDlg, WM_DIALOGRESIZE, 0, 0);
-				break;
-
-            case CDN_SELCHANGE:
-                {
-                    /* Parent dialog is Unicode (GetOpenFileNameW). Decode as UTF-8
-                    ** (file I/O is wrapped via fopenU / etc.). */
-                    wchar_t wFileName[MAX_PATH];
-                    char fileName[MAX_PATH * 4];
-                    int fileSize;
-                    int size;
-                    char* buf = NULL;
-
-                    SendMessageW(GetParent(hDlg), CDM_GETFILEPATH, MAX_PATH, (LPARAM)wFileName);
-                    fileSize = WideCharToMultiByte(CP_UTF8, 0, wFileName, -1,
-                                                   fileName, sizeof(fileName), NULL, NULL);
-
-                    if (isFileExtension(fileName, ".zip")) {
-                        int countRom;
-                        int countRi;
-                        int countMx1;
-                        int countMx2;
-                        int countSms;
-                        int countCol;
-                        int countSg;
-                        int countSc;
-                        char* fileListRom = zipGetFileList(fileName, ".rom", &countRom);
-                        char* fileListRi  = zipGetFileList(fileName, ".ri",  &countRi);
-                        char* fileListMx1 = zipGetFileList(fileName, ".mx1", &countMx1);
-                        char* fileListMx2 = zipGetFileList(fileName, ".mx2", &countMx2);
-                        char* fileListSms = zipGetFileList(fileName, ".sms", &countSms);
-                        char* fileListCol = zipGetFileList(fileName, ".col", &countCol);
-                        char* fileListSg  = zipGetFileList(fileName, ".sg", &countSg);
-                        char* fileListSc  = zipGetFileList(fileName, ".sc", &countSc);
-                        int count = countRom + countRi + countMx1 + countMx2 + countSms + countCol + countSg + countSc;
-
-                        if (count == 1) {
-                            if (countRom == 1) {
-                                buf = romLoad(fileName, fileListRom, &size);
-                            }
-                            if (countRi == 1) {
-                                buf = romLoad(fileName, fileListRi, &size);
-                            }
-                            if (countMx1 == 1) {
-                                buf = romLoad(fileName, fileListMx1, &size);
-                            }
-                            if (countMx2 == 1) {
-                                buf = romLoad(fileName, fileListMx2, &size);
-                            }
-                            if (countSms == 1) {
-                                buf = romLoad(fileName, fileListSms, &size);
-                            }
-                            if (countCol == 1) {
-                                buf = romLoad(fileName, fileListCol, &size);
-                            }
-                            if (countSg == 1) {
-                                buf = romLoad(fileName, fileListSg, &size);
-                            }
-                            if (countSc == 1) {
-                                buf = romLoad(fileName, fileListSc, &size);
-                            }
-                        }
-
-                        if (fileListRom) free(fileListRom);
-                        if (fileListRi)  free(fileListRi);
-                        if (fileListMx1) free(fileListMx1);
-                        if (fileListMx2) free(fileListMx2);
-                        if (fileListSms) free(fileListSms);
-                        if (fileListCol) free(fileListCol);
-                        if (fileListSg)  free(fileListSg);
-                        if (fileListSc)  free(fileListSc);
-                    }
-                    else {
-                        buf = romLoad(fileName, NULL, &size);
-                    }
-            
-                    if (buf != NULL) {
-
-                        MediaType* mediaType = mediaDbLookupRom(buf, size);
-                        RomType romType;
-                        int idx = 0;
-                        
-                        if (!mediaType) mediaType=mediaDbGuessRom(buf, size);
-                        romType = mediaType != NULL ? mediaDbGetRomType(mediaType) : ROM_UNKNOWN;
-			
-                        while (romTypeList[idx] != romType) {
-                            idx++;
-                        }
-
-                        SendMessage(GetDlgItem(hDlg, IDC_OPEN_ROMTYPE), CB_SETCURSEL, idx, 0);
-
-                        free(buf);
-
-                        openRomType = romType;
-
-                        EnableWindow(GetDlgItem(hDlg, IDC_OPEN_ROMTYPE), 1);
-                    }    
-                    else {
-                        openRomType = ROM_UNKNOWN;
-                        EnableWindow(GetDlgItem(hDlg, IDC_OPEN_ROMTYPE), 0);
-                        SendMessage(GetDlgItem(hDlg, IDC_OPEN_ROMTYPE), CB_SETCURSEL, -1, 0);
-                    }
-                }
-                break;
-            }
-        }
-        return 0;
-    }
-
-    return 0;
-}
-
 char* openRomFile(HWND hwndOwner, char* pTitle, char* pFilter, char* pDir, int mustExist, 
                   char* defExt, int* filterIndex, RomType* romType)
 { 
-    OPENFILENAME ofn; 
-    BOOL rv; 
-    static char pFileName[MAX_PATH];
+    static char pFileName[MAX_PATH * 4];
+    int detectedRomType = ROM_UNKNOWN;
     FILE* file;
+    (void)mustExist; (void)filterIndex;
 
     pFileName[0] = 0; 
     *romType = ROM_UNKNOWN;
 
-    ofn.lStructSize = sizeof(OPENFILENAME); 
-    ofn.hwndOwner = hwndOwner; 
-    ofn.hInstance = (HINSTANCE)GetModuleHandle(NULL); 
-    ofn.lpstrFilter = pFilter ? pFilter : "*.*\0\0"; 
-    ofn.lpstrCustomFilter = NULL; 
-    ofn.nMaxCustFilter = 0; 
-    ofn.nFilterIndex = filterIndex ? *filterIndex : 0; 
-    ofn.lpstrFile = pFileName; 
-    ofn.nMaxFile = 1024; 
-    ofn.lpstrFileTitle = NULL; 
-    ofn.nMaxFileTitle = 0; 
-    ofn.lpstrInitialDir = pDir; 
-    ofn.lpstrTitle = pTitle; 
-    ofn.Flags = OFN_EXPLORER | OFN_ENABLESIZING | OFN_ENABLETEMPLATE | OFN_ENABLEHOOK | OFN_HIDEREADONLY | (mustExist ? OFN_FILEMUSTEXIST : 0); 
-    ofn.nFileOffset = 0; 
-    ofn.nFileExtension = 0; 
-    ofn.lpstrDefExt = NULL; 
-    ofn.lCustData = 0; 
-    ofn.lpfnHook = hookRomProc; 
-    ofn.lpTemplateName = MAKEINTRESOURCE(IDD_OPEN_ROMDROPDOWN); 
-
-    rv = GetOpenFileNameU(&ofn); 
-
-    if (!rv) {
+    if (!ShellOpenRomFileDialog(hwndOwner, pTitle, pFilter, pDir,
+                                pFileName, sizeof(pFileName), &detectedRomType)) {
         return NULL; 
     }
 
-    if (filterIndex) {
-        *filterIndex = ofn.nFilterIndex;
-    }
-
     if (pDir != NULL) {
-        GetCurrentDirectory(MAX_PATH - 1, pDir);
+        GetCurrentDirectoryU(MAX_PATH - 1, pDir);
     }
 
+    /* Append default extension when the user typed a name without one. */
     file = fopen(pFileName, "r");
     if (file != NULL) {
         fclose(file);
     }
-    else {
-        if (defExt) {
-            if (strlen(pFileName) <= strlen(defExt)) {
-                strcat(pFileName, defExt);
-            }
-            else {
-                char* pos = pFileName + strlen(pFileName) - strlen(defExt);
-                int  len  = strlen(defExt);
-                while (len--) {
-                    if (toupper(pos[len]) != toupper(defExt[len])) {
-                        break;
-                    }
-                }
-                if (len >= 0) {
-                    strcat(pFileName, defExt);
+    else if (defExt) {
+        size_t fnLen = strlen(pFileName);
+        size_t exLen = strlen(defExt);
+        int needAppend = 1;
+        if (fnLen > exLen) {
+            const char* tail = pFileName + fnLen - exLen;
+            size_t i;
+            needAppend = 0;
+            for (i = 0; i < exLen; i++) {
+                if (toupper((unsigned char)tail[i]) != toupper((unsigned char)defExt[i])) {
+                    needAppend = 1;
+                    break;
                 }
             }
         }
-        file = fopen(pFileName, "a+");
-        if (file != NULL) {
-            fclose(file);
+        if (needAppend && fnLen + exLen < sizeof(pFileName)) {
+            strcat(pFileName, defExt);
         }
+        /* Skip fopen("a+") probing here: it would create empty stub files
+        ** and mask missing-file errors.  Loaders surface those instead. */
     }
 
-    *romType = openRomType;
-
-    return pFileName; 
-} 
+    *romType = (RomType)detectedRomType;
+    return pFileName;
+}
 
 //////////////////////////////////////////////////////////////////////////////////////
 
-static int doShowPreview = 0;
-
-UINT_PTR CALLBACK hookStateProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
-{
-    static HBITMAP hBmp = INVALID_HANDLE_VALUE;
-
-    switch (iMsg) {
-	case WM_DIALOGRESIZE:
-        updateDialogPos(GetParent(hDlg), DLG_ID_OPENSTATE, 0, 0);
-        return 0;
-
-    case WM_INITDIALOG:
-        SetWindowTextU(GetDlgItem(hDlg, IDC_PREVIEWBUTTON), langDlgSavePreview());
-        SetWindowTextU(GetDlgItem(hDlg, IDC_PREVIEWDATETEXT), langDlgSaveDate());
-        SendDlgItemMessage(hDlg, IDC_PREVIEWBUTTON, BM_SETCHECK, doShowPreview ? BST_CHECKED : BST_UNCHECKED, 0);
-        return 0;
-
-	case WM_COMMAND:
-        if (LOWORD(wParam) == IDC_PREVIEWBUTTON) {
-            int newChecked = BST_CHECKED == SendDlgItemMessage(hDlg, IDC_PREVIEWBUTTON, BM_GETCHECK, 0, 0);
-            if (newChecked != doShowPreview) {
-                doShowPreview = newChecked;
-                InvalidateRect(hDlg, NULL, TRUE);
-            }
-        }
-        return 0;
-
-    case WM_SIZE:
-        {
-            RECT r;
-            int height;
-            int width;
-            HWND hwnd;
-
-            GetClientRect(GetParent(hDlg), &r);
-            
-            height = r.bottom - r.top;
-            width  = r.right - r.left;
-
-            hwnd = GetDlgItem(hDlg, IDC_PREVIEWBUTTON);
-            SetWindowPos(hwnd, NULL, width - 220, 215, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
-            
-            hwnd = GetDlgItem(hDlg, IDC_PREVIEWDATETEXT);
-            SetWindowPos(hwnd, NULL, 8, height - 26, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
-
-            hwnd = GetDlgItem(hDlg, IDC_PREVIEWDATE);
-            SetWindowPos(hwnd, NULL, 81, height - 26, width - 187, 15, SWP_NOZORDER);
-        }
-        return 0;
-        
-    case WM_DESTROY:
-        if (hBmp != INVALID_HANDLE_VALUE) {
-            DeleteObject(hBmp);
-            hBmp = INVALID_HANDLE_VALUE;
-        }
-        saveDialogPos(GetParent(hDlg), DLG_ID_OPENSTATE);
-        return 0;
-        
-    case WM_NOTIFY:
-        {
-            OFNOTIFY* ofn = (OFNOTIFY*)lParam;
-            switch (ofn->hdr.code) {
-			case CDN_INITDONE:
-				//It is not effective since the second times why. 
-				updateDialogPos(GetParent(hDlg), DLG_ID_OPENSTATE, 0, 1);
-				PostMessage(hDlg, WM_DIALOGRESIZE, 0, 0);
-				break;
-
-            case CDN_SELCHANGE:
-                {
-                    /* Parent dialog is Unicode (GetOpenFileNameW). Decode as UTF-8. */
-                    wchar_t wFileName[MAX_PATH];
-                    char fileName[MAX_PATH * 4];
-                    void* buffer;
-                    Int32 size;
-                    int fileSize;
-
-                    SendMessageW(GetParent(hDlg), CDM_GETFILEPATH, MAX_PATH, (LPARAM)wFileName);
-                    fileSize = WideCharToMultiByte(CP_UTF8, 0, wFileName, -1,
-                                                   fileName, sizeof(fileName), NULL, NULL);
-
-                    if (hBmp != INVALID_HANDLE_VALUE) {
-                        DeleteObject(hBmp);
-                        hBmp = INVALID_HANDLE_VALUE;
-                    }
-
-                    SetWindowTextU(GetDlgItem(hDlg, IDC_PREVIEWDATE), "");                     
-                    buffer = zipLoadFile(fileName, "date.txt", &size);
-
-                    if (buffer != 0) {
-                        SetWindowTextU(GetDlgItem(hDlg, IDC_PREVIEWDATE), buffer);     
-
-                        free(buffer);
-
-                    }
-
-                    if (isFileExtension(fileName, ".sta")) {
-
-                        buffer = zipLoadFile(fileName, "screenshot.bmp", &size);
-
-                        if (buffer != 0) {
-
-                            hBmp = BitmapFromData(buffer);
-
-                            free(buffer);
-
-                        }
-
-
-                        InvalidateRect(hDlg, NULL, TRUE);
-                    }
-                }
-                break;
-            }
-        }
-        return 0;
-
-    case WM_PAINT:
-        {
-            PAINTSTRUCT ps;
-            HDC hdc = BeginPaint(hDlg, &ps);
-
-            if (hBmp != INVALID_HANDLE_VALUE && doShowPreview) {
-                BITMAP bmp;
-
-                if(GetObject(hBmp, sizeof(BITMAP), (LPSTR)&bmp)) {
-                    HDC hMemDC = CreateCompatibleDC(hdc);
-                    HBITMAP hBitmap = (HBITMAP)SelectObject(hMemDC, hBmp);
-                    int bmWidth = 200;
-                    int bmHeight = bmp.bmHeight * bmWidth / bmp.bmWidth;
-                    RECT r;
-                    int height;
-                    int width;
-
-                    if (bmHeight > 180) {
-                        bmHeight = 180;
-                        bmWidth = bmp.bmWidth * bmHeight / bmp.bmHeight;
-                    }
-
-                    GetClientRect(GetParent(hDlg), &r);
-                
-                    height = r.bottom - r.top;
-                    width  = r.right - r.left;
-                    SetStretchBltMode(hdc, HALFTONE);
-                    StretchBlt(hdc, width - 220, 30, bmWidth, bmHeight, hMemDC, 0, 0, bmp.bmWidth, bmp.bmHeight, SRCCOPY);
-                    SelectObject(hMemDC, hBitmap);
-                    DeleteDC(hMemDC);    
-                }
-            }
-            EndPaint(hDlg, &ps);
-        }
-        return 0;
-    }
-
-    return 0;
-}
-
 char* openStateFile(HWND hwndOwner, char* pTitle, char* pFilter, char* pDir, 
                     int newFileSize, char* defExt, int* filterIndex, int* showPreview)
-{ 
-    OPENFILENAME ofn; 
-    BOOL rv; 
-    static char pFileName[MAX_PATH];
+{
+    static char pFileName[MAX_PATH * 4];
+    int idx = filterIndex ? *filterIndex : 0;
     FILE* file;
+    (void)newFileSize; (void)showPreview;
 
     pFileName[0] = 0; 
 
-    if (showPreview != NULL) {
-        doShowPreview = *showPreview;
-    }
-    else {
-        doShowPreview = 1;
-    }
-
-    ofn.lStructSize = sizeof(OPENFILENAME); 
-    ofn.hwndOwner = hwndOwner; 
-    ofn.hInstance = (HINSTANCE)GetModuleHandle(NULL); 
-    ofn.lpstrFilter = pFilter ? pFilter : "*.*\0\0"; 
-    ofn.lpstrCustomFilter = NULL; 
-    ofn.nMaxCustFilter = 0; 
-    ofn.nFilterIndex = filterIndex ? *filterIndex : 0; 
-    ofn.lpstrFile = pFileName; 
-    ofn.nMaxFile = 1024; 
-    ofn.lpstrFileTitle = NULL; 
-    ofn.nMaxFileTitle = 0; 
-    ofn.lpstrInitialDir = pDir; 
-    ofn.lpstrTitle = pTitle; 
-    ofn.Flags = OFN_EXPLORER | OFN_ENABLESIZING | OFN_ENABLETEMPLATE | OFN_ENABLEHOOK | OFN_HIDEREADONLY | (newFileSize < 0 ? OFN_FILEMUSTEXIST : 0); 
-    ofn.nFileOffset = 0; 
-    ofn.nFileExtension = 0; 
-    ofn.lpstrDefExt = NULL; 
-    ofn.lCustData = 0; 
-    ofn.lpfnHook = hookStateProc; 
-    ofn.lpTemplateName = MAKEINTRESOURCE(IDD_OPEN_STATEDIALOG); 
-
-    rv = GetOpenFileNameU(&ofn); 
-
-    if (showPreview != NULL) {
-        *showPreview = doShowPreview;
-    }
-
-    if (!rv) {
+    if (!ShellOpenFileDialog(hwndOwner, pTitle, pFilter, pDir, defExt,
+                             filterIndex ? &idx : NULL,
+                             pFileName, sizeof(pFileName))) {
         return NULL; 
     }
-
-    if (filterIndex) {
-        *filterIndex = ofn.nFilterIndex;
-    }
-
-    if (pDir != NULL) {
-        GetCurrentDirectory(MAX_PATH - 1, pDir);
-    }
+    if (filterIndex) *filterIndex = idx;
+    if (pDir != NULL) GetCurrentDirectoryU(MAX_PATH - 1, pDir);
 
     file = fopen(pFileName, "r");
     if (file != NULL) {
         fclose(file);
     }
-    else {
-        if (defExt) {
-            if (strlen(pFileName) <= strlen(defExt)) {
-                strcat(pFileName, defExt);
-            }
-            else {
-                char* pos = pFileName + strlen(pFileName) - strlen(defExt);
-                int  len  = strlen(defExt);
-                while (len--) {
-                    if (toupper(pos[len]) != toupper(defExt[len])) {
-                        break;
-                    }
-                }
-                if (len >= 0) {
-                    strcat(pFileName, defExt);
+    else if (defExt) {
+        size_t fnLen = strlen(pFileName);
+        size_t exLen = strlen(defExt);
+        int needAppend = 1;
+        if (fnLen > exLen) {
+            const char* tail = pFileName + fnLen - exLen;
+            size_t i;
+            needAppend = 0;
+            for (i = 0; i < exLen; i++) {
+                if (toupper((unsigned char)tail[i]) != toupper((unsigned char)defExt[i])) {
+                    needAppend = 1;
+                    break;
                 }
             }
         }
-        file = fopen(pFileName, "a+");
-        if (file != NULL) {
-            fclose(file);
+        if (needAppend && fnLen + exLen < sizeof(pFileName)) {
+            strcat(pFileName, defExt);
         }
+        /* Skip fopen("a+") probing here: it would create empty stub files
+        ** and mask missing-file errors.  Loaders surface those instead. */
     }
-
     return pFileName; 
 } 
 
-char* saveStateFile(HWND hwndOwner, char* pTitle, char* pFilter, int* pFilterIndex, char* pDir, int* showPreview) { 
-    OPENFILENAME ofn; 
-    BOOL rv; 
-    static char pFileName[MAX_PATH]; 
+char* saveStateFile(HWND hwndOwner, char* pTitle, char* pFilter, int* pFilterIndex, char* pDir, int* showPreview)
+{
+    static char pFileName[MAX_PATH * 4];
+    int idx = pFilterIndex ? *pFilterIndex : 0;
+    (void)showPreview;
+
     pFileName[0] = 0; 
 
-    if (showPreview != NULL) {
-        doShowPreview = *showPreview;
-    }
-    else {
-        doShowPreview = 1;
-    }
-
-    ofn.lStructSize = sizeof(OPENFILENAME); 
-    ofn.hwndOwner = hwndOwner; 
-    ofn.hInstance = (HINSTANCE)GetModuleHandle(NULL); 
-    ofn.lpstrFilter = pFilter ? pFilter : "*.*\0\0"; 
-    ofn.lpstrCustomFilter = NULL; 
-    ofn.nMaxCustFilter = 0; 
-    ofn.nFilterIndex = pFilterIndex ? *pFilterIndex : 0; 
-    ofn.lpstrFile = pFileName; 
-    ofn.nMaxFile = 1024; 
-    ofn.lpstrFileTitle = NULL; 
-    ofn.nMaxFileTitle = 0; 
-    ofn.lpstrInitialDir = pDir; 
-    ofn.lpstrTitle = pTitle; 
-    ofn.Flags = OFN_EXPLORER | OFN_ENABLESIZING | OFN_ENABLETEMPLATE | OFN_HIDEREADONLY | OFN_ENABLEHOOK; 
-    ofn.nFileOffset = 0; 
-    ofn.nFileExtension = 0; 
-    ofn.lpstrDefExt = NULL; 
-    ofn.lCustData = 0; 
-    ofn.lpfnHook = hookStateProc; 
-    ofn.lpTemplateName = MAKEINTRESOURCE(IDD_OPEN_STATEDIALOG); 
-
-    rv = GetSaveFileNameU(&ofn); 
-
-    if (showPreview != NULL) {
-        *showPreview = doShowPreview;
-    }
-
-    if (!rv) { 
+    if (!ShellSaveFileDialog(hwndOwner, pTitle, pFilter, pDir, NULL,
+                             pFilterIndex ? &idx : NULL,
+                             pFileName, sizeof(pFileName))) {
         return NULL; 
-    } 
-
-    if (pFilterIndex) {
-        *pFilterIndex = ofn.nFilterIndex;
     }
-
-    if (pDir != NULL) {
-        GetCurrentDirectory(MAX_PATH - 1, pDir);
-    }
+    if (pFilterIndex) *pFilterIndex = idx;
+    if (pDir != NULL) GetCurrentDirectoryU(MAX_PATH - 1, pDir);
 
     return pFileName; 
 }
 
 //////////////////////////////////////////////////////////////////
 
-static int newHdFileSize;
-
 #define ONEMB (1024 * 1024)
 
-static const struct {
-    int size;
-    char text[8];
-} hdFileSizes[] = {
-    {   5 * ONEMB, "5 MB" },
-    {  10 * ONEMB, "10 MB" },
-    {  20 * ONEMB, "20 MB" },
-    {  50 * ONEMB, "50 MB" },
-    { 100 * ONEMB, "100 MB" },
-    { 200 * ONEMB, "200 MB" },
-    { 0, "" }
-};
-
-UINT_PTR CALLBACK hookHdProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
-{
-    switch (iMsg) {
-	case WM_DIALOGRESIZE:
-        updateDialogPos(GetParent(hDlg), DLG_ID_OPEN, 0, 0);
-        return 0;
-
-    case WM_INITDIALOG:
-        {
-            int i;
-
-            for (i = 0; hdFileSizes[i].size; i++) {
-                ComboAddStringU(GetDlgItem(hDlg, IDC_OPEN_HDSIZE), hdFileSizes[i].text);
-                if (newHdFileSize == hdFileSizes[i].size || i == 0) {
-                    SendDlgItemMessage(hDlg, IDC_OPEN_HDSIZE, CB_SETCURSEL, i, 0);
-                }
-            }
-            SetWindowTextU(GetDlgItem(hDlg, IDC_OPEN_HDSIZETEXT), langDlgDiskSize());
-        }
-        return 0;
-
-    case WM_SIZE:
-        {
-            RECT r;
-            int height;
-            int width;
-            HWND hwnd;
-
-            GetClientRect(GetParent(hDlg), &r);
-            
-            height = r.bottom - r.top;
-            width  = r.right - r.left;
-
-            hwnd = GetDlgItem(hDlg, IDC_OPEN_HDSIZETEXT);
-            SetWindowPos(hwnd, NULL, 8, height - 29, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
-
-            hwnd = GetDlgItem(hDlg, IDC_OPEN_HDSIZE);
-            SetWindowPos(hwnd, NULL, 81, height - 32, 100, 12, SWP_NOZORDER);
-        }
-        return 0;
-
-    case WM_DESTROY:
-        {
-            int idx = SendMessage(GetDlgItem(hDlg, IDC_OPEN_HDSIZE), CB_GETCURSEL, 0, 0);
-            if (idx < 0) {
-                char buf[128];
-                int size;
-                GetDlgItemTextU(hDlg, IDC_OPEN_HDSIZE, buf, 127);
-                size = atoi(buf);
-                if (size <= 0 && size > 1024) {
-                    size = 5;
-                }
-                newHdFileSize = size * 1024 * 1024;
-            }
-            else {
-                newHdFileSize = hdFileSizes[idx].size;
-            }
-            saveDialogPos(GetParent(hDlg), DLG_ID_OPEN);
-        }
-        return 0;
-        
-    case WM_NOTIFY:
-        {
-            OFNOTIFY* ofn = (OFNOTIFY*)lParam;
-            switch (ofn->hdr.code) {
-			case CDN_INITDONE:
-				//It is not effective since the second times why. 
-				updateDialogPos(GetParent(hDlg), DLG_ID_OPEN, 0, 1);
-				PostMessage(hDlg, WM_DIALOGRESIZE, 0, 0);
-				break;
-            }
-        }
-        return 0;
-    }
-
-    return 0;
-}
+static int newHdFileSize;
 
 char* openNewHdFile(HWND hwndOwner, char* pTitle, char* pFilter, char* pDir, 
                     char* defExt, int* filterIndex)
-{ 
-    OPENFILENAME ofn; 
-    BOOL rv; 
-    static char pFileName[MAX_PATH];
+{
+    static char pFileName[MAX_PATH * 4];
+    int hdSize = 0;
     FILE* file;
-    
-    newHdFileSize = 20 * ONEMB;
+    (void)filterIndex;
 
     pFileName[0] = 0; 
 
-    ofn.lStructSize = sizeof(OPENFILENAME); 
-    ofn.hwndOwner = hwndOwner; 
-    ofn.hInstance = (HINSTANCE)GetModuleHandle(NULL); 
-    ofn.lpstrFilter = pFilter ? pFilter : "*.*\0\0"; 
-    ofn.lpstrCustomFilter = NULL; 
-    ofn.nMaxCustFilter = 0; 
-    ofn.nFilterIndex = filterIndex ? *filterIndex : 0; 
-    ofn.lpstrFile = pFileName; 
-    ofn.nMaxFile = 1024; 
-    ofn.lpstrFileTitle = NULL; 
-    ofn.nMaxFileTitle = 0; 
-    ofn.lpstrInitialDir = pDir; 
-    ofn.lpstrTitle = pTitle; 
-    ofn.Flags = OFN_EXPLORER | OFN_ENABLESIZING | OFN_ENABLETEMPLATE | OFN_ENABLEHOOK | OFN_HIDEREADONLY; 
-    ofn.nFileOffset = 0; 
-    ofn.nFileExtension = 0; 
-    ofn.lpstrDefExt = NULL; 
-    ofn.lCustData = 0; 
-    ofn.lpfnHook = hookHdProc; 
-    ofn.lpTemplateName = MAKEINTRESOURCE(IDD_OPEN_HDSIZEDROPDOWN); 
-
-    rv = GetOpenFileNameU(&ofn); 
-
-    if (!rv) {
-        return NULL; 
+    if (!ShellNewHdFileDialog(hwndOwner, pTitle, pFilter, pDir, defExt,
+                              pFileName, sizeof(pFileName), &hdSize)) {
+        return NULL;
     }
+    newHdFileSize = hdSize;
+    if (pDir != NULL) GetCurrentDirectoryU(MAX_PATH - 1, pDir);
 
-    if (filterIndex) {
-        *filterIndex = ofn.nFilterIndex;
-    }
-
-    if (pDir != NULL) {
-        GetCurrentDirectory(MAX_PATH - 1, pDir);
-    }
-
-    file = fopen(pFileName, "r");
-    if (file != NULL) {
-        char langBuffer[200];
-        fclose(file);
-        sprintf(langBuffer, "%s %s", langWarningOverwriteFile(), pFileName);
-        if (IDOK != MessageBoxU(NULL, langBuffer, langWarningTitle(), MB_OKCANCEL)) {
-            return NULL;
-        }
-    }
+    /* IFileSaveDialog already raises FOS_OVERWRITEPROMPT for existing files;
+    ** no need for the legacy hand-rolled MessageBox confirmation here. */
 
     if (defExt) {
-        if (strlen(pFileName) <= strlen(defExt)) {
-            strcat(pFileName, defExt);
-        }
-        else {
-            char* pos = pFileName + strlen(pFileName) - strlen(defExt);
-            int  len  = strlen(defExt);
-            while (len--) {
-                if (toupper(pos[len]) != toupper(defExt[len])) {
+        size_t fnLen = strlen(pFileName);
+        size_t exLen = strlen(defExt);
+        int needAppend = 1;
+        if (fnLen > exLen) {
+            const char* tail = pFileName + fnLen - exLen;
+            size_t i;
+            needAppend = 0;
+            for (i = 0; i < exLen; i++) {
+                if (toupper((unsigned char)tail[i]) != toupper((unsigned char)defExt[i])) {
+                    needAppend = 1;
                     break;
                 }
             }
-            if (len >= 0) {
-                strcat(pFileName, defExt);
-            }
+        }
+        if (needAppend && fnLen + exLen < sizeof(pFileName)) {
+            strcat(pFileName, defExt);
         }
     }
     file = fopen(pFileName, "w+");
     if (file != NULL) {
         char* data = calloc(1, ONEMB);
-        while (newHdFileSize > 0) {
+        int remaining = newHdFileSize;
+        while (remaining > 0) {
             fwrite(data, 1, ONEMB, file);
-            newHdFileSize -= ONEMB;
+            remaining -= ONEMB;
         }
         free(data);
         fclose(file);
@@ -919,8 +355,6 @@ char* openNewHdFile(HWND hwndOwner, char* pTitle, char* pFilter, char* pDir,
     return pFileName; 
 } 
 //////////////////////////////////////////////////////////////////
-
-static int newDskFileSize;
 
 #define ONEKB 1024
 
@@ -938,336 +372,162 @@ static const struct {
     { 0, NULL }
 };
 
-UINT_PTR CALLBACK hookDskProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
-{
-    switch (iMsg) {
-	case WM_DIALOGRESIZE:
-        updateDialogPos(GetParent(hDlg), DLG_ID_OPEN, 0, 0);
-        return 0;
-
-    case WM_INITDIALOG:
-        {
-            int i;
-
-            for (i = 0; dskFileSizes[i].size; i++) {
-                char text[128];
-                sprintf(text, "%dkB - %s", dskFileSizes[i].size / ONEKB, dskFileSizes[i].translation());
-                ComboAddStringU(GetDlgItem(hDlg, IDC_OPEN_HDSIZE), text);
-                if (newDskFileSize == dskFileSizes[i].size || i == 0) {
-                    SendDlgItemMessage(hDlg, IDC_OPEN_HDSIZE, CB_SETCURSEL, i, 0);
-                }
-            }
-            SetWindowTextU(GetDlgItem(hDlg, IDC_OPEN_HDSIZETEXT), langDlgDiskSize());
-        }
-        return 0;
-
-    case WM_SIZE:
-        {
-            RECT r;
-            int height;
-            int width;
-            HWND hwnd;
-
-            GetClientRect(GetParent(hDlg), &r);
-            
-            height = r.bottom - r.top;
-            width  = r.right - r.left;
-
-            hwnd = GetDlgItem(hDlg, IDC_OPEN_HDSIZETEXT);
-            SetWindowPos(hwnd, NULL, 8, height - 29, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
-
-            hwnd = GetDlgItem(hDlg, IDC_OPEN_HDSIZE);
-            SetWindowPos(hwnd, NULL, 81, height - 32, 233, 12, SWP_NOZORDER);
-        }
-        return 0;
-
-    case WM_DESTROY:
-        {
-            int idx = SendMessage(GetDlgItem(hDlg, IDC_OPEN_HDSIZE), CB_GETCURSEL, 0, 0);
-            saveDialogPos(GetParent(hDlg), DLG_ID_OPEN);
-            newDskFileSize = dskFileSizes[idx].size;
-        }
-        return 0;
-        
-    case WM_NOTIFY:
-        {
-            OFNOTIFY* ofn = (OFNOTIFY*)lParam;
-            switch (ofn->hdr.code) {
-			case CDN_INITDONE:
-				//It is not effective since the second times why. 
-				updateDialogPos(GetParent(hDlg), DLG_ID_OPEN, 0, 1);
-				PostMessage(hDlg, WM_DIALOGRESIZE, 0, 0);
-				break;
-            }
-        }
-        return 0;
-    }
-
-    return 0;
-}
-
 char* openNewDskFile(HWND hwndOwner, char* pTitle, char* pFilter, char* pDir, 
                     char* defExt, int* filterIndex)
-{ 
-    OPENFILENAME ofn; 
-    BOOL rv; 
-    static char pFileName[MAX_PATH];
+{
+    static char pFileName[MAX_PATH * 4];
+    static int  selectedSizeIdx = 0;  /* persists across opens */
+    int dskItemCount;
+    ShellComboItem dskItems[16];
+    char labelBufs[16][64];
+    int i;
     FILE* file;
-    
-    newDskFileSize = 720 * ONEKB;
+    int writeBytes;
 
-    pFileName[0] = 0; 
+    (void)filterIndex;
 
-    ofn.lStructSize = sizeof(OPENFILENAME); 
-    ofn.hwndOwner = hwndOwner; 
-    ofn.hInstance = (HINSTANCE)GetModuleHandle(NULL); 
-    ofn.lpstrFilter = pFilter ? pFilter : "*.*\0\0"; 
-    ofn.lpstrCustomFilter = NULL; 
-    ofn.nMaxCustFilter = 0; 
-    ofn.nFilterIndex = filterIndex ? *filterIndex : 0; 
-    ofn.lpstrFile = pFileName; 
-    ofn.nMaxFile = 1024; 
-    ofn.lpstrFileTitle = NULL; 
-    ofn.nMaxFileTitle = 0; 
-    ofn.lpstrInitialDir = pDir; 
-    ofn.lpstrTitle = pTitle; 
-    ofn.Flags = OFN_EXPLORER | OFN_ENABLESIZING | OFN_ENABLETEMPLATE | OFN_ENABLEHOOK | OFN_HIDEREADONLY; 
-    ofn.nFileOffset = 0; 
-    ofn.nFileExtension = 0; 
-    ofn.lpstrDefExt = NULL; 
-    ofn.lCustData = 0; 
-    ofn.lpfnHook = hookDskProc; 
-    ofn.lpTemplateName = MAKEINTRESOURCE(IDD_OPEN_HDSIZEDROPDOWN); 
+    /* Build the size combobox items from the existing dskFileSizes table. */
+    for (dskItemCount = 0;
+         dskFileSizes[dskItemCount].size && dskItemCount < (int)(sizeof(dskItems)/sizeof(dskItems[0]));
+         dskItemCount++) {
+        sprintf(labelBufs[dskItemCount], "%dkB - %s",
+                dskFileSizes[dskItemCount].size / ONEKB,
+                dskFileSizes[dskItemCount].translation());
+        dskItems[dskItemCount].label = labelBufs[dskItemCount];
+        dskItems[dskItemCount].bytes = dskFileSizes[dskItemCount].size;
+    }
 
-    rv = GetOpenFileNameU(&ofn); 
-
-    if (!rv) {
+    pFileName[0] = 0;
+    if (!ShellNewDskFileDialog(hwndOwner, pTitle, pFilter, pDir, defExt,
+                               dskItems, dskItemCount, &selectedSizeIdx,
+                               pFileName, sizeof(pFileName))) {
         return NULL; 
     }
+    writeBytes = (selectedSizeIdx >= 0 && selectedSizeIdx < dskItemCount)
+                 ? dskItems[selectedSizeIdx].bytes
+                 : 720 * ONEKB;
 
-    if (filterIndex) {
-        *filterIndex = ofn.nFilterIndex;
-    }
+    if (pDir != NULL) GetCurrentDirectoryU(MAX_PATH - 1, pDir);
 
-    if (pDir != NULL) {
-        GetCurrentDirectory(MAX_PATH - 1, pDir);
-    }
-
-    file = fopen(pFileName, "r");
-    if (file != NULL) {
-        char langBuffer[200];
-        fclose(file);
-        sprintf(langBuffer, "%s %s", langWarningOverwriteFile(), pFileName);
-        if (IDOK != MessageBoxU(NULL, langBuffer, langWarningTitle(), MB_OKCANCEL)) {
-            return NULL;
-        }
-    }
-
+    /* IFileSaveDialog raises FOS_OVERWRITEPROMPT for existing files, so
+    ** an extra MessageBox confirmation isn't wired here. */
+            
     if (defExt) {
-        if (strlen(pFileName) <= strlen(defExt)) {
-            strcat(pFileName, defExt);
-        }
-        else {
-            char* pos = pFileName + strlen(pFileName) - strlen(defExt);
-            int  len  = strlen(defExt);
-            while (len--) {
-                if (toupper(pos[len]) != toupper(defExt[len])) {
+        size_t fnLen = strlen(pFileName);
+        size_t exLen = strlen(defExt);
+        int needAppend = 1;
+        if (fnLen > exLen) {
+            const char* tail = pFileName + fnLen - exLen;
+            size_t k;
+            needAppend = 0;
+            for (k = 0; k < exLen; k++) {
+                if (toupper((unsigned char)tail[k]) != toupper((unsigned char)defExt[k])) {
+                    needAppend = 1;
                     break;
                 }
             }
-            if (len >= 0) {
-                strcat(pFileName, defExt);
-            }
+        }
+        if (needAppend && fnLen + exLen < sizeof(pFileName)) {
+            strcat(pFileName, defExt);
         }
     }
     file = fopen(pFileName, "w+");
     if (file != NULL) {
         char* data = calloc(1, ONEKB);
-        if (newDskFileSize == 338 * ONEKB || newDskFileSize == 168 * ONEKB) {
+        if (writeBytes == 338 * ONEKB || writeBytes == 168 * ONEKB) {
             memset(data, 0xe5, ONEKB);
         }
-        while (newDskFileSize > 0) {
+        for (i = 0; i < writeBytes; i += ONEKB) {
             fwrite(data, 1, ONEKB, file);
-            newDskFileSize -= ONEKB;
         }
         free(data);
         fclose(file);
     }
-
     return pFileName; 
 } 
 
 //////////////////////////////////////////////////////////////////////////////////////
 
-//////////////////////////////////////////////////////////////////////////////////////
-
-UINT_PTR CALLBACK hookProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
-{
-
-    switch (iMsg) {
-	case WM_DIALOGRESIZE:
-        updateDialogPos(GetParent(hDlg), DLG_ID_OPEN, 0, 0);
-        return 0;
-
-	case WM_NOTIFY:
-		{
-			OFNOTIFY* ofn = (OFNOTIFY*)lParam;
-			if(ofn->hdr.code == CDN_INITDONE){
-				//It is not effective since the second times why. 
-				updateDialogPos(GetParent(hDlg), DLG_ID_OPEN, 0, 1);
-				PostMessage(hDlg, WM_DIALOGRESIZE, 0, 0);
-			}
-			return 0;
-		}
-
-    case WM_DESTROY:
-        saveDialogPos(GetParent(hDlg), DLG_ID_OPEN);
-        return 0;
-    }
-
-    return 0;
-}
-
 char* openFile(HWND hwndOwner, char* pTitle, char* pFilter, char* pDir, 
                int newFileSize, char* defExt, int* filterIndex)
 { 
-    OPENFILENAME ofn; 
-    BOOL rv; 
-    static char pFileName[MAX_PATH];
+    static char pFileName[MAX_PATH * 4];
+    int idx = filterIndex ? *filterIndex : 0;
     FILE* file;
+    (void)newFileSize;
 
     pFileName[0] = 0; 
 
-    ofn.lStructSize = sizeof(OPENFILENAME); 
-    ofn.hwndOwner = hwndOwner; 
-    ofn.hInstance = (HINSTANCE)GetModuleHandle(NULL); 
-    ofn.lpstrFilter = pFilter ? pFilter : "*.*\0\0"; 
-    ofn.lpstrCustomFilter = NULL; 
-    ofn.nMaxCustFilter = 0; 
-    ofn.nFilterIndex = filterIndex ? *filterIndex : 0; 
-    ofn.lpstrFile = pFileName; 
-    ofn.nMaxFile = 1024; 
-    ofn.lpstrFileTitle = NULL; 
-    ofn.nMaxFileTitle = 0; 
-    ofn.lpstrInitialDir = pDir; 
-    ofn.lpstrTitle = pTitle; 
-    ofn.Flags = OFN_EXPLORER | OFN_ENABLESIZING | OFN_ENABLEHOOK | OFN_HIDEREADONLY | (newFileSize < 0 ? OFN_FILEMUSTEXIST : 0); 
-    ofn.nFileOffset = 0; 
-    ofn.nFileExtension = 0; 
-    ofn.lpstrDefExt = NULL; 
-    ofn.lCustData = 0; 
-    ofn.lpfnHook = hookProc; 
-    ofn.lpTemplateName = NULL; 
-
-    rv = GetOpenFileNameU(&ofn); 
-
-    if (!rv) {
+    if (!ShellOpenFileDialog(hwndOwner, pTitle, pFilter, pDir, defExt,
+                             filterIndex ? &idx : NULL,
+                             pFileName, sizeof(pFileName))) {
         return NULL; 
     }
-
-    if (filterIndex) {
-        *filterIndex = ofn.nFilterIndex;
-    }
-
-    if (pDir != NULL) {
-        GetCurrentDirectory(MAX_PATH - 1, pDir);
-    }
+    if (filterIndex) *filterIndex = idx;
+    if (pDir != NULL) GetCurrentDirectoryU(MAX_PATH - 1, pDir);
 
     file = fopen(pFileName, "r");
     if (file != NULL) {
         fclose(file);
     }
-    else {
-        if (defExt) {
-            if (strlen(pFileName) <= strlen(defExt)) {
-                strcat(pFileName, defExt);
-            }
-            else {
-                char* pos = pFileName + strlen(pFileName) - strlen(defExt);
-                int  len  = strlen(defExt);
-                while (len--) {
-                    if (toupper(pos[len]) != toupper(defExt[len])) {
-                        break;
-                    }
-                }
-                if (len >= 0) {
-                    strcat(pFileName, defExt);
-                }
-            }
-        }
-        file = fopen(pFileName, "a+");
-        if (file != NULL) {
-            if (newFileSize > 0) {
-                char* data = calloc(1, newFileSize);
-                fwrite(data, 1, newFileSize, file);
-                free(data);
-            }
-            fclose(file);
-        }
-    }
-
-    return pFileName; 
-} 
-
-char* saveFile(HWND hwndOwner, char* pTitle, char* pFilter, int* pFilterIndex, char* pDir, char* defExt) { 
-    OPENFILENAME ofn; 
-    BOOL rv; 
-    static char pFileName[MAX_PATH]; 
-    pFileName[0] = 0; 
-
-    ofn.lStructSize = sizeof(OPENFILENAME); 
-    ofn.hwndOwner = hwndOwner; 
-    ofn.hInstance = (HINSTANCE)GetModuleHandle(NULL); 
-    ofn.lpstrFilter = pFilter ? pFilter : "*.*\0\0"; 
-    ofn.lpstrCustomFilter = NULL; 
-    ofn.nMaxCustFilter = 0; 
-    ofn.nFilterIndex = pFilterIndex ? *pFilterIndex : 0; 
-    ofn.lpstrFile = pFileName; 
-    ofn.nMaxFile = 1024; 
-    ofn.lpstrFileTitle = NULL; 
-    ofn.nMaxFileTitle = 0; 
-    ofn.lpstrInitialDir = pDir; 
-    ofn.lpstrTitle = pTitle; 
-    ofn.Flags = OFN_EXPLORER | OFN_ENABLESIZING | OFN_HIDEREADONLY | OFN_ENABLEHOOK; 
-    ofn.nFileOffset = 0; 
-    ofn.nFileExtension = 0; 
-    ofn.lpstrDefExt = NULL; 
-    ofn.lCustData = 0; 
-    ofn.lpfnHook = hookProc; 
-    ofn.lpTemplateName = NULL; 
-
-    rv = GetSaveFileNameU(&ofn); 
-
-    if (!rv) { 
-        return NULL; 
-    } 
-
-    if (pFilterIndex) {
-        *pFilterIndex = ofn.nFilterIndex;
-    }
-
-    if (pDir != NULL) {
-        GetCurrentDirectory(MAX_PATH - 1, pDir);
-    }
-
-    if (defExt) {
-        if (strlen(pFileName) <= strlen(defExt)) {
-            strcat(pFileName, defExt);
-        }
-        else {
-            char* pos = pFileName + strlen(pFileName) - strlen(defExt);
-            int  len  = strlen(defExt);
-            while (len--) {
-                if (toupper(pos[len]) != toupper(defExt[len])) {
+    else if (defExt) {
+        size_t fnLen = strlen(pFileName);
+        size_t exLen = strlen(defExt);
+        int needAppend = 1;
+        if (fnLen > exLen) {
+            const char* tail = pFileName + fnLen - exLen;
+            size_t i;
+            needAppend = 0;
+            for (i = 0; i < exLen; i++) {
+                if (toupper((unsigned char)tail[i]) != toupper((unsigned char)defExt[i])) {
+                    needAppend = 1;
                     break;
                 }
             }
-            if (len >= 0) {
-                strcat(pFileName, defExt);
+        }
+        if (needAppend && fnLen + exLen < sizeof(pFileName)) {
+            strcat(pFileName, defExt);
+        }
+        /* Skip fopen("a+") probing here: it would create empty stub files
+        ** and mask missing-file errors.  Loaders surface those instead. */
+    }
+    return pFileName; 
+}
+
+char* saveFile(HWND hwndOwner, char* pTitle, char* pFilter, int* pFilterIndex, char* pDir, char* defExt)
+{
+    static char pFileName[MAX_PATH * 4];
+    int idx = pFilterIndex ? *pFilterIndex : 0;
+
+    pFileName[0] = 0; 
+
+    if (!ShellSaveFileDialog(hwndOwner, pTitle, pFilter, pDir, defExt,
+                             pFilterIndex ? &idx : NULL,
+                             pFileName, sizeof(pFileName))) {
+        return NULL; 
+    }
+    if (pFilterIndex) *pFilterIndex = idx;
+    if (pDir != NULL) GetCurrentDirectoryU(MAX_PATH - 1, pDir);
+
+    if (defExt) {
+        size_t fnLen = strlen(pFileName);
+        size_t exLen = strlen(defExt);
+        int needAppend = 1;
+        if (fnLen > exLen) {
+            const char* tail = pFileName + fnLen - exLen;
+            size_t i;
+            needAppend = 0;
+            for (i = 0; i < exLen; i++) {
+                if (toupper((unsigned char)tail[i]) != toupper((unsigned char)defExt[i])) {
+                    needAppend = 1;
+                    break;
+                }
             }
         }
+        if (needAppend && fnLen + exLen < sizeof(pFileName)) {
+            strcat(pFileName, defExt);
+        }
     }
-
     return pFileName; 
 } 
 

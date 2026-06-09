@@ -63,6 +63,7 @@ static HRESULT StringCchLength(LPCTSTR s, size_t m, size_t *l) { *l = strlen(s);
 #include "Win32Midi.h"
 #include "Win32Cdrom.h"
 #include "Win32File.h"
+#include "Win32FileDialog.h"
 
 /* From Win32D3D12.cpp; no header pulled in here to keep the C/C++
 ** boundary minimal. */
@@ -90,37 +91,14 @@ static const int C_iCropMax = 64;
 
 static int openLogFile(HWND hwndOwner, char* fileName)
 {
-    OPENFILENAME ofn; 
-    static char pFileName[MAX_PATH];
-    char  curDir[MAX_PATH];
-    BOOL rv;
-
-    pFileName[0] = 0; 
-
-    ofn.lStructSize = sizeof(OPENFILENAME); 
-    ofn.hwndOwner = hwndOwner; 
-    ofn.hInstance = GetModuleHandle(NULL);
-    ofn.lpstrFilter = "*.*\0\0"; 
-    ofn.lpstrCustomFilter = NULL; 
-    ofn.nMaxCustFilter = 0;
-    ofn.nFilterIndex = 0; 
-    ofn.lpstrFile = pFileName; 
-    ofn.nMaxFile = 1024; 
-    ofn.lpstrFileTitle = NULL; 
-    ofn.nMaxFileTitle = 0; 
-    ofn.lpstrInitialDir = NULL; 
-    ofn.lpstrTitle = langPropPortsOpenLogFile(); 
-    ofn.Flags = OFN_EXPLORER | OFN_ENABLESIZING | OFN_OVERWRITEPROMPT; 
-    ofn.nFileOffset = 0; 
-    ofn.nFileExtension = 0; 
-    ofn.lpstrDefExt = NULL; 
-    ofn.lCustData = 0; 
-    ofn.lpfnHook = NULL; 
-    ofn.lpTemplateName = NULL; 
+    char pFileName[MAX_PATH * 4];
+    char curDir[MAX_PATH];
 
     GetCurrentDirectoryU(MAX_PATH, curDir);
 
-    rv = GetSaveFileName(&ofn); 
+    BOOL rv = ShellSaveFileDialog(hwndOwner, langPropPortsOpenLogFile(),
+                                  "*.*\0*.*\0\0", NULL, NULL, NULL,
+                                  pFileName, sizeof(pFileName));
 
     SetCurrentDirectoryU(curDir);
 

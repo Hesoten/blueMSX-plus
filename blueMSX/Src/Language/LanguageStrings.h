@@ -504,6 +504,7 @@ typedef struct {
     char* enumDiskSvi525Dbl;
     char* enumDiskSvi525Sgl;
     char* enumDiskSf3Sgl;
+    char* enumDiskSize;     /* "Disk size" group label in new-image dialogs */
 
 
     //----------------------

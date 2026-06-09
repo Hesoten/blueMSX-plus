@@ -532,6 +532,7 @@ char* langEnumDiskMsx35Sgl8Sect();
 char* langEnumDiskSvi525Dbl();
 char* langEnumDiskSvi525Sgl();
 char* langEnumDiskSf3Sgl();
+char* langEnumDiskSize();
 
 //----------------------
 // Configuration related lines

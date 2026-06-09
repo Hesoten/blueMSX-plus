@@ -512,6 +512,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->enumDiskSvi525Dbl        = "SVI-328 5.25\" Kaksipuolinen";
     ls->enumDiskSvi525Sgl        = "SVI-328 5.25\" Yksipuolinen";
     ls->enumDiskSf3Sgl           = "Sega SF-7000 3\" Yksipuolinen";  
+    ls->enumDiskSize             = "Levyn koko";
 
 
     //----------------------

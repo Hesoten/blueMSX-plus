@@ -659,6 +659,7 @@
     <ClCompile Include="..\..\Src\Win32\Win32Eth.c" />
     <ClCompile Include="..\..\Src\Win32\Win32Event.c" />
     <ClCompile Include="..\..\Src\Win32\Win32file.c" />
+    <ClCompile Include="..\..\Src\Win32\Win32FileDialog.cpp" />
     <ClCompile Include="..\..\Src\Win32\Win32FileTypes.c" />
     <ClCompile Include="..\..\Src\Win32\Win32Glob.c" />
     <ClCompile Include="..\..\Src\Win32\Win32Help.c" />
@@ -966,6 +967,7 @@
     <ClInclude Include="..\..\Src\Win32\Win32directXSound.h" />
     <ClInclude Include="..\..\Src\Win32\Win32Eth.h" />
     <ClInclude Include="..\..\Src\Win32\Win32file.h" />
+    <ClInclude Include="..\..\Src\Win32\Win32FileDialog.h" />
     <ClInclude Include="..\..\Src\Win32\Win32FileTypes.h" />
     <ClInclude Include="..\..\Src\Win32\Win32Help.h" />
     <ClInclude Include="..\..\Src\Win32\Win32keyboard.h" />

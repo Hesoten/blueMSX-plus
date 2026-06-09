@@ -511,6 +511,7 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->enumDiskSvi525Dbl        = "SVI-328 5.25\" duplo face";           
     ls->enumDiskSvi525Sgl        = "SVI-328 5.25\" simples face";     
     ls->enumDiskSf3Sgl           = "Sega SF-7000 3\" simples face";           
+    ls->enumDiskSize             = "Tamanho do disco";
 
 
     //----------------------

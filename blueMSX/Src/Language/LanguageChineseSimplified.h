@@ -510,6 +510,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->enumDiskSvi525Dbl        = "SVI-328 5.25\" 吋 双面";           
     ls->enumDiskSvi525Sgl        = "SVI-328 5.25\" 吋 单面";           
     ls->enumDiskSf3Sgl           = "Sega SF-7000 3\" 吋 单面";     
+    ls->enumDiskSize             = "磁盘大小";
 
 
     //----------------------

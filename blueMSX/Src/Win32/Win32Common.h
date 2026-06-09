@@ -56,6 +56,7 @@ void updateDialogPos(HWND hwnd, int dialogID, int noMove, int noSize);
 void saveDialogPos(HWND hwnd, int dialogID);
 
 HWND getMainHwnd();
+HWND getEmuHwnd();
 
 
 void enterDialogShow();
