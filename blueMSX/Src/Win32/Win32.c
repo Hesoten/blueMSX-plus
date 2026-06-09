@@ -255,6 +255,39 @@ HBRUSH   win32CommonDarkBgBrush(void) { return win32GetDarkBkBrush(); }
 static void win32ApplyDarkToDialog(HWND hwnd);
 void win32CommonApplyDark(HWND hDlg) { win32ApplyDarkToDialog(hDlg); }
 
+void win32CommonCenterOnOwner(HWND hDlg)
+{
+    HWND owner = GetWindow(hDlg, GW_OWNER);
+    if (!owner) owner = getMainHwnd();
+    if (!owner) return;
+
+    RECT dr, orect;
+    if (!GetWindowRect(hDlg, &dr))     return;
+    if (!GetWindowRect(owner, &orect)) return;
+
+    int dlgW = dr.right     - dr.left;
+    int dlgH = dr.bottom    - dr.top;
+    int ownW = orect.right  - orect.left;
+    int ownH = orect.bottom - orect.top;
+
+    int x = orect.left + (ownW - dlgW) / 2;
+    int y = orect.top  + (ownH - dlgH) / 2;
+
+    /* Clamp into the work area of the monitor containing the owner so the
+    ** dialog can't slip off-screen when the main window is partially off
+    ** an edge. */
+    HMONITOR mon = MonitorFromWindow(owner, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO mi;
+    mi.cbSize = sizeof(mi);
+    if (GetMonitorInfoW(mon, &mi)) {
+        if (x + dlgW > mi.rcWork.right)  x = mi.rcWork.right  - dlgW;
+        if (y + dlgH > mi.rcWork.bottom) y = mi.rcWork.bottom - dlgH;
+        if (x < mi.rcWork.left)          x = mi.rcWork.left;
+        if (y < mi.rcWork.top)           y = mi.rcWork.top;
+    }
+    SetWindowPos(hDlg, NULL, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+}
+
 static HBRUSH win32GetDarkEditBrush(void) {
     if (!s_darkEditBrush) s_darkEditBrush = CreateSolidBrush(DARK_EDIT_BG);
     return s_darkEditBrush;
@@ -1133,6 +1166,7 @@ static BOOL_DLG_RET CALLBACK langDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LP
                 }
             }
             win32CommonApplyDark(hDlg);
+            win32CommonCenterOnOwner(hDlg);
             return FALSE;
         }
 
@@ -4994,6 +5028,7 @@ static BOOL_DLG_RET CALLBACK loadMemorProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
         SendMessage(GetDlgItem(hDlg, IDC_LDMEM_BROWSE), BM_SETIMAGE, IMAGE_ICON, (LPARAM)hIconBtBrowse);
 
         win32CommonApplyDark(hDlg);
+        win32CommonCenterOnOwner(hDlg);
         return FALSE;
 
     case WM_COMMAND:

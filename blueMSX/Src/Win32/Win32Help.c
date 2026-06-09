@@ -167,6 +167,7 @@ static INT_PTR CALLBACK aboutDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM
             SetDlgItemTextU(hDlg, IDC_ABOUTTEXT, aboutText);
         }
         win32CommonApplyDark(hDlg);
+        win32CommonCenterOnOwner(hDlg);
         return 1;
     }
 

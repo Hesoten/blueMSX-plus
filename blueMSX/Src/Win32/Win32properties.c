@@ -2586,15 +2586,32 @@ static BOOL_DLG_RET CALLBACK portsDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
 //////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////
 
+/* PSCB_INITIALIZED-time SetWindowPos does not stick (sheet re-centers itself
+** after the callback); subclass and defer to the first WM_SHOWWINDOW. */
+static LRESULT CALLBACK propSheetCenterSubclassProc(HWND hwnd, UINT msg,
+                                                   WPARAM wParam, LPARAM lParam,
+                                                   UINT_PTR uIdSubclass,
+                                                   DWORD_PTR dwRefData)
+{
+    (void)dwRefData;
+    if (msg == WM_SHOWWINDOW && wParam == TRUE) {
+        win32CommonCenterOnOwner(hwnd);
+        RemoveWindowSubclass(hwnd, propSheetCenterSubclassProc, uIdSubclass);
+    }
+    return DefSubclassProc(hwnd, msg, wParam, lParam);
+}
+
 /* PropertySheet callback: PropertySheet adds WS_EX_CONTEXTHELP by default but
 ** no help is wired up, so the title-bar '?' button only generates dead
-** clicks. Strip it on PSCB_INITIALIZED. */
+** clicks. Strip it on PSCB_INITIALIZED. Also schedule the sheet to center
+** on its owner via the deferred subclass above. */
 static int CALLBACK propSheetInitCallback(HWND hwnd, UINT uMsg, LPARAM lParam)
 {
     (void)lParam;
     if (uMsg == PSCB_INITIALIZED) {
         LONG_PTR exStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
         SetWindowLongPtr(hwnd, GWL_EXSTYLE, exStyle & ~WS_EX_CONTEXTHELP);
+        SetWindowSubclass(hwnd, propSheetCenterSubclassProc, 0xA8B7, 0);
     }
     return 0;
 }

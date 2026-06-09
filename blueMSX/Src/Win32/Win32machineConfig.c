@@ -2587,6 +2587,7 @@ static BOOL_DLG_RET CALLBACK configProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
         updateMachineList(hDlg);
 
         win32CommonApplyDark(hDlg);
+        win32CommonCenterOnOwner(hDlg);
         return FALSE;
 
     case WM_NOTIFY:

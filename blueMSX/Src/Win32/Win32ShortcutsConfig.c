@@ -1256,6 +1256,7 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
                                     memcmp(shortcutsRef, shortcuts, sizeof(Shortcuts)));
         }
         win32CommonApplyDark(hDlg);
+        win32CommonCenterOnOwner(hDlg);
         return FALSE;
 
     case WM_ACTIVATE:

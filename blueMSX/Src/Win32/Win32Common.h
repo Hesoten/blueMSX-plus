@@ -76,4 +76,8 @@ HBRUSH   win32CommonDarkBgBrush(void);
 ** subclass.  Call from WM_INITDIALOG.  Safe in light mode (no-op). */
 void win32CommonApplyDark(HWND hDlg);
 
+/* Center dialog over its owner (falls back to main HWND) instead of the
+** monitor (DS_CENTER).  Call from WM_INITDIALOG. */
+void win32CommonCenterOnOwner(HWND hDlg);
+
 #endif
