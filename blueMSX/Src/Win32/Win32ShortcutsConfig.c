@@ -347,9 +347,11 @@ static char** getProfileList()
     cont = handle != INVALID_HANDLE_VALUE;
     
     while (cont) {
-		DWORD fa = GetFileAttributes(wfd.cFileName);
+		DWORD fa = wfd.dwFileAttributes;
 
-        if (fa & FILE_ATTRIBUTE_NORMAL) {
+        /* FILE_ATTRIBUTE_NORMAL is rarely set in practice (ARCHIVE wins);
+        ** accept anything that isn't a directory. */
+        if (!(fa & FILE_ATTRIBUTE_DIRECTORY)) {
             char buffer[128];
             int length = strlen(wfd.cFileName) - 10;
             strcpy(buffer, wfd.cFileName);
@@ -367,6 +369,10 @@ static char** getProfileList()
     return profileList;
 }
 
+/* Set by IDC_SAVE before showing saveProc: 0 for overwrite-existing,
+** 1 for create-new. Switches the prompt body text. */
+static int s_savePromptIsCreate = 0;
+
 static BOOL_DLG_RET CALLBACK saveProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (iMsg) {        
@@ -375,7 +381,9 @@ static BOOL_DLG_RET CALLBACK saveProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARA
             char buffer[128];
             SetWindowTextU(hDlg, langShortcutSaveConfig());
 
-            sprintf(buffer, "%s\n\n    \"%s\" ?", langShortcutOverwriteConfig(), shortcutProfile);
+            sprintf(buffer, "%s\n\n    \"%s\" ?",
+                    s_savePromptIsCreate ? langShortcutCreateConfig() : langShortcutOverwriteConfig(),
+                    shortcutProfile);
 
             SetWindowTextU(GetDlgItem(hDlg, IDC_CONF_SAVEDLG_TEXT), buffer);
             SetWindowTextU(GetDlgItem(hDlg, IDOK), langDlgOK());
@@ -850,7 +858,11 @@ static Shortcuts* loadShortcuts(char* profileName)
 static void saveShortcuts(char* profileName, Shortcuts* shortcuts)
 {
     char fileName[MAX_PATH];
-	IniFile *shortcutFile;
+    IniFile *shortcutFile;
+    int closeRc;
+
+    /* mkdir is a no-op if it exists; first save would otherwise silently fail. */
+    mkdirU(profileDir);
 
     sprintf(fileName, "%s/%s.shortcuts", profileDir, profileName);
 
@@ -959,7 +971,12 @@ static void saveShortcuts(char* profileName, Shortcuts* shortcuts)
     SAVE_SHORTCUT(shortcutFile, helpShowHelp);
     SAVE_SHORTCUT(shortcutFile, helpShowAbout);
 
-    iniFileClose(shortcutFile);
+    closeRc = iniFileClose(shortcutFile);
+    if (!closeRc) {
+        char msg[MAX_PATH + 64];
+        sprintf(msg, "Failed to write shortcut profile:\n%s", fileName);
+        MessageBoxU(NULL, msg, "blueMSX", MB_OK | MB_ICONERROR);
+    }
 }
 
 static void addShortcutEntry(HWND hwnd, int entry, char* description, ShotcutHotkey hotkey) {
@@ -1196,6 +1213,32 @@ static void updateHotkeys(HWND hDlg, int index, ShotcutHotkey newHotkey)
     return;
 }
 
+/* Reads the editable combobox text as the save target.  Returns 1 when
+** the text is a usable profile name (non-empty, not the placeholder). */
+static int shortcutsGetEditName(HWND hDlg, char* out, int outCap)
+{
+    char buf[128];
+    GetDlgItemTextU(hDlg, IDC_SCUTCONFIGS, buf, (int)sizeof(buf));
+    if (buf[0] == 0) return 0;
+    if (strcmp(buf, langShortcutNewProfile()) == 0) return 0;
+    if (out) {
+        strncpy(out, buf, outCap);
+        out[outCap - 1] = 0;
+    }
+    return 1;
+}
+
+static int shortcutsSaveEnabled(HWND hDlg)
+{
+    char effective[128];
+    if (!shortcutsGetEditName(hDlg, effective, (int)sizeof(effective))) return 0;
+    /* Different name from the loaded profile -> Save creates / overwrites a
+    ** different file. Always actionable. */
+    if (strcmp(effective, shortcutProfile) != 0) return 1;
+    /* Same name -> only actionable when shortcuts have been modified. */
+    return memcmp(shortcutsRef, shortcuts, sizeof(Shortcuts)) != 0;
+}
+
 static updateShortcutsList(HWND hDlg) 
 {
     char** profileList = getProfileList();
@@ -1287,8 +1330,7 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
             updateShortcutEntries(hDlg);
             EnableWindow(GetDlgItem(hDlg, IDC_SCUTHOTKEY), FALSE);
             EnableWindow(GetDlgItem(hDlg, IDC_SCUTASSIGN), FALSE);
-            EnableWindow(GetDlgItem(hDlg, IDC_SAVE), strcmp(shortcutProfile, langShortcutNewProfile()) &&
-                                    memcmp(shortcutsRef, shortcuts, sizeof(Shortcuts)));
+            EnableWindow(GetDlgItem(hDlg, IDC_SAVE), shortcutsSaveEnabled(hDlg));
         }
         win32CommonApplyDark(hDlg);
         win32CommonCenterOnOwner(hDlg);
@@ -1343,10 +1385,15 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
                         }
                     }
 
-                    EnableWindow(GetDlgItem(hDlg, IDC_SAVE), strcmp(shortcutProfile, langShortcutNewProfile()) &&
-                                            memcmp(shortcutsRef, shortcuts, sizeof(Shortcuts)));
+                    EnableWindow(GetDlgItem(hDlg, IDC_SAVE), shortcutsSaveEnabled(hDlg));
 
                     isCheckingConfigs = 0;
+                }
+                else if (HIWORD(wParam) == CBN_EDITCHANGE) {
+                    /* User typed a name into the editable combobox while on the
+                    ** new-profile slot -- update Save state so it can fire
+                    ** without going through the Save As dialog. */
+                    EnableWindow(GetDlgItem(hDlg, IDC_SAVE), shortcutsSaveEnabled(hDlg));
                 }
 
                 return TRUE;
@@ -1354,15 +1401,44 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
 
         case IDC_SAVE:
             {
+                char effective[128];
                 int rv;
-                rv = DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, saveProc);
-                if (rv) {
-                    saveShortcuts(shortcutProfile, shortcuts);
-                    memcpy(shortcutsRef, shortcuts, sizeof(Shortcuts)); 
+                if (!shortcutsGetEditName(hDlg, effective, (int)sizeof(effective))) {
+                    return TRUE;  /* button should not be enabled in this state */
                 }
 
-                EnableWindow(GetDlgItem(hDlg, IDC_SAVE), strcmp(shortcutProfile, langShortcutNewProfile()) &&
-                                        memcmp(shortcutsRef, shortcuts, sizeof(Shortcuts)));
+                if (strcmp(effective, shortcutProfile) != 0) {
+                    /* Edit-text differs from loaded profile: Save-As path. */
+                    char fileName[MAX_PATH];
+                    char savedProfile[128];
+                    FILE* file;
+                    sprintf(fileName, "%s/%s.shortcuts", profileDir, effective);
+                    file = fopen(fileName, "r");
+                    strcpy(savedProfile, shortcutProfile);
+                    strcpy(shortcutProfile, effective);
+                    s_savePromptIsCreate = (file == NULL);
+                    if (file != NULL) fclose(file);
+                    rv = (int)DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, saveProc);
+                    if (rv) {
+                        memcpy(shortcutsRef, shortcuts, sizeof(Shortcuts));
+                        saveShortcuts(shortcutProfile, shortcuts);
+                        updateShortcutsList(hDlg);
+                        updateShortcutEntries(hDlg);
+                    }
+                    else {
+                        strcpy(shortcutProfile, savedProfile);
+                    }
+                }
+                else {
+                    s_savePromptIsCreate = 0;
+                    rv = (int)DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, saveProc);
+                    if (rv) {
+                        saveShortcuts(shortcutProfile, shortcuts);
+                        memcpy(shortcutsRef, shortcuts, sizeof(Shortcuts));
+                    }
+                }
+
+                EnableWindow(GetDlgItem(hDlg, IDC_SAVE), shortcutsSaveEnabled(hDlg));
             }
             return TRUE;
 
@@ -1388,8 +1464,7 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
                         updateShortcutEntries(hDlg);
                     }
                 }
-                EnableWindow(GetDlgItem(hDlg, IDC_SAVE), strcmp(shortcutProfile, langShortcutNewProfile()) &&
-                                        memcmp(shortcutsRef, shortcuts, sizeof(Shortcuts)));
+                EnableWindow(GetDlgItem(hDlg, IDC_SAVE), shortcutsSaveEnabled(hDlg));
             }
             return TRUE;
 
@@ -1400,8 +1475,7 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
                 updateHotkeys(hDlg, currIndex, hotkey);
                 ListView_SetItemState(hwnd, currIndex, LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
             }
-            EnableWindow(GetDlgItem(hDlg, IDC_SAVE), strcmp(shortcutProfile, langShortcutNewProfile()) &&
-                                    memcmp(shortcutsRef, shortcuts, sizeof(Shortcuts)));
+            EnableWindow(GetDlgItem(hDlg, IDC_SAVE), shortcutsSaveEnabled(hDlg));
             return TRUE;
 
         case IDC_OK:

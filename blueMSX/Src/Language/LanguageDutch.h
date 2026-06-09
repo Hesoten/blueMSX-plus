@@ -645,6 +645,7 @@ void langInitDutch(LanguageStrings* ls)
 
     ls->shortcutSaveConfig      = "blueMSX - Configuratie opslaan";
     ls->shortcutOverwriteConfig = "Huidige configuratie overschrijven?:";
+    ls->shortcutCreateConfig    = "Nieuwe configuratie opslaan?:";
     ls->shortcutExitConfig      = "blueMSX - Snelkoppelingconfiguratie afsluiten";
     ls->shortcutDiscardConfig   = "Weet u zeker dat u de gemaakte wijzigingen in de huidige configuratie niet wilt toepassen?";
     ls->shortcutSaveConfigAs    = "blueMSX - Configuratie opslaan als...";

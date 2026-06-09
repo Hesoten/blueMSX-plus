@@ -190,14 +190,18 @@ static void writeLine(IniFile *iniFile, const char* line)
     iniFile->modified = 1;
 }
 
-static void writeFile(IniFile *iniFile, const char* filename)
+static int writeFile(IniFile *iniFile, const char* filename)
 {
     FILE* f = fopen(filename, "w");
+    size_t toWrite;
+    size_t wrote;
     if (f == NULL) {
-        return;
+        return 0;
     }
-    fwrite(iniFile->iniBuffer, 1, iniFile->iniEnd - iniFile->iniBuffer, f);
+    toWrite = (size_t)(iniFile->iniEnd - iniFile->iniBuffer);
+    wrote   = fwrite(iniFile->iniBuffer, 1, toWrite, f);
     fclose(f);
+    return wrote == toWrite;
 }
 
 IniFile *iniFileOpen(const char *filename)
@@ -246,18 +250,20 @@ IniFile *iniFileOpenZipped(const char *zipFile, const char *iniFilename)
 
 int iniFileClose(IniFile *iniFile)
 {
+    int writeOk = 1;
+
     if (iniFile->iniBuffer == NULL) {
         return 0;
     }
 
     if (iniFile->modified) {
-        writeFile(iniFile, iniFile->iniFilename);
+        writeOk = writeFile(iniFile, iniFile->iniFilename);
     }
 
     free(iniFile->iniBuffer);
     iniFile->iniBuffer = NULL;
 
-    return 1;
+    return writeOk;
 }
 
 const char *iniFileGetFilePath(IniFile *iniFile)

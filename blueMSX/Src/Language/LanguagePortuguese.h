@@ -645,6 +645,7 @@ void langInitPortuguese(LanguageStrings* ls)
 
     ls->shortcutSaveConfig      = "blueMSX - Salvar Configuração";
     ls->shortcutOverwriteConfig = "Você quer  substituir esta configuração da máquina?:";
+    ls->shortcutCreateConfig    = "Você quer salvar a nova configuração de atalhos?:";
     ls->shortcutExitConfig      = "blueMSX - Sair do Editor de Atalhos";
     ls->shortcutDiscardConfig   = "Voce quer desfazer as alterações da Configuração atual?";
     ls->shortcutSaveConfigAs    = "blueMSX - Salvar Configuração de Atalhos Como...";

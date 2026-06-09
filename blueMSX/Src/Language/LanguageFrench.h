@@ -645,6 +645,7 @@ void langInitFrench(LanguageStrings* ls)
 
     ls->shortcutSaveConfig      = "blueMSX - Sauver la configuration";
     ls->shortcutOverwriteConfig = "Voulez-vous remplacer cette configuration ?:";
+    ls->shortcutCreateConfig    = "Voulez-vous enregistrer la nouvelle configuration ?:";
     ls->shortcutExitConfig      = "blueMSX - Quitter l'éditeur de raccourcis";
     ls->shortcutDiscardConfig   = "Voulez-vous ignorer les changements apportés à la configuration actuelle ?";
     ls->shortcutSaveConfigAs    = "blueMSX - Sauver la configuration comme....";

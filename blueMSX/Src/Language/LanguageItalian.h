@@ -646,6 +646,7 @@ void langInitItalian(LanguageStrings* ls)
 
     ls->shortcutSaveConfig              = "blueMSX - Salva lo schema corrente";
     ls->shortcutOverwriteConfig         = "Vuoi veramente sovrascrivere lo schema";
+    ls->shortcutCreateConfig            = "Vuoi salvare la nuova configurazione dei tasti";
     ls->shortcutExitConfig              = "blueMSX - Esci dalla gestione tasti rapidi";
     ls->shortcutDiscardConfig           = "Vuoi veramente annullare le modifiche effettuate?";
     ls->shortcutSaveConfigAs            = "blueMSX - Salva lo schema con nome";

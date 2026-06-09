@@ -646,6 +646,7 @@ void langInitFinnish(LanguageStrings* ls)
 
     ls->shortcutSaveConfig      = "blueMSX - Tallenna Asetukset";
     ls->shortcutOverwriteConfig = "Haluatko korvata pikanäppäinasetukset:";
+    ls->shortcutCreateConfig    = "Haluatko tallentaa uudet pikanäppäinasetukset:";
     ls->shortcutExitConfig      = "blueMSX - Poistu pikanäppäinasetuksista";
     ls->shortcutDiscardConfig   = "Haluatko hylätä tekemäsi muutokset pikanäppäinasetuksiin?";
     ls->shortcutSaveConfigAs    = "blueMSX - Tallenna pikanäppäinasetukset";

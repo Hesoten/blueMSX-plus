@@ -644,6 +644,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
 
     ls->shortcutSaveConfig      = "blueMSX - 保存设置";
     ls->shortcutOverwriteConfig = "要覆盖原有的快捷键设置吗:";
+    ls->shortcutCreateConfig    = "要保存新的快捷键设置吗:";
     ls->shortcutExitConfig      = "blueMSX - 退出快捷键编辑工具";
     ls->shortcutDiscardConfig   = "要放弃对当前文件的修改吗？";
     ls->shortcutSaveConfigAs    = "blueMSX - 快捷键另存为...";

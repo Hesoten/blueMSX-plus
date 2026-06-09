@@ -664,6 +664,7 @@ char* langShortcutDescription();
 
 char* langShortcutSaveConfig();
 char* langShortcutOverwriteConfig();
+char* langShortcutCreateConfig();
 char* langShortcutExitConfig();
 char* langShortcutDiscardConfig();
 char* langShortcutSaveConfigAs();

@@ -645,6 +645,7 @@ void langInitJapanese(LanguageStrings* ls)
 
     ls->shortcutSaveConfig      = "blueMSX - 構成の保存";
     ls->shortcutOverwriteConfig = "ショートカット構成を上書きしてよろしいですか?:";
+    ls->shortcutCreateConfig    = "ショートカット構成を新規保存してよろしいですか?:";
     ls->shortcutExitConfig      = "blueMSX - ショートカット構成編集の終了";
     ls->shortcutDiscardConfig   = "現在の構成が失われますが、よろしいですか?";
     ls->shortcutSaveConfigAs    = "blueMSX - ショートカット構成を別名で保存";

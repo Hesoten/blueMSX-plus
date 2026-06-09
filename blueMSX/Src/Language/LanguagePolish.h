@@ -645,6 +645,7 @@ void langInitPolish(LanguageStrings* ls)
 
     ls->shortcutSaveConfig      = "blueMSX - Zapisz konfiguracjê";
     ls->shortcutOverwriteConfig = "Chcesz nadpisaæ konfiguracjê skrótów?:";
+    ls->shortcutCreateConfig    = "Chcesz zapisaæ now¹ konfiguracjê skrótów?:";
     ls->shortcutExitConfig      = "blueMSX - WyjdŸ z edytora skrótów";
     ls->shortcutDiscardConfig   = "Czy chcesz zignorowaæ zmiany w bierz¹cej konfiguracji?";
     ls->shortcutSaveConfigAs    = "blueMSX - Zapisz konfiguracjê skrótów jako...";

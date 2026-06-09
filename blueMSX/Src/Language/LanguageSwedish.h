@@ -646,6 +646,7 @@ void langInitSwedish(LanguageStrings* ls)
 
     ls->shortcutSaveConfig      = "blueMSX - Spara Konfigurering";
     ls->shortcutOverwriteConfig = "Vill du skriva över kortkommando konfigureringen:";
+    ls->shortcutCreateConfig    = "Vill du spara den nya kortkommando konfigureringen:";
     ls->shortcutExitConfig      = "blueMSX - Avsluta Kortkommandoverktyget";
     ls->shortcutDiscardConfig   = "Vill du stanga konfigureringsverktyget utan att spara dina ändringar?";
     ls->shortcutSaveConfigAs    = "blueMSX - Spara Kortkommando Konfigurering Som...";

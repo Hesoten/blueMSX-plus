@@ -645,6 +645,7 @@ void langInitCatalan(LanguageStrings* ls)
 
     ls->shortcutSaveConfig      = "blueMSX - Desa la configuració";
     ls->shortcutOverwriteConfig = "Voleu sobreescriure la configuració de drecera? :";
+    ls->shortcutCreateConfig    = "Voleu desar la nova configuració de drecera? :";
     ls->shortcutExitConfig      = "blueMSX - Surt de l'editor de drecera";
     ls->shortcutDiscardConfig   = "Voleu descartar els canvis de la configuració actual?";
     ls->shortcutSaveConfigAs    = "blueMSX - Anomena i desa la configuració de drecera...";

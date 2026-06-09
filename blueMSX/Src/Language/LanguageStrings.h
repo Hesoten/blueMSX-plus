@@ -639,6 +639,7 @@ typedef struct {
 
     char* shortcutSaveConfig;
     char* shortcutOverwriteConfig;
+    char* shortcutCreateConfig;
     char* shortcutExitConfig;
     char* shortcutDiscardConfig;
     char* shortcutSaveConfigAs;

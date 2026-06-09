@@ -644,6 +644,7 @@ void langInitRussian(LanguageStrings* ls)
 
     ls->shortcutSaveConfig      = "blueMSX - Сохранить конфигурацию";
     ls->shortcutOverwriteConfig = "Вы хотите перезаписать конфигурацию кнопок:";
+    ls->shortcutCreateConfig    = "Вы хотите сохранить новую конфигурацию кнопок:";
     ls->shortcutExitConfig      = "blueMSX - Выход из редактора кнопок";
     ls->shortcutDiscardConfig   = "Вы хотите отменить все текущие изменени?";
     ls->shortcutSaveConfigAs    = "blueMSX - Сохранить конфигурацию как...";

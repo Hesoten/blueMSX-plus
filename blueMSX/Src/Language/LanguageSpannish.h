@@ -645,6 +645,7 @@ void langInitSpanish(LanguageStrings* ls)
 
     ls->shortcutSaveConfig      = "blueMSX -  - Guardar Configuración";
     ls->shortcutOverwriteConfig = "Usted desea sobreescribir la configuración del atajo?:";
+    ls->shortcutCreateConfig    = "Usted desea guardar la nueva configuración del atajo?:";
     ls->shortcutExitConfig      = "blueMSX - Salir del Editor de Atajos";
     ls->shortcutDiscardConfig   = "Quieres descartar cambios de la configuración actual?";
     ls->shortcutSaveConfigAs    = "blueMSX - Guardar Configuración de Atajos como...";

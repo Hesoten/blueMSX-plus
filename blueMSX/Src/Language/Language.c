@@ -856,6 +856,7 @@ char* langShortcutDescription() { return ls->shortcutDescription; }
 
 char* langShortcutSaveConfig() { return ls->shortcutSaveConfig; }
 char* langShortcutOverwriteConfig() { return ls->shortcutOverwriteConfig; }
+char* langShortcutCreateConfig() { return ls->shortcutCreateConfig; }
 char* langShortcutExitConfig() { return ls->shortcutExitConfig; }
 char* langShortcutDiscardConfig() { return ls->shortcutDiscardConfig; }
 char* langShortcutSaveConfigAs() { return ls->shortcutSaveConfigAs; }

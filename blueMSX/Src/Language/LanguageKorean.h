@@ -644,6 +644,7 @@ void langInitKorean(LanguageStrings* ls)
 
     ls->shortcutSaveConfig      = "blueMSX - 설정 저장";
     ls->shortcutOverwriteConfig = "이미 파일이 있습니다. 기존 파일을 이 파일로 바꾸시겠습니까?";
+    ls->shortcutCreateConfig    = "새 단축키 설정을 저장하시겠습니까?";
     ls->shortcutExitConfig      = "blueMSX - 단축키 편집기 나가기";
     ls->shortcutDiscardConfig   = "변경한 설정이 적용되기 위해선 저장을 하셔야 합니다만 현재 설정에는 아무런 영향도 주지않고 그냥 나가겠습니까?";
     ls->shortcutSaveConfigAs    = "blueMSX - 다른이름으로 단축키 설정 저장...";

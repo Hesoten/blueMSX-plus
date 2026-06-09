@@ -645,6 +645,7 @@ void langInitGerman(LanguageStrings* ls)
 
     ls->shortcutSaveConfig         = "blueMSX - Speichere Konfiguration";
     ls->shortcutOverwriteConfig    = "Shortcut-Konfiguration überschreiben:"; // "Möchten Sie die Shortcut-Konfiguration überschreiben:";
+    ls->shortcutCreateConfig       = "Neue Shortcut-Konfiguration speichern:";
     ls->shortcutExitConfig         = "blueMSX - Exit Shortcut-Editor";
     ls->shortcutDiscardConfig      = "Änderungen der aktuellen Konfiguration verwerfen?"; // "Möchten Sie die Änderungen an der aktuellen Konfiguration verwerfen?";
     ls->shortcutSaveConfigAs       = "blueMSX - Speichere Shortcut-Konfiguration als ...";
