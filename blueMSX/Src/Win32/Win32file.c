@@ -298,15 +298,11 @@ char* saveStateFile(HWND hwndOwner, char* pTitle, char* pFilter, int* pFilterInd
 
 //////////////////////////////////////////////////////////////////
 
-#define ONEMB (1024 * 1024)
-
-static int newHdFileSize;
-
 char* openNewHdFile(HWND hwndOwner, char* pTitle, char* pFilter, char* pDir, 
                     char* defExt, int* filterIndex)
 {
     static char pFileName[MAX_PATH * 4];
-    int hdSize = 0;
+    Int64 hdSize = 0;
     FILE* file;
     (void)filterIndex;
 
@@ -316,7 +312,6 @@ char* openNewHdFile(HWND hwndOwner, char* pTitle, char* pFilter, char* pDir,
                               pFileName, sizeof(pFileName), &hdSize)) {
         return NULL;
     }
-    newHdFileSize = hdSize;
     if (pDir != NULL) GetCurrentDirectoryU(MAX_PATH - 1, pDir);
 
     /* IFileSaveDialog already raises FOS_OVERWRITEPROMPT for existing files;
@@ -341,15 +336,13 @@ char* openNewHdFile(HWND hwndOwner, char* pTitle, char* pFilter, char* pDir,
             strcat(pFileName, defExt);
         }
     }
-    file = fopen(pFileName, "w+");
-    if (file != NULL) {
-        char* data = calloc(1, ONEMB);
-        int remaining = newHdFileSize;
-        while (remaining > 0) {
-            fwrite(data, 1, ONEMB, file);
-            remaining -= ONEMB;
+    file = fopen(pFileName, "wb");
+    if (file != NULL && hdSize > 0) {
+        if (_fseeki64(file, hdSize - 1, SEEK_SET) == 0) {
+            fputc(0, file);
         }
-        free(data);
+    }
+    if (file != NULL) {
         fclose(file);
     }
 

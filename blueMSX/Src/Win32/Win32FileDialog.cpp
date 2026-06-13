@@ -124,9 +124,11 @@ static HRESULT showCentered(IFileDialog* fd, HWND owner)
 } /* anonymous namespace */
 
 
-/* Local HD size table scoped to the IFileDialog New-HD path. */
+/* Local HD size table scoped to the IFileDialog New-HD path.
+** GB-range entries match Nextor's 4-partition FAT16 cap of 4 GB each
+** (16 GB total). */
 namespace {
-struct HdSizeEntry { int bytes; const wchar_t* label; };
+struct HdSizeEntry { Int64 bytes; const wchar_t* label; };
 const HdSizeEntry kHdSizes[] = {
     {   5 * 1024 * 1024, L"5 MB"   },
     {  10 * 1024 * 1024, L"10 MB"  },
@@ -134,6 +136,12 @@ const HdSizeEntry kHdSizes[] = {
     {  50 * 1024 * 1024, L"50 MB"  },
     { 100 * 1024 * 1024, L"100 MB" },
     { 200 * 1024 * 1024, L"200 MB" },
+    { 500 * 1024 * 1024, L"500 MB" },
+    { (Int64)1 * 1024 * 1024 * 1024, L"1 GB"   },
+    { (Int64)2 * 1024 * 1024 * 1024, L"2 GB"   },
+    { (Int64)4 * 1024 * 1024 * 1024, L"4 GB"   },
+    { (Int64)8 * 1024 * 1024 * 1024, L"8 GB"   },
+    { (Int64)16 * 1024 * 1024 * 1024, L"16 GB" },
 };
 const size_t kHdSizesCount = sizeof(kHdSizes) / sizeof(kHdSizes[0]);
 }
@@ -618,7 +626,7 @@ extern "C" BOOL ShellNewHdFileDialog(HWND owner,
                                      const char* initialDir,
                                      const char* defExt,
                                      char* outPath, int outPathCap,
-                                     int* outHdSizeBytes)
+                                     Int64* outHdSizeBytes)
 {
     if (outHdSizeBytes) *outHdSizeBytes = 0;
     if (outPath && outPathCap > 0) outPath[0] = 0;

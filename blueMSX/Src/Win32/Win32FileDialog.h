@@ -24,6 +24,7 @@
 #ifndef WIN32_FILE_DIALOG_H
 #define WIN32_FILE_DIALOG_H
 
+#include "MsxTypes.h"
 #include <windows.h>
 
 #ifdef __cplusplus
@@ -81,7 +82,7 @@ BOOL ShellNewHdFileDialog(HWND owner,
                           const char* initialDir,
                           const char* defExt,
                           char* outPath, int outPathCap,
-                          int* outHdSizeBytes);
+                          Int64* outHdSizeBytes);
 
 /* Folder picker -- replaces SHBrowseForFolder.  Uses IFileOpenDialog with
 ** FOS_PICKFOLDERS so the user gets the modern Explorer-style picker
