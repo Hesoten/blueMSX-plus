@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -343,6 +346,20 @@ void langInitEnglish(LanguageStrings* ls)
     ls->propMonSaturation       = "Saturation:";
     ls->propMonGamma            = "Gamma:";
     ls->propMonScanlines        = " Scanlines:";
+    ls->propMonScanlinesBright  = "Bright comp:";
+    ls->propMonScanlinesBrightAuto = " Auto";
+    ls->propMonScanlinesShape   = "Preset:";
+    ls->propMonScanlinesDepth   = "Depth:";
+    ls->propMonScanlinesSharpness = "Sharpness:";
+    ls->enumScanShapeGentle     = "Gentle";
+    ls->enumScanShapeStandard   = "Standard";
+    ls->enumScanShapeSharp      = "Sharp";
+    ls->enumScanShapeTrinitron  = "Trinitron";
+    ls->enumScanShapeCustom     = "Custom";
+    ls->propMonHdrEnable        = " HDR";
+    ls->propMonHdrPaperWhite    = "White brightness:";
+    ls->propMonHdrSystemMode    = "Current HDR mode:";
+    ls->propMonHdrRestartHint   = "Restart blueMSX to apply the HDR mode change.";
     ls->propMonColorGhosting    = " RF-Modulator:";
     ls->propMonEffectsGB        = "Effects ";
 

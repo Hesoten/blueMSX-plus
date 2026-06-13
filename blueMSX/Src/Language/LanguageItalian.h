@@ -344,6 +344,20 @@ void langInitItalian(LanguageStrings* ls)
     ls->propMonSaturation               = "Saturazione:";
     ls->propMonGamma                    = "Gamma:";
     ls->propMonScanlines                = " Linee di scansione:";
+    ls->propMonScanlinesBright          = "Comp. lumin.:";
+    ls->propMonScanlinesBrightAuto         = " Auto";
+    ls->propMonScanlinesShape           = "Preimp.:";
+    ls->propMonScanlinesDepth           = "Profondità:";
+    ls->propMonScanlinesSharpness         = "Nitidezza:";
+    ls->enumScanShapeGentle             = "Morbido";
+    ls->enumScanShapeStandard           = "Standard";
+    ls->enumScanShapeSharp              = "Nitido";
+    ls->enumScanShapeTrinitron          = "Trinitron";
+    ls->enumScanShapeCustom             = "Person.";
+    ls->propMonHdrEnable                = "HDR";
+    ls->propMonHdrPaperWhite            = "Luminosità bianco:";
+    ls->propMonHdrSystemMode            = "Modalità HDR sistema:";
+    ls->propMonHdrRestartHint           = "Riavvia blueMSX per applicare il cambio di modalità HDR.";
     ls->propMonColorGhosting            = " Modulatore-RF:";
     ls->propMonEffectsGB                = "Effetti ";
 

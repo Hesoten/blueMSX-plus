@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -547,6 +550,20 @@ char* langPropMonContrast() { return ls->propMonContrast; }
 char* langPropMonSaturation() { return ls->propMonSaturation; }
 char* langPropMonGamma() { return ls->propMonGamma; }
 char* langPropMonScanlines() { return ls->propMonScanlines; }
+char* langPropMonScanlinesBright() { return ls->propMonScanlinesBright; }
+char* langPropMonScanlinesBrightAuto() { return ls->propMonScanlinesBrightAuto; }
+char* langPropMonScanlinesShape() { return ls->propMonScanlinesShape; }
+char* langPropMonScanlinesDepth() { return ls->propMonScanlinesDepth; }
+char* langPropMonScanlinesSharpness() { return ls->propMonScanlinesSharpness; }
+char* langEnumScanShapeGentle() { return ls->enumScanShapeGentle; }
+char* langEnumScanShapeStandard() { return ls->enumScanShapeStandard; }
+char* langEnumScanShapeSharp() { return ls->enumScanShapeSharp; }
+char* langEnumScanShapeTrinitron() { return ls->enumScanShapeTrinitron; }
+char* langEnumScanShapeCustom() { return ls->enumScanShapeCustom; }
+char* langPropMonHdrEnable() { return ls->propMonHdrEnable; }
+char* langPropMonHdrPaperWhite() { return ls->propMonHdrPaperWhite; }
+char* langPropMonHdrSystemMode() { return ls->propMonHdrSystemMode; }
+char* langPropMonHdrRestartHint() { return ls->propMonHdrRestartHint; }
 char* langPropMonColorGhosting() { return ls->propMonColorGhosting; }
 char* langPropMonEffectsGB() { return ls->propMonEffectsGB; }
 

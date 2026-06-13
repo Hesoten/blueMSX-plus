@@ -344,6 +344,20 @@ void langInitSwedish(LanguageStrings* ls)
     ls->propMonSaturation       = "Färgmättnad:";
     ls->propMonGamma            = "Gamma:";
     ls->propMonScanlines        = " Scanlinjer:";
+    ls->propMonScanlinesBright  = "Ljusst.-komp.:";
+    ls->propMonScanlinesBrightAuto = " Auto";
+    ls->propMonScanlinesShape   = "Förinst.:";
+    ls->propMonScanlinesDepth   = "Djup:";
+    ls->propMonScanlinesSharpness = "Skärpa:";
+    ls->enumScanShapeGentle     = "Mjuk";
+    ls->enumScanShapeStandard   = "Standard";
+    ls->enumScanShapeSharp      = "Skarp";
+    ls->enumScanShapeTrinitron  = "Trinitron";
+    ls->enumScanShapeCustom     = "Anpassad";
+    ls->propMonHdrEnable        = "HDR";
+    ls->propMonHdrPaperWhite    = "Vitt-ljusstyrka:";
+    ls->propMonHdrSystemMode    = "Systemets HDR-läge:";
+    ls->propMonHdrRestartHint   = "Starta om blueMSX för att tillämpa HDR-lägeändringen.";
     ls->propMonColorGhosting    = " RF-modulering:";
     ls->propMonEffectsGB        = "Effekter ";
 

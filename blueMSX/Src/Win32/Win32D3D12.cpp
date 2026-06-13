@@ -23,10 +23,13 @@
 #include <windows.h>
 #include <d3d12.h>
 #include <dxgi1_4.h>
+#include <dxgi1_6.h>     /* IDXGIOutput6, DXGI_OUTPUT_DESC1 (HDR colour space) */
 #include <d3dcompiler.h>
 #include <wrl/client.h>
+#include <atomic>
 #include <string.h>
 #include <stdio.h>
+#include <math.h>
 
 #include "Win32D3D12.h"
 #include "FrameBuffer.h"
@@ -93,7 +96,13 @@ cbuffer EffectParams : register(b0) {
     float texWf;                // = (float)TEX_W (texture width)
     float texHf;                // = (float)TEX_H (texture height)
     float doubleWidthFlag;      // 0=non-doubleWidth (1 src->2 dst), 1=doubleWidth (1 src->1 dst)
-    float pad1, pad2, pad3;
+    float scanLinesBrightComp;  // multiplier (>=1.0) re-lifting average luminance after scanline mask
+    float hdrMode;              // 0 SDR, 1 scRGB linear, 2 HDR10 PQ
+    float hdrPaperWhiteNits;    // target SDR-white luminance in HDR mode (e.g. 200)
+    float scanUvOffset;         // = uv.v0; trailing field for HLSL 16-byte align
+    float darkBoostRatio;       // 1.0 = no boost; per-pixel HDR dark lift
+    float scanUseAA;            // 0 LEGACY point-sample, 1 AA integration
+    float scanShapeP;           // sin^p sharpness exponent [0, 4]
 };
 
 struct PSIn { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; };
@@ -319,13 +328,54 @@ float4 main(PSIn p) : SV_TARGET {
         color.rgb = (cl + 3.0 * color.rgb) * 0.25;
     }
 
+)"
+/* Split raw-string to dodge MSVC's 64K literal cap. */
+R"(
+    /* Pre-mask colour drives the HDR per-pixel dark boost below. */
+    float3 preMaskColor = color.rgb;
+
     if (scanLinesEnable > 0.5) {
-        float srcRow = p.uv.y / scanUvPeriod;
-        float beam   = sin(frac(srcRow) * 3.14159265);
-        color.rgb *= lerp(scanLinesIntensity, 1.0, beam);
+        /* AA mode (scanUseAA, pxPerRow >= 2.5) box-filter integrates sin
+        ** over the source-row footprint; legacy mode is sin point-sample. */
+        float srcRow = (p.uv.y - scanUvOffset) / scanUvPeriod;
+        float beam;
+        if (scanUseAA > 0.5) {
+            float dy = abs(ddy(p.uv.y)) / scanUvPeriod;
+            if (dy < 1e-3) {
+                beam = sin(frac(srcRow) * 3.14159265);
+            } else {
+                /* Box-filter avg of sin(pi*frac(t)); closed form via
+                ** antiderivative G(t)=floor(t)*(2/pi)+(1-cos(pi*frac(t)))/pi. */
+                float a_self = srcRow - 0.5 * dy;
+                float b_self = srcRow + 0.5 * dy;
+                float Ga_s   = floor(a_self) * 0.6366197724 + (1.0 - cos(3.14159265 * frac(a_self))) * 0.3183098862;
+                float Gb_s   = floor(b_self) * 0.6366197724 + (1.0 - cos(3.14159265 * frac(b_self))) * 0.3183098862;
+                float beam_avg = (Gb_s - Ga_s) / dy;
+
+                /* Use box-filter avg directly so it matches the C-side
+                ** computeScanLinePaperWhiteBoost (2/pi at s=0). */
+                beam = beam_avg;
+            }
+        } else {
+            beam = sin(frac(srcRow) * 3.14159265);
+        }
+        /* Two-parameter mask: mask = lerp(s, 1, sin^p) where s = depth,
+        ** p = shape (0..4). Linear-space pre-compensated by pow(mask, 1/2.2). */
+        float maskShape = (scanShapeP > 1e-4) ? pow(saturate(beam), scanShapeP) : 1.0;
+        float mask      = lerp(scanLinesIntensity, 1.0, maskShape);
+        /* SDR groove-cap (min with 1.0) prevents mid-tone overshoot. */
+        if (hdrMode <= 0.5) {
+            float groove = min(mask * scanLinesBrightComp, 1.0);
+            color.rgb    = preMaskColor * pow(max(groove, 0.0), 1.0/2.2);
+        } else {
+            color.rgb *= pow(max(mask, 0.0), 1.0/2.2);
+        }
     }
 
-    color.rgb = pow(saturate(color.rgb), float3(gammaExp, gammaExp, gammaExp));
+    /* SDR: apply gamma in encoded space; HDR defers to final pow below. */
+    if (hdrMode <= 0.5) {
+        color.rgb = pow(saturate(color.rgb), float3(gammaExp, gammaExp, gammaExp));
+    }
     color.rgb = (color.rgb - 0.5) * contrast + 0.5 + brightness;
     float lum = dot(color.rgb, float3(0.299, 0.587, 0.114));
     color.rgb = lerp(float3(lum, lum, lum), color.rgb, saturation);
@@ -338,6 +388,53 @@ float4 main(PSIn p) : SV_TARGET {
         else                          color.rgb = float3(lum, lum * 0.69, 0.0); // AMBER
     }
 
+    /* HDR final encode: mode 1 = scRGB G10 P709, mode 2 = HDR10 PQ P2020.
+    ** gammaExp folded into sRGB->linear decode (1.0 -> clean 2.2). */
+    float3 hdrG = float3(2.2 * gammaExp, 2.2 * gammaExp, 2.2 * gammaExp);
+    if (hdrMode > 1.5) {
+        // sRGB-encoded -> linear -> absolute nits at SDR-white = paper-white setting.
+        // Values >1.0 (scanline peak) propagate proportionally into HDR headroom.
+        float3 lin   = pow(max(color.rgb, 0.0), hdrG);
+        // BT.709 -> BT.2020 (P2020 swap chain expects BT.2020 primaries).
+        {
+            float3x3 bt709to2020 = float3x3(
+                0.6274039, 0.3292831, 0.0433130,
+                0.0690972, 0.9195404, 0.0113624,
+                0.0163914, 0.0880133, 0.8955953);
+            lin = mul(bt709to2020, lin);
+            lin = max(lin, 0.0);
+        }
+        float3 nits  = lin * hdrPaperWhiteNits;
+        /* Per-pixel dark boost: lifts darks, fades to 1.0 at white,
+        ** further suppressed on saturated colours; no-op at ratio==1. */
+        float preLumaPq = saturate(max(max(preMaskColor.r, preMaskColor.g), preMaskColor.b));
+        float darkExtra = lerp(darkBoostRatio, 1.0, preLumaPq);
+        float preMinPq  = min(min(preMaskColor.r, preMaskColor.g), preMaskColor.b);
+        float chromaPq  = saturate(preLumaPq - max(preMinPq, 0.0));
+        darkExtra = lerp(darkExtra, 1.0, chromaPq);
+        nits *= darkExtra;
+        // ST.2084 (PQ) OETF.
+        float3 L     = nits / 10000.0;
+        float3 Lm1   = pow(max(L, 0.0), float3(0.1593017578125, 0.1593017578125, 0.1593017578125));
+        float3 num   = 0.8359375 + 18.8515625 * Lm1;
+        float3 den   = 1.0 + 18.6875 * Lm1;
+        float3 pq    = pow(max(num / den, 0.0), float3(78.84375, 78.84375, 78.84375));
+        return float4(saturate(pq), 1.0);
+    }
+    if (hdrMode > 0.5) {
+        // scRGB linear: 1.0 = 80 nits per spec, so paper-white-nits / 80 lifts the SDR ref.
+        float scale = hdrPaperWhiteNits / 80.0;
+        // Per-pixel dark boost matching the PQ branch (with the same
+        // chromaticity suppression so pure single-channel colours
+        // don't get the asymmetric max-channel boost).
+        float preLumaSc   = saturate(max(max(preMaskColor.r, preMaskColor.g), preMaskColor.b));
+        float darkExtraSc = lerp(darkBoostRatio, 1.0, preLumaSc);
+        float preMinSc    = min(min(preMaskColor.r, preMaskColor.g), preMaskColor.b);
+        float chromaSc    = saturate(preLumaSc - max(preMinSc, 0.0));
+        darkExtraSc = lerp(darkExtraSc, 1.0, chromaSc);
+        color.rgb = pow(max(color.rgb, 0.0), hdrG) * (scale * darkExtraSc);
+        return float4(color.rgb, 1.0);
+    }
     return float4(saturate(color.rgb), 1.0);
 }
 )";
@@ -364,7 +461,7 @@ static ComPtr<ID3D12GraphicsCommandList> g12_cmdList;
 static UINT                              g12_frameIndex  = 0;
 
 static ComPtr<ID3D12RootSignature>       g12_rootSig;
-static ComPtr<ID3D12PipelineState>       g12_pso;
+static ComPtr<ID3D12PipelineState>       g12_pso;       // RTV format = g12_swapFormat (live render)
 
 // Texture (GPU default heap; lives in PIXEL_SHADER_RESOURCE between frames)
 static ComPtr<ID3D12Resource>            g12_texture;
@@ -411,7 +508,13 @@ struct EffectCB12 {
     float texWf;               // = (float)TEX_W
     float texHf;               // = (float)TEX_H
     float doubleWidthFlag;     // 1.0 if any line in this frame has doubleWidth set
-    float pad1, pad2, pad3;
+    float scanLinesBrightComp; // multiplier (>=1.0) re-lifting average luminance after scanline mask
+    float hdrMode;             // 0 SDR, 1 scRGB linear, 2 HDR10 PQ
+    float hdrPaperWhiteNits;   // target SDR-white luminance in HDR mode (e.g. 200)
+    float scanUvOffset;        // = uv.v0; appended at end for HLSL 16-byte alignment
+    float darkBoostRatio;      // per-pixel HDR dark-pixel lift (1.0 = no extra boost)
+    float scanUseAA;           // 0 = LEGACY point-sample, 1 = AA integration
+    float scanShapeP;          // sin^p sharpness exponent [0, 4]
 };
 static const UINT CB_SIZE = (sizeof(EffectCB12) + 255) & ~255u; // 256-byte aligned
 static ComPtr<ID3D12Resource>            g12_cbuf[FRAME_COUNT];
@@ -421,6 +524,15 @@ static HWND g12_hwnd         = NULL;  // parent (emu) HWND passed by caller
 static HWND g12_swapHwnd     = NULL;  // child of g12_hwnd; owns the DXGI swap chain
 static int  g12_w            = 0;
 static int  g12_h            = 0;
+static bool g12_isFullscreen = false;  // last EnterFullscreen/Windowed transition
+// HDR state -- set by D3D12_Init, cleared if no HDR format succeeded.
+// Try order: HDR10 PQ R10G10B10A2 -> HDR10 PQ FP16 -> scRGB FP16.
+static bool                  g12_hdrActive     = false;
+static DXGI_FORMAT           g12_swapFormat    = DXGI_FORMAT_B8G8R8A8_UNORM;
+static DXGI_COLOR_SPACE_TYPE g12_hdrColorSpace = DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709;
+
+static void vApplyHdrMetadata(void);  /* defined alongside vD3D12RebuildBuffers */
+
 static bool g12_ready        = false;
 static bool g12_needCleanup  = false;
 static int  g12_syncVblank   = -1;
@@ -440,6 +552,207 @@ static void registerSwapWindowClass()
     wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
     RegisterClassA(&wc);
     g12_swapWndClassRegistered = true;
+}
+
+// SDR brightness comp B_MAX: shader applies min(1, mask * B_MAX).  HDR
+// folds this into paperWhite instead (computeScanLinePaperWhiteBoost).
+static float computeScanLineBrightComp(const Video* v)
+{
+    if (!v || !v->scanLinesEnable) return 1.0f;
+    if (v->scanLinesBrightAuto) {
+        return 2.0f;
+    }
+    int p = v->scanLinesBrightPct;
+    if (p < 100) p = 100;                     // 1.00x = no compensation
+    if (p > 200) p = 200;                     // matches slider TBM_SETRANGE
+    return (float)p / 100.0f;
+}
+
+// HDR scanline brightness comp as a paperWhite multiplier, capped at 3.0x.
+static float computeScanLinePaperWhiteBoost(const Video* v, bool fullscreen,
+                                            float pxPerScanRow)
+{
+    (void)fullscreen;  // unified path
+    if (!v || !v->scanLinesEnable) return 1.0f;
+    if (v->scanLinesBrightAuto) {
+        float s = (float)v->scanLinesPct / 100.0f;
+        if (s < 0.0f) s = 0.0f; else if (s > 1.0f) s = 1.0f;
+
+        // Integer-zoom special cases (tolerance 0.10 covers a window
+        // sized "near" the integer multiple).
+        int  intN  = (int)(pxPerScanRow + 0.5f);
+        bool isInt = (pxPerScanRow > 0.5f)
+                     && (fabsf(pxPerScanRow - (float)intN) < 0.10f);
+        if (isInt && intN <= 1) {
+            return 1.0f;
+        }
+        // Two-parameter mask: depth s (= scanLinesIntensity, 0..1)
+        // and shape p (= scanlinesShapePct/100 * 4, 0..4).
+        //   mask = lerp(s, 1, sin^p) = s + (1 - s) * sin^p
+        double shapePctRaw = (double)v->scanlinesShapePct;
+        if (shapePctRaw < 0.0)   shapePctRaw = 0.0;
+        if (shapePctRaw > 100.0) shapePctRaw = 100.0;
+        double p = shapePctRaw / 100.0 * 4.0;
+
+        if (isInt && intN == 2) {
+            // N=2 uniform mask: every pixel sees sin(pi/4) = 0.7071.
+            double shape = (p > 1e-4) ? pow(0.7071068, p) : 1.0;
+            double m     = (double)s + (1.0 - (double)s) * shape;
+            if (m < 0.01) m = 0.01;
+            return (float)(1.0 / m);
+        }
+
+        // Continuous Simpson 1/avgLin where avgLin = integral of
+        // lerp(s, 1, sin^p)(pi*y) over a scanline period.
+        const int N = 64;
+        double sum = 0.0;
+        for (int i = 0; i <= N; ++i) {
+            double y     = (double)i / (double)N;
+            double sn    = sin(3.14159265358979 * y);
+            double shape = (p > 1e-4) ? pow(sn, p) : 1.0;
+            double m     = (double)s + (1.0 - (double)s) * shape;
+            double w     = (i == 0 || i == N) ? 1.0 : ((i & 1) ? 4.0 : 2.0);
+            sum += w * m;
+        }
+        double avgLin = sum / (3.0 * (double)N);
+        if (avgLin < 0.01) avgLin = 0.01;
+        double boost = 1.0 / avgLin;
+        // Perceptual dy comp: low pxPerRow looks brighter, so dim via
+        // maxB^4 to keep perceived brightness uniform across zooms.
+        double dy   = (pxPerScanRow > 1e-4) ? (1.0 / (double)pxPerScanRow) : 0.0;
+        double maxB = (dy > 1e-4)
+                    ? (2.0 * sin(3.14159265358979 * 0.5 * dy) / (3.14159265358979 * dy))
+                    : 1.0;
+        if (maxB > 1.0) maxB = 1.0;
+        double dyComp = maxB * maxB * maxB * maxB;
+        boost *= dyComp;
+        if (boost < 1.0) boost = 1.0;
+        if (boost > 3.0) boost = 3.0;
+        return (float)boost;
+    }
+    int p = v->scanLinesBrightPct;
+    if (p < 100) p = 100;
+    if (p > 300) p = 300;                     // HDR manual range goes to 3.0x
+    return (float)p / 100.0f;
+}
+
+// Per-pixel HDR dark-pixel boost: permanently disabled (returns 1.0).
+// paperWhite alone handles restoration; mechanism kept for future
+// re-engagement (e.g. manual cap mode).
+static float computeScanLineDarkBoost(const Video* v, bool fullscreen,
+                                      float pxPerScanRow)
+{
+    (void)v; (void)fullscreen; (void)pxPerScanRow;
+    return 1.0f;
+}
+
+// --- AR / crop / UV helper (shared by live render + recording capture) -------
+// AR-correct + cropped projection of srcW x srcH onto targetW x targetH;
+// lets the recorder honour the same AR / crop settings as the live render.
+struct UvRender12 {
+    float u0, u1, v0, v1;
+    /* AA-mode values (period = 1/TEX_H, offset = 0); the live render may
+    ** override with legacy values before pushing to the cbuffer. */
+    float scanUvPeriod;
+    /* Crop-area UV bounds for the shader's outOfBounds test: AR-fit bars
+    ** render as border colour, never as rows the crop removed. */
+    float cropU0, cropU1, cropV0, cropV1;
+};
+
+static UvRender12 computeUvForRender(int targetW, int targetH,
+                                     int srcW, int srcH,
+                                     D3DProperties* props)
+{
+    UvRender12 o = {};
+
+    int iBorderLeft = 0, iBorderTop = 0, iBorderRight = 0, iBorderBottom = 0;
+    switch (props->cropType) {
+    case P_D3D_CROP_SIZE_MSX1:
+        iBorderLeft = iBorderRight  = (BASE_TEX_W - 256) / 2;
+        iBorderTop  = iBorderBottom = (BASE_TEX_H - 192) / 2;
+        break;
+    case P_D3D_CROP_SIZE_MSX1_PLUS_8:
+        iBorderLeft = iBorderRight  = (BASE_TEX_W - 256 - 16) / 2;
+        iBorderTop  = iBorderBottom = (BASE_TEX_H - 192 - 16) / 2;
+        break;
+    case P_D3D_CROP_SIZE_MSX2:
+        iBorderLeft = iBorderRight  = (BASE_TEX_W - 256) / 2;
+        iBorderTop  = iBorderBottom = (BASE_TEX_H - 212) / 2;
+        break;
+    case P_D3D_CROP_SIZE_MSX2_PLUS_8:
+        iBorderLeft = iBorderRight  = (BASE_TEX_W - 256 - 16) / 2;
+        iBorderTop  = iBorderBottom = (BASE_TEX_H - 212 - 16) / 2;
+        break;
+    case P_D3D_CROP_SIZE_CUSTOM:
+        iBorderLeft   = props->cropLeft;
+        iBorderRight  = props->cropRight;
+        iBorderTop    = props->cropTop;
+        iBorderBottom = props->cropBottom;
+        break;
+    }
+
+    const float fTexW = (float)TEX_W;
+    const float fTexH = (float)TEX_H;
+    const float fWs   = (float)targetW;
+    const float fHs   = (float)targetH;
+
+    // Use fixed logical dimensions (BASE_TEX_W=272, BASE_TEX_H=240) for the
+    // aspect-ratio formula, matching D3D9's C_iTextureWidth/Height approach.
+    const float fMSXW = (float)(BASE_TEX_W - iBorderLeft - iBorderRight);
+    const float fMSXH = (float)(BASE_TEX_H - iBorderTop  - iBorderBottom);
+
+    float fAR;
+    switch (props->aspectRatioType) {
+    case P_D3D_AR_NTSC:    fAR = NTSC_AR; break;
+    case P_D3D_AR_PAL:     fAR = PAL_AR;  break;
+    case P_D3D_AR_1:       fAR = 1.0f;    break;
+    case P_D3D_AR_AUTO:    fAR = (vdpGetRefreshRate() == 60) ? NTSC_AR : PAL_AR; break;
+    case P_D3D_AR_STRETCH: fAR = (fMSXH * fWs) / (fMSXW * fHs); break;
+    default:               fAR = NTSC_AR; break;
+    }
+
+    float fWm = fMSXW;
+    float fHm = fMSXH;
+    if (fWm * fHs * fAR > fWs * fHm)
+        fHm = fHs * fWm * fAR / fWs;
+    else
+        fWm = fWs * fHm / (fHs * fAR);
+
+    const float wUvScale = (float)srcW / ((float)BASE_TEX_W * fTexW);
+    fWm *= wUvScale;
+
+    const bool  isDeint = (srcH > BASE_TEX_H);
+    const float hUvDiv  = isDeint ? (float)BASE_TEX_H : fTexH;
+    fHm /= hUvDiv;
+
+    const float fDx = (float)(iBorderLeft - iBorderRight) * 0.5f * wUvScale;
+    const float fDy = (float)(iBorderTop  - iBorderBottom) * 0.5f / hUvDiv;
+
+    const float uCtr = (float)srcW * 0.5f / fTexW;
+    const float vCtr = isDeint ? 0.5f : (float)srcH * 0.5f / fTexH;
+
+    o.u0 = uCtr - fWm * 0.5f + fDx;
+    o.u1 = uCtr + fWm * 0.5f + fDx;
+    o.v0 = vCtr - fHm * 0.5f + fDy;
+    o.v1 = vCtr + fHm * 0.5f + fDy;
+
+    /* Crop UV bounds: outside them the shader renders borderColor, so
+    ** AR-fit bars never leak source rows the crop removed. */
+    {
+        const float fCropWuv = (float)fMSXW * wUvScale;
+        const float fCropHuv = (float)fMSXH / hUvDiv;
+        o.cropU0 = uCtr - fCropWuv * 0.5f + fDx;
+        o.cropU1 = uCtr + fCropWuv * 0.5f + fDx;
+        o.cropV0 = vCtr - fCropHuv * 0.5f + fDy;
+        o.cropV1 = vCtr + fCropHuv * 0.5f + fDy;
+    }
+
+    /* scanUvPeriod pinned to 1/TEX_H (one sin period per texture row,
+    ** independent of crop / AR).  Tying it to (v1-v0)/srcH made the
+    ** period drift under AR letterbox and beat into a moire pattern. */
+    o.scanUvPeriod = 1.0f / (float)TEX_H;
+
+    return o;
 }
 
 // --- synchronization helpers -------------------------------------------------
@@ -566,20 +879,94 @@ static bool bD3D12Init(HWND hWnd, int w, int h, int syncVblank)
 
     // -- Swap chain (attached to the child HWND, never the caller's) ---------
     {
-        DXGI_SWAP_CHAIN_DESC1 scd = {};
-        scd.BufferCount  = FRAME_COUNT;
-        scd.Width        = (UINT)w;
-        scd.Height       = (UINT)h;
-        scd.Format       = DXGI_FORMAT_B8G8R8A8_UNORM;
-        scd.BufferUsage  = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-        scd.SwapEffect   = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-        scd.SampleDesc.Count = 1;
+        /* HDR opt-in needs both properties.video.hdrEnable and
+        ** OS-level HDR on the target output (via IDXGIOutput6 ColorSpace). */
+        Properties* gp = propGetGlobalProperties();
+        bool propWantsHdr = (gp && gp->video.hdrEnable) ? true : false;
+
+        bool desktopIsHdr = false;
+        if (propWantsHdr) {
+            // Walk every adapter / output -- any HDR output is enough.
+            ComPtr<IDXGIAdapter1> adapter;
+            for (UINT a = 0; !desktopIsHdr && factory->EnumAdapters1(a, &adapter) != DXGI_ERROR_NOT_FOUND; ++a) {
+                ComPtr<IDXGIOutput> output;
+                for (UINT o = 0; !desktopIsHdr && adapter->EnumOutputs(o, &output) != DXGI_ERROR_NOT_FOUND; ++o) {
+                    ComPtr<IDXGIOutput6> output6;
+                    if (SUCCEEDED(output.As(&output6))) {
+                        DXGI_OUTPUT_DESC1 odesc = {};
+                        if (SUCCEEDED(output6->GetDesc1(&odesc))) {
+                            if (odesc.ColorSpace == DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020) {
+                                desktopIsHdr = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        /* HDR attempt order: R10G10B10A2_UNORM/PQ, FP16/PQ, FP16/scRGB;
+        ** SDR (B8G8R8A8) is the unconditional fallback. */
+        struct HdrAttempt {
+            DXGI_FORMAT          format;
+            DXGI_COLOR_SPACE_TYPE colorSpace;
+        };
+        const HdrAttempt attempts[] = {
+            { DXGI_FORMAT_R10G10B10A2_UNORM,  DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020 },
+            { DXGI_FORMAT_R16G16B16A16_FLOAT, DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020 },
+            { DXGI_FORMAT_R16G16B16A16_FLOAT, DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709    },
+        };
+        const bool wantHdr = propWantsHdr && desktopIsHdr;
+        g12_hdrActive  = false;
+        g12_swapFormat = DXGI_FORMAT_B8G8R8A8_UNORM;
 
         ComPtr<IDXGISwapChain1> sc1;
-        hr = factory->CreateSwapChainForHwnd(g12_cmdQueue.Get(), g12_swapHwnd, &scd, nullptr, nullptr, &sc1);
-        if (FAILED(hr)) return false;
+        if (wantHdr) {
+            for (const auto& a : attempts) {
+                DXGI_SWAP_CHAIN_DESC1 scd = {};
+                scd.BufferCount  = FRAME_COUNT;
+                scd.Width        = (UINT)w;
+                scd.Height       = (UINT)h;
+                scd.Format       = a.format;
+                scd.BufferUsage  = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+                scd.SwapEffect   = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+                scd.SampleDesc.Count = 1;
+                ComPtr<IDXGISwapChain1> trySc;
+                if (FAILED(factory->CreateSwapChainForHwnd(
+                        g12_cmdQueue.Get(), g12_swapHwnd, &scd, nullptr, nullptr, &trySc))) {
+                    continue;
+                }
+                ComPtr<IDXGISwapChain3> trySc3;
+                if (FAILED(trySc.As(&trySc3))) continue;
+                UINT csSupport = 0;
+                if (FAILED(trySc3->CheckColorSpaceSupport(a.colorSpace, &csSupport)) ||
+                    !(csSupport & DXGI_SWAP_CHAIN_COLOR_SPACE_SUPPORT_FLAG_PRESENT)) {
+                    continue;
+                }
+                if (FAILED(trySc3->SetColorSpace1(a.colorSpace))) continue;
+                sc1               = trySc;
+                g12_hdrActive     = true;
+                g12_swapFormat    = a.format;
+                g12_hdrColorSpace = a.colorSpace;
+                break;
+            }
+        }
+        if (!g12_hdrActive) {
+            DXGI_SWAP_CHAIN_DESC1 scd = {};
+            scd.BufferCount  = FRAME_COUNT;
+            scd.Width        = (UINT)w;
+            scd.Height       = (UINT)h;
+            scd.Format       = DXGI_FORMAT_B8G8R8A8_UNORM;
+            scd.BufferUsage  = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+            scd.SwapEffect   = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+            scd.SampleDesc.Count = 1;
+            hr = factory->CreateSwapChainForHwnd(g12_cmdQueue.Get(), g12_swapHwnd, &scd, nullptr, nullptr, &sc1);
+            if (FAILED(hr)) return false;
+            g12_swapFormat = DXGI_FORMAT_B8G8R8A8_UNORM;
+        }
         factory->MakeWindowAssociation(g12_swapHwnd, DXGI_MWA_NO_ALT_ENTER);
         sc1.As(&g12_swapChain);
+        /* HDR mastering metadata (primaries + content peak nits). */
+        vApplyHdrMetadata();
         g12_frameIndex = g12_swapChain->GetCurrentBackBufferIndex();
     }
 
@@ -751,7 +1138,7 @@ static bool bD3D12Init(HWND hWnd, int w, int h, int syncVblank)
         psd.InputLayout           = { ied, 2 };
         psd.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
         psd.NumRenderTargets      = 1;
-        psd.RTVFormats[0]         = DXGI_FORMAT_B8G8R8A8_UNORM;
+        psd.RTVFormats[0]         = g12_swapFormat;
         psd.SampleDesc.Count      = 1;
         psd.SampleMask            = UINT_MAX;
 
@@ -1016,7 +1403,48 @@ static bool bD3D12Init(HWND hWnd, int w, int h, int syncVblank)
     g12_h          = h;
     g12_syncVblank = syncVblank;
     g12_ready      = true;
+
     return true;
+}
+
+// --- HDR mastering metadata ---------------------------------------------------
+
+// Primaries follow g12_hdrColorSpace; MaxCLL = fixed 1200-nit ceiling
+// (avoids tone-map adaptation on toggle); MaxFALL tracks paperWhite.
+static void vApplyHdrMetadata(void)
+{
+    if (!g12_hdrActive) return;
+    ComPtr<IDXGISwapChain4> sc4;
+    if (FAILED(g12_swapChain.As(&sc4))) return;
+
+    Properties* gp = propGetGlobalProperties();
+    int pwInt = gp ? gp->video.hdrPaperWhiteNits : 200;
+    if (pwInt < 80)  pwInt = 80;
+    if (pwInt > 400) pwInt = 400;
+
+    /* Fixed capability ceiling: max selectable paperWhite (400) * max
+    ** scanline-comp boost (3.0).  MaxCLL stays constant across paperWhite
+    ** and scanline changes so displays don't retune. */
+    const int kMaxCll = 400 * 3;   /* 1200 nits */
+
+    DXGI_HDR_METADATA_HDR10 m = {};
+    if (g12_hdrColorSpace == DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020) {
+        /* BT.2020 primaries (in 0.00002 increments per spec). */
+        m.RedPrimary[0]   = 35400;  m.RedPrimary[1]   = 14600;
+        m.GreenPrimary[0] =  8500;  m.GreenPrimary[1] = 39850;
+        m.BluePrimary[0]  =  6550;  m.BluePrimary[1]  =  2300;
+    } else {
+        /* scRGB G10 P709 fallback: BT.709 primaries. */
+        m.RedPrimary[0]   = 32000;  m.RedPrimary[1]   = 16500;
+        m.GreenPrimary[0] = 15000;  m.GreenPrimary[1] = 30000;
+        m.BluePrimary[0]  =  7500;  m.BluePrimary[1]  =  3000;
+    }
+    m.WhitePoint[0]   = 15635;  m.WhitePoint[1]   = 16450;     /* D65 */
+    m.MaxMasteringLuminance      = 1000 * 10000;               /* 1000 nits */
+    m.MinMasteringLuminance      =          50;                /* 0.005 nits */
+    m.MaxContentLightLevel       = (UINT16)kMaxCll;            /* fixed capability ceiling (1200) */
+    m.MaxFrameAverageLightLevel  = (UINT16)pwInt;              /* avg ~= paperWhite (slider-tracked) */
+    sc4->SetHDRMetaData(DXGI_HDR_METADATA_TYPE_HDR10, sizeof(m), &m);
 }
 
 // --- swap chain resize --------------------------------------------------------
@@ -1038,7 +1466,7 @@ static void vD3D12Resize(int w, int h)
     }
 
     g12_swapChain->ResizeBuffers(FRAME_COUNT, (UINT)w, (UINT)h,
-                                  DXGI_FORMAT_B8G8R8A8_UNORM, 0);
+                                  g12_swapFormat, 0);
     g12_frameIndex = g12_swapChain->GetCurrentBackBufferIndex();
 
     D3D12_CPU_DESCRIPTOR_HANDLE rtvH = g12_rtvHeap->GetCPUDescriptorHandleForHeapStart();
@@ -1306,123 +1734,33 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
     }
 
     // -- UV / vertex + scanUvPeriod calculation --------------------------------
-    // Scanlines are suppressed on interlaced raster timing (interlaceRaster):
-    // real hardware fills the gaps with the alternate field, modes 1 and 3.
+    // Scanlines off for any interlaced source -- the alternate field fills
+    // the gaps on real hardware.
     bool scanlinesActive = pVideo->scanLinesEnable
                            && !isInterlacedSource
                            && !fb->interlaceRaster;
-    float scanUvPeriod = 1.0f / (float)TEX_H; // fallback; overwritten below
-    // Crop UV bounds (set inside the AR-fit block; consumed by the CB block
-    // below for srcUvMin/Max).  Default fallback = full source rect when the
-    // AR-fit branch doesn't execute.
-    float cropU0 = 0.0f, cropU1 = (float)srcW / (float)TEX_W;
-    float cropV0 = 0.0f, cropV1 = (float)srcH / (float)TEX_H;
 
+    UvRender12 uv = computeUvForRender(w, h, srcW, srcH, props);
+    /* AA mode (pxPerRow >= 2.5): period 1/TEX_H, offset 0; the shader
+    ** integrates sin over each screen pixel's source-row footprint.
+    ** Legacy (< 2.5): period (v1-v0)/srcH, offset v0, plain point-sample
+    ** -- the screen can't resolve a scanline pattern there anyway. */
+    float vSpanRender = uv.v1 - uv.v0;
+    float pxPerRowRender = (vSpanRender > 1e-6f)
+                         ? ((float)h / (vSpanRender * (float)TEX_H))
+                         : 0.0f;
+    bool useScanAA      = (pxPerRowRender >= 2.5f);
+    float scanUvPeriod  = useScanAA
+                          ? (1.0f / (float)TEX_H)
+                          : ((srcH > 0) ? (vSpanRender / (float)srcH)
+                                        : (1.0f / (float)TEX_H));
+    float scanUvOffset  = useScanAA ? 0.0f : uv.v0;
     {
-        int iBorderLeft = 0, iBorderTop = 0, iBorderRight = 0, iBorderBottom = 0;
-        switch (props->cropType) {
-        case P_D3D_CROP_SIZE_MSX1:
-            iBorderLeft = iBorderRight  = (BASE_TEX_W - 256) / 2;
-            iBorderTop  = iBorderBottom = (BASE_TEX_H - 192) / 2;
-            break;
-        case P_D3D_CROP_SIZE_MSX1_PLUS_8:
-            iBorderLeft = iBorderRight  = (BASE_TEX_W - 256 - 16) / 2;
-            iBorderTop  = iBorderBottom = (BASE_TEX_H - 192 - 16) / 2;
-            break;
-        case P_D3D_CROP_SIZE_MSX2:
-            iBorderLeft = iBorderRight  = (BASE_TEX_W - 256) / 2;
-            iBorderTop  = iBorderBottom = (BASE_TEX_H - 212) / 2;
-            break;
-        case P_D3D_CROP_SIZE_MSX2_PLUS_8:
-            iBorderLeft = iBorderRight  = (BASE_TEX_W - 256 - 16) / 2;
-            iBorderTop  = iBorderBottom = (BASE_TEX_H - 212 - 16) / 2;
-            break;
-        case P_D3D_CROP_SIZE_CUSTOM:
-            iBorderLeft   = props->cropLeft;
-            iBorderRight  = props->cropRight;
-            iBorderTop    = props->cropTop;
-            iBorderBottom = props->cropBottom;
-            break;
-        }
-
-        // srcW/srcH are computed once at function scope above so the CB
-        // population block can also reference them for the border-bounds.
-        float fTexW = (float)TEX_W;
-        float fTexH = (float)TEX_H;
-        float fWs   = (float)w;
-        float fHs   = (float)h;
-
-        // AR uses BASE_TEX_W/H (matches D3D9 C_iTextureW/H); raw srcH would
-        // double after deinterlace and flip the AR condition.
-        float fMSXW = (float)(BASE_TEX_W - iBorderLeft - iBorderRight);
-        float fMSXH = (float)(BASE_TEX_H - iBorderTop  - iBorderBottom);
-
-        float fAR;
-        switch (props->aspectRatioType) {
-        case P_D3D_AR_NTSC:    fAR = NTSC_AR; break;
-        case P_D3D_AR_PAL:     fAR = PAL_AR;  break;
-        case P_D3D_AR_1:       fAR = 1.0f;    break;
-        case P_D3D_AR_AUTO:    fAR = (vdpGetRefreshRate() == 60) ? NTSC_AR : PAL_AR; break;
-        case P_D3D_AR_STRETCH: fAR = (fMSXH * fWs) / (fMSXW * fHs); break;
-        default:               fAR = NTSC_AR; break;
-        }
-
-        float fWm = fMSXW;
-        float fHm = fMSXH;
-        if (fWm * fHs * fAR > fWs * fHm)
-            fHm = fHs * fWm * fAR / fWs;
-        else
-            fWm = fWs * fHm / (fHs * fAR);
-
-        // Convert from logical-pixel space to UV fraction.
-        // fWm is in units of BASE_TEX_W logical pixels; scale to the actual
-        // data extent within the 544-wide texture (srcW/fTexW).
-        float wUvScale = (float)srcW / ((float)BASE_TEX_W * fTexW);
-        fWm *= wUvScale;
-
-        // Vertical UV: deinterlaced (srcH>240) divides by BASE_TEX_H=240
-        // (matches D3D9); otherwise by fTexH=480.
-        bool isDeint = (srcH > BASE_TEX_H);
-        float hUvDiv = isDeint ? (float)BASE_TEX_H : fTexH;
-        fHm /= hUvDiv;
-
-        // Crop asymmetry offset in the same UV units.
-        float fDx = (float)(iBorderLeft - iBorderRight) * 0.5f * wUvScale;
-        float fDy = (float)(iBorderTop  - iBorderBottom) * 0.5f / hUvDiv;
-
-        // Center of the valid data region in UV space.
-        // Deinterlaced: use 0.5 (full-texture center) like D3D9.
-        // Non-deinterlaced: track the partial frame's actual position.
-        float uCtr = (float)srcW * 0.5f / fTexW;
-        float vCtr = isDeint ? 0.5f : (float)srcH * 0.5f / fTexH;
-
-        float u0 = uCtr - fWm * 0.5f + fDx;
-        float u1 = uCtr + fWm * 0.5f + fDx;
-        float v0 = vCtr - fHm * 0.5f + fDy;
-        float v1 = vCtr + fHm * 0.5f + fDy;
-
-        // Crop UV bounds for srcUvMin/Max: AR-fit letterbox/pillarbox
-        // outside this rect renders as borderColor (no source leak).
-        float fCropWuv = (float)fMSXW * wUvScale;
-        float fCropHuv = (float)fMSXH / hUvDiv;
-        cropU0 = uCtr - fCropWuv * 0.5f + fDx;
-        cropU1 = uCtr + fCropWuv * 0.5f + fDx;
-        cropV0 = vCtr - fCropHuv * 0.5f + fDy;
-        cropV1 = vCtr + fCropHuv * 0.5f + fDy;
-
-        // -- Method A: UV period per source scanline (for sinusoidal scanlines) -
-        // (v1-v0) = AR/crop-adjusted content height in UV; divide by visible
-        // source line count for uniform scanline spacing.
-        float visibleSrcLines = (float)srcH * (fMSXH / (float)BASE_TEX_H);
-        scanUvPeriod = (visibleSrcLines > 0.0f)
-                     ? ((v1 - v0) / visibleSrcLines)
-                     : (1.0f / (float)TEX_H);
-
         Vtx12 verts[4] = {
-            { -1.0f, +1.0f, u0, v0 },
-            { +1.0f, +1.0f, u1, v0 },
-            { -1.0f, -1.0f, u0, v1 },
-            { +1.0f, -1.0f, u1, v1 },
+            { -1.0f, +1.0f, uv.u0, uv.v0 },
+            { +1.0f, +1.0f, uv.u1, uv.v0 },
+            { -1.0f, -1.0f, uv.u0, uv.v1 },
+            { +1.0f, -1.0f, uv.u1, uv.v1 },
         };
         memcpy(g12_vtxPtr[g12_frameIndex], verts, sizeof(verts));
     }
@@ -1435,7 +1773,47 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
         EffectCB12 cb = {};
         cb.scanLinesEnable    = scanlinesActive ? 1.0f : 0.0f;
         cb.scanLinesIntensity = (float)pVideo->scanLinesPct / 100.0f;
+        /* HDR uses a global paperWhite lift instead; shader skips SDR boost. */
+        cb.scanLinesBrightComp = scanlinesActive
+            ? computeScanLineBrightComp(pVideo)
+            : 1.0f;
+        /* hdrMode: 0=SDR, 1=scRGB linear, 2=HDR10 PQ (encoded in shader). */
+        cb.hdrMode            = g12_hdrActive
+            ? (g12_hdrColorSpace == DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020 ? 2.0f : 1.0f)
+            : 0.0f;
+        {
+            int pwn = gp ? gp->video.hdrPaperWhiteNits : 200;
+            if (pwn < 80)  pwn = 80;
+            if (pwn > 400) pwn = 400;
+            float pw = (float)pwn;
+            /* HDR: scanline brightness multiplies paperWhite (capped 800nits). */
+            if (g12_hdrActive && scanlinesActive) {
+                /* pxPerRowRender (= h / ((v1-v0)*TEX_H)) is mode-independent,
+                ** unlike a value derived from scanUvPeriod. */
+                pw *= computeScanLinePaperWhiteBoost(pVideo, g12_isFullscreen, pxPerRowRender);
+                cb.darkBoostRatio = computeScanLineDarkBoost(pVideo, g12_isFullscreen, pxPerRowRender);
+            } else if (g12_hdrActive
+                       && pVideo->scanLinesEnable
+                       && (isInterlacedSource || fb->interlaceRaster)) {
+                /* Interlaced: real CRTs light gap rows via alternate field;
+                ** bump paperWhite 1.20x in HDR (SDR has no headroom). */
+                pw *= 1.20f;
+                cb.darkBoostRatio = 1.0f;
+            } else {
+                cb.darkBoostRatio = 1.0f;
+            }
+            if (pw > 800.0f) pw = 800.0f;
+            cb.hdrPaperWhiteNits = pw;
+        }
         cb.scanUvPeriod       = scanUvPeriod;
+        cb.scanUvOffset       = scanUvOffset;
+        cb.scanUseAA          = useScanAA ? 1.0f : 0.0f;
+        {
+            int spct = pVideo->scanlinesShapePct;
+            if (spct < 0)   spct = 0;
+            if (spct > 100) spct = 100;
+            cb.scanShapeP = (float)spct / 100.0f * 4.0f;
+        }
         cb.blendFramesEnable  = blendFramesEnable ? 1.0f : 0.0f;
         cb.gammaExp           = (float)pVideo->gamma;
         cb.contrast           = (float)pVideo->contrast;
@@ -1464,11 +1842,12 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
            target aspect, pixels outside the crop region render as
            borderColor instead of leaking source rows that the crop was
            meant to remove.  No crop -> these match the texture's full
-           valid data region (= [0..srcW/TEX_W] x [0..srcH/TEX_H]). */
-        cb.srcUvMinU = cropU0;
-        cb.srcUvMinV = cropV0;
-        cb.srcUvMaxU = cropU1;
-        cb.srcUvMaxV = cropV1;
+           valid data region (= [0..srcW/TEX_W] x [0..srcH/TEX_H])
+           after intersection with the source content layout. */
+        cb.srcUvMinU = uv.cropU0;
+        cb.srcUvMinV = uv.cropV0;
+        cb.srcUvMaxU = uv.cropU1;
+        cb.srcUvMaxV = uv.cropV1;
 
         /* srcWf is the data extent (= 2*maxWidth in doubleWidth modes), not
            just maxWidth, so the shader's clamp doesn't repeat the rightmost
@@ -1542,6 +1921,16 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
         g12_cmdQueue->ExecuteCommandLists(1, lists);
     }
 
+    // Re-apply each Present so DWM rebinding drops recover, and the
+    // paperWhite slider propagates live.
+    if (g12_hdrActive) {
+        ComPtr<IDXGISwapChain3> sc3;
+        if (SUCCEEDED(g12_swapChain.As(&sc3))) {
+            sc3->SetColorSpace1(g12_hdrColorSpace);
+        }
+        vApplyHdrMetadata();
+    }
+
     // Present(1, 0): wait for 1 VBlank (vsync).  No separate syncVblank=1
     // (manual raster check) path -- Present(1) covers both sync modes.
     g12_swapChain->Present(1, 0);
@@ -1564,6 +1953,42 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
 // Defined in Win32D3D.cpp: finds the monitor containing the window and
 // resizes parent+child to cover it (borderless windowed fullscreen).
 extern void vSetFullscreen(HWND hWnd);
+
+extern "C" int D3D12IsHdrActive(void)
+{
+    return g12_hdrActive ? 1 : 0;
+}
+
+/* Returns 1 if any DXGI output reports HDR (= "Use HDR" is on in Windows). */
+extern "C" int D3D12IsSystemHdrEnabled(void)
+{
+    ComPtr<IDXGIFactory4> factory;
+    if (FAILED(CreateDXGIFactory1(IID_PPV_ARGS(&factory)))) return 0;
+
+    ComPtr<IDXGIAdapter1> adapter;
+    for (UINT a = 0; factory->EnumAdapters1(a, &adapter) != DXGI_ERROR_NOT_FOUND; ++a) {
+        ComPtr<IDXGIOutput> output;
+        for (UINT o = 0; adapter->EnumOutputs(o, &output) != DXGI_ERROR_NOT_FOUND; ++o) {
+            ComPtr<IDXGIOutput6> output6;
+            if (SUCCEEDED(output.As(&output6))) {
+                DXGI_OUTPUT_DESC1 odesc = {};
+                if (SUCCEEDED(output6->GetDesc1(&odesc)) &&
+                    odesc.ColorSpace == DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020) {
+                    return 1;
+                }
+            }
+        }
+    }
+    return 0;
+}
+
+/* Returns 0=SDR, 1=HDR scRGB linear, 2=HDR10 PQ. Properties dialog uses this. */
+extern "C" int D3D12HdrMode(void)
+{
+    if (!g12_hdrActive) return 0;
+    if (g12_hdrColorSpace == DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020) return 2;
+    return 1;
+}
 
 void D3D12ExitFullscreenMode()
 {
@@ -1703,6 +2128,7 @@ int D3D12EnterFullscreenMode(HWND hwnd, int /*useVideoBackBuffer*/, int /*useSys
     // Resize only; the swap chain auto-resizes in D3D12UpdateSurface.
     // Forcing g12_needCleanup per mode flip crashed the AMD driver (CFF AV).
     vSetFullscreen(hwnd);
+    g12_isFullscreen = true;
     return 0; // DXE_OK
 }
 
@@ -1711,6 +2137,7 @@ BOOL D3D12EnterWindowedMode(HWND /*hwnd*/, int /*width*/, int /*height*/,
 {
     // No-op: windowed transitions are handled entirely by archUpdateWindow's
     // SetWindowPos in themeSet plus D3D12UpdateSurface's auto-resize.
+    g12_isFullscreen = false;
     return 0; // DXE_OK
 }
 

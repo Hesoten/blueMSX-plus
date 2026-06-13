@@ -343,6 +343,20 @@ void langInitKorean(LanguageStrings* ls)
     ls->propMonSaturation       = "채도:";
     ls->propMonGamma            = "감마:";
     ls->propMonScanlines        = " 스캔라인:";
+    ls->propMonScanlinesBright  = "밝기 보정:";
+    ls->propMonScanlinesBrightAuto = " 자동";
+    ls->propMonScanlinesShape   = "프리셋:";
+    ls->propMonScanlinesDepth   = "깊이:";
+    ls->propMonScanlinesSharpness = "선명도:";
+    ls->enumScanShapeGentle     = "부드러움";
+    ls->enumScanShapeStandard   = "표준";
+    ls->enumScanShapeSharp      = "선명";
+    ls->enumScanShapeTrinitron  = "트리니트론";
+    ls->enumScanShapeCustom     = "사용자 정의";
+    ls->propMonHdrEnable        = "HDR";
+    ls->propMonHdrPaperWhite    = "흰색 밝기:";
+    ls->propMonHdrSystemMode    = "시스템 HDR 모드:";
+    ls->propMonHdrRestartHint   = "HDR 모드 변경을 적용하려면 blueMSX를 다시 시작하십시오.";
     ls->propMonEffectsGB        = "효과 ";
 
     ls->propPerfVideoDrvGB      = "비디오 드라이버 ";

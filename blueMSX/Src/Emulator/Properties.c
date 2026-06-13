@@ -286,6 +286,14 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->video.scanlinesEnable       = 0;
     properties->video.colorSaturationEnable = 0;
     properties->video.scanlinesPct          = 92;
+    properties->video.scanlinesBrightAuto   = 1;     /* default: auto-comp on */
+    properties->video.scanlinesBrightPct    = 100;   /* manual multiplier x100 (100 = 1.00x = no boost) */
+    properties->video.scanlinesShapeMode    = 1;     /* default: Standard CRT (p=2)
+                                                     ** 0=Gentle, 1=Standard, 2=Sharp,
+                                                     ** 3=Trinitron, 4=Custom */
+    properties->video.scanlinesShapePct     = 50;    /* 0..100 -> p in [0,4]; 50 -> p=2.0 */
+    properties->video.hdrEnable             = 0;     /* default: SDR */
+    properties->video.hdrPaperWhiteNits     = 200;   /* SDR-white target nits in HDR mode */
     properties->video.colorSaturationWidth  = 2;
     properties->video.detectActiveMonitor   = 1;
     properties->video.captureFps            = 60;
@@ -593,6 +601,12 @@ static void propLoad(Properties* properties)
     GET_INT_VALUE_2(propFile, video, gamma);
     GET_ENUM_VALUE_2(propFile, video, scanlinesEnable, BoolPair);
     GET_INT_VALUE_2(propFile, video, scanlinesPct);
+    GET_ENUM_VALUE_2(propFile, video, scanlinesBrightAuto, BoolPair);
+    GET_INT_VALUE_2(propFile, video, scanlinesBrightPct);
+    GET_INT_VALUE_2(propFile, video, scanlinesShapeMode);
+    GET_INT_VALUE_2(propFile, video, scanlinesShapePct);
+    GET_ENUM_VALUE_2(propFile, video, hdrEnable, BoolPair);
+    GET_INT_VALUE_2(propFile, video, hdrPaperWhiteNits);
     GET_ENUM_VALUE_2(propFile, video, colorSaturationEnable, BoolPair);
     GET_INT_VALUE_2(propFile, video, colorSaturationWidth);
     GET_ENUM_VALUE_2(propFile, video, detectActiveMonitor, BoolPair);
@@ -862,6 +876,12 @@ void propSave(Properties* properties)
     SET_INT_VALUE_2(propFile, video, gamma);
     SET_ENUM_VALUE_2(propFile, video, scanlinesEnable, YesNoPair);
     SET_INT_VALUE_2(propFile, video, scanlinesPct);
+    SET_ENUM_VALUE_2(propFile, video, scanlinesBrightAuto, YesNoPair);
+    SET_INT_VALUE_2(propFile, video, scanlinesBrightPct);
+    SET_INT_VALUE_2(propFile, video, scanlinesShapeMode);
+    SET_INT_VALUE_2(propFile, video, scanlinesShapePct);
+    SET_ENUM_VALUE_2(propFile, video, hdrEnable, YesNoPair);
+    SET_INT_VALUE_2(propFile, video, hdrPaperWhiteNits);
     SET_ENUM_VALUE_2(propFile, video, colorSaturationEnable, YesNoPair);
     SET_INT_VALUE_2(propFile, video, colorSaturationWidth);
     SET_ENUM_VALUE_2(propFile, video, deInterlace, OnOffPair);

@@ -344,6 +344,20 @@ void langInitPolish(LanguageStrings* ls)
     ls->propMonSaturation       = "Nasycenie:";
     ls->propMonGamma            = "Gamma:";
     ls->propMonScanlines        = " Przeplot:";
+    ls->propMonScanlinesBright  = "Komp. jasn.:";
+    ls->propMonScanlinesBrightAuto = " Auto";
+    ls->propMonScanlinesShape   = "Ustawienie:";
+    ls->propMonScanlinesDepth   = "Głębia:";
+    ls->propMonScanlinesSharpness = "Ostrość:";
+    ls->enumScanShapeGentle     = "Łagodny";
+    ls->enumScanShapeStandard   = "Standard";
+    ls->enumScanShapeSharp      = "Ostry";
+    ls->enumScanShapeTrinitron  = "Trinitron";
+    ls->enumScanShapeCustom     = "Wł.";
+    ls->propMonHdrEnable        = "HDR";
+    ls->propMonHdrPaperWhite    = "Jasność bieli:";
+    ls->propMonHdrSystemMode    = "Tryb HDR systemu:";
+    ls->propMonHdrRestartHint   = "Uruchom ponownie blueMSX, aby zastosować zmianę trybu HDR.";
     ls->propMonEffectsGB        = "Efekty ";
 
     ls->propPerfVideoDrvGB      = "Ustawienia Video ";

@@ -63,6 +63,10 @@ static HRESULT StringCchLength(LPCTSTR s, size_t m, size_t *l) { *l = strlen(s);
 #include "Win32Cdrom.h"
 #include "Win32File.h"
 
+/* From Win32D3D12.cpp; no header pulled in here to keep the C/C++
+** boundary minimal. */
+int  D3D12HdrMode(void);
+
 
 #define WM_UPDATEPROPERTIES  (WM_USER + 0)
 #define WM_CANCELUPDATEPROPERTIES (WM_USER + 1)
@@ -911,6 +915,40 @@ static BOOL_DLG_RET CALLBACK direct3dProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
 
         D3DUpdateItems(hDlg, pProperties);
 
+        /* HDR enable persists but only takes effect on next D3D12_Init;
+        ** paper-white slider is live (shader reads CB every frame). */
+        SetDlgItemTextU(hDlg, IDC_HDRENABLE, langPropMonHdrEnable());
+        SetDlgItemTextU(hDlg, IDC_HDRPAPERWHITELABEL, langPropMonHdrPaperWhite());
+        SetDlgItemTextU(hDlg, IDC_HDRMODESTATICTEXT, langPropMonHdrSystemMode());
+        setButtonCheck(hDlg, IDC_HDRENABLE, pProperties->video.hdrEnable, 1);
+        {
+            int pwn = pProperties->video.hdrPaperWhiteNits;
+            if (pwn < 80)  pwn = 80;
+            if (pwn > 400) pwn = 400;
+            pProperties->video.hdrPaperWhiteNits = pwn;
+            SendMessage(GetDlgItem(hDlg, IDC_HDRPAPERWHITESLIDE), TBM_SETRANGE, 0, (LPARAM)MAKELONG(80, 400));
+            SendMessage(GetDlgItem(hDlg, IDC_HDRPAPERWHITESLIDE), TBM_SETPOS,   1, (LPARAM)pwn);
+            {
+                char buf[16]; sprintf(buf, "%d", pwn);
+                SetDlgItemTextU(hDlg, IDC_HDRPAPERWHITEVALUE, buf);
+            }
+            EnableWindow(GetDlgItem(hDlg, IDC_HDRPAPERWHITESLIDE),
+                         pProperties->video.hdrEnable);
+            EnableWindow(GetDlgItem(hDlg, IDC_HDRPAPERWHITEVALUE),
+                         pProperties->video.hdrEnable);
+            EnableWindow(GetDlgItem(hDlg, IDC_HDRPAPERWHITELABEL),
+                         pProperties->video.hdrEnable);
+        }
+        /* Shows the swap-chain colour space decided at D3D12_Init, not
+        ** the requested setting; enable toggles need a restart anyway. */
+        {
+            int mode = D3D12HdrMode();
+            const char* tag = (mode == 2) ? "[HDR PQ]"
+                            : (mode == 1) ? "[HDR scRGB]"
+                            : "[SDR]";
+            SendMessage(GetDlgItem(hDlg, IDC_HDRMODELABEL), WM_SETTEXT, 0, (LPARAM)tag);
+        }
+
         return FALSE;
 
     case WM_NOTIFY:
@@ -918,6 +956,15 @@ static BOOL_DLG_RET CALLBACK direct3dProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
             char acBuffer[32];
             int  cropMoved = 0;
 
+            if (wParam == IDC_HDRPAPERWHITESLIDE) {
+                int pwn = (int)SendMessage(GetDlgItem(hDlg, IDC_HDRPAPERWHITESLIDE), TBM_GETPOS, 0, 0);
+                if (pwn < 80)  pwn = 80;
+                if (pwn > 400) pwn = 400;
+                pProperties->video.hdrPaperWhiteNits = pwn;
+                sprintf(acBuffer, "%d", pwn);
+                SetDlgItemTextU(hDlg, IDC_HDRPAPERWHITEVALUE, acBuffer);
+                updateEmuWindow();
+            }
             if (wParam == IDC_D3D_CROPPING_LEFT) {
                 pProperties->video.d3d.cropLeft = SendMessage(GetDlgItem(hDlg, IDC_D3D_CROPPING_LEFT), TBM_GETPOS, 0, 0);
                 sprintf(acBuffer, "%d", pProperties->video.d3d.cropLeft);
@@ -951,6 +998,28 @@ static BOOL_DLG_RET CALLBACK direct3dProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
     case WM_COMMAND:
         pProperties->video.d3d.extendBorderColor = getButtonCheck(hDlg, IDC_D3D_EXTENDBORDERCOLOR);
         pProperties->video.d3d.forceHighRes = getButtonCheck(hDlg, IDC_D3D_FORCEHIGHRES);
+        /* Capture HDR enable on every WM_COMMAND so Apply/OK persists it;
+        ** on user toggle that differs from live mode, prompt for restart. */
+        {
+            static int s_lastHdrEnableSeen = -1;
+            int newHdr = getButtonCheck(hDlg, IDC_HDRENABLE);
+            pProperties->video.hdrEnable = newHdr;
+            if (LOWORD(wParam) == IDC_HDRENABLE) {
+                int liveMode = D3D12HdrMode();           /* 0=SDR 1/2=HDR */
+                int liveIsHdr = (liveMode != 0);
+                if ((newHdr != 0) != liveIsHdr && newHdr != s_lastHdrEnableSeen) {
+                    s_lastHdrEnableSeen = newHdr;
+                    MessageBoxU(hDlg,
+                        langPropMonHdrRestartHint(),
+                        "blueMSX",
+                        MB_OK | MB_ICONINFORMATION);
+                }
+            }
+        }
+        /* Re-grey the paper-white slider/value when HDR is toggled. */
+        EnableWindow(GetDlgItem(hDlg, IDC_HDRPAPERWHITESLIDE), pProperties->video.hdrEnable);
+        EnableWindow(GetDlgItem(hDlg, IDC_HDRPAPERWHITEVALUE), pProperties->video.hdrEnable);
+        EnableWindow(GetDlgItem(hDlg, IDC_HDRPAPERWHITELABEL), pProperties->video.hdrEnable);
 
         pProperties->video.d3d.aspectRatioType = SendMessage(GetDlgItem(hDlg, IDC_D3D_ASPECTRATIO), CB_GETCURSEL, 0, 0);
         pProperties->video.d3d.cropType = SendMessage(GetDlgItem(hDlg, IDC_D3D_CROPPING_TYPE), CB_GETCURSEL, 0, 0);
@@ -1121,12 +1190,62 @@ static BOOL CALLBACK videoDirect3dDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
     return FALSE;
 }
 
+/* Format a multiplier x100 (e.g. 100 = 1.00x, 170 = 1.70x). */
+static char* strMul100(int value) {
+    static char buffer[32];
+    sprintf(buffer, "%d.%02dx", value / 100, value % 100);
+    return buffer;
+}
+
+/* Format scanline shape exponent p (0..100 slider -> p in [0, 4]). */
+static char* strScanShapeP(int shapePct) {
+    static char buffer[32];
+    int p100 = shapePct * 4;  /* 0..400 representing p in [0, 4] */
+    sprintf(buffer, "p=%d.%02d", p100 / 100, p100 % 100);
+    return buffer;
+}
+
+/* Match (depth, shape) against the named presets so the combobox stays
+** in sync with the sliders.  depthPct = raw scanlinesPct (not inverted). */
+static int detectScanShapePreset(int depthPct, int shapePct) {
+    if (depthPct == 30 && shapePct == 25)  return 0; /* Gentle */
+    if (depthPct == 0  && shapePct == 50)  return 1; /* Standard */
+    if (depthPct == 0  && shapePct == 75)  return 2; /* Sharp */
+    if (depthPct == 0  && shapePct == 100) return 3; /* Trinitron */
+    return 4; /* Custom */
+}
+
+/* Bright comp / Preset / Sharpness exist only in the DX12 backend, so
+** grey them out on DDraw / GDI; the Depth slider works everywhere. */
+static void updateScanlineDx12Controls(HWND hDlg, int dx12, int scanlinesEnable, int brightAuto)
+{
+    int en = dx12 && scanlinesEnable;
+    EnableWindow(GetDlgItem(hDlg, IDC_SCANLINESBRIGHTLABEL), en);
+    EnableWindow(GetDlgItem(hDlg, IDC_SCANLINESBRIGHTAUTO),  en);
+    EnableWindow(GetDlgItem(hDlg, IDC_SCANLINESBRIGHTSLIDE), en && !brightAuto);
+    EnableWindow(GetDlgItem(hDlg, IDC_SCANLINESBRIGHTVALUE), en);
+    EnableWindow(GetDlgItem(hDlg, IDC_SCANLINESHAPELABEL),   en);
+    EnableWindow(GetDlgItem(hDlg, IDC_SCANLINESHAPEMODE),    en);
+    EnableWindow(GetDlgItem(hDlg, IDC_SCANLINESHARPLABEL),   en);
+    EnableWindow(GetDlgItem(hDlg, IDC_SCANLINESHAPESLIDE),   en);
+    EnableWindow(GetDlgItem(hDlg, IDC_SCANLINESHAPEVALUE),   en);
+}
+
 static BOOL_DLG_RET CALLBACK videoSoftwareDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
     static Properties* pProperties;
+    /* Live driver index, mirroring the General tab combobox.  Updated by
+    ** WM_VIDEO_DRIVER_CHANGED; pProperties->video.driver only takes the
+    ** new value on PSN_APPLY, so we can't rely on it for live grey-out. */
+    static int liveDriver;
     static int monitorType;
     static int monitorColor;
+    static int oldMonitorColor;
     static int oldScanlinesEnable;
     static int oldScanlinesPct;
+    static int oldScanlinesBrightAuto;
+    static int oldScanlinesBrightPct;
+    static int oldScanlinesShapeMode;
+    static int oldScanlinesShapePct;
     static int oldColorGhostingEnable;
     static int oldColorGhostingWidth;
     static int oldHoriz;
@@ -1141,6 +1260,7 @@ static BOOL_DLG_RET CALLBACK videoSoftwareDlgProc(HWND hDlg, UINT iMsg, WPARAM w
     switch (iMsg) {
     case WM_INITDIALOG:
         pProperties = pCurrentProperties;
+        liveDriver  = pProperties->video.driver;
 
         /* Init language specific dialog items */
         SetDlgItemTextU(hDlg, IDC_MONGROUPBOX, langPropMonMonGB());
@@ -1151,9 +1271,15 @@ static BOOL_DLG_RET CALLBACK videoSoftwareDlgProc(HWND hDlg, UINT iMsg, WPARAM w
         SetDlgItemTextU(hDlg, IDC_MONDEINTERLACE, langPropMonDeInterlace());
         SetDlgItemTextU(hDlg, IDC_MONBLENDFRAMES, langPropMonBlendFrames());
         SetDlgItemTextU(hDlg, IDC_EFFECTSGB, langPropMonEffectsGB());
+        SetDlgItemTextU(hDlg, IDC_D3D_LINEARFILTERING, langPropD3DLinearFilteringText());
 
         setButtonCheck(hDlg, IDC_MONDEINTERLACE, pProperties->video.deInterlace, 1);
         setButtonCheck(hDlg, IDC_MONBLENDFRAMES, pProperties->video.blendFrames, 1);
+        setButtonCheck(hDlg, IDC_D3D_LINEARFILTERING, pProperties->video.d3d.linearFiltering, 1);
+        /* Linear filtering only takes effect on D3D-based drivers; grey out for
+           DDraw / GDI so the user knows the checkbox is a no-op there. */
+        EnableWindow(GetDlgItem(hDlg, IDC_D3D_LINEARFILTERING),
+                     liveDriver == P_VIDEO_DRVDIRECTX_D3D12);
         
         /* Init dropdown lists */
         initDropList(hDlg, IDC_MONTYPE, pVideoMon, pProperties->video.monitorColor);
@@ -1162,9 +1288,14 @@ static BOOL_DLG_RET CALLBACK videoSoftwareDlgProc(HWND hDlg, UINT iMsg, WPARAM w
 
         monitorType             = pProperties->video.monitorType;
         monitorColor            = pProperties->video.monitorColor;
+        oldMonitorColor         = pProperties->video.monitorColor;
 
         oldScanlinesEnable     = pProperties->video.scanlinesEnable;
         oldScanlinesPct        = pProperties->video.scanlinesPct;
+        oldScanlinesBrightAuto = pProperties->video.scanlinesBrightAuto;
+        oldScanlinesBrightPct  = pProperties->video.scanlinesBrightPct;
+        oldScanlinesShapeMode  = pProperties->video.scanlinesShapeMode;
+        oldScanlinesShapePct   = pProperties->video.scanlinesShapePct;
         oldColorGhostingEnable = pProperties->video.colorSaturationEnable;
         oldColorGhostingWidth  = pProperties->video.colorSaturationWidth;
         oldHoriz               = pProperties->video.horizontalStretch;
@@ -1176,6 +1307,11 @@ static BOOL_DLG_RET CALLBACK videoSoftwareDlgProc(HWND hDlg, UINT iMsg, WPARAM w
         SetDlgItemTextU(hDlg, IDC_MONSATURATIONTEXT, langPropMonSaturation());
         SetDlgItemTextU(hDlg, IDC_MONGAMMATEXT, langPropMonGamma());
         SetDlgItemTextU(hDlg, IDC_SCANLINESENABLE, langPropMonScanlines());
+        SetDlgItemTextU(hDlg, IDC_SCANLINESBRIGHTLABEL, langPropMonScanlinesBright());
+        SetDlgItemTextU(hDlg, IDC_SCANLINESBRIGHTAUTO, langPropMonScanlinesBrightAuto());
+        SetDlgItemTextU(hDlg, IDC_SCANLINESHAPELABEL,  langPropMonScanlinesShape());
+        SetDlgItemTextU(hDlg, IDC_SCANLINESDEPTHLABEL, langPropMonScanlinesDepth());
+        SetDlgItemTextU(hDlg, IDC_SCANLINESHARPLABEL,  langPropMonScanlinesSharpness());
         SetDlgItemTextU(hDlg, IDC_COLORGHOSTINGENABLE, langPropMonColorGhosting());
         
 
@@ -1185,10 +1321,12 @@ static BOOL_DLG_RET CALLBACK videoSoftwareDlgProc(HWND hDlg, UINT iMsg, WPARAM w
         gamma      = pProperties->video.gamma;
 
         setButtonCheck(hDlg, IDC_SCANLINESENABLE, pProperties->video.scanlinesEnable, 1);
+        setButtonCheck(hDlg, IDC_SCANLINESBRIGHTAUTO, pProperties->video.scanlinesBrightAuto, 1);
         setButtonCheck(hDlg, IDC_COLORGHOSTINGENABLE, pProperties->video.colorSaturationEnable, 1);
 
         EnableWindow(GetDlgItem(hDlg, IDC_SCANLINESSLIDEBAR), oldScanlinesEnable);
         EnableWindow(GetDlgItem(hDlg, IDC_SCANLINESVALUE), oldScanlinesEnable);
+        EnableWindow(GetDlgItem(hDlg, IDC_SCANLINESDEPTHLABEL), oldScanlinesEnable);
         
         EnableWindow(GetDlgItem(hDlg, IDC_COLORGHOSTINGSLIDEBAR), oldColorGhostingEnable);
         EnableWindow(GetDlgItem(hDlg, IDC_COLORGHOSTINGVALUE), oldColorGhostingEnable);
@@ -1196,6 +1334,37 @@ static BOOL_DLG_RET CALLBACK videoSoftwareDlgProc(HWND hDlg, UINT iMsg, WPARAM w
         SendMessage(GetDlgItem(hDlg, IDC_SCANLINESSLIDEBAR), TBM_SETRANGE, 0, (LPARAM)MAKELONG(0, 100));
         SendMessage(GetDlgItem(hDlg, IDC_SCANLINESSLIDEBAR), TBM_SETPOS,   1, (LPARAM)(100 - oldScanlinesPct));
         SetDlgItemTextU(hDlg, IDC_SCANLINESVALUE, strPct(100 - oldScanlinesPct));
+
+        /* Manual slider = multiplier x100, clamped 100..300 (1.00x..3.00x).
+        ** SDR clamps internally to 2.0x; HDR uses the full 3.0x range. */
+        if (oldScanlinesBrightPct < 100) oldScanlinesBrightPct = 100;
+        if (oldScanlinesBrightPct > 300) oldScanlinesBrightPct = 300;
+        pProperties->video.scanlinesBrightPct = oldScanlinesBrightPct;
+        SendMessage(GetDlgItem(hDlg, IDC_SCANLINESBRIGHTSLIDE), TBM_SETRANGE, 0, (LPARAM)MAKELONG(100, 300));
+        SendMessage(GetDlgItem(hDlg, IDC_SCANLINESBRIGHTSLIDE), TBM_SETPOS,   1, (LPARAM)oldScanlinesBrightPct);
+        SetDlgItemTextU(hDlg, IDC_SCANLINESBRIGHTVALUE, strMul100(oldScanlinesBrightPct));
+
+        /* Preset snaps both depth + shape; manual edits auto-detect preset. */
+        {
+            HWND hCombo = GetDlgItem(hDlg, IDC_SCANLINESHAPEMODE);
+            SendMessage(hCombo, CB_RESETCONTENT, 0, 0);
+            ComboAddStringU(hCombo, langEnumScanShapeGentle());
+            ComboAddStringU(hCombo, langEnumScanShapeStandard());
+            ComboAddStringU(hCombo, langEnumScanShapeSharp());
+            ComboAddStringU(hCombo, langEnumScanShapeTrinitron());
+            ComboAddStringU(hCombo, langEnumScanShapeCustom());
+            if (oldScanlinesShapeMode < 0 || oldScanlinesShapeMode > 4) oldScanlinesShapeMode = 4;
+            SendMessage(hCombo, CB_SETCURSEL, oldScanlinesShapeMode, 0);
+        }
+        if (oldScanlinesShapePct < 0)   oldScanlinesShapePct = 0;
+        if (oldScanlinesShapePct > 100) oldScanlinesShapePct = 100;
+        pProperties->video.scanlinesShapePct = oldScanlinesShapePct;
+        SendMessage(GetDlgItem(hDlg, IDC_SCANLINESHAPESLIDE), TBM_SETRANGE, 0, (LPARAM)MAKELONG(0, 100));
+        SendMessage(GetDlgItem(hDlg, IDC_SCANLINESHAPESLIDE), TBM_SETPOS,   1, (LPARAM)oldScanlinesShapePct);
+        SetDlgItemTextU(hDlg, IDC_SCANLINESHAPEVALUE, strScanShapeP(oldScanlinesShapePct));
+        updateScanlineDx12Controls(hDlg,
+                                   (liveDriver == P_VIDEO_DRVDIRECTX_D3D12),
+                                   oldScanlinesEnable, oldScanlinesBrightAuto);
 
         SendMessage(GetDlgItem(hDlg, IDC_COLORGHOSTINGSLIDEBAR), TBM_SETRANGE, 0, (LPARAM)MAKELONG(0, 4));
         SendMessage(GetDlgItem(hDlg, IDC_COLORGHOSTINGSLIDEBAR), TBM_SETPOS,   1, (LPARAM)oldColorGhostingWidth);
@@ -1229,8 +1398,55 @@ static BOOL_DLG_RET CALLBACK videoSoftwareDlgProc(HWND hDlg, UINT iMsg, WPARAM w
             pProperties->video.scanlinesEnable = getButtonCheck(hDlg, IDC_SCANLINESENABLE);
             EnableWindow(GetDlgItem(hDlg, IDC_SCANLINESSLIDEBAR), pProperties->video.scanlinesEnable);
             EnableWindow(GetDlgItem(hDlg, IDC_SCANLINESVALUE), pProperties->video.scanlinesEnable);
+            EnableWindow(GetDlgItem(hDlg, IDC_SCANLINESDEPTHLABEL), pProperties->video.scanlinesEnable);
+            updateScanlineDx12Controls(hDlg,
+                                       (liveDriver == P_VIDEO_DRVDIRECTX_D3D12),
+                                       pProperties->video.scanlinesEnable,
+                                       pProperties->video.scanlinesBrightAuto);
             
             videoSetScanLines(theVideo, pProperties->video.scanlinesEnable, pProperties->video.scanlinesPct);
+            updateEmuWindow();
+            break;
+
+        case IDC_SCANLINESHAPEMODE:
+            if (HIWORD(wParam) == CBN_SELCHANGE) {
+                int sel = (int)SendMessage(GetDlgItem(hDlg, IDC_SCANLINESHAPEMODE), CB_GETCURSEL, 0, 0);
+                if (sel < 0 || sel > 4) sel = 4;
+                pProperties->video.scanlinesShapeMode = sel;
+                if (sel < 4) {
+                    /* Apply preset.  scanlinesPct = 100 - depth_pct (UI shows depth_pct). */
+                    int newDepthPct = 100;
+                    int newShapePct = 50;
+                    switch (sel) {
+                    case 0: newDepthPct = 30;  newShapePct = 25;  break; /* Gentle:    s=0.30, p=1.0 */
+                    case 1: newDepthPct = 0;   newShapePct = 50;  break; /* Standard:  s=0,    p=2.0 */
+                    case 2: newDepthPct = 0;   newShapePct = 75;  break; /* Sharp:     s=0,    p=3.0 */
+                    case 3: newDepthPct = 0;   newShapePct = 100; break; /* Trinitron: s=0,    p=4.0 */
+                    }
+                    pProperties->video.scanlinesPct      = newDepthPct;
+                    pProperties->video.scanlinesShapePct = newShapePct;
+                    SendMessage(GetDlgItem(hDlg, IDC_SCANLINESSLIDEBAR), TBM_SETPOS, 1, (LPARAM)(100 - newDepthPct));
+                    SetDlgItemTextU(hDlg, IDC_SCANLINESVALUE, strPct(100 - newDepthPct));
+                    SendMessage(GetDlgItem(hDlg, IDC_SCANLINESHAPESLIDE), TBM_SETPOS, 1, (LPARAM)newShapePct);
+                    SetDlgItemTextU(hDlg, IDC_SCANLINESHAPEVALUE, strScanShapeP(newShapePct));
+                    videoSetScanLines(theVideo, pProperties->video.scanlinesEnable, pProperties->video.scanlinesPct);
+                    videoSetScanLinesShape(theVideo, newShapePct);
+                }
+                updateEmuWindow();
+            }
+            break;
+
+        case IDC_SCANLINESBRIGHTAUTO:
+            /* Toggle does NOT touch the manual slider value -- when auto
+            ** is on, the comp shader gets its own internal factor; when
+            ** auto is off, the slider's last value takes over. */
+            pProperties->video.scanlinesBrightAuto = getButtonCheck(hDlg, IDC_SCANLINESBRIGHTAUTO);
+            updateScanlineDx12Controls(hDlg,
+                                       (liveDriver == P_VIDEO_DRVDIRECTX_D3D12),
+                                       pProperties->video.scanlinesEnable,
+                                       pProperties->video.scanlinesBrightAuto);
+            videoSetScanLinesBrightness(theVideo,
+                pProperties->video.scanlinesBrightAuto, pProperties->video.scanlinesBrightPct);
             updateEmuWindow();
             break;
 
@@ -1251,6 +1467,10 @@ static BOOL_DLG_RET CALLBACK videoSoftwareDlgProc(HWND hDlg, UINT iMsg, WPARAM w
 
         case IDC_MONTYPE:
             monitorColor = getDropListIndex(hDlg, IDC_MONTYPE, pVideoMon);
+            /* Push to pProperties immediately so DX12 picks it up live;
+            ** Cancel restores oldMonitorColor.  videoSetColorMode keeps
+            ** the DirectDraw / GDI color tables in sync. */
+            pProperties->video.monitorColor = monitorColor;
             switch (monitorColor) {
             case P_VIDEO_COLOR:
                 videoSetColorMode(theVideo, VIDEO_COLOR);
@@ -1281,6 +1501,24 @@ static BOOL_DLG_RET CALLBACK videoSoftwareDlgProc(HWND hDlg, UINT iMsg, WPARAM w
             videoSetBlendFrames(theVideo, pProperties->video.blendFrames);
             updateEmuWindow();
             break;
+        case IDC_D3D_LINEARFILTERING:
+            pProperties->video.d3d.linearFiltering = getButtonCheck(hDlg, IDC_D3D_LINEARFILTERING);
+            updateEmuWindow();
+            break;
+
+        }
+        return TRUE;
+
+    case WM_VIDEO_DRIVER_CHANGED:
+        {
+            int dx12;
+            liveDriver = (int)wParam;
+            dx12       = (liveDriver == P_VIDEO_DRVDIRECTX_D3D12);
+            /* Grey out Linear Filter when switching to a non-D3D driver. */
+            EnableWindow(GetDlgItem(hDlg, IDC_D3D_LINEARFILTERING), dx12);
+            updateScanlineDx12Controls(hDlg, dx12,
+                                       pProperties->video.scanlinesEnable,
+                                       pProperties->video.scanlinesBrightAuto);
         }
         return TRUE;
 
@@ -1290,10 +1528,44 @@ static BOOL_DLG_RET CALLBACK videoSoftwareDlgProc(HWND hDlg, UINT iMsg, WPARAM w
             pProperties->video.scanlinesPct = 100 - SendMessage(GetDlgItem(hDlg, IDC_SCANLINESSLIDEBAR), TBM_GETPOS, 0, 0);
             SetDlgItemTextU(hDlg, IDC_SCANLINESVALUE, strPct(100 - pProperties->video.scanlinesPct));
 
-            videoSetScanLines(theVideo, pProperties->video.scanlinesEnable, pProperties->video.scanlinesPct);
+            /* Auto-detect preset (or Custom) from the new (depth, shape) pair. */
+            {
+                int newMode = detectScanShapePreset(pProperties->video.scanlinesPct, pProperties->video.scanlinesShapePct);
+                if (newMode != pProperties->video.scanlinesShapeMode) {
+                    pProperties->video.scanlinesShapeMode = newMode;
+                    SendMessage(GetDlgItem(hDlg, IDC_SCANLINESHAPEMODE), CB_SETCURSEL, newMode, 0);
+                }
+            }
 
+            videoSetScanLines(theVideo, pProperties->video.scanlinesEnable, pProperties->video.scanlinesPct);
             updateEmuWindow();
             break;
+
+        case IDC_SCANLINESHAPESLIDE:
+            pProperties->video.scanlinesShapePct = (int)SendMessage(GetDlgItem(hDlg, IDC_SCANLINESHAPESLIDE), TBM_GETPOS, 0, 0);
+            SetDlgItemTextU(hDlg, IDC_SCANLINESHAPEVALUE, strScanShapeP(pProperties->video.scanlinesShapePct));
+
+            /* Auto-detect preset (or Custom) from the new (depth, shape) pair. */
+            {
+                int newMode = detectScanShapePreset(pProperties->video.scanlinesPct, pProperties->video.scanlinesShapePct);
+                if (newMode != pProperties->video.scanlinesShapeMode) {
+                    pProperties->video.scanlinesShapeMode = newMode;
+                    SendMessage(GetDlgItem(hDlg, IDC_SCANLINESHAPEMODE), CB_SETCURSEL, newMode, 0);
+                }
+            }
+
+            videoSetScanLinesShape(theVideo, pProperties->video.scanlinesShapePct);
+            updateEmuWindow();
+            break;
+
+        case IDC_SCANLINESBRIGHTSLIDE:
+            pProperties->video.scanlinesBrightPct = (int)SendMessage(GetDlgItem(hDlg, IDC_SCANLINESBRIGHTSLIDE), TBM_GETPOS, 0, 0);
+            SetDlgItemTextU(hDlg, IDC_SCANLINESBRIGHTVALUE, strMul100(pProperties->video.scanlinesBrightPct));
+            videoSetScanLinesBrightness(theVideo,
+                pProperties->video.scanlinesBrightAuto, pProperties->video.scanlinesBrightPct);
+            updateEmuWindow();
+            break;
+
             
         case IDC_COLORGHOSTINGSLIDEBAR:
             pProperties->video.colorSaturationWidth = SendMessage(GetDlgItem(hDlg, IDC_COLORGHOSTINGSLIDEBAR), TBM_GETPOS, 0, 0);
@@ -1351,10 +1623,17 @@ static BOOL_DLG_RET CALLBACK videoSoftwareDlgProc(HWND hDlg, UINT iMsg, WPARAM w
         pProperties->video.deInterlace           = oldDeinterlace;
         pProperties->video.scanlinesEnable       = oldScanlinesEnable;
         pProperties->video.scanlinesPct          = oldScanlinesPct;
+        pProperties->video.scanlinesBrightAuto   = oldScanlinesBrightAuto;
+        pProperties->video.scanlinesBrightPct    = oldScanlinesBrightPct;
+        pProperties->video.scanlinesShapeMode    = oldScanlinesShapeMode;
+        pProperties->video.scanlinesShapePct     = oldScanlinesShapePct;
         pProperties->video.colorSaturationEnable = oldColorGhostingEnable;
         pProperties->video.colorSaturationWidth  = oldColorGhostingWidth;
+        pProperties->video.monitorColor          = oldMonitorColor;
 
         videoSetScanLines(theVideo, pProperties->video.scanlinesEnable, pProperties->video.scanlinesPct);
+        videoSetScanLinesBrightness(theVideo, pProperties->video.scanlinesBrightAuto, pProperties->video.scanlinesBrightPct);
+        videoSetScanLinesShape(theVideo, pProperties->video.scanlinesShapePct);
 
         videoSetColorSaturation(theVideo, pProperties->video.colorSaturationEnable, pProperties->video.colorSaturationWidth);
         videoSetPalMode(theVideo, pProperties->video.monitorType);
@@ -1422,6 +1701,9 @@ static BOOL_DLG_RET CALLBACK videoDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
     case WM_VIDEO_DRIVER_CHANGED:
         ShowWindow(hDlgVideoSoftware,  (int)wParam != P_VIDEO_DRVDIRECTX_D3D  ? SW_NORMAL : SW_HIDE);
         ShowWindow(hDlgVideoDirect3d,  (int)wParam == P_VIDEO_DRVDIRECTX_D3D  ? SW_NORMAL : SW_HIDE);
+        /* Forward to children so e.g. Linear Filter checkbox enable state
+           updates without needing the user to reopen Properties. */
+        SendMessage(hDlgVideoSoftware, WM_VIDEO_DRIVER_CHANGED, wParam, 0);
         return TRUE;
 
     case WM_NOTIFY:

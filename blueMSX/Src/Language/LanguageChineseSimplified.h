@@ -342,6 +342,20 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->propMonSaturation       = "饱和度:";
     ls->propMonGamma            = "伽玛值:";
     ls->propMonScanlines        = " 扫描线:";
+    ls->propMonScanlinesBright  = "亮度补偿:";
+    ls->propMonScanlinesBrightAuto = " 自动";
+    ls->propMonScanlinesShape   = "预设:";
+    ls->propMonScanlinesDepth   = "深度:";
+    ls->propMonScanlinesSharpness = "锐度:";
+    ls->enumScanShapeGentle     = "柔和";
+    ls->enumScanShapeStandard   = "标准";
+    ls->enumScanShapeSharp      = "锐利";
+    ls->enumScanShapeTrinitron  = "特丽珑";
+    ls->enumScanShapeCustom     = "自定义";
+    ls->propMonHdrEnable        = "HDR";
+    ls->propMonHdrPaperWhite    = "白色亮度:";
+    ls->propMonHdrSystemMode    = "系统 HDR 模式:";
+    ls->propMonHdrRestartHint   = "请重启 blueMSX 以应用 HDR 模式更改。";
     ls->propMonColorGhosting    = " RF-调制器:";
     ls->propMonEffectsGB        = "特效 ";
 

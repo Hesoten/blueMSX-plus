@@ -344,6 +344,20 @@ void langInitJapanese(LanguageStrings* ls)
     ls->propMonSaturation       = "彩度:";
     ls->propMonGamma            = "ガンマ:";
     ls->propMonScanlines        = " スキャンライン:";
+    ls->propMonScanlinesBright  = "輝度補正:";
+    ls->propMonScanlinesBrightAuto = " 自動";
+    ls->propMonScanlinesShape   = "プリセット:";
+    ls->propMonScanlinesDepth   = "深さ:";
+    ls->propMonScanlinesSharpness = "鋭さ:";
+    ls->enumScanShapeGentle     = "穏やか";
+    ls->enumScanShapeStandard   = "標準";
+    ls->enumScanShapeSharp      = "鋭い";
+    ls->enumScanShapeTrinitron  = "トリニトロン";
+    ls->enumScanShapeCustom     = "カスタム";
+    ls->propMonHdrEnable        = " HDR";
+    ls->propMonHdrPaperWhite    = "白の明るさ:";
+    ls->propMonHdrSystemMode    = "現在の HDR モード:";
+    ls->propMonHdrRestartHint   = "HDR モードの変更を反映するには blueMSX を再起動してください。";
     ls->propMonColorGhosting    = " RFモジュレータ:";
     ls->propMonEffectsGB        = " エフェクト "; 
 

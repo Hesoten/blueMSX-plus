@@ -343,6 +343,20 @@ void langInitCatalan(LanguageStrings* ls)
     ls->propMonSaturation       = "Saturació:";
     ls->propMonGamma            = "Gamma:";
     ls->propMonScanlines        = " Línies d'exploració:";
+    ls->propMonScanlinesBright  = "Comp. brillantor:";
+    ls->propMonScanlinesBrightAuto = " Auto";
+    ls->propMonScanlinesShape   = "Predefinit:";
+    ls->propMonScanlinesDepth   = "Profunditat:";
+    ls->propMonScanlinesSharpness = "Nitidesa:";
+    ls->enumScanShapeGentle     = "Suau";
+    ls->enumScanShapeStandard   = "Estàndard";
+    ls->enumScanShapeSharp      = "Nítid";
+    ls->enumScanShapeTrinitron  = "Trinitron";
+    ls->enumScanShapeCustom     = "Personalitzat";
+    ls->propMonHdrEnable        = "HDR";
+    ls->propMonHdrPaperWhite    = "Brillantor blanc:";
+    ls->propMonHdrSystemMode    = "Mode HDR del sistema:";
+    ls->propMonHdrRestartHint   = "Reinicia blueMSX per aplicar el canvi de mode HDR.";
     ls->propMonColorGhosting    = " Modulador RF:";
     ls->propMonEffectsGB        = "Efectes ";
 

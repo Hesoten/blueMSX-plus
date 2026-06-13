@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -333,6 +336,20 @@ typedef struct {
     char* propMonSaturation;
     char* propMonGamma;
     char* propMonScanlines;
+    char* propMonScanlinesBright;       /* slider label */
+    char* propMonScanlinesBrightAuto;   /* checkbox */
+    char* propMonScanlinesShape;        /* "Shape:" label (for the preset combobox) */
+    char* propMonScanlinesDepth;        /* "Depth:" label (for the depth slider) */
+    char* propMonScanlinesSharpness;    /* "Sharpness:" label (for the shape-sharpness slider) */
+    char* enumScanShapeGentle;          /* dropdown items */
+    char* enumScanShapeStandard;
+    char* enumScanShapeSharp;
+    char* enumScanShapeTrinitron;
+    char* enumScanShapeCustom;
+    char* propMonHdrEnable;             /* HDR enable checkbox */
+    char* propMonHdrPaperWhite;         /* HDR brightness slider label */
+    char* propMonHdrSystemMode;         /* "System HDR mode:" prefix */
+    char* propMonHdrRestartHint;        /* "HDR setting changed -- restart" message body */
     char* propMonColorGhosting;
     char* propMonEffectsGB;
 

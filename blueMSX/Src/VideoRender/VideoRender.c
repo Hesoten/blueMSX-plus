@@ -1548,6 +1548,8 @@ static void copy_1x05_16(FrameBuffer* frame, void* pDestination, int dstPitch, U
             int width = srcWidth;
             while (width--) {
                 *pDst++ = (((rgbTable[pSrc1[0]] & 0xe79c) >> 1) + ((rgbTable[pSrc2[0]] & 0xe79c) >> 1)) & 0xe79c;
+                pSrc1++;
+                pSrc2++;
             }
         }
         pDst = pOldDst + dstPitch; 
@@ -2393,6 +2395,19 @@ void videoSetScanLines(Video* pVideo, int enable, int scanLinesPct)
     pVideo->scanLinesPct    = scanLinesPct;
 }
 
+void videoSetScanLinesBrightness(Video* pVideo, int autoMode, int brightPct)
+{
+    pVideo->scanLinesBrightAuto = autoMode;
+    pVideo->scanLinesBrightPct  = brightPct;
+}
+
+void videoSetScanLinesShape(Video* pVideo, int shapePct)
+{
+    if (shapePct < 0)   shapePct = 0;
+    if (shapePct > 100) shapePct = 100;
+    pVideo->scanlinesShapePct = shapePct;
+}
+
 void videoSetColorSaturation(Video* pVideo, int enable, int width)
 {
     pVideo->colorSaturationEnable = enable;
@@ -2403,6 +2418,8 @@ void videoUpdateAll(Video* video, Properties* properties)
 {
     videoSetColors(video, properties->video.saturation, properties->video.brightness, properties->video.contrast, properties->video.gamma);
     videoSetScanLines(video, properties->video.scanlinesEnable, properties->video.scanlinesPct);
+    videoSetScanLinesBrightness(video, properties->video.scanlinesBrightAuto, properties->video.scanlinesBrightPct);
+    videoSetScanLinesShape(video, properties->video.scanlinesShapePct);
     videoSetColorSaturation(video, properties->video.colorSaturationEnable, properties->video.colorSaturationWidth);
     videoSetDeInterlace(video, properties->video.deInterlace);
 

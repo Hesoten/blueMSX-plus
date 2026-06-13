@@ -273,6 +273,12 @@ typedef struct {
     int saturation;
     int scanlinesEnable;
     int scanlinesPct;
+    int scanlinesBrightAuto;   /* 0/1 -- auto-compute compensation from scanlinesPct */
+    int scanlinesBrightPct;    /* 100..300, used when scanlinesBrightAuto == 0 */
+    int scanlinesShapeMode;    /* 0=Gentle, 1=Standard CRT, 2=Sharp, 3=Trinitron, 4=Custom */
+    int scanlinesShapePct;     /* 0..100 -> p in [0, 4]; mask = lerp(s, 1, pow(beam, p)) */
+    int hdrEnable;             /* 0/1 -- request HDR (scRGB FP16) swap chain on DX12 */
+    int hdrPaperWhiteNits;     /* 80..400, target SDR-white luminance in HDR mode (default 200) */
     int colorSaturationEnable;
     int colorSaturationWidth;
     int gamma;

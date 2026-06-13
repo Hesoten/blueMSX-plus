@@ -344,6 +344,20 @@ void langInitFinnish(LanguageStrings* ls)
     ls->propMonSaturation       = "Saturaatio:";
     ls->propMonGamma            = "Gamma:";
     ls->propMonScanlines        = " Juovat:";
+    ls->propMonScanlinesBright  = "Kirkk. korj.:";
+    ls->propMonScanlinesBrightAuto = " Auto";
+    ls->propMonScanlinesShape   = "Esiasetus:";
+    ls->propMonScanlinesDepth   = "Syvyys:";
+    ls->propMonScanlinesSharpness = "Terävyys:";
+    ls->enumScanShapeGentle     = "Pehmeä";
+    ls->enumScanShapeStandard   = "Vakio";
+    ls->enumScanShapeSharp      = "Terävä";
+    ls->enumScanShapeTrinitron  = "Trinitron";
+    ls->enumScanShapeCustom     = "Mukautettu";
+    ls->propMonHdrEnable        = "HDR";
+    ls->propMonHdrPaperWhite    = "Valk. kirkkaus:";
+    ls->propMonHdrSystemMode    = "Järjestelmän HDR-tila:";
+    ls->propMonHdrRestartHint   = "Käynnistä blueMSX uudelleen ottaaksesi HDR-tilan käyttöön.";
     ls->propMonColorGhosting    = " Antennimuunnos:";
     ls->propMonEffectsGB        = "Tehosteet ";
 

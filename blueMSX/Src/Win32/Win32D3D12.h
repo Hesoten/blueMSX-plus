@@ -47,6 +47,13 @@ void D3D12ClearToBlack(HWND hwnd);
 ** outside the regular UpdateSurface loop. */
 int  D3D12EnsureReady(HWND hwnd, int syncVblank);
 
+/* 1 when the swap chain was created in an HDR colour space. */
+int  D3D12IsHdrActive(void);
+/* 0 SDR, 1 HDR scRGB linear, 2 HDR10 PQ. */
+int  D3D12HdrMode(void);
+/* 1 when at least one DXGI output reports HDR ("Use HDR" in Windows). */
+int  D3D12IsSystemHdrEnabled(void);
+
 #ifdef __cplusplus
 }
 #endif

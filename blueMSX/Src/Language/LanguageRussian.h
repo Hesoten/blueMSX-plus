@@ -342,6 +342,20 @@ void langInitRussian(LanguageStrings* ls)
     ls->propMonSaturation       = "Насыщенность:";
     ls->propMonGamma            = "Гамма:";
     ls->propMonScanlines        = " Черезполосица:";
+    ls->propMonScanlinesBright  = "Комп. ярк.:";
+    ls->propMonScanlinesBrightAuto = " Авто";
+    ls->propMonScanlinesShape   = "Пресет:";
+    ls->propMonScanlinesDepth   = "Глубина:";
+    ls->propMonScanlinesSharpness = "Резкость:";
+    ls->enumScanShapeGentle     = "Мягкий";
+    ls->enumScanShapeStandard   = "Стандарт";
+    ls->enumScanShapeSharp      = "Резкий";
+    ls->enumScanShapeTrinitron  = "Trinitron";
+    ls->enumScanShapeCustom     = "Польз.";
+    ls->propMonHdrEnable        = "HDR";
+    ls->propMonHdrPaperWhite    = "Яркость белого:";
+    ls->propMonHdrSystemMode    = "Режим HDR системы:";
+    ls->propMonHdrRestartHint   = "Перезапустите blueMSX для применения изменений HDR.";
     ls->propMonColorGhosting    = " RF-модулятор:";
     ls->propMonEffectsGB        = "Эффекты ";
 

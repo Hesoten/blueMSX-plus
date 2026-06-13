@@ -343,6 +343,20 @@ void langInitDutch(LanguageStrings* ls)
     ls->propMonSaturation       = "Verzadiging:";
     ls->propMonGamma            = "Gamma:";
     ls->propMonScanlines        = " Beeldlijnen:";
+    ls->propMonScanlinesBright  = "Helderh. comp.:";
+    ls->propMonScanlinesBrightAuto = " Auto";
+    ls->propMonScanlinesShape   = "Voorinst.:";
+    ls->propMonScanlinesDepth   = "Diepte:";
+    ls->propMonScanlinesSharpness = "Scherpte:";
+    ls->enumScanShapeGentle     = "Zacht";
+    ls->enumScanShapeStandard   = "Standaard";
+    ls->enumScanShapeSharp      = "Scherp";
+    ls->enumScanShapeTrinitron  = "Trinitron";
+    ls->enumScanShapeCustom     = "Aangepast";
+    ls->propMonHdrEnable        = "HDR";
+    ls->propMonHdrPaperWhite    = "Witte helderheid:";
+    ls->propMonHdrSystemMode    = "Systeem-HDR-modus:";
+    ls->propMonHdrRestartHint   = "Herstart blueMSX om de HDR-moduswijziging toe te passen.";
     ls->propMonColorGhosting    = " RF-modulator:";
     ls->propMonEffectsGB        = "Effecten ";
 
