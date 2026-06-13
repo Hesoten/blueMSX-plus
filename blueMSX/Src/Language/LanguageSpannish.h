@@ -367,6 +367,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emulate MSX keyboard quirk";  // New in 2.9
     ls->propEmuFdcTiming        = " Acelerar acceso FDD"; 
+    ls->propEmuHddSdBoost       = " Acelerar durante el acceso HDD/SD";
     ls->propEmuReversePlay      = " Enable reverse playback"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " Botón Pause"; 
     ls->propEmuAudioSwitch       = " Botón cartucho MSX-AUDIO"; 
@@ -743,6 +744,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->shortcutShowFiles       = "Mostrar las propiedades de los archivos";
     ls->shortcutToggleSpriteEnable = "Mostrar/ocultar los sprites";
     ls->shortcutToggleFdcTiming = "Alternar aceleración FDD"; 
+    ls->shortcutToggleHddSdBoost = "Alternar aceleración HDD/SD";
     ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
     ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
     ls->shortcutToggleCpuTrace  = "Activar/Desactivar Rastro de la CPU"; 

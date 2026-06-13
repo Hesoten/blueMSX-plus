@@ -366,6 +366,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->propEmuFrontSwitchGB    = "Commutateurs Panasonic "; 
     ls->propEmuFrontSwitch      = " Commutateur frontal"; 
     ls->propEmuFdcTiming        = " Accélérer l'accès FDD"; 
+    ls->propEmuHddSdBoost       = " Accélérer durant l'accès HDD/SD";
     ls->propEmuNoSpriteLimits   = " Pas de limite de sprites";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emulate MSX keyboard quirk";  // New in 2.9
     ls->propEmuReversePlay      = " Enable reverse playback"; // New in 2.8.3
@@ -743,6 +744,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->shortcutShowFiles       = "Accéder au menu Fichiers";
     ls->shortcutToggleSpriteEnable = "Montrer/Cacher les sprites";
     ls->shortcutToggleFdcTiming = "Basculer l'accélération FDD"; 
+    ls->shortcutToggleHddSdBoost = "Basculer l'accélération HDD/SD";
     ls->shortcutToggleNoSpriteLimits = "Basculer limitation de l'affichage des sprites";
     ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
     ls->shortcutToggleCpuTrace  = "Valider/Invalider la trace du CPU";

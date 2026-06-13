@@ -367,6 +367,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emulate MSX keyboard quirk";  // New in 2.9
     ls->propEmuFdcTiming        = " Accelera durant l'accés FDD";
+    ls->propEmuHddSdBoost       = " Acceleració durant l'accés HDD/SD";
     ls->propEmuReversePlay      = " Enable reverse playback"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " Commutador de pausa";
     ls->propEmuAudioSwitch      = " Commutador del cartutx MSX-AUDIO";
@@ -743,6 +744,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->shortcutShowFiles       = "Mostra les propietats dels fitxers";
     ls->shortcutToggleSpriteEnable = "Mostra/Amaga els Sprites";
     ls->shortcutToggleFdcTiming = "Commuta acceleració accés FDD";
+    ls->shortcutToggleHddSdBoost = "Commuta acceleració accés HDD/SD";
     ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
     ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
     ls->shortcutToggleCpuTrace  = "Activa/Desactiva el rastre de la CPU";

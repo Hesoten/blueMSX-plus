@@ -219,6 +219,13 @@ int  boardGetFdcTimingEnable();
 int  boardGetFdcActive(void);
 void boardSetFdcActive();
 
+/* HDD/SD I/O boost: same skip-real-clock-sync mechanism as the FDC
+** boost, gated by an independent property so users can keep FDC
+** accurate while fast-forwarding SCSI / SD / IDE bulk transfers. */
+void boardSetHddSdBoostEnable(int enable);
+int  boardGetHddSdBoostEnable(void);
+void boardSetHddSdActive(void);
+
 void boardSetYm2413Oversampling(int value);
 int  boardGetYm2413Oversampling();
 void boardSetY8950Oversampling(int value);

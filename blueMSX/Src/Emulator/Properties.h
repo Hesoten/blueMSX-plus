@@ -223,6 +223,7 @@ typedef struct {
     char machineName[PROP_MAXPATH];
     char shortcutProfile[PROP_MAXPATH];
     int  enableFdcTiming;
+    int  enableHddSdBoost;
     int  noSpriteLimits;
     int  frontSwitch;
     int  audioSwitch;

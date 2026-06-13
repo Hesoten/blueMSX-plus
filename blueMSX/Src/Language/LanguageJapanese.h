@@ -368,6 +368,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emulate MSX keyboard quirk";  // New in 2.9
     ls->propEmuFdcTiming        = " FDDアクセス時に高速化";
+    ls->propEmuHddSdBoost       = " HDD/SDカードアクセス時に高速化";
     ls->propEmuReversePlay      = " Enable reverse playback"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " ポーズスイッチ";
     ls->propEmuAudioSwitch       = " MSX-AUDIO カートリッジスイッチ"; 
@@ -743,6 +744,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->shortcutShowFiles       = "ファイルダイアログを表示";
     ls->shortcutToggleSpriteEnable = "スプライトの表示/非表示";
     ls->shortcutToggleFdcTiming = "FDDアクセス高速化の有効/無効";
+    ls->shortcutToggleHddSdBoost = "HDD/SDアクセス高速化の有効/無効";
     ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
     ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
     ls->shortcutToggleCpuTrace  = "CPUトレースの有効/無効";

@@ -50,6 +50,7 @@ typedef struct {
 typedef struct {
     ShotcutHotkey spritesEnable;
     ShotcutHotkey fdcTiming;
+    ShotcutHotkey hddSdBoost;
     ShotcutHotkey noSpriteLimits;
     ShotcutHotkey msxKeyboardQuirk;
     ShotcutHotkey msxAudioSwitch;

@@ -750,6 +750,7 @@ static Shortcuts* loadShortcuts(char* profileName)
     LOAD_SHORTCUT(shortcutFile, msxAudioSwitch);
     LOAD_SHORTCUT(shortcutFile, spritesEnable);
     LOAD_SHORTCUT(shortcutFile, fdcTiming);
+    LOAD_SHORTCUT(shortcutFile, hddSdBoost);
     LOAD_SHORTCUT(shortcutFile, noSpriteLimits);
     LOAD_SHORTCUT(shortcutFile, msxKeyboardQuirk);
     LOAD_SHORTCUT(shortcutFile, frontSwitch);
@@ -871,6 +872,7 @@ static void saveShortcuts(char* profileName, Shortcuts* shortcuts)
     SAVE_SHORTCUT(shortcutFile, msxAudioSwitch);
     SAVE_SHORTCUT(shortcutFile, spritesEnable);
     SAVE_SHORTCUT(shortcutFile, fdcTiming);
+    SAVE_SHORTCUT(shortcutFile, hddSdBoost);
     SAVE_SHORTCUT(shortcutFile, noSpriteLimits);
     SAVE_SHORTCUT(shortcutFile, msxKeyboardQuirk);
     SAVE_SHORTCUT(shortcutFile, frontSwitch);
@@ -1174,6 +1176,7 @@ static void updateShortcutEntries(HWND hDlg)
     
     ADD_SHORTCUT(spritesEnable, langShortcutToggleSpriteEnable());
     ADD_SHORTCUT(fdcTiming,     langShortcutToggleFdcTiming());
+    ADD_SHORTCUT(hddSdBoost,    langShortcutToggleHddSdBoost());
     ADD_SHORTCUT(noSpriteLimits,     langShortcutToggleNoSpriteLimits());
     ADD_SHORTCUT(msxKeyboardQuirk,     langShortcutEnableMsxKeyboardQuirk());
 }

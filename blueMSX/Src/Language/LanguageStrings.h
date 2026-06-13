@@ -359,6 +359,7 @@ typedef struct {
     char* propEmuFrontSwitchGB;
     char* propEmuFrontSwitch;
     char* propEmuFdcTiming;
+    char* propEmuHddSdBoost;
     char* propEmuNoSpriteLimits;
     char* propEnableMsxKeyboardQuirk;
     char* propEmuReversePlay;
@@ -737,6 +738,7 @@ typedef struct {
     char* shortcutShowFiles;
     char* shortcutToggleSpriteEnable;
     char* shortcutToggleFdcTiming;
+    char* shortcutToggleHddSdBoost;
     char* shortcutToggleNoSpriteLimits;
     char* shortcutEnableMsxKeyboardQuirk;
     char* shortcutToggleCpuTrace;

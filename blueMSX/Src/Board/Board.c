@@ -85,6 +85,7 @@ static UInt32 boardFreq = boardFrequency();
 static int fdcTimingEnable = 1;
 static int fdcActive       = 0;
 static UInt32 fdcSectorCount = 0;   /* sectors accessed since the current boost session began */
+static int hddSdBoostEnable = 0;
 static BoardTimer* fdcTimer;
 static BoardTimer* syncTimer;
 static BoardTimer* mixerTimer;
@@ -732,6 +733,22 @@ void boardSetFdcActive() {
     if (!fdcTimingEnable) {
         fdcScheduleTail();
     }
+}
+
+/* HDD/SD boost: same mechanism as FDC, gated separately; shares the
+** FDC audio-write kill-list (boardCheckFdcBoostKill). */
+void boardSetHddSdActive() {
+    if (hddSdBoostEnable) {
+        fdcScheduleTail();
+    }
+}
+
+void boardSetHddSdBoostEnable(int enable) {
+    hddSdBoostEnable = enable;
+}
+
+int boardGetHddSdBoostEnable(void) {
+    return hddSdBoostEnable;
 }
 
 /* PSG channel ch (0=A,1=B,2=C) produces an audible AC signal only if

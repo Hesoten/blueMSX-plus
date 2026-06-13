@@ -368,6 +368,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emulate MSX keyboard quirk";  // New in 2.9
     ls->propEmuFdcTiming        = " Kiihdytä FDD-käyttöä";
+    ls->propEmuHddSdBoost       = " Kiihdytä HDD/SD-kortin käytön aikana";
     ls->propEmuReversePlay      = " Salli taaksepäin suoritus"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " PAUSE-näppäin";
     ls->propEmuAudioSwitch       = " MSX-AUDIO modulin kytkin";
@@ -744,6 +745,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->shortcutShowFiles       = "Näytä tiedosto asetukset";
     ls->shortcutToggleSpriteEnable = "Näytä/Piilota Spritet";
     ls->shortcutToggleFdcTiming = "Vaihda FDD-käytön kiihdytys";
+    ls->shortcutToggleHddSdBoost = "Vaihda HDD/SD-käytön kiihdytys";
     ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
     ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
     ls->shortcutToggleCpuTrace  = "Ota käyttöön/Poista käytöstä Prosessorin jäljitystoiminto";

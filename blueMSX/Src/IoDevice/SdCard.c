@@ -34,6 +34,7 @@
 */
 #include "SdCard.h"
 #include "Disk.h"
+#include "../Board/Board.h"
 #include "SaveState.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -364,6 +365,7 @@ static void execCommand(SdCard* sd)
             UInt8 sect[BLOCK_LEN];
             /* SDHC = block-addressed: arg IS the 0-based sector number.
             ** Disk layer is 1-based, so add 1 on the way in. */
+            boardSetHddSdActive();
             if (diskReadSector(sd->diskId, sect, (int)(arg + 1), 0, 0, 0, NULL) != DSKE_OK) {
                 enqueueR1(sd, R1_PARAM_ERROR);
                 return;
@@ -381,6 +383,7 @@ static void execCommand(SdCard* sd)
               * including post-write verify, so this path is hot. */
         {
             UInt8 sect[BLOCK_LEN];
+            boardSetHddSdActive();
             if (diskReadSector(sd->diskId, sect, (int)(arg + 1), 0, 0, 0, NULL) != DSKE_OK) {
                 enqueueR1(sd, R1_PARAM_ERROR);
                 return;
@@ -547,6 +550,7 @@ UInt8 sdCardTransfer(SdCard* sd, UInt8 mosi)
         ** preload the next sector and transition to the token phase. */
         {
             UInt8 sect[BLOCK_LEN];
+            boardSetHddSdActive();
             if (diskReadSector(sd->diskId, sect, (int)(sd->dataSector + 1), 0, 0, 0, NULL) == DSKE_OK) {
                 memcpy(sd->dataBuf, sect, BLOCK_LEN);
                 sd->dataPos = 0;
@@ -605,6 +609,7 @@ UInt8 sdCardTransfer(SdCard* sd, UInt8 mosi)
         {
             UInt8 origCmd = sd->cmdBuf[0] & 0x3F;
             UInt8 rv;
+            boardSetHddSdActive();
             rv = diskWrite(sd->diskId, sd->dataBuf, (int)sd->dataSector);
             if (origCmd == 25) {
                 /* Streaming write: advance sector and wait for next 0xFC / 0xFD. */

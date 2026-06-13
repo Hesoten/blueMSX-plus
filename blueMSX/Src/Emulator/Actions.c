@@ -305,6 +305,11 @@ void actionToggleFdcTiming() {
     boardSetFdcTimingEnable(state.properties->emulation.enableFdcTiming);
 }
 
+void actionToggleHddSdBoost() {
+    state.properties->emulation.enableHddSdBoost = !state.properties->emulation.enableHddSdBoost;
+    boardSetHddSdBoostEnable(state.properties->emulation.enableHddSdBoost);
+}
+
 
 void actionToggleHorizontalStretch() {
     state.properties->video.horizontalStretch = !state.properties->video.horizontalStretch;
@@ -1579,6 +1584,11 @@ void actionSetPauseSwitch(int value) {
 void actionSetFdcTiming(int value) {
     state.properties->emulation.enableFdcTiming = value ? 1 : 0;
     boardSetFdcTimingEnable(state.properties->emulation.enableFdcTiming);
+}
+
+void actionSetHddSdBoost(int value) {
+    state.properties->emulation.enableHddSdBoost = value ? 1 : 0;
+    boardSetHddSdBoostEnable(state.properties->emulation.enableHddSdBoost);
 }
 
 void actionSetWaveCapture(int value) {

@@ -279,6 +279,7 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->emulation.syncMethodDirectX = properties->emulation.syncMethod;
     properties->emulation.vdpSyncMode       = P_VDP_SYNCAUTO;
     properties->emulation.enableFdcTiming   = 1;
+    properties->emulation.enableHddSdBoost  = 0;
     properties->emulation.noSpriteLimits    = 0;
     properties->emulation.frontSwitch       = 0;
     properties->emulation.pauseSwitch       = 0;
@@ -641,6 +642,7 @@ static void propLoad(Properties* properties)
     GET_ENUM_VALUE_2(propFile, emulation, syncMethodDirectX, EmuSyncPair);
     GET_ENUM_VALUE_2(propFile, emulation, vdpSyncMode, VdpSyncPair);
     GET_ENUM_VALUE_2(propFile, emulation, enableFdcTiming, BoolPair);
+    GET_ENUM_VALUE_2(propFile, emulation, enableHddSdBoost, BoolPair);
     GET_ENUM_VALUE_2(propFile, emulation, noSpriteLimits, BoolPair);
     GET_ENUM_VALUE_2(propFile, emulation, frontSwitch, BoolPair);
     GET_ENUM_VALUE_2(propFile, emulation, pauseSwitch, BoolPair);
@@ -967,6 +969,7 @@ void propSave(Properties* properties)
     SET_ENUM_VALUE_2(propFile, emulation, syncMethodDirectX, EmuSyncPair);
     SET_ENUM_VALUE_2(propFile, emulation, vdpSyncMode, VdpSyncPair);
     SET_ENUM_VALUE_2(propFile, emulation, enableFdcTiming, YesNoPair);
+    SET_ENUM_VALUE_2(propFile, emulation, enableHddSdBoost, YesNoPair);
     SET_ENUM_VALUE_2(propFile, emulation, noSpriteLimits, YesNoPair);
     SET_ENUM_VALUE_2(propFile, emulation, frontSwitch, OnOffPair);
     SET_ENUM_VALUE_2(propFile, emulation, pauseSwitch, OnOffPair);

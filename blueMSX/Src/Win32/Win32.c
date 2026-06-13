@@ -1754,6 +1754,7 @@ static void checkKeyUp(Shortcuts* s, ShotcutHotkey key)
 
     if (hotkeyEq(key, s->spritesEnable))                actionToggleSpriteEnable();
     if (hotkeyEq(key, s->fdcTiming))                    actionToggleFdcTiming();
+    if (hotkeyEq(key, s->hddSdBoost))                   actionToggleHddSdBoost();
     if (hotkeyEq(key, s->noSpriteLimits))               actionToggleNoSpriteLimits();
     if (hotkeyEq(key, s->msxKeyboardQuirk))             actionToggleMsxKeyboardQuirk();
     if (hotkeyEq(key, s->msxAudioSwitch))               actionToggleMsxAudioSwitch();
@@ -2077,6 +2078,7 @@ void archShowPropertiesDialog(PropPage  startPane) {
         }
     }
     boardSetFdcTimingEnable(pProperties->emulation.enableFdcTiming);
+    boardSetHddSdBoostEnable(pProperties->emulation.enableHddSdBoost);
     boardSetNoSpriteLimits(pProperties->emulation.noSpriteLimits);
 
     /* Update switches */
@@ -4208,6 +4210,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
         }
     }
     boardSetFdcTimingEnable(pProperties->emulation.enableFdcTiming);
+    boardSetHddSdBoostEnable(pProperties->emulation.enableHddSdBoost);
     boardSetNoSpriteLimits(pProperties->emulation.noSpriteLimits);
     boardSetY8950Enable(pProperties->sound.chip.enableY8950);
     boardSetYm2413Enable(pProperties->sound.chip.enableYM2413);

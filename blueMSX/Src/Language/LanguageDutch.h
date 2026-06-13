@@ -367,6 +367,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emulate MSX keyboard quirk";  // New in 2.9
     ls->propEmuFdcTiming        = " Versnellen bij FDD-toegang";
+    ls->propEmuHddSdBoost       = " Versnellen tijdens HDD/SD-kaart toegang";
     ls->propEmuReversePlay      = " Enable reverse playback"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " Pauze Schakelaar";
     ls->propEmuAudioSwitch      = " MSX-AUDIO cartridge Schakelaar";
@@ -743,6 +744,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->shortcutShowFiles       = "Toon Bestandseigenschappen";
     ls->shortcutToggleSpriteEnable = "Tonen/Verbergen sprites";
     ls->shortcutToggleFdcTiming = "FDD-toegangversnelling in/uit";
+    ls->shortcutToggleHddSdBoost = "HDD/SD-toegangversnelling in/uit";
     ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
     ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
     ls->shortcutToggleCpuTrace  = "CPU tracer aan/uit";

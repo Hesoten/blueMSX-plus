@@ -366,6 +366,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emulate MSX keyboard quirk";  // New in 2.9
     ls->propEmuFdcTiming        = " 软盘访问时加速";
+    ls->propEmuHddSdBoost       = " HDD/SD 卡访问时加速";
     ls->propEmuReversePlay      = " Enable reverse playback"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " 暂停开关";
     ls->propEmuAudioSwitch       = " MSX-AUDIO 卡开关";
@@ -742,6 +743,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->shortcutShowFiles       = "显示文件设定";
     ls->shortcutToggleSpriteEnable = "显示/隐藏活动块";
     ls->shortcutToggleFdcTiming = "切换软盘访问加速";
+    ls->shortcutToggleHddSdBoost = "切换硬盘/SD访问加速";
     ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
     ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
     ls->shortcutToggleCpuTrace  = "启用/禁用 CPU 追踪";

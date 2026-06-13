@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2007 Daniel Vik, white cat
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -640,6 +643,7 @@ static int scsiDeviceReadSector(SCSIDEVICE* scsi, int* blocks)
     int numSectors;
 
     ledSetHd(1);
+    boardSetHddSdActive();
     if (scsi->length >= BUFFER_BLOCK_SIZE) {
         numSectors  = BUFFER_BLOCK_SIZE;
         counter     = BUFFER_SIZE;
@@ -682,6 +686,7 @@ static int scsiDeviceWriteSector(SCSIDEVICE* scsi, int* blocks)
     int numSectors;
 
     ledSetHd(1);
+    boardSetHddSdActive();
     if (scsi->length >= BUFFER_BLOCK_SIZE) {
         numSectors  = BUFFER_BLOCK_SIZE;
     } else {
