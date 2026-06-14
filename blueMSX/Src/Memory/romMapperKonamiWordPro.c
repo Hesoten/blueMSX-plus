@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -87,7 +90,7 @@ static void write(RomMapperKonamiWordPro* rm, UInt16 address, UInt8 value)
 #if 0
     printf("W %.4x : 0x%.2x\n", address, value);
 #endif
-    if (address = 0xbfff) {
+    if (address == 0xbfff) {
         rm->control = value;
     }
 }
