@@ -1,0 +1,35 @@
+name: CI
+
+# Build-only validation for pull requests targeting develop/main.
+# No packaging, no publishing - just catch compile breakage before merge.
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [ci-test]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [x64, Win32]
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: microsoft/setup-msbuild@v3
+
+      - name: Build (Release, no UPX)
+        working-directory: blueMSX/Make/msvc2022
+        shell: pwsh
+        run: |
+          msbuild blueMSX.sln /m `
+            '/t:blueMSX;TraceWindow;Trainer;SimpleDebugger' `
+            "/p:Configuration=Release;Platform=${{ matrix.platform }};BlueMsxPackUpx=false"

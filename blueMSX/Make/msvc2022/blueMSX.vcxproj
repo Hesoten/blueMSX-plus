@@ -345,7 +345,7 @@
     </Link>
     <PostBuildEvent>
       <Message>Pack executable</Message>
-      <Command>upx --best "$(OutDir)$(TargetName)$(TargetExt)"</Command>
+      <Command Condition="'$(BlueMsxPackUpx)'!='false'">upx --best "$(OutDir)$(TargetName)$(TargetExt)"</Command>
     </PostBuildEvent>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\..\Src\BuildInfo;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -540,7 +540,7 @@
     </Link>
     <PostBuildEvent>
       <Message>Pack executable</Message>
-      <Command>upx --best "$(OutDir)$(TargetName)$(TargetExt)"</Command>
+      <Command Condition="'$(BlueMsxPackUpx)'!='false'">upx --best "$(OutDir)$(TargetName)$(TargetExt)"</Command>
     </PostBuildEvent>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\..\Src\BuildInfo;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
