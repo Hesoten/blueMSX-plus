@@ -688,6 +688,7 @@ void actionQuickSaveState() {
         boardSaveState(state.properties->filehistory.quicksave, 1);
         emulatorResume();
     }
+    archUpdateMenu(0);
 }
 
 void actionQuickSaveStateUndo() {
