@@ -1669,7 +1669,7 @@ static TiXmlElement* themeOpenXml(const char* themePath, TiXmlDocument& doc)
     if (f == NULL) {
         return NULL;
     }
-    int len = fread(themeData, 1, sizeof(themeData), f);
+    int len = (int)fread(themeData, 1, sizeof(themeData), f);
 	fclose(f);
     if (len <= 0) {
         return NULL;

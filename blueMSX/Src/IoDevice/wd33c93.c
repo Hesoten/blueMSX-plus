@@ -11,6 +11,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik, Tomas Karlsson, white cat
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -585,7 +588,7 @@ void  wd33c93SaveState(WD33C93* wd33c93)
     saveStateSet(state, "blockCounter", wd33c93->blockCounter);
     saveStateSet(state, "tc",           wd33c93->tc);
     saveStateSet(state, "maxDev",       wd33c93->maxDev);
-    saveStateSet(state, "pBuf",         wd33c93->pBuf - wd33c93->buffer);
+    saveStateSet(state, "pBuf",         (UInt32)(wd33c93->pBuf - wd33c93->buffer));
     //saveStateGet(state, "timeout",    wd33c93->timeout);
     //saveStateGet(state, "timerRunning", wd33c93->timerRunning);
 

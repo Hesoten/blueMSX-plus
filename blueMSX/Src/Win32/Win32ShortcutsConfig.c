@@ -353,7 +353,7 @@ static char** getProfileList()
         ** accept anything that isn't a directory. */
         if (!(fa & FILE_ATTRIBUTE_DIRECTORY)) {
             char buffer[128];
-            int length = strlen(wfd.cFileName) - 10;
+            int length = (int)strlen(wfd.cFileName) - 10;
             strcpy(buffer, wfd.cFileName);
             buffer[length] = 0;
             strcpy(profileArray[index], buffer);
@@ -505,7 +505,7 @@ static BOOL_DLG_RET CALLBACK saveAsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
         case IDC_MACHINELIST:
             if (HIWORD(wParam) == 1 || HIWORD(wParam) == 2) {
                 char buffer[64];
-                int index = SendMessage(GetDlgItem(hDlg, IDC_MACHINELIST), LB_GETCURSEL, 0, 0);
+                int index = (int)SendMessage(GetDlgItem(hDlg, IDC_MACHINELIST), LB_GETCURSEL, 0, 0);
                 SendMessage(GetDlgItem(hDlg, IDC_MACHINELIST), LB_GETTEXT, index, (LPARAM)buffer);
                 SetWindowTextU(GetDlgItem(hDlg, IDC_MACHINENAME), buffer);
                 if (HIWORD(wParam) == 2) {
@@ -1363,8 +1363,8 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
 
                     isCheckingConfigs = 1;
 
-                    idx = SendMessage(GetDlgItem(hDlg, IDC_SCUTCONFIGS), CB_GETCURSEL, 0, 0);
-                    rv = SendMessage(GetDlgItem(hDlg, IDC_SCUTCONFIGS), CB_GETLBTEXT, idx, (LPARAM)profileSel);
+                    idx = (int)SendMessage(GetDlgItem(hDlg, IDC_SCUTCONFIGS), CB_GETCURSEL, 0, 0);
+                    rv = (int)SendMessage(GetDlgItem(hDlg, IDC_SCUTCONFIGS), CB_GETLBTEXT, idx, (LPARAM)profileSel);
                 
                     if (rv != CB_ERR) {
                         if (strcmp(profileSel, shortcutProfile)) {
@@ -1447,7 +1447,7 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
 
         case IDC_SAVEAS:
             {
-                int rv = DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_CONF_SAVEAS), hDlg, saveAsProc);
+                int rv = (int)DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_CONF_SAVEAS), hDlg, saveAsProc);
                 if (rv) {
                     FILE* file;
                     char fileName[MAX_PATH];
@@ -1455,7 +1455,7 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
                     sprintf(fileName, "%s/%s.shortcuts", profileDir, tmpShortcutProfile);
                     file = fopen(fileName, "r");
                     if (file != NULL) {
-                        rv = DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, saveProc);
+                        rv = (int)DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, saveProc);
                         fclose(file);
                     }
 
@@ -1473,7 +1473,7 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
 
         case IDC_SCUTASSIGN:
             if (currIndex >= 0) {
-                DWORD key=SendDlgItemMessage(hDlg, IDC_SCUTHOTKEY, WM_GET_HOTKEY, 0, 0);
+                DWORD key=(DWORD)SendDlgItemMessage(hDlg, IDC_SCUTHOTKEY, WM_GET_HOTKEY, 0, 0);
                 ShotcutHotkey hotkey = int2hotkey(&key);
                 updateHotkeys(hDlg, currIndex, hotkey);
                 ListView_SetItemState(hwnd, currIndex, LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
@@ -1485,7 +1485,7 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
             {
                 int rv = 1;
                 if (memcmp(shortcutsRef, shortcuts, sizeof(Shortcuts))) {
-                    rv = DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, closeProc);
+                    rv = (int)DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, closeProc);
                 }
                 if (rv) {
                     EndDialog(hDlg, TRUE);
@@ -1526,7 +1526,7 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
             int rv = 1;
 
             if (memcmp(shortcutsRef, shortcuts, sizeof(Shortcuts))) {
-                rv = DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, closeProc);
+                rv = (int)DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, closeProc);
             }
             if (rv) {
                 EndDialog(hDlg, FALSE);
@@ -1586,7 +1586,7 @@ int shortcutsShowDialog(HWND hwnd, Properties* pProperties) {
     memcpy(shortcutsRef, shortcuts, sizeof(Shortcuts));
 
 //    inputDestroy();
-    rv = DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SHORTCUTSCONFIG), hwnd, shortcutsProc);
+    rv = (int)DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SHORTCUTSCONFIG), hwnd, shortcutsProc);
     if (rv) {
         strcpy(pProperties->emulation.shortcutProfile, shortcutProfile);
     }

@@ -159,7 +159,7 @@ void CallstackWindow::invalidateContent()
     updateScroll();
 
     sprintf(lineInfo[lineCount].text, Language::windowCallstackUnavail);
-    lineInfo[lineCount].textLength = strlen(lineInfo[lineCount].text);
+    lineInfo[lineCount].textLength = (int)strlen(lineInfo[lineCount].text);
     lineInfo[lineCount].dataText[0] = 0;
     lineInfo[lineCount].dataTextLength = 0;
     lineCount++;
@@ -193,7 +193,7 @@ void CallstackWindow::updateContent(DWORD* callstack, int size)
         char text[128];
         addr = disassembly->dasm(addr - 1, text);
         sprintf(lineInfo[lineCount].text, "%.4X: %s", addr, text);
-        lineInfo[lineCount].textLength = strlen(lineInfo[lineCount].text);
+        lineInfo[lineCount].textLength = (int)strlen(lineInfo[lineCount].text);
         lineInfo[lineCount].address = addr;
 
         lineInfo[lineCount].dataText[0] = 0;

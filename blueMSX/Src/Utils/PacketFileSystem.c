@@ -90,7 +90,7 @@ int pkg_load(const char* filename, char* key, int keyLen)
 
     pkg_buf = (char*)malloc(len);
 
-    len = fread(pkg_buf, 1, len, f);
+    len = (int)fread(pkg_buf, 1, len, f);
     if (len <= 0) {
         free(pkg_buf);
         pkg_buf = NULL;
@@ -248,7 +248,7 @@ size_t pkg_fread(void* buffer, size_t size, size_t count, FILE* file)
 
     memcpy(buffer, pkg_buf + pkg_file->offset + pkg_file->pos, count * size);
 
-    pkg_file->pos += count * size;
+    pkg_file->pos += (int)(count * size);
     
     return count;
 }

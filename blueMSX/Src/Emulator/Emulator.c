@@ -357,20 +357,20 @@ static void setDeviceInfo(BoardDeviceInfo* deviceInfo)
     int i;
 
     for (i = 0; i < PROP_MAX_CARTS; i++) {
-        deviceInfo->carts[i].inserted =  strlen(properties->media.carts[i].fileName);
+        deviceInfo->carts[i].inserted =  (int)strlen(properties->media.carts[i].fileName);
         deviceInfo->carts[i].type = properties->media.carts[i].type;
         strcpy(deviceInfo->carts[i].name, properties->media.carts[i].fileName);
         strcpy(deviceInfo->carts[i].inZipName, properties->media.carts[i].fileNameInZip);
     }
 
     for (i = 0; i < PROP_MAX_DISKS; i++) {
-        deviceInfo->disks[i].inserted =  strlen(properties->media.disks[i].fileName);
+        deviceInfo->disks[i].inserted =  (int)strlen(properties->media.disks[i].fileName);
         strcpy(deviceInfo->disks[i].name, properties->media.disks[i].fileName);
         strcpy(deviceInfo->disks[i].inZipName, properties->media.disks[i].fileNameInZip);
     }
 
     for (i = 0; i < PROP_MAX_TAPES; i++) {
-        deviceInfo->tapes[i].inserted =  strlen(properties->media.tapes[i].fileName);
+        deviceInfo->tapes[i].inserted =  (int)strlen(properties->media.tapes[i].fileName);
         strcpy(deviceInfo->tapes[i].name, properties->media.tapes[i].fileName);
         strcpy(deviceInfo->tapes[i].inZipName, properties->media.tapes[i].fileNameInZip);
     }

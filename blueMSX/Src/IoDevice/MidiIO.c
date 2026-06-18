@@ -40,7 +40,7 @@
 /* After stdio.h: pkg_fopen overrides fopen for UTF-8 paths. */
 #include "PacketFileSystem.h"
 
-typedef struct MidiIO {
+struct MidiIO {
     MidiType inType;
     FILE* inFile;
     ArchMidi* inHost;

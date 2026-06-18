@@ -33,7 +33,7 @@ static int readFile(const char* filename)
 
     if (length > 0) {
         iniBuffer = (char*)malloc(length);
-        length = fread(iniBuffer, 1, length, f);
+        length = (int)fread(iniBuffer, 1, length, f);
         if (length > 0) {
             iniPtr = iniBuffer;
             iniEnd = iniBuffer + length;
@@ -89,7 +89,7 @@ void destroyWriteBuffer()
 
 void writeLine(const char* line)
 {
-    int length = strlen(line);
+    int length = (int)strlen(line);
     if (length + wrtOffset > wrtBufferSize) {
         wrtBufferSize += 8192;
         wrtBuffer = (char*)realloc(wrtBuffer, wrtBufferSize);
@@ -143,7 +143,7 @@ int iniFileGetInt(const char* section,
     char *ep; 
     char t_section[MAX_LINE_LENGTH]; 
     char value[6]; 
-    int len = strlen(entry); 
+    int len = (int)strlen(entry);
     int i; 
     
     rewindBuffer();
@@ -193,7 +193,7 @@ int iniFileGetString(const char* section,
     char buff[MAX_LINE_LENGTH]; 
     char *ep; 
     char t_section[MAX_LINE_LENGTH]; 
-    int len = strlen(entry); 
+    int len = (int)strlen(entry);
 
     rewindBuffer();
 
@@ -205,7 +205,7 @@ int iniFileGetString(const char* section,
         if (readLine(buff) < 0) {   
             strncpy(buffer, def, bufferLen); 
             buffer[bufferLen - 1] = '\0';
-            return strlen(buffer); 
+            return (int)strlen(buffer);
         } 
     } while (strcmp(buff, t_section)); 
 
@@ -213,7 +213,7 @@ int iniFileGetString(const char* section,
         if (readLine(buff) < 0 || buff[0] == '[') {   
             strncpy(buffer, def, bufferLen);   
             buffer[bufferLen - 1] = '\0';  
-            return strlen(buffer); 
+            return (int)strlen(buffer);
         } 
     } while (strncmp(buff, entry, len)); 
 
@@ -223,8 +223,8 @@ int iniFileGetString(const char* section,
     strncpy(buffer, ep, bufferLen); 
     buffer[bufferLen - 1] = '\0'; 
 
-    return strlen(buffer); 
-} 
+    return (int)strlen(buffer);
+}
 
 int iniFileGetSection(const char* section, 
                       char* buffer, 
@@ -243,7 +243,7 @@ int iniFileGetSection(const char* section,
         if (readLine(buff) < 0) {   
             buffer[offset++] = '\0';
             buffer[offset++] = '\0';
-            return strlen(buffer); 
+            return (int)strlen(buffer);
         } 
     } while (strcmp(buff, t_section)); 
     
@@ -284,7 +284,7 @@ int iniFileWriteString(const char* section,
 
     sprintf(t_section, "[%s]", section);
     sprintf(t_entry, "%s=", entry);
-    len = strlen(t_entry);
+    len = (int)strlen(t_entry);
 
     do {  
         if (readLine(buff) < 0) {  

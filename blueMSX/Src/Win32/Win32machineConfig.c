@@ -113,7 +113,7 @@ static void updateMachineList(HWND hDlg) {
     iterator = arrayListCreateIterator(machineList);
     while (arrayListCanIterate(iterator)) {
         char buffer[128];
-        _snprintf(buffer, sizeof(buffer) - 1, "%s", arrayListIterate(iterator));
+        _snprintf(buffer, sizeof(buffer) - 1, "%s", (const char*)arrayListIterate(iterator));
 
         ComboAddStringU(GetDlgItem(hDlg, IDC_CONF_CONFIGS), buffer);
         if (index == 0 || 0 == strcmp(buffer, machineName)) {
@@ -280,7 +280,7 @@ static void setBoardDropdown(HWND hDlg) {
 
 static int getBoardDropDown(HWND hDlg) {
     int oldType = machine->board.type;
-    int idx = SendDlgItemMessage(hDlg, IDC_CONFBOARD, CB_GETCURSEL, 0, 0);
+    int idx = (int)SendDlgItemMessage(hDlg, IDC_CONFBOARD, CB_GETCURSEL, 0, 0);
 
     switch (idx) {
     default:
@@ -344,8 +344,8 @@ static int getCartSlotDropDown(HWND hDlg, int cart, int dropdownId) {
     char selection[64];
     int i;
 
-    int idx = SendMessage(GetDlgItem(hDlg, dropdownId), CB_GETCURSEL, 0, 0);
-    int rv = SendMessage(GetDlgItem(hDlg, dropdownId), CB_GETLBTEXT, idx, (LPARAM)selection);
+    int idx = (int)SendMessage(GetDlgItem(hDlg, dropdownId), CB_GETCURSEL, 0, 0);
+    int rv = (int)SendMessage(GetDlgItem(hDlg, dropdownId), CB_GETLBTEXT, idx, (LPARAM)selection);
 
     if (rv == CB_ERR) {
         return 0;
@@ -520,8 +520,8 @@ static INT_PTR CALLBACK slotProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPa
 static void getSizeControl(HWND hDlg)
 {
     char selection[64];
-    int idx = SendMessage(GetDlgItem(hDlg, IDC_ROMSIZE), CB_GETCURSEL, 0, 0);
-    int rv = SendMessage(GetDlgItem(hDlg, IDC_ROMSIZE), CB_GETLBTEXT, idx, (LPARAM)selection);
+    int idx = (int)SendMessage(GetDlgItem(hDlg, IDC_ROMSIZE), CB_GETCURSEL, 0, 0);
+    int rv = (int)SendMessage(GetDlgItem(hDlg, IDC_ROMSIZE), CB_GETLBTEXT, idx, (LPARAM)selection);
     int value;
 
     if (rv == CB_ERR) {
@@ -635,7 +635,7 @@ static void getSlotControl(HWND hDlg)
         return;
     }
 
-    sel = SendDlgItemMessage(hDlg, IDC_ROMSLOT, CB_GETCURSEL, 0, 0);
+    sel = (int)SendDlgItemMessage(hDlg, IDC_ROMSLOT, CB_GETCURSEL, 0, 0);
     if (sel == CB_ERR) {
         return;
     }
@@ -672,8 +672,8 @@ static void getAddressControl(HWND hDlg)
         editSlotInfo.romType == ROM_BUNSETU) 
     {
         char selection[64];
-        int idx = SendMessage(GetDlgItem(hDlg, IDC_ROMADDR), CB_GETCURSEL, 0, 0);
-        int rv = SendMessage(GetDlgItem(hDlg, IDC_ROMADDR), CB_GETLBTEXT, idx, (LPARAM)selection);
+        int idx = (int)SendMessage(GetDlgItem(hDlg, IDC_ROMADDR), CB_GETCURSEL, 0, 0);
+        int rv = (int)SendMessage(GetDlgItem(hDlg, IDC_ROMADDR), CB_GETLBTEXT, idx, (LPARAM)selection);
         int value = 1;
 
         if (rv == CB_ERR) {
@@ -1732,7 +1732,7 @@ static BOOL_DLG_RET CALLBACK slotEditProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
 
         case IDC_ROMTYPE:
             {
-                int idx = SendMessage(GetDlgItem(hDlg, IDC_ROMTYPE), CB_GETCURSEL, 0, 0);
+                int idx = (int)SendMessage(GetDlgItem(hDlg, IDC_ROMTYPE), CB_GETCURSEL, 0, 0);
 
                 editSlotInfo.romType = idx == CB_ERR ? -1 : romTypeList[idx];
 
@@ -1860,7 +1860,7 @@ int showListDetailDlg(HWND hwnd, int index) {
         memcpy(&editSlotInfo, machine->slotInfo + index, sizeof(editSlotInfo));
     }
     
-    rv = DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_CONF_MEMEDIT), hwnd, slotEditProc);
+    rv = (int)DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_CONF_MEMEDIT), hwnd, slotEditProc);
     if (!rv) {
         return 0;
     }
@@ -2129,7 +2129,7 @@ static void updateFdcCountList(HWND hDlg) {
 static int getFdcCountList(HWND hDlg) {
     int change = 0;
     if (machine->fdc.enabled) {
-        int index = 1 + SendMessage(GetDlgItem(hDlg, IDC_FDCNUMDRIVES),  CB_GETCURSEL, 0, 0);
+        int index = 1 + (int)SendMessage(GetDlgItem(hDlg, IDC_FDCNUMDRIVES),  CB_GETCURSEL, 0, 0);
         change = index != machine->fdc.count;
         if (index == 1) {
             machine->fdc.count = 1;
@@ -2244,8 +2244,8 @@ static void updateVramList(HWND hDlg) {
 static int getVramList(HWND hDlg) {
     int vramSize = machine->video.vramSize;
     char vramSel[64];
-    int idx = SendMessage(GetDlgItem(hDlg, IDC_CONF_VRAM), CB_GETCURSEL, 0, 0);
-    int rv = SendMessage(GetDlgItem(hDlg, IDC_CONF_VRAM), CB_GETLBTEXT, idx, (LPARAM)vramSel);
+    int idx = (int)SendMessage(GetDlgItem(hDlg, IDC_CONF_VRAM), CB_GETCURSEL, 0, 0);
+    int rv = (int)SendMessage(GetDlgItem(hDlg, IDC_CONF_VRAM), CB_GETLBTEXT, idx, (LPARAM)vramSel);
 
     if (0 == strcmp(vramSel, "16 kB")) {
         machine->video.vramSize = 16 * 1024;
@@ -2302,8 +2302,8 @@ static INT_PTR CALLBACK chipsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
                 {
                     char videoSel[64];
                     VdpVersion vdpVersion = machine->video.vdpVersion;
-                    int idx = SendMessage(GetDlgItem(hDlg, IDC_CONF_VIDEOCHIP), CB_GETCURSEL, 0, 0);
-                    int rv = SendMessage(GetDlgItem(hDlg, IDC_CONF_VIDEOCHIP), CB_GETLBTEXT, idx, (LPARAM)videoSel);
+                    int idx = (int)SendMessage(GetDlgItem(hDlg, IDC_CONF_VIDEOCHIP), CB_GETCURSEL, 0, 0);
+                    int rv = (int)SendMessage(GetDlgItem(hDlg, IDC_CONF_VIDEOCHIP), CB_GETLBTEXT, idx, (LPARAM)videoSel);
 
                     if (rv != CB_ERR) {
                         if (0 == strcmp(videoSel, "TMS9929A   (PAL)")) {
@@ -2502,7 +2502,7 @@ static BOOL_DLG_RET CALLBACK saveAsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
         case IDC_MACHINELIST:
             if (HIWORD(wParam) == 1 || HIWORD(wParam) == 2) {
                 char buffer[64];
-                int index = SendMessage(GetDlgItem(hDlg, IDC_MACHINELIST), LB_GETCURSEL, 0, 0);
+                int index = (int)SendMessage(GetDlgItem(hDlg, IDC_MACHINELIST), LB_GETCURSEL, 0, 0);
                 SendMessage(GetDlgItem(hDlg, IDC_MACHINELIST), LB_GETTEXT, index, (LPARAM)buffer);
                 SetWindowTextU(GetDlgItem(hDlg, IDC_MACHINENAME), buffer);
                 if (HIWORD(wParam) == 2) {
@@ -2639,14 +2639,14 @@ static BOOL_DLG_RET CALLBACK configProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
 
                     isCheckingConfigs = 1;
 
-                    idx = SendMessage(GetDlgItem(hDlg, IDC_CONF_CONFIGS), CB_GETCURSEL, 0, 0);
-                    rv = SendMessage(GetDlgItem(hDlg, IDC_CONF_CONFIGS), CB_GETLBTEXT, idx, (LPARAM)machineNameSel);
+                    idx = (int)SendMessage(GetDlgItem(hDlg, IDC_CONF_CONFIGS), CB_GETCURSEL, 0, 0);
+                    rv = (int)SendMessage(GetDlgItem(hDlg, IDC_CONF_CONFIGS), CB_GETLBTEXT, idx, (LPARAM)machineNameSel);
                 
                     if (rv != CB_ERR) {
                         if (strcmp(machineNameSel, machineName)) {
                             if (machineModified) {
                                 int rv;
-                                rv = DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, discardProc);
+                                rv = (int)DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, discardProc);
                                 if (rv) {
                                     machineModified = 0;
                                 }
@@ -2701,7 +2701,7 @@ static BOOL_DLG_RET CALLBACK configProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
 
                 strcpy(tmpMachineName, machineName);
 
-                rv = DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, saveProc);
+                rv = (int)DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, saveProc);
                 if (rv) {
                     machineUpdate(machine);
                     memcpy(machineRef, machine, sizeof(Machine));
@@ -2715,7 +2715,7 @@ static BOOL_DLG_RET CALLBACK configProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
 
         case IDC_CONFSAVEAS:
             {
-                int rv = DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_CONF_SAVEAS), hDlg, saveAsProc);
+                int rv = (int)DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_CONF_SAVEAS), hDlg, saveAsProc);
                 if (rv) {
                     Machine* tmpMachine;
 
@@ -2724,7 +2724,7 @@ static BOOL_DLG_RET CALLBACK configProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
 
                     tmpMachine = machineCreate(tmpMachineName);
                     if (tmpMachine != NULL) {
-                        rv = DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, saveProc);
+                        rv = (int)DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, saveProc);
                         machineDestroy(tmpMachine);
                     }
             
@@ -2746,7 +2746,7 @@ static BOOL_DLG_RET CALLBACK configProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
                 int rv = 1;
 
                 if (machineModified) {
-                    rv = DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, closeProc);
+                    rv = (int)DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, closeProc);
                 }
                 if (rv) {
                     machineModified = 0;
@@ -2760,7 +2760,7 @@ static BOOL_DLG_RET CALLBACK configProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
                 int rv = 1;
 
                 if (machineModified) {
-                    rv = DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, closeProc);
+                    rv = (int)DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, closeProc);
                 }
                 if (rv) {
                     machineModified = 0;
@@ -2776,7 +2776,7 @@ static BOOL_DLG_RET CALLBACK configProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
             int rv = 1;
 
             if (machineModified) {
-                rv = DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, closeProc);
+                rv = (int)DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, closeProc);
             }
             if (rv) {
                 DestroyWindow(hDlgSlots);
@@ -2813,7 +2813,7 @@ int confShowDialog(HWND hwnd, char* initMachineName) {
     machineUpdate(machine);
     memcpy(machineRef, machine, sizeof(Machine));
 
-    rv = DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_MACHINECONFIG), hwnd, configProc);
+    rv = (int)DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_MACHINECONFIG), hwnd, configProc);
 
     if (rv) {
         strcpy(initMachineName, machineName);

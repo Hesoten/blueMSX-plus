@@ -1489,7 +1489,7 @@ void boardSaveState(const char* stateFile, int screenshot)
 
     saveStateCreateForWrite(stateFile);
     
-    rv = zipSaveFile(stateFile, "version", 0, saveStateVersion, strlen(saveStateVersion) + 1);
+    rv = zipSaveFile(stateFile, "version", 0, saveStateVersion, (int)strlen(saveStateVersion) + 1);
     if (!rv) {
         return;
     }
@@ -1504,12 +1504,12 @@ void boardSaveState(const char* stateFile, int screenshot)
 
     saveStateSet(state, "cartInserted00", di->carts[0].inserted);
     saveStateSet(state, "cartType00",     di->carts[0].type);
-    saveStateSetBuffer(state, "cartName00",  di->carts[0].name, strlen(di->carts[0].name) + 1);
-    saveStateSetBuffer(state, "cartInZip00", di->carts[0].inZipName, strlen(di->carts[0].inZipName) + 1);
+    saveStateSetBuffer(state, "cartName00",  di->carts[0].name, (int)strlen(di->carts[0].name) + 1);
+    saveStateSetBuffer(state, "cartInZip00", di->carts[0].inZipName, (int)strlen(di->carts[0].inZipName) + 1);
     saveStateSet(state, "cartInserted01", di->carts[1].inserted);
     saveStateSet(state, "cartType01",     di->carts[1].type);
-    saveStateSetBuffer(state, "cartName01",  di->carts[1].name, strlen(di->carts[1].name) + 1);
-    saveStateSetBuffer(state, "cartInZip01", di->carts[1].inZipName, strlen(di->carts[1].inZipName) + 1);
+    saveStateSetBuffer(state, "cartName01",  di->carts[1].name, (int)strlen(di->carts[1].name) + 1);
+    saveStateSetBuffer(state, "cartInZip01", di->carts[1].inZipName, (int)strlen(di->carts[1].inZipName) + 1);
 #if 0
     saveStateSet(state, "diskInserted00", di->disks[0].inserted);
     saveStateSetBuffer(state, "diskName00",  di->disks[0].name, strlen(di->disks[0].name) + 1);
@@ -1522,14 +1522,14 @@ void boardSaveState(const char* stateFile, int screenshot)
     sprintf(buf, "diskInserted%.2d", i);
     saveStateSet(state, buf, di->disks[i].inserted);
     sprintf(buf, "diskName%.2d", i);
-    saveStateSetBuffer(state, buf,  di->disks[i].name, strlen(di->disks[i].name) + 1);
+    saveStateSetBuffer(state, buf,  di->disks[i].name, (int)strlen(di->disks[i].name) + 1);
     sprintf(buf, "diskInZip%.2d", i);
-    saveStateSetBuffer(state, buf, di->disks[i].inZipName, strlen(di->disks[i].inZipName) + 1);
+    saveStateSetBuffer(state, buf, di->disks[i].inZipName, (int)strlen(di->disks[i].inZipName) + 1);
     }
 #endif
     saveStateSet(state, "casInserted", di->tapes[0].inserted);
-    saveStateSetBuffer(state, "casName",  di->tapes[0].name, strlen(di->tapes[0].name) + 1);
-    saveStateSetBuffer(state, "casInZip", di->tapes[0].inZipName, strlen(di->tapes[0].inZipName) + 1);
+    saveStateSetBuffer(state, "casName",  di->tapes[0].name, (int)strlen(di->tapes[0].name) + 1);
+    saveStateSetBuffer(state, "casInZip", di->tapes[0].inZipName, (int)strlen(di->tapes[0].inZipName) + 1);
 
     saveStateSet(state, "vdpSyncMode",   di->video.vdpSyncMode);
 
@@ -1569,7 +1569,7 @@ void boardSaveState(const char* stateFile, int screenshot)
     memset(buf, 0, 128);
     time(&ltime);
     strftime(buf, 128, "%X   %A, %B %d, %Y", localtime(&ltime));
-    zipSaveFile(stateFile, "date.txt", 1, buf, strlen(buf) + 1);
+    zipSaveFile(stateFile, "date.txt", 1, buf, (int)strlen(buf) + 1);
 
     saveStateDestroy();
 }
@@ -1807,7 +1807,7 @@ UInt32 boardCalcRelativeTimeout(UInt32 timerFrequency, UInt32 nextTimeout)
 /////////////////////////////////////////////////////////////
 // Board timer
 
-typedef struct BoardTimer {
+struct BoardTimer {
     BoardTimer*  next;
     BoardTimer*  prev;
     BoardTimerCb callback;

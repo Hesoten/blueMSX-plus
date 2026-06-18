@@ -1147,7 +1147,7 @@ char** keyboardGetConfigs()
         ** fix as Win32ShortcutsConfig.c::getProfileList. */
         if (!(fa & FILE_ATTRIBUTE_DIRECTORY)) {
             char buffer[128];
-            int length = strlen(wfd.cFileName) - 7;
+            int length = (int)strlen(wfd.cFileName) - 7;
             strcpy(buffer, wfd.cFileName);
             buffer[length] = 0;
             strcpy(keyboardArray[index], buffer);

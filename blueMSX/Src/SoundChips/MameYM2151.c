@@ -2227,7 +2227,7 @@ void YM2151SaveState(MameYm2151* chip)
         
         sprintf(tag, "connect%d", i);
         if (chip->oper[i].connect != NULL) {
-            saveStateSet(state, tag, (int*)chip->oper[i].connect - (int*)chip);
+            saveStateSet(state, tag, (UInt32)((int*)chip->oper[i].connect - (int*)chip));
         }
         else {
             saveStateSet(state, tag, -1);
@@ -2235,7 +2235,7 @@ void YM2151SaveState(MameYm2151* chip)
         
         sprintf(tag, "mem_connect%d", i);
         if (chip->oper[i].mem_connect != NULL) {
-            saveStateSet(state, tag, (int*)chip->oper[i].mem_connect - (int*)chip);
+            saveStateSet(state, tag, (UInt32)((int*)chip->oper[i].mem_connect - (int*)chip));
         }
         else {
             saveStateSet(state, tag, -1);

@@ -39,7 +39,7 @@
 /* After stdio.h: pkg_fopen overrides fopen for UTF-8 paths. */
 #include "PacketFileSystem.h"
 
-typedef struct UartIO {
+struct UartIO {
     UartType type;
     FILE* file;
     int  uartReady;

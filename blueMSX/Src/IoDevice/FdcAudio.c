@@ -3472,7 +3472,7 @@ static void loadSample(char* filename, Int16** samples, Int32* count,
                     if (fread(&size, 4, 1, f) == 1) {
                         if (size < 131072) {
                             *samples = malloc(size);
-                            *count = fread(*samples, 2, size / 2, f);
+                            *count = (Int32)fread(*samples, 2, size / 2, f);
                             if (*count == size / 2) {
                                 fclose(f);
                                 return;

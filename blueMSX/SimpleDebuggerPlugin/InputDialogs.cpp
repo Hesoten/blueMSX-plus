@@ -287,7 +287,7 @@ BOOL InputDialogs::watchpointDialogProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
             }
         case IDC_MEMTYPE:
             if (HIWORD(wParam) == CBN_SELCHANGE) {
-                int idx = SendDlgItemMessage(hDlg, IDC_MEMTYPE, CB_GETCURSEL, 0, 0);
+                int idx = (int)SendDlgItemMessage(hDlg, IDC_MEMTYPE, CB_GETCURSEL, 0, 0);
                 if (idx == 0) procData->breakpointInfo.type = Breakpoints::BreakpointInfo::WATCHPOINT_MEM;
                 if (idx == 1) procData->breakpointInfo.type = Breakpoints::BreakpointInfo::WATCHPOINT_VRAM;
                 if (idx == 2) procData->breakpointInfo.type = Breakpoints::BreakpointInfo::WATCHPOINT_IO;
@@ -374,7 +374,7 @@ bool InputDialogs::showAddressDialog(const char* caption, int& address) {
         return false;
     }
     AddrProcData procData(caption);
-    BOOL rv = DialogBoxParam(GetDllHinstance(), MAKEINTRESOURCE(IDD_SETBP), rootHwnd, staticAddressDialogProc, (LPARAM)&procData);
+    BOOL rv = (BOOL)DialogBoxParam(GetDllHinstance(), MAKEINTRESOURCE(IDD_SETBP), rootHwnd, staticAddressDialogProc, (LPARAM)&procData);
     if (rv) {
         address = procData.address;
         return true;
@@ -387,7 +387,7 @@ bool InputDialogs::showWatchpointDialog(const char* caption, Breakpoints::Breakp
         return false;
     }
     WatchpointProcData procData(caption);
-    BOOL rv = DialogBoxParam(GetDllHinstance(), MAKEINTRESOURCE(IDD_WATCHPOINT_ENTRY), rootHwnd, staticWatchpointDialogProc, (LPARAM)&procData);
+    BOOL rv = (BOOL)DialogBoxParam(GetDllHinstance(), MAKEINTRESOURCE(IDD_WATCHPOINT_ENTRY), rootHwnd, staticWatchpointDialogProc, (LPARAM)&procData);
     if (rv) {
         breakpointInfo = procData.breakpointInfo;
         return true;
@@ -401,7 +401,7 @@ bool InputDialogs::showFindTextDialog(const char* caption, char* enteredText) {
     }
 
     FindProcData procData(caption);
-    BOOL rv = DialogBoxParam(GetDllHinstance(), MAKEINTRESOURCE(IDD_FIND), rootHwnd, staticFindDialogProc, (LPARAM)&procData);
+    BOOL rv = (BOOL)DialogBoxParam(GetDllHinstance(), MAKEINTRESOURCE(IDD_FIND), rootHwnd, staticFindDialogProc, (LPARAM)&procData);
     if (rv) {
         strcpy(enteredText, procData.value);
         return true;

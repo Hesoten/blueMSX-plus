@@ -83,11 +83,11 @@ static void CALLBACK TimerProc(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwT
     syncCallback();
 }
 
-static void CALLBACK timerCallback(unsigned int unused1,
-                                   unsigned int unused2,
-                                   unsigned long unused3,
-                                   unsigned long unused4,
-                                   unsigned long unused5)
+static void CALLBACK timerCallback(UINT unused1,
+                                   UINT unused2,
+                                   DWORD_PTR unused3,
+                                   DWORD_PTR unused4,
+                                   DWORD_PTR unused5)
 {
     syncCallback();
 }
@@ -155,7 +155,7 @@ static unsigned long long int rdtsc_queue[RDTSC_MAX_TIMERS][30]={
 };
 
 void rdtsc_end_timer (int timer) {
-	unsigned int a,b,i; 
+	unsigned int i;
 	unsigned long long int c;
 
 #ifdef __GNUC__
@@ -163,7 +163,8 @@ void rdtsc_end_timer (int timer) {
 #elif defined(_WIN64)
 	c = __rdtsc() - last[timer];
 #else
-	__asm { 
+	unsigned int a,b;
+	__asm {
 		rdtsc
 		mov a,edx
 		mov b,eax

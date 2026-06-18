@@ -167,7 +167,7 @@ void StackWindow::invalidateContent()
     updateScroll();
 
     sprintf(lineInfo[lineCount].text, Language::windowStackUnavail);
-    lineInfo[lineCount].textLength = strlen(lineInfo[lineCount].text);
+    lineInfo[lineCount].textLength = (int)strlen(lineInfo[lineCount].text);
     lineInfo[lineCount].dataText[0] = 0;
     lineInfo[lineCount].dataTextLength = 0;
     lineInfo[lineCount].modified = false;
@@ -190,9 +190,9 @@ void StackWindow::updateContent(BYTE* memory, WORD sp)
         WORD newValue = ((int)memory[addr + 1] << 8) | memory[addr];
         WORD oldValue = ((int)backupMemory[addr + 1] << 8) | backupMemory[addr];
         sprintf(lineInfo[lineCount].text, "%.4X: ", addr);
-        lineInfo[lineCount].textLength = strlen(lineInfo[lineCount].text);
+        lineInfo[lineCount].textLength = (int)strlen(lineInfo[lineCount].text);
         sprintf(lineInfo[lineCount].dataText, "%.4X", newValue);
-        lineInfo[lineCount].dataTextLength = strlen(lineInfo[lineCount].dataText);
+        lineInfo[lineCount].dataTextLength = (int)strlen(lineInfo[lineCount].dataText);
         lineInfo[lineCount].address = addr;
         lineInfo[lineCount].modified = newValue != oldValue;
 

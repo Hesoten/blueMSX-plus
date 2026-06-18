@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -69,7 +72,7 @@ UInt8* romLoad(const char *fileName, const char *fileInZipFile, int* size)
 
     buf = malloc(*size);
     
-    *size = fread(buf, 1, *size, file);
+    *size = (int)fread(buf, 1, *size, file);
     fclose(file);
 
     return buf;

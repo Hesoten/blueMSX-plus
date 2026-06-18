@@ -129,7 +129,11 @@ void __stdcall toolSnapshotDestroy(Snapshot* s) {
 }
 
 EmulatorState __stdcall toolGetState() {
-    return dbgGetState();
+    /* DbgState and EmulatorState share the same {STOPPED=0, PAUSED=1,
+       RUNNING=2} numeric mapping by design, but they are distinct enum
+       types -- cast explicitly to silence the implicit-enum-conversion
+       warning and keep the contract obvious. */
+    return (EmulatorState)dbgGetState();
 }
 
 int __stdcall toolSnapshotGetDeviceCount(Snapshot* s)

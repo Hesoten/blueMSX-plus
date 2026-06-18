@@ -533,7 +533,7 @@ void saveDisassembly(HWND hwndOwner)
         return;
     }
 
-    int len = strlen(pFileName);
+    int len = (int)strlen(pFileName);
     if (len < 4 || (pFileName[len - 2] != '.' && pFileName[len - 3] != '.' && pFileName[len - 4] != '.')) {
         strcat(pFileName, ".asm");
     }
@@ -591,7 +591,7 @@ void saveMemory(HWND hwndOwner)
         return; 
     }
 
-    int len = strlen(pFileName);
+    int len = (int)strlen(pFileName);
     if (len < 4 || (pFileName[len - 2] != '.' && pFileName[len - 3] != '.' && pFileName[len - 4] != '.')) {
         strcat(pFileName, ".bin");
     }

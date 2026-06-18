@@ -133,7 +133,7 @@ BOOL Memory::toolDlgProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 
     case HexInputDialog::EC_NEWVALUE:
         if (addressInput == (HexInputDialog*)wParam) {
-            showAddress(lParam);
+            showAddress((int)lParam);
         }
         return FALSE;
     }
@@ -246,7 +246,7 @@ LRESULT Memory::memWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
                         addressInput->setValue(addr, false);
                         currentEditAddress = addr;
                         dataInput1->setPosition(9 + (col + 8 + (3 * memPerRow + 1)) * textWidth, row * textHeight - 2);
-                        char text[2] = { currentMemory->memory[addr] , 0 };
+                        char text[2] = { (char)currentMemory->memory[addr] , 0 };
                         dataInput1->setValue(text);
                         dataInput1->show();
                     }
@@ -434,7 +434,7 @@ void Memory::showEdit(InputDialog* dataInput, DWORD address)
     int col = currentEditAddress % memPerRow;
     int row = currentEditAddress / memPerRow - si.nPos + 1;
 
-    if (row >= si.nPage ) {        
+    if (row >= (int)si.nPage ) {
         scrollWindow(SB_LINEDOWN);
 
         SCROLLINFO si;
@@ -449,7 +449,7 @@ void Memory::showEdit(InputDialog* dataInput, DWORD address)
     if (dataInput == dataInput1) {
         addressInput->setValue(currentEditAddress, false);
         dataInput1->setPosition(9 + (col + 8 + (3 * memPerRow + 1)) * textWidth, row * textHeight - 2);
-        char text[2] = { currentMemory->memory[currentEditAddress], 0 };
+        char text[2] = { (char)currentMemory->memory[currentEditAddress], 0 };
         dataInput1->setValue(text);
         dataInput1->show();
     }
@@ -588,7 +588,7 @@ void Memory::findData(const char* text)
     if (currentMemory == NULL ) {
         return;
     }
-    int len = strlen(text);
+    int len = (int)strlen(text);
     int startAddr = currentEditAddress >= 0 ? currentEditAddress + 1 : 0;
     int endAddr = currentMemory->size - len;
     if (startAddr >= endAddr) {

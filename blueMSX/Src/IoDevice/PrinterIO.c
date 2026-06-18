@@ -39,7 +39,7 @@
 /* After stdio.h: pkg_fopen overrides fopen for UTF-8 paths. */
 #include "PacketFileSystem.h"
 
-typedef struct PrinterIO {
+struct PrinterIO {
     PrinterType type;
     DAC* dac;
     FILE* file;

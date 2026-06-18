@@ -292,7 +292,7 @@ static char* cheatFileDialog(HWND hwndOwner, char* defExt, bool openForSave)
         }
         else {
             char* pos = fileName + strlen(fileName) - strlen(defExt);
-            int  len  = strlen(defExt);
+            int  len  = (int)strlen(defExt);
             while (len--) {
                 if (toupper(pos[len]) != toupper(defExt[len])) {
                     break;

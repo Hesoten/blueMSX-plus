@@ -146,7 +146,7 @@ LRESULT Breakpoints::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
             break;
         case TB_DELETE_BREAKPOINT:
             if (GetEmulatorState() != EMULATOR_STOPPED) {
-                if (selectedLine >= 0 && selectedLine < breakpoints.size()) {
+                if (selectedLine >= 0 && selectedLine < (int)breakpoints.size()) {
                     clearBreakpoint(*breakpoints[selectedLine]);
                 }
             }
@@ -166,7 +166,7 @@ LRESULT Breakpoints::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
             { 
                 LPTOOLTIPTEXT lpttt = (LPTOOLTIPTEXT)lParam; 
                 lpttt->hinst = GetDllHinstance(); 
-                updateTooltip(lpttt->hdr.idFrom, lpttt->szText);
+                updateTooltip((UINT)lpttt->hdr.idFrom, lpttt->szText);
             }
         }
         break;
@@ -226,7 +226,7 @@ LRESULT Breakpoints::breakpointsWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
 
             int row = HIWORD(lParam) / textHeight;
 
-            if (row + si.nPos  >= breakpoints.size()) {
+            if (row + si.nPos  >= (int)breakpoints.size()) {
                 return 0;
             }
 
@@ -397,14 +397,14 @@ void Breakpoints::invalidateContent()
 void Breakpoints::updateContent()
 {
     BreakpointInfo* bi;
-    if (selectedLine >= 0 && selectedLine < breakpoints.size()) {
+    if (selectedLine >= 0 && selectedLine < (int)breakpoints.size()) {
         bi = breakpoints[selectedLine];
     }
 
     selectedLine = -1;
 
     int firstHitIndex = -1;
-    for (int i = 0; i < breakpoints.size(); ++i) {
+    for (int i = 0; i < (int)breakpoints.size(); ++i) {
         if (breakpoints[i]->breakpointHit) {
             firstHitIndex = i;
             break;
@@ -435,7 +435,7 @@ void Breakpoints::updateScroll()
 
     si.fMask     = SIF_PAGE | SIF_POS | SIF_RANGE;
     si.nMin      = 0;
-    si.nMax      = breakpoints.size();
+    si.nMax      = (int)breakpoints.size();
     si.nPage     = visibleLines;
     si.nPos      = 0;
 
@@ -496,10 +496,10 @@ void Breakpoints::drawText(int top, int bottom)
     GetScrollInfo (breakpointsHwnd, SB_VERT, &si);
     int yPos = si.nPos;
     int FirstLine = max (0, yPos + top / textHeight);
-    int LastLine = min (breakpoints.size() - 1, yPos + bottom / textHeight);
+    int LastLine = min ((int)breakpoints.size() - 1, yPos + bottom / textHeight);
 
     for (int i = FirstLine; i <= LastLine; i++) {
-        if (i >= breakpoints.size()) {
+        if (i >= (int)breakpoints.size()) {
             continue;
         }
 
@@ -523,8 +523,8 @@ void Breakpoints::drawText(int top, int bottom)
 
         SetTextColor(hMemdc, i == selectedLine ? colorWhite : colorBlack);
         SelectObject(hMemdc, hFontBold);
-        DrawText(hMemdc, breakpointText, strlen(breakpointText), &r, DT_LEFT);
-        r.left  += strlen(breakpointText) * textWidth;
+        DrawText(hMemdc, breakpointText, (int)strlen(breakpointText), &r, DT_LEFT);
+        r.left  += (int)strlen(breakpointText) * textWidth;
 
         char labelText[64];
         if (strlen(breakpoints[i]->label)) {
@@ -545,7 +545,7 @@ void Breakpoints::drawText(int top, int bottom)
 
         SelectObject(hMemdc, hFont);
         SelectObject(hMemdc, hFontBold);
-        DrawText(hMemdc, breakpointText, strlen(breakpointText), &r, DT_LEFT);
+        DrawText(hMemdc, breakpointText, (int)strlen(breakpointText), &r, DT_LEFT);
     }
 }
 
@@ -698,7 +698,7 @@ int Breakpoints::getEnabledBpCount() {
 }
 
 int Breakpoints::getDisabledBpCount() {
-    return breakpoints.size() - getEnabledBpCount();
+    return (int)breakpoints.size() - getEnabledBpCount();
 }
 
 void Breakpoints::enableAllBreakpoints()

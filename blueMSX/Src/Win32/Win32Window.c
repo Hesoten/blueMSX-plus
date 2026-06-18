@@ -946,8 +946,8 @@ static BOOL_DLG_RET CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, L
 
                 isChanging = 1;
 
-                idx = SendMessage(GetDlgItem(hwnd, IDC_CONTROL), CB_GETCURSEL, 0, 0);
-                rv = SendMessage(GetDlgItem(hwnd, IDC_CONTROL), CB_GETLBTEXT, idx, (LPARAM)sel);
+                idx = (int)SendMessage(GetDlgItem(hwnd, IDC_CONTROL), CB_GETCURSEL, 0, 0);
+                rv = (int)SendMessage(GetDlgItem(hwnd, IDC_CONTROL), CB_GETLBTEXT, idx, (LPARAM)sel);
                 if (rv != CB_ERR) {
                     oi = (DropdownInfo*)windowDataGet(hwnd);
                     SendMessage(GetParent(hwnd), (UINT)oi->notifyId, 0, (LPARAM)sel);
@@ -965,8 +965,8 @@ static BOOL_DLG_RET CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, L
     case WM_OBJECT_GET:
         {
             static char buffer[512];
-            int idx = SendDlgItemMessage(hwnd, IDC_CONTROL, CB_GETCURSEL, 0, 0);
-            int rv = SendDlgItemMessage(hwnd, IDC_CONTROL, CB_GETLBTEXT, idx, (LPARAM)buffer);
+            int idx = (int)SendDlgItemMessage(hwnd, IDC_CONTROL, CB_GETCURSEL, 0, 0);
+            int rv = (int)SendDlgItemMessage(hwnd, IDC_CONTROL, CB_GETLBTEXT, idx, (LPARAM)buffer);
             if (rv != CB_ERR) {
                 SetWindowLongPtr(hwnd, DWLP_MSGRESULT, (LRESULT)(LPVOID)buffer);
                 return TRUE;
@@ -1029,10 +1029,10 @@ static BOOL_DLG_RET CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, L
         }
         break;
     case WM_OBJECT_SHOW:
-        ShowWindow(hwnd, lParam);
+        ShowWindow(hwnd, (int)lParam);
         break;
     case WM_OBJECT_ENABLE:
-        EnableWindow(hwnd, lParam);
+        EnableWindow(hwnd, (BOOL)lParam);
         break;
     }
     return FALSE;
@@ -1144,10 +1144,10 @@ static BOOL_DLG_RET CALLBACK buttonProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
         windowDataSet(hwnd, 0, NULL);
         break;
     case WM_OBJECT_SHOW:
-        ShowWindow(hwnd, lParam);
+        ShowWindow(hwnd, (int)lParam);
         break;
     case WM_OBJECT_ENABLE:
-        EnableWindow(GetDlgItem(hwnd, IDC_CONTROL), lParam);
+        EnableWindow(GetDlgItem(hwnd, IDC_CONTROL), (BOOL)lParam);
         break;
     }
     return FALSE;

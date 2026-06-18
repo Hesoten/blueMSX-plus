@@ -606,7 +606,7 @@ static int scsiDeviceBlueMSX(SCSIDEVICE* scsi)
         if ((cmd & 1) == 0) {
             fileName = stripPath(fileName);
         }
-        length = strlen(fileName);
+        length = (int)strlen(fileName);
         buffer[0] = (UInt8)((length >> 8) & 0xff);
         buffer[1] = (UInt8)(length & 0xff);
         strcpy(buffer + 2, fileName);
@@ -1038,8 +1038,8 @@ void scsiDeviceSaveState(SCSIDEVICE* scsi)
     saveStateSet(state, "message",    scsi->message);
 
     saveStateSetBuffer(state, "cdb", scsi->cdb, 12);
-    saveStateSetBuffer(state, "fileName", scsi->disk.fileName, strlen(scsi->disk.fileName) + 1);
-    saveStateSetBuffer(state, "fileNameInZip", scsi->disk.fileNameInZip, strlen(scsi->disk.fileNameInZip) + 1);
+    saveStateSetBuffer(state, "fileName", scsi->disk.fileName, (int)strlen(scsi->disk.fileName) + 1);
+    saveStateSetBuffer(state, "fileNameInZip", scsi->disk.fileNameInZip, (int)strlen(scsi->disk.fileNameInZip) + 1);
     saveStateClose(state);
 
     if (scsi->deviceType == SDT_CDROM) {

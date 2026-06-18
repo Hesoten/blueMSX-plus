@@ -71,9 +71,9 @@ static INT_PTR CALLBACK aboutDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM
             buildDate[i] = '/';
 
             sprintf(aboutText, "%s\r\n\r\n"
-                                "%s%\t%s\r\n"
-                                "%s%\t%d\r\n"
-                                "%s%\t%s\r\n\r\n"
+                                "%s\t%s\r\n"
+                                "%s\t%d\r\n"
+                                "%s\t%s\r\n\r\n"
                                 "%s\r\n\r\n\r\n"
                                 "%s\r\n\r\n"
                         

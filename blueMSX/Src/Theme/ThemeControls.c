@@ -821,7 +821,7 @@ int activeTextSetText(ActiveText* activeText, const char* string)
         return activeNativeTextSetText(activeText->nativeText, string);
     }
     
-    count = strlen(string);
+    count = (int)strlen(string);
     if (count > activeText->size) {
         count = activeText->size;
     }

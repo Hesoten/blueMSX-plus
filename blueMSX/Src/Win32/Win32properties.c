@@ -396,8 +396,8 @@ static BOOL_DLG_RET CALLBACK emulationDlgProc(HWND hDlg, UINT iMsg, WPARAM wPara
     case WM_COMMAND:
         if (LOWORD(wParam) == IDC_EMUFAMILY) {
             char buffer[64];
-            int idx = SendMessage(GetDlgItem(hDlg, IDC_EMUFAMILY), CB_GETCURSEL, 0, 0);
-            int rv = SendMessage(GetDlgItem(hDlg, IDC_EMUFAMILY), CB_GETLBTEXT, idx, (LPARAM)buffer);
+            int idx = (int)SendMessage(GetDlgItem(hDlg, IDC_EMUFAMILY), CB_GETCURSEL, 0, 0);
+            int rv = (int)SendMessage(GetDlgItem(hDlg, IDC_EMUFAMILY), CB_GETLBTEXT, idx, (LPARAM)buffer);
 
             if (rv != CB_ERR) {
                 if (strcmp(machineName, buffer)) {
@@ -414,7 +414,7 @@ static BOOL_DLG_RET CALLBACK emulationDlgProc(HWND hDlg, UINT iMsg, WPARAM wPara
         }
 
         if (wParam == IDC_EMUSPEED) {
-            curSpeed = SendMessage(GetDlgItem(hDlg, IDC_EMUSPEED), TBM_GETPOS, 0, 0);
+            curSpeed = (int)SendMessage(GetDlgItem(hDlg, IDC_EMUSPEED), TBM_GETPOS, 0, 0);
             SetDlgItemTextU(hDlg, IDC_EMUSPEEDCUR, strEmuSpeed(curSpeed));
             return TRUE;
         }
@@ -440,11 +440,11 @@ static BOOL_DLG_RET CALLBACK emulationDlgProc(HWND hDlg, UINT iMsg, WPARAM wPara
 			machineList = arrayListCreate();
             machineFillAvailable(machineList, 1);
 
-            index = SendDlgItemMessage(hDlg, IDC_OVERSAMPLEMSXMUSIC, CB_GETCURSEL, 0, 0);
+            index = (int)SendDlgItemMessage(hDlg, IDC_OVERSAMPLEMSXMUSIC, CB_GETCURSEL, 0, 0);
             pProperties->sound.chip.ym2413Oversampling = 1 << index;
-            index = SendDlgItemMessage(hDlg, IDC_OVERSAMPLEMSXAUDIO, CB_GETCURSEL, 0, 0);
+            index = (int)SendDlgItemMessage(hDlg, IDC_OVERSAMPLEMSXAUDIO, CB_GETCURSEL, 0, 0);
             pProperties->sound.chip.y8950Oversampling = 1 << index;
-            index = SendDlgItemMessage(hDlg, IDC_OVERSAMPLEMOONSOUND, CB_GETCURSEL, 0, 0);
+            index = (int)SendDlgItemMessage(hDlg, IDC_OVERSAMPLEMOONSOUND, CB_GETCURSEL, 0, 0);
             pProperties->sound.chip.moonsoundOversampling = 1 << index;
 
             index = 0;
@@ -457,7 +457,7 @@ static BOOL_DLG_RET CALLBACK emulationDlgProc(HWND hDlg, UINT iMsg, WPARAM wPara
             pProperties->emulation.audioSwitch = getButtonCheck(hDlg, IDC_EMUAUDIOSWITCH);
             pProperties->emulation.reverseEnable = getButtonCheck(hDlg, IDC_EMUREVERSEPLAY);
 
-            pProperties->emulation.vdpSyncMode = SendMessage(GetDlgItem(hDlg, IDC_VDPFREQ), CB_GETCURSEL, 0, 0);
+            pProperties->emulation.vdpSyncMode = (int)SendMessage(GetDlgItem(hDlg, IDC_VDPFREQ), CB_GETCURSEL, 0, 0);
 
             GetDlgItemTextU(hDlg, IDC_EMUFAMILY, buffer, 63);
             
@@ -607,7 +607,7 @@ static BOOL_DLG_RET CALLBACK filesDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
             return FALSE;
         }
         
-        i = SendMessage(GetDlgItem(hDlg, IDC_SETTINGSROMTYPE), CB_GETCURSEL, 0, 0);
+        i = (int)SendMessage(GetDlgItem(hDlg, IDC_SETTINGSROMTYPE), CB_GETCURSEL, 0, 0);
         if (i != CB_ERR) {
             pProperties->cartridge.defaultType = opendialog_getromtype(i);
         }
@@ -695,8 +695,8 @@ static BOOL_DLG_RET CALLBACK settingsDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam
         case IDC_APEARANCETHEME:
             if (HIWORD(wParam) == CBN_SELCHANGE) {
                 char buffer[128];
-                int idx = SendMessage(GetDlgItem(hDlg, IDC_APEARANCETHEME), CB_GETCURSEL, 0, 0);
-                int rv = SendMessage(GetDlgItem(hDlg, IDC_APEARANCETHEME), CB_GETLBTEXT, idx, (LPARAM)buffer);
+                int idx = (int)SendMessage(GetDlgItem(hDlg, IDC_APEARANCETHEME), CB_GETCURSEL, 0, 0);
+                int rv = (int)SendMessage(GetDlgItem(hDlg, IDC_APEARANCETHEME), CB_GETLBTEXT, idx, (LPARAM)buffer);
 
                 if (rv != CB_ERR) {
                     strcpy(pProperties->settings.themeName, buffer);
@@ -777,7 +777,7 @@ static void updateFullscreenResList(HWND hDlg) {
 static void getFullscreenResList(HWND hDlg, int* width, int* height, int* bitCount) 
 {
     DxDisplayMode* ddm = NULL;
-    int index = SendDlgItemMessage(hDlg, IDC_PERFFULLSCREEN, CB_GETCURSEL, 0, 0);
+    int index = (int)SendDlgItemMessage(hDlg, IDC_PERFFULLSCREEN, CB_GETCURSEL, 0, 0);
 
     if (index >= 0) {
         ddm = DirectDrawGetAvailableDisplayMode(index);
@@ -1055,25 +1055,25 @@ static BOOL_DLG_RET CALLBACK direct3dProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
                 updateEmuWindow();
             }
             if (wParam == IDC_D3D_CROPPING_LEFT) {
-                pProperties->video.d3d.cropLeft = SendMessage(GetDlgItem(hDlg, IDC_D3D_CROPPING_LEFT), TBM_GETPOS, 0, 0);
+                pProperties->video.d3d.cropLeft = (int)SendMessage(GetDlgItem(hDlg, IDC_D3D_CROPPING_LEFT), TBM_GETPOS, 0, 0);
                 sprintf(acBuffer, "%d", pProperties->video.d3d.cropLeft);
                 SetDlgItemTextU(hDlg, IDC_D3D_CROPPING_LEFTVALUETEXT, acBuffer);
                 cropMoved = 1;
             }
             if (wParam == IDC_D3D_CROPPING_RIGHT) {
-                pProperties->video.d3d.cropRight = SendMessage(GetDlgItem(hDlg, IDC_D3D_CROPPING_RIGHT), TBM_GETPOS, 0, 0);
+                pProperties->video.d3d.cropRight = (int)SendMessage(GetDlgItem(hDlg, IDC_D3D_CROPPING_RIGHT), TBM_GETPOS, 0, 0);
                 sprintf(acBuffer, "%d", pProperties->video.d3d.cropRight);
                 SetDlgItemTextU(hDlg, IDC_D3D_CROPPING_RIGHTVALUETEXT, acBuffer);
                 cropMoved = 1;
             }
             if (wParam == IDC_D3D_CROPPING_TOP) {
-                pProperties->video.d3d.cropTop = SendMessage(GetDlgItem(hDlg, IDC_D3D_CROPPING_TOP), TBM_GETPOS, 0, 0);
+                pProperties->video.d3d.cropTop = (int)SendMessage(GetDlgItem(hDlg, IDC_D3D_CROPPING_TOP), TBM_GETPOS, 0, 0);
                 sprintf(acBuffer, "%d", pProperties->video.d3d.cropTop);
                 SetDlgItemTextU(hDlg, IDC_D3D_CROPPING_TOPVALUETEXT, acBuffer);
                 cropMoved = 1;
             }
             if (wParam == IDC_D3D_CROPPING_BOTTOM) {
-                pProperties->video.d3d.cropBottom = SendMessage(GetDlgItem(hDlg, IDC_D3D_CROPPING_BOTTOM), TBM_GETPOS, 0, 0);
+                pProperties->video.d3d.cropBottom = (int)SendMessage(GetDlgItem(hDlg, IDC_D3D_CROPPING_BOTTOM), TBM_GETPOS, 0, 0);
                 sprintf(acBuffer, "%d", pProperties->video.d3d.cropBottom);
                 SetDlgItemTextU(hDlg, IDC_D3D_CROPPING_BOTTOMVALUETEXT, acBuffer);
                 cropMoved = 1;
@@ -1112,13 +1112,13 @@ static BOOL_DLG_RET CALLBACK direct3dProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
         pProperties->video.recordHdr = getButtonCheck(hDlg, IDC_HDRRECORD);
         hdrRefreshLiveState(hDlg, pProperties);
 
-        pProperties->video.d3d.aspectRatioType = SendMessage(GetDlgItem(hDlg, IDC_D3D_ASPECTRATIO), CB_GETCURSEL, 0, 0);
-        pProperties->video.d3d.cropType = SendMessage(GetDlgItem(hDlg, IDC_D3D_CROPPING_TYPE), CB_GETCURSEL, 0, 0);
+        pProperties->video.d3d.aspectRatioType = (int)SendMessage(GetDlgItem(hDlg, IDC_D3D_ASPECTRATIO), CB_GETCURSEL, 0, 0);
+        pProperties->video.d3d.cropType = (int)SendMessage(GetDlgItem(hDlg, IDC_D3D_CROPPING_TYPE), CB_GETCURSEL, 0, 0);
 
-        pProperties->video.d3d.cropBottom = SendMessage(GetDlgItem(hDlg, IDC_D3D_CROPPING_BOTTOM), TBM_GETPOS, 0, 0);
-        pProperties->video.d3d.cropTop = SendMessage(GetDlgItem(hDlg, IDC_D3D_CROPPING_TOP), TBM_GETPOS, 0, 0);
-        pProperties->video.d3d.cropRight = SendMessage(GetDlgItem(hDlg, IDC_D3D_CROPPING_RIGHT), TBM_GETPOS, 0, 0);
-        pProperties->video.d3d.cropLeft = SendMessage(GetDlgItem(hDlg, IDC_D3D_CROPPING_LEFT), TBM_GETPOS, 0, 0);
+        pProperties->video.d3d.cropBottom = (int)SendMessage(GetDlgItem(hDlg, IDC_D3D_CROPPING_BOTTOM), TBM_GETPOS, 0, 0);
+        pProperties->video.d3d.cropTop = (int)SendMessage(GetDlgItem(hDlg, IDC_D3D_CROPPING_TOP), TBM_GETPOS, 0, 0);
+        pProperties->video.d3d.cropRight = (int)SendMessage(GetDlgItem(hDlg, IDC_D3D_CROPPING_RIGHT), TBM_GETPOS, 0, 0);
+        pProperties->video.d3d.cropLeft = (int)SendMessage(GetDlgItem(hDlg, IDC_D3D_CROPPING_LEFT), TBM_GETPOS, 0, 0);
 
         D3DUpdateItems(hDlg, pProperties);
         /* Combobox / checkbox live-preview: nudge the renderer after each
@@ -1577,7 +1577,7 @@ static BOOL_DLG_RET CALLBACK videoSoftwareDlgProc(HWND hDlg, UINT iMsg, WPARAM w
     case WM_NOTIFY:
         switch (wParam) {
         case IDC_SCANLINESSLIDEBAR:
-            pProperties->video.scanlinesPct = 100 - SendMessage(GetDlgItem(hDlg, IDC_SCANLINESSLIDEBAR), TBM_GETPOS, 0, 0);
+            pProperties->video.scanlinesPct = 100 - (int)SendMessage(GetDlgItem(hDlg, IDC_SCANLINESSLIDEBAR), TBM_GETPOS, 0, 0);
             SetDlgItemTextU(hDlg, IDC_SCANLINESVALUE, strPct(100 - pProperties->video.scanlinesPct));
 
             /* Auto-detect preset (or Custom) from the new (depth, shape) pair. */
@@ -1620,7 +1620,7 @@ static BOOL_DLG_RET CALLBACK videoSoftwareDlgProc(HWND hDlg, UINT iMsg, WPARAM w
 
             
         case IDC_COLORGHOSTINGSLIDEBAR:
-            pProperties->video.colorSaturationWidth = SendMessage(GetDlgItem(hDlg, IDC_COLORGHOSTINGSLIDEBAR), TBM_GETPOS, 0, 0);
+            pProperties->video.colorSaturationWidth = (int)SendMessage(GetDlgItem(hDlg, IDC_COLORGHOSTINGSLIDEBAR), TBM_GETPOS, 0, 0);
             SetDlgItemTextU(hDlg, IDC_COLORGHOSTINGVALUE, strPt(pProperties->video.colorSaturationWidth));
 
             videoSetColorSaturation(theVideo, pProperties->video.colorSaturationEnable, pProperties->video.colorSaturationWidth);
@@ -1628,7 +1628,7 @@ static BOOL_DLG_RET CALLBACK videoSoftwareDlgProc(HWND hDlg, UINT iMsg, WPARAM w
             break;
 
         case IDC_MONSATURATIONSLIDE:
-            value = SendMessage(GetDlgItem(hDlg, IDC_MONSATURATIONSLIDE), TBM_GETPOS, 0, 0);
+            value = (int)SendMessage(GetDlgItem(hDlg, IDC_MONSATURATIONSLIDE), TBM_GETPOS, 0, 0);
             if (value != saturation) {
                 saturation = value;
                 SetDlgItemTextU(hDlg, IDC_MONSATURATIONVALUE, strDec(saturation));
@@ -1638,7 +1638,7 @@ static BOOL_DLG_RET CALLBACK videoSoftwareDlgProc(HWND hDlg, UINT iMsg, WPARAM w
             break;
 
         case IDC_MONBRIGHTNESSSLIDE:
-            value = SendMessage(GetDlgItem(hDlg, IDC_MONBRIGHTNESSSLIDE), TBM_GETPOS, 0, 0);
+            value = (int)SendMessage(GetDlgItem(hDlg, IDC_MONBRIGHTNESSSLIDE), TBM_GETPOS, 0, 0);
             if (value != brightness) {
                 brightness = value;
                 SetDlgItemTextU(hDlg, IDC_MONBRIGHTNESSVALUE, strDec(brightness));
@@ -1648,7 +1648,7 @@ static BOOL_DLG_RET CALLBACK videoSoftwareDlgProc(HWND hDlg, UINT iMsg, WPARAM w
             break;
 
         case IDC_MONCONTRASTSLIDE:
-            value = SendMessage(GetDlgItem(hDlg, IDC_MONCONTRASTSLIDE), TBM_GETPOS, 0, 0);
+            value = (int)SendMessage(GetDlgItem(hDlg, IDC_MONCONTRASTSLIDE), TBM_GETPOS, 0, 0);
             if (value != contrast) {
                 contrast = value;
                 SetDlgItemTextU(hDlg, IDC_MONCONTRASTVALUE, strDec(contrast));
@@ -1658,7 +1658,7 @@ static BOOL_DLG_RET CALLBACK videoSoftwareDlgProc(HWND hDlg, UINT iMsg, WPARAM w
             break;
 
         case IDC_MONGAMMASLIDE:
-            value = SendMessage(GetDlgItem(hDlg, IDC_MONGAMMASLIDE), TBM_GETPOS, 0, 0);
+            value = (int)SendMessage(GetDlgItem(hDlg, IDC_MONGAMMASLIDE), TBM_GETPOS, 0, 0);
             if (value != gamma) {
                 gamma = value;
                 SetDlgItemTextU(hDlg, IDC_MONGAMMAVALUE, strDec(gamma));
@@ -1776,8 +1776,8 @@ static BOOL_DLG_RET CALLBACK videoDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
 
 static void getMidiList(HWND hDlg, int id, Properties* pProperties) {
     char buffer[MAX_PATH];
-    int idx = SendDlgItemMessage(hDlg, id, CB_GETCURSEL, 0, 0);
-    int rv = SendDlgItemMessage(hDlg, id, CB_GETLBTEXT, idx, (LPARAM)buffer);
+    int idx = (int)SendDlgItemMessage(hDlg, id, CB_GETCURSEL, 0, 0);
+    int rv = (int)SendDlgItemMessage(hDlg, id, CB_GETLBTEXT, idx, (LPARAM)buffer);
     int*  midiType;
     char* drvName;
     char* drvDesc;
@@ -1888,7 +1888,7 @@ static void updateMidiList(HWND hDlg, int id, Properties* pProperties)
 
 static void getMidiChannelList(HWND hDlg, int id, Properties* pProperties) 
 {
-    int idx = SendDlgItemMessage(hDlg, id, CB_GETCURSEL, 0, 0);
+    int idx = (int)SendDlgItemMessage(hDlg, id, CB_GETCURSEL, 0, 0);
     pProperties->sound.YkIn.channel = idx;
 }
 
@@ -2363,10 +2363,10 @@ static BOOL_DLG_RET CALLBACK midiDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LP
         setButtonCheck(hDlg, IDC_MIDIOUTMT32TOGM, pProperties->sound.MidiOut.mt32ToGm, 1);
 
         {
-            int idx = SendDlgItemMessage(hDlg, IDC_MIDIOUT, CB_GETCURSEL, 0, 0) + 1;
+            int idx = (int)SendDlgItemMessage(hDlg, IDC_MIDIOUT, CB_GETCURSEL, 0, 0) + 1;
             EnableWindow(GetDlgItem(hDlg, IDC_MIDIOUTMT32TOGM), idx >= P_MIDI_HOST);
 
-            idx = SendDlgItemMessage(hDlg, IDC_YKIN, CB_GETCURSEL, 0, 0) + 1;
+            idx = (int)SendDlgItemMessage(hDlg, IDC_YKIN, CB_GETCURSEL, 0, 0) + 1;
             EnableWindow(GetDlgItem(hDlg, IDC_YKINCHANTEXT), idx >= P_MIDI_HOST);
             EnableWindow(GetDlgItem(hDlg, IDC_YKINCHAN),     idx >= P_MIDI_HOST);
         }
@@ -2386,13 +2386,13 @@ static BOOL_DLG_RET CALLBACK midiDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LP
         switch (LOWORD(wParam)) {
         case IDC_MIDIOUT:
             {
-                int idx = SendDlgItemMessage(hDlg, IDC_MIDIOUT, CB_GETCURSEL, 0, 0) + 1;
+                int idx = (int)SendDlgItemMessage(hDlg, IDC_MIDIOUT, CB_GETCURSEL, 0, 0) + 1;
                 EnableWindow(GetDlgItem(hDlg, IDC_MIDIOUTMT32TOGM), idx >= P_MIDI_HOST);
             }
             return TRUE;
         case IDC_YKIN:
             {
-                int idx = SendDlgItemMessage(hDlg, IDC_YKIN, CB_GETCURSEL, 0, 0) + 1;
+                int idx = (int)SendDlgItemMessage(hDlg, IDC_YKIN, CB_GETCURSEL, 0, 0) + 1;
                 EnableWindow(GetDlgItem(hDlg, IDC_YKINCHANTEXT), idx >= P_MIDI_HOST);
                 EnableWindow(GetDlgItem(hDlg, IDC_YKINCHAN),     idx >= P_MIDI_HOST);
             }
@@ -2696,7 +2696,7 @@ static BOOL_DLG_RET CALLBACK diskDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LP
         case IDC_CDROMMETHODLIST:
             if (HIWORD(wParam) == CBN_SELCHANGE) {
                 hMethod = (HWND)lParam;
-                index = SendMessage(hMethod, CB_GETCURSEL, 0, 0);
+                index = (int)SendMessage(hMethod, CB_GETCURSEL, 0, 0);
                 data  = (INT_PTR)SendMessage(hMethod, CB_GETITEMDATA, index, 0);
                 hDrive = GetDlgItem(hDlg, IDC_CDROMDRIVELIST);
                 EnableWindow(hDrive, data > 0);
@@ -2722,9 +2722,9 @@ static BOOL_DLG_RET CALLBACK diskDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LP
             return FALSE;
         }
 
-        index = SendDlgItemMessage(hDlg, IDC_CDROMMETHODLIST, CB_GETCURSEL, 0, 0);
+        index = (int)SendDlgItemMessage(hDlg, IDC_CDROMMETHODLIST, CB_GETCURSEL, 0, 0);
         pProperties->diskdrive.cdromMethod = (int)SendDlgItemMessage(hDlg, IDC_CDROMMETHODLIST, CB_GETITEMDATA, index, 0);
-        index = SendDlgItemMessage(hDlg, IDC_CDROMDRIVELIST, CB_GETCURSEL, 0, 0);
+        index = (int)SendDlgItemMessage(hDlg, IDC_CDROMDRIVELIST, CB_GETCURSEL, 0, 0);
         pProperties->diskdrive.cdromDrive = (int)SendDlgItemMessage(hDlg, IDC_CDROMDRIVELIST, CB_GETITEMDATA, index, 0);
 
         propModified = 1;
@@ -2741,7 +2741,7 @@ static BOOL_DLG_RET CALLBACK diskDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LP
 
 
 static void getPortsLptList(HWND hDlg, int id, Properties* pProperties) {
-    int idx = SendDlgItemMessage(hDlg, id, CB_GETCURSEL, 0, 0);
+    int idx = (int)SendDlgItemMessage(hDlg, id, CB_GETCURSEL, 0, 0);
 
     if (idx < P_LPT_HOST) {
         pProperties->ports.Lpt.type = idx;
@@ -2773,9 +2773,9 @@ static void getPortsLptList(HWND hDlg, int id, Properties* pProperties) {
     pProperties->ports.Lpt.type = P_LPT_HOST;
 }
 
-static void getPortsLptEmulList(HWND hDlg, int id, Properties* pProperties) 
+static void getPortsLptEmulList(HWND hDlg, int id, Properties* pProperties)
 {
-    int idx = SendDlgItemMessage(hDlg, id, CB_GETCURSEL, 0, 0);
+    int idx = (int)SendDlgItemMessage(hDlg, id, CB_GETCURSEL, 0, 0);
 
     if (idx >= 0) {
         pProperties->ports.Lpt.emulation = idx;
@@ -2881,7 +2881,7 @@ static BOOL IsNumeric(LPCTSTR pszString, BOOL bIgnoreColon)
 }
 
 static void getPortsComList(HWND hDlg, int id, Properties* pProperties) {
-    int idx = SendDlgItemMessage(hDlg, id, CB_GETCURSEL, 0, 0);
+    int idx = (int)SendDlgItemMessage(hDlg, id, CB_GETCURSEL, 0, 0);
 
     if (idx < P_COM_HOST) {
         pProperties->ports.Com.type = idx;
@@ -3001,12 +3001,12 @@ static BOOL_DLG_RET CALLBACK portsDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
         updatePortsLptEmulList(hDlg, IDC_LPTEMULATION, pProperties);
 
         {
-            int idx = SendDlgItemMessage(hDlg, IDC_PORTSLPT, CB_GETCURSEL, 0, 0);
+            int idx = (int)SendDlgItemMessage(hDlg, IDC_PORTSLPT, CB_GETCURSEL, 0, 0);
             EnableWindow(GetDlgItem(hDlg, IDC_LPTFILENAMEBROWSE), idx == P_LPT_FILE);
             EnableWindow(GetDlgItem(hDlg, IDC_LPTFILENAME), idx == P_LPT_FILE);
             EnableWindow(GetDlgItem(hDlg, IDC_LPTEMULATION), idx >= P_LPT_HOST);
 
-            idx = SendDlgItemMessage(hDlg, IDC_PORTSCOM1, CB_GETCURSEL, 0, 0);
+            idx = (int)SendDlgItemMessage(hDlg, IDC_PORTSCOM1, CB_GETCURSEL, 0, 0);
             EnableWindow(GetDlgItem(hDlg, IDC_COM1FILENAMEBROWSE), idx == P_COM_FILE);
             EnableWindow(GetDlgItem(hDlg, IDC_COM1FILENAME), idx == P_COM_FILE);
         }
@@ -3067,7 +3067,7 @@ static BOOL_DLG_RET CALLBACK portsDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
         switch(LOWORD(wParam)) {
         case IDC_PORTSLPT:
             {
-                int idx = SendDlgItemMessage(hDlg, IDC_PORTSLPT, CB_GETCURSEL, 0, 0);
+                int idx = (int)SendDlgItemMessage(hDlg, IDC_PORTSLPT, CB_GETCURSEL, 0, 0);
                 EnableWindow(GetDlgItem(hDlg, IDC_LPTFILENAMEBROWSE), idx == P_LPT_FILE);
                 EnableWindow(GetDlgItem(hDlg, IDC_LPTFILENAME), idx == P_LPT_FILE);
                 EnableWindow(GetDlgItem(hDlg, IDC_LPTEMULATION), idx >= P_LPT_HOST);
@@ -3076,7 +3076,7 @@ static BOOL_DLG_RET CALLBACK portsDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
 
         case IDC_PORTSCOM1:
             {
-                int idx = SendDlgItemMessage(hDlg, IDC_PORTSCOM1, CB_GETCURSEL, 0, 0);
+                int idx = (int)SendDlgItemMessage(hDlg, IDC_PORTSCOM1, CB_GETCURSEL, 0, 0);
                 EnableWindow(GetDlgItem(hDlg, IDC_COM1FILENAMEBROWSE), idx == P_COM_FILE);
                 EnableWindow(GetDlgItem(hDlg, IDC_COM1FILENAME), idx == P_COM_FILE);
             }
@@ -3096,7 +3096,7 @@ static BOOL_DLG_RET CALLBACK portsDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
         case IDC_CDROMMETHODLIST:
             if (HIWORD(wParam) == CBN_SELCHANGE) {
                 hMethod = (HWND)lParam;
-                index = SendMessage(hMethod, CB_GETCURSEL, 0, 0);
+                index = (int)SendMessage(hMethod, CB_GETCURSEL, 0, 0);
                 data  = (INT_PTR)SendMessage(hMethod, CB_GETITEMDATA, index, 0);
                 hDrive = GetDlgItem(hDlg, IDC_CDROMDRIVELIST);
                 EnableWindow(hDrive, data > 0);
@@ -3129,9 +3129,9 @@ static BOOL_DLG_RET CALLBACK portsDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
         getPortsComList(hDlg, IDC_PORTSCOM1, pProperties);
         GetWindowTextU(GetDlgItem(hDlg, IDC_COM1FILENAME), pProperties->ports.Com.fileName, MAX_PATH - 1);
 
-        index = SendDlgItemMessage(hDlg, IDC_CDROMMETHODLIST, CB_GETCURSEL, 0, 0);
+        index = (int)SendDlgItemMessage(hDlg, IDC_CDROMMETHODLIST, CB_GETCURSEL, 0, 0);
         pProperties->diskdrive.cdromMethod = (int)SendDlgItemMessage(hDlg, IDC_CDROMMETHODLIST, CB_GETITEMDATA, index, 0);
-        index = SendDlgItemMessage(hDlg, IDC_CDROMDRIVELIST, CB_GETCURSEL, 0, 0);
+        index = (int)SendDlgItemMessage(hDlg, IDC_CDROMDRIVELIST, CB_GETCURSEL, 0, 0);
         pProperties->diskdrive.cdromDrive = (int)SendDlgItemMessage(hDlg, IDC_CDROMDRIVELIST, CB_GETITEMDATA, index, 0);
 
         return TRUE;
@@ -3233,7 +3233,7 @@ int showProperties(Properties* pProperties, HWND hwndOwner, PropPage desiredStar
         psp[curPage].dwSize = sizeof(PROPSHEETPAGEW);
         psp[curPage].dwFlags = PSP_USEICONID | PSP_USETITLE;
         psp[curPage].hInstance = hInst;
-        psp[curPage].pszTemplate = MAKEINTRESOURCE(IDD_EMULATION);
+        psp[curPage].pszTemplate = MAKEINTRESOURCEW(IDD_EMULATION);
         psp[curPage].pszIcon = NULL;
         psp[curPage].pfnDlgProc = emulationDlgProc;
         Utf8ToWide(langPropEmulation(), wTitle[curPage], _countof(wTitle[curPage]));
@@ -3250,7 +3250,7 @@ int showProperties(Properties* pProperties, HWND hwndOwner, PropPage desiredStar
         psp[curPage].dwSize = sizeof(PROPSHEETPAGEW);
         psp[curPage].dwFlags = PSP_USEICONID | PSP_USETITLE;
         psp[curPage].hInstance = hInst;
-        psp[curPage].pszTemplate = MAKEINTRESOURCE(IDD_PERFORMANCE);
+        psp[curPage].pszTemplate = MAKEINTRESOURCEW(IDD_PERFORMANCE);
         psp[curPage].pszIcon = NULL;
         psp[curPage].pfnDlgProc = performanceDlgProc;
         Utf8ToWide(langPropVideo(), wTitle[curPage], _countof(wTitle[curPage]));
@@ -3267,7 +3267,7 @@ int showProperties(Properties* pProperties, HWND hwndOwner, PropPage desiredStar
         psp[curPage].dwSize = sizeof(PROPSHEETPAGEW);
         psp[curPage].dwFlags = PSP_USEICONID | PSP_USETITLE;
         psp[curPage].hInstance = hInst;
-        psp[curPage].pszTemplate = MAKEINTRESOURCE(IDD_VIDEO);
+        psp[curPage].pszTemplate = MAKEINTRESOURCEW(IDD_VIDEO);
         psp[curPage].pszIcon = NULL;
         psp[curPage].pfnDlgProc = videoDlgProc;
         Utf8ToWide(langPropEffects(), wTitle[curPage], _countof(wTitle[curPage]));
@@ -3284,7 +3284,7 @@ int showProperties(Properties* pProperties, HWND hwndOwner, PropPage desiredStar
         psp[curPage].dwSize = sizeof(PROPSHEETPAGEW);
         psp[curPage].dwFlags = PSP_USEICONID | PSP_USETITLE;
         psp[curPage].hInstance = hInst;
-        psp[curPage].pszTemplate = MAKEINTRESOURCE(IDD_SOUND);
+        psp[curPage].pszTemplate = MAKEINTRESOURCEW(IDD_SOUND);
         psp[curPage].pszIcon = NULL;
         psp[curPage].pfnDlgProc = soundDlgProc;
         Utf8ToWide(langPropSound(), wTitle[curPage], _countof(wTitle[curPage]));
@@ -3318,7 +3318,7 @@ int showProperties(Properties* pProperties, HWND hwndOwner, PropPage desiredStar
         psp[curPage].dwSize = sizeof(PROPSHEETPAGEW);
         psp[curPage].dwFlags = PSP_USEICONID | PSP_USETITLE;
         psp[curPage].hInstance = hInst;
-        psp[curPage].pszTemplate = MAKEINTRESOURCE(IDD_PORTS);
+        psp[curPage].pszTemplate = MAKEINTRESOURCEW(IDD_PORTS);
         psp[curPage].pszIcon = NULL;
         psp[curPage].pfnDlgProc = portsDlgProc;
         Utf8ToWide(langPropPorts(), wTitle[curPage], _countof(wTitle[curPage]));
@@ -3335,7 +3335,7 @@ int showProperties(Properties* pProperties, HWND hwndOwner, PropPage desiredStar
         psp[curPage].dwSize = sizeof(PROPSHEETPAGEW);
         psp[curPage].dwFlags = PSP_USEICONID | PSP_USETITLE;
         psp[curPage].hInstance = hInst;
-        psp[curPage].pszTemplate = MAKEINTRESOURCE(IDD_SETTINGS);
+        psp[curPage].pszTemplate = MAKEINTRESOURCEW(IDD_SETTINGS);
         psp[curPage].pszIcon = NULL;
         psp[curPage].pfnDlgProc = filesDlgProc;
         Utf8ToWide(langPropFile(), wTitle[curPage], _countof(wTitle[curPage]));
@@ -3370,7 +3370,7 @@ int showProperties(Properties* pProperties, HWND hwndOwner, PropPage desiredStar
         psp[curPage].dwSize = sizeof(PROPSHEETPAGEW);
         psp[curPage].dwFlags = PSP_USEICONID | PSP_USETITLE;
         psp[curPage].hInstance = hInst;
-        psp[curPage].pszTemplate = MAKEINTRESOURCE(IDD_DISKEMU);
+        psp[curPage].pszTemplate = MAKEINTRESOURCEW(IDD_DISKEMU);
         psp[curPage].pszIcon = NULL;
         psp[curPage].pfnDlgProc = diskDlgProc;
         Utf8ToWide(langPropDisk(), wTitle[curPage], _countof(wTitle[curPage]));
@@ -3388,7 +3388,7 @@ int showProperties(Properties* pProperties, HWND hwndOwner, PropPage desiredStar
         psp[curPage].dwSize = sizeof(PROPSHEETPAGEW);
         psp[curPage].dwFlags = PSP_USEICONID | PSP_USETITLE;
         psp[curPage].hInstance = hInst;
-        psp[curPage].pszTemplate = MAKEINTRESOURCE(IDD_APEARANCE);
+        psp[curPage].pszTemplate = MAKEINTRESOURCEW(IDD_APEARANCE);
         psp[curPage].pszIcon = NULL;
         psp[curPage].pfnDlgProc = settingsDlgProc;
         Utf8ToWide(langPropSettings(), wTitle[curPage], _countof(wTitle[curPage]));

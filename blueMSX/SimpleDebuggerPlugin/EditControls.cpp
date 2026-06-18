@@ -213,7 +213,7 @@ int HexInputDialog::getValue()
 {
     GETTEXTEX t = {63, GT_DEFAULT, CP_ACP, NULL, NULL};
     char text[64];
-    int len = SendDlgItemMessage(hwnd, IDC_ADDRESS, EM_GETTEXTEX, (WPARAM)&t, (LPARAM)text);
+    int len = (int)SendDlgItemMessage(hwnd, IDC_ADDRESS, EM_GETTEXTEX, (WPARAM)&t, (LPARAM)text);
     text[len] = 0;
 
     int address = 0;
@@ -244,7 +244,7 @@ BOOL HexInputDialog::dlgProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
             {
                 GETTEXTEX t = {15, GT_DEFAULT, CP_ACP, NULL, NULL};
                 char text[16];
-                int len = SendDlgItemMessage(hwnd, IDC_ADDRESS, EM_GETTEXTEX, (WPARAM)&t, (LPARAM)text);
+                int len = (int)SendDlgItemMessage(hwnd, IDC_ADDRESS, EM_GETTEXTEX, (WPARAM)&t, (LPARAM)text);
                 text[len] = 0;
                 WORD addr = 0;
                 
@@ -277,15 +277,15 @@ BOOL HexInputDialog::dlgProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
                     switch(keyfilter->msg) { 
                     case WM_CHAR: 
                         GETTEXTLENGTHEX tl = {GTL_DEFAULT, CP_ACP};
-                        int len = SendDlgItemMessage(hwnd, IDC_ADDRESS, EM_GETTEXTLENGTHEX, (WPARAM)&tl, 0);
+                        int len = (int)SendDlgItemMessage(hwnd, IDC_ADDRESS, EM_GETTEXTLENGTHEX, (WPARAM)&tl, 0);
                         if (len == E_INVALIDARG) {
                             len = 0;
                         }
                         
                         char dummyBuf[32];
-                        int selLen = SendDlgItemMessage(hwnd, IDC_ADDRESS, EM_GETSELTEXT, 0, (LPARAM)dummyBuf);
+                        int selLen = (int)SendDlgItemMessage(hwnd, IDC_ADDRESS, EM_GETSELTEXT, 0, (LPARAM)dummyBuf);
 
-                        keyCode = keyfilter->wParam;
+                        keyCode = (int)keyfilter->wParam;
 
                         if (!needReturn) {
                             if ((keyCode >= '0' && keyCode <= '9') ||
@@ -385,8 +385,8 @@ void TextInputDialog::setValue(const char* value, bool setFocus)
 
 const char* TextInputDialog::getValue() 
 {
-    GETTEXTEX t = {chars + 1, GT_DEFAULT, CP_ACP, NULL, NULL};
-    int len = SendDlgItemMessage(hwnd, IDC_ADDRESS, EM_GETTEXTEX, (WPARAM)&t, (LPARAM)text);
+    GETTEXTEX t = {(DWORD)(chars + 1), GT_DEFAULT, CP_ACP, NULL, NULL};
+    int len = (int)SendDlgItemMessage(hwnd, IDC_ADDRESS, EM_GETTEXTEX, (WPARAM)&t, (LPARAM)text);
     text[len] = 0;
 
     return text;
@@ -420,15 +420,15 @@ BOOL TextInputDialog::dlgProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
                     switch(keyfilter->msg) { 
                     case WM_CHAR: 
                         GETTEXTLENGTHEX tl = {GTL_DEFAULT, CP_ACP};
-                        int len = SendDlgItemMessage(hwnd, IDC_ADDRESS, EM_GETTEXTLENGTHEX, (WPARAM)&tl, 0);
+                        int len = (int)SendDlgItemMessage(hwnd, IDC_ADDRESS, EM_GETTEXTLENGTHEX, (WPARAM)&tl, 0);
                         if (len == E_INVALIDARG) {
                             len = 0;
                         }
                         
                         char dummyBuf[32];
-                        int selLen = SendDlgItemMessage(hwnd, IDC_ADDRESS, EM_GETSELTEXT, 0, (LPARAM)dummyBuf);
+                        int selLen = (int)SendDlgItemMessage(hwnd, IDC_ADDRESS, EM_GETSELTEXT, 0, (LPARAM)dummyBuf);
 
-                        keyCode = keyfilter->wParam;
+                        keyCode = (int)keyfilter->wParam;
 
                         if (!needReturn) {
                             text[charCount] = keyCode;

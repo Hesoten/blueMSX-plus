@@ -52,6 +52,12 @@
 #include "JoystickPort.h"
 #include "GameReader.h"
 #include "AppConfig.h"
+
+/* showLoadMemoryDlg is the IDD_LOAD_MEMORY entry point, defined
+   alongside the rest of the Win32 dialog handlers in Win32.c.
+   No header carries it; declare locally so the call site doesn't
+   implicit-declare it as int-returning by coincidence. */
+extern int showLoadMemoryDlg(HWND hwnd);
 #include "IsFileExtension.h"
 #include "ziphelper.h"
 
@@ -681,7 +687,7 @@ static HMENU menuCreateCart(int cartNo, Properties* pProperties, Shortcuts* shor
                 if (firstone==0) {
                     firstone++;
                     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
-                    sprintf(langBuffer, "%hs        \tMSX", getCleanFileName(pProperties->filehistory.cartridge[cartNo][i]), pProperties->filehistory.cartridgeType[cartNo][i]);
+                    sprintf(langBuffer, "%hs        \tMSX", getCleanFileName(pProperties->filehistory.cartridge[cartNo][i]));
                 } else {
                     sprintf(langBuffer, "%hs", getCleanFileName(pProperties->filehistory.cartridge[cartNo][i]));
                 }
@@ -998,13 +1004,13 @@ static HMENU menuCreateHarddisk(Properties* pProperties, Shortcuts* shortcuts)
             break;
         case HD_NOWIND:
             hasHd = 1;
-            sprintf(langBuffer, "Disk 1", i);
+            sprintf(langBuffer, "Disk 1");
             AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 0), pProperties, shortcuts, 0), langBuffer);
-            sprintf(langBuffer, "Disk 2", i);
+            sprintf(langBuffer, "Disk 2");
             AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 1), pProperties, shortcuts, 0), langBuffer);
-            sprintf(langBuffer, "Disk 3", i);
+            sprintf(langBuffer, "Disk 3");
             AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 2), pProperties, shortcuts, 0), langBuffer);
-            sprintf(langBuffer, "Disk 4", i);
+            sprintf(langBuffer, "Disk 4");
             AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 3), pProperties, shortcuts, 0), langBuffer);
             AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
             AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateNowindSettings(pProperties), langPropSettings());

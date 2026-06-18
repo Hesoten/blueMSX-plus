@@ -121,7 +121,7 @@ static void createAboutInfo(char* buffer, int length, unsigned int clk)
                 langAboutScrollThanksTo(),
                 langAboutScrollAndYou());
 
-        len = strlen(text);
+        len = (int)strlen(text);
     }
 
     {
@@ -860,7 +860,7 @@ char* themeTriggerPerfTimerString(int timer) {
     if (emulatorGetState() == EMU_STOPPED || timer >= RDTSC_MAX_TIMERS) {
         return "";
     }
-	sprintf(buffer,"%Ld",rdtsc_get_timer(timer)/(unsigned long long int)20000);
+	sprintf(buffer,"%llu",rdtsc_get_timer(timer)/(unsigned long long int)20000);
     return buffer;
 }
 

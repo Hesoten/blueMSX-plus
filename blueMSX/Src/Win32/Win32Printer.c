@@ -2148,7 +2148,7 @@ void PrintToMSX(BYTE bData)
         *(stPrtRam.abEscSeq)=bData;
         stPrtRam.sizeEscPos=1;
 
-        stPrtRam.uiRemainingCommandBytes=CalcEscSequenceLength(bData);
+        stPrtRam.uiRemainingCommandBytes=(UINT)CalcEscSequenceLength(bData);
 
         if (!stPrtRam.uiRemainingCommandBytes) {
             ProcessEscSequence();

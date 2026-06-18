@@ -206,7 +206,7 @@ void IoPortWindow::updateContent(Snapshot* snapshot)
                 lineInfo[port].portLength = 2;
 
                 sprintf(lineInfo[port].name, ioPorts->name);
-                lineInfo[port].nameLength = strlen(lineInfo[port].name);
+                lineInfo[port].nameLength = (int)strlen(lineInfo[port].name);
 
                 if (ioPorts->port[k].direction == IO_PORT_READ ||
                     ioPorts->port[k].direction == IO_PORT_READWRITE)
@@ -216,10 +216,10 @@ void IoPortWindow::updateContent(Snapshot* snapshot)
                 else {
                     sprintf(lineInfo[port].value, "n/a");
                 }
-                lineInfo[port].valueLength = strlen(lineInfo[port].value);
+                lineInfo[port].valueLength = (int)strlen(lineInfo[port].value);
 
                 strcpy(lineInfo[port].readWrite, readWrite[ioPorts->port[k].direction]);
-                lineInfo[port].readWriteLength = strlen(lineInfo[port].readWrite);
+                lineInfo[port].readWriteLength = (int)strlen(lineInfo[port].readWrite);
             }
         }
     }

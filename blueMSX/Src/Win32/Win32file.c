@@ -591,7 +591,7 @@ static BOOL_DLG_RET CALLBACK saveAsProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
         case IDC_MACHINELIST:
             if (HIWORD(wParam) == 1 || HIWORD(wParam) == 2) {
                 char buffer[64];
-                int index = SendMessage(GetDlgItem(hwnd, IDC_MACHINELIST), LB_GETCURSEL, 0, 0);
+                int index = (int)SendMessage(GetDlgItem(hwnd, IDC_MACHINELIST), LB_GETCURSEL, 0, 0);
                 SendMessage(GetDlgItem(hwnd, IDC_MACHINELIST), LB_GETTEXT, index, (LPARAM)buffer);
                 SetWindowTextU(GetDlgItem(hwnd, IDC_MACHINENAME), buffer);
                 if (HIWORD(wParam) == 2) {
@@ -644,7 +644,7 @@ char* openConfigFile(HWND parent, char* title, char* description,
     sdi->defaultName = defaultName;
     sdi->returnName  = returnName;
 
-    rv = DialogBoxParam(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_CONF_SAVEAS), parent, saveAsProc, (LPARAM)sdi);
+    rv = (int)DialogBoxParam(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_CONF_SAVEAS), parent, saveAsProc, (LPARAM)sdi);
     free(sdi);
 
     return rv ? returnName : NULL;

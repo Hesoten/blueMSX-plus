@@ -96,7 +96,7 @@ static string parseCountryCode(const string& code)
 
 static bool iequals(const string& a, const string& b)
 {
-    unsigned int sz = a.size();
+    unsigned int sz = (unsigned int)a.size();
     if (b.size() != sz)
         return false;
     for (unsigned int i = 0; i < sz; ++i)
@@ -1313,7 +1313,7 @@ extern "C" const char* mediaDbGetPrettyString(MediaType* mediaType)
             for (int i = 0; mediaType->remark[i] != '\r' && mediaType->remark[i] != '\n' && mediaType->remark[i] != '\0'; i++) {
                 remark += mediaType->remark[i];
             }
-            int remarkLength = 35 - mediaType->start.length();
+            int remarkLength = 35 - (int)mediaType->start.length();
             if (remarkLength > 0) {
                 if (remark.length() > 35) {
                     remark = remark.substr(0, 35) + "...";
@@ -1408,7 +1408,7 @@ extern "C" MediaType* mediaDbGuessRom(const void *buffer, int size)
 	}
     
     const char ManbowTag[] = "Mapper: Manbow 2";
-    UInt32 tagLength = strlen(ManbowTag);
+    UInt32 tagLength = (UInt32)strlen(ManbowTag);
     for (i = 0; i < (int)(size - tagLength); i++) {
         if (romData[i] == ManbowTag[0]) {
             if (memcmp(romData + i, ManbowTag, tagLength) == 0) {

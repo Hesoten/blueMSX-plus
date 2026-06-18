@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2007 Daniel Vik, white cat
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -845,8 +848,8 @@ void mb89352SaveState(MB89352* spc)
     saveStateSet(state, "blockCounter", spc->blockCounter);
     saveStateSet(state, "tc",           spc->tc);
     saveStateSet(state, "msgin",        spc->msgin);
-    saveStateSet(state, "pCdb",         spc->pCdb - spc->cdb);
-    saveStateSet(state, "pBuffer",      spc->pBuffer - spc->buffer);
+    saveStateSet(state, "pCdb",         (UInt32)(spc->pCdb - spc->cdb));
+    saveStateSet(state, "pBuffer",      (UInt32)(spc->pBuffer - spc->buffer));
 
     spc->regs[REG_PSNS] |= spc->atn;
 

@@ -100,28 +100,28 @@ int insertCartridge(Properties* properties, int drive, const char* fname, const 
             int sizeSc = 0;
 
             for (i = 0; i < countRom; i++) {
-                sizeRom += strlen(fileListRom + sizeRom) + 1;
+                sizeRom += (int)strlen(fileListRom + sizeRom) + 1;
             }
             for (i = 0; i < countRi; i++) {
-                sizeRi += strlen(fileListRi + sizeRi) + 1;
+                sizeRi += (int)strlen(fileListRi + sizeRi) + 1;
             }
             for (i = 0; i < countMx1; i++) {
-                sizeMx1 += strlen(fileListMx1 + sizeMx1) + 1;
+                sizeMx1 += (int)strlen(fileListMx1 + sizeMx1) + 1;
             }
             for (i = 0; i < countMx2; i++) {
-                sizeMx2 += strlen(fileListMx2 + sizeMx2) + 1;
+                sizeMx2 += (int)strlen(fileListMx2 + sizeMx2) + 1;
             }
             for (i = 0; i < countSms; i++) {
-                sizeSms += strlen(fileListSms + sizeSms) + 1;
+                sizeSms += (int)strlen(fileListSms + sizeSms) + 1;
             }
             for (i = 0; i < countCol; i++) {
-                sizeCol += strlen(fileListCol + sizeCol) + 1;
+                sizeCol += (int)strlen(fileListCol + sizeCol) + 1;
             }
             for (i = 0; i < countSg; i++) {
-                sizeSg += strlen(fileListSg + sizeSg) + 1;
+                sizeSg += (int)strlen(fileListSg + sizeSg) + 1;
             }
             for (i = 0; i < countSc; i++) {
-                sizeSc += strlen(fileListSc + sizeSc) + 1;
+                sizeSc += (int)strlen(fileListSc + sizeSc) + 1;
             }
 
             fileList = malloc(sizeRom + sizeMx1 + sizeMx2 + sizeSms + sizeCol + sizeRi + sizeSg);
@@ -320,22 +320,22 @@ int insertDiskette(Properties* properties, int drive, const char* fname, const c
             int sizeSf7 = 0;
 
             for (i = 0; i < countDsk; i++) {
-                sizeDsk += strlen(fileListDsk + sizeDsk) + 1;
+                sizeDsk += (int)strlen(fileListDsk + sizeDsk) + 1;
             }
             for (i = 0; i < countDi1; i++) {
-                sizeDi1 += strlen(fileListDi1 + sizeDi1) + 1;
+                sizeDi1 += (int)strlen(fileListDi1 + sizeDi1) + 1;
             }
             for (i = 0; i < countDi2; i++) {
-                sizeDi2 += strlen(fileListDi2 + sizeDi2) + 1;
+                sizeDi2 += (int)strlen(fileListDi2 + sizeDi2) + 1;
             }
             for (i = 0; i < count360; i++) {
-                sizeDi2 += strlen(fileList360 + size360) + 1;
+                sizeDi2 += (int)strlen(fileList360 + size360) + 1;
             }
             for (i = 0; i < count720; i++) {
-                size720 += strlen(fileList720 + size720) + 1;
+                size720 += (int)strlen(fileList720 + size720) + 1;
             }
             for (i = 0; i < countSf7; i++) {
-                sizeSf7 += strlen(fileListSf7 + sizeSf7) + 1;
+                sizeSf7 += (int)strlen(fileListSf7 + sizeSf7) + 1;
             }
 
             fileList = malloc(sizeDsk + sizeDi1 + sizeDi2 + size360 + size720 + sizeSf7);
@@ -513,22 +513,22 @@ static int insertDisketteOrCartridge(Properties* properties, int drive, const ch
 
     // First merge different dsk formats into one list
     for (i = 0; i < countDsx; i++) {
-        sizeDsx += strlen(fileListDsx + sizeDsx) + 1;
+        sizeDsx += (int)strlen(fileListDsx + sizeDsx) + 1;
     }
     for (i = 0; i < countDi1; i++) {
-        sizeDi1 += strlen(fileListDi1 + sizeDi1) + 1;
+        sizeDi1 += (int)strlen(fileListDi1 + sizeDi1) + 1;
     }
     for (i = 0; i < countDi2; i++) {
-        sizeDi2 += strlen(fileListDi2 + sizeDi2) + 1;
+        sizeDi2 += (int)strlen(fileListDi2 + sizeDi2) + 1;
     }
     for (i = 0; i < count360; i++) {
-        sizeDi2 += strlen(fileList360 + size360) + 1;
+        sizeDi2 += (int)strlen(fileList360 + size360) + 1;
     }
     for (i = 0; i < count720; i++) {
-        size720 += strlen(fileList720 + size720) + 1;
+        size720 += (int)strlen(fileList720 + size720) + 1;
     }
     for (i = 0; i < countSf7; i++) {
-        sizeSf7 += strlen(fileListSf7 + sizeSf7) + 1;
+        sizeSf7 += (int)strlen(fileListSf7 + sizeSf7) + 1;
     }
 
     if (countDsk > 0) {
@@ -543,28 +543,28 @@ static int insertDisketteOrCartridge(Properties* properties, int drive, const ch
 
     // Then merge different dsk formats into one list
     for (i = 0; i < countRox; i++) {
-        sizeRox += strlen(fileListRox + sizeRox) + 1;
+        sizeRox += (int)strlen(fileListRox + sizeRox) + 1;
     }
     for (i = 0; i < countRi; i++) {
-        sizeRi += strlen(fileListRi + sizeRi) + 1;
+        sizeRi += (int)strlen(fileListRi + sizeRi) + 1;
     }
     for (i = 0; i < countMx1; i++) {
-        sizeMx1 += strlen(fileListMx1 + sizeMx1) + 1;
+        sizeMx1 += (int)strlen(fileListMx1 + sizeMx1) + 1;
     }
     for (i = 0; i < countMx2; i++) {
-        sizeMx2 += strlen(fileListMx2 + sizeMx2) + 1;
+        sizeMx2 += (int)strlen(fileListMx2 + sizeMx2) + 1;
     }
     for (i = 0; i < countSms; i++) {
-        sizeSms += strlen(fileListSms + sizeSms) + 1;
+        sizeSms += (int)strlen(fileListSms + sizeSms) + 1;
     }
     for (i = 0; i < countCol; i++) {
-        sizeCol += strlen(fileListCol + sizeCol) + 1;
+        sizeCol += (int)strlen(fileListCol + sizeCol) + 1;
     }
     for (i = 0; i < countSg; i++) {
-        sizeSg += strlen(fileListSg + sizeSg) + 1;
+        sizeSg += (int)strlen(fileListSg + sizeSg) + 1;
     }
     for (i = 0; i < countSc; i++) {
-        sizeSc += strlen(fileListSc + sizeSc) + 1;
+        sizeSc += (int)strlen(fileListSc + sizeSc) + 1;
     }
 
     if (countRom > 0) {
@@ -600,15 +600,15 @@ static int insertDisketteOrCartridge(Properties* properties, int drive, const ch
     }
 
     for (i = 0; i < countRom; i++) {
-        sizeRom += strlen(fileListRom + sizeRom) + 1;
+        sizeRom += (int)strlen(fileListRom + sizeRom) + 1;
     }
 
     for (i = 0; i < countDsk; i++) {
-        sizeDsk += strlen(fileListDsk + sizeDsk) + 1;
+        sizeDsk += (int)strlen(fileListDsk + sizeDsk) + 1;
     }
 
     for (i = 0; i < countCas; i++) {
-        sizeCas += strlen(fileListCas + sizeCas) + 1;
+        sizeCas += (int)strlen(fileListCas + sizeCas) + 1;
     }
 
     fileList = malloc(sizeDsk + sizeRom + sizeCas);

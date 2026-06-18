@@ -166,8 +166,9 @@ extern "C" int vtXpathGetInt(VtXpath* xpath, int numLevels, const char* first, .
 {
     PathVector pathVector;
     va_list marker;
-    va_start(marker, numLevels);
-    createPathVector(pathVector, marker, numLevels);
+    va_start(marker, first);
+    pathVector.push_back(std::string(first));
+    createPathVector(pathVector, marker, numLevels - 1);
     va_end(marker);
 
     const char* strValue = vtXpathGetStringFromPath(xpath, pathVector);
@@ -186,8 +187,9 @@ extern "C" const char* vtXpathGetString(VtXpath* xpath, int numLevels, const cha
 {
     PathVector pathVector;
     va_list marker;
-    va_start(marker, numLevels);
-    createPathVector(pathVector, marker, numLevels);
+    va_start(marker, first);
+    pathVector.push_back(std::string(first));
+    createPathVector(pathVector, marker, numLevels - 1);
     va_end(marker);
 
     return vtXpathGetStringFromPath(xpath, pathVector);
@@ -197,8 +199,9 @@ extern "C" void vtXpathSetInt(VtXpath* xpath, int value, int numLevels, const ch
 {
     PathVector pathVector;
     va_list marker;
-    va_start(marker, numLevels);
-    createPathVector(pathVector, marker, numLevels);
+    va_start(marker, first);
+    pathVector.push_back(std::string(first));
+    createPathVector(pathVector, marker, numLevels - 1);
     va_end(marker);
 
     char buf[16];
@@ -211,8 +214,9 @@ extern "C" void vtXpathSetString(VtXpath* xpath, const char* value, int numLevel
 {
     PathVector pathVector;
     va_list marker;
-    va_start(marker, numLevels);
-    createPathVector(pathVector, marker, numLevels);
+    va_start(marker, first);
+    pathVector.push_back(std::string(first));
+    createPathVector(pathVector, marker, numLevels - 1);
     va_end(marker);
 
     vtXpathSetStringFromPath(xpath, pathVector, value);

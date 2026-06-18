@@ -375,7 +375,7 @@ int Disassembly::dasm(SymbolInfo* symbolInfo, const UInt8* memory, UInt16 PC, ch
             }
             return 1;
 		case ' ': {
-			int k = strlen(dest);
+			int k = (int)strlen(dest);
             if (k < 6) {
                 k = 7 - k;
             }
@@ -396,7 +396,7 @@ int Disassembly::dasm(SymbolInfo* symbolInfo, const UInt8* memory, UInt16 PC, ch
 		}
 	}
 	
-    k = strlen(dest);
+    k = (int)strlen(dest);
     if (k < 17) {
         k = 18 - k;
     }
@@ -615,7 +615,7 @@ void Disassembly::invalidateContent()
     updateScroll();
 
     sprintf(lineInfo[lineCount].addr, Language::windowDisassemblyUnavail);
-    lineInfo[lineCount].addrLength = strlen(lineInfo[lineCount].addr);
+    lineInfo[lineCount].addrLength = (int)strlen(lineInfo[lineCount].addr);
     lineInfo[lineCount].haspc = 0;
     lineInfo[lineCount].text[0] = 0;
     lineInfo[lineCount].textLength = 0;
@@ -679,7 +679,7 @@ void Disassembly::updateContent(BYTE* memory, WORD pc)
             lineInfo[lineCount].addr[0] = 0;
             lineInfo[lineCount].addrLength = 0;
             sprintf(lineInfo[lineCount].text, "%s:", symbolName);
-            lineInfo[lineCount].textLength = strlen(lineInfo[lineCount].text);
+            lineInfo[lineCount].textLength = (int)strlen(lineInfo[lineCount].text);
             lineInfo[lineCount].address = addr;
             lineInfo[lineCount].haspc = 0;
             lineInfo[lineCount].isLabel = 1;
@@ -687,9 +687,9 @@ void Disassembly::updateContent(BYTE* memory, WORD pc)
         }
 
         sprintf(lineInfo[lineCount].addr, "%.4X:", addr);
-        lineInfo[lineCount].addrLength = strlen(lineInfo[lineCount].addr);
+        lineInfo[lineCount].addrLength = (int)strlen(lineInfo[lineCount].addr);
         int len = dasm(symbolInfo, memory, addr, lineInfo[lineCount].text);
-        lineInfo[lineCount].textLength = strlen(lineInfo[lineCount].text);
+        lineInfo[lineCount].textLength = (int)strlen(lineInfo[lineCount].text);
         lineInfo[lineCount].address = addr;
         lineInfo[lineCount].haspc = addr == pc;
 
@@ -748,7 +748,7 @@ void Disassembly::updateContent(BYTE* memory, WORD pc)
             lineInfo[lineCount].addr[0] = 0;
             lineInfo[lineCount].addrLength = 0;
             sprintf(lineInfo[lineCount].text, "%s:", symbolName);
-            lineInfo[lineCount].textLength = strlen(lineInfo[lineCount].text);
+            lineInfo[lineCount].textLength = (int)strlen(lineInfo[lineCount].text);
             lineInfo[lineCount].address = addr;
             lineInfo[lineCount].haspc = 0;
             lineInfo[lineCount].isLabel = 1;
@@ -756,9 +756,9 @@ void Disassembly::updateContent(BYTE* memory, WORD pc)
         }
 
         sprintf(lineInfo[lineCount].addr, "%.4X:", addr);
-        lineInfo[lineCount].addrLength = strlen(lineInfo[lineCount].addr);
+        lineInfo[lineCount].addrLength = (int)strlen(lineInfo[lineCount].addr);
         int len = dasm(symbolInfo, memory, addr, lineInfo[lineCount].text);
-        lineInfo[lineCount].textLength = strlen(lineInfo[lineCount].text);
+        lineInfo[lineCount].textLength = (int)strlen(lineInfo[lineCount].text);
         lineInfo[lineCount].address = addr;
         lineInfo[lineCount].haspc = addr == pc;
 

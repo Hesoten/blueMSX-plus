@@ -116,7 +116,7 @@ void StatusBar::updatePosition()
     RECT cr;
     GetClientRect(GetParent(hwnd), &cr);
 
-    int segments = fieldWidth.size();
+    int segments = (int)fieldWidth.size();
     int parts[64];
 
     parts[segments - 1] = cr.right;

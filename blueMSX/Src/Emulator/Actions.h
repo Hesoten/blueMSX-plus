@@ -61,6 +61,7 @@ void actionLoadState();
 void actionSaveState();
 void actionQuickLoadState();
 void actionQuickSaveState();
+void actionQuickSaveStateUndo();
 void actionCartInsert1();
 void actionCartInsert2();
 void actionEmuTogglePause();

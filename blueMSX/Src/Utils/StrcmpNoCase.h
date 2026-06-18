@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -29,5 +32,14 @@
 #define STRCMP_NO_CASE_H
 
 int strcmpnocase(const char* str1, const char* str2);
+
+#ifdef WIN32
+/* POSIX strcasestr is provided as a fallback in Board/Machine.c on
+   Windows.  Returns a pointer to the first case-insensitive occurrence
+   of str2 inside str1, or NULL.  Declared here so callers don't
+   implicit-declare it as int-returning (the x64 compiler would then
+   truncate the returned pointer). */
+char *strcasestr(const char *str1, const char *str2);
+#endif
 
 #endif

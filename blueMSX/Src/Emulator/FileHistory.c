@@ -234,7 +234,7 @@ char* fileGetNext(char* filename, char* zipFile) {
 
     strcpy(name, filename);
 
-    pos = strlen(name) - 5;
+    pos = (int)strlen(name) - 5;
 
     if (pos < 0) {
         return name;
@@ -262,7 +262,7 @@ char* fileGetNext(char* filename, char* zipFile) {
         pos--;
     }
 
-    pos = strlen(name) - 5;
+    pos = (int)strlen(name) - 5;
     c = name[pos];
 
     if (c >= 'A' && c <= 'Z') {
@@ -518,7 +518,7 @@ int createSaveFileBaseName(char* fileBase,Properties* properties, int useExtende
         return 0;
     }
 
-    return strlen(fileBase);
+    return (int)strlen(fileBase);
 }
 
 
@@ -540,7 +540,7 @@ char* generateSaveFilename(Properties* properties, char* directory, char* prefix
     static char filename[512];
     char baseName[128];
     int fileIndex = 0;
-    int extensionLen = strlen(extension);
+    int extensionLen = (int)strlen(extension);
     int i;
     int numMod = 1;
     /* Use the platform-native separator so composed paths don't mix slashes. */
@@ -576,7 +576,7 @@ char* generateSaveFilename(Properties* properties, char* directory, char* prefix
 		        strcpy(lastfile, glob->pathVector[i]);
             }
 
-            filenameLen = strlen(lastfile);
+            filenameLen = (int)strlen(lastfile);
 
             if (filenameLen > extensionLen + digits) {
                 lastfile[filenameLen - extensionLen] = 0;
@@ -600,7 +600,7 @@ char* generateSaveFilename(Properties* properties, char* directory, char* prefix
     static char filename[512];
     char baseName[128];
     int fileIndex = 0;
-    int extensionLen = strlen(extension);
+    int extensionLen = (int)strlen(extension);
     int i;
     int numMod = 1;
     char filenameFormat[32] = "%s" DIR_SEPARATOR "%s%s_";

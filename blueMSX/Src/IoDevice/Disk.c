@@ -762,7 +762,7 @@ static void diskReadHdIdentifySector(int driveId, UInt8* buffer)
 static void diskHdUpdateInfo(int driveId)
 {
     sectorSize[driveId]      = 512;
-    sectorsPerTrack[driveId] = fileSize[driveId] / 512;
+    sectorsPerTrack[driveId] = (int)(fileSize[driveId] / 512);
     tracks[driveId]          = 1;
     changed[driveId]         = 1;
     sides[driveId]           = 1;

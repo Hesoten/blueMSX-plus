@@ -407,7 +407,7 @@ static PBITMAPINFO CreateBitmapInfoStructure(HBITMAP hBmp)
     // datastructures.
     //
     if( cClrBits < 24 )
-        pbmi = ( PBITMAPINFO ) LocalAlloc( LPTR, sizeof( BITMAPINFOHEADER ) + sizeof( RGBQUAD ) * ( 1 << cClrBits ) );
+        pbmi = ( PBITMAPINFO ) LocalAlloc( LPTR, sizeof( BITMAPINFOHEADER ) + sizeof( RGBQUAD ) * ( (SIZE_T)1 << cClrBits ) );
     else
         pbmi = ( PBITMAPINFO ) LocalAlloc( LPTR, sizeof( BITMAPINFOHEADER ) );
 

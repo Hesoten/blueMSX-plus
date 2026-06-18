@@ -710,7 +710,7 @@ char* zipGetFileList(const char* zipName, const char* ext, int* count) {
 
         toLower(tmp);
         if (strstr(tmp, extension) != NULL) {
-            int entryLen = strlen(tempName) + 1;
+            int entryLen = (int)strlen(tempName) + 1;
             fileArray = realloc(fileArray, totalLen +  entryLen + 1);
             strcpy(fileArray + totalLen, tempName);
             totalLen += entryLen;

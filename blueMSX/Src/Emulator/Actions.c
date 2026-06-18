@@ -700,8 +700,8 @@ void actionQuickSaveStateUndo() {
         if (state.properties->filehistory.quicksave && strlen(state.properties->filehistory.quicksave) > 10) {
             char numstr[5], *oldstatefilename;
             int numstrtonum;
-            int qslen=strlen(state.properties->filehistory.quicksave)-6; // focus on the 2 numbers before the ext
-            oldstatefilename = strdup(state.properties->filehistory.quicksave);
+            int qslen=(int)strlen(state.properties->filehistory.quicksave)-6; // focus on the 2 numbers before the ext
+            oldstatefilename = _strdup(state.properties->filehistory.quicksave);
             memset(&numstr, 0, sizeof(numstr));
             strncpy(numstr, state.properties->filehistory.quicksave+qslen, 2);
             numstrtonum = atoi(numstr);

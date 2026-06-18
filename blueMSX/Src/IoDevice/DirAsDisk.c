@@ -939,7 +939,7 @@ static int add_single_file_svi(int diskType, char *name, const char *pathname)
     do {
         memset(&fileBuf, 0x00, sizeof(fileBuf));
 
-        bytesRead = fread(fileBuf, 1, sizeof(fileBuf), fpImport);
+        bytesRead = (int)fread(fileBuf, 1, sizeof(fileBuf), fpImport);
         fileDone = (bytesRead != sizeof(fileBuf));
 
         track = fatCounter;
@@ -1111,7 +1111,7 @@ static int add_single_file_cpm(int diskType, char *name, const char *pathname)
         dskDataOffset = (dirOffset + (alBlockNo * dpbBLS)) + trackOffset;
 //        dskDataOffset = dirOffset + (alBlockNo * dpbBLS);
 
-        fileRead = fread(fileBuf, 1, dpbBLS, fpImport);
+        fileRead = (int)fread(fileBuf, 1, dpbBLS, fpImport);
         fileDone = (fileRead != dpbBLS);
 
         memcpy(&dskimage[dskDataOffset], &fileBuf, dpbBLS);

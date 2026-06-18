@@ -490,7 +490,7 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
                 int i;
 
                 strcpy(eepromName, cart);
-                for (i = strlen(eepromName); i > 0 && eepromName[i] != '.'; i--);
+                for (i = (int)strlen(eepromName); i > 0 && eepromName[i] != '.'; i--);
                 eepromName[i] = 0;
                 strcat(eepromName, "_eeprom.rom");
                     
@@ -560,7 +560,7 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
                 int i;
 
                 strcpy(voiceName, cart);
-                for (i = strlen(voiceName); i > 0 && voiceName[i] != '.'; i--);
+                for (i = (int)strlen(voiceName); i > 0 && voiceName[i] != '.'; i--);
                 voiceName[i] = 0;
                 strcat(voiceName, "_voice.rom");
                     
@@ -797,7 +797,7 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
                 int i;
 
                 strcpy(charName, cart);
-                for (i = strlen(charName); i > 0 && charName[i] != '.'; i--);
+                for (i = (int)strlen(charName); i > 0 && charName[i] != '.'; i--);
                 charName[i] = 0;
                 strcat(charName, "_char.rom");
                     

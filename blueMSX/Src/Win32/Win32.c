@@ -76,6 +76,7 @@
 #include "Win32FileDialog.h"
 #include "Win32TextUtf8.h"
 #include "ArchMenu.h"
+#include "StrcmpNoCase.h"
 #include "Win32Eth.h"
 #include "Win32VideoIn.h"
 #include "Win32ScreenShot.h"
@@ -1450,7 +1451,7 @@ static BOOL_DLG_RET CALLBACK dskZipDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
         switch(LOWORD(wParam)) {
         case IDC_OPEN_ROMTYPE:
             if (HIWORD(wParam) == 1 || HIWORD(wParam) == 2) {
-                int idx = SendMessage(GetDlgItem(hDlg, IDC_OPEN_ROMTYPE), CB_GETCURSEL, 0, 0);
+                int idx = (int)SendMessage(GetDlgItem(hDlg, IDC_OPEN_ROMTYPE), CB_GETCURSEL, 0, 0);
 
                 dlgInfo->openRomType = idx == CB_ERR ? -1 : opendialog_getromtype(idx);
             }
@@ -3003,7 +3004,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             char fileName[512];
             FILE* file = fopen(LAUNCH_TEMP_FILE, "r");
             if (file != NULL) {
-                int size = fread(fileName, 1, 512, file);
+                int size = (int)fread(fileName, 1, 512, file);
                 fclose(file);
                 if (size > 0) {
                     char* argument;
@@ -5717,7 +5718,7 @@ int showLoadMemoryDlg(HWND hwnd)
 {
     int rv;
 
-    rv = DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_LOAD_MEMORY), hwnd, loadMemorProc);
+    rv = (int)DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_LOAD_MEMORY), hwnd, loadMemorProc);
     if (!rv) {
         return 0;
     }

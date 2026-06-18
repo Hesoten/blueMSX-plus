@@ -294,7 +294,7 @@ int r800Dasm(R800* r800, UInt16 PC, char* dest)
 			sprintf(dest, "db     #%02x,#CB,#%02x", val0, val2);
 			return 2;
 		case ' ': {
-			int k = strlen(dest);
+			int k = (int)strlen(dest);
             if (k < 6) {
                 k = 7 - k;
             }
@@ -315,7 +315,7 @@ int r800Dasm(R800* r800, UInt16 PC, char* dest)
 		}
 	}
 	
-    k = strlen(dest);
+    k = (int)strlen(dest);
     if (k < 17) {
         k = 18 - k;
     }
