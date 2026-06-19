@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -26,8 +29,7 @@
 ******************************************************************************
 */
 #include "YM2413.h"
-#include "OpenMsxYM2413.h"
-#include "OpenMsxYM2413_2.h"
+#include "Ym2413MultiBackend.h"
 #include <cstring>
 extern "C" {
 #include "Board.h"
@@ -36,6 +38,7 @@ extern "C" {
 #include "MediaDb.h"
 #include "DeviceManager.h"
 #include "Language.h"
+#include "Properties.h"
 }
 
 
@@ -43,12 +46,12 @@ extern "C" {
  
 struct YM_2413 {
     YM_2413() : address(0) {
-        if (0) {
-             ym2413 = new OpenYM2413("ym2413", 100, 0);
-        }
-        else {
-             ym2413 = new OpenYM2413_2("ym2413", 100, 0);
-        }
+        /* Active backend selection persists across sessions via
+        ** Properties; the multi-backend ctor clamps it to an enabled
+        ** slot. */
+        Properties* p = propGetGlobalProperties();
+        if (p) ym2413BackendActiveSet(p->sound.chip.ym2413BackendActive);
+        ym2413 = new Ym2413MultiBackend(100);
         memset(defaultBuffer, 0, sizeof(defaultBuffer));
     }
 
@@ -84,6 +87,14 @@ void ym2413LoadState(YM_2413* ref)
 {
     YM_2413* ym2413 = (YM_2413*)ref;
     SaveState* state = saveStateOpenForRead("msxmusic");
+
+    /* Save was made with YM2413 disabled but it is enabled now: skip
+    ** the load to avoid the same timer corruption fixed in
+    ** y8950LoadState. */
+    if (saveStateIsEmpty(state)) {
+        saveStateClose(state);
+        return;
+    }
 
     saveStateGetBuffer(state, "regs", ym2413->registers, 256);
 

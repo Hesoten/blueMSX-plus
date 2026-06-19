@@ -1398,9 +1398,10 @@ int* OpenYM2413::updateBuffer(int length)
 		    }
 		    advance();
         }
-        
-//		*(buf++) = (output << 5) / oplOversampling;
-		*(buf++) = filter((output << 5) / oplOversampling);
+        /* Divisor 1280 RMS-equalises this backend to OpenYM2413_2.
+        ** Divide by oplOversampling first so the int32 product stays in
+        ** range (worst case 18423 * 29490 = 5.4e8, fits). */
+		*(buf++) = filter(((output / oplOversampling) * maxVolume) / 1280);
 	}
 	checkMute();
 	return buffer;

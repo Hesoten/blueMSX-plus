@@ -972,6 +972,19 @@ static BoardType boardLoadState(void)
 
     di->video.vdpSyncMode = saveStateGet(state, "vdpSyncMode", 0);
 
+    /* Sound chip enable flags: must be applied before machineCreate so
+    ** each cartridge mapper sees the loaded value.  Sentinel 0xFFFFFFFF
+    ** preserves Properties when loading a pre-flag .sta. */
+    {
+        UInt32 v;
+        v = saveStateGet(state, "enableYm2413",    0xFFFFFFFFu);
+        if (v != 0xFFFFFFFFu) boardSetYm2413Enable((int)v);
+        v = saveStateGet(state, "enableY8950",     0xFFFFFFFFu);
+        if (v != 0xFFFFFFFFu) boardSetY8950Enable((int)v);
+        v = saveStateGet(state, "enableMoonsound", 0xFFFFFFFFu);
+        if (v != 0xFFFFFFFFu) boardSetMoonsoundEnable((int)v);
+    }
+
     saveStateClose(state);
 
     videoManagerLoadState();
@@ -1041,6 +1054,12 @@ void boardSaveState(const char* stateFile, int screenshot)
     saveStateSetBuffer(state, "casInZip", di->tapes[0].inZipName, strlen(di->tapes[0].inZipName) + 1);
 
     saveStateSet(state, "vdpSyncMode",   di->video.vdpSyncMode);
+
+    /* Persist sound chip enable flags so a reload restores the same
+    ** audio configuration regardless of current Properties values. */
+    saveStateSet(state, "enableYm2413",    boardGetYm2413Enable());
+    saveStateSet(state, "enableY8950",     boardGetY8950Enable());
+    saveStateSet(state, "enableMoonsound", boardGetMoonsoundEnable());
 
     saveStateClose(state);
 

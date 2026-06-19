@@ -331,6 +331,13 @@ typedef struct {
     int pan;
 } MixerChannel;
 
+/* YM2413 backend slot indices, matching Ym2413MultiBackend.cpp.  The
+** openmsx (initial) slot is dead-coded unless YM2413_BUILD_OPENMSX_INITIAL
+** is defined. */
+#define PROP_YM2413_BACKEND_OPENMSX   0
+#define PROP_YM2413_BACKEND_OPENMSX_2 1
+#define PROP_YM2413_BACKEND_COUNT     2
+
 typedef struct {
     int enableY8950;
     int enableYM2413;
@@ -339,6 +346,12 @@ typedef struct {
     int ym2413Oversampling;
     int y8950Oversampling;
     int moonsoundOversampling;
+    /* Per-backend enable flag = 1 means the backend is instantiated and
+    ** appears in the cycle / dropdown.  Disabled backends stay NULL and
+    ** consume zero CPU. */
+    int ym2413BackendOpenmsxEnabled;   /* dead-coded; always 0 unless YM2413_BUILD_OPENMSX_INITIAL */
+    int ym2413BackendOpenmsx2Enabled;
+    int ym2413BackendActive;            /* PROP_YM2413_BACKEND_* */
 } SoundChip;
 
 typedef struct {

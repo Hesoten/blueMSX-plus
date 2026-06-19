@@ -42,6 +42,7 @@
 #include "InputEvent.h"
 #include "VideoManager.h"
 #include "VDP.h"
+#include "../SoundChips/YM2413.h"
 
 #include "ArchMenu.h"
 #include "ArchDialog.h"
@@ -367,6 +368,14 @@ void actionVideoCaptureSave() {
     if (boardCaptureHasData()) {
         archVideoCaptureSave();
     }
+}
+
+void actionYm2413BackendCycle(void) {
+    /* Walk to the next enabled backend and persist so the chip starts on
+    ** the same backend after restart. */
+    Properties* p = propGetGlobalProperties();
+    int next = ym2413BackendCycle();
+    if (p) p->sound.chip.ym2413BackendActive = next;
 }
 
 void actionVideoCaptureStop() {

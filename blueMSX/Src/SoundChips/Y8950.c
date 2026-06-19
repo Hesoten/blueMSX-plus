@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -294,6 +297,15 @@ void y8950SaveState(Y8950* y8950)
 void y8950LoadState(Y8950* y8950)
 {
     SaveState* state = saveStateOpenForRead("msxaudio1");
+
+    /* Save was made with the chip disabled but it is enabled now: skip
+    ** the load to keep the freshly-reset state.  Loading default zeros
+    ** over the calibrated tables livelocks the emu thread once the CPU
+    ** writes the timer-enable register. */
+    if (saveStateIsEmpty(state)) {
+        saveStateClose(state);
+        return;
+    }
 
     y8950->address       = (UInt8)saveStateGet(state, "address",       0);
     y8950->timerValue1   =        saveStateGet(state, "timerValue1",   0);

@@ -161,6 +161,7 @@ void actionVideoCaptureLoad();
 void actionVideoCapturePlay();
 void actionVideoCaptureRec();
 void actionVideoCaptureStop();
+void actionYm2413BackendCycle(void);
 void actionVideoCaptureSave();
 void actionMaxSpeedToggle();
 void actionFullscreenToggle();

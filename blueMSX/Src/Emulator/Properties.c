@@ -335,9 +335,17 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->sound.chip.enableMoonsound = 1;
     properties->sound.chip.moonsoundSRAMSize = 640;
     
-    properties->sound.chip.ym2413Oversampling = 1;
-    properties->sound.chip.y8950Oversampling = 1;
-    properties->sound.chip.moonsoundOversampling = 1;
+    /* FM oversampling default 2x reduces alias at high tones; existing
+    ** INIs keep their saved value. */
+    properties->sound.chip.ym2413Oversampling = 2;
+    properties->sound.chip.y8950Oversampling = 2;
+    properties->sound.chip.moonsoundOversampling = 2;
+
+    /* YM2413: openmsx_2 (historical default) on; openmsx (initial) is
+    ** dead-coded. */
+    properties->sound.chip.ym2413BackendOpenmsxEnabled    = 0;
+    properties->sound.chip.ym2413BackendOpenmsx2Enabled   = 1;
+    properties->sound.chip.ym2413BackendActive            = PROP_YM2413_BACKEND_OPENMSX_2;
 
     properties->sound.mixerChannel[MIXER_CHANNEL_PSG].enable = 1;
     properties->sound.mixerChannel[MIXER_CHANNEL_PSG].pan = 40;
@@ -651,6 +659,13 @@ static void propLoad(Properties* properties)
     GET_INT_VALUE_3(propFile, sound, chip, ym2413Oversampling);
     GET_INT_VALUE_3(propFile, sound, chip, y8950Oversampling);
     GET_INT_VALUE_3(propFile, sound, chip, moonsoundOversampling);
+    GET_ENUM_VALUE_3(propFile, sound, chip, ym2413BackendOpenmsxEnabled,  BoolPair);
+    GET_ENUM_VALUE_3(propFile, sound, chip, ym2413BackendOpenmsx2Enabled, BoolPair);
+    GET_INT_VALUE_3 (propFile, sound, chip, ym2413BackendActive);
+#ifndef YM2413_BUILD_OPENMSX_INITIAL
+    /* openmsx (initial) is dead-coded -- never carry an enabled flag at runtime. */
+    properties->sound.chip.ym2413BackendOpenmsxEnabled = 0;
+#endif
     GET_ENUM_VALUE_3(propFile, sound, YkIn, type, MidiTypePair);
     GET_STR_VALUE_3(propFile, sound, YkIn, name);
     GET_STR_VALUE_3(propFile, sound, YkIn, fileName);
@@ -948,6 +963,9 @@ void propSave(Properties* properties)
 //    SET_INT_VALUE_3(sound, chip, ym2413Oversampling);
 //    SET_INT_VALUE_3(sound, chip, y8950Oversampling);
 //    SET_INT_VALUE_3(sound, chip, moonsoundOversampling);
+    SET_ENUM_VALUE_3(propFile, sound, chip, ym2413BackendOpenmsxEnabled,  YesNoPair);
+    SET_ENUM_VALUE_3(propFile, sound, chip, ym2413BackendOpenmsx2Enabled, YesNoPair);
+    SET_INT_VALUE_3 (propFile, sound, chip, ym2413BackendActive);
     SET_ENUM_VALUE_3(propFile, sound, YkIn, type, MidiTypePair);
     SET_STR_VALUE_3(propFile, sound, YkIn, name);
 //    SET_STR_VALUE_3(sound, YkIn, fileName);
