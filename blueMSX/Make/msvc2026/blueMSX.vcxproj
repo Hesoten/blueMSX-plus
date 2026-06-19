@@ -882,6 +882,10 @@
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="..\..\Src\SoundChips\OpenMsxYM2413_2.cpp" />
+    <ClCompile Include="..\..\Src\SoundChips\Emu2413\emu2413.c" />
+    <ClCompile Include="..\..\Src\SoundChips\Emu2413Backend.cpp" />
+    <ClCompile Include="..\..\Src\SoundChips\NukedOPLL\opll.c" />
+    <ClCompile Include="..\..\Src\SoundChips\NukedOpllBackend.cpp" />
     <ClCompile Include="..\..\Src\SoundChips\Ym2413MultiBackend.cpp" />
     <ClCompile Include="..\..\Src\SoundChips\OpenMsxYMF262.cpp" />
     <ClCompile Include="..\..\Src\SoundChips\OpenMsxYMF278.cpp" />
@@ -1205,6 +1209,10 @@
     <ClInclude Include="..\..\Src\SoundChips\OpenMsxY8950Adpcm.h" />
     <ClInclude Include="..\..\Src\SoundChips\OpenMsxYM2413.h" />
     <ClInclude Include="..\..\Src\SoundChips\OpenMsxYM2413_2.h" />
+    <ClInclude Include="..\..\Src\SoundChips\Emu2413\emu2413.h" />
+    <ClInclude Include="..\..\Src\SoundChips\Emu2413Backend.h" />
+    <ClInclude Include="..\..\Src\SoundChips\NukedOPLL\opll.h" />
+    <ClInclude Include="..\..\Src\SoundChips\NukedOpllBackend.h" />
     <ClInclude Include="..\..\Src\SoundChips\Ym2413MultiBackend.h" />
     <ClInclude Include="..\..\Src\SoundChips\OpenMsxYMF262.h" />
     <ClInclude Include="..\..\Src\SoundChips\OpenMsxYMF278.h" />

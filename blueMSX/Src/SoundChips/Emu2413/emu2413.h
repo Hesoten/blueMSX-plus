@@ -1,3 +1,7 @@
+/*
+   Modified 2026 by Hesoten for blueMSX+ fork.
+   See https://github.com/Hesoten/blueMSX-plus for change history.
+*/
 #ifndef _EMU2413_H_
 #define _EMU2413_H_
 
@@ -83,6 +87,8 @@ void OPLL_RateConv_reset(OPLL_RateConv *conv);
 void OPLL_RateConv_putData(OPLL_RateConv *conv, int ch, int16_t data);
 int16_t OPLL_RateConv_getData(OPLL_RateConv *conv, int ch);
 void OPLL_RateConv_delete(OPLL_RateConv *conv);
+/* sinc history length per channel (=LW). blueMSX addition for save-state. */
+int OPLL_RateConv_getBufferLength(void);
 
 typedef struct __OPLL {
   uint32_t clk;
@@ -134,6 +140,10 @@ void OPLL_delete(OPLL *);
 
 void OPLL_reset(OPLL *);
 void OPLL_resetPatch(OPLL *, uint8_t);
+
+/* blueMSX addition: re-link OPLL_SLOT pointers after a bulk OPLL memcpy
+** (save-state restore) leaves them dangling. */
+void OPLL_relinkAfterRestore(OPLL *opll);
 
 /**
  * Set output wave sampling rate.

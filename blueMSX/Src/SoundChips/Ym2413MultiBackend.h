@@ -20,11 +20,13 @@
 **
 ******************************************************************************
 */
-/* Holds the per-slot OpenYM2413Base pointers.  Only OpenYM2413_2
-** (openmsx_2) is populated in this commit; the legacy OpenYM2413
-** (openmsx initial) slot is reserved but dead-coded unless
-** YM2413_BUILD_OPENMSX_INITIAL is defined.  Subsequent commits can
-** append more backends without touching the chip-side code. */
+/* Holds the per-slot OpenYM2413Base pointers (OpenYM2413 [dead-coded],
+** OpenYM2413_2, EMU2413, Nuked-OPLL).  Only the backends marked enabled
+** in Properties->sound.chip.ym2413Backend*Enabled are actually
+** instantiated -- disabled slots stay NULL.  Of the enabled set, the
+** active one (Properties->sound.chip.ym2413BackendActive) feeds the
+** mixer; all other live backends are kept in lockstep on every register
+** write so the user can flip the active selection glitch-free. */
 #ifndef YM2413_MULTI_BACKEND_H
 #define YM2413_MULTI_BACKEND_H
 

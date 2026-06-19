@@ -336,7 +336,9 @@ typedef struct {
 ** is defined. */
 #define PROP_YM2413_BACKEND_OPENMSX   0
 #define PROP_YM2413_BACKEND_OPENMSX_2 1
-#define PROP_YM2413_BACKEND_COUNT     2
+#define PROP_YM2413_BACKEND_EMU2413   2
+#define PROP_YM2413_BACKEND_NUKED     3
+#define PROP_YM2413_BACKEND_COUNT     4
 
 typedef struct {
     int enableY8950;
@@ -351,6 +353,8 @@ typedef struct {
     ** consume zero CPU. */
     int ym2413BackendOpenmsxEnabled;   /* dead-coded; always 0 unless YM2413_BUILD_OPENMSX_INITIAL */
     int ym2413BackendOpenmsx2Enabled;
+    int ym2413BackendEmu2413Enabled;
+    int ym2413BackendNukedEnabled;
     int ym2413BackendActive;            /* PROP_YM2413_BACKEND_* */
 } SoundChip;
 

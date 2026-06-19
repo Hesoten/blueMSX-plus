@@ -24,6 +24,8 @@
 #ifdef YM2413_BUILD_OPENMSX_INITIAL
 #include "OpenMsxYM2413.h"
 #endif
+#include "Emu2413Backend.h"
+#include "NukedOpllBackend.h"
 extern "C" {
 #include "Properties.h"
 }
@@ -34,9 +36,13 @@ static int g_ym2413Active = PROP_YM2413_BACKEND_OPENMSX_2;
 static const char* const kBackendDisplay[YM2413_BACKEND_COUNT] = {
     "openmsx",
     "openmsx_2",
+    "emu2413",
+    "nuked",
 };
 
 extern "C" const int ym2413BackendDisplayOrder[] = {
+    PROP_YM2413_BACKEND_EMU2413,
+    PROP_YM2413_BACKEND_NUKED,
     PROP_YM2413_BACKEND_OPENMSX_2,
 };
 extern "C" const int ym2413BackendDisplayCount =
@@ -48,11 +54,10 @@ static int backendEnabledFromProperties(int idx)
 {
     Properties* p = propGetGlobalProperties();
     if (p == NULL) {
-        /* Defaults: openmsx_2 on; openmsx (initial) is dead-coded so it
-        ** never reports enabled at runtime. */
+        /* Defaults: emu2413 / openmsx_2 / nuked on; openmsx (initial) is
+        ** dead-coded so it never reports enabled at runtime. */
         if (idx == PROP_YM2413_BACKEND_OPENMSX) return 0;
-        if (idx == PROP_YM2413_BACKEND_OPENMSX_2) return 1;
-        return 0;
+        return 1;
     }
     switch (idx) {
     case PROP_YM2413_BACKEND_OPENMSX:
@@ -62,6 +67,8 @@ static int backendEnabledFromProperties(int idx)
         return 0;
 #endif
     case PROP_YM2413_BACKEND_OPENMSX_2: return p->sound.chip.ym2413BackendOpenmsx2Enabled ? 1 : 0;
+    case PROP_YM2413_BACKEND_EMU2413:   return p->sound.chip.ym2413BackendEmu2413Enabled  ? 1 : 0;
+    case PROP_YM2413_BACKEND_NUKED:     return p->sound.chip.ym2413BackendNukedEnabled    ? 1 : 0;
     default: return 0;
     }
 }
@@ -119,6 +126,12 @@ Ym2413MultiBackend::Ym2413MultiBackend(short volume)
 #endif
     if (backendEnabledFromProperties(PROP_YM2413_BACKEND_OPENMSX_2)) {
         backends[PROP_YM2413_BACKEND_OPENMSX_2] = new OpenYM2413_2("ym2413", volume, 0);
+    }
+    if (backendEnabledFromProperties(PROP_YM2413_BACKEND_EMU2413)) {
+        backends[PROP_YM2413_BACKEND_EMU2413] = new Emu2413Backend("ym2413", volume, 0);
+    }
+    if (backendEnabledFromProperties(PROP_YM2413_BACKEND_NUKED)) {
+        backends[PROP_YM2413_BACKEND_NUKED] = new NukedOpllBackend("ym2413", volume, 0);
     }
 
     /* Snap g_ym2413Active onto an enabled slot so updateBuffer never

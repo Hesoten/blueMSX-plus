@@ -341,10 +341,12 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->sound.chip.y8950Oversampling = 2;
     properties->sound.chip.moonsoundOversampling = 2;
 
-    /* YM2413: openmsx_2 (historical default) on; openmsx (initial) is
-    ** dead-coded. */
+    /* YM2413: openmsx_2 + emu2413 + nuked enabled by default; openmsx
+    ** (initial) is dead-coded.  Active = openmsx_2 (historical default). */
     properties->sound.chip.ym2413BackendOpenmsxEnabled    = 0;
     properties->sound.chip.ym2413BackendOpenmsx2Enabled   = 1;
+    properties->sound.chip.ym2413BackendEmu2413Enabled    = 1;
+    properties->sound.chip.ym2413BackendNukedEnabled      = 1;
     properties->sound.chip.ym2413BackendActive            = PROP_YM2413_BACKEND_OPENMSX_2;
 
     properties->sound.mixerChannel[MIXER_CHANNEL_PSG].enable = 1;
@@ -661,6 +663,8 @@ static void propLoad(Properties* properties)
     GET_INT_VALUE_3(propFile, sound, chip, moonsoundOversampling);
     GET_ENUM_VALUE_3(propFile, sound, chip, ym2413BackendOpenmsxEnabled,  BoolPair);
     GET_ENUM_VALUE_3(propFile, sound, chip, ym2413BackendOpenmsx2Enabled, BoolPair);
+    GET_ENUM_VALUE_3(propFile, sound, chip, ym2413BackendEmu2413Enabled,  BoolPair);
+    GET_ENUM_VALUE_3(propFile, sound, chip, ym2413BackendNukedEnabled,    BoolPair);
     GET_INT_VALUE_3 (propFile, sound, chip, ym2413BackendActive);
 #ifndef YM2413_BUILD_OPENMSX_INITIAL
     /* openmsx (initial) is dead-coded -- never carry an enabled flag at runtime. */
@@ -965,6 +969,8 @@ void propSave(Properties* properties)
 //    SET_INT_VALUE_3(sound, chip, moonsoundOversampling);
     SET_ENUM_VALUE_3(propFile, sound, chip, ym2413BackendOpenmsxEnabled,  YesNoPair);
     SET_ENUM_VALUE_3(propFile, sound, chip, ym2413BackendOpenmsx2Enabled, YesNoPair);
+    SET_ENUM_VALUE_3(propFile, sound, chip, ym2413BackendEmu2413Enabled,  YesNoPair);
+    SET_ENUM_VALUE_3(propFile, sound, chip, ym2413BackendNukedEnabled,    YesNoPair);
     SET_INT_VALUE_3 (propFile, sound, chip, ym2413BackendActive);
     SET_ENUM_VALUE_3(propFile, sound, YkIn, type, MidiTypePair);
     SET_STR_VALUE_3(propFile, sound, YkIn, name);

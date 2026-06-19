@@ -10,6 +10,10 @@
  * - [VRC7 presets](https://siliconpr0n.org/archive/doku.php?id=vendor:yamaha:opl2#opll_vrc7_patch_format) by Nuke.YKT
  * - YMF281B presets by Chabin
  */
+/*
+   Modified 2026 by Hesoten for blueMSX+ fork.
+   See https://github.com/Hesoten/blueMSX-plus for change history.
+*/
 #include "emu2413.h"
 #include <math.h>
 #include <stdio.h>
@@ -299,6 +303,8 @@ void OPLL_RateConv_reset(OPLL_RateConv *conv) {
     memset(conv->buf[i], 0, sizeof(conv->buf[i][0]) * LW);
   }
 }
+
+int OPLL_RateConv_getBufferLength(void) { return LW; }
 
 /* put original data to this converter at f_inp. */
 void OPLL_RateConv_putData(OPLL_RateConv *conv, int ch, int16_t data) {
@@ -1502,4 +1508,21 @@ uint32_t OPLL_toggleMask(OPLL *opll, uint32_t mask) {
     return ret;
   } else
     return 0;
+}
+
+/* blueMSX addition: see header comment.  Re-link the slot pointers that
+** a verbatim memcpy of OPLL would otherwise leave dangling. */
+void OPLL_relinkAfterRestore(OPLL *opll) {
+  int ch, i;
+  if (opll == NULL) return;
+  for (ch = 0; ch < 9; ch++) {
+    int num = opll->patch_number[ch];
+    if (num < 0 || num >= 19) num = 0;
+    MOD(opll, ch)->patch = &opll->patch[num * 2 + 0];
+    CAR(opll, ch)->patch = &opll->patch[num * 2 + 1];
+  }
+  for (i = 0; i < 18; i++) {
+    uint32_t ws = opll->slot[i].patch ? (opll->slot[i].patch->WS & 1) : 0;
+    opll->slot[i].wave_table = wave_table_map[ws];
+  }
 }
