@@ -1988,7 +1988,6 @@ HWND getMainHwnd()
 
 void archShowPropertiesDialog(PropPage  startPane) {
     Properties oldProp = *pProperties;
-    int restart = 0;
     int changed;
     int i;
 
@@ -2010,13 +2009,40 @@ void archShowPropertiesDialog(PropPage  startPane) {
     
     mediaDbSetDefaultRomType(pProperties->cartridge.defaultType);
 
-    printerIoSetType(pProperties->ports.Lpt.type, pProperties->ports.Lpt.fileName);
-    uartIoSetType(pProperties->ports.Com.type, pProperties->ports.Com.fileName);
-    midiIoSetMidiOutType(pProperties->sound.MidiOut.type, pProperties->sound.MidiOut.fileName);
-    midiIoSetMidiInType(pProperties->sound.MidiIn.type, pProperties->sound.MidiIn.fileName);
-    ykIoSetMidiInType(pProperties->sound.YkIn.type, pProperties->sound.YkIn.fileName);
-    midiEnableMt32ToGmMapping(pProperties->sound.MidiOut.mt32ToGm);
-    midiInSetChannelFilter(pProperties->sound.YkIn.channel);
+    /* Reopen ports / MIDI only when the type/device actually changed:
+    ** closing a busy MIDI handle races the emu thread's midiOut* calls
+    ** and corrupts winmm's device table. */
+    if (pProperties->ports.Lpt.type != oldProp.ports.Lpt.type ||
+        strcmp(pProperties->ports.Lpt.name,     oldProp.ports.Lpt.name)     != 0 ||
+        strcmp(pProperties->ports.Lpt.fileName, oldProp.ports.Lpt.fileName) != 0) {
+        printerIoSetType(pProperties->ports.Lpt.type, pProperties->ports.Lpt.fileName);
+    }
+    if (pProperties->ports.Com.type != oldProp.ports.Com.type ||
+        strcmp(pProperties->ports.Com.name,     oldProp.ports.Com.name)     != 0 ||
+        strcmp(pProperties->ports.Com.fileName, oldProp.ports.Com.fileName) != 0) {
+        uartIoSetType(pProperties->ports.Com.type, pProperties->ports.Com.fileName);
+    }
+    if (pProperties->sound.MidiOut.type != oldProp.sound.MidiOut.type ||
+        strcmp(pProperties->sound.MidiOut.name,     oldProp.sound.MidiOut.name)     != 0 ||
+        strcmp(pProperties->sound.MidiOut.fileName, oldProp.sound.MidiOut.fileName) != 0) {
+        midiIoSetMidiOutType(pProperties->sound.MidiOut.type, pProperties->sound.MidiOut.fileName);
+    }
+    if (pProperties->sound.MidiIn.type != oldProp.sound.MidiIn.type ||
+        strcmp(pProperties->sound.MidiIn.name,     oldProp.sound.MidiIn.name)     != 0 ||
+        strcmp(pProperties->sound.MidiIn.fileName, oldProp.sound.MidiIn.fileName) != 0) {
+        midiIoSetMidiInType(pProperties->sound.MidiIn.type, pProperties->sound.MidiIn.fileName);
+    }
+    if (pProperties->sound.YkIn.type != oldProp.sound.YkIn.type ||
+        strcmp(pProperties->sound.YkIn.name,     oldProp.sound.YkIn.name)     != 0 ||
+        strcmp(pProperties->sound.YkIn.fileName, oldProp.sound.YkIn.fileName) != 0) {
+        ykIoSetMidiInType(pProperties->sound.YkIn.type, pProperties->sound.YkIn.fileName);
+    }
+    if (pProperties->sound.MidiOut.mt32ToGm != oldProp.sound.MidiOut.mt32ToGm) {
+        midiEnableMt32ToGmMapping(pProperties->sound.MidiOut.mt32ToGm);
+    }
+    if (pProperties->sound.YkIn.channel != oldProp.sound.YkIn.channel) {
+        midiInSetChannelFilter(pProperties->sound.YkIn.channel);
+    }
 
     /* Update window size only if changed */
     if (pProperties->video.driver != oldProp.video.driver ||
@@ -2036,14 +2062,6 @@ void archShowPropertiesDialog(PropPage  startPane) {
             if (pProperties->media.carts[i].fileName[0]) insertCartridge(pProperties, i, pProperties->media.carts[i].fileName, pProperties->media.carts[i].fileNameInZip, pProperties->media.carts[i].type, -1);
         }
     }
-    /* Must restart MSX if Machine configuration changed */
-    if (strcmp(oldProp.emulation.machineName, pProperties->emulation.machineName) ||
-        oldProp.emulation.syncMethod != pProperties->emulation.syncMethod ||
-        oldProp.emulation.vdpSyncMode != pProperties->emulation.vdpSyncMode)
-    {
-        restart = 1;
-    }
-
     boardSetFdcTimingEnable(pProperties->emulation.enableFdcTiming);
     boardSetNoSpriteLimits(pProperties->emulation.noSpriteLimits);
 
@@ -2053,18 +2071,15 @@ void archShowPropertiesDialog(PropPage  startPane) {
     switchSetPause(pProperties->emulation.pauseSwitch);
     emulatorSetFrequency(pProperties->emulation.speed, NULL);
 
-    /* Update sound only if changed, Must restart if changed */
-    if (oldProp.sound.bufSize              != pProperties->sound.bufSize ||
-        oldProp.sound.driver               != pProperties->sound.driver  ||
-        oldProp.sound.chip.enableY8950     != pProperties->sound.chip.enableY8950 ||
-        oldProp.sound.chip.enableYM2413    != pProperties->sound.chip.enableYM2413 ||
-        oldProp.sound.chip.enableMoonsound != pProperties->sound.chip.enableMoonsound ||
-        oldProp.sound.stereo               != pProperties->sound.stereo) 
-    {
+    if (propertiesNeedSoundRestart(&oldProp, pProperties)) {
         soundDriverConfig(st.hwnd, pProperties->sound.driver);
         emulatorRestartSound();
     }
 
+    /* Push chip enable changes into the runtime board globals so the
+    ** next emulatorStart sees them. Sound-tab WM_INITDIALOG disables
+    ** these checkboxes while the emu is running, so this branch only
+    ** ever fires from a stopped session. */
     if (oldProp.sound.chip.enableY8950     != pProperties->sound.chip.enableY8950 ||
         oldProp.sound.chip.enableYM2413    != pProperties->sound.chip.enableYM2413 ||
         oldProp.sound.chip.enableMoonsound != pProperties->sound.chip.enableMoonsound)
@@ -2072,7 +2087,6 @@ void archShowPropertiesDialog(PropPage  startPane) {
         boardSetY8950Enable(pProperties->sound.chip.enableY8950);
         boardSetYm2413Enable(pProperties->sound.chip.enableYM2413);
         boardSetMoonsoundEnable(pProperties->sound.chip.enableMoonsound);
-        restart = 1;
     }
 
     if (oldProp.emulation.syncMethod != pProperties->emulation.syncMethod) {
@@ -2124,10 +2138,6 @@ void archShowPropertiesDialog(PropPage  startPane) {
     mixerSetMasterVolume(st.mixer, pProperties->sound.masterVolume);
     mixerEnableMaster(st.mixer, pProperties->sound.masterEnable);
 
-    if (restart) {
-        emulatorRestart();
-    }
-
     if (oldProp.settings.disableScreensaver != pProperties->settings.disableScreensaver) {
         POINT pt;
         SystemParametersInfo(SPI_SETSCREENSAVEACTIVE, !pProperties->settings.disableScreensaver, 0, SPIF_SENDWININICHANGE); 
@@ -2142,7 +2152,11 @@ void archShowPropertiesDialog(PropPage  startPane) {
 
 
 void enterDialogShow() {
-    if (pProperties->video.driver != P_VIDEO_DRVGDI) {
+    /* DirectXSetGDISurface is a no-op on DX12/GDI/DDraw-windowed; the
+    ** suspend cycle around it only causes a WASAPI click on dialog
+    ** open.  Skip it for those drivers. */
+    if (pProperties->video.driver != P_VIDEO_DRVGDI &&
+        pProperties->video.driver != P_VIDEO_DRVDIRECTX_D3D12) {
         if (emulatorGetState() == EMU_RUNNING) {
             emulatorSuspend();
             DirectXSetGDISurface();

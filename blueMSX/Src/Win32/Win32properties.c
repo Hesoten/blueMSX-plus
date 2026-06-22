@@ -91,6 +91,18 @@ static int centered = 0;
 extern void emulatorRestartSound();
 extern void updateEmuWindow();
 
+int propertiesNeedSoundRestart(const Properties* a, const Properties* b)
+{
+    /* Sound driver re-init only -- emu state preserved.  Chip-enable
+    ** changes also rebuild the audio sink. */
+    return a->sound.bufSize                != b->sound.bufSize
+        || a->sound.driver                 != b->sound.driver
+        || a->sound.chip.enableY8950       != b->sound.chip.enableY8950
+        || a->sound.chip.enableYM2413      != b->sound.chip.enableYM2413
+        || a->sound.chip.enableMoonsound   != b->sound.chip.enableMoonsound
+        || a->sound.stereo                 != b->sound.stereo;
+}
+
 static const int C_iCropMax = 64;
 
 static int openLogFile(HWND hwndOwner, char* fileName)
@@ -349,6 +361,14 @@ static BOOL_DLG_RET CALLBACK emulationDlgProc(HWND hDlg, UINT iMsg, WPARAM wPara
 
         SendMessage(GetDlgItem(hDlg, IDC_EMUSPEED), TBM_SETRANGE, 0, (LPARAM)MAKELONG(0, 100));
         SendMessage(GetDlgItem(hDlg, IDC_EMUSPEED), TBM_SETPOS,   1, (LPARAM)curSpeed);
+
+        /* Lock restart-causing controls while running. Sound-chip
+        ** enable checkboxes are locked in soundDlgProc alongside the
+        ** backend-enable rows. */
+        if (emulatorGetState() != EMU_STOPPED) {
+            EnableWindow(GetDlgItem(hDlg, IDC_EMUFAMILY),       FALSE);
+            EnableWindow(GetDlgItem(hDlg, IDC_VDPFREQ),         FALSE);
+        }
 
         win32CommonApplyDark(hDlg);
         return FALSE;
@@ -745,6 +765,10 @@ static BOOL_DLG_RET CALLBACK directDraWProc(HWND hDlg, UINT iMsg, WPARAM wParam,
         setButtonCheck(hDlg, IDC_MONHORIZSTRETCH, pProperties->video.horizontalStretch, 1);
         setButtonCheck(hDlg, IDC_MONVERTSTRETCH, pProperties->video.verticalStretch, 1);
 
+        if (emulatorGetState() != EMU_STOPPED) {
+            EnableWindow(GetDlgItem(hDlg, IDC_EMUSYNC), FALSE);
+        }
+
         updateFullscreenResList(hDlg);
         win32CommonApplyDark(hDlg);
         return FALSE;
@@ -797,6 +821,10 @@ static BOOL_DLG_RET CALLBACK gdiProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM
         
         initDropList(hDlg, IDC_FRAMESKIP, pVideoFrameSkip, pProperties->video.frameSkip);
         initDropList(hDlg, IDC_EMUSYNC, pEmuGdiSync, pProperties->emulation.syncMethodGdi);
+
+        if (emulatorGetState() != EMU_STOPPED) {
+            EnableWindow(GetDlgItem(hDlg, IDC_EMUSYNC), FALSE);
+        }
 
         win32CommonApplyDark(hDlg);
         return FALSE;
@@ -852,6 +880,9 @@ static BOOL_DLG_RET CALLBACK direct3dProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
         initDropList(hDlg, IDC_FRAMESKIP, pVideoFrameSkip, pProperties->video.frameSkip);
         initDropList(hDlg, IDC_EMUSYNC, pEmuSync, pProperties->emulation.syncMethodD3D);
 
+        if (emulatorGetState() != EMU_STOPPED) {
+            EnableWindow(GetDlgItem(hDlg, IDC_EMUSYNC), FALSE);
+        }
 
         SetDlgItemTextU(hDlg, IDC_D3D_CROPPINGGROUPBOX, langpropD3DCroppingGB());
 
@@ -2253,6 +2284,14 @@ static BOOL_DLG_RET CALLBACK midiDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LP
             EnableWindow(GetDlgItem(hDlg, IDC_YKINCHAN),     idx >= P_MIDI_HOST);
         }
 
+        /* Lock MIDI device selection while running: a live close/reopen
+        ** would race the emu thread's midiOut* calls and corrupt winmm. */
+        if (emulatorGetState() != EMU_STOPPED) {
+            EnableWindow(GetDlgItem(hDlg, IDC_MIDIOUT), FALSE);
+            EnableWindow(GetDlgItem(hDlg, IDC_MIDIIN),  FALSE);
+            EnableWindow(GetDlgItem(hDlg, IDC_YKIN),    FALSE);
+        }
+
         win32CommonApplyDark(hDlg);
         return FALSE;
 
@@ -3115,6 +3154,23 @@ int showProperties(Properties* pProperties, HWND hwndOwner, PropPage desiredStar
 
     if (propModified) {
         propModified = memcmp(&oldProp, pProperties, sizeof(Properties));
+    }
+
+    if (!propModified) {
+        /* Cancel: restore the snapshot and re-push every hot-apply
+        ** target so the emu state matches the dialog-open state. */
+        *pProperties = oldProp;
+        videoUpdateAll(video, pProperties);
+        videoSetBlendFrames(video, pProperties->video.blendFrames);
+        ym2413BackendActiveSet(pProperties->sound.chip.ym2413BackendActive);
+        y8950BackendActiveSet(pProperties->sound.chip.y8950BackendActive);
+        {
+            int lpf = 0, hpf = 0;
+            propertiesGetOpllFilterHz(pProperties->sound.chip.ym2413AnalogFilterMode,
+                                      &pProperties->sound.chip, &lpf, &hpf);
+            ym2413AnalogFilterSet(lpf, hpf);
+        }
+        updateEmuWindow();
     }
 
     return propModified;
