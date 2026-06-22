@@ -4049,6 +4049,11 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     soundDriverConfig(st.hwnd, pProperties->sound.driver);
     emulatorRestartSound();
 
+    /* Driver runs 2ch unconditionally; bring mixer's stereo flag in line
+    ** with the user's saved preference now that the driver no longer
+    ** sets it from its channel count. */
+    mixerSetStereo(st.mixer, pProperties->sound.stereo);
+
     for (i = 0; i < MIXER_CHANNEL_TYPE_COUNT; i++) {
         mixerSetChannelTypeVolume(st.mixer, i, pProperties->sound.mixerChannel[i].volume);
         mixerSetChannelTypePan(st.mixer, i, pProperties->sound.mixerChannel[i].pan);

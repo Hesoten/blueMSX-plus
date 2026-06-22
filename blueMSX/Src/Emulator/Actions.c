@@ -1049,7 +1049,9 @@ void actionPrinterForceFormFeed()
 void actionVolumeToggleStereo() {
     state.properties->sound.stereo = !state.properties->sound.stereo;
 
-    emulatorRestartSound();
+    /* Driver runs at 2ch unconditionally; the mixer dual-monos in mono
+    ** mode via recalculateChannelVolume.  No driver tear-down needed. */
+    mixerSetStereo(mixerGetGlobalMixer(), state.properties->sound.stereo);
 }
 
 void actionNextTheme() {
@@ -1399,7 +1401,7 @@ void actionSetVolumeStereo(int value) {
     int oldStereo = state.properties->sound.stereo;
     state.properties->sound.stereo = value ? 1 : 0;
     if (oldStereo != state.properties->sound.stereo) {
-        emulatorRestartSound();
+        mixerSetStereo(mixerGetGlobalMixer(), state.properties->sound.stereo);
     }
 }
 
