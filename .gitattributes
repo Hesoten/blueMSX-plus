@@ -1,0 +1,83 @@
+# Default: auto-detect text, normalize to LF in repo
+* text=auto eol=lf
+
+# ---- Source code (LF, multi-platform) ----
+*.c        text eol=lf
+*.h        text eol=lf
+*.cpp      text eol=lf
+*.hpp      text eol=lf
+*.cc       text eol=lf
+*.cxx      text eol=lf
+*.inc      text eol=lf
+*.py       text eol=lf
+*.sh       text eol=lf
+*.bash     text eol=lf
+*.md       text eol=lf
+*.txt      text eol=lf
+*.yml      text eol=lf
+*.yaml     text eol=lf
+*.json     text eol=lf
+*.xml      text eol=lf
+Makefile   text eol=lf
+*.mk       text eol=lf
+
+# ---- Windows-specific tooling (CRLF) ----
+*.rc              text eol=crlf
+*.rc2             text eol=crlf
+*.vcxproj         text eol=crlf
+*.vcxproj.filters text eol=crlf
+*.vcxproj.user    text eol=crlf
+*.vcproj          text eol=crlf
+*.dsp             text eol=crlf
+*.dsw             text eol=crlf
+*.sln             text eol=crlf
+*.props           text eol=crlf
+*.targets         text eol=crlf
+*.bat             text eol=crlf
+*.cmd             text eol=crlf
+*.ps1             text eol=crlf
+*.def             text eol=crlf
+*.manifest        text eol=crlf
+
+# ---- Binary (no conversion) ----
+*.png    binary
+*.bmp    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.ico    binary
+*.cur    binary
+*.wav    binary
+*.mp3    binary
+*.ogg    binary
+*.dll    binary
+*.lib    binary
+*.exe    binary
+*.pdb    binary
+*.rom    binary
+*.ri     binary
+*.sram   binary
+*.dsk    binary
+*.di1    binary
+*.di2    binary
+*.cas    binary
+*.mx1    binary
+*.mx2    binary
+*.col    binary
+*.sg     binary
+*.sc     binary
+*.zip    binary
+*.gz     binary
+*.tar    binary
+*.7z     binary
+*.pdf    binary
+*.fnt    binary
+*.fon    binary
+*.ttf    binary
+*.otf    binary
+*.opt    binary
+*.dcu    binary
+*.res    binary
+
+# ---- Test fixtures: line-ending behavior tests, MUST keep raw bytes ----
+blueMSX/NewLine/*  binary
