@@ -84,6 +84,7 @@ void langInitGerman(LanguageStrings* ls)
     ls->errorNoHelp              = "Konnte kein blueMSX-Hilfe-File finden.";
     ls->errorStartEmu            = "Der MSX-Emulator konnte nicht gestartet werden.";
     ls->errorPortableReadonly    = "Austauschbarer Datenträger ist nur lesbar"; // "Portable device is readonly";        
+    ls->infoToastSaved           = "Gespeichert: %s";
 
 
     //----------------------

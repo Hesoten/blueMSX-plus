@@ -110,6 +110,7 @@ char* langErrorNoCasInZip();
 char* langErrorNoHelp();
 char* langErrorStartEmu();
 char* langErrorPortableReadonly();
+char* langInfoToastSaved();
 
 
 //----------------------

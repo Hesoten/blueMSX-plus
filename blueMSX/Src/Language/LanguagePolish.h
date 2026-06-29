@@ -84,6 +84,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->errorNoHelp             = "Nie znaleziono pliku pomocy blueMSX.";
     ls->errorStartEmu           = "Nie uda³o siê uruchomiæ emulatora MSX.";
     ls->errorPortableReadonly   = "Urz¹dzenie przenoœne - tylko do odczytu";        
+    ls->infoToastSaved          = "Zapisano: %s";
 
 
     //----------------------

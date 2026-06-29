@@ -301,6 +301,7 @@ char* langErrorNoCasInZip() { return ls->errorNoCasInZip; }
 char* langErrorNoHelp() { return ls->errorNoHelp; }
 char* langErrorStartEmu() { return ls->errorStartEmu; }
 char* langErrorPortableReadonly()  {return ls->errorPortableReadonly; }
+char* langInfoToastSaved()                 { return ls->infoToastSaved; }
 
 
 //----------------------

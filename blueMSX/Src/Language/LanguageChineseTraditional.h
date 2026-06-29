@@ -84,6 +84,7 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->errorNoHelp             = "無法找到 blueMSX 說明檔案。";
     ls->errorStartEmu           = "無法啟動 MSX 模擬器。";
     ls->errorPortableReadonly   = "可攜式裝置為唯讀屬性";        
+    ls->infoToastSaved          = "已儲存：%s";
 
 
     //----------------------

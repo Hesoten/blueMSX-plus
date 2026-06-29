@@ -84,6 +84,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->errorNoHelp             = "Het blueMSX helpbestand is niet gevonden.";
     ls->errorStartEmu           = "Het is niet gelukt om de MSX emulator te starten.";
     ls->errorPortableReadonly   = "Het draagbare apparaat is Alleen-Lezen";
+    ls->infoToastSaved          = "Opgeslagen: %s";
 
 
     //----------------------

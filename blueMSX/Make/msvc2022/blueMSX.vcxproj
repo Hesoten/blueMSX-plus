@@ -676,6 +676,7 @@
     <ClCompile Include="..\..\Src\Win32\Win32ThemeClassic.c" />
     <ClCompile Include="..\..\Src\Win32\Win32Thread.c" />
     <ClCompile Include="..\..\Src\Win32\Win32Timer.c" />
+    <ClCompile Include="..\..\Src\Win32\Win32Toast.cpp" />
     <ClCompile Include="..\..\Src\Win32\Win32ToolLoader.c" />
     <ClCompile Include="..\..\Src\Win32\Win32Uart.c" />
     <ClCompile Include="..\..\Src\Win32\Win32VideoIn.cpp">
@@ -1013,6 +1014,7 @@
     <ClInclude Include="..\..\Src\Win32\Win32Sound.h" />
     <ClInclude Include="..\..\Src\Win32\Win32TextUtf8.h" />
     <ClInclude Include="..\..\Src\Win32\Win32ThemeClassic.h" />
+    <ClInclude Include="..\..\Src\Win32\Win32Toast.h" />
     <ClInclude Include="..\..\Src\Win32\Win32ToolLoader.h" />
     <ClInclude Include="..\..\Src\Win32\Win32Uart.h" />
     <ClInclude Include="..\..\Src\Win32\Win32VideoIn.h" />

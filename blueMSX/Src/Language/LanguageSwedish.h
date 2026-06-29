@@ -84,6 +84,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->errorNoHelp             = "Kunde inte hitta hjälpfilen.";
     ls->errorStartEmu           = "Misslyckades att starta emulatorn.";
     ls->errorPortableReadonly   = "Flyttbar enhet är inte skrivbar";
+    ls->infoToastSaved          = "Sparat: %s";
 
 
     //----------------------

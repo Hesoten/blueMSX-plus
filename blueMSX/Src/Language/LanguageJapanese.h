@@ -86,6 +86,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->errorNoHelp             = "blueMSX のヘルプファイルが見つかりません。";
     ls->errorStartEmu           = "blueMSX の開始に失敗しました。";
     ls->errorPortableReadonly   = "ポータブルデバイスは読込専用です。";
+    ls->infoToastSaved          = "保存しました: %s";
 
 
     //----------------------

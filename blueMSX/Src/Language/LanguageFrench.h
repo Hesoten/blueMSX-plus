@@ -84,6 +84,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->errorNoHelp             = "Impossible de trouver le fichier d'aide.";
     ls->errorStartEmu           = "Erreur lors du lancement de l'émulateur.";
     ls->errorPortableReadonly   = "Ce dispositif portable est uniquement en mode écriture";        
+    ls->infoToastSaved          = "Enregistré : %s";
 
 
     //----------------------

@@ -84,6 +84,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->errorNoHelp             = "No s'ha pogut trobar el fitxer d'ajuda de blueMSX.";
     ls->errorStartEmu           = "No s'ha pogut iniciar l'emulador MSX.";
     ls->errorPortableReadonly   = "El dispositiu portàtil és de només lectura";
+    ls->infoToastSaved          = "Desat: %s";
 
 
     //----------------------

@@ -85,6 +85,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->errorNoHelp                     = "Non trovo il file della guida in linea di blueMSX.";
     ls->errorStartEmu                   = "Avvio dell'emulatore fallito!";
     ls->errorPortableReadonly           = "Il dispositivo rimovibile è di sola lettura";
+    ls->infoToastSaved                  = "Salvato: %s";
 
 
     //--------------------

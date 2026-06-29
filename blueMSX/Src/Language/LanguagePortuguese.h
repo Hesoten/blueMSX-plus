@@ -84,6 +84,7 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->errorNoHelp             = "Nao foi localizado arquivo ajuda do blueMSX";
     ls->errorStartEmu           = "Falha ao Iniciar o emulador MSX.";
     ls->errorPortableReadonly   = "O dispositivo portátil é somente leitura";        
+    ls->infoToastSaved          = "Salvo: %s";
 
 
     //----------------------

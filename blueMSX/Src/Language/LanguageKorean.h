@@ -84,6 +84,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->errorNoHelp             = "blueMSX 도움말을 찾을 수 없습니다.";
     ls->errorStartEmu           = "MSX 에뮬레이터를 시작할 수 없습니다.";
     ls->errorPortableReadonly   = "이동 장치는 읽기 전용입니다.";        
+    ls->infoToastSaved          = "저장됨: %s";
 
 
     //----------------------

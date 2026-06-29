@@ -84,6 +84,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->errorNoHelp             = "Не нашлось файла помощи blueMSX.";
     ls->errorStartEmu           = "Не удалось начать эмуляцию.";
     ls->errorPortableReadonly   = "Портативное устройство только для чтения";
+    ls->infoToastSaved          = "Сохранено: %s";
 
 
     //----------------------

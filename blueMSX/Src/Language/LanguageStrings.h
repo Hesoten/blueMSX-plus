@@ -81,6 +81,7 @@ typedef struct {
     char* errorNoHelp;
     char* errorStartEmu;
     char* errorPortableReadonly;
+    char* infoToastSaved;
 
 
     //----------------------

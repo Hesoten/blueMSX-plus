@@ -86,6 +86,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->errorNoHelp             = "blueMSX:n ohjetiedostoa ei löytynyt.";
     ls->errorStartEmu           = "MSX emulaattorin käynnistys epäonnistui.";
     ls->errorPortableReadonly   = "Kannettava laite tukee vain lukemista.";
+    ls->infoToastSaved          = "Tallennettu: %s";
 
 
     //----------------------

@@ -84,6 +84,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->errorNoHelp             = "无法找到 blueMSX 帮助文件。";
     ls->errorStartEmu           = "无法启动 MSX 模拟器。";
     ls->errorPortableReadonly   = "便携设备为只读";        
+    ls->infoToastSaved          = "已保存：%s";
 
 
     //----------------------
