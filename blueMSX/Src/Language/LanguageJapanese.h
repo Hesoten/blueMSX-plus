@@ -89,9 +89,14 @@ void langInitJapanese(LanguageStrings* ls)
     ls->errorRecorderTitle      = "blueMSX - リプレイ録画";
     ls->errorRecorderSaveReplay = "リプレイファイルの保存に失敗しました:\n  %s\n\n保存先ディレクトリが存在し書き込み可能か確認してください。";
     ls->errorRecorderReplayMissing = "リプレイファイルが見つかりません:\n  %s\n\nまずリプレイを録画するか、Load から既存の .cap ファイルを選択してください。";
-    ls->errorRecorderNoReplay   = "リプレイ (.cap) ファイルが読み込まれていません。\n\n先にリプレイを録画してから「動画ファイルへ書き出し」を選択してください。\n\n直近のリプレイパス:\n%s";
+    ls->errorRecorderRequiresDX12      = "ビデオドライバを Direct3D 12 に切り換えて録画を開始しますか?";
+    ls->errorRecorderRequiresDX12Title = "blueMSX - ビデオドライバの変更";
     ls->infoRecorderComplete    = "動画ファイルを保存しました:\n  %s";
     ls->infoToastSaved          = "保存しました: %s";
+    ls->infoToastAlreadyRecording  = "既に記録中です";
+    ls->dlgRecorderPickTitle       = "blueMSX - リプレイから動画書き出し";
+    ls->dlgRecorderPickSourceCap   = "動画化するリプレイファイル (.cap):";
+    ls->dlgRecorderPickOutputMp4   = "出力先動画ファイル (.mp4):";
 
 
     //----------------------
@@ -259,7 +264,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->dlgSaveState            = "CPUステート 保存";
     ls->dlgSaveCassette          = "blueMSX - テープを保存";
     ls->dlgSaveVideoClipAs      = "ビデオクリップを別名で保存...";      
-    ls->dlgAmountCompleted      = "処理済:";          
+    ls->dlgAmountCompleted      = "進捗:";          
     ls->dlgInsertRom1           = "ROM イメージをスロット1に挿入";
     ls->dlgInsertRom2           = "ROM イメージをスロット2に挿入";
     ls->dlgInsertDiskA          = "ディスクイメージをドライブAに挿入";

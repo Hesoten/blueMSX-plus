@@ -87,9 +87,14 @@ void langInitRussian(LanguageStrings* ls)
     ls->errorRecorderTitle      = "blueMSX - Запись";
     ls->errorRecorderSaveReplay = "Не удалось сохранить файл повтора:\n  %s\n\nПроверьте, что папка назначения существует и доступна для записи.";
     ls->errorRecorderReplayMissing = "Файл повтора не найден:\n  %s\n\nСначала запишите повтор или используйте Загрузить, чтобы выбрать существующий файл .cap.";
-    ls->errorRecorderNoReplay   = "No replay (.cap) file is loaded.\n\nRecord a replay first, then choose 'Render to video file'.\n\nLast replay path:\n%s";
+    ls->errorRecorderRequiresDX12   = "Переключить видеодрайвер на Direct3D 12 и начать запись?";
+    ls->errorRecorderRequiresDX12Title = "blueMSX - Смена видеодрайвера";
     ls->infoRecorderComplete    = "Видеофайл сохранён:\n  %s";
     ls->infoToastSaved          = "Сохранено: %s";
+    ls->infoToastAlreadyRecording   = "Запись уже идёт";
+    ls->dlgRecorderPickTitle        = "blueMSX - Преобразовать повтор в видео";
+    ls->dlgRecorderPickSourceCap    = "Файл повтора для обработки (.cap):";
+    ls->dlgRecorderPickOutputMp4    = "Выходной видеофайл (.mp4):";
 
 
     //----------------------

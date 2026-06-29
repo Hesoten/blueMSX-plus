@@ -87,9 +87,14 @@ void langInitEnglish(LanguageStrings* ls)
     ls->errorRecorderTitle      = "blueMSX - Recorder";
     ls->errorRecorderSaveReplay = "Failed to save replay file:\n  %s\n\nCheck that the destination directory exists and is writable.";
     ls->errorRecorderReplayMissing = "Replay file not found:\n  %s\n\nRecord a replay first, or use Load to pick an existing .cap file.";
-    ls->errorRecorderNoReplay   = "No replay (.cap) file is loaded.\n\nRecord a replay first, then choose 'Render to video file'.\n\nLast replay path:\n%s";
+    ls->errorRecorderRequiresDX12      = "Switch the video driver to Direct3D 12 and start recording?";
+    ls->errorRecorderRequiresDX12Title = "blueMSX - Video driver change";
     ls->infoRecorderComplete    = "Video file saved:\n  %s";
     ls->infoToastSaved          = "Saved: %s";
+    ls->infoToastAlreadyRecording  = "Already recording";
+    ls->dlgRecorderPickTitle       = "blueMSX - Render Replay to Video";
+    ls->dlgRecorderPickSourceCap   = "Replay file to render (.cap):";
+    ls->dlgRecorderPickOutputMp4   = "Output video file (.mp4):";
 
 
     //----------------------

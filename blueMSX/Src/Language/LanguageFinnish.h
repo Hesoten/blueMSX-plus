@@ -89,9 +89,14 @@ void langInitFinnish(LanguageStrings* ls)
     ls->errorRecorderTitle      = "blueMSX - Tallennin";
     ls->errorRecorderSaveReplay = "Uusintatiedoston tallennus epäonnistui:\n  %s\n\nTarkista, että kohdehakemisto on olemassa ja kirjoitettavissa.";
     ls->errorRecorderReplayMissing = "Uusintatiedostoa ei löydy:\n  %s\n\nTallenna uusinta ensin tai valitse aiempi .cap-tiedosto Lataa-toiminnolla.";
-    ls->errorRecorderNoReplay   = "No replay (.cap) file is loaded.\n\nRecord a replay first, then choose 'Render to video file'.\n\nLast replay path:\n%s";
+    ls->errorRecorderRequiresDX12   = "Vaihda videoajuriksi Direct3D 12 ja aloita tallennus?";
+    ls->errorRecorderRequiresDX12Title = "blueMSX - Videoajurin vaihto";
     ls->infoRecorderComplete    = "Videotiedosto tallennettu:\n  %s";
     ls->infoToastSaved          = "Tallennettu: %s";
+    ls->infoToastAlreadyRecording   = "Tallennus jo käynnissä";
+    ls->dlgRecorderPickTitle        = "blueMSX - Tee uusinnasta video";
+    ls->dlgRecorderPickSourceCap    = "Renderöitävä uusintatiedosto (.cap):";
+    ls->dlgRecorderPickOutputMp4    = "Tulosvideotiedosto (.mp4):";
 
 
     //----------------------

@@ -113,9 +113,14 @@ char* langErrorPortableReadonly();
 char* langErrorRecorderTitle();
 char* langErrorRecorderSaveReplay();
 char* langErrorRecorderReplayMissing();
-char* langErrorRecorderNoReplay();
+char* langErrorRecorderRequiresDX12();
+char* langErrorRecorderRequiresDX12Title();
 char* langInfoRecorderComplete();
 char* langInfoToastSaved();
+char* langInfoToastAlreadyRecording();
+char* langDlgRecorderPickTitle();
+char* langDlgRecorderPickSourceCap();
+char* langDlgRecorderPickOutputMp4();
 
 
 //----------------------

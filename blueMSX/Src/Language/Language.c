@@ -304,9 +304,14 @@ char* langErrorPortableReadonly()  {return ls->errorPortableReadonly; }
 char* langErrorRecorderTitle()             { return ls->errorRecorderTitle; }
 char* langErrorRecorderSaveReplay()        { return ls->errorRecorderSaveReplay; }
 char* langErrorRecorderReplayMissing()     { return ls->errorRecorderReplayMissing; }
-char* langErrorRecorderNoReplay()          { return ls->errorRecorderNoReplay; }
+char* langErrorRecorderRequiresDX12()      { return ls->errorRecorderRequiresDX12; }
+char* langErrorRecorderRequiresDX12Title() { return ls->errorRecorderRequiresDX12Title; }
 char* langInfoRecorderComplete()           { return ls->infoRecorderComplete; }
 char* langInfoToastSaved()                 { return ls->infoToastSaved; }
+char* langInfoToastAlreadyRecording()      { return ls->infoToastAlreadyRecording; }
+char* langDlgRecorderPickTitle()       { return ls->dlgRecorderPickTitle; }
+char* langDlgRecorderPickSourceCap()   { return ls->dlgRecorderPickSourceCap; }
+char* langDlgRecorderPickOutputMp4()   { return ls->dlgRecorderPickOutputMp4; }
 
 
 //----------------------

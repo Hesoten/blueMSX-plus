@@ -136,6 +136,8 @@
 
 #define IDD_LOAD_MEMORY                 134
 
+#define IDD_RECORDER_PICKFILES          135
+
 #define IDD_MIDI                        136
 
 #define IDD_LARGEMSG                    138
@@ -364,6 +366,12 @@
 #define IDC_DSKLOADTXT                  1202
 
 #define IDC_VIDEOPROGRESSTEXT           1210
+#define IDC_RECORDER_CAPLABEL           1211
+#define IDC_RECORDER_CAPPATH            1212
+#define IDC_RECORDER_CAPBROWSE          1213
+#define IDC_RECORDER_MP4LABEL           1214
+#define IDC_RECORDER_MP4PATH            1215
+#define IDC_RECORDER_MP4BROWSE          1216
 
 #define IDC_LANGLIST                    1250
 #define IDC_LANGTXT                     1251

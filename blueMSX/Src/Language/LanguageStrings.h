@@ -84,9 +84,14 @@ typedef struct {
     char* errorRecorderTitle;
     char* errorRecorderSaveReplay;
     char* errorRecorderReplayMissing;
-    char* errorRecorderNoReplay;
+    char* errorRecorderRequiresDX12;
+    char* errorRecorderRequiresDX12Title;
     char* infoRecorderComplete;
     char* infoToastSaved;
+    char* infoToastAlreadyRecording;
+    char* dlgRecorderPickTitle;
+    char* dlgRecorderPickSourceCap;
+    char* dlgRecorderPickOutputMp4;
 
 
     //----------------------

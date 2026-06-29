@@ -87,9 +87,14 @@ void langInitCatalan(LanguageStrings* ls)
     ls->errorRecorderTitle      = "blueMSX - Enregistrador";
     ls->errorRecorderSaveReplay = "No s'ha pogut desar el fitxer de repetició:\n  %s\n\nComproveu que la carpeta de destinació existeix i és modificable.";
     ls->errorRecorderReplayMissing = "No s'ha trobat el fitxer de repetició:\n  %s\n\nEnregistreu una repetició abans, o utilitzeu Carrega per seleccionar un .cap existent.";
-    ls->errorRecorderNoReplay   = "No replay (.cap) file is loaded.\n\nRecord a replay first, then choose 'Render to video file'.\n\nLast replay path:\n%s";
+    ls->errorRecorderRequiresDX12   = "Voleu canviar el controlador de vídeo a Direct3D 12 i començar la gravació?";
+    ls->errorRecorderRequiresDX12Title = "blueMSX - Canvi de controlador de vídeo";
     ls->infoRecorderComplete    = "Fitxer de vídeo desat:\n  %s";
     ls->infoToastSaved          = "Desat: %s";
+    ls->infoToastAlreadyRecording   = "Ja s'està gravant";
+    ls->dlgRecorderPickTitle        = "blueMSX - Renderitza la repetició a vídeo";
+    ls->dlgRecorderPickSourceCap    = "Fitxer de repetició a renderitzar (.cap):";
+    ls->dlgRecorderPickOutputMp4    = "Fitxer de vídeo de sortida (.mp4):";
 
 
     //----------------------

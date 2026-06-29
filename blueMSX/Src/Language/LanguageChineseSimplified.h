@@ -87,9 +87,14 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->errorRecorderTitle      = "blueMSX - 录制器";
     ls->errorRecorderSaveReplay = "无法保存回放文件：\n  %s\n\n请确认目标目录存在且可写入。";
     ls->errorRecorderReplayMissing = "找不到回放文件：\n  %s\n\n请先录制回放，或使用加载选择现有的 .cap 文件。";
-    ls->errorRecorderNoReplay   = "No replay (.cap) file is loaded.\n\nRecord a replay first, then choose 'Render to video file'.\n\nLast replay path:\n%s";
+    ls->errorRecorderRequiresDX12   = "切换视频驱动到 Direct3D 12 并开始录制？";
+    ls->errorRecorderRequiresDX12Title = "blueMSX - 视频驱动变更";
     ls->infoRecorderComplete    = "视频文件已保存：\n  %s";
     ls->infoToastSaved          = "已保存：%s";
+    ls->infoToastAlreadyRecording   = "已在录制中";
+    ls->dlgRecorderPickTitle        = "blueMSX - 将回放转换为视频";
+    ls->dlgRecorderPickSourceCap    = "要转换的回放文件 (.cap)：";
+    ls->dlgRecorderPickOutputMp4    = "输出视频文件 (.mp4)：";
 
 
     //----------------------

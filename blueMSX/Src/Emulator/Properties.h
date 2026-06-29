@@ -285,6 +285,7 @@ typedef struct {
     int scanlinesShapePct;     /* 0..100 -> p in [0, 4]; mask = lerp(s, 1, pow(beam, p)) */
     int hdrEnable;             /* 0/1 -- request HDR (scRGB FP16) swap chain on DX12 */
     int hdrPaperWhiteNits;     /* 80..400, target SDR-white luminance in HDR mode (default 200) */
+    int recordHdr;             /* 0/1 -- record in HDR (HEVC main10 + BT.2020 + PQ); requires hdrEnable */
     int colorSaturationEnable;
     int colorSaturationWidth;
     int gamma;
@@ -534,6 +535,33 @@ typedef struct {
     } windowPos[DLG_MAX_ID];
 } Settings;
 
+/* Capture properties: paths, formats, filename behavior, completion notification. */
+enum { CAP_AUDIO_WAV = 0, CAP_AUDIO_MP3 = 1, CAP_AUDIO_AAC = 2 };
+enum { CAP_VIDEO_H264 = 0, CAP_VIDEO_HEVC = 1 };
+enum { CAP_IMG_PNG = 0, CAP_IMG_BMP = 1 };
+
+typedef struct {
+    char audioDir[PROP_MAXPATH];
+    char videoDir[PROP_MAXPATH];
+    char screenshotDir[PROP_MAXPATH];
+    char replayDir[PROP_MAXPATH];
+
+    int  audioFormat;
+    int  audioBitrateKbps;
+    int  videoCodec;
+    int  screenshotFormat;
+
+    int  audioPromptFilename;
+    int  videoPromptFilename;
+    int  screenshotPromptFilename;
+    int  replayPromptFilename;
+
+    int  showCompletionToast;
+
+    int  videoUsePostRender;
+    int  videoResolution;
+} CaptureProperties;
+
 typedef struct Properties {
     EmulationProperties emulation;
     VideoProperties     video;
@@ -551,6 +579,7 @@ typedef struct Properties {
     PortProperties      ports;
     int                 language;
     Settings            settings;
+    CaptureProperties   capture;
     NoWindProperties    nowind;
 } Properties;
 

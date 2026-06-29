@@ -54,6 +54,24 @@ int  D3D12HdrMode(void);
 /* 1 when at least one DXGI output reports HDR ("Use HDR" in Windows). */
 int  D3D12IsSystemHdrEnabled(void);
 
+/* Capture path for video recording: Begin allocates, CaptureFromFrame
+** writes bottom-up BGRA32 (or PQ-encoded BGRA32 in HDR mode) to dst,
+** End releases.  Runs off the emu thread so the modal dialog doesn't
+** stall it. */
+/* hdr: 0 = BGRA8; 1 = R10G10B10A2_UNORM PQ.  Caller sets up the
+** SinkWriter input type to match. */
+int  D3D12RecordBegin(int width, int height, int hdr);
+int  D3D12RecordCaptureFromFrame(FrameBuffer* fb, Video* pVideo,
+                                 D3DProperties* props,
+                                 void* dstBgra32, int dstPitch);
+void D3D12RecordEnd(void);
+
+/* HDR offline-preview swap chain bound to a child HWND in the modal
+** render dialog; lifetime is the dialog's. */
+int  D3D12HdrPreviewBegin(HWND hwnd, int width, int height);
+int  D3D12HdrPreviewBlit(void);
+void D3D12HdrPreviewEnd(void);
+
 #ifdef __cplusplus
 }
 #endif

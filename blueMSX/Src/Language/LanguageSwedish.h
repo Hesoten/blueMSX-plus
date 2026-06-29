@@ -87,9 +87,14 @@ void langInitSwedish(LanguageStrings* ls)
     ls->errorRecorderTitle      = "blueMSX - Inspelare";
     ls->errorRecorderSaveReplay = "Kunde inte spara replayfil:\n  %s\n\nKontrollera att målmappen finns och är skrivbar.";
     ls->errorRecorderReplayMissing = "Replayfil hittades inte:\n  %s\n\nSpela in en replay först, eller använd Ladda för att välja en befintlig .cap-fil.";
-    ls->errorRecorderNoReplay   = "No replay (.cap) file is loaded.\n\nRecord a replay first, then choose 'Render to video file'.\n\nLast replay path:\n%s";
+    ls->errorRecorderRequiresDX12   = "Byt videodrivrutin till Direct3D 12 och starta inspelningen?";
+    ls->errorRecorderRequiresDX12Title = "blueMSX - Byte av videodrivrutin";
     ls->infoRecorderComplete    = "Videofil sparad:\n  %s";
     ls->infoToastSaved          = "Sparat: %s";
+    ls->infoToastAlreadyRecording   = "Spelar redan in";
+    ls->dlgRecorderPickTitle        = "blueMSX - Rendera replay till video";
+    ls->dlgRecorderPickSourceCap    = "Replayfil att rendera (.cap):";
+    ls->dlgRecorderPickOutputMp4    = "Utdatavideofil (.mp4):";
 
 
     //----------------------

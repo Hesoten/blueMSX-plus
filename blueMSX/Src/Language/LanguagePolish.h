@@ -87,9 +87,14 @@ void langInitPolish(LanguageStrings* ls)
     ls->errorRecorderTitle      = "blueMSX - Nagrywanie";
     ls->errorRecorderSaveReplay = "Nie można zapisać pliku powtórki:\n  %s\n\nUpewnij się, że folder docelowy istnieje i ma uprawnienia do zapisu.";
     ls->errorRecorderReplayMissing = "Plik powtórki nie znaleziony:\n  %s\n\nNajpierw nagraj powtórkę lub użyj Wczytaj, by wybrać istniejący plik .cap.";
-    ls->errorRecorderNoReplay   = "No replay (.cap) file is loaded.\n\nRecord a replay first, then choose 'Render to video file'.\n\nLast replay path:\n%s";
+    ls->errorRecorderRequiresDX12   = "Przełączyć sterownik wideo na Direct3D 12 i rozpocząć nagrywanie?";
+    ls->errorRecorderRequiresDX12Title = "blueMSX - Zmiana sterownika wideo";
     ls->infoRecorderComplete    = "Plik wideo zapisany:\n  %s";
     ls->infoToastSaved          = "Zapisano: %s";
+    ls->infoToastAlreadyRecording   = "Już nagrywa";
+    ls->dlgRecorderPickTitle        = "blueMSX - Renderuj powtórkę do wideo";
+    ls->dlgRecorderPickSourceCap    = "Plik powtórki do renderowania (.cap):";
+    ls->dlgRecorderPickOutputMp4    = "Wyjściowy plik wideo (.mp4):";
 
 
     //----------------------

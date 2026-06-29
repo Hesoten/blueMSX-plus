@@ -87,9 +87,14 @@ void langInitKorean(LanguageStrings* ls)
     ls->errorRecorderTitle      = "blueMSX - 녹화";
     ls->errorRecorderSaveReplay = "재생 파일을 저장하지 못했습니다:\n  %s\n\n대상 폴더가 존재하고 쓰기 가능한지 확인하세요.";
     ls->errorRecorderReplayMissing = "재생 파일을 찾을 수 없습니다:\n  %s\n\n먼저 재생을 녹화하거나 불러오기로 기존 .cap 파일을 선택하세요.";
-    ls->errorRecorderNoReplay   = "No replay (.cap) file is loaded.\n\nRecord a replay first, then choose 'Render to video file'.\n\nLast replay path:\n%s";
+    ls->errorRecorderRequiresDX12   = "비디오 드라이버를 Direct3D 12로 전환하고 녹화를 시작할까요?";
+    ls->errorRecorderRequiresDX12Title = "blueMSX - 비디오 드라이버 변경";
     ls->infoRecorderComplete    = "동영상 파일 저장됨:\n  %s";
     ls->infoToastSaved          = "저장됨: %s";
+    ls->infoToastAlreadyRecording   = "이미 녹화 중";
+    ls->dlgRecorderPickTitle        = "blueMSX - 재생을 동영상으로 변환";
+    ls->dlgRecorderPickSourceCap    = "변환할 재생 파일 (.cap):";
+    ls->dlgRecorderPickOutputMp4    = "출력 동영상 파일 (.mp4):";
 
 
     //----------------------

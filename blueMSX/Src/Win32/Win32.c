@@ -72,11 +72,13 @@
 #include "Win32file.h"
 #include "Win32Help.h"
 #include "Win32Menu.h"
+#include "Win32FileDialog.h"
 #include "Win32TextUtf8.h"
 #include "ArchMenu.h"
 #include "Win32Eth.h"
 #include "Win32VideoIn.h"
 #include "Win32ScreenShot.h"
+#include "Win32Toast.h"
 #include "Win32MouseEmu.h"
 #include "Win32machineConfig.h"
 #include "Win32ShortcutsConfig.h"
@@ -1986,6 +1988,11 @@ HWND getMainHwnd()
     return st.hwnd;
 }
 
+HWND getEmuHwnd()
+{
+    return st.emuHwnd;
+}
+
 void archShowPropertiesDialog(PropPage  startPane) {
     Properties oldProp = *pProperties;
     int changed;
@@ -2152,9 +2159,11 @@ void archShowPropertiesDialog(PropPage  startPane) {
 
 
 void enterDialogShow() {
+    /* Kill the completion toast first: its 50ms timer + topmost overlay
+    ** would race the modal dialog. */
+    toastHide();
     /* DirectXSetGDISurface is a no-op on DX12/GDI/DDraw-windowed; the
-    ** suspend cycle around it only causes a WASAPI click on dialog
-    ** open.  Skip it for those drivers. */
+    ** suspend cycle around it only causes a WASAPI click. */
     if (pProperties->video.driver != P_VIDEO_DRVGDI &&
         pProperties->video.driver != P_VIDEO_DRVDIRECTX_D3D12) {
         if (emulatorGetState() == EMU_RUNNING) {
@@ -2560,13 +2569,26 @@ void themeSet(char* themeName, int forceMatch) {
 void archUpdateWindow() {
     int zoom = getZoom();
 
+    // Detect D3D12 -> D3D12 transitions (zoom/theme/fullscreen): the
+    // swap chain auto-resizes, so skip the device tear-down to keep
+    // recorder resources alive and avoid AMD driver crashes.
+    static int s_prevDriver = -1;
+    int curDriver           = pProperties->video.driver;
+    int skipDeviceTeardown  = (curDriver == P_VIDEO_DRVDIRECTX_D3D12) &&
+                              (s_prevDriver == P_VIDEO_DRVDIRECTX_D3D12);
+    int zoomOnly            = skipDeviceTeardown;  // alias for downstream conditionals
+
+    int liveSurvivesTransition = recorderIsLiveRecording();
+
     st.enteringFullscreen = 1;
     emulatorSuspend();
 
     // Tear down ALL drivers (each Exit no-ops if inactive); tearing down
     // only the current one leaks the previous swap chain on the HWND.
-    D3D12ExitFullscreenMode();
-    DirectXExitFullscreenMode();
+    if (!zoomOnly) {
+        D3D12ExitFullscreenMode();
+        DirectXExitFullscreenMode();
+    }
 
     if (st.bmBitsGDI != NULL) {
         free(st.bmBitsGDI);
@@ -2608,7 +2630,7 @@ void archUpdateWindow() {
                                 WS_SYSMENU | WS_MINIMIZEBOX | (pProperties->video.maximizeIsFullscreen?WS_MAXIMIZEBOX:0));
         }
 
-        if (pProperties->video.driver != P_VIDEO_DRVGDI) {
+        if (pProperties->video.driver != P_VIDEO_DRVGDI && !zoomOnly) {
             int rv;
 
             if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12)
@@ -2671,10 +2693,28 @@ void archUpdateWindow() {
         mouseEmuSetCaptureInfo(&r, &d);
     }
 
+    // Bring the DX12 device up synchronously so recorderStartLive can
+    // allocate capture resources, and re-bind after a device reset.
+    int dx12Ready = 1;
+    if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12 && !zoomOnly) {
+        dx12Ready = D3D12EnsureReady(st.emuHwnd, st.diplaySync);
+    }
+
+    // Stop a live recording only if we genuinely can't continue: driver is
+    // no longer DX12, or DX12 init just failed. zoom-only DOES NOT stop --
+    // device stays alive and capture resources are intact.
+    if (liveSurvivesTransition &&
+        (pProperties->video.driver != P_VIDEO_DRVDIRECTX_D3D12 || !dx12Ready))
+    {
+        recorderStopLive();
+    }
+
     emulatorResume();
 
     st.enteringFullscreen = 0;
     SetEvent(st.ddrawEvent);
+
+    s_prevDriver = pProperties->video.driver;
 
     InvalidateRect(NULL, NULL, TRUE);
 }
@@ -4177,6 +4217,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     pProperties->joy1.typeId = joystickPortGetType(0);
     pProperties->joy2.typeId = joystickPortGetType(1);
     recorderRestorePropsAtExit();
+    toastDestroy();
     propDestroy(pProperties);
 
     archSoundDestroy();

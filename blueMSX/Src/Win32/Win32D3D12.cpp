@@ -462,6 +462,8 @@ static UINT                              g12_frameIndex  = 0;
 
 static ComPtr<ID3D12RootSignature>       g12_rootSig;
 static ComPtr<ID3D12PipelineState>       g12_pso;       // RTV format = g12_swapFormat (live render)
+static ComPtr<ID3D12PipelineState>       g12_psoRec;    // RTV format = BGRA8 (SDR recording)
+static ComPtr<ID3D12PipelineState>       g12_psoRecHdr; // RTV format = R10G10B10A2_UNORM (HDR recording, PQ-encoded)
 
 // Texture (GPU default heap; lives in PIXEL_SHADER_RESOURCE between frames)
 static ComPtr<ID3D12Resource>            g12_texture;
@@ -533,9 +535,79 @@ static DXGI_COLOR_SPACE_TYPE g12_hdrColorSpace = DXGI_COLOR_SPACE_RGB_FULL_G22_N
 
 static void vApplyHdrMetadata(void);  /* defined alongside vD3D12RebuildBuffers */
 
+// --- Recording-readback state (post-render BGRA32 capture for MP4) -----------
+// Allocated on demand by D3D12RecordBegin and torn down by D3D12RecordEnd.
+// The capture path is independent of the live render: it owns its own source
+// texture + upload buffer + noise resources, builds its own CB (full-source-
+// region quad with scanUvPeriod = 1/TEX_H), and runs on the emu thread so
+// modal dialogs blocking the main thread don't stall it.
+static ComPtr<ID3D12Resource>            g12_recRT;
+static ComPtr<ID3D12DescriptorHeap>      g12_recRtvHeap;
+static ComPtr<ID3D12Resource>            g12_recReadback;
+static ComPtr<ID3D12CommandAllocator>    g12_recCmdAlloc;
+static ComPtr<ID3D12GraphicsCommandList> g12_recCmdList;
+static ComPtr<ID3D12Fence>               g12_recFence;
+static HANDLE                            g12_recFenceEvent = NULL;
+static UINT64                            g12_recFenceCtr = 0;
+static ComPtr<ID3D12Resource>            g12_recVtxBuf;
+static UINT8*                            g12_recVtxPtr  = nullptr;
+static D3D12_VERTEX_BUFFER_VIEW          g12_recVtxView = {};
+static ComPtr<ID3D12Resource>            g12_recCbuf;
+static UINT8*                            g12_recCbufPtr = nullptr;
+static int                               g12_recW = 0;
+static int                               g12_recH = 0;
+static UINT                              g12_recRowPitchAligned = 0;
+
+// Capture-owned source/noise textures + upload buffers, kept independent of
+// the live g12_texture / g12_noiseTexture state.
+static ComPtr<ID3D12Resource>            g12_recSrcTexture;
+static ComPtr<ID3D12Resource>            g12_recUploadBuf;
+static UINT8*                            g12_recUploadPtr = nullptr;
+static UINT                              g12_recUploadRowPitch = 0;
+static ComPtr<ID3D12Resource>            g12_recNoiseTexture;
+static ComPtr<ID3D12Resource>            g12_recNoiseUploadBuf;
+static UINT8*                            g12_recNoiseUploadPtr = nullptr;
+static UINT                              g12_recNoiseUploadRowPitch = 0;
+static UINT32                            g12_recNoiseRndVal = 51;
+static ComPtr<ID3D12DescriptorHeap>      g12_recSrvHeap;
+
+// HDR offline-preview swap chain: a small R10G10B10A2 PQ swap chain bound to
+// a child HWND inside the modal render dialog, fed by CopyResource from
+// g12_recRT after each capture.  Lifetime is the dialog's lifetime; sized at
+// recording resolution (1280x960) and DXGI-stretched to the dialog's preview
+// rect (PREVIEW_W x PREVIEW_H).
+static ComPtr<IDXGISwapChain3>           g12_previewSwap;
+static ComPtr<ID3D12Resource>            g12_previewBackbuffers[2];
+static ComPtr<ID3D12CommandAllocator>    g12_previewCmdAlloc;
+static ComPtr<ID3D12GraphicsCommandList> g12_previewCmdList;
+static ComPtr<ID3D12Fence>               g12_previewFence;
+static HANDLE                            g12_previewFenceEvent = NULL;
+static UINT64                            g12_previewFenceCtr = 0;
+// Atomic + release/acquire ordering: Blit on emu thread vs End on UI thread.
+// End must publish g12_previewActive=false BEFORE Resetting g12_previewSwap so
+// a concurrent Blit cannot pass the guard and then deref a null ComPtr.
+static std::atomic<bool>                 g12_previewActive{false};
+
 static bool g12_ready        = false;
 static bool g12_needCleanup  = false;
 static int  g12_syncVblank   = -1;
+
+// When true, vD3D12Cleanup tearing down a live device must transparently
+// re-allocate the recorder's capture resources after the device comes back
+// up (set by D3D12RecordBegin, cleared only by an explicit D3D12RecordEnd).
+// Without this the SinkWriter would keep getting audio but no further
+// frames after a syncVblank-mode change in the render loop -- the MP4
+// looks like the video stream cuts off where the change happened.
+static bool g12_recAutoRebind = false;
+static int  g12_recSavedW     = 0;
+static int  g12_recSavedH     = 0;
+static int  g12_recSavedHdr   = 0;     /* 0 = BGRA8, 1 = R10G10B10A2_UNORM (HDR PQ) */
+
+// Forward decls -- recorder helpers are referenced by vD3D12Cleanup and
+// bD3D12Init below; the bodies live next to D3D12RecordBegin / End so the
+// recorder lifecycle stays grouped at the bottom of the file.
+static void releaseRecordResources(void);
+static int  allocRecordResources(int width, int height, int hdr);
 
 // Child window hosts the DXGI swap chain: presenting on the caller's HWND
 // would leave a DWM redirection surface that blocks DDraw/GDI later.
@@ -797,11 +869,19 @@ static void vD3D12Cleanup()
     g12_noiseTexture.Reset();
     g12_texture.Reset();
     g12_pso.Reset();
+    g12_psoRec.Reset();
+    g12_psoRecHdr.Reset();
     g12_rootSig.Reset();
     g12_cmdList.Reset();
     g12_samplerHeap.Reset();
     g12_srvHeap.Reset();
     g12_rtvHeap.Reset();
+
+    // Recording resources also tied to this device; release before the
+    // device. Preserve g12_recAutoRebind / g12_recSavedW/H so bD3D12Init
+    // can re-allocate the recorder's resources after the new device comes
+    // up -- a live recording survives transparently.
+    releaseRecordResources();
 
     if (g12_fenceEvent) { CloseHandle(g12_fenceEvent); g12_fenceEvent = NULL; }
     g12_fence.Reset();
@@ -1154,6 +1234,15 @@ static bool bD3D12Init(HWND hWnd, int w, int h, int syncVblank)
 
         hr = g12_device->CreateGraphicsPipelineState(&psd, IID_PPV_ARGS(&g12_pso));
         if (FAILED(hr)) return false;
+
+        /* Recording capture PSOs: g12_psoRec = BGRA8 for SDR,
+        ** g12_psoRecHdr = R10G10B10A2 (PQ 10-bit) for HDR. */
+        psd.RTVFormats[0] = DXGI_FORMAT_B8G8R8A8_UNORM;
+        hr = g12_device->CreateGraphicsPipelineState(&psd, IID_PPV_ARGS(&g12_psoRec));
+        if (FAILED(hr)) return false;
+        psd.RTVFormats[0] = DXGI_FORMAT_R10G10B10A2_UNORM;
+        hr = g12_device->CreateGraphicsPipelineState(&psd, IID_PPV_ARGS(&g12_psoRecHdr));
+        if (FAILED(hr)) return false;
     }
 
     // -- GPU texture (544x480, BGRA8) ------------------------------------------
@@ -1404,6 +1493,15 @@ static bool bD3D12Init(HWND hWnd, int w, int h, int syncVblank)
     g12_syncVblank = syncVblank;
     g12_ready      = true;
 
+    // If a live recording was running before this device reset, transparently
+    // re-allocate the capture-owned resources at the recorded dimensions so
+    // the recorder doesn't see a gap (the MF SinkWriter session is unaware
+    // of DX12 lifecycle and keeps producing the same MP4).
+    if (g12_recAutoRebind && g12_recSavedW > 0 && g12_recSavedH > 0) {
+        if (!allocRecordResources(g12_recSavedW, g12_recSavedH, g12_recSavedHdr)) {
+            g12_recAutoRebind = false;
+        }
+    }
     return true;
 }
 
@@ -2184,3 +2282,899 @@ int D3D12UpdateWindowedMode(HWND /*hwnd*/, int width, int height,
     vD3D12Resize(width, height);
     return 0;
 }
+
+// Post-render recording readback: Begin/CaptureFromFrame/End allocate
+// an offscreen RT + READBACK staging buffer, re-run the display PSO,
+// and copy to the caller's BGRA32 destination.  We bypass the swap
+// quad is full NDC (-1..1) with UVs spanning srcUvMin..srcUvMax from the cached
+// CB. That means the recording RT sees the same MSX 4:3 native frame regardless
+// of whatever aspect ratio the visible window is using.
+
+extern "C" int D3D12RecordBegin(int width, int height, int hdr)
+{
+    if (!g12_ready || !g12_device) return 0;
+    if (width <= 0 || height <= 0) return 0;
+
+    // Remember dims so vD3D12Cleanup -> bD3D12Init can re-create resources
+    // automatically after a host-driven device reset (e.g. zoom change /
+    // syncVblank-mode flip in the render loop).
+    g12_recSavedW     = width;
+    g12_recSavedH     = height;
+    g12_recSavedHdr   = hdr ? 1 : 0;
+    g12_recAutoRebind = true;
+
+    if (!allocRecordResources(width, height, g12_recSavedHdr)) {
+        g12_recAutoRebind = false;
+        return 0;
+    }
+    return 1;
+}
+
+static int allocRecordResources(int width, int height, int hdr)
+{
+    // If a previous recording session left state behind, clean it up first.
+    releaseRecordResources();
+
+    HRESULT hr;
+
+    // ---- Render target (DEFAULT heap) -----
+    // SDR: B8G8R8A8 -- the readback maps directly to MFVideoFormat_RGB32.
+    // HDR: R10G10B10A2_UNORM -- the shader writes PQ-encoded values; the
+    //      DXGI native bit layout (bits 0-9 R, 10-19 G, 20-29 B, 30-31 A)
+    //      matches MFVideoFormat_A2R10G10B10's underlying D3DFMT_A2B10G10R10
+    //      so the readback memory can be fed directly to MF without swizzle.
+    DXGI_FORMAT recFormat = hdr ? DXGI_FORMAT_R10G10B10A2_UNORM
+                                : DXGI_FORMAT_B8G8R8A8_UNORM;
+    {
+        D3D12_HEAP_PROPERTIES hp = {};
+        hp.Type = D3D12_HEAP_TYPE_DEFAULT;
+        D3D12_RESOURCE_DESC rd = {};
+        rd.Dimension          = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+        rd.Width              = (UINT64)width;
+        rd.Height             = (UINT)height;
+        rd.DepthOrArraySize   = 1;
+        rd.MipLevels          = 1;
+        rd.Format             = recFormat;
+        rd.SampleDesc.Count   = 1;
+        rd.Layout             = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+        rd.Flags              = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+        D3D12_CLEAR_VALUE cv  = {};
+        cv.Format             = recFormat;
+        cv.Color[3]           = 1.0f;
+        hr = g12_device->CreateCommittedResource(
+            &hp, D3D12_HEAP_FLAG_NONE, &rd,
+            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+            &cv, IID_PPV_ARGS(&g12_recRT));
+        if (FAILED(hr)) { releaseRecordResources(); return 0; }
+    }
+
+    // ---- RTV heap with one slot for the record RT -----
+    {
+        D3D12_DESCRIPTOR_HEAP_DESC hd = {};
+        hd.NumDescriptors = 1;
+        hd.Type           = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+        hr = g12_device->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&g12_recRtvHeap));
+        if (FAILED(hr)) { releaseRecordResources(); return 0; }
+        g12_device->CreateRenderTargetView(
+            g12_recRT.Get(), nullptr,
+            g12_recRtvHeap->GetCPUDescriptorHandleForHeapStart());
+    }
+
+    // ---- READBACK buffer big enough for one frame -----
+    g12_recRowPitchAligned =
+        (UINT)((width * 4 + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1)
+               & ~(D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1));
+    {
+        D3D12_HEAP_PROPERTIES hp = {};
+        hp.Type = D3D12_HEAP_TYPE_READBACK;
+        D3D12_RESOURCE_DESC rd = {};
+        rd.Dimension        = D3D12_RESOURCE_DIMENSION_BUFFER;
+        rd.Width            = (UINT64)g12_recRowPitchAligned * (UINT64)height;
+        rd.Height           = 1;
+        rd.DepthOrArraySize = 1;
+        rd.MipLevels        = 1;
+        rd.Format           = DXGI_FORMAT_UNKNOWN;
+        rd.SampleDesc.Count = 1;
+        rd.Layout           = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+        hr = g12_device->CreateCommittedResource(
+            &hp, D3D12_HEAP_FLAG_NONE, &rd,
+            D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
+            IID_PPV_ARGS(&g12_recReadback));
+        if (FAILED(hr)) { releaseRecordResources(); return 0; }
+    }
+
+    // ---- Dedicated cmd allocator + cmd list -----
+    hr = g12_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,
+                                            IID_PPV_ARGS(&g12_recCmdAlloc));
+    if (FAILED(hr)) { releaseRecordResources(); return 0; }
+    hr = g12_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT,
+                                       g12_recCmdAlloc.Get(), nullptr,
+                                       IID_PPV_ARGS(&g12_recCmdList));
+    if (FAILED(hr)) { releaseRecordResources(); return 0; }
+    g12_recCmdList->Close();
+
+    // ---- Dedicated fence -----
+    hr = g12_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&g12_recFence));
+    if (FAILED(hr)) { releaseRecordResources(); return 0; }
+    g12_recFenceCtr   = 0;
+    g12_recFenceEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+    if (!g12_recFenceEvent) { releaseRecordResources(); return 0; }
+
+    // ---- Vertex buffer (4 verts, full-NDC quad; UVs filled per-capture) -----
+    {
+        const UINT vtxSize = sizeof(Vtx12) * 4;
+        D3D12_HEAP_PROPERTIES hp = {};
+        hp.Type = D3D12_HEAP_TYPE_UPLOAD;
+        D3D12_RESOURCE_DESC rd = {};
+        rd.Dimension        = D3D12_RESOURCE_DIMENSION_BUFFER;
+        rd.Width            = vtxSize;
+        rd.Height           = 1;
+        rd.DepthOrArraySize = 1;
+        rd.MipLevels        = 1;
+        rd.SampleDesc.Count = 1;
+        rd.Layout           = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+        hr = g12_device->CreateCommittedResource(
+            &hp, D3D12_HEAP_FLAG_NONE, &rd,
+            D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+            IID_PPV_ARGS(&g12_recVtxBuf));
+        if (FAILED(hr)) { releaseRecordResources(); return 0; }
+        D3D12_RANGE rr = { 0, 0 };  // never read on CPU
+        hr = g12_recVtxBuf->Map(0, &rr, (void**)&g12_recVtxPtr);
+        if (FAILED(hr) || !g12_recVtxPtr) { releaseRecordResources(); return 0; }
+        g12_recVtxView.BufferLocation = g12_recVtxBuf->GetGPUVirtualAddress();
+        g12_recVtxView.SizeInBytes    = vtxSize;
+        g12_recVtxView.StrideInBytes  = sizeof(Vtx12);
+    }
+
+    // ---- Record-specific CBV (CB_SIZE bytes, persistently CPU-mapped) -----
+    {
+        D3D12_HEAP_PROPERTIES hp = {};
+        hp.Type = D3D12_HEAP_TYPE_UPLOAD;
+        D3D12_RESOURCE_DESC rd = {};
+        rd.Dimension        = D3D12_RESOURCE_DIMENSION_BUFFER;
+        rd.Width            = CB_SIZE;
+        rd.Height           = 1;
+        rd.DepthOrArraySize = 1;
+        rd.MipLevels        = 1;
+        rd.SampleDesc.Count = 1;
+        rd.Layout           = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+        hr = g12_device->CreateCommittedResource(
+            &hp, D3D12_HEAP_FLAG_NONE, &rd,
+            D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+            IID_PPV_ARGS(&g12_recCbuf));
+        if (FAILED(hr)) { releaseRecordResources(); return 0; }
+        D3D12_RANGE rr = { 0, 0 };
+        hr = g12_recCbuf->Map(0, &rr, (void**)&g12_recCbufPtr);
+        if (FAILED(hr) || !g12_recCbufPtr) { releaseRecordResources(); return 0; }
+    }
+
+    // ---- Capture-owned source texture (TEX_W x TEX_H BGRA8) -----
+    {
+        D3D12_HEAP_PROPERTIES hp = {};
+        hp.Type = D3D12_HEAP_TYPE_DEFAULT;
+        D3D12_RESOURCE_DESC rd = {};
+        rd.Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+        rd.Width            = TEX_W;
+        rd.Height           = TEX_H;
+        rd.DepthOrArraySize = 1;
+        rd.MipLevels        = 1;
+        rd.Format           = DXGI_FORMAT_B8G8R8A8_UNORM;
+        rd.SampleDesc.Count = 1;
+        rd.Layout           = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+        hr = g12_device->CreateCommittedResource(
+            &hp, D3D12_HEAP_FLAG_NONE, &rd,
+            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, nullptr,
+            IID_PPV_ARGS(&g12_recSrcTexture));
+        if (FAILED(hr)) { releaseRecordResources(); return 0; }
+    }
+
+    // ---- Upload buffer for the source texture (CPU-mapped, 256-aligned rows) --
+    g12_recUploadRowPitch =
+        (UINT)((TEX_W * 4 + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1)
+               & ~(D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1));
+    {
+        D3D12_HEAP_PROPERTIES hp = {};
+        hp.Type = D3D12_HEAP_TYPE_UPLOAD;
+        D3D12_RESOURCE_DESC rd = {};
+        rd.Dimension        = D3D12_RESOURCE_DIMENSION_BUFFER;
+        rd.Width            = (UINT64)g12_recUploadRowPitch * TEX_H;
+        rd.Height           = 1;
+        rd.DepthOrArraySize = 1;
+        rd.MipLevels        = 1;
+        rd.SampleDesc.Count = 1;
+        rd.Layout           = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+        hr = g12_device->CreateCommittedResource(
+            &hp, D3D12_HEAP_FLAG_NONE, &rd,
+            D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+            IID_PPV_ARGS(&g12_recUploadBuf));
+        if (FAILED(hr)) { releaseRecordResources(); return 0; }
+        D3D12_RANGE rr = { 0, 0 };
+        hr = g12_recUploadBuf->Map(0, &rr, (void**)&g12_recUploadPtr);
+        if (FAILED(hr) || !g12_recUploadPtr) { releaseRecordResources(); return 0; }
+    }
+
+    // ---- Capture-owned noise mask texture (R8) -----
+    {
+        D3D12_HEAP_PROPERTIES hp = {};
+        hp.Type = D3D12_HEAP_TYPE_DEFAULT;
+        D3D12_RESOURCE_DESC rd = {};
+        rd.Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+        rd.Width            = TEX_W;
+        rd.Height           = TEX_H;
+        rd.DepthOrArraySize = 1;
+        rd.MipLevels        = 1;
+        rd.Format           = DXGI_FORMAT_R8_UNORM;
+        rd.SampleDesc.Count = 1;
+        rd.Layout           = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+        hr = g12_device->CreateCommittedResource(
+            &hp, D3D12_HEAP_FLAG_NONE, &rd,
+            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, nullptr,
+            IID_PPV_ARGS(&g12_recNoiseTexture));
+        if (FAILED(hr)) { releaseRecordResources(); return 0; }
+    }
+
+    // ---- Noise upload buffer -----
+    g12_recNoiseUploadRowPitch =
+        (UINT)((TEX_W + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1)
+               & ~(D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1));
+    {
+        D3D12_HEAP_PROPERTIES hp = {};
+        hp.Type = D3D12_HEAP_TYPE_UPLOAD;
+        D3D12_RESOURCE_DESC rd = {};
+        rd.Dimension        = D3D12_RESOURCE_DIMENSION_BUFFER;
+        rd.Width            = (UINT64)g12_recNoiseUploadRowPitch * TEX_H;
+        rd.Height           = 1;
+        rd.DepthOrArraySize = 1;
+        rd.MipLevels        = 1;
+        rd.SampleDesc.Count = 1;
+        rd.Layout           = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+        hr = g12_device->CreateCommittedResource(
+            &hp, D3D12_HEAP_FLAG_NONE, &rd,
+            D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+            IID_PPV_ARGS(&g12_recNoiseUploadBuf));
+        if (FAILED(hr)) { releaseRecordResources(); return 0; }
+        D3D12_RANGE rr = { 0, 0 };
+        hr = g12_recNoiseUploadBuf->Map(0, &rr, (void**)&g12_recNoiseUploadPtr);
+        if (FAILED(hr) || !g12_recNoiseUploadPtr) { releaseRecordResources(); return 0; }
+    }
+
+    // ---- Capture SRV heap: 3 slots matching the live root signature --------
+    // slot 0: recSrcTexture (current frame source)
+    // slot 1: recSrcTexture (dummy; recording always sets blendFrames=0 so the
+    //         shader never samples this slot, but the descriptor must point at
+    //         a real PSR resource for binding validity)
+    // slot 2: recNoiseTexture (own PRNG state, advanced per capture)
+    {
+        D3D12_DESCRIPTOR_HEAP_DESC d = {};
+        d.NumDescriptors = 3;
+        d.Type  = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+        d.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+        hr = g12_device->CreateDescriptorHeap(&d, IID_PPV_ARGS(&g12_recSrvHeap));
+        if (FAILED(hr)) { releaseRecordResources(); return 0; }
+
+        UINT srvSize = g12_device->GetDescriptorHandleIncrementSize(
+            D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+        D3D12_CPU_DESCRIPTOR_HANDLE h = g12_recSrvHeap->GetCPUDescriptorHandleForHeapStart();
+
+        D3D12_SHADER_RESOURCE_VIEW_DESC srvBgra = {};
+        srvBgra.Format                  = DXGI_FORMAT_B8G8R8A8_UNORM;
+        srvBgra.ViewDimension           = D3D12_SRV_DIMENSION_TEXTURE2D;
+        srvBgra.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        srvBgra.Texture2D.MipLevels     = 1;
+
+        g12_device->CreateShaderResourceView(g12_recSrcTexture.Get(), &srvBgra, h);
+        h.ptr += srvSize;
+        g12_device->CreateShaderResourceView(g12_recSrcTexture.Get(), &srvBgra, h);
+        h.ptr += srvSize;
+
+        D3D12_SHADER_RESOURCE_VIEW_DESC srvR8 = {};
+        srvR8.Format                  = DXGI_FORMAT_R8_UNORM;
+        srvR8.ViewDimension           = D3D12_SRV_DIMENSION_TEXTURE2D;
+        srvR8.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        srvR8.Texture2D.MipLevels     = 1;
+        g12_device->CreateShaderResourceView(g12_recNoiseTexture.Get(), &srvR8, h);
+    }
+
+    g12_recW = width;
+    g12_recH = height;
+    return 1;
+}
+
+extern "C" int D3D12RecordCaptureFromFrame(FrameBuffer* fb, Video* pVideo,
+                                           D3DProperties* props,
+                                           void* dstBgra32, int dstPitch)
+{
+    if (!g12_ready || !g12_device || !g12_recRT || !g12_recSrcTexture) return 0;
+    // Mapped upload pointers must be valid -- a Map failure during alloc would
+    // leave them null even with the resources non-null.
+    if (!g12_recUploadPtr || !g12_recCbufPtr || !g12_recVtxPtr) return 0;
+    if (!fb || !pVideo || !props || !dstBgra32) return 0;
+
+    // 1) Source extent + deinterlace (mirrors live D3D12UpdateSurface).
+    bool isInterlacedSource = (fb->interlace != INTERLACE_NONE);
+    if (isInterlacedSource && pVideo->deInterlace)
+        fb = frameBufferDeinterlace(fb);
+
+    int  srcW             = fb->maxWidth;
+    bool frameDoubleWidth = false;
+    for (int y = 0; y < fb->lines; y++) {
+        if (fb->line[y].doubleWidth) { srcW *= 2; frameDoubleWidth = true; break; }
+    }
+    int srcH = fb->lines;
+
+    // 2) ARGB1555 -> BGRA8 into the capture-owned upload buffer.
+    memset(g12_recUploadPtr, 0, (size_t)g12_recUploadRowPitch * (size_t)TEX_H);
+    {
+        int lines     = fb->lines;
+        int startLine = (fb->interlace == INTERLACE_ODD) ? 1 : 0;
+        for (int y = 0; y < lines; y++) {
+            UINT8* dstRow = g12_recUploadPtr
+                          + (UINT)((y + startLine) * (int)g12_recUploadRowPitch);
+            const UINT16* srcRow = fb->line[y].buffer;
+            int rowSrcW = fb->maxWidth;
+            if (fb->line[y].doubleWidth) rowSrcW *= 2;
+            // Mid-frame SM5->SM7 mix: duplicate single-width pixels so the
+            // right half of the texture isn't memset(0)=black (same fix as
+            // D3D12UpdateSurface above).
+            int stride = (frameDoubleWidth && !fb->line[y].doubleWidth) ? 2 : 1;
+
+            UINT32* d32 = (UINT32*)dstRow;
+            for (int x = 0; x < rowSrcW; x++) {
+                UINT16 p = srcRow[x];
+                UINT32 r = (p >> 10) & 0x1F; r = (r << 3) | (r >> 2);
+                UINT32 g = (p >>  5) & 0x1F; g = (g << 3) | (g >> 2);
+                UINT32 b = (p >>  0) & 0x1F; b = (b << 3) | (b >> 2);
+                UINT32 v = (0xFFu << 24) | (r << 16) | (g << 8) | b;
+                d32[x * stride] = v;
+                if (stride > 1) d32[x * stride + 1] = v;
+            }
+        }
+    }
+
+    // 3) Noise mask (only when palMode requests it). Same PRNG mechanic as
+    //    live render, but advanced by a capture-local counter so the live
+    //    path's noise pattern isn't perturbed by recording activity.
+    bool needsNoise = (pVideo->palMode == VIDEO_PAL_SHARP_NOISE ||
+                       pVideo->palMode == VIDEO_PAL_BLUR_NOISE);
+    if (needsNoise) {
+        g12_recNoiseRndVal *= 13;
+        UINT32 rnd      = g12_recNoiseRndVal;
+        UINT8* noiseDst = g12_recNoiseUploadPtr;
+        int    nPitch   = (int)g12_recNoiseUploadRowPitch;
+        if (frameDoubleWidth) {
+            for (int y = 0; y < srcH; y++) {
+                UINT8* row = noiseDst + y * nPitch;
+                for (int p = 0; p + 1 < srcW; p += 2) {
+                    UINT8 n = (UINT8)((rnd >> 29) & 0x07);
+                    row[p    ] = n;
+                    row[p + 1] = n;
+                    rnd *= 23;
+                }
+                if ((srcW & 1) != 0) {
+                    row[srcW - 1] = (UINT8)((rnd >> 29) & 0x07);
+                    rnd *= 23;
+                }
+            }
+        } else {
+            for (int y = 0; y < srcH; y++) {
+                UINT8* row = noiseDst + y * nPitch;
+                for (int p = 0; p < srcW; p++) {
+                    row[p] = (UINT8)((rnd >> 29) & 0x07);
+                    rnd *= 23;
+                }
+            }
+        }
+    }
+
+    // 4) Build CB. Most fields mirror live; recording-specific overrides:
+    //    - blendFramesEnable = 0 (no prev-frame state across captures)
+    //    - UV / scanUvPeriod come from the same AR + crop helper the live
+    //      path uses, so the user's Properties->Video aspect-ratio setting
+    //      (NTSC PAR / PAL PAR / 1:1 / Auto / Stretch) is honoured. The
+    //      visible source region inside the record RT is letterboxed /
+    //      pillarboxed by the shader's border-color clamp.
+    UvRender12 uv = computeUvForRender(g12_recW, g12_recH, srcW, srcH, props);
+    /* Mirror the live path's AA / legacy mode selection. */
+    float vSpanRec = uv.v1 - uv.v0;
+    float pxPerRowRec = (vSpanRec > 1e-6f)
+                      ? ((float)g12_recH / (vSpanRec * (float)TEX_H))
+                      : 0.0f;
+    bool useScanAARec    = (pxPerRowRec >= 2.5f);
+    float scanUvPeriodRec = useScanAARec
+                            ? (1.0f / (float)TEX_H)
+                            : ((srcH > 0) ? (vSpanRec / (float)srcH)
+                                          : (1.0f / (float)TEX_H));
+    float scanUvOffsetRec = useScanAARec ? 0.0f : uv.v0;
+    {
+        EffectCB12 cb = {};
+        bool scanlinesActive = pVideo->scanLinesEnable
+                               && !isInterlacedSource
+                               && !fb->interlaceRaster;
+        cb.scanLinesEnable    = scanlinesActive ? 1.0f : 0.0f;
+        cb.scanLinesIntensity = (float)pVideo->scanLinesPct / 100.0f;
+        /* Mirror the live path: HDR uses a global paperWhite lift
+        ** (see hdrPaperWhiteNits below), SDR uses per-pixel comp. */
+        cb.scanLinesBrightComp = scanlinesActive
+            ? computeScanLineBrightComp(pVideo)
+            : 1.0f;
+        /* HDR mode: 2 = HDR10 PQ (BT.709 in BT.2020 metadata),
+        ** 0 = SDR (BGRA8, no PQ encoding). */
+        Properties* gpForHdr = propGetGlobalProperties();
+        cb.hdrMode            = g12_recSavedHdr ? 2.0f : 0.0f;
+        {
+            float pw = gpForHdr ? (float)gpForHdr->video.hdrPaperWhiteNits : 200.0f;
+            /* Pre-attenuate paperWhite 15% so HDR playback matches the live look. */
+            if (g12_recSavedHdr) {
+                pw *= 0.85f;
+            }
+            if (g12_recSavedHdr && scanlinesActive) {
+                // Recording mirrors the live render's mode -- if the user
+                // is in fullscreen the recording captures with the
+                // fullscreen comp curve, and likewise for windowed.  The
+                // recording goes to the user's expected look at capture
+                // time rather than picking a "neutral" comp.
+                pw *= computeScanLinePaperWhiteBoost(pVideo, g12_isFullscreen, pxPerRowRec);
+                cb.darkBoostRatio = computeScanLineDarkBoost(pVideo, g12_isFullscreen, pxPerRowRec);
+            } else if (g12_recSavedHdr
+                       && pVideo->scanLinesEnable
+                       && (isInterlacedSource || fb->interlaceRaster)) {
+                // Interlace brightness lift, mirroring the live path: on
+                // a real CRT, interlaced content lights the gap rows via
+                // the alternate field and ends up perceptually brighter
+                // than progressive.  HDR has the headroom for the lift;
+                // SDR-recording leaves paperWhite alone.
+                pw *= 1.20f;
+                cb.darkBoostRatio = 1.0f;
+            } else {
+                cb.darkBoostRatio = 1.0f;
+            }
+            if (pw > 800.0f) pw = 800.0f;
+            cb.hdrPaperWhiteNits = pw;
+        }
+        cb.scanUvPeriod       = scanUvPeriodRec;
+        cb.scanUvOffset       = scanUvOffsetRec;
+        cb.scanUseAA          = useScanAARec ? 1.0f : 0.0f;
+        {
+            int spct = pVideo->scanlinesShapePct;
+            if (spct < 0)   spct = 0;
+            if (spct > 100) spct = 100;
+            cb.scanShapeP = (float)spct / 100.0f * 4.0f;
+        }
+        cb.blendFramesEnable  = 0.0f;
+        cb.gammaExp           = (float)pVideo->gamma;
+        cb.contrast           = (float)pVideo->contrast;
+        cb.saturation         = (float)pVideo->saturation;
+        cb.brightness         = (float)pVideo->brightness / 100.0f;
+        cb.colorSatEnable     = pVideo->colorSaturationEnable ? 1.0f : 0.0f;
+        float satW = (float)(pVideo->colorSaturationWidth < 1 ? 1 : pVideo->colorSaturationWidth);
+        cb.colorSatWidth      = satW / (float)TEX_W;
+
+        Properties* gp = propGetGlobalProperties();
+        cb.monitorColor       = gp ? (float)gp->video.monitorColor : 0.0f;
+
+        if (gp && gp->video.d3d.extendBorderColor && fb->line[0].buffer) {
+            unsigned int b16 = (unsigned int)fb->line[0].buffer[0];
+            cb.borderR = ((b16 >> 10) & 0x1F) / 31.0f;
+            cb.borderG = ((b16 >>  5) & 0x1F) / 31.0f;
+            cb.borderB = ((b16      ) & 0x1F) / 31.0f;
+        } else {
+            cb.borderR = cb.borderG = cb.borderB = 0.0f;
+        }
+        cb.borderA = 1.0f;
+
+        /* Crop UV bounds (same as live path): letterbox area renders borderColor. */
+        cb.srcUvMinU = uv.cropU0;
+        cb.srcUvMinV = uv.cropV0;
+        cb.srcUvMaxU = uv.cropU1;
+        cb.srcUvMaxV = uv.cropV1;
+
+        cb.palMode         = (float)(int)pVideo->palMode;
+        cb.srcWf           = (float)srcW;
+        cb.srcHf           = (float)fb->lines;
+        cb.texWf           = (float)TEX_W;
+        cb.texHf           = (float)TEX_H;
+        cb.doubleWidthFlag = frameDoubleWidth ? 1.0f : 0.0f;
+
+        memcpy(g12_recCbufPtr, &cb, sizeof(cb));
+
+        // Vertex buffer: full-NDC quad with the AR-corrected UV bounds. UV
+        // values outside [srcUvMinU,srcUvMaxU] x [srcUvMinV,srcUvMaxV] are
+        // replaced with the border colour by the shader (same letterbox /
+        // pillarbox behaviour as the live render).
+        Vtx12 verts[4] = {
+            { -1.0f, +1.0f, uv.u0, uv.v0 },
+            { +1.0f, +1.0f, uv.u1, uv.v0 },
+            { -1.0f, -1.0f, uv.u0, uv.v1 },
+            { +1.0f, -1.0f, uv.u1, uv.v1 },
+        };
+        memcpy(g12_recVtxPtr, verts, sizeof(verts));
+    }
+
+    // 5) Build the command list.
+    //    PSO selection: pick the PSO whose RTV format matches the record RT.
+    //      g12_recSavedHdr=1 -> R10G10B10A2_UNORM RTV -> g12_psoRecHdr
+    //      g12_recSavedHdr=0 + live HDR active -> BGRA8 RTV but live PSO has
+    //                          FP16/PQ format -> need g12_psoRec
+    //      g12_recSavedHdr=0 + live SDR -> live and record both BGRA8 ->
+    //                          reuse g12_pso to avoid per-frame state switch
+    ID3D12PipelineState* recPso = g12_recSavedHdr ? g12_psoRecHdr.Get()
+                                                  : (g12_hdrActive ? g12_psoRec.Get()
+                                                                   : g12_pso.Get());
+    g12_recCmdAlloc->Reset();
+    g12_recCmdList->Reset(g12_recCmdAlloc.Get(), recPso);
+
+    auto barrier = [&](ID3D12Resource* res,
+                       D3D12_RESOURCE_STATES before,
+                       D3D12_RESOURCE_STATES after) {
+        D3D12_RESOURCE_BARRIER rb = {};
+        rb.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        rb.Transition.pResource   = res;
+        rb.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        rb.Transition.StateBefore = before;
+        rb.Transition.StateAfter  = after;
+        g12_recCmdList->ResourceBarrier(1, &rb);
+    };
+
+    // -- Source texture: PSR -> COPY_DEST, upload, COPY_DEST -> PSR ---------
+    barrier(g12_recSrcTexture.Get(),
+            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+            D3D12_RESOURCE_STATE_COPY_DEST);
+    {
+        D3D12_TEXTURE_COPY_LOCATION dl = {};
+        dl.pResource        = g12_recSrcTexture.Get();
+        dl.Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+        dl.SubresourceIndex = 0;
+        D3D12_TEXTURE_COPY_LOCATION sl = {};
+        sl.pResource                          = g12_recUploadBuf.Get();
+        sl.Type                               = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+        sl.PlacedFootprint.Footprint.Format   = DXGI_FORMAT_B8G8R8A8_UNORM;
+        sl.PlacedFootprint.Footprint.Width    = TEX_W;
+        sl.PlacedFootprint.Footprint.Height   = TEX_H;
+        sl.PlacedFootprint.Footprint.Depth    = 1;
+        sl.PlacedFootprint.Footprint.RowPitch = g12_recUploadRowPitch;
+        g12_recCmdList->CopyTextureRegion(&dl, 0, 0, 0, &sl, nullptr);
+    }
+    barrier(g12_recSrcTexture.Get(),
+            D3D12_RESOURCE_STATE_COPY_DEST,
+            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+
+    // -- Optional noise upload ----------------------------------------------
+    if (needsNoise) {
+        barrier(g12_recNoiseTexture.Get(),
+                D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+                D3D12_RESOURCE_STATE_COPY_DEST);
+        D3D12_TEXTURE_COPY_LOCATION dl = {};
+        dl.pResource        = g12_recNoiseTexture.Get();
+        dl.Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+        dl.SubresourceIndex = 0;
+        D3D12_TEXTURE_COPY_LOCATION sl = {};
+        sl.pResource                          = g12_recNoiseUploadBuf.Get();
+        sl.Type                               = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+        sl.PlacedFootprint.Footprint.Format   = DXGI_FORMAT_R8_UNORM;
+        sl.PlacedFootprint.Footprint.Width    = TEX_W;
+        sl.PlacedFootprint.Footprint.Height   = TEX_H;
+        sl.PlacedFootprint.Footprint.Depth    = 1;
+        sl.PlacedFootprint.Footprint.RowPitch = g12_recNoiseUploadRowPitch;
+        g12_recCmdList->CopyTextureRegion(&dl, 0, 0, 0, &sl, nullptr);
+        barrier(g12_recNoiseTexture.Get(),
+                D3D12_RESOURCE_STATE_COPY_DEST,
+                D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    }
+
+    // -- Record RT: PSR -> RENDER_TARGET, draw, RT -> COPY_SOURCE -----------
+    barrier(g12_recRT.Get(),
+            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+            D3D12_RESOURCE_STATE_RENDER_TARGET);
+
+    D3D12_CPU_DESCRIPTOR_HANDLE rtv = g12_recRtvHeap->GetCPUDescriptorHandleForHeapStart();
+    float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+    g12_recCmdList->ClearRenderTargetView(rtv, clearColor, 0, nullptr);
+    g12_recCmdList->OMSetRenderTargets(1, &rtv, FALSE, nullptr);
+
+    D3D12_VIEWPORT vp = { 0.0f, 0.0f, (float)g12_recW, (float)g12_recH, 0.0f, 1.0f };
+    D3D12_RECT     sc = { 0, 0, (LONG)g12_recW, (LONG)g12_recH };
+    g12_recCmdList->RSSetViewports(1, &vp);
+    g12_recCmdList->RSSetScissorRects(1, &sc);
+
+    g12_recCmdList->SetPipelineState(recPso);
+    g12_recCmdList->SetGraphicsRootSignature(g12_rootSig.Get());
+
+    ID3D12DescriptorHeap* heaps[] = { g12_recSrvHeap.Get(), g12_samplerHeap.Get() };
+    g12_recCmdList->SetDescriptorHeaps(2, heaps);
+    g12_recCmdList->SetGraphicsRootDescriptorTable(
+        0, g12_recSrvHeap->GetGPUDescriptorHandleForHeapStart());
+
+    D3D12_GPU_DESCRIPTOR_HANDLE samp = g12_samplerHeap->GetGPUDescriptorHandleForHeapStart();
+    if (props->linearFiltering) samp.ptr += g12_samplerSize;
+    g12_recCmdList->SetGraphicsRootDescriptorTable(1, samp);
+
+    g12_recCmdList->SetGraphicsRootConstantBufferView(
+        2, g12_recCbuf->GetGPUVirtualAddress());
+
+    g12_recCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+    g12_recCmdList->IASetVertexBuffers(0, 1, &g12_recVtxView);
+    g12_recCmdList->DrawInstanced(4, 1, 0, 0);
+
+    barrier(g12_recRT.Get(),
+            D3D12_RESOURCE_STATE_RENDER_TARGET,
+            D3D12_RESOURCE_STATE_COPY_SOURCE);
+
+    // -- CopyTextureRegion into the readback buffer -------------------------
+    // The destination footprint format must match the source RT format,
+    // otherwise D3D12 validation rejects the copy and the GPU can TDR.
+    {
+        D3D12_TEXTURE_COPY_LOCATION sl = {};
+        sl.pResource        = g12_recRT.Get();
+        sl.Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+        sl.SubresourceIndex = 0;
+        D3D12_TEXTURE_COPY_LOCATION dl = {};
+        dl.pResource                          = g12_recReadback.Get();
+        dl.Type                               = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+        dl.PlacedFootprint.Footprint.Format   = g12_recSavedHdr
+                                                ? DXGI_FORMAT_R10G10B10A2_UNORM
+                                                : DXGI_FORMAT_B8G8R8A8_UNORM;
+        dl.PlacedFootprint.Footprint.Width    = (UINT)g12_recW;
+        dl.PlacedFootprint.Footprint.Height   = (UINT)g12_recH;
+        dl.PlacedFootprint.Footprint.Depth    = 1;
+        dl.PlacedFootprint.Footprint.RowPitch = g12_recRowPitchAligned;
+        g12_recCmdList->CopyTextureRegion(&dl, 0, 0, 0, &sl, nullptr);
+    }
+
+    barrier(g12_recRT.Get(),
+            D3D12_RESOURCE_STATE_COPY_SOURCE,
+            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+
+    g12_recCmdList->Close();
+
+    // 6) Submit + wait. The shared g12_cmdQueue serialises against live
+    //    render submissions; we use our own fence so live's WaitForFrame
+    //    isn't perturbed.
+    {
+        ID3D12CommandList* lists[] = { g12_recCmdList.Get() };
+        g12_cmdQueue->ExecuteCommandLists(1, lists);
+    }
+
+    ++g12_recFenceCtr;
+    g12_cmdQueue->Signal(g12_recFence.Get(), g12_recFenceCtr);
+    if (g12_recFence->GetCompletedValue() < g12_recFenceCtr) {
+        g12_recFence->SetEventOnCompletion(g12_recFenceCtr, g12_recFenceEvent);
+        DWORD wr = WaitForSingleObject(g12_recFenceEvent, 1000);
+        if (wr != WAIT_OBJECT_0) return 0;
+    }
+
+    // 7) Map readback, memcpy bottom-up to the caller. MF SinkWriter's
+    //    negative MF_MT_DEFAULT_STRIDE consumes the inverted layout.
+    D3D12_RANGE readRange = { 0, (SIZE_T)g12_recRowPitchAligned * (SIZE_T)g12_recH };
+    void* mapped = nullptr;
+    HRESULT hr = g12_recReadback->Map(0, &readRange, &mapped);
+    if (FAILED(hr)) return 0;
+
+    const UINT rowBytes = (UINT)g12_recW * 4;
+    UINT8*       dstRow = (UINT8*)dstBgra32;
+    if (g12_recSavedHdr) {
+        /* HDR: copy top-down (MF A2R10G10B10 input ignores negative stride). */
+        const UINT8* srcRow = (const UINT8*)mapped;
+        for (int y = 0; y < g12_recH; y++) {
+            memcpy(dstRow, srcRow, rowBytes);
+            srcRow += g12_recRowPitchAligned;
+            dstRow += dstPitch;
+        }
+    } else {
+        /* SDR: copy bottom-up (MF SinkWriter's negative stride takes inverted). */
+        const UINT8* srcRow = (const UINT8*)mapped + (UINT)(g12_recH - 1) * g12_recRowPitchAligned;
+        for (int y = 0; y < g12_recH; y++) {
+            memcpy(dstRow, srcRow, rowBytes);
+            srcRow -= g12_recRowPitchAligned;
+            dstRow += dstPitch;
+        }
+    }
+
+    D3D12_RANGE writeRange = { 0, 0 };
+    g12_recReadback->Unmap(0, &writeRange);
+    return 1;
+}
+
+extern "C" void D3D12RecordEnd(void)
+{
+    // User-explicit stop: release resources AND clear the auto-rebind hook so
+    // a later device teardown / re-init doesn't zombie the recorder back in.
+    g12_recAutoRebind = false;
+    g12_recSavedW     = 0;
+    g12_recSavedH     = 0;
+    releaseRecordResources();
+}
+
+// --- HDR offline-preview swap chain ----------------------------------------
+//
+// Bound to a child HWND in the render-progress dialog so the user can see
+// HDR-encoded captured frames as actual HDR (GDI's preview path is SDR-only).
+// Sized at recording resolution (= g12_recRT) so a single CopyResource into
+// the swap chain backbuffer is exact; DXGI_SCALING_STRETCH at Present time
+// scales to whatever the visible HWND size is.
+
+extern "C" int D3D12HdrPreviewBegin(HWND hwnd, int width, int height)
+{
+    if (!g12_ready || !g12_device || !hwnd) return 0;
+    if (!g12_recRT || g12_recSavedHdr == 0) return 0;
+    if (g12_previewActive.load(std::memory_order_acquire)) return 1;  /* already running */
+
+    HRESULT hr;
+
+    /* DXGI factory -- reuse the live swap chain's adapter via the device. */
+    ComPtr<IDXGIFactory4> factory;
+    hr = CreateDXGIFactory1(IID_PPV_ARGS(&factory));
+    if (FAILED(hr)) return 0;
+
+    DXGI_SWAP_CHAIN_DESC1 scd = {};
+    scd.Width            = (UINT)width;
+    scd.Height           = (UINT)height;
+    scd.Format           = DXGI_FORMAT_R10G10B10A2_UNORM;
+    scd.SampleDesc.Count = 1;
+    scd.BufferUsage      = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    scd.BufferCount      = 2;
+    scd.SwapEffect       = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+    scd.Scaling          = DXGI_SCALING_STRETCH;
+    scd.AlphaMode        = DXGI_ALPHA_MODE_IGNORE;
+
+    ComPtr<IDXGISwapChain1> sc1;
+    hr = factory->CreateSwapChainForHwnd(g12_cmdQueue.Get(), hwnd,
+                                         &scd, nullptr, nullptr, &sc1);
+    if (FAILED(hr)) return 0;
+    /* Disable Alt-Enter -- we don't want the preview hijacking fullscreen. */
+    factory->MakeWindowAssociation(hwnd, DXGI_MWA_NO_ALT_ENTER);
+    hr = sc1.As(&g12_previewSwap);
+    if (FAILED(hr)) { sc1.Reset(); return 0; }
+
+    /* Set HDR10 PQ; fall back to default sRGB if the monitor / DWM rejects it. */
+    UINT cssup = 0;
+    if (SUCCEEDED(g12_previewSwap->CheckColorSpaceSupport(
+            DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020, &cssup))
+        && (cssup & DXGI_SWAP_CHAIN_COLOR_SPACE_SUPPORT_FLAG_PRESENT)) {
+        g12_previewSwap->SetColorSpace1(DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020);
+    }
+
+    for (int i = 0; i < 2; i++) {
+        hr = g12_previewSwap->GetBuffer(i, IID_PPV_ARGS(&g12_previewBackbuffers[i]));
+        if (FAILED(hr)) { D3D12HdrPreviewEnd(); return 0; }
+    }
+
+    hr = g12_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,
+                                            IID_PPV_ARGS(&g12_previewCmdAlloc));
+    if (FAILED(hr)) { D3D12HdrPreviewEnd(); return 0; }
+    hr = g12_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT,
+                                       g12_previewCmdAlloc.Get(), nullptr,
+                                       IID_PPV_ARGS(&g12_previewCmdList));
+    if (FAILED(hr)) { D3D12HdrPreviewEnd(); return 0; }
+    g12_previewCmdList->Close();
+
+    hr = g12_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&g12_previewFence));
+    if (FAILED(hr)) { D3D12HdrPreviewEnd(); return 0; }
+    g12_previewFenceCtr   = 0;
+    g12_previewFenceEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+    if (!g12_previewFenceEvent) { D3D12HdrPreviewEnd(); return 0; }
+
+    g12_previewActive.store(true, std::memory_order_release);
+    return 1;
+}
+
+extern "C" int D3D12HdrPreviewBlit(void)
+{
+    /* Acquire-load pairs with End's release store; previewSwap check
+    ** guards against a null-swap teardown that skips the flag flip. */
+    if (!g12_previewActive.load(std::memory_order_acquire)
+        || !g12_recRT || !g12_previewSwap) return 0;
+
+    UINT idx = g12_previewSwap->GetCurrentBackBufferIndex();
+    ID3D12Resource* back = g12_previewBackbuffers[idx].Get();
+    if (!back) return 0;
+
+    g12_previewCmdAlloc->Reset();
+    g12_previewCmdList->Reset(g12_previewCmdAlloc.Get(), nullptr);
+
+    auto barrier = [&](ID3D12Resource* res,
+                       D3D12_RESOURCE_STATES before,
+                       D3D12_RESOURCE_STATES after) {
+        D3D12_RESOURCE_BARRIER rb = {};
+        rb.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        rb.Transition.pResource   = res;
+        rb.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        rb.Transition.StateBefore = before;
+        rb.Transition.StateAfter  = after;
+        g12_previewCmdList->ResourceBarrier(1, &rb);
+    };
+
+    /* g12_recRT was left in PIXEL_SHADER_RESOURCE by D3D12RecordCaptureFromFrame. */
+    barrier(g12_recRT.Get(),
+            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+            D3D12_RESOURCE_STATE_COPY_SOURCE);
+    barrier(back,
+            D3D12_RESOURCE_STATE_PRESENT,
+            D3D12_RESOURCE_STATE_COPY_DEST);
+
+    g12_previewCmdList->CopyResource(back, g12_recRT.Get());
+
+    barrier(back,
+            D3D12_RESOURCE_STATE_COPY_DEST,
+            D3D12_RESOURCE_STATE_PRESENT);
+    barrier(g12_recRT.Get(),
+            D3D12_RESOURCE_STATE_COPY_SOURCE,
+            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+
+    g12_previewCmdList->Close();
+
+    ID3D12CommandList* lists[] = { g12_previewCmdList.Get() };
+    g12_cmdQueue->ExecuteCommandLists(1, lists);
+
+    ++g12_previewFenceCtr;
+    g12_cmdQueue->Signal(g12_previewFence.Get(), g12_previewFenceCtr);
+    if (g12_previewFence->GetCompletedValue() < g12_previewFenceCtr) {
+        g12_previewFence->SetEventOnCompletion(g12_previewFenceCtr, g12_previewFenceEvent);
+        DWORD wr = WaitForSingleObject(g12_previewFenceEvent, 1000);
+        if (wr != WAIT_OBJECT_0) return 0;
+    }
+
+    g12_previewSwap->Present(0, 0);
+    return 1;
+}
+
+extern "C" void D3D12HdrPreviewEnd(void)
+{
+    /* Publish "not active" before teardown so concurrent Blit sees the
+    ** flip and bails; release-store pairs with Blit's acquire-load. */
+    g12_previewActive.store(false, std::memory_order_release);
+
+    if (g12_previewFence && g12_previewFenceCtr > 0
+        && g12_previewFence->GetCompletedValue() < g12_previewFenceCtr) {
+        g12_previewFence->SetEventOnCompletion(g12_previewFenceCtr, g12_previewFenceEvent);
+        WaitForSingleObject(g12_previewFenceEvent, 1000);
+    }
+    g12_previewCmdList.Reset();
+    g12_previewCmdAlloc.Reset();
+    for (int i = 0; i < 2; i++) g12_previewBackbuffers[i].Reset();
+    g12_previewSwap.Reset();
+    g12_previewFence.Reset();
+    if (g12_previewFenceEvent) {
+        CloseHandle(g12_previewFenceEvent);
+        g12_previewFenceEvent = NULL;
+    }
+    g12_previewFenceCtr = 0;
+}
+
+static void releaseRecordResources(void)
+{
+    // Make sure no pending GPU work is referencing what we're about to free.
+    // Capture's own internal fence wait already returns synchronously, so
+    // GetCompletedValue should already match -- but if a Capture failed
+    // mid-flight (e.g. Map() failed) the Signal may have raced ahead. Cap
+    // the wait at 1 second to avoid a zombie record session hanging the
+    // next "Render to video" attempt.
+    if (g12_recFence && g12_recFenceCtr > 0
+        && g12_recFence->GetCompletedValue() < g12_recFenceCtr) {
+        g12_recFence->SetEventOnCompletion(g12_recFenceCtr, g12_recFenceEvent);
+        WaitForSingleObject(g12_recFenceEvent, 1000);
+    }
+
+    g12_recVtxBuf.Reset();         g12_recVtxPtr  = nullptr;
+    g12_recCbuf.Reset();           g12_recCbufPtr = nullptr;
+    g12_recUploadBuf.Reset();      g12_recUploadPtr = nullptr;
+    g12_recNoiseUploadBuf.Reset(); g12_recNoiseUploadPtr = nullptr;
+    g12_recSrcTexture.Reset();
+    g12_recNoiseTexture.Reset();
+    g12_recSrvHeap.Reset();
+    g12_recReadback.Reset();
+    g12_recRT.Reset();
+    g12_recRtvHeap.Reset();
+    g12_recCmdList.Reset();
+    g12_recCmdAlloc.Reset();
+    if (g12_recFenceEvent) { CloseHandle(g12_recFenceEvent); g12_recFenceEvent = NULL; }
+    g12_recFence.Reset();
+    g12_recFenceCtr            = 0;
+    g12_recRowPitchAligned     = 0;
+    g12_recUploadRowPitch      = 0;
+    g12_recNoiseUploadRowPitch = 0;
+    g12_recNoiseRndVal         = 51;
+    g12_recW = 0;
+    g12_recH = 0;
+}
+
+

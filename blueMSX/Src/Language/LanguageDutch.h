@@ -87,9 +87,14 @@ void langInitDutch(LanguageStrings* ls)
     ls->errorRecorderTitle      = "blueMSX - Recorder";
     ls->errorRecorderSaveReplay = "Replaybestand kon niet worden opgeslagen:\n  %s\n\nControleer of de doelmap bestaat en beschrijfbaar is.";
     ls->errorRecorderReplayMissing = "Replaybestand niet gevonden:\n  %s\n\nNeem eerst een replay op, of gebruik Laden om een bestaand .cap-bestand te kiezen.";
-    ls->errorRecorderNoReplay   = "No replay (.cap) file is loaded.\n\nRecord a replay first, then choose 'Render to video file'.\n\nLast replay path:\n%s";
+    ls->errorRecorderRequiresDX12   = "Schakel het videostuurprogramma over naar Direct3D 12 en start opname?";
+    ls->errorRecorderRequiresDX12Title = "blueMSX - Videostuurprogramma wijzigen";
     ls->infoRecorderComplete    = "Videobestand opgeslagen:\n  %s";
     ls->infoToastSaved          = "Opgeslagen: %s";
+    ls->infoToastAlreadyRecording   = "Opname al actief";
+    ls->dlgRecorderPickTitle        = "blueMSX - Replay naar video renderen";
+    ls->dlgRecorderPickSourceCap    = "Replaybestand om te renderen (.cap):";
+    ls->dlgRecorderPickOutputMp4    = "Uitvoer-videobestand (.mp4):";
 
 
     //----------------------

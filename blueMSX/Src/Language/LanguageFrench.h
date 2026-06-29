@@ -87,9 +87,14 @@ void langInitFrench(LanguageStrings* ls)
     ls->errorRecorderTitle      = "blueMSX - Enregistreur";
     ls->errorRecorderSaveReplay = "Échec de l'enregistrement du fichier de rediffusion :\n  %s\n\nVérifiez que le dossier de destination existe et est accessible en écriture.";
     ls->errorRecorderReplayMissing = "Fichier de rediffusion introuvable :\n  %s\n\nEnregistrez d'abord une rediffusion, ou utilisez Charger pour sélectionner un .cap existant.";
-    ls->errorRecorderNoReplay   = "No replay (.cap) file is loaded.\n\nRecord a replay first, then choose 'Render to video file'.\n\nLast replay path:\n%s";
+    ls->errorRecorderRequiresDX12   = "Basculer le pilote vidéo sur Direct3D 12 et démarrer l'enregistrement ?";
+    ls->errorRecorderRequiresDX12Title = "blueMSX - Changement de pilote vidéo";
     ls->infoRecorderComplete    = "Fichier vidéo enregistré :\n  %s";
     ls->infoToastSaved          = "Enregistré : %s";
+    ls->infoToastAlreadyRecording   = "Enregistrement déjà en cours";
+    ls->dlgRecorderPickTitle        = "blueMSX - Convertir la rediffusion en vidéo";
+    ls->dlgRecorderPickSourceCap    = "Fichier de rediffusion à convertir (.cap) :";
+    ls->dlgRecorderPickOutputMp4    = "Fichier vidéo de sortie (.mp4) :";
 
 
     //----------------------

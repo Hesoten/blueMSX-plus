@@ -87,9 +87,14 @@ void langInitSpanish(LanguageStrings* ls)
     ls->errorRecorderTitle      = "blueMSX - Grabador";
     ls->errorRecorderSaveReplay = "No se pudo guardar el archivo de replay:\n  %s\n\nCompruebe que la carpeta de destino existe y tiene permisos de escritura.";
     ls->errorRecorderReplayMissing = "Archivo de replay no encontrado:\n  %s\n\nGrabe un replay primero o use Cargar para seleccionar un archivo .cap existente.";
-    ls->errorRecorderNoReplay   = "No replay (.cap) file is loaded.\n\nRecord a replay first, then choose 'Render to video file'.\n\nLast replay path:\n%s";
+    ls->errorRecorderRequiresDX12   = "¿Cambiar el controlador de vídeo a Direct3D 12 e iniciar la grabación?";
+    ls->errorRecorderRequiresDX12Title = "blueMSX - Cambio de controlador de vídeo";
     ls->infoRecorderComplete    = "Archivo de vídeo guardado:\n  %s";
     ls->infoToastSaved          = "Guardado: %s";
+    ls->infoToastAlreadyRecording   = "Ya en grabación";
+    ls->dlgRecorderPickTitle        = "blueMSX - Renderizar replay a vídeo";
+    ls->dlgRecorderPickSourceCap    = "Archivo de replay a renderizar (.cap):";
+    ls->dlgRecorderPickOutputMp4    = "Archivo de vídeo de salida (.mp4):";
 
 
     //----------------------
