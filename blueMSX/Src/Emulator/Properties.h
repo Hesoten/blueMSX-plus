@@ -100,6 +100,7 @@ typedef enum {
     PROP_DISK,
     PROP_APEARANCE, 
     PROP_PORTS,
+    PROP_CAPTURE,
 	PROP_D3D
 } PropPage;
 

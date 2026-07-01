@@ -37,6 +37,7 @@
 #include "Led.h"
 #include "Machine.h"
 #include "InputEvent.h"
+#include "Actions.h"
 
 #include "ArchThread.h"
 #include "ArchEvent.h"
@@ -535,6 +536,9 @@ void emulatorStop() {
 #endif
     archSoundSuspend();
     archThreadJoin(emuThread, 3000);
+    /* emu thread's boardRun exit ran boardCaptureDestroy -> boardCaptureStop;
+    ** surface the record-end toast the menu Stop path already shows. */
+    actionReplayFlushCompletionToast();
     archMidiEnable(0);
     machineDestroy(machine);
     archThreadDestroy(emuThread);

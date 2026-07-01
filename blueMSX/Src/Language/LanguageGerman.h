@@ -95,6 +95,27 @@ void langInitGerman(LanguageStrings* ls)
     ls->dlgRecorderPickTitle        = "blueMSX - Replay als Video rendern";
     ls->dlgRecorderPickSourceCap    = "Replay-Datei zum Rendern (.cap):";
     ls->dlgRecorderPickOutputMp4    = "Ausgabe-Videodatei (.mp4):";
+    ls->menuFileRecordVideo         = "Video aufnehmen";
+    ls->menuFileStopRecordVideo     = "Videoaufnahme stoppen";
+    ls->shortcutRecordVideoStart    = "Videoaufnahme: Start";
+    ls->shortcutRecordVideoStartAs  = "Videoaufnahme: Starten als";
+    ls->shortcutRecordVideoStop     = "Videoaufnahme: Stopp";
+    ls->shortcutRecordVideoToggle   = "Videoaufnahme: Umschalten";
+    ls->shortcutAudioCaptureAs      = "Audioaufnahme: Starten als";
+    ls->shortcutVideoRecordAs       = "Replay: Aufnehmen als";
+    ls->shortcutScreenshotAs        = "Bildschirmfoto: Speichern unter";
+
+    ls->propCapture                 = "Aufnahme";
+    ls->propCaptureAudioGB          = " Audio-Aufnahme ";
+    ls->propCaptureVideoGB          = " Video-Aufnahme ";
+    ls->propCaptureScreenshotGB     = " Bildschirmfoto ";
+    ls->propCaptureReplayGB         = " Replay-Aufnahme ";
+    ls->propCaptureSaveDir          = "Speicherort:";
+    ls->propCaptureFormat           = "Format:";
+    ls->propCaptureCodec            = "Codec:";
+    ls->propCaptureAutoName         = "Dateiname automatisch";
+    ls->propCapturePromptName       = "Nach Dateinamen fragen";
+    ls->propCaptureShowToast        = "Hinweis nach Aufnahme anzeigen";
 
 
     //----------------------
@@ -183,6 +204,7 @@ void langInitGerman(LanguageStrings* ls)
     ls->menuPropsDisk            = "Disks";               // New in 2.7
     ls->menuPropsLanguage        = "Sprache";
     ls->menuPropsPorts           = "Ports";
+    ls->menuPropsCapture         = "Aufnahme";
     
     ls->menuVideoSource          = "Video-Out Source";                      // "Video Out Source";                  
     ls->menuVideoSourceDefault   = "Keine Video-Out Source angeschlossen";  // "No Video Out Source Connected";      
@@ -204,6 +226,7 @@ void langInitGerman(LanguageStrings* ls)
     ls->menuFileQLoadState       = "QuickLoad-Status";     // "Quick Load State";
     ls->menuFileQSaveState       = "QuickSave-Status";     // "Quick Save State";
     ls->menuFileCaptureAudio     = "Audio-Aufnahme";       // "Capture Audio";
+    ls->menuFileStopAudio        = "Audio stoppen";
     ls->menuFileCaptureVideo     = "Video-Aufnahme";       // "Video Capture"; -- New in 2.6
     ls->menuFileScreenShot       = "Speichere Screenshot";
     ls->menuFileExit             = "Exit";
@@ -263,6 +286,10 @@ void langInitGerman(LanguageStrings* ls)
     ls->dlgSaveState             = "Speichere CPU-Status";
     ls->dlgSaveCassette          = "blueMSX - Speichere Tape-Image";
     ls->dlgSaveVideoClipAs       = "Speichere Videoclip als ...";      // New in 2.6 -- "Save video clip as ...";
+    ls->dlgSaveCaptureAudio      = "Audio-Aufnahme speichern unter";
+    ls->dlgSaveCaptureVideo      = "Video-Aufnahme speichern unter";
+    ls->dlgSaveCaptureReplay     = "Replay speichern unter";
+    ls->dlgSaveCaptureScreenshot = "Bildschirmfoto speichern unter";
     ls->dlgAmountCompleted       = "Amount completed:";                // New in 2.6 -- "Amount completed:";
     ls->dlgInsertRom1            = "ROM-Cartridge in Slot 1 einfügen";
     ls->dlgInsertRom2            = "ROM-Cartridge in Slot 2 einfügen";
@@ -377,6 +404,7 @@ void langInitGerman(LanguageStrings* ls)
     ls->propMonHdrPaperWhite     = "Weiß-Helligkeit:";
     ls->propMonHdrSystemMode     = "System-HDR-Modus:";
     ls->propMonHdrRestartHint    = "blueMSX neu starten, um die HDR-Moduseinstellung zu übernehmen.";
+    ls->propMonHdrRecord         = " In HDR aufnehmen";
     ls->propMonColorGhosting     = " RF-Modulator:";
     ls->propMonEffectsGB         = "Effekte ";
 
@@ -713,11 +741,11 @@ void langInitGerman(LanguageStrings* ls)
     ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
     ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
     ls->shortcutToggleCpuTrace     = "Freigabe/Sperren des CPU-Trace";   // "Enable/Disable CPU Trace";
-    ls->shortcutVideoLoad          = "Video-Aufnahme laden";             // New in 2.6 -- "Load Video Capture";
-    ls->shortcutVideoPlay          = "Letzte Video-Aufnahme abspielen";  // New in 2.6 -- "Play Last Video Capture";
-    ls->shortcutVideoRecord        = "Video-Aufnahme aufnehmen";         // New in 2.6 -- "Record Video Capture";
-    ls->shortcutVideoStop          = "Video-Aufnahme stoppen";           // New in 2.6 -- "Stop Video Capture";
-    ls->shortcutVideoRender        = "Videofile wiedergeben";            // New in 2.6 -- "Render Video File";
+    ls->shortcutVideoLoad          = "Replay: Aus Datei laden";             // New in 2.6 -- "Load Video Capture";
+    ls->shortcutVideoPlay          = "Replay: Letzte Aufnahme abspielen";  // New in 2.6 -- "Play Last Video Capture";
+    ls->shortcutVideoRecord        = "Replay: Aufnehmen";         // New in 2.6 -- "Record Video Capture";
+    ls->shortcutVideoStop          = "Replay: Stoppen";           // New in 2.6 -- "Stop Video Capture";
+    ls->shortcutVideoRender        = "Replay: Als Video exportieren";            // New in 2.6 -- "Render Video File";
 
 
     //----------------------

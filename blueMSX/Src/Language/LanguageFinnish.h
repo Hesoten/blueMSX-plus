@@ -97,6 +97,27 @@ void langInitFinnish(LanguageStrings* ls)
     ls->dlgRecorderPickTitle        = "blueMSX - Tee uusinnasta video";
     ls->dlgRecorderPickSourceCap    = "Renderöitävä uusintatiedosto (.cap):";
     ls->dlgRecorderPickOutputMp4    = "Tulosvideotiedosto (.mp4):";
+    ls->menuFileRecordVideo         = "Tallenna video";
+    ls->menuFileStopRecordVideo     = "Pysäytä videotallennus";
+    ls->shortcutRecordVideoStart    = "Videotallennus: Aloita";
+    ls->shortcutRecordVideoStartAs  = "Videotallennus: Aloita nimellä";
+    ls->shortcutRecordVideoStop     = "Videotallennus: Pysäytä";
+    ls->shortcutRecordVideoToggle   = "Videotallennus: Vaihda";
+    ls->shortcutAudioCaptureAs      = "Äänitallennus: Aloita nimellä";
+    ls->shortcutVideoRecordAs       = "Uusinta: Nauhoita nimellä";
+    ls->shortcutScreenshotAs        = "Kuvankaappaus: Tallenna nimellä";
+
+    ls->propCapture                 = "Tallennus";
+    ls->propCaptureAudioGB          = " Äänitallennus ";
+    ls->propCaptureVideoGB          = " Videotallennus ";
+    ls->propCaptureScreenshotGB     = " Kuvankaappaus ";
+    ls->propCaptureReplayGB         = " Uusintatallennus ";
+    ls->propCaptureSaveDir          = "Tallennuskansio:";
+    ls->propCaptureFormat           = "Muoto:";
+    ls->propCaptureCodec            = "Koodekki:";
+    ls->propCaptureAutoName         = "Nimeä tiedosto automaattisesti";
+    ls->propCapturePromptName       = "Kysy tiedostonimi";
+    ls->propCaptureShowToast        = "Näytä ilmoitus tallennuksen päätyttyä";
 
 
     //----------------------
@@ -185,6 +206,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->menuPropsDisk           = "Levyt";               // New in 2.7
     ls->menuPropsLanguage       = "Kieli";
     ls->menuPropsPorts          = "Liitännät";
+    ls->menuPropsCapture        = "Tallennus";
     
     ls->menuVideoSource         = "Videoulostulo";
     ls->menuVideoSourceDefault  = "Videoulostuloa ei ole kytketty.";
@@ -206,6 +228,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->menuFileQLoadState      = "Tilan pikalataus";
     ls->menuFileQSaveState      = "Tilan pikatallennus";
     ls->menuFileCaptureAudio    = "Tallenna äänet";
+    ls->menuFileStopAudio       = "Pysäytä ääni";
     ls->menuFileCaptureVideo    = "Videokaappaus"; 
     ls->menuFileScreenShot      = "Tallenna kuvaruutukaappaus";
     ls->menuFileExit            = "Poistu";
@@ -264,6 +287,10 @@ void langInitFinnish(LanguageStrings* ls)
     ls->dlgSaveState            = "Tallenna tila nimellä";
     ls->dlgSaveCassette         = "blueMSX - Tallenna kasetti";
     ls->dlgSaveVideoClipAs      = "Tallenna videokaappaus nimellä";      
+    ls->dlgSaveCaptureAudio     = "Tallenna äänitallennus nimellä";
+    ls->dlgSaveCaptureVideo     = "Tallenna videotallennus nimellä";
+    ls->dlgSaveCaptureReplay    = "Tallenna uusinta nimellä";
+    ls->dlgSaveCaptureScreenshot = "Tallenna kuvankaappaus nimellä";
     ls->dlgAmountCompleted      = "Valmiina:";          
     ls->dlgInsertRom1           = "Aseta moduli porttiin 1";
     ls->dlgInsertRom2           = "Aseta moduli porttiin 2";
@@ -378,6 +405,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->propMonHdrPaperWhite    = "Valk. kirkkaus:";
     ls->propMonHdrSystemMode    = "Järjestelmän HDR-tila:";
     ls->propMonHdrRestartHint   = "Käynnistä blueMSX uudelleen ottaaksesi HDR-tilan käyttöön.";
+    ls->propMonHdrRecord        = " Tallenna HDR:llä";
     ls->propMonColorGhosting    = " Antennimuunnos:";
     ls->propMonEffectsGB        = "Tehosteet ";
 
@@ -714,11 +742,11 @@ void langInitFinnish(LanguageStrings* ls)
     ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
     ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
     ls->shortcutToggleCpuTrace  = "Ota käyttöön/Poista käytöstä Prosessorin jäljitystoiminto";
-    ls->shortcutVideoLoad       = "Lataa Videokaappaus";             
-    ls->shortcutVideoPlay       = "Toista viimeisin videokaappaus";   
-    ls->shortcutVideoRecord     = "Tallenna videokaappaus";              
-    ls->shortcutVideoStop       = "Pysäytä videokaappaus";                
-    ls->shortcutVideoRender     = "Koosta videotiedosto";   
+    ls->shortcutVideoLoad       = "Uusinta: Lataa tiedostosta";             
+    ls->shortcutVideoPlay       = "Uusinta: Toista viimeisin";   
+    ls->shortcutVideoRecord     = "Uusinta: Nauhoita";              
+    ls->shortcutVideoStop       = "Uusinta: Pysäytä";                
+    ls->shortcutVideoRender     = "Uusinta: Vie videoksi";   
 
 
     //----------------------

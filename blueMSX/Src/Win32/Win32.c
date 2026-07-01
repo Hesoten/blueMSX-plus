@@ -1761,14 +1761,21 @@ static void checkKeyUp(Shortcuts* s, ShotcutHotkey key)
     if (hotkeyEq(key, s->pauseSwitch))                  actionTogglePauseSwitch();
     if (hotkeyEq(key, s->quit))                         actionQuit();
     if (hotkeyEq(key, s->wavCapture))                   actionToggleWaveCapture();
+    if (hotkeyEq(key, s->wavCaptureStartAs))            actionWaveCaptureStartAs();
     if (hotkeyEq(key, s->videoCapLoad))                 actionVideoCaptureLoad();
     if (hotkeyEq(key, s->videoCapPlay))                 actionVideoCapturePlay();
     if (hotkeyEq(key, s->videoCapRec))                  actionVideoCaptureRec();
+    if (hotkeyEq(key, s->videoCapRecAs))                actionVideoCaptureRecAs();
     if (hotkeyEq(key, s->videoCapStop))                 actionVideoCaptureStop();
     if (hotkeyEq(key, s->videoCapSave))                 actionVideoCaptureSave();
+    if (hotkeyEq(key, s->recordVideoStart))             actionRecordVideoStart();
+    if (hotkeyEq(key, s->recordVideoStartAs))           actionRecordVideoStartAs();
+    if (hotkeyEq(key, s->recordVideoStop))              actionRecordVideoStop();
+    if (hotkeyEq(key, s->recordVideoToggle))            actionRecordVideoToggle();
     if (hotkeyEq(key, s->ym2413BackendCycle))           actionYm2413BackendCycle();
     if (hotkeyEq(key, s->y8950BackendCycle))            actionY8950BackendCycle();
     if (hotkeyEq(key, s->screenCapture))                actionScreenCapture();
+    if (hotkeyEq(key, s->screenCaptureAs))              actionScreenCaptureAs();
     if (hotkeyEq(key, s->screenCaptureUnfilteredSmall)) actionScreenCaptureUnfilteredSmall();
     if (hotkeyEq(key, s->screenCaptureUnfilteredLarge)) actionScreenCaptureUnfilteredLarge();
     if (hotkeyEq(key, s->cpuStateLoad))                 actionLoadState();
@@ -2788,7 +2795,7 @@ static void emuWindowDraw(int onlyOnVblank)
     archSemaphoreSignal(lock);
 }
 
-void* createScreenShot(int large, int* bitmapSize, int png)
+void* createScreenShotEx(int large, int* bitmapSize, int png, const char* overrideFilename)
 {
     void* bitmap = NULL;
 
@@ -2827,12 +2834,17 @@ void* createScreenShot(int large, int* bitmapSize, int png)
         bitmap = ScreenShot2(bmBitsDst, 320 * zoom, frameBuffer->maxWidth * zoom, 240 * zoom, bitmapSize, png);
     }
     else {
-        ScreenShot3(pProperties, bmBitsDst, 320 * zoom, frameBuffer->maxWidth * zoom, 240 * zoom, png);
+        ScreenShot3Ex(pProperties, bmBitsDst, 320 * zoom, frameBuffer->maxWidth * zoom, 240 * zoom, png, overrideFilename);
     }
 
     free(bmBitsDst);
 
     return bitmap;
+}
+
+void* createScreenShot(int large, int* bitmapSize, int png)
+{
+    return createScreenShotEx(large, bitmapSize, png, NULL);
 }
 
 static LRESULT CALLBACK emuWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam) 
@@ -3936,6 +3948,31 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
         emuCheckFullscreenArgument(pProperties, szLine);
     }
 
+    /* Capture path reconciliation. The Audio/Video/Screenshot directories
+    ** were seeded above with rootDir-based defaults; if the loaded INI also
+    ** has capture.* paths, those win and we push them into the runtime
+    ** statics. Otherwise we copy the runtime defaults back into Properties
+    ** so they round-trip on next save. */
+    if (pProperties->capture.audioDir[0]) {
+        actionSetAudioCaptureSetDirectory(pProperties->capture.audioDir, "");
+    } else {
+        strcpy(pProperties->capture.audioDir, actionGetAudioCaptureDir());
+    }
+    if (pProperties->capture.videoDir[0]) {
+        actionSetVideoCaptureSetDirectory(pProperties->capture.videoDir, "");
+    } else {
+        strcpy(pProperties->capture.videoDir, actionGetVideoCaptureDir());
+    }
+    if (pProperties->capture.screenshotDir[0]) {
+        screenshotSetDirectory(pProperties->capture.screenshotDir, "");
+    } else {
+        strcpy(pProperties->capture.screenshotDir, screenshotGetDirectory());
+    }
+    /* Replay output dir defaults to videoDir until UI splits them. */
+    if (!pProperties->capture.replayDir[0]) {
+        strcpy(pProperties->capture.replayDir, pProperties->capture.videoDir);
+    }
+
     tempName = appConfigGetString("singlemachine", NULL);
     if (tempName != NULL) {
         strcpy(pProperties->emulation.machineName, tempName);
@@ -4201,6 +4238,9 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
             }
             SetEvent(st.ddrawAckEvent);
         }
+        /* Covers record-end paths that never hit emulatorStop (RLE buffer
+        ** overflow inside boardCaptureUInt8); no-op when nothing pending. */
+        actionReplayFlushCompletionToast();
     }
 
     emulatorExit();
@@ -4712,6 +4752,49 @@ void archShowMachineEditor()
     updateMenu(0);
 }
 
+/* Resolve the screenshot output path. When prompt is on, pop a Save-As
+** dialog with a generated default name; otherwise return NULL to let the
+** auto-name path inside ScreenShot3 handle it. Returns "" (empty) on
+** dialog cancel so the caller can distinguish "no-override" from "user
+** cancelled". */
+static const char* resolveScreenshotPath(int alwaysPrompt)
+{
+    int prompt = pProperties->capture.screenshotPromptFilename || alwaysPrompt;
+    char* picked;
+    char* autoName;
+    const char* baseName;
+    const char* dir;
+
+    if (!prompt) return NULL;
+
+    dir = (pProperties->capture.screenshotDir[0])
+          ? pProperties->capture.screenshotDir
+          : screenshotGetDirectory();
+    autoName = generateSaveFilename(pProperties, (char*)dir, "", ".png", 4);
+    baseName = autoName;
+    {
+        const char* sep = strrchr(autoName, '\\');
+        const char* fwd = strrchr(autoName, '/');
+        if (fwd > sep) sep = fwd;
+        if (sep) baseName = sep + 1;
+    }
+    picked = archFilenameGetSaveCapture(pProperties,
+                                         langDlgSaveCaptureScreenshot(),
+                                         dir, baseName, ".png", "PNG Image");
+    return picked ? picked : "";
+}
+
+/* When the dialog is skipped (auto-name path), pre-resolve the filename
+** here so the toast knows where the screenshot landed. */
+static const char* autoScreenshotPath(int png)
+{
+    const char* dir = pProperties->capture.screenshotDir[0]
+                      ? pProperties->capture.screenshotDir
+                      : screenshotGetDirectory();
+    return generateSaveFilename(pProperties, (char*)dir, "",
+                                 (char*)(png ? ".png" : ".bmp"), 4);
+}
+
 void* archScreenCapture(ScreenCaptureType type, int* bitmapSize, int onlyBmp)
 {
     int png = onlyBmp ? 0 : pProperties->settings.usePngScreenshots;
@@ -4720,14 +4803,21 @@ void* archScreenCapture(ScreenCaptureType type, int* bitmapSize, int onlyBmp)
         *bitmapSize = 0;
     }
     switch (type) {
-    case SC_NORMAL:
+    case SC_NORMAL: {
+        const char* override = resolveScreenshotPath(0);
+        if (override && override[0] == 0) return NULL; /* user cancelled dialog */
+        const char* finalPath = override ? override : autoScreenshotPath(png);
         if (png) {
-            createScreenShot(1, NULL, png);
+            createScreenShotEx(1, NULL, png, finalPath);
         }
         else {
             SetTimer(getMainHwnd(), TIMER_SCREENSHOT, 50, NULL);
         }
+        if (pProperties->capture.showCompletionToast && finalPath && finalPath[0]) {
+            toastShowSaved(getMainHwnd(), getEmuHwnd(), finalPath);
+        }
         return NULL;
+    }
     case SC_SMALL:
         return createScreenShot(0, bitmapSize, png);
     case SC_LARGE:
@@ -4735,6 +4825,22 @@ void* archScreenCapture(ScreenCaptureType type, int* bitmapSize, int onlyBmp)
     }
 
     return NULL;
+}
+
+/* "Take Screenshot As..." entrypoint -- always pops the Save-As dialog
+** regardless of the prompt-filename setting. */
+void archScreenCaptureAs(void)
+{
+    int png = pProperties->settings.usePngScreenshots;
+    const char* override = resolveScreenshotPath(1);
+    if (override && override[0] == 0) return;     /* user cancelled */
+    const char* finalPath = override ? override : autoScreenshotPath(png);
+    if (png) {
+        createScreenShotEx(1, NULL, png, finalPath);
+    }
+    if (pProperties->capture.showCompletionToast && finalPath && finalPath[0]) {
+        toastShowSaved(getMainHwnd(), getEmuHwnd(), finalPath);
+    }
 }
 
 void archMinimizeMainWindow() {
@@ -4836,6 +4942,44 @@ char* archFilenameGetOpenState(Properties* properties)
     SetCurrentDirectoryU(st.pCurDir);
 
     return fileName;
+}
+
+char* archFilenameGetSaveCapture(Properties* properties,
+                                  const char* title,
+                                  const char* defaultDir,
+                                  const char* defaultName,
+                                  const char* extension,
+                                  const char* fileTypeLabel)
+{
+    static char fileName[MAX_PATH * 4];
+    char filterBuf[256];
+    const char* dir = (defaultDir && defaultDir[0]) ? defaultDir : st.pCurDir;
+    const char* defExt = (extension && extension[0] == '.') ? (extension + 1) : extension;
+    BOOL ok;
+
+    snprintf(filterBuf, sizeof(filterBuf), "%s   (*%s)#*%s#",
+             fileTypeLabel ? fileTypeLabel : "File", extension, extension);
+    replaceCharInString(filterBuf, '#', 0);
+
+    fileName[0] = 0;
+
+    /* Kill the completion toast before the IFileDialog: its 50ms
+    ** timer + topmost overlay races the modal pump. */
+    toastHide();
+
+    enterDialogShow();
+    ok = ShellSaveFileDialogEx(getMainHwnd(),
+                               title,
+                               filterBuf,
+                               dir,
+                               defExt,
+                               defaultName,
+                               NULL,
+                               fileName, sizeof(fileName));
+    exitDialogShow();
+    SetCurrentDirectoryU(st.pCurDir);
+
+    return ok ? fileName : NULL;
 }
 
 char* archFilenameGetOpenCapture(Properties* properties)
@@ -5244,6 +5388,25 @@ void archPumpEmuDisplay(void) {
         }
         SetEvent(st.ddrawAckEvent);
     }
+}
+
+void archRecordVideoStart(const char* overrideFilename) {
+    recorderStartLive(getMainHwnd(), pProperties, st.pVideo, overrideFilename);
+}
+void archRecordVideoStop(void) {
+    recorderStopLive();
+}
+int archRecordVideoIsActive(void) {
+    return recorderIsLiveRecording();
+}
+
+void archCaptureToastSaved(const char* savedPath) {
+    /* Anchor on emu hwnd so the toast lands on the video output. */
+    toastShowSaved(getMainHwnd(), getEmuHwnd(), savedPath);
+}
+
+void archCaptureToastInfo(const char* message) {
+    toastShowMessage(getMainHwnd(), getEmuHwnd(), message);
 }
 
 int archFileExists(const char* fileName)

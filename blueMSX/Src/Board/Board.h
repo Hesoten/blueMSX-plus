@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -116,6 +119,12 @@ int boardCaptureIsRecording();
 int boardCaptureIsPlaying();
 int boardCaptureCompleteAmount();
 int boardCaptureCheckFinish(void);
+
+/* UI-thread drain for the "recording just finalized" event. Returns 1 and
+** copies the .cap path into out (null-terminated) if a completion is pending,
+** self-clearing so a second call returns 0. Callable from any path that can
+** cause a record-end (emulatorStop, menu Stop, per-frame poll for RLE overflow). */
+int boardCaptureConsumePendingToast(char* out, int outSize);
 
 UInt8 boardCaptureUInt8(UInt8 logId, UInt8 value);
 

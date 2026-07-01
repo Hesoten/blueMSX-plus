@@ -95,6 +95,27 @@ void langInitSwedish(LanguageStrings* ls)
     ls->dlgRecorderPickTitle        = "blueMSX - Rendera replay till video";
     ls->dlgRecorderPickSourceCap    = "Replayfil att rendera (.cap):";
     ls->dlgRecorderPickOutputMp4    = "Utdatavideofil (.mp4):";
+    ls->menuFileRecordVideo         = "Spela in video";
+    ls->menuFileStopRecordVideo     = "Stoppa videoinspelning";
+    ls->shortcutRecordVideoStart    = "Videoinspelning: Starta";
+    ls->shortcutRecordVideoStartAs  = "Videoinspelning: Starta som";
+    ls->shortcutRecordVideoStop     = "Videoinspelning: Stoppa";
+    ls->shortcutRecordVideoToggle   = "Videoinspelning: Växla";
+    ls->shortcutAudioCaptureAs      = "Ljudinspelning: Starta som";
+    ls->shortcutVideoRecordAs       = "Replay: Spela in som";
+    ls->shortcutScreenshotAs        = "Skärmdump: Spara som";
+
+    ls->propCapture                 = "Inspelning";
+    ls->propCaptureAudioGB          = " Ljudinspelning ";
+    ls->propCaptureVideoGB          = " Videoinspelning ";
+    ls->propCaptureScreenshotGB     = " Skärmdump ";
+    ls->propCaptureReplayGB         = " Replayinspelning ";
+    ls->propCaptureSaveDir          = "Mapp:";
+    ls->propCaptureFormat           = "Format:";
+    ls->propCaptureCodec            = "Codec:";
+    ls->propCaptureAutoName         = "Automatiskt filnamn";
+    ls->propCapturePromptName       = "Fråga efter filnamn";
+    ls->propCaptureShowToast        = "Visa avisering vid avslutning";
 
 
     //----------------------
@@ -183,6 +204,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->menuPropsDisk           = "Enheter";               // New in 2.7
     ls->menuPropsLanguage       = "Språk";
     ls->menuPropsPorts          = "Portar";
+    ls->menuPropsCapture        = "Inspelning";
     
     ls->menuVideoSource         = "Video ut källa";
     ls->menuVideoSourceDefault  = "Ingen videokälla inkopplad";
@@ -204,6 +226,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->menuFileQLoadState      = "Snabbladda CPU-tillstånd";
     ls->menuFileQSaveState      = "Snabbspara CPU-tillstånd";
     ls->menuFileCaptureAudio    = "Spara ljud";
+    ls->menuFileStopAudio       = "Stoppa ljud";
     ls->menuFileCaptureVideo    = "Videoinspelning"; 
     ls->menuFileScreenShot      = "Spara skärmdump";
     ls->menuFileExit            = "Avsluta";
@@ -264,6 +287,10 @@ void langInitSwedish(LanguageStrings* ls)
     ls->dlgSaveState            = "Spara CPU-tillstånd";
     ls->dlgSaveCassette         = "blueMSX - Spara Kassett";
     ls->dlgSaveVideoClipAs      = "Spara videoinspeling som...";      
+    ls->dlgSaveCaptureAudio     = "Spara ljudinspelning som";
+    ls->dlgSaveCaptureVideo     = "Spara videoinspelning som";
+    ls->dlgSaveCaptureReplay    = "Spara replay som";
+    ls->dlgSaveCaptureScreenshot = "Spara skärmdump som";
     ls->dlgAmountCompleted      = "Andel färdigt:";          
     ls->dlgInsertRom1           = "Sätt in ROM cartridge i slot 1";
     ls->dlgInsertRom2           = "Sätt in ROM cartridge i slot 2";
@@ -378,6 +405,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->propMonHdrPaperWhite    = "Vitt-ljusstyrka:";
     ls->propMonHdrSystemMode    = "Systemets HDR-läge:";
     ls->propMonHdrRestartHint   = "Starta om blueMSX för att tillämpa HDR-lägeändringen.";
+    ls->propMonHdrRecord        = " Spela in i HDR";
     ls->propMonColorGhosting    = " RF-modulering:";
     ls->propMonEffectsGB        = "Effekter ";
 
@@ -714,11 +742,11 @@ void langInitSwedish(LanguageStrings* ls)
     ls->shortcutToggleNoSpriteLimits = "Sla på/av Spritebegränsning";                 // New in 2.9
     ls->shortcutEnableMsxKeyboardQuirk = "Emulera MSX Keyboardfel";              // New in 2.9
     ls->shortcutToggleCpuTrace  = "Slå på/av CPU trace";
-    ls->shortcutVideoLoad       = "Ladda...";             
-    ls->shortcutVideoPlay       = "Spela upp senaste";   
-    ls->shortcutVideoRecord     = "Spela in";              
-    ls->shortcutVideoStop       = "Stopp";                
-    ls->shortcutVideoRender     = "Spara videofil";   
+    ls->shortcutVideoLoad       = "Replay: Ladda från fil";             
+    ls->shortcutVideoPlay       = "Replay: Spela senaste inspelning";   
+    ls->shortcutVideoRecord     = "Replay: Spela in";              
+    ls->shortcutVideoStop       = "Replay: Stoppa";                
+    ls->shortcutVideoRender     = "Replay: Exportera till video";   
 
 
     //----------------------

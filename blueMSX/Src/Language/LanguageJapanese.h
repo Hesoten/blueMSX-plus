@@ -97,6 +97,27 @@ void langInitJapanese(LanguageStrings* ls)
     ls->dlgRecorderPickTitle       = "blueMSX - リプレイから動画書き出し";
     ls->dlgRecorderPickSourceCap   = "動画化するリプレイファイル (.cap):";
     ls->dlgRecorderPickOutputMp4   = "出力先動画ファイル (.mp4):";
+    ls->menuFileRecordVideo        = "録画開始";
+    ls->menuFileStopRecordVideo    = "録画終了";
+    ls->shortcutRecordVideoStart   = "動画録画: 開始";
+    ls->shortcutRecordVideoStartAs = "動画録画: 名前を付けて開始";
+    ls->shortcutRecordVideoStop    = "動画録画: 停止";
+    ls->shortcutRecordVideoToggle  = "動画録画: 開始/停止";
+    ls->shortcutAudioCaptureAs     = "サウンド録音: 名前を付けて開始";
+    ls->shortcutVideoRecordAs      = "リプレイ: 名前を付けて記録開始";
+    ls->shortcutScreenshotAs       = "スクリーンショット: 名前を付けて保存";
+
+    ls->propCapture                = "録画・録音";
+    ls->propCaptureAudioGB         = " 録音 ";
+    ls->propCaptureVideoGB         = " 録画 ";
+    ls->propCaptureScreenshotGB    = " スクリーンショット ";
+    ls->propCaptureReplayGB        = " リプレイ記録 ";
+    ls->propCaptureSaveDir         = "保存先:";
+    ls->propCaptureFormat          = "形式:";
+    ls->propCaptureCodec           = "コーデック:";
+    ls->propCaptureAutoName        = "自動でファイル名を付ける";
+    ls->propCapturePromptName      = "保存時にファイル名を指定";
+    ls->propCaptureShowToast       = "保存完了時にトーストを表示する";
 
 
     //----------------------
@@ -154,13 +175,13 @@ void langInitJapanese(LanguageStrings* ls)
     ls->menuCasSetPosition      = "テープ位置セット";
     ls->menuCasRewind           = "巻き戻し";
 
-    ls->menuVideoLoad           = "読み込み...";             
-    ls->menuVideoPlay           = "キャプチャ映像の再生";   
-    ls->menuVideoRecord         = "録画";              
-    ls->menuVideoRecording      = "録画中";           
-    ls->menuVideoRecAppend      = "録画 (付加する)";     
-    ls->menuVideoStop           = "停止";                
-    ls->menuVideoRender         = "ビデオファイルのレンダリング";   
+    ls->menuVideoLoad           = "ファイルから再生...";
+    ls->menuVideoPlay           = "直前の記録を再生";
+    ls->menuVideoRecord         = "記録開始";
+    ls->menuVideoRecording      = "記録中...";
+    ls->menuVideoRecAppend      = "追記開始";
+    ls->menuVideoStop           = "記録終了";
+    ls->menuVideoRender         = "動画ファイルに書き出し...";
     
     ls->menuPrnFormfeed         = "紙送り"; 
 
@@ -185,6 +206,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->menuPropsDisk           = "ディスク";            // New in 2.7
     ls->menuPropsLanguage       = "言語";
     ls->menuPropsPorts          = "ポート";
+    ls->menuPropsCapture        = "録画・録音";
     
     ls->menuVideoChipAutodetect = "ビデオチップの自動認識";
     ls->menuVideoSource         = "ビデオ出力";
@@ -205,9 +227,10 @@ void langInitJapanese(LanguageStrings* ls)
     ls->menuFileSaveState       = "CPUステート保存";
     ls->menuFileQLoadState      = "クイックロード";
     ls->menuFileQSaveState      = "クイックセーブ";
-    ls->menuFileCaptureAudio    = "録音";
-    ls->menuFileCaptureVideo    = "ビデオのキャプチャ"; 
-    ls->menuFileScreenShot      = "スクリーンショット";
+    ls->menuFileCaptureAudio    = "録音開始";
+    ls->menuFileStopAudio       = "録音終了";
+    ls->menuFileCaptureVideo    = "リプレイ機能";
+    ls->menuFileScreenShot      = "スクリーンショット撮影";
     ls->menuFileExit            = "終了";
 
     ls->menuFileHarddisk        = "ハードディスク";
@@ -264,6 +287,10 @@ void langInitJapanese(LanguageStrings* ls)
     ls->dlgSaveState            = "CPUステート 保存";
     ls->dlgSaveCassette          = "blueMSX - テープを保存";
     ls->dlgSaveVideoClipAs      = "ビデオクリップを別名で保存...";      
+    ls->dlgSaveCaptureAudio     = "録音ファイルを名前を付けて保存";
+    ls->dlgSaveCaptureVideo     = "録画ファイルを名前を付けて保存";
+    ls->dlgSaveCaptureReplay    = "リプレイを名前を付けて保存";
+    ls->dlgSaveCaptureScreenshot = "スクリーンショットを名前を付けて保存";      
     ls->dlgAmountCompleted      = "進捗:";          
     ls->dlgInsertRom1           = "ROM イメージをスロット1に挿入";
     ls->dlgInsertRom2           = "ROM イメージをスロット2に挿入";
@@ -307,7 +334,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->dlgSavePreview          = "プレビュー表示";
     ls->dlgSaveDate             = "セーブ時刻:";
 
-    ls->dlgRenderVideoCapture   = "blueMSX - キャプチャ映像をレンダリング中...";  
+    ls->dlgRenderVideoCapture   = "blueMSX - リプレイ動画を書き出し中...";  
 
 
     //----------------------
@@ -387,6 +414,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->propMonHdrPaperWhite    = "白の明るさ:";
     ls->propMonHdrSystemMode    = "現在の HDR モード:";
     ls->propMonHdrRestartHint   = "HDR モードの変更を反映するには blueMSX を再起動してください。";
+    ls->propMonHdrRecord        = " HDR で録画";
     ls->propMonColorGhosting    = " RFモジュレータ:";
     ls->propMonEffectsGB        = " エフェクト "; 
 
@@ -713,11 +741,11 @@ void langInitJapanese(LanguageStrings* ls)
     ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
     ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
     ls->shortcutToggleCpuTrace  = "CPUトレースの有効/無効";
-    ls->shortcutVideoLoad       = "読み込み...";             
-    ls->shortcutVideoPlay       = "キャプチャ映像の再生";   
-    ls->shortcutVideoRecord     = "録画";              
-    ls->shortcutVideoStop       = "停止";                
-    ls->shortcutVideoRender     = "ビデオファイルのレンダリング";   
+    ls->shortcutVideoLoad       = "リプレイ: ファイルから読み込み";             
+    ls->shortcutVideoPlay       = "リプレイ: 直前の記録を再生";   
+    ls->shortcutVideoRecord     = "リプレイ: 記録開始";              
+    ls->shortcutVideoStop       = "リプレイ: 停止";                
+    ls->shortcutVideoRender     = "リプレイ: 動画ファイルに書き出し";   
 
 
     //----------------------

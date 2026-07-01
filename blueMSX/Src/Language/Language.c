@@ -312,6 +312,27 @@ char* langInfoToastAlreadyRecording()      { return ls->infoToastAlreadyRecordin
 char* langDlgRecorderPickTitle()       { return ls->dlgRecorderPickTitle; }
 char* langDlgRecorderPickSourceCap()   { return ls->dlgRecorderPickSourceCap; }
 char* langDlgRecorderPickOutputMp4()   { return ls->dlgRecorderPickOutputMp4; }
+char* langMenuFileRecordVideo()        { return ls->menuFileRecordVideo; }
+char* langMenuFileStopRecordVideo()    { return ls->menuFileStopRecordVideo; }
+char* langShortcutRecordVideoStart()   { return ls->shortcutRecordVideoStart; }
+char* langShortcutRecordVideoStartAs() { return ls->shortcutRecordVideoStartAs; }
+char* langShortcutRecordVideoStop()    { return ls->shortcutRecordVideoStop; }
+char* langShortcutRecordVideoToggle()  { return ls->shortcutRecordVideoToggle; }
+char* langShortcutAudioCaptureAs()     { return ls->shortcutAudioCaptureAs; }
+char* langShortcutVideoRecordAs()      { return ls->shortcutVideoRecordAs; }
+char* langShortcutScreenshotAs()       { return ls->shortcutScreenshotAs; }
+
+char* langPropCapture()                { return ls->propCapture; }
+char* langPropCaptureAudioGB()         { return ls->propCaptureAudioGB; }
+char* langPropCaptureVideoGB()         { return ls->propCaptureVideoGB; }
+char* langPropCaptureScreenshotGB()    { return ls->propCaptureScreenshotGB; }
+char* langPropCaptureReplayGB()        { return ls->propCaptureReplayGB; }
+char* langPropCaptureSaveDir()         { return ls->propCaptureSaveDir; }
+char* langPropCaptureFormat()          { return ls->propCaptureFormat; }
+char* langPropCaptureCodec()           { return ls->propCaptureCodec; }
+char* langPropCaptureAutoName()        { return ls->propCaptureAutoName; }
+char* langPropCapturePromptName()      { return ls->propCapturePromptName; }
+char* langPropCaptureShowToast()       { return ls->propCaptureShowToast; }
 
 
 //----------------------
@@ -400,6 +421,7 @@ char* langMenuPropsFile() { return ls->menuPropsFile; }
 char* langMenuPropsDisk() { return ls->menuPropsDisk; }
 char* langMenuPropsLanguage() { return ls->menuPropsLanguage; }
 char* langMenuPropsPorts() { return ls->menuPropsPorts; }
+char* langMenuPropsCapture() { return ls->menuPropsCapture; }
 
 char* langMenuVideoSource()        { return ls->menuVideoSource; }
 char* langMenuVideoSourceDefault() { return ls->menuVideoSourceDefault; }
@@ -421,6 +443,7 @@ char* langMenuFileSaveState() { return ls->menuFileSaveState; }
 char* langMenuFileQLoadState() { return ls->menuFileQLoadState; }
 char* langMenuFileQSaveState() { return ls->menuFileQSaveState; }
 char* langMenuFileCaptureAudio() { return ls->menuFileCaptureAudio; }
+char* langMenuFileStopAudio() { return ls->menuFileStopAudio; }
 char* langMenuFileCaptureVideo() { return ls->menuFileCaptureVideo; }
 char* langMenuFileScreenShot() { return ls->menuFileScreenShot; }
 char* langMenuFileExit() { return ls->menuFileExit; }
@@ -479,6 +502,10 @@ char* langDlgLoadVideoCapture() { return ls->dlgLoadVideoCapture; }
 char* langDlgSaveState() { return ls->dlgSaveState; }
 char* langDlgSaveCassette() { return ls->dlgSaveCassette; }
 char* langDlgSaveVideoClipAs() { return ls->dlgSaveVideoClipAs; }
+char* langDlgSaveCaptureAudio() { return ls->dlgSaveCaptureAudio; }
+char* langDlgSaveCaptureVideo() { return ls->dlgSaveCaptureVideo; }
+char* langDlgSaveCaptureReplay() { return ls->dlgSaveCaptureReplay; }
+char* langDlgSaveCaptureScreenshot() { return ls->dlgSaveCaptureScreenshot; }
 char* langDlgAmountCompleted() { return ls->dlgAmountCompleted; }
 char* langDlgInsertRom1() { return ls->dlgInsertRom1; }
 char* langDlgInsertRom2() { return ls->dlgInsertRom2; }
@@ -593,6 +620,7 @@ char* langPropMonHdrEnable() { return ls->propMonHdrEnable; }
 char* langPropMonHdrPaperWhite() { return ls->propMonHdrPaperWhite; }
 char* langPropMonHdrSystemMode() { return ls->propMonHdrSystemMode; }
 char* langPropMonHdrRestartHint() { return ls->propMonHdrRestartHint; }
+char* langPropMonHdrRecord() { return ls->propMonHdrRecord; }
 char* langPropMonColorGhosting() { return ls->propMonColorGhosting; }
 char* langPropMonEffectsGB() { return ls->propMonEffectsGB; }
 

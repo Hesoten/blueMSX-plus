@@ -95,6 +95,27 @@ void langInitKorean(LanguageStrings* ls)
     ls->dlgRecorderPickTitle        = "blueMSX - 재생을 동영상으로 변환";
     ls->dlgRecorderPickSourceCap    = "변환할 재생 파일 (.cap):";
     ls->dlgRecorderPickOutputMp4    = "출력 동영상 파일 (.mp4):";
+    ls->menuFileRecordVideo         = "동영상 녹화";
+    ls->menuFileStopRecordVideo     = "동영상 녹화 중지";
+    ls->shortcutRecordVideoStart    = "동영상 녹화: 시작";
+    ls->shortcutRecordVideoStartAs  = "동영상 녹화: 다른 이름으로 시작";
+    ls->shortcutRecordVideoStop     = "동영상 녹화: 중지";
+    ls->shortcutRecordVideoToggle   = "동영상 녹화: 토글";
+    ls->shortcutAudioCaptureAs      = "음성 녹음: 다른 이름으로 시작";
+    ls->shortcutVideoRecordAs       = "리플레이: 다른 이름으로 녹화";
+    ls->shortcutScreenshotAs        = "스크린샷: 다른 이름으로 저장";
+
+    ls->propCapture                 = "녹화";
+    ls->propCaptureAudioGB          = " 오디오 녹음 ";
+    ls->propCaptureVideoGB          = " 동영상 녹화 ";
+    ls->propCaptureScreenshotGB     = " 스크린샷 ";
+    ls->propCaptureReplayGB         = " 재생 기록 ";
+    ls->propCaptureSaveDir          = "저장 폴더:";
+    ls->propCaptureFormat           = "형식:";
+    ls->propCaptureCodec            = "코덱:";
+    ls->propCaptureAutoName         = "파일 이름 자동";
+    ls->propCapturePromptName       = "파일 이름 묻기";
+    ls->propCaptureShowToast        = "녹화 완료 시 토스트 표시";
 
 
     //----------------------
@@ -183,6 +204,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->menuPropsDisk           = "디스크";               // New in 2.7
     ls->menuPropsLanguage       = "언어";
     ls->menuPropsPorts          = "포트"; 
+    ls->menuPropsCapture        = "녹화";
     
     ls->menuVideoSource         = "비디오 출력 소스";                   
     ls->menuVideoSourceDefault  = "비디오 출력 소스 연결안됨";      
@@ -204,6 +226,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->menuFileQLoadState      = "상태 바로 불러오기";
     ls->menuFileQSaveState      = "상태 바로 저장";
     ls->menuFileCaptureAudio    = "소리 저장";
+    ls->menuFileStopAudio       = "오디오 중지";
     ls->menuFileCaptureVideo    = "영상 녹화"; 
     ls->menuFileScreenShot      = "화면 저장";
     ls->menuFileExit            = "끝내기";
@@ -262,6 +285,10 @@ void langInitKorean(LanguageStrings* ls)
     ls->dlgSaveState            = "CPU 상태 저장";
     ls->dlgSaveCassette          = "blueMSX - 테잎 이미지 저장";
     ls->dlgSaveVideoClipAs      = "다른 이름으로 영상 클립 저장...";      
+    ls->dlgSaveCaptureAudio     = "오디오 녹음 다른 이름으로 저장";
+    ls->dlgSaveCaptureVideo     = "동영상 녹화 다른 이름으로 저장";
+    ls->dlgSaveCaptureReplay    = "재생 다른 이름으로 저장";
+    ls->dlgSaveCaptureScreenshot = "스크린샷 다른 이름으로 저장";
     ls->dlgAmountCompleted      = "저장 완료율:";          
     ls->dlgInsertRom1           = "슬롯 1에 ROM 카트리지 삽입";
     ls->dlgInsertRom2           = "슬롯 2에 ROM 카트리지 삽입";
@@ -377,6 +404,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->propMonHdrPaperWhite    = "흰색 밝기:";
     ls->propMonHdrSystemMode    = "시스템 HDR 모드:";
     ls->propMonHdrRestartHint   = "HDR 모드 변경을 적용하려면 blueMSX를 다시 시작하십시오.";
+    ls->propMonHdrRecord        = " HDR로 녹화";
     ls->propMonEffectsGB        = "효과 ";
 
     ls->propPerfVideoDrvGB      = "비디오 드라이버 ";
@@ -712,11 +740,11 @@ void langInitKorean(LanguageStrings* ls)
     ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
     ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
     ls->shortcutToggleCpuTrace  = "CPU 트레이스 변환";
-    ls->shortcutVideoLoad       = "녹화된 영상 불러오기";             
-    ls->shortcutVideoPlay       = "마지막으로 녹화한 영상 재생";   
-    ls->shortcutVideoRecord     = "영상 녹화";              
-    ls->shortcutVideoStop       = "영상 녹화 정지";                
-    ls->shortcutVideoRender     = "동영상 파일로 저장";   
+    ls->shortcutVideoLoad       = "리플레이: 파일에서 불러오기";             
+    ls->shortcutVideoPlay       = "리플레이: 마지막 녹화 재생";   
+    ls->shortcutVideoRecord     = "리플레이: 녹화";              
+    ls->shortcutVideoStop       = "리플레이: 정지";                
+    ls->shortcutVideoRender     = "리플레이: 동영상으로 내보내기";   
 
 
     //----------------------

@@ -140,6 +140,8 @@
 
 #define IDD_MIDI                        136
 
+#define IDD_CAPTURE                     137
+
 #define IDD_LARGEMSG                    138
 
 #define IDC_JOY1                        1000
@@ -237,12 +239,13 @@
 #define IDC_HDRMODELABEL                1945
 #define IDC_HDRGROUPBOX                 1946
 #define IDC_HDRMODESTATICTEXT           1947
-#define IDC_SCANLINESHAPELABEL          1948
-#define IDC_SCANLINESHAPEMODE           1949
-#define IDC_SCANLINESHAPESLIDE          1950
-#define IDC_SCANLINESHAPEVALUE          1951
-#define IDC_SCANLINESDEPTHLABEL         1952
-#define IDC_SCANLINESHARPLABEL          1953
+#define IDC_HDRRECORD                   1948
+#define IDC_SCANLINESHAPELABEL          1949
+#define IDC_SCANLINESHAPEMODE           1950
+#define IDC_SCANLINESHAPESLIDE          1951
+#define IDC_SCANLINESHAPEVALUE          1952
+#define IDC_SCANLINESDEPTHLABEL         1953
+#define IDC_SCANLINESHARPLABEL          1954
 
 #define IDC_PERFDISPDRVTEXT             2000
 #define IDC_PERFFRAMESKIPTEXT           2001
@@ -475,6 +478,41 @@
 #define IDC_LDMEM_BROWSE                2902
 #define IDC_LDMEM_ADDRESS               2903
 #define IDC_LDMEM_CAPADR                2904
+
+/* Capture (Recording / Audio / Screenshot / Replay) property page. */
+#define IDC_CAPTURE_AUDIO_GB                 2950
+#define IDC_CAPTURE_AUDIO_DIR_TEXT           2951
+#define IDC_CAPTURE_AUDIO_DIR                2952
+#define IDC_CAPTURE_AUDIO_BROWSE             2953
+#define IDC_CAPTURE_AUDIO_AUTO               2954
+#define IDC_CAPTURE_AUDIO_PROMPT             2955
+
+#define IDC_CAPTURE_VIDEO_GB                 2956
+#define IDC_CAPTURE_VIDEO_DIR_TEXT           2957
+#define IDC_CAPTURE_VIDEO_DIR                2958
+#define IDC_CAPTURE_VIDEO_BROWSE             2959
+#define IDC_CAPTURE_VIDEO_AUTO               2960
+#define IDC_CAPTURE_VIDEO_PROMPT             2961
+#define IDC_CAPTURE_VIDEO_CODEC_TEXT         2977
+#define IDC_CAPTURE_VIDEO_CODEC              2978
+
+#define IDC_CAPTURE_SCREENSHOT_GB            2962
+#define IDC_CAPTURE_SCREENSHOT_FORMAT_TEXT   2963
+#define IDC_CAPTURE_SCREENSHOT_FORMAT        2964
+#define IDC_CAPTURE_SCREENSHOT_DIR_TEXT      2965
+#define IDC_CAPTURE_SCREENSHOT_DIR           2966
+#define IDC_CAPTURE_SCREENSHOT_BROWSE        2967
+#define IDC_CAPTURE_SCREENSHOT_AUTO          2968
+#define IDC_CAPTURE_SCREENSHOT_PROMPT        2969
+
+#define IDC_CAPTURE_REPLAY_GB                2970
+#define IDC_CAPTURE_REPLAY_DIR_TEXT          2971
+#define IDC_CAPTURE_REPLAY_DIR               2972
+#define IDC_CAPTURE_REPLAY_BROWSE            2973
+#define IDC_CAPTURE_REPLAY_AUTO              2974
+#define IDC_CAPTURE_REPLAY_PROMPT            2975
+
+#define IDC_CAPTURE_SHOWTOAST                2976
 
 #define IDC_D3D_PARAMETERSGROUPBOX			3000
 #define IDC_D3D_ASPECTRATIO					3001

@@ -38,8 +38,9 @@
 void actionInit(Video* video, Properties* properties, Mixer* mixer);
 void actionSetAudioCaptureSetDirectory(char* dir, char* prefix);
 void actionSetVideoCaptureSetDirectory(char* dir, char* prefix);
-const char* actionGetVideoCaptureDir(void);
 void actionSetQuickSaveSetDirectory(char* dir, char* prefix);
+const char* actionGetAudioCaptureDir(void);
+const char* actionGetVideoCaptureDir(void);
 
 void actionCartInsert(int cartNo);
 void actionCartRemove(int cartNo);
@@ -95,6 +96,7 @@ void actionEmuResetSoft();
 void actionEmuResetHard();
 void actionEmuResetClean();
 void actionScreenCapture();
+void actionScreenCaptureAs();
 void actionScreenCaptureUnfilteredSmall();
 void actionScreenCaptureUnfilteredLarge();
 void actionNextTheme();
@@ -113,6 +115,7 @@ void actionPropShowDisk();
 void actionPropShowApearance();
 void actionPropShowPorts();
 void actionPropShowEffects();
+void actionPropShowCapture();
 void actionOptionsShowLanguage();
 void actionToolsShowMachineEditor();
 void actionToolsShowShorcutEditor();
@@ -158,14 +161,24 @@ void actionToggleMsxAudioSwitch();
 void actionToggleFrontSwitch();
 void actionTogglePauseSwitch();
 void actionToggleWaveCapture();
+void actionWaveCaptureStartAs(void);
 void actionToggleMouseCapture();
 void actionVideoCaptureLoad();
 void actionVideoCapturePlay();
 void actionVideoCaptureRec();
+void actionVideoCaptureRecAs(void);
 void actionVideoCaptureStop();
+/* Drain a pending replay-completion toast queued by boardCaptureStop. Safe
+** to call from any UI-thread checkpoint (emulatorStop epilogue, main
+** message loop) even when no recording finalized: cheap no-op then. */
+void actionReplayFlushCompletionToast(void);
 void actionYm2413BackendCycle(void);
 void actionY8950BackendCycle(void);
 void actionVideoCaptureSave();
+void actionRecordVideoStart(void);
+void actionRecordVideoStartAs(void);
+void actionRecordVideoStop(void);
+void actionRecordVideoToggle(void);
 void actionMaxSpeedToggle();
 void actionFullscreenToggle();
 void actionCasToggleReadonly();

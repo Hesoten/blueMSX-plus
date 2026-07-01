@@ -95,6 +95,27 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->dlgRecorderPickTitle        = "blueMSX - 将回放转换为视频";
     ls->dlgRecorderPickSourceCap    = "要转换的回放文件 (.cap)：";
     ls->dlgRecorderPickOutputMp4    = "输出视频文件 (.mp4)：";
+    ls->menuFileRecordVideo         = "录制视频";
+    ls->menuFileStopRecordVideo     = "停止录制视频";
+    ls->shortcutRecordVideoStart    = "录制视频：开始";
+    ls->shortcutRecordVideoStartAs  = "录制视频：另存为开始";
+    ls->shortcutRecordVideoStop     = "录制视频：停止";
+    ls->shortcutRecordVideoToggle   = "录制视频：切换";
+    ls->shortcutAudioCaptureAs      = "录制音频：另存为开始";
+    ls->shortcutVideoRecordAs       = "回放：另存为录制";
+    ls->shortcutScreenshotAs        = "屏幕截图：另存为";
+
+    ls->propCapture                 = "录制";
+    ls->propCaptureAudioGB          = " 音频录制 ";
+    ls->propCaptureVideoGB          = " 视频录制 ";
+    ls->propCaptureScreenshotGB     = " 屏幕截图 ";
+    ls->propCaptureReplayGB         = " 回放记录 ";
+    ls->propCaptureSaveDir          = "保存目录：";
+    ls->propCaptureFormat           = "格式：";
+    ls->propCaptureCodec            = "编解码：";
+    ls->propCaptureAutoName         = "自动命名文件";
+    ls->propCapturePromptName       = "提示输入文件名";
+    ls->propCaptureShowToast        = "录制完成时显示通知";
 
 
     //----------------------
@@ -183,6 +204,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->menuPropsDisk           = "Disks";               // New in 2.7
     ls->menuPropsLanguage       = "语言";
     ls->menuPropsPorts          = "端口";
+    ls->menuPropsCapture        = "录制";
     
     ls->menuVideoSource         = "视频输出源";                   
     ls->menuVideoSourceDefault  = "未连接视频输出源";      
@@ -204,6 +226,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->menuFileQLoadState      = "快速读取";
     ls->menuFileQSaveState      = "快速保存";
     ls->menuFileCaptureAudio    = "截取音频";
+    ls->menuFileStopAudio       = "停止音频";
     ls->menuFileCaptureVideo    = "截取视频"; 
     ls->menuFileScreenShot      = "截图";
     ls->menuFileExit            = "退出";
@@ -262,6 +285,10 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->dlgSaveState            = "保存 CPU 状态";
     ls->dlgSaveCassette          = "blueMSX - 保存磁带映像";
     ls->dlgSaveVideoClipAs      = "另存剪裁视频为...";     
+    ls->dlgSaveCaptureAudio     = "音频录制另存为";
+    ls->dlgSaveCaptureVideo     = "视频录制另存为";
+    ls->dlgSaveCaptureReplay    = "回放另存为";
+    ls->dlgSaveCaptureScreenshot = "屏幕截图另存为";
     ls->dlgAmountCompleted      = "总计完成:";          
     ls->dlgInsertRom1           = "请在插槽 1 插入 ROM 卡带";
     ls->dlgInsertRom2           = "请在插槽 2 插入 ROM 卡带";
@@ -376,6 +403,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->propMonHdrPaperWhite    = "白色亮度:";
     ls->propMonHdrSystemMode    = "系统 HDR 模式:";
     ls->propMonHdrRestartHint   = "请重启 blueMSX 以应用 HDR 模式更改。";
+    ls->propMonHdrRecord        = " 以 HDR 录制";
     ls->propMonColorGhosting    = " RF-调制器:";
     ls->propMonEffectsGB        = "特效 ";
 
@@ -712,11 +740,11 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
     ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
     ls->shortcutToggleCpuTrace  = "启用/禁用 CPU 追踪";
-    ls->shortcutVideoLoad       = "读取截取视频";        
-    ls->shortcutVideoPlay       = "播放上一个截取视频";   
-    ls->shortcutVideoRecord     = "录制截取视频";      
-    ls->shortcutVideoStop       = "停止截取视频";        
-    ls->shortcutVideoRender     = "渲染视频文件";         
+    ls->shortcutVideoLoad       = "回放：从文件载入";        
+    ls->shortcutVideoPlay       = "回放：播放最后录制";   
+    ls->shortcutVideoRecord     = "回放：录制";      
+    ls->shortcutVideoStop       = "回放：停止";        
+    ls->shortcutVideoRender     = "回放：导出为视频";         
 
 
     //----------------------

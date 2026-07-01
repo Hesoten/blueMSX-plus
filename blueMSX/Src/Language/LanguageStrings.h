@@ -92,6 +92,28 @@ typedef struct {
     char* dlgRecorderPickTitle;
     char* dlgRecorderPickSourceCap;
     char* dlgRecorderPickOutputMp4;
+    char* menuFileRecordVideo;
+    char* menuFileStopRecordVideo;
+    char* shortcutRecordVideoStart;
+    char* shortcutRecordVideoStartAs;
+    char* shortcutRecordVideoStop;
+    char* shortcutRecordVideoToggle;
+    char* shortcutAudioCaptureAs;
+    char* shortcutVideoRecordAs;
+    char* shortcutScreenshotAs;
+
+    /* Capture page (IDD_CAPTURE). */
+    char* propCapture;
+    char* propCaptureAudioGB;
+    char* propCaptureVideoGB;
+    char* propCaptureScreenshotGB;
+    char* propCaptureReplayGB;
+    char* propCaptureSaveDir;
+    char* propCaptureFormat;
+    char* propCaptureCodec;
+    char* propCaptureAutoName;
+    char* propCapturePromptName;
+    char* propCaptureShowToast;
 
 
     //----------------------
@@ -180,6 +202,7 @@ typedef struct {
     char* menuPropsDisk;
     char* menuPropsLanguage;
     char* menuPropsPorts;
+    char* menuPropsCapture;
 
     char* menuVideoSource;
     char* menuVideoSourceDefault;
@@ -200,8 +223,9 @@ typedef struct {
     char* menuFileSaveState;
     char* menuFileQLoadState;
     char* menuFileQSaveState;
-    char* menuFileCaptureAudio;
-    char* menuFileCaptureVideo;
+    char* menuFileCaptureAudio;     /* "Record Audio"  -- shown when idle */
+    char* menuFileStopAudio;        /* "Stop Audio"    -- shown while recording */
+    char* menuFileCaptureVideo;     /* Replay submenu title */
     char* menuFileScreenShot;
     char* menuFileExit;
     char* menuFileHarddisk;
@@ -260,6 +284,10 @@ typedef struct {
     char* dlgSaveState;
     char* dlgSaveCassette;
     char* dlgSaveVideoClipAs;
+    char* dlgSaveCaptureAudio;
+    char* dlgSaveCaptureVideo;
+    char* dlgSaveCaptureReplay;
+    char* dlgSaveCaptureScreenshot;
     char* dlgAmountCompleted;
     char* dlgInsertRom1;
     char* dlgInsertRom2;
@@ -379,6 +407,7 @@ typedef struct {
     char* propMonHdrPaperWhite;         /* HDR brightness slider label */
     char* propMonHdrSystemMode;         /* "System HDR mode:" prefix */
     char* propMonHdrRestartHint;        /* "HDR setting changed -- restart" message body */
+    char* propMonHdrRecord;             /* "Record in HDR" checkbox label */
     char* propMonColorGhosting;
     char* propMonEffectsGB;
 

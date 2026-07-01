@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -53,6 +56,15 @@ char* archFilenameGetOpenState(Properties* properties);
 char* archFilenameGetOpenCapture(Properties* properties);
 
 char* archFilenameGetSaveState(Properties* properties);
+
+/* Save-As dialog for capture outputs (audio/video/replay/screenshot).
+** Returns full path on OK, NULL on cancel. */
+char* archFilenameGetSaveCapture(Properties* properties,
+                                  const char* title,
+                                  const char* defaultDir,
+                                  const char* defaultName,
+                                  const char* extension,
+                                  const char* fileTypeLabel);
 
 char* archDirnameGetOpenDisk(Properties* properties, int drive);
 

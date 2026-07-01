@@ -212,6 +212,25 @@ ValueNamePair CdromDrvPair[] = {
     { -1,                          "" },
 };
 
+ValueNamePair CapAudioFormatPair[] = {
+    { CAP_AUDIO_WAV,               "wav" },
+    { CAP_AUDIO_MP3,               "mp3" },
+    { CAP_AUDIO_AAC,               "aac" },
+    { -1,                          "" },
+};
+
+ValueNamePair CapVideoCodecPair[] = {
+    { CAP_VIDEO_H264,              "h264" },
+    { CAP_VIDEO_HEVC,              "hevc" },
+    { -1,                          "" },
+};
+
+ValueNamePair CapImgFormatPair[] = {
+    { CAP_IMG_PNG,                 "png" },
+    { CAP_IMG_BMP,                 "bmp" },
+    { -1,                          "" },
+};
+
 char* enumToString(ValueNamePair* pair, int value) {
     while (pair->value >= 0) {
         if (pair->value == value) {
@@ -527,6 +546,23 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->filehistory.videocap[0]  = 0;
     properties->filehistory.count        = 10;
 #endif
+
+    /* Capture paths left empty; Win32 startup fills defaults if still empty. */
+    properties->capture.audioDir[0]              = 0;
+    properties->capture.videoDir[0]              = 0;
+    properties->capture.screenshotDir[0]         = 0;
+    properties->capture.replayDir[0]             = 0;
+    properties->capture.audioFormat              = CAP_AUDIO_WAV;
+    properties->capture.audioBitrateKbps         = 192;
+    properties->capture.videoCodec               = CAP_VIDEO_H264;
+    properties->capture.screenshotFormat         = CAP_IMG_PNG;
+    properties->capture.audioPromptFilename      = 0;
+    properties->capture.videoPromptFilename      = 0;
+    properties->capture.screenshotPromptFilename = 0;
+    properties->capture.replayPromptFilename     = 0;
+    properties->capture.showCompletionToast      = 1;
+    properties->capture.videoUsePostRender       = 1;
+    properties->capture.videoResolution          = 4;
 }
 
 #define ROOT_ELEMENT "config"
@@ -588,7 +624,7 @@ static void propLoad(Properties* properties)
 
     GET_ENUM_VALUE_2(propFile, settings, disableScreensaver, BoolPair);    
     GET_ENUM_VALUE_2(propFile, settings, showStatePreview, BoolPair);
-    GET_ENUM_VALUE_2(propFile, settings, usePngScreenshots, BoolPair);
+    /* usePngScreenshots no longer loaded from INI -- PNG is the only format. */
     GET_ENUM_VALUE_2(propFile, settings, portable, BoolPair);
     GET_STR_VALUE_2(propFile, settings, themeName);
 
@@ -781,6 +817,26 @@ static void propLoad(Properties* properties)
     GET_ENUM_VALUE_2(propFile, nowind, ignoreBootFlag, BoolPair);   
     GET_INT_VALUE_2(propFile, nowind,  partitionNumber);
 
+    GET_STR_VALUE_2(propFile,  capture, audioDir);
+    GET_STR_VALUE_2(propFile,  capture, videoDir);
+    GET_STR_VALUE_2(propFile,  capture, screenshotDir);
+    GET_STR_VALUE_2(propFile,  capture, replayDir);
+    GET_ENUM_VALUE_2(propFile, capture, audioFormat,              CapAudioFormatPair);
+    GET_INT_VALUE_2(propFile,  capture, audioBitrateKbps);
+    GET_ENUM_VALUE_2(propFile, capture, videoCodec,               CapVideoCodecPair);
+    GET_ENUM_VALUE_2(propFile, capture, screenshotFormat,         CapImgFormatPair);
+    GET_ENUM_VALUE_2(propFile, capture, audioPromptFilename,      BoolPair);
+    GET_ENUM_VALUE_2(propFile, capture, videoPromptFilename,      BoolPair);
+    GET_ENUM_VALUE_2(propFile, capture, screenshotPromptFilename, BoolPair);
+    GET_ENUM_VALUE_2(propFile, capture, replayPromptFilename,     BoolPair);
+    GET_ENUM_VALUE_2(propFile, capture, showCompletionToast,      BoolPair);
+    GET_ENUM_VALUE_2(propFile, capture, videoUsePostRender,       BoolPair);
+    GET_INT_VALUE_2(propFile,  capture, videoResolution);
+
+    /* PNG is the only screenshot format; override stale INI values. */
+    properties->settings.usePngScreenshots    = 1;
+    properties->capture.screenshotFormat      = CAP_IMG_PNG;
+
     iniFileClose(propFile);
     
 #ifndef NO_FILE_HISTORY
@@ -890,7 +946,7 @@ void propSave(Properties* properties)
     
     SET_ENUM_VALUE_2(propFile, settings, disableScreensaver, YesNoPair);    
     SET_ENUM_VALUE_2(propFile, settings, showStatePreview, YesNoPair);
-    SET_ENUM_VALUE_2(propFile, settings, usePngScreenshots, YesNoPair);
+    /* usePngScreenshots no longer persisted: PNG is the only format. */
     SET_ENUM_VALUE_2(propFile, settings, portable, YesNoPair);
     if (appConfigGetString("singletheme", NULL) == NULL) {
         SET_STR_VALUE_2(propFile, settings, themeName);
@@ -1089,6 +1145,22 @@ void propSave(Properties* properties)
     SET_ENUM_VALUE_2(propFile, nowind, enablePhantomDrives, BoolPair);    
     SET_ENUM_VALUE_2(propFile, nowind, ignoreBootFlag, BoolPair);   
     SET_INT_VALUE_2(propFile, nowind,  partitionNumber);
+
+    SET_STR_VALUE_2(propFile,  capture, audioDir);
+    SET_STR_VALUE_2(propFile,  capture, videoDir);
+    SET_STR_VALUE_2(propFile,  capture, screenshotDir);
+    SET_STR_VALUE_2(propFile,  capture, replayDir);
+    SET_ENUM_VALUE_2(propFile, capture, audioFormat,              CapAudioFormatPair);
+    SET_INT_VALUE_2(propFile,  capture, audioBitrateKbps);
+    SET_ENUM_VALUE_2(propFile, capture, videoCodec,               CapVideoCodecPair);
+    SET_ENUM_VALUE_2(propFile, capture, screenshotFormat,         CapImgFormatPair);
+    SET_ENUM_VALUE_2(propFile, capture, audioPromptFilename,      YesNoPair);
+    SET_ENUM_VALUE_2(propFile, capture, videoPromptFilename,      YesNoPair);
+    SET_ENUM_VALUE_2(propFile, capture, screenshotPromptFilename, YesNoPair);
+    SET_ENUM_VALUE_2(propFile, capture, replayPromptFilename,     YesNoPair);
+    SET_ENUM_VALUE_2(propFile, capture, showCompletionToast,      YesNoPair);
+    SET_ENUM_VALUE_2(propFile, capture, videoUsePostRender,       YesNoPair);
+    SET_INT_VALUE_2(propFile,  capture, videoResolution);
 
     iniFileClose(propFile);
 

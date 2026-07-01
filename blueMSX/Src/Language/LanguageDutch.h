@@ -95,6 +95,27 @@ void langInitDutch(LanguageStrings* ls)
     ls->dlgRecorderPickTitle        = "blueMSX - Replay naar video renderen";
     ls->dlgRecorderPickSourceCap    = "Replaybestand om te renderen (.cap):";
     ls->dlgRecorderPickOutputMp4    = "Uitvoer-videobestand (.mp4):";
+    ls->menuFileRecordVideo         = "Video opnemen";
+    ls->menuFileStopRecordVideo     = "Video-opname stoppen";
+    ls->shortcutRecordVideoStart    = "Video opnemen: Start";
+    ls->shortcutRecordVideoStartAs  = "Video opnemen: Starten als";
+    ls->shortcutRecordVideoStop     = "Video opnemen: Stop";
+    ls->shortcutRecordVideoToggle   = "Video opnemen: Schakelen";
+    ls->shortcutAudioCaptureAs      = "Audio opnemen: Starten als";
+    ls->shortcutVideoRecordAs       = "Replay: Opnemen als";
+    ls->shortcutScreenshotAs        = "Schermafbeelding: Opslaan als";
+
+    ls->propCapture                 = "Opname";
+    ls->propCaptureAudioGB          = " Audio-opname ";
+    ls->propCaptureVideoGB          = " Video-opname ";
+    ls->propCaptureScreenshotGB     = " Schermafbeelding ";
+    ls->propCaptureReplayGB         = " Replay-opname ";
+    ls->propCaptureSaveDir          = "Map:";
+    ls->propCaptureFormat           = "Formaat:";
+    ls->propCaptureCodec            = "Codec:";
+    ls->propCaptureAutoName         = "Bestandsnaam automatisch";
+    ls->propCapturePromptName       = "Vraag om bestandsnaam";
+    ls->propCaptureShowToast        = "Toon melding bij voltooien";
 
 
     //----------------------
@@ -183,6 +204,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->menuPropsDisk           = "Diskettes";
     ls->menuPropsLanguage       = "Taal";
     ls->menuPropsPorts          = "Poorten";
+    ls->menuPropsCapture        = "Opname";
 
     ls->menuVideoSource         = "Video Uit-bron";
     ls->menuVideoSourceDefault  = "Geen Video Uit-bron verbonden";
@@ -204,6 +226,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->menuFileQLoadState      = "Snel laden CPU-status";
     ls->menuFileQSaveState      = "Snel opslaan CPU-status";
     ls->menuFileCaptureAudio    = "Opslaan Geluid";
+    ls->menuFileStopAudio       = "Audio stoppen";
     ls->menuFileCaptureVideo    = "Opslaan Video";
     ls->menuFileScreenShot      = "Schermafdruk maken";
     ls->menuFileExit            = "Afsluiten";
@@ -263,6 +286,10 @@ void langInitDutch(LanguageStrings* ls)
     ls->dlgSaveState            = "Opslaan CPU-status";
     ls->dlgSaveCassette         = "blueMSX - Opslaan Cassettebestand";
     ls->dlgSaveVideoClipAs      = "Videoclip opslaan als...";
+    ls->dlgSaveCaptureAudio     = "Audio-opname opslaan als";
+    ls->dlgSaveCaptureVideo     = "Video-opname opslaan als";
+    ls->dlgSaveCaptureReplay    = "Replay opslaan als";
+    ls->dlgSaveCaptureScreenshot = "Schermafbeelding opslaan als";
     ls->dlgAmountCompleted      = "Aantal gereed:";
     ls->dlgInsertRom1           = "Voer ROM-cartridge in Slot 1";
     ls->dlgInsertRom2           = "Voer ROM-cartridge in Slot 2";
@@ -377,6 +404,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->propMonHdrPaperWhite    = "Witte helderheid:";
     ls->propMonHdrSystemMode    = "Systeem-HDR-modus:";
     ls->propMonHdrRestartHint   = "Herstart blueMSX om de HDR-moduswijziging toe te passen.";
+    ls->propMonHdrRecord        = " Opnemen in HDR";
     ls->propMonColorGhosting    = " RF-modulator:";
     ls->propMonEffectsGB        = "Effecten ";
 
@@ -713,11 +741,11 @@ void langInitDutch(LanguageStrings* ls)
     ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
     ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
     ls->shortcutToggleCpuTrace  = "CPU tracer aan/uit";
-    ls->shortcutVideoLoad       = "Videoclip laden";
-    ls->shortcutVideoPlay       = "Laatste videoclip afspelen";
-    ls->shortcutVideoRecord     = "Videoclip opnemen";
-    ls->shortcutVideoStop       = "Videoclip opname stoppen";
-    ls->shortcutVideoRender     = "Maak Videobestand";
+    ls->shortcutVideoLoad       = "Replay: Laden uit bestand";
+    ls->shortcutVideoPlay       = "Replay: Laatste opname afspelen";
+    ls->shortcutVideoRecord     = "Replay: Opnemen";
+    ls->shortcutVideoStop       = "Replay: Stoppen";
+    ls->shortcutVideoRender     = "Replay: Exporteren naar video";
 
 
     //----------------------

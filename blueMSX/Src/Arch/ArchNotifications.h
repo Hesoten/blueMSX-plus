@@ -33,6 +33,8 @@
 
 typedef enum { SC_NORMAL, SC_SMALL, SC_LARGE } ScreenCaptureType;
 void* archScreenCapture(ScreenCaptureType type, int* bitmapSize, int onlyBmp);
+/* Save-As screenshot (always prompts, ignores capture.screenshotPromptFilename). */
+void archScreenCaptureAs(void);
 #ifdef WII
 int archScreenCaptureToFile(ScreenCaptureType type, const char *fname);
 #endif
@@ -48,6 +50,22 @@ void archDiskQuickChangeNotify();
 void archEmulationStartNotification();
 void archEmulationStopNotification();
 void archEmulationStartFailure();
+void archReplaySaveFailure(const char* fileName);
+void archReplayMissing(const char* fileName);
+/* Drain pending emu-display update on the main UI thread; poll from a
+** modal dialog whose own loop doesn't drive ddrawEvent. */
+void archPumpEmuDisplay(void);
+
+/* Live video recording while the emu keeps running. overrideFilename=NULL
+** auto-names in the capture directory; otherwise uses the full path. */
+void archRecordVideoStart(const char* overrideFilename);
+void archRecordVideoStop(void);
+int  archRecordVideoIsActive(void);
+
+/* Non-modal capture toasts (replace MessageBox so toggle hotkeys work).
+** Honour Properties.capture.showCompletionToast before calling Saved. */
+void archCaptureToastSaved(const char* savedPath);
+void archCaptureToastInfo(const char* message);
 
 void archQuit();
 

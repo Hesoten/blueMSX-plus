@@ -748,14 +748,21 @@ static Shortcuts* loadShortcuts(char* profileName)
     LOAD_SHORTCUT(shortcutFile, pauseSwitch);
     LOAD_SHORTCUT(shortcutFile, quit);
     LOAD_SHORTCUT(shortcutFile, wavCapture);
+    LOAD_SHORTCUT(shortcutFile, wavCaptureStartAs);
     LOAD_SHORTCUT(shortcutFile, videoCapLoad);
     LOAD_SHORTCUT(shortcutFile, videoCapPlay);
     LOAD_SHORTCUT(shortcutFile, videoCapRec);
+    LOAD_SHORTCUT(shortcutFile, videoCapRecAs);
     LOAD_SHORTCUT(shortcutFile, videoCapStop);
     LOAD_SHORTCUT(shortcutFile, videoCapSave);
+    LOAD_SHORTCUT(shortcutFile, recordVideoStart);
+    LOAD_SHORTCUT(shortcutFile, recordVideoStartAs);
+    LOAD_SHORTCUT(shortcutFile, recordVideoStop);
+    LOAD_SHORTCUT(shortcutFile, recordVideoToggle);
     LOAD_SHORTCUT(shortcutFile, ym2413BackendCycle);
     LOAD_SHORTCUT(shortcutFile, y8950BackendCycle);
     LOAD_SHORTCUT(shortcutFile, screenCapture);
+    LOAD_SHORTCUT(shortcutFile, screenCaptureAs);
     LOAD_SHORTCUT(shortcutFile, screenCaptureUnfilteredSmall);
     LOAD_SHORTCUT(shortcutFile, screenCaptureUnfilteredLarge);
     LOAD_SHORTCUT(shortcutFile, cpuStateLoad);
@@ -858,14 +865,21 @@ static void saveShortcuts(char* profileName, Shortcuts* shortcuts)
     SAVE_SHORTCUT(shortcutFile, pauseSwitch);
     SAVE_SHORTCUT(shortcutFile, quit);
     SAVE_SHORTCUT(shortcutFile, wavCapture);
+    SAVE_SHORTCUT(shortcutFile, wavCaptureStartAs);
     SAVE_SHORTCUT(shortcutFile, videoCapLoad);
     SAVE_SHORTCUT(shortcutFile, videoCapPlay);
     SAVE_SHORTCUT(shortcutFile, videoCapRec);
+    SAVE_SHORTCUT(shortcutFile, videoCapRecAs);
     SAVE_SHORTCUT(shortcutFile, videoCapStop);
     SAVE_SHORTCUT(shortcutFile, videoCapSave);
+    SAVE_SHORTCUT(shortcutFile, recordVideoStart);
+    SAVE_SHORTCUT(shortcutFile, recordVideoStartAs);
+    SAVE_SHORTCUT(shortcutFile, recordVideoStop);
+    SAVE_SHORTCUT(shortcutFile, recordVideoToggle);
     SAVE_SHORTCUT(shortcutFile, ym2413BackendCycle);
     SAVE_SHORTCUT(shortcutFile, y8950BackendCycle);
     SAVE_SHORTCUT(shortcutFile, screenCapture);
+    SAVE_SHORTCUT(shortcutFile, screenCaptureAs);
     SAVE_SHORTCUT(shortcutFile, screenCaptureUnfilteredSmall);
     SAVE_SHORTCUT(shortcutFile, screenCaptureUnfilteredLarge);
     SAVE_SHORTCUT(shortcutFile, cpuStateLoad);
@@ -1030,15 +1044,22 @@ static void updateShortcutEntries(HWND hDlg)
     ADD_SHORTCUTSEPARATOR();
     
     ADD_SHORTCUT(wavCapture, langShortcutAudioCapture());
+    ADD_SHORTCUT(wavCaptureStartAs, langShortcutAudioCaptureAs());
     
     ADD_SHORTCUTSEPARATOR();
 
     ADD_SHORTCUT(videoCapLoad, langShortcutVideoLoad());
     ADD_SHORTCUT(videoCapPlay, langShortcutVideoPlay());
     ADD_SHORTCUT(videoCapRec,  langShortcutVideoRecord());
+    ADD_SHORTCUT(videoCapRecAs, langShortcutVideoRecordAs());
     ADD_SHORTCUT(videoCapStop, langShortcutVideoStop());
     ADD_SHORTCUT(videoCapSave, langShortcutVideoRender());
-    
+    ADD_SHORTCUTSEPARATOR();
+    ADD_SHORTCUT(recordVideoStart,  langShortcutRecordVideoStart());
+    ADD_SHORTCUT(recordVideoStartAs, langShortcutRecordVideoStartAs());
+    ADD_SHORTCUT(recordVideoStop,   langShortcutRecordVideoStop());
+    ADD_SHORTCUT(recordVideoToggle, langShortcutRecordVideoToggle());
+
     ADD_SHORTCUTSEPARATOR();
 
     ADD_SHORTCUT(ym2413BackendCycle, langShortcutYm2413BackendCycle());
@@ -1047,6 +1068,7 @@ static void updateShortcutEntries(HWND hDlg)
     ADD_SHORTCUTSEPARATOR();
 
     ADD_SHORTCUT(screenCapture, langShortcutScreenshotOrig());
+    ADD_SHORTCUT(screenCaptureAs, langShortcutScreenshotAs());
     ADD_SHORTCUT(screenCaptureUnfilteredSmall, langShortcutScreenshotSmall());
     ADD_SHORTCUT(screenCaptureUnfilteredLarge, langShortcutScreenshotLarge());
     

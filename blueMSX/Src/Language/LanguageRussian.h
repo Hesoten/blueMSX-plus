@@ -95,6 +95,27 @@ void langInitRussian(LanguageStrings* ls)
     ls->dlgRecorderPickTitle        = "blueMSX - Преобразовать повтор в видео";
     ls->dlgRecorderPickSourceCap    = "Файл повтора для обработки (.cap):";
     ls->dlgRecorderPickOutputMp4    = "Выходной видеофайл (.mp4):";
+    ls->menuFileRecordVideo         = "Запись видео";
+    ls->menuFileStopRecordVideo     = "Остановить запись видео";
+    ls->shortcutRecordVideoStart    = "Запись видео: Старт";
+    ls->shortcutRecordVideoStartAs  = "Запись видео: Старт как";
+    ls->shortcutRecordVideoStop     = "Запись видео: Стоп";
+    ls->shortcutRecordVideoToggle   = "Запись видео: Переключить";
+    ls->shortcutAudioCaptureAs      = "Запись звука: Старт как";
+    ls->shortcutVideoRecordAs       = "Повтор: Запись как";
+    ls->shortcutScreenshotAs        = "Скриншот: Сохранить как";
+
+    ls->propCapture                 = "Захват";
+    ls->propCaptureAudioGB          = " Запись звука ";
+    ls->propCaptureVideoGB          = " Запись видео ";
+    ls->propCaptureScreenshotGB     = " Скриншот ";
+    ls->propCaptureReplayGB         = " Запись повтора ";
+    ls->propCaptureSaveDir          = "Папка:";
+    ls->propCaptureFormat           = "Формат:";
+    ls->propCaptureCodec            = "Кодек:";
+    ls->propCaptureAutoName         = "Авто-имя файла";
+    ls->propCapturePromptName       = "Запрашивать имя файла";
+    ls->propCaptureShowToast        = "Показывать уведомление по завершении";
 
 
     //----------------------
@@ -183,6 +204,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->menuPropsDisk           = "Дискеты";               // New in 2.7
     ls->menuPropsLanguage       = "Выбор языка";
     ls->menuPropsPorts          = "Порты";
+    ls->menuPropsCapture        = "Захват";
     
     ls->menuVideoSource         = "Вывод видеоданных";
     ls->menuVideoSourceDefault  = "Не обнаружен видеоисточник";
@@ -204,6 +226,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->menuFileQLoadState      = "Быстрая загрузка";
     ls->menuFileQSaveState      = "Быстрое сохранение";
     ls->menuFileCaptureAudio    = "Захват звука";
+    ls->menuFileStopAudio       = "Остановить звук";
     ls->menuFileCaptureVideo    = "Захват видео"; 
     ls->menuFileScreenShot      = "Сделать скриншот";
     ls->menuFileExit            = "Выход";
@@ -262,6 +285,10 @@ void langInitRussian(LanguageStrings* ls)
     ls->dlgSaveState            = "Сохранить как...";
     ls->dlgSaveCassette         = "blueMSX - Сохранить образ кассеты";
     ls->dlgSaveVideoClipAs      = "Сохранить видеоклип как...";      
+    ls->dlgSaveCaptureAudio     = "Сохранить запись звука как";
+    ls->dlgSaveCaptureVideo     = "Сохранить запись видео как";
+    ls->dlgSaveCaptureReplay    = "Сохранить повтор как";
+    ls->dlgSaveCaptureScreenshot = "Сохранить скриншот как";
     ls->dlgAmountCompleted      = "Amount completed:";          
     ls->dlgInsertRom1           = "Вставить ROM картридж в слот 1";
     ls->dlgInsertRom2           = "Вставить ROM картридж в слот 2";
@@ -376,6 +403,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->propMonHdrPaperWhite    = "Яркость белого:";
     ls->propMonHdrSystemMode    = "Режим HDR системы:";
     ls->propMonHdrRestartHint   = "Перезапустите blueMSX для применения изменений HDR.";
+    ls->propMonHdrRecord        = " Запись в HDR";
     ls->propMonColorGhosting    = " RF-модулятор:";
     ls->propMonEffectsGB        = "Эффекты ";
 
@@ -712,11 +740,11 @@ void langInitRussian(LanguageStrings* ls)
     ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
     ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
     ls->shortcutToggleCpuTrace  = "Включить/выключить CPU Trace";
-    ls->shortcutVideoLoad       = "Загрузить видеозахват";             
-    ls->shortcutVideoPlay       = "Воспроизвести видеозахват";   
-    ls->shortcutVideoRecord     = "Record Video Capture";              
-    ls->shortcutVideoStop       = "Остановить видеозахват";                
-    ls->shortcutVideoRender     = "Сжать видеозахват";   
+    ls->shortcutVideoLoad       = "Повтор: Загрузить из файла";             
+    ls->shortcutVideoPlay       = "Повтор: Воспроизвести последнюю запись";   
+    ls->shortcutVideoRecord     = "Повтор: Запись";              
+    ls->shortcutVideoStop       = "Повтор: Остановить";                
+    ls->shortcutVideoRender     = "Повтор: Экспорт в видео";   
 
 
     //----------------------

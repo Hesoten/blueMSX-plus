@@ -29,6 +29,7 @@
 ******************************************************************************
 */
 #include <stdio.h>
+#include <string.h>
 #include "Win32Menu.h"
 #include "Win32TextUtf8.h"
 #include "Win32ToolLoader.h"
@@ -74,6 +75,8 @@
 #define ID_FILE_VIDEOCAPREC             40022
 #define ID_FILE_VIDEOCAPSTOP            40023
 #define ID_FILE_VIDEOCAPSAVE            40024
+#define ID_FILE_RECORD_VIDEO_START      40080
+#define ID_FILE_RECORD_VIDEO_STOP       40081
 
 #define ID_RUN_RUN                      40025
 #define ID_RUN_PAUSE                    40026
@@ -104,6 +107,7 @@
 #define ID_OPTIONS_PORTS                40048
 #define ID_OPTIONS_DISK                 40049
 #define ID_OPTIONS_MIDI                 40050
+#define ID_OPTIONS_CAPTURE              40057
 
 #define ID_HELP_HELP                    40051
 #define ID_HELP_ABOUT                   40052
@@ -356,6 +360,70 @@ static void setMenuColor(HMENU hMenu)
     mi.fMask = MIM_BACKGROUND;
     mi.hbrBack = menuBrush;
 //    SetMenuInfo(hMenu, &mi);
+}
+
+/* Cached 32bpp ARGB red-dot bitmap used as the "recording" indicator in
+** the menu item bitmap area (MENUITEMINFO.hbmpItem) -- visually replacing
+** the previous MFS_CHECKED tickmark. Created on first use, never freed
+** (process-lifetime). Sized from SM_CXMENUCHECK so it scales with DPI. */
+static HBITMAP g_hbmpRecDot = NULL;
+
+static HBITMAP getRecDotBitmap(void)
+{
+    if (g_hbmpRecDot) return g_hbmpRecDot;
+
+    int size = GetSystemMetrics(SM_CXMENUCHECK);
+    if (size <= 0) size = 16;
+
+    BITMAPINFO bmi;
+    memset(&bmi, 0, sizeof(bmi));
+    bmi.bmiHeader.biSize        = sizeof(BITMAPINFOHEADER);
+    bmi.bmiHeader.biWidth       = size;
+    bmi.bmiHeader.biHeight      = -size;   /* top-down */
+    bmi.bmiHeader.biPlanes      = 1;
+    bmi.bmiHeader.biBitCount    = 32;
+    bmi.bmiHeader.biCompression = BI_RGB;
+
+    void* pixels = NULL;
+    g_hbmpRecDot = CreateDIBSection(NULL, &bmi, DIB_RGB_COLORS, &pixels, NULL, 0);
+    if (!g_hbmpRecDot || !pixels) return NULL;
+
+    /* Filled red disc ~30% radius, nudged +4 px right and +1 px down for
+    ** visual centering against the menu-text baseline (32bpp ARGB). */
+    int cx = size / 2 + 4;
+    int cy = size / 2 + 1;
+    int r  = (size * 3) / 10;     /* radius ~= 30% of width */
+    if (r < 2) r = 2;
+    int r2 = r * r;
+    DWORD* p = (DWORD*)pixels;
+    int x, y;
+    for (y = 0; y < size; ++y) {
+        for (x = 0; x < size; ++x) {
+            int dx = x - cx;
+            int dy = y - cy;
+            if (dx * dx + dy * dy <= r2) {
+                p[y * size + x] = 0xFFCC0000u;   /* opaque deep red */
+            } else {
+                p[y * size + x] = 0x00000000u;   /* fully transparent */
+            }
+        }
+    }
+
+    return g_hbmpRecDot;
+}
+
+/* Mark the given menu item with the red-dot indicator in the bitmap area
+** to the left of the text (same place a tickmark would render). */
+static void setMenuRecDot(HMENU hMenu, UINT id)
+{
+    HBITMAP hbm = getRecDotBitmap();
+    if (!hbm) return;
+    MENUITEMINFOW mii;
+    memset(&mii, 0, sizeof(mii));
+    mii.cbSize   = sizeof(mii);
+    mii.fMask    = MIIM_BITMAP;
+    mii.hbmpItem = hbm;
+    SetMenuItemInfoW(hMenu, id, FALSE, &mii);
 }
 
 static HMENU menuCreateReset(Properties* pProperties, Shortcuts* shortcuts) {
@@ -690,39 +758,48 @@ static HMENU menuCreateVideoCapture(Properties* pProperties, Shortcuts* shortcut
 
     setMenuColor(hMenu);
 
-    sprintf(langBuffer, "%s      \t%hs", langMenuVideoLoad(), shortcutsToString(shortcuts->videoCapLoad));
-    AppendMenuU(hMenu, MF_STRING, ID_FILE_VIDEOCAPLOAD, langBuffer);
-    
-    sprintf(langBuffer, "%s      \t%hs", langMenuVideoPlay(), shortcutsToString(shortcuts->videoCapPlay));
-    AppendMenuU(hMenu, MF_STRING | (logVideo == 2 ? MF_GRAYED : 0), ID_FILE_VIDEOCAPPLAY, langBuffer);
-    
-    AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
-    
+    /* Label-swap by state: IDLE="Record", REC="Stop", PLAY="Append". */
     switch (logVideo) {
     case 0:
     default:
-        sprintf(langBuffer, "%s      \t%hs", langMenuVideoRecord(), shortcutsToString(shortcuts->videoCapRec));
+        sprintf(langBuffer, "%s      \t%hs", langMenuVideoRecord(),
+                shortcutsToString(shortcuts->videoCapRec));
         AppendMenuU(hMenu, MF_STRING, ID_FILE_VIDEOCAPREC, langBuffer);
         break;
     case 1:
-        sprintf(langBuffer, "%s      \t%hs", langMenuVideoRecording(), shortcutsToString(shortcuts->videoCapRec));
-        AppendMenuU(hMenu, MF_STRING | MF_GRAYED, ID_FILE_VIDEOCAPREC, langBuffer);
+        /* Live indicator while recording: red-dot bitmap drawn in the
+        ** menu-check gutter, matching audio / video record indicators
+        ** in the parent File menu. */
+        sprintf(langBuffer, "%s      \t%hs", langMenuVideoStop(),
+                shortcutsToString(shortcuts->videoCapStop));
+        AppendMenuU(hMenu, MF_STRING, ID_FILE_VIDEOCAPSTOP, langBuffer);
+        setMenuRecDot(hMenu, ID_FILE_VIDEOCAPSTOP);
         break;
     case 2:
-        sprintf(langBuffer, "%s      \t%hs", langMenuVideoRecAppend(), shortcutsToString(shortcuts->videoCapRec));
+        sprintf(langBuffer, "%s      \t%hs", langMenuVideoRecAppend(),
+                shortcutsToString(shortcuts->videoCapRec));
         AppendMenuU(hMenu, MF_STRING, ID_FILE_VIDEOCAPREC, langBuffer);
         break;
     }
 
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
     
-    sprintf(langBuffer, "%s      \t%hs", langMenuVideoStop(), shortcutsToString(shortcuts->videoCapStop));
-    AppendMenuU(hMenu, MF_STRING, ID_FILE_VIDEOCAPSTOP, langBuffer);
+    sprintf(langBuffer, "%s      \t%hs", langMenuVideoLoad(), shortcutsToString(shortcuts->videoCapLoad));
+    AppendMenuU(hMenu, MF_STRING, ID_FILE_VIDEOCAPLOAD, langBuffer);
+
+    sprintf(langBuffer, "%s      \t%hs", langMenuVideoPlay(), shortcutsToString(shortcuts->videoCapPlay));
+    /* Keep Play always enabled: graying it while logVideo==2 left the user
+    ** stuck after a replay finished (the menu isn't rebuilt on playback end,
+    ** so Play stayed greyed and only "Append" was clickable). */
+    AppendMenuU(hMenu, MF_STRING, ID_FILE_VIDEOCAPPLAY, langBuffer);
 
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
 
     sprintf(langBuffer, "%s      \t%hs", langMenuVideoRender(), shortcutsToString(shortcuts->videoCapSave));
-    AppendMenuU(hMenu, MF_STRING | (boardCaptureHasData() ? 0 : MF_GRAYED), ID_FILE_VIDEOCAPSAVE, langBuffer);
+    /* Render-to-video now picks the source .cap from disk inside its own
+    ** dialog, so there's no requirement that a capture be loaded in memory
+    ** first. Keep the item always enabled. */
+    AppendMenuU(hMenu, MF_STRING, ID_FILE_VIDEOCAPSAVE, langBuffer);
     
     return hMenu;
 }
@@ -1084,6 +1161,9 @@ static HMENU menuCreateOptions(Properties* pProperties, Shortcuts* shortcuts, in
     if (appConfigGetInt("menu.options.settings", 1) != 0) {
         AppendMenuU(hMenu, MF_STRING, ID_OPTIONS_SETTINGS, langMenuPropsFile());
     }
+    if (appConfigGetInt("menu.options.capture", 1) != 0) {
+        AppendMenuU(hMenu, MF_STRING, ID_OPTIONS_CAPTURE, langMenuPropsCapture());
+    }
     if (appConfigGetInt("menu.options.appearance", 1) != 0) {
         AppendMenuU(hMenu, MF_STRING, ID_OPTIONS_APEARANCE, langMenuPropsSettings());
     }
@@ -1201,15 +1281,43 @@ static HMENU menuCreateFile(Properties* pProperties, Shortcuts* shortcuts, int i
     }
 
     if (appConfigGetInt("menu.file.capture", 1) != 0) {
-        sprintf(langBuffer, "%s        \t%hs", langMenuFileCaptureAudio(), shortcutsToString(shortcuts->wavCapture));
-        AppendMenuU(hMenu, MF_STRING | (logSound ? MFS_CHECKED : 0), ID_FILE_LOGWAV, langBuffer);
+        /* Record/Stop label-swap with a red-dot gutter indicator in place
+           of the MFS_CHECKED tickmark. */
+        if (logSound) {
+            sprintf(langBuffer, "%s        \t%hs",
+                    langMenuFileStopAudio(),
+                    shortcutsToString(shortcuts->wavCapture));
+        } else {
+            sprintf(langBuffer, "%s        \t%hs",
+                    langMenuFileCaptureAudio(),
+                    shortcutsToString(shortcuts->wavCapture));
+        }
+        AppendMenuU(hMenu, MF_STRING, ID_FILE_LOGWAV, langBuffer);
+        if (logSound) setMenuRecDot(hMenu, ID_FILE_LOGWAV);
 
-        sprintf(langBuffer, "%s", langMenuFileCaptureVideo());
-        AppendMenuU(hMenu, MF_POPUP,     (UINT_PTR)menuCreateVideoCapture(pProperties, shortcuts, logVideo), langBuffer);
+        if (archRecordVideoIsActive()) {
+            sprintf(langBuffer, "%s        \t%hs",
+                    langMenuFileStopRecordVideo(),
+                    shortcutsToString(shortcuts->recordVideoStop));
+            AppendMenuU(hMenu, MF_STRING, ID_FILE_RECORD_VIDEO_STOP, langBuffer);
+            setMenuRecDot(hMenu, ID_FILE_RECORD_VIDEO_STOP);
+        } else {
+            sprintf(langBuffer, "%s        \t%hs",
+                    langMenuFileRecordVideo(),
+                    shortcutsToString(shortcuts->recordVideoStart));
+            AppendMenuU(hMenu, MF_STRING, ID_FILE_RECORD_VIDEO_START, langBuffer);
+        }
 
         sprintf(langBuffer, "%s        \t%hs", langMenuFileScreenShot(), shortcutsToString(shortcuts->screenCapture));
         AppendMenuU(hMenu, MF_STRING, ID_FILE_PTRSCR, langBuffer);
-        AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);  
+
+        /* Replay submenu sits last (more complex / less frequently used). */
+        sprintf(langBuffer, "%s", langMenuFileCaptureVideo());
+        AppendMenuU(hMenu, MF_POPUP,
+                    (UINT_PTR)menuCreateVideoCapture(pProperties, shortcuts, logVideo),
+                    langBuffer);
+
+        AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
     }
 
     if (appConfigGetInt("menu.file.run", 0) != 0) {
@@ -2078,6 +2186,8 @@ int menuCommand(Properties* pProperties, int command)
         boardSetVideoAutodetect(pProperties->video.detectActiveMonitor);
         return 1;
     case ID_FILE_PTRSCR:                    actionScreenCapture();          return 0;
+    case ID_FILE_RECORD_VIDEO_START:        actionRecordVideoStart();       return 0;
+    case ID_FILE_RECORD_VIDEO_STOP:         actionRecordVideoStop();        return 0;
     case ID_FILE_SAVE:                      actionSaveState();              return 0;
     case ID_FILE_LOAD:                      actionLoadState();              return 0;
     case ID_FILE_QSAVE:                     actionQuickSaveState();         return 0;
@@ -2112,6 +2222,7 @@ int menuCommand(Properties* pProperties, int command)
     case ID_OPTIONS_SETTINGS:               actionPropShowSettings();       return 0;
     case ID_OPTIONS_DISK:                   actionPropShowDisk();           return 0;
     case ID_OPTIONS_APEARANCE:              actionPropShowApearance();      return 0;
+    case ID_OPTIONS_CAPTURE:                actionPropShowCapture();        return 0;
     case ID_OPTIONS_PORTS:                  actionPropShowPorts();          return 0;
     case ID_OPTIONS_EFFECTS:				actionPropShowEffects();        return 0;
     case ID_OPTIONS_LANGUAGE:               actionOptionsShowLanguage();    return 0;

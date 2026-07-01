@@ -427,14 +427,15 @@ static void mfWorkerThreadEntry(WorkerInit init)
             /* ST.2086 mastering luminance: max in cd/m^2, min in 0.0001 cd/m^2. */
             outVid->SetUINT32(MF_MT_MAX_MASTERING_LUMINANCE,             1000);
             outVid->SetUINT32(MF_MT_MIN_MASTERING_LUMINANCE,               50);
-            /* CEA-861.3 content light level (nits): MaxCLL tracks paperWhite,
-            ** MaxFALL = paperWhite/2. Mirrors vApplyHdrMetadata. */
+            /* CEA-861.3 content light level (nits): MaxCLL = fixed 1200
+            ** (max paperWhite 400 * max scanline boost 3.0); MaxFALL tracks
+            ** paperWhite. Mirrors vApplyHdrMetadata in Win32D3D12.cpp. */
             Properties* gpRec = propGetGlobalProperties();
             UINT32 paperWhite = (UINT32)(gpRec ? gpRec->video.hdrPaperWhiteNits : 200);
             if (paperWhite < 80)  paperWhite = 80;
             if (paperWhite > 400) paperWhite = 400;
-            outVid->SetUINT32(MF_MT_MAX_LUMINANCE_LEVEL,                paperWhite);
-            outVid->SetUINT32(MF_MT_MAX_FRAME_AVERAGE_LUMINANCE_LEVEL,  paperWhite / 2);
+            outVid->SetUINT32(MF_MT_MAX_LUMINANCE_LEVEL,                400u * 3u);   /* 1200 fixed */
+            outVid->SetUINT32(MF_MT_MAX_FRAME_AVERAGE_LUMINANCE_LEVEL,  paperWhite);
         } else if (init.codec == CAP_VIDEO_HEVC) {
             /* HEVC SDR: 8-bit main profile, BT.709. */
             outVid->SetGUID  (MF_MT_SUBTYPE,             MFVideoFormat_HEVC);

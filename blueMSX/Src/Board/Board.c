@@ -126,9 +126,16 @@ void boardTimerCleanup();
 
 static void boardPeriodicCallback(void* ref, UInt32 time)
 {
-    if (periodicCb != NULL) {
+    if (periodicCb != NULL && periodicInterval > 0) {
         periodicCb(periodicRef, time);
         boardTimerAdd(periodicTimer, time + periodicInterval);
+    }
+    else {
+        /* Re-arm so a mid-emulation boardSetPeriodicCallback install
+        ** still gets dispatched; idle poll at 60 Hz. */
+        UInt32 pollInterval = boardFrequency() / 60;
+        if (pollInterval == 0) pollInterval = 1;
+        boardTimerAdd(periodicTimer, time + pollInterval);
     }
 }
 
@@ -162,6 +169,7 @@ typedef struct {
 static RleData* rleData;
 static int      rleDataSize;
 static int      rleIdx;
+static int      rleRemaining;   /* reads left in the current entry (decode side) */
 static UInt8    rleCache[256];
 
 static void rleEncStartEncode(void* buffer, int length, int startOffset)
@@ -177,7 +185,10 @@ static void rleEncStartEncode(void* buffer, int length, int startOffset)
 
 static void rleEncAdd(UInt8 index, UInt8 value)
 {
-    if (rleIdx < 0 || rleCache[index] != value || rleData[rleIdx].count == 0) {
+    /* count is UInt16: split the run before it wraps 0xffff->0, which would
+    ** desync the whole stream on playback (count-- underflows to 0xffff). */
+    if (rleIdx < 0 || rleCache[index] != value || rleData[rleIdx].count == 0
+        || rleData[rleIdx].count == 0xffff) {
         rleIdx++;
         rleData[rleIdx].value = value;
         rleData[rleIdx].count = 1;
@@ -199,20 +210,34 @@ static void rleEncStartDecode(void* encodedData, int encodedSize)
     rleIdx = 0;
     rleDataSize = encodedSize;
     rleData = (RleData*)encodedData;
-    
+
     memset(rleCache, 0, sizeof(rleCache));
 
-    rleCache[rleData[rleIdx].index] = rleData[rleIdx].value;
+    if (encodedSize > 0) {
+        rleRemaining = rleData[0].count;
+        rleCache[rleData[0].index] = rleData[0].value;
+    }
+    else {
+        rleRemaining = 0;
+    }
 }
 
+/* Non-destructive: track remaining reads in rleRemaining instead of
+** decrementing rleData[].count, so the input log survives playback intact
+** (needed to append onto a replay without corrupting the played-back part). */
 static UInt8 rleEncGet(UInt8 index)
 {
     UInt8 value = rleCache[index];
 
-    rleData[rleIdx].count--;
-    if (rleData[rleIdx].count == 0) {
+    if (rleRemaining > 0) {
+        rleRemaining--;
+    }
+    if (rleRemaining == 0) {
         rleIdx++;
-        rleCache[rleData[rleIdx].index] = rleData[rleIdx].value;
+        if (rleIdx < rleDataSize) {
+            rleRemaining = rleData[rleIdx].count;
+            rleCache[rleData[rleIdx].index] = rleData[rleIdx].value;
+        }
     }
 
     return value;
@@ -220,7 +245,10 @@ static UInt8 rleEncGet(UInt8 index)
 
 static int rleEncEof()
 {
-    return rleIdx > rleDataSize;
+    /* >= keeps the final slot as a guard: rleEncAdd writes rleData[rleIdx]
+    ** *before* this is checked, so '>' let the last add run one entry past
+    ** the buffer (OOB write on record, OOB read on the last playback step). */
+    return rleIdx >= rleDataSize;
 }
 
 
@@ -243,9 +271,20 @@ typedef struct Capture {
     UInt8  inputs[0x100000];
     int    inputCnt;
     char   filename[512];
+    /* Set by boardCaptureStop when it finalizes a recording; drained by
+    ** the UI thread (boardCaptureConsumePendingToast) so that record-end
+    ** paths outside the menu Stop (emulatorStop on quit / Run>Stop / load
+    ** state / RLE overflow) also surface a "Saved:" toast. */
+    char   pendingToastFile[512];
 } Capture;
 
 static Capture cap;
+
+/* Set while saving the replay's initial-state snapshot (cap.tmp). The snapshot
+** must NOT embed a capture block: cap.state is REC during the deferred arm, so
+** without this guard boardCaptureSaveState would write a CAPTURE_REC block into
+** initState, and the .cap then loads as REC -> playback resumes recording. */
+static int capSavingInitState = 0;
 
 int boardCaptureHasData() {
     return cap.endTime != 0 || cap.endTime64 != 0 || boardCaptureIsRecording();
@@ -274,29 +313,61 @@ int boardCaptureCompleteAmount() {
 
 extern void actionEmuTogglePause();
 
+/* Snapshot the initial state and begin RLE encoding; returns 1 if armed.
+** Separate so the deferred (emu-was-stopped) start can arm without first
+** dropping cap.state to IDLE, which raced the menu refresh (see boardTimerCb). */
+static int boardCaptureArmRecording(void)
+{
+    FILE* f;
+
+    cap.initStateSize = 0;
+    capSavingInitState = 1;
+    boardSaveState("cap.tmp", 1);
+    capSavingInitState = 0;
+    f = fopen("cap.tmp", "rb");
+    if (f != NULL) {
+        cap.initStateSize = (int)fread(cap.initState, 1, sizeof(cap.initState), f);
+        fclose(f);
+    }
+
+    if (cap.initStateSize > 0) {
+        rleEncStartEncode(cap.inputs, sizeof(cap.inputs), 0);
+    }
+
+    cap.startTime64 = boardSystemTime64();
+    return cap.initStateSize > 0;
+}
+
 static void boardTimerCb(void* dummy, UInt32 time)
 {
     if (cap.state == CAPTURE_PLAY) {
-        // If we reached the end time +/- 2 seconds we know we should stop
-        // the capture. If not, we restart the timer 1/4 of max time into
-        // the future. (Enventually we'll hit the real end time
-        // This is an ugly workaround for the internal timers short timespan
-        // (~3 minutes). Using the 64 bit timer we can extend the capture to
-        // 90 days.
-        // Will work correct with 'real' 64 bit timers
-        boardSystemTime64(); // Sync clock
-        if (boardCaptureCompleteAmount() < 1000) {
-            boardTimerAdd(cap.timer, time + 0x40000000);
-        }
-        else {
+        /* Drive stop off the 64-bit clock so endTime32/endTime64 drift
+        ** can't leave the timer spinning past the natural end; step from
+        ** the actual remaining HIRES cycles for instruction-granular finish. */
+        boardSystemTime64();   // sync 64-bit clock from r800
+
+        if (boardSysTime64 >= cap.endTime64
+            || cap.endTime64 - boardSysTime64 < HIRES_CYCLES_PER_LORES_CYCLE * 100) {
             actionEmuTogglePause();
             cap.state = CAPTURE_IDLE;
+        }
+        else {
+            /* Fire at cap.endTime64 when it fits the 32-bit timer window;
+            ** else step 0x40000000 (max safe under timeAnchor wrap math). */
+            UInt64 remaining = (cap.endTime64 - boardSysTime64) / HIRES_CYCLES_PER_LORES_CYCLE;
+            UInt32 step = (remaining < (UInt64)0x40000000) ? (UInt32)remaining : 0x40000000;
+            if (step == 0) step = 1;   // forward progress safety net
+            boardTimerAdd(cap.timer, time + step);
         }
     }
     
     if (cap.state == CAPTURE_REC) {
-        cap.state = CAPTURE_IDLE;
-        boardCaptureStart(cap.filename);
+        /* Deferred arm: emu was stopped when the user hit Record, so the
+        ** snapshot waited until emulation actually started. Keep cap.state
+        ** at CAPTURE_REC throughout so a concurrent menu refresh sees it. */
+        if (!boardCaptureArmRecording()) {
+            cap.state = CAPTURE_IDLE;
+        }
     }
 }
 
@@ -332,42 +403,40 @@ void boardCaptureDestroy()
 }
 
 void boardCaptureStart(const char* filename) {
-    FILE* f;
-
     if (cap.state == CAPTURE_REC) {
         return;
     }
 
-    // If we're playing back a capture, we just start recording from where we're at
-    // and new recording will be appended to old recording
+    /* Append: truncate the in-flight RLE entry to the played count, then resume
+    ** encoding past it. cap.initState was snapshotted at load (see PLAY branch
+    ** of boardCaptureLoadState) so boardCaptureStop can save a merged .cap. */
     if (cap.state == CAPTURE_PLAY) {
+        if (rleIdx < rleDataSize && rleRemaining > 0) {
+            rleData[rleIdx].count -= (UInt16)rleRemaining;
+            if (rleData[rleIdx].count == 0) {
+                rleIdx--;
+            }
+            rleRemaining = 0;
+        }
+        rleEncStartEncode(cap.inputs, sizeof(cap.inputs), rleIdx + 1);
+        boardTimerRemove(cap.timer);
+        strcpy(cap.filename, filename);
         cap.state = CAPTURE_REC;
         return;
     }
 
     strcpy(cap.filename, filename);
 
-    // If emulation is not running we want to start recording once 
+    // If emulation is not running we want to start recording once
     // the emulation is started
     if (cap.timer == NULL) {
         cap.state = CAPTURE_REC;
         return;
     }
 
-    cap.initStateSize = 0;
-    boardSaveState("cap.tmp", 1);
-    f = fopen("cap.tmp", "rb");
-    if (f != NULL) {
-        cap.initStateSize = fread(cap.initState, 1, sizeof(cap.initState), f);
-        fclose(f);
-    }
-
-    if (cap.initStateSize > 0) {
-        rleEncStartEncode(cap.inputs, sizeof(cap.inputs), 0);
+    if (boardCaptureArmRecording()) {
         cap.state = CAPTURE_REC;
     }
-
-    cap.startTime64 = boardSystemTime64();
 }
 
 void boardCaptureStop() {
@@ -398,6 +467,8 @@ void boardCaptureStop() {
         saveStateSet(state, "endTime", cap.endTime);
         saveStateSet(state, "endTime64Hi", (UInt32)(cap.endTime64 >> 32));
         saveStateSet(state, "endTime64Lo", (UInt32)cap.endTime64);
+        saveStateSet(state, "startTime64Hi", (UInt32)(cap.startTime64 >> 32));
+        saveStateSet(state, "startTime64Lo", (UInt32)cap.startTime64);
         saveStateSet(state, "inputCnt", cap.inputCnt);
         
         if (cap.inputCnt > 0) {
@@ -406,10 +477,27 @@ void boardCaptureStop() {
 
         saveStateClose(state);
         saveStateDestroy();
+
+        /* Queue completion toast for the UI thread. Only for CAPTURE_REC
+        ** (a Play-mode stop takes the outer no-op path and leaves this
+        ** clear), so replay playback finish never triggers a toast. */
+        if (cap.filename[0]) {
+            strncpy(cap.pendingToastFile, cap.filename, sizeof(cap.pendingToastFile) - 1);
+            cap.pendingToastFile[sizeof(cap.pendingToastFile) - 1] = 0;
+        }
     }
 
     // go back to idle state
     cap.state = CAPTURE_IDLE;
+}
+
+int boardCaptureConsumePendingToast(char* out, int outSize) {
+    if (out == NULL || outSize < 1) return 0;
+    if (cap.pendingToastFile[0] == 0) return 0;
+    strncpy(out, cap.pendingToastFile, outSize - 1);
+    out[outSize - 1] = 0;
+    cap.pendingToastFile[0] = 0;
+    return 1;
 }
 
 UInt8 boardCaptureUInt8(UInt8 logId, UInt8 value) {
@@ -429,7 +517,7 @@ UInt8 boardCaptureUInt8(UInt8 logId, UInt8 value) {
 
 static void boardCaptureSaveState()
 {
-    if (cap.state == CAPTURE_REC) {
+    if (cap.state == CAPTURE_REC && !capSavingInitState) {
         SaveState* state = saveStateOpenForWrite("capture");
 
         cap.inputCnt = rleEncGetLength();
@@ -440,6 +528,8 @@ static void boardCaptureSaveState()
         saveStateSet(state, "endTime", cap.endTime);
         saveStateSet(state, "endTime64Hi", (UInt32)(cap.endTime64 >> 32));
         saveStateSet(state, "endTime64Lo", (UInt32)cap.endTime64);
+        saveStateSet(state, "startTime64Hi", (UInt32)(cap.startTime64 >> 32));
+        saveStateSet(state, "startTime64Lo", (UInt32)cap.startTime64);
         saveStateSet(state, "inputCnt", cap.inputCnt);
         if (cap.inputCnt > 0) {
             saveStateSetBuffer(state, "inputs", cap.inputs, cap.inputCnt * sizeof(RleData));
@@ -467,7 +557,21 @@ static void boardCaptureLoadState()
     cap.endTime = saveStateGet(state, "endTime", 0);
     cap.endTime64 = (UInt64)saveStateGet(state, "endTime64Hi", 0) << 32 |
                     (UInt64)saveStateGet(state, "endTime64Lo", 0);
+    {
+        /* New format persists startTime64; old format falls back to current
+        ** boardSystemTime64 (bounded to this playback's own time scale). */
+        UInt64 startT = (UInt64)saveStateGet(state, "startTime64Hi", 0) << 32 |
+                        (UInt64)saveStateGet(state, "startTime64Lo", 0);
+        cap.startTime64 = (startT != 0) ? startT : boardSystemTime64();
+    }
     cap.inputCnt = saveStateGet(state, "inputCnt", 0);
+    /* Reject a corrupt or oversized log rather than overflowing cap.inputs. */
+    if (cap.inputCnt < 0 ||
+        (size_t)cap.inputCnt > sizeof(cap.inputs) / sizeof(RleData)) {
+        cap.state = CAPTURE_IDLE;
+        saveStateClose(state);
+        return;
+    }
     if (cap.inputCnt > 0) {
         saveStateGetBuffer(state, "inputs", cap.inputs, cap.inputCnt * sizeof(RleData));
     }
@@ -492,6 +596,21 @@ static void boardCaptureLoadState()
             cap.endTime -= 0x40000000;
         }
         boardTimerAdd(cap.timer, cap.endTime);
+
+        /* Snapshot the just-restored machine state for a later PLAY->REC append.
+        ** A normal .cap's capture_00 has no initState, so initStateSize==0 here;
+        ** savestate-during-recording carries its own initState — skip in that case. */
+        if (cap.initStateSize == 0) {
+            FILE* f;
+            capSavingInitState = 1;
+            boardSaveState("cap.tmp", 1);
+            capSavingInitState = 0;
+            f = fopen("cap.tmp", "rb");
+            if (f != NULL) {
+                cap.initStateSize = (int)fread(cap.initState, 1, sizeof(cap.initState), f);
+                fclose(f);
+            }
+        }
     }
     
     if (cap.state == CAPTURE_REC) {
@@ -679,7 +798,18 @@ int boardRewind()
 //    boardType = boardLoadState();
 //    machineLoadState(boardMachine);
 
-    boardInfo.loadState();
+    /* boardInfo.loadState clobbers boardSysTime64 (rebuilt from r800's
+    ** 32-bit systemTime).  This is the only "board" section open in the
+    ** rewind path so getIndexedFilename returns "board_00"; stash and
+    ** restore the saved 64-bit value around the call. */
+    {
+        SaveState* bs = saveStateOpenForRead("board");
+        UInt64 stashedTime = (UInt64)saveStateGet(bs, "boardSysTime64Hi", 0) << 32
+                           | (UInt64)saveStateGet(bs, "boardSysTime64Lo", 0);
+        saveStateClose(bs);
+        boardInfo.loadState();
+        if (stashedTime != 0) boardSysTime64 = stashedTime;
+    }
     boardCaptureLoadState();
 
 #if 1
@@ -712,6 +842,9 @@ int boardRun(Machine* machine,
 {
     int loadState = 0;
     int success = 0;
+    /* Stash boardSysTime64 across msxCreate / boardInfo.loadState since
+    ** boardInit clobbers it; reapply after all init runs. */
+    UInt64 stashedSysTime64 = 0;
 
     syncToRealClock = syncCallback;
 
@@ -736,6 +869,7 @@ int boardRun(Machine* machine,
                 loadState = 1;
 
                 boardType = boardLoadState();
+                stashedSysTime64 = boardSysTime64;
 
                 machineLoadState(boardMachine);
             }
@@ -793,6 +927,8 @@ int boardRun(Machine* machine,
 
     if (success && loadState) {
         boardInfo.loadState();
+        /* Re-apply the stashed boardSysTime64 (boardInit clobbered it). */
+        if (stashedSysTime64 != 0) boardSysTime64 = stashedSysTime64;
         boardCaptureLoadState();
     }
 

@@ -95,6 +95,27 @@ void langInitCatalan(LanguageStrings* ls)
     ls->dlgRecorderPickTitle        = "blueMSX - Renderitza la repetició a vídeo";
     ls->dlgRecorderPickSourceCap    = "Fitxer de repetició a renderitzar (.cap):";
     ls->dlgRecorderPickOutputMp4    = "Fitxer de vídeo de sortida (.mp4):";
+    ls->menuFileRecordVideo         = "Grava vídeo";
+    ls->menuFileStopRecordVideo     = "Atura la gravació de vídeo";
+    ls->shortcutRecordVideoStart    = "Gravar vídeo: Inicia";
+    ls->shortcutRecordVideoStartAs  = "Gravar vídeo: Inicia com a";
+    ls->shortcutRecordVideoStop     = "Gravar vídeo: Atura";
+    ls->shortcutRecordVideoToggle   = "Gravar vídeo: Commuta";
+    ls->shortcutAudioCaptureAs      = "Gravar àudio: Inicia com a";
+    ls->shortcutVideoRecordAs       = "Repetició: Enregistra com a";
+    ls->shortcutScreenshotAs        = "Captura: Desa com a";
+
+    ls->propCapture                 = "Captura";
+    ls->propCaptureAudioGB          = " Gravació d'àudio ";
+    ls->propCaptureVideoGB          = " Gravació de vídeo ";
+    ls->propCaptureScreenshotGB     = " Captura de pantalla ";
+    ls->propCaptureReplayGB         = " Gravació de repetició ";
+    ls->propCaptureSaveDir          = "Carpeta:";
+    ls->propCaptureFormat           = "Format:";
+    ls->propCaptureCodec            = "Còdec:";
+    ls->propCaptureAutoName         = "Anomena fitxer automàticament";
+    ls->propCapturePromptName       = "Demana el nom del fitxer";
+    ls->propCaptureShowToast        = "Mostra un avís en finalitzar la captura";
 
 
     //----------------------
@@ -183,6 +204,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->menuPropsDisk           = "Discs";               // New in 2.7
     ls->menuPropsLanguage       = "Idioma";
     ls->menuPropsPorts          = "Ports";
+    ls->menuPropsCapture        = "Captura";
     
     ls->menuVideoSource         = "Font de la sortida de vídeo";
     ls->menuVideoSourceDefault  = "No hi ha conectada cap font de sortida de vídeo";
@@ -204,6 +226,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->menuFileQLoadState      = "Carrega ràpid l'estat";
     ls->menuFileQSaveState      = "Desa ràpid l'estat";
     ls->menuFileCaptureAudio    = "Captura d'àudio";
+    ls->menuFileStopAudio       = "Atura l'àudio";
     ls->menuFileCaptureVideo    = "Captura de vídeo"; 
     ls->menuFileScreenShot      = "Desa la captura de pantalla";
     ls->menuFileExit            = "Surt";
@@ -263,6 +286,10 @@ void langInitCatalan(LanguageStrings* ls)
     ls->dlgSaveState            = "Anomena i desa l'estat...";
     ls->dlgSaveCassette         = "blueMSX - Desa la imatge de cinta";
     ls->dlgSaveVideoClipAs      = "Desa i anomena el videoclip...";      
+    ls->dlgSaveCaptureAudio     = "Anomena i desa la gravació d'àudio";
+    ls->dlgSaveCaptureVideo     = "Anomena i desa la gravació de vídeo";
+    ls->dlgSaveCaptureReplay    = "Anomena i desa la repetició";
+    ls->dlgSaveCaptureScreenshot = "Anomena i desa la captura";
     ls->dlgAmountCompleted      = "Quantitat completada:";          
     ls->dlgInsertRom1           = "Insereix el cartutx ROM en la ranura 1";
     ls->dlgInsertRom2           = "Insereix el cartutx ROM en la ranura 2";
@@ -377,6 +404,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->propMonHdrPaperWhite    = "Brillantor blanc:";
     ls->propMonHdrSystemMode    = "Mode HDR del sistema:";
     ls->propMonHdrRestartHint   = "Reinicia blueMSX per aplicar el canvi de mode HDR.";
+    ls->propMonHdrRecord        = " Grava en HDR";
     ls->propMonColorGhosting    = " Modulador RF:";
     ls->propMonEffectsGB        = "Efectes ";
 
@@ -713,11 +741,11 @@ void langInitCatalan(LanguageStrings* ls)
     ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
     ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
     ls->shortcutToggleCpuTrace  = "Activa/Desactiva el rastre de la CPU";
-    ls->shortcutVideoLoad       = "Carrega la captura de vídeo";             
-    ls->shortcutVideoPlay       = "Reprodueix la darrera captura de vídeo";   
-    ls->shortcutVideoRecord     = "Enregistra la captura de vídeo";              
-    ls->shortcutVideoStop       = "Atura la captura de vídeo";                
-    ls->shortcutVideoRender     = "Renderitza el fitxer de vídeo";   
+    ls->shortcutVideoLoad       = "Repetició: Carrega des d'arxiu";             
+    ls->shortcutVideoPlay       = "Repetició: Reprodueix la darrera gravació";   
+    ls->shortcutVideoRecord     = "Repetició: Enregistra";              
+    ls->shortcutVideoStop       = "Repetició: Atura";                
+    ls->shortcutVideoRender     = "Repetició: Exporta a vídeo";   
 
 
     //----------------------

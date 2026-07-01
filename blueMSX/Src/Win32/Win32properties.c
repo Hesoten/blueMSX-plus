@@ -68,10 +68,14 @@ static HRESULT StringCchLength(LPCTSTR s, size_t m, size_t *l) { *l = strlen(s);
 #include "Emulator.h"
 #include "../SoundChips/YM2413.h"
 #include "../SoundChips/Y8950.h"
+#include "Win32Dir.h"
+#include "Win32ScreenShot.h"
+#include "Actions.h"
 
 /* From Win32D3D12.cpp; no header pulled in here to keep the C/C++
 ** boundary minimal. */
 int  D3D12HdrMode(void);
+int  D3D12IsSystemHdrEnabled(void);
 
 
 #define WM_UPDATEPROPERTIES  (WM_USER + 0)
@@ -645,14 +649,12 @@ static BOOL_DLG_RET CALLBACK settingsDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam
         SetWindowTextU(GetDlgItem(hDlg, IDC_SETTINGSFILETYPES), langPropFileTypes());
         SetWindowTextU(GetDlgItem(hDlg, IDC_SETTINGSDISABLEWINKEYS), langPropDisableWinKeys());
         SetWindowTextU(GetDlgItem(hDlg, IDC_SETTINGSPRIORITYBOOST), langPropPriorityBoost());
-        SetWindowTextU(GetDlgItem(hDlg, IDC_SETTINGSSCREENSHOTPNG), langPropScreenshotPng());
         SetWindowTextU(GetDlgItem(hDlg, IDC_SETTINGSEJECTMEDIAONEXIT), langPropEjectMediaOnExit());
 
         setButtonCheck(hDlg, IDC_SETTINGSFILETYPES, pProperties->emulation.registerFileTypes, 1);
         setButtonCheck(hDlg, IDC_SETTINGSDISABLEWINKEYS, pProperties->emulation.disableWinKeys, 1);
         setButtonCheck(hDlg, IDC_SETTINGSPRIORITYBOOST, pProperties->emulation.priorityBoost, 1);
         setButtonCheck(hDlg, IDC_SETTINGSSCREENSAVER, pProperties->settings.disableScreensaver, 1);
-        setButtonCheck(hDlg, IDC_SETTINGSSCREENSHOTPNG, pProperties->settings.usePngScreenshots, 1);
         setButtonCheck(hDlg, IDC_SETTINGSEJECTMEDIAONEXIT, pProperties->emulation.ejectMediaOnExit, 1);
     
         EnableWindow(GetDlgItem(hDlg, IDC_SETTINGSFILETYPES), !pProperties->settings.portable);
@@ -696,7 +698,6 @@ static BOOL_DLG_RET CALLBACK settingsDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam
         pProperties->emulation.disableWinKeys    = getButtonCheck(hDlg, IDC_SETTINGSDISABLEWINKEYS);
         pProperties->settings.disableScreensaver = getButtonCheck(hDlg, IDC_SETTINGSSCREENSAVER);
         pProperties->emulation.priorityBoost     = getButtonCheck(hDlg, IDC_SETTINGSPRIORITYBOOST);
-        pProperties->settings.usePngScreenshots  = getButtonCheck(hDlg, IDC_SETTINGSSCREENSHOTPNG);
         pProperties->emulation.ejectMediaOnExit  = getButtonCheck(hDlg, IDC_SETTINGSEJECTMEDIAONEXIT);
         propModified = 1;
         
@@ -860,6 +861,33 @@ static void D3DUpdateItems(HWND hDlg, Properties* pProperties)
     EnableWindow(GetDlgItem(hDlg, IDC_D3D_CROPPING_BOTTOMVALUETEXT), b);
 }
 
+/* Refresh the HDR section's live state from the current Windows HDR
+** mode.  Anchored on D3D12IsSystemHdrEnabled because D3D12HdrMode
+** sticks to the colour space chosen at D3D12_Init. */
+static void hdrRefreshLiveState(HWND hDlg, Properties* pProperties)
+{
+    int sysHdr  = D3D12IsSystemHdrEnabled();
+    int mode    = sysHdr ? D3D12HdrMode() : 0;
+    int liveHdr = sysHdr && pProperties->video.hdrEnable;
+    const char* tag = (mode == 2) ? "[HDR PQ]"
+                    : (mode == 1) ? "[HDR scRGB]"
+                    :               "[SDR]";
+
+    {
+        char cur[32];
+        GetDlgItemTextA(hDlg, IDC_HDRMODELABEL, cur, sizeof(cur));
+        if (strcmp(cur, tag) != 0) {
+            SetDlgItemTextU(hDlg, IDC_HDRMODELABEL, tag);
+        }
+    }
+
+    EnableWindow(GetDlgItem(hDlg, IDC_HDRENABLE),          sysHdr);
+    EnableWindow(GetDlgItem(hDlg, IDC_HDRPAPERWHITESLIDE), liveHdr);
+    EnableWindow(GetDlgItem(hDlg, IDC_HDRPAPERWHITEVALUE), liveHdr);
+    EnableWindow(GetDlgItem(hDlg, IDC_HDRPAPERWHITELABEL), liveHdr);
+    EnableWindow(GetDlgItem(hDlg, IDC_HDRRECORD),          liveHdr);
+}
+
 static BOOL_DLG_RET CALLBACK direct3dProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
     static Properties* pProperties;
 
@@ -921,40 +949,46 @@ static BOOL_DLG_RET CALLBACK direct3dProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
         D3DUpdateItems(hDlg, pProperties);
 
         /* HDR enable persists but only takes effect on next D3D12_Init;
-        ** paper-white slider is live (shader reads CB every frame). */
-        SetDlgItemTextU(hDlg, IDC_HDRENABLE, langPropMonHdrEnable());
-        SetDlgItemTextU(hDlg, IDC_HDRPAPERWHITELABEL, langPropMonHdrPaperWhite());
-        SetDlgItemTextU(hDlg, IDC_HDRMODESTATICTEXT, langPropMonHdrSystemMode());
-        setButtonCheck(hDlg, IDC_HDRENABLE, pProperties->video.hdrEnable, 1);
+        ** paper-white slider is live (shader reads CB every frame).
+        ** hdrRefreshLiveState() drives WM_TIMER poll + WM_COMMAND toggle. */
         {
-            int pwn = pProperties->video.hdrPaperWhiteNits;
-            if (pwn < 80)  pwn = 80;
-            if (pwn > 400) pwn = 400;
-            pProperties->video.hdrPaperWhiteNits = pwn;
-            SendMessage(GetDlgItem(hDlg, IDC_HDRPAPERWHITESLIDE), TBM_SETRANGE, 0, (LPARAM)MAKELONG(80, 400));
-            SendMessage(GetDlgItem(hDlg, IDC_HDRPAPERWHITESLIDE), TBM_SETPOS,   1, (LPARAM)pwn);
+            SetDlgItemTextU(hDlg, IDC_HDRENABLE, langPropMonHdrEnable());
+            SetDlgItemTextU(hDlg, IDC_HDRPAPERWHITELABEL, langPropMonHdrPaperWhite());
+            SetDlgItemTextU(hDlg, IDC_HDRMODESTATICTEXT, langPropMonHdrSystemMode());
+            setButtonCheck(hDlg, IDC_HDRENABLE, pProperties->video.hdrEnable, 1);
             {
-                char buf[16]; sprintf(buf, "%d", pwn);
-                SetDlgItemTextU(hDlg, IDC_HDRPAPERWHITEVALUE, buf);
+                int pwn = pProperties->video.hdrPaperWhiteNits;
+                if (pwn < 80)  pwn = 80;
+                if (pwn > 400) pwn = 400;
+                pProperties->video.hdrPaperWhiteNits = pwn;
+                SendMessage(GetDlgItem(hDlg, IDC_HDRPAPERWHITESLIDE), TBM_SETRANGE, 0, (LPARAM)MAKELONG(80, 400));
+                SendMessage(GetDlgItem(hDlg, IDC_HDRPAPERWHITESLIDE), TBM_SETPOS,   1, (LPARAM)pwn);
+                {
+                    char buf[16]; sprintf(buf, "%d", pwn);
+                    SetDlgItemTextU(hDlg, IDC_HDRPAPERWHITEVALUE, buf);
+                }
             }
-            EnableWindow(GetDlgItem(hDlg, IDC_HDRPAPERWHITESLIDE),
-                         pProperties->video.hdrEnable);
-            EnableWindow(GetDlgItem(hDlg, IDC_HDRPAPERWHITEVALUE),
-                         pProperties->video.hdrEnable);
-            EnableWindow(GetDlgItem(hDlg, IDC_HDRPAPERWHITELABEL),
-                         pProperties->video.hdrEnable);
+            /* Record-in-HDR -- only meaningful when live HDR is on (the
+            ** recording capture path reuses the live HDR shader /
+            ** colour-space encoding). */
+            SetDlgItemTextU(hDlg, IDC_HDRRECORD, langPropMonHdrRecord());
+            setButtonCheck(hDlg, IDC_HDRRECORD, pProperties->video.recordHdr, 1);
         }
-        /* Shows the swap-chain colour space decided at D3D12_Init, not
-        ** the requested setting; enable toggles need a restart anyway. */
-        {
-            int mode = D3D12HdrMode();
-            const char* tag = (mode == 2) ? "[HDR PQ]"
-                            : (mode == 1) ? "[HDR scRGB]"
-                            : "[SDR]";
-            SendMessage(GetDlgItem(hDlg, IDC_HDRMODELABEL), WM_SETTEXT, 0, (LPARAM)tag);
-        }
+        hdrRefreshLiveState(hDlg, pProperties);
 
         win32CommonApplyDark(hDlg);
+        return FALSE;
+
+    case WM_SHOWWINDOW:
+        /* When the user switches the Video Driver dropdown over to
+        ** D3D12, this sub-dialog gets ShowWindow(SW_NORMAL) without a
+        ** new WM_INITDIALOG (the dialog is created once in
+        ** performanceDlgProc's WM_INITDIALOG and only toggled hidden
+        ** afterwards).  Re-read the HDR state on each show so the
+        ** mode label reflects whatever Windows is in at that moment. */
+        if (wParam) {
+            hdrRefreshLiveState(hDlg, pProperties);
+        }
         return FALSE;
 
     case WM_NOTIFY:
@@ -1022,10 +1056,12 @@ static BOOL_DLG_RET CALLBACK direct3dProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
                 }
             }
         }
-        /* Re-grey the paper-white slider/value when HDR is toggled. */
-        EnableWindow(GetDlgItem(hDlg, IDC_HDRPAPERWHITESLIDE), pProperties->video.hdrEnable);
-        EnableWindow(GetDlgItem(hDlg, IDC_HDRPAPERWHITEVALUE), pProperties->video.hdrEnable);
-        EnableWindow(GetDlgItem(hDlg, IDC_HDRPAPERWHITELABEL), pProperties->video.hdrEnable);
+        /* Re-grey the paper-white slider / record checkbox when the
+        ** user toggles HDR enable, and pick up any system HDR
+        ** transition that happened since the last refresh.  Same
+        ** helper as the WM_TIMER poll so the two paths cannot drift. */
+        pProperties->video.recordHdr = getButtonCheck(hDlg, IDC_HDRRECORD);
+        hdrRefreshLiveState(hDlg, pProperties);
 
         pProperties->video.d3d.aspectRatioType = SendMessage(GetDlgItem(hDlg, IDC_D3D_ASPECTRATIO), CB_GETCURSEL, 0, 0);
         pProperties->video.d3d.cropType = SendMessage(GetDlgItem(hDlg, IDC_D3D_CROPPING_TYPE), CB_GETCURSEL, 0, 0);
@@ -2332,6 +2368,167 @@ static BOOL_DLG_RET CALLBACK midiDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LP
     return FALSE;
 }
 
+/* IDD_CAPTURE: paths / formats / filename behavior / completion toast for
+** Audio Recording / Video Recording / Screenshot / Replay Recording.
+** Format dropdowns are scaffolded but only the Screenshot one has
+** multiple choices yet. */
+static void captureBrowseDir(HWND hDlg, int editId, char* propPath)
+{
+    char current[PROP_MAXPATH];
+    char* picked;
+
+    GetDlgItemTextU(hDlg, editId, current, PROP_MAXPATH - 1);
+    current[PROP_MAXPATH - 1] = 0;
+    picked = openDir(hDlg, langPropCaptureSaveDir(), current[0] ? current : propPath);
+    if (picked && picked[0]) {
+        SetDlgItemTextU(hDlg, editId, picked);
+    }
+}
+
+static BOOL_DLG_RET CALLBACK captureDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
+    static Properties* pProperties;
+    static char* videoCodecList[] = { "H.264 (AVC)", "H.265 (HEVC)", NULL };
+
+    switch (iMsg) {
+    case WM_INITDIALOG:
+        if (!centered) {
+            updateDialogPos(GetParent(hDlg), DLG_ID_PROPERTIES, 0, 1);
+            centered = 1;
+        }
+        pProperties = (Properties*)((PROPSHEETPAGE*)lParam)->lParam;
+
+        SetDlgItemTextU(hDlg, IDC_CAPTURE_AUDIO_GB,            langPropCaptureAudioGB());
+        SetDlgItemTextU(hDlg, IDC_CAPTURE_AUDIO_DIR_TEXT,      langPropCaptureSaveDir());
+        SetDlgItemTextU(hDlg, IDC_CAPTURE_AUDIO_AUTO,          langPropCaptureAutoName());
+        SetDlgItemTextU(hDlg, IDC_CAPTURE_AUDIO_PROMPT,        langPropCapturePromptName());
+
+        SetDlgItemTextU(hDlg, IDC_CAPTURE_VIDEO_GB,            langPropCaptureVideoGB());
+        SetDlgItemTextU(hDlg, IDC_CAPTURE_VIDEO_CODEC_TEXT,    langPropCaptureCodec());
+        SetDlgItemTextU(hDlg, IDC_CAPTURE_VIDEO_DIR_TEXT,      langPropCaptureSaveDir());
+        SetDlgItemTextU(hDlg, IDC_CAPTURE_VIDEO_AUTO,          langPropCaptureAutoName());
+        SetDlgItemTextU(hDlg, IDC_CAPTURE_VIDEO_PROMPT,        langPropCapturePromptName());
+
+        SetDlgItemTextU(hDlg, IDC_CAPTURE_SCREENSHOT_GB,           langPropCaptureScreenshotGB());
+        SetDlgItemTextU(hDlg, IDC_CAPTURE_SCREENSHOT_DIR_TEXT,     langPropCaptureSaveDir());
+        SetDlgItemTextU(hDlg, IDC_CAPTURE_SCREENSHOT_AUTO,         langPropCaptureAutoName());
+        SetDlgItemTextU(hDlg, IDC_CAPTURE_SCREENSHOT_PROMPT,       langPropCapturePromptName());
+
+        SetDlgItemTextU(hDlg, IDC_CAPTURE_REPLAY_GB,           langPropCaptureReplayGB());
+        SetDlgItemTextU(hDlg, IDC_CAPTURE_REPLAY_DIR_TEXT,     langPropCaptureSaveDir());
+        SetDlgItemTextU(hDlg, IDC_CAPTURE_REPLAY_AUTO,         langPropCaptureAutoName());
+        SetDlgItemTextU(hDlg, IDC_CAPTURE_REPLAY_PROMPT,       langPropCapturePromptName());
+
+        SetDlgItemTextU(hDlg, IDC_CAPTURE_SHOWTOAST,           langPropCaptureShowToast());
+
+        SetDlgItemTextU(hDlg, IDC_CAPTURE_AUDIO_DIR,           pProperties->capture.audioDir);
+        SetDlgItemTextU(hDlg, IDC_CAPTURE_VIDEO_DIR,           pProperties->capture.videoDir);
+        SetDlgItemTextU(hDlg, IDC_CAPTURE_SCREENSHOT_DIR,      pProperties->capture.screenshotDir);
+        SetDlgItemTextU(hDlg, IDC_CAPTURE_REPLAY_DIR,          pProperties->capture.replayDir);
+
+        setButtonCheck(hDlg, IDC_CAPTURE_AUDIO_AUTO,
+                       !pProperties->capture.audioPromptFilename, 1);
+        setButtonCheck(hDlg, IDC_CAPTURE_AUDIO_PROMPT,
+                       pProperties->capture.audioPromptFilename, 1);
+        setButtonCheck(hDlg, IDC_CAPTURE_VIDEO_AUTO,
+                       !pProperties->capture.videoPromptFilename, 1);
+        setButtonCheck(hDlg, IDC_CAPTURE_VIDEO_PROMPT,
+                       pProperties->capture.videoPromptFilename, 1);
+        setButtonCheck(hDlg, IDC_CAPTURE_SCREENSHOT_AUTO,
+                       !pProperties->capture.screenshotPromptFilename, 1);
+        setButtonCheck(hDlg, IDC_CAPTURE_SCREENSHOT_PROMPT,
+                       pProperties->capture.screenshotPromptFilename, 1);
+        setButtonCheck(hDlg, IDC_CAPTURE_REPLAY_AUTO,
+                       !pProperties->capture.replayPromptFilename, 1);
+        setButtonCheck(hDlg, IDC_CAPTURE_REPLAY_PROMPT,
+                       pProperties->capture.replayPromptFilename, 1);
+
+        setButtonCheck(hDlg, IDC_CAPTURE_SHOWTOAST,
+                       pProperties->capture.showCompletionToast, 1);
+
+        /* Codec dropdown. The dropdown represents the SDR codec choice;
+        ** when HDR is actually configured (recordHdr AND hdrEnable both
+        ** on), the recorder forces HEVC main10 regardless, so we lock and
+        ** grey out the dropdown to make that explicit. recordHdr alone is
+        ** not enough -- without hdrEnable the recorder silently falls back
+        ** to SDR, in which case the codec choice is honoured. */
+        initDropList(hDlg, IDC_CAPTURE_VIDEO_CODEC, videoCodecList,
+                     pProperties->capture.videoCodec);
+        if (pProperties->video.recordHdr && pProperties->video.hdrEnable) {
+            SendDlgItemMessage(hDlg, IDC_CAPTURE_VIDEO_CODEC, CB_SETCURSEL,
+                               CAP_VIDEO_HEVC, 0);
+            EnableWindow(GetDlgItem(hDlg, IDC_CAPTURE_VIDEO_CODEC), FALSE);
+        }
+
+        win32CommonApplyDark(hDlg);
+        return FALSE;
+
+    case WM_COMMAND:
+        switch (LOWORD(wParam)) {
+        case IDC_CAPTURE_AUDIO_BROWSE:
+            captureBrowseDir(hDlg, IDC_CAPTURE_AUDIO_DIR, pProperties->capture.audioDir);
+            return TRUE;
+        case IDC_CAPTURE_VIDEO_BROWSE:
+            captureBrowseDir(hDlg, IDC_CAPTURE_VIDEO_DIR, pProperties->capture.videoDir);
+            return TRUE;
+        case IDC_CAPTURE_SCREENSHOT_BROWSE:
+            captureBrowseDir(hDlg, IDC_CAPTURE_SCREENSHOT_DIR, pProperties->capture.screenshotDir);
+            return TRUE;
+        case IDC_CAPTURE_REPLAY_BROWSE:
+            captureBrowseDir(hDlg, IDC_CAPTURE_REPLAY_DIR, pProperties->capture.replayDir);
+            return TRUE;
+        }
+        break;
+
+    case WM_NOTIFY:
+        if (((NMHDR FAR*)lParam)->code == PSN_APPLY || ((NMHDR FAR*)lParam)->code == PSN_QUERYCANCEL) {
+            saveDialogPos(GetParent(hDlg), DLG_ID_PROPERTIES);
+        }
+        if (((NMHDR FAR*)lParam)->code == PSN_APPLY) {
+            GetDlgItemTextU(hDlg, IDC_CAPTURE_AUDIO_DIR,
+                            pProperties->capture.audioDir, PROP_MAXPATH - 1);
+            GetDlgItemTextU(hDlg, IDC_CAPTURE_VIDEO_DIR,
+                            pProperties->capture.videoDir, PROP_MAXPATH - 1);
+            GetDlgItemTextU(hDlg, IDC_CAPTURE_SCREENSHOT_DIR,
+                            pProperties->capture.screenshotDir, PROP_MAXPATH - 1);
+            GetDlgItemTextU(hDlg, IDC_CAPTURE_REPLAY_DIR,
+                            pProperties->capture.replayDir, PROP_MAXPATH - 1);
+
+            pProperties->capture.audioPromptFilename =
+                getButtonCheck(hDlg, IDC_CAPTURE_AUDIO_PROMPT);
+            pProperties->capture.videoPromptFilename =
+                getButtonCheck(hDlg, IDC_CAPTURE_VIDEO_PROMPT);
+            pProperties->capture.screenshotPromptFilename =
+                getButtonCheck(hDlg, IDC_CAPTURE_SCREENSHOT_PROMPT);
+            pProperties->capture.replayPromptFilename =
+                getButtonCheck(hDlg, IDC_CAPTURE_REPLAY_PROMPT);
+            pProperties->capture.showCompletionToast =
+                getButtonCheck(hDlg, IDC_CAPTURE_SHOWTOAST);
+
+            /* Read codec dropdown. Disabled when recordHdr forces HEVC,
+            ** but the cursel still reflects the HEVC choice so PSN_APPLY
+            ** persists it. Clamp to the supported range defensively. */
+            {
+                int sel = (int)SendDlgItemMessage(hDlg, IDC_CAPTURE_VIDEO_CODEC,
+                                                  CB_GETCURSEL, 0, 0);
+                if (sel < 0) sel = CAP_VIDEO_H264;
+                if (sel > CAP_VIDEO_HEVC) sel = CAP_VIDEO_HEVC;
+                pProperties->capture.videoCodec = sel;
+            }
+
+            /* Push paths back to the runtime statics so already-open
+            ** recording paths reflect the new dir on next start. */
+            actionSetAudioCaptureSetDirectory(pProperties->capture.audioDir, "");
+            actionSetVideoCaptureSetDirectory(pProperties->capture.videoDir, "");
+            screenshotSetDirectory(pProperties->capture.screenshotDir, "");
+
+            propModified = 1;
+            return TRUE;
+        }
+        break;
+    }
+    return FALSE;
+}
+
 static void updateCdromListIoctl(HWND hWnd, Properties* pProperties)
 {
     int index;
@@ -2927,9 +3124,9 @@ static int CALLBACK propSheetInitCallback(HWND hwnd, UINT uMsg, LPARAM lParam)
 
 int showProperties(Properties* pProperties, HWND hwndOwner, PropPage desiredStartPage, Mixer* mixer, Video* video) {
 	HINSTANCE       hInst = (HINSTANCE)GetModuleHandle(NULL);
-    PROPSHEETPAGEW   psp[10];
+    PROPSHEETPAGEW   psp[12];
     PROPSHEETHEADERW psh;
-    wchar_t          wTitle[10][64];
+    wchar_t          wTitle[12][64];
     wchar_t          wCaption[128];
     Properties oldProp = *pProperties;
     UINT startPage = -1;
@@ -3095,6 +3292,23 @@ int showProperties(Properties* pProperties, HWND hwndOwner, PropPage desiredStar
         psp[curPage].lParam = (LPARAM)pProperties;
         psp[curPage].pfnCallback = NULL;
         if (desiredStartPage == PROP_SETTINGS || startPage == -1) {
+            startPage = curPage;
+        }
+        curPage++;
+    }
+
+    if (appConfigGetInt("properties.capture", 1) != 0) {
+        psp[curPage].dwSize = sizeof(PROPSHEETPAGEW);
+        psp[curPage].dwFlags = PSP_USEICONID | PSP_USETITLE;
+        psp[curPage].hInstance = hInst;
+        psp[curPage].pszTemplate = MAKEINTRESOURCEW(IDD_CAPTURE);
+        psp[curPage].pszIcon = NULL;
+        psp[curPage].pfnDlgProc = captureDlgProc;
+        Utf8ToWide(langPropCapture(), wTitle[curPage], _countof(wTitle[curPage]));
+        psp[curPage].pszTitle = wTitle[curPage];
+        psp[curPage].lParam = (LPARAM)pProperties;
+        psp[curPage].pfnCallback = NULL;
+        if (desiredStartPage == PROP_CAPTURE || startPage == -1) {
             startPage = curPage;
         }
         curPage++;

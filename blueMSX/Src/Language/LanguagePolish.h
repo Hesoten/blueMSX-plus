@@ -95,6 +95,27 @@ void langInitPolish(LanguageStrings* ls)
     ls->dlgRecorderPickTitle        = "blueMSX - Renderuj powtórkę do wideo";
     ls->dlgRecorderPickSourceCap    = "Plik powtórki do renderowania (.cap):";
     ls->dlgRecorderPickOutputMp4    = "Wyjściowy plik wideo (.mp4):";
+    ls->menuFileRecordVideo         = "Nagraj wideo";
+    ls->menuFileStopRecordVideo     = "Zatrzymaj nagrywanie wideo";
+    ls->shortcutRecordVideoStart    = "Nagrywanie wideo: Start";
+    ls->shortcutRecordVideoStartAs  = "Nagrywanie wideo: Rozpocznij jako";
+    ls->shortcutRecordVideoStop     = "Nagrywanie wideo: Stop";
+    ls->shortcutRecordVideoToggle   = "Nagrywanie wideo: Przełącz";
+    ls->shortcutAudioCaptureAs      = "Nagrywanie audio: Rozpocznij jako";
+    ls->shortcutVideoRecordAs       = "Powtórka: Nagraj jako";
+    ls->shortcutScreenshotAs        = "Zrzut ekranu: Zapisz jako";
+
+    ls->propCapture                 = "Przechwytywanie";
+    ls->propCaptureAudioGB          = " Nagrywanie audio ";
+    ls->propCaptureVideoGB          = " Nagrywanie wideo ";
+    ls->propCaptureScreenshotGB     = " Zrzut ekranu ";
+    ls->propCaptureReplayGB         = " Nagrywanie powtórki ";
+    ls->propCaptureSaveDir          = "Folder:";
+    ls->propCaptureFormat           = "Format:";
+    ls->propCaptureCodec            = "Kodek:";
+    ls->propCaptureAutoName         = "Automatyczna nazwa pliku";
+    ls->propCapturePromptName       = "Pytaj o nazwę pliku";
+    ls->propCaptureShowToast        = "Pokaż powiadomienie po zakończeniu";
 
 
     //----------------------
@@ -183,6 +204,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->menuPropsDisk           = "Disks";               // New in 2.7
     ls->menuPropsLanguage       = "Jêzyk";
     ls->menuPropsPorts          = "Porty";
+    ls->menuPropsCapture        = "Przechwytywanie";
     
     ls->menuVideoSource         = "Źródło wyjścia 'Video Out'";
     ls->menuVideoSourceDefault  = "Brak źródła dla 'Video Out'";
@@ -204,6 +226,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->menuFileQLoadState      = "Szybki odczyt stanu";
     ls->menuFileQSaveState      = "Szybki zapis stanu";
     ls->menuFileCaptureAudio    = "Przechwyæ dŸwiêk";
+    ls->menuFileStopAudio       = "Zatrzymaj audio";
     ls->menuFileCaptureVideo    = "Video Capture"; // New in 2.6
     ls->menuFileScreenShot      = "Zapisz ekran";
     ls->menuFileExit            = "Wyjœcie";
@@ -263,6 +286,10 @@ void langInitPolish(LanguageStrings* ls)
     ls->dlgSaveState            = "Zapisz stan CPU";
     ls->dlgSaveCassette          = "blueMSX - Zapisz obraz kasety";
     ls->dlgSaveVideoClipAs      = "Save video clip as...";      // New in 2.6
+    ls->dlgSaveCaptureAudio     = "Zapisz nagranie audio jako";
+    ls->dlgSaveCaptureVideo     = "Zapisz nagranie wideo jako";
+    ls->dlgSaveCaptureReplay    = "Zapisz powtórkę jako";
+    ls->dlgSaveCaptureScreenshot = "Zapisz zrzut ekranu jako";
     ls->dlgAmountCompleted      = "Amount completed:";          // New in 2.6
     ls->dlgInsertRom1           = "Wybierz kartrid¿ ROM dla slotu 1";
     ls->dlgInsertRom2           = "Wybierz kartrid¿ ROM dla slotu 2";
@@ -378,6 +405,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->propMonHdrPaperWhite    = "Jasność bieli:";
     ls->propMonHdrSystemMode    = "Tryb HDR systemu:";
     ls->propMonHdrRestartHint   = "Uruchom ponownie blueMSX, aby zastosować zmianę trybu HDR.";
+    ls->propMonHdrRecord        = " Nagrywaj w HDR";
     ls->propMonEffectsGB        = "Efekty ";
 
     ls->propPerfVideoDrvGB      = "Ustawienia Video ";
@@ -713,11 +741,11 @@ void langInitPolish(LanguageStrings* ls)
     ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
     ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
     ls->shortcutToggleCpuTrace  = "W³./wy³. œledzenie CPU";
-    ls->shortcutVideoLoad       = "Load...";             // New in 2.6
-    ls->shortcutVideoPlay       = "Play Last Capture";   // New in 2.6
-    ls->shortcutVideoRecord     = "Record";              // New in 2.6
-    ls->shortcutVideoStop       = "Stop";                // New in 2.6
-    ls->shortcutVideoRender     = "Render Video File";   // New in 2.6
+    ls->shortcutVideoLoad       = "Powtórka: Wczytaj z pliku";             // New in 2.6
+    ls->shortcutVideoPlay       = "Powtórka: Odtwórz ostatnią";   // New in 2.6
+    ls->shortcutVideoRecord     = "Powtórka: Nagraj";              // New in 2.6
+    ls->shortcutVideoStop       = "Powtórka: Zatrzymaj";                // New in 2.6
+    ls->shortcutVideoRender     = "Powtórka: Eksportuj do wideo";   // New in 2.6
 
 
     //----------------------

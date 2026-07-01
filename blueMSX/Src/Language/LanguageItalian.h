@@ -96,6 +96,27 @@ void langInitItalian(LanguageStrings* ls)
     ls->dlgRecorderPickTitle        = "blueMSX - Converti replay in video";
     ls->dlgRecorderPickSourceCap    = "File replay da convertire (.cap):";
     ls->dlgRecorderPickOutputMp4    = "File video di uscita (.mp4):";
+    ls->menuFileRecordVideo         = "Registra video";
+    ls->menuFileStopRecordVideo     = "Ferma registrazione video";
+    ls->shortcutRecordVideoStart    = "Registrazione video: Avvia";
+    ls->shortcutRecordVideoStartAs  = "Registrazione video: Avvia come";
+    ls->shortcutRecordVideoStop     = "Registrazione video: Ferma";
+    ls->shortcutRecordVideoToggle   = "Registrazione video: Commuta";
+    ls->shortcutAudioCaptureAs      = "Registrazione audio: Avvia come";
+    ls->shortcutVideoRecordAs       = "Replay: Registra come";
+    ls->shortcutScreenshotAs        = "Schermata: Salva con nome";
+
+    ls->propCapture                 = "Cattura";
+    ls->propCaptureAudioGB          = " Registrazione audio ";
+    ls->propCaptureVideoGB          = " Registrazione video ";
+    ls->propCaptureScreenshotGB     = " Schermata ";
+    ls->propCaptureReplayGB         = " Registrazione replay ";
+    ls->propCaptureSaveDir          = "Cartella:";
+    ls->propCaptureFormat           = "Formato:";
+    ls->propCaptureCodec            = "Codec:";
+    ls->propCaptureAutoName         = "Nome file automatico";
+    ls->propCapturePromptName       = "Chiedi nome file";
+    ls->propCaptureShowToast        = "Mostra avviso al termine";
 
 
     //--------------------
@@ -184,6 +205,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->menuPropsDisk                   = "Dischi...";               // New in 2.7
     ls->menuPropsLanguage               = "Lingua...";
     ls->menuPropsPorts                  = "Porte...";
+    ls->menuPropsCapture                = "Cattura";
 
     ls->menuVideoSource                 = "Origine uscita video";
     ls->menuVideoSourceDefault          = "Chip video non rilevato";
@@ -205,6 +227,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->menuFileQLoadState              = "Carica rapidamente lo stato";
     ls->menuFileQSaveState              = "Salva rapidamente lo stato";
     ls->menuFileCaptureAudio            = "Acquisisci il flusso audio";
+    ls->menuFileStopAudio               = "Ferma audio";
     ls->menuFileCaptureVideo            = "Flusso video";                                           
     ls->menuFileScreenShot              = "Salva una schermata";
     ls->menuFileExit                    = "Esci";
@@ -264,6 +287,10 @@ void langInitItalian(LanguageStrings* ls)
     ls->dlgSaveState                    = "Salva lo stato della CPU";
     ls->dlgSaveCassette                 = "blueMSX - Salva la cassetta come file immagine";
     ls->dlgSaveVideoClipAs              = "Salva il filmato con nome";                              
+    ls->dlgSaveCaptureAudio             = "Salva registrazione audio come";
+    ls->dlgSaveCaptureVideo             = "Salva registrazione video come";
+    ls->dlgSaveCaptureReplay            = "Salva replay come";
+    ls->dlgSaveCaptureScreenshot        = "Salva schermata come";
     ls->dlgAmountCompleted              = "Salvataggio in corso:";                                  
     ls->dlgInsertRom1                   = "Inserisci una cartuccia nello slot 1";
     ls->dlgInsertRom2                   = "Inserisci una cartuccia nello slot 2";
@@ -378,6 +405,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->propMonHdrPaperWhite            = "Luminosità bianco:";
     ls->propMonHdrSystemMode            = "Modalità HDR sistema:";
     ls->propMonHdrRestartHint           = "Riavvia blueMSX per applicare il cambio di modalità HDR.";
+    ls->propMonHdrRecord                = " Registra in HDR";
     ls->propMonColorGhosting            = " Modulatore-RF:";
     ls->propMonEffectsGB                = "Effetti ";
 
@@ -714,11 +742,11 @@ void langInitItalian(LanguageStrings* ls)
     ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
     ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
     ls->shortcutToggleCpuTrace          = "Avvia/Interrompi l'azione del trace logger";
-    ls->shortcutVideoLoad               = "Carica un video acquisito";                              
-    ls->shortcutVideoPlay               = "Riproduci l'ultimo video acquisito";                     
-    ls->shortcutVideoRecord             = "Acquisisci il flusso video";                             
-    ls->shortcutVideoStop               = "Interrompi l'acquisizione del flusso video";                  
-    ls->shortcutVideoRender             = "Crea un filmato";                                        
+    ls->shortcutVideoLoad               = "Replay: Carica da file";                              
+    ls->shortcutVideoPlay               = "Replay: Riproduci l'ultimo";                     
+    ls->shortcutVideoRecord             = "Replay: Registra";                             
+    ls->shortcutVideoStop               = "Replay: Interrompi";                  
+    ls->shortcutVideoRender             = "Replay: Esporta in video";                                        
 
 
     //-----------------------
