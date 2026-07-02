@@ -37,6 +37,7 @@ extern "C" {
 #include "ArchGlob.h"
 #include "Board.h"
 #include "Language.h"
+#include "ziphelper.h"
 }
 
 #include "tinyxml.h"
@@ -469,26 +470,77 @@ static void mediaDbAddDump(TiXmlElement* dmp,
     }
 }
 
-static void mediaDbAddFromXmlFile(const char* fileName) 
+/* romdb.vampier.net schema (softwaredb1.dtd, also consumed by openMSX):
+** per-record data lives on <software> attributes, and roms are self-closing
+** children of the form <rom sha1="X" type="Y" [status="..." remark="..."] />. */
+static void mediaDbAddVampierSoftware(TiXmlElement* sw)
+{
+    const char* a_title   = sw->Attribute("title");
+    const char* a_system  = sw->Attribute("system");
+    const char* a_company = sw->Attribute("company");
+    const char* a_year    = sw->Attribute("year");
+    const char* a_country = sw->Attribute("country");
+
+    string title   = a_title   ? a_title   : "";
+    string company = a_company ? a_company : "";
+    string year    = a_year    ? a_year    : "";
+    string system  = a_system  ? a_system  : "";
+    string country = a_country ? parseCountryCode(a_country) : "";
+
+    for (TiXmlElement* rom = sw->FirstChildElement(); rom != NULL; rom = rom->NextSiblingElement()) {
+        if (strcmp(rom->Value(), "rom") != 0) continue;
+
+        const char* a_sha1   = rom->Attribute("sha1");
+        const char* a_type   = rom->Attribute("type");
+        const char* a_remark = rom->Attribute("remark");
+        if (a_sha1 == NULL) continue;
+
+        RomType romType = (a_type != NULL) ? mediaDbStringToType(a_type) : ROM_PLAIN;
+
+        /* System-based overrides — mirror the policy from mediaDbAddDump. */
+        if (romType != ROM_CVMEGACART &&
+            romType != ROM_ACTIVISIONPCB && romType != ROM_ACTIVISIONPCB_2K &&
+            romType != ROM_ACTIVISIONPCB_16K && romType != ROM_ACTIVISIONPCB_256K) {
+            if (strcmpnocase(system.c_str(), "coleco") == 0) romType = ROM_COLECO;
+        }
+        if (strcmpnocase(system.c_str(), "svi") == 0) {
+            if (romType != ROM_SVI328COL80) romType = ROM_SVI328CART;
+        }
+        if (romType != ROM_SG1000CASTLE && romType != ROM_SEGABASIC &&
+            romType != ROM_SG1000_RAMEXPANDER_A && romType != ROM_SG1000_RAMEXPANDER_B) {
+            if (strcmpnocase(system.c_str(), "sg1000") == 0) romType = ROM_SG1000;
+            if (strcmpnocase(system.c_str(), "sc3000") == 0 ||
+                strcmpnocase(system.c_str(), "sf7000") == 0) romType = ROM_SC3000;
+        }
+
+        string remark = a_remark ? a_remark : "";
+        romdb->sha1Map[string(a_sha1)] =
+            new MediaType(romType, title, company, year, country, remark);
+    }
+}
+
+/* Consume a parsed <softwaredb> document. Split out from mediaDbAddFromXmlFile
+** so the zip loader (mediaDbAddFromZipFile) can share the walking logic. */
+static void mediaDbAddFromParsedDoc(TiXmlDocument& doc)
 {
     static const char* rootTag = "softwaredb";
 
-    if (fileName == NULL) {
-        return;
-    }
-
-    TiXmlDocument doc(fileName);
-
-    doc.LoadFile();
-    if (doc.Error()) {
-        return;
-    }
-    
     TiXmlElement* root = doc.RootElement();
     if (root == NULL || strcmp(root->Value(), rootTag) != 0) {
         return;
     }
     
+    /* Dispatch on schema shape: legacy blueMSX puts per-record data in child
+    ** elements of <software>; romdb.vampier.net (softwaredb1.dtd) puts them
+    ** on attributes. Peek the first <software> to decide. */
+    TiXmlElement* firstSw = root->FirstChildElement("software");
+    if (firstSw != NULL && firstSw->Attribute("title") != NULL) {
+        for (TiXmlElement* sw = firstSw; sw != NULL; sw = sw->NextSiblingElement("software")) {
+            mediaDbAddVampierSoftware(sw);
+        }
+        return;
+    }
+
     for (TiXmlElement* sw = root->FirstChildElement(); sw != NULL; sw = sw->NextSiblingElement()) {
         if (strcmp(sw->Value(), "software") != 0) {
             continue;
@@ -553,6 +605,49 @@ static void mediaDbAddFromXmlFile(const char* fileName)
             }
         }
     }
+}
+
+static void mediaDbAddFromXmlFile(const char* fileName)
+{
+    if (fileName == NULL) {
+        return;
+    }
+    TiXmlDocument doc(fileName);
+    doc.LoadFile();
+    if (doc.Error()) {
+        return;
+    }
+    mediaDbAddFromParsedDoc(doc);
+}
+
+/* Consume every .xml entry inside a zip archive as if each were an independent
+** softwaredb file — lets ReleaseFiles/Databases/ carry the vampier download as
+** the shipped zip (xml-msxromsdb.zip) without a manual extract step. */
+static void mediaDbAddFromZipFile(const char* zipName)
+{
+    if (zipName == NULL) {
+        return;
+    }
+    int count = 0;
+    char* list = zipGetFileList(zipName, ".xml", &count);
+    if (list == NULL) {
+        return;
+    }
+    char* p = list;
+    for (int i = 0; i < count; i++) {
+        int size = 0;
+        void* buf = zipLoadFile(zipName, p, &size);
+        if (buf != NULL && size > 0) {
+            TiXmlDocument doc;
+            doc.Parse((const char*)buf);
+            if (!doc.Error()) {
+                mediaDbAddFromParsedDoc(doc);
+            }
+            free(buf);
+        }
+        p += strlen(p) + 1;
+    }
+    free(list);
 }
 
 extern MediaType* mediaDbLookup(MediaDb* mediaDb, const void *buffer, int size)
@@ -1089,15 +1184,22 @@ extern "C" void mediaDbLoad(const char* directory)
     string path = directory;
     path += "/";
 
-    string searchPath = path + "*.xml";
-
-    ArchGlob* glob = archGlob(searchPath.c_str(), ARCH_GLOB_FILES);
-
-    if (glob != NULL) {
-        for (int i = 0; i < glob->count; i++) {
-            mediaDbAddFromXmlFile(glob->pathVector[i]);
+    ArchGlob* xmlGlob = archGlob((path + "*.xml").c_str(), ARCH_GLOB_FILES);
+    if (xmlGlob != NULL) {
+        for (int i = 0; i < xmlGlob->count; i++) {
+            mediaDbAddFromXmlFile(xmlGlob->pathVector[i]);
         }
-        archGlobFree(glob);
+        archGlobFree(xmlGlob);
+    }
+
+    /* Zip archives get expanded in-memory (see mediaDbAddFromZipFile) so
+    ** users can drop the vampier download unmodified into Databases/. */
+    ArchGlob* zipGlob = archGlob((path + "*.zip").c_str(), ARCH_GLOB_FILES);
+    if (zipGlob != NULL) {
+        for (int i = 0; i < zipGlob->count; i++) {
+            mediaDbAddFromZipFile(zipGlob->pathVector[i]);
+        }
+        archGlobFree(zipGlob);
     }
 }
 
