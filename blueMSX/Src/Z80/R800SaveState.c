@@ -13,6 +13,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -89,8 +92,8 @@ void r800LoadState(R800* r800)
     int i;
     
     r800->systemTime =         saveStateGet(state, "systemTime", 0);
-    r800->systemTime =         saveStateGet(state, "systemTime", 0);
     r800->vdpTime    =         saveStateGet(state, "vdpTime",    0);
+    r800->lastRefreshTime =    saveStateGet(state, "lastRefreshTime", 0);
     r800->cachePage  = (UInt16)saveStateGet(state, "cachePage",  0);
     r800->dataBus    = (UInt8) saveStateGet(state, "dataBus",    0);
     r800->intState   =         saveStateGet(state, "intState",   0);
@@ -125,6 +128,7 @@ void r800SaveState(R800* r800)
     
     saveStateSet(state, "systemTime", r800->systemTime);
     saveStateSet(state, "vdpTime",    r800->vdpTime);
+    saveStateSet(state, "lastRefreshTime", r800->lastRefreshTime);
     saveStateSet(state, "cachePage",  r800->cachePage);
     saveStateSet(state, "dataBus",    r800->dataBus);
     saveStateSet(state, "intState",   r800->intState);

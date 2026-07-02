@@ -5877,6 +5877,7 @@ R800* r800Create(UInt32 cpuFlags,
     r800->breakpointCount = 0;
 #endif
     r800->systemTime      = 0;
+    r800->lastRefreshTime = 0;
     r800->cpuMode         = CPU_UNKNOWN;
     r800->oldCpuMode      = CPU_UNKNOWN;
 
@@ -6053,7 +6054,6 @@ SystemTime r800GetTimeTrace(R800* r800, int offset) {
 }
 
 void r800Execute(R800* r800) {
-    static SystemTime lastRefreshTime = 0;
     while (!r800->terminate) {
         UInt16 address;
         int iff1 = 0;
@@ -6075,8 +6075,8 @@ void r800Execute(R800* r800) {
         }
 
         if (r800->cpuMode == CPU_R800) {
-            if (r800->systemTime - lastRefreshTime > 222 * 3) {
-                lastRefreshTime = r800->systemTime;
+            if (r800->systemTime - r800->lastRefreshTime > 222 * 3) {
+                r800->lastRefreshTime = r800->systemTime;
                 r800->systemTime += 20 * 3;
             }
         }
@@ -6161,8 +6161,6 @@ void r800Execute(R800* r800) {
 }
 
 void r800ExecuteUntil(R800* r800, UInt32 endTime) {
-    static SystemTime lastRefreshTime = 0;
-
     while ((Int32)(endTime - r800->systemTime) > 0) {
         UInt16 address;
         int iff1 = 0;
@@ -6172,8 +6170,8 @@ void r800ExecuteUntil(R800* r800, UInt32 endTime) {
         }
 
         if (r800->cpuMode == CPU_R800) {
-            if (r800->systemTime - lastRefreshTime > 222 * 3) {
-                lastRefreshTime = r800->systemTime;
+            if (r800->systemTime - r800->lastRefreshTime > 222 * 3) {
+                r800->lastRefreshTime = r800->systemTime;
                 r800->systemTime += 12 * 3;
             }
         }
@@ -6255,13 +6253,12 @@ void r800ExecuteUntil(R800* r800, UInt32 endTime) {
 }
 
 void r800ExecuteInstruction(R800* r800) {
-    static SystemTime lastRefreshTime = 0;
     UInt16 address;
     int iff1 = 0;
 
     if (r800->cpuMode == CPU_R800) {
-        if (r800->systemTime - lastRefreshTime > 222 * 3) {
-            lastRefreshTime = r800->systemTime;
+        if (r800->systemTime - r800->lastRefreshTime > 222 * 3) {
+            r800->lastRefreshTime = r800->systemTime;
             r800->systemTime += 12 * 3;
         }
     }
