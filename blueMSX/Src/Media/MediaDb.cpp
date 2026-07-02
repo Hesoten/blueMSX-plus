@@ -1313,7 +1313,11 @@ extern "C" MediaType* mediaDbGuessRom(const void *buffer, int size)
         }
     }
 
-    /* Count occurences of characteristic addresses */
+    /* Count occurences of characteristic addresses. Track hits to
+    ** ASCII-8-only (0x6800/0x7800) and ASCII-16-only (0x77FF) addresses
+    ** separately for the unique-signal pre-decision below. */
+    UInt32 ascii8Unique = 0;
+    UInt32 ascii16Unique = 0;
     for (i = 0; i < size - 3; i++) {
         if (romData[i] == 0x32) {
             UInt32 value = romData[i + 1] + ((UInt32)romData[i + 2] << 8);
@@ -1340,6 +1344,7 @@ extern "C" MediaType* mediaDbGuessRom(const void *buffer, int size)
             case 0x6800: 
             case 0x7800: 
                 counters[4]++;
+                ascii8Unique++;
                 break;
 
             case 0x7000: 
@@ -1350,9 +1355,22 @@ extern "C" MediaType* mediaDbGuessRom(const void *buffer, int size)
 
             case 0x77ff: 
                 counters[5]++;
+                ascii16Unique++;
                 break;
             }
         }
+    }
+
+    /* 0x6800/0x7800 are ASCII-8-only writes, 0x77FF is ASCII-16-only.
+    ** When one side has hits and the other doesn't, decide outright; the
+    ** legacy tally below can drop a lone ASCII-8 hit to the -1 bias. */
+    if (ascii8Unique > 0 && ascii16Unique == 0) {
+        mediaType->romType = ROM_ASCII8;
+        return mediaType;
+    }
+    if (ascii16Unique > 0 && ascii8Unique == 0) {
+        mediaType->romType = ROM_ASCII16;
+        return mediaType;
     }
 
     /* Find which mapper type got more hits */
