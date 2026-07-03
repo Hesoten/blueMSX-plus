@@ -570,6 +570,8 @@ void langInitRussian(LanguageStrings* ls)
     ls->enumDiskSvi525Sgl        = "SVI-328 5.25\" односторонний"; 
     ls->enumDiskSf3Sgl           = "Sega SF-7000 3\" односторонний";            
     ls->enumDiskSize             = "Размер диска";
+    ls->enumDiskFormat           = "Формат:";
+    ls->enumDiskFormatUnformatted= "Не отформатирован";
 
 
     //----------------------

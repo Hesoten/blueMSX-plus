@@ -571,6 +571,8 @@ void langInitCatalan(LanguageStrings* ls)
     ls->enumDiskSvi525Sgl        = "SVI-328 5.25\" Una cara"; 
     ls->enumDiskSf3Sgl           = "Sega SF-7000 3\" Una cara";            
     ls->enumDiskSize             = "Mida del disc";
+    ls->enumDiskFormat           = "Format:";
+    ls->enumDiskFormatUnformatted= "Sense format";
 
 
     //----------------------

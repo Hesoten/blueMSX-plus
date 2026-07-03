@@ -571,6 +571,8 @@ void langInitGerman(LanguageStrings* ls)
     ls->enumDiskSvi525Sgl        = "SVI-328 5.25\" Single Sided";           
     ls->enumDiskSf3Sgl           = "Sega SF-7000 3\" Single Sided";  // New in 2.6
     ls->enumDiskSize             = "Datenträgergröße";
+    ls->enumDiskFormat           = "Format:";
+    ls->enumDiskFormatUnformatted= "Nicht formatiert";
 
 
     //----------------------

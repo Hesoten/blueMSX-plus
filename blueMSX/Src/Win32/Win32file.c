@@ -42,6 +42,7 @@
 #include "Win32TextUtf8.h"
 #include "Win32FileDialog.h"
 #include "Language.h"
+#include "DiskFormat.h"
 
 /* After stdio.h: pkg_fopen overrides fopen for UTF-8 paths. */
 #include "PacketFileSystem.h"
@@ -366,21 +367,42 @@ static const struct {
     { 0, NULL }
 };
 
+/* Order matches DiskFormatType enum values so combobox index == enum value.
+** label is a getter so translations resolve at open time (not module init). */
+static const struct {
+    DiskFormatType fmt;
+    char*        (*label)(void);
+} dskFormatChoices[] = {
+    { DiskFormatUnformatted, langEnumDiskFormatUnformatted },
+    { DiskFormatMsxDos1,     NULL },
+    { DiskFormatMsxDos2,     NULL },
+    { DiskFormatNextor,      NULL }
+};
+
+/* Proper-noun labels needing no translation. */
+static const char* const dskFormatFixedLabels[] = {
+    NULL,          /* Unformatted -> use getter */
+    "MSX-DOS 1",
+    "MSX-DOS 2",
+    "Nextor"
+};
+
 char* openNewDskFile(HWND hwndOwner, char* pTitle, char* pFilter, char* pDir, 
                     char* defExt, int* filterIndex)
 {
     static char pFileName[MAX_PATH * 4];
     static int  selectedSizeIdx = 0;  /* persists across opens */
+    static int  selectedFmtIdx  = 0;
     int dskItemCount;
     ShellComboItem dskItems[16];
+    ShellComboItem fmtItems[8];
     char labelBufs[16][64];
     int i;
-    FILE* file;
     int writeBytes;
+    DiskFormatType fmt;
 
     (void)filterIndex;
 
-    /* Build the size combobox items from the existing dskFileSizes table. */
     for (dskItemCount = 0;
          dskFileSizes[dskItemCount].size && dskItemCount < (int)(sizeof(dskItems)/sizeof(dskItems[0]));
          dskItemCount++) {
@@ -390,22 +412,30 @@ char* openNewDskFile(HWND hwndOwner, char* pTitle, char* pFilter, char* pDir,
         dskItems[dskItemCount].label = labelBufs[dskItemCount];
         dskItems[dskItemCount].bytes = dskFileSizes[dskItemCount].size;
     }
+    for (i = 0; i < (int)(sizeof(dskFormatChoices)/sizeof(dskFormatChoices[0])); i++) {
+        fmtItems[i].label = dskFormatChoices[i].label ? dskFormatChoices[i].label()
+                                                     : dskFormatFixedLabels[i];
+        fmtItems[i].bytes = (int)dskFormatChoices[i].fmt;
+    }
 
     pFileName[0] = 0;
     if (!ShellNewDskFileDialog(hwndOwner, pTitle, pFilter, pDir, defExt,
                                dskItems, dskItemCount, &selectedSizeIdx,
+                               fmtItems, (int)(sizeof(dskFormatChoices)/sizeof(dskFormatChoices[0])),
+                               &selectedFmtIdx,
                                pFileName, sizeof(pFileName))) {
         return NULL; 
     }
     writeBytes = (selectedSizeIdx >= 0 && selectedSizeIdx < dskItemCount)
                  ? dskItems[selectedSizeIdx].bytes
                  : 720 * ONEKB;
+    fmt = (selectedFmtIdx >= 0 &&
+           selectedFmtIdx < (int)(sizeof(dskFormatChoices)/sizeof(dskFormatChoices[0])))
+          ? dskFormatChoices[selectedFmtIdx].fmt
+          : DiskFormatUnformatted;
 
     if (pDir != NULL) GetCurrentDirectoryU(MAX_PATH - 1, pDir);
 
-    /* IFileSaveDialog raises FOS_OVERWRITEPROMPT for existing files, so
-    ** an extra MessageBox confirmation isn't wired here. */
-            
     if (defExt) {
         size_t fnLen = strlen(pFileName);
         size_t exLen = strlen(defExt);
@@ -425,17 +455,8 @@ char* openNewDskFile(HWND hwndOwner, char* pTitle, char* pFilter, char* pDir,
             strcat(pFileName, defExt);
         }
     }
-    file = fopen(pFileName, "w+");
-    if (file != NULL) {
-        char* data = calloc(1, ONEKB);
-        if (writeBytes == 338 * ONEKB || writeBytes == 168 * ONEKB) {
-            memset(data, 0xe5, ONEKB);
-        }
-        for (i = 0; i < writeBytes; i += ONEKB) {
-            fwrite(data, 1, ONEKB, file);
-        }
-        free(data);
-        fclose(file);
+    if (!diskImageCreate(pFileName, writeBytes, fmt)) {
+        return NULL;
     }
     return pFileName; 
 } 

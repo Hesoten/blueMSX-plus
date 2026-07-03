@@ -591,6 +591,8 @@ char* langEnumDiskSvi525Dbl();
 char* langEnumDiskSvi525Sgl();
 char* langEnumDiskSf3Sgl();
 char* langEnumDiskSize();
+char* langEnumDiskFormat();
+char* langEnumDiskFormatUnformatted();
 
 //----------------------
 // Configuration related lines

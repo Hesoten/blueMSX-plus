@@ -572,6 +572,8 @@ void langInitSwedish(LanguageStrings* ls)
     ls->enumDiskSvi525Sgl        = "SVI-328\" 5.25 Enkelsidig";   
     ls->enumDiskSf3Sgl           = "Sega SF-7000 3\" Enkelsidig";  
     ls->enumDiskSize             = "Diskstorlek";
+    ls->enumDiskFormat           = "Format:";
+    ls->enumDiskFormatUnformatted= "Oformaterad";
 
 
     //----------------------

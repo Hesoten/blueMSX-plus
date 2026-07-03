@@ -571,6 +571,8 @@ void langInitSpanish(LanguageStrings* ls)
     ls->enumDiskSvi525Sgl        = "SVI-328 5.25\" simple cara";  
     ls->enumDiskSf3Sgl           = "Sega SF-7000 3\" simple cara";           
     ls->enumDiskSize             = "Tamaño del disco";
+    ls->enumDiskFormat           = "Formato:";
+    ls->enumDiskFormatUnformatted= "Sin formato";
 
 
     //----------------------

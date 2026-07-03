@@ -618,7 +618,10 @@ extern "C" BOOL ShellOpenRomFileDialog(HWND owner,
 /* HD new file dialog: customised with a disk-size combobox.                 */
 /* ------------------------------------------------------------------------- */
 
-static const DWORD kHdSizeComboId = 1101;
+static const DWORD kHdSizeComboId    = 1101;
+static const DWORD kHdSizeGroupId    = 1106;
+static const DWORD kHdFormatComboId  = 1107;
+static const DWORD kHdFormatGroupId  = 1108;
 
 extern "C" BOOL ShellNewHdFileDialog(HWND owner,
                                      const char* title,
@@ -642,17 +645,28 @@ extern "C" BOOL ShellNewHdFileDialog(HWND owner,
     std::vector<COMDLG_FILTERSPEC> specs;
     applyCommonOptions(fd, title, filter, initialDir, defExt, 0, filterHolder, specs);
 
-    std::wstring wSizeLabel = utf8ToWide(langEnumDiskSize());
+    std::wstring wSizeLabel   = utf8ToWide(langEnumDiskSize());
+    std::wstring wFmtLabel    = utf8ToWide(langEnumDiskFormat());
+    std::wstring wFmtUnfmt    = utf8ToWide(langEnumDiskFormatUnformatted());
 
     IFileDialogCustomize* fdc = NULL;
     if (SUCCEEDED(fd->QueryInterface(IID_PPV_ARGS(&fdc)))) {
-        fdc->StartVisualGroup(0, wSizeLabel.c_str());
+        /* Structure mirrors the FD dialog so both new-image dialogs align. */
+        fdc->StartVisualGroup(kHdSizeGroupId, wSizeLabel.c_str());
         fdc->AddComboBox(kHdSizeComboId);
         for (size_t i = 0; i < kHdSizesCount; i++) {
             fdc->AddControlItem(kHdSizeComboId, (DWORD)i, kHdSizes[i].label);
         }
         fdc->SetSelectedControlItem(kHdSizeComboId, 0);
         fdc->EndVisualGroup();
+
+        /* HDD/SD formatting not implemented; Unformatted-only placeholder. */
+        fdc->StartVisualGroup(kHdFormatGroupId, wFmtLabel.c_str());
+        fdc->AddComboBox(kHdFormatComboId);
+        fdc->AddControlItem(kHdFormatComboId, 0, wFmtUnfmt.c_str());
+        fdc->SetSelectedControlItem(kHdFormatComboId, 0);
+        fdc->EndVisualGroup();
+
         fdc->Release();
     }
 
@@ -729,15 +743,38 @@ extern "C" BOOL ShellPickFolderDialog(HWND owner,
 /* by the caller (Win32file.c owns the size table + label translation).     */
 /* ------------------------------------------------------------------------- */
 
-static const DWORD kDskSizeComboId = 1102;
+static const DWORD kDskSizeComboId    = 1102;
+static const DWORD kDskSizeGroupId    = 1103;
+static const DWORD kDskFormatComboId  = 1104;
+static const DWORD kDskFormatGroupId  = 1105;
+
+static void addDskCombo(IFileDialogCustomize* fdc,
+                        DWORD groupId, DWORD comboId,
+                        const wchar_t* groupLabel,
+                        const ShellComboItem* items, int itemCount,
+                        int selected,
+                        std::vector<std::wstring>& labelHolder)
+{
+    fdc->StartVisualGroup(groupId, groupLabel);
+    fdc->AddComboBox(comboId);
+    for (int i = 0; i < itemCount; i++) {
+        labelHolder.push_back(utf8ToWide(items[i].label ? items[i].label : ""));
+        fdc->AddControlItem(comboId, (DWORD)i, labelHolder.back().c_str());
+    }
+    DWORD initial = (selected >= 0 && selected < itemCount) ? (DWORD)selected : 0;
+    fdc->SetSelectedControlItem(comboId, initial);
+    fdc->EndVisualGroup();
+}
 
 extern "C" BOOL ShellNewDskFileDialog(HWND owner,
                                       const char* title,
                                       shell_filter_t filter,
                                       const char* initialDir,
                                       const char* defExt,
-                                      const ShellComboItem* items, int itemCount,
-                                      int* selectedIndex,
+                                      const ShellComboItem* sizeItems, int sizeItemCount,
+                                      int* sizeSelectedIndex,
+                                      const ShellComboItem* fmtItems, int fmtItemCount,
+                                      int* fmtSelectedIndex,
                                       char* outPath, int outPathCap)
 {
     if (outPath && outPathCap > 0) outPath[0] = 0;
@@ -754,26 +791,28 @@ extern "C" BOOL ShellNewDskFileDialog(HWND owner,
     applyCommonOptions(fd, title, filter, initialDir, defExt, 0, filterHolder, specs);
 
     std::wstring wSizeLabel = utf8ToWide(langEnumDiskSize());
+    std::wstring wFmtLabel  = utf8ToWide(langEnumDiskFormat());
 
-    /* Wide labels need to outlive AddControlItem; matches the HD case style. */
+    /* Wide labels need to outlive AddControlItem. */
     std::vector<std::wstring> labelHolder;
-    labelHolder.reserve(itemCount);
+    labelHolder.reserve((size_t)sizeItemCount + (size_t)fmtItemCount);
 
     IFileDialogCustomize* fdc = NULL;
-    if (items && itemCount > 0 &&
-        SUCCEEDED(fd->QueryInterface(IID_PPV_ARGS(&fdc)))) {
-        fdc->StartVisualGroup(0, wSizeLabel.c_str());
-        fdc->AddComboBox(kDskSizeComboId);
-        for (int i = 0; i < itemCount; i++) {
-            labelHolder.push_back(utf8ToWide(items[i].label ? items[i].label : ""));
-            fdc->AddControlItem(kDskSizeComboId, (DWORD)i, labelHolder.back().c_str());
+    if (SUCCEEDED(fd->QueryInterface(IID_PPV_ARGS(&fdc)))) {
+        if (sizeItems && sizeItemCount > 0) {
+            addDskCombo(fdc, kDskSizeGroupId, kDskSizeComboId,
+                        wSizeLabel.c_str(),
+                        sizeItems, sizeItemCount,
+                        sizeSelectedIndex ? *sizeSelectedIndex : 0,
+                        labelHolder);
         }
-        DWORD initial = 0;
-        if (selectedIndex && *selectedIndex >= 0 && *selectedIndex < itemCount) {
-            initial = (DWORD)*selectedIndex;
+        if (fmtItems && fmtItemCount > 0) {
+            addDskCombo(fdc, kDskFormatGroupId, kDskFormatComboId,
+                        wFmtLabel.c_str(),
+                        fmtItems, fmtItemCount,
+                        fmtSelectedIndex ? *fmtSelectedIndex : 0,
+                        labelHolder);
         }
-        fdc->SetSelectedControlItem(kDskSizeComboId, initial);
-        fdc->EndVisualGroup();
         fdc->Release();
     }
 
@@ -781,13 +820,22 @@ extern "C" BOOL ShellNewDskFileDialog(HWND owner,
     BOOL ok = FALSE;
     if (SUCCEEDED(hr)) {
         ok = fetchPath(fd, outPath, outPathCap, NULL);
-        if (ok && selectedIndex) {
+        if (ok) {
             IFileDialogCustomize* fdc2 = NULL;
             if (SUCCEEDED(fd->QueryInterface(IID_PPV_ARGS(&fdc2)))) {
-                DWORD idx = 0;
-                if (SUCCEEDED(fdc2->GetSelectedControlItem(kDskSizeComboId, &idx)) &&
-                    (int)idx < itemCount) {
-                    *selectedIndex = (int)idx;
+                if (sizeSelectedIndex && sizeItemCount > 0) {
+                    DWORD idx = 0;
+                    if (SUCCEEDED(fdc2->GetSelectedControlItem(kDskSizeComboId, &idx)) &&
+                        (int)idx < sizeItemCount) {
+                        *sizeSelectedIndex = (int)idx;
+                    }
+                }
+                if (fmtSelectedIndex && fmtItemCount > 0) {
+                    DWORD idx = 0;
+                    if (SUCCEEDED(fdc2->GetSelectedControlItem(kDskFormatComboId, &idx)) &&
+                        (int)idx < fmtItemCount) {
+                        *fmtSelectedIndex = (int)idx;
+                    }
                 }
                 fdc2->Release();
             }

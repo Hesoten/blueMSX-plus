@@ -571,6 +571,8 @@ void langInitDutch(LanguageStrings* ls)
     ls->enumDiskSvi525Sgl        = "SVI-328 5.25\" Enkelzijdig";
     ls->enumDiskSf3Sgl           = "Sega SF-7000 3\" Enkelzijdig";
     ls->enumDiskSize             = "Schijfgrootte";
+    ls->enumDiskFormat           = "Formaat:";
+    ls->enumDiskFormatUnformatted= "Niet geformatteerd";
 
 
     //----------------------

@@ -571,6 +571,8 @@ void langInitJapanese(LanguageStrings* ls)
     ls->enumDiskSvi525Sgl        = "SVI-328 5.25インチ 2D";
     ls->enumDiskSf3Sgl           = "Sega SF-7000 3インチ 2D";  
     ls->enumDiskSize             = "ディスク容量";
+    ls->enumDiskFormat           = "フォーマット:";
+    ls->enumDiskFormatUnformatted= "未フォーマット";
 
 
     //----------------------

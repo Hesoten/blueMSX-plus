@@ -570,6 +570,8 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->enumDiskSvi525Sgl        = "SVI-328 5.25\" 單面"; 
     ls->enumDiskSf3Sgl           = "Sega SF-7000 3\"  單面";               
     ls->enumDiskSize             = "磁碟大小";
+    ls->enumDiskFormat           = "格式:";
+    ls->enumDiskFormatUnformatted= "未格式化";
 
 
     //----------------------

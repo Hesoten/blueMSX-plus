@@ -777,6 +777,8 @@ char* langEnumDiskSvi525Dbl() { return ls->enumDiskSvi525Dbl; }
 char* langEnumDiskSvi525Sgl() { return ls->enumDiskSvi525Sgl; }
 char* langEnumDiskSf3Sgl() { return ls->enumDiskSf3Sgl; }
 char* langEnumDiskSize() { return ls->enumDiskSize; }
+char* langEnumDiskFormat() { return ls->enumDiskFormat; }
+char* langEnumDiskFormatUnformatted() { return ls->enumDiskFormatUnformatted; }
 
 
 //----------------------

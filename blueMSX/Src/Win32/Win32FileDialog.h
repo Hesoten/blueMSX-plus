@@ -92,12 +92,12 @@ BOOL ShellPickFolderDialog(HWND owner,
                            const char* initialDir,
                            char* outPath, int outPathCap);
 
-/* FD/DSK creation dialog with a preset-size combobox.  Caller supplies the
-** label list (UTF-8); selectedIndex is in/out (0-based, defaults to 0 if
-** out of range).  Returns FALSE on cancel. */
+/* FD/DSK creation dialog with a size + format combobox.  Label lists are
+** UTF-8, selectedIndex is in/out (0-based, clamped to 0).  Either list may
+** be NULL/empty to hide the combobox.  Returns FALSE on cancel. */
 typedef struct {
     const char* label;   /* UTF-8 */
-    int         bytes;
+    int         bytes;   /* payload — size in bytes, or format enum value */
 } ShellComboItem;
 
 BOOL ShellNewDskFileDialog(HWND owner,
@@ -105,8 +105,10 @@ BOOL ShellNewDskFileDialog(HWND owner,
                            shell_filter_t filter,
                            const char* initialDir,
                            const char* defExt,
-                           const ShellComboItem* items, int itemCount,
-                           int* selectedIndex,
+                           const ShellComboItem* sizeItems, int sizeItemCount,
+                           int* sizeSelectedIndex,
+                           const ShellComboItem* fmtItems, int fmtItemCount,
+                           int* fmtSelectedIndex,
                            char* outPath, int outPathCap);
 
 #ifdef __cplusplus

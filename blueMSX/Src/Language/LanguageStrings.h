@@ -565,6 +565,8 @@ typedef struct {
     char* enumDiskSvi525Sgl;
     char* enumDiskSf3Sgl;
     char* enumDiskSize;     /* "Disk size" group label in new-image dialogs */
+    char* enumDiskFormat;   /* "Format:" group label in new-image dialogs */
+    char* enumDiskFormatUnformatted; /* format-combobox entry, only word needing translation */
 
 
     //----------------------
