@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -29,8 +32,9 @@
 #define THEME_CONTROLS_H
 
 #include "ArchBitmap.h"
+#include <basetsd.h>
 
-typedef void (*ButtonEvent)(int, int);
+typedef void (*ButtonEvent)(LONG_PTR, LONG_PTR);
 
 typedef struct ActiveRect {
     int x;
@@ -59,7 +63,7 @@ void activeImageDraw(ActiveImage* activeImage, void* dc, ActiveRect* rect);
 
 typedef struct ActiveButton ActiveButton;
 
-ActiveButton* activeButtonCreate(int x, int y, int cols, int activeNotify, ArchBitmap* bitmap, ButtonEvent event, int arg1, int arg2);
+ActiveButton* activeButtonCreate(int x, int y, int cols, int activeNotify, ArchBitmap* bitmap, ButtonEvent event, LONG_PTR arg1, LONG_PTR arg2);
 void activeButtonDestroy(ActiveButton* activeButton);
 int activeButtonMouseMove(ActiveButton* activeButton, int x, int y);
 int activeButtonDown(ActiveButton* activeButton, int x, int y);
@@ -72,7 +76,7 @@ int activeButtonActivate(ActiveButton* activeButton, int active);
 
 typedef struct ActiveToggleButton ActiveToggleButton;
 
-ActiveToggleButton* activeToggleButtonCreate(int x, int y, int cols, int activeNotify, ArchBitmap* bitmap, ButtonEvent event, int arg1, int arg2);
+ActiveToggleButton* activeToggleButtonCreate(int x, int y, int cols, int activeNotify, ArchBitmap* bitmap, ButtonEvent event, LONG_PTR arg1, LONG_PTR arg2);
 void activeToggleButtonDestroy(ActiveToggleButton* activeButton);
 int activeToggleButtonMouseMove(ActiveToggleButton* activeButton, int x, int y);
 int activeToggleButtonDown(ActiveToggleButton* activeButton, int x, int y);
@@ -87,8 +91,8 @@ int activeToggleButtonActivate(ActiveToggleButton* activeButton, int active);
 typedef struct ActiveDualButton ActiveDualButton;
 
 ActiveDualButton* activeDualButtonCreate(int x, int y, int cols, int activeNotify, ArchBitmap* bitmap, 
-                                          ButtonEvent eventA, int argA1, int argA2, 
-                                          ButtonEvent eventB, int argB1, int argB2, int vertical);
+                                          ButtonEvent eventA, LONG_PTR argA1, LONG_PTR argA2,
+                                          ButtonEvent eventB, LONG_PTR argB1, LONG_PTR argB2, int vertical);
 void activeDualButtonDestroy(ActiveDualButton* activeButton);
 int activeDualButtonMouseMove(ActiveDualButton* activeButton, int x, int y);
 int activeDualButtonDown(ActiveDualButton* activeButton, int x, int y);
@@ -137,7 +141,7 @@ typedef enum { AS_HORIZONTAL, AS_VERTICAL, AS_BOTH } AsDirection;
 
 ActiveSlider* activeSliderCreate(int x, int y, int cols, ArchBitmap* bitmap, SliderEvent event, int count,
                                  AsDirection direction, int sensitivity,
-                                 ButtonEvent upEvent, int arg1, int arg2);
+                                 ButtonEvent upEvent, LONG_PTR arg1, LONG_PTR arg2);
 void activeSliderDestroy(ActiveSlider* activeSlider);
 void activeSliderDraw(ActiveSlider* activeSlider, void* dc, ActiveRect* rect);
 int activeSliderShow(ActiveSlider* activeSlider, int show);
@@ -145,10 +149,12 @@ int activeSliderSetImage(ActiveSlider* activeSlider, int index);
 int activeSliderDown(ActiveSlider* activeSlider, int x, int y);
 int activeSliderUp(ActiveSlider* activeSlider, int x, int y);
 int activeSliderMouseMove(ActiveSlider* activeSlider, int x, int y);
+int activeSliderHitTest(ActiveSlider* activeSlider, int x, int y);
+int activeSliderGetPercent(ActiveSlider* activeSlider);
 
 typedef struct ActiveObject ActiveObject;
 
-ActiveObject* activeObjectCreate(int x, int y, int width, int height, const char* id, int arg1, int arg2);
+ActiveObject* activeObjectCreate(int x, int y, int width, int height, const char* id, LONG_PTR arg1, LONG_PTR arg2);
 void activeObjectDestroy(ActiveObject* activeObject);
 void activeObjectActivate(ActiveObject* activeObject, void* window);
 

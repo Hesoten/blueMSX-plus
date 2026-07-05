@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -48,6 +51,21 @@ void ym2413Reset(YM_2413* ref);
 void ym2413SaveState(YM_2413* ref);
 void ym2413LoadState(YM_2413* ref);
 void ym2413GetDebugInfo(YM_2413* ym2413, DbgDevice* dbgDevice);
+
+/* Process-wide active YM2413 backend selector shared by every chip
+** instance (FM-PAC, FM-PAK, MSX-MUSIC built-in all switch in unison).
+** See Ym2413MultiBackend.h. */
+int         ym2413BackendActiveGet(void);
+void        ym2413BackendActiveSet(int idx);
+int         ym2413BackendIsEnabled(int idx);
+int         ym2413BackendCycle(void);
+const char* ym2413BackendName(int idx);
+
+extern const int ym2413BackendDisplayOrder[];
+extern const int ym2413BackendDisplayCount;
+
+/* Hot-apply analog post-filter cutoffs (LPF / HPF, 0 = bypass). */
+void        ym2413AnalogFilterSet(int lpfHz, int hpfHz);
 
 #ifdef __cplusplus
 }

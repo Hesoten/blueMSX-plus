@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -102,6 +105,10 @@ void boardEnableSnapshots(int enable);
 
 BoardType boardGetType();
 
+/* Non-zero while loading an old (2.8.2 era) format state; per-device LoadState
+** routines use this to gate the old-format compatibility fallbacks. */
+int boardStateLoadIsOldFormat(void);
+
 void boardSetMachine(Machine* machine);
 void boardReset();
 
@@ -115,6 +122,18 @@ int boardCaptureHasData();
 int boardCaptureIsRecording();
 int boardCaptureIsPlaying();
 int boardCaptureCompleteAmount();
+int boardCaptureCheckFinish(void);
+
+/* UI-thread drain for the "recording just finalized" event. Returns 1 and
+** copies the .cap path into out (null-terminated) if a completion is pending,
+** self-clearing so a second call returns 0. Callable from any path that can
+** cause a record-end (emulatorStop, menu Stop, per-frame poll for RLE overflow). */
+int boardCaptureConsumePendingToast(char* out, int outSize);
+
+/* Missing-file report populated by boardRun's state pre-validation. */
+void        boardClearMissingFiles(void);
+int         boardGetMissingFileCount(void);
+const char* boardGetMissingFile(int idx);
 
 UInt8 boardCaptureUInt8(UInt8 logId, UInt8 value);
 
@@ -142,10 +161,25 @@ int boardUseFmPac();
 void boardSetNoSpriteLimits(int enable);
 int boardGetNoSpriteLimits();
 
+void boardSetVdpCmdSpeed(int percent);
+int  boardGetVdpCmdSpeed();
+
+/* Drop the FDC core boost on melodic sound-chip writes (FM key-on,
+** PSG R8-R10 audible volume, etc.); address latches are tracked
+** off-boost so only audible writes trigger. VBLANK keyboard scans
+** and VDP VRAM streaming stay excluded. */
+void boardCheckFdcBoostKill(UInt16 port, UInt8 value);
+
+/* Drop the FDC/HDD boost on SCC volume / channel-enable writes;
+** called from sccWrite() because SCC is memory-mapped (the I/O hook
+** doesn't see it).  address is the SCC register offset. */
+void boardCheckSccBoostKill(UInt8 address, UInt8 value);
+
 RomType boardGetRomType(int cartNo);
 
 typedef enum { HD_NONE, HD_SUNRISEIDE, HD_BEERIDE, HD_GIDE, HD_RSIDE,
-               HD_MEGASCSI, HD_WAVESCSI, HD_GOUDASCSI, HD_NOWIND } HdType;
+               HD_MEGASCSI, HD_WAVESCSI, HD_GOUDASCSI, HD_NOWIND,
+               HD_MFRSD } HdType;
 HdType boardGetHdType(int hdIndex);
 
 const char* boardGetBaseDirectory();
@@ -189,7 +223,15 @@ void boardSetDirectory(const char* dir);
 
 void boardSetFdcTimingEnable(int enable);
 int  boardGetFdcTimingEnable();
+int  boardGetFdcActive(void);
 void boardSetFdcActive();
+
+/* HDD/SD I/O boost: same skip-real-clock-sync mechanism as the FDC
+** boost, gated by an independent property so users can keep FDC
+** accurate while fast-forwarding SCSI / SD / IDE bulk transfers. */
+void boardSetHddSdBoostEnable(int enable);
+int  boardGetHddSdBoostEnable(void);
+void boardSetHddSdActive(void);
 
 void boardSetYm2413Oversampling(int value);
 int  boardGetYm2413Oversampling();

@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik, Laurent Halter
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -32,6 +35,7 @@
 #include "ziphelper.h"
 #include <stdio.h>
 #include <direct.h>
+#include "PacketFileSystem.h"
 
 static char baseDir[512];
 static char basePrefix[512];
@@ -403,7 +407,7 @@ static PBITMAPINFO CreateBitmapInfoStructure(HBITMAP hBmp)
     // datastructures.
     //
     if( cClrBits < 24 )
-        pbmi = ( PBITMAPINFO ) LocalAlloc( LPTR, sizeof( BITMAPINFOHEADER ) + sizeof( RGBQUAD ) * ( 1 << cClrBits ) );
+        pbmi = ( PBITMAPINFO ) LocalAlloc( LPTR, sizeof( BITMAPINFOHEADER ) + sizeof( RGBQUAD ) * ( (SIZE_T)1 << cClrBits ) );
     else
         pbmi = ( PBITMAPINFO ) LocalAlloc( LPTR, sizeof( BITMAPINFOHEADER ) );
 
@@ -495,14 +499,23 @@ void* ScreenShot2(void* src, int srcPitch, int width, int height, int* bitmapSiz
 
 void ScreenShot3(Properties* properties, void* src, int srcPitch, int width, int height, int png)
 {
+    ScreenShot3Ex(properties, src, srcPitch, width, height, png, NULL);
+}
+
+void ScreenShot3Ex(Properties* properties, void* src, int srcPitch, int width, int height, int png, const char* overrideFilename)
+{
     int bitmapSize;
     FILE* file;
+    const char* path;
 
     void* bitmap = ScreenShot2(src, srcPitch, width, height, &bitmapSize, png);
     if (bitmap == NULL || bitmapSize <= 0) {
         return;
     }
-    file = fopen(generateSaveFilename(properties, baseDir, basePrefix, (png ? ".png" : ".bmp"), 4), "wb");
+    path = (overrideFilename && overrideFilename[0])
+           ? overrideFilename
+           : generateSaveFilename(properties, baseDir, basePrefix, (png ? ".png" : ".bmp"), 4);
+    file = fopen(path, "wb");
     if (file != NULL) {
     	fwrite(bitmap, 1, bitmapSize, file);
         fclose(file);
@@ -510,10 +523,15 @@ void ScreenShot3(Properties* properties, void* src, int srcPitch, int width, int
     free(bitmap);
 }
 
-void screenshotSetDirectory(char* directory, char* prefix) 
+void screenshotSetDirectory(char* directory, char* prefix)
 {
     strcpy(baseDir, directory);
     strcpy(basePrefix, prefix);
+}
+
+const char* screenshotGetDirectory(void)
+{
+    return baseDir;
 }
 
 

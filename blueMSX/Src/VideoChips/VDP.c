@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -223,6 +226,7 @@ static struct {
     { 0xcc, 0xcc, 0xcc }, 
     { 0xff, 0xff, 0xff }
 #else
+	// TMS9929A
 	{   0,   0,   0 },
 	{   0,   0,   0 },
 	{  62, 184,  73 },
@@ -240,6 +244,30 @@ static struct {
 	{ 204, 204, 204 },
 	{ 255, 255, 255 }
 #endif
+};
+
+static struct {
+    int r;
+    int g;
+    int b;
+} msx1Palette_9918a[16] = {
+	// TMS9918A
+	{   0,   0,   0 },
+	{   0,   0,   0 },
+	{  79, 176,  69 },
+	{ 129, 202, 119 },
+	{  95,  81, 237 },
+	{ 129, 116, 255 },
+	{ 173, 101,  77 },
+	{ 103, 195, 228 },
+	{ 204, 110,  80 },
+	{ 240, 146, 116 },
+	{ 193, 202,  81 },
+	{ 209, 215, 129 },
+	{  72, 156,  59 },
+	{ 176, 104, 190 },
+	{ 204, 204, 204 },
+	{ 255, 255, 255 }
 };
 
 static struct {
@@ -506,7 +534,7 @@ static void scheduleVint(VDP* vdp)
     vdp->timeDrawAreaEndEn = 1;
     boardTimerAdd(vdp->timerDrawAreaEnd, vdp->timeDrawAreaEnd);
 #if 0
-    if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A) {
+    if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A || vdp->vdpVersion == VDP_TMS9918A) {
         vdp->timeTmsVint = vdp->timeVint + 1176;
         boardTimerAdd(vdp->timerTmsVint, vdp->timeTmsVint);
     }
@@ -548,7 +576,7 @@ static void onVint(VDP* vdp, UInt32 time)
 //    vdp->lineOffset = -1;
     vdp->vdpStatus[0] |= 0x80;
     vdp->vdpStatus[2] |= 0x40;
-//    if (vdp->vdpVersion != VDP_TMS9929A && vdp->vdpVersion != VDP_TMS99x8A) {
+//    if (vdp->vdpVersion != VDP_TMS9929A && vdp->vdpVersion != VDP_TMS99x8A && vdp->vdpVersion != VDP_TMS9918A) {
         if (vdp->vdpRegs[1] & 0x20) {
             boardSetInt(INT_IE0);
         }
@@ -618,11 +646,20 @@ static void onDisplay(VDP* vdp, UInt32 time)
             canFlipFrameBuffer++;
         }
         frameBufferSetLineCount(frameBuffer, 240);
-        if (vdpIsInterlaceOn(vdp->vdpRegs)) {
-            frameBufferSetInterlace(frameBuffer, (vdp->vdpStatus[2] & 0x02) && (vdp->vdpRegs[9]  & 0x04) && vdp->vram128 ? INTERLACE_EVEN : INTERLACE_ODD );
-        }
-        else {
-            frameBufferSetInterlace(frameBuffer, INTERLACE_NONE);
+        {
+            // Reg 9 IL,!EO (mode 1) = single page on interlaced raster: treat
+            // as NONE + interlaceRaster=1 (no phantom field, no scanlines);
+            // only IL+EO+vram128 (mode 3) is true ODD/EVEN alternation.
+            int il = vdpIsInterlaceOn(vdp->vdpRegs) ? 1 : 0;
+            int eo = (vdp->vdpRegs[9] & 0x04) ? 1 : 0;
+            frameBuffer->interlaceRaster = il;
+            if (il && eo && vdp->vram128) {
+                frameBufferSetInterlace(frameBuffer,
+                    (vdp->vdpStatus[2] & 0x02) ? INTERLACE_EVEN : INTERLACE_ODD);
+            }
+            else {
+                frameBufferSetInterlace(frameBuffer, INTERLACE_NONE);
+            }
         }
     }
 
@@ -745,7 +782,7 @@ static int updateScreenMode(VDP* vdp) {
         break;
     case 16:
         screenMode = 0;
-        if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A) {
+        if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A || vdp->vdpVersion == VDP_TMS9918A) {
             vdp->RefreshLine = RefreshLine0Plus; 
         }
         else {
@@ -754,7 +791,7 @@ static int updateScreenMode(VDP* vdp) {
         break;
     case 32:
         screenMode = 0;
-        if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A) {
+        if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A || vdp->vdpVersion == VDP_TMS9918A) {
             vdp->RefreshLine = RefreshLine0Mix; 
         }
         else {
@@ -792,7 +829,7 @@ static void onScrModeChange(VDP* vdp, UInt32 time)
     vdp->sprGenBase = (((int)vdp->vdpRegs[6] << 11) | ~(-1 << 11)) & vdp->vramMask;
 
 #ifdef ENABLE_VRAM_DECAY
-    if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A) {
+    if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A || vdp->vdpVersion == VDP_TMS9918A) {
         if ((vdp->screenOn ^ vdp->vdpRegs[1]) & 0x40) {
             if ((~vdp->vdpRegs[1] & 0x80) && !vdp->screenOn) {
                simulateVramDecay(vdp);
@@ -1019,7 +1056,7 @@ static UInt8 readNoTimingCheck(VDP* vdp, UInt16 ioPort)
 
 static UInt8 read(VDP* vdp, UInt16 ioPort) 
 {
-    if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A) {
+    if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A || vdp->vdpVersion == VDP_TMS9918A) {
         checkVramAccessTimeTms(vdp);
     }
 
@@ -1031,7 +1068,7 @@ static UInt8 peekStatus(VDP* vdp, UInt16 ioPort)
     UInt8 vdpStatus;
 
     sync(vdp, boardSystemTime());
-    if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A) {
+    if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A || vdp->vdpVersion == VDP_TMS9918A) {
         return vdp->vdpStatus[0];
     }
     vdpStatus = vdp->vdpStatus[vdp->vdpRegs[15]];
@@ -1087,7 +1124,7 @@ static UInt8 readStatus(VDP* vdp, UInt16 ioPort)
 
     vdp->vdpKey = 0;
 
-    if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A) {
+    if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A || vdp->vdpVersion == VDP_TMS9918A) {
         vdpStatus = vdp->vdpStatus[0];
         vdp->vdpStatus[0] &= 0x1f;
         boardClearInt(INT_IE0);
@@ -1154,7 +1191,7 @@ static void write(VDP* vdp, UInt16 ioPort, UInt8 value)
 {
     sync(vdp, boardSystemTime());
 
-    if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A) {
+    if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A || vdp->vdpVersion == VDP_TMS9918A) {
         checkVramAccessTimeTms(vdp);
     }
 
@@ -1185,6 +1222,7 @@ static void writeLatch(VDP* vdp, UInt16 ioPort, UInt8 value)
 		
 		/* MSX1 VDP: address always updates */
         case VDP_TMS9929A: case VDP_TMS99x8A:
+        case VDP_TMS9918A:
 			if (vdp->vdpKey) {
 				vdp->vramAddress = ((UInt16)value << 8 | (vdp->vramAddress & 0xff)) & 0x3fff;
 				if (!(value & 0x40)) {
@@ -1581,6 +1619,7 @@ static void loadState(VDP* vdp)
     switch (vdp->vdpVersion) {
     case VDP_TMS9929A:
     case VDP_TMS99x8A:
+    case VDP_TMS9918A:
         vdp->registerValueMask = registerValueMaskMSX1;
         vdp->registerMask      = 0x07;
         break;
@@ -1620,7 +1659,7 @@ static void loadState(VDP* vdp)
         boardTimerAdd(vdp->timerDisplay, vdp->timeDisplay);
     }
 
-//    if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A) {
+//    if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A || vdp->vdpVersion == VDP_TMS9918A) {
 //        boardTimerAdd(vdp->timerTmsVint, vdp->timeTmsVint);
 //    }
 
@@ -1730,6 +1769,10 @@ static void loadState(VDP* vdp)
     UInt32 systemTime = boardSystemTime() + 100;
     char tag[32];
     int i;
+    /* Old (blueMSX 2.8.2 era) state: apply the pre-rename tag fallbacks and
+    ** rebuild the register-derived fields it does not serialize. New states
+    ** take the original path unchanged. */
+    int isOldFormat = boardStateLoadIsOldFormat();
 
     vdp->scr0splitLine = saveStateGet(state, "scr0splitLine",         0);
 
@@ -1810,6 +1853,19 @@ static void loadState(VDP* vdp)
 
     vdp->vramAccMask = saveStateGet(state, "vramAccMask",         0);
 
+    if (isOldFormat) {
+        /* Old (2.8.2) tag-name overrides:
+        **   status / paletteTmp0 / vdp->palette%d / xfgColor / xbgColor */
+        saveStateGetBuffer(state, "status", vdp->vdpStatus, sizeof(vdp->vdpStatus));
+        vdp->palette0 = saveStateGet(state, "paletteTmp0", vdp->palette0);
+        vdp->XFGColor = saveStateGet(state, "xfgColor", vdp->XFGColor);
+        vdp->XBGColor = saveStateGet(state, "xbgColor", vdp->XBGColor);
+        for (i = 0; i < sizeof(vdp->palette) / sizeof(vdp->palette[0]); i++) {
+            sprintf(tag, "vdp->palette%d", i);
+            vdp->palette[i] = saveStateGet(state, tag, vdp->palette[i]);
+        }
+    }
+
     saveStateGetBuffer(state, "vram", vdp->vram, sizeof(vdp->vram));
 
     saveStateClose(state);
@@ -1820,7 +1876,47 @@ static void loadState(VDP* vdp)
 
     canFlipFrameBuffer = 0;
 
-    updateScreenMode(vdp);
+    if (isOldFormat) {
+        /* Reconstruct derived state from vdpRegs; old states only
+        ** serialize raw registers and the renderer would otherwise read
+        ** its tables from VRAM offset 0. */
+        vdp->screenMode = updateScreenMode(vdp);
+
+        vdp->chrTabBase = ((((int)vdp->vdpRegs[2] << 10) & ~((int)(vdp->vdpRegs[25] & 1) << 15)) | ~(-1 << 10)) & vdp->vramMask;
+        vdp->chrGenBase = (((int)vdp->vdpRegs[4] << 11) | ~(-1 << 11)) & vdp->vramMask;
+        vdp->colTabBase = (((int)vdp->vdpRegs[10] << 14) | ((int)vdp->vdpRegs[3] << 6) | ~(-1 << 6)) & vdp->vramMask;
+        vdp->sprTabBase = (((int)vdp->vdpRegs[11] << 15) | ((int)vdp->vdpRegs[5] << 7) | ~(-1 << 7)) & vdp->vramMask;
+        vdp->sprGenBase = (((int)vdp->vdpRegs[6] << 11) | ~(-1 << 11)) & vdp->vramMask;
+        vdp->vramAccMask = vdp->vramMasks[((vdp->vdpRegs[8] & 0x08) >> 2) | (((vdp->vdpRegs[0x2d] >> 6) & 1))];
+
+        vdp->screenOn   = vdp->vdpRegs[1] & 0x40;
+        vdp->vramEnable = vdp->vram192 || !((vdp->vdpRegs[0x2d] >> 6) & 1);
+        vdpSetScreenMode(vdp->cmdEngine, vdp->screenMode & 0x0f, vdp->vdpRegs[25] & 0x40);
+        if (vdp->screenMode == 0 || vdp->screenMode == 13) {
+            vdp->displayArea = 960;
+            vdp->leftBorder  = 102 + 92;
+        }
+        else {
+            vdp->displayArea = 1024;
+            vdp->leftBorder  = 102 + 56;
+        }
+        vdp->HAdjust = (-((Int8)(vdp->vdpRegs[18] << 4) >> 4));
+        if (vdp->vdpRegs[25] & 0x08) {
+            vdp->HAdjust += 4;
+        }
+        vdp->leftBorder += vdp->HAdjust;
+
+        /* FGColor/BGColor from reg7 and palette0 from the resolved color-0, so
+        ** the next reg7/reg8 write does not repaint color 0 / the backdrop
+        ** with a wrong (gray) palette0. */
+        vdp->FGColor = vdp->vdpRegs[7] >> 4;
+        vdp->BGColor = vdp->vdpRegs[7] & 0x0F;
+        vdp->palette0 = vdp->palette[0];
+        updateOutputMode(vdp);
+    }
+    else {
+        updateScreenMode(vdp);
+    }
 
     if (vdp->timeScrModeEn) {
         boardTimerAdd(vdp->timerScrModeChange, vdp->timeScrMode);
@@ -1870,6 +1966,9 @@ static void getDebugInfo(VDP* vdp, DbgDevice* dbgDevice)
         break;
     case VDP_TMS99x8A:
         vdpVersionName = "TMS99x8A";
+        break;
+    case VDP_TMS9918A:
+        vdpVersionName = "TMS9918A";
         break;
     case VDP_V9938:
         vdpVersionName = "V9938";
@@ -2121,7 +2220,12 @@ static void reset(VDP* vdp)
     vdp->vdpRegs[21] = 0x3b;
     vdp->vdpRegs[22] = 0x05;
 
-    if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A) {
+    if (vdp->vdpVersion == VDP_TMS9918A) {
+        for (i = 0; i < 16; i++) {
+            updatePalette(vdp, i, msx1Palette_9918a[i].r, msx1Palette_9918a[i].g, msx1Palette_9918a[i].b);
+        }
+    }
+    else if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A) {
         for (i = 0; i < 16; i++) {
             updatePalette(vdp, i, msx1Palette[i].r, msx1Palette[i].g, msx1Palette[i].b);
         }
@@ -2294,6 +2398,13 @@ void vdpCreate(VdpConnector connector, VdpVersion version, VdpSyncMode sync, int
         vdp->registerMask      = 0x07;
         vdp->vdpRegs[9]          &= ~0x02;
         vdpVersionString       = langDbgDevTms99x8A();
+        vdp->hAdjustSc0        = -2; // 6
+        break;
+    case VDP_TMS9918A:
+        vdp->registerValueMask = registerValueMaskMSX1;
+        vdp->registerMask      = 0x07;
+        vdp->vdpRegs[9]          &= ~0x02;
+        vdpVersionString       = langDbgDevTms9918A();
         vdp->hAdjustSc0        = -2; // 6
         break;
     case VDP_V9938:

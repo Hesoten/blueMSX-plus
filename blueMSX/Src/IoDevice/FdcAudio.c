@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -31,6 +34,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+
+/* After stdio.h: pkg_fopen overrides fopen for UTF-8 paths. */
+#include "PacketFileSystem.h"
 
 #ifdef NO_EMBEDDED_SAMPLES
 
@@ -3466,7 +3472,7 @@ static void loadSample(char* filename, Int16** samples, Int32* count,
                     if (fread(&size, 4, 1, f) == 1) {
                         if (size < 131072) {
                             *samples = malloc(size);
-                            *count = fread(*samples, 2, size / 2, f);
+                            *count = (Int32)fread(*samples, 2, size / 2, f);
                             if (*count == size / 2) {
                                 fclose(f);
                                 return;

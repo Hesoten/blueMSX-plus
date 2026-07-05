@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik, Tomas Karlsson
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -33,6 +36,9 @@
 #include "AppConfig.h"
 #include "build_number.h"
 #include "version.h"
+#include "Win32Common.h"
+#include "Win32FileDialog.h"
+#include "Win32TextUtf8.h"
 
 #ifndef NO_TOOL_SUPPORT
 
@@ -123,7 +129,11 @@ void __stdcall toolSnapshotDestroy(Snapshot* s) {
 }
 
 EmulatorState __stdcall toolGetState() {
-    return dbgGetState();
+    /* DbgState and EmulatorState share the same {STOPPED=0, PAUSED=1,
+       RUNNING=2} numeric mapping by design, but they are distinct enum
+       types -- cast explicitly to silence the implicit-enum-conversion
+       warning and keep the contract obvious. */
+    return (EmulatorState)dbgGetState();
 }
 
 int __stdcall toolSnapshotGetDeviceCount(Snapshot* s)
@@ -253,6 +263,49 @@ void __stdcall toolGetEmulatorVersion(int* major, int* minor, int* buildNumber)
     *buildNumber = BUILD_NUMBER;
 }
 
+/* ABI extensions: dark mode + IFileDialog. Plugins null-check before
+** calling, so adding (or removing) entries is safe across host/plugin skews. */
+static void __stdcall toolApplyDarkMode(HWND hWnd)
+{
+    win32CommonApplyDark(hWnd);
+}
+
+static int __stdcall toolIsDarkMode(void)
+{
+    return win32CommonIsDarkMode() ? 1 : 0;
+}
+
+static UInt32 __stdcall toolGetDarkBg(void)
+{
+    return (UInt32)win32CommonDarkBg();
+}
+
+static UInt32 __stdcall toolGetDarkFg(void)
+{
+    return (UInt32)win32CommonDarkFg();
+}
+
+static HBRUSH __stdcall toolGetDarkBgBrush(void)
+{
+    return win32CommonDarkBgBrush();
+}
+
+static int __stdcall toolShellOpenFileDialog(HWND owner, const char* title, const char* filter,
+                                             const char* initialDir, const char* defExt,
+                                             int* filterIndex, char* outPath, int outPathCap)
+{
+    return ShellOpenFileDialog(owner, title, filter, initialDir, defExt,
+                               filterIndex, outPath, outPathCap) ? 1 : 0;
+}
+
+static int __stdcall toolShellSaveFileDialog(HWND owner, const char* title, const char* filter,
+                                             const char* initialDir, const char* defExt,
+                                             int* filterIndex, char* outPath, int outPathCap)
+{
+    return ShellSaveFileDialog(owner, title, filter, initialDir, defExt,
+                               filterIndex, outPath, outPathCap) ? 1 : 0;
+}
+
 static Interface toolInterface = {
     toolSnapshotCreate,
     toolSnapshotDestroy,
@@ -282,11 +335,19 @@ static Interface toolInterface = {
     toolSetWatchpoint,
     toolClearWatchpoint,
     toolStepBack,
+    /* dark-mode + IFileDialog entries */
+    toolApplyDarkMode,
+    toolIsDarkMode,
+    toolGetDarkBg,
+    toolGetDarkFg,
+    toolGetDarkBgBrush,
+    toolShellOpenFileDialog,
+    toolShellSaveFileDialog,
 };
 
 void toolLoadAll(const char* path, int languageId)
 {
-    WIN32_FIND_DATA wfd;
+    WIN32_FIND_DATAA wfd;
     char  curDir[MAX_PATH];
     HANDLE handle;
 
@@ -294,24 +355,24 @@ void toolLoadAll(const char* path, int languageId)
         return;
     }
 
-    GetCurrentDirectory(MAX_PATH, curDir);
+    GetCurrentDirectoryU(MAX_PATH, curDir);
     strcat(toolDir, curDir);
     strcat(toolDir, "\\Tools");
 
-    if (!SetCurrentDirectory(toolDir)) {
+    if (!SetCurrentDirectoryU(toolDir)) {
         return;
     }
 
-    handle = FindFirstFile("*.dll", &wfd);
+    handle = FindFirstFileU("*.dll", &wfd);
 
     if (handle == INVALID_HANDLE_VALUE) {
-        SetCurrentDirectory(curDir);
+        SetCurrentDirectoryU(curDir);
         return;
     }
 
     do {
         ToolInfo* toolInfo;
-        HINSTANCE lib = LoadLibrary(wfd.cFileName);
+        HINSTANCE lib = LoadLibraryU(wfd.cFileName);
 
         if (lib != NULL) {
             char description[32] = "Unknown";
@@ -397,11 +458,11 @@ void toolLoadAll(const char* path, int languageId)
 
             toolInfoSetLanguage(toolInfo, languageId);
         }
-    } while (FindNextFile(handle, &wfd));
+    } while (FindNextFileU(handle, &wfd));
 	
 	FindClose( handle );
 
-    SetCurrentDirectory(curDir);
+    SetCurrentDirectoryU(curDir);
 }
 
 void toolUnLoadAll()

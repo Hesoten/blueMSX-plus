@@ -45,6 +45,13 @@ void inputInit();
 int inputReset(HWND hwnd);
 void inputDestroy(void);
 
+/* Hot-plug: WM_DEVICECHANGE marks dirty and refreshes immediately; the
+   Shortcut / Keyboard Config dialogs still refresh on open so no event
+   is missed while blueMSX was in the background. */
+void inputMarkDirty(void);
+void inputRefreshDevicesIfDirty(void);
+void inputResolveShadowBindings(void);
+
 void keyboardSetDirectory(char* directory);
 
 int keyboardLoadConfig(char* configName);

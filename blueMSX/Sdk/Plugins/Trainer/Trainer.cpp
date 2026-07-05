@@ -3,11 +3,96 @@
 #include "Resource.h"
 #include "resrc1.h"
 #include "Language.h"
+#include "Win32TextUtf8.h"
 #include <string>
 #include <commctrl.h>
 #include <list>
 #include <sstream>
 #include <iomanip>
+
+/* Paint the listview's empty client area dark on WM_ERASEBKGND --
+** LVM_SETBKCOLOR only colors rows, leaving COLOR_WINDOW white gaps. */
+#define TRAINER_LV_DARK_SUBCLASS_ID 0xC4EAEC
+
+static LRESULT CALLBACK trainerDarkListViewProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp,
+                                                UINT_PTR id, DWORD_PTR data)
+{
+    (void)data;
+    if (msg == WM_ERASEBKGND && IsDarkMode()) {
+        HDC hdc = (HDC)wp;
+        RECT rc;
+        HBRUSH br = GetDarkBgBrush();
+        GetClientRect(hwnd, &rc);
+        if (br) FillRect(hdc, &rc, br);
+        return 1;
+    }
+    if (msg == WM_NCDESTROY) {
+        RemoveWindowSubclass(hwnd, trainerDarkListViewProc, id);
+    }
+    return DefSubclassProc(hwnd, msg, wp, lp);
+}
+
+static void darkenListView(HWND hLV)
+{
+    if (!hLV) return;
+    if (IsDarkMode()) {
+        ListView_SetBkColor    (hLV, GetDarkBg());
+        ListView_SetTextBkColor(hLV, GetDarkBg());
+        ListView_SetTextColor  (hLV, GetDarkFg());
+        SetWindowSubclass(hLV, trainerDarkListViewProc, TRAINER_LV_DARK_SUBCLASS_ID, 0);
+        InvalidateRect(hLV, NULL, TRUE);
+    }
+}
+
+/* MS UI Gothic for file-path edits: renders 0x5C as the yen sign on
+** Japanese Windows (matches File Explorer).  Sized ~20% larger to match
+** Segoe UI's visual Latin height. */
+static HFONT s_pathFont = NULL;
+static HFONT getPathFont(HWND hRef)
+{
+    if (s_pathFont) return s_pathFont;
+    HFONT hRefFont = (HFONT)SendMessageW(hRef, WM_GETFONT, 0, 0);
+    LOGFONTW lf;
+    memset(&lf, 0, sizeof(lf));
+    if (hRefFont) GetObjectW(hRefFont, sizeof(lf), &lf);
+    lf.lfHeight = (LONG)(lf.lfHeight * 12 / 10);
+    wcscpy_s(lf.lfFaceName, LF_FACESIZE, L"MS UI Gothic");
+    s_pathFont = CreateFontIndirectW(&lf);
+    return s_pathFont;
+}
+
+/* Vertically center the enlarged path-edit glyphs by shrinking the
+** client rect via WM_NCCALCSIZE -- a taller-than-text box leaves a gap. */
+#define TRAINER_PATH_EDIT_SUBCLASS_ID 0xC4EAED
+
+static LRESULT CALLBACK trainerPathEditProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp,
+                                             UINT_PTR id, DWORD_PTR data)
+{
+    (void)data;
+    if (msg == WM_NCCALCSIZE) {
+        LRESULT r = DefSubclassProc(hwnd, msg, wp, lp);
+        RECT* rc = wp ? &((NCCALCSIZE_PARAMS*)lp)->rgrc[0] : (RECT*)lp;
+        HDC hdc = GetDC(hwnd);
+        HFONT font = (HFONT)SendMessageW(hwnd, WM_GETFONT, 0, 0);
+        HFONT old = font ? (HFONT)SelectObject(hdc, font) : NULL;
+        TEXTMETRICW tm = {0};
+        GetTextMetricsW(hdc, &tm);
+        if (old) SelectObject(hdc, old);
+        ReleaseDC(hwnd, hdc);
+        int boxH = rc->bottom - rc->top;
+        int textH = tm.tmHeight;
+        int extra = boxH - textH;
+        if (extra > 0) {
+            rc->top    += extra / 2;
+            rc->bottom -= extra - extra / 2;
+        }
+        return r;
+    }
+    if (msg == WM_NCDESTROY) {
+        RemoveWindowSubclass(hwnd, trainerPathEditProc, id);
+    }
+    return DefSubclassProc(hwnd, msg, wp, lp);
+}
 
 enum CompareType
 {
@@ -142,18 +227,18 @@ static void updateWindowMenu()
 {
     HMENU hMenuFile = CreatePopupMenu();
     
-    AppendMenu(hMenuFile, MF_STRING, MENU_FILE_LOG, logFile == NULL ? Language::menuFileLogToFile : Language::menuFileStopLogToFile);
-    AppendMenu(hMenuFile, MF_SEPARATOR, 0, NULL);
-    AppendMenu(hMenuFile, MF_STRING, MENU_FILE_EXIT, Language::menuFileExit);
+    AppendMenuU(hMenuFile, MF_STRING, MENU_FILE_LOG, logFile == NULL ? Language::menuFileLogToFile : Language::menuFileStopLogToFile);
+    AppendMenuU(hMenuFile, MF_SEPARATOR, 0, NULL);
+    AppendMenuU(hMenuFile, MF_STRING, MENU_FILE_EXIT, Language::menuFileExit);
     
     HMENU hMenuEdit = CreatePopupMenu();
-    AppendMenu(hMenuEdit, MF_STRING, MENU_EDIT_SELECTALL, Language::menuEditSelectAll);
-    AppendMenu(hMenuEdit, MF_STRING, MENU_EDIT_COPY, Language::menuEditCopy);
-    AppendMenu(hMenuEdit, MF_SEPARATOR, 0, NULL);
-    AppendMenu(hMenuEdit, MF_STRING, MENU_EDIT_CLEAR, Language::menuEditClearWindow);
+    AppendMenuU(hMenuEdit, MF_STRING, MENU_EDIT_SELECTALL, Language::menuEditSelectAll);
+    AppendMenuU(hMenuEdit, MF_STRING, MENU_EDIT_COPY, Language::menuEditCopy);
+    AppendMenuU(hMenuEdit, MF_SEPARATOR, 0, NULL);
+    AppendMenuU(hMenuEdit, MF_STRING, MENU_EDIT_CLEAR, Language::menuEditClearWindow);
 
     HMENU hMenuHelp = CreatePopupMenu();
-    AppendMenu(hMenuHelp, MF_STRING, MENU_HELP_ABOUT, Language::menuHelpAbout);
+    AppendMenuU(hMenuHelp, MF_STRING, MENU_HELP_ABOUT, Language::menuHelpAbout);
 
     static HMENU hMenu = NULL;
     if (hMenu != NULL) {
@@ -161,9 +246,9 @@ static void updateWindowMenu()
     }
 
     hMenu = CreateMenu();
-    AppendMenu(hMenu, MF_POPUP, (UINT)hMenuFile, Language::menuFile);
-    AppendMenu(hMenu, MF_POPUP, (UINT)hMenuEdit, Language::menuEdit);
-    AppendMenu(hMenu, MF_POPUP, (UINT)hMenuHelp, Language::menuHelp);
+    AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuFile, Language::menuFile);
+    AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuEdit, Language::menuEdit);
+    AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuHelp, Language::menuHelp);
     
     SetMenu(dbgHwnd, hMenu);
 }
@@ -172,7 +257,6 @@ static void updateWindowMenu()
 static char* cheatFileDialog(HWND hwndOwner, char* defExt, bool openForSave)
 {
     static bool firstOpen = true;
-    OPENFILENAME ofn; 
     static char fileName[MAX_PATH] = {0};
 
     char cheatPath[512];
@@ -183,45 +267,20 @@ static char* cheatFileDialog(HWND hwndOwner, char* defExt, bool openForSave)
         fileName[0] = 0; 
     }
 
-    char  curDir[MAX_PATH];
-    GetCurrentDirectory(MAX_PATH, curDir);
-
-    ofn.lStructSize = sizeof(OPENFILENAME); 
-    ofn.hwndOwner = hwndOwner; 
-    ofn.hInstance = GetDllHinstance();
-    ofn.lpstrFilter = "*.MCF\0*.*\0\0"; 
-    ofn.lpstrCustomFilter = NULL; 
-    ofn.nMaxCustFilter = 0;
-    ofn.nFilterIndex = 0; 
-    ofn.lpstrFile = fileName; 
-    ofn.nMaxFile = 1024; 
-    ofn.lpstrFileTitle = NULL; 
-    ofn.nMaxFileTitle = 0; 
-    ofn.lpstrInitialDir = firstOpen ? cheatPath : NULL; 
-    ofn.nFileOffset = 0; 
-    ofn.nFileExtension = 0; 
-    ofn.lpstrDefExt = NULL; 
-    ofn.lCustData = 0; 
-    ofn.lpfnHook = NULL; 
-    ofn.lpTemplateName = NULL; 
-
-    firstOpen = false;
-
-    BOOL rv = FALSE;
+    /* IFileDialog (newer host): UTF-8 paths, dark-aware navigation pane. */
+    const char* title  = openForSave ? Language::saveCheatCaption : Language::loadCheatCaption;
+    const char* filter = "Cheat files (*.mcf)\0*.MCF\0All files\0*.*\0\0";
+    const char* dir    = firstOpen ? cheatPath : NULL;
+    bool rv;
     if (openForSave) {
-        ofn.lpstrTitle = Language::saveCheatCaption; 
-        ofn.Flags = OFN_EXPLORER | OFN_ENABLESIZING | OFN_OVERWRITEPROMPT; 
-
-        rv = GetSaveFileName(&ofn); 
+        rv = ShellSaveFileDialog(hwndOwner, title, filter, dir, "mcf", NULL,
+                                 fileName, sizeof(fileName));
     }
     else {
-        ofn.lpstrTitle = Language::loadCheatCaption; 
-        ofn.Flags = OFN_EXPLORER | OFN_ENABLESIZING | OFN_FILEMUSTEXIST; 
-
-        rv = GetOpenFileName(&ofn); 
+        rv = ShellOpenFileDialog(hwndOwner, title, filter, dir, "mcf", NULL,
+                                 fileName, sizeof(fileName));
     }
-
-    SetCurrentDirectory(curDir);
+    firstOpen = false;
 
     if (!rv) {
         return NULL; 
@@ -233,7 +292,7 @@ static char* cheatFileDialog(HWND hwndOwner, char* defExt, bool openForSave)
         }
         else {
             char* pos = fileName + strlen(fileName) - strlen(defExt);
-            int  len  = strlen(defExt);
+            int  len  = (int)strlen(defExt);
             while (len--) {
                 if (toupper(pos[len]) != toupper(defExt[len])) {
                     break;
@@ -262,8 +321,8 @@ void updateButtons()
     EnableWindow(GetDlgItem(hDlgCheats, IDC_SAVE),      canRemoveAllCheat);
 
     bool running = GetEmulatorState() == EMULATOR_RUNNING;
-    SetWindowText(GetDlgItem(hDlgCheats, IDC_RUNSTOP), running ? Language::pause : Language::run);
-    SetWindowText(GetDlgItem(hDlgSearch, IDC_RUNSTOP), running ? Language::pause : Language::run);
+    SetWindowTextU(GetDlgItem(hDlgCheats, IDC_RUNSTOP), running ? Language::pause : Language::run);
+    SetWindowTextU(GetDlgItem(hDlgSearch, IDC_RUNSTOP), running ? Language::pause : Language::run);
 
 }
 
@@ -343,29 +402,19 @@ void createSnapshot(bool reset = false)
 
 
 static void addAddress(HWND hwnd, int entry, UInt32 address, Int32 oldData, Int32 newData, Int32 diff) {
-    char buffer[512] = {0};
-    LV_ITEM lvi = {0};
-    
-    lvi.mask       = LVIF_TEXT;
-    lvi.iItem      = entry;
-    lvi.pszText    = buffer;
-	lvi.cchTextMax = 512;
+    char buffer[64];
 
     sprintf(buffer, "%.4X", address);
+    ListViewInsertItemU(hwnd, entry, buffer);
 
-    ListView_InsertItem(hwnd, &lvi);
-    
-    lvi.iSubItem++;
     sprintf(buffer, DpySizeFormat[dataSize][displayType], oldData);
-    ListView_SetItem(hwnd, &lvi);
+    ListViewSetItemTextU(hwnd, entry, 1, buffer);
     
-    lvi.iSubItem++;
     sprintf(buffer, DpySizeFormat[dataSize][displayType], newData);
-    ListView_SetItem(hwnd, &lvi);
+    ListViewSetItemTextU(hwnd, entry, 2, buffer);
     
-    lvi.iSubItem++;
     sprintf(buffer, DpySizeFormat[dataSize][displayType], diff);
-    ListView_SetItem(hwnd, &lvi);
+    ListViewSetItemTextU(hwnd, entry, 3, buffer);
 }
 
 void updateListView()
@@ -384,13 +433,7 @@ void updateListView()
             Int32 oldData = getData(dataSize, snapshotData.dataOld, i);
             Int32 newData = getData(dataSize, snapshotData.dataNew, i);
             if (idx >= 1024) {
-                LV_ITEM lvi = {0};
-                
-                lvi.mask       = LVIF_TEXT;
-                lvi.iItem      = idx;
-                lvi.pszText    = (LPSTR)Language::truncated;
-	            lvi.cchTextMax = 512;
-                ListView_InsertItem(hwnd, &lvi);
+                ListViewInsertItemU(hwnd, idx, Language::truncated);
                 break;
             }
             if (displayType == DPY_DECIMAL) {
@@ -551,10 +594,10 @@ void updateSearchFields(HWND hDlg)
     char buffer[32];
     
     sprintf(buffer, DpyFormat[displayType], cmpChangeVal & DataMask[dataSize]);
-    SetWindowText(GetDlgItem(hDlg, IDC_CMP_VALCHANGE), buffer);
+    SetWindowTextU(GetDlgItem(hDlg, IDC_CMP_VALCHANGE), buffer);
 
     sprintf(buffer, DpyFormat[displayType], cmpSpecificVal & DataMask[dataSize]);
-    SetWindowText(GetDlgItem(hDlg, IDC_CMP_VALSPECIFIC), buffer);
+    SetWindowTextU(GetDlgItem(hDlg, IDC_CMP_VALSPECIFIC), buffer);
 }
 
 void checkNumberInput(HWND hDlg, int id, DisplayType displayType, DataSize dataSize, Int32* value)
@@ -620,7 +663,7 @@ void checkNumberInput(HWND hDlg, int id, DisplayType displayType, DataSize dataS
             sprintf(buffer, DpyFormat[displayType], *value & DataMask[dataSize]);
         }
     }
-    SetWindowText(GetDlgItem(hDlg, id), buffer);
+    SetWindowTextU(GetDlgItem(hDlg, id), buffer);
     SendDlgItemMessage(hDlg, id, EM_SETSEL, 8, 8);
     isUpdating = false;
 }
@@ -657,63 +700,62 @@ void prepareAndShowAddCheatDialog(HWND hDlg)
     }
 }
 
-static BOOL CALLBACK searchProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static INT_PTR CALLBACK searchProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     static int currIndex;
 
     switch (iMsg) {
     case WM_INITDIALOG:
         {
-            char buffer[32];
-            LV_COLUMN lvc = {0};
-            
+            ApplyDarkMode(hDlg);
             currIndex = -1;
     
             HWND hwnd = GetDlgItem(hDlg, IDC_MEMLIST);
 
             ListView_SetExtendedListViewStyle(hwnd, LVS_EX_FULLROWSELECT);
 
-            lvc.mask       = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM;
-            lvc.fmt        = LVCFMT_LEFT;
-            lvc.cx         = 100;
-            lvc.pszText    = buffer;
-	        lvc.cchTextMax = 32;
+            /* Distribute the listview client width across the four columns
+            ** (~28 / 24 / 24 / 24) so the table fills available space at any
+            ** DPI / dialog size. */
+            {
+                RECT rc;
+                GetClientRect(hwnd, &rc);
+                int total = rc.right - rc.left - GetSystemMetrics(SM_CXVSCROLL) - 4;
+                if (total < 200) total = 200;
+                int wAddr = total * 28 / 100;
+                int wOld  = total * 24 / 100;
+                int wNew  = total * 24 / 100;
+                int wChg  = total - wAddr - wOld - wNew;
+                ListViewInsertColumnU(hwnd, 0, wAddr, Language::address);
+                ListViewInsertColumnU(hwnd, 1, wOld,  Language::oldValue);
+                ListViewInsertColumnU(hwnd, 2, wNew,  Language::newValue);
+                ListViewInsertColumnU(hwnd, 3, wChg,  Language::change);
+            }
 
-            sprintf(buffer, Language::address);
-            lvc.cx = 108;
-            ListView_InsertColumn(hwnd, 0, &lvc);
-            sprintf(buffer, Language::oldValue);
-            lvc.cx = 75;
-            ListView_InsertColumn(hwnd, 1, &lvc);
-            sprintf(buffer, Language::newValue);
-            lvc.cx = 75;
-            ListView_InsertColumn(hwnd, 2, &lvc);
-            sprintf(buffer, Language::change);
-            lvc.cx = 75;
-            ListView_InsertColumn(hwnd, 3, &lvc);
+            darkenListView(hwnd);
             
-            SetWindowText(GetDlgItem(hDlg, IDC_CMPTYPE), Language::compareType);
-            SetWindowText(GetDlgItem(hDlg, IDC_CMP_EQUAL), Language::equal);
-            SetWindowText(GetDlgItem(hDlg, IDC_CMP_NOTEQUAL), Language::notEqual);
-            SetWindowText(GetDlgItem(hDlg, IDC_CMP_LESSTHAN), Language::lessThan);
-            SetWindowText(GetDlgItem(hDlg, IDC_CMP_LESSOREQUAL), Language::lessOrEqual);
-            SetWindowText(GetDlgItem(hDlg, IDC_CMP_GREATERTHAN), Language::greaterThan);
-            SetWindowText(GetDlgItem(hDlg, IDC_CMP_GREATEROREQUAL), Language::greaterOrEqual);
-            SetWindowText(GetDlgItem(hDlg, IDC_DISPLAY), Language::display);
-            SetWindowText(GetDlgItem(hDlg, IDC_VAL_DEC), Language::decimal);
-            SetWindowText(GetDlgItem(hDlg, IDC_VAL_HEX), Language::hexadecimal);
-            SetWindowText(GetDlgItem(hDlg, IDC_DATASIZE), Language::dataSize);
-            SetWindowText(GetDlgItem(hDlg, IDC_VAL_8BIT), Language::eightBit);
-            SetWindowText(GetDlgItem(hDlg, IDC_VAL_16BIT), Language::sixteenBit);
-            SetWindowText(GetDlgItem(hDlg, IDC_SEARCHTYPE), Language::compareNewValueWith);
-            SetWindowText(GetDlgItem(hDlg, IDC_CMP_OLDVAL), Language::oldValue);
-            SetWindowText(GetDlgItem(hDlg, IDC_CMP_CHANGE), Language::change);
-            SetWindowText(GetDlgItem(hDlg, IDC_CMP_SPECIFIC), Language::specificValue);
-            SetWindowText(GetDlgItem(hDlg, IDC_SNAPSHOT), Language::snapshot);
-            SetWindowText(GetDlgItem(hDlg, IDC_SEARCH), Language::search);
-            SetWindowText(GetDlgItem(hDlg, IDC_ADDCHEAT), Language::addCheat);
-            SetWindowText(GetDlgItem(hDlg, IDC_UNDO), Language::undo);
-            SetWindowText(GetDlgItem(hDlg, IDC_RUNSTOP), GetEmulatorState() == EMULATOR_RUNNING ? Language::pause : Language::run);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_CMPTYPE), Language::compareType);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_CMP_EQUAL), Language::equal);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_CMP_NOTEQUAL), Language::notEqual);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_CMP_LESSTHAN), Language::lessThan);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_CMP_LESSOREQUAL), Language::lessOrEqual);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_CMP_GREATERTHAN), Language::greaterThan);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_CMP_GREATEROREQUAL), Language::greaterOrEqual);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_DISPLAY), Language::display);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_VAL_DEC), Language::decimal);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_VAL_HEX), Language::hexadecimal);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_DATASIZE), Language::dataSize);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_VAL_8BIT), Language::eightBit);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_VAL_16BIT), Language::sixteenBit);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_SEARCHTYPE), Language::compareNewValueWith);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_CMP_OLDVAL), Language::oldValue);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_CMP_CHANGE), Language::change);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_CMP_SPECIFIC), Language::specificValue);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_SNAPSHOT), Language::snapshot);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_SEARCH), Language::search);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_ADDCHEAT), Language::addCheat);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_UNDO), Language::undo);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_RUNSTOP), GetEmulatorState() == EMULATOR_RUNNING ? Language::pause : Language::run);
         }
 
         updateSearchFields(hDlg);
@@ -768,10 +810,10 @@ static BOOL CALLBACK searchProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
                 char buffer[32];
                 
                 sprintf(buffer, DpyFormat[displayType], cmpChangeVal & DataMask[dataSize]);
-                SetWindowText(GetDlgItem(hDlg, IDC_CMP_VALCHANGE), buffer);
+                SetWindowTextU(GetDlgItem(hDlg, IDC_CMP_VALCHANGE), buffer);
 
                 sprintf(buffer, DpyFormat[displayType], cmpSpecificVal & DataMask[dataSize]);
-                SetWindowText(GetDlgItem(hDlg, IDC_CMP_VALSPECIFIC), buffer);
+                SetWindowTextU(GetDlgItem(hDlg, IDC_CMP_VALSPECIFIC), buffer);
             }
             break;
 
@@ -815,6 +857,24 @@ static BOOL CALLBACK searchProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
     case WM_NOTIFY:
         switch (wParam) {
         case IDC_MEMLIST:
+            /* NM_CUSTOMDRAW: keep rows dark when disabled (EnableWindow FALSE
+            ** otherwise reverts each row to COLOR_WINDOW); dim text when inactive. */
+            if ((((NMHDR*)lParam)->code) == NM_CUSTOMDRAW) {
+                NMLVCUSTOMDRAW* cd = (NMLVCUSTOMDRAW*)lParam;
+                if (cd->nmcd.dwDrawStage == CDDS_PREPAINT) {
+                    SetWindowLongPtr(hDlg, DWLP_MSGRESULT, CDRF_NOTIFYITEMDRAW);
+                    return TRUE;
+                }
+                if (cd->nmcd.dwDrawStage == CDDS_ITEMPREPAINT) {
+                    if (IsDarkMode()) {
+                        BOOL en = IsWindowEnabled(cd->nmcd.hdr.hwndFrom);
+                        cd->clrText   = en ? GetDarkFg() : RGB(128, 128, 128);
+                        cd->clrTextBk = GetDarkBg();
+                    }
+                    SetWindowLongPtr(hDlg, DWLP_MSGRESULT, CDRF_DODEFAULT);
+                    return TRUE;
+                }
+            }
             if ((((NMHDR FAR *)lParam)->code) == LVN_ITEMCHANGED) {
                 HWND hwnd = GetDlgItem(hDlg, IDC_MEMLIST);
 
@@ -846,7 +906,7 @@ static BOOL CALLBACK searchProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
     case WM_CTLCOLORBTN:
     case WM_CTLCOLORSTATIC:
         SetBkColor((HDC)wParam, GetSysColor(COLOR_3DLIGHT));
-        return (BOOL)hBrush;
+        return (INT_PTR)hBrush;
 
     case WM_ERASEBKGND:
         return TRUE;
@@ -943,30 +1003,19 @@ void executeCheats()
 static void addCheat(HWND hwnd, int entry, char* description, bool enable, UInt32 address, 
                      Int32 value, DataSize dataSize, DisplayType displayType)
 {
-    char buffer[512] = {0};
-    LV_ITEM lvi = {0};
+    char buffer[64];
     
-    lvi.mask       = LVIF_TEXT;
-    lvi.iItem      = entry;
-    lvi.pszText    = description;
-	lvi.cchTextMax = 512;
+    ListViewInsertItemU(hwnd, entry, description);
 
-    ListView_InsertItem(hwnd, &lvi);
-    
-    lvi.mask       = LVIF_TEXT;
-    lvi.pszText    = buffer;
-
-    lvi.iSubItem++;
     sprintf(buffer, "%.4X", address);
-    ListView_SetItem(hwnd, &lvi);
+    ListViewSetItemTextU(hwnd, entry, 1, buffer);
     
-    lvi.iSubItem++;
     sprintf(buffer, DpySizeFormat[dataSize][displayType], value);
-    ListView_SetItem(hwnd, &lvi);
+    ListViewSetItemTextU(hwnd, entry, 2, buffer);
 
     ListView_SetCheckState(hwnd, entry, enable);
 
-    SetWindowText(GetDlgItem(hDlgCheats, IDC_ENABLE), enable ? Language::disable : Language::enable);
+    SetWindowTextU(GetDlgItem(hDlgCheats, IDC_ENABLE), enable ? Language::disable : Language::enable);
 }
 
 static void updateCheatList()
@@ -999,7 +1048,7 @@ static bool saveCheatFile(const char* filename)
         return false;
     }
 
-    FILE* f = fopen(filename, "w");
+    FILE* f = fopenU(filename, "w");
     if (f == NULL) {
         return FALSE;
     }
@@ -1029,7 +1078,7 @@ static bool loadCheatFile(const char* filename)
         return false;
     }
 
-    FILE* f = fopen(filename, "r");
+    FILE* f = fopenU(filename, "r");
     if (f == NULL) {
         return FALSE;
     }
@@ -1075,48 +1124,67 @@ static bool loadCheatFile(const char* filename)
 }
 
 
-static BOOL CALLBACK cheatsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static INT_PTR CALLBACK cheatsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     static int currIndex;
 
     switch (iMsg) {
     case WM_INITDIALOG:
         {
+            ApplyDarkMode(hDlg);
             HICON hIcon = LoadIcon(GetDllHinstance(), MAKEINTRESOURCE(IDI_OPEN));
             SendDlgItemMessage(hDlg, IDC_OPEN, BM_SETIMAGE, IMAGE_ICON, (LPARAM)hIcon);
 
             hIcon = LoadIcon(GetDllHinstance(), MAKEINTRESOURCE(IDI_SAVE));
             SendDlgItemMessage(hDlg, IDC_SAVE, BM_SETIMAGE, IMAGE_ICON, (LPARAM)hIcon);
-                        char buffer[32];
-            LV_COLUMN lvc = {0};
-            
 
             HWND hwnd = GetDlgItem(hDlg, IDC_CHEATLIST);
 
             ListView_SetExtendedListViewStyle(hwnd, LVS_EX_FULLROWSELECT | LVS_EX_CHECKBOXES);
 
-            lvc.mask       = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM;
-            lvc.fmt        = LVCFMT_LEFT;
-            lvc.pszText    = buffer;
-	        lvc.cchTextMax = 32;
+            /* DPI-scaled address/value column widths; description fills the
+            ** rest minus SM_CXVSCROLL so it does not jump on scrollbar pop. */
+            {
+                HDC hdc = GetDC(hwnd);
+                int dpi = hdc ? GetDeviceCaps(hdc, LOGPIXELSX) : 96;
+                if (hdc) ReleaseDC(hwnd, hdc);
+                if (dpi <= 0) dpi = 96;
+                int wAddr = MulDiv(80, dpi, 96);
+                int wVal  = MulDiv(60, dpi, 96);
+                RECT rc;
+                GetClientRect(hwnd, &rc);
+                int total = rc.right - rc.left - GetSystemMetrics(SM_CXVSCROLL) - 4;
+                int wDesc = total - wAddr - wVal;
+                if (wDesc < 100) wDesc = 100;
+                ListViewInsertColumnU(hwnd, 0, wDesc, Language::description);
+                ListViewInsertColumnU(hwnd, 1, wAddr, Language::address);
+                ListViewInsertColumnU(hwnd, 2, wVal,  Language::value);
+            }
 
-            sprintf(buffer, Language::description);
-            lvc.cx = 225;
-            ListView_InsertColumn(hwnd, 0, &lvc);
-            sprintf(buffer, Language::address);
-            lvc.cx = 65;
-            ListView_InsertColumn(hwnd, 1, &lvc);
-            sprintf(buffer, Language::value);
-            lvc.cx = 60;
-            ListView_InsertColumn(hwnd, 2, &lvc);
+            darkenListView(hwnd);
 
-            SetWindowText(GetDlgItem(hDlg, IDC_REMOVEALL), Language::removeAll);
-            SetWindowText(GetDlgItem(hDlg, IDC_ADDCHEAT), Language::addCheat);
-            SetWindowText(GetDlgItem(hDlg, IDC_ENABLE), Language::enable);
-            SetWindowText(GetDlgItem(hDlg, IDC_CHEATFILETEXT), Language::cheatFile);
-            SetWindowText(GetDlgItem(hDlg, IDC_REMOVE), Language::remove);
-            SetWindowText(GetDlgItem(hDlg, IDC_ACTIVECHEATS), Language::activeCheats);
-            SetWindowText(GetDlgItem(hDlg, IDC_RUNSTOP), GetEmulatorState() == EMULATOR_RUNNING ? Language::pause : Language::run);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_REMOVEALL), Language::removeAll);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_ADDCHEAT), Language::addCheat);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_ENABLE), Language::enable);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_CHEATFILETEXT), Language::cheatFile);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_REMOVE), Language::remove);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_ACTIVECHEATS), Language::activeCheats);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_RUNSTOP), GetEmulatorState() == EMULATOR_RUNNING ? Language::pause : Language::run);
+
+            /* Path edit: MS UI Gothic for yen-sign separators + subclass that
+            ** shrinks the client rect to text height so the glyph sits in the
+            ** middle of the box instead of top-aligned against the border. */
+            {
+                HWND hPath = GetDlgItem(hDlg, IDC_FILENAME);
+                SendMessageW(hPath, WM_SETFONT, (WPARAM)getPathFont(hDlg),
+                             MAKELPARAM(TRUE, 0));
+                SetWindowSubclass(hPath, trainerPathEditProc,
+                                  TRAINER_PATH_EDIT_SUBCLASS_ID, 0);
+                /* Trigger WM_NCCALCSIZE recompute now that the new font /
+                ** subclass are in place. */
+                SetWindowPos(hPath, NULL, 0, 0, 0, 0,
+                             SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+            }
         }
 
         return FALSE;
@@ -1127,7 +1195,7 @@ static BOOL CALLBACK cheatsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
             {
                 char* filename = cheatFileDialog(hDlg, ".mcf", false);
                 if (loadCheatFile(filename)) {
-                    SetWindowText(GetDlgItem(hDlg, IDC_FILENAME), filename);
+                    SetWindowTextU(GetDlgItem(hDlg, IDC_FILENAME), filename);
                     updateCheatList();
                     updateButtons();
                 }
@@ -1135,7 +1203,7 @@ static BOOL CALLBACK cheatsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
             break;
 
         case IDC_REMOVEALL:
-            SetWindowText(GetDlgItem(hDlg, IDC_FILENAME), "");
+            SetWindowTextU(GetDlgItem(hDlg, IDC_FILENAME), "");
             clearAllCheats();
             updateCheatList();
             updateButtons();
@@ -1185,7 +1253,7 @@ static BOOL CALLBACK cheatsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
                     int index = ListView_GetNextItem(hwnd, -1, LVNI_SELECTED);
                     bool enable = !ListView_GetCheckState(hwnd, index);
                     ListView_SetCheckState(hwnd, index, enable);
-                    SetWindowText(GetDlgItem(hDlgCheats, IDC_ENABLE), enable ? Language::disable : Language::enable);
+                    SetWindowTextU(GetDlgItem(hDlgCheats, IDC_ENABLE), enable ? Language::disable : Language::enable);
                     updateEnableCheat(index, enable);
                 }
             }
@@ -1203,6 +1271,22 @@ static BOOL CALLBACK cheatsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
     case WM_NOTIFY:
         switch (wParam) {
         case IDC_CHEATLIST:
+            if ((((NMHDR*)lParam)->code) == NM_CUSTOMDRAW) {
+                NMLVCUSTOMDRAW* cd = (NMLVCUSTOMDRAW*)lParam;
+                if (cd->nmcd.dwDrawStage == CDDS_PREPAINT) {
+                    SetWindowLongPtr(hDlg, DWLP_MSGRESULT, CDRF_NOTIFYITEMDRAW);
+                    return TRUE;
+                }
+                if (cd->nmcd.dwDrawStage == CDDS_ITEMPREPAINT) {
+                    if (IsDarkMode()) {
+                        BOOL en = IsWindowEnabled(cd->nmcd.hdr.hwndFrom);
+                        cd->clrText   = en ? GetDarkFg() : RGB(128, 128, 128);
+                        cd->clrTextBk = GetDarkBg();
+                    }
+                    SetWindowLongPtr(hDlg, DWLP_MSGRESULT, CDRF_DODEFAULT);
+                    return TRUE;
+                }
+            }
             if ((((NMHDR FAR *)lParam)->code) == LVN_ITEMCHANGED) {
                 HWND hwnd = GetDlgItem(hDlg, IDC_CHEATLIST);
 
@@ -1212,7 +1296,7 @@ static BOOL CALLBACK cheatsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
                     if (currIndex == -1 && index != -1) {
                         canRemoveCheat = true;
                         bool enable = ListView_GetCheckState(hwnd, index) ? true : false;
-                        SetWindowText(GetDlgItem(hDlgCheats, IDC_ENABLE), enable ? Language::disable : Language::enable);
+                        SetWindowTextU(GetDlgItem(hDlgCheats, IDC_ENABLE), enable ? Language::disable : Language::enable);
                         updateButtons();
                     }
                     currIndex = index;
@@ -1228,7 +1312,7 @@ static BOOL CALLBACK cheatsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
                 int index = ((NMLISTVIEW FAR *)lParam)->iItem;
                 if (index != -1) {
                     bool enable = ListView_GetCheckState(hwnd, index) != 0;
-                    SetWindowText(GetDlgItem(hDlgCheats, IDC_ENABLE), enable ? Language::disable : Language::enable);
+                    SetWindowTextU(GetDlgItem(hDlgCheats, IDC_ENABLE), enable ? Language::disable : Language::enable);
                     updateEnableCheat(index, enable);
                 }
             }
@@ -1257,7 +1341,7 @@ static BOOL CALLBACK cheatsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
     case WM_CTLCOLORBTN:
     case WM_CTLCOLORSTATIC:
         SetBkColor((HDC)wParam, GetSysColor(COLOR_3DLIGHT));
-        return (BOOL)hBrush;
+        return (INT_PTR)hBrush;
 
     case WM_ERASEBKGND:
         return TRUE;
@@ -1266,38 +1350,39 @@ static BOOL CALLBACK cheatsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
 }
 
 ////////////////////////////////////////////////////////////////////////
-static BOOL CALLBACK cheatDialogProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static INT_PTR CALLBACK cheatDialogProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     static CheatInfo* ci;
 
     switch (iMsg) {
     case WM_INITDIALOG:
         {
+            ApplyDarkMode(hDlg);
             char buffer[32];
             ci = (CheatInfo*)lParam;
 
             sprintf(buffer, "%.4X", ci->address);
-            SetWindowText(GetDlgItem(hDlg, IDC_ADDRESSEDIT), buffer);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_ADDRESSEDIT), buffer);
             sprintf(buffer, DpySizeFormat[ci->dataSize][ci->displayType], ci->value);
-            SetWindowText(GetDlgItem(hDlg, IDC_VALUEEDIT), buffer);
-            SetWindowText(GetDlgItem(hDlg, IDC_DESCRIPTIONEDIT), ci->description);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_VALUEEDIT), buffer);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_DESCRIPTIONEDIT), ci->description);
             
             setBtCheck(hDlg, IDC_VAL_DEC, ci->displayType == DPY_DECIMAL);
             setBtCheck(hDlg, IDC_VAL_HEX, ci->displayType == DPY_HEXADECIMAL);            
             setBtCheck(hDlg, IDC_VAL_8BIT,  ci->dataSize == DATASIZE_8BIT);
             setBtCheck(hDlg, IDC_VAL_16BIT, ci->dataSize == DATASIZE_16BIT);
 
-            SetWindowText(GetDlgItem(hDlg, IDOK), Language::ok);
-            SetWindowText(GetDlgItem(hDlg, IDCANCEL), Language::cancel);
-            SetWindowText(GetDlgItem(hDlg, IDC_DESCRIPTIONTEXT), Language::description);
-            SetWindowText(GetDlgItem(hDlg, IDC_ADDRESSTEXT), Language::address);
-            SetWindowText(GetDlgItem(hDlg, IDC_VALUETEXT), Language::value);
-            SetWindowText(GetDlgItem(hDlg, IDC_DISPLAY), Language::displayValueAs);
-            SetWindowText(GetDlgItem(hDlg, IDC_VAL_DEC), Language::decimal);
-            SetWindowText(GetDlgItem(hDlg, IDC_VAL_HEX), Language::hexadecimal);
-            SetWindowText(GetDlgItem(hDlg, IDC_DATASIZE), Language::dataSize);
-            SetWindowText(GetDlgItem(hDlg, IDC_VAL_8BIT), Language::eightBit);
-            SetWindowText(GetDlgItem(hDlg, IDC_VAL_16BIT), Language::sixteenBit);
+            SetWindowTextU(GetDlgItem(hDlg, IDOK), Language::ok);
+            SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), Language::cancel);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_DESCRIPTIONTEXT), Language::description);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_ADDRESSTEXT), Language::address);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_VALUETEXT), Language::value);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_DISPLAY), Language::displayValueAs);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_VAL_DEC), Language::decimal);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_VAL_HEX), Language::hexadecimal);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_DATASIZE), Language::dataSize);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_VAL_8BIT), Language::eightBit);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_VAL_16BIT), Language::sixteenBit);
         }
         return FALSE;
 
@@ -1337,7 +1422,7 @@ static BOOL CALLBACK cheatDialogProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM
             {
                 char buffer[32];
                 sprintf(buffer, DpySizeFormat[ci->dataSize][ci->displayType], ci->value);
-                SetWindowText(GetDlgItem(hDlg, IDC_VALUEEDIT), buffer);
+                SetWindowTextU(GetDlgItem(hDlg, IDC_VALUEEDIT), buffer);
             }
             break;
         }
@@ -1365,13 +1450,83 @@ bool showCheatDialog(CheatInfo* ci)
 
 ////////////////////////////////////////////////////////////////////////
 
-static BOOL CALLBACK trainerProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+/* Stretch blueTrainer.bmp (432x63) to dialog width, shift IDC_TAB / grow
+** the dialog to fit.  Caller frees the previous STM_SETIMAGE bitmap. */
+static void scaleTrainerHeaderBitmap(HWND hDlg)
+{
+    const int origW = 432;
+    const int origH = 63;
+
+    HWND hHdr = GetDlgItem(hDlg, IDC_HEADERBMP);
+    if (!hHdr) return;
+
+    RECT clientRc;
+    GetClientRect(hDlg, &clientRc);
+    int targetW = clientRc.right;
+    if (targetW <= 0) return;
+    int targetH = MulDiv(targetW, origH, origW);
+
+    /* Snapshot current static height (SS_BITMAP auto-fits to the bitmap's
+    ** natural pixel size at this point) so we can compute the layout shift. */
+    RECT bmpRc;
+    GetWindowRect(hHdr, &bmpRc);
+    int prevH = bmpRc.bottom - bmpRc.top;
+
+    HBITMAP hSrc = LoadBitmap(GetDllHinstance(), MAKEINTRESOURCE(IDB_TRAINER));
+    if (!hSrc) return;
+
+    HDC hScreen = GetDC(NULL);
+    HDC hSrcDc  = CreateCompatibleDC(hScreen);
+    HDC hDstDc  = CreateCompatibleDC(hScreen);
+    HBITMAP hDst = CreateCompatibleBitmap(hScreen, targetW, targetH);
+    HGDIOBJ oldSrc = SelectObject(hSrcDc, hSrc);
+    HGDIOBJ oldDst = SelectObject(hDstDc, hDst);
+    SetStretchBltMode(hDstDc, HALFTONE);
+    SetBrushOrgEx(hDstDc, 0, 0, NULL);
+    StretchBlt(hDstDc, 0, 0, targetW, targetH, hSrcDc, 0, 0, origW, origH, SRCCOPY);
+    SelectObject(hSrcDc, oldSrc);
+    SelectObject(hDstDc, oldDst);
+    DeleteDC(hSrcDc);
+    DeleteDC(hDstDc);
+    DeleteObject(hSrc);
+    ReleaseDC(NULL, hScreen);
+
+    HBITMAP hPrev = (HBITMAP)SendMessage(hHdr, STM_SETIMAGE, IMAGE_BITMAP, (LPARAM)hDst);
+    if (hPrev) DeleteObject(hPrev);
+
+    SetWindowPos(hHdr, NULL, 0, 0, targetW, targetH,
+                 SWP_NOZORDER | SWP_NOACTIVATE);
+
+    int deltaY = targetH - prevH;
+    if (deltaY != 0) {
+        HWND hTab = GetDlgItem(hDlg, IDC_TAB);
+        if (hTab) {
+            RECT tabRc;
+            GetWindowRect(hTab, &tabRc);
+            POINT pt = { tabRc.left, tabRc.top };
+            ScreenToClient(hDlg, &pt);
+            SetWindowPos(hTab, NULL, pt.x, pt.y + deltaY, 0, 0,
+                         SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+        }
+        RECT dlgRc;
+        GetWindowRect(hDlg, &dlgRc);
+        SetWindowPos(hDlg, NULL, 0, 0,
+                     dlgRc.right - dlgRc.left,
+                     (dlgRc.bottom - dlgRc.top) + deltaY,
+                     SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+    }
+}
+
+static INT_PTR CALLBACK trainerProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (iMsg) {
     case WM_INITDIALOG:
+        ApplyDarkMode(hDlg);
         if (hBrush == NULL) {
             hBrush = CreateSolidBrush(GetSysColor(COLOR_3DLIGHT));
         }
+
+        scaleTrainerHeaderBitmap(hDlg);
 
         hDlgSearch  = CreateDialog(GetDllHinstance(), MAKEINTRESOURCE(IDD_SEARCH),  GetDlgItem(hDlg, IDC_TAB), searchProc);
         SetWindowPos(hDlgSearch,  NULL, 3, 24, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
@@ -1382,13 +1537,9 @@ static BOOL CALLBACK trainerProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPa
         ShowWindow(hDlgCheats, SW_NORMAL);
 
         {
-            TCITEM tcItem = { TCIF_TEXT, 0, 0, 0, 0, -1, 0 };
-
-            tcItem.pszText = (LPSTR)Language::activeCheats;
-            TabCtrl_InsertItem(GetDlgItem(hDlg, IDC_TAB), 0, &tcItem);
-            
-            tcItem.pszText = (LPSTR)Language::findCheats;
-            TabCtrl_InsertItem(GetDlgItem(hDlg, IDC_TAB), 1, &tcItem);
+            HWND hTab = GetDlgItem(hDlg, IDC_TAB);
+            TabInsertItemU(hTab, 0, Language::activeCheats);
+            TabInsertItemU(hTab, 1, Language::findCheats);
         }
 
         SetTimer(hDlg, CHEAT_TIMER_ID, 100, 0);
@@ -1425,6 +1576,16 @@ static BOOL CALLBACK trainerProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPa
         hasSnapshot = false;
         ShowWindow(dbgHwnd, SW_HIDE); 
         return TRUE;
+
+    case WM_DESTROY:
+        {
+            HWND hHdr = GetDlgItem(hDlg, IDC_HEADERBMP);
+            if (hHdr) {
+                HBITMAP h = (HBITMAP)SendMessage(hHdr, STM_GETIMAGE, IMAGE_BITMAP, 0);
+                if (h) DeleteObject(h);
+            }
+        }
+        return FALSE;
     }
     return FALSE;
 }

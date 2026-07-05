@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -27,6 +30,7 @@
 */
 #include "ThemeControls.h"
 #include "ArchBitmap.h"
+#include <basetsd.h>
 #include "ArchNotifications.h"
 #include "ArchText.h"
 #include "MsxTypes.h"
@@ -175,11 +179,11 @@ struct ActiveButton {
     UInt32 width;
     UInt32 height;
     ButtonEvent event;
-    int arg1;
-    int arg2;
+    LONG_PTR arg1;
+    LONG_PTR arg2;
 };
 
-ActiveButton* activeButtonCreate(int x, int y, int cols, int activeNotify, ArchBitmap* bitmap, ButtonEvent event, int arg1, int arg2)
+ActiveButton* activeButtonCreate(int x, int y, int cols, int activeNotify, ArchBitmap* bitmap, ButtonEvent event, LONG_PTR arg1, LONG_PTR arg2)
 {
     ActiveButton* activeButton = malloc(sizeof(ActiveButton));
 
@@ -338,17 +342,17 @@ struct ActiveDualButton {
     UInt32 widthB;
     UInt32 heightB;
     ButtonEvent eventA;
-    int argA1;
-    int argA2;
+    LONG_PTR argA1;
+    LONG_PTR argA2;
     ButtonEvent eventB;
-    int argB1;
-    int argB2;
+    LONG_PTR argB1;
+    LONG_PTR argB2;
     int vertical;
 };
 
 ActiveDualButton* activeDualButtonCreate(int x, int y, int cols, int activeNotify, ArchBitmap* bitmap, 
-                                          ButtonEvent eventA, int argA1, int argA2, 
-                                          ButtonEvent eventB, int argB1, int argB2, int vertical)
+                                          ButtonEvent eventA, LONG_PTR argA1, LONG_PTR argA2,
+                                          ButtonEvent eventB, LONG_PTR argB1, LONG_PTR argB2, int vertical)
 {
     ActiveDualButton* activeButton = malloc(sizeof(ActiveDualButton));
 
@@ -523,11 +527,11 @@ struct ActiveToggleButton {
     UInt32 width;
     UInt32 height;
     ButtonEvent event;
-    int arg1;
-    int arg2;
+    LONG_PTR arg1;
+    LONG_PTR arg2;
 };
 
-ActiveToggleButton* activeToggleButtonCreate(int x, int y, int cols, int activeNotify, ArchBitmap* bitmap, ButtonEvent event, int arg1, int arg2)
+ActiveToggleButton* activeToggleButtonCreate(int x, int y, int cols, int activeNotify, ArchBitmap* bitmap, ButtonEvent event, LONG_PTR arg1, LONG_PTR arg2)
 {
     ActiveToggleButton* activeButton = malloc(sizeof(ActiveToggleButton));
 
@@ -817,7 +821,7 @@ int activeTextSetText(ActiveText* activeText, const char* string)
         return activeNativeTextSetText(activeText->nativeText, string);
     }
     
-    count = strlen(string);
+    count = (int)strlen(string);
     if (count > activeText->size) {
         count = activeText->size;
     }
@@ -925,8 +929,8 @@ struct ActiveSlider {
     UInt32 width;
     UInt32 height;
     ButtonEvent upEvent;
-    int arg1;
-    int arg2;
+    LONG_PTR arg1;
+    LONG_PTR arg2;
     SliderEvent event;
     int index;
     int count;
@@ -939,7 +943,7 @@ struct ActiveSlider {
 
 ActiveSlider* activeSliderCreate(int x, int y, int cols, ArchBitmap* bitmap, SliderEvent event, int count,
                                  AsDirection direction, int sensitivity,
-                                 ButtonEvent upEvent, int arg1, int arg2)
+                                 ButtonEvent upEvent, LONG_PTR arg1, LONG_PTR arg2)
 {
     ActiveSlider* activeSlider = malloc(sizeof(ActiveSlider));
 
@@ -1028,6 +1032,23 @@ int activeSliderUp(ActiveSlider* activeSlider, int x, int y)
         }
     }    
     return 0;
+}
+
+int activeSliderHitTest(ActiveSlider* activeSlider, int x, int y)
+{
+    if (!activeImageIsVisible(activeSlider->bitmap)) {
+        return 0;
+    }
+    return (UInt32)(x - activeSlider->x) < activeSlider->width &&
+           (UInt32)(y - activeSlider->y) < activeSlider->height;
+}
+
+int activeSliderGetPercent(ActiveSlider* activeSlider)
+{
+    if (activeSlider->count <= 1) {
+        return 0;
+    }
+    return activeSlider->index * 100 / (activeSlider->count - 1);
 }
 
 int activeSliderMouseMove(ActiveSlider* activeSlider, int x, int y)
@@ -1184,15 +1205,15 @@ struct ActiveObject
     int y;
     int width;
     int height;
-    int arg1;
-    int arg2;
+    LONG_PTR arg1;
+    LONG_PTR arg2;
     void* object;
 };
 
-void* archObjectCreate(char* id, void* window, int x, int y, int width, int height, int arg1, int arg2);
+void* archObjectCreate(char* id, void* window, int x, int y, int width, int height, LONG_PTR arg1, LONG_PTR arg2);
 void archObjectDestroy(char* id, void* object);
 
-ActiveObject* activeObjectCreate(int x, int y, int width, int height, const char* id, int arg1, int arg2)
+ActiveObject* activeObjectCreate(int x, int y, int width, int height, const char* id, LONG_PTR arg1, LONG_PTR arg2)
 {
     ActiveObject* activeObject = malloc(sizeof(ActiveObject));
 

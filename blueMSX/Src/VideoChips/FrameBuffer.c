@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -511,7 +514,7 @@ static FrameBuffer* mixFrame(FrameBuffer* d, FrameBuffer* a, FrameBuffer* b, int
 
     if (d == NULL) {
         if (dst == NULL) {
-            dst = (FrameBuffer*)malloc(sizeof(FrameBuffer));
+            dst = (FrameBuffer*)calloc(1, sizeof(FrameBuffer));
         }
         d = dst;
     }
@@ -527,9 +530,10 @@ static FrameBuffer* mixFrame(FrameBuffer* d, FrameBuffer* a, FrameBuffer* b, int
         return b;
     }
 
-    d->lines = a->lines;
-    d->interlace = a->interlace;
-    d->maxWidth = a->maxWidth;
+    d->lines           = a->lines;
+    d->interlace       = a->interlace;
+    d->interlaceRaster = a->interlaceRaster;
+    d->maxWidth        = a->maxWidth;
 
     for (y = 0; y < a->lines; y++) {
         int width = a->line[y].doubleWidth ? a->maxWidth: a->maxWidth / 2;
@@ -569,14 +573,15 @@ static FrameBuffer* mixFrameInterlace(FrameBuffer* d, FrameBuffer* a, FrameBuffe
 
     if (d == NULL) {
         if (dst == NULL) {
-            dst = (FrameBuffer*)malloc(sizeof(FrameBuffer));
+            dst = (FrameBuffer*)calloc(1, sizeof(FrameBuffer));
         }
         d = dst;
     }
 
-    d->lines     = a->lines * 2;
-    d->interlace = INTERLACE_NONE;
-    d->maxWidth  = a->maxWidth;
+    d->lines           = a->lines * 2;
+    d->interlace       = INTERLACE_NONE;
+    d->interlaceRaster = a->interlaceRaster;
+    d->maxWidth        = a->maxWidth;
 
     if (p == 0x20) { p = 0x1f; n = 1; }
     if (n == 0x20) { n = 0x1f; p = 1; }

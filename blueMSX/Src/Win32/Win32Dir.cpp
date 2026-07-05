@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -25,82 +28,16 @@
 **
 ******************************************************************************
 */
-#ifndef __WINCRYPT_H__
-#define __WINCRYPT_H__
-#endif
+#include <windows.h>
+#include "Win32FileDialog.h"
 
-#include <windows.h> 
-#include <shlobj.h> 
-#include <objbase.h> 
-
-
-static bool initialized = false;
-static char* defaultDirectory;
-
-static int CALLBACK browseCallbackProc(HWND hwnd, UINT uMsg, LPARAM lParam, LPARAM lpData)
+/* Folder picker: forwards to ShellPickFolderDialog (IFileOpenDialog
+** with FOS_PICKFOLDERS). */
+extern "C" char* openDir(HWND hwnd, char* pTitle, char* defDir)
 {
-    switch (uMsg) {
-    case BFFM_INITIALIZED:
-#if 0
-        HWND cbohWnd = CreateWindow("COMBOBOX", NULL, CBS_DROPDOWNLIST|WS_VSCROLL|CBS_AUTOHSCROLL|WS_CHILD|WS_VISIBLE,
-            17, 30, 286, 150, hwnd, (HMENU)1005, (HINSTANCE) GetWindowLong(hwnd, GWL_HINSTANCE), NULL); 
-
-        SendMessage(cbohWnd, CB_RESETCONTENT, 0, 0);
-        SendMessage(cbohWnd, CB_ADDSTRING, 0, (LPARAM)"MSX 3.5\" DSDD");
-        SendMessage(cbohWnd, CB_ADDSTRING, 0, (LPARAM)"MSX2 CP/M 3.0 DSDD");
-        SendMessage(cbohWnd, CB_ADDSTRING, 0, (LPARAM)"MSX2 CP/M 3.0 SSDD");
-        SendMessage(cbohWnd, CB_ADDSTRING, 0, (LPARAM)"SVI-328 CP/M 2.24 DSDD");
-        SendMessage(cbohWnd, CB_ADDSTRING, 0, (LPARAM)"SVI-328 CP/M 2.24 SSDD");
-        SendMessage(cbohWnd, CB_ADDSTRING, 0, (LPARAM)"SVI-328 Disk Basic DSDD");
-        SendMessage(cbohWnd, CB_ADDSTRING, 0, (LPARAM)"SVI-328 Disk Basic SSDD");
-        SendMessage(cbohWnd, CB_ADDSTRING, 0, (LPARAM)"SVI-328 Z-CPR3 DSDD");
-        SendMessage(cbohWnd, CB_ADDSTRING, 0, (LPARAM)"SVI-738 CP/M 2.28 SSDD");
-        SendMessage(cbohWnd, CB_SETCURSEL, 0, 0);
-
-#endif
-        if (*defaultDirectory) {
-            SendMessage(hwnd, BFFM_SETSELECTION, 1, (LPARAM)defaultDirectory);
-        }
-        break;
+    static char pFileName[MAX_PATH * 4];
+    if (!ShellPickFolderDialog(hwnd, pTitle, defDir, pFileName, sizeof(pFileName))) {
+        return NULL;
     }
-    return 0;
+    return pFileName;
 }
-
-
-extern "C" char* openDir(HWND hwnd, char* pTitle, char* defDir) { 
-    static char pFileName[MAX_PATH];
-    LPMALLOC pMalloc; 
-    BROWSEINFO bi; 
-    char* pBuffer = pFileName; 
-    LPITEMIDLIST pidl; 
-
-    defaultDirectory = defDir;
-
-	if (!initialized) {
-		initialized = true;
-	}
-
-    /* Gets the Shell's default allocator */ 
-    if (SHGetMalloc(&pMalloc) != NOERROR) { 
-        return NULL; 
-    } 
-
-    bi.hwndOwner = hwnd; 
-    bi.pidlRoot = NULL; 
-    bi.pszDisplayName = pBuffer; 
-    bi.lpszTitle = pTitle; 
-    bi.ulFlags = BIF_RETURNFSANCESTORS | BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE; 
-    bi.lpfn = browseCallbackProc; 
-    bi.lParam = 0; 
-    
-    if ((pidl = SHBrowseForFolder(&bi)) != NULL) { 
-        if (!SHGetPathFromIDList(pidl, pBuffer)) { 
-            pBuffer = NULL; 
-        } 
-        pMalloc->Free(pidl); 
-    } 
-
-    pMalloc->Release(); 
-
-    return pBuffer; 
-} 

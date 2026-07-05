@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -45,6 +48,7 @@
 #include "VideoRender.h"
 #include "CommandLine.h"
 #include "Language.h"   
+#include "SaveState.h"
 #include "resource.h"
 #include "Casette.h"
 #include "PrinterIO.h"
@@ -52,7 +56,6 @@
 #include "MidiIO.h"
 #include "RomLoader.h"
 #include "MediaDb.h"
-#include "build_number.h"
 #include "FrameBuffer.h"
 #include "Win32Midi.h"
 #include "Win32Sound.h"
@@ -62,16 +65,21 @@
 #include "Win32keyboard.h"
 #include "Win32Printer.h"
 #include "Win32directx.h"
-#include "Win32D3D.h"
-#include "Win32Avi.h"
+#include "Win32D3D12.h"
+#include "Win32Recorder.h"
 #include "FileHistory.h"
 #include "Win32Dir.h"
 #include "Win32file.h"
 #include "Win32Help.h"
 #include "Win32Menu.h"
+#include "Win32FileDialog.h"
+#include "Win32TextUtf8.h"
+#include "ArchMenu.h"
+#include "StrcmpNoCase.h"
 #include "Win32Eth.h"
 #include "Win32VideoIn.h"
 #include "Win32ScreenShot.h"
+#include "Win32Toast.h"
 #include "Win32MouseEmu.h"
 #include "Win32machineConfig.h"
 #include "Win32ShortcutsConfig.h"
@@ -94,11 +102,840 @@
 #include "SlotManager.h"
 
 #pragma warning(disable: 4996)
+#pragma comment(lib, "dwmapi.lib")
 
 // PacketFileSystem.h Need to be included after all other includes
 #include "PacketFileSystem.h"
+#include <dwmapi.h>
+#include <uxtheme.h>
+
+#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
+#define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+#endif
+
+/* Dark mode palette: matches Windows 11 / Explorer dark theme background and
+** controls; tuned to keep contrast against system-rendered focus rings and
+** modal scrollbars. */
+#define DARK_BG       RGB( 32,  32,  32)
+#define DARK_FG       RGB(240, 240, 240)
+#define DARK_EDIT_BG  RGB( 48,  48,  48)
+
+#define WIN32_DARK_SUBCLASS_ID 0xD8B41
 
 void vdpSetDisplayEnable(int enable);
+
+static HBRUSH  s_darkBkBrush   = NULL;
+static HBRUSH  s_darkEditBrush = NULL;
+
+/* Cached AppsUseLightTheme (-1 = unprobed): per-message registry reads
+** froze message floods for ~2 s.  Invalidated on WM_SETTINGCHANGE
+** "ImmersiveColorSet". */
+static volatile LONG g_darkModeCached = -1;
+
+void win32InvalidateDarkModeCache(void) {
+    g_darkModeCached = -1;
+}
+
+static BOOL win32IsDarkMode(void) {
+    DWORD value = 1;
+    DWORD size = sizeof(value);
+    DWORD type = REG_DWORD;
+    HKEY hKey;
+    LONG cached = g_darkModeCached;
+    if (cached >= 0) return (BOOL)cached;
+
+    if (RegOpenKeyExW(HKEY_CURRENT_USER,
+            L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+            0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+        RegQueryValueExW(hKey, L"AppsUseLightTheme", NULL, &type, (LPBYTE)&value, &size);
+        RegCloseKey(hKey);
+    }
+    g_darkModeCached = (value == 0) ? 1 : 0;
+    return value == 0;
+}
+
+/* Opt the app into uxtheme dark mode via undocumented ordinals:
+   1809 = 132 (AllowDarkModeForApp), 1903+ = 135 (SetPreferredAppMode) +
+   104 (RefreshImmersiveColorPolicyState). Required for IFileDialog and
+   common-menu dark theming on first show. */
+typedef enum {
+    BLUEMSX_AppMode_Default = 0,
+    BLUEMSX_AppMode_AllowDark = 1,
+    BLUEMSX_AppMode_ForceDark = 2,
+    BLUEMSX_AppMode_ForceLight = 3
+} BLUEMSX_PREFERREDAPPMODE;
+
+static void win32EnableDarkModeForApp(void) {
+    HMODULE huxtheme;
+    DWORD build = 0;
+    BOOL dark = win32IsDarkMode();
+
+    /* RtlGetVersion: GetVersionEx caps to 6.2 with our Win10/11 manifest. */
+    {
+        HMODULE hntdll = GetModuleHandleW(L"ntdll.dll");
+        if (hntdll) {
+            typedef LONG (WINAPI *PFN_RtlGetVersion)(POSVERSIONINFOW);
+            PFN_RtlGetVersion p = (PFN_RtlGetVersion)GetProcAddress(hntdll, "RtlGetVersion");
+            if (p) {
+                OSVERSIONINFOW os;
+                ZeroMemory(&os, sizeof(os));
+                os.dwOSVersionInfoSize = sizeof(os);
+                if (p(&os) == 0) build = os.dwBuildNumber;
+            }
+        }
+    }
+
+    huxtheme = LoadLibraryExW(L"uxtheme.dll", NULL, LOAD_LIBRARY_SEARCH_SYSTEM32);
+    if (!huxtheme) return;
+
+    /* ForceDark/ForceLight (not AllowDark) so out-of-process IFileDialog
+       shell content and popup menus follow the same polarity as the app. */
+    if (build >= 18362) {
+        typedef int (WINAPI *PFN_SetPreferredAppMode)(BLUEMSX_PREFERREDAPPMODE);
+        PFN_SetPreferredAppMode p =
+            (PFN_SetPreferredAppMode)GetProcAddress(huxtheme, MAKEINTRESOURCEA(135));
+        if (p) p(dark ? BLUEMSX_AppMode_ForceDark : BLUEMSX_AppMode_ForceLight);
+    } else if (build >= 17763) {
+        typedef BOOL (WINAPI *PFN_AllowDarkModeForApp)(BOOL);
+        PFN_AllowDarkModeForApp p =
+            (PFN_AllowDarkModeForApp)GetProcAddress(huxtheme, MAKEINTRESOURCEA(132));
+        if (p) p(dark);
+    }
+
+    {
+        typedef void (WINAPI *PFN_RefreshImmersiveColorPolicyState)(void);
+        PFN_RefreshImmersiveColorPolicyState p =
+            (PFN_RefreshImmersiveColorPolicyState)GetProcAddress(huxtheme,
+                                                                  MAKEINTRESOURCEA(104));
+        if (p) p();
+    }
+    {
+        /* uxtheme!FlushMenuThemes (ordinal 136): reset cached menu theme so
+        ** the new app mode takes effect on subsequently opened menus and
+        ** common dialogs without needing a focus-change repaint. */
+        typedef void (WINAPI *PFN_FlushMenuThemes)(void);
+        PFN_FlushMenuThemes p =
+            (PFN_FlushMenuThemes)GetProcAddress(huxtheme, MAKEINTRESOURCEA(136));
+        if (p) p();
+    }
+    /* Keep the library loaded; uxtheme uses its own globals after this. */
+}
+
+static void win32ApplyDarkTitle(HWND hwnd) {
+    BOOL dark = win32IsDarkMode();
+    DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark, sizeof(dark));
+}
+
+/* uxtheme!AllowDarkModeForWindow (ordinal 133): needed on top of
+** SetPreferredAppMode so IFileDialog parts go dark on first show. */
+static void win32AllowDarkForWindow(HWND hwnd, BOOL allow) {
+    HMODULE huxtheme = GetModuleHandleW(L"uxtheme.dll");
+    if (!huxtheme) return;
+    {
+        typedef BOOL (WINAPI *PFN_AllowDarkModeForWindow)(HWND, BOOL);
+        PFN_AllowDarkModeForWindow p =
+            (PFN_AllowDarkModeForWindow)GetProcAddress(huxtheme, MAKEINTRESOURCEA(133));
+        if (p) p(hwnd, allow);
+    }
+}
+
+
+
+static HBRUSH win32GetDarkBkBrush(void) {
+    if (!s_darkBkBrush) s_darkBkBrush = CreateSolidBrush(DARK_BG);
+    return s_darkBkBrush;
+}
+
+/* Public dark-mode helpers (declared in Win32Common.h) used by custom-paint
+** child controls (msctls_hotkey32 etc.) that miss the WM_CTLCOLOR* path. */
+BOOL win32CommonIsDarkMode(void) { return win32IsDarkMode(); }
+COLORREF win32CommonDarkBg(void) { return DARK_BG; }
+COLORREF win32CommonDarkFg(void) { return DARK_FG; }
+HBRUSH   win32CommonDarkBgBrush(void) { return win32GetDarkBkBrush(); }
+
+/* Forward declared so this wrapper can sit alongside the other public dark
+** helpers; the actual win32ApplyDarkToDialog body is later in this file. */
+static void win32ApplyDarkToDialog(HWND hwnd);
+void win32CommonApplyDark(HWND hDlg) { win32ApplyDarkToDialog(hDlg); }
+
+void win32CommonCenterOnOwner(HWND hDlg)
+{
+    HWND owner = GetWindow(hDlg, GW_OWNER);
+    if (!owner) owner = getMainHwnd();
+    if (!owner) return;
+
+    RECT dr, orect;
+    if (!GetWindowRect(hDlg, &dr))     return;
+    if (!GetWindowRect(owner, &orect)) return;
+
+    int dlgW = dr.right     - dr.left;
+    int dlgH = dr.bottom    - dr.top;
+    int ownW = orect.right  - orect.left;
+    int ownH = orect.bottom - orect.top;
+
+    int x = orect.left + (ownW - dlgW) / 2;
+    int y = orect.top  + (ownH - dlgH) / 2;
+
+    /* Clamp into the work area of the monitor containing the owner so the
+    ** dialog can't slip off-screen when the main window is partially off
+    ** an edge. */
+    HMONITOR mon = MonitorFromWindow(owner, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO mi;
+    mi.cbSize = sizeof(mi);
+    if (GetMonitorInfoW(mon, &mi)) {
+        if (x + dlgW > mi.rcWork.right)  x = mi.rcWork.right  - dlgW;
+        if (y + dlgH > mi.rcWork.bottom) y = mi.rcWork.bottom - dlgH;
+        if (x < mi.rcWork.left)          x = mi.rcWork.left;
+        if (y < mi.rcWork.top)           y = mi.rcWork.top;
+    }
+    SetWindowPos(hDlg, NULL, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+}
+
+static HBRUSH win32GetDarkEditBrush(void) {
+    if (!s_darkEditBrush) s_darkEditBrush = CreateSolidBrush(DARK_EDIT_BG);
+    return s_darkEditBrush;
+}
+
+#define WIN32_DARK_TAB_SUBCLASS_ID      0xD8B42
+#define WIN32_DARK_GROUPBOX_SUBCLASS_ID 0xD8B43
+#define WIN32_DARK_HEADER_SUBCLASS_ID   0xD8B44
+
+/* Tab control WM_PAINT subclass: NM_CUSTOMDRAW is unreliable for
+** PropSheet tabs, so own the full painting cycle instead. */
+static LRESULT CALLBACK win32DarkTabSubclassProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp,
+                                                 UINT_PTR id, DWORD_PTR data) {
+    (void)data;
+    if (win32IsDarkMode()) {
+        switch (msg) {
+        case WM_ERASEBKGND:
+            return 1; /* paint in WM_PAINT */
+        case WM_PAINT: {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hwnd, &ps);
+            RECT rcClient;
+            int count, sel, i;
+            HFONT hFont = (HFONT)SendMessageW(hwnd, WM_GETFONT, 0, 0);
+            HFONT hOld  = hFont ? (HFONT)SelectObject(hdc, hFont) : NULL;
+
+            GetClientRect(hwnd, &rcClient);
+            FillRect(hdc, &rcClient, win32GetDarkBkBrush());
+
+            count = TabCtrl_GetItemCount(hwnd);
+            sel   = TabCtrl_GetCurSel(hwnd);
+            SetBkMode(hdc, TRANSPARENT);
+            SetTextColor(hdc, DARK_FG);
+            for (i = 0; i < count; i++) {
+                RECT rcItem;
+                wchar_t buf[256];
+                TCITEMW tci = {0};
+                HBRUSH bg = (i == sel) ? win32GetDarkEditBrush() : win32GetDarkBkBrush();
+
+                if (!TabCtrl_GetItemRect(hwnd, i, &rcItem)) continue;
+                tci.mask = TCIF_TEXT;
+                tci.pszText = buf;
+                tci.cchTextMax = (int)_countof(buf);
+                SendMessageW(hwnd, TCM_GETITEMW, (WPARAM)i, (LPARAM)&tci);
+
+                FillRect(hdc, &rcItem, bg);
+                DrawTextW(hdc, buf, -1, &rcItem, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+            }
+
+            if (hOld) SelectObject(hdc, hOld);
+            EndPaint(hwnd, &ps);
+            return 0;
+        }
+        case WM_NCDESTROY:
+            RemoveWindowSubclass(hwnd, win32DarkTabSubclassProc, id);
+            break;
+        }
+    } else if (msg == WM_NCDESTROY) {
+        RemoveWindowSubclass(hwnd, win32DarkTabSubclassProc, id);
+    }
+    return DefSubclassProc(hwnd, msg, wp, lp);
+}
+
+/* Radio / checkbox POSTPAINT: DarkMode_Explorer darkens the indicator
+** but not the label, so redraw the caption in DARK_FG ourselves. */
+static LRESULT win32DarkButtonCustomDraw(LPNMCUSTOMDRAW cd) {
+    HWND hwnd = cd->hdr.hwndFrom;
+    LONG style = GetWindowLongW(hwnd, GWL_STYLE);
+    UINT type  = (UINT)(style & BS_TYPEMASK);
+
+    /* GROUPBOX is owner-painted by its own subclass. Push buttons accept the
+    ** themed dark text just fine in Win11, so leave them alone. */
+    if (type != BS_AUTORADIOBUTTON && type != BS_RADIOBUTTON &&
+        type != BS_AUTOCHECKBOX   && type != BS_CHECKBOX    &&
+        type != BS_AUTO3STATE     && type != BS_3STATE) {
+        return CDRF_DODEFAULT;
+    }
+
+    switch (cd->dwDrawStage) {
+    case CDDS_PREPAINT:
+        return CDRF_NOTIFYPOSTPAINT;
+    case CDDS_POSTPAINT: {
+        wchar_t buf[256];
+        int len = GetWindowTextW(hwnd, buf, (int)_countof(buf));
+        if (len > 0) {
+            HDC hdc = cd->hdc;
+            RECT r = cd->rc;
+            HFONT hFont = (HFONT)SendMessageW(hwnd, WM_GETFONT, 0, 0);
+            HFONT hOld  = hFont ? (HFONT)SelectObject(hdc, hFont) : NULL;
+            int dpi = GetDeviceCaps(hdc, LOGPIXELSY);
+            /* Indicator size scales with DPI; classic 13 px at 96 DPI. */
+            int indW = MulDiv(13, dpi, 96) + 4;
+            BOOL leftText = (style & BS_LEFTTEXT) != 0;
+
+            if (leftText) {
+                /* Indicator on right, text on left. Erase to indicator left edge. */
+                r.right -= indW;
+            } else {
+                /* Indicator on left, text on right. Erase from text start. */
+                r.left += indW;
+            }
+            FillRect(hdc, &r, win32GetDarkBkBrush());
+            SetTextColor(hdc, DARK_FG);
+            SetBkMode(hdc, TRANSPARENT);
+            DrawTextW(hdc, buf, len, &r,
+                      DT_VCENTER | DT_SINGLELINE | (leftText ? DT_RIGHT : DT_LEFT));
+
+            if (hOld) SelectObject(hdc, hOld);
+        }
+        return CDRF_DODEFAULT;
+    }
+    }
+    return CDRF_DODEFAULT;
+}
+
+/* SysHeader32 direct subclass: ListView column headers stay light-themed
+** even with SetWindowTheme; owner-draw via WM_PAINT to apply dark colors. */
+static LRESULT CALLBACK win32DarkHeaderSubclassProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp,
+                                                    UINT_PTR id, DWORD_PTR data) {
+    (void)data;
+    if (win32IsDarkMode()) {
+        switch (msg) {
+        case WM_ERASEBKGND:
+            return 1;
+        case WM_PAINT: {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hwnd, &ps);
+            RECT rcClient;
+            int count, i;
+            HFONT hFont = (HFONT)SendMessageW(hwnd, WM_GETFONT, 0, 0);
+            HFONT hOld  = hFont ? (HFONT)SelectObject(hdc, hFont) : NULL;
+            HPEN  pen   = CreatePen(PS_SOLID, 1, RGB(96, 96, 96));
+
+            GetClientRect(hwnd, &rcClient);
+            FillRect(hdc, &rcClient, win32GetDarkBkBrush());
+
+            count = (int)SendMessageW(hwnd, HDM_GETITEMCOUNT, 0, 0);
+            SetTextColor(hdc, DARK_FG);
+            SetBkMode(hdc, TRANSPARENT);
+            for (i = 0; i < count; i++) {
+                RECT rc;
+                wchar_t buf[256];
+                HDITEMW hdi = {0};
+                HPEN oldPen;
+
+                if (!Header_GetItemRect(hwnd, i, &rc)) continue;
+                hdi.mask = HDI_TEXT;
+                hdi.pszText = buf;
+                hdi.cchTextMax = (int)_countof(buf);
+                SendMessageW(hwnd, HDM_GETITEMW, (WPARAM)i, (LPARAM)&hdi);
+
+                FillRect(hdc, &rc, win32GetDarkBkBrush());
+
+                /* Right and bottom 1 px borders for visual separation. */
+                oldPen = (HPEN)SelectObject(hdc, pen);
+                MoveToEx(hdc, rc.right - 1, rc.top, NULL);
+                LineTo  (hdc, rc.right - 1, rc.bottom);
+                MoveToEx(hdc, rc.left,      rc.bottom - 1, NULL);
+                LineTo  (hdc, rc.right,     rc.bottom - 1);
+                SelectObject(hdc, oldPen);
+
+                {
+                    RECT t = rc;
+                    t.left += 8;
+                    t.right -= 8;
+                    DrawTextW(hdc, buf, -1, &t, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+                }
+            }
+
+            DeleteObject(pen);
+            if (hOld) SelectObject(hdc, hOld);
+            EndPaint(hwnd, &ps);
+            return 0;
+        }
+        case WM_NCDESTROY:
+            RemoveWindowSubclass(hwnd, win32DarkHeaderSubclassProc, id);
+            break;
+        }
+    } else if (msg == WM_NCDESTROY) {
+        RemoveWindowSubclass(hwnd, win32DarkHeaderSubclassProc, id);
+    }
+    return DefSubclassProc(hwnd, msg, wp, lp);
+}
+
+/* GROUPBOX direct subclass. The BUTTON-with-BS_GROUPBOX style draws its
+** caption with hard-coded system text color, so WM_PAINT is intercepted
+** to draw frame + caption in dark-mode colours. */
+static LRESULT CALLBACK win32DarkGroupBoxSubclassProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp,
+                                                      UINT_PTR id, DWORD_PTR data) {
+    (void)data;
+    if (win32IsDarkMode()) {
+        switch (msg) {
+        case WM_ERASEBKGND:
+            return 1;
+        case WM_PAINT: {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hwnd, &ps);
+            RECT rc;
+            wchar_t text[256];
+            int len;
+            HFONT hFont = (HFONT)SendMessageW(hwnd, WM_GETFONT, 0, 0);
+            HFONT hOld  = hFont ? (HFONT)SelectObject(hdc, hFont) : NULL;
+            SIZE sz = {0, 0};
+
+            GetClientRect(hwnd, &rc);
+            len = GetWindowTextW(hwnd, text, (int)_countof(text));
+            if (len > 0) GetTextExtentPoint32W(hdc, text, len, &sz);
+
+            FillRect(hdc, &rc, win32GetDarkBkBrush());
+
+            /* Frame, sunk by half-cap-height so the caption sits across the top edge. */
+            {
+                RECT frame = rc;
+                HBRUSH oldBr = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
+                HPEN   pen   = CreatePen(PS_SOLID, 1, RGB(96, 96, 96));
+                HPEN   oldPn = (HPEN)SelectObject(hdc, pen);
+                if (sz.cy > 0) frame.top += sz.cy / 2;
+                Rectangle(hdc, frame.left, frame.top, frame.right, frame.bottom);
+                SelectObject(hdc, oldPn);
+                DeleteObject(pen);
+                SelectObject(hdc, oldBr);
+            }
+
+            /* Caption: erase a 4 px-padded box behind it so the frame line does
+            ** not strike through, then draw the label in the dark foreground. */
+            if (len > 0) {
+                RECT t;
+                t.left   = rc.left + 8;
+                t.top    = rc.top;
+                t.right  = t.left + sz.cx + 4;
+                t.bottom = t.top + sz.cy;
+                FillRect(hdc, &t, win32GetDarkBkBrush());
+                SetTextColor(hdc, DARK_FG);
+                SetBkMode(hdc, TRANSPARENT);
+                DrawTextW(hdc, text, len, &t, DT_LEFT | DT_TOP | DT_SINGLELINE);
+            }
+
+            if (hOld) SelectObject(hdc, hOld);
+            EndPaint(hwnd, &ps);
+            return 0;
+        }
+        case WM_NCDESTROY:
+            RemoveWindowSubclass(hwnd, win32DarkGroupBoxSubclassProc, id);
+            break;
+        }
+    } else if (msg == WM_NCDESTROY) {
+        RemoveWindowSubclass(hwnd, win32DarkGroupBoxSubclassProc, id);
+    }
+    return DefSubclassProc(hwnd, msg, wp, lp);
+}
+
+/* WM_UAHDRAWMENU/ITEM (0x91/0x92) carry dark-menu paint requests once the
+   window is opted into AllowDarkModeForWindow + ForceDark. Used for
+   plugin / sub-windows; main window uses custom strip in Win32Menu.c. */
+#ifndef WM_UAHDRAWMENU
+#define WM_UAHDRAWMENU       0x0091
+#define WM_UAHDRAWMENUITEM   0x0092
+#endif
+
+typedef union tagWIN32_UAHMENUITEMMETRICS {
+    struct { DWORD cx; DWORD cy; } rgsizeBar[2];
+    struct { DWORD cx; DWORD cy; } rgsizePopup[4];
+} WIN32_UAHMENUITEMMETRICS;
+
+typedef struct tagWIN32_UAHMENUPOPUPMETRICS {
+    DWORD rgcx[4];
+    DWORD fUpdateMaxWidths : 2;
+} WIN32_UAHMENUPOPUPMETRICS;
+
+typedef struct tagWIN32_UAHMENU {
+    HMENU hmenu;
+    HDC   hdc;
+    DWORD dwFlags;
+} WIN32_UAHMENU;
+
+typedef struct tagWIN32_UAHMENUITEM {
+    int                       iPosition;
+    WIN32_UAHMENUITEMMETRICS  umim;
+    WIN32_UAHMENUPOPUPMETRICS umpm;
+} WIN32_UAHMENUITEM;
+
+typedef struct tagWIN32_UAHDRAWMENUITEM {
+    DRAWITEMSTRUCT     dis;
+    WIN32_UAHMENU      um;
+    WIN32_UAHMENUITEM  umi;
+} WIN32_UAHDRAWMENUITEM;
+
+static HFONT s_darkMenuFont    = NULL;
+static UINT  s_darkMenuFontDpi = 0;
+
+/* Cache one menu font per DPI.  lfHeight is scaled at half the DPI
+** ratio so sub-window menu bars don't overwhelm the strip when the
+** monitor is > 96 DPI. */
+static HFONT win32GetDarkMenuFont(UINT dpi) {
+    NONCLIENTMETRICS ncm;
+    if (dpi == 0) dpi = 96;
+    if (s_darkMenuFont && s_darkMenuFontDpi == dpi) return s_darkMenuFont;
+    if (s_darkMenuFont) DeleteObject(s_darkMenuFont);
+    s_darkMenuFont = NULL;
+    s_darkMenuFontDpi = 0;
+
+    memset(&ncm, 0, sizeof(ncm));
+    ncm.cbSize = sizeof(ncm);
+    SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0);
+    if (dpi > 96) {
+        double factor = 1.0 + ((double)dpi / 96.0 - 1.0) * 0.5;
+        ncm.lfMenuFont.lfHeight = (LONG)(ncm.lfMenuFont.lfHeight * factor);
+    }
+    s_darkMenuFont    = CreateFontIndirect(&ncm.lfMenuFont);
+    s_darkMenuFontDpi = dpi;
+    return s_darkMenuFont;
+}
+
+static UINT win32QueryWindowDpi(HWND hwnd) {
+    typedef UINT (WINAPI *PFN_GetDpiForWindow)(HWND);
+    static PFN_GetDpiForWindow pGetDpi = (PFN_GetDpiForWindow)(LONG_PTR)-1;
+    if (pGetDpi == (PFN_GetDpiForWindow)(LONG_PTR)-1) {
+        pGetDpi = (PFN_GetDpiForWindow)GetProcAddress(GetModuleHandleW(L"user32.dll"),
+                                                      "GetDpiForWindow");
+    }
+    if (pGetDpi) return pGetDpi(hwnd);
+    return 96;
+}
+
+/* Repaint the 1-pixel light line that the system NC paint draws at the
+** bottom of the menu bar. Called from WM_NCPAINT / WM_NCACTIVATE after
+** DefSubclassProc returns (which is what draws the offending line). */
+static void win32DarkOverpaintMenuBarLine(HWND hwnd) {
+    MENUBARINFO mbi;
+    RECT wndR, lineR;
+    HDC hdc;
+    if (!GetMenu(hwnd)) return;
+    memset(&mbi, 0, sizeof(mbi));
+    mbi.cbSize = sizeof(mbi);
+    if (!GetMenuBarInfo(hwnd, OBJID_MENU, 0, &mbi)) return;
+    GetWindowRect(hwnd, &wndR);
+    lineR = mbi.rcBar;
+    OffsetRect(&lineR, -wndR.left, -wndR.top);
+    lineR.top    = lineR.bottom;
+    lineR.bottom = lineR.top + 1;
+    hdc = GetWindowDC(hwnd);
+    if (hdc) {
+        FillRect(hdc, &lineR, win32GetDarkBkBrush());
+        ReleaseDC(hwnd, hdc);
+    }
+}
+
+/* Dialog subclass: WM_CTLCOLOR* dark painting + radio/checkbox NM_CUSTOMDRAW
+   forward + WM_UAHDRAWMENU* for plugin windows with a standard menu bar. */
+static LRESULT CALLBACK win32DarkSubclassProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp,
+                                              UINT_PTR id, DWORD_PTR data) {
+    (void)data;
+    if (win32IsDarkMode()) {
+        switch (msg) {
+        case WM_CTLCOLORDLG:
+        case WM_CTLCOLORSTATIC:
+        case WM_CTLCOLORBTN: {
+            HDC hdc = (HDC)wp;
+            SetTextColor(hdc, DARK_FG);
+            SetBkColor(hdc, DARK_BG);
+            return (LRESULT)win32GetDarkBkBrush();
+        }
+        case WM_CTLCOLOREDIT:
+        case WM_CTLCOLORLISTBOX: {
+            HDC hdc = (HDC)wp;
+            SetTextColor(hdc, DARK_FG);
+            SetBkColor(hdc, DARK_EDIT_BG);
+            return (LRESULT)win32GetDarkEditBrush();
+        }
+        case WM_NOTIFY: {
+            LPNMHDR nm = (LPNMHDR)lp;
+            if (nm && nm->code == NM_CUSTOMDRAW) {
+                wchar_t cls[64];
+                if (GetClassNameW(nm->hwndFrom, cls, (int)_countof(cls)) > 0 &&
+                    lstrcmpiW(cls, L"Button") == 0) {
+                    return win32DarkButtonCustomDraw((LPNMCUSTOMDRAW)nm);
+                }
+            }
+            break;
+        }
+        case WM_UAHDRAWMENU: {
+            WIN32_UAHMENU* pUDM = (WIN32_UAHMENU*)lp;
+            MENUBARINFO mbi;
+            memset(&mbi, 0, sizeof(mbi));
+            mbi.cbSize = sizeof(mbi);
+            if (GetMenuBarInfo(hwnd, OBJID_MENU, 0, &mbi)) {
+                RECT wndR, rcBar;
+                GetWindowRect(hwnd, &wndR);
+                rcBar = mbi.rcBar;
+                OffsetRect(&rcBar, -wndR.left, -wndR.top);
+                FillRect(pUDM->hdc, &rcBar, win32GetDarkBkBrush());
+            }
+            return 0;
+        }
+        case WM_UAHDRAWMENUITEM: {
+            WIN32_UAHDRAWMENUITEM* pUDMI = (WIN32_UAHDRAWMENUITEM*)lp;
+            HDC hdc = pUDMI->um.hdc;
+            BOOL hot      = (pUDMI->dis.itemState & ODS_HOTLIGHT) != 0;
+            BOOL selected = (pUDMI->dis.itemState & ODS_SELECTED) != 0;
+            BOOL disabled = (pUDMI->dis.itemState & (ODS_DISABLED | ODS_GRAYED | ODS_INACTIVE)) != 0;
+            HBRUSH bgBrush;
+            COLORREF fgColor;
+            wchar_t menuStr[256];
+            MENUITEMINFOW mii;
+            UINT dpi;
+            HFONT font, oldFont;
+            UINT dtFlags = DT_CENTER | DT_VCENTER | DT_SINGLELINE;
+
+            if (!hdc) hdc = pUDMI->dis.hDC;
+
+            /* Hot/selected use the slightly-lighter edit-background color so
+            ** there is a visible highlight against the menu strip's DARK_BG. */
+            bgBrush = (hot || selected) ? win32GetDarkEditBrush()
+                                        : win32GetDarkBkBrush();
+            fgColor = disabled ? RGB(128, 128, 128) : DARK_FG;
+
+            FillRect(hdc, &pUDMI->dis.rcItem, bgBrush);
+
+            menuStr[0] = 0;
+            memset(&mii, 0, sizeof(mii));
+            mii.cbSize     = sizeof(mii);
+            mii.fMask      = MIIM_STRING;
+            mii.dwTypeData = menuStr;
+            mii.cch        = (UINT)_countof(menuStr) - 1;
+            GetMenuItemInfoW(pUDMI->um.hmenu, pUDMI->umi.iPosition, TRUE, &mii);
+
+            dpi     = win32QueryWindowDpi(hwnd);
+            font    = win32GetDarkMenuFont(dpi);
+            oldFont = font ? (HFONT)SelectObject(hdc, font) : NULL;
+            SetTextColor(hdc, fgColor);
+            SetBkMode(hdc, TRANSPARENT);
+
+            /* Honor "hide accelerator underline until Alt is pressed" the same
+            ** way the system does for the un-customized menu bar. */
+            if (pUDMI->dis.itemState & ODS_NOACCEL) dtFlags |= DT_HIDEPREFIX;
+
+            DrawTextW(hdc, menuStr, -1, &pUDMI->dis.rcItem, dtFlags);
+
+            if (oldFont) SelectObject(hdc, oldFont);
+            return 0;
+        }
+        case WM_NCPAINT:
+        case WM_NCACTIVATE: {
+            LRESULT r = DefSubclassProc(hwnd, msg, wp, lp);
+            /* Default NC paint draws a 1-pixel light line at the bottom of
+            ** the menu bar. Overpaint it dark. Cheap, no-op when no menu. */
+            win32DarkOverpaintMenuBarLine(hwnd);
+            return r;
+        }
+        case WM_NCDESTROY:
+            RemoveWindowSubclass(hwnd, win32DarkSubclassProc, id);
+            break;
+        }
+    } else if (msg == WM_NCDESTROY) {
+        RemoveWindowSubclass(hwnd, win32DarkSubclassProc, id);
+    }
+    return DefSubclassProc(hwnd, msg, wp, lp);
+}
+
+/* STATIC/GROUPBOX/TabControl owner-paint; List/Tree get explicit colors;
+   combo DarkMode_CFD; rest DarkMode_Explorer. */
+static BOOL CALLBACK win32DarkApplyChild(HWND child, LPARAM lp) {
+    BOOL dark = (BOOL)lp;
+    wchar_t className[64];
+    if (GetClassNameW(child, className, (int)_countof(className)) <= 0) return TRUE;
+
+    /* Per-window opt-in for the dark visual style is required for every
+    ** themed common control on Windows 10 1809+. */
+    win32AllowDarkForWindow(child, dark);
+
+    if (lstrcmpiW(className, L"STATIC") == 0) {
+        return TRUE;
+    }
+
+    if (lstrcmpiW(className, L"SysTabControl32") == 0) {
+        if (dark) SetWindowSubclass(child, win32DarkTabSubclassProc, WIN32_DARK_TAB_SUBCLASS_ID, 0);
+        else      RemoveWindowSubclass(child, win32DarkTabSubclassProc, WIN32_DARK_TAB_SUBCLASS_ID);
+        InvalidateRect(child, NULL, TRUE);
+        return TRUE;
+    }
+    if (lstrcmpiW(className, L"Button") == 0) {
+        LONG style = GetWindowLongW(child, GWL_STYLE);
+        if ((style & BS_TYPEMASK) == BS_GROUPBOX) {
+            if (dark) SetWindowSubclass(child, win32DarkGroupBoxSubclassProc, WIN32_DARK_GROUPBOX_SUBCLASS_ID, 0);
+            else      RemoveWindowSubclass(child, win32DarkGroupBoxSubclassProc, WIN32_DARK_GROUPBOX_SUBCLASS_ID);
+            InvalidateRect(child, NULL, TRUE);
+            return TRUE;
+        }
+        SetWindowTheme(child, dark ? L"DarkMode_Explorer" : L"Explorer", NULL);
+        return TRUE;
+    }
+
+    if (lstrcmpiW(className, L"SysHeader32") == 0) {
+        if (dark) SetWindowSubclass(child, win32DarkHeaderSubclassProc, WIN32_DARK_HEADER_SUBCLASS_ID, 0);
+        else      RemoveWindowSubclass(child, win32DarkHeaderSubclassProc, WIN32_DARK_HEADER_SUBCLASS_ID);
+        SetWindowTheme(child, dark ? L"DarkMode_ItemsView" : L"Explorer", NULL);
+        InvalidateRect(child, NULL, TRUE);
+        return TRUE;
+    }
+    if (lstrcmpiW(className, L"SysListView32") == 0) {
+        ListView_SetBkColor    (child, dark ? DARK_BG : GetSysColor(COLOR_WINDOW));
+        ListView_SetTextBkColor(child, dark ? DARK_BG : GetSysColor(COLOR_WINDOW));
+        ListView_SetTextColor  (child, dark ? DARK_FG : GetSysColor(COLOR_WINDOWTEXT));
+        SetWindowTheme(child, dark ? L"DarkMode_Explorer" : L"Explorer", NULL);
+    }
+    else if (lstrcmpiW(className, L"SysTreeView32") == 0) {
+        TreeView_SetBkColor  (child, dark ? DARK_BG : (COLORREF)-1);
+        TreeView_SetTextColor(child, dark ? DARK_FG : (COLORREF)-1);
+        SetWindowTheme(child, dark ? L"DarkMode_Explorer" : L"Explorer", NULL);
+    }
+    else if (lstrcmpiW(className, L"ComboBox") == 0) {
+        SetWindowTheme(child, dark ? L"DarkMode_CFD" : L"Explorer", NULL);
+        /* Clear edit selection so CBS_DROPDOWN combos don't open
+           highlighted from CB_SETCURSEL during WM_INITDIALOG. */
+        SendMessage(child, CB_SETEDITSEL, 0, (LPARAM)MAKELPARAM(-1, 0));
+    }
+    else {
+        SetWindowTheme(child, dark ? L"DarkMode_Explorer" : L"Explorer", NULL);
+    }
+    return TRUE;
+}
+
+static BOOL CALLBACK win32InvalidateChildProc(HWND child, LPARAM lp) {
+    (void)lp;
+    InvalidateRect(child, NULL, TRUE);
+    return TRUE;
+}
+
+static void win32ApplyDarkToDialog(HWND hwnd) {
+    BOOL dark = win32IsDarkMode();
+    /* Titlebar via DWM. Skip for childless / parented dialogs without a
+    ** caption (sub-panel pages mounted inside a parent dialog). */
+    if (GetWindowLong(hwnd, GWL_STYLE) & WS_CAPTION) {
+        win32ApplyDarkTitle(hwnd);
+    }
+    /* Walk up to the system-owned property sheet outer dialog (#32770) and
+       apply dark there too -- we never see WM_INITDIALOG for that frame. */
+    {
+        HWND parent = GetParent(hwnd);
+        if (parent) {
+            wchar_t cls[32];
+            if (GetClassNameW(parent, cls, (int)_countof(cls)) > 0 &&
+                lstrcmpW(cls, L"#32770") == 0) {
+                if (GetWindowLong(parent, GWL_STYLE) & WS_CAPTION) {
+                    win32ApplyDarkTitle(parent);
+                }
+                win32AllowDarkForWindow(parent, dark);
+                SetWindowTheme(parent, dark ? L"DarkMode_Explorer" : L"Explorer", NULL);
+                EnumChildWindows(parent, win32DarkApplyChild, (LPARAM)dark);
+                SetWindowSubclass(parent, win32DarkSubclassProc, WIN32_DARK_SUBCLASS_ID, 0);
+                SendMessageW(parent, WM_THEMECHANGED, 0, 0);
+                InvalidateRect(parent, NULL, TRUE);
+            }
+        }
+    }
+    win32AllowDarkForWindow(hwnd, dark);
+    SetWindowTheme(hwnd, dark ? L"DarkMode_Explorer" : L"Explorer", NULL);
+    EnumChildWindows(hwnd, win32DarkApplyChild, (LPARAM)dark);
+    SetWindowSubclass(hwnd, win32DarkSubclassProc, WIN32_DARK_SUBCLASS_ID, 0);
+    /* WM_THEMECHANGED forces every themed control under hwnd to re-query its
+    ** colours. Without it the IFileDialog navigation pane / breadcrumb stay
+    ** light until the first WM_ACTIVATE re-fires. */
+    SendMessageW(hwnd, WM_THEMECHANGED, 0, 0);
+    /* Invalidate the dialog and every child: subclass + theme switch only
+    ** apply to subsequent paints, and WS_CLIPCHILDREN means parent
+    ** invalidation does not propagate to children. */
+    InvalidateRect(hwnd, NULL, TRUE);
+    EnumChildWindows(hwnd, win32InvalidateChildProc, 0);
+}
+
+
+
+void win32SliderTooltipUpdate(HWND* phwndTip, HWND parent, int percent)
+{
+    /* Explicit TTM_*W: without UNICODE the unsuffixed macros expand to ANSI
+       IDs and TOOLTIPS_CLASSW renders our wide string as ANSI
+       (= truncated at first 0x00 byte). */
+    static HFONT s_tipFont = NULL;
+    wchar_t buf[24];
+    POINT pt;
+    TOOLINFOW ti;
+
+    if (percent < 0) {
+        if (phwndTip && *phwndTip) {
+            TOOLINFOW tih = { 0 };
+            tih.cbSize = sizeof(tih);
+            tih.hwnd   = parent;
+            tih.uId    = 0;
+            SendMessageW(*phwndTip, TTM_TRACKACTIVATE, FALSE, (LPARAM)&tih);
+        }
+        return;
+    }
+
+    if (!phwndTip || !parent) return;
+
+    /* Larger-than-default font so the percent value is easy to read. */
+    if (s_tipFont == NULL) {
+        s_tipFont = CreateFontW(-22, 0, 0, 0, FW_SEMIBOLD,
+                                FALSE, FALSE, FALSE,
+                                DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+                                CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                                DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+    }
+
+    if (*phwndTip == NULL) {
+        INITCOMMONCONTROLSEX iccex = { sizeof(iccex), ICC_BAR_CLASSES };
+        TOOLINFOW tin = { 0 };
+        InitCommonControlsEx(&iccex);
+        *phwndTip = CreateWindowExW(0, TOOLTIPS_CLASSW, NULL,
+            WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP,
+            CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+            parent, NULL, GetModuleHandle(NULL), NULL);
+        if (*phwndTip == NULL) return;
+
+        /* Themed (Comctl32 v6) tooltips ignore WM_SETFONT and pull their
+           font from the visual style.  Disable the theme so WM_SETFONT applies. */
+        SetWindowTheme(*phwndTip, L"", L"");
+
+        if (s_tipFont) {
+            SendMessageW(*phwndTip, WM_SETFONT, (WPARAM)s_tipFont, TRUE);
+        }
+
+        tin.cbSize   = sizeof(tin);
+        tin.uFlags   = TTF_TRACK | TTF_ABSOLUTE;
+        tin.hwnd     = parent;
+        tin.uId      = 0;
+        tin.lpszText = L"";
+        SendMessageW(*phwndTip, TTM_ADDTOOLW, 0, (LPARAM)&tin);
+    }
+
+    swprintf(buf, 24, L" %d %% ", percent);
+
+    GetCursorPos(&pt);
+    pt.x += 20;
+    pt.y -= 40;
+
+    memset(&ti, 0, sizeof(ti));
+    ti.cbSize   = sizeof(ti);
+    ti.hwnd     = parent;
+    ti.uId      = 0;
+    ti.lpszText = buf;
+    SendMessageW(*phwndTip, TTM_UPDATETIPTEXTW, 0, (LPARAM)&ti);
+    SendMessageW(*phwndTip, TTM_TRACKPOSITION, 0, MAKELPARAM(pt.x, pt.y));
+    SendMessageW(*phwndTip, TTM_TRACKACTIVATE, TRUE, (LPARAM)&ti);
+}
 
 
 static EmuLanguageType getLangType()
@@ -247,7 +1084,7 @@ void saveDialogPos(HWND hwnd, int dialogID)
 
 ///////////////////////////////////////////////////////////////////////////
 
-static BOOL CALLBACK langDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static BOOL_DLG_RET CALLBACK langDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     static int* lang = NULL;
 
@@ -256,16 +1093,14 @@ static BOOL CALLBACK langDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPa
         {
             char buffer[64];
             HIMAGELIST himlSmall;
-            LV_COLUMN lvc = {0};
-            LV_ITEM lvi = { 0 };
             int i;
 
             lang = (int*)lParam;
 
-            SetWindowText(hDlg, langDlgLangTitle());
-            SendMessage(GetDlgItem(hDlg, IDC_LANGTXT), WM_SETTEXT, 0, (LPARAM)langDlgLangLangText());
-            SetWindowText(GetDlgItem(hDlg, IDOK), langDlgOK());
-            SetWindowText(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
+            SetWindowTextU(hDlg, langDlgLangTitle());
+            SetDlgItemTextU(hDlg, IDC_LANGTXT, langDlgLangLangText());
+            SetWindowTextU(GetDlgItem(hDlg, IDOK), langDlgOK());
+            SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
 
             ListView_SetExtendedListViewStyle(GetDlgItem(hDlg, IDC_LANGLIST), LVS_EX_FULLROWSELECT);
 
@@ -292,31 +1127,49 @@ static BOOL CALLBACK langDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPa
 
             SetFocus(GetDlgItem(hDlg, IDC_LANGLIST));
 
-            lvc.mask       = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT;
-            lvc.fmt        = LVCFMT_LEFT;
-            lvc.cx         = 185;
-            lvc.pszText    = buffer;
-	        lvc.cchTextMax = sizeof(buffer);
-            sprintf(buffer, "       %s", langMenuPropsLanguage());
+            /* Insert via LVM_INSERTCOLUMNW / LVM_INSERTITEMW; UTF-8 source
+               literals are converted to UTF-16 explicitly. */
+            {
+                HWND hList = GetDlgItem(hDlg, IDC_LANGLIST);
+                wchar_t wbuf[64];
+                LVCOLUMNW lvcw = {0};
+                LVITEMW lviw = {0};
 
-            ListView_InsertColumn(GetDlgItem(hDlg, IDC_LANGLIST), 0, &lvc);
+                SendMessageW(hList, LVM_SETUNICODEFORMAT, TRUE, 0);
 
-            for (i = 0; langGetType(i) != EMU_LANG_UNKNOWN; i++) {
-                lvi.mask       = LVIF_IMAGE | LVIF_TEXT;
-                lvi.iItem      = i;
-                lvi.pszText    = buffer;
-	            lvi.cchTextMax = sizeof(buffer);
-                lvi.iImage     = i;
-
-                sprintf(buffer, "   %s", langToName(langGetType(i), 1));
-
-                ListView_InsertItem(GetDlgItem(hDlg, IDC_LANGLIST), &lvi);
- 
-                if (langGetType(i) == *lang) {
-                    ListView_SetItemState(GetDlgItem(hDlg, IDC_LANGLIST), i, LVIS_SELECTED, LVIS_SELECTED);
+                /* Fill the listview client width minus the vertical scrollbar. */
+                int colWidth;
+                {
+                    RECT lr;
+                    GetClientRect(hList, &lr);
+                    colWidth = lr.right - lr.left - GetSystemMetrics(SM_CXVSCROLL);
+                    if (colWidth < 100) colWidth = 100;
                 }
-           }
 
+                sprintf(buffer, "       %s", langMenuPropsLanguage());
+                Utf8ToWide(buffer, wbuf, _countof(wbuf));
+                lvcw.mask     = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT;
+                lvcw.fmt      = LVCFMT_LEFT;
+                lvcw.cx       = colWidth;
+                lvcw.pszText  = wbuf;
+                SendMessageW(hList, LVM_INSERTCOLUMNW, 0, (LPARAM)&lvcw);
+
+                for (i = 0; langGetType(i) != EMU_LANG_UNKNOWN; i++) {
+                    sprintf(buffer, "   %s", langToName(langGetType(i), 1));
+                    Utf8ToWide(buffer, wbuf, _countof(wbuf));
+                    lviw.mask    = LVIF_IMAGE | LVIF_TEXT;
+                    lviw.iItem   = i;
+                    lviw.iImage  = i;
+                    lviw.pszText = wbuf;
+                    SendMessageW(hList, LVM_INSERTITEMW, 0, (LPARAM)&lviw);
+ 
+                    if (langGetType(i) == *lang) {
+                        ListView_SetItemState(hList, i, LVIS_SELECTED, LVIS_SELECTED);
+                    }
+                }
+            }
+            win32CommonApplyDark(hDlg);
+            win32CommonCenterOnOwner(hDlg);
             return FALSE;
         }
 
@@ -374,12 +1227,13 @@ int langShowDlg(HWND hwnd, int oldLanguage) {
 
 #define TIMER_DSKDIALOGSHOW 20
 
-static BOOL CALLBACK dskProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
+static BOOL_DLG_RET CALLBACK dskProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
     static int show = 0;
 
     switch (iMsg) {
     case WM_INITDIALOG:
         centerDialog(hDlg, 0);
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
     case WM_SHOWDSKWIN:
@@ -396,9 +1250,17 @@ static BOOL CALLBACK dskProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
             x = r1.left + (r1.right - r1.left - r2.right + r2.left) / 2;
             y = r1.top  + (r1.bottom - r1.top - r2.bottom + r2.top) / 2;
 
-            SetWindowText(GetDlgItem(hDlg, IDC_DISKIMAGE), 
-                          stripPath(*pProperties->media.disks[0].fileNameInZip ? 
-                          pProperties->media.disks[0].fileNameInZip : pProperties->media.disks[0].fileName));
+            {
+                /* fileNameInZip is the zip entry in the zip's stored encoding
+                ** (typically ACP / CP932). Pass it through AnyToUtf8 so the
+                ** Unicode SetWindowTextW path renders the entry name correctly. */
+                char displayName[512];
+                const char* src = stripPath(*pProperties->media.disks[0].fileNameInZip ?
+                                            pProperties->media.disks[0].fileNameInZip :
+                                            pProperties->media.disks[0].fileName);
+                AnyToUtf8(src, displayName, sizeof(displayName));
+                SetWindowTextU(GetDlgItem(hDlg, IDC_DISKIMAGE), displayName);
+            }
             if (!show) {
                 enterDialogShow();
                 SetWindowPos(hDlg, NULL, x, y, 0, 0, SWP_NOZORDER | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
@@ -458,9 +1320,24 @@ static void updateRomTypeList(HWND hDlg, ZipFileDlgInfo* dlgInfo) {
     char* buf = NULL;
     int index;
 
-    index = SendDlgItemMessage(hDlg, IDC_DSKLIST, LB_GETCURSEL, 0, 0);
-    SendDlgItemMessage(hDlg, IDC_DSKLIST, LB_GETTEXT, index, (LPARAM)fileName);
-    
+    {
+        /* LBS_SORT: convert sorted-display row to raw fileList index via the
+        ** item data we bound at insertion. */
+        LRESULT row = SendDlgItemMessage(hDlg, IDC_DSKLIST, LB_GETCURSEL, 0, 0);
+        LRESULT rawIdx = (row == LB_ERR) ? LB_ERR :
+            SendDlgItemMessage(hDlg, IDC_DSKLIST, LB_GETITEMDATA, (WPARAM)row, 0);
+        index = (int)row;
+        if (rawIdx == LB_ERR || rawIdx < 0 || rawIdx >= dlgInfo->fileListCount) {
+            fileName[0] = 0;
+        } else {
+            const char* p = dlgInfo->fileList;
+            int i;
+            for (i = 0; i < (int)rawIdx; i++) p += strlen(p) + 1;
+            strncpy(fileName, p, sizeof(fileName) - 1);
+            fileName[sizeof(fileName) - 1] = 0;
+        }
+    }
+
     if (isFileExtension(fileName, ".rom") || isFileExtension(fileName, ".ri") ||
         isFileExtension(fileName, ".mx1") || isFileExtension(fileName, ".mx2") || 
         isFileExtension(fileName, ".sms") || isFileExtension(fileName, ".col") ||
@@ -494,7 +1371,7 @@ static void updateRomTypeList(HWND hDlg, ZipFileDlgInfo* dlgInfo) {
     }
 }
 
-static BOOL CALLBACK dskZipDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
+static BOOL_DLG_RET CALLBACK dskZipDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) {
     static ZipFileDlgInfo* dlgInfo;
 
     switch (iMsg) {
@@ -514,21 +1391,21 @@ static BOOL CALLBACK dskZipDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM l
 
             dlgInfo->openRomType = ROM_UNKNOWN;
 
-            SetWindowText(hDlg, dlgInfo->title);
+            SetWindowTextU(hDlg, dlgInfo->title);
 
-            SendMessage(GetDlgItem(hDlg, IDC_DSKLOADTXT), WM_SETTEXT, 0, (LPARAM)dlgInfo->description);
-            SetWindowText(GetDlgItem(hDlg, IDC_DSKRESET), langDlgZipReset());
-            SetWindowText(GetDlgItem(hDlg, IDOK), langDlgOK());
-            SetWindowText(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
-            SetWindowText(GetDlgItem(hDlg, IDC_OPEN_ROMTEXT), langDlgRomType());
+            SetDlgItemTextU(hDlg, IDC_DSKLOADTXT, dlgInfo->description);
+            SetWindowTextU(GetDlgItem(hDlg, IDC_DSKRESET), langDlgZipReset());
+            SetWindowTextU(GetDlgItem(hDlg, IDOK), langDlgOK());
+            SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
+            SetWindowTextU(GetDlgItem(hDlg, IDC_OPEN_ROMTEXT), langDlgRomType());
 
             fileList = dlgInfo->fileList;
 
             for (i = 0; opendialog_getromtype(i) != ROM_UNKNOWN; i++) {
-                SendDlgItemMessage(hDlg, IDC_OPEN_ROMTYPE, CB_ADDSTRING, 0, (LPARAM)romTypeToString(opendialog_getromtype(i)));
+                ComboAddStringU(GetDlgItem(hDlg, IDC_OPEN_ROMTYPE), romTypeToString(opendialog_getromtype(i)));
                 SendDlgItemMessage(hDlg, IDC_ROMTYPE, CB_SETCURSEL, i, 0);
             }
-            SendDlgItemMessage(hDlg, IDC_OPEN_ROMTYPE, CB_ADDSTRING, 0, (LPARAM)romTypeToString(ROM_UNKNOWN));
+            ComboAddStringU(GetDlgItem(hDlg, IDC_OPEN_ROMTYPE), romTypeToString(ROM_UNKNOWN));
             EnableWindow(GetDlgItem(hDlg, IDC_OPEN_ROMTYPE), 0);
             EnableWindow(GetDlgItem(hDlg, IDC_OPEN_ROMTEXT), 0);
 
@@ -537,10 +1414,21 @@ static BOOL CALLBACK dskZipDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM l
             }
 
             for (i = 0; i < dlgInfo->fileListCount; i++) {
-                if (dlgInfo->selectFileIndex != -1 && 0 == strcmp(dlgInfo->selectFile, fileList)) {
-                    sel = i;
+                /* Zip entries are typically the host ACP on legacy archives.
+                ** AnyToUtf8 leaves valid UTF-8 alone (modern EFS-flagged zips). */
+                char displayName[512];
+                LRESULT row;
+                AnyToUtf8(fileList, displayName, sizeof(displayName));
+                row = ListBoxAddStringU(GetDlgItem(hDlg, IDC_DSKLIST), displayName);
+                /* IDC_DSKLIST has LBS_SORT, so the inserted row index is not i.
+                ** Bind raw fileList index to the row so IDOK can recover the
+                ** original (ACP) bytes for unzLocateFile. */
+                if (row != LB_ERR) {
+                    SendDlgItemMessage(hDlg, IDC_DSKLIST, LB_SETITEMDATA, (WPARAM)row, (LPARAM)i);
+                    if (dlgInfo->selectFileIndex != -1 && 0 == strcmp(dlgInfo->selectFile, fileList)) {
+                        sel = (int)row;
+                    }
                 }
-                SendMessage(GetDlgItem(hDlg, IDC_DSKLIST), LB_ADDSTRING, 0, (LPARAM)fileList);
                 fileList += strlen(fileList) + 1;
             }
 
@@ -554,6 +1442,7 @@ static BOOL CALLBACK dskZipDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM l
         
             updateRomTypeList(hDlg, dlgInfo);
 
+            win32CommonApplyDark(hDlg);
             return FALSE;
         }
 
@@ -561,7 +1450,7 @@ static BOOL CALLBACK dskZipDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM l
         switch(LOWORD(wParam)) {
         case IDC_OPEN_ROMTYPE:
             if (HIWORD(wParam) == 1 || HIWORD(wParam) == 2) {
-                int idx = SendMessage(GetDlgItem(hDlg, IDC_OPEN_ROMTYPE), CB_GETCURSEL, 0, 0);
+                int idx = (int)SendMessage(GetDlgItem(hDlg, IDC_OPEN_ROMTYPE), CB_GETCURSEL, 0, 0);
 
                 dlgInfo->openRomType = idx == CB_ERR ? -1 : opendialog_getromtype(idx);
             }
@@ -588,8 +1477,24 @@ static BOOL CALLBACK dskZipDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM l
             }
             // else, fall through
         case IDOK:
-            dlgInfo->selectFileIndex = SendMessage(GetDlgItem(hDlg, IDC_DSKLIST), LB_GETCURSEL, 0, 0);
-            SendMessage(GetDlgItem(hDlg, IDC_DSKLIST), LB_GETTEXT, dlgInfo->selectFileIndex, (LPARAM)dlgInfo->selectFile);
+            {
+                /* LBS_SORT means LB_GETCURSEL returns a sorted-display row, not
+                ** the insertion index.  Recover the raw fileList index from
+                ** the item data we bound at insertion time. */
+                LRESULT row = SendMessage(GetDlgItem(hDlg, IDC_DSKLIST), LB_GETCURSEL, 0, 0);
+                LRESULT rawIdx = (row == LB_ERR) ? LB_ERR :
+                    SendMessage(GetDlgItem(hDlg, IDC_DSKLIST), LB_GETITEMDATA, (WPARAM)row, 0);
+                dlgInfo->selectFileIndex = (int)row;
+                if (rawIdx == LB_ERR || rawIdx < 0 || rawIdx >= dlgInfo->fileListCount) {
+                    dlgInfo->selectFile[0] = '\0';
+                } else {
+                    const char* p = dlgInfo->fileList;
+                    int i;
+                    for (i = 0; i < (int)rawIdx; i++) p += strlen(p) + 1;
+                    strncpy(dlgInfo->selectFile, p, sizeof(dlgInfo->selectFile) - 1);
+                    dlgInfo->selectFile[sizeof(dlgInfo->selectFile) - 1] = 0;
+                }
+            }
             EndDialog(hDlg, TRUE);
             return TRUE;
         case IDCANCEL:
@@ -632,25 +1537,25 @@ static void tapeDlgUpdate(HWND hwnd, TapeContent* tc, int tcCount, int showCusto
     curPos = tapeGetCurrentPos();
 
     for (i = 0; i < tcCount; i++) {
-        char buffer[64] = {0};
-        LV_ITEM lvi = {0};
+        wchar_t wbuf[512] = {0};
+        LVITEMW lviw = {0};
 
         if (showCustomFiles || tc[i].type != TAPE_CUSTOM) {
-            lvi.mask       = LVIF_TEXT;
-            lvi.iItem      = idx;
-            lvi.pszText    = buffer;
-	        lvi.cchTextMax = 64;
+            lviw.mask       = LVIF_TEXT;
+            lviw.iItem      = idx;
+            lviw.pszText    = wbuf;
+            lviw.cchTextMax = _countof(wbuf);
             
-            sprintf(buffer, convertTapePos(tc[i].pos));
-            ListView_InsertItem(hwnd, &lvi);
-            lvi.iSubItem++;
+            Utf8ToWide(convertTapePos(tc[i].pos), wbuf, _countof(wbuf));
+            SendMessageW(hwnd, LVM_INSERTITEMW, 0, (LPARAM)&lviw);
+            lviw.iSubItem++;
             
-            sprintf(buffer, typeNames[tc[i].type]);
-            ListView_SetItem(hwnd, &lvi);
-            lvi.iSubItem++;
+            Utf8ToWide(typeNames[tc[i].type], wbuf, _countof(wbuf));
+            SendMessageW(hwnd, LVM_SETITEMW, 0, (LPARAM)&lviw);
+            lviw.iSubItem++;
             
-            sprintf(buffer, tc[i].fileName);
-            ListView_SetItem(hwnd, &lvi);
+            Utf8ToWide(tc[i].fileName, wbuf, _countof(wbuf));
+            SendMessageW(hwnd, LVM_SETITEMW, 0, (LPARAM)&lviw);
 
             if (tc[i].pos <= curPos) {
                 SetFocus(hwnd);
@@ -662,7 +1567,7 @@ static void tapeDlgUpdate(HWND hwnd, TapeContent* tc, int tcCount, int showCusto
 }
 
 
-static BOOL CALLBACK tapePosDlg(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static BOOL_DLG_RET CALLBACK tapePosDlg(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     static int currIndex;
     static HWND hwnd;
@@ -677,21 +1582,18 @@ static BOOL CALLBACK tapePosDlg(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
 
     case WM_INITDIALOG:
         {
-            char buffer[32];
-            LV_COLUMN lvc = {0};
-
             showCustomFiles = (int*)lParam;
          
             updateDialogPos(hDlg, DLG_ID_TAPEPOS, 0, 1);
 
             currIndex = -1;
 
-            SetWindowText(hDlg, langDlgTapeTitle());
+            SetWindowTextU(hDlg, langDlgTapeTitle());
 
-            SendMessage(GetDlgItem(hDlg, IDC_SETTAPEPOSTXT), WM_SETTEXT, 0, (LPARAM)langDlgTapeSetPosText());
-            SetWindowText(GetDlgItem(hDlg, IDC_SETTAPECUSTOM), langDlgTapeCustom());
-            SetWindowText(GetDlgItem(hDlg, IDOK), langDlgOK());
-            SetWindowText(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
+            SetDlgItemTextU(hDlg, IDC_SETTAPEPOSTXT, langDlgTapeSetPosText());
+            SetWindowTextU(GetDlgItem(hDlg, IDC_SETTAPECUSTOM), langDlgTapeCustom());
+            SetWindowTextU(GetDlgItem(hDlg, IDOK), langDlgOK());
+            SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
 
             SendMessage(GetDlgItem(hDlg, IDC_SETTAPECUSTOM), BM_SETCHECK, *showCustomFiles ? BST_CHECKED : BST_UNCHECKED, 0);
 
@@ -702,25 +1604,28 @@ static BOOL CALLBACK tapePosDlg(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPar
             EnableWindow(GetDlgItem(hDlg, IDOK), FALSE);
 
             ListView_SetExtendedListViewStyle(hwnd, LVS_EX_FULLROWSELECT);
+            SendMessageW(hwnd, LVM_SETUNICODEFORMAT, TRUE, 0);
 
-            lvc.mask       = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM;
-            lvc.fmt        = LVCFMT_LEFT;
-            lvc.cx         = 100;
-            lvc.pszText    = buffer;
-	        lvc.cchTextMax = 32;
-
-            sprintf(buffer, langDlgTabPosition());
-            lvc.cx = 95;
-            ListView_InsertColumn(hwnd, 0, &lvc);
-            sprintf(buffer, langDlgTabType());
-            lvc.cx = 65;
-            ListView_InsertColumn(hwnd, 1, &lvc);
-            sprintf(buffer, langDlgTabFilename());
-            lvc.cx = 105;
-            ListView_InsertColumn(hwnd, 2, &lvc);
+            {
+                wchar_t wbuf[64];
+                LVCOLUMNW lvcw = {0};
+                lvcw.mask     = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM;
+                lvcw.fmt      = LVCFMT_LEFT;
+                lvcw.pszText  = wbuf;
+                Utf8ToWide(langDlgTabPosition(), wbuf, _countof(wbuf));
+                lvcw.cx = 95;
+                SendMessageW(hwnd, LVM_INSERTCOLUMNW, 0, (LPARAM)&lvcw);
+                Utf8ToWide(langDlgTabType(), wbuf, _countof(wbuf));
+                lvcw.cx = 65;
+                SendMessageW(hwnd, LVM_INSERTCOLUMNW, 1, (LPARAM)&lvcw);
+                Utf8ToWide(langDlgTabFilename(), wbuf, _countof(wbuf));
+                lvcw.cx = 105;
+                SendMessageW(hwnd, LVM_INSERTCOLUMNW, 2, (LPARAM)&lvcw);
+            }
         }
 
         tapeDlgUpdate(hwnd, tc, tcCount, *showCustomFiles);
+        win32CommonApplyDark(hDlg);
         return FALSE;
 
     case WM_NOTIFY:
@@ -850,6 +1755,7 @@ static void checkKeyUp(Shortcuts* s, ShotcutHotkey key)
 
     if (hotkeyEq(key, s->spritesEnable))                actionToggleSpriteEnable();
     if (hotkeyEq(key, s->fdcTiming))                    actionToggleFdcTiming();
+    if (hotkeyEq(key, s->hddSdBoost))                   actionToggleHddSdBoost();
     if (hotkeyEq(key, s->noSpriteLimits))               actionToggleNoSpriteLimits();
     if (hotkeyEq(key, s->msxKeyboardQuirk))             actionToggleMsxKeyboardQuirk();
     if (hotkeyEq(key, s->msxAudioSwitch))               actionToggleMsxAudioSwitch();
@@ -857,12 +1763,21 @@ static void checkKeyUp(Shortcuts* s, ShotcutHotkey key)
     if (hotkeyEq(key, s->pauseSwitch))                  actionTogglePauseSwitch();
     if (hotkeyEq(key, s->quit))                         actionQuit();
     if (hotkeyEq(key, s->wavCapture))                   actionToggleWaveCapture();
+    if (hotkeyEq(key, s->wavCaptureStartAs))            actionWaveCaptureStartAs();
     if (hotkeyEq(key, s->videoCapLoad))                 actionVideoCaptureLoad();
     if (hotkeyEq(key, s->videoCapPlay))                 actionVideoCapturePlay();
     if (hotkeyEq(key, s->videoCapRec))                  actionVideoCaptureRec();
+    if (hotkeyEq(key, s->videoCapRecAs))                actionVideoCaptureRecAs();
     if (hotkeyEq(key, s->videoCapStop))                 actionVideoCaptureStop();
     if (hotkeyEq(key, s->videoCapSave))                 actionVideoCaptureSave();
+    if (hotkeyEq(key, s->recordVideoStart))             actionRecordVideoStart();
+    if (hotkeyEq(key, s->recordVideoStartAs))           actionRecordVideoStartAs();
+    if (hotkeyEq(key, s->recordVideoStop))              actionRecordVideoStop();
+    if (hotkeyEq(key, s->recordVideoToggle))            actionRecordVideoToggle();
+    if (hotkeyEq(key, s->ym2413BackendCycle))           actionYm2413BackendCycle();
+    if (hotkeyEq(key, s->y8950BackendCycle))            actionY8950BackendCycle();
     if (hotkeyEq(key, s->screenCapture))                actionScreenCapture();
+    if (hotkeyEq(key, s->screenCaptureAs))              actionScreenCaptureAs();
     if (hotkeyEq(key, s->screenCaptureUnfilteredSmall)) actionScreenCaptureUnfilteredSmall();
     if (hotkeyEq(key, s->screenCaptureUnfilteredLarge)) actionScreenCaptureUnfilteredLarge();
     if (hotkeyEq(key, s->cpuStateLoad))                 actionLoadState();
@@ -904,8 +1819,14 @@ static void checkKeyUp(Shortcuts* s, ShotcutHotkey key)
     if (hotkeyEq(key, s->emuSpeedInc))                  actionEmuSpeedIncrease();
     if (hotkeyEq(key, s->emuSpeedToggle))               actionMaxSpeedToggle();
     if (hotkeyEq(key, s->emuSpeedDec))                  actionEmuSpeedDecrease();
-    if (hotkeyEq(key, s->windowSizeSmall))              actionWindowSizeSmall();
-    if (hotkeyEq(key, s->windowSizeNormal))             actionWindowSizeNormal();
+    if (hotkeyEq(key, s->windowSize1x))                 actionWindowSize1x();
+    if (hotkeyEq(key, s->windowSize2x))                 actionWindowSize2x();
+    if (hotkeyEq(key, s->windowSize3x))                 actionWindowSize3x();
+    if (hotkeyEq(key, s->windowSize4x))                 actionWindowSize4x();
+    if (hotkeyEq(key, s->windowSize5x))                 actionWindowSize5x();
+    if (hotkeyEq(key, s->windowSize6x))                 actionWindowSize6x();
+    if (hotkeyEq(key, s->windowSize7x))                 actionWindowSize7x();
+    if (hotkeyEq(key, s->windowSize8x))                 actionWindowSize8x();
     if (hotkeyEq(key, s->windowSizeMinimized))          actionWindowSizeMinimized();
     if (hotkeyEq(key, s->windowSizeFullscreen))         actionWindowSizeFullscreen();
     if (hotkeyEq(key, s->windowSizeFullscreenToggle))   actionFullscreenToggle();
@@ -953,15 +1874,14 @@ static void checkKeyUp(Shortcuts* s, ShotcutHotkey key)
 #define TIMER_THEME                         17
 #define TIMER_MENUUPDATE                    18
 #define TIMER_CLIP_REGION                   19
+#define TIMER_FULLSCREEN_MENU               21
 
 void  PatchDiskSetBusy(int driveId, int busy);
 
 void updateMenu(int show);
-
-typedef void (*KbdLockFun)(); 
-
-KbdLockFun kbdLockEnable = NULL;
-KbdLockFun kbdLockDisable = NULL;
+void archUpdateDisplayKeepalive(void);
+void archApplyGameSchedulerPolicy(int enable);
+void archApplyFileTypeRegistration(int enable);
 
 static Properties* pProperties;
 
@@ -997,6 +1917,11 @@ typedef struct {
 
     HANDLE ddrawEvent;
     HANDLE ddrawAckEvent;
+    /* Manual-reset event raised by archEmuSuspendSignal so any
+    ** WaitForMultipleObjects sitting in archWaitForAckOrSuspend wakes
+    ** even when several emu-thread wait sites are coalesced. Reset
+    ** explicitly inside the wrapper once consumed. */
+    HANDLE suspendCancelEvent;
     int    diplayUpdated;
     int    diplaySync;
     int    diplayUpdateOnVblank;
@@ -1017,6 +1942,7 @@ typedef struct {
 	int clientWidth;
 	int clientHeight;
 
+	HWND hwndSliderTip;  /* lazily created tracking tooltip for sliders */
 } WinState;
 
 
@@ -1029,6 +1955,8 @@ typedef struct {
 static WinState st;
 
 
+/* One ProgID per system family so each extension's description in
+** Default Apps stays accurate. */
 static void registerFileTypes() {
     registerFileType(".dsk", "blueMSXdsk", "DSK Image", 1);
     registerFileType(".di1", "blueMSXdsk", "DSK Image", 1);
@@ -1036,17 +1964,18 @@ static void registerFileTypes() {
     registerFileType(".360", "blueMSXdsk", "DSK Image", 1);
     registerFileType(".720", "blueMSXdsk", "DSK Image", 1);
     registerFileType(".sf7", "blueMSXdsk", "DSK Image", 1);
-    registerFileType(".rom", "blueMSXrom", "ROM Image", 2);
-    registerFileType(".ri",  "blueMSXrom", "ROM Image", 2);
-    registerFileType(".mx1", "blueMSXrom", "ROM Image", 2);
-    registerFileType(".mx2", "blueMSXrom", "ROM Image", 2);
-    registerFileType(".sms", "blueMSXrom", "Sega ROM Image", 2);
-    registerFileType(".col", "blueMSXrom", "Coleco ROM Image", 2);
-    registerFileType(".sg",  "blueMSXrom", "Sega ROM Image", 2);
-    registerFileType(".sc",  "blueMSXrom", "Sega ROM Image", 2);
+    registerFileType(".rom", "blueMSXrom",       "MSX ROM Image", 2);
+    registerFileType(".ri",  "blueMSXrom",       "MSX ROM Image", 2);
+    registerFileType(".mx1", "blueMSXrom",       "MSX ROM Image", 2);
+    registerFileType(".mx2", "blueMSXrom",       "MSX ROM Image", 2);
+    registerFileType(".sms", "blueMSXromSega",   "Sega ROM Image", 2);
+    registerFileType(".sg",  "blueMSXromSega",   "Sega ROM Image", 2);
+    registerFileType(".sc",  "blueMSXromSega",   "Sega ROM Image", 2);
+    registerFileType(".col", "blueMSXromColeco", "ColecoVision ROM Image", 2);
     registerFileType(".cas", "blueMSXcas", "CAS Image", 3);
-    registerFileType(".sta", "blueMSXsta", "blueMSX State", 4);
-    registerFileType(".cap", "blueMSXcap", "blueMSX Video Capture", 4);
+    registerFileType(".sta", "blueMSXsta", "blueMSX+ State", 4);
+    registerFileType(".cap", "blueMSXcap", "blueMSX+ Video Capture", 4);
+    registerApplicationOpenWith();
 }
 
 static void unregisterFileTypes() {
@@ -1056,17 +1985,18 @@ static void unregisterFileTypes() {
     unregisterFileType(".360", "blueMSXdsk", "DSK Image", 1);
     unregisterFileType(".720", "blueMSXdsk", "DSK Image", 1);
     unregisterFileType(".sf7", "blueMSXdsk", "DSK Image", 1);
-    unregisterFileType(".rom", "blueMSXrom", "ROM Image", 2);
-    unregisterFileType(".ri",  "blueMSXrom", "ROM Image", 2);
-    unregisterFileType(".mx1", "blueMSXrom", "ROM Image", 2);
-    unregisterFileType(".mx2", "blueMSXrom", "ROM Image", 2);
-    unregisterFileType(".sms", "blueMSXrom", "Sega ROM Image", 2);
-    unregisterFileType(".col", "blueMSXrom", "Coleco ROM Image", 2);
-    unregisterFileType(".sg",  "blueMSXrom", "Sega ROM Image", 2);
-    unregisterFileType(".sc",  "blueMSXrom", "Sega ROM Image", 2);
+    unregisterFileType(".rom", "blueMSXrom",       "MSX ROM Image", 2);
+    unregisterFileType(".ri",  "blueMSXrom",       "MSX ROM Image", 2);
+    unregisterFileType(".mx1", "blueMSXrom",       "MSX ROM Image", 2);
+    unregisterFileType(".mx2", "blueMSXrom",       "MSX ROM Image", 2);
+    unregisterFileType(".sms", "blueMSXromSega",   "Sega ROM Image", 2);
+    unregisterFileType(".sg",  "blueMSXromSega",   "Sega ROM Image", 2);
+    unregisterFileType(".sc",  "blueMSXromSega",   "Sega ROM Image", 2);
+    unregisterFileType(".col", "blueMSXromColeco", "ColecoVision ROM Image", 2);
     unregisterFileType(".cas", "blueMSXcas", "CAS Image", 3);
-    unregisterFileType(".sta", "blueMSXsta", "blueMSX State", 4);
-    unregisterFileType(".cap", "blueMSXcap", "blueMSX Video Capture", 4);
+    unregisterFileType(".sta", "blueMSXsta", "blueMSX+ State", 4);
+    unregisterFileType(".cap", "blueMSXcap", "blueMSX+ Video Capture", 4);
+    unregisterApplicationOpenWith();
 }
 
 HWND getMainHwnd()
@@ -1074,9 +2004,13 @@ HWND getMainHwnd()
     return st.hwnd;
 }
 
+HWND getEmuHwnd()
+{
+    return st.emuHwnd;
+}
+
 void archShowPropertiesDialog(PropPage  startPane) {
     Properties oldProp = *pProperties;
-    int restart = 0;
     int changed;
     int i;
 
@@ -1098,13 +2032,40 @@ void archShowPropertiesDialog(PropPage  startPane) {
     
     mediaDbSetDefaultRomType(pProperties->cartridge.defaultType);
 
-    printerIoSetType(pProperties->ports.Lpt.type, pProperties->ports.Lpt.fileName);
-    uartIoSetType(pProperties->ports.Com.type, pProperties->ports.Com.fileName);
-    midiIoSetMidiOutType(pProperties->sound.MidiOut.type, pProperties->sound.MidiOut.fileName);
-    midiIoSetMidiInType(pProperties->sound.MidiIn.type, pProperties->sound.MidiIn.fileName);
-    ykIoSetMidiInType(pProperties->sound.YkIn.type, pProperties->sound.YkIn.fileName);
-    midiEnableMt32ToGmMapping(pProperties->sound.MidiOut.mt32ToGm);
-    midiInSetChannelFilter(pProperties->sound.YkIn.channel);
+    /* Reopen ports / MIDI only when the type/device actually changed:
+    ** closing a busy MIDI handle races the emu thread's midiOut* calls
+    ** and corrupts winmm's device table. */
+    if (pProperties->ports.Lpt.type != oldProp.ports.Lpt.type ||
+        strcmp(pProperties->ports.Lpt.name,     oldProp.ports.Lpt.name)     != 0 ||
+        strcmp(pProperties->ports.Lpt.fileName, oldProp.ports.Lpt.fileName) != 0) {
+        printerIoSetType(pProperties->ports.Lpt.type, pProperties->ports.Lpt.fileName);
+    }
+    if (pProperties->ports.Com.type != oldProp.ports.Com.type ||
+        strcmp(pProperties->ports.Com.name,     oldProp.ports.Com.name)     != 0 ||
+        strcmp(pProperties->ports.Com.fileName, oldProp.ports.Com.fileName) != 0) {
+        uartIoSetType(pProperties->ports.Com.type, pProperties->ports.Com.fileName);
+    }
+    if (pProperties->sound.MidiOut.type != oldProp.sound.MidiOut.type ||
+        strcmp(pProperties->sound.MidiOut.name,     oldProp.sound.MidiOut.name)     != 0 ||
+        strcmp(pProperties->sound.MidiOut.fileName, oldProp.sound.MidiOut.fileName) != 0) {
+        midiIoSetMidiOutType(pProperties->sound.MidiOut.type, pProperties->sound.MidiOut.fileName);
+    }
+    if (pProperties->sound.MidiIn.type != oldProp.sound.MidiIn.type ||
+        strcmp(pProperties->sound.MidiIn.name,     oldProp.sound.MidiIn.name)     != 0 ||
+        strcmp(pProperties->sound.MidiIn.fileName, oldProp.sound.MidiIn.fileName) != 0) {
+        midiIoSetMidiInType(pProperties->sound.MidiIn.type, pProperties->sound.MidiIn.fileName);
+    }
+    if (pProperties->sound.YkIn.type != oldProp.sound.YkIn.type ||
+        strcmp(pProperties->sound.YkIn.name,     oldProp.sound.YkIn.name)     != 0 ||
+        strcmp(pProperties->sound.YkIn.fileName, oldProp.sound.YkIn.fileName) != 0) {
+        ykIoSetMidiInType(pProperties->sound.YkIn.type, pProperties->sound.YkIn.fileName);
+    }
+    if (pProperties->sound.MidiOut.mt32ToGm != oldProp.sound.MidiOut.mt32ToGm) {
+        midiEnableMt32ToGmMapping(pProperties->sound.MidiOut.mt32ToGm);
+    }
+    if (pProperties->sound.YkIn.channel != oldProp.sound.YkIn.channel) {
+        midiInSetChannelFilter(pProperties->sound.YkIn.channel);
+    }
 
     /* Update window size only if changed */
     if (pProperties->video.driver != oldProp.video.driver ||
@@ -1119,21 +2080,16 @@ void archShowPropertiesDialog(PropPage  startPane) {
         archUpdateWindow();
     }
 
-    if (pProperties->cartridge.defaultType != oldProp.cartridge.defaultType) {
-        for (i = 0; i < PROP_MAX_CARTS; i++) {
-            if (pProperties->media.carts[i].fileName[0]) insertCartridge(pProperties, i, pProperties->media.carts[i].fileName, pProperties->media.carts[i].fileNameInZip, pProperties->media.carts[i].type, -1);
-        }
-    }
-    /* Must restart MSX if Machine configuration changed */
-    if (strcmp(oldProp.emulation.machineName, pProperties->emulation.machineName) ||
-        oldProp.emulation.syncMethod != pProperties->emulation.syncMethod ||
-        oldProp.emulation.vdpSyncMode != pProperties->emulation.vdpSyncMode)
-    {
-        restart = 1;
-    }
-
+    /* defaultType is only the heuristic-fallback for newly loaded ROMs
+    ** (mediaDbGuessRom). Re-inserting currently-loaded carts on change
+    ** would tear down the live mapper (slotRemove + recreate), reset the
+    ** SCC oscillators (silencing music) and remount SCSI/SD storage --
+    ** for no benefit, because the existing cart's type is already known
+    ** and is passed back unchanged. */
     boardSetFdcTimingEnable(pProperties->emulation.enableFdcTiming);
+    boardSetHddSdBoostEnable(pProperties->emulation.enableHddSdBoost);
     boardSetNoSpriteLimits(pProperties->emulation.noSpriteLimits);
+    boardSetVdpCmdSpeed(pProperties->emulation.vdpCmdSpeed);
 
     /* Update switches */
     switchSetAudio(pProperties->emulation.audioSwitch);
@@ -1141,18 +2097,15 @@ void archShowPropertiesDialog(PropPage  startPane) {
     switchSetPause(pProperties->emulation.pauseSwitch);
     emulatorSetFrequency(pProperties->emulation.speed, NULL);
 
-    /* Update sound only if changed, Must restart if changed */
-    if (oldProp.sound.bufSize              != pProperties->sound.bufSize ||
-        oldProp.sound.driver               != pProperties->sound.driver  ||
-        oldProp.sound.chip.enableY8950     != pProperties->sound.chip.enableY8950 ||
-        oldProp.sound.chip.enableYM2413    != pProperties->sound.chip.enableYM2413 ||
-        oldProp.sound.chip.enableMoonsound != pProperties->sound.chip.enableMoonsound ||
-        oldProp.sound.stereo               != pProperties->sound.stereo) 
-    {
+    if (propertiesNeedSoundRestart(&oldProp, pProperties)) {
         soundDriverConfig(st.hwnd, pProperties->sound.driver);
         emulatorRestartSound();
     }
 
+    /* Push chip enable changes into the runtime board globals so the
+    ** next emulatorStart sees them. Sound-tab WM_INITDIALOG disables
+    ** these checkboxes while the emu is running, so this branch only
+    ** ever fires from a stopped session. */
     if (oldProp.sound.chip.enableY8950     != pProperties->sound.chip.enableY8950 ||
         oldProp.sound.chip.enableYM2413    != pProperties->sound.chip.enableYM2413 ||
         oldProp.sound.chip.enableMoonsound != pProperties->sound.chip.enableMoonsound)
@@ -1160,17 +2113,15 @@ void archShowPropertiesDialog(PropPage  startPane) {
         boardSetY8950Enable(pProperties->sound.chip.enableY8950);
         boardSetYm2413Enable(pProperties->sound.chip.enableYM2413);
         boardSetMoonsoundEnable(pProperties->sound.chip.enableMoonsound);
-        restart = 1;
     }
 
     if (oldProp.emulation.syncMethod != pProperties->emulation.syncMethod) {
+        /* All sync methods use 3 buffers (FlipViewFrame3); SYNCNONE = 1.
+        ** FlipViewFrame4's tween path is incompatible with the D3D12
+        ** backend's SM5/SM7 mid-frame transitions. */
         switch(pProperties->emulation.syncMethod) {
         case P_EMU_SYNCNONE:
             frameBufferSetFrameCount(1);
-            break;
-        case P_EMU_SYNCTOVBLANK:
-        case P_EMU_SYNCTOVBLANKASYNC:
-            frameBufferSetFrameCount(4);
             break;
         default:
             frameBufferSetFrameCount(3);
@@ -1183,45 +2134,18 @@ void archShowPropertiesDialog(PropPage  startPane) {
         mixerEnableChannelType(st.mixer, i, pProperties->sound.mixerChannel[i].enable);
     }
     
-    if(!pProperties->settings.portable) {
-        if (pProperties->emulation.registerFileTypes && !oldProp.emulation.registerFileTypes) {
-            registerFileTypes();
-        }
-        else if (!pProperties->emulation.registerFileTypes) {
-            unregisterFileTypes();
-        }
-    }
+    /* File-type registration is applied live from the BN_CLICKED handler
+    ** in Win32properties.c, so PSN_APPLY does not repeat it here. */
 
-    if (pProperties->emulation.disableWinKeys && !oldProp.emulation.disableWinKeys) {
-        if (kbdLockEnable && emulatorGetState() == EMU_RUNNING && pProperties->emulation.disableWinKeys) {
-            kbdLockEnable();
-        }
-        else if (kbdLockDisable) {
-            kbdLockDisable();
-        }
-    }
-    
-    if (pProperties->emulation.priorityBoost && !oldProp.emulation.priorityBoost) {
-        if (pProperties->emulation.priorityBoost) {
-            SetPriorityClass(GetCurrentProcess(), ABOVE_NORMAL_PRIORITY_CLASS);
-        }
-        else {
-            SetPriorityClass(GetCurrentProcess(), NORMAL_PRIORITY_CLASS);
-        }
+    if (pProperties->emulation.priorityBoost != oldProp.emulation.priorityBoost) {
+        archApplyGameSchedulerPolicy(pProperties->emulation.priorityBoost);
     }
 
     mixerSetMasterVolume(st.mixer, pProperties->sound.masterVolume);
     mixerEnableMaster(st.mixer, pProperties->sound.masterEnable);
 
-    if (restart) {
-        emulatorRestart();
-    }
-
     if (oldProp.settings.disableScreensaver != pProperties->settings.disableScreensaver) {
-        POINT pt;
-        SystemParametersInfo(SPI_SETSCREENSAVEACTIVE, !pProperties->settings.disableScreensaver, 0, SPIF_SENDWININICHANGE); 
-        GetCursorPos(&pt);
-        SetCursorPos(pt.x + 1, pt.y);
+        archUpdateDisplayKeepalive();
     }
 
     updateMenu(0);
@@ -1231,7 +2155,13 @@ void archShowPropertiesDialog(PropPage  startPane) {
 
 
 void enterDialogShow() {
-    if (pProperties->video.driver != P_VIDEO_DRVGDI) {
+    /* Kill the completion toast first: its 50ms timer + topmost overlay
+    ** would race the modal dialog. */
+    toastHide();
+    /* DirectXSetGDISurface is a no-op on DX12/GDI/DDraw-windowed; the
+    ** suspend cycle around it only causes a WASAPI click. */
+    if (pProperties->video.driver != P_VIDEO_DRVGDI &&
+        pProperties->video.driver != P_VIDEO_DRVDIRECTX_D3D12) {
         if (emulatorGetState() == EMU_RUNNING) {
             emulatorSuspend();
             DirectXSetGDISurface();
@@ -1266,12 +2196,16 @@ void updateMenu(int show) {
         show = 1;
     }
 
-    emulatorSuspend();
+    /* DirectXSetGDISurface (DDraw FlipToGDISurface) needs the emulator
+       paused; D3D12 / GDI don't, and skipping the suspend avoids an
+       audible WASAPI click on every Properties apply. */
+    int ddrawNeedsFlip = doDelay
+                         && pProperties->video.driver != P_VIDEO_DRVGDI
+                         && pProperties->video.driver != P_VIDEO_DRVDIRECTX_D3D12;
 
-    if (pProperties->video.driver != P_VIDEO_DRVGDI) {
-         if (doDelay) { 
-             DirectXSetGDISurface();
-         }
+    if (ddrawNeedsFlip) {
+        emulatorSuspend();
+        DirectXSetGDISurface();
     }
 
     if (boardGetType() != BOARD_MSX) {
@@ -1289,7 +2223,9 @@ void updateMenu(int show) {
 
     st.showMenu = menuShow(show);
 
-    emulatorResume();
+    if (ddrawNeedsFlip) {
+        emulatorResume();
+    }
 
     if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN) {
         mouseEmuActivate(!show);
@@ -1335,15 +2271,66 @@ static void checkClipRegion() {
     }
 }
 
+// DPI helpers: load Windows 10 1607+ APIs dynamically so the binary
+// still runs on older Windows (where Per-Monitor V2 is not active anyway).
+static UINT getDpiForWindow(HWND hwnd) {
+    typedef UINT (WINAPI *PFN)(HWND);
+    static PFN pfn = (PFN)(LONG_PTR)-1;
+    if (pfn == (PFN)(LONG_PTR)-1)
+        pfn = (PFN)GetProcAddress(GetModuleHandleA("user32.dll"), "GetDpiForWindow");
+    return pfn ? pfn(hwnd) : 96;
+}
+
+static void adjustWindowRectForDpi(RECT* rc, DWORD style, UINT dpi) {
+    typedef BOOL (WINAPI *PFN)(LPRECT, DWORD, BOOL, DWORD, UINT);
+    static PFN pfn = (PFN)(LONG_PTR)-1;
+    if (pfn == (PFN)(LONG_PTR)-1)
+        pfn = (PFN)GetProcAddress(GetModuleHandleA("user32.dll"), "AdjustWindowRectExForDpi");
+    if (pfn)
+        pfn(rc, style, FALSE, 0, dpi);
+    else
+        AdjustWindowRect(rc, style, FALSE);
+}
+
+/* Composite theme through the 640x480 buffer onto the emu area.  Uses
+   MonitorFromWindow to avoid pre-SetWindowPos client size in fullscreen. */
+typedef void (*ThemePageDrawFn)(ThemePage*, HDC);
+static void themeDrawAllAdapter(ThemePage* page, HDC hdc) {
+    themePageDraw(page, hdc, NULL);
+}
+static void drawThemeOnEmuArea(HWND hwnd, HDC hdc, ThemePageDrawFn drawFn) {
+    HDC hMemDC = CreateCompatibleDC(hdc);
+    HBITMAP oldBmp = (HBITMAP)SelectObject(hMemDC, st.hBitmap);
+    HMONITOR hMon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY);
+    MONITORINFO mi = { sizeof(mi) };
+    int dstW, dstH;
+    if (hMon && GetMonitorInfo(hMon, &mi)) {
+        dstW = mi.rcMonitor.right  - mi.rcMonitor.left;
+        dstH = mi.rcMonitor.bottom - mi.rcMonitor.top;
+    } else {
+        RECT r;
+        GetClientRect(hwnd, &r);
+        dstW = r.right;
+        dstH = r.bottom;
+    }
+    drawFn(st.themePageActive, hMemDC);
+    StretchBlt(hdc, 0, 0, dstW, dstH,
+               hMemDC, 0, 0,
+               st.themePageActive->width,
+               st.themePageActive->height, SRCCOPY);
+    SelectObject(hMemDC, oldBmp);
+    DeleteDC(hMemDC);
+}
+
 static int getZoom() {
     if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN && 
         (pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO || 
         pProperties->video.driver == P_VIDEO_DRVDIRECTX))
     {
         DxDisplayMode* ddm = DirectDrawGetDisplayMode();
-        return ddm->width < 640 || ddm->height < 480 ? 1 : 2;
+        return min(min(ddm->width / 320, ddm->height / 240), 8);
     }
-    return pProperties->video.windowSize == P_VIDEO_SIZEX1 ? 1 : 2;
+    return pProperties->video.windowSize + 1;
 }
 
 
@@ -1371,23 +2358,51 @@ void themeSet(char* themeName, int forceMatch) {
     if (st.themePageActive) {
         themePageActivate(st.themePageActive, NULL);
     }
+    /* Drop the dangling pointer before unloading the theme it belongs to. */
+    st.themePageActive = NULL;
 
     st.rgnEnable = -1;
     setClipRegion(0);
     st.themeIndex = index;
-    strcpy(pProperties->settings.themeName, themeName);
-    strcpy(pProperties->settings.themeName, st.themeList[st.themeIndex]->name);
 
-    switch (pProperties->video.windowSize) {
-    case P_VIDEO_SIZEX1:
-        st.themePageActive = themeGetCurrentPage(st.themeList[st.themeIndex]->little);
-        break;
-    case P_VIDEO_SIZEX2:
-        st.themePageActive = themeGetCurrentPage(st.themeList[st.themeIndex]->normal);
-        break;
-    case P_VIDEO_SIZEFULLSCREEN:
-        st.themePageActive = themeGetCurrentPage(st.themeList[st.themeIndex]->fullscreen);
-        break;
+    {
+        ThemeCollection* tc = st.themeList[st.themeIndex];
+        /* Unload other external themes (~700 bitmaps each) before loading
+           the new one; repeated switches otherwise exhaust GDI quota.
+           themeList[0] stays loaded as Classic fallback. */
+        for (int i = 0; st.themeList[i] != NULL; i++) {
+            if (i == 0) continue;
+            if (st.themeList[i] == tc) continue;
+            themeCollectionUnload(st.themeList[i]);
+        }
+        /* Lazy parse on first selection.  Must precede themeName write:
+           tc->name is the directory placeholder until EnsureLoaded reads
+           the XML display name, and writing the placeholder back to INI
+           used to silently fall back to Classic on next launch. */
+        themeCollectionEnsureLoaded(tc);
+        strcpy(pProperties->settings.themeName, tc->name);
+
+        if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN) {
+            Theme* page = tc->fullscreen;
+            if (page == NULL && st.themeList[0] != NULL) page = st.themeList[0]->fullscreen;
+            st.themePageActive = themeGetCurrentPage(page);
+        }
+        else {
+            int zoomIdx = pProperties->video.windowSize + 1;  /* P_VIDEO_SIZEX1..X8 -> 1..8 */
+            /* External themes ship zoom[2]+fullscreen; synthesise
+               zoom[3..8] from "normal".  z=1 falls back to Classic. */
+            if (zoomIdx >= 3 && tc->zoom[zoomIdx] == NULL && tc->zoom[2] != NULL) {
+                themeCollectionEnsureZoom(tc, zoomIdx);
+            }
+            Theme* page = tc->zoom[zoomIdx];
+            if (page == NULL) page = tc->zoom[2];                    /* fallback to normal */
+            if (page == NULL && st.themeList[0] != NULL) {
+                /* Last-resort Classic fallback (typically zoom[1]). */
+                page = st.themeList[0]->zoom[zoomIdx];
+                if (page == NULL) page = st.themeList[0]->zoom[2];
+            }
+            st.themePageActive = themeGetCurrentPage(page);
+        }
     }
 
     if (st.themePageActive) {
@@ -1410,14 +2425,26 @@ void themeSet(char* themeName, int forceMatch) {
     }
 
     if (pProperties->video.windowSize != P_VIDEO_SIZEFULLSCREEN) {
+        int zoom = getZoom();
+        int clientW, clientH;
         x = pProperties->video.windowX;
         y = pProperties->video.windowY;
-        w = st.themePageActive->width + 2 * GetSystemMetrics(SM_CXFIXEDFRAME);
-        h = st.themePageActive->height + 2 * GetSystemMetrics(SM_CYFIXEDFRAME) + GetSystemMetrics(SM_CYCAPTION);
+        DWORD dwStyle = (DWORD)GetWindowLongPtr(st.hwnd, GWL_STYLE);
         ex = st.themePageActive->emuWinX;
         ey = st.themePageActive->emuWinY;
-        ew = getZoom() * WIDTH;
-        eh = getZoom() * HEIGHT;
+        ew = zoom * WIDTH;
+        eh = zoom * HEIGHT;
+        // Enclose both the theme bitmap and the emu rect: at zoom>=5 the
+        // x2 fallback theme is smaller than the emu extent and would
+        // otherwise clip it against the window frame.
+        clientW = max((int)st.themePageActive->width,  ex + ew);
+        clientH = max((int)st.themePageActive->height, ey + eh);
+        {
+            RECT rc = { 0, 0, clientW, clientH };
+            adjustWindowRectForDpi(&rc, dwStyle, getDpiForWindow(st.hwnd));
+            w = rc.right - rc.left;
+            h = rc.bottom - rc.top;
+        }
         z  = HWND_NOTOPMOST;
 
         if (pProperties->video.windowSize == P_VIDEO_SIZEX2) {
@@ -1439,7 +2466,7 @@ void themeSet(char* themeName, int forceMatch) {
         st.hBitmap = CreateCompatibleBitmap(st.hdc, 640, 480);
     }
     
-    if (strcmp(themeName,"Classic")) SetWindowText(st.hwnd, "  blueMSX");
+    if (strcmp(themeName,"Classic")) SetWindowTextU(st.hwnd, "  blueMSX+");
 
     if (st.rgnData != NULL) {
 //        SetWindowRgn(st.hwnd, NULL, TRUE);
@@ -1464,8 +2491,17 @@ void themeSet(char* themeName, int forceMatch) {
             int i;
             HRGN hrgn;
             POINT pt[512];
-            int dx = GetSystemMetrics(SM_CXFIXEDFRAME);
-            int dy = GetSystemMetrics(SM_CYFIXEDFRAME) + GetSystemMetrics(SM_CYCAPTION);
+            /* SM_CXFIXEDFRAME is non-DPI-aware 3px; adjustWindowRectForDpi
+               gives actual WS_DLGFRAME margins so SetWindowRgn doesn't
+               clip the bitmap. */
+            int dx, dy;
+            {
+                RECT frameRc = { 0, 0, 0, 0 };
+                DWORD style = (DWORD)GetWindowLongPtr(st.hwnd, GWL_STYLE);
+                adjustWindowRectForDpi(&frameRc, style, getDpiForWindow(st.hwnd));
+                dx = -frameRc.left;
+                dy = -frameRc.top;
+            }
 
             if (clipCount == 0) {
                 pt[0].x = 0 + dx;
@@ -1529,13 +2565,26 @@ void themeSet(char* themeName, int forceMatch) {
 void archUpdateWindow() {
     int zoom = getZoom();
 
+    // Detect D3D12 -> D3D12 transitions (zoom/theme/fullscreen): the
+    // swap chain auto-resizes, so skip the device tear-down to keep
+    // recorder resources alive and avoid AMD driver crashes.
+    static int s_prevDriver = -1;
+    int curDriver           = pProperties->video.driver;
+    int skipDeviceTeardown  = (curDriver == P_VIDEO_DRVDIRECTX_D3D12) &&
+                              (s_prevDriver == P_VIDEO_DRVDIRECTX_D3D12);
+    int zoomOnly            = skipDeviceTeardown;  // alias for downstream conditionals
+
+    int liveSurvivesTransition = recorderIsLiveRecording();
+
     st.enteringFullscreen = 1;
     emulatorSuspend();
 
-    if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D)
-        D3DExitFullscreenMode();
-    else
+    // Tear down ALL drivers (each Exit no-ops if inactive); tearing down
+    // only the current one leaks the previous swap chain on the HWND.
+    if (!zoomOnly) {
+        D3D12ExitFullscreenMode();
         DirectXExitFullscreenMode();
+    }
 
     if (st.bmBitsGDI != NULL) {
         free(st.bmBitsGDI);
@@ -1548,10 +2597,10 @@ void archUpdateWindow() {
         }
         else {
             int rv;
-            SetWindowLong(st.hwnd, GWL_STYLE, WS_POPUP | WS_CLIPCHILDREN | WS_VISIBLE);
+            SetWindowLongPtr(st.hwnd, GWL_STYLE, WS_POPUP | WS_CLIPCHILDREN | WS_VISIBLE);
 
-            if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D)
-                rv = D3DEnterFullscreenMode(st.emuHwnd, 
+            if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12)
+                rv = D3D12EnterFullscreenMode(st.emuHwnd,
                                                 pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO, 
                                                 pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO);
             else
@@ -1560,9 +2609,9 @@ void archUpdateWindow() {
                                                 pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO);
 
             if (rv != DXE_OK) {
-                MessageBox(NULL, langErrorEnterFullscreen(), langErrorTitle(), MB_OK);
-                if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D)
-                    D3DExitFullscreenMode();
+                MessageBoxU(NULL, langErrorEnterFullscreen(), langErrorTitle(), MB_OK);
+                if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12)
+                    D3D12ExitFullscreenMode();
                 else
                     DirectXExitFullscreenMode();
                 pProperties->video.windowSize = P_VIDEO_SIZEX2;
@@ -1571,17 +2620,17 @@ void archUpdateWindow() {
     }
 
     if (pProperties->video.windowSize != P_VIDEO_SIZEFULLSCREEN) {
-        if (GetWindowLong(st.hwnd, GWL_STYLE) & WS_POPUP) {
+        if (GetWindowLongPtr(st.hwnd, GWL_STYLE) & WS_POPUP) {
             mouseEmuActivate(1);
-            SetWindowLong(st.hwnd, GWL_STYLE, WS_OVERLAPPED | WS_CLIPCHILDREN | WS_BORDER | WS_DLGFRAME | 
+            SetWindowLongPtr(st.hwnd, GWL_STYLE, WS_OVERLAPPED | WS_CLIPCHILDREN | WS_BORDER | WS_DLGFRAME |
                                 WS_SYSMENU | WS_MINIMIZEBOX | (pProperties->video.maximizeIsFullscreen?WS_MAXIMIZEBOX:0));
         }
 
-        if (pProperties->video.driver != P_VIDEO_DRVGDI) {
+        if (pProperties->video.driver != P_VIDEO_DRVGDI && !zoomOnly) {
             int rv;
 
-            if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D)
-                rv = D3DEnterWindowedMode(st.emuHwnd, zoom * WIDTH, zoom * HEIGHT, 
+            if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12)
+                rv = D3D12EnterWindowedMode(st.emuHwnd, zoom * WIDTH, zoom * HEIGHT,
                                               pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO, 
                                               pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO);
             else
@@ -1589,7 +2638,7 @@ void archUpdateWindow() {
                                               pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO, 
                                               pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO);
             if (rv != DXE_OK) {
-                MessageBox(NULL, langErrorDirectXFailed(), langErrorTitle(), MB_OK);
+                MessageBoxU(NULL, langErrorDirectXFailed(), langErrorTitle(), MB_OK);
                 pProperties->video.driver = P_VIDEO_DRVGDI;
             }
         }
@@ -1604,6 +2653,19 @@ void archUpdateWindow() {
     setClipRegion(0);
     themeSet(pProperties->settings.themeName, 1);
     updateMenu(0);
+
+    /* Re-own open aux theme windows (Mixer etc.) for the new fullscreen /
+    ** windowed state; they live in static caches, not st.themeList. */
+    archWindowApplyOwnershipAll();
+
+    /* Poll cursor position in fullscreen so the menu strip auto-shows
+       on top-edge hover and auto-hides on cursor leave, regardless of
+       whether mouse messages route through emuHwnd or menuHwnd. */
+    if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN) {
+        SetTimer(st.hwnd, TIMER_FULLSCREEN_MENU, 100, NULL);
+    } else {
+        KillTimer(st.hwnd, TIMER_FULLSCREEN_MENU);
+    }
 
     {
         RECT r = { 0, 0, zoom * WIDTH, zoom * HEIGHT };
@@ -1627,19 +2689,49 @@ void archUpdateWindow() {
         mouseEmuSetCaptureInfo(&r, &d);
     }
 
+    // Bring the DX12 device up synchronously so recorderStartLive can
+    // allocate capture resources, and re-bind after a device reset.
+    int dx12Ready = 1;
+    if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12 && !zoomOnly) {
+        dx12Ready = D3D12EnsureReady(st.emuHwnd, st.diplaySync);
+    }
+
+    // Stop a live recording only if we genuinely can't continue: driver is
+    // no longer DX12, or DX12 init just failed. zoom-only DOES NOT stop --
+    // device stays alive and capture resources are intact.
+    if (liveSurvivesTransition &&
+        (pProperties->video.driver != P_VIDEO_DRVDIRECTX_D3D12 || !dx12Ready))
+    {
+        recorderStopLive();
+    }
+
     emulatorResume();
 
     st.enteringFullscreen = 0;
+    SetEvent(st.ddrawEvent);
+
+    s_prevDriver = pProperties->video.driver;
 
     InvalidateRect(NULL, NULL, TRUE);
 }
 
 
 
+/* FPS counts distinct emulated frames (age changes), not host presents,
+** so it stays at ~60/50 on high-refresh monitors. */
+static int viewFrameLastAge = -1;
+
 static void emuWindowDraw(int onlyOnVblank)
 {      
     static void* lock = NULL;
     int rv = 0;
+
+    /* Offline render runs at fixed capture FPS with the recorder grabbing
+    ** frames directly from the framebuffer; the main window stays covered by
+    ** the modal progress dialog, so skip its render path to avoid GPU races. */
+    if (st.renderVideo) {
+        return;
+    }
 
     if (lock == NULL) {
         lock = archSemaphoreCreate(1);
@@ -1649,7 +2741,7 @@ static void emuWindowDraw(int onlyOnVblank)
 
     if (!st.enteringFullscreen && 
         (pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO || 
-        (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D) || 
+        (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12) ||
         (pProperties->video.driver == P_VIDEO_DRVDIRECTX)))
     {
 #define PRINT_RENDERING_TIME 0
@@ -1663,8 +2755,8 @@ static void emuWindowDraw(int onlyOnVblank)
         st.diplaySync |= onlyOnVblank;
 
 
-        if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D) 
-            rv = D3DUpdateSurface(st.emuHwnd, st.pVideo, st.diplaySync, &pProperties->video.d3d);
+        if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12)
+            rv = D3D12UpdateSurface(st.emuHwnd, st.pVideo, st.diplaySync, &pProperties->video.d3d);
         else
             rv = DirectXUpdateSurface(st.pVideo, 
                                       st.showMenu | st.showDialog || emulatorGetState() != EMU_RUNNING, 
@@ -1688,7 +2780,12 @@ static void emuWindowDraw(int onlyOnVblank)
 #endif
         st.diplaySync = 0;
         if (rv) {
-            st.frameCount++;
+            FrameBuffer* vf = frameBufferGetViewFrame();
+            int age = vf ? vf->age : viewFrameLastAge;
+            if (age != viewFrameLastAge) {
+                viewFrameLastAge = age;
+                st.frameCount++;
+            }
         }
     }
     st.diplayUpdated = rv;
@@ -1696,7 +2793,7 @@ static void emuWindowDraw(int onlyOnVblank)
     archSemaphoreSignal(lock);
 }
 
-void* createScreenShot(int large, int* bitmapSize, int png)
+void* createScreenShotEx(int large, int* bitmapSize, int png, const char* overrideFilename)
 {
     void* bitmap = NULL;
 
@@ -1735,12 +2832,17 @@ void* createScreenShot(int large, int* bitmapSize, int png)
         bitmap = ScreenShot2(bmBitsDst, 320 * zoom, frameBuffer->maxWidth * zoom, 240 * zoom, bitmapSize, png);
     }
     else {
-        ScreenShot3(pProperties, bmBitsDst, 320 * zoom, frameBuffer->maxWidth * zoom, 240 * zoom, png);
+        ScreenShot3Ex(pProperties, bmBitsDst, 320 * zoom, frameBuffer->maxWidth * zoom, 240 * zoom, png, overrideFilename);
     }
 
     free(bmBitsDst);
 
     return bitmap;
+}
+
+void* createScreenShot(int large, int* bitmapSize, int png)
+{
+    return createScreenShotEx(large, bitmapSize, png, NULL);
 }
 
 static LRESULT CALLBACK emuWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam) 
@@ -1759,6 +2861,7 @@ static LRESULT CALLBACK emuWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
     case WM_MBUTTONUP:
     case WM_RBUTTONDOWN:
     case WM_RBUTTONUP:
+        mouseEmuOnUserMouseActivity();
         return SendMessage(GetParent(hwnd), iMsg, wParam, lParam);
 
 	case WM_WINDOWPOSCHANGED :
@@ -1784,6 +2887,19 @@ static LRESULT CALLBACK emuWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
             int borderWidth;
             HDC hdc;   
             int zoom = getZoom();
+
+            // Refresh client size + bmInfo every paint; WM_WINDOWPOSCHANGED
+            // only updates them while driver==GDI, so they go stale across
+            // a driver switch and StretchDIBits would paint a 0x0 rect.
+            {
+                RECT cr;
+                GetClientRect(hwnd, &cr);
+                st.clientWidth  = cr.right  - cr.left;
+                st.clientHeight = cr.bottom - cr.top;
+                st.bmInfo.bmiHeader.biWidth    = zoom * WIDTH;
+                st.bmInfo.bmiHeader.biHeight   = zoom * HEIGHT;
+                st.bmInfo.bmiHeader.biBitCount = 32;
+            }
 
             if (st.bmBitsGDI == 0) {
                 st.bmBitsGDI = malloc(4096 * 4096 * sizeof(UInt32));
@@ -1862,15 +2978,17 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 
     case WM_DROPFILES:
         {
-            char fname[MAX_PATH];
+            char fname[MAX_PATH * 4];
+            wchar_t wfname[MAX_PATH];
             HDROP hDrop;
             DWORD fa;
 
             hDrop = (HDROP)wParam;
-            DragQueryFile(hDrop, 0, fname, 512);
+            DragQueryFileW(hDrop, 0, wfname, MAX_PATH);
+            WideToUtf8(wfname, fname, sizeof(fname));
             DragFinish(hDrop);
-            
-		    fa = GetFileAttributes(fname);
+
+            fa = GetFileAttributesA(fname);
             if (fa & FILE_ATTRIBUTE_DIRECTORY) {
                 insertDiskette(pProperties, 0, fname, NULL, 0);
             }
@@ -1885,7 +3003,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             char fileName[512];
             FILE* file = fopen(LAUNCH_TEMP_FILE, "r");
             if (file != NULL) {
-                int size = fread(fileName, 1, 512, file);
+                int size = (int)fread(fileName, 1, 512, file);
                 fclose(file);
                 if (size > 0) {
                     char* argument;
@@ -2032,6 +3150,53 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         }
         return 0;
 
+    case WM_DPICHANGED:
+        {
+            RECT* r = (RECT*)lParam;
+            /* Windowed: skip the suggested-rect resize (themeSet's own
+               SetWindowPos lands the final size); fullscreen needs it. */
+            if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN) {
+                SetWindowPos(hwnd, NULL,
+                    r->left, r->top,
+                    r->right - r->left, r->bottom - r->top,
+                    SWP_NOZORDER | SWP_NOACTIVATE);
+            } else {
+                pProperties->video.windowX = r->left;
+                pProperties->video.windowY = r->top;
+            }
+            /* Pin archMenuStripHeight() to LOWORD(wParam) (GetDpiForWindow
+               can still return the old DPI mid-transition); rebuild every
+               built-in theme and force-unload external themes so they
+               pick up the new DPI. */
+            archSetDpiOverride(LOWORD(wParam));
+
+            if (st.themePageActive) {
+                themePageActivate(st.themePageActive, NULL);
+            }
+            st.themePageActive = NULL;
+
+            /* Rebuild menu font for new DPI; otherwise strip keeps the
+               startup-DPI font and overflows after DPI transitions. */
+            menuRebuildForDpi(LOWORD(wParam));
+
+            /* Rebuild built-ins (path=="") in place; drop externals so
+               themeSet below lazy-reloads them at the new DPI. */
+            if (st.themeList) {
+                for (int i = 0; st.themeList[i] != NULL; i++) {
+                    ThemeCollection* tc = st.themeList[i];
+                    if (tc->path[0] == 0) {
+                        themeClassicRebuild(tc);
+                    } else {
+                        themeCollectionUnload(tc);
+                    }
+                }
+            }
+            themeSet(pProperties->settings.themeName, 1);
+
+            archSetDpiOverride(0);
+        }
+        return 0;
+
     case WM_MOVE:
         if (!st.enteringFullscreen && pProperties->video.windowSize != P_VIDEO_SIZEFULLSCREEN) {
             RECT r;
@@ -2041,11 +3206,13 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         }
 
     case WM_DISPLAYCHANGE:
+        /* WM_MOVE above lacks `break`; st.enteringFullscreen guard below
+           makes the fall-through harmless during normal moves. */
         if (pProperties->video.driver != P_VIDEO_DRVGDI) {
             int zoom = getZoom();
             if (st.enteringFullscreen) {
-                if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D)
-                    D3DUpdateWindowedMode(st.emuHwnd, zoom * WIDTH, zoom * HEIGHT,
+                if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12)
+                    D3D12UpdateWindowedMode(st.emuHwnd, zoom * WIDTH, zoom * HEIGHT,
                                               pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO, 
                                               pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO);
                 else
@@ -2060,10 +3227,12 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         {
             LRESULT rv = DefWindowProc(hwnd, iMsg, wParam, lParam);
             MINMAXINFO* mmi = (MINMAXINFO*)lParam;
-            mmi->ptMaxSize.x      = 2048;
-            mmi->ptMaxSize.y      = 2048;
-            mmi->ptMaxTrackSize.x = 2048;
-            mmi->ptMaxTrackSize.y = 2048;
+            /* x8 zoom needs 2564x1971; allow 8K headroom so the window can
+               exceed the physical screen without WM_GETMINMAXINFO clamping. */
+            mmi->ptMaxSize.x      = 16384;
+            mmi->ptMaxSize.y      = 16384;
+            mmi->ptMaxTrackSize.x = 16384;
+            mmi->ptMaxTrackSize.y = 16384;
             return 0;
         }
 
@@ -2073,19 +3242,11 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         
     case WM_ACTIVATE:
         if (LOWORD(wParam) == WA_INACTIVE) {
-            if (kbdLockDisable != NULL) {
-                kbdLockDisable(0);
-            }
-            else {
-                inputReset(hwnd);
-            }
+            inputReset(hwnd);
             mouseEmuActivate(0);
             actionMaxSpeedRelease();
         }
         else {
-            if (kbdLockEnable != NULL && emulatorGetState() == EMU_RUNNING && pProperties->emulation.disableWinKeys) {
-                kbdLockEnable();
-            }
             mouseEmuActivate(1);
         }
         if (st.themePageActive) {
@@ -2103,26 +3264,40 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         break;
 
     case WM_MOUSEMOVE:
+        mouseEmuOnUserMouseActivity();
         if (st.themePageActive) {
             HDC hdc = GetDC(hwnd);
             POINT pt;
             GetCursorPos(&pt);
             ScreenToClient(hwnd, &pt);
             themePageMouseMove(st.themePageActive, hdc, pt.x, pt.y);
+            win32SliderTooltipUpdate(&st.hwndSliderTip, hwnd,
+                                     themePageHoverSliderPercent(st.themePageActive, pt.x, pt.y));
             ReleaseDC(hwnd, hdc);
             checkClipRegion();
+            {
+                TRACKMOUSEEVENT tme = { sizeof(tme), TME_LEAVE, hwnd, 0 };
+                TrackMouseEvent(&tme);
+            }
         }
         if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN) {
-            if (HIWORD(lParam) < 2) {
-                if (!st.showMenu) {
-                    updateMenu(1);
-                }
+            /* Show on cursor at top edge, auto-hide on cursor leaving menu strip. */
+            int menuStripH = archMenuStripHeight();
+            int y = HIWORD(lParam);
+            if (y < 8) {
+                if (!st.showMenu) updateMenu(1);
+            } else if (y > menuStripH + 4) {
+                if (st.showMenu) updateMenu(0);
             }
         }
         archWindowMove();
         SetTimer(hwnd, TIMER_THEME, 250, NULL);
 
         break;
+
+    case WM_MOUSELEAVE:
+        win32SliderTooltipUpdate(&st.hwndSliderTip, hwnd, -1);
+        return 0;
 
     case WM_LBUTTONDOWN:
         {
@@ -2167,6 +3342,23 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 
     case WM_TIMER:
         switch (wParam) {
+        case TIMER_FULLSCREEN_MENU:
+            /* st.trackMenu = popup submenu is open; skip the poll so we
+               don't toggle mouseEmuActivate and re-hide the cursor. */
+            if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN
+                && !st.trackMenu) {
+                POINT pt;
+                int menuStripH = archMenuStripHeight();
+                GetCursorPos(&pt);
+                ScreenToClient(hwnd, &pt);
+                if (pt.y < 8) {
+                    if (!st.showMenu) updateMenu(1);
+                } else if (pt.y > menuStripH + 4) {
+                    if (st.showMenu) updateMenu(0);
+                }
+            }
+            break;
+
         case TIMER_CLIP_REGION:
             updateClipRegion();
             break;
@@ -2186,8 +3378,25 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
                     }
                 }
 
-                if (!strcmp(pProperties->settings.themeName,"Classic")) themeClassicTitlebarUpdate(hwnd);
-                themePageUpdate(st.themePageActive, hdc);
+                /* Classic / Classic Dark drive their full title from this
+                   100ms poller; other themes set theirs at theme change. */
+                if (!strcmp(pProperties->settings.themeName, "Classic") ||
+                    !strcmp(pProperties->settings.themeName, "Classic Dark"))
+                    themeClassicTitlebarUpdate(hwnd);
+
+                if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN) {
+                    int drv = pProperties->video.driver;
+                    /* DDraw: parent stays windowed; status update goes
+                       direct to hdc (no monitor-sized stretch). */
+                    if (drv == P_VIDEO_DRVDIRECTX_VIDEO ||
+                        drv == P_VIDEO_DRVDIRECTX) {
+                        themePageUpdate(st.themePageActive, hdc);
+                    } else {
+                        drawThemeOnEmuArea(hwnd, hdc, themePageUpdate);
+                    }
+                } else {
+                    themePageUpdate(st.themePageActive, hdc);
+                }
                 ReleaseDC(hwnd, hdc);
 
                 PatchDiskSetBusy(0, 0);
@@ -2236,7 +3445,9 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 
                 st.buttonState = buttonState;
 
-                mouseEmuSetRunState(emulatorGetState() == EMU_RUNNING);
+                /* Pause cursor fade only on EMU_STOPPED; keep alive on
+                   PAUSED/SUSPENDED so a paused game still fades. */
+                mouseEmuSetRunState(emulatorGetState() != EMU_STOPPED);
             }
             break;
 
@@ -2306,6 +3517,19 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
     case WM_INPUTLANGCHANGE:
         break;
 
+    case WM_SETTINGCHANGE:
+        if (lParam && strcmp((const char*)lParam, "ImmersiveColorSet") == 0) {
+            /* System dark/light toggled -- drop the cached registry value so
+            ** subclass procs pick up the new state on their next message. */
+            win32InvalidateDarkModeCache();
+            win32ApplyDarkTitle(hwnd);
+            /* Re-evaluate ForceDark vs ForceLight against the new system
+            ** theme, then refresh and flush the cached menu theme so already
+            ** populated popup/submenu visuals don't keep the previous mode. */
+            win32EnableDarkModeForApp();
+        }
+        break;
+
     case WM_PAINT:
         {
             PAINTSTRUCT ps;
@@ -2314,21 +3538,36 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
                 HDC hMemDC = CreateCompatibleDC(hdc);
                 HBITMAP hBitmap = (HBITMAP)SelectObject(hMemDC, st.hBitmap);
 
-                 if (pProperties->video.windowSize != P_VIDEO_SIZEFULLSCREEN) {
-					// the theme is only drawn when not in fullscreen mode
-					themePageDraw(st.themePageActive, hMemDC, NULL);
+                if (pProperties->video.windowSize != P_VIDEO_SIZEFULLSCREEN) {
+                    themePageDraw(st.themePageActive, hMemDC, NULL);
                     BitBlt(hdc, 0, 0, st.themePageActive->width, st.themePageActive->height, hMemDC, 0, 0, SRCCOPY);
+                    SelectObject(hMemDC, hBitmap);
+                    DeleteDC(hMemDC);
                 }
                 else {
-                    RECT r;
-                    GetClientRect(hwnd, &r);
-					themePageDraw(st.themePageActive, hMemDC, NULL);
-                    StretchBlt(hdc, 0, 0, r.right, r.bottom, 
-                               hMemDC, 0, 0, st.themePageActive->width, st.themePageActive->height, SRCCOPY);
+                    int drv = pProperties->video.driver;
+                    /* DDraw fullscreen keeps the parent at windowed size,
+                       so drawThemeOnEmuArea's monitor-sized StretchBlt
+                       clips and races DDraw flips; use GetClientRect. */
+                    if (drv == P_VIDEO_DRVDIRECTX_VIDEO ||
+                        drv == P_VIDEO_DRVDIRECTX) {
+                        RECT r;
+                        GetClientRect(hwnd, &r);
+                        themePageDraw(st.themePageActive, hMemDC, NULL);
+                        StretchBlt(hdc, 0, 0, r.right, r.bottom,
+                                   hMemDC, 0, 0,
+                                   st.themePageActive->width,
+                                   st.themePageActive->height, SRCCOPY);
+                        SelectObject(hMemDC, hBitmap);
+                        DeleteDC(hMemDC);
+                    } else {
+                        /* D3D12: parent already at monitor pixels;
+                           MonitorFromWindow avoids racing SetWindowPos. */
+                        SelectObject(hMemDC, hBitmap);
+                        DeleteDC(hMemDC);
+                        drawThemeOnEmuArea(hwnd, hdc, themeDrawAllAdapter);
+                    }
                 }
-
-                SelectObject(hMemDC, hBitmap);
-                DeleteDC(hMemDC);                
             }
             EndPaint(hwnd, &ps);
         }
@@ -2357,8 +3596,8 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             pProperties->video.windowY = r.top;
         }
         st.enteringFullscreen = 1;
-        if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D)
-            D3DExitFullscreenMode();
+        if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12)
+            D3D12ExitFullscreenMode();
         else
             DirectXExitFullscreenMode();
         PostQuitMessage(0);
@@ -2372,13 +3611,24 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             switch(wParam) {
             case DBT_DEVICEARRIVAL:
             case DBT_DEVICEREMOVECOMPLETE:
-                if (lpdb->dbch_devicetype == DBT_DEVTYP_VOLUME) {
+                if (lpdb && lpdb->dbch_devicetype == DBT_DEVTYP_VOLUME) {
                     PDEV_BROADCAST_VOLUME lpdbv = (PDEV_BROADCAST_VOLUME)lpdb;
 
                     if (lpdbv->dbcv_flags & DBTF_MEDIA) {
                         cdromOnMediaChange(lpdbv->dbcv_unitmask);
                     }
                 }
+                /* fallthrough */
+            case DBT_DEVNODES_CHANGED:
+                /* Refresh right away so a fresh pad works without opening
+                ** a config dialog.  Refresh is idempotent (append-only);
+                ** ResolveShadowBindings materialises pending DIK strings. */
+                inputMarkDirty();
+                inputRefreshDevicesIfDirty();
+                inputResolveShadowBindings();
+                /* Reconcile the video-in device cache and gracefully
+                ** transition to None if the active camera was unplugged. */
+                videoInOnDeviceChange();
                 break;
             }
         }
@@ -2421,12 +3671,12 @@ int setDefaultPath() {
     char* ptr;
 
     // Set current directory to where the exe is located
-    GetModuleFileName((HINSTANCE)GetModuleHandle(NULL), buffer, 512);
+    GetModuleFileNameU((HINSTANCE)GetModuleHandle(NULL), buffer, 512);
     ptr = (char*)stripPath(buffer);
     *ptr = 0;
-    chdir(buffer);
+    chdirU(buffer);
 
-    GetCurrentDirectory(MAX_PATH - 1, st.pCurDir);
+    GetCurrentDirectoryU(MAX_PATH - 1, st.pCurDir);
 
     readOnlyDir = 0;
 
@@ -2448,21 +3698,23 @@ int setDefaultPath() {
     }
 
     if (!readOnlyDir) {
-        GetCurrentDirectory(MAX_PATH - 1, rootDir); 
+        GetCurrentDirectoryU(MAX_PATH - 1, rootDir); 
     }
     else {
         // Get user's My Documents folder 
         LPITEMIDLIST Root; 
+        wchar_t wBuffer2[MAX_PATH];
         SHGetSpecialFolderLocation(NULL, CSIDL_PERSONAL, &Root); 
-        SHGetPathFromIDList(Root, buffer2); 
+        SHGetPathFromIDListW(Root, wBuffer2);
+        WideToUtf8(wBuffer2, buffer2, 512);
 
-        chdir(buffer2); 
+        chdirU(buffer2); 
         sprintf(buffer, "%s\\blueMSX Temporary Files", buffer2); 
-        mkdir(buffer); 
-        chdir(buffer); 
+        mkdirU(buffer); 
+        chdirU(buffer); 
 
-        GetCurrentDirectory(MAX_PATH - 1, rootDir); 
-        SetCurrentDirectory(st.pCurDir);
+        GetCurrentDirectoryU(MAX_PATH - 1, rootDir); 
+        SetCurrentDirectoryU(st.pCurDir);
     }
 
     // Set up temp directories
@@ -2472,35 +3724,35 @@ int setDefaultPath() {
 	machineSetDirectory(buffer);
 
     sprintf(buffer, "%s\\Audio Capture", rootDir);
-    mkdir(buffer);
+    mkdirU(buffer);
     actionSetAudioCaptureSetDirectory(buffer, "");
 
     sprintf(buffer, "%s\\Video Capture", rootDir);
-    mkdir(buffer);
+    mkdirU(buffer);
     actionSetVideoCaptureSetDirectory(buffer, "");
 
     sprintf(buffer, "%s\\QuickSave", rootDir);
-    mkdir(buffer);
+    mkdirU(buffer);
     actionSetQuickSaveSetDirectory(buffer, "");
 
     sprintf(buffer, "%s\\SRAM", rootDir);
-    mkdir(buffer);
+    mkdirU(buffer);
     boardSetDirectory(buffer);
 
     sprintf(buffer, "%s\\Keyboard Config", rootDir);
-    mkdir(buffer);
+    mkdirU(buffer);
     keyboardSetDirectory(buffer);
 
     sprintf(buffer, "%s\\Screenshots", rootDir);
-    mkdir(buffer);
+    mkdirU(buffer);
     screenshotSetDirectory(buffer, "");
 
     sprintf(buffer, "%s\\Casinfo", rootDir);
-    mkdir(buffer);
+    mkdirU(buffer);
     tapeSetDirectory(buffer, "");
 
     sprintf(buffer, "%s\\Databases", rootDir);
-    mkdir(buffer);
+    mkdirU(buffer);
     mediaDbLoad(buffer);
 
     mediaDbCreateRomdb();
@@ -2556,14 +3808,12 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     static WNDCLASSEX wndClass;
     HINSTANCE hInstance = (HINSTANCE)GetModuleHandle(NULL);
     char buffer[512];  
-    BOOL screensaverActive;
     int  resetRegistry;
     HWND hwnd;
     int doExit = 0;
     RECT wr;
     MSG msg;
     int i;
-    HINSTANCE kbdLockInst;
     int readOnlyDir;
     const char* tempName;
     int scrDepth;
@@ -2577,22 +3827,36 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
     scrDepth = getScreenBitDepth();
     if (scrDepth != 16 && scrDepth != 32) {
-        MessageBox(NULL, "blueMSX works best in 16 or 32 bits color depth", "blueMSX Info", MB_OK | MB_ICONINFORMATION);
+        MessageBoxU(NULL, langInfoColorDepth(), langInfoTitle(), MB_OK | MB_ICONINFORMATION);
     }
 
-    hwnd = FindWindow("blueMSX", "  blueMSX");
+    hwnd = FindWindow("blueMSX", "  blueMSX+");
     if (hwnd != NULL && *szLine) {
         char args[2048];
         char* cmdLine = args;
 
         if (0 == strncmp(szLine, "/onearg ", 8)) {
-            char* ptr;
-            sprintf(args, "\"%s", szLine + 8);
-            ptr = args + strlen(args);
-            while(*--ptr == ' ') {
-                *ptr = 0; 
+            /* /onearg <rest> -- treat the entire rest as one file path.
+            ** Handle both shell-quoted (HKCU "%1") and bare command-line
+            ** input by re-wrapping in exactly one quote pair. */
+            const char* rest = szLine + 8;
+            int len;
+            while (*rest == ' ' || *rest == '\t') rest++;
+            strcpy(args, rest);
+            len = (int)strlen(args);
+            while (len > 0 && (args[len-1] == ' ' || args[len-1] == '\t'
+                            || args[len-1] == '\r' || args[len-1] == '\n')) {
+                args[--len] = 0;
             }
-            strcat(args, "\"");
+            if (len >= 2 && args[0] == '"' && args[len-1] == '"') {
+                args[len-1] = 0;
+                memmove(args, args + 1, len - 1);
+                len -= 2;
+            }
+            memmove(args + 1, args, len + 1);
+            args[0] = '"';
+            args[len + 1] = '"';
+            args[len + 2] = 0;
         }
         else {
             cmdLine = szLine;
@@ -2638,22 +3902,15 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     {
         // Set current directory to where the exe is located
         char* ptr;
-        GetModuleFileName((HINSTANCE)GetModuleHandle(NULL), buffer, 512);
+        GetModuleFileNameU((HINSTANCE)GetModuleHandle(NULL), buffer, 512);
         ptr = (char*)stripPath(buffer);
         *ptr = 0;
-        SetCurrentDirectory(buffer);
+        SetCurrentDirectoryU(buffer);
     }
 
     pkg_load("Packages/BombaPack.bpk", NULL, 0);
 
     appConfigLoad();
-
-    kbdLockInst = LoadLibrary("kbdlock.dll");
-
-    if (kbdLockInst != NULL) {
-        kbdLockEnable  = (KbdLockFun)GetProcAddress(kbdLockInst, (LPCSTR)2);
-        kbdLockDisable = (KbdLockFun)GetProcAddress(kbdLockInst, (LPCSTR)3);
-    }
 
     readOnlyDir = setDefaultPath();
 
@@ -2666,6 +3923,12 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
             if (0 == strcmp(klId + 4, "0411")) {
                 kbdLang = P_KBD_JAPANESE;
             }
+        }
+        /* Also default to the JP MSX keyboard when the user's system
+           locale is Japanese, even if the active Windows keyboard layout
+           is non-JIS (e.g. US physical keyboard with ja-JP region). */
+        if (PRIMARYLANGID(LANGIDFROMLCID(GetUserDefaultLCID())) == LANG_JAPANESE) {
+            kbdLang = P_KBD_JAPANESE;
         }
 
         resetRegistry = emuCheckResetArgument(szLine);
@@ -2688,13 +3951,37 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
         
         if (resetRegistry == 2) {
             propDestroy(pProperties);
-            FreeLibrary(kbdLockInst);
 
             exit(0);
             return 0;
         }
 
         emuCheckFullscreenArgument(pProperties, szLine);
+    }
+
+    /* Capture path reconciliation. The Audio/Video/Screenshot directories
+    ** were seeded above with rootDir-based defaults; if the loaded INI also
+    ** has capture.* paths, those win and we push them into the runtime
+    ** statics. Otherwise we copy the runtime defaults back into Properties
+    ** so they round-trip on next save. */
+    if (pProperties->capture.audioDir[0]) {
+        actionSetAudioCaptureSetDirectory(pProperties->capture.audioDir, "");
+    } else {
+        strcpy(pProperties->capture.audioDir, actionGetAudioCaptureDir());
+    }
+    if (pProperties->capture.videoDir[0]) {
+        actionSetVideoCaptureSetDirectory(pProperties->capture.videoDir, "");
+    } else {
+        strcpy(pProperties->capture.videoDir, actionGetVideoCaptureDir());
+    }
+    if (pProperties->capture.screenshotDir[0]) {
+        screenshotSetDirectory(pProperties->capture.screenshotDir, "");
+    } else {
+        strcpy(pProperties->capture.screenshotDir, screenshotGetDirectory());
+    }
+    /* Replay output dir defaults to videoDir until UI splits them. */
+    if (!pProperties->capture.replayDir[0]) {
+        strcpy(pProperties->capture.replayDir, pProperties->capture.videoDir);
     }
 
     tempName = appConfigGetString("singlemachine", NULL);
@@ -2708,7 +3995,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     }
 
     if (readOnlyDir && pProperties->settings.portable) {
-        MessageBox(NULL, langErrorPortableReadonly(), langErrorTitle(), MB_OK);
+        MessageBoxU(NULL, langErrorPortableReadonly(), langErrorTitle(), MB_OK);
         return 0;
     }
 
@@ -2721,13 +4008,10 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
     videoInInitialize(pProperties);
 
+    /* Init-time selection; same logic as the apply path above. */
     switch(pProperties->emulation.syncMethod) {
     case P_EMU_SYNCNONE:
         frameBufferSetFrameCount(1);
-        break;
-    case P_EMU_SYNCTOVBLANK:
-    case P_EMU_SYNCTOVBLANKASYNC:
-        frameBufferSetFrameCount(4);
         break;
     default:
         frameBufferSetFrameCount(3);
@@ -2751,8 +4035,9 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     st.bmInfo.bmiHeader.biCompression    = BI_RGB;
     st.bmInfo.bmiHeader.biClrUsed        = 0;
     st.bmInfo.bmiHeader.biClrImportant   = 0;
-    st.ddrawEvent    = CreateEvent(NULL, FALSE, FALSE, NULL);
-    st.ddrawAckEvent = CreateEvent(NULL, FALSE, FALSE, NULL);    
+    st.ddrawEvent         = CreateEvent(NULL, FALSE, FALSE, NULL);
+    st.ddrawAckEvent      = CreateEvent(NULL, FALSE, FALSE, NULL);
+    st.suspendCancelEvent = CreateEvent(NULL, TRUE,  FALSE, NULL);  /* manual-reset */
 	
 
 
@@ -2785,25 +4070,27 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
     st.shortcuts = shortcutsCreateProfile(pProperties->emulation.shortcutProfile);
 
-    SystemParametersInfo(SPI_GETSCREENSAVEACTIVE, 0, &screensaverActive, SPIF_SENDWININICHANGE); 
-    SystemParametersInfo(SPI_SETSCREENSAVEACTIVE, !pProperties->settings.disableScreensaver, 0, SPIF_SENDWININICHANGE); 
-
-    if(!pProperties->settings.portable) {
-        if (pProperties->emulation.registerFileTypes) {
-            registerFileTypes();
-        }
-        else {
-            unregisterFileTypes();
-        }
+    if (!pProperties->settings.portable && pProperties->emulation.registerFileTypes) {
+        /* Refresh HKCU registration each launch to pick up a new exe
+        ** path; the off branch only fires from the dialog. */
+        registerFileTypes();
+        fileTypesNotifyShell();
     }
 
     pProperties->language = emuCheckLanguageArgument(szLine, pProperties->language);
     langSetLanguage(pProperties->language);
 
-    st.hwnd = CreateWindow("blueMSX", "  blueMSX", 
+    /* Enable dark for process-wide themed controls before any dialog shows. */
+    win32EnableDarkModeForApp();
+
+    st.hwnd = CreateWindow("blueMSX", "  blueMSX+",
                             WS_OVERLAPPED | WS_CLIPCHILDREN | WS_BORDER | WS_DLGFRAME | 
                             WS_SYSMENU | WS_MINIMIZEBOX | (pProperties->video.maximizeIsFullscreen?WS_MAXIMIZEBOX:0), 
                             CW_USEDEFAULT, CW_USEDEFAULT, 800, 200, NULL, NULL, hInstance, NULL);
+
+    /* Main window is not a dialog so it doesn't go through win32CommonApplyDark.
+    ** Apply the immersive dark titlebar directly. */
+    win32ApplyDarkTitle(st.hwnd);
 
     menuCreate(st.hwnd);
 
@@ -2869,6 +4156,11 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     soundDriverConfig(st.hwnd, pProperties->sound.driver);
     emulatorRestartSound();
 
+    /* Driver runs 2ch unconditionally; bring mixer's stereo flag in line
+    ** with the user's saved preference now that the driver no longer
+    ** sets it from its channel count. */
+    mixerSetStereo(st.mixer, pProperties->sound.stereo);
+
     for (i = 0; i < MIXER_CHANNEL_TYPE_COUNT; i++) {
         mixerSetChannelTypeVolume(st.mixer, i, pProperties->sound.mixerChannel[i].volume);
         mixerSetChannelTypePan(st.mixer, i, pProperties->sound.mixerChannel[i].pan);
@@ -2906,7 +4198,9 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
         }
     }
     boardSetFdcTimingEnable(pProperties->emulation.enableFdcTiming);
+    boardSetHddSdBoostEnable(pProperties->emulation.enableHddSdBoost);
     boardSetNoSpriteLimits(pProperties->emulation.noSpriteLimits);
+    boardSetVdpCmdSpeed(pProperties->emulation.vdpCmdSpeed);
     boardSetY8950Enable(pProperties->sound.chip.enableY8950);
     boardSetYm2413Enable(pProperties->sound.chip.enableYM2413);
     boardSetMoonsoundEnable(pProperties->sound.chip.enableMoonsound);
@@ -2920,16 +4214,20 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     }
 
     st.themePageActive = NULL;
-    st.themeList = createThemeList(themeClassicCreate());
+    {
+        ThemeCollection* builtins[3];
+        builtins[0] = themeClassicCreate();
+        builtins[1] = themeClassicCreateDark();
+        builtins[2] = NULL;
+        st.themeList = createThemeList(builtins);
+    }
     themeSet(emuCheckThemeArgument(szLine), 0);
 
     archUpdateWindow();
     ShowWindow(st.hwnd, SW_NORMAL);
     UpdateWindow(st.hwnd);
 
-    if (pProperties->emulation.priorityBoost) {
-        SetPriorityClass(GetCurrentProcess(), ABOVE_NORMAL_PRIORITY_CLASS);
-    }
+    archApplyGameSchedulerPolicy(pProperties->emulation.priorityBoost);
 
     while (!doExit) {
         DWORD rv = MsgWaitForMultipleObjects(1, &st.ddrawEvent, FALSE, INFINITE, QS_ALLINPUT);    
@@ -2947,6 +4245,10 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
             }
             SetEvent(st.ddrawAckEvent);
         }
+        archUpdateDisplayKeepalive();
+        /* Covers record-end paths that never hit emulatorStop (RLE buffer
+        ** overflow inside boardCaptureUInt8); no-op when nothing pending. */
+        actionReplayFlushCompletionToast();
     }
 
     emulatorExit();
@@ -2954,7 +4256,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     shortcutsDestroyProfile(st.shortcuts);
     videoDestroy(st.pVideo);
     
-    SetCurrentDirectory(st.pCurDir);
+    SetCurrentDirectoryU(st.pCurDir);
 
     videoInCleanup(pProperties);
     ethIfCleanup(pProperties);
@@ -2962,6 +4264,8 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
     pProperties->joy1.typeId = joystickPortGetType(0);
     pProperties->joy2.typeId = joystickPortGetType(1);
+    recorderRestorePropsAtExit();
+    toastDestroy();
     propDestroy(pProperties);
 
     archSoundDestroy();
@@ -2969,12 +4273,8 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     mixerDestroy(st.mixer);
     midiShutdown();
 
-    SystemParametersInfo(SPI_SETSCREENSAVEACTIVE, screensaverActive, 0, SPIF_SENDWININICHANGE); 
-
-    if (kbdLockDisable) {
-        kbdLockDisable();
-    }
-    FreeLibrary(kbdLockInst);
+    /* SetThreadExecutionState scopes to this process; the kernel clears
+    ** the keepalive on process exit, so no explicit revert is needed. */
 
     CoUninitialize();
 
@@ -3008,7 +4308,7 @@ void archShowHelpDialog()
         rv = ShellExecute(getMainHwnd(), "open", "blueMSX.chm", NULL, NULL, SW_SHOWNORMAL);
     }
     if (rv <= (HINSTANCE)32) {
-        MessageBox(NULL, langErrorNoHelp(), langErrorTitle(), MB_OK);
+        MessageBoxU(NULL, langErrorNoHelp(), langErrorTitle(), MB_OK);
     }
 }
 
@@ -3021,24 +4321,287 @@ void archShowAboutDialog()
 
 void archShowNoRomInZipDialog() {
     enterDialogShow();
-    MessageBox(NULL, langErrorNoRomInZip(), langErrorTitle(), MB_OK);
+    MessageBoxU(NULL, langErrorNoRomInZip(), langErrorTitle(), MB_OK);
     exitDialogShow();
 }
 
 void archShowNoDiskInZipDialog() {
     enterDialogShow();
-    MessageBox(NULL, langErrorNoDskInZip(), langErrorTitle(), MB_OK);
+    MessageBoxU(NULL, langErrorNoDskInZip(), langErrorTitle(), MB_OK);
     enterDialogShow();
 }
 
 void archShowNoCasInZipDialog() {
     enterDialogShow();
-    MessageBox(NULL, langErrorNoCasInZip(), langErrorTitle(), MB_OK);
+    MessageBoxU(NULL, langErrorNoCasInZip(), langErrorTitle(), MB_OK);
     enterDialogShow();
 }
 
+void archShowDirAsDskOverflowDialog(int skippedCount, int skippedBytes) {
+    char msg[512];
+    enterDialogShow();
+    sprintf(msg, langErrorDirAsDskOverflow(), skippedCount, (skippedBytes + 1023) / 1024);
+    MessageBoxU(NULL, msg, langMenuDiskDirInsert(), MB_OK | MB_ICONWARNING);
+    exitDialogShow();
+}
+
+/* IDD_LARGEMSG custom dialog backing MessageBoxLargeU: 11pt, ~800px wide,
+** auto-sized to text, optional 48px MB_ICON*; localized button captions. */
+typedef struct {
+    const wchar_t* mainInstr;
+    const wchar_t* content;
+    const wchar_t* caption;
+    UINT           type;
+} LargeMsgInfo;
+
+static INT_PTR CALLBACK largeMsgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    static LargeMsgInfo* info;
+    switch (msg) {
+    case WM_INITDIALOG: {
+        info = (LargeMsgInfo*)lParam;
+        SetWindowTextW(hDlg, info->caption ? info->caption : L"");
+
+        /* Combine optional main instruction + body (Win32 needs \r\n). */
+        wchar_t fullText[8192];
+        if (info->mainInstr && info->mainInstr[0]) {
+            _snwprintf(fullText, _countof(fullText) - 1, L"%s\r\n\r\n%s",
+                       info->mainInstr,
+                       info->content ? info->content : L"");
+        } else {
+            _snwprintf(fullText, _countof(fullText) - 1, L"%s",
+                       info->content ? info->content : L"");
+        }
+        fullText[_countof(fullText) - 1] = 0;
+        SetDlgItemTextW(hDlg, IDC_LARGEMSG_TEXT, fullText);
+
+        /* SS_NOPREFIX: paths with '&' must not become accelerator hints. */
+        HWND hStatic = GetDlgItem(hDlg, IDC_LARGEMSG_TEXT);
+        SetWindowLong(hStatic, GWL_STYLE,
+                      GetWindowLong(hStatic, GWL_STYLE) | SS_NOPREFIX);
+
+        /* Localize Cancel/Yes/No; OK stays universal. */
+        SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
+        SetWindowTextU(GetDlgItem(hDlg, IDYES),    langDlgYes());
+        SetWindowTextU(GetDlgItem(hDlg, IDNO),     langDlgNo());
+
+        /* MB_ICON* -> 48x48 system icon; NULL hides the icon column. */
+        const int iconSize = 48;
+        HICON hIcon = NULL;
+        UINT iconFlag = info->type & 0xF0;
+        switch (iconFlag) {
+            case MB_ICONINFORMATION:
+                hIcon = (HICON)LoadImageW(NULL, (LPCWSTR)IDI_INFORMATION, IMAGE_ICON,
+                                          iconSize, iconSize, LR_SHARED); break;
+            case MB_ICONWARNING:
+                hIcon = (HICON)LoadImageW(NULL, (LPCWSTR)IDI_WARNING, IMAGE_ICON,
+                                          iconSize, iconSize, LR_SHARED); break;
+            case MB_ICONHAND:        /* alias of MB_ICONERROR */
+                hIcon = (HICON)LoadImageW(NULL, (LPCWSTR)IDI_ERROR, IMAGE_ICON,
+                                          iconSize, iconSize, LR_SHARED); break;
+            case MB_ICONQUESTION:
+                hIcon = (HICON)LoadImageW(NULL, (LPCWSTR)IDI_QUESTION, IMAGE_ICON,
+                                          iconSize, iconSize, LR_SHARED); break;
+        }
+        HWND hIconCtrl = GetDlgItem(hDlg, IDC_LARGEMSG_ICON);
+        if (hIcon) {
+            SendMessageW(hIconCtrl, STM_SETICON, (WPARAM)hIcon, 0);
+            ShowWindow(hIconCtrl, SW_SHOW);
+        } else {
+            ShowWindow(hIconCtrl, SW_HIDE);
+        }
+
+        /* Collect visible buttons in display order; hide the rest. */
+        UINT btnFlags = info->type & 0x0F;
+        int showOk     = (btnFlags == MB_OK || btnFlags == MB_OKCANCEL);
+        int showCancel = (btnFlags == MB_OKCANCEL || btnFlags == MB_YESNOCANCEL);
+        int showYes    = (btnFlags == MB_YESNO || btnFlags == MB_YESNOCANCEL);
+        int showNo     = (btnFlags == MB_YESNO || btnFlags == MB_YESNOCANCEL);
+
+        HWND btnHwnds[4];
+        int  btnCount = 0;
+        if (showOk)     btnHwnds[btnCount++] = GetDlgItem(hDlg, IDOK);
+        if (showYes)    btnHwnds[btnCount++] = GetDlgItem(hDlg, IDYES);
+        if (showNo)     btnHwnds[btnCount++] = GetDlgItem(hDlg, IDNO);
+        if (showCancel) btnHwnds[btnCount++] = GetDlgItem(hDlg, IDCANCEL);
+        if (btnCount == 0) {
+            /* Fall back to OK so the dialog is dismissable. */
+            btnHwnds[btnCount++] = GetDlgItem(hDlg, IDOK);
+        }
+        ShowWindow(GetDlgItem(hDlg, IDOK),     showOk     || btnCount == 1 ? SW_SHOW : SW_HIDE);
+        ShowWindow(GetDlgItem(hDlg, IDCANCEL), showCancel ? SW_SHOW : SW_HIDE);
+        ShowWindow(GetDlgItem(hDlg, IDYES),    showYes    ? SW_SHOW : SW_HIDE);
+        ShowWindow(GetDlgItem(hDlg, IDNO),     showNo     ? SW_SHOW : SW_HIDE);
+
+        /* Measure text and size dialog to fit; maxTextW caps long paths. */
+        HFONT font = (HFONT)SendMessageW(hStatic, WM_GETFONT, 0, 0);
+        HDC   hdc  = GetDC(hStatic);
+        HFONT oldFont = (HFONT)SelectObject(hdc, font);
+
+        TEXTMETRICW tm;
+        GetTextMetricsW(hdc, &tm);
+        int lineHeight = tm.tmHeight + tm.tmExternalLeading;
+
+        RECT  measureRect = { 0, 0, 0, 0 };
+        DrawTextW(hdc, fullText, -1, &measureRect,
+                  DT_CALCRECT | DT_LEFT | DT_NOPREFIX);
+        int rawW = measureRect.right  - measureRect.left;
+        int rawH = measureRect.bottom - measureRect.top;
+
+        int minTextW = 200;
+        int maxTextW = 720;
+        int textW    = rawW;
+        int textH    = rawH;
+        if (textW > maxTextW) {
+            textW = maxTextW;
+            RECT wrapRect = { 0, 0, maxTextW, 10000 };
+            DrawTextW(hdc, fullText, -1, &wrapRect,
+                      DT_CALCRECT | DT_LEFT | DT_NOPREFIX | DT_WORDBREAK);
+            textH = wrapRect.bottom - wrapRect.top;
+        }
+        if (textW < minTextW) textW = minTextW;
+
+        SelectObject(hdc, oldFont);
+        ReleaseDC(hStatic, hdc);
+
+        /* Button geometry from .rc template (DPI / theme honoured). */
+        RECT btnRect;
+        GetWindowRect(btnHwnds[0], &btnRect);
+        int btnW = btnRect.right  - btnRect.left;
+        int btnH = btnRect.bottom - btnRect.top;
+
+        int padX     = 20;   // left/right inset for content
+        int padTop   = 14;   // top inset
+        int padMid   = 18;   // gap between text row and button row
+        int padBot   = 14;   // bottom inset under button row
+        int btnGap   = 10;   // px between buttons
+        int iconW    = hIcon ? iconSize : 0;
+        int iconH    = hIcon ? iconSize : 0;
+        int iconGap  = hIcon ? 16 : 0;   // space between icon and text
+
+        /* Vertically align icon center with first text line. */
+        int topShift = 4;
+        int iconY    = padTop + topShift;
+        int textY    = padTop + topShift;
+        if (hIcon && iconH > lineHeight) {
+            textY += (iconH - lineHeight) / 2;
+        }
+        int rowBottom = iconY + iconH;
+        if (textY + textH > rowBottom) rowBottom = textY + textH;
+        int rowH     = rowBottom - padTop;
+
+        int buttonsW = btnCount * btnW + (btnCount - 1) * btnGap;
+        int rowW     = iconW + iconGap + textW;
+        int clientW  = (rowW > buttonsW ? rowW : buttonsW) + padX * 2;
+        int clientH  = padTop + rowH + padMid + btnH + padBot;
+
+        int rowX     = (clientW - rowW) / 2;
+        int iconX    = rowX;
+        int textX    = rowX + iconW + iconGap;
+        int btnY     = padTop + rowH + padMid;
+        int btnsX    = (clientW - buttonsW) / 2;
+
+        if (hIcon) {
+            SetWindowPos(hIconCtrl, NULL, iconX, iconY, iconW, iconH, SWP_NOZORDER);
+        }
+        SetWindowPos(hStatic, NULL, textX, textY, textW, textH, SWP_NOZORDER);
+        for (int i = 0; i < btnCount; i++) {
+            SetWindowPos(btnHwnds[i], NULL,
+                         btnsX + i * (btnW + btnGap), btnY,
+                         0, 0, SWP_NOSIZE | SWP_NOZORDER);
+        }
+
+        /* Resize dialog to fit client area + non-client overhead. */
+        RECT wr, cr;
+        GetWindowRect(hDlg, &wr);
+        GetClientRect(hDlg, &cr);
+        int ncW = (wr.right - wr.left) - (cr.right - cr.left);
+        int ncH = (wr.bottom - wr.top) - (cr.bottom - cr.top);
+        int newW = clientW + ncW;
+        int newH = clientH + ncH;
+
+        /* Resize first, then center via shared helper (handles missing owner). */
+        SetWindowPos(hDlg, NULL, 0, 0, newW, newH, SWP_NOMOVE | SWP_NOZORDER);
+        win32CommonCenterOnOwner(hDlg);
+
+        win32CommonApplyDark(hDlg);
+        return TRUE;
+    }
+    case WM_COMMAND: {
+        int id = LOWORD(wParam);
+        if (id == IDOK || id == IDCANCEL || id == IDYES || id == IDNO) {
+            EndDialog(hDlg, id);
+            return TRUE;
+        }
+        break;
+    }
+    case WM_CLOSE:
+        EndDialog(hDlg, IDCANCEL);
+        return TRUE;
+    }
+    return FALSE;
+}
+
+int MessageBoxLargeU(HWND hwnd, const char* mainInstr, const char* content,
+                     const char* caption, UINT type)
+{
+    wchar_t wmain[1024];
+    wchar_t wcontent[8192];
+    wchar_t wcap[256];
+    if (mainInstr && *mainInstr) {
+        Utf8ToWide(mainInstr, wmain, _countof(wmain));
+    } else {
+        wmain[0] = 0;
+    }
+    Utf8ToWide(content ? content : "", wcontent, _countof(wcontent));
+    Utf8ToWide(caption ? caption : "", wcap,     _countof(wcap));
+
+    LargeMsgInfo info;
+    info.mainInstr = wmain[0] ? wmain : NULL;
+    info.content   = wcontent;
+    info.caption   = wcap;
+    info.type      = type;
+
+    INT_PTR rv = DialogBoxParamW(GetModuleHandle(NULL),
+                                 MAKEINTRESOURCEW(IDD_LARGEMSG),
+                                 hwnd, largeMsgProc, (LPARAM)&info);
+    if (rv == -1 || rv == 0) {
+        /* Dialog template missing or load failed: fall back to plain
+        ** MessageBox so callers still get a visible dialog. */
+        return MessageBoxW(hwnd, wcontent, wcap, type);
+    }
+    return (int)rv;
+}
+
+/* Common start-failed dialog: appends boardRun's missing-files list. */
+static void showStartEmuFailDialogShared(void)
+{
+    int n = boardGetMissingFileCount();
+    if (n > 0) {
+        /* Use the TaskDialog "main instruction" line for the headline so the
+        ** missing-files list (small body text) is visually distinct from the
+        ** "load failed" headline (large heading text). */
+        char body[4096];
+        int  off = 0;
+        int  i;
+        off += _snprintf(body + off, sizeof(body) - off - 1, "%s",
+                         langErrorMissingFiles());
+        for (i = 0; i < n && off < (int)sizeof(body) - 256; i++) {
+            off += _snprintf(body + off, sizeof(body) - off - 1, "\n  - %s",
+                             boardGetMissingFile(i));
+        }
+        body[sizeof(body) - 1] = 0;
+        MessageBoxLargeU(NULL, langErrorStartEmu(), body, langErrorTitle(),
+                         MB_ICONHAND | MB_OK);
+        boardClearMissingFiles();
+    } else {
+        MessageBoxLargeU(NULL, langErrorStartEmu(), NULL, langErrorTitle(),
+                         MB_ICONHAND | MB_OK);
+    }
+}
+
 void archShowStartEmuFailDialog() {
-    MessageBox(NULL, langErrorStartEmu(), langErrorTitle(), MB_ICONHAND | MB_OK);
+    showStartEmuFailDialogShared();
 }
 
 void archShowLanguageDialog()
@@ -3091,41 +4654,112 @@ void archShowShortcutsEditor()
     exitDialogShow();
 }
 
-void archShowKeyboardEditor()
-{
-    static ThemeCollection* tc = NULL;
-    
-    if (tc == NULL) {
-        char themePath[MAX_PATH];
-        GetCurrentDirectory(MAX_PATH, themePath);
-        strcat(themePath, "\\Keyboard Config\\Theme");
-        tc = themeLoad(themePath);
-    }
+/* Tool-window scale = (mainZoom + 1) / 2 clamped to [1.0, 4.0]; cache
+   keyed on halfSteps = (int)(scale * 2), range 2..8.  Non-DDraw
+   fullscreen derives equivalent zoom from the host monitor. */
+#define TOOLTHEME_MIN_HALFSTEPS 2  /* scale 1.0 */
+#define TOOLTHEME_MAX_HALFSTEPS 8  /* scale 4.0 */
+#define TOOLTHEME_CACHE_SIZE    (TOOLTHEME_MAX_HALFSTEPS + 1)
 
-    if (tc == NULL) {
-        MessageBox(NULL, "Could not find the Keyboard Editor Theme", langErrorTitle(), MB_ICONERROR | MB_OK);
+static int toolThemeHalfSteps(void)
+{
+    int isDDrawFs = pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN &&
+                    (pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO ||
+                     pProperties->video.driver == P_VIDEO_DRVDIRECTX);
+    int halfSteps;
+    if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN && !isDDrawFs) {
+        /* D3D12 fullscreen lacks a display mode; derive zoom from the
+           main window's monitor (matches DDraw's getZoom formula). */
+        int eqZoom = 4;
+        HMONITOR hMon = MonitorFromWindow(st.hwnd, MONITOR_DEFAULTTOPRIMARY);
+        MONITORINFO mi = { sizeof(mi) };
+        if (hMon && GetMonitorInfo(hMon, &mi)) {
+            int screenW = mi.rcMonitor.right  - mi.rcMonitor.left;
+            int screenH = mi.rcMonitor.bottom - mi.rcMonitor.top;
+            eqZoom = min(min(screenW / 320, screenH / 240), 8);
+            if (eqZoom < 1) eqZoom = 1;
+        }
+        halfSteps = eqZoom + 1;
     }
     else {
-        themeCollectionOpenWindow(tc, themeGetNameHash("blueMSX - Input Editor"));
+        halfSteps = getZoom() + 1;
+    }
+    if (halfSteps < TOOLTHEME_MIN_HALFSTEPS) halfSteps = TOOLTHEME_MIN_HALFSTEPS;
+    if (halfSteps > TOOLTHEME_MAX_HALFSTEPS) halfSteps = TOOLTHEME_MAX_HALFSTEPS;
+    return halfSteps;
+}
+
+/* Walk every per-scale cache slot for an existing instance of the
+   requested aux window so a zoom toggle doesn't spawn a duplicate. */
+static int toolWindowBringExistingToFront(ThemeCollection** cache,
+                                          int cacheSize,
+                                          unsigned long hash)
+{
+    int h, i;
+    for (h = 0; h < cacheSize; h++) {
+        if (cache[h] == NULL) continue;
+        for (i = 0; i < THEME_MAX_WINDOWS; i++) {
+            if (cache[h]->theme[i] != NULL &&
+                cache[h]->theme[i]->reference != NULL &&
+                themeGetNameHash(cache[h]->theme[i]->name) == hash)
+            {
+                SetForegroundWindow((HWND)cache[h]->theme[i]->reference);
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
+void archShowKeyboardEditor()
+{
+    static ThemeCollection* tc[TOOLTHEME_CACHE_SIZE] = { NULL };
+    unsigned long hash = themeGetNameHash("blueMSX - Input Editor");
+    int hs;
+    
+    if (toolWindowBringExistingToFront(tc, TOOLTHEME_CACHE_SIZE, hash)) {
+        return;
+    }
+
+    hs = toolThemeHalfSteps();
+    if (tc[hs] == NULL) {
+        char themePath[MAX_PATH];
+        GetCurrentDirectoryU(MAX_PATH, themePath);
+        strcat(themePath, "\\Keyboard Config\\Theme");
+        tc[hs] = themeLoadAtScale(themePath, hs / 2.0);
+    }
+
+    if (tc[hs] == NULL) {
+        MessageBoxU(NULL, langErrorKeyboardThemeMissing(), langErrorTitle(), MB_ICONERROR | MB_OK);
+    }
+    else {
+        themeCollectionOpenWindow(tc[hs], hash);
     }
 }
 
 void archShowMixer()
 {
-    static ThemeCollection* tc = NULL;
+    static ThemeCollection* tc[TOOLTHEME_CACHE_SIZE] = { NULL };
+    unsigned long hash = themeGetNameHash("blueMSX - Sound Mixer");
+    int hs;
     
-    if (tc == NULL) {
-        char themePath[MAX_PATH];
-        GetCurrentDirectory(MAX_PATH, themePath);
-        strcat(themePath, "\\Properties\\Mixer");
-        tc = themeLoad(themePath);
+    if (toolWindowBringExistingToFront(tc, TOOLTHEME_CACHE_SIZE, hash)) {
+        return;
     }
 
-    if (tc == NULL) {
-        MessageBox(NULL, "Could not find the Mixer Theme", langErrorTitle(), MB_ICONERROR | MB_OK);
+    hs = toolThemeHalfSteps();
+    if (tc[hs] == NULL) {
+        char themePath[MAX_PATH];
+        GetCurrentDirectoryU(MAX_PATH, themePath);
+        strcat(themePath, "\\Properties\\Mixer");
+        tc[hs] = themeLoadAtScale(themePath, hs / 2.0);
+    }
+
+    if (tc[hs] == NULL) {
+        MessageBoxU(NULL, langErrorMixerThemeMissing(), langErrorTitle(), MB_ICONERROR | MB_OK);
     }
     else {
-        themeCollectionOpenWindow(tc, themeGetNameHash("blueMSX - Sound Mixer"));
+        themeCollectionOpenWindow(tc[hs], hash);
     }
 }
 
@@ -3157,6 +4791,49 @@ void archShowMachineEditor()
     updateMenu(0);
 }
 
+/* Resolve the screenshot output path. When prompt is on, pop a Save-As
+** dialog with a generated default name; otherwise return NULL to let the
+** auto-name path inside ScreenShot3 handle it. Returns "" (empty) on
+** dialog cancel so the caller can distinguish "no-override" from "user
+** cancelled". */
+static const char* resolveScreenshotPath(int alwaysPrompt)
+{
+    int prompt = pProperties->capture.screenshotPromptFilename || alwaysPrompt;
+    char* picked;
+    char* autoName;
+    const char* baseName;
+    const char* dir;
+
+    if (!prompt) return NULL;
+
+    dir = (pProperties->capture.screenshotDir[0])
+          ? pProperties->capture.screenshotDir
+          : screenshotGetDirectory();
+    autoName = generateSaveFilename(pProperties, (char*)dir, "", ".png", 4);
+    baseName = autoName;
+    {
+        const char* sep = strrchr(autoName, '\\');
+        const char* fwd = strrchr(autoName, '/');
+        if (fwd > sep) sep = fwd;
+        if (sep) baseName = sep + 1;
+    }
+    picked = archFilenameGetSaveCapture(pProperties,
+                                         langDlgSaveCaptureScreenshot(),
+                                         dir, baseName, ".png", "PNG Image");
+    return picked ? picked : "";
+}
+
+/* When the dialog is skipped (auto-name path), pre-resolve the filename
+** here so the toast knows where the screenshot landed. */
+static const char* autoScreenshotPath(int png)
+{
+    const char* dir = pProperties->capture.screenshotDir[0]
+                      ? pProperties->capture.screenshotDir
+                      : screenshotGetDirectory();
+    return generateSaveFilename(pProperties, (char*)dir, "",
+                                 (char*)(png ? ".png" : ".bmp"), 4);
+}
+
 void* archScreenCapture(ScreenCaptureType type, int* bitmapSize, int onlyBmp)
 {
     int png = onlyBmp ? 0 : pProperties->settings.usePngScreenshots;
@@ -3165,14 +4842,21 @@ void* archScreenCapture(ScreenCaptureType type, int* bitmapSize, int onlyBmp)
         *bitmapSize = 0;
     }
     switch (type) {
-    case SC_NORMAL:
+    case SC_NORMAL: {
+        const char* override = resolveScreenshotPath(0);
+        if (override && override[0] == 0) return NULL; /* user cancelled dialog */
+        const char* finalPath = override ? override : autoScreenshotPath(png);
         if (png) {
-            createScreenShot(1, NULL, png);
+            createScreenShotEx(1, NULL, png, finalPath);
         }
         else {
             SetTimer(getMainHwnd(), TIMER_SCREENSHOT, 50, NULL);
         }
+        if (pProperties->capture.showCompletionToast && finalPath && finalPath[0]) {
+            toastShowSaved(getMainHwnd(), getEmuHwnd(), finalPath);
+        }
         return NULL;
+    }
     case SC_SMALL:
         return createScreenShot(0, bitmapSize, png);
     case SC_LARGE:
@@ -3180,6 +4864,22 @@ void* archScreenCapture(ScreenCaptureType type, int* bitmapSize, int onlyBmp)
     }
 
     return NULL;
+}
+
+/* "Take Screenshot As..." entrypoint -- always pops the Save-As dialog
+** regardless of the prompt-filename setting. */
+void archScreenCaptureAs(void)
+{
+    int png = pProperties->settings.usePngScreenshots;
+    const char* override = resolveScreenshotPath(1);
+    if (override && override[0] == 0) return;     /* user cancelled */
+    const char* finalPath = override ? override : autoScreenshotPath(png);
+    if (png) {
+        createScreenShotEx(1, NULL, png, finalPath);
+    }
+    if (pProperties->capture.showCompletionToast && finalPath && finalPath[0]) {
+        toastShowSaved(getMainHwnd(), getEmuHwnd(), finalPath);
+    }
 }
 
 void archMinimizeMainWindow() {
@@ -3212,7 +4912,7 @@ char* archFileSave(char* title, char* extensionList, char* defaultDir, char* ext
     enterDialogShow();
     fileName = saveFile(getMainHwnd(), title, extensionList, selectedExtension, defaultDir, defExt);
     exitDialogShow();
-    SetCurrentDirectory(st.pCurDir);
+    SetCurrentDirectoryU(st.pCurDir);
 
     return fileName;
 }
@@ -3220,18 +4920,18 @@ char* archFileSave(char* title, char* extensionList, char* defaultDir, char* ext
 const char* archGetCurrentDirectory()
 {
     static char pathname[512];
-    GetCurrentDirectory(512, pathname);
+    GetCurrentDirectoryU(512, pathname);
     return pathname;
 }
 
 int archCreateDirectory(const char* pathname)
 {
-    return mkdir(pathname);
+    return mkdirU(pathname);
 }
 
 void archSetCurrentDirectory(const char* pathname)
 {
-    SetCurrentDirectory(pathname);
+    SetCurrentDirectoryU(pathname);
 }
 
 char* archDirnameGetOpenDisk(Properties* properties, int drive)
@@ -3243,7 +4943,7 @@ char* archDirnameGetOpenDisk(Properties* properties, int drive)
     enterDialogShow();
     filename = openDir(getMainHwnd(), title, defaultDir);
     exitDialogShow();
-    SetCurrentDirectory(st.pCurDir);
+    SetCurrentDirectoryU(st.pCurDir);
 
     return filename;
 }
@@ -3255,7 +4955,7 @@ char* archFileOpen(char* title, char* extensionList, char* defaultDir, char* ext
     enterDialogShow();
     fileName = openFile(getMainHwnd(), title, extensionList, defaultDir, createFileSize, defautExtension, selectedExtension);
     exitDialogShow();
-    SetCurrentDirectory(st.pCurDir);
+    SetCurrentDirectoryU(st.pCurDir);
 
     return fileName;
 }
@@ -3278,16 +4978,65 @@ char* archFilenameGetOpenState(Properties* properties)
     fileName = openStateFile(getMainHwnd(), title, extensionList, defaultDir, createFileSize, defautExtension, 
                              selectedExtension, &pProperties->settings.showStatePreview);
     exitDialogShow();
-    SetCurrentDirectory(st.pCurDir);
+    SetCurrentDirectoryU(st.pCurDir);
+
+    /* Old (2.8.2 era) states resume unreliably; warn and require confirmation. */
+    if (fileName != NULL && saveStateFileFormatIsOld(fileName)) {
+        if (MessageBoxU(getMainHwnd(), langWarningStateOldFormat(), langWarningTitle(),
+                        MB_OKCANCEL | MB_ICONWARNING) != IDOK) {
+            return NULL;
+        }
+    }
 
     return fileName;
+}
+
+char* archFilenameGetSaveCapture(Properties* properties,
+                                  const char* title,
+                                  const char* defaultDir,
+                                  const char* defaultName,
+                                  const char* extension,
+                                  const char* fileTypeLabel)
+{
+    static char fileName[MAX_PATH * 4];
+    char filterBuf[256];
+    const char* dir = (defaultDir && defaultDir[0]) ? defaultDir : st.pCurDir;
+    const char* defExt = (extension && extension[0] == '.') ? (extension + 1) : extension;
+    BOOL ok;
+
+    snprintf(filterBuf, sizeof(filterBuf), "%s   (*%s)#*%s#",
+             fileTypeLabel ? fileTypeLabel : "File", extension, extension);
+    replaceCharInString(filterBuf, '#', 0);
+
+    fileName[0] = 0;
+
+    /* Kill the completion toast before the IFileDialog: its 50ms
+    ** timer + topmost overlay races the modal pump. */
+    toastHide();
+
+    enterDialogShow();
+    ok = ShellSaveFileDialogEx(getMainHwnd(),
+                               title,
+                               filterBuf,
+                               dir,
+                               defExt,
+                               defaultName,
+                               NULL,
+                               fileName, sizeof(fileName));
+    exitDialogShow();
+    SetCurrentDirectoryU(st.pCurDir);
+
+    return ok ? fileName : NULL;
 }
 
 char* archFilenameGetOpenCapture(Properties* properties)
 {
     char* title = langDlgLoadVideoCapture();
     char extensionList[512];
-    char* defaultDir = properties->emulation.statsDefDir;
+    /* Default to the Video Capture directory (set by actionSetVideoCaptureSetDirectory
+    ** at startup), not the savestate dir. */
+    const char* vdir = actionGetVideoCaptureDir();
+    char* defaultDir = (vdir && vdir[0]) ? (char*)vdir : properties->emulation.statsDefDir;
     char* extensions = ".cap\0";
     int* selectedExtension = NULL;
     char* defautExtension = NULL;
@@ -3301,7 +5050,7 @@ char* archFilenameGetOpenCapture(Properties* properties)
     fileName = openStateFile(getMainHwnd(), title, extensionList, defaultDir, createFileSize, defautExtension, 
                              selectedExtension, &pProperties->settings.showStatePreview);
     exitDialogShow();
-    SetCurrentDirectory(st.pCurDir);
+    SetCurrentDirectoryU(st.pCurDir);
 
     return fileName;
 }
@@ -3331,7 +5080,7 @@ char* archFilenameGetOpenRom(Properties* properties, int cartSlot, RomType* romT
     enterDialogShow();
     fileName = openRomFile(getMainHwnd(), title, extensionList, defaultDir, 1, defautExtension, selectedExtension, romType);
     exitDialogShow();
-    SetCurrentDirectory(st.pCurDir);
+    SetCurrentDirectoryU(st.pCurDir);
 
     return fileName;
 }
@@ -3353,7 +5102,7 @@ char* archFilenameGetOpenCas(Properties* properties)
     enterDialogShow();
     fileName = openFile(getMainHwnd(), title, extensionList, defaultDir, createFileSize, defautExtension, selectedExtension);
     exitDialogShow();
-    SetCurrentDirectory(st.pCurDir);
+    SetCurrentDirectoryU(st.pCurDir);
 
     return fileName;
 }
@@ -3380,7 +5129,7 @@ char* archFilenameGetOpenDisk(Properties* properties, int drive, int allowCreate
         fileName = openFile(getMainHwnd(), title, extensionList, defaultDir, createFileSize, defautExtension, selectedExtension);
     }
     exitDialogShow();
-    SetCurrentDirectory(st.pCurDir);
+    SetCurrentDirectoryU(st.pCurDir);
 
     return fileName;
 }
@@ -3406,7 +5155,7 @@ char* archFilenameGetOpenHarddisk(Properties* properties, int drive, int allowCr
         fileName = openFile(getMainHwnd(), title, extensionList, defaultDir, -1, defautExtension, selectedExtension);
     }
     exitDialogShow();
-    SetCurrentDirectory(st.pCurDir);
+    SetCurrentDirectoryU(st.pCurDir);
 
     return fileName;
 }
@@ -3440,7 +5189,7 @@ char* archFilenameGetSaveState(Properties* properties)
     enterDialogShow();
     fileName = saveStateFile(getMainHwnd(), title, extensionList, selectedExtension, defaultDir, &pProperties->settings.showStatePreview);
     exitDialogShow();
-    SetCurrentDirectory(st.pCurDir);
+    SetCurrentDirectoryU(st.pCurDir);
 
     return fileName;
 }
@@ -3568,15 +5317,65 @@ char* archFilenameGetOpenRomZip(Properties* properties, int cartSlot, const char
 }
 
 
+/* Apply (or remove) the HKCU file-type registration and notify the
+** shell so Explorer / Default Apps picks it up immediately. */
+void archApplyFileTypeRegistration(int enable) {
+    if (enable) {
+        registerFileTypes();
+    } else {
+        unregisterFileTypes();
+    }
+    fileTypesNotifyShell();
+}
+
+
+/* Opt out of EcoQoS while the priority boost is on so hybrid-CPU
+** schedulers keep us on P-cores; Win10/11 only. */
+void archApplyGameSchedulerPolicy(int enable) {
+    PROCESS_POWER_THROTTLING_STATE pt;
+    ZeroMemory(&pt, sizeof(pt));
+    pt.Version = PROCESS_POWER_THROTTLING_CURRENT_VERSION;
+    if (enable) {
+        pt.ControlMask = PROCESS_POWER_THROTTLING_EXECUTION_SPEED;
+        pt.StateMask   = 0;  /* 0 = explicitly disable throttling */
+    } else {
+        pt.ControlMask = 0;  /* 0/0 = reset to system default */
+        pt.StateMask   = 0;
+    }
+    SetProcessInformation(GetCurrentProcess(), ProcessPowerThrottling,
+                          &pt, sizeof(pt));
+}
+
+
+/* Suppress display sleep while emu is running.  Cached state avoids
+** redundant SetThreadExecutionState calls. */
+void archUpdateDisplayKeepalive(void) {
+    static EXECUTION_STATE lastState = 0;
+    EXECUTION_STATE desired = ES_CONTINUOUS;
+
+    if (pProperties && pProperties->settings.disableScreensaver
+            && emulatorGetState() == EMU_RUNNING) {
+        desired |= ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED;
+    }
+
+    if (desired != lastState) {
+        SetThreadExecutionState(desired);
+        lastState = desired;
+    }
+}
+
+
 void archEmulationStartNotification() {
     if (st.renderVideo) {
         return;
     }
-    ShowWindow(st.emuHwnd, SW_NORMAL);
-
-    if (kbdLockEnable != NULL && pProperties->emulation.disableWinKeys) {
-        kbdLockEnable();
+    /* The D3D12 swap chain's backbuffer still holds the previous run's last
+    ** frame; SW_NORMAL would re-expose it briefly before the first new
+    ** render lands. */
+    if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12 && st.emuHwnd) {
+        D3D12ClearToBlack(st.emuHwnd);
     }
+    ShowWindow(st.emuHwnd, SW_NORMAL);
 }
 
 void archEmulationStopNotification()
@@ -3587,9 +5386,40 @@ void archEmulationStopNotification()
 
     DirectXSetGDISurface();
     ShowWindow(st.emuHwnd, SW_HIDE);
+}
 
-    if (kbdLockDisable != NULL) {
-        kbdLockDisable();
+/* Wake archWaitForAckOrSuspend waits so the emu thread can promptly
+** observe the new emuState. Manual-reset so concurrent waits on multiple
+** wait sites all see the signal; the wrapper resets it once consumed. */
+void archEmuSuspendSignal(void) {
+    if (st.suspendCancelEvent) SetEvent(st.suspendCancelEvent);
+}
+
+/* Suspend-cooperative wait for the emu-thread ack event: raw
+** WaitForSingleObject(ack, 500) would burn the full timeout when the
+** main thread is parked in a modal loop, so a suspend signal here
+** short-circuits the wait and defers to emuWaitForResume. */
+int archWaitForAckOrSuspend(void* ackEvent, int timeoutMs) {
+    HANDLE events[2] = { (HANDLE)ackEvent, st.suspendCancelEvent };
+    for (;;) {
+        DWORD rv = WaitForMultipleObjects(2, events, FALSE, (DWORD)timeoutMs);
+        if (rv == WAIT_OBJECT_0)     return ARCH_WAIT_ACK;
+        if (rv == WAIT_TIMEOUT)      return ARCH_WAIT_TIMEOUT;
+        if (rv == WAIT_OBJECT_0 + 1) {
+            /* Manual-reset: clear before delegating so a fresh suspend
+            ** during emuWaitForResume can re-trigger this branch. */
+            ResetEvent(st.suspendCancelEvent);
+            if (emuWaitForResume()) {
+                /* emulatorStop set emuExitFlag while we were parked --
+                ** abandon the ack wait so the emu thread can exit. */
+                return ARCH_WAIT_TIMEOUT;
+            }
+            /* Resumed; loop back to wait for the real ack. */
+            continue;
+        }
+        /* WAIT_FAILED or unexpected -- treat as timeout to avoid
+        ** indefinite block in unexpected error paths. */
+        return ARCH_WAIT_TIMEOUT;
     }
 }
 
@@ -3603,15 +5433,19 @@ int archUpdateEmuDisplay(int syncMode) {
     else if (syncMode == 4) { // VBlank async
         SetEvent(st.ddrawEvent);
     }
-    else if (syncMode == 3) { // VBlank sync
-        st.diplaySync = 1;
-        emuWindowDraw(0);
+    else if (syncMode == 3) { // VBlank sync -- route Present through main thread
+        /* Drive presents from the main thread and block on the ack so
+        ** this call still returns synchronously. archWaitForAckOrSuspend
+        ** avoids the ~500 ms freeze at every modal-loop entry. */
+        st.diplayUpdateOnVblank = 1;
+        SetEvent(st.ddrawEvent);
+        archWaitForAckOrSuspend(st.ddrawAckEvent, 500);
         return st.diplayUpdated;
     }
     else {
         SetEvent(st.ddrawEvent);
         if (syncMode > 1) {
-            WaitForSingleObject(st.ddrawAckEvent, 500);
+            archWaitForAckOrSuspend(st.ddrawAckEvent, 500);
             return st.diplayUpdated;
         }
     }
@@ -3647,18 +5481,72 @@ int archGetFramesPerSecond() {
 }
 
 void archEmulationStartFailure() {
-    aviStopRender();
-    MessageBox(NULL, langErrorStartEmu(), langErrorTitle(), MB_ICONHAND | MB_OK);
+    recorderStopRender();
+    showStartEmuFailDialogShared();
+}
+
+void archReplaySaveFailure(const char* fileName) {
+    char buf[1024];
+    /* Surface the silent fopen failure inside boardCaptureStop -- otherwise
+    ** Stop appears successful but no .cap is on disk, and a later "Render to
+    ** video" looks empty/broken without any clue why. */
+    _snprintf_s(buf, sizeof(buf), _TRUNCATE, langErrorRecorderSaveReplay(),
+                fileName ? fileName : "");
+    MessageBoxU(NULL, buf, langErrorRecorderTitle(), MB_ICONERROR | MB_OK);
+}
+
+void archReplayMissing(const char* fileName) {
+    char buf[1024];
+    /* Triggered when Play Replay is invoked with no .cap loaded / on disk.
+    ** Surface a modal warning instead of silently stopping the emulator. */
+    _snprintf_s(buf, sizeof(buf), _TRUNCATE, langErrorRecorderReplayMissing(),
+                (fileName && fileName[0]) ? fileName : "");
+    MessageBoxU(NULL, buf, langErrorRecorderTitle(), MB_ICONWARNING | MB_OK);
+}
+
+void archPumpEmuDisplay(void) {
+    /* Called from the recorder status dialog's WM_TIMER (main thread) to drain
+    ** st.ddrawEvent, which the dialog's own message loop does not wait on; without
+    ** this the recorded MP4 stays stuck on the frame captured at emu stop. */
+    if (st.ddrawEvent && WaitForSingleObject(st.ddrawEvent, 0) == WAIT_OBJECT_0) {
+        if (!st.minimized) {
+            emuWindowDraw(st.diplayUpdateOnVblank);
+        }
+        SetEvent(st.ddrawAckEvent);
+    }
+}
+
+void archRecordVideoStart(const char* overrideFilename) {
+    recorderStartLive(getMainHwnd(), pProperties, st.pVideo, overrideFilename);
+}
+void archRecordVideoStop(void) {
+    recorderStopLive();
+}
+int archRecordVideoIsActive(void) {
+    return recorderIsLiveRecording();
+}
+
+void archCaptureToastSaved(const char* savedPath) {
+    /* Anchor on emu hwnd so the toast lands on the video output. */
+    toastShowSaved(getMainHwnd(), getEmuHwnd(), savedPath);
+}
+
+void archCaptureToastInfo(const char* message) {
+    toastShowMessage(getMainHwnd(), getEmuHwnd(), message);
 }
 
 int archFileExists(const char* fileName)
 {
-    return PathFileExists(fileName);
+    /* fileName is UTF-8 (file dialog / history). PathFileExistsA interprets
+    ** bytes as the runtime ACP, which mojibakes non-ACP filenames. */
+    wchar_t wFileName[1024];
+    PathToWide(fileName, wFileName, _countof(wFileName));
+    return PathFileExistsW(wFileName);
 }
 
 int archFileDelete(const char* fileName)
 {
-    return DeleteFile(fileName);
+    return DeleteFileU(fileName);
 }
 
 void archMaximizeWindow() {
@@ -3711,7 +5599,7 @@ void archVideoCaptureSave()
     actionEmuStop();
 
     st.renderVideo = 1;
-    aviStartRender(getMainHwnd(), propGetGlobalProperties(), st.pVideo);
+    recorderStartRender(getMainHwnd(), propGetGlobalProperties(), st.pVideo);
     st.renderVideo = 0;
 }
 
@@ -3747,23 +5635,25 @@ static int LoadMemory(const char* fileName, UInt16 address)
     return 0;
 }
 
-static BOOL CALLBACK loadMemorProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static BOOL_DLG_RET CALLBACK loadMemorProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
 {
     static HICON hIconBtBrowse = NULL;
 
     switch (iMsg) {
     case WM_INITDIALOG:
-        SetWindowText(hDlg, langMenuToolsLoadMemory());
-        SetWindowText(GetDlgItem(hDlg, IDC_LDMEM_CAPFIL), langConfEditMemFile());
-        SetWindowText(GetDlgItem(hDlg, IDC_LDMEM_CAPADR), langConfEditMemAddress());
-        SetWindowText(GetDlgItem(hDlg, IDOK), langDlgOK());
-        SetWindowText(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
+        SetWindowTextU(hDlg, langMenuToolsLoadMemory());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_LDMEM_CAPFIL), langConfEditMemFile());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_LDMEM_CAPADR), langConfEditMemAddress());
+        SetWindowTextU(GetDlgItem(hDlg, IDOK), langDlgOK());
+        SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
 
         if (hIconBtBrowse == NULL) {
             hIconBtBrowse = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_BROWSE));
         }
         SendMessage(GetDlgItem(hDlg, IDC_LDMEM_BROWSE), BM_SETIMAGE, IMAGE_ICON, (LPARAM)hIconBtBrowse);
 
+        win32CommonApplyDark(hDlg);
+        win32CommonCenterOnOwner(hDlg);
         return FALSE;
 
     case WM_COMMAND:
@@ -3775,7 +5665,7 @@ static BOOL CALLBACK loadMemorProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM l
                 char* fileName;
                 char extensionList[512];
 
-                GetCurrentDirectory(MAX_PATH, curDir);
+                GetCurrentDirectoryU(MAX_PATH, curDir);
                 if (strlen(defDir) == 0) {
                     strcpy(defDir, curDir);
                 }
@@ -3784,7 +5674,7 @@ static BOOL CALLBACK loadMemorProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM l
 
                 fileName = openFile(hDlg, langConfOpenRom(), extensionList, defDir, -1, NULL, NULL);
                 if (fileName != NULL) {
-                   SetWindowText(GetDlgItem(hDlg, IDC_LDMEM_FILENAME), fileName);
+                   SetWindowTextU(GetDlgItem(hDlg, IDC_LDMEM_FILENAME), fileName);
                 }
 
                 SetFocus(GetDlgItem(hDlg, IDC_LDMEM_ADDRESS));
@@ -3796,8 +5686,8 @@ static BOOL CALLBACK loadMemorProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM l
                 char data[5];
                 int addr, rv;
 
-                GetWindowText(GetDlgItem(hDlg, IDC_LDMEM_FILENAME), fileName, sizeof(fileName));
-                GetWindowText(GetDlgItem(hDlg, IDC_LDMEM_ADDRESS), data, sizeof(data));
+                GetWindowTextU(GetDlgItem(hDlg, IDC_LDMEM_FILENAME), fileName, sizeof(fileName));
+                GetWindowTextU(GetDlgItem(hDlg, IDC_LDMEM_ADDRESS), data, sizeof(data));
 
                 rv = sscanf(data, "%x", &addr);
                 if (rv == 1) {
@@ -3827,7 +5717,7 @@ int showLoadMemoryDlg(HWND hwnd)
 {
     int rv;
 
-    rv = DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_LOAD_MEMORY), hwnd, loadMemorProc);
+    rv = (int)DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_LOAD_MEMORY), hwnd, loadMemorProc);
     if (!rv) {
         return 0;
     }

@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -63,6 +66,7 @@ typedef unsigned __int64 UInt64;
 typedef signed   char    Int8;
 typedef signed   short   Int16;
 typedef signed   int     Int32;
+typedef signed   __int64 Int64;
 
 // Define color stuff
 

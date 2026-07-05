@@ -6,12 +6,18 @@
    Copyright (C) 1998-2005 Gilles Vollant
 */
 
+/*
+   Modified 2026 by Hesoten for blueMSX+ fork.
+   See https://github.com/Hesoten/blueMSX-plus for change history.
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "zlib.h"
 #include "ioapi.h"
+#include "PacketFileSystem.h"
 
 
 

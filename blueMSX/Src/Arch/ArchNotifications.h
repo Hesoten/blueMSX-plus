@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -30,6 +33,8 @@
 
 typedef enum { SC_NORMAL, SC_SMALL, SC_LARGE } ScreenCaptureType;
 void* archScreenCapture(ScreenCaptureType type, int* bitmapSize, int onlyBmp);
+/* Save-As screenshot (always prompts, ignores capture.screenshotPromptFilename). */
+void archScreenCaptureAs(void);
 #ifdef WII
 int archScreenCaptureToFile(ScreenCaptureType type, const char *fname);
 #endif
@@ -45,6 +50,22 @@ void archDiskQuickChangeNotify();
 void archEmulationStartNotification();
 void archEmulationStopNotification();
 void archEmulationStartFailure();
+void archReplaySaveFailure(const char* fileName);
+void archReplayMissing(const char* fileName);
+/* Drain pending emu-display update on the main UI thread; poll from a
+** modal dialog whose own loop doesn't drive ddrawEvent. */
+void archPumpEmuDisplay(void);
+
+/* Live video recording while the emu keeps running. overrideFilename=NULL
+** auto-names in the capture directory; otherwise uses the full path. */
+void archRecordVideoStart(const char* overrideFilename);
+void archRecordVideoStop(void);
+int  archRecordVideoIsActive(void);
+
+/* Non-modal capture toasts (replace MessageBox so toggle hotkeys work).
+** Honour Properties.capture.showCompletionToast before calling Saved. */
+void archCaptureToastSaved(const char* savedPath);
+void archCaptureToastInfo(const char* message);
 
 void archQuit();
 
@@ -59,6 +80,13 @@ void archMinimizeMainWindow();
 int archGetFramesPerSecond();
 
 void* archWindowCreate(struct Theme* theme, int childWindow);
+/* Sync an aux theme window's owner + Z-order with the current display
+** mode; without it the window hides behind the topmost fullscreen main. */
+void archWindowApplyOwnership(void* hwnd);
+
+/* archWindowApplyOwnership for every open aux theme window (found via
+** window class -- tool themes aren't reachable from st.themeList). */
+void archWindowApplyOwnershipAll(void);
 void archWindowStartMove();
 void archWindowMove();
 void archWindowEndMove();

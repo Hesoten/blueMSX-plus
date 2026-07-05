@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -33,5 +36,14 @@
 
 BOOL registerFileType(char* extension, char* appName, char* description, int iconIndex);
 BOOL unregisterFileType(char* extension, char* appName, char* description, int iconIndex);
+
+/* Register the EXE under HKCU\Software\Classes\Applications as a
+** first-class Open With target. */
+void registerApplicationOpenWith(void);
+void unregisterApplicationOpenWith(void);
+
+/* Broadcast SHCNE_ASSOCCHANGED so Explorer / the "Open with" menu
+** refresh after a batch of registerFileType / unregisterFileType calls. */
+void fileTypesNotifyShell(void);
 
 #endif

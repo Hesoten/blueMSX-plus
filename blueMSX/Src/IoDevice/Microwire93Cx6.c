@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -34,7 +37,7 @@
 
 // Emulates the Microchip Technology Inc. 93C76/86 eeprom chips
 
-typedef struct Microwire93Cx6
+struct Microwire93Cx6
 {
     UInt8* romData;
     int    romMask;

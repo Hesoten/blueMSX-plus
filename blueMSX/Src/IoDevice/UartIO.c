@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik, Tomas Karlsson
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -27,12 +30,16 @@
 */
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include "UartIO.h"
 #include "ArchUart.h"
 #include "DAC.h"
 #include "Board.h"
 
-typedef struct UartIO {
+/* After stdio.h: pkg_fopen overrides fopen for UTF-8 paths. */
+#include "PacketFileSystem.h"
+
+struct UartIO {
     UartType type;
     FILE* file;
     int  uartReady;

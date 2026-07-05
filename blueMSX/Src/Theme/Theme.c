@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -433,6 +436,23 @@ void themePageAddToggleButton(ThemePage* themePage, void* object, ThemeTrigger t
 void themePageAddObject(ThemePage* themePage, void* object, ThemeTrigger visible)
 {
     themePageAddLast(themePage, ITEM_OBJECT, object, THEME_TRIGGER_NONE, visible, THEME_TRIGGER_NONE);
+}
+
+int themePageHoverSliderPercent(ThemePage* themePage, int x, int y)
+{
+    ThemeItem* item;
+
+    if (themePage == NULL) {
+        return -1;
+    }
+    for (item = themePage->itemList; item != NULL; item = item->next) {
+        if (item->type == ITEM_SLIDER &&
+            activeSliderHitTest((ActiveSlider*)item->object, x, y))
+        {
+            return activeSliderGetPercent((ActiveSlider*)item->object);
+        }
+    }
+    return -1;
 }
 
 void themePageMouseMove(ThemePage* themePage, void*  dc, int x, int y)
@@ -888,8 +908,9 @@ void themeCollectionDestroy(ThemeCollection* tc)
 {
     int i;
 
-    if (tc->little)          themeDestroy(tc->little);
-    if (tc->normal)          themeDestroy(tc->normal);
+    for (i = 1; i < THEME_ZOOM_COUNT; i++) {
+        if (tc->zoom[i]) themeDestroy(tc->zoom[i]);
+    }
     if (tc->fullscreen)      themeDestroy(tc->fullscreen);
 
     for (i = 0; i < THEME_MAX_WINDOWS; i++) {
@@ -900,6 +921,30 @@ void themeCollectionDestroy(ThemeCollection* tc)
     }
 }
 
+void themeCollectionUnload(ThemeCollection* tc)
+{
+    int i;
+    if (tc == NULL || !tc->loaded || tc->path[0] == 0) return;
+
+    for (i = 1; i < THEME_ZOOM_COUNT; i++) {
+        if (tc->zoom[i]) {
+            themeDestroy(tc->zoom[i]);
+            tc->zoom[i] = NULL;
+        }
+    }
+    if (tc->fullscreen) {
+        themeDestroy(tc->fullscreen);
+        tc->fullscreen = NULL;
+    }
+    for (i = 0; i < THEME_MAX_WINDOWS; i++) {
+        if (tc->theme[i] != NULL) {
+            themeDestroy(tc->theme[i]);
+            tc->theme[i] = NULL;
+        }
+    }
+    tc->loaded = 0;
+}
+
 
 void themeCollectionAddWindow(ThemeCollection* tc, Theme* theme)
 {
@@ -908,6 +953,7 @@ void themeCollectionAddWindow(ThemeCollection* tc, Theme* theme)
     for (i = 0; i < THEME_MAX_WINDOWS; i++) {
         if (tc->theme[i] == NULL) {
             tc->theme[i] = theme;
+            break;
         }
     }
 }
@@ -928,4 +974,8 @@ void themeCollectionOpenWindow(ThemeCollection* tc, unsigned long hash)
     }
 
     tc->theme[i]->reference = archWindowCreate(tc->theme[i], 1);
+    /* Apply mode-aware ownership: in fullscreen the aux window must be
+    ** owned by the main window so it sits above the topmost main; in
+    ** windowed mode it stays unowned (independent floating window). */
+    archWindowApplyOwnership(tc->theme[i]->reference);
 }

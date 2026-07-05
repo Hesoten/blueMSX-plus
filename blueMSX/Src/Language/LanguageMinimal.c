@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -264,6 +267,7 @@ char* langDbgDevS1985()             { return "S1985"; }
 char* langDbgDevCrtc6845()          { return "CRTC6845"; }
 char* langDbgDevTms9929A()          { return "TMS9929A"; }
 char* langDbgDevTms99x8A()          { return "TMS99x8A"; }
+char* langDbgDevTms9918A()          { return "TMS9918A"; }
 char* langDbgDevV9938()             { return "V9938"; }
 char* langDbgDevV9958()             { return "V9958"; }
 char* langDbgDevZ80()               { return "Z80"; }

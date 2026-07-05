@@ -54,6 +54,7 @@
 #define IDC_ADDRESSEDIT                 1039
 #define IDC_VALUEEDIT                   1040
 #define IDC_ACTIVECHEATS                1041
+#define IDC_HEADERBMP                   1042
 #define IDC_DISPLAY                     -1
 #define IDC_STATIC                      -1
 

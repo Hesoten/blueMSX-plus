@@ -5,6 +5,9 @@
 **
 ** Copyright (C) 2003-2012s Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -28,6 +31,8 @@
 #include "Language.h"
 #include "EditControls.h"
 #include "InputDialogs.h"
+#include "ToolInterface.h"
+#include "Win32TextUtf8.h"
 #include <stdio.h>
 #include <string>
 #include <list>
@@ -141,7 +146,7 @@ LRESULT Breakpoints::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
             break;
         case TB_DELETE_BREAKPOINT:
             if (GetEmulatorState() != EMULATOR_STOPPED) {
-                if (selectedLine >= 0 && selectedLine < breakpoints.size()) {
+                if (selectedLine >= 0 && selectedLine < (int)breakpoints.size()) {
                     clearBreakpoint(*breakpoints[selectedLine]);
                 }
             }
@@ -161,7 +166,7 @@ LRESULT Breakpoints::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
             { 
                 LPTOOLTIPTEXT lpttt = (LPTOOLTIPTEXT)lParam; 
                 lpttt->hinst = GetDllHinstance(); 
-                updateTooltip(lpttt->hdr.idFrom, lpttt->szText);
+                updateTooltip((UINT)lpttt->hdr.idFrom, lpttt->szText);
             }
         }
         break;
@@ -184,18 +189,19 @@ LRESULT Breakpoints::breakpointsWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
         HDC hdc = GetDC(hwnd);
         hMemdc = CreateCompatibleDC(hdc);
         ReleaseDC(hwnd, hdc);
-        colorBlack = RGB(0, 0, 0);
-        colorGray  = RGB(128, 128, 128);
-        colorRed   = RGB(255, 0, 0);
-        colorWhite = RGB(255, 255, 255);
+        BOOL dark = IsDarkMode();
+        colorBlack = dark ? GetDarkFg()        : RGB(0, 0, 0);
+        colorGray  = dark ? RGB(160, 160, 160) : RGB(128, 128, 128);
+        colorRed   = dark ? RGB(255, 100, 100) : RGB(255, 0, 0);
+        colorWhite = dark ? GetDarkBg()        : RGB(255, 255, 255);
         SetBkMode(hMemdc, TRANSPARENT);
-        hFont = CreateFont(-MulDiv(10, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
-        hFontBold = CreateFont(-MulDiv(10, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, FW_SEMIBOLD, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
+        hFont = CreateFont(-MulDiv(12, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
+        hFontBold = CreateFont(-MulDiv(12, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, FW_SEMIBOLD, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
         
-        hBrushWhite  = CreateSolidBrush(RGB(255, 255, 255));
-        hBrushLtGray = CreateSolidBrush(RGB(239, 237, 222));
-        hBrushDkGray = CreateSolidBrush(RGB(128, 128, 128));
-        hBrushBlack  = CreateSolidBrush(RGB(200, 200, 255));
+        hBrushWhite  = CreateSolidBrush(dark ? GetDarkBg()        : RGB(255, 255, 255));
+        hBrushLtGray = CreateSolidBrush(dark ? RGB( 48,  48,  48) : RGB(239, 237, 222));
+        hBrushDkGray = CreateSolidBrush(dark ? RGB( 70,  70,  70) : RGB(128, 128, 128));
+        hBrushBlack  = CreateSolidBrush(dark ? RGB( 60,  60, 110) : RGB(200, 200, 255));
 
         SelectObject(hMemdc, hFont); 
         TEXTMETRIC tm;
@@ -204,6 +210,7 @@ LRESULT Breakpoints::breakpointsWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
             textWidth = tm.tmMaxCharWidth;
         }
         
+        darkSubWindow(hwnd);
         return 0;
     }
 
@@ -219,7 +226,7 @@ LRESULT Breakpoints::breakpointsWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
 
             int row = HIWORD(lParam) / textHeight;
 
-            if (row + si.nPos  >= breakpoints.size()) {
+            if (row + si.nPos  >= (int)breakpoints.size()) {
                 return 0;
             }
 
@@ -390,14 +397,14 @@ void Breakpoints::invalidateContent()
 void Breakpoints::updateContent()
 {
     BreakpointInfo* bi;
-    if (selectedLine >= 0 && selectedLine < breakpoints.size()) {
+    if (selectedLine >= 0 && selectedLine < (int)breakpoints.size()) {
         bi = breakpoints[selectedLine];
     }
 
     selectedLine = -1;
 
     int firstHitIndex = -1;
-    for (int i = 0; i < breakpoints.size(); ++i) {
+    for (int i = 0; i < (int)breakpoints.size(); ++i) {
         if (breakpoints[i]->breakpointHit) {
             firstHitIndex = i;
             break;
@@ -428,7 +435,7 @@ void Breakpoints::updateScroll()
 
     si.fMask     = SIF_PAGE | SIF_POS | SIF_RANGE;
     si.nMin      = 0;
-    si.nMax      = breakpoints.size();
+    si.nMax      = (int)breakpoints.size();
     si.nPage     = visibleLines;
     si.nPos      = 0;
 
@@ -489,10 +496,10 @@ void Breakpoints::drawText(int top, int bottom)
     GetScrollInfo (breakpointsHwnd, SB_VERT, &si);
     int yPos = si.nPos;
     int FirstLine = max (0, yPos + top / textHeight);
-    int LastLine = min (breakpoints.size() - 1, yPos + bottom / textHeight);
+    int LastLine = min ((int)breakpoints.size() - 1, yPos + bottom / textHeight);
 
     for (int i = FirstLine; i <= LastLine; i++) {
-        if (i >= breakpoints.size()) {
+        if (i >= (int)breakpoints.size()) {
             continue;
         }
 
@@ -516,8 +523,8 @@ void Breakpoints::drawText(int top, int bottom)
 
         SetTextColor(hMemdc, i == selectedLine ? colorWhite : colorBlack);
         SelectObject(hMemdc, hFontBold);
-        DrawText(hMemdc, breakpointText, strlen(breakpointText), &r, DT_LEFT);
-        r.left  += strlen(breakpointText) * textWidth;
+        DrawText(hMemdc, breakpointText, (int)strlen(breakpointText), &r, DT_LEFT);
+        r.left  += (int)strlen(breakpointText) * textWidth;
 
         char labelText[64];
         if (strlen(breakpoints[i]->label)) {
@@ -538,7 +545,7 @@ void Breakpoints::drawText(int top, int bottom)
 
         SelectObject(hMemdc, hFont);
         SelectObject(hMemdc, hFontBold);
-        DrawText(hMemdc, breakpointText, strlen(breakpointText), &r, DT_LEFT);
+        DrawText(hMemdc, breakpointText, (int)strlen(breakpointText), &r, DT_LEFT);
     }
 }
 
@@ -691,7 +698,7 @@ int Breakpoints::getEnabledBpCount() {
 }
 
 int Breakpoints::getDisabledBpCount() {
-    return breakpoints.size() - getEnabledBpCount();
+    return (int)breakpoints.size() - getEnabledBpCount();
 }
 
 void Breakpoints::enableAllBreakpoints()

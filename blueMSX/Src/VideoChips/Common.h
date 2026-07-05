@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -2205,8 +2208,8 @@ static void RefreshLine7(VDP* vdp, int Y, int X, int X2)
 
             for (j = 0; j < i; j++) {
                 if ((j ^ i) & 1) charTable++;
-                linePtr7[0] = bgColor;
-                linePtr7[1] = bgColor;
+                (col = sprLine[0]) ? linePtr7[0] = linePtr7[1] = vdp->palette[col >> 1] :
+                                     (linePtr7[0] = linePtr7[1] = bgColor);
                 UPDATE_TABLE_7();
                 sprLine++;
                 linePtr7 += 2;
@@ -2214,7 +2217,7 @@ static void RefreshLine7(VDP* vdp, int Y, int X, int X2)
             
             for (;j < 8; j++) {
                 if ((j ^ i) & 1) {
-                    (col = sprLine[1]) ? linePtr7[0]  = linePtr7[1]  = vdp->palette[col >> 1] : 
+                    (col = sprLine[0]) ? linePtr7[0]  = linePtr7[1]  = vdp->palette[col >> 1] : 
                     (col = charTable[vdp->vram128], 
                     linePtr7[0]  = vdp->palette[col >> 4],
                     linePtr7[1]  = vdp->palette[col & 0xf]);

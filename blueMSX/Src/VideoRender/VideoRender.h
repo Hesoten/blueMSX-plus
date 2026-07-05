@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -59,6 +62,9 @@ struct Video {
     VideoPalMode palMode;
     int scanLinesEnable;
     int scanLinesPct;
+    int scanLinesBrightAuto;
+    int scanLinesBrightPct;
+    int scanlinesShapePct;     /* 0..100 -> p in [0, 4]; mask = lerp(s, 1, sin^p) */
     int colorSaturationEnable;
     int colorSaturationWidth;
     DoubleT gamma;
@@ -86,6 +92,11 @@ int videoRender(Video* video, FrameBuffer* frameBuffer, int bitDepth, int zoom, 
 void videoSetColors(Video* video, int saturation, int brightness, int contrast, int gamma);
 
 void videoSetScanLines(Video* video, int enable, int scanLinesPct);
+/* Re-lift average luminance after the scanline mask; autoMode = full
+** 1/avg compensation, manual scales it by brightPct (100..300). */
+void videoSetScanLinesBrightness(Video* video, int autoMode, int brightPct);
+/* Shape: sharpness exponent p in [0, 4] (mapped from shapePct 0..100). */
+void videoSetScanLinesShape(Video* video, int shapePct);
 void videoSetColorSaturation(Video* video, int enable, int width);
 
 void videoUpdateAll(Video* video, struct Properties* properties); 

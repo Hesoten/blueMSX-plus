@@ -5,6 +5,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -81,7 +84,7 @@ const char* SymbolInfo::toString(WORD address)
 static int isHexNumber(const char* t)
 {
     int isHexNum;
-    int l = strlen(t);
+    int l = (int)strlen(t);
     if (l == 0) {
         return 0;
     }
@@ -101,7 +104,7 @@ static int isHexNumber(const char* t)
                     (t[l] >= 'A' && t[l] <= 'F') || 
                     (t[l] >= 'a' && t[l] <= 'f');
     }
-    return isHexNum ? strlen(t) : 0;
+    return isHexNum ? (int)strlen(t) : 0;
 }
 
 void SymbolInfo::append(string& buffer)
@@ -109,7 +112,7 @@ void SymbolInfo::append(string& buffer)
     int index = 0;
     bool lastLine = false;
     while (!lastLine) {
-        int nextIndex = buffer.find('\n', index);
+        int nextIndex = (int)buffer.find('\n', index);
 
         lastLine = nextIndex == string::npos;
 
@@ -134,7 +137,7 @@ void SymbolInfo::append(string& buffer)
                     addr  = t2;
                     label = t1;
                 }
-                int labelLen = strlen(label);
+                int labelLen = (int)strlen(label);
                 if (label[labelLen - 1] == ':') {
                     label[labelLen - 1] = 0;
                 }

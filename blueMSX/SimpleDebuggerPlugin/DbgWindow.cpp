@@ -5,6 +5,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -26,7 +29,27 @@
 #include "DbgWindow.h"
 #include "Resource.h"
 #include "IniFileParser.h"
+#include "Win32TextUtf8.h"
+#include "ToolInterface.h"
+#include <uxtheme.h>
 #include <map>
+
+/* DPI-scale a 96-DPI pixel value for the given owner window so the default
+** 800x740 sub-window layout stays consistent at 150%/200% monitor DPI. */
+static int dbgDpiScale(HWND hRef, int px96)
+{
+    typedef UINT (WINAPI *PFN_GetDpiForWindow)(HWND);
+    static PFN_GetDpiForWindow pGetDpi = NULL;
+    static BOOL resolved = FALSE;
+    if (!resolved) {
+        HMODULE h = GetModuleHandleW(L"user32.dll");
+        if (h) pGetDpi = (PFN_GetDpiForWindow)GetProcAddress(h, "GetDpiForWindow");
+        resolved = TRUE;
+    }
+    UINT dpi = (pGetDpi && hRef) ? pGetDpi(hRef) : 96;
+    if (dpi <= 0) dpi = 96;
+    return MulDiv(px96, dpi, 96);
+}
 
 using namespace std;
 
@@ -36,6 +59,77 @@ typedef map<HWND, DbgWindow*> WindowMap;
 
 static WindowMap windows;
 static DbgWindow* isCreating = NULL;
+
+/* Repaint the NC area dark -- default WS_CAPTION/WS_THICKFRAME paint uses
+** COLOR_3DLIGHT/3DSHADOW + system caption color which clashes in dark mode. */
+static HFONT s_captionFont    = NULL;
+static UINT  s_captionFontDpi = 0;
+static HFONT getCaptionFont(HWND hwnd)
+{
+    typedef UINT (WINAPI *PFN_GDFW)(HWND);
+    static PFN_GDFW pGdfw = NULL;
+    static BOOL resolved = FALSE;
+    if (!resolved) {
+        HMODULE h = GetModuleHandleW(L"user32.dll");
+        if (h) pGdfw = (PFN_GDFW)GetProcAddress(h, "GetDpiForWindow");
+        resolved = TRUE;
+    }
+    UINT dpi = pGdfw ? pGdfw(hwnd) : 96;
+    if (s_captionFont && s_captionFontDpi == dpi) return s_captionFont;
+    if (s_captionFont) DeleteObject(s_captionFont);
+    NONCLIENTMETRICS ncm;
+    memset(&ncm, 0, sizeof(ncm));
+    ncm.cbSize = sizeof(ncm);
+    SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0);
+    s_captionFont    = CreateFontIndirect(&ncm.lfCaptionFont);
+    s_captionFontDpi = dpi;
+    return s_captionFont;
+}
+
+static void paintFrameDark(HWND hwnd)
+{
+    RECT wr;
+    GetWindowRect(hwnd, &wr);
+    POINT cTL = {0, 0};
+    ClientToScreen(hwnd, &cTL);
+    int wndW = wr.right  - wr.left;
+    int wndH = wr.bottom - wr.top;
+    int cl   = cTL.x - wr.left;
+    int ct   = cTL.y - wr.top;
+    RECT cr;
+    GetClientRect(hwnd, &cr);
+    int cr_right  = cl + cr.right;
+    int cr_bottom = ct + cr.bottom;
+
+    HDC hdc = GetWindowDC(hwnd);
+    if (!hdc) return;
+    /* Frame uses a slightly-lighter dark (48,48,48) so the view edge is
+    ** still discernible against the host's main DARK_BG (32,32,32) inner
+    ** content. Cached statically to avoid re-creation each NC paint. */
+    static HBRUSH s_frameBrush = NULL;
+    if (!s_frameBrush) s_frameBrush = CreateSolidBrush(RGB(48, 48, 48));
+    HBRUSH br = s_frameBrush;
+    if (br) {
+        RECT band;
+        SetRect(&band, 0, 0, wndW, ct);                FillRect(hdc, &band, br);
+        SetRect(&band, 0, ct, cl, cr_bottom);          FillRect(hdc, &band, br);
+        SetRect(&band, cr_right, ct, wndW, cr_bottom); FillRect(hdc, &band, br);
+        SetRect(&band, 0, cr_bottom, wndW, wndH);      FillRect(hdc, &band, br);
+    }
+    /* Re-render the caption text on top of the dark fill. */
+    wchar_t title[256] = {0};
+    if (GetWindowTextW(hwnd, title, (int)_countof(title)) > 0) {
+        HFONT hFont = getCaptionFont(hwnd);
+        HFONT hOld  = hFont ? (HFONT)SelectObject(hdc, hFont) : NULL;
+        SetTextColor(hdc, GetDarkFg());
+        SetBkMode(hdc, TRANSPARENT);
+        RECT tr;
+        SetRect(&tr, cl + 4, 0, wndW - 8, ct);
+        DrawTextW(hdc, title, -1, &tr, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+        if (hOld) SelectObject(hdc, hOld);
+    }
+    ReleaseDC(hwnd, hdc);
+}
 
 static LRESULT CALLBACK staticWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam) 
 {
@@ -50,6 +144,11 @@ static LRESULT CALLBACK staticWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARA
         DbgWindow* window = i->second;
         if( iMsg == WM_WINDOWPOSCHANGED ) {
             window->updateWindowPos((WINDOWPOS*)lParam);
+        }
+        if ((iMsg == WM_NCPAINT || iMsg == WM_NCACTIVATE) && IsDarkMode()) {
+            LRESULT r = window->wndProc(iMsg, wParam, lParam);
+            paintFrameDark(hwnd);
+            return r;
         }
         return window->wndProc(iMsg, wParam, lParam);
     }
@@ -77,19 +176,26 @@ DbgWindow::DbgWindow(HINSTANCE hInst, HWND wndOwner, const std::string& name, co
 
     RegisterClassEx(&wndClass);
     
-    x       = iniFileGetInt( iniName.c_str(), "x", defX );
-    y       = iniFileGetInt( iniName.c_str(), "y", defY );
-    width   = iniFileGetInt( iniName.c_str(), "width", defW );
-    height  = iniFileGetInt( iniName.c_str(), "height", defH );
+    /* Defaults are 96-DPI logical pixels; scale for the parent's monitor so
+    ** the layout stays usable at 150% / 200% DPI on first run. INI overrides
+    ** (set after the user resizes) are used verbatim. */
+    x       = iniFileGetInt( iniName.c_str(), "x",       dbgDpiScale(wndOwner, defX) );
+    y       = iniFileGetInt( iniName.c_str(), "y",       dbgDpiScale(wndOwner, defY) );
+    width   = iniFileGetInt( iniName.c_str(), "width",   dbgDpiScale(wndOwner, defW) );
+    height  = iniFileGetInt( iniName.c_str(), "height",  dbgDpiScale(wndOwner, defH) );
     visible = iniFileGetInt( iniName.c_str(), "visible", defV );
 }
 
 void DbgWindow::init()
 {
     isCreating = this;
-    hwnd = CreateWindowEx(WS_EX_TOOLWINDOW, "msxdbgsub", winName.c_str(), 
-                          WS_OVERLAPPED | WS_CLIPSIBLINGS | WS_CHILD | WS_BORDER | WS_THICKFRAME | WS_DLGFRAME, 
+    /* CreateWindowExA mangles UTF-8 captions through CP932 -- create with
+    ** NULL then set the wide title via SetWindowTextU.  WS_EX_TOOLWINDOW
+    ** dropped so the caption uses the regular lfCaptionFont. */
+    hwnd = CreateWindowEx(0, "msxdbgsub", NULL,
+                          WS_OVERLAPPED | WS_CLIPSIBLINGS | WS_CHILD | WS_CAPTION | WS_THICKFRAME,
                           x, y, width, height, owner, NULL, hInstance, NULL);
+    if (hwnd) SetWindowTextU(hwnd, winName.c_str());
     isCreating = NULL;
     if( visible ) {
         show();
@@ -146,5 +252,15 @@ void DbgWindow::updateWindowPos(WINDOWPOS* windowPos)
     y       = windowPos->y;
     width   = windowPos->cx;
     height  = windowPos->cy;
+}
+
+void darkSubWindow(HWND hwnd)
+{
+    if (!hwnd || !IsDarkMode()) return;
+    /* DarkMode_Explorer theme darkens scrollbars and inherited common
+    ** controls. Plus the host's full ApplyDarkMode walk for child controls
+    ** (richedit / static / etc.) and WM_CTLCOLOR subclass. */
+    SetWindowTheme(hwnd, L"DarkMode_Explorer", NULL);
+    ApplyDarkMode(hwnd);
 }
 

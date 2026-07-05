@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -30,6 +33,7 @@
 #include "MsxTypes.h"
 #include "ArchMidi.h"
 #include "SaveState.h"
+#include "Win32TextUtf8.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -119,27 +123,30 @@ static MidiDevices midi;
 
 void midiInitialize()
 {
-	MIDIINCAPSA  inCap;
-	MIDIOUTCAPSA outCap;
+    /* Use the W variants and decode szPname (UTF-16) to UTF-8 so device
+    ** names containing non-ASCII characters render correctly through
+    ** ComboAddStringU in Properties -> Sound -> MIDI. */
+	MIDIINCAPSW  inCap;
+	MIDIOUTCAPSW outCap;
     int num;
 
     memset(&midi, 0, sizeof(midi));
     midi.enabled = 1;
 
 	num = midiOutGetNumDevs();
-    if (num > 0 && midiOutGetDevCapsA(MIDI_MAPPER, &outCap, sizeof(outCap)) == MMSYSERR_NOERROR) {
+    if (num > 0 && midiOutGetDevCapsW(MIDI_MAPPER, &outCap, sizeof(outCap)) == MMSYSERR_NOERROR) {
         int i;
 
         midi.out.dev = (DevInfo*)calloc(1, (num + 1) * sizeof(DevInfo));
 
-        strcpy(midi.out.dev[0].name, outCap.szPname);
+        WideToUtf8(outCap.szPname, midi.out.dev[0].name, sizeof(midi.out.dev[0].name));
         midi.out.dev[0].id = MIDI_MAPPER;
 	    strcpy(midi.out.dev[0].idString, "midi-out");
         midi.out.count++;
 
 	    for (i = 0; i < num; i++) {
-		    if (midiOutGetDevCapsA(i, &outCap, sizeof(outCap)) == MMSYSERR_NOERROR) {
-                strcpy(midi.out.dev[midi.out.count].name, outCap.szPname);
+		    if (midiOutGetDevCapsW(i, &outCap, sizeof(outCap)) == MMSYSERR_NOERROR) {
+                WideToUtf8(outCap.szPname, midi.out.dev[midi.out.count].name, sizeof(midi.out.dev[midi.out.count].name));
 		        midi.out.dev[midi.out.count].id = i;
 		        sprintf(midi.out.dev[midi.out.count].idString, "midi-out-%u", i);
                 midi.out.count++;
@@ -154,8 +161,8 @@ void midiInitialize()
         midi.in.dev = (DevInfo*)calloc(1, num * sizeof(DevInfo));
 
 	    for (i = 0; i < num; ++i) {
-		    if (midiInGetDevCapsA(i, &inCap, sizeof(inCap)) == MMSYSERR_NOERROR) {
-                strcpy(midi.in.dev[midi.in.count].name, inCap.szPname);
+		    if (midiInGetDevCapsW(i, &inCap, sizeof(inCap)) == MMSYSERR_NOERROR) {
+                WideToUtf8(inCap.szPname, midi.in.dev[midi.in.count].name, sizeof(midi.in.dev[midi.in.count].name));
 		        midi.in.dev[midi.in.count].id = i;
 		        sprintf(midi.in.dev[midi.in.count].idString, "midi-in-%u", i);
                 midi.in.count++;
@@ -527,13 +534,15 @@ void archMidiOutTransmit(ArchMidi* archMidi, UInt8 value)
     }
 }
 
+/* dwParam* must be DWORD_PTR so the MIDIHDR pointer winmm hands back
+** for MM_MIM_LONGDATA survives on x64 (DWORD truncates and AVs). */
 static void CALLBACK midiInCallback(HMIDIIN hMidiIn,  
-                                    UINT wMsg,        
-                                    DWORD dwInstance, 
-                                    DWORD dwParam1,   
-                                    DWORD dwParam2)
+                                    UINT      wMsg,
+                                    DWORD_PTR dwInstance,
+                                    DWORD_PTR dwParam1,
+                                    DWORD_PTR dwParam2)
 {
-    DWORD id = dwInstance;
+    DWORD id = (DWORD)dwInstance;
     char buffer[4];
     int length = 0;
     MIDIHDR* hdr;

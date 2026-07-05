@@ -1,0 +1,18 @@
+# Per-user IDE settings (Visual Studio generates these automatically).
+*.vcxproj.user
+
+# MSBuild intermediate / output directories.
+[Dd]ebug/
+[Rr]elease/
+[Ff]inal/
+x64/
+*.tlog/
+*.opensdf
+*.sdf
+*.suo
+.vs/
+
+# Claude Code local state and per-session working files.
+.claude/
+CLAUDE.md
+tmp/

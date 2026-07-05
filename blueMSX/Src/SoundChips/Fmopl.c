@@ -6,6 +6,9 @@
 **
 ** Copyright (C) 1999,2000 Tatsuyuki Satoh 
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** 
 */
 
@@ -686,7 +689,7 @@ static void	OPL_initalize(FM_OPL *OPL)
 	OPL->TimerBase = 1.0/((DoubleT)OPL->clock / 72.0	);
 #else
     if (OPL->baseRate == OPL->clock / 72) {
-	    OPL->freqbase =	OPL->baseRate / OPL->rate;
+	    OPL->freqbase =	(DoubleT)OPL->baseRate / OPL->rate;
 	    OPL->TimerBase = 1.0 / OPL->baseRate;
     }
     else {
@@ -1265,12 +1268,19 @@ int	OPLTimerOver(FM_OPL	*OPL,int c)
 	return OPL->status>>7;
 }
 
-void Y8950LoadState(FM_OPL *OPL)
+int Y8950LoadState(FM_OPL *OPL)
 {
     SaveState* state = saveStateOpenForRead("fmopl");
     char tag[32];
     int i;
     int j;
+
+    /* Empty "fmopl" section: skip; default-0 reads below would zero
+    ** the rate tables (FN_TABLE/AR_TABLE/DR_TABLE) and mute the chip. */
+    if (saveStateIsEmpty(state)) {
+        saveStateClose(state);
+        return 0;
+    }
 
     OPL->type               = (UInt8)saveStateGet(state, "type",               0);
     OPL->address            = (UInt8)saveStateGet(state, "address",            0);
@@ -1413,6 +1423,7 @@ void Y8950LoadState(FM_OPL *OPL)
     }
 
     saveStateClose(state);
+    return 1;
 }
 
 void Y8950SaveState(FM_OPL *OPL)

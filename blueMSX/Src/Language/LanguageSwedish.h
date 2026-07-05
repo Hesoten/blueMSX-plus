@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -37,9 +40,9 @@ void langInitSwedish(LanguageStrings* ls)
     //----------------------
 
     ls->langCatalan             = "Catalan";
-    ls->langChineseSimplified   = "Kinesiska Förenklad";
+    ls->langChineseSimplified   = "Kinesiska FÃ¶renklad";
     ls->langChineseTraditional  = "Kinesiska Traditionell";
-    ls->langDutch               = "Holländska";
+    ls->langDutch               = "HollÃ¤ndska";
     ls->langEnglish             = "Engelska";
     ls->langFinnish             = "Finska";
     ls->langFrench              = "Franska";
@@ -62,25 +65,65 @@ void langInitSwedish(LanguageStrings* ls)
     ls->textFilename            = "Filnamn:";
     ls->textFile                = "Fil";
     ls->textNone                = "Ingen";
-    ls->textUnknown             = "Okänd";
+    ls->textUnknown             = "OkÃ¤nd";
 
 
     //----------------------
     // Warning and Error lines
     //----------------------
 
-    ls->warningTitle            = "blueMSX - Varning";
-    ls->warningDiscardChanges   = "Vill du stänga verktyget utan att spara dina ändringar?";
-    ls->warningOverwriteFile    = "Vill du skriva över filen:";
-    ls->errorTitle              = "blueMSX - Fel";
-    ls->errorEnterFullscreen    = "Misslyckades att byta till fullskärm.           \n";
-    ls->errorDirectXFailed      = "Misslyckades att skapa DirectX objekt.          \nAnvänder GDI istället.\nKontrollera video inställningarna.";
+    ls->warningTitle            = "blueMSX+ - Varning";
+    ls->warningDiscardChanges   = "Vill du stÃ¤nga verktyget utan att spara dina Ã¤ndringar?";
+    ls->warningOverwriteFile    = "Vill du skriva Ã¶ver filen:";
+    ls->warningStateOldFormat   = "Detta Ã¤r en sparad status i Ã¤ldre format. Kan inte Ã¥terupptas korrekt. Ladda Ã¤ndÃ¥?";
+    ls->errorTitle              = "blueMSX+ - Fel";
+    ls->errorEnterFullscreen    = "Misslyckades att byta till fullskÃ¤rm.           \n";
+    ls->errorDirectXFailed      = "Misslyckades att skapa DirectX objekt.          \nAnvÃ¤nder GDI istÃ¤llet.\nKontrollera video instÃ¤llningarna.";
     ls->errorNoRomInZip         = "Kunde inte hitta en .rom fil i zip arkivet.";
     ls->errorNoDskInZip         = "Kunde inte hitta en .dsk fil i zip arkivet.";
     ls->errorNoCasInZip         = "Kunde inte hitta en .cas fil i zip arkivet.";
-    ls->errorNoHelp             = "Kunde inte hitta hjälpfilen.";
+    ls->errorDirAsDskOverflow   = "%d fil(er) (%d KB totalt) fÃ¥r inte plats i 720 KB-diskavbilden och hoppades Ã¶ver.";
+    ls->errorNoHelp             = "Kunde inte hitta hjÃ¤lpfilen.";
     ls->errorStartEmu           = "Misslyckades att starta emulatorn.";
-    ls->errorPortableReadonly   = "Flyttbar enhet är inte skrivbar";
+    ls->errorMissingFiles       = "FÃ¶ljande filer som refereras av sparat tillstÃ¥nd kunde inte laddas:";
+    ls->errorPortableReadonly   = "Flyttbar enhet Ã¤r inte skrivbar";
+    ls->infoTitle               = "blueMSX+ Info";
+    ls->infoGameReaderRedirect  = "blueMSX+ stÃ¶der inte MSX Game Reader direkt (den ursprungliga XP-drivrutinen frÃ¥n ASCII fungerar inte lÃ¤ngre pÃ¥ moderna Windows).\n\nÃ–ppna MSX Game Reader - Web Dumper (av Kunihiko Ohnaka) i webblÃ¤saren istÃ¤llet?";
+    ls->infoColorDepth          = "blueMSX+ fungerar bÃ¤st med 16 eller 32 bitars fÃ¤rgdjup.";
+    ls->errorKeyboardThemeMissing = "Tangentbordsredigerarens tema kunde inte hittas.";
+    ls->errorMixerThemeMissing    = "Mixerns tema kunde inte hittas.";
+    ls->errorRecorderTitle      = "blueMSX+ - Inspelare";
+    ls->errorRecorderSaveReplay = "Kunde inte spara replayfil:\n  %s\n\nKontrollera att mÃ¥lmappen finns och Ã¤r skrivbar.";
+    ls->errorRecorderReplayMissing = "Replayfil hittades inte:\n  %s\n\nSpela in en replay fÃ¶rst, eller anvÃ¤nd Ladda fÃ¶r att vÃ¤lja en befintlig .cap-fil.";
+    ls->errorRecorderRequiresDX12   = "Byt videodrivrutin till Direct3D 12 och starta inspelningen?";
+    ls->errorRecorderRequiresDX12Title = "blueMSX+ - Byte av videodrivrutin";
+    ls->infoRecorderComplete    = "Videofil sparad:\n  %s";
+    ls->infoToastSaved          = "Sparat: %s";
+    ls->infoToastAlreadyRecording   = "Spelar redan in";
+    ls->dlgRecorderPickTitle        = "blueMSX+ - Rendera replay till video";
+    ls->dlgRecorderPickSourceCap    = "Replayfil att rendera (.cap):";
+    ls->dlgRecorderPickOutputMp4    = "Utdatavideofil (.mp4):";
+    ls->menuFileRecordVideo         = "Spela in video";
+    ls->menuFileStopRecordVideo     = "Stoppa videoinspelning";
+    ls->shortcutRecordVideoStart    = "Videoinspelning: Starta";
+    ls->shortcutRecordVideoStartAs  = "Videoinspelning: Starta som";
+    ls->shortcutRecordVideoStop     = "Videoinspelning: Stoppa";
+    ls->shortcutRecordVideoToggle   = "Videoinspelning: VÃ¤xla";
+    ls->shortcutAudioCaptureAs      = "Ljudinspelning: Starta som";
+    ls->shortcutVideoRecordAs       = "Replay: Spela in som";
+    ls->shortcutScreenshotAs        = "SkÃ¤rmdump: Spara som";
+
+    ls->propCapture                 = "Inspelning";
+    ls->propCaptureAudioGB          = " Ljudinspelning ";
+    ls->propCaptureVideoGB          = " Videoinspelning ";
+    ls->propCaptureScreenshotGB     = " SkÃ¤rmdump ";
+    ls->propCaptureReplayGB         = " Replayinspelning ";
+    ls->propCaptureSaveDir          = "Mapp:";
+    ls->propCaptureFormat           = "Format:";
+    ls->propCaptureCodec            = "Codec:";
+    ls->propCaptureAutoName         = "Automatiskt filnamn";
+    ls->propCapturePromptName       = "FrÃ¥ga efter filnamn";
+    ls->propCaptureShowToast        = "Visa avisering vid avslutning";
 
 
     //----------------------
@@ -89,7 +132,7 @@ void langInitSwedish(LanguageStrings* ls)
 
     ls->fileRom                 = "Rom fil";
     ls->fileAll                 = "Alla Filer";
-    ls->fileCpuState            = "CPU-tillstånd";
+    ls->fileCpuState            = "CPU-tillstÃ¥nd";
     ls->fileVideoCapture        = "Videoinspelning"; 
     ls->fileDisk                = "Diskettfil";
     ls->fileCas                 = "Kassettfil";
@@ -101,7 +144,7 @@ void langInitSwedish(LanguageStrings* ls)
     //----------------------
 
     ls->menuNoRecentFiles       = "- ingen filhistoria -";
-    ls->menuInsert              = "Sätt in";
+    ls->menuInsert              = "SÃ¤tt in";
     ls->menuEject               = "Ta ur";
 
     ls->menuCartGameReader      = "Game Reader";
@@ -119,83 +162,92 @@ void langInitSwedish(LanguageStrings* ls)
     ls->menuCartFMPac           = "FM-PAC Cartridge";
     ls->menuCartPac             = "PAC Cartridge";
     ls->menuCartHBI55           = "Sony HBI-55 Cartridge";
-    ls->menuCartInsertSpecial   = "Sätt in Special";
+    ls->menuCartInsertSpecial   = "SÃ¤tt in Special";
     ls->menuCartMegaRam         = "MegaRAM";
     ls->menuCartExternalRam     = "Externt RAM";
     ls->menuCartEseRam          = "Ese-RAM";             // New in 2.7
     ls->menuCartEseSCC          = "Ese-SCC";             // New in 2.7
     ls->menuCartMegaFlashRom    = "Mega Flash ROM";      // New in 2.7
 
-    ls->menuDiskInsertNew       = "Sätt in ny diskett fil";
-    ls->menuDiskInsertCdrom     = "Sätt in CD-Rom";      // New in 2.7
-    ls->menuDiskDirInsert       = "Sätt in mapp";
-    ls->menuDiskAutoStart       = "Starta om efter insättning/urdragning";
-    ls->menuCartAutoReset       = "Starta om efter insättning/urdragning";
+    ls->menuDiskInsertNew       = "SÃ¤tt in ny diskett fil";
+    ls->menuDiskInsertCdrom     = "SÃ¤tt in CD-Rom";      // New in 2.7
+    ls->menuDiskDirInsert       = "SÃ¤tt in mapp";
+    ls->menuDiskAutoStart       = "Starta om efter insÃ¤ttning/urdragning";
+    ls->menuCartAutoReset       = "Starta om efter insÃ¤ttning/urdragning";
 
-    ls->menuCasRewindAfterInsert= "Spola tillbaka vid insättning";
-    ls->menuCasUseReadOnly      = "Tillåt endast läsning av kassett";
+    ls->menuCasRewindAfterInsert= "Spola tillbaka vid insÃ¤ttning";
+    ls->menuCasUseReadOnly      = "TillÃ¥t endast lÃ¤sning av kassett";
     ls->lmenuCasSaveAs          = "Spara kassett som...";
-    ls->menuCasSetPosition      = "Sätt position";
+    ls->menuCasSetPosition      = "SÃ¤tt position";
     ls->menuCasRewind           = "Spola tillbaka";
 
     ls->menuVideoLoad           = "Ladda...";             
     ls->menuVideoPlay           = "Spela upp senaste";   
     ls->menuVideoRecord         = "Spela in";              
     ls->menuVideoRecording      = "Spelar in";           
-    ls->menuVideoRecAppend      = "Spela in (lägg till)";     
+    ls->menuVideoRecAppend      = "Spela in (lÃ¤gg till)";     
     ls->menuVideoStop           = "Stopp";                
     ls->menuVideoRender         = "Spara videofil";   
 
     ls->menuPrnFormfeed         = "Pappersmatning";
 
-    ls->menuZoomNormal          = "Normal storlek";
-    ls->menuZoomDouble          = "Dubbel storlek";
-    ls->menuZoomFullscreen      = "Fullskärm";
+    ls->menuZoom1x              = "1x-fÃ¶nster";
+    ls->menuZoom2x              = "2x-fÃ¶nster";
+    ls->menuZoom3x              = "3x-fÃ¶nster";
+    ls->menuZoom4x              = "4x-fÃ¶nster";
+    ls->menuZoom5x              = "5x-fÃ¶nster";
+    ls->menuZoom6x              = "6x-fÃ¶nster";
+    ls->menuZoom7x              = "7x-fÃ¶nster";
+    ls->menuZoom8x              = "8x-fÃ¶nster";
+    ls->menuZoomFullscreen      = "FullskÃ¤rm";
     
     ls->menuPropsEmulation      = "Emulering";
     ls->menuPropsVideo          = "Video";
     ls->menuPropsSound          = "Ljud";
+    ls->menuPropsMidi           = "MIDI";
     ls->menuPropsControls       = "Kontroller";
     ls->menuPropsEffects        = "Effekter";               // New in 2.9
-    ls->menuPropsSettings       = "Inställningar";
+    ls->menuPropsSettings       = "InstÃ¤llningar";
     ls->menuPropsFile           = "Filer";
     ls->menuPropsDisk           = "Enheter";               // New in 2.7
-    ls->menuPropsLanguage       = "Språk";
+    ls->menuPropsLanguage       = "SprÃ¥k";
     ls->menuPropsPorts          = "Portar";
+    ls->menuPropsCapture        = "Inspelning";
     
-    ls->menuVideoSource         = "Video ut källa";
-    ls->menuVideoSourceDefault  = "Ingen videokälla inkopplad";
+    ls->menuVideoSource         = "Video ut kÃ¤lla";
+    ls->menuVideoSourceDefault  = "Ingen videokÃ¤lla inkopplad";
     ls->menuVideoChipAutodetect = "Automatisk detektering av video chip";    
-    ls->menuVideoInSource       = "Video in källa";
+    ls->menuVideoInSource       = "Video in kÃ¤lla";
     ls->menuVideoInBitmap       = "Bitmap fil";
     
-    ls->menuEthInterface        = "Nätverksanslutning"; 
+    ls->menuEthInterface        = "NÃ¤tverksanslutning"; 
 
-    ls->menuHelpHelp            = "Hjälp";
-    ls->menuHelpAbout           = "Om blueMSX";
+    ls->menuHelpHelp            = "HjÃ¤lp";
+    ls->menuHelpAbout           = "Om blueMSX+";
 
     ls->menuFileCart            = "Cartridge slot";
     ls->menuFileDisk            = "Diskettstation";
     ls->menuFileCas             = "Kassett";
     ls->menuFilePrn             = "Skrivare";
-    ls->menuFileLoadState       = "Läs in CPU-tillstånd";
-    ls->menuFileSaveState       = "Spara CPU-tillstånd";
-    ls->menuFileQLoadState      = "Snabbladda CPU-tillstånd";
-    ls->menuFileQSaveState      = "Snabbspara CPU-tillstånd";
+    ls->menuFileLoadState       = "LÃ¤s in CPU-tillstÃ¥nd";
+    ls->menuFileSaveState       = "Spara CPU-tillstÃ¥nd";
+    ls->menuFileQLoadState      = "Snabbladda CPU-tillstÃ¥nd";
+    ls->menuFileQSaveState      = "Snabbspara CPU-tillstÃ¥nd";
     ls->menuFileCaptureAudio    = "Spara ljud";
+    ls->menuFileStopAudio       = "Stoppa ljud";
     ls->menuFileCaptureVideo    = "Videoinspelning"; 
-    ls->menuFileScreenShot      = "Spara skärmdump";
+    ls->menuFileScreenShot      = "Spara skÃ¤rmdump";
     ls->menuFileExit            = "Avsluta";
 
-    ls->menuFileHarddisk        = "Hårddisk";
-    ls->menuFileHarddiskNoPesent= "Inga enheter tillgängliga";
-    ls->menuFileHarddiskRemoveAll= "Ta ur alla hårddiskar";    // New in 2.7
+    ls->menuFileHarddisk        = "HÃ¥rddisk / SD-kort";
+    ls->menuFileHarddiskNoPesent= "Inga enheter tillgÃ¤ngliga";
+    ls->menuFileHarddiskRemoveAll= "Ta ur alla hÃ¥rddiskar";    // New in 2.7
 
-    ls->menuRunRun              = "Kör";
+    ls->menuRunRun              = "KÃ¶r";
     ls->menuRunPause            = "Paus";
     ls->menuRunStop             = "Stanna";
     ls->menuRunSoftReset        = "Mjuk Omstart";
-    ls->menuRunHardReset        = "Hård Omstart";
+    ls->menuRunHardReset        = "HÃ¥rd Omstart";
     ls->menuRunCleanReset       = "Full Omstart";
 
     ls->menuToolsMachine        = "Konfigureringsverktyg";
@@ -206,14 +258,14 @@ void langInitSwedish(LanguageStrings* ls)
     ls->menuToolsLoadMemory     = "Ladda Minne";
     ls->menuToolsDebugger       = "Avlusare";               
     ls->menuToolsTrainer        = "Spelfusk";                
-    ls->menuToolsTraceLogger    = "Spårutskrift";           
+    ls->menuToolsTraceLogger    = "SpÃ¥rutskrift";           
 
     ls->menuFile                = "Arkiv";
     ls->menuRun                 = "Emulering";
-    ls->menuWindow              = "Fönster";
+    ls->menuWindow              = "FÃ¶nster";
     ls->menuOptions             = "Egenskaper";
     ls->menuTools               = "Verktyg";
-    ls->menuHelp                = "Hjälp";
+    ls->menuHelp                = "HjÃ¤lp";
     
 
     //----------------------
@@ -221,51 +273,57 @@ void langInitSwedish(LanguageStrings* ls)
     //----------------------
 
     ls->dlgOK                   = "OK";
-    ls->dlgOpen                 = "Öppna";
+    ls->dlgOpen                 = "Ã–ppna";
     ls->dlgCancel               = "Avbryt";
+    ls->dlgYes                  = "Ja";
+    ls->dlgNo                   = "Nej";
     ls->dlgSave                 = "Spara";
     ls->dlgSaveAs               = "Spara Som...";
-    ls->dlgRun                  = "Kör";
-    ls->dlgClose                = "Stäng";
+    ls->dlgRun                  = "KÃ¶r";
+    ls->dlgClose                = "StÃ¤ng";
 
-    ls->dlgLoadRom              = "blueMSX - Ladda en rom fil";
-    ls->dlgLoadDsk              = "blueMSX - Ladda en dsk fil";
-    ls->dlgLoadCas              = "blueMSX - Ladda en cas fil";
-    ls->dlgLoadRomDskCas        = "blueMSX - Ladda en rom, dsk eller cas fil";
-    ls->dlgLoadRomDesc          = "Välj en cartridge fil:";
-    ls->dlgLoadDskDesc          = "Välj en diskett fil:";
-    ls->dlgLoadCasDesc          = "Välj en kassett fil:";
-    ls->dlgLoadRomDskCasDesc    = "Välj en fil:";
-    ls->dlgLoadState            = "Ladda CPU-tillstånd";
+    ls->dlgLoadRom              = "blueMSX+ - Ladda en rom fil";
+    ls->dlgLoadDsk              = "blueMSX+ - Ladda en dsk fil";
+    ls->dlgLoadCas              = "blueMSX+ - Ladda en cas fil";
+    ls->dlgLoadRomDskCas        = "blueMSX+ - Ladda en rom, dsk eller cas fil";
+    ls->dlgLoadRomDesc          = "VÃ¤lj en cartridge fil:";
+    ls->dlgLoadDskDesc          = "VÃ¤lj en diskett fil:";
+    ls->dlgLoadCasDesc          = "VÃ¤lj en kassett fil:";
+    ls->dlgLoadRomDskCasDesc    = "VÃ¤lj en fil:";
+    ls->dlgLoadState            = "Ladda CPU-tillstÃ¥nd";
     ls->dlgLoadVideoCapture     = "Ladda videoinspelning";      
-    ls->dlgSaveState            = "Spara CPU-tillstånd";
-    ls->dlgSaveCassette         = "blueMSX - Spara Kassett";
+    ls->dlgSaveState            = "Spara CPU-tillstÃ¥nd";
+    ls->dlgSaveCassette         = "blueMSX+ - Spara Kassett";
     ls->dlgSaveVideoClipAs      = "Spara videoinspeling som...";      
-    ls->dlgAmountCompleted      = "Andel färdigt:";          
-    ls->dlgInsertRom1           = "Sätt in ROM cartridge i slot 1";
-    ls->dlgInsertRom2           = "Sätt in ROM cartridge i slot 2";
-    ls->dlgInsertDiskA          = "Sätt in diskett i diskettstation A";
-    ls->dlgInsertDiskB          = "Sätt in diskett i diskettstation B";
-    ls->dlgInsertHarddisk       = "Sätt in hårddisk";
-    ls->dlgInsertCas            = "Sätt in kassettband";
+    ls->dlgSaveCaptureAudio     = "Spara ljudinspelning som";
+    ls->dlgSaveCaptureVideo     = "Spara videoinspelning som";
+    ls->dlgSaveCaptureReplay    = "Spara replay som";
+    ls->dlgSaveCaptureScreenshot = "Spara skÃ¤rmdump som";
+    ls->dlgAmountCompleted      = "Andel fÃ¤rdigt:";          
+    ls->dlgInsertRom1           = "SÃ¤tt in ROM cartridge i slot 1";
+    ls->dlgInsertRom2           = "SÃ¤tt in ROM cartridge i slot 2";
+    ls->dlgInsertDiskA          = "SÃ¤tt in diskett i diskettstation A";
+    ls->dlgInsertDiskB          = "SÃ¤tt in diskett i diskettstation B";
+    ls->dlgInsertHarddisk       = "SÃ¤tt in hÃ¥rddisk";
+    ls->dlgInsertCas            = "SÃ¤tt in kassettband";
     ls->dlgRomType              = "Rom Typ:";
     ls->dlgDiskSize             = "Diskettstorlek:";             
 
-    ls->dlgTapeTitle            = "blueMSX - Kassettposition";
+    ls->dlgTapeTitle            = "blueMSX+ - Kassettposition";
     ls->dlgTapeFrameText        = "Kassettposition";
     ls->dlgTapeCurrentPos       = "Aktuell position";
-    ls->dlgTapeTotalTime        = "Total längd";
+    ls->dlgTapeTotalTime        = "Total lÃ¤ngd";
     ls->dlgTapeSetPosText       = "Kassettposition:";
     ls->dlgTapeCustom           = "Visa Specialfiler";
     ls->dlgTabPosition          = "Position";
     ls->dlgTabType              = "Typ";
     ls->dlgTabFilename          = "Filnamn";
-    ls->dlgZipReset             = "Starta om efter insättning";
+    ls->dlgZipReset             = "Starta om efter insÃ¤ttning";
     
-    ls->dlgAboutTitle           = "blueMSX - Information";
+    ls->dlgAboutTitle           = "blueMSX+ - Information";
 
-    ls->dlgLangLangText         = "Välj språk som blueMSX ska använda";
-    ls->dlgLangLangTitle        = "blueMSX - Språk";
+    ls->dlgLangLangText         = "VÃ¤lj sprÃ¥k som blueMSX+ ska anvÃ¤nda";
+    ls->dlgLangLangTitle        = "blueMSX+ - SprÃ¥k";
 
     ls->dlgAboutAbout           = "INFORMATION\r\n========";
     ls->dlgAboutVersion         = "Version:";
@@ -276,51 +334,55 @@ void langInitSwedish(LanguageStrings* ls)
     ls->dlgAboutThanks          = "BIDRAGARE\r\n=======";       // New in 2.7 (retranslate, see english)
     ls->dlgAboutLisence         = "LICENS\r\n"
                                   "=====\r\n\r\n"
-                                  "Denna programvara är erbjuden 'som den är', utan någon explicit eller "
-                                  "implicit garanti. Inte av någon händelse kommer författaren/na att hållas "
-                                  "ansvariga för några skador orsakade av detta program.\r\n\r\n"
-                                  "Besök www.bluemsx.com for mer information.";
+                                  "Denna programvara Ã¤r erbjuden 'som den Ã¤r', utan nÃ¥gon explicit eller "
+                                  "implicit garanti. Inte av nÃ¥gon hÃ¤ndelse kommer fÃ¶rfattaren/na att hÃ¥llas "
+                                  "ansvariga fÃ¶r nÃ¥gra skador orsakade av detta program.\r\n\r\n"
+                                  "BesÃ¶k www.bluemsx.com for mer information.";
 
-    ls->dlgSavePreview          = "Förvisning";
+    ls->dlgSavePreview          = "FÃ¶rvisning";
     ls->dlgSaveDate             = "Tid Sparad:";
 
-    ls->dlgRenderVideoCapture   = "blueMSX - Generera videofil...";  
+    ls->dlgRenderVideoCapture   = "blueMSX+ - Generera videofil...";  
 
 
     //----------------------
     // Properties related lines
     //----------------------
 
-    ls->propTitle               = "blueMSX - Egenskaper";
+    ls->propTitle               = "blueMSX+ - Egenskaper";
     ls->propEmulation           = "Emulering";
+    ls->propD3D                 = "Direct3D";
     ls->propVideo               = "Video";
     ls->propSound               = "Ljud";
+    ls->propMidi                = "MIDI";
     ls->propControls            = "Kontroller";
     ls->propPerformance         = "Prestanda";
     ls->propEffects             = "Effekter";             // New in 2.9
-    ls->propSettings            = "Inställningar";
+    ls->propSettings            = "InstÃ¤llningar";
     ls->propFile                = "Filer";
     ls->propDisk                = "Enheter";              // New in 2.7
     ls->propPorts               = "Portar";
 
-    ls->propEmuGeneralGB        = "Allmänt ";
+    ls->propEmuGeneralGB        = "AllmÃ¤nt ";
     ls->propEmuFamilyText       = "MSX familj:";
     ls->propEmuMemoryGB         = "Minne ";
     ls->propEmuRamSizeText      = "RAM storlek:";
     ls->propEmuVramSizeText     = "VRAM storlek:";
     ls->propEmuSpeedGB          = "Emuleringshastighet ";
-    ls->propEmuSpeedText        = "Emuleringshastighet:";
+    ls->propEmuSpeedText        = "EmulatorkÃ¤rna:";
+    ls->propEmuVdpCmdSpeedText  = "VDP-kommandots vÃ¤ntetid:";
     ls->propEmuFrontSwitchGB    = "Panasonicbrytare ";
     ls->propEmuFrontSwitch      = " Frontbrytare";
-    ls->propEmuNoSpriteLimits   = " Ignorera sprite begränsning";  // New in 2.9
+    ls->propEmuNoSpriteLimits   = " Ignorera sprite begrÃ¤nsning";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emulera MSX tangentbordsfel";  // New in 2.9
-    ls->propEmuFdcTiming        = " Slå av diskettstationstiming";
-    ls->propEmuReversePlay      = " Tillåt baklänges uppspelning";
+    ls->propEmuFdcTiming        = " Snabba upp vid FDD-Ã¥tkomst";
+    ls->propEmuHddSdBoost       = " Snabbare vid HDD/SD-Ã¥tkomst";
+    ls->propEmuReversePlay      = " TillÃ¥t baklÃ¤nges uppspelning";
     ls->propEmuPauseSwitch      = " Pausbrytare";
     ls->propEmuAudioSwitch      = " MSX-AUDIO cartridge switch";
     ls->propVideoFreqText       = "Videofrekvens:";
     ls->propVideoFreqAuto       = "Automatisk";
-    ls->propSndOversampleText   = "Översampling:";
+    ls->propSndOversampleText   = "Ã–versampling:";
     ls->propSndYkInGB           = "YK-01/YK-10/YK-20 In ";              
     ls->propSndMidiInGB         = "MIDI In ";
     ls->propSndMidiOutGB        = "MIDI Ut ";
@@ -331,30 +393,58 @@ void langInitSwedish(LanguageStrings* ls)
     ls->propMonTypeText         = "Monitor typ:";
     ls->propMonEmuText          = "Monitoremulering:";
     ls->propVideoTypeText       = "Videotyp:";
-    ls->propWindowSizeText      = "Fönsterstorlek:";
-    ls->propMonHorizStretch     = " Horizontell utsträckning";
-    ls->propMonVertStretch      = " Vertikal utsträckning";
+    ls->propMonHorizStretch     = " Horizontell utstrÃ¤ckning";
+    ls->propMonVertStretch      = " Vertikal utstrÃ¤ckning";
     ls->propMonDeInterlace      = " De-interlace";
-    ls->propBlendFrames         = " Blanda efterföljande bilder";           
+    ls->propBlendFrames         = " Blanda efterfÃ¶ljande bilder";           
     ls->propMonBrightness       = "Ljusstyrka:";
     ls->propMonContrast         = "Kontrast:";
-    ls->propMonSaturation       = "Färgmättnad:";
+    ls->propMonSaturation       = "FÃ¤rgmÃ¤ttnad:";
     ls->propMonGamma            = "Gamma:";
     ls->propMonScanlines        = " Scanlinjer:";
+    ls->propMonScanlinesBright  = "Ljusst.-komp.:";
+    ls->propMonScanlinesBrightAuto = " Auto";
+    ls->propMonScanlinesShape   = "FÃ¶rinst.:";
+    ls->propMonScanlinesDepth   = "Djup:";
+    ls->propMonScanlinesSharpness = "SkÃ¤rpa:";
+    ls->enumScanShapeGentle     = "Mjuk";
+    ls->enumScanShapeStandard   = "Standard";
+    ls->enumScanShapeSharp      = "Skarp";
+    ls->enumScanShapeTrinitron  = "Trinitron";
+    ls->enumScanShapeCustom     = "Anpassad";
+    ls->propMonHdrEnable        = "HDR";
+    ls->propMonHdrPaperWhite    = "Vitt-ljusstyrka:";
+    ls->propMonHdrSystemMode    = "Systemets HDR-lÃ¤ge:";
+    ls->propMonHdrRestartHint   = "Starta om blueMSX fÃ¶r att tillÃ¤mpa HDR-lÃ¤geÃ¤ndringen.";
+    ls->propMonHdrRecord        = " Spela in i HDR";
     ls->propMonColorGhosting    = " RF-modulering:";
     ls->propMonEffectsGB        = "Effekter ";
 
     ls->propPerfVideoDrvGB      = "Videodriver ";
-    ls->propPerfVideoDispDrvText= "Skärmdriver:";
+    ls->propPerfVideoDispDrvText= "SkÃ¤rmdriver:";
     ls->propPerfFrameSkipText   = "Frame skipping:";
     ls->propPerfAudioDrvGB      = "Lkuddriver ";
     ls->propPerfAudioDrvText    = "Ljuddriver:";
-    ls->propPerfAudioBufSzText  = "Storlek på ljudbuffer:";
+    ls->propPerfAudioBufSzText  = "Storlek pÃ¥ ljudbuffer:";
+    ls->propPerfAudioBufSzActualFmt = "(faktisk buffert: %u ms)";
     ls->propPerfEmuGB           = "Emulering ";
     ls->propPerfSyncModeText    = "Synkronisering:";
-    ls->propFullscreenResText   = "Fullskärmsupplösning:";
+    ls->propFullscreenResText   = "FullskÃ¤rmsupplÃ¶sning:";
 
     ls->propSndChipEmuGB        = "Emulering av ljudchip ";
+    ls->propSoundChipsActive    = "Aktiv backend:";
+    ls->propSoundChipsHint      = "NÃ¤r flera backends Ã¤r aktiverade kan du A/B-jÃ¤mfÃ¶ra dem under kÃ¶rning.";
+    ls->propSoundChipsYm2413GB  = " MSX-MUSIC backend ";
+    ls->propSoundChipsY8950GB   = " MSX-AUDIO backend ";
+    ls->propSndOpllAnalogText   = "Analog filter:";
+    ls->propSndOpllAnalogLpfText = "LPF-brytfrekvens:";
+    ls->enumOpllFilterOff       = "Av";
+    ls->enumOpllFilterBright    = "Ljus (LPF 12 kHz)";
+    ls->enumOpllFilterClear     = "Klar (LPF 8 kHz)";
+    ls->enumOpllFilterStandard  = "Standard (LPF 5 kHz)";
+    ls->enumOpllFilterSoft      = "Mjuk (LPF 3.5 kHz)";
+    ls->enumOpllFilterMellow    = "Varm (LPF 2.3 kHz)";
+    ls->enumOpllFilterCustom    = "Anpassad";
     ls->propSndMsxMusic         = " MSX-MUSIC";
     ls->propSndMsxAudio         = " MSX-AUDIO";
     ls->propSndMoonsound        = " Moonsound";
@@ -368,50 +458,50 @@ void langInitSwedish(LanguageStrings* ls)
     ls->propPortsSimplCovox     = "SiMPL / Covox DAC";
     ls->propPortsFile           = "Skriv till Fil";
     ls->propPortsComFile        = "Skicka till Fil";
-    ls->propPortsOpenLogFile    = "Öppna Logfil";
+    ls->propPortsOpenLogFile    = "Ã–ppna Logfil";
     ls->propPortsEmulateMsxPrn  = "Emulering:";
 
     ls->propSetFileHistoryGB    = "Filhistoria ";
     ls->propSetFileHistorySize  = "Antal element i filhistorian:";
     ls->propSetFileHistoryClear = "Rensa historia";
-    ls->propFileTypes           = " Registrera filtyper med blueMSX (.rom, .dsk, .cas, .sta)";
-    ls->propWindowsEnvGB        = "Windows Miljö ";
-    ls->propSetScreenSaver      = " Deaktivera skärmsläckare när blueMSX kör";
-    ls->propDisableWinKeys      = " Avaktivera Windows menyer när emulatorn kör";
-    ls->propPriorityBoost       = " Höj prioriteten på blueMSX";
-    ls->propScreenshotPng       = " Använd Portable Network Graphics (.png) skärmdump";
-    ls->propEjectMediaOnExit    = " Ta ur media när blueMSX avslutas";
+    ls->propFileTypes           = " Registrera .rom/.dsk/.cas/.sta i \"Ã–ppna med\"-menyn";
+    ls->propOpenDefaultApps     = "Ã–ppna Windows standardappar";
+    ls->propWindowsEnvGB        = "Windows MiljÃ¶ ";
+    ls->propSetScreenSaver      = " HÃ¥ll skÃ¤rmen pÃ¥ nÃ¤r blueMSX+ kÃ¶r (ingen skÃ¤rmavstÃ¤ngning/vila/skÃ¤rmslÃ¤ckare)";
+    ls->propPriorityBoost       = " AnvÃ¤nd Windows spelschemalÃ¤ggare (MMCSS) fÃ¶r emuleringen";
+    ls->propScreenshotPng       = " AnvÃ¤nd Portable Network Graphics (.png) skÃ¤rmdump";
+    ls->propEjectMediaOnExit    = " Ta ur media nÃ¤r blueMSX+ avslutas";
     ls->propClearHistory        = "Vill du verkligen radera filhistorien?";
-    ls->propOpenRomGB           = "Öppna Rom Dialog ";
+    ls->propOpenRomGB           = "Ã–ppna Rom Dialog ";
     ls->propDefaultRomType      = "Default Rom Typ:";
     ls->propGuessRomType        = "Gissa Rom Typ";
 
-    ls->propSettDefSlotGB       = "Dra och Släpp ";
-    ls->propSettDefSlots        = "Sätt in Rom i:";
+    ls->propSettDefSlotGB       = "Dra och SlÃ¤pp ";
+    ls->propSettDefSlots        = "SÃ¤tt in Rom i:";
     ls->propSettDefSlot         = " Slot";
-    ls->propSettDefDrives       = "Sätt in Diskett i:";
+    ls->propSettDefDrives       = "SÃ¤tt in Diskett i:";
     ls->propSettDefDrive        = " Drive";
 
     ls->propThemeGB             = "Tema ";
     ls->propTheme               = "Tema";
 
     ls->propCdromGB             = "CD-ROM ";         // New in 2.7
-    ls->propCdromMethod         = "Åtkomstmetod:";   // New in 2.7
+    ls->propCdromMethod         = "Ã…tkomstmetod:";   // New in 2.7
     ls->propCdromMethodNone     = "Ingen";           // New in 2.7
     ls->propCdromMethodIoctl    = "IOCTL";           // New in 2.7
     ls->propCdromMethodAspi     = "ASPI";            // New in 2.7
     ls->propCdromDrive          = "Enhet:";          // New in 2.7
 
     ls->propD3DParametersGB         = "Parametrar ";                // New in 2.9
-    ls->propD3DAspectRatioText      = "Aspect ratio";               // New in 2.9
-    ls->propD3DLinearFilteringText  = " Linjärt filter";          // New in 2.9
-    ls->propD3DForceHighResText     = " Tvinga högupplösning";     // New in 2.9
-    ls->propD3DExtendBorderColorText    = " Expandera ramfärger";   // New in 2.9
+    ls->propD3DAspectRatioText      = "BildfÃ¶rhÃ¥llande";               // New in 2.9
+    ls->propD3DLinearFilteringText  = " LinjÃ¤rt filter";          // New in 2.9
+    ls->propD3DForceHighResText     = " Tvinga hÃ¶gupplÃ¶sning";     // New in 2.9
+    ls->propD3DExtendBorderColorText    = " Expandera ramfÃ¤rger";   // New in 2.9
 
     ls->propD3DCroppingGB               = "Trimning ";              // New in 2.9
     ls->propD3DCroppingTypeText         = "Trimningstyp:";         // New in 2.9
-    ls->propD3DCroppingLeftText         = "Vänster:";                  // New in 2.9
-    ls->propD3DCroppingRightText        = "Höger:";                 // New in 2.9
+    ls->propD3DCroppingLeftText         = "VÃ¤nster:";                  // New in 2.9
+    ls->propD3DCroppingRightText        = "HÃ¶ger:";                 // New in 2.9
     ls->propD3DCroppingTopText          = "Upptill:";                   // New in 2.9
     ls->propD3DCroppingBottomText       = "Nertill:";                // New in 2.9
 
@@ -420,9 +510,9 @@ void langInitSwedish(LanguageStrings* ls)
     // Dropdown related lines
     //----------------------
 
-    ls->enumVideoMonColor       = "Färg";
+    ls->enumVideoMonColor       = "FÃ¤rg";
     ls->enumVideoMonGrey        = "Svartvit";
-    ls->enumVideoMonGreen       = "Grön";
+    ls->enumVideoMonGreen       = "GrÃ¶n";
     ls->enumVideoMonAmber       = "Orange";
 
     ls->enumVideoTypePAL        = "PAL";
@@ -437,9 +527,6 @@ void langInitSwedish(LanguageStrings* ls)
     ls->enumVideoEmuScale2x     = "Scale 2x";
     ls->enumVideoEmuHq2x        = "Hq2x";
 
-    ls->enumVideoSize1x         = "Normal - 320x200";
-    ls->enumVideoSize2x         = "Dubbel - 640x400";
-    ls->enumVideoSizeFullscreen = "Fullskärm";
 
     ls->enumVideoDrvDirectDrawHW= "DirectDraw HW accel.";
     ls->enumVideoDrvDirectDraw  = "DirectDraw";
@@ -454,7 +541,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->enumVideoFrameskip5     = "5 bilder";
 
     ls->enumD3DARAuto           = "Automatisk";           // New in 2.9
-    ls->enumD3DARStretch        = "Utsträckt";        // New in 2.9
+    ls->enumD3DARStretch        = "UtstrÃ¤ckt";        // New in 2.9
     ls->enumD3DARPAL            = "PAL";            // New in 2.9
     ls->enumD3DARNTSC           = "NTSC";           // New in 2.9
     ls->enumD3DAR11             = "1:1";            // New in 2.9
@@ -469,6 +556,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->enumSoundDrvNone        = "Inget ljud";
     ls->enumSoundDrvWMM         = "WMM driver";
     ls->enumSoundDrvDirectX     = "DirectX driver";
+    ls->enumSoundDrvWasapi      = "WASAPI driver";
 
     ls->enumEmuSync1ms          = "Synkronisera till MSX refresh";
     ls->enumEmuSyncVblank       = "Synkronisera till PC Vertikal Blank";
@@ -493,33 +581,36 @@ void langInitSwedish(LanguageStrings* ls)
     ls->enumDiskSvi525Dbl        = "SVI-328\" 5.25 Dubbelsidig";           
     ls->enumDiskSvi525Sgl        = "SVI-328\" 5.25 Enkelsidig";   
     ls->enumDiskSf3Sgl           = "Sega SF-7000 3\" Enkelsidig";  
+    ls->enumDiskSize             = "Diskstorlek";
+    ls->enumDiskFormat           = "Format:";
+    ls->enumDiskFormatUnformatted= "Oformaterad";
 
 
     //----------------------
     // Configuration related lines
     //----------------------
 
-    ls->confTitle               = "blueMSX - Konfigureringsverktyg";
+    ls->confTitle               = "blueMSX+ - Konfigureringsverktyg";
     ls->confConfigText          = "Konfigurering:";
     ls->confSlotLayout          = "Slot mappning";
     ls->confMemory              = "Minne";
     ls->confChipEmulation       = "Chipemulering";
     ls->confChipExtras          = "Extra";
 
-    ls->confOpenRom             = "Öppna Rom fil";
-    ls->confSaveTitle           = "blueMSX - Spara Konfigurering";
-    ls->confSaveText            = "Vill du skriva över maskinkonfigureringen? :";
+    ls->confOpenRom             = "Ã–ppna Rom fil";
+    ls->confSaveTitle           = "blueMSX+ - Spara Konfigurering";
+    ls->confSaveText            = "Vill du skriva Ã¶ver maskinkonfigureringen? :";
     ls->confSaveAsTitle         = "Spara Konfigurering Som...";
     ls->confSaveAsMachineName   = "Maskinnamn:";
-    ls->confDiscardTitle        = "blueMSX - Konfigurering";
-    ls->confExitSaveTitle       = "blueMSX - Avsluta Konfigureringsverktyg";
-    ls->confExitSaveText        = "Vill du stanga konfigureringsverktyget utan att spara dina ändringar?";
+    ls->confDiscardTitle        = "blueMSX+ - Konfigurering";
+    ls->confExitSaveTitle       = "blueMSX+ - Avsluta Konfigureringsverktyg";
+    ls->confExitSaveText        = "Vill du stanga konfigureringsverktyget utan att spara dina Ã¤ndringar?";
 
     ls->confSlotLayoutGB        = "Slot Layout ";
     ls->confSlotExtSlotGB       = "Externa slots ";
     ls->confBoardGB             = "Board ";
     ls->confBoardText           = "Board Typ:";
-    ls->confSlotPrimary         = "Primär";
+    ls->confSlotPrimary         = "PrimÃ¤r";
     ls->confSlotExpanded        = "Expanderad (4 subslottar)";
 
     ls->confSlotCart            = "Cartridge:";
@@ -527,7 +618,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->confSubslot             = "Subslot";
 
     ls->confMemAdd               = "Ny...";
-    ls->confMemEdit              = "Ändra...";
+    ls->confMemEdit              = "Ã„ndra...";
     ls->confMemRemove            = "Ta Bort";
     ls->confMemSlot              = "Slot";
     ls->confMemAddresss          = "Adress";
@@ -541,16 +632,16 @@ void langInitSwedish(LanguageStrings* ls)
     ls->confChipPsgStereoText    = " PSG Stereo";
 
     ls->confCmosGB               = "CMOS ";
-    ls->confCmosEnable           = " Använd CMOS";
-    ls->confCmosBattery          = " Använd Laddat Batteri";
+    ls->confCmosEnable           = " AnvÃ¤nd CMOS";
+    ls->confCmosBattery          = " AnvÃ¤nd Laddat Batteri";
 
     ls->confCpuFreqGB            = "CPU Frekvens ";
     ls->confZ80FreqText          = "Z80 Frekvens:";
     ls->confR800FreqText         = "R800 Frekvens:";
-    ls->confFdcGB                = "Kontroller för Diskettenhet ";
+    ls->confFdcGB                = "Kontroller fÃ¶r Diskettenhet ";
     ls->confCFdcNumDrivesText    = "Antal Diskettenheter:";
 
-    ls->confEditMemTitle         = "blueMSX - Ändra Minnesmap";
+    ls->confEditMemTitle         = "blueMSX+ - Ã„ndra Minnesmap";
     ls->confEditMemGB            = "Detailjer ";
     ls->confEditMemType          = "Typ:";
     ls->confEditMemFile          = "Fil:";
@@ -566,108 +657,118 @@ void langInitSwedish(LanguageStrings* ls)
     ls->shortcutKey             = "Tangentkombination";
     ls->shortcutDescription     = "Kortkommando";
 
-    ls->shortcutSaveConfig      = "blueMSX - Spara Konfigurering";
-    ls->shortcutOverwriteConfig = "Vill du skriva över kortkommando konfigureringen:";
-    ls->shortcutExitConfig      = "blueMSX - Avsluta Kortkommandoverktyget";
-    ls->shortcutDiscardConfig   = "Vill du stanga konfigureringsverktyget utan att spara dina ändringar?";
-    ls->shortcutSaveConfigAs    = "blueMSX - Spara Kortkommando Konfigurering Som...";
+    ls->shortcutSaveConfig      = "blueMSX+ - Spara Konfigurering";
+    ls->shortcutOverwriteConfig = "Vill du skriva Ã¶ver kortkommando konfigureringen:";
+    ls->shortcutCreateConfig    = "Vill du spara den nya kortkommando konfigureringen:";
+    ls->shortcutExitConfig      = "blueMSX+ - Avsluta Kortkommandoverktyget";
+    ls->shortcutDiscardConfig   = "Vill du stanga konfigureringsverktyget utan att spara dina Ã¤ndringar?";
+    ls->shortcutSaveConfigAs    = "blueMSX+ - Spara Kortkommando Konfigurering Som...";
     ls->shortcutConfigName      = "Konfigurering:";
     ls->shortcutNewProfile      = "< Ny Profil >";
-    ls->shortcutConfigTitle     = "blueMSX - Konfigurering av Kortkommandon";
+    ls->shortcutConfigTitle     = "blueMSX+ - Konfigurering av Kortkommandon";
     ls->shortcutAssign          = "Tilldela";
     ls->shortcutPressText       = "Tryck kortkommando:";
     ls->shortcutScheme          = "Kommandoschema:";
-    ls->shortcutCartInsert1     = "Sätt in Cartridge 1";
+    ls->shortcutCartInsert1     = "SÃ¤tt in Cartridge 1";
     ls->shortcutCartRemove1     = "Ta ur Cartridge 1";
-    ls->shortcutCartInsert2     = "Sätt in Cartridge 2";
+    ls->shortcutCartInsert2     = "SÃ¤tt in Cartridge 2";
     ls->shortcutCartRemove2     = "Ta ur Cartridge 2";
-    ls->shortcutSpecialMenu1    = "Visa Specialrom meny för Cartridge 1";
-    ls->shortcutSpecialMenu2    = "Visa Specialrom meny för Cartridge 2";
-    ls->shortcutCartAutoReset   = "Starta om efter Insättning av Cartridge";
-    ls->shortcutDiskInsertA     = "Sätt in Diskett A";
-    ls->shortcutDiskDirInsertA  = "Sätt in Directory som Diskett A";
+    ls->shortcutSpecialMenu1    = "Visa Specialrom meny fÃ¶r Cartridge 1";
+    ls->shortcutSpecialMenu2    = "Visa Specialrom meny fÃ¶r Cartridge 2";
+    ls->shortcutCartAutoReset   = "Starta om efter InsÃ¤ttning av Cartridge";
+    ls->shortcutDiskInsertA     = "SÃ¤tt in Diskett A";
+    ls->shortcutDiskDirInsertA  = "SÃ¤tt in Directory som Diskett A";
     ls->shortcutDiskRemoveA     = "Ta ur Diskett A";
     ls->shortcutDiskChangeA     = "Snabbbyt Diskett A";
-    ls->shortcutDiskAutoResetA  = "Starta om efter Insättning av Diskett";
-    ls->shortcutDiskInsertB     = "Sätt in Diskett B";
-    ls->shortcutDiskDirInsertB  = "Sätt in Directory som Diskett B";
+    ls->shortcutDiskAutoResetA  = "Starta om efter InsÃ¤ttning av Diskett";
+    ls->shortcutDiskInsertB     = "SÃ¤tt in Diskett B";
+    ls->shortcutDiskDirInsertB  = "SÃ¤tt in Directory som Diskett B";
     ls->shortcutDiskRemoveB     = "Ta ur Diskett B";
-    ls->shortcutCasInsert       = "Sätt in Kassett";
+    ls->shortcutCasInsert       = "SÃ¤tt in Kassett";
     ls->shortcutCasEject        = "Ta ur Kassett";
-    ls->shortcutCasAutorewind   = "Slå Av/På Automatisk Tillbakaspolning";
-    ls->shortcutCasReadOnly     = "Slå Av/På Skrivskydd på Kassettfiler";
-    ls->shortcutCasSetPosition  = "Sätt Kassettposition";
+    ls->shortcutCasAutorewind   = "SlÃ¥ Av/PÃ¥ Automatisk Tillbakaspolning";
+    ls->shortcutCasReadOnly     = "SlÃ¥ Av/PÃ¥ Skrivskydd pÃ¥ Kassettfiler";
+    ls->shortcutCasSetPosition  = "SÃ¤tt Kassettposition";
     ls->shortcutCasRewind       = "Spola Tillabaka Kassett";
     ls->shortcutCasSave         = "Spara Kassett till fil";
-    ls->shortcutPrnFormFeed     = "Form Feed på Skrivare";
-    ls->shortcutCpuStateLoad    = "Ladda CPU-tillstånd";
-    ls->shortcutCpuStateSave    = "Spara CPU-tillstånd";
-    ls->shortcutCpuStateQload   = "Snabbladda CPU-tillstånd";
-    ls->shortcutCpuStateQsave   = "Snabbspara CPU-tillstånd";
+    ls->shortcutPrnFormFeed     = "Form Feed pÃ¥ Skrivare";
+    ls->shortcutCpuStateLoad    = "Ladda CPU-tillstÃ¥nd";
+    ls->shortcutCpuStateSave    = "Spara CPU-tillstÃ¥nd";
+    ls->shortcutCpuStateQload   = "Snabbladda CPU-tillstÃ¥nd";
+    ls->shortcutCpuStateQsave   = "Snabbspara CPU-tillstÃ¥nd";
     ls->shortcutAudioCapture    = "Starta/Stanna Audioinspelning";
-    ls->shortcutScreenshotOrig  = "Spar Skärmdump";
-    ls->shortcutScreenshotSmall = "Spar Liten Ofiltrerad Skärmdump";
-    ls->shortcutScreenshotLarge = "Spar Stor Ofiltrerad Skärmdump";
-    ls->shortcutQuit            = "Avsluta blueMSX";
-    ls->shortcutRunPause        = "Kör/Pause Emuleringen";
+    ls->shortcutScreenshotOrig  = "Spar SkÃ¤rmdump";
+    ls->shortcutScreenshotSmall = "Spar Liten Ofiltrerad SkÃ¤rmdump";
+    ls->shortcutScreenshotLarge = "Spar Stor Ofiltrerad SkÃ¤rmdump";
+    ls->shortcutQuit            = "Avsluta blueMSX+";
+    ls->shortcutRunPause        = "KÃ¶r/Pause Emuleringen";
     ls->shortcutStop            = "Stanna Emuleringen";
-    ls->shortcutResetHard       = "Hård Omstart";
+    ls->shortcutResetHard       = "HÃ¥rd Omstart";
     ls->shortcutResetSoft       = "Mjuk Omstart";
     ls->shortcutResetClean      = "Full Omstart";
-    ls->shortcutSizeSmall       = "Växla till Liten Fönsterstorlek";
-    ls->shortcutSizeNormal      = "Växla till Normal Fönsterstorlek";
-    ls->shortcutSizeFullscreen  = "Växla till Fullskärm";
-    ls->shortcutSizeMinimized   = "Minimera fönster";
-    ls->shortcutToggleFullscren = "Växla till/från Fullskärm";
-    ls->shortcutVolumeIncrease  = "Öka Volymen";
+    ls->shortcutSize1x          = "Ange 1x-fÃ¶nsterstorlek";
+    ls->shortcutSize2x          = "Ange 2x-fÃ¶nsterstorlek";
+    ls->shortcutSize3x          = "Ange 3x-fÃ¶nsterstorlek";
+    ls->shortcutSize4x          = "Ange 4x-fÃ¶nsterstorlek";
+    ls->shortcutSize5x          = "Ange 5x-fÃ¶nsterstorlek";
+    ls->shortcutSize6x          = "Ange 6x-fÃ¶nsterstorlek";
+    ls->shortcutSize7x          = "Ange 7x-fÃ¶nsterstorlek";
+    ls->shortcutSize8x          = "Ange 8x-fÃ¶nsterstorlek";
+    ls->shortcutSizeFullscreen  = "VÃ¤xla till FullskÃ¤rm";
+    ls->shortcutYm2413BackendCycle = "VÃ¤xla MSX-MUSIC ljudbackend";
+    ls->shortcutY8950BackendCycle  = "VÃ¤xla MSX-AUDIO ljudbackend";
+    ls->shortcutSizeMinimized   = "Minimera fÃ¶nster";
+    ls->shortcutToggleFullscren = "VÃ¤xla till/frÃ¥n FullskÃ¤rm";
+    ls->shortcutVolumeIncrease  = "Ã–ka Volymen";
     ls->shortcutVolumeDecrease  = "Minska Volymen";
-    ls->shortcutVolumeMute      = "Stäng av Volymen";
-    ls->shortcutVolumeStereo    = "Växla mellan mono/stereo";
-    ls->shortcutSwitchMsxAudio  = "Slå om MSX-AUDIO brytare";
-    ls->shortcutSwitchFront     = "Slå om Panasonic Front brytare";
-    ls->shortcutSwitchPause     = "Slå om Pausbrytare";
-    ls->shortcutToggleMouseLock = "Slå om Muslås";
+    ls->shortcutVolumeMute      = "StÃ¤ng av Volymen";
+    ls->shortcutVolumeStereo    = "VÃ¤xla mellan mono/stereo";
+    ls->shortcutSwitchMsxAudio  = "SlÃ¥ om MSX-AUDIO brytare";
+    ls->shortcutSwitchFront     = "SlÃ¥ om Panasonic Front brytare";
+    ls->shortcutSwitchPause     = "SlÃ¥ om Pausbrytare";
+    ls->shortcutToggleMouseLock = "SlÃ¥ om MuslÃ¥s";
     ls->shortcutEmuSpeedMax     = "Maximal Emuleringshastighet";
     ls->shortcutEmuPlayReverse  = "Spola tillbaka";                     // New in 2.8.3
-    ls->shortcutEmuSpeedToggle  = "Växla Mellan Normal och Max Emuleringshastighet";
+    ls->shortcutEmuSpeedToggle  = "VÃ¤xla Mellan Normal och Max Emuleringshastighet";
     ls->shortcutEmuSpeedNormal  = "Minska Emuleringhastigheten";
-    ls->shortcutEmuSpeedInc     = "Öka Emuleringhastigheten";
+    ls->shortcutEmuSpeedInc     = "Ã–ka Emuleringhastigheten";
     ls->shortcutEmuSpeedDec     = "Minska Emuleringhastigheten";
-    ls->shortcutThemeSwitch     = "Växla fönstretema";
-    ls->shortcutShowEmuProp     = "Öppna Emuleringsfönstret";
-    ls->shortcutShowVideoProp   = "Öppna Videofönstret";
-    ls->shortcutShowAudioProp   = "Öppna Audiofönstret";
-    ls->shortcutShowCtrlProp    = "Öppna Kontrollfönstret";
-    ls->shortcutShowEffectsProp    = "Öppna Effektsfönstret";
-    ls->shortcutShowSettProp    = "Öppna Inställningsfönstret";
+    ls->shortcutThemeSwitch     = "VÃ¤xla fÃ¶nstretema";
+    ls->shortcutShowEmuProp     = "Ã–ppna EmuleringsfÃ¶nstret";
+    ls->shortcutShowVideoProp   = "Ã–ppna VideofÃ¶nstret";
+    ls->shortcutShowAudioProp   = "Ã–ppna AudiofÃ¶nstret";
+    ls->shortcutShowCtrlProp    = "Ã–ppna KontrollfÃ¶nstret";
+    ls->shortcutShowEffectsProp    = "Ã–ppna EffektsfÃ¶nstret";
+    ls->shortcutShowSettProp    = "Ã–ppna InstÃ¤llningsfÃ¶nstret";
     ls->shortcutShowPorts       = "Visa Portegenskaper";
-    ls->shortcutShowLanguage    = "Öppna Språkfönstret";
-    ls->shortcutShowMachines    = "Öppna Konfigureringsverktyget";
-    ls->shortcutShowShortcuts   = "Öppna Kortkommandoverktyget";
+    ls->shortcutShowLanguage    = "Ã–ppna SprÃ¥kfÃ¶nstret";
+    ls->shortcutShowMachines    = "Ã–ppna Konfigureringsverktyget";
+    ls->shortcutShowShortcuts   = "Ã–ppna Kortkommandoverktyget";
     ls->shortcutShowKeyboard    = "Visa Tangentbordseditor";
     ls->shortcutShowDebugger    = "Visa Debugger";
     ls->shortcutShowTrainer     = "Visa Trainer";
     ls->shortcutShowMixer       = "Visa Mixer";
-    ls->shortcutShowHelp        = "Öppna Hjälpfönstret";
-    ls->shortcutShowAbout       = "Öppna \"Om blueMSX\"-fönstret";
-    ls->shortcutShowFiles       = "Öppna Filerfönstret";
-    ls->shortcutToggleSpriteEnable = "Visa/Dölj Sprites";
-    ls->shortcutToggleFdcTiming = "Slå på/av Diskettstationstiming";
-    ls->shortcutToggleNoSpriteLimits = "Sla på/av Spritebegränsning";                 // New in 2.9
+    ls->shortcutShowHelp        = "Ã–ppna HjÃ¤lpfÃ¶nstret";
+    ls->shortcutShowAbout       = "Ã–ppna \"Om blueMSX+\"-fÃ¶nstret";
+    ls->shortcutShowFiles       = "Ã–ppna FilerfÃ¶nstret";
+    ls->shortcutToggleSpriteEnable = "Visa/DÃ¶lj Sprites";
+    ls->shortcutToggleFdcTiming = "VÃ¤xla FDD-Ã¥tkomstacceleration";
+    ls->shortcutToggleHddSdBoost = "VÃ¤xla HDD/SD-Ã¥tkomstacceleration";
+    ls->shortcutToggleNoSpriteLimits = "Sla pÃ¥/av SpritebegrÃ¤nsning";                 // New in 2.9
     ls->shortcutEnableMsxKeyboardQuirk = "Emulera MSX Keyboardfel";              // New in 2.9
-    ls->shortcutToggleCpuTrace  = "Slå på/av CPU trace";
-    ls->shortcutVideoLoad       = "Ladda...";             
-    ls->shortcutVideoPlay       = "Spela upp senaste";   
-    ls->shortcutVideoRecord     = "Spela in";              
-    ls->shortcutVideoStop       = "Stopp";                
-    ls->shortcutVideoRender     = "Spara videofil";   
+    ls->shortcutToggleCpuTrace  = "SlÃ¥ pÃ¥/av CPU trace";
+    ls->shortcutVideoLoad       = "Replay: Ladda frÃ¥n fil";             
+    ls->shortcutVideoPlay       = "Replay: Spela senaste inspelning";   
+    ls->shortcutVideoRecord     = "Replay: Spela in";              
+    ls->shortcutVideoStop       = "Replay: Stoppa";                
+    ls->shortcutVideoRender     = "Replay: Exportera till video";   
 
 
     //----------------------
     // Keyboard config lines
     //----------------------
 
-    ls->keyconfigSelectedKey    = "Välj tangent:";
+    ls->keyconfigSelectedKey    = "VÃ¤lj tangent:";
     ls->keyconfigMappedTo       = "Mappad till:";
     ls->keyconfigMappingScheme  = "Mapschema:";
 
@@ -715,6 +816,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->romTypeExtRam4mb        = "4MB External RAM";
     ls->romTypeSvi328Cart       = "SVI-328 Cartridge";
     ls->romTypeSvi328Fdc        = "SVI-328 Disk Controller";
+    ls->romTypeSvi328RsIde      = "SVI-328 RS IDE";
     ls->romTypeSvi328Prn        = "SVI-328 Printer";
     ls->romTypeSvi328Uart       = "SVI-328 Serial Port";
     ls->romTypeSvi328col80      = "SVI-328 80 Column Card";

@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -58,6 +61,11 @@ void ay8910SetIoPort(AY8910* ay8910, AY8910ReadCb readCb, AY8910ReadCb pollCb, A
 
 void ay8910LoadState(AY8910* ay8910);
 void ay8910SaveState(AY8910* ay8910);
+
+/* Tagged variants: write/read under a caller-supplied chunk tag so a
+** secondary PSG doesn't collide with the main MSX PSG. */
+void ay8910LoadStateWithTag(AY8910* ay8910, const char* tag);
+void ay8910SaveStateWithTag(AY8910* ay8910, const char* tag);
 
 #endif
 

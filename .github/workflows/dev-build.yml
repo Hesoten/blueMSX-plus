@@ -1,0 +1,60 @@
+name: dev-build
+
+# Unstable builds for every push to develop.
+# Builds Debug/Release/Final x {x64, Win32}, packages each as a zip, and
+# uploads them as workflow artifacts (no GitHub Release). UPX is disabled.
+
+on:
+  push:
+    branches: [develop, ci-test]
+  workflow_dispatch:
+
+concurrency:
+  group: dev-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        config: [Debug, Release, Final]
+        platform: [x64, Win32]
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: microsoft/setup-msbuild@v3
+
+      - name: Compute version tag
+        id: ver
+        shell: pwsh
+        run: |
+          $bn = [regex]::Match((Get-Content blueMSX/Src/BuildInfo/build_info.txt -Raw), '\d+').Value
+          $sha = "${{ github.sha }}".Substring(0, 7)
+          $tag = "dev.b$bn.r${{ github.run_number }}.g$sha"
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+
+      - name: Build (no UPX)
+        working-directory: blueMSX/Make/msvc2022
+        shell: pwsh
+        run: |
+          msbuild blueMSX.sln /m `
+            '/t:blueMSX;TraceWindow;Trainer;SimpleDebugger' `
+            "/p:Configuration=${{ matrix.config }};Platform=${{ matrix.platform }};BlueMsxPackUpx=false"
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $zip = "dist/blueMSX+-${{ matrix.platform }}-${{ matrix.config }}-${{ steps.ver.outputs.tag }}.zip"
+          $pdb = '${{ matrix.config }}' -eq 'Debug'
+          ./scripts/ci-package.ps1 `
+            -Config ${{ matrix.config }} -Platform ${{ matrix.platform }} `
+            -OutZip $zip -IncludePdb:$pdb
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: blueMSX+-dev-${{ matrix.platform }}-${{ matrix.config }}
+          path: dist/*.zip
+          retention-days: 90
+          if-no-files-found: error

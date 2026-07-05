@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -37,7 +40,20 @@ extern "C" {
 
 ThemeCollection* themeLoad(const char* themePath);
 
-ThemeCollection** createThemeList(ThemeCollection* defaultTheme);
+/* Eager-load a tool theme pre-stretched by `scale` (mixer / keyboard
+   config popups track main-window zoom). */
+ThemeCollection* themeLoadAtScale(const char* themePath, double scale);
+
+/* Lazy load: skeleton(name+path) + EnsureLoaded/EnsureZoom on demand,
+   to keep GDI bounded to the active theme + zoom. */
+ThemeCollection* themeLoadSkeleton(const char* themePath);
+int themeCollectionEnsureLoaded(ThemeCollection* tc);
+int themeCollectionEnsureZoom(ThemeCollection* tc, int z);
+
+/* defaultThemes: NULL-terminated array of fully-loaded built-in themes
+   (e.g. Classic + Classic Dark) prepended to the list before any
+   external XML themes discovered under Themes/. */
+ThemeCollection** createThemeList(ThemeCollection** defaultThemes);
 ThemeCollection** themeGetAvailable();
 
 int getThemeListIndex(ThemeCollection** themeList, const char* name, int forceMatch);

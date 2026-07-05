@@ -4,6 +4,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -31,24 +34,24 @@ class LanguageChineseSimplified : public LanguageEnglish
 {
 public:
     LanguageChineseSimplified() {
-        traceWindowName         = "¸ú×Ù¼ÇÂ¼¹¤¾ß";
-        traceWindowCaption      = "blueMSX - ¸ú×Ù¼ÇÂ¼¹¤¾ß";
-        openWindowCaption       = "´ò¿ªÈÕÖ¾ÎÄ¼ş";
+        traceWindowName         = "è·Ÿè¸ªè®°å½•å·¥å…·";
+        traceWindowCaption      = "blueMSX+ - è·Ÿè¸ªè®°å½•å·¥å…·";
+        openWindowCaption       = "æ‰“å¼€æ—¥å¿—æ–‡ä»¶";
 
-        menuFile                = "ÎÄ¼ş";
-        menuFileLogToFile       = "±£´æÈÕÖ¾µ½ÎÄ±¾";
-        menuFileExit            = "ÍË³ö";
+        menuFile                = "æ–‡ä»¶";
+        menuFileLogToFile       = "ä¿å­˜æ—¥å¿—åˆ°æ–‡æœ¬";
+        menuFileExit            = "é€€å‡º";
         
-        menuEdit                = "±à¼­";
-        menuEditSelectAll       = "È«Ñ¡";
-        menuEditCopy            = "¸´ÖÆ";
-        menuEditClearWindow     = "Çå¿Õ´°¿Ú";
+        menuEdit                = "ç¼–è¾‘";
+        menuEditSelectAll       = "å…¨é€‰";
+        menuEditCopy            = "å¤åˆ¶";
+        menuEditClearWindow     = "æ¸…ç©ºçª—å£";
 
-        menuHelp                = "°ïÖú";
-        menuHelpAbout           = "¹ØÓÚ";
+        menuHelp                = "å¸®åŠ©";
+        menuHelpAbout           = "å…³äº";
 
-        aboutBuilt              = "´´½¨:";
-        aboutVisit              = "¸ü¶àÏêÇéÇëµÇÂ½£ºwww.bluemsx.com ";
+        aboutBuilt              = "åˆ›å»º:";
+        aboutVisit              = "æ›´å¤šè¯¦æƒ…è¯·ç™»é™†ï¼šwww.bluemsx.com ";
     }
 };
 

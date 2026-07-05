@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -484,6 +487,7 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
         case ROM_SONYHBI55:   strcat(rom1, CARTNAME_SONYHBI55); break;
         case ROM_MEGAFLSHSCC: strcat(rom1, CARTNAME_MEGAFLSHSCC); break;
         case ROM_MEGAFLSHSCCPLUS:   strcat(rom1, CARTNAME_MEGAFLSHSCCPLUS); break;
+        case ROM_MEGAFLSHSCCPLUS_SD: strcat(rom1, CARTNAME_MEGAFLSHSCCPLUS_SD); break;
         }
     }
 
@@ -507,6 +511,7 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
         case ROM_SONYHBI55:   strcat(rom2, CARTNAME_SONYHBI55); break;
         case ROM_MEGAFLSHSCC: strcat(rom2, CARTNAME_MEGAFLSHSCC); break;
         case ROM_MEGAFLSHSCCPLUS:   strcat(rom2, CARTNAME_MEGAFLSHSCCPLUS); break;
+        case ROM_MEGAFLSHSCCPLUS_SD: strcat(rom2, CARTNAME_MEGAFLSHSCCPLUS_SD); break;
         }
     }
 
@@ -544,13 +549,27 @@ int emuTryStartWithArguments(Properties* properties, char* cmdLine, char *gamedi
         int success;
         if (0 == strncmp(cmdLine, "/onearg ", 8)) {
             char args[2048];
-            char* ptr;
-            sprintf(args, "\"%s", cmdLine + 8);
-            ptr = args + strlen(args);
-            while(*--ptr == ' ') {
-                *ptr = 0;
+            /* Mirror Win32.c's robust /onearg handling: accept both
+            ** shell-quoted ("%1") and bare paths, then emit exactly one
+            ** quote pair so extractToken sees a single quoted token. */
+            const char* rest = cmdLine + 8;
+            int len;
+            while (*rest == ' ' || *rest == '\t') rest++;
+            strcpy(args, rest);
+            len = (int)strlen(args);
+            while (len > 0 && (args[len-1] == ' ' || args[len-1] == '\t'
+                            || args[len-1] == '\r' || args[len-1] == '\n')) {
+                args[--len] = 0;
             }
-            strcat(args, "\"");
+            if (len >= 2 && args[0] == '"' && args[len-1] == '"') {
+                args[len-1] = 0;
+                memmove(args, args + 1, len - 1);
+                len -= 2;
+            }
+            memmove(args + 1, args, len + 1);
+            args[0] = '"';
+            args[len + 1] = '"';
+            args[len + 2] = 0;
             success = emuStartWithArguments(properties, args, gamedir);
         }
         else {

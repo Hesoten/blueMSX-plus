@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -32,6 +35,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+
+/* After stdio.h: pkg_fopen overrides fopen for UTF-8 paths. */
+#include "PacketFileSystem.h"
 
 #define BITSPERSAMPLE     16
 
@@ -111,6 +117,12 @@ struct Mixer
 { 
     MixerWriteCallback writeCallback;
     void*  writeRef;
+    /* Optional read-only tap that sees the same fragment buffer the audio
+    ** driver receives, invoked right after writeCallback. Used by the live
+    ** recorder so it can encode the master mix without displacing the
+    ** playback driver. Null when no tap is registered. */
+    MixerWriteCallback tapCallback;
+    void*  tapRef;
     Int32  fragmentSize;
     UInt32 refTime;
     UInt32 refFrag;
@@ -179,12 +191,8 @@ void mixerSetStereo(Mixer* mixer, Int32 stereo)
 {
     int i;
 
-    if (mixer->logging == 1) {
-        mixerStopLog(mixer);
-    }
-        
+    /* Output is always 2ch; toggle just retunes per-channel volume. */
     mixer->stereo = stereo;
-    mixer->index = 0;
 
     for (i = 0; i < MIXER_CHANNEL_TYPE_COUNT; i++) {
         mixerRecalculateType(mixer, i);
@@ -391,6 +399,12 @@ void mixerSetWriteCallback(Mixer* mixer, MixerWriteCallback callback, void* ref,
     }
 }
 
+void mixerSetTapCallback(Mixer* mixer, MixerWriteCallback callback, void* ref)
+{
+    mixer->tapCallback = callback;
+    mixer->tapRef = ref;
+}
+
 Int32 mixerRegisterChannel(Mixer* mixer, Int32 audioType, Int32 stereo, MixerUpdateCallback callback, MixerSetSampleRateCallback rateCallback, void* ref)
 {
     MixerChannel*  channel = mixer->channels + mixer->channelCount;
@@ -472,19 +486,19 @@ void mixerSync(Mixer* mixer)
         return;
     }
 
+    /* Output is always interleaved stereo; mono is dual-mono via
+    ** recalculateChannelVolume, so no driver tear-down on toggle. */
     if (!mixer->enable) {
         while (count--) {
-            if (mixer->stereo) {
-                buffer[mixer->index++] = 0;
-                buffer[mixer->index++] = 0;
-            }
-            else {
-                buffer[mixer->index++] = 0;
-            }
+            buffer[mixer->index++] = 0;
+            buffer[mixer->index++] = 0;
 
             if (mixer->index == mixer->fragmentSize) {
                 if (mixer->writeCallback != NULL) {
                     mixer->writeCallback(mixer->writeRef, buffer, mixer->fragmentSize);
+                }
+                if (mixer->tapCallback != NULL) {
+                    mixer->tapCallback(mixer->tapRef, buffer, mixer->fragmentSize);
                 }
                 if (mixer->logging) {
                     fwrite(buffer, 2 * mixer->fragmentSize, 1, mixer->file);
@@ -504,109 +518,63 @@ void mixerSync(Mixer* mixer)
         }
     }
 
-    if (mixer->stereo) {
-        while (count--) {
-            Int32 left = 0;
-            Int32 right = 0;
+    while (count--) {
+        Int32 left = 0;
+        Int32 right = 0;
 
-            for (i = 0; i < mixer->channelCount; i++) {
-                Int32 chanLeft;
-                Int32 chanRight;
+        for (i = 0; i < mixer->channelCount; i++) {
+            Int32 chanLeft;
+            Int32 chanRight;
 
-                if (chBuff[i] == NULL) {
-                    continue;
-                }
-
-                if (mixer->channels[i].stereo) {
-                    chanLeft = mixer->channels[i].volumeLeft * *chBuff[i]++;
-                    chanRight = mixer->channels[i].volumeRight * *chBuff[i]++;
-                }
-                else {
-                    Int32 tmp = *chBuff[i]++;
-                    chanLeft = mixer->channels[i].volumeLeft * tmp;
-                    chanRight = mixer->channels[i].volumeRight * tmp;
-                }
-
-                mixer->channels[i].volCntLeft  += (chanLeft  > 0 ? chanLeft  : -chanLeft)  / 2048;
-                mixer->channels[i].volCntRight += (chanRight > 0 ? chanRight : -chanRight) / 2048;
-
-                left  += chanLeft;
-                right += chanRight;
+            if (chBuff[i] == NULL) {
+                continue;
             }
 
-            left  /= 4096;
-            right /= 4096;
-
-            mixer->volCntLeft  += left  > 0 ? left  : -left;
-            mixer->volCntRight += right > 0 ? right : -right;
-
-            if (left  >  32767) { left  = 32767; }
-            if (left  < -32767) { left  = -32767; }
-            if (right >  32767) { right = 32767; }
-            if (right < -32767) { right = -32767; }
-
-            buffer[mixer->index++] = (Int16)left;
-            buffer[mixer->index++] = (Int16)right;
-
-            if (mixer->index == mixer->fragmentSize) {
-                if (mixer->writeCallback != NULL) {
-                    mixer->writeCallback(mixer->writeRef, buffer, mixer->fragmentSize);
-                }
-                if (mixer->logging) {
-                    fwrite(buffer, 2 * mixer->fragmentSize, 1, mixer->file);
-                }
-                mixer->index = 0;
+            if (mixer->channels[i].stereo) {
+                chanLeft = mixer->channels[i].volumeLeft * *chBuff[i]++;
+                chanRight = mixer->channels[i].volumeRight * *chBuff[i]++;
+            }
+            else {
+                Int32 tmp = *chBuff[i]++;
+                chanLeft = mixer->channels[i].volumeLeft * tmp;
+                chanRight = mixer->channels[i].volumeRight * tmp;
             }
 
-            mixer->volIndex++;
+            mixer->channels[i].volCntLeft  += (chanLeft  > 0 ? chanLeft  : -chanLeft)  / 2048;
+            mixer->channels[i].volCntRight += (chanRight > 0 ? chanRight : -chanRight) / 2048;
+
+            left  += chanLeft;
+            right += chanRight;
         }
-    }
-    else {
-        while (count--) {
-            Int32 left = 0;
 
-            for (i = 0; i < mixer->channelCount; i++) {
-                Int32 chanLeft;
+        left  /= 4096;
+        right /= 4096;
 
-                if (chBuff[i] == NULL) {
-                    continue;
-                }
+        mixer->volCntLeft  += left  > 0 ? left  : -left;
+        mixer->volCntRight += right > 0 ? right : -right;
 
-                if (mixer->channels[i].stereo) {
-                    Int32 tmp = *chBuff[i]++;
-                    chanLeft = mixer->channels[i].volumeLeft * (tmp + *chBuff[i]++) / 2;
-                }
-                else {
-                    chanLeft = mixer->channels[i].volumeLeft * *chBuff[i]++;
-                }
-            
-                mixer->channels[i].volCntLeft  += (chanLeft > 0 ? chanLeft : -chanLeft) / 2048;
-                mixer->channels[i].volCntRight += (chanLeft > 0 ? chanLeft : -chanLeft) / 2048;
-                left  += chanLeft;
+        if (left  >  32767) { left  = 32767; }
+        if (left  < -32767) { left  = -32767; }
+        if (right >  32767) { right = 32767; }
+        if (right < -32767) { right = -32767; }
+
+        buffer[mixer->index++] = (Int16)left;
+        buffer[mixer->index++] = (Int16)right;
+
+        if (mixer->index == mixer->fragmentSize) {
+            if (mixer->writeCallback != NULL) {
+                mixer->writeCallback(mixer->writeRef, buffer, mixer->fragmentSize);
             }
-
-            left  /= 4096;
-
-            mixer->volCntLeft  += left > 0 ? left : -left;
-            mixer->volCntRight += left > 0 ? left : -left;
-
-            if (left  >  32767) left  = 32767;
-            if (left  < -32767) left  = -32767;
-
-            buffer[mixer->index++] = (Int16)left;
-            
-            if (mixer->index == mixer->fragmentSize) {
-                if (mixer->writeCallback != NULL) {
-                    mixer->writeCallback(mixer->writeRef, buffer, mixer->fragmentSize);
-                }
-                if (mixer->logging) {
-                    fwrite(buffer, 2 * mixer->fragmentSize, 1, mixer->file);
-                }
-                mixer->index = 0;
+            if (mixer->tapCallback != NULL) {
+                mixer->tapCallback(mixer->tapRef, buffer, mixer->fragmentSize);
             }
-
-            mixer->volIndex++;
+            if (mixer->logging) {
+                fwrite(buffer, 2 * mixer->fragmentSize, 1, mixer->file);
+            }
+            mixer->index = 0;
         }
+
+        mixer->volIndex++;
     }
 
     if (mixer->volIndex >= 441) {
@@ -694,10 +662,12 @@ void mixerStopLog(Mixer* mixer)
     header.wavHeader.fmt            = str2ul("fmt ");
     header.wavHeader.chunkSize      = 16;
     header.wavHeader.formatType     = 1;
-    header.wavHeader.channels       = (mixer->stereo ? 2 : 1);
+    /* Mix output is always interleaved stereo (dual-mono in mono mode),
+    ** so the log file is always 2-channel regardless of mixer->stereo. */
+    header.wavHeader.channels       = 2;
     header.wavHeader.samplesPerSec  = mixer->rate;
-    header.wavHeader.avgBytesPerSec = (mixer->stereo ? 2 : 1) * mixer->rate * BITSPERSAMPLE / 8;
-    header.wavHeader.blockAlign     = (mixer->stereo ? 2 : 1) * BITSPERSAMPLE / 8;
+    header.wavHeader.avgBytesPerSec = 2 * mixer->rate * BITSPERSAMPLE / 8;
+    header.wavHeader.blockAlign     = 2 * BITSPERSAMPLE / 8;
     header.wavHeader.bitsPerSample  = BITSPERSAMPLE;
     header.data                     = str2ul("data");
     header.dataSize                 = fileSize - sizeof(WavHeader);

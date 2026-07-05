@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -34,6 +37,7 @@
 #include "Led.h"
 #include "Machine.h"
 #include "InputEvent.h"
+#include "Actions.h"
 
 #include "ArchThread.h"
 #include "ArchEvent.h"
@@ -45,6 +49,7 @@
 #include "ArchInput.h"
 #include "ArchDialog.h"
 #include "ArchNotifications.h"
+#include "YM2413.h"
 #include <math.h>
 #include <string.h>
 
@@ -64,6 +69,10 @@ static UInt32 emuFrequency = 3579545;
 int           emuMaxSpeed = 0;
 int           emuPlayReverse = 0;
 int           emuMaxEmuSpeed = 0; // Max speed issued by emulation
+
+/* Fast-forward multiplier (max-speed and FDC/HDD boost); higher =
+** faster, capped by host emu throughput.  Stock blueMSX used 10. */
+#define EMU_MAXSPEED_FACTOR 15
 static char   emuStateName[512];
 static volatile int      emuSuspendFlag;
 static volatile EmuState emuState = EMU_STOPPED;
@@ -193,10 +202,13 @@ static int emuUseSynchronousUpdate()
 
     if (properties->emulation.speed == 50 &&
         enableSynchronousUpdate &&
-        emulatorGetMaxSpeed() == 0)
+        emulatorGetMaxSpeed() == 0 &&
+        !boardGetFdcActive())
     {
         return properties->emulation.syncMethod;
     }
+    /* During boost / max-speed, fall back to async AUTO so the emu
+    ** thread doesn't block on per-frame present-ack. */
     return P_EMU_SYNCAUTO;
 }
 
@@ -318,8 +330,9 @@ static void getDeviceInfo(BoardDeviceInfo* deviceInfo)
     for (i = 0; i < PROP_MAX_CARTS; i++) {
         strcpy(properties->media.carts[i].fileName, deviceInfo->carts[i].name);
         strcpy(properties->media.carts[i].fileNameInZip, deviceInfo->carts[i].inZipName);
-        // Don't save rom type
-        // properties->media.carts[i].type = deviceInfo->carts[i].type;
+        /* Keep type in sync with fileName so .sta restore + re-insert
+        ** doesn't feed a stale type into updateFileHistory. */
+        properties->media.carts[i].type = deviceInfo->carts[i].type;
         updateExtendedRomName(i, properties->media.carts[i].fileName, properties->media.carts[i].fileNameInZip);
     }
 
@@ -344,20 +357,20 @@ static void setDeviceInfo(BoardDeviceInfo* deviceInfo)
     int i;
 
     for (i = 0; i < PROP_MAX_CARTS; i++) {
-        deviceInfo->carts[i].inserted =  strlen(properties->media.carts[i].fileName);
+        deviceInfo->carts[i].inserted =  (int)strlen(properties->media.carts[i].fileName);
         deviceInfo->carts[i].type = properties->media.carts[i].type;
         strcpy(deviceInfo->carts[i].name, properties->media.carts[i].fileName);
         strcpy(deviceInfo->carts[i].inZipName, properties->media.carts[i].fileNameInZip);
     }
 
     for (i = 0; i < PROP_MAX_DISKS; i++) {
-        deviceInfo->disks[i].inserted =  strlen(properties->media.disks[i].fileName);
+        deviceInfo->disks[i].inserted =  (int)strlen(properties->media.disks[i].fileName);
         strcpy(deviceInfo->disks[i].name, properties->media.disks[i].fileName);
         strcpy(deviceInfo->disks[i].inZipName, properties->media.disks[i].fileNameInZip);
     }
 
     for (i = 0; i < PROP_MAX_TAPES; i++) {
-        deviceInfo->tapes[i].inserted =  strlen(properties->media.tapes[i].fileName);
+        deviceInfo->tapes[i].inserted =  (int)strlen(properties->media.tapes[i].fileName);
         strcpy(deviceInfo->tapes[i].name, properties->media.tapes[i].fileName);
         strcpy(deviceInfo->tapes[i].inZipName, properties->media.tapes[i].fileNameInZip);
     }
@@ -378,6 +391,7 @@ static void emulatorThread() {
     int success = 0;
     int reversePeriod = 0;
     int reverseBufferCnt = 0;
+    void* mmcssHandle;
 
     emulatorSetFrequency(properties->emulation.speed, &frequency);
 
@@ -389,6 +403,9 @@ static void emulatorThread() {
         reversePeriod = 50;
         reverseBufferCnt = properties->emulation.reverseMaxTime * 1000 / reversePeriod;
     }
+
+    mmcssHandle = archThreadBeginEmulationProfile(properties->emulation.priorityBoost);
+
     success = boardRun(machine,
                        &deviceInfo,
                        mixer,
@@ -397,6 +414,8 @@ static void emulatorThread() {
                        reversePeriod,
                        reverseBufferCnt,
                        WaitForSync);
+
+    archThreadEndEmulationProfile(mmcssHandle);
 
     ledSetAll(0);
     emuState = EMU_STOPPED;
@@ -414,6 +433,11 @@ static void emulatorThread() {
 //extern int xxxx;
 
 void emulatorStart(const char* stateName) {
+    /* stateName may point to extractToken()'s static argBuf via the
+    ** /onearg -> tryLaunchUnknownFile path; machineCreate() below calls
+    ** extractToken on machine config and clobbers that buffer, so copy
+    ** the path into emuStateName up-front before any such call. */
+    strcpy(emuStateName, stateName ? stateName : "");
         dbgEnable();
 
     archEmulationStartNotification();
@@ -463,7 +487,6 @@ void emulatorStart(const char* stateName) {
 
     emuState = EMU_PAUSED;
     emulationStartFailure = 0;
-    strcpy(emuStateName, stateName ? stateName : "");
 
     clearlog();
 
@@ -492,6 +515,16 @@ void emulatorStart(const char* stateName) {
         boardSetYm2413Oversampling(properties->sound.chip.ym2413Oversampling);
         boardSetY8950Oversampling(properties->sound.chip.y8950Oversampling);
         boardSetMoonsoundOversampling(properties->sound.chip.moonsoundOversampling);
+        /* Push the OPLL analog filter cutoffs into the YM2413 global so the
+        ** chip picks them up at create time and Hot-applied changes survive
+        ** machine restarts.  Preset modes resolve to documented Hz values;
+        ** Custom uses the explicit fields the user edited. */
+        {
+            int lpf = 0, hpf = 0;
+            propertiesGetOpllFilterHz(properties->sound.chip.ym2413AnalogFilterMode,
+                                      &properties->sound.chip, &lpf, &hpf);
+            ym2413AnalogFilterSet(lpf, hpf);
+        }
 
         strcpy(properties->emulation.machineName, machine->name);
 
@@ -511,9 +544,13 @@ void emulatorStop() {
 
     emuState = EMU_STOPPED;
 
-    do {
-        archThreadSleep(10);
-    } while (!emuSuspendFlag);
+    /* Same modal-loop-aware wake as emulatorSuspend: if the emu thread
+    ** is parked in archWaitForAckOrSuspend, signal it so it observes
+    ** the new emuState without running out the wrapper's safety timeout. */
+    archEmuSuspendSignal();
+    while (!emuSuspendFlag) {
+        archThreadSleep(1);
+    }
 
     emuExitFlag = 1;
 #ifndef WII
@@ -521,6 +558,9 @@ void emulatorStop() {
 #endif
     archSoundSuspend();
     archThreadJoin(emuThread, 3000);
+    /* emu thread's boardRun exit ran boardCaptureDestroy -> boardCaptureStop;
+    ** surface the record-end toast the menu Stop path already shows. */
+    actionReplayFlushCompletionToast();
     archMidiEnable(0);
     machineDestroy(machine);
     archThreadDestroy(emuThread);
@@ -558,12 +598,31 @@ void emulatorSetFrequency(int logFrequency, int* frequency) {
 void emulatorSuspend() {
     if (emuState == EMU_RUNNING) {
         emuState = EMU_SUSPENDED;
-        do {
-            archThreadSleep(10);
-        } while (!emuSuspendFlag);
+        /* Wake the emu thread if it is mid-wait inside
+        ** archWaitForAckOrSuspend so it observes the suspend immediately
+        ** instead of running out the wrapper's safety timeout. The hook
+        ** is a no-op on platforms without modal-loop coupling. */
+        archEmuSuspendSignal();
+        while (!emuSuspendFlag) {
+            archThreadSleep(1);
+        }
         archSoundSuspend();
         archMidiEnable(0);
     }
+}
+
+/* Cancel-cooperative wait used by archWaitForAckOrSuspend. Mirrors the
+** suspend tail of WaitForSync (set emuSuspendFlag, archEventWait on
+** emuSyncEvent until emuState == EMU_RUNNING) so the emu thread can
+** honour a suspend that arrives while it is blocked on a platform
+** event wait. */
+int emuWaitForResume(void) {
+    emuSuspendFlag = 1;
+    while (emuState != EMU_RUNNING && !emuExitFlag) {
+        archEventWait(emuSyncEvent, -1);
+    }
+    emuSuspendFlag = 0;
+    return emuExitFlag;
 }
 
 void emulatorResume() {
@@ -593,9 +652,11 @@ void emulatorRestart() {
 }
 
 void emulatorRestartSound() {
+    /* 2ch unconditionally; mono/stereo is a mixer flag, so toggling it
+    ** does not restart the driver. */
     emulatorSuspend();
     archSoundDestroy();
-    archSoundCreate(mixer, 44100, properties->sound.bufSize, properties->sound.stereo ? 2 : 1);
+    archSoundCreate(mixer, 44100, properties->sound.bufSize, 2);
     emulatorResume();
 }
 
@@ -830,9 +891,9 @@ static int WaitForSync(int maxSpeed, int breakpointHit) {
     }
 #endif
     if (emuMaxSpeed || emuMaxEmuSpeed) {
-        diffTime *= 10;
-        if (diffTime > 20 * syncPeriod) {
-            diffTime =  20 * syncPeriod;
+        diffTime *= EMU_MAXSPEED_FACTOR;
+        if (diffTime > 2 * EMU_MAXSPEED_FACTOR * syncPeriod) {
+            diffTime =  2 * EMU_MAXSPEED_FACTOR * syncPeriod;
         }
     }
 

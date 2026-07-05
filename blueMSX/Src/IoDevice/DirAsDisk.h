@@ -43,4 +43,8 @@ typedef enum {
 
 void* dirLoadFile(DirDiskType diskType, const char* fileName, int* size);
 
+/* Overflow counters from the most recent dirLoadFile() (reset each call). */
+int dirLoadLastSkippedCount(void);
+int dirLoadLastSkippedBytes(void);
+
 #endif

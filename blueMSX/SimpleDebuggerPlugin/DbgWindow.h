@@ -4,6 +4,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -65,5 +68,10 @@ private:
     int height;
     int visible;
 };
+
+/* Apply dark mode treatment (SetWindowTheme + WM_CTLCOLOR subclass) to a
+** sub-view custom window. Safe to call from each view's WM_CREATE -- only
+** has effect when the system is in dark mode. */
+void darkSubWindow(HWND hwnd);
 
 #endif //CALLSTACK_H

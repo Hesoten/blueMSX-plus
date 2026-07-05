@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -37,6 +40,10 @@
 #include "JoystickPort.h"
 #include "Board.h"
 #include "AppConfig.h"
+#include "ziphelper.h"           /* zipResolveUtf8EntryName for fileNameInZip migration */
+#ifdef _WIN32
+#include "Utf8Conv.h"            /* AnyToUtf8 for fileNameInZip save-side conversion */
+#endif
 
 
 // PacketFileSystem.h Need to be included after all other includes
@@ -120,8 +127,14 @@ ValueNamePair MonitorTypePair[] = {
 };
 
 ValueNamePair WindowSizePair[] = {
-    { P_VIDEO_SIZEX1,               "small" },
-    { P_VIDEO_SIZEX2,               "normal" },
+    { P_VIDEO_SIZEX1,               "1x" },
+    { P_VIDEO_SIZEX2,               "2x" },
+    { P_VIDEO_SIZEX3,               "3x" },
+    { P_VIDEO_SIZEX4,               "4x" },
+    { P_VIDEO_SIZEX5,               "5x" },
+    { P_VIDEO_SIZEX6,               "6x" },
+    { P_VIDEO_SIZEX7,               "7x" },
+    { P_VIDEO_SIZEX8,               "8x" },
     { P_VIDEO_SIZEFULLSCREEN,       "fullscreen" },
     { -1,                           "" },
 };
@@ -138,7 +151,8 @@ ValueNamePair VideoDriverPair[] = {
     { P_VIDEO_DRVDIRECTX_VIDEO,    "directx hw" },
     { P_VIDEO_DRVDIRECTX,          "directx" },
     { P_VIDEO_DRVGDI,              "gdi" },
-    { P_VIDEO_DRVDIRECTX_D3D,      "directx d3d" },
+    { P_VIDEO_DRVDIRECTX_D3D12,    "d3d12" },
+    { P_VIDEO_DRVDIRECTX_D3D12,    "directx d3d" },
     { -1,                           "" },
 };
 #endif
@@ -146,15 +160,17 @@ ValueNamePair VideoDriverPair[] = {
 #ifdef USE_SDL
 ValueNamePair SoundDriverPair[] = {
     { P_SOUND_DRVNONE,             "none" },
-    { P_SOUND_DRVWMM,              "sdl" },
     { P_SOUND_DRVDIRECTX,          "sdl" },
     { -1,                           "" },
 };
 #else
 ValueNamePair SoundDriverPair[] = {
     { P_SOUND_DRVNONE,             "none" },
-    { P_SOUND_DRVWMM,              "wmm" },
     { P_SOUND_DRVDIRECTX,          "directx" },
+    { P_SOUND_DRVWASAPI,           "wasapi" },
+    /* "wmm" intentionally absent so ini values containing "wmm" don't
+    ** match; GET_ENUM_VALUE_2 leaves the field at its default
+    ** (P_SOUND_DRVWASAPI). */
     { -1,                           "" },
 };
 #endif
@@ -193,6 +209,25 @@ ValueNamePair CdromDrvPair[] = {
     { P_CDROM_DRVNONE,             "none" },
     { P_CDROM_DRVIOCTL,            "ioctl" },
     { P_CDROM_DRVASPI,             "aspi" },
+    { -1,                          "" },
+};
+
+ValueNamePair CapAudioFormatPair[] = {
+    { CAP_AUDIO_WAV,               "wav" },
+    { CAP_AUDIO_MP3,               "mp3" },
+    { CAP_AUDIO_AAC,               "aac" },
+    { -1,                          "" },
+};
+
+ValueNamePair CapVideoCodecPair[] = {
+    { CAP_VIDEO_H264,              "h264" },
+    { CAP_VIDEO_HEVC,              "hevc" },
+    { -1,                          "" },
+};
+
+ValueNamePair CapImgFormatPair[] = {
+    { CAP_IMG_PNG,                 "png" },
+    { CAP_IMG_BMP,                 "bmp" },
     { -1,                          "" },
 };
 
@@ -244,25 +279,26 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->emulation.syncMethodDirectX = properties->emulation.syncMethod;
     properties->emulation.vdpSyncMode       = P_VDP_SYNCAUTO;
     properties->emulation.enableFdcTiming   = 1;
+    properties->emulation.enableHddSdBoost  = 0;
     properties->emulation.noSpriteLimits    = 0;
     properties->emulation.frontSwitch       = 0;
     properties->emulation.pauseSwitch       = 0;
     properties->emulation.audioSwitch       = 0;
     properties->emulation.ejectMediaOnExit  = 0;
     properties->emulation.registerFileTypes = 0;
-    properties->emulation.disableWinKeys    = 0;
     properties->emulation.priorityBoost     = 0;
     properties->emulation.reverseEnable     = 1;
     properties->emulation.reverseMaxTime    = 15;
+    properties->emulation.vdpCmdSpeed       = 100;
 
     properties->video.monitorColor          = P_VIDEO_COLOR;
-    properties->video.monitorType           = P_VIDEO_PALMON;
-    properties->video.windowSize            = P_VIDEO_SIZEX2;
+    properties->video.monitorType           = P_VIDEO_PALNONE;
+    properties->video.windowSize            = P_VIDEO_SIZEX4;
     properties->video.windowSizeInitial     = properties->video.windowSize;
     properties->video.windowSizeChanged     = 0;
     properties->video.windowX               = -1;
     properties->video.windowY               = -1;
-    properties->video.driver                = P_VIDEO_DRVDIRECTX_VIDEO;
+    properties->video.driver                = P_VIDEO_DRVDIRECTX_D3D12;
     properties->video.frameSkip             = 0;
     properties->video.fullscreen.width      = 640;
     properties->video.fullscreen.height     = 480;
@@ -278,16 +314,25 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->video.gamma                 = 100;
     properties->video.scanlinesEnable       = 0;
     properties->video.colorSaturationEnable = 0;
-    properties->video.scanlinesPct          = 92;
+    properties->video.scanlinesPct          = 0;     /* matches Standard CRT preset (depth=100% on UI) */
+    properties->video.scanlinesBrightAuto   = 1;     /* default: auto-comp on */
+    properties->video.scanlinesBrightPct    = 100;   /* manual multiplier x100 (100 = 1.00x = no boost) */
+    properties->video.scanlinesShapeMode    = 1;     /* default: Standard CRT (p=2)
+                                                     ** 0=Gentle, 1=Standard, 2=Sharp,
+                                                     ** 3=Trinitron, 4=Custom */
+    properties->video.scanlinesShapePct     = 50;    /* 0..100 -> p in [0,4]; 50 -> p=2.0 */
+    properties->video.hdrEnable             = 0;     /* default: SDR */
+    properties->video.hdrPaperWhiteNits     = 200;   /* SDR-white target nits in HDR mode */
+    properties->video.recordHdr             = 0;     /* default: SDR recording */
     properties->video.colorSaturationWidth  = 2;
     properties->video.detectActiveMonitor   = 1;
     properties->video.captureFps            = 60;
     properties->video.captureSize           = 1;
     
-    properties->video.d3d.aspectRatioType   = P_D3D_AR_NTSC;
-    properties->video.d3d.cropType          = P_D3D_CROP_SIZE_MSX2_PLUS_8;
-    properties->video.d3d.extendBorderColor = 1;
-    properties->video.d3d.linearFiltering   = 1;
+    properties->video.d3d.aspectRatioType   = P_D3D_AR_AUTO;
+    properties->video.d3d.cropType          = P_D3D_CROP_SIZE_NONE;
+    properties->video.d3d.extendBorderColor = 0;
+    properties->video.d3d.linearFiltering   = 0;
     properties->video.d3d.forceHighRes      = 0;
 
     properties->video.d3d.cropLeft          = 0;
@@ -299,8 +344,8 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->videoIn.inputIndex          = 0;
     properties->videoIn.inputName[0]        = 0;
 
-    properties->sound.driver                = P_SOUND_DRVDIRECTX;
-    properties->sound.bufSize               = 100;
+    properties->sound.driver                = P_SOUND_DRVWASAPI;
+    properties->sound.bufSize               = 50;
     properties->sound.stabilizeDSoundTiming = 1;
     
     properties->sound.stereo = 1;
@@ -311,9 +356,33 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->sound.chip.enableMoonsound = 1;
     properties->sound.chip.moonsoundSRAMSize = 640;
     
-    properties->sound.chip.ym2413Oversampling = 1;
-    properties->sound.chip.y8950Oversampling = 1;
-    properties->sound.chip.moonsoundOversampling = 1;
+    /* FM oversampling default 2x reduces alias at high tones; existing
+    ** INIs keep their saved value. */
+    properties->sound.chip.ym2413Oversampling = 2;
+    properties->sound.chip.y8950Oversampling = 2;
+    properties->sound.chip.moonsoundOversampling = 2;
+
+    /* YM2413: openmsx_2 + emu2413 + nuked enabled by default; openmsx
+    ** (initial) is dead-coded.  Active = openmsx_2 (historical default). */
+    properties->sound.chip.ym2413BackendOpenmsxEnabled    = 0;
+    properties->sound.chip.ym2413BackendOpenmsx2Enabled   = 1;
+    properties->sound.chip.ym2413BackendEmu2413Enabled    = 1;
+    properties->sound.chip.ym2413BackendNukedEnabled      = 1;
+    properties->sound.chip.ym2413BackendActive            = PROP_YM2413_BACKEND_OPENMSX_2;
+
+    /* Y8950: fmopl + emu8950 + openmsx all enabled by default.  Active =
+    ** fmopl (historical default). */
+    properties->sound.chip.y8950BackendFmoplEnabled       = 1;
+    properties->sound.chip.y8950BackendEmu8950Enabled     = 1;
+    properties->sound.chip.y8950BackendOpenmsxEnabled     = 1;
+    properties->sound.chip.y8950BackendActive             = PROP_Y8950_BACKEND_FMOPL;
+
+    /* OPLL analog stage filter defaults.  The Custom Hz fields persist
+    ** even while a named preset is selected, so toggling back to Custom
+    ** restores the user's last edit. */
+    properties->sound.chip.ym2413AnalogFilterMode  = PROP_OPLL_FILTER_OFF;
+    properties->sound.chip.ym2413AnalogFilterLpfHz = 5000;
+    properties->sound.chip.ym2413AnalogFilterHpfHz = 20;
 
     properties->sound.mixerChannel[MIXER_CHANNEL_PSG].enable = 1;
     properties->sound.mixerChannel[MIXER_CHANNEL_PSG].pan = 40;
@@ -478,6 +547,23 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->filehistory.videocap[0]  = 0;
     properties->filehistory.count        = 10;
 #endif
+
+    /* Capture paths left empty; Win32 startup fills defaults if still empty. */
+    properties->capture.audioDir[0]              = 0;
+    properties->capture.videoDir[0]              = 0;
+    properties->capture.screenshotDir[0]         = 0;
+    properties->capture.replayDir[0]             = 0;
+    properties->capture.audioFormat              = CAP_AUDIO_WAV;
+    properties->capture.audioBitrateKbps         = 192;
+    properties->capture.videoCodec               = CAP_VIDEO_H264;
+    properties->capture.screenshotFormat         = CAP_IMG_PNG;
+    properties->capture.audioPromptFilename      = 0;
+    properties->capture.videoPromptFilename      = 0;
+    properties->capture.screenshotPromptFilename = 0;
+    properties->capture.replayPromptFilename     = 0;
+    properties->capture.showCompletionToast      = 1;
+    properties->capture.videoUsePostRender       = 1;
+    properties->capture.videoResolution          = 4;
 }
 
 #define ROOT_ELEMENT "config"
@@ -539,13 +625,12 @@ static void propLoad(Properties* properties)
 
     GET_ENUM_VALUE_2(propFile, settings, disableScreensaver, BoolPair);    
     GET_ENUM_VALUE_2(propFile, settings, showStatePreview, BoolPair);
-    GET_ENUM_VALUE_2(propFile, settings, usePngScreenshots, BoolPair);
+    /* usePngScreenshots no longer loaded from INI -- PNG is the only format. */
     GET_ENUM_VALUE_2(propFile, settings, portable, BoolPair);
     GET_STR_VALUE_2(propFile, settings, themeName);
 
     GET_ENUM_VALUE_2(propFile, emulation, ejectMediaOnExit, BoolPair);
     GET_ENUM_VALUE_2(propFile, emulation, registerFileTypes, BoolPair);
-    GET_ENUM_VALUE_2(propFile, emulation, disableWinKeys, BoolPair);
     GET_STR_VALUE_2(propFile, emulation, statsDefDir);
     GET_STR_VALUE_2(propFile, emulation, machineName);
     GET_STR_VALUE_2(propFile, emulation, shortcutProfile);
@@ -556,6 +641,7 @@ static void propLoad(Properties* properties)
     GET_ENUM_VALUE_2(propFile, emulation, syncMethodDirectX, EmuSyncPair);
     GET_ENUM_VALUE_2(propFile, emulation, vdpSyncMode, VdpSyncPair);
     GET_ENUM_VALUE_2(propFile, emulation, enableFdcTiming, BoolPair);
+    GET_ENUM_VALUE_2(propFile, emulation, enableHddSdBoost, BoolPair);
     GET_ENUM_VALUE_2(propFile, emulation, noSpriteLimits, BoolPair);
     GET_ENUM_VALUE_2(propFile, emulation, frontSwitch, BoolPair);
     GET_ENUM_VALUE_2(propFile, emulation, pauseSwitch, BoolPair);
@@ -563,7 +649,8 @@ static void propLoad(Properties* properties)
     GET_ENUM_VALUE_2(propFile, emulation, priorityBoost, BoolPair);
     GET_ENUM_VALUE_2(propFile, emulation, reverseEnable, BoolPair);
     GET_INT_VALUE_2(propFile, emulation, reverseMaxTime);
-    
+    GET_INT_VALUE_2(propFile, emulation, vdpCmdSpeed);
+
     GET_ENUM_VALUE_2(propFile, video, monitorColor, MonitorColorPair);
     GET_ENUM_VALUE_2(propFile, video, monitorType, MonitorTypePair);
     GET_ENUM_VALUE_2(propFile, video, windowSize, WindowSizePair);
@@ -586,6 +673,13 @@ static void propLoad(Properties* properties)
     GET_INT_VALUE_2(propFile, video, gamma);
     GET_ENUM_VALUE_2(propFile, video, scanlinesEnable, BoolPair);
     GET_INT_VALUE_2(propFile, video, scanlinesPct);
+    GET_ENUM_VALUE_2(propFile, video, scanlinesBrightAuto, BoolPair);
+    GET_INT_VALUE_2(propFile, video, scanlinesBrightPct);
+    GET_INT_VALUE_2(propFile, video, scanlinesShapeMode);
+    GET_INT_VALUE_2(propFile, video, scanlinesShapePct);
+    GET_ENUM_VALUE_2(propFile, video, hdrEnable, BoolPair);
+    GET_INT_VALUE_2(propFile, video, hdrPaperWhiteNits);
+    GET_ENUM_VALUE_2(propFile, video, recordHdr, BoolPair);
     GET_ENUM_VALUE_2(propFile, video, colorSaturationEnable, BoolPair);
     GET_INT_VALUE_2(propFile, video, colorSaturationWidth);
     GET_ENUM_VALUE_2(propFile, video, detectActiveMonitor, BoolPair);
@@ -621,6 +715,22 @@ static void propLoad(Properties* properties)
     GET_INT_VALUE_3(propFile, sound, chip, ym2413Oversampling);
     GET_INT_VALUE_3(propFile, sound, chip, y8950Oversampling);
     GET_INT_VALUE_3(propFile, sound, chip, moonsoundOversampling);
+    GET_ENUM_VALUE_3(propFile, sound, chip, ym2413BackendOpenmsxEnabled,  BoolPair);
+    GET_ENUM_VALUE_3(propFile, sound, chip, ym2413BackendOpenmsx2Enabled, BoolPair);
+    GET_ENUM_VALUE_3(propFile, sound, chip, ym2413BackendEmu2413Enabled,  BoolPair);
+    GET_ENUM_VALUE_3(propFile, sound, chip, ym2413BackendNukedEnabled,    BoolPair);
+    GET_INT_VALUE_3 (propFile, sound, chip, ym2413BackendActive);
+    GET_ENUM_VALUE_3(propFile, sound, chip, y8950BackendFmoplEnabled,     BoolPair);
+    GET_ENUM_VALUE_3(propFile, sound, chip, y8950BackendEmu8950Enabled,   BoolPair);
+    GET_ENUM_VALUE_3(propFile, sound, chip, y8950BackendOpenmsxEnabled,   BoolPair);
+    GET_INT_VALUE_3 (propFile, sound, chip, y8950BackendActive);
+    GET_INT_VALUE_3 (propFile, sound, chip, ym2413AnalogFilterMode);
+    GET_INT_VALUE_3 (propFile, sound, chip, ym2413AnalogFilterLpfHz);
+    GET_INT_VALUE_3 (propFile, sound, chip, ym2413AnalogFilterHpfHz);
+#ifndef YM2413_BUILD_OPENMSX_INITIAL
+    /* openmsx (initial) is dead-coded -- never carry an enabled flag at runtime. */
+    properties->sound.chip.ym2413BackendOpenmsxEnabled = 0;
+#endif
     GET_ENUM_VALUE_3(propFile, sound, YkIn, type, MidiTypePair);
     GET_STR_VALUE_3(propFile, sound, YkIn, name);
     GET_STR_VALUE_3(propFile, sound, YkIn, fileName);
@@ -709,6 +819,26 @@ static void propLoad(Properties* properties)
     GET_ENUM_VALUE_2(propFile, nowind, ignoreBootFlag, BoolPair);   
     GET_INT_VALUE_2(propFile, nowind,  partitionNumber);
 
+    GET_STR_VALUE_2(propFile,  capture, audioDir);
+    GET_STR_VALUE_2(propFile,  capture, videoDir);
+    GET_STR_VALUE_2(propFile,  capture, screenshotDir);
+    GET_STR_VALUE_2(propFile,  capture, replayDir);
+    GET_ENUM_VALUE_2(propFile, capture, audioFormat,              CapAudioFormatPair);
+    GET_INT_VALUE_2(propFile,  capture, audioBitrateKbps);
+    GET_ENUM_VALUE_2(propFile, capture, videoCodec,               CapVideoCodecPair);
+    GET_ENUM_VALUE_2(propFile, capture, screenshotFormat,         CapImgFormatPair);
+    GET_ENUM_VALUE_2(propFile, capture, audioPromptFilename,      BoolPair);
+    GET_ENUM_VALUE_2(propFile, capture, videoPromptFilename,      BoolPair);
+    GET_ENUM_VALUE_2(propFile, capture, screenshotPromptFilename, BoolPair);
+    GET_ENUM_VALUE_2(propFile, capture, replayPromptFilename,     BoolPair);
+    GET_ENUM_VALUE_2(propFile, capture, showCompletionToast,      BoolPair);
+    GET_ENUM_VALUE_2(propFile, capture, videoUsePostRender,       BoolPair);
+    GET_INT_VALUE_2(propFile,  capture, videoResolution);
+
+    /* PNG is the only screenshot format; override stale INI values. */
+    properties->settings.usePngScreenshots    = 1;
+    properties->capture.screenshotFormat      = CAP_IMG_PNG;
+
     iniFileClose(propFile);
     
 #ifndef NO_FILE_HISTORY
@@ -734,6 +864,16 @@ static void propLoad(Properties* properties)
         GET_STR_VALUE_2i1(histFile, media, carts, i, directory);
         GET_INT_VALUE_2i1(histFile, media, carts, i, extensionFilter);
         GET_INT_VALUE_2i1(histFile, media, carts, i, type);
+        /* ini stores fileNameInZip as UTF-8; resolve back to the zip TOC's
+        ** raw bytes so unzLocateFile / strcmp match. */
+        if (properties->media.carts[i].fileNameInZip[0] != '\0') {
+            char raw[PROP_MAXPATH];
+            if (zipResolveUtf8EntryName(properties->media.carts[i].fileName,
+                                        properties->media.carts[i].fileNameInZip,
+                                        raw, sizeof(raw))) {
+                strcpy(properties->media.carts[i].fileNameInZip, raw);
+            }
+        }
     }
     
     for (i = 0; i < PROP_MAX_DISKS; i++) {
@@ -742,6 +882,14 @@ static void propLoad(Properties* properties)
         GET_STR_VALUE_2i1(histFile, media, disks, i, directory);
         GET_INT_VALUE_2i1(histFile, media, disks, i, extensionFilter);
         GET_INT_VALUE_2i1(histFile, media, disks, i, type);
+        if (properties->media.disks[i].fileNameInZip[0] != '\0') {
+            char raw[PROP_MAXPATH];
+            if (zipResolveUtf8EntryName(properties->media.disks[i].fileName,
+                                        properties->media.disks[i].fileNameInZip,
+                                        raw, sizeof(raw))) {
+                strcpy(properties->media.disks[i].fileNameInZip, raw);
+            }
+        }
     }
     
     for (i = 0; i < PROP_MAX_TAPES; i++) {
@@ -750,6 +898,14 @@ static void propLoad(Properties* properties)
         GET_STR_VALUE_2i1(histFile, media, tapes, i, directory);
         GET_INT_VALUE_2i1(histFile, media, tapes, i, extensionFilter);
         GET_INT_VALUE_2i1(histFile, media, tapes, i, type);
+        if (properties->media.tapes[i].fileNameInZip[0] != '\0') {
+            char raw[PROP_MAXPATH];
+            if (zipResolveUtf8EntryName(properties->media.tapes[i].fileName,
+                                        properties->media.tapes[i].fileNameInZip,
+                                        raw, sizeof(raw))) {
+                strcpy(properties->media.tapes[i].fileNameInZip, raw);
+            }
+        }
     }
     
     for (i = 0; i < MAX_HISTORY; i++) {
@@ -792,7 +948,7 @@ void propSave(Properties* properties)
     
     SET_ENUM_VALUE_2(propFile, settings, disableScreensaver, YesNoPair);    
     SET_ENUM_VALUE_2(propFile, settings, showStatePreview, YesNoPair);
-    SET_ENUM_VALUE_2(propFile, settings, usePngScreenshots, YesNoPair);
+    /* usePngScreenshots no longer persisted: PNG is the only format. */
     SET_ENUM_VALUE_2(propFile, settings, portable, YesNoPair);
     if (appConfigGetString("singletheme", NULL) == NULL) {
         SET_STR_VALUE_2(propFile, settings, themeName);
@@ -800,7 +956,6 @@ void propSave(Properties* properties)
 
     SET_ENUM_VALUE_2(propFile, emulation, ejectMediaOnExit, YesNoPair);
     SET_ENUM_VALUE_2(propFile, emulation, registerFileTypes, YesNoPair);
-    SET_ENUM_VALUE_2(propFile, emulation, disableWinKeys, YesNoPair);
     SET_STR_VALUE_2(propFile, emulation, statsDefDir);
     if (appConfigGetString("singlemachine", NULL) == NULL) {
         SET_STR_VALUE_2(propFile, emulation, machineName);
@@ -813,6 +968,7 @@ void propSave(Properties* properties)
     SET_ENUM_VALUE_2(propFile, emulation, syncMethodDirectX, EmuSyncPair);
     SET_ENUM_VALUE_2(propFile, emulation, vdpSyncMode, VdpSyncPair);
     SET_ENUM_VALUE_2(propFile, emulation, enableFdcTiming, YesNoPair);
+    SET_ENUM_VALUE_2(propFile, emulation, enableHddSdBoost, YesNoPair);
     SET_ENUM_VALUE_2(propFile, emulation, noSpriteLimits, YesNoPair);
     SET_ENUM_VALUE_2(propFile, emulation, frontSwitch, OnOffPair);
     SET_ENUM_VALUE_2(propFile, emulation, pauseSwitch, OnOffPair);
@@ -820,7 +976,8 @@ void propSave(Properties* properties)
     SET_ENUM_VALUE_2(propFile, emulation, priorityBoost, YesNoPair);
     SET_ENUM_VALUE_2(propFile, emulation, reverseEnable, BoolPair);
     SET_INT_VALUE_2(propFile, emulation, reverseMaxTime);
-    
+    SET_INT_VALUE_2(propFile, emulation, vdpCmdSpeed);
+
     SET_ENUM_VALUE_2(propFile, video, monitorColor, MonitorColorPair);
     SET_ENUM_VALUE_2(propFile, video, monitorType, MonitorTypePair);
     SET_INT_VALUE_2(propFile, video, contrast);
@@ -829,6 +986,13 @@ void propSave(Properties* properties)
     SET_INT_VALUE_2(propFile, video, gamma);
     SET_ENUM_VALUE_2(propFile, video, scanlinesEnable, YesNoPair);
     SET_INT_VALUE_2(propFile, video, scanlinesPct);
+    SET_ENUM_VALUE_2(propFile, video, scanlinesBrightAuto, YesNoPair);
+    SET_INT_VALUE_2(propFile, video, scanlinesBrightPct);
+    SET_INT_VALUE_2(propFile, video, scanlinesShapeMode);
+    SET_INT_VALUE_2(propFile, video, scanlinesShapePct);
+    SET_ENUM_VALUE_2(propFile, video, hdrEnable, YesNoPair);
+    SET_INT_VALUE_2(propFile, video, hdrPaperWhiteNits);
+    SET_ENUM_VALUE_2(propFile, video, recordHdr, YesNoPair);
     SET_ENUM_VALUE_2(propFile, video, colorSaturationEnable, YesNoPair);
     SET_INT_VALUE_2(propFile, video, colorSaturationWidth);
     SET_ENUM_VALUE_2(propFile, video, deInterlace, OnOffPair);
@@ -886,6 +1050,18 @@ void propSave(Properties* properties)
 //    SET_INT_VALUE_3(sound, chip, ym2413Oversampling);
 //    SET_INT_VALUE_3(sound, chip, y8950Oversampling);
 //    SET_INT_VALUE_3(sound, chip, moonsoundOversampling);
+    SET_ENUM_VALUE_3(propFile, sound, chip, ym2413BackendOpenmsxEnabled,  YesNoPair);
+    SET_ENUM_VALUE_3(propFile, sound, chip, ym2413BackendOpenmsx2Enabled, YesNoPair);
+    SET_ENUM_VALUE_3(propFile, sound, chip, ym2413BackendEmu2413Enabled,  YesNoPair);
+    SET_ENUM_VALUE_3(propFile, sound, chip, ym2413BackendNukedEnabled,    YesNoPair);
+    SET_INT_VALUE_3 (propFile, sound, chip, ym2413BackendActive);
+    SET_ENUM_VALUE_3(propFile, sound, chip, y8950BackendFmoplEnabled,     YesNoPair);
+    SET_ENUM_VALUE_3(propFile, sound, chip, y8950BackendEmu8950Enabled,   YesNoPair);
+    SET_ENUM_VALUE_3(propFile, sound, chip, y8950BackendOpenmsxEnabled,   YesNoPair);
+    SET_INT_VALUE_3 (propFile, sound, chip, y8950BackendActive);
+    SET_INT_VALUE_3 (propFile, sound, chip, ym2413AnalogFilterMode);
+    SET_INT_VALUE_3 (propFile, sound, chip, ym2413AnalogFilterLpfHz);
+    SET_INT_VALUE_3 (propFile, sound, chip, ym2413AnalogFilterHpfHz);
     SET_ENUM_VALUE_3(propFile, sound, YkIn, type, MidiTypePair);
     SET_STR_VALUE_3(propFile, sound, YkIn, name);
 //    SET_STR_VALUE_3(sound, YkIn, fileName);
@@ -973,6 +1149,22 @@ void propSave(Properties* properties)
     SET_ENUM_VALUE_2(propFile, nowind, ignoreBootFlag, BoolPair);   
     SET_INT_VALUE_2(propFile, nowind,  partitionNumber);
 
+    SET_STR_VALUE_2(propFile,  capture, audioDir);
+    SET_STR_VALUE_2(propFile,  capture, videoDir);
+    SET_STR_VALUE_2(propFile,  capture, screenshotDir);
+    SET_STR_VALUE_2(propFile,  capture, replayDir);
+    SET_ENUM_VALUE_2(propFile, capture, audioFormat,              CapAudioFormatPair);
+    SET_INT_VALUE_2(propFile,  capture, audioBitrateKbps);
+    SET_ENUM_VALUE_2(propFile, capture, videoCodec,               CapVideoCodecPair);
+    SET_ENUM_VALUE_2(propFile, capture, screenshotFormat,         CapImgFormatPair);
+    SET_ENUM_VALUE_2(propFile, capture, audioPromptFilename,      YesNoPair);
+    SET_ENUM_VALUE_2(propFile, capture, videoPromptFilename,      YesNoPair);
+    SET_ENUM_VALUE_2(propFile, capture, screenshotPromptFilename, YesNoPair);
+    SET_ENUM_VALUE_2(propFile, capture, replayPromptFilename,     YesNoPair);
+    SET_ENUM_VALUE_2(propFile, capture, showCompletionToast,      YesNoPair);
+    SET_ENUM_VALUE_2(propFile, capture, videoUsePostRender,       YesNoPair);
+    SET_INT_VALUE_2(propFile,  capture, videoResolution);
+
     iniFileClose(propFile);
 
 #ifndef NO_FILE_HISTORY
@@ -992,25 +1184,79 @@ void propSave(Properties* properties)
     
     SET_STR_VALUE_2(histFile, cassette, defDir);
 
+    /* Convert raw zip TOC bytes to UTF-8 for ini storage; propLoad
+    ** restores raw bytes via zipResolveUtf8EntryName. *4 buffer leaves
+    ** headroom for CP932 -> UTF-8 expansion. */
     for (i = 0; i < PROP_MAX_CARTS; i++) {
+        char keyBuf[64];
+        char utf8Buf[PROP_MAXPATH * 4];
+        const char* src = properties->media.carts[i].fileNameInZip;
         SET_STR_VALUE_2i1(histFile, media, carts, i, fileName);
-        SET_STR_VALUE_2i1(histFile, media, carts, i, fileNameInZip);
+#ifdef _WIN32
+        AnyToUtf8(src, utf8Buf, (int)sizeof(utf8Buf));
+#else
+        {
+            size_t n = strlen(src);
+            if (n >= sizeof(utf8Buf)) n = sizeof(utf8Buf) - 1;
+            memcpy(utf8Buf, src, n);
+            utf8Buf[n] = 0;
+        }
+#endif
+        if ((size_t)snprintf(keyBuf, sizeof(keyBuf),
+                             "media.carts.i%d.fileNameInZip", i) >= sizeof(keyBuf)) {
+            keyBuf[sizeof(keyBuf) - 1] = 0;
+        }
+        iniFileWriteString(histFile, ROOT_ELEMENT, keyBuf, utf8Buf);
         SET_STR_VALUE_2i1(histFile, media, carts, i, directory);
         SET_INT_VALUE_2i1(histFile, media, carts, i, extensionFilter);
         SET_INT_VALUE_2i1(histFile, media, carts, i, type);
     }
     
     for (i = 0; i < PROP_MAX_DISKS; i++) {
+        char keyBuf[64];
+        char utf8Buf[PROP_MAXPATH * 4];
+        const char* src = properties->media.disks[i].fileNameInZip;
         SET_STR_VALUE_2i1(histFile, media, disks, i, fileName);
-        SET_STR_VALUE_2i1(histFile, media, disks, i, fileNameInZip);
+#ifdef _WIN32
+        AnyToUtf8(src, utf8Buf, (int)sizeof(utf8Buf));
+#else
+        {
+            size_t n = strlen(src);
+            if (n >= sizeof(utf8Buf)) n = sizeof(utf8Buf) - 1;
+            memcpy(utf8Buf, src, n);
+            utf8Buf[n] = 0;
+        }
+#endif
+        if ((size_t)snprintf(keyBuf, sizeof(keyBuf),
+                             "media.disks.i%d.fileNameInZip", i) >= sizeof(keyBuf)) {
+            keyBuf[sizeof(keyBuf) - 1] = 0;
+        }
+        iniFileWriteString(histFile, ROOT_ELEMENT, keyBuf, utf8Buf);
         SET_STR_VALUE_2i1(histFile, media, disks, i, directory);
         SET_INT_VALUE_2i1(histFile, media, disks, i, extensionFilter);
         SET_INT_VALUE_2i1(histFile, media, disks, i, type);
     }
     
     for (i = 0; i < PROP_MAX_TAPES; i++) {
+        char keyBuf[64];
+        char utf8Buf[PROP_MAXPATH * 4];
+        const char* src = properties->media.tapes[i].fileNameInZip;
         SET_STR_VALUE_2i1(histFile, media, tapes, i, fileName);
-        SET_STR_VALUE_2i1(histFile, media, tapes, i, fileNameInZip);
+#ifdef _WIN32
+        AnyToUtf8(src, utf8Buf, (int)sizeof(utf8Buf));
+#else
+        {
+            size_t n = strlen(src);
+            if (n >= sizeof(utf8Buf)) n = sizeof(utf8Buf) - 1;
+            memcpy(utf8Buf, src, n);
+            utf8Buf[n] = 0;
+        }
+#endif
+        if ((size_t)snprintf(keyBuf, sizeof(keyBuf),
+                             "media.tapes.i%d.fileNameInZip", i) >= sizeof(keyBuf)) {
+            keyBuf[sizeof(keyBuf) - 1] = 0;
+        }
+        iniFileWriteString(histFile, ROOT_ELEMENT, keyBuf, utf8Buf);
         SET_STR_VALUE_2i1(histFile, media, tapes, i, directory);
         SET_INT_VALUE_2i1(histFile, media, tapes, i, extensionFilter);
         SET_INT_VALUE_2i1(histFile, media, tapes, i, type);
@@ -1048,11 +1294,77 @@ Properties* propGetGlobalProperties()
     return globalProperties;
 }
 
+void propertiesGetOpllFilterHz(int mode, const SoundChip* chip,
+                               int* outLpfHz, int* outHpfHz)
+{
+    int lpf = 0, hpf = 0;
+    /* HPF is fixed at 20 Hz across every preset (DC-block; not user
+    ** tunable from the dialog).  Only the LPF Hz value differs. */
+    switch (mode) {
+    case PROP_OPLL_FILTER_OFF:
+        lpf = 0;     hpf = 0;  break;
+    case PROP_OPLL_FILTER_BRIGHT:
+        lpf = 12000; hpf = 20; break;
+    case PROP_OPLL_FILTER_CLEAR:
+        lpf = 8000;  hpf = 20; break;
+    case PROP_OPLL_FILTER_STANDARD:
+        lpf = 5000;  hpf = 20; break;
+    case PROP_OPLL_FILTER_SOFT:
+        lpf = 3500;  hpf = 20; break;
+    case PROP_OPLL_FILTER_MELLOW:
+        lpf = 2300;  hpf = 20; break;
+    case PROP_OPLL_FILTER_CUSTOM:
+    default:
+        if (chip) {
+            lpf = chip->ym2413AnalogFilterLpfHz;
+            hpf = chip->ym2413AnalogFilterHpfHz;
+        } else {
+            lpf = 5000;  hpf = 20;
+        }
+        break;
+    }
+    if (outLpfHz) *outLpfHz = lpf;
+    if (outHpfHz) *outHpfHz = hpf;
+}
+
+int propertiesIsSpecialCartName(const char* name)
+{
+    static const char* const kMarkers[] = {
+        CARTNAME_SNATCHER,    CARTNAME_SDSNATCHER,  CARTNAME_SCCMIRRORED,
+        CARTNAME_SCCEXPANDED, CARTNAME_SCC,         CARTNAME_SCCPLUS,
+        CARTNAME_JOYREXPSG,   CARTNAME_FMPAC,       CARTNAME_PAC,
+        CARTNAME_GAMEREADER,  CARTNAME_SUNRISEIDE,  CARTNAME_BEERIDE,
+        CARTNAME_GIDE,        CARTNAME_NMS1210,     CARTNAME_GOUDASCSI,
+        CARTNAME_SONYHBI55,
+        CARTNAME_EXTRAM16KB,  CARTNAME_EXTRAM32KB,  CARTNAME_EXTRAM48KB,
+        CARTNAME_EXTRAM64KB,  CARTNAME_EXTRAM512KB, CARTNAME_EXTRAM1MB,
+        CARTNAME_EXTRAM2MB,   CARTNAME_EXTRAM4MB,
+        CARTNAME_MEGARAM128,  CARTNAME_MEGARAM256,  CARTNAME_MEGARAM512,
+        CARTNAME_MEGARAM768,  CARTNAME_MEGARAM2M,
+        CARTNAME_MEGASCSI128, CARTNAME_MEGASCSI256, CARTNAME_MEGASCSI512,
+        CARTNAME_MEGASCSI1MB,
+        CARTNAME_NOWINDDOS1,  CARTNAME_NOWINDDOS2,
+        CARTNAME_ESERAM128,   CARTNAME_ESERAM256,   CARTNAME_ESERAM512,
+        CARTNAME_ESERAM1MB,
+        CARTNAME_MEGAFLSHSCC, CARTNAME_MEGAFLSHSCCPLUS,
+        CARTNAME_MEGAFLSHSCCPLUS_SD,
+        CARTNAME_WAVESCSI128, CARTNAME_WAVESCSI256, CARTNAME_WAVESCSI512,
+        CARTNAME_WAVESCSI1MB,
+        CARTNAME_ESESCC128,   CARTNAME_ESESCC256,   CARTNAME_ESESCC512,
+    };
+    size_t i;
+    if (!name || !*name) return 0;
+    for (i = 0; i < sizeof(kMarkers) / sizeof(kMarkers[0]); i++) {
+        if (strcmp(name, kMarkers[i]) == 0) return 1;
+    }
+    return 0;
+}
+
 void propertiesSetDirectory(const char* defDir, const char* altDir)
 {
     FILE* f;
 
-    sprintf(settFilename, "bluemsx.ini", defDir);
+    sprintf(settFilename, "%s/bluemsx.ini", defDir);
     f = fopen(settFilename, "r");
     if (f != NULL) {
         fclose(f);
@@ -1061,7 +1373,7 @@ void propertiesSetDirectory(const char* defDir, const char* altDir)
         sprintf(settFilename, "%s/bluemsx.ini", altDir);
     }
 
-    sprintf(histFilename, "bluemsx_history.ini", defDir);
+    sprintf(histFilename, "%s/bluemsx_history.ini", defDir);
     f = fopen(histFilename, "r");
     if (f != NULL) {
         fclose(f);

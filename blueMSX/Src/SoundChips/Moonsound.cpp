@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -166,6 +169,13 @@ void moonsoundSaveState(Moonsound* moonsound)
 void moonsoundLoadState(Moonsound* moonsound)
 {
     SaveState* state = saveStateOpenForRead("moonsound");
+
+    /* Save was made with Moonsound disabled but it is enabled now: skip
+    ** the load (same rationale as y8950LoadState). */
+    if (saveStateIsEmpty(state)) {
+        saveStateClose(state);
+        return;
+    }
 
     moonsound->timerValue1    =        saveStateGet(state, "timerValue1",    0);
     moonsound->timeout1       =        saveStateGet(state, "timeout1",       0);

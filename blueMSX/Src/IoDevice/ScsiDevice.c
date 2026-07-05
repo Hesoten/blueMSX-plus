@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2007 Daniel Vik, white cat
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -603,7 +606,7 @@ static int scsiDeviceBlueMSX(SCSIDEVICE* scsi)
         if ((cmd & 1) == 0) {
             fileName = stripPath(fileName);
         }
-        length = strlen(fileName);
+        length = (int)strlen(fileName);
         buffer[0] = (UInt8)((length >> 8) & 0xff);
         buffer[1] = (UInt8)(length & 0xff);
         strcpy(buffer + 2, fileName);
@@ -640,6 +643,7 @@ static int scsiDeviceReadSector(SCSIDEVICE* scsi, int* blocks)
     int numSectors;
 
     ledSetHd(1);
+    boardSetHddSdActive();
     if (scsi->length >= BUFFER_BLOCK_SIZE) {
         numSectors  = BUFFER_BLOCK_SIZE;
         counter     = BUFFER_SIZE;
@@ -682,6 +686,7 @@ static int scsiDeviceWriteSector(SCSIDEVICE* scsi, int* blocks)
     int numSectors;
 
     ledSetHd(1);
+    boardSetHddSdActive();
     if (scsi->length >= BUFFER_BLOCK_SIZE) {
         numSectors  = BUFFER_BLOCK_SIZE;
     } else {
@@ -1033,8 +1038,8 @@ void scsiDeviceSaveState(SCSIDEVICE* scsi)
     saveStateSet(state, "message",    scsi->message);
 
     saveStateSetBuffer(state, "cdb", scsi->cdb, 12);
-    saveStateSetBuffer(state, "fileName", scsi->disk.fileName, strlen(scsi->disk.fileName) + 1);
-    saveStateSetBuffer(state, "fileNameInZip", scsi->disk.fileNameInZip, strlen(scsi->disk.fileNameInZip) + 1);
+    saveStateSetBuffer(state, "fileName", scsi->disk.fileName, (int)strlen(scsi->disk.fileName) + 1);
+    saveStateSetBuffer(state, "fileNameInZip", scsi->disk.fileNameInZip, (int)strlen(scsi->disk.fileNameInZip) + 1);
     saveStateClose(state);
 
     if (scsi->deviceType == SDT_CDROM) {

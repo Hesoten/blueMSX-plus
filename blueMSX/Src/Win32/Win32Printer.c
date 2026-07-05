@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Rudolf Lechleitner, Daniel Vik, Tomas Karlsson
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -29,6 +32,7 @@
 #include "Properties.h"
 #include "Win32Printer.h"
 #include "ArchPrinter.h"
+#include "Win32TextUtf8.h"
 
 
 
@@ -1063,15 +1067,15 @@ void EnsurePrintPage(void)
             // box. Also set current dir to the dir of last
             // access to this method before calling StartPage
 
-            GetCurrentDirectory(MAX_PATH - 1, originalDir);
+            GetCurrentDirectoryU(MAX_PATH - 1, originalDir);
             if (*printDir) {
-                SetCurrentDirectory(printDir);
+                SetCurrentDirectoryU(printDir);
             }
             StartDoc( hdcPrinter, &di );
             StartPage( hdcPrinter );
             
-            GetCurrentDirectory(MAX_PATH - 1, printDir);
-            SetCurrentDirectory(originalDir);
+            GetCurrentDirectoryU(MAX_PATH - 1, printDir);
+            SetCurrentDirectoryU(originalDir);
         }
 
         fPrintDataOnPage=TRUE;
@@ -2144,7 +2148,7 @@ void PrintToMSX(BYTE bData)
         *(stPrtRam.abEscSeq)=bData;
         stPrtRam.sizeEscPos=1;
 
-        stPrtRam.uiRemainingCommandBytes=CalcEscSequenceLength(bData);
+        stPrtRam.uiRemainingCommandBytes=(UINT)CalcEscSequenceLength(bData);
 
         if (!stPrtRam.uiRemainingCommandBytes) {
             ProcessEscSequence();
@@ -2216,7 +2220,7 @@ static int printerCreate(void)
 
     initPixelBitmaps();
 
-    lstrcpy(szDocTitle, "blueMSX");
+    lstrcpy(szDocTitle, "blueMSX+");
 
     if (printerType == P_LPT_MSXPRN) {
         MsxPrnSetFont(MSXFontRaw);

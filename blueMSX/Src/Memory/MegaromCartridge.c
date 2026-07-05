@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -103,6 +106,7 @@
 #include "romMapperNoWind.h"
 #include "romMapperGoudaSCSI.h"
 #include "romMapperMegaFlashRomScc.h"
+#include "romMapperMegaFlashRomSccPlusSD.h"
 #include "romMapperForteII.h"
 #include "romMapperMatraINK.h"
 #include "romMapperNettouYakyuu.h"
@@ -377,6 +381,10 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
             case ROM_MEGAFLSHSCCPLUS:
                 success &= romMapperMegaFlashRomSccCreate("MegaFlashRomScc.rom", NULL, 0, slot, sslot, 2, 0, 0x100000, 1);
                 break;
+
+            case ROM_MEGAFLSHSCCPLUS_SD:
+                success &= romMapperMegaFlashRomSccPlusSDCreate(cartNo, slot, sslot, 2);
+                break;
             }
             break;
         }
@@ -461,6 +469,10 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
             success &= romMapperMegaFlashRomSccCreate(romName, buf, size, slot, sslot, 2, 0, 0x100000, 1);
             break;
 
+        case ROM_MEGAFLSHSCCPLUS_SD:
+            success &= romMapperMegaFlashRomSccPlusSDCreate(cartNo, slot, sslot, 2);
+            break;
+
         case ROM_OBSONET:
             success &= romMapperObsonetCreate(romName, buf, size, slot, sslot, 2);
             break;
@@ -478,7 +490,7 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
                 int i;
 
                 strcpy(eepromName, cart);
-                for (i = strlen(eepromName); i > 0 && eepromName[i] != '.'; i--);
+                for (i = (int)strlen(eepromName); i > 0 && eepromName[i] != '.'; i--);
                 eepromName[i] = 0;
                 strcat(eepromName, "_eeprom.rom");
                     
@@ -548,7 +560,7 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
                 int i;
 
                 strcpy(voiceName, cart);
-                for (i = strlen(voiceName); i > 0 && voiceName[i] != '.'; i--);
+                for (i = (int)strlen(voiceName); i > 0 && voiceName[i] != '.'; i--);
                 voiceName[i] = 0;
                 strcat(voiceName, "_voice.rom");
                     
@@ -785,7 +797,7 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
                 int i;
 
                 strcpy(charName, cart);
-                for (i = strlen(charName); i > 0 && charName[i] != '.'; i--);
+                for (i = (int)strlen(charName); i > 0 && charName[i] != '.'; i--);
                 charName[i] = 0;
                 strcat(charName, "_char.rom");
                     

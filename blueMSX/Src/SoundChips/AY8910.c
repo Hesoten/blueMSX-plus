@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -86,9 +89,9 @@ struct AY8910 {
     Int32  buffer[AUDIO_STEREO_BUFFER_SIZE];
 };
 
-void ay8910LoadState(AY8910* ay8910)
+static void ay8910LoadStateImpl(AY8910* ay8910, const char* chunkTag)
 {
-    SaveState* state = saveStateOpenForRead("ay8910");
+    SaveState* state = saveStateOpenForRead(chunkTag);
     char tag[32];
     int i;
 
@@ -129,9 +132,9 @@ void ay8910LoadState(AY8910* ay8910)
     saveStateClose(state);
 }
 
-void ay8910SaveState(AY8910* ay8910)
+static void ay8910SaveStateImpl(AY8910* ay8910, const char* chunkTag)
 {
-    SaveState* state = saveStateOpenForWrite("ay8910");
+    SaveState* state = saveStateOpenForWrite(chunkTag);
     char tag[32];
     int i;
 
@@ -170,6 +173,26 @@ void ay8910SaveState(AY8910* ay8910)
     }
     
     saveStateClose(state);
+}
+
+void ay8910LoadState(AY8910* ay8910)
+{
+    ay8910LoadStateImpl(ay8910, "ay8910");
+}
+
+void ay8910SaveState(AY8910* ay8910)
+{
+    ay8910SaveStateImpl(ay8910, "ay8910");
+}
+
+void ay8910LoadStateWithTag(AY8910* ay8910, const char* tag)
+{
+    ay8910LoadStateImpl(ay8910, tag);
+}
+
+void ay8910SaveStateWithTag(AY8910* ay8910, const char* tag)
+{
+    ay8910SaveStateImpl(ay8910, tag);
 }
 
 static void getDebugInfo(AY8910* ay8910, DbgDevice* dbgDevice)

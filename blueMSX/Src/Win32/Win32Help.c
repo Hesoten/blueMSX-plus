@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -27,13 +30,16 @@
 */
 #include "Win32Help.h"
 #include "Win32Common.h"
+#include "Win32TextUtf8.h"
 #include "Language.h"
 #include "build_number.h"
 #include "Resource.h"
 #include "version.h"
 #include <stdio.h>
  
-static BOOL CALLBACK aboutDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+/* DLGPROC returns INT_PTR: BOOL truncates HBRUSH replies from
+** WM_CTLCOLOR* messages on x64. */
+static INT_PTR CALLBACK aboutDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (iMsg) {
     case WM_COMMAND:
@@ -44,7 +50,7 @@ static BOOL CALLBACK aboutDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
         break;
 
     case WM_CTLCOLORSTATIC:
-        return (BOOL)GetSysColorBrush(COLOR_WINDOW);
+        return (INT_PTR)GetSysColorBrush(COLOR_WINDOW);
     
     case WM_CLOSE:
         EndDialog(hDlg, TRUE);
@@ -58,21 +64,18 @@ static BOOL CALLBACK aboutDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
         {
             char aboutText[4096];
 
-            char buildDate[32] = BUILD_DATE;
-            int i;
-
-            for (i = 0; buildDate[i] != ' '; i++);
-            buildDate[i] = '/';
-
             sprintf(aboutText, "%s\r\n\r\n"
-                                "%s%\t%s\r\n"
-                                "%s%\t%d\r\n"
-                                "%s%\t%s\r\n\r\n"
+                                "%s\t%s (%s %s)\r\n"
+                                "%s\t%d\r\n"
+                                "%s\t%s\r\n\r\n"
+                                "%s\r\n\r\n"
+                                "%s\r\n\r\n"
+                                "%s\r\n\r\n"
                                 "%s\r\n\r\n\r\n"
                                 "%s\r\n\r\n"
                         
                                 "Daniel Vik\r\n"
-                                "BenoÓt Delvaux\r\n"
+                                "Beno√Æt Delvaux\r\n"
                                 "Tomas Karlsson\r\n"
                                 "Ray Zero\r\n"
                                 "hap\r\n"
@@ -100,9 +103,9 @@ static BOOL CALLBACK aboutDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
                                 "Jacek Bogucki (Gucek)\r\n"
                                 "Jarek Burczynski\r\n"
                                 "Johan van Leur\r\n"
-                                "Jon Cort·zar Abraido\r\n"
+                                "Jon Cort√°zar Abraido\r\n"
                                 "Jorrith Schaap\r\n"
-                                "Jussi Pitk‰nen\r\n"
+                                "Jussi Pitk√§nen\r\n"
                                 "Kobayashi Michiko\r\n"
                                 "Laurent Halter\r\n"
                                 "Luciano Sturaro\r\n"
@@ -136,30 +139,32 @@ static BOOL CALLBACK aboutDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
                                 "Tobias Keizer\r\n"
                                 "UC_ARS\r\n"
                                 "Ulver\r\n"
-                                "VÌctor Fern·ndez S·nchez\r\n"
+                                "V√≠ctor Fern√°ndez S√°nchez\r\n"
                                 "Vincent van Dam\r\n"
                                 "William Ouwehand\r\n"
-                                "Wouter Vermaelen\r\n\r\n\r\n"
-    
-                                "%s",
+                                "Wouter Vermaelen\r\n",
                         langDlgAboutAbout(),
                         langDlgAboutVersion(),
-                        BLUE_MSX_VERSION,
+                        BLUE_MSX_VERSION, BUILD_PLATFORM, BUILD_CONFIG,
                         langDlgAboutBuildNumber(),
                         BUILD_NUMBER,
                         langDlgAboutBuildDate(),
-                        buildDate,
+                        BUILD_DATE,
+                        langDlgAboutForkNote(),
+                        langDlgAboutLisence(),
+                        langDlgAboutOrigDevel(),
                         langDlgAboutCreat(),
                         langDlgAboutDevel(),
-                        langDlgAboutThanks(),
-                        langDlgAboutLisence());
+                        langDlgAboutThanks());
 
             updateDialogPos(hDlg, DLG_ID_ABOUT, 0, 1);
-            SetWindowText(hDlg, langDlgAboutTitle());
-            SetWindowText(GetDlgItem(hDlg, IDOK), langDlgOK());
+            SetWindowTextU(hDlg, langDlgAboutTitle());
+            SetWindowTextU(GetDlgItem(hDlg, IDOK), langDlgOK());
 
-            SendMessage(GetDlgItem(hDlg, IDC_ABOUTTEXT), WM_SETTEXT, 0, (LPARAM)aboutText);
+            SetDlgItemTextU(hDlg, IDC_ABOUTTEXT, aboutText);
         }
+        win32CommonApplyDark(hDlg);
+        win32CommonCenterOnOwner(hDlg);
         return 1;
     }
 

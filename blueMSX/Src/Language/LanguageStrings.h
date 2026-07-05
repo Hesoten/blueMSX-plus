@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -69,15 +72,56 @@ typedef struct {
     char* warningTitle;
     char* warningDiscardChanges;
     char* warningOverwriteFile;
+    char* warningStateOldFormat;
     char* errorTitle;
     char* errorEnterFullscreen;
     char* errorDirectXFailed;
     char* errorNoRomInZip;
     char* errorNoDskInZip;
     char* errorNoCasInZip;
+    char* errorDirAsDskOverflow;
     char* errorNoHelp;
     char* errorStartEmu;
+    char* errorMissingFiles;
     char* errorPortableReadonly;
+    char* infoColorDepth;
+    char* infoTitle;
+    char* infoGameReaderRedirect;
+    char* errorKeyboardThemeMissing;
+    char* errorMixerThemeMissing;
+    char* errorRecorderTitle;
+    char* errorRecorderSaveReplay;
+    char* errorRecorderReplayMissing;
+    char* errorRecorderRequiresDX12;
+    char* errorRecorderRequiresDX12Title;
+    char* infoRecorderComplete;
+    char* infoToastSaved;
+    char* infoToastAlreadyRecording;
+    char* dlgRecorderPickTitle;
+    char* dlgRecorderPickSourceCap;
+    char* dlgRecorderPickOutputMp4;
+    char* menuFileRecordVideo;
+    char* menuFileStopRecordVideo;
+    char* shortcutRecordVideoStart;
+    char* shortcutRecordVideoStartAs;
+    char* shortcutRecordVideoStop;
+    char* shortcutRecordVideoToggle;
+    char* shortcutAudioCaptureAs;
+    char* shortcutVideoRecordAs;
+    char* shortcutScreenshotAs;
+
+    /* Capture page (IDD_CAPTURE). */
+    char* propCapture;
+    char* propCaptureAudioGB;
+    char* propCaptureVideoGB;
+    char* propCaptureScreenshotGB;
+    char* propCaptureReplayGB;
+    char* propCaptureSaveDir;
+    char* propCaptureFormat;
+    char* propCaptureCodec;
+    char* propCaptureAutoName;
+    char* propCapturePromptName;
+    char* propCaptureShowToast;
 
 
     //----------------------
@@ -145,13 +189,20 @@ typedef struct {
 
     char* menuPrnFormfeed;
 
-    char* menuZoomNormal;
-    char* menuZoomDouble;
+    char* menuZoom1x;
+    char* menuZoom2x;
+    char* menuZoom3x;
+    char* menuZoom4x;
+    char* menuZoom5x;
+    char* menuZoom6x;
+    char* menuZoom7x;
+    char* menuZoom8x;
     char* menuZoomFullscreen;
 
     char* menuPropsEmulation;
     char* menuPropsVideo;
     char* menuPropsSound;
+    char* menuPropsMidi;
     char* menuPropsControls;
     char* menuPropsEffects;
     char* menuPropsSettings;
@@ -159,6 +210,7 @@ typedef struct {
     char* menuPropsDisk;
     char* menuPropsLanguage;
     char* menuPropsPorts;
+    char* menuPropsCapture;
 
     char* menuVideoSource;
     char* menuVideoSourceDefault;
@@ -179,8 +231,9 @@ typedef struct {
     char* menuFileSaveState;
     char* menuFileQLoadState;
     char* menuFileQSaveState;
-    char* menuFileCaptureAudio;
-    char* menuFileCaptureVideo;
+    char* menuFileCaptureAudio;     /* "Record Audio"  -- shown when idle */
+    char* menuFileStopAudio;        /* "Stop Audio"    -- shown while recording */
+    char* menuFileCaptureVideo;     /* Replay submenu title */
     char* menuFileScreenShot;
     char* menuFileExit;
     char* menuFileHarddisk;
@@ -219,6 +272,8 @@ typedef struct {
     char* dlgOK;
     char* dlgOpen;
     char* dlgCancel;
+    char* dlgYes;
+    char* dlgNo;
     char* dlgSave;
     char* dlgSaveAs;
     char* dlgRun;
@@ -237,6 +292,10 @@ typedef struct {
     char* dlgSaveState;
     char* dlgSaveCassette;
     char* dlgSaveVideoClipAs;
+    char* dlgSaveCaptureAudio;
+    char* dlgSaveCaptureVideo;
+    char* dlgSaveCaptureReplay;
+    char* dlgSaveCaptureScreenshot;
     char* dlgAmountCompleted;
     char* dlgInsertRom1;
     char* dlgInsertRom2;
@@ -267,6 +326,8 @@ typedef struct {
     char* dlgAboutVersion;
     char* dlgAboutBuildNumber;
     char* dlgAboutBuildDate;
+    char* dlgAboutForkNote;
+    char* dlgAboutOrigDevel;
     char* dlgAboutCreat;
     char* dlgAboutDevel;
     char* dlgAboutThanks;
@@ -294,6 +355,7 @@ typedef struct {
     char* propFile;
     char* propDisk;
     char* propPorts;
+    char* propMidi;
 
     char* propEmuGeneralGB;
     char* propEmuFamilyText;
@@ -302,9 +364,11 @@ typedef struct {
     char* propEmuVramSizeText;
     char* propEmuSpeedGB;
     char* propEmuSpeedText;
+    char* propEmuVdpCmdSpeedText;
     char* propEmuFrontSwitchGB;
     char* propEmuFrontSwitch;
     char* propEmuFdcTiming;
+    char* propEmuHddSdBoost;
     char* propEmuNoSpriteLimits;
     char* propEnableMsxKeyboardQuirk;
     char* propEmuReversePlay;
@@ -313,6 +377,15 @@ typedef struct {
     char* propVideoFreqText;
     char* propVideoFreqAuto;
     char* propSndOversampleText;
+    char* propSndOpllAnalogText;        /* "Analog filter:" label */
+    char* propSndOpllAnalogLpfText;     /* "LPF cutoff:" label */
+    char* enumOpllFilterOff;
+    char* enumOpllFilterBright;
+    char* enumOpllFilterClear;
+    char* enumOpllFilterStandard;
+    char* enumOpllFilterSoft;
+    char* enumOpllFilterMellow;
+    char* enumOpllFilterCustom;
     char* propSndMidiInGB;
     char* propSndYkInGB;
     char* propSndMidiOutGB;
@@ -323,7 +396,6 @@ typedef struct {
     char* propMonTypeText;
     char* propMonEmuText;
     char* propVideoTypeText;
-    char* propWindowSizeText;
     char* propMonHorizStretch;
     char* propMonVertStretch;
     char* propMonDeInterlace;
@@ -333,6 +405,21 @@ typedef struct {
     char* propMonSaturation;
     char* propMonGamma;
     char* propMonScanlines;
+    char* propMonScanlinesBright;       /* slider label */
+    char* propMonScanlinesBrightAuto;   /* checkbox */
+    char* propMonScanlinesShape;        /* "Shape:" label (for the preset combobox) */
+    char* propMonScanlinesDepth;        /* "Depth:" label (for the depth slider) */
+    char* propMonScanlinesSharpness;    /* "Sharpness:" label (for the shape-sharpness slider) */
+    char* enumScanShapeGentle;          /* dropdown items */
+    char* enumScanShapeStandard;
+    char* enumScanShapeSharp;
+    char* enumScanShapeTrinitron;
+    char* enumScanShapeCustom;
+    char* propMonHdrEnable;             /* HDR enable checkbox */
+    char* propMonHdrPaperWhite;         /* HDR brightness slider label */
+    char* propMonHdrSystemMode;         /* "System HDR mode:" prefix */
+    char* propMonHdrRestartHint;        /* "HDR setting changed -- restart" message body */
+    char* propMonHdrRecord;             /* "Record in HDR" checkbox label */
     char* propMonColorGhosting;
     char* propMonEffectsGB;
 
@@ -342,6 +429,7 @@ typedef struct {
     char* propPerfAudioDrvGB;
     char* propPerfAudioDrvText;
     char* propPerfAudioBufSzText;
+    char* propPerfAudioBufSzActualFmt;
     char* propPerfEmuGB;
     char* propPerfSyncModeText;
     char* propFullscreenResText;
@@ -351,6 +439,10 @@ typedef struct {
     char* propSndMsxAudio;
     char* propSndMoonsound;
     char* propSndMt32ToGm;
+    char* propSoundChipsActive;
+    char* propSoundChipsHint;
+    char* propSoundChipsYm2413GB;
+    char* propSoundChipsY8950GB;
 
     char* propPortsLptGB;
     char* propPortsComGB;
@@ -367,9 +459,9 @@ typedef struct {
     char* propSetFileHistorySize;
     char* propSetFileHistoryClear;
     char* propFileTypes;
+    char* propOpenDefaultApps;
     char* propWindowsEnvGB;
     char* propSetScreenSaver;
-    char* propDisableWinKeys;
     char* propPriorityBoost;
     char* propScreenshotPng;
     char* propEjectMediaOnExit;
@@ -429,9 +521,6 @@ typedef struct {
     char* enumVideoEmuScale2x;
     char* enumVideoEmuHq2x;
 
-    char* enumVideoSize1x;
-    char* enumVideoSize2x;
-    char* enumVideoSizeFullscreen;
 
     char* enumVideoDrvDirectDrawHW;
     char* enumVideoDrvDirectDraw;
@@ -461,6 +550,7 @@ typedef struct {
     char* enumSoundDrvNone;
     char* enumSoundDrvWMM;
     char* enumSoundDrvDirectX;
+    char* enumSoundDrvWasapi;
 
     char* enumEmuSync1ms;
     char* enumEmuSyncAuto;
@@ -485,6 +575,9 @@ typedef struct {
     char* enumDiskSvi525Dbl;
     char* enumDiskSvi525Sgl;
     char* enumDiskSf3Sgl;
+    char* enumDiskSize;     /* "Disk size" group label in new-image dialogs */
+    char* enumDiskFormat;   /* "Format:" group label in new-image dialogs */
+    char* enumDiskFormatUnformatted; /* format-combobox entry, only word needing translation */
 
 
     //----------------------
@@ -560,6 +653,7 @@ typedef struct {
 
     char* shortcutSaveConfig;
     char* shortcutOverwriteConfig;
+    char* shortcutCreateConfig;
     char* shortcutExitConfig;
     char* shortcutDiscardConfig;
     char* shortcutSaveConfigAs;
@@ -606,8 +700,14 @@ typedef struct {
     char* shortcutResetHard;
     char* shortcutResetSoft;
     char* shortcutResetClean;
-    char* shortcutSizeSmall;
-    char* shortcutSizeNormal;
+    char* shortcutSize1x;
+    char* shortcutSize2x;
+    char* shortcutSize3x;
+    char* shortcutSize4x;
+    char* shortcutSize5x;
+    char* shortcutSize6x;
+    char* shortcutSize7x;
+    char* shortcutSize8x;
     char* shortcutSizeFullscreen;
     char* shortcutSizeMinimized;
     char* shortcutToggleFullscren;
@@ -615,6 +715,8 @@ typedef struct {
     char* shortcutVolumeDecrease;
     char* shortcutVolumeMute;
     char* shortcutVolumeStereo;
+    char* shortcutYm2413BackendCycle;
+    char* shortcutY8950BackendCycle;
     char* shortcutSwitchMsxAudio;
     char* shortcutSwitchFront;
     char* shortcutSwitchPause;
@@ -645,6 +747,7 @@ typedef struct {
     char* shortcutShowFiles;
     char* shortcutToggleSpriteEnable;
     char* shortcutToggleFdcTiming;
+    char* shortcutToggleHddSdBoost;
     char* shortcutToggleNoSpriteLimits;
     char* shortcutEnableMsxKeyboardQuirk;
     char* shortcutToggleCpuTrace;

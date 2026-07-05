@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -33,6 +36,10 @@
 #include "StrcmpNoCase.h"
 #include "IsFileExtension.h"
 
+/* DLGPROC return slot for TRUE/FALSE replies; INT_PTR for x64 ABI safety.
+** DLGPROCs returning HBRUSH / HCURSOR / etc. use plain INT_PTR. */
+typedef INT_PTR BOOL_DLG_RET;
+
 typedef enum {
     DLG_ID_PROPERTIES = 1,
     DLG_ID_JOYKEYS = 2,
@@ -49,9 +56,29 @@ void updateDialogPos(HWND hwnd, int dialogID, int noMove, int noSize);
 void saveDialogPos(HWND hwnd, int dialogID);
 
 HWND getMainHwnd();
+HWND getEmuHwnd();
 
 
 void enterDialogShow();
 void exitDialogShow();
+
+/* Show / update / hide a tracking tooltip showing a slider's value next to
+** the cursor.  *phwndTip caches the tooltip HWND (one per parent window),
+** created lazily on first show.  Pass percent < 0 to hide. */
+void win32SliderTooltipUpdate(HWND* phwndTip, HWND parent, int percent);
+
+/* Theme query helpers for custom-paint controls (no WM_CTLCOLOR* path). */
+BOOL win32CommonIsDarkMode(void);
+COLORREF win32CommonDarkBg(void);
+COLORREF win32CommonDarkFg(void);
+HBRUSH   win32CommonDarkBgBrush(void);
+
+/* Per-DLGPROC opt-in: apply dark titlebar / SetWindowTheme / WM_CTLCOLOR*
+** subclass.  Call from WM_INITDIALOG.  Safe in light mode (no-op). */
+void win32CommonApplyDark(HWND hDlg);
+
+/* Center dialog over its owner (falls back to main HWND) instead of the
+** monitor (DS_CENTER).  Call from WM_INITDIALOG. */
+void win32CommonCenterOnOwner(HWND hDlg);
 
 #endif

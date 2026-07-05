@@ -41,7 +41,7 @@ static int readFile(IniFile *iniFile)
 
             if (length > 0) {
                 iniFile->iniBuffer = malloc(length);
-                length = fread(iniFile->iniBuffer, 1, length, f);
+                length = (int)fread(iniFile->iniBuffer, 1, length, f);
                 if (length > 0) {
                     iniFile->iniPtr = iniFile->iniBuffer;
                     iniFile->iniEnd = iniFile->iniBuffer + length;
@@ -178,7 +178,7 @@ static void destroyWriteBuffer(IniFile *iniFile)
 
 static void writeLine(IniFile *iniFile, const char* line)
 {
-    int length = strlen(line);
+    int length = (int)strlen(line);
     if (length + iniFile->wrtOffset > iniFile->wrtBufferSize) {
         iniFile->wrtBufferSize += 8192;
         iniFile->wrtBuffer = realloc(iniFile->wrtBuffer, iniFile->wrtBufferSize);
@@ -190,14 +190,18 @@ static void writeLine(IniFile *iniFile, const char* line)
     iniFile->modified = 1;
 }
 
-static void writeFile(IniFile *iniFile, const char* filename)
+static int writeFile(IniFile *iniFile, const char* filename)
 {
     FILE* f = fopen(filename, "w");
+    size_t toWrite;
+    size_t wrote;
     if (f == NULL) {
-        return;
+        return 0;
     }
-    fwrite(iniFile->iniBuffer, 1, iniFile->iniEnd - iniFile->iniBuffer, f);
+    toWrite = (size_t)(iniFile->iniEnd - iniFile->iniBuffer);
+    wrote   = fwrite(iniFile->iniBuffer, 1, toWrite, f);
     fclose(f);
+    return wrote == toWrite;
 }
 
 IniFile *iniFileOpen(const char *filename)
@@ -207,8 +211,7 @@ IniFile *iniFileOpen(const char *filename)
     if (iniFile != NULL)
     {
         iniFile->isZipped = 0;
-        iniFile->isZipped = NULL;
-        
+
         iniFile->modified = 0;
         
         iniFile->iniPtr = NULL;
@@ -246,18 +249,20 @@ IniFile *iniFileOpenZipped(const char *zipFile, const char *iniFilename)
 
 int iniFileClose(IniFile *iniFile)
 {
+    int writeOk = 1;
+
     if (iniFile->iniBuffer == NULL) {
         return 0;
     }
 
     if (iniFile->modified) {
-        writeFile(iniFile, iniFile->iniFilename);
+        writeOk = writeFile(iniFile, iniFile->iniFilename);
     }
 
     free(iniFile->iniBuffer);
     iniFile->iniBuffer = NULL;
 
-    return 1;
+    return writeOk;
 }
 
 const char *iniFileGetFilePath(IniFile *iniFile)
@@ -275,7 +280,7 @@ int iniFileGetInt(IniFile *iniFile,
     char *ep; 
     char t_section[MAX_LINE_LENGTH]; 
     char value[6]; 
-    int len = strlen(entry); 
+    int len = (int)strlen(entry);
     int i; 
     
     rewindBuffer(iniFile);
@@ -326,7 +331,7 @@ int iniFileGetString(IniFile *iniFile,
     char buff[MAX_LINE_LENGTH]; 
     char *ep; 
     char t_section[MAX_LINE_LENGTH]; 
-    int len = strlen(entry); 
+    int len = (int)strlen(entry);
 
     rewindBuffer(iniFile);
 
@@ -338,7 +343,7 @@ int iniFileGetString(IniFile *iniFile,
         if (readLine(iniFile, buff) < 0) {
             strncpy(buffer, def, bufferLen); 
             buffer[bufferLen - 1] = '\0';
-            return strlen(buffer); 
+            return (int)strlen(buffer);
         } 
     } while (strcmp(buff, t_section)); 
 
@@ -346,7 +351,7 @@ int iniFileGetString(IniFile *iniFile,
         if (readLine(iniFile, buff) < 0 || buff[0] == '[') {
             strncpy(buffer, def, bufferLen);   
             buffer[bufferLen - 1] = '\0';  
-            return strlen(buffer); 
+            return (int)strlen(buffer);
         } 
     } while (strncmp(buff, entry, len)); 
 
@@ -356,8 +361,8 @@ int iniFileGetString(IniFile *iniFile,
     strncpy(buffer, ep, bufferLen); 
     buffer[bufferLen - 1] = '\0'; 
 
-    return strlen(buffer); 
-} 
+    return (int)strlen(buffer);
+}
 
 int iniFileGetSection(IniFile *iniFile,
                       char* section,
@@ -377,7 +382,7 @@ int iniFileGetSection(IniFile *iniFile,
         if (readLine(iniFile, buff) < 0) {
             buffer[offset++] = '\0';
             buffer[offset++] = '\0';
-            return strlen(buffer); 
+            return (int)strlen(buffer);
         } 
     } while (strcmp(buff, t_section)); 
     
@@ -410,7 +415,7 @@ int iniFileWriteString(IniFile *iniFile,
 
     sprintf(t_section, "[%s]", section);
     sprintf(t_entry, "%s=", entry);
-    len = strlen(t_entry);
+    len = (int)strlen(t_entry);
 
     do {  
         if (readLine(iniFile, buff) < 0) {  

@@ -2,6 +2,7 @@
 #include "ToolInterface.h"
 #include "Resource.h"
 #include "Language.h"
+#include "Win32TextUtf8.h"
 #include <string>
 #include <commctrl.h>
 #include <sstream>
@@ -28,18 +29,18 @@ static void updateWindowMenu()
 {
     HMENU hMenuFile = CreatePopupMenu();
     
-    AppendMenu(hMenuFile, MF_STRING, MENU_FILE_LOG, logFile == NULL ? Language::menuFileLogToFile : Language::menuFileStopLogToFile);
-    AppendMenu(hMenuFile, MF_SEPARATOR, 0, NULL);
-    AppendMenu(hMenuFile, MF_STRING, MENU_FILE_EXIT, Language::menuFileExit);
+    AppendMenuU(hMenuFile, MF_STRING, MENU_FILE_LOG, logFile == NULL ? Language::menuFileLogToFile : Language::menuFileStopLogToFile);
+    AppendMenuU(hMenuFile, MF_SEPARATOR, 0, NULL);
+    AppendMenuU(hMenuFile, MF_STRING, MENU_FILE_EXIT, Language::menuFileExit);
     
     HMENU hMenuEdit = CreatePopupMenu();
-    AppendMenu(hMenuEdit, MF_STRING, MENU_EDIT_SELECTALL, Language::menuEditSelectAll);
-    AppendMenu(hMenuEdit, MF_STRING, MENU_EDIT_COPY, Language::menuEditCopy);
-    AppendMenu(hMenuEdit, MF_SEPARATOR, 0, NULL);
-    AppendMenu(hMenuEdit, MF_STRING, MENU_EDIT_CLEAR, Language::menuEditClearWindow);
+    AppendMenuU(hMenuEdit, MF_STRING, MENU_EDIT_SELECTALL, Language::menuEditSelectAll);
+    AppendMenuU(hMenuEdit, MF_STRING, MENU_EDIT_COPY, Language::menuEditCopy);
+    AppendMenuU(hMenuEdit, MF_SEPARATOR, 0, NULL);
+    AppendMenuU(hMenuEdit, MF_STRING, MENU_EDIT_CLEAR, Language::menuEditClearWindow);
 
     HMENU hMenuHelp = CreatePopupMenu();
-    AppendMenu(hMenuHelp, MF_STRING, MENU_HELP_ABOUT, Language::menuHelpAbout);
+    AppendMenuU(hMenuHelp, MF_STRING, MENU_HELP_ABOUT, Language::menuHelpAbout);
 
     static HMENU hMenu = NULL;
     if (hMenu != NULL) {
@@ -47,54 +48,26 @@ static void updateWindowMenu()
     }
 
     hMenu = CreateMenu();
-    AppendMenu(hMenu, MF_POPUP, (UINT)hMenuFile, Language::menuFile);
-    AppendMenu(hMenu, MF_POPUP, (UINT)hMenuEdit, Language::menuEdit);
-    AppendMenu(hMenu, MF_POPUP, (UINT)hMenuHelp, Language::menuHelp);
+    AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuFile, Language::menuFile);
+    AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuEdit, Language::menuEdit);
+    AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuHelp, Language::menuHelp);
     
     SetMenu(dbgHwnd, hMenu);
 }
 
 void openLogFile(HWND hwndOwner)
 {
-    OPENFILENAME ofn; 
-    static char pFileName[MAX_PATH];
-    static char buffer[0x20000];
-
+    char pFileName[MAX_PATH];
     pFileName[0] = 0; 
 
-    ofn.lStructSize = sizeof(OPENFILENAME); 
-    ofn.hwndOwner = hwndOwner; 
-    ofn.hInstance = GetDllHinstance();
-    ofn.lpstrFilter = "*.TXT\0*.*\0\0"; 
-    ofn.lpstrCustomFilter = NULL; 
-    ofn.nMaxCustFilter = 0;
-    ofn.nFilterIndex = 0; 
-    ofn.lpstrFile = pFileName; 
-    ofn.nMaxFile = 1024; 
-    ofn.lpstrFileTitle = NULL; 
-    ofn.nMaxFileTitle = 0; 
-    ofn.lpstrInitialDir = NULL; 
-    ofn.lpstrTitle = Language::openWindowCaption; 
-    ofn.Flags = OFN_EXPLORER | OFN_ENABLESIZING | OFN_OVERWRITEPROMPT; 
-    ofn.nFileOffset = 0; 
-    ofn.nFileExtension = 0; 
-    ofn.lpstrDefExt = NULL; 
-    ofn.lCustData = 0; 
-    ofn.lpfnHook = NULL; 
-    ofn.lpTemplateName = NULL; 
-
-    char  curDir[MAX_PATH];
-    GetCurrentDirectory(MAX_PATH, curDir);
-
-    BOOL rv = GetSaveFileName(&ofn); 
-
-    SetCurrentDirectory(curDir);
-
-    if (!rv) {
+    /* IFileDialog via newer host: UTF-8 paths, dark-mode-aware. */
+    if (!ShellSaveFileDialog(hwndOwner, Language::openWindowCaption,
+                             "Text Files (*.txt)\0*.TXT\0All Files\0*.*\0\0",
+                             NULL, "txt", NULL, pFileName, sizeof(pFileName))) {
         return; 
     }
 
-    logFile = fopen(pFileName, "wb");
+    logFile = fopenU(pFileName, "wb");
 }
 
 static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam) 
@@ -116,10 +89,10 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 
         case MENU_HELP_ABOUT:
             {
-                char text[256];
+                char text[512];
                 sprintf(text, "%s\r\n\r\n%s: " __DATE__ "\r\n\r\n%s    \r\n\r\n\r\n",
                     Language::traceWindowCaption, Language::aboutBuilt, Language::aboutVisit);
-                MessageBox(NULL, text, Language::traceWindowCaption, MB_ICONINFORMATION | MB_OK);
+                MessageBoxU(NULL, text, Language::traceWindowCaption, MB_ICONINFORMATION | MB_OK);
             }
             return 0;
 
@@ -218,23 +191,41 @@ void OnShowTool() {
 
     charCount = 0;
 
-    dbgHwnd = CreateWindow("TraceWindow", Language::traceWindowCaption, 
+    dbgHwnd = CreateWindow("TraceWindow", NULL,
                            WS_OVERLAPPEDWINDOW, 
                            CW_USEDEFAULT, CW_USEDEFAULT, 600, 440, NULL, NULL, GetDllHinstance(), NULL);
+    SetWindowTextU(dbgHwnd, Language::traceWindowCaption);
 
     void* hEditDS = GlobalAlloc(GMEM_MOVEABLE | GMEM_ZEROINIT | GMEM_SHARE, 256L);
-      if (hEditDS == NULL) {
-         hEditDS = GetDllHinstance();
-      }
+    if (hEditDS == NULL) {
+        hEditDS = GetDllHinstance();
+    }
    
-      hwndEdit = CreateWindow("edit", NULL, 
-          WS_CHILD | WS_VISIBLE | WS_BORDER | WS_HSCROLL | WS_VSCROLL | ES_MULTILINE | 
-          ES_AUTOHSCROLL | ES_READONLY |
-         ES_AUTOVSCROLL, 10, 10, 250, 200, dbgHwnd, (HMENU)IDEDITCTL, (HINSTANCE)hEditDS, NULL);
+    hwndEdit = CreateWindow("edit", NULL,
+        WS_CHILD | WS_VISIBLE | WS_BORDER | WS_HSCROLL | WS_VSCROLL | ES_MULTILINE |
+        ES_AUTOHSCROLL | ES_READONLY | ES_AUTOVSCROLL,
+        10, 10, 250, 200, dbgHwnd, (HMENU)IDEDITCTL, (HINSTANCE)hEditDS, NULL);
 
-      // Now limit the text to the maximum possible amount.
-      //
-      SendMessage(hwndEdit, EM_LIMITTEXT, 0, 0);
+    SendMessage(hwndEdit, EM_LIMITTEXT, 0, 0);
+
+    /* Default to a comfortable trace-friendly size, DPI-scaled so it fills
+    ** roughly the same visual footprint on 100% / 150% / 200% monitors. */
+    {
+        typedef UINT (WINAPI *PFN_GetDpiForWindow)(HWND);
+        HMODULE huser32 = GetModuleHandleW(L"user32.dll");
+        PFN_GetDpiForWindow pGetDpi = huser32
+            ? (PFN_GetDpiForWindow)GetProcAddress(huser32, "GetDpiForWindow")
+            : NULL;
+        UINT dpi = pGetDpi ? pGetDpi(dbgHwnd) : 96;
+        int w = MulDiv(900, dpi, 96);
+        int h = MulDiv(640, dpi, 96);
+        SetWindowPos(dbgHwnd, NULL, 0, 0, w, h, SWP_NOMOVE | SWP_NOZORDER);
+    }
+
+    /* ApplyDarkMode after children are in place so EnumChildWindows finds
+    ** hwndEdit and applies SetWindowTheme(DarkMode_Explorer) -- that is what
+    ** darkens the edit-control scrollbars on Win10/11. */
+    ApplyDarkMode(dbgHwnd);
 
     ShowWindow(dbgHwnd, TRUE);
 

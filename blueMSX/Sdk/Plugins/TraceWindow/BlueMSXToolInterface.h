@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -29,6 +32,9 @@
 */
 #ifndef BLUEMSX_TOOL_INTERFACE_H
 #define BLUEMSX_TOOL_INTERFACE_H
+
+/* HWND/HBRUSH/COLORREF used by the dark-mode + IFileDialog entries. */
+#include <windows.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -69,6 +75,7 @@ typedef enum {
     LID_CHINESESIMP = 12,
     LID_CHINESETRAD = 13,
     LID_RUSSIAN     = 14,
+    LID_CATALAN     = 15
 } LanguageId;
 
 typedef struct Snapshot Snapshot;
@@ -176,6 +183,16 @@ typedef void          (__stdcall *ToolEmulatorVersion)(int* major, int* minor, i
 typedef void          (__stdcall *ToolEnableVramAccessCheck)(int enable);
 typedef void          (__stdcall *ToolSetWatchpoint)(DeviceType devType, int address, WatchpointCondition condition, UInt32 referenceValue, int size);
 typedef void          (__stdcall *ToolClearWatchpoint)(DeviceType devType, int address);
+
+/* Dark-mode + IFileDialog entries. Older hosts that predate them leave
+** these fields zero -- plugins MUST null-check before invoking. */
+typedef void          (__stdcall *ToolApplyDarkMode)(HWND hWnd);
+typedef int           (__stdcall *ToolIsDarkMode)(void);
+typedef UInt32        (__stdcall *ToolGetDarkColor)(void);
+typedef HBRUSH        (__stdcall *ToolGetDarkBrush)(void);
+typedef int           (__stdcall *ToolShellOpenFile)(HWND owner, const char* title, const char* filter, const char* initialDir, const char* defExt, int* filterIndex, char* outPath, int outPathCap);
+typedef int           (__stdcall *ToolShellSaveFile)(HWND owner, const char* title, const char* filter, const char* initialDir, const char* defExt, int* filterIndex, char* outPath, int outPathCap);
+
 typedef struct {
     ToolSnapshotCreate              create;
     ToolSnapshotDestroy             destroy;
@@ -212,6 +229,16 @@ typedef struct {
     ToolClearWatchpoint             clearWatchpoint;
 
     ToolAction                      stepBack;
+
+    /* Appended fields: older plugins ignore the tail.  Always null-check on
+    ** the plugin side (zero when loaded by a host built before this header). */
+    ToolApplyDarkMode               applyDarkMode;
+    ToolIsDarkMode                  isDarkMode;
+    ToolGetDarkColor                getDarkBg;
+    ToolGetDarkColor                getDarkFg;
+    ToolGetDarkBrush                getDarkBgBrush;
+    ToolShellOpenFile               shellOpenFileDialog;
+    ToolShellSaveFile               shellSaveFileDialog;
 } Interface;
 
 typedef int  (__stdcall *CreateFn)(Interface*, char*, int);

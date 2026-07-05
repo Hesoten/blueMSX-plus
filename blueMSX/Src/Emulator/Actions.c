@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -39,6 +42,8 @@
 #include "InputEvent.h"
 #include "VideoManager.h"
 #include "VDP.h"
+#include "../SoundChips/YM2413.h"
+#include "../SoundChips/Y8950.h"
 
 #include "ArchMenu.h"
 #include "ArchDialog.h"
@@ -49,6 +54,10 @@
 #include "ArchInput.h"
 #include "ArchVideoIn.h"
 
+/* Required for langDlgSaveCapture* accessors used in prompt-mode capture flow;
+** without it C returns implicit int and truncates the pointer on x64. */
+#include "Language.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -57,6 +66,10 @@
 #ifdef _WIN32
 #include <windows.h>
 #endif
+
+/* Route fopen() through pkg_fopen so UTF-8 paths reach _wfopen (handles
+** ROM names with non-ACP characters). Must come after <stdio.h>. */
+#include "PacketFileSystem.h"
 
 static struct {
     Properties* properties;
@@ -124,6 +137,7 @@ void actionDiskInsertDir(int diskNo)
     filename = archDirnameGetOpenDisk(state.properties, diskNo);
     if (filename != NULL) {        
         strcpy(state.properties->media.disks[diskNo].directory, filename);
+        diskPreviewDirOverflow(diskNo, filename);
         insertDiskette(state.properties, diskNo, filename, NULL, 0);
     }
     emulatorResume();
@@ -231,6 +245,16 @@ void actionSetVideoCaptureSetDirectory(char* dir, char* prefix)
     strcpy(videoPrefix, prefix);
 }
 
+const char* actionGetAudioCaptureDir(void)
+{
+    return audioDir;
+}
+
+const char* actionGetVideoCaptureDir(void)
+{
+    return videoDir;
+}
+
 void actionSetQuickSaveSetDirectory(char* dir, char* prefix)
 {
     strcpy(stateDir, dir);
@@ -281,6 +305,11 @@ void actionToggleFdcTiming() {
     boardSetFdcTimingEnable(state.properties->emulation.enableFdcTiming);
 }
 
+void actionToggleHddSdBoost() {
+    state.properties->emulation.enableHddSdBoost = !state.properties->emulation.enableHddSdBoost;
+    boardSetHddSdBoostEnable(state.properties->emulation.enableHddSdBoost);
+}
+
 
 void actionToggleHorizontalStretch() {
     state.properties->video.horizontalStretch = !state.properties->video.horizontalStretch;
@@ -323,13 +352,71 @@ void actionQuit() {
     archQuit();
 }
 
+/* Extract the basename from a full path produced by generateSaveFilename
+** so it can be pre-filled into a Save As dialog. Returns a pointer into the
+** input string; do not free. */
+static const char* captureBasename(const char* fullPath) {
+    const char* sep = strrchr(fullPath, '\\');
+    const char* fwd = strrchr(fullPath, '/');
+    if (fwd > sep) sep = fwd;
+    return sep ? sep + 1 : fullPath;
+}
+
+/* Resolve capture filename: pop Save-As with auto-name pre-filled when prompt
+** or alwaysPrompt is on, else return auto-name. NULL on dialog cancel. */
+static char* resolveCaptureFilename(int prompt, int alwaysPrompt,
+                                    const char* dialogTitle,
+                                    const char* dir, const char* prefix,
+                                    const char* extension,
+                                    const char* fileTypeLabel) {
+    char* autoName = generateSaveFilename(state.properties, (char*)dir,
+                                           (char*)prefix, (char*)extension, 2);
+    if (!(prompt || alwaysPrompt)) return autoName;
+
+    return archFilenameGetSaveCapture(state.properties,
+                                       dialogTitle,
+                                       dir,
+                                       captureBasename(autoName),
+                                       extension,
+                                       fileTypeLabel);
+}
+
+/* Stash for the most recent .wav path so the stop-side can toast the user
+** with the saved location. Mixer's stop API doesn't return a filename. */
+static char lastWavCapturePath[PROP_MAXPATH] = "";
+
+static void waveCaptureStart(int alwaysPrompt) {
+    char* fname = resolveCaptureFilename(state.properties->capture.audioPromptFilename,
+                                          alwaysPrompt,
+                                          langDlgSaveCaptureAudio(),
+                                          audioDir, audioPrefix, ".wav", "WAV Audio");
+    if (!fname) return;
+    strncpy(lastWavCapturePath, fname, sizeof(lastWavCapturePath) - 1);
+    lastWavCapturePath[sizeof(lastWavCapturePath) - 1] = 0;
+    mixerStartLog(state.mixer, fname);
+}
+
 void actionToggleWaveCapture() {
     if (mixerIsLogging(state.mixer)) {
         mixerStopLog(state.mixer);
+        if (state.properties->capture.showCompletionToast && lastWavCapturePath[0]) {
+            archCaptureToastSaved(lastWavCapturePath);
+        }
+        lastWavCapturePath[0] = 0;
     }
     else {
-        mixerStartLog(state.mixer, generateSaveFilename(state.properties, audioDir, audioPrefix, ".wav", 2));
+        waveCaptureStart(0);
     }
+    archUpdateMenu(0);
+}
+
+void actionWaveCaptureStartAs() {
+    if (mixerIsLogging(state.mixer)) {
+        /* Warning toast: always shown; showCompletionToast gates only save-completion. */
+        archCaptureToastInfo(langInfoToastAlreadyRecording());
+        return;
+    }
+    waveCaptureStart(1);
     archUpdateMenu(0);
 }
 
@@ -350,19 +437,101 @@ void actionVideoCaptureLoad() {
 }
 
 void actionVideoCapturePlay() {
+    char* fname = state.properties->filehistory.videocap;
+
+    /* Check the .cap exists *before* stopping the running emulator. The old
+    ** behaviour silently stopped the emu when the file was missing, which
+    ** looked like the menu just froze the session for no reason. */
+    if (fname[0] == 0 || !fileExist(fname, NULL)) {
+        archReplayMissing(fname);
+        return;
+    }
+
     if (emulatorGetState() != EMU_STOPPED) {
         emulatorStop();
     }
-
-    if (fileExist(state.properties->filehistory.videocap, NULL)) {
-        emulatorStart(state.properties->filehistory.videocap);
-    }
+    emulatorStart(fname);
     archUpdateMenu(0);
 }
 
 void actionVideoCaptureSave() {
-    if (boardCaptureHasData()) {
-        archVideoCaptureSave();
+    /* The renderer now picks the source replay (.cap) from disk inside its
+    ** own dialog, so no in-memory capture is required to enter the flow. */
+    archVideoCaptureSave();
+}
+
+static void videoRecordStart(int alwaysPrompt) {
+    char* fname = NULL;
+    int prompt = state.properties->capture.videoPromptFilename || alwaysPrompt;
+
+    if (prompt) {
+        /* Empty prefix so the suggested name matches the recorder's auto
+        ** path (machine_NN.mp4), consistent with audio / replay naming. */
+        char* autoName = generateSaveFilename(state.properties, videoDir,
+                                               (char*)"", (char*)".mp4", 2);
+        fname = archFilenameGetSaveCapture(state.properties,
+                                            langDlgSaveCaptureVideo(),
+                                            videoDir,
+                                            captureBasename(autoName),
+                                            ".mp4", "MP4 Video");
+        if (!fname) return;     /* user cancelled */
+    }
+    archRecordVideoStart(fname);    /* NULL = let the recorder auto-name */
+    archUpdateMenu(0);
+}
+
+/* Warning toast: always shown regardless of showCompletionToast (which
+** gates only the save-completion info toasts). */
+static void notifyAlreadyRecording(void) {
+    archCaptureToastInfo(langInfoToastAlreadyRecording());
+}
+
+void actionRecordVideoStart(void) {
+    if (archRecordVideoIsActive()) { notifyAlreadyRecording(); return; }
+    videoRecordStart(0);
+}
+
+void actionRecordVideoStartAs(void) {
+    if (archRecordVideoIsActive()) { notifyAlreadyRecording(); return; }
+    videoRecordStart(1);
+}
+
+void actionRecordVideoStop(void) {
+    if (!archRecordVideoIsActive()) return;
+    archRecordVideoStop();
+    archUpdateMenu(0);
+}
+
+void actionRecordVideoToggle(void) {
+    if (archRecordVideoIsActive()) actionRecordVideoStop();
+    else                            actionRecordVideoStart();
+}
+
+void actionYm2413BackendCycle(void) {
+    /* Walk to the next enabled backend and persist so the chip starts on
+    ** the same backend after restart. */
+    Properties* p = propGetGlobalProperties();
+    int next = ym2413BackendCycle();
+    if (p) p->sound.chip.ym2413BackendActive = next;
+}
+
+void actionY8950BackendCycle(void) {
+    Properties* p = propGetGlobalProperties();
+    int next = y8950BackendCycle();
+    if (p) p->sound.chip.y8950BackendActive = next;
+}
+
+/* Success/failure toast for a just-finalized replay .cap. boardCaptureStop
+** swallows fopen("wb") errors on missing / unwritable target dir, so
+** existence-check the path before claiming success. Gated by
+** capture.showCompletionToast (mirrors other capture-completion toasts). */
+static void replayEmitCompletionToast(const char* fname) {
+    if (!fname || !fname[0]) return;
+    if (!fileExist((char*)fname, NULL)) {
+        archReplaySaveFailure(fname);
+    }
+    else if (state.properties && state.properties->capture.showCompletionToast) {
+        archCaptureToastSaved(fname);
     }
 }
 
@@ -377,24 +546,94 @@ void actionVideoCaptureStop() {
 
     emulatorResume();
     archUpdateMenu(0);
+
+    /* boardCaptureStop queued the completion for the drain path; the
+    ** consume-side handles the "was really recording" gate implicitly
+    ** (Play-mode stop leaves the pending file clear). */
+    actionReplayFlushCompletionToast();
 }
 
-void actionVideoCaptureRec() {
+void actionReplayFlushCompletionToast(void) {
+    char fname[PROP_MAXPATH];
+    if (boardCaptureConsumePendingToast(fname, sizeof(fname))) {
+        replayEmitCompletionToast(fname);
+    }
+}
+
+/* Preflight fopen("wb") on the .cap path before boardCaptureStart buffers
+** anything; the empty file gets overwritten in boardCaptureStop. */
+static int actionReplayPreflightWrite(const char* fname) {
+    FILE* f = fopen(fname, "wb");
+    if (!f) {
+        archReplaySaveFailure(fname);
+        return 0;
+    }
+    fclose(f);
+    return 1;
+}
+
+/* Pick the .cap path for a replay-record start; stores into
+** filehistory.videocap. Returns 0 on Save-As dialog cancel. */
+static int replayRecResolveFilename(int alwaysPrompt) {
+    char* slot = state.properties->filehistory.videocap;
+    int prompt = state.properties->capture.replayPromptFilename || alwaysPrompt;
+    char* picked;
+    const char* dir = state.properties->capture.replayDir[0]
+                      ? state.properties->capture.replayDir : videoDir;
+
+    if (!prompt) {
+        strcpy(slot, generateSaveFilename(state.properties, videoDir, videoPrefix, ".cap", 2));
+        return 1;
+    }
+
+    {
+        char* autoName = generateSaveFilename(state.properties, videoDir, videoPrefix, ".cap", 2);
+        picked = archFilenameGetSaveCapture(state.properties,
+                                             langDlgSaveCaptureReplay(),
+                                             dir,
+                                             captureBasename(autoName),
+                                             ".cap", "Replay");
+    }
+    if (!picked) return 0;
+    strncpy(slot, picked, PROP_MAXPATH - 1);
+    slot[PROP_MAXPATH - 1] = 0;
+    return 1;
+}
+
+static void videoCaptureRecStart(int alwaysPrompt) {
+    char* fname = state.properties->filehistory.videocap;
+
+    /* Already recording: bail before any Save-As dialog or preflight so
+    ** the user doesn't get a misleading prompt that ends up no-op'd by
+    ** boardCaptureStart's CAPTURE_REC guard. Toast (warning) for clarity. */
+    if (boardCaptureIsRecording()) {
+        archCaptureToastInfo(langInfoToastAlreadyRecording());
+        return;
+    }
+
     if (emulatorGetState() == EMU_STOPPED) {
-        strcpy(state.properties->filehistory.videocap, generateSaveFilename(state.properties, videoDir, videoPrefix, ".cap", 2));
-        boardCaptureStart(state.properties->filehistory.videocap);
+        if (!replayRecResolveFilename(alwaysPrompt)) return;
+        if (!actionReplayPreflightWrite(fname)) return;
+        boardCaptureStart(fname);
         actionEmuTogglePause();
         archUpdateMenu(0);
         return;
     }
 
     emulatorSuspend();
-
-    strcpy(state.properties->filehistory.videocap, generateSaveFilename(state.properties, videoDir, videoPrefix, ".cap", 2));
-    boardCaptureStart(state.properties->filehistory.videocap);
-
+    if (replayRecResolveFilename(alwaysPrompt) && actionReplayPreflightWrite(fname)) {
+        boardCaptureStart(fname);
+    }
     emulatorResume();
     archUpdateMenu(0);
+}
+
+void actionVideoCaptureRec() {
+    videoCaptureRecStart(0);
+}
+
+void actionVideoCaptureRecAs() {
+    videoCaptureRecStart(1);
 }
 
 void actionLoadState() {
@@ -449,6 +688,7 @@ void actionQuickSaveState() {
         boardSaveState(state.properties->filehistory.quicksave, 1);
         emulatorResume();
     }
+    archUpdateMenu(0);
 }
 
 void actionQuickSaveStateUndo() {
@@ -460,8 +700,8 @@ void actionQuickSaveStateUndo() {
         if (state.properties->filehistory.quicksave && strlen(state.properties->filehistory.quicksave) > 10) {
             char numstr[5], *oldstatefilename;
             int numstrtonum;
-            int qslen=strlen(state.properties->filehistory.quicksave)-6; // focus on the 2 numbers before the ext
-            oldstatefilename = strdup(state.properties->filehistory.quicksave);
+            int qslen=(int)strlen(state.properties->filehistory.quicksave)-6; // focus on the 2 numbers before the ext
+            oldstatefilename = _strdup(state.properties->filehistory.quicksave);
             memset(&numstr, 0, sizeof(numstr));
             strncpy(numstr, state.properties->filehistory.quicksave+qslen, 2);
             numstrtonum = atoi(numstr);
@@ -596,30 +836,28 @@ void actionDiskQuickChange() {
     archUpdateMenu(0);
 }
 
-void actionWindowSizeSmall() {
-    state.windowedSize = P_VIDEO_SIZEX1;
-    if (state.properties->video.windowSize != P_VIDEO_SIZEX1) {
-        state.properties->video.windowSize = P_VIDEO_SIZEX1;
+void actionChangeWindowSize(int zoom) {
+    if (zoom != P_VIDEO_SIZEFULLSCREEN) {
+        state.windowedSize = zoom;
+    }
+    if (state.properties->video.windowSize != zoom) {
+        state.properties->video.windowSize = zoom;
         state.properties->video.windowSizeChanged = 1;
         archUpdateWindow();
     }
 }
 
-void actionWindowSizeNormal() {
-    state.windowedSize = P_VIDEO_SIZEX2;
-    if (state.properties->video.windowSize != P_VIDEO_SIZEX2) {
-        state.properties->video.windowSize = P_VIDEO_SIZEX2;
-        state.properties->video.windowSizeChanged = 1;
-        archUpdateWindow();
-    }
-}
+void actionWindowSize1x()     { actionChangeWindowSize(P_VIDEO_SIZEX1); }
+void actionWindowSize2x()     { actionChangeWindowSize(P_VIDEO_SIZEX2); }
+void actionWindowSize3x()     { actionChangeWindowSize(P_VIDEO_SIZEX3); }
+void actionWindowSize4x()     { actionChangeWindowSize(P_VIDEO_SIZEX4); }
+void actionWindowSize5x()     { actionChangeWindowSize(P_VIDEO_SIZEX5); }
+void actionWindowSize6x()     { actionChangeWindowSize(P_VIDEO_SIZEX6); }
+void actionWindowSize7x()     { actionChangeWindowSize(P_VIDEO_SIZEX7); }
+void actionWindowSize8x()     { actionChangeWindowSize(P_VIDEO_SIZEX8); }
 
 void actionWindowSizeFullscreen() {
-    if (state.properties->video.windowSize != P_VIDEO_SIZEFULLSCREEN) {
-        state.properties->video.windowSize = P_VIDEO_SIZEFULLSCREEN;
-        state.properties->video.windowSizeChanged = 1;
-        archUpdateWindow();
-    }
+    actionChangeWindowSize(P_VIDEO_SIZEFULLSCREEN);
 }
 
 void actionWindowSizeMinimized() {
@@ -632,12 +870,7 @@ void actionMaxSpeedToggle() {
 
 void actionFullscreenToggle() {
     if (state.properties->video.windowSize == P_VIDEO_SIZEFULLSCREEN) {
-        if (state.windowedSize == P_VIDEO_SIZEX2) {
-            actionWindowSizeNormal();
-        }
-        else {
-            actionWindowSizeSmall();
-        }
+        actionChangeWindowSize(state.windowedSize);
     }
     else {
         actionWindowSizeFullscreen();
@@ -752,6 +985,10 @@ void actionEmuResetClean() {
 
 void actionScreenCapture() {
     archScreenCapture(SC_NORMAL, NULL, 0);
+}
+
+void actionScreenCaptureAs() {
+    archScreenCaptureAs();
 }
 
 void actionScreenCaptureUnfilteredSmall() {
@@ -880,6 +1117,10 @@ void actionPropShowAudio() {
     archShowPropertiesDialog(PROP_SOUND);
 }
 
+void actionPropShowMidi() {
+    archShowPropertiesDialog(PROP_MIDI);
+}
+
 void actionPropShowVideo() {
     archShowPropertiesDialog(PROP_PERFORMANCE);
 }
@@ -902,6 +1143,10 @@ void actionPropShowEffects() {
 
 void actionPropShowApearance() {
     archShowPropertiesDialog(PROP_APEARANCE);
+}
+
+void actionPropShowCapture() {
+    archShowPropertiesDialog(PROP_CAPTURE);
 }
 
 void actionOptionsShowLanguage() {
@@ -1053,7 +1298,9 @@ void actionPrinterForceFormFeed()
 void actionVolumeToggleStereo() {
     state.properties->sound.stereo = !state.properties->sound.stereo;
 
-    emulatorRestartSound();
+    /* Driver runs at 2ch unconditionally; the mixer dual-monos in mono
+    ** mode via recalculateChannelVolume.  No driver tear-down needed. */
+    mixerSetStereo(mixerGetGlobalMixer(), state.properties->sound.stereo);
 }
 
 void actionNextTheme() {
@@ -1340,6 +1587,11 @@ void actionSetFdcTiming(int value) {
     boardSetFdcTimingEnable(state.properties->emulation.enableFdcTiming);
 }
 
+void actionSetHddSdBoost(int value) {
+    state.properties->emulation.enableHddSdBoost = value ? 1 : 0;
+    boardSetHddSdBoostEnable(state.properties->emulation.enableHddSdBoost);
+}
+
 void actionSetWaveCapture(int value) {
     if (value == 0) {
         mixerStopLog(state.mixer);
@@ -1360,10 +1612,10 @@ void actionSetMouseCapture(int value) {
 void actionSetFullscreen(int value) {
     if (value == 0 && state.properties->video.windowSize == P_VIDEO_SIZEFULLSCREEN) {
         if (state.windowedSize == P_VIDEO_SIZEX2) {
-            actionWindowSizeNormal();
+            actionWindowSize2x();
         }
         else {
-            actionWindowSizeSmall();
+            actionWindowSize1x();
         }
     }
     else if (state.properties->video.windowSize != P_VIDEO_SIZEFULLSCREEN) {
@@ -1403,7 +1655,7 @@ void actionSetVolumeStereo(int value) {
     int oldStereo = state.properties->sound.stereo;
     state.properties->sound.stereo = value ? 1 : 0;
     if (oldStereo != state.properties->sound.stereo) {
-        emulatorRestartSound();
+        mixerSetStereo(mixerGetGlobalMixer(), state.properties->sound.stereo);
     }
 }
 

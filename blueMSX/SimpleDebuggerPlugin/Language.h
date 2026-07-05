@@ -4,6 +4,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -117,6 +120,10 @@ public:
     static const char* symbolWindowText;
 
     static const char* popupOverwrite;
+
+    static const char* statusRunning;
+    static const char* statusPaused;
+    static const char* statusStopped;
 
     static const char* aboutBuilt;
     static const char* aboutVisit;

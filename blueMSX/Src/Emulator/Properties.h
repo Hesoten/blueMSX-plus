@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -79,6 +82,7 @@
 #define CARTNAME_NOWINDDOS2  "Nowind MSXDOS2"
 #define CARTNAME_MEGAFLSHSCC "MegaFlashRomScc"
 #define CARTNAME_MEGAFLSHSCCPLUS "MegaFlashRomSccPlus"
+#define CARTNAME_MEGAFLSHSCCPLUS_SD "MegaFlashRomSccPlusSD"
 #define CARTNAME_WAVESCSI128 "128kB WAVE-SCSI"
 #define CARTNAME_WAVESCSI256 "256kB WAVE-SCSI"
 #define CARTNAME_WAVESCSI512 "512kB WAVE-SCSI"
@@ -91,11 +95,13 @@ typedef enum {
     PROP_EMULATION = 0, 
     PROP_VIDEO, 
     PROP_SOUND, 
+    PROP_MIDI,
     PROP_PERFORMANCE, 
     PROP_SETTINGS, 
     PROP_DISK,
     PROP_APEARANCE, 
     PROP_PORTS,
+    PROP_CAPTURE,
 	PROP_D3D
 } PropPage;
 
@@ -170,6 +176,12 @@ enum {
 enum { 
     P_VIDEO_SIZEX1 = 0, 
     P_VIDEO_SIZEX2, 
+    P_VIDEO_SIZEX3,
+    P_VIDEO_SIZEX4,
+    P_VIDEO_SIZEX5,
+    P_VIDEO_SIZEX6,
+    P_VIDEO_SIZEX7,
+    P_VIDEO_SIZEX8,
     P_VIDEO_SIZEFULLSCREEN 
 };
 
@@ -181,15 +193,15 @@ enum {
 
 enum { 
     P_SOUND_DRVNONE = 0, 
-    P_SOUND_DRVWMM, 
-    P_SOUND_DRVDIRECTX 
+    P_SOUND_DRVDIRECTX, 
+    P_SOUND_DRVWASAPI
 };
 
 enum { 
     P_VIDEO_DRVDIRECTX_VIDEO = 0, 
-    P_VIDEO_DRVDIRECTX, 
-    P_VIDEO_DRVGDI,
-    P_VIDEO_DRVDIRECTX_D3D
+    P_VIDEO_DRVDIRECTX       = 1,
+    P_VIDEO_DRVGDI           = 2,
+    P_VIDEO_DRVDIRECTX_D3D12 = 3
 };
 
 enum { 
@@ -211,6 +223,7 @@ typedef struct {
     char machineName[PROP_MAXPATH];
     char shortcutProfile[PROP_MAXPATH];
     int  enableFdcTiming;
+    int  enableHddSdBoost;
     int  noSpriteLimits;
     int  frontSwitch;
     int  audioSwitch;
@@ -218,7 +231,6 @@ typedef struct {
     int  speed;
     int  ejectMediaOnExit;
     int  registerFileTypes;
-    int  disableWinKeys;
     int  priorityBoost;
     int  syncMethod;
     int  syncMethodGdi;
@@ -227,6 +239,7 @@ typedef struct {
     int  vdpSyncMode;
     int  reverseEnable;
     int  reverseMaxTime;
+    int  vdpCmdSpeed;   /* VDP command engine wait scale, 0..100 (% of stock timing) */
 } EmulationProperties;
 
 typedef struct {
@@ -269,6 +282,13 @@ typedef struct {
     int saturation;
     int scanlinesEnable;
     int scanlinesPct;
+    int scanlinesBrightAuto;   /* 0/1 -- auto-compute compensation from scanlinesPct */
+    int scanlinesBrightPct;    /* 100..300, used when scanlinesBrightAuto == 0 */
+    int scanlinesShapeMode;    /* 0=Gentle, 1=Standard CRT, 2=Sharp, 3=Trinitron, 4=Custom */
+    int scanlinesShapePct;     /* 0..100 -> p in [0, 4]; mask = lerp(s, 1, pow(beam, p)) */
+    int hdrEnable;             /* 0/1 -- request HDR (scRGB FP16) swap chain on DX12 */
+    int hdrPaperWhiteNits;     /* 80..400, target SDR-white luminance in HDR mode (default 200) */
+    int recordHdr;             /* 0/1 -- record in HDR (HEVC main10 + BT.2020 + PQ); requires hdrEnable */
     int colorSaturationEnable;
     int colorSaturationWidth;
     int gamma;
@@ -316,6 +336,32 @@ typedef struct {
     int pan;
 } MixerChannel;
 
+/* YM2413 backend slot indices, matching Ym2413MultiBackend.cpp.  The
+** openmsx (initial) slot is dead-coded unless YM2413_BUILD_OPENMSX_INITIAL
+** is defined. */
+#define PROP_YM2413_BACKEND_OPENMSX   0
+#define PROP_YM2413_BACKEND_OPENMSX_2 1
+#define PROP_YM2413_BACKEND_EMU2413   2
+#define PROP_YM2413_BACKEND_NUKED     3
+#define PROP_YM2413_BACKEND_COUNT     4
+
+/* Y8950 backend slot indices, matching Y8950MultiBackend.cpp. */
+#define PROP_Y8950_BACKEND_FMOPL      0
+#define PROP_Y8950_BACKEND_EMU8950    1
+#define PROP_Y8950_BACKEND_OPENMSX    2
+#define PROP_Y8950_BACKEND_COUNT      3
+
+/* OPLL analogue output LPF preset (HPF is fixed 20 Hz DC block).
+** Order = combobox order, bright -> mellow. */
+#define PROP_OPLL_FILTER_OFF          0   /* bypass            */
+#define PROP_OPLL_FILTER_BRIGHT       1   /* LPF 12000         */
+#define PROP_OPLL_FILTER_CLEAR        2   /* LPF 8000          */
+#define PROP_OPLL_FILTER_STANDARD     3   /* LPF 5000          */
+#define PROP_OPLL_FILTER_SOFT         4   /* LPF 3500          */
+#define PROP_OPLL_FILTER_MELLOW       5   /* LPF 2300          */
+#define PROP_OPLL_FILTER_CUSTOM       6   /* slider-set value  */
+#define PROP_OPLL_FILTER_COUNT        7
+
 typedef struct {
     int enableY8950;
     int enableYM2413;
@@ -324,6 +370,26 @@ typedef struct {
     int ym2413Oversampling;
     int y8950Oversampling;
     int moonsoundOversampling;
+    /* Per-backend enable flag = 1 means the backend is instantiated and
+    ** appears in the cycle / dropdown.  Disabled backends stay NULL and
+    ** consume zero CPU. */
+    int ym2413BackendOpenmsxEnabled;   /* dead-coded; always 0 unless YM2413_BUILD_OPENMSX_INITIAL */
+    int ym2413BackendOpenmsx2Enabled;
+    int ym2413BackendEmu2413Enabled;
+    int ym2413BackendNukedEnabled;
+    int ym2413BackendActive;            /* PROP_YM2413_BACKEND_* */
+    int y8950BackendFmoplEnabled;
+    int y8950BackendEmu8950Enabled;
+    int y8950BackendOpenmsxEnabled;
+    int y8950BackendActive;             /* PROP_Y8950_BACKEND_* */
+    /* OPLL analog post-filter (PROP_OPLL_FILTER_* + custom Hz fields).
+    ** Custom Hz values are honoured only when filterMode == CUSTOM; the
+    ** other preset modes derive cutoffs from PROP_OPLL_FILTER_* and the
+    ** Hz fields are kept around so re-entering Custom remembers the last
+    ** manual edit. */
+    int ym2413AnalogFilterMode;
+    int ym2413AnalogFilterLpfHz;
+    int ym2413AnalogFilterHpfHz;
 } SoundChip;
 
 typedef struct {
@@ -472,6 +538,33 @@ typedef struct {
     } windowPos[DLG_MAX_ID];
 } Settings;
 
+/* Capture properties: paths, formats, filename behavior, completion notification. */
+enum { CAP_AUDIO_WAV = 0, CAP_AUDIO_MP3 = 1, CAP_AUDIO_AAC = 2 };
+enum { CAP_VIDEO_H264 = 0, CAP_VIDEO_HEVC = 1 };
+enum { CAP_IMG_PNG = 0, CAP_IMG_BMP = 1 };
+
+typedef struct {
+    char audioDir[PROP_MAXPATH];
+    char videoDir[PROP_MAXPATH];
+    char screenshotDir[PROP_MAXPATH];
+    char replayDir[PROP_MAXPATH];
+
+    int  audioFormat;
+    int  audioBitrateKbps;
+    int  videoCodec;
+    int  screenshotFormat;
+
+    int  audioPromptFilename;
+    int  videoPromptFilename;
+    int  screenshotPromptFilename;
+    int  replayPromptFilename;
+
+    int  showCompletionToast;
+
+    int  videoUsePostRender;
+    int  videoResolution;
+} CaptureProperties;
+
 typedef struct Properties {
     EmulationProperties emulation;
     VideoProperties     video;
@@ -489,6 +582,7 @@ typedef struct Properties {
     PortProperties      ports;
     int                 language;
     Settings            settings;
+    CaptureProperties   capture;
     NoWindProperties    nowind;
 } Properties;
 
@@ -503,5 +597,16 @@ void propDestroy(Properties* pProperties);
 void propertiesSetDirectory(const char* defDir, const char* altDir);
 
 Properties* propGetGlobalProperties();
+
+/* Resolves an OPLL analog filter preset to (lpfHz, hpfHz).  For
+** PROP_OPLL_FILTER_CUSTOM the values stored in `chip` are returned
+** unchanged; for the other presets the documented reference cutoffs
+** are returned regardless of `chip`. */
+void propertiesGetOpllFilterHz(int mode, const SoundChip* chip,
+                               int* outLpfHz, int* outHpfHz);
+
+/* True when `name` is a CARTNAME_* Special-Cart marker rather than a
+** real ROM file path. */
+int propertiesIsSpecialCartName(const char* name);
 
 #endif

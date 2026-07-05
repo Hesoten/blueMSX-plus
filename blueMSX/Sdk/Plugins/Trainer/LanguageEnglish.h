@@ -32,7 +32,7 @@ class LanguageEnglish : public Language
 public:
     LanguageEnglish() {
         trainerName             = "Trainer";
-        trainerCaption          = "blueMSX - Trainer";
+        trainerCaption          = "blueMSX+ - Trainer";
         saveCheatCaption        = "Save Cheat";
         loadCheatCaption        = "Load Cheat";
         pause                   = "Pause";

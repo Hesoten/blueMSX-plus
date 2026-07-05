@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik, Laurent Halter
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -33,9 +36,11 @@
 #include "Properties.h"
 
 void screenshotSetDirectory(char* directory, char* prefix);
+const char* screenshotGetDirectory(void);
 int  ScreenShot(Properties* properties, HWND hwnd, int width, int height, int xOffset, int yOffset, int png);
 void* ScreenShot2(void* src, int srcPitch, int width, int height, int* bitmapSize, int png);
 void ScreenShot3(Properties* properties, void* src, int srcPitch, int width, int height, int png);
+void ScreenShot3Ex(Properties* properties, void* src, int srcPitch, int width, int height, int png, const char* overrideFilename);
 HBITMAP BitmapFromData(void* bmp);
 
 #endif //WIN32_SCREENSHOT_H

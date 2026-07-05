@@ -5,6 +5,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -27,6 +30,7 @@
 #include "ToolInterface.h"
 #include "Resource.h"
 #include "Language.h"
+#include "Win32TextUtf8.h"
 #include <stdio.h>
 
 #ifndef max
@@ -40,18 +44,19 @@ LRESULT CallstackWindow::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (iMsg) {
     case WM_CREATE: {
-    	HDC hdc = GetDC(hwnd);
+        HDC hdc = GetDC(hwnd);
         hMemdc = CreateCompatibleDC(hdc);
         ReleaseDC(hwnd, hdc);
         SetBkMode(hMemdc, TRANSPARENT);
-        hFont = CreateFont(-MulDiv(10, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
+        hFont = CreateFont(-MulDiv(12, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
 
-        hBrushWhite  = CreateSolidBrush(RGB(255, 255, 255));
-        hBrushLtGray = CreateSolidBrush(RGB(239, 237, 222));
-        hBrushDkGray = CreateSolidBrush(RGB(232, 232, 232));
+        BOOL dark = IsDarkMode();
+        hBrushWhite  = CreateSolidBrush(dark ? GetDarkBg()        : RGB(255, 255, 255));
+        hBrushLtGray = CreateSolidBrush(dark ? RGB( 48,  48,  48) : RGB(239, 237, 222));
+        hBrushDkGray = CreateSolidBrush(dark ? RGB( 70,  70,  70) : RGB(232, 232, 232));
         
-        colorBlack = RGB(0, 0, 0);
-        colorGray  = RGB(160, 160, 160);
+        colorBlack = dark ? GetDarkFg()        : RGB(0, 0, 0);
+        colorGray  = dark ? RGB(160, 160, 160) : RGB(160, 160, 160);
 
         SelectObject(hMemdc, hFont); 
         TEXTMETRIC tm;
@@ -59,6 +64,7 @@ LRESULT CallstackWindow::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
             textHeight = tm.tmHeight;
             textWidth = tm.tmMaxCharWidth;
         }
+        darkSubWindow(hwnd);
         return 0;
     }
 
@@ -153,7 +159,7 @@ void CallstackWindow::invalidateContent()
     updateScroll();
 
     sprintf(lineInfo[lineCount].text, Language::windowCallstackUnavail);
-    lineInfo[lineCount].textLength = strlen(lineInfo[lineCount].text);
+    lineInfo[lineCount].textLength = (int)strlen(lineInfo[lineCount].text);
     lineInfo[lineCount].dataText[0] = 0;
     lineInfo[lineCount].dataTextLength = 0;
     lineCount++;
@@ -187,7 +193,7 @@ void CallstackWindow::updateContent(DWORD* callstack, int size)
         char text[128];
         addr = disassembly->dasm(addr - 1, text);
         sprintf(lineInfo[lineCount].text, "%.4X: %s", addr, text);
-        lineInfo[lineCount].textLength = strlen(lineInfo[lineCount].text);
+        lineInfo[lineCount].textLength = (int)strlen(lineInfo[lineCount].text);
         lineInfo[lineCount].address = addr;
 
         lineInfo[lineCount].dataText[0] = 0;
@@ -296,11 +302,11 @@ void CallstackWindow::drawText(int top, int bottom)
         int address = lineInfo[i].address;
         SetTextColor(hMemdc, colorGray);
         r.left += 6 * textWidth;
-        DrawText(hMemdc, lineInfo[i].dataText, lineInfo[i].dataTextLength, &r, DT_LEFT);
+        DrawTextU(hMemdc, lineInfo[i].dataText, lineInfo[i].dataTextLength, &r, DT_LEFT);
         r.left -= 6 * textWidth;
         SetTextColor(hMemdc, colorBlack);
 
-        DrawText(hMemdc, lineInfo[i].text, lineInfo[i].textLength, &r, DT_LEFT);
+        DrawTextU(hMemdc, lineInfo[i].text, lineInfo[i].textLength, &r, DT_LEFT);
         r.top += textHeight;
         r.bottom += textHeight;
     }

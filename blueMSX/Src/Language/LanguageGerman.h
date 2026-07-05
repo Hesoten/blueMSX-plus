@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -69,18 +72,58 @@ void langInitGerman(LanguageStrings* ls)
     // Warning and Error lines
     //----------------------
 
-    ls->warningTitle             = "blueMSX - Warnung";
-    ls->warningDiscardChanges    = "Möchten Sie die Änderungen verwerfen?";
-    ls->warningOverwriteFile     = "Möchten Sie das File überschreiben:"; 
-    ls->errorTitle               = "blueMSX - Fehler";
+    ls->warningTitle             = "blueMSX+ - Warnung";
+    ls->warningDiscardChanges    = "MÃ¶chten Sie die Ã„nderungen verwerfen?";
+    ls->warningOverwriteFile     = "MÃ¶chten Sie das File Ã¼berschreiben:"; 
+    ls->warningStateOldFormat    = "Speicherstand im alten Format. Fortsetzung mÃ¶glicherweise fehlerhaft. Trotzdem laden?";
+    ls->errorTitle               = "blueMSX+ - Fehler";
     ls->errorEnterFullscreen     = "Konnte nicht in den Fullscreen-Modus gehen.           \n";
-    ls->errorDirectXFailed       = "DirectX objects konnten nicht erzeugt werden.\nBenutze stattdessen GDI.\nÜberprüfe die Video-Eigenschaften.";
+    ls->errorDirectXFailed       = "DirectX objects konnten nicht erzeugt werden.\nBenutze stattdessen GDI.\nÃœberprÃ¼fe die Video-Eigenschaften.";
     ls->errorNoRomInZip          = "Konnte kein .rom-File im Zip-Archiv finden.";
     ls->errorNoDskInZip          = "Konnte kein .dsk-File im Zip-Archiv finden.";
     ls->errorNoCasInZip          = "Konnte kein .cas-File im Zip-Archiv finden.";
-    ls->errorNoHelp              = "Konnte kein blueMSX-Hilfe-File finden.";
+    ls->errorDirAsDskOverflow    = "%d Datei(en) (%d KB insgesamt) passten nicht in das 720-KB-Disk-Image und wurden Ã¼bersprungen.";
+    ls->errorNoHelp              = "Konnte kein blueMSX+-Hilfe-File finden.";
     ls->errorStartEmu            = "Der MSX-Emulator konnte nicht gestartet werden.";
-    ls->errorPortableReadonly    = "Austauschbarer Datenträger ist nur lesbar"; // "Portable device is readonly";        
+    ls->errorMissingFiles        = "Folgende vom Speicherstand referenzierten Dateien konnten nicht geladen werden:";
+    ls->errorPortableReadonly    = "Austauschbarer DatentrÃ¤ger ist nur lesbar"; // "Portable device is readonly";        
+    ls->infoTitle                = "blueMSX+ Info";
+    ls->infoGameReaderRedirect   = "blueMSX+ unterstÃ¼tzt den MSX Game Reader nicht direkt (der Original-Treiber von ASCII aus der XP-Ã„ra funktioniert unter modernem Windows nicht mehr).\n\nStattdessen den MSX Game Reader - Web Dumper (von Kunihiko Ohnaka) im Browser Ã¶ffnen?";
+    ls->infoColorDepth           = "blueMSX+ funktioniert am besten mit 16 oder 32 Bit Farbtiefe.";
+    ls->errorKeyboardThemeMissing = "Das Tastatur-Editor-Theme konnte nicht gefunden werden.";
+    ls->errorMixerThemeMissing    = "Das Mixer-Theme konnte nicht gefunden werden.";
+    ls->errorRecorderTitle       = "blueMSX+ - Aufnahme";
+    ls->errorRecorderSaveReplay  = "Replay-Datei konnte nicht gespeichert werden:\n  %s\n\nPrÃ¼fen Sie, ob das Zielverzeichnis vorhanden und beschreibbar ist.";
+    ls->errorRecorderReplayMissing = "Replay-Datei nicht gefunden:\n  %s\n\nNehmen Sie zuerst ein Replay auf, oder wÃ¤hlen Sie Ã¼ber Laden eine vorhandene .cap-Datei.";
+    ls->errorRecorderRequiresDX12   = "Auf Direct3D 12 als Videotreiber wechseln und Aufnahme starten?";
+    ls->errorRecorderRequiresDX12Title = "blueMSX+ - Videotreiberwechsel";
+    ls->infoRecorderComplete     = "Videodatei gespeichert:\n  %s";
+    ls->infoToastSaved           = "Gespeichert: %s";
+    ls->infoToastAlreadyRecording   = "Aufnahme lÃ¤uft bereits";
+    ls->dlgRecorderPickTitle        = "blueMSX+ - Replay als Video rendern";
+    ls->dlgRecorderPickSourceCap    = "Replay-Datei zum Rendern (.cap):";
+    ls->dlgRecorderPickOutputMp4    = "Ausgabe-Videodatei (.mp4):";
+    ls->menuFileRecordVideo         = "Video aufnehmen";
+    ls->menuFileStopRecordVideo     = "Videoaufnahme stoppen";
+    ls->shortcutRecordVideoStart    = "Videoaufnahme: Start";
+    ls->shortcutRecordVideoStartAs  = "Videoaufnahme: Starten als";
+    ls->shortcutRecordVideoStop     = "Videoaufnahme: Stopp";
+    ls->shortcutRecordVideoToggle   = "Videoaufnahme: Umschalten";
+    ls->shortcutAudioCaptureAs      = "Audioaufnahme: Starten als";
+    ls->shortcutVideoRecordAs       = "Replay: Aufnehmen als";
+    ls->shortcutScreenshotAs        = "Bildschirmfoto: Speichern unter";
+
+    ls->propCapture                 = "Aufnahme";
+    ls->propCaptureAudioGB          = " Audio-Aufnahme ";
+    ls->propCaptureVideoGB          = " Video-Aufnahme ";
+    ls->propCaptureScreenshotGB     = " Bildschirmfoto ";
+    ls->propCaptureReplayGB         = " Replay-Aufnahme ";
+    ls->propCaptureSaveDir          = "Speicherort:";
+    ls->propCaptureFormat           = "Format:";
+    ls->propCaptureCodec            = "Codec:";
+    ls->propCaptureAutoName         = "Dateiname automatisch";
+    ls->propCapturePromptName       = "Nach Dateinamen fragen";
+    ls->propCaptureShowToast        = "Hinweis nach Aufnahme anzeigen";
 
 
     //----------------------
@@ -101,7 +144,7 @@ void langInitGerman(LanguageStrings* ls)
     //----------------------
     
     ls->menuNoRecentFiles        = "- keine neuen Files -";
-    ls->menuInsert               = "Einfügen";
+    ls->menuInsert               = "EinfÃ¼gen";
     ls->menuEject                = "Auswurf";
 
     ls->menuCartGameReader       = "Game Reader";                        
@@ -126,53 +169,61 @@ void langInitGerman(LanguageStrings* ls)
     ls->menuCartEseSCC           = "Ese-SCC";             // New in 2.7
     ls->menuCartMegaFlashRom     = "Mega Flash-ROM";      // New in 2.7
 
-    ls->menuCasRewindAfterInsert = "Zurück nach Einfügen";
+    ls->menuCasRewindAfterInsert = "ZurÃ¼ck nach EinfÃ¼gen";
     ls->menuCasUseReadOnly       = "Cassetten-Image nur lesend benutzen";
     ls->lmenuCasSaveAs           = "Speichere Cassetten-Image als ...";
     ls->menuCasSetPosition       = "Positionieren";
-    ls->menuCasRewind            = "Zurück";
+    ls->menuCasRewind            = "ZurÃ¼ck";
 
     ls->menuVideoLoad            = "Laden ...";                  // New in 2.6
     ls->menuVideoPlay            = "Letzte Aufnahme abspielen";  // New in 2.6 -- "Play Last Capture";
     ls->menuVideoRecord          = "Aufnehmen";                  // New in 2.6
     ls->menuVideoRecording       = "Nimmt auf ...";              // New in 2.6 -- "Recording";
-    ls->menuVideoRecAppend       = "Aufnehmen (anfügen)";        // New in 2.6
+    ls->menuVideoRecAppend       = "Aufnehmen (anfÃ¼gen)";        // New in 2.6
     ls->menuVideoStop            = "Stopp";                      // New in 2.6
     ls->menuVideoRender          = "Videofile wiedergeben";      // New in 2.6 -- "Render Video File";
 
-    ls->menuDiskInsertNew        = "Neues Disk-Image einfügen";              
-    ls->menuDiskInsertCdrom      = "CDROM einfügen";             // New in 2.7 -- "Insert CD-Rom";
-    ls->menuDiskDirInsert        = "Directory einfügen";
-    ls->menuDiskAutoStart        = "Reset nach Einfügen";
-    ls->menuCartAutoReset        = "Reset nach Einfügen/Entfernen";
+    ls->menuDiskInsertNew        = "Neues Disk-Image einfÃ¼gen";              
+    ls->menuDiskInsertCdrom      = "CDROM einfÃ¼gen";             // New in 2.7 -- "Insert CD-Rom";
+    ls->menuDiskDirInsert        = "Directory einfÃ¼gen";
+    ls->menuDiskAutoStart        = "Reset nach EinfÃ¼gen";
+    ls->menuCartAutoReset        = "Reset nach EinfÃ¼gen/Entfernen";
 
     ls->menuPrnFormfeed          = "Seitenvorschub";
 
-    ls->menuZoomNormal           = "Normale Größe";
-    ls->menuZoomDouble           = "Doppelte Größe";
+    ls->menuZoom1x               = "1x-Fenster";
+    ls->menuZoom2x               = "2x-Fenster";
+    ls->menuZoom3x               = "3x-Fenster";
+    ls->menuZoom4x               = "4x-Fenster";
+    ls->menuZoom5x               = "5x-Fenster";
+    ls->menuZoom6x               = "6x-Fenster";
+    ls->menuZoom7x               = "7x-Fenster";
+    ls->menuZoom8x               = "8x-Fenster";
     ls->menuZoomFullscreen       = "Ganzer Bildschirm";
     
     ls->menuPropsEmulation       = "Emulation";
     ls->menuPropsVideo           = "Video";
     ls->menuPropsSound           = "Sound";
+    ls->menuPropsMidi            = "MIDI";
     ls->menuPropsControls        = "Controls";
-    ls->menuPropsEffects        = "Effects";               // New in 2.9
+    ls->menuPropsEffects        = "Effekte";               // New in 2.9
     ls->menuPropsSettings        = "Einstellungen";
     ls->menuPropsFile            = "Files";
     ls->menuPropsDisk            = "Disks";               // New in 2.7
     ls->menuPropsLanguage        = "Sprache";
     ls->menuPropsPorts           = "Ports";
+    ls->menuPropsCapture         = "Aufnahme";
     
     ls->menuVideoSource          = "Video-Out Source";                      // "Video Out Source";                  
     ls->menuVideoSourceDefault   = "Keine Video-Out Source angeschlossen";  // "No Video Out Source Connected";      
-    ls->menuVideoChipAutodetect  = "Selbständige Videochip-Erkennung";      // "Autodetect Video-Chip";   
+    ls->menuVideoChipAutodetect  = "SelbstÃ¤ndige Videochip-Erkennung";      // "Autodetect Video-Chip";   
     ls->menuVideoInSource        = "Video-In Source";                       // "Video In Source";                    
     ls->menuVideoInBitmap        = "Bitmap-File";                        
     
     ls->menuEthInterface         = "Ethernet"; // New in 2.6
 
     ls->menuHelpHelp             = "Hilfethemen";
-    ls->menuHelpAbout            = "Über blueMSX";
+    ls->menuHelpAbout            = "Ãœber blueMSX+";
 
     ls->menuFileCart             = "Cartridge-Slot";
     ls->menuFileDisk             = "Diskettenlaufwerk";    // "Disk-Drive";
@@ -183,12 +234,13 @@ void langInitGerman(LanguageStrings* ls)
     ls->menuFileQLoadState       = "QuickLoad-Status";     // "Quick Load State";
     ls->menuFileQSaveState       = "QuickSave-Status";     // "Quick Save State";
     ls->menuFileCaptureAudio     = "Audio-Aufnahme";       // "Capture Audio";
+    ls->menuFileStopAudio        = "Audio stoppen";
     ls->menuFileCaptureVideo     = "Video-Aufnahme";       // "Video Capture"; -- New in 2.6
     ls->menuFileScreenShot       = "Speichere Screenshot";
     ls->menuFileExit             = "Exit";
 
-    ls->menuFileHarddisk         = "Festplatte";                 // "Hard Disk";                          
-    ls->menuFileHarddiskNoPesent = "Keine Controller verfügbar"; // "No Controllers Present";             
+    ls->menuFileHarddisk         = "Festplatte / SD-Karte";                 // "Hard Disk";                          
+    ls->menuFileHarddiskNoPesent = "Keine Controller verfÃ¼gbar"; // "No Controllers Present";             
     ls->menuFileHarddiskRemoveAll= "Alle Festplatten auswerfen"; // "Eject All Harddisk"; -- New in 2.7 
 
     ls->menuRunRun               = "Start";
@@ -220,37 +272,43 @@ void langInitGerman(LanguageStrings* ls)
     //----------------------
 
     ls->dlgOK                    = "OK";
-    ls->dlgOpen                  = "Öffnen";
+    ls->dlgOpen                  = "Ã–ffnen";
     ls->dlgCancel                = "Abbrechen";
+    ls->dlgYes                   = "Ja";
+    ls->dlgNo                    = "Nein";
     ls->dlgSave                  = "Speichern";
     ls->dlgSaveAs                = "Speichern als ...";
     ls->dlgRun                   = "Start";
-    ls->dlgClose                 = "Schließen";
+    ls->dlgClose                 = "SchlieÃŸen";
 
-    ls->dlgLoadRom               = "blueMSX - Wähle ein ROM-Image aus";
-    ls->dlgLoadDsk               = "blueMSX - Wähle ein DSK-Image aus";
-    ls->dlgLoadCas               = "blueMSX - Wähle ein CAS-Image aus";
-    ls->dlgLoadRomDskCas         = "blueMSX - Wähle ein ROM-, DSK- oder CAS-File zum Laden aus";
-    ls->dlgLoadRomDesc           = "Wähle ein ROM-Image aus:";
-    ls->dlgLoadDskDesc           = "Wähle ein DISK-Image aus:";
-    ls->dlgLoadCasDesc           = "Wähle ein CASSETTEN-Image aus:";
-    ls->dlgLoadRomDskCasDesc     = "Wähle ein ROM-, DSK- oder CAS-File zum Laden aus:";
+    ls->dlgLoadRom               = "blueMSX+ - WÃ¤hle ein ROM-Image aus";
+    ls->dlgLoadDsk               = "blueMSX+ - WÃ¤hle ein DSK-Image aus";
+    ls->dlgLoadCas               = "blueMSX+ - WÃ¤hle ein CAS-Image aus";
+    ls->dlgLoadRomDskCas         = "blueMSX+ - WÃ¤hle ein ROM-, DSK- oder CAS-File zum Laden aus";
+    ls->dlgLoadRomDesc           = "WÃ¤hle ein ROM-Image aus:";
+    ls->dlgLoadDskDesc           = "WÃ¤hle ein DISK-Image aus:";
+    ls->dlgLoadCasDesc           = "WÃ¤hle ein CASSETTEN-Image aus:";
+    ls->dlgLoadRomDskCasDesc     = "WÃ¤hle ein ROM-, DSK- oder CAS-File zum Laden aus:";
     ls->dlgLoadState             = "Lade CPU-Status";
     ls->dlgLoadVideoCapture      = "Lade Video-Aufnahme";              // New in 2.6
     ls->dlgSaveState             = "Speichere CPU-Status";
-    ls->dlgSaveCassette          = "blueMSX - Speichere Tape-Image";
+    ls->dlgSaveCassette          = "blueMSX+ - Speichere Tape-Image";
     ls->dlgSaveVideoClipAs       = "Speichere Videoclip als ...";      // New in 2.6 -- "Save video clip as ...";
+    ls->dlgSaveCaptureAudio      = "Audio-Aufnahme speichern unter";
+    ls->dlgSaveCaptureVideo      = "Video-Aufnahme speichern unter";
+    ls->dlgSaveCaptureReplay     = "Replay speichern unter";
+    ls->dlgSaveCaptureScreenshot = "Bildschirmfoto speichern unter";
     ls->dlgAmountCompleted       = "Amount completed:";                // New in 2.6 -- "Amount completed:";
-    ls->dlgInsertRom1            = "ROM-Cartridge in Slot 1 einfügen";
-    ls->dlgInsertRom2            = "ROM-Cartridge in Slot 2 einfügen";
-    ls->dlgInsertDiskA           = "Disketten-Image in Laufwerk A einfügen";
-    ls->dlgInsertDiskB           = "Disketten-Image in Laufwerk B einfügen";
-    ls->dlgInsertCas             = "Cassette einfügen";
-    ls->dlgInsertHarddisk        = "Festplatte einfügen"; // "Harddisk einfügen";                   
+    ls->dlgInsertRom1            = "ROM-Cartridge in Slot 1 einfÃ¼gen";
+    ls->dlgInsertRom2            = "ROM-Cartridge in Slot 2 einfÃ¼gen";
+    ls->dlgInsertDiskA           = "Disketten-Image in Laufwerk A einfÃ¼gen";
+    ls->dlgInsertDiskB           = "Disketten-Image in Laufwerk B einfÃ¼gen";
+    ls->dlgInsertCas             = "Cassette einfÃ¼gen";
+    ls->dlgInsertHarddisk        = "Festplatte einfÃ¼gen"; // "Harddisk einfÃ¼gen";                   
     ls->dlgRomType               = "Typ des ROMs:";
-    ls->dlgDiskSize              = "Diskettengröße:";                  // New in 2.6 -- "Disk Size:";
+    ls->dlgDiskSize              = "DiskettengrÃ¶ÃŸe:";                  // New in 2.6 -- "Disk Size:";
 
-    ls->dlgTapeTitle             = "blueMSX - Bandposition";
+    ls->dlgTapeTitle             = "blueMSX+ - Bandposition";
     ls->dlgTapeFrameText         = "Bandposition";
     ls->dlgTapeCurrentPos        = "Aktuelle Position";
     ls->dlgTapeTotalTime         = "Gesamtzeit";
@@ -259,14 +317,14 @@ void langInitGerman(LanguageStrings* ls)
     ls->dlgTabPosition           = "Position";
     ls->dlgTabType               = "Typ";
     ls->dlgTabFilename           = "Filename";
-    ls->dlgZipReset              = "Reset nach Einfügen";
+    ls->dlgZipReset              = "Reset nach EinfÃ¼gen";
 
-    ls->dlgAboutTitle            = "Über blueMSX";
+    ls->dlgAboutTitle            = "Ãœber blueMSX+";
 
-    ls->dlgLangLangText          = "blueMSX - Sprachauswahl"; // "Wähle die Sprache aus, die blueMSX benutzen soll.";
-    ls->dlgLangLangTitle         = "blueMSX - Sprache";
+    ls->dlgLangLangText          = "blueMSX+ - Sprachauswahl"; // "WÃ¤hle die Sprache aus, die blueMSX+ benutzen soll.";
+    ls->dlgLangLangTitle         = "blueMSX+ - Sprache";
 
-    ls->dlgAboutAbout            = "ÜBER\r\n====";
+    ls->dlgAboutAbout            = "ÃœBER\r\n====";
     ls->dlgAboutVersion          = "Version:";
     ls->dlgAboutBuildNumber      = "Hergestellt:";
     ls->dlgAboutBuildDate        = "Datum:";
@@ -275,28 +333,30 @@ void langInitGerman(LanguageStrings* ls)
     ls->dlgAboutThanks           = "BESONDEREN DANK AN\r\n============";       // New in 2.7 (retranslate, see english)
     ls->dlgAboutLisence          = "LIZENZ\r\n"
                                    "======\r\n\r\n"
-                                   "Diese Software wird ''wie sie ist'' zur Verfügung gestellt, ohne jegliche Garantie. "
-                                   "In keinem Fall wird der Autor/werden die Autoren haftpflichtig für irgendwelche Schäden,"
-                                   "die aus dem Gebrauch dieser Software entstehen könnten.\r\n\r\n"
-                                   "Besuchen Sie www.bluemsx.com, um nähere Details zu erfahren.";
+                                   "Diese Software wird ''wie sie ist'' zur VerfÃ¼gung gestellt, ohne jegliche Garantie. "
+                                   "In keinem Fall wird der Autor/werden die Autoren haftpflichtig fÃ¼r irgendwelche SchÃ¤den,"
+                                   "die aus dem Gebrauch dieser Software entstehen kÃ¶nnten.\r\n\r\n"
+                                   "Besuchen Sie www.bluemsx.com, um nÃ¤here Details zu erfahren.";
 
     ls->dlgSavePreview           = "Zeige Vorschau";
     ls->dlgSaveDate              = "Eingesparte Zeit:";
 
-    ls->dlgRenderVideoCapture    = "blueMSX - Videowiedergabe ...";  // New in 2.6 -- "blueMSX - Rendering Video Capture ...";
+    ls->dlgRenderVideoCapture    = "blueMSX+ - Videowiedergabe ...";  // New in 2.6 -- "blueMSX+ - Rendering Video Capture ...";
 
 
     //----------------------
     // Properties related lines
     //----------------------
 
-    ls->propTitle                = "blueMSX - Eigenschaften";
+    ls->propTitle                = "blueMSX+ - Eigenschaften";
     ls->propEmulation            = "Emulation";
+    ls->propD3D                  = "Direct3D";
     ls->propVideo                = "Video";
     ls->propSound                = "Sound";
+    ls->propMidi                 = "MIDI";
     ls->propControls             = "Controls";
     ls->propPerformance          = "Performance";
-    ls->propEffects              = "Effects";             // New in 2.9
+    ls->propEffects              = "Effekte";             // New in 2.9
     ls->propSettings             = "Einstellungen";
     ls->propFile                 = "Files";
     ls->propDisk                 = "Disks";              // New in 2.7
@@ -305,16 +365,18 @@ void langInitGerman(LanguageStrings* ls)
     ls->propEmuGeneralGB         = "Allgemeines ";
     ls->propEmuFamilyText        = "MSX-Maschine:";
     ls->propEmuMemoryGB          = "Memory ";
-    ls->propEmuRamSizeText       = "RAM-Größe:";                      // "RAM size:";
-    ls->propEmuVramSizeText      = "VRAM-Größe:";                     // "VRAM size:";
+    ls->propEmuRamSizeText       = "RAM-GrÃ¶ÃŸe:";                      // "RAM size:";
+    ls->propEmuVramSizeText      = "VRAM-GrÃ¶ÃŸe:";                     // "VRAM size:";
     ls->propEmuSpeedGB           = "Emulationsgeschwindigkeit ";
-    ls->propEmuSpeedText         = "Emulationsgeschwindigkeit:";
+    ls->propEmuSpeedText         = "Emulator-Kern:";
+    ls->propEmuVdpCmdSpeedText  = "VDP-Befehl-Wartezeit:";
     ls->propEmuFrontSwitchGB     = "Panasonic-Schalter";              // "Panasonic Switches ";
     ls->propEmuFrontSwitch       = " Frontschalter";                  // " Front Switch";
-    ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9
-    ls->propEnableMsxKeyboardQuirk = " Emulate MSX keyboard quirk";  // New in 2.9
-    ls->propEmuFdcTiming         = " Floppy-Drive-Timing sperren";
-    ls->propEmuReversePlay      = " Enable reverse playback"; // New in 2.8.3
+    ls->propEmuNoSpriteLimits   = " Sprite-BeschrÃ¤nkung deaktivieren";  // New in 2.9
+    ls->propEnableMsxKeyboardQuirk = " MSX-Tastatureigenart emulieren";  // New in 2.9
+    ls->propEmuFdcTiming         = " FDD-Zugriff beschleunigen";
+    ls->propEmuHddSdBoost       = " Beschleunigen wÃ¤hrend HDD/SD-Zugriff";
+    ls->propEmuReversePlay      = " RÃ¼ckwÃ¤rtswiedergabe aktivieren"; // New in 2.8.3
     ls->propEmuPauseSwitch       = " Unterbrechungstaste";
     ls->propEmuAudioSwitch       = " MSX-AUDIO-Cartridge-Schalter";
     ls->propVideoFreqText        = "Videofrequenz:";
@@ -330,16 +392,30 @@ void langInitGerman(LanguageStrings* ls)
     ls->propMonTypeText          = "Typ des Monitors:";
     ls->propMonEmuText           = "Monitoremulation:";
     ls->propVideoTypeText        = "Videotyp:";
-    ls->propWindowSizeText       = "Fenstergröße:";
     ls->propMonHorizStretch      = " Horizontale Ausdehnung";
     ls->propMonVertStretch       = " Vertikale Ausdehnung";
     ls->propMonDeInterlace       = " De-interlace";
     ls->propBlendFrames          = " Mische aufeinanderfolgende Frames";           
     ls->propMonBrightness        = "Helligkeit:";
     ls->propMonContrast          = "Kontrast:";
-    ls->propMonSaturation        = "Sättigung:";
+    ls->propMonSaturation        = "SÃ¤ttigung:";
     ls->propMonGamma             = "Gamma:";
     ls->propMonScanlines         = " Scanlines:";
+    ls->propMonScanlinesBright   = "Hellig.-komp.:";
+    ls->propMonScanlinesBrightAuto  = " Auto";
+    ls->propMonScanlinesShape    = "Voreinst.:";
+    ls->propMonScanlinesDepth    = "Tiefe:";
+    ls->propMonScanlinesSharpness  = "SchÃ¤rfe:";
+    ls->enumScanShapeGentle      = "Sanft";
+    ls->enumScanShapeStandard    = "Standard";
+    ls->enumScanShapeSharp       = "Scharf";
+    ls->enumScanShapeTrinitron   = "Trinitron";
+    ls->enumScanShapeCustom      = "Benutzerd.";
+    ls->propMonHdrEnable         = "HDR";
+    ls->propMonHdrPaperWhite     = "WeiÃŸ-Helligkeit:";
+    ls->propMonHdrSystemMode     = "System-HDR-Modus:";
+    ls->propMonHdrRestartHint    = "blueMSX neu starten, um die HDR-Moduseinstellung zu Ã¼bernehmen.";
+    ls->propMonHdrRecord         = " In HDR aufnehmen";
     ls->propMonColorGhosting     = " RF-Modulator:";
     ls->propMonEffectsGB         = "Effekte ";
 
@@ -348,12 +424,26 @@ void langInitGerman(LanguageStrings* ls)
     ls->propPerfFrameSkipText    = "Frame skipping:";
     ls->propPerfAudioDrvGB       = "Audio-Treiber ";
     ls->propPerfAudioDrvText     = "Sound-Treiber:";
-    ls->propPerfAudioBufSzText   = "Größe des Sound-Buffers:";
+    ls->propPerfAudioBufSzText   = "GrÃ¶ÃŸe des Sound-Buffers:";
+    ls->propPerfAudioBufSzActualFmt = "(tatsÃ¤chlicher Puffer: %u ms)";
     ls->propPerfEmuGB            = "Emulation ";
     ls->propPerfSyncModeText     = "SYNC-Mode:";
-    ls->propFullscreenResText    = "Bildschirmauflösung:";
+    ls->propFullscreenResText    = "BildschirmauflÃ¶sung:";
 
     ls->propSndChipEmuGB         = "Emulation des Soundchips ";
+    ls->propSoundChipsActive     = "Aktives Backend:";
+    ls->propSoundChipsHint       = "Mehrere aktive Backends erlauben A/B-Vergleich zur Laufzeit.";
+    ls->propSoundChipsYm2413GB   = " MSX-MUSIC Backend ";
+    ls->propSoundChipsY8950GB    = " MSX-AUDIO Backend ";
+    ls->propSndOpllAnalogText    = "Analogfilter:";
+    ls->propSndOpllAnalogLpfText = "LPF-Grenzfrequenz:";
+    ls->enumOpllFilterOff        = "Aus";
+    ls->enumOpllFilterBright     = "Hell (LPF 12 kHz)";
+    ls->enumOpllFilterClear      = "Klar (LPF 8 kHz)";
+    ls->enumOpllFilterStandard   = "Standard (LPF 5 kHz)";
+    ls->enumOpllFilterSoft       = "Weich (LPF 3.5 kHz)";
+    ls->enumOpllFilterMellow     = "Warm (LPF 2.3 kHz)";
+    ls->enumOpllFilterCustom     = "Benutzerd.";
     ls->propSndMsxMusic          = " MSX-MUSIC";
     ls->propSndMsxAudio          = " MSX-AUDIO";
     ls->propSndMoonsound         = " Moonsound";
@@ -367,28 +457,28 @@ void langInitGerman(LanguageStrings* ls)
     ls->propPortsSimplCovox      = "SiMPL / Covox DAC";
     ls->propPortsFile            = "In Datei schreiben";
     ls->propPortsComFile         = "Zu Datei senden";
-    ls->propPortsOpenLogFile     = "Öffne Log-Datei";
+    ls->propPortsOpenLogFile     = "Ã–ffne Log-Datei";
     ls->propPortsEmulateMsxPrn   = "Emulation:";
 
     ls->propSetFileHistoryGB     = "File History ";
     ls->propSetFileHistorySize   = "Anzahl der Elemente in der File-History:";
-    ls->propSetFileHistoryClear  = "Lösche History";
-    ls->propFileTypes            = " Registriere Filetypen mit blueMSX (.rom, .dsk, .cas, .sta)";
+    ls->propSetFileHistoryClear  = "LÃ¶sche History";
+    ls->propFileTypes            = " .rom/.dsk/.cas/.sta im \"Ã–ffnen mit\"-MenÃ¼ registrieren";
+    ls->propOpenDefaultApps      = "Windows-Standard-Apps Ã¶ffnen";
     ls->propWindowsEnvGB         = "Windows-Environment "; 
-    ls->propSetScreenSaver       = " Bildschirmschoner abschalten, wenn blueMSX läuft"; // " Schalte den Bildschirmschoner ab, wenn blueMSX läuft";
-    ls->propDisableWinKeys       = " Automatische MSX-Funktion für Windows-Menütasten"; 
-    ls->propPriorityBoost        = " Die Priorität von blueMSX erhöhen";
+    ls->propSetScreenSaver       = " Bildschirm an halten, wenn blueMSX+ lÃ¤uft (kein Aus/Ruhe/Schoner)";
+    ls->propPriorityBoost        = " Windows-Spielplaner (MMCSS) fÃ¼r die Emulation verwenden";
     ls->propScreenshotPng        = " Benutze Portable Network Graphics (.png) Screenshots";  
-    ls->propEjectMediaOnExit    = " Eject media when blueMSX exits";        // New in 2.8
-    ls->propClearHistory         = "Wollen Sie die File-History wirklich löschen?"; // "Sind Sie sicher, daß Sie die File-History löschen wollen?";
-    ls->propOpenRomGB            = "Öffne ROM-Dialog ";
+    ls->propEjectMediaOnExit    = " Eject media when blueMSX+ exits";        // New in 2.8
+    ls->propClearHistory         = "Wollen Sie die File-History wirklich lÃ¶schen?"; // "Sind Sie sicher, daÃŸ Sie die File-History lÃ¶schen wollen?";
+    ls->propOpenRomGB            = "Ã–ffne ROM-Dialog ";
     ls->propDefaultRomType       = "Voreingestellter ROM-Typ:";
     ls->propGuessRomType         = "ROM-Typ erraten";
 
     ls->propSettDefSlotGB        = "Ziehen und Ablegen "; // "Drag and Drop ";
-    ls->propSettDefSlots         = "ROM einfügen in:";
+    ls->propSettDefSlots         = "ROM einfÃ¼gen in:";
     ls->propSettDefSlot          = " Slot";
-    ls->propSettDefDrives        = "Disketten einfügen in:";
+    ls->propSettDefDrives        = "Disketten einfÃ¼gen in:";
     ls->propSettDefDrive         = " Drive";
 
     ls->propThemeGB              = "Theme ";
@@ -401,18 +491,18 @@ void langInitGerman(LanguageStrings* ls)
     ls->propCdromMethodAspi      = "ASPI";              // New in 2.7
     ls->propCdromDrive           = "Laufwerk:";         // New in 2.7 -- "Drive:";
 
-    ls->propD3DParametersGB         = "Parameters ";                // New in 2.9
-    ls->propD3DAspectRatioText      = "Aspect ratio";               // New in 2.9
-    ls->propD3DLinearFilteringText  = " Linear filtering";          // New in 2.9
-    ls->propD3DForceHighResText     = " Force high resolution";     // New in 2.9
-    ls->propD3DExtendBorderColorText    = " Extend border color";   // New in 2.9
+    ls->propD3DParametersGB         = "Parameter ";                // New in 2.9
+    ls->propD3DAspectRatioText      = "SeitenverhÃ¤ltnis";               // New in 2.9
+    ls->propD3DLinearFilteringText  = " Lineare Filterung";          // New in 2.9
+    ls->propD3DForceHighResText     = " Hohe AuflÃ¶sung erzwingen";     // New in 2.9
+    ls->propD3DExtendBorderColorText    = " Randfarbe erweitern";   // New in 2.9
 
-    ls->propD3DCroppingGB               = "Cropping ";              // New in 2.9
-    ls->propD3DCroppingTypeText         = "Cropping type:";         // New in 2.9
-    ls->propD3DCroppingLeftText         = "Left:";                  // New in 2.9
-    ls->propD3DCroppingRightText        = "Right:";                 // New in 2.9
-    ls->propD3DCroppingTopText          = "Top:";                   // New in 2.9
-    ls->propD3DCroppingBottomText       = "Bottom:";                // New in 2.9
+    ls->propD3DCroppingGB               = "Zuschnitt ";              // New in 2.9
+    ls->propD3DCroppingTypeText         = "Zuschnitttyp:";         // New in 2.9
+    ls->propD3DCroppingLeftText         = "Links:";                  // New in 2.9
+    ls->propD3DCroppingRightText        = "Rechts:";                 // New in 2.9
+    ls->propD3DCroppingTopText          = "Oben:";                   // New in 2.9
+    ls->propD3DCroppingBottomText       = "Unten:";                // New in 2.9
 
 
     //----------------------
@@ -420,8 +510,8 @@ void langInitGerman(LanguageStrings* ls)
     //----------------------
 
     ls->enumVideoMonColor        = "Farbe";
-    ls->enumVideoMonGrey         = "Schwarzweiß";
-    ls->enumVideoMonGreen        = "Grün";
+    ls->enumVideoMonGrey         = "SchwarzweiÃŸ";
+    ls->enumVideoMonGreen        = "GrÃ¼n";
     ls->enumVideoMonAmber        = "Amber";
 
     ls->enumVideoTypePAL         = "PAL";
@@ -436,9 +526,6 @@ void langInitGerman(LanguageStrings* ls)
     ls->enumVideoEmuScale2x      = "Scale 2x";
     ls->enumVideoEmuHq2x         = "Hq2x";
 
-    ls->enumVideoSize1x          = "Normal - 320x200";
-    ls->enumVideoSize2x          = "Double - 640x400";
-    ls->enumVideoSizeFullscreen  = "Fullscreen";
 
     ls->enumVideoDrvDirectDrawHW = "DirectDraw HW accel."; 
     ls->enumVideoDrvDirectDraw   = "DirectDraw";
@@ -453,21 +540,22 @@ void langInitGerman(LanguageStrings* ls)
     ls->enumVideoFrameskip5      = "5 Frames";
 
     ls->enumD3DARAuto           = "Auto";           // New in 2.9
-    ls->enumD3DARStretch        = "Stretch";        // New in 2.9
+    ls->enumD3DARStretch        = "Strecken";        // New in 2.9
     ls->enumD3DARPAL            = "PAL";            // New in 2.9
     ls->enumD3DARNTSC           = "NTSC";           // New in 2.9
     ls->enumD3DAR11             = "1:1";            // New in 2.9
 
-    ls->enumD3DCropNone         = "None";           // New in 2.9
+    ls->enumD3DCropNone         = "Keine";           // New in 2.9
     ls->enumD3DCropMSX1         = "MSX1";           // New in 2.9
     ls->enumD3DCropMSX1Plus8    = "MSX1+8";         // New in 2.9
     ls->enumD3DCropMSX2         = "MSX2";           // New in 2.9
     ls->enumD3DCropMSX2Plus8    = "MSX2+8";         // New in 2.9
-    ls->enumD3DCropCustom       = "Custom";         // New in 2.9
+    ls->enumD3DCropCustom       = "Benutzerdefiniert";         // New in 2.9
 
     ls->enumSoundDrvNone         = "Kein Sound";
     ls->enumSoundDrvWMM          = "WMM-Treiber";
     ls->enumSoundDrvDirectX      = "DirectX-Treiber";
+    ls->enumSoundDrvWasapi       = "WASAPI-Treiber";
 
     ls->enumEmuSync1ms           = "Sync am MSX refresh";
     ls->enumEmuSyncAuto          = "Automatisch (schnell)";
@@ -492,27 +580,30 @@ void langInitGerman(LanguageStrings* ls)
     ls->enumDiskSvi525Dbl        = "SVI-328 5.25\" Double Sided";           
     ls->enumDiskSvi525Sgl        = "SVI-328 5.25\" Single Sided";           
     ls->enumDiskSf3Sgl           = "Sega SF-7000 3\" Single Sided";  // New in 2.6
+    ls->enumDiskSize             = "DatentrÃ¤gergrÃ¶ÃŸe";
+    ls->enumDiskFormat           = "Format:";
+    ls->enumDiskFormatUnformatted= "Nicht formatiert";
 
 
     //----------------------
     // Configuration related lines
     //----------------------
 
-    ls->confTitle                = "blueMSX - Editor für die Maschinenkonfiguration";
+    ls->confTitle                = "blueMSX+ - Editor fÃ¼r die Maschinenkonfiguration";
     ls->confConfigText           = "Konfiguration";
     ls->confSlotLayout           = "Slot-Layout";
     ls->confMemory               = "Memory";
     ls->confChipEmulation        = "Chip-Emulation";
     ls->confChipExtras           = "Extras";
 
-    ls->confOpenRom              = "Öffne ROM-Image";
-    ls->confSaveTitle            = "blueMSX - Speichere Konfiguration";
-    ls->confSaveText             = "Möchten Sie die Maschinenkonfiguration überschreiben?";
+    ls->confOpenRom              = "Ã–ffne ROM-Image";
+    ls->confSaveTitle            = "blueMSX+ - Speichere Konfiguration";
+    ls->confSaveText             = "MÃ¶chten Sie die Maschinenkonfiguration Ã¼berschreiben?";
     ls->confSaveAsTitle          = "Speichere Konfiguration als ...";
     ls->confSaveAsMachineName    = "Name der Maschine:";
-    ls->confDiscardTitle         = "blueMSX - Konfiguration";
-    ls->confExitSaveTitle        = "blueMSX - Konfigurationseditor verlassen";
-    ls->confExitSaveText         = "Möchten Sie die aktuellen Änderungen der Konfiguration verwerfen?";
+    ls->confDiscardTitle         = "blueMSX+ - Konfiguration";
+    ls->confExitSaveTitle        = "blueMSX+ - Konfigurationseditor verlassen";
+    ls->confExitSaveText         = "MÃ¶chten Sie die aktuellen Ã„nderungen der Konfiguration verwerfen?";
 
     ls->confSlotLayoutGB         = "Slot-Layout ";
     ls->confSlotExtSlotGB        = "Externe Slots ";
@@ -525,7 +616,7 @@ void langInitGerman(LanguageStrings* ls)
     ls->confSlot                 = "Slot";
     ls->confSubslot              = "Subslot";
 
-    ls->confMemAdd               = "Hinzufügen ...";
+    ls->confMemAdd               = "HinzufÃ¼gen ...";
     ls->confMemEdit              = "Editieren ...";
     ls->confMemRemove            = "Entfernen";
     ls->confMemSlot              = "Slot";
@@ -549,12 +640,12 @@ void langInitGerman(LanguageStrings* ls)
     ls->confFdcGB                = "Floppy-Disk-Controller ";
     ls->confCFdcNumDrivesText    = "Anzahl der Laufwerke:";
 
-    ls->confEditMemTitle         = "blueMSX - Edit Mapper";
+    ls->confEditMemTitle         = "blueMSX+ - Edit Mapper";
     ls->confEditMemGB            = "Mapper Details ";
     ls->confEditMemType          = "Typ:";
     ls->confEditMemFile          = "File:";
     ls->confEditMemAddress       = "Addresse";
-    ls->confEditMemSize          = "Größe";
+    ls->confEditMemSize          = "GrÃ¶ÃŸe";
     ls->confEditMemSlot          = "Slot";
 
 
@@ -565,38 +656,39 @@ void langInitGerman(LanguageStrings* ls)
     ls->shortcutKey                = "Kontrollsequenz";
     ls->shortcutDescription        = "Shortcut";
 
-    ls->shortcutSaveConfig         = "blueMSX - Speichere Konfiguration";
-    ls->shortcutOverwriteConfig    = "Shortcut-Konfiguration überschreiben:"; // "Möchten Sie die Shortcut-Konfiguration überschreiben:";
-    ls->shortcutExitConfig         = "blueMSX - Exit Shortcut-Editor";
-    ls->shortcutDiscardConfig      = "Änderungen der aktuellen Konfiguration verwerfen?"; // "Möchten Sie die Änderungen an der aktuellen Konfiguration verwerfen?";
-    ls->shortcutSaveConfigAs       = "blueMSX - Speichere Shortcut-Konfiguration als ...";
+    ls->shortcutSaveConfig         = "blueMSX+ - Speichere Konfiguration";
+    ls->shortcutOverwriteConfig    = "Shortcut-Konfiguration Ã¼berschreiben:"; // "MÃ¶chten Sie die Shortcut-Konfiguration Ã¼berschreiben:";
+    ls->shortcutCreateConfig       = "Neue Shortcut-Konfiguration speichern:";
+    ls->shortcutExitConfig         = "blueMSX+ - Exit Shortcut-Editor";
+    ls->shortcutDiscardConfig      = "Ã„nderungen der aktuellen Konfiguration verwerfen?"; // "MÃ¶chten Sie die Ã„nderungen an der aktuellen Konfiguration verwerfen?";
+    ls->shortcutSaveConfigAs       = "blueMSX+ - Speichere Shortcut-Konfiguration als ...";
     ls->shortcutConfigName         = "Konfigurationsname:";
     ls->shortcutNewProfile         = "< Neues Profil >";
-    ls->shortcutConfigTitle        = "blueMSX - Shortcut Mapping-Editor";
+    ls->shortcutConfigTitle        = "blueMSX+ - Shortcut Mapping-Editor";
     ls->shortcutAssign             = "Zuweisen";
-    ls->shortcutPressText          = "Drücke Shortcut-Taste(n):";
+    ls->shortcutPressText          = "DrÃ¼cke Shortcut-Taste(n):";
     ls->shortcutScheme             = "Mapping Scheme:";
-    ls->shortcutCartInsert1        = "Cartridge 1 einfügen";
+    ls->shortcutCartInsert1        = "Cartridge 1 einfÃ¼gen";
     ls->shortcutCartRemove1        = "Cartridge 1 entfernen";
-    ls->shortcutCartInsert2        = "Cartridge 2 einfügen";
+    ls->shortcutCartInsert2        = "Cartridge 2 einfÃ¼gen";
     ls->shortcutCartRemove2        = "Cartridge 2 entfernen";
-    ls->shortcutSpecialMenu1       = "Zeige spezielles ROM-Menü für Cartridge 1";
-    ls->shortcutSpecialMenu2       = "Zeige spezielles ROM-Menü für Cartridge 2";
-    ls->shortcutCartAutoReset      = "Emulator zurücksetzen, wenn Cartridge eingefügt wird";
-    ls->shortcutDiskInsertA        = "Diskette A einfügen";
-    ls->shortcutDiskDirInsertA     = "Directory als Diskette A einfügen";
+    ls->shortcutSpecialMenu1       = "Zeige spezielles ROM-MenÃ¼ fÃ¼r Cartridge 1";
+    ls->shortcutSpecialMenu2       = "Zeige spezielles ROM-MenÃ¼ fÃ¼r Cartridge 2";
+    ls->shortcutCartAutoReset      = "Emulator zurÃ¼cksetzen, wenn Cartridge eingefÃ¼gt wird";
+    ls->shortcutDiskInsertA        = "Diskette A einfÃ¼gen";
+    ls->shortcutDiskDirInsertA     = "Directory als Diskette A einfÃ¼gen";
     ls->shortcutDiskRemoveA        = "Diskette A auswerfen";
     ls->shortcutDiskChangeA        = "Schneller Austausch von Diskette A";
-    ls->shortcutDiskAutoResetA     = "Emulator zurücksetzen, wenn Diskette A eingefügt wird";
-    ls->shortcutDiskInsertB        = "Diskette B einfügen";
-    ls->shortcutDiskDirInsertB     = "Directory als Diskette B einfügen";
+    ls->shortcutDiskAutoResetA     = "Emulator zurÃ¼cksetzen, wenn Diskette A eingefÃ¼gt wird";
+    ls->shortcutDiskInsertB        = "Diskette B einfÃ¼gen";
+    ls->shortcutDiskDirInsertB     = "Directory als Diskette B einfÃ¼gen";
     ls->shortcutDiskRemoveB        = "Diskette B auswerfen";
-    ls->shortcutCasInsert          = "Cassette einfügen";
+    ls->shortcutCasInsert          = "Cassette einfÃ¼gen";
     ls->shortcutCasEject           = "Cassette auswerfen";
-    ls->shortcutCasAutorewind      = "Automatischen Bandrücklauf umschalten";     // "Toggle Auto-rewind on Cassette";
+    ls->shortcutCasAutorewind      = "Automatischen BandrÃ¼cklauf umschalten";     // "Toggle Auto-rewind on Cassette";
     ls->shortcutCasReadOnly        = "Read-only-Status der Cassette umschalten";  // "Toggle Read-only Cassette";
     ls->shortcutCasSetPosition     = "Bandposition festlegen";
-    ls->shortcutCasRewind          = "Cassette zurückspulen";
+    ls->shortcutCasRewind          = "Cassette zurÃ¼ckspulen";
     ls->shortcutCasSave            = "Cassetten-Image speichern";
     ls->shortcutPrnFormFeed        = "Seitenvorschub des Druckers";
     ls->shortcutCpuStateLoad       = "CPU-Status laden";
@@ -606,20 +698,28 @@ void langInitGerman(LanguageStrings* ls)
     ls->shortcutAudioCapture       = "Start/stop Audio-Aufnahme";         // "Start/stop audio capture"; // capture = Erfassung, to capture = erfassen ...
     ls->shortcutScreenshotOrig     = "Screenshot-Aufnahme";               // "Screenshot capture";
     ls->shortcutScreenshotSmall    = "Kleiner, ungefilterter Screenshot"; // "Small unfiltered screenshot capture";
-    ls->shortcutScreenshotLarge    = "Großer, ungefilterter Screenshot";  // "Large unfiltered screenshot capture";
-    ls->shortcutQuit               = "blueMSX verlassen";
+    ls->shortcutScreenshotLarge    = "GroÃŸer, ungefilterter Screenshot";  // "Large unfiltered screenshot capture";
+    ls->shortcutQuit               = "blueMSX+ verlassen";
     ls->shortcutRunPause           = "Start/Unterbrechung der Emulation";
     ls->shortcutStop               = "Emulation stoppen";
     ls->shortcutResetHard          = "Hard-Reset";
     ls->shortcutResetSoft          = "Soft-Reset";
     ls->shortcutResetClean         = "Allgemeiner Reset";
-    ls->shortcutSizeSmall          = "Kleine Fenstergröße einstellen";
-    ls->shortcutSizeNormal         = "Normale Fenstergröße einstellen";
-    ls->shortcutSizeFullscreen     = "Volle Bildschirmgröße einstellen";
-    ls->shortcutToggleFullscren    = "Bildschirmgröße umschalten";
+    ls->shortcutSize1x             = "1x-FenstergrÃ¶ÃŸe setzen";
+    ls->shortcutSize2x             = "2x-FenstergrÃ¶ÃŸe setzen";
+    ls->shortcutSize3x             = "3x-FenstergrÃ¶ÃŸe setzen";
+    ls->shortcutSize4x             = "4x-FenstergrÃ¶ÃŸe setzen";
+    ls->shortcutSize5x             = "5x-FenstergrÃ¶ÃŸe setzen";
+    ls->shortcutSize6x             = "6x-FenstergrÃ¶ÃŸe setzen";
+    ls->shortcutSize7x             = "7x-FenstergrÃ¶ÃŸe setzen";
+    ls->shortcutSize8x             = "8x-FenstergrÃ¶ÃŸe setzen";
+    ls->shortcutSizeFullscreen     = "Volle BildschirmgrÃ¶ÃŸe einstellen";
+    ls->shortcutYm2413BackendCycle = "MSX-MUSIC Audio-Backend wechseln";
+    ls->shortcutY8950BackendCycle  = "MSX-AUDIO Audio-Backend wechseln";
+    ls->shortcutToggleFullscren    = "BildschirmgrÃ¶ÃŸe umschalten";
     ls->shortcutSizeMinimized      = "Fenster minimieren";
-    ls->shortcutVolumeIncrease     = "Lautstärke erhöhen";
-    ls->shortcutVolumeDecrease     = "Lautstärke vermindern";
+    ls->shortcutVolumeIncrease     = "LautstÃ¤rke erhÃ¶hen";
+    ls->shortcutVolumeDecrease     = "LautstÃ¤rke vermindern";
     ls->shortcutVolumeMute         = "Ton abschalten";
     ls->shortcutVolumeStereo       = "Mono/Stereo umschalten";
     ls->shortcutSwitchMsxAudio     = "MSX-AUDIO umschalten";                 // "Toggle MSX-AUDIO switch";
@@ -627,17 +727,17 @@ void langInitGerman(LanguageStrings* ls)
     ls->shortcutSwitchPause        = "Unterbrechungstaste umschalten";
     ls->shortcutToggleMouseLock    = "Maussperre umschalten";
     ls->shortcutEmuSpeedMax        = "Max. Emulationsgeschwindigkeit";
-    ls->shortcutEmuPlayReverse  = "Rewind emulation";                     // New in 2.8.3
+    ls->shortcutEmuPlayReverse  = "Emulation zurÃ¼ckspulen";                     // New in 2.8.3
     ls->shortcutEmuSpeedToggle     = "Max. Emulationsgeschwindigkeit umschalten";
     ls->shortcutEmuSpeedNormal     = "Normale Emulationsgeschwindigkeit";
-    ls->shortcutEmuSpeedInc        = "Emulationsgeschwindigkeit erhöhen";
+    ls->shortcutEmuSpeedInc        = "Emulationsgeschwindigkeit erhÃ¶hen";
     ls->shortcutEmuSpeedDec        = "Emulationsgeschwindigkeit vermindern";
     ls->shortcutThemeSwitch        = "Anderes Theme";
     ls->shortcutShowEmuProp        = "Zeige Emulationseigenschaften";
     ls->shortcutShowVideoProp      = "Zeige Video-Eigenschaften";
     ls->shortcutShowAudioProp      = "Zeige Audio-Eigenschaften";
     ls->shortcutShowCtrlProp       = "Zeige Control-Eigenschaften";
-    ls->shortcutShowEffectsProp = "Show Effects Properties";     // New in 2.9
+    ls->shortcutShowEffectsProp = "Effekt-Eigenschaften anzeigen";     // New in 2.9
     ls->shortcutShowSettProp       = "Zeige Einstellungseigenschaften";
     ls->shortcutShowPorts          = "Zeige Ports-Eigenschaften";
     ls->shortcutShowLanguage       = "Zeige Sprachdialog";
@@ -651,22 +751,23 @@ void langInitGerman(LanguageStrings* ls)
     ls->shortcutShowAbout          = "Zeige ''About''-Dialog";
     ls->shortcutShowFiles          = "Zeige File-Eigenschaften";
     ls->shortcutToggleSpriteEnable = "Sprites zeigen/verdecken";
-    ls->shortcutToggleFdcTiming    = "Freigabe/Sperren des Floppy-Drive-Timings";
-    ls->shortcutToggleNoSpriteLimits = "Toggle Sprites Limitation";                 // New in 2.9
-    ls->shortcutEnableMsxKeyboardQuirk = "Emulate MSX Keyboard Quirk";              // New in 2.9
+    ls->shortcutToggleFdcTiming    = "FDD-Beschleunigung umschalten";
+    ls->shortcutToggleHddSdBoost = "HDD/SD-Beschleunigung umschalten";
+    ls->shortcutToggleNoSpriteLimits = "Sprite-BeschrÃ¤nkung umschalten";                 // New in 2.9
+    ls->shortcutEnableMsxKeyboardQuirk = "MSX-Tastatureigenart emulieren";              // New in 2.9
     ls->shortcutToggleCpuTrace     = "Freigabe/Sperren des CPU-Trace";   // "Enable/Disable CPU Trace";
-    ls->shortcutVideoLoad          = "Video-Aufnahme laden";             // New in 2.6 -- "Load Video Capture";
-    ls->shortcutVideoPlay          = "Letzte Video-Aufnahme abspielen";  // New in 2.6 -- "Play Last Video Capture";
-    ls->shortcutVideoRecord        = "Video-Aufnahme aufnehmen";         // New in 2.6 -- "Record Video Capture";
-    ls->shortcutVideoStop          = "Video-Aufnahme stoppen";           // New in 2.6 -- "Stop Video Capture";
-    ls->shortcutVideoRender        = "Videofile wiedergeben";            // New in 2.6 -- "Render Video File";
+    ls->shortcutVideoLoad          = "Replay: Aus Datei laden";             // New in 2.6 -- "Load Video Capture";
+    ls->shortcutVideoPlay          = "Replay: Letzte Aufnahme abspielen";  // New in 2.6 -- "Play Last Video Capture";
+    ls->shortcutVideoRecord        = "Replay: Aufnehmen";         // New in 2.6 -- "Record Video Capture";
+    ls->shortcutVideoStop          = "Replay: Stoppen";           // New in 2.6 -- "Stop Video Capture";
+    ls->shortcutVideoRender        = "Replay: Als Video exportieren";            // New in 2.6 -- "Render Video File";
 
 
     //----------------------
     // Keyboard config lines
     //----------------------
 
-    ls->keyconfigSelectedKey     = "Ausgewählte Taste:";    // "Selected Key:";
+    ls->keyconfigSelectedKey     = "AusgewÃ¤hlte Taste:";    // "Selected Key:";
     ls->keyconfigMappedTo        = "Abgebildet auf:";       // "Mapped To:";
     ls->keyconfigMappingScheme   = "Abbildungsschema:";     // "Mapping Scheme:";
 
@@ -714,6 +815,7 @@ void langInitGerman(LanguageStrings* ls)
     ls->romTypeExtRam4mb         = "4MB External RAM";
     ls->romTypeSvi328Cart        = "SVI-328 Cartridge";
     ls->romTypeSvi328Fdc         = "SVI-328 Disk Controller";
+    ls->romTypeSvi328RsIde       = "SVI-328 RS IDE";
     ls->romTypeSvi328Prn         = "SVI-328 Printer";
     ls->romTypeSvi328Uart        = "SVI-328 Serial Port";
     ls->romTypeSvi328col80       = "SVI-328 80 Column Card";

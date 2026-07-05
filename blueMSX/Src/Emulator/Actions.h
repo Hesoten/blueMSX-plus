@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -36,6 +39,8 @@ void actionInit(Video* video, Properties* properties, Mixer* mixer);
 void actionSetAudioCaptureSetDirectory(char* dir, char* prefix);
 void actionSetVideoCaptureSetDirectory(char* dir, char* prefix);
 void actionSetQuickSaveSetDirectory(char* dir, char* prefix);
+const char* actionGetAudioCaptureDir(void);
+const char* actionGetVideoCaptureDir(void);
 
 void actionCartInsert(int cartNo);
 void actionCartRemove(int cartNo);
@@ -56,6 +61,7 @@ void actionLoadState();
 void actionSaveState();
 void actionQuickLoadState();
 void actionQuickSaveState();
+void actionQuickSaveStateUndo();
 void actionCartInsert1();
 void actionCartInsert2();
 void actionEmuTogglePause();
@@ -71,8 +77,14 @@ void actionMaxSpeedRelease();
 void actionStartPlayReverse();
 void actionStopPlayReverse();
 void actionDiskQuickChange();
-void actionWindowSizeSmall();
-void actionWindowSizeNormal();
+void actionWindowSize1x();
+void actionWindowSize2x();
+void actionWindowSize3x();
+void actionWindowSize4x();
+void actionWindowSize5x();
+void actionWindowSize6x();
+void actionWindowSize7x();
+void actionWindowSize8x();
 void actionWindowSizeMinimized();
 void actionWindowSizeFullscreen();
 void actionEmuSpeedNormal();
@@ -85,6 +97,7 @@ void actionEmuResetSoft();
 void actionEmuResetHard();
 void actionEmuResetClean();
 void actionScreenCapture();
+void actionScreenCaptureAs();
 void actionScreenCaptureUnfilteredSmall();
 void actionScreenCaptureUnfilteredLarge();
 void actionNextTheme();
@@ -97,11 +110,13 @@ void actionCasSave();
 void actionPropShowEmulation();
 void actionPropShowVideo();
 void actionPropShowAudio();
+void actionPropShowMidi();
 void actionPropShowSettings();
 void actionPropShowDisk();
 void actionPropShowApearance();
 void actionPropShowPorts();
 void actionPropShowEffects();
+void actionPropShowCapture();
 void actionOptionsShowLanguage();
 void actionToolsShowMachineEditor();
 void actionToolsShowShorcutEditor();
@@ -141,18 +156,31 @@ void actionToggleDiskAutoReset();
 void actionToggleCasAutoRewind();
 void actionToggleSpriteEnable();
 void actionToggleFdcTiming();
+void actionToggleHddSdBoost();
 void actionToggleNoSpriteLimits();
 void actionToggleMsxKeyboardQuirk();
 void actionToggleMsxAudioSwitch();
 void actionToggleFrontSwitch();
 void actionTogglePauseSwitch();
 void actionToggleWaveCapture();
+void actionWaveCaptureStartAs(void);
 void actionToggleMouseCapture();
 void actionVideoCaptureLoad();
 void actionVideoCapturePlay();
 void actionVideoCaptureRec();
+void actionVideoCaptureRecAs(void);
 void actionVideoCaptureStop();
+/* Drain a pending replay-completion toast queued by boardCaptureStop. Safe
+** to call from any UI-thread checkpoint (emulatorStop epilogue, main
+** message loop) even when no recording finalized: cheap no-op then. */
+void actionReplayFlushCompletionToast(void);
+void actionYm2413BackendCycle(void);
+void actionY8950BackendCycle(void);
 void actionVideoCaptureSave();
+void actionRecordVideoStart(void);
+void actionRecordVideoStartAs(void);
+void actionRecordVideoStop(void);
+void actionRecordVideoToggle(void);
 void actionMaxSpeedToggle();
 void actionFullscreenToggle();
 void actionCasToggleReadonly();
@@ -185,6 +213,7 @@ void actionSetCasAutoRewind(int value);
 void actionSetSpriteEnable(int value);
 void actionSetMsxAudioSwitch(int value);
 void actionSetFdcTiming(int value);
+void actionSetHddSdBoost(int value);
 void actionSetNoSpriteLimits(int value);
 void actionSetFrontSwitch(int value);
 void actionSetPauseSwitch(int value);

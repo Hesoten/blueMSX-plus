@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -27,7 +30,7 @@
 */
 #include "VeryTinyXpath.h"
 #include "tinyxml.h"
-#ifdef WII
+#if defined(WII) || defined(_WIN32)
 #include <string>
 #else
 #include <string.h>
@@ -163,8 +166,9 @@ extern "C" int vtXpathGetInt(VtXpath* xpath, int numLevels, const char* first, .
 {
     PathVector pathVector;
     va_list marker;
-    va_start(marker, numLevels);
-    createPathVector(pathVector, marker, numLevels);
+    va_start(marker, first);
+    pathVector.push_back(std::string(first));
+    createPathVector(pathVector, marker, numLevels - 1);
     va_end(marker);
 
     const char* strValue = vtXpathGetStringFromPath(xpath, pathVector);
@@ -183,8 +187,9 @@ extern "C" const char* vtXpathGetString(VtXpath* xpath, int numLevels, const cha
 {
     PathVector pathVector;
     va_list marker;
-    va_start(marker, numLevels);
-    createPathVector(pathVector, marker, numLevels);
+    va_start(marker, first);
+    pathVector.push_back(std::string(first));
+    createPathVector(pathVector, marker, numLevels - 1);
     va_end(marker);
 
     return vtXpathGetStringFromPath(xpath, pathVector);
@@ -194,8 +199,9 @@ extern "C" void vtXpathSetInt(VtXpath* xpath, int value, int numLevels, const ch
 {
     PathVector pathVector;
     va_list marker;
-    va_start(marker, numLevels);
-    createPathVector(pathVector, marker, numLevels);
+    va_start(marker, first);
+    pathVector.push_back(std::string(first));
+    createPathVector(pathVector, marker, numLevels - 1);
     va_end(marker);
 
     char buf[16];
@@ -208,8 +214,9 @@ extern "C" void vtXpathSetString(VtXpath* xpath, const char* value, int numLevel
 {
     PathVector pathVector;
     va_list marker;
-    va_start(marker, numLevels);
-    createPathVector(pathVector, marker, numLevels);
+    va_start(marker, first);
+    pathVector.push_back(std::string(first));
+    createPathVector(pathVector, marker, numLevels - 1);
     va_end(marker);
 
     vtXpathSetStringFromPath(xpath, pathVector, value);

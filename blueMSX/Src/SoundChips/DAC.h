@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -46,6 +49,11 @@ void dacReset(DAC* dac);
 
 /* Register read/write methods */
 void dacWrite(DAC* dac, DacChannel channel, UInt8 value);
+
+/* Timestamped variant: enqueue the BlipBuffer delta at `time` instead of
+** boardSystemTime().  Use from a timer callback where dispatch may overshoot
+** the scheduled cycle (avoids CPU-jitter noise on Turbo-R PCM BUFF=1). */
+void dacWriteAt(DAC* dac, DacChannel channel, UInt8 value, UInt32 time);
 
 #endif
 

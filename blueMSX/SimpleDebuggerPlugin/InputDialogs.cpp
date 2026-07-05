@@ -5,6 +5,9 @@
 **
 ** Copyright (C) 2003-2012 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -26,6 +29,7 @@
 #include "InputDialogs.h"
 #include "Language.h"
 #include "Resource.h"
+#include "ToolInterface.h"
 
 extern HWND getRootHwnd();
 
@@ -69,7 +73,7 @@ struct FindProcData {
     char        value[128];
 };
 
-static BOOL CALLBACK staticFindDialogProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static INT_PTR CALLBACK staticFindDialogProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     if (inputDialogsInstance == NULL) {
         return FALSE;
@@ -84,6 +88,7 @@ BOOL InputDialogs::findDialogProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
 
     switch (iMsg) {  
     case WM_INITDIALOG:
+        ApplyDarkMode(hDlg);
         procData = (FindProcData*)lParam;
         SetWindowText(hDlg, procData->caption);
         SendDlgItemMessage(hDlg, IDC_TEXT_ADDRESS, WM_SETTEXT, 0, (LPARAM)Language::findWindowText);
@@ -122,7 +127,7 @@ BOOL InputDialogs::findDialogProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
     return FALSE;
 }
 
-static BOOL CALLBACK staticAddressDialogProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static INT_PTR CALLBACK staticAddressDialogProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     if (inputDialogsInstance == NULL) {
         return FALSE;
@@ -137,6 +142,7 @@ BOOL InputDialogs::addressDialogProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM
 
     switch (iMsg) {  
     case WM_INITDIALOG:
+        ApplyDarkMode(hDlg);
         procData = (AddrProcData*)lParam;
         SetWindowText(hDlg, procData->caption);
         SendDlgItemMessage(hDlg, IDC_TEXT_ADDRESS, WM_SETTEXT, 0, (LPARAM)Language::gotoWindowText);
@@ -204,7 +210,7 @@ void InputDialogs::updateWatchpointControls(HWND hDlg, const Breakpoints::Breakp
         refValueInput->show();
 }
 
-static BOOL CALLBACK staticWatchpointDialogProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static INT_PTR CALLBACK staticWatchpointDialogProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     if (inputDialogsInstance == NULL) {
         return FALSE;
@@ -218,6 +224,7 @@ BOOL InputDialogs::watchpointDialogProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
 
     switch (iMsg) {
     case WM_INITDIALOG:
+        ApplyDarkMode(hDlg);
         procData = (WatchpointProcData*)lParam;
         
         procData->breakpointInfo.size = 1;
@@ -280,7 +287,7 @@ BOOL InputDialogs::watchpointDialogProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
             }
         case IDC_MEMTYPE:
             if (HIWORD(wParam) == CBN_SELCHANGE) {
-                int idx = SendDlgItemMessage(hDlg, IDC_MEMTYPE, CB_GETCURSEL, 0, 0);
+                int idx = (int)SendDlgItemMessage(hDlg, IDC_MEMTYPE, CB_GETCURSEL, 0, 0);
                 if (idx == 0) procData->breakpointInfo.type = Breakpoints::BreakpointInfo::WATCHPOINT_MEM;
                 if (idx == 1) procData->breakpointInfo.type = Breakpoints::BreakpointInfo::WATCHPOINT_VRAM;
                 if (idx == 2) procData->breakpointInfo.type = Breakpoints::BreakpointInfo::WATCHPOINT_IO;
@@ -367,7 +374,7 @@ bool InputDialogs::showAddressDialog(const char* caption, int& address) {
         return false;
     }
     AddrProcData procData(caption);
-    BOOL rv = DialogBoxParam(GetDllHinstance(), MAKEINTRESOURCE(IDD_SETBP), rootHwnd, staticAddressDialogProc, (LPARAM)&procData);
+    BOOL rv = (BOOL)DialogBoxParam(GetDllHinstance(), MAKEINTRESOURCE(IDD_SETBP), rootHwnd, staticAddressDialogProc, (LPARAM)&procData);
     if (rv) {
         address = procData.address;
         return true;
@@ -380,7 +387,7 @@ bool InputDialogs::showWatchpointDialog(const char* caption, Breakpoints::Breakp
         return false;
     }
     WatchpointProcData procData(caption);
-    BOOL rv = DialogBoxParam(GetDllHinstance(), MAKEINTRESOURCE(IDD_WATCHPOINT_ENTRY), rootHwnd, staticWatchpointDialogProc, (LPARAM)&procData);
+    BOOL rv = (BOOL)DialogBoxParam(GetDllHinstance(), MAKEINTRESOURCE(IDD_WATCHPOINT_ENTRY), rootHwnd, staticWatchpointDialogProc, (LPARAM)&procData);
     if (rv) {
         breakpointInfo = procData.breakpointInfo;
         return true;
@@ -394,7 +401,7 @@ bool InputDialogs::showFindTextDialog(const char* caption, char* enteredText) {
     }
 
     FindProcData procData(caption);
-    BOOL rv = DialogBoxParam(GetDllHinstance(), MAKEINTRESOURCE(IDD_FIND), rootHwnd, staticFindDialogProc, (LPARAM)&procData);
+    BOOL rv = (BOOL)DialogBoxParam(GetDllHinstance(), MAKEINTRESOURCE(IDD_FIND), rootHwnd, staticFindDialogProc, (LPARAM)&procData);
     if (rv) {
         strcpy(enteredText, procData.value);
         return true;

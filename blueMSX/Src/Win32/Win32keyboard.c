@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -25,16 +28,19 @@
 **
 ******************************************************************************
 */
-#define DIRECTINPUT_VERSION     0x0500
+#define DIRECTINPUT_VERSION     0x0800
 #include "Win32keyboard.h"
 #include "Language.h"
 #include "InputEvent.h"
 #include "IniFileParser.h"
 #include "Properties.h"
 #include <windows.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <winioctl.h>
 #include <dinput.h>
+#include <xinput.h>
+#include "Win32TextUtf8.h"
 
 
 // PacketFileSystem.h Need to be included after all other includes
@@ -60,6 +66,11 @@ static char keyboardConfigDir[MAX_PATH];
 static char DefaultConfigName[] = "blueMSX Default";
 
 static char currentConfigFile[MAX_PATH];
+
+/* Unresolved joystick DIK strings from last load: filled when
+** str2dik() misses (device absent), replayed by save to keep the
+** binding on disk, drained by inputResolveShadowBindings(). */
+static char shadowDikNames[KBD_TABLE_NUM][EC_KEYCOUNT][64];
 
 #define KEY_CODE_BUTTON1  256
 #define KEY_CODE_JOYUP    (256 + 28)
@@ -452,10 +463,17 @@ struct JoyInfo {
     int                  numButtons;
     int                  buttonA;
     int                  buttonB;
+    int                  isXInput;    /* 1 if XInput device, 0 if DInput */
+    int                  xInputSlot;  /* XInput player index 0-3 */
 };
 static struct JoyInfo joyInfo[MAX_JOYSTICKS];
 
 static int joyCount;
+
+/* Hot-plug dirty flag.  Set by WM_DEVICECHANGE; cleared after a successful
+** refresh inside inputRefreshDevicesIfDirty().  The Shortcut Config dialog
+** consults the flag before populating its controller dropdown. */
+static int inputDevicesDirty = 0;
 
 
 
@@ -464,6 +482,46 @@ static int joyCount;
 static int foundInputDevices = 0;
 static int tryBackground = 1;
 static int useBackgroundInput = 0;
+
+/* Detect if a DInput device is also an XInput device by matching VID/PID
+   against HID device paths that contain "IG_" (XInput marker). */
+static int isXInputDevice(const GUID* pGuidProduct)
+{
+    RAWINPUTDEVICELIST* pRIDL = NULL;
+    UINT nDevices = 0;
+    UINT i;
+    int result = 0;
+    char vidpid[32];
+
+    sprintf(vidpid, "VID_%04X&PID_%04X",
+            (unsigned)LOWORD(pGuidProduct->Data1),
+            (unsigned)HIWORD(pGuidProduct->Data1));
+    CharUpperA(vidpid);
+
+    GetRawInputDeviceList(NULL, &nDevices, sizeof(RAWINPUTDEVICELIST));
+    if (nDevices == 0) return 0;
+    pRIDL = malloc(sizeof(RAWINPUTDEVICELIST) * nDevices);
+    if (!pRIDL) return 0;
+    GetRawInputDeviceList(pRIDL, &nDevices, sizeof(RAWINPUTDEVICELIST));
+
+    for (i = 0; i < nDevices && !result; i++) {
+        UINT cbSize = 0;
+        char* pName;
+        if (pRIDL[i].dwType != RIM_TYPEHID) continue;
+        GetRawInputDeviceInfoA(pRIDL[i].hDevice, RIDI_DEVICENAME, NULL, &cbSize);
+        if (cbSize == 0) continue;
+        pName = malloc(cbSize + 1);
+        if (!pName) continue;
+        pName[cbSize] = 0;
+        GetRawInputDeviceInfoA(pRIDL[i].hDevice, RIDI_DEVICENAME, pName, &cbSize);
+        CharUpperA(pName);
+        if (strstr(pName, "IG_") && strstr(pName, vidpid)) result = 1;
+        free(pName);
+    }
+
+    free(pRIDL);
+    return result;
+}
 
 static BOOL CALLBACK enumKeyboards(LPCDIDEVICEINSTANCE devInst, LPVOID ref)
 {
@@ -474,7 +532,7 @@ static BOOL CALLBACK enumKeyboards(LPCDIDEVICEINSTANCE devInst, LPVOID ref)
         return DIENUM_CONTINUE;
     }
 
-    rv = IDirectInput_CreateDevice(dinput, &devInst->guidInstance, &kbdDevice, NULL);
+    rv = IDirectInput8_CreateDevice(dinput, &devInst->guidInstance, &kbdDevice, NULL);
     if (rv != DI_OK) {
         return DIENUM_CONTINUE;
     }
@@ -530,6 +588,12 @@ static BOOL CALLBACK enumJoysticksCallback(const DIDEVICEINSTANCE* pdidInstance,
     DIDEVCAPS diDevCaps;
     HRESULT rv;
     int i;
+
+    /* XInput devices are handled separately via XInput API. Skip them here
+       to avoid double-registering the same physical controller. */
+    if (isXInputDevice(&pdidInstance->guidProduct)) {
+        return DIENUM_CONTINUE;
+    }
 
     rv = IDirectInput_CreateDevice(dinput, &pdidInstance->guidInstance, &joyInfo[joyCount].diDevice, NULL);
     if (rv != DI_OK) {
@@ -603,17 +667,13 @@ int inputReset(HWND hwnd)
     for (i = 0; i < 2; i++) {
         dinputWindow = hwnd;
         dinputVersion = DIRECTINPUT_VERSION;
-	    rv = DirectInputCreate(GetModuleHandle(NULL), dinputVersion, &dinput, NULL);
+	    rv = DirectInput8Create(GetModuleHandle(NULL), dinputVersion, &IID_IDirectInput8, &dinput, NULL);
         if (rv != DI_OK) {
-            dinputVersion = 0x0300;
-    	    rv = DirectInputCreate(GetModuleHandle(NULL), dinputVersion, &dinput, NULL);
-            if (rv != DI_OK) {
-                printf("Failed to initialize DirectInput\n");
-                return 0;
-            }
+            printf("Failed to initialize DirectInput\n");
+            return 0;
         }
 
-	    rv = IDirectInput_EnumDevices(dinput, DIDEVTYPE_KEYBOARD, enumKeyboards, 0, DIEDFL_ATTACHEDONLY);
+	    rv = IDirectInput_EnumDevices(dinput, DI8DEVTYPE_KEYBOARD, enumKeyboards, 0, DIEDFL_ATTACHEDONLY);
         if (rv != DI_OK) {
             IDirectInput_Release(dinput);
             printf("Failed to find DirectInput device\n");
@@ -627,7 +687,7 @@ int inputReset(HWND hwnd)
 
 	    rv = IDirectInputDevice_SetProperty(kbdDevice, DIPROP_BUFFERSIZE,&dipdw.diph);
 
-        rv = IDirectInput_EnumDevices(dinput, DIDEVTYPE_JOYSTICK, enumJoysticksCallback, 0, DIEDFL_ATTACHEDONLY);
+        rv = IDirectInput_EnumDevices(dinput, DI8DEVTYPE_JOYSTICK, enumJoysticksCallback, 0, DIEDFL_ATTACHEDONLY);
 
         if (foundInputDevices) {
             // We found input devices that supports background input so lets not
@@ -638,7 +698,116 @@ int inputReset(HWND hwnd)
         tryBackground = 0;
     }
 
+    /* Add XInput controllers (up to 4) after DInput devices. */
+    {
+        static const char* xinputBtnNames[10] = {
+            "A", "B", "X", "Y", "LB", "RB", "Back", "Start", "LS", "RS"
+        };
+        int xi, j;
+        for (xi = 0; xi < 4 && joyCount < MAX_JOYSTICKS; xi++) {
+            XINPUT_STATE xs;
+            if (XInputGetState(xi, &xs) != ERROR_SUCCESS) continue;
+
+            memset(&joyInfo[joyCount], 0, sizeof(joyInfo[0]));
+            joyInfo[joyCount].isXInput   = 1;
+            joyInfo[joyCount].xInputSlot = xi;
+            joyInfo[joyCount].numButtons = 10;
+            joyInfo[joyCount].buttonA    = 0;  /* A button */
+            joyInfo[joyCount].buttonB    = 1;  /* B button */
+
+            sprintf(dikStrings[KEY_CODE_JOYLEFT  + 32 * joyCount], "XInput %d : left",  xi + 1);
+            sprintf(dikStrings[KEY_CODE_JOYRIGHT + 32 * joyCount], "XInput %d : right", xi + 1);
+            sprintf(dikStrings[KEY_CODE_JOYUP    + 32 * joyCount], "XInput %d : up",    xi + 1);
+            sprintf(dikStrings[KEY_CODE_JOYDOWN  + 32 * joyCount], "XInput %d : down",  xi + 1);
+            for (j = 0; j < 10; j++) {
+                sprintf(dikStrings[KEY_CODE_BUTTON1 + j + 32 * joyCount],
+                        "XInput %d : %s", xi + 1, xinputBtnNames[j]);
+            }
+
+            foundInputDevices = 1;
+            joyCount++;
+        }
+    }
+
     return 1;
+}
+
+void inputMarkDirty(void)
+{
+    inputDevicesDirty = 1;
+}
+
+void inputRefreshDevicesIfDirty(void)
+{
+    if (!inputDevicesDirty) return;
+    inputDevicesDirty = 0;
+
+    /* Append-only XInput re-enum: stale entries stay (avoids race with
+    ** lock-free emu thread). DInput hot-plug deferred. */
+    {
+        static const char* xinputBtnNames[10] = {
+            "A", "B", "X", "Y", "LB", "RB", "Back", "Start", "LS", "RS"
+        };
+        int xi;
+        for (xi = 0; xi < 4 && joyCount < MAX_JOYSTICKS; xi++) {
+            int already = 0;
+            int j;
+            for (j = 0; j < joyCount; j++) {
+                if (joyInfo[j].isXInput && joyInfo[j].xInputSlot == xi) {
+                    already = 1; break;
+                }
+            }
+            if (already) continue;
+
+            XINPUT_STATE xs;
+            if (XInputGetState((DWORD)xi, &xs) != ERROR_SUCCESS) continue;
+
+            int slot = joyCount;
+            memset(&joyInfo[slot], 0, sizeof(joyInfo[0]));
+            joyInfo[slot].isXInput   = 1;
+            joyInfo[slot].xInputSlot = xi;
+            joyInfo[slot].numButtons = 10;
+            joyInfo[slot].buttonA    = 0;  /* A button */
+            joyInfo[slot].buttonB    = 1;  /* B button */
+
+            sprintf(dikStrings[KEY_CODE_JOYLEFT  + 32 * slot], "XInput %d : left",  xi + 1);
+            sprintf(dikStrings[KEY_CODE_JOYRIGHT + 32 * slot], "XInput %d : right", xi + 1);
+            sprintf(dikStrings[KEY_CODE_JOYUP    + 32 * slot], "XInput %d : up",    xi + 1);
+            sprintf(dikStrings[KEY_CODE_JOYDOWN  + 32 * slot], "XInput %d : down",  xi + 1);
+            for (j = 0; j < 10; j++) {
+                sprintf(dikStrings[KEY_CODE_BUTTON1 + j + 32 * slot],
+                        "XInput %d : %s", xi + 1, xinputBtnNames[j]);
+            }
+            joyCount++;
+        }
+    }
+}
+
+/* Retry str2dik() on load-time unresolved bindings after hot-plug
+** filled in the missing controller's dikStrings.  Skipped mid-key
+** capture so the config dialog stays under user control. */
+void inputResolveShadowBindings(void)
+{
+    int n, i, j;
+
+    if (editEnabled) return;
+
+    for (n = 0; n < KBD_TABLE_NUM; n++) {
+        for (i = 0; i < EC_KEYCOUNT; i++) {
+            int dikKey;
+            if (shadowDikNames[n][i][0] == 0) continue;
+            dikKey = str2dik(shadowDikNames[n][i]);
+            if (dikKey <= 0) continue;
+
+            for (j = 0; j < KBD_TABLE_LEN; j++) {
+                if (kbdTable[n][j] == i) {
+                    kbdTable[n][j] = 0;
+                }
+            }
+            kbdTable[n][dikKey] = i;
+            shadowDikNames[n][i][0] = 0;
+        }
+    }
 }
 
 void inputDestroy(void)
@@ -683,6 +852,44 @@ static int joystickUpdateState(int index,  DWORD* buttonMask) {
     *buttonMask = 0;
     if (index >= joyCount) {
         return 0;
+    }
+
+    if (joyInfo[index].isXInput) {
+        static const WORD xinputBtns[10] = {
+            XINPUT_GAMEPAD_A, XINPUT_GAMEPAD_B, XINPUT_GAMEPAD_X, XINPUT_GAMEPAD_Y,
+            XINPUT_GAMEPAD_LEFT_SHOULDER, XINPUT_GAMEPAD_RIGHT_SHOULDER,
+            XINPUT_GAMEPAD_BACK, XINPUT_GAMEPAD_START,
+            XINPUT_GAMEPAD_LEFT_THUMB, XINPUT_GAMEPAD_RIGHT_THUMB
+        };
+        XINPUT_STATE xs;
+        XINPUT_GAMEPAD* gp;
+
+        if (XInputGetState(joyInfo[index].xInputSlot, &xs) != ERROR_SUCCESS) {
+            return 0;
+        }
+        gp = &xs.Gamepad;
+
+        /* D-pad */
+        if (gp->wButtons & XINPUT_GAMEPAD_DPAD_UP)    state |= 0x01;
+        if (gp->wButtons & XINPUT_GAMEPAD_DPAD_DOWN)  state |= 0x02;
+        if (gp->wButtons & XINPUT_GAMEPAD_DPAD_LEFT)  state |= 0x04;
+        if (gp->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT) state |= 0x08;
+
+        /* Left stick */
+        if (gp->sThumbLY >  XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE) state |= 0x01;
+        if (gp->sThumbLY < -XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE) state |= 0x02;
+        if (gp->sThumbLX < -XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE) state |= 0x04;
+        if (gp->sThumbLX >  XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE) state |= 0x08;
+
+        for (i = 0; i < 10; i++) {
+            if (gp->wButtons & xinputBtns[i]) bMask |= (1 << i);
+        }
+
+        if (bMask & (1 << joyInfo[index].buttonA)) state |= 0x10;
+        if (bMask & (1 << joyInfo[index].buttonB)) state |= 0x20;
+
+        *buttonMask = bMask;
+        return state;
     }
 
     if (joyInfo[index].diDevice2) {
@@ -759,6 +966,12 @@ static void keyboardHanldeKeypress(int code, int pressed)
 
                 kbdTable[n][code] = selectedKey;
                 selectedDikKey = code;
+
+                /* User picked a fresh key; drop any pending unresolved
+                ** binding so a later hot-plug won't overwrite it. */
+                if (selectedKey >= 0 && selectedKey < EC_KEYCOUNT) {
+                    shadowDikNames[n][selectedKey][0] = 0;
+                }
 
                 inputEventUnset(keyCode);
             }
@@ -915,13 +1128,13 @@ char** keyboardGetConfigs()
     char         fileName[MAX_PATH];
     static char  keyboardArray[256][64];
 	HANDLE       handle;
-	WIN32_FIND_DATA wfd;
+	WIN32_FIND_DATAA wfd;
     int index = 0;
     BOOL cont = TRUE;
 
     sprintf(fileName, "%s/*.config", keyboardConfigDir);
 
-    handle = FindFirstFile(fileName, &wfd);
+    handle = FindFirstFileU(fileName, &wfd);
 
     if (handle == INVALID_HANDLE_VALUE) {
         keyboardNames[0] = NULL;
@@ -929,17 +1142,19 @@ char** keyboardGetConfigs()
     }
 
     while (cont) {
-		DWORD fa = GetFileAttributes(wfd.cFileName);
-        if (fa & FILE_ATTRIBUTE_DIRECTORY) {
+        DWORD fa = wfd.dwFileAttributes;
+        /* Use wfd.dwFileAttributes (not GetFileAttributes on basename); same
+        ** fix as Win32ShortcutsConfig.c::getProfileList. */
+        if (!(fa & FILE_ATTRIBUTE_DIRECTORY)) {
             char buffer[128];
-            int length = strlen(wfd.cFileName) - 7;
+            int length = (int)strlen(wfd.cFileName) - 7;
             strcpy(buffer, wfd.cFileName);
             buffer[length] = 0;
             strcpy(keyboardArray[index], buffer);
             keyboardNames[index] = keyboardArray[index];
             index++;
         }
-        cont = FindNextFile(handle, &wfd);
+        cont = FindNextFileU(handle, &wfd);
     }
 
 	FindClose(handle);
@@ -958,6 +1173,7 @@ int keyboardLoadConfig(char* configName)
     int n;
 
     keyboardResetKbd();
+    memset(shadowDikNames, 0, sizeof(shadowDikNames));
 
     if (configName[0] == 0) {
         sprintf(fileName, "%s/%s.config", keyboardConfigDir, DefaultConfigName);
@@ -1002,6 +1218,12 @@ int keyboardLoadConfig(char* configName)
                     }
                     kbdTable[n][dikKey] = i;
                 }
+                else if (dikName[0] != 0) {
+                    /* Controller absent -- stash the string for save
+                    ** preservation and later hot-plug resolution. */
+                    strncpy(shadowDikNames[n][i], dikName, sizeof(shadowDikNames[n][i]) - 1);
+                    shadowDikNames[n][i][sizeof(shadowDikNames[n][i]) - 1] = 0;
+                }
             }
         }
     }
@@ -1039,6 +1261,12 @@ void keyboardSaveConfig(char* configName)
                     dikName = dik2str(j);
                     break;
                 }
+            }
+            if (*dikName == 0 && shadowDikNames[n][i][0] != 0) {
+                /* Nothing bound but load stashed an unresolved string;
+                ** write it back so the config survives an intervening
+                ** save without the controller. */
+                dikName = shadowDikNames[n][i];
             }
             if (keyCode != NULL) {
                 char key[32] = { 0 };
@@ -1179,6 +1407,8 @@ void keybardEnableEdit(int enable)
 void keyboardStartConfig() 
 {
     int n;
+    /* Pick up hot-plugged controllers before the user assigns keys. */
+    inputRefreshDevicesIfDirty();
     for (n = 0; n < KBD_TABLE_NUM; n++) {
         memcpy(kbdTableBackup[n], kbdTable[n], sizeof(kbdTableBackup[n]));
     }

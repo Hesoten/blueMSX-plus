@@ -3,6 +3,7 @@
 
 #include "MsxTypes.h"
 
+#ifdef __cplusplus
 #include <string>
 
 class SHA1
@@ -31,5 +32,15 @@ private:
 	std::string digest;
 };
 
+extern "C" {
+#endif
+
+/* C-callable wrapper: writes the 40-char lower-case hex digest of
+** `data` (`len` bytes) plus a NUL terminator into `outHex[41]`. */
+void calcSha1Hex(const UInt8* data, unsigned len, char outHex[41]);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

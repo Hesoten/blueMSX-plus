@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -89,7 +92,7 @@ static void createAboutInfo(char* buffer, int length, unsigned int clk)
                 "Marcelo Tini,  "
                 "Tanni,  "
                 "Eduardo Mello,  "
-                "Jon Cortázar Abraido,  "
+                "Jon CortÃ¡zar Abraido,  "
                 "Hondarer,  "
                 "Wouter Vermaelen,  "
                 "Manuel Bilderbeek,  "
@@ -100,11 +103,11 @@ static void createAboutInfo(char* buffer, int length, unsigned int clk)
                 "Glafouk,  "
                 "Ulver,  "
                 "Nicolas Beyaert,  "
-                "Víctor Fernández Sánchez,  "
+                "VÃ­ctor FernÃ¡ndez SÃ¡nchez,  "
                 "William Ouwehand,  "
                 "Jacek Bogucki (Gucek),  "
                 "Miikka \"MP83\" Poikela,  "
-                "Jussi Pitkänen,  "
+                "Jussi PitkÃ¤nen,  "
                 "Atarulum,  "
                 "MkII,  "
                 "Kobayashi Michiko,  "
@@ -118,7 +121,7 @@ static void createAboutInfo(char* buffer, int length, unsigned int clk)
                 langAboutScrollThanksTo(),
                 langAboutScrollAndYou());
 
-        len = strlen(text);
+        len = (int)strlen(text);
     }
 
     {
@@ -857,7 +860,7 @@ char* themeTriggerPerfTimerString(int timer) {
     if (emulatorGetState() == EMU_STOPPED || timer >= RDTSC_MAX_TIMERS) {
         return "";
     }
-	sprintf(buffer,"%Ld",rdtsc_get_timer(timer)/(unsigned long long int)20000);
+	sprintf(buffer,"%llu",rdtsc_get_timer(timer)/(unsigned long long int)20000);
     return buffer;
 }
 

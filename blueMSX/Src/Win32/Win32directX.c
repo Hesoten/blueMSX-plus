@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik, Laurent Halter
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -49,7 +52,9 @@ static LPDIRECTDRAWSURFACE7  lpDDSTemp2 = NULL;       // DirectDraw temp surface
 static LPDIRECTDRAWSURFACE7  lpDDSDraw = NULL;       // DirectDraw temp surface
 static LPDIRECTDRAWCLIPPER  lpClipper = NULL;       // clipper for primary
 static HWND    hwndThis;
-static int     MyDevice;
+/* HMONITOR-sized so the pointer-width comparison keeps the upper 32 bits
+** of a kernel handle on x64. */
+static INT_PTR MyDevice;
 static int     sysMemBuffering = 0;
 static int     screenWidth  = 320;
 static int     screenHeight = 240;
@@ -110,7 +115,7 @@ static HMONITOR OneMonitorFromWindow(HWND hwnd) {
     return hMonitor;
 }
 
-static int DirectDrawDeviceFromWindow(HWND hwnd, LPSTR szDevice, RECT *prc) {
+static INT_PTR DirectDrawDeviceFromWindow(HWND hwnd, LPSTR szDevice, RECT *prc) {
     HMONITOR hMonitor;
 
     if (GetSystemMetrics(SM_CMONITORS) <= 1) {
@@ -134,7 +139,7 @@ static int DirectDrawDeviceFromWindow(HWND hwnd, LPSTR szDevice, RECT *prc) {
             if (prc) *prc = mi.rcMonitor;
             if (szDevice) lstrcpy(szDevice, mi.szDevice);
         }
-        return (int)hMonitor;
+        return (INT_PTR)hMonitor;
     }
 }
 
@@ -276,6 +281,7 @@ static IDirectDraw7* DirectDrawCreateFromWindow(HWND hwnd) {
 void DirectXExitFullscreenMode()
 {
     lpTheDD = NULL;
+    lpDDSBack = NULL;  // attached back buffer -- lives/dies with lpDDSPrimary
 
     if( lpDDSPrimary != NULL ) {
         IDirectDrawSurface7_Release(lpDDSPrimary);
@@ -292,6 +298,12 @@ void DirectXExitFullscreenMode()
     if ( lpDDSDraw != NULL ) {
         IDirectDrawSurface7_Release(lpDDSDraw);
         lpDDSDraw = NULL;
+    }
+    // Release the clipper before the DirectDraw object; its SetHWnd()
+    // reference to the emu HWND would otherwise leak per driver switch.
+    if (lpClipper != NULL) {
+        IDirectDrawClipper_Release(lpClipper);
+        lpClipper = NULL;
     }
     if( lpDD != NULL ) {
         IDirectDraw7_SetCooperativeLevel(lpDD, NULL, DDSCL_NORMAL);
@@ -605,30 +617,17 @@ static int renderNoStretch(Video* pVideo, FrameBuffer* frameBuffer, int bitCount
 
     zoom = videoRender(pVideo, frameBuffer, bitCount, zoom, 
                        dstBuffer, dstOffset, dstPitch, canChangeZoom);
-
-    if (borderWidth > 0) {
-        borderWidth *= zoom;
-        if (bitCount == 16) {
-            UInt16* ptr  = dstBuffer;                    
-            int h = zoom * 240;
-            while (h--) {
-                memset(ptr, 0, borderWidth * sizeof(UInt16));
-                memset(ptr + zoom * 320 - borderWidth, 0, borderWidth * sizeof(UInt16));
-                ptr += dstPitch / sizeof(UInt16);
-            }
-        }
-        else if (bitCount == 32) {
-            UInt32* ptr  = dstBuffer;                 
-            int h = zoom * 240;
-            while (h--) {
-                memset(ptr, 0, borderWidth * sizeof(UInt32));
-                memset(ptr + zoom * 320 - borderWidth, 0, borderWidth * sizeof(UInt32));
-                ptr += dstPitch / sizeof(UInt32);
-            }
-        }
-    }
-
     return zoom;
+}
+
+void ScaleRectInPlace(RECT* pRect, float scale)
+{
+    if (pRect != NULL) {
+        pRect->left = (LONG)(pRect->left * scale);
+        pRect->top = (LONG)(pRect->top * scale);
+        pRect->right = (LONG)(pRect->right * scale);
+        pRect->bottom = (LONG)(pRect->bottom * scale);
+    }
 }
 
 int DirectXUpdateSurface(Video* pVideo, 
@@ -796,6 +795,10 @@ int DirectXUpdateSurface(Video* pVideo,
         destRect.left   -= deltaWidth;
         destRect.top    -= deltaHeight;
         destRect.bottom -= deltaHeight;
+    }
+    if (isFullscreen) {
+        float invScale = (float)GetSystemMetrics(SM_CYSCREEN) / screenHeight;
+        ScaleRectInPlace(&destRect, invScale);
     }
 
     if (syncVblank) {

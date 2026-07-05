@@ -1,7 +1,7 @@
-/**************************************************************************­**** 
+/****************************************************************************** 
  PORTABLE ROUTINES FOR WRITING PRIVATE PROFILE STRINGS --  by Joseph J. Graf 
  Header file containing prototypes and compile-time configuration. 
-***************************************************************************­***/ 
+******************************************************************************/ 
 
 #ifndef INIFILE_PARSER_H
 #define INIFILE_PARSER_H

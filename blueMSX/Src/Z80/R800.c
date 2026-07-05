@@ -13,6 +13,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -5279,18 +5282,26 @@ static void lddr(R800* r800) {
     }
 }
 
-static void ini(R800* r800) {  // Diff on flags
+static void ini(R800* r800) {
     UInt8  val;
     UInt16 tmp;
     delayInOut(r800);
     r800->regs.BC.B.h--;
     val = readPort(r800, r800->regs.BC.W);
     writeMem(r800, r800->regs.HL.W++, val);
-    r800->regs.AF.B.l = (ZSXYTable[r800->regs.BC.B.h]) |
-        ((val >> 6) & N_FLAG);
-    tmp = val + ((r800->regs.BC.B.l + 1) & 0xFF);
-    r800->regs.AF.B.l |= (tmp >> 8) * (H_FLAG | C_FLAG) |
-        (ZSPXYTable[(tmp & 0x07) ^ r800->regs.BC.B.h] & P_FLAG);
+    if (r800->cpuMode == CPU_R800) {
+        /* R800: only Z and N update; Z80 mode keeps the undocumented
+        ** flag derivation the original blueMSX table drives. */
+        r800->regs.AF.B.l = (r800->regs.AF.B.l & ~Z_FLAG) |
+            (r800->regs.BC.B.h ? 0 : Z_FLAG) | N_FLAG;
+    } else {
+        /* Z80 (undocumented): all flags are updated. */
+        r800->regs.AF.B.l = (ZSXYTable[r800->regs.BC.B.h]) |
+            ((val >> 6) & N_FLAG);
+        tmp = val + ((r800->regs.BC.B.l + 1) & 0xFF);
+        r800->regs.AF.B.l |= (tmp >> 8) * (H_FLAG | C_FLAG) |
+            (ZSPXYTable[(tmp & 0x07) ^ r800->regs.BC.B.h] & P_FLAG);
+    }
 }
 
 static void inir(R800* r800) { 
@@ -5310,11 +5321,16 @@ static void ind(R800* r800) {
     r800->regs.BC.B.h--;
     val = readPort(r800, r800->regs.BC.W);
     writeMem(r800, r800->regs.HL.W--, val);
-    r800->regs.AF.B.l = (ZSXYTable[r800->regs.BC.B.h]) | 
-        ((val >> 6) & N_FLAG);
-    tmp = val + ((r800->regs.BC.B.l - 1) & 0xFF);
-    r800->regs.AF.B.l |= (tmp >> 8) * (H_FLAG | C_FLAG) |
-        (ZSPXYTable[(tmp & 0x07) ^ r800->regs.BC.B.h] & P_FLAG);
+    if (r800->cpuMode == CPU_R800) {
+        r800->regs.AF.B.l = (r800->regs.AF.B.l & ~Z_FLAG) |
+            (r800->regs.BC.B.h ? 0 : Z_FLAG) | N_FLAG;
+    } else {
+        r800->regs.AF.B.l = (ZSXYTable[r800->regs.BC.B.h]) |
+            ((val >> 6) & N_FLAG);
+        tmp = val + ((r800->regs.BC.B.l - 1) & 0xFF);
+        r800->regs.AF.B.l |= (tmp >> 8) * (H_FLAG | C_FLAG) |
+            (ZSPXYTable[(tmp & 0x07) ^ r800->regs.BC.B.h] & P_FLAG);
+    }
 }
 
 static void indr(R800* r800) { 
@@ -5333,11 +5349,16 @@ static void outi(R800* r800) {
     val = readMem(r800, r800->regs.HL.W++);
     writePort(r800, r800->regs.BC.W, val);
     r800->regs.BC.B.h--;
-    r800->regs.AF.B.l = (ZSXYTable[r800->regs.BC.B.h]) |
-        ((val >> 6) & N_FLAG);
-    tmp = val + r800->regs.HL.B.l;
-    r800->regs.AF.B.l |= (tmp >> 8) * (H_FLAG | C_FLAG) |
-        (ZSPXYTable[(tmp & 0x07) ^ r800->regs.BC.B.h] & P_FLAG);
+    if (r800->cpuMode == CPU_R800) {
+        r800->regs.AF.B.l = (r800->regs.AF.B.l & ~Z_FLAG) |
+            (r800->regs.BC.B.h ? 0 : Z_FLAG) | N_FLAG;
+    } else {
+        r800->regs.AF.B.l = (ZSXYTable[r800->regs.BC.B.h]) |
+            ((val >> 6) & N_FLAG);
+        tmp = val + r800->regs.HL.B.l;
+        r800->regs.AF.B.l |= (tmp >> 8) * (H_FLAG | C_FLAG) |
+            (ZSPXYTable[(tmp & 0x07) ^ r800->regs.BC.B.h] & P_FLAG);
+    }
 }
 
 static void otir(R800* r800) { 
@@ -5356,11 +5377,16 @@ static void outd(R800* r800) {
     val = readMem(r800, r800->regs.HL.W--);
     writePort(r800, r800->regs.BC.W, val);
     r800->regs.BC.B.h--;
-    r800->regs.AF.B.l = (ZSXYTable[r800->regs.BC.B.h]) |
-        ((val >> 6) & N_FLAG);
-    tmp = val + r800->regs.HL.B.l;
-    r800->regs.AF.B.l |= (tmp >> 8) * (H_FLAG | C_FLAG) |
-        (ZSPXYTable[(tmp & 0x07) ^ r800->regs.BC.B.h] & P_FLAG);
+    if (r800->cpuMode == CPU_R800) {
+        r800->regs.AF.B.l = (r800->regs.AF.B.l & ~Z_FLAG) |
+            (r800->regs.BC.B.h ? 0 : Z_FLAG) | N_FLAG;
+    } else {
+        r800->regs.AF.B.l = (ZSXYTable[r800->regs.BC.B.h]) |
+            ((val >> 6) & N_FLAG);
+        tmp = val + r800->regs.HL.B.l;
+        r800->regs.AF.B.l |= (tmp >> 8) * (H_FLAG | C_FLAG) |
+            (ZSPXYTable[(tmp & 0x07) ^ r800->regs.BC.B.h] & P_FLAG);
+    }
 }
 
 static void otdr(R800* r800) { 
@@ -5851,6 +5877,7 @@ R800* r800Create(UInt32 cpuFlags,
     r800->breakpointCount = 0;
 #endif
     r800->systemTime      = 0;
+    r800->lastRefreshTime = 0;
     r800->cpuMode         = CPU_UNKNOWN;
     r800->oldCpuMode      = CPU_UNKNOWN;
 
@@ -6027,7 +6054,6 @@ SystemTime r800GetTimeTrace(R800* r800, int offset) {
 }
 
 void r800Execute(R800* r800) {
-    static SystemTime lastRefreshTime = 0;
     while (!r800->terminate) {
         UInt16 address;
         int iff1 = 0;
@@ -6049,8 +6075,8 @@ void r800Execute(R800* r800) {
         }
 
         if (r800->cpuMode == CPU_R800) {
-            if (r800->systemTime - lastRefreshTime > 222 * 3) {
-                lastRefreshTime = r800->systemTime;
+            if (r800->systemTime - r800->lastRefreshTime > 222 * 3) {
+                r800->lastRefreshTime = r800->systemTime;
                 r800->systemTime += 20 * 3;
             }
         }
@@ -6135,8 +6161,6 @@ void r800Execute(R800* r800) {
 }
 
 void r800ExecuteUntil(R800* r800, UInt32 endTime) {
-    static SystemTime lastRefreshTime = 0;
-
     while ((Int32)(endTime - r800->systemTime) > 0) {
         UInt16 address;
         int iff1 = 0;
@@ -6146,8 +6170,8 @@ void r800ExecuteUntil(R800* r800, UInt32 endTime) {
         }
 
         if (r800->cpuMode == CPU_R800) {
-            if (r800->systemTime - lastRefreshTime > 222 * 3) {
-                lastRefreshTime = r800->systemTime;
+            if (r800->systemTime - r800->lastRefreshTime > 222 * 3) {
+                r800->lastRefreshTime = r800->systemTime;
                 r800->systemTime += 12 * 3;
             }
         }
@@ -6229,13 +6253,12 @@ void r800ExecuteUntil(R800* r800, UInt32 endTime) {
 }
 
 void r800ExecuteInstruction(R800* r800) {
-    static SystemTime lastRefreshTime = 0;
     UInt16 address;
     int iff1 = 0;
 
     if (r800->cpuMode == CPU_R800) {
-        if (r800->systemTime - lastRefreshTime > 222 * 3) {
-            lastRefreshTime = r800->systemTime;
+        if (r800->systemTime - r800->lastRefreshTime > 222 * 3) {
+            r800->lastRefreshTime = r800->systemTime;
             r800->systemTime += 12 * 3;
         }
     }

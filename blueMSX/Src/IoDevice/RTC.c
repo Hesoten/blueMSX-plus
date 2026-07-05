@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -35,6 +38,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+
+/* After stdio.h: pkg_fopen overrides fopen for UTF-8 paths. */
+#include "PacketFileSystem.h"
 
 static const UInt8 mask[4][13] = {
     { 0x0f, 0x07, 0x0f, 0x07, 0x0f, 0x03, 0x07, 0x0f, 0x03, 0x0f, 0x01, 0x0f, 0x0f },

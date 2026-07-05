@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -37,5 +40,12 @@ void* archSemaphoreCreate(int initCount);
 void archSemaphoreDestroy(void* semaphore);
 void archSemaphoreSignal(void* semaphore);
 void archSemaphoreWait(void* semaphore, int timeout);
+
+/* Wait wrapper that yields to emuWaitForResume when suspend fires
+** mid-wait, so a Win32 modal loop doesn't freeze the emu thread. */
+#define ARCH_WAIT_ACK     0
+#define ARCH_WAIT_TIMEOUT 1
+int  archWaitForAckOrSuspend(void* ackEvent, int timeoutMs);
+void archEmuSuspendSignal(void);
 
 #endif

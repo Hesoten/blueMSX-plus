@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -28,13 +31,16 @@
 #define DIRECTINPUT_VERSION     0x0700
 
 #include <windows.h>
+#include <commctrl.h>     /* TRACKMOUSEEVENT for slider hover tooltip */
 #include "MsxTypes.h"
 #include "Win32Common.h"
 #include "Win32Keyboard.h"
 #include "Win32File.h"
 #include "Win32Menu.h"
+#include "Win32TextUtf8.h"
 #include "Theme.h"
 #include "Machine.h"
+#include "Properties.h"
 #include "ArchNotifications.h"
 #include "ArchMenu.h"
 #include "Language.h"
@@ -81,8 +87,8 @@ extern void SetCurrentWindow(HWND hwnd);
 
 static void objectShow(HWND parent, int notifyId, int show);
 static void objectEnable(HWND parent, int notifyId, int enable);
-static void objectUpdate(HWND parent, int notifyId, int arg);
-static int objectGet(HWND parent, int notifyId);
+static void objectUpdate(HWND parent, int notifyId, LPARAM arg);
+static LRESULT objectGet(HWND parent, int notifyId);
 
 
 //////////////////////////////////////////////////////////////////////////
@@ -163,7 +169,6 @@ static void* windowDataGet(HWND hwnd)
 //////////////////////////////////////////////////////////////////////////
 typedef struct WindowInfo {
     HWND hwnd;
-    int  captionHeight;
     int  isMinimized;
     int  isMoving;
     Theme* theme;
@@ -176,7 +181,43 @@ typedef struct WindowInfo {
     int      rgnSize;
     RGNDATA* rgnData;
     int      rgnEnable;
+
+    HWND     hwndSliderTip;   /* lazily created on first slider hover */
 } WindowInfo;
+
+/* AdjustWindowRectExForDpi-based frame metrics; SM_CXFIXEDFRAME under-
+   counts on Win10/11 PerMonitor DPI for WS_DLGFRAME, clipping the
+   theme bitmap. */
+static void windowFrameMetrics(HWND hwnd, int clientW, int clientH,
+                               int* offX, int* offY,
+                               int* outerW, int* outerH)
+{
+    DWORD style   = (DWORD)GetWindowLongPtr(hwnd, GWL_STYLE);
+    DWORD exStyle = (DWORD)GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+    RECT  rc      = { 0, 0, clientW, clientH };
+
+    typedef BOOL (WINAPI *PFN_AdjustForDpi)(LPRECT, DWORD, BOOL, DWORD, UINT);
+    typedef UINT (WINAPI *PFN_GetDpi)(HWND);
+    static PFN_AdjustForDpi pAdjust = (PFN_AdjustForDpi)(LONG_PTR)-1;
+    static PFN_GetDpi       pGetDpi = (PFN_GetDpi)(LONG_PTR)-1;
+    if (pAdjust == (PFN_AdjustForDpi)(LONG_PTR)-1) {
+        HMODULE u32 = GetModuleHandleA("user32.dll");
+        pAdjust = u32 ? (PFN_AdjustForDpi)GetProcAddress(u32, "AdjustWindowRectExForDpi") : NULL;
+        pGetDpi = u32 ? (PFN_GetDpi)GetProcAddress(u32, "GetDpiForWindow") : NULL;
+    }
+
+    if (pAdjust && pGetDpi) {
+        UINT dpi = pGetDpi(hwnd);
+        if (!dpi) dpi = 96;
+        pAdjust(&rc, style, FALSE, exStyle, dpi);
+    } else {
+        AdjustWindowRectEx(&rc, style, FALSE, exStyle);
+    }
+    if (offX)   *offX   = -rc.left;
+    if (offY)   *offY   = -rc.top;
+    if (outerW) *outerW = rc.right - rc.left;
+    if (outerH) *outerH = rc.bottom - rc.top;
+}
 
 
 //////////////////////////////////////////////////////////////////////////
@@ -263,8 +304,9 @@ static void windowCreateClipRegion(WindowInfo* wi)
         int i;
         HRGN hrgn;
         POINT pt[512];
-        int dx = GetSystemMetrics(SM_CXFIXEDFRAME);
-        int dy = GetSystemMetrics(SM_CYFIXEDFRAME) + wi->captionHeight;
+        int dx, dy;
+        windowFrameMetrics(wi->hwnd, themePage->width, themePage->height,
+                           &dx, &dy, NULL, NULL);
 
         if (clipCount == 0) {
             pt[0].x = 0 + dx;
@@ -301,8 +343,9 @@ static void windowCreateClipRegion(WindowInfo* wi)
                 wi->rgnData = NULL;
             }
             else {
-                int width  = themePage->width  + 2 * GetSystemMetrics(SM_CXFIXEDFRAME);
-                int height = themePage->height + 2 * GetSystemMetrics(SM_CYFIXEDFRAME) + wi->captionHeight;
+                int width, height;
+                windowFrameMetrics(wi->hwnd, themePage->width, themePage->height,
+                                   NULL, NULL, &width, &height);
 
                 if (wi->hrgn) { DeleteObject(wi->hrgn); wi->hrgn=NULL; }
                 wi->hrgn = CreateRectRgn(0, 0, width, height);
@@ -338,7 +381,7 @@ static LRESULT CALLBACK keyboardDlgProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
     switch (iMsg) {
     case WM_CREATE:
         keyboardStartConfig();
-        objectUpdate(hwnd, WM_DROPDOWN_KEYBOARDCONFIG, (int)keyboardGetCurrentConfig());
+        objectUpdate(hwnd, WM_DROPDOWN_KEYBOARDCONFIG, (LPARAM)keyboardGetCurrentConfig());
         SetTimer(hwnd, TIMER_POLL_INPUT, 500, NULL);
         return 0;
 
@@ -385,7 +428,7 @@ static LRESULT CALLBACK keyboardDlgProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
 
     case WM_CLOSE:
         if (keyboardConfigIsModified()) {
-            if (IDNO == MessageBox(NULL, langWarningDiscardChanges(), langWarningTitle(), MB_ICONWARNING | MB_YESNO)) {
+            if (IDNO == MessageBoxU(NULL, langWarningDiscardChanges(), langWarningTitle(), MB_ICONWARNING | MB_YESNO)) {
                 return WM_CLOSE_RESULT_CANCEL;
             }
         }
@@ -428,8 +471,6 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
             windowDataSet(hwnd, 1, wi);
 
             wi->hwnd = hwnd;
-            wi->captionHeight = GetSystemMetrics((GetWindowLong(hwnd, GWL_EXSTYLE) & WS_EX_TOOLWINDOW) ? SM_CYSMCAPTION : SM_CYCAPTION);
-            
             themePage = themeGetCurrentPage(wi->theme);
             SendMessage(hwnd, WM_UPDATE, 0, 0);
 
@@ -517,8 +558,8 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
             int width;
             int height;
 
-            width  = themePage->width  + 2 * GetSystemMetrics(SM_CXFIXEDFRAME);
-            height = themePage->height + 2 * GetSystemMetrics(SM_CYFIXEDFRAME) + wi->captionHeight;
+            windowFrameMetrics(hwnd, themePage->width, themePage->height,
+                               NULL, NULL, &width, &height);
             
             if (wi->hBitmap) { DeleteObject(wi->hBitmap); wi->hBitmap=NULL; }
             if (wi->hdc) { ReleaseDC(hwnd,wi->hdc); wi->hdc=NULL; }
@@ -558,12 +599,26 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
             GetCursorPos(&pt);
             ScreenToClient(hwnd, &pt);
             themePageMouseMove(themePage, hdc, pt.x, pt.y);
+            win32SliderTooltipUpdate(&wi->hwndSliderTip, hwnd,
+                                     themePageHoverSliderPercent(themePage, pt.x, pt.y));
             ReleaseDC(hwnd, hdc);
             windowCheckClipRegion(wi);
+            /* Request WM_MOUSELEAVE so the slider tooltip is hidden when
+               the cursor exits the window. */
+            {
+                TRACKMOUSEEVENT tme = { sizeof(tme), TME_LEAVE, hwnd, 0 };
+                TrackMouseEvent(&tme);
+            }
         }
         SetTimer(hwnd, TIMER_THEME, 250, NULL);
 
         break;
+
+    case WM_MOUSELEAVE:
+        if (wi != NULL) {
+            win32SliderTooltipUpdate(&wi->hwndSliderTip, hwnd, -1);
+        }
+        return 0;
 
     case WM_LBUTTONDOWN:
         if (wi != NULL) {
@@ -652,15 +707,21 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
 ///
 /// Description:
 ///     Creates a window based on the theme configuration
+///
+///     Always created unowned; archWindowApplyOwnership applies the
+///     mode-appropriate owner.  childWindow is kept for ABI but ignored.
 //////////////////////////////////////////////////////////////////////////
 void* archWindowCreate(Theme* theme, int childWindow) 
 {
     HINSTANCE hInstance = GetModuleHandle(NULL);
     WindowInfo* wi;
+    wchar_t wTitle[128];
+
+    (void)childWindow;
 
     static int initialized = 0;
     if (!initialized) {
-        static WNDCLASSEX wndClass;
+        static WNDCLASSEXW wndClass;
         wndClass.cbSize         = sizeof(wndClass);
         wndClass.style          = CS_OWNDC;
         wndClass.lpfnWndProc    = windowProc;
@@ -672,30 +733,79 @@ void* archWindowCreate(Theme* theme, int childWindow)
         wndClass.hCursor        = LoadCursor(NULL, IDC_ARROW);
         wndClass.hbrBackground  = NULL;
         wndClass.lpszMenuName   = NULL;
-        wndClass.lpszClassName  = "blueMSX Popup";
+        wndClass.lpszClassName  = L"blueMSX Popup";
 
-        RegisterClassEx(&wndClass);
+        RegisterClassExW(&wndClass);
 
         initialized = 1;
     }
 
     wi = calloc(1, sizeof(WindowInfo));
     wi->theme = theme;
-#define childWindow 0
-    if (childWindow) {
-        return CreateWindowEx(WS_EX_TOOLWINDOW, "blueMSX Popup", theme->name, 
-                            WS_OVERLAPPED | WS_CLIPCHILDREN | WS_BORDER | WS_DLGFRAME | 
-                            WS_SYSMENU | WS_MINIMIZEBOX, 
-                            CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, getMainHwnd(), NULL, 
-                            hInstance, wi);
+    Utf8ToWide(theme->name, wTitle, _countof(wTitle));
+    return CreateWindowW(L"blueMSX Popup", wTitle,
+                        WS_OVERLAPPED | WS_CLIPCHILDREN | WS_BORDER | WS_DLGFRAME |
+                        WS_SYSMENU | WS_MINIMIZEBOX,
+                        CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, NULL, NULL,
+                        hInstance, wi);
+}
+
+void archWindowApplyOwnership(void* p)
+{
+    HWND hwnd = (HWND)p;
+    Properties* pProperties;
+    HWND newOwner;
+    HWND currentOwner;
+    HWND zPos;
+    BOOL isFullscreen;
+
+    if (hwnd == NULL) {
+        return;
     }
-    else {
-        return CreateWindow("blueMSX Popup", theme->name, 
-                            WS_OVERLAPPED | WS_CLIPCHILDREN | WS_BORDER | WS_DLGFRAME | 
-                            WS_SYSMENU | WS_MINIMIZEBOX, 
-                            CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, NULL, NULL, 
-                            hInstance, wi);
+    pProperties = propGetGlobalProperties();
+    isFullscreen = (pProperties != NULL &&
+                    pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN);
+    /* Fullscreen: owned by main so the aux floats above it; windowed:
+    ** unowned independent window. */
+    newOwner = isFullscreen ? getMainHwnd() : NULL;
+    /* The fullscreen main is HWND_TOPMOST, so the aux must join the same
+    ** topmost group or it sinks below the main (= invisible). */
+    zPos = isFullscreen ? HWND_TOPMOST : HWND_NOTOPMOST;
+
+    currentOwner = (HWND)GetWindowLongPtr(hwnd, GWLP_HWNDPARENT);
+    if (currentOwner != newOwner) {
+        /* GWLP_HWNDPARENT only settles reliably while the window is
+        ** hidden; the hide/show dance is skipped on no-change so mass
+        ** refresh doesn't flicker every open aux window. */
+        BOOL wasVisible = IsWindowVisible(hwnd);
+        if (wasVisible) {
+            ShowWindow(hwnd, SW_HIDE);
+        }
+        SetWindowLongPtr(hwnd, GWLP_HWNDPARENT, (LONG_PTR)newOwner);
+        if (wasVisible) {
+            ShowWindow(hwnd, SW_SHOWNOACTIVATE);
+        }
     }
+
+    SetWindowPos(hwnd, zPos, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+}
+
+static BOOL CALLBACK reownEnumProc(HWND hwnd, LPARAM lParam)
+{
+    wchar_t className[64];
+    (void)lParam;
+    /* All aux theme windows share the "blueMSX Popup" class; the class
+    ** filter is what makes a desktop-wide EnumWindows walk safe. */
+    if (GetClassNameW(hwnd, className, _countof(className)) > 0 &&
+        wcscmp(className, L"blueMSX Popup") == 0) {
+        archWindowApplyOwnership(hwnd);
+    }
+    return TRUE;
+}
+
+void archWindowApplyOwnershipAll(void)
+{
+    EnumWindows(reownEnumProc, 0);
 }
 
 
@@ -706,18 +816,21 @@ void* archWindowCreate(Theme* theme, int childWindow)
 /// Description:
 ///     Updates the child windows of parent with type notifyId 
 //////////////////////////////////////////////////////////////////////////
-static void objectUpdate(HWND parent, int notifyId, int arg)
+static void objectUpdate(HWND parent, int notifyId, LPARAM arg)
 {
     int i;
     for (i = 0; windowData[i].hwnd != NULL; i++) {
         if (GetParent(windowData[i].hwnd) == parent && windowData[i].id == notifyId) {
-            SendMessage(windowData[i].hwnd, WM_OBJECT_UPDATE, 0, (LPARAM)arg);
+            SendMessage(windowData[i].hwnd, WM_OBJECT_UPDATE, 0, arg);
         }
     }
 }
 
-static int objectGet(HWND parent, int notifyId)
+static LRESULT objectGet(HWND parent, int notifyId)
 {
+    /* Returns LRESULT so callers that cast the result to char* / void*
+    ** (via DWLP_MSGRESULT, e.g. keyboardDlgProc::WM_CLOSE) keep the
+    ** upper 32 bits intact on x64. */
     int i;
     for (i = 0; windowData[i].hwnd != NULL; i++) {
         if (GetParent(windowData[i].hwnd) == parent && windowData[i].id == notifyId) {
@@ -790,7 +903,7 @@ typedef struct {
 /// Description:
 ///     Window handler for a dropdown menu controls
 //////////////////////////////////////////////////////////////////////////
-static BOOL CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static BOOL_DLG_RET CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     DropdownInfo* oi;
 
@@ -798,8 +911,28 @@ static BOOL CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
     case WM_INITDIALOG:
         oi = (DropdownInfo*)malloc(sizeof(DropdownInfo));
         *oi = *(DropdownInfo*)lParam;
-        SetWindowPos(hwnd, NULL, oi->x, oi->y, oi->width, oi->height, SWP_NOZORDER | SWP_SHOWWINDOW);
-        SetWindowPos(GetDlgItem(hwnd, IDC_CONTROL), NULL, 0, 0, oi->width, 96, SWP_NOZORDER);
+        /* Centre the combobox at its natural (font-derived) collapsed height
+        ** inside the theme rect (which scales with the theme); set the
+        ** combobox window height to natural+96 so the popup list stays
+        ** usable regardless of the rect's height. +8 covers the border. */
+        {
+            HWND  combo = GetDlgItem(hwnd, IDC_CONTROL);
+            int   natural;
+            int   yOffset;
+            {
+                HFONT hFont   = (HFONT)SendMessage(combo, WM_GETFONT, 0, 0);
+                HDC   hdc     = GetDC(combo);
+                HFONT oldFont = hFont ? (HFONT)SelectObject(hdc, hFont) : NULL;
+                TEXTMETRIC tm = {};
+                GetTextMetrics(hdc, &tm);
+                if (oldFont) SelectObject(hdc, oldFont);
+                ReleaseDC(combo, hdc);
+                natural = tm.tmHeight + tm.tmExternalLeading + 8;
+            }
+            yOffset = (oi->height > natural) ? (oi->height - natural) / 2 : 0;
+            SetWindowPos(hwnd, NULL, oi->x, oi->y + yOffset, oi->width, natural, SWP_NOZORDER | SWP_SHOWWINDOW);
+            SetWindowPos(combo, NULL, 0, 0, oi->width, natural + 96, SWP_NOZORDER);
+        }
         windowDataSet(hwnd, oi->notifyId, oi);
         SendMessage(hwnd, WM_OBJECT_UPDATE, 0, 0);
         return FALSE;
@@ -813,8 +946,8 @@ static BOOL CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
 
                 isChanging = 1;
 
-                idx = SendMessage(GetDlgItem(hwnd, IDC_CONTROL), CB_GETCURSEL, 0, 0);
-                rv = SendMessage(GetDlgItem(hwnd, IDC_CONTROL), CB_GETLBTEXT, idx, (LPARAM)sel);
+                idx = (int)SendMessage(GetDlgItem(hwnd, IDC_CONTROL), CB_GETCURSEL, 0, 0);
+                rv = (int)SendMessage(GetDlgItem(hwnd, IDC_CONTROL), CB_GETLBTEXT, idx, (LPARAM)sel);
                 if (rv != CB_ERR) {
                     oi = (DropdownInfo*)windowDataGet(hwnd);
                     SendMessage(GetParent(hwnd), (UINT)oi->notifyId, 0, (LPARAM)sel);
@@ -832,14 +965,14 @@ static BOOL CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
     case WM_OBJECT_GET:
         {
             static char buffer[512];
-            int idx = SendDlgItemMessage(hwnd, IDC_CONTROL, CB_GETCURSEL, 0, 0);
-            int rv = SendDlgItemMessage(hwnd, IDC_CONTROL, CB_GETLBTEXT, idx, (LPARAM)buffer);
+            int idx = (int)SendDlgItemMessage(hwnd, IDC_CONTROL, CB_GETCURSEL, 0, 0);
+            int rv = (int)SendDlgItemMessage(hwnd, IDC_CONTROL, CB_GETLBTEXT, idx, (LPARAM)buffer);
             if (rv != CB_ERR) {
-                SetWindowLong(hwnd, DWL_MSGRESULT, (LRESULT)buffer);
+                SetWindowLongPtr(hwnd, DWLP_MSGRESULT, (LRESULT)(LPVOID)buffer);
                 return TRUE;
             }
         }
-        SetWindowLong(hwnd, DWL_MSGRESULT, 0);
+        SetWindowLongPtr(hwnd, DWLP_MSGRESULT, 0);
         return TRUE;
 
     case WM_OBJECT_UPDATE:
@@ -865,7 +998,7 @@ static BOOL CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
                     iterator = arrayListCreateIterator(machineList);
                     while (arrayListCanIterate(iterator)) {
                         char *machineInList = (char *)arrayListIterate(iterator);
-                        SendDlgItemMessage(hwnd, IDC_CONTROL, CB_ADDSTRING, 0, (LPARAM)machineInList);
+                        ComboAddStringU(GetDlgItem(hwnd, IDC_CONTROL), machineInList);
 
                         if (index == 0 || 0 == strcmp(machineInList, oi->text))
                             SendDlgItemMessage(hwnd, IDC_CONTROL, CB_SETCURSEL, index, 0);
@@ -885,7 +1018,7 @@ static BOOL CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
             }
 
             while (*items != NULL) {
-                SendDlgItemMessage(hwnd, IDC_CONTROL, CB_ADDSTRING, 0, (LPARAM)*items);
+                ComboAddStringU(GetDlgItem(hwnd, IDC_CONTROL), *items);
 
                 if (index == 0 || 0 == strcmp(*items, oi->text)) {
                     SendDlgItemMessage(hwnd, IDC_CONTROL, CB_SETCURSEL, index, 0);
@@ -896,10 +1029,10 @@ static BOOL CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
         }
         break;
     case WM_OBJECT_SHOW:
-        ShowWindow(hwnd, lParam);
+        ShowWindow(hwnd, (int)lParam);
         break;
     case WM_OBJECT_ENABLE:
-        EnableWindow(hwnd, lParam);
+        EnableWindow(hwnd, (BOOL)lParam);
         break;
     }
     return FALSE;
@@ -913,12 +1046,19 @@ static BOOL CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
 /// Description:
 ///     Function to create dropdown menu controls (from within themes)
 //////////////////////////////////////////////////////////////////////////
-static void* objectDropdownCreate(HWND hwnd, char* id, int x, int y, int width, int height, int arg1, int arg2)
+static void* objectDropdownCreate(HWND hwnd, char* id, int x, int y, int width, int height, LONG_PTR arg1, LONG_PTR arg2)
 {
     DropdownInfo oi = { x, y, width, height, 0, 0 };
 
     if (0 == strcmp(id, "dropdown-keyconfigs")) {
-        oi.text[0] = 0;
+        /* Seed with current config so tab-switch reselects it. */
+        char* cur = keyboardGetCurrentConfig();
+        if (cur != NULL) {
+            strncpy(oi.text, cur, sizeof(oi.text) - 1);
+            oi.text[sizeof(oi.text) - 1] = 0;
+        } else {
+            oi.text[0] = 0;
+        }
         oi.notifyId = WM_DROPDOWN_KEYBOARDCONFIG;
     }
     
@@ -980,7 +1120,7 @@ typedef struct {
 /// Description:
 ///     Window handler for a button controls
 //////////////////////////////////////////////////////////////////////////
-static BOOL CALLBACK buttonProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static BOOL_DLG_RET CALLBACK buttonProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     static ButtonInfo* oi;
 
@@ -989,22 +1129,25 @@ static BOOL CALLBACK buttonProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         oi = (ButtonInfo*)lParam;
         SetWindowPos(hwnd, NULL, oi->x, oi->y, oi->width, oi->height, SWP_NOZORDER | SWP_SHOWWINDOW);
         SetWindowPos(GetDlgItem(hwnd, IDC_CONTROL), NULL, 0, 0, oi->width, oi->height, SWP_NOZORDER);
-        SetWindowText(GetDlgItem(hwnd, IDC_CONTROL), oi->text);
-        windowDataSet(hwnd, oi->notifyId, (void*)oi->notifyId);
+        SetWindowTextU(GetDlgItem(hwnd, IDC_CONTROL), oi->text);
+        /* Stash notifyId in the void* slot.  Cast through UINT_PTR so x64
+        ** does not warn about int<->pointer size mismatch (the message id
+        ** is always small enough to fit). */
+        windowDataSet(hwnd, oi->notifyId, (void*)(UINT_PTR)oi->notifyId);
         return FALSE;
     case WM_COMMAND:
         if (wParam == IDC_CONTROL) {
-            SendMessage(GetParent(hwnd), (UINT)windowDataGet(hwnd), 0, 0);
+            SendMessage(GetParent(hwnd), (UINT)(UINT_PTR)windowDataGet(hwnd), 0, 0);
         }
         return TRUE;
     case WM_CLOSE:
         windowDataSet(hwnd, 0, NULL);
         break;
     case WM_OBJECT_SHOW:
-        ShowWindow(hwnd, lParam);
+        ShowWindow(hwnd, (int)lParam);
         break;
     case WM_OBJECT_ENABLE:
-        EnableWindow(GetDlgItem(hwnd, IDC_CONTROL), lParam);
+        EnableWindow(GetDlgItem(hwnd, IDC_CONTROL), (BOOL)lParam);
         break;
     }
     return FALSE;
@@ -1072,7 +1215,7 @@ static void objectButtonDestroy(void* object)
 ///     Creates a control based on the id string. The method is used to
 ///     create host specific controls from the themes.
 //////////////////////////////////////////////////////////////////////////
-void* archObjectCreate(char* id, void* window, int x, int y, int width, int height, int arg1, int arg2)
+void* archObjectCreate(char* id, void* window, int x, int y, int width, int height, LONG_PTR arg1, LONG_PTR arg2)
 {
     if (0 == strncmp(id, "button-", 7)) {
         return objectButtonCreate(window, id, x, y, width, height);

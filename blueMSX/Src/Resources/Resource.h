@@ -27,6 +27,34 @@
 #define IDB_CLASSIC_FPS                 2150
 #define IDB_CLASSIC_FREQ                2151
 
+/* Dark variants (light + 100; plain integers because rc.exe rejects
+   parenthesised arithmetic in resource-id fields). */
+#define IDB_CLASSIC_BG_DARK             2200
+#define IDB_CLASSIC_FONT_DARK           2201
+#define IDB_CLASSIC_DISKA_DARK          2202
+#define IDB_CLASSIC_DISKB_DARK          2203
+#define IDB_CLASSIC_CAS_DARK            2204
+#define IDB_CLASSIC_CAPS_DARK           2205
+#define IDB_CLASSIC_KANA_DARK           2206
+#define IDB_CLASSIC_FS_DARK             2207
+#define IDB_CLASSIC_AS_DARK             2208
+#define IDB_CLASSIC_RESET_DARK          2209
+#define IDB_CLASSIC_PLAY_DARK           2210
+#define IDB_CLASSIC_PAUSE_DARK          2211
+#define IDB_CLASSIC_STOP_DARK           2212
+#define IDB_CLASSIC_CART1_DARK          2213
+#define IDB_CLASSIC_CART2_DARK          2214
+#define IDB_CLASSIC_BTDISKA_DARK        2215
+#define IDB_CLASSIC_BTDISKB_DARK        2216
+#define IDB_CLASSIC_BTCAS_DARK          2217
+#define IDB_CLASSIC_BTSIZE_DARK         2218
+#define IDB_CLASSIC_BTOPTIONS_DARK      2219
+#define IDB_CLASSIC_BTHELP_DARK         2220
+#define IDB_CLASSIC_FONT2_DARK          2221
+#define IDB_CLASSIC_BGSMALL_DARK        2240
+#define IDB_CLASSIC_FPS_DARK            2250
+#define IDB_CLASSIC_FREQ_DARK           2251
+
 #endif
 
 #define IDI_BLUEMSX                     30102
@@ -100,7 +128,6 @@
 #define IDD_DISKEMU                     128
 
 #define IDD_OPEN_STATEDIALOG            129
-#define IDD_OPEN_HDSIZEDROPDOWN         130
 
 #define IDD_BUTTON                      131
 #define IDD_DROPDOWN                    132
@@ -108,6 +135,14 @@
 #define IDD_RENDERVIDEO                 133
 
 #define IDD_LOAD_MEMORY                 134
+
+#define IDD_RECORDER_PICKFILES          135
+
+#define IDD_MIDI                        136
+
+#define IDD_CAPTURE                     137
+
+#define IDD_LARGEMSG                    138
 
 #define IDC_JOY1                        1000
 #define IDC_JOY2                        1001
@@ -119,7 +154,6 @@
 #define IDC_MONTYPE                     1007
 #define IDC_PALEMU                      1008
 #define IDC_SNDFREQ                     1009
-#define IDC_MONSIZE                     1010
 #define IDC_SNDDRIVER                   1011
 #define IDC_EMUFAMILY                   1012
 #define IDC_VIDEODRV                    1013
@@ -130,6 +164,9 @@
 #define IDC_EMUSPEED                    1018
 #define IDC_EMUSPEEDTEXT                1019
 #define IDC_EMUSPEEDCUR                 1020
+#define IDC_VDPCMDSPEED                 1043
+#define IDC_VDPCMDSPEEDTEXT             1044
+#define IDC_VDPCMDSPEEDCUR              1045
 #define IDC_FULLRES                     1021
 #define IDC_EMURAM                      1022
 #define IDC_EMUVRAM                     1023
@@ -167,12 +204,13 @@
 #define IDC_EMUREVERSEPLAY              1811
 #define IDC_NOSPRITELIMITS              1812
 #define IDC_ENABLEMSXKEYBOARDQUIRK      1813
+#define IDC_SNDBUFSZ_ACTUAL             1814
+#define IDC_EMUHDDSDBOOST               1815
 
 #define IDC_MONGROUPBOX                 1900
 #define IDC_MONTYPETEXT                 1901
 #define IDC_MONEMUTEXT                  1902
 #define IDC_MONVIDEOTYPETEXT            1903
-#define IDC_MONWINDOWSIZETEXT           1904
 
 #define IDC_MONBRIGHTNESSTEXT           1910
 #define IDC_MONCONTRASTTEXT             1911
@@ -194,6 +232,24 @@
 #define IDC_COLORGHOSTINGENABLE         1934
 #define IDC_COLORGHOSTINGSLIDEBAR       1935
 #define IDC_COLORGHOSTINGVALUE          1936
+#define IDC_SCANLINESBRIGHTAUTO         1937
+#define IDC_SCANLINESBRIGHTSLIDE        1938
+#define IDC_SCANLINESBRIGHTVALUE        1939
+#define IDC_SCANLINESBRIGHTLABEL        1940
+#define IDC_HDRENABLE                   1941
+#define IDC_HDRPAPERWHITESLIDE          1942
+#define IDC_HDRPAPERWHITEVALUE          1943
+#define IDC_HDRPAPERWHITELABEL          1944
+#define IDC_HDRMODELABEL                1945
+#define IDC_HDRGROUPBOX                 1946
+#define IDC_HDRMODESTATICTEXT           1947
+#define IDC_HDRRECORD                   1948
+#define IDC_SCANLINESHAPELABEL          1949
+#define IDC_SCANLINESHAPEMODE           1950
+#define IDC_SCANLINESHAPESLIDE          1951
+#define IDC_SCANLINESHAPEVALUE          1952
+#define IDC_SCANLINESDEPTHLABEL         1953
+#define IDC_SCANLINESHARPLABEL          1954
 
 #define IDC_PERFDISPDRVTEXT             2000
 #define IDC_PERFFRAMESKIPTEXT           2001
@@ -298,10 +354,10 @@
 #define IDC_SETTINGSWINDOWSENV          2404
 #define IDC_SETTINGSSCREENSAVER         2405
 #define IDC_SETTINGSFILETYPES           2407
-#define IDC_SETTINGSDISABLEWINKEYS      2408
 #define IDC_SETTINGSPRIORITYBOOST       2409
 #define IDC_SETTINGSSCREENSHOTPNG       2410
 #define IDC_SETTINGSEJECTMEDIAONEXIT    2411
+#define IDC_SETTINGSOPENDEFAULTAPPS     2412
 
 #define IDC_CDROMGROUPBOX               2500
 #define IDC_CDROMDISABLE                2501
@@ -317,6 +373,12 @@
 #define IDC_DSKLOADTXT                  1202
 
 #define IDC_VIDEOPROGRESSTEXT           1210
+#define IDC_RECORDER_CAPLABEL           1211
+#define IDC_RECORDER_CAPPATH            1212
+#define IDC_RECORDER_CAPBROWSE          1213
+#define IDC_RECORDER_MP4LABEL           1214
+#define IDC_RECORDER_MP4PATH            1215
+#define IDC_RECORDER_MP4BROWSE          1216
 
 #define IDC_LANGLIST                    1250
 #define IDC_LANGTXT                     1251
@@ -394,9 +456,6 @@
 #define IDC_OPEN_ROMTEXT                2600
 #define IDC_OPEN_ROMTYPE                2601
 
-#define IDC_OPEN_HDSIZE                 2650
-#define IDC_OPEN_HDSIZETEXT             2651
-
 #define IDC_SCUTSAVE                    2700
 #define IDC_SCUTSAVEAS                  2701
 #define IDC_SCUTCLOSE                   2702
@@ -424,6 +483,41 @@
 #define IDC_LDMEM_ADDRESS               2903
 #define IDC_LDMEM_CAPADR                2904
 
+/* Capture (Recording / Audio / Screenshot / Replay) property page. */
+#define IDC_CAPTURE_AUDIO_GB                 2950
+#define IDC_CAPTURE_AUDIO_DIR_TEXT           2951
+#define IDC_CAPTURE_AUDIO_DIR                2952
+#define IDC_CAPTURE_AUDIO_BROWSE             2953
+#define IDC_CAPTURE_AUDIO_AUTO               2954
+#define IDC_CAPTURE_AUDIO_PROMPT             2955
+
+#define IDC_CAPTURE_VIDEO_GB                 2956
+#define IDC_CAPTURE_VIDEO_DIR_TEXT           2957
+#define IDC_CAPTURE_VIDEO_DIR                2958
+#define IDC_CAPTURE_VIDEO_BROWSE             2959
+#define IDC_CAPTURE_VIDEO_AUTO               2960
+#define IDC_CAPTURE_VIDEO_PROMPT             2961
+#define IDC_CAPTURE_VIDEO_CODEC_TEXT         2977
+#define IDC_CAPTURE_VIDEO_CODEC              2978
+
+#define IDC_CAPTURE_SCREENSHOT_GB            2962
+#define IDC_CAPTURE_SCREENSHOT_FORMAT_TEXT   2963
+#define IDC_CAPTURE_SCREENSHOT_FORMAT        2964
+#define IDC_CAPTURE_SCREENSHOT_DIR_TEXT      2965
+#define IDC_CAPTURE_SCREENSHOT_DIR           2966
+#define IDC_CAPTURE_SCREENSHOT_BROWSE        2967
+#define IDC_CAPTURE_SCREENSHOT_AUTO          2968
+#define IDC_CAPTURE_SCREENSHOT_PROMPT        2969
+
+#define IDC_CAPTURE_REPLAY_GB                2970
+#define IDC_CAPTURE_REPLAY_DIR_TEXT          2971
+#define IDC_CAPTURE_REPLAY_DIR               2972
+#define IDC_CAPTURE_REPLAY_BROWSE            2973
+#define IDC_CAPTURE_REPLAY_AUTO              2974
+#define IDC_CAPTURE_REPLAY_PROMPT            2975
+
+#define IDC_CAPTURE_SHOWTOAST                2976
+
 #define IDC_D3D_PARAMETERSGROUPBOX			3000
 #define IDC_D3D_ASPECTRATIO					3001
 #define IDC_D3D_ASPECTRATIOTEXT				3002
@@ -450,6 +544,31 @@
 #define IDC_D3D_CROPPING_BOTTOMTEXT			3018
 #define IDC_D3D_CROPPING_BOTTOM				3019
 #define IDC_D3D_CROPPING_BOTTOMVALUETEXT	3020
+
+/* Sound Chips property page (IDD_SOUNDCHIPS): per-backend Enable
+** checkboxes + Active dropdown for YM2413 and Y8950. */
+#define IDC_SNDCHIPS_YM2413_GB              3100
+#define IDC_SNDCHIPS_YM2413_EMU2413_EN      3101
+#define IDC_SNDCHIPS_YM2413_OPENMSX2_EN     3102
+#define IDC_SNDCHIPS_YM2413_NUKED_EN        3103
+#define IDC_SNDCHIPS_YM2413_ACTIVETEXT      3104
+#define IDC_SNDCHIPS_YM2413_ACTIVE          3105
+#define IDC_SNDCHIPS_Y8950_GB               3110
+#define IDC_SNDCHIPS_Y8950_FMOPL_EN         3111
+#define IDC_SNDCHIPS_Y8950_EMU8950_EN       3112
+#define IDC_SNDCHIPS_Y8950_OPENMSX_EN       3113
+#define IDC_SNDCHIPS_Y8950_ACTIVETEXT       3114
+#define IDC_SNDCHIPS_Y8950_ACTIVE           3115
+#define IDC_SNDCHIPS_HINT                   3120
+
+#define IDC_SNDCHIPS_OPLL_ANALOGTEXT        3130
+#define IDC_SNDCHIPS_OPLL_ANALOG_MODE       3131
+#define IDC_SNDCHIPS_OPLL_ANALOG_LPFTEXT    3132
+#define IDC_SNDCHIPS_OPLL_ANALOG_LPFSLIDE   3133
+#define IDC_SNDCHIPS_OPLL_ANALOG_LPFVALUE   3134
+
+#define IDC_LARGEMSG_TEXT                   3200
+#define IDC_LARGEMSG_ICON                   3201
 
 #define IDC_STATIC                      -1
 

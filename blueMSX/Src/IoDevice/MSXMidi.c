@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik, Tomas Karlsson, Johan van Leur
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -95,7 +98,10 @@ static void loadState(MSXMidi* msxMidi)
     msxMidi->timerIRQenabled = saveStateGet(state, "timerIRQenabled",  0);
     msxMidi->rxrdyIRQlatch   = saveStateGet(state, "rxrdyIRQlatch",    0);
     msxMidi->rxrdyIRQenabled = saveStateGet(state, "rxrdyIRQenabled",  0);
-    msxMidi->ioStart         = saveStateGet(state, "ioStart", 0);
+    /* Old .sta lacks ioStart; keep the create-time value to stay in
+    ** sync with the ports already mapped. */
+    msxMidi->ioStart         = saveStateGet(state, "ioStart",
+                                   boardStateLoadIsOldFormat() ? msxMidi->ioStart : 0);
 
     saveStateClose(state);
     

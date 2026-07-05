@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -27,14 +30,17 @@
 */
 #include "Win32Sound.h"
 #include "Win32directXSound.h"
-#include "Win32wmmSound.h"
-#include "Win32Avi.h"
+#include "Win32WasapiSound.h"
+#include "Win32Recorder.h"
 
 #include "ArchSound.h"
 
+/* Sound backends: None / DirectX / WASAPI.  Ini values containing
+** "wmm" fall back to WASAPI via stringToEnum() returning -1. */
+
 static DxSound* dxSound = NULL;
-static WmmSound* wmmSound = NULL;
-static AviSound* aviSound = NULL;
+static WasapiSound* wasapiSound = NULL;
+static RecorderSound* recorderSnd = NULL;
 
 static HWND        cfgHwnd   = NULL;
 static SoundDriver cfgDriver = SOUND_DRV_NONE;
@@ -55,11 +61,16 @@ void archSoundCreate(Mixer* mixer, UInt32 sampleRate, UInt32 bufferSize, Int16 c
     case SOUND_DRV_DIRECTX:
         dxSound = dxSoundCreate(cfgHwnd, mixer, sampleRate, bufferSize, channels);
         break;
-    case SOUND_DRV_WMM:
-        wmmSound = wmmSoundCreate(cfgHwnd, mixer, sampleRate, bufferSize, channels);
+    case SOUND_DRV_WASAPI:
+        wasapiSound = wasapiSoundCreate(cfgHwnd, mixer, sampleRate, bufferSize, channels);
+        if (!wasapiSound) {
+            /* Fall back to DirectSound if WASAPI initialisation fails. */
+            dxSound = dxSoundCreate(cfgHwnd, mixer, sampleRate, bufferSize, channels);
+        }
         break;
     case SOUND_DRV_AVI:
-        aviSound = aviSoundCreate(cfgHwnd, mixer, sampleRate, bufferSize, channels);
+        /* Legacy enum name kept for INI-file compatibility; routes to the MF recorder. */
+        recorderSnd = recorderSoundCreate(cfgHwnd, mixer, sampleRate, bufferSize, channels);
         break;
     }
 }
@@ -70,13 +81,13 @@ void archSoundDestroy(void)
         dxSoundDestroy(dxSound);
         dxSound = NULL;
     }
-    if (wmmSound) {
-        wmmSoundDestroy(wmmSound);
-        wmmSound = NULL;
+    if (wasapiSound) {
+        wasapiSoundDestroy(wasapiSound);
+        wasapiSound = NULL;
     }
-    if (aviSound) {
-        aviSoundDestroy(aviSound);
-        aviSound = NULL;
+    if (recorderSnd) {
+        recorderSoundDestroy(recorderSnd);
+        recorderSnd = NULL;
     }
 }
 
@@ -85,11 +96,11 @@ void archSoundResume(void)
     if (dxSound) {
         dxSoundResume(dxSound);
     }
-    if (wmmSound) {
-        wmmSoundResume(wmmSound);
+    if (wasapiSound) {
+        wasapiSoundResume(wasapiSound);
     }
-    if (aviSound) {
-        aviSoundResume(aviSound);
+    if (recorderSnd) {
+        recorderSoundResume(recorderSnd);
     }
 }
 
@@ -99,10 +110,10 @@ void archSoundSuspend(void)
     if (dxSound) {
         dxSoundSuspend(dxSound);
     }
-    if (wmmSound) {
-        wmmSoundSuspend(wmmSound);
+    if (wasapiSound) {
+        wasapiSoundSuspend(wasapiSound);
     }
-    if (aviSound) {
-        aviSoundSuspend(aviSound);
+    if (recorderSnd) {
+        recorderSoundSuspend(recorderSnd);
     }
 }

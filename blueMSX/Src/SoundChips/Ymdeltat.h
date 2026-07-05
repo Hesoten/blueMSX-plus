@@ -61,7 +61,8 @@ extern UINT8 *ym_deltat_memory;       /* memory pointer */
 /* before YM_DELTAT_ADPCM_CALC(YM_DELTAT *DELTAT); */
 #define YM_DELTAT_DECODE_PRESET(DELTAT) {ym_deltat_memory = DELTAT->memory;}
 
-void YM_DELTAT_ADPCM_LoadState(YM_DELTAT *DELTAT);
+/* Returns 1 if "ymdeltat" section loaded, 0 if absent (unit untouched). */
+int  YM_DELTAT_ADPCM_LoadState(YM_DELTAT *DELTAT);
 void YM_DELTAT_ADPCM_SaveState(YM_DELTAT *DELTAT);
 
 UINT8 YM_DELTAT_ADPCM_Peek(YM_DELTAT *DELTAT);

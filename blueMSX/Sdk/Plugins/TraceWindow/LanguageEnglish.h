@@ -32,7 +32,7 @@ class LanguageEnglish : public Language
 public:
     LanguageEnglish() {
         traceWindowName         = "Trace Logger";
-        traceWindowCaption      = "blueMSX - Trace Logger";
+        traceWindowCaption      = "blueMSX+ - Trace Logger";
         openWindowCaption       = "Open Log File";
 
         menuFile                = "File";

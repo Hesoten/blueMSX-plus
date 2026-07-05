@@ -5,6 +5,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -25,8 +28,57 @@
 */
 #include "StatusBar.h"
 #include "Resource.h"
+#include "Win32TextUtf8.h"
+#include "DbgWindow.h"
+#include "ToolInterface.h"
 #include <windows.h>
 #include <CommCtrl.h>
+
+#define STATUSBAR_DARK_SUBCLASS_ID 0xC4EAEE
+
+/* Status bar (msctls_statusbar) does not respect SetWindowTheme for its
+** background -- it always paints with the system 3D face color. Subclass
+** WM_PAINT and render the bar / text manually with dark colors. */
+static LRESULT CALLBACK statusBarDarkProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp,
+                                          UINT_PTR id, DWORD_PTR data)
+{
+    (void)data;
+    if (msg == WM_PAINT && IsDarkMode()) {
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hwnd, &ps);
+        RECT rc;
+        GetClientRect(hwnd, &rc);
+        HBRUSH bg = GetDarkBgBrush();
+        if (bg) FillRect(hdc, &rc, bg);
+
+        HFONT hFont = (HFONT)SendMessageW(hwnd, WM_GETFONT, 0, 0);
+        HFONT hOld  = hFont ? (HFONT)SelectObject(hdc, hFont) : NULL;
+        SetTextColor(hdc, GetDarkFg());
+        SetBkMode(hdc, TRANSPARENT);
+
+        int parts = (int)SendMessageW(hwnd, SB_GETPARTS, 0, 0);
+        for (int i = 0; i < parts; i++) {
+            int rawLen = (int)SendMessageW(hwnd, SB_GETTEXTLENGTHW, i, 0);
+            int len = rawLen & 0xFFFF;
+            if (len <= 0 || len > 255) continue;
+            wchar_t buf[256] = {0};
+            SendMessageW(hwnd, SB_GETTEXTW, i, (LPARAM)buf);
+            RECT pr;
+            SendMessageW(hwnd, SB_GETRECT, i, (LPARAM)&pr);
+            pr.left += 4;
+            DrawTextW(hdc, buf, len, &pr, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+        }
+
+        if (hOld) SelectObject(hdc, hOld);
+        EndPaint(hwnd, &ps);
+        return 0;
+    }
+    if (msg == WM_ERASEBKGND && IsDarkMode()) return 1;
+    if (msg == WM_NCDESTROY) {
+        RemoveWindowSubclass(hwnd, statusBarDarkProc, id);
+    }
+    return DefSubclassProc(hwnd, msg, wp, lp);
+}
 
 
 StatusBar::StatusBar(HINSTANCE hInstance, HWND owner, std::vector<int>& fieldWidthVec) :
@@ -34,6 +86,13 @@ StatusBar::StatusBar(HINSTANCE hInstance, HWND owner, std::vector<int>& fieldWid
 {
     hwnd = CreateWindowEx(0, STATUSCLASSNAME, NULL, WS_CHILD | WS_VISIBLE, 
                           0, 0, 50, 50, owner, (HMENU) 443, hInstance, NULL);
+
+    /* Switch to Unicode so SB_SETTEXTW (sent by setField) renders the wide
+    ** Japanese strings correctly instead of mojibaking the UTF-8 bytes
+    ** through CP932. */
+    SendMessage(hwnd, CCM_SETUNICODEFORMAT, TRUE, 0);
+
+    SetWindowSubclass(hwnd, statusBarDarkProc, STATUSBAR_DARK_SUBCLASS_ID, 0);
 
     updatePosition();
 }
@@ -45,7 +104,9 @@ StatusBar::~StatusBar()
 
 void StatusBar::setField(int fieldIndex, const char* text)
 {
-    SendMessage(hwnd, SB_SETTEXT, fieldIndex, (LPARAM)text);
+    wchar_t wbuf[256];
+    Utf8ToWide(text ? text : "", wbuf, _countof(wbuf));
+    SendMessageW(hwnd, SB_SETTEXTW, fieldIndex, (LPARAM)wbuf);
 }
 
 void StatusBar::updatePosition()
@@ -55,7 +116,7 @@ void StatusBar::updatePosition()
     RECT cr;
     GetClientRect(GetParent(hwnd), &cr);
 
-    int segments = fieldWidth.size();
+    int segments = (int)fieldWidth.size();
     int parts[64];
 
     parts[segments - 1] = cr.right;

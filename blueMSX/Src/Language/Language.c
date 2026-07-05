@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -289,15 +292,55 @@ char* langTextUnknown() { return ls->textUnknown; }
 char* langWarningTitle() { return ls->warningTitle; }
 char* langWarningDiscardChanges()  {return ls->warningDiscardChanges; }
 char* langWarningOverwriteFile() { return ls->warningOverwriteFile; }
+char* langWarningStateOldFormat() { return ls->warningStateOldFormat; }
 char* langErrorTitle() { return ls->errorTitle; }
 char* langErrorEnterFullscreen() { return ls->errorEnterFullscreen; }
 char* langErrorDirectXFailed() { return ls->errorDirectXFailed; }
 char* langErrorNoRomInZip() { return ls->errorNoRomInZip; }
 char* langErrorNoDskInZip() { return ls->errorNoDskInZip; }
 char* langErrorNoCasInZip() { return ls->errorNoCasInZip; }
+char* langErrorDirAsDskOverflow() { return ls->errorDirAsDskOverflow; }
 char* langErrorNoHelp() { return ls->errorNoHelp; }
 char* langErrorStartEmu() { return ls->errorStartEmu; }
+char* langErrorMissingFiles() { return ls->errorMissingFiles; }
 char* langErrorPortableReadonly()  {return ls->errorPortableReadonly; }
+char* langInfoColorDepth()                 { return ls->infoColorDepth; }
+char* langInfoTitle()                      { return ls->infoTitle; }
+char* langInfoGameReaderRedirect()         { return ls->infoGameReaderRedirect; }
+char* langErrorKeyboardThemeMissing()      { return ls->errorKeyboardThemeMissing; }
+char* langErrorMixerThemeMissing()         { return ls->errorMixerThemeMissing; }
+char* langErrorRecorderTitle()             { return ls->errorRecorderTitle; }
+char* langErrorRecorderSaveReplay()        { return ls->errorRecorderSaveReplay; }
+char* langErrorRecorderReplayMissing()     { return ls->errorRecorderReplayMissing; }
+char* langErrorRecorderRequiresDX12()      { return ls->errorRecorderRequiresDX12; }
+char* langErrorRecorderRequiresDX12Title() { return ls->errorRecorderRequiresDX12Title; }
+char* langInfoRecorderComplete()           { return ls->infoRecorderComplete; }
+char* langInfoToastSaved()                 { return ls->infoToastSaved; }
+char* langInfoToastAlreadyRecording()      { return ls->infoToastAlreadyRecording; }
+char* langDlgRecorderPickTitle()       { return ls->dlgRecorderPickTitle; }
+char* langDlgRecorderPickSourceCap()   { return ls->dlgRecorderPickSourceCap; }
+char* langDlgRecorderPickOutputMp4()   { return ls->dlgRecorderPickOutputMp4; }
+char* langMenuFileRecordVideo()        { return ls->menuFileRecordVideo; }
+char* langMenuFileStopRecordVideo()    { return ls->menuFileStopRecordVideo; }
+char* langShortcutRecordVideoStart()   { return ls->shortcutRecordVideoStart; }
+char* langShortcutRecordVideoStartAs() { return ls->shortcutRecordVideoStartAs; }
+char* langShortcutRecordVideoStop()    { return ls->shortcutRecordVideoStop; }
+char* langShortcutRecordVideoToggle()  { return ls->shortcutRecordVideoToggle; }
+char* langShortcutAudioCaptureAs()     { return ls->shortcutAudioCaptureAs; }
+char* langShortcutVideoRecordAs()      { return ls->shortcutVideoRecordAs; }
+char* langShortcutScreenshotAs()       { return ls->shortcutScreenshotAs; }
+
+char* langPropCapture()                { return ls->propCapture; }
+char* langPropCaptureAudioGB()         { return ls->propCaptureAudioGB; }
+char* langPropCaptureVideoGB()         { return ls->propCaptureVideoGB; }
+char* langPropCaptureScreenshotGB()    { return ls->propCaptureScreenshotGB; }
+char* langPropCaptureReplayGB()        { return ls->propCaptureReplayGB; }
+char* langPropCaptureSaveDir()         { return ls->propCaptureSaveDir; }
+char* langPropCaptureFormat()          { return ls->propCaptureFormat; }
+char* langPropCaptureCodec()           { return ls->propCaptureCodec; }
+char* langPropCaptureAutoName()        { return ls->propCaptureAutoName; }
+char* langPropCapturePromptName()      { return ls->propCapturePromptName; }
+char* langPropCaptureShowToast()       { return ls->propCaptureShowToast; }
 
 
 //----------------------
@@ -365,13 +408,20 @@ char* langMenuVideoRender() { return ls->menuVideoRender; }
 
 char* langMenuPrnFormfeed() { return ls->menuPrnFormfeed; }
 
-char* langMenuZoomNormal() { return ls->menuZoomNormal; }
-char* langMenuZoomDouble() { return ls->menuZoomDouble; }
+char* langMenuZoom1x() { return ls->menuZoom1x; }
+char* langMenuZoom2x() { return ls->menuZoom2x; }
+char* langMenuZoom3x() { return ls->menuZoom3x; }
+char* langMenuZoom4x() { return ls->menuZoom4x; }
+char* langMenuZoom5x() { return ls->menuZoom5x; }
+char* langMenuZoom6x() { return ls->menuZoom6x; }
+char* langMenuZoom7x() { return ls->menuZoom7x; }
+char* langMenuZoom8x() { return ls->menuZoom8x; }
 char* langMenuZoomFullscreen() { return ls->menuZoomFullscreen; }
 
 char* langMenuPropsEmulation() { return ls->menuPropsEmulation; }
 char* langMenuPropsVideo() { return ls->menuPropsVideo; }
 char* langMenuPropsSound() { return ls->menuPropsSound; }
+char* langMenuPropsMidi() { return ls->menuPropsMidi; }
 char* langMenuPropsControls() { return ls->menuPropsControls; }
 char* langMenuPropsEffects() { return ls->menuPropsEffects; }
 char* langMenuPropsSettings() { return ls->menuPropsSettings; }
@@ -379,6 +429,7 @@ char* langMenuPropsFile() { return ls->menuPropsFile; }
 char* langMenuPropsDisk() { return ls->menuPropsDisk; }
 char* langMenuPropsLanguage() { return ls->menuPropsLanguage; }
 char* langMenuPropsPorts() { return ls->menuPropsPorts; }
+char* langMenuPropsCapture() { return ls->menuPropsCapture; }
 
 char* langMenuVideoSource()        { return ls->menuVideoSource; }
 char* langMenuVideoSourceDefault() { return ls->menuVideoSourceDefault; }
@@ -400,6 +451,7 @@ char* langMenuFileSaveState() { return ls->menuFileSaveState; }
 char* langMenuFileQLoadState() { return ls->menuFileQLoadState; }
 char* langMenuFileQSaveState() { return ls->menuFileQSaveState; }
 char* langMenuFileCaptureAudio() { return ls->menuFileCaptureAudio; }
+char* langMenuFileStopAudio() { return ls->menuFileStopAudio; }
 char* langMenuFileCaptureVideo() { return ls->menuFileCaptureVideo; }
 char* langMenuFileScreenShot() { return ls->menuFileScreenShot; }
 char* langMenuFileExit() { return ls->menuFileExit; }
@@ -438,6 +490,8 @@ char* langMenuHelp() { return ls->menuHelp; }
 char* langDlgOK() { return ls->dlgOK; }
 char* langDlgOpen() { return ls->dlgOpen; }
 char* langDlgCancel() { return ls->dlgCancel; }
+char* langDlgYes()    { return ls->dlgYes; }
+char* langDlgNo()     { return ls->dlgNo; }
 char* langDlgSave() { return ls->dlgSave; }
 char* langDlgSaveAs() { return ls->dlgSaveAs; }
 char* langDlgRun() { return ls->dlgRun; }
@@ -456,6 +510,10 @@ char* langDlgLoadVideoCapture() { return ls->dlgLoadVideoCapture; }
 char* langDlgSaveState() { return ls->dlgSaveState; }
 char* langDlgSaveCassette() { return ls->dlgSaveCassette; }
 char* langDlgSaveVideoClipAs() { return ls->dlgSaveVideoClipAs; }
+char* langDlgSaveCaptureAudio() { return ls->dlgSaveCaptureAudio; }
+char* langDlgSaveCaptureVideo() { return ls->dlgSaveCaptureVideo; }
+char* langDlgSaveCaptureReplay() { return ls->dlgSaveCaptureReplay; }
+char* langDlgSaveCaptureScreenshot() { return ls->dlgSaveCaptureScreenshot; }
 char* langDlgAmountCompleted() { return ls->dlgAmountCompleted; }
 char* langDlgInsertRom1() { return ls->dlgInsertRom1; }
 char* langDlgInsertRom2() { return ls->dlgInsertRom2; }
@@ -486,6 +544,8 @@ char* langDlgAboutAbout() { return ls->dlgAboutAbout; }
 char* langDlgAboutVersion() { return ls->dlgAboutVersion; }
 char* langDlgAboutBuildNumber() { return ls->dlgAboutBuildNumber; }
 char* langDlgAboutBuildDate() { return ls->dlgAboutBuildDate; }
+char* langDlgAboutForkNote() { return ls->dlgAboutForkNote; }
+char* langDlgAboutOrigDevel() { return ls->dlgAboutOrigDevel; }
 char* langDlgAboutCreat() { return ls->dlgAboutCreat; }
 char* langDlgAboutDevel() { return ls->dlgAboutDevel; }
 char* langDlgAboutThanks() { return ls->dlgAboutThanks; }
@@ -508,6 +568,7 @@ char* langPropSettings() { return ls->propSettings; }
 char* langPropFile()  { return ls->propFile; }
 char* langPropDisk()  { return ls->propDisk; }
 char* langPropPorts() { return ls->propPorts; }
+char* langPropMidi()  { return ls->propMidi; }
 
 char* langPropEmuGeneralGB() { return ls->propEmuGeneralGB; }
 char* langPropEmuFamilyText() { return ls->propEmuFamilyText; }
@@ -516,9 +577,11 @@ char* langPropEmuRamSizeText() { return ls->propEmuRamSizeText; }
 char* langPropEmuVramSizeText() { return ls->propEmuVramSizeText; }
 char* langPropEmuSpeedGB() { return ls->propEmuSpeedGB; }
 char* langPropEmuSpeedText() { return ls->propEmuSpeedText; }
+char* langPropEmuVdpCmdSpeedText() { return ls->propEmuVdpCmdSpeedText; }
 char* langPropEmuFrontSwitchGB() { return ls->propEmuFrontSwitchGB; }
 char* langPropEmuFrontSwitch() { return ls->propEmuFrontSwitch; }
 char* langPropEmuFdcTiming() { return ls->propEmuFdcTiming; }
+char* langPropEmuHddSdBoost() { return ls->propEmuHddSdBoost; }
 char* langPropEmuReversePlay() { return ls->propEmuReversePlay; }
 char* langPropEmuNoSpriteLimits() { return ls->propEmuNoSpriteLimits; }
 char* langPropEnableMsxKeyboardQuirk() { return ls->propEnableMsxKeyboardQuirk; }
@@ -527,6 +590,15 @@ char* langPropEmuAudioSwitch() { return ls->propEmuAudioSwitch; }
 char* langPropVideoFreqText() { return ls->propVideoFreqText; }
 char* langPropVideoFreqAuto() { return ls->propVideoFreqAuto; }
 char* langPropSndOversampleText() { return ls->propSndOversampleText; }
+char* langPropSndOpllAnalogText()       { return ls->propSndOpllAnalogText; }
+char* langPropSndOpllAnalogLpfText()    { return ls->propSndOpllAnalogLpfText; }
+char* langEnumOpllFilterOff()           { return ls->enumOpllFilterOff; }
+char* langEnumOpllFilterBright()        { return ls->enumOpllFilterBright; }
+char* langEnumOpllFilterClear()         { return ls->enumOpllFilterClear; }
+char* langEnumOpllFilterStandard()      { return ls->enumOpllFilterStandard; }
+char* langEnumOpllFilterSoft()          { return ls->enumOpllFilterSoft; }
+char* langEnumOpllFilterMellow()        { return ls->enumOpllFilterMellow; }
+char* langEnumOpllFilterCustom()        { return ls->enumOpllFilterCustom; }
 char* langPropSndYkInGB() { return ls->propSndYkInGB; }
 char* langPropSndMidiInGB() { return ls->propSndMidiInGB; }
 char* langPropSndMidiOutGB() { return ls->propSndMidiOutGB; }
@@ -537,7 +609,6 @@ char* langPropMonMonGB() { return ls->propMonMonGB; }
 char* langPropMonTypeText() { return ls->propMonTypeText; }
 char* langPropMonEmuText() { return ls->propMonEmuText; }
 char* langPropVideoTypeText() { return ls->propVideoTypeText; }
-char* langPropWindowSizeText() { return ls->propWindowSizeText; }
 char* langPropMonHorizStretch() { return ls->propMonHorizStretch; }
 char* langPropMonVertStretch() { return ls->propMonVertStretch; }
 char* langPropMonDeInterlace() { return ls->propMonDeInterlace; }
@@ -547,6 +618,21 @@ char* langPropMonContrast() { return ls->propMonContrast; }
 char* langPropMonSaturation() { return ls->propMonSaturation; }
 char* langPropMonGamma() { return ls->propMonGamma; }
 char* langPropMonScanlines() { return ls->propMonScanlines; }
+char* langPropMonScanlinesBright() { return ls->propMonScanlinesBright; }
+char* langPropMonScanlinesBrightAuto() { return ls->propMonScanlinesBrightAuto; }
+char* langPropMonScanlinesShape() { return ls->propMonScanlinesShape; }
+char* langPropMonScanlinesDepth() { return ls->propMonScanlinesDepth; }
+char* langPropMonScanlinesSharpness() { return ls->propMonScanlinesSharpness; }
+char* langEnumScanShapeGentle() { return ls->enumScanShapeGentle; }
+char* langEnumScanShapeStandard() { return ls->enumScanShapeStandard; }
+char* langEnumScanShapeSharp() { return ls->enumScanShapeSharp; }
+char* langEnumScanShapeTrinitron() { return ls->enumScanShapeTrinitron; }
+char* langEnumScanShapeCustom() { return ls->enumScanShapeCustom; }
+char* langPropMonHdrEnable() { return ls->propMonHdrEnable; }
+char* langPropMonHdrPaperWhite() { return ls->propMonHdrPaperWhite; }
+char* langPropMonHdrSystemMode() { return ls->propMonHdrSystemMode; }
+char* langPropMonHdrRestartHint() { return ls->propMonHdrRestartHint; }
+char* langPropMonHdrRecord() { return ls->propMonHdrRecord; }
 char* langPropMonColorGhosting() { return ls->propMonColorGhosting; }
 char* langPropMonEffectsGB() { return ls->propMonEffectsGB; }
 
@@ -556,6 +642,7 @@ char* langPropPerfFrameSkipText() { return ls->propPerfFrameSkipText; }
 char* langPropPerfAudioDrvGB() { return ls->propPerfAudioDrvGB; }
 char* langPropPerfAudioDrvText() { return ls->propPerfAudioDrvText; }
 char* langPropPerfAudioBufSzText() { return ls->propPerfAudioBufSzText; }
+char* langPropPerfAudioBufSzActualFmt() { return ls->propPerfAudioBufSzActualFmt; }
 char* langPropPerfEmuGB() { return ls->propPerfEmuGB; }
 char* langPropPerfSyncModeText() { return ls->propPerfSyncModeText; }
 char* langPropFullscreenResText() { return ls->propFullscreenResText; }
@@ -565,6 +652,10 @@ char* langPropSndMsxMusic() { return ls->propSndMsxMusic; }
 char* langPropSndMsxAudio() { return ls->propSndMsxAudio; }
 char* langPropSndMoonsound() { return ls->propSndMoonsound; }
 char* langPropSndMt32ToGm() { return ls->propSndMt32ToGm; }
+char* langPropSoundChipsActive() { return ls->propSoundChipsActive; }
+char* langPropSoundChipsHint() { return ls->propSoundChipsHint; }
+char* langPropSoundChipsYm2413GB() { return ls->propSoundChipsYm2413GB; }
+char* langPropSoundChipsY8950GB() { return ls->propSoundChipsY8950GB; }
 
 char* langPropPortsLptGB() { return ls->propPortsLptGB; }
 char* langPropPortsComGB() { return ls->propPortsComGB; }
@@ -581,9 +672,9 @@ char* langPropSetFileHistoryGB() { return ls->propSetFileHistoryGB; }
 char* langPropSetFileHistorySize() { return ls->propSetFileHistorySize; }
 char* langPropSetFileHistoryClear() { return ls->propSetFileHistoryClear; }
 char* langPropFileTypes() { return ls->propFileTypes; }
+char* langPropOpenDefaultApps() { return ls->propOpenDefaultApps; }
 char* langPropWindowsEnvGB() { return ls->propWindowsEnvGB; }
 char* langPropScreenSaver() { return ls->propSetScreenSaver; }
-char* langPropDisableWinKeys() { return ls->propDisableWinKeys; }
 char* langPropPriorityBoost() { return ls->propPriorityBoost; }
 char* langPropScreenshotPng() { return ls->propScreenshotPng; }
 char* langPropEjectMediaOnExit() { return ls->propEjectMediaOnExit; }
@@ -629,9 +720,6 @@ char* langEnumVideoEmuCompBlur() { return ls->enumVideoEmuCompBlur; }
 char* langEnumVideoEmuScale2x() { return ls->enumVideoEmuScale2x; }
 char* langEnumVideoEmuHq2x() { return ls->enumVideoEmuHq2x; }
 
-char* langEnumVideoSize1x() { return ls->enumVideoSize1x; }
-char* langEnumVideoSize2x() { return ls->enumVideoSize2x; }
-char* langEnumVideoSizeFullscreen() { return ls->enumVideoSizeFullscreen; }
 
 char* langEnumVideoDrvDirectDrawHW() { return ls->enumVideoDrvDirectDrawHW; }
 char* langEnumVideoDrvDirectDraw() { return ls->enumVideoDrvDirectDraw; }
@@ -671,9 +759,10 @@ char* langpropD3DCroppingRightText() { return ls->propD3DCroppingRightText; }
 char* langpropD3DCroppingTopText() { return ls->propD3DCroppingTopText; }
 char* langpropD3DCroppingBottomText() { return ls->propD3DCroppingBottomText; }
 
-char* langEnumSoundDrvNone() { return ls->enumSoundDrvNone; }
-char* langEnumSoundDrvWMM() { return ls->enumSoundDrvWMM; }
+char* langEnumSoundDrvNone()    { return ls->enumSoundDrvNone; }
+char* langEnumSoundDrvWMM()     { return ls->enumSoundDrvWMM; }
 char* langEnumSoundDrvDirectX() { return ls->enumSoundDrvDirectX; }
+char* langEnumSoundDrvWasapi()  { return ls->enumSoundDrvWasapi; }
 
 char* langEnumEmuSync1ms() { return ls->enumEmuSync1ms; }
 char* langEnumEmuSyncAuto() { return ls->enumEmuSyncAuto; }
@@ -698,6 +787,9 @@ char* langEnumDiskMsx35Sgl8Sect() { return ls->enumDiskMsx35Sgl8Sect; }
 char* langEnumDiskSvi525Dbl() { return ls->enumDiskSvi525Dbl; }
 char* langEnumDiskSvi525Sgl() { return ls->enumDiskSvi525Sgl; }
 char* langEnumDiskSf3Sgl() { return ls->enumDiskSf3Sgl; }
+char* langEnumDiskSize() { return ls->enumDiskSize; }
+char* langEnumDiskFormat() { return ls->enumDiskFormat; }
+char* langEnumDiskFormatUnformatted() { return ls->enumDiskFormatUnformatted; }
 
 
 //----------------------
@@ -778,6 +870,7 @@ char* langShortcutDescription() { return ls->shortcutDescription; }
 
 char* langShortcutSaveConfig() { return ls->shortcutSaveConfig; }
 char* langShortcutOverwriteConfig() { return ls->shortcutOverwriteConfig; }
+char* langShortcutCreateConfig() { return ls->shortcutCreateConfig; }
 char* langShortcutExitConfig() { return ls->shortcutExitConfig; }
 char* langShortcutDiscardConfig() { return ls->shortcutDiscardConfig; }
 char* langShortcutSaveConfigAs() { return ls->shortcutSaveConfigAs; }
@@ -824,8 +917,14 @@ char* langShortcutStop() { return ls->shortcutStop; }
 char* langShortcutResetHard() { return ls->shortcutResetHard; }
 char* langShortcutResetSoft() { return ls->shortcutResetSoft; }
 char* langShortcutResetClean() { return ls->shortcutResetClean; }
-char* langShortcutSizeSmall() { return ls->shortcutSizeSmall; }
-char* langShortcutSizeNormal() { return ls->shortcutSizeNormal; }
+char* langShortcutSize1x() { return ls->shortcutSize1x; }
+char* langShortcutSize2x() { return ls->shortcutSize2x; }
+char* langShortcutSize3x() { return ls->shortcutSize3x; }
+char* langShortcutSize4x() { return ls->shortcutSize4x; }
+char* langShortcutSize5x() { return ls->shortcutSize5x; }
+char* langShortcutSize6x() { return ls->shortcutSize6x; }
+char* langShortcutSize7x() { return ls->shortcutSize7x; }
+char* langShortcutSize8x() { return ls->shortcutSize8x; }
 char* langShortcutSizeFullscreen() { return ls->shortcutSizeFullscreen; }
 char* langShortcutSizeMinimized() { return ls->shortcutSizeMinimized; }
 char* langShortcutToggleFullscren() { return ls->shortcutToggleFullscren; }
@@ -833,6 +932,8 @@ char* langShortcutVolumeIncrease() { return ls->shortcutVolumeIncrease; }
 char* langShortcutVolumeDecrease() { return ls->shortcutVolumeDecrease; }
 char* langShortcutVolumeMute() { return ls->shortcutVolumeMute; }
 char* langShortcutVolumeStereo() { return ls->shortcutVolumeStereo; }
+char* langShortcutYm2413BackendCycle() { return ls->shortcutYm2413BackendCycle; }
+char* langShortcutY8950BackendCycle() { return ls->shortcutY8950BackendCycle; }
 char* langShortcutSwitchMsxAudio() { return ls->shortcutSwitchMsxAudio; }
 char* langShortcutSwitchFront() { return ls->shortcutSwitchFront; }
 char* langShortcutSwitchPause() { return ls->shortcutSwitchPause; }
@@ -863,6 +964,7 @@ char* langShortcutShowAbout() { return ls->shortcutShowAbout; }
 char* langShortcutShowFiles() { return ls->shortcutShowFiles; }
 char* langShortcutToggleSpriteEnable() { return ls->shortcutToggleSpriteEnable; }
 char* langShortcutToggleFdcTiming() { return ls->shortcutToggleFdcTiming; }
+char* langShortcutToggleHddSdBoost() { return ls->shortcutToggleHddSdBoost; }
 char* langShortcutToggleNoSpriteLimits() { return ls->shortcutToggleNoSpriteLimits; }
 char* langShortcutEnableMsxKeyboardQuirk() { return ls->shortcutEnableMsxKeyboardQuirk; }
 char* langShortcutToggleCpuTrace() { return ls->shortcutToggleCpuTrace; }
@@ -1083,6 +1185,7 @@ char* langDbgDevS1985() { return "S1985"; }
 char* langDbgDevCrtc6845() { return "CRTC6845"; }
 char* langDbgDevTms9929A() { return "TMS9929A"; }
 char* langDbgDevTms99x8A() { return "TMS99x8A"; }
+char* langDbgDevTms9918A() { return "TMS9918A"; }
 char* langDbgDevV9938() { return "V9938"; }
 char* langDbgDevV9958() { return "V9958"; }
 char* langDbgDevZ80() { return "Z80"; }

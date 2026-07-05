@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -40,6 +43,7 @@
 #include "ArchNotifications.h"
 #include "VideoManager.h"
 #include "DebugDeviceManager.h"
+#include "V9938.h"
 #include "MegaromCartridge.h"
 #include "Disk.h"
 #include "VideoManager.h"
@@ -47,9 +51,26 @@
 #include "MediaDb.h"
 #include "RomLoader.h"
 #include "JoystickPort.h"
+#include "FileHistory.h"
+#include "Utf8Conv.h"
+
+#ifndef _WIN32
+/* Non-Windows: paths are already UTF-8, so just copy. */
+static void AnyToUtf8(const char* src, char* dst, int dstCap) {
+    if (dstCap <= 0) return;
+    if (!src) { dst[0] = 0; return; }
+    strncpy(dst, src, dstCap - 1);
+    dst[dstCap - 1] = 0;
+}
+#endif
 #include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+/* Route fopen() through pkg_fopen so UTF-8 .cap paths (e.g. ROM names with
+** Japanese characters) reach _wfopen instead of being mangled by the runtime
+** ACP. Must come after <stdio.h>. */
+#include "PacketFileSystem.h"
 
 extern void PatchReset(BoardType boardType);
 
@@ -64,6 +85,8 @@ static UInt32 oldTime;
 static UInt32 boardFreq = boardFrequency();
 static int fdcTimingEnable = 1;
 static int fdcActive       = 0;
+static UInt32 fdcSectorCount = 0;   /* sectors accessed since the current boost session began */
+static int hddSdBoostEnable = 0;
 static BoardTimer* fdcTimer;
 static BoardTimer* syncTimer;
 static BoardTimer* mixerTimer;
@@ -92,7 +115,71 @@ static RomType currentRomType[2];
 static BoardType boardLoadState(void);
 static void boardUpdateDisketteInfo();
 
-static char saveStateVersion[32] = "blueMSX - state  v 8";
+/* Missing-file list populated by boardRun pre-validation; surfaced via
+** boardGetMissingFile* in the failure dialog. */
+#define MISSING_FILES_MAX 16
+static char missingFiles[MISSING_FILES_MAX][512];
+static int  missingFileCount = 0;
+
+void boardClearMissingFiles(void) {
+    missingFileCount = 0;
+}
+
+int boardGetMissingFileCount(void) {
+    return missingFileCount;
+}
+
+const char* boardGetMissingFile(int idx) {
+    if (idx < 0 || idx >= missingFileCount) return NULL;
+    return missingFiles[idx];
+}
+
+static void boardReportMissingFile(const char* file, const char* inZip) {
+    if (missingFileCount >= MISSING_FILES_MAX) return;
+    /* Convert the host ACP path to UTF-8 (older .cap/.sta stored paths
+    ** in whatever ACP the saving host used). */
+    char fileUtf8[260];
+    char inZipUtf8[260];
+    AnyToUtf8(file ? file : "",   fileUtf8,  sizeof(fileUtf8));
+    AnyToUtf8(inZip ? inZip : "", inZipUtf8, sizeof(inZipUtf8));
+    if (inZipUtf8[0]) {
+        sprintf_s(missingFiles[missingFileCount], sizeof(missingFiles[0]),
+                  "%s (in %s)", inZipUtf8, fileUtf8);
+    } else {
+        sprintf_s(missingFiles[missingFileCount], sizeof(missingFiles[0]),
+                  "%s", fileUtf8);
+    }
+    missingFileCount++;
+}
+
+static void boardProbeMissingFile(const char* file, const char* inZip) {
+    if (!file || *file == 0) return;
+    /* fileExist(memberName, zipPath) for zip case, else plain path. */
+    int exists;
+    if (inZip && *inZip) {
+        exists = fileExist((char*)inZip, (char*)file);
+    } else {
+        exists = fileExist((char*)file, NULL);
+    }
+    if (!exists) {
+        boardReportMissingFile(file, inZip);
+    }
+}
+
+/* Version stamped into states this build writes. Bumped from "v 8" to "v 10":
+** the on-disk device serialization diverged from upstream 2.8.2 ("v 8") without
+** a version bump, so "v 8" ambiguously covered two incompatible generations.
+** Loading still accepts both "v 8" and "v 10" (see boardRun). */
+static char saveStateVersion[32] = "blueMSX - state  v 10";
+
+/* Set per load: non-zero when the state being loaded is the old (2.8.2 era)
+** format, enabling the per-device old-format load fallbacks. */
+static int boardLoadOldFormat = 0;
+
+int boardStateLoadIsOldFormat(void)
+{
+    return boardLoadOldFormat;
+}
 
 static BoardTimerCb periodicCb;
 static void*        periodicRef;
@@ -107,9 +194,16 @@ void boardTimerCleanup();
 
 static void boardPeriodicCallback(void* ref, UInt32 time)
 {
-    if (periodicCb != NULL) {
+    if (periodicCb != NULL && periodicInterval > 0) {
         periodicCb(periodicRef, time);
         boardTimerAdd(periodicTimer, time + periodicInterval);
+    }
+    else {
+        /* Re-arm so a mid-emulation boardSetPeriodicCallback install
+        ** still gets dispatched; idle poll at 60 Hz. */
+        UInt32 pollInterval = boardFrequency() / 60;
+        if (pollInterval == 0) pollInterval = 1;
+        boardTimerAdd(periodicTimer, time + pollInterval);
     }
 }
 
@@ -143,6 +237,7 @@ typedef struct {
 static RleData* rleData;
 static int      rleDataSize;
 static int      rleIdx;
+static int      rleRemaining;   /* reads left in the current entry (decode side) */
 static UInt8    rleCache[256];
 
 static void rleEncStartEncode(void* buffer, int length, int startOffset)
@@ -158,7 +253,10 @@ static void rleEncStartEncode(void* buffer, int length, int startOffset)
 
 static void rleEncAdd(UInt8 index, UInt8 value)
 {
-    if (rleIdx < 0 || rleCache[index] != value || rleData[rleIdx].count == 0) {
+    /* count is UInt16: split the run before it wraps 0xffff->0, which would
+    ** desync the whole stream on playback (count-- underflows to 0xffff). */
+    if (rleIdx < 0 || rleCache[index] != value || rleData[rleIdx].count == 0
+        || rleData[rleIdx].count == 0xffff) {
         rleIdx++;
         rleData[rleIdx].value = value;
         rleData[rleIdx].count = 1;
@@ -180,20 +278,34 @@ static void rleEncStartDecode(void* encodedData, int encodedSize)
     rleIdx = 0;
     rleDataSize = encodedSize;
     rleData = (RleData*)encodedData;
-    
+
     memset(rleCache, 0, sizeof(rleCache));
 
-    rleCache[rleData[rleIdx].index] = rleData[rleIdx].value;
+    if (encodedSize > 0) {
+        rleRemaining = rleData[0].count;
+        rleCache[rleData[0].index] = rleData[0].value;
+    }
+    else {
+        rleRemaining = 0;
+    }
 }
 
+/* Non-destructive: track remaining reads in rleRemaining instead of
+** decrementing rleData[].count, so the input log survives playback intact
+** (needed to append onto a replay without corrupting the played-back part). */
 static UInt8 rleEncGet(UInt8 index)
 {
     UInt8 value = rleCache[index];
 
-    rleData[rleIdx].count--;
-    if (rleData[rleIdx].count == 0) {
+    if (rleRemaining > 0) {
+        rleRemaining--;
+    }
+    if (rleRemaining == 0) {
         rleIdx++;
-        rleCache[rleData[rleIdx].index] = rleData[rleIdx].value;
+        if (rleIdx < rleDataSize) {
+            rleRemaining = rleData[rleIdx].count;
+            rleCache[rleData[rleIdx].index] = rleData[rleIdx].value;
+        }
     }
 
     return value;
@@ -201,7 +313,10 @@ static UInt8 rleEncGet(UInt8 index)
 
 static int rleEncEof()
 {
-    return rleIdx > rleDataSize;
+    /* >= keeps the final slot as a guard: rleEncAdd writes rleData[rleIdx]
+    ** *before* this is checked, so '>' let the last add run one entry past
+    ** the buffer (OOB write on record, OOB read on the last playback step). */
+    return rleIdx >= rleDataSize;
 }
 
 
@@ -224,9 +339,20 @@ typedef struct Capture {
     UInt8  inputs[0x100000];
     int    inputCnt;
     char   filename[512];
+    /* Set by boardCaptureStop when it finalizes a recording; drained by
+    ** the UI thread (boardCaptureConsumePendingToast) so that record-end
+    ** paths outside the menu Stop (emulatorStop on quit / Run>Stop / load
+    ** state / RLE overflow) also surface a "Saved:" toast. */
+    char   pendingToastFile[512];
 } Capture;
 
 static Capture cap;
+
+/* Set while saving the replay's initial-state snapshot (cap.tmp). The snapshot
+** must NOT embed a capture block: cap.state is REC during the deferred arm, so
+** without this guard boardCaptureSaveState would write a CAPTURE_REC block into
+** initState, and the .cap then loads as REC -> playback resumes recording. */
+static int capSavingInitState = 0;
 
 int boardCaptureHasData() {
     return cap.endTime != 0 || cap.endTime64 != 0 || boardCaptureIsRecording();
@@ -255,30 +381,74 @@ int boardCaptureCompleteAmount() {
 
 extern void actionEmuTogglePause();
 
+/* Snapshot the initial state and begin RLE encoding; returns 1 if armed.
+** Separate so the deferred (emu-was-stopped) start can arm without first
+** dropping cap.state to IDLE, which raced the menu refresh (see boardTimerCb). */
+static int boardCaptureArmRecording(void)
+{
+    FILE* f;
+
+    cap.initStateSize = 0;
+    capSavingInitState = 1;
+    boardSaveState("cap.tmp", 1);
+    capSavingInitState = 0;
+    f = fopen("cap.tmp", "rb");
+    if (f != NULL) {
+        cap.initStateSize = (int)fread(cap.initState, 1, sizeof(cap.initState), f);
+        fclose(f);
+    }
+
+    if (cap.initStateSize > 0) {
+        rleEncStartEncode(cap.inputs, sizeof(cap.inputs), 0);
+    }
+
+    cap.startTime64 = boardSystemTime64();
+    return cap.initStateSize > 0;
+}
+
 static void boardTimerCb(void* dummy, UInt32 time)
 {
     if (cap.state == CAPTURE_PLAY) {
-        // If we reached the end time +/- 2 seconds we know we should stop
-        // the capture. If not, we restart the timer 1/4 of max time into
-        // the future. (Enventually we'll hit the real end time
-        // This is an ugly workaround for the internal timers short timespan
-        // (~3 minutes). Using the 64 bit timer we can extend the capture to
-        // 90 days.
-        // Will work correct with 'real' 64 bit timers
-        boardSystemTime64(); // Sync clock
-        if (boardCaptureCompleteAmount() < 1000) {
-            boardTimerAdd(cap.timer, time + 0x40000000);
-        }
-        else {
+        /* Drive stop off the 64-bit clock so endTime32/endTime64 drift
+        ** can't leave the timer spinning past the natural end; step from
+        ** the actual remaining HIRES cycles for instruction-granular finish. */
+        boardSystemTime64();   // sync 64-bit clock from r800
+
+        if (boardSysTime64 >= cap.endTime64
+            || cap.endTime64 - boardSysTime64 < HIRES_CYCLES_PER_LORES_CYCLE * 100) {
             actionEmuTogglePause();
             cap.state = CAPTURE_IDLE;
+        }
+        else {
+            /* Fire at cap.endTime64 when it fits the 32-bit timer window;
+            ** else step 0x40000000 (max safe under timeAnchor wrap math). */
+            UInt64 remaining = (cap.endTime64 - boardSysTime64) / HIRES_CYCLES_PER_LORES_CYCLE;
+            UInt32 step = (remaining < (UInt64)0x40000000) ? (UInt32)remaining : 0x40000000;
+            if (step == 0) step = 1;   // forward progress safety net
+            boardTimerAdd(cap.timer, time + step);
         }
     }
     
     if (cap.state == CAPTURE_REC) {
-        cap.state = CAPTURE_IDLE;
-        boardCaptureStart(cap.filename);
+        /* Deferred arm: emu was stopped when the user hit Record, so the
+        ** snapshot waited until emulation actually started. Keep cap.state
+        ** at CAPTURE_REC throughout so a concurrent menu refresh sees it. */
+        if (!boardCaptureArmRecording()) {
+            cap.state = CAPTURE_IDLE;
+        }
     }
+}
+
+/* Per-frame finish poll: cap.timer's ~50 emu sec resolution would let
+** short replays overrun by tens of seconds. Returns 1 on transition to IDLE. */
+int boardCaptureCheckFinish(void)
+{
+    if (cap.state != CAPTURE_PLAY) return 0;
+    boardSystemTime64();   // sync 64-bit clock from r800
+    if (boardCaptureCompleteAmount() < 1000) return 0;
+    actionEmuTogglePause();
+    cap.state = CAPTURE_IDLE;
+    return 1;
 }
 
 void boardCaptureInit()
@@ -301,42 +471,40 @@ void boardCaptureDestroy()
 }
 
 void boardCaptureStart(const char* filename) {
-    FILE* f;
-
     if (cap.state == CAPTURE_REC) {
         return;
     }
 
-    // If we're playing back a capture, we just start recording from where we're at
-    // and new recording will be appended to old recording
+    /* Append: truncate the in-flight RLE entry to the played count, then resume
+    ** encoding past it. cap.initState was snapshotted at load (see PLAY branch
+    ** of boardCaptureLoadState) so boardCaptureStop can save a merged .cap. */
     if (cap.state == CAPTURE_PLAY) {
+        if (rleIdx < rleDataSize && rleRemaining > 0) {
+            rleData[rleIdx].count -= (UInt16)rleRemaining;
+            if (rleData[rleIdx].count == 0) {
+                rleIdx--;
+            }
+            rleRemaining = 0;
+        }
+        rleEncStartEncode(cap.inputs, sizeof(cap.inputs), rleIdx + 1);
+        boardTimerRemove(cap.timer);
+        strcpy(cap.filename, filename);
         cap.state = CAPTURE_REC;
         return;
     }
 
     strcpy(cap.filename, filename);
 
-    // If emulation is not running we want to start recording once 
+    // If emulation is not running we want to start recording once
     // the emulation is started
     if (cap.timer == NULL) {
         cap.state = CAPTURE_REC;
         return;
     }
 
-    cap.initStateSize = 0;
-    boardSaveState("cap.tmp", 1);
-    f = fopen("cap.tmp", "rb");
-    if (f != NULL) {
-        cap.initStateSize = fread(cap.initState, 1, sizeof(cap.initState), f);
-        fclose(f);
-    }
-
-    if (cap.initStateSize > 0) {
-        rleEncStartEncode(cap.inputs, sizeof(cap.inputs), 0);
+    if (boardCaptureArmRecording()) {
         cap.state = CAPTURE_REC;
     }
-
-    cap.startTime64 = boardSystemTime64();
 }
 
 void boardCaptureStop() {
@@ -367,6 +535,8 @@ void boardCaptureStop() {
         saveStateSet(state, "endTime", cap.endTime);
         saveStateSet(state, "endTime64Hi", (UInt32)(cap.endTime64 >> 32));
         saveStateSet(state, "endTime64Lo", (UInt32)cap.endTime64);
+        saveStateSet(state, "startTime64Hi", (UInt32)(cap.startTime64 >> 32));
+        saveStateSet(state, "startTime64Lo", (UInt32)cap.startTime64);
         saveStateSet(state, "inputCnt", cap.inputCnt);
         
         if (cap.inputCnt > 0) {
@@ -375,10 +545,27 @@ void boardCaptureStop() {
 
         saveStateClose(state);
         saveStateDestroy();
+
+        /* Queue completion toast for the UI thread. Only for CAPTURE_REC
+        ** (a Play-mode stop takes the outer no-op path and leaves this
+        ** clear), so replay playback finish never triggers a toast. */
+        if (cap.filename[0]) {
+            strncpy(cap.pendingToastFile, cap.filename, sizeof(cap.pendingToastFile) - 1);
+            cap.pendingToastFile[sizeof(cap.pendingToastFile) - 1] = 0;
+        }
     }
 
     // go back to idle state
     cap.state = CAPTURE_IDLE;
+}
+
+int boardCaptureConsumePendingToast(char* out, int outSize) {
+    if (out == NULL || outSize < 1) return 0;
+    if (cap.pendingToastFile[0] == 0) return 0;
+    strncpy(out, cap.pendingToastFile, outSize - 1);
+    out[outSize - 1] = 0;
+    cap.pendingToastFile[0] = 0;
+    return 1;
 }
 
 UInt8 boardCaptureUInt8(UInt8 logId, UInt8 value) {
@@ -398,7 +585,7 @@ UInt8 boardCaptureUInt8(UInt8 logId, UInt8 value) {
 
 static void boardCaptureSaveState()
 {
-    if (cap.state == CAPTURE_REC) {
+    if (cap.state == CAPTURE_REC && !capSavingInitState) {
         SaveState* state = saveStateOpenForWrite("capture");
 
         cap.inputCnt = rleEncGetLength();
@@ -409,6 +596,8 @@ static void boardCaptureSaveState()
         saveStateSet(state, "endTime", cap.endTime);
         saveStateSet(state, "endTime64Hi", (UInt32)(cap.endTime64 >> 32));
         saveStateSet(state, "endTime64Lo", (UInt32)cap.endTime64);
+        saveStateSet(state, "startTime64Hi", (UInt32)(cap.startTime64 >> 32));
+        saveStateSet(state, "startTime64Lo", (UInt32)cap.startTime64);
         saveStateSet(state, "inputCnt", cap.inputCnt);
         if (cap.inputCnt > 0) {
             saveStateSetBuffer(state, "inputs", cap.inputs, cap.inputCnt * sizeof(RleData));
@@ -436,7 +625,21 @@ static void boardCaptureLoadState()
     cap.endTime = saveStateGet(state, "endTime", 0);
     cap.endTime64 = (UInt64)saveStateGet(state, "endTime64Hi", 0) << 32 |
                     (UInt64)saveStateGet(state, "endTime64Lo", 0);
+    {
+        /* New format persists startTime64; old format falls back to current
+        ** boardSystemTime64 (bounded to this playback's own time scale). */
+        UInt64 startT = (UInt64)saveStateGet(state, "startTime64Hi", 0) << 32 |
+                        (UInt64)saveStateGet(state, "startTime64Lo", 0);
+        cap.startTime64 = (startT != 0) ? startT : boardSystemTime64();
+    }
     cap.inputCnt = saveStateGet(state, "inputCnt", 0);
+    /* Reject a corrupt or oversized log rather than overflowing cap.inputs. */
+    if (cap.inputCnt < 0 ||
+        (size_t)cap.inputCnt > sizeof(cap.inputs) / sizeof(RleData)) {
+        cap.state = CAPTURE_IDLE;
+        saveStateClose(state);
+        return;
+    }
     if (cap.inputCnt > 0) {
         saveStateGetBuffer(state, "inputs", cap.inputs, cap.inputCnt * sizeof(RleData));
     }
@@ -461,6 +664,21 @@ static void boardCaptureLoadState()
             cap.endTime -= 0x40000000;
         }
         boardTimerAdd(cap.timer, cap.endTime);
+
+        /* Snapshot the just-restored machine state for a later PLAY->REC append.
+        ** A normal .cap's capture_00 has no initState, so initStateSize==0 here;
+        ** savestate-during-recording carries its own initState — skip in that case. */
+        if (cap.initStateSize == 0) {
+            FILE* f;
+            capSavingInitState = 1;
+            boardSaveState("cap.tmp", 1);
+            capSavingInitState = 0;
+            f = fopen("cap.tmp", "rb");
+            if (f != NULL) {
+                cap.initStateSize = (int)fread(cap.initState, 1, sizeof(cap.initState), f);
+                fclose(f);
+            }
+        }
     }
     
     if (cap.state == CAPTURE_REC) {
@@ -479,6 +697,14 @@ void boardSetNoSpriteLimits(int enable) {
     vdpSetNoSpriteLimits(enable);
 }
 
+int boardGetVdpCmdSpeed() {
+    return vdpCmdGetWaitPct();
+}
+
+void boardSetVdpCmdSpeed(int percent) {
+    vdpCmdSetWaitPct(percent);
+}
+
 RomType boardGetRomType(int cartNo)
 {
     return currentRomType[cartNo];
@@ -488,14 +714,210 @@ int boardGetFdcTimingEnable() {
     return fdcTimingEnable;
 }
 
+/* True while the FDC/HDD access boost is engaged. Used by the emulator core
+** to decouple the display during the boost (same as user max-speed) so the
+** per-frame present is not on the fast-forward critical path. */
+int boardGetFdcActive(void) {
+    return fdcActive;
+}
+
 void boardSetFdcTimingEnable(int enable) {
     fdcTimingEnable = enable;
 }
 
+/* Boost-release idle tail (ms emu time): scales with the boost
+** session's sector count, clamped to [MIN, MAX]. Short reads keep
+** it tight so animations don't visibly accelerate; long loads need
+** a wider tail to span between-sector CPU work. */
+#define FDC_TAIL_MIN_MS         200
+#define FDC_TAIL_MAX_MS        1000
+#define FDC_TAIL_PER_SECTOR_MS   20
+
+static void fdcScheduleTail(void) {
+    UInt32 tail;
+    if (!fdcActive) fdcSectorCount = 0;
+    fdcSectorCount++;
+    tail = (UInt32)FDC_TAIL_PER_SECTOR_MS * fdcSectorCount;
+    if (tail < FDC_TAIL_MIN_MS) tail = FDC_TAIL_MIN_MS;
+    if (tail > FDC_TAIL_MAX_MS) tail = FDC_TAIL_MAX_MS;
+    boardTimerAdd(fdcTimer, boardSystemTime() + (UInt32)((UInt64)tail * boardFrequency() / 1000));
+    fdcActive = 1;
+}
+
+/* End the current boost session: clear the flag and cancel the
+** pending release timer to keep "fdcActive iff timer scheduled". */
+static void fdcKillBoost(void) {
+    fdcActive = 0;
+    boardTimerRemove(fdcTimer);
+}
+
 void boardSetFdcActive() {
     if (!fdcTimingEnable) {
-        boardTimerAdd(fdcTimer, boardSystemTime() + (UInt32)((UInt64)500 * boardFrequency() / 1000));
-        fdcActive = 1;
+        fdcScheduleTail();
+    }
+}
+
+/* HDD/SD boost: same mechanism as FDC, gated separately; shares the
+** FDC audio-write kill-list (boardCheckFdcBoostKill). */
+void boardSetHddSdActive() {
+    if (hddSdBoostEnable) {
+        fdcScheduleTail();
+    }
+}
+
+void boardSetHddSdBoostEnable(int enable) {
+    hddSdBoostEnable = enable;
+}
+
+int boardGetHddSdBoostEnable(void) {
+    return hddSdBoostEnable;
+}
+
+/* PSG channel ch (0=A,1=B,2=C) produces an audible AC signal only if
+** its tone or noise is enabled in mixer R7 (bit set = disabled): with
+** both off, a fixed level is just silent DC (see AY8910.c). */
+static int psgChannelAudibleViaMixer(UInt8 r7, int ch) {
+    return !(r7 & (1 << ch)) || !(r7 & (1 << (ch + 3)));
+}
+
+/* Drop the FDC boost on melodic sound-chip writes that cause the
+** audible "BGM at double speed" tail. Excluded: VDP VRAM (sector
+** streaming), PPI (VBLANK keyboard scan), PSG R15. Included: VDP
+** palette R0x9A (fades) plus key-on / non-mute volume / TL writes
+** on YM2413, Y8950, OPL3, OPL4, Turbo-R PCM. */
+void boardCheckFdcBoostKill(UInt16 port, UInt8 value) {
+    static UInt8  ym2413LatchedReg = 0;
+    static UInt8  y8950LatchedReg  = 0;
+    static UInt16 ymf262LatchedReg = 0;     /* low byte = reg, 0x100 = bank 1 */
+    static UInt8  ymf278LatchedReg = 0;
+    static UInt8  psgLatchedReg    = 0;
+    static UInt8  psgReg7          = 0xff;  /* PSG mixer R7 (1 = ch disabled) */
+    static UInt8  psgVol[3]        = { 0, 0, 0 }; /* PSG R8-R10 ch volumes */
+    static UInt8  pcmStatus        = 0;     /* Turbo-R PCM status (port 0xA5), low 5 bits */
+    UInt8 p = (UInt8)(port & 0xff);
+
+    /* Address latches: keep in sync regardless of boost state. */
+    if (p == 0x7c) { ym2413LatchedReg = value;           return; }
+    if (p == 0xc0) { y8950LatchedReg  = value;           return; }
+    if (p == 0xc4) { ymf262LatchedReg = value;           return; }
+    if (p == 0xc6) { ymf262LatchedReg = value | 0x100;   return; }
+    if (p == 0x7e) { ymf278LatchedReg = value;           return; }
+    if (p == 0xa0) { psgLatchedReg    = value & 0x0f;    return; }
+
+    /* PSG data-register value latches: track the mixer (R7) and per-channel
+    ** volumes (R8-R10) regardless of boost state so the audibility test below
+    ** stays in sync with the chip across boost on/off transitions. */
+    if (p == 0xa1) {
+        if (psgLatchedReg == 7)                             psgReg7 = value;
+        else if (psgLatchedReg >= 8 && psgLatchedReg <= 10) psgVol[psgLatchedReg - 8] = value;
+    }
+    /* Turbo-R PCM status (port 0xA5): low 5 bits matter (see romMapperTurboRPcm
+    ** write handler). Tracked regardless of boost state so the 0xA4 sample
+    ** audibility test stays correct across boost on/off transitions. */
+    if (p == 0xa5) pcmStatus = value & 0x1f;
+
+    if (!fdcActive) return;
+
+    if (p == 0x9a) {                                    /* VDP palette data (V9938+) */
+        /* A palette write during a load is the signature of a visible fade.
+        ** Drop the boost so the fade animates at real speed; the next FDC
+        ** access re-engages the boost if the load continues. */
+        fdcKillBoost();
+        return;
+    }
+    if (p == 0xa5) {                                    /* Turbo-R PCM status */
+        /* Bit 1 = mixer enable. Kill on the un-mute itself, not on the
+        ** first 0xA4 sample after it, so no PCM frame slips out at
+        ** fast-forward. */
+        if (value & 0x02) {
+            fdcKillBoost();
+        }
+        return;
+    }
+    if (p == 0xa4) {                                    /* Turbo-R PCM sample */
+        /* Sample reaches the DAC only when status bit 1 is set. Skip 0x80
+        ** (DAC mid-level = silence) so an explicit-silence write is not a
+        ** false positive. */
+        if ((pcmStatus & 0x02) && value != 0x80) {
+            fdcKillBoost();
+        }
+        return;
+    }
+    if (p == 0x7d) {                                    /* YM2413 data */
+        if ((ym2413LatchedReg >= 0x20 && ym2413LatchedReg <= 0x28 && (value & 0x10)) ||
+            (ym2413LatchedReg >= 0x30 && ym2413LatchedReg <= 0x38 && (value & 0x0f) != 0x0f) ||
+            (ym2413LatchedReg == 0x0e && (value & 0x1f))) {
+            fdcKillBoost();
+        }
+        return;
+    }
+    if (p == 0xc1) {                                    /* Y8950 data */
+        if ((y8950LatchedReg >= 0xb0 && y8950LatchedReg <= 0xb8 && (value & 0x20)) ||
+            (y8950LatchedReg >= 0x40 && y8950LatchedReg <= 0x55 && (value & 0x3f) != 0x3f) ||
+            (y8950LatchedReg == 0xbd && (value & 0x1f)) ||
+            (y8950LatchedReg == 0x07 && (value & 0x80) && !(value & 0x40))) {
+            fdcKillBoost();
+        }
+        return;
+    }
+    if (p == 0xc5 || p == 0xc7) {                       /* YMF262 data, either bank */
+        UInt8 reg   = (UInt8)(ymf262LatchedReg & 0xff);
+        int   bank1 = (ymf262LatchedReg & 0x100) != 0;
+        if ((reg >= 0xb0 && reg <= 0xb8 && (value & 0x20)) ||
+            (reg >= 0x40 && reg <= 0x55 && (value & 0x3f) != 0x3f) ||
+            (!bank1 && reg == 0xbd && (value & 0x1f))) {
+            fdcKillBoost();
+        }
+        return;
+    }
+    if (p == 0x7f) {                                    /* YMF278 data */
+        if (ymf278LatchedReg >= 0x68 && ymf278LatchedReg <= 0x7f &&
+            (value & 0xc0) == 0x80) {
+            fdcKillBoost();
+        }
+        return;
+    }
+    if (p == 0xa1) {                                    /* PSG data */
+        /* Volume registers 8-10. Fixed level (bit 4 clear) is audible only
+        ** when the channel's tone or noise is enabled in mixer R7 -- a level
+        ** written to a fully-disabled channel just sets a DC offset (common
+        ** false positive: drivers poke levels on silenced channels).
+        ** Envelope mode (bit 4) plays through even with tone+noise off, so
+        ** it always counts. R11-15 (env period/shape, keyboard scan) and
+        ** R0-6 (tone / noise period, audible only after volume) are skipped. */
+        if (psgLatchedReg >= 8 && psgLatchedReg <= 10) {
+            int ch = psgLatchedReg - 8;
+            if ((value & 0x10) ||
+                ((value & 0x0f) && psgChannelAudibleViaMixer(psgReg7, ch))) {
+                fdcKillBoost();
+            }
+        }
+        /* R7 (mixer) write: catch the "set level first, enable channel later"
+        ** ordering. If un-muting a channel now makes a fixed-level channel
+        ** audible, drop the boost; envelope-mode was caught at volume write. */
+        else if (psgLatchedReg == 7) {
+            int ch;
+            for (ch = 0; ch < 3; ch++) {
+                if (psgChannelAudibleViaMixer(value, ch) &&
+                    (psgVol[ch] & 0x0f) && !(psgVol[ch] & 0x10)) {
+                    fdcKillBoost();
+                    break;
+                }
+            }
+        }
+        return;
+    }
+}
+
+void boardCheckSccBoostKill(UInt8 address, UInt8 value)
+{
+    if (!fdcActive) return;
+    /* address has been masked to low 4 bits by sccUpdateFreqAndVol's
+    ** dispatch. 0x0a-0x0e = per-channel volume (lower 4 bits = level
+    ** 0-15); 0x0f = channel enable bitmask (bit 0-4 = ch A-E). */
+    if ((address >= 0x0a && address <= 0x0e && (value & 0x0f)) ||
+        (address == 0x0f && (value & 0x1f))) {
+        fdcKillBoost();
     }
 }
 
@@ -648,7 +1070,18 @@ int boardRewind()
 //    boardType = boardLoadState();
 //    machineLoadState(boardMachine);
 
-    boardInfo.loadState();
+    /* boardInfo.loadState clobbers boardSysTime64 (rebuilt from r800's
+    ** 32-bit systemTime).  This is the only "board" section open in the
+    ** rewind path so getIndexedFilename returns "board_00"; stash and
+    ** restore the saved 64-bit value around the call. */
+    {
+        SaveState* bs = saveStateOpenForRead("board");
+        UInt64 stashedTime = (UInt64)saveStateGet(bs, "boardSysTime64Hi", 0) << 32
+                           | (UInt64)saveStateGet(bs, "boardSysTime64Lo", 0);
+        saveStateClose(bs);
+        boardInfo.loadState();
+        if (stashedTime != 0) boardSysTime64 = stashedTime;
+    }
     boardCaptureLoadState();
 
 #if 1
@@ -681,6 +1114,10 @@ int boardRun(Machine* machine,
 {
     int loadState = 0;
     int success = 0;
+    boardLoadOldFormat = 0;
+    /* Stash boardSysTime64 across msxCreate / boardInfo.loadState since
+    ** boardInit clobbers it; reapply after all init runs. */
+    UInt64 stashedSysTime64 = 0;
 
     syncToRealClock = syncCallback;
 
@@ -701,14 +1138,59 @@ int boardRun(Machine* machine,
 
         version = zipLoadFile(stateFile, "version", &size);
         if (version != NULL) {
-            if (0 == strncmp(version, saveStateVersion, sizeof(saveStateVersion) - 1)) {
+            /* Accept both the current "v 10" and the legacy "v 8" generation. */
+            if (0 == strncmp(version, "blueMSX - state  v 10", 21) ||
+                0 == strncmp(version, "blueMSX - state  v 8",  20)) {
                 loadState = 1;
+                boardLoadOldFormat = saveStateFileFormatIsOld(stateFile);
 
                 boardType = boardLoadState();
+                stashedSysTime64 = boardSysTime64;
 
                 machineLoadState(boardMachine);
             }
             free(version);
+        }
+    }
+
+    /* Pre-validate state-referenced files so missing paths surface as a
+    ** dialog instead of silently broken slots / failed BIOS reads. */
+    if (loadState) {
+        int i;
+        boardClearMissingFiles();
+        if (deviceInfo != NULL) {
+            for (i = 0; i < 2; i++) {
+                /* Special Carts (MEGA-SCSI, MFR SCC+ SD, ExtraRAM, ...) use
+                ** a fixed marker in .name and have no real ROM path; skip. */
+                if (deviceInfo->carts[i].inserted &&
+                    !propertiesIsSpecialCartName(deviceInfo->carts[i].name)) {
+                    boardProbeMissingFile(deviceInfo->carts[i].name,
+                                          deviceInfo->carts[i].inZipName);
+                }
+            }
+            for (i = 0; i < MAXDRIVES; i++) {
+                if (deviceInfo->disks[i].inserted) {
+                    boardProbeMissingFile(deviceInfo->disks[i].name,
+                                          deviceInfo->disks[i].inZipName);
+                }
+            }
+            if (deviceInfo->tapes[0].inserted) {
+                boardProbeMissingFile(deviceInfo->tapes[0].name,
+                                      deviceInfo->tapes[0].inZipName);
+            }
+        }
+        if (machine != NULL) {
+            for (i = 0; i < machine->slotInfoCount; i++) {
+                /* Skip slotInfo entries with no ROM file (RAM/CMOS/etc). */
+                if (machine->slotInfo[i].name[0] != 0) {
+                    boardProbeMissingFile(machine->slotInfo[i].name,
+                                          machine->slotInfo[i].inZipName);
+                }
+            }
+        }
+        if (boardGetMissingFileCount() > 0) {
+            saveStateDestroy();
+            return 0;   // emulator.c surfaces the list via archEmulationStartFailure
         }
     }
 
@@ -762,6 +1244,8 @@ int boardRun(Machine* machine,
 
     if (success && loadState) {
         boardInfo.loadState();
+        /* Re-apply the stashed boardSysTime64 (boardInit clobbered it). */
+        if (stashedSysTime64 != 0) boardSysTime64 = stashedSysTime64;
         boardCaptureLoadState();
     }
 
@@ -770,6 +1254,11 @@ int boardRun(Machine* machine,
     }
 
     if (success) {
+        /* fdcActive is module-static and survives across boardRun cycles
+        ** (hard reset = stop + start). If a previous run left it engaged
+        ** the old fdcTimer was destroyed without firing onFdcDone, so force
+        ** a fresh boost-off state before scheduling new timers. */
+        fdcActive = 0;
         syncTimer = boardTimerCreate(onSync, NULL);
         fdcTimer = boardTimerCreate(onFdcDone, NULL);
         mixerTimer = boardTimerCreate(onMixerSync, NULL);
@@ -786,6 +1275,7 @@ int boardRun(Machine* machine,
         }
         else {
             stateTimer = NULL;
+            breakpointTimer = NULL;
         }
 
         boardTimerAdd(syncTimer, boardSystemTime() + 1);
@@ -811,14 +1301,20 @@ int boardRun(Machine* machine,
 
         boardInfo.destroy();
 
-        boardTimerDestroy(fdcTimer);
-        boardTimerDestroy(syncTimer);
-        boardTimerDestroy(mixerTimer);
+        /* Null each pointer after destroy. breakpointTimer is created only
+        ** when reverse is enabled (stateFrequency > 0); a later reverse-off
+        ** run skips the re-create, so a stale (freed) pointer here would be
+        ** double-freed at the next teardown -> heap corruption / crash. */
+        boardTimerDestroy(fdcTimer);   fdcTimer = NULL;
+        boardTimerDestroy(syncTimer);  syncTimer = NULL;
+        boardTimerDestroy(mixerTimer); mixerTimer = NULL;
         if (breakpointTimer != NULL) {
             boardTimerDestroy(breakpointTimer);
+            breakpointTimer = NULL;
         }
         if (stateTimer != NULL) {
             boardTimerDestroy(stateTimer);
+            stateTimer = NULL;
             memZipFileSystemDestroy();
         }
     }
@@ -860,6 +1356,7 @@ void boardSetMachine(Machine* machine)
         case SRAM_MEGASCSI:   hdType[hdIndex++] = HD_MEGASCSI;   break;
         case SRAM_WAVESCSI:   hdType[hdIndex++] = HD_WAVESCSI;   break;
         case ROM_GOUDASCSI:   hdType[hdIndex++] = HD_GOUDASCSI;  break;
+        case ROM_MEGAFLSHSCCPLUS_SD: hdType[hdIndex++] = HD_MFRSD; break;
         }
     }
 
@@ -953,6 +1450,19 @@ static BoardType boardLoadState(void)
 
     di->video.vdpSyncMode = saveStateGet(state, "vdpSyncMode", 0);
 
+    /* Sound chip enable flags: must be applied before machineCreate so
+    ** each cartridge mapper sees the loaded value.  Sentinel 0xFFFFFFFF
+    ** preserves Properties when loading a pre-flag .sta. */
+    {
+        UInt32 v;
+        v = saveStateGet(state, "enableYm2413",    0xFFFFFFFFu);
+        if (v != 0xFFFFFFFFu) boardSetYm2413Enable((int)v);
+        v = saveStateGet(state, "enableY8950",     0xFFFFFFFFu);
+        if (v != 0xFFFFFFFFu) boardSetY8950Enable((int)v);
+        v = saveStateGet(state, "enableMoonsound", 0xFFFFFFFFu);
+        if (v != 0xFFFFFFFFu) boardSetMoonsoundEnable((int)v);
+    }
+
     saveStateClose(state);
 
     videoManagerLoadState();
@@ -979,7 +1489,7 @@ void boardSaveState(const char* stateFile, int screenshot)
 
     saveStateCreateForWrite(stateFile);
     
-    rv = zipSaveFile(stateFile, "version", 0, saveStateVersion, strlen(saveStateVersion) + 1);
+    rv = zipSaveFile(stateFile, "version", 0, saveStateVersion, (int)strlen(saveStateVersion) + 1);
     if (!rv) {
         return;
     }
@@ -994,12 +1504,12 @@ void boardSaveState(const char* stateFile, int screenshot)
 
     saveStateSet(state, "cartInserted00", di->carts[0].inserted);
     saveStateSet(state, "cartType00",     di->carts[0].type);
-    saveStateSetBuffer(state, "cartName00",  di->carts[0].name, strlen(di->carts[0].name) + 1);
-    saveStateSetBuffer(state, "cartInZip00", di->carts[0].inZipName, strlen(di->carts[0].inZipName) + 1);
+    saveStateSetBuffer(state, "cartName00",  di->carts[0].name, (int)strlen(di->carts[0].name) + 1);
+    saveStateSetBuffer(state, "cartInZip00", di->carts[0].inZipName, (int)strlen(di->carts[0].inZipName) + 1);
     saveStateSet(state, "cartInserted01", di->carts[1].inserted);
     saveStateSet(state, "cartType01",     di->carts[1].type);
-    saveStateSetBuffer(state, "cartName01",  di->carts[1].name, strlen(di->carts[1].name) + 1);
-    saveStateSetBuffer(state, "cartInZip01", di->carts[1].inZipName, strlen(di->carts[1].inZipName) + 1);
+    saveStateSetBuffer(state, "cartName01",  di->carts[1].name, (int)strlen(di->carts[1].name) + 1);
+    saveStateSetBuffer(state, "cartInZip01", di->carts[1].inZipName, (int)strlen(di->carts[1].inZipName) + 1);
 #if 0
     saveStateSet(state, "diskInserted00", di->disks[0].inserted);
     saveStateSetBuffer(state, "diskName00",  di->disks[0].name, strlen(di->disks[0].name) + 1);
@@ -1012,16 +1522,22 @@ void boardSaveState(const char* stateFile, int screenshot)
     sprintf(buf, "diskInserted%.2d", i);
     saveStateSet(state, buf, di->disks[i].inserted);
     sprintf(buf, "diskName%.2d", i);
-    saveStateSetBuffer(state, buf,  di->disks[i].name, strlen(di->disks[i].name) + 1);
+    saveStateSetBuffer(state, buf,  di->disks[i].name, (int)strlen(di->disks[i].name) + 1);
     sprintf(buf, "diskInZip%.2d", i);
-    saveStateSetBuffer(state, buf, di->disks[i].inZipName, strlen(di->disks[i].inZipName) + 1);
+    saveStateSetBuffer(state, buf, di->disks[i].inZipName, (int)strlen(di->disks[i].inZipName) + 1);
     }
 #endif
     saveStateSet(state, "casInserted", di->tapes[0].inserted);
-    saveStateSetBuffer(state, "casName",  di->tapes[0].name, strlen(di->tapes[0].name) + 1);
-    saveStateSetBuffer(state, "casInZip", di->tapes[0].inZipName, strlen(di->tapes[0].inZipName) + 1);
+    saveStateSetBuffer(state, "casName",  di->tapes[0].name, (int)strlen(di->tapes[0].name) + 1);
+    saveStateSetBuffer(state, "casInZip", di->tapes[0].inZipName, (int)strlen(di->tapes[0].inZipName) + 1);
 
     saveStateSet(state, "vdpSyncMode",   di->video.vdpSyncMode);
+
+    /* Persist sound chip enable flags so a reload restores the same
+    ** audio configuration regardless of current Properties values. */
+    saveStateSet(state, "enableYm2413",    boardGetYm2413Enable());
+    saveStateSet(state, "enableY8950",     boardGetY8950Enable());
+    saveStateSet(state, "enableMoonsound", boardGetMoonsoundEnable());
 
     saveStateClose(state);
 
@@ -1053,7 +1569,7 @@ void boardSaveState(const char* stateFile, int screenshot)
     memset(buf, 0, 128);
     time(&ltime);
     strftime(buf, 128, "%X   %A, %B %d, %Y", localtime(&ltime));
-    zipSaveFile(stateFile, "date.txt", 1, buf, strlen(buf) + 1);
+    zipSaveFile(stateFile, "date.txt", 1, buf, (int)strlen(buf) + 1);
 
     saveStateDestroy();
 }
@@ -1200,6 +1716,7 @@ void boardChangeCartridge(int cartNo, RomType romType, char* cart, char* cartZip
         if (currentRomType[cartNo] == SRAM_WAVESCSI512) hdType[cartNo] = HD_WAVESCSI;
         if (currentRomType[cartNo] == SRAM_WAVESCSI1MB) hdType[cartNo] = HD_WAVESCSI;
         if (currentRomType[cartNo] == ROM_GOUDASCSI)    hdType[cartNo] = HD_GOUDASCSI;
+        if (currentRomType[cartNo] == ROM_MEGAFLSHSCCPLUS_SD) hdType[cartNo] = HD_MFRSD;
     }
 
     if (boardRunning && cartNo < boardInfo.cartridgeCount) {
@@ -1290,7 +1807,7 @@ UInt32 boardCalcRelativeTimeout(UInt32 timerFrequency, UInt32 nextTimeout)
 /////////////////////////////////////////////////////////////
 // Board timer
 
-typedef struct BoardTimer {
+struct BoardTimer {
     BoardTimer*  next;
     BoardTimer*  prev;
     BoardTimerCb callback;

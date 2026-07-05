@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -203,7 +206,7 @@ char *strcasestr(const char *str1, const char *str2)
 		return NULL; // No match
 
 	// Compute the offset in the lowercased version
-	offset = ptr - str1copy;
+	offset = (int)(ptr - str1copy);
 
 	return (char *)(str1 + offset); // Return the original version + offset
 }
@@ -250,6 +253,7 @@ static int readMachine(Machine* machine, const char* machineName, const char* fi
     else if (0 == strcmp(buffer, "V9958"))    machine->video.vdpVersion = VDP_V9958;
     else if (0 == strcmp(buffer, "TMS9929A")) machine->video.vdpVersion = VDP_TMS9929A;
     else if (0 == strcmp(buffer, "TMS99x8A")) machine->video.vdpVersion = VDP_TMS99x8A;
+    else if (0 == strcmp(buffer, "TMS9918A")) machine->video.vdpVersion = VDP_TMS9918A;
     else { iniFileClose(configIni); return 0; }
 
     iniFileGetString(configIni, "Video", "vram size", "none", buffer, 10000);
@@ -513,6 +517,7 @@ void machineSave(Machine* machine)
     case VDP_V9938:     iniFileWriteString(configIni, "Video", "version", "V9938"); break;
     case VDP_TMS9929A:  iniFileWriteString(configIni, "Video", "version", "TMS9929A"); break;
     case VDP_TMS99x8A:  iniFileWriteString(configIni, "Video", "version", "TMS99x8A"); break;
+    case VDP_TMS9918A:  iniFileWriteString(configIni, "Video", "version", "TMS9918A"); break;
     }
 
     sprintf(buffer, "%dkB", machine->video.vramSize / 0x400);
@@ -1477,7 +1482,7 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
                 int j;
 
                 strcpy(eepromName, machine->slotInfo[i].name);
-                for (j = strlen(eepromName); j > 0 && eepromName[j] != '.'; j--);
+                for (j = (int)strlen(eepromName); j > 0 && eepromName[j] != '.'; j--);
                 eepromName[j] = 0;
                 strcat(eepromName, "_eeprom.rom");
                     
@@ -1537,7 +1542,7 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
                 int j;
 
                 strcpy(voiceName, machine->slotInfo[i].name);
-                for (j = strlen(voiceName); j > 0 && voiceName[j] != '.'; j--);
+                for (j = (int)strlen(voiceName); j > 0 && voiceName[j] != '.'; j--);
                 voiceName[j] = 0;
                 strcat(voiceName, "_voice.rom");
                     
@@ -1786,7 +1791,7 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
                 int j;
 
                 strcpy(charName, machine->slotInfo[i].name);
-                for (j = strlen(charName); j > 0 && charName[j] != '.'; j--);
+                for (j = (int)strlen(charName); j > 0 && charName[j] != '.'; j--);
                 charName[j] = 0;
                 strcat(charName, "_char.rom");
                     

@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -28,6 +31,9 @@
 #include "ArchTimer.h"
 #include "Win32Common.h"
 #include <windows.h>
+#ifdef _WIN64
+#include <intrin.h>
+#endif
 
 typedef struct {
     MMRESULT timerId;
@@ -77,11 +83,11 @@ static void CALLBACK TimerProc(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwT
     syncCallback();
 }
 
-static void CALLBACK timerCallback(unsigned int unused1,
-                                   unsigned int unused2,
-                                   unsigned long unused3,
-                                   unsigned long unused4,
-                                   unsigned long unused5)
+static void CALLBACK timerCallback(UINT unused1,
+                                   UINT unused2,
+                                   DWORD_PTR unused3,
+                                   DWORD_PTR unused4,
+                                   DWORD_PTR unused5)
 {
     syncCallback();
 }
@@ -129,6 +135,8 @@ static unsigned long long last[RDTSC_MAX_TIMERS];
 void rdtsc_start_timer (int timer) {
 #ifdef __GNUC__
 	__asm__ __volatile__("rdtsc" : "=A" (last[timer]));
+#elif defined(_WIN64)
+	last[timer] = __rdtsc();
 #else
 	unsigned int a,b; 
 	__asm { 
@@ -147,13 +155,16 @@ static unsigned long long int rdtsc_queue[RDTSC_MAX_TIMERS][30]={
 };
 
 void rdtsc_end_timer (int timer) {
-	unsigned int a,b,i; 
+	unsigned int i;
 	unsigned long long int c;
 
 #ifdef __GNUC__
 	__asm__ __volatile__("rdtsc" : "=A" (c));
+#elif defined(_WIN64)
+	c = __rdtsc() - last[timer];
 #else
-	__asm { 
+	unsigned int a,b;
+	__asm {
 		rdtsc
 		mov a,edx
 		mov b,eax

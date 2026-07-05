@@ -421,7 +421,7 @@ const char* TiXmlBase::GetEntity( const char* p, char* value, int* length, TiXml
 
 			if ( !q || !*q ) return 0;
 
-			delta = q-p;
+			delta = (unsigned)(q-p);
 			--q;
 
 			while ( *q != 'x' )
@@ -448,7 +448,7 @@ const char* TiXmlBase::GetEntity( const char* p, char* value, int* length, TiXml
 
 			if ( !q || !*q ) return 0;
 
-			delta = q-p;
+			delta = (unsigned)(q-p);
 			--q;
 
 			while ( *q != '#' )

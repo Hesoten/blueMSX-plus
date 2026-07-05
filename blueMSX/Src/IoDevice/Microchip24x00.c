@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2014 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -32,7 +35,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct Microchip24x00
+struct Microchip24x00
 {
     UInt8* romData;
     int    romMask;

@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -47,6 +50,7 @@ typedef struct {
 typedef struct {
     ShotcutHotkey spritesEnable;
     ShotcutHotkey fdcTiming;
+    ShotcutHotkey hddSdBoost;
     ShotcutHotkey noSpriteLimits;
     ShotcutHotkey msxKeyboardQuirk;
     ShotcutHotkey msxAudioSwitch;
@@ -54,12 +58,21 @@ typedef struct {
     ShotcutHotkey pauseSwitch;
     ShotcutHotkey quit;
     ShotcutHotkey wavCapture;
+    ShotcutHotkey wavCaptureStartAs;
     ShotcutHotkey videoCapLoad;
     ShotcutHotkey videoCapPlay;
     ShotcutHotkey videoCapRec;
+    ShotcutHotkey videoCapRecAs;
     ShotcutHotkey videoCapStop;
     ShotcutHotkey videoCapSave;
+    ShotcutHotkey recordVideoStart;
+    ShotcutHotkey recordVideoStartAs;
+    ShotcutHotkey recordVideoStop;
+    ShotcutHotkey recordVideoToggle;
+    ShotcutHotkey ym2413BackendCycle;
+    ShotcutHotkey y8950BackendCycle;
     ShotcutHotkey screenCapture;
+    ShotcutHotkey screenCaptureAs;
     ShotcutHotkey screenCaptureUnfilteredSmall;
     ShotcutHotkey screenCaptureUnfilteredLarge;
     ShotcutHotkey cpuStateLoad;
@@ -97,8 +110,14 @@ typedef struct {
     ShotcutHotkey emuSpeedInc;
     ShotcutHotkey emuSpeedDec;
     ShotcutHotkey emuSpeedToggle;
-    ShotcutHotkey windowSizeSmall;
-    ShotcutHotkey windowSizeNormal;
+    ShotcutHotkey windowSize1x;
+    ShotcutHotkey windowSize2x;
+    ShotcutHotkey windowSize3x;
+    ShotcutHotkey windowSize4x;
+    ShotcutHotkey windowSize5x;
+    ShotcutHotkey windowSize6x;
+    ShotcutHotkey windowSize7x;
+    ShotcutHotkey windowSize8x;
     ShotcutHotkey windowSizeMinimized;
     ShotcutHotkey windowSizeFullscreen;
     ShotcutHotkey windowSizeFullscreenToggle;

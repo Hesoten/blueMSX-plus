@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -39,7 +42,7 @@
 #define RX_FREQUENCY  10000
 
 
-typedef struct RTL8019
+struct RTL8019
 {
     UInt8  regCr;
     UInt8  regPstart;
