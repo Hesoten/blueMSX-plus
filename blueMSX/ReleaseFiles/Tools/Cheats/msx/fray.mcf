@@ -2,8 +2,8 @@
 !(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
 0,8208,200,life bar full
 0,8838,49,0,auto big shoot (hold c to hold)
-0,8841,255,money 65535
-0,8842,255,money 65535
+0,8841,255,money
+0,8842,255,money
 0,8853,2,0,scepter 1
 0,8854,2,0,scepter 2
 0,8855,2,0,scepter 3

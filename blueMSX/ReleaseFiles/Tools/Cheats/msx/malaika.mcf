@@ -4,5 +4,6 @@
 0,59781,153,0,pearls
 0,59782,9,0,pearls
 0,59789,4,0,hearts
-0,59853,2,0,super mario mode (1=invincible)
-0,59854,16,0,invincible timer
+0,59853,1,0,invulnerable
+0,59853,2,0,super mario mode
+0,59854,16,0,invulnerable

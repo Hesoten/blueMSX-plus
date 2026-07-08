@@ -12,10 +12,14 @@
 0,48163,9,0,blue pin
 0,48164,9,0,duck
 0,48165,2,0,pin size (0-2)
-0,48166,0,0,no bonus stage (1=spade)
-0,48167,0,0,no bonus stage (1=heart)
-0,48168,0,0,no bonus stage (1=club)
-0,48169,0,0,no bonus stage (1=diamond)
+0,48166,0,0,no bonus stage
+0,48166,1,0,spade
+0,48167,0,0,no bonus stage
+0,48167,1,0,heart
+0,48168,0,0,no bonus stage
+0,48168,1,0,club
+0,48169,0,0,no bonus stage
+0,48169,1,0,diamond
 0,48433,153,0,timer
 0,48435,153,0,timer
 0,56320,0,0,y-pos (0-190)

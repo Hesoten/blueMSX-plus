@@ -1,0 +1,63 @@
+!cheats for blueMSX :nemesis3
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2006 Benoît Delvaux
+!(C) 2006 XDR love
+0,58208,153,0,lives
+0,58209,1,0,stage (1-11)
+0,58211,0,0,only for stage 4 (one time)
+0,58221,4,0,set speed to 4
+0,58223,7,0,all weapons and upgrades (find)
+0,58238,3,0,choose option (1-3)
+0,58239,2,0,choose shield (1-2)
+0,58240,3,0,choose vixen (0-3)
+0,58259,1,0,red map
+0,58260,1,0,blue map
+0,58261,1,0,green map 
+0,58262,1,0,spacefighter shield
+0,58263,1,0,extra sensory device
+0,58267,0,0,activate hard
+0,58268,1,0,activate find
+0,58269,1,0,activate hard
+0,58269,2,0,activate good
+0,58270,1,0,activate expand
+0,58468,255,0,decrease enemy state
+0,58848,1,0,wave motion gun
+0,58880,1,0,shield off
+0,58880,3,0,shield on
+0,58888,2,0,options
+0,58896,1,0,options
+0,58912,2,0,options
+0,58928,1,0,normal shoot
+0,58928,2,0,back shoot
+0,58928,3,0,up shoot
+0,58928,4,0,down shoot
+0,58928,5,0,laser
+0,58928,6,0,meteor laser
+0,58928,7,0,screw laser
+0,58928,8,0,extended blaster
+0,58928,9,0,vector laser
+0,58928,10,0,ripplelaser
+0,58928,11,0,fire blaster
+0,58928,12,0,big fire blaster
+0,58929,1,0,normal beam
+0,58929,2,0,tail beam
+0,58929,3,0,up double
+0,58929,4,0,sown double
+0,58929,13,0,up laser
+0,58929,14,0,down laser
+0,58930,16,0,normal missile
+0,58930,17,0,photon missile
+0,58930,18,0,napalm missile
+0,58930,19,0,guided missile
+0,58930,19,0,hawkwind missile
+0,58937,15,0,ultra high speed rapid fire
+0,58946,16,0,double way missile (with vixen=3)
+0,59398,0,0,enemy x-pos
+0,59462,0,0,enemy x-pos
+0,59526,0,0,enemy x-pos
+0,59590,0,0,enemy x-pos
+0,59654,0,0,enemy x-pos
+0,59718,0,0,enemy x-pos
+0,59782,0,0,enemy x-pos
+0,59846,0,0,enemy x-pos
+

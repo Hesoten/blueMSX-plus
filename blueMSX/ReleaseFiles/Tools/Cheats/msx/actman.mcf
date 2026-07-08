@@ -1,6 +1,7 @@
 !cheats for blueMSX :actman
 !(c) 2006 Benoît Delvaux
-0,57780,1,0,weapon 1=sword 2=axe
+0,57780,1,0,sword
+0,57780,2,0,axe
 0,57833,20,0,bonus infinite time
 0,57927,1,0,only one bear
 0,57928,1,0,only one bird

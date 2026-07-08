@@ -4,8 +4,8 @@
 0,46757,89,0,time
 0,46782,255,0,backpack
 0,46795,1,0,walk on water
-! 2 = move to the top
-! 4 = move to the right
-! 10 = flyer move
+0,46795,2,0,move to the top
+0,46795,4,0,move to the right
+0,46795,10,0,flyer move
 0,47433,1,0,no mutants
 0,47688,255,0,protected from stones

@@ -1,6 +1,7 @@
 !cheats for blueMSX :sdsnatcher
 !(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
-0,37558,201,0,walk through walls
+0,37558,201,0,walk through walls on
+0,37558,0,0,walk through walls off
 0,50088,2,0,stringray
 0,50089,231,0,ammo for stingray
 0,50090,3,0,ammo for stingray
@@ -109,10 +110,10 @@
 0,52865,255,0,max life
 0,52866,255,0,max out all stats
 0,52867,255,0,max out all stats
-0,52868,64,0,max str level
+0,52868,64,0,max strength level
 0,52869,255,0,max out all stats
 0,52870,255,0,max out all stats
-0,52871,64,0,max def level
+0,52871,64,0,max deference level
 0,52872,255,0,max out all stats
 0,52873,255,0,max out all stats
 0,52874,64,0,max speed level
@@ -120,3 +121,4 @@
 0,52876,255,0,max out all stats
 0,52877,255,0,money
 0,52878,255,0,money
+0,52891,24,0,open door to 3rd church's floor (24 candles blown out)

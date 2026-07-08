@@ -6,11 +6,8 @@
 0,32837,1,0,first plane invulnerable (select when first enemies appear)
 0,32845,1,0,second plane invulnerable (select when first enemies appear)
 0,32853,1,0,third plane invulnerable (select when first enemies appear)
-0,32914,16,0,power (0,8,16,23)
-! 0 = one plane
-! 8 = two planes 
-! 16 = three planes
-! 23 = syncretize mode 
-! one man with shield and without bombs
-! don't use the invulnerable cheat with this mode !
+0,32914,0,0,one plane
+0,32914,8,0,two planes 
+0,32914,16,0,three planes
+0,32914,23,0,syncretize mode (don't use invulnerable cheat with this mode !)
 0,32923,4,0,speed (0-4)

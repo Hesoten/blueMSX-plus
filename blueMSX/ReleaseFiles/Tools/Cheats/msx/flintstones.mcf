@@ -1,0 +1,8 @@
+!cheats for blueMSX :flintstones
+!(c) 2011 Benoît Delvaux
+0,14752,0,0,time (de-select to get bonus)
+0,14756,5,0,clocks (de-select to get bonus)
+0,20095,5,0,skip part 1
+0,64539,0,0,Pebbles does not move
+0,64640,0,0,x-pos (0-255; 64=rope)
+0,64641,0,0,y-pos (0-87)

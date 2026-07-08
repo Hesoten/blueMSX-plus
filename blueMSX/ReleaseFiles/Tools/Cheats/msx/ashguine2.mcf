@@ -3,8 +3,10 @@
 !(c) 2007 Benoît Delvaux
 0,49152,1,0,stage (1-6)
 0,49153,2,0,weapon (0-2)
-0,49155,10,0,rotating shield
+0,49155,10,0,yellow rotating shield
+0,49155,13,0,red rotating shield
 0,49174,255,0,life
+0,49177,2,0,shoes
 0,49184,9,0,keys
 0,49185,9,0,keys
 0,49186,8,0,keys

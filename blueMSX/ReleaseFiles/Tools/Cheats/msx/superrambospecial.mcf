@@ -5,10 +5,10 @@
 0,49510,255,0,arrows
 0,49511,255,0,shotgun bullets
 0,49512,255,0,explosive arrows
-0,49513,255,0,hand granades
+0,49513,255,0,hand grenades
 0,49514,255,0,bazooka
 0,49515,255,0,keys
 0,49516,255,0,flowers
-0,49688,1,0,summon sidekick
 0,49686,255,0,prevent sidekick from screaming and moaning
+0,49688,1,0,summon sidekick
 0,49701,255,0,prevent sidekick from screaming and moaning

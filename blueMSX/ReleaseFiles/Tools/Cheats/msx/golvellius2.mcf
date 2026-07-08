@@ -1,9 +1,12 @@
 !cheats for blueMSX :golvellius2
 !(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
-0,52129,0,0,life
-0,52130,2,0,life
+0,49263,2,0,holes are always open
 0,52125,0,0,max hearts
 0,52126,2,0,max hearts
+0,52129,0,0,life
+0,52130,2,0,life
+0,52134,153,0,maxed out find
+0,52135,153,0,maxed out find
 0,52140,153,0,find
 0,52141,153,0,find
 0,51969,1,0,iron sword

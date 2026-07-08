@@ -1,33 +1,40 @@
 !cheats for blueMSX :mazeofgalious
 !(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+0,57383,1,0,zeus cheat
 0,57414,153,0,arrows 
 0,57415,9,0,arrows 
 0,57416,153,0,coin 
 0,57417,9,0,coin 
 0,57418,153,0,keys
 0,57419,9,0,keys
+0,57425,1,0,max exp
+0,57426,255,0,aphrodite
+0,57427,255,0,aphrodite
+0,57429,1,0,max exp
 0,57430,255,0,vit popolon
 0,57431,255,0,vit popolon
-0,57427,255,0,aphrodite
-0,57426,255,0,aphrodite
-0,57425,1,0,max exp 
-0,57429,1,0,max exp 
-0,58673,255,0,bible (ctrl) uses left 
-0,58640,1,0, active weapon 
-! 1 = arrow 
-! 2 = cer.arrow 
-! 3 = fire 
-! 4 = rolling fire 
-! 5 = mine 
-! 6 = magnifying glass
-0,61688,255,0,all combi's with konami carts (thanks bifi)
+0,57443,240,0,world 1 items 
+0,57444,240,0,world 2 items 
+0,57445,240,0,world 3 items 
+0,57446,240,0,world 4 items 
+0,57447,240,0,world 5 items 
+0,57448,240,0,world 6 items 
+0,57449,240,0,world 7 items 
+0,57450,240,0,world 8 items 
+0,57451,240,0,world 9 items 
+0,57452,224,0,world 10 items 
+0,57453,1,0,world 10 location activator
+0,57454,0,0,world 10 location middle tower 
+0,57454,1,0,world 10 location right tower 
+0,57454,2,0,world 10 location left tower
+0,57454,3,0,world 10 location at start 
 0,57456,1,0,arrows
 0,57457,1,0,ceramic arrows
 0,57458,1,0,rolling fire
 0,57459,1,0,fire
 0,57460,255,0,mine
 0,57461,1,0,magnifying glass
-0,57383,1,0,zeus cheat (bifi)
+0,57466,1,0,cross
 0,57468,1,0,necklace
 0,57469,1,0,crown
 0,57470,1,0,helm
@@ -58,25 +65,17 @@
 0,57495,3,0,shield
 0,57496,1,0,bread and water
 0,57497,1,0,salt
-0,57466,1,0,cross
-0,58673,1,0,use bible until kingdom come
-0,57558,64,0,screen stays frozen for as long as you are in that screen
-0,57453,1,0,world 10 location
-0,57454,3,0,world 10 location at start 
-! 0 = middle tower 
-! 1 = right tower 
-! 2 = left tower
-! 3 = start
-0,57443,240,0,world 1 items 
-0,57444,240,0,world 2 items 
-0,57445,240,0,world 3 items 
-0,57446,240,0,world 4 items 
-0,57447,240,0,world 5 items 
-0,57448,240,0,world 6 items 
-0,57449,240,0,world 7 items 
-0,57450,240,0,world 8 items 
-0,57451,240,0,world 9 items 
-0,57452,224,0,world 10 items 
+0,57558,64,0,screen stays frozen
+0,58640,0,0, active weapon - nothing
+0,58640,1,0, active weapon - arrow
+0,58640,2,0, active weapon - ceramic arrow
+0,58640,3,0, active weapon - fire
+0,58640,4,0, active weapon - rolling fire
+0,58640,5,0, active weapon - mine
+0,58640,6,0, active weapon - magnifying glass
 0,58648,1,0,invulnerable
+0,58673,1,0,unlimited bible
+0,58673,255,0,bible (ctrl) uses left 
 0,59152,1,0,big enemy dies after 1 hit
 0,60551,4,0,blink every second
+0,61688,255,0,all combi's with konami carts

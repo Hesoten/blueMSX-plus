@@ -1,0 +1,15 @@
+!cheats for blueMSX :pacmaniamsx1
+!(c) 2011 Benoît Delvaux
+0,42073,4,0,ghost 1 frozen
+0,42085,4,0,ghost 2 frozen
+0,42097,4,0,ghost 3 frozen
+0,42109,4,0,ghost 4 frozen
+0,42121,4,0,ghost 5 frozen
+0,42133,4,0,ghost 6 frozen
+0,42156,0,0,level (0-18)
+0,42161,9,0,credits
+0,42167,255,0,turbo speed
+0,42199,6,0,lives
+
+
+
