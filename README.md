@@ -6,7 +6,19 @@ Modernization focuses on the UI and audio paths, targeting Windows 11.
 [日本語版はこちら / Japanese version](README.ja.md)
 
 
-## Key improvements
+## What's new in v3.0.1
+
+- **Self-contained package** — the upstream blueMSX data files that 3.0.0 required you to install separately are now bundled
+- Also bundles the latest Rom/Cas/Disk database and cheat database published on the [official blueMSX site](https://msxblue.com/bluemsx/resource.html)
+- **C-BIOS 0.29a** bundled
+- Release binaries are no longer UPX-packed (avoids antivirus false positives)
+- Added support for new memory mappers: **ASCII16-X**, **NEO-8**, **NEO-16**, and **Yamanooto**
+- Emulator start failure now reports a specific cause instead of a generic error
+
+See [`blueMSX/changes.txt`](blueMSX/changes.txt) for the full change history.
+
+
+## Key improvements over the original blueMSX
 
 - **Native Windows 11 support**
   - 64-bit binary, dark-mode UI, and other modern Windows features
@@ -65,25 +77,17 @@ Modernization focuses on the UI and audio paths, targeting Windows 11.
 
 ## Installation
 
-Download the release archive from [Releases](https://github.com/Hesoten/blueMSX-plus/releases).  
-The archive contains the blueMSX+ executable, the debugging-tool plugins, and the keyboard-config files, but does not include data such as machine definition files, BIOS files, or themes.
-Use one of the methods below to prepare the original blueMSX files separately, then overlay the blueMSX+ files on top.
+1. Download the release archive from [Releases](https://github.com/Hesoten/blueMSX-plus/releases)
+2. Extract the archive anywhere you like
+3. (Optional) If you own real MSX hardware and want to run its BIOS, place the BIOS ROM file(s) into the matching machine's folder under `Machines/` (use the filenames listed in that machine's `config.ini`)
+4. Launch `blueMSX+.exe` from inside the extracted folder
 
-### Method A: Fresh install
 
-1. Obtain the original blueMSX from the [official site](https://msxblue.com/bluemsx/download.html) and extract it anywhere you like (the 2.8.2 simplified edition - blueMSXv282.zip - is recommended)
-2. Download the blueMSX+ release archive from [Releases](https://github.com/Hesoten/blueMSX-plus/releases) and extract it anywhere you like as well
-3. Copy the contents of the step-2 archive over the original blueMSX folder from step 1, **preserving the folder structure** (`blueMSX+.exe`, `Tools/*.dll`, `Keyboard Config/`, and so on overlay the matching files in step 1)  
-4. Launch `blueMSX+.exe` from inside the folder in step 1 (note: blueMSX.exe is not used)
+### Reusing an existing blueMSX / blueMSX+ setup
 
-### Method B: Reuse an existing blueMSX setup
+If you already have a blueMSX or older blueMSX+ folder whose settings you want to keep, copy the release archive contents over that folder **preserving the directory layout** and launch `blueMSX+.exe`.
 
-1. Copy your existing blueMSX folder (the one containing `bluemsx.exe`) wholesale to create a blueMSX+ working folder
-2. Download the blueMSX+ release archive from [Releases](https://github.com/Hesoten/blueMSX-plus/releases) and extract it anywhere you like
-3. Copy the contents of the step-2 archive over the folder created in step 1, **preserving the folder structure** (`blueMSX+.exe`, `Tools/*.dll`, `Keyboard Config/`, and so on overlay the matching files in step 1)  
-4. Launch the `blueMSX+.exe` in the destination folder (note: blueMSX.exe is not used)
-
-Note: launching blueMSX+.exe updates the existing blueMSX configuration files (*.ini) to the blueMSX+ format. As a result, the original blueMSX.exe may no longer start or operate correctly.
+Note: launching `blueMSX+.exe` upgrades the existing blueMSX configuration files (`*.ini`) to the blueMSX+ format. The original `blueMSX.exe` in the same folder may no longer start or operate correctly afterwards.
 
 
 ## Recommended settings

@@ -4,7 +4,19 @@ blueMSX+ は MSX エミュレータ [blueMSX](https://msxblue.com/bluemsx/jindex
 Windows 11 向けに UI や音声周りを中心にモダン化しています。
 
 
-## 主な改善点
+## v3.0.1 リリースの変更点
+
+- **単体パッケージ化** — v3.0.0 では別途用意が必要だった、オリジナル blueMSX のファイル群を同梱しました
+- [blueMSX 公式サイト](https://msxblue.com/bluemsx/jresource.html) で公開されている最終版の Rom/Cas/Disk データベースおよびチートデータベースも同梱
+- **C-BIOS 0.29a** を同梱
+- リリースバイナリの UPX 圧縮を廃止 (ウィルス対策ソフトの誤検知回避のため)
+- 新規メモリマッパーへの対応を追加: **ASCII16-X**、**NEO-8**、**NEO-16**、**Yamanooto**
+- エミュレータの起動失敗時に、原因を切り分けて具体的なメッセージを表示するようにしました
+
+全ての変更履歴は [`blueMSX/changes.txt`](blueMSX/changes.txt) を参照してください。
+
+
+## オリジナル blueMSX に対するの主な改善点
 
 - **Windows 11 ネイティブ対応**
   - 64 bit アプリケーション化、UI ダークモード対応などモダンな Windows 機能に対応
@@ -63,25 +75,17 @@ Windows 11 向けに UI や音声周りを中心にモダン化しています�
 
 ## インストール方法
 
-[Releases](https://github.com/Hesoten/blueMSX-plus/releases) からリリースアーカイブをダウンロードしてください。  
-このアーカイブには blueMSX+ の実行ファイルとデバッグツールプラグイン、キーボード設定ファイルなどが含まれますが、機種定義ファイルや BIOS、テーマなどのデータは同梱していません。
-以下のどちらかの方法でオリジナル blueMSX のファイル群を用意し、そこに blueMSX+ のファイルを上書きしてください。
+1. [Releases](https://github.com/Hesoten/blueMSX-plus/releases) からリリースアーカイブをダウンロードする
+2. 好きな場所に展開する
+3. (オプション) お持ちの MSX 実機に対応した BIOS ファイルを、Machines フォルダの該当機種のフォルダに配置する (config.ini 内に記述された BIOS ファイル名と一致するよう配置)
+4. 展開したフォルダ内の `blueMSX+.exe` を起動する
 
-### 方法 A: 新規にインストールする
 
-1. オリジナル blueMSX を [公式サイト](https://msxblue.com/bluemsx/jdownload.html) から入手して、好きな場所に展開する (2.8.2 簡易バージョン - blueMSXv282.zip を推奨)
-2. [Releases](https://github.com/Hesoten/blueMSX-plus/releases) からダウンロードした blueMSX+ のリリースアーカイブを、同じく好きな場所に展開する
-3. 2.で展開したアーカイブの中身を、1. で展開したオリジナル blueMSX のフォルダに **フォルダ構成を保ったまま** 上書きコピーする (`blueMSX+.exe`、`Tools/*.dll`、`Keyboard Config/` などを 1. のフォルダに上書き)  
-4. 1.のフォルダ内で `blueMSX+.exe` を起動する (※ blueMSX.exe は使いません)
+### 既存の blueMSX / blueMSX+ 環境を流用する場合
 
-### 方法 B: 既存の blueMSX 環境を流用する
+引き継ぎたい設定ファイルがある既存の blueMSX / blueMSX+ フォルダをお持ちの場合は、リリースアーカイブの中身を **フォルダ構成を保ったまま** そのフォルダに上書きコピーし、`blueMSX+.exe` を起動してください。
 
-1. 既に使っている blueMSX フォルダ (`bluemsx.exe` がある階層) を丸ごとコピーして blueMSX+ 用のフォルダを作成する
-2. [Releases](https://github.com/Hesoten/blueMSX-plus/releases) からダウンロードした blueMSX+ のリリースアーカイブを、同じく好きな場所に展開する
-3. 2.で展開したアーカイブの中身を、1. で用意した blueMSX+ 用のフォルダに **フォルダ構成を保ったまま** 上書きコピーする (`blueMSX+.exe`、`Tools/*.dll`、`Keyboard Config/` などを 1. のフォルダに上書き)  
-4. コピー先の `blueMSX+.exe` を起動する (※ blueMSX.exe は使いません)
-
-※ blueMSX+.exe を起動すると、既存の blueMSX 用の設定ファイル (*.ini) は blueMSX+ 用にアップデートされます。この結果、オリジナルの blueMSX.exe は正常に起動・動作しなくなる可能性があります。
+※ `blueMSX+.exe` を起動すると、既存の blueMSX 用の設定ファイル (`*.ini`) は blueMSX+ 用にアップデートされます。この結果、同フォルダ内のオリジナル `blueMSX.exe` は正常に起動・動作しなくなる可能性があります。
 
 
 ## おすすめ設定
