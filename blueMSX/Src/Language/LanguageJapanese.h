@@ -337,6 +337,21 @@ void langInitJapanese(LanguageStrings* ls)
     ls->dlgAboutOrigDevel       = "オリジナルの blueMSX について\r\n"
                                   "==================\r\n\r\n"
                                   "オリジナルの blueMSX 2.8.3 は以下の開発者達によって開発されました:";
+    ls->dlgAboutCbios           = "C-BIOS について\r\n"
+                                  "==========\r\n\r\n"
+                                  "blueMSX+ はオープンソースの MSX BIOS 実装である C-BIOS を利用しています。\r\n"
+                                  "C-BIOS は以下の方々によって開発されました:\r\n\r\n"
+                                  "BouKiCHi\r\n"
+                                  "Reikan\r\n"
+                                  "Maarten ter Huurne\r\n"
+                                  "Albert Beevendorp\r\n"
+                                  "Patrick van Arkel\r\n"
+                                  "Manuel Bilderbeek\r\n"
+                                  "Joost Yervante Damad\r\n"
+                                  "Jussi Pitkänen\r\n"
+                                  "Eric Boon\r\n\r\n"
+                                  "詳細およびライセンス全文については、同梱の cbios.txt および "
+                                  "https://cbios.sourceforge.net/ を参照してください。";
     ls->dlgAboutCreat           = "製作:\tDaniel Vik";
     ls->dlgAboutDevel           = "開発者\r\n=====";
     ls->dlgAboutThanks          = "ご協力いただいた方々\r\n=============";       // New in 2.7 (retranslate, see english)

@@ -141,5 +141,9 @@ emu2413 and emu8950 are works by Mitsutaka Okazaki.
 The TMS9918A patch is a work by uniskie.  
 We are honored to incorporate these excellent contributions into blueMSX+. Our heartfelt thanks.
 
+blueMSX+ ships with **C-BIOS** 0.29a, an open-source MSX BIOS replacement, so it can boot without any real MSX system BIOS ROM.
+See the bundled `cbios.txt` in each C-BIOS machine folder under `Machines/`, or <https://cbios.sourceforge.net/>, for details.
+Our thanks to the C-BIOS project — BouKiCHi, Reikan, Maarten ter Huurne, Albert Beevendorp, Patrick van Arkel, Manuel Bilderbeek, Joost Yervante Damad, Jussi Pitkänen, Eric Boon, and the other contributors — for developing such an excellent compatible BIOS and releasing it in freely redistributable form.
+
 blueMSX+ enhancements are developed using Claude Code.  
 We are continually amazed (and a little awed) by its ability to ship feature requests and bug fixes one after another.

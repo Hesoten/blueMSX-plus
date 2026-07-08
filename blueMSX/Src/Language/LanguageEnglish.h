@@ -335,6 +335,21 @@ void langInitEnglish(LanguageStrings* ls)
     ls->dlgAboutOrigDevel       = "ABOUT THE ORIGINAL blueMSX\r\n"
                                   "=====================\r\n\r\n"
                                   "The original blueMSX 2.8.3 was developed by the following developers:";
+    ls->dlgAboutCbios           = "ABOUT C-BIOS\r\n"
+                                  "===========\r\n\r\n"
+                                  "blueMSX+ ships with C-BIOS, an open-source MSX BIOS "
+                                  "replacement. C-BIOS was developed by:\r\n\r\n"
+                                  "BouKiCHi\r\n"
+                                  "Reikan\r\n"
+                                  "Maarten ter Huurne\r\n"
+                                  "Albert Beevendorp\r\n"
+                                  "Patrick van Arkel\r\n"
+                                  "Manuel Bilderbeek\r\n"
+                                  "Joost Yervante Damad\r\n"
+                                  "Jussi Pitkänen\r\n"
+                                  "Eric Boon\r\n\r\n"
+                                  "See the bundled cbios.txt or https://cbios.sourceforge.net/ "
+                                  "for details and the full license.";
     ls->dlgAboutCreat           = "Created by Daniel Vik";
     ls->dlgAboutDevel           = "DEVELOPERS\r\n========";
     ls->dlgAboutThanks          = "CONTRIBUTORS\r\n==========";       // New in 2.7 (retranslate, see english)

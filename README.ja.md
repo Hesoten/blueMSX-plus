@@ -140,5 +140,12 @@ emu2413 および emu8950 は Mitsutaka Okazaki さんの著作物です。
 TMS9918A パッチは uniskie さんの著作物です。  
 これらの素晴らしい機能を blueMSX+ に取り込ませていただきました。心より御礼申し上げます。
 
+blueMSX+ にはオープンソースの MSX BIOS 実装である **C-BIOS** 0.29a を同梱しています。
+これにより、MSX 実機の BIOS ROM を用意しなくても起動することができます。  
+詳細については、Machines フォルダの C-BIOS 利用マシン構成に同梱の `cbios.txt` および 
+<https://cbios.sourceforge.net/> を参照してください。
+BouKiCHi、Reikan、Maarten ter Huurne、Albert Beevendorp、Patrick van Arkel、Manuel Bilderbeek、Joost Yervante Damad、Jussi Pitkänen、Eric Boon の各氏をはじめとする C-BIOS プロジェクトの皆様に、
+このような素晴らしい互換 BIOS を開発頂き、また自由に再配布可能な形で公開して頂いていることへの感謝を申し上げます。  
+
 blueMSX+ の改良コードは Claude Code で開発を行っています。  
 やりたい機能追加や不具合修正を次々と実現していく能力に、驚きと畏怖の念を覚えます。
