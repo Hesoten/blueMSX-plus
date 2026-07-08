@@ -2,11 +2,9 @@
 # Ships the main executable plus the TraceWindow / Trainer / SimpleDebugger
 # plugins. DeviceViewer is intentionally excluded.
 #
-# Also overlays the few ReleaseFiles data files this fork modified vs upstream
-# (see $dataFiles), preserving their relative paths so they refresh an existing
-# blueMSX install. The bulk of the data set (Machines, Databases, themes, ...)
-# is still expected to come from a base install -- this is a delta, not a full
-# data package.
+# The entire blueMSX/ReleaseFiles/ tree is included so the zip is
+# self-contained: end users no longer need to install upstream blueMSX
+# first and overlay this fork on top.
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][ValidateSet('Debug', 'Release', 'Final')][string]$Config,
@@ -40,6 +38,14 @@ if (-not (Test-Path $exe)) { throw "Executable not found: $exe" }
 $stage = Join-Path ([IO.Path]::GetTempPath()) ('bmx-' + [guid]::NewGuid())
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
 try {
+    # Seed the stage with the entire ReleaseFiles tree: Machines/, Databases/,
+    # Themes/, Keyboard Config/, Properties/, Shortcut Profiles/, Tools/Cheats/,
+    # and top-level docs (cbios.txt etc.). Doing this first ensures the Tools/
+    # dir exists before we drop the plugin DLLs into it below.
+    $relRoot = Join-Path $repo 'blueMSX/ReleaseFiles'
+    if (-not (Test-Path $relRoot)) { throw "ReleaseFiles not found: $relRoot" }
+    Copy-Item -Path (Join-Path $relRoot '*') -Destination $stage -Recurse -Force
+
     Copy-Item $exe $stage
     if ($IncludePdb) {
         $pdb = Join-Path $exeDir ([IO.Path]::GetFileNameWithoutExtension($exeName) + '.pdb')
@@ -47,32 +53,11 @@ try {
     }
 
     $tools = Join-Path $stage 'Tools'
-    New-Item -ItemType Directory -Force -Path $tools | Out-Null
+    if (-not (Test-Path $tools)) { New-Item -ItemType Directory -Force -Path $tools | Out-Null }
     foreach ($p in $plugins) {
         $src = Join-Path $pluginDir $p
         if (Test-Path $src) { Copy-Item $src $tools }
         else { Write-Warning "Plugin missing (not packaged): $src" }
-    }
-
-    # ReleaseFiles data this fork changed vs upstream. Relative paths mirror the
-    # install layout, so the staged copy overlays correctly onto an existing
-    # blueMSX directory (and matches the local bin/ layout).
-    $relRoot = Join-Path $repo 'blueMSX/ReleaseFiles'
-    $dataFiles = @(
-        'Keyboard Config/Theme/theme.xml',                # keyconfig scheme dropdown
-        'Keyboard Config/blueMSX Default.config',         # US/EU default keymap
-        'Keyboard Config/blueMSX Japanese Default.config',# JP default keymap (JIS)
-        'Databases/xml-msxromsdb.zip'                     # romdb.vampier.net softwaredb.xml snapshot
-    )
-    foreach ($rel in $dataFiles) {
-        $src = Join-Path $relRoot $rel
-        if (Test-Path $src) {
-            $dst    = Join-Path $stage $rel
-            $dstDir = Split-Path -Parent $dst
-            if (-not (Test-Path $dstDir)) { New-Item -ItemType Directory -Force -Path $dstDir | Out-Null }
-            Copy-Item $src $dst
-        }
-        else { Write-Warning "Data file missing (not packaged): $src" }
     }
 
     $outDir = Split-Path -Parent $OutZip
