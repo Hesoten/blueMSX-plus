@@ -1,0 +1,33 @@
+!cheats for blueMSX :dragonslayer4msx2
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+0,49255,109,0,life
+0,49256,109,0,magic
+0,49257,109,0,money
+0,49258,109,0,keys
+0,49263,99,0,wings
+0,49264,99,0,armor
+0,49265,99,0,pick axe
+0,49266,99,0,the glove
+0,49267,99,0,speer hook
+0,49268,99,0,spike shoes
+0,49269,99,0,spring shoes
+0,49270,99,0,master key
+0,49271,99,0,helmet
+0,49272,99,0,scepter
+0,49273,99,0,dragon shield
+0,49274,99,0,life potion
+0,49275,99,0,magic potion
+0,49276,99,0,red globe
+0,49277,1,0,crown
+0,49278,99,0,sword
+0,49291,255,0,invincible
+0,49259,40,0,jump high
+0,49260,255,0,strong weapons
+0,49292,2,0,walk trough air
+0,49293,2,0,kill enemies with body
+0,49262,40,0,shoot far
+0,49294,255,0,walk faster
+0,49248,2,0,put in slot 1 : pick axe
+0,49249,4,0,put in slot 2 : harpoon
+0,49250,14,0,put in slot 3 : crown
+0,49232,0,0,in game player (try different values)

@@ -1,0 +1,82 @@
+!cheats for blueMSX :mazeofgalious
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+0,57414,153,0,arrows 
+0,57415,9,0,arrows 
+0,57416,153,0,coin 
+0,57417,9,0,coin 
+0,57418,153,0,keys
+0,57419,9,0,keys
+0,57430,255,0,vit popolon
+0,57431,255,0,vit popolon
+0,57427,255,0,aphrodite
+0,57426,255,0,aphrodite
+0,57425,1,0,max exp 
+0,57429,1,0,max exp 
+0,58673,255,0,bible (ctrl) uses left 
+0,58640,1,0, active weapon 
+! 1 = arrow 
+! 2 = cer.arrow 
+! 3 = fire 
+! 4 = rolling fire 
+! 5 = mine 
+! 6 = magnifying glass
+0,61688,255,0,all combi's with konami carts (thanks bifi)
+0,57456,1,0,arrows
+0,57457,1,0,ceramic arrows
+0,57458,1,0,rolling fire
+0,57459,1,0,fire
+0,57460,255,0,mine
+0,57461,1,0,magnifying glass
+0,57383,1,0,zeus cheat (bifi)
+0,57468,1,0,necklace
+0,57469,1,0,crown
+0,57470,1,0,helm
+0,57471,1,0,oar
+0,57472,1,0,boots
+0,57473,1,0,decorative doll
+0,57474,1,0,robe
+0,57475,1,0,bell
+0,57476,1,0,halo
+0,57477,1,0,candle
+0,57478,1,0,armor
+0,57479,1,0,carpet
+0,57480,1,0,helmet
+0,57481,1,0,lamp
+0,57482,1,0,vase
+0,57483,1,0,pendant
+0,57484,1,0,earrings
+0,57485,1,0,bracelet
+0,57486,1,0,ring
+0,57487,1,0,bible
+0,57488,1,0,harp
+0,57489,1,0,triangle
+0,57490,1,0,trumpet shell
+0,57491,1,0,pitcher
+0,57492,1,0,sabre
+0,57493,1,0,dagger
+0,57494,1,0,feather
+0,57495,3,0,shield
+0,57496,1,0,bread and water
+0,57497,1,0,salt
+0,57466,1,0,cross
+0,58673,1,0,use bible until kingdom come
+0,57558,64,0,screen stays frozen for as long as you are in that screen
+0,57453,1,0,world 10 location
+0,57454,3,0,world 10 location at start 
+! 0 = middle tower 
+! 1 = right tower 
+! 2 = left tower
+! 3 = start
+0,57443,240,0,world 1 items 
+0,57444,240,0,world 2 items 
+0,57445,240,0,world 3 items 
+0,57446,240,0,world 4 items 
+0,57447,240,0,world 5 items 
+0,57448,240,0,world 6 items 
+0,57449,240,0,world 7 items 
+0,57450,240,0,world 8 items 
+0,57451,240,0,world 9 items 
+0,57452,224,0,world 10 items 
+0,58648,1,0,invulnerable
+0,59152,1,0,big enemy dies after 1 hit
+0,60551,4,0,blink every second

@@ -1,0 +1,8 @@
+!cheats for blueMSX :eggerland1
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+0,51217,153,0,bullets
+0,53456,153,0,lives
+0,53746,0,0,door is always open
+0,53748,1,0,blocks collected
+0,51229,255,0,time in special stages
+0,51227,1,0,stage number (change the value)

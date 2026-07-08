@@ -1,0 +1,39 @@
+!cheats for blueMSX :twinbee
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2006 Benoît Delvaux
+0,57456,153,0,lives player 1
+0,57459,153,0,lives player 2
+0,57464,0,0,partially invulnerable
+0,57473,3,0,speed player 1
+0,57474,3,0,speed player 2
+0,57475,0,0,player 1 - single shoot
+0,57475,1,0,player 1 - double shoot
+0,57475,2,0,player 1 - options + single shoot (no options in dual mode)
+0,57475,3,0,player 1 - options + double shoot (no options in dual mode)
+0,57475,4,0,player 1 - shield + single shoot
+0,57475,5,0,player 1 - shield + double shoot
+0,57475,6,0,player 1 - options + shield + single shoot (no options in dual mode)
+0,57475,7,0,player 1 - options + shield + double shoot (no options in dual mode)
+0,57475,8,0,player 1 - spread shoot (not in dual mode)
+0,57475,10,0,player 1 - options + spread shoot (not in dual mode)
+0,57475,12,0,player 1 - shield + spread shoot (only shield in dual mode)
+0,57475,14,0,player 1 - options + shield + spread shoot (only shield in dual mode)
+0,57475,144,0,player 1 - exclusive fireball in dual mode
+0,57476,0,0,player 2 - single shoot
+0,57476,1,0,player 2 - double shoot
+0,57476,2,0,player 2 - options + single shoot (no options in dual mode)
+0,57476,3,0,player 2 - options + double shoot (no options in dual mode)
+0,57476,4,0,player 2 - shield + single shoot
+0,57476,5,0,player 2 - shield + double shoot
+0,57476,6,0,player 2 - options + shield + single shoot (no options in dual mode)
+0,57476,7,0,player 2 - options + shield + double shoot (no options in dual mode)
+0,57476,8,0,player 2 - spread shoot (not in dual mode)
+0,57476,10,0,player 2 - options + spread shoot (not in dual mode)
+0,57476,12,0,player 2 - shield + spread shoot (only shield in dual mode)
+0,57476,14,0,player 2 - options + shield + spread shoot (only shield in dual mode)
+0,57476,144,0,player 2 - exclusive fireball in dual mode
+0,57485,1,0,player 1 - always arms
+0,57486,1,0,player 2 - always arms
+0,57495,255,0,player 1 - fully invulnerable
+0,57496,255,0,player 2 - fully invulnerable
+0,60337,255,0,no small air enemies

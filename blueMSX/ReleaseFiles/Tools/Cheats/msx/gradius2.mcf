@@ -1,0 +1,40 @@
+!cheats for blueMSX :gradius2
+!also called Nemesis 2
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2006 Benoît Delvaux
+0,57856,153,0,lives
+0,57857,1,0,stage (1-11;0) 
+! 1-7 = normal stage
+! 8 = core stage
+! 9-11 = bonus stage
+! 0 = final stage
+0,57987,14,0,nice colors
+0,58368,0,0,shield off
+0,58368,2,0,shield on
+0,58370,5,0,speed set to 5
+0,58376,15,0,nice colors
+0,58379,2,0,options
+0,58384,1,0,options
+0,58400,1,0,options
+0,58416,0,0,deactivate normal shoot
+0,58417,2,0,double
+0,58418,1,0,normal laser
+0,58418,2,0,double laser
+0,58418,3,0,extended laser
+0,58418,5,0,reflex ring
+0,58418,6,0,fire blaster 
+0,58419,1,0,normal missile
+0,58419,2,0,double missile
+0,58419,3,0,napalm missile
+0,58420,2,0,up laser
+0,58421,2,0,down laser
+0,58422,2,0,back beam
+0,58425,3,0,option ring
+0,58425,4,0,rotary drill
+0,58425,5,0,enemy slow
+0,58425,7,0,vector laser
+0,58438,1,0,metalion mode
+0,61685,1,0,q-bert mode
+0,61685,4,0,penguin adventure mode
+0,61685,8,0,the maze of galious mode
+0,61685,255,0,all modes 

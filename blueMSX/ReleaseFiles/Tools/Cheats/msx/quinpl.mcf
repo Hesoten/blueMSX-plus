@@ -1,0 +1,24 @@
+!cheats for blueMSX :quinpl
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2007 Benoît Delvaux
+0,57347,1,0,invulnerable (don't use F1 !)
+0,57360,0,0,normal stage (0-51)
+0,57361,5,0,lives
+0,57363,1,0,final mode for normal stages
+0,57369,1,0,bonus stage (1-12)
+0,57376,9,0,black pin
+0,57377,9,0,white pin
+0,57378,9,0,red pin
+0,57379,9,0,blue pin
+0,57380,9,0,duck
+0,57381,2,0,pin size (0-2)
+0,57382,0,0,no bonus stage (1=spade)
+0,57383,0,0,no bonus stage (1=heart)
+0,57384,0,0,no bonus stage (1=club)
+0,57385,0,0,no bonus stage (1=diamond)
+0,57905,153,0,timer
+0,57907,153,0,timer
+0,59136,0,0,y-pos (0-190)
+0,59137,0,0,x-pos (0-255)
+0,59146,10,0,y-pos (16-206)
+0,59147,0,0,x-pos (0-255)

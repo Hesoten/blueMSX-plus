@@ -1,0 +1,19 @@
+!cheats for blueMSX :ashguine2
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2007 Benoît Delvaux
+0,49152,1,0,stage (1-6)
+0,49153,2,0,weapon (0-2)
+0,49155,10,0,rotating shield
+0,49174,255,0,life
+0,49184,9,0,keys
+0,49185,9,0,keys
+0,49186,8,0,keys
+0,49187,9,0,experience level
+0,49188,9,0,experience level
+0,49189,9,0,experience level
+0,49209,255,0,time
+0,49234,1,0,enemy power
+0,49250,1,0,enemy power
+0,49266,1,0,enemy power
+0,49282,1,0,enemy power
+0,49298,1,0,enemy power

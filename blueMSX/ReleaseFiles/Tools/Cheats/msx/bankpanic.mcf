@@ -1,0 +1,7 @@
+!cheats for blueMSX :bankpanic
+!(c) 2006 Benoît Delvaux
+0,62854,1,0,level (1-9;16-24; ...)
+0,62855,2,0,lives player 1
+0,62896,119,0,extra time player 1
+0,62911,2,0,lives player 2
+0,62947,119,0,extra time player 2

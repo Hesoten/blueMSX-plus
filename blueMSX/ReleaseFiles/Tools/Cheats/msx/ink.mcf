@@ -1,0 +1,12 @@
+!cheats for blueMSX :ink 
+!(c) 2008 Benoît Delvaux
+0,58128,1,0,stage (1-24 normal or 1-25 hard)
+0,58131,255,0,panic
+0,58133,16,0,exxon
+0,58140,5,0,lives
+0,58144,0,0,demo mode (all stages are cleared)
+0,58321,2,0,invulnerable (de-select at end of stage)
+0,58322,0,0,invulnerable (de-select at end of stage)
+0,58479,3,0,always red crabs
+0,58528,1,0,no octopus
+0,58544,1,0,no starfish

@@ -1,0 +1,19 @@
+!cheats for blueMSX :saimazoom
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+0,55759,9,0,lives
+0,55768,153,0,water
+0,55769,153,0,water
+0,55761,0,0,remove time limit
+0,55784,102,0,slot 1
+0,55785,102,0,slot 2
+0,55786,103,0,slot 3
+0,55787,106,0,slot 4
+!items 
+!100 = bag
+!101 = water bottle
+!102 = knife
+!103 = pick axe
+!104 = key
+!105 = kanoo
+!106 = gun
+!107 = nothing

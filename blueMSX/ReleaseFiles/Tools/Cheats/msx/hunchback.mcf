@@ -1,0 +1,11 @@
+!cheats for blueMSX :hunchback
+!(c) 2006 Albert Beevendorp and (c) 2006 Patrick van Arkel
+0,37050,10,0,guardian 1
+0,37054,10,0,guardian 2
+0,37058,10,0,guardian 3
+0,37140,6,0,lives
+0,40042,100,0,arrow 1
+0,40046,100,0,arrow 2
+0,40050,100,0,y-pos ball 1
+0,40054,100,0,y-pos ball 2
+0,40082,120,0,y-pos wall crawler

@@ -1,0 +1,11 @@
+!cheats for blueMSX :pyramidwarp
+!(c) 2007 Mauro Sókrates - Cyber MSX
+!(c) 2007 Benoît Delvaux
+0,49187,0,0,death is frozen
+0,49195,0,0,first red monster is frozen
+0,49203,0,0,first black monster is frozen
+0,49219,0,0,second red monster is frozen
+0,49227,0,0,second black monster is frozen
+0,49246,1,0,gun
+0,49271,255,0,air (de-select to see teleport when room is clear)
+0,49276,99,0,lives

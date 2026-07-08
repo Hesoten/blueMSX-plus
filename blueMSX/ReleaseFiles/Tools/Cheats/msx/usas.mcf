@@ -1,0 +1,37 @@
+!cheats for blueMSX :usas
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+0,300883,153,0,money
+0,300884,153,0,money
+0,49877,255,0,live for cles
+0,49873,4,0,cles's stars for speed
+0,49874,2,0,cles's stars for jumping
+0,49846,0,0,cles's mood 0=happy, 1=good mood, 2=sad, 3=angry
+0,49845,255,0,live for wit
+0,49841,4,0,wit's stars for speed
+0,49842,2,0,wit's stars for jumping
+0,49766,255,0,wit's ulimited airwalk
+0,49878,0,0,wit's mood 0=happy, 1=good mood, 2=sad, 3=angry
+0,49669,255,0,all combi's with konami carts (thanks bifi)
+0,49750,1,0,invincible player
+0,49840,0,0,uncapture wit
+0,49872,0,0,uncapture cless
+0,49848,1,0,vitality rate 1 coin
+0,49849,0,0,vitality rate 1 coin
+0,49850,1,0,vitality rate 1 coin
+0,49851,0,0,vitality rate 1 coin
+0,49852,1,0,speed rate 1 coin
+0,49853,0,0,speed rate 1 coin
+0,49880,1,0,speed rate 1 coin
+0,49881,0,0,speed rate 1 coin
+0,49882,1,0,jump rate 1 coin
+0,49883,0,0,jump rate 1 coin
+0,49884,1,0,jump rate 1 coin
+0,49885,0,0,jump rate 1 coin
+0,58152,1,0,big door open
+0,58160,1,0,big door open
+0,58168,1,0,big door open
+0,58176,1,0,big door open
+0,50194,1,0,temple enemy dies after 1 hit/1st block (big enemy)
+0,50322,1,0,2nd block 1st block (big enemy) gone after 1 hit
+0,49736,0,0,wit can jump more than twice
+0,49765,0,0,wit can jump more than twice

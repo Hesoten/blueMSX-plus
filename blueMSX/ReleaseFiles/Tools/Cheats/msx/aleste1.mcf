@@ -1,0 +1,22 @@
+!cheats for blueMSX :aleste1
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2006 Benoît Delvaux
+0,49153,1,0,stage (1-8;0)
+0,49168,98,0,lives
+0,49170,8,0,maxed up normal shot
+0,49176,0,0,direct fire
+0,49176,1,0,penetration fire
+0,49176,2,0,laser
+0,49176,3,0,rotating fire
+0,49176,4,0,ring fire
+0,49176,5,0,hi-speed fire
+0,49176,6,0,plasma ball
+0,49176,7,0,wave laser
+0,49177,3,0,maxed up special shot
+0,49179,99,0,always keep weapon on 99
+0,50349,16,0,scroll speed slow
+0,50349,32,0,scroll speed normal
+0,50349,64,0,scroll speed fast
+0,50349,128,0,scroll speed insane
+0,50349,255,0,scroll speed turbo
+0,51216,255,0,invulnerable

@@ -1,0 +1,8 @@
+!cheats for blueMSX :navymoves2
+!(c) 2007 Benoît Delvaux
+!access code : 53817
+0,35738,0,0,weapon (0=rifle 1=flame thrower)
+0,39492,58,0,flame
+0,41875,9,0,lives
+0,41886,0,0,bomb timer (value 1 required for final countdown)
+0,41888,60,0,bullets

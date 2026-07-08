@@ -1,0 +1,9 @@
+!cheats for blueMSX :gameover1part2
+!(c) 2006 Albert Beevendorp and (c) 2006 Patrick van Arkel
+!(c) 2007 Benoît Delvaux
+!access code : 65535
+0,55743,10,0,lives
+0,55747,100,0,laser
+0,55749,1,0,access to the lake
+0,55755,1,0,access to the roof
+0,55847,0,0,power

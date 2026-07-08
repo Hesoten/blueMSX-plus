@@ -1,0 +1,7 @@
+!cheats for blueMSX :escape
+!(c) 2008 Benoît Delvaux
+0,40293,9,0,lives
+0,40303,96,0,time (but overflow risk in score !)
+0,40308,1,0,level (1-99)
+0,61696,201,0,frozen robots
+0,61696,14,0,moving robots

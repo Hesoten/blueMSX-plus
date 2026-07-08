@@ -1,0 +1,16 @@
+!cheats for blueMSX :volguard
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2007 Benoît Delvaux
+0,58112,1,0,mission (1-5)
+0,58140,7,0,lives
+0,58181,1,0,first plane invulnerable (select when first enemies appear)
+0,58189,1,0,second plane invulnerable (select when first enemies appear)
+0,58197,1,0,third plane invulnerable (select when first enemies appear)
+0,58258,16,0,power (0,8,16,23)
+! 0 = one plane
+! 8 = two planes 
+! 16 = three planes
+! 23 = syncretize mode 
+! one man with shield and without bombs
+! don't use the invulnerable cheat with this mode !
+0,58267,4,0,speed (0-4)

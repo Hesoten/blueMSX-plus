@@ -1,0 +1,14 @@
+!cheats for blueMSX :kingsvalley1
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2008 Benoît Delvaux
+0,57424,99,0,lives
+0,57425,1,0,no map
+0,57428,1,0,stage (1-99;0)
+0,57429,1,0,pyramid (1-15)
+0,57668,16,0,sword (de-select to jump)
+0,57668,32,0,pick (de-select to jump)
+0,57706,6,0,no monster 1
+0,57728,6,0,no monster 2
+0,57750,6,0,no monster 3
+0,57842,1,0,doors always visible
+0,57843,1,0,doors always visible

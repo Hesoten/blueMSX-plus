@@ -1,0 +1,11 @@
+!cheats for blueMSX :stratos
+!(c) 2006 Albert Beevendorp and (c) 2006 Patrick van Arkel
+!(c) 2008 Benoît Delvaux
+0,57344,2,0,invulnerable (de-select before exit)
+0,57376,6,0,invulnerable (de-select before exit)
+0,57408,0,0,stage (0-12; 13 only on version 1)
+0,57410,0,0,exit always open
+0,57426,99,0,time (de-select before exit to get bonus)
+0,57427,99,0,bombs
+0,57428,99,0,hearts
+0,57445,0,0,no duplication for amoebas

@@ -1,0 +1,22 @@
+!cheats for blueMSX :crossblaim
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+0,61115,153,0,money 999999
+0,61116,153,0,money 999999
+0,61117,153,0,money 999999
+0,60116,255,0,power
+0,61099,255,0,engine 1
+0,61100,255,0,engine 2
+0,61101,255,0,engine 3
+0,61102,250,0,power container 1
+0,61103,250,0,power container 2
+0,61090,255,0,big laser gun
+0,61091,255,0,big laser gun 2
+0,61110,255,0,bullet for gun (#1)
+0,61112,255,0,bullet for bazooka (#1)
+0,61094,255,0,handgranades
+0,61095,255,0,darts
+0,61104,1,0,all keys
+0,61105,1,0,all keys
+0,61106,1,0,all keys
+0,61107,1,0,all keys
+0,61108,1,0,all keys

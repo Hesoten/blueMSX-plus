@@ -1,0 +1,12 @@
+!cheats for blueMSX :f1spirit
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+0,58161,1,0,player 1 always first place
+0,57822,2,0,all combi's with konami carts (thanks bifi)
+0,57853,1,0,escon
+0,57814,1,0,hyperoff
+0,57823,1,0,maxpoint
+0,58128,255,0,player 1 fuel (finally!)
+0,58152,0,0,player 1 no damage (this is a bitmask)
+0,58320,255,0,player 2 fuel
+0,58344,0,0,player 2 damage
+0,58353,1,0,player 2 position

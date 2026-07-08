@@ -1,0 +1,24 @@
+!cheats for blueMSX :quinpldsk
+!(c) 2007 Benoît Delvaux
+0,31782,1,0,invulnerable (and no suicide !)
+0,48131,1,0,invulnerable (and no suicide !)
+0,48144,0,0,normal stage (0-51) 
+0,48145,5,0,lives
+0,48147,1,0,final mode for normal stages
+0,48153,1,0,bonus stage (1-12)
+0,48160,9,0,black pin
+0,48161,9,0,white pin
+0,48162,9,0,red pin
+0,48163,9,0,blue pin
+0,48164,9,0,duck
+0,48165,2,0,pin size (0-2)
+0,48166,0,0,no bonus stage (1=spade)
+0,48167,0,0,no bonus stage (1=heart)
+0,48168,0,0,no bonus stage (1=club)
+0,48169,0,0,no bonus stage (1=diamond)
+0,48433,153,0,timer
+0,48435,153,0,timer
+0,56320,0,0,y-pos (0-190)
+0,56321,0,0,x-pos (0-255)
+0,56330,16,0,y-pos (16-206)
+0,56331,0,0,x-pos (0-255)

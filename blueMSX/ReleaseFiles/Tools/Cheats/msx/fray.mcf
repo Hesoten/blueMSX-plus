@@ -1,0 +1,32 @@
+!cheats for blueMSX :fray
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+0,8208,200,life bar full
+0,8838,49,0,auto big shoot (hold c to hold)
+0,8841,255,money 65535
+0,8842,255,money 65535
+0,8853,2,0,scepter 1
+0,8854,2,0,scepter 2
+0,8855,2,0,scepter 3
+0,8856,2,0,scepter 4
+0,8857,2,0,scepter 5
+0,8858,2,0,scepter 6
+0,8859,2,0,scepter 7
+0,8860,2,0,scepter 8
+0,8862,1,0,medium shield
+0,8863,1,0,iron shield
+0,8864,1,0,big iron shield
+0,8865,1,0,gold shield
+0,8866,99,0,slice of bread
+0,8867,99,0,slice of bacon
+0,8868,99,0,bottle
+0,8869,99,0,scroll 1
+0,8870,99,0,scroll 2
+0,8871,99,0,scroll 3
+0,8872,99,0,scroll 4
+0,8873,99,0,scroll 5
+0,8874,99,0,scroll 6
+0,8875,99,0,scroll 7
+0,8876,99,0,scroll 8
+0,8877,99,0,scroll 9
+0,8878,99,0,scroll 10
+0,8879,99,0,scroll 11

@@ -1,0 +1,11 @@
+!cheats for blueMSX :psychoworld
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+0,41248,100,0,life
+0,41250,100,0,esp
+0,41490,255,0,get all weapons
+0,41491,9,0,normat shot power up
+0,41492,5,0,ice shot power up
+0,41493,5,0,fire power up
+0,41494,5,0,sonic shot power up
+0,54285,0,0,lets go for power mode (not sure if it works push f4 on start screen of stage 1)
+0,54273,255,0,unlimited power ups (use 1 to 9)

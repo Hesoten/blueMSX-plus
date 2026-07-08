@@ -1,0 +1,30 @@
+!cheats for blueMSX :sirfred
+!(c) 2006 MSX Solutions - Fabio Albergaria
+!(c) 2009 Benoît Delvaux
+!the x,y-pos cheat is dirty !
+!the item cheats work even if you don't see the item
+!- go to previous or next screen to see the item - 
+0,30030,99,0,energy
+0,33942,8,0,x-pos (8-236)
+0,33943,8,0,y-pos (8-128)
+0,39337,193,0,item in left box (193-208)
+0,39338,193,0,item in middle left box (193-208)
+0,39339,193,0,item in middle right box (193-208)
+0,39340,193,0,item in right box (193-208)
+!list of items
+!193=sword
+!194=tap
+!195=rope
+!196=stool
+!197=bow and arrows
+!198=torch
+!199=matches
+!200=meat
+!201=chickens
+!202=bottle
+!203=magic flute
+!204=key
+!205=cross
+!206=paper
+!207=stones
+!208=pipe

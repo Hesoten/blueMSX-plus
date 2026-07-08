@@ -1,0 +1,13 @@
+!cheats for blueMSX :actman
+!(c) 2006 Benoît Delvaux
+0,57780,1,0,weapon 1=sword 2=axe
+0,57833,20,0,bonus infinite time
+0,57927,1,0,only one bear
+0,57928,1,0,only one bird
+0,57929,1,0,only one fish
+0,57930,1,0,only one red monster
+0,57931,1,0,only one snake
+0,57932,1,0,only one blue monster
+0,58023,6,0,lives player 1
+0,58024,6,0,lives player 2
+0,58025,8,0,viewing mode

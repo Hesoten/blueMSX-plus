@@ -1,0 +1,16 @@
+!cheats for blueMSX :turtlemaniademo
+!(c) 2008 Benoît Delvaux
+0,16440,153,0,lives
+0,16453,0,0,single front shoot
+0,16453,1,0,double front shoot
+0,16453,2,0,triple front shoot
+0,16454,1,0,back shoot
+0,16455,0,0,normal fire
+0,16455,1,0,boomerang
+0,16455,2,0,bomb
+0,16456,0,0,single player
+0,16456,1,0,double player
+0,16456,2,0,triple player
+0,16457,3,0,shield
+0,30446,0,0,invulnerable
+0,30570,0,0,invulnerable

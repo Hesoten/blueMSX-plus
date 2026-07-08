@@ -1,0 +1,10 @@
+!cheats for blueMSX :blackbeard
+!(c) 2007 Benoît Delvaux
+0,36389,191,0,energy
+0,36390,9,0,lives
+0,36391,1,0,weapon (1=pistol 2=knife)
+0,36392,0,0,moves (0=normal 1=drunken)
+0,36393,153,0,ammo
+0,36407,0,0,no new enemies (when you have fired the cannon)
+0,36412,255,0,invulnerable
+0,36440,255,0,torch (de-select to fire the cannon)

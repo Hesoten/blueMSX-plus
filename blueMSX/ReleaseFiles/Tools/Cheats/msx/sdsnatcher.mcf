@@ -1,0 +1,122 @@
+!cheats for blueMSX :sdsnatcher
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+0,37558,201,0,walk through walls
+0,50088,2,0,stringray
+0,50089,231,0,ammo for stingray
+0,50090,3,0,ammo for stingray
+0,50093,100,0,skill for stringay
+0,50096,2,0,f. ball
+0,50097,231,0,ammo for f. ball
+0,50098,3,0,ammo for f. ball
+0,50101,100,0,skill for f. ball
+0,50104,2,0,k. sprint
+0,50105,231,0,ammo for k. sprint
+0,50106,3,0,ammo for k. sprint
+0,50109,100,0,skill for k. sprint
+0,50112,2,0,storm
+0,50113,231,0,ammo for storm
+0,50114,3,0,ammo for storm
+0,50117,100,0,skill for storm
+0,50120,2,0,k. sprint
+0,50121,231,0,ammo for k. sprint
+0,50122,3,0,ammo for k. sprint
+0,50125,100,0,skill for k. sprint
+0,50128,2,0,b. hawk
+0,50129,231,0,ammo for b. hawk
+0,50130,3,0,ammo for b. hawk
+0,50133,100,0,skill for b. hawk
+0,50136,2,0,g. hound
+0,50137,231,0,ammo for g.hound
+0,50138,3,0,ammo for g.hound
+0,50137,231,0,ammo for g.hound
+0,50138,3,0,ammo for g.hound
+0,50141,100,0,skill for g. hound
+0,50144,2,0,i. cepter
+0,50145,231,0,ammo for i. cepter
+0,50146,3,0,ammo for i. cepter
+0,50149,100,0,skill for i. cepter
+0,50152,2,0,s. grade
+0,50153,231,0,ammo for s. grade
+0,50154,3,0,ammo for s. grade
+0,50157,100,0,skill for s. grade
+0,50160,2,0,n. point
+0,50161,231,0,ammo for n. point
+0,50162,3,0,ammo for n. point
+0,50165,100,0,skill for n. point
+0,50168,2,0,big 9 matrix
+0,50169,231,0,ammo for big 9 matrix
+0,50170,3,0,ammo for big 9 matrix
+0,50173,100,0,skill for g. matric
+0,50176,2,0,bomb
+0,50177,255,0,bomb
+0,50184,2,0,dball
+0,50185,255,0,dball
+0,50192,2,0,rancher
+0,50193,255,0,rancher
+0,50200,2,0,t blaster
+0,50201,255,0,t blaster
+0,50208,2,0,g mine
+0,50209,255,0,g mine
+0,50216,2,0,comet
+0,50217,255,0,comet
+0,50224,2,0,chaf
+0,50225,255,0,chaf
+0,50232,2,0,milkyway
+0,50233,255,0,milkyway
+0,50240,2,0,c killer
+0,50241,255,0,c killer
+0,50248,2,0,flare
+0,50249,255,0,flare
+0,50257,99,0,junkers
+0,50265,99,0,newtrits
+0,50273,99,0,jyro
+0,50280,1,0,red spider
+0,50281,1,0,red spider
+0,50288,1,0,3d goggles
+0,50289,1,0,3d goggles
+0,50296,1,0,mars coupon
+0,50297,1,0,mars coupon
+0,50304,1,0,movie ticket
+0,50305,1,0,movie ticket
+0,50312,1,0,card
+0,50313,1,0,card
+0,50320,1,0,lingu disk
+0,50321,1,0,lingu disk
+0,50328,1,0,master key
+0,50329,1,0,master key
+0,50336,1,0,blue spider
+0,50337,1,0,blue spider
+0,50344,1,0,vip card
+0,50345,1,0,vip card
+0,50345,255,0,stringray
+0,50352,1,0,l. angel
+0,50353,1,0,l. angel
+0,50353,255,0,f. ball
+0,50361,255,0,k. sprint
+0,50369,255,0,storm
+0,50377,255,0,k. sprint
+0,50385,255,0,b. hawk
+0,50393,255,0,g. hound
+0,50401,255,0,i. cepter
+0,50409,255,0,s. grade
+0,50417,255,0,n. point
+0,50425,255,0,big 9 matrix
+0,51232,0,0,kill litle spiders in one blast
+0,51264,0,0,kill litle spiders in one blast
+0,52672,255,0,all locations accessible
+0,52673,1,0,all locations accessible
+0,52864,64,0,max rank
+0,52865,255,0,max life
+0,52866,255,0,max out all stats
+0,52867,255,0,max out all stats
+0,52868,64,0,max str level
+0,52869,255,0,max out all stats
+0,52870,255,0,max out all stats
+0,52871,64,0,max def level
+0,52872,255,0,max out all stats
+0,52873,255,0,max out all stats
+0,52874,64,0,max speed level
+0,52875,255,0,max out all stats
+0,52876,255,0,max out all stats
+0,52877,255,0,money
+0,52878,255,0,money

@@ -1,0 +1,106 @@
+!cheats for blueMSX :metalgear1
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2008 Benoît Delvaux
+!the selection of a weapon needs to be combined with ammo cheats
+!the selection of some items is only indicated for the fun :
+!as they are not recommended (transmitter)
+!or need to be selected and used in the inventory (cigarets, antidote, ratios)
+!press on F2 or F3 to see some cheats more directly applied
+0,49457,48,0,power bar
+0,49458,3,0,class (0-3)
+0,49460,1,0,selected weapon - handgun
+0,49460,2,0,selected weapon - sub machine gun
+0,49460,3,0,selected weapon - grenades
+0,49460,4,0,selected weapon - rockets
+0,49460,5,0,selected weapon - bombs
+0,49460,6,0,selected weapon - mines
+0,49460,7,0,selected weapon - missiles
+0,49461,1,0,selected item - body armor
+0,49461,2,0,selected item - bomb blast suit
+0,49461,3,0,selected item - flash light
+0,49461,4,0,selected item - goggles
+0,49461,5,0,selected item - gas mask
+0,49461,6,0,selected item - cigarets
+0,49461,7,0,selected item - mine detector
+0,49461,8,0,selected item - antenna
+0,49461,9,0,selected item - binoculars
+0,49461,10,0,selected item - oxygen
+0,49461,11,0,selected item - compass
+0,49461,12,0,selected item - parachute
+0,49461,13,0,selected item - antidote
+0,49461,14,0,selected item - card 1
+0,49461,15,0,selected item - card 2
+0,49461,16,0,selected item - card 3
+0,49461,17,0,selected item - card 4
+0,49461,18,0,selected item - card 5
+0,49461,19,0,selected item - card 6
+0,49461,20,0,selected item - card 7
+0,49461,21,0,selected item - card 8
+0,49461,22,0,selected item - ratios
+0,49461,23,0,selected item - transmitter
+0,49461,24,0,selected item - uniform
+0,49461,25,0,selected item - box
+0,49465,0,0,scorpions can't poison you
+0,49469,153,0,stop destruction timer (de-select to see end demo)
+0,49470,153,0,stop destruction timer (de-select to see end demo)
+0,49561,255,0,enemies can't hurt you
+0,50129,0,0,open all doors and passages
+0,50145,0,0,open all doors and passages
+0,50161,0,0,open all doors and passages
+0,50432,1,0,always ammo for handgun
+0,50433,153,0,always ammo for handgun
+0,50434,9,0,always ammo for handgun
+0,50436,2,0,always ammo for sub machine gun
+0,50437,153,0,always ammo for sub machine gun
+0,50438,9,0,always ammo for sub machine gun
+0,50440,3,0,always grenades
+0,50441,153,0,always grenades
+0,50442,9,0,always grenades
+0,50444,4,0,always rockets
+0,50445,153,0,always rockets
+0,50446,9,0,always rockets
+0,50448,5,0,always plastic bombs
+0,50449,153,0,always plastic bombs
+0,50450,9,0,always plastic bombs
+0,50452,6,0,always mines
+0,50453,153,0,always mines
+0,50454,9,0,always mines
+0,50456,7,0,always missiles
+0,50457,153,0,always missiles
+0,50458,9,0,always missiles
+0,50460,8,0,silencer in inventory
+0,50480,1,0,body armor in inventory
+0,50484,2,0,bomb blast suit in inventory
+0,50488,3,0,flash light in inventory
+0,50492,4,0,goggles in inventory
+0,50496,5,0,gas mask in inventory
+0,50500,6,0,cigarets in inventory
+0,50504,7,0,mine detector in inventory
+0,50508,8,0,antenna in inventory
+0,50512,9,0,binoculars in inventory
+0,50516,10,0,oxygen in inventory
+0,50520,11,0,compass in inventory
+0,50524,12,0,parachute in inventory
+0,50528,13,0,antidote in inventory
+0,50532,14,0,card 1 in inventory
+0,50536,15,0,card 2 in inventory
+0,50540,16,0,card 3 in inventory
+0,50544,17,0,card 4 in inventory
+0,50548,18,0,card 5 in inventory
+0,50552,19,0,card 6 in inventory
+0,50556,20,0,card 7 in inventory
+0,50560,21,0,card 8 in inventory
+0,50564,22,0,always ratios
+0,50565,153,0,always ratios
+0,50566,9,0,always ratios
+0,50568,23,0,transmitter in inventory
+0,50572,24,0,uniform in inventory
+0,50576,25,0,box in inventory
+0,50690,0,0,no extra guards when detected
+0,50710,0,0,electrified zones without danger
+0,53253,0,0,enemy 1 gone
+0,53261,1,0,bosses die faster
+0,53318,255,0,sleep time for some guards
+0,53381,0,0,enemy 2 gone
+0,53509,0,0,enemy 3 gone
+0,53637,0,0,enemy 4 gone

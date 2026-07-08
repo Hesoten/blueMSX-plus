@@ -1,0 +1,8 @@
+!cheats for blueMSX :frogger
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2008 Benoît Delvaux
+0,57346,99,0,lives
+0,57427,16,0,time (de-select to get bonus)
+0,57473,5,0,only one frog required by stage
+0,57474,1,0,difficulty level (1-10)
+0,57476,1,0,stage (1-99;0)

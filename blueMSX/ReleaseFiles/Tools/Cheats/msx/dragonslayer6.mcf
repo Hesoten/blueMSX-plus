@@ -1,0 +1,49 @@
+!cheats for blueMSX :dragonslayer6
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+0,8332,255,0,gold
+0,8333,255,0,gold
+0,8334,255,0,gold
+0,8964,15,0, life selios
+0,8965,39,0, life selios
+0,8966,15,0,max life selios
+0,8967,39,0,max life selios
+0,8968,15,0,magic selios
+0,8969,39,0,magic selios
+0,8970,15,0,max magic selios
+0,8971,39,0,max magic selios
+0,8972,255,0,experience selios (max exp)
+0,8973,255,0,experience selios (max exp)
+0,8974,255,0,experience selios (max exp)
+0,9036,255,0,experience runan (max exp)
+0,9037,255,0,experience runan (max exp)
+0,9038,255,0,experience runan (max exp)
+0,9028,15,0,life runan
+0,9029,39,0,life runan
+0,9030,15,0,max life runan
+0,9031,39,0,max life runan
+0,9032,15,0,magic runan
+0,9033,39,0,magic runan
+0,9034,15,0,max magic runan
+0,9035,39,0,max magic runan
+0,9092,15,0,life ro
+0,9093,39,0,life ro
+0,9094,15,0,max life ro
+0,9095,39,0,max life ro
+0,9100,255,0,experience ro (max exp)
+0,9101,255,0,experience ro (max exp)
+0,9102,255,0,experience ro (max exp)
+0,9096,15,0,magic ro
+0,9097,39,0,magic ro
+0,9098,15,0,max magic ro
+0,9099,39,0,max magic ro
+0,9156,15,0,life gale
+0,9157,39,0,life gale
+0,9158,15,0,max life gale
+0,9159,39,0,max life gale
+0,9164,255,0,experience gale (max exp)
+0,9165,255,0,experience gale (max exp)
+0,9166,255,0,experience gale (max exp)
+0,9160,15,0,magic gale
+0,9161,39,0,magic gale
+0,9162,15,0,max magic gale
+0,9163,39,0,max magic gale

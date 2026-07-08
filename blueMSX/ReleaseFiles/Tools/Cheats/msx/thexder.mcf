@@ -1,0 +1,9 @@
+!cheats for blueMSX :thexder
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2007 Benoît Delvaux
+0,62154,0,0,shield
+0,62164,255,0,energy
+0,62166,255,0,energy
+0,62168,0,0,level (0-9)
+0,62173,0,0,shield
+0,62188,255,0,disable killer missiles

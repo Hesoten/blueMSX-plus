@@ -1,0 +1,11 @@
+!cheats for blueMSX :guttblaster
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(C) 2007 Benoît Delvaux
+0,16424,1,0,level (1-99)
+0,16428,6,0,lives
+0,16440,1,0,cosmic cheat
+0,27286,3,0,shoot (0-3)
+! 0 = single shoot
+! 1 = triple shoot
+! 2 = round whirling bombs
+! 3 = 2 way bombs

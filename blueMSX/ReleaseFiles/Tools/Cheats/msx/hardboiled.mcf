@@ -1,0 +1,56 @@
+!cheats for blueMSX :hardboiled
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2007 Benoît Delvaux
+0,53316,5,0,lives
+0,53319,32,0,fuel
+0,53323,0,0,item in labyrinth (0-47)
+0,53325,0,0,first item (0-47)
+0,53327,0,0,second item (0-47)
+! 0 = lot of fuel
+! 1 = red telephone
+! 2 = egg
+! 3 = portable radio
+! 4 = vertical bullets
+! 5 = lowhit bullets
+! 6 = salt
+! 7 = pepper
+! 8 = blue diamond
+! 9 = joystick
+! 10 = hammer
+! 11 = candle
+! 12 = coffee
+! 13 = tea
+! 14 = cold beer
+! 15 = knife and fork
+! 16 = alarm clock
+! 17 = tv with antenna
+! 18 = clothes peg
+! 19 = alpha key
+! 20 = beta key
+! 21 = gamma key
+! 22 = delta key
+! 23 = light bulb
+! 24 = yellow banana
+! 25 = safety pin
+! 26 = green dice
+! 27 = nothing
+! 28 = bottle of wine
+! 29 = cork screw
+! 30 = wooden shoe
+! 31 = screw
+! 32 = nice apple
+! 33 = cup and saucer
+! 34 = bunch of grapes
+! 35 = pear
+! 36 = bad guy
+! 37 = glass of wine
+! 38 = question mark
+! 39 = keycard next sector
+! 40 = one half
+! 41 = another half
+! 42 = coin
+! 43 = money
+! 44 = petrol pump
+! 45 = cup
+! 46 = no saucer
+! 47 = good guy

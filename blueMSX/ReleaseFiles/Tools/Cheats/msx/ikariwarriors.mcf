@@ -1,0 +1,20 @@
+!cheats for blueMSX :ikariwarriors
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!set kind of ammo for weapons 1 and 2 :
+! 0 = nothing
+! 1 = regular
+! 2 = 3 way shot (not deadly)
+! 3 = 7 way shot (not deadly)
+! 4 = red bullets
+! 5 = regular tank bullets
+! 6 = high explosive tank bullets
+! 7 = hand granates
+! 8 = high explosive hand granades
+0,50200,0,0,rapid fire (set interval between shots)
+0,50205,6,0,1st weapon player 1 (change value)
+0,50206,8,0,2nd weapon player 1 (change value)
+0,50197,99,0,lives player 1
+0,50237,6,0,1st weapon player 2 (change value)
+0,50238,8,0,2nd weapon player 2 (change value)
+0,50229,99,0,lives player 2
+0,50198,1,0,fun with sprites (change number of sprite)

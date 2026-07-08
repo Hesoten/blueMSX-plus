@@ -1,0 +1,10 @@
+!cheats for blueMSX :blowup
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2007 Benoît Delvaux 
+!f1 to place bombs - f5 to blow yourself up
+0,16414,6,0,lives
+0,16419,0,0,level (0-5)
+0,16423,4,0,bombs
+0,16443,1,0,cosmic cheat active - select to change level
+0,28266,48,0,ammo
+0,28285,80,0,time

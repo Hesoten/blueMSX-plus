@@ -1,0 +1,11 @@
+!cheats for blueMSX :thecure
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+0,56031,4,0,invincible
+0,56032,1,0,get yellow key
+0,56033,1,0,get white key
+0,56036,1,0,sand of time
+0,56037,2,0,optional weapon (1=holy water 2=daggers)
+0,56038,64,0,power
+0,56205,1,0,kill enemy with one hit (end boss 3 caution !)
+0,56644,153,0,hearts
+0,56646,1,0,next stage (-1)

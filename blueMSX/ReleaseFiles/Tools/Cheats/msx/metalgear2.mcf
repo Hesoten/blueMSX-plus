@@ -1,0 +1,41 @@
+!cheats for blueMSX :metalgear2
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+0,51795,32,0,life bar
+0,54784,1,0,get gun
+0,54785,153,0,get gun
+0,54786,9,0,get gun
+0,54788,1,0,get sub machine gun
+0,54789,153,0,get sub machine gun
+0,54790,9,0,get sub machine gun
+0,54792,1,0,get grenates
+0,54793,153,0,get grenates
+0,54794,9,0,get grenates
+0,54800,1,0,get surface to air missiles
+0,54801,153,0,get surface to air missiles
+0,54802,9,0,get surface to air missiles
+0,54804,1,0,get remote missiles
+0,54805,153,0,get remote missiles
+0,54806,9,0,get remote missiles
+0,54808,1,0,get c4 explosives
+0,54809,153,0,get c4 explosives
+0,54810,9,0,get c4 explosives
+0,54812,1,0,get landmines
+0,54813,153,0,get landmines
+0,54814,9,0,get landmines
+0,54816,1,0,get camoflage
+0,54817,153,0,get camoflage
+0,54818,9,0,get camoflage
+0,54820,1,0,get gas grenade
+0,54821,153,0,get gas grenade
+0,54822,9,0,get gas grenade
+0,54824,1,0,get remote mice
+0,54825,153,0,get remote mice
+0,54832,9,0,get remote mice
+0,54836,1,0,get zippo
+0,54837,1,0,get zippo
+0,54828,1,0,get silencer
+0,54829,1,0,get silencer
+0,52009,32,0,do not sink into the swamp
+0,51772,1,0,invisible until an alert is triggered
+0,54315,0,0,set avoiding time to 0
+0,54320,2,0,open path through jungle

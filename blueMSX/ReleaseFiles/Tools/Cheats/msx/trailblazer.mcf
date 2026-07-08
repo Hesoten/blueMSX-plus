@@ -1,0 +1,7 @@
+!cheats for blueMSX :traiblazer
+!(c) 2006 Albert Beevendorp and (c) 2006 Patrick van Arkel
+0,34593,9,0,jumps left in arcade mode
+0,34409,4,0,time on cb:a9 (leave this value alone, it checks for cheats)
+0,34410,4,0,time on cb:a9 (leave this value alone, it checks for cheats)
+0,34411,4,0,time on cb:a9 (leave this value alone, it checks for cheats)
+0,34412,4,0,time on cb:a9 (leave this value alone, it checks for cheats)

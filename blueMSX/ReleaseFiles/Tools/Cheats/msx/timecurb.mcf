@@ -1,0 +1,7 @@
+!cheats for blueMSX :timecurb
+!(c) 2007 Benoît Delvaux
+0,16426,3,0,lives
+0,16561,0,0,level (0-4)
+0,16584,0,0,play one level without end
+0,16596,255,0,plasma - F5 on level 5
+0,16597,255,0,laser - F5 on level 4

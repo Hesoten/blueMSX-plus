@@ -1,0 +1,16 @@
+!cheats for blueMSX :nosh
+!(c) 2008 Benoît Delvaux
+!enable most of the cheats after loading of a world
+0,38641,1,0,key (1-10)
+0,38643,5,0,water
+0,38647,1,0,catapult
+0,38649,153,0,cherry
+0,38651,1,0,lighter
+0,38653,153,0,bombs
+0,38655,1,0,boomerang
+0,38657,1,0,super shoes
+0,38659,8,0,super shoes
+0,38661,1,0,frozen enemies
+0,38663,8,0,frozen enemies
+0,62378,1,0,world (1-5)
+0,62379,1,0,invulnerable

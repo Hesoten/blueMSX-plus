@@ -1,0 +1,33 @@
+!cheats for blueMSX :knightmare
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2006 Benoît Delvaux
+0,57350,8,0,all exits directly available
+0,57396,0,0,end boss dies easily
+0,57440,153,0,lives
+0,57441,1,0,stage (1-8)
+0,57442,0,0,stage (0-7)
+0,57603,210,0,enemy 1 y-pos
+0,57619,210,0,enemy 2 y-pos
+0,57635,210,0,enemy 3 y-pos
+0,57667,210,0,enemy 4 y-pos
+0,57699,210,0,enemy 5 x-pos
+0,58880,0,0,invulnerable
+0,58889,0,0,arrows - double attack
+0,58889,1,0,arrows - triple attack
+0,58889,2,0,double arrows - double attack
+0,58889,3,0,double arrows - triple attack
+0,58889,4,0,swords
+0,58889,5,0,double swords
+0,58889,6,0,double boomerangs
+0,58889,7,0,triple boomerangs
+0,58889,8,0,fire balls - dispersed
+0,58889,9,0,fire balls - concentrated
+0,58889,10,0,fire arrows - double attack
+0,58889,11,0,fire arrows - triple attack
+0,58889,12,0,nuclear arrows - double attack
+0,58889,13,0,nuclear arrows - triple attack
+0,58890,4,0,speed (0-4)
+0,58892,1,0,shield
+0,58892,2,0,invisible
+0,58892,3,0,red hot
+0,58894,153,0,timer

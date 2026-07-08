@@ -1,0 +1,14 @@
+!cheats for blueMSX :kingsvalley1plus
+!(c) 2008 Benoît Delvaux
+0,55376,99,0,lives
+0,55377,1,0,no map
+0,55380,1,0,stage (1-99;0)
+0,55381,1,0,pyramid (1-60;does not work with some pyramids)
+0,55620,16,0,sword (de-select to jump)
+0,55620,32,0,pick (de-select to jump)
+0,55658,6,0,no monster 1
+0,55680,6,0,no monster 2
+0,55702,6,0,no monster 3
+0,55724,6,0,no monster 4
+0,55794,1,0,doors always visible
+0,55795,1,0,doors always visible

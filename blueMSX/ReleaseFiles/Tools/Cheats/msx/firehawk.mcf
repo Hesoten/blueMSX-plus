@@ -1,0 +1,12 @@
+!cheats for blueMSX :firehawk-thexder2
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2007 Benoît Delvaux
+0,4821,255,0,do not loose power while shooting
+0,4824,250,0,max energy 500
+0,4838,99,0,missiles
+0,4856,255,0,shield power does not decline
+0,4941,99,0,stoppers
+0,4942,99,0,dart missiles
+0,4943,99,0,napalm bombs
+0,4944,99,0,flashers
+0,4945,99,0,ecm gas

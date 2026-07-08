@@ -1,0 +1,27 @@
+!cheats for blueMSX :riseout
+!(c) 2006 Albert Beevendorp and (c) 2006 Patrick van Arkel
+!(c) 2007 Benoît Delvaux
+0,60416,1,0,x-pos (1-30)
+0,60417,2,0,y-pos (2-22)
+0,60422,152,0,lives
+0,60433,255,0,can open exit door without key
+0,60518,1,0,level (1-20;lose a life to get good level)
+0,60552,1,0,low speed player 1
+0,60552,2,0,normal speed player 1
+0,60552,3,0,high speed player 1
+0,60553,1,0,low speed player 2
+0,60553,2,0,normal speed player 2
+0,60553,3,0,high speed player 2
+0,60554,1,0,low speed player 3
+0,60554,2,0,normal speed player 3
+0,60554,3,0,high speed player 3
+0,60555,1,0,low speed player 4
+0,60555,2,0,normal speed player 4
+0,60555,3,0,high speed player 4
+0,60689,255,0,first red man x-position
+0,60690,191,0,first red man y-position
+0,60721,255,0,second red man x-position
+0,60722,191,0,second red man y-position
+0,60848,152,0,lives player 2
+0,60849,152,0,lives player 3
+0,60850,152,0,lives player 4

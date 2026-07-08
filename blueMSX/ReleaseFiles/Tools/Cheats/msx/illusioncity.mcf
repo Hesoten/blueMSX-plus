@@ -1,0 +1,30 @@
+!cheats for blueMSX :illusioncity
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+0,49767,255,0,money
+0,49768,255,0,money
+0,49780,255,0,exp Tien Ren
+0,49781,255,0,exp Tien Ren
+0,49783,99,0,level Tien Ren
+0,49787,99,0,extended agility Tien Ren
+0,49794,231,0,hp Tien Ren
+0,49795,3,0,hp Tien Ren
+0,49797,231,0,extended defense Tien Ren
+0,49798,3,0,extended defense Tien Ren
+0,49800,231,0,extended offense Tien Ren
+0,49801,3,0,extended offense Tien Ren
+0,49820,255,0,exp Mei Hong
+0,49821,255,0,exp Mei Hong
+0,49823,99,0,level Mei Hong
+0,49827,99,0,extended agility Mei Hong
+0,49835,3,0,extended defense Mei Hong
+0,49836,231,0,extended defense Mei Hong
+0,49840,231,0,extended offense Mei Hong
+0,49841,3,0,extended offense Mei Hong
+0,49900,255,0,exp old man
+0,49901,255,0,exp old man
+0,49903,99,0,level old man
+0,49980,255,0,exp Kash
+0,49981,255,0,exp Kash
+0,49997,255,0,defense
+0,63030,231,0,hp Mei Hong
+0,63031,3,0,hp Mei Hong

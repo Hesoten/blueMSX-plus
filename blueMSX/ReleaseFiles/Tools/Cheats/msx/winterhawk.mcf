@@ -1,0 +1,8 @@
+!cheats for blueMSX :winterhawk
+!(C) 2007 Benoît Delvaux
+0,16428,6,0,lives
+0,16440,1,0,cosmic cheat
+0,25319,2,0,shoot (0-2)
+! 0 = normal shoot
+! 1 = single missile
+! 2 = double missile
