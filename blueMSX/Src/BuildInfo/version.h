@@ -4,6 +4,6 @@
 #define BLUE_MSX_VERSION_MAJOR 3
 #define BLUE_MSX_VERSION_MINOR 0
 
-#define BLUE_MSX_VERSION "3.0.0"
+#define BLUE_MSX_VERSION "3.0.1"
 
 #endif
