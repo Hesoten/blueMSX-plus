@@ -107,6 +107,7 @@
 #include "romMapperGoudaSCSI.h"
 #include "romMapperMegaFlashRomScc.h"
 #include "romMapperMegaFlashRomSccPlusSD.h"
+#include "romMapperASCII16X.h"
 #include "romMapperForteII.h"
 #include "romMapperMatraINK.h"
 #include "romMapperNettouYakyuu.h"
@@ -385,6 +386,10 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
             case ROM_MEGAFLSHSCCPLUS_SD:
                 success &= romMapperMegaFlashRomSccPlusSDCreate(cartNo, slot, sslot, 2);
                 break;
+
+            case ROM_ASCII16X:
+                success &= romMapperASCII16XCreate("ASCII16X.rom", NULL, 0, slot, sslot, 2);
+                break;
             }
             break;
         }
@@ -471,6 +476,10 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
 
         case ROM_MEGAFLSHSCCPLUS_SD:
             success &= romMapperMegaFlashRomSccPlusSDCreate(cartNo, slot, sslot, 2);
+            break;
+
+        case ROM_ASCII16X:
+            success &= romMapperASCII16XCreate(romName, buf, size, slot, sslot, 2);
             break;
 
         case ROM_OBSONET:

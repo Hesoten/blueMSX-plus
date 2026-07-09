@@ -168,6 +168,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->menuCartEseRam          = "Ese-RAM";             // New in 2.7
     ls->menuCartEseSCC          = "Ese-SCC";             // New in 2.7
     ls->menuCartMegaFlashRom    = "Mega Flash ROM";      // New in 2.7
+    ls->menuCartFlashCart       = "Flash-картриджи";
 
     ls->menuDiskInsertNew       = "Вставить новый образ дискеты";
     ls->menuDiskInsertCdrom     = "Вставить CD-Rom диск";       // New in 2.7

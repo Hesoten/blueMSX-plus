@@ -168,6 +168,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->menuCartEseRam          = "Ese-RAM";             // New in 2.7
     ls->menuCartEseSCC          = "Ese-SCC";             // New in 2.7
     ls->menuCartMegaFlashRom    = "Mega Flash ROM";      // New in 2.7
+    ls->menuCartFlashCart       = "Kartridże Flash";
 
     ls->menuDiskInsertNew       = "W³ó¿ nowy obraz dysku";              
     ls->menuDiskInsertCdrom     = "Insert CD-Rom";       // New in 2.7

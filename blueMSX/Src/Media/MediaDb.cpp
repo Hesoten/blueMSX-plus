@@ -124,6 +124,8 @@ RomType mediaDbStringToType(const char* romName)
     if (iequals(name, "HamarajaNight"))    return ROM_HAMARAJANIGHT;
     if (iequals(name, "MegaFlashRomScc"))  return ROM_MEGAFLSHSCC;
     if (iequals(name, "MegaFlashRomSccPlus")) return ROM_MEGAFLSHSCCPLUS;
+    if (iequals(name, "ASCII16-X"))        return ROM_ASCII16X;
+    if (iequals(name, "ASCII16X"))         return ROM_ASCII16X;
     if (iequals(name, "MegaFlashRomSccPlusSD")) return ROM_MEGAFLSHSCCPLUS_SD;
     if (iequals(name, "MegaFlashROM SCC+ SD"))  return ROM_MEGAFLSHSCCPLUS_SD;
     if (iequals(name, "Halnote"))          return ROM_HALNOTE;
@@ -691,6 +693,7 @@ extern "C" const char* romTypeToString(RomType romType)
     case ROM_MANBOW2_V2:  return "Manbow 2 v2";
     case ROM_MEGAFLSHSCC: return langRomTypeMegaFlashRomScc();
     case ROM_MEGAFLSHSCCPLUS: return "Mega Flash Rom SCC+";
+    case ROM_ASCII16X:    return "ASCII16-X";
     case ROM_MEGAFLSHSCCPLUS_SD: return "Mega Flash Rom SCC+ SD";
     case ROM_OBSONET:     return langRomTypeObsonet();
     case ROM_DUMAS:       return langRomTypeDumas();
@@ -871,6 +874,7 @@ extern "C" const char* romTypeToShortString(RomType romType)
     case ROM_MEGAFLSHSCC: return "MEGAFLSHSCC";
     case ROM_MEGAFLSHSCCPLUS: return "MEGAFLSHSCC+";
     case ROM_MEGAFLSHSCCPLUS_SD: return "MEGAFLSHSCC+SD";
+    case ROM_ASCII16X:    return "ASCII16-X";
     case ROM_OBSONET:     return "OBSONET";
     case ROM_DUMAS:       return "DUMAS";
     case ROM_NOWIND:      return "NOWIND";
@@ -1097,6 +1101,7 @@ int romTypeIsMegaRom(RomType romType) {
     case ROM_MEGAFLSHSCC: return 1;
     case ROM_MEGAFLSHSCCPLUS: return 1;
     case ROM_MEGAFLSHSCCPLUS_SD: return 1;
+    case ROM_ASCII16X:    return 1;
     case ROM_OBSONET:     return 1;
     case ROM_DUMAS:       return 1;
     case ROM_NOWIND:      return 1;
@@ -1415,6 +1420,15 @@ extern "C" MediaType* mediaDbGuessRom(const void *buffer, int size)
                 mediaType->romType = ROM_MANBOW2;
 			    return mediaType;
             }
+        }
+    }
+
+    /* Fixed-offset signatures at ROM offset 0x10 (MSX address 0x4010) used
+    ** by newer flashrom/megarom formats to advertise their mapper. */
+    if (size >= 0x18) {
+        if (memcmp(romData + 0x10, "ASCII16X", 8) == 0) {
+            mediaType->romType = ROM_ASCII16X;
+            return mediaType;
         }
     }
 

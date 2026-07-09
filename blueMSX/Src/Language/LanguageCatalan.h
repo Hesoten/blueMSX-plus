@@ -168,6 +168,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->menuCartEseRam          = "Ese-RAM";             // New in 2.7
     ls->menuCartEseSCC          = "Ese-SCC";             // New in 2.7
     ls->menuCartMegaFlashRom    = "Mega Flash ROM";      // New in 2.7
+    ls->menuCartFlashCart       = "Cartutxos Flash";
 
     ls->menuDiskInsertNew       = "Insereix una nova imatge de disc";
     ls->menuDiskInsertCdrom     = "Insereix un CD-Rom";       // New in 2.7

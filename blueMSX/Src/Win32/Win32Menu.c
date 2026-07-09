@@ -179,6 +179,7 @@ extern int showLoadMemoryDlg(HWND hwnd);
 #define ID_FILE_CART_MEGAFLASHROMSCC    41108
 #define ID_FILE_CART_MEGAFLSHSCCPLUS    41109
 #define ID_FILE_CART_MEGAFLSHSCCPLUS_SD 41118
+#define ID_FILE_CART_ASCII16X           41119
 #define ID_FILE_CART_JOYREXPSG          41110
 #define ID_FILE_CART_EXTRAM16KB         41111
 #define ID_FILE_CART_EXTRAM32KB         41112
@@ -326,6 +327,7 @@ static const char* getCleanFileName(const char* fileName)
     if (strcmp(fileName, CARTNAME_ESERAM128) == 0)      return langRomTypeEseRam128();
     if (strcmp(fileName, CARTNAME_MEGAFLSHSCC) == 0)    return langRomTypeMegaFlashRomScc();
     if (strcmp(fileName, CARTNAME_MEGAFLSHSCCPLUS) == 0)return "Mega Flash Rom SCC+";
+    if (strcmp(fileName, CARTNAME_ASCII16X) == 0)       return "ASCII16-X";
     if (strcmp(fileName, CARTNAME_ESERAM256) == 0)      return langRomTypeEseRam256();
     if (strcmp(fileName, CARTNAME_ESERAM512) == 0)      return langRomTypeEseRam512();
     if (strcmp(fileName, CARTNAME_ESERAM1MB) == 0)      return langRomTypeEseRam1mb();
@@ -533,6 +535,7 @@ static HMENU menuCreateCartSpecial(int cartNo, Properties* pProperties, Shortcut
     HMENU hMenuMegaSCSI = CreatePopupMenu();
     HMENU hMenuEseRam = CreatePopupMenu();
     HMENU hMenuFlashRom = CreatePopupMenu();
+    HMENU hMenuFlashCart = CreatePopupMenu();
     HMENU hMenuWaveSCSI = CreatePopupMenu();
     HMENU hMenuEseSCC = CreatePopupMenu();
     HMENU hMenuNowind = CreatePopupMenu();
@@ -546,6 +549,7 @@ static HMENU menuCreateCartSpecial(int cartNo, Properties* pProperties, Shortcut
     setMenuColor(hMenuMegaSCSI);
     setMenuColor(hMenuEseRam);
     setMenuColor(hMenuFlashRom);
+    setMenuColor(hMenuFlashCart);
     setMenuColor(hMenuWaveSCSI);
     setMenuColor(hMenuNowind);
     setMenuColor(hMenuEseSCC);
@@ -583,6 +587,8 @@ static HMENU menuCreateCartSpecial(int cartNo, Properties* pProperties, Shortcut
     AppendMenuU(hMenuFlashRom, MF_STRING, idOffset + ID_FILE_CART_MEGAFLASHROMSCC, langRomTypeMegaFlashRomScc());
     AppendMenuU(hMenuFlashRom, MF_STRING, idOffset + ID_FILE_CART_MEGAFLSHSCCPLUS, "Mega Flash Rom SCC+");
     AppendMenuU(hMenuFlashRom, MF_STRING, idOffset + ID_FILE_CART_MEGAFLSHSCCPLUS_SD, "Mega Flash Rom SCC+ SD");
+
+    AppendMenuU(hMenuFlashCart, MF_STRING, idOffset + ID_FILE_CART_ASCII16X, "ASCII16-X");
 
     AppendMenuU(hMenuWaveSCSI, MF_STRING, idOffset + ID_FILE_CART_WAVESCSI128, "128 kB");
     AppendMenuU(hMenuWaveSCSI, MF_STRING, idOffset + ID_FILE_CART_WAVESCSI256, "256 kB");
@@ -628,6 +634,8 @@ static HMENU menuCreateCartSpecial(int cartNo, Properties* pProperties, Shortcut
     AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuEseRam, langMenuCartEseRam());
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
     AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuFlashRom, langMenuCartMegaFlashRom());
+    AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
+    AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuFlashCart, langMenuCartFlashCart());
 
     return hMenu;
 }
@@ -2097,6 +2105,9 @@ int menuCommand(Properties* pProperties, int command)
             return 1;
         case ID_FILE_CART_MEGAFLSHSCCPLUS_SD:
             insertCartridge(pProperties, i, CARTNAME_MEGAFLSHSCCPLUS_SD, NULL, ROM_MEGAFLSHSCCPLUS_SD, 0);
+            return 1;
+        case ID_FILE_CART_ASCII16X:
+            insertCartridge(pProperties, i, CARTNAME_ASCII16X, NULL, ROM_ASCII16X, 0);
             return 1;
         case ID_FILE_CART_WAVESCSI128:
             insertCartridge(pProperties, i, CARTNAME_WAVESCSI128, NULL, SRAM_WAVESCSI128, 0);

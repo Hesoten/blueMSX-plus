@@ -488,6 +488,7 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
         case ROM_MEGAFLSHSCC: strcat(rom1, CARTNAME_MEGAFLSHSCC); break;
         case ROM_MEGAFLSHSCCPLUS:   strcat(rom1, CARTNAME_MEGAFLSHSCCPLUS); break;
         case ROM_MEGAFLSHSCCPLUS_SD: strcat(rom1, CARTNAME_MEGAFLSHSCCPLUS_SD); break;
+        case ROM_ASCII16X:    strcat(rom1, CARTNAME_ASCII16X); break;
         }
     }
 
@@ -512,6 +513,7 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
         case ROM_MEGAFLSHSCC: strcat(rom2, CARTNAME_MEGAFLSHSCC); break;
         case ROM_MEGAFLSHSCCPLUS:   strcat(rom2, CARTNAME_MEGAFLSHSCCPLUS); break;
         case ROM_MEGAFLSHSCCPLUS_SD: strcat(rom2, CARTNAME_MEGAFLSHSCCPLUS_SD); break;
+        case ROM_ASCII16X:    strcat(rom2, CARTNAME_ASCII16X); break;
         }
     }
 

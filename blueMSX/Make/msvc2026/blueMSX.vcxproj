@@ -730,6 +730,7 @@
     <ClCompile Include="..\..\Src\Memory\romMapperASCII16.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperASCII16nf.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperASCII16sram.c" />
+    <ClCompile Include="..\..\Src\Memory\romMapperASCII16X.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperASCII8.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperASCII8sram.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperBasic.c" />
@@ -1074,6 +1075,7 @@
     <ClInclude Include="..\..\Src\Memory\romMapperASCII16.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperASCII16nf.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperASCII16sram.h" />
+    <ClInclude Include="..\..\Src\Memory\romMapperASCII16X.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperASCII8.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperASCII8sram.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperBasic.h" />

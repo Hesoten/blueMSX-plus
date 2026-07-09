@@ -134,6 +134,7 @@
 #include "romMapperNoWind.h"
 #include "romMapperGoudaSCSI.h"
 #include "romMapperMegaFlashRomScc.h"
+#include "romMapperASCII16X.h"
 #include "romMapperForteII.h"
 #include "romMapperA1FMModem.h"
 #include "romMapperA1FM.h"
@@ -1389,6 +1390,9 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
             case ROM_MEGAFLSHSCC:
                 success &= romMapperMegaFlashRomSccCreate("Manbow2.rom", NULL, 0, slot, subslot, startPage, 0, 0x80000, 0);
                 break;
+            case ROM_ASCII16X:
+                success &= romMapperASCII16XCreate("ASCII16X.rom", NULL, 0, slot, subslot, startPage);
+                break;
             default:
                 success = 0;
                 break;
@@ -1464,6 +1468,10 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
 
         case ROM_MEGAFLSHSCCPLUS:
             success &= romMapperMegaFlashRomSccCreate(romName, buf, size, slot, subslot, startPage, 0, 0x100000, 1);
+            break;
+
+        case ROM_ASCII16X:
+            success &= romMapperASCII16XCreate(romName, buf, size, slot, subslot, startPage);
             break;
 
         case ROM_OBSONET:

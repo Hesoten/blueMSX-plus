@@ -385,6 +385,7 @@ char* langMenuCartExternalRam() { return ls->menuCartExternalRam; }
 char* langMenuCartEseRam() { return ls->menuCartEseRam; }
 char* langMenuCartEseSCC() { return ls->menuCartEseSCC; }
 char* langMenuCartMegaFlashRom() { return ls->menuCartMegaFlashRom; }
+char* langMenuCartFlashCart() { return ls->menuCartFlashCart; }
 
 char* langMenuDiskInsertNew() { return ls->menuDiskInsertNew; }
 char* langMenuDiskDirInsertCdrom() { return ls->menuDiskInsertCdrom; }
