@@ -135,6 +135,8 @@
 #include "romMapperGoudaSCSI.h"
 #include "romMapperMegaFlashRomScc.h"
 #include "romMapperASCII16X.h"
+#include "romMapperNeo8.h"
+#include "romMapperNeo16.h"
 #include "romMapperForteII.h"
 #include "romMapperA1FMModem.h"
 #include "romMapperA1FM.h"
@@ -1472,6 +1474,14 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
 
         case ROM_ASCII16X:
             success &= romMapperASCII16XCreate(romName, buf, size, slot, subslot, startPage);
+            break;
+
+        case ROM_NEO8:
+            success &= romMapperNeo8Create(romName, buf, size, slot, subslot, startPage);
+            break;
+
+        case ROM_NEO16:
+            success &= romMapperNeo16Create(romName, buf, size, slot, subslot, startPage);
             break;
 
         case ROM_OBSONET:

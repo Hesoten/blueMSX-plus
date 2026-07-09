@@ -854,6 +854,8 @@ static void endEditControls(HWND hDlg)
     case ROM_NOWIND:
     case ROM_PANASONIC8:
     case ROM_PANASONICWX16:
+    case ROM_NEO8:
+    case ROM_NEO16:
         editSlotInfo.startPage = 0;
         editSlotInfo.pageCount = 6;
         break;
@@ -1354,6 +1356,8 @@ static void setEditControls(HWND hDlg)
     case ROM_NOWIND:
     case ROM_PANASONIC8:
     case ROM_PANASONICWX16:
+    case ROM_NEO8:
+    case ROM_NEO16:
         SetWindowTextU(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
         SetWindowTextU(GetDlgItem(hDlg, IDC_ROMADDR), "0x0000 - 0xBFFF");
         EnableWindow(GetDlgItem(hDlg, IDC_ROMADDR), FALSE);
@@ -1545,6 +1549,8 @@ static RomType romTypeList[] = {
     ROM_MEGAFLSHSCCPLUS, /* contains SCC */
     ROM_MEGAFLSHSCCPLUS_SD, /* contains SCC + SD */
     ROM_ASCII16X,
+    ROM_NEO8,
+    ROM_NEO16,
     SRAM_ESESCC, /* contains SCC */
     SRAM_ESERAM,
     ROM_CROSSBLAIM,

@@ -206,7 +206,9 @@ enum  {
     ROM_ACTIVISIONPCB_16K = 173,
     ROM_MEGAFLSHSCCPLUS_SD = 174,    /* MegaFlashROM SCC+ SD */
     ROM_ASCII16X    = 175,           /* ASCII16-X flashrom */
-    ROM_MAXROMID    = 175
+    ROM_NEO8        = 176,           /* NEO-8 mapper */
+    ROM_NEO16       = 177,           /* NEO-16 mapper */
+    ROM_MAXROMID    = 177
 };
 
 typedef struct MediaType MediaType;

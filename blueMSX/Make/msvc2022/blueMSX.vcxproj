@@ -785,6 +785,8 @@
     <ClCompile Include="..\..\Src\Memory\romMapperNationalFdc.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperNet.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperNettouYakyuu.c" />
+    <ClCompile Include="..\..\Src\Memory\romMapperNeo8.c" />
+    <ClCompile Include="..\..\Src\Memory\romMapperNeo16.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperNms8280VideoDa.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperNormal.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperNoWind.c" />
@@ -1060,6 +1062,8 @@
     <ClInclude Include="..\..\Src\Memory\romMapperMegaFlashRomSccPlusSD.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperNet.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperNettouYakyuu.h" />
+    <ClInclude Include="..\..\Src\Memory\romMapperNeo8.h" />
+    <ClInclude Include="..\..\Src\Memory\romMapperNeo16.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperNoWind.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperOpcodePsg.h" />
     <ClInclude Include="..\..\Src\Memory\DeviceManager.h" />
