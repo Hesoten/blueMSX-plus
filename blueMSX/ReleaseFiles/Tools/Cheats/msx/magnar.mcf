@@ -1,0 +1,6 @@
+!cheats for blueMSX :magnar
+!(c) 2006 Albert Beevendorp and (c) 2006 Patrick van Arkel
+0,51721,24,0,power
+0,51780,1,0,invulnerable
+0,51794,255,0,ammo normal gun
+0,51839,250,0,live (255 is game over)

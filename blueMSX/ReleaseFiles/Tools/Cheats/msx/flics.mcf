@@ -1,0 +1,38 @@
+!cheats for blueMSX :flics
+!(c) 2012 Benoît Delvaux
+0,42599,255,0,no cop in buildings (except the bank)
+0,42629,1,0,le tailleur
+0,42629,2,0,supermarché
+0,42629,3,0,fire station
+0,42629,4,0,le garage
+0,42629,5,0,la bistrot
+0,42629,6,0,watchmaker
+0,42629,7,0,poste office
+0,42629,8,0,la bank
+0,42629,9,0,la pharmacie
+0,42629,10,0,le sewer
+0,42850,1,0,can take food (=knife+fork)
+0,42851,1,0,can use lifts (=spanner)
+0,42852,1,0,can use doors (=key)
+0,42854,255,0,can kill eveybody (=dagger)
+0,42856,1,0,can kill eveybody (=dagger)
+0,42861,255,0,can take the diamond (=bag)
+0,42863,1,0,can take the diamond (=bag)
+0,42868,255,0,only Cloudeau can see your real face (=disguise)
+0,42870,1,0,only Cloudeau can see your real face (=disguise)
+0,42875,255,0,invulnerable in the buildings (=mask)
+0,42877,1,0,invulnerable in the buildings (=mask)
+0,43127,57,0,lives
+0,43135,57,0,food
+0,43136,57,0,food
+0,43137,57,0,food
+0,43138,57,0,food
+0,43139,57,0,food
+
+
+
+
+
+
+
+

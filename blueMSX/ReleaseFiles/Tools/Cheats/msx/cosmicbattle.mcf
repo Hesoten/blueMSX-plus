@@ -1,0 +1,14 @@
+!cheats for blueMSX :cosmicbattle
+!(c) 2009 Benoît Delvaux
+0,49180,7,0,player 1 lives
+0,49181,7,0,player 2 lives
+0,49188,0,0,player 1 yellow fire
+0,49188,1,0,player 1 red fire
+0,49188,2,0,player 1 green fire
+0,49188,3,0,player 1 blue fire
+0,49189,0,0,player 2 yellow fire
+0,49189,1,0,player 2 red fire
+0,49189,2,0,player 2 green fire
+0,49189,3,0,player 2 blue fire
+0,49190,9,0,player 1 power
+0,49191,9,0,player 2 power

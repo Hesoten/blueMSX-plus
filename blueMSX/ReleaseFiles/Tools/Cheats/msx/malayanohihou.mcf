@@ -1,0 +1,13 @@
+!cheats for blueMSX :malayanohihou
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2009 Django
+0,52435,15,0,life
+0,52436,255,0,money
+0,52437,255,0,money
+0,52467,255,0,lives
+0,52517,31,0,enable fire shooting
+0,52596,99,0,have fires
+0,52597,99,0,have keys
+0,52598,99,0,have bombs
+0,52599,99,0,have potions
+O,52600,1,0,boots

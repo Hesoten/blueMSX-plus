@@ -1,0 +1,24 @@
+!cheats for blueMSX :dragonslayer1
+!(c) 2011 Benoît Delvaux
+0,57322,0,0,monster vitality
+0,57323,0,0,monster vitality
+0,57324,0,0,monster strength
+0,57325,0,0,monster strength
+0,57326,0,0,monster experience
+0,57327,0,0,monster experience
+0,57328,12,0,sword
+0,57329,14,0,key (de-select to drop it)
+0,57329,15,0,cross (de-select to drop it)
+0,57329,16,0,power stone (de-select to drop it)
+0,57329,17,0,ring (de-select to drop it)
+0,57338,255,0,vitality
+0,57339,255,0,vitality
+0,57340,255,0,strength
+0,57341,255,0,strength
+0,57342,255,0,experience
+0,57343,255,0,experience
+0,57344,255,0,gold
+0,57345,255,0,gold
+0,57346,255,0,magic
+0,57347,255,0,magic
+0,57348,4,0,crowns (select then de-select)

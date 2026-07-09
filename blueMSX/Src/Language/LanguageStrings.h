@@ -334,6 +334,7 @@ typedef struct {
     char* dlgAboutBuildDate;
     char* dlgAboutForkNote;
     char* dlgAboutOrigDevel;
+    char* dlgAboutCbios;
     char* dlgAboutCreat;
     char* dlgAboutDevel;
     char* dlgAboutThanks;

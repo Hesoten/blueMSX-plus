@@ -1,0 +1,26 @@
+!cheats for blueMSX :alcazar
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2006 Benoît Delvaux
+0,61528,5,0,lives
+0,61566,8,0,item in 1st pocket (0-15)
+0,61567,9,0,item in 2d pocket (0-15)
+0,61568,10,0,item in 3rd pocket (0-15)
+0,61569,7,0,item in hand (0-15)
+! 0 = nothing
+! 1 = gun
+! 2 = gun + one bullet
+! 3 = gun + 2 bullets
+! 4 = gun + 3 bullets
+! 5 = gun + 4 bullets
+! 6 = gun + 5 bullets
+! 7 = gun + 6 bullets
+! 8 = raw meat
+! 9 = bleach
+! 10 = oil
+! 11 = water
+! 12 = keys
+! 13 = rope
+! 14 = ring
+! 15 = raft
+0,61570,127,0,power
+0,61961,1,0,power

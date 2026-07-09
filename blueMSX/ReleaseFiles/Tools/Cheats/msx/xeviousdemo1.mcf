@@ -1,0 +1,12 @@
+!cheats for blueMSX :xeviousdemo1
+!(c) 2009 Benoît Delvaux
+0,51200,129,0,invulnerable (select after mission start)
+0,51205,0,0,one front shoot
+0,51205,2,0,one front shoot + shield
+0,51205,4,0,three front shoots
+0,51205,6,0,three front shoots + shield
+0,51205,8,0,one front shoot + two back shoots
+0,51205,10,0,one front shoot + two back shoots + shield
+0,51205,12,0,three front shoots + one back shoot
+0,51205,14,0,three front shoots + one back shoot + shield
+0,52744,99,0,lives

@@ -1,0 +1,13 @@
+!cheats for blueMSX :comandotracer
+!(c) 2007 Benoît Delvaux
+0,45213,2,0,all the colors
+0,45214,3,0,all the colors
+0,45215,4,0,all the colors
+0,45216,5,0,all the colors
+0,45217,6,0,all the colors
+0,45218,7,0,all the colors
+0,45602,255,0,invulnerable (value 0 required for final countdown)
+0,45605,255,0,invulnerable
+0,45839,144,0,time (de-select for final countdown)
+0,46031,11,0,energy (de-select for final countdown)
+0,46066,9,0,lives (de-select for final countdown)

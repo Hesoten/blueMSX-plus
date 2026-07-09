@@ -1,0 +1,8 @@
+!cheats for blueMSX :inca1
+!(c) 2007 Benoît Delvaux 
+0,56966,9,0,lives player 1
+0,56972,255,0,gold player 1
+0,57014,9,0,lives player 2
+0,57020,255,0,gold player 2
+0,57123,20,0,x-pos easy start (de-select to move !)
+0,57133,0,0,invulnerable

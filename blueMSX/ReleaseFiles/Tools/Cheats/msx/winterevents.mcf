@@ -1,0 +1,13 @@
+!cheats for blueMSX :winterevents
+!(c) 2007 Benoît Delvaux
+0,39430,1,0,bobsled speed (1-16;de-select before finish)
+0,39434,16,0,skate speed (1-16;de-select before finish)
+0,39436,16,0,slalom speed (1-16;de-select before finish)
+0,39437,1,0,down hill speed (1-16;de-select before finish)
+0,39442,0,0,no damage in slalom
+0,39443,0,0,no red flag touched in slalom
+0,39443,0,0,computer speed in skate (0-16;de-select before finish)
+0,39448,0,0,no damage in down hill
+0,39500,15,0,hits in biathlon
+0,39501,0,0,missed shots in biathlon
+0,39507,14,0,biathlon speed (1-14;de-select before finish)

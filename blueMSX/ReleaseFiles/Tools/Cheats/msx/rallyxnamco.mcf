@@ -1,0 +1,7 @@
+!cheats for blueMSX :rallyxnamco
+!(c) 2006 Albert Beevendorp and (c) 2006 Patrick van Arkel
+!(c) 2011 Benoît Delvaux
+0,57397,5,0,lives
+0,57401,64,0,fuel(de-select when taking fuel and at end of level)
+0,57525,5,0,lives(alt)
+0,57529,64,0,fuel(alt)(de-select when taking fuel and at end of level)

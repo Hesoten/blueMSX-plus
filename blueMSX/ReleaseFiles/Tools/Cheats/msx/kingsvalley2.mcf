@@ -1,0 +1,16 @@
+!cheats for blueMSX :kingsvalley2
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2008 Benoît Delvaux
+0,57879,1,0,try again cheat
+0,57920,153,0,lives
+0,57922,1,0,stage (1-60)
+0,57941,1,0,festival cheat
+0,57986,0,0,y-pos (0-170)
+0,57988,0,0,x-pos (0-255)
+0,58101,0,0,door always opens
+0,58624,0,0,no monster 1
+0,58656,0,0,no monster 2
+0,58688,0,0,no monster 3
+0,61201,1,0,little pyramids always visible (see remark)
+!de-select the little pyramids cheat to enter in puzzle or music stage
+!select it again just before exiting puzzle or music stage

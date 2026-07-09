@@ -1,0 +1,10 @@
+!cheats for blueMSX :eatblue2004userlevels
+!(c) 2008 Benoît Delvaux
+0,49237,1,0,level (1-30 to select only at end of first played level)
+0,49239,99,0,lives (not on first played level)
+0,49241,99,0,food (not on first played level)
+0,49247,1,0,red key (not on first played level)
+0,49249,1,0,blue key (not on first played level)
+0,49251,1,0,yellow key (not on first played level)
+0,49253,1,0,eggs (not on first played level)
+0,64670,0,0,time

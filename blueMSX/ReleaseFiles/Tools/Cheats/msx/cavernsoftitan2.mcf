@@ -1,0 +1,22 @@
+!cheats for blueMSX :cavernsoftitan2
+!(c) 2009 Benoît Delvaux
+!Be careful with vertical enemy cheats : 
+!de-selecting them can hang the game
+0,54573,255,0,oxygen (de-select on exit)
+0,54574,153,0,lives
+0,54575,0,0,stage (0-19)
+0,54577,0,0,can fall on distant platforms without dying
+0,54662,2,0,always exit to next stage
+0,55071,8,0,x-pos (8-232)
+0,55072,60,0,y-pos (60-167)
+0,55077,1,0,walking speed
+0,55103,247,0,horizontal enemy 1 is frozen
+0,55104,40,0,vertical enemy 1 is frozen
+0,55135,247,0,horizontal enemy 2 is frozen
+0,55136,40,0,vertical enemy 2 is frozen
+0,55167,247,0,horizontal enemy 3 is frozen
+0,55168,40,0,vertical enemy 3 is frozen
+0,55199,247,0,horizontal enemy 4 is frozen
+0,55200,40,0,vertical enemy 4 is frozen
+0,55232,40,0,vertical enemy 5 is frozen
+0,55264,40,0,vertical enemy 6 is frozen

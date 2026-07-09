@@ -1,0 +1,32 @@
+!cheats for blueMSX :aliens
+!(c) 2007 Benoît Delvaux
+0,1066,1,0,Ripley location (1-255)
+0,1069,50,0,Ripley ammo
+0,1070,1,0,Gorman location (1-255)
+0,1073,50,0,Gorman ammo
+0,1074,1,0,Hicks location (1-255)
+0,1077,50,0,Hicks ammo
+0,1078,1,0,Bishop location (1-255)
+0,1081,50,0,Bishop ammo
+0,1082,1,0,Vasquez location (1-255)
+0,1085,50,0,Vasquez ammo
+0,1086,1,0,Burke location (1-255)
+0,1089,50,0,Burke ammo
+0,1090,0,0,Ripley life
+0,1091,0,0,Gorman life
+0,1092,0,0,Hicks life
+0,1093,0,0,Bishop life
+0,1094,0,0,Vasquez life
+0,1095,0,0,Burke life
+0,1108,0,0,Ripley status
+0,1109,0,0,Gorman status
+0,1110,0,0,Hicks status
+0,1111,0,0,Bishop status
+0,1112,0,0,Vasquez status
+0,1113,0,0,Burke status
+0,1114,16,0,Ripley health
+0,1115,16,0,Gorman health
+0,1116,16,0,Hicks health
+0,1117,16,0,Bishop health
+0,1118,16,0,Vasquez health
+0,1119,16,0,Burke health

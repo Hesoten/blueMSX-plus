@@ -1,0 +1,7 @@
+!cheats for blueMSX :timerider
+!(c) 2007 Benoît Delvaux
+0,16429,4,0,lives
+0,16564,0,0,level (0-4)
+0,16587,0,0,play one level without end
+0,16599,255,0,plasma - F5 on level 5
+0,16600,255,0,laser - F5 on level 4

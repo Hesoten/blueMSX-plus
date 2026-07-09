@@ -1,0 +1,11 @@
+!cheats for blueMSX :mopiranger
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2008 Benoît Delvaux
+0,57347,1,0,time
+0,57425,153,0,lives
+0,57696,7,0,y-position grey enemy
+0,57744,7,0,y-position red enemy
+0,57792,7,0,y-position yellow enemy
+0,57840,7,0,y-position blue enemy
+0,57888,7,0,y-position big razzon
+0,58176,0,0,dragon without fire

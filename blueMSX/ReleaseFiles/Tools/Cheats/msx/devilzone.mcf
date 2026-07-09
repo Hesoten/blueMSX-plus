@@ -1,0 +1,26 @@
+!cheats for blueMSX :devilzone
+!(c) 2007 Albert Beevendorp and (c) 2007 Patrick van Arkel
+!(c) 2010 Benoît Delvaux
+0,54806,0,0,weapon - hands and feet
+0,54806,1,0,weapon - sword
+0,54806,2,0,weapon - whip
+0,54806,3,0,weapon - boomerang
+0,54806,4,0,weapon - handgun
+0,54806,5,0,weapon - rockets
+0,54844,255,0,always ammo
+0,54846,1,0,invincible
+0,54846,2,0,invisible
+0,54846,255,0,invulnerable
+0,54860,153,0,full time
+0,54861,153,0,full time
+0,54864,1,0,stage (1-5)
+0,54865,153,0,lives
+0,54866,153,0,99 stars
+0,54867,255,0,energy
+0,54868,1,0,end boss power 1
+0,54869,1,0,hourglass
+0,54870,1,0,clock
+0,54871,1,0,bomb
+0,54872,1,0,life bottle
+0,54873,1,0,torch
+0,54874,1,0,green ring

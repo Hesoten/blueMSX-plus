@@ -1,0 +1,12 @@
+!cheats for blueMSX :superboy2
+!(c) 2006 Benoît Delvaux
+0,57411,5,0,lives
+0,57412,0,0,world (0-3)
+0,57413,0,0,stage (0-3)
+0,57417,153,0,time
+0,57418,153,0,time
+0,57907,152,0,coins
+0,58220,0,0,y-pos (0-160)
+0,58221,0,0,x-pos (0-255)
+0,58226,16,0,big mario
+0,58227,16,0,fire (on GRAPH key)

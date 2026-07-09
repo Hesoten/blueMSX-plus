@@ -1,0 +1,11 @@
+!cheats for blueMSX :mkidpromopuzzle
+!(c) 2008 Benoît Delvaux
+0,20265,0,0,x-pos
+0,20266,0,0,y-pos
+0,20740,9,0,diamonds
+0,20741,4,0,diamonds
+0,20915,9,0,lives
+0,20916,9,0,lives
+0,21165,0,0,time
+0,23296,1,0,open passage to next room (1 or 2)
+0,27962,1,0,has always red key

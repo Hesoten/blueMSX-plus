@@ -1,0 +1,12 @@
+!cheats for blueMSX :sectoralpha
+!(c) 2008 Benoît Delvaux
+0,49403,5,0,lives middle sector
+0,49404,120,0,ammo middle sector
+0,49405,12,0,time middle sector
+0,49587,5,0,lives right sector
+0,49588,120,0,ammo right sector
+0,49589,12,0,time right sector
+0,49771,5,0,lives left sector
+0,49772,120,0,ammo left sector
+0,49773,12,0,time left sector
+0,49971,5,0,invulnerable

@@ -1,0 +1,97 @@
+!cheats for blueMSX :goonies
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2006 Benoît Delvaux
+! see gooniesmore file for more specific cheats with explanation
+0,57444,80,0,vitality
+0,57445,80,0,experience
+0,57452,1,0,stage (1-5)
+0,57633,1,0,always have key
+0,57648,7,0,open door to next stage
+0,57718,255,0,protected from most enemies
+0,57719,255,0,protected from water, fire, bats and shoots
+0,57720,1,0,protected from falling stones
+0,57721,1,0,extra experience
+0,57721,4,0,extra vitality
+0,58093,2,0,show hidden items
+!
+! specific displayed items - 3 groups
+! for each item : an activation address and a display address
+! for 2 or more items in the same group : the value for the activation
+! must be the sum of the values required to activate each item - 
+! you need also to change the value for the display address,
+! only the values 1-12 will allow the display at the bottom of the screen
+!
+! items - 1st group
+!
+!0,57718,1,0,activate shoes
+!0,57728,1,0,display shoes
+!
+!0,57718,2,0,activate yellow book
+!0,57729,1,0,display yellow book
+!
+!0,57718,4,0,activate white book
+!0,57730,1,0,display white book
+!
+!0,57718,8,0,activate dark blue book
+!0,57731,1,0,display dark blue book
+!
+!0,57718,16,0,activate purple book
+!0,57732,1,0,display purple book
+!
+!0,57718,32,0,activate green book
+!0,57733,1,0,display green book
+!
+!0,57718,64,0,activate red book
+!0,57734,1,0,display red book
+!
+!0,57718,128,0,activate pale blue book
+!0,57735,1,0,display pale blue book
+!
+! items - 2d group
+!
+!0,57719,1,0,activate blue raincoat
+!0,57736,1,0,display blue raincoat
+!
+!0,57719,2,0,activate yellow thermic coat
+!0,57737,1,0,display yellow thermic coat
+!
+!0,57719,4,0,activate grey raincoat
+!0,57738,1,0,display grey raincoat
+!
+!0,57719,8,0,activate green thermic coat
+!0,57739,1,0,display green thermic coat
+!
+!0,57719,16,0,activate yellow shield
+!0,57740,1,0,display yellow shield
+!
+!0,57719,32,0,activate purple shield
+!0,57741,1,0,display purple shield
+!
+!0,57719,64,0,activate white shield
+!0,57742,1,0,display white shield
+!
+!0,57719,128,0,activate blue helmet
+!0,57743,1,0,display blue helmet
+!
+! items - 3rd group
+!
+!0,57720,1,0,activate yellow helmet
+!0,57744,1,0,display yellow helmet
+!
+!0,57720,2,0,activate hammer
+!0,57745,1,0,display hammer
+!
+!0,57720,4,0,activate lamp
+!0,57746,1,0,display lamp
+!
+!0,57720,8,0,activate false blue book
+!0,57747,1,0,display false blue book
+!
+!0,57720,16,0,activate false purple book
+!0,57748,1,0,display false purple book
+!
+!0,57720,32,0,activate false red book
+!0,57749,1,0,display false red book
+!
+!0,57720,64,0,activate clock
+!0,57750,1,0,display clock

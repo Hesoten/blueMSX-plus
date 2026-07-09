@@ -1,0 +1,8 @@
+!cheats for blueMSX :snakeit
+!(c) 2007 Benoît Delvaux
+!(c) 2007 Mauro Sókrates - Cyber MSX
+0,55040,0,0,round (1-10) effective after ESC
+0,55041,255,0,more points to eat
+0,55043,99,0,lives
+0,55044,99,0,bonus maximum (de-select to get it)
+0,55046,9,0,bonus multiplier (de-select to get it)

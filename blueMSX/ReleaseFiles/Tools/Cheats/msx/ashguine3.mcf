@@ -1,0 +1,24 @@
+!cheats for blueMSX :ashguine3
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2007 Benoît Delvaux
+0,49364,0,0,stage (0-4;4=end demo)
+0,49369,210,0,power
+0,49370,210,0,life 
+0,49373,206,0,level up after killing one enemy 
+0,49375,255,0,money
+0,50584,1,0,talisman
+0,50585,2,0,bag
+0,50586,1,0,knife
+0,50587,1,0,mirror
+0,50588,1,0,key
+0,50589,1,0,ring
+0,50590,1,0,collar
+0,50591,1,0,vase
+0,50592,1,0,brown boots
+0,50593,1,0,white boots
+0,50594,1,0,jewel 1
+0,50595,1,0,jewel 2
+0,50596,1,0,jewel 3
+0,50597,1,0,jewel 4
+0,50598,1,0,jewel 5
+0,50751,4,0,weapon (0-4)

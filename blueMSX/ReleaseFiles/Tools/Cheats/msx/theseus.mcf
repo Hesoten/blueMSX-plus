@@ -1,0 +1,11 @@
+!cheats for blueMSX :theseus
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2007 Benoît Delvaux
+0,60892,255,0,time (de-select to get bonus)
+0,60893,10,0,time (de-select to get bonus)
+0,60898,153,0,power
+0,60899,9,0,power
+0,60903,0,0,level (0-12)
+0,60914,255,0,enemies are frozen
+0,60916,255,0,key
+0,60917,255,0,ring

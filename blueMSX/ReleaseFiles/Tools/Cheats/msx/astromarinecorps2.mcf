@@ -1,0 +1,13 @@
+!cheats for blueMSX :astromarinecorps2
+!(c) 2007 Benoît Delvaux
+0,19188,255,0,front laser
+0,19200,255,0,back laser
+0,19212,255,0,up laser
+0,19224,255,0,flame thrower
+0,39289,9,0,lives (de-select to get bonus)
+0,39302,57,0,time
+0,39307,255,0,bombs
+0,39333,10,0,energy
+0,39352,10,0,energy
+0,39558,10,0,energy
+0,39577,10,0,energy

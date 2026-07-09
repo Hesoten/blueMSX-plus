@@ -1,0 +1,20 @@
+!cheats for blueMSX :vampire
+!(c) 2006 Albert Beevendorp and (c) 2006 Patrick van Arkel
+!(c) 2007 Benoît Delvaux
+0,16740,0,0,open front door
+0,17533,0,0,open back tower window
+0,17742,0,0,open back window
+0,18466,0,0,open central window
+0,18639,0,0,open left tower window
+0,18827,0,0,open highest window
+0,19006,0,0,open right tower window
+0,19022,0,0,open right tower
+0,19525,0,0,open front tower
+0,20141,0,0,open central tower
+0,20908,0,0,open 1st cellar door
+0,21197,0,0,open 2d cellar door
+0,25329,0,0,open 3rd cellar door
+0,38033,99,0,power
+0,38034,9,0,lives
+0,38411,0,0,x-pos (0-130)
+0,38412,70,0,y-pos (200-70)

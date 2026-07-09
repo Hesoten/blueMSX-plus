@@ -359,6 +359,7 @@ char* langDlgAboutBuildNumber();
 char* langDlgAboutBuildDate();
 char* langDlgAboutForkNote();
 char* langDlgAboutOrigDevel();
+char* langDlgAboutCbios();
 char* langDlgAboutCreat();
 char* langDlgAboutDevel();
 char* langDlgAboutThanks();

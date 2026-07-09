@@ -1,0 +1,28 @@
+!cheats for blueMSX :dustin 
+!(c) 2005 Fabio Albergaria - MSX Solutions 
+!(c) 2007 Benoît Delvaux
+0,23393,1,0,item 1(1-15)
+! 1 = card
+! 2 = gun
+! 3 = bomb
+! 4 = lighter
+! 5 = statue
+! 6 = club
+! 7 = hammer
+! 8 = watch
+! 9 = antidote
+! 10 = tobacco
+! 11 = keys
+! 12 = whisky
+! 13 = money
+! 14 = bulletproof vest
+! 15 = bone
+0,23394,2,0,item 2(1-15)
+0,23395,5,0,item 3(1-15)
+0,23396,7,0,item 4(1-15)
+0,23397,9,0,item 5(1-15)
+0,23398,11,0,item 6(1-15)
+0,23399,14,0,item 7(1-15)
+0,23400,15,0,item 8(1-15)
+0,23402,0,0,no red alarm
+0,52955,99,0,alert

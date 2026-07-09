@@ -1,0 +1,91 @@
+!cheats for blueMSX :ys1
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2007 Benoît Delvaux
+! enable the cheats only in the game itself
+! enable only the cheats related to the part you are playing
+0,51994,1,0,enemy power inside Tower (de-select on final boss)
+0,52401,255,0,life
+0,52423,31,0,all swords inside Tower
+0,52425,31,0,all shields inside Tower
+0,52427,31,0,all armors inside Tower
+0,52429,31,0,all items inside Tower
+0,52431,31,0,all rings inside Tower
+0,52433,63,0,all books inside Tower
+0,52434,63,0,all keys inside Tower
+0,52435,255,0,all special items 1 inside Tower
+0,52437,15,0,all special items 2 inside Tower
+0,52666,1,0,enemy power outside Tower
+0,53187,255,0,life
+0,53191,255,0,money
+0,53192,255,0,money
+0,53193,255,0,experience
+0,53194,255,0,experience
+0,53209,31,0,all swords outside Tower
+0,53211,31,0,all shields outside Tower
+0,53213,31,0,all armors outside Tower
+0,53215,31,0,all items outside Tower
+0,53217,31,0,all rings outside Tower
+0,53219,63,0,all books outside Tower
+0,53220,63,0,all keys outside Tower
+0,53221,255,0,all special items 1 outside Tower
+0,53223,15,0,all special items 2 outside Tower
+! for 2 or more items : the value must be the sum
+! of the values required for the concerned items
+! swords
+! 1 = short sword
+! 2 = long sword
+! 4 = talwarl
+! 8 = silver sword
+! 16 = flame sword
+! shields
+! 1 = small shield
+! 2 = middle shield
+! 4 = large shield
+! 8 = silver shield
+! 16 = battle shield
+! armors
+! 1 = chain-mail armor
+! 2 = plate-mail armor
+! 4 = reflex armor
+! 8 = silver armor
+! 16 = battle armor
+! items
+! 1 = heal potion
+! 2 = wing (outside Tower) or hammer (inside Tower)
+! 4 = mirror
+! 8 = mask of eyes
+! 16 = blue necklace
+! rings
+! 1 = power ring
+! 2 = mail ring
+! 4 = time ring
+! 8 = heal ring
+! 16 = evil ring
+! books
+! 1 = Hadal book
+! 2 = Tovah book
+! 4 = Daby book
+! 8 = Gemma book
+! 16 = Messa book
+! 32 = Facto book
+! keys
+! 1 = treasure key
+! 2 = cell key
+! 4 = temple key
+! 8 = ivory key
+! 16 = marble key
+! 32 = Darm key
+! special items 1
+! 1 = Sarah crystal
+! 2 = sapphire ring
+! 4 = silver bells
+! 8 = silver harmonica
+! 16 = glasses
+! 32 = Roda tree seed
+! 64 = eagle idol
+! 128 = magical rod
+! special items 2
+! 1 = ruby
+! 2 = golden necklace
+! 4 = golden vase
+! 8 = blue amulet

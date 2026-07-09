@@ -1,0 +1,17 @@
+!cheats for blueMSX :aleste2
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+0,48152,255,0,invincible
+0,51264,99,0,lives
+0,51265,10,0,full power on primary weapons
+0,51274,1,0,weapon 1
+0,51274,2,0,weapon 2
+0,51274,3,0,weapon 3
+0,51274,4,0,weapon 4
+0,51274,5,0,weapon 5
+0,51274,6,0,weapon 6
+0,51274,7,0,weapon 7
+0,51274,8,0,weapon 8
+0,51277,255,0,secondary weapon has no time limit
+0,51278,50,0,full power on secondary weapons
+0,51279,5,0,full power on secondary weapons
+0,51448,10,0,full power on primary weapons

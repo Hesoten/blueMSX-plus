@@ -1,0 +1,13 @@
+!cheats for blueMSX :monkeyacademy
+!(c) 2008 Benoît Delvaux
+0,57424,99,0,lives
+0,57425,1,0,stage (1-99;0)
+0,57428,2,0,only one problem by stage
+0,57429,0,0,time (de-select to get bonus)
+0,57430,5,0,time (de-select to get bonus)
+0,57431,0,0,infinite errors allowed
+0,57621,32,0,no crab 1
+0,57629,32,0,no crab 2
+0,57637,32,0,no crab 3
+0,57683,0,0,level player 1 (0-4)
+0,57684,0,0,level player 2 (0-4)

@@ -1,5 +1,56 @@
-Next release
-============
+
+blueMSX+ change history
+=======================
+
+v 3.0.1     July 9, 2026
+========================
+
+- Release archive is now a self-contained package: users no longer need
+  to install upstream blueMSX v2.8.2 separately and overlay this fork
+  on top.
+- Bundled updated Rom/Cas/Disk database (msxblue.com, 2012-11-11).
+- Bundled updated Cheat database (msxblue.com, 2012-10-08).
+- Bundled C-BIOS 0.29a machine configurations and ROMs (MSX, MSX2,
+  MSX2+; International, JP, BR, EU regions).
+- Release binaries are no longer UPX-compressed. Several antivirus
+  products flagged the packed exe as a trojan false positive,
+  blocking download or launch on end-user machines.
+- Added support for new mappers: ASCII16-X, NEO-8, NEO-16, and Yamanooto.
+- Emulator start failure now reports a specific cause instead of a
+  generic error.
+
+v 3.0.0     July 5, 2026
+========================
+
+- Rebranded as blueMSX+, an unofficial fork focused on modernizing
+  the Windows 11 UI and audio paths.
+- Native Windows 11 support: 64-bit binary, dark-mode UI, and other
+  modern Windows features.
+- High-resolution display support: window zoom up to x8, DPI scaling.
+- Direct3D 12 renderer.
+- WASAPI low-latency audio output (shared mode).
+- MSX-MUSIC / MSX-AUDIO multi-backend: added Nuked-OPLL, emu2413, and
+  emu8950 as high-quality FM synthesis emulators, with real-time
+  switching for A/B comparison.
+- Natural brightness compensation for scanlines under HDR.
+- TMS9918A (MSX1 VDP) color reproduction (merged uniskie's patch).
+- Recording modernization: MP4 recording (H.264 / HEVC) for live
+  capture and replay rendering, plus a preview window during replay
+  rendering.
+- XInput controller support with hot-plug.
+- MegaFlashROM SCC+ SD cartridge support (SD card included; PSG-port
+  override not yet).
+- Various bug fixes: sprite rendering (magnified sprite offset),
+  VDP command behavior in SCREEN 0-4, R800 block I/O flag handling,
+  TurboR PCM frequency and write timing, long filename support in
+  directory-as-disk insertion, and more.
+
+
+original blueMSX change history
+===============================
+
+Next release (originally planned)
+=================================
 - Z80 IRQ timing (not yet)
 - Fix DER files in panasonic FDC
 - Add search for numbers (byte, word, dword) in degugger

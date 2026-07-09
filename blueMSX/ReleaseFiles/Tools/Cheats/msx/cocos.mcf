@@ -1,0 +1,12 @@
+!cheats for blueMSX :cocos
+!(c) 2009 Benoît Delvaux
+0,41252,171,0,green ghost vulnerable
+0,41253,171,0,dark blue ghost vulnerable
+0,41254,171,0,red ghost vulnerable
+0,41255,171,0,middle blue ghost vulnerable
+0,41256,171,0,light blue ghost vulnerable
+0,41257,171,0,dark orange ghost vulnerable
+0,41258,171,0,light orange ghost vulnerable
+0,41259,171,0,yellow ghost vulnerable
+0,42870,3,0,lives
+0,42874,0,0,speed (0-9)

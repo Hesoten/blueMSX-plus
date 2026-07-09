@@ -1,0 +1,187 @@
+!cheats for blueMSX :montanajohnandthetemplarstreasure
+!(c) 2008 Benoît Delvaux and (c) 2008 Patrick van Arkel
+!Be careful with sensible cheats !
+!Select them before level - de-select them in level
+!Level cheat must be changed manually between levels
+!Don't use the maximum vitality/experience cheat with the no hanging cheat
+0,639,0,0,open 2nd door level 6
+0,671,0,0,open 2nd door level 6
+0,703,0,0,open 2nd door level 6
+0,735,0,0,open 2nd door level 6
+0,767,0,0,open 2nd door levels 4 and 6
+0,799,0,0,open 2nd door levels 4 and 6
+0,831,0,0,open 2nd door levels 4 and 6
+0,863,0,0,open 2nd door levels 4 and 6
+0,1022,0,0,open 3rd door level 11
+0,1054,0,0,open 3rd door level 11
+0,1086,0,0,open 3rd door level 11
+0,1118,0,0,open 3rd door level 11
+0,1150,0,0,open 3rd door level 11
+0,1182,0,0,open 3rd door level 11
+0,1822,0,0,open door level 3
+0,1854,0,0,open door level 3
+0,1886,0,0,open door level 3
+0,1918,0,0,open door level 3
+0,1950,0,0,open door level 3
+0,1982,0,0,open door level 3
+0,2014,0,0,open door level 3
+0,2046,0,0,open door level 3
+0,2078,0,0,open door level 3
+0,2110,0,0,open door level 3
+0,2623,0,0,open door level 1
+0,2655,0,0,open door level 1
+0,2687,0,0,open door level 1
+0,3808,0,0,open 2nd door level 9
+0,3840,0,0,open 2nd door level 9
+0,3872,0,0,open 2nd door level 9
+0,3904,0,0,open 2nd door level 9
+0,4127,0,0,open 1st door level 5
+0,4159,0,0,open 1st door level 5
+0,4191,0,0,open 1st door level 5
+0,4223,0,0,open 1st door level 5
+0,5311,0,0,open 3rd door level 9
+0,5343,0,0,open 3rd door level 9
+0,5375,0,0,open 3rd door level 9
+0,5407,0,0,open 3rd door level 9
+0,5438,0,0,open door level 8
+0,5439,0,0,open 3rd door level 9
+0,5470,0,0,open door level 8
+0,5471,0,0,open 3rd door level 9
+0,5502,0,0,open door level 8
+0,5503,0,0,open 3rd door level 9
+0,5534,0,0,open door level 8
+0,5535,0,0,open 3rd door level 9
+0,5566,0,0,open door level 8
+0,5567,0,0,open 3rd door level 9
+0,6784,0,0,open 1st door level 9
+0,6791,0,0,open 1st door level 11
+0,6816,0,0,open 1st door level 9
+0,6823,0,0,open 1st door level 11
+0,6848,0,0,open 1st door level 9
+0,6855,0,0,open 1st door level 11
+0,6880,0,0,open 1st door level 9
+0,6887,0,0,open 1st door level 11
+0,7065,0,0,open 2nd door level 10
+0,7070,0,0,open 2nd door level 11
+0,7097,0,0,open 2nd door level 10
+0,7102,0,0,open 2nd door level 11
+0,7129,0,0,open 2nd door level 10
+0,7134,0,0,open 2nd door level 11
+0,7161,0,0,open 2nd door level 10
+0,7166,0,0,open 2nd door level 11
+0,7193,0,0,open 2nd door level 10
+0,7225,0,0,open 2nd door level 10
+0,7455,0,0,open door level 2 and 2nd door level 5
+0,7461,0,0,open 1st door level 12
+0,7487,0,0,open door level 2 and 2nd door level 5
+0,7493,0,0,open 1st door level 12
+0,7519,0,0,open door level 2 and 2nd door level 5
+0,7525,0,0,open 1st door level 12
+0,7551,0,0,open door level 2 and 2nd door level 5
+0,7557,0,0,open 1st door level 12
+0,7583,0,0,open 2nd door level 5
+0,8159,0,0,open 1st door level 10
+0,8191,0,0,open 1st door level 10
+0,8223,0,0,open 1st door level 10
+0,8255,0,0,open 1st door level 10
+0,8416,0,0,open 1st door level 4
+0,8448,0,0,open 1st door level 4
+0,8480,0,0,open 1st door level 4
+0,8512,0,0,open 1st door level 4
+0,9247,0,0,open 2nd door level 12
+0,9279,0,0,open 2nd door level 12
+0,9311,0,0,open 2nd door level 12
+0,9343,0,0,open 2nd door level 12
+0,9375,0,0,open 2nd door level 12
+0,9407,0,0,open 2nd door level 12
+0,9439,0,0,open 2nd door level 12
+0,9471,0,0,open 2nd door level 12
+0,9503,0,0,open 2nd door level 12
+0,9535,0,0,open 2nd door level 12
+0,9567,0,0,open 2nd door level 12
+0,9599,0,0,open 2nd door level 12
+0,10844,0,0,open 1st door level 6
+0,10876,0,0,open 1st door level 6
+0,10908,0,0,open 1st door level 6
+0,10940,0,0,open 1st door level 6
+0,11085,0,0,open 3rd door level 10
+0,11103,0,0,open 3rd door level 12
+0,11117,0,0,open 3rd door level 10
+0,11135,0,0,open 3rd door level 12
+0,11149,0,0,open 3rd door level 10
+0,11167,0,0,open 3rd door level 12
+0,11181,0,0,open 3rd door level 10
+0,11199,0,0,open 3rd door level 12
+0,11213,0,0,open 3rd door level 10
+0,11231,0,0,open 3rd door level 12
+0,11245,0,0,open 3rd door level 10
+0,11263,0,0,open 3rd door level 12
+0,11295,0,0,open 3rd door level 12
+0,11327,0,0,open 3rd door level 12
+0,11359,0,0,open 3rd door level 12
+0,11391,0,0,open 3rd door level 12
+0,11423,0,0,open 3rd door level 12
+0,11455,0,0,open 3rd door level 12
+0,11487,0,0,open 3rd door level 12
+0,11519,0,0,open 3rd door level 12
+0,11551,0,0,open 3rd door level 12
+0,11583,0,0,open 3rd door level 12
+0,11615,0,0,open 3rd door level 12
+0,11954,0,0,open door level 7
+0,11986,0,0,open door level 7
+0,12018,0,0,open door level 7
+0,12050,0,0,open door level 7
+0,12082,0,0,open door level 7
+0,12114,0,0,open door level 7
+0,12146,0,0,open door level 7
+0,12607,0,0,open 4th door level 12
+0,12639,0,0,open 4th door level 12
+0,12671,0,0,open 4th door level 12
+0,12703,0,0,open 4th door level 12
+0,12735,0,0,open 4th door level 12
+0,14175,0,0,open 5th door level 12
+0,14207,0,0,open 5th door level 12
+0,14239,0,0,open 5th door level 12
+0,14271,0,0,open 5th door level 12
+0,14303,0,0,open 5th door level 12
+0,50048,0,0,immortal (de-select to jump, push blocks or open doors)
+0,50051,0,0,immortal (de-select to jump, push blocks or open doors)
+0,50053,231,0,vitality (sensible cheat; see remark)
+0,50054,3,0,vitality (sensible cheat; see remark)
+0,50055,0,0,immortal (de-select to jump, push blocks or open doors)
+0,50057,0,0,level (0-11; sensible cheat; see remark)
+0,50065,231,0,experience (sensible cheat; see remark)
+0,50066,3,0,experience (sensible cheat; see remark)
+0,50076,8,0,crystals (sensible cheat; see remark)
+0,50081,6,0,maximum vitality-experience (0-6; sensible cheat; see remark)
+0,50082,1,0,no hanging in cheat mode when collecting hearts
+0,51387,0,0,empty slot 1
+0,51387,1,0,yellow key slot 1
+0,51387,0,0,green key slot 1
+0,51390,0,0,empty slot 2
+0,51390,1,0,yellow key slot 2
+0,51390,0,0,green key slot 2
+0,51616,130,0,1st enemy position
+0,51617,0,0,1st enemy position
+0,51620,130,0,2nd enemy position
+0,51621,0,0,2nd enemy position
+0,51624,130,0,3rd enemy position
+0,51625,0,0,3rd enemy position
+0,51628,130,0,4th enemy position
+0,51629,0,0,4th enemy position
+0,51632,130,0,5th enemy position
+0,51633,0,0,5th enemy position
+0,51636,130,0,6th enemy position
+0,51637,0,0,6th enemy position
+0,51640,130,0,7th enemy position
+0,51641,0,0,7th enemy position
+0,51644,130,0,8th enemy position
+0,51645,0,0,8th enemy position
+0,51648,130,0,9th enemy position
+0,51649,0,0,9th enemy position
+0,51652,130,0,10th enemy position
+0,51653,0,0,10th enemy position
+0,51656,130,0,11th enemy position
+0,51657,0,0,11th enemy position
+0,51660,130,0,12th enemy position
+0,51661,0,0,12th enemy position

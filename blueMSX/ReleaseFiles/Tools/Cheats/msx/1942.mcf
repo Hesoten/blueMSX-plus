@@ -1,0 +1,22 @@
+!cheats for blueMSX :1942
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2009 Benoît Delvaux
+0,60704,1,0,stage (1-32)
+0,60719,9,0,lives
+0,61030,1,0,right ghost plane
+0,61046,1,0,left ghost plane
+0,61057,9,0,loops
+0,61059,0,0,two middle shots
+0,61059,1,0,four middle shots
+0,61059,2,0,two middle shots + right shot
+0,61059,3,0,four middle shots + right shot
+0,61059,4,0,left shot + two middle shots
+0,61059,5,0,left shot + four middle shots
+0,61059,6,0,left shot + two middle shots + right shot
+0,61059,7,0,left shot + four middle shots + right shot
+0,61059,250,0,invulnerable + two middle shots + right shot
+0,61059,251,0,invulnerable + four middle shots + right shot
+0,61059,252,0,invulnerable + left shot + two middle shots
+0,61059,253,0,invulnerable + left shot + four middle shots
+0,61059,254,0,invulnerable + left shot + two middle shots + right shot
+0,61059,255,0,invulnerable + left shot + four middle shots + right shot

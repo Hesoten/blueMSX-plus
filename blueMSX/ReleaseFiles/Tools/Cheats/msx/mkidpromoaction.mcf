@@ -1,0 +1,10 @@
+!cheats for blueMSX :mkidpromoaction
+!(c) 2008 Benoît Delvaux
+0,20468,9,0,lives
+0,20469,9,0,lives
+0,20897,0,0,x-pos
+0,20898,0,0,y-pos
+0,21401,9,0,diamonds
+0,21402,4,0,diamonds
+0,22021,0,0,time
+0,63879,1,0,invulnerable (but don't fall)

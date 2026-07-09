@@ -1,0 +1,14 @@
+!cheats for blueMSX :arc
+!(c) 2010 Albert Beevendorp and (c) 2010 Patrick van Arkel
+0,49152,0,0,time
+0,49153,0,0,time
+0,49154,0,0,time
+0,49177,255,0,power
+0,49180,0,0,beamslash
+0,49180,1,0,bullet
+0,49180,2,0,wavegun
+0,49180,3,0,megalaser
+0,49184,255,0,open laser doors hi-tech stage
+0,49200,255,0,all areas are accessible
+0,49249,3,0,all weapons
+0,49251,255,0,transformation possible

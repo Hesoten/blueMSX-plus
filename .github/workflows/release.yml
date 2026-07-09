@@ -1,9 +1,14 @@
 name: release
 
 # Stable release. Triggered by a vX.Y.Z tag pushed on main.
-# Builds Final x {x64, Win32} with UPX compression, then publishes a
-# GitHub Release with the zips attached. Tags containing '-' (e.g.
+# Builds Final x {x64, Win32} without UPX compression, then publishes
+# a GitHub Release with the zips attached. Tags containing '-' (e.g.
 # v1.2.0-rc1) are published as pre-releases.
+#
+# UPX was dropped in 3.0.1: several antivirus products flagged the
+# packed executable as a false-positive trojan, blocking download or
+# launch on end-user machines. The vcxproj still runs `upx --best`
+# by default; passing BlueMsxPackUpx=false here suppresses that step.
 
 on:
   push:
@@ -23,17 +28,13 @@ jobs:
 
       - uses: microsoft/setup-msbuild@v3
 
-      - name: Install UPX
-        shell: pwsh
-        run: choco install upx -y --no-progress
-
-      - name: Build (Final, UPX on)
+      - name: Build (Final, no UPX)
         working-directory: blueMSX/Make/msvc2022
         shell: pwsh
         run: |
           msbuild blueMSX.sln /m `
             '/t:blueMSX;TraceWindow;Trainer;SimpleDebugger' `
-            "/p:Configuration=Final;Platform=${{ matrix.platform }}"
+            "/p:Configuration=Final;Platform=${{ matrix.platform }};BlueMsxPackUpx=false"
 
       - name: Package
         shell: pwsh

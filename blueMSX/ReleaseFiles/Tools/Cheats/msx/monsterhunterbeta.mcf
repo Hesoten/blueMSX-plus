@@ -1,0 +1,73 @@
+!cheats for blueMSX :monsterhunterbeta
+!(c) 2006 Albert Beevendorp and (c) 2006 Patrick van Arkel
+0,57480,255,0,gold
+0,57481,255,0,gold
+0,57483,255,0,power
+0,57487,15,0,atk (super charged)
+0,57488,15,0,def (super charged)
+0,57490,1,0,all weapons
+0,57491,1,0,all weapons
+0,57492,1,0,all weapons
+0,57493,1,0,all weapons
+0,57494,1,0,all weapons
+0,57495,1,0,all weapons
+0,57496,1,0,all weapons
+0,57497,1,0,all weapons
+0,57498,1,0,all weapons
+0,57499,1,0,all weapons
+0,57500,1,0,all weapons
+0,57501,1,0,all weapons
+0,57502,1,0,all weapons
+0,57503,1,0,all weapons
+0,57504,1,0,all weapons
+0,57505,1,0,all armor
+0,57506,1,0,all armor
+0,57507,1,0,all armor
+0,57508,1,0,all armor
+0,57509,1,0,all armor
+0,57510,1,0,all armor
+0,57511,1,0,all armor
+0,57512,1,0,all armor
+0,57513,1,0,all armor
+0,57514,1,0,all armor
+0,57515,1,0,all armor
+0,57516,1,0,all armor
+0,57517,1,0,all armor
+0,57518,1,0,all armor
+0,57519,1,0,all armor
+0,57520,9,0,magic (super charged)
+0,57521,99,0,all magic
+0,57522,99,0,all magic
+0,57523,99,0,all magic
+0,57524,99,0,all magic
+0,57525,99,0,all magic
+0,57526,99,0,all magic
+0,57527,99,0,all magic
+0,57528,99,0,all magic
+0,57529,99,0,all magic
+0,57530,99,0,all magic
+0,57531,99,0,all magic
+0,57532,99,0,all magic
+0,57533,99,0,all magic
+0,57534,99,0,all magic
+0,57548,1,0,glasses
+0,57549,2,0,red key
+0,57550,3,0,blue key
+0,57551,4,0,green key
+0,57552,5,0,bow key
+0,57553,6,0,gold key
+0,57554,7,0,silver key
+0,57555,8,0,black key
+0,57556,9,0,purple key
+0,57557,10,0,g-coin
+0,57558,11,0,heart
+0,57559,12,0,bottle
+0,57560,13,0,coin
+0,57561,16,0,letter
+0,57562,17,0,gold ball
+0,57563,18,0,blue ball
+0,57564,19,0,green ball
+0,57565,20,0,red ball
+0,57566,21,0,thing
+0,57567,0,0,cat
+0,57580,20,0,items in inventory

@@ -1,0 +1,25 @@
+!cheats for blueMSX :gradius1scc
+!also called Nemesis 1 (SCC version)
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2006 Benoît Delvaux
+0,49248,153,0,lives
+0,49249,1,0,stage (1-8 normal; 9-12 bonus)
+0,49262,0,0,use unlimited hype
+0,49265,0,0,use unlimited per stage hype
+0,49419,4,0,speed set to 4
+0,49458,1,0,missile
+0,49459,1,0,double
+0,49460,1,0,laser
+0,49461,1,0,option
+0,49462,2,0,shield
+0,49664,1,0,shield off
+0,49664,3,0,shield on
+0,49665,10,0,shield
+0,49666,8,0,always hyper
+0,49675,2,0,option
+0,49676,0,0,disable normal shoot
+0,49677,2,0,enable double
+0,49678,2,0,enable laser
+0,49679,2,0,enable missile
+0,49696,1,0,enable option 1
+0,49728,1,0,enable option 2

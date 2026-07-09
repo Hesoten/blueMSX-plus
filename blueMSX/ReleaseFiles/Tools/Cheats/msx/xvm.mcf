@@ -1,0 +1,11 @@
+!cheats for blueMSX :xvm
+!(c) 2011 Benoît Delvaux
+0,49544,99,0,lives player 1
+0,49545,99,0,lives player 2
+0,49619,0,0,invulnerable
+0,49629,1,0,speed (1-7)
+0,49633,0,0,normal shoot
+0,49633,1,0,laser shoot
+
+
+

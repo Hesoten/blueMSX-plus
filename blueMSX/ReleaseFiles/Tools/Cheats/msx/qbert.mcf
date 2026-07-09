@@ -1,0 +1,9 @@
+!cheats for blueMSX :qbert
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2006 Benoît Delvaux
+0,57603,0,0,level (0-4)
+0,57616,153,0,lives
+0,57617,1,0,stage (1-9;16-25;32-41;48-57;64-73;80)
+0,58145,255,0,no enemies
+0,58181,255,0,always protected
+0,60497,153,0,infinite time (disable at the end of a stage)

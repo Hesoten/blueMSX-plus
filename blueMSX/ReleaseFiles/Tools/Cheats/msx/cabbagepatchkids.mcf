@@ -1,0 +1,31 @@
+!cheats for blueMSX :cabbagepatchkids
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2006 Benoît Delvaux
+0,57347,0,0,infinite time
+0,57424,99,0,lives
+0,57425,1,0,stage (1-99)
+0,57428,0,0,scene (0-99)
+0,57564,0,0,y-pos first fish
+0,57565,0,0,x-pos first fish
+0,57568,0,0,y-pos second fish
+0,57569,0,0,x-pos second fish
+0,57572,0,0,y-pos third fish
+0,57573,0,0,x-pos third fish
+0,57576,0,0,y-pos first cabbage
+0,57577,0,0,x-pos first cabbage
+0,57580,0,0,y-pos second cabbage
+0,57581,0,0,x-pos second cabbage
+0,57584,0,0,y-pos first spider
+0,57585,0,0,x-pos first spider
+0,57588,0,0,y-pos second spider
+0,57589,0,0,x-pos second spider
+0,57592,0,0,y-pos third spider
+0,57593,0,0,x-pos third spider
+0,57600,0,0,y-pos bird
+0,57601,0,0,x-pos bird
+0,57608,0,0,y-pos stone
+0,57609,0,0,x-pos stone
+0,57652,0,0,y-pos (0-108) heroine
+0,57653,0,0,x-pos (0-255) heroine
+0,57688,32,0,no enemies
+0,57689,0,0,no cabbages

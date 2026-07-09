@@ -1,0 +1,6 @@
+!cheats for blueMSX :nofuss
+!(c) 2008 Benoît Delvaux
+0,24616,4,0,frozen shape (select at good moment;de-select at end of level)
+0,24618,255,0,time (de-select to get bonus)
+0,32766,99,0,lives
+0,54640,1,0,level (1-60)

@@ -1,0 +1,12 @@
+!cheats for blueMSX :firerescuecas
+!(c) 2008 Benoît Delvaux
+0,59664,0,0,invulnerable
+0,59688,0,0,x-pos (0-27)
+0,59689,0,0,y-pos (0-18)
+0,59694,1,0,always water
+0,59999,2,0,flame 1 is blue
+0,60007,2,0,flame 2 is blue
+0,60015,2,0,flame 3 is blue
+0,60023,2,0,flame 4 is blue
+0,60031,2,0,flame 5 is blue
+0,60081,9,0,lives

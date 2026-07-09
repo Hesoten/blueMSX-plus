@@ -1,0 +1,10 @@
+!cheats for blueMSX :gameover1part1
+!(c) 2006 Albert Beevendorp and (c) 2006 Patrick van Arkel
+!(c) 2007 Benoît Delvaux
+0,55739,10,0,lives
+0,55743,100,0,bombs
+0,55751,0,0,protected from mines (de-select after 3 robots)
+0,55755,1,0,protected from enemies (de-select after 3 robots)
+0,55757,2,0,normal shoot 
+0,55757,4,0,special shoot
+0,55835,0,0,power

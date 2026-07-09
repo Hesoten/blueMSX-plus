@@ -1,0 +1,43 @@
+!cheats for blueMSX :dragonknight1
+!(c) 2008 Benoît Delvaux
+!use only the vitality and magic cheats before to get the prison key
+!it's better to select the weapon cheats on the game menu
+0,50136,255,0,gold
+0,50137,255,0,gold
+0,50138,231,0,maximum vitality
+0,50139,3,0,maximum vitality
+0,50140,255,0,experience
+0,50141,255,0,experience
+0,50142,231,0,maximum magic
+0,50143,3,0,maximum magic
+0,50144,99,0,level
+0,50146,231,0,strength
+0,50147,3,0,strength
+0,50148,231,0,defence
+0,50149,3,0,defence
+0,50152,1,0,gold knife
+0,50152,2,0,short sword
+0,50152,3,0,long sword
+0,50152,4,0,bload sword
+0,50154,1,0,cap
+0,50154,2,0,salet
+0,50154,3,0,barbat
+0,50154,4,0,full helm
+0,50156,1,0,leather armor
+0,50156,2,0,chain mail armor
+0,50156,3,0,breast plate armor
+0,50156,4,0,preit armor
+0,50158,1,0,backler shield
+0,50158,2,0,terju shield
+0,50158,3,0,squioom shield
+0,50158,4,0,paveese shield
+0,50160,231,0,vitality
+0,50161,3,0,vitality
+0,50162,231,0,magic
+0,50163,3,0,magic
+0,50218,0,0,enemies die faster
+0,50226,0,0,enemies die faster
+0,50234,0,0,enemies die faster
+0,50242,0,0,enemies die faster
+0,50250,0,0,enemies die faster
+0,50258,0,0,enemies die faster

@@ -1,0 +1,18 @@
+!cheats for blueMSX :hype
+!(c) 2007 Albert Beevendorp and (c) 2007 Patrick van Arkel
+!(c) 2010 Benoît Delvaux
+0,49160,1,0,speed - very fast
+0,49160,2,0,speed - fast
+0,49160,4,0,speed - medium
+0,49160,6,0,speed - slow
+0,49160,8,0,speed - very slow
+0,49162,255,0,invulnerable
+0,49165,255,0,programmer's mode (try B/I/L/W/0 to 7/F1 to F5)
+0,50622,242,0,back shot
+0,50625,1,0,single shot
+0,50625,2,0,triple shot
+0,50625,3,0,wave shot
+0,50625,4,0,big circle shot
+0,50625,13,0,small circle shot
+0,50627,154,0,back shot
+0,50630,254,0,lives

@@ -1,0 +1,20 @@
+!cheats for blueMSX :arkanoid1
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2006 Benoît Delvaux
+0,57371,0,0,round (0-32)
+0,57373,99,0,lives
+0,57559,4,0,long bat
+0,57560,14,0,long bat
+0,57563,12,0,long bat
+0,57564,8,0,long bat
+0,57934,1,0,invulnerable
+0,57941,12,0,normal ball speed
+0,57954,1,0,second ball
+0,57974,1,0,third ball
+0,58145,2,0,long bat
+0,58148,1,0,magnetic ball
+0,58150,1,0,open door to next round
+0,58699,1,0,invulnerable
+0,58702,0,0,invulnerable
+0,58704,2,0,long bat
+0,58705,2,0,always fire
