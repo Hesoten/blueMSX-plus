@@ -405,22 +405,19 @@ AmdFlash* amdFlashCreate(AmdType type, int flashSize, int sectorSize, UInt32 wri
         size = flashSize;
     }
 
-    /* Always start from a blank-flash baseline so callers can omit both
-    ** the seed buffer and the SRAM filename without inheriting garbage. */
+    /* Seed: blank -> source ROM -> sram overlay.  Sram wins so MSX-side flash
+    ** writes persist across sessions; delete bin/SRAM/*.sram to reset to the
+    ** factory image.  Manbow2 relies on writeProtectMask instead of order. */
     memset(rm->romData, 0xff, flashSize);
-
-    if (rm->sramFilename[0]) {
-        sramLoad(rm->sramFilename, rm->romData, rm->flashSize, NULL, 0);
-    }
 
     if (size > 0) {
         memcpy(rm->romData, romData, size);
     }
-#if 0
-    if (rm->sramFilename[0] && loadSram) {
+
+    if (rm->sramFilename[0]) {
         sramLoad(rm->sramFilename, rm->romData, rm->flashSize, NULL, 0);
     }
-#endif
+    (void)loadSram;
 
     return rm;
 }
