@@ -819,6 +819,7 @@
     <ClCompile Include="..\..\Src\Memory\romMapperTC8566AF.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperTurboRPcm.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperTurboRTimer.c" />
+    <ClCompile Include="..\..\Src\Memory\romMapperYamanooto.c" />
     <ClCompile Include="..\..\Src\Memory\SlotManager.c" />
     <ClCompile Include="..\..\Src\Memory\sramLoader.c" />
     <ClCompile Include="..\..\Src\Memory\sramMapperEseSCC.c" />
@@ -1156,6 +1157,7 @@
     <ClInclude Include="..\..\Src\Memory\romMapperTC8566AF.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperTurboRPcm.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperTurboRTimer.h" />
+    <ClInclude Include="..\..\Src\Memory\romMapperYamanooto.h" />
     <ClInclude Include="..\..\Src\Memory\SlotManager.h" />
     <ClInclude Include="..\..\Src\Memory\sramLoader.h" />
     <ClInclude Include="..\..\Src\Memory\sramMapperEseSCC.h" />

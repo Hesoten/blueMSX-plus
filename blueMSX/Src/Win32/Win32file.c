@@ -78,6 +78,7 @@ static RomType romTypeList[] = {
     ROM_ASCII16X,
     ROM_NEO8,
     ROM_NEO16,
+    ROM_YAMANOOTO, /* contains SCC */
     SRAM_ESESCC, /* contains SCC */
     SRAM_ESERAM,
     ROM_CROSSBLAIM,

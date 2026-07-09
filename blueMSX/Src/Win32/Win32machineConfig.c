@@ -826,6 +826,7 @@ static void endEditControls(HWND hDlg)
     case ROM_MEGAFLSHSCCPLUS:
     case ROM_MEGAFLSHSCCPLUS_SD:
     case ROM_ASCII16X:
+    case ROM_YAMANOOTO:
     case ROM_OBSONET:
     case ROM_DUMAS:
     case ROM_SCC:
@@ -1326,6 +1327,7 @@ static void setEditControls(HWND hDlg)
     case ROM_MEGAFLSHSCCPLUS:
     case ROM_MEGAFLSHSCCPLUS_SD:
     case ROM_ASCII16X:
+    case ROM_YAMANOOTO:
     case ROM_MUPACK:
     case ROM_OBSONET:
     case ROM_DUMAS:
@@ -1551,6 +1553,7 @@ static RomType romTypeList[] = {
     ROM_ASCII16X,
     ROM_NEO8,
     ROM_NEO16,
+    ROM_YAMANOOTO, /* contains SCC */
     SRAM_ESESCC, /* contains SCC */
     SRAM_ESERAM,
     ROM_CROSSBLAIM,
