@@ -85,7 +85,11 @@ void langInitEnglish(LanguageStrings* ls)
     ls->errorDirAsDskOverflow   = "%d file(s) (%d KB total) did not fit in the 720 KB disk image and were skipped.";
     ls->errorNoHelp             = "Could not locate the blueMSX+ help file.";
     ls->errorStartEmu           = "Failed to Start MSX emulator.";
-    ls->errorMissingFiles       = "The following files referenced by the saved state could not be loaded:";
+    ls->errorStartEmuNoMachine           = "No machine has been set for emulation. Pick one from Options -> Emulation -> MSX machine.";
+    ls->errorStartEmuMachinesDirMissing  = "The Machines folder could not be found.";
+    ls->errorStartEmuMachineNotFound     = "The selected machine configuration '%s' could not be found.";
+    ls->errorStartEmuConfigInvalid       = "Could not read config.ini for machine configuration '%s'. The file may be corrupted or from an incompatible version.";
+    ls->errorMissingFiles       = "The following files could not be loaded:";
     ls->errorPortableReadonly   = "Portable device is readonly";
     ls->infoTitle                  = "blueMSX+ Info";
     ls->infoGameReaderRedirect     = "blueMSX+ does not directly support the MSX Game Reader (the original ASCII XP-era driver no longer works on modern Windows).\n\nOpen the MSX Game Reader - Web Dumper (by Kunihiko Ohnaka) in your browser instead?";

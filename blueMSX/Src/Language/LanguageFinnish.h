@@ -87,7 +87,11 @@ void langInitFinnish(LanguageStrings* ls)
     ls->errorDirAsDskOverflow   = "%d tiedosto(a) (yhteensä %d KB) ei mahtunut 720 KB:n levykuvaan ja jäi väliin.";
     ls->errorNoHelp             = "blueMSX+:n ohjetiedostoa ei löytynyt.";
     ls->errorStartEmu           = "MSX emulaattorin käynnistys epäonnistui.";
-    ls->errorMissingFiles       = "Seuraavia tallennustilan viittaamia tiedostoja ei voitu ladata:";
+    ls->errorStartEmuNoMachine           = "Emulaatiolle ei ole asetettu MSX-konetta. Valitse yksi kohdasta Asetukset -> Emulaatio -> MSX malli.";
+    ls->errorStartEmuMachinesDirMissing  = "Machines-kansiota ei löytynyt.";
+    ls->errorStartEmuMachineNotFound     = "Valittua koneen kokoonpanoa '%s' ei löytynyt.";
+    ls->errorStartEmuConfigInvalid       = "Koneen kokoonpanon '%s' config.ini-tiedostoa ei voitu lukea. Tiedosto voi olla vioittunut tai peräisin epäyhteensopivasta versiosta.";
+    ls->errorMissingFiles       = "Seuraavia tiedostoja ei voitu ladata:";
     ls->errorPortableReadonly   = "Kannettava laite tukee vain lukemista.";
     ls->infoTitle               = "blueMSX+-tiedot";
     ls->infoGameReaderRedirect  = "blueMSX+ ei tue MSX Game Readeria suoraan (ASCII:n alkuperäinen XP-aikakauden ajuri ei enää toimi nykyaikaisessa Windowsissa).\n\nAvataanko sen sijaan MSX Game Reader - Web Dumper (tekijä Kunihiko Ohnaka) selaimessa?";

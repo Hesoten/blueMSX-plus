@@ -87,7 +87,11 @@ void langInitJapanese(LanguageStrings* ls)
     ls->errorDirAsDskOverflow   = "%d 個のファイル (合計 %d KB) が 720 KB ディスクイメージに収まらず除外されました。";
     ls->errorNoHelp             = "blueMSX+ のヘルプファイルが見つかりません。";
     ls->errorStartEmu           = "blueMSX+ の開始に失敗しました。";
-    ls->errorMissingFiles       = "セーブステートから参照されている以下のファイルが読み込めませんでした:";
+    ls->errorStartEmuNoMachine           = "エミュレートするマシンが設定されていません。 オプション → エミュレーション → マシン構成 から選択してください。";
+    ls->errorStartEmuMachinesDirMissing  = "Machines フォルダが見つかりません。";
+    ls->errorStartEmuMachineNotFound     = "選択されたマシン構成 '%s' が見つかりません。";
+    ls->errorStartEmuConfigInvalid       = "マシン構成 '%s' の config.ini を読み込めませんでした。ファイルが破損しているか、非互換のバージョンの可能性があります。";
+    ls->errorMissingFiles       = "以下のファイルが読み込めませんでした:";
     ls->errorPortableReadonly   = "ポータブルデバイスは読込専用です。";
     ls->infoTitle                  = "blueMSX+ 情報";
     ls->infoGameReaderRedirect     = "blueMSX+ では MSX Game Reader を直接サポートしていません (ASCII 社の XP 時代の純正ドライバは現代の Windows では動作しません)。\n\n代わりに MSX Game Reader - Web Dumper (Kunihiko Ohnaka 氏作成) をブラウザで開きますか?";

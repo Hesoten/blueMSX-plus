@@ -85,7 +85,11 @@ void langInitPolish(LanguageStrings* ls)
     ls->errorDirAsDskOverflow   = "%d plik(ów) (%d KB łącznie) nie zmieściło się w obrazie dysku 720 KB i zostały pominięte.";
     ls->errorNoHelp             = "Nie znaleziono pliku pomocy blueMSX+.";
     ls->errorStartEmu           = "Nie uda³o siê uruchomiæ emulatora MSX.";
-    ls->errorMissingFiles       = "Następujące pliki wskazane przez zapisany stan nie mogą zostać wczytane:";
+    ls->errorStartEmuNoMachine           = "Nie ustawiono maszyny MSX do emulacji. Wybierz jedną w Opcje -> Emulacja -> Typ MSX.";
+    ls->errorStartEmuMachinesDirMissing  = "Nie znaleziono folderu Machines.";
+    ls->errorStartEmuMachineNotFound     = "Nie znaleziono wybranej konfiguracji maszyny '%s'.";
+    ls->errorStartEmuConfigInvalid       = "Nie udało się odczytać pliku config.ini konfiguracji maszyny '%s'. Plik może być uszkodzony lub pochodzić z niekompatybilnej wersji.";
+    ls->errorMissingFiles       = "Nie można wczytać następujących plików:";
     ls->errorPortableReadonly   = "Urz¹dzenie przenoœne - tylko do odczytu";        
     ls->infoTitle               = "Informacje blueMSX+";
     ls->infoGameReaderRedirect  = "blueMSX+ nie obsługuje bezpośrednio MSX Game Reader (oryginalny sterownik ASCII z ery XP nie działa już w nowoczesnym Windowsie).\n\nOtworzyć MSX Game Reader - Web Dumper (autorstwa Kunihiko Ohnaka) w przeglądarce?";

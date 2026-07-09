@@ -302,6 +302,10 @@ char* langErrorNoCasInZip() { return ls->errorNoCasInZip; }
 char* langErrorDirAsDskOverflow() { return ls->errorDirAsDskOverflow; }
 char* langErrorNoHelp() { return ls->errorNoHelp; }
 char* langErrorStartEmu() { return ls->errorStartEmu; }
+char* langErrorStartEmuNoMachine()          { return ls->errorStartEmuNoMachine; }
+char* langErrorStartEmuMachinesDirMissing() { return ls->errorStartEmuMachinesDirMissing; }
+char* langErrorStartEmuMachineNotFound()    { return ls->errorStartEmuMachineNotFound; }
+char* langErrorStartEmuConfigInvalid()      { return ls->errorStartEmuConfigInvalid; }
 char* langErrorMissingFiles() { return ls->errorMissingFiles; }
 char* langErrorPortableReadonly()  {return ls->errorPortableReadonly; }
 char* langInfoColorDepth()                 { return ls->infoColorDepth; }
