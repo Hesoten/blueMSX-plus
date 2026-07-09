@@ -197,6 +197,7 @@ char* langMenuCartMegaRam();
 char* langMenuCartEseRam();
 char* langMenuCartEseSCC();
 char* langMenuCartMegaFlashRom();
+char* langMenuCartFlashCart();
 
 char* langMenuDiskDirInsert();
 char* langMenuDiskDirInsertCdrom();

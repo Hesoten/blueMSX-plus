@@ -135,6 +135,10 @@
 #include "romMapperNoWind.h"
 #include "romMapperGoudaSCSI.h"
 #include "romMapperMegaFlashRomScc.h"
+#include "romMapperASCII16X.h"
+#include "romMapperNeo8.h"
+#include "romMapperNeo16.h"
+#include "romMapperYamanooto.h"
 #include "romMapperForteII.h"
 #include "romMapperA1FMModem.h"
 #include "romMapperA1FM.h"
@@ -1412,6 +1416,12 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
                 /* Falls back to Manbow2.rom -- not a fatal missing file. */
                 success &= romMapperMegaFlashRomSccCreate("Manbow2.rom", NULL, 0, slot, subslot, startPage, 0, 0x80000, 0);
                 break;
+            case ROM_ASCII16X:
+                success &= romMapperASCII16XCreate("ASCII16X.rom", NULL, 0, slot, subslot, startPage);
+                break;
+            case ROM_YAMANOOTO:
+                success &= romMapperYamanootoCreate("Yamanooto.rom", NULL, 0, slot, subslot, startPage);
+                break;
             default:
                 boardReportMissingFile(machine->slotInfo[i].name,
                                        machine->slotInfo[i].inZipName);
@@ -1489,6 +1499,22 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
 
         case ROM_MEGAFLSHSCCPLUS:
             success &= romMapperMegaFlashRomSccCreate(romName, buf, size, slot, subslot, startPage, 0, 0x100000, 1);
+            break;
+
+        case ROM_ASCII16X:
+            success &= romMapperASCII16XCreate(romName, buf, size, slot, subslot, startPage);
+            break;
+
+        case ROM_NEO8:
+            success &= romMapperNeo8Create(romName, buf, size, slot, subslot, startPage);
+            break;
+
+        case ROM_NEO16:
+            success &= romMapperNeo16Create(romName, buf, size, slot, subslot, startPage);
+            break;
+
+        case ROM_YAMANOOTO:
+            success &= romMapperYamanootoCreate(romName, buf, size, slot, subslot, startPage);
             break;
 
         case ROM_OBSONET:

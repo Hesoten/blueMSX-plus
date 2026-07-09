@@ -174,6 +174,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->menuCartEseRam          = "Ese-RAM";             // New in 2.7
     ls->menuCartEseSCC          = "Ese-SCC";             // New in 2.7
     ls->menuCartMegaFlashRom    = "Mega Flash ROM";      // New in 2.7
+    ls->menuCartFlashCart       = "Flash-kasetit";
 
     ls->menuDiskInsertNew       = "Uusi levytiedosto";
     ls->menuDiskInsertCdrom     = "Aseta CD-ROM";       // New in 2.7

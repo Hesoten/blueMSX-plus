@@ -172,6 +172,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->menuCartEseRam          = "Ese-RAM";             // New in 2.7
     ls->menuCartEseSCC          = "Ese-SCC";             // New in 2.7
     ls->menuCartMegaFlashRom    = "Mega Flash ROM";      // New in 2.7
+    ls->menuCartFlashCart       = "플래시 카트리지";
 
     ls->menuDiskInsertNew       = "새로운 디스크 이미지 삽입";              
     ls->menuDiskInsertCdrom     = "시디롬 삽입";       // New in 2.7

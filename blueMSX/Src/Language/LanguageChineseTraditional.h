@@ -172,6 +172,7 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->menuCartEseRam          = "Ese-RAM";             // New in 2.7
     ls->menuCartEseSCC          = "Ese-SCC";             // New in 2.7
     ls->menuCartMegaFlashRom    = "Mega Flash ROM";      // New in 2.7
+    ls->menuCartFlashCart       = "快閃卡帶";
 
     ls->menuDiskInsertNew       = "插入新的磁碟映像檔";              
     ls->menuDiskInsertCdrom     = "Insert CD-Rom";       // New in 2.7

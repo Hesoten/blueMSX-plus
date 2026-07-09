@@ -171,6 +171,7 @@ typedef struct {
     char* menuCartEseRam;
     char* menuCartEseSCC;
     char* menuCartMegaFlashRom;
+    char* menuCartFlashCart;
 
     char* menuDiskInsertNew;
     char* menuDiskInsertCdrom;

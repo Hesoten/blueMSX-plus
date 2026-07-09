@@ -107,6 +107,10 @@
 #include "romMapperGoudaSCSI.h"
 #include "romMapperMegaFlashRomScc.h"
 #include "romMapperMegaFlashRomSccPlusSD.h"
+#include "romMapperASCII16X.h"
+#include "romMapperNeo8.h"
+#include "romMapperNeo16.h"
+#include "romMapperYamanooto.h"
 #include "romMapperForteII.h"
 #include "romMapperMatraINK.h"
 #include "romMapperNettouYakyuu.h"
@@ -385,6 +389,14 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
             case ROM_MEGAFLSHSCCPLUS_SD:
                 success &= romMapperMegaFlashRomSccPlusSDCreate(cartNo, slot, sslot, 2);
                 break;
+
+            case ROM_ASCII16X:
+                success &= romMapperASCII16XCreate("ASCII16X.rom", NULL, 0, slot, sslot, 2);
+                break;
+
+            case ROM_YAMANOOTO:
+                success &= romMapperYamanootoCreate("Yamanooto.rom", NULL, 0, slot, sslot, 2);
+                break;
             }
             break;
         }
@@ -471,6 +483,22 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
 
         case ROM_MEGAFLSHSCCPLUS_SD:
             success &= romMapperMegaFlashRomSccPlusSDCreate(cartNo, slot, sslot, 2);
+            break;
+
+        case ROM_ASCII16X:
+            success &= romMapperASCII16XCreate(romName, buf, size, slot, sslot, 2);
+            break;
+
+        case ROM_NEO8:
+            success &= romMapperNeo8Create(romName, buf, size, slot, sslot, 0);
+            break;
+
+        case ROM_NEO16:
+            success &= romMapperNeo16Create(romName, buf, size, slot, sslot, 0);
+            break;
+
+        case ROM_YAMANOOTO:
+            success &= romMapperYamanootoCreate(romName, buf, size, slot, sslot, 2);
             break;
 
         case ROM_OBSONET:
