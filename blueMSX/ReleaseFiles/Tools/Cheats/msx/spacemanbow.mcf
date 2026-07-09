@@ -1,0 +1,34 @@
+!cheats for blueMSX :spacemanbow
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2006 Benoît Delvaux
+0,51716,1,0,game finished 1x
+0,51716,2,0,game finished 2x
+0,51716,3,0,game finished 2x
+0,51728,0,0,stage (0-8)
+0,51795,3,0,invincible
+0,51796,3,0,invincible
+0,51904,2,0,option 1
+0,51905,3,0,option 1
+0,51928,253,0,option 1
+0,51936,2,0,option 2
+0,51937,3,0,option 2
+0,51960,2,0,option 2
+0,51969,1,0,speed (1-4)
+0,51976,16,0,power bar
+0,51983,153,0,lives
+0,51997,1,0,have flash bomb
+0,52040,128,0,missile
+0,52041,3,0,missile
+0,52048,6,0,way option 1 - back
+0,52048,7,0,way option 1 - up
+0,52048,8,0,way option 1 - front
+0,52049,10,0,enable option 1
+0,52056,2,0,way option 2 - front
+0,52056,3,0,way option 2 - down
+0,52056,4,0,way option 2 - back
+0,52057,10,0,enable option 2
+0,52866,0,0,easy end bosses
+0,52886,0,0,easy end bosses
+0,52950,0,0,easy end bosses
+0,53014,0,0,easy end bosses
+0,53206,0,0,easy end bosses

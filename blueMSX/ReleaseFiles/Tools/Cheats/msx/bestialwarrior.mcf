@@ -1,0 +1,13 @@
+!cheats for blueMSX :bestialwarrior
+!(c) 2007 Benoît Delvaux
+0,29625,1,0,teleport 3 activated
+0,29632,1,0,part 1 of C70-Magnum
+0,29638,1,0,part 2 of C70-Magnum
+0,29643,1,0,teleport 2 activated
+0,29653,1,0,teleport 2 activated
+0,29712,5,0,weapon (1-5)
+0,29719,8,0,lives
+0,29720,88,0,energy (disable at the end of a sector)
+0,29743,1,0,part 3 of C70-Magnum
+0,29786,255,0,protected from Gyrones
+0,29787,255,0,protected from small enemies

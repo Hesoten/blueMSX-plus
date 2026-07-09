@@ -1,0 +1,71 @@
+!cheats for blueMSX :vampirekiller
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2008 Benoît Delvaux
+0,50192,153,0,lives
+0,50197,32,0,power
+0,50198,0,0,leather whip
+0,50198,1,0,chain whip
+0,50198,2,0,sword
+0,50198,3,0,axe
+0,50198,4,0,blue cross
+0,50198,5,0,holy water
+0,50199,153,0,hearts
+0,50200,0,0,boss dies after 1 hit
+0,50213,0,0,y-pos hero (0-192)
+0,50215,0,0,x-pos hero (0-255)
+0,50221,255,0,invincible (de-select on stage 12 for teleports)
+0,50225,8,0,boots
+0,50225,16,0,wings
+0,50225,24,0,boots + wings
+0,50228,255,0,invulnerable (sapphire ring)
+0,50234,255,0,invisible (blue crystal)
+0,50238,255,0,flashing screen (gold cross)
+0,50240,255,0,silver cross
+0,50944,255,0,yellow key
+0,50945,1,0,white key
+0,50945,8,0,white key + holy water
+0,50945,16,0,white key + red shield 
+0,50945,24,0,white key + holy water + red shield
+0,50945,32,0,white key + gold shield
+0,50945,40,0,white key + holy water + gold shield
+0,50945,48,0,white key + red shield + gold shield
+0,50945,56,0,white key + holy water + red shield + gold shield
+0,50945,64,0,white key + hourglass
+0,50945,72,0,white key + holy water + hourglass
+0,50945,80,0,white key + red shield + hourglass
+0,50945,88,0,white key + holy water + red shield + hourglass
+0,50945,96,0,white key + gold shield + hourglass
+0,50945,104,0,white key + holy water + gold shield + hourglass
+0,50945,112,0,white key + red shield + gold shield + hourglass
+0,50945,120,0,white key + holy water + red shield + gold shield + hourglass
+0,50945,128,0,white key + map
+0,50945,136,0,white key + holy water + map
+0,50945,144,0,white key + red shield + map
+0,50945,152,0,white key + holy water + red shield + map
+0,50945,160,0,white key + gold shield + map
+0,50945,168,0,white key + holy water + gold shield + map
+0,50945,176,0,white key + red shield + gold shield + map
+0,50945,184,0,white key + holy water + red shield + gold shield + map
+0,50945,192,0,white key + hourglass + map
+0,50945,200,0,white key + holy water + hourglass + map
+0,50945,208,0,white key + red shield + hourglass + map
+0,50945,216,0,white key + holy water + red shield + hourglass + map
+0,50945,224,0,white key + gold shield + hourglass + map
+0,50945,232,0,white key + holy water + gold shield + hourglass + map
+0,50945,240,0,white key + red shield + gold shield + hourglass + map
+0,50945,255,0,white key + holy water + red shield + gold shield + hourglass + map
+0,50946,1,0,candle
+0,50946,64,0,black bible
+0,50946,65,0,candle + black bible
+0,50946,128,0,white bible
+0,50946,129,0,candle + white bible
+0,50959,3,0,activate map
+0,51205,128,0,x-pos enemy 1
+0,51213,1,0,strength enemy 1
+0,51333,128,0,x-pos enemy 2
+0,51341,1,0,strength enemy 2
+0,51461,128,0,x-pos enemy 3
+0,51469,1,0,strength enemy 3
+0,53264,0,0,enemies are not frozen (required for final fight)
+0,53264,1,0,enemies are frozen
+0,58880,255,0,game master combo

@@ -31,6 +31,8 @@ int iniFileGetSection(IniFile *iniFile,
                       char* section,
                       char* buffer,
                       int   bufferLen);
+/* Returns 1 if the "[section]" header exists in the file, 0 otherwise. */
+int iniFileHasSection(IniFile *iniFile, const char* section);
 int iniFileWriteString(IniFile *iniFile,
                        char* section,
                        char* entry,

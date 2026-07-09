@@ -1,0 +1,7 @@
+!cheats for blueMSX :rallyxdvik
+!(c) 2008 Benoît Delvaux
+!enable the cheats when the race begins
+0,34434,1,0,high gas (DSK version)
+0,34439,19,0,maximum speed (DSK version)
+0,49289,1,0,high gas (ROM version)
+0,49294,19,0,maximum speed (ROM version)

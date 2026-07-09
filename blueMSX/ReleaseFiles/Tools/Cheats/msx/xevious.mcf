@@ -1,0 +1,35 @@
+!cheats for blueMSX :xevious
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2009 Benoît Delvaux
+0,49152,129,0,invulnerable (select after mission start)
+0,49157,0,0,one front shoot
+0,49157,2,0,one front shoot + shield
+0,49157,4,0,three front shoots
+0,49157,6,0,three front shoots + shield
+0,49157,8,0,one front shoot + two back shoots
+0,49157,10,0,one front shoot + two back shoots + shield
+0,49157,12,0,three front shoots + one back shoot
+0,49157,14,0,three front shoots + one back shoot + shield
+0,50432,0,0,mission Recon
+0,50432,128,0,mission Scramble
+0,50434,99,0,lives
+0,50464,0,0,ship 1 Solvalou
+0,50464,1,0,ship 1 Solgrado
+0,50464,2,0,ship 1 Zeodalley
+0,50464,3,0,ship 1 Gampmission
+0,50465,0,0,ship 2 Solvalou
+0,50465,1,0,ship 2 Solgrado
+0,50465,2,0,ship 2 Zeodalley
+0,50465,3,0,ship 2 Gampmission
+0,50466,0,0,ship 3 Solvalou
+0,50466,1,0,ship 3 Solgrado
+0,50466,2,0,ship 3 Zeodalley
+0,50466,3,0,ship 3 Gampmission
+0,50467,0,0,ship 4 Solvalou
+0,50467,1,0,ship 4 Solgrado
+0,50467,2,0,ship 4 Zeodalley
+0,50467,3,0,ship 4 Gampmission
+0,50468,0,0,ship 5 Solvalou
+0,50468,1,0,ship 5 Solgrado
+0,50468,2,0,ship 5 Zeodalley
+0,50468,3,0,ship 5 Gampmission

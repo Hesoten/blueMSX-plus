@@ -1,0 +1,21 @@
+!cheats for blueMSX :thunderbolt
+!(c) 2008 Benoît Delvaux
+0,57595,1,0,always human form
+0,57595,129,0,always robot form (Zeta-7)
+0,57612,45,0,life
+0,57613,45,0,power
+0,57615,1,0,blue beam (F1)
+0,57615,2,0,red beam (F2)
+0,57615,3,0,blue beam (F1) + red beam (F2)
+0,57615,4,0,enemy stop (F3)
+0,57615,5,0,blue beam (F1) + enemy stop (F3)
+0,57615,6,0,red beam (F2) + enemy stop (F3)
+0,57615,7,0,blue beam (F1) + red beam (F2) + enemy stop (F3)
+0,57615,8,0,Zeta-7 (F4)
+0,57615,9,0,blue beam (F1) + Zeta-7 (F4)
+0,57615,10,0,red beam (F2) + Zeta-7 (F4)
+0,57615,11,0,blue beam (F1) + red beam (F2) + Zeta-7 (F4)
+0,57615,12,0,enemy stop (F3) + Zeta-7 (F4)
+0,57615,13,0,blue beam (F1) + enemy stop (F3) + Zeta-7 (F4)
+0,57615,14,0,red beam (F2) + enemy stop (F3) + Zeta-7 (F4)
+0,57615,15,0,all special weapons (F1 to F4)

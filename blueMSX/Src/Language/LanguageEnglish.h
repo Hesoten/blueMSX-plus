@@ -85,7 +85,11 @@ void langInitEnglish(LanguageStrings* ls)
     ls->errorDirAsDskOverflow   = "%d file(s) (%d KB total) did not fit in the 720 KB disk image and were skipped.";
     ls->errorNoHelp             = "Could not locate the blueMSX+ help file.";
     ls->errorStartEmu           = "Failed to Start MSX emulator.";
-    ls->errorMissingFiles       = "The following files referenced by the saved state could not be loaded:";
+    ls->errorStartEmuNoMachine           = "No machine has been set for emulation. Pick one from Options -> Emulation -> MSX machine.";
+    ls->errorStartEmuMachinesDirMissing  = "The Machines folder could not be found.";
+    ls->errorStartEmuMachineNotFound     = "The selected machine configuration '%s' could not be found.";
+    ls->errorStartEmuConfigInvalid       = "Could not read config.ini for machine configuration '%s'. The file may be corrupted or from an incompatible version.";
+    ls->errorMissingFiles       = "The following files could not be loaded:";
     ls->errorPortableReadonly   = "Portable device is readonly";
     ls->infoTitle                  = "blueMSX+ Info";
     ls->infoGameReaderRedirect     = "blueMSX+ does not directly support the MSX Game Reader (the original ASCII XP-era driver no longer works on modern Windows).\n\nOpen the MSX Game Reader - Web Dumper (by Kunihiko Ohnaka) in your browser instead?";
@@ -168,6 +172,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->menuCartEseRam          = "Ese-RAM";             // New in 2.7
     ls->menuCartEseSCC          = "Ese-SCC";             // New in 2.7
     ls->menuCartMegaFlashRom    = "Mega Flash ROM";      // New in 2.7
+    ls->menuCartFlashCart       = "Flash Cartridges";
 
     ls->menuDiskInsertNew       = "Insert New Disk Image";
     ls->menuDiskInsertCdrom     = "Insert CD-ROM";       // New in 2.7
@@ -335,6 +340,21 @@ void langInitEnglish(LanguageStrings* ls)
     ls->dlgAboutOrigDevel       = "ABOUT THE ORIGINAL blueMSX\r\n"
                                   "=====================\r\n\r\n"
                                   "The original blueMSX 2.8.3 was developed by the following developers:";
+    ls->dlgAboutCbios           = "ABOUT C-BIOS\r\n"
+                                  "===========\r\n\r\n"
+                                  "blueMSX+ ships with C-BIOS, an open-source MSX BIOS "
+                                  "replacement. C-BIOS was developed by:\r\n\r\n"
+                                  "BouKiCHi\r\n"
+                                  "Reikan\r\n"
+                                  "Maarten ter Huurne\r\n"
+                                  "Albert Beevendorp\r\n"
+                                  "Patrick van Arkel\r\n"
+                                  "Manuel Bilderbeek\r\n"
+                                  "Joost Yervante Damad\r\n"
+                                  "Jussi Pitkänen\r\n"
+                                  "Eric Boon\r\n\r\n"
+                                  "See the bundled cbios.txt or https://cbios.sourceforge.net/ "
+                                  "for details and the full license.";
     ls->dlgAboutCreat           = "Created by Daniel Vik";
     ls->dlgAboutDevel           = "DEVELOPERS\r\n========";
     ls->dlgAboutThanks          = "CONTRIBUTORS\r\n==========";       // New in 2.7 (retranslate, see english)

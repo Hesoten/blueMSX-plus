@@ -48,7 +48,9 @@ void archShowMachineEditor();
 void archShowNoRomInZipDialog();
 void archShowNoDiskInZipDialog();
 void archShowNoCasInZipDialog();
-void archShowStartEmuFailDialog();
+/* machineName is the config the user asked for and identifies which failure
+** mode message to show (missing dir vs invalid config.ini vs no selection). */
+void archShowStartEmuFailDialog(const char* machineName);
 void archShowDirAsDskOverflowDialog(int skippedCount, int skippedBytes);
 
 void archMaximizeWindow();

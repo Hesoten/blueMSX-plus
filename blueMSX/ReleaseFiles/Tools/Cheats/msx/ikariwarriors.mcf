@@ -1,0 +1,41 @@
+!cheats for blueMSX :ikariwarriors
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+0,50197,99,0,lives player 1
+0,50200,0,0,rapid fire (set interval between shots)
+0,50205,0,0,1st weapon player 1 - nothing 
+0,50205,1,0,1st weapon player 1 - regular shot
+0,50205,2,0,1st weapon player 1 - 3 way shot (not deadly)
+0,50205,3,0,1st weapon player 1 - 7 way shot (not deadly)
+0,50205,4,0,1st weapon player 1 - red bullets
+0,50205,5,0,1st weapon player 1 - regular tank bullets
+0,50205,6,0,1st weapon player 1 - high explosive tank bullets
+0,50205,7,0,1st weapon player 1 - hand grenades
+0,50205,8,0,1st weapon player 1 - high explosive hand grenades
+0,50206,0,0,2nd weapon player 1 - nothing
+0,50206,1,0,2nd weapon player 1 - regular shot
+0,50206,2,0,2nd weapon player 1 - 3 way shot (not deadly)
+0,50206,3,0,2nd weapon player 1 - 7 way shot (not deadly)
+0,50206,4,0,2nd weapon player 1 - red bullets
+0,50206,5,0,2nd weapon player 1 - regular tank bullets
+0,50206,6,0,2nd weapon player 1 - high explosive tank bullets
+0,50206,7,0,2nd weapon player 1 - hand grenades
+0,50206,8,0,2nd weapon player 1 - high explosive hand grenades
+0,50229,99,0,lives player 2
+0,50237,0,0,1st weapon player 2 - nothing 
+0,50237,1,0,1st weapon player 2 - regular shot
+0,50237,2,0,1st weapon player 2 - 3 way shot (not deadly)
+0,50237,3,0,1st weapon player 2 - 7 way shot (not deadly)
+0,50237,4,0,1st weapon player 2 - red bullets
+0,50237,5,0,1st weapon player 2 - regular tank bullets
+0,50237,6,0,1st weapon player 2 - high explosive tank bullets
+0,50237,7,0,1st weapon player 2 - hand grenades
+0,50237,8,0,1st weapon player 2 - high explosive hand grenades
+0,50238,0,0,2nd weapon player 2 - nothing
+0,50238,1,0,2nd weapon player 2 - regular shot
+0,50238,2,0,2nd weapon player 2 - 3 way shot (not deadly)
+0,50238,3,0,2nd weapon player 2 - 7 way shot (not deadly)
+0,50238,4,0,2nd weapon player 2 - red bullets
+0,50238,5,0,2nd weapon player 2 - regular tank bullets
+0,50238,6,0,2nd weapon player 2 - high explosive tank bullets
+0,50238,7,0,2nd weapon player 2 - hand grenades
+0,50238,8,0,2nd weapon player 2 - high explosive hand grenades

@@ -87,7 +87,11 @@ void langInitJapanese(LanguageStrings* ls)
     ls->errorDirAsDskOverflow   = "%d 個のファイル (合計 %d KB) が 720 KB ディスクイメージに収まらず除外されました。";
     ls->errorNoHelp             = "blueMSX+ のヘルプファイルが見つかりません。";
     ls->errorStartEmu           = "blueMSX+ の開始に失敗しました。";
-    ls->errorMissingFiles       = "セーブステートから参照されている以下のファイルが読み込めませんでした:";
+    ls->errorStartEmuNoMachine           = "エミュレートするマシンが設定されていません。 オプション → エミュレーション → マシン構成 から選択してください。";
+    ls->errorStartEmuMachinesDirMissing  = "Machines フォルダが見つかりません。";
+    ls->errorStartEmuMachineNotFound     = "選択されたマシン構成 '%s' が見つかりません。";
+    ls->errorStartEmuConfigInvalid       = "マシン構成 '%s' の config.ini を読み込めませんでした。ファイルが破損しているか、非互換のバージョンの可能性があります。";
+    ls->errorMissingFiles       = "以下のファイルが読み込めませんでした:";
     ls->errorPortableReadonly   = "ポータブルデバイスは読込専用です。";
     ls->infoTitle                  = "blueMSX+ 情報";
     ls->infoGameReaderRedirect     = "blueMSX+ では MSX Game Reader を直接サポートしていません (ASCII 社の XP 時代の純正ドライバは現代の Windows では動作しません)。\n\n代わりに MSX Game Reader - Web Dumper (Kunihiko Ohnaka 氏作成) をブラウザで開きますか?";
@@ -170,6 +174,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->menuCartEseRam          = "似非RAM カートリッジ";       // New in 2.7
     ls->menuCartEseSCC          = "似非SCC カートリッジ";       // New in 2.7
     ls->menuCartMegaFlashRom    = "Mega Flash ROM";             // New in 2.7
+    ls->menuCartFlashCart       = "Flash カートリッジ";
 
     ls->menuDiskInsertNew       = "新規ディスクイメージを挿入";
     ls->menuDiskInsertCdrom     = "CD-ROM挿入";          // New in 2.7
@@ -337,6 +342,21 @@ void langInitJapanese(LanguageStrings* ls)
     ls->dlgAboutOrigDevel       = "オリジナルの blueMSX について\r\n"
                                   "==================\r\n\r\n"
                                   "オリジナルの blueMSX 2.8.3 は以下の開発者達によって開発されました:";
+    ls->dlgAboutCbios           = "C-BIOS について\r\n"
+                                  "==========\r\n\r\n"
+                                  "blueMSX+ はオープンソースの MSX BIOS 実装である C-BIOS を利用しています。\r\n"
+                                  "C-BIOS は以下の方々によって開発されました:\r\n\r\n"
+                                  "BouKiCHi\r\n"
+                                  "Reikan\r\n"
+                                  "Maarten ter Huurne\r\n"
+                                  "Albert Beevendorp\r\n"
+                                  "Patrick van Arkel\r\n"
+                                  "Manuel Bilderbeek\r\n"
+                                  "Joost Yervante Damad\r\n"
+                                  "Jussi Pitkänen\r\n"
+                                  "Eric Boon\r\n\r\n"
+                                  "詳細およびライセンス全文については、同梱の cbios.txt および "
+                                  "https://cbios.sourceforge.net/ を参照してください。";
     ls->dlgAboutCreat           = "製作:\tDaniel Vik";
     ls->dlgAboutDevel           = "開発者\r\n=====";
     ls->dlgAboutThanks          = "ご協力いただいた方々\r\n=============";       // New in 2.7 (retranslate, see english)

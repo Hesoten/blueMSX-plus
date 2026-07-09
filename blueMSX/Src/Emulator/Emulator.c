@@ -459,10 +459,11 @@ void emulatorStart(const char* stateName) {
     machine = machineCreate(properties->emulation.machineName);
 
     if (machine == NULL) {
-        archShowStartEmuFailDialog();
+        /* archShowStartEmuFailDialog shows the reason; a follow-up
+        ** archEmulationStartFailure would stack a second identical dialog. */
+        archShowStartEmuFailDialog(properties->emulation.machineName);
         archEmulationStopNotification();
         emuState = EMU_STOPPED;
-        archEmulationStartFailure();
         return;
     }
 

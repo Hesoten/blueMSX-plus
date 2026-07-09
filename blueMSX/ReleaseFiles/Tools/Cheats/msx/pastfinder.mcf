@@ -1,0 +1,13 @@
+!cheats for blueMSX :pastfinder
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2007 Benoît Delvaux
+0,57348,10,0,lives
+0,57638,1,0,keep radiation low (de-select between sectors)
+0,57645,1,0,heavy metal in use
+0,57646,1,0,beam shield in use
+0,57647,1,0,scrambler in use
+0,57648,1,0,deradiator in use
+0,57649,9,0,heavy metal reserve
+0,57650,9,0,beam shield reserve
+0,57651,9,0,scrambler reserve
+0,57652,9,0,deradiator reserve

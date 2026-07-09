@@ -1,0 +1,71 @@
+!cheats for blueMSX :xanadumsx1
+!(c) 2011 Albert Beevendorp and (c) 2011 Patrick van Arkel
+0,61488,255,0,experience
+0,61489,255,0,experience
+0,61490,99,0,experience
+0,61491,255,0,hit points
+0,61492,255,0,hit points
+0,61493,99,0,hit points
+0,61494,255,0,vitality
+0,61495,255,0,vitality
+0,61496,99,0,vitality
+0,61497,255,0,magic
+0,61504,255,0,strength
+0,61505,255,0,food
+0,61506,255,0,food
+0,61507,99,0,food
+0,61508,255,0,gold
+0,61509,255,0,gold
+0,61510,99,0,gold
+0,61511,0,0,cloth in slot 2
+0,61511,1,0,leather armor in slot 2
+0,61511,2,0,padded mail armor in slot 2
+0,61511,3,0,studded mail armor in slot 2
+0,61511,4,0,ring mail armor in slot 2
+0,61511,5,0,scale armor in slot 2
+0,61511,6,0,chain mail armor in slot 2
+0,61511,7,0,split mail armor in slot 2
+0,61511,8,0,banded armor in slot 2
+0,61511,9,0,half plate armor in slot 2
+0,61511,10,0,full plate armor in slot 2
+0,61511,11,0,+2 leather armor in slot 2
+0,61511,12,0,reflex armor in slot 2
+0,61511,13,0,+2 ring mail armor in slot 2
+0,61511,14,0,+2 full plate armor in slot 2
+0,61511,15,0,+2 reflex armor in slot 2
+0,61511,16,0,battle suits in slot 2
+0,61513,0,0,meedle in slot 3
+0,61513,1,0,deg meedle in slot 3
+0,61513,2,0,mittar in slot 3
+0,61513,3,0,deluge in slot 3
+0,61513,4,0,fire in slot 3
+0,61513,5,0,deg mittar in slot 3
+0,61513,6,0,thunder in slot 3
+0,61513,7,0,poison in slot 3
+0,61513,8,0,deg deluge in slot 3
+0,61513,9,0,deg fire in slot 3
+0,61513,10,0,corrosion in slot 3
+0,61513,11,0,deg thunder in slot 3
+0,61513,12,0,tilte in slot 3
+0,61513,13,0,deg poison in slot 3
+0,61513,14,0,deg corrosion in slot 3
+0,61513,15,0,deg tilte in slot 3
+0,61513,16,0,death in slot 3
+0,61518,153,0,elixirs
+0,61522,0,0,dagger in slot 1
+0,61523,1,0,short sword in slot 1
+0,61524,2,0,spear in slot 1
+0,61525,3,0,hand axe in slot 1
+0,61526,4,0,long sword in slot 1
+0,61527,5,0,battle axe in slot 1
+0,61528,6,0,broad sword in slot 1
+0,61529,7,0,morning star in slot 1
+0,61530,8,0,lance in slot 1
+0,61531,9,0,halbred in slot 1
+0,61532,10,0,+2 battle axe in slot 1
+0,61533,11,0,giant slayer in slot 1
+0,61534,12,0,luck blade in slot 1
+0,61535,13,0,murasume blade in slot 1
+0,61536,14,0,disrupt mace in slot 1
+0,61537,15,0,vorpal weapon in slot 1
+0,61538,16,0,dragon slayer in slot 1

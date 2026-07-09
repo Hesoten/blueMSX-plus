@@ -1,0 +1,19 @@
+!cheats for blueMSX :montezumasrevenge
+!(c) 2009 Albert Beevendorp and (c) 2006 Patrick van Arkel
+!(c) 2010 Benoît Delvaux
+0,28745,11,0,lives
+0,28793,0,0,partially invulnerable (select in game)
+0,29106,88,0,blue key
+0,29106,93,0,red key
+0,29106,98,0,grey key
+0,29107,83,0,torch
+0,29108,139,0,hammer
+0,29109,145,0,sword
+0,29440,8,0,y-pos 1st sprite (8-164)
+0,29441,1,0,x-pos 1st sprite (1-236)
+0,29444,8,0,y-pos 2nd sprite (8-164)
+0,29445,1,0,x-pos 2nd sprite (1-236)
+0,29449,0,0,frozen enemies
+0,29453,0,0,frozen enemies
+0,29457,0,0,frozen enemies
+

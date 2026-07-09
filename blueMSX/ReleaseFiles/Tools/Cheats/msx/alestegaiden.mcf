@@ -1,0 +1,16 @@
+!cheats for blueMSX :alestegaiden
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2007 Benoît Delvaux
+!enable the cheats after the title-screen
+!disable the cheats when the fifth boss is defeated
+0,51232,255,0,option 1
+0,51234,172,0,option 1
+0,51235,76,0,option 1
+0,51250,14,0,option 1
+0,51264,255,0,option 2
+0,51266,93,0,option 2
+0,51267,77,0,option 2
+0,51282,14,0,option 2
+0,51504,27,0,invulnerable
+0,53260,1,0,weapon power (0-2)
+0,53376,99,0,lives

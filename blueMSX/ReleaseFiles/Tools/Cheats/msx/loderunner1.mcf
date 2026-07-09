@@ -1,0 +1,19 @@
+!cheats for blueMSX :loderunner1
+!(c) 2009 Benoît Delvaux
+0,61210,0,0,first red man y-position
+0,61211,0,0,first red man x-position
+0,61212,0,0,second red man y-position
+0,61213,0,0,second red man x-position
+0,61214,0,0,third red man y-position
+0,61215,0,0,third red man x-position
+0,61216,0,0,fourth red man y-position
+0,61217,0,0,fourth red man x-position
+0,61218,0,0,fifth red man y-position
+0,61219,0,0,fifth red man x-position
+0,61281,0,0,high speed
+0,61281,3,0,normal speed
+0,61281,6,0,slow speed
+0,61286,1,0,level (1-76)
+0,61288,230,0,lives
+0,61289,3,0,lives
+0,61296,0,0,exit without all gold (required for level 24)

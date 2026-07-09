@@ -1,0 +1,27 @@
+!cheats for blueMSX :blackcyclon
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+0,49225,0,0,enemy 01 power
+0,49289,0,0,enemy 02 power
+0,49353,0,0,enemy 03 power
+0,49417,0,0,enemy 04 power
+0,49481,0,0,enemy 05 power
+0,49545,0,0,enemy 06 power
+0,49609,0,0,enemy 07 power
+0,49673,0,0,enemy 08 power
+0,49737,0,0,enemy 09 power
+0,49801,0,0,enemy 10 power
+0,49865,0,0,enemy 11 power
+0,49929,0,0,enemy 12 power
+0,49993,0,0,enemy 13 power
+0,50057,0,0,enemy 14 power
+0,50121,0,0,enemy 15 power
+0,50185,0,0,enemy 16 power
+0,50249,0,0,enemy 17 power
+0,50313,0,0,enemy 18 power
+0,50377,0,0,enemy 19 power
+0,53541,0,0,wave gun
+0,53541,1,0,needle gun
+0,53541,2,0,spread gun
+0,53541,3,0,bomb gun
+0,53566,255,0,power
+0,53594,8,0,lives

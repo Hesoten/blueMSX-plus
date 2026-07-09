@@ -1,0 +1,120 @@
+!cheats for blueMSX :crimson1dsk
+!(c) 2009 Benoît Delvaux
+0,43513,1,0,red key
+0,43514,1,0,white key
+0,43515,1,0,blue key
+0,43516,1,0,green key
+0,43517,1,0,yellow key
+0,43518,1,0,black key
+0,43519,1,0,Badora power
+0,43520,1,0,Rapnos power
+0,43521,1,0,Gorai power
+0,43522,1,0,heat ball
+0,43523,1,0,darkness ball
+0,43524,1,0,flame ball
+0,43525,1,0,light ball
+0,43526,1,0,ice ball
+0,43527,1,0,three stones (de-select to reveal stairs)
+0,43528,1,0,three stones (de-select to reveal stairs)
+0,43529,1,0,three stones (de-select to reveal stairs)
+0,43530,1,0,gold medal
+0,43531,1,0,mirror of truth
+0,43532,1,0,mini-boat
+0,43556,255,0,vitality hero
+0,43557,255,0,magic hero
+0,43558,240,0,strength hero
+0,43559,239,0,defence hero
+0,43560,255,0,dexterity hero
+0,43561,255,0,maximum vitality hero
+0,43562,255,0,maximum magic hero
+0,43563,152,0,experience hero
+0,43564,1,0,experience hero
+0,43588,255,0,vitality Isabel 
+0,43589,255,0,magic Isabel
+0,43590,240,0,strength Isabel
+0,43591,239,0,defence Isabel
+0,43592,255,0,dexterity Isabel
+0,43593,255,0,maximum vitality Isabel
+0,43594,255,0,maximum magic Isabel
+0,43595,152,0,experience Isabel
+0,43596,1,0,experience Isabel
+0,43620,255,0,vitality Arnold 
+0,43621,255,0,magic Arnold
+0,43622,240,0,strength Arnold
+0,43623,239,0,defence Arnold
+0,43624,255,0,dexterity Arnold
+0,43625,255,0,maximum vitality Arnold
+0,43626,255,0,maximum magic Arnold
+0,43627,152,0,experience Arnold
+0,43628,1,0,experience Arnold
+0,43649,1,0,equipment 1 hero (1-37)
+0,43651,1,0,equipment 2 hero (1-37)
+0,43653,1,0,equipment 3 hero (1-37)
+0,43655,1,0,equipment 4 hero (1-37)
+0,43657,1,0,equipment 5 hero (1-37)
+0,43659,1,0,equipment 6 hero (1-37)
+0,43661,1,0,equipment 7 hero (1-37)
+0,43663,1,0,equipment 8 hero (1-37)
+0,43665,1,0,equipment 9 hero (1-37)
+0,43667,1,0,equipment 10 hero (1-37)
+0,43669,1,0,equipment 1 Isabel (1-37)
+0,43671,1,0,equipment 2 Isabel (1-37)
+0,43673,1,0,equipment 3 Isabel (1-37)
+0,43675,1,0,equipment 4 Isabel (1-37)
+0,43677,1,0,equipment 5 Isabel (1-37)
+0,43679,1,0,equipment 6 Isabel (1-37)
+0,43681,1,0,equipment 7 Isabel (1-37)
+0,43683,1,0,equipment 8 Isabel (1-37)
+0,43685,1,0,equipment 9 Isabel (1-37)
+0,43687,1,0,equipment 10 Isabel (1-37)
+0,43689,1,0,equipment 1 Arnold (1-37)
+0,43691,1,0,equipment 2 Arnold (1-37)
+0,43693,1,0,equipment 3 Arnold (1-37)
+0,43695,1,0,equipment 4 Arnold (1-37)
+0,43697,1,0,equipment 5 Arnold (1-37)
+0,43699,1,0,equipment 6 Arnold (1-37)
+0,43701,1,0,equipment 7 Arnold (1-37)
+0,43703,1,0,equipment 8 Arnold (1-37)
+0,43705,1,0,equipment 9 Arnold (1-37)
+0,43707,1,0,equipment 10 Arnold (1-37)
+0,43709,255,0,money
+0,43710,255,0,money
+0,44820,1,0,monsters die faster
+! equipment
+! 1 = dagger
+! 2 = child sword
+! 3 = whip
+! 4 = axe
+! 5 = spear
+! 6 = steel sword
+! 7 = battle hammer
+! 8 = ceramic sword
+! 9 = brave sword
+! 10 = flame sword
+! 11 = great sword
+! 12 = breast armor
+! 13 = chain mail armor
+! 14 = steel armor
+! 15 = warrior armor
+! 16 = great armor
+! 17 = leather shield
+! 18 = wooden shield
+! 19 = steel shield
+! 20 = brave shield
+! 21 = great shield
+! 22 = leather hat
+! 23 = helmet
+! 24 = great mask
+! 25 = vitality help
+! 26 = antidote
+! 27 = medecine
+! 28 = poison killer
+! 29 = terror killer
+! 30 = medusa magic
+! 31 = spark magic
+! 32 = fire magic
+! 33 = crossfire magic
+! 34 = destroyer magic
+! 35 = Cygnus magic (warp)
+! 36 = Pegasus magic (warp)
+! 37 = Gratof poison

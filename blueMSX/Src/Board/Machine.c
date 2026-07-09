@@ -29,6 +29,7 @@
 ******************************************************************************
 */
 #include "Machine.h"
+#include "Board.h"
 #include "SaveState.h"
 #include "IniFileParser.h"
 #include "ArchGlob.h"
@@ -134,6 +135,10 @@
 #include "romMapperNoWind.h"
 #include "romMapperGoudaSCSI.h"
 #include "romMapperMegaFlashRomScc.h"
+#include "romMapperASCII16X.h"
+#include "romMapperNeo8.h"
+#include "romMapperNeo16.h"
+#include "romMapperYamanooto.h"
 #include "romMapperForteII.h"
 #include "romMapperA1FMModem.h"
 #include "romMapperA1FM.h"
@@ -231,6 +236,22 @@ static int readMachine(Machine* machine, const char* machineName, const char* fi
     
     strcpy(machine->name, machineName);
     
+    /* Require the structural sections whose absence would let the config
+    ** silently boot as something else or as an empty machine.  [CMOS],
+    ** [CPU], [FDC], [AUDIO] have sane silent defaults, so aren't required. */
+    {
+        static const char* required[] = {
+            "Board", "Video", "Subslotted Slots", "External Slots", "Slots"
+        };
+        int j;
+        for (j = 0; j < (int)(sizeof(required) / sizeof(required[0])); j++) {
+            if (!iniFileHasSection(configIni, required[j])) {
+                iniFileClose(configIni);
+                return 0;
+            }
+        }
+    }
+
     // Read board info
     iniFileGetString(configIni, "Board", "type", "none", buffer, 10000);
     if      (0 == strcmp(buffer, "MSX"))          machine->board.type = BOARD_MSX;
@@ -245,7 +266,8 @@ static int readMachine(Machine* machine, const char* machineName, const char* fi
     else if (0 == strcmp(buffer, "SG-1000"))      machine->board.type = BOARD_SG1000;
     else if (0 == strcmp(buffer, "SF-7000"))      machine->board.type = BOARD_SF7000;
     else if (0 == strcmp(buffer, "SC-3000"))      machine->board.type = BOARD_SC3000;
-    else                                          machine->board.type = BOARD_MSX;
+    /* Reject unrecognized -- silently defaulting to MSX hides corruption. */
+    else { iniFileClose(configIni); return 0; }
 
     // Read video info
     iniFileGetString(configIni, "Video", "version", "none", buffer, 10000);
@@ -1126,6 +1148,8 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
                 jisyoRom = romLoad(machine->slotInfo[i].name, machine->slotInfo[i].inZipName, &jisyoRomSize);
 
                 if (jisyoRom == NULL) {
+                    boardReportMissingFile(machine->slotInfo[i].name,
+                                           machine->slotInfo[i].inZipName);
                     success = 0;
                     continue;
                 }
@@ -1355,6 +1379,8 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
             if (strlen(romName)) {
                 buf = romLoad(machine->slotInfo[i].name, machine->slotInfo[i].inZipName, &size);
                 if (buf == NULL) {
+                    boardReportMissingFile(machine->slotInfo[i].name,
+                                           machine->slotInfo[i].inZipName);
                     success = 0;
                     continue;
                 }
@@ -1387,9 +1413,18 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
 
             switch (machine->slotInfo[i].romType) {
             case ROM_MEGAFLSHSCC:
+                /* Falls back to Manbow2.rom -- not a fatal missing file. */
                 success &= romMapperMegaFlashRomSccCreate("Manbow2.rom", NULL, 0, slot, subslot, startPage, 0, 0x80000, 0);
                 break;
+            case ROM_ASCII16X:
+                success &= romMapperASCII16XCreate("ASCII16X.rom", NULL, 0, slot, subslot, startPage);
+                break;
+            case ROM_YAMANOOTO:
+                success &= romMapperYamanootoCreate("Yamanooto.rom", NULL, 0, slot, subslot, startPage);
+                break;
             default:
+                boardReportMissingFile(machine->slotInfo[i].name,
+                                       machine->slotInfo[i].inZipName);
                 success = 0;
                 break;
             }
@@ -1464,6 +1499,22 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
 
         case ROM_MEGAFLSHSCCPLUS:
             success &= romMapperMegaFlashRomSccCreate(romName, buf, size, slot, subslot, startPage, 0, 0x100000, 1);
+            break;
+
+        case ROM_ASCII16X:
+            success &= romMapperASCII16XCreate(romName, buf, size, slot, subslot, startPage);
+            break;
+
+        case ROM_NEO8:
+            success &= romMapperNeo8Create(romName, buf, size, slot, subslot, startPage);
+            break;
+
+        case ROM_NEO16:
+            success &= romMapperNeo16Create(romName, buf, size, slot, subslot, startPage);
+            break;
+
+        case ROM_YAMANOOTO:
+            success &= romMapperYamanootoCreate(romName, buf, size, slot, subslot, startPage);
             break;
 
         case ROM_OBSONET:
@@ -1836,4 +1887,57 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
 void machineSetDirectory(const char* dir)
 {
     strcpy(machinesDir, dir);
+}
+
+const char* machineGetDirectory(void)
+{
+    return machinesDir;
+}
+
+MachineLoadReason machineDiagnose(const char* machineName)
+{
+    char path[PROP_MAXPATH + 64];
+    FILE* file;
+    Machine* machine;
+
+    if (machineName == NULL || machineName[0] == 0) {
+        return MACHINE_LOAD_NO_NAME;
+    }
+
+    /* archFileExists uses PathFileExistsW on Win32 which handles dirs;
+    ** archGlob does not because a failed prefix chdir falls back silently. */
+    if (machinesDir[0] != 0 && !archFileExists(machinesDir)) {
+        return MACHINE_LOAD_MACHINES_DIR_MISSING;
+    }
+
+    /* config.ini path first, then .zip fallback -- same order as machineCreate. */
+    sprintf(path, "%s/%s/config.ini", machinesDir, machineName);
+    file = fopen(path, "rb");
+    if (file != NULL) {
+        fclose(file);
+    } else {
+        sprintf(path, "%s/%s.zip", machinesDir, machineName);
+        file = fopen(path, "rb");
+        if (file == NULL) {
+            /* If Machines/ has no valid configs, the ini's machineName is a
+            ** stale leftover -- fall through to NO_NAME rather than blame it. */
+            ArrayList* list = arrayListCreate();
+            int count;
+            machineFillAvailable(list, 0);
+            count = arrayListGetSize(list);
+            arrayListDestroy(list);
+            return count == 0 ? MACHINE_LOAD_NO_NAME
+                              : MACHINE_LOAD_NOT_FOUND;
+        }
+        fclose(file);
+    }
+
+    /* Final check: readMachine's own validation is the source of truth
+    ** for CONFIG_INVALID, so just run machineCreate and observe. */
+    machine = machineCreate(machineName);
+    if (machine == NULL) {
+        return MACHINE_LOAD_CONFIG_INVALID;
+    }
+    machineDestroy(machine);
+    return MACHINE_LOAD_OK;
 }

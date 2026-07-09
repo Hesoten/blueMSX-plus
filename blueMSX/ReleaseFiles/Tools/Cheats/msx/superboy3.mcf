@@ -1,0 +1,12 @@
+!cheats for blueMSX :superboy3
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2006 Benoît Delvaux
+0,57719,255,0,invincible
+0,57738,8,0,stones
+0,57739,152,0,coins
+0,57740,255,0,time
+0,57744,255,0,big mario
+0,57745,255,0,fire (on GRAPH key)
+0,57746,255,0,invulnerable (but avoid to fall !)
+0,57963,99,0,lives
+0,57964,1,0,round (1-16)

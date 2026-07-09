@@ -1,0 +1,16 @@
+!cheats for blueMSX :pacmaniamsx2alt
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2011 Benoît Delvaux
+0,53299,7,0,lives player 1
+0,53300,7,0,lives player 2
+0,54293,255,0,red ghost vulnerable
+0,54313,255,0,rose ghost vulnerable
+0,54333,255,0,orange ghost vulnerable
+0,54353,255,0,blue ghost vulnerable
+0,54373,255,0,purple ghost vulnerable
+0,54393,255,0,green ghosts vulnerable
+0,54413,255,0,green ghosts vulnerable
+0,54433,255,0,grey ghosts vulnerable
+0,54453,255,0,grey ghosts vulnerable
+0,54486,0,0,round (0-22)
+

@@ -302,6 +302,10 @@ char* langErrorNoCasInZip() { return ls->errorNoCasInZip; }
 char* langErrorDirAsDskOverflow() { return ls->errorDirAsDskOverflow; }
 char* langErrorNoHelp() { return ls->errorNoHelp; }
 char* langErrorStartEmu() { return ls->errorStartEmu; }
+char* langErrorStartEmuNoMachine()          { return ls->errorStartEmuNoMachine; }
+char* langErrorStartEmuMachinesDirMissing() { return ls->errorStartEmuMachinesDirMissing; }
+char* langErrorStartEmuMachineNotFound()    { return ls->errorStartEmuMachineNotFound; }
+char* langErrorStartEmuConfigInvalid()      { return ls->errorStartEmuConfigInvalid; }
 char* langErrorMissingFiles() { return ls->errorMissingFiles; }
 char* langErrorPortableReadonly()  {return ls->errorPortableReadonly; }
 char* langInfoColorDepth()                 { return ls->infoColorDepth; }
@@ -385,6 +389,7 @@ char* langMenuCartExternalRam() { return ls->menuCartExternalRam; }
 char* langMenuCartEseRam() { return ls->menuCartEseRam; }
 char* langMenuCartEseSCC() { return ls->menuCartEseSCC; }
 char* langMenuCartMegaFlashRom() { return ls->menuCartMegaFlashRom; }
+char* langMenuCartFlashCart() { return ls->menuCartFlashCart; }
 
 char* langMenuDiskInsertNew() { return ls->menuDiskInsertNew; }
 char* langMenuDiskDirInsertCdrom() { return ls->menuDiskInsertCdrom; }
@@ -546,6 +551,7 @@ char* langDlgAboutBuildNumber() { return ls->dlgAboutBuildNumber; }
 char* langDlgAboutBuildDate() { return ls->dlgAboutBuildDate; }
 char* langDlgAboutForkNote() { return ls->dlgAboutForkNote; }
 char* langDlgAboutOrigDevel() { return ls->dlgAboutOrigDevel; }
+char* langDlgAboutCbios() { return ls->dlgAboutCbios; }
 char* langDlgAboutCreat() { return ls->dlgAboutCreat; }
 char* langDlgAboutDevel() { return ls->dlgAboutDevel; }
 char* langDlgAboutThanks() { return ls->dlgAboutThanks; }

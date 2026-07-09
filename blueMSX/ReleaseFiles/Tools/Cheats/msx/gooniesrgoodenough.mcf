@@ -1,0 +1,31 @@
+!cheats for blueMSX :gooniesrgoodenough
+!(c) 2011 Albert Beevendorp and (c) 2011 Patrick van Arkel
+!(c) 2011 Benoît Delvaux
+0,61147,0,0,scene 1
+0,61147,1,0,scene 2
+0,61147,2,0,scene 3
+0,61147,3,0,scene 4
+0,61147,4,0,scene 5
+0,61147,5,0,scene 6
+0,61156,0,0,active free character : Mikey
+0,61156,1,0,active free character : Brand
+0,61156,2,0,active free character : Mouth
+0,61156,3,0,active free character : Data
+0,61156,4,0,active free character : Stef
+0,61156,5,0,active free character : Andy
+0,61156,6,0,active free character : Chunk
+0,61172,48,0,vitality Mikey
+0,61173,48,0,vitality Brand
+0,61174,48,0,vitality Mouth
+0,61175,48,0,vitality Data
+0,61176,48,0,vitality Stef
+0,61177,48,0,vitality Andy
+0,61178,48,0,vitality Chunk
+0,61194,0,0,y-pos (0-150)
+0,61195,0,0,x-pos (0-255)
+
+
+
+
+
+

@@ -85,7 +85,11 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->errorDirAsDskOverflow   = "%d 個檔案 (共 %d KB) 無法容納於 720 KB 磁碟鏡像，已跳過。";
     ls->errorNoHelp             = "無法找到 blueMSX+ 說明檔案。";
     ls->errorStartEmu           = "無法啟動 MSX 模擬器。";
-    ls->errorMissingFiles       = "無法載入存檔引用的以下檔案：";
+    ls->errorStartEmuNoMachine           = "尚未設定用於模擬的 MSX 機器。請在 選項 -> 模擬 -> MSX 機種 中選擇一個。";
+    ls->errorStartEmuMachinesDirMissing  = "找不到 Machines 資料夾。";
+    ls->errorStartEmuMachineNotFound     = "找不到所選的機器組態 '%s'。";
+    ls->errorStartEmuConfigInvalid       = "無法讀取機器組態 '%s' 的 config.ini。該檔案可能已損壞，或來自不相容的版本。";
+    ls->errorMissingFiles       = "無法載入以下檔案：";
     ls->errorPortableReadonly   = "可攜式裝置為唯讀屬性";        
     ls->infoTitle               = "blueMSX+ 資訊";
     ls->infoGameReaderRedirect  = "blueMSX+ 不直接支援 MSX Game Reader (ASCII 公司 XP 時代的原版驅動程式無法在現代 Windows 上運作)。\n\n是否改為在瀏覽器中開啟 MSX Game Reader - Web Dumper (Kunihiko Ohnaka 製作)?";
@@ -168,6 +172,7 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->menuCartEseRam          = "Ese-RAM";             // New in 2.7
     ls->menuCartEseSCC          = "Ese-SCC";             // New in 2.7
     ls->menuCartMegaFlashRom    = "Mega Flash ROM";      // New in 2.7
+    ls->menuCartFlashCart       = "快閃卡帶";
 
     ls->menuDiskInsertNew       = "插入新的磁碟映像檔";              
     ls->menuDiskInsertCdrom     = "Insert CD-Rom";       // New in 2.7

@@ -1,0 +1,163 @@
+!cheats for blueMSX :kingkong2
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2008 Benoît Delvaux
+!The following items are normally not displayed in the inventory :
+!letter, wood key, money bag (hiding a long sword)
+!The water shoes are normally not displayed in the shot 2 section
+!Besides, the long sword is normally not used
+!But it's possible with these cheats !
+0,49447,0,0,days passed
+0,49448,0,0,days passed
+0,49449,153,0,life
+0,49450,153,0,life
+0,49451,153,0,experience
+0,49452,153,0,experience
+0,49454,153,0,level
+0,49455,153,0,magic
+0,49461,153,0,money
+0,49462,153,0,money
+0,49472,1,0,selected shot 1 - knife
+0,49472,2,0,selected shot 1 - rod
+0,49472,3,0,selected shot 1 - club
+0,49472,4,0,selected shot 1 - sword
+0,49472,5,0,selected shot 1 - axe
+0,49472,6,0,selected shot 1 - long sword (see remark)
+0,49472,7,0,selected shot 1 - Kong's claw
+0,49472,8,0,selected shot 1 - stones
+0,49472,9,0,selected shot 1 - fireballs
+0,49472,10,0,selected shot 1 - boomerangs
+0,49472,11,0,selected shot 1 - harpoon
+0,49472,31,0,selected shot 1 - yellow stones
+0,49473,12,0,selected shot 2 - Temusa spell
+0,49473,13,0,selected shot 2 - Nemuri spell
+0,49473,14,0,selected shot 2 - Makapora spell
+0,49473,15,0,selected shot 2 - liquid of Lamera
+0,49473,16,0,selected shot 2 - herbs
+0,49473,17,0,selected shot 2 - power orb
+0,49473,18,0,selected shot 2 - Kong's fang
+0,49473,19,0,selected shot 2 - whisper
+0,49473,20,0,selected shot 2 - Agnos key
+0,49473,21,0,selected shot 2 - meat
+0,49473,22,0,selected shot 2 - Kong's tear
+0,49473,23,0,selected shot 2 - Dorian fruit
+0,49473,24,0,selected shot 2 - amulet
+0,49473,25,0,selected shot 2 - radio
+0,49473,26,0,selected shot 2 - Kong's eye
+0,49473,27,0,selected shot 2 - Kong's roar
+0,49473,28,0,selected shot 2 - Lakuna's orb
+0,49473,29,0,selected shot 2 - papyrus
+0,49473,30,0,selected shot 2 - water sandals
+0,49473,32,0,selected shot 2 - letter
+0,49473,33,0,selected shot 2 - book
+0,49473,34,0,selected shot 2 - whirl spell
+0,49473,35,0,selected shot 2 - wood key
+0,49473,36,0,selected shot 2 - iron keys
+0,49478,0,0,protected from bug's poison
+0,49479,255,0,enemies are frozen
+0,49486,1,0,radio is not broken
+0,49518,0,0,number of continues
+0,49824,1,0,knife in inventory
+0,49826,2,0,rod in inventory 
+0,49828,3,0,club in inventory
+0,49830,4,0,sword in inventory
+0,49832,5,0,axe in inventory
+0,49834,6,0,money bag in inventory (see remark)
+0,49836,7,0,Kong's claw in inventory
+0,49838,8,0,stones in inventory
+0,49840,9,0,fireballs in inventory
+0,49842,10,0,boomerangs in inventory
+0,49844,11,0,harpoon in inventory
+0,49846,31,0,yellow stones in inventory
+0,49856,12,0,Temusa spell in inventory
+0,49858,13,0,Nemuri spell in inventory
+0,49860,14,0,Makapora spell in inventory
+0,49862,15,0,liquid of Lamera in inventory
+0,49864,16,0,herbs in inventory
+0,49866,17,0,power orb in inventory
+0,49868,18,0,Kong's fang in inventory
+0,49870,19,0,whisper in inventory
+0,49872,20,0,Agnos key in inventory
+0,49874,21,0,meat in inventory
+0,49876,22,0,Kong's tear in inventory
+0,49878,23,0,Dorian fruit in inventory
+0,49880,24,0,amulet in inventory
+0,49882,25,0,radio in inventory
+0,49884,26,0,Kong's eye in inventory
+0,49886,27,0,Kong's roar in inventory
+0,49888,28,0,Lakuna's orb in inventory
+0,49890,29,0,papyrus in inventory
+0,49892,33,0,book in inventory
+0,49894,34,0,whirl spell in inventory
+0,49896,30,0,water sandals in inventory (see remark) 
+0,49896,32,0,letter in inventory (see remark) 
+0,49896,35,0,wood key in inventory (see remark) 
+0,49896,36,0,iron keys in inventory
+0,49904,153,0,speed
+0,49991,153,0,always stones
+0,49992,153,0,always fireballs
+0,49993,153,0,always boomerangs (don't select before taking first boomerang)
+0,49999,153,0,always herbs
+0,50004,153,0,always meat
+0,50012,153,0,always papyrus
+0,50013,153,0,always water sandals
+0,50014,153,0,always yellow stones
+0,50019,153,0,always iron keys
+0,50560,0,0,open access to final boss (area 8)
+0,50561,0,0,open access to area 4 part 2
+0,50562,0,0,open access to area 3
+0,50563,0,0,open access to area 2
+0,50564,0,0,open access to end part (area 8)
+0,50565,0,0,open access to area 5
+0,50566,0,0,open 3rd secret cave (area 1)
+0,50567,0,0,open 1st secret cave (area 1)
+0,50568,0,0,open 4th secret cave (area 2)
+0,50569,0,0,open 2nd secret cave (area 1)
+0,50570,0,0,open 6th secret cave (area 6)
+0,50571,0,0,open 5th secret cave (area 4)
+0,50574,0,0,open access to area 8 part 2
+0,50575,0,0,open access to area 8 part 1
+0,50576,0,0,open access to landing field (area 8)
+0,50577,0,0,open access to savage (area 7)
+0,50578,0,0,open access to Kong's tear (area 7)
+0,50579,0,0,open access 1 to whisper (area 7)
+0,50580,0,0,open access 2 to whisper (area 7)
+0,50581,0,0,open access to area 7
+0,50582,0,0,open 1st barrier (area 3)
+0,50583,0,0,open 2nd barrier (area 3)
+0,50584,0,0,open 3rd barrier (area 3)
+0,50585,0,0,open 4th barrier (area 1)
+0,50586,0,0,open 5th barrier (area 4)
+0,50587,0,0,open 6th barrier (area 7)
+0,50588,0,0,open 7th barrier (area 7)
+0,50589,0,0,open access to area 4 part 1
+0,50590,0,0,open access to bigflower (area 8)
+0,50591,0,0,open access to bigguard (area 4)
+0,51216,1,0,bridge over gap (area 8)
+0,51217,72,0,bridge over gap (area 8)
+0,51218,72,0,bridge over gap (area 8)
+0,53261,1,0,bosses die after 1 hit
+0,53389,1,0,most enemies die after 1 hit
+0,53517,1,0,most enemies die after 1 hit
+0,53645,1,0,most enemies die after 1 hit
+0,53773,1,0,most enemies die after 1 hit
+0,53901,1,0,most enemies die after 1 hit
+0,54029,1,0,most enemies die after 1 hit
+0,54157,1,0,most enemies die after 1 hit
+0,54285,1,0,most enemies die after 1 hit
+0,54413,1,0,most enemies die after 1 hit
+0,57280,2,0,kill low centipede 1 time to get message (area 2)	
+0,57281,2,0,kill high centipede 1 time to get message (area 2)
+0,57282,1,0,kill 1 bowler to get axe (area 2)
+0,57283,1,0,kill 1 firetotem to get club (area 3)
+0,57285,1,0,kill 1 watcher to open stairs (area 4)
+0,57286,1,0,kill 1 grassogre to get rod (area 1)
+0,57297,1,0,kill 1 batt to get meat (area 8)
+0,57298,1,0,kill 1 ratt to get herb (area 1)
+0,57299,1,0,kill 1 dungroll to get stones (area 3)
+0,57301,1,0,kill 1 sealouse to get herb (areas 2 and 6)
+0,57302,1,0,kill 1 bowler to get message (area 3)
+0,57303,1,0,kill 1 thickskin to get whirl spell (area 2)
+0,57304,1,0,kill 1 caveman to get fireballs (area 8)
+0,57305,1,0,kill 1 crow to get message (area 5)
+0,57306,1,0,kill 1 clingman to get message (area 8)
+0,57307,1,0,kill 1 whitefire to get liquid of Lamera (area 2)

@@ -1,0 +1,14 @@
+!cheats for blueMSX :alpharoid
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+0,58265,4,0,invincible (in space)
+0,58274,98,0,lives
+0,58294,0,0,regular shoot
+0,58294,1,0,hyper shoot
+0,58294,2,0,wide beam
+0,58294,3,0,ballistic bomb
+0,58295,0,0,regulate second shoot (none)
+0,58295,1,0,second shoot (none)
+0,58295,2,0,fifth shoot (none)
+0,58295,3,0,seventh shoot (none)
+0,59639,0,0,enemy dies after one kick
+0,60174,231,0,enemy dies after one kick

@@ -1,0 +1,82 @@
+!cheats for blueMSX :salamander
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2006 Benoît Delvaux
+!(c) 2006 XDR love
+0,57858,0,0,invulnerable  
+0,57858,1,0,vulnerable (required for union mode)
+0,58112,153,0,lives player 1
+0,58113,1,0,next stage (1-6;7=special stage)
+0,58121,1,0,scroll stop (only for part of stage 1)
+0,58122,1,0,crystal breeze
+0,58128,7,0,all special weapons player 1
+0,58129,1,0,capsule type player 1 - speed
+0,58129,2,0,capsule type player 1 - normal 
+0,58129,3,0,capsule type player 1 - missile
+0,58129,4,0,capsule type player 1 - ripple
+0,58129,5,0,capsule type player 1 - laser
+0,58129,6,0,capsule type player 1 - option
+0,58129,7,0,capsule type player 1 - shield
+0,58139,20,0,extra level player 1 after one energy pod
+0,58144,3,0,union mode player 1
+0,58164,1,0,option hold player 1
+0,58167,5,0,ship speed player 1 (1-7)
+0,58175,15,0,ultra high speed rapid fire player 1
+0,58176,1,0,normal shoot player 1
+0,58176,2,0,ripple laser shoot player 1
+0,58176,3,0,normal laser shoot player 1
+0,58176,4,0,screw laser shoot player 1
+0,58176,5,0,meteor laser shoot player 1
+0,58176,6,0,double laser shoot player 1
+0,58176,7,0,triple laser shoot player 1
+0,58177,1,0,double way normal missile player 1
+0,58177,2,0,double way hawkwind missile player 1
+0,58177,3,0,double way homing missile player 1
+0,58177,4,0,double way arming ball player 1
+0,58178,1,0,trampling missile player 1
+0,58210,1,0,planet Eioneus finished
+0,58211,1,0,planet Lavinia finished
+0,58212,1,0,planet Kierke finished
+0,58240,153,0,lives player 2
+0,58256,7,0,all special weapons player 2
+0,58257,1,0,capsule type player 2 - speed
+0,58257,2,0,capsule type player 2 - normal 
+0,58257,3,0,capsule type player 2 - missile
+0,58257,4,0,capsule type player 2 - ripple
+0,58257,5,0,capsule type player 2 - laser
+0,58257,6,0,capsule type player 2 - option
+0,58257,7,0,capsule type player 2 - shield
+0,58267,20,0,extra level player 2 after one energy pod
+0,58272,4,0,union mode player 2
+0,58292,1,0,option hold player 2
+0,58295,5,0,ship speed player 2 (1-7)
+0,58303,15,0,ultra high speed rapid fire player 2
+0,58304,1,0,normal shoot player 2
+0,58304,2,0,ripple laser shoot player 2
+0,58304,3,0,normal laser shoot player 2
+0,58304,4,0,screw laser shoot player 2
+0,58304,5,0,meteor laser shoot player 2
+0,58304,6,0,double laser shoot player 2
+0,58304,7,0,triple laser shoot player 2
+0,58305,1,0,double way normal missile player 2
+0,58305,2,0,double way hawkwind missile player 2
+0,58305,3,0,double way missile player 2
+0,58305,4,0,double way arming ball player 2
+0,58306,1,0,trampling missile player 2
+0,58368,1,0,option 1 active
+0,58369,0,0,option 1 player 1
+0,58369,1,0,option 1 player 2
+0,58370,1,0,option 1 in position 1
+0,58384,1,0,option 2 active
+0,58385,0,0,option 2 player 1
+0,58385,1,0,option 2 player 2 
+0,58386,2,0,option 2 in position 2
+0,58400,1,0,option 3 active
+0,58401,0,0,option 3 player 1
+0,58401,1,0,option 3 player 2 
+0,58402,3,0,option 3 in position 3
+0,58416,1,0,option 4 active (not in dual mode)
+0,58418,4,0,option 4 in position 4
+0,58928,3,0,spark light (only for planet Lavinia)
+0,58928,5,0,pre-union
+0,58928,6,0,option chain
+0,61685,1,0,simulate nemesis 2 in slot 2

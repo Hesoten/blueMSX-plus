@@ -1,0 +1,20 @@
+!cheats for blueMSX :backtothefuture
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+0,61698,200,enemy 1 y-pos
+0,61699,255,enemy 1 x-pos
+0,61705,200,enemy 2 y-pos
+0,61712,255,enemy 2 x-pos
+0,61724,200,enemy 3 y-pos
+0,61725,255,enemy 3 x-pos
+0,61737,200,enemy 4 y-pos
+0,61738,255,enemy 4 x-pos
+0,61750,200,enemy 5 y-pos
+0,61751,255,enemy 5 x-pos
+0,61776,200,enemy 5 y-pos
+0,61777,255,enemy 5 x-pos
+0,62002,13,0,time
+0,62005,99,0,lives
+0,62067,2,0,always has green boy
+0,62068,115,0,always has green boy
+0,62077,2,0,always has girl
+0,62078,115,0,always has girl

@@ -1,0 +1,12 @@
+!cheats for blueMSX :undeadline
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+0,53928,255,0,power
+0,53929,255,0,lives
+0,53931,0,0,weapon - knife
+0,53931,1,0,weapon - axe
+0,53931,2,0,weapon - fire
+0,53931,3,0,weapon - ice
+0,53931,4,0,weapon - triple knife
+0,53931,5,0,weapon - boomerang
+0,53931,6,0,weapon - vortex
+0,53943,255,0,invincible to monsters

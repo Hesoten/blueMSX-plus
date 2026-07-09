@@ -1,0 +1,21 @@
+!cheats for blueMSX :andorogynus
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+0,57371,255,0,lives 
+0,60577,255,0,shield always on
+0,60459,16,0,speed
+0,60460,2,0,backpack
+0,60474,1,0,normal shot
+0,60474,2,0,big shots
+0,60474,3,0,pod with up/down shot
+0,60474,4,0,laser
+0,60474,5,0,big bouncing balls
+0,60475,3,0,shot strength
+0,60460,2,0,backpack
+0,61187,255,0,x-pos enemy 1
+0,61220,255,0,x-pos enemy 2
+0,61253,255,0,x-pos enemy 3
+0,61286,255,0,x-pos enemy 4
+0,61319,255,0,x-pos enemy 5
+0,61508,255,0,enemy shot
+0,61514,255,0,enemy shot
+0,61520,255,0,enemy shot

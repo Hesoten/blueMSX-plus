@@ -364,6 +364,19 @@ int iniFileGetString(IniFile *iniFile,
     return (int)strlen(buffer);
 }
 
+int iniFileHasSection(IniFile *iniFile, const char* section)
+{
+    char buff[MAX_LINE_LENGTH];
+    char t_section[MAX_LINE_LENGTH];
+
+    rewindBuffer(iniFile);
+    sprintf(t_section, "[%s]", section);
+    while (readLine(iniFile, buff) >= 0) {
+        if (strcmp(buff, t_section) == 0) return 1;
+    }
+    return 0;
+}
+
 int iniFileGetSection(IniFile *iniFile,
                       char* section,
                       char* buffer, 

@@ -1,0 +1,43 @@
+!cheats for blueMSX :gradius3
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2006 Benoît Delvaux
+0,58208,153,0,lives
+0,58209,1,0,stage (1-11)
+0,58211,0,0,only for stage 4 (one time)
+0,58221,4,0,set speed to 4
+0,58223,7,0,all weapons and upgrades (find)
+0,58238,3,0,choose option (1-3)
+0,58239,2,0,choose shield (1-2)
+0,58240,3,0,choose vixen (0-3)
+0,58259,1,0,red map
+0,58260,1,0,blue map
+0,58261,1,0,green map 
+0,58262,1,0,spacefighter shield
+0,58263,1,0,extra sensory device
+0,58267,0,0,activate hard
+0,58268,1,0,activate find
+0,58269,2,0,activate good (1=hard)
+0,58270,1,0,activate expand
+0,58880,3,0,shield on 1=off 3=on
+0,58888,2,0,options
+0,58896,1,0,options
+0,58912,2,0,options
+0,58928,7,0,shoot or laser (1-12)
+! 1 = normal shoot 2 = back shoot
+! 3 = up shoot 4 = down shoot
+! 5 = laser 
+! 6 = meteor laser 
+! 7 = screw laser
+! 8 = extended blaster 
+! 9 = vector laser
+! 10 = ripple laser
+! 11 = fire blaster
+! 12 = big fire blaster
+0,58929,13,0,extended shoot or laser (1-4;13-14)
+! 1 = normal beam 2 = tail beam 
+! 3 = up double 4 = down double 
+! 13 = up laser 14 = down laser
+0,58930,19,0,missile (16-20)
+! 16 = normal 17 = photon 18 = napalm
+! 19 = guided 20 = hawkwind
+0,58946,16,0,double way missile (with vixen=3)

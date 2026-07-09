@@ -1,0 +1,26 @@
+!cheats for blueMSX :gradius1
+!also called Nemesis 1
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2006 Benoît Delvaux
+0,57440,153,0,lives
+0,57441,1,0,stage (1-8 normal; 9-12 bonus)
+0,57454,0,0,use unlimited hype
+0,57457,0,0,use unlimited per stage hyper
+0,57611,4,0,speed set to 4
+0,57650,1,0,missile
+0,57651,1,0,double
+0,57652,1,0,laser
+0,57653,1,0,option
+0,57654,2,0,shield
+0,57856,1,0,shield off
+0,57856,3,0,shield on
+0,57857,10,0,shield
+0,57858,8,0,always hyper
+0,57867,2,0,option
+0,57868,0,0,disable normal shoot
+0,57869,2,0,enable double
+0,57870,2,0,enable laser
+0,57871,2,0,enable missile
+0,57888,1,0,enable option 1
+0,57920,1,0,enable option 2
+0,61684,1,0,simulate twinbee in slot 2

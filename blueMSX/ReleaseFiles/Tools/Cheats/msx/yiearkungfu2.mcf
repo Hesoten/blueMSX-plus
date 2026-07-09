@@ -1,0 +1,15 @@
+!cheats for blueMSX :yiearkungfu2
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2008 Benoît Delvaux
+0,57429,153,0,lives in mode 1 player
+0,57446,0,0,Yen-Pei as enemy in mode 1 player
+0,57446,1,0,Lan-Fan as enemy in mode 1 player
+0,57446,2,0,Po-Chin as enemy in mode 1 player
+0,57446,3,0,Wen-Hu as enemy in mode 1 player
+0,57446,4,0,Wei-Chin as enemy in mode 1 player
+0,57446,5,0,Mei-Ling as enemy in mode 1 player
+0,57446,6,0,Han-Chen as enemy in mode 1 player
+0,57446,7,0,Li-Jen as enemy in mode 1 player
+0,57600,72,0,power player 1 (de-select to get bonus)
+0,57602,1,0,kill enemy with one hit
+0,58014,255,0,invincible for bosses

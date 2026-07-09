@@ -85,7 +85,11 @@ void langInitSwedish(LanguageStrings* ls)
     ls->errorDirAsDskOverflow   = "%d fil(er) (%d KB totalt) får inte plats i 720 KB-diskavbilden och hoppades över.";
     ls->errorNoHelp             = "Kunde inte hitta hjälpfilen.";
     ls->errorStartEmu           = "Misslyckades att starta emulatorn.";
-    ls->errorMissingFiles       = "Följande filer som refereras av sparat tillstånd kunde inte laddas:";
+    ls->errorStartEmuNoMachine           = "Ingen MSX-maskin är inställd för emulering. Välj en under Egenskaper -> Emulering -> MSX familj.";
+    ls->errorStartEmuMachinesDirMissing  = "Mappen Machines hittades inte.";
+    ls->errorStartEmuMachineNotFound     = "Den valda maskinkonfigurationen '%s' hittades inte.";
+    ls->errorStartEmuConfigInvalid       = "Det gick inte att läsa config.ini för maskinkonfigurationen '%s'. Filen kan vara skadad eller från en inkompatibel version.";
+    ls->errorMissingFiles       = "Följande filer kunde inte laddas:";
     ls->errorPortableReadonly   = "Flyttbar enhet är inte skrivbar";
     ls->infoTitle               = "blueMSX+ Info";
     ls->infoGameReaderRedirect  = "blueMSX+ stöder inte MSX Game Reader direkt (den ursprungliga XP-drivrutinen från ASCII fungerar inte längre på moderna Windows).\n\nÖppna MSX Game Reader - Web Dumper (av Kunihiko Ohnaka) i webbläsaren istället?";
@@ -168,6 +172,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->menuCartEseRam          = "Ese-RAM";             // New in 2.7
     ls->menuCartEseSCC          = "Ese-SCC";             // New in 2.7
     ls->menuCartMegaFlashRom    = "Mega Flash ROM";      // New in 2.7
+    ls->menuCartFlashCart       = "Flash-kassetter";
 
     ls->menuDiskInsertNew       = "Sätt in ny diskett fil";
     ls->menuDiskInsertCdrom     = "Sätt in CD-Rom";      // New in 2.7

@@ -1,0 +1,23 @@
+!cheats for blueMSX :arkanoid2
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2006 Benoît Delvaux
+0,51072,0,0,round (right:0-34; left:128-162)
+0,51081,3,0,visible laser
+0,51081,5,0,long bat
+0,51081,6,0,6 balls
+0,51081,7,0,3 balls
+0,51081,8,0,bat with extension
+0,51081,11,0,2 bats
+0,51081,12,0,mini-bat (hard game !)
+0,51082,40,0,infinite lives player 1
+0,51086,0,0,open doors to next round
+0,51092,0,0,time
+0,57226,40,0,infinite lives player 2
+0,57371,1,0,invulnerable
+0,57373,8,0,normal ball speed
+0,58065,0,0,all bonuses are frozen
+0,58078,1,0,magnetic ball
+0,58082,1,0,invisible laser
+0,58086,1,0,all destroying ball
+0,58434,0,0,invulnerable (de-select between rounds)
+0,58442,0,0,invulnerable

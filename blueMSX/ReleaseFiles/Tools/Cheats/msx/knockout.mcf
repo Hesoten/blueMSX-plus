@@ -1,0 +1,7 @@
+!cheats for blueMSX :knockout
+!(c) 2007 Benoît Delvaux
+0,40030,0,0,red energy
+0,40033,0,0,blue energy
+0,40047,255,0,grogginess
+0,40050,0,0,difficulty (0-7)
+0,40056,90,0,time

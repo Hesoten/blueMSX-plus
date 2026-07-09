@@ -1,0 +1,9 @@
+!cheats for blueMSX :monmonmonster
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+0,57345,99,0,lives
+0,57360,0,0,stage(0-3)
+0,57388,99,0,rocks
+0,57389,1,0,extra power bolt shot
+0,57390,1,0,rotating shots
+0,57400,3,0,life
+0,58142,255,0,invulnerable

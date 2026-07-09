@@ -70,10 +70,11 @@ static INT_PTR CALLBACK aboutDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM
                                 "%s\t%s\r\n\r\n"
                                 "%s\r\n\r\n"
                                 "%s\r\n\r\n"
+                                "%s\r\n\r\n\r\n"
                                 "%s\r\n\r\n"
                                 "%s\r\n\r\n\r\n"
                                 "%s\r\n\r\n"
-                        
+
                                 "Daniel Vik\r\n"
                                 "Benoît Delvaux\r\n"
                                 "Tomas Karlsson\r\n"
@@ -152,6 +153,7 @@ static INT_PTR CALLBACK aboutDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM
                         BUILD_DATE,
                         langDlgAboutForkNote(),
                         langDlgAboutLisence(),
+                        langDlgAboutCbios(),
                         langDlgAboutOrigDevel(),
                         langDlgAboutCreat(),
                         langDlgAboutDevel(),

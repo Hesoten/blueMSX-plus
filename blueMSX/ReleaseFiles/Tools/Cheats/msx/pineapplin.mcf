@@ -1,0 +1,15 @@
+!cheats for blueMSX :pineapplin
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+0,49187,9,0,level
+0,49188,9,0,level
+0,49189,9,0,level
+0,52322,255,0,energy
+0,52324,255,0,energy
+0,52326,99,0,lives
+0,57376,1,0,bat pos
+0,57377,0,0,bat pos
+0,57392,1,0,turtle pos
+0,57393,0,0,turtle pos
+0,57408,1,0,snake pos
+0,57409,0,0,snake pos
+0,57936,5,0,bridge always closed (just walk to next stage)

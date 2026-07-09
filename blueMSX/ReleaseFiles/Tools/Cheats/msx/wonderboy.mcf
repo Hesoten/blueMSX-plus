@@ -1,0 +1,10 @@
+!cheats for blueMSX :wonderboy
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2009 Benoît Delvaux
+0,57353,212,0,invulnerable
+0,57364,0,0,y-pos (0-160)
+0,57365,0,0,x-pos (0-240)
+0,57373,0,0,invulnerable
+0,57513,255,0,partially invincible (de-select before end of stage) 
+0,57522,10,0,lives
+0,57523,32,0,power (de-select to get bonus)

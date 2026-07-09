@@ -1,0 +1,9 @@
+!cheats for blueMSX :capitansevilla1
+!(c) 2007 Benoît Delvaux
+0,24192,3,0,lives
+0,24196,6,0,sausage
+0,24199,0,0,capitan x-pos (0-255)
+0,24200,0,0,capitan y-pos (0-255)
+0,24209,0,0,invulnerable (but don't fall in water)
+0,24448,0,0,invulnerable (but don't fall in water)
+0,64901,255,0,superpower

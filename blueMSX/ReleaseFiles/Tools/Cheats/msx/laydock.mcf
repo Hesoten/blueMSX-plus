@@ -1,0 +1,27 @@
+!cheats for blueMSX :laydock
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2006 Takafumi
+!(c) 2012 Benoît Delvaux
+0,34329,1,0,player 1 - bulldog option
+0,34329,3,0,player 1 - bulldog + aden options
+0,34329,7,0,player 1- bulldog + aden + condor options
+0,34329,15,0,player 1 - bulldog + aden + condor + killer options
+0,34329,31,0,player 1 - all options
+0,34361,1,0,player 2 - bulldog option
+0,34361,3,0,player 2 - bulldog + aden options
+0,34361,7,0,player 2 - bulldog + aden + condor options
+0,34361,15,0,player 2 - bulldog + aden + condor + killer options
+0,34361,31,0,player 2 - all options
+0,41220,64,0,no time limit for killer option
+0,41314,1,0,player 1 - union mode
+0,41320,153,0,player 1 - shield
+0,41321,153,0,player 1 - shield
+0,41329,5,0,player 1 - shoot speed
+0,41331,1,0,player 2 - union mode
+0,41337,153,0,player 2 - shield
+0,41338,153,0,player 2 - shield
+0,41346,5,0,player 2 - shoot speed
+0,41471,0,0,main weapon - twin
+0,41471,2,0,main weapon - tora
+0,41487,1,0,next stage(1-6)
+0,45145,10,0,no limitation of special option 

@@ -1,0 +1,5 @@
+!cheats for blueMSX :camelotwarriors
+!(c) 2007 Benoît Delvaux
+0,60997,0,0,x-pos (0-255)
+0,60998,0,0,y-pos (0-255)
+0,61060,9,0,lives

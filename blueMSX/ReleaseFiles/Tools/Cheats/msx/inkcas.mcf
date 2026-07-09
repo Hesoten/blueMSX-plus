@@ -1,0 +1,13 @@
+!cheats for blueMSX :inkcas
+!(c) 2006 Albert Beevendorp and (c) 2006 Patrick van Arkel
+!(c) 2008 Benoît Delvaux
+0,28672,1,0,stage (1-24 normal or 1-25 hard)
+0,28675,255,0,panic
+0,28677,16,0,exxon
+0,28684,5,0,lives
+0,28688,0,0,demo mode (all stages are cleared)
+0,28865,2,0,invulnerable (de-select at end of stage)
+0,28866,0,0,invulnerable (de-select at end of stage)
+0,29023,3,0,always red crabs
+0,29072,1,0,no octopus
+0,29088,1,0,no starfish

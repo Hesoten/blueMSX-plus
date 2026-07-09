@@ -86,7 +86,11 @@ void langInitItalian(LanguageStrings* ls)
     ls->errorDirAsDskOverflow           = "%d file (%d KB totali) non sono entrati nell'immagine disco da 720 KB e sono stati saltati.";
     ls->errorNoHelp                     = "Non trovo il file della guida in linea di blueMSX+.";
     ls->errorStartEmu                   = "Avvio dell'emulatore fallito!";
-    ls->errorMissingFiles               = "I seguenti file referenziati dallo stato salvato non possono essere caricati:";
+    ls->errorStartEmuNoMachine          = "Nessuna macchina MSX impostata per l'emulazione. Sceglietene una da Opzioni -> Emulazione -> Modello emulato.";
+    ls->errorStartEmuMachinesDirMissing = "La cartella Machines non è stata trovata.";
+    ls->errorStartEmuMachineNotFound    = "La configurazione di macchina selezionata '%s' non è stata trovata.";
+    ls->errorStartEmuConfigInvalid      = "Impossibile leggere config.ini della configurazione di macchina '%s'. Il file potrebbe essere danneggiato o provenire da una versione incompatibile.";
+    ls->errorMissingFiles               = "Non è stato possibile caricare i seguenti file:";
     ls->errorPortableReadonly           = "Il dispositivo rimovibile è di sola lettura";
     ls->infoTitle                       = "Info blueMSX+";
     ls->infoGameReaderRedirect          = "blueMSX+ non supporta direttamente MSX Game Reader (il driver originale ASCII dell'era XP non funziona più su Windows moderno).\n\nAprire MSX Game Reader - Web Dumper (di Kunihiko Ohnaka) nel browser invece?";
@@ -169,6 +173,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->menuCartEseRam                  = "Ese-RAM";             // New in 2.7
     ls->menuCartEseSCC                  = "Ese-SCC";             // New in 2.7
     ls->menuCartMegaFlashRom            = "Mega Flash ROM";      // New in 2.7
+    ls->menuCartFlashCart               = "Cartucce Flash";
 
     ls->menuDiskInsertNew               = "Inserisci un nuovo disco...";
     ls->menuDiskInsertCdrom             = "Collega l'unità CD-ROM";       // New in 2.7

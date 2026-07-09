@@ -1,0 +1,17 @@
+!cheats for blueMSX :castle
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2007 Benoît Delvaux
+! cherry = all doors are open = value 0 for all addresses between 57357 and 57566 !
+! see the castlemore.mcf file !
+0,58145,9,0,map
+0,58164,0,0,x-pos (0-28)
+0,58165,0,0,y-pos (0-18)
+0,58166,255,0,lives
+0,58167,5,0,dark blue keys
+0,58168,5,0,red keys
+0,58169,5,0,purple keys
+0,58170,5,0,green keys
+0,58171,5,0,light blue keys
+0,58172,5,0,yellow keys
+0,58179,255,0,invulnerable
+0,58180,255,0,air

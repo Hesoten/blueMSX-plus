@@ -42,6 +42,7 @@
 #include "Win32FileTypes.h"
 #include "Win32ThemeClassic.h"
 #include "Board.h"
+#include "Machine.h"
 #include "Led.h"
 #include "Switches.h"
 #include "AudioMixer.h"
@@ -4600,8 +4601,38 @@ static void showStartEmuFailDialogShared(void)
     }
 }
 
-void archShowStartEmuFailDialog() {
-    showStartEmuFailDialogShared();
+/* Diagnoses machineName and shows the specific failure reason; Emulator.c
+** must not also call archEmulationStartFailure() (would double the dialog). */
+void archShowStartEmuFailDialog(const char* machineName)
+{
+    char body[1024];
+    MachineLoadReason reason = machineDiagnose(machineName);
+
+    switch (reason) {
+    case MACHINE_LOAD_NO_NAME:
+        _snprintf(body, sizeof(body) - 1, "%s", langErrorStartEmuNoMachine());
+        break;
+    case MACHINE_LOAD_MACHINES_DIR_MISSING:
+        _snprintf(body, sizeof(body) - 1, "%s",
+                  langErrorStartEmuMachinesDirMissing());
+        break;
+    case MACHINE_LOAD_CONFIG_INVALID:
+        _snprintf(body, sizeof(body) - 1,
+                  langErrorStartEmuConfigInvalid(),
+                  machineName ? machineName : "");
+        break;
+    case MACHINE_LOAD_NOT_FOUND:
+    default:
+        /* Fallback: unexpected reasons show as NOT_FOUND, not a blank body. */
+        _snprintf(body, sizeof(body) - 1,
+                  langErrorStartEmuMachineNotFound(),
+                  machineName ? machineName : "");
+        break;
+    }
+    body[sizeof(body) - 1] = 0;
+
+    MessageBoxLargeU(NULL, langErrorStartEmu(), body, langErrorTitle(),
+                     MB_ICONHAND | MB_OK);
 }
 
 void archShowLanguageDialog()

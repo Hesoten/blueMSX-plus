@@ -1,0 +1,18 @@
+!cheats for blueMSX :gridtrap
+!(c) 2012 Benoît Delvaux
+0,61282,3,0,lives player 1
+0,61283,3,0,lives player 2
+0,61285,9,0,time
+0,61288,1,0,level(1-9)
+0,61293,5,0,demo mode
+0,61298,0,0,first boot is frozen
+0,61300,0,0,second boot is frozen
+0,61302,0,0,third boot is frozen
+0,61304,0,0,fourth boot is frozen
+
+
+
+
+
+
+

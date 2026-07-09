@@ -1,0 +1,19 @@
+!cheats for blueMSX :hauntedhouse
+!(c) 2006 Albert Beevendorp and (c) 2006 Patrick van Arkel
+!(c) 2007 Benoît Delvaux
+0,16424,6,0,lives
+0,16428,9,0,time
+0,16429,9,0,time
+0,16430,9,0,time
+0,29822,3,0,keys
+0,29823,4,0,shoots (F1)
+0,29824,1,0,candle
+0,29825,1,0,mirror
+0,29826,1,0,cross
+0,29827,1,0,rosary
+0,29828,1,0,display keys
+0,29831,1,0,display shoots
+0,29834,1,0,display candle
+0,29837,1,0,display mirror
+0,29840,1,0,display cross
+0,29843,1,0,display rosary

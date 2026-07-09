@@ -45,6 +45,11 @@ typedef struct {
 
 #define ST_IDLE     0
 #define ST_IDENT    1
+#define ST_CFI      2
+
+/* WBP for S29GL064 uses a 32-byte page + 4 setup + 1 confirm = 37 slots.
+** Round up a bit for future headroom. */
+#define AMDFLASH_CMD_SLOTS 40
 
 struct AmdFlash
 {
@@ -55,7 +60,7 @@ struct AmdFlash
     int    flashSize;
     int    sectorSize;
     int    isX8X16;             /* x16 chip in x8 mode: cmd-decode address is byte_addr >> 1 */
-    AmdCmd cmd[8];
+    AmdCmd cmd[AMDFLASH_CMD_SLOTS];
     int    cmdIdx;
     int    writeProtectMask;
     char   sramFilename[512];
@@ -150,23 +155,127 @@ static int checkCommandManifacturer(AmdFlash* rm)
     return 0;
 }
 
+/* JEDEC CFI Query entry: single-cycle write of 0x98 to any address.
+** S29GL064 datasheet section "CFI Query Command".  Sets ST_CFI and
+** clears cmd buffer so the next write starts a fresh sequence. */
+static int checkCommandCfi(AmdFlash* rm)
+{
+    if (rm->cmdIdx == 1 && rm->cmd[0].value == 0x98) {
+        rm->state = ST_CFI;
+        rm->cmdIdx = 0;
+        return 1;
+    }
+    return 0;
+}
+
+/* Write Buffer Program: aa/55, SA/25, SA/(N-1), N data bytes within one
+** 32-byte page of one sector, then SA/29 confirm.  MSX flashers use this
+** to program the S29GL064 32 bytes at a time. */
+static int checkCommandBufferProgram(AmdFlash* rm)
+{
+    const UInt32 pageMask = 0x1F;
+    UInt32 sectorMask;
+    UInt32 sectorOfSetup;
+    UInt32 pageBase;
+    int    dataCount;
+    int    i;
+
+    if (rm->cmdIdx > 0 && (cmdAddrBits(rm, rm->cmd[0].address) != rm->cmdAddr1 || rm->cmd[0].value != 0xaa)) return 0;
+    if (rm->cmdIdx > 1 && (cmdAddrBits(rm, rm->cmd[1].address) != rm->cmdAddr2 || rm->cmd[1].value != 0x55)) return 0;
+    if (rm->cmdIdx > 2 && rm->cmd[2].value != 0x25) return 0;
+    if (rm->cmdIdx < 4) return 1;
+
+    sectorMask    = ~((UInt32)rm->sectorSize - 1);
+    sectorOfSetup = rm->cmd[2].address & sectorMask;
+    dataCount     = rm->cmd[3].value + 1;
+
+    if (dataCount > 32) return 0;
+    if ((rm->cmd[3].address & sectorMask) != sectorOfSetup) return 0;
+    if (rm->cmdIdx < 5) return 1;
+
+    if ((rm->cmd[4].address & sectorMask) != sectorOfSetup) return 0;
+    pageBase = rm->cmd[4].address & ~pageMask;
+
+    if (rm->cmdIdx <= 4 + dataCount) {
+        /* Still filling data buffer; each byte must stay in same 32-byte page. */
+        UInt32 lastAddr = rm->cmd[rm->cmdIdx - 1].address;
+        if ((lastAddr & ~pageMask) != pageBase) return 0;
+        return 1;
+    }
+
+    /* Confirm cycle: cmd[4+dataCount] value must be 0x29 within the setup sector. */
+    if (rm->cmdIdx > 5 + dataCount) return 0;
+    if (rm->cmd[rm->cmdIdx - 1].value != 0x29) return 0;
+    if ((rm->cmd[rm->cmdIdx - 1].address & sectorMask) != sectorOfSetup) return 0;
+
+    for (i = 4; i < 4 + dataCount; i++) {
+        UInt32 addr = rm->cmd[i].address & (rm->flashSize - 1);
+        if (((rm->writeProtectMask >> (addr / rm->sectorSize)) & 1) == 0) {
+            rm->romData[addr] &= rm->cmd[i].value;
+        }
+    }
+    return 0;
+}
+
 UInt8 amdFlashRead(AmdFlash* rm, UInt32 address)
 {
-    if (rm->state == ST_IDENT) {
+    if (rm->state == ST_IDENT || rm->state == ST_CFI) {
         rm->cmdIdx = 0;
-//        printf("R %.4x: XX\n", address);
-        /* Auto-select / device-id.  x8 mode: mfr @ 0x00, dev @ 0x01.
-        ** x8-of-x16 mode: addresses are word-shifted per MFR SCC+ SD. */
+        /* Autoselect IDs (Cypress S29GL064).  MFR=01, DEV=7E, ext=10/00.
+        ** Byte offsets 00/02/1C/1E per datasheet; also visible in CFI. */
         if (rm->isX8X16) {
             switch (address & 0x7F) {
-            case 0x00: return 0x20;
+            case 0x00: return 0x01;
             case 0x02: return 0x7E;
             case 0x04: return (rm->writeProtectMask >> (address / rm->sectorSize)) & 1;
             case 0x06: return 0x08;
             case 0x1C: return 0x10;
             case 0x1E: return 0x00;
-            default:   return 0x00;
             }
+            if (rm->state == ST_CFI) {
+                /* S29GL064 CFI Query Structure (x8 byte addresses).  Odd
+                ** byte offsets = high byte of x16 word = 0x00. */
+                switch (address & 0x7F) {
+                case 0x20: return 'Q';
+                case 0x22: return 'R';
+                case 0x24: return 'Y';
+                case 0x26: return 0x02;      /* AMD/Spansion command set */
+                case 0x28: return 0x00;
+                case 0x2A: return 0x40;      /* Extended query offset */
+                case 0x2C: return 0x00;
+                case 0x2E: return 0x00;      /* Alt cmd set (none) */
+                case 0x30: return 0x00;
+                case 0x32: return 0x00;      /* Alt ext query offset (none) */
+                case 0x34: return 0x00;
+                case 0x36: return 0x27;      /* Vcc min 2.7 V */
+                case 0x38: return 0x36;      /* Vcc max 3.6 V */
+                case 0x3A: return 0x00;      /* Vpp min */
+                case 0x3C: return 0x00;      /* Vpp max */
+                case 0x3E: return 0x03;      /* typ single-byte prog time (log2 us) */
+                case 0x40: return 0x05;      /* typ buffer prog time */
+                case 0x42: return 0x0A;      /* typ block erase time (log2 ms) */
+                case 0x44: return 0x0F;      /* typ chip erase time */
+                case 0x46: return 0x02;      /* max prog timeout (2^N x typ) */
+                case 0x48: return 0x01;      /* max buffer prog timeout */
+                case 0x4A: return 0x03;      /* max block erase timeout */
+                case 0x4C: return 0x02;      /* max chip erase timeout */
+                case 0x4E: {                 /* device size = 2^N bytes */
+                    int n = 0, s = rm->flashSize;
+                    while (s > 1) { s >>= 1; n++; }
+                    return (UInt8)n;
+                }
+                case 0x50: return 0x02;      /* interface: x8/x16 async */
+                case 0x52: return 0x00;
+                case 0x54: return 0x05;      /* max write buffer = 2^5 bytes */
+                case 0x56: return 0x00;
+                case 0x58: return 0x01;      /* one uniform erase region */
+                case 0x5A: return (UInt8)((rm->flashSize / rm->sectorSize - 1) & 0xFF);
+                case 0x5C: return (UInt8)(((rm->flashSize / rm->sectorSize - 1) >> 8) & 0xFF);
+                case 0x5E: return (UInt8)((rm->sectorSize / 256) & 0xFF);
+                case 0x60: return (UInt8)(((rm->sectorSize / 256) >> 8) & 0xFF);
+                }
+            }
+            return 0x00;
         }
         switch (address & 0x03) {
         case 0: 
@@ -192,8 +301,6 @@ void amdFlashWrite(AmdFlash* rm, UInt32 address, UInt8 value)
     if (rm->cmdIdx < sizeof(rm->cmd) / sizeof(rm->cmd[0])) {
         int stateValid = 0;
 
-//        { static int x = 0; if (++x < 220) printf("W %.4x: %.2x  %d\n", address, value, rm->cmdIdx);}
-
         rm->cmd[rm->cmdIdx].address = address;
         rm->cmd[rm->cmdIdx].value   = value;
         rm->cmdIdx++;
@@ -202,8 +309,8 @@ void amdFlashWrite(AmdFlash* rm, UInt32 address, UInt8 value)
         stateValid |= checkCommandProgram(rm);
         stateValid |= checkCommandQuadrupleByteProgram(rm);
         stateValid |= checkCommandEraseChip(rm);
-        /* 0xF0 resets only when stateValid=0; mid-sequence 0xF0 is data
-        ** (e.g. QBP data phase) and must not drop the command buffer. */
+        stateValid |= checkCommandCfi(rm);
+        stateValid |= checkCommandBufferProgram(rm);
 
         if (!stateValid) {
             rm->state = ST_IDLE;
@@ -234,7 +341,7 @@ void amdFlashSaveState(AmdFlash* rm)
     SaveState* state = saveStateOpenForWrite("amdFlash");
     int i;
 
-    for (i = 0; i < 8; i++) {
+    for (i = 0; i < AMDFLASH_CMD_SLOTS; i++) {
         char buf[32];
         sprintf(buf, "cmd_%d_address", i);
         saveStateSet(state, buf,   rm->cmd[i].address);
@@ -252,7 +359,7 @@ void amdFlashLoadState(AmdFlash* rm)
     SaveState* state = saveStateOpenForRead("amdFlash");
     int i;
 
-    for (i = 0; i < 8; i++) {
+    for (i = 0; i < AMDFLASH_CMD_SLOTS; i++) {
         char buf[32];
         sprintf(buf, "cmd_%d_address", i);
         rm->cmd[i].address = saveStateGet(state, buf,   0);
@@ -298,22 +405,19 @@ AmdFlash* amdFlashCreate(AmdType type, int flashSize, int sectorSize, UInt32 wri
         size = flashSize;
     }
 
-    /* Always start from a blank-flash baseline so callers can omit both
-    ** the seed buffer and the SRAM filename without inheriting garbage. */
+    /* Seed: blank -> source ROM -> sram overlay.  Sram wins so MSX-side flash
+    ** writes persist across sessions; delete bin/SRAM/*.sram to reset to the
+    ** factory image.  Manbow2 relies on writeProtectMask instead of order. */
     memset(rm->romData, 0xff, flashSize);
-
-    if (rm->sramFilename[0]) {
-        sramLoad(rm->sramFilename, rm->romData, rm->flashSize, NULL, 0);
-    }
 
     if (size > 0) {
         memcpy(rm->romData, romData, size);
     }
-#if 0
-    if (rm->sramFilename[0] && loadSram) {
+
+    if (rm->sramFilename[0]) {
         sramLoad(rm->sramFilename, rm->romData, rm->flashSize, NULL, 0);
     }
-#endif
+    (void)loadSram;
 
     return rm;
 }

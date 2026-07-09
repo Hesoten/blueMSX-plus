@@ -85,7 +85,11 @@ void langInitCatalan(LanguageStrings* ls)
     ls->errorDirAsDskOverflow   = "%d fitxer(s) (%d KB en total) no caben a la imatge de disc de 720 KB i s'han ignorat.";
     ls->errorNoHelp             = "No s'ha pogut trobar el fitxer d'ajuda de blueMSX+.";
     ls->errorStartEmu           = "No s'ha pogut iniciar l'emulador MSX.";
-    ls->errorMissingFiles       = "No s'han pogut carregar els següents fitxers referenciats per l'estat desat:";
+    ls->errorStartEmuNoMachine           = "No hi ha cap màquina MSX configurada per a l'emulació. Trieu-ne una a Opcions -> Emulació -> Màquina MSX.";
+    ls->errorStartEmuMachinesDirMissing  = "No s'ha trobat la carpeta Machines.";
+    ls->errorStartEmuMachineNotFound     = "No s'ha pogut trobar la configuració de màquina seleccionada '%s'.";
+    ls->errorStartEmuConfigInvalid       = "No s'ha pogut llegir config.ini de la configuració de màquina '%s'. El fitxer pot estar malmès o provenir d'una versió incompatible.";
+    ls->errorMissingFiles       = "No s'han pogut carregar els següents fitxers:";
     ls->errorPortableReadonly   = "El dispositiu portàtil és de només lectura";
     ls->infoTitle               = "blueMSX+ Informació";
     ls->infoGameReaderRedirect  = "blueMSX+ no admet directament el MSX Game Reader (el controlador original d'ASCII de l'era XP ja no funciona a Windows modern).\n\nVoleu obrir el MSX Game Reader - Web Dumper (per Kunihiko Ohnaka) al vostre navegador?";
@@ -168,6 +172,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->menuCartEseRam          = "Ese-RAM";             // New in 2.7
     ls->menuCartEseSCC          = "Ese-SCC";             // New in 2.7
     ls->menuCartMegaFlashRom    = "Mega Flash ROM";      // New in 2.7
+    ls->menuCartFlashCart       = "Cartutxos Flash";
 
     ls->menuDiskInsertNew       = "Insereix una nova imatge de disc";
     ls->menuDiskInsertCdrom     = "Insereix un CD-Rom";       // New in 2.7

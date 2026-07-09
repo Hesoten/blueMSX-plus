@@ -1,0 +1,12 @@
+!cheats for blueMSX :blagger
+!(c) 2006 Albert Beevendorp and (c) 2006 Patrick van Arkel
+!(c) 2007 Benoît Delvaux
+0,37427,153,0,lives
+0,39428,5,0,keys
+0,39557,255,0,air (de-select to get bonus)
+0,40645,0,0,no enemy 1
+0,40652,0,0,no enemy 2
+0,40659,0,0,no enemy 3
+0,40666,0,0,no enemy 4
+0,40668,12,0,x-pos (12-199)
+0,40669,0,0,y-pos(0-118)

@@ -85,7 +85,11 @@ void langInitSpanish(LanguageStrings* ls)
     ls->errorDirAsDskOverflow   = "%d archivo(s) (%d KB en total) no caben en la imagen de disco de 720 KB y se han omitido.";
     ls->errorNoHelp             = "Imposible encontrar archivo de ayuda de BlueMSX.";
     ls->errorStartEmu           = "Error al iniciar MSX emulator.";
-    ls->errorMissingFiles       = "Los siguientes archivos referenciados por el estado guardado no pudieron cargarse:";
+    ls->errorStartEmuNoMachine           = "No hay ninguna máquina MSX configurada para la emulación. Elija una en Opciones -> Emulación -> Familia MSX.";
+    ls->errorStartEmuMachinesDirMissing  = "No se encontró la carpeta Machines.";
+    ls->errorStartEmuMachineNotFound     = "No se encontró la configuración de máquina seleccionada '%s'.";
+    ls->errorStartEmuConfigInvalid       = "No se pudo leer config.ini de la configuración de máquina '%s'. El archivo puede estar dañado o pertenecer a una versión incompatible.";
+    ls->errorMissingFiles       = "No se pudieron cargar los siguientes archivos:";
     ls->errorPortableReadonly   = "El dispositivo portable es sólo lectura";        
     ls->infoTitle               = "Info de blueMSX+";
     ls->infoGameReaderRedirect  = "blueMSX+ no admite directamente MSX Game Reader (el controlador original de ASCII de la era XP ya no funciona en Windows moderno).\n\n¿Abrir MSX Game Reader - Web Dumper (por Kunihiko Ohnaka) en su navegador?";
@@ -168,6 +172,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->menuCartEseRam          = "Ese-RAM";             // New in 2.7
     ls->menuCartEseSCC          = "Ese-SCC";             // New in 2.7
     ls->menuCartMegaFlashRom    = "Mega Flash ROM";      // New in 2.7
+    ls->menuCartFlashCart       = "Cartuchos Flash";
 
     ls->menuDiskInsertNew       = "Insertar nueva imagen de Disco";              
     ls->menuDiskInsertCdrom     = "Insertar CD-Rom";       // New in 2.7

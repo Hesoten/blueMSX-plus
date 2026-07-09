@@ -1,0 +1,68 @@
+!cheats for blueMSX :penguinadventure
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+!(c) 2008 Benoît Delvaux
+0,57474,0,0,level (0-1)
+0,57478,153,0,score
+0,57479,153,0,score
+0,57480,153,0,score
+0,57481,153,0,fishes
+0,57482,9,0,fishes
+0,57483,153,0,time (de-select to get bonus)
+0,57484,9,0,time (de-select to get bonus)
+0,57486,0,0,faster to the end
+0,57488,153,0,lives
+0,57531,124,0,y-pos wings
+0,57532,221,0,x-pos wings
+0,57533,2,0,wings
+0,57536,2,0,always green hearts
+0,57536,4,0,always yellow hearts
+0,57559,1,0,propeller in secret bag
+0,57559,2,0,gun in secret bag
+0,57559,3,0,metal helmet in secret bag
+0,57559,4,0,silver helmet in secret bag
+0,57559,5,0,protective vest in secret bag
+0,57559,6,0,bell in secret bag
+0,57559,7,0,bracelet in secret bag
+0,57559,8,0,ring in secret bag
+0,57559,9,0,necklace in secret bag
+0,57559,10,0,goggles in secret bag
+0,57559,11,0,torch in secret bag
+0,57559,12,0,map in secret bag
+0,57559,13,0,blue boots in secret bag
+0,57559,14,0,red shoes in secret bag
+0,57559,15,0,golden feather in secret bag
+0,57559,16,0,crossed tiara in secret bag
+0,57559,17,0,priest robe in secret bag
+0,57559,18,0,armour in secret bag
+0,57562,124,0,y-pos secret bag
+0,57563,221,0,x-pos secret bag (de-select to get item only one time)
+0,57565,8,0,get 8 dancing penguins
+0,57566,1,0,pause counter for good ending
+0,57696,1,0,green shoes
+0,57697,1,0,propeller
+0,57698,1,0,gun 
+0,57699,3,0,metal helmet 
+0,57700,3,0,silver helmet
+0,57701,3,0,protective vest 
+0,57702,1,0,bell 
+0,57703,1,0,bracelet
+0,57704,1,0,ring
+0,57705,1,0,necklace
+0,57706,2,0,goggles
+0,57707,3,0,torch
+0,57708,1,0,map
+0,57709,1,0,blue boots
+0,57710,1,0,red shoes
+0,57711,1,0,golden feather
+0,57712,1,0,crossed tiara
+0,57713,1,0,priest robe
+0,57714,1,0,armour
+0,57841,1,0,invulnerable (not against dragons)
+0,57859,15,0,can fly
+0,58684,19,0,kill dragon with one shoot
+0,61074,112,0,flying cloud
+0,61075,14,0,flying cloud
+0,61078,116,0,flying cloud
+0,61079,14,0,flying cloud
+0,61687,254,0,noriko cheat
+0,61687,255,0,kazumi cheat

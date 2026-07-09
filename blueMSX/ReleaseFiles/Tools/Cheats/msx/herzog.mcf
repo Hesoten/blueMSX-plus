@@ -1,0 +1,9 @@
+!cheats for blueMSX :herzog
+!(c) 2005 Albert Beevendorp and (c) 2005 Patrick van Arkel
+0,53299,0,0,own damage 
+0,53300,0,0,base damage 
+0,53301,255,0,max money 
+0,53302,255,0,max money 
+0,53312,99,0,lives
+0,53383,255,0,blow up player 2 base
+0,53683,255,0,wait off cheat (ctrl-esc-F5)
