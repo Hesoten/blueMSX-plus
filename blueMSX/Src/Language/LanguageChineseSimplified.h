@@ -85,7 +85,11 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->errorDirAsDskOverflow   = "%d 个文件 (总共 %d KB) 未能适配 720 KB 磁盘镜像，已跳过。";
     ls->errorNoHelp             = "无法找到 blueMSX+ 帮助文件。";
     ls->errorStartEmu           = "无法启动 MSX 模拟器。";
-    ls->errorMissingFiles       = "无法加载存档引用的以下文件：";
+    ls->errorStartEmuNoMachine           = "尚未设置用于模拟的 MSX 机器。请在 选项 -> 模拟 -> MSX 机型 中选择一个。";
+    ls->errorStartEmuMachinesDirMissing  = "找不到 Machines 文件夹。";
+    ls->errorStartEmuMachineNotFound     = "找不到所选的机器配置 '%s'。";
+    ls->errorStartEmuConfigInvalid       = "无法读取机器配置 '%s' 的 config.ini。该文件可能已损坏，或来自不兼容的版本。";
+    ls->errorMissingFiles       = "无法加载以下文件：";
     ls->errorPortableReadonly   = "便携设备为只读";        
     ls->infoTitle               = "blueMSX+ 信息";
     ls->infoGameReaderRedirect  = "blueMSX+ 不直接支持 MSX Game Reader (ASCII 公司 XP 时代的原版驱动无法在现代 Windows 上运行)。\n\n是否改为在浏览器中打开 MSX Game Reader - Web Dumper (Kunihiko Ohnaka 制作)?";

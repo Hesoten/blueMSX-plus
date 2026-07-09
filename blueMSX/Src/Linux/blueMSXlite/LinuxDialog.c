@@ -44,7 +44,7 @@ void archShowMachineEditor() {}
 void archShowNoRomInZipDialog() {}
 void archShowNoDiskInZipDialog() {}
 void archShowNoCasInZipDialog() {}
-void archShowStartEmuFailDialog() {}
+void archShowStartEmuFailDialog(const char* machineName) {}
 
 void archMaximizeWindow() {}
 void archMinimizeWindow() {}

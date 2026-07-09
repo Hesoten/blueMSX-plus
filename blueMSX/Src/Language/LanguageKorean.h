@@ -85,7 +85,11 @@ void langInitKorean(LanguageStrings* ls)
     ls->errorDirAsDskOverflow   = "%d 개의 파일(총 %d KB)이 720 KB 디스크 이미지에 맞지 않아 건너뛰었습니다.";
     ls->errorNoHelp             = "blueMSX+ 도움말을 찾을 수 없습니다.";
     ls->errorStartEmu           = "MSX 에뮬레이터를 시작할 수 없습니다.";
-    ls->errorMissingFiles       = "저장된 상태가 참조하는 다음 파일을 로드할 수 없습니다:";
+    ls->errorStartEmuNoMachine           = "에뮬레이션에 사용할 MSX 머신이 설정되지 않았습니다. 옵션 -> 에뮬레이션 -> MSX 머신 에서 선택하세요.";
+    ls->errorStartEmuMachinesDirMissing  = "Machines 폴더를 찾을 수 없습니다.";
+    ls->errorStartEmuMachineNotFound     = "선택한 머신 구성 '%s'을(를) 찾을 수 없습니다.";
+    ls->errorStartEmuConfigInvalid       = "머신 구성 '%s'의 config.ini를 읽을 수 없습니다. 파일이 손상되었거나 호환되지 않는 버전에서 온 것일 수 있습니다.";
+    ls->errorMissingFiles       = "다음 파일을 로드할 수 없습니다:";
     ls->errorPortableReadonly   = "이동 장치는 읽기 전용입니다.";        
     ls->infoTitle               = "blueMSX+ 정보";
     ls->infoGameReaderRedirect  = "blueMSX+ 는 MSX Game Reader 를 직접 지원하지 않습니다 (ASCII 사의 XP 시대 정품 드라이버는 최신 Windows 에서 작동하지 않습니다).\n\n대신 MSX Game Reader - Web Dumper (Kunihiko Ohnaka 제작) 를 브라우저에서 열까요?";

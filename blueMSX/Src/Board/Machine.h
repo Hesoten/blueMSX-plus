@@ -121,6 +121,19 @@ void machineLoadState(Machine* machine);
 void machineSaveState(Machine* machine);
 
 void machineSetDirectory(const char* dir);
+const char* machineGetDirectory(void);
+
+/* Why machineCreate() would fail for machineName, without actually loading.
+** Used by the Win32 "failed to start" dialog to explain the specific cause. */
+typedef enum {
+    MACHINE_LOAD_OK,                  /* would load */
+    MACHINE_LOAD_NO_NAME,             /* no machineName, or Machines/ empty */
+    MACHINE_LOAD_MACHINES_DIR_MISSING,/* Machines/ directory not present */
+    MACHINE_LOAD_NOT_FOUND,           /* not there but other machines exist */
+    MACHINE_LOAD_CONFIG_INVALID       /* readMachine() rejected the config */
+} MachineLoadReason;
+
+MachineLoadReason machineDiagnose(const char* machineName);
 
 #endif
 

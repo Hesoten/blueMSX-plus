@@ -134,21 +134,29 @@ const char* boardGetMissingFile(int idx) {
     return missingFiles[idx];
 }
 
-static void boardReportMissingFile(const char* file, const char* inZip) {
-    if (missingFileCount >= MISSING_FILES_MAX) return;
+void boardReportMissingFile(const char* file, const char* inZip) {
+    int i;
+    char entry[512];
     /* Convert the host ACP path to UTF-8 (older .cap/.sta stored paths
     ** in whatever ACP the saving host used). */
     char fileUtf8[260];
     char inZipUtf8[260];
+    if (missingFileCount >= MISSING_FILES_MAX) return;
     AnyToUtf8(file ? file : "",   fileUtf8,  sizeof(fileUtf8));
     AnyToUtf8(inZip ? inZip : "", inZipUtf8, sizeof(inZipUtf8));
     if (inZipUtf8[0]) {
-        sprintf_s(missingFiles[missingFileCount], sizeof(missingFiles[0]),
-                  "%s (in %s)", inZipUtf8, fileUtf8);
+        sprintf_s(entry, sizeof(entry), "%s (in %s)", inZipUtf8, fileUtf8);
     } else {
-        sprintf_s(missingFiles[missingFileCount], sizeof(missingFiles[0]),
-                  "%s", fileUtf8);
+        sprintf_s(entry, sizeof(entry), "%s", fileUtf8);
     }
+    /* Dedupe: multi-slot machines can reference the same ROM more than
+    ** once, and machineInitialize hits each slot separately. */
+    for (i = 0; i < missingFileCount; i++) {
+        if (0 == strcmp(missingFiles[i], entry)) {
+            return;
+        }
+    }
+    sprintf_s(missingFiles[missingFileCount], sizeof(missingFiles[0]), "%s", entry);
     missingFileCount++;
 }
 
@@ -1130,6 +1138,9 @@ int boardRun(Machine* machine,
 
     boardUpdateDisketteInfo();
 
+    /* Shared list: state pre-validation and machineInitialize both feed it. */
+    boardClearMissingFiles();
+
     if (stateFile != NULL) {
         int   size;
         char *version;
@@ -1157,7 +1168,6 @@ int boardRun(Machine* machine,
     ** dialog instead of silently broken slots / failed BIOS reads. */
     if (loadState) {
         int i;
-        boardClearMissingFiles();
         if (deviceInfo != NULL) {
             for (i = 0; i < 2; i++) {
                 /* Special Carts (MEGA-SCSI, MFR SCC+ SD, ExtraRAM, ...) use

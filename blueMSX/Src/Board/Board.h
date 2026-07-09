@@ -130,10 +130,13 @@ int boardCaptureCheckFinish(void);
 ** cause a record-end (emulatorStop, menu Stop, per-frame poll for RLE overflow). */
 int boardCaptureConsumePendingToast(char* out, int outSize);
 
-/* Missing-file report populated by boardRun's state pre-validation. */
+/* Missing-file report populated by boardRun's state pre-validation and by
+** machineInitialize when a slot ROM fails to load on plain (non-state)
+** launch. Reporter dedupes and clips at MISSING_FILES_MAX. */
 void        boardClearMissingFiles(void);
 int         boardGetMissingFileCount(void);
 const char* boardGetMissingFile(int idx);
+void        boardReportMissingFile(const char* file, const char* inZip);
 
 UInt8 boardCaptureUInt8(UInt8 logId, UInt8 value);
 

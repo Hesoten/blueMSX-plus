@@ -82,6 +82,11 @@ typedef struct {
     char* errorDirAsDskOverflow;
     char* errorNoHelp;
     char* errorStartEmu;
+    /* Machine-load failure details shown as the body of errorStartEmu. */
+    char* errorStartEmuNoMachine;         /* no machine selected */
+    char* errorStartEmuMachinesDirMissing;/* Machines/ absent */
+    char* errorStartEmuMachineNotFound;   /* %s = machine name */
+    char* errorStartEmuConfigInvalid;     /* %s = machine name */
     char* errorMissingFiles;
     char* errorPortableReadonly;
     char* infoColorDepth;

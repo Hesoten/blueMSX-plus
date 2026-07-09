@@ -85,7 +85,11 @@ void langInitRussian(LanguageStrings* ls)
     ls->errorDirAsDskOverflow   = "%d файл(ов) (всего %d КБ) не поместились в образ диска 720 КБ и были пропущены.";
     ls->errorNoHelp             = "Не нашлось файла помощи blueMSX+.";
     ls->errorStartEmu           = "Не удалось начать эмуляцию.";
-    ls->errorMissingFiles       = "Следующие файлы, указанные в сохранённом состоянии, не могут быть загружены:";
+    ls->errorStartEmuNoMachine           = "Не выбрана MSX-машина для эмуляции. Выберите её в разделе Опции -> Эмуляция -> Машина MSX.";
+    ls->errorStartEmuMachinesDirMissing  = "Папка Machines не найдена.";
+    ls->errorStartEmuMachineNotFound     = "Выбранная конфигурация машины '%s' не найдена.";
+    ls->errorStartEmuConfigInvalid       = "Не удалось прочитать config.ini конфигурации машины '%s'. Возможно, файл повреждён или относится к несовместимой версии.";
+    ls->errorMissingFiles       = "Не удалось загрузить следующие файлы:";
     ls->errorPortableReadonly   = "Портативное устройство только для чтения";
     ls->infoTitle               = "Информация blueMSX+";
     ls->infoGameReaderRedirect  = "blueMSX+ не поддерживает MSX Game Reader напрямую (оригинальный драйвер ASCII эпохи XP больше не работает на современном Windows).\n\nОткрыть MSX Game Reader - Web Dumper (автор Kunihiko Ohnaka) в браузере?";

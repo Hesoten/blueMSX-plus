@@ -85,7 +85,11 @@ void langInitDutch(LanguageStrings* ls)
     ls->errorDirAsDskOverflow   = "%d bestand(en) (%d KB totaal) pasten niet op de 720 KB-schijfkopie en zijn overgeslagen.";
     ls->errorNoHelp             = "Het blueMSX+ helpbestand is niet gevonden.";
     ls->errorStartEmu           = "Het is niet gelukt om de MSX emulator te starten.";
-    ls->errorMissingFiles       = "De volgende bestanden waarnaar de opgeslagen status verwijst, konden niet geladen worden:";
+    ls->errorStartEmuNoMachine           = "Er is geen MSX-machine ingesteld voor emulatie. Kies er een bij Opties -> Emulatie -> MSX-familie.";
+    ls->errorStartEmuMachinesDirMissing  = "De map Machines is niet gevonden.";
+    ls->errorStartEmuMachineNotFound     = "De geselecteerde machineconfiguratie '%s' is niet gevonden.";
+    ls->errorStartEmuConfigInvalid       = "Kon config.ini van machineconfiguratie '%s' niet lezen. Het bestand is mogelijk beschadigd of afkomstig uit een niet-compatibele versie.";
+    ls->errorMissingFiles       = "De volgende bestanden konden niet worden geladen:";
     ls->errorPortableReadonly   = "Het draagbare apparaat is Alleen-Lezen";
     ls->infoTitle               = "blueMSX+ Info";
     ls->infoGameReaderRedirect  = "blueMSX+ ondersteunt de MSX Game Reader niet direct (de originele XP-driver van ASCII werkt niet meer op moderne Windows).\n\nWilt u in plaats daarvan de MSX Game Reader - Web Dumper (van Kunihiko Ohnaka) in uw browser openen?";
