@@ -43,6 +43,11 @@ typedef enum {
 ** Non-floppy geometries fall back to zero-fill.  Returns 1 on success. */
 int diskImageCreate(const char* path, int sizeBytes, DiskFormatType fmt);
 
+/* Copy fmt's 512-byte boot sector into dst and patch its BPB for the given
+** floppy geometry.  Returns 0 for unformatted / unsupported size. */
+int diskFormatWriteBootSector(unsigned char* dst, int sizeBytes,
+                              DiskFormatType fmt);
+
 #ifdef __cplusplus
 }
 #endif

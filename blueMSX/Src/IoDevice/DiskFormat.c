@@ -258,6 +258,20 @@ static int writeFill(FILE* f, unsigned char byte, long sizeBytes)
 /* Silence unused-symbol warning for the FAT16 template (kept for later). */
 static const void* diskFormatUnusedSymbols[] = { kNextorFat16BootBlock };
 
+int diskFormatWriteBootSector(unsigned char* dst, int sizeBytes,
+                              DiskFormatType fmt)
+{
+    const FloppyGeom* g;
+    const unsigned char* tmpl;
+    if (dst == NULL) return 0;
+    g = findGeom(sizeBytes);
+    tmpl = pickTemplate(fmt);
+    if (g == NULL || tmpl == NULL) return 0;
+    memcpy(dst, tmpl, SECTOR_SIZE);
+    patchBpb(dst, g);
+    return 1;
+}
+
 int diskImageCreate(const char* path, int sizeBytes, DiskFormatType fmt)
 {
     FILE* f;

@@ -30,6 +30,9 @@
 */
 #include <windows.h>
 #include "Win32FileDialog.h"
+extern "C" {
+#include "DiskFormat.h"
+}
 
 /* Folder picker: forwards to ShellPickFolderDialog (IFileOpenDialog
 ** with FOS_PICKFOLDERS). */
@@ -38,6 +41,44 @@ extern "C" char* openDir(HWND hwnd, char* pTitle, char* defDir)
     static char pFileName[MAX_PATH * 4];
     if (!ShellPickFolderDialog(hwnd, pTitle, defDir, pFileName, sizeof(pFileName))) {
         return NULL;
+    }
+    return pFileName;
+}
+
+extern "C" char* openDirWithFormat(HWND hwnd, char* pTitle, char* defDir,
+                                   int* fmtIndexInOut)
+{
+    static char pFileName[MAX_PATH * 4];
+    static const ShellComboItem kFmtItems[] = {
+        { "MSX-DOS 1", (int)DiskFormatMsxDos1 },
+        { "MSX-DOS 2", (int)DiskFormatMsxDos2 },
+        { "Nextor",    (int)DiskFormatNextor  }
+    };
+    int comboIndex = 1;
+
+    if (fmtIndexInOut) {
+        switch (*fmtIndexInOut) {
+        case (int)DiskFormatMsxDos1: comboIndex = 0; break;
+        case (int)DiskFormatNextor:  comboIndex = 2; break;
+        default:                     comboIndex = 1; break;
+        }
+    }
+
+    if (!ShellPickFolderWithFormatDialog(hwnd, pTitle, defDir,
+                                         kFmtItems,
+                                         (int)(sizeof(kFmtItems)/sizeof(kFmtItems[0])),
+                                         &comboIndex,
+                                         pFileName, sizeof(pFileName))) {
+        return NULL;
+    }
+
+    if (fmtIndexInOut) {
+        if (comboIndex >= 0 &&
+            comboIndex < (int)(sizeof(kFmtItems)/sizeof(kFmtItems[0]))) {
+            *fmtIndexInOut = kFmtItems[comboIndex].bytes;
+        } else {
+            *fmtIndexInOut = (int)DiskFormatMsxDos2;
+        }
     }
     return pFileName;
 }

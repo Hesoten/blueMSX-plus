@@ -738,6 +738,89 @@ extern "C" BOOL ShellPickFolderDialog(HWND owner,
     return ok;
 }
 
+static const DWORD kDirFmtComboId = 1201;
+static const DWORD kDirFmtGroupId = 1202;
+
+extern "C" BOOL ShellPickFolderWithFormatDialog(HWND owner,
+                                                const char* title,
+                                                const char* initialDir,
+                                                const ShellComboItem* fmtItems,
+                                                int fmtItemCount,
+                                                int* fmtSelectedIndex,
+                                                char* outPath, int outPathCap)
+{
+    if (outPath && outPathCap > 0) outPath[0] = 0;
+
+    ScopedCoInit coinit;
+    if (!coinit.ok()) return FALSE;
+
+    IFileOpenDialog* fd = NULL;
+    if (FAILED(CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_INPROC_SERVER,
+                                IID_PPV_ARGS(&fd)))) return FALSE;
+
+    DWORD flags = 0;
+    fd->GetOptions(&flags);
+    fd->SetOptions(flags | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM | FOS_PATHMUSTEXIST);
+
+    if (title && *title) {
+        std::wstring wTitle = utf8ToWide(title);
+        fd->SetTitle(wTitle.c_str());
+    }
+    if (initialDir && *initialDir) {
+        std::wstring wDir = utf8ToWide(initialDir);
+        IShellItem* psiFolder = NULL;
+        if (SUCCEEDED(SHCreateItemFromParsingName(wDir.c_str(), NULL,
+                                                   IID_PPV_ARGS(&psiFolder)))) {
+            fd->SetFolder(psiFolder);
+            psiFolder->Release();
+        }
+    }
+
+    std::wstring wFmtLabel = utf8ToWide(langEnumDiskFormat());
+    /* Wide labels must outlive AddControlItem. */
+    std::vector<std::wstring> labelHolder;
+    if (fmtItems && fmtItemCount > 0) labelHolder.reserve((size_t)fmtItemCount);
+
+    IFileDialogCustomize* fdc = NULL;
+    if (SUCCEEDED(fd->QueryInterface(IID_PPV_ARGS(&fdc)))) {
+        if (fmtItems && fmtItemCount > 0) {
+            fdc->StartVisualGroup(kDirFmtGroupId, wFmtLabel.c_str());
+            fdc->AddComboBox(kDirFmtComboId);
+            for (int i = 0; i < fmtItemCount; i++) {
+                labelHolder.push_back(utf8ToWide(fmtItems[i].label ? fmtItems[i].label : ""));
+                fdc->AddControlItem(kDirFmtComboId, (DWORD)i, labelHolder.back().c_str());
+            }
+            DWORD initial = 0;
+            if (fmtSelectedIndex && *fmtSelectedIndex >= 0 &&
+                *fmtSelectedIndex < fmtItemCount) {
+                initial = (DWORD)*fmtSelectedIndex;
+            }
+            fdc->SetSelectedControlItem(kDirFmtComboId, initial);
+            fdc->EndVisualGroup();
+        }
+        fdc->Release();
+    }
+
+    HRESULT hr = showCentered(fd, owner);
+    BOOL ok = FALSE;
+    if (SUCCEEDED(hr)) {
+        ok = fetchPath(fd, outPath, outPathCap, NULL);
+        if (ok && fmtSelectedIndex && fmtItems && fmtItemCount > 0) {
+            IFileDialogCustomize* fdc2 = NULL;
+            if (SUCCEEDED(fd->QueryInterface(IID_PPV_ARGS(&fdc2)))) {
+                DWORD idx = 0;
+                if (SUCCEEDED(fdc2->GetSelectedControlItem(kDirFmtComboId, &idx)) &&
+                    (int)idx < fmtItemCount) {
+                    *fmtSelectedIndex = (int)idx;
+                }
+                fdc2->Release();
+            }
+        }
+    }
+    fd->Release();
+    return ok;
+}
+
 /* ------------------------------------------------------------------------- */
 /* FD/DSK new-image dialog: customised with a preset-size combobox supplied  */
 /* by the caller (Win32file.c owns the size table + label translation).     */

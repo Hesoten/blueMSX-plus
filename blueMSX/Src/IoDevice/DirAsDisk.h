@@ -47,4 +47,7 @@ void* dirLoadFile(DirDiskType diskType, const char* fileName, int* size);
 int dirLoadLastSkippedCount(void);
 int dirLoadLastSkippedBytes(void);
 
+/* Select MSX boot sector for the next DDT_MSX mount; DiskFormatType value. */
+void dirSetMsxDiskFormat(int fmt);
+
 #endif
