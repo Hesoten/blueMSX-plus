@@ -90,9 +90,18 @@ ArchGlob* archGlob(const char* pattern, int flags)
         {
             wchar_t pathW[MAX_PATH * 2];
             char*   path;
+            char**  grown;
             int     pathBytes;
+            DWORD   cwdLen;
+            size_t  nameLen;
 
-            GetCurrentDirectoryW(MAX_PATH, pathW);
+            /* Guard against long CWDs: GetCurrentDirectoryW leaves pathW
+            ** uninitialized when the buffer is too small, so wcscat would
+            ** run over the stack. */
+            cwdLen = GetCurrentDirectoryW(MAX_PATH, pathW);
+            if (cwdLen == 0 || cwdLen >= MAX_PATH) continue;
+            nameLen = wcslen(wfd.cFileName);
+            if (cwdLen + 1 + nameLen + 1 > _countof(pathW)) continue;
             wcscat(pathW, L"\\");
             wcscat(pathW, wfd.cFileName);
 
@@ -101,11 +110,15 @@ ArchGlob* archGlob(const char* pattern, int flags)
             pathBytes = WideCharToMultiByte(CP_UTF8, 0, pathW, -1, NULL, 0, NULL, NULL);
             if (pathBytes <= 0) continue;
             path = (char*)malloc((size_t)pathBytes);
+            if (path == NULL) continue;
             WideCharToMultiByte(CP_UTF8, 0, pathW, -1, path, pathBytes, NULL, NULL);
 
+            /* realloc(A, ...) = NULL leaks A and NULL-poisons the vector. */
+            grown = (char**)realloc(glob->pathVector, sizeof(char*) * (glob->count + 1));
+            if (grown == NULL) { free(path); break; }
+            glob->pathVector = grown;
+            glob->pathVector[glob->count] = path;
             glob->count++;
-            glob->pathVector = (char**)realloc(glob->pathVector, sizeof(char*) * glob->count);
-            glob->pathVector[glob->count - 1] = path;
         }
     } while (FindNextFileW(handle, &wfd));
 
