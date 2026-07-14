@@ -93,6 +93,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->errorStartEmuConfigInvalid       = "Koneen kokoonpanon '%s' config.ini-tiedostoa ei voitu lukea. Tiedosto voi olla vioittunut tai peräisin epäyhteensopivasta versiosta.";
     ls->errorMissingFiles       = "Seuraavia tiedostoja ei voitu ladata:";
     ls->errorPortableReadonly   = "Kannettava laite tukee vain lukemista.";
+    ls->errorMidiOpenFailed     = "MIDI-laitteen '%s' avaus epäonnistui. Toinen sovellus voi käyttää sitä.";
     ls->infoTitle               = "blueMSX+-tiedot";
     ls->infoGameReaderRedirect  = "blueMSX+ ei tue MSX Game Readeria suoraan (ASCII:n alkuperäinen XP-aikakauden ajuri ei enää toimi nykyaikaisessa Windowsissa).\n\nAvataanko sen sijaan MSX Game Reader - Web Dumper (tekijä Kunihiko Ohnaka) selaimessa?";
     ls->infoColorDepth          = "blueMSX+ toimii parhaiten 16 tai 32 bitin värisyvyydellä.";

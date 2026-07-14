@@ -91,6 +91,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->errorStartEmuConfigInvalid       = "No s'ha pogut llegir config.ini de la configuració de màquina '%s'. El fitxer pot estar malmès o provenir d'una versió incompatible.";
     ls->errorMissingFiles       = "No s'han pogut carregar els següents fitxers:";
     ls->errorPortableReadonly   = "El dispositiu portàtil és de només lectura";
+    ls->errorMidiOpenFailed     = "No s'ha pogut obrir el dispositiu MIDI '%s'. Potser l'usa una altra aplicació.";
     ls->infoTitle               = "blueMSX+ Informació";
     ls->infoGameReaderRedirect  = "blueMSX+ no admet directament el MSX Game Reader (el controlador original d'ASCII de l'era XP ja no funciona a Windows modern).\n\nVoleu obrir el MSX Game Reader - Web Dumper (per Kunihiko Ohnaka) al vostre navegador?";
     ls->infoColorDepth          = "blueMSX+ funciona millor amb 16 o 32 bits de profunditat de color.";

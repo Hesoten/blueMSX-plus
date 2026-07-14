@@ -91,6 +91,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->errorStartEmuConfigInvalid       = "머신 구성 '%s'의 config.ini를 읽을 수 없습니다. 파일이 손상되었거나 호환되지 않는 버전에서 온 것일 수 있습니다.";
     ls->errorMissingFiles       = "다음 파일을 로드할 수 없습니다:";
     ls->errorPortableReadonly   = "이동 장치는 읽기 전용입니다.";        
+    ls->errorMidiOpenFailed     = "MIDI 장치 '%s'을(를) 열 수 없습니다. 다른 응용 프로그램에서 사용 중일 수 있습니다.";
     ls->infoTitle               = "blueMSX+ 정보";
     ls->infoGameReaderRedirect  = "blueMSX+ 는 MSX Game Reader 를 직접 지원하지 않습니다 (ASCII 사의 XP 시대 정품 드라이버는 최신 Windows 에서 작동하지 않습니다).\n\n대신 MSX Game Reader - Web Dumper (Kunihiko Ohnaka 제작) 를 브라우저에서 열까요?";
     ls->infoColorDepth          = "blueMSX+ 는 16 또는 32 비트 색상 심도에서 가장 잘 작동합니다.";

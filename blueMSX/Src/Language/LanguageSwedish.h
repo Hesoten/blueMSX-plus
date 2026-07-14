@@ -91,6 +91,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->errorStartEmuConfigInvalid       = "Det gick inte att läsa config.ini för maskinkonfigurationen '%s'. Filen kan vara skadad eller från en inkompatibel version.";
     ls->errorMissingFiles       = "Följande filer kunde inte laddas:";
     ls->errorPortableReadonly   = "Flyttbar enhet är inte skrivbar";
+    ls->errorMidiOpenFailed     = "Det gick inte att öppna MIDI-enheten '%s'. Kan användas av annan applikation.";
     ls->infoTitle               = "blueMSX+ Info";
     ls->infoGameReaderRedirect  = "blueMSX+ stöder inte MSX Game Reader direkt (den ursprungliga XP-drivrutinen från ASCII fungerar inte längre på moderna Windows).\n\nÖppna MSX Game Reader - Web Dumper (av Kunihiko Ohnaka) i webbläsaren istället?";
     ls->infoColorDepth          = "blueMSX+ fungerar bäst med 16 eller 32 bitars färgdjup.";

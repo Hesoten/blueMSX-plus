@@ -91,6 +91,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->errorStartEmuConfigInvalid       = "Не удалось прочитать config.ini конфигурации машины '%s'. Возможно, файл повреждён или относится к несовместимой версии.";
     ls->errorMissingFiles       = "Не удалось загрузить следующие файлы:";
     ls->errorPortableReadonly   = "Портативное устройство только для чтения";
+    ls->errorMidiOpenFailed     = "Не удалось открыть MIDI-устройство '%s'. Возможно, оно используется другим приложением.";
     ls->infoTitle               = "Информация blueMSX+";
     ls->infoGameReaderRedirect  = "blueMSX+ не поддерживает MSX Game Reader напрямую (оригинальный драйвер ASCII эпохи XP больше не работает на современном Windows).\n\nОткрыть MSX Game Reader - Web Dumper (автор Kunihiko Ohnaka) в браузере?";
     ls->infoColorDepth          = "blueMSX+ лучше всего работает при глубине цвета 16 или 32 бита.";

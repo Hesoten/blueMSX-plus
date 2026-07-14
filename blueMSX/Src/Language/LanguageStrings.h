@@ -89,6 +89,7 @@ typedef struct {
     char* errorStartEmuConfigInvalid;     /* %s = machine name */
     char* errorMissingFiles;
     char* errorPortableReadonly;
+    char* errorMidiOpenFailed;            /* %s = device name */
     char* infoColorDepth;
     char* infoTitle;
     char* infoGameReaderRedirect;

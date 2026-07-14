@@ -91,6 +91,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->errorStartEmuConfigInvalid       = "Nie udało się odczytać pliku config.ini konfiguracji maszyny '%s'. Plik może być uszkodzony lub pochodzić z niekompatybilnej wersji.";
     ls->errorMissingFiles       = "Nie można wczytać następujących plików:";
     ls->errorPortableReadonly   = "Urz¹dzenie przenoœne - tylko do odczytu";        
+    ls->errorMidiOpenFailed     = "Nie udało się otworzyć urządzenia MIDI '%s'. Może używać go inna aplikacja.";
     ls->infoTitle               = "Informacje blueMSX+";
     ls->infoGameReaderRedirect  = "blueMSX+ nie obsługuje bezpośrednio MSX Game Reader (oryginalny sterownik ASCII z ery XP nie działa już w nowoczesnym Windowsie).\n\nOtworzyć MSX Game Reader - Web Dumper (autorstwa Kunihiko Ohnaka) w przeglądarce?";
     ls->infoColorDepth          = "blueMSX+ najlepiej działa przy głębi kolorów 16 lub 32 bit.";

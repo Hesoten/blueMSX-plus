@@ -91,6 +91,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->errorStartEmuConfigInvalid       = "Could not read config.ini for machine configuration '%s'. The file may be corrupted or from an incompatible version.";
     ls->errorMissingFiles       = "The following files could not be loaded:";
     ls->errorPortableReadonly   = "Portable device is readonly";
+    ls->errorMidiOpenFailed     = "Failed to open MIDI device '%s'. It may be in use by another application.";
     ls->infoTitle                  = "blueMSX+ Info";
     ls->infoGameReaderRedirect     = "blueMSX+ does not directly support the MSX Game Reader (the original ASCII XP-era driver no longer works on modern Windows).\n\nOpen the MSX Game Reader - Web Dumper (by Kunihiko Ohnaka) in your browser instead?";
     ls->infoColorDepth             = "blueMSX+ works best in 16 or 32 bit color depth.";

@@ -91,6 +91,7 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->errorStartEmuConfigInvalid       = "無法讀取機器組態 '%s' 的 config.ini。該檔案可能已損壞，或來自不相容的版本。";
     ls->errorMissingFiles       = "無法載入以下檔案：";
     ls->errorPortableReadonly   = "可攜式裝置為唯讀屬性";        
+    ls->errorMidiOpenFailed     = "無法開啟 MIDI 裝置 '%s'。可能有其他應用程式正在使用它。";
     ls->infoTitle               = "blueMSX+ 資訊";
     ls->infoGameReaderRedirect  = "blueMSX+ 不直接支援 MSX Game Reader (ASCII 公司 XP 時代的原版驅動程式無法在現代 Windows 上運作)。\n\n是否改為在瀏覽器中開啟 MSX Game Reader - Web Dumper (Kunihiko Ohnaka 製作)?";
     ls->infoColorDepth          = "blueMSX+ 在 16 或 32 位元色深下運行最佳。";
