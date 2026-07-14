@@ -68,6 +68,13 @@ char* archFilenameGetSaveCapture(Properties* properties,
 
 char* archDirnameGetOpenDisk(Properties* properties, int drive);
 
+#if defined(_WIN32) || defined(WIN32)
+/* Same as archDirnameGetOpenDisk with a MSX-DOS format combobox;
+** *outMsxFormat is a DiskFormatType (1/2/3).  Win32 only. */
+char* archDirnameGetOpenDiskWithFormat(Properties* properties, int drive,
+                                        int* outMsxFormat);
+#endif
+
 char* archFilenameGetOpenRomZip(Properties* properties, int cartSlot, const char* fname, const char* fileList, int count, int* autostart, int* romType);
 
 char* archFilenameGetOpenDiskZip(Properties* properties, int drive, const char* fname, const char* fileList, int count, int* autostart);

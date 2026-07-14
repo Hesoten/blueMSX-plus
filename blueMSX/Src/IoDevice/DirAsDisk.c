@@ -31,6 +31,7 @@
 #define USE_ARCH_GLOB
 
 #include "DirAsDisk.h"
+#include "DiskFormat.h"
 
 #pragma warning(disable: 4996)
 #if defined(WIN32) || defined (WINDOWS_HOST)
@@ -360,12 +361,30 @@ static void load_dsk_svi(int diskType)
     }
 }
 
+static int msxDirDiskFormat = (int)DiskFormatMsxDos2;
+
+void dirSetMsxDiskFormat(int fmt)
+{
+    if (fmt == (int)DiskFormatMsxDos1 ||
+        fmt == (int)DiskFormatMsxDos2 ||
+        fmt == (int)DiskFormatNextor) {
+        msxDirDiskFormat = fmt;
+    } else {
+        msxDirDiskFormat = (int)DiskFormatMsxDos2;
+    }
+}
+
 static void load_dsk_msx(void) {
     dskimage = (byte *) calloc (1, 720*1024);
     if (dskimage == NULL) { dskimagesize = 0; return; }
     dskimagesize = 720*1024;
     memset (dskimage,0,720*1024);
-    memcpy (dskimage,msxboot,512);
+    /* Plant selected DOS1/DOS2/Nextor boot sector; fall back to legacy
+    ** DSKTOOL msxboot on any failure so old call sites stay unchanged. */
+    if (!diskFormatWriteBootSector(dskimage, 720*1024,
+                                    (DiskFormatType)msxDirDiskFormat)) {
+        memcpy (dskimage,msxboot,512);
+    }
     reservedsectors=*(word *)(dskimage+0x0E);
     numberoffats=*(dskimage+0x10);
     sectorsperfat=*(word *)(dskimage+0x16);

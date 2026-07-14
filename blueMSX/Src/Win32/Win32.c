@@ -70,6 +70,7 @@
 #include "Win32Recorder.h"
 #include "FileHistory.h"
 #include "Win32Dir.h"
+#include "DiskFormat.h"
 #include "Win32file.h"
 #include "Win32Help.h"
 #include "Win32Menu.h"
@@ -4976,6 +4977,27 @@ char* archDirnameGetOpenDisk(Properties* properties, int drive)
     exitDialogShow();
     SetCurrentDirectoryU(st.pCurDir);
 
+    return filename;
+}
+
+char* archDirnameGetOpenDiskWithFormat(Properties* properties, int drive,
+                                        int* outMsxFormat)
+{
+    char* title = drive == 1 ? langDlgInsertDiskB() : langDlgInsertDiskA();
+    char* defaultDir = properties->media.disks[drive].directory;
+    char* filename;
+    static int lastFormat = (int)DiskFormatMsxDos2;
+    int fmt = lastFormat;
+
+    enterDialogShow();
+    filename = openDirWithFormat(getMainHwnd(), title, defaultDir, &fmt);
+    exitDialogShow();
+    SetCurrentDirectoryU(st.pCurDir);
+
+    if (filename != NULL) {
+        lastFormat = fmt;
+        if (outMsxFormat) *outMsxFormat = fmt;
+    }
     return filename;
 }
 

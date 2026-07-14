@@ -36,6 +36,7 @@
 #include "Casette.h"
 #include "Debugger.h"
 #include "Disk.h"
+#include "DirAsDisk.h"
 #include "FileHistory.h"
 #include "LaunchFile.h"
 #include "Emulator.h"
@@ -134,8 +135,16 @@ void actionDiskInsertDir(int diskNo)
     char* filename;
 
     emulatorSuspend();
+#if defined(_WIN32) || defined(WIN32)
+    {
+        int msxFormat = 2;  /* DiskFormatMsxDos2 */
+        filename = archDirnameGetOpenDiskWithFormat(state.properties, diskNo, &msxFormat);
+        if (filename != NULL) dirSetMsxDiskFormat(msxFormat);
+    }
+#else
     filename = archDirnameGetOpenDisk(state.properties, diskNo);
-    if (filename != NULL) {        
+#endif
+    if (filename != NULL) {
         strcpy(state.properties->media.disks[diskNo].directory, filename);
         diskPreviewDirOverflow(diskNo, filename);
         insertDiskette(state.properties, diskNo, filename, NULL, 0);

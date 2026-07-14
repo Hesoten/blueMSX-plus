@@ -32,4 +32,8 @@
 
 char* openDir(HWND hwnd, char* pTitle, char* defDir);
 
+/* Same as openDir + DOS1/DOS2/Nextor format combobox; *fmtIndexInOut is a
+** DiskFormatType (1/2/3), default DOS2. */
+char* openDirWithFormat(HWND hwnd, char* pTitle, char* defDir, int* fmtIndexInOut);
+
 #endif
