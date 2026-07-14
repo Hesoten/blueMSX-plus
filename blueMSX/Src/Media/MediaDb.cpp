@@ -1456,12 +1456,20 @@ extern "C" MediaType* mediaDbGuessRom(const void *buffer, int size)
 
     /* Count occurences of characteristic addresses. Track hits to
     ** ASCII-8-only (0x6800/0x7800) and ASCII-16-only (0x77FF) addresses
-    ** separately for the unique-signal pre-decision below. */
+    ** separately for the unique-signal pre-decision below.  Also track
+    ** Yamanooto register writes (0x7FFC-0x7FFF) - those addresses are the
+    ** Yamanooto ENAR/CFGR/OFFR/SDAT and are essentially never written by
+    ** plain K5/K4/ASCII ROMs, so any hit strongly implies Yamanooto. */
     UInt32 ascii8Unique = 0;
     UInt32 ascii16Unique = 0;
+    UInt32 yamanootoHits = 0;
     for (i = 0; i < size - 3; i++) {
         if (romData[i] == 0x32) {
             UInt32 value = romData[i + 1] + ((UInt32)romData[i + 2] << 8);
+
+            if (value >= 0x7FFC && value <= 0x7FFF) {
+                yamanootoHits++;
+            }
 
             switch(value) {
             case 0x4000: 
@@ -1500,6 +1508,14 @@ extern "C" MediaType* mediaDbGuessRom(const void *buffer, int size)
                 break;
             }
         }
+    }
+
+    /* Yamanooto register writes take priority: an SCC-using Yamanooto ROM
+    ** would otherwise get mis-tagged as Konami-SCC because it also writes
+    ** to 0x5000/0x9000/0xB000 for K5-style bank switching. */
+    if (yamanootoHits > 0) {
+        mediaType->romType = ROM_YAMANOOTO;
+        return mediaType;
     }
 
     /* 0x6800/0x7800 are ASCII-8-only writes, 0x77FF is ASCII-16-only.

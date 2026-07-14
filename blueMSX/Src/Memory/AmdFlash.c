@@ -47,9 +47,10 @@ typedef struct {
 #define ST_IDENT    1
 #define ST_CFI      2
 
-/* WBP for S29GL064 uses a 32-byte page + 4 setup + 1 confirm = 37 slots.
-** Round up a bit for future headroom. */
-#define AMDFLASH_CMD_SLOTS 40
+/* WBP for S29GL064S uses a 256-byte page + 4 setup + 1 confirm = 261 slots.
+** Round up for future headroom. */
+#define AMDFLASH_WBP_PAGE_BYTES 256
+#define AMDFLASH_CMD_SLOTS      280
 
 struct AmdFlash
 {
@@ -169,11 +170,12 @@ static int checkCommandCfi(AmdFlash* rm)
 }
 
 /* Write Buffer Program: aa/55, SA/25, SA/(N-1), N data bytes within one
-** 32-byte page of one sector, then SA/29 confirm.  MSX flashers use this
-** to program the S29GL064 32 bytes at a time. */
+** buffer page of one sector, then SA/29 confirm.  S29GL064S accepts up
+** to 256-byte pages per WBP; smaller batches (e.g. 32 bytes) still work
+** because the tool controls the count. */
 static int checkCommandBufferProgram(AmdFlash* rm)
 {
-    const UInt32 pageMask = 0x1F;
+    const UInt32 pageMask = AMDFLASH_WBP_PAGE_BYTES - 1;
     UInt32 sectorMask;
     UInt32 sectorOfSetup;
     UInt32 pageBase;
@@ -189,7 +191,7 @@ static int checkCommandBufferProgram(AmdFlash* rm)
     sectorOfSetup = rm->cmd[2].address & sectorMask;
     dataCount     = rm->cmd[3].value + 1;
 
-    if (dataCount > 32) return 0;
+    if (dataCount > AMDFLASH_WBP_PAGE_BYTES) return 0;
     if ((rm->cmd[3].address & sectorMask) != sectorOfSetup) return 0;
     if (rm->cmdIdx < 5) return 1;
 
@@ -197,7 +199,7 @@ static int checkCommandBufferProgram(AmdFlash* rm)
     pageBase = rm->cmd[4].address & ~pageMask;
 
     if (rm->cmdIdx <= 4 + dataCount) {
-        /* Still filling data buffer; each byte must stay in same 32-byte page. */
+        /* Still filling data buffer; each byte must stay in the same buffer page. */
         UInt32 lastAddr = rm->cmd[rm->cmdIdx - 1].address;
         if ((lastAddr & ~pageMask) != pageBase) return 0;
         return 1;
@@ -266,7 +268,7 @@ UInt8 amdFlashRead(AmdFlash* rm, UInt32 address)
                 }
                 case 0x50: return 0x02;      /* interface: x8/x16 async */
                 case 0x52: return 0x00;
-                case 0x54: return 0x05;      /* max write buffer = 2^5 bytes */
+                case 0x54: return 0x08;      /* max write buffer = 2^8 = 256 bytes (S29GL064S) */
                 case 0x56: return 0x00;
                 case 0x58: return 0x01;      /* one uniform erase region */
                 case 0x5A: return (UInt8)((rm->flashSize / rm->sectorSize - 1) & 0xFF);
