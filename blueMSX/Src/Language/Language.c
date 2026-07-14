@@ -308,6 +308,7 @@ char* langErrorStartEmuMachineNotFound()    { return ls->errorStartEmuMachineNot
 char* langErrorStartEmuConfigInvalid()      { return ls->errorStartEmuConfigInvalid; }
 char* langErrorMissingFiles() { return ls->errorMissingFiles; }
 char* langErrorPortableReadonly()  {return ls->errorPortableReadonly; }
+char* langErrorMidiOpenFailed()    { return ls->errorMidiOpenFailed; }
 char* langInfoColorDepth()                 { return ls->infoColorDepth; }
 char* langInfoTitle()                      { return ls->infoTitle; }
 char* langInfoGameReaderRedirect()         { return ls->infoGameReaderRedirect; }

@@ -117,6 +117,7 @@ char* langErrorStartEmuMachineNotFound();
 char* langErrorStartEmuConfigInvalid();
 char* langErrorMissingFiles();
 char* langErrorPortableReadonly();
+char* langErrorMidiOpenFailed();
 char* langInfoColorDepth();
 char* langInfoTitle();
 char* langInfoGameReaderRedirect();

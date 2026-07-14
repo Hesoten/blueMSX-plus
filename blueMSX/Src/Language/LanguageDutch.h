@@ -91,6 +91,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->errorStartEmuConfigInvalid       = "Kon config.ini van machineconfiguratie '%s' niet lezen. Het bestand is mogelijk beschadigd of afkomstig uit een niet-compatibele versie.";
     ls->errorMissingFiles       = "De volgende bestanden konden niet worden geladen:";
     ls->errorPortableReadonly   = "Het draagbare apparaat is Alleen-Lezen";
+    ls->errorMidiOpenFailed     = "Kon MIDI-apparaat '%s' niet openen. Mogelijk in gebruik door andere toepassing.";
     ls->infoTitle               = "blueMSX+ Info";
     ls->infoGameReaderRedirect  = "blueMSX+ ondersteunt de MSX Game Reader niet direct (de originele XP-driver van ASCII werkt niet meer op moderne Windows).\n\nWilt u in plaats daarvan de MSX Game Reader - Web Dumper (van Kunihiko Ohnaka) in uw browser openen?";
     ls->infoColorDepth          = "blueMSX+ werkt het best met 16 of 32 bits kleurdiepte.";
