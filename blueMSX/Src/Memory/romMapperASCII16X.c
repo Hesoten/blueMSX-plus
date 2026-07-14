@@ -97,7 +97,9 @@ static void loadState(RomMapperASCII16X* rm)
 
 static UInt32 addrToFlash(RomMapperASCII16X* rm, UInt16 msxAddr)
 {
-    int bank = (msxAddr >= 0x8000) ? 1 : 0;
+    /* A14 selects the bank register: A14=1 (page 1 / page 3 mirror) uses
+    ** bankReg[0], A14=0 (page 2 / page 0 mirror) uses bankReg[1]. */
+    int bank = (msxAddr & 0x4000) ? 0 : 1;
     UInt32 bankNum = rm->bankReg[bank] & rm->romMask;
     return bankNum * 0x4000 + (msxAddr & 0x3FFF);
 }
