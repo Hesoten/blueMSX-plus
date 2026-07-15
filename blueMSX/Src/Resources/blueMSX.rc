@@ -570,8 +570,7 @@ BEGIN
     CONTROL         "",IDC_LANGLIST,"SysListView32",LVS_REPORT | 
                     LVS_SINGLESEL | LVS_SHOWSELALWAYS | LVS_ALIGNLEFT | 
                     WS_BORDER | WS_TABSTOP,7,25,142,104
-LTEXT           "Choose a language that blueMSX will run:",IDC_LANGTXT,7,
-                    7,296,18
+    LTEXT           "Choose a language that blueMSX will run:",IDC_LANGTXT,7,7,142,18
 END
 
 IDD_TAPEPOS DIALOGEX 0, 0, 150, 100
