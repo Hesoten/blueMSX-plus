@@ -323,7 +323,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->dlgTabPosition          = "Позиция";
     ls->dlgTabType              = "Тип";
     ls->dlgTabFilename          = "Название";
-    ls->dlgZipReset             = "Сбросить после загрузки";
+    ls->dlgZipReset             = "Сброс после загрузки";
 
     ls->dlgAboutTitle           = "blueMSX+ - О blueMSX+";
 
@@ -375,7 +375,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->propEmuVramSizeText     = "Объем VRAM:";
     ls->propEmuSpeedGB          = "Скорость эмуляции ";
     ls->propEmuSpeedText        = "Ядро эмулятора:";
-    ls->propEmuVdpCmdSpeedText  = "Ожидание команды VDP:";
+    ls->propEmuVdpCmdSpeedText  = "Ожидание VDP:";
     ls->propEmuFrontSwitchGB    = "Переключатели Panasonic ";
     ls->propEmuFrontSwitch      = " Передний выключатель";
     ls->propEmuNoSpriteLimits   = " Отключить ограничение спрайтов";  // New in 2.9
@@ -398,10 +398,10 @@ void langInitRussian(LanguageStrings* ls)
     ls->propMonTypeText         = "Тип монитора:";
     ls->propMonEmuText          = "Эмуляция монитора:";
     ls->propVideoTypeText       = "Тип видео:";
-    ls->propMonHorizStretch     = " Растянуть по горизонтали";
+    ls->propMonHorizStretch     = " Растянуть гориз.";
     ls->propMonVertStretch      = " Растянуть по вертикали";
-    ls->propMonDeInterlace      = " Убрать черезполосицу";
-    ls->propBlendFrames         = " Смешивать последовательные кадры";
+    ls->propMonDeInterlace      = " Без чересстрочн.";
+    ls->propBlendFrames         = " Смешение кадров";
     ls->propMonBrightness       = "Яркость:";
     ls->propMonContrast         = "Контраст:";
     ls->propMonSaturation       = "Насыщенность:";
@@ -469,16 +469,16 @@ void langInitRussian(LanguageStrings* ls)
     ls->propSetFileHistoryGB    = "История файлов ";
     ls->propSetFileHistorySize  = "Количество файлов в истории:";
     ls->propSetFileHistoryClear = "Очистить историю";
-    ls->propFileTypes           = " Зарегистрировать .rom/.dsk/.cas/.sta в меню \"Открыть с помощью\"";
+    ls->propFileTypes           = " Регистр. .rom/.dsk/.cas/.sta в \"Открыть с помощью\"";
     ls->propOpenDefaultApps     = "Открыть параметры приложений по умолчанию";
     ls->propWindowsEnvGB        = "Настройки Windows "; 
-    ls->propSetScreenSaver      = " Держать дисплей включённым, пока blueMSX+ работает (без выкл/сна/скринсейвера)";
-    ls->propPriorityBoost       = " Использовать планировщик игр Windows (MMCSS) для эмуляции";
+    ls->propSetScreenSaver      = " Не давать дисплею гаснуть, пока работает blueMSX+";
+    ls->propPriorityBoost       = " Планировщик игр Windows (MMCSS) для эмуляции";
     ls->propScreenshotPng       = " Использовать тип PNG файлов для скриншотов";
     ls->propEjectMediaOnExit    = " Eject media when blueMSX+ exits";        // New in 2.8
     ls->propClearHistory        = "Вы точно хотите очистить файл истории?";
     ls->propOpenRomGB           = "Диалог открытия Rom файла ";
-    ls->propDefaultRomType      = "Тип файла Rom по умолчанию:";
+    ls->propDefaultRomType      = "Тип Rom по умолчанию:";
     ls->propGuessRomType        = "Любой тип Rom";
 
     ls->propSettDefSlotGB       = "Перетаскивание ";
@@ -596,7 +596,7 @@ void langInitRussian(LanguageStrings* ls)
     //----------------------
 
     ls->confTitle               = "blueMSX+ - Конфигурация машин";
-    ls->confConfigText          = "Название профиля";
+    ls->confConfigText          = "Имя профиля";
     ls->confSlotLayout          = "Расположение слота";
     ls->confMemory              = "Память";
     ls->confChipEmulation       = "Эмуляция чипа";

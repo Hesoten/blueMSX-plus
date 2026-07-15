@@ -126,7 +126,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->propCaptureSaveDir          = "Carpeta:";
     ls->propCaptureFormat           = "Format:";
     ls->propCaptureCodec            = "Còdec:";
-    ls->propCaptureAutoName         = "Anomena fitxer automàticament";
+    ls->propCaptureAutoName         = "Nom fitxer automàtic";
     ls->propCapturePromptName       = "Demana el nom del fitxer";
     ls->propCaptureShowToast        = "Mostra un avís en finalitzar la captura";
 
@@ -283,7 +283,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->dlgYes                  = "Sí";
     ls->dlgNo                   = "No";
     ls->dlgSave                 = "Desa";
-    ls->dlgSaveAs               = "Anomena i desa...";
+    ls->dlgSaveAs               = "Desa com a...";
     ls->dlgRun                  = "Executa";
     ls->dlgClose                = "Tanca";
 
@@ -311,7 +311,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->dlgInsertDiskB          = "Insereix la imatge de disc en la unitat B";
     ls->dlgInsertHarddisk       = "Insereix el disc dur";
     ls->dlgInsertCas            = "Insereix una cinta de casset";
-    ls->dlgRomType              = "Tipus de Rom:";
+    ls->dlgRomType              = "Tipus Rom:";
     ls->dlgDiskSize             = "Mida del disc:";             
 
     ls->dlgTapeTitle            = "blueMSX+ - Posició de la cinta";
@@ -323,7 +323,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->dlgTabPosition          = "Posició";	
     ls->dlgTabType              = "Tipus";
     ls->dlgTabFilename          = "Nom del fitxer:";
-    ls->dlgZipReset             = "Reinicia després de la inserció";
+    ls->dlgZipReset             = "Reinicia en inserir-lo";
 
     ls->dlgAboutTitle           = "blueMSX+ - Al voltant de";
 
@@ -401,15 +401,15 @@ void langInitCatalan(LanguageStrings* ls)
     ls->propMonHorizStretch     = " Ampliació horitzontal";
     ls->propMonVertStretch      = " Ampliació vertical";
     ls->propMonDeInterlace      = " Desentrellaçat";
-    ls->propBlendFrames         = " Barreja els marcs consecutius";
+    ls->propBlendFrames         = " Barreja marcs consecutius";
     ls->propMonBrightness       = "Lluminositat:";
     ls->propMonContrast         = "Contrast:";
     ls->propMonSaturation       = "Saturació:";
     ls->propMonGamma            = "Gamma:";
-    ls->propMonScanlines        = " Línies d'exploració:";
-    ls->propMonScanlinesBright  = "Comp. brillantor:";
+    ls->propMonScanlines        = " Escombrat:";
+    ls->propMonScanlinesBright  = "Brillantor:";
     ls->propMonScanlinesBrightAuto = " Auto";
-    ls->propMonScanlinesShape   = "Predefinit:";
+    ls->propMonScanlinesShape   = "Predef.:";
     ls->propMonScanlinesDepth   = "Profunditat:";
     ls->propMonScanlinesSharpness = "Nitidesa:";
     ls->enumScanShapeGentle     = "Suau";
@@ -419,7 +419,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->enumScanShapeCustom     = "Personalitzat";
     ls->propMonHdrEnable        = "HDR";
     ls->propMonHdrPaperWhite    = "Brillantor blanc:";
-    ls->propMonHdrSystemMode    = "Mode HDR del sistema:";
+    ls->propMonHdrSystemMode    = "Mode HDR sistema:";
     ls->propMonHdrRestartHint   = "Reinicia blueMSX per aplicar el canvi de mode HDR.";
     ls->propMonHdrRecord        = " Grava en HDR";
     ls->propMonColorGhosting    = " Modulador RF:";
@@ -430,7 +430,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->propPerfFrameSkipText   = "Omissió de marcs:";
     ls->propPerfAudioDrvGB      = "Controlador d'àudio ";
     ls->propPerfAudioDrvText    = "Controlador de so:";
-    ls->propPerfAudioBufSzText  = "Mida de la memòria intermèdia de so:";
+    ls->propPerfAudioBufSzText  = "Mida del buffer de so:";
     ls->propPerfAudioBufSzActualFmt = "(buffer real: %u ms)";
     ls->propPerfEmuGB           = "Emulació ";
     ls->propPerfSyncModeText    = "Mode SYNC:";
@@ -467,18 +467,18 @@ void langInitCatalan(LanguageStrings* ls)
     ls->propPortsEmulateMsxPrn  = "Emulació";
 
     ls->propSetFileHistoryGB    = "Historial del fitxer ";
-    ls->propSetFileHistorySize  = "Nombre d'elements en el historial del fitxer:";
+    ls->propSetFileHistorySize  = "Elements a l'historial del fitxer:";
     ls->propSetFileHistoryClear = "Neteja l'historial";
     ls->propFileTypes           = " Registra .rom/.dsk/.cas/.sta al menú \"Obri amb\"";
-    ls->propOpenDefaultApps     = "Obri la configuració d'aplicacions predeterminades de Windows";
+    ls->propOpenDefaultApps     = "Obri la config. d'apps predeterminades de Windows";
     ls->propWindowsEnvGB        = "Entorn Windows "; 
-    ls->propSetScreenSaver      = " Mantén la pantalla activa mentre blueMSX+ funcioni (sense apagat/repòs/estalvi)";
-    ls->propPriorityBoost       = " Usa el planificador de jocs de Windows (MMCSS) per a l'emulació";
+    ls->propSetScreenSaver      = " Evita apagat, repòs i estalvi de pantalla durant l'emulació";
+    ls->propPriorityBoost       = " Usa el planificador de jocs Windows (MMCSS) per a l'emulació";
     ls->propScreenshotPng       = " Empra captures de pantalla Portable Network Graphics (.png)";
     ls->propEjectMediaOnExit    = " Eject media when blueMSX+ exits";        // New in 2.8
     ls->propClearHistory        = "Esteu segur que voleu buidar l'historial del fitxer?";
     ls->propOpenRomGB           = "Obri el diàlog Rom ";
-    ls->propDefaultRomType      = "Tipus predeterminat de Rom:";
+    ls->propDefaultRomType      = "Tipus Rom per defecte:";
     ls->propGuessRomType        = "Endevina el tipus de Rrom";
 
     ls->propSettDefSlotGB       = "Arrossega i deixa anar ";
@@ -616,7 +616,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->confBoardGB             = "Placa ";
     ls->confBoardText           = "Tipus de placa:";
     ls->confSlotPrimary         = "Primària";
-    ls->confSlotExpanded        = "Expandida (quatre subranures)";
+    ls->confSlotExpanded        = "Expandida (4 subranures)";
 
     ls->confSlotCart            = "Cartutx";
     ls->confSlot                = "Ranura";
@@ -673,7 +673,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->shortcutConfigTitle     = "blueMSX+ - Editor de mapatge de drecera";
     ls->shortcutAssign          = "Assigna";
     ls->shortcutPressText       = "Prem la tecla(es) de drecera:";
-    ls->shortcutScheme          = "Esquema de mapatge:";
+    ls->shortcutScheme          = "Mapatge:";
     ls->shortcutCartInsert1     = "Inserta el cartutx 1";
     ls->shortcutCartRemove1     = "Trau el cartutx 1";
     ls->shortcutCartInsert2     = "Inserta el cartutx 2";

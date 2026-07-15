@@ -126,7 +126,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->propCaptureSaveDir          = "Carpeta:";
     ls->propCaptureFormat           = "Formato:";
     ls->propCaptureCodec            = "Códec:";
-    ls->propCaptureAutoName         = "Nombre de archivo automático";
+    ls->propCaptureAutoName         = "Nombre de archivo auto.";
     ls->propCapturePromptName       = "Pedir nombre de archivo";
     ls->propCaptureShowToast        = "Mostrar aviso al terminar";
 
@@ -401,7 +401,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->propMonHorizStretch      = " Estiramiento Horizontal";
     ls->propMonVertStretch       = " Estiramiento Vertical";
     ls->propMonDeInterlace      = " De-entrelace";
-    ls->propBlendFrames         = " Mezclar frames consecutivas";           
+    ls->propBlendFrames         = " Mezclar frames sucesivas";
     ls->propMonBrightness       = "Brillo:";
     ls->propMonContrast         = "Contraste:";
     ls->propMonSaturation       = "Saturación:";
@@ -419,7 +419,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->enumScanShapeCustom     = "Person.";
     ls->propMonHdrEnable        = "HDR";
     ls->propMonHdrPaperWhite    = "Brillo del blanco:";
-    ls->propMonHdrSystemMode    = "Modo HDR del sistema:";
+    ls->propMonHdrSystemMode    = "Modo HDR sistema:";
     ls->propMonHdrRestartHint   = "Reinicia blueMSX para aplicar el cambio del modo HDR.";
     ls->propMonHdrRecord        = " Grabar en HDR";
     ls->propMonColorGhosting    = " Modulador RF:"; 
@@ -443,7 +443,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->propSoundChipsY8950GB   = " Backend MSX-AUDIO ";
     ls->propSndOpllAnalogText   = "Filtro analógico:";
     ls->propSndOpllAnalogLpfText = "Corte LPF:";
-    ls->enumOpllFilterOff       = "Desactivado";
+    ls->enumOpllFilterOff       = "Sin filtro";
     ls->enumOpllFilterBright    = "Brillante (LPF 12 kHz)";
     ls->enumOpllFilterClear     = "Claro (LPF 8 kHz)";
     ls->enumOpllFilterStandard  = "Estándar (LPF 5 kHz)";
@@ -470,10 +470,10 @@ void langInitSpanish(LanguageStrings* ls)
     ls->propSetFileHistorySize   = "Número de items en Histórico de Archivos:";
     ls->propSetFileHistoryClear  = "Borrar Hostórico";
     ls->propFileTypes            = " Registrar .rom/.dsk/.cas/.sta en el menú \"Abrir con\"";
-    ls->propOpenDefaultApps      = "Abrir configuración de aplicaciones predeterminadas de Windows";
+    ls->propOpenDefaultApps      = "Abrir config. de apps predet. de Windows";
     ls->propWindowsEnvGB         = "Ambiente Windows ";
-    ls->propSetScreenSaver       = " Mantener pantalla activa mientras blueMSX+ esté en ejecución (sin apagado/suspensión/salvapantallas)";
-    ls->propPriorityBoost       = " Usar el planificador de juegos de Windows (MMCSS) para la emulación";
+    ls->propSetScreenSaver       = " Impedir apagado/suspensión/salvapantallas al emular";
+    ls->propPriorityBoost       = " Usar planificador MMCSS de Windows para la emulación";
     ls->propScreenshotPng       = " Utilizar el formato PNG para las capturas de pantalla";  
     ls->propEjectMediaOnExit    = " Eject media when blueMSX+ exits";        // New in 2.8
     ls->propClearHistory         = "¿Desean realmente borrar hostórico?";
@@ -668,11 +668,11 @@ void langInitSpanish(LanguageStrings* ls)
     ls->shortcutExitConfig      = "blueMSX+ - Salir del Editor de Atajos";
     ls->shortcutDiscardConfig   = "Quieres descartar cambios de la configuración actual?";
     ls->shortcutSaveConfigAs    = "blueMSX+ - Guardar Configuración de Atajos como...";
-    ls->shortcutConfigName      = "Nombre de la configuración:";
+    ls->shortcutConfigName      = "Nombre de config.:";
     ls->shortcutNewProfile      = "< Nuevo Perfil >";
     ls->shortcutConfigTitle     = "blueMSX+ - Editor de la tarjeta de los atajos";
     ls->shortcutAssign          = "Asigne";
-    ls->shortcutPressText       = "Apoyar en la(s) tecla(s) del atajo";
+    ls->shortcutPressText       = "Pulse tecla(s) del atajo";
     ls->shortcutScheme          = "Disposición:";
     ls->shortcutCartInsert1     = "Insertar Cartucho ROM en slot 1";
     ls->shortcutCartRemove1     = "Sacar Cartucho ROM en slot 1";

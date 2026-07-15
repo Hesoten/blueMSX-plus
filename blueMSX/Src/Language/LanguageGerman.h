@@ -311,7 +311,7 @@ void langInitGerman(LanguageStrings* ls)
     ls->dlgInsertDiskB           = "Disketten-Image in Laufwerk B einfügen";
     ls->dlgInsertCas             = "Cassette einfügen";
     ls->dlgInsertHarddisk        = "Festplatte einfügen"; // "Harddisk einfügen";                   
-    ls->dlgRomType               = "Typ des ROMs:";
+    ls->dlgRomType               = "ROM-Typ:";
     ls->dlgDiskSize              = "Diskettengröße:";                  // New in 2.6 -- "Disk Size:";
 
     ls->dlgTapeTitle             = "blueMSX+ - Bandposition";
@@ -401,7 +401,7 @@ void langInitGerman(LanguageStrings* ls)
     ls->propMonHorizStretch      = " Horizontale Ausdehnung";
     ls->propMonVertStretch       = " Vertikale Ausdehnung";
     ls->propMonDeInterlace       = " De-interlace";
-    ls->propBlendFrames          = " Mische aufeinanderfolgende Frames";           
+    ls->propBlendFrames          = " Folge-Frames mischen";
     ls->propMonBrightness        = "Helligkeit:";
     ls->propMonContrast          = "Kontrast:";
     ls->propMonSaturation        = "Sättigung:";
@@ -472,7 +472,7 @@ void langInitGerman(LanguageStrings* ls)
     ls->propFileTypes            = " .rom/.dsk/.cas/.sta im \"Öffnen mit\"-Menü registrieren";
     ls->propOpenDefaultApps      = "Windows-Standard-Apps öffnen";
     ls->propWindowsEnvGB         = "Windows-Environment "; 
-    ls->propSetScreenSaver       = " Bildschirm an halten, wenn blueMSX+ läuft (kein Aus/Ruhe/Schoner)";
+    ls->propSetScreenSaver       = " Bildschirm an, wenn blueMSX+ läuft (kein Aus/Ruhe/Schoner)";
     ls->propPriorityBoost        = " Windows-Spielplaner (MMCSS) für die Emulation verwenden";
     ls->propScreenshotPng        = " Benutze Portable Network Graphics (.png) Screenshots";  
     ls->propEjectMediaOnExit    = " Eject media when blueMSX+ exits";        // New in 2.8
@@ -606,7 +606,7 @@ void langInitGerman(LanguageStrings* ls)
     ls->confSaveTitle            = "blueMSX+ - Speichere Konfiguration";
     ls->confSaveText             = "Möchten Sie die Maschinenkonfiguration überschreiben?";
     ls->confSaveAsTitle          = "Speichere Konfiguration als ...";
-    ls->confSaveAsMachineName    = "Name der Maschine:";
+    ls->confSaveAsMachineName    = "Maschinenname:";
     ls->confDiscardTitle         = "blueMSX+ - Konfiguration";
     ls->confExitSaveTitle        = "blueMSX+ - Konfigurationseditor verlassen";
     ls->confExitSaveText         = "Möchten Sie die aktuellen Änderungen der Konfiguration verwerfen?";

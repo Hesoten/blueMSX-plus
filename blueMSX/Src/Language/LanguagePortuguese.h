@@ -126,7 +126,7 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->propCaptureSaveDir          = "Pasta:";
     ls->propCaptureFormat           = "Formato:";
     ls->propCaptureCodec            = "Codec:";
-    ls->propCaptureAutoName         = "Nome do arquivo automático";
+    ls->propCaptureAutoName         = "Nomear automaticamente";
     ls->propCapturePromptName       = "Pedir nome do arquivo";
     ls->propCaptureShowToast        = "Mostrar aviso ao concluir";
 
@@ -401,7 +401,7 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->propMonHorizStretch     = " Estiramento Horizontal"; 
     ls->propMonVertStretch      = " Estiramento Vertical"; 
     ls->propMonDeInterlace      = " De-entrelaçar";
-    ls->propBlendFrames         = " Misturar frames consecutivos";           
+    ls->propBlendFrames         = " Misturar frames seguidos";
     ls->propMonBrightness       = "Brilho:";
     ls->propMonContrast         = "Contraste:";
     ls->propMonSaturation       = "Saturação:";
@@ -419,7 +419,7 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->enumScanShapeCustom     = "Personalizado";
     ls->propMonHdrEnable        = "HDR";
     ls->propMonHdrPaperWhite    = "Brilho do branco:";
-    ls->propMonHdrSystemMode    = "Modo HDR do sistema:";
+    ls->propMonHdrSystemMode    = "Modo HDR sistema:";
     ls->propMonHdrRestartHint   = "Reinicie o blueMSX para aplicar a alteração do modo HDR.";
     ls->propMonHdrRecord        = " Gravar em HDR";
     ls->propMonColorGhosting    = " Modulador RF:"; 
@@ -472,8 +472,8 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->propFileTypes           = " Registrar .rom/.dsk/.cas/.sta no menu \"Abrir com\"";
     ls->propOpenDefaultApps     = "Abrir configurações de aplicativos padrão do Windows";
     ls->propWindowsEnvGB        = "Ambiente Windows ";
-    ls->propSetScreenSaver      = " Manter tela ativa enquanto blueMSX+ estiver ativo (sem desligar/suspender/proteger)";
-    ls->propPriorityBoost       = " Usar o agendador de jogos do Windows (MMCSS) para emulação";
+    ls->propSetScreenSaver      = " Manter tela ativa durante uso do blueMSX+ (sem descanso)";
+    ls->propPriorityBoost       = " Usar agendador de jogos do Windows (MMCSS) na emulação";
     ls->propScreenshotPng       = " Utilizar o formato PNG para as capturas da tela";  
     ls->propEjectMediaOnExit    = " Ejetar a mídia quando o blueMSX+ encerrar";        // New in 2.8
     ls->propClearHistory        = "Deseja realmente limpar histórico?";

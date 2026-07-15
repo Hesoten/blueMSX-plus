@@ -396,7 +396,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->propEmuVramSizeText     = "VRAM size:";
     ls->propEmuSpeedGB          = "Emulation Speed ";
     ls->propEmuSpeedText        = "Emulator core:";
-    ls->propEmuVdpCmdSpeedText  = "VDP command wait time:";
+    ls->propEmuVdpCmdSpeedText  = "VDP command wait:";
     ls->propEmuFrontSwitchGB    = "Panasonic Switches ";
     ls->propEmuFrontSwitch      = " Front Switch";
     ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9
@@ -493,7 +493,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->propFileTypes           = " Register .ROM/.DSK/.CAS/.STA in the \"Open with\" menu";
     ls->propOpenDefaultApps     = "Open Windows default-apps settings";
     ls->propWindowsEnvGB        = "Windows Environment "; 
-    ls->propSetScreenSaver      = " Keep display on while blueMSX+ is running (no screen-off / sleep / saver)";
+    ls->propSetScreenSaver      = " Keep display on while blueMSX+ is running (no sleep/saver)";
     ls->propPriorityBoost       = " Use Windows game scheduler (MMCSS) for emulation";
     ls->propScreenshotPng       = " Save screenshots in PNG format instead of BMP";
     ls->propEjectMediaOnExit    = " Eject all media when blueMSX+ exits";        // New in 2.8
