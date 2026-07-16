@@ -105,6 +105,9 @@ void langInitRussian(LanguageStrings* ls)
     ls->infoRecorderComplete    = "Видеофайл сохранён:\n  %s";
     ls->infoToastSaved          = "Сохранено: %s";
     ls->infoToastAlreadyRecording   = "Запись уже идёт";
+    ls->infoToastMouseConnected    = "ПК мышь подключена к MSX";
+    ls->infoToastMouseDisconnected = "ПК мышь отключена от MSX";
+    ls->propControlsMouseSens      = "Чувствительность:";
     ls->dlgRecorderPickTitle        = "blueMSX+ - Преобразовать повтор в видео";
     ls->dlgRecorderPickSourceCap    = "Файл повтора для обработки (.cap):";
     ls->dlgRecorderPickOutputMp4    = "Выходной видеофайл (.mp4):";
@@ -731,7 +734,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->shortcutSwitchMsxAudio  = "Включить MSX-AUDIO";
     ls->shortcutSwitchFront     = "Включить переключатель Panasonic";
     ls->shortcutSwitchPause     = "Включить переключатель паузы";
-    ls->shortcutToggleMouseLock = "Включить блокировку мышки";
+    ls->shortcutToggleMouseLock = "Подключить/отключить ПК мышь к MSX";
     ls->shortcutEmuSpeedMax     = "Максимальная скорость эмуляции";
     ls->shortcutEmuPlayReverse  = "Перемотать эмуляцию";                     // New in 2.8.3
     ls->shortcutEmuSpeedToggle  = "Включить максимальную скорость эмуляции";

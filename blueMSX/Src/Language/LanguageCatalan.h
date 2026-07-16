@@ -105,6 +105,9 @@ void langInitCatalan(LanguageStrings* ls)
     ls->infoRecorderComplete    = "Fitxer de vídeo desat:\n  %s";
     ls->infoToastSaved          = "Desat: %s";
     ls->infoToastAlreadyRecording   = "Ja s'està gravant";
+    ls->infoToastMouseConnected    = "Ratolí PC connectat a l'MSX";
+    ls->infoToastMouseDisconnected = "Ratolí PC desconnectat de l'MSX";
+    ls->propControlsMouseSens      = "Sensibilitat:";
     ls->dlgRecorderPickTitle        = "blueMSX+ - Renderitza la repetició a vídeo";
     ls->dlgRecorderPickSourceCap    = "Fitxer de repetició a renderitzar (.cap):";
     ls->dlgRecorderPickOutputMp4    = "Fitxer de vídeo de sortida (.mp4):";
@@ -731,7 +734,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->shortcutSwitchMsxAudio  = "Commuta el commutador MSX-AUDIO";
     ls->shortcutSwitchFront     = "Commuta el commutador frontal Panasonic";
     ls->shortcutSwitchPause     = "Commuta el commutador de pausa";
-    ls->shortcutToggleMouseLock = "Commuta el blocatge del ratolí";
+    ls->shortcutToggleMouseLock = "Connecta/desconnecta ratolí PC a l'MSX";
     ls->shortcutEmuSpeedMax     = "Velocitat d'emulació màxima";
     ls->shortcutEmuPlayReverse  = "Rebobina l'emulació";                     // New in 2.8.3
     ls->shortcutEmuSpeedToggle  = "Commuta la velocitat d'emulació màxima";

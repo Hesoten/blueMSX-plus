@@ -105,6 +105,9 @@ void langInitGerman(LanguageStrings* ls)
     ls->infoRecorderComplete     = "Videodatei gespeichert:\n  %s";
     ls->infoToastSaved           = "Gespeichert: %s";
     ls->infoToastAlreadyRecording   = "Aufnahme läuft bereits";
+    ls->infoToastMouseConnected    = "PC-Maus mit MSX verbunden";
+    ls->infoToastMouseDisconnected = "PC-Maus vom MSX getrennt";
+    ls->propControlsMouseSens      = "Empfindlichkeit:";
     ls->dlgRecorderPickTitle        = "blueMSX+ - Replay als Video rendern";
     ls->dlgRecorderPickSourceCap    = "Replay-Datei zum Rendern (.cap):";
     ls->dlgRecorderPickOutputMp4    = "Ausgabe-Videodatei (.mp4):";
@@ -731,7 +734,7 @@ void langInitGerman(LanguageStrings* ls)
     ls->shortcutSwitchMsxAudio     = "MSX-AUDIO umschalten";                 // "Toggle MSX-AUDIO switch";
     ls->shortcutSwitchFront        = "Panasonic-Frontschalter umschalten";   // "Toggle Panasonic front switch";
     ls->shortcutSwitchPause        = "Unterbrechungstaste umschalten";
-    ls->shortcutToggleMouseLock    = "Maussperre umschalten";
+    ls->shortcutToggleMouseLock    = "PC-Maus mit MSX verbinden/trennen";
     ls->shortcutEmuSpeedMax        = "Max. Emulationsgeschwindigkeit";
     ls->shortcutEmuPlayReverse  = "Emulation zurückspulen";                     // New in 2.8.3
     ls->shortcutEmuSpeedToggle     = "Max. Emulationsgeschwindigkeit umschalten";

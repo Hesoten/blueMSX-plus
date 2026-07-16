@@ -105,6 +105,9 @@ void langInitDutch(LanguageStrings* ls)
     ls->infoRecorderComplete    = "Videobestand opgeslagen:\n  %s";
     ls->infoToastSaved          = "Opgeslagen: %s";
     ls->infoToastAlreadyRecording   = "Opname al actief";
+    ls->infoToastMouseConnected    = "PC-muis verbonden met MSX";
+    ls->infoToastMouseDisconnected = "PC-muis losgekoppeld van MSX";
+    ls->propControlsMouseSens      = "Gevoeligheid:";
     ls->dlgRecorderPickTitle        = "blueMSX+ - Replay naar video renderen";
     ls->dlgRecorderPickSourceCap    = "Replaybestand om te renderen (.cap):";
     ls->dlgRecorderPickOutputMp4    = "Uitvoer-videobestand (.mp4):";
@@ -731,7 +734,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->shortcutSwitchMsxAudio  = "MSX-AUDIO schakelaar aan/uit";
     ls->shortcutSwitchFront     = "Panasonic voorpanel schakelaar aan/uit";
     ls->shortcutSwitchPause     = "Pauze schakelaar aan/uit";
-    ls->shortcutToggleMouseLock = "Muis vastzetten aan/uit";
+    ls->shortcutToggleMouseLock = "PC-muis met MSX verbinden/loskoppelen";
     ls->shortcutEmuSpeedMax     = "Maximale emulatie snelheid";
     ls->shortcutEmuPlayReverse  = "Emulatie terugspoelen";                     // New in 2.8.3
     ls->shortcutEmuSpeedToggle  = "Maximum snelheid van de emulatie aan/uit";

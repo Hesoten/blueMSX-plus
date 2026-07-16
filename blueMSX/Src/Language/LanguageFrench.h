@@ -105,6 +105,9 @@ void langInitFrench(LanguageStrings* ls)
     ls->infoRecorderComplete    = "Fichier vidéo enregistré :\n  %s";
     ls->infoToastSaved          = "Enregistré : %s";
     ls->infoToastAlreadyRecording   = "Enregistrement déjà en cours";
+    ls->infoToastMouseConnected    = "Souris PC connectée au MSX";
+    ls->infoToastMouseDisconnected = "Souris PC déconnectée du MSX";
+    ls->propControlsMouseSens      = "Sensibilité :";
     ls->dlgRecorderPickTitle        = "blueMSX+ - Convertir la rediffusion en vidéo";
     ls->dlgRecorderPickSourceCap    = "Fichier de rediffusion à convertir (.cap) :";
     ls->dlgRecorderPickOutputMp4    = "Fichier vidéo de sortie (.mp4) :";
@@ -730,7 +733,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->shortcutSwitchMsxAudio  = "Actionner le commutateur MSX-AUDIO";
     ls->shortcutSwitchFront     = "Actionner le commutateur frontal Panasonic";
     ls->shortcutSwitchPause     = "Actionner le commutateur Pause";
-    ls->shortcutToggleMouseLock = "Activer/désactiver le blocage de la souris";
+    ls->shortcutToggleMouseLock = "Connecter/déconnecter la souris PC au MSX";
     ls->shortcutEmuSpeedMax     = "Vitesse maximale d'émulation";
     ls->shortcutEmuPlayReverse  = "Rembobiner l'émulation";                     // New in 2.8.3
     ls->shortcutEmuSpeedToggle  = "Balance vitesse maximale d'émulation";

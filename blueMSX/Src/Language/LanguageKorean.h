@@ -105,6 +105,9 @@ void langInitKorean(LanguageStrings* ls)
     ls->infoRecorderComplete    = "동영상 파일 저장됨:\n  %s";
     ls->infoToastSaved          = "저장됨: %s";
     ls->infoToastAlreadyRecording   = "이미 녹화 중";
+    ls->infoToastMouseConnected    = "PC 마우스를 MSX에 연결했습니다";
+    ls->infoToastMouseDisconnected = "PC 마우스의 MSX 연결을 해제했습니다";
+    ls->propControlsMouseSens      = "감도:";
     ls->dlgRecorderPickTitle        = "blueMSX+ - 재생을 동영상으로 변환";
     ls->dlgRecorderPickSourceCap    = "변환할 재생 파일 (.cap):";
     ls->dlgRecorderPickOutputMp4    = "출력 동영상 파일 (.mp4):";
@@ -731,7 +734,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->shortcutSwitchMsxAudio  = "MSX-AUDIO 스위치 변환";
     ls->shortcutSwitchFront     = "파나소닉 프론트 스위치 변환";
     ls->shortcutSwitchPause     = "일시 정지 스위치";
-    ls->shortcutToggleMouseLock = "마우스 고정 변환";
+    ls->shortcutToggleMouseLock = "PC 마우스를 MSX에 연결/해제";
     ls->shortcutEmuSpeedMax     = "최대 에뮬레이션 속도";
     ls->shortcutEmuPlayReverse  = "에뮬레이션 되감기";                     // New in 2.8.3
     ls->shortcutEmuSpeedToggle  = "에뮬레이션 속도 최대화 변환";

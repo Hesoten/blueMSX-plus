@@ -107,6 +107,9 @@ void langInitFinnish(LanguageStrings* ls)
     ls->infoRecorderComplete    = "Videotiedosto tallennettu:\n  %s";
     ls->infoToastSaved          = "Tallennettu: %s";
     ls->infoToastAlreadyRecording   = "Tallennus jo käynnissä";
+    ls->infoToastMouseConnected    = "PC-hiiri yhdistetty MSX:aan";
+    ls->infoToastMouseDisconnected = "PC-hiiri katkaistu MSX:sta";
+    ls->propControlsMouseSens      = "Herkkyys:";
     ls->dlgRecorderPickTitle        = "blueMSX+ - Tee uusinnasta video";
     ls->dlgRecorderPickSourceCap    = "Renderöitävä uusintatiedosto (.cap):";
     ls->dlgRecorderPickOutputMp4    = "Tulosvideotiedosto (.mp4):";
@@ -732,7 +735,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->shortcutSwitchMsxAudio  = "Muuta MSX-AUDIO kytkimen tila";
     ls->shortcutSwitchFront     = "Muuta Panasonic aplikaatiokytkimen tila";
     ls->shortcutSwitchPause     = "Muuta Pause-näppäimen tilaa";
-    ls->shortcutToggleMouseLock = "Muuta hiirenkaappauksen tilaa";
+    ls->shortcutToggleMouseLock = "Yhdistä/katkaise PC-hiiri MSX:ään";
     ls->shortcutEmuSpeedMax     = "Maksimi emulointinopeus";
     ls->shortcutEmuPlayReverse  = "Taaksepäin suoritus";                     // New in 2.8.3
     ls->shortcutEmuSpeedToggle  = "Vaihda maksimi emulointinopeus";

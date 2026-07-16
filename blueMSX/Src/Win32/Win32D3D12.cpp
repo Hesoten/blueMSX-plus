@@ -614,14 +614,35 @@ static int  allocRecordResources(int width, int height, int hdr);
 static const char* k_d3d12SwapWndClass = "blueMSXD3D12Swap";
 static bool g12_swapWndClassRegistered = false;
 
+/* Forward mouse events to the parent (emuHwnd) so clicks on the D3D12
+** presentation surface still reach emuWndProc for the capture handler.
+** Also forward WM_SETCURSOR so emu-side lock/fade cursor state applies. */
+static LRESULT CALLBACK swapWndProcForwardMouse(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
+{
+    switch (msg) {
+    case WM_LBUTTONDOWN: case WM_LBUTTONUP:
+    case WM_MBUTTONDOWN: case WM_MBUTTONUP:
+    case WM_RBUTTONDOWN: case WM_RBUTTONUP:
+    case WM_MOUSEMOVE:
+    case WM_MOUSEWHEEL:
+    case WM_SETCURSOR:
+        return SendMessageA(GetParent(hwnd), msg, wp, lp);
+    }
+    return DefWindowProcA(hwnd, msg, wp, lp);
+}
+
 static void registerSwapWindowClass()
 {
     if (g12_swapWndClassRegistered) return;
     WNDCLASSA wc = {};
-    wc.lpfnWndProc   = DefWindowProcA;
+    wc.lpfnWndProc   = swapWndProcForwardMouse;
     wc.hInstance     = GetModuleHandle(NULL);
     wc.lpszClassName = k_d3d12SwapWndClass;
     wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
+    /* Class cursor: without this the OS keeps whatever was last set, which
+    ** after ShowCursor(TRUE) leaves the arrow invisible over the swap area
+    ** (parent's WM_SETCURSOR falls through to DefWindowProc otherwise). */
+    wc.hCursor       = LoadCursorA(NULL, IDC_ARROW);
     RegisterClassA(&wc);
     g12_swapWndClassRegistered = true;
 }

@@ -105,6 +105,9 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->infoRecorderComplete    = "视频文件已保存：\n  %s";
     ls->infoToastSaved          = "已保存：%s";
     ls->infoToastAlreadyRecording   = "已在录制中";
+    ls->infoToastMouseConnected    = "PC 鼠标已连接到 MSX";
+    ls->infoToastMouseDisconnected = "PC 鼠标已从 MSX 断开";
+    ls->propControlsMouseSens      = "灵敏度:";
     ls->dlgRecorderPickTitle        = "blueMSX+ - 将回放转换为视频";
     ls->dlgRecorderPickSourceCap    = "要转换的回放文件 (.cap)：";
     ls->dlgRecorderPickOutputMp4    = "输出视频文件 (.mp4)：";
@@ -731,7 +734,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->shortcutSwitchMsxAudio  = "切换 MSX-AUDIO 卡开关";
     ls->shortcutSwitchFront     = "切换 Panasonic 前端开关";
     ls->shortcutSwitchPause     = "切换暂停开关";
-    ls->shortcutToggleMouseLock = "切换鼠标锁定";
+    ls->shortcutToggleMouseLock = "连接/断开 PC 鼠标与 MSX";
     ls->shortcutEmuSpeedMax     = "最高速模拟";
     ls->shortcutEmuPlayReverse  = "回退模拟";                     // New in 2.8.3
     ls->shortcutEmuSpeedToggle  = "锁定最高速模拟";

@@ -322,6 +322,9 @@ char* langErrorRecorderRequiresDX12Title() { return ls->errorRecorderRequiresDX1
 char* langInfoRecorderComplete()           { return ls->infoRecorderComplete; }
 char* langInfoToastSaved()                 { return ls->infoToastSaved; }
 char* langInfoToastAlreadyRecording()      { return ls->infoToastAlreadyRecording; }
+char* langInfoToastMouseConnected()        { return ls->infoToastMouseConnected; }
+char* langInfoToastMouseDisconnected()     { return ls->infoToastMouseDisconnected; }
+char* langPropControlsMouseSens()          { return ls->propControlsMouseSens; }
 char* langDlgRecorderPickTitle()       { return ls->dlgRecorderPickTitle; }
 char* langDlgRecorderPickSourceCap()   { return ls->dlgRecorderPickSourceCap; }
 char* langDlgRecorderPickOutputMp4()   { return ls->dlgRecorderPickOutputMp4; }

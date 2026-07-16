@@ -105,6 +105,9 @@ void langInitSwedish(LanguageStrings* ls)
     ls->infoRecorderComplete    = "Videofil sparad:\n  %s";
     ls->infoToastSaved          = "Sparat: %s";
     ls->infoToastAlreadyRecording   = "Spelar redan in";
+    ls->infoToastMouseConnected    = "PC-mus ansluten till MSX";
+    ls->infoToastMouseDisconnected = "PC-mus frånkopplad från MSX";
+    ls->propControlsMouseSens      = "Känslighet:";
     ls->dlgRecorderPickTitle        = "blueMSX+ - Rendera replay till video";
     ls->dlgRecorderPickSourceCap    = "Replayfil att rendera (.cap):";
     ls->dlgRecorderPickOutputMp4    = "Utdatavideofil (.mp4):";
@@ -732,7 +735,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->shortcutSwitchMsxAudio  = "Slå om MSX-AUDIO brytare";
     ls->shortcutSwitchFront     = "Slå om Panasonic Front brytare";
     ls->shortcutSwitchPause     = "Slå om Pausbrytare";
-    ls->shortcutToggleMouseLock = "Slå om Muslås";
+    ls->shortcutToggleMouseLock = "Anslut/koppla från PC-mus till MSX";
     ls->shortcutEmuSpeedMax     = "Maximal Emuleringshastighet";
     ls->shortcutEmuPlayReverse  = "Spola tillbaka";                     // New in 2.8.3
     ls->shortcutEmuSpeedToggle  = "Växla Mellan Normal och Max Emuleringshastighet";

@@ -107,6 +107,9 @@ void langInitJapanese(LanguageStrings* ls)
     ls->infoRecorderComplete    = "動画ファイルを保存しました:\n  %s";
     ls->infoToastSaved          = "保存しました: %s";
     ls->infoToastAlreadyRecording  = "既に記録中です";
+    ls->infoToastMouseConnected    = "PC のマウスを MSX に接続しました";
+    ls->infoToastMouseDisconnected = "PC のマウスの MSX への接続を解除しました";
+    ls->propControlsMouseSens      = "感度:";
     ls->dlgRecorderPickTitle       = "blueMSX+ - リプレイから動画書き出し";
     ls->dlgRecorderPickSourceCap   = "動画化するリプレイファイル (.cap):";
     ls->dlgRecorderPickOutputMp4   = "出力先動画ファイル (.mp4):";
@@ -753,7 +756,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->shortcutSwitchMsxAudio  = "MSX-AUDIO カートリッジスイッチ";
     ls->shortcutSwitchFront     = "パナソニック系 前面[内蔵ソフト]スイッチ";
     ls->shortcutSwitchPause     = "パナソニック系 ポーズスイッチ";
-    ls->shortcutToggleMouseLock = "マウスロック";
+    ls->shortcutToggleMouseLock = "PC のマウスを MSX に接続/解除";
     ls->shortcutEmuSpeedMax     = "エミュレーション実行速度を最速化";
     ls->shortcutEmuPlayReverse  = "巻き戻し再生";
     ls->shortcutEmuSpeedToggle  = "最速動作の有無";
