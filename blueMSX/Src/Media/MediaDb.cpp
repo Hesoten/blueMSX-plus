@@ -1438,6 +1438,8 @@ extern "C" MediaType* mediaDbGuessRom(const void *buffer, int size)
     ** plain K5/K4/ASCII ROMs, so any hit strongly implies Yamanooto. */
     UInt32 ascii8Unique = 0;
     UInt32 ascii16Unique = 0;
+    UInt32 konami4Unique = 0;
+    UInt32 konami5Unique = 0;
     UInt32 yamanootoHits = 0;
     for (i = 0; i < size - 3; i++) {
         if (romData[i] == 0x32) {
@@ -1452,12 +1454,14 @@ extern "C" MediaType* mediaDbGuessRom(const void *buffer, int size)
             case 0x8000: 
             case 0xa000: 
                 counters[3]++;
+                konami4Unique++;
                 break;
 
             case 0x5000: 
             case 0x9000: 
             case 0xb000: 
                 counters[2]++;
+                konami5Unique++;
                 break;
 
             case 0x6000: 
@@ -1497,11 +1501,13 @@ extern "C" MediaType* mediaDbGuessRom(const void *buffer, int size)
     /* 0x6800/0x7800 are ASCII-8-only writes, 0x77FF is ASCII-16-only.
     ** When one side has hits and the other doesn't, decide outright; the
     ** legacy tally below can drop a lone ASCII-8 hit to the -1 bias. */
-    if (ascii8Unique > 0 && ascii16Unique == 0) {
+    if (ascii8Unique > 0 && ascii16Unique == 0 &&
+        ascii8Unique >= konami4Unique && ascii8Unique >= konami5Unique) {
         mediaType->romType = ROM_ASCII8;
         return mediaType;
     }
-    if (ascii16Unique > 0 && ascii8Unique == 0) {
+    if (ascii16Unique > 0 && ascii8Unique == 0 &&
+        ascii16Unique >= konami4Unique && ascii16Unique >= konami5Unique) {
         mediaType->romType = ROM_ASCII16;
         return mediaType;
     }
