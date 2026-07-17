@@ -687,7 +687,10 @@ int inputReset(HWND hwnd)
 
 	    rv = IDirectInputDevice_SetProperty(kbdDevice, DIPROP_BUFFERSIZE,&dipdw.diph);
 
-        rv = IDirectInput_EnumDevices(dinput, DI8DEVTYPE_JOYSTICK, enumJoysticksCallback, 0, DIEDFL_ATTACHEDONLY);
+        /* DI8DEVCLASS_GAMECTRL covers joysticks, gamepads, wheels and flight
+        ** sticks alike; DI8DEVTYPE_JOYSTICK would drop devices classified
+        ** as gamepad by their HID descriptor. */
+        rv = IDirectInput_EnumDevices(dinput, DI8DEVCLASS_GAMECTRL, enumJoysticksCallback, 0, DIEDFL_ATTACHEDONLY);
 
         if (foundInputDevices) {
             // We found input devices that supports background input so lets not
@@ -907,18 +910,16 @@ static int joystickUpdateState(int index,  DWORD* buttonMask) {
         return 0;
     }
     
-    if (pProperties->joystick.POV0isAxes) {
+    if (!pProperties->joystick.disablePOV0Dpad) {
         state|=(((js.rgdwPOV[0]<=31500)&(js.rgdwPOV[0]>=22500))<<2);
         state|=(((js.rgdwPOV[0]<=13500)&(js.rgdwPOV[0]>=4500))<<3);
         state|=((js.rgdwPOV[0]<=4500)|((js.rgdwPOV[0]>=31500)&(js.rgdwPOV[0]<36000)));
         state|=(((js.rgdwPOV[0]<=22500)&(js.rgdwPOV[0]>=13500))<<1);
     }
-    else {
-        if (js.lX < -50) state |= 0x04;
-        if (js.lX >  50) state |= 0x08;
-        if (js.lY < -50) state |= 0x01;
-        if (js.lY >  50) state |= 0x02;
-    }
+    if (js.lX < -50) state |= 0x04;
+    if (js.lX >  50) state |= 0x08;
+    if (js.lY < -50) state |= 0x01;
+    if (js.lY >  50) state |= 0x02;
     if (js.rgbButtons[joyInfo[index].buttonA]) state |= 0x10;
     if (js.rgbButtons[joyInfo[index].buttonB]) state |= 0x20;
 

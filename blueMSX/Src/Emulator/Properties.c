@@ -440,7 +440,7 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->sound.MidiOut.desc[0]         = 0;
     properties->sound.MidiOut.mt32ToGm        = 0;
     
-    properties->joystick.POV0isAxes    = 0;
+    properties->joystick.disablePOV0Dpad = 0;
     
 #ifdef WII
     // Use joystick by default
@@ -778,7 +778,7 @@ static void propLoad(Properties* properties)
     GET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_MIDI, pan);
     GET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_MIDI, volume);
     
-    GET_ENUM_VALUE_2(propFile, joystick, POV0isAxes, BoolPair);
+    GET_ENUM_VALUE_2(propFile, joystick, disablePOV0Dpad, BoolPair);
     
     GET_STR_VALUE_2(propFile, joy1, type);
     properties->joy1.typeId = joystickPortNameToType(0, properties->joy1.type, 0);
@@ -1110,7 +1110,7 @@ void propSave(Properties* properties)
     SET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_MIDI, pan);
     SET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_MIDI, volume);
     
-    SET_ENUM_VALUE_2(propFile, joystick, POV0isAxes, YesNoPair);
+    SET_ENUM_VALUE_2(propFile, joystick, disablePOV0Dpad, YesNoPair);
     
     strcpy(properties->joy1.type, joystickPortTypeToName(0, 0));
     SET_STR_VALUE_2(propFile, joy1, type);
