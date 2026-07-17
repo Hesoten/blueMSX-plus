@@ -1520,12 +1520,15 @@ extern "C" MediaType* mediaDbGuessRom(const void *buffer, int size)
 
     /* 0x6800/0x7800 are ASCII-8-only writes, 0x77FF is ASCII-16-only.
     ** When one side has hits and the other doesn't, decide outright; the
-    ** legacy tally below can drop a lone ASCII-8 hit to the -1 bias. */
-    if (ascii8Unique > 0 && ascii16Unique == 0) {
+    ** legacy tally below can drop a lone ASCII-8 hit to the -1 bias.
+    ** However a K5/K4 megarom with lots of music/graphics data can carry
+    ** a handful of coincidental 0x32/0x68/0x78 byte patterns.  Only take
+    ** the unique pre-decision if it dominates the competing mapper. */
+    if (ascii8Unique > 0 && ascii16Unique == 0 && ascii8Unique >= counters[2]) {
         mediaType->romType = ROM_ASCII8;
         return mediaType;
     }
-    if (ascii16Unique > 0 && ascii8Unique == 0) {
+    if (ascii16Unique > 0 && ascii8Unique == 0 && ascii16Unique >= counters[3]) {
         mediaType->romType = ROM_ASCII16;
         return mediaType;
     }
