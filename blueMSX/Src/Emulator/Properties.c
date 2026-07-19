@@ -271,6 +271,7 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
 
     properties->emulation.statsDefDir[0]     = 0;
     properties->emulation.shortcutProfile[0] = 0;
+    properties->emulation.machinesDir[0]     = 0;
     strcpy(properties->emulation.machineName, "MSX2");
     properties->emulation.speed             = 50;
     properties->emulation.syncMethod        = syncMode ? P_EMU_SYNCTOVBLANK : P_EMU_SYNCAUTO;
@@ -634,6 +635,7 @@ static void propLoad(Properties* properties)
     GET_ENUM_VALUE_2(propFile, emulation, registerFileTypes, BoolPair);
     GET_STR_VALUE_2(propFile, emulation, statsDefDir);
     GET_STR_VALUE_2(propFile, emulation, machineName);
+    GET_STR_VALUE_2(propFile, emulation, machinesDir);
     GET_STR_VALUE_2(propFile, emulation, shortcutProfile);
     GET_INT_VALUE_2(propFile, emulation, speed);
     GET_ENUM_VALUE_2(propFile, emulation, syncMethod, EmuSyncPair);
@@ -962,6 +964,7 @@ void propSave(Properties* properties)
     if (appConfigGetString("singlemachine", NULL) == NULL) {
         SET_STR_VALUE_2(propFile, emulation, machineName);
     }
+    SET_STR_VALUE_2(propFile, emulation, machinesDir);
     SET_STR_VALUE_2(propFile, emulation, shortcutProfile);
     SET_INT_VALUE_2(propFile, emulation, speed);
     SET_ENUM_VALUE_2(propFile, emulation, syncMethod, EmuSyncPair);
