@@ -32,6 +32,7 @@
 
 #include <windows.h>
 #include <commctrl.h>     /* TRACKMOUSEEVENT for slider hover tooltip */
+#include <uxtheme.h>      /* SetWindowTheme -- strip theme from mouse-sens trackbar */
 #include "MsxTypes.h"
 #include "Win32Common.h"
 #include "Win32Keyboard.h"
@@ -47,6 +48,7 @@
 #include "Resource.h"
 #include "InputEvent.h"
 #include "JoystickPort.h"
+#include "Win32MouseEmu.h"
 
 // Set current window for handling of minimize events, close events, ...
 extern void SetCurrentWindow(HWND hwnd);
@@ -374,6 +376,197 @@ static void windowCreateClipRegion(WindowInfo* wi)
 /// Description:
 ///     Specialized window handler for keyboard configuration windows
 //////////////////////////////////////////////////////////////////////////
+/* Overlay child window IDs for the mouse-sensitivity slider added to the
+** keyboard-config themed dialog. Shown only when either joystick port has
+** MOUSE selected; hidden otherwise. */
+#define ID_MOUSESENS_BG      8499
+#define ID_MOUSESENS_LABEL   8500
+#define ID_MOUSESENS_SLIDER  8501
+#define ID_MOUSESENS_VALUE   8502
+
+static HFONT g_mouseSensFont = NULL;
+
+static void mouseSensCreateOverlay(HWND parent);
+
+static void mouseSensReposition(HWND parent)
+{
+    /* Theme's design grid is 500x330 but the actual client rect is scaled
+    ** by the theme framework; use only a fraction of that scale so the
+    ** overlay stays proportionate rather than dominating the dialog. */
+    static const int BASE_W = 500, BASE_H = 330;
+    RECT rc;
+    HWND lbl = GetDlgItem(parent, ID_MOUSESENS_LABEL);
+    HWND sld = GetDlgItem(parent, ID_MOUSESENS_SLIDER);
+    HWND val = GetDlgItem(parent, ID_MOUSESENS_VALUE);
+    HWND bg  = GetDlgItem(parent, ID_MOUSESENS_BG);
+    int scaleN, scaleD;
+    int x, y, wLbl, wSld, wVal, h, gap, sldDy, total, fontH;
+    GetClientRect(parent, &rc);
+    if (rc.right <= 0 || rc.bottom <= 0) return;
+    if (rc.right * BASE_H < rc.bottom * BASE_W) { scaleN = rc.right;  scaleD = BASE_W; }
+    else                                        { scaleN = rc.bottom; scaleD = BASE_H; }
+    /* Halve the effective scale; full-scale was too big in testing. */
+    scaleD *= 2;
+    fontH = 17 * scaleN / scaleD;
+    {
+        HFONT oldFont = g_mouseSensFont;
+        LOGFONTW lf = {0};
+        lf.lfHeight  = -fontH;
+        lf.lfWeight  = FW_NORMAL;
+        lf.lfCharSet = DEFAULT_CHARSET;
+        wcscpy(lf.lfFaceName, L"Segoe UI");
+        g_mouseSensFont = CreateFontIndirectW(&lf);
+        if (g_mouseSensFont) {
+            if (lbl) SendMessage(lbl, WM_SETFONT, (WPARAM)g_mouseSensFont, TRUE);
+            if (sld) SendMessage(sld, WM_SETFONT, (WPARAM)g_mouseSensFont, TRUE);
+            if (val) SendMessage(val, WM_SETFONT, (WPARAM)g_mouseSensFont, TRUE);
+            if (oldFont) DeleteObject(oldFont);
+        } else {
+            g_mouseSensFont = oldFont;
+        }
+    }
+    /* Measure the actual translated label with the scaled font so the width
+    ** matches text exactly; short strings don't leave visual slack and long
+    ** ones (Russian ~17ch, German ~16ch) don't get clipped. */
+    wLbl = 40 * scaleN / scaleD;
+    if (lbl && g_mouseSensFont) {
+        WCHAR text[64] = {0};
+        HDC hdc = GetDC(parent);
+        HFONT prev = (HFONT)SelectObject(hdc, g_mouseSensFont);
+        SIZE sz;
+        GetWindowTextW(lbl, text, 64);
+        if (GetTextExtentPoint32W(hdc, text, (int)wcslen(text), &sz)) {
+            wLbl = sz.cx + fontH / 2;
+        }
+        SelectObject(hdc, prev);
+        ReleaseDC(parent, hdc);
+    }
+    x     = 500 * scaleN / scaleD;
+    /* Align the single-row card centre with the mouse icon (image spans
+    ** theme y=132..225, centre ~178; halved base → 178*2 - h/2 = ~340). */
+    y     = 340 * scaleN / scaleD;
+    wSld  = 170 * scaleN / scaleD;
+    wVal  =  40 * scaleN / scaleD;
+    h     =  34 * scaleN / scaleD;
+    gap   =  20 * scaleN / scaleD;
+    sldDy =   4 * scaleN / scaleD;
+    total = wLbl + wSld + gap + wVal;
+    {
+        /* Slider control shorter than the row + centred on the row axis so
+        ** the trackbar's own top/bottom padding stops making the channel
+        ** look top-heavy; sldDy still nudges for SS_CENTERIMAGE offset. */
+        int hSld = h * 2 / 3;
+        int ySld = y + (h - hSld) / 2 + sldDy;
+        if (bg)  SetWindowPos(bg,  NULL, x,                     y,    total, h,    SWP_NOZORDER);
+        if (lbl) SetWindowPos(lbl, NULL, x,                     y,    wLbl,  h,    SWP_NOZORDER);
+        if (sld) SetWindowPos(sld, NULL, x + wLbl,              ySld, wSld,  hSld, SWP_NOZORDER);
+        if (val) SetWindowPos(val, NULL, x + wLbl + wSld + gap, y,    wVal,  h,    SWP_NOZORDER);
+    }
+}
+
+static void mouseSensSyncVisibility(HWND parent)
+{
+    /* SW_HIDE + off-screen park + full parent repaint. Also destroy the
+    ** children when hiding so no ghost of the trackbar/statics can persist. */
+    static int lastHasMouse = -1;
+    Properties* pProps = propGetGlobalProperties();
+    int p0 = joystickPortGetType(0);
+    int p1 = joystickPortGetType(1);
+    /* Only show on the joystick page whose port has MOUSE selected; hide on
+    ** the keyboard tab entirely. Page names come from the theme XML. */
+    WindowInfo* wi = (WindowInfo*)windowDataGet(parent);
+    ThemePage* page = (wi && wi->theme) ? themeGetCurrentPage(wi->theme) : NULL;
+    const char* pageName = page ? page->name : "";
+    int hasMouse = 0;
+    if (strcmp(pageName, "joystick1") == 0) hasMouse = (p0 == JOYSTICK_PORT_MOUSE);
+    else if (strcmp(pageName, "joystick2") == 0) hasMouse = (p1 == JOYSTICK_PORT_MOUSE);
+    HWND bg  = GetDlgItem(parent, ID_MOUSESENS_BG);
+    HWND lbl = GetDlgItem(parent, ID_MOUSESENS_LABEL);
+    HWND sld = GetDlgItem(parent, ID_MOUSESENS_SLIDER);
+    HWND val = GetDlgItem(parent, ID_MOUSESENS_VALUE);
+    if (!hasMouse) {
+        if (bg)  DestroyWindow(bg);
+        if (lbl) DestroyWindow(lbl);
+        if (sld) DestroyWindow(sld);
+        if (val) DestroyWindow(val);
+        if (lastHasMouse != 0) {
+            RedrawWindow(parent, NULL, NULL,
+                         RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+        }
+    } else {
+        if (!bg) {
+            mouseSensCreateOverlay(parent);
+        } else {
+            ShowWindow(bg,  SW_SHOW);
+            ShowWindow(lbl, SW_SHOW);
+            ShowWindow(sld, SW_SHOW);
+            ShowWindow(val, SW_SHOW);
+            if (lastHasMouse != 1) mouseSensReposition(parent);
+        }
+        sld = GetDlgItem(parent, ID_MOUSESENS_SLIDER);
+        if (sld && pProps) {
+            int v = pProps->emulation.mouseSensitivity;
+            char buf[16];
+            if (v < 1) v = 1; else if (v > 10) v = 10;
+            SendMessage(sld, TBM_SETPOS, 1, v);
+            sprintf(buf, "%d", v);
+            SetDlgItemTextU(parent, ID_MOUSESENS_VALUE, buf);
+        }
+        /* Force full redraw of the newly-shown controls so the initial paint
+        ** isn't clipped away by the theme's direct-DC redraw racing us. */
+        if (lastHasMouse != 1) {
+            HWND cs[] = { GetDlgItem(parent, ID_MOUSESENS_BG),
+                          GetDlgItem(parent, ID_MOUSESENS_LABEL),
+                          GetDlgItem(parent, ID_MOUSESENS_SLIDER),
+                          GetDlgItem(parent, ID_MOUSESENS_VALUE) };
+            int i;
+            for (i = 0; i < 4; i++) if (cs[i]) {
+                RedrawWindow(cs[i], NULL, NULL,
+                             RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
+            }
+        }
+    }
+    lastHasMouse = hasMouse;
+}
+
+static void mouseSensCreateOverlay(HWND parent)
+{
+    HFONT hFont = g_mouseSensFont ? g_mouseSensFont
+                                  : (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+    HWND bg, lbl, sld, val;
+    /* Create background FIRST so it sits at the bottom of the z-order and
+    ** the label/slider/value composite on top of it as a single card. */
+    bg = CreateWindowExW(0, L"STATIC", L"",
+        WS_CHILD | WS_VISIBLE | SS_WHITERECT, 0, 0, 100, 20, parent,
+        (HMENU)(INT_PTR)ID_MOUSESENS_BG, GetModuleHandle(NULL), NULL);
+    (void)bg;
+    lbl = CreateWindowExW(0, L"STATIC", L"",
+        WS_CHILD | WS_VISIBLE | SS_LEFT | SS_CENTERIMAGE, 0, 0, 120, 20, parent,
+        (HMENU)(INT_PTR)ID_MOUSESENS_LABEL, GetModuleHandle(NULL), NULL);
+    sld = CreateWindowExW(0, TRACKBAR_CLASSW, L"",
+        WS_CHILD | WS_VISIBLE | TBS_HORZ | TBS_BOTH | TBS_NOTICKS | WS_TABSTOP,
+        0, 0, 100, 22, parent,
+        (HMENU)(INT_PTR)ID_MOUSESENS_SLIDER, GetModuleHandle(NULL), NULL);
+    /* Strip the visual style so WM_CTLCOLORSTATIC (below) actually paints
+    ** the trackbar background white to match the surrounding card. */
+    if (sld) SetWindowTheme(sld, L"", L"");
+    val = CreateWindowExW(0, L"STATIC", L"",
+        WS_CHILD | WS_VISIBLE | SS_LEFT | SS_CENTERIMAGE, 0, 0, 25, 20, parent,
+        (HMENU)(INT_PTR)ID_MOUSESENS_VALUE, GetModuleHandle(NULL), NULL);
+    if (lbl) SendMessage(lbl, WM_SETFONT, (WPARAM)hFont, TRUE);
+    if (sld) { SendMessage(sld, TBM_SETRANGE, 0, MAKELONG(1, 10));
+               SendMessage(sld, WM_SETFONT, (WPARAM)hFont, TRUE); }
+    if (val) SendMessage(val, WM_SETFONT, (WPARAM)hFont, TRUE);
+    {
+        /* Leading space so the label text isn't jammed against the mouse
+        ** icon on its left; matches ~1 character of visual breathing room. */
+        char buf[256];
+        _snprintf_s(buf, sizeof(buf), _TRUNCATE, " %s", langPropControlsMouseSens());
+        SetDlgItemTextU(parent, ID_MOUSESENS_LABEL, buf);
+    }
+    mouseSensReposition(parent);
+}
+
 static LRESULT CALLBACK keyboardDlgProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     WindowInfo* wi = windowDataGet(hwnd);
@@ -383,14 +576,51 @@ static LRESULT CALLBACK keyboardDlgProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
         keyboardStartConfig();
         objectUpdate(hwnd, WM_DROPDOWN_KEYBOARDCONFIG, (LPARAM)keyboardGetCurrentConfig());
         SetTimer(hwnd, TIMER_POLL_INPUT, 500, NULL);
+        /* Theme framework paints via GetDC(hwnd)+themePageUpdate every 100ms
+        ** (TIMER_STATUSBAR_UPDATE), which clobbers our child controls unless
+        ** WS_CLIPCHILDREN excludes their rects from parent drawing. */
+        SetWindowLongPtr(hwnd, GWL_STYLE,
+                         GetWindowLongPtr(hwnd, GWL_STYLE) | WS_CLIPCHILDREN);
+        mouseSensSyncVisibility(hwnd);
+        return 0;
+
+    case WM_CTLCOLORSTATIC:
+        {
+            int id = GetDlgCtrlID((HWND)lParam);
+            if (id == ID_MOUSESENS_LABEL || id == ID_MOUSESENS_VALUE
+             || id == ID_MOUSESENS_SLIDER) {
+                /* White brush (matches SS_WHITERECT under) so the static /
+                ** trackbar actually clears its rect white -- NULL_BRUSH
+                ** would leave stale pixels behind. */
+                SetBkColor((HDC)wParam, RGB(255, 255, 255));
+                return (LRESULT)GetStockObject(WHITE_BRUSH);
+            }
+        }
+        break;
+
+    case WM_HSCROLL:
+        if (GetDlgCtrlID((HWND)lParam) == ID_MOUSESENS_SLIDER) {
+            Properties* pProps = propGetGlobalProperties();
+            int v = (int)SendMessage((HWND)lParam, TBM_GETPOS, 0, 0);
+            char buf[16];
+            if (pProps) pProps->emulation.mouseSensitivity = v;
+            sprintf(buf, "%d", v);
+            SetDlgItemTextU(hwnd, ID_MOUSESENS_VALUE, buf);
+            mouseEmuRefreshSensitivity();
+        }
         return 0;
 
     case WM_TIMER:
         switch(wParam) {
         case TIMER_POLL_INPUT:
             objectEnable(hwnd, WM_BUTTON_SAVE, !keyboardIsCurrentConfigDefault() && keyboardConfigIsModified());
+            mouseSensSyncVisibility(hwnd);
             break;
         }
+        break;
+
+    case WM_SIZE:
+        mouseSensReposition(hwnd);
         break;
 
     case WM_BUTTON_CLOSE:
@@ -581,6 +811,11 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
         if (menuCommand(propGetGlobalProperties(), LOWORD(wParam))) {
             archUpdateMenu(0);
             InvalidateRect(hwnd, NULL, TRUE);
+            /* Popup menu items (e.g. menu-joyport1/2) route through here;
+            ** sync the sens overlay immediately, not on the 500ms tick. */
+            if (wi && wi->theme && wi->theme->themeHandler == TH_KBDCONFIG) {
+                mouseSensSyncVisibility(hwnd);
+            }
         }
         break;
 
@@ -637,6 +872,7 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
     case WM_LBUTTONUP:
         if (wi != NULL) {
             ThemePage* themePage = themeGetCurrentPage(wi->theme);
+            int wasKbdConfig = (wi->theme->themeHandler == TH_KBDCONFIG);
             HDC hdc = GetDC(hwnd);
             POINT pt;
             
@@ -646,6 +882,12 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
             themePageMouseButtonUp(themePage, hdc, pt.x, pt.y);
             ReleaseDC(hwnd, hdc);
             SetCurrentWindow(NULL);
+            /* themePageMouseButtonUp may re-enter and free wi + destroy
+            ** hwnd (e.g. mixer close button); gate the sens sync on the
+            ** window still being alive to avoid use-after-free. */
+            if (wasKbdConfig && IsWindow(hwnd)) {
+                mouseSensSyncVisibility(hwnd);
+            }
         }
 
     case WM_ERASEBKGND:

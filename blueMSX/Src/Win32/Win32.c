@@ -2335,6 +2335,25 @@ static int getZoom() {
     return pProperties->video.windowSize + 1;
 }
 
+/* Visible MSX row count after D3D cropping, for mouse-sensitivity scaling.
+** Only the D3D12 driver applies crop; keep in sync with computeUvForRender
+** in Win32D3D12.cpp (same BASE_TEX_H=240 and per-preset border sizes). */
+static int msxVisibleHeight(Properties* props)
+{
+    if (props->video.driver != P_VIDEO_DRVDIRECTX_D3D12) return 240;
+
+    switch (props->video.d3d.cropType) {
+    case P_D3D_CROP_SIZE_MSX1:         return 192;
+    case P_D3D_CROP_SIZE_MSX1_PLUS_8:  return 208;
+    case P_D3D_CROP_SIZE_MSX2:         return 212;
+    case P_D3D_CROP_SIZE_MSX2_PLUS_8:  return 228;
+    case P_D3D_CROP_SIZE_CUSTOM: {
+        int h = 240 - props->video.d3d.cropTop - props->video.d3d.cropBottom;
+        return h > 0 ? h : 240;
+    }
+    default:                           return 240;
+    }
+}
 
 void themeSet(char* themeName, int forceMatch) {
     int x  = 0;
@@ -2689,6 +2708,11 @@ void archUpdateWindow() {
         }
 
         mouseEmuSetCaptureInfo(&r, &d);
+        /* Scale MSX deltas so pointer feel stays 1:1 with the on-screen MSX
+        ** area across zoom / custom window size / D3D crop. Vertical avoids
+        ** the horizontalStretch corner case. */
+        mouseEmuSetScale(msxVisibleHeight(pProperties),
+                         r.bottom - r.top);
     }
 
     // Bring the DX12 device up synchronously so recorderStartLive can
@@ -2856,8 +2880,25 @@ static LRESULT CALLBACK emuWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
     case WM_SETCURSOR:
         return mouseEmuSetCursor();
 
-    case WM_MOUSEMOVE:
+    case WM_INPUT: {
+        RAWINPUT ri;
+        UINT sz = sizeof(ri);
+        if (GetRawInputData((HRAWINPUT)lParam, RID_INPUT, &ri, &sz,
+                            sizeof(RAWINPUTHEADER)) != (UINT)-1
+            && ri.header.dwType == RIM_TYPEMOUSE
+            && !(ri.data.mouse.usFlags & MOUSE_MOVE_ABSOLUTE)) {
+            mouseEmuHandleRawInput(ri.data.mouse.lLastX, ri.data.mouse.lLastY,
+                                   ri.header.hDevice);
+        }
+        break;
+    }
+
     case WM_LBUTTONDOWN:
+        mouseEmuOnClick();
+        mouseEmuOnUserMouseActivity();
+        return SendMessage(GetParent(hwnd), iMsg, wParam, lParam);
+
+    case WM_MOUSEMOVE:
     case WM_LBUTTONUP:
     case WM_MBUTTONDOWN:
     case WM_MBUTTONUP:
@@ -3308,6 +3349,12 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 
             GetCursorPos(&pt);
             GetWindowRect(st.emuHwnd, &r);
+            /* Only real clicks strictly inside the emu framebuffer rect
+            ** trigger capture. Synthetic PostMessage(WM_LBUTTONDOWN,0,0)
+            ** from WM_EXITMENULOOP would otherwise re-lock silently. */
+            if (PtInRect(&r, pt) && (wParam & MK_LBUTTON)) {
+                mouseEmuOnClick();
+            }
             if (!IsWindowVisible(st.emuHwnd) || !PtInRect(&r, pt)) {
                 SetCapture(hwnd);
                 st.currentHwnd = hwnd;

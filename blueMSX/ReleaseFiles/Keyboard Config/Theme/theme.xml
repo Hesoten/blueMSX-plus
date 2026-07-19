@@ -67,8 +67,8 @@
                 </keyboard>
 	        </block>
 
-		    <block x="80" y="115" visible="port1-mouse">
-	            <image x="100" y="17" src="TurboRN/EOS-MOUSE.bmp"/>
+		    <block x="0" y="115" visible="port1-mouse">
+	            <image x="80" y="17" src="TurboRN/EOS-MOUSE.bmp"/>
 	        </block>
 
 		    <block x="80" y="115" visible="port1-arkanoidpad">
@@ -232,8 +232,8 @@
                 </keyboard>
 	        </block>
 
-		    <block x="80" y="115" visible="port2-mouse">
-	            <image x="100" y="17" src="TurboRN/EOS-MOUSE.bmp"/>
+		    <block x="0" y="115" visible="port2-mouse">
+	            <image x="80" y="17" src="TurboRN/EOS-MOUSE.bmp"/>
 	        </block>
 
 		    <block x="80" y="115" visible="port2-arkanoidpad">

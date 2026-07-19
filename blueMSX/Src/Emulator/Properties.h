@@ -242,6 +242,7 @@ typedef struct {
     int  reverseEnable;
     int  reverseMaxTime;
     int  vdpCmdSpeed;   /* VDP command engine wait scale, 0..100 (% of stock timing) */
+    int  mouseSensitivity;  /* MSX-mouse sensitivity slider 1..10 (default 5) */
 } EmulationProperties;
 
 typedef struct {

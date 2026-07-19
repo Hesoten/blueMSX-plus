@@ -106,6 +106,9 @@ void langInitItalian(LanguageStrings* ls)
     ls->infoRecorderComplete            = "File video salvato:\n  %s";
     ls->infoToastSaved                  = "Salvato: %s";
     ls->infoToastAlreadyRecording   = "Già in registrazione";
+    ls->infoToastMouseConnected    = "Mouse PC collegato all'MSX";
+    ls->infoToastMouseDisconnected = "Mouse PC scollegato dall'MSX";
+    ls->propControlsMouseSens      = "Sensibilità:";
     ls->dlgRecorderPickTitle        = "blueMSX+ - Converti replay in video";
     ls->dlgRecorderPickSourceCap    = "File replay da convertire (.cap):";
     ls->dlgRecorderPickOutputMp4    = "File video di uscita (.mp4):";
@@ -732,7 +735,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->shortcutSwitchMsxAudio          = "Interruttore MSX-AUDIO Panasonic";
     ls->shortcutSwitchFront             = "Interruttore frontale Panasonic";
     ls->shortcutSwitchPause             = "Tasto pausa Panasonic";
-    ls->shortcutToggleMouseLock         = "Mostra/Nascondi il puntatore del mouse";
+    ls->shortcutToggleMouseLock         = "Collega/scollega mouse PC all'MSX";
     ls->shortcutEmuSpeedMax             = "Esegui temporaneamente alla massima velocità";
     ls->shortcutEmuSpeedToggle          = "Esegui alla massima velocità di emulazione";
     ls->shortcutEmuSpeedNormal          = "Ripristina la normale velocità di emulazione";
