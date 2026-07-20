@@ -111,6 +111,7 @@
 #include "romMapperNeo8.h"
 #include "romMapperNeo16.h"
 #include "romMapperYamanooto.h"
+#include "romMapperFlashRomScc.h"
 #include "romMapperForteII.h"
 #include "romMapperMatraINK.h"
 #include "romMapperNettouYakyuu.h"
@@ -397,6 +398,10 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
             case ROM_YAMANOOTO:
                 success &= romMapperYamanootoCreate("Yamanooto.rom", NULL, 0, slot, sslot, 2);
                 break;
+
+            case ROM_FLASHROMSCC:
+                success &= romMapperFlashRomSccCreate("FlashRomScc.rom", NULL, 0, slot, sslot, 2);
+                break;
             }
             break;
         }
@@ -499,6 +504,10 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
 
         case ROM_YAMANOOTO:
             success &= romMapperYamanootoCreate(romName, buf, size, slot, sslot, 2);
+            break;
+
+        case ROM_FLASHROMSCC:
+            success &= romMapperFlashRomSccCreate(romName, buf, size, slot, sslot, 2);
             break;
 
         case ROM_OBSONET:

@@ -172,6 +172,7 @@ void verifyFileHistory(char* history, RomType* historyType) {
             strcmp(fname, CARTNAME_MEGAFLSHSCCPLUS_SD) &&
             strcmp(fname, CARTNAME_ASCII16X) &&
             strcmp(fname, CARTNAME_YAMANOOTO) &&
+            strcmp(fname, CARTNAME_FLASHROMSCC) &&
             strcmp(fname, CARTNAME_WAVESCSI128) &&
             strcmp(fname, CARTNAME_WAVESCSI256) &&
             strcmp(fname, CARTNAME_WAVESCSI512) &&
@@ -448,6 +449,7 @@ int createSaveFileBaseName(char* fileBase,Properties* properties, int useExtende
                 strcmp(properties->media.carts[i].fileName, CARTNAME_MEGAFLSHSCCPLUS) &&
                 strcmp(properties->media.carts[i].fileName, CARTNAME_ASCII16X) &&
                 strcmp(properties->media.carts[i].fileName, CARTNAME_YAMANOOTO) &&
+                strcmp(properties->media.carts[i].fileName, CARTNAME_FLASHROMSCC) &&
                 strcmp(properties->media.carts[i].fileName, CARTNAME_WAVESCSI128)  &&
                 strcmp(properties->media.carts[i].fileName, CARTNAME_WAVESCSI256)  &&
                 strcmp(properties->media.carts[i].fileName, CARTNAME_WAVESCSI512)  &&

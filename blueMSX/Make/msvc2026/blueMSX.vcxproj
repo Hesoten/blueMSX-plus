@@ -743,6 +743,7 @@
     <ClCompile Include="..\..\Src\Memory\romMapperDRAM.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperDumas.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperF4device.c" />
+    <ClCompile Include="..\..\Src\Memory\romMapperFlashRomScc.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperFmDas.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperFMPAC.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperFMPAK.c" />
@@ -1092,6 +1093,7 @@
     <ClInclude Include="..\..\Src\Memory\romMapperDisk.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperDRAM.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperF4device.h" />
+    <ClInclude Include="..\..\Src\Memory\romMapperFlashRomScc.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperFmDas.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperFMPAC.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperFMPAK.h" />

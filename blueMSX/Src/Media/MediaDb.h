@@ -209,7 +209,8 @@ enum  {
     ROM_NEO8        = 176,           /* NEO-8 mapper */
     ROM_NEO16       = 177,           /* NEO-16 mapper */
     ROM_YAMANOOTO   = 178,           /* Yamanooto */
-    ROM_MAXROMID    = 178
+    ROM_FLASHROMSCC = 179,           /* Flash-ROM SCC (Developer Edition) */
+    ROM_MAXROMID    = 179
 };
 
 typedef struct MediaType MediaType;

@@ -139,6 +139,7 @@
 #include "romMapperNeo8.h"
 #include "romMapperNeo16.h"
 #include "romMapperYamanooto.h"
+#include "romMapperFlashRomScc.h"
 #include "romMapperForteII.h"
 #include "romMapperA1FMModem.h"
 #include "romMapperA1FM.h"
@@ -1422,6 +1423,9 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
             case ROM_YAMANOOTO:
                 success &= romMapperYamanootoCreate("Yamanooto.rom", NULL, 0, slot, subslot, startPage);
                 break;
+            case ROM_FLASHROMSCC:
+                success &= romMapperFlashRomSccCreate("FlashRomScc.rom", NULL, 0, slot, subslot, startPage);
+                break;
             default:
                 boardReportMissingFile(machine->slotInfo[i].name,
                                        machine->slotInfo[i].inZipName);
@@ -1515,6 +1519,10 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
 
         case ROM_YAMANOOTO:
             success &= romMapperYamanootoCreate(romName, buf, size, slot, subslot, startPage);
+            break;
+
+        case ROM_FLASHROMSCC:
+            success &= romMapperFlashRomSccCreate(romName, buf, size, slot, subslot, startPage);
             break;
 
         case ROM_OBSONET:

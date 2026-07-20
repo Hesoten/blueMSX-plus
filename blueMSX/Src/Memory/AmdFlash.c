@@ -55,6 +55,7 @@ typedef struct {
 struct AmdFlash
 {
     UInt8* romData;
+    AmdType amdType;
     UInt32 cmdAddr1;
     UInt32 cmdAddr2;
     int    state;
@@ -226,6 +227,27 @@ UInt8 amdFlashRead(AmdFlash* rm, UInt32 address)
 {
     if (rm->state == ST_IDENT || rm->state == ST_CFI) {
         rm->cmdIdx = 0;
+        /* M29W128 autoselect in x8 mode: even/odd byte pairs return the
+        ** word's low byte (20 20 7E 7E ... 21 21 01 01).  In CFI mode the
+        ** IDs fill the first 20h bytes, the CFI structure follows. */
+        if (rm->amdType == AMD_TYPE_3) {
+            if (rm->state == ST_IDENT || (address & 0x7F) < 0x20) {
+                switch ((address >> 1) & 0x0f) {
+                case 0x00: return 0x20;      /* Manufacturer: ST/Micron */
+                case 0x01: return 0x7e;      /* Device ID 1 */
+                case 0x02: {                 /* sector protect status */
+                    UInt32 sector = address / rm->sectorSize;
+                    return sector < 32 ? (UInt8)((rm->writeProtectMask >> sector) & 1) : 0;
+                }
+                case 0x03: return 0x19;
+                case 0x0e: return 0x21;      /* Device ID 2 */
+                case 0x0f: return 0x01;      /* Device ID 3 */
+                default:   return 0x00;
+                }
+            }
+            /* ST_CFI, offset 20h+: fall through to the shared CFI query
+            ** structure (parameterized on flashSize/sectorSize). */
+        }
         /* Autoselect IDs (Cypress S29GL064).  MFR=01, DEV=7E, ext=10/00.
         ** Byte offsets 00/02/1C/1E per datasheet; also visible in CFI. */
         if (rm->isX8X16) {
@@ -387,12 +409,14 @@ AmdFlash* amdFlashCreate(AmdType type, int flashSize, int sectorSize, UInt32 wri
     AmdFlash* rm = (AmdFlash*)calloc(1, sizeof(AmdFlash));
 
     rm->writeProtectMask = writeProtectMask;
+    rm->amdType = type;
 
-    if (type == 0) {
+    if (type == AMD_TYPE_1) {
         rm->cmdAddr1 = 0xaaa;
         rm->cmdAddr2 = 0x555;
     }
     else {
+        /* AMD_TYPE_2 and AMD_TYPE_3: native word command addresses. */
         rm->cmdAddr1 = 0x555;
         rm->cmdAddr2 = 0x2aa;
     }
@@ -400,8 +424,8 @@ AmdFlash* amdFlashCreate(AmdType type, int flashSize, int sectorSize, UInt32 wri
     /* 8 MB image size selects the x8/x16 dual-mode part MFR SCC+ SD
     ** ships with; MSX wiring runs it in x8 mode so command and ID
     ** addresses are word-shifted relative to the byte address the Z80
-    ** puts on the bus. */
-    rm->isX8X16 = (flashSize == 0x800000);
+    ** puts on the bus.  AMD_TYPE_3 (M29W128) is an x8/x16 part as well. */
+    rm->isX8X16 = (flashSize == 0x800000) || (type == AMD_TYPE_3);
 
     if (sramFilename != NULL) {
         strcpy(rm->sramFilename, sramFilename);
