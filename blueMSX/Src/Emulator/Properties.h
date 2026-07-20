@@ -223,6 +223,9 @@ enum {
 typedef struct {
     char statsDefDir[PROP_MAXPATH];
     char machineName[PROP_MAXPATH];
+    /* Optional bluemsx.ini override (key "emulation.machinesDir");
+    ** empty = default <exe dir>\Machines. */
+    char machinesDir[PROP_MAXPATH];
     char shortcutProfile[PROP_MAXPATH];
     int  enableFdcTiming;
     int  enableHddSdBoost;
@@ -597,6 +600,7 @@ Properties* propCreate(int useDefault,
 void propSave(Properties* pProperties);
 void propDestroy(Properties* pProperties);
 
+/* defDir: preferred location for bluemsx.ini; altDir: fallback if absent. */
 void propertiesSetDirectory(const char* defDir, const char* altDir);
 
 Properties* propGetGlobalProperties();

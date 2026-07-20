@@ -1909,6 +1909,8 @@ typedef struct {
     void* bmBitsGDI;
     int frameCount;
     int framesPerSecond;
+    /* Directory where blueMSX.exe lives. Captured once in setDefaultPath()
+    ** and used as the CWD anchor to restore after temporary chdirs. */
     char pCurDir[MAX_PATH];
     Video* pVideo;
     int minimized;
@@ -3713,6 +3715,9 @@ void updateEmuWindow() {
 int setDefaultPath() {   
     char buffer[512];  
     char buffer2[512];
+    /* Base for user-writable data dirs (Screenshots, QuickSave, SRAM, ...).
+    ** = exe dir when writable, else My Documents\blueMSX Temporary Files.
+    ** Machines/ is deliberately NOT resolved against this -- see below. */
     char rootDir[512];
     int readOnlyDir;
     DWORD dirattr; 
@@ -3769,8 +3774,8 @@ int setDefaultPath() {
     // Set up temp directories
     propertiesSetDirectory(st.pCurDir, rootDir);
 
-    sprintf(buffer, "%s\\Machines", rootDir);
-	machineSetDirectory(buffer);
+    sprintf(buffer, "%s\\Machines", st.pCurDir);
+    machineSetDirectory(buffer);
 
     sprintf(buffer, "%s\\Audio Capture", rootDir);
     mkdirU(buffer);
@@ -4031,6 +4036,15 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     /* Replay output dir defaults to videoDir until UI splits them. */
     if (!pProperties->capture.replayDir[0]) {
         strcpy(pProperties->capture.replayDir, pProperties->capture.videoDir);
+    }
+
+    /* Empty ini value -> write current default back so it's visible/editable. */
+    if (pProperties->emulation.machinesDir[0]) {
+        machineSetDirectory(pProperties->emulation.machinesDir);
+    } else {
+        strncpy(pProperties->emulation.machinesDir, machineGetDirectory(),
+                sizeof(pProperties->emulation.machinesDir) - 1);
+        pProperties->emulation.machinesDir[sizeof(pProperties->emulation.machinesDir) - 1] = 0;
     }
 
     tempName = appConfigGetString("singlemachine", NULL);
@@ -4661,8 +4675,9 @@ void archShowStartEmuFailDialog(const char* machineName)
         _snprintf(body, sizeof(body) - 1, "%s", langErrorStartEmuNoMachine());
         break;
     case MACHINE_LOAD_MACHINES_DIR_MISSING:
-        _snprintf(body, sizeof(body) - 1, "%s",
-                  langErrorStartEmuMachinesDirMissing());
+        _snprintf(body, sizeof(body) - 1, "%s\n\n%s",
+                  langErrorStartEmuMachinesDirMissing(),
+                  machineGetDirectory());
         break;
     case MACHINE_LOAD_CONFIG_INVALID:
         _snprintf(body, sizeof(body) - 1,
