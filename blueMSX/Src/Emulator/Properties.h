@@ -431,7 +431,7 @@ typedef struct {
 } SoundProperties;
 
 typedef struct {
-	int POV0isAxes;
+	int disablePOV0Dpad;
 } JoystickGeneric;
 
 typedef struct {
