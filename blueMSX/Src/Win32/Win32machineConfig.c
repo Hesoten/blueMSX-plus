@@ -31,6 +31,7 @@
 #include <windows.h>
 #include <math.h>
 #include <commctrl.h>
+#include <uxtheme.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -48,7 +49,6 @@
 
 #define WM_UPDATEMAHCINE  (WM_USER + 0)
 
-static HBRUSH hBrush = NULL;
 static HWND hDlgSlots  = NULL;
 static HWND hDlgMemory = NULL;
 static HWND hDlgChips  = NULL;
@@ -442,16 +442,9 @@ static INT_PTR CALLBACK slotProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPa
         SetWindowTextU(GetDlgItem(hDlg, IDC_CONF_SLOTSUBSLOTTED4), langConfSlotExpanded());
 
         SendMessage(hDlg, WM_UPDATEMAHCINE, 0, 0);
+        EnableThemeDialogTexture(hDlg, ETDT_ENABLETAB);
         win32CommonApplyDark(hDlg);
         return FALSE;
-
-    case WM_CTLCOLORBTN:
-    case WM_CTLCOLORSTATIC:
-        SetBkColor((HDC)wParam, GetSysColor(COLOR_MENU));
-        return (INT_PTR)hBrush;
-        
-    case WM_ERASEBKGND:
-        return TRUE;
 
     case WM_COMMAND:
         {
@@ -1962,11 +1955,9 @@ static BOOL_DLG_RET CALLBACK memoryProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
         }
 
         SendMessage(hDlg, WM_UPDATEMAHCINE, 0, 0);
+        EnableThemeDialogTexture(hDlg, ETDT_ENABLETAB);
         win32CommonApplyDark(hDlg);
         return FALSE;
-
-    case WM_ERASEBKGND:
-        return TRUE;
 
     case WM_COMMAND:
         switch (LOWORD(wParam)) {
@@ -2168,17 +2159,10 @@ static INT_PTR CALLBACK extrasProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM l
         SetWindowTextU(GetDlgItem(hDlg, IDC_CMOSENABLE), langConfCmosEnableText());
         SetWindowTextU(GetDlgItem(hDlg, IDC_CMOSBATTERY), langConfCmosBatteryText());
         SendMessage(hDlg, WM_UPDATEMAHCINE, 0, 0);
+        EnableThemeDialogTexture(hDlg, ETDT_ENABLETAB);
         win32CommonApplyDark(hDlg);
         return FALSE;
 
-    case WM_CTLCOLORBTN:
-    case WM_CTLCOLORSTATIC:
-        SetBkColor((HDC)wParam, GetSysColor(COLOR_MENU));
-        return (INT_PTR)hBrush;
-
-    case WM_ERASEBKGND:
-        return TRUE;
-        
     case WM_COMMAND:
         {
             int change = 0;
@@ -2294,16 +2278,9 @@ static INT_PTR CALLBACK chipsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
         
         SendMessage(hDlg, WM_UPDATEMAHCINE, 0, 0);
 
+        EnableThemeDialogTexture(hDlg, ETDT_ENABLETAB);
         win32CommonApplyDark(hDlg);
         return FALSE;
-
-    case WM_CTLCOLORBTN:
-    case WM_CTLCOLORSTATIC:
-        SetBkColor((HDC)wParam, GetSysColor(COLOR_MENU));
-        return (INT_PTR)hBrush;
-        
-    case WM_ERASEBKGND:
-        return TRUE;
 
     case WM_COMMAND:
         {
@@ -2586,20 +2563,23 @@ static BOOL_DLG_RET CALLBACK configProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
         hDlgChips  = CreateDialog(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_CONF_VIDEO),  GetDlgItem(hDlg, IDC_CONF_TAB), chipsProc);
         hDlgExtras = CreateDialog(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_CONF_EXTRAS), GetDlgItem(hDlg, IDC_CONF_TAB), extrasProc);
 
-        SetWindowPos(hDlgSlots,  NULL, 3, 24, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
-        SetWindowPos(hDlgMemory, NULL, 3, 24, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
-        SetWindowPos(hDlgChips,  NULL, 3, 24, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
-        SetWindowPos(hDlgExtras, NULL, 3, 24, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
-        
-        ShowWindow(hDlgSlots, SW_NORMAL);
-
         {
             HWND hTab = GetDlgItem(hDlg, IDC_CONF_TAB);
+            RECT rcTab;
             TabInsertItemU(hTab, 0, langConfSlotLayout());
             TabInsertItemU(hTab, 1, langConfMemory());
             TabInsertItemU(hTab, 2, langConfChipEmulation());
             TabInsertItemU(hTab, 3, langConfChipExtras());
+            /* Position pages inside the tab-strip display area (populated
+            ** above) so they don't overlap the strip on high DPI. */
+            GetClientRect(hTab, &rcTab);
+            TabCtrl_AdjustRect(hTab, FALSE, &rcTab);
+            SetWindowPos(hDlgSlots,  NULL, rcTab.left, rcTab.top, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+            SetWindowPos(hDlgMemory, NULL, rcTab.left, rcTab.top, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+            SetWindowPos(hDlgChips,  NULL, rcTab.left, rcTab.top, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+            SetWindowPos(hDlgExtras, NULL, rcTab.left, rcTab.top, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
         }
+        ShowWindow(hDlgSlots, SW_NORMAL);
 
         if (CB_ERRSPACE == SendMessage(GetDlgItem(hDlg, IDC_CONF_CONFIGS), CB_INITSTORAGE, (WPARAM)256, (LPARAM)64))
             MessageBoxU(NULL, "Error allocating machine config", "blueMSX Error", MB_OK |  MB_ICONERROR);
@@ -2812,10 +2792,6 @@ int confShowDialog(HWND hwnd, char* initMachineName) {
 
     strcpy(machineName, initMachineName);
     machineModified = 0;
-
-    if (hBrush == NULL) {
-        hBrush = CreateSolidBrush(GetSysColor(COLOR_MENU));
-    }
 
     machine = machineCreate(machineName);
     machineRef = calloc(1, sizeof(Machine));

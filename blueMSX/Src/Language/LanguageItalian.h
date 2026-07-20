@@ -405,12 +405,12 @@ void langInitItalian(LanguageStrings* ls)
     ls->propMonHorizStretch             = " Allungamento orizzontale";
     ls->propMonVertStretch              = " Allungamento verticale";
     ls->propMonDeInterlace              = " Deinterlacciato";
-    ls->propBlendFrames                 = " Fusione fotogrammi adiacenti";
+    ls->propBlendFrames                 = " Fusione fotogrammi";
     ls->propMonBrightness               = "Luminosità:";
     ls->propMonContrast                 = "Contrasto:";
     ls->propMonSaturation               = "Saturazione:";
     ls->propMonGamma                    = "Gamma:";
-    ls->propMonScanlines                = " Linee di scansione:";
+    ls->propMonScanlines                = " Scanline:";
     ls->propMonScanlinesBright          = "Comp. lumin.:";
     ls->propMonScanlinesBrightAuto         = " Auto";
     ls->propMonScanlinesShape           = "Preimp.:";
@@ -447,7 +447,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->propSoundChipsY8950GB           = " Backend MSX-AUDIO ";
     ls->propSndOpllAnalogText           = "Filtro analogico:";
     ls->propSndOpllAnalogLpfText        = "Taglio LPF:";
-    ls->enumOpllFilterOff               = "Disattivato";
+    ls->enumOpllFilterOff               = "Spento";
     ls->enumOpllFilterBright            = "Brillante (LPF 12 kHz)";
     ls->enumOpllFilterClear             = "Chiaro (LPF 8 kHz)";
     ls->enumOpllFilterStandard          = "Standard (LPF 5 kHz)";
@@ -476,7 +476,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->propFileTypes                   = " Registra .rom/.dsk/.cas/.sta nel menu \"Apri con\"";
     ls->propOpenDefaultApps             = "Apri le impostazioni delle app predefinite di Windows";
     ls->propWindowsEnvGB                = "Ambiente Windows ";
-    ls->propSetScreenSaver              = " Mantieni l'immagine attiva quando blueMSX+ è in esecuzione (no schermo off/sospensione/salva)";
+    ls->propSetScreenSaver              = " Schermo sempre attivo (blocca screensaver/sospensione)";
     ls->propPriorityBoost               = " Usa lo scheduler giochi di Windows (MMCSS) per l'emulazione";
     ls->propScreenshotPng               = " Utilizza il formato PNG per il salvataggio delle schermate";
     ls->propEjectMediaOnExit            = " Espelli tutti i supporti quando esci da blueMSX+";                      // New in 2.8

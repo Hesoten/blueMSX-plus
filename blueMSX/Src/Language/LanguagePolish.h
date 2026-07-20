@@ -413,7 +413,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->propMonScanlines        = " Przeplot:";
     ls->propMonScanlinesBright  = "Komp. jasn.:";
     ls->propMonScanlinesBrightAuto = " Auto";
-    ls->propMonScanlinesShape   = "Ustawienie:";
+    ls->propMonScanlinesShape   = "Profil:";
     ls->propMonScanlinesDepth   = "Głębia:";
     ls->propMonScanlinesSharpness = "Ostrość:";
     ls->enumScanShapeGentle     = "Łagodny";
@@ -475,7 +475,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->propFileTypes            = " Zarejestruj .rom/.dsk/.cas/.sta w menu \"Otworz za pomoca\"";
     ls->propOpenDefaultApps      = "Otworz ustawienia domyslnych aplikacji Windows";
     ls->propWindowsEnvGB         = "Otoczenie Windows "; 
-    ls->propSetScreenSaver       = " Utrzymuj wyswietlacz podczas pracy blueMSX+ (bez wylaczenia/uspienia/wygaszacza)";
+    ls->propSetScreenSaver       = " Nie usypiaj/wygaszaj ekranu podczas pracy blueMSX+";
     ls->propPriorityBoost       = " Uzyj harmonogramu gier Windows (MMCSS) do emulacji";
     ls->propScreenshotPng       = " u¿ywaj PNG do zapisywania ekranów";  
     ls->propEjectMediaOnExit    = " Eject media when blueMSX+ exits";        // New in 2.8
@@ -619,7 +619,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->confBoardGB             = "Board ";
     ls->confBoardText           = "Board Type:";
     ls->confSlotPrimary          = "Podstawowy";
-    ls->confSlotExpanded         = "Rozszerzone (cztery sub-sloty)";
+    ls->confSlotExpanded         = "Rozszerzony (4 podsloty)";
 
     ls->confSlotCart             = "Kartrid¿";
     ls->confSlot                = "Slot";
@@ -635,7 +635,7 @@ void langInitPolish(LanguageStrings* ls)
     
     ls->confChipVideoGB          = "Obraz ";
     ls->confChipVideoChip        = "Koœæ obrazu:";
-    ls->confChipVideoRam         = "Pamiêæ RAM obrazu:";
+    ls->confChipVideoRam         = "RAM obrazu:";
     ls->confChipSoundGB          = "DŸwiêk ";
     ls->confChipPsgStereoText    = " PSG Stereo";
 
@@ -676,7 +676,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->shortcutConfigTitle     = "blueMSX+ - Edytor Mapowania Skrótów";
     ls->shortcutAssign          = "Przypisz";
     ls->shortcutPressText       = "Naciœnij przycisk(i) skrótu:";
-    ls->shortcutScheme          = "Schemat mapowania:";
+    ls->shortcutScheme          = "Uk³ad skrótów:";
     ls->shortcutCartInsert1     = "W³ó¿ kartrid¿ 1";
     ls->shortcutCartRemove1     = "Wyjmij kartrid¿ 1";
     ls->shortcutCartInsert2     = "W³ó¿ kartrid¿ 2";

@@ -378,7 +378,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->propEmuVramSizeText     = "Taille de la VRAM:";
     ls->propEmuSpeedGB          = "Vitesse de l'émulation ";
     ls->propEmuSpeedText        = "Cœur de l'émulateur:";
-    ls->propEmuVdpCmdSpeedText  = "Attente commande VDP:";
+    ls->propEmuVdpCmdSpeedText  = "Délai commande VDP:";
     ls->propEmuFrontSwitchGB    = "Commutateurs Panasonic "; 
     ls->propEmuFrontSwitch      = " Commutateur frontal"; 
     ls->propEmuFdcTiming        = " Accélérer l'accès FDD"; 
@@ -404,7 +404,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->propMonHorizStretch     = " Etirement Horizontal";
     ls->propMonVertStretch      = " Etirement Vertical"; 
     ls->propMonDeInterlace      = " Dé-entrelacé";
-    ls->propBlendFrames         = " Mixer des images consécutives";
+    ls->propBlendFrames         = " Mixer images consécutives";
     ls->propMonBrightness       = "Brillance:";
     ls->propMonContrast         = "Contraste:";
     ls->propMonSaturation       = "Saturation:";
@@ -412,7 +412,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->propMonScanlines        = " Scanlines:";
     ls->propMonScanlinesBright  = "Comp. lumin.:";
     ls->propMonScanlinesBrightAuto = " Auto";
-    ls->propMonScanlinesShape   = "Préréglage:";
+    ls->propMonScanlinesShape   = "Forme:";
     ls->propMonScanlinesDepth   = "Profondeur:";
     ls->propMonScanlinesSharpness = "Netteté:";
     ls->enumScanShapeGentle     = "Doux";
@@ -475,8 +475,8 @@ void langInitFrench(LanguageStrings* ls)
     ls->propFileTypes            = " Enregistrer .rom/.dsk/.cas/.sta dans le menu \"Ouvrir avec\""; 
     ls->propOpenDefaultApps      = "Ouvrir les paramètres d'applications par défaut de Windows";
     ls->propWindowsEnvGB         = "Environnement Windows "; 
-    ls->propSetScreenSaver       = " Garder l'affichage actif quand blueMSX+ est lancé (pas d'écran off/veille/économiseur)";
-    ls->propPriorityBoost       = " Utiliser l'ordonnanceur de jeux Windows (MMCSS) pour l'émulation";
+    ls->propSetScreenSaver       = " Empêcher veille/écran off/économiseur pendant blueMSX+";
+    ls->propPriorityBoost       = " Utiliser l'ordonnanceur MMCSS pour l'émulation";
     ls->propScreenshotPng       = " Utiliser le format PNG pour les captures d'écran";  
     ls->propEjectMediaOnExit    = " Eject media when blueMSX+ exits";        // New in 2.8
     ls->propClearHistory         = "Désirez-vous vraiment purger l'historique ?";
@@ -674,7 +674,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->shortcutNewProfile      = "< Nouveau profil >";
     ls->shortcutConfigTitle     = "blueMSX+ - Editeur de la carte des raccourcis";
     ls->shortcutAssign          = "Assigner";
-    ls->shortcutPressText       = "Appuyer sur la (les) touche(s):";
+    ls->shortcutPressText       = "Appuyer sur les touches:";
     ls->shortcutScheme          = "Agencement:";
     ls->shortcutCartInsert1     = "Insérer une cartouche dans le port 1";
     ls->shortcutCartRemove1     = "Ejecter la cartouche du port 1";

@@ -378,7 +378,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->propEmuVramSizeText     = "VRAM-grootte:";
     ls->propEmuSpeedGB          = "Emulatiesnelheid ";
     ls->propEmuSpeedText        = "Emulatorkern:";
-    ls->propEmuVdpCmdSpeedText  = "VDP-commando wachttijd:";
+    ls->propEmuVdpCmdSpeedText  = "VDP-cmd. wachttijd:";
     ls->propEmuFrontSwitchGB    = "Panasonic schakelaars ";
     ls->propEmuFrontSwitch      = " Voorpanel Schakelaar";
     ls->propEmuNoSpriteLimits   = " Sprite-limiet uitschakelen";  // New in 2.9
@@ -404,13 +404,13 @@ void langInitDutch(LanguageStrings* ls)
     ls->propMonHorizStretch     = " Horizontaal uitrekken";
     ls->propMonVertStretch      = " Verticaal uitrekken";
     ls->propMonDeInterlace      = " Deïnterlace";
-    ls->propBlendFrames         = " Opeenvolgende frames mengen";
+    ls->propBlendFrames         = " Opeenv. frames mengen";
     ls->propMonBrightness       = "Helderheid:";
     ls->propMonContrast         = "Contrast:";
     ls->propMonSaturation       = "Verzadiging:";
     ls->propMonGamma            = "Gamma:";
     ls->propMonScanlines        = " Beeldlijnen:";
-    ls->propMonScanlinesBright  = "Helderh. comp.:";
+    ls->propMonScanlinesBright  = "Helderh. c.:";
     ls->propMonScanlinesBrightAuto = " Auto";
     ls->propMonScanlinesShape   = "Voorinst.:";
     ls->propMonScanlinesDepth   = "Diepte:";
@@ -475,7 +475,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->propFileTypes            = " .rom/.dsk/.cas/.sta registreren in \"Openen met\"";
     ls->propOpenDefaultApps      = "Windows-standaardapps openen";
     ls->propWindowsEnvGB         = "Windows Omgeving ";
-    ls->propSetScreenSaver       = " Scherm aan houden terwijl blueMSX+ draait (geen scherm-uit/slaap/beveiliger)";
+    ls->propSetScreenSaver       = " Scherm aan houden tijdens blueMSX+ (geen slaap/beveiliger)";
     ls->propPriorityBoost       = " Windows game-scheduler (MMCSS) gebruiken voor emulatie";
     ls->propScreenshotPng       = " Gebruik PNG formaat in plaats van BMP bij schermafdrukken";
     ls->propEjectMediaOnExit    = " Werp alle media uit bij afsluiten";

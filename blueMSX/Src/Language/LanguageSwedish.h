@@ -327,7 +327,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->dlgTabPosition          = "Position";
     ls->dlgTabType              = "Typ";
     ls->dlgTabFilename          = "Filnamn";
-    ls->dlgZipReset             = "Starta om efter insättning";
+    ls->dlgZipReset             = "Starta om vid insättning";
     
     ls->dlgAboutTitle           = "blueMSX+ - Information";
 
@@ -379,7 +379,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->propEmuVramSizeText     = "VRAM storlek:";
     ls->propEmuSpeedGB          = "Emuleringshastighet ";
     ls->propEmuSpeedText        = "Emulatorkärna:";
-    ls->propEmuVdpCmdSpeedText  = "VDP-kommandots väntetid:";
+    ls->propEmuVdpCmdSpeedText  = "VDP-kmd. väntetid:";
     ls->propEmuFrontSwitchGB    = "Panasonicbrytare ";
     ls->propEmuFrontSwitch      = " Frontbrytare";
     ls->propEmuNoSpriteLimits   = " Ignorera sprite begränsning";  // New in 2.9
@@ -476,7 +476,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->propFileTypes           = " Registrera .rom/.dsk/.cas/.sta i \"Öppna med\"-menyn";
     ls->propOpenDefaultApps     = "Öppna Windows standardappar";
     ls->propWindowsEnvGB        = "Windows Miljö ";
-    ls->propSetScreenSaver      = " Håll skärmen på när blueMSX+ kör (ingen skärmavstängning/vila/skärmsläckare)";
+    ls->propSetScreenSaver      = " Håll skärmen aktiv (ingen vila/skärmsläckare) vid körning";
     ls->propPriorityBoost       = " Använd Windows spelschemaläggare (MMCSS) för emuleringen";
     ls->propScreenshotPng       = " Använd Portable Network Graphics (.png) skärmdump";
     ls->propEjectMediaOnExit    = " Ta ur media när blueMSX+ avslutas";
@@ -511,7 +511,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->propD3DCroppingTypeText         = "Trimningstyp:";         // New in 2.9
     ls->propD3DCroppingLeftText         = "Vänster:";                  // New in 2.9
     ls->propD3DCroppingRightText        = "Höger:";                 // New in 2.9
-    ls->propD3DCroppingTopText          = "Upptill:";                   // New in 2.9
+    ls->propD3DCroppingTopText          = "Övre:";                   // New in 2.9
     ls->propD3DCroppingBottomText       = "Nertill:";                // New in 2.9
 
 
@@ -677,7 +677,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->shortcutConfigTitle     = "blueMSX+ - Konfigurering av Kortkommandon";
     ls->shortcutAssign          = "Tilldela";
     ls->shortcutPressText       = "Tryck kortkommando:";
-    ls->shortcutScheme          = "Kommandoschema:";
+    ls->shortcutScheme          = "Kmd-schema:";
     ls->shortcutCartInsert1     = "Sätt in Cartridge 1";
     ls->shortcutCartRemove1     = "Ta ur Cartridge 1";
     ls->shortcutCartInsert2     = "Sätt in Cartridge 2";

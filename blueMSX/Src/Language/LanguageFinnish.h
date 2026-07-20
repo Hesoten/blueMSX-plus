@@ -128,10 +128,10 @@ void langInitFinnish(LanguageStrings* ls)
     ls->propCaptureVideoGB          = " Videotallennus ";
     ls->propCaptureScreenshotGB     = " Kuvankaappaus ";
     ls->propCaptureReplayGB         = " Uusintatallennus ";
-    ls->propCaptureSaveDir          = "Tallennuskansio:";
+    ls->propCaptureSaveDir          = "Kansio:";
     ls->propCaptureFormat           = "Muoto:";
     ls->propCaptureCodec            = "Koodekki:";
-    ls->propCaptureAutoName         = "Nimeä tiedosto automaattisesti";
+    ls->propCaptureAutoName         = "Nimeä automaattisesti";
     ls->propCapturePromptName       = "Kysy tiedostonimi";
     ls->propCaptureShowToast        = "Näytä ilmoitus tallennuksen päätyttyä";
 
@@ -327,7 +327,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->dlgTabPosition          = "Kohta";
     ls->dlgTabType              = "Tyyppi";
     ls->dlgTabFilename          = "Tiedostonimi";
-    ls->dlgZipReset             = "Uudelleenkäynnistys asettamisen jälkeen";
+    ls->dlgZipReset             = "Käynnistä uudelleen";
 
     ls->dlgAboutTitle           = "Tietoja blueMSX+:stä";
 
@@ -379,7 +379,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->propEmuVramSizeText     = "VRAM koko:";
     ls->propEmuSpeedGB          = "Emulaationopeus ";
     ls->propEmuSpeedText        = "Emulaattorin ydin:";
-    ls->propEmuVdpCmdSpeedText  = "VDP-komennon odotusaika:";
+    ls->propEmuVdpCmdSpeedText  = "VDP-komennon odotus:";
     ls->propEmuFrontSwitchGB     = "Panasonicin kytkimet ";
     ls->propEmuFrontSwitch       = " Aplikaatiokytkin";
     ls->propEmuNoSpriteLimits   = " Poista spritejen rajoitus";  // New in 2.9
@@ -476,7 +476,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->propFileTypes           = " Rekisteröi .rom/.dsk/.cas/.sta \"Avaa sovelluksessa\" -valikkoon";
     ls->propOpenDefaultApps     = "Avaa Windowsin oletussovellusten asetukset";
     ls->propWindowsEnvGB        = "Windows Ympäristö ";
-    ls->propSetScreenSaver      = " Pidä näyttö päällä blueMSX+ käynnissä (ei näytön sammutusta/lepotilaa/säästäjää)";
+    ls->propSetScreenSaver      = " Estä näytönsäästäjä/lepotila blueMSX+ käynnissä";
     ls->propPriorityBoost       = " Käytä Windowsin peliajastinta (MMCSS) emulointiin";
     ls->propScreenshotPng       = " Tallenna kuvaruutukaappaukset PNG-muodossa";
     ls->propEjectMediaOnExit    = " Poista mediat kun ohjelma suljetaan";        // New in 2.8
@@ -677,7 +677,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->shortcutConfigTitle     = "blueMSX+ - Pikanäppäinasetukset";
     ls->shortcutAssign          = "Käytä";
     ls->shortcutPressText       = "Pikanäppäin (paina):";
-    ls->shortcutScheme          = "Pikanäppäin profiili:";
+    ls->shortcutScheme          = "Näppäinprofiili:";
     ls->shortcutCartInsert1     = "Aseta moduli 1";
     ls->shortcutCartRemove1     = "Poista moduli 1";
     ls->shortcutCartInsert2     = "Aseta moduli 2";
