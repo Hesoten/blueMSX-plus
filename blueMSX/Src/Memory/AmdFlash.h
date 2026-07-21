@@ -39,6 +39,11 @@ AmdFlash* amdFlashCreate(AmdType type, int flashSize, int sectorSize, UInt32 wri
                          void* romData, int size, const char* sramFilename, int loadSram);
 void amdFlashDestroy(AmdFlash* rm);
 
+/* Enable the M29W640-family fast program commands (Quadruple Byte Program
+** 0x56).  Off by default: chips like the S29GL064 do not implement them and
+** treating a data value of 0x56 as a command corrupts the flash contents. */
+void amdFlashEnableFastCommands(AmdFlash* rm);
+
 int amdFlashCmdInProgress(AmdFlash* rm);
 
 UInt8 amdFlashRead(AmdFlash* rm, UInt32 address);

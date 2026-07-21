@@ -64,6 +64,7 @@ struct AmdFlash
     AmdCmd cmd[AMDFLASH_CMD_SLOTS];
     int    cmdIdx;
     int    writeProtectMask;
+    int    fastCommands;        /* M29W640-family 0x56 quad program enabled */
     char   sramFilename[512];
 };
 
@@ -122,11 +123,12 @@ static int checkCommandProgram(AmdFlash* rm)
     return 0;
 }
 
-/* Quadruple-Byte fast Program command (opcode 0x56, no unlock prefix,
-** followed by 4 data byte writes).  MFR SCC+ SD's OPFXSD path relies
-** on this to program 4 bytes at a time. */
+/* Quadruple-Byte fast Program (0x56, no unlock, then 4 data writes).
+** M29W640-family only: recognized when the mapper opts in via
+** amdFlashEnableFastCommands, else 0x56 stays plain data. */
 static int checkCommandQuadrupleByteProgram(AmdFlash* rm)
 {
+    if (!rm->fastCommands) return 0;
     if (rm->cmdIdx > 0 && rm->cmd[0].value != 0x56) return 0;
     if (rm->cmdIdx < 5) return 1;
 
@@ -156,12 +158,13 @@ static int checkCommandManifacturer(AmdFlash* rm)
     return 0;
 }
 
-/* JEDEC CFI Query entry: single-cycle write of 0x98 to any address.
-** S29GL064 datasheet section "CFI Query Command".  Sets ST_CFI and
-** clears cmd buffer so the next write starts a fresh sequence. */
+/* JEDEC CFI Query entry: write 0x98 to word address 0x55 (byte 0xAA in
+** x8 mode).  Without the address check any 0x98 data write (e.g. an
+** ASCII16-X bank select) would flip reads into CFI query mode. */
 static int checkCommandCfi(AmdFlash* rm)
 {
-    if (rm->cmdIdx == 1 && rm->cmd[0].value == 0x98) {
+    if (rm->isX8X16 && rm->cmdIdx == 1 && rm->cmd[0].value == 0x98 &&
+        (cmdAddrBits(rm, rm->cmd[0].address) & 0xFF) == 0x55) {
         rm->state = ST_CFI;
         rm->cmdIdx = 0;
         return 1;
@@ -330,6 +333,11 @@ UInt8* amdFlashGetPage(AmdFlash* rm, UInt32 address)
 int amdFlashCmdInProgress(AmdFlash* rm)
 {
     return rm->cmdIdx != 0;
+}
+
+void amdFlashEnableFastCommands(AmdFlash* rm)
+{
+    rm->fastCommands = 1;
 }
 
 void amdFlashReset(AmdFlash* rm)
