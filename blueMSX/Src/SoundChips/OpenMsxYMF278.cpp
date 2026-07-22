@@ -164,7 +164,7 @@ YMF278Slot::YMF278Slot()
 
 void YMF278Slot::reset()
 {
-	wave = FN = OCT = PRVB = DAMP = LD = TL = pan = lfo = vib = AM = 0;
+	wave = FN = OCT = PRVB = DAMP = LD = TL = TLdest = pan = lfo = vib = AM = 0;
 	AR = D1R = DL = D2R = RC = RR = 0;
 	step = stepptr = 0;
 	bits = startaddr = loopaddr = endaddr = 0;
@@ -260,8 +260,21 @@ void YMF278::advance()
 		eg_timer -= EG_TIMER_OVERFLOW;
 		eg_cnt++;
 
+		// volume interpolation: one TL step down every 27 samples,
+		// one TL step up every 13.5 samples (measured on hardware)
+		unsigned int tl_int_cnt  = eg_cnt % 9;
+		unsigned int tl_int_step = (eg_cnt / 9) % 3;
+
 		for (int i = 0; i < 24; i++) {
 			YMF278Slot &op = slots[i];
+
+			if (tl_int_cnt == 0) {
+				if (tl_int_step == 0) {
+					if (op.TL < op.TLdest) ++op.TL;
+				} else {
+					if (op.TL > op.TLdest) --op.TL;
+				}
+			}
 
 			if (op.lfo_active) {
 				op.lfo_cnt++;
@@ -597,15 +610,13 @@ void YMF278::writeRegOPL4(byte reg, byte data, const EmuTime &time)
 		case 3:
 			// TL register value 0x7F maps to the internal level 0xFF
 			// (near silence), verified on hardware
-			slot.TL = ((data >> 1) != 0x7F) ? (data >> 1) : 0xFF;
+			slot.TLdest = ((data >> 1) != 0x7F) ? (data >> 1) : 0xFF;
 			slot.LD = data & 0x1;
-
-			// TODO
 			if (slot.LD) {
-				// directly change volume
-			} else {
-				// interpolate volume
+				// level direct: change the volume immediately
+				slot.TL = slot.TLdest;
 			}
+			// otherwise TL interpolates towards TLdest (see advance)
 			break;
 		case 4:
 			if (data & 0x10) {
@@ -921,6 +932,9 @@ void YMF278::loadState()
         sprintf(tag, "TL%d", i);
         slots[i].TL = saveStateGet(state, tag, 0);
 
+        sprintf(tag, "TLdest%d", i);
+        slots[i].TLdest = saveStateGet(state, tag, slots[i].TL);
+
         sprintf(tag, "pan%d", i);
         slots[i].pan = (char)saveStateGet(state, tag, 0);
 
@@ -1064,6 +1078,9 @@ void YMF278::saveState()
 
         sprintf(tag, "TL%d", i);
         saveStateSet(state, tag, slots[i].TL);
+
+        sprintf(tag, "TLdest%d", i);
+        saveStateSet(state, tag, slots[i].TLdest);
 
         sprintf(tag, "pan%d", i);
         saveStateSet(state, tag, slots[i].pan);

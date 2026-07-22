@@ -67,6 +67,7 @@ class YMF278Slot
 		char DAMP;		// damp
 		char LD;		// level direct
 		int  TL;		// total level (internal, 0x00..0xFF)
+		int  TLdest;		// interpolation target for TL
 		char pan;		// panpot
 		char lfo;		// LFO
 		char vib;		// vibrato
