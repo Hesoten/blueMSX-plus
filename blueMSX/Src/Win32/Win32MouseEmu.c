@@ -76,8 +76,8 @@ static int   lockFadeStep = 0;   /* 1..FADE_STEPS-1: capture-start fade in progr
 static DWORD lockFadeNextTime;
 
 /* Auto-hide cursor when idle in the emu area (AM_DISABLE only).
-** fadeStep: 0=visible, 1..FADE_STEPS-1=fading, FADE_STEPS=hidden
-** (ShowCursor(FALSE), polled for re-show because WM_MOUSEMOVE stops). */
+** fadeStep: 0=visible, 1..FADE_STEPS-1=fading, FADE_STEPS=hidden.
+** Re-show is driven by WM_MOUSEMOVE -> mouseEmuOnUserMouseActivity. */
 #define AUTO_HIDE_TIMEOUT_MS 3000
 #define FADE_STEPS           12  /* 11 visible alpha frames + ShowCursor(FALSE) */
 #define FADE_STEP_MS         50  /* ~600 ms total fade */
@@ -86,8 +86,6 @@ static int   autoHideArmed;
 static int   fadeStep;            /* 0 visible .. FADE_STEPS hidden */
 static DWORD fadeNextStepTime;
 static HCURSOR fadeCursors[FADE_STEPS]; /* fadeCursors[0] unused */
-static POINT lastCursorPos;       /* polled while fully hidden because
-                                  ** ShowCursor(FALSE) stops WM_MOUSEMOVE */
 
 static void rebuildFadeCursors(void);
 static void mouseAcquireLock(void);
@@ -274,24 +272,17 @@ static void CALLBACK mouseEmuTimerCallback(HWND hwnd, UINT uMsg, UINT_PTR idEven
 {
     POINT pt;
 
-    /* Auto-hide after idle: AM_DISABLE (no MSX mouse) + armed + running. */
+    /* Auto-hide after idle: AM_DISABLE (no MSX mouse) + armed + running.
+    ** Motion-driven re-show lives in mouseEmuOnUserMouseActivity; this
+    ** timer only arms the fade and advances its frames. */
     if (mouseMode == AM_DISABLE && mouseActive && autoHideArmed && mouseIsRunning) {
         DWORD now = GetTickCount();
-        POINT cpos;
-        GetCursorPos(&cpos);
 
-        /* On motion during fade or full-hide, abort and restore arrow. */
-        if (fadeStep > 0
-            && (cpos.x != lastCursorPos.x || cpos.y != lastCursorPos.y)) {
-            int wasFullyHidden = (fadeStep >= FADE_STEPS);
-            fadeStep = 0;
-            if (wasFullyHidden) ShowCursor(TRUE);
-            SetCursor(LoadCursor(NULL, IDC_ARROW));
-            lastMouseActivity = now;
-        } else if (fadeStep == 0) {
+        if (fadeStep == 0) {
             /* Visible: arm the fade if idle long enough. */
             if ((now - lastMouseActivity) > AUTO_HIDE_TIMEOUT_MS) {
-                POINT clientPos = cpos;
+                POINT clientPos;
+                GetCursorPos(&clientPos);
                 ScreenToClient(mouseHwnd, &clientPos);
                 if (PtInRect(&mouseCapRect, clientPos)) {
                     /* Snapshot live cursor so fade frames match pointer-size. */
@@ -313,7 +304,6 @@ static void CALLBACK mouseEmuTimerCallback(HWND hwnd, UINT uMsg, UINT_PTR idEven
                             MAKELPARAM(HTCLIENT, WM_MOUSEMOVE));
             }
         }
-        lastCursorPos = cpos;
     }
 
     /* Advance capture-start fade (2x speed) independent of mode branches. */
@@ -494,13 +484,11 @@ void mouseEmuOnUserMouseActivity(void)
     if (fadeStep != 0) {
         int wasFullyHidden = (fadeStep >= FADE_STEPS);
         fadeStep = 0;
-        if (wasFullyHidden) {
-            /* Came back from full hide: undo the ShowCursor(FALSE). */
-            ShowCursor(TRUE);
-        } else {
-            /* Was in fade; restore the arrow. */
-            SetCursor(LoadCursor(NULL, IDC_ARROW));
-        }
+        if (wasFullyHidden) ShowCursor(TRUE);
+        /* Always restore the arrow: after ShowCursor(TRUE) the current
+        ** cursor image is still the last (near-transparent) fade frame,
+        ** which reads as invisible until something else re-sets it. */
+        SetCursor(LoadCursor(NULL, IDC_ARROW));
     }
 }
 
