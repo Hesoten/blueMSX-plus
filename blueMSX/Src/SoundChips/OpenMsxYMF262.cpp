@@ -1839,6 +1839,10 @@ YMF262::YMF262(short volume, const EmuTime &time, void* ref)
 	OPL3_mode = false;
 	status = status2 = statusMask = 0;
 	mixL = mixR = 96;	// OPL4 F8h reset value 0x1B = -9 dB
+	// power-on: all registers zero (reset() skips 0x101/0x104/0x105)
+	for (int i = 0; i < 512; i++) {
+		reg[i] = 0;
+	}
 	
     oplOversampling = 1;
 

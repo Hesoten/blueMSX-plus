@@ -389,6 +389,11 @@ void moonsoundWrite(Moonsound* moonsound, UInt16 ioPort, UInt8 value)
 {
     UInt32 systemTime = boardSystemTime();
 	if (ioPort < 0xC0) {
+        // wave register select and writes are ignored while NEW2 = 0
+        // (verified on real hardware; reads still work normally)
+        if (!(moonsound->ymf262->peekReg(0x105) & 0x02)) {
+            return;
+        }
 		switch (ioPort & 0x01) {
 		case 0: // select register
 			moonsound->opl4latch = value;
