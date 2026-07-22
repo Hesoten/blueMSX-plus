@@ -811,7 +811,11 @@ void YMF278::reset(const EmuTime &time)
 	}
 	setInternalMute(true);
 	wavetblhdr = memmode = memadr = 0;
-	fm_l = fm_r = pcm_l = pcm_r = 0;
+	pcm_l = pcm_r = 0;
+	// The FM mix control resets to 0x1B (-9 dB); the level itself is
+	// applied on the YMF262 side (see YMF262::reset).
+	regs[0xF8] = 0x1B;
+	fm_l = fm_r = 3;
 	BUSY_Time = time;
 	LD_Time = time;
 }

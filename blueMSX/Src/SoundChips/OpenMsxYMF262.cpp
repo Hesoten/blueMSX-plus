@@ -1796,7 +1796,7 @@ void YMF262::reset(const EmuTime &time)
 
 	noise_rng = 1;	// noise shift register
 	nts       = 0;	// note split
-	mixL = mixR = 256;	// OPL4 F8h resets to 0 = 0 dB
+	setMixLevel(0x1B);	// hardware reset value of F8h: -9 dB left and right
 	resetStatus(0x60);
 
 	// reset with register write
@@ -1838,7 +1838,7 @@ YMF262::YMF262(short volume, const EmuTime &time, void* ref)
 	rhythm = nts = 0;
 	OPL3_mode = false;
 	status = status2 = statusMask = 0;
-	mixL = mixR = 256;	// OPL4 F8h reset value 0 = 0 dB
+	mixL = mixR = 96;	// OPL4 F8h reset value 0x1B = -9 dB
 	
     oplOversampling = 1;
 
