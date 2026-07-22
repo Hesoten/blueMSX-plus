@@ -992,6 +992,7 @@ void YMF262::init_tables(void)
 void YMF262::setSampleRate(int sampleRate, int Oversampling)
 {
     oplOversampling = Oversampling;
+	lastSampleRate = sampleRate;
 	// the OPL4 FM part runs from the 33.8688 MHz master clock with a
 	// sample rate of MCLK / (19 * 36) = 49517 Hz; the standalone OPL3
 	// clock used before left the FM about 7 cents sharp
@@ -1845,6 +1846,7 @@ YMF262::YMF262(short volume, const EmuTime &time, void* ref)
 	rhythm = nts = 0;
 	OPL3_mode = false;
 	status = status2 = statusMask = 0;
+	lastSampleRate = 0;
 	mixL = mixR = 96;	// OPL4 F8h reset value 0x1B = -9 dB
 	// power-on: all registers zero (reset() skips 0x101/0x104/0x105)
 	for (int i = 0; i < 512; i++) {
@@ -2195,6 +2197,12 @@ void YMF262::loadState()
     }
 
     saveStateClose(state);
+
+    // fn_tab and the eg/lfo increments are derived from the sample
+    // rate; recompute them so old savestates cannot restore stale values
+    if (lastSampleRate) {
+        setSampleRate(lastSampleRate, oplOversampling);
+    }
 }
 
 void YMF262::saveState()

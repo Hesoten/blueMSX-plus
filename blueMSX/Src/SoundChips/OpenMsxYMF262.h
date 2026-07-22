@@ -232,6 +232,7 @@ class YMF262 : public SoundDevice, public TimerCallback
 		Timer< 3125, STATUS_T2> timer2;	// 320us
 
         int oplOversampling;
+        int lastSampleRate;
 
         YMF262Channel channels[18];	// OPL3 chips have 18 channels
 

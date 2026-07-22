@@ -1100,6 +1100,10 @@ void YMF278::loadState()
     }
 
     saveStateClose(state);
+
+    // eg_timer_add is derived from the oversampling factor; recompute
+    // it so old savestates cannot restore stale values
+    setSampleRate(outRate, oplOversampling);
 }
 
 void YMF278::saveState()
