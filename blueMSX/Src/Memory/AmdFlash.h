@@ -32,7 +32,10 @@
 
 typedef struct AmdFlash AmdFlash;
 
-typedef enum { AMD_TYPE_1, AMD_TYPE_2 } AmdType;
+/* AMD_TYPE_1: 0xAAA/0x555 command addresses
+** AMD_TYPE_2: 0x555/0x2AA command addresses (Am29F040 style)
+** AMD_TYPE_3: M29W128 in x8 mode (Flash-ROM SCC cartridge) */
+typedef enum { AMD_TYPE_1, AMD_TYPE_2, AMD_TYPE_3 } AmdType;
 
 
 AmdFlash* amdFlashCreate(AmdType type, int flashSize, int sectorSize, UInt32 writeProtectMask, 

@@ -181,6 +181,7 @@ extern int showLoadMemoryDlg(HWND hwnd);
 #define ID_FILE_CART_MEGAFLSHSCCPLUS_SD 41118
 #define ID_FILE_CART_ASCII16X           41119
 #define ID_FILE_CART_YAMANOOTO          41120
+#define ID_FILE_CART_FLASHROMSCC        41121
 #define ID_FILE_CART_JOYREXPSG          41110
 #define ID_FILE_CART_EXTRAM16KB         41111
 #define ID_FILE_CART_EXTRAM32KB         41112
@@ -330,6 +331,7 @@ static const char* getCleanFileName(const char* fileName)
     if (strcmp(fileName, CARTNAME_MEGAFLSHSCCPLUS) == 0)return "Mega Flash Rom SCC+";
     if (strcmp(fileName, CARTNAME_ASCII16X) == 0)       return "ASCII16-X";
     if (strcmp(fileName, CARTNAME_YAMANOOTO) == 0)      return "Yamanooto";
+    if (strcmp(fileName, CARTNAME_FLASHROMSCC) == 0)    return "Flash-ROM SCC";
     if (strcmp(fileName, CARTNAME_ESERAM256) == 0)      return langRomTypeEseRam256();
     if (strcmp(fileName, CARTNAME_ESERAM512) == 0)      return langRomTypeEseRam512();
     if (strcmp(fileName, CARTNAME_ESERAM1MB) == 0)      return langRomTypeEseRam1mb();
@@ -592,6 +594,7 @@ static HMENU menuCreateCartSpecial(int cartNo, Properties* pProperties, Shortcut
 
     AppendMenuU(hMenuFlashCart, MF_STRING, idOffset + ID_FILE_CART_ASCII16X, "ASCII16-X");
     AppendMenuU(hMenuFlashCart, MF_STRING, idOffset + ID_FILE_CART_YAMANOOTO, "Yamanooto");
+    AppendMenuU(hMenuFlashCart, MF_STRING, idOffset + ID_FILE_CART_FLASHROMSCC, "Flash-ROM SCC");
 
     AppendMenuU(hMenuWaveSCSI, MF_STRING, idOffset + ID_FILE_CART_WAVESCSI128, "128 kB");
     AppendMenuU(hMenuWaveSCSI, MF_STRING, idOffset + ID_FILE_CART_WAVESCSI256, "256 kB");
@@ -2114,6 +2117,9 @@ int menuCommand(Properties* pProperties, int command)
             return 1;
         case ID_FILE_CART_YAMANOOTO:
             insertCartridge(pProperties, i, CARTNAME_YAMANOOTO, NULL, ROM_YAMANOOTO, 0);
+            return 1;
+        case ID_FILE_CART_FLASHROMSCC:
+            insertCartridge(pProperties, i, CARTNAME_FLASHROMSCC, NULL, ROM_FLASHROMSCC, 0);
             return 1;
         case ID_FILE_CART_WAVESCSI128:
             insertCartridge(pProperties, i, CARTNAME_WAVESCSI128, NULL, SRAM_WAVESCSI128, 0);
