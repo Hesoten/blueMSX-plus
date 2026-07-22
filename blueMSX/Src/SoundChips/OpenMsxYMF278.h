@@ -115,6 +115,8 @@ class YMF278 : public SoundDevice
 		byte readRegOPL4(byte reg, const EmuTime &time);
 		byte peekStatus(const EmuTime &time);
 		byte readStatus(const EmuTime &time);
+		// the BUSY flag is shared with register selects and FM writes
+		void setBusyUntil(const EmuTime &time) { BUSY_Time = time; }
         void* getRom() { return rom; }	
         void* getRam() { return ram; }	
         int getRomSize() { return endRom; }

@@ -397,6 +397,7 @@ void moonsoundWrite(Moonsound* moonsound, UInt16 ioPort, UInt8 value)
 		switch (ioPort & 0x01) {
 		case 0: // select register
 			moonsound->opl4latch = value;
+			moonsound->ymf278->setBusyUntil(systemTime + 56);
 			break;
 		case 1:
             mixerSync(moonsound->mixer);
@@ -409,17 +410,21 @@ void moonsoundWrite(Moonsound* moonsound, UInt16 ioPort, UInt8 value)
 			break;
 		}
 	} else {
+		// FM register selects and writes also raise the shared BUSY flag
 		switch (ioPort & 0x03) {
 		case 0:
 			moonsound->opl3latch = value;
+			moonsound->ymf278->setBusyUntil(systemTime + 36);
 			break;
 		case 2: // select register bank 1
 			moonsound->opl3latch = value | 0x100;
+			moonsound->ymf278->setBusyUntil(systemTime + 36);
 			break;
 		case 1:
 		case 3: // write fm register
             mixerSync(moonsound->mixer);
 			moonsound->ymf262->writeReg(moonsound->opl3latch, value, systemTime);
+			moonsound->ymf278->setBusyUntil(systemTime + 36);
 			break;
 		}
 	}

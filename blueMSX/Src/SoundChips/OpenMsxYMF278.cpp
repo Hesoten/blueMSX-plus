@@ -550,7 +550,9 @@ void YMF278::keyOnHelper(YMF278Slot& slot)
 
 void YMF278::writeRegOPL4(byte reg, byte data, const EmuTime &time)
 {
-	BUSY_Time = time + 88 * 6 / 9;
+	// busy-until time in board clock ticks (21.48 MHz); the memory
+	// access registers 3-6 respond faster (values measured on hardware)
+	BUSY_Time = time + ((reg >= 3 && reg <= 6) ? 18 : 56);
 
 	// Handle slot registers specifically
 	if (reg >= 0x08 && reg <= 0xF7) {
@@ -558,7 +560,8 @@ void YMF278::writeRegOPL4(byte reg, byte data, const EmuTime &time)
 		YMF278Slot& slot = slots[snum];
 		switch ((reg - 8) / 24) {
 		case 0: {
-			LD_Time = time;
+			// instrument load takes about 300us
+			LD_Time = time + 6341;
 			slot.wave = (slot.wave & 0x100) | data;
 			int base = (slot.wave < 384 || !wavetblhdr) ?
 			           (slot.wave * 12) :
@@ -708,7 +711,6 @@ void YMF278::writeRegOPL4(byte reg, byte data, const EmuTime &time)
 			break;
 
 		case 0x06:  // memory data
-			BUSY_Time += 28 * 6 / 9;
 			if (memmode & 1) {
 				writeMem(memadr, data);
 				memadr = (memadr + 1) & 0xFFFFFF;
@@ -735,8 +737,6 @@ void YMF278::writeRegOPL4(byte reg, byte data, const EmuTime &time)
 
 byte YMF278::peekRegOPL4(byte reg, const EmuTime &time)
 {
-	BUSY_Time = time;
-
 	byte result;
 	switch(reg) {
 		case 2: // 3 upper bits are device ID
@@ -756,8 +756,6 @@ byte YMF278::peekRegOPL4(byte reg, const EmuTime &time)
 
 byte YMF278::readRegOPL4(byte reg, const EmuTime &time)
 {
-	BUSY_Time = time;
-
 	byte result;
 	switch(reg) {
 		case 2: // 3 upper bits are device ID
@@ -765,7 +763,7 @@ byte YMF278::readRegOPL4(byte reg, const EmuTime &time)
 			break;
 
 		case 6: // Memory Data Register
-			BUSY_Time += 38 * 6 / 9;
+			BUSY_Time = time + 24;
 			if (memmode & 1) {
 				result = readMem(memadr);
 				// memadr is only increased while R#2 bit 0 is set
@@ -784,11 +782,12 @@ byte YMF278::readRegOPL4(byte reg, const EmuTime &time)
 
 byte YMF278::peekStatus(const EmuTime &time)
 {
+	// BUSY_Time and LD_Time hold busy-until timestamps
 	byte result = 0;
-	if (time - BUSY_Time < 88 * 6 / 9) {
+	if ((int)(BUSY_Time - time) > 0) {
 		result |= 0x01;
 	}
-	if (time - LD_Time < 10000 * 6 / 9) {
+	if ((int)(LD_Time - time) > 0) {
 		result |= 0x02;
 	}
 	return result;
@@ -796,14 +795,7 @@ byte YMF278::peekStatus(const EmuTime &time)
 
 byte YMF278::readStatus(const EmuTime &time)
 {
-	byte result = 0;
-	if (time - BUSY_Time < 88 * 6 / 9) {
-		result |= 0x01;
-	}
-	if (time - LD_Time < 10000 * 6 / 9) {
-		result |= 0x02;
-	}
-	return result;
+	return peekStatus(time);
 }
 
 YMF278::YMF278(short volume, int ramSize, void* romData, int romSize,
