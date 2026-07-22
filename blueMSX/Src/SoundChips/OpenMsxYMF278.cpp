@@ -185,19 +185,23 @@ int YMF278Slot::compute_rate(int val)
 	} else if (val == 15) {
 		return 63;
 	}
-	int res;
+	int res = val * 4;
 	if (RC != 15) {
 		int oct = OCT;
 		if (oct & 8) {
 			oct |= -8;
 		}
-		res = (oct + RC) * 2 + (FN & 0x200 ? 1 : 0) + val * 4;
-	} else {
-		res = val * 4;
+		// the intermediate rate correction term is clamped to 0..15
+		// before it is added (verified on hardware)
+		int corr = oct + RC;
+		if (corr < 0) {
+			corr = 0;
+		} else if (corr > 15) {
+			corr = 15;
+		}
+		res += corr * 2 + (FN & 0x200 ? 1 : 0);
 	}
-	if (res < 0) {
-		res = 0;
-	} else if (res > 63) {
+	if (res > 63) {
 		res = 63;
 	}
 	return res;
