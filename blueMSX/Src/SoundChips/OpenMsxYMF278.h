@@ -58,7 +58,6 @@ class YMF278Slot
 		void envelope_next(int sample_rate);
 		inline int compute_vib();
 		inline int compute_am();
-		void set_lfo(int newlfo);
 
 		short wave;		// wavetable number
 		short FN;		// f-number

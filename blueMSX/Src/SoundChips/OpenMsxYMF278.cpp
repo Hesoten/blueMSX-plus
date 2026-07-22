@@ -131,9 +131,10 @@ const byte eg_rate_shift[64] = {
 #undef O
 
 
-//number of steps to take in quarter of lfo frequency
-//TODO check if frequency matches real chip
-#define O(a) ((int)((EG_TIMER_OVERFLOW / a) / 6))
+// LFO period of up to 0x40000 samples; table entries are the number of
+// counter steps the LFO advances per sample (frequencies in Hz)
+const unsigned int LFO_PERIOD = 1 << 18;
+#define O(a) ((int)(LFO_PERIOD * a / 44100.0 + 0.5))
 const int lfo_period[8] = {
 	O(0.168), O(2.019), O(3.196), O(4.206),
 	O(5.215), O(5.888), O(6.224), O(7.066)
@@ -141,20 +142,16 @@ const int lfo_period[8] = {
 #undef O
 
 
-#define O(a) ((int)(a * 65536))
+// vibrato depth in f-number units (0 .. 79.3 cents)
 const int vib_depth[8] = {
-	O(0),	   O(3.378),  O(5.065),  O(6.750),
-	O(10.114), O(20.170), O(40.106), O(79.307)
+	0, 2, 3, 4, 6, 12, 24, 48
 };
-#undef O
 
 
-#define SC(db) (unsigned int) (db * (2.0 / ENV_STEP))
+// tremolo depth in envelope units (0 .. 11.9 dB)
 const int am_depth[8] = {
-	SC(0),	   SC(1.781), SC(2.906), SC(3.656),
-	SC(4.406), SC(5.906), SC(7.406), SC(11.91)
+	0x00, 0x14, 0x20, 0x28, 0x30, 0x40, 0x50, 0x80
 };
-#undef SC
 
 
 YMF278Slot::YMF278Slot()
@@ -173,7 +170,7 @@ void YMF278Slot::reset()
 
 	lfo_active = false;
 	lfo_cnt = lfo_step = 0;
-	lfo_max = lfo_period[0];
+	lfo_max = 0;
 
 	state = EG_OFF;
 	active = false;
@@ -225,26 +222,30 @@ int YMF278Slot::compute_decay_rate(int val)
 
 int YMF278Slot::compute_vib()
 {
-	return (((lfo_step << 8) / lfo_max) * vib_depth[(int)vib]) >> 24;
+	// 64 vibrato steps per LFO period; the excursion runs
+	// +0..+15, +15..0, -0..-15, -15..0 scaled by the depth
+	int lfo_fm = lfo_cnt / (int)(LFO_PERIOD / 0x40);
+	if (lfo_fm & 0x10) {
+		lfo_fm ^= 0x1F;
+	}
+	if (lfo_fm & 0x20) {
+		lfo_fm = -(lfo_fm & 0x0F);
+	}
+	return (lfo_fm * vib_depth[(int)vib]) / 12;
 }
 
 
 int YMF278Slot::compute_am()
 {
-	if (lfo_active && AM) {
-		return (((lfo_step << 8) / lfo_max) * am_depth[(int)AM]) >> 12;
-	} else {
+	if (!lfo_active || !AM) {
 		return 0;
 	}
-}
-
-void YMF278Slot::set_lfo(int newlfo)
-{
-	lfo_step = (((lfo_step << 8) / lfo_max) * newlfo) >> 8;
-	lfo_cnt  = (((lfo_cnt  << 8) / lfo_max) * newlfo) >> 8;
-
-	lfo = newlfo;
-	lfo_max = lfo_period[(int)lfo];
+	// 256 tremolo steps per LFO period, 0x00..0x7F..0x00
+	int lfo_am = lfo_cnt / (int)(LFO_PERIOD / 0x100);
+	if (lfo_am >= 0x80) {
+		lfo_am ^= 0xFF;
+	}
+	return (lfo_am * am_depth[(int)AM]) >> 7;
 }
 
 
@@ -277,17 +278,7 @@ void YMF278::advance()
 			}
 
 			if (op.lfo_active) {
-				op.lfo_cnt++;
-				if (op.lfo_cnt < op.lfo_max) {
-					op.lfo_step++;
-				} else if (op.lfo_cnt < (op.lfo_max * 3)) {
-					op.lfo_step--;
-				} else {
-					op.lfo_step++;
-					if (op.lfo_cnt == (op.lfo_max * 4)) {
-						op.lfo_cnt = 0;
-					}
-				}
+				op.lfo_cnt = (op.lfo_cnt + lfo_period[(int)op.lfo]) & (LFO_PERIOD - 1);
 			}
 
 			// Envelope Generator
@@ -463,7 +454,11 @@ int* YMF278::updateBuffer(int length)
 
 			    short sample = (sl.sample1 * (0x10000 - sl.stepptr) +
 			                    sl.sample2 * sl.stepptr) >> 16;
-			    int vol = sl.TL + (sl.env_vol >> 2) + sl.compute_am();
+			    int env = sl.env_vol + sl.compute_am();
+			    if (env > MAX_ATT_INDEX) {
+			        env = MAX_ATT_INDEX;
+			    }
+			    int vol = sl.TL + (env >> 2);
 
 			    int volLeft  = vol + pan_left [(int)sl.pan] + vl;
 			    int volRight = vol + pan_right[(int)sl.pan] + vr;
@@ -558,7 +553,7 @@ void YMF278::writeRegOPL4(byte reg, byte data, const EmuTime &time)
 				buf[i] = readMem(base + i);
 			}
 			slot.bits = (buf[0] & 0xC0) >> 6;
-			slot.set_lfo((buf[7] >> 3) & 7);
+			slot.lfo  = (buf[7] >> 3) & 7;
 			slot.vib  = buf[7] & 7;
 			slot.AR   = buf[8] >> 4;
 			slot.D1R  = buf[8] & 0xF;
@@ -632,8 +627,6 @@ void YMF278::writeRegOPL4(byte reg, byte data, const EmuTime &time)
 				// LFO reset
 				slot.lfo_active = false;
 				slot.lfo_cnt = 0;
-				slot.lfo_max = lfo_period[(int)slot.vib];
-				slot.lfo_step = 0;
 			} else {
 				// LFO activate
 				slot.lfo_active = true;
@@ -655,7 +648,7 @@ void YMF278::writeRegOPL4(byte reg, byte data, const EmuTime &time)
 			break;
 		case 5:
 			slot.vib = data & 0x7;
-			slot.set_lfo((data >> 3) & 0x7);
+			slot.lfo = (data >> 3) & 0x7;
 			break;
 		case 6:
 			slot.AR  = data >> 4;
