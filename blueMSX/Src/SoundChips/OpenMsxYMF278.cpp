@@ -393,14 +393,15 @@ short YMF278::getSample(YMF278Slot &op, unsigned int pos)
 		break;
 	}
 	case 1: {
-		// 12 bit
+		// 12 bit; the middle byte holds the low nibbles: bits 7-4
+		// belong to the odd sample, bits 3-0 to the even sample
 		int addr = op.startaddr + ((pos / 2) * 3);
 		if (pos & 1) {
 			sample = readMem(addr + 2) << 8 |
-				 ((readMem(addr + 1) << 4) & 0xF0);
+				 (readMem(addr + 1) & 0xF0);
 		} else {
 			sample = readMem(addr + 0) << 8 |
-				 (readMem(addr + 1) & 0xF0);
+				 ((readMem(addr + 1) << 4) & 0xF0);
 		}
 		break;
 	}
