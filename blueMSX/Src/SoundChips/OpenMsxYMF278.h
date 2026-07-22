@@ -130,6 +130,7 @@ class YMF278 : public SoundDevice
 	
 	private:
 		void setupMemoryPointers();
+		void generateSample(int* outLeft, int* outRight);
 		byte readMem(unsigned int address);
 		void writeMem(unsigned int address, byte value);
 		short getSample(YMF278Slot &op, unsigned int pos);
@@ -167,6 +168,13 @@ class YMF278 : public SoundDevice
 		byte* memPtrs[32];	// 128kB chunk map of the 4MB space
 
 		int masterVol;		// overall gain, 8.8 fixed point
+
+		// generation runs at the native 44100 Hz; when the mixer rate
+		// differs the output is linearly resampled
+		int outRate;
+		unsigned int resamplePos;	// 16.16 phase
+		int lastL, lastR;
+		int curL, curR;
 
 		byte regs[256];
 

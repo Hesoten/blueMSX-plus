@@ -458,16 +458,11 @@ bool YMF278::anyActive()
 	return false;
 }
 
-int* YMF278::updateBuffer(int length)
+void YMF278::generateSample(int* outLeft, int* outRight)
 {
-	if (isInternalMuted()) {
-		return NULL;
-	}
-
 	int vl = mix_level[pcm_l];
 	int vr = mix_level[pcm_r];
-	int *buf = buffer;
-	while (length--) {
+	{
 		int left = 0;
 		int right = 0;
         int cnt = oplOversampling;
@@ -517,8 +512,40 @@ int* YMF278::updateBuffer(int length)
 		    advance();
         }
 		// F9h wave mix level and master volume, both 8.8 fixed point
-		*buf++ = ((((left  / oplOversampling) * vl) >> 8) * masterVol) >> 8;
-		*buf++ = ((((right / oplOversampling) * vr) >> 8) * masterVol) >> 8;
+		*outLeft  = ((((left  / oplOversampling) * vl) >> 8) * masterVol) >> 8;
+		*outRight = ((((right / oplOversampling) * vr) >> 8) * masterVol) >> 8;
+	}
+}
+
+int* YMF278::updateBuffer(int length)
+{
+	if (isInternalMuted()) {
+		return NULL;
+	}
+
+	int *buf = buffer;
+	if (outRate == 44100) {
+		while (length--) {
+			int l, r;
+			generateSample(&l, &r);
+			*buf++ = l;
+			*buf++ = r;
+		}
+	} else {
+		// the chip runs at its native 44100 Hz rate; resample the
+		// generated stream linearly to the mixer rate
+		unsigned int stepFx = (unsigned int)((44100.0 * 65536.0) / outRate);
+		while (length--) {
+			resamplePos += stepFx;
+			while (resamplePos >= 0x10000) {
+				resamplePos -= 0x10000;
+				lastL = curL;
+				lastR = curR;
+				generateSample(&curL, &curR);
+			}
+			*buf++ = lastL + (((curL - lastL) * (int)resamplePos) >> 16);
+			*buf++ = lastR + (((curR - lastR) * (int)resamplePos) >> 16);
+		}
 	}
 	return buffer;
 }
@@ -818,6 +845,10 @@ YMF278::YMF278(short volume, int ramSize, void* romData, int romSize,
 	wavetblhdr = memmode = 0;
 	setupMemoryPointers();
 
+	outRate = 44100;
+	resamplePos = 0;
+	lastL = lastR = curL = curR = 0;
+
 	reset(time);
 }
 
@@ -854,6 +885,9 @@ void YMF278::setSampleRate(int sampleRate, int Oversampling)
 {
     oplOversampling = Oversampling;
 	eg_timer_add = (unsigned int)((1 << EG_SH) / oplOversampling);
+	outRate = sampleRate;
+	resamplePos = 0;
+	lastL = lastR = curL = curR = 0;
 }
 
 void YMF278::setInternalVolume(short newVolume)
