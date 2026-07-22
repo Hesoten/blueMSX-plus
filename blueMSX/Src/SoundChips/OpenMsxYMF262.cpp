@@ -1,5 +1,8 @@
 // This file is taken from the openMSX project. 
 // The file has been modified to be built in the blueMSX environment.
+//
+// Modified 2026 by Hesoten for blueMSX+ fork.
+// See https://github.com/Hesoten/blueMSX-plus for change history.
 
 // $Id: OpenMsxYMF262.cpp,v 1.8 2009-07-18 15:08:35 dvik Exp $
 
@@ -1793,6 +1796,7 @@ void YMF262::reset(const EmuTime &time)
 
 	noise_rng = 1;	// noise shift register
 	nts       = 0;	// note split
+	mixL = mixR = 256;	// OPL4 F8h resets to 0 = 0 dB
 	resetStatus(0x60);
 
 	// reset with register write
@@ -1834,6 +1838,7 @@ YMF262::YMF262(short volume, const EmuTime &time, void* ref)
 	rhythm = nts = 0;
 	OPL3_mode = false;
 	status = status2 = statusMask = 0;
+	mixL = mixR = 256;	// OPL4 F8h reset value 0 = 0 dB
 	
     oplOversampling = 1;
 
@@ -1977,12 +1982,22 @@ int* YMF262::updateBuffer(int length)
 
 		    advance();
         }
-		*(buf++) = (a << 3) / oplOversampling;
-		*(buf++) = (b << 3) / oplOversampling;
+		*(buf++) = (((a << 3) / oplOversampling) * mixL) >> 8;
+		*(buf++) = (((b << 3) / oplOversampling) * mixR) >> 8;
 	}
 
 	checkMute();
 	return buffer;
+}
+
+void YMF262::setMixLevel(byte x)
+{
+	// OPL4 register F8h: FM output attenuation applied after synthesis.
+	// Same steps as the wave side (see mix_level[] in OpenMsxYMF278.cpp):
+	// 0 dB, -3, -6, -9, -12, -15, -18, mute; here as 8.8 fixed point.
+	static const int level[8] = { 256, 192, 128, 96, 64, 48, 32, 0 };
+	mixL = level[x & 7];
+	mixR = level[(x >> 3) & 7];
 }
 
 void YMF262::setInternalVolume(short newVolume)
@@ -2040,6 +2055,8 @@ void YMF262::loadState()
     status2            = (byte)saveStateGet(state, "status2",            0);
     statusMask         = (byte)saveStateGet(state, "statusMask",         0);
     maxVolume          = (short)saveStateGet(state, "maxVolume",          0);
+    mixL               = saveStateGet(state, "mixL",               256);
+    mixR               = saveStateGet(state, "mixR",               256);
 
     for (int i = 0; i < 18; i++) {
         sprintf(tag, "block_fnum%d", i);
@@ -2215,6 +2232,8 @@ void YMF262::saveState()
     saveStateSet(state, "status2",            status2);
     saveStateSet(state, "statusMask",         statusMask);
     saveStateSet(state, "maxVolume",          maxVolume);
+    saveStateSet(state, "mixL",               mixL);
+    saveStateSet(state, "mixR",               mixR);
 
     for (int i = 0; i < 18; i++) {
         sprintf(tag, "block_fnum%d", i);

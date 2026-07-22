@@ -1,5 +1,8 @@
 // This file is taken from the openMSX project.
 // The file has been modified to be built in the blueMSX environment.
+//
+// Modified 2026 by Hesoten for blueMSX+ fork.
+// See https://github.com/Hesoten/blueMSX-plus for change history.
 
 // $Id: OpenMsxYMF278.cpp,v 1.6 2008/03/31 22:07:05 hap-hap Exp $
 
@@ -684,7 +687,8 @@ void YMF278::writeRegOPL4(byte reg, byte data, const EmuTime &time)
 			break;
 
 		case 0xF8:
-			// TODO use these
+			// MIX CONTROL (FM): the level is applied to the YMF262
+			// output stage (see Moonsound.cpp / YMF262::setMixLevel).
 			fm_l = data & 0x7;
 			fm_r = (data >> 3) & 0x7;
 			break;

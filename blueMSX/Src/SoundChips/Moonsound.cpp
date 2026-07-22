@@ -396,6 +396,11 @@ void moonsoundWrite(Moonsound* moonsound, UInt16 ioPort, UInt8 value)
 		case 1:
             mixerSync(moonsound->mixer);
   			moonsound->ymf278->writeRegOPL4(moonsound->opl4latch, value, systemTime);
+            if (moonsound->opl4latch == 0xF8) {
+                // MIX CONTROL (FM): route to the YMF262 output stage; the
+                // YMF278 stores the register but the level applies to FM.
+                moonsound->ymf262->setMixLevel(value);
+            }
 			break;
 		}
 	} else {
