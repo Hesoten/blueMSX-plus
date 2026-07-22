@@ -372,7 +372,7 @@ void archMidiSaveState(void)
 ArchMidi* archMidiOutCreate(int device) 
 {
     Properties* pProperties = propGetGlobalProperties();
-    char* propName = device == 0 ? pProperties->sound.MidiOut.name : pProperties->sound.MidiOut.name;
+    char* propName = pProperties->sound.MidiOut.name;
     ArchMidi* archMidi = (ArchMidi*)calloc(1, sizeof(ArchMidi));
 
     if (device != 0) {
@@ -577,11 +577,12 @@ static void CALLBACK midiInCallback(HMIDIIN hMidiIn,
                 for (i = 0; i < 2; i++) {
                     DevInfo* di = midi.in.current[i];
                     if (di != NULL && di->id == id) {
+                        int note = buffer[1] & 0x7f;
                         if ((buffer[0] & 0x10) && buffer[2] > 0) {
-                            di->notes[buffer[1]]++;
+                            di->notes[note]++;
                         }
-                        else if (di->notes[buffer[1]] > 0) {
-                            di->notes[buffer[1]]--;
+                        else if (di->notes[note] > 0) {
+                            di->notes[note]--;
                         }
                     }
                 }
@@ -616,7 +617,7 @@ static void CALLBACK midiInCallback(HMIDIIN hMidiIn,
 
         for (i = 0; i < 2; i++) {
             DevInfo* di = midi.in.current[i];
-            if (di != NULL && di->id == id && di->archMidi->callback != NULL) {
+            if (di != NULL && di->id == id && di->archMidi != NULL && di->archMidi->callback != NULL) {
                 di->archMidi->callback(di->archMidi->ref, buffer, length);
             }
         }
@@ -626,7 +627,7 @@ static void CALLBACK midiInCallback(HMIDIIN hMidiIn,
         hdr = (MIDIHDR*)dwParam1;
         for (i = 0; i < 2; i++) {
             DevInfo* di = midi.in.current[i];
-            if (di != NULL && di->id == id && di->archMidi->callback != NULL) {
+            if (di != NULL && di->id == id && di->archMidi != NULL && di->archMidi->callback != NULL) {
                 di->archMidi->callback(di->archMidi->ref, hdr->lpData, hdr->dwBytesRecorded);
             }
         }
@@ -691,6 +692,12 @@ void archMidiInDestroy(ArchMidi* archMidi)
     if (archMidi->devInfo == NULL) {
         free(archMidi);
         return;
+    }
+
+    /* Drop the back-pointer before freeing so the MIDI-in callback thread
+    ** never dereferences this freed ArchMidi via devInfo->archMidi. */
+    if (archMidi->devInfo->archMidi == archMidi) {
+        archMidi->devInfo->archMidi = NULL;
     }
 
     if (--archMidi->devInfo->refCount > 0) {
