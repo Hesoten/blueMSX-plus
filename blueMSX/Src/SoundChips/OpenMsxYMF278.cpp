@@ -36,6 +36,7 @@ const int EG_SUS = 2;
 const int EG_REL = 1;
 const int EG_OFF = 0;
 
+// these two only appear in old savestates (converted to EG_REL on load)
 const int EG_REV = 5;	//pseudo reverb
 const int EG_DMP = 6;	//damp
 
@@ -163,7 +164,7 @@ YMF278Slot::YMF278Slot()
 
 void YMF278Slot::reset()
 {
-	wave = FN = OCT = PRVB = LD = TL = pan = lfo = vib = AM = 0;
+	wave = FN = OCT = PRVB = DAMP = LD = TL = pan = lfo = vib = AM = 0;
 	AR = D1R = DL = D2R = RC = RR = 0;
 	step = stepptr = 0;
 	bits = startaddr = loopaddr = endaddr = 0;
@@ -205,6 +206,21 @@ int YMF278Slot::compute_rate(int val)
 		res = 63;
 	}
 	return res;
+}
+
+int YMF278Slot::compute_decay_rate(int val)
+{
+	if (DAMP) {
+		// damping: 0 to -12 dB at rate 48, then rate 63 down to -96 dB;
+		// rate correction is ignored (verified on hardware)
+		return ((unsigned int)env_vol < dl_tab[4]) ? 48 : 63;
+	}
+	if (PRVB && ((unsigned int)env_vol >= dl_tab[6])) {
+		// pseudo reverb from -18 dB on: D1R/D2R/RR are replaced by
+		// reverb rate 5; rate correction is ignored (4 * 5 = 20)
+		return 20;
+	}
+	return compute_rate(val);
 }
 
 int YMF278Slot::compute_vib()
@@ -291,7 +307,7 @@ void YMF278::advance()
 				break;
 			}
 			case EG_DEC: {	// decay phase
-				byte rate = op.compute_rate(op.D1R);
+				byte rate = op.compute_decay_rate(op.D1R);
 				if (rate < 4) {
 					break;
 				}
@@ -300,89 +316,51 @@ void YMF278::advance()
 					byte select = eg_rate_select[rate];
 					op.env_vol += eg_inc[select + ((eg_cnt >> shift) & 7)];
 
-					if (((unsigned int)op.env_vol > dl_tab[6]) && op.PRVB) {
-						op.state = EG_REV;
-					} else {
-						if (op.env_vol >= op.DL) {
+					if (op.env_vol >= op.DL) {
+						if (op.env_vol < MAX_ATT_INDEX) {
 							op.state = EG_SUS;
+						} else {
+							op.env_vol = MAX_ATT_INDEX;
+							op.state = EG_OFF;
+							op.active = false;
+							checkMute();
 						}
 					}
 				}
 				break;
 			}
 			case EG_SUS: {	// sustain phase
-				byte rate = op.compute_rate(op.D2R);
+				byte rate = op.compute_decay_rate(op.D2R);
 				if (rate < 4) {
 					break;
 				}
 				byte shift = eg_rate_shift[rate];
 				if (!(eg_cnt & ((1 << shift) -1))) {
-					byte select = eg_rate_select[rate];
-					op.env_vol += eg_inc[select + ((eg_cnt >> shift) & 7)];
-
-					if (((unsigned int)op.env_vol > dl_tab[6]) && op.PRVB) {
-						op.state = EG_REV;
-					} else {
-						if (op.env_vol >= MAX_ATT_INDEX) {
-							op.env_vol = MAX_ATT_INDEX;
-							op.active = false;
-							checkMute();
-						}
-					}
-				}
-				break;
-			}
-			case EG_REL: {	// release phase
-				byte rate = op.compute_rate(op.RR);
-				if (rate < 4) {
-					break;
-				}
-				byte shift = eg_rate_shift[rate];
-				if (!(eg_cnt & ((1 << shift) -1))) {
-					byte select = eg_rate_select[rate];
-					op.env_vol += eg_inc[select + ((eg_cnt >> shift) & 7)];
-
-					if (((unsigned int)op.env_vol > dl_tab[6]) && op.PRVB) {
-						op.state = EG_REV;
-					} else {
-						if (op.env_vol >= MAX_ATT_INDEX) {
-							op.env_vol = MAX_ATT_INDEX;
-							op.active = false;
-							checkMute();
-						}
-					}
-				}
-				break;
-			}
-			case EG_REV: {	//pseudo reverb
-				//TODO improve env_vol update
-				byte rate = op.compute_rate(5);
-				//if (rate < 4) {
-				//	break;
-				//}
-				byte shift = eg_rate_shift[rate];
-				if (!(eg_cnt & ((1 << shift) - 1))) {
 					byte select = eg_rate_select[rate];
 					op.env_vol += eg_inc[select + ((eg_cnt >> shift) & 7)];
 
 					if (op.env_vol >= MAX_ATT_INDEX) {
 						op.env_vol = MAX_ATT_INDEX;
+						op.state = EG_OFF;
 						op.active = false;
 						checkMute();
 					}
 				}
 				break;
 			}
-			case EG_DMP: {	//damping
-				//TODO improve env_vol update, damp is just fastest decay now
-				byte rate = 56;
+			case EG_REL: {	// release phase
+				byte rate = op.compute_decay_rate(op.RR);
+				if (rate < 4) {
+					break;
+				}
 				byte shift = eg_rate_shift[rate];
-				if (!(eg_cnt & ((1 << shift) - 1))) {
+				if (!(eg_cnt & ((1 << shift) -1))) {
 					byte select = eg_rate_select[rate];
 					op.env_vol += eg_inc[select + ((eg_cnt >> shift) & 7)];
 
 					if (op.env_vol >= MAX_ATT_INDEX) {
 						op.env_vol = MAX_ATT_INDEX;
+						op.state = EG_OFF;
 						op.active = false;
 						checkMute();
 					}
@@ -640,21 +618,18 @@ void YMF278::writeRegOPL4(byte reg, byte data, const EmuTime &time)
 				slot.lfo_active = true;
 			}
 
-			switch (data >> 6) {
-			case 0:	//tone off, no damp
-				if (slot.active && (slot.state != EG_REV) ) {
-					slot.state = EG_REL;
-				}
-				break;
-			case 2:	//tone on, no damp
-				if (!(regs[reg] & 0x080)) {
+			// damp is not a separate envelope state: it only makes the
+			// decay rate computation use the damping rates
+			slot.DAMP = (data & 0x40) ? 1 : 0;
+
+			if (data & 0x80) {
+				if (!(regs[reg] & 0x80)) {
 					keyOnHelper(slot);
 				}
-				break;
-			case 1:	//tone off, damp
-			case 3:	//tone on, damp
-				slot.state = EG_DMP;
-				break;
+			} else {
+				if (regs[reg] & 0x80) {
+					slot.state = EG_REL;
+				}
 			}
 			break;
 		case 5:
@@ -927,6 +902,9 @@ void YMF278::loadState()
         sprintf(tag, "PRVB%d", i);
         slots[i].PRVB = (char)saveStateGet(state, tag, 0);
 
+        sprintf(tag, "DAMP%d", i);
+        slots[i].DAMP = (char)saveStateGet(state, tag, 0);
+
         sprintf(tag, "LD%d", i);
         slots[i].LD = (char)saveStateGet(state, tag, 0);
 
@@ -995,6 +973,10 @@ void YMF278::loadState()
 
         sprintf(tag, "state%d", i);
         slots[i].state = (char)saveStateGet(state, tag, 0);
+        if (slots[i].state == EG_REV || slots[i].state == EG_DMP) {
+            // legacy states from older savestates
+            slots[i].state = EG_REL;
+        }
 
         sprintf(tag, "env_vol%d", i);
         slots[i].env_vol = saveStateGet(state, tag, 0);
@@ -1063,6 +1045,9 @@ void YMF278::saveState()
 
         sprintf(tag, "PRVB%d", i);
         saveStateSet(state, tag, slots[i].PRVB);
+
+        sprintf(tag, "DAMP%d", i);
+        saveStateSet(state, tag, slots[i].DAMP);
 
         sprintf(tag, "LD%d", i);
         saveStateSet(state, tag, slots[i].LD);

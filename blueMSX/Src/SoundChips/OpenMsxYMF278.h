@@ -1,5 +1,8 @@
 // This file is taken from the openMSX project. 
 // The file has been modified to be built in the blueMSX environment.
+//
+// Modified 2026 by Hesoten for blueMSX+ fork.
+// See https://github.com/Hesoten/blueMSX-plus for change history.
 
 #ifndef __YMF278_HH__
 #define __YMF278_HH__
@@ -50,6 +53,7 @@ class YMF278Slot
 		YMF278Slot();
 		void reset();
 		int compute_rate(int val);
+		int compute_decay_rate(int val);
 		unsigned int decay_rate(int num, int sample_rate);
 		void envelope_next(int sample_rate);
 		inline int compute_vib();
@@ -60,6 +64,7 @@ class YMF278Slot
 		short FN;		// f-number
 		char OCT;		// octave
 		char PRVB;		// pseudo-reverb
+		char DAMP;		// damp
 		char LD;		// level direct
 		char TL;		// total level
 		char pan;		// panpot
