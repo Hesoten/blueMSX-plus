@@ -1302,11 +1302,14 @@ void YMF262::writeRegForce(int r, byte v, const EmuTime &time)
 			}
 			return;
 		}
-		case 0x105:	// OPL3 extensions enable register 
-			// OPL3 mode when bit0=1 otherwise it is OPL2 mode 
+		case 0x105:	// OPL3 extensions enable register
+			// OPL3 mode when bit0=1 otherwise it is OPL2 mode
 			OPL3_mode = v & 0x01;
-			if (OPL3_mode) {
+			// when NEW2 is first set after reset, one status read
+			// returns bit 1 set, only once (verified on real YMF278)
+			if ((v & 0x02) && !new2Signaled) {
 				status2 = 0x02;
+				new2Signaled = true;
 			}
 			
 			// following behaviour was tested on real YMF262,
@@ -1799,6 +1802,7 @@ void YMF262::reset(const EmuTime &time)
 
 	noise_rng = 1;	// noise shift register
 	nts       = 0;	// note split
+	new2Signaled = false;
 	setMixLevel(0x1B);	// hardware reset value of F8h: -9 dB left and right
 	resetStatus(0x60);
 
@@ -2067,6 +2071,7 @@ void YMF262::loadState()
     maxVolume          = (short)saveStateGet(state, "maxVolume",          0);
     mixL               = saveStateGet(state, "mixL",               256);
     mixR               = saveStateGet(state, "mixR",               256);
+    new2Signaled       = saveStateGet(state, "new2Signaled",       1) != 0;
 
     for (int i = 0; i < 18; i++) {
         sprintf(tag, "block_fnum%d", i);
@@ -2244,6 +2249,7 @@ void YMF262::saveState()
     saveStateSet(state, "maxVolume",          maxVolume);
     saveStateSet(state, "mixL",               mixL);
     saveStateSet(state, "mixR",               mixR);
+    saveStateSet(state, "new2Signaled",       new2Signaled ? 1 : 0);
 
     for (int i = 0; i < 18; i++) {
         sprintf(tag, "block_fnum%d", i);

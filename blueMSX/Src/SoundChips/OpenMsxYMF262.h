@@ -267,6 +267,7 @@ class YMF262 : public SoundDevice, public TimerCallback
 		byte status;			// status flag
 		byte status2;
 		byte statusMask;		// status mask
+		bool new2Signaled;		// NEW2 status quirk fired since reset
 
 		int chanout[20];		// 18 channels + two phase modulation
 		short maxVolume;
