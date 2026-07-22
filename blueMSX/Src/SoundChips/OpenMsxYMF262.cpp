@@ -992,8 +992,11 @@ void YMF262::init_tables(void)
 void YMF262::setSampleRate(int sampleRate, int Oversampling)
 {
     oplOversampling = Oversampling;
-	const int CLCK_FREQ = 14318180;
-	DoubleT freqbase  = ((DoubleT)CLCK_FREQ / (8.0 * 36)) / (DoubleT)(sampleRate * oplOversampling);
+	// the OPL4 FM part runs from the 33.8688 MHz master clock with a
+	// sample rate of MCLK / (19 * 36) = 49517 Hz; the standalone OPL3
+	// clock used before left the FM about 7 cents sharp
+	const DoubleT CLCK_FREQ = 33868800.0;
+	DoubleT freqbase  = (CLCK_FREQ / (19.0 * 36)) / (DoubleT)(sampleRate * oplOversampling);
 
 	// make fnumber -> increment counter table 
 	for (int i = 0; i < 1024; i++) {
