@@ -24,7 +24,9 @@ const unsigned int EG_TIMER_OVERFLOW = 1 << EG_SH;
 const int ENV_BITS      = 10;
 const int ENV_LEN       = 1 << ENV_BITS;
 const DoubleT ENV_STEP   = 128.0 / ENV_LEN;
-const int MAX_ATT_INDEX = (1 << (ENV_BITS - 1)) - 1; //511
+// envelope steps are 0.09375 dB (4x finer than the 0.375 dB TL levels);
+// the envelope stops at -60 dB, matching recordings of the actual chip
+const int MAX_ATT_INDEX = 0x280;
 const int MIN_ATT_INDEX = 0;
 
 // Envelope Generator phases
@@ -50,9 +52,9 @@ const int mix_level[8] = {
 	0, 8, 16, 24, 32, 40, 48, 256
 };
 
-// decay level table (3dB per step)
+// decay level table (3dB per step, 0x20 envelope steps per 3 dB)
 // 0 - 15: 0, 3, 6, 9,12,15,18,21,24,27,30,33,36,39,42,93 (dB)
-#define SC(db) (unsigned int)(db * (2.0 / ENV_STEP))
+#define SC(db) (unsigned int)(db * 0x20)
 const unsigned int dl_tab[16] = {
  SC( 0), SC( 1), SC( 2), SC(3 ), SC(4 ), SC(5 ), SC(6 ), SC( 7),
  SC( 8), SC( 9), SC(10), SC(11), SC(12), SC(13), SC(14), SC(31)
@@ -262,10 +264,16 @@ void YMF278::advance()
 				if (rate < 4) {
 					break;
 				}
+				// rate 15 is instant at key on (see keyOnHelper);
+				// raising AR to 15 mid-attack freezes the envelope
+				if (rate >= 63) {
+					break;
+				}
 				byte shift = eg_rate_shift[rate];
 				if (!(eg_cnt & ((1 << shift) -1))) {
 					byte select = eg_rate_select[rate];
-					op.env_vol += (~op.env_vol * eg_inc[select + ((eg_cnt >> shift) & 7)]) >> 3;
+					// >>4 makes the attack shape match the actual chip
+					op.env_vol += (~op.env_vol * eg_inc[select + ((eg_cnt >> shift) & 7)]) >> 4;
 					if (op.env_vol <= MIN_ATT_INDEX) {
 						op.env_vol = MIN_ATT_INDEX;
                         if (op.DL == 0) {
@@ -512,13 +520,22 @@ void YMF278::keyOnHelper(YMF278Slot& slot)
 	slot.active = true;
 	setInternalMute(false);
 
+	// the envelope level restarts from silence on every key on
+	slot.env_vol = MAX_ATT_INDEX;
+	if (slot.compute_rate(slot.AR) < 63) {
+		slot.state = EG_ATT;
+	} else {
+		// attack rate 15 takes zero time
+		slot.env_vol = MIN_ATT_INDEX;
+		slot.state = slot.DL ? EG_DEC : EG_SUS;
+	}
+
 	int oct = slot.OCT;
 	if (oct & 8) {
 		oct |= -8;
 	}
 	oct += 5;
 	slot.step = oct >= 0 ? (slot.FN | 1024) << oct : (slot.FN | 1024) >> -oct;
-	slot.state = EG_ATT;
 	slot.stepptr = 0;
 	slot.pos = 0;
 	slot.sample1 = getSample(slot);
