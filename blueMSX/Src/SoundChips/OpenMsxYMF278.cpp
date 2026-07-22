@@ -40,17 +40,18 @@ const int EG_OFF = 0;
 const int EG_REV = 5;	//pseudo reverb
 const int EG_DMP = 6;	//damp
 
-// Pan values, units are -3dB, i.e. 8.
+// Pan values, units are -3dB, i.e. 8. 255 is mute.
 const int pan_left[16]  = {
-	0, 8, 16, 24, 32, 40, 48, 256, 256,   0,  0,  0,  0,  0,  0, 0
+	0, 8, 16, 24, 32, 40, 48, 255, 255,   0,  0,  0,  0,  0,  0, 0
 };
 const int pan_right[16] = {
-	0, 0,  0,  0,  0,  0,  0,   0, 256, 256, 48, 40, 32, 24, 16, 8
+	0, 0,  0,  0,  0,  0,  0,   0, 255, 255, 48, 40, 32, 24, 16, 8
 };
 
-// Mixing levels, units are -3dB; setting 0 is 0 dB, setting 7 is mute.
+// Mixing levels for F9h in 8.8 fixed point, -3dB per step; the same
+// approximated steps as the FM side (see OpenMsxYMF262.cpp).
 const int mix_level[8] = {
-	0, 8, 16, 24, 32, 40, 48, 256
+	256, 192, 128, 96, 64, 48, 32, 0
 };
 
 // decay level table (3dB per step, 0x20 envelope steps per 3 dB)
@@ -429,6 +430,19 @@ unsigned int YMF278::nextPos(YMF278Slot &op, unsigned int pos, unsigned int incr
 	return pos;
 }
 
+// In: 'envVol', 0 = max volume, others -> -0.09375 dB per step.
+// Out: 'x' attenuated by that factor. -6 dB steps are bit shifts and
+// the steps in between multiply by 3/4 (measured on hardware).
+static int vol_factor(int x, int envVol)
+{
+	if (envVol >= MAX_ATT_INDEX) {
+		return 0; // hardware clips to silence below -60 dB
+	}
+	int vol_mul = 0x80 - (envVol & 0x3F); // 0x40 values per 6 dB
+	int vol_shift = 7 + (envVol >> 6);
+	return (x * ((0x8000 * vol_mul) >> vol_shift)) >> 15;
+}
+
 void YMF278::checkMute()
 {
 	setInternalMute(!anyActive());
@@ -470,21 +484,18 @@ int* YMF278::updateBuffer(int length)
 			    if (env > MAX_ATT_INDEX) {
 			        env = MAX_ATT_INDEX;
 			    }
-			    int vol = sl.TL + (env >> 2);
+			    // TL and envelope are applied separately; each clips to
+			    // silence below -60 dB (verified on hardware)
+			    int smplOut = vol_factor(vol_factor(sample, env), sl.TL << 2);
 
-			    int volLeft  = vol + pan_left [(int)sl.pan] + vl;
-			    int volRight = vol + pan_right[(int)sl.pan] + vr;
+			    // panning: -6 dB steps are shifts, in between x0.75
+			    int volLeft  = pan_left [(int)sl.pan];
+			    int volRight = pan_right[(int)sl.pan];
+			    volLeft  = (0x20 - (volLeft  & 0x0f)) >> (volLeft  >> 4);
+			    volRight = (0x20 - (volRight & 0x0f)) >> (volRight >> 4);
 
-			    // TODO prob doesn't happen in real chip
-			    if (volLeft < 0) {
-				    volLeft = 0;
-			    }
-			    if (volRight < 0) {
-				    volRight = 0;
-			    }
-
-			    left  += (sample * volume[volLeft] ) >> 10;
-			    right += (sample * volume[volRight]) >> 10;
+			    left  += (smplOut * volLeft ) >> 5;
+			    right += (smplOut * volRight) >> 5;
 
 			    if (sl.lfo_active && sl.vib) {
 				    int oct = sl.OCT;
@@ -505,8 +516,9 @@ int* YMF278::updateBuffer(int length)
 		    }
 		    advance();
         }
-		*buf++ = left / oplOversampling;
-		*buf++ = right / oplOversampling;
+		// F9h wave mix level and master volume, both 8.8 fixed point
+		*buf++ = ((((left  / oplOversampling) * vl) >> 8) * masterVol) >> 8;
+		*buf++ = ((((right / oplOversampling) * vr) >> 8) * masterVol) >> 8;
 	}
 	return buffer;
 }
@@ -854,15 +866,9 @@ void YMF278::setSampleRate(int sampleRate, int Oversampling)
 
 void YMF278::setInternalVolume(short newVolume)
 {
-    newVolume /= 32;
-	// Volume table, 1 = -0.375dB, 8 = -3dB, 256 = -96dB
-    int i;
-	for (i = 0; i < 256; i++) {
-		volume[i] = (int)(4.0 * (DoubleT)newVolume * pow(2.0, (-0.375 / 6) * i));
-	}
-	for (i = 256; i < 256 * 4; i++) {
-		volume[i] = 0;
-	}
+	// overall gain in 8.8 fixed point; same level as the old volume
+	// table produced at 0 dB attenuation
+	masterVol = newVolume / 32;
 }
 
 void YMF278::setupMemoryPointers()

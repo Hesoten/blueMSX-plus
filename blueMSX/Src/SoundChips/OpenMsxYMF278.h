@@ -164,9 +164,7 @@ class YMF278 : public SoundDevice
 		unsigned int endRam;
 		byte* memPtrs[32];	// 128kB chunk map of the 4MB space
 
-		// precalculated attenuation values with some marging for
-		// enveloppe and pan levels
-		int volume[256 * 4];
+		int masterVol;		// overall gain, 8.8 fixed point
 
 		byte regs[256];
 
