@@ -103,7 +103,10 @@ static void removeOutType(MidiIO* midiIo)
         midiIo->outHost = NULL;
         break;
     case MIDI_FILE:
-        fclose(midiIo->outFile);
+        if (midiIo->outFile != NULL) {
+            fclose(midiIo->outFile);
+            midiIo->outFile = NULL;
+        }
         break;
     }
 }
@@ -118,7 +121,10 @@ static void removeInType(MidiIO* midiIo)
         midiIo->inHost = 0;
         break;
     case MIDI_FILE:
-        fclose(midiIo->inFile);
+        if (midiIo->inFile != NULL) {
+            fclose(midiIo->inFile);
+            midiIo->inFile = NULL;
+        }
         break;
     }
 }
@@ -132,7 +138,9 @@ void midiIoTransmit(MidiIO* midiIo, UInt8 value)
         }
         break;
     case MIDI_FILE:
-        fwrite(&value, 1, 1, midiIo->outFile);
+        if (midiIo->outFile != NULL) {
+            fwrite(&value, 1, 1, midiIo->outFile);
+        }
         break;
     }
 }

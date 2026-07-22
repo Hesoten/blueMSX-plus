@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik, Tomas Karlsson
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -689,6 +692,9 @@ void i8254Reset(I8254* i8254)
 
 void i8254Destroy(I8254* i8254) 
 {
+    counterDestroy(i8254->counter1);
+    counterDestroy(i8254->counter2);
+    counterDestroy(i8254->counter3);
     free(i8254);
 }
 
