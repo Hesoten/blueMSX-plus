@@ -382,6 +382,7 @@ void amdFlashSaveState(AmdFlash* rm)
     }
 
     saveStateSet(state, "cmdIdx",   rm->cmdIdx);
+    saveStateSet(state, "state",    rm->state);
 
     saveStateClose(state);
 }
@@ -400,6 +401,9 @@ void amdFlashLoadState(AmdFlash* rm)
     }
 
     rm->cmdIdx = saveStateGet(state, "cmdIdx", 0);
+    /* Older save states have no "state" field; ST_IDLE (0) matches the
+    ** behavior they were saved with. */
+    rm->state = saveStateGet(state, "state", ST_IDLE);
 
     saveStateClose(state);
 }
@@ -461,5 +465,6 @@ void amdFlashDestroy(AmdFlash* rm)
     if (rm->sramFilename[0]) {
         sramSave(rm->sramFilename, rm->romData, rm->flashSize, NULL, 0);
     }
+    free(rm->romData);
     free(rm);
 }
