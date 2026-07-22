@@ -1102,6 +1102,14 @@ static UInt8 peekStatus(VDP* vdp, UInt16 ioPort)
         }
         break;
 
+    case 4:
+        vdpStatus |= 0xfe;
+        break;
+
+    case 6:
+        vdpStatus |= 0xfc;
+        break;
+
     case 7: 
         vdpStatus = vdpGetColor(vdp->cmdEngine);
         break;
@@ -1167,6 +1175,22 @@ static UInt8 readStatus(VDP* vdp, UInt16 ioPort)
                 vdpStatus &= ~0x20;
             }
         }
+        break;
+
+    case 4:
+        vdpStatus |= 0xfe;
+        break;
+
+    case 5:
+        // Reading S#5 resets the latched sprite collision coordinates.
+        vdp->vdpStatus[3] = 0;
+        vdp->vdpStatus[4] = 0;
+        vdp->vdpStatus[5] = 0;
+        vdp->vdpStatus[6] = 0;
+        break;
+
+    case 6:
+        vdpStatus |= 0xfc;
         break;
 
     case 7: 
