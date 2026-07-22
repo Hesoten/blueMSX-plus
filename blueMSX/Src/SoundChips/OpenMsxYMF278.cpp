@@ -558,8 +558,16 @@ void YMF278::writeRegOPL4(byte reg, byte data, const EmuTime &time)
 			                 ((buf[0] & 0x3F) << 16);
 			slot.loopaddr = buf[4] + (buf[3] << 8);
 			slot.endaddr  = (((buf[6] + (buf[5] << 8)) ^ 0xFFFF) + 1);
-			if ((regs[reg + 4] & 0x080)) {
+			// retrigger if KEY ON is set (register 4 rows up, not reg + 4);
+			// otherwise only the sample position restarts
+			if (regs[reg + 4 * 24] & 0x80) {
 				keyOnHelper(slot);
+			} else {
+				slot.stepptr = 0;
+				slot.pos = 0;
+				slot.sample1 = getSample(slot);
+				slot.pos = 1;
+				slot.sample2 = getSample(slot);
 			}
 			break;
 		}
