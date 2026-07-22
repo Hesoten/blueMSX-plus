@@ -130,7 +130,8 @@ class YMF278 : public SoundDevice
 		void setupMemoryPointers();
 		byte readMem(unsigned int address);
 		void writeMem(unsigned int address, byte value);
-		short getSample(YMF278Slot &op);
+		short getSample(YMF278Slot &op, unsigned int pos);
+		unsigned int nextPos(YMF278Slot &op, unsigned int pos, unsigned int increment);
 		void advance();
 		void checkMute();
 		bool anyActive();

@@ -382,19 +382,19 @@ void YMF278::advance()
 	}
 }
 
-short YMF278::getSample(YMF278Slot &op)
+short YMF278::getSample(YMF278Slot &op, unsigned int pos)
 {
 	short sample;
 	switch (op.bits) {
 	case 0: {
 		// 8 bit
-		sample = readMem(op.startaddr + op.pos) << 8;
+		sample = readMem(op.startaddr + pos) << 8;
 		break;
 	}
 	case 1: {
 		// 12 bit
-		int addr = op.startaddr + ((op.pos / 2) * 3);
-		if (op.pos & 1) {
+		int addr = op.startaddr + ((pos / 2) * 3);
+		if (pos & 1) {
 			sample = readMem(addr + 2) << 8 |
 				 ((readMem(addr + 1) << 4) & 0xF0);
 		} else {
@@ -405,7 +405,7 @@ short YMF278::getSample(YMF278Slot &op)
 	}
 	case 2: {
 		// 16 bit
-		int addr = op.startaddr + (op.pos * 2);
+		int addr = op.startaddr + (pos * 2);
 		sample = (readMem(addr + 0) << 8) |
 			 (readMem(addr + 1));
 		break;
@@ -415,6 +415,18 @@ short YMF278::getSample(YMF278Slot &op)
 		sample = 0;
 	}
 	return sample;
+}
+
+unsigned int YMF278::nextPos(YMF278Slot &op, unsigned int pos, unsigned int increment)
+{
+	// a small loop played with a large step can overshoot the end
+	// address; the chip then adds the (negated) end and loop addresses
+	// and keeps the excess, which some software abuses for noise
+	pos = (pos + increment) & 0xFFFF;
+	if (pos + (unsigned int)op.endaddr >= 0x10000) {
+		pos = (pos + op.endaddr + op.loopaddr) & 0xFFFF;
+	}
+	return pos;
 }
 
 void YMF278::checkMute()
@@ -452,8 +464,8 @@ int* YMF278::updateBuffer(int length)
 				    continue;
 			    }
 
-			    short sample = (sl.sample1 * (0x10000 - sl.stepptr) +
-			                    sl.sample2 * sl.stepptr) >> 16;
+			    short sample = (getSample(sl, sl.pos) * (0x10000 - sl.stepptr) +
+			                    getSample(sl, nextPos(sl, sl.pos, 1)) * sl.stepptr) >> 16;
 			    int env = sl.env_vol + sl.compute_am();
 			    if (env > MAX_ATT_INDEX) {
 			        env = MAX_ATT_INDEX;
@@ -486,16 +498,10 @@ int* YMF278::updateBuffer(int length)
 				    sl.stepptr += sl.step / oplOversampling;
 			    }
 
-                int count = (sl.stepptr >> 16) & 0x0f;
-                sl.stepptr &= 0xffff;
-			    while (count--) {
-				    sl.sample1 = sl.sample2;
-				    sl.pos++;
-				    if (sl.pos >= sl.endaddr) {
-					    sl.pos = sl.loopaddr;
-				    }
-				    sl.sample2 = getSample(sl);
-			    }
+                if (sl.stepptr >= 0x10000) {
+                    sl.pos = nextPos(sl, sl.pos, sl.stepptr >> 16);
+                    sl.stepptr &= 0xffff;
+                }
 		    }
 		    advance();
         }
@@ -528,9 +534,6 @@ void YMF278::keyOnHelper(YMF278Slot& slot)
 	slot.step = oct >= 0 ? (slot.FN | 1024) << oct : (slot.FN | 1024) >> -oct;
 	slot.stepptr = 0;
 	slot.pos = 0;
-	slot.sample1 = getSample(slot);
-	slot.pos = 1;
-	slot.sample2 = getSample(slot);
 }
 
 void YMF278::writeRegOPL4(byte reg, byte data, const EmuTime &time)
@@ -565,7 +568,9 @@ void YMF278::writeRegOPL4(byte reg, byte data, const EmuTime &time)
 			slot.startaddr = buf[2] | (buf[1] << 8) |
 			                 ((buf[0] & 0x3F) << 16);
 			slot.loopaddr = buf[4] + (buf[3] << 8);
-			slot.endaddr  = (((buf[6] + (buf[5] << 8)) ^ 0xFFFF) + 1);
+			// the end address register holds the 2s complement of the
+			// real end position; keep it that way (see nextPos)
+			slot.endaddr  = buf[6] | (buf[5] << 8);
 			// retrigger if KEY ON is set (register 4 rows up, not reg + 4);
 			// otherwise only the sample position restarts
 			if (regs[reg + 4 * 24] & 0x80) {
@@ -573,9 +578,6 @@ void YMF278::writeRegOPL4(byte reg, byte data, const EmuTime &time)
 			} else {
 				slot.stepptr = 0;
 				slot.pos = 0;
-				slot.sample1 = getSample(slot);
-				slot.pos = 1;
-				slot.sample2 = getSample(slot);
 			}
 			break;
 		}
