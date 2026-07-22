@@ -1492,7 +1492,7 @@ static void RefreshLine5(VDP* vdp, int Y, int X, int X2)
         chrTabO    = vdp->chrTabBase;
         scroll     = hScroll / 2;
 
-        charTable = vdp->vram + (vdp->chrTabBase & (~vdpIsOddPage(vdp) << 7) & ((-1 << 15) | ((Y - vdp->firstLine + vdpVScroll(vdp)) << 7))) + scroll;
+        charTable = vdp->vram + (vdp->chrTabBase & (~(vdpIsOddPage(vdp) | vdpBlinkEvenPage(vdp)) << 7) & ((-1 << 15) | ((Y - vdp->firstLine + vdpVScroll(vdp)) << 7))) + scroll;
 
         if (hScroll512) {
             if (scroll & 0x80) charTable += jump[page ^= 1];
@@ -1537,7 +1537,7 @@ static void RefreshLine5(VDP* vdp, int Y, int X, int X2)
             vscroll    = vdpVScroll(vdp);
             chrTabO    = vdp->chrTabBase;
 
-            charTable = vdp->vram + (vdp->chrTabBase & (~vdpIsOddPage(vdp) << 7) & ((-1 << 15) | ((Y - vdp->firstLine + vdpVScroll(vdp)) << 7))) + scroll;
+            charTable = vdp->vram + (vdp->chrTabBase & (~(vdpIsOddPage(vdp) | vdpBlinkEvenPage(vdp)) << 7) & ((-1 << 15) | ((Y - vdp->firstLine + vdpVScroll(vdp)) << 7))) + scroll;
 
             if (hScroll512) {
                 if (scroll & 0x80) charTable += jump[page ^= 1];
@@ -1653,7 +1653,7 @@ static void RefreshLine6(VDP* vdp, int Y, int X, int X2)
         jump       = jumpTable + hScroll512 * 2;
         page    = (vdp->chrTabBase / 0x8000) & 1;
 
-        charTable = vdp->vram + (vdp->chrTabBase & (~vdpIsOddPage(vdp) << 7) & ((-1 << 15) | ((Y - vdp->firstLine + vdpVScroll(vdp)) << 7))) + scroll / 2;
+        charTable = vdp->vram + (vdp->chrTabBase & (~(vdpIsOddPage(vdp) | vdpBlinkEvenPage(vdp)) << 7) & ((-1 << 15) | ((Y - vdp->firstLine + vdpVScroll(vdp)) << 7))) + scroll / 2;
 
         if (hScroll512) {
             if (scroll & 0x100) charTable += jump[page ^= 1];
@@ -1801,7 +1801,7 @@ static void RefreshLine7(VDP* vdp, int Y, int X, int X2)
         vscroll    = vdpVScroll(vdp);
         chrTabO    = vdp->chrTabBase;
 
-        charTable = vdp->vram + (vdp->chrTabBase & (~vdpIsOddPage(vdp) << 7) & ((-1 << 15) | ((Y - vdp->firstLine + vdpVScroll(vdp)) << 7))) + scroll / 2;
+        charTable = vdp->vram + (vdp->chrTabBase & (~(vdpIsOddPage(vdp) | vdpBlinkEvenPage(vdp)) << 7) & ((-1 << 15) | ((Y - vdp->firstLine + vdpVScroll(vdp)) << 7))) + scroll / 2;
 
 
         if (hScroll512) {
@@ -1861,7 +1861,7 @@ static void RefreshLine7(VDP* vdp, int Y, int X, int X2)
             vscroll = vdpVScroll(vdp);
             chrTabO  = vdp->chrTabBase;
 
-            charTable = vdp->vram + (vdp->chrTabBase & (~vdpIsOddPage(vdp) << 7) & ((-1 << 15) | ((Y - vdp->firstLine + vdpVScroll(vdp)) << 7))) + scroll / 2;
+            charTable = vdp->vram + (vdp->chrTabBase & (~(vdpIsOddPage(vdp) | vdpBlinkEvenPage(vdp)) << 7) & ((-1 << 15) | ((Y - vdp->firstLine + vdpVScroll(vdp)) << 7))) + scroll / 2;
 
             if (hScroll512) {
                 if (scroll & 0x100) charTable += jump[page ^= 1];
@@ -1978,7 +1978,7 @@ static void RefreshLine6(VDP* vdp, int Y, int X, int X2)
         jump       = jumpTable + hScroll512 * 2;
         page    = (vdp->chrTabBase / 0x8000) & 1;
 
-        charTable = vdp->vram + (vdp->chrTabBase & (~vdpIsOddPage(vdp) << 7) & ((-1 << 15) | ((Y - vdp->firstLine + vdpVScroll(vdp)) << 7))) + scroll / 2;
+        charTable = vdp->vram + (vdp->chrTabBase & (~(vdpIsOddPage(vdp) | vdpBlinkEvenPage(vdp)) << 7) & ((-1 << 15) | ((Y - vdp->firstLine + vdpVScroll(vdp)) << 7))) + scroll / 2;
 
         if (hScroll512) {
             if (scroll & 0x100) charTable += jump[page ^= 1];
@@ -2122,7 +2122,7 @@ static void RefreshLine7(VDP* vdp, int Y, int X, int X2)
         vscroll    = vdpVScroll(vdp);
         chrTabO    = vdp->chrTabBase;
 
-        charTable = vdp->vram + (vdp->chrTabBase & (~vdpIsOddPage(vdp) << 7) & ((-1 << 15) | ((Y - vdp->firstLine + vdpVScroll(vdp)) << 7))) + scroll / 2;
+        charTable = vdp->vram + (vdp->chrTabBase & (~(vdpIsOddPage(vdp) | vdpBlinkEvenPage(vdp)) << 7) & ((-1 << 15) | ((Y - vdp->firstLine + vdpVScroll(vdp)) << 7))) + scroll / 2;
 
 
         if (hScroll512) {
@@ -2175,7 +2175,7 @@ static void RefreshLine7(VDP* vdp, int Y, int X, int X2)
             vscroll = vdpVScroll(vdp);
             chrTabO  = vdp->chrTabBase;
 
-            charTable = vdp->vram + (vdp->chrTabBase & (~vdpIsOddPage(vdp) << 7) & ((-1 << 15) | ((Y - vdp->firstLine + vdpVScroll(vdp)) << 7))) + scroll / 2;
+            charTable = vdp->vram + (vdp->chrTabBase & (~(vdpIsOddPage(vdp) | vdpBlinkEvenPage(vdp)) << 7) & ((-1 << 15) | ((Y - vdp->firstLine + vdpVScroll(vdp)) << 7))) + scroll / 2;
 
             if (hScroll512) {
                 if (scroll & 0x100) charTable += jump[page ^= 1];
@@ -2369,7 +2369,7 @@ static void RefreshLine8(VDP* vdp, int Y, int X, int X2)
         vscroll    = vdpVScroll(vdp);
         chrTabO    = vdp->chrTabBase;
 
-        charTable = vdp->vram + (vdp->chrTabBase & (~vdpIsOddPage(vdp) << 7) & ((-1 << 15) | ((Y - vdp->firstLine + vdpVScroll(vdp)) << 7))) + scroll / 2;
+        charTable = vdp->vram + (vdp->chrTabBase & (~(vdpIsOddPage(vdp) | vdpBlinkEvenPage(vdp)) << 7) & ((-1 << 15) | ((Y - vdp->firstLine + vdpVScroll(vdp)) << 7))) + scroll / 2;
 
         if (hScroll512) {
             if (scroll & 0x100) charTable += jump[page ^= 1];
@@ -2412,7 +2412,7 @@ static void RefreshLine8(VDP* vdp, int Y, int X, int X2)
             vscroll = vdpVScroll(vdp);
             chrTabO = vdp->chrTabBase;
 
-            charTable = vdp->vram + (vdp->chrTabBase & (~vdpIsOddPage(vdp) << 7) & ((-1 << 15) | ((Y - vdp->firstLine + vdpVScroll(vdp)) << 7))) + scroll / 2;
+            charTable = vdp->vram + (vdp->chrTabBase & (~(vdpIsOddPage(vdp) | vdpBlinkEvenPage(vdp)) << 7) & ((-1 << 15) | ((Y - vdp->firstLine + vdpVScroll(vdp)) << 7))) + scroll / 2;
 
             if (hScroll512) {
                 if (scroll & 0x100) charTable += jump[page ^= 1];
@@ -2520,7 +2520,7 @@ static void RefreshLine10(VDP* vdp, int Y, int X, int X2)
         vscroll    = vdpVScroll(vdp);
         chrTabO    = vdp->chrTabBase;
 
-        charTable = vdp->vram + (vdp->chrTabBase & (~vdpIsOddPage(vdp) << 7) & ((-1 << 15) | ((Y - vdp->firstLine + vdpVScroll(vdp)) << 7))) + scroll / 2;
+        charTable = vdp->vram + (vdp->chrTabBase & (~(vdpIsOddPage(vdp) | vdpBlinkEvenPage(vdp)) << 7) & ((-1 << 15) | ((Y - vdp->firstLine + vdpVScroll(vdp)) << 7))) + scroll / 2;
 
         if (hScroll512) {
             if (scroll & 0x100) charTable += jump[page ^= 1];
@@ -2564,7 +2564,7 @@ rightBorder = X2 == 33;
             vscroll = vdpVScroll(vdp);
             chrTabO  = vdp->chrTabBase;
 
-            charTable = vdp->vram + (vdp->chrTabBase & (~vdpIsOddPage(vdp) << 7) & ((-1 << 15) | ((Y - vdp->firstLine + vdpVScroll(vdp)) << 7))) + scroll / 2;
+            charTable = vdp->vram + (vdp->chrTabBase & (~(vdpIsOddPage(vdp) | vdpBlinkEvenPage(vdp)) << 7) & ((-1 << 15) | ((Y - vdp->firstLine + vdpVScroll(vdp)) << 7))) + scroll / 2;
             charTable += 2; 
 
             if (hScroll512) {
@@ -2700,7 +2700,7 @@ static void RefreshLine12(VDP* vdp, int Y, int X, int X2)
         vscroll    = vdpVScroll(vdp);
         chrTabO    = vdp->chrTabBase;
 
-        charTable = vdp->vram + (vdp->chrTabBase & (~vdpIsOddPage(vdp) << 7) & ((-1 << 15) | ((Y - vdp->firstLine + vdpVScroll(vdp)) << 7))) + scroll / 2;
+        charTable = vdp->vram + (vdp->chrTabBase & (~(vdpIsOddPage(vdp) | vdpBlinkEvenPage(vdp)) << 7) & ((-1 << 15) | ((Y - vdp->firstLine + vdpVScroll(vdp)) << 7))) + scroll / 2;
 
         if (hScroll512) {
             if (scroll & 0x100) charTable += jump[page ^= 1];
@@ -2744,7 +2744,7 @@ static void RefreshLine12(VDP* vdp, int Y, int X, int X2)
             vscroll = vdpVScroll(vdp);
             chrTabO  = vdp->chrTabBase;
 
-            charTable = vdp->vram + (vdp->chrTabBase & (~vdpIsOddPage(vdp) << 7) & ((-1 << 15) | ((Y - vdp->firstLine + vdpVScroll(vdp)) << 7))) + scroll / 2;
+            charTable = vdp->vram + (vdp->chrTabBase & (~(vdpIsOddPage(vdp) | vdpBlinkEvenPage(vdp)) << 7) & ((-1 << 15) | ((Y - vdp->firstLine + vdpVScroll(vdp)) << 7))) + scroll / 2;
             charTable += 2; 
 
             if (hScroll512) {

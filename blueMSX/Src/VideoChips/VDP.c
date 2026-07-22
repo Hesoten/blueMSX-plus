@@ -150,6 +150,9 @@ static int vramAddr;
 #define vdpIsColor0Solid(regs)       (regs[8]  & 0x20)
 #define vdpIsVideoPal(vdp)          (((vdp)->vdpRegs[9]  & (vdp)->palMask & 0x02) | (vdp)->palValue)
 #define vdpIsOddPage(vdp)           (((~(vdp)->vdpStatus[2] & 0x02) << 7) & (((vdp)->vdpRegs[9]  & 0x04) << 6))
+// V9938 blink page alternation: while the blink OFF phase is active the odd
+// display page selected in R#2 is ANDed down to its even pair, like interlace.
+#define vdpBlinkEvenPage(vdp)       (((vdp)->vdpRegs[13] != 0 && !(vdp)->blinkFlag) ? 0x100 : 0)
 #define vdpIsInterlaceOn(regs)       (regs[9]  & 0x08)
 #define vdpIsScanLines212(regs)      (regs[9]  & 0x80)
 #define vdpIsEdgeMasked(regs)        (regs[25] & 0x02)
@@ -485,23 +488,22 @@ static void vdpBlink(VDP* vdp)
         vdp->blinkCnt--;
     }
     else {
+        int onTime  = (vdp->vdpRegs[13] & 0x0f) * 10;
+        int offTime = (vdp->vdpRegs[13] >> 4) * 10;
         vdp->blinkFlag = !vdp->blinkFlag;
-        if (!vdp->vdpRegs[13]) { 
+        if (onTime == 0 || offTime == 0) {
+            // A zero duration pins the blink in the other phase (R#13 = 0
+            // pins the ON phase, i.e. normal colors / the page set in R#2).
+            vdp->blinkFlag = offTime == 0;
+        }
+        vdp->blinkCnt = vdp->blinkFlag ? onTime : offTime;
+        if (vdp->blinkFlag) {
             vdp->XFGColor = vdp->FGColor;
-            vdp->XBGColor = vdp->BGColor; 
+            vdp->XBGColor = vdp->BGColor;
         }
         else {
-            vdp->blinkCnt = (vdp->blinkFlag ? vdp->vdpRegs[13] & 0x0f : vdp->vdpRegs[13] >> 4) * 10;
-            if(vdp->blinkCnt) {
-                if (vdp->blinkFlag) { 
-                    vdp->XFGColor = vdp->FGColor;
-                    vdp->XBGColor = vdp->BGColor; 
-                }
-                else { 
-                    vdp->XFGColor = vdp->vdpRegs[12] >> 4; 
-                    vdp->XBGColor = vdp->vdpRegs[12] & 0x0f; 
-                }
-            }
+            vdp->XFGColor = vdp->vdpRegs[12] >> 4;
+            vdp->XBGColor = vdp->vdpRegs[12] & 0x0f;
         }
     }
 }
