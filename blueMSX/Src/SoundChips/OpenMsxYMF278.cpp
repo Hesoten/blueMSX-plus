@@ -608,6 +608,11 @@ void YMF278::writeRegOPL4(byte reg, byte data, const EmuTime &time)
 			slot.RC   = buf[10] >> 4;
 			slot.RR   = buf[10] & 0xF;
 			slot.AM   = buf[11] & 7;
+			// after tone loading these registers read back the header
+			// bytes (verified on real hardware)
+			for (int i = 7; i < 12; i++) {
+				regs[8 + snum + (i - 2) * 24] = buf[i];
+			}
 			slot.startaddr = buf[2] | (buf[1] << 8) |
 			                 ((buf[0] & 0x3F) << 16);
 			slot.loopaddr = buf[4] + (buf[3] << 8);
