@@ -66,7 +66,7 @@ class YMF278Slot
 		char PRVB;		// pseudo-reverb
 		char DAMP;		// damp
 		char LD;		// level direct
-		char TL;		// total level
+		int  TL;		// total level (internal, 0x00..0xFF)
 		char pan;		// panpot
 		char lfo;		// LFO
 		char vib;		// vibrato

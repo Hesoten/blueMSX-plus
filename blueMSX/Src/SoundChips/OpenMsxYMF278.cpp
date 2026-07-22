@@ -587,7 +587,9 @@ void YMF278::writeRegOPL4(byte reg, byte data, const EmuTime &time)
             break;
 		}
 		case 3:
-			slot.TL = data >> 1;
+			// TL register value 0x7F maps to the internal level 0xFF
+			// (near silence), verified on hardware
+			slot.TL = ((data >> 1) != 0x7F) ? (data >> 1) : 0xFF;
 			slot.LD = data & 0x1;
 
 			// TODO
@@ -909,7 +911,7 @@ void YMF278::loadState()
         slots[i].LD = (char)saveStateGet(state, tag, 0);
 
         sprintf(tag, "TL%d", i);
-        slots[i].TL = (char)saveStateGet(state, tag, 0);
+        slots[i].TL = saveStateGet(state, tag, 0);
 
         sprintf(tag, "pan%d", i);
         slots[i].pan = (char)saveStateGet(state, tag, 0);
