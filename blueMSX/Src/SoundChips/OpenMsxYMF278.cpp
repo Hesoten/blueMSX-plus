@@ -45,9 +45,9 @@ const int pan_right[16] = {
 	0, 0,  0,  0,  0,  0,  0,   0, 256, 256, 48, 40, 32, 24, 16, 8
 };
 
-// Mixing levels, units are -3dB, and add some marging to avoid clipping
+// Mixing levels, units are -3dB; setting 0 is 0 dB, setting 7 is mute.
 const int mix_level[8] = {
-	8, 16, 24, 32, 40, 48, 56, 256
+	0, 8, 16, 24, 32, 40, 48, 256
 };
 
 // decay level table (3dB per step)
