@@ -127,6 +127,7 @@ class YMF278 : public SoundDevice
         void saveState();
 	
 	private:
+		void setupMemoryPointers();
 		byte readMem(unsigned int address);
 		void writeMem(unsigned int address, byte value);
 		short getSample(YMF278Slot &op);
@@ -160,6 +161,7 @@ class YMF278 : public SoundDevice
 
 		unsigned int endRom;
 		unsigned int endRam;
+		byte* memPtrs[32];	// 128kB chunk map of the 4MB space
 
 		// precalculated attenuation values with some marging for
 		// enveloppe and pan levels

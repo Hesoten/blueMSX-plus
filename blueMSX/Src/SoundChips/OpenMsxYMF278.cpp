@@ -675,25 +675,31 @@ void YMF278::writeRegOPL4(byte reg, byte data, const EmuTime &time)
 
 		case 0x02:
 			wavetblhdr = (data >> 2) & 0x7;
-			memmode = data & 1;
+			memmode = data & 3;
+			setupMemoryPointers();
 			break;
 
 		case 0x03:
-			memadr = (memadr & 0x00FFFF) | (data << 16);
+			// bits 6-7 are not used and always read back as 0;
+			// memadr only changes on writes to register 5
+			data &= 0x3F;
 			break;
 
 		case 0x04:
-			memadr = (memadr & 0xFF00FF) | (data << 8);
+			// see register 3
 			break;
 
 		case 0x05:
-			memadr = (memadr & 0xFFFF00) | data;
+			memadr = (regs[3] << 16) | (regs[4] << 8) | data;
 			break;
 
 		case 0x06:  // memory data
 			BUSY_Time += 28 * 6 / 9;
-			writeMem(memadr, data);
-			memadr = (memadr + 1) & 0xFFFFFF;
+			if (memmode & 1) {
+				writeMem(memadr, data);
+				memadr = (memadr + 1) & 0xFFFFFF;
+			}
+			// otherwise writes are ignored and memadr is not increased
 			break;
 
 		case 0xF8:
@@ -724,7 +730,7 @@ byte YMF278::peekRegOPL4(byte reg, const EmuTime &time)
 			break;
 
 		case 6: // Memory Data Register
-			result = readMem(memadr);
+			result = (memmode & 1) ? readMem(memadr) : 0xFF;
 			break;
 
 		default:
@@ -746,8 +752,13 @@ byte YMF278::readRegOPL4(byte reg, const EmuTime &time)
 
 		case 6: // Memory Data Register
 			BUSY_Time += 38 * 6 / 9;
-			result = readMem(memadr);
-			memadr = (memadr + 1) & 0xFFFFFF;
+			if (memmode & 1) {
+				result = readMem(memadr);
+				// memadr is only increased while R#2 bit 0 is set
+				memadr = (memadr + 1) & 0xFFFFFF;
+			} else {
+				result = 0xFF;
+			}
 			break;
 
 		default:
@@ -797,6 +808,9 @@ YMF278::YMF278(short volume, int ramSize, void* romData, int romSize,
     oplOversampling = 1;
 
 	endRam = endRom + ramSize;
+
+	wavetblhdr = memmode = 0;
+	setupMemoryPointers();
 
 	reset(time);
 }
@@ -849,25 +863,51 @@ void YMF278::setInternalVolume(short newVolume)
 	}
 }
 
+void YMF278::setupMemoryPointers()
+{
+	// /MCS0-9 chip select map in 128kB chunks; R#2 bit 1 selects the
+	// mode: the first 2MB is ROM, RAM appears in the second 2MB
+	// (mode 0) or in the last 512kB of the 4MB space (mode 1)
+	const unsigned int k128 = 0x20000;
+	int i;
+	for (i = 0; i < 32; i++) {
+		memPtrs[i] = NULL;
+	}
+	for (i = 0; i < 16; i++) {
+		if ((i + 1) * k128 <= endRom) {
+			memPtrs[i] = rom + i * k128;
+		}
+	}
+	if (!(memmode & 2)) {
+		for (i = 0; i < 16; i++) {
+			if ((int)((i + 1) * k128) <= ramSize) {
+				memPtrs[16 + i] = ram + i * k128;
+			}
+		}
+	} else {
+		for (i = 0; i < 4; i++) {
+			if ((int)((i + 1) * k128) <= ramSize) {
+				memPtrs[28 + i] = ram + i * k128;
+			}
+		}
+	}
+}
+
 byte YMF278::readMem(unsigned int address)
 {
-	if (address < endRom) {
-		return rom[address];
-	} else if (address < endRam) {
-		return ram[address - endRom];
-	} else {
-		return 255;	// TODO check
-	}
+	// the address space wraps at 4MB; unmapped regions read as 0xFF
+	address &= 0x3FFFFF;
+	byte* p = memPtrs[address >> 17];
+	return p ? p[address & 0x1FFFF] : 0xFF;
 }
 
 void YMF278::writeMem(unsigned int address, byte value)
 {
-	if (address < endRom) {
-		// can't write to ROM
-	} else if (address < endRam) {
-		ram[address - endRom] = value;
-	} else {
-		// can't write to unmapped memory
+	address &= 0x3FFFFF;
+	byte* p = memPtrs[address >> 17];
+	// only chunks that point into the sample RAM are writable
+	if (p != NULL && p >= ram && p < ram + ramSize) {
+		p[address & 0x1FFFF] = value;
 	}
 }
 
@@ -900,6 +940,8 @@ void YMF278::loadState()
 
     saveStateGetBuffer(state, "regs", regs, sizeof(regs));
     saveStateGetBuffer(state, "ram", ram, ramSize);
+
+    setupMemoryPointers();
 
     for (int i = 0; i < 24; i++) {
         char tag[32];
