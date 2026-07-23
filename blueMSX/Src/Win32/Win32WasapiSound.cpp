@@ -57,6 +57,9 @@ extern "C" {
 // (about 46 ms); prevents click flutter from a struggling producer.
 #define PRIME_FRAMES    2048
 
+// Frames to ramp back in after an overflow skip splice (about 3 ms).
+#define SPLICE_FRAMES   128
+
 // Last measured endpoint buffer size in ms (0 = WASAPI not active).
 static UInt32 g_actualBufferMs = 0;
 
@@ -79,6 +82,11 @@ struct WasapiSound {
     Int16               lastFrame[2];
     UINT32              fadeInFrames;
     UINT32              primeFrames;
+
+    // overflow skip hysteresis (emulator thread only)
+    BOOL                skipping;
+    UINT32              spliceFrames;
+    Int16               lastWritten[2];
 
     // Lock-free SPSC ring buffer -- interleaved Int16 samples.
     Int16*              ringBuf;
@@ -137,13 +145,45 @@ static UINT32 ringReadFrames(WasapiSound* ws, BYTE* dst, UINT32 frames)
 static Int32 wasapiWrite(void* ref, Int16* buf, UInt32 count)
 {
     WasapiSound* ws = (WasapiSound*)ref;
-    if (ws->suspended) return 0;
+    if (ws->suspended || count == 0) return 0;
 
-    // Drop silently on ring overflow rather than stalling the emulator.
-    UINT32 free = ws->ringSize - ringAvail(ws);
-    if (free < count) return 0;
+    // Overflow hysteresis: a producer ahead of real time (disk boost in
+    // silent loads, catch-up bursts, clock drift) overruns the ring; skip
+    // until half-drained so it yields one splice, not a rapid-fire chop.
+    UINT32 avail = ringAvail(ws);
+    if (ws->skipping) {
+        if (avail > ws->ringSize / 2) return 0;
+        ws->skipping     = FALSE;
+        ws->spliceFrames = SPLICE_FRAMES;
+    }
+    if (ws->ringSize - avail <= count) {
+        ws->skipping = TRUE;
+        return 0;
+    }
 
-    ringWrite(ws, buf, count);
+    UINT32 ch = ws->channels;
+    if (ws->spliceFrames > 0) {
+        // Ramp from the last pre-skip frame into the new data so the
+        // splice does not land as a step discontinuity. Blend into a
+        // local copy; the mixer still owns buf (WAV capture taps it).
+        Int16  tmp[SPLICE_FRAMES * 2];
+        UINT32 frames = count / ch;
+        UINT32 n = ws->spliceFrames < frames ? ws->spliceFrames : frames;
+        for (UINT32 i = 0; i < n; i++) {
+            UINT32 k = SPLICE_FRAMES - ws->spliceFrames + i + 1;
+            for (UINT32 c = 0; c < ch; c++) {
+                tmp[i * ch + c] = (Int16)(((Int32)buf[i * ch + c] * (Int32)k +
+                    (Int32)ws->lastWritten[c] * (Int32)(SPLICE_FRAMES - k)) / SPLICE_FRAMES);
+            }
+        }
+        ws->spliceFrames -= n;
+        ringWrite(ws, tmp, n * ch);
+        if (n * ch < count) ringWrite(ws, buf + n * ch, count - n * ch);
+    } else {
+        ringWrite(ws, buf, count);
+    }
+    ws->lastWritten[0] = buf[count - ch];
+    ws->lastWritten[ch - 1] = buf[count - 1];
     return 0;
 }
 
@@ -391,6 +431,10 @@ void wasapiSoundSuspend(WasapiSound* ws)
     // Keep the audio client running: a hard Stop mid-buffer clicks. The
     // render thread discards pending input and decays to silence itself;
     // resetting the ring positions here would race the reader.
+    ws->skipping       = FALSE;
+    ws->spliceFrames   = 0;
+    ws->lastWritten[0] = 0;
+    ws->lastWritten[1] = 0;
     ws->suspended = TRUE;
 }
 
