@@ -167,7 +167,12 @@ static DWORD WINAPI wasapiRenderThread(LPVOID param)
         if (r == WAIT_TIMEOUT) continue;
         if (r != WAIT_OBJECT_0) break;
 
-        if (ws->suspended) continue;
+        // While suspended, discard pending ring data here on the reader
+        // side (which owns ringReadPos): the concealment path below then
+        // decays smoothly instead of the hard Stop/Start click.
+        if (ws->suspended) {
+            InterlockedExchange(&ws->ringReadPos, ws->ringWritePos);
+        }
 
         UINT32 padding = 0;
         if (FAILED(ws->audioClient->GetCurrentPadding(&padding))) continue;
@@ -383,26 +388,17 @@ UInt32 wasapiSoundGetActualBufferMs(void)
 void wasapiSoundSuspend(WasapiSound* ws)
 {
     if (!ws) return;
+    // Keep the audio client running: a hard Stop mid-buffer clicks. The
+    // render thread discards pending input and decays to silence itself;
+    // resetting the ring positions here would race the reader.
     ws->suspended = TRUE;
-    if (ws->audioClient) {
-        ws->audioClient->Stop();
-        // Reset() clears the endpoint buffer so the next Start doesn't
-        // replay queued pre-reset samples; mirrors DirectSound's dxClear.
-        ws->audioClient->Reset();
-    }
-    // Clear ring so stale audio does not play on resume.
-    memset(ws->ringBuf, 0, ws->ringSize * sizeof(Int16));
-    InterlockedExchange(&ws->ringWritePos, 0);
-    InterlockedExchange(&ws->ringReadPos,  0);
 }
 
 void wasapiSoundResume(WasapiSound* ws)
 {
     if (!ws) return;
-    ws->lastFrame[0] = 0;
-    ws->lastFrame[1] = 0;
-    ws->fadeInFrames = 0;
-    ws->primeFrames  = PRIME_FRAMES;
+    // Nothing else to arm: the render thread primed itself and set up the
+    // crossfade in the underrun path when the discarded ring ran dry, and
+    // its fields must not be written from this thread anyway.
     ws->suspended = FALSE;
-    if (ws->audioClient) ws->audioClient->Start();
 }
