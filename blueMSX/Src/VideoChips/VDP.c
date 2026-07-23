@@ -982,6 +982,32 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
         vdp->sprTabBase = ((value << 15) | (vdp->vdpRegs[5] << 7) | ~(-1 << 7)) & ((vdp->vramPages << 14) - 1);
         break;
 
+    case 13:
+        {
+            /* Reload the blink counter on R#13 write. High nibble = ON period
+            ** (alternate R#12 colors), low = OFF (normal R#7); restart at the ON
+            ** phase unless it is zero, which pins the normal colors. */
+            int onTime  = (value >> 4)   * 10;   /* high nibble: alternate/ON  */
+            int offTime = (value & 0x0f) * 10;   /* low  nibble: normal/OFF    */
+            if (onTime && offTime) {
+                vdp->blinkFlag = 0;              /* start showing R#12 colors  */
+                vdp->blinkCnt  = onTime;
+            }
+            else {
+                vdp->blinkFlag = onTime == 0;
+                vdp->blinkCnt  = 0;
+            }
+            if (vdp->blinkFlag) {
+                vdp->XFGColor = vdp->FGColor;
+                vdp->XBGColor = vdp->BGColor;
+            }
+            else {
+                vdp->XFGColor = vdp->vdpRegs[12] >> 4;
+                vdp->XBGColor = vdp->vdpRegs[12] & 0x0f;
+            }
+        }
+        break;
+
     case 14:
         value &= vdp->vramPages - 1;
         vdp->vramPage = (int)value << 14; 
