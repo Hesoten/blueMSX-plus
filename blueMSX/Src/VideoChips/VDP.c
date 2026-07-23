@@ -813,6 +813,18 @@ static int updateScreenMode(VDP* vdp) {
     return screenMode;
 }
 
+/* YJK screens (10/11/12) follow their base bitmap layout in the command
+** engine. R#0 bit 2 (M4) selects it: 0 = G6 (4bit/512), 1 = G7 (8bit/256);
+** drive a G6-based YJK screen as SCREEN 7, not SCREEN 8. */
+static int cmdEngineScreenMode(VDP* vdp)
+{
+    int mode = vdp->screenMode & 0x0f;
+    if ((mode == 10 || mode == 12) && !(vdp->vdpRegs[0] & 0x04)) {
+        mode = 7;
+    }
+    return mode;
+}
+
 static void onScrModeChange(VDP* vdp, UInt32 time)
 {
     int scanLine = (boardSystemTime() - vdp->frameStartTime) / HPERIOD;
@@ -842,7 +854,7 @@ static void onScrModeChange(VDP* vdp, UInt32 time)
 #endif
     vdp->screenOn = vdp->vdpRegs[1] & 0x40;
     
-    vdpSetScreenMode(vdp->cmdEngine, vdp->screenMode & 0x0f, vdp->vdpRegs[25] & 0x40);
+    vdpSetScreenMode(vdp->cmdEngine, cmdEngineScreenMode(vdp), vdp->vdpRegs[25] & 0x40);
 
     if (screenMode != vdp->screenMode) {
         vdp->scr0splitLine = (scanLine - vdp->firstLine) & ~7;
@@ -1944,7 +1956,7 @@ static void loadState(VDP* vdp)
 
         vdp->screenOn   = vdp->vdpRegs[1] & 0x40;
         vdp->vramEnable = vdp->vram192 || !((vdp->vdpRegs[0x2d] >> 6) & 1);
-        vdpSetScreenMode(vdp->cmdEngine, vdp->screenMode & 0x0f, vdp->vdpRegs[25] & 0x40);
+        vdpSetScreenMode(vdp->cmdEngine, cmdEngineScreenMode(vdp), vdp->vdpRegs[25] & 0x40);
         if (vdp->screenMode == 0 || vdp->screenMode == 13) {
             vdp->displayArea = 960;
             vdp->leftBorder  = 102 + 92;
