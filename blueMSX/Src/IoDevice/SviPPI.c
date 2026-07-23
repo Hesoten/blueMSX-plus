@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik, Tomas Karlsson
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -180,13 +183,15 @@ static void saveState(SviPPI* ppi)
 
 static UInt8 readRow(SviPPI* ppi, UInt16 ioPort)
 {
-    return ppi->row;
+    /* 0x9A mirrors the full port C output latch; ppi->row holds only the
+    ** low nibble, so the upper nibble used to read back as 0. */
+    return i8255Read(ppi->i8255, 0x96);
 }
 
 static UInt8 peek(SviPPI* ppi, UInt16 ioPort)
 {
     if (ioPort == 0x9A) {
-        return ppi->row;
+        return i8255Peek(ppi->i8255, 0x96);
     }
 
     return i8255Peek(ppi->i8255, ioPort);
