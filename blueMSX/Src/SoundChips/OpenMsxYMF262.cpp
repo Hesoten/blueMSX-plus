@@ -1982,8 +1982,11 @@ int* YMF262::updateBuffer(int length)
 
 		    advance();
         }
-		*(buf++) = (((a << 3) / oplOversampling) * mixL) >> 8;
-		*(buf++) = (((b << 3) / oplOversampling) * mixR) >> 8;
+		// x21 calibrates the FM level against the wave part: measured on
+		// identical register streams (active-frame RMS envelope), x8
+		// left the FM about 8.4 dB too low relative to the wave output.
+		*(buf++) = (((a * 21) / oplOversampling) * mixL) >> 8;
+		*(buf++) = (((b * 21) / oplOversampling) * mixR) >> 8;
 	}
 
 	checkMute();
