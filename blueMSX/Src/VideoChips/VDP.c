@@ -858,6 +858,9 @@ static void onScrModeChange(VDP* vdp, UInt32 time)
 
     if (screenMode != vdp->screenMode) {
         vdp->scr0splitLine = (scanLine - vdp->firstLine) & ~7;
+        /* Colour 0 handling depends on the mode, so refresh it on mode
+        ** change too, not only on register writes. */
+        updateOutputMode(vdp);
     }
 
     if (vdp->screenMode == 0 || vdp->screenMode == 13) {
@@ -1442,7 +1445,9 @@ static void updateOutputMode(VDP* vdp)
         videoManagerSetMode(vdp->videoHandle, VIDEO_MIX, vdpDaDevice.videoModeMask);
     }
     else {
-        if (vdp->BGColor == 0 || !transparency) {
+        if (vdp->BGColor == 0 || !transparency || vdp->screenMode == 6) {
+            /* SCREEN 6 (G5): R#7 is two 2-bit fields, not a 16-colour index,
+            ** so keep the true colour 0 rather than palette[R#7 & 0x0F]. */
             vdp->palette[0] = vdp->palette0;
         }
         else {
