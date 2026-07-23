@@ -1027,7 +1027,8 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
         break;
 
     case 19:
-        boardClearInt(INT_IE1);
+        /* Writing R#19 only sets the compare line; it must not acknowledge a
+        ** pending line interrupt (only reading S#1 does). */
         if (change) {
             scheduleHint(vdp);
         }
