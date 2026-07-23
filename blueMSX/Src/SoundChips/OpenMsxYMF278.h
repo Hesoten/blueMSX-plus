@@ -54,8 +54,6 @@ class YMF278Slot
 		void reset();
 		int compute_rate(int val);
 		int compute_decay_rate(int val);
-		unsigned int decay_rate(int num, int sample_rate);
-		void envelope_next(int sample_rate);
 		inline int compute_vib();
 		inline int compute_am();
 
@@ -64,7 +62,6 @@ class YMF278Slot
 		char OCT;		// octave
 		char PRVB;		// pseudo-reverb
 		char DAMP;		// damp
-		char LD;		// level direct
 		int  TL;		// total level (internal, 0x00..0xFF)
 		int  TLdest;		// interpolation target for TL
 		char pan;		// panpot
@@ -82,7 +79,6 @@ class YMF278Slot
 		int step;               // fixed-point frequency step
 		int stepptr;		// fixed-point pointer into the sample
 		int pos;
-		short sample1, sample2;
 
 		bool active;		// slot keyed on
 		byte bits;		// width of the samples
@@ -92,13 +88,9 @@ class YMF278Slot
 
 		byte state;
 		int env_vol;
-		unsigned int env_vol_step;
-		unsigned int env_vol_lim;
 
 		bool lfo_active;
 		int lfo_cnt;
-		int lfo_step;
-		int lfo_max;
 };
 
 static const int MASTER_CLK = 33868800;

@@ -162,16 +162,14 @@ YMF278Slot::YMF278Slot()
 
 void YMF278Slot::reset()
 {
-	wave = FN = OCT = PRVB = DAMP = LD = TL = TLdest = pan = lfo = vib = AM = 0;
+	wave = FN = OCT = PRVB = DAMP = TL = TLdest = pan = lfo = vib = AM = 0;
 	AR = D1R = DL = D2R = RC = RR = 0;
 	step = stepptr = 0;
 	bits = startaddr = loopaddr = endaddr = 0;
 	env_vol = MAX_ATT_INDEX;
-	//env_vol_step = env_vol_lim = 0;
 
 	lfo_active = false;
-	lfo_cnt = lfo_step = 0;
-	lfo_max = 0;
+	lfo_cnt = 0;
 
 	state = EG_OFF;
 	active = false;
@@ -656,8 +654,7 @@ void YMF278::writeRegOPL4(byte reg, byte data, const EmuTime &time)
 			// TL register value 0x7F maps to the internal level 0xFF
 			// (near silence), verified on hardware
 			slot.TLdest = ((data >> 1) != 0x7F) ? (data >> 1) : 0xFF;
-			slot.LD = data & 0x1;
-			if (slot.LD) {
+			if (data & 0x01) {
 				// level direct: change the volume immediately
 				slot.TL = slot.TLdest;
 			}
@@ -1001,9 +998,6 @@ void YMF278::loadState()
         sprintf(tag, "DAMP%d", i);
         slots[i].DAMP = (char)saveStateGet(state, tag, 0);
 
-        sprintf(tag, "LD%d", i);
-        slots[i].LD = (char)saveStateGet(state, tag, 0);
-
         sprintf(tag, "TL%d", i);
         slots[i].TL = saveStateGet(state, tag, 0);
 
@@ -1049,12 +1043,6 @@ void YMF278::loadState()
         sprintf(tag, "pos%d", i);
         slots[i].pos = saveStateGet(state, tag, 0);
 
-        sprintf(tag, "sample1%d", i);
-        slots[i].sample1 = (short)saveStateGet(state, tag, 0);
-
-        sprintf(tag, "sample2%d", i);
-        slots[i].sample2 = (short)saveStateGet(state, tag, 0);
-
         sprintf(tag, "active%d", i);
         slots[i].active = saveStateGet(state, tag, 0) != 0;
 
@@ -1080,23 +1068,11 @@ void YMF278::loadState()
         sprintf(tag, "env_vol%d", i);
         slots[i].env_vol = saveStateGet(state, tag, 0);
 
-        sprintf(tag, "env_vol_step%d", i);
-        slots[i].env_vol_step = saveStateGet(state, tag, 0);
-
-        sprintf(tag, "env_vol_lim%d", i);
-        slots[i].env_vol_lim = saveStateGet(state, tag, 0);
-
         sprintf(tag, "lfo_active%d", i);
         slots[i].lfo_active = saveStateGet(state, tag, 0) != 0;
 
         sprintf(tag, "lfo_cnt%d", i);
         slots[i].lfo_cnt = saveStateGet(state, tag, 0);
-
-        sprintf(tag, "lfo_step%d", i);
-        slots[i].lfo_step = saveStateGet(state, tag, 0);
-
-        sprintf(tag, "lfo_max%d", i);
-        slots[i].lfo_max = saveStateGet(state, tag, 0);
     }
 
     saveStateClose(state);
@@ -1152,9 +1128,6 @@ void YMF278::saveState()
         sprintf(tag, "DAMP%d", i);
         saveStateSet(state, tag, slots[i].DAMP);
 
-        sprintf(tag, "LD%d", i);
-        saveStateSet(state, tag, slots[i].LD);
-
         sprintf(tag, "TL%d", i);
         saveStateSet(state, tag, slots[i].TL);
 
@@ -1200,12 +1173,6 @@ void YMF278::saveState()
         sprintf(tag, "pos%d", i);
         saveStateSet(state, tag, slots[i].pos);
 
-        sprintf(tag, "sample1%d", i);
-        saveStateSet(state, tag, slots[i].sample1);
-
-        sprintf(tag, "sample2%d", i);
-        saveStateSet(state, tag, slots[i].sample2);
-
         sprintf(tag, "active%d", i);
         saveStateSet(state, tag, slots[i].active);
 
@@ -1227,23 +1194,11 @@ void YMF278::saveState()
         sprintf(tag, "env_vol%d", i);
         saveStateSet(state, tag, slots[i].env_vol);
 
-        sprintf(tag, "env_vol_step%d", i);
-        saveStateSet(state, tag, slots[i].env_vol_step);
-
-        sprintf(tag, "env_vol_lim%d", i);
-        saveStateSet(state, tag, slots[i].env_vol_lim);
-
         sprintf(tag, "lfo_active%d", i);
         saveStateSet(state, tag, slots[i].lfo_active);
 
         sprintf(tag, "lfo_cnt%d", i);
         saveStateSet(state, tag, slots[i].lfo_cnt);
-
-        sprintf(tag, "lfo_step%d", i);
-        saveStateSet(state, tag, slots[i].lfo_step);
-
-        sprintf(tag, "lfo_max%d", i);
-        saveStateSet(state, tag, slots[i].lfo_max);
     }
 
     saveStateClose(state);
