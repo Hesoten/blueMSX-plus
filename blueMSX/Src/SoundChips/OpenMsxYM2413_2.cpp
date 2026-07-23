@@ -3,6 +3,9 @@
 //
 // The file was originally written by Mitsutaka Okazaki.
 //
+// Modified 2026 by Hesoten for blueMSX+ fork.
+// See https://github.com/Hesoten/blueMSX-plus for change history.
+//
 #include "OpenMsxYM2413_2.h"
 
 extern "C" {
@@ -584,6 +587,12 @@ OpenYM2413_2::OpenYM2413_2(const string& name_, short volume, const EmuTime& tim
 		reg[i] = 0; // avoid UMR
 	}
 
+	// the output filter history starts silent; without this the first
+	// samples mix uninitialized memory into a loud random pop
+	for (int i = 0; i < 5; ++i) {
+		in[i] = 0;
+	}
+
 	for (int i = 0; i < 9; ++i) {
 		// TODO cleanup
 		ch[i].patches = patches;
@@ -623,6 +632,10 @@ void OpenYM2413_2::reset(const EmuTime &time)
 	pm_phase = 0;
 	am_phase = 0;
 	noise_seed = 0xFFFF;
+
+	for (int i = 0; i < 5; i++) {
+		in[i] = 0;
+	}
 
 	for(int i = 0; i < 9; i++) {
 		ch[i].reset();
