@@ -2071,8 +2071,9 @@ void YMF262::loadState()
     status2            = (byte)saveStateGet(state, "status2",            0);
     statusMask         = (byte)saveStateGet(state, "statusMask",         0);
     maxVolume          = (short)saveStateGet(state, "maxVolume",          0);
-    mixL               = saveStateGet(state, "mixL",               256);
-    mixR               = saveStateGet(state, "mixR",               256);
+    /* default matches the F8h reset value 0x1B (-9 dB), see reset() */
+    mixL               = saveStateGet(state, "mixL",               96);
+    mixR               = saveStateGet(state, "mixR",               96);
     new2Signaled       = saveStateGet(state, "new2Signaled",       1) != 0;
 
     for (int i = 0; i < 18; i++) {

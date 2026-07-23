@@ -542,8 +542,10 @@ int* YMF278::updateBuffer(int length)
 				lastR = curR;
 				generateSample(&curL, &curR);
 			}
-			*buf++ = lastL + (((curL - lastL) * (int)resamplePos) >> 16);
-			*buf++ = lastR + (((curR - lastR) * (int)resamplePos) >> 16);
+			// 64 bit: the sample delta times the 16 bit fraction can
+			// exceed 32 bits at full scale
+			*buf++ = lastL + (int)(((Int64)(curL - lastL) * (int)resamplePos) >> 16);
+			*buf++ = lastR + (int)(((Int64)(curR - lastR) * (int)resamplePos) >> 16);
 		}
 	}
 	return buffer;
@@ -851,6 +853,7 @@ YMF278::YMF278(short volume, int ramSize, void* romData, int romSize,
 	outRate = 44100;
 	resamplePos = 0;
 	lastL = lastR = curL = curR = 0;
+	masterVol = 0;	// set by setInternalVolume before unmute
 
 	reset(time);
 }
@@ -1004,17 +1007,19 @@ void YMF278::loadState()
         sprintf(tag, "TLdest%d", i);
         slots[i].TLdest = saveStateGet(state, tag, slots[i].TL);
 
+        /* mask the table-indexing fields to their register widths so a
+        ** corrupt savestate cannot index out of bounds at runtime */
         sprintf(tag, "pan%d", i);
-        slots[i].pan = (char)saveStateGet(state, tag, 0);
+        slots[i].pan = (char)(saveStateGet(state, tag, 0) & 0x0f);
 
         sprintf(tag, "lfo%d", i);
-        slots[i].lfo = (char)saveStateGet(state, tag, 0);
+        slots[i].lfo = (char)(saveStateGet(state, tag, 0) & 0x07);
 
         sprintf(tag, "vib%d", i);
-        slots[i].vib = (char)saveStateGet(state, tag, 0);
+        slots[i].vib = (char)(saveStateGet(state, tag, 0) & 0x07);
 
         sprintf(tag, "AM%d", i);
-        slots[i].AM = (char)saveStateGet(state, tag, 0);
+        slots[i].AM = (char)(saveStateGet(state, tag, 0) & 0x07);
 
         sprintf(tag, "AR%d", i);
         slots[i].AR = (char)saveStateGet(state, tag, 0);
