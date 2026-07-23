@@ -791,8 +791,8 @@ static int psgChannelAudibleViaMixer(UInt8 r7, int ch) {
 /* Drop the FDC boost on melodic sound-chip writes that cause the
 ** audible "BGM at double speed" tail. Excluded: VDP VRAM (sector
 ** streaming), PPI (VBLANK keyboard scan), PSG R15. Included: VDP
-** palette R0x9A (fades) plus key-on / non-mute volume / TL writes
-** on YM2413, Y8950, OPL3, OPL4, Turbo-R PCM. */
+** palette R0x9A (fades), key-on / volume / TL / pitch writes on
+** YM2413, Y8950, OPL3, OPL4 FM+wave, Turbo-R PCM, OPL4 mix. */
 void boardCheckFdcBoostKill(UInt16 port, UInt8 value) {
     static UInt8  ym2413LatchedReg = 0;
     static UInt8  y8950LatchedReg  = 0;
@@ -802,6 +802,7 @@ void boardCheckFdcBoostKill(UInt16 port, UInt8 value) {
     static UInt8  psgReg7          = 0xff;  /* PSG mixer R7 (1 = ch disabled) */
     static UInt8  psgVol[3]        = { 0, 0, 0 }; /* PSG R8-R10 ch volumes */
     static UInt8  pcmStatus        = 0;     /* Turbo-R PCM status (port 0xA5), low 5 bits */
+    static UInt32 ymf278KeyOn      = 0;     /* wave key-on bits, ch 0-23 */
     UInt8 p = (UInt8)(port & 0xff);
 
     /* Address latches: keep in sync regardless of boost state. */
@@ -823,6 +824,14 @@ void boardCheckFdcBoostKill(UInt16 port, UInt8 value) {
     ** write handler). Tracked regardless of boost state so the 0xA4 sample
     ** audibility test stays correct across boost on/off transitions. */
     if (p == 0xa5) pcmStatus = value & 0x1f;
+    /* YMF278 wave key-on bits (regs 0x68-0x7F, bit 7): tracked regardless of
+    ** boost state so the wave audibility tests below stay in sync with the
+    ** chip across boost on/off transitions. */
+    if (p == 0x7f && ymf278LatchedReg >= 0x68 && ymf278LatchedReg <= 0x7f) {
+        UInt32 bit = 1ul << (ymf278LatchedReg - 0x68);
+        if (value & 0x80) ymf278KeyOn |= bit;
+        else              ymf278KeyOn &= ~bit;
+    }
 
     if (!fdcActive) return;
 
@@ -879,8 +888,25 @@ void boardCheckFdcBoostKill(UInt16 port, UInt8 value) {
         return;
     }
     if (p == 0x7f) {                                    /* YMF278 data */
-        if (ymf278LatchedReg >= 0x68 && ymf278LatchedReg <= 0x7f &&
-            (value & 0xc0) == 0x80) {
+        UInt8 r = ymf278LatchedReg;
+        if (r >= 0x68 && r <= 0x7f && (value & 0xc0) == 0x80) {
+            fdcKillBoost();                             /* key on, damp off */
+            return;
+        }
+        /* Sounds on a keyed-on channel without a key-on write: wave number
+        ** (0x08, retrigger), pitch (0x20/0x38, slides), TL in bits 7:1 of
+        ** 0x50 (fades; mute 0x7F excluded, bit 0 is the LD flag). */
+        if (r >= 0x08 && r <= 0x67 &&
+            (ymf278KeyOn & (1ul << ((UInt8)(r - 0x08) % 24)))) {
+            if (r < 0x50 || (value & 0xfe) != 0xfe) {
+                fdcKillBoost();
+            }
+            return;
+        }
+        /* Wave mix control (F9h): a master fade on held wave notes. The FM
+        ** mix (F8h) cannot be gated on the wave key-on mask, so it is left
+        ** to the YMF262 key-on / TL tests above. */
+        if (r == 0xf9 && ymf278KeyOn) {
             fdcKillBoost();
         }
         return;
