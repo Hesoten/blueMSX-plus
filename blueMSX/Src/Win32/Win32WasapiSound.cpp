@@ -50,6 +50,13 @@ extern "C" {
 // 3-10 ms shared mode, fall back to DirectSound if Initialize fails.
 #define WASAPI_BUF_DURATION  10000LL
 
+// Frames to crossfade back in after an underrun gap (about 6 ms).
+#define FADE_FRAMES     256
+
+// Backlog the ring must reach before output resumes after a gap
+// (about 46 ms); prevents click flutter from a struggling producer.
+#define PRIME_FRAMES    2048
+
 // Last measured endpoint buffer size in ms (0 = WASAPI not active).
 static UInt32 g_actualBufferMs = 0;
 
@@ -67,6 +74,11 @@ struct WasapiSound {
     HANDLE              hThread;
 
     volatile BOOL       suspended;
+
+    // click-free underrun concealment (render thread only)
+    Int16               lastFrame[2];
+    UINT32              fadeInFrames;
+    UINT32              primeFrames;
 
     // Lock-free SPSC ring buffer -- interleaved Int16 samples.
     Int16*              ringBuf;
@@ -148,7 +160,6 @@ static DWORD WINAPI wasapiRenderThread(LPVOID param)
     HANDLE hTask = AvSetMmThreadCharacteristics(TEXT("Pro Audio"), &taskIndex);
 
     HANDLE events[2] = { ws->hFeedEvent, ws->hStopEvent };
-    const UINT32 bytesPerFrame = ws->channels * sizeof(Int16);
 
     while (TRUE) {
         DWORD r = WaitForMultipleObjects(2, events, FALSE, 500);
@@ -164,14 +175,65 @@ static DWORD WINAPI wasapiRenderThread(LPVOID param)
         UINT32 available = ws->bufferFrames - padding;
         if (available == 0) continue;
 
+        UINT32 ch = ws->channels;
+
+        // after a gap, keep holding until the ring has refilled enough
+        // that a struggling producer cannot cause a click flutter
+        if (ws->primeFrames > 0 && ringAvail(ws) / ch < ws->primeFrames) {
+            BYTE* pHold = NULL;
+            if (FAILED(ws->renderClient->GetBuffer(available, &pHold))) continue;
+            Int16* hold = (Int16*)pHold;
+            for (UINT32 i = 0; i < available; i++) {
+                for (UINT32 c = 0; c < ch; c++) {
+                    ws->lastFrame[c] = (Int16)(((Int32)ws->lastFrame[c] * 15) / 16);
+                    hold[i * ch + c] = ws->lastFrame[c];
+                }
+            }
+            ws->renderClient->ReleaseBuffer(available, 0);
+            continue;
+        }
+        ws->primeFrames = 0;
+
         BYTE* pData = NULL;
         if (FAILED(ws->renderClient->GetBuffer(available, &pData))) continue;
 
         UINT32 written = ringReadFrames(ws, pData, available);
 
+        Int16* out = (Int16*)pData;
+
+        // crossfade from the held decay into the fresh data after a gap
+        if (written > 0 && ws->fadeInFrames > 0) {
+            UINT32 n = ws->fadeInFrames < written ? ws->fadeInFrames : written;
+            for (UINT32 i = 0; i < n; i++) {
+                UINT32 k = FADE_FRAMES - ws->fadeInFrames + i + 1;
+                for (UINT32 c = 0; c < ch; c++) {
+                    Int32 mixv = ((Int32)out[i * ch + c] * (Int32)k +
+                                  (Int32)ws->lastFrame[c] * (Int32)(FADE_FRAMES - k)) / FADE_FRAMES;
+                    out[i * ch + c] = (Int16)mixv;
+                    ws->lastFrame[c] = (Int16)(((Int32)ws->lastFrame[c] * 15) / 16);
+                }
+            }
+            ws->fadeInFrames -= n;
+        }
+        if (written > 0) {
+            for (UINT32 c = 0; c < ch; c++) {
+                ws->lastFrame[c] = out[(written - 1) * ch + c];
+            }
+        }
+
         if (written < available) {
-            memset(pData + written * bytesPerFrame, 0,
-                   (available - written) * bytesPerFrame);
+            // underrun: decay from the last sample towards silence
+            // instead of jumping to zero, then crossfade back in
+            Int16* fill = out + written * ch;
+            UINT32 gap = available - written;
+            for (UINT32 i = 0; i < gap; i++) {
+                for (UINT32 c = 0; c < ch; c++) {
+                    ws->lastFrame[c] = (Int16)(((Int32)ws->lastFrame[c] * 15) / 16);
+                    fill[i * ch + c] = ws->lastFrame[c];
+                }
+            }
+            ws->fadeInFrames = FADE_FRAMES;
+            ws->primeFrames  = PRIME_FRAMES;
         }
 
         ws->renderClient->ReleaseBuffer(available, 0);
@@ -261,6 +323,10 @@ WasapiSound* wasapiSoundCreate(HWND /*hwnd*/, Mixer* mixer,
     if (!ws->ringBuf) goto fail;
     memset(ws->ringBuf, 0, ws->ringSize * sizeof(Int16));
 
+    // Start in the primed state so playback begins only once the mixer
+    // has produced a solid backlog.
+    ws->primeFrames = PRIME_FRAMES;
+
     ws->hThread = CreateThread(NULL, 0, wasapiRenderThread, ws, 0, NULL);
     if (!ws->hThread) goto fail;
 
@@ -333,6 +399,10 @@ void wasapiSoundSuspend(WasapiSound* ws)
 void wasapiSoundResume(WasapiSound* ws)
 {
     if (!ws) return;
+    ws->lastFrame[0] = 0;
+    ws->lastFrame[1] = 0;
+    ws->fadeInFrames = 0;
+    ws->primeFrames  = PRIME_FRAMES;
     ws->suspended = FALSE;
     if (ws->audioClient) ws->audioClient->Start();
 }
