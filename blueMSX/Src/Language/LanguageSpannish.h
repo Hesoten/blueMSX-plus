@@ -81,6 +81,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->errorDirectXFailed      = "Error al crear objetos DirectX.           \n.\nComprueba configuración de Vídeo.";
     ls->errorNoRomInZip         = "No hay archivo .rom en el archivo zip.";
     ls->errorNoDskInZip         = "No hay archivo .dsk en el archivo zip.";
+    ls->errorCreateDiskImage    = "No se pudo crear el archivo de imagen de disco.";
     ls->errorNoCasInZip         = "No hay archivo .cas en el archivo zip.";
     ls->errorDirAsDskOverflow   = "%d archivo(s) (%d KB en total) no caben en la imagen de disco de 720 KB y se han omitido.";
     ls->errorNoHelp             = "Imposible encontrar archivo de ayuda de BlueMSX.";

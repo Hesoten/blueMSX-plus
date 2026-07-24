@@ -78,6 +78,7 @@ typedef struct {
     char* errorDirectXFailed;
     char* errorNoRomInZip;
     char* errorNoDskInZip;
+    char* errorCreateDiskImage;
     char* errorNoCasInZip;
     char* errorDirAsDskOverflow;
     char* errorNoHelp;

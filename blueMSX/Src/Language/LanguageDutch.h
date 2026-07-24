@@ -81,6 +81,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->errorDirectXFailed      = "Het is niet gelukt om DirectX te initialiseren. \nDe GDI wordt nu gebruikt.\nKijk de videoinstellingen na...";
     ls->errorNoRomInZip         = "Er zijn geen .ROM-bestanden gevonden in het ZIP-bestand.";
     ls->errorNoDskInZip         = "Er zijn geen .DSK-bestanden gevonden in het ZIP-bestand.";
+    ls->errorCreateDiskImage    = "Kan de schijfkopie niet aanmaken.";
     ls->errorNoCasInZip         = "Er zijn geen .CAS-bestanden gevonden in het ZIP-bestand.";
     ls->errorDirAsDskOverflow   = "%d bestand(en) (%d KB totaal) pasten niet op de 720 KB-schijfkopie en zijn overgeslagen.";
     ls->errorNoHelp             = "Het blueMSX+ helpbestand is niet gevonden.";

@@ -81,6 +81,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->errorDirectXFailed      = "DirectX 오브젝트 만들기 실패.           \nGDI로 대체해서 사용합니다.\n그래픽카드 등록정보를 확인하세요.";
     ls->errorNoRomInZip         = "zip파일 내부의 rom을 찾을 수 없습니다.";
     ls->errorNoDskInZip         = "zip파일 내부의 dsk를 찾을 수 없습니다.";
+    ls->errorCreateDiskImage    = "디스크 이미지 파일을 만들 수 없습니다.";
     ls->errorNoCasInZip         = "zip파일 내부의 cas를 찾을 수 없습니다.";
     ls->errorDirAsDskOverflow   = "%d 개의 파일(총 %d KB)이 720 KB 디스크 이미지에 맞지 않아 건너뛰었습니다.";
     ls->errorNoHelp             = "blueMSX+ 도움말을 찾을 수 없습니다.";

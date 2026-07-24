@@ -81,6 +81,7 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->errorDirectXFailed      = "Falha ao Criar Objetos DirectX.             \nUsando GDI ao invés.\nCheque as propriedades Video.";
     ls->errorNoRomInZip         = "Nao foi localizado arquivo .ROM dentro do arquivo zip.";
     ls->errorNoDskInZip         = "Nao foi localizado arquivo .DSK dentro do arquivo zip.";
+    ls->errorCreateDiskImage    = "Não foi possível criar o arquivo de imagem de disco.";
     ls->errorNoCasInZip         = "Nao foi localizado arquivo .CAS dentro do arquivo zip.";
     ls->errorDirAsDskOverflow   = "%d arquivo(s) (%d KB no total) não couberam na imagem de disco de 720 KB e foram ignorados.";
     ls->errorNoHelp             = "Nao foi localizado arquivo ajuda do blueMSX+";

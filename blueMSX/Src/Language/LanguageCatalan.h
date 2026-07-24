@@ -81,6 +81,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->errorDirectXFailed      = "No s'ha pogut crear els objectes DirectX.           \nFent servir GDI.\nComprobeu les propietat del vídeo.";
     ls->errorNoRomInZip         = "No s'ha pogut trobar un fitxer .rom dins de l'arxiu zip.";
     ls->errorNoDskInZip         = "No s'ha pogut trobar un fitxer .dsk dins de l'arxiu zip.";
+    ls->errorCreateDiskImage    = "No s'ha pogut crear el fitxer d'imatge de disc.";
     ls->errorNoCasInZip         = "No s'ha pogut trobar un fitxer .cas dins de l'arxiu zip.";
     ls->errorDirAsDskOverflow   = "%d fitxer(s) (%d KB en total) no caben a la imatge de disc de 720 KB i s'han ignorat.";
     ls->errorNoHelp             = "No s'ha pogut trobar el fitxer d'ajuda de blueMSX+.";

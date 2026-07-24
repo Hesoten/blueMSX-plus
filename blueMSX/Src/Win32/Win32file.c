@@ -343,14 +343,18 @@ char* openNewHdFile(HWND hwndOwner, char* pTitle, char* pFilter, char* pDir,
         }
     }
     file = fopen(pFileName, "wb");
-    if (file != NULL && hdSize > 0) {
-        if (_fseeki64(file, hdSize - 1, SEEK_SET) == 0) {
-            fputc(0, file);
+    if (file == NULL) {
+        MessageBoxU(hwndOwner, langErrorCreateDiskImage(), langErrorTitle(), MB_ICONERROR | MB_OK);
+        return NULL;
+    }
+    if (hdSize > 0) {
+        if (_fseeki64(file, hdSize - 1, SEEK_SET) != 0 || fputc(0, file) == EOF) {
+            fclose(file);
+            MessageBoxU(hwndOwner, langErrorCreateDiskImage(), langErrorTitle(), MB_ICONERROR | MB_OK);
+            return NULL;
         }
     }
-    if (file != NULL) {
-        fclose(file);
-    }
+    fclose(file);
 
     return pFileName; 
 } 
@@ -461,6 +465,7 @@ char* openNewDskFile(HWND hwndOwner, char* pTitle, char* pFilter, char* pDir,
         }
     }
     if (!diskImageCreate(pFileName, writeBytes, fmt)) {
+        MessageBoxU(hwndOwner, langErrorCreateDiskImage(), langErrorTitle(), MB_ICONERROR | MB_OK);
         return NULL;
     }
     return pFileName; 

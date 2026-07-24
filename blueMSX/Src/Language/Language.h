@@ -107,6 +107,7 @@ char* langErrorEnterFullscreen();
 char* langErrorDirectXFailed();
 char* langErrorNoRomInZip();
 char* langErrorNoDskInZip();
+char* langErrorCreateDiskImage();
 char* langErrorNoCasInZip();
 char* langErrorDirAsDskOverflow();
 char* langErrorNoHelp();

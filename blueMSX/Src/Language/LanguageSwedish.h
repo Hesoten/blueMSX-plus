@@ -81,6 +81,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->errorDirectXFailed      = "Misslyckades att skapa DirectX objekt.          \nAnvänder GDI istället.\nKontrollera video inställningarna.";
     ls->errorNoRomInZip         = "Kunde inte hitta en .rom fil i zip arkivet.";
     ls->errorNoDskInZip         = "Kunde inte hitta en .dsk fil i zip arkivet.";
+    ls->errorCreateDiskImage    = "Kunde inte skapa diskavbildsfilen.";
     ls->errorNoCasInZip         = "Kunde inte hitta en .cas fil i zip arkivet.";
     ls->errorDirAsDskOverflow   = "%d fil(er) (%d KB totalt) får inte plats i 720 KB-diskavbilden och hoppades över.";
     ls->errorNoHelp             = "Kunde inte hitta hjälpfilen.";

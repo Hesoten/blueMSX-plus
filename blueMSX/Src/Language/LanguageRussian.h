@@ -81,6 +81,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->errorDirectXFailed      = "Не удалось создать DirectX объекты.           \nUsing GDI instead.\nCheck Video properties.";
     ls->errorNoRomInZip         = "Не нашлось .rom файла в zip архиве.";
     ls->errorNoDskInZip         = "Не нашлось .dsk файла в zip архиве.";
+    ls->errorCreateDiskImage    = "Не удалось создать файл образа диска.";
     ls->errorNoCasInZip         = "Не нашлось .cas файла в zip архиве.";
     ls->errorDirAsDskOverflow   = "%d файл(ов) (всего %d КБ) не поместились в образ диска 720 КБ и были пропущены.";
     ls->errorNoHelp             = "Не нашлось файла помощи blueMSX+.";

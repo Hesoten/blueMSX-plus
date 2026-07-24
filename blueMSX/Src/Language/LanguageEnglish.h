@@ -81,6 +81,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->errorDirectXFailed      = "Failed to create DirectX objects.           \nUsing GDI instead.\nCheck Video properties.";
     ls->errorNoRomInZip         = "Could not locate a .ROM file in the ZIP archive.";
     ls->errorNoDskInZip         = "Could not locate a .DSK file in the ZIP archive.";
+    ls->errorCreateDiskImage    = "Could not create the disk image file.";
     ls->errorNoCasInZip         = "Could not locate a .CAS file in the ZIP archive.";
     ls->errorDirAsDskOverflow   = "%d file(s) (%d KB total) did not fit in the 720 KB disk image and were skipped.";
     ls->errorNoHelp             = "Could not locate the blueMSX+ help file.";

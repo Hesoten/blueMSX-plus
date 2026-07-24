@@ -83,6 +83,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->errorDirectXFailed      = "DirectX objektien luonti epäonnistui.      \nDirectX on korvattu GDI:llä.\nTarkista video asetukset.";
     ls->errorNoRomInZip         = "Zip paketista ei löytynyt .ROM tiedostoa.";
     ls->errorNoDskInZip         = "Zip paketista ei löytynyt .DSK tiedostoa.";
+    ls->errorCreateDiskImage    = "Levykuvatiedoston luonti epäonnistui.";
     ls->errorNoCasInZip         = "Zip paketista ei löytynyt .CAS tiedostoa.";
     ls->errorDirAsDskOverflow   = "%d tiedosto(a) (yhteensä %d KB) ei mahtunut 720 KB:n levykuvaan ja jäi väliin.";
     ls->errorNoHelp             = "blueMSX+:n ohjetiedostoa ei löytynyt.";
