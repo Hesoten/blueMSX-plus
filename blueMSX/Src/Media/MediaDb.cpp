@@ -121,6 +121,7 @@ RomType mediaDbStringToType(const char* romName)
     if (iequals(name, "MuPack"))           return ROM_MUPACK;
     if (iequals(name, "Manbow2"))          return ROM_MANBOW2;
     if (iequals(name, "Manbow2v2"))        return ROM_MANBOW2_V2;
+    if (iequals(name, "Manbow2_2"))        return ROM_MANBOW2_V2;
     if (iequals(name, "HamarajaNight"))    return ROM_HAMARAJANIGHT;
     if (iequals(name, "MegaFlashRomScc"))  return ROM_MEGAFLSHSCC;
     if (iequals(name, "MegaFlashRomSccPlus")) return ROM_MEGAFLSHSCCPLUS;
@@ -141,6 +142,8 @@ RomType mediaDbStringToType(const char* romName)
     if (iequals(name, "Playball"))         return ROM_PLAYBALL;
     if (iequals(name, "Dooly"))            return ROM_DOOLY;
     if (iequals(name, "HolyQuran"))        return ROM_HOLYQURAN;
+    if (iequals(name, "AlQuran"))          return ROM_HOLYQURAN;
+    if (iequals(name, "AlQuranDecoded"))   return ROM_HOLYQURAN;
     if (iequals(name, "CrossBlaim"))       return ROM_CROSSBLAIM;
     if (iequals(name, "Zemina80in1"))      return ROM_KOREAN80;
     if (iequals(name, "Zemina90in1"))      return ROM_KOREAN90;
@@ -153,6 +156,7 @@ RomType mediaDbStringToType(const char* romName)
     if (iequals(name, "Synthesizer"))      return ROM_KONAMISYNTH;
     if (iequals(name, "KeyboardMaster"))   return ROM_KONAMKBDMAS;
     if (iequals(name, "GenericKonami"))    return ROM_KONAMI4NF;
+    if (iequals(name, "8kB"))              return ROM_KONAMI4NF;
     if (iequals(name, "SuperPierrot"))     return ROM_ASCII16NF;
     if (iequals(name, "WordPro"))          return ROM_KONWORDPRO;
     if (iequals(name, "Normal"))           return ROM_STANDARD;
@@ -164,6 +168,7 @@ RomType mediaDbStringToType(const char* romName)
     if (iequals(name, "CasPatch"))     return ROM_CASPATCH;
     if (iequals(name, "Coleco"))       return ROM_COLECO;
     if (iequals(name, "MegaCart"))     return ROM_CVMEGACART;
+    if (iequals(name, "ColecoMegaCart")) return ROM_CVMEGACART;
     if (iequals(name, "ActivisionPCB")) return ROM_ACTIVISIONPCB;
     if (iequals(name, "ActivisionPCB 2K")) return ROM_ACTIVISIONPCB_2K;
     if (iequals(name, "ActivisionPCB 16K")) return ROM_ACTIVISIONPCB_16K;
@@ -233,11 +238,18 @@ RomType mediaDbStringToType(const char* romName)
 
     // Roms not supproted in this format in the db
     if (iequals(name, "0x4000"))       return ROM_0x4000;
+    if (iequals(name, "0x8000"))       return ROM_BASIC;
     if (iequals(name, "0xC000"))       return ROM_0xC000;
     if (iequals(name, "auto"))         return ROM_PLAIN;
     if (iequals(name, "basic"))        return ROM_BASIC;
 
     if (iequals(name, "mirrored"))     return ROM_PLAIN;
+    /* romdb.vampier.net names plain roms by the 16kB MSX page they occupy;
+    ** ROM_BASIC is the 0x8000 placement and ROM_0x4000 the 0x4000 one. */
+    if (iequals(name, "Mirrored4000")) return ROM_0x4000;
+    if (iequals(name, "Page2"))        return ROM_BASIC;
+    if (iequals(name, "Page12"))       return ROM_0x4000;
+    if (iequals(name, "Page23"))       return ROM_BASIC;
     if (iequals(name, "forteII"))      return ROM_FORTEII;
     if (iequals(name, "msxdos2"))      return ROM_MSXDOS2;
     if (iequals(name, "konami5"))      return ROM_KONAMI5;
@@ -362,6 +374,46 @@ static void mediaDbAddItem(MediaDb* mediaDb, TiXmlElement* dmp, const MediaType&
     }
 }
 
+/* Force the cartridge type a non-MSX platform always uses, unless the entry
+** already names a more specific mapper. Each database spells the platform its
+** own way: the 2.8.2 files use "Coleco"/"SVI", romdb.vampier.net "ColecoVision"
+** and "SG-1000". */
+static RomType mediaDbApplySystemType(RomType romType, const string& system)
+{
+    const char* name = system.c_str();
+
+    if (romType != ROM_CVMEGACART &&
+        romType != ROM_ACTIVISIONPCB && romType != ROM_ACTIVISIONPCB_2K &&
+        romType != ROM_ACTIVISIONPCB_16K && romType != ROM_ACTIVISIONPCB_256K) {
+        if (strcmpnocase(name, "coleco") == 0 ||
+            strcmpnocase(name, "colecovision") == 0) {
+            romType = ROM_COLECO;
+        }
+    }
+
+    if (strcmpnocase(name, "svi") == 0) {
+        if (romType != ROM_SVI328COL80) {
+            romType = ROM_SVI328CART;
+        }
+    }
+
+    if (romType != ROM_SG1000CASTLE && romType != ROM_SEGABASIC &&
+        romType != ROM_SG1000_RAMEXPANDER_A && romType != ROM_SG1000_RAMEXPANDER_B) {
+        if (strcmpnocase(name, "sg1000") == 0 ||
+            strcmpnocase(name, "sg-1000") == 0) {
+            romType = ROM_SG1000;
+        }
+
+        if (strcmpnocase(name, "sc3000") == 0 || strcmpnocase(name, "sc-3000") == 0 ||
+            strcmpnocase(name, "sf7000") == 0 || strcmpnocase(name, "sf-7000") == 0)
+        {
+            romType = ROM_SC3000;
+        }
+    }
+
+    return romType;
+}
+
 static void mediaDbAddDump(TiXmlElement* dmp, 
                            string& title,
                            string& company,
@@ -381,32 +433,7 @@ static void mediaDbAddDump(TiXmlElement* dmp,
             }
         }
 
-        if (romType != ROM_CVMEGACART && 
-            romType != ROM_ACTIVISIONPCB && romType != ROM_ACTIVISIONPCB_2K && 
-            romType != ROM_ACTIVISIONPCB_16K && romType != ROM_ACTIVISIONPCB_256K) {
-            if (strcmpnocase(system.c_str(), "coleco") == 0) {
-                romType = ROM_COLECO;
-            }
-        }
-
-        if (strcmpnocase(system.c_str(), "svi") == 0) {
-            if (romType != ROM_SVI328COL80) {
-                romType = ROM_SVI328CART;
-            }
-        }
-
-        if (romType != ROM_SG1000CASTLE && romType != ROM_SEGABASIC &&
-            romType != ROM_SG1000_RAMEXPANDER_A && romType != ROM_SG1000_RAMEXPANDER_B) {
-            if (strcmpnocase(system.c_str(), "sg1000") == 0) {
-                romType = ROM_SG1000;
-            }
-
-            if (strcmpnocase(system.c_str(), "sc3000") == 0 ||
-                strcmpnocase(system.c_str(), "sf7000") == 0)
-            {
-                romType = ROM_SC3000;
-            }
-        }
+        romType = mediaDbApplySystemType(romType, system);
 
         // For standard roms, a start tag is used to specify start address
         if (romType == ROM_STANDARD) {
@@ -509,22 +536,7 @@ static void mediaDbAddVampierSoftware(TiXmlElement* sw)
         if (a_sha1 == NULL) continue;
 
         RomType romType = (a_type != NULL) ? mediaDbStringToType(a_type) : ROM_PLAIN;
-
-        /* System-based overrides — mirror the policy from mediaDbAddDump. */
-        if (romType != ROM_CVMEGACART &&
-            romType != ROM_ACTIVISIONPCB && romType != ROM_ACTIVISIONPCB_2K &&
-            romType != ROM_ACTIVISIONPCB_16K && romType != ROM_ACTIVISIONPCB_256K) {
-            if (strcmpnocase(system.c_str(), "coleco") == 0) romType = ROM_COLECO;
-        }
-        if (strcmpnocase(system.c_str(), "svi") == 0) {
-            if (romType != ROM_SVI328COL80) romType = ROM_SVI328CART;
-        }
-        if (romType != ROM_SG1000CASTLE && romType != ROM_SEGABASIC &&
-            romType != ROM_SG1000_RAMEXPANDER_A && romType != ROM_SG1000_RAMEXPANDER_B) {
-            if (strcmpnocase(system.c_str(), "sg1000") == 0) romType = ROM_SG1000;
-            if (strcmpnocase(system.c_str(), "sc3000") == 0 ||
-                strcmpnocase(system.c_str(), "sf7000") == 0) romType = ROM_SC3000;
-        }
+        romType = mediaDbApplySystemType(romType, system);
 
         string remark = a_remark ? a_remark : "";
         romdb->sha1Map[string(a_sha1)] =
