@@ -2505,7 +2505,7 @@ static void RefreshLine10(VDP* vdp, int Y, int X, int X2)
 
     if (X == -1) {
         X++;
-        linePtr10 = RefreshBorder(vdp, Y, vdp->paletteFixed[vdp->vdpRegs[7]], 0, 0);
+        linePtr10 = RefreshBorder(vdp, Y, vdp->palette[vdp->BGColor], 0, 0);
         sprLine = getSpritesLine(vdp, Y);
 
         if (linePtr10 == NULL) {
@@ -2541,7 +2541,7 @@ rightBorder = X2 == 33;
     }
 
     if (!vdp->screenOn || !vdp->drawArea) {
-        Pixel bgColor = vdp->paletteFixed[vdp->vdpRegs[7]];
+        Pixel bgColor = vdp->palette[vdp->BGColor];
         while (X < X2) {
             linePtr10[0] = bgColor;
             linePtr10[1] = bgColor;
@@ -2575,7 +2575,7 @@ rightBorder = X2 == 33;
 
         if (X == 0) {
             if (vdpIsEdgeMasked(vdp->vdpRegs)) {
-                Pixel bgColor = vdp->paletteFixed[vdp->vdpRegs[7]];
+                Pixel bgColor = vdp->palette[vdp->BGColor];
                 linePtr10[0] = bgColor;
                 linePtr10[1] = bgColor;
                 linePtr10[2] = bgColor;
@@ -2663,7 +2663,7 @@ rightBorder = X2 == 33;
 
     if (rightBorder) {
 //        colorSpritesLine(vdp, Y, 0);
-        RefreshRightBorder(vdp, Y, vdp->paletteFixed[vdp->vdpRegs[7]], 0, 0);
+        RefreshRightBorder(vdp, Y, vdp->palette[vdp->BGColor], 0, 0);
     }
 }
 
@@ -2685,7 +2685,7 @@ static void RefreshLine12(VDP* vdp, int Y, int X, int X2)
 
     if (X == -1) {
         X++;
-        linePtr12 = RefreshBorder(vdp, Y, vdp->paletteFixed[vdp->vdpRegs[7]], 0, 0);
+        linePtr12 = RefreshBorder(vdp, Y, vdp->palette[vdp->BGColor], 0, 0);
         sprLine = getSpritesLine(vdp, Y);
 
         if (linePtr12 == NULL) {
@@ -2721,7 +2721,7 @@ static void RefreshLine12(VDP* vdp, int Y, int X, int X2)
     }
 
     if (!vdp->screenOn || !vdp->drawArea) {
-        Pixel bgColor = vdp->paletteFixed[vdp->vdpRegs[7]];
+        Pixel bgColor = vdp->palette[vdp->BGColor];
         while (X < X2) {
             linePtr12[0] = bgColor;
             linePtr12[1] = bgColor;
@@ -2755,7 +2755,7 @@ static void RefreshLine12(VDP* vdp, int Y, int X, int X2)
 
         if (X == 0) {
             if (vdpIsEdgeMasked(vdp->vdpRegs)) {
-                Pixel bgColor = vdp->paletteFixed[vdp->vdpRegs[7]];
+                Pixel bgColor = vdp->palette[vdp->BGColor];
                 linePtr12[0] = bgColor;
                 linePtr12[1] = bgColor;
                 linePtr12[2] = bgColor;
@@ -2843,6 +2843,6 @@ static void RefreshLine12(VDP* vdp, int Y, int X, int X2)
 
     if (rightBorder) {
 //        colorSpritesLine(vdp, Y, 0);
-        RefreshRightBorder(vdp, Y, vdp->paletteFixed[vdp->vdpRegs[7]], 0, 0);
+        RefreshRightBorder(vdp, Y, vdp->palette[vdp->BGColor], 0, 0);
     }
 }

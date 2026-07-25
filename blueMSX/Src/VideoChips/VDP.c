@@ -168,7 +168,7 @@ static const UInt8 registerValueMaskMSX1[8] = {
 };
 
 static const UInt8 registerValueMaskMSX2[64] = {
-	0x7e, 0x7b, 0x7f, 0xff, 0x3f, 0xff, 0x3f, 0xff,
+	0x7e, 0x7f, 0x7f, 0xff, 0x3f, 0xff, 0x3f, 0xff,   /* R#1 bit 2 (line-blink) writable */
 	0xfb, 0xbf, 0x07, 0x03, 0xff, 0xff, 0x07, 0x0f,
 	0x0f, 0xbf, 0xff, 0xff, 0x3f, 0x3f, 0x3f, 0xff,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -179,7 +179,7 @@ static const UInt8 registerValueMaskMSX2[64] = {
 };
 
 static const UInt8 registerValueMaskMSX2p[64] = {
-	0x7e, 0x7b, 0x7f, 0xff, 0x3f, 0xff, 0x3f, 0xff,
+	0x7e, 0x7f, 0x7f, 0xff, 0x3f, 0xff, 0x3f, 0xff,   /* R#1 bit 2 (line-blink) writable */
 	0xfb, 0xbf, 0x07, 0x03, 0xff, 0xff, 0x07, 0x0f,
 	0x0f, 0xbf, 0xff, 0xff, 0x3f, 0x3f, 0x3f, 0xff,
     0x00, 0x7f, 0x3f, 0x07, 0x00, 0x00, 0x00, 0x00,
@@ -345,6 +345,7 @@ struct VDP {
     UInt8  XBGColor;
     int    blinkFlag;
     int    blinkCnt;
+    int    blinkLineBase;
     int    drawArea;
     UInt16 paletteReg[16];
     int    vramSize;
@@ -497,6 +498,28 @@ static void vdpBlink(VDP* vdp)
             vdp->blinkFlag = offTime == 0;
         }
         vdp->blinkCnt = vdp->blinkFlag ? onTime : offTime;
+        if (vdp->blinkFlag) {
+            vdp->XFGColor = vdp->FGColor;
+            vdp->XBGColor = vdp->BGColor;
+        }
+        else {
+            vdp->XFGColor = vdp->vdpRegs[12] >> 4;
+            vdp->XBGColor = vdp->vdpRegs[12] & 0x0f;
+        }
+    }
+}
+
+/* R#1 bit 2: derive the blink phase for one scan line from a per-frame base
+** plus the line number, so the page alternates band-by-band and the bands
+** drift by (lines-per-frame mod period) each frame. */
+static void vdpLineBlink(VDP* vdp)
+{
+    int r13    = vdp->vdpRegs[13];
+    int onTime = (r13 & 0x0f) * 10;
+    int period = onTime + (r13 >> 4) * 10;
+    if (period > 0) {
+        int ph = (vdp->blinkLineBase + vdp->curLine) % period;
+        vdp->blinkFlag = ph < onTime;
         if (vdp->blinkFlag) {
             vdp->XFGColor = vdp->FGColor;
             vdp->XBGColor = vdp->BGColor;
@@ -680,7 +703,19 @@ static void onDisplay(VDP* vdp, UInt32 time)
     vdp->vdpStatus[2] ^= 0x02;
     RefreshScreen(vdp->screenMode);
 
-    vdpBlink(vdp);
+    /* Per-frame (VSYNC) blink clock. In line-blink mode the phase is derived
+    ** per scan line instead; advance its base by one frame of lines so the
+    ** bands drift by (lines mod period) each frame. */
+    {
+        int r13    = vdp->vdpRegs[13];
+        int period = ((r13 & 0x0f) + (r13 >> 4)) * 10;
+        if ((vdp->vdpRegs[1] & 0x04) && period > 0) {
+            vdp->blinkLineBase = (vdp->blinkLineBase + vdp->lastLine) % period;
+        }
+        else {
+            vdpBlink(vdp);
+        }
+    }
 
     vdp->frameStartTime = vdp->timeDisplay;
     vdp->timeDisplay += HPERIOD * vdp->lastLine;
@@ -813,6 +848,18 @@ static int updateScreenMode(VDP* vdp) {
     return screenMode;
 }
 
+/* YJK screens (10/11/12) follow their base bitmap layout in the command
+** engine. R#0 bit 2 (M4) selects it: 0 = G6 (4bit/512), 1 = G7 (8bit/256);
+** drive a G6-based YJK screen as SCREEN 7, not SCREEN 8. */
+static int cmdEngineScreenMode(VDP* vdp)
+{
+    int mode = vdp->screenMode & 0x0f;
+    if ((mode == 10 || mode == 12) && !(vdp->vdpRegs[0] & 0x04)) {
+        mode = 7;
+    }
+    return mode;
+}
+
 static void onScrModeChange(VDP* vdp, UInt32 time)
 {
     int scanLine = (boardSystemTime() - vdp->frameStartTime) / HPERIOD;
@@ -842,10 +889,13 @@ static void onScrModeChange(VDP* vdp, UInt32 time)
 #endif
     vdp->screenOn = vdp->vdpRegs[1] & 0x40;
     
-    vdpSetScreenMode(vdp->cmdEngine, vdp->screenMode & 0x0f, vdp->vdpRegs[25] & 0x40);
+    vdpSetScreenMode(vdp->cmdEngine, cmdEngineScreenMode(vdp), vdp->vdpRegs[25] & 0x40);
 
     if (screenMode != vdp->screenMode) {
         vdp->scr0splitLine = (scanLine - vdp->firstLine) & ~7;
+        /* Colour 0 handling depends on the mode, so refresh it on mode
+        ** change too, not only on register writes. */
+        updateOutputMode(vdp);
     }
 
     if (vdp->screenMode == 0 || vdp->screenMode == 13) {
@@ -982,6 +1032,33 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
         vdp->sprTabBase = ((value << 15) | (vdp->vdpRegs[5] << 7) | ~(-1 << 7)) & ((vdp->vramPages << 14) - 1);
         break;
 
+    case 13:
+        {
+            /* Reload the blink counter on R#13 write. High nibble = ON period
+            ** (alternate R#12 colors), low = OFF (normal R#7); restart at the ON
+            ** phase unless it is zero, which pins the normal colors. */
+            int onTime  = (value >> 4)   * 10;   /* high nibble: alternate/ON  */
+            int offTime = (value & 0x0f) * 10;   /* low  nibble: normal/OFF    */
+            vdp->blinkLineBase = 0;
+            if (onTime && offTime) {
+                vdp->blinkFlag = 0;              /* start showing R#12 colors  */
+                vdp->blinkCnt  = onTime;
+            }
+            else {
+                vdp->blinkFlag = onTime == 0;
+                vdp->blinkCnt  = 0;
+            }
+            if (vdp->blinkFlag) {
+                vdp->XFGColor = vdp->FGColor;
+                vdp->XBGColor = vdp->BGColor;
+            }
+            else {
+                vdp->XFGColor = vdp->vdpRegs[12] >> 4;
+                vdp->XBGColor = vdp->vdpRegs[12] & 0x0f;
+            }
+        }
+        break;
+
     case 14:
         value &= vdp->vramPages - 1;
         vdp->vramPage = (int)value << 14; 
@@ -1001,7 +1078,8 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
         break;
 
     case 19:
-        boardClearInt(INT_IE1);
+        /* Writing R#19 only sets the compare line; it must not acknowledge a
+        ** pending line interrupt (only reading S#1 does). */
         if (change) {
             scheduleHint(vdp);
         }
@@ -1403,7 +1481,9 @@ static void updateOutputMode(VDP* vdp)
         videoManagerSetMode(vdp->videoHandle, VIDEO_MIX, vdpDaDevice.videoModeMask);
     }
     else {
-        if (vdp->BGColor == 0 || !transparency) {
+        if (vdp->BGColor == 0 || !transparency || vdp->screenMode == 6) {
+            /* SCREEN 6 (G5): R#7 is two 2-bit fields, not a 16-colour index,
+            ** so keep the true colour 0 rather than palette[R#7 & 0x0F]. */
             vdp->palette[0] = vdp->palette0;
         }
         else {
@@ -1486,6 +1566,7 @@ static void sync(VDP* vdp, UInt32 systemTime)
     if (vdp->curLine < scanLine) {
         if (vdp->lineOffset <= 32) {
             if (vdp->curLine >= vdp->displayOffest && vdp->curLine < vdp->displayOffest + SCREEN_HEIGHT) {
+                if (vdp->vdpRegs[1] & 0x04) vdpLineBlink(vdp);
                 vdp->RefreshLine(vdp, vdp->curLine, vdp->lineOffset, 33);
             }
         }
@@ -1493,6 +1574,7 @@ static void sync(VDP* vdp, UInt32 systemTime)
         vdp->curLine++;
         while (vdp->curLine < scanLine) {
             if (vdp->curLine >= vdp->displayOffest && vdp->curLine < vdp->displayOffest + SCREEN_HEIGHT) {
+                if (vdp->vdpRegs[1] & 0x04) vdpLineBlink(vdp);
                 vdp->RefreshLine(vdp, vdp->curLine, -1, 33);
             }
             vdp->curLine++;
@@ -1510,6 +1592,7 @@ static void sync(VDP* vdp, UInt32 systemTime)
 
     if (vdp->lineOffset < curLineOffset) {
         if (vdp->curLine >= vdp->displayOffest && vdp->curLine < vdp->displayOffest + SCREEN_HEIGHT) {
+            if (vdp->vdpRegs[1] & 0x04) vdpLineBlink(vdp);
             vdp->RefreshLine(vdp, vdp->curLine, vdp->lineOffset, curLineOffset);
         }
         vdp->lineOffset = curLineOffset;
@@ -1917,7 +2000,7 @@ static void loadState(VDP* vdp)
 
         vdp->screenOn   = vdp->vdpRegs[1] & 0x40;
         vdp->vramEnable = vdp->vram192 || !((vdp->vdpRegs[0x2d] >> 6) & 1);
-        vdpSetScreenMode(vdp->cmdEngine, vdp->screenMode & 0x0f, vdp->vdpRegs[25] & 0x40);
+        vdpSetScreenMode(vdp->cmdEngine, cmdEngineScreenMode(vdp), vdp->vdpRegs[25] & 0x40);
         if (vdp->screenMode == 0 || vdp->screenMode == 13) {
             vdp->displayArea = 960;
             vdp->leftBorder  = 102 + 92;
@@ -2207,6 +2290,7 @@ static void reset(VDP* vdp)
     vdp->XBGColor        = 0;
     vdp->blinkFlag       = 0;
     vdp->blinkCnt        = 0;
+    vdp->blinkLineBase   = 0;
     vdp->drawArea        = 0;
     vdp->lastLine        = 0;
     vdp->displayOffest   = 0;
