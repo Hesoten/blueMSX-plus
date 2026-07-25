@@ -37,7 +37,6 @@ extern "C" {
 #include "ArchGlob.h"
 #include "Board.h"
 #include "Language.h"
-#include "ziphelper.h"
 }
 
 #include "tinyxml.h"
@@ -544,12 +543,21 @@ static void mediaDbAddVampierSoftware(TiXmlElement* sw)
     }
 }
 
-/* Consume a parsed <softwaredb> document. Split out from mediaDbAddFromXmlFile
-** so the zip loader (mediaDbAddFromZipFile) can share the walking logic. */
-static void mediaDbAddFromParsedDoc(TiXmlDocument& doc)
+static void mediaDbAddFromXmlFile(const char* fileName) 
 {
     static const char* rootTag = "softwaredb";
 
+    if (fileName == NULL) {
+        return;
+    }
+
+    TiXmlDocument doc(fileName);
+
+    doc.LoadFile();
+    if (doc.Error()) {
+        return;
+    }
+    
     TiXmlElement* root = doc.RootElement();
     if (root == NULL || strcmp(root->Value(), rootTag) != 0) {
         return;
@@ -630,49 +638,6 @@ static void mediaDbAddFromParsedDoc(TiXmlDocument& doc)
             }
         }
     }
-}
-
-static void mediaDbAddFromXmlFile(const char* fileName)
-{
-    if (fileName == NULL) {
-        return;
-    }
-    TiXmlDocument doc(fileName);
-    doc.LoadFile();
-    if (doc.Error()) {
-        return;
-    }
-    mediaDbAddFromParsedDoc(doc);
-}
-
-/* Consume every .xml entry inside a zip archive as if each were an independent
-** softwaredb file — lets ReleaseFiles/Databases/ carry the vampier download as
-** the shipped zip (xml-msxromsdb.zip) without a manual extract step. */
-static void mediaDbAddFromZipFile(const char* zipName)
-{
-    if (zipName == NULL) {
-        return;
-    }
-    int count = 0;
-    char* list = zipGetFileList(zipName, ".xml", &count);
-    if (list == NULL) {
-        return;
-    }
-    char* p = list;
-    for (int i = 0; i < count; i++) {
-        int size = 0;
-        void* buf = zipLoadFile(zipName, p, &size);
-        if (buf != NULL && size > 0) {
-            TiXmlDocument doc;
-            doc.Parse((const char*)buf);
-            if (!doc.Error()) {
-                mediaDbAddFromParsedDoc(doc);
-            }
-            free(buf);
-        }
-        p += strlen(p) + 1;
-    }
-    free(list);
 }
 
 extern MediaType* mediaDbLookup(MediaDb* mediaDb, const void *buffer, int size)
@@ -1224,22 +1189,15 @@ extern "C" void mediaDbLoad(const char* directory)
     string path = directory;
     path += "/";
 
-    ArchGlob* xmlGlob = archGlob((path + "*.xml").c_str(), ARCH_GLOB_FILES);
-    if (xmlGlob != NULL) {
-        for (int i = 0; i < xmlGlob->count; i++) {
-            mediaDbAddFromXmlFile(xmlGlob->pathVector[i]);
-        }
-        archGlobFree(xmlGlob);
-    }
+    string searchPath = path + "*.xml";
 
-    /* Zip archives get expanded in-memory (see mediaDbAddFromZipFile) so
-    ** users can drop the vampier download unmodified into Databases/. */
-    ArchGlob* zipGlob = archGlob((path + "*.zip").c_str(), ARCH_GLOB_FILES);
-    if (zipGlob != NULL) {
-        for (int i = 0; i < zipGlob->count; i++) {
-            mediaDbAddFromZipFile(zipGlob->pathVector[i]);
+    ArchGlob* glob = archGlob(searchPath.c_str(), ARCH_GLOB_FILES);
+
+    if (glob != NULL) {
+        for (int i = 0; i < glob->count; i++) {
+            mediaDbAddFromXmlFile(glob->pathVector[i]);
         }
-        archGlobFree(zipGlob);
+        archGlobFree(glob);
     }
 }
 
