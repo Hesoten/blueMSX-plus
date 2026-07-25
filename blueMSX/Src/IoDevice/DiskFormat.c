@@ -32,6 +32,9 @@
 
 #include "DiskFormat.h"
 
+/* After stdio.h: pkg_fopen overrides fopen so UTF-8 image paths open. */
+#include "PacketFileSystem.h"
+
 #define SECTOR_SIZE 512
 
 /* Boot sector templates, ported byte-for-byte from openMSX BootBlocks.cc.

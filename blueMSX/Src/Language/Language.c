@@ -298,6 +298,7 @@ char* langErrorEnterFullscreen() { return ls->errorEnterFullscreen; }
 char* langErrorDirectXFailed() { return ls->errorDirectXFailed; }
 char* langErrorNoRomInZip() { return ls->errorNoRomInZip; }
 char* langErrorNoDskInZip() { return ls->errorNoDskInZip; }
+char* langErrorCreateDiskImage() { return ls->errorCreateDiskImage; }
 char* langErrorNoCasInZip() { return ls->errorNoCasInZip; }
 char* langErrorDirAsDskOverflow() { return ls->errorDirAsDskOverflow; }
 char* langErrorNoHelp() { return ls->errorNoHelp; }

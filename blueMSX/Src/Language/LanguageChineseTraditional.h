@@ -81,6 +81,7 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->errorDirectXFailed      = "無法建立 DirectX 物件。           \n替代為使用 GDI。\n請檢查視訊內容。";
     ls->errorNoRomInZip         = "無法在 zip 壓縮檔案中找出 .rom 檔案。";
     ls->errorNoDskInZip         = "無法在 zip 壓縮檔案中找出 .dsk 檔案。";
+    ls->errorCreateDiskImage    = "無法建立磁碟鏡像檔案。";
     ls->errorNoCasInZip         = "無法在 zip 壓縮檔案中找出 .cas 檔案。";
     ls->errorDirAsDskOverflow   = "%d 個檔案 (共 %d KB) 無法容納於 720 KB 磁碟鏡像，已跳過。";
     ls->errorNoHelp             = "無法找到 blueMSX+ 說明檔案。";

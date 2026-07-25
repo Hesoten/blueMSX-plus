@@ -83,6 +83,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->errorDirectXFailed      = "DirectX オブジェクトを作成できません。          \nGDIを代わりに使用します。\nグラフィックカードの設定を確認してください。";
     ls->errorNoRomInZip         = "zipファイルの中に.romファイルが見つかりません。";
     ls->errorNoDskInZip         = "zipファイルの中に.dskファイルが見つかりません。";
+    ls->errorCreateDiskImage    = "ディスクイメージファイルを作成できませんでした。";
     ls->errorNoCasInZip         = "zipファイルの中に.casファイルが見つかりません。";
     ls->errorDirAsDskOverflow   = "%d 個のファイル (合計 %d KB) が 720 KB ディスクイメージに収まらず除外されました。";
     ls->errorNoHelp             = "blueMSX+ のヘルプファイルが見つかりません。";

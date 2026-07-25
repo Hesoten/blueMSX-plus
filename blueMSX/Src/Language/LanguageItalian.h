@@ -82,6 +82,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->errorDirectXFailed              = "Non riesco a creare gli oggetti DirectX.          \nHo selezionato automaticamente le GDI.\nVerifica le proprietà video.";
     ls->errorNoRomInZip                 = "Nessun file .ROM trovato nell'archivio compresso.";
     ls->errorNoDskInZip                 = "Nessun file .DSK trovato nell'archivio compresso.";
+    ls->errorCreateDiskImage            = "Impossibile creare il file immagine disco.";
     ls->errorNoCasInZip                 = "Nessun file .CAS trovato nell'archivio compresso.";
     ls->errorDirAsDskOverflow           = "%d file (%d KB totali) non sono entrati nell'immagine disco da 720 KB e sono stati saltati.";
     ls->errorNoHelp                     = "Non trovo il file della guida in linea di blueMSX+.";

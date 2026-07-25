@@ -81,6 +81,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->errorDirectXFailed      = "Impossible de créer les objets DirectX.              \nUVeuillez sélectionner GDI à la place.\ndans le menu \"Video\".";
     ls->errorNoRomInZip         = "Il n'y a pas de fichier .rom dans votre archive zip.";
     ls->errorNoDskInZip         = "Il n'y a pas de fichier .dsk dans votre archive zip.";
+    ls->errorCreateDiskImage    = "Impossible de créer le fichier image disque.";
     ls->errorNoCasInZip         = "Il n'y a pas de fichier .cas dans votre archive zip";
     ls->errorDirAsDskOverflow   = "%d fichier(s) (%d KB au total) ne tiennent pas dans l'image disque de 720 KB et ont été ignorés.";
     ls->errorNoHelp             = "Impossible de trouver le fichier d'aide.";

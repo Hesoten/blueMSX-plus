@@ -81,6 +81,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->errorDirectXFailed      = "Nie mogê stworzyæ obiektów DirectX.           \nPrze³¹czam w tryb GDI.\nSprawdŸ w³aœciwoœci wideo.";
     ls->errorNoRomInZip         = "Nie znaleziono pliku .rom w archiwum zip.";
     ls->errorNoDskInZip         = "Nie znaleziono pliku .dsk w archiwum zip.";
+    ls->errorCreateDiskImage    = "Nie można utworzyć pliku obrazu dysku.";
     ls->errorNoCasInZip         = "Nie znaleziono pliku .cas w archiwum zip.";
     ls->errorDirAsDskOverflow   = "%d plik(ów) (%d KB łącznie) nie zmieściło się w obrazie dysku 720 KB i zostały pominięte.";
     ls->errorNoHelp             = "Nie znaleziono pliku pomocy blueMSX+.";
