@@ -1,0 +1,53 @@
+KANJI.rom - "Kanji ROM image file for msx emulaters"
+=====================================================
+
+The bundled KANJI.rom is the freely redistributable Kanji ROM image
+created by A to C:
+
+  http://www.yo.rim.or.jp/~anaka/AtoC/labo/labo32.htm
+
+It provides the JIS level 1 + level 2 Kanji font (256 KB, I/O ports
+D8h-DBh) used by Japanese MSX software, without containing any data
+copied from a real machine's Kanji ROM.
+
+The image combines font data under the following terms:
+
+1. Full-width (zenkaku) glyphs are taken from the jiskan16 font
+   (jiskan16.bdf), which is in the public domain.
+
+2. Half-width (hankaku) glyphs are derived from Sony Corporation's
+   bitmap font distributed with the X Window System.  Redistribution
+   requires the following copyright and permission notice to be
+   preserved:
+
+     Copyright 1989 by Sony Corp.
+
+     Permission to use, copy, modify, and distribute this software and
+     its documentation for any purpose and without fee is hereby
+     granted, provided that the above copyright notices appear in all
+     copies and that both those copyright notices and this permission
+     notice appear in supporting documentation, and that the name of
+     Sony Corp. not be used in advertising or publicity pertaining to
+     distribution of the software without specific, written prior
+     permission.  Sony Corp. makes no representations about the
+     suitability of this software for any purpose.  It is provided
+     "as is" without express or implied warranty.
+
+     SONY DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
+     INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS,
+     IN NO EVENT SHALL SONY BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+     CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+     LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
+     NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+     CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+3. The MSX-specific glyphs that have no counterpart in the fonts above
+   (the non-Kanji rows unique to MSX machines, Shift-JIS 81ADh-859Eh
+   area) were hand-drawn by A to C and are licensed under the Apache
+   License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0),
+   as declared by the author on 2021-05-26.
+
+References:
+
+- https://gigamix.hatenablog.com/entry/devmsx/kanjirom-nonkanji-freefont
+- https://web-font-search.net/jiskan16/
