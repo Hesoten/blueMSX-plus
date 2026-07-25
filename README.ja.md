@@ -71,6 +71,11 @@ Windows 11 向けに UI や音声周りを中心にモダン化しています�
 
 - GPLv2 ライセンスのソースコードを含むため、blueMSX+ 全体としては GPLv2 でライセンスします。誰でも自由に複製、改変、配布する事が出来ますが、改変した実行ファイルを配布する場合は、改変後のソースコードを公開するなど GPL に準拠した扱いが必要です。
 - GPLv2 の全文は https://www.gnu.org/licenses/old-licenses/gpl-2.0.html を参照してください。
+- C-BIOS 利用マシン構成に同梱のファイルは、それぞれ以下のライセンスに従います。
+  - C-BIOS: 各 C-BIOS マシン構成フォルダの `cbios.txt`
+  - Nextor: C-BIOS FDD 版マシン構成フォルダの `LICENSE-Nextor.md`
+  - TC8566AF FDC ドライバ: C-BIOS FDD 版マシン構成フォルダの `LICENSE-TC8566AF.txt`
+- 「漢字ROM image file for msx emulaters」のライセンスは `Machines/Shared Roms/LICENSE-KANJI.txt` を参照してください。
 
 
 ## インストール方法
@@ -144,12 +149,19 @@ emu2413 および emu8950 は Mitsutaka Okazaki さんの著作物です。
 TMS9918A パッチは uniskie さんの著作物です。  
 これらの素晴らしい機能を blueMSX+ に取り込ませていただきました。心より御礼申し上げます。
 
-blueMSX+ にはオープンソースの MSX BIOS 実装である **C-BIOS** 0.29a を同梱しています。
-これにより、MSX 実機の BIOS ROM を用意しなくても起動することができます。  
-詳細については、Machines フォルダの C-BIOS 利用マシン構成に同梱の `cbios.txt` および 
-<https://cbios.sourceforge.net/> を参照してください。
-BouKiCHi、Reikan、Maarten ter Huurne、Albert Beevendorp、Patrick van Arkel、Manuel Bilderbeek、Joost Yervante Damad、Jussi Pitkänen、Eric Boon の各氏をはじめとする C-BIOS プロジェクトの皆様に、
-このような素晴らしい互換 BIOS を開発頂き、また自由に再配布可能な形で公開して頂いていることへの感謝を申し上げます。  
+blueMSX+ には、オープンソースの MSX BIOS 実装である C-BIOS をベースに turbo R やディスク起動への対応を加えたマシン構成を同梱しています。  
+これにより、MSX 実機の BIOS ROM を用意しなくても多くのソフトウェアを実行できます。  
+(注：MSX-BASIC を利用するものは実行できません)  
+
+C-BIOS の詳細については、Machines フォルダの C-BIOS 利用マシン構成に同梱の `cbios.txt` および
+<https://cbios.sourceforge.net/> を参照してください。  
+BouKiCHi、Reikan、Maarten ter Huurne、Albert Beevendorp、Patrick van Arkel、Manuel Bilderbeek、Joost Yervante Damad、Jussi Pitkänen、Eric Boon の各氏をはじめとする C-BIOS プロジェクトの皆様に、このような素晴らしい互換 BIOS を開発頂き、また自由に再配布可能な形で公開して頂いていることへの感謝を申し上げます。
+
+C-BIOS FDD 版のマシン構成では、ディスクカーネルとして **Nextor** を使用しています。  
+Nextor を開発され、継続的に改良を続けられ、またこのようなプロジェクトが成立する形でソースコードを公開して頂いている Nestor Soriano Vilchez (Konamiman) 氏に、心より御礼申し上げます。
+
+C-BIOS の JP 版および turbo R のマシン構成には、A to C さん制作の「漢字ROM image file for msx emulaters」を使用しています。
+パブリックドメインの jiskan16 フォントに MSX 固有グリフを手描きで加えた、自由に再配布可能な漢字フォント ROM を制作された A to C 氏に御礼申し上げます。
 
 blueMSX+ の改良コードは Claude Code で開発を行っています。  
 やりたい機能追加や不具合修正を次々と実現していく能力に、驚きと畏怖の念を覚えます。

@@ -73,6 +73,11 @@ See [`blueMSX/changes.txt`](blueMSX/changes.txt) for the full change history.
 
 - Includes GPLv2-licensed source code, so blueMSX+ as a whole is licensed under GPLv2. Anyone is free to copy, modify, and redistribute it, but distributing a modified executable requires GPL-compliant handling such as publishing the modified source.
 - See https://www.gnu.org/licenses/old-licenses/gpl-2.0.html for the full text of GPLv2.
+- The files bundled with the C-BIOS machine configurations carry their own licenses:
+  - C-BIOS: `cbios.txt` in each C-BIOS machine folder
+  - Nextor: `LICENSE-Nextor.md` in each C-BIOS FDD machine folder
+  - TC8566AF FDC driver: `LICENSE-TC8566AF.txt` in each C-BIOS FDD machine folder
+- For the license of "Kanji ROM image file for msx emulaters", see `Machines/Shared Roms/LICENSE-KANJI.txt`.
 
 
 ## Installation
@@ -145,9 +150,19 @@ emu2413 and emu8950 are works by Mitsutaka Okazaki.
 The TMS9918A patch is a work by uniskie.  
 We are honored to incorporate these excellent contributions into blueMSX+. Our heartfelt thanks.
 
-blueMSX+ ships with **C-BIOS** 0.29a, an open-source MSX BIOS replacement, so it can boot without any real MSX system BIOS ROM.
-See the bundled `cbios.txt` in each C-BIOS machine folder under `Machines/`, or <https://cbios.sourceforge.net/>, for details.
-Our thanks to the C-BIOS project — BouKiCHi, Reikan, Maarten ter Huurne, Albert Beevendorp, Patrick van Arkel, Manuel Bilderbeek, Joost Yervante Damad, Jussi Pitkänen, Eric Boon, and the other contributors — for developing such an excellent compatible BIOS and releasing it in freely redistributable form.
+blueMSX+ ships with machine configurations based on C-BIOS, an open-source MSX BIOS replacement, extended here with turbo R and disk-boot support.  
+This lets you run much of the MSX software library without owning a real MSX BIOS ROM.  
+(Note: software that relies on MSX-BASIC will not run.)
+
+For details on C-BIOS, see the bundled `cbios.txt` in each C-BIOS machine folder under `Machines/`, or
+<https://cbios.sourceforge.net/>.  
+Many thanks to the C-BIOS project — BouKiCHi, Reikan, Maarten ter Huurne, Albert Beevendorp, Patrick van Arkel, Manuel Bilderbeek, Joost Yervante Damad, Jussi Pitkänen, Eric Boon, and the other contributors — for developing such an excellent compatible BIOS and releasing it in freely redistributable form.
+
+The C-BIOS FDD machines use **Nextor** as their disk kernel.  
+Many thanks to Nestor Soriano Vilchez (Konamiman) for creating Nextor and continuing to improve it, and for releasing the source code in a form that allows a project like this to exist.
+
+The JP and turbo R C-BIOS machines use "Kanji ROM image file for msx emulaters" by A to C.
+Many thanks to A to C for creating this freely redistributable Kanji font ROM, built from the public-domain jiskan16 font plus hand-drawn MSX-specific glyphs.
 
 blueMSX+ enhancements are developed using Claude Code.  
 We are continually amazed (and a little awed) by its ability to ship feature requests and bug fixes one after another.

@@ -1,3 +1,15 @@
+C-BIOS 0.29+
+============
+
+This is a modified build of C-BIOS 0.29 by Hesoten, with support for
+MSX turbo R and disk boot via Nextor + a TC8566AF FDC driver.
+Additional changes are Copyright (c) 2026 Hesoten and are distributed
+under the same license as upstream C-BIOS (see below).
+
+Modified source: https://github.com/Hesoten/cbios
+
+--- upstream C-BIOS notice follows ---
+
 C-BIOS 0.29
 ===========
 
