@@ -915,12 +915,6 @@
 				RelativePath="..\..\..\Src\Memory\RomLoader.h">
 			</File>
 			<File
-				RelativePath="..\..\..\Src\Memory\RomMapper.c">
-			</File>
-			<File
-				RelativePath="..\..\..\Src\Memory\RomMapper.h">
-			</File>
-			<File
 				RelativePath="..\..\..\Src\Memory\romMapperASCII16.c">
 			</File>
 			<File
