@@ -563,11 +563,11 @@ void langInitFinnish(LanguageStrings* ls)
     ls->enumSoundDrvDirectX     = "DirectX-ajuri";
     ls->enumSoundDrvWasapi      = "WASAPI-ajuri";
 
-    ls->enumEmuSync1ms          = "Tahdistus MSX:n ruudunpäivitykseen";
+    ls->enumEmuSync1ms          = "Tahdistus MSX:n mukaan";
     ls->enumEmuSyncAuto         = "Automaattinen (nopea)";
     ls->enumEmuSyncNone         = "Ei käytössä";
-    ls->enumEmuSyncVblank       = "Tahdistus PC:n ruudunpäivitykseen";
-    ls->enumEmuAsyncVblank      = "Tahdistamaton PC:n ruudunpäivitys";           
+    ls->enumEmuSyncVblank       = "Tahdistus PC:n mukaan";
+    ls->enumEmuAsyncVblank      = "Tahdistamaton PC:n mukaan";           
 
     ls->enumControlsJoyNone     = "Tyhjä";
     ls->enumControlsJoyMouse    = "Hiiri";
