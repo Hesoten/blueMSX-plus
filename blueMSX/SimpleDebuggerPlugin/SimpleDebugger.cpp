@@ -710,8 +710,12 @@ void updateDeviceState()
 }
 
 
-static LRESULT CALLBACK wndProcView(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static LRESULT CALLBACK wndProcView(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
+    if (dbgFontZoomMessage(iMsg, wParam)) {
+        return 0;
+    }
+
     switch (iMsg) {
     case WM_CREATE:
         return 0;
@@ -757,9 +761,13 @@ static void updateWindowPositions()
     }
 }
 
-static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     static BOOL isActive = FALSE;
+
+    if (dbgFontZoomMessage(iMsg, wParam)) {
+        return 0;
+    }
 
     switch (iMsg) {
     case WM_CREATE:
@@ -1230,6 +1238,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         iniFileWriteInt( "Main Window", "width",   width);
         iniFileWriteInt( "Main Window", "height",  height);
         iniFileWriteInt( "Main Window", "check vram access",  vramCheckAccess);
+        iniFileWriteInt( "Main Window", "font size",  dbgFontPoints());
 
         breakpoints->clearAllBreakpoints();
         dbgHwnd = NULL;
@@ -1309,6 +1318,7 @@ void OnShowTool() {
     width   = iniFileGetInt( "Main Window", "width",  dpiScale(NULL, 800) );
     height  = iniFileGetInt( "Main Window", "height", dpiScale(NULL, 740) );
     vramCheckAccess = iniFileGetInt( "Main Window", "check vram access", 0 );
+    dbgSetFontPoints( iniFileGetInt( "Main Window", "font size", dbgFontPointsDefault() ) );
     
     if (vramCheckAccess) {
         EnableVramAccessCheck(1);

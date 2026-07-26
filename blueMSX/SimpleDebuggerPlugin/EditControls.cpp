@@ -81,6 +81,28 @@ void InputDialog::setPosition(int x, int y)
     SetWindowPos(hwnd, NULL, x, y, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
 }
 
+void InputDialog::setSize(int width, int height)
+{
+    wwidth  = width;
+    wheight = height;
+    SetWindowPos(hwnd, NULL, 0, 0, wwidth, wheight, SWP_NOZORDER | SWP_NOMOVE);
+    RECT r;
+    GetClientRect(hwnd, &r);
+    SetWindowPos(GetDlgItem(hwnd, IDC_ADDRESS), NULL, 0, 0, r.right, r.bottom, SWP_NOZORDER);
+}
+
+void InputDialog::setFont(HFONT font)
+{
+    HWND hEdit = GetDlgItem(hwnd, IDC_ADDRESS);
+    if (hEdit == NULL) {
+        return;
+    }
+    SendMessage(hEdit, WM_SETFONT, (WPARAM)font, TRUE);
+    /* WM_SETFONT resets the richedit default character format, so the dark
+    ** colours have to be re-applied on top of it. */
+    applyDarkCharFormat(hEdit);
+}
+
 INT_PTR CALLBACK InputDialog::dlgStaticProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     if (iMsg == WM_INITDIALOG) {
@@ -109,18 +131,23 @@ void InputDialog::initControl(HWND thisHwnd)
     ** address textbox stops rendering as a white island. */
     if (IsDarkMode()) {
         ApplyDarkMode(hwnd);
-        HWND hEdit = GetDlgItem(hwnd, IDC_ADDRESS);
-        if (hEdit) {
-            CHARFORMAT2W cf;
-            memset(&cf, 0, sizeof(cf));
-            cf.cbSize = sizeof(cf);
-            cf.dwMask = CFM_COLOR | CFM_BACKCOLOR;
-            cf.crTextColor = GetDarkFg();
-            cf.crBackColor = GetDarkBg();
-            SendMessageW(hEdit, EM_SETCHARFORMAT, SCF_ALL, (LPARAM)&cf);
-            SendMessageW(hEdit, EM_SETBKGNDCOLOR, FALSE, GetDarkBg());
-        }
+        applyDarkCharFormat(GetDlgItem(hwnd, IDC_ADDRESS));
     }
+}
+
+void InputDialog::applyDarkCharFormat(HWND hEdit)
+{
+    if (hEdit == NULL || !IsDarkMode()) {
+        return;
+    }
+    CHARFORMAT2W cf;
+    memset(&cf, 0, sizeof(cf));
+    cf.cbSize = sizeof(cf);
+    cf.dwMask = CFM_COLOR | CFM_BACKCOLOR;
+    cf.crTextColor = GetDarkFg();
+    cf.crBackColor = GetDarkBg();
+    SendMessageW(hEdit, EM_SETCHARFORMAT, SCF_ALL, (LPARAM)&cf);
+    SendMessageW(hEdit, EM_SETBKGNDCOLOR, FALSE, GetDarkBg());
 }
 
 void InputDialog::initRichEditControlDll()

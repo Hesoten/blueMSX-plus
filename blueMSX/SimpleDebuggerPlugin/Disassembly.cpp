@@ -419,7 +419,7 @@ LRESULT Disassembly::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
         hMemdc = CreateCompatibleDC(hdc);
         ReleaseDC(hwnd, hdc);
         SetBkMode(hMemdc, TRANSPARENT);
-        hFont = CreateFont(-MulDiv(12, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
+        dbgRebuildFont(hMemdc, &hFont, NULL, &textWidth, &textHeight, 1);
 
         BOOL dark = IsDarkMode();
         hBrushWhite  = CreateSolidBrush(dark ? GetDarkBg()        : RGB(255, 255, 255));
@@ -431,12 +431,6 @@ LRESULT Disassembly::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
         colorGray  = RGB(160, 160, 160);
         colorWhite = dark ? GetDarkBg()        : RGB(255, 255, 255);
 
-        SelectObject(hMemdc, hFont); 
-        TEXTMETRIC tm;
-        if (GetTextMetrics(hMemdc, &tm)) {
-            textHeight = tm.tmHeight;
-            textWidth = tm.tmAveCharWidth;
-        }
         darkSubWindow(hwnd);
         return 0;
     }
@@ -630,6 +624,12 @@ void Disassembly::invalidateContent()
 void Disassembly::refresh(bool followPc)
 {
     updateContent(backupMemory, backupPc, followPc);
+}
+
+void Disassembly::onFontChanged()
+{
+    dbgRebuildFont(hMemdc, &hFont, NULL, &textWidth, &textHeight, 1);
+    applyScroll();
 }
 
 bool Disassembly::writeToFile(const char* fileName)

@@ -43,8 +43,11 @@
 
 static PeripheralRegs* periRegs = NULL;
 
-static LRESULT CALLBACK regViewWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static LRESULT CALLBACK regViewWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
+    if (dbgFontZoomMessage(iMsg, wParam)) {
+        return 0;
+    }
     if (periRegs != NULL) {
         return periRegs->regWndProc(hwnd, iMsg, wParam, lParam);
     }
@@ -169,22 +172,16 @@ LRESULT PeripheralRegs::regWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
         colorGray  = dark ? RGB(180, 180, 180) : RGB(128, 128, 128);
         colorRed   = dark ? RGB(255, 100, 100) : RGB(255, 0, 0);
         SetBkMode(hMemdc, TRANSPARENT);
-        hFont = CreateFont(-MulDiv(12, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
-        hFontBold = CreateFont(-MulDiv(12, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, FW_SEMIBOLD, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
+        dbgRebuildFont(hMemdc, &hFont, &hFontBold, &textWidth, &textHeight, 0);
         
         hBrushWhite  = CreateSolidBrush(dark ? GetDarkBg()        : RGB(255, 255, 255));
         hBrushLtGray = CreateSolidBrush(dark ? RGB( 48,  48,  48) : RGB(239, 237, 222));
         hBrushDkGray = CreateSolidBrush(dark ? RGB( 70,  70,  70) : RGB(128, 128, 128));
 
-        SelectObject(hMemdc, hFont); 
-        TEXTMETRIC tm;
-        if (GetTextMetrics(hMemdc, &tm)) {
-            textHeight = tm.tmHeight;
-            textWidth = tm.tmMaxCharWidth;
-        }
-        
-        dataInput2 = new HexInputDialog(hwnd, -100,0,23,22,2);
-        dataInput4 = new HexInputDialog(hwnd, -100,0,45,22,4);
+        dataInput2 = new HexInputDialog(hwnd, -100, 0, InputDialog::boxWidth(2, textWidth), InputDialog::boxHeight(textHeight), 2);
+        dataInput4 = new HexInputDialog(hwnd, -100, 0, InputDialog::boxWidth(4, textWidth), InputDialog::boxHeight(textHeight), 4);
+        dataInput2->setFont(hFont);
+        dataInput4->setFont(hFont);
         dataInput2->hide();
         dataInput4->hide();
         darkSubWindow(hwnd);
@@ -354,6 +351,20 @@ void PeripheralRegs::disableEdit()
     dataInput4->hide();
 
     DbgWindow::disableEdit();
+}
+
+void PeripheralRegs::onFontChanged()
+{
+    int pos = dbgGetScrollPos(regHwnd);
+    dbgRebuildFont(hMemdc, &hFont, &hFontBold, &textWidth, &textHeight, 0);
+
+    dataInput2->setSize(InputDialog::boxWidth(2, textWidth), InputDialog::boxHeight(textHeight));
+    dataInput4->setSize(InputDialog::boxWidth(4, textWidth), InputDialog::boxHeight(textHeight));
+    dataInput2->setFont(hFont);
+    dataInput4->setFont(hFont);
+
+    updateScroll();
+    dbgSetScrollPos(regHwnd, pos);
 }
 
 void PeripheralRegs::updatePosition(RECT& rect)

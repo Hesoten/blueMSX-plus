@@ -48,7 +48,7 @@ LRESULT CallstackWindow::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
         hMemdc = CreateCompatibleDC(hdc);
         ReleaseDC(hwnd, hdc);
         SetBkMode(hMemdc, TRANSPARENT);
-        hFont = CreateFont(-MulDiv(12, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
+        dbgRebuildFont(hMemdc, &hFont, NULL, &textWidth, &textHeight, 0);
 
         BOOL dark = IsDarkMode();
         hBrushWhite  = CreateSolidBrush(dark ? GetDarkBg()        : RGB(255, 255, 255));
@@ -58,12 +58,6 @@ LRESULT CallstackWindow::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
         colorBlack = dark ? GetDarkFg()        : RGB(0, 0, 0);
         colorGray  = dark ? RGB(160, 160, 160) : RGB(160, 160, 160);
 
-        SelectObject(hMemdc, hFont); 
-        TEXTMETRIC tm;
-        if (GetTextMetrics(hMemdc, &tm)) {
-            textHeight = tm.tmHeight;
-            textWidth = tm.tmMaxCharWidth;
-        }
         darkSubWindow(hwnd);
         return 0;
     }
@@ -170,6 +164,17 @@ void CallstackWindow::invalidateContent()
 void CallstackWindow::refresh()
 {
     updateContent(backupCallstack, backupSize);
+}
+
+void CallstackWindow::onFontChanged()
+{
+    int pos = dbgGetScrollPos(hwnd);
+    dbgRebuildFont(hMemdc, &hFont, NULL, &textWidth, &textHeight, 0);
+    updateScroll();
+    dbgSetScrollPos(hwnd, pos);
+    /* updateScroll only repaints when the scroll position moves, which it
+    ** does not here. */
+    InvalidateRect(hwnd, NULL, TRUE);
 }
 
 int CallstackWindow::getMostRecent()

@@ -53,6 +53,7 @@ public:
     void findData(const char* text);
 
     virtual LRESULT wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam);
+    virtual void onFontChanged();
     LRESULT memWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam);
     BOOL toolDlgProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam);
 
@@ -90,7 +91,7 @@ private:
     HWND   memHwnd;
     HWND   toolHwnd;
     HDC    hMemdc;
-    HFONT  hFont;
+    HFONT  hFont = NULL;
     HBRUSH hBrushWhite;
     HBRUSH hBrushLtGray;
     HBRUSH hBrushDkGray;

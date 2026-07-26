@@ -51,6 +51,7 @@ public:
     BOOL lookup(const char* name, WORD* addr);
 
     virtual LRESULT wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam);
+    virtual void onFontChanged();
 
 private:
 
@@ -59,8 +60,8 @@ private:
     void drawText(int top, int bottom);
 
     HDC    hMemdc;
-    HFONT  hFont;
-    HFONT  hFontBold;
+    HFONT  hFont     = NULL;
+    HFONT  hFontBold = NULL;
     HBRUSH hBrushWhite;
     HBRUSH hBrushLtGray;
     HBRUSH hBrushDkGray;

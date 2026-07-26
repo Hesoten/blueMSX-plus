@@ -44,9 +44,16 @@ public:
     ~InputDialog();
 
     void setPosition(int x, int y);
+    void setSize(int width, int height);
+    void setFont(HFONT font);
     void show();
     void hide();
     void setFocus();
+
+    /* An overlay box must cover exactly `chars` cells of the monospaced output
+    ** text; the extra half / quarter cell is the border and caret inset. */
+    static int boxWidth(int chars, int textWidth) { return chars * textWidth + textWidth / 2; }
+    static int boxHeight(int textHeight)          { return textHeight + textHeight / 4; }
 
 protected:
     HWND hwnd;
@@ -67,6 +74,7 @@ private:
 
     void initControl(HWND thisHwnd);
 
+    static void applyDarkCharFormat(HWND hEdit);
     static void initRichEditControlDll();
     static INT_PTR CALLBACK dlgStaticProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam);
 };

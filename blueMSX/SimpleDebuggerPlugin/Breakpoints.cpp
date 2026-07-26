@@ -92,8 +92,11 @@ static Breakpoints* breakpointsInstance = NULL;
 static BitmapIcons* bitmapIcons = NULL;
 
 
-static LRESULT CALLBACK staticBreakpointsWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static LRESULT CALLBACK staticBreakpointsWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
+    if (dbgFontZoomMessage(iMsg, wParam)) {
+        return 0;
+    }
     if (breakpointsInstance != NULL) {
         return breakpointsInstance->breakpointsWndProc(hwnd, iMsg, wParam, lParam);
     }
@@ -195,21 +198,13 @@ LRESULT Breakpoints::breakpointsWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
         colorRed   = dark ? RGB(255, 100, 100) : RGB(255, 0, 0);
         colorWhite = dark ? GetDarkBg()        : RGB(255, 255, 255);
         SetBkMode(hMemdc, TRANSPARENT);
-        hFont = CreateFont(-MulDiv(12, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
-        hFontBold = CreateFont(-MulDiv(12, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, FW_SEMIBOLD, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
+        dbgRebuildFont(hMemdc, &hFont, &hFontBold, &textWidth, &textHeight, 0);
         
         hBrushWhite  = CreateSolidBrush(dark ? GetDarkBg()        : RGB(255, 255, 255));
         hBrushLtGray = CreateSolidBrush(dark ? RGB( 48,  48,  48) : RGB(239, 237, 222));
         hBrushDkGray = CreateSolidBrush(dark ? RGB( 70,  70,  70) : RGB(128, 128, 128));
         hBrushBlack  = CreateSolidBrush(dark ? RGB( 60,  60, 110) : RGB(200, 200, 255));
 
-        SelectObject(hMemdc, hFont); 
-        TEXTMETRIC tm;
-        if (GetTextMetrics(hMemdc, &tm)) {
-            textHeight = tm.tmHeight;
-            textWidth = tm.tmMaxCharWidth;
-        }
-        
         darkSubWindow(hwnd);
         return 0;
     }
@@ -392,6 +387,14 @@ void Breakpoints::invalidateContent()
     updateToolbar();
 
     InvalidateRect(breakpointsHwnd, NULL, TRUE);
+}
+
+void Breakpoints::onFontChanged()
+{
+    int pos = dbgGetScrollPos(breakpointsHwnd);
+    dbgRebuildFont(hMemdc, &hFont, &hFontBold, &textWidth, &textHeight, 0);
+    updateScroll();
+    dbgSetScrollPos(breakpointsHwnd, pos);
 }
 
 void Breakpoints::updateContent()

@@ -60,6 +60,102 @@ typedef map<HWND, DbgWindow*> WindowMap;
 static WindowMap windows;
 static DbgWindow* isCreating = NULL;
 
+#define DBG_FONT_MIN     6
+#define DBG_FONT_MAX     24
+#define DBG_FONT_DEFAULT 10
+
+static int fontPoints = DBG_FONT_DEFAULT;
+
+int dbgFontPoints()        { return fontPoints; }
+int dbgFontPointsDefault() { return DBG_FONT_DEFAULT; }
+
+void dbgSetFontPoints(int points)
+{
+    if (points < DBG_FONT_MIN) points = DBG_FONT_MIN;
+    if (points > DBG_FONT_MAX) points = DBG_FONT_MAX;
+    if (points == fontPoints) {
+        return;
+    }
+    fontPoints = points;
+
+    for (WindowMap::iterator i = windows.begin(); i != windows.end(); ++i) {
+        i->second->onFontChanged();
+    }
+}
+
+int dbgFontZoomMessage(UINT iMsg, WPARAM wParam)
+{
+    if (GetKeyState(VK_CONTROL) >= 0) {
+        return 0;
+    }
+
+    if (iMsg == WM_MOUSEWHEEL) {
+        dbgSetFontPoints(fontPoints + (GET_WHEEL_DELTA_WPARAM(wParam) > 0 ? 1 : -1));
+        return 1;
+    }
+
+    if (iMsg == WM_KEYDOWN) {
+        switch (wParam) {
+        case VK_OEM_PLUS:
+        case VK_ADD:
+            dbgSetFontPoints(fontPoints + 1);
+            return 1;
+        case VK_OEM_MINUS:
+        case VK_SUBTRACT:
+            dbgSetFontPoints(fontPoints - 1);
+            return 1;
+        case '0':
+        case VK_NUMPAD0:
+            dbgSetFontPoints(DBG_FONT_DEFAULT);
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int dbgGetScrollPos(HWND hwnd)
+{
+    SCROLLINFO si;
+    si.cbSize = sizeof(si);
+    si.fMask  = SIF_POS;
+    GetScrollInfo(hwnd, SB_VERT, &si);
+    return si.nPos;
+}
+
+void dbgSetScrollPos(HWND hwnd, int pos)
+{
+    SCROLLINFO si;
+    si.cbSize = sizeof(si);
+    si.fMask  = SIF_POS;
+    si.nPos   = pos;
+    SetScrollInfo(hwnd, SB_VERT, &si, TRUE);
+}
+
+void dbgRebuildFont(HDC hMemdc, HFONT* hFont, HFONT* hFontBold,
+                    int* textWidth, int* textHeight, int aveCharWidth)
+{
+    int height = -MulDiv(fontPoints, GetDeviceCaps(hMemdc, LOGPIXELSY), 72);
+
+    /* Select the replacement first -- DeleteObject is a no-op on a font that
+    ** is still selected into the DC. */
+    HFONT hNew = CreateFont(height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
+    SelectObject(hMemdc, hNew);
+    if (*hFont) DeleteObject(*hFont);
+    *hFont = hNew;
+
+    if (hFontBold != NULL) {
+        hNew = CreateFont(height, 0, 0, 0, FW_SEMIBOLD, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
+        if (*hFontBold) DeleteObject(*hFontBold);
+        *hFontBold = hNew;
+    }
+
+    TEXTMETRIC tm;
+    if (GetTextMetrics(hMemdc, &tm)) {
+        *textHeight = tm.tmHeight;
+        *textWidth  = aveCharWidth ? tm.tmAveCharWidth : tm.tmMaxCharWidth;
+    }
+}
+
 /* Repaint the NC area dark -- default WS_CAPTION/WS_THICKFRAME paint uses
 ** COLOR_3DLIGHT/3DSHADOW + system caption color which clashes in dark mode. */
 static HFONT s_captionFont    = NULL;
@@ -137,6 +233,10 @@ static LRESULT CALLBACK staticWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARA
     {
         isCreating->hwnd = hwnd;
         windows[hwnd] = isCreating;
+    }
+
+    if (dbgFontZoomMessage(iMsg, wParam)) {
+        return 0;
     }
 
     WindowMap::iterator i = windows.find(hwnd);

@@ -43,8 +43,11 @@
 
 static Memory* memory = NULL;
 
-static LRESULT CALLBACK memViewWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static LRESULT CALLBACK memViewWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
+    if (dbgFontZoomMessage(iMsg, wParam)) {
+        return 0;
+    }
     if (memory != NULL) {
         return memory->memWndProc(hwnd, iMsg, wParam, lParam);
     }
@@ -189,21 +192,16 @@ LRESULT Memory::memWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
         colorLtGray = dark ? RGB(140, 140, 140) : RGB(192, 192, 192);
         colorRed    = dark ? RGB(255, 100, 100) : RGB(255, 0, 0);
         SetBkMode(hMemdc, TRANSPARENT);
-        hFont = CreateFont(-MulDiv(12, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
+        dbgRebuildFont(hMemdc, &hFont, NULL, &textWidth, &textHeight, 0);
 
         hBrushWhite  = CreateSolidBrush(dark ? GetDarkBg()        : RGB(255, 255, 255));
         hBrushLtGray = CreateSolidBrush(dark ? RGB( 48,  48,  48) : RGB(239, 237, 222));
         hBrushDkGray = CreateSolidBrush(dark ? RGB( 70,  70,  70) : RGB(128, 128, 128));
 
-        SelectObject(hMemdc, hFont); 
-        TEXTMETRIC tm;
-        if (GetTextMetrics(hMemdc, &tm)) {
-            textHeight = tm.tmHeight;
-            textWidth = tm.tmMaxCharWidth;
-        }
-        
-        dataInput1 = new TextInputDialog(hwnd, -100,0,14,22,1);
-        dataInput2 = new HexInputDialog(hwnd, -100,0,22,22,2);
+        dataInput1 = new TextInputDialog(hwnd, -100, 0, InputDialog::boxWidth(1, textWidth), InputDialog::boxHeight(textHeight), 1);
+        dataInput2 = new HexInputDialog(hwnd, -100, 0, InputDialog::boxWidth(2, textWidth), InputDialog::boxHeight(textHeight), 2);
+        dataInput1->setFont(hFont);
+        dataInput2->setFont(hFont);
         dataInput1->hide();
         dataInput2->hide();
         darkSubWindow(hwnd);
@@ -412,6 +410,20 @@ void Memory::disableEdit()
     dataInput2->hide();
 
     DbgWindow::disableEdit();
+}
+
+void Memory::onFontChanged()
+{
+    int pos = dbgGetScrollPos(memHwnd);
+    dbgRebuildFont(hMemdc, &hFont, NULL, &textWidth, &textHeight, 0);
+
+    dataInput1->setSize(InputDialog::boxWidth(1, textWidth), InputDialog::boxHeight(textHeight));
+    dataInput2->setSize(InputDialog::boxWidth(2, textWidth), InputDialog::boxHeight(textHeight));
+    dataInput1->setFont(hFont);
+    dataInput2->setFont(hFont);
+
+    updateScroll();
+    dbgSetScrollPos(memHwnd, pos);
 }
 
 void Memory::updatePosition(RECT& rect)
