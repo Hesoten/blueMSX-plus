@@ -1607,7 +1607,8 @@ void OnShowTool() {
         dw = dw;
     }
 
-    ShowWindow(dbgHwnd, SW_SHOW); 
+    ShowWindow(dbgHwnd, IsIconic(dbgHwnd) ? SW_RESTORE : SW_SHOW);
+    SetForegroundWindow(dbgHwnd);
 
     canAddCheat = false;
     

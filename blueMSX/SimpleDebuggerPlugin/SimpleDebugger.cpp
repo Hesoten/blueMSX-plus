@@ -1303,6 +1303,10 @@ void OnDestroyTool() {
 
 void OnShowTool() {
     if (dbgHwnd != NULL) {
+        if (IsIconic(dbgHwnd)) {
+            ShowWindow(dbgHwnd, SW_RESTORE);
+        }
+        SetForegroundWindow(dbgHwnd);
         return;
     }
 
