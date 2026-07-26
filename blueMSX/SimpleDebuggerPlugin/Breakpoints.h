@@ -173,6 +173,7 @@ public:
     void clearRuntoBreakpoint();
 
     virtual LRESULT wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam);
+    virtual void onFontChanged();
     LRESULT breakpointsWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam);
     BOOL toolDlgProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam);
     BOOL breakpointsDialogProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam);
@@ -197,8 +198,8 @@ private:
     HWND   breakpointsHwnd;
     Toolbar* toolbar;
     HDC    hMemdc;
-    HFONT  hFont;
-    HFONT  hFontBold;
+    HFONT  hFont     = NULL;
+    HFONT  hFontBold = NULL;
     HBRUSH hBrushWhite;
     HBRUSH hBrushLtGray;
     HBRUSH hBrushDkGray;

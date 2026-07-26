@@ -42,6 +42,10 @@
 
 namespace {
 
+/* CLKH / CLKL / CNT past IF2 are derived counters the emulator will not write
+** back, so only the first EDITABLE_REGISTERS can be opened for editing. */
+#define EDITABLE_REGISTERS 15
+
 const char regName[20][8] = {
     "AF ",
     "BC ",
@@ -81,22 +85,16 @@ LRESULT CpuRegisters::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
         colorGray   = dark ? RGB(180, 180, 180) : RGB(64, 64, 64);
         colorRed    = dark ? RGB(255, 100, 100) : RGB(255, 0, 0);
         SetBkMode(hMemdc, TRANSPARENT);
-        hFont = CreateFont(-MulDiv(12, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
-        hFontBold = CreateFont(-MulDiv(12, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, FW_SEMIBOLD, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
+        dbgRebuildFont(hMemdc, &hFont, &hFontBold, &textWidth, &textHeight, 0);
 
         hBrushWhite  = CreateSolidBrush(dark ? GetDarkBg()        : RGB(255, 255, 255));
         hBrushLtGray = CreateSolidBrush(dark ? RGB( 48,  48,  48) : RGB(239, 237, 222));
         hBrushDkGray = CreateSolidBrush(dark ? RGB( 70,  70,  70) : RGB(128, 128, 128));
 
-        SelectObject(hMemdc, hFont); 
-        TEXTMETRIC tm;
-        if (GetTextMetrics(hMemdc, &tm)) {
-            textHeight = tm.tmHeight;
-            textWidth = tm.tmMaxCharWidth;
-        }
-
-        dataInput2 = new HexInputDialog(hwnd, -100,0,23,22,2);
-        dataInput4 = new HexInputDialog(hwnd, -100,0,45,22,4);
+        dataInput2 = new HexInputDialog(hwnd, -100, 0, InputDialog::boxWidth(2, textWidth), InputDialog::boxHeight(textHeight), 2);
+        dataInput4 = new HexInputDialog(hwnd, -100, 0, InputDialog::boxWidth(4, textWidth), InputDialog::boxHeight(textHeight), 4);
+        dataInput2->setFont(hFont);
+        dataInput4->setFont(hFont);
         dataInput2->hide();
         dataInput4->hide();
         darkSubWindow(hwnd);
@@ -172,37 +170,74 @@ LRESULT CpuRegisters::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
             int x = (LOWORD(lParam) - 10) / textWidth;
             if (x >= 0 && x < 10 * registersPerRow && x % 10 >= 4 && x % 10 < 8) {
                 int col = x / 10;
-                int reg = col * (lineCount - 1) + row + si.nPos - 1;
-
-                if (reg < 12) {
-                    currentEditRegister = reg;
-                    dataInput4->setPosition(10 + (10 * col + 4) * textWidth, row * textHeight - 2);
-                    dataInput4->setValue(regValue[reg]);
-                    dataInput4->show();
-                }
-                else if (reg < 15) {
-                    currentEditRegister = reg;
-                    dataInput2->setPosition(10 + (10 * col + 4) * textWidth, row * textHeight - 2);
-                    dataInput2->setValue(regValue[reg]);
-                    dataInput2->show();
-                }
+                showEditRegister(col * (lineCount - 1) + row + si.nPos - 1);
             }
         }
         return 0;
 
     case HexInputDialog::EC_KILLFOCUS:
+        if (navigating) {
+            return FALSE;
+        }
+        /* fall through */
     case HexInputDialog::EC_NEWVALUE:
         if (currentEditRegister >= 0) {
             UInt32 regVal = (HexInputDialog*)wParam == dataInput2 ? (UInt8)lParam : (UInt16)lParam;
-            if (currentRegBank != NULL && regValue[currentEditRegister] != regVal) {
+            if (currentRegBank != NULL && regValue[currentEditRegister] != (int)regVal) {
                 DeviceWriteRegisterBankRegister(currentRegBank, currentEditRegister, regVal);
             }
             regValue[currentEditRegister] = regVal;
             InvalidateRect(hwnd, NULL, TRUE);
         }
-        currentEditRegister = -1;
-        dataInput2->hide();
-        dataInput4->hide();
+        endEdit();
+        return FALSE;
+
+    case InputDialog::EC_NAVIGATE:
+        {
+            HexInputDialog* input = (HexInputDialog*)wParam;
+
+            /* A stray key with no box open must not start editing a register. */
+            if (currentEditRegister < 0) {
+                return FALSE;
+            }
+
+            if ((int)lParam == InputDialog::NAV_CANCEL) {
+                endEdit();
+                return FALSE;
+            }
+
+            if (input->isModified()) {
+                int value = input->getValue();
+                UInt32 regVal = input == dataInput2 ? (UInt8)value : (UInt16)value;
+                if (currentRegBank != NULL && regValue[currentEditRegister] != (int)regVal) {
+                    DeviceWriteRegisterBankRegister(currentRegBank, currentEditRegister, regVal);
+                }
+                regValue[currentEditRegister] = regVal;
+                InvalidateRect(hwnd, NULL, TRUE);
+            }
+
+            int rowsPerCol = lineCount - 1;
+            int delta = 0;
+            switch ((int)lParam) {
+            case InputDialog::NAV_UP:
+            case InputDialog::NAV_PREV:  delta = -1;          break;
+            case InputDialog::NAV_DOWN:
+            case InputDialog::NAV_NEXT:  delta =  1;          break;
+            case InputDialog::NAV_LEFT:  delta = -rowsPerCol; break;
+            case InputDialog::NAV_RIGHT: delta =  rowsPerCol; break;
+            }
+
+            if (delta != 0) {
+                /* Stay in edit mode at the ends rather than dropping out. */
+                int reg = currentEditRegister + delta;
+                if (reg >= 0 && reg < EDITABLE_REGISTERS) {
+                    showEditRegister(reg);
+                }
+                return FALSE;
+            }
+
+            endEdit();
+        }
         return FALSE;
 
     case WM_SIZE:
@@ -274,9 +309,87 @@ CpuRegisters::~CpuRegisters()
 
 void CpuRegisters::disableEdit()
 {
+    endEdit();
+    DbgWindow::disableEdit();
+}
+
+void CpuRegisters::hideEdit()
+{
+    navigating = true;
     dataInput2->hide();
     dataInput4->hide();
-    DbgWindow::disableEdit();
+    navigating = false;
+}
+
+/* Leave edit mode without committing. The register has to be cleared first, or
+** the focus change inside hide() comes back as a confirmation. */
+void CpuRegisters::endEdit()
+{
+    currentEditRegister = -1;
+    hideEdit();
+}
+
+void CpuRegisters::showEditRegister(int reg)
+{
+    if (reg < 0 || reg >= EDITABLE_REGISTERS || lineCount < 2) {
+        return;
+    }
+
+    hideEdit();
+
+    SCROLLINFO si;
+    si.cbSize = sizeof (si);
+    si.fMask  = SIF_POS | SIF_PAGE;
+    GetScrollInfo (hwnd, SB_VERT, &si);
+
+    int col  = reg / (lineCount - 1);
+    int line = reg % (lineCount - 1) + 1;
+
+    /* Bring the target line into view; line 0 is the flag header, so the box
+    ** must land between 1 and the last visible line. */
+    int pos = si.nPos;
+    if (pos > line - 1) {
+        pos = line - 1;
+    }
+    if (si.nPage > 1 && line - pos >= (int)si.nPage) {
+        pos = line - (int)si.nPage + 1;
+    }
+    if (pos < 0) {
+        pos = 0;
+    }
+    if (pos != si.nPos) {
+        scrollTo(pos);
+        si.fMask = SIF_POS;
+        GetScrollInfo (hwnd, SB_VERT, &si);
+    }
+
+    currentEditRegister = reg;
+
+    HexInputDialog* input = reg < 12 ? dataInput4 : dataInput2;
+    input->setPosition(10 + (10 * col + 4) * textWidth, (line - si.nPos) * textHeight - 2);
+    input->setValue(regValue[reg]);
+    input->show();
+}
+
+void CpuRegisters::onFontChanged()
+{
+    int pos = dbgGetScrollPos(hwnd);
+    int reg = currentEditRegister;
+    dbgRebuildFont(hMemdc, &hFont, &hFontBold, &textWidth, &textHeight, 0);
+
+    dataInput2->setSize(InputDialog::boxWidth(2, textWidth), InputDialog::boxHeight(textHeight));
+    dataInput4->setSize(InputDialog::boxWidth(4, textWidth), InputDialog::boxHeight(textHeight));
+    dataInput2->setFont(hFont);
+    dataInput4->setFont(hFont);
+
+    endEdit();
+    updateScroll();
+    dbgSetScrollPos(hwnd, pos);
+
+    /* The grid re-flowed under the box, so place it again. */
+    if (reg >= 0) {
+        showEditRegister(reg);
+    }
 }
 
 void CpuRegisters::setFlagMode(CpuRegisters::FlagMode mode)
@@ -314,8 +427,7 @@ void CpuRegisters::invalidateContent()
 {
     currentRegBank = NULL;
 
-    dataInput2->hide();
-    dataInput4->hide();
+    endEdit();
     for (int i = 0; i < 20; i++) {
         refRegValue[i] = -1;
         regValue[i] = -1;
@@ -328,8 +440,7 @@ void CpuRegisters::updateContent(RegisterBank* regBank)
 {
     currentRegBank = regBank;
 
-    dataInput2->hide();
-    dataInput4->hide();
+    endEdit();
 
     for (int i = 0; i < 20; i++) {
         int val = regBank->reg[i].value;
@@ -374,48 +485,59 @@ void CpuRegisters::updateScroll()
     InvalidateRect(hwnd, NULL, TRUE);
 }
 
+void CpuRegisters::scrollTo(int pos)
+{
+    SCROLLINFO si;
+
+    si.cbSize = sizeof (si);
+    si.fMask  = SIF_POS;
+    GetScrollInfo (hwnd, SB_VERT, &si);
+    int yPos = si.nPos;
+
+    si.nPos = pos;
+    SetScrollInfo (hwnd, SB_VERT, &si, TRUE);
+    GetScrollInfo (hwnd, SB_VERT, &si);
+    if (si.nPos != yPos) {
+        ScrollWindow(hwnd, 0, textHeight * (yPos - si.nPos), NULL, NULL);
+        UpdateWindow (hwnd);
+    }
+}
+
 void CpuRegisters::scrollWindow(int sbAction)
 {
-    int yPos;
     SCROLLINFO si;
 
     si.cbSize = sizeof (si);
     si.fMask  = SIF_ALL;
     GetScrollInfo (hwnd, SB_VERT, &si);
-    yPos = si.nPos;
+    int pos = si.nPos;
     switch (sbAction) {
     case SB_TOP:
-        si.nPos = si.nMin;
+        pos = si.nMin;
         break;
     case SB_BOTTOM:
-        si.nPos = si.nMax;
+        pos = si.nMax;
         break;
     case SB_LINEUP:
-        si.nPos -= 1;
+        pos -= 1;
         break;
     case SB_LINEDOWN:
-        si.nPos += 1;
+        pos += 1;
         break;
     case SB_PAGEUP:
-        si.nPos -= si.nPage;
+        pos -= si.nPage;
         break;
     case SB_PAGEDOWN:
-        si.nPos += si.nPage;
+        pos += si.nPage;
         break;
     case SB_THUMBTRACK:
-        si.nPos = si.nTrackPos;
-        break;              
+        pos = si.nTrackPos;
+        break;
     default:
-        break; 
+        break;
     }
 
-    si.fMask = SIF_POS;
-    SetScrollInfo (hwnd, SB_VERT, &si, TRUE);
-    GetScrollInfo (hwnd, SB_VERT, &si);
-    if (si.nPos != yPos) {                    
-        ScrollWindow(hwnd, 0, textHeight * (yPos - si.nPos), NULL, NULL);
-        UpdateWindow (hwnd);
-    }
+    scrollTo(pos);
 }
 
 void CpuRegisters::drawText(int top, int bottom)

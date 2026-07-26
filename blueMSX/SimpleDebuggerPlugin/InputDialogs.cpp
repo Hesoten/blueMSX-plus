@@ -30,6 +30,7 @@
 #include "Language.h"
 #include "Resource.h"
 #include "ToolInterface.h"
+#include "Win32TextUtf8.h"
 
 extern HWND getRootHwnd();
 
@@ -90,10 +91,10 @@ BOOL InputDialogs::findDialogProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
     case WM_INITDIALOG:
         ApplyDarkMode(hDlg);
         procData = (FindProcData*)lParam;
-        SetWindowText(hDlg, procData->caption);
-        SendDlgItemMessage(hDlg, IDC_TEXT_ADDRESS, WM_SETTEXT, 0, (LPARAM)Language::findWindowText);
-        SetWindowText(GetDlgItem(hDlg, IDOK), Language::genericOk);
-        SetWindowText(GetDlgItem(hDlg, IDCANCEL), Language::genericCancel);
+        SetWindowTextU(hDlg, procData->caption);
+        SetDlgItemTextU(hDlg, IDC_TEXT_ADDRESS, Language::findWindowText);
+        SetDlgItemTextU(hDlg, IDOK, Language::genericOk);
+        SetDlgItemTextU(hDlg, IDCANCEL, Language::genericCancel);
         if (dataInput) {
             delete dataInput;
         }
@@ -144,10 +145,10 @@ BOOL InputDialogs::addressDialogProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM
     case WM_INITDIALOG:
         ApplyDarkMode(hDlg);
         procData = (AddrProcData*)lParam;
-        SetWindowText(hDlg, procData->caption);
-        SendDlgItemMessage(hDlg, IDC_TEXT_ADDRESS, WM_SETTEXT, 0, (LPARAM)Language::gotoWindowText);
-        SetWindowText(GetDlgItem(hDlg, IDOK), Language::genericOk);
-        SetWindowText(GetDlgItem(hDlg, IDCANCEL), Language::genericCancel);
+        SetWindowTextU(hDlg, procData->caption);
+        SetDlgItemTextU(hDlg, IDC_TEXT_ADDRESS, Language::gotoWindowText);
+        SetDlgItemTextU(hDlg, IDOK, Language::genericOk);
+        SetDlgItemTextU(hDlg, IDCANCEL, Language::genericCancel);
         if (addressInput) {
             delete addressInput;
         }
@@ -231,10 +232,10 @@ BOOL InputDialogs::watchpointDialogProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
         procData->breakpointInfo.type = Breakpoints::BreakpointInfo::WATCHPOINT_MEM;
         procData->breakpointInfo.condition = WatchpointCondition::WATCHPOINT_ANY;
 
-        SetWindowText(hDlg, procData->caption);
-        SendDlgItemMessage(hDlg, IDC_TEXT_ADDRESS, WM_SETTEXT, 0, (LPARAM)Language::gotoWindowText);
-        SetWindowText(GetDlgItem(hDlg, IDOK), Language::genericOk);
-        SetWindowText(GetDlgItem(hDlg, IDCANCEL), Language::genericCancel);
+        SetWindowTextU(hDlg, procData->caption);
+        SetDlgItemTextU(hDlg, IDC_TEXT_ADDRESS, Language::gotoWindowText);
+        SetDlgItemTextU(hDlg, IDOK, Language::genericOk);
+        SetDlgItemTextU(hDlg, IDCANCEL, Language::genericCancel);
 
         SendDlgItemMessage(hDlg, IDC_MEMTYPE, CB_ADDSTRING, 0, (LPARAM)"Visible Memory");
         SendDlgItemMessage(hDlg, IDC_MEMTYPE, CB_ADDSTRING, 0, (LPARAM)"VRAM");

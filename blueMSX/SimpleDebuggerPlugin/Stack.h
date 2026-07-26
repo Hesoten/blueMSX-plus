@@ -45,6 +45,7 @@ public:
     void updateScroll();
 
     virtual LRESULT wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam);
+    virtual void onFontChanged();
 
 private:
 
@@ -54,7 +55,7 @@ private:
     void drawText(int top, int bottom);
 
     HDC    hMemdc;
-    HFONT  hFont;
+    HFONT  hFont = NULL;
     HBRUSH hBrushWhite;
     HBRUSH hBrushLtGray;
     HBRUSH hBrushDkGray;

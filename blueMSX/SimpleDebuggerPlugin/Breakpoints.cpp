@@ -92,8 +92,11 @@ static Breakpoints* breakpointsInstance = NULL;
 static BitmapIcons* bitmapIcons = NULL;
 
 
-static LRESULT CALLBACK staticBreakpointsWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static LRESULT CALLBACK staticBreakpointsWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
+    if (dbgViewMessage(hwnd, iMsg, wParam)) {
+        return 0;
+    }
     if (breakpointsInstance != NULL) {
         return breakpointsInstance->breakpointsWndProc(hwnd, iMsg, wParam, lParam);
     }
@@ -195,21 +198,13 @@ LRESULT Breakpoints::breakpointsWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
         colorRed   = dark ? RGB(255, 100, 100) : RGB(255, 0, 0);
         colorWhite = dark ? GetDarkBg()        : RGB(255, 255, 255);
         SetBkMode(hMemdc, TRANSPARENT);
-        hFont = CreateFont(-MulDiv(12, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
-        hFontBold = CreateFont(-MulDiv(12, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, FW_SEMIBOLD, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
+        dbgRebuildFont(hMemdc, &hFont, &hFontBold, &textWidth, &textHeight, 0);
         
         hBrushWhite  = CreateSolidBrush(dark ? GetDarkBg()        : RGB(255, 255, 255));
         hBrushLtGray = CreateSolidBrush(dark ? RGB( 48,  48,  48) : RGB(239, 237, 222));
         hBrushDkGray = CreateSolidBrush(dark ? RGB( 70,  70,  70) : RGB(128, 128, 128));
         hBrushBlack  = CreateSolidBrush(dark ? RGB( 60,  60, 110) : RGB(200, 200, 255));
 
-        SelectObject(hMemdc, hFont); 
-        TEXTMETRIC tm;
-        if (GetTextMetrics(hMemdc, &tm)) {
-            textHeight = tm.tmHeight;
-            textWidth = tm.tmMaxCharWidth;
-        }
-        
         darkSubWindow(hwnd);
         return 0;
     }
@@ -226,7 +221,12 @@ LRESULT Breakpoints::breakpointsWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
 
             int row = HIWORD(lParam) / textHeight;
 
+            /* Clicking past the last entry drops the selection -- a lone
+            ** breakpoint is hard to read while permanently highlighted. */
             if (row + si.nPos  >= (int)breakpoints.size()) {
+                selectedLine = -1;
+                InvalidateRect(hwnd, NULL, TRUE);
+                updateToolbar();
                 return 0;
             }
 
@@ -394,9 +394,19 @@ void Breakpoints::invalidateContent()
     InvalidateRect(breakpointsHwnd, NULL, TRUE);
 }
 
+void Breakpoints::onFontChanged()
+{
+    int pos = dbgGetScrollPos(breakpointsHwnd);
+    dbgRebuildFont(hMemdc, &hFont, &hFontBold, &textWidth, &textHeight, 0);
+    updateScroll();
+    dbgSetScrollPos(breakpointsHwnd, pos);
+}
+
 void Breakpoints::updateContent()
 {
-    BreakpointInfo* bi;
+    /* NULL, or the "keep the same entry selected" scan below compares against
+    ** an indeterminate pointer and can revive a cleared selection. */
+    BreakpointInfo* bi = NULL;
     if (selectedLine >= 0 && selectedLine < (int)breakpoints.size()) {
         bi = breakpoints[selectedLine];
     }
@@ -523,7 +533,7 @@ void Breakpoints::drawText(int top, int bottom)
 
         SetTextColor(hMemdc, i == selectedLine ? colorWhite : colorBlack);
         SelectObject(hMemdc, hFontBold);
-        DrawText(hMemdc, breakpointText, (int)strlen(breakpointText), &r, DT_LEFT);
+        DrawTextU(hMemdc, breakpointText, (int)strlen(breakpointText), &r, DT_LEFT);
         r.left  += (int)strlen(breakpointText) * textWidth;
 
         char labelText[64];
@@ -545,7 +555,7 @@ void Breakpoints::drawText(int top, int bottom)
 
         SelectObject(hMemdc, hFont);
         SelectObject(hMemdc, hFontBold);
-        DrawText(hMemdc, breakpointText, (int)strlen(breakpointText), &r, DT_LEFT);
+        DrawTextU(hMemdc, breakpointText, (int)strlen(breakpointText), &r, DT_LEFT);
     }
 }
 

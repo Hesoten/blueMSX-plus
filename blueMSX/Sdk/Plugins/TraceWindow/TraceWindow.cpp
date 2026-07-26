@@ -25,7 +25,99 @@ static LanguageId langId = LID_ENGLISH;
 #define MENU_EDIT_CLEAR             37202
 #define MENU_HELP_ABOUT             37400
 
-static void updateWindowMenu() 
+#define FONT_MIN      6
+#define FONT_MAX     24
+#define FONT_DEFAULT 10
+
+static int   fontPoints = FONT_DEFAULT;
+static HFONT hFont = NULL;
+static WNDPROC editWndProcOrig = NULL;
+
+/* The profile API resolves a bare file name against the Windows directory,
+** so build an explicit path in the working directory instead. */
+static const char* traceIniPath()
+{
+    static char path[MAX_PATH] = "";
+
+    if (path[0] == 0) {
+        /* On overflow the call returns the required size and writes nothing,
+        ** so a non-zero result is only usable when it fits the buffer. */
+        DWORD len = GetCurrentDirectoryA(sizeof(path) - 32, path);
+        if (len == 0 || len >= sizeof(path) - 32) {
+            strcpy(path, ".");
+        }
+        strcat(path, "\\tracewindow.ini");
+    }
+    return path;
+}
+
+static void applyFont()
+{
+    if (hwndEdit == NULL) {
+        return;
+    }
+
+    HDC hdc = GetDC(hwndEdit);
+    int height = -MulDiv(fontPoints, GetDeviceCaps(hdc, LOGPIXELSY), 72);
+    ReleaseDC(hwndEdit, hdc);
+
+    HFONT hNew = CreateFont(height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
+    SendMessage(hwndEdit, WM_SETFONT, (WPARAM)hNew, TRUE);
+    if (hFont) DeleteObject(hFont);
+    hFont = hNew;
+}
+
+static void setFontPoints(int points)
+{
+    if (points < FONT_MIN) points = FONT_MIN;
+    if (points > FONT_MAX) points = FONT_MAX;
+    if (points == fontPoints) {
+        return;
+    }
+    fontPoints = points;
+    applyFont();
+}
+
+/* Handle Ctrl+plus / Ctrl+minus / Ctrl+0 / Ctrl+wheel; non-zero if consumed. */
+static int fontZoomMessage(UINT iMsg, WPARAM wParam)
+{
+    if (GetKeyState(VK_CONTROL) >= 0) {
+        return 0;
+    }
+
+    if (iMsg == WM_MOUSEWHEEL) {
+        setFontPoints(fontPoints + (GET_WHEEL_DELTA_WPARAM(wParam) > 0 ? 1 : -1));
+        return 1;
+    }
+
+    if (iMsg == WM_KEYDOWN) {
+        switch (wParam) {
+        case VK_OEM_PLUS:
+        case VK_ADD:
+            setFontPoints(fontPoints + 1);
+            return 1;
+        case VK_OEM_MINUS:
+        case VK_SUBTRACT:
+            setFontPoints(fontPoints - 1);
+            return 1;
+        case '0':
+        case VK_NUMPAD0:
+            setFontPoints(FONT_DEFAULT);
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static LRESULT CALLBACK editWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
+{
+    if (fontZoomMessage(iMsg, wParam)) {
+        return 0;
+    }
+    return CallWindowProc(editWndProcOrig, hwnd, iMsg, wParam, lParam);
+}
+
+static void updateWindowMenu()
 {
     HMENU hMenuFile = CreatePopupMenu();
     
@@ -70,9 +162,13 @@ void openLogFile(HWND hwndOwner)
     logFile = fopenU(pFileName, "wb");
 }
 
-static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     static HBRUSH hBrush = NULL;
+
+    if (fontZoomMessage(iMsg, wParam)) {
+        return 0;
+    }
 
     switch (iMsg) {
     case WM_CREATE:
@@ -146,10 +242,17 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         return 0;
 
     case WM_DESTROY:
+        {
+            char text[16];
+            sprintf(text, "%d", fontPoints);
+            WritePrivateProfileStringA("Trace Window", "font size", text, traceIniPath());
+        }
         if (logFile != NULL) {
             fclose(logFile);
         }
+        if (hFont) { DeleteObject(hFont); hFont = NULL; }
         logFile = NULL;
+        hwndEdit = NULL;
         dbgHwnd = NULL;
 		break;
     }
@@ -184,6 +287,10 @@ void OnDestroyTool() {
 
 void OnShowTool() {
     if (dbgHwnd != NULL) {
+        if (IsIconic(dbgHwnd)) {
+            ShowWindow(dbgHwnd, SW_RESTORE);
+        }
+        SetForegroundWindow(dbgHwnd);
         return;
     }
 
@@ -207,6 +314,12 @@ void OnShowTool() {
         10, 10, 250, 200, dbgHwnd, (HMENU)IDEDITCTL, (HINSTANCE)hEditDS, NULL);
 
     SendMessage(hwndEdit, EM_LIMITTEXT, 0, 0);
+
+    editWndProcOrig = (WNDPROC)SetWindowLongPtr(hwndEdit, GWLP_WNDPROC, (LONG_PTR)editWndProc);
+    fontPoints = GetPrivateProfileIntA("Trace Window", "font size", FONT_DEFAULT, traceIniPath());
+    if (fontPoints < FONT_MIN) fontPoints = FONT_MIN;
+    if (fontPoints > FONT_MAX) fontPoints = FONT_MAX;
+    applyFont();
 
     /* Default to a comfortable trace-friendly size, DPI-scaled so it fills
     ** roughly the same visual footprint on 100% / 150% / 200% monitors. */

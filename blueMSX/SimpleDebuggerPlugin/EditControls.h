@@ -38,20 +38,54 @@ class CpuRegisters;
 
 class InputDialog {
 public:
-    enum { EC_NEWVALUE = WM_USER + 7029, EC_KILLFOCUS = WM_USER + 7030 };
+    enum { EC_NEWVALUE = WM_USER + 7029, EC_KILLFOCUS = WM_USER + 7030,
+           EC_NAVIGATE = WM_USER + 7031 };
+
+    /* EC_NAVIGATE lParam: where the owning view should take the edit cursor.
+    ** NAV_DONE commits and leaves edit mode, NAV_CANCEL discards. NAV_NEXT /
+    ** NAV_PREV are Tab / Shift+Tab -- the view's own idea of the next item. */
+    enum { NAV_DONE = 1, NAV_UP, NAV_DOWN, NAV_LEFT, NAV_RIGHT,
+           NAV_CANCEL, NAV_NEXT, NAV_PREV };
 
     InputDialog(HWND parent, int x, int y, int width, int height);
     ~InputDialog();
 
     void setPosition(int x, int y);
+    void setSize(int width, int height);
+    void setFont(HFONT font);
     void show();
     void hide();
     void setFocus();
 
+    /* An overlay box must cover exactly `chars` cells of the monospaced output
+    ** text; the extra half / quarter cell is the border and caret inset. */
+    static int boxWidth(int chars, int textWidth) { return chars * textWidth + textWidth / 2; }
+    static int boxHeight(int textHeight)          { return textHeight + textHeight / 4; }
+
+    bool isVisible() const { return IsWindowVisible(hwnd) != 0; }
+
+    /* False until the text differs from what the box was seeded with, so
+    ** leaving a box alone never writes the displayed value back. Comparing the
+    ** text also covers paste and delete, which produce no WM_CHAR. */
+    bool isModified();
+
 protected:
     HWND hwnd;
 
+    /* Text the box was last seeded with, for isModified(). */
+    char seedText[64];
+
+    void rememberSeed();
+
+    /* Only the in-place overlay boxes navigate; the modal Goto / Find dialogs
+    ** keep their plain edit behaviour. */
+    bool navEnabled;
+
     void initDialog();
+
+    /* Turn arrows / Tab / Enter into EC_NAVIGATE for the owning view. Left and
+    ** right only move on once the caret sits at that end. */
+    int navigateKey(int keyCode);
     
     virtual BOOL dlgProc(UINT iMsg, WPARAM wParam, LPARAM lParam) = 0;
 
@@ -67,6 +101,13 @@ private:
 
     void initControl(HWND thisHwnd);
 
+public:
+    /* Entry point for the edit-control subclass, which only knows the HWND. */
+    static int navigateFrom(HWND dlg, int keyCode);
+
+private:
+
+    static void applyDarkCharFormat(HWND hEdit);
     static void initRichEditControlDll();
     static INT_PTR CALLBACK dlgStaticProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam);
 };

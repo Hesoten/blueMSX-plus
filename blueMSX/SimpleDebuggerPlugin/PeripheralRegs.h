@@ -48,6 +48,7 @@ public:
     void invalidateContent();
 
     virtual LRESULT wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam);
+    virtual void onFontChanged();
     LRESULT regWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam);
     BOOL toolDlgProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam);
 
@@ -77,17 +78,25 @@ private:
 
     void showAddress(int addr);
     void scrollWindow(int sbAction);
+    void scrollTo(int pos);
     void updateScroll();
     void updateDropdown();
     void updateWindowPositions();
     void setNewRegisters(const std::string& title);
     void drawText(int top, int bottom);
+    void showEditRegister(int reg);
+    void hideEdit();
+    void endEdit();
+
+    /* Set while the edit box hops to another register, so the focus loss that
+    ** causes is not mistaken for the user leaving edit mode. */
+    bool navigating = false;
 
     HWND   regHwnd;
     HWND   toolHwnd;
     HDC    hMemdc;
-    HFONT  hFont;
-    HFONT  hFontBold;
+    HFONT  hFont     = NULL;
+    HFONT  hFontBold = NULL;
     HBRUSH hBrushWhite;
     HBRUSH hBrushLtGray;
     HBRUSH hBrushDkGray;

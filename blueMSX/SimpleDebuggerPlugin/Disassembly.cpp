@@ -419,7 +419,7 @@ LRESULT Disassembly::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
         hMemdc = CreateCompatibleDC(hdc);
         ReleaseDC(hwnd, hdc);
         SetBkMode(hMemdc, TRANSPARENT);
-        hFont = CreateFont(-MulDiv(12, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
+        dbgRebuildFont(hMemdc, &hFont, NULL, &textWidth, &textHeight, 1);
 
         BOOL dark = IsDarkMode();
         hBrushWhite  = CreateSolidBrush(dark ? GetDarkBg()        : RGB(255, 255, 255));
@@ -431,12 +431,6 @@ LRESULT Disassembly::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
         colorGray  = RGB(160, 160, 160);
         colorWhite = dark ? GetDarkBg()        : RGB(255, 255, 255);
 
-        SelectObject(hMemdc, hFont); 
-        TEXTMETRIC tm;
-        if (GetTextMetrics(hMemdc, &tm)) {
-            textHeight = tm.tmHeight;
-            textWidth = tm.tmAveCharWidth;
-        }
         darkSubWindow(hwnd);
         return 0;
     }
@@ -614,7 +608,7 @@ void Disassembly::invalidateContent()
     lineCount = 0;
     updateScroll();
 
-    sprintf(lineInfo[lineCount].addr, Language::windowDisassemblyUnavail);
+    sprintf(lineInfo[lineCount].addr, "%s", Language::windowDisassemblyUnavail);
     lineInfo[lineCount].addrLength = (int)strlen(lineInfo[lineCount].addr);
     lineInfo[lineCount].haspc = 0;
     lineInfo[lineCount].text[0] = 0;
@@ -627,9 +621,15 @@ void Disassembly::invalidateContent()
     InvalidateRect(hwnd, NULL, TRUE);
 }
 
-void Disassembly::refresh()
+void Disassembly::refresh(bool followPc)
 {
-    updateContent(backupMemory, backupPc);
+    updateContent(backupMemory, backupPc, followPc);
+}
+
+void Disassembly::onFontChanged()
+{
+    dbgRebuildFont(hMemdc, &hFont, NULL, &textWidth, &textHeight, 1);
+    applyScroll();
 }
 
 bool Disassembly::writeToFile(const char* fileName)
@@ -659,7 +659,7 @@ bool Disassembly::writeToFile(const char* fileName)
     return true;
 }
 
-void Disassembly::updateContent(BYTE* memory, WORD pc)
+void Disassembly::updateContent(BYTE* memory, WORD pc, bool followPc)
 {
     int addr = 0;
     breakpoints->clearRuntoBreakpoint();
@@ -785,11 +785,18 @@ void Disassembly::updateContent(BYTE* memory, WORD pc)
     if (currentLine == -1) {
         currentLine = programCounter;
     }
-    updateScroll();
+    if (followPc) {
+        updateScroll();
+    }
+    else {
+        applyScroll();
+    }
 
     DebuggerUpdate();
 
-    SetFocus(hwnd);
+    if (followPc) {
+        SetFocus(hwnd);
+    }
 }
 
 void Disassembly::onWmKeyUp(int keyCode)
@@ -863,6 +870,17 @@ void Disassembly::updateScroll(int index)
         }
     }
 
+    applyScroll();
+}
+
+/* Clamp firstVisibleLine and push it to the scrollbar without moving the
+** view, so a content refresh can keep the line the user scrolled to. */
+void Disassembly::applyScroll()
+{
+    RECT r;
+    GetClientRect(hwnd, &r);
+    int visibleLines = r.bottom / textHeight;
+
     if (firstVisibleLine >= lineCount) {
         firstVisibleLine = lineCount - visibleLines;
     }
@@ -926,10 +944,13 @@ void Disassembly::scrollWindow(int sbAction)
     si.fMask = SIF_POS;
     SetScrollInfo (hwnd, SB_VERT, &si, TRUE);
     GetScrollInfo (hwnd, SB_VERT, &si);
-    if (si.nPos != yPos) {                    
+    if (si.nPos != yPos) {
         ScrollWindow(hwnd, 0, textHeight * (yPos - si.nPos), NULL, NULL);
         UpdateWindow (hwnd);
     }
+    /* drawText paints from the scrollbar, so the cached first line has to
+    ** follow it -- otherwise the next refresh scrolls the view back. */
+    firstVisibleLine = si.nPos;
 }
 
 void Disassembly::drawText(int top, int bottom)
