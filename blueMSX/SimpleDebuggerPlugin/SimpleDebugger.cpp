@@ -486,7 +486,7 @@ void loadSymbolFile(HWND hwndOwner)
     std::string strBuffer(buffer);
     symbolInfo->append(strBuffer);
     symbolInfo->show();
-    disassembly->refresh();
+    disassembly->refresh(true);
     callstack->refresh();
     stack->refresh();
     fclose(file);
@@ -1097,7 +1097,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             else {
                 symbolInfo->show();
             }
-            disassembly->refresh();
+            disassembly->refresh(true);
             callstack->refresh();
             stack->refresh();
             updateWindowMenu();

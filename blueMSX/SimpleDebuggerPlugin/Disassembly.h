@@ -40,8 +40,10 @@ public:
     Disassembly(HINSTANCE hInstance, HWND owner, SymbolInfo* symInfo, Breakpoints* breakpoints);
     ~Disassembly();
 
-    void refresh();
-    
+    /* followPc = true is for refreshes that renumber the lines (symbols coming
+    ** and going), where the cached first visible line no longer means anything. */
+    void refresh(bool followPc = false);
+
     static int dasm(SymbolInfo* symbolInfo, const UInt8* memory, WORD PC, char* dest);
     static UInt16 GetPc();
 
@@ -49,7 +51,9 @@ public:
     
     void onWmKeyUp(int keyCode);
 
-    void updateContent(BYTE* memory, WORD pc);
+    /* followPc = false keeps the view and the focused window untouched, for
+    ** refreshes that are not caused by the CPU actually moving. */
+    void updateContent(BYTE* memory, WORD pc, bool followPc = true);
     void invalidateContent();
     void updateScroll(int address = -1);
     void setCursor(WORD address);
@@ -68,6 +72,7 @@ public:
 private:
 
     void scrollWindow(int sbAction);
+    void applyScroll();
     void drawText(int top, int bottom);
 
     HDC    hMemdc;
