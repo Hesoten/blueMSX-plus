@@ -45,7 +45,7 @@ static PeripheralRegs* periRegs = NULL;
 
 static LRESULT CALLBACK regViewWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
-    if (dbgFontZoomMessage(iMsg, wParam)) {
+    if (dbgViewMessage(hwnd, iMsg, wParam)) {
         return 0;
     }
     if (periRegs != NULL) {

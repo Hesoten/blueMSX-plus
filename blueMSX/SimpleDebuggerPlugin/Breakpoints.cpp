@@ -94,7 +94,7 @@ static BitmapIcons* bitmapIcons = NULL;
 
 static LRESULT CALLBACK staticBreakpointsWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
-    if (dbgFontZoomMessage(iMsg, wParam)) {
+    if (dbgViewMessage(hwnd, iMsg, wParam)) {
         return 0;
     }
     if (breakpointsInstance != NULL) {

@@ -83,8 +83,39 @@ void dbgSetFontPoints(int points)
     }
 }
 
-int dbgFontZoomMessage(UINT iMsg, WPARAM wParam)
+/* Turn a wheel notch into line scrolls, so every view that already handles
+** WM_VSCROLL follows the wheel without its own scrolling code. */
+static int wheelScroll(HWND hwnd, WPARAM wParam)
 {
+    UINT lines = 3;
+    SystemParametersInfo(SPI_GETWHEELSCROLLLINES, 0, &lines, 0);
+    if (lines == 0) {
+        return 1;
+    }
+    if (lines > 16) {
+        lines = 16;
+    }
+
+    int delta = GET_WHEEL_DELTA_WPARAM(wParam);
+    int notches = delta / WHEEL_DELTA;
+    if (notches == 0) {
+        notches = delta > 0 ? 1 : -1;
+    }
+
+    int action = notches > 0 ? SB_LINEUP : SB_LINEDOWN;
+    int count  = (notches > 0 ? notches : -notches) * (int)lines;
+    for (int i = 0; i < count; i++) {
+        SendMessage(hwnd, WM_VSCROLL, action, 0);
+    }
+    return 1;
+}
+
+int dbgViewMessage(HWND hwnd, UINT iMsg, WPARAM wParam)
+{
+    if (iMsg == WM_MOUSEWHEEL && GetKeyState(VK_CONTROL) >= 0) {
+        return wheelScroll(hwnd, wParam);
+    }
+
     if (GetKeyState(VK_CONTROL) >= 0) {
         return 0;
     }
@@ -235,7 +266,7 @@ static LRESULT CALLBACK staticWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARA
         windows[hwnd] = isCreating;
     }
 
-    if (dbgFontZoomMessage(iMsg, wParam)) {
+    if (dbgViewMessage(hwnd, iMsg, wParam)) {
         return 0;
     }
 

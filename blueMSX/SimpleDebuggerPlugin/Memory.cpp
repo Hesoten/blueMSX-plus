@@ -45,7 +45,7 @@ static Memory* memory = NULL;
 
 static LRESULT CALLBACK memViewWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
-    if (dbgFontZoomMessage(iMsg, wParam)) {
+    if (dbgViewMessage(hwnd, iMsg, wParam)) {
         return 0;
     }
     if (memory != NULL) {

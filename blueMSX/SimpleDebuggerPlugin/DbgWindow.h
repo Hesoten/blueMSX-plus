@@ -83,8 +83,9 @@ int  dbgFontPoints();
 int  dbgFontPointsDefault();
 void dbgSetFontPoints(int points);
 
-/* Handle Ctrl+plus / Ctrl+minus / Ctrl+0 / Ctrl+wheel; non-zero if consumed. */
-int  dbgFontZoomMessage(UINT iMsg, WPARAM wParam);
+/* Handle the view-wide input gestures -- Ctrl+plus / Ctrl+minus / Ctrl+0 and
+** Ctrl+wheel resize the font, a plain wheel scrolls. Non-zero if consumed. */
+int  dbgViewMessage(HWND hwnd, UINT iMsg, WPARAM wParam);
 
 /* (Re)create the Courier New output font at the current size and re-measure
 ** the cell metrics. hFontBold may be NULL for views that don't use one. */

@@ -712,7 +712,7 @@ void updateDeviceState()
 
 static LRESULT CALLBACK wndProcView(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
-    if (dbgFontZoomMessage(iMsg, wParam)) {
+    if (dbgViewMessage(hwnd, iMsg, wParam)) {
         return 0;
     }
 
@@ -765,7 +765,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 {
     static BOOL isActive = FALSE;
 
-    if (dbgFontZoomMessage(iMsg, wParam)) {
+    if (dbgViewMessage(hwnd, iMsg, wParam)) {
         return 0;
     }
 
