@@ -2326,6 +2326,33 @@ static void drawThemeOnEmuArea(HWND hwnd, HDC hdc, ThemePageDrawFn drawFn) {
     DeleteDC(hMemDC);
 }
 
+/* First-launch initial zoom: the Digiblue default theme scales its whole
+   800x650 skin by zoom/2, so window height = 650*zoom/2.  Pick the largest
+   zoom whose window stays within the work area (<=85% high, <=90% wide),
+   floored at 2x, so it is neither near-fullscreen nor tiny. */
+static int computeFirstLaunchWindowSize(void) {
+    RECT wa;
+    int workW, workH, z, best = P_VIDEO_SIZEX2;
+
+    if (SystemParametersInfo(SPI_GETWORKAREA, 0, &wa, 0)) {
+        workW = wa.right - wa.left;
+        workH = wa.bottom - wa.top;
+    }
+    else {
+        workW = GetSystemMetrics(SM_CXSCREEN);
+        workH = GetSystemMetrics(SM_CYSCREEN);
+    }
+
+    for (z = 2; z <= 8; z++) {
+        int h = 650 * z / 2;
+        int w = 800 * z / 2;
+        if (h <= workH * 85 / 100 && w <= workW * 90 / 100) {
+            best = z - 1;   /* zoom z -> P_VIDEO_SIZEX(z) enum == z-1 */
+        }
+    }
+    return best;
+}
+
 static int getZoom() {
     if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN && 
         (pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO || 
@@ -3999,6 +4026,15 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
                 strcpy(themeName, "Classic");
             }
             pProperties = propCreate(resetRegistry, getLangType(), kbdLang, syncMode, themeName);
+
+            /* No saved settings (first launch, or --reset) with the Digiblue
+               default theme: size the window to the screen instead of a fixed
+               4x, which overflows a 1080p display. */
+            if ((resetRegistry || !propSettingsFileExists()) &&
+                strcmp(themeName, "DIGIblue SUITE-X2") == 0) {
+                pProperties->video.windowSize        = computeFirstLaunchWindowSize();
+                pProperties->video.windowSizeInitial = pProperties->video.windowSize;
+            }
         }
 
         pProperties->language = emuCheckLanguageArgument(szLine, pProperties->language);
