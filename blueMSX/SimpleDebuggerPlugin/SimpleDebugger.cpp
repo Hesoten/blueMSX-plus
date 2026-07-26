@@ -137,7 +137,7 @@ static void updateTooltip(int id, char* str)
     case TB_BPENABLE: sprintf(str, "%s", Language::toolbarBpEnable);      break;
     case TB_BPENALL:  sprintf(str, "%s", Language::toolbarBpEnableAll);   break;
     case TB_BPDISALL: sprintf(str, "%s", Language::toolbarBpDisableAll);  break;
-    case TB_BPREMALL: sprintf(str, "%s", Language::toolbarBpRemoveAll);   break;    
+    case TB_BPREMALL: sprintf(str, "%s", Language::toolbarBpRemoveAll);   break;
     }
 }
 
@@ -216,6 +216,7 @@ static void updateStatusBar()
 #define MENU_FILE_LOADSYM           37101
 #define MENU_FILE_SAVEDASM          37102
 #define MENU_FILE_SAVEMEM           37103
+#define MENU_FILE_REPLACESYM        37104
 
 #define MENU_DEBUG_CONTINUE         37200
 #define MENU_DEBUG_BREAKALL         37201
@@ -251,7 +252,11 @@ static void updateStatusBar()
 
 #define MENU_HELP_ABOUT             37400
 
-static void updateWindowMenu() 
+/* Sticky for the session: whether loading a symbol file discards the symbols
+** already in memory or adds to them. */
+static BOOL replaceSymbols = TRUE;
+
+static void updateWindowMenu()
 {
     static char buf[128];
 
@@ -261,6 +266,13 @@ static void updateWindowMenu()
 
     sprintf(buf, "%s", Language::menuFileLoadSymbolFile);
     AppendMenuU(hMenuFile, MF_STRING, MENU_FILE_LOADSYM, buf);
+
+    /* Was a checkbox on the old-style open dialog; the shared shell dialog
+    ** takes no custom controls, so the option lives in the menu now. */
+    sprintf(buf, "%s", Language::symbolWindowText);
+    AppendMenuU(hMenuFile, MF_STRING | (replaceSymbols ? MF_CHECKED : 0), MENU_FILE_REPLACESYM, buf);
+
+    AppendMenuU(hMenuFile, MF_SEPARATOR, 0, NULL);
 
     sprintf(buf, "%s", Language::menuFileSaveDisassembly);
     AppendMenuU(hMenuFile, MF_STRING, MENU_FILE_SAVEDASM, buf);
@@ -390,88 +402,18 @@ static void updateWindowMenu()
 }
 
 
-static BOOL replaceSymbols = TRUE;
-
-UINT_PTR CALLBACK hookProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
-{
-    switch (iMsg) {
-    case WM_INITDIALOG:
-        SetWindowTextU(GetDlgItem(hDlg, IDC_SYMBOLSAPPEND), Language::symbolWindowText);
-        SendDlgItemMessage(hDlg, IDC_SYMBOLSAPPEND, BM_SETCHECK, replaceSymbols ? BST_CHECKED : BST_UNCHECKED, 0);
-        return 0;
-
-    case WM_SIZE:
-        {
-            RECT r;
-            int height;
-            int width;
-            HWND hwnd;
-
-            GetClientRect(GetParent(hDlg), &r);
-            
-            height = r.bottom - r.top;
-            width  = r.right - r.left;
-
-            hwnd = GetDlgItem(hDlg, IDC_SYMBOLSAPPEND);
-            SetWindowPos(hwnd, NULL, 81, height - 26, 0, 0, SWP_NOSIZE | SWP_NOZORDER);            
-        }
-        return 0;
-
-    case WM_COMMAND:
-        if (LOWORD(wParam) == IDC_SYMBOLSAPPEND) {
-            int newChecked = BST_CHECKED == SendDlgItemMessage(hDlg, IDC_SYMBOLSAPPEND, BM_GETCHECK, 0, 0);
-            if (newChecked != replaceSymbols) {
-                replaceSymbols = newChecked;
-                InvalidateRect(hDlg, NULL, TRUE);
-            }
-        }
-        return 0;
-
-        
-    }
-    return 0;
-}
-
 void loadSymbolFile(HWND hwndOwner)
 {
-    OPENFILENAME ofn; 
     static char pFileName[MAX_PATH];
     static char buffer[0x20000];
 
-    pFileName[0] = 0; 
+    pFileName[0] = 0;
 
-    char  curDir[MAX_PATH];
-
-    GetCurrentDirectory(MAX_PATH, curDir);
-
-
-    ofn.lStructSize = sizeof(OPENFILENAME); 
-    ofn.hwndOwner = hwndOwner; 
-    ofn.hInstance = GetDllHinstance();
-    ofn.lpstrFilter = "Symbol Files   (*.SYM)\0*.SYM\0All Files   (*.*)\0*.*\0"; 
-    ofn.lpstrCustomFilter = NULL; 
-    ofn.nMaxCustFilter = 0;
-    ofn.nFilterIndex = 0; 
-    ofn.lpstrFile = pFileName; 
-    ofn.nMaxFile = 1024; 
-    ofn.lpstrFileTitle = NULL; 
-    ofn.nMaxFileTitle = 0; 
-    ofn.lpstrInitialDir = NULL; 
-    ofn.lpstrTitle = Language::symbolWindowCaption; 
-    ofn.Flags = OFN_EXPLORER | OFN_ENABLESIZING | OFN_ENABLETEMPLATE | OFN_HIDEREADONLY | OFN_ENABLEHOOK | OFN_FILEMUSTEXIST; 
-    ofn.nFileOffset = 0; 
-    ofn.nFileExtension = 0; 
-    ofn.lpstrDefExt = NULL; 
-    ofn.lCustData = 0; 
-    ofn.lpfnHook = hookProc; 
-    ofn.lpTemplateName = MAKEINTRESOURCE(IDD_OPEN_SYMBOLSDIALOG); 
-
-    BOOL rv = GetOpenFileName(&ofn); 
-
-    SetCurrentDirectory(curDir);
-
-    if (!rv) {
-        return; 
+    if (!ShellOpenFileDialog(hwndOwner, Language::symbolWindowCaption,
+                             "Symbol Files   (*.SYM)\0*.SYM\0All Files   (*.*)\0*.*\0\0",
+                             NULL, "sym", NULL, pFileName, sizeof(pFileName)))
+    {
+        return;
     }
 
     FILE* file = fopenU(pFileName, "r");
@@ -496,42 +438,15 @@ void loadSymbolFile(HWND hwndOwner)
 
 void saveDisassembly(HWND hwndOwner)
 {
-    OPENFILENAME ofn; 
     static char pFileName[MAX_PATH];
     static char buffer[0x20000];
 
-    pFileName[0] = 0; 
+    pFileName[0] = 0;
 
-    char  curDir[MAX_PATH];
-
-    GetCurrentDirectory(MAX_PATH, curDir);
-
-    ofn.lStructSize = sizeof(OPENFILENAME); 
-    ofn.hwndOwner = hwndOwner; 
-    ofn.hInstance = GetDllHinstance();
-    ofn.lpstrFilter = "*.ASM\0*.*\0\0"; 
-    ofn.lpstrCustomFilter = NULL; 
-    ofn.nMaxCustFilter = 0;
-    ofn.nFilterIndex = 0; 
-    ofn.lpstrFile = pFileName; 
-    ofn.nMaxFile = 1024; 
-    ofn.lpstrFileTitle = NULL; 
-    ofn.nMaxFileTitle = 0; 
-    ofn.lpstrInitialDir = NULL; 
-    ofn.lpstrTitle = Language::menuFileSaveDisassembly; 
-    ofn.Flags = OFN_EXPLORER | OFN_ENABLESIZING | OFN_HIDEREADONLY; 
-    ofn.nFileOffset = 0;
-    ofn.nFileExtension = 0; 
-    ofn.lpstrDefExt = NULL; 
-    ofn.lCustData = 0; 
-    ofn.lpfnHook = NULL; 
-    ofn.lpTemplateName = NULL; 
-
-    BOOL rv = GetSaveFileName(&ofn); 
-
-    SetCurrentDirectory(curDir);
-
-    if (!rv) {
+    if (!ShellSaveFileDialog(hwndOwner, Language::menuFileSaveDisassembly,
+                             "*.ASM\0*.*\0\0", NULL, "asm", NULL,
+                             pFileName, sizeof(pFileName)))
+    {
         return;
     }
 
@@ -554,43 +469,16 @@ void saveDisassembly(HWND hwndOwner)
 
 void saveMemory(HWND hwndOwner)
 {
-    OPENFILENAME ofn; 
     static char pFileName[MAX_PATH];
     static char buffer[0x20000];
 
-    pFileName[0] = 0; 
+    pFileName[0] = 0;
 
-    char  curDir[MAX_PATH];
-
-    GetCurrentDirectory(MAX_PATH, curDir);
-
-    ofn.lStructSize = sizeof(OPENFILENAME); 
-    ofn.hwndOwner = hwndOwner; 
-    ofn.hInstance = GetDllHinstance();
-    ofn.lpstrFilter = "*.BIN\0*.*\0\0"; 
-    ofn.lpstrCustomFilter = NULL; 
-    ofn.nMaxCustFilter = 0;
-    ofn.nFilterIndex = 0; 
-    ofn.lpstrFile = pFileName; 
-    ofn.nMaxFile = 1024; 
-    ofn.lpstrFileTitle = NULL; 
-    ofn.nMaxFileTitle = 0; 
-    ofn.lpstrInitialDir = NULL; 
-    ofn.lpstrTitle = Language::menuFileSaveMemory; 
-    ofn.Flags = OFN_EXPLORER | OFN_ENABLESIZING | OFN_HIDEREADONLY; 
-    ofn.nFileOffset = 0;
-    ofn.nFileExtension = 0;
-    ofn.lpstrDefExt = NULL; 
-    ofn.lCustData = 0; 
-    ofn.lpfnHook = NULL; 
-    ofn.lpTemplateName = NULL; 
-
-    BOOL rv = GetSaveFileName(&ofn); 
-
-    SetCurrentDirectory(curDir);
-
-    if (!rv) {
-        return; 
+    if (!ShellSaveFileDialog(hwndOwner, Language::menuFileSaveMemory,
+                             "*.BIN\0*.*\0\0", NULL, "bin", NULL,
+                             pFileName, sizeof(pFileName)))
+    {
+        return;
     }
 
     int len = (int)strlen(pFileName);
@@ -915,6 +803,11 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 
         case MENU_FILE_LOADSYM:
             loadSymbolFile(hwnd);
+            return 0;
+
+        case MENU_FILE_REPLACESYM:
+            replaceSymbols = !replaceSymbols;
+            updateWindowMenu();
             return 0;
 
         case MENU_FILE_SAVEDASM:

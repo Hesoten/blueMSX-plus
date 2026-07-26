@@ -141,13 +141,6 @@ BEGIN
     PUSHBUTTON      "",IDCANCEL,126,87,50,14
 END
 
-IDD_OPEN_SYMBOLSDIALOG DIALOGEX 0, 0, 0, 17
-STYLE WS_CHILD | WS_CLIPSIBLINGS | DS_CONTROL | DS_3DLOOK
-FONT 8, "MS Shell Dlg", 400, 0, 0x1
-BEGIN
-    LTEXT           "", stc32, 0, 0, 0, 0
-    CONTROL         "",IDC_SYMBOLSAPPEND,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,10,150,120,11
-END
 #ifdef APSTUDIO_INVOKED
 /////////////////////////////////////////////////////////////////////////////
 //

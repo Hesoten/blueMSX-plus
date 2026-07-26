@@ -1,5 +1,4 @@
 #define IDD_MEMORYTOOLBAR         100
-#define IDD_OPEN_SYMBOLSDIALOG    101
 #define IDD_GOTO                  102
 #define IDD_SETBP                 103
 #define IDD_FIND                  104
@@ -16,8 +15,6 @@
 
 #define IDC_ADDRESS             10004
 #define IDC_MEMORY              10005
-
-#define IDC_SYMBOLSAPPEND       10006
 
 #define IDC_TEXT_ADDRESS        10007
 #define IDC_TEXT_MEMORY         10008
