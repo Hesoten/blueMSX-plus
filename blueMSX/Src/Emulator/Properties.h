@@ -604,6 +604,9 @@ void propDestroy(Properties* pProperties);
 /* defDir: preferred location for bluemsx.ini; altDir: fallback if absent. */
 void propertiesSetDirectory(const char* defDir, const char* altDir);
 
+/* 1 if a saved bluemsx.ini exists (call propertiesSetDirectory first). */
+int propSettingsFileExists(void);
+
 Properties* propGetGlobalProperties();
 
 /* Resolves an OPLL analog filter preset to (lpfHz, hpfHz).  For

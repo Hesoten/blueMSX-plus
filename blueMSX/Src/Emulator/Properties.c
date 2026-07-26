@@ -1390,6 +1390,18 @@ void propertiesSetDirectory(const char* defDir, const char* altDir)
     }
 }
 
+/* 1 if a saved bluemsx.ini exists (i.e. not a first launch).  Uses the path
+   resolved by propertiesSetDirectory, so call that first. */
+int propSettingsFileExists(void)
+{
+    FILE* f = fopen(settFilename, "r");
+    if (f != NULL) {
+        fclose(f);
+        return 1;
+    }
+    return 0;
+}
+
 
 Properties* propCreate(int useDefault, int langType, PropKeyboardLanguage kbdLang, int syncMode, const char* themeName) 
 {
