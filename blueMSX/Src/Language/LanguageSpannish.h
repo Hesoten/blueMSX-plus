@@ -503,8 +503,7 @@ void langInitSpanish(LanguageStrings* ls)
 
     ls->propD3DParametersGB         = "Parámetros ";                // New in 2.9
     ls->propD3DAspectRatioText      = "Relación de aspecto";               // New in 2.9
-    ls->propD3DLinearFilteringText  = " Filtrado lineal";          // New in 2.9
-    ls->propD3DForceHighResText     = " Forzar alta resolución";     // New in 2.9
+    ls->propD3DScalingFilterText     = "Filtro de escala";
     ls->propD3DExtendBorderColorText    = " Extender color del borde";   // New in 2.9
 
     ls->propD3DCroppingGB               = "Recorte ";              // New in 2.9
@@ -554,6 +553,10 @@ void langInitSpanish(LanguageStrings* ls)
     ls->enumD3DARPAL            = "PAL";            // New in 2.9
     ls->enumD3DARNTSC           = "NTSC";           // New in 2.9
     ls->enumD3DAR11             = "1:1";            // New in 2.9
+    ls->enumD3DScaleNearest          = "Más cercano";
+    ls->enumD3DScaleBilinear         = "Bilineal";
+    ls->enumD3DScaleSharp            = "Bilineal nítido";
+    ls->enumD3DScalePrescaled     = "Bilineal (2x prescale)";
 
     ls->enumD3DCropNone         = "Ninguno";           // New in 2.9
     ls->enumD3DCropMSX1         = "MSX1";           // New in 2.9

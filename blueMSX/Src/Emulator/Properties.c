@@ -71,6 +71,14 @@ ValueNamePair YesNoPair[] = {
     { -1,                           "" },
 };
 
+ValueNamePair ScalingFilterPair[] = {
+    { P_D3D_SCALE_NEAREST,          "nearest" },
+    { P_D3D_SCALE_BILINEAR,         "bilinear" },
+    { P_D3D_SCALE_SHARP,            "sharp" },
+    { P_D3D_SCALE_PRESCALED,        "prescaled" },
+    { -1,                           "" },
+};
+
 ValueNamePair ZeroOnePair[] = {
     { 0,                            "0" },
     { 1,                            "1" },
@@ -336,6 +344,7 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->video.d3d.extendBorderColor = 0;
     properties->video.d3d.linearFiltering   = 0;
     properties->video.d3d.forceHighRes      = 0;
+    properties->video.d3d.scalingFilter     = P_D3D_SCALE_SHARP;
 
     properties->video.d3d.cropLeft          = 0;
     properties->video.d3d.cropRight         = 0;
@@ -693,6 +702,25 @@ static void propLoad(Properties* properties)
     GET_ENUM_VALUE_3(propFile, video, d3d, linearFiltering, BoolPair);
     GET_ENUM_VALUE_3(propFile, video, d3d, extendBorderColor, BoolPair);
     GET_ENUM_VALUE_3(propFile, video, d3d, forceHighRes, BoolPair);
+    /* scalingFilter absent: migrate from legacy flags only if an ini exists
+       (forceHighRes[+linear]->sharp/prescaled, linear->bilinear, else nearest);
+       a fresh install (no ini) keeps the default (sharp), not nearest. */
+    properties->video.d3d.scalingFilter = -1;
+    GET_ENUM_VALUE_3(propFile, video, d3d, scalingFilter, ScalingFilterPair);
+    if (properties->video.d3d.scalingFilter < 0) {
+        FILE* sf = fopen(settFilename, "r");
+        if (sf != NULL) {
+            fclose(sf);
+            properties->video.d3d.scalingFilter =
+                (properties->video.d3d.forceHighRes && properties->video.d3d.linearFiltering) ? P_D3D_SCALE_PRESCALED :
+                properties->video.d3d.forceHighRes    ? P_D3D_SCALE_SHARP :
+                properties->video.d3d.linearFiltering ? P_D3D_SCALE_BILINEAR :
+                                                        P_D3D_SCALE_NEAREST;
+        }
+        else {
+            properties->video.d3d.scalingFilter = P_D3D_SCALE_SHARP;
+        }
+    }
     GET_INT_VALUE_3(propFile, video, d3d, aspectRatioType);
     GET_INT_VALUE_3(propFile, video, d3d, cropType);
 
@@ -1027,9 +1055,17 @@ void propSave(Properties* properties)
     
     SET_INT_VALUE_2(propFile, video, captureSize);
 
-    SET_ENUM_VALUE_3(propFile, video, d3d, linearFiltering, BoolPair);
-    SET_ENUM_VALUE_3(propFile, video, d3d, extendBorderColor, BoolPair);
-    SET_ENUM_VALUE_3(propFile, video, d3d, forceHighRes, BoolPair);
+    /* Keep legacy flags in sync with scalingFilter so an older build reading
+       this ini still behaves right (sharp->highres+filter, bilinear->filter). */
+    properties->video.d3d.linearFiltering = properties->video.d3d.scalingFilter == P_D3D_SCALE_BILINEAR
+                                         || properties->video.d3d.scalingFilter == P_D3D_SCALE_PRESCALED;
+    properties->video.d3d.forceHighRes    = properties->video.d3d.scalingFilter == P_D3D_SCALE_SHARP
+                                         || properties->video.d3d.scalingFilter == P_D3D_SCALE_PRESCALED;
+    /* YesNoPair (not BoolPair, whose true/false entries are inverted). */
+    SET_ENUM_VALUE_3(propFile, video, d3d, scalingFilter, ScalingFilterPair);
+    SET_ENUM_VALUE_3(propFile, video, d3d, linearFiltering, YesNoPair);
+    SET_ENUM_VALUE_3(propFile, video, d3d, extendBorderColor, YesNoPair);
+    SET_ENUM_VALUE_3(propFile, video, d3d, forceHighRes, YesNoPair);
     SET_INT_VALUE_3(propFile, video, d3d, aspectRatioType);
     SET_INT_VALUE_3(propFile, video, d3d, cropType);
 

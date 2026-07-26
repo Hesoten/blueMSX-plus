@@ -503,8 +503,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
 
     ls->propD3DParametersGB         = "参数 ";                // New in 2.9
     ls->propD3DAspectRatioText      = "宽高比";               // New in 2.9
-    ls->propD3DLinearFilteringText  = " 线性过滤";          // New in 2.9
-    ls->propD3DForceHighResText     = " 强制高分辨率";     // New in 2.9
+    ls->propD3DScalingFilterText     = "缩放滤镜";
     ls->propD3DExtendBorderColorText    = " 扩展边框颜色";   // New in 2.9
 
     ls->propD3DCroppingGB               = "裁剪 ";              // New in 2.9
@@ -554,6 +553,10 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->enumD3DARPAL            = "PAL";            // New in 2.9
     ls->enumD3DARNTSC           = "NTSC";           // New in 2.9
     ls->enumD3DAR11             = "1:1";            // New in 2.9
+    ls->enumD3DScaleNearest          = "最近邻";
+    ls->enumD3DScaleBilinear         = "双线性";
+    ls->enumD3DScaleSharp            = "锐利双线性";
+    ls->enumD3DScalePrescaled     = "双线性(2x预缩放)";
 
     ls->enumD3DCropNone         = "无";           // New in 2.9
     ls->enumD3DCropMSX1         = "MSX1";           // New in 2.9

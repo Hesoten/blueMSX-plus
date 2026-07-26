@@ -103,6 +103,7 @@ cbuffer EffectParams : register(b0) {
     float darkBoostRatio;       // 1.0 = no boost; per-pixel HDR dark lift
     float scanUseAA;            // 0 LEGACY point-sample, 1 AA integration
     float scanShapeP;           // sin^p sharpness exponent [0, 4]
+    float scalingFilter;        // 0 nearest, 1 sharp, 2 prescaled-bilinear, 3 bilinear (FAST)
 };
 
 struct PSIn { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; };
@@ -264,9 +265,29 @@ float4 main(PSIn p) : SV_TARGET {
             }
         }
     } else if (palMode < 0.5) {
-        // FAST mode: the trivial sampler path stays the same as the
-        // pre-PAL baseline so non-PAL users see no behavioural change.
-        color = texCur.Sample(samp, p.uv);
+        // FAST. 0/3 = plain point/linear Sample (sampler chosen CPU-side);
+        // 1 = sharp bilinear (~1px screen seam); 2 = prescaled bilinear (fixed
+        // 0.5-texel seam == forceHighRes 2x prescale + bilinear).  1/2 Load-based.
+        if (scalingFilter > 0.5 && scalingFilter < 2.5) {
+            float2 texSize = float2(texWf, texHf);
+            int2   maxXY   = int2((int)srcWf - 1, (int)srcHf - 1);
+            float2 uvTex   = p.uv * texSize - 0.5;
+            float2 baseF   = floor(uvTex);
+            float2 fracXY  = uvTex - baseF;
+            // sharp: seam == 1 screen px; prescaled: fixed 0.5 texel.
+            float2 seam    = (scalingFilter < 1.5) ? max(fwidth(uvTex), 1e-5) : float2(0.5, 0.5);
+            float2 w       = clamp((fracXY - 0.5) / seam + 0.5, 0.0, 1.0);
+            int2   b       = (int2)baseF;
+            int2   b00 = clamp(b,             int2(0, 0), maxXY);
+            int2   b10 = clamp(b + int2(1,0), int2(0, 0), maxXY);
+            int2   b01 = clamp(b + int2(0,1), int2(0, 0), maxXY);
+            int2   b11 = clamp(b + int2(1,1), int2(0, 0), maxXY);
+            float3 cTop = lerp(texCur.Load(int3(b00,0)).rgb, texCur.Load(int3(b10,0)).rgb, w.x);
+            float3 cBot = lerp(texCur.Load(int3(b01,0)).rgb, texCur.Load(int3(b11,0)).rgb, w.x);
+            color = float4(lerp(cTop, cBot, w.y), 1.0);
+        } else {
+            color = texCur.Sample(samp, p.uv);
+        }
     } else {
         // Map UV onto DD's zoom=2 surface: non-dw = 1 src -> 2 dst
         // (epsilon 0/1), dw = 1:1 (epsilon unused).
@@ -517,6 +538,7 @@ struct EffectCB12 {
     float darkBoostRatio;      // per-pixel HDR dark-pixel lift (1.0 = no extra boost)
     float scanUseAA;           // 0 = LEGACY point-sample, 1 = AA integration
     float scanShapeP;          // sin^p sharpness exponent [0, 4]
+    float scalingFilter;       // P_D3D_SCALE_* (FAST-path reconstruction)
 };
 static const UINT CB_SIZE = (sizeof(EffectCB12) + 255) & ~255u; // 256-byte aligned
 static ComPtr<ID3D12Resource>            g12_cbuf[FRAME_COUNT];
@@ -1933,6 +1955,7 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
             if (spct > 100) spct = 100;
             cb.scanShapeP = (float)spct / 100.0f * 4.0f;
         }
+        cb.scalingFilter = (float)props->scalingFilter;
         cb.blendFramesEnable  = blendFramesEnable ? 1.0f : 0.0f;
         cb.gammaExp           = (float)pVideo->gamma;
         cb.contrast           = (float)pVideo->contrast;
@@ -2013,9 +2036,10 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
         g12_cmdList->SetGraphicsRootDescriptorTable(0,
             g12_srvHeap->GetGPUDescriptorHandleForHeapStart());
 
-        // Select sampler: index 0 = point, index 1 = linear
+        // Select sampler: index 0 = point, index 1 = linear.  Sharp uses Load()
+        // and ignores this; only plain BILINEAR needs the linear sampler.
         D3D12_GPU_DESCRIPTOR_HANDLE sampH = g12_samplerHeap->GetGPUDescriptorHandleForHeapStart();
-        if (props->linearFiltering)
+        if (props->scalingFilter == P_D3D_SCALE_BILINEAR)
             sampH.ptr += g12_samplerSize;
         g12_cmdList->SetGraphicsRootDescriptorTable(1, sampH);
 
@@ -2761,6 +2785,7 @@ extern "C" int D3D12RecordCaptureFromFrame(FrameBuffer* fb, Video* pVideo,
             if (spct > 100) spct = 100;
             cb.scanShapeP = (float)spct / 100.0f * 4.0f;
         }
+        cb.scalingFilter = (float)props->scalingFilter;
         cb.blendFramesEnable  = 0.0f;
         cb.gammaExp           = (float)pVideo->gamma;
         cb.contrast           = (float)pVideo->contrast;
@@ -2906,7 +2931,7 @@ extern "C" int D3D12RecordCaptureFromFrame(FrameBuffer* fb, Video* pVideo,
         0, g12_recSrvHeap->GetGPUDescriptorHandleForHeapStart());
 
     D3D12_GPU_DESCRIPTOR_HANDLE samp = g12_samplerHeap->GetGPUDescriptorHandleForHeapStart();
-    if (props->linearFiltering) samp.ptr += g12_samplerSize;
+    if (props->scalingFilter == P_D3D_SCALE_BILINEAR) samp.ptr += g12_samplerSize;
     g12_recCmdList->SetGraphicsRootDescriptorTable(1, samp);
 
     g12_recCmdList->SetGraphicsRootConstantBufferView(

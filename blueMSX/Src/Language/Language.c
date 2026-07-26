@@ -750,6 +750,11 @@ char* langEnumD3DARPAL() { return ls->enumD3DARPAL; }
 char* langEnumD3DARNTSC() { return ls->enumD3DARNTSC; }
 char* langEnumD3DAR11() { return ls->enumD3DAR11; }
 
+char* langEnumD3DScaleNearest() { return ls->enumD3DScaleNearest; }
+char* langEnumD3DScaleBilinear() { return ls->enumD3DScaleBilinear; }
+char* langEnumD3DScaleSharp() { return ls->enumD3DScaleSharp; }
+char* langEnumD3DScalePrescaled() { return ls->enumD3DScalePrescaled; }
+
 char* langEnumD3DCropNone() { return ls->enumD3DCropNone; }
 char* langEnumD3DCropMSX1() { return ls->enumD3DCropMSX1; }
 char* langEnumD3DCropMSX1Plus8() { return ls->enumD3DCropMSX1Plus8; }
@@ -759,8 +764,7 @@ char* langEnumD3DCropCustom() { return ls->enumD3DCropCustom; }
 
 char* langPropD3DParametersGB() { return ls->propD3DParametersGB; }
 char* langPropD3DAspectRatioText() { return ls->propD3DAspectRatioText; }
-char* langPropD3DLinearFilteringText() { return ls->propD3DLinearFilteringText; }
-char* langPropD3DForceHighResText() { return ls->propD3DForceHighResText; }
+char* langPropD3DScalingFilterText() { return ls->propD3DScalingFilterText; }
 char* langPropD3DExtendBorderColorText() { return ls->propD3DExtendBorderColorText; }
 
 char* langpropD3DCroppingGB() { return ls->propD3DCroppingGB; }

@@ -503,8 +503,7 @@ void langInitRussian(LanguageStrings* ls)
 
     ls->propD3DParametersGB         = "Параметры ";                // New in 2.9
     ls->propD3DAspectRatioText      = "Соотношение сторон";               // New in 2.9
-    ls->propD3DLinearFilteringText  = " Линейная фильтрация";          // New in 2.9
-    ls->propD3DForceHighResText     = " Принудительное высокое разрешение";     // New in 2.9
+    ls->propD3DScalingFilterText     = "Фильтр масштаба";
     ls->propD3DExtendBorderColorText    = " Расширить цвет рамки";   // New in 2.9
 
     ls->propD3DCroppingGB               = "Обрезка ";              // New in 2.9
@@ -554,6 +553,10 @@ void langInitRussian(LanguageStrings* ls)
     ls->enumD3DARPAL            = "PAL";            // New in 2.9
     ls->enumD3DARNTSC           = "NTSC";           // New in 2.9
     ls->enumD3DAR11             = "1:1";            // New in 2.9
+    ls->enumD3DScaleNearest          = "Ближайший";
+    ls->enumD3DScaleBilinear         = "Билинейный";
+    ls->enumD3DScaleSharp            = "Резкий билинейный";
+    ls->enumD3DScalePrescaled     = "Билинейный (2x prescale)";
 
     ls->enumD3DCropNone         = "Нет";           // New in 2.9
     ls->enumD3DCropMSX1         = "MSX1";           // New in 2.9

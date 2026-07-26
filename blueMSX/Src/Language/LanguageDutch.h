@@ -503,8 +503,7 @@ void langInitDutch(LanguageStrings* ls)
 
     ls->propD3DParametersGB         = "Parameters ";                // New in 2.9
     ls->propD3DAspectRatioText      = "Beeldverhouding";               // New in 2.9
-    ls->propD3DLinearFilteringText  = " Lineair filteren";          // New in 2.9
-    ls->propD3DForceHighResText     = " Hoge resolutie forceren";     // New in 2.9
+    ls->propD3DScalingFilterText     = "Schaalfilter";
     ls->propD3DExtendBorderColorText    = " Randkleur uitbreiden";   // New in 2.9
 
     ls->propD3DCroppingGB               = "Bijsnijden ";              // New in 2.9
@@ -554,6 +553,10 @@ void langInitDutch(LanguageStrings* ls)
     ls->enumD3DARPAL            = "PAL";            // New in 2.9
     ls->enumD3DARNTSC           = "NTSC";           // New in 2.9
     ls->enumD3DAR11             = "1:1";            // New in 2.9
+    ls->enumD3DScaleNearest          = "Dichtstbijzijnd";
+    ls->enumD3DScaleBilinear         = "Bilineair";
+    ls->enumD3DScaleSharp            = "Scherp bilineair";
+    ls->enumD3DScalePrescaled     = "Bilineair (2x prescale)";
 
     ls->enumD3DCropNone         = "Geen";           // New in 2.9
     ls->enumD3DCropMSX1         = "MSX1";           // New in 2.9

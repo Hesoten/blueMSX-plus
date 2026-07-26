@@ -504,8 +504,7 @@ void langInitFinnish(LanguageStrings* ls)
 
     ls->propD3DParametersGB         = "Parametrit ";                // New in 2.9
     ls->propD3DAspectRatioText      = "Kuvasuhde";               // New in 2.9
-    ls->propD3DLinearFilteringText  = " Lineaarinen suodatus";          // New in 2.9
-    ls->propD3DForceHighResText     = " Pakota korkea resoluutio";     // New in 2.9
+    ls->propD3DScalingFilterText     = "Skaalaussuodatin";
     ls->propD3DExtendBorderColorText    = " Laajenna reunan väri";   // New in 2.9
 
     ls->propD3DCroppingGB               = "Rajaus ";              // New in 2.9
@@ -555,6 +554,10 @@ void langInitFinnish(LanguageStrings* ls)
     ls->enumD3DARPAL            = "PAL";            // New in 2.9
     ls->enumD3DARNTSC           = "NTSC";           // New in 2.9
     ls->enumD3DAR11             = "1:1";            // New in 2.9
+    ls->enumD3DScaleNearest          = "Lähin";
+    ls->enumD3DScaleBilinear         = "Bilineaarinen";
+    ls->enumD3DScaleSharp            = "Terävä bilineaar.";
+    ls->enumD3DScalePrescaled     = "Bilineaari (2x prescale)";
 
     ls->enumD3DCropNone         = "Ei mitään";           // New in 2.9
     ls->enumD3DCropMSX1         = "MSX1";           // New in 2.9

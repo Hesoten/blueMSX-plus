@@ -503,8 +503,7 @@ void langInitKorean(LanguageStrings* ls)
 
     ls->propD3DParametersGB         = "매개 변수 ";                // New in 2.9
     ls->propD3DAspectRatioText      = "화면 비율";               // New in 2.9
-    ls->propD3DLinearFilteringText  = " 선형 필터링";          // New in 2.9
-    ls->propD3DForceHighResText     = " 고해상도 강제";     // New in 2.9
+    ls->propD3DScalingFilterText     = "확대 필터";
     ls->propD3DExtendBorderColorText    = " 테두리 색 확장";   // New in 2.9
 
     ls->propD3DCroppingGB               = "자르기 ";              // New in 2.9
@@ -554,6 +553,10 @@ void langInitKorean(LanguageStrings* ls)
     ls->enumD3DARPAL            = "PAL";            // New in 2.9
     ls->enumD3DARNTSC           = "NTSC";           // New in 2.9
     ls->enumD3DAR11             = "1:1";            // New in 2.9
+    ls->enumD3DScaleNearest          = "가장 가까움";
+    ls->enumD3DScaleBilinear         = "이중 선형";
+    ls->enumD3DScaleSharp            = "선명한 이중 선형";
+    ls->enumD3DScalePrescaled     = "이중 선형 (2x 프리스케일)";
 
     ls->enumD3DCropNone         = "없음";           // New in 2.9
     ls->enumD3DCropMSX1         = "MSX1";           // New in 2.9
