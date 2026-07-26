@@ -504,8 +504,7 @@ void langInitSwedish(LanguageStrings* ls)
 
     ls->propD3DParametersGB         = "Parametrar ";                // New in 2.9
     ls->propD3DAspectRatioText      = "Bildförhållande";               // New in 2.9
-    ls->propD3DLinearFilteringText  = " Linjärt filter";          // New in 2.9
-    ls->propD3DForceHighResText     = " Tvinga högupplösning";     // New in 2.9
+    ls->propD3DScalingFilterText     = "Skalningsfilter";
     ls->propD3DExtendBorderColorText    = " Expandera ramfärger";   // New in 2.9
 
     ls->propD3DCroppingGB               = "Trimning ";              // New in 2.9
@@ -555,6 +554,10 @@ void langInitSwedish(LanguageStrings* ls)
     ls->enumD3DARPAL            = "PAL";            // New in 2.9
     ls->enumD3DARNTSC           = "NTSC";           // New in 2.9
     ls->enumD3DAR11             = "1:1";            // New in 2.9
+    ls->enumD3DScaleNearest          = "Närmaste";
+    ls->enumD3DScaleBilinear         = "Bilinjär";
+    ls->enumD3DScaleSharp            = "Skarp bilinjär";
+    ls->enumD3DScalePrescaled     = "Bilinjär (2x prescale)";
 
     ls->enumD3DCropNone         = "Ingen";           // New in 2.9
     ls->enumD3DCropMSX1         = "MSX1";           // New in 2.9

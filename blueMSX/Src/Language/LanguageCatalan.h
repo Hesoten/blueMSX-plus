@@ -503,8 +503,7 @@ void langInitCatalan(LanguageStrings* ls)
 
     ls->propD3DParametersGB         = "Paràmetres ";                // New in 2.9
     ls->propD3DAspectRatioText      = "Relació d'aspecte";               // New in 2.9
-    ls->propD3DLinearFilteringText  = " Filtratge lineal";          // New in 2.9
-    ls->propD3DForceHighResText     = " Força alta resolució";     // New in 2.9
+    ls->propD3DScalingFilterText     = "Filtre d'escala";
     ls->propD3DExtendBorderColorText    = " Estén el color del marc";   // New in 2.9
 
     ls->propD3DCroppingGB               = "Retall ";              // New in 2.9
@@ -554,6 +553,10 @@ void langInitCatalan(LanguageStrings* ls)
     ls->enumD3DARPAL            = "PAL";            // New in 2.9
     ls->enumD3DARNTSC           = "NTSC";           // New in 2.9
     ls->enumD3DAR11             = "1:1";            // New in 2.9
+    ls->enumD3DScaleNearest          = "Més proper";
+    ls->enumD3DScaleBilinear         = "Bilineal";
+    ls->enumD3DScaleSharp            = "Bilineal nítid";
+    ls->enumD3DScalePrescaled     = "Bilineal (2x prescale)";
 
     ls->enumD3DCropNone         = "Cap";           // New in 2.9
     ls->enumD3DCropMSX1         = "MSX1";           // New in 2.9

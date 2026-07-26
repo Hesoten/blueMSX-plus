@@ -504,8 +504,7 @@ void langInitItalian(LanguageStrings* ls)
 
     ls->propD3DParametersGB         = "Parametri ";                // New in 2.9
     ls->propD3DAspectRatioText      = "Proporzioni";               // New in 2.9
-    ls->propD3DLinearFilteringText  = " Filtro lineare";          // New in 2.9
-    ls->propD3DForceHighResText     = " Forza alta risoluzione";     // New in 2.9
+    ls->propD3DScalingFilterText     = "Filtro di scala";
     ls->propD3DExtendBorderColorText    = " Estendi colore bordo";   // New in 2.9
 
     ls->propD3DCroppingGB               = "Ritaglio ";              // New in 2.9
@@ -555,6 +554,10 @@ void langInitItalian(LanguageStrings* ls)
     ls->enumD3DARPAL            = "PAL";            // New in 2.9
     ls->enumD3DARNTSC           = "NTSC";           // New in 2.9
     ls->enumD3DAR11             = "1:1";            // New in 2.9
+    ls->enumD3DScaleNearest          = "Più vicino";
+    ls->enumD3DScaleBilinear         = "Bilineare";
+    ls->enumD3DScaleSharp            = "Bilineare nitido";
+    ls->enumD3DScalePrescaled     = "Bilineare (2x prescale)";
 
     ls->enumD3DCropNone         = "Nessuno";           // New in 2.9
     ls->enumD3DCropMSX1         = "MSX1";           // New in 2.9

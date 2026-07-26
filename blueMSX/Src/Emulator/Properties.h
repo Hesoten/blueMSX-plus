@@ -250,9 +250,10 @@ typedef struct {
 } EmulationProperties;
 
 typedef struct {
-		int linearFiltering;
+		int linearFiltering;   /* legacy; derived from scalingFilter for downgrade */
 		int extendBorderColor;
-		int forceHighRes;
+		int forceHighRes;      /* legacy; derived from scalingFilter for downgrade */
+		int scalingFilter;     /* P_D3D_SCALE_* */
 
 		int aspectRatioType;
 		int cropType;
@@ -317,6 +318,13 @@ enum {
 	P_D3D_RES_AUTO = 0,
 	P_D3D_RES_256,
 	P_D3D_RES_512
+};
+
+enum {
+	P_D3D_SCALE_NEAREST = 0,   /* combo order: crisp -> soft */
+	P_D3D_SCALE_SHARP,
+	P_D3D_SCALE_PRESCALED,      /* integer 2x nearest prescale, then bilinear */
+	P_D3D_SCALE_BILINEAR
 };
 
 enum {

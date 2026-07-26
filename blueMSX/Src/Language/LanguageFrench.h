@@ -503,8 +503,7 @@ void langInitFrench(LanguageStrings* ls)
 
     ls->propD3DParametersGB         = "Paramètres ";
     ls->propD3DAspectRatioText      = "Format d'image";
-    ls->propD3DLinearFilteringText  = " Fitrage linéaire";
-    ls->propD3DForceHighResText     = " Forcer haute résolution";
+    ls->propD3DScalingFilterText     = "Filtre d'échelle";
     ls->propD3DExtendBorderColorText    = " Étendre la couleur du bord";
 
     ls->propD3DCroppingGB               = "Rognage ";
@@ -553,6 +552,10 @@ void langInitFrench(LanguageStrings* ls)
 	ls->enumD3DARPAL            = "PAL";
 	ls->enumD3DARNTSC           = "NTSC";
 	ls->enumD3DAR11             = "1:1";
+    ls->enumD3DScaleNearest          = "Plus proche";
+    ls->enumD3DScaleBilinear         = "Bilinéaire";
+    ls->enumD3DScaleSharp            = "Bilinéaire net";
+    ls->enumD3DScalePrescaled     = "Bilinéaire (2x prescale)";
 
 	ls->enumD3DCropNone         = "Aucun";
 	ls->enumD3DCropMSX1         = "MSX1";

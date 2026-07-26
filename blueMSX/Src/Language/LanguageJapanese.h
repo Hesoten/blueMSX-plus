@@ -526,8 +526,7 @@ void langInitJapanese(LanguageStrings* ls)
 
     ls->propD3DParametersGB         = " パラメータ ";
     ls->propD3DAspectRatioText      = "アスペクト比:";
-    ls->propD3DLinearFilteringText  = " リニアフィルタリング";
-    ls->propD3DForceHighResText     = " 高解像度を強制";
+    ls->propD3DScalingFilterText     = "拡大フィルタ:";
     ls->propD3DExtendBorderColorText    = " ボーダー色を拡張";
 
     ls->propD3DCroppingGB               = " クロッピング ";
@@ -576,6 +575,10 @@ void langInitJapanese(LanguageStrings* ls)
     ls->enumD3DARPAL            = "PAL";
     ls->enumD3DARNTSC           = "NTSC";
     ls->enumD3DAR11             = "1:1";
+    ls->enumD3DScaleNearest          = "ニアレスト";
+    ls->enumD3DScaleBilinear         = "バイリニア";
+    ls->enumD3DScaleSharp            = "シャープバイリニア";
+    ls->enumD3DScalePrescaled     = "バイリニア(2xプリスケール)";
 
     ls->enumD3DCropNone         = "なし";
     ls->enumD3DCropMSX1         = "MSX1";

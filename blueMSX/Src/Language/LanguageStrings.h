@@ -497,8 +497,7 @@ typedef struct {
 
 	char* propD3DParametersGB;
     char* propD3DAspectRatioText;
-    char* propD3DLinearFilteringText;
-    char* propD3DForceHighResText;
+    char* propD3DScalingFilterText;
     char* propD3DExtendBorderColorText;
 
     char* propD3DCroppingGB;
@@ -548,6 +547,11 @@ typedef struct {
 	char* enumD3DARPAL;
 	char* enumD3DARNTSC;
 	char* enumD3DAR11;
+
+	char* enumD3DScaleNearest;
+	char* enumD3DScaleBilinear;
+	char* enumD3DScaleSharp;
+	char* enumD3DScalePrescaled;
 
 	char* enumD3DCropNone;
 	char* enumD3DCropMSX1;

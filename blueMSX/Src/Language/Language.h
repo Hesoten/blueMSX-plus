@@ -525,8 +525,7 @@ char* langPropCdromDrive();
 
 char* langPropD3DParametersGB();
 char* langPropD3DAspectRatioText();
-char* langPropD3DLinearFilteringText();
-char* langPropD3DForceHighResText();
+char* langPropD3DScalingFilterText();
 char* langPropD3DExtendBorderColorText();
 
 char* langpropD3DCroppingGB();
@@ -576,6 +575,11 @@ char* langEnumD3DARStretch();
 char* langEnumD3DARPAL();
 char* langEnumD3DARNTSC();
 char* langEnumD3DAR11();
+
+char* langEnumD3DScaleNearest();
+char* langEnumD3DScaleBilinear();
+char* langEnumD3DScaleSharp();
+char* langEnumD3DScalePrescaled();
 
 char* langEnumD3DCropNone();
 char* langEnumD3DCropMSX1();
