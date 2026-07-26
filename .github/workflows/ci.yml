@@ -9,6 +9,10 @@ name: CI
 on:
   pull_request:
     branches: [develop, main]
+    # 'edited' is on top of the defaults so that a PR retargeted from main to
+    # develop (see retarget-main-pr.yml) gets rebuilt against its new base.
+    # It also fires on title/body edits, which the job-level 'if' filters out.
+    types: [opened, synchronize, reopened, edited]
   push:
     branches: [ci-test]
   workflow_dispatch:
@@ -19,6 +23,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.event.action != 'edited' || github.event.changes.base != null
     runs-on: windows-2022
     strategy:
       fail-fast: false

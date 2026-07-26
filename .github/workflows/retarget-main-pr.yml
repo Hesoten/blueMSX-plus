@@ -1,0 +1,54 @@
+name: Retarget PRs to Develop
+
+# main only ever receives merges from develop, so a PR opened against main
+# is almost always a slip in the base branch dropdown rather than a
+# deliberate choice. Retarget it to develop. If the retarget fails for any
+# reason, ask the author to switch the base branch themselves.
+
+on:
+  pull_request_target:
+    branches:
+      - main
+    types: [opened, reopened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  retarget-pr:
+    if: github.event.pull_request.user.login != 'Hesoten'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR: ${{ github.event.pull_request.number }}
+      REPO: ${{ github.repository }}
+      BASE: ${{ github.base_ref }}
+    steps:
+      - name: Retarget to develop
+        id: retarget
+        continue-on-error: true
+        run: gh pr edit "$PR" --repo "$REPO" --base develop
+
+      - name: Comment (retargeted)
+        if: steps.retarget.outcome == 'success'
+        run: gh pr comment "$PR" --repo "$REPO" --body "$BODY"
+        env:
+          BODY: |
+            👋 Thanks for the pull request! `${{ github.base_ref }}` only receives merges from `develop`, so this PR has been retargeted to `develop` automatically. Please take a quick look at the updated diff, and rebase onto `develop` if anything unexpected slipped in.
+
+            プルリクエストをありがとうございます！ `${{ github.base_ref }}` は `develop` からのマージのみを受け取るブランチのため、このプルリクエストの向き先を自動的に `develop` へ変更しました。差分が意図どおりかご確認いただき、もし余計な変更が含まれていたら `develop` へ rebase していただけると助かります。
+
+      - name: Comment (retarget failed)
+        if: steps.retarget.outcome == 'failure'
+        run: gh pr comment "$PR" --repo "$REPO" --body "$BODY"
+        env:
+          BODY: |
+            👋 Thanks for the pull request! `${{ github.base_ref }}` only receives merges from `develop`, so this PR is pointed at the wrong branch. Retargeting it automatically didn't work this time, so could you switch the base branch over yourself? Press **Edit** next to the PR title and pick `develop` from the base branch dropdown, or open a fresh PR against `develop` if that is easier. Sorry for the extra step!
+
+            プルリクエストをありがとうございます！ `${{ github.base_ref }}` は `develop` からのマージのみを受け取るブランチのため、このプルリクエストは `develop` 宛にしていただけると助かります。自動での向き先変更を試みましたがうまくいかなかったため、お手数ですがタイトル横の **Edit** からベースブランチを `develop` に変更するか、`develop` 宛に作成し直していただけますでしょうか。ご協力よろしくお願いします。
+
+      - name: Surface retarget failure
+        if: steps.retarget.outcome == 'failure'
+        run: |
+          echo "::error::Could not retarget PR #$PR from $BASE to develop - the author was asked to do it manually."
+          exit 1
