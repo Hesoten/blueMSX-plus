@@ -206,13 +206,15 @@ LRESULT CpuRegisters::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
                 return FALSE;
             }
 
-            int value = input->getValue();
-            UInt32 regVal = input == dataInput2 ? (UInt8)value : (UInt16)value;
-            if (currentRegBank != NULL && regValue[currentEditRegister] != (int)regVal) {
-                DeviceWriteRegisterBankRegister(currentRegBank, currentEditRegister, regVal);
+            if (input->isModified()) {
+                int value = input->getValue();
+                UInt32 regVal = input == dataInput2 ? (UInt8)value : (UInt16)value;
+                if (currentRegBank != NULL && regValue[currentEditRegister] != (int)regVal) {
+                    DeviceWriteRegisterBankRegister(currentRegBank, currentEditRegister, regVal);
+                }
+                regValue[currentEditRegister] = regVal;
+                InvalidateRect(hwnd, NULL, TRUE);
             }
-            regValue[currentEditRegister] = regVal;
-            InvalidateRect(hwnd, NULL, TRUE);
 
             int rowsPerCol = lineCount - 1;
             int delta = 0;

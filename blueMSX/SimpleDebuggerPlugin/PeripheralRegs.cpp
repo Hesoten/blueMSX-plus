@@ -249,7 +249,7 @@ LRESULT PeripheralRegs::regWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
                 return FALSE;
             }
 
-            if (currentRegs != NULL) {
+            if (currentRegs != NULL && input->isModified()) {
                 int value = input->getValue();
                 UInt32 regVal = input == dataInput2 ? (UInt8)value : (UInt16)value;
                 if (currentRegs->regBank->reg[currentEditRegister].value != regVal) {

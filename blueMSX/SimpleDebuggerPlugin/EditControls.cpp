@@ -50,6 +50,28 @@ int InputDialog::richeditVersion = 0;
 InputDialog::InputDialog(HWND parent, int x, int y, int width, int height) :
     navEnabled(false), pparent(parent), wx(x), wy(y), wwidth(width), wheight(height)
 {
+    seedText[0] = 0;
+}
+
+/* EM_GETTEXTEX reports the copied length; cb bounds it below the buffer. */
+static int readBoxText(HWND dlg, char* buffer, int size)
+{
+    GETTEXTEX t = { (DWORD)size, GT_DEFAULT, CP_ACP, NULL, NULL };
+    int len = (int)SendDlgItemMessage(dlg, IDC_ADDRESS, EM_GETTEXTEX, (WPARAM)&t, (LPARAM)buffer);
+    buffer[len > 0 ? len : 0] = 0;
+    return len > 0 ? len : 0;
+}
+
+void InputDialog::rememberSeed()
+{
+    readBoxText(hwnd, seedText, sizeof(seedText));
+}
+
+bool InputDialog::isModified()
+{
+    char text[sizeof(seedText)];
+    readBoxText(hwnd, text, sizeof(text));
+    return strcmp(text, seedText) != 0;
 }
 
 /* RichEdit swallows Tab and Escape before EN_MSGFILTER sees them, so catch
@@ -320,6 +342,7 @@ void HexInputDialog::setValue(int value, bool setFocus)
     }
     charCount = 0;
     fastValue = value;
+    rememberSeed();
 }
 
 bool HexInputDialog::hasValue() 
@@ -509,9 +532,10 @@ void TextInputDialog::setValue(const char* value, bool setFocus)
         SetFocus(GetDlgItem(hwnd, IDC_ADDRESS));
     }
     charCount = 0;
+    rememberSeed();
 }
 
-const char* TextInputDialog::getValue() 
+const char* TextInputDialog::getValue()
 {
     GETTEXTEX t = {(DWORD)(chars + 1), GT_DEFAULT, CP_ACP, NULL, NULL};
     int len = (int)SendDlgItemMessage(hwnd, IDC_ADDRESS, EM_GETTEXTEX, (WPARAM)&t, (LPARAM)text);

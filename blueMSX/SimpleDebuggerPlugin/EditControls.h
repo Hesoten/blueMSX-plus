@@ -64,8 +64,18 @@ public:
 
     bool isVisible() const { return IsWindowVisible(hwnd) != 0; }
 
+    /* False until the text differs from what the box was seeded with, so
+    ** leaving a box alone never writes the displayed value back. Comparing the
+    ** text also covers paste and delete, which produce no WM_CHAR. */
+    bool isModified();
+
 protected:
     HWND hwnd;
+
+    /* Text the box was last seeded with, for isModified(). */
+    char seedText[64];
+
+    void rememberSeed();
 
     /* Only the in-place overlay boxes navigate; the modal Goto / Find dialogs
     ** keep their plain edit behaviour. */

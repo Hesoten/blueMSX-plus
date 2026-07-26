@@ -43,6 +43,14 @@
 
 static Memory* memory = NULL;
 
+/* The ASCII column draws '.' for control chars and high-bit bytes, so the edit
+** box has to be seeded with the same glyph -- the raw byte would render as a
+** CP932 lead byte and no longer match what the column shows. */
+static char memPrintable(UInt32 val)
+{
+    return (val >= 0x20 && val < 0x7F) ? (char)val : '.';
+}
+
 static LRESULT CALLBACK memViewWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     if (dbgViewMessage(hwnd, iMsg, wParam)) {
@@ -244,7 +252,7 @@ LRESULT Memory::memWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
                         addressInput->setValue(addr, false);
                         currentEditAddress = addr;
                         dataInput1->setPosition(9 + (col + 8 + (3 * memPerRow + 1)) * textWidth, row * textHeight - 2);
-                        char text[2] = { (char)currentMemory->memory[addr] , 0 };
+                        char text[2] = { memPrintable(currentMemory->memory[addr]), 0 };
                         dataInput1->setValue(text);
                         dataInput1->show();
                     }
@@ -260,7 +268,8 @@ LRESULT Memory::memWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
         /* fall through */
     case HexInputDialog::EC_NEWVALUE:
         if (wParam == (WPARAM)dataInput2) {
-            if (currentMemory != 0 && currentEditAddress >= 0 && currentEditAddress < currentMemory->size) {
+            if (currentMemory != 0 && dataInput2->isModified() &&
+                currentEditAddress >= 0 && currentEditAddress < currentMemory->size) {
                 UInt8 value = (UInt8)lParam;
                 bool success = false;
                 if (currentMemory->memory[currentEditAddress] != value) {
@@ -283,7 +292,8 @@ LRESULT Memory::memWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
         }
 
         if (wParam == (WPARAM)dataInput1) {
-            if (currentMemory != 0 && currentEditAddress >= 0 && currentEditAddress < currentMemory->size) {
+            if (currentMemory != 0 && dataInput1->isModified() &&
+                currentEditAddress >= 0 && currentEditAddress < currentMemory->size) {
                 UInt8 value = *(UInt8*)lParam;
                 bool success = false;
                 if (currentMemory->memory[currentEditAddress] != value) {
@@ -321,7 +331,7 @@ LRESULT Memory::memWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
                 return FALSE;
             }
 
-            if (currentMemory != 0 && currentEditAddress < currentMemory->size) {
+            if (currentMemory != 0 && input->isModified() && currentEditAddress < currentMemory->size) {
                 UInt8 value = input == (InputDialog*)dataInput2
                             ? (UInt8)dataInput2->getValue()
                             : (UInt8)dataInput1->getValue()[0];
@@ -557,7 +567,7 @@ void Memory::showEdit(InputDialog* dataInput, DWORD address)
     if (dataInput == dataInput1) {
         addressInput->setValue(currentEditAddress, false);
         dataInput1->setPosition(9 + (col + 8 + (3 * memPerRow + 1)) * textWidth, row * textHeight - 2);
-        char text[2] = { (char)currentMemory->memory[currentEditAddress], 0 };
+        char text[2] = { memPrintable(currentMemory->memory[currentEditAddress]), 0 };
         dataInput1->setValue(text);
         dataInput1->show();
     }
@@ -922,11 +932,7 @@ void Memory::drawText(int top, int bottom)
                 SetTextColor(hMemdc, colorRed);
             }
 
-            /* Replace non-printable bytes (control chars + high-bit) with '.'
-            ** so the ASCII column shows readable glyphs instead of system
-            ** "missing glyph" boxes / CP932 lead-byte mojibake. */
-            char ch = (val >= 0x20 && val < 0x7F) ? (char)val : '.';
-            sprintf(addrText, "%c", ch);
+            sprintf(addrText, "%c", memPrintable(val));
             
             DrawTextU(hMemdc, addrText, (int)strlen(addrText), &r, DT_LEFT);
             
