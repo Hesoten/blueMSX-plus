@@ -526,7 +526,7 @@ void Breakpoints::drawText(int top, int bottom)
 
         SetTextColor(hMemdc, i == selectedLine ? colorWhite : colorBlack);
         SelectObject(hMemdc, hFontBold);
-        DrawText(hMemdc, breakpointText, (int)strlen(breakpointText), &r, DT_LEFT);
+        DrawTextU(hMemdc, breakpointText, (int)strlen(breakpointText), &r, DT_LEFT);
         r.left  += (int)strlen(breakpointText) * textWidth;
 
         char labelText[64];
@@ -548,7 +548,7 @@ void Breakpoints::drawText(int top, int bottom)
 
         SelectObject(hMemdc, hFont);
         SelectObject(hMemdc, hFontBold);
-        DrawText(hMemdc, breakpointText, (int)strlen(breakpointText), &r, DT_LEFT);
+        DrawTextU(hMemdc, breakpointText, (int)strlen(breakpointText), &r, DT_LEFT);
     }
 }
 

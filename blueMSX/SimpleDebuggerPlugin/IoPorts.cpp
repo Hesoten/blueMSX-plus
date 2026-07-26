@@ -326,19 +326,19 @@ void IoPortWindow::drawText(int top, int bottom)
 
         r.left += 1 * textWidth;
         SetTextColor(hMemdc, colorBlack);
-        DrawText(hMemdc, lineInfo[i].port, lineInfo[i].portLength, &r, DT_LEFT);
+        DrawTextU(hMemdc, lineInfo[i].port, lineInfo[i].portLength, &r, DT_LEFT);
 
         r.left += 3 * textWidth;
         SetTextColor(hMemdc, colorGray);
-        DrawText(hMemdc, lineInfo[i].name, lineInfo[i].nameLength, &r, DT_LEFT);
+        DrawTextU(hMemdc, lineInfo[i].name, lineInfo[i].nameLength, &r, DT_LEFT);
 
         r.left += 15 * textWidth;
         SetTextColor(hMemdc, backupIoPortValues[i] == ioPortValues[i] ? colorBlack : colorRed);
-        DrawText(hMemdc, lineInfo[i].value, lineInfo[i].valueLength, &r, DT_LEFT);
+        DrawTextU(hMemdc, lineInfo[i].value, lineInfo[i].valueLength, &r, DT_LEFT);
 
         r.left += 4 * textWidth;
         SetTextColor(hMemdc, colorBlack);
-        DrawText(hMemdc, lineInfo[i].readWrite, lineInfo[i].readWriteLength, &r, DT_LEFT);
+        DrawTextU(hMemdc, lineInfo[i].readWrite, lineInfo[i].readWriteLength, &r, DT_LEFT);
 
         r.left -= 23 * textWidth;
         r.top += textHeight;

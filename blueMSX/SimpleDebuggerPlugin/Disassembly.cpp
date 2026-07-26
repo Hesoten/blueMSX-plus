@@ -608,7 +608,7 @@ void Disassembly::invalidateContent()
     lineCount = 0;
     updateScroll();
 
-    sprintf(lineInfo[lineCount].addr, Language::windowDisassemblyUnavail);
+    sprintf(lineInfo[lineCount].addr, "%s", Language::windowDisassemblyUnavail);
     lineInfo[lineCount].addrLength = (int)strlen(lineInfo[lineCount].addr);
     lineInfo[lineCount].haspc = 0;
     lineInfo[lineCount].text[0] = 0;

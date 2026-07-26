@@ -582,7 +582,7 @@ void PeripheralRegs::drawText(int top, int bottom)
 
             SetTextColor(hMemdc, colorBlack);
             SelectObject(hMemdc, hFontBold);
-            DrawText(hMemdc, regName, (int)strlen(regName), &r, DT_LEFT);
+            DrawTextU(hMemdc, regName, (int)strlen(regName), &r, DT_LEFT);
             SelectObject(hMemdc, hFont); 
             r.left  += 5 * textWidth;
             r.right += 5 * textWidth;
@@ -601,7 +601,7 @@ void PeripheralRegs::drawText(int top, int bottom)
                     sprintf(text, "%.2X", regValue);
                 }
             }
-            DrawText(hMemdc, text, (int)strlen(text), &r, DT_LEFT);
+            DrawTextU(hMemdc, text, (int)strlen(text), &r, DT_LEFT);
             r.left  += 6 * textWidth;
             r.right += 6 * textWidth;
         }

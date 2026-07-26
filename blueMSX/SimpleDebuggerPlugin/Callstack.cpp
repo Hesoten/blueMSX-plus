@@ -152,7 +152,7 @@ void CallstackWindow::invalidateContent()
     lineCount = 0;
     updateScroll();
 
-    sprintf(lineInfo[lineCount].text, Language::windowCallstackUnavail);
+    sprintf(lineInfo[lineCount].text, "%s", Language::windowCallstackUnavail);
     lineInfo[lineCount].textLength = (int)strlen(lineInfo[lineCount].text);
     lineInfo[lineCount].dataText[0] = 0;
     lineInfo[lineCount].dataTextLength = 0;

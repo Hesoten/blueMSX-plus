@@ -118,24 +118,26 @@ void handleKeyboardInput(WPARAM wParam)
     if ( mod ==  MOD_CONTROL              && key == 'W')       SendMessage(hwnd, WM_HOTKEY, 21, 0);
 }
 
+/* Translations are data, never a printf format -- a stray %s in any language
+** file would otherwise read a non-existent argument. */
 static void updateTooltip(int id, char* str)
 {
     switch (id) {
-    case TB_RESUME:   sprintf(str, Language::toolbarResume);        break;
-    case TB_PAUSE:    sprintf(str, Language::toolbarPause);         break;
-    case TB_STOP:     sprintf(str, Language::toolbarStop);          break;
-    case TB_RUN:      sprintf(str, Language::toolbarRun);           break;
-    case TB_SHOWNEXT: sprintf(str, Language::toolbarShowNext);      break;
-    case TB_STEPIN:   sprintf(str, Language::toolbarStepIn);        break;
-    case TB_STEPBACK: sprintf(str, Language::toolbarStepBack);      break;
-    case TB_STEPOVER: sprintf(str, Language::toolbarStepOver);      break;
-    case TB_STEPOUT:  sprintf(str, Language::toolbarStepOut);       break;
-    case TB_RUNTO:    sprintf(str, Language::toolbarRunTo);         break;
-    case TB_BPTOGGLE: sprintf(str, Language::toolbarBpToggle);      break;
-    case TB_BPENABLE: sprintf(str, Language::toolbarBpEnable);      break;
-    case TB_BPENALL:  sprintf(str, Language::toolbarBpEnableAll);   break;
-    case TB_BPDISALL: sprintf(str, Language::toolbarBpDisableAll);  break;
-    case TB_BPREMALL: sprintf(str, Language::toolbarBpRemoveAll);   break;    
+    case TB_RESUME:   sprintf(str, "%s", Language::toolbarResume);        break;
+    case TB_PAUSE:    sprintf(str, "%s", Language::toolbarPause);         break;
+    case TB_STOP:     sprintf(str, "%s", Language::toolbarStop);          break;
+    case TB_RUN:      sprintf(str, "%s", Language::toolbarRun);           break;
+    case TB_SHOWNEXT: sprintf(str, "%s", Language::toolbarShowNext);      break;
+    case TB_STEPIN:   sprintf(str, "%s", Language::toolbarStepIn);        break;
+    case TB_STEPBACK: sprintf(str, "%s", Language::toolbarStepBack);      break;
+    case TB_STEPOVER: sprintf(str, "%s", Language::toolbarStepOver);      break;
+    case TB_STEPOUT:  sprintf(str, "%s", Language::toolbarStepOut);       break;
+    case TB_RUNTO:    sprintf(str, "%s", Language::toolbarRunTo);         break;
+    case TB_BPTOGGLE: sprintf(str, "%s", Language::toolbarBpToggle);      break;
+    case TB_BPENABLE: sprintf(str, "%s", Language::toolbarBpEnable);      break;
+    case TB_BPENALL:  sprintf(str, "%s", Language::toolbarBpEnableAll);   break;
+    case TB_BPDISALL: sprintf(str, "%s", Language::toolbarBpDisableAll);  break;
+    case TB_BPREMALL: sprintf(str, "%s", Language::toolbarBpRemoveAll);   break;    
     }
 }
 
