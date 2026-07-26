@@ -221,7 +221,12 @@ LRESULT Breakpoints::breakpointsWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
 
             int row = HIWORD(lParam) / textHeight;
 
+            /* Clicking past the last entry drops the selection -- a lone
+            ** breakpoint is hard to read while permanently highlighted. */
             if (row + si.nPos  >= (int)breakpoints.size()) {
+                selectedLine = -1;
+                InvalidateRect(hwnd, NULL, TRUE);
+                updateToolbar();
                 return 0;
             }
 
@@ -399,7 +404,9 @@ void Breakpoints::onFontChanged()
 
 void Breakpoints::updateContent()
 {
-    BreakpointInfo* bi;
+    /* NULL, or the "keep the same entry selected" scan below compares against
+    ** an indeterminate pointer and can revive a cleared selection. */
+    BreakpointInfo* bi = NULL;
     if (selectedLine >= 0 && selectedLine < (int)breakpoints.size()) {
         bi = breakpoints[selectedLine];
     }
