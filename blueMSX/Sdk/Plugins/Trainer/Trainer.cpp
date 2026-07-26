@@ -133,6 +133,90 @@ static LanguageId langId = LID_ENGLISH;
 
 static HBRUSH hBrush = NULL;
 
+/* The profile API resolves a bare file name against the Windows directory,
+** so build an explicit path in the working directory instead. */
+static const char* trainerIniPath()
+{
+    static char path[MAX_PATH] = "";
+
+    if (path[0] == 0) {
+        /* On overflow the call returns the required size and writes nothing,
+        ** so a non-zero result is only usable when it fits the buffer. */
+        DWORD len = GetCurrentDirectoryA(sizeof(path) - 32, path);
+        if (len == 0 || len >= sizeof(path) - 32) {
+            strcpy(path, ".");
+        }
+        strcat(path, "\\trainer.ini");
+    }
+    return path;
+}
+
+/* Layout state captured once the template is in place. Only the height is
+** adjustable -- the pages are designed around a fixed column layout, so a
+** wider window would just pad empty space on the right. */
+static int  layoutReady  = 0;
+static RECT tabRect      = { 0, 0, 0, 0 };
+static int  tabMarginB   = 0;
+static int  tabPrevH     = 0;
+static SIZE minTrainerSize = { 0, 0 };
+
+/* Per-page resize: the list view takes the extra height, everything below it
+** rides the bottom edge, and controls above the list stay put. */
+struct PageLayout {
+    HWND list;
+    int  prevH;
+};
+
+static PageLayout searchLayout = { NULL, 0 };
+static PageLayout cheatsLayout = { NULL, 0 };
+
+/* Seed prevH from the template height. Doing it lazily on the first WM_SIZE
+** would swallow that resize, leaving the page short by its delta. */
+static void pageLayoutInit(HWND hDlg, PageLayout* layout, HWND hList)
+{
+    RECT r;
+    GetClientRect(hDlg, &r);
+    layout->list  = hList;
+    layout->prevH = r.bottom;
+}
+
+static void pageOnSize(HWND hDlg, PageLayout* layout, int height)
+{
+    if (layout->list == NULL || layout->prevH == 0 || height <= 0) {
+        return;
+    }
+
+    int dh = height - layout->prevH;
+    layout->prevH = height;
+    if (dh == 0) {
+        return;
+    }
+
+    RECT listRc;
+    GetWindowRect(layout->list, &listRc);
+    MapWindowPoints(NULL, hDlg, (POINT*)&listRc, 2);
+    int listBottom = listRc.bottom;
+
+    HWND child = GetWindow(hDlg, GW_CHILD);
+    while (child != NULL) {
+        RECT r;
+        GetWindowRect(child, &r);
+        MapWindowPoints(NULL, hDlg, (POINT*)&r, 2);
+
+        if (child == layout->list) {
+            SetWindowPos(child, NULL, 0, 0, r.right - r.left, r.bottom - r.top + dh,
+                         SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+        }
+        else if (r.top >= listBottom) {
+            SetWindowPos(child, NULL, r.left, r.top + dh, 0, 0,
+                         SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+        }
+        child = GetWindow(child, GW_HWNDNEXT);
+    }
+
+    InvalidateRect(hDlg, NULL, TRUE);
+}
+
 static CompareType  compareType    = CMP_EQUAL;
 static DisplayType  displayType    = DPY_DECIMAL;
 static DataSize     dataSize       = DATASIZE_8BIT;
@@ -711,6 +795,7 @@ static INT_PTR CALLBACK searchProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM l
             currIndex = -1;
     
             HWND hwnd = GetDlgItem(hDlg, IDC_MEMLIST);
+            pageLayoutInit(hDlg, &searchLayout, hwnd);
 
             ListView_SetExtendedListViewStyle(hwnd, LVS_EX_FULLROWSELECT);
 
@@ -760,6 +845,10 @@ static INT_PTR CALLBACK searchProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM l
 
         updateSearchFields(hDlg);
 
+        return FALSE;
+
+    case WM_SIZE:
+        pageOnSize(hDlg, &searchLayout, HIWORD(lParam));
         return FALSE;
 
     case WM_COMMAND:
@@ -1140,6 +1229,8 @@ static INT_PTR CALLBACK cheatsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM l
 
             HWND hwnd = GetDlgItem(hDlg, IDC_CHEATLIST);
 
+            pageLayoutInit(hDlg, &cheatsLayout, hwnd);
+
             ListView_SetExtendedListViewStyle(hwnd, LVS_EX_FULLROWSELECT | LVS_EX_CHECKBOXES);
 
             /* DPI-scaled address/value column widths; description fills the
@@ -1187,6 +1278,10 @@ static INT_PTR CALLBACK cheatsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM l
             }
         }
 
+        return FALSE;
+
+    case WM_SIZE:
+        pageOnSize(hDlg, &cheatsLayout, HIWORD(lParam));
         return FALSE;
 
     case WM_COMMAND:
@@ -1517,6 +1612,119 @@ static void scaleTrainerHeaderBitmap(HWND hDlg)
     }
 }
 
+static void growPage(HWND hPage, int dh)
+{
+    if (hPage == NULL) {
+        return;
+    }
+    RECT r;
+    GetWindowRect(hPage, &r);
+    SetWindowPos(hPage, NULL, 0, 0, r.right - r.left, r.bottom - r.top + dh,
+                 SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+/* Only the height moves: the width is pinned in WM_GETMINMAXINFO, so the
+** header bitmap and the tab keep the geometry captured from the template. */
+static void layoutTrainer(HWND hDlg)
+{
+    if (!layoutReady) {
+        return;
+    }
+
+    RECT cr;
+    GetClientRect(hDlg, &cr);
+
+    int tabH = cr.bottom - tabRect.top - tabMarginB;
+    if (tabH < 1) tabH = 1;
+
+    SetWindowPos(GetDlgItem(hDlg, IDC_TAB), NULL, 0, 0,
+                 tabRect.right - tabRect.left, tabH,
+                 SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+
+    int dh = tabH - tabPrevH;
+    tabPrevH = tabH;
+
+    if (dh != 0) {
+        growPage(hDlgCheats, dh);
+        growPage(hDlgSearch, dh);
+    }
+}
+
+/* Sentinel for "no stored position", so first run can be told from a real
+** saved coordinate -- which may legitimately be negative or zero. */
+#define POS_UNSET 0x7fffffff
+
+/* Capture the designed tab geometry and the smallest useful window size, then
+** restore the height the user left behind, clamped to the monitor work area. */
+static void initTrainerLayout(HWND hDlg)
+{
+    RECT cr, tabRc, wr;
+    GetClientRect(hDlg, &cr);
+    GetWindowRect(GetDlgItem(hDlg, IDC_TAB), &tabRc);
+    MapWindowPoints(NULL, hDlg, (POINT*)&tabRc, 2);
+
+    tabRect    = tabRc;
+    tabMarginB = cr.bottom - tabRc.bottom;
+    tabPrevH   = tabRc.bottom - tabRc.top;
+
+    GetWindowRect(hDlg, &wr);
+    int naturalW = wr.right  - wr.left;
+    int naturalH = wr.bottom - wr.top;
+
+    /* The search page has the shortest list, so it decides how far the window
+    ** may shrink: down to a quarter of that list's designed height. */
+    int shrink = 0;
+    if (searchLayout.list != NULL) {
+        RECT lr;
+        GetWindowRect(searchLayout.list, &lr);
+        shrink = (lr.bottom - lr.top) * 3 / 4;
+    }
+
+    minTrainerSize.cx = naturalW;
+    minTrainerSize.cy = naturalH - shrink;
+
+    RECT work;
+    if (!SystemParametersInfo(SPI_GETWORKAREA, 0, &work, 0)) {
+        SetRect(&work, 0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
+    }
+
+    int w = naturalW;
+    int h = GetPrivateProfileIntA("Trainer", "height", naturalH, trainerIniPath());
+    int x = (int)GetPrivateProfileIntA("Trainer", "x", POS_UNSET, trainerIniPath());
+    int y = (int)GetPrivateProfileIntA("Trainer", "y", POS_UNSET, trainerIniPath());
+
+    /* Clamp against the monitor the saved rectangle lives on: SPI_GETWORKAREA
+    ** only describes the primary one, which would drag a window parked on a
+    ** secondary monitor back to the primary on every launch. */
+    if (x != POS_UNSET && y != POS_UNSET) {
+        RECT saved;
+        MONITORINFO mi;
+        HMONITOR hMon;
+        SetRect(&saved, x, y, x + w, y + h);
+        hMon = MonitorFromRect(&saved, MONITOR_DEFAULTTONEAREST);
+        mi.cbSize = sizeof(mi);
+        if (hMon != NULL && GetMonitorInfoA(hMon, &mi)) {
+            work = mi.rcWork;
+        }
+    }
+
+    if (h < minTrainerSize.cy) h = minTrainerSize.cy;
+    if (h > work.bottom - work.top) h = work.bottom - work.top;
+
+    /* The template carries no position, so an unsaved window opens at 0,0.
+    ** Centre it and keep it on the work area; the designed height is left
+    ** alone, since shrinking it is now the user's call. */
+    if (x == POS_UNSET) x = work.left + (work.right  - work.left - w) / 2;
+    if (y == POS_UNSET) y = work.top  + (work.bottom - work.top  - h) / 2;
+    if (x + w > work.right)  x = work.right  - w;
+    if (y + h > work.bottom) y = work.bottom - h;
+    if (x < work.left) x = work.left;
+    if (y < work.top)  y = work.top;
+
+    layoutReady = 1;
+    SetWindowPos(hDlg, NULL, x, y, w, h, SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
 static INT_PTR CALLBACK trainerProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (iMsg) {
@@ -1542,8 +1750,27 @@ static INT_PTR CALLBACK trainerProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM 
             TabInsertItemU(hTab, 1, Language::findCheats);
         }
 
+        initTrainerLayout(hDlg);
+
         SetTimer(hDlg, CHEAT_TIMER_ID, 100, 0);
 
+        return FALSE;
+
+    case WM_SIZE:
+        layoutTrainer(hDlg);
+        return FALSE;
+
+    case WM_GETMINMAXINFO:
+        if (minTrainerSize.cx > 0) {
+            MINMAXINFO* mmi = (MINMAXINFO*)lParam;
+            /* Pin the width: the pages have a fixed column layout, so extra
+            ** width would only pad empty space. Height stays adjustable. */
+            mmi->ptMinTrackSize.x = minTrainerSize.cx;
+            mmi->ptMaxTrackSize.x = minTrainerSize.cx;
+            mmi->ptMinTrackSize.y = minTrainerSize.cy;
+            /* TRUE, or DefDlgProc overwrites the limits with its defaults. */
+            return TRUE;
+        }
         return FALSE;
 
     case WM_TIMER:
@@ -1579,6 +1806,21 @@ static INT_PTR CALLBACK trainerProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM 
 
     case WM_DESTROY:
         {
+            RECT wr;
+            char text[16];
+            /* WM_CLOSE only hides the window, so a zoomed or iconic state
+            ** survives until shutdown -- saving it would store the maximized
+            ** or the -32000 minimized rectangle. Keep the last restored one. */
+            if (!IsZoomed(hDlg) && !IsIconic(hDlg)) {
+                GetWindowRect(hDlg, &wr);
+                sprintf(text, "%d", (int)wr.left);
+                WritePrivateProfileStringA("Trainer", "x", text, trainerIniPath());
+                sprintf(text, "%d", (int)wr.top);
+                WritePrivateProfileStringA("Trainer", "y", text, trainerIniPath());
+                sprintf(text, "%d", (int)(wr.bottom - wr.top));
+                WritePrivateProfileStringA("Trainer", "height", text, trainerIniPath());
+            }
+
             HWND hHdr = GetDlgItem(hDlg, IDC_HEADERBMP);
             if (hHdr) {
                 HBITMAP h = (HBITMAP)SendMessage(hHdr, STM_GETIMAGE, IMAGE_BITMAP, 0);
