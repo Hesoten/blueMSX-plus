@@ -254,6 +254,10 @@ LRESULT Memory::memWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
         return 0;
 
     case HexInputDialog::EC_KILLFOCUS:
+        if (navigating) {
+            return FALSE;
+        }
+        /* fall through */
     case HexInputDialog::EC_NEWVALUE:
         if (wParam == (WPARAM)dataInput2) {
             if (currentMemory != 0 && currentEditAddress >= 0 && currentEditAddress < currentMemory->size) {
@@ -275,9 +279,7 @@ LRESULT Memory::memWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
                 }
             }
 
-            currentEditAddress = -1;
-            dataInput1->hide();
-            dataInput2->hide();
+            endEdit();
         }
 
         if (wParam == (WPARAM)dataInput1) {
@@ -300,11 +302,60 @@ LRESULT Memory::memWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
                 }
             }
 
-            currentEditAddress = -1;
-            dataInput1->hide();
-            dataInput2->hide();
+            endEdit();
         }
 
+        return FALSE;
+
+    case InputDialog::EC_NAVIGATE:
+        {
+            InputDialog* input = (InputDialog*)wParam;
+
+            /* A stray key with no box open must not start editing somewhere. */
+            if (currentEditAddress < 0) {
+                return FALSE;
+            }
+
+            if ((int)lParam == InputDialog::NAV_CANCEL) {
+                endEdit();
+                return FALSE;
+            }
+
+            if (currentMemory != 0 && currentEditAddress < currentMemory->size) {
+                UInt8 value = input == (InputDialog*)dataInput2
+                            ? (UInt8)dataInput2->getValue()
+                            : (UInt8)dataInput1->getValue()[0];
+                bool success = false;
+                if (currentMemory->memory[currentEditAddress] != value) {
+                    success = DeviceWriteMemoryBlockMemory(currentMemory->memBlock, &value, currentEditAddress, 1);
+                }
+                if (success) {
+                    currentMemory->memory[currentEditAddress] = value;
+                }
+                InvalidateRect(memHwnd, NULL, TRUE);
+            }
+
+            int delta = 0;
+            switch ((int)lParam) {
+            case InputDialog::NAV_UP:    delta = -memPerRow; break;
+            case InputDialog::NAV_DOWN:  delta =  memPerRow; break;
+            case InputDialog::NAV_LEFT:
+            case InputDialog::NAV_PREV:  delta = -1;         break;
+            case InputDialog::NAV_RIGHT:
+            case InputDialog::NAV_NEXT:  delta =  1;         break;
+            }
+
+            if (delta != 0) {
+                /* Stay in edit mode at the ends rather than dropping out. */
+                int address = currentEditAddress + delta;
+                if (currentMemory != 0 && address >= 0 && address < currentMemory->size) {
+                    showEdit(input, address);
+                }
+                return FALSE;
+            }
+
+            endEdit();
+        }
         return FALSE;
 
     case WM_ERASEBKGND:
@@ -315,8 +366,7 @@ LRESULT Memory::memWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
         break;
 
     case WM_VSCROLL:
-        dataInput1->hide();
-        dataInput2->hide();
+        endEdit();
         scrollWindow(LOWORD(wParam));
          return 0;
     case WM_PAINT:
@@ -406,15 +456,18 @@ Memory::~Memory()
 
 void Memory::disableEdit()
 {
-    dataInput1->hide();
-    dataInput2->hide();
+    endEdit();
 
     DbgWindow::disableEdit();
 }
 
 void Memory::onFontChanged()
 {
-    int pos = dbgGetScrollPos(memHwnd);
+    /* Keep an address, not a row -- memPerRow is derived from the font. */
+    int topAddress  = dbgGetScrollPos(memHwnd) * memPerRow;
+    int editAddress = currentEditAddress;
+    InputDialog* input = activeInput();
+
     dbgRebuildFont(hMemdc, &hFont, NULL, &textWidth, &textHeight, 0);
 
     dataInput1->setSize(InputDialog::boxWidth(1, textWidth), InputDialog::boxHeight(textHeight));
@@ -422,16 +475,48 @@ void Memory::onFontChanged()
     dataInput1->setFont(hFont);
     dataInput2->setFont(hFont);
 
+    endEdit();
     updateScroll();
-    dbgSetScrollPos(memHwnd, pos);
+    dbgSetScrollPos(memHwnd, topAddress / memPerRow);
+
+    /* The grid re-flowed under the box, so place it again. */
+    if (input != NULL && editAddress >= 0) {
+        showEdit(input, editAddress);
+    }
 }
 
 void Memory::updatePosition(RECT& rect)
 {
-    dataInput1->hide();
-    dataInput2->hide();
+    endEdit();
 
     SetWindowPos(hwnd, NULL, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, SWP_NOZORDER);
+}
+
+void Memory::hideEdit()
+{
+    navigating = true;
+    dataInput1->hide();
+    dataInput2->hide();
+    navigating = false;
+}
+
+/* Leave edit mode without committing. The address has to be cleared first, or
+** the focus change inside hide() comes back as a confirmation. */
+void Memory::endEdit()
+{
+    currentEditAddress = -1;
+    hideEdit();
+}
+
+InputDialog* Memory::activeInput()
+{
+    if (dataInput1->isVisible()) {
+        return dataInput1;
+    }
+    if (dataInput2->isVisible()) {
+        return dataInput2;
+    }
+    return NULL;
 }
 
 void Memory::showEdit(InputDialog* dataInput, DWORD address)
@@ -439,23 +524,34 @@ void Memory::showEdit(InputDialog* dataInput, DWORD address)
     currentEditAddress = address;
 
     SCROLLINFO si;
-    si.cbSize = sizeof (si);
-    si.fMask  = SIF_POS | SIF_PAGE;
-    GetScrollInfo (memHwnd, SB_VERT, &si);
-
     int col = currentEditAddress % memPerRow;
-    int row = currentEditAddress / memPerRow - si.nPos + 1;
+    int row = 0;
 
-    if (row >= (int)si.nPage ) {
-        scrollWindow(SB_LINEDOWN);
-
-        SCROLLINFO si;
+    /* Scroll the target row into view. Bounded so a row that cannot be
+    ** reached (list shorter than the view) does not spin. */
+    for (int guard = 0; guard < 256; guard++) {
         si.cbSize = sizeof (si);
-        si.fMask  = SIF_POS;
+        si.fMask  = SIF_POS | SIF_PAGE;
         GetScrollInfo (memHwnd, SB_VERT, &si);
 
-        col = currentEditAddress % memPerRow;
         row = currentEditAddress / memPerRow - si.nPos + 1;
+        if (row >= 1 && row < (int)si.nPage) {
+            break;
+        }
+
+        /* ScrollWindow blits what is on screen, so a visible edit box would be
+        ** smeared down the column one copy per scrolled line. */
+        hideEdit();
+
+        int before = si.nPos;
+        scrollWindow(row < 1 ? SB_LINEUP : SB_LINEDOWN);
+
+        si.fMask = SIF_POS;
+        GetScrollInfo (memHwnd, SB_VERT, &si);
+        if (si.nPos == before) {
+            row = currentEditAddress / memPerRow - si.nPos + 1;
+            break;
+        }
     }
 
     if (dataInput == dataInput1) {
@@ -492,8 +588,7 @@ bool Memory::writeToFile(const char* fileName)
 
 void Memory::invalidateContent()
 {
-    dataInput1->hide();
-    dataInput2->hide();
+    endEdit();
 
     MemList::iterator it;
     while(!memList.empty()) {
@@ -512,8 +607,7 @@ void Memory::invalidateContent()
 
 void Memory::updateContent(Snapshot* snapshot)
 {
-    dataInput1->hide();
-    dataInput2->hide();
+    endEdit();
 
     bool devicesChanged = false;
 

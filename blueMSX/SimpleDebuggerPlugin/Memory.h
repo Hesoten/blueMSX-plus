@@ -85,6 +85,9 @@ private:
     void updateDropdown();
     void updateWindowPositions();
     void showEdit(InputDialog* dataInput, DWORD address);
+    void hideEdit();
+    void endEdit();
+    InputDialog* activeInput();
     void setNewMemory(const std::string& title);
     void drawText(int top, int bottom);
 
@@ -108,6 +111,10 @@ private:
 
     int currentAddress;
     int currentEditAddress;
+
+    /* Set while an edit box is taken down only to be put back somewhere else,
+    ** so the focus loss is not mistaken for the user leaving edit mode. */
+    bool navigating = false;
 
     MemList memList;
     MemoryItem* currentMemory;

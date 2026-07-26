@@ -56,8 +56,16 @@ public:
 private:
 
     void scrollWindow(int sbAction);
+    void scrollTo(int pos);
     void updateScroll();
     void drawText(int top, int bottom);
+    void showEditRegister(int reg);
+    void hideEdit();
+    void endEdit();
+
+    /* Set while the edit box hops to another register, so the focus loss that
+    ** causes is not mistaken for the user leaving edit mode. */
+    bool   navigating = false;
 
     HDC    hMemdc;
     HFONT  hFont     = NULL;
