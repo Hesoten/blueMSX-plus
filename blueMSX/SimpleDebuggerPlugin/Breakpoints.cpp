@@ -751,6 +751,7 @@ void Breakpoints::setStepOutBreakpoint(const UInt8* memory, UInt16 address)
 bool Breakpoints::setStepOverBreakpoint(const UInt8* memory, UInt16 address)
 {
     char str[128];
+    int size = Disassembly::dasm(symbolInfo, memory, address, str);
     // If call or rst instruction we need to set a runto breakpoint
     // otherwise its just a regular single step
     bool step = strncmp(str, "call", 4) != 0 && 
@@ -763,7 +764,7 @@ bool Breakpoints::setStepOverBreakpoint(const UInt8* memory, UInt16 address)
                 strncmp(str, "otdr", 4) != 0 && 
                 strncmp(str, "rst",  3) != 0;
     if (!step) {
-        setRuntoBreakpoint((address + Disassembly::dasm(symbolInfo, memory, address, str)) & 0xffff);
+        setRuntoBreakpoint((address + size) & 0xffff);
     }
     return step;
 }
