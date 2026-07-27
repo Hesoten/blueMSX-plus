@@ -177,10 +177,12 @@ void CallstackWindow::onFontChanged()
     InvalidateRect(hwnd, NULL, TRUE);
 }
 
-int CallstackWindow::getMostRecent()
+/* The entries are return addresses, which is what step out breaks on.
+** updateContent subtracts one only to name the call that produced them. */
+int CallstackWindow::getReturnAddress()
 {
     if (backupSize > 0) {
-        return (backupCallstack[backupSize - 1] - 1) & 0xffff;
+        return backupCallstack[backupSize - 1] & 0xffff;
     }
     return -1;
 }

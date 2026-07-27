@@ -183,7 +183,7 @@ static void updateToolBar()
     toolBar->enableItem(6, state == EMULATOR_PAUSED);
     toolBar->enableItem(7, state == EMULATOR_PAUSED);
     toolBar->enableItem(8, state == EMULATOR_PAUSED);
-    toolBar->enableItem(9, state == EMULATOR_PAUSED && callstack->getMostRecent() >= 0);
+    toolBar->enableItem(9, state == EMULATOR_PAUSED && callstack->getReturnAddress() >= 0);
     toolBar->enableItem(10, state == EMULATOR_PAUSED && disassembly->isBpOnCcursor());
 
     toolBar->enableItem(12, state == EMULATOR_PAUSED && disassembly->isCursorPresent());
@@ -307,7 +307,7 @@ static void updateWindowMenu()
     sprintf(buf, "%s\tF10", Language::menuDebugStepOver);
     AppendMenuU(hMenuDebug, MF_STRING | (state == EMULATOR_PAUSED                  ? 0 : MF_GRAYED), MENU_DEBUG_STEP_OVER, buf);
     sprintf(buf, "%s\tShift+F11", Language::menuDebugStepOut);
-    AppendMenuU(hMenuDebug, MF_STRING | (state == EMULATOR_PAUSED && callstack->getMostRecent() >= 0? 0 : MF_GRAYED), MENU_DEBUG_STEP_OUT, buf);
+    AppendMenuU(hMenuDebug, MF_STRING | (state == EMULATOR_PAUSED && callstack->getReturnAddress() >= 0? 0 : MF_GRAYED), MENU_DEBUG_STEP_OUT, buf);
 
     sprintf(buf, "%s\tShift+F10", Language::menuDebugRunTo);
     AppendMenuU(hMenuDebug, MF_STRING | (state == EMULATOR_PAUSED && disassembly->isCursorPresent() ? 0 : MF_GRAYED), MENU_DEBUG_RUNTO, buf);
@@ -736,7 +736,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
                     SendMessage(hwnd, WM_COMMAND, MENU_DEBUG_STEP_OVER, 0);
                 break;
             case 7:
-                if (GetEmulatorState() == EMULATOR_PAUSED && callstack->getMostRecent() >= 0)
+                if (GetEmulatorState() == EMULATOR_PAUSED && callstack->getReturnAddress() >= 0)
                     SendMessage(hwnd, WM_COMMAND, MENU_DEBUG_STEP_OUT, 0);
                 break;
             case 8:
@@ -957,7 +957,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 
         case MENU_DEBUG_STEP_OUT:
         case TB_STEPOUT:
-            breakpoints->setStepOutBreakpoint(disassembly->getMemory(), (UInt16)callstack->getMostRecent());
+            breakpoints->setRuntoBreakpoint(callstack->getReturnAddress());
             EmulatorRun();
             return 0;
             

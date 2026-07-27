@@ -742,12 +742,6 @@ void Breakpoints::updateBreakpoints()
     DebuggerUpdate();
 }
 
-void Breakpoints::setStepOutBreakpoint(const UInt8* memory, UInt16 address)
-{
-    char str[128];
-    setRuntoBreakpoint((address + Disassembly::dasm(symbolInfo, memory, address, str)) & 0xffff);
-}
-
 bool Breakpoints::setStepOverBreakpoint(const UInt8* memory, UInt16 address)
 {
     char str[128];
@@ -769,7 +763,9 @@ bool Breakpoints::setStepOverBreakpoint(const UInt8* memory, UInt16 address)
     return step;
 }
 
-void Breakpoints::setRuntoBreakpoint(UInt16 address)
+/* Callers pass -1 for "no address" (empty callstack, no cursor); taking a
+** UInt16 turned that into a breakpoint at 0xffff. */
+void Breakpoints::setRuntoBreakpoint(int address)
 {
     if (address < 0) {
         return;

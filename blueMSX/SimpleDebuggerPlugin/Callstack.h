@@ -39,7 +39,7 @@ public:
 
     void refresh();
     
-    int  getMostRecent();
+    int  getReturnAddress();
 
     void updateContent(DWORD* callstack, int size);
     void invalidateContent();

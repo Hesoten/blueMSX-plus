@@ -164,12 +164,11 @@ public:
 
     void updateBreakpoints();
     bool setStepOverBreakpoint(const UInt8* memory, UInt16 address);
-    void setStepOutBreakpoint(const UInt8* memory, UInt16 address);
     int  getEnabledBpCount();
     int  getDisabledBpCount();
 
     // Support for temporary disassembly breakpoints
-    void setRuntoBreakpoint(UInt16 address);
+    void setRuntoBreakpoint(int address);
     void clearRuntoBreakpoint();
 
     virtual LRESULT wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam);
