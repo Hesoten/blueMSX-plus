@@ -317,9 +317,9 @@ void Breakpoints::updateToolbar()
     }
     EmulatorState state = GetEmulatorState();
 
-    toolbar->enableItem(1, state != EMULATOR_STOPPED);
-    toolbar->enableItem(2, state != EMULATOR_STOPPED);
-    toolbar->enableItem(4, state != EMULATOR_STOPPED && selectedLine >= 0);
+    toolbar->enableCommand(TB_NEW_BREAKPOINT,    state != EMULATOR_STOPPED);
+    toolbar->enableCommand(TB_NEW_WATCHPOINT,    state != EMULATOR_STOPPED);
+    toolbar->enableCommand(TB_DELETE_BREAKPOINT, state != EMULATOR_STOPPED && selectedLine >= 0);
 }
 
 Breakpoints::Breakpoints(HINSTANCE hInstance, HWND owner, SymbolInfo* symInfo) : 

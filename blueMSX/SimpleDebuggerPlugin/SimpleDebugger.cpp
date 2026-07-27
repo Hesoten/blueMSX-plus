@@ -175,22 +175,23 @@ static void updateToolBar()
 
     EmulatorState state = GetEmulatorState();
     
-    toolBar->enableItem(1, state != EMULATOR_RUNNING);
-    toolBar->enableItem(2, state == EMULATOR_RUNNING);
-    toolBar->enableItem(3, state != EMULATOR_STOPPED);
-    toolBar->enableItem(4, true);
-    
-    toolBar->enableItem(6, state == EMULATOR_PAUSED);
-    toolBar->enableItem(7, state == EMULATOR_PAUSED);
-    toolBar->enableItem(8, state == EMULATOR_PAUSED);
-    toolBar->enableItem(9, state == EMULATOR_PAUSED && callstack->getReturnAddress() >= 0);
-    toolBar->enableItem(10, state == EMULATOR_PAUSED && disassembly->isBpOnCcursor());
+    toolBar->enableCommand(TB_RESUME,   state != EMULATOR_RUNNING);
+    toolBar->enableCommand(TB_PAUSE,    state == EMULATOR_RUNNING);
+    toolBar->enableCommand(TB_STOP,     state != EMULATOR_STOPPED);
+    toolBar->enableCommand(TB_RUN,      true);
 
-    toolBar->enableItem(12, state == EMULATOR_PAUSED && disassembly->isCursorPresent());
-    toolBar->enableItem(13, state != EMULATOR_STOPPED && disassembly->isBpOnCcursor());
-    toolBar->enableItem(14, breakpoints->getDisabledBpCount() > 0);
-    toolBar->enableItem(15, breakpoints->getEnabledBpCount() > 0);
-    toolBar->enableItem(16, breakpoints->getEnabledBpCount() || breakpoints->getDisabledBpCount());
+    toolBar->enableCommand(TB_SHOWNEXT, state == EMULATOR_PAUSED);
+    toolBar->enableCommand(TB_STEPBACK, state == EMULATOR_PAUSED);
+    toolBar->enableCommand(TB_STEPIN,   state == EMULATOR_PAUSED);
+    toolBar->enableCommand(TB_STEPOVER, state == EMULATOR_PAUSED);
+    toolBar->enableCommand(TB_STEPOUT,  state == EMULATOR_PAUSED && callstack->getReturnAddress() >= 0);
+    toolBar->enableCommand(TB_RUNTO,    state == EMULATOR_PAUSED && disassembly->isCursorPresent());
+
+    toolBar->enableCommand(TB_BPTOGGLE, state != EMULATOR_STOPPED && disassembly->isCursorPresent());
+    toolBar->enableCommand(TB_BPENABLE, state != EMULATOR_STOPPED && disassembly->isBpOnCcursor());
+    toolBar->enableCommand(TB_BPENALL,  breakpoints->getDisabledBpCount() > 0);
+    toolBar->enableCommand(TB_BPDISALL, breakpoints->getEnabledBpCount() > 0);
+    toolBar->enableCommand(TB_BPREMALL, breakpoints->getEnabledBpCount() || breakpoints->getDisabledBpCount());
 }
 
 static void updateStatusBar()
