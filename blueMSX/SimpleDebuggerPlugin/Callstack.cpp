@@ -148,6 +148,9 @@ CallstackWindow::~CallstackWindow()
 
 void CallstackWindow::invalidateContent()
 {
+    /* getReturnAddress feeds a real breakpoint now, so the frames have to go
+    ** with the display: a kept one belongs to a machine state that is gone. */
+    backupSize = 0;
     currentLine = -1;
     lineCount = 0;
     updateScroll();
