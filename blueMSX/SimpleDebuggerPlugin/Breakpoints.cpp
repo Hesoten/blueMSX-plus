@@ -700,7 +700,7 @@ void Breakpoints::clearAllBreakpoints()
 int Breakpoints::getEnabledBpCount() {
     int count = 0;
     for (std::vector<BreakpointInfo*>::iterator i = breakpoints.begin(); i != breakpoints.end(); ++i) {
-        if (!(*i)->enabled) {
+        if ((*i)->enabled) {
             count++;
         }
     }
