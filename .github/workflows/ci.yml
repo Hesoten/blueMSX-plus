@@ -65,5 +65,7 @@ jobs:
         with:
           name: blueMSX+-ci-${{ matrix.platform }}-${{ matrix.config }}
           path: dist/*.zip
-          retention-days: 14
+          # Review builds are only useful while the PR is open, and every
+          # push replaces them anyway.
+          retention-days: 7
           if-no-files-found: error

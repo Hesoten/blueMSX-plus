@@ -1,7 +1,7 @@
 name: dev-build
 
 # Unstable builds for every push to develop.
-# Builds Debug/Release/Final x {x64, Win32}, packages each as a zip, and
+# Builds Debug/Release x {x64, Win32}, packages each as a zip, and
 # uploads them as workflow artifacts (no GitHub Release). UPX is disabled.
 
 on:
@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config: [Debug, Release, Final]
+        config: [Debug, Release]
         platform: [x64, Win32]
     steps:
       - uses: actions/checkout@v6
@@ -56,5 +56,5 @@ jobs:
         with:
           name: blueMSX+-dev-${{ matrix.platform }}-${{ matrix.config }}
           path: dist/*.zip
-          retention-days: 90
+          retention-days: 14
           if-no-files-found: error
