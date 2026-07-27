@@ -775,8 +775,15 @@ void Breakpoints::setRuntoBreakpoint(int address)
     ::SetBreakpoint(runtoBreakpoint);
 }
 
+/* The disassembly clears this from updateContent, which also runs when the
+** view is refreshed by a click while the emulator is running -- disarming the
+** breakpoint there would leave step over and step out running forever. */
 void Breakpoints::clearRuntoBreakpoint()
 {
+    if (GetEmulatorState() == EMULATOR_RUNNING) {
+        return;
+    }
+
     if (runtoBreakpoint >= 0) {
         if (!IsBreakpointSet(runtoBreakpoint)) {
             ::ClearBreakpoint(runtoBreakpoint);
