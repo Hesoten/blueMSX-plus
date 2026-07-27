@@ -958,14 +958,16 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 
         case MENU_DEBUG_STEP_OUT:
         case TB_STEPOUT:
-            breakpoints->setRuntoBreakpoint(callstack->getReturnAddress());
-            EmulatorRun();
+            if (breakpoints->setRuntoBreakpoint(callstack->getReturnAddress())) {
+                EmulatorRun();
+            }
             return 0;
-            
+
         case MENU_DEBUG_RUNTO:
         case TB_RUNTO:
-            breakpoints->setRuntoBreakpoint(disassembly->getCurrentAddress());
-            EmulatorRun();
+            if (breakpoints->setRuntoBreakpoint(disassembly->getCurrentAddress())) {
+                EmulatorRun();
+            }
             return 0;
 
         case MENU_DEBUG_SETBP:

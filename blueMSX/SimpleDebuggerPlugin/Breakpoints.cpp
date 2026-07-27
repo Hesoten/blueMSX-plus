@@ -764,15 +764,17 @@ bool Breakpoints::setStepOverBreakpoint(const UInt8* memory, UInt16 address)
 }
 
 /* Callers pass -1 for "no address" (empty callstack, no cursor); taking a
-** UInt16 turned that into a breakpoint at 0xffff. */
-void Breakpoints::setRuntoBreakpoint(int address)
+** UInt16 turned that into a breakpoint at 0xffff. Returns false so the
+** caller can skip the run instead of resuming with nothing to stop it. */
+bool Breakpoints::setRuntoBreakpoint(int address)
 {
     if (address < 0) {
-        return;
+        return false;
     }
 
     runtoBreakpoint = address;
     ::SetBreakpoint(runtoBreakpoint);
+    return true;
 }
 
 /* The disassembly clears this from updateContent, which also runs when the

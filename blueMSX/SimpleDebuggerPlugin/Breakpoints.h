@@ -168,7 +168,7 @@ public:
     int  getDisabledBpCount();
 
     // Support for temporary disassembly breakpoints
-    void setRuntoBreakpoint(int address);
+    bool setRuntoBreakpoint(int address);
     void clearRuntoBreakpoint();
 
     virtual LRESULT wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam);
