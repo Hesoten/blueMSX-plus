@@ -68,9 +68,9 @@ public:
     ** caller can treat the key as its own shortcut instead. */
     static bool pasteToFocused();
 
-    /* False until the text differs from what the box was seeded with, so
-    ** leaving a box alone never writes the displayed value back. Comparing the
-    ** text also covers paste and delete, which produce no WM_CHAR. */
+    /* False until the box is typed in or its text differs from the seed, so
+    ** leaving a box alone never writes the displayed value back. The seed
+    ** covers paste and delete, the count covers retyping the same text. */
     bool isModified();
 
 protected:
@@ -79,7 +79,11 @@ protected:
     /* Text the box was last seeded with, for isModified(). */
     char seedText[64];
 
-    void rememberSeed();
+    /* Keystrokes accepted since the seed. The overlay boxes also use it to
+    ** tell when `chars` of them have arrived. */
+    int charCount;
+
+    void resetModified();
 
     /* Only the in-place overlay boxes navigate; the modal Goto / Find dialogs
     ** keep their plain edit behaviour. */
@@ -137,7 +141,6 @@ protected:
 private:
     int chars;
     bool needReturn;
-    int  charCount;
     int  fastValue;
     SymbolInfo* symbolInfo;
     CpuRegisters* cpuRegisters;
@@ -159,7 +162,6 @@ protected:
 private:
     int chars;
     char text[512];
-    int  charCount;
     bool needReturn;
 };
 

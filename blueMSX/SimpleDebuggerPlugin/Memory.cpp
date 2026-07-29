@@ -928,7 +928,7 @@ void Memory::drawText(int top, int bottom)
         r.right += textWidth * 1;
 
         for (j = 0; j < memPerRow; j++) {
-            if (addr >= memSize) {
+            if (addr + j >= memSize) {
                 continue;
             }
             

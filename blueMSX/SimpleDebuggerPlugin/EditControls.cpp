@@ -48,7 +48,7 @@ std::map<HWND, InputDialog*> InputDialog::dialogMap;
 int InputDialog::richeditVersion = 0;
 
 InputDialog::InputDialog(HWND parent, int x, int y, int width, int height) :
-    navEnabled(false), pparent(parent), wx(x), wy(y), wwidth(width), wheight(height)
+    charCount(0), navEnabled(false), pparent(parent), wx(x), wy(y), wwidth(width), wheight(height)
 {
     seedText[0] = 0;
 }
@@ -62,14 +62,20 @@ static int readBoxText(HWND dlg, char* buffer, int size)
     return len > 0 ? len : 0;
 }
 
-void InputDialog::rememberSeed()
+void InputDialog::resetModified()
 {
+    charCount = 0;
     readBoxText(hwnd, seedText, sizeof(seedText));
 }
 
 bool InputDialog::isModified()
 {
     char text[sizeof(seedText)];
+    /* The ASCII column seeds a '.' for every byte it cannot print, so typing
+    ** a '.' over one leaves the text equal to the seed yet is a real edit. */
+    if (charCount > 0) {
+        return true;
+    }
     readBoxText(hwnd, text, sizeof(text));
     return strcmp(text, seedText) != 0;
 }
@@ -384,7 +390,7 @@ int InputDialog::navigateKey(int keyCode)
 HexInputDialog::HexInputDialog(HWND parent, int x, int y, int width, int height, int numChars, 
                                bool returnNeeded, SymbolInfo* symInfo, CpuRegisters* cpuRegs) :
     InputDialog(parent, x, y, width, height), chars(numChars),
-    needReturn(returnNeeded), charCount(0), fastValue(0),
+    needReturn(returnNeeded), fastValue(0),
     symbolInfo(symInfo), cpuRegisters(cpuRegs)
 {
     navEnabled = !returnNeeded;
@@ -406,9 +412,8 @@ void HexInputDialog::setValue(int value, bool setFocus)
     if (setFocus) {
         SetFocus(GetDlgItem(hwnd, IDC_ADDRESS));
     }
-    charCount = 0;
     fastValue = value;
-    rememberSeed();
+    resetModified();
 }
 
 bool HexInputDialog::hasValue() 
@@ -578,7 +583,7 @@ BOOL HexInputDialog::dlgProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
 
 TextInputDialog::TextInputDialog(HWND parent, int x, int y, int width, int height, 
                                  int numChars, bool returnNeeded) :
-    InputDialog(parent, x, y, width, height), chars(numChars), charCount(0), needReturn(returnNeeded)
+    InputDialog(parent, x, y, width, height), chars(numChars), needReturn(returnNeeded)
 {
     navEnabled = !returnNeeded;
     initDialog();
@@ -597,8 +602,7 @@ void TextInputDialog::setValue(const char* value, bool setFocus)
     if (setFocus) {
         SetFocus(GetDlgItem(hwnd, IDC_ADDRESS));
     }
-    charCount = 0;
-    rememberSeed();
+    resetModified();
 }
 
 const char* TextInputDialog::getValue()
@@ -656,6 +660,13 @@ BOOL TextInputDialog::dlgProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
                         keyCode = (int)keyfilter->wParam;
 
                         if (!needReturn) {
+                            /* Only printable bytes are data here. Backspace and
+                            ** Tab are editing keys, and Tab has already moved
+                            ** the cursor on by the time its WM_CHAR arrives. */
+                            if (keyCode < ' ' || keyCode > '~') {
+                                SetWindowLong(hwnd, DWLP_MSGRESULT, 1);
+                                return TRUE;
+                            }
                             text[charCount] = keyCode;
                             text[charCount + 1] = 0;
 
