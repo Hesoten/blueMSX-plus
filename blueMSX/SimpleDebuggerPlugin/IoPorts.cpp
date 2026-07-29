@@ -239,17 +239,16 @@ void IoPortWindow::updateScroll()
     GetClientRect(hwnd, &r);
     int visibleLines = r.bottom / textHeight;
 
+    /* Stay where the user scrolled to; this runs on every debugger update. */
+    int oldFirstLine = dbgGetScrollPos(hwnd);
+
     SCROLLINFO si;
     si.cbSize    = sizeof(SCROLLINFO);
-    
-    GetScrollInfo(hwnd, SB_VERT, &si);
-    int oldFirstLine = si.nPos;
-
-    si.fMask     = SIF_PAGE | SIF_POS | SIF_RANGE | (visibleLines >= lineCount ? 0 : 0);
+    si.fMask     = SIF_PAGE | SIF_POS | SIF_RANGE;
     si.nMin      = 0;
     si.nMax      = lineCount;
     si.nPage     = visibleLines;
-    si.nPos      = 0;
+    si.nPos      = oldFirstLine;
 
     SetScrollInfo(hwnd, SB_VERT, &si, TRUE);
     

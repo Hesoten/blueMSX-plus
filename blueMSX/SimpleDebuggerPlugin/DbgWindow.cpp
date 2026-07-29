@@ -149,6 +149,9 @@ int dbgGetScrollPos(HWND hwnd)
     SCROLLINFO si;
     si.cbSize = sizeof(si);
     si.fMask  = SIF_POS;
+    /* GetScrollInfo leaves nPos alone when it fails, which it does until the
+    ** window has a scroll bar, so start from the top rather than from junk. */
+    si.nPos   = 0;
     GetScrollInfo(hwnd, SB_VERT, &si);
     return si.nPos;
 }
