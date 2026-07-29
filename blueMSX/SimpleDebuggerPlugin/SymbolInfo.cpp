@@ -119,8 +119,11 @@ void SymbolInfo::append(string& buffer)
         string line = lastLine ? buffer.substr(index) : buffer.substr(index, nextIndex - index);
 
         if (line.length() > 0) {
+            /* The symbol file dialog accepts any file, so a single long line
+            ** would run straight off the end of this buffer. */
             char lineBuffer[512];
-            strcpy(lineBuffer, line.c_str());
+            strncpy(lineBuffer, line.c_str(), sizeof(lineBuffer) - 1);
+            lineBuffer[sizeof(lineBuffer) - 1] = 0;
             char* t1 = strtok(lineBuffer, "\r\n\t ");
             char* t2  = strtok(NULL, "\r\n\t ");
             if (t2 && 0 == strcmp(t2, "equ")) {

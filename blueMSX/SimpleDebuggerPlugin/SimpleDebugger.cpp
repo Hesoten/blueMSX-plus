@@ -422,8 +422,9 @@ void loadSymbolFile(HWND hwndOwner)
         return;
     }
 
-    fread(buffer, 1, sizeof(buffer), file);
-    buffer[sizeof(buffer) - 1] = 0;
+    /* The buffer is static, so terminate at the byte count actually read. */
+    size_t symbolLen = fread(buffer, 1, sizeof(buffer) - 1, file);
+    buffer[symbolLen] = 0;
     if (replaceSymbols) {
         symbolInfo->clear();
     }
