@@ -163,7 +163,7 @@ public:
     void setWatchpoint(BreakpointInfo& breakpoint);
 
     void updateBreakpoints();
-    bool setStepOverBreakpoint(const UInt8* memory, UInt16 address);
+    bool setStepOverBreakpoint(const UInt8* memory, UInt16 address, bool intEnabled);
     int  getEnabledBpCount();
     int  getDisabledBpCount();
 

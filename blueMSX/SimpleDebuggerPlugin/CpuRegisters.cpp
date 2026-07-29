@@ -403,6 +403,22 @@ CpuRegisters::FlagMode CpuRegisters::getFlagMode()
     return flagMode;
 }
 
+/* The Z80 interrupt enable flag, looked up by name because the bank layout
+** belongs to the emulator side. Unknown counts as disabled: callers use it to
+** decide whether to run on until an interrupt, and that way never returns. */
+bool CpuRegisters::interruptsEnabled()
+{
+    if (currentRegBank == NULL) {
+        return false;
+    }
+    for (UInt32 i = 0; i < currentRegBank->count; i++) {
+        if (strcmp(currentRegBank->reg[i].name, "IFF1") == 0) {
+            return currentRegBank->reg[i].value != 0;
+        }
+    }
+    return false;
+}
+
 BOOL CpuRegisters::lookup(const char* name, WORD* addr)
 {
     if (strlen(name) > 3) {

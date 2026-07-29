@@ -49,6 +49,7 @@ public:
     void invalidateContent();
 
     BOOL lookup(const char* name, WORD* addr);
+    bool interruptsEnabled();
 
     virtual LRESULT wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam);
     virtual void onFontChanged();

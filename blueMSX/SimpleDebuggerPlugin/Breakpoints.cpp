@@ -742,7 +742,7 @@ void Breakpoints::updateBreakpoints()
     DebuggerUpdate();
 }
 
-bool Breakpoints::setStepOverBreakpoint(const UInt8* memory, UInt16 address)
+bool Breakpoints::setStepOverBreakpoint(const UInt8* memory, UInt16 address, bool intEnabled)
 {
     char str[128];
     int size = Disassembly::dasm(symbolInfo, memory, address, str);
@@ -752,11 +752,18 @@ bool Breakpoints::setStepOverBreakpoint(const UInt8* memory, UInt16 address)
                 strncmp(str, "ldir", 4) != 0 && 
                 strncmp(str, "lddr", 4) != 0 && 
                 strncmp(str, "cpir", 4) != 0 && 
+                strncmp(str, "cpdr", 4) != 0 &&
                 strncmp(str, "inir", 4) != 0 && 
                 strncmp(str, "indr", 4) != 0 && 
                 strncmp(str, "otir", 4) != 0 && 
                 strncmp(str, "otdr", 4) != 0 && 
                 strncmp(str, "rst",  3) != 0;
+    /* halt re-executes at its own address, so a plain step never gets past it.
+    ** Running to the next one only terminates once an interrupt arrives, so
+    ** with them disabled keep the step and leave the debugger in control. */
+    if (intEnabled && strncmp(str, "halt", 4) == 0) {
+        step = false;
+    }
     if (!step) {
         setRuntoBreakpoint((address + size) & 0xffff);
     }

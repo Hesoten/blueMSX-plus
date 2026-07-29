@@ -946,7 +946,8 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         case MENU_DEBUG_STEP_OVER:
         case TB_STEPOVER:
             {
-                bool step = breakpoints->setStepOverBreakpoint(disassembly->getMemory(), disassembly->getPc());
+                bool step = breakpoints->setStepOverBreakpoint(disassembly->getMemory(), disassembly->getPc(),
+                                                              cpuRegisters->interruptsEnabled());
                 if (step) {
                     EmulatorStep();
                 }
