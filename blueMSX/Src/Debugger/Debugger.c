@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -250,6 +253,10 @@ void dbgSnapshotDestroy(DbgSnapshot* dbgSnapshot)
             if (dbgDevice->ioPorts[j] != NULL) {
                 free(dbgDevice->ioPorts[j]);
             }
+        }
+        /* dbgDeviceAddCallstack mallocs this one too, and nothing else frees it. */
+        if (dbgDevice->callstack != NULL) {
+            free(dbgDevice->callstack);
         }
 
         free(dbgDevice);

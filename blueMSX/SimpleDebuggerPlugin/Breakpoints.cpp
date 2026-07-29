@@ -648,6 +648,9 @@ void Breakpoints::clearBreakpoint(const Breakpoints::BreakpointInfo& breakpointI
             break;
         }
     }
+    /* The vector holds the only pointer to it, so erasing the entry is the
+    ** last chance to release the row. */
+    delete bi;
 
     DebuggerUpdate();
     updateScroll();

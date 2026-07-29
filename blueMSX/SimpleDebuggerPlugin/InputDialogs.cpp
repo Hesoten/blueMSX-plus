@@ -250,7 +250,7 @@ BOOL InputDialogs::watchpointDialogProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
         if (addressInput) delete addressInput;
         addressInput = new HexInputDialog(hDlg, 150,35,199,22,6, true, symbolInfo, cpuRegisters);
         addressInput->setFocus();
-        if (refValueInput) refValueInput;
+        if (refValueInput) delete refValueInput;
         refValueInput = new HexInputDialog(hDlg, 268,93,80,22,1, true, symbolInfo, cpuRegisters);
         refValueInput->setValue(0);
 
