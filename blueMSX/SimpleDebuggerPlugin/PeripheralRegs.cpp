@@ -72,6 +72,7 @@ void PeripheralRegs::updateDropdown()
         if (index == 0 || (currentRegs && currentRegs->title == r->title)) {
             SendMessageW(hCombo, CB_SETCURSEL, index, 0);
         }
+        index++;
     }
 }
 
@@ -504,6 +505,10 @@ void PeripheralRegs::updateContent(Snapshot* snapshot)
     if (currentRegs != NULL) {
         currentRegsTitle = currentRegs->title;
     }
+    /* Picked up again by title below. It must not survive the delete: a bank
+    ** that goes away would leave this pointing into freed memory, and the
+    ** fallback further down only triggers on NULL. */
+    currentRegs = NULL;
 
     MemList::iterator it;
     for (it = regList.begin(); it != regList.end(); ++it) {
@@ -546,12 +551,17 @@ void PeripheralRegs::updateContent(Snapshot* snapshot)
         }
     }
 
-    for (it = regList.begin(); it != regList.end(); ++it) {
+    /* erase already hands back the next entry, so the loop must not advance
+    ** again. */
+    for (it = regList.begin(); it != regList.end(); ) {
         RegisterItem* r= *it;
         if (!r->flag) {
             devicesChanged = true;
             delete r;
             it = regList.erase(it);
+        }
+        else {
+            ++it;
         }
     }
 

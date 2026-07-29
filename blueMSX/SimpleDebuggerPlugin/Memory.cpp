@@ -80,6 +80,7 @@ void Memory::updateDropdown()
         if (index == 0 || (currentMemory && currentMemory->title == mi->title)) {
             SendMessageW(hCombo, CB_SETCURSEL, index, 0);
         }
+        index++;
     }
 }
 
@@ -626,6 +627,10 @@ void Memory::updateContent(Snapshot* snapshot)
     if (currentMemory != NULL) {
         currentMemoryTitle = currentMemory->title;
     }
+    /* Picked up again by title below. It must not survive the delete: a block
+    ** that goes away would leave this pointing into freed memory, and the
+    ** fallback further down only triggers on NULL. */
+    currentMemory = NULL;
 
     MemList::iterator it;
     for (it = memList.begin(); it != memList.end(); ++it) {
@@ -670,12 +675,17 @@ void Memory::updateContent(Snapshot* snapshot)
         }
     }
 
-    for (it = memList.begin(); it != memList.end(); ++it) {
+    /* erase already hands back the next entry, so the loop must not advance
+    ** again. */
+    for (it = memList.begin(); it != memList.end(); ) {
         MemoryItem* mi = *it;
         if (!mi->flag) {
             devicesChanged = true;
             delete mi;
             it = memList.erase(it);
+        }
+        else {
+            ++it;
         }
     }
 
