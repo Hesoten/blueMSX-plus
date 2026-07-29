@@ -121,9 +121,17 @@ LRESULT CpuRegisters::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
             int row = HIWORD(lParam) / textHeight;
 
             if (row == 0) {
+                /* Negative left of the first flag, where the division would
+                ** truncate towards zero and select flag 0. */
+                int flagX = LOWORD(lParam) - 12 - textWidth * 6;
+
+                if (flagX < 0) {
+                    return 0;
+                }
+
                 if (flagMode == FM_CPU) {
-                    int flag = (LOWORD(lParam) - 12 - textWidth * 6) / (textWidth + 4);
-                    if (flag >= 0 && flag < 8) {
+                    int flag = flagX / (textWidth + 4);
+                    if (flag < 8) {
                         if (currentRegBank != NULL) {
                             regValue[0] ^= (1 << (7 - flag));
                             DeviceWriteRegisterBankRegister(currentRegBank, 0, regValue[0]);
@@ -133,7 +141,7 @@ LRESULT CpuRegisters::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
                 }
                 
                 if (flagMode == FM_ASM) {
-                    int flag = (LOWORD(lParam) - 12 - textWidth * 6) / (2 * textWidth + 7);
+                    int flag = flagX / (2 * textWidth + 7);
                     switch (flag) {
                     case 0: 
                         regValue[0] ^= 0x40; 
