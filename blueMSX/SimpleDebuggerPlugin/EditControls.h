@@ -64,6 +64,10 @@ public:
 
     bool isVisible() const { return IsWindowVisible(hwnd) != 0; }
 
+    /* Pastes the clipboard into the focused box, false if there is none so the
+    ** caller can treat the key as its own shortcut instead. */
+    static bool pasteToFocused();
+
     /* False until the text differs from what the box was seeded with, so
     ** leaving a box alone never writes the displayed value back. Comparing the
     ** text also covers paste and delete, which produce no WM_CHAR. */
@@ -98,6 +102,9 @@ private:
 
     static std::map<HWND, InputDialog*> dialogMap;
     static int  richeditVersion;
+
+    /* The richedit of the box the caret is in, or NULL if it is elsewhere. */
+    static HWND focusedEdit();
 
     void initControl(HWND thisHwnd);
 

@@ -652,9 +652,61 @@ static void updateWindowPositions()
     }
 }
 
+/* RegisterHotKey grabs the key desktop wide, so these may only be held while
+** this window really is the foreground one. GetForegroundWindow lags the
+** activation messages, so DBG_HOTKEY_TIMER stays on as a backstop. */
+#define DBG_HOTKEY_COUNT 21
+#define DBG_HOTKEY_TIMER 1
+#define DBG_HOTKEY_POLL  250
+
+/* Ctrl+V reaches the in-place richedit from the handler rather than by being
+** released here, so that the box that has focus is read at the keystroke. */
+#define DBG_HOTKEY_PASTE 19
+
+static void setDebuggerHotkeys(HWND hwnd, BOOL hold)
+{
+    static BOOL held = FALSE;
+    int i;
+
+    if (hold == held) {
+        return;
+    }
+    held = hold;
+
+    if (!hold) {
+        for (i = 1; i <= DBG_HOTKEY_COUNT; i++) {
+            UnregisterHotKey(hwnd, i);
+        }
+        return;
+    }
+
+    RegisterHotKey(hwnd, 1,  0, VK_F5);
+    RegisterHotKey(hwnd, 2,  MOD_CONTROL | MOD_ALT, VK_CANCEL);
+    RegisterHotKey(hwnd, 3,  MOD_SHIFT, VK_F5);
+    RegisterHotKey(hwnd, 4,  MOD_CONTROL | MOD_SHIFT, VK_F5);
+    RegisterHotKey(hwnd, 5,  0, VK_F11);
+    RegisterHotKey(hwnd, 6,  0, VK_F10);
+    RegisterHotKey(hwnd, 7,  MOD_SHIFT, VK_F11);
+    RegisterHotKey(hwnd, 8,  MOD_SHIFT, VK_F10);
+    RegisterHotKey(hwnd, 9,  0, VK_F9);
+    RegisterHotKey(hwnd, 10, MOD_SHIFT, VK_F9);
+    RegisterHotKey(hwnd, 11, MOD_CONTROL | MOD_SHIFT, VK_F9);
+    RegisterHotKey(hwnd, 12, 0, VK_F8);
+    RegisterHotKey(hwnd, 13, MOD_CONTROL, 'G');
+    RegisterHotKey(hwnd, 14, MOD_CONTROL, 'M');
+    RegisterHotKey(hwnd, 15, MOD_CONTROL, 'B');
+    RegisterHotKey(hwnd, 16, MOD_CONTROL, 'F');
+    RegisterHotKey(hwnd, 17, 0, VK_F3);
+    RegisterHotKey(hwnd, 18, 0, VK_HOME);
+    RegisterHotKey(hwnd, DBG_HOTKEY_PASTE, MOD_CONTROL, 'V');
+    RegisterHotKey(hwnd, 20, MOD_CONTROL, VK_F11);
+    RegisterHotKey(hwnd, 21, MOD_CONTROL, 'W');
+}
+
 static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     static BOOL isActive = FALSE;
+    static BOOL appActive = FALSE;
 
     if (dbgViewMessage(hwnd, iMsg, wParam)) {
         return 0;
@@ -662,10 +714,37 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 
     switch (iMsg) {
     case WM_CREATE:
+        {
+            /* No activation message has arrived yet, so ask once whether this
+            ** process holds the foreground. Every later change is a message. */
+            DWORD fgPid = 0;
+            GetWindowThreadProcessId(GetForegroundWindow(), &fgPid);
+            appActive = fgPid == GetCurrentProcessId();
+            /* Shared with the window that stood here before, and a window is
+            ** not active until its own WM_ACTIVATE says so. */
+            isActive = FALSE;
+        }
+        SetTimer(hwnd, DBG_HOTKEY_TIMER, DBG_HOTKEY_POLL, NULL);
         return 0;
 
+    case WM_TIMER:
+        if (wParam == DBG_HOTKEY_TIMER) {
+            /* By now the query has caught up with the messages, so this is the
+            ** backstop for a transition they did not describe between them. */
+            setDebuggerHotkeys(hwnd, GetForegroundWindow() == hwnd);
+            return 0;
+        }
+        break;
+
+    case WM_ACTIVATEAPP:
+        appActive = wParam != 0;
+        setDebuggerHotkeys(hwnd, appActive && isActive);
+        break;
+
     case WM_ACTIVATE:
-        isActive = LOWORD(wParam) != WA_INACTIVE;
+        /* Minimized counts as inactive: activation can land on a window the user
+        ** cannot see, and the keys this gates are taken desktop wide. */
+        isActive = LOWORD(wParam) != WA_INACTIVE && HIWORD(wParam) == 0;
 
         if (toolBar != NULL) {
             static int minimizedState = 0;
@@ -677,37 +756,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             minimizedState = HIWORD(wParam);
         }
 
-#ifndef _DEBUGx
-        if (isActive) {
-            RegisterHotKey(hwnd, 1,  0, VK_F5);
-            RegisterHotKey(hwnd, 2,  MOD_CONTROL | MOD_ALT, VK_CANCEL);
-            RegisterHotKey(hwnd, 3,  MOD_SHIFT, VK_F5);
-            RegisterHotKey(hwnd, 4,  MOD_CONTROL | MOD_SHIFT, VK_F5);
-            RegisterHotKey(hwnd, 5,  0, VK_F11);
-            RegisterHotKey(hwnd, 6,  0, VK_F10);
-            RegisterHotKey(hwnd, 7,  MOD_SHIFT, VK_F11);
-            RegisterHotKey(hwnd, 8,  MOD_SHIFT, VK_F10);
-            RegisterHotKey(hwnd, 9,  0, VK_F9);
-            RegisterHotKey(hwnd, 10, MOD_SHIFT, VK_F9);
-            RegisterHotKey(hwnd, 11, MOD_CONTROL | MOD_SHIFT, VK_F9);        
-            RegisterHotKey(hwnd, 12, 0, VK_F8);     
-            RegisterHotKey(hwnd, 13, MOD_CONTROL, 'G');
-            RegisterHotKey(hwnd, 14, MOD_CONTROL, 'M');
-            RegisterHotKey(hwnd, 15, MOD_CONTROL, 'B');
-            RegisterHotKey(hwnd, 16, MOD_CONTROL, 'F');
-            RegisterHotKey(hwnd, 17, 0, VK_F3);
-            RegisterHotKey(hwnd, 18, 0, VK_HOME);
-            RegisterHotKey(hwnd, 19, MOD_CONTROL, 'V');
-            RegisterHotKey(hwnd, 20, MOD_CONTROL, VK_F11);
-            RegisterHotKey(hwnd, 21, MOD_CONTROL, 'W');
-        }
-        else {
-            int i;
-            for (i = 1; i <= 20; i++) {
-                UnregisterHotKey(hwnd, i);
-            }
-        }
-#endif
+        setDebuggerHotkeys(hwnd, appActive && isActive);
         break;
 
     case WM_HOTKEY:
@@ -781,8 +830,12 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             case 18:
                 disassembly->updateScroll();
                 break;
-            case 19:
-                SendMessage(hwnd, WM_COMMAND, MENU_DEBUG_CHECK_VRAM, 0);
+            case DBG_HOTKEY_PASTE:
+                /* Asked here, when the key actually arrives, so the answer
+                ** cannot be stale by the time it is used. */
+                if (!InputDialog::pasteToFocused()) {
+                    SendMessage(hwnd, WM_COMMAND, MENU_DEBUG_CHECK_VRAM, 0);
+                }
                 break;
             case 20:
                 if (GetEmulatorState() == EMULATOR_PAUSED)
@@ -1132,6 +1185,8 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         return 0;
 
     case WM_DESTROY:
+        KillTimer(hwnd, DBG_HOTKEY_TIMER);
+        setDebuggerHotkeys(hwnd, FALSE);
         iniFileWriteInt( "Main Window", "x",       x);
         iniFileWriteInt( "Main Window", "y",       y);
         iniFileWriteInt( "Main Window", "width",   width);

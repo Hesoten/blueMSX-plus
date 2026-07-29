@@ -240,6 +240,72 @@ void InputDialog::initRichEditControlDll()
     }
 }
 
+/* Visibility is not the test: the Memory window keeps its goto box on screen
+** the whole time. Only the box the caret sits in wants the editing keys. */
+HWND InputDialog::focusedEdit()
+{
+    HWND focus = GetFocus();
+    std::map<HWND, InputDialog*>::iterator i;
+
+    if (focus == NULL) {
+        return NULL;
+    }
+    for (i = dialogMap.begin(); i != dialogMap.end(); ++i) {
+        if (focus == i->first || GetParent(focus) == i->first) {
+            return GetDlgItem(i->first, IDC_ADDRESS);
+        }
+    }
+    return NULL;
+}
+
+/* Replayed as keystrokes rather than handed to the control, so the box's own
+** filters, its digit counter and its commit on the last character all apply
+** exactly as if the text had been typed. */
+bool InputDialog::pasteToFocused()
+{
+    HWND edit = focusedEdit();
+    char text[128];
+    int len = 0;
+    int i;
+
+    if (edit == NULL) {
+        return false;
+    }
+
+    /* Copied out and the clipboard closed before a single key is replayed: a
+    ** keystroke commits into the emulator, and holding the clipboard open over
+    ** that locks every other process out of it for as long as it takes. */
+    if (OpenClipboard(edit)) {
+        HANDLE data = GetClipboardData(CF_TEXT);
+        const char* clip = data != NULL ? (const char*)GlobalLock(data) : NULL;
+        if (clip != NULL) {
+            /* Bounded by the block as well as by the terminator: CF_TEXT is
+            ** meant to carry one, but it comes from another process. */
+            int avail = (int)GlobalSize(data);
+            /* Stops at a newline, which would read as Enter and commit the box
+            ** with the rest still unread. The length bounds the replay. */
+            while (len < (int)sizeof(text) - 1 && len < avail && clip[len] != 0 &&
+                   clip[len] != '\r' && clip[len] != '\n') {
+                text[len] = clip[len];
+                len++;
+            }
+            GlobalUnlock(data);
+        }
+        CloseClipboard();
+    }
+    text[len] = 0;
+
+    for (i = 0; i < len; i++) {
+        /* Committing can hand the caret back to the view, and the rest of the
+        ** text belongs to whatever holds it then. */
+        if (focusedEdit() != edit) {
+            break;
+        }
+        SendMessage(edit, WM_CHAR, (WPARAM)(UInt8)text[i], 1);
+    }
+    return true;
+}
+
 void InputDialog::show() 
 {
     ShowWindow(hwnd, TRUE);
