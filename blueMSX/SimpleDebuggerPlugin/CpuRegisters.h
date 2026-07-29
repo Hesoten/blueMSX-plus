@@ -61,6 +61,7 @@ private:
     void updateScroll();
     void drawText(int top, int bottom);
     void showEditRegister(int reg);
+    void writeRegister(int reg, UInt32 value);
     void hideEdit();
     void endEdit();
 

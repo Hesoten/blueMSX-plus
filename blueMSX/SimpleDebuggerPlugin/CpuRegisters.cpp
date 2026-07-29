@@ -132,10 +132,8 @@ LRESULT CpuRegisters::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
                 if (flagMode == FM_CPU) {
                     int flag = flagX / (textWidth + 4);
                     if (flag < 8) {
-                        if (currentRegBank != NULL) {
-                            regValue[0] ^= (1 << (7 - flag));
-                            DeviceWriteRegisterBankRegister(currentRegBank, 0, regValue[0]);
-                        }
+                        regValue[0] ^= (1 << (7 - flag));
+                        writeRegister(0, regValue[0]);
                         InvalidateRect(hwnd, NULL, TRUE);
                     }
                 }
@@ -145,25 +143,25 @@ LRESULT CpuRegisters::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
                     switch (flag) {
                     case 0: 
                         regValue[0] ^= 0x40; 
-                        DeviceWriteRegisterBankRegister(currentRegBank, 0, regValue[0]);
+                        writeRegister(0, regValue[0]);
                         break;
                     case 1: 
                         regValue[0] ^= 0x01; 
-                        DeviceWriteRegisterBankRegister(currentRegBank, 0, regValue[0]);
+                        writeRegister(0, regValue[0]);
                         break;
                     case 2: 
                         regValue[0] ^= 0x04; 
-                        DeviceWriteRegisterBankRegister(currentRegBank, 0, regValue[0]);
+                        writeRegister(0, regValue[0]);
                         break;
                     case 3: 
                         regValue[0] ^= 0x80;
-                        DeviceWriteRegisterBankRegister(currentRegBank, 0, regValue[0]);
+                        writeRegister(0, regValue[0]);
                         break;
                     case 4:
                         regValue[15] = regValue[15] > 0 ? 0 : 2;
                         regValue[16] = regValue[15] > 0 ? 1 : 0;
-                        DeviceWriteRegisterBankRegister(currentRegBank, 15, regValue[15]);
-                        DeviceWriteRegisterBankRegister(currentRegBank, 16, regValue[16]);
+                        writeRegister(15, regValue[15]);
+                        writeRegister(16, regValue[16]);
                         break;
                     }
                     InvalidateRect(hwnd, NULL, TRUE);
@@ -191,8 +189,8 @@ LRESULT CpuRegisters::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
     case HexInputDialog::EC_NEWVALUE:
         if (currentEditRegister >= 0) {
             UInt32 regVal = (HexInputDialog*)wParam == dataInput2 ? (UInt8)lParam : (UInt16)lParam;
-            if (currentRegBank != NULL && regValue[currentEditRegister] != (int)regVal) {
-                DeviceWriteRegisterBankRegister(currentRegBank, currentEditRegister, regVal);
+            if (regValue[currentEditRegister] != (int)regVal) {
+                writeRegister(currentEditRegister, regVal);
             }
             regValue[currentEditRegister] = regVal;
             InvalidateRect(hwnd, NULL, TRUE);
@@ -217,8 +215,8 @@ LRESULT CpuRegisters::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
             if (input->isModified()) {
                 int value = input->getValue();
                 UInt32 regVal = input == dataInput2 ? (UInt8)value : (UInt16)value;
-                if (currentRegBank != NULL && regValue[currentEditRegister] != (int)regVal) {
-                    DeviceWriteRegisterBankRegister(currentRegBank, currentEditRegister, regVal);
+                if (regValue[currentEditRegister] != (int)regVal) {
+                    writeRegister(currentEditRegister, regVal);
                 }
                 regValue[currentEditRegister] = regVal;
                 InvalidateRect(hwnd, NULL, TRUE);
@@ -445,6 +443,17 @@ BOOL CpuRegisters::lookup(const char* name, WORD* addr)
         }
     }
     return FALSE;
+}
+
+/* The bank is the snapshot the emulator handed over, and nothing refreshes it
+** until the next break, so mirror the write into it as PeripheralRegs does. */
+void CpuRegisters::writeRegister(int reg, UInt32 value)
+{
+    if (currentRegBank == NULL) {
+        return;
+    }
+    DeviceWriteRegisterBankRegister(currentRegBank, reg, value);
+    currentRegBank->reg[reg].value = value;
 }
 
 void CpuRegisters::invalidateContent()
