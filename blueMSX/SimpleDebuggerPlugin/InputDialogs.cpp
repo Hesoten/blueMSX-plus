@@ -262,7 +262,11 @@ BOOL InputDialogs::watchpointDialogProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
         case IDOK:
             procData->breakpointInfo.address = addressInput->getValue();
             procData->breakpointInfo.referenceValue = refValueInput->getValue();
-            if (procData->breakpointInfo.type == Breakpoints::BreakpointInfo::WATCHPOINT_IO) procData->breakpointInfo.size = 1;
+            /* One byte selects the port, so anything wider would never match. */
+            if (procData->breakpointInfo.type == Breakpoints::BreakpointInfo::WATCHPOINT_IO) {
+                procData->breakpointInfo.size = 1;
+                procData->breakpointInfo.address &= 0xff;
+            }
             EndDialog(hDlg, TRUE);
             return TRUE;
         case IDCANCEL:
