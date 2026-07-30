@@ -192,8 +192,10 @@ void StackWindow::updateContent(BYTE* memory, WORD sp)
     lineCount = 0;
 
     for (int addr = sp; addr < 0x10000 && addr < sp + MAX_LINES; ) {
-        WORD newValue = ((int)memory[addr + 1] << 8) | memory[addr];
-        WORD oldValue = ((int)backupMemory[addr + 1] << 8) | backupMemory[addr];
+        /* The high byte wraps like the Z80 does, so SP = 0xFFFF stays in range. */
+        int hiAddr = (addr + 1) & 0xFFFF;
+        WORD newValue = ((int)memory[hiAddr] << 8) | memory[addr];
+        WORD oldValue = ((int)backupMemory[hiAddr] << 8) | backupMemory[addr];
         sprintf(lineInfo[lineCount].text, "%.4X: ", addr);
         lineInfo[lineCount].textLength = (int)strlen(lineInfo[lineCount].text);
         sprintf(lineInfo[lineCount].dataText, "%.4X", newValue);
