@@ -1182,7 +1182,21 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         if (vramCheckAccess) {
             EnableVramAccessCheck(0);
         }
-        DestroyWindow(hwnd);
+        /* Closing the window does not disarm anything, so the emulator would
+        ** keep stopping at addresses the user can no longer see. Ask -- but
+        ** only about the armed ones, since disabled rows stop nothing. */
+        if (breakpoints != NULL && breakpoints->getEnabledBpCount() > 0) {
+            int rv = ShowMessageBox(hwnd, Language::popupRemoveBreakpoints,
+                                    Language::windowDebugger, MB_YESNO | MB_ICONQUESTION);
+            /* The prompt runs a message loop of its own, so the tool can have
+            ** been torn down and `breakpoints` deleted while it was up. */
+            if (rv == IDYES && breakpoints != NULL) {
+                breakpoints->clearAllBreakpoints();
+            }
+        }
+        if (dbgHwnd != NULL) {
+            DestroyWindow(hwnd);
+        }
         return 0;
 
     case WM_DESTROY:
@@ -1195,7 +1209,8 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         iniFileWriteInt( "Main Window", "check vram access",  vramCheckAccess);
         iniFileWriteInt( "Main Window", "font size",  dbgFontPoints());
 
-        breakpoints->clearAllBreakpoints();
+        breakpoints->discardRuntoBreakpoint();
+        breakpoints->keepBreakpoints();
         dbgHwnd = NULL;
         delete statusBar;
         statusBar = NULL;
@@ -1330,7 +1345,11 @@ void OnShowTool() {
     inputDialogs  = new InputDialogs(GetDllHinstance(), viewHwnd, disassembly, symbolInfo, cpuRegisters, memory, breakpoints);
     periRegisters = new PeripheralRegs(GetDllHinstance(), viewHwnd);
     ioPorts       = new IoPortWindow(GetDllHinstance(), viewHwnd);
-    
+
+    /* Last: this re-arms the kept breakpoints, and a hit calls back into every
+    ** view, so they all have to exist first. */
+    breakpoints->restoreBreakpoints();
+
     updateWindowPositions();
     
     if (GetEmulatorState() == EMULATOR_PAUSED) {

@@ -118,6 +118,7 @@ public:
         symbolWindowText            = "Replace old symbols";
         
         popupOverwrite              = "File already exists. Do you want to overwrite it?";
+        popupRemoveBreakpoints      = "Breakpoints are still set. Remove them before closing?";
         
         statusRunning               = "Running";
         statusPaused                = "Paused";

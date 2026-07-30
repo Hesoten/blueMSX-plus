@@ -50,6 +50,10 @@
 
 extern void DebuggerUpdate();
 
+/* Parked here between debugger sessions: the plugin is the only place the list
+** exists, since the CPU offers no way to enumerate what it has armed. */
+static std::vector<Breakpoints::BreakpointInfo> keptBreakpoints;
+
 namespace {
 
 
@@ -749,10 +753,48 @@ void Breakpoints::toggleBreakpointEnable(Breakpoints::BreakpointInfo* bi)
 void Breakpoints::clearAllBreakpoints()
 {
     while (!breakpoints.empty()) {
-        delete breakpoints.front();
+        BreakpointInfo* bi = breakpoints.front();
+        /* Dropping the row is not enough: the CPU would keep stopping there
+        ** with nothing left in the list to explain why. */
+        if (bi->enabled) {
+            toggleBreakpointEnable(bi);
+        }
+        delete bi;
         breakpoints.erase(breakpoints.begin());
     }
+    keptBreakpoints.clear();
     DebuggerUpdate();
+}
+
+void Breakpoints::keepBreakpoints()
+{
+    keptBreakpoints.clear();
+    /* The destructor does not own the rows, so they have to be released here
+    ** once their contents have been copied out. */
+    for (std::vector<BreakpointInfo*>::iterator i = breakpoints.begin(); i != breakpoints.end(); ++i) {
+        keptBreakpoints.push_back(*(*i));
+        delete *i;
+    }
+    breakpoints.clear();
+}
+
+/* Arming a breakpoint can stop the emulator, which calls straight back into
+** the plugin, so this must run only once every view the callback touches
+** exists -- not from the constructor, which is the first of them. */
+void Breakpoints::restoreBreakpoints()
+{
+    for (size_t i = 0; i < keptBreakpoints.size(); i++) {
+        BreakpointInfo* bi = new BreakpointInfo(keptBreakpoints[i]);
+        breakpoints.push_back(bi);
+        /* Arm it again rather than assume it survived -- a machine started
+        ** since the window closed has an empty breakpoint table, and both
+        ** calls ignore an address that is already armed. */
+        if (bi->enabled) {
+            bi->enabled = false;
+            toggleBreakpointEnable(bi);
+        }
+    }
+    invalidateContent();
 }
 
 int Breakpoints::getEnabledBpCount() {
@@ -840,6 +882,19 @@ bool Breakpoints::setRuntoBreakpoint(int address)
     runtoBreakpoint = address;
     ::SetBreakpoint(runtoBreakpoint);
     return true;
+}
+
+/* Step over / run to leaves this armed while the emulator runs, and it is not
+** in the list, so closing the window would strand it: the machine stops there
+** later with no debugger open and nothing that can clear it. */
+void Breakpoints::discardRuntoBreakpoint()
+{
+    if (runtoBreakpoint >= 0) {
+        if (!IsBreakpointSet(runtoBreakpoint)) {
+            ::ClearBreakpoint(runtoBreakpoint);
+        }
+        runtoBreakpoint = -1;
+    }
 }
 
 /* The disassembly clears this from updateContent, which also runs when the

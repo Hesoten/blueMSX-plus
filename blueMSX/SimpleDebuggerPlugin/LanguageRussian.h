@@ -114,6 +114,7 @@ public:
         symbolWindowText            = "Заменить старые символы";
         
         popupOverwrite              = "Файл уже существует. Хотите перезаписать его?";
+        popupRemoveBreakpoints      = "Прерывания всё ещё установлены. Убрать их перед закрытием?";
         
         aboutBuilt                  = "Сборка:";
         aboutVisit                  = "Посетите www.bluemsx.com для подробностей";

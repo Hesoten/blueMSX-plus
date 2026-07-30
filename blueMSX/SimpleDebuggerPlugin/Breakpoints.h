@@ -66,7 +66,11 @@ public:
         int size;
         bool enabled;
 
-        BreakpointInfo() : address(-1), enabled(false), type(UNINITIALIZED) {
+        /* Every field, since these are copied whole between sessions and a
+        ** stale breakpointHit would pin the selected row for good. */
+        BreakpointInfo() : type(UNINITIALIZED), breakpointHit(false), address(-1),
+                           condition(WATCHPOINT_ANY), referenceValue(0), size(1),
+                           enabled(false) {
             label[0] = 0;
         }
         bool operator>(const BreakpointInfo& other) {
@@ -154,7 +158,13 @@ public:
     void enableAllBreakpoints();
     void disableAllBreakpoints();
     void clearAllBreakpoints();
-    
+
+    /* The CPU keeps whatever is armed when the window closes, so hand the list
+    ** on to the next debugger session instead of dropping it. */
+    void keepBreakpoints();
+    void restoreBreakpoints();
+    void discardRuntoBreakpoint();
+
     void isBreakpointSet(const BreakpointInfo& breakpoint);
     void setBreakpoint(const BreakpointInfo& breakpoint);
     void clearBreakpoint(const BreakpointInfo& breakpoint);

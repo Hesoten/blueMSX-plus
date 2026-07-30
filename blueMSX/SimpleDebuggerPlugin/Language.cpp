@@ -154,6 +154,7 @@ const char* Language::symbolWindowCaption;
 const char* Language::symbolWindowText;
 
 const char* Language::popupOverwrite;
+const char* Language::popupRemoveBreakpoints;
 
 const char* Language::statusRunning;
 const char* Language::statusPaused;

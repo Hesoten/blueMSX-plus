@@ -120,6 +120,7 @@ public:
     static const char* symbolWindowText;
 
     static const char* popupOverwrite;
+    static const char* popupRemoveBreakpoints;
 
     static const char* statusRunning;
     static const char* statusPaused;
