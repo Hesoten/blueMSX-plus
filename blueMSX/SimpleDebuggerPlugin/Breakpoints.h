@@ -128,7 +128,7 @@ public:
             char formatString[32];
             sprintf(formatString, "%%.%dXh", size * 2);
             static char buffer[32];
-            sprintf(buffer, formatString, address);
+            sprintf(buffer, formatString, referenceValue);
             return buffer;    
         }
     };
