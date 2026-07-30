@@ -1937,6 +1937,9 @@ typedef struct {
     ThemePage* themePageActive;
     ThemeCollection** themeList;
     int themeIndex;
+    /* Collection the active page came from; differs from themeList[themeIndex]
+       when a theme with no page for this zoom falls back to Classic. */
+    ThemeCollection* themePageOwner;
     HWND currentHwnd; // Used for arch specific theme events
     POINT currentHwndMouse;
     RECT currentHwndRect;
@@ -2384,6 +2387,16 @@ static int msxVisibleHeight(Properties* props)
     }
 }
 
+/* Classic / Classic Dark own a real title bar and refresh it from the
+   100 ms poller.  Keyed on the page actually shown, not the selected
+   theme: at x1 a theme with no "small" page falls back to Classic. */
+static int themePageOwnerIsClassic(void)
+{
+    return st.themePageOwner != NULL &&
+           (strcmp(st.themePageOwner->name, "Classic") == 0 ||
+            strcmp(st.themePageOwner->name, "Classic Dark") == 0);
+}
+
 void themeSet(char* themeName, int forceMatch) {
     int x  = 0;
     int y  = 0;
@@ -2432,24 +2445,30 @@ void themeSet(char* themeName, int forceMatch) {
         themeCollectionEnsureLoaded(tc);
         strcpy(pProperties->settings.themeName, tc->name);
 
+        st.themePageOwner = tc;
         if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN) {
             Theme* page = tc->fullscreen;
-            if (page == NULL && st.themeList[0] != NULL) page = st.themeList[0]->fullscreen;
+            if (page == NULL && st.themeList[0] != NULL) {
+                page = st.themeList[0]->fullscreen;
+                st.themePageOwner = st.themeList[0];
+            }
             st.themePageActive = themeGetCurrentPage(page);
         }
         else {
             int zoomIdx = pProperties->video.windowSize + 1;  /* P_VIDEO_SIZEX1..X8 -> 1..8 */
             /* External themes ship zoom[2]+fullscreen; synthesise
-               zoom[3..8] from "normal".  z=1 falls back to Classic. */
+               zoom[3..8] from "normal".  x1 has no synthesis path, so a
+               theme without "small" falls back to Classic as before v3. */
             if (zoomIdx >= 3 && tc->zoom[zoomIdx] == NULL && tc->zoom[2] != NULL) {
                 themeCollectionEnsureZoom(tc, zoomIdx);
             }
             Theme* page = tc->zoom[zoomIdx];
-            if (page == NULL) page = tc->zoom[2];                    /* fallback to normal */
+            if (page == NULL && zoomIdx != 1) page = tc->zoom[2];     /* fallback to normal */
             if (page == NULL && st.themeList[0] != NULL) {
-                /* Last-resort Classic fallback (typically zoom[1]). */
+                /* Classic fallback: x1, or a theme with no "normal". */
                 page = st.themeList[0]->zoom[zoomIdx];
                 if (page == NULL) page = st.themeList[0]->zoom[2];
+                st.themePageOwner = st.themeList[0];
             }
             st.themePageActive = themeGetCurrentPage(page);
         }
@@ -2516,7 +2535,7 @@ void themeSet(char* themeName, int forceMatch) {
         st.hBitmap = CreateCompatibleBitmap(st.hdc, 640, 480);
     }
     
-    if (strcmp(themeName,"Classic")) SetWindowTextU(st.hwnd, "  blueMSX+");
+    if (!themePageOwnerIsClassic()) SetWindowTextU(st.hwnd, "  blueMSX+");
 
     if (st.rgnData != NULL) {
 //        SetWindowRgn(st.hwnd, NULL, TRUE);
@@ -3458,9 +3477,9 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 
                 /* Classic / Classic Dark drive their full title from this
                    100ms poller; other themes set theirs at theme change. */
-                if (!strcmp(pProperties->settings.themeName, "Classic") ||
-                    !strcmp(pProperties->settings.themeName, "Classic Dark"))
+                if (themePageOwnerIsClassic()) {
                     themeClassicTitlebarUpdate(hwnd);
+                }
 
                 if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN) {
                     int drv = pProperties->video.driver;
