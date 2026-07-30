@@ -835,7 +835,7 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
             ScreenToClient(hwnd, &pt);
             themePageMouseMove(themePage, hdc, pt.x, pt.y);
             win32SliderTooltipUpdate(&wi->hwndSliderTip, hwnd,
-                                     themePageHoverSliderPercent(themePage, pt.x, pt.y));
+                                     themePageHoverSliderText(themePage, pt.x, pt.y));
             ReleaseDC(hwnd, hdc);
             windowCheckClipRegion(wi);
             /* Request WM_MOUSELEAVE so the slider tooltip is hidden when
@@ -851,7 +851,7 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
 
     case WM_MOUSELEAVE:
         if (wi != NULL) {
-            win32SliderTooltipUpdate(&wi->hwndSliderTip, hwnd, -1);
+            win32SliderTooltipUpdate(&wi->hwndSliderTip, hwnd, NULL);
         }
         return 0;
 

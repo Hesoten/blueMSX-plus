@@ -438,21 +438,25 @@ void themePageAddObject(ThemePage* themePage, void* object, ThemeTrigger visible
     themePageAddLast(themePage, ITEM_OBJECT, object, THEME_TRIGGER_NONE, visible, THEME_TRIGGER_NONE);
 }
 
-int themePageHoverSliderPercent(ThemePage* themePage, int x, int y)
+const char* themePageHoverSliderText(ThemePage* themePage, int x, int y)
 {
     ThemeItem* item;
 
     if (themePage == NULL) {
-        return -1;
+        return NULL;
     }
     for (item = themePage->itemList; item != NULL; item = item->next) {
         if (item->type == ITEM_SLIDER &&
             activeSliderHitTest((ActiveSlider*)item->object, x, y))
         {
-            return activeSliderGetPercent((ActiveSlider*)item->object);
+            /* Read the live setting, not the slider frame index: the
+               sprite quantises to `max` steps, the property does not.
+               Empty text means "no value to show" -> no tooltip. */
+            const char* text = themeTriggerSliderValueText(item->trigger);
+            return (text != NULL && text[0] != 0) ? text : NULL;
         }
     }
-    return -1;
+    return NULL;
 }
 
 void themePageMouseMove(ThemePage* themePage, void*  dc, int x, int y)

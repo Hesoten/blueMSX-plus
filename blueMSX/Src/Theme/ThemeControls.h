@@ -150,7 +150,6 @@ int activeSliderDown(ActiveSlider* activeSlider, int x, int y);
 int activeSliderUp(ActiveSlider* activeSlider, int x, int y);
 int activeSliderMouseMove(ActiveSlider* activeSlider, int x, int y);
 int activeSliderHitTest(ActiveSlider* activeSlider, int x, int y);
-int activeSliderGetPercent(ActiveSlider* activeSlider);
 
 typedef struct ActiveObject ActiveObject;
 

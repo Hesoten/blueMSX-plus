@@ -865,17 +865,18 @@ static void win32ApplyDarkToDialog(HWND hwnd) {
 
 
 
-void win32SliderTooltipUpdate(HWND* phwndTip, HWND parent, int percent)
+void win32SliderTooltipUpdate(HWND* phwndTip, HWND parent, const char* text)
 {
     /* Explicit TTM_*W: without UNICODE the unsuffixed macros expand to ANSI
        IDs and TOOLTIPS_CLASSW renders our wide string as ANSI
        (= truncated at first 0x00 byte). */
     static HFONT s_tipFont = NULL;
-    wchar_t buf[24];
+    wchar_t stack[128];
+    wchar_t buf[132];
     POINT pt;
     TOOLINFOW ti;
 
-    if (percent < 0) {
+    if (text == NULL) {
         if (phwndTip && *phwndTip) {
             TOOLINFOW tih = { 0 };
             tih.cbSize = sizeof(tih);
@@ -888,7 +889,7 @@ void win32SliderTooltipUpdate(HWND* phwndTip, HWND parent, int percent)
 
     if (!phwndTip || !parent) return;
 
-    /* Larger-than-default font so the percent value is easy to read. */
+    /* Larger-than-default font so the setting value is easy to read. */
     if (s_tipFont == NULL) {
         s_tipFont = CreateFontW(-22, 0, 0, 0, FW_SEMIBOLD,
                                 FALSE, FALSE, FALSE,
@@ -923,7 +924,11 @@ void win32SliderTooltipUpdate(HWND* phwndTip, HWND parent, int percent)
         SendMessageW(*phwndTip, TTM_ADDTOOLW, 0, (LPARAM)&tin);
     }
 
-    swprintf(buf, 24, L" %d %% ", percent);
+    {
+        wchar_t* wtext = Utf8ToWideAlloc(text, stack, (int)_countof(stack));
+        swprintf(buf, _countof(buf), L" %.*s ", (int)_countof(buf) - 3, wtext);
+        FreeWideMaybe(wtext, stack);
+    }
 
     GetCursorPos(&pt);
     pt.x += 20;
@@ -3344,7 +3349,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             ScreenToClient(hwnd, &pt);
             themePageMouseMove(st.themePageActive, hdc, pt.x, pt.y);
             win32SliderTooltipUpdate(&st.hwndSliderTip, hwnd,
-                                     themePageHoverSliderPercent(st.themePageActive, pt.x, pt.y));
+                                     themePageHoverSliderText(st.themePageActive, pt.x, pt.y));
             ReleaseDC(hwnd, hdc);
             checkClipRegion();
             {
@@ -3368,7 +3373,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         break;
 
     case WM_MOUSELEAVE:
-        win32SliderTooltipUpdate(&st.hwndSliderTip, hwnd, -1);
+        win32SliderTooltipUpdate(&st.hwndSliderTip, hwnd, NULL);
         return 0;
 
     case WM_LBUTTONDOWN:

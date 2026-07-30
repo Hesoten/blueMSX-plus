@@ -437,6 +437,11 @@ char* themeTriggerLangKbdMapSCheme();
 char* themeTriggerJoyPort1();
 char* themeTriggerJoyPort2();
 
+/* Display text for the setting a slider drives, in the same units and
+   wording as the property pages.  Empty when the trigger has no unit or
+   its effect is switched off; the caller then shows no tooltip. */
+char* themeTriggerSliderValueText(int trigger);
+
 int themeTriggerKeyPressed(int keyCode);
 int themeTriggerKeyEdit(int keyCode);
 int themeTriggerKeyConfigured(int keyCode);

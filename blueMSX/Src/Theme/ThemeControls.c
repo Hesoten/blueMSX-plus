@@ -1043,13 +1043,6 @@ int activeSliderHitTest(ActiveSlider* activeSlider, int x, int y)
            (UInt32)(y - activeSlider->y) < activeSlider->height;
 }
 
-int activeSliderGetPercent(ActiveSlider* activeSlider)
-{
-    if (activeSlider->count <= 1) {
-        return 0;
-    }
-    return activeSlider->index * 100 / (activeSlider->count - 1);
-}
 
 int activeSliderMouseMove(ActiveSlider* activeSlider, int x, int y)
 {
