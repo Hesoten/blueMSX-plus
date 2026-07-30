@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -97,11 +100,28 @@ void debugDeviceUnregister(int handle)
     }
 }
 
+#ifdef _MSC_VER
+#define DBG_THREAD_LOCAL __declspec(thread)
+#else
+#define DBG_THREAD_LOCAL __thread
+#endif
+
+/* Counts the debugger callbacks this thread is inside. A device must not stop
+** the board from one: they run on the UI thread, which cannot park itself and
+** come back. Per thread, so the emulation loop is never the one silenced. */
+static DBG_THREAD_LOCAL int inspecting = 0;
+
+int debugDeviceIsInspecting(void)
+{
+    return inspecting != 0;
+}
+
 void debugDeviceGetSnapshot(DbgDevice** dbgDeviceList, int* count)
 {
     int index = 0;
     int i;
 
+    inspecting++;
     for (i = 0; i < devManager.count; i++) {
         if (devManager.di[i].handle != 0) {
             dbgDeviceList[index] = calloc(1, sizeof(DbgDevice));
@@ -113,50 +133,63 @@ void debugDeviceGetSnapshot(DbgDevice** dbgDeviceList, int* count)
             }
         }
     }
+    inspecting--;
 
     *count = index;
 }
 
 int debugDeviceWriteMemory(DbgMemoryBlock* memoryBlock, void* data, int startAddr, int size)
 {
+    int rv = 0;
     int i;
 
+    inspecting++;
     for (i = 0; i < devManager.count; i++) {
         if (devManager.di[i].handle == memoryBlock->deviceHandle) {
             if (devManager.di[i].callbacks.writeMemory != NULL) {
-                return devManager.di[i].callbacks.writeMemory(devManager.di[i].ref, memoryBlock->name, data, startAddr, size);
+                rv = devManager.di[i].callbacks.writeMemory(devManager.di[i].ref, memoryBlock->name, data, startAddr, size);
+                break;
             }
         }
     }
-    return 0;
+    inspecting--;
+    return rv;
 }
 
 int debugDeviceWriteRegister(DbgRegisterBank* regBank, int regIndex, UInt32 value)
 {
+    int rv = 0;
     int i;
 
+    inspecting++;
     for (i = 0; i < devManager.count; i++) {
         if (devManager.di[i].handle == regBank->deviceHandle) {
             if (devManager.di[i].callbacks.writeRegister != NULL) {
-                return devManager.di[i].callbacks.writeRegister(devManager.di[i].ref, regBank->name, regIndex, value);
+                rv = devManager.di[i].callbacks.writeRegister(devManager.di[i].ref, regBank->name, regIndex, value);
+                break;
             }
         }
     }
-    return 0;
+    inspecting--;
+    return rv;
 }
 
 int debugDeviceWriteIoPort(DbgIoPorts* ioPorts, int portIndex, UInt32 value)
 {
+    int rv = 0;
     int i;
 
+    inspecting++;
     for (i = 0; i < devManager.count; i++) {
         if (devManager.di[i].handle == ioPorts->deviceHandle) {
             if (devManager.di[i].callbacks.writeIoPort != NULL) {
-                return devManager.di[i].callbacks.writeIoPort(devManager.di[i].ref, ioPorts->name, portIndex, value);
+                rv = devManager.di[i].callbacks.writeIoPort(devManager.di[i].ref, ioPorts->name, portIndex, value);
+                break;
             }
         }
     }
-    return 0;
+    inspecting--;
+    return rv;
 }
 
 DbgDevice* dbgDeviceCreate(int handle)
@@ -313,6 +346,7 @@ typedef struct Watchpoint {
 } Watchpoint;
 
 Watchpoint* watchpoints[MAX_DEVICES];
+int debugWatchpointCount[MAX_DEVICES];
 
 void debugDeviceSetMemoryWatchpoint(DbgDeviceType devType, int address, DbgWatchpointCondition condition, UInt32 refValue, int size)
 {
@@ -328,6 +362,7 @@ void debugDeviceSetMemoryWatchpoint(DbgDeviceType devType, int address, DbgWatch
         watchpoint = (Watchpoint*)calloc(1, sizeof(Watchpoint));
         watchpoint->next = watchpoints[devType];
         watchpoints[devType] = watchpoint;
+        debugWatchpointCount[devType]++;
     }
 
     watchpoint->address = address;
@@ -349,6 +384,7 @@ void debugDeviceClearMemoryWatchpoint(DbgDeviceType devType, int address)
                 prevWatchpoint->next = watchpoint->next;
             }
             free(watchpoint);
+            debugWatchpointCount[devType]--;
             break;
         }
         prevWatchpoint = watchpoint;
@@ -356,7 +392,7 @@ void debugDeviceClearMemoryWatchpoint(DbgDeviceType devType, int address)
     }
 }
 
-void tryWatchpoint(DbgDeviceType devType, int address, UInt8 value, void* ref, WatchpointReadMemCallback callback) {
+int checkWatchpoint(DbgDeviceType devType, int address, UInt8 value, void* ref, WatchpointReadMemCallback callback) {
     Watchpoint* watchpoint = watchpoints[devType];
     while (watchpoint != NULL) {
         if (address >= watchpoint->address && address < watchpoint->address + watchpoint->size) {
@@ -395,10 +431,31 @@ void tryWatchpoint(DbgDeviceType devType, int address, UInt8 value, void* ref, W
                 break;
             }
             if (breakpointHit) {
-                boardOnBreakpoint(0);
-                return;
+                return 1;
             }
         }
         watchpoint = watchpoint->next;
+    }
+    return 0;
+}
+
+int watchpointCovers(DbgDeviceType devType, int address)
+{
+    Watchpoint* watchpoint = watchpoints[devType];
+    while (watchpoint != NULL) {
+        if (address >= watchpoint->address && address < watchpoint->address + watchpoint->size) {
+            return 1;
+        }
+        watchpoint = watchpoint->next;
+    }
+    return 0;
+}
+
+void tryWatchpoint(DbgDeviceType devType, int address, UInt8 value, void* ref, WatchpointReadMemCallback callback) {
+    /* Tested second because this runs on every write the CPU makes and the
+    ** match is what is rare. No device routes a debugger write back through
+    ** here today, but one that did would hang the UI thread. */
+    if (checkWatchpoint(devType, address, value, ref, callback) && !debugDeviceIsInspecting()) {
+        boardOnBreakpoint(0);
     }
 }

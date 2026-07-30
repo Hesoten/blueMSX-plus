@@ -17,6 +17,7 @@
 #include "VDP.h"
 #include "Board.h"
 #include "SaveState.h"
+#include "DebugDeviceManager.h"
 
 /*************************************************************
 ** Different compilers inline C functions differently.
@@ -145,6 +146,9 @@ struct VdpCmdState {
     UInt8* vramWrite;
     int    maskRead;
     int    maskWrite;
+    int    vramSize;
+    int    breakPending;
+    int    breakPendingAddr;
     int    vramOffset[2];
     int    vramMask[2];
     int   SX;
@@ -201,7 +205,7 @@ static void setPixel7(VdpCmdState* vdpCmd, int DX, int DY, UInt8 CL, UInt8 OP);
 static void setPixel8(VdpCmdState* vdpCmd, int DX, int DY, UInt8 CL, UInt8 OP);
 static void setPixelNB(VdpCmdState* vdpCmd, int DX, int DY, UInt8 CL, UInt8 OP);
 
-static void setPixelLow(UInt8 *P, UInt8 CL, UInt8 M, UInt8 OP);
+static void setPixelLow(VdpCmdState* vdpCmd, UInt8 *P, UInt8 CL, UInt8 M, UInt8 OP);
 
 static void SrchEngine(VdpCmdState* vdpCmd);
 static void LineEngine(VdpCmdState* vdpCmd);
@@ -378,6 +382,37 @@ INLINE UInt8 getPixel(VdpCmdState* vdpCmd, UInt8 SM, int SX, int SY)
     return 0;
 }
 
+/* The same view of VRAM the port path hands tryWatchpoint, for watchpoints
+** wider than the byte that was just written. */
+static UInt8 peekVramCmd(void* ref, int address)
+{
+    VdpCmdState* vdpCmd = (VdpCmdState*)ref;
+    return (UInt32)address < (UInt32)vdpCmd->vramSize ? vdpCmd->vramBase[address] : 0xff;
+}
+
+/* The command engine writes straight into VRAM, so a watchpoint would never
+** see a blit. Stopping here would park the emulator mid-loop, so the hit is
+** only noted and vdpCmdExecute breaks once the counters are written back. */
+INLINE void vramWatch(VdpCmdState* vdpCmd, UInt8* P)
+{
+    if (debugWatchpointCount[DBGTYPE_VIDEO] != 0 && P != scratch) {
+        if (checkWatchpoint(DBGTYPE_VIDEO, (int)(P - vdpCmd->vramBase), *P, vdpCmd, peekVramCmd)) {
+            /* The first hit of the run is the one reported, and its address is
+            ** kept so it can be re-qualified against the list when it lands. */
+            if (!vdpCmd->breakPending) {
+                vdpCmd->breakPendingAddr = (int)(P - vdpCmd->vramBase);
+                vdpCmd->breakPending = 1;
+            }
+        }
+    }
+}
+
+INLINE void vramPoke(VdpCmdState* vdpCmd, UInt8* P, UInt8 value)
+{
+    *P = value;
+    vramWatch(vdpCmd, P);
+}
+
 /*************************************************************
 ** setPixelLow
 **
@@ -385,7 +420,7 @@ INLINE UInt8 getPixel(VdpCmdState* vdpCmd, UInt8 SM, int SX, int SY)
 **      Low level function to set a pixel on a screen
 **************************************************************
 */
-INLINE void setPixelLow(UInt8 *P, UInt8 CL, UInt8 M, UInt8 OP)
+INLINE void setPixelLow(VdpCmdState* vdpCmd, UInt8 *P, UInt8 CL, UInt8 M, UInt8 OP)
 {
     switch (OP) {
     case 0: 
@@ -425,6 +460,10 @@ INLINE void setPixelLow(UInt8 *P, UInt8 CL, UInt8 M, UInt8 OP)
         }
         break;
     }
+    /* Ops 5..7 and 13..15 write nothing, and 8..12 leave colour 0 alone. */
+    if (OP <= 4 || (OP >= 8 && OP <= 12 && CL != 0)) {
+        vramWatch(vdpCmd, P);
+    }
 }
 
 /*************************************************************
@@ -438,7 +477,7 @@ INLINE void setPixel5(VdpCmdState* vdpCmd, int DX, int DY, UInt8 CL, UInt8 OP)
 {
     UInt8 SH = ((~DX)&1)<<2;
 
-    setPixelLow(VDP_VRMP5W(vdpCmd, DX, DY), CL << SH, ~(15<<SH), OP);
+    setPixelLow(vdpCmd, VDP_VRMP5W(vdpCmd, DX, DY), CL << SH, ~(15<<SH), OP);
 }
  
 /*************************************************************
@@ -451,7 +490,7 @@ INLINE void setPixel6(VdpCmdState* vdpCmd, int DX, int DY, UInt8 CL, UInt8 OP)
 {
     UInt8 SH = ((~DX)&3)<<1;
 
-    setPixelLow(VDP_VRMP6W(vdpCmd, DX, DY), CL << SH, ~(3<<SH), OP);
+    setPixelLow(vdpCmd, VDP_VRMP6W(vdpCmd, DX, DY), CL << SH, ~(3<<SH), OP);
 }
 
 /*************************************************************
@@ -465,7 +504,7 @@ INLINE void setPixel7(VdpCmdState* vdpCmd, int DX, int DY, UInt8 CL, UInt8 OP)
 {
     UInt8 SH = ((~DX)&1)<<2;
 
-    setPixelLow(VDP_VRMP7W(vdpCmd, DX, DY), CL << SH, ~(15<<SH), OP);
+    setPixelLow(vdpCmd, VDP_VRMP7W(vdpCmd, DX, DY), CL << SH, ~(15<<SH), OP);
 }
 
 /*************************************************************
@@ -476,13 +515,13 @@ INLINE void setPixel7(VdpCmdState* vdpCmd, int DX, int DY, UInt8 CL, UInt8 OP)
 */
 INLINE void setPixel8(VdpCmdState* vdpCmd, int DX, int DY, UInt8 CL, UInt8 OP)
 {
-    setPixelLow(VDP_VRMP8W(vdpCmd, DX, DY), CL, 0, OP);
+    setPixelLow(vdpCmd, VDP_VRMP8W(vdpCmd, DX, DY), CL, 0, OP);
 }
 
 /* Linear (non-bitmap) write; 1 byte/pixel. */
 INLINE void setPixelNB(VdpCmdState* vdpCmd, int DX, int DY, UInt8 CL, UInt8 OP)
 {
-    setPixelLow(VDP_VRMP_NB_W(vdpCmd, DX, DY), CL, 0, OP);
+    setPixelLow(vdpCmd, VDP_VRMP_NB_W(vdpCmd, DX, DY), CL, 0, OP);
 }
 
 /*************************************************************
@@ -870,19 +909,19 @@ static void HmmvEngine(VdpCmdState* vdpCmd)
 
     switch (vdpCmd->screenMode) {
     case 0: 
-        pre_loop *VDP_VRMP5W(vdpCmd, ADX, DY) = CL; post__x_y(256)
+        pre_loop vramPoke(vdpCmd, VDP_VRMP5W(vdpCmd, ADX, DY), CL); post__x_y(256)
         break;
     case 1: 
-        pre_loop *VDP_VRMP6W(vdpCmd, ADX, DY) = CL; post__x_y(512)
+        pre_loop vramPoke(vdpCmd, VDP_VRMP6W(vdpCmd, ADX, DY), CL); post__x_y(512)
         break;
     case 2: 
-        pre_loop *VDP_VRMP7W(vdpCmd, ADX, DY) = CL; post__x_y(512)
+        pre_loop vramPoke(vdpCmd, VDP_VRMP7W(vdpCmd, ADX, DY), CL); post__x_y(512)
         break;
     case 3: 
-        pre_loop *VDP_VRMP8W(vdpCmd, ADX, DY) = CL; post__x_y(256)
+        pre_loop vramPoke(vdpCmd, VDP_VRMP8W(vdpCmd, ADX, DY), CL); post__x_y(256)
         break;
     case 4: 
-        pre_loop *VDP_VRMP_NB_W(vdpCmd, ADX, DY) = CL; post__x_y(256)
+        pre_loop vramPoke(vdpCmd, VDP_VRMP_NB_W(vdpCmd, ADX, DY), CL); post__x_y(256)
         break;
     }
 
@@ -914,19 +953,19 @@ static void HmmmEngine(VdpCmdState* vdpCmd)
 
     switch (vdpCmd->screenMode) {
     case 0: 
-        pre_loop2 *VDP_VRMP5W(vdpCmd, vdpCmd->ADX, vdpCmd->DY) = *VDP_VRMP5R(vdpCmd, vdpCmd->ASX, vdpCmd->SY); post_xxyy2(256)
+        pre_loop2 vramPoke(vdpCmd, VDP_VRMP5W(vdpCmd, vdpCmd->ADX, vdpCmd->DY), *VDP_VRMP5R(vdpCmd, vdpCmd->ASX, vdpCmd->SY)); post_xxyy2(256)
         break;
     case 1: 
-        pre_loop2 *VDP_VRMP6W(vdpCmd, vdpCmd->ADX, vdpCmd->DY) = *VDP_VRMP6R(vdpCmd, vdpCmd->ASX, vdpCmd->SY); post_xxyy2(512)
+        pre_loop2 vramPoke(vdpCmd, VDP_VRMP6W(vdpCmd, vdpCmd->ADX, vdpCmd->DY), *VDP_VRMP6R(vdpCmd, vdpCmd->ASX, vdpCmd->SY)); post_xxyy2(512)
         break;
     case 2: 
-        pre_loop2 *VDP_VRMP7W(vdpCmd, vdpCmd->ADX, vdpCmd->DY) = *VDP_VRMP7R(vdpCmd, vdpCmd->ASX, vdpCmd->SY); post_xxyy2(512)
+        pre_loop2 vramPoke(vdpCmd, VDP_VRMP7W(vdpCmd, vdpCmd->ADX, vdpCmd->DY), *VDP_VRMP7R(vdpCmd, vdpCmd->ASX, vdpCmd->SY)); post_xxyy2(512)
         break;
     case 3: 
-        pre_loop2 *VDP_VRMP8W(vdpCmd, vdpCmd->ADX, vdpCmd->DY) = *VDP_VRMP8R(vdpCmd, vdpCmd->ASX, vdpCmd->SY); post_xxyy2(256)
+        pre_loop2 vramPoke(vdpCmd, VDP_VRMP8W(vdpCmd, vdpCmd->ADX, vdpCmd->DY), *VDP_VRMP8R(vdpCmd, vdpCmd->ASX, vdpCmd->SY)); post_xxyy2(256)
         break;
     case 4: 
-        pre_loop2 *VDP_VRMP_NB_W(vdpCmd, vdpCmd->ADX, vdpCmd->DY) = *VDP_VRMP_NB_R(vdpCmd, vdpCmd->ASX, vdpCmd->SY); post_xxyy2(256)
+        pre_loop2 vramPoke(vdpCmd, VDP_VRMP_NB_W(vdpCmd, vdpCmd->ADX, vdpCmd->DY), *VDP_VRMP_NB_R(vdpCmd, vdpCmd->ASX, vdpCmd->SY)); post_xxyy2(256)
         break;
     }
 
@@ -960,19 +999,19 @@ static void YmmmEngine(VdpCmdState* vdpCmd)
 
     switch (vdpCmd->screenMode) {
     case 0: 
-        pre_loop *VDP_VRMP5W(vdpCmd, ADX, DY) = *VDP_VRMP5R(vdpCmd, ADX, SY); post__xyy(256)
+        pre_loop vramPoke(vdpCmd, VDP_VRMP5W(vdpCmd, ADX, DY), *VDP_VRMP5R(vdpCmd, ADX, SY)); post__xyy(256)
         break;
     case 1: 
-        pre_loop *VDP_VRMP6W(vdpCmd, ADX, DY) = *VDP_VRMP6R(vdpCmd, ADX, SY); post__xyy(512)
+        pre_loop vramPoke(vdpCmd, VDP_VRMP6W(vdpCmd, ADX, DY), *VDP_VRMP6R(vdpCmd, ADX, SY)); post__xyy(512)
         break;
     case 2: 
-        pre_loop *VDP_VRMP7W(vdpCmd, ADX, DY) = *VDP_VRMP7R(vdpCmd, ADX, SY); post__xyy(512)
+        pre_loop vramPoke(vdpCmd, VDP_VRMP7W(vdpCmd, ADX, DY), *VDP_VRMP7R(vdpCmd, ADX, SY)); post__xyy(512)
         break;
     case 3: 
-        pre_loop *VDP_VRMP8W(vdpCmd, ADX, DY) = *VDP_VRMP8R(vdpCmd, ADX, SY); post__xyy(256)
+        pre_loop vramPoke(vdpCmd, VDP_VRMP8W(vdpCmd, ADX, DY), *VDP_VRMP8R(vdpCmd, ADX, SY)); post__xyy(256)
         break;
     case 4: 
-        pre_loop *VDP_VRMP_NB_W(vdpCmd, ADX, DY) = *VDP_VRMP_NB_R(vdpCmd, ADX, SY); post__xyy(256)
+        pre_loop vramPoke(vdpCmd, VDP_VRMP_NB_W(vdpCmd, ADX, DY), *VDP_VRMP_NB_R(vdpCmd, ADX, SY)); post__xyy(256)
         break;
     }
 
@@ -1002,7 +1041,7 @@ static void YmmmEngine(VdpCmdState* vdpCmd)
 static void HmmcEngine(VdpCmdState* vdpCmd)
 {
     if (!(vdpCmd->status & VDPSTATUS_TR)) {
-        *getVramPointerW(vdpCmd, vdpCmd->screenMode, vdpCmd->ADX, vdpCmd->DY)=vdpCmd->CL;
+        vramPoke(vdpCmd, getVramPointerW(vdpCmd, vdpCmd->screenMode, vdpCmd->ADX, vdpCmd->DY), vdpCmd->CL);
         vdpCmd->VdpOpsCnt-=hmmv_timing[vdpCmd->timingMode];
         vdpCmd->status |= VDPSTATUS_TR;
 
@@ -1033,6 +1072,7 @@ VdpCmdState* vdpCmdCreate(int vramSize, UInt8* vramPtr, UInt32 systemTime)
     VdpCmdState* vdpCmd = calloc(1, sizeof(VdpCmdState));
     vdpCmd->systemTime = systemTime;
     vdpCmd->vramBase = vramPtr;
+    vdpCmd->vramSize = vramSize;
 
     vdpCmd->vramOffset[0] = 0;
     vdpCmd->vramOffset[1] = vramSize > 0x20000 ? 0x20000 : 0;
@@ -1382,6 +1422,18 @@ void vdpCmdExecute(VdpCmdState* vdpCmd, UInt32 systemTime)
     default:
         vdpCmd->VdpOpsCnt = 0;
     }
+
+    /* Breaking here and not mid-loop leaves the counters written back, so a save
+    ** sees the VRAM the guest really has. Reading the VDP for the debugger runs
+    ** the engine on the UI thread, which cannot park, so the hit waits. */
+    if (vdpCmd->breakPending && !debugDeviceIsInspecting()) {
+        vdpCmd->breakPending = 0;
+        /* The watchpoint that matched can have been removed while the hit was
+        ** waiting, so the address is re-qualified rather than merely counted. */
+        if (watchpointCovers(DBGTYPE_VIDEO, vdpCmd->breakPendingAddr)) {
+            boardOnBreakpoint(0);
+        }
+    }
 }
 
 /*************************************************************
@@ -1421,6 +1473,9 @@ void vdpCmdLoadState(VdpCmdState* vdpCmd)
     vdpCmd->timingMode    =         saveStateGet(state, "timingMode", 0);
     
     saveStateClose(state);
+
+    /* Never saved: a hit noted before the load belongs to the run being dropped. */
+    vdpCmd->breakPending = 0;
 
     vdpCmd->vramRead  = vdpCmd->vramBase + vdpCmd->vramOffset[(vdpCmd->ARG >> 4) & 1];
     vdpCmd->vramWrite = vdpCmd->vramBase + vdpCmd->vramOffset[(vdpCmd->ARG >> 5) & 1];
