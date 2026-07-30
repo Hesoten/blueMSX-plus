@@ -64,8 +64,8 @@ void exitDialogShow();
 
 /* Show / update / hide a tracking tooltip showing a slider's value next to
 ** the cursor.  *phwndTip caches the tooltip HWND (one per parent window),
-** created lazily on first show.  Pass percent < 0 to hide. */
-void win32SliderTooltipUpdate(HWND* phwndTip, HWND parent, int percent);
+** created lazily on first show.  text is UTF-8; pass NULL to hide. */
+void win32SliderTooltipUpdate(HWND* phwndTip, HWND parent, const char* text);
 
 /* Theme query helpers for custom-paint controls (no WM_CTLCOLOR* path). */
 BOOL win32CommonIsDarkMode(void);

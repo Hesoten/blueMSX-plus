@@ -43,6 +43,8 @@ void emulatorExit();
 void emuEnableSynchronousUpdate(int enable);
 
 void emulatorSetFrequency(int logFrequency, int* frequency);
+/* emulation.speed (0..100, log scale) -> Hz; clamps out-of-range INI values. */
+int  emulatorLogFrequencyToHz(int logFrequency);
 void emulatorRestartSound();
 void emulatorSuspend();
 void emulatorResume();

@@ -586,8 +586,17 @@ void emulatorStop() {
 
 
 
+/* emulation.speed is a log scale: 0 = 10%, 50 = 3.579MHz (100%), 100 =
+   1000%.  Shared so the property page and theme tooltips cannot drift
+   from the clock the board is actually given. */
+int emulatorLogFrequencyToHz(int logFrequency) {
+    if (logFrequency < 0)   logFrequency = 0;
+    if (logFrequency > 100) logFrequency = 100;
+    return (int)(3579545 * pow(2.0, (logFrequency - 50) / 15.0515));
+}
+
 void emulatorSetFrequency(int logFrequency, int* frequency) {
-    emuFrequency = (int)(3579545 * pow(2.0, (logFrequency - 50) / 15.0515));
+    emuFrequency = emulatorLogFrequencyToHz(logFrequency);
 
     if (frequency != NULL) {
         *frequency  = emuFrequency;

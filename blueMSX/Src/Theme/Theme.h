@@ -158,9 +158,10 @@ void themePageActivate(ThemePage* theme, void* window);
 void themePageUpdate(ThemePage* theme, void* dc);
 void themePageDraw(ThemePage* theme, void* dc, ThemeItem* startItem);
 void themePageMouseMove(ThemePage* theme, void* dc, int x, int y);
-/* Return the percent value (0..100) of the slider under (x, y), or -1 if
-   none.  Used to drive a hover tooltip on slider controls. */
-int  themePageHoverSliderPercent(ThemePage* theme, int x, int y);
+/* Return the setting text of the slider under (x, y), or NULL if none.
+   Drives the hover tooltip; points at a static buffer that the next
+   call overwrites. */
+const char* themePageHoverSliderText(ThemePage* theme, int x, int y);
 void themePageMouseButtonUp(ThemePage* theme, void* dc, int x, int y);
 void themePageMouseButtonDown(ThemePage* theme, void* dc, int x, int y);
 void themePageSetActive(ThemePage* theme, void* dc, int active);

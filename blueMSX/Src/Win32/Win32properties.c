@@ -274,7 +274,7 @@ static int getDropListIndex(HWND hDlg, int id, char** pList) {
 }
 
 static char* strEmuSpeed(int logFrequency) {
-    UInt32 frequency = (UInt32)(3579545 * pow(2.0, (logFrequency - 50) / 15.0515));
+    UInt32 frequency = (UInt32)emulatorLogFrequencyToHz(logFrequency);
     static char buffer[32];
 
     sprintf(buffer, "%d.%03dMHz (%d%%)", frequency / 1000000, (frequency / 1000) % 1000, frequency * 10 / 357954);
