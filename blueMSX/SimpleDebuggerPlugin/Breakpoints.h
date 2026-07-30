@@ -183,6 +183,11 @@ private:
     BreakpointInfo* find(const BreakpointInfo& breakpointInfo);
     void toggleBreakpointEnable(Breakpoints::BreakpointInfo* bi);
 
+    /* selectedLine is an index, and inserting or erasing moves the rows past it,
+    ** so anything that does either names the row before and restores it after. */
+    BreakpointInfo* selectedRow();
+    void selectRow(const BreakpointInfo* row);
+
     void initializeToolbar(HWND owner);
     void updateToolbar();
     void scrollWindow(int sbAction);

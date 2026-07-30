@@ -611,8 +611,53 @@ const Breakpoints::BreakpointInfo& Breakpoints::MakeBreakpoint(int address) {
     return breakpointInfo;
 }
 
+Breakpoints::BreakpointInfo* Breakpoints::selectedRow() {
+    if (selectedLine < 0 || selectedLine >= (int)breakpoints.size()) {
+        return NULL;
+    }
+    return breakpoints[selectedLine];
+}
+
+void Breakpoints::selectRow(const Breakpoints::BreakpointInfo* row) {
+    selectedLine = -1;
+    if (row == NULL) {
+        return;
+    }
+    for (int i = 0; i < (int)breakpoints.size(); ++i) {
+        if (breakpoints[i] == row) {
+            selectedLine = i;
+            return;
+        }
+    }
+}
+
 void Breakpoints::setBreakpoint(const Breakpoints::BreakpointInfo& breakpointInfo) {
     BreakpointInfo* bi = find(breakpointInfo);
+    BreakpointInfo* selected = selectedRow();
+    bool replacedSelected = false;
+
+    /* find() matches on address and type only, but a watchpoint also carries a
+    ** size, a condition and a value. Drop the old one so setting it again does
+    ** not silently keep those, and so the list stays sorted by condition. */
+    if (bi != NULL && bi->type != BreakpointInfo::BREAKPOINT) {
+        if (bi->enabled) {
+            toggleBreakpointEnable(bi);
+        }
+        for (std::vector<BreakpointInfo*>::iterator i = breakpoints.begin(); i != breakpoints.end(); ++i) {
+            if (*i == bi) {
+                breakpoints.erase(i);
+                break;
+            }
+        }
+        /* The row about to be inserted stands in for the one being dropped. */
+        if (selected == bi) {
+            replacedSelected = true;
+            selected = NULL;
+        }
+        delete bi;
+        bi = NULL;
+    }
+
     if (bi == NULL) {
         bi = new BreakpointInfo(breakpointInfo);
         bi->enabled = false;
@@ -624,10 +669,14 @@ void Breakpoints::setBreakpoint(const Breakpoints::BreakpointInfo& breakpointInf
             }
         }
         breakpoints.insert(i, bi);
+        if (replacedSelected) {
+            selected = bi;
+        }
     }
     else if (bi->enabled) {
         return;
     }
+    selectRow(selected);
     toggleBreakpointEnable(bi);
     DebuggerUpdate();
     updateScroll();
@@ -636,6 +685,7 @@ void Breakpoints::setBreakpoint(const Breakpoints::BreakpointInfo& breakpointInf
 void Breakpoints::clearBreakpoint(const Breakpoints::BreakpointInfo& breakpointInfo) 
 {
     BreakpointInfo* bi = find(breakpointInfo);
+    BreakpointInfo* selected = selectedRow();
     if (bi == NULL) {
         return;
     }
@@ -648,9 +698,13 @@ void Breakpoints::clearBreakpoint(const Breakpoints::BreakpointInfo& breakpointI
             break;
         }
     }
+    if (selected == bi) {
+        selected = NULL;
+    }
     /* The vector holds the only pointer to it, so erasing the entry is the
     ** last chance to release the row. */
     delete bi;
+    selectRow(selected);
 
     DebuggerUpdate();
     updateScroll();
