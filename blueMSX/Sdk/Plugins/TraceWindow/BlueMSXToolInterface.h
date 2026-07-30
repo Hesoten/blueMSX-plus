@@ -192,6 +192,7 @@ typedef UInt32        (__stdcall *ToolGetDarkColor)(void);
 typedef HBRUSH        (__stdcall *ToolGetDarkBrush)(void);
 typedef int           (__stdcall *ToolShellOpenFile)(HWND owner, const char* title, const char* filter, const char* initialDir, const char* defExt, int* filterIndex, char* outPath, int outPathCap);
 typedef int           (__stdcall *ToolShellSaveFile)(HWND owner, const char* title, const char* filter, const char* initialDir, const char* defExt, int* filterIndex, char* outPath, int outPathCap);
+typedef int           (__stdcall *ToolMessageBox)(HWND owner, const char* text, const char* caption, UInt32 type);
 
 typedef struct {
     ToolSnapshotCreate              create;
@@ -239,6 +240,7 @@ typedef struct {
     ToolGetDarkBrush                getDarkBgBrush;
     ToolShellOpenFile               shellOpenFileDialog;
     ToolShellSaveFile               shellSaveFileDialog;
+    ToolMessageBox                  messageBox;
 } Interface;
 
 typedef int  (__stdcall *CreateFn)(Interface*, char*, int);

@@ -460,7 +460,7 @@ void saveDisassembly(HWND hwndOwner)
     FILE* f = fopenU(pFileName, "r");
     if (f != NULL) {
         fclose(f);
-        int rv = MessageBoxU(NULL, Language::popupOverwrite, Language::windowDebugger, MB_YESNO | MB_ICONWARNING);
+        int rv = ShowMessageBox(hwndOwner, Language::popupOverwrite, Language::windowDebugger, MB_YESNO | MB_ICONWARNING);
         if (rv != IDYES) {
             return;
         }
@@ -491,7 +491,7 @@ void saveMemory(HWND hwndOwner)
     FILE* f = fopenU(pFileName, "r");
     if (f != NULL) {
         fclose(f);
-        int rv = MessageBoxU(NULL, Language::popupOverwrite, Language::windowDebugger, MB_YESNO | MB_ICONWARNING);
+        int rv = ShowMessageBox(hwndOwner, Language::popupOverwrite, Language::windowDebugger, MB_YESNO | MB_ICONWARNING);
         if (rv != IDYES) {
             return;
         }
@@ -878,7 +878,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
                 char text[256];
                 sprintf(text, "%s\r\n\r\n%s: " __DATE__ "\r\n\r\n%s    \r\n\r\n\r\n",
                     Language::windowDebugger, Language::aboutBuilt, Language::aboutVisit);
-                MessageBoxU(NULL, text, Language::windowDebugger, MB_ICONINFORMATION | MB_OK);
+                ShowMessageBox(hwnd, text, Language::windowDebugger, MB_ICONINFORMATION | MB_OK);
             }
             return 0;
 

@@ -306,6 +306,13 @@ static int __stdcall toolShellSaveFileDialog(HWND owner, const char* title, cons
                                filterIndex, outPath, outPathCap) ? 1 : 0;
 }
 
+/* A plugin's own MessageBoxU resolves to the plain system box, which ignores
+** the dark theme; hand it the emulator's dialog instead. */
+static int __stdcall toolMessageBox(HWND owner, const char* text, const char* caption, UInt32 type)
+{
+    return MessageBoxLargeU(owner, NULL, text, caption, type);
+}
+
 static Interface toolInterface = {
     toolSnapshotCreate,
     toolSnapshotDestroy,
@@ -343,6 +350,7 @@ static Interface toolInterface = {
     toolGetDarkBgBrush,
     toolShellOpenFileDialog,
     toolShellSaveFileDialog,
+    toolMessageBox,
 };
 
 void toolLoadAll(const char* path, int languageId)
