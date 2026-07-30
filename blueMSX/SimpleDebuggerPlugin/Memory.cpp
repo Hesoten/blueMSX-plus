@@ -761,16 +761,23 @@ void Memory::showAddress(int addr)
 
     currentAddress = addr;
     updateScroll();
+    /* updateScroll keeps the current position now, so ask for the jump here. */
+    dbgSetScrollPos(memHwnd, currentAddress / memPerRow);
+    InvalidateRect(memHwnd, NULL, TRUE);
 }
 
 void Memory::updateScroll() 
 {
+    /* Stay where the user scrolled to. A resize changes memPerRow, so the top
+    ** address is what has to be kept, not the row index. */
+    int topAddress = dbgGetScrollPos(memHwnd) * memPerRow;
+
     RECT r;
     GetClientRect(memHwnd, &r);
     int visibleLines = r.bottom / textHeight;
 
     r.right -= 20 + 13 * textWidth;
- 
+
     memPerRow = 1;
 
     while (r.right > 4 * textWidth) {
@@ -783,15 +790,11 @@ void Memory::updateScroll()
 
     SCROLLINFO si;
     si.cbSize    = sizeof(SCROLLINFO);
-    
-    GetScrollInfo(memHwnd, SB_VERT, &si);
-    int oldFirstLine = si.nPos;
-
     si.fMask     = SIF_PAGE | SIF_POS | SIF_RANGE;
     si.nMin      = 0;
     si.nMax      = lineCount > 0 ? lineCount - 1 : 0;
     si.nPage     = visibleLines;
-    si.nPos      = currentAddress / memPerRow;
+    si.nPos      = topAddress / memPerRow;
 
     SetScrollInfo(memHwnd, SB_VERT, &si, TRUE);
     

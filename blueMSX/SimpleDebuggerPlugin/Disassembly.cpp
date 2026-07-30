@@ -482,6 +482,11 @@ LRESULT Disassembly::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
             si.fMask  = SIF_POS;
             GetScrollInfo (hwnd, SB_VERT, &si);
             int row = si.nPos + HIWORD(lParam) / textHeight;
+            /* The view is taller than the listing, so a click below the last
+            ** instruction would act on whatever the line held before. */
+            if (row < 0 || row >= lineCount) {
+                return 0;
+            }
             if (LOWORD(lParam) < 25) {
                 if (Breakpoints::IsBreakpointSet(lineInfo[row].address)) {
                     Breakpoints::ClearBreakpoint(lineInfo[row].address);
@@ -492,7 +497,7 @@ LRESULT Disassembly::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
             }
             else {
                 currentLine = row;
-                if (lineInfo[currentLine].isLabel) {
+                if (currentLine + 1 < lineCount && lineInfo[currentLine].isLabel) {
                     currentLine++;
                 }
             }
@@ -825,10 +830,16 @@ void Disassembly::onWmKeyUp(int keyCode)
     if (index < 0) {
         index = 0;
     }
+    if (index >= lineCount) {
+        index = lineCount > 0 ? lineCount - 1 : 0;
+    }
     if (lineInfo[index].isLabel) {
         index += delta < 0 ? -1 : 1;
         if (index < 0) {
             index = 0;
+        }
+        if (index >= lineCount) {
+            index = lineCount > 0 ? lineCount - 1 : 0;
         }
     }
 
@@ -858,7 +869,7 @@ void Disassembly::updateScroll(int index)
     
     else {
         currentLine = index;
-        if (lineInfo[currentLine].isLabel) {
+        if (currentLine + 1 < lineCount && lineInfo[currentLine].isLabel) {
             currentLine++;
         }
         if (currentLine < firstVisibleLine + 1) {

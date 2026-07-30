@@ -101,7 +101,7 @@ private:
     int    textHeight = 1;
     int    textWidth  = 1;
 
-    int    memPerRow;
+    int    memPerRow = 1;
     int    lineCount;
 
     COLORREF colorBlack;
