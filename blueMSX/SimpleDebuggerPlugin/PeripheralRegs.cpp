@@ -686,8 +686,11 @@ void PeripheralRegs::drawText(int top, int bottom)
     int FirstLine = max (0, yPos + top / textHeight);
     int LastLine = min (lineCount - 1, yPos + bottom / textHeight);
 
+    RECT rc;
+    GetClientRect(regHwnd, &rc);
+
     for (int i = FirstLine; i <= LastLine; i++) {
-        RECT r = { 10, textHeight * (i - yPos), 100, textHeight * (i + 1 - yPos) };
+        RECT r = { 10, textHeight * (i - yPos), rc.right, textHeight * (i + 1 - yPos) };
         for (int j = 0; j < regPerRow; j++) {
             UInt32 reg = j * lineCount + i;
 
@@ -705,8 +708,7 @@ void PeripheralRegs::drawText(int top, int bottom)
             DrawTextU(hMemdc, regName, (int)strlen(regName), &r, DT_LEFT);
             SelectObject(hMemdc, hFont); 
             r.left  += 5 * textWidth;
-            r.right += 5 * textWidth;
-            
+
             char text[5];
             if (regValue < 0) {
                 SetTextColor(hMemdc, colorGray);
@@ -723,7 +725,6 @@ void PeripheralRegs::drawText(int top, int bottom)
             }
             DrawTextU(hMemdc, text, (int)strlen(text), &r, DT_LEFT);
             r.left  += 6 * textWidth;
-            r.right += 6 * textWidth;
         }
     }
 }

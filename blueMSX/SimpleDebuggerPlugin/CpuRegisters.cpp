@@ -584,10 +584,13 @@ void CpuRegisters::drawText(int top, int bottom)
     int FirstLine = max (0, yPos + top / textHeight);
     int LastLine = min (lineCount - 1, yPos + bottom / textHeight);
 
+    RECT rc;
+    GetClientRect(hwnd, &rc);
+
     for (int i = FirstLine; i <= LastLine; i++) {
         if (i == 0) {
             SelectObject(hMemdc, hBrushLtGray); 
-            PatBlt(hMemdc, 0, 0, 300, textHeight + 1, PATCOPY);
+            PatBlt(hMemdc, 0, 0, rc.right, textHeight + 1, PATCOPY);
 
             SelectObject(hMemdc, hBrushWhite); 
             WORD regVal = regValue[0];
@@ -632,7 +635,7 @@ void CpuRegisters::drawText(int top, int bottom)
             continue;
         }
 
-        RECT r = { 10, textHeight * (i - yPos), 100, textHeight * (i + 1 - yPos) };
+        RECT r = { 10, textHeight * (i - yPos), rc.right, textHeight * (i + 1 - yPos) };
         for (int j = 0; j < registersPerRow; j++) {
             int reg = j * (lineCount - 1) + i - 1;
             if (reg > 14) {
@@ -647,8 +650,7 @@ void CpuRegisters::drawText(int top, int bottom)
             DrawTextU(hMemdc, regName[reg], (int)strlen(regName[reg]), &r, DT_LEFT);
             SelectObject(hMemdc, hFont); 
             r.left  += 4 * textWidth;
-            r.right += 4 * textWidth;
-            
+
             char text[5];
             if (regValue[reg] < 0) {
                 SetTextColor(hMemdc, colorGray);

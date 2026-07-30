@@ -314,7 +314,11 @@ void IoPortWindow::drawText(int top, int bottom)
     int FirstLine = max (0, yPos + top / textHeight);
     int LastLine = min (lineCount - 1, yPos + bottom / textHeight);
 
-    RECT r = { 4, textHeight * (FirstLine - yPos), 400, textHeight };
+    /* Column positions scale with textWidth, so a pixel constant for the right
+    ** edge drops the last columns off the view once the font grows. */
+    RECT rc;
+    GetClientRect(hwnd, &rc);
+    RECT r = { 4, textHeight * (FirstLine - yPos), rc.right, textHeight };
 
     r.bottom += r.top;
 

@@ -863,35 +863,37 @@ void Memory::drawText(int top, int bottom)
     }
     int memSize = currentMemory != NULL ? currentMemory->size : 0;
 
+    /* Column positions scale with textWidth, so the rectangle has to end at the
+    ** client edge; a fixed width clips the columns once the font grows. */
+    RECT rc;
+    GetClientRect(memHwnd, &rc);
+
     for (int i = FirstLine; i <= LastLine; i++) {
         if  (i == yPos) {
             SelectObject(hMemdc, hBrushWhite); 
-            PatBlt(hMemdc, 0, 0, 1024, textHeight + 1, PATCOPY);
+            PatBlt(hMemdc, 0, 0, rc.right, textHeight + 1, PATCOPY);
             SetTextColor(hMemdc, colorLtGray);
 
-            RECT r = { 10 + textWidth * 8, 0, 100 + textWidth * 8, textHeight };
+            RECT r = { 10 + textWidth * 8, 0, rc.right, textHeight };
             int j;
             char addrText[16];
             for (j = 0; j < memPerRow; j++) {
                 sprintf(addrText, "+%.1X", j & 15);
                 DrawTextU(hMemdc, addrText, (int)strlen(addrText), &r, DT_LEFT);
-                
-                r.left  += textWidth * 3;
-                r.right += textWidth * 3;
+
+                r.left += textWidth * 3;
             }
 
-            r.left  += textWidth * 1;
-            r.right += textWidth * 1;
+            r.left += textWidth * 1;
 
             for (j = 0; j < memPerRow; j++) {
                 sprintf(addrText, "%.1X", j & 15);
                 DrawTextU(hMemdc, addrText, (int)strlen(addrText), &r, DT_LEFT);
-                r.left  += textWidth * 1;
-                r.right += textWidth * 1;
+                r.left += textWidth * 1;
             }
             continue;
         }
-        RECT r = { 10, textHeight * (i - yPos), 100, textHeight * (i + 1 - yPos) };
+        RECT r = { 10, textHeight * (i - yPos), rc.right, textHeight * (i + 1 - yPos) };
         
         int addr = (i - 1) * memPerRow;
 
@@ -901,8 +903,7 @@ void Memory::drawText(int top, int bottom)
         SetTextColor(hMemdc, colorGray);
         DrawTextU(hMemdc, addrText, (int)strlen(addrText), &r, DT_LEFT);
 
-        r.left  += textWidth * 8;
-        r.right += textWidth * 8;
+        r.left += textWidth * 8;
 
         int j;
         for (j = 0; j < memPerRow; j++) {
@@ -923,12 +924,10 @@ void Memory::drawText(int top, int bottom)
             sprintf(addrText, "%.2x", val);
             DrawTextU(hMemdc, addrText, (int)strlen(addrText), &r, DT_LEFT);
             
-            r.left  += textWidth * 3;
-            r.right += textWidth * 3;
+            r.left += textWidth * 3;
         }
-        
-        r.left  += textWidth * 1;
-        r.right += textWidth * 1;
+
+        r.left += textWidth * 1;
 
         for (j = 0; j < memPerRow; j++) {
             if (addr + j >= memSize) {
@@ -949,8 +948,7 @@ void Memory::drawText(int top, int bottom)
             
             DrawTextU(hMemdc, addrText, (int)strlen(addrText), &r, DT_LEFT);
             
-            r.left  += textWidth * 1;
-            r.right += textWidth * 1;
+            r.left += textWidth * 1;
         }
     }
 }

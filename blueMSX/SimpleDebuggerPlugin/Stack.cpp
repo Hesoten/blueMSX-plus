@@ -296,14 +296,14 @@ void StackWindow::drawText(int top, int bottom)
     int FirstLine = max (0, yPos + top / textHeight);
     int LastLine = min (lineCount - 1, yPos + bottom / textHeight);
 
-    RECT r = { 10, textHeight * (FirstLine - yPos), 300, textHeight };
+    RECT rc;
+    GetClientRect(hwnd, &rc);
+    RECT r = { 10, textHeight * (FirstLine - yPos), rc.right, textHeight };
 
     r.bottom += r.top;
 
     for (int i = FirstLine; i <= LastLine; i++) {
         if (i == currentLine) {
-            RECT rc;
-            GetClientRect(hwnd, &rc);
             SelectObject(hMemdc, hBrushDkGray); 
             PatBlt(hMemdc, 0, r.top, rc.right, r.bottom - r.top, PATCOPY);
         }

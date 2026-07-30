@@ -508,15 +508,16 @@ void Breakpoints::drawText(int top, int bottom)
     int FirstLine = max (0, yPos + top / textHeight);
     int LastLine = min ((int)breakpoints.size() - 1, yPos + bottom / textHeight);
 
+    RECT rc;
+    GetClientRect(breakpointsHwnd, &rc);
+
     for (int i = FirstLine; i <= LastLine; i++) {
         if (i >= (int)breakpoints.size()) {
             continue;
         }
 
-        RECT r = { 28, textHeight * (i - yPos), 400, textHeight * (i + 1 - yPos) };
+        RECT r = { 28, textHeight * (i - yPos), rc.right, textHeight * (i + 1 - yPos) };
         if (i == selectedLine) {
-            RECT rc;
-            GetClientRect(hwnd, &rc);
             SelectObject(hMemdc, hBrushBlack); 
             PatBlt(hMemdc, 21, r.top, rc.right - 21, r.bottom - r.top, PATCOPY);
         }

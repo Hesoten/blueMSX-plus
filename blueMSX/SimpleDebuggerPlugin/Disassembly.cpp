@@ -975,14 +975,14 @@ void Disassembly::drawText(int top, int bottom)
     int FirstLine = max (0, yPos + top / textHeight);
     int LastLine = min (lineCount - 1, yPos + bottom / textHeight);
 
-    RECT r = { 30, textHeight * (FirstLine - yPos), 600, textHeight };
+    RECT rc;
+    GetClientRect(hwnd, &rc);
+    RECT r = { 30, textHeight * (FirstLine - yPos), rc.right, textHeight };
 
     r.bottom += r.top;
 
     for (int i = FirstLine; i <= LastLine; i++) {
         if (i == currentLine) {
-            RECT rc;
-            GetClientRect(hwnd, &rc);
             SelectObject(hMemdc, hasKeyboardFocus ? hBrushBlack : hBrushDkGray); 
             PatBlt(hMemdc, 21, r.top, rc.right - 21, r.bottom - r.top, PATCOPY);
         }
