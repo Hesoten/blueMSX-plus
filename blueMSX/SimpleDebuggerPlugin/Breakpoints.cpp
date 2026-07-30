@@ -445,7 +445,7 @@ void Breakpoints::updateScroll()
 
     si.fMask     = SIF_PAGE | SIF_POS | SIF_RANGE;
     si.nMin      = 0;
-    si.nMax      = (int)breakpoints.size();
+    si.nMax      = breakpoints.size() > 0 ? (int)breakpoints.size() - 1 : 0;
     si.nPage     = visibleLines;
     si.nPos      = 0;
 

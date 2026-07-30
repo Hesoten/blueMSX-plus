@@ -228,7 +228,7 @@ void StackWindow::updateScroll()
 
     si.fMask     = SIF_PAGE | SIF_POS | SIF_RANGE | (visibleLines >= lineCount ? 0 : 0);
     si.nMin      = 0;
-    si.nMax      = lineCount;
+    si.nMax      = lineCount > 0 ? lineCount - 1 : 0;
     si.nPage     = visibleLines;
     si.nPos      = 0;
 
