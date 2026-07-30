@@ -618,8 +618,9 @@ static ArchBitmap* loadBitmap(TiXmlElement* el, int* x, int* y, int* columns)
 }
 
 /* Pre-stretch to g_themeScale.  Sprite frames stay NN; single-frame uses
-   HALFTONE at non-integer zoom.  Returns input on failure. */
-static ArchBitmap* applyThemeScale(ArchBitmap* bm, int frameCount)
+   HALFTONE at non-integer zoom.  forceNearest keeps a menu-band background
+   on the NN grid so its band split lines up.  Returns input on failure. */
+static ArchBitmap* applyThemeScale(ArchBitmap* bm, int frameCount, bool forceNearest = false)
 {
     if (bm == NULL || g_themeScale == 1.0) {
         return bm;
@@ -641,7 +642,7 @@ static ArchBitmap* applyThemeScale(ArchBitmap* bm, int frameCount)
     bool integerZoom = (g_themeScale == (double)(int)g_themeScale);
 
     ArchBitmap* scaled;
-    if (!useSprite && !integerZoom) {
+    if (!useSprite && !integerZoom && !forceNearest) {
         scaled = archBitmapCreateScaledCopySmooth(bm, dstW, dstH);
     } else {
         scaled = archBitmapCreateScaledCopy(bm, dstW, dstH);
@@ -705,7 +706,8 @@ static int splitImageAtMenuBand(ArchBitmap** bm, ArchBitmap* designBm,
     }
 
     /* Stretch in a single NN step from the design bitmap -- double-interp
-       via applyThemeScale smears 1-px dividers at x3/x5/x7. */
+       via applyThemeScale smears 1-px dividers at x3/x5/x7.  The caller
+       forces NN for these images so both land on the same pixel grid. */
     if (botRowsScaled > topRowsScaled && menuRowsDesign > 0) {
         int menuRowsSrcH = botRowsScaled - topRowsScaled;
         int menuDstHRuntime = menuHRuntime + EXTERNAL_THEME_TOP_GAP;
@@ -778,7 +780,7 @@ static void addImage(ThemeCollection* themeCollection, Theme* theme, ThemePage* 
         }
     }
 
-    bitmap = applyThemeScale(bitmap, spriteFrameCount(cols, 1));
+    bitmap = applyThemeScale(bitmap, spriteFrameCount(cols, 1), designClone != NULL);
 
     if (visible == THEME_TRIGGER_NONE) {
         visible = (ThemeTrigger)getTrigger(el, "visible");
@@ -844,7 +846,7 @@ static void addGrabImage(ThemeCollection* themeCollection, Theme* theme, ThemePa
         }
     }
 
-    bitmap = applyThemeScale(bitmap, spriteFrameCount(cols, count));
+    bitmap = applyThemeScale(bitmap, spriteFrameCount(cols, count), designClone != NULL);
 
     if (visible == THEME_TRIGGER_NONE) {
         visible = (ThemeTrigger)getTrigger(el, "visible");
@@ -1379,9 +1381,7 @@ static ThemePage* loadThemePage(ThemeCollection* themeCollection, Theme* theme,
     int menuX          = 0;
     int menuY          = -100;
     int menuYxml       = -100;  /* raw XML menu y for topShift calc */
-    /* Span most of the page so localized menu text fits when <menu width=>
-       is omitted (the historical 357 default truncated CJK locales). */
-    int menuWidth      = width > 0 ? width - 8 : 800;
+    int menuWidth      = -1;    /* <0 = no <menu width=>; defaulted below */
     int menuColor      = archRGB(219, 221, 224);
     int menuFocusColor = archRGB(128, 128, 255);
     int menuTextColor  = archRGB(0, 0, 0);
@@ -1442,6 +1442,15 @@ static ThemePage* loadThemePage(ThemeCollection* themeCollection, Theme* theme,
                 }
             }
         }
+    }
+
+    /* Default spans from menu x to an 8 px right gap so localized text
+       fits (the historical 357 default truncated CJK) without covering
+       the theme's own right edge.  Drop the gap before it goes unusable. */
+    if (menuWidth < 0) {
+        menuWidth = (width > 0 ? width : 800) - menuX;
+        if (menuWidth > 8) menuWidth -= 8;
+        if (menuWidth < 1) menuWidth = width > 0 ? width : 800;
     }
 
     /* Set menu band globals: themeScaledY shifts only below-band content;
