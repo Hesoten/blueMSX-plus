@@ -28,7 +28,7 @@
 **
 ******************************************************************************
 */
-#include "sramMapperMatsuchita.h"
+#include "sramMapperMatsushita.h"
 #include "MediaDb.h"
 #include "DeviceManager.h"
 #include "DebugDeviceManager.h"
@@ -227,7 +227,7 @@ int sramMapperMatsushitaCreate(int hasTurbo)
 
     rm = malloc(sizeof(SramMapperMatsushita));
 
-    rm->deviceHandle = deviceManagerRegister(SRAM_MATSUCHITA, &callbacks, rm);
+    rm->deviceHandle = deviceManagerRegister(SRAM_MATSUSHITA, &callbacks, rm);
     rm->debugHandle = debugDeviceRegister(DBGTYPE_BIOS, langDbgDevMatsushita(), &dbgCallbacks, rm);
 
     memset(rm->sram, 0xff, 0x800);

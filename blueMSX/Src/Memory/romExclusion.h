@@ -128,7 +128,7 @@
 #ifdef EXCLUDE_MICROSOL80
 #define romMapperMicrosolVmx80Create(a, b, c, d, e, f, g, h) 0
 #endif
-#ifdef EXCLUDE_SRAM_MATSUCHITA
+#ifdef EXCLUDE_SRAM_MATSUSHITA
 #define sramMapperMatsushitaCreate(a) 0
 #endif
 #ifdef EXCLUDE_SRAM_S1985

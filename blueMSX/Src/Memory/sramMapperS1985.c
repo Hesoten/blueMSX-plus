@@ -28,7 +28,7 @@
 **
 ******************************************************************************
 */
-#include "sramMapperMatsuchita.h"
+#include "sramMapperMatsushita.h"
 #include "MediaDb.h"
 #include "DeviceManager.h"
 #include "DebugDeviceManager.h"

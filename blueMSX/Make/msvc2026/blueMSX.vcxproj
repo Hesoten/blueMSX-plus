@@ -824,7 +824,7 @@
     <ClCompile Include="..\..\Src\Memory\SlotManager.c" />
     <ClCompile Include="..\..\Src\Memory\sramLoader.c" />
     <ClCompile Include="..\..\Src\Memory\sramMapperEseSCC.c" />
-    <ClCompile Include="..\..\Src\Memory\sramMapperMatsuchita.c" />
+    <ClCompile Include="..\..\Src\Memory\sramMapperMatsushita.c" />
     <ClCompile Include="..\..\Src\Memory\sramMapperMegaSCSI.c" />
     <ClCompile Include="..\..\Src\Memory\sramMapperS1985.c" />
     <ClCompile Include="..\..\Src\VideoChips\CRTC6845.c" />
@@ -1163,7 +1163,7 @@
     <ClInclude Include="..\..\Src\Memory\SlotManager.h" />
     <ClInclude Include="..\..\Src\Memory\sramLoader.h" />
     <ClInclude Include="..\..\Src\Memory\sramMapperEseSCC.h" />
-    <ClInclude Include="..\..\Src\Memory\sramMapperMatsuchita.h" />
+    <ClInclude Include="..\..\Src\Memory\sramMapperMatsushita.h" />
     <ClInclude Include="..\..\Src\Memory\sramMapperMegaSCSI.h" />
     <ClInclude Include="..\..\Src\Memory\sramMapperS1985.h" />
     <ClInclude Include="..\..\Src\VideoChips\Common.h" />
