@@ -351,6 +351,7 @@ int debugWatchpointCount[MAX_DEVICES];
 void debugDeviceSetMemoryWatchpoint(DbgDeviceType devType, int address, DbgWatchpointCondition condition, UInt32 refValue, int size)
 {
     Watchpoint* watchpoint = watchpoints[devType];
+    int isNew = 0;
 
     while (watchpoint != NULL) {
         if (watchpoint->address == address) {
@@ -360,15 +361,21 @@ void debugDeviceSetMemoryWatchpoint(DbgDeviceType devType, int address, DbgWatch
     }
     if (watchpoint == NULL) {
         watchpoint = (Watchpoint*)calloc(1, sizeof(Watchpoint));
-        watchpoint->next = watchpoints[devType];
-        watchpoints[devType] = watchpoint;
-        debugWatchpointCount[devType]++;
+        isNew = 1;
     }
 
     watchpoint->address = address;
     watchpoint->condition = condition;
     watchpoint->refValue = refValue;
     watchpoint->size = size;
+
+    if (isNew) {
+        /* Linked in only once it is filled, so the emulation thread walking
+        ** the list never has to see a half built node. */
+        watchpoint->next = watchpoints[devType];
+        watchpoints[devType] = watchpoint;
+        debugWatchpointCount[devType]++;
+    }
 }
 
 void debugDeviceClearMemoryWatchpoint(DbgDeviceType devType, int address)
