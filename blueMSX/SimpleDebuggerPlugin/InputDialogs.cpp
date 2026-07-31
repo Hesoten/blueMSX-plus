@@ -303,8 +303,10 @@ BOOL InputDialogs::watchpointDialogProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
             b = dlgUnits(hDlg, 179, 58, 53, 12);
             refValueInput = new HexInputDialog(hDlg, b.left, rcCond.top, b.right - b.left, rcCond.bottom - rcCond.top, 1, true, symbolInfo, cpuRegisters);
         }
+        /* Seeding the value would take the focus with it, and the box is about
+        ** to be hidden for a condition of None. */
+        refValueInput->setValue(0, false);
         addressInput->setFocus();
-        refValueInput->setValue(0);
 
         updateWatchpointControls(hDlg, procData->breakpointInfo);
         return FALSE;
@@ -342,6 +344,7 @@ BOOL InputDialogs::watchpointDialogProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
                     (WatchpointCondition)SendDlgItemMessage(hDlg, IDC_CONDITION, CB_GETCURSEL, 0, 0);
                 updateWatchpointControls(hDlg, procData->breakpointInfo);
             }
+            break;
         case IDC_MEMTYPE:
             if (HIWORD(wParam) == CBN_SELCHANGE) {
                 int idx = (int)SendDlgItemMessage(hDlg, IDC_MEMTYPE, CB_GETCURSEL, 0, 0);
