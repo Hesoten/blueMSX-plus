@@ -138,7 +138,9 @@ static char keyboardConfigDir[PROP_MAXPATH];
 ** live. */
 static char keyboardSharedDir[PROP_MAXPATH];
 
-static char DefaultConfigName[] = "blueMSX Default";
+/* Profile written on a fresh install; the user's own file from then on. */
+static char DefaultConfigName[] = "blueMSX";
+static char JapaneseConfigName[] = "blueMSX Japanese";
 
 /* Marker for a key the user cleared; an empty value means "use the
 ** default". */
@@ -480,32 +482,82 @@ static int inputPortEcActive(int table, int ec)
     }
 }
 
-/* Apply the built-in defaults for one table.  Joy tables are scoped to
-** the ECs the port's current device reads so unrelated buttons don't
-** come out pre-assigned. */
+/* JIS overrides: each replaces the base DIK for the same EC, never adds
+** a second one. */
+static const struct BindingsDefault bindingsDefaultsJp[] = {
+    { 0, DIK_AT,          EC_AT       },
+    { 0, DIK_LBRACKET,    EC_LBRACK   },
+    { 0, DIK_RBRACKET,    EC_RBRACK   },
+    { 0, DIK_YEN,         EC_BKSLASH  },
+    { 0, DIK_BACKSLASH,   EC_UNDSCRE  },
+    { 0, DIK_PREVTRACK,   EC_CIRCFLX  },
+    { 0, DIK_COLON,       EC_COLON    },
+    { 0, DIK_KANA,        EC_CODE     },
+    { 0, DIK_CONVERT,     EC_JIKKOU   },
+    { 0, DIK_NOCONVERT,   EC_TORIKE   },
+};
+
+int inputKeyboardRegionIsJapanese(void)
+{
+    static int cached = -1;
+    if (cached < 0) {
+        char klId[KL_NAMELENGTH];
+        cached = 0;
+        if (GetKeyboardLayoutName(klId) && 0 == strcmp(klId + 4, "0411")) {
+            cached = 1;
+        }
+        /* A US keyboard under a ja-JP region still wants the MSX JP
+        ** layout. */
+        if (PRIMARYLANGID(LANGIDFROMLCID(GetUserDefaultLCID())) == LANG_JAPANESE) {
+            cached = 1;
+        }
+    }
+    return cached;
+}
+
+static int bindingsJpOverride(int table, int ec, int jp)
+{
+    size_t i;
+    if (table != 0 || !jp) return 0;
+    for (i = 0; i < sizeof(bindingsDefaultsJp) / sizeof(bindingsDefaultsJp[0]); i++) {
+        if (bindingsDefaultsJp[i].ec == ec) return bindingsDefaultsJp[i].dik;
+    }
+    return 0;
+}
+
 int inputResolveDikName(const char* token);
 
-static void bindingsLoadDefaultsForTable(int table) {
+static void bindingsFillDefaults(int table, int portDeviceOnly, int jp) {
     size_t i;
     for (i = 0; i < sizeof(bindingsDefaults) / sizeof(bindingsDefaults[0]); i++) {
         int dik;
         if (bindingsDefaults[i].table != table) continue;
-        if (table != 0 && !inputPortEcActive(table, bindingsDefaults[i].ec)) continue;
-        dik = bindingsDefaults[i].name != NULL
-                  ? inputResolveDikName(bindingsDefaults[i].name)
-                  : bindingsDefaults[i].dik;
+        if (portDeviceOnly && table != 0 &&
+            !inputPortEcActive(table, bindingsDefaults[i].ec)) continue;
+        dik = bindingsJpOverride(table, bindingsDefaults[i].ec, jp);
+        if (dik == 0) {
+            dik = bindingsDefaults[i].name != NULL
+                      ? inputResolveDikName(bindingsDefaults[i].name)
+                      : bindingsDefaults[i].dik;
+        }
         if (dik > 0) {
             bindingsAddEdge(table, dik, bindingsDefaults[i].ec);
         }
     }
 }
 
-/* Existence only: attached controllers must not decide this.  Scoped
-** like the defaults are, or an EC the port never binds would be written
-** out as cleared. */
+static void bindingsLoadDefaultsForTable(int table, int jp) {
+    bindingsFillDefaults(table, 0, jp);
+}
+
+static void bindingsLoadDefaultsForPortDevice(int table) {
+    bindingsFillDefaults(table, 1, inputKeyboardRegionIsJapanese());
+}
+
+/* Existence only: must not depend on which controllers are attached at
+** save time. */
 static int bindingsDefaultExists(int table, int ec) {
     size_t i;
-    if (table != 0 && !inputPortEcActive(table, ec)) return 0;
     for (i = 0; i < sizeof(bindingsDefaults) / sizeof(bindingsDefaults[0]); i++) {
         if (bindingsDefaults[i].table == table &&
             bindingsDefaults[i].ec == ec) return 1;
@@ -513,12 +565,37 @@ static int bindingsDefaultExists(int table, int ec) {
     return 0;
 }
 
-static void bindingsLoadDefaults(void) {
+/* Never scoped: load-time port type must not decide what a shared
+** profile holds. */
+static void bindingsLoadDefaultsForEc(int table, int ec) {
+    size_t i;
+    for (i = 0; i < sizeof(bindingsDefaults) / sizeof(bindingsDefaults[0]); i++) {
+        int dik;
+        if (bindingsDefaults[i].table != table) continue;
+        if (bindingsDefaults[i].ec != ec) continue;
+        dik = bindingsJpOverride(table, ec, inputKeyboardRegionIsJapanese());
+        if (dik == 0) {
+            dik = bindingsDefaults[i].name != NULL
+                      ? inputResolveDikName(bindingsDefaults[i].name)
+                      : bindingsDefaults[i].dik;
+        }
+        if (dik > 0 && bindingsCountEcsForDik(table, dik) == 0) {
+            bindingsAddEdge(table, dik, ec);
+        }
+    }
+}
+
+/* jp: 1 lays in the JIS key positions, 0 the European ones. */
+static void bindingsLoadDefaultsForLayout(int jp) {
     int t;
     bindingsResetAll();
     for (t = 0; t < KBD_TABLE_NUM; t++) {
-        bindingsLoadDefaultsForTable(t);
+        bindingsLoadDefaultsForTable(t, jp);
     }
+}
+
+static void bindingsLoadDefaults(void) {
+    bindingsLoadDefaultsForLayout(inputKeyboardRegionIsJapanese());
 }
 
 int bindingsCountTargetsForDik(int dik) {
@@ -1847,6 +1924,16 @@ int keyboardLoadConfig(char* configName)
     FILE* file;
     int i;
     int n;
+    /* Which entries the file leaves to the built-ins; filled in a second
+    ** pass so they can be tested against the whole file. */
+    char wantsDefault[KBD_TABLE_NUM][EC_KEYCOUNT];
+
+    memset(wantsDefault, 0, sizeof(wantsDefault));
+
+    if (configName[0] == 0) {
+        configName = inputKeyboardRegionIsJapanese() ? JapaneseConfigName
+                                                     : DefaultConfigName;
+    }
     /* The name is refused before anything is reset, so the mapping in effect
     ** is left alone. */
     if (strlen(configName) >= KBD_CONFIGNAME_LEN) {
@@ -1859,17 +1946,20 @@ int keyboardLoadConfig(char* configName)
     bindingsPendingCount = 0;
 
     keyboardResetKbd();
-
-    keyboardConfigPath(fileName, configName[0] == 0 ? DefaultConfigName : configName);
+    bindingsResetAll();
+    keyboardConfigPath(fileName, configName);
 
     file = fopen(fileName, "r");
     if (file == NULL) {
+        /* Claim the name anyway, or the editor's save would do nothing. */
+        bindingsLoadDefaults();
+        sprintf(currentConfigFile, configName);
         bindingsBackupAll();
         return 0;
     }
     fclose(file);
 
-    sprintf(currentConfigFile, *configName ? configName : DefaultConfigName);
+    sprintf(currentConfigFile, configName);
 
     keyConfigFile = iniFileOpen(fileName);
 
@@ -1886,25 +1976,20 @@ int keyboardLoadConfig(char* configName)
                 strcat(key, " ");
                 iniFileGetString(keyConfigFile, profString, key, "",
                                  dikNames, sizeof(dikNames));
-                /* Flagged so a save can tell an entry the file left empty
-                ** from one the user cleared. */
+                /* Flagged for rewrite, or a later DIK clash would silence
+                ** the key. */
                 if (dikNames[0] == 0) {
+                    wantsDefault[n][i] = 1;
                     bindingsRewriteOnSave[n][i] = 1;
                     continue;
                 }
                 /* Before the token loop, or the marker resolves as a
                 ** device name. */
                 if (0 == strcmp(dikNames, kUnassignedName)) {
-                    bindingsClearEc(n, i);
                     continue;
                 }
                 p = dikNames;
                 while (*p == ' ' || *p == ',') p++;
-                /* Non-empty value: the file's token list replaces the
-                ** default binding even if some tokens fail to resolve. */
-                if (*p) {
-                    bindingsClearEc(n, i);
-                }
                 while (*p) {
                     char token[192];
                     int dikKey;
@@ -1929,6 +2014,16 @@ int keyboardLoadConfig(char* configName)
                         bindingsPendingCount++;
                     }
                 }
+            }
+        }
+    }
+    /* Built-in fills come last so a default can see the whole file: an
+    ** unversioned profile blanks a key whose DIK moved elsewhere, and
+    ** restoring it would make one key drive two MSX targets. */
+    for (n = 0; n < KBD_TABLE_NUM; n++) {
+        for (i = 0; i < EC_KEYCOUNT; i++) {
+            if (wantsDefault[n][i]) {
+                bindingsLoadDefaultsForEc(n, i);
             }
         }
     }
@@ -2005,29 +2100,41 @@ char* keyboardGetCurrentConfig()
     return currentConfigFile;
 }
 
-int keyboardIsCurrentConfigDefault() 
-{
-    return strcmp(currentConfigFile, DefaultConfigName) == 0;
-}
-
 void inputInit()
 {
     char fileName[KBD_CONFIGPATH_LEN];
+    char startName[KBD_CONFIGNAME_LEN];
+    int jp = inputKeyboardRegionIsJapanese();
     FILE* file;
 
     initDikStr();
     bindingsLoadDefaults();
 
     inputEventReset();
-    
-    keyboardConfigPath(fileName, DefaultConfigName);
+
+    strcpy(startName, jp ? JapaneseConfigName : DefaultConfigName);
+    keyboardConfigPath(fileName, startName);
     file = fopen(fileName, "r");
-    if (file == NULL) {
-        keyboardSaveConfig(DefaultConfigName);
+    if (file != NULL) {
+        fclose(file);
+        strcpy(currentConfigFile, startName);
         return;
     }
-    sprintf(currentConfigFile, DefaultConfigName);
-    fclose(file);
+
+    /* Claiming a name here would let OK save defaults over an unopened profile. */
+    if (keyboardGetConfigs()[0] != NULL) {
+        return;
+    }
+
+    /* Both layouts, so a user whose keyboard the region guessed wrong can
+    ** switch.  Every device's defaults go in, so switching a port later
+    ** needs no further action. */
+    bindingsLoadDefaultsForLayout(!jp);
+    keyboardSaveConfig(jp ? DefaultConfigName : JapaneseConfigName);
+
+    /* This run's profile goes last, so it is the one a further save updates. */
+    bindingsLoadDefaults();
+    keyboardSaveConfig(startName);
 }
 
 char* archGetSelectedKey()

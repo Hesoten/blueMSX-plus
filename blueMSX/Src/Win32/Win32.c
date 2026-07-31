@@ -4735,21 +4735,11 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     readOnlyDir = setDefaultPath(szLine);
 
     {
-        /* Modify scan code map if nessecary */
-        PropKeyboardLanguage kbdLang = P_KBD_EUROPEAN;
+        /* Via the input layer, so the profile name and the built-in key
+           map agree on the region. */
+        PropKeyboardLanguage kbdLang = inputKeyboardRegionIsJapanese()
+                                           ? P_KBD_JAPANESE : P_KBD_EUROPEAN;
         int syncMode = 0;
-        char klId[KL_NAMELENGTH];
-        if (GetKeyboardLayoutName(klId)) {
-            if (0 == strcmp(klId + 4, "0411")) {
-                kbdLang = P_KBD_JAPANESE;
-            }
-        }
-        /* Also default to the JP MSX keyboard when the user's system
-           locale is Japanese, even if the active Windows keyboard layout
-           is non-JIS (e.g. US physical keyboard with ja-JP region). */
-        if (PRIMARYLANGID(LANGIDFROMLCID(GetUserDefaultLCID())) == LANG_JAPANESE) {
-            kbdLang = P_KBD_JAPANESE;
-        }
 
         resetRegistry = emuCheckResetArgument(szLine);
         if (resetRegistry) {

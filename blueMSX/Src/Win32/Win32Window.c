@@ -632,7 +632,7 @@ static LRESULT CALLBACK keyboardDlgProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
     case WM_TIMER:
         switch(wParam) {
         case TIMER_POLL_INPUT:
-            objectEnable(hwnd, WM_BUTTON_SAVE, !keyboardIsCurrentConfigDefault() && keyboardConfigIsModified());
+            objectEnable(hwnd, WM_BUTTON_SAVE, keyboardConfigIsModified());
             mouseSensSyncVisibility(hwnd);
             break;
         }
@@ -649,7 +649,8 @@ static LRESULT CALLBACK keyboardDlgProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
     case WM_DROPDOWN_KEYBOARDCONFIG:
         {
             char* name = (char*)lParam;
-            if (name != NULL) {
+            /* Reloading the profile already open would discard the edits. */
+            if (name != NULL && 0 != strcmp(name, keyboardGetCurrentConfig())) {
                 keyboardLoadConfig(name);
             }
         }
@@ -1246,6 +1247,7 @@ static BOOL_DLG_RET CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, L
         {
             char** items = { NULL };
             int index = 0;
+            int matched = 0;
 
             switch (oi->notifyId) {
             case WM_DROPDOWN_MACHINECONFIG:
@@ -1279,13 +1281,23 @@ static BOOL_DLG_RET CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, L
             }
 
             while (*items != NULL) {
+                int isMatch = (0 == strcmp(*items, oi->text));
                 ComboAddStringU(GetDlgItem(hwnd, IDC_CONTROL), *items);
 
-                if (index == 0 || 0 == strcmp(*items, oi->text)) {
+                if (index == 0 || isMatch) {
                     SendDlgItemMessage(hwnd, IDC_CONTROL, CB_SETCURSEL, index, 0);
+                }
+                if (isMatch) {
+                    matched = 1;
                 }
                 items++;
                 index++;
+            }
+            /* Falling back to item 0 would silently retarget Save to
+            ** another profile. */
+            if (!matched && oi->notifyId == WM_DROPDOWN_KEYBOARDCONFIG && oi->text[0]) {
+                ComboAddStringU(GetDlgItem(hwnd, IDC_CONTROL), oi->text);
+                SendDlgItemMessage(hwnd, IDC_CONTROL, CB_SETCURSEL, index, 0);
             }
         }
         break;

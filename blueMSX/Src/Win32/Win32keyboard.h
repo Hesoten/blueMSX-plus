@@ -56,13 +56,15 @@ void inputDestroy(void);
 void inputMarkDirty(void);
 void inputRefreshDevicesIfDirty(void);
 
+/* True for a JIS physical layout or a Japanese system locale. */
+int inputKeyboardRegionIsJapanese(void);
+
 void keyboardSetDirectory(char* directory);
 void keyboardSetSharedDirectory(char* directory);
 
 int keyboardLoadConfig(char* configName);
 void keyboardSaveConfig(char* configName);
 char* keyboardGetCurrentConfig();
-int   keyboardIsCurrentConfigDefault();
 char** keyboardGetConfigs();
 
 // For configuration
