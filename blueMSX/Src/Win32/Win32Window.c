@@ -1158,6 +1158,44 @@ typedef struct {
 } DropdownInfo;
 
 
+static const char themeCtrlFontProp[] = "bmsxThemeCtrlFont";
+
+/* Must match DEFAULT_FONT in blueMSX.rc; change both together. */
+#define THEME_CTRL_FONT_FACE  "Segoe UI"
+
+HFONT themeCtrlFontCreate(int cellHeight)
+{
+    LOGFONT lf;
+    memset(&lf, 0, sizeof(lf));
+    if (cellHeight < 8) cellHeight = 8;
+    lf.lfHeight  = cellHeight;  /* positive = cell height, not char height */
+    lf.lfWeight  = FW_NORMAL;
+    lf.lfCharSet = DEFAULT_CHARSET;
+    strcpy(lf.lfFaceName, THEME_CTRL_FONT_FACE);
+    return CreateFontIndirect(&lf);
+}
+
+/* The theme reference is an 11px cell in a 24px row. */
+static void themeCtrlFontApply(HWND dlg, HWND ctrl, int widgetHeight)
+{
+    HFONT font = themeCtrlFontCreate(widgetHeight * 11 / 24);
+    if (font == NULL) return;
+    SetPropA(dlg, themeCtrlFontProp, (HANDLE)font);
+    SendMessage(ctrl, WM_SETFONT, (WPARAM)font, FALSE);
+}
+
+/* Call from WM_NCDESTROY, not WM_DESTROY: the child control that holds
+** the font is destroyed after the parent's WM_DESTROY returns, so freeing
+** it earlier leaves a live control pointing at a recycled GDI handle. */
+static void themeCtrlFontRelease(HWND dlg)
+{
+    HFONT font = (HFONT)GetPropA(dlg, themeCtrlFontProp);
+    if (font != NULL) {
+        RemovePropA(dlg, themeCtrlFontProp);
+        DeleteObject(font);
+    }
+}
+
 //////////////////////////////////////////////////////////////////////////
 /// Function:
 ///     dropdownProc
@@ -1181,6 +1219,7 @@ static BOOL_DLG_RET CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, L
             HWND  combo = GetDlgItem(hwnd, IDC_CONTROL);
             int   natural;
             int   yOffset;
+            themeCtrlFontApply(hwnd, combo, oi->height);
             {
                 HFONT hFont   = (HFONT)SendMessage(combo, WM_GETFONT, 0, 0);
                 HDC   hdc     = GetDC(combo);
@@ -1222,6 +1261,10 @@ static BOOL_DLG_RET CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, L
         oi = (DropdownInfo*)windowDataGet(hwnd);
         windowDataSet(hwnd, 0, NULL);
         free(oi);
+        break;
+
+    case WM_NCDESTROY:
+        themeCtrlFontRelease(hwnd);
         break;
 
     case WM_OBJECT_GET:
@@ -1402,6 +1445,7 @@ static BOOL_DLG_RET CALLBACK buttonProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
         oi = (ButtonInfo*)lParam;
         SetWindowPos(hwnd, NULL, oi->x, oi->y, oi->width, oi->height, SWP_NOZORDER | SWP_SHOWWINDOW);
         SetWindowPos(GetDlgItem(hwnd, IDC_CONTROL), NULL, 0, 0, oi->width, oi->height, SWP_NOZORDER);
+        themeCtrlFontApply(hwnd, GetDlgItem(hwnd, IDC_CONTROL), oi->height);
         SetWindowTextU(GetDlgItem(hwnd, IDC_CONTROL), oi->text);
         /* Stash notifyId in the void* slot.  Cast through UINT_PTR so x64
         ** does not warn about int<->pointer size mismatch (the message id
@@ -1415,6 +1459,9 @@ static BOOL_DLG_RET CALLBACK buttonProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
         return TRUE;
     case WM_CLOSE:
         windowDataSet(hwnd, 0, NULL);
+        break;
+    case WM_NCDESTROY:
+        themeCtrlFontRelease(hwnd);
         break;
     case WM_OBJECT_SHOW:
         ShowWindow(hwnd, (int)lParam);
