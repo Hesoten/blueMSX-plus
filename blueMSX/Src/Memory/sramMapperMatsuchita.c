@@ -210,7 +210,10 @@ static void getDebugInfo(SramMapperMatsushita* rm, DbgDevice* dbgDevice)
 
         ioPorts = dbgDeviceAddIoPorts(dbgDevice, langDbgDevMatsushita(), 16);
 
-        for (i = 0; i < 16; i++) {
+        /* A write to 40h selects the bank and never reaches the device */
+        dbgIoPortsAddPort(ioPorts, 0, 0x40, DBG_IO_READ, peek(rm, 0));
+
+        for (i = 1; i < 16; i++) {
             dbgIoPortsAddPort(ioPorts, i, 0x40 + i, DBG_IO_READWRITE, peek(rm, i));
         }
     }
