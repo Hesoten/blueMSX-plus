@@ -916,7 +916,7 @@ extern "C" const char* romTypeToShortString(RomType romType)
     case ROM_KANJI:       return "KANJI";
     case ROM_HOLYQURAN:   return "HOLYQURAN";
     case SRAM_MATSUCHITA:     return "MATSUSHITA";
-    case SRAM_MATSUCHITA_INV: return "MATSUS INV";
+    case SRAM_MATSUCHITA_INV: return "MATSU TRBO";
     case ROM_PANASONICWX16:   return "PANASON 16";
     case ROM_PANASONIC16: return "PANASON 16";
     case ROM_PANASONIC32: return "PANASON 32";

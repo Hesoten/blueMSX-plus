@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -40,6 +43,10 @@
 
 extern void msxEnableCpuFreq_1_5(int enable);
 
+/* Switched I/O device 8. Port 41h per map.grauw.nl/resources/msx_io_ports.php:
+** bit 0 = speed (0 = 5.37MHz, 1 = 3.58MHz), bit 2 = turbo fitted (0 = yes, r/o),
+** bit 7 = firmware switch (0 = on, r/o). Only the T9769B machines have turbo. */
+
 typedef struct {
     int    deviceHandle;
     int    debugHandle;
@@ -48,8 +55,8 @@ typedef struct {
 	UInt8  color1;
     UInt8  color2;
 	UInt8  pattern;
-    int    cpu15;
-    int    inverted;
+    int    turboEnabled;
+    int    hasTurbo;
 } SramMapperMatsushita;
 
 static void saveState(SramMapperMatsushita* rm)
@@ -60,7 +67,7 @@ static void saveState(SramMapperMatsushita* rm)
     saveStateSet(state, "color1",  rm->color1);
     saveStateSet(state, "color2",  rm->color2);
     saveStateSet(state, "pattern", rm->pattern);
-    saveStateSet(state, "cpu15",   rm->cpu15);
+    saveStateSet(state, "cpu15",   rm->turboEnabled);
     
     saveStateClose(state);
 }
@@ -73,11 +80,35 @@ static void loadState(SramMapperMatsushita* rm)
     rm->color1  = (UInt8)saveStateGet(state, "color1",  0);
     rm->color2  = (UInt8)saveStateGet(state, "color2",  0);
     rm->pattern = (UInt8)saveStateGet(state, "pattern", 0);
-    rm->cpu15   = (UInt8)saveStateGet(state, "cpu15",   0);
+    /* Key kept as "cpu15" so older save states still load */
+    rm->turboEnabled = rm->hasTurbo && saveStateGet(state, "cpu15", 0);
 
     saveStateClose(state);
 
-    msxEnableCpuFreq_1_5(rm->cpu15);
+    if (rm->hasTurbo) {
+        msxEnableCpuFreq_1_5(rm->turboEnabled);
+    }
+}
+
+static void setTurbo(SramMapperMatsushita* rm, int enable)
+{
+    if (!rm->hasTurbo || rm->turboEnabled == enable) {
+        return;
+    }
+
+    rm->turboEnabled = enable;
+    msxEnableCpuFreq_1_5(enable);
+}
+
+static void reset(SramMapperMatsushita* rm)
+{
+    /* A reset drops the CPU back to 3.58MHz and clears the drawing state. */
+    setTurbo(rm, 0);
+
+    rm->address = 0;
+    rm->color1  = 0;
+    rm->color2  = 0;
+    rm->pattern = 0;
 }
 
 static void destroy(SramMapperMatsushita* rm)
@@ -100,7 +131,14 @@ static UInt8 peek(SramMapperMatsushita* rm, UInt16 ioPort)
 		result = ~0x08;
 		break;
 	case 1:
+        /* bit 7: firmware switch, bit 2: turbo available, bit 0: speed mode */
         result = switchGetFront() ? 0x7f : 0xff;
+        if (rm->hasTurbo) {
+            result &= ~0x04;
+            if (rm->turboEnabled) {
+                result &= ~0x01;
+            }
+        }
 		break;
 	case 3:
 		result = (((rm->pattern & 0x80) ? rm->color2 : rm->color1) << 4)
@@ -121,29 +159,16 @@ static UInt8 peek(SramMapperMatsushita* rm, UInt16 ioPort)
 
 static UInt8 read(SramMapperMatsushita* rm, UInt16 ioPort)
 {
-	UInt8 result;
+	UInt8 result = peek(rm, ioPort);
+
+	/* Same values as peek(), plus the auto increments of a real read */
 	switch (ioPort & 0x0f) {
-	case 0:
-		result = ~0x08;
-		break;
-	case 1:
-        result = switchGetFront() ? 0x7f : 0xff;
-		break;
 	case 3:
-		result = (((rm->pattern & 0x80) ? rm->color2 : rm->color1) << 4)
-		        | ((rm->pattern & 0x40) ? rm->color2 : rm->color1);
 		rm->pattern = (rm->pattern << 2) | (rm->pattern >> 6);
 		break;
 	case 9:
-		if (rm->address < 0x800) {
-			result = rm->sram[rm->address];
-		} else {
-			result = 0xff;
-		}
 		rm->address = (rm->address + 1) & 0x1fff;
 		break;
-	default:
-		result = 0xff;
 	}
 	return result;
 }
@@ -152,8 +177,8 @@ static void write(SramMapperMatsushita* rm, UInt16 ioPort, UInt8 value)
 {
 	switch (ioPort & 0x0f) {
     case 1:
-        rm->cpu15 = (value & 1) == (rm->inverted ? 0 : 1);
-        msxEnableCpuFreq_1_5(rm->cpu15);
+        /* bit 0 selects the speed, the rest of the port is read only */
+        setTurbo(rm, (value & 0x01) ? 0 : 1);
         break;
 	case 3:
 		rm->color2 = value >> 4;
@@ -183,7 +208,7 @@ static void getDebugInfo(SramMapperMatsushita* rm, DbgDevice* dbgDevice)
         DbgIoPorts* ioPorts;
         int i;
 
-        ioPorts = dbgDeviceAddIoPorts(dbgDevice, langDbgDevKanji12(), 2);
+        ioPorts = dbgDeviceAddIoPorts(dbgDevice, langDbgDevMatsushita(), 16);
 
         for (i = 0; i < 16; i++) {
             dbgIoPortsAddPort(ioPorts, i, 0x40 + i, DBG_IO_READWRITE, peek(rm, i));
@@ -191,20 +216,24 @@ static void getDebugInfo(SramMapperMatsushita* rm, DbgDevice* dbgDevice)
     }
 }
 
-int sramMapperMatsushitaCreate(int inverted) 
+int sramMapperMatsushitaCreate(int hasTurbo)
 {
-    DeviceCallbacks callbacks = { destroy, NULL, saveState, loadState };
+    DeviceCallbacks callbacks = { destroy, reset, saveState, loadState };
     DebugCallbacks dbgCallbacks = { getDebugInfo, NULL, NULL, NULL };
     SramMapperMatsushita* rm;
 
     rm = malloc(sizeof(SramMapperMatsushita));
 
-    rm->deviceHandle = deviceManagerRegister(inverted ? SRAM_MATSUCHITA_INV : SRAM_MATSUCHITA, &callbacks, rm);
+    rm->deviceHandle = deviceManagerRegister(SRAM_MATSUCHITA, &callbacks, rm);
     rm->debugHandle = debugDeviceRegister(DBGTYPE_BIOS, langDbgDevMatsushita(), &dbgCallbacks, rm);
 
     memset(rm->sram, 0xff, 0x800);
-    rm->address = 0;
-    rm->inverted = inverted;
+    rm->address      = 0;
+    rm->color1       = 0;
+    rm->color2       = 0;
+    rm->pattern      = 0;
+    rm->turboEnabled = 0;
+    rm->hasTurbo     = hasTurbo;
 
     sramLoad(sramCreateFilename("Matsushita.SRAM"), rm->sram, 0x800, NULL, 0);
 

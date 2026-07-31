@@ -1242,11 +1242,13 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
         }
 
         if (machine->slotInfo[i].romType == SRAM_MATSUCHITA) {
-            success &= sramMapperMatsushitaCreate(0);
+            /* Only the T9769B machines (FS-A1FX/WX/WSX) have the 5.37MHz turbo */
+            success &= sramMapperMatsushitaCreate(machine->board.type == BOARD_MSX_T9769B);
             continue;
         }
 
         if (machine->slotInfo[i].romType == SRAM_MATSUCHITA_INV) {
+            /* Legacy rom type that explicitly asks for the turbo capable variant */
             success &= sramMapperMatsushitaCreate(1);
             continue;
         }
