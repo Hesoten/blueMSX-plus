@@ -963,7 +963,10 @@ static int inputDevicesDirty = 0;
 
 static int foundInputDevices = 0;
 static int tryBackground = 1;
-static int useBackgroundInput = 0;
+/* Guards re-entry: inputReset overwrites dinput and joyInfo[].diDevice*
+** without releasing them, and WM_ACTIVATE calls it on every activation.
+** Focus loss is handled by the DIERR_INPUTLOST re-Acquire instead. */
+static int inputInitialized = 0;
 
 /* Detect if a DInput device is also an XInput device by matching VID/PID
    against HID device paths that contain "IG_" (XInput marker). */
@@ -1025,20 +1028,23 @@ static BOOL CALLBACK enumKeyboards(LPCDIDEVICEINSTANCE devInst, LPVOID ref)
     rv = IDirectInputDevice_GetCapabilities(kbdDevice, &kbdCaps);
     if (rv == DI_OK) {
         rv = IDirectInputDevice_SetDataFormat(kbdDevice, &c_dfDIKeyboard);
-        if (rv == DI_OK) {
-            rv = IDirectInputDevice_SetCooperativeLevel(kbdDevice, dinputWindow,
-                (tryBackground ? DISCL_BACKGROUND : DISCL_FOREGROUND) | DISCL_NONEXCLUSIVE);
-            if (rv != DI_OK) {
-                if (kbdDevice2 != NULL) {
-                    IDirectInputDevice_Release(kbdDevice2);
-                }
-                IDirectInputDevice_Release(kbdDevice);
-                kbdDevice = NULL;
-                kbdDevice2 = NULL;
-            }
+    }
+    if (rv == DI_OK) {
+        rv = IDirectInputDevice_SetCooperativeLevel(kbdDevice, dinputWindow,
+            (tryBackground ? DISCL_BACKGROUND : DISCL_FOREGROUND) | DISCL_NONEXCLUSIVE);
+    }
+    if (rv != DI_OK) {
+        if (kbdDevice2 != NULL) {
+            IDirectInputDevice_Release(kbdDevice2);
         }
+        IDirectInputDevice_Release(kbdDevice);
+        kbdDevice = NULL;
+        kbdDevice2 = NULL;
+        return DIENUM_CONTINUE;
     }
 
+    /* Leave the flag clear on rejection so inputReset retries in the
+    ** foreground. */
     foundInputDevices = 1;
 
     return DIENUM_CONTINUE;
@@ -1242,7 +1248,7 @@ int inputReset(HWND hwnd)
     HRESULT rv   = 234;
     int i;
 
-    if (useBackgroundInput) {
+    if (inputInitialized) {
         return 1;
     }
 
@@ -1274,6 +1280,13 @@ int inputReset(HWND hwnd)
         }
 
         if (kbdDevice == NULL) {
+            /* Release before the foreground retry creates a fresh one. */
+            IDirectInput_Release(dinput);
+            dinput = NULL;
+            if (tryBackground) {
+                tryBackground = 0;
+                continue;
+            }
             printf("Failed to create DirectInput device\n");
             break;
         }
@@ -1286,9 +1299,7 @@ int inputReset(HWND hwnd)
         rv = IDirectInput_EnumDevices(dinput, DI8DEVCLASS_GAMECTRL, enumJoysticksCallback, 0, DIEDFL_ATTACHEDONLY);
 
         if (foundInputDevices) {
-            // We found input devices that supports background input so lets not
-            // do anymore tests in the future
-            useBackgroundInput = 1;
+            inputInitialized = 1;
             break;
         }
         tryBackground = 0;
@@ -1309,7 +1320,7 @@ int inputReset(HWND hwnd)
 
     /* A run that only reached the XInput players may retry DirectInput
     ** next call. */
-    return useBackgroundInput;
+    return inputInitialized;
 }
 
 void inputMarkDirty(void)
