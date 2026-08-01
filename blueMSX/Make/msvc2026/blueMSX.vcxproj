@@ -841,6 +841,8 @@
     <ClCompile Include="..\..\Src\Z80\R800Debug.c" />
     <ClCompile Include="..\..\Src\Z80\R800SaveState.c" />
     <ClCompile Include="..\..\Src\IoDevice\Casette.c" />
+    <ClCompile Include="..\..\Src\IoDevice\CasToWave.c" />
+    <ClCompile Include="..\..\Src\IoDevice\TapeSignal.c" />
     <ClCompile Include="..\..\Src\IoDevice\DirAsDisk.c" />
     <ClCompile Include="..\..\Src\IoDevice\Disk.c" />
     <ClCompile Include="..\..\Src\IoDevice\DiskFormat.c" />
@@ -1183,6 +1185,8 @@
     <ClInclude Include="..\..\Src\Z80\R800Dasm.h" />
     <ClInclude Include="..\..\Src\Z80\R800Debug.h" />
     <ClInclude Include="..\..\Src\IoDevice\Casette.h" />
+    <ClInclude Include="..\..\Src\IoDevice\CasToWave.h" />
+    <ClInclude Include="..\..\Src\IoDevice\TapeSignal.h" />
     <ClInclude Include="..\..\Src\IoDevice\DirAsDisk.h" />
     <ClInclude Include="..\..\Src\IoDevice\Disk.h" />
     <ClInclude Include="..\..\Src\IoDevice\DiskFormat.h" />

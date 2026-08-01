@@ -48,6 +48,8 @@
 #include "Disk.h"
 #include "VideoManager.h"
 #include "Casette.h"
+#include "TapeSignal.h"
+#include "romMapperCasette.h"
 #include "MediaDb.h"
 #include "RomLoader.h"
 #include "JoystickPort.h"
@@ -1116,6 +1118,9 @@ int boardRewind()
         boardInfo.loadState();
         if (stashedTime != 0) boardSysTime64 = stashedTime;
     }
+    /* The tape clock is anchored to boardSysTime64, which just went backwards.
+    ** Without this the next update underflows and seeks to the end of the tape. */
+    tapeSignalReset();
     boardCaptureLoadState();
 
 #if 1
@@ -1280,8 +1285,10 @@ int boardRun(Machine* machine,
 
     if (success && loadState) {
         boardInfo.loadState();
-        /* Re-apply the stashed boardSysTime64 (boardInit clobbered it). */
+        /* Re-apply the stashed boardSysTime64 (boardInit clobbered it). The
+        ** tape clock is anchored to it, so it has to be re-anchored too. */
         if (stashedSysTime64 != 0) boardSysTime64 = stashedSysTime64;
+        tapeSignalReset();
         boardCaptureLoadState();
     }
 
@@ -1823,6 +1830,10 @@ void boardChangeCassette(int tapeId, char* name, const char* fileInZipFile)
     }
 
     tapeInsert(name, fileInZipFile);
+
+    /* The trap is installed by the machine config (romType CasPatch). Signal
+    ** only images carry no byte stream, so it has to stand down for those. */
+    romMapperCasetteSetPatchEnable(!tapeSignalIsSignalOnly());
 }
 
 int boardGetCassetteInserted()

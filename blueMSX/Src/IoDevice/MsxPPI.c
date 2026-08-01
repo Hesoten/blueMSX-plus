@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -42,6 +45,7 @@
 #include "Language.h"
 #include "Properties.h"
 #include "DAC.h"
+#include "TapeSignal.h"
 #include <stdlib.h>
 
 
@@ -85,6 +89,11 @@ static void reset(MsxPPI* ppi)
     ppi->regA   = -1;
     ppi->regCHi = -1;
 
+    /* Force a known motor state: i8255Reset writes port C right after, and
+    ** writeCHi only acts on a change. */
+    tapeSignalSetMotor(0);
+    tapeSignalReset();
+
     i8255Reset(ppi->i8255);
 }
 
@@ -97,7 +106,10 @@ static void loadState(MsxPPI* ppi)
     ppi->regCHi =        saveStateGet(state, "regCHi", -1);
 
     saveStateClose(state);
-    
+
+    /* writeCHi only reacts to changes, so restore the motor explicitly */
+    tapeSignalSetMotor(ppi->regCHi >= 0 && !(ppi->regCHi & 0x01));
+
     i8255LoadState(ppi->i8255);
 }
 
@@ -141,6 +153,8 @@ static void writeCHi(MsxPPI* ppi, UInt8 value)
         audioKeyClick(ppi->keyClick, value & 0x08);
         dacWrite(ppi->dac, DAC_CH_MONO, (value & 0x02) ? 0 : 255);
         ledSetCapslock(!(value & 0x04));
+        /* Port C bit 4 is CASON, active low: 0 = motor on */
+        tapeSignalSetMotor(!(value & 0x01));
     }
 }
 

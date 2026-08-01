@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -44,15 +47,57 @@ typedef struct {
     int slot;
     int sslot;
     int startPage;
+    UInt8 origBytes[8][3];
+    int patched;
 } RomMapperCasette;
+
+/* The MSX cassette BIOS entries are patched in place. Keeping the original
+** bytes lets the trap stand down for signal level images so the real BIOS
+** routines run and decode the waveform instead. SVI is never toggled. */
+static RomMapperCasette* casPatchMapper = NULL;
+static int patchEnabled = 1;
 
 static void destroy(RomMapperCasette* rm)
 {
     slotUnregister(rm->slot, rm->sslot, rm->startPage);
     deviceManagerUnregister(rm->deviceHandle);
 
+    if (casPatchMapper == rm) {
+        casPatchMapper = NULL;
+    }
+
     free(rm->romData);
     free(rm);
+}
+
+static void applyPatchEnable(RomMapperCasette* rm, int enable)
+{
+    int i;
+
+    if (rm == NULL || rm->patched == enable) {
+        return;
+    }
+    rm->patched = enable;
+
+    for (i = 0; patchAddress[i]; i++) {
+        UInt8* ptr = rm->romData + patchAddress[i];
+        if (enable) {
+            ptr[0] = 0xed;
+            ptr[1] = 0xfe;
+            ptr[2] = 0xc9;
+        }
+        else {
+            ptr[0] = rm->origBytes[i][0];
+            ptr[1] = rm->origBytes[i][1];
+            ptr[2] = rm->origBytes[i][2];
+        }
+    }
+}
+
+void romMapperCasetteSetPatchEnable(int enable)
+{
+    patchEnabled = enable ? 1 : 0;
+    applyPatchEnable(casPatchMapper, patchEnabled);
 }
 
 int romMapperCasetteCreate(const char* filename, UInt8* romData, 
@@ -100,10 +145,13 @@ int romMapperCasetteCreate(const char* filename, UInt8* romData,
         // Patch the casette rom
         for (i = 0; patchAddress[i]; i++) {
             UInt8* ptr = rm->romData + patchAddress[i];
-            ptr[0] = 0xed;
-            ptr[1] = 0xfe;
-            ptr[2] = 0xc9;
+            rm->origBytes[i][0] = ptr[0];
+            rm->origBytes[i][1] = ptr[1];
+            rm->origBytes[i][2] = ptr[2];
         }
+        rm->patched    = 0;
+        casPatchMapper = rm;
+        applyPatchEnable(rm, patchEnabled);
     }
 
     for (i = 0; i < pages; i++) {

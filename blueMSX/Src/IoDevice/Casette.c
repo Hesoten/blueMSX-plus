@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -26,6 +29,8 @@
 ******************************************************************************
 */
 #include "Casette.h"
+#include "TapeSignal.h"
+#include "CasToWave.h"
 #include "Led.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -56,6 +61,9 @@ static char*  ramImageBuffer = NULL;
 static int    ramImageSize = 0;
 static int    ramImagePos = 0;
 static int    rewindNextInsert = 0;
+static int    signalDirty = 0;
+
+static void refreshSignal(void);
 
 static char* stripPath(char* filename) {
     char* ptr = filename + strlen(filename) - 1;
@@ -92,14 +100,18 @@ void tapeLoadState() {
         ramImagePos = 0;
     }
     saveStateClose(state);
+
+    tapeSignalLoadState();
 }
 
 void tapeSaveState() {
     SaveState* state = saveStateOpenForWrite("tape");
 
-    saveStateSet(state, "ramImagePos",  ramImagePos);
+    saveStateSet(state, "ramImagePos",  tapeGetCurrentPos());
 
     saveStateClose(state);
+
+    tapeSignalSaveState();
 }
 
 UInt8 tapeRead(UInt8* value) 
@@ -130,6 +142,7 @@ UInt8 tapeWrite(UInt8 value)
 
         if (ramImagePos < ramImageSize) {
             ramImageBuffer[ramImagePos++] = value;
+            signalDirty = 1;
             ledSetCas(1);
             return 1;
         }
@@ -137,6 +150,30 @@ UInt8 tapeWrite(UInt8 value)
     }
 
     return 0;
+}
+
+/* Build the waveform on the first motor start and after the byte image
+** changed. Registered with TapeSignal, so it never runs mid playback and
+** costs nothing on machines where the BIOS trap serves the load. */
+static void refreshSignal(void)
+{
+    TapeSignalBuilder* builder;
+
+    if (!signalDirty || ramImageBuffer == NULL) {
+        return;
+    }
+
+    builder = casToWave((UInt8*)ramImageBuffer, ramImageSize, tapeHeader, tapeHeaderSize);
+    if (builder == NULL || !tapeSignalInstall(builder, TAPE_SIG_CAS)) {
+        /* Nothing will ever match the stashed position now, so drop it instead
+        ** of letting it apply to whatever tape is mounted next. */
+        tapeSignalDropLoadedState();
+        return;     /* keep signalDirty set so the next motor start retries */
+    }
+
+    signalDirty = 0;
+    tapeSignalSetPosByByte(ramImagePos);
+    tapeSignalApplyLoadedState();
 }
 
 UInt8 tapeReadHeader() 
@@ -196,7 +233,7 @@ int tapeInsert(char *name, const char *fileInZipFile)
         file = fopen(tapePosName, "w");
         if (file != NULL) {
             char buffer[32];
-            sprintf(buffer, "POS:%d", ramImagePos);
+            sprintf(buffer, "POS:%d", tapeGetCurrentPos());
             fwrite(buffer, 1, 32, file);
             fclose(file);
         }
@@ -207,9 +244,13 @@ int tapeInsert(char *name, const char *fileInZipFile)
 
         free(ramImageBuffer);
         ramImageBuffer = NULL;
+        ramImageSize   = 0;
     }
 
     *tapeName = 0;
+
+    tapeSignalEject();
+    signalDirty = 0;
 
     if(!name) {
         return 1;
@@ -303,12 +344,17 @@ int tapeInsert(char *name, const char *fileInZipFile)
         ramImagePos = ramImageSize;
     }
 
+    if (ramImageBuffer != NULL) {
+        tapeSignalSetRefreshCallback(refreshSignal);
+        signalDirty = 1;
+    }
+
     return ramImageBuffer != NULL;
 }
 
 int tapeIsInserted()
 {
-    return ramImageBuffer != NULL;
+    return ramImageBuffer != NULL || tapeSignalIsActive();
 }
 
 int tapeSave(char *name, TapeFormat format)
@@ -444,15 +490,21 @@ TapeContent* tapeGetContent(int* count)
     return tapeContent;
 }
 
+/* Once the waveform drives the load the BIOS trap no longer advances
+** ramImagePos, so the signal cursor becomes the authority. */
 UInt32 tapeGetCurrentPos()
 {
+    if (tapeSignalIsDriving()) {
+        ramImagePos = (int)tapeSignalGetPosAsByte();
+    }
     return ramImagePos;
 }
 
 void tapeSetCurrentPos(int pos)
 {
-    if (pos < ramImageSize) {
+    if (pos >= 0 && pos <= ramImageSize) {
         ramImagePos = pos;
+        tapeSignalSetPosByByte(pos);
     }
 }
 
