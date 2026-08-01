@@ -1298,11 +1298,22 @@ void OnShowTool() {
         EnableVramAccessCheck(1);
     }
 
-    if (x > GetSystemMetrics(SM_CXSCREEN) - 200) {
-        x = GetSystemMetrics(SM_CXSCREEN) - 200;
-    }
-    if (y > GetSystemMetrics(SM_CYSCREEN) - 200) {
-        y = GetSystemMetrics(SM_CYSCREEN) - 200;
+    /* Clamped to the monitor the saved rectangle lives on. The primary metrics
+    ** would drag a window parked on a secondary monitor back every launch, and
+    ** the virtual screen is a bounding box with coordinates on no monitor. */
+    if (x != CW_USEDEFAULT && y != CW_USEDEFAULT) {
+        RECT saved;
+        MONITORINFO mi;
+        HMONITOR hMon;
+        SetRect(&saved, x, y, x + width, y + height);
+        hMon = MonitorFromRect(&saved, MONITOR_DEFAULTTONEAREST);
+        mi.cbSize = sizeof(mi);
+        if (hMon != NULL && GetMonitorInfo(hMon, &mi)) {
+            if (x + 200 > mi.rcWork.right)  { x = mi.rcWork.right - 200; }
+            if (y + 200 > mi.rcWork.bottom) { y = mi.rcWork.bottom - 200; }
+            if (x < mi.rcWork.left) { x = mi.rcWork.left; }
+            if (y < mi.rcWork.top)  { y = mi.rcWork.top; }
+        }
     }
 
     dbgHwnd = CreateWindow("msxdebugger", NULL,
