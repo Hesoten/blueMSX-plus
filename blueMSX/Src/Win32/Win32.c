@@ -3880,13 +3880,79 @@ int setDefaultPath() {
 ////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////
 
+static int consoleWriteTo(DWORD stream, const char* text)
+{
+    HANDLE out = GetStdHandle(stream);
+    DWORD written = 0;
+
+    /* The handle is valid when the shell redirected the output; otherwise a
+    ** windows subsystem process has to borrow the parent console. FreeConsole
+    ** is never called: it leaves the handle non-NULL and stale. */
+    if (out == NULL || out == INVALID_HANDLE_VALUE) {
+        if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
+            return 0;
+        }
+        out = GetStdHandle(stream);
+        /* The console is borrowed, so the shell has already printed its prompt
+        ** and the first line would land beside it. */
+        if (out != NULL && out != INVALID_HANDLE_VALUE) {
+            WriteFile(out, "\r\n", 2, &written, NULL);
+        }
+    }
+
+    if (out == NULL || out == INVALID_HANDLE_VALUE) {
+        return 0;
+    }
+
+    return WriteFile(out, text, (DWORD)strlen(text), &written, NULL) != 0;
+}
+
+/* This goes to the output, so a listing can be redirected on its own. */
+static int consoleWrite(const char* text)
+{
+    return consoleWriteTo(STD_OUTPUT_HANDLE, text);
+}
+
+static void commandLinePrintHelp(void)
+{
+    char text[8192];
+
+    emuCommandLineGetHelpText(text, sizeof(text));
+    consoleWrite(text);
+}
+
+/* A rejected line has to reach whoever typed it even from a shortcut, so this
+** falls back to a box. */
+static void commandLineReport(const char* message)
+{
+    char text[700];
+
+    if (message == NULL || message[0] == 0) {
+        return;
+    }
+
+    sprintf(text, "blueMSX+: %s\r\n", message);
+    /* This goes to the error stream, or a redirected listing would collect the
+    ** complaint too. */
+    if (!consoleWriteTo(STD_ERROR_HANDLE, text)) {
+        /* Not langErrorTitle(): the language table is not built this early. */
+        MessageBoxU(NULL, message, "blueMSX+", MB_OK | MB_ICONERROR);
+    }
+}
+
+static void commandLineFail(const char* message)
+{
+    commandLineReport(message);
+    exit(1);
+}
+
 int emuCheckLanguageArgument(char* cmdLine, int defaultLang){
     int i;
     int lang;
     char* argument;
     
     for (i = 0; argument = extractToken(cmdLine, i); i++) {
-        if (strcmp(argument, "/language") == 0) {
+        if (emuArgMatches(argument, "language")) {
             argument = extractToken(cmdLine, ++i);
             if (argument == NULL) return defaultLang;
             lang = langFromName(argument, 0);
@@ -3938,6 +4004,13 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     }
 #endif
 
+    /* This is answered before anything is loaded, so asking never disturbs a
+    ** running instance. */
+    if (emuCheckHelpArgument(szLine)) {
+        commandLinePrintHelp();
+        return 0;
+    }
+
     scrDepth = getScreenBitDepth();
     if (scrDepth != 16 && scrDepth != 32) {
         MessageBoxU(NULL, langInfoColorDepth(), langInfoTitle(), MB_OK | MB_ICONINFORMATION);
@@ -3945,33 +4018,10 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
     hwnd = FindWindow("blueMSX", "  blueMSX+");
     if (hwnd != NULL && *szLine) {
-        char args[2048];
+        char args[CMDLINE_MAXLEN];
         char* cmdLine = args;
 
-        if (0 == strncmp(szLine, "/onearg ", 8)) {
-            /* /onearg <rest> -- treat the entire rest as one file path.
-            ** Handle both shell-quoted (HKCU "%1") and bare command-line
-            ** input by re-wrapping in exactly one quote pair. */
-            const char* rest = szLine + 8;
-            int len;
-            while (*rest == ' ' || *rest == '\t') rest++;
-            strcpy(args, rest);
-            len = (int)strlen(args);
-            while (len > 0 && (args[len-1] == ' ' || args[len-1] == '\t'
-                            || args[len-1] == '\r' || args[len-1] == '\n')) {
-                args[--len] = 0;
-            }
-            if (len >= 2 && args[0] == '"' && args[len-1] == '"') {
-                args[len-1] = 0;
-                memmove(args, args + 1, len - 1);
-                len -= 2;
-            }
-            memmove(args + 1, args, len + 1);
-            args[0] = '"';
-            args[len + 1] = '"';
-            args[len + 2] = 0;
-        }
-        else {
+        if (!emuNormalizeOneArg(szLine, args, sizeof(args))) {
             cmdLine = szLine;
         }
         if (!extractToken(cmdLine, 1)) {
@@ -4127,7 +4177,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
     if (readOnlyDir && pProperties->settings.portable) {
         MessageBoxU(NULL, langErrorPortableReadonly(), langErrorTitle(), MB_OK);
-        return 0;
+        exit(1);
     }
 
     // Load tools
@@ -4342,8 +4392,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     updateMenu(0);
 
     if (emuTryStartWithArguments(pProperties, szLine, NULL) < 0) {           
-        exit(0);
-        return 0;
+        commandLineFail(emuCommandLineGetError());
     }
 
     st.themePageActive = NULL;
@@ -4354,7 +4403,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
         builtins[2] = NULL;
         st.themeList = createThemeList(builtins);
     }
-    themeSet(emuCheckThemeArgument(szLine), 0);
+    themeSet(emuCheckValueArgument(szLine, "theme"), 0);
 
     archUpdateWindow();
     ShowWindow(st.hwnd, SW_NORMAL);
