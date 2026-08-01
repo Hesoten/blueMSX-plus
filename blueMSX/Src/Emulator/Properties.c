@@ -431,6 +431,10 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->sound.mixerChannel[MIXER_CHANNEL_MIDI].pan = 50;
     properties->sound.mixerChannel[MIXER_CHANNEL_MIDI].volume = 90;
 
+    properties->sound.mixerChannel[MIXER_CHANNEL_CASSETTE].enable = 1;
+    properties->sound.mixerChannel[MIXER_CHANNEL_CASSETTE].pan = 50;
+    properties->sound.mixerChannel[MIXER_CHANNEL_CASSETTE].volume = 75;
+
     properties->sound.mixerChannel[MIXER_CHANNEL_KEYBOARD].enable = 1;
     properties->sound.mixerChannel[MIXER_CHANNEL_KEYBOARD].pan = 55;
     properties->sound.mixerChannel[MIXER_CHANNEL_KEYBOARD].volume = 65;
@@ -807,6 +811,9 @@ static void propLoad(Properties* properties)
     GET_ENUM_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_MIDI, enable, BoolPair);
     GET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_MIDI, pan);
     GET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_MIDI, volume);
+    GET_ENUM_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_CASSETTE, enable, BoolPair);
+    GET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_CASSETTE, pan);
+    GET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_CASSETTE, volume);
     
     GET_ENUM_VALUE_2(propFile, joystick, disablePOV0Dpad, BoolPair);
     
@@ -1148,6 +1155,9 @@ void propSave(Properties* properties)
     SET_ENUM_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_MIDI, enable, YesNoPair);
     SET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_MIDI, pan);
     SET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_MIDI, volume);
+    SET_ENUM_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_CASSETTE, enable, YesNoPair);
+    SET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_CASSETTE, pan);
+    SET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_CASSETTE, volume);
     
     SET_ENUM_VALUE_2(propFile, joystick, disablePOV0Dpad, YesNoPair);
     

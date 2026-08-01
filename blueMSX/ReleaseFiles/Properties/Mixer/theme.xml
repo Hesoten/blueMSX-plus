@@ -1,20 +1,20 @@
 <bluemsxtheme name="blueMSX - Sound Mixer">
     <window name="blueMSX - Sound Mixer" type="multipage" frame="0">
-        <page width="544" height="160" name="MixerOpen">
+        <page width="588" height="160" name="MixerOpen">
 	<clipregion>
 		<point x="4" y="0"/>
-		<point x="540" y="0"/>
-		<point x="541" y="1"/>
-		<point x="542" y="1"/>
-		<point x="543" y="2"/>
-		<point x="543" y="3"/>
-		<point x="544" y="4"/>
-		<point x="544" y="155"/>
-		<point x="543" y="156"/>
-		<point x="543" y="157"/>
-		<point x="542" y="158"/>
-		<point x="541" y="159"/>
-		<point x="540" y="159"/>
+		<point x="584" y="0"/>
+		<point x="585" y="1"/>
+		<point x="586" y="1"/>
+		<point x="587" y="2"/>
+		<point x="587" y="3"/>
+		<point x="588" y="4"/>
+		<point x="588" y="155"/>
+		<point x="587" y="156"/>
+		<point x="587" y="157"/>
+		<point x="586" y="158"/>
+		<point x="585" y="159"/>
+		<point x="584" y="159"/>
 		<point x="5" y="160"/>
 		<point x="4" y="159"/>
 		<point x="3" y="159"/>
@@ -34,11 +34,11 @@
     	    <dragimage x="0" y="24" src="MixerMain.bmp"/>
     	    <dragimage x="0" y="148" src="MixerBottom.bmp"/>
 
-	        <button x="519" y="4" activenotify="1" src="switches/CLOSE-BUTTON.bmp" action="theme-close"/>
-	        <button x="499" y="4" activenotify="1" src="switches/MIN-BUTTON.bmp" action="theme-minimize"/>
+	        <button x="563" y="4" activenotify="1" src="switches/CLOSE-BUTTON.bmp" action="theme-close"/>
+	        <button x="543" y="4" activenotify="1" src="switches/MIN-BUTTON.bmp" action="theme-minimize"/>
 		<button x="5" y="4" activenotify="1" src="switches/SHUT-BUTTON.bmp" action="theme-setpage" arga="MixerClose"/>
 
-            <slider x="480" y="87" src="sliders/VOLUME-DIAL.bmp" max="20" trigger="level-master" action="level-master" direction="vertical" sensitivity="4"/>
+            <slider x="524" y="87" src="sliders/VOLUME-DIAL.bmp" max="20" trigger="level-master" action="level-master" direction="vertical" sensitivity="4"/>
 	        
 	        <slider x="24" y="56" src="sliders/VOLUME-BAR.bmp" max="28" trigger="level-psg" action="level-psg" direction="vertical" sensitivity="2"/>
 	        <slider x="68" y="56" src="sliders/VOLUME-BAR.bmp" max="28" trigger="level-scc" action="level-scc" direction="vertical" sensitivity="2"/>
@@ -50,6 +50,7 @@
 	        <slider x="332" y="56" src="sliders/VOLUME-BAR.bmp" max="28" trigger="level-keyboard" action="level-keyboard" direction="vertical" sensitivity="2"/>
 	        <slider x="376" y="56" src="sliders/VOLUME-BAR.bmp" max="28" trigger="level-io" action="level-io" direction="vertical" sensitivity="2"/>
 	        <slider x="420" y="56" src="sliders/VOLUME-BAR.bmp" max="28" trigger="level-midi" action="level-midi" direction="vertical" sensitivity="2"/>
+	        <slider x="464" y="56" src="sliders/VOLUME-BAR.bmp" max="28" trigger="level-cassette" action="level-cassette" direction="vertical" sensitivity="2"/>
 
 	        <slider x="10" y="29" src="sliders/PAN-DIAL.bmp" max="21" trigger="pan-psg" action="pan-psg" direction="vertical" sensitivity="3"/>
 	        <slider x="54" y="29" src="sliders/PAN-DIAL.bmp" max="21" trigger="pan-scc" action="pan-scc" direction="vertical" sensitivity="3"/>
@@ -61,6 +62,7 @@
 	        <slider x="318" y="29" src="sliders/PAN-DIAL.bmp" max="21" trigger="pan-keyboard" action="pan-keyboard" direction="vertical" sensitivity="3"/>
 	        <slider x="362" y="29" src="sliders/PAN-DIAL.bmp" max="21" trigger="pan-io" action="pan-io" direction="vertical" sensitivity="3"/>
 	        <slider x="406" y="29" src="sliders/PAN-DIAL.bmp" max="21" trigger="pan-midi" action="pan-midi" direction="vertical" sensitivity="3"/>
+	        <slider x="450" y="29" src="sliders/PAN-DIAL.bmp" max="21" trigger="pan-cassette" action="pan-cassette" direction="vertical" sensitivity="3"/>
 
 	        <meter x="6" y="57" max="19" src="leds/SMALL-VOLUME-LED.bmp" trigger="volume-psg-left"/>
 	        <meter x="13" y="57" max="19" src="leds/SMALL-VOLUME-LED.bmp" trigger="volume-psg-right"/>
@@ -82,9 +84,11 @@
 	        <meter x="365" y="57" max="19" src="leds/SMALL-VOLUME-LED.bmp" trigger="volume-io-right"/>
 	        <meter x="402" y="57" max="19" src="leds/SMALL-VOLUME-LED.bmp" trigger="volume-midi-left"/>
 	        <meter x="409" y="57" max="19" src="leds/SMALL-VOLUME-LED.bmp" trigger="volume-midi-right"/>
+	        <meter x="446" y="57" max="19" src="leds/SMALL-VOLUME-LED.bmp" trigger="volume-cassette-left"/>
+	        <meter x="453" y="57" max="19" src="leds/SMALL-VOLUME-LED.bmp" trigger="volume-cassette-right"/>
 
-	        <meter x="446" y="57" max="19" src="leds/LARGE-VOLUME-LED.bmp" trigger="volume-master-left"/>
-	        <meter x="459" y="57" max="19" src="leds/LARGE-VOLUME-LED.bmp" trigger="volume-master-right"/>
+	        <meter x="490" y="57" max="19" src="leds/LARGE-VOLUME-LED.bmp" trigger="volume-master-left"/>
+	        <meter x="503" y="57" max="19" src="leds/LARGE-VOLUME-LED.bmp" trigger="volume-master-right"/>
 
 	        <button x="32" y="136" src="switches/MUTE-SWITCH.bmp" action="audio-togglemutepsg" visible="enable-psg"/>
 	        <button x="32" y="136" src="switches/MUTE-SWITCH2.bmp" action="audio-togglemutepsg" visible="not enable-psg"/>
@@ -106,11 +110,13 @@
 	        <button x="384" y="136" src="switches/MUTE-SWITCH2.bmp" action="audio-togglemuteio" visible="not enable-io"/>
 	        <button x="428" y="136" src="switches/MUTE-SWITCH.bmp" action="audio-togglemutemidi" visible="enable-midi"/>
 	        <button x="428" y="136" src="switches/MUTE-SWITCH2.bmp" action="audio-togglemutemidi" visible="not enable-midi"/>
+	        <button x="472" y="136" src="switches/MUTE-SWITCH.bmp" action="audio-togglemutecassette" visible="enable-cassette"/>
+	        <button x="472" y="136" src="switches/MUTE-SWITCH2.bmp" action="audio-togglemutecassette" visible="not enable-cassette"/>
 
-	        <button x="500" y="136" src="switches/MUTE-SWITCH.bmp" action="audio-togglemutemaster" visible="enable-master"/>
-	        <button x="500" y="136" src="switches/MUTE-SWITCH2.bmp" action="audio-togglemutemaster" visible="not enable-master"/>
-	        <button x="480" y="64" src="switches/STEREO-BUTTON.bmp" action="audio-togglestereo" visible="enable-stereo"/>
-	        <button x="480" y="64" src="switches/STEREO-BUTTON2.bmp" action="audio-togglestereo" visible="not enable-stereo"/>
+	        <button x="544" y="136" src="switches/MUTE-SWITCH.bmp" action="audio-togglemutemaster" visible="enable-master"/>
+	        <button x="544" y="136" src="switches/MUTE-SWITCH2.bmp" action="audio-togglemutemaster" visible="not enable-master"/>
+	        <button x="524" y="64" src="switches/STEREO-BUTTON.bmp" action="audio-togglestereo" visible="enable-stereo"/>
+	        <button x="524" y="64" src="switches/STEREO-BUTTON2.bmp" action="audio-togglestereo" visible="not enable-stereo"/>
     	</block>
         </page>
 

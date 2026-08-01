@@ -893,6 +893,7 @@
     <ClCompile Include="..\..\Src\SoundChips\DAC.c" />
     <ClCompile Include="..\..\Src\SoundChips\Fmopl.c" />
     <ClCompile Include="..\..\Src\SoundChips\FmoplBackend.cpp" />
+    <ClCompile Include="..\..\Src\SoundChips\AudioCassette.c" />
     <ClCompile Include="..\..\Src\SoundChips\KeyClick.c" />
     <ClCompile Include="..\..\Src\SoundChips\MameVLM5030.c" />
     <ClCompile Include="..\..\Src\SoundChips\MameYM2151.c" />
@@ -1260,6 +1261,7 @@
     <ClInclude Include="..\..\Src\SoundChips\Fmopl.h" />
     <ClInclude Include="..\..\Src\SoundChips\FmoplBackend.h" />
     <ClInclude Include="..\..\Src\SoundChips\Y8950BackendBase.h" />
+    <ClInclude Include="..\..\Src\SoundChips\AudioCassette.h" />
     <ClInclude Include="..\..\Src\SoundChips\KeyClick.h" />
     <ClInclude Include="..\..\Src\SoundChips\MameVLM5030.h" />
     <ClInclude Include="..\..\Src\SoundChips\MameYM2151.h" />

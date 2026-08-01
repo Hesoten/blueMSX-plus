@@ -1297,6 +1297,13 @@ void actionMuteToggleMidi() {
     mixerEnableChannelType(state.mixer, channel, newEnable);
 }
 
+void actionMuteToggleCassette() {
+    int channel = MIXER_CHANNEL_CASSETTE;
+    int newEnable = !state.properties->sound.mixerChannel[channel].enable;
+    state.properties->sound.mixerChannel[channel].enable = newEnable;
+    mixerEnableChannelType(state.mixer, channel, newEnable);
+}
+
 void actionPrinterForceFormFeed()
 {
     emulatorSuspend();
@@ -1513,6 +1520,11 @@ void actionVolumeSetMidi(int value) {
     mixerSetChannelTypeVolume(state.mixer, MIXER_CHANNEL_MIDI, value);
 }
 
+void actionVolumeSetCassette(int value) {
+    state.properties->sound.mixerChannel[MIXER_CHANNEL_CASSETTE].volume = value;
+    mixerSetChannelTypeVolume(state.mixer, MIXER_CHANNEL_CASSETTE, value);
+}
+
 void actionPanSetPsg(int value) {
     state.properties->sound.mixerChannel[MIXER_CHANNEL_PSG].pan = value;
     mixerSetChannelTypePan(state.mixer, MIXER_CHANNEL_PSG, value);
@@ -1561,6 +1573,11 @@ void actionPanSetKeyboard(int value) {
 void actionPanSetMidi(int value) {
     state.properties->sound.mixerChannel[MIXER_CHANNEL_MIDI].pan = value;
     mixerSetChannelTypePan(state.mixer, MIXER_CHANNEL_MIDI, value);
+}
+
+void actionPanSetCassette(int value) {
+    state.properties->sound.mixerChannel[MIXER_CHANNEL_CASSETTE].pan = value;
+    mixerSetChannelTypePan(state.mixer, MIXER_CHANNEL_CASSETTE, value);
 }
 
 void actionRenshaSetLevel(int value) {

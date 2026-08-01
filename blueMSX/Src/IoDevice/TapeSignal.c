@@ -38,6 +38,11 @@
 
 #define MAX_CONTENT       1024
 
+/* Loading noise is background, not a voice, so it sits below the chip channels.
+** The roll off in the render loop is what makes a raw square wave bearable at
+** this level; the mixer meter reads amplitude and cannot see that. */
+#define AUDIO_PEAK        40000
+
 typedef struct {
     UInt64 timeT;
     UInt32 index;
@@ -100,6 +105,9 @@ static UInt64 audioT;
 static UInt32 audIndex;
 static UInt64 audEdgeT;
 static UInt8  audLevel;
+static Int32  audioDc;
+static Int32  audioLp1;
+static Int32  audioLp2;
 
 /*****************************************************************************
 ** Builder
@@ -433,6 +441,9 @@ int tapeSignalInstall(TapeSignalBuilder* b, TapeSignalSource source)
 
     curIndex = 0;  curEdgeT = 0;  curLevel = 0;
     audIndex = 0;  audEdgeT = 0;  audLevel = 0;
+    audioDc  = 0;
+    audioLp1 = 0;
+    audioLp2 = 0;
 
     return 1;
 }
@@ -550,6 +561,11 @@ void tapeSignalSetPosT(UInt64 t)
 
     seekCursor(tapeT, &curIndex, &curEdgeT, &curLevel);
     seekCursor(audioT, &audIndex, &audEdgeT, &audLevel);
+    /* The level either side of a seek is unrelated, so a carried over offset
+    ** would just come out as a click */
+    audioDc  = 0;
+    audioLp1 = 0;
+    audioLp2 = 0;
 }
 
 /* Index of the last byte mark at or before the given key. Both fields grow
@@ -639,6 +655,39 @@ TapeContent* tapeSignalGetContent(int* count)
 ** Audio
 ******************************************************************************/
 
+/* Mean level over [from, to), scaled to +-AUDIO_PEAK */
+static Int32 averageLevel(UInt64 from, UInt64 to)
+{
+    UInt64 high = 0;
+    UInt64 t    = from;
+
+    while (t < to) {
+        UInt32 saved, width;
+        UInt64 edgeEnd;
+
+        advanceCursor(t, &audIndex, &audEdgeT, &audLevel);
+        saved = audIndex;
+        width = readPulse(sig, &audIndex);
+        audIndex = saved;
+        if (width == 0) {
+            break;                      /* past the end of the tape */
+        }
+        edgeEnd = audEdgeT + width;
+        if (edgeEnd > to) {
+            edgeEnd = to;
+        }
+        if (audLevel) {
+            high += edgeEnd - t;
+        }
+        t = edgeEnd;
+    }
+
+    if (to <= from) {
+        return 0;
+    }
+    return (Int32)((Int64)(2 * high - (to - from)) * AUDIO_PEAK / (Int64)(to - from));
+}
+
 Int32* tapeSignalRenderAudio(Int32* buffer, UInt32 count)
 {
     UInt64 step;
@@ -665,12 +714,27 @@ Int32* tapeSignalRenderAudio(Int32* buffer, UInt32 count)
     }
 
     for (i = 0; i < count; i++) {
-        audioT += step;
-        if (audioT > target) {
-            audioT = target;
+        UInt64 to = audioT + step;
+        Int32  v;
+
+        if (to > target) {
+            to = target;
         }
-        advanceCursor(audioT, &audIndex, &audEdgeT, &audLevel);
-        buffer[i] = audLevel ? 16000 : -16000;
+        /* Averaging over the sample interval band limits the square wave, and
+        ** at fast forward speeds it averages whole cycles away to silence. */
+        v = averageLevel(audioT, to);
+        audioT = to;
+
+        /* A deck monitors the tape through a small speaker, so the upper
+        ** harmonics that make a raw square wave shrill never reach the ear.
+        ** Rolling them off is what buys the headroom for the level above. */
+        audioLp1 += (v - audioLp1) >> 1;
+        audioLp2 += (audioLp1 - audioLp2) >> 1;
+        v = audioLp2;
+
+        /* A silent stretch holds one level, so drain the offset it leaves */
+        audioDc += (v - audioDc) >> 8;
+        buffer[i] = v - audioDc;
     }
 
     audioT = target;

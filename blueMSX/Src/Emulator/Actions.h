@@ -204,6 +204,7 @@ void actionMuteToggleMsxAudio();
 void actionMuteToggleMoonsound();
 void actionMuteToggleYamahaSfg();
 void actionMuteToggleMidi();
+void actionMuteToggleCassette();
 
 void actionPrinterForceFormFeed();
 
@@ -248,6 +249,7 @@ void actionVolumeSetMsxAudio(int value);
 void actionVolumeSetMoonsound(int value);
 void actionVolumeSetYamahaSfg(int value);
 void actionVolumeSetMidi(int value);
+void actionVolumeSetCassette(int value);
 void actionPanSetPsg(int value);
 void actionPanSetPcm(int value);
 void actionPanSetIo(int value);
@@ -258,6 +260,7 @@ void actionPanSetMsxAudio(int value);
 void actionPanSetMoonsound(int value);
 void actionPanSetYamahaSfg(int value);
 void actionPanSetMidi(int value);
+void actionPanSetCassette(int value);
 
 void actionRenshaSetLevel(int value);
 void actionEmuSpeedSet(int value);

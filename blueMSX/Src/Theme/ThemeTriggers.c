@@ -259,6 +259,10 @@ int themeTriggerAudioMidi() {
     return propGetGlobalProperties()->sound.mixerChannel[MIXER_CHANNEL_MIDI].enable ? 1 : 0;
 }
 
+int themeTriggerAudioCassette() {
+    return propGetGlobalProperties()->sound.mixerChannel[MIXER_CHANNEL_CASSETTE].enable ? 1 : 0;
+}
+
 int themeTriggerVolKbdLeft() {
     return mixerGetChannelTypeVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_KEYBOARD, MIXER_CHANNEL_LEFT);
 }
@@ -339,6 +343,14 @@ int themeTriggerVolMidiRight() {
     return mixerGetChannelTypeVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_MIDI, MIXER_CHANNEL_RIGHT);
 }
 
+int themeTriggerVolCassetteLeft() {
+    return mixerGetChannelTypeVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_CASSETTE, MIXER_CHANNEL_LEFT);
+}
+
+int themeTriggerVolCassetteRight() {
+    return mixerGetChannelTypeVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_CASSETTE, MIXER_CHANNEL_RIGHT);
+}
+
 int themeTriggerVolMasterLeft() {
     return mixerGetMasterVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_LEFT);
 }
@@ -391,6 +403,10 @@ int themeTriggerLevelMidi() {
     return propGetGlobalProperties()->sound.mixerChannel[MIXER_CHANNEL_MIDI].volume;
 }
 
+int themeTriggerLevelCassette() {
+    return propGetGlobalProperties()->sound.mixerChannel[MIXER_CHANNEL_CASSETTE].volume;
+}
+
 int themeTriggerPanPsg() {
     return propGetGlobalProperties()->sound.mixerChannel[MIXER_CHANNEL_PSG].pan;
 }
@@ -429,6 +445,10 @@ int themeTriggerPanYamahaSfg() {
 
 int themeTriggerPanMidi() {
     return propGetGlobalProperties()->sound.mixerChannel[MIXER_CHANNEL_MIDI].pan;
+}
+
+int themeTriggerPanCassette() {
+    return propGetGlobalProperties()->sound.mixerChannel[MIXER_CHANNEL_CASSETTE].pan;
 }
 
 int themeTriggerLevelRensha() {

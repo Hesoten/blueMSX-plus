@@ -44,7 +44,7 @@
 #include "InputEvent.h"
 #include "Language.h"
 #include "Properties.h"
-#include "DAC.h"
+#include "AudioCassette.h"
 #include "TapeSignal.h"
 #include <stdlib.h>
 
@@ -58,7 +58,7 @@ typedef struct {
     I8255* i8255;
 
     AudioKeyClick* keyClick;
-    DAC*   dac;
+    AudioCassette* cassette;
 
     UInt8 row;
     Int32 regA;
@@ -73,10 +73,9 @@ static void destroy(MsxPPI* ppi)
     ioPortUnregister(0xab);
 
     audioKeyClickDestroy(ppi->keyClick);
+    audioCassetteDestroy(ppi->cassette);
     deviceManagerUnregister(ppi->deviceHandle);
     debugDeviceUnregister(ppi->debugHandle);
-
-    dacDestroy(ppi->dac);
 
     i8255Destroy(ppi->i8255);
 
@@ -151,7 +150,6 @@ static void writeCHi(MsxPPI* ppi, UInt8 value)
         ppi->regCHi = value;
 
         audioKeyClick(ppi->keyClick, value & 0x08);
-        dacWrite(ppi->dac, DAC_CH_MONO, (value & 0x02) ? 0 : 255);
         ledSetCapslock(!(value & 0x04));
         /* Port C bit 4 is CASON, active low: 0 = motor on */
         tapeSignalSetMotor(!(value & 0x01));
@@ -227,8 +225,7 @@ void msxPPICreate(int ignoreKeyboard)
                                  ppi);
     }
     ppi->keyClick = audioKeyClickCreate(boardGetMixer());
-
-    ppi->dac = dacCreate(boardGetMixer(), DAC_MONO);
+    ppi->cassette = audioCassetteCreate(boardGetMixer());
 
     ioPortRegister(0xa8, i8255Read, i8255Write, ppi->i8255);
     ioPortRegister(0xa9, i8255Read, i8255Write, ppi->i8255);
