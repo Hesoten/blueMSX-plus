@@ -535,14 +535,15 @@ static char** getProfileList()
 
         /* FILE_ATTRIBUTE_NORMAL is rarely set in practice (ARCHIVE wins);
         ** accept anything that isn't a directory. */
-        if (!(fa & FILE_ATTRIBUTE_DIRECTORY)) {
-            char buffer[128];
+        if (!(fa & FILE_ATTRIBUTE_DIRECTORY) &&
+            index < (int)(sizeof(profileList) / sizeof(profileList[0])) - 1) {
             int length = (int)strlen(wfd.cFileName) - 10;
-            strcpy(buffer, wfd.cFileName);
-            buffer[length] = 0;
-            strcpy(profileArray[index], buffer);
-            profileList[index] = (char*)profileArray[index];
-            index++;
+            if (length > 0 && length < (int)sizeof(profileArray[0])) {
+                memcpy(profileArray[index], wfd.cFileName, length);
+                profileArray[index][length] = 0;
+                profileList[index] = profileArray[index];
+                index++;
+            }
         }   
         cont = FindNextFileU(handle, &wfd);
     }
@@ -1971,15 +1972,21 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
                 static volatile int isCheckingConfigs = 0;
 
                 if (isCheckingConfigs == 0 && HIWORD(wParam) == CBN_SELCHANGE) {
-                    char profileSel[64];
+                    char profileSel[128];
                     int idx;
                     int rv;
 
                     isCheckingConfigs = 1;
 
                     idx = (int)SendMessage(GetDlgItem(hDlg, IDC_SCUTCONFIGS), CB_GETCURSEL, 0, 0);
-                    rv = (int)SendMessage(GetDlgItem(hDlg, IDC_SCUTCONFIGS), CB_GETLBTEXT, idx, (LPARAM)profileSel);
-                
+                    rv = (int)SendMessage(GetDlgItem(hDlg, IDC_SCUTCONFIGS), CB_GETLBTEXTLEN, idx, 0);
+                    if (rv != CB_ERR && rv < (int)sizeof(profileSel)) {
+                        rv = (int)SendMessage(GetDlgItem(hDlg, IDC_SCUTCONFIGS), CB_GETLBTEXT, idx, (LPARAM)profileSel);
+                    }
+                    else {
+                        rv = CB_ERR;
+                    }
+
                     if (rv != CB_ERR) {
                         if (strcmp(profileSel, shortcutProfile)) {
                             int modified = memcmp(shortcutsRef, shortcuts, sizeof(Shortcuts));
@@ -2303,7 +2310,10 @@ int shortcutsShowDialog(HWND hwnd, Properties* pProperties) {
     FILE* file;
     char fileName[PROP_MAXPATH];
 
-    strcpy(shortcutProfile, pProperties->emulation.shortcutProfile);
+    /* The ini field is wider than this buffer, so the name is clipped. */
+    _snprintf(shortcutProfile, sizeof(shortcutProfile) - 1, "%s",
+              pProperties->emulation.shortcutProfile);
+    shortcutProfile[sizeof(shortcutProfile) - 1] = 0;
 
     profilePath(fileName, sizeof(fileName), shortcutProfile);
     file = fopen(fileName, "r");

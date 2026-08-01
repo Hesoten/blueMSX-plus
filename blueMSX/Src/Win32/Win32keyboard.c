@@ -2109,13 +2109,13 @@ int keyboardLoadConfig(char* configName)
     if (file == NULL) {
         /* Claim the name anyway, or the editor's save would do nothing. */
         bindingsLoadDefaults();
-        sprintf(currentConfigFile, configName);
+        strcpy(currentConfigFile, configName);
         bindingsBackupAll();
         return 0;
     }
     fclose(file);
 
-    sprintf(currentConfigFile, configName);
+    strcpy(currentConfigFile, configName);
 
     keyConfigFile = iniFileOpen(fileName);
 
@@ -2265,7 +2265,10 @@ static int keyboardWriteConfig(char* configName, int reportFailure)
     }
 
     bindingsBackupAll();
-    sprintf(currentConfigFile, configName);
+    /* The editor's OK passes currentConfigFile straight back in. */
+    if (configName != currentConfigFile) {
+        strcpy(currentConfigFile, configName);
+    }
     memset(bindingsRewriteOnSave, 0, sizeof(bindingsRewriteOnSave));
     return 1;
 }
