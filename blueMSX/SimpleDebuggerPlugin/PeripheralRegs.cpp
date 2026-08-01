@@ -605,10 +605,6 @@ void PeripheralRegs::updateScroll()
 
     SCROLLINFO si;
     si.cbSize    = sizeof(SCROLLINFO);
-    
-    GetScrollInfo(regHwnd, SB_VERT, &si);
-    int oldFirstLine = si.nPos;
-
     si.fMask     = SIF_PAGE | SIF_POS | SIF_RANGE;
     si.nMin      = 0;
     si.nMax      = lineCount > 0 ? lineCount - 1 : 0;

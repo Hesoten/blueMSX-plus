@@ -443,10 +443,6 @@ void Breakpoints::updateScroll()
 
     SCROLLINFO si;
     si.cbSize    = sizeof(SCROLLINFO);
-    
-    GetScrollInfo(breakpointsHwnd, SB_VERT, &si);
-    int oldFirstLine = si.nPos;
-
     si.fMask     = SIF_PAGE | SIF_POS | SIF_RANGE;
     si.nMin      = 0;
     si.nMax      = breakpoints.size() > 0 ? (int)breakpoints.size() - 1 : 0;

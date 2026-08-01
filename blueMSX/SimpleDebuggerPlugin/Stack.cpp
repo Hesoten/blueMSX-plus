@@ -220,13 +220,11 @@ void StackWindow::updateScroll()
     GetClientRect(hwnd, &r);
     int visibleLines = r.bottom / textHeight;
 
+    int oldFirstLine = dbgGetScrollPos(hwnd);
+
     SCROLLINFO si;
     si.cbSize    = sizeof(SCROLLINFO);
-    
-    GetScrollInfo(hwnd, SB_VERT, &si);
-    int oldFirstLine = si.nPos;
-
-    si.fMask     = SIF_PAGE | SIF_POS | SIF_RANGE | (visibleLines >= lineCount ? 0 : 0);
+    si.fMask     = SIF_PAGE | SIF_POS | SIF_RANGE;
     si.nMin      = 0;
     si.nMax      = lineCount > 0 ? lineCount - 1 : 0;
     si.nPage     = visibleLines;
