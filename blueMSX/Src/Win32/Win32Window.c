@@ -696,7 +696,7 @@ static LRESULT CALLBACK keyboardDlgProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
         return WM_CLOSE_RESULT_OK;
     }
 
-    return DefWindowProc(hwnd, iMsg, wParam, lParam);
+    return DefWindowProcW(hwnd, iMsg, wParam, lParam);
 }
 
 
@@ -940,7 +940,9 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
         rv = keyboardDlgProc(hwnd, iMsg, wParam, lParam);
     }
     else {
-        rv = iMsg == WM_CLOSE ? 0 : DefWindowProc(hwnd, iMsg, wParam, lParam);
+        /* The A variant would turn this W-registered window ANSI and
+        ** mangle its title. */
+        rv = iMsg == WM_CLOSE ? 0 : DefWindowProcW(hwnd, iMsg, wParam, lParam);
     }
 
     if (iMsg == WM_CLOSE) {
