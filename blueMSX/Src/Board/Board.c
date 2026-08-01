@@ -1833,7 +1833,7 @@ void boardChangeCassette(int tapeId, char* name, const char* fileInZipFile)
 
     /* The trap is installed by the machine config (romType CasPatch). Signal
     ** only images carry no byte stream, so it has to stand down for those. */
-    romMapperCasetteSetPatchEnable(!tapeSignalIsSignalOnly());
+    romMapperCasetteSetPatchEnable(!tapeIsSignalOnly());
 }
 
 int boardGetCassetteInserted()

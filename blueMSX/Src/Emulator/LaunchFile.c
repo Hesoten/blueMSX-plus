@@ -416,6 +416,9 @@ int insertCassette(Properties* properties, int drive, const char* fname, const c
             char* fileList = zipGetFileList(filename, ".cas", &count);
 
             if (fileList == NULL) {
+                fileList = zipGetFileList(filename, ".tsx", &count);
+            }
+            if (fileList == NULL) {
                 archShowNoCasInZipDialog();
                 return 0;
             }
@@ -636,7 +639,7 @@ static int insertDisketteOrCartridge(Properties* properties, int drive, const ch
         {
             success = insertDiskette(properties, drive, fname, filename, autostart);
         }
-        else if (isFileExtension(filename, ".cas")) {
+        else if (isFileExtension(filename, ".cas") || isFileExtension(filename, ".tsx")) {
             success = insertCassette(properties, 0, fname, filename, autostart);
         }
     }
@@ -695,7 +698,7 @@ int tryLaunchUnknownFile(Properties* properties, const char* fileName, int force
 
         rv = insertDiskette(properties, drive, fileName, NULL, forceAutostart);
     }
-    else if (isFileExtension(fileName, ".cas")) {
+    else if (isFileExtension(fileName, ".cas") || isFileExtension(fileName, ".tsx")) {
         if (properties->cassette.rewindAfterInsert) tapeRewindNextInsert();
         rv = insertCassette(properties, 0, fileName, NULL, forceAutostart);
     }

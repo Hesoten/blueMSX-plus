@@ -207,6 +207,9 @@ static int isCasFileType(char* filename, char* inZip) {
         char* fileList;
 
         fileList = zipGetFileList(filename, ".cas", &count);
+        if (fileList == NULL) {
+            fileList = zipGetFileList(filename, ".tsx", &count);
+        }
         if (fileList) {
             strcpy(inZip, fileList);
             free(fileList);
@@ -215,7 +218,7 @@ static int isCasFileType(char* filename, char* inZip) {
         return 0;
     }
 
-    return isFileExtension(filename, ".cas");
+    return isFileExtension(filename, ".cas") || isFileExtension(filename, ".tsx");
 }
 
 static int checkArg(const char* arg, const char* value) {

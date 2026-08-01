@@ -50,7 +50,6 @@ void tapeSignalBuilderReserve(TapeSignalBuilder* b, UInt32 slots);
 void tapeSignalBuilderAddPulse(TapeSignalBuilder* b, UInt32 tstates);
 void tapeSignalBuilderAddPulses(TapeSignalBuilder* b, UInt32 tstates, UInt32 count);
 void tapeSignalBuilderAddSilenceMs(TapeSignalBuilder* b, UInt32 ms);
-void tapeSignalBuilderAddStopMarker(TapeSignalBuilder* b);
 void tapeSignalBuilderMarkBytePos(TapeSignalBuilder* b, UInt32 byteOffset);
 int  tapeSignalBuilderFailed(const TapeSignalBuilder* b);
 
@@ -59,13 +58,15 @@ int  tapeSignalBuilderFailed(const TapeSignalBuilder* b);
 void tapeSignalBuilderAddIndex(TapeSignalBuilder* b, TapeContentType type,
                                const char* name, UInt32 byteOffset);
 
+/* Formats without a byte stream position themselves on a synthetic axis of
+** 1/128 s units, which is what the tape dialog displays as a time. */
+UInt32 tapeSignalBuilderTimeAsByte(const TapeSignalBuilder* b);
+UInt32 tapeSignalGetLengthAsByte(void);
+
 /* Mount and eject. Install takes ownership of the builder either way. */
 int  tapeSignalInstall(TapeSignalBuilder* b, TapeSignalSource source);
 void tapeSignalEject(void);
 int  tapeSignalIsActive(void);
-
-/* TSX and WAV carry no byte stream, so the BIOS trap cannot serve them */
-int  tapeSignalIsSignalOnly(void);
 
 /* True once the waveform has actually been played, so the signal cursor and
 ** not the BIOS trap's byte cursor is the authority on the tape position. */

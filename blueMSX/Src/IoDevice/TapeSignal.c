@@ -58,10 +58,6 @@ struct TapeSignalBuilder {
     UInt32      seekCount;
     UInt32      seekAlloc;
 
-    UInt64*     stopAt;
-    UInt32      stopCount;
-    UInt32      stopAlloc;
-
     ByteMark*   byteMark;
     UInt32      byteMarkCount;
     UInt32      byteMarkAlloc;
@@ -174,7 +170,6 @@ void tapeSignalBuilderDestroy(TapeSignalBuilder* b)
     }
     free(b->pulse);
     free(b->seek);
-    free(b->stopAt);
     free(b->byteMark);
     free(b);
 }
@@ -252,24 +247,16 @@ void tapeSignalBuilderAddSilenceMs(TapeSignalBuilder* b, UInt32 ms)
     tapeSignalBuilderAddPulse(b, (UInt32)((UInt64)ms * TAPE_TSTATE_FREQ / 2000));
 }
 
-void tapeSignalBuilderAddStopMarker(TapeSignalBuilder* b)
+/* Formats with no byte stream count in 1/128 s units, which is what the tape
+** position dialog already displays as a time */
+static UInt32 timeAsByte(UInt64 t)
 {
-    UInt64* s;
+    return (UInt32)(t * 128 / TAPE_TSTATE_FREQ);
+}
 
-    if (b == NULL || b->failed) {
-        return;
-    }
-    if (b->stopCount == b->stopAlloc) {
-        UInt32 alloc = b->stopAlloc ? b->stopAlloc * 2 : 16;
-        s = realloc(b->stopAt, alloc * sizeof(UInt64));
-        if (s == NULL) {
-            b->failed = 1;
-            return;
-        }
-        b->stopAt   = s;
-        b->stopAlloc = alloc;
-    }
-    b->stopAt[b->stopCount++] = b->timeT;
+UInt32 tapeSignalBuilderTimeAsByte(const TapeSignalBuilder* b)
+{
+    return b != NULL ? timeAsByte(b->timeT) : 0;
 }
 
 void tapeSignalBuilderMarkBytePos(TapeSignalBuilder* b, UInt32 byteOffset)
@@ -470,11 +457,6 @@ int tapeSignalIsActive(void)
     return sig != NULL;
 }
 
-int tapeSignalIsSignalOnly(void)
-{
-    return sigSource == TAPE_SIG_TSX || sigSource == TAPE_SIG_WAV;
-}
-
 int tapeSignalIsDriving(void)
 {
     return sig != NULL && driving;
@@ -591,20 +573,54 @@ static UInt32 findByteMark(UInt64 key, int byTime)
     return lo;
 }
 
+/* An image with no byte stream is measured in time, so the conversion is exact
+** and needs no mark to land on. Snapping would drag a resumed position back to
+** the start of whatever block it sits in, and a save from there erases it. */
+static int byteAxisIsTime(void)
+{
+    return sigSource == TAPE_SIG_TSX || sigSource == TAPE_SIG_WAV;
+}
+
 void tapeSignalSetPosByByte(UInt32 byteOffset)
 {
-    if (sig == NULL || sig->byteMarkCount == 0) {
+    if (sig == NULL) {
         return;
     }
-    tapeSignalSetPosT(sig->byteMark[findByteMark(byteOffset, 0)].timeT);
+    if (byteAxisIsTime()) {
+        tapeSignalSetPosT((UInt64)byteOffset * TAPE_TSTATE_FREQ / 128);
+    }
+    else if (sig->byteMarkCount > 0) {
+        tapeSignalSetPosT(sig->byteMark[findByteMark(byteOffset, 0)].timeT);
+    }
 }
 
 UInt32 tapeSignalGetPosAsByte(void)
 {
-    if (sig == NULL || sig->byteMarkCount == 0) {
+    if (sig == NULL) {
+        return 0;
+    }
+    if (byteAxisIsTime()) {
+        return timeAsByte(tapeSignalGetPosT());
+    }
+    if (sig->byteMarkCount == 0) {
         return 0;
     }
     return sig->byteMark[findByteMark(tapeSignalGetPosT(), 1)].byteOffset;
+}
+
+/* The last mark is the end of the image, so it doubles as the length */
+UInt32 tapeSignalGetLengthAsByte(void)
+{
+    if (sig == NULL) {
+        return 0;
+    }
+    if (byteAxisIsTime()) {
+        return timeAsByte(sig->timeT);
+    }
+    if (sig->byteMarkCount == 0) {
+        return 0;
+    }
+    return sig->byteMark[sig->byteMarkCount - 1].byteOffset;
 }
 
 TapeContent* tapeSignalGetContent(int* count)

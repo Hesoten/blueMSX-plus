@@ -31,6 +31,7 @@
 #include "Casette.h"
 #include "TapeSignal.h"
 #include "CasToWave.h"
+#include "TsxParser.h"
 #include "Led.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -114,9 +115,14 @@ void tapeSaveState() {
     tapeSignalSaveState();
 }
 
-UInt8 tapeRead(UInt8* value) 
+int tapeIsSignalOnly(void)
 {
-    if (ramImageBuffer != NULL) {
+    return tapeFormat == TAPE_TSX;
+}
+
+UInt8 tapeRead(UInt8* value)
+{
+    if (ramImageBuffer != NULL && !tapeIsSignalOnly()) {
         if (ramImagePos < ramImageSize) {
             *value = ramImageBuffer[ramImagePos++];
             ledSetCas(1);
@@ -128,9 +134,9 @@ UInt8 tapeRead(UInt8* value)
     return 0;
 }
 
-UInt8 tapeWrite(UInt8 value) 
+UInt8 tapeWrite(UInt8 value)
 {
-    if (ramImageBuffer != NULL) {
+    if (ramImageBuffer != NULL && !tapeIsSignalOnly()) {
         if (ramImagePos >= ramImageSize) {
             char* newBuf = realloc(ramImageBuffer, ramImageSize + 128);
             if (newBuf) {
@@ -158,13 +164,23 @@ UInt8 tapeWrite(UInt8 value)
 static void refreshSignal(void)
 {
     TapeSignalBuilder* builder;
+    TapeSignalSource   source;
 
     if (!signalDirty || ramImageBuffer == NULL) {
         return;
     }
 
-    builder = casToWave((UInt8*)ramImageBuffer, ramImageSize, tapeHeader, tapeHeaderSize);
-    if (builder == NULL || !tapeSignalInstall(builder, TAPE_SIG_CAS)) {
+    if (tapeFormat == TAPE_TSX) {
+        char err[128];
+        builder = tsxToWave((UInt8*)ramImageBuffer, ramImageSize, err, sizeof(err));
+        source  = TAPE_SIG_TSX;
+    }
+    else {
+        builder = casToWave((UInt8*)ramImageBuffer, ramImageSize, tapeHeader, tapeHeaderSize);
+        source  = TAPE_SIG_CAS;
+    }
+
+    if (builder == NULL || !tapeSignalInstall(builder, source)) {
         /* Nothing will ever match the stashed position now, so drop it instead
         ** of letting it apply to whatever tape is mounted next. */
         tapeSignalDropLoadedState();
@@ -249,6 +265,13 @@ int tapeInsert(char *name, const char *fileInZipFile)
 
     *tapeName = 0;
 
+    /* Cleared here rather than only on a successful load: the format decides
+    ** whether the BIOS trap is installed, so an eject or an unreadable file
+    ** must not leave the previous image's format behind. */
+    tapeFormat     = TAPE_FMSXDOS;
+    tapeHeader     = hdrFMSXDOS;
+    tapeHeaderSize = sizeof(hdrFMSXDOS);
+
     tapeSignalEject();
     signalDirty = 0;
 
@@ -278,10 +301,9 @@ int tapeInsert(char *name, const char *fileInZipFile)
     }
 
     if (fileInZipFile != NULL) {
+        /* Clamped further down instead, once the format is known: a signal only
+        ** image counts the position in time units, not in file bytes. */
         ramImageBuffer = zipLoadFile(name, fileInZipFile, &ramImageSize);
-        if (ramImagePos > ramImageSize) {
-            ramImagePos = ramImageSize;
-        }
     }
     else {
         file = fopen(name,"rb");
@@ -304,23 +326,33 @@ int tapeInsert(char *name, const char *fileInZipFile)
     if (rewindNextInsert&&pProperties->cassette.rewindAfterInsert) ramImagePos=0;
     rewindNextInsert=0;
 
-    if (ramImageBuffer != NULL) {
-        UInt8* ptr = ramImageBuffer + ramImageSize - 17;
+    if (ramImageBuffer != NULL &&
+        tsxIsTsxImage((UInt8*)ramImageBuffer, ramImageSize)) {
+        /* Checked before the scan below, which is O(size) and would also
+        ** misread a signal only image as a CAS. */
+        tapeFormat     = TAPE_TSX;
+        tapeHeader     = NULL;
+        tapeHeaderSize = 0;
+    }
+    else if (ramImageBuffer != NULL) {
         int cntFMSXDOS = 0;
         int cntFMSX98  = 0;
         int cntSVICAS  = 0;
 
-        while (ptr >= ramImageBuffer) {
-            if (!memcmp(ptr, hdrFMSXDOS, sizeof(hdrFMSXDOS))) {
-                cntFMSXDOS++;
+        if (ramImageSize >= 17) {
+            UInt8* ptr = ramImageBuffer + ramImageSize - 17;
+            while (ptr >= ramImageBuffer) {
+                if (!memcmp(ptr, hdrFMSXDOS, sizeof(hdrFMSXDOS))) {
+                    cntFMSXDOS++;
+                }
+                if (!memcmp(ptr, hdrFMSX98, sizeof(hdrFMSX98))) {
+                    cntFMSX98++;
+                }
+                if (!memcmp(ptr, hdrSVICAS, sizeof(hdrSVICAS))) {
+                    cntSVICAS++;
+                }
+                ptr--;
             }
-            if (!memcmp(ptr, hdrFMSX98, sizeof(hdrFMSX98))) {
-                cntFMSX98++;
-            }
-            if (!memcmp(ptr, hdrSVICAS, sizeof(hdrSVICAS))) {
-                cntSVICAS++;
-            }
-            ptr--;
         }
 
         if (cntSVICAS > cntFMSXDOS && cntSVICAS > cntFMSX98) {
@@ -340,7 +372,8 @@ int tapeInsert(char *name, const char *fileInZipFile)
         }
     }
 
-    if (ramImagePos > ramImageSize) {
+    /* A signal only image counts in 1/128 s units, not in file bytes */
+    if (!tapeIsSignalOnly() && ramImagePos > ramImageSize) {
         ramImagePos = ramImageSize;
     }
 
@@ -370,6 +403,13 @@ int tapeSave(char *name, TapeFormat format)
     }
 
     if (format != TAPE_FMSX98AT && format != TAPE_FMSXDOS && format != TAPE_SVICAS) {
+        return 0;
+    }
+
+    /* A signal only image has no block marker, so the scan below would match at
+    ** every offset and never advance. There is nothing to convert either: the
+    ** buffer holds the source file, not a byte stream. */
+    if (tapeIsSignalOnly()) {
         return 0;
     }
 
@@ -424,8 +464,22 @@ TapeFormat tapeGetFormat()
     return tapeFormat;
 }
 
+/* The waveform is built on the first tape read, so a freshly inserted signal
+** only image has no length and no index yet. The position dialog asks for both
+** with the emulation stopped, which is exactly when building it is safe. */
+static void ensureSignal(void)
+{
+    if (signalDirty && tapeIsSignalOnly() && !tapeSignalIsDriving()) {
+        refreshSignal();
+    }
+}
+
 UInt32 tapeGetLength()
 {
+    if (tapeIsSignalOnly()) {
+        ensureSignal();
+        return tapeSignalGetLengthAsByte();
+    }
     return ramImageSize;
 }
 
@@ -442,11 +496,17 @@ TapeContent* tapeGetContent(int* count)
 
     *count = 0;
 
+    /* A signal only image has no byte stream to scan; the parser indexed it */
+    if (tapeIsSignalOnly()) {
+        ensureSignal();
+        return tapeSignalGetContent(count);
+    }
+
     if (ramImageBuffer == NULL) {
         return tapeContent;
     }
 
-    while (ramread(buffer, tapeHeaderSize, &ramPos) == tapeHeaderSize) {
+    while (index < 1024 && ramread(buffer, tapeHeaderSize, &ramPos) == tapeHeaderSize) {
         if (!memcmp(buffer, tapeHeader, tapeHeaderSize)) {
             if (skipNext) {
                 skipNext = 0;
@@ -502,7 +562,7 @@ UInt32 tapeGetCurrentPos()
 
 void tapeSetCurrentPos(int pos)
 {
-    if (pos >= 0 && pos <= ramImageSize) {
+    if (pos >= 0 && pos <= (int)tapeGetLength()) {
         ramImagePos = pos;
         tapeSignalSetPosByByte(pos);
     }

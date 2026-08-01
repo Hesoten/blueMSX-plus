@@ -5265,13 +5265,13 @@ char* archFilenameGetOpenCas(Properties* properties)
     char* title = langDlgInsertCas();
     char  extensionList[512];
     char* defaultDir = properties->cassette.defDir;
-    char* extensions = ".cas\0.zip\0.*\0";
+    char* extensions = ".cas\0.tsx\0.zip\0.*\0";
     int* selectedExtension = &properties->media.tapes[0].extensionFilter;
     char* defautExtension = ".cas";
     int createFileSize = 0;
     char* fileName;
 
-    sprintf(extensionList, "%s   (*.cas, *.zip)#*.cas; *.zip#%s   (*.*)#*.*#", langFileCas(), langFileAll());
+    sprintf(extensionList, "%s   (*.cas, *.tsx, *.zip)#*.cas; *.tsx; *.zip#%s   (*.*)#*.*#", langFileCas(), langFileAll());
     replaceCharInString(extensionList, '#', 0);
 
     enterDialogShow();

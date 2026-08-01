@@ -1124,7 +1124,9 @@ static HMENU menuCreateCassette(Properties* pProperties, Shortcuts* shortcuts)
 
     AppendMenuU(hMenu, MF_STRING | (pProperties->cassette.readOnly ? MFS_CHECKED : 0), ID_FILE_TAPE_READONLY, langMenuCasUseReadOnly());
 
-    AppendMenuU(hMenu, MF_STRING | (*pProperties->media.tapes[0].fileName ? 0 : MF_GRAYED), ID_FILE_TAPE_SAVE, langMenuCasSaveAs());
+    /* Save As only writes the CAS variants, and a signal only image has no byte
+    ** stream to write, so it stays out of reach for those. */
+    AppendMenuU(hMenu, MF_STRING | (*pProperties->media.tapes[0].fileName && !tapeIsSignalOnly() ? 0 : MF_GRAYED), ID_FILE_TAPE_SAVE, langMenuCasSaveAs());
 
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
 
