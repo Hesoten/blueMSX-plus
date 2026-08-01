@@ -179,7 +179,7 @@ void registerApplicationOpenWith(void)
         ".dsk", ".di1", ".di2", ".360", ".720", ".sf7",
         ".rom", ".ri",  ".mx1", ".mx2",
         ".sms", ".sg",  ".sc",  ".col",
-        ".cas", ".sta", ".cap", NULL
+        ".cas", ".tsx", ".sta", ".cap", NULL
     };
     int i;
 

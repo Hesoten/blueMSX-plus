@@ -1985,6 +1985,9 @@ static void registerFileTypes() {
     registerFileType(".sc",  "blueMSXromSega",   "Sega ROM Image", 2);
     registerFileType(".col", "blueMSXromColeco", "ColecoVision ROM Image", 2);
     registerFileType(".cas", "blueMSXcas", "CAS Image", 3);
+    /* .wav stays out on purpose: taking it would steal the media player's
+    ** association from every other wave file on the machine. */
+    registerFileType(".tsx", "blueMSXtsx", "TSX Image", 3);
     registerFileType(".sta", "blueMSXsta", "blueMSX+ State", 4);
     registerFileType(".cap", "blueMSXcap", "blueMSX+ Video Capture", 4);
     registerApplicationOpenWith();
@@ -2006,6 +2009,7 @@ static void unregisterFileTypes() {
     unregisterFileType(".sc",  "blueMSXromSega",   "Sega ROM Image", 2);
     unregisterFileType(".col", "blueMSXromColeco", "ColecoVision ROM Image", 2);
     unregisterFileType(".cas", "blueMSXcas", "CAS Image", 3);
+    unregisterFileType(".tsx", "blueMSXtsx", "TSX Image", 3);
     unregisterFileType(".sta", "blueMSXsta", "blueMSX+ State", 4);
     unregisterFileType(".cap", "blueMSXcap", "blueMSX+ Video Capture", 4);
     unregisterApplicationOpenWith();

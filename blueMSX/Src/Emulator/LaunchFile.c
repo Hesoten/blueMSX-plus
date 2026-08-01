@@ -52,6 +52,46 @@
 
 void archUpdateMenu(int show);
 
+/* zipGetFileList hands back a run of NUL terminated names, so the byte length
+** is only recoverable by walking the entries. */
+static int fileListSize(const char* list, int count)
+{
+    int size = 0;
+
+    while (count-- > 0) {
+        size += (int)strlen(list + size) + 1;
+    }
+    return size;
+}
+
+/* Concatenating the runs is all a merge takes. Takes ownership of the inputs so
+** the caller does not have to track which of them a zip actually produced. */
+static char* fileListMerge(char* a, int countA, char* b, int countB,
+                           char* c, int countC, int* count)
+{
+    int   sizeA = fileListSize(a, countA);
+    int   sizeB = fileListSize(b, countB);
+    int   sizeC = fileListSize(c, countC);
+    char* list  = NULL;
+
+    *count = countA + countB + countC;
+    if (*count > 0) {
+        list = malloc(sizeA + sizeB + sizeC);
+        if (list == NULL) {
+            *count = 0;
+        }
+        else {
+            if (sizeA > 0) memcpy(list, a, sizeA);
+            if (sizeB > 0) memcpy(list + sizeA, b, sizeB);
+            if (sizeC > 0) memcpy(list + sizeA + sizeB, c, sizeC);
+        }
+    }
+    free(a);
+    free(b);
+    free(c);
+    return list;
+}
+
 int insertCartridge(Properties* properties, int drive, const char* fname, const char* inZipFile, RomType romType, int forceAutostart) {
     int autostart = forceAutostart == 1 || properties->cartridge.autoReset;
     int noautostart = forceAutostart == -1;
@@ -412,15 +452,15 @@ int insertCassette(Properties* properties, int drive, const char* fname, const c
             strcpy(tapeName, inZipFile);
         }
         else {
-            int count;
-            char* fileList = zipGetFileList(filename, ".cas", &count);
+            int count, countCas, countTsx, countWav;
+            char* listCas = zipGetFileList(filename, ".cas", &countCas);
+            char* listTsx = zipGetFileList(filename, ".tsx", &countTsx);
+            char* listWav = zipGetFileList(filename, ".wav", &countWav);
+            /* Merged rather than taken in order of preference: a zip holding
+            ** both a .cas and a .tsx has to offer the user both. */
+            char* fileList = fileListMerge(listCas, countCas, listTsx, countTsx,
+                                           listWav, countWav, &count);
 
-            if (fileList == NULL) {
-                fileList = zipGetFileList(filename, ".tsx", &count);
-            }
-            if (fileList == NULL) {
-                fileList = zipGetFileList(filename, ".wav", &count);
-            }
             if (fileList == NULL) {
                 archShowNoCasInZipDialog();
                 return 0;
@@ -493,7 +533,14 @@ static int insertDisketteOrCartridge(Properties* properties, int drive, const ch
     char* fileListCol = zipGetFileList(fname, ".col", &countCol);
     char* fileListSg  = zipGetFileList(fname, ".sg",  &countSg);
     char* fileListSc  = zipGetFileList(fname, ".sc",  &countSc);
-    char* fileListCas = zipGetFileList(fname, ".cas", &countCas);
+    int   countTsx, countWav;
+    char* listCas = zipGetFileList(fname, ".cas", &countCas);
+    char* listTsx = zipGetFileList(fname, ".tsx", &countTsx);
+    char* listWav = zipGetFileList(fname, ".wav", &countWav);
+    /* One cassette list, so a zip holding only a .tsx still opens the chooser
+    ** instead of falling through as "nothing recognised". */
+    char* fileListCas = fileListMerge(listCas, countCas, listTsx, countTsx,
+                                      listWav, countWav, &countCas);
     int countRom = countRox + countRi + countMx1 + countMx2 + countSms + countCol + countSg + countSc;
     int countDsk = countDsx + countDi1 + countDi2 + count360 + count720 + countSf7;
     char* fileList;
