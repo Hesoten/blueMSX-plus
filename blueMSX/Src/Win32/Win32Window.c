@@ -1157,7 +1157,7 @@ typedef struct {
     int height;
     int notifyId;
     Theme* theme;
-    char text[64];
+    char text[PROP_MAXPATH];
 } DropdownInfo;
 
 
@@ -1197,6 +1197,17 @@ static void themeCtrlFontRelease(HWND dlg)
         RemovePropA(dlg, themeCtrlFontProp);
         DeleteObject(font);
     }
+}
+
+static int comboGetSelText(HWND combo, char* dst, int dstCap)
+{
+    /* CB_GETLBTEXT takes no buffer length, so check the fit first. */
+    int idx = (int)SendMessage(combo, CB_GETCURSEL, 0, 0);
+    int len;
+    if (idx == CB_ERR) return 0;
+    len = (int)SendMessage(combo, CB_GETLBTEXTLEN, idx, 0);
+    if (len == CB_ERR || len >= dstCap) return 0;
+    return CB_ERR != SendMessage(combo, CB_GETLBTEXT, idx, (LPARAM)dst);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1244,15 +1255,11 @@ static BOOL_DLG_RET CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, L
         if (LOWORD(wParam) == IDC_CONTROL) {
             static int isChanging = 0;
             if (isChanging == 0 && HIWORD(wParam) == CBN_SELCHANGE) {
-                char sel[64];
-                int idx;
-                int rv;
+                char sel[256];
 
                 isChanging = 1;
 
-                idx = (int)SendMessage(GetDlgItem(hwnd, IDC_CONTROL), CB_GETCURSEL, 0, 0);
-                rv = (int)SendMessage(GetDlgItem(hwnd, IDC_CONTROL), CB_GETLBTEXT, idx, (LPARAM)sel);
-                if (rv != CB_ERR) {
+                if (comboGetSelText(GetDlgItem(hwnd, IDC_CONTROL), sel, sizeof(sel))) {
                     oi = (DropdownInfo*)windowDataGet(hwnd);
                     SendMessage(GetParent(hwnd), (UINT)oi->notifyId, 0, (LPARAM)sel);
                 }
@@ -1273,9 +1280,7 @@ static BOOL_DLG_RET CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, L
     case WM_OBJECT_GET:
         {
             static char buffer[512];
-            int idx = (int)SendDlgItemMessage(hwnd, IDC_CONTROL, CB_GETCURSEL, 0, 0);
-            int rv = (int)SendDlgItemMessage(hwnd, IDC_CONTROL, CB_GETLBTEXT, idx, (LPARAM)buffer);
-            if (rv != CB_ERR) {
+            if (comboGetSelText(GetDlgItem(hwnd, IDC_CONTROL), buffer, sizeof(buffer))) {
                 SetWindowLongPtr(hwnd, DWLP_MSGRESULT, (LRESULT)(LPVOID)buffer);
                 return TRUE;
             }
@@ -1288,10 +1293,14 @@ static BOOL_DLG_RET CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, L
 
         oi = (DropdownInfo*)windowDataGet(hwnd);
         if (lParam != 0) {
-            strcpy(oi->text, (char*)lParam);
+            strncpy(oi->text, (char*)lParam, sizeof(oi->text) - 1);
+            oi->text[sizeof(oi->text) - 1] = 0;
         }
         {
-            char** items = { NULL };
+            /* MACHINECONFIG fills the combo itself, so the loop below needs
+            ** an empty list. */
+            static char* noItems[] = { NULL };
+            char** items = noItems;
             int index = 0;
             int matched = 0;
 
