@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -250,13 +253,17 @@ const char* inputEventCodeToString(int eventCode);
 // Inlines
 extern int eventMap[256];
 
+/* The wheel codes sit outside the contiguous blocks, so they have to be
+** named here or a port's own events count as MSX keyboard events. */
 #define inputEventIsJoystick1(eventCode) \
         ((eventCode >= EC_JOY1_UP   && eventCode <= EC_JOY1_BUTTON6) || \
-         (eventCode >= EC_COLECO1_0 && eventCode <= EC_COLECO1_HASH))
+         (eventCode >= EC_COLECO1_0 && eventCode <= EC_COLECO1_HASH) || \
+         (eventCode) == EC_JOY1_WHEELA || (eventCode) == EC_JOY1_WHEELB)
 
 #define inputEventIsJoystick2(eventCode) \
         ((eventCode >= EC_JOY2_UP   && eventCode <= EC_JOY2_BUTTON6) || \
-         (eventCode >= EC_COLECO2_0 && eventCode <= EC_COLECO2_HASH))
+         (eventCode >= EC_COLECO2_0 && eventCode <= EC_COLECO2_HASH) || \
+         (eventCode) == EC_JOY2_WHEELA || (eventCode) == EC_JOY2_WHEELB)
 
 #define inputEventIsKeyboard(eventCode) \
         (!inputEventIsJoystick1(eventCode) && !inputEventIsJoystick2(eventCode))
