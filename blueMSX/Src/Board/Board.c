@@ -1070,6 +1070,12 @@ static void onSync(void* ref, UInt32 time)
 
 void boardOnBreakpoint(UInt16 pc)
 {
+    /* Parking here would never come back on the UI thread, which is where a
+    ** debugger callback runs. A caller that must hold the hit rather than lose
+    ** it still tests this itself; the check here covers the ones that do not. */
+    if (debugDeviceIsInspecting()) {
+        return;
+    }
     doSync(boardSystemTime(), 1);
 }
 
