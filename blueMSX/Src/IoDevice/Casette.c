@@ -32,6 +32,7 @@
 #include "TapeSignal.h"
 #include "CasToWave.h"
 #include "TsxParser.h"
+#include "WavParser.h"
 #include "Led.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -117,7 +118,7 @@ void tapeSaveState() {
 
 int tapeIsSignalOnly(void)
 {
-    return tapeFormat == TAPE_TSX;
+    return tapeFormat == TAPE_TSX || tapeFormat == TAPE_WAV;
 }
 
 UInt8 tapeRead(UInt8* value)
@@ -174,6 +175,11 @@ static void refreshSignal(void)
         char err[128];
         builder = tsxToWave((UInt8*)ramImageBuffer, ramImageSize, err, sizeof(err));
         source  = TAPE_SIG_TSX;
+    }
+    else if (tapeFormat == TAPE_WAV) {
+        char err[128];
+        builder = wavToWave((UInt8*)ramImageBuffer, ramImageSize, err, sizeof(err));
+        source  = TAPE_SIG_WAV;
     }
     else {
         builder = casToWave((UInt8*)ramImageBuffer, ramImageSize, tapeHeader, tapeHeaderSize);
@@ -327,10 +333,11 @@ int tapeInsert(char *name, const char *fileInZipFile)
     rewindNextInsert=0;
 
     if (ramImageBuffer != NULL &&
-        tsxIsTsxImage((UInt8*)ramImageBuffer, ramImageSize)) {
+        (tsxIsTsxImage((UInt8*)ramImageBuffer, ramImageSize) ||
+         wavIsWavImage((UInt8*)ramImageBuffer, ramImageSize))) {
         /* Checked before the scan below, which is O(size) and would also
         ** misread a signal only image as a CAS. */
-        tapeFormat     = TAPE_TSX;
+        tapeFormat     = tsxIsTsxImage((UInt8*)ramImageBuffer, ramImageSize) ? TAPE_TSX : TAPE_WAV;
         tapeHeader     = NULL;
         tapeHeaderSize = 0;
     }
