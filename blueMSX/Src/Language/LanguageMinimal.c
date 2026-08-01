@@ -208,7 +208,7 @@ char* langRomTypeEseSCC256()        { return "256kB Ese-SCC"; }
 char* langRomTypeEseSCC512()        { return "512kB Ese-SCC"; }
 char* langRomTypeNoWind()           { return "NoWind USB"; }
 char* langRomTypeGoudaSCSI()        { return "Gouda SCSI"; }
-char* langRomTypeMasushitaSramInv() { return "Matsushita SRAM - Turbo 5.37MHz"; }
+char* langRomTypeMatsushitaSramTurbo() { return "Matsushita SRAM - Turbo 5.37MHz"; }
 char* langRomTypeMsxMidiExternal()  { return "External MIDI"; }
 
 //----------------------

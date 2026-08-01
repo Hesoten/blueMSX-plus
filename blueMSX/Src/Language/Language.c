@@ -1049,7 +1049,7 @@ char* langRomTypeNormalRam() { return ls->romTypeNormalRam; }
 char* langRomTypeKanji() { return "Kanji"; }
 char* langRomTypeHolyQuran() { return "Holy Quran"; }
 char* langRomTypeMatsushitaSram() { return "Matsushita SRAM"; }
-char* langRomTypeMasushitaSramInv() { return "Matsushita SRAM - Turbo 5.37MHz"; }
+char* langRomTypeMatsushitaSramTurbo() { return "Matsushita SRAM - Turbo 5.37MHz"; }
 char* langRomTypePanasonic8()  { return "Panasonic FM 8kB SRAM"; }
 char* langRomTypePanasonicWx16() { return "Panasonic WX 16kB SRAM"; }
 char* langRomTypePanasonic16() { return "Panasonic 16kB SRAM"; }

@@ -91,7 +91,7 @@
 #include "romMapperSCCplus.h"
 #include "romMapperPanasonic.h"
 #include "romMapperNational.h"
-#include "sramMapperMatsuchita.h"
+#include "sramMapperMatsushita.h"
 #include "romMapperKonamiSynth.h"
 #include "romMapperKonamiKeyboardMaster.h"
 #include "romMapperKonamiWordPro.h"
@@ -1241,12 +1241,14 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
             continue;
         }
 
-        if (machine->slotInfo[i].romType == SRAM_MATSUCHITA) {
-            success &= sramMapperMatsushitaCreate(0);
+        if (machine->slotInfo[i].romType == SRAM_MATSUSHITA) {
+            /* Only the T9769B machines (FS-A1FX/WX/WSX) have the 5.37MHz turbo */
+            success &= sramMapperMatsushitaCreate(machine->board.type == BOARD_MSX_T9769B);
             continue;
         }
 
-        if (machine->slotInfo[i].romType == SRAM_MATSUCHITA_INV) {
+        if (machine->slotInfo[i].romType == SRAM_MATSUSHITA_TURBO) {
+            /* Legacy rom type that explicitly asks for the turbo capable variant */
             success &= sramMapperMatsushitaCreate(1);
             continue;
         }
