@@ -382,8 +382,10 @@ void langInitFrench(LanguageStrings* ls)
     ls->propEmuVdpCmdSpeedText  = "Délai commande VDP:";
     ls->propEmuFrontSwitchGB    = "Commutateurs Panasonic "; 
     ls->propEmuFrontSwitch      = " Commutateur frontal"; 
-    ls->propEmuFdcTiming        = " Accélérer l'accès FDD"; 
-    ls->propEmuHddSdBoost       = " Accélérer durant l'accès HDD/SD";
+    ls->propEmuBoostText        = "Accélérer l'accès aux périphériques:";
+    ls->propEmuFdcTiming        = " FDD";
+    ls->propEmuCasBoost         = " Cassette";
+    ls->propEmuHddSdBoost       = " Carte HDD/SD";
     ls->propEmuNoSpriteLimits   = " Pas de limite de sprites";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Émuler la particularité du clavier MSX";  // New in 2.9
     ls->propEmuReversePlay      = " Activer la lecture inversée"; // New in 2.8.3

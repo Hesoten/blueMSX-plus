@@ -376,7 +376,9 @@ typedef struct {
     char* propEmuVdpCmdSpeedText;
     char* propEmuFrontSwitchGB;
     char* propEmuFrontSwitch;
+    char* propEmuBoostText;
     char* propEmuFdcTiming;
+    char* propEmuCasBoost;
     char* propEmuHddSdBoost;
     char* propEmuNoSpriteLimits;
     char* propEnableMsxKeyboardQuirk;

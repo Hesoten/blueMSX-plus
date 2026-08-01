@@ -384,8 +384,10 @@ void langInitKorean(LanguageStrings* ls)
     ls->propEmuFrontSwitch       = " 프론트 스위치";
     ls->propEmuNoSpriteLimits   = " 스프라이트 제한 해제";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " MSX 키보드 특성 에뮬레이션";  // New in 2.9
-    ls->propEmuFdcTiming        = " FDD 액세스 시 가속";
-    ls->propEmuHddSdBoost       = " HDD/SD 카드 접근 중 가속";
+    ls->propEmuBoostText        = "장치 액세스 시 가속:";
+    ls->propEmuFdcTiming        = " FDD";
+    ls->propEmuCasBoost         = " 카세트";
+    ls->propEmuHddSdBoost       = " HDD/SD 카드";
     ls->propEmuReversePlay      = " 역재생 사용"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " 일시 정지 스위치";
     ls->propEmuAudioSwitch       = " MSX-AUDIO 카트리지 스위치";

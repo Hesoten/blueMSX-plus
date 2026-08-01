@@ -206,6 +206,8 @@
 #define IDC_ENABLEMSXKEYBOARDQUIRK      1813
 #define IDC_SNDBUFSZ_ACTUAL             1814
 #define IDC_EMUHDDSDBOOST               1815
+#define IDC_EMUCASBOOST                 1816
+#define IDC_EMUBOOSTTEXT                1817
 
 #define IDC_MONGROUPBOX                 1900
 #define IDC_MONTYPETEXT                 1901

@@ -73,6 +73,12 @@ int           emuMaxEmuSpeed = 0; // Max speed issued by emulation
 /* Fast-forward multiplier (max-speed and FDC/HDD boost); higher =
 ** faster, capped by host emu throughput.  Stock blueMSX used 10. */
 #define EMU_MAXSPEED_FACTOR 15
+
+/* Emulated ms handed out per iteration during a tape boost. Not a speed
+** limit: that path does not queue for a sync tick, so the host's throughput
+** sets the rate and this only decides how often the loop comes up for air
+** (suspend latency, input polling, per-iteration overhead). */
+#define EMU_TAPE_SLICE_MS   60
 static char   emuStateName[512];
 static volatile int      emuSuspendFlag;
 static volatile EmuState emuState = EMU_STOPPED;
@@ -203,7 +209,8 @@ static int emuUseSynchronousUpdate()
     if (properties->emulation.speed == 50 &&
         enableSynchronousUpdate &&
         emulatorGetMaxSpeed() == 0 &&
-        !boardGetFdcActive())
+        !boardGetFdcActive() &&
+        !boardGetCasActive())
     {
         return properties->emulation.syncMethod;
     }
@@ -853,6 +860,13 @@ static int WaitForSync(int maxSpeed, int breakpointHit) {
             overflowCount--;
         }
     }
+    else if (emuMaxEmuSpeed == BOARD_BOOST_TAPE && emuState == EMU_RUNNING && !emuExitFlag) {
+        /* Do not queue for a sync tick. One tick is handed out every syncPeriod
+        ** ms whatever the host can do, so waiting for one pins the rate at
+        ** slice-per-tick; skipping it lets the tape run out as fast as the host
+        ** manages, which is the whole point of boosting a load. */
+        overflowCount = 0;
+    }
     else {
         do {
 #ifdef NO_TIMERS
@@ -900,7 +914,13 @@ static int WaitForSync(int maxSpeed, int breakpointHit) {
         diffTime = 0;
     }
 #endif
-    if (emuMaxSpeed || emuMaxEmuSpeed) {
+    if (emuMaxEmuSpeed == BOARD_BOOST_TAPE && !emuSingleStep) {
+        /* The measured elapsed time is no use without the tick wait: an
+        ** iteration can be shorter than the 1 ms clock resolution and would
+        ** read as zero. A fixed slice is what the loop runs on instead. */
+        diffTime = EMU_TAPE_SLICE_MS;
+    }
+    else if (emuMaxSpeed || emuMaxEmuSpeed) {
         diffTime *= EMU_MAXSPEED_FACTOR;
         if (diffTime > 2 * EMU_MAXSPEED_FACTOR * syncPeriod) {
             diffTime =  2 * EMU_MAXSPEED_FACTOR * syncPeriod;

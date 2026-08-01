@@ -384,8 +384,10 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->propEmuFrontSwitch       = " 前端開關";
     ls->propEmuNoSpriteLimits   = " 停用精靈數量限制";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " 模擬 MSX 鍵盤特殊行為";  // New in 2.9
-    ls->propEmuFdcTiming        = " 軟碟存取時加速";
-    ls->propEmuHddSdBoost       = " HDD/SD 卡存取時加速";
+    ls->propEmuBoostText        = "裝置存取時加速:";
+    ls->propEmuFdcTiming        = " 軟碟";
+    ls->propEmuCasBoost         = " 磁帶";
+    ls->propEmuHddSdBoost       = " HDD/SD 卡";
     ls->propEmuReversePlay      = " 啟用倒放"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " 暫停開關";
     ls->propEmuAudioSwitch       = " MSX 音效卡開關";

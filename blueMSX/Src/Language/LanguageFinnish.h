@@ -385,8 +385,10 @@ void langInitFinnish(LanguageStrings* ls)
     ls->propEmuFrontSwitch       = " Aplikaatiokytkin";
     ls->propEmuNoSpriteLimits   = " Poista spritejen rajoitus";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emuloi MSX-näppäimistön erikoisuus";  // New in 2.9
-    ls->propEmuFdcTiming        = " Kiihdytä FDD-käyttöä";
-    ls->propEmuHddSdBoost       = " Kiihdytä HDD/SD-kortin käytön aikana";
+    ls->propEmuBoostText        = "Kiihdytä laitekäytön aikana:";
+    ls->propEmuFdcTiming        = " FDD";
+    ls->propEmuCasBoost         = " Kasetti";
+    ls->propEmuHddSdBoost       = " HDD/SD-kortti";
     ls->propEmuReversePlay      = " Salli taaksepäin suoritus"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " PAUSE-näppäin";
     ls->propEmuAudioSwitch       = " MSX-AUDIO modulin kytkin";

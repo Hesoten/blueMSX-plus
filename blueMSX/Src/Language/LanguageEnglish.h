@@ -405,8 +405,10 @@ void langInitEnglish(LanguageStrings* ls)
     ls->propEmuFrontSwitch      = " Front Switch";
     ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emulate MSX keyboard quirk";  // New in 2.9
-    ls->propEmuFdcTiming        = " Accelerate during FDD access";
-    ls->propEmuHddSdBoost       = " Accelerate during HDD/SD card access";
+    ls->propEmuBoostText        = "Accelerate during device access:";
+    ls->propEmuFdcTiming        = " FDD";
+    ls->propEmuCasBoost         = " Cassette";
+    ls->propEmuHddSdBoost       = " HDD/SD card";
     ls->propEmuReversePlay      = " Enable reverse playback"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " Pause Switch";
     ls->propEmuAudioSwitch      = " MSX-AUDIO cartridge switch";

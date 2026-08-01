@@ -384,8 +384,10 @@ void langInitDutch(LanguageStrings* ls)
     ls->propEmuFrontSwitch      = " Voorpanel Schakelaar";
     ls->propEmuNoSpriteLimits   = " Sprite-limiet uitschakelen";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " MSX-toetsenbord eigenaardigheid emuleren";  // New in 2.9
-    ls->propEmuFdcTiming        = " Versnellen bij FDD-toegang";
-    ls->propEmuHddSdBoost       = " Versnellen tijdens HDD/SD-kaart toegang";
+    ls->propEmuBoostText        = "Versnellen bij apparaattoegang:";
+    ls->propEmuFdcTiming        = " FDD";
+    ls->propEmuCasBoost         = " Cassette";
+    ls->propEmuHddSdBoost       = " HDD/SD-kaart";
     ls->propEmuReversePlay      = " Achterwaarts afspelen inschakelen"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " Pauze Schakelaar";
     ls->propEmuAudioSwitch      = " MSX-AUDIO cartridge Schakelaar";

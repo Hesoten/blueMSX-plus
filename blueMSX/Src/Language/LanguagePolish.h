@@ -384,8 +384,10 @@ void langInitPolish(LanguageStrings* ls)
     ls->propEmuFrontSwitch       = " Prze³¹cznik g³ówny";
     ls->propEmuNoSpriteLimits   = " Wyłącz limit duszków";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emuluj specyfikę klawiatury MSX";  // New in 2.9
-    ls->propEmuFdcTiming        = " Przyspiesz podczas dostępu FDD";
-    ls->propEmuHddSdBoost       = " Przyspieszenie podczas dostępu do HDD/SD";
+    ls->propEmuBoostText        = "Przyspiesz podczas dostępu do urządzeń:";
+    ls->propEmuFdcTiming        = " FDD";
+    ls->propEmuCasBoost         = " Kaseta";
+    ls->propEmuHddSdBoost       = " Karta HDD/SD";
     ls->propEmuReversePlay      = " Włącz odtwarzanie wstecz"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " Prze³¹cznik pauzy";
     ls->propEmuAudioSwitch       = " Prze³¹cznik kartrid¿a MSX-AUDIO";

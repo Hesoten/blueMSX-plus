@@ -236,6 +236,21 @@ void boardSetHddSdBoostEnable(int enable);
 int  boardGetHddSdBoostEnable(void);
 void boardSetHddSdActive(void);
 
+/* Cassette load boost. Kept off the FDC's timer because the two want opposite
+** things: the disk guesses at a load and covers the work that follows it,
+** while a tape read says exactly "the machine is waiting" and nothing else
+** happens until it stops. */
+void boardSetCasBoostEnable(int enable);
+void boardSetCasActive(void);
+int  boardGetCasActive(void);
+
+/* Boost level handed to the sync callback. Disk keeps the historic rate limit
+** because its boost also has to carry the game's own post-load work; a tape
+** load is pure waiting, so it runs at whatever the host manages. */
+#define BOARD_BOOST_NONE  0
+#define BOARD_BOOST_DISK  1
+#define BOARD_BOOST_TAPE  2
+
 void boardSetYm2413Oversampling(int value);
 int  boardGetYm2413Oversampling();
 void boardSetY8950Oversampling(int value);

@@ -407,8 +407,10 @@ void langInitJapanese(LanguageStrings* ls)
     ls->propEmuFrontSwitch       = " 前面[内蔵ソフト]スイッチ"; 
     ls->propEmuNoSpriteLimits   = " スプライト数制限を解除";
     ls->propEnableMsxKeyboardQuirk = " MSX キーボードの癖をエミュレート";
-    ls->propEmuFdcTiming        = " FDDアクセス時に高速化";
-    ls->propEmuHddSdBoost       = " HDD/SDカードアクセス時に高速化";
+    ls->propEmuBoostText        = "デバイスアクセス時に高速化:";
+    ls->propEmuFdcTiming        = " FDD";
+    ls->propEmuCasBoost         = " カセットテープ";
+    ls->propEmuHddSdBoost       = " HDD/SDカード";
     ls->propEmuReversePlay      = " 巻き戻し再生を有効化";
     ls->propEmuPauseSwitch      = " ポーズスイッチ";
     ls->propEmuAudioSwitch       = " MSX-AUDIO カートリッジスイッチ"; 

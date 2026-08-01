@@ -384,8 +384,10 @@ void langInitCatalan(LanguageStrings* ls)
     ls->propEmuFrontSwitch      = " Commutador frontal";
     ls->propEmuNoSpriteLimits   = " Desactiva la limitació d'sprites";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emula la particularitat del teclat MSX";  // New in 2.9
-    ls->propEmuFdcTiming        = " Accelera durant l'accés FDD";
-    ls->propEmuHddSdBoost       = " Acceleració durant l'accés HDD/SD";
+    ls->propEmuBoostText        = "Accelera durant l'accés als dispositius:";
+    ls->propEmuFdcTiming        = " FDD";
+    ls->propEmuCasBoost         = " Cinta";
+    ls->propEmuHddSdBoost       = " Targeta HDD/SD";
     ls->propEmuReversePlay      = " Activa la reproducció inversa"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " Commutador de pausa";
     ls->propEmuAudioSwitch      = " Commutador del cartutx MSX-AUDIO";

@@ -230,6 +230,7 @@ typedef struct {
     char shortcutProfile[PROP_MAXPATH];
     int  enableFdcTiming;
     int  enableHddSdBoost;
+    int  enableCasBoost;
     int  noSpriteLimits;
     int  frontSwitch;
     int  audioSwitch;

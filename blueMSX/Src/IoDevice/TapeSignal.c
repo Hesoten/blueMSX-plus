@@ -36,6 +36,10 @@
 /* One seek entry per this many UInt16 slots of the pulse array */
 #define SEEK_STRIDE       8192
 
+/* Re-arm the load boost at most this often, in emulated milliseconds. Well
+** under the board's release tail, so a load in progress never lets it lapse. */
+#define BOOST_ARM_MS      20
+
 #define MAX_CONTENT       1024
 
 /* Loading noise is background, not a voice, so it sits below the chip channels.
@@ -87,6 +91,7 @@ static UInt64 sysFrac;
 static int    motorOn;
 static int    driving;
 static int    refreshArmed;
+static UInt64 lastBoostArmT;
 static TapeSignalRefreshCb refreshCb = NULL;
 
 /* Position read from a save state, applied once a waveform is mounted */
@@ -437,6 +442,7 @@ int tapeSignalInstall(TapeSignalBuilder* b, TapeSignalSource source)
     tapeT   = 0;
     audioT  = 0;
     driving = 0;
+    lastBoostArmT = 0;
     reanchorTime();
 
     curIndex = 0;  curEdgeT = 0;  curLevel = 0;
@@ -527,6 +533,13 @@ UInt8 tapeSignalReadBit(void)
 
     ledSetCas(1);
 
+    /* Arm the load boost only while the BIOS is actually polling, so a tape
+    ** left running at a BASIC prompt does not hold the machine at full speed. */
+    if (tapeT - lastBoostArmT >= (UInt64)BOOST_ARM_MS * TAPE_TSTATE_FREQ / 1000) {
+        lastBoostArmT = tapeT;
+        boardSetCasActive();
+    }
+
     return level;
 }
 
@@ -563,9 +576,10 @@ void tapeSignalSetPosT(UInt64 t)
     seekCursor(audioT, &audIndex, &audEdgeT, &audLevel);
     /* The level either side of a seek is unrelated, so a carried over offset
     ** would just come out as a click */
-    audioDc  = 0;
-    audioLp1 = 0;
-    audioLp2 = 0;
+    audioDc       = 0;
+    audioLp1      = 0;
+    audioLp2      = 0;
+    lastBoostArmT = tapeT;
 }
 
 /* Index of the last byte mark at or before the given key. Both fields grow

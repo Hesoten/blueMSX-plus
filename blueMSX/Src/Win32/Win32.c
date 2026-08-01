@@ -2100,6 +2100,7 @@ void archShowPropertiesDialog(PropPage  startPane) {
     ** and is passed back unchanged. */
     boardSetFdcTimingEnable(pProperties->emulation.enableFdcTiming);
     boardSetHddSdBoostEnable(pProperties->emulation.enableHddSdBoost);
+    boardSetCasBoostEnable(pProperties->emulation.enableCasBoost);
     boardSetNoSpriteLimits(pProperties->emulation.noSpriteLimits);
     boardSetVdpCmdSpeed(pProperties->emulation.vdpCmdSpeed);
 
@@ -4322,6 +4323,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     }
     boardSetFdcTimingEnable(pProperties->emulation.enableFdcTiming);
     boardSetHddSdBoostEnable(pProperties->emulation.enableHddSdBoost);
+    boardSetCasBoostEnable(pProperties->emulation.enableCasBoost);
     boardSetNoSpriteLimits(pProperties->emulation.noSpriteLimits);
     boardSetVdpCmdSpeed(pProperties->emulation.vdpCmdSpeed);
     boardSetY8950Enable(pProperties->sound.chip.enableY8950);

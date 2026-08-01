@@ -591,7 +591,9 @@ char* langPropEmuSpeedText() { return ls->propEmuSpeedText; }
 char* langPropEmuVdpCmdSpeedText() { return ls->propEmuVdpCmdSpeedText; }
 char* langPropEmuFrontSwitchGB() { return ls->propEmuFrontSwitchGB; }
 char* langPropEmuFrontSwitch() { return ls->propEmuFrontSwitch; }
+char* langPropEmuBoostText() { return ls->propEmuBoostText; }
 char* langPropEmuFdcTiming() { return ls->propEmuFdcTiming; }
+char* langPropEmuCasBoost() { return ls->propEmuCasBoost; }
 char* langPropEmuHddSdBoost() { return ls->propEmuHddSdBoost; }
 char* langPropEmuReversePlay() { return ls->propEmuReversePlay; }
 char* langPropEmuNoSpriteLimits() { return ls->propEmuNoSpriteLimits; }

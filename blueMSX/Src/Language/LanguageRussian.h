@@ -384,8 +384,10 @@ void langInitRussian(LanguageStrings* ls)
     ls->propEmuFrontSwitch      = " Передний выключатель";
     ls->propEmuNoSpriteLimits   = " Отключить ограничение спрайтов";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Эмулировать особенность клавиатуры MSX";  // New in 2.9
-    ls->propEmuFdcTiming        = " Ускорение при доступе к FDD";
-    ls->propEmuHddSdBoost       = " Ускорять при доступе к HDD/SD";
+    ls->propEmuBoostText        = "Ускорение при доступе к устройствам:";
+    ls->propEmuFdcTiming        = " FDD";
+    ls->propEmuCasBoost         = " Кассета";
+    ls->propEmuHddSdBoost       = " Карта HDD/SD";
     ls->propEmuReversePlay      = " Включить обратное воспроизведение"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " Кнопка паузы";
     ls->propEmuAudioSwitch      = " Переключатель картриджа MSX-AUDIO";

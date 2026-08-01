@@ -385,8 +385,10 @@ void langInitSwedish(LanguageStrings* ls)
     ls->propEmuFrontSwitch      = " Frontbrytare";
     ls->propEmuNoSpriteLimits   = " Ignorera sprite begränsning";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emulera MSX tangentbordsfel";  // New in 2.9
-    ls->propEmuFdcTiming        = " Snabba upp vid FDD-åtkomst";
-    ls->propEmuHddSdBoost       = " Snabbare vid HDD/SD-åtkomst";
+    ls->propEmuBoostText        = "Snabba upp vid enhetsåtkomst:";
+    ls->propEmuFdcTiming        = " FDD";
+    ls->propEmuCasBoost         = " Kassett";
+    ls->propEmuHddSdBoost       = " HDD/SD-kort";
     ls->propEmuReversePlay      = " Tillåt baklänges uppspelning";
     ls->propEmuPauseSwitch      = " Pausbrytare";
     ls->propEmuAudioSwitch      = " MSX-AUDIO cartridge switch";
