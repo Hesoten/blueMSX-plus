@@ -244,10 +244,14 @@ void tapeSetDirectory(char* baseDir, char* prefix) {
     strcpy(tapeBaseDir, baseDir);
 }
 
-/* WAV only so far: TSX preserves a real load's timing, CAS carries bytes */
+/* Not TSX: it exists to preserve the exact timing of a real load, which a
+** plain BIOS save would throw away. An empty deck stays silent too, or the
+** tape output pin would conjure a waveform with no file behind it. */
 static void updateRecordable(void)
 {
-    tapeSignalSetRecordable(tapeFormat == TAPE_WAV && tapeRdWr);
+    /* A blank image has no waveform to name the format for the deck */
+    tapeSignalSetBlankSource(tapeFormat == TAPE_WAV ? TAPE_SIG_WAV : TAPE_SIG_CAS);
+    tapeSignalSetRecordable(ramImageBuffer != NULL && tapeFormat != TAPE_TSX && tapeRdWr);
 }
 
 void tapeSetReadOnly(int readOnly)
@@ -423,13 +427,31 @@ int tapeSave(char *name, TapeFormat format)
         return 0;
     }
 
-    /* A recorded WAV lives as a waveform, not as the bytes still held here */
+    /* A recording lives as a waveform, not as the bytes still held here */
     if (format == TAPE_WAV) {
         return tapeSignalSaveWav(name);
     }
 
-    if (format != TAPE_FMSX98AT && format != TAPE_FMSXDOS && format != TAPE_SVICAS) {
-        return 0;
+    switch (format) {
+        case TAPE_FMSXDOS:
+            hdrData = hdrFMSXDOS;
+            hdrSize = sizeof(hdrFMSXDOS);
+            break;
+        case TAPE_FMSX98AT:
+            hdrData = hdrFMSX98;
+            hdrSize = sizeof(hdrFMSX98);
+            break;
+        case TAPE_SVICAS:
+            hdrData = hdrSVICAS;
+            hdrSize = sizeof(hdrSVICAS);
+            break;
+        default:
+            return 0;
+    }
+
+    /* The marker of the format asked for, not of the image it came from */
+    if (tapeSignalRecordDirty()) {
+        return tapeSignalSaveCas(name, hdrData, hdrSize, format == TAPE_FMSXDOS);
     }
 
     /* A signal only image has no block marker, so the scan below would match at
@@ -446,21 +468,6 @@ int tapeSave(char *name, TapeFormat format)
 
     while (offset < ramImageSize) {
         if (ramImageSize - offset >= tapeHeaderSize && !memcmp(ramImageBuffer + offset, tapeHeader, tapeHeaderSize)) {
-            switch (format) {
-                case TAPE_FMSXDOS:
-                    hdrData = hdrFMSXDOS;
-                    hdrSize = sizeof(hdrFMSXDOS);
-                    break;
-                case TAPE_FMSX98AT:
-                    hdrData = hdrFMSX98;
-                    hdrSize = sizeof(hdrFMSX98);
-                    break;
-                case TAPE_SVICAS:
-                    hdrData = hdrSVICAS;
-                    hdrSize = sizeof(hdrSVICAS);
-                    break;
-            }
-
             if (format == TAPE_FMSXDOS) {
                 while (writePos & 7) {
                     UInt8 zero = 0;

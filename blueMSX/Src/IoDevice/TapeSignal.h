@@ -89,6 +89,11 @@ void tapeSignalWriteBit(int level);
 int  tapeSignalRecordDirty(void);
 int  tapeSignalSaveWav(const char* name);
 
+/* Decodes the mounted waveform back to a CAS byte stream. The marker is the
+** block separator Casette.c detected for this image. */
+int  tapeSignalSaveCas(const char* name, const UInt8* marker, int markerSize,
+                       int align8);
+
 /* Describes a blank image and a recorded one the same way */
 #define TAPE_WAV_HEADER_SIZE 44
 void tapeSignalWavHeader(UInt8* header, UInt32 sampleCount);

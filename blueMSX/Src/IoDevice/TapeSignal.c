@@ -823,6 +823,181 @@ int tapeSignalSaveWav(const char* name)
 }
 
 /*****************************************************************************
+** KCS decoder
+******************************************************************************/
+
+/* A lead-in shorter than this is noise rather than the start of a block */
+#define KCS_MIN_LEADIN  256
+
+typedef struct {
+    UInt32 index;
+    UInt32 unit;        /* half cycle of the lead-in tone, so any baud decodes */
+} KcsReader;
+
+/* One bit: a zero is two half cycles at half the tone rate, a one is four at
+** the tone rate. Returns the bit, or -1 once the framing stops making sense. */
+static int kcsBit(KcsReader* r)
+{
+    /* Every half cycle of the cell has to sit in the same band as the first,
+    ** or a glitch passes as a short one and a dropout as a long one. */
+    UInt32 narrow = r->unit / 2;
+    UInt32 wide   = r->unit * 3 / 2;
+    UInt32 top    = r->unit * 3;
+    UInt32 save   = r->index;
+    UInt32 w      = readPulse(sig, &r->index);
+    int    n, i;
+
+    if (w == 0 || w < narrow || w > top) {
+        r->index = save;
+        return -1;
+    }
+    n = w > wide ? 2 : 4;
+    for (i = 1; i < n; i++) {
+        UInt32 next = readPulse(sig, &r->index);
+        if (next == 0 || next < narrow || next > top || (next > wide) != (w > wide)) {
+            r->index = save;
+            return -1;
+        }
+    }
+    return n == 2 ? 0 : 1;
+}
+
+static int kcsByte(KcsReader* r, UInt8* value)
+{
+    UInt32 save = r->index;
+    UInt8  v    = 0;
+    int    i;
+
+    if (kcsBit(r) != 0) {
+        r->index = save;
+        return 0;
+    }
+    for (i = 0; i < 8; i++) {
+        int b = kcsBit(r);
+        if (b < 0) {
+            r->index = save;
+            return 0;
+        }
+        v |= (UInt8)(b << i);
+    }
+    for (i = 0; i < 2; i++) {
+        if (kcsBit(r) != 1) {
+            r->index = save;
+            return 0;
+        }
+    }
+    *value = v;
+    return 1;
+}
+
+/* Runs of equal width pulses are the lead-in; its width sets the bit scale */
+static int kcsFindBlock(KcsReader* r)
+{
+    while (r->index < sig->pulseCount) {
+        UInt32 start = r->index;
+        UInt32 first = readPulse(sig, &r->index);
+        UInt32 run   = 1;
+
+        while (r->index < sig->pulseCount) {
+            UInt32 save = r->index;
+            UInt32 w    = readPulse(sig, &r->index);
+            if (w < first - first / 4 || w > first + first / 4) {
+                r->index = save;
+                break;
+            }
+            run++;
+        }
+        if (run >= KCS_MIN_LEADIN) {
+            r->unit = first;
+            return 1;
+        }
+        if (r->index == start) {
+            break;
+        }
+    }
+    return 0;
+}
+
+static int casAppend(UInt8** buf, UInt32* size, UInt32* alloc,
+                     const UInt8* data, UInt32 count)
+{
+    if (*size + count > *alloc) {
+        UInt32 want = *alloc ? *alloc : 65536;
+        UInt8* p;
+
+        while (want < *size + count) {
+            want *= 2;
+        }
+        p = realloc(*buf, want);
+        if (p == NULL) {
+            return 0;
+        }
+        *buf   = p;
+        *alloc = want;
+    }
+    memcpy(*buf + *size, data, count);
+    *size += count;
+    return 1;
+}
+
+/* Decoded into memory first: opening the file would truncate it, and a
+** waveform the decoder cannot read must not cost the caller its image. */
+int tapeSignalSaveCas(const char* name, const UInt8* marker, int markerSize,
+                      int align8)
+{
+    static const UInt8 pad[8] = { 0 };
+    KcsReader r;
+    FILE*  file;
+    UInt8* buf    = NULL;
+    UInt32 size   = 0;
+    UInt32 alloc  = 0;
+    int    blocks = 0;
+    int    ok     = 1;
+
+    if (sig == NULL || marker == NULL || markerSize <= 0) {
+        return 0;
+    }
+
+    r.index = 0;
+    r.unit  = 0;
+    while (ok && kcsFindBlock(&r)) {
+        UInt8 value;
+        int   wrote = 0;
+
+        while (ok && kcsByte(&r, &value)) {
+            if (wrote == 0) {
+                if (align8 && (size & 7) != 0) {
+                    ok = casAppend(&buf, &size, &alloc, pad, 8 - (size & 7));
+                }
+                ok = ok && casAppend(&buf, &size, &alloc, marker, (UInt32)markerSize);
+            }
+            ok = ok && casAppend(&buf, &size, &alloc, &value, 1);
+            wrote++;
+        }
+        if (wrote > 0) {
+            blocks++;
+        }
+    }
+
+    if (!ok || blocks == 0) {
+        free(buf);
+        return 0;
+    }
+
+    file = fopen(name, "wb");
+    if (file == NULL) {
+        free(buf);
+        return 0;
+    }
+    ok = fwrite(buf, 1, size, file) == size;
+    if (fclose(file) != 0) {
+        ok = 0;
+    }
+    free(buf);
+    return ok;
+}
+
+/*****************************************************************************
 ** Motor and signal read
 ******************************************************************************/
 
