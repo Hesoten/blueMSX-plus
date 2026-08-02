@@ -137,7 +137,9 @@ UInt8 tapeRead(UInt8* value)
 
 UInt8 tapeWrite(UInt8 value)
 {
-    if (ramImageBuffer != NULL && !tapeIsSignalOnly()) {
+    /* Once a recording holds what the byte image cannot, appending here would
+    ** write into a buffer the eject no longer saves. Fail the save instead. */
+    if (ramImageBuffer != NULL && !tapeIsSignalOnly() && !tapeSignalRecordDirty()) {
         if (ramImagePos >= ramImageSize) {
             char* newBuf = realloc(ramImageBuffer, ramImageSize + 128);
             if (newBuf) {
@@ -167,7 +169,8 @@ static void refreshSignal(void)
     TapeSignalBuilder* builder;
     TapeSignalSource   source;
 
-    if (!signalDirty || ramImageBuffer == NULL) {
+    /* A recording makes the mounted waveform newer than the bytes read here */
+    if (!signalDirty || ramImageBuffer == NULL || tapeSignalRecordDirty()) {
         return;
     }
 
@@ -241,9 +244,16 @@ void tapeSetDirectory(char* baseDir, char* prefix) {
     strcpy(tapeBaseDir, baseDir);
 }
 
+/* WAV only so far: TSX preserves a real load's timing, CAS carries bytes */
+static void updateRecordable(void)
+{
+    tapeSignalSetRecordable(tapeFormat == TAPE_WAV && tapeRdWr);
+}
+
 void tapeSetReadOnly(int readOnly)
 {
     tapeRdWr = !readOnly;
+    updateRecordable();
 }
 
 int tapeInsert(char *name, const char *fileInZipFile) 
@@ -260,7 +270,9 @@ int tapeInsert(char *name, const char *fileInZipFile)
             fclose(file);
         }
 
-        if (*tapeName && tapeRdWr) {
+        /* Rewriting a WAV re-renders megabytes, so only once it has changed */
+        if (*tapeName && tapeRdWr &&
+            (tapeFormat != TAPE_WAV || tapeSignalRecordDirty())) {
             tapeSave(tapeName, tapeFormat);
         }
 
@@ -280,6 +292,7 @@ int tapeInsert(char *name, const char *fileInZipFile)
 
     tapeSignalEject();
     signalDirty = 0;
+    updateRecordable();
 
     if(!name) {
         return 1;
@@ -388,6 +401,7 @@ int tapeInsert(char *name, const char *fileInZipFile)
         tapeSignalSetRefreshCallback(refreshSignal);
         signalDirty = 1;
     }
+    updateRecordable();
 
     return ramImageBuffer != NULL;
 }
@@ -407,6 +421,11 @@ int tapeSave(char *name, TapeFormat format)
 
     if (ramImageBuffer == NULL) {
         return 0;
+    }
+
+    /* A recorded WAV lives as a waveform, not as the bytes still held here */
+    if (format == TAPE_WAV) {
+        return tapeSignalSaveWav(name);
     }
 
     if (format != TAPE_FMSX98AT && format != TAPE_FMSXDOS && format != TAPE_SVICAS) {
@@ -466,22 +485,10 @@ int tapeSave(char *name, TapeFormat format)
     return 1;
 }
 
-#define TAPE_WAV_RATE 44100
-
-static void putLe(UInt8* p, UInt32 value, int bytes)
-{
-    while (bytes--) {
-        *p++ = (UInt8)value;
-        value >>= 8;
-    }
-}
-
-/* A tape the user just created carries no recording yet: CAS is simply an
-** empty byte stream, WAV needs the 44 byte header that says zero samples.
-** Only the two formats the new tape dialog offers are accepted. */
+/* A blank tape: CAS is an empty byte stream, WAV a header of zero samples */
 int tapeImageCreate(const char* name, TapeFormat format)
 {
-    UInt8 hdr[44];
+    UInt8 hdr[TAPE_WAV_HEADER_SIZE];
     FILE* file;
     int   ok;
 
@@ -498,17 +505,7 @@ int tapeImageCreate(const char* name, TapeFormat format)
         return 1;
     }
 
-    memcpy(hdr,      "RIFF", 4);   putLe(hdr +  4, 36, 4);
-    memcpy(hdr +  8, "WAVE", 4);
-    memcpy(hdr + 12, "fmt ", 4);   putLe(hdr + 16, 16, 4);
-    putLe(hdr + 20, 1, 2);                          /* PCM */
-    putLe(hdr + 22, 1, 2);                          /* mono */
-    putLe(hdr + 24, TAPE_WAV_RATE, 4);
-    putLe(hdr + 28, TAPE_WAV_RATE, 4);              /* byte rate, 8 bit mono */
-    putLe(hdr + 32, 1, 2);                          /* block align */
-    putLe(hdr + 34, 8, 2);                          /* bits per sample */
-    memcpy(hdr + 36, "data", 4);   putLe(hdr + 40, 0, 4);
-
+    tapeSignalWavHeader(hdr, 0);
     ok = fwrite(hdr, 1, sizeof(hdr), file) == sizeof(hdr);
     fclose(file);
     return ok;
@@ -551,10 +548,20 @@ TapeContent* tapeGetContent(int* count)
 
     *count = 0;
 
-    /* A signal only image has no byte stream to scan; the parser indexed it */
+    /* A signal only image has no byte stream to scan; the parser indexed it.
+    ** Copied out because seeking can remount the tape and free that array. */
     if (tapeIsSignalOnly()) {
+        int n;
+        TapeContent* src;
+
         ensureSignal();
-        return tapeSignalGetContent(count);
+        src = tapeSignalGetContent(&n);
+        if (n > 1024) {
+            n = 1024;
+        }
+        memcpy(tapeContent, src, n * sizeof(TapeContent));
+        *count = n;
+        return tapeContent;
     }
 
     if (ramImageBuffer == NULL) {

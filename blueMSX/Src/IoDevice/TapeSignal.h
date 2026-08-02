@@ -79,6 +79,20 @@ void tapeSignalSetRefreshCallback(TapeSignalRefreshCb cb);
 void  tapeSignalSetMotor(int on);
 UInt8 tapeSignalReadBit(void);
 
+/* Recording. The pin level comes from PPI port C bit 5 */
+void tapeSignalSetRecordable(int on);
+
+/* The format a recording belongs to when there is no waveform to take it from,
+** as with an image that is still blank */
+void tapeSignalSetBlankSource(TapeSignalSource source);
+void tapeSignalWriteBit(int level);
+int  tapeSignalRecordDirty(void);
+int  tapeSignalSaveWav(const char* name);
+
+/* Describes a blank image and a recorded one the same way */
+#define TAPE_WAV_HEADER_SIZE 44
+void tapeSignalWavHeader(UInt8* header, UInt32 sampleCount);
+
 UInt64 tapeSignalGetPosT(void);
 void   tapeSignalSetPosT(UInt64 t);
 void   tapeSignalSetPosByByte(UInt32 byteOffset);

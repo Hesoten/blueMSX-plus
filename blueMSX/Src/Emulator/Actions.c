@@ -1092,6 +1092,8 @@ void actionToggleDiskAutoReset() {
 
 void actionCasToggleReadonly() {
     state.properties->cassette.readOnly ^= 1;
+    /* The deck's own flag used to follow this only at the next startup */
+    tapeSetReadOnly(state.properties->cassette.readOnly);
     archUpdateMenu(0);
 }
 
@@ -1679,6 +1681,8 @@ void actionSetDiskAutoResetA(int value) {
 
 void actionSetCasReadonly(int value) {
     state.properties->cassette.readOnly = value ? 1 : 0;
+    /* The deck's own flag used to follow this only at the next startup */
+    tapeSetReadOnly(state.properties->cassette.readOnly);
     archUpdateMenu(0);
 }
 

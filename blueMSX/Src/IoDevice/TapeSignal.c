@@ -26,6 +26,10 @@
 #include "SaveState.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+
+/* After stdio.h: pkg_fopen overrides fopen for UTF-8 paths. */
+#include "PacketFileSystem.h"
 
 /* boardSystemTime64() counts at 6x the nominal Z80 clock scaled by
 ** HIRES_CYCLES_PER_LORES_CYCLE, so this divisor is exact. The 32 bit
@@ -83,6 +87,7 @@ struct TapeSignalBuilder {
 /* Mounted tape */
 static TapeSignalBuilder* sig = NULL;
 static TapeSignalSource   sigSource = TAPE_SIG_NONE;
+static TapeSignalSource   blankSource = TAPE_SIG_WAV;
 
 /* Emulated time tracking */
 static UInt64 tapeT;
@@ -93,6 +98,15 @@ static int    driving;
 static int    refreshArmed;
 static UInt64 lastBoostArmT;
 static TapeSignalRefreshCb refreshCb = NULL;
+
+/* rec holds what was captured since the motor started, spliced in when it stops */
+static int    recordable;
+static TapeSignalBuilder* rec;
+static UInt64 recStartT;
+static UInt64 recMotorT;
+static UInt64 recEdgeT;
+static int    recPinLevel;
+static int    recDirty;
 
 /* Position read from a save state, applied once a waveform is mounted */
 static int    stPending;
@@ -272,7 +286,8 @@ UInt32 tapeSignalBuilderTimeAsByte(const TapeSignalBuilder* b)
     return b != NULL ? timeAsByte(b->timeT) : 0;
 }
 
-void tapeSignalBuilderMarkBytePos(TapeSignalBuilder* b, UInt32 byteOffset)
+/* Marks must stay sorted by both fields for the bisection in findByteMark */
+static void addMarkAt(TapeSignalBuilder* b, UInt64 timeT, UInt32 byteOffset)
 {
     ByteMark* m;
 
@@ -289,9 +304,16 @@ void tapeSignalBuilderMarkBytePos(TapeSignalBuilder* b, UInt32 byteOffset)
         b->byteMark      = m;
         b->byteMarkAlloc = alloc;
     }
-    b->byteMark[b->byteMarkCount].timeT      = b->timeT;
+    b->byteMark[b->byteMarkCount].timeT      = timeT;
     b->byteMark[b->byteMarkCount].byteOffset = byteOffset;
     b->byteMarkCount++;
+}
+
+void tapeSignalBuilderMarkBytePos(TapeSignalBuilder* b, UInt32 byteOffset)
+{
+    if (b != NULL) {
+        addMarkAt(b, b->timeT, byteOffset);
+    }
 }
 
 void tapeSignalBuilderAddIndex(TapeSignalBuilder* b, TapeContentType type,
@@ -337,11 +359,12 @@ static UInt32 readPulse(const TapeSignalBuilder* b, UInt32* index)
 }
 
 /* Advance a cursor so that it covers time t, returning the level there */
-static UInt8 advanceCursor(UInt64 t, UInt32* index, UInt64* edgeT, UInt8* level)
+static UInt8 advanceCursor(const TapeSignalBuilder* b, UInt64 t, UInt32* index,
+                           UInt64* edgeT, UInt8* level)
 {
-    while (*index < sig->pulseCount) {
+    while (*index < b->pulseCount) {
         UInt32 saved = *index;
-        UInt32 width = readPulse(sig, index);
+        UInt32 width = readPulse(b, index);
         if (*edgeT + width > t) {
             *index = saved;
             break;
@@ -381,7 +404,7 @@ static void seekCursor(UInt64 t, UInt32* index, UInt64* edgeT, UInt8* level)
     *edgeT = sig->seek[lo].timeT;
     *level = sig->seek[lo].level;
 
-    advanceCursor(t, index, edgeT, level);
+    advanceCursor(sig, t, index, edgeT, level);
 }
 
 /*****************************************************************************
@@ -391,15 +414,18 @@ static void seekCursor(UInt64 t, UInt32* index, UInt64* edgeT, UInt8* level)
 static void updateTime(void)
 {
     UInt64 now   = boardSystemTime64();
-    UInt64 delta = now - lastSysTime;
+    /* A state load moves the board clock, and while recording there is no end
+    ** of tape to clamp against, so an underflow here would have no backstop. */
+    UInt64 delta = now > lastSysTime ? now - lastSysTime : 0;
 
     lastSysTime = now;
 
-    if (motorOn && sig != NULL) {
+    if (motorOn && (sig != NULL || rec != NULL)) {
         delta  += sysFrac;
         tapeT  += delta / TICKS_PER_TSTATE;
         sysFrac = delta % TICKS_PER_TSTATE;
-        if (tapeT > sig->timeT) {
+        /* Only playback stops at the end; recording runs past it and grows the tape */
+        if (rec == NULL && tapeT > sig->timeT) {
             tapeT = sig->timeT;
         }
     }
@@ -443,6 +469,9 @@ int tapeSignalInstall(TapeSignalBuilder* b, TapeSignalSource source)
     audioT  = 0;
     driving = 0;
     lastBoostArmT = 0;
+    /* A recording anchors on the motor start, but this tape has its own zero */
+    recMotorT = 0;
+    recEdgeT  = 0;
     reanchorTime();
 
     curIndex = 0;  curEdgeT = 0;  curLevel = 0;
@@ -465,6 +494,11 @@ void tapeSignalEject(void)
     tapeT     = 0;
     audioT    = 0;
 
+    /* A tape pulled out mid recording takes the unspliced material with it */
+    tapeSignalBuilderDestroy(rec);
+    rec       = NULL;
+    recDirty  = 0;
+
     /* A tape swapped in while the motor runs still gets built on the next read */
     refreshArmed = 1;
 }
@@ -477,6 +511,315 @@ int tapeSignalIsActive(void)
 int tapeSignalIsDriving(void)
 {
     return sig != NULL && driving;
+}
+
+/* Build or rebuild the waveform on the first transport access after the motor
+** starts. Machines whose BIOS trap serves the tape never get here, so they
+** never pay for it, and one attempt per motor start bounds a failing build. */
+static void refreshIfArmed(void)
+{
+    /* Never mid recording: remounting would discard what was captured */
+    if (!refreshArmed || !motorOn || rec != NULL) {
+        return;
+    }
+    if (refreshCb != NULL) {
+        refreshCb();
+        reanchorTime();
+    }
+    refreshArmed = 0;   /* after the call: install re-arms on eject */
+}
+
+/*****************************************************************************
+** Recording
+******************************************************************************/
+
+void tapeSignalSetRecordable(int on)
+{
+    recordable = on ? 1 : 0;
+}
+
+void tapeSignalSetBlankSource(TapeSignalSource source)
+{
+    blankSource = source;
+}
+
+int tapeSignalRecordDirty(void)
+{
+    return recDirty;
+}
+
+/* Clamp rather than truncate: a folded width would run the tape backwards */
+static void addWidePulse(TapeSignalBuilder* out, UInt64 width)
+{
+    tapeSignalBuilderAddPulse(out, width > 0xfffffffful ? 0xfffffffful : (UInt32)width);
+}
+
+/* The splice keeps absolute time, so the marks either side of the recording
+** still describe their own pulses; only the overwritten span loses its. The
+** content list is a directory, kept whole so untouched files stay listed. */
+static void carryIndex(TapeSignalBuilder* out, UInt64 recEndT,
+                       TapeSignalSource source)
+{
+    UInt32 i;
+
+    if (sig == NULL) {
+        return;
+    }
+    /* Only a byte stream needs marks; a tape measured in time converts on its own */
+    if (source == TAPE_SIG_CAS) {
+        for (i = 0; i < sig->byteMarkCount; i++) {
+            UInt64 t = sig->byteMark[i].timeT;
+            if (t <= recStartT || t >= recEndT) {
+                addMarkAt(out, t, sig->byteMark[i].byteOffset);
+            }
+        }
+    }
+    if (sig->contentCount > 0) {
+        memcpy(out->content, sig->content, sig->contentCount * sizeof(TapeContent));
+        out->contentCount = sig->contentCount;
+    }
+}
+
+/* Overwrite the way a real deck does: nothing after the recording moves, and
+** what it did not reach stays put, headless, instead of being truncated away.
+** tailWidth is held out of src so the seam below can absorb it. */
+static void spliceRecording(TapeSignalBuilder* src, UInt64 tailWidth)
+{
+    TapeSignalSource   source = sigSource != TAPE_SIG_NONE ? sigSource : blankSource;
+    TapeSignalBuilder* out    = tapeSignalBuilderCreate();
+    UInt64 recEndT = recStartT + src->timeT + tailWidth;
+    UInt64 edgeT   = 0;
+    UInt32 index   = 0;
+    UInt32 i       = 0;
+
+    if (out == NULL) {
+        return;
+    }
+
+    /* Head: the tape ahead of where the deck started writing */
+    while (sig != NULL && index < sig->pulseCount) {
+        UInt32 saved = index;
+        UInt32 width = readPulse(sig, &index);
+        if (edgeT + width > recStartT) {
+            index = saved;
+            break;
+        }
+        tapeSignalBuilderAddPulse(out, width);
+        edgeT += width;
+    }
+    if (edgeT < recStartT) {
+        /* Cut the pulse straddling the start so the head ends exactly there */
+        addWidePulse(out, recStartT - edgeT);
+    }
+
+    while (i < src->pulseCount) {
+        tapeSignalBuilderAddPulse(out, readPulse(src, &i));
+    }
+
+    if (sig == NULL || sig->timeT <= recEndT) {
+        addWidePulse(out, tailWidth);
+    }
+    else {
+        UInt64 tailEdgeT;
+        UInt32 tailIndex;
+        UInt8  tailLevel;
+        UInt64 rest;
+
+        seekCursor(recEndT, &tailIndex, &tailEdgeT, &tailLevel);
+        rest = tailEdgeT + readPulse(sig, &tailIndex) - recEndT;
+
+        /* Grow the last pulse when the old level continues across the seam,
+        ** so the splice does not invent an edge that was never on the tape. */
+        if (out->level == tailLevel) {
+            addWidePulse(out, tailWidth + rest);
+        }
+        else {
+            addWidePulse(out, tailWidth);
+            addWidePulse(out, rest);
+        }
+        while (tailIndex < sig->pulseCount) {
+            tapeSignalBuilderAddPulse(out, readPulse(sig, &tailIndex));
+        }
+    }
+
+    carryIndex(out, recEndT, source);
+
+    if (tapeSignalInstall(out, source)) {
+        recDirty = 1;
+        tapeSignalSetPosT(recEndT);
+        /* The recording is what put the tape here, so the signal cursor is the
+        ** authority on the position even though nothing has played yet. */
+        driving = 1;
+    }
+}
+
+static void finishRecording(void)
+{
+    TapeSignalBuilder* done = rec;
+    UInt64 tailWidth;
+
+    if (done == NULL) {
+        return;
+    }
+    tailWidth = tapeT > recEdgeT ? tapeT - recEdgeT : 0;
+
+    rec = NULL;     /* the eject inside the splice frees whatever rec holds */
+
+    if (!done->failed && (done->pulseCount > 0 || tailWidth > 0)) {
+        spliceRecording(done, tailWidth);
+    }
+    tapeSignalBuilderDestroy(done);
+
+    /* The monitor was following rec, which is gone now: put it back on the
+    ** tape even when the splice never happened. */
+    audioT = tapeT;
+    seekCursor(audioT, &audIndex, &audEdgeT, &audLevel);
+}
+
+void tapeSignalWriteBit(int level)
+{
+    int changed;
+
+    level       = level ? 1 : 0;
+    changed     = level != recPinLevel;
+    recPinLevel = level;
+
+    if (!changed || !recordable || !motorOn) {
+        return;
+    }
+
+    /* A save never polls the read side, so this is where a tape inserted
+    ** under a running motor gets its waveform built to splice into. */
+    refreshIfArmed();
+    updateTime();
+
+    if (rec == NULL) {
+        rec = tapeSignalBuilderCreate();
+        if (rec == NULL) {
+            return;
+        }
+        /* A running deck writes from the moment the motor starts, so the quiet
+        ** lead-in erases too. Without it the old signal shows through the gap
+        ** the BIOS leaves between a file header and its data. */
+        recStartT = recMotorT;
+        if (tapeT > recStartT) {
+            addWidePulse(rec, tapeT - recStartT);
+        }
+        /* The monitor now follows rec, whose time starts at recStartT */
+        audioT   = recStartT;
+        audIndex = 0;
+        audEdgeT = 0;
+        audLevel = 0;
+    }
+    else {
+        /* Two flips inside one T-state still make an edge, so never skip one */
+        addWidePulse(rec, tapeT > recEdgeT ? tapeT - recEdgeT : 1);
+    }
+    recEdgeT = tapeT;
+
+    ledSetCas(1);
+
+    /* Same throttle as the read side, which a save never reaches */
+    if (tapeT - lastBoostArmT >= (UInt64)BOOST_ARM_MS * TAPE_TSTATE_FREQ / 1000) {
+        lastBoostArmT = tapeT;
+        boardSetCasActive();
+    }
+}
+
+/*****************************************************************************
+** WAV writer
+******************************************************************************/
+
+/* 8 bit mono, swinging inside the range so a reader's DC follower has room */
+#define WAV_RATE   44100
+#define WAV_HIGH   0xd0
+#define WAV_LOW    0x30
+
+static void putLe(UInt8* p, UInt32 value, int bytes)
+{
+    while (bytes--) {
+        *p++ = (UInt8)value;
+        value >>= 8;
+    }
+}
+
+static int writeRun(FILE* file, UInt8 value, UInt32 count)
+{
+    UInt8 buf[4096];
+
+    while (count > 0) {
+        UInt32 n = count < sizeof(buf) ? count : (UInt32)sizeof(buf);
+        memset(buf, value, n);
+        if (fwrite(buf, 1, n, file) != n) {
+            return 0;
+        }
+        count -= n;
+    }
+    return 1;
+}
+
+/* Rounding up throughout makes the per pulse counts telescope to the total */
+static UInt32 sampleAt(UInt64 t)
+{
+    return (UInt32)((t * WAV_RATE + TAPE_TSTATE_FREQ - 1) / TAPE_TSTATE_FREQ);
+}
+
+void tapeSignalWavHeader(UInt8* hdr, UInt32 sampleCount)
+{
+    memcpy(hdr,      "RIFF", 4);   putLe(hdr +  4, 36 + sampleCount, 4);
+    memcpy(hdr +  8, "WAVE", 4);
+    memcpy(hdr + 12, "fmt ", 4);   putLe(hdr + 16, 16, 4);
+    putLe(hdr + 20, 1, 2);                      /* PCM */
+    putLe(hdr + 22, 1, 2);                      /* mono */
+    putLe(hdr + 24, WAV_RATE, 4);
+    putLe(hdr + 28, WAV_RATE, 4);               /* byte rate, 8 bit mono */
+    putLe(hdr + 32, 1, 2);                      /* block align */
+    putLe(hdr + 34, 8, 2);                      /* bits per sample */
+    memcpy(hdr + 36, "data", 4);   putLe(hdr + 40, sampleCount, 4);
+}
+
+int tapeSignalSaveWav(const char* name)
+{
+    UInt8  hdr[TAPE_WAV_HEADER_SIZE];
+    FILE*  file;
+    UInt64 edgeT = 0;
+    UInt32 index = 0;
+    UInt32 done  = 0;
+    UInt32 total;
+    UInt8  level = 0;
+
+    if (sig == NULL) {
+        return 0;
+    }
+    total = sampleAt(sig->timeT);
+
+    file = fopen(name, "wb");
+    if (file == NULL) {
+        return 0;
+    }
+    tapeSignalWavHeader(hdr, total);
+
+    if (fwrite(hdr, 1, sizeof(hdr), file) != sizeof(hdr)) {
+        fclose(file);
+        return 0;
+    }
+
+    while (index < sig->pulseCount) {
+        edgeT += readPulse(sig, &index);
+        {
+            UInt32 upto = sampleAt(edgeT);
+            if (!writeRun(file, level ? WAV_HIGH : WAV_LOW, upto - done)) {
+                fclose(file);
+                return 0;
+            }
+            done = upto;
+        }
+        level ^= 1;
+    }
+
+    /* The last block only reaches the disk here, so a full volume shows up
+    ** as a close failure rather than as a silently short image. */
+    return fclose(file) == 0;
 }
 
 /*****************************************************************************
@@ -501,22 +844,19 @@ void tapeSignalSetMotor(int on)
     motorOn      = on;
     sysFrac      = 0;
     refreshArmed = on;
+    recMotorT    = tapeT;
+
+    /* The BIOS stops the motor when a save ends: the point to commit */
+    if (!on) {
+        finishRecording();
+    }
 }
 
 UInt8 tapeSignalReadBit(void)
 {
     UInt8 level;
 
-    /* Build or rebuild the waveform on the first read after the motor starts.
-    ** Machines whose BIOS trap serves the load never poll here, so they never
-    ** pay for it, and one attempt per motor start bounds a failing build. */
-    if (refreshArmed && motorOn) {
-        if (refreshCb != NULL) {
-            refreshCb();
-            reanchorTime();
-        }
-        refreshArmed = 0;   /* after the call: install re-arms on eject */
-    }
+    refreshIfArmed();
 
     if (sig == NULL) {
         return 0;
@@ -528,7 +868,7 @@ UInt8 tapeSignalReadBit(void)
         return curLevel;
     }
 
-    level   = advanceCursor(tapeT, &curIndex, &curEdgeT, &curLevel);
+    level   = advanceCursor(sig, tapeT, &curIndex, &curEdgeT, &curLevel);
     driving = 1;
 
     ledSetCas(1);
@@ -560,6 +900,10 @@ UInt64 tapeSignalGetPosT(void)
 
 void tapeSignalSetPosT(UInt64 t)
 {
+    /* Moving the tape under a recording would leave it anchored to a timeline
+    ** that no longer exists, so commit what was captured before the jump. */
+    finishRecording();
+
     if (sig == NULL) {
         return;
     }
@@ -580,6 +924,10 @@ void tapeSignalSetPosT(UInt64 t)
     audioLp1      = 0;
     audioLp2      = 0;
     lastBoostArmT = tapeT;
+    /* Where a recording started under the motor is now here, not back where
+    ** the deck was before the seek */
+    recMotorT     = tapeT;
+    recEdgeT      = tapeT;
 }
 
 /* Index of the last byte mark at or before the given key. Both fields grow
@@ -670,7 +1018,7 @@ TapeContent* tapeSignalGetContent(int* count)
 ******************************************************************************/
 
 /* Mean level over [from, to), scaled to +-AUDIO_PEAK */
-static Int32 averageLevel(UInt64 from, UInt64 to)
+static Int32 averageLevel(const TapeSignalBuilder* b, UInt64 from, UInt64 to)
 {
     UInt64 high = 0;
     UInt64 t    = from;
@@ -679,12 +1027,17 @@ static Int32 averageLevel(UInt64 from, UInt64 to)
         UInt32 saved, width;
         UInt64 edgeEnd;
 
-        advanceCursor(t, &audIndex, &audEdgeT, &audLevel);
+        advanceCursor(b, t, &audIndex, &audEdgeT, &audLevel);
         saved = audIndex;
-        width = readPulse(sig, &audIndex);
+        width = readPulse(b, &audIndex);
         audIndex = saved;
         if (width == 0) {
-            break;                      /* past the end of the tape */
+            /* No edge yet beyond here: a recording in progress ends on the
+            ** level the pin is holding, and so does the end of a tape. */
+            if (audLevel) {
+                high += to - t;
+            }
+            break;
         }
         edgeEnd = audEdgeT + width;
         if (edgeEnd > to) {
@@ -704,11 +1057,15 @@ static Int32 averageLevel(UInt64 from, UInt64 to)
 
 Int32* tapeSignalRenderAudio(Int32* buffer, UInt32 count)
 {
+    /* A deck monitors what its head is doing, so a save is heard from the
+    ** material being written rather than from the tape underneath it. */
+    const TapeSignalBuilder* src  = rec != NULL ? rec : sig;
+    UInt64                   base = rec != NULL ? recStartT : 0;
     UInt64 step;
     UInt64 target;
     UInt32 i;
 
-    if (sig == NULL || count == 0) {
+    if (src == NULL || count == 0) {
         return NULL;
     }
 
@@ -736,7 +1093,7 @@ Int32* tapeSignalRenderAudio(Int32* buffer, UInt32 count)
         }
         /* Averaging over the sample interval band limits the square wave, and
         ** at fast forward speeds it averages whole cycles away to silence. */
-        v = averageLevel(audioT, to);
+        v = averageLevel(src, audioT - base, to - base);
         audioT = to;
 
         /* A deck monitors the tape through a small speaker, so the upper
@@ -763,6 +1120,9 @@ Int32* tapeSignalRenderAudio(Int32* buffer, UInt32 count)
 /* The tape position is not rewound: a reset does not move a real cassette */
 void tapeSignalReset(void)
 {
+    /* Whatever was being captured belongs to the timeline that just ended */
+    tapeSignalBuilderDestroy(rec);
+    rec = NULL;
     reanchorTime();
 }
 

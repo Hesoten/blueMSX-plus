@@ -153,6 +153,8 @@ static void writeCHi(MsxPPI* ppi, UInt8 value)
         ledSetCapslock(!(value & 0x04));
         /* Port C bit 4 is CASON, active low: 0 = motor on */
         tapeSignalSetMotor(!(value & 0x01));
+        /* Port C bit 5 is the tape output the deck records */
+        tapeSignalWriteBit(value & 0x02);
     }
 }
 
