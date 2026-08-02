@@ -83,6 +83,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->errorNoRomInZip                 = "Nessun file .ROM trovato nell'archivio compresso.";
     ls->errorNoDskInZip                 = "Nessun file .DSK trovato nell'archivio compresso.";
     ls->errorCreateDiskImage            = "Impossibile creare il file immagine disco.";
+    ls->errorCreateTapeImage            = "Impossibile creare il file immagine cassetta.";
     ls->errorNoCasInZip                 = "Nessun file .CAS trovato nell'archivio compresso.";
     ls->errorDirAsDskOverflow           = "%d file (%d KB totali) non sono entrati nell'immagine disco da 720 KB e sono stati saltati.";
     ls->errorNoHelp                     = "Non trovo il file della guida in linea di blueMSX+.";
@@ -186,6 +187,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->menuDiskAutoStart               = "Riavvia quando inserisci";
     ls->menuCartAutoReset               = "Riavvia quando inserisci/rimuovi";
 
+    ls->menuCasInsertNew                = "Inserisci una nuova cassetta...";
     ls->menuCasRewindAfterInsert        = "Riavvolgi quando inserisci";
     ls->menuCasUseReadOnly              = "Simula una cassetta di sola lettura";
     ls->lmenuCasSaveAs                  = "Salva la cassetta come...";
@@ -316,6 +318,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->dlgInsertDiskB                  = "Inserisci un disco nell'unità B";
     ls->dlgInsertHarddisk               = "Inserisci un disco rigido";
     ls->dlgInsertCas                    = "Inserisci una cassetta nel registratore";
+    ls->dlgCreateCas                    = "Crea una nuova cassetta";
     ls->dlgRomType                      = "Tipo ROM:";
     ls->dlgDiskSize                     = "Dimensione:";                                            
 

@@ -82,6 +82,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->errorNoRomInZip         = "Nie znaleziono pliku .rom w archiwum zip.";
     ls->errorNoDskInZip         = "Nie znaleziono pliku .dsk w archiwum zip.";
     ls->errorCreateDiskImage    = "Nie można utworzyć pliku obrazu dysku.";
+    ls->errorCreateTapeImage    = "Nie można utworzyć pliku obrazu taśmy.";
     ls->errorNoCasInZip         = "Nie znaleziono pliku .cas w archiwum zip.";
     ls->errorDirAsDskOverflow   = "%d plik(ów) (%d KB łącznie) nie zmieściło się w obrazie dysku 720 KB i zostały pominięte.";
     ls->errorNoHelp             = "Nie znaleziono pliku pomocy blueMSX+.";
@@ -185,6 +186,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->menuDiskAutoStart       = "Resetuj po zmianie dyskietki";
     ls->menuCartAutoReset       = "Resetuj po zmianie kartrid¿a";
     
+    ls->menuCasInsertNew         = "Włóż nowy obraz taśmy";
     ls->menuCasRewindAfterInsert = "Najpierw przewiñ do pocz¹tku";
     ls->menuCasUseReadOnly       = "U¿ywaj kaset 'tylko do odczytu'";
     ls->lmenuCasSaveAs           = "Zapisz kasetê jako...";
@@ -315,6 +317,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->dlgInsertDiskB          = "Wybierz dyskietkê dla stacji B";
     ls->dlgInsertHarddisk       = "Pod³¹cz Twardy Dysk";                   
     ls->dlgInsertCas            = "Wybierz kasetê";
+    ls->dlgCreateCas            = "Utwórz nowy obraz taśmy";
     ls->dlgRomType              = "Typ romu:";
     ls->dlgDiskSize             = "Disk Size:";             // New in 2.6
 

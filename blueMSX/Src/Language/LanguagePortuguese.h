@@ -82,6 +82,7 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->errorNoRomInZip         = "Nao foi localizado arquivo .ROM dentro do arquivo zip.";
     ls->errorNoDskInZip         = "Nao foi localizado arquivo .DSK dentro do arquivo zip.";
     ls->errorCreateDiskImage    = "Não foi possível criar o arquivo de imagem de disco.";
+    ls->errorCreateTapeImage    = "Não foi possível criar o arquivo de imagem de fita.";
     ls->errorNoCasInZip         = "Nao foi localizado arquivo .CAS dentro do arquivo zip.";
     ls->errorDirAsDskOverflow   = "%d arquivo(s) (%d KB no total) não couberam na imagem de disco de 720 KB e foram ignorados.";
     ls->errorNoHelp             = "Nao foi localizado arquivo ajuda do blueMSX+";
@@ -185,6 +186,7 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->menuDiskAutoStart       = "Reset após inserir";
     ls->menuCartAutoReset       = "Reset após inserir/remover";
     
+    ls->menuCasInsertNew         = "Inserir nova fita";
     ls->menuCasRewindAfterInsert = "Rebobinar após inserir";
     ls->menuCasUseReadOnly       = "Usar fita cassete somente para leitura";
     ls->lmenuCasSaveAs           = "Salvar imagem da fita cassete como...";
@@ -314,6 +316,7 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->dlgInsertDiskA          = "Insira disco no drive A";
     ls->dlgInsertDiskB          = "Insira disco no drive B";
     ls->dlgInsertCas            = "Insira cassette tape";
+    ls->dlgCreateCas            = "Criar nova fita";
     ls->dlgInsertHarddisk       = "Insira disco duro";                   
     ls->dlgRomType              = "Tipo rom:"; 
     ls->dlgDiskSize             = "Tamanho do disco:";             

@@ -91,6 +91,7 @@ void actionEmuSpeedNormal();
 void actionEmuSpeedDecrease();
 void actionEmuSpeedIncrease();
 void actionCasInsert();
+void actionCasInsertNew();
 void actionCasRewind();
 void actionCasSetPosition(); 
 void actionEmuResetSoft();

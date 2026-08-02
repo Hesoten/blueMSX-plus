@@ -108,6 +108,7 @@ char* langErrorDirectXFailed();
 char* langErrorNoRomInZip();
 char* langErrorNoDskInZip();
 char* langErrorCreateDiskImage();
+char* langErrorCreateTapeImage();
 char* langErrorNoCasInZip();
 char* langErrorDirAsDskOverflow();
 char* langErrorNoHelp();
@@ -210,6 +211,7 @@ char* langMenuDiskInsertNew();
 char* langMenuDiskAutoStart();
 char* langMenuCartAutoReset();
 
+char* langMenuCasInsertNew();
 char* langMenuCasRewindAfterInsert();
 char* langMenuCasUseReadOnly();
 char* langMenuCasSaveAs();
@@ -339,6 +341,7 @@ char* langDlgInsertDiskA();
 char* langDlgInsertDiskB();
 char* langDlgInsertHarddisk();
 char* langDlgInsertCas();
+char* langDlgCreateCas();
 char* langDlgRomType();
 char* langDlgDiskSize();
 

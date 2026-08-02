@@ -48,6 +48,7 @@ void   tapeSetDirectory(char* baseDir, char* prefix);
 int    tapeInsert(char *name, const char *fileInZipFile);
 int    tapeIsInserted();
 int    tapeSave(char *name, TapeFormat format);
+int    tapeImageCreate(const char* name, TapeFormat format);
 void tapeLoadState();
 void tapeSaveState();
 void tapeRewindNextInsert(void);

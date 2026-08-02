@@ -299,6 +299,7 @@ char* langErrorDirectXFailed() { return ls->errorDirectXFailed; }
 char* langErrorNoRomInZip() { return ls->errorNoRomInZip; }
 char* langErrorNoDskInZip() { return ls->errorNoDskInZip; }
 char* langErrorCreateDiskImage() { return ls->errorCreateDiskImage; }
+char* langErrorCreateTapeImage() { return ls->errorCreateTapeImage; }
 char* langErrorNoCasInZip() { return ls->errorNoCasInZip; }
 char* langErrorDirAsDskOverflow() { return ls->errorDirAsDskOverflow; }
 char* langErrorNoHelp() { return ls->errorNoHelp; }
@@ -402,6 +403,7 @@ char* langMenuDiskDirInsert() { return ls->menuDiskDirInsert; }
 char* langMenuDiskAutoStart() { return ls->menuDiskAutoStart; }
 char* langMenuCartAutoReset() { return ls->menuCartAutoReset; }
 
+char* langMenuCasInsertNew() { return ls->menuCasInsertNew; }
 char* langMenuCasRewindAfterInsert() { return ls->menuCasRewindAfterInsert; }
 char* langMenuCasUseReadOnly() { return ls->menuCasUseReadOnly; }
 char* langMenuCasSaveAs() { return ls->lmenuCasSaveAs; }
@@ -531,6 +533,7 @@ char* langDlgInsertDiskA() { return ls->dlgInsertDiskA; }
 char* langDlgInsertDiskB() { return ls->dlgInsertDiskB; }
 char* langDlgInsertHarddisk() { return ls->dlgInsertHarddisk; }
 char* langDlgInsertCas() { return ls->dlgInsertCas; }
+char* langDlgCreateCas() { return ls->dlgCreateCas; }
 char* langDlgRomType() { return ls->dlgRomType; }
 char* langDlgDiskSize() { return ls->dlgDiskSize; }
 

@@ -82,6 +82,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->errorNoRomInZip         = "无法在 zip 压缩包内找到 .rom 文件。";
     ls->errorNoDskInZip         = "无法在 zip 压缩包内找到 .dsk 文件。";
     ls->errorCreateDiskImage    = "无法创建磁盘镜像文件。";
+    ls->errorCreateTapeImage    = "无法创建磁带映像文件。";
     ls->errorNoCasInZip         = "无法在 zip 压缩包内找到 .cas 文件。";
     ls->errorDirAsDskOverflow   = "%d 个文件 (总共 %d KB) 未能适配 720 KB 磁盘镜像，已跳过。";
     ls->errorNoHelp             = "无法找到 blueMSX+ 帮助文件。";
@@ -185,6 +186,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->menuDiskAutoStart       = "插入后重置";
     ls->menuCartAutoReset       = "插入/移除后重置";
 
+    ls->menuCasInsertNew         = "插入新的磁带映像";
     ls->menuCasRewindAfterInsert = "插入后倒带";
     ls->menuCasUseReadOnly       = "使用磁带时只读";
     ls->lmenuCasSaveAs           = "另存为...";
@@ -315,6 +317,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->dlgInsertDiskB          = "请在驱动器 B 插入软盘映像";
     ls->dlgInsertHarddisk       = "请插入硬盘";                   
     ls->dlgInsertCas            = "请插入磁带";
+    ls->dlgCreateCas            = "创建新的磁带映像";
     ls->dlgRomType              = "Rom 类型:";
     ls->dlgDiskSize             = "软盘大小:";             
 

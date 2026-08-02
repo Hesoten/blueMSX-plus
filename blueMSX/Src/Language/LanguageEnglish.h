@@ -82,6 +82,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->errorNoRomInZip         = "Could not locate a .ROM file in the ZIP archive.";
     ls->errorNoDskInZip         = "Could not locate a .DSK file in the ZIP archive.";
     ls->errorCreateDiskImage    = "Could not create the disk image file.";
+    ls->errorCreateTapeImage    = "Could not create the tape image file.";
     ls->errorNoCasInZip         = "Could not locate a .CAS file in the ZIP archive.";
     ls->errorDirAsDskOverflow   = "%d file(s) (%d KB total) did not fit in the 720 KB disk image and were skipped.";
     ls->errorNoHelp             = "Could not locate the blueMSX+ help file.";
@@ -185,6 +186,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->menuDiskAutoStart       = "Reset After Insert";
     ls->menuCartAutoReset       = "Reset After Insert/Remove";
 
+    ls->menuCasInsertNew        = "Insert New Tape Image";
     ls->menuCasRewindAfterInsert= "Rewind After Insert";
     ls->menuCasUseReadOnly      = "Use Cassette Image Read Only";
     ls->lmenuCasSaveAs          = "Save Cassette Image As...";
@@ -315,6 +317,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->dlgInsertDiskB          = "Insert disk image into drive B";
     ls->dlgInsertHarddisk       = "Insert Hard Disk";
     ls->dlgInsertCas            = "Insert cassette tape";
+    ls->dlgCreateCas            = "Create a new tape image";
     ls->dlgRomType              = "ROM Type:";
     ls->dlgDiskSize             = "Disk Size:";             
 

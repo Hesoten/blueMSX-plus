@@ -82,6 +82,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->errorNoRomInZip         = "Il n'y a pas de fichier .rom dans votre archive zip.";
     ls->errorNoDskInZip         = "Il n'y a pas de fichier .dsk dans votre archive zip.";
     ls->errorCreateDiskImage    = "Impossible de créer le fichier image disque.";
+    ls->errorCreateTapeImage    = "Impossible de créer le fichier image cassette.";
     ls->errorNoCasInZip         = "Il n'y a pas de fichier .cas dans votre archive zip";
     ls->errorDirAsDskOverflow   = "%d fichier(s) (%d KB au total) ne tiennent pas dans l'image disque de 720 KB et ont été ignorés.";
     ls->errorNoHelp             = "Impossible de trouver le fichier d'aide.";
@@ -185,6 +186,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->menuDiskAutoStart       = "Reset après insertion";
     ls->menuCartAutoReset       = "Reset après insérer/éjecter";
 
+    ls->menuCasInsertNew        = "Insérer une nouvelle cassette";
     ls->menuCasRewindAfterInsert= "Rembobiner après insertion";
     ls->menuCasUseReadOnly      = "Utiliser l'image de la cassette en mode lecture seule";
     ls->lmenuCasSaveAs          = "Sauver l'image de la cassette sous...";
@@ -315,6 +317,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->dlgInsertDiskB          = "Insérer une disquette dans le lecteur B";
     ls->dlgInsertHarddisk       = "Insérer un disque dur";                   
     ls->dlgInsertCas            = "Insérer une cassette dans le lecteur";
+    ls->dlgCreateCas            = "Créer une nouvelle cassette";
     ls->dlgRomType              = "Type de Rom:"; 
     ls->dlgDiskSize             = "Taille du disque:";             
 

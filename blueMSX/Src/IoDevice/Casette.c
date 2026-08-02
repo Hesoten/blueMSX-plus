@@ -466,6 +466,54 @@ int tapeSave(char *name, TapeFormat format)
     return 1;
 }
 
+#define TAPE_WAV_RATE 44100
+
+static void putLe(UInt8* p, UInt32 value, int bytes)
+{
+    while (bytes--) {
+        *p++ = (UInt8)value;
+        value >>= 8;
+    }
+}
+
+/* A tape the user just created carries no recording yet: CAS is simply an
+** empty byte stream, WAV needs the 44 byte header that says zero samples.
+** Only the two formats the new tape dialog offers are accepted. */
+int tapeImageCreate(const char* name, TapeFormat format)
+{
+    UInt8 hdr[44];
+    FILE* file;
+    int   ok;
+
+    if (name == NULL || (format != TAPE_WAV && format != TAPE_FMSXDOS)) {
+        return 0;
+    }
+
+    file = fopen(name, "wb");
+    if (file == NULL) {
+        return 0;
+    }
+    if (format == TAPE_FMSXDOS) {
+        fclose(file);
+        return 1;
+    }
+
+    memcpy(hdr,      "RIFF", 4);   putLe(hdr +  4, 36, 4);
+    memcpy(hdr +  8, "WAVE", 4);
+    memcpy(hdr + 12, "fmt ", 4);   putLe(hdr + 16, 16, 4);
+    putLe(hdr + 20, 1, 2);                          /* PCM */
+    putLe(hdr + 22, 1, 2);                          /* mono */
+    putLe(hdr + 24, TAPE_WAV_RATE, 4);
+    putLe(hdr + 28, TAPE_WAV_RATE, 4);              /* byte rate, 8 bit mono */
+    putLe(hdr + 32, 1, 2);                          /* block align */
+    putLe(hdr + 34, 8, 2);                          /* bits per sample */
+    memcpy(hdr + 36, "data", 4);   putLe(hdr + 40, 0, 4);
+
+    ok = fwrite(hdr, 1, sizeof(hdr), file) == sizeof(hdr);
+    fclose(file);
+    return ok;
+}
+
 TapeFormat tapeGetFormat()
 {
     return tapeFormat;

@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -40,6 +43,8 @@ char* openRomFile(HWND hwndOwner, char* pTitle, char* pFilter, char* pDir,
 char* openNewHdFile(HWND hwndOwner, char* pTitle, char* pFilter, char* pDir, 
                     char* defExt, int* filterIndex);
 char* openNewDskFile(HWND hwndOwner, char* pTitle, char* pFilter, char* pDir, char* defExt, int* filterIndex);
+/* The file type combo picks the tape format, so there is no default extension */
+char* openNewCasFile(HWND hwndOwner, char* pTitle, char* pFilter, char* pDir);
 char* saveFile(HWND hwndOwner, char* pTitle, char* pFilter, int* pFilterIndex, char* pDir, char* defExt);
 char* saveStateFile(HWND hwndOwner, char* pTitle, char* pFilter, int* pFilterIndex, char* pDir, int* showPreview);
 char* openConfigFile(HWND parent, char* title, char* description,

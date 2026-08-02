@@ -214,6 +214,8 @@ extern int showLoadMemoryDlg(HWND hwnd);
 #define ID_FILE_TAPE_READONLY           41505
 #define ID_FILE_TAPE_AUTOREWNIND        41506
 #define ID_FILE_TAPE_HISTORY            41507
+/* 41508 to 41536 belong to ID_FILE_TAPE_HISTORY + i, one per MAX_HISTORY entry */
+#define ID_FILE_TAPE_INSERTNEW          41537
 
 #define ID_HARDDISK_REMOVEALL           41599
 
@@ -1112,6 +1114,10 @@ static HMENU menuCreateCassette(Properties* pProperties, Shortcuts* shortcuts)
 
     sprintf(langBuffer, "%s      \t%hs", langMenuInsert(), shortcutsToString(shortcuts->casInsert));
     AppendMenuU(hMenu, MF_STRING, ID_FILE_TAPE_INSERT, langBuffer);
+
+    if (appConfigGetInt("menu.file.cassette.insertnew", 1) > 0) {
+        AppendMenuU(hMenu, MF_STRING, ID_FILE_TAPE_INSERTNEW, langMenuCasInsertNew());
+    }
 
     sprintf(langBuffer, "%s%hs%hs", langMenuEject(), (*pProperties->media.tapes[0].fileName ? ": " : ""), getCleanFileName(pProperties->media.tapes[0].fileName));
     AppendMenuU(hMenu, MF_STRING | (*pProperties->media.tapes[0].fileName ? 0 : MF_GRAYED), ID_FILE_TAPE_REMOVE, langBuffer);
@@ -2276,6 +2282,7 @@ int menuCommand(Properties* pProperties, int command)
     case ID_FILE_TAPE_POSITION:             actionCasSetPosition();         return 0;
     case ID_FILE_TAPE_REWIND:               actionCasRewind();              return 0;
     case ID_FILE_TAPE_INSERT:               actionCasInsert();              return 0;
+    case ID_FILE_TAPE_INSERTNEW:            actionCasInsertNew();           return 0;
     case ID_FILE_TAPE_REMOVE:               actionCasRemove();              return 0;
     case ID_FILE_TAPE_READONLY:             actionCasToggleReadonly();      return 0;
     case ID_FILE_TAPE_AUTOREWNIND:          actionToggleCasAutoRewind();    return 0;

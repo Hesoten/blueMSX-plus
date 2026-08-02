@@ -79,6 +79,7 @@ typedef struct {
     char* errorNoRomInZip;
     char* errorNoDskInZip;
     char* errorCreateDiskImage;
+    char* errorCreateTapeImage;
     char* errorNoCasInZip;
     char* errorDirAsDskOverflow;
     char* errorNoHelp;
@@ -181,6 +182,7 @@ typedef struct {
     char* menuDiskAutoStart;
     char* menuCartAutoReset;
 
+    char* menuCasInsertNew;
     char* menuCasRewindAfterInsert;
     char* menuCasUseReadOnly;
     char* lmenuCasSaveAs;
@@ -311,6 +313,7 @@ typedef struct {
     char* dlgInsertDiskB;
     char* dlgInsertHarddisk;
     char* dlgInsertCas;
+    char* dlgCreateCas;
     char* dlgRomType;
     char* dlgDiskSize;
 

@@ -919,6 +919,24 @@ void actionCasInsert() {
     archUpdateMenu(0);
 }
 
+void actionCasInsertNew() {
+    char* filename;
+
+    emulatorSuspend();
+    filename = archFilenameGetNewCas(state.properties);
+    if (filename != NULL) {
+        if (state.properties->cassette.rewindAfterInsert) tapeRewindNextInsert();
+        insertCassette(state.properties, 0, filename, NULL, 0);
+        /* A blank tape is pointless while the deck refuses to record on it, but
+        ** only after the insert: clearing it first would let the eject write
+        ** back the image the user had mounted read only. */
+        state.properties->cassette.readOnly = 0;
+        tapeSetReadOnly(0);
+    }
+    emulatorResume();
+    archUpdateMenu(0);
+}
+
 void actionCasRewind() {
     if (emulatorGetState() != EMU_STOPPED) {
             emulatorSuspend();

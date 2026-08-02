@@ -84,6 +84,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->errorNoRomInZip         = "zipファイルの中に.romファイルが見つかりません。";
     ls->errorNoDskInZip         = "zipファイルの中に.dskファイルが見つかりません。";
     ls->errorCreateDiskImage    = "ディスクイメージファイルを作成できませんでした。";
+    ls->errorCreateTapeImage    = "テープイメージファイルを作成できませんでした。";
     ls->errorNoCasInZip         = "zipファイルの中に.casファイルが見つかりません。";
     ls->errorDirAsDskOverflow   = "%d 個のファイル (合計 %d KB) が 720 KB ディスクイメージに収まらず除外されました。";
     ls->errorNoHelp             = "blueMSX+ のヘルプファイルが見つかりません。";
@@ -187,6 +188,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->menuDiskAutoStart       = "挿入/取り出し後リセット";
     ls->menuCartAutoReset       = "挿入/取り出し後リセット";
 
+    ls->menuCasInsertNew         = "新規テープイメージを挿入";
     ls->menuCasRewindAfterInsert = "挿入後巻き戻す";
     ls->menuCasUseReadOnly       = "テープを読み込み専用にする";
     ls->lmenuCasSaveAs           = "テープを別名で保存...";
@@ -317,6 +319,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->dlgInsertDiskB          = "ディスクイメージをドライブBに挿入";
     ls->dlgInsertHarddisk       = "ハードディスクを挿入";                   
     ls->dlgInsertCas            = "カセットテープを挿入";
+    ls->dlgCreateCas            = "新しいテープイメージを作成";
     ls->dlgRomType              = "ROM タイプ:"; 
     ls->dlgDiskSize             = "ディスク要領:";             
 

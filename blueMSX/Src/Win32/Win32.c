@@ -5288,6 +5288,25 @@ char* archFilenameGetOpenCas(Properties* properties)
     return fileName;
 }
 
+char* archFilenameGetNewCas(Properties* properties)
+{
+    char* title = langDlgCreateCas();
+    char  extensionList[512];
+    char* defaultDir = properties->cassette.defDir;
+    char* fileName;
+
+    /* WAV first: it is the only format the deck can record a signal into */
+    sprintf(extensionList, "%s   (*.wav)#*.wav#%s   (*.cas)#*.cas#", langFileCas(), langFileCas());
+    replaceCharInString(extensionList, '#', 0);
+
+    enterDialogShow();
+    fileName = openNewCasFile(getMainHwnd(), title, extensionList, defaultDir);
+    exitDialogShow();
+    SetCurrentDirectoryU(st.pCurDir);
+
+    return fileName;
+}
+
 char* archFilenameGetOpenDisk(Properties* properties, int drive, int allowCreate)
 {
     char* title = drive == 1 ? langDlgInsertDiskB() : langDlgInsertDiskA();

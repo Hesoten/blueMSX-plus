@@ -82,6 +82,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->errorNoRomInZip         = "Kunde inte hitta en .rom fil i zip arkivet.";
     ls->errorNoDskInZip         = "Kunde inte hitta en .dsk fil i zip arkivet.";
     ls->errorCreateDiskImage    = "Kunde inte skapa diskavbildsfilen.";
+    ls->errorCreateTapeImage    = "Kunde inte skapa kassettfilen.";
     ls->errorNoCasInZip         = "Kunde inte hitta en .cas fil i zip arkivet.";
     ls->errorDirAsDskOverflow   = "%d fil(er) (%d KB totalt) får inte plats i 720 KB-diskavbilden och hoppades över.";
     ls->errorNoHelp             = "Kunde inte hitta hjälpfilen.";
@@ -185,6 +186,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->menuDiskAutoStart       = "Starta om efter insättning/urdragning";
     ls->menuCartAutoReset       = "Starta om efter insättning/urdragning";
 
+    ls->menuCasInsertNew        = "Sätt in ny kassettfil";
     ls->menuCasRewindAfterInsert= "Spola tillbaka vid insättning";
     ls->menuCasUseReadOnly      = "Tillåt endast läsning av kassett";
     ls->lmenuCasSaveAs          = "Spara kassett som...";
@@ -316,6 +318,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->dlgInsertDiskB          = "Sätt in diskett i diskettstation B";
     ls->dlgInsertHarddisk       = "Sätt in hårddisk";
     ls->dlgInsertCas            = "Sätt in kassettband";
+    ls->dlgCreateCas            = "Skapa ny kassettfil";
     ls->dlgRomType              = "Rom Typ:";
     ls->dlgDiskSize             = "Diskettstorlek:";             
 
