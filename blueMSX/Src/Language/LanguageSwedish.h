@@ -188,6 +188,7 @@ void langInitSwedish(LanguageStrings* ls)
 
     ls->menuCasInsertNew        = "Sätt in ny kassettfil";
     ls->menuCasRewindAfterInsert= "Spola tillbaka vid insättning";
+    ls->menuCasSaveMonitor      = "Medhörning vid sparning";
     ls->menuCasUseReadOnly      = "Tillåt endast läsning av kassett";
     ls->lmenuCasSaveAs          = "Spara kassett som...";
     ls->menuCasSetPosition      = "Sätt position";

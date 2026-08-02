@@ -184,6 +184,7 @@ typedef struct {
 
     char* menuCasInsertNew;
     char* menuCasRewindAfterInsert;
+    char* menuCasSaveMonitor;
     char* menuCasUseReadOnly;
     char* lmenuCasSaveAs;
     char* menuCasSetPosition;

@@ -34,6 +34,7 @@
 #include "AudioMixer.h"
 #include "Board.h"
 #include "Casette.h"
+#include "TapeSignal.h"
 #include "Debugger.h"
 #include "Disk.h"
 #include "DirAsDisk.h"
@@ -1099,6 +1100,12 @@ void actionCasToggleReadonly() {
 
 void actionToggleCasAutoRewind() {
     state.properties->cassette.rewindAfterInsert ^= 1;
+    archUpdateMenu(0);
+}
+
+void actionToggleCasSaveMonitor() {
+    state.properties->cassette.saveMonitor ^= 1;
+    tapeSignalSetSaveMonitor(state.properties->cassette.saveMonitor);
     archUpdateMenu(0);
 }
 

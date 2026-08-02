@@ -216,6 +216,7 @@ extern int showLoadMemoryDlg(HWND hwnd);
 #define ID_FILE_TAPE_HISTORY            41507
 /* 41508 to 41536 belong to ID_FILE_TAPE_HISTORY + i, one per MAX_HISTORY entry */
 #define ID_FILE_TAPE_INSERTNEW          41537
+#define ID_FILE_TAPE_SAVEMONITOR        41538
 
 #define ID_HARDDISK_REMOVEALL           41599
 
@@ -1125,6 +1126,8 @@ static HMENU menuCreateCassette(Properties* pProperties, Shortcuts* shortcuts)
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
 
     AppendMenuU(hMenu, MF_STRING | (pProperties->cassette.rewindAfterInsert ? MFS_CHECKED : 0), ID_FILE_TAPE_AUTOREWNIND, langMenuCasRewindAfterInsert());
+
+    AppendMenuU(hMenu, MF_STRING | (pProperties->cassette.saveMonitor ? MFS_CHECKED : 0), ID_FILE_TAPE_SAVEMONITOR, langMenuCasSaveMonitor());
 
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
 
@@ -2286,6 +2289,7 @@ int menuCommand(Properties* pProperties, int command)
     case ID_FILE_TAPE_REMOVE:               actionCasRemove();              return 0;
     case ID_FILE_TAPE_READONLY:             actionCasToggleReadonly();      return 0;
     case ID_FILE_TAPE_AUTOREWNIND:          actionToggleCasAutoRewind();    return 0;
+    case ID_FILE_TAPE_SAVEMONITOR:          actionToggleCasSaveMonitor();   return 0;
     case ID_FILE_TAPE_SAVE:                 actionCasSave();                return 0;
     case ID_HARDDISK_REMOVEALL:             actionHarddiskRemoveAll();      return 0;
     }

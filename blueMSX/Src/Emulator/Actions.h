@@ -155,6 +155,7 @@ void actionMenuTools(int x, int y);
 void actionToggleCartAutoReset();
 void actionToggleDiskAutoReset();
 void actionToggleCasAutoRewind();
+void actionToggleCasSaveMonitor();
 void actionToggleSpriteEnable();
 void actionToggleFdcTiming();
 void actionToggleHddSdBoost();

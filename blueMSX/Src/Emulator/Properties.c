@@ -532,6 +532,7 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->cassette.showCustomFiles = 1;
     properties->cassette.readOnly        = 1;
     properties->cassette.rewindAfterInsert = 0;
+    properties->cassette.saveMonitor    = 0;
 
     properties->ports.Lpt.type           = P_LPT_NONE;
     properties->ports.Lpt.emulation      = P_LPT_MSXPRN;
@@ -853,6 +854,7 @@ static void propLoad(Properties* properties)
     GET_INT_VALUE_2(propFile, cassette, showCustomFiles);
     GET_ENUM_VALUE_2(propFile, cassette, readOnly, BoolPair);
     GET_ENUM_VALUE_2(propFile, cassette, rewindAfterInsert, BoolPair);
+    GET_ENUM_VALUE_2(propFile, cassette, saveMonitor, BoolPair);
     
     GET_ENUM_VALUE_2(propFile, nowind, enableDos2, BoolPair);    
     GET_ENUM_VALUE_2(propFile, nowind, enableOtherDiskRoms, BoolPair);    
@@ -1197,6 +1199,7 @@ void propSave(Properties* properties)
     SET_INT_VALUE_2(propFile, cassette, showCustomFiles);
     SET_ENUM_VALUE_2(propFile, cassette, readOnly, YesNoPair);
     SET_ENUM_VALUE_2(propFile, cassette, rewindAfterInsert, YesNoPair);
+    SET_ENUM_VALUE_2(propFile, cassette, saveMonitor, YesNoPair);
 
     SET_ENUM_VALUE_2(propFile, nowind, enableDos2, YesNoPair);    
     SET_ENUM_VALUE_2(propFile, nowind, enableOtherDiskRoms, BoolPair);    

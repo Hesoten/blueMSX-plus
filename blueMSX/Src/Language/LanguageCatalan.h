@@ -188,6 +188,7 @@ void langInitCatalan(LanguageStrings* ls)
 
     ls->menuCasInsertNew        = "Insereix una nova imatge de cinta";
     ls->menuCasRewindAfterInsert= "Rebobina després de la inserció";
+    ls->menuCasSaveMonitor      = "So de monitoratge en desar";
     ls->menuCasUseReadOnly      = "Utilitza una imatge de casset només lectura";
     ls->lmenuCasSaveAs          = "Anomena i desa la imatge de casset...";
     ls->menuCasSetPosition      = "Estableix la posició";

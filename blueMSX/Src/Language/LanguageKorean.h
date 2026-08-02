@@ -188,6 +188,7 @@ void langInitKorean(LanguageStrings* ls)
 
     ls->menuCasInsertNew         = "새로운 테이프 이미지 삽입";
     ls->menuCasRewindAfterInsert = "삽입후에 되감기";
+    ls->menuCasSaveMonitor       = "저장 중 모니터 소리 재생";
     ls->menuCasUseReadOnly       = "읽기전용";
     ls->lmenuCasSaveAs           = "다른 이름으로 저장...";
     ls->menuCasSetPosition      = "위치 설정";

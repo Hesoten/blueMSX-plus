@@ -405,6 +405,7 @@ char* langMenuCartAutoReset() { return ls->menuCartAutoReset; }
 
 char* langMenuCasInsertNew() { return ls->menuCasInsertNew; }
 char* langMenuCasRewindAfterInsert() { return ls->menuCasRewindAfterInsert; }
+char* langMenuCasSaveMonitor() { return ls->menuCasSaveMonitor; }
 char* langMenuCasUseReadOnly() { return ls->menuCasUseReadOnly; }
 char* langMenuCasSaveAs() { return ls->lmenuCasSaveAs; }
 char* langMenuCasSetPosition() { return ls->menuCasSetPosition; }

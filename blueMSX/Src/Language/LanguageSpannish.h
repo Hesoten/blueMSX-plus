@@ -188,6 +188,7 @@ void langInitSpanish(LanguageStrings* ls)
 
     ls->menuCasInsertNew         = "Insertar nueva imagen de Cinta";
     ls->menuCasRewindAfterInsert = "Rebobinar tras Insertar";
+    ls->menuCasSaveMonitor       = "Escuchar al guardar";
     ls->menuCasUseReadOnly       = "Usar Imagen de Cassette Sólo Lectura";
     ls->lmenuCasSaveAs           = "Salvar Imagen de Cassette Como...";
     ls->menuCasSetPosition      = "Posicionar";

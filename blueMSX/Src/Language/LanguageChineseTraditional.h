@@ -188,6 +188,7 @@ void langInitChineseTraditional(LanguageStrings* ls)
     
     ls->menuCasInsertNew         = "插入新的磁帶映像檔";
     ls->menuCasRewindAfterInsert = "插入之後迴帶";
+    ls->menuCasSaveMonitor       = "儲存時播放監聽聲音";
     ls->menuCasUseReadOnly       = "使用磁帶映像檔唯讀";
     ls->lmenuCasSaveAs           = "另存磁帶映像檔為...";
     ls->menuCasSetPosition      = "設定位置";

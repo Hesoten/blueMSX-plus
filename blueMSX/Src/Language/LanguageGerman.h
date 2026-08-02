@@ -182,6 +182,7 @@ void langInitGerman(LanguageStrings* ls)
 
     ls->menuCasInsertNew         = "Neues Cassetten-Image einfügen";
     ls->menuCasRewindAfterInsert = "Zurück nach Einfügen";
+    ls->menuCasSaveMonitor       = "Beim Speichern mithören";
     ls->menuCasUseReadOnly       = "Cassetten-Image nur lesend benutzen";
     ls->lmenuCasSaveAs           = "Speichere Cassetten-Image als ...";
     ls->menuCasSetPosition       = "Positionieren";

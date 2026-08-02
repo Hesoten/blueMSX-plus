@@ -190,6 +190,7 @@ void langInitJapanese(LanguageStrings* ls)
 
     ls->menuCasInsertNew         = "新規テープイメージを挿入";
     ls->menuCasRewindAfterInsert = "挿入後巻き戻す";
+    ls->menuCasSaveMonitor       = "セーブ中もモニター音を鳴らす";
     ls->menuCasUseReadOnly       = "テープを読み込み専用にする";
     ls->lmenuCasSaveAs           = "テープを別名で保存...";
     ls->menuCasSetPosition      = "テープ位置セット";

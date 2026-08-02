@@ -188,6 +188,7 @@ void langInitPortuguese(LanguageStrings* ls)
     
     ls->menuCasInsertNew         = "Inserir nova fita";
     ls->menuCasRewindAfterInsert = "Rebobinar após inserir";
+    ls->menuCasSaveMonitor       = "Monitorizar som ao guardar";
     ls->menuCasUseReadOnly       = "Usar fita cassete somente para leitura";
     ls->lmenuCasSaveAs           = "Salvar imagem da fita cassete como...";
     ls->menuCasSetPosition      = "Ajustar Posição";

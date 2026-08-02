@@ -89,6 +89,9 @@ void tapeSignalWriteBit(int level);
 int  tapeSignalRecordDirty(void);
 int  tapeSignalSaveWav(const char* name);
 
+/* Whether the deck is heard while it writes, as a few of them could be */
+void tapeSignalSetSaveMonitor(int on);
+
 /* Decodes the mounted waveform back to a CAS byte stream. The marker is the
 ** block separator Casette.c detected for this image. */
 int  tapeSignalSaveCas(const char* name, const UInt8* marker, int markerSize,

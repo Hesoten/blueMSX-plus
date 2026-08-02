@@ -188,6 +188,7 @@ void langInitPolish(LanguageStrings* ls)
     
     ls->menuCasInsertNew         = "Włóż nowy obraz taśmy";
     ls->menuCasRewindAfterInsert = "Najpierw przewiñ do pocz¹tku";
+    ls->menuCasSaveMonitor       = "Odsłuch podczas zapisu";
     ls->menuCasUseReadOnly       = "U¿ywaj kaset 'tylko do odczytu'";
     ls->lmenuCasSaveAs           = "Zapisz kasetê jako...";
     ls->menuCasSetPosition      = "Ustaw pozycjê";

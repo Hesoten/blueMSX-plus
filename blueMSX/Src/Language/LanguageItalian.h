@@ -189,6 +189,7 @@ void langInitItalian(LanguageStrings* ls)
 
     ls->menuCasInsertNew                = "Inserisci una nuova cassetta...";
     ls->menuCasRewindAfterInsert        = "Riavvolgi quando inserisci";
+    ls->menuCasSaveMonitor              = "Ascolta durante il salvataggio";
     ls->menuCasUseReadOnly              = "Simula una cassetta di sola lettura";
     ls->lmenuCasSaveAs                  = "Salva la cassetta come...";
     ls->menuCasSetPosition              = "Imposta la posizione del nastro...";

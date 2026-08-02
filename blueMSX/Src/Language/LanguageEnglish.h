@@ -188,6 +188,7 @@ void langInitEnglish(LanguageStrings* ls)
 
     ls->menuCasInsertNew        = "Insert New Tape Image";
     ls->menuCasRewindAfterInsert= "Rewind After Insert";
+    ls->menuCasSaveMonitor      = "Monitor Sound While Saving";
     ls->menuCasUseReadOnly      = "Use Cassette Image Read Only";
     ls->lmenuCasSaveAs          = "Save Cassette Image As...";
     ls->menuCasSetPosition      = "Set Position";

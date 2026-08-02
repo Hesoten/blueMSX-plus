@@ -501,6 +501,7 @@ typedef struct {
     int showCustomFiles;
     int readOnly;
     int rewindAfterInsert;
+    int saveMonitor;
 } CassetteProperties;
 
 typedef struct {

@@ -52,6 +52,7 @@
 #include "SaveState.h"
 #include "resource.h"
 #include "Casette.h"
+#include "TapeSignal.h"
 #include "PrinterIO.h"
 #include "UartIO.h"
 #include "MidiIO.h"
@@ -4187,6 +4188,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     actionInit(st.pVideo, pProperties, st.mixer);
     langInit();
     tapeSetReadOnly(pProperties->cassette.readOnly);
+    tapeSignalSetSaveMonitor(pProperties->cassette.saveMonitor);
     
     ethIfInitialize(pProperties);
     cdromInitialize();

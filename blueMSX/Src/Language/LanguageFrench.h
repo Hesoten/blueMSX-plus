@@ -188,6 +188,7 @@ void langInitFrench(LanguageStrings* ls)
 
     ls->menuCasInsertNew        = "Insérer une nouvelle cassette";
     ls->menuCasRewindAfterInsert= "Rembobiner après insertion";
+    ls->menuCasSaveMonitor      = "Écouter pendant la sauvegarde";
     ls->menuCasUseReadOnly      = "Utiliser l'image de la cassette en mode lecture seule";
     ls->lmenuCasSaveAs          = "Sauver l'image de la cassette sous...";
     ls->menuCasSetPosition      = "Définir la position";

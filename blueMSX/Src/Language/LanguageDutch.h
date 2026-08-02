@@ -188,6 +188,7 @@ void langInitDutch(LanguageStrings* ls)
 
     ls->menuCasInsertNew        = "Voer Nieuw Cassettebestand in";
     ls->menuCasRewindAfterInsert= "Terugspoelen na invoeren";
+    ls->menuCasSaveMonitor      = "Meeluisteren tijdens opslaan";
     ls->menuCasUseReadOnly      = "Gebruik Cassettebestand als Alleen-Lezen";
     ls->lmenuCasSaveAs          = "Cassettebestand opslaan als...";
     ls->menuCasSetPosition      = "Bepaal positie";

@@ -101,6 +101,7 @@ static TapeSignalRefreshCb refreshCb = NULL;
 
 /* rec holds what was captured since the motor started, spliced in when it stops */
 static int    recordable;
+static int    saveMonitor;
 static TapeSignalBuilder* rec;
 static UInt64 recStartT;
 static UInt64 recMotorT;
@@ -541,6 +542,11 @@ void tapeSignalSetRecordable(int on)
 void tapeSignalSetBlankSource(TapeSignalSource source)
 {
     blankSource = source;
+}
+
+void tapeSignalSetSaveMonitor(int on)
+{
+    saveMonitor = on ? 1 : 0;
 }
 
 int tapeSignalRecordDirty(void)
@@ -1245,6 +1251,13 @@ Int32* tapeSignalRenderAudio(Int32* buffer, UInt32 count)
     }
 
     updateTime();
+
+    /* Few decks could monitor what they were writing, so a save stays silent
+    ** unless the user asks to hear it. */
+    if (rec != NULL && !saveMonitor) {
+        audioT = tapeT;
+        return NULL;
+    }
     target = tapeT;
 
     if (target <= audioT) {

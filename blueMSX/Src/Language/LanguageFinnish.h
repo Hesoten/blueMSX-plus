@@ -190,6 +190,7 @@ void langInitFinnish(LanguageStrings* ls)
 
     ls->menuCasInsertNew         = "Uusi kasettitiedosto";
     ls->menuCasRewindAfterInsert = "Kelaa alkuun asetettaessa";
+    ls->menuCasSaveMonitor       = "Kuuntele tallennuksen aikana";
     ls->menuCasUseReadOnly       = "Kirjoitussuojaa kasetti";
     ls->lmenuCasSaveAs           = "Tallenna kasetti nimellä";
     ls->menuCasSetPosition      = "Valitse kohta";

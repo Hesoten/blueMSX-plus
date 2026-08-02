@@ -213,6 +213,7 @@ char* langMenuCartAutoReset();
 
 char* langMenuCasInsertNew();
 char* langMenuCasRewindAfterInsert();
+char* langMenuCasSaveMonitor();
 char* langMenuCasUseReadOnly();
 char* langMenuCasSaveAs();
 char* langMenuCasSetPosition();

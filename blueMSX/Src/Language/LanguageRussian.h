@@ -188,6 +188,7 @@ void langInitRussian(LanguageStrings* ls)
 
     ls->menuCasInsertNew        = "Вставить новый образ кассеты";
     ls->menuCasRewindAfterInsert= "Промотать после загрузки";
+    ls->menuCasSaveMonitor      = "Звук при записи на плёнку";
     ls->menuCasUseReadOnly      = "Испольовать образ кассеты только для чтения";
     ls->lmenuCasSaveAs          = "Сохранить образ кассеты как...";
     ls->menuCasSetPosition      = "Задать позицию";
