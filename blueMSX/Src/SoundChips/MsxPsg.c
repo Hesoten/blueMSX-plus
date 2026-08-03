@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -34,7 +37,7 @@
 #include "Led.h"
 #include "Switches.h"
 #include "Casette.h"
-#include "DAC.h"
+#include "TapeSignal.h"
 
 #include "MsxJoystickDevice.h"
 #include "MsxJoystick.h"
@@ -58,7 +61,6 @@ struct MsxPsg {
     UInt8 registers[2];
     UInt8 readValue[2];
     MsxJoystickDevice* devFun[2];
-    DAC*   dac;
 };
 
 static void joystickPortHandler(MsxPsg* msxPsg, int port, JoystickPortType type)
@@ -127,8 +129,6 @@ static UInt8 peek(MsxPsg* msxPsg, UInt16 address)
 
 static UInt8 read(MsxPsg* msxPsg, UInt16 address)
 {
-    UInt8 casdat = 0;
-
     if (address & 1) {
     	/* r15 */
         return msxPsg->registers[1];
@@ -152,18 +152,17 @@ static UInt8 read(MsxPsg* msxPsg, UInt16 address)
         /* ANSI/JIS */
         state |= 0x40;
         
-        /* cas signal */
-        // Call cassette Callback (for coin select
-        if (msxPsg->casCb != NULL && msxPsg->casCb(msxPsg->casRef)) {
+        /* Cassette input. The callback owns the pin when a device such as
+        ** the Forte II coin selector is wired to it, otherwise the tape does. */
+        if (msxPsg->casCb != NULL) {
+            if (msxPsg->casCb(msxPsg->casRef)) {
+                state |= 0x80;
+            }
+        }
+        else if (tapeSignalReadBit()) {
             state |= 0x80;
         }
 
-#if 0
-        // COmment out until cassette wave is working
-        tapeRead(&casdat);
-        state |= (casdat) ? 0:0x80;
-       	dacWrite(msxPsg->dac, DAC_CH_MONO, (casdat) ? 0 : 255);
-#endif
         msxPsg->readValue[address & 1] = state;
 
         return state;
@@ -252,7 +251,6 @@ static void destroy(MsxPsg* msxPsg)
     ay8910Destroy(msxPsg->ay8910);
     joystickPortUpdateHandlerUnregister();
     deviceManagerUnregister(msxPsg->deviceHandle);
-    dacDestroy(msxPsg->dac);
     if (msxPsg->devFun[0] != NULL && msxPsg->devFun[0]->destroy != NULL) {
 	    msxPsg->devFun[0]->destroy(msxPsg->devFun[0]);
     }
@@ -275,8 +273,6 @@ MsxPsg* msxPsgCreate(PsgType type, int stereo, int* pan, int maxPorts)
 
     msxPsg->ay8910 = ay8910Create(boardGetMixer(), AY8910_MSX, type, stereo, pan);
     msxPsg->maxPorts = maxPorts;
-
-    msxPsg->dac = dacCreate(boardGetMixer(), DAC_MONO);
 
     ay8910SetIoPort(msxPsg->ay8910, read, peek, write, msxPsg);
 

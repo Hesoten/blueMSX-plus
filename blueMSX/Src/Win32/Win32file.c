@@ -43,6 +43,8 @@
 #include "Win32FileDialog.h"
 #include "Language.h"
 #include "DiskFormat.h"
+#include "Casette.h"
+#include "IsFileExtension.h"
 
 /* After stdio.h: pkg_fopen overrides fopen for UTF-8 paths. */
 #include "PacketFileSystem.h"
@@ -362,6 +364,25 @@ char* openNewHdFile(HWND hwndOwner, char* pTitle, char* pFilter, char* pDir,
 
 #define ONEKB 1024
 
+/* The shared matcher, minus its non const parameter */
+static int hasExtension(const char* fileName, const char* ext)
+{
+    return isFileExtension(fileName, (char*)ext);
+}
+
+/* The shell dialog already appends the default extension, but a name typed
+** with a foreign one comes back untouched, so make sure it ends the way the
+** caller needs before the file is created. */
+static void appendExtension(char* fileName, size_t cap, const char* ext)
+{
+    if (ext == NULL || *ext == 0 || hasExtension(fileName, ext)) {
+        return;
+    }
+    if (strlen(fileName) + strlen(ext) < cap) {
+        strcat(fileName, ext);
+    }
+}
+
 static const struct {
     int size;
     char* (*translation)();
@@ -445,31 +466,60 @@ char* openNewDskFile(HWND hwndOwner, char* pTitle, char* pFilter, char* pDir,
 
     if (pDir != NULL) GetCurrentDirectoryU(MAX_PATH - 1, pDir);
 
-    if (defExt) {
-        size_t fnLen = strlen(pFileName);
-        size_t exLen = strlen(defExt);
-        int needAppend = 1;
-        if (fnLen > exLen) {
-            const char* tail = pFileName + fnLen - exLen;
-            size_t k;
-            needAppend = 0;
-            for (k = 0; k < exLen; k++) {
-                if (toupper((unsigned char)tail[k]) != toupper((unsigned char)defExt[k])) {
-                    needAppend = 1;
-                    break;
-                }
-            }
-        }
-        if (needAppend && fnLen + exLen < sizeof(pFileName)) {
-            strcat(pFileName, defExt);
-        }
-    }
+    appendExtension(pFileName, sizeof(pFileName), defExt);
+
     if (!diskImageCreate(pFileName, writeBytes, fmt)) {
         MessageBoxU(hwndOwner, langErrorCreateDiskImage(), langErrorTitle(), MB_ICONERROR | MB_OK);
         return NULL;
     }
-    return pFileName; 
-} 
+    return pFileName;
+}
+
+/* Order matches the filter list built by archFilenameGetNewCas, so the file
+** type the dialog reports picks both the format and the extension. */
+static const struct {
+    TapeFormat  format;
+    const char* ext;
+} casNewChoices[] = {
+    { TAPE_WAV,      ".wav" },
+    { TAPE_FMSXDOS,  ".cas" }
+};
+#define CAS_NEW_COUNT ((int)(sizeof(casNewChoices) / sizeof(casNewChoices[0])))
+
+char* openNewCasFile(HWND hwndOwner, char* pTitle, char* pFilter, char* pDir)
+{
+    static char pFileName[MAX_PATH * 4];
+    static int  selectedIdx = 1;   /* 1 based, persists across opens */
+    int i = (selectedIdx >= 1 && selectedIdx <= CAS_NEW_COUNT) ? selectedIdx - 1 : 0;
+
+    pFileName[0] = 0;
+    /* The default extension has to match the type the dialog opens on, or a
+    ** bare name comes back carrying the other format's suffix. */
+    if (!ShellSaveFileDialog(hwndOwner, pTitle, pFilter, pDir, casNewChoices[i].ext,
+                             &selectedIdx, pFileName, sizeof(pFileName))) {
+        return NULL;
+    }
+    if (pDir != NULL) GetCurrentDirectoryU(MAX_PATH - 1, pDir);
+
+    /* An extension typed by hand outranks the file type combo, which only
+    ** decides what a bare name becomes. Checking first also stops a ".cas"
+    ** name from growing a second ".wav" on the end. */
+    for (i = 0; i < CAS_NEW_COUNT; i++) {
+        if (hasExtension(pFileName, casNewChoices[i].ext)) {
+            break;
+        }
+    }
+    if (i == CAS_NEW_COUNT) {
+        i = (selectedIdx >= 1 && selectedIdx <= CAS_NEW_COUNT) ? selectedIdx - 1 : 0;
+        appendExtension(pFileName, sizeof(pFileName), casNewChoices[i].ext);
+    }
+
+    if (!tapeImageCreate(pFileName, casNewChoices[i].format)) {
+        MessageBoxU(hwndOwner, langErrorCreateTapeImage(), langErrorTitle(), MB_ICONERROR | MB_OK);
+        return NULL;
+    }
+    return pFileName;
+}
 
 //////////////////////////////////////////////////////////////////////////////////////
 
@@ -534,27 +584,10 @@ char* saveFile(HWND hwndOwner, char* pTitle, char* pFilter, int* pFilterIndex, c
     if (pFilterIndex) *pFilterIndex = idx;
     if (pDir != NULL) GetCurrentDirectoryU(MAX_PATH - 1, pDir);
 
-    if (defExt) {
-        size_t fnLen = strlen(pFileName);
-        size_t exLen = strlen(defExt);
-        int needAppend = 1;
-        if (fnLen > exLen) {
-            const char* tail = pFileName + fnLen - exLen;
-            size_t i;
-            needAppend = 0;
-            for (i = 0; i < exLen; i++) {
-                if (toupper((unsigned char)tail[i]) != toupper((unsigned char)defExt[i])) {
-                    needAppend = 1;
-                    break;
-                }
-            }
-        }
-        if (needAppend && fnLen + exLen < sizeof(pFileName)) {
-            strcat(pFileName, defExt);
-        }
-    }
-    return pFileName; 
-} 
+    appendExtension(pFileName, sizeof(pFileName), defExt);
+
+    return pFileName;
+}
 
 
 ///////////////////////////////////////////////////////////////////////////

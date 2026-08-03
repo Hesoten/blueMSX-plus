@@ -82,6 +82,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->errorNoRomInZip         = "Er zijn geen .ROM-bestanden gevonden in het ZIP-bestand.";
     ls->errorNoDskInZip         = "Er zijn geen .DSK-bestanden gevonden in het ZIP-bestand.";
     ls->errorCreateDiskImage    = "Kan de schijfkopie niet aanmaken.";
+    ls->errorCreateTapeImage    = "Kan het cassettebestand niet aanmaken.";
     ls->errorNoCasInZip         = "Er zijn geen .CAS-bestanden gevonden in het ZIP-bestand.";
     ls->errorDirAsDskOverflow   = "%d bestand(en) (%d KB totaal) pasten niet op de 720 KB-schijfkopie en zijn overgeslagen.";
     ls->errorNoHelp             = "Het blueMSX+ helpbestand is niet gevonden.";
@@ -185,7 +186,9 @@ void langInitDutch(LanguageStrings* ls)
     ls->menuDiskAutoStart       = "Herstart na invoeren";
     ls->menuCartAutoReset       = "Herstart na invoeren/uitwerpen";
 
+    ls->menuCasInsertNew        = "Voer Nieuw Cassettebestand in";
     ls->menuCasRewindAfterInsert= "Terugspoelen na invoeren";
+    ls->menuCasSaveMonitor      = "Meeluisteren tijdens opslaan";
     ls->menuCasUseReadOnly      = "Gebruik Cassettebestand als Alleen-Lezen";
     ls->lmenuCasSaveAs          = "Cassettebestand opslaan als...";
     ls->menuCasSetPosition      = "Bepaal positie";
@@ -315,6 +318,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->dlgInsertDiskB          = "Voer diskettebestand in Station B";
     ls->dlgInsertHarddisk       = "Voer harde schijf in";
     ls->dlgInsertCas            = "Voer cassettebestand in casettespeler";
+    ls->dlgCreateCas            = "Nieuw cassettebestand aanmaken";
     ls->dlgRomType              = "ROM Type:";
     ls->dlgDiskSize             = "Diskomvang:";
 
@@ -384,8 +388,10 @@ void langInitDutch(LanguageStrings* ls)
     ls->propEmuFrontSwitch      = " Voorpanel Schakelaar";
     ls->propEmuNoSpriteLimits   = " Sprite-limiet uitschakelen";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " MSX-toetsenbord eigenaardigheid emuleren";  // New in 2.9
-    ls->propEmuFdcTiming        = " Versnellen bij FDD-toegang";
-    ls->propEmuHddSdBoost       = " Versnellen tijdens HDD/SD-kaart toegang";
+    ls->propEmuBoostText        = "Versnellen bij apparaattoegang:";
+    ls->propEmuFdcTiming        = " FDD";
+    ls->propEmuCasBoost         = " Cassette";
+    ls->propEmuHddSdBoost       = " HDD/SD-kaart";
     ls->propEmuReversePlay      = " Achterwaarts afspelen inschakelen"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " Pauze Schakelaar";
     ls->propEmuAudioSwitch      = " MSX-AUDIO cartridge Schakelaar";

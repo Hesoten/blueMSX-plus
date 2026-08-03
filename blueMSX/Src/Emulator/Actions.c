@@ -34,6 +34,7 @@
 #include "AudioMixer.h"
 #include "Board.h"
 #include "Casette.h"
+#include "TapeSignal.h"
 #include "Debugger.h"
 #include "Disk.h"
 #include "DirAsDisk.h"
@@ -919,6 +920,24 @@ void actionCasInsert() {
     archUpdateMenu(0);
 }
 
+void actionCasInsertNew() {
+    char* filename;
+
+    emulatorSuspend();
+    filename = archFilenameGetNewCas(state.properties);
+    if (filename != NULL) {
+        if (state.properties->cassette.rewindAfterInsert) tapeRewindNextInsert();
+        insertCassette(state.properties, 0, filename, NULL, 0);
+        /* A blank tape is pointless while the deck refuses to record on it, but
+        ** only after the insert: clearing it first would let the eject write
+        ** back the image the user had mounted read only. */
+        state.properties->cassette.readOnly = 0;
+        tapeSetReadOnly(0);
+    }
+    emulatorResume();
+    archUpdateMenu(0);
+}
+
 void actionCasRewind() {
     if (emulatorGetState() != EMU_STOPPED) {
             emulatorSuspend();
@@ -1074,11 +1093,19 @@ void actionToggleDiskAutoReset() {
 
 void actionCasToggleReadonly() {
     state.properties->cassette.readOnly ^= 1;
+    /* The deck's own flag used to follow this only at the next startup */
+    tapeSetReadOnly(state.properties->cassette.readOnly);
     archUpdateMenu(0);
 }
 
 void actionToggleCasAutoRewind() {
     state.properties->cassette.rewindAfterInsert ^= 1;
+    archUpdateMenu(0);
+}
+
+void actionToggleCasSaveMonitor() {
+    state.properties->cassette.saveMonitor ^= 1;
+    tapeSignalSetSaveMonitor(state.properties->cassette.saveMonitor);
     archUpdateMenu(0);
 }
 
@@ -1292,6 +1319,13 @@ void actionMuteToggleYamahaSfg() {
 
 void actionMuteToggleMidi() {
     int channel = MIXER_CHANNEL_MIDI;
+    int newEnable = !state.properties->sound.mixerChannel[channel].enable;
+    state.properties->sound.mixerChannel[channel].enable = newEnable;
+    mixerEnableChannelType(state.mixer, channel, newEnable);
+}
+
+void actionMuteToggleCassette() {
+    int channel = MIXER_CHANNEL_CASSETTE;
     int newEnable = !state.properties->sound.mixerChannel[channel].enable;
     state.properties->sound.mixerChannel[channel].enable = newEnable;
     mixerEnableChannelType(state.mixer, channel, newEnable);
@@ -1513,6 +1547,11 @@ void actionVolumeSetMidi(int value) {
     mixerSetChannelTypeVolume(state.mixer, MIXER_CHANNEL_MIDI, value);
 }
 
+void actionVolumeSetCassette(int value) {
+    state.properties->sound.mixerChannel[MIXER_CHANNEL_CASSETTE].volume = value;
+    mixerSetChannelTypeVolume(state.mixer, MIXER_CHANNEL_CASSETTE, value);
+}
+
 void actionPanSetPsg(int value) {
     state.properties->sound.mixerChannel[MIXER_CHANNEL_PSG].pan = value;
     mixerSetChannelTypePan(state.mixer, MIXER_CHANNEL_PSG, value);
@@ -1561,6 +1600,11 @@ void actionPanSetKeyboard(int value) {
 void actionPanSetMidi(int value) {
     state.properties->sound.mixerChannel[MIXER_CHANNEL_MIDI].pan = value;
     mixerSetChannelTypePan(state.mixer, MIXER_CHANNEL_MIDI, value);
+}
+
+void actionPanSetCassette(int value) {
+    state.properties->sound.mixerChannel[MIXER_CHANNEL_CASSETTE].pan = value;
+    mixerSetChannelTypePan(state.mixer, MIXER_CHANNEL_CASSETTE, value);
 }
 
 void actionRenshaSetLevel(int value) {
@@ -1644,6 +1688,8 @@ void actionSetDiskAutoResetA(int value) {
 
 void actionSetCasReadonly(int value) {
     state.properties->cassette.readOnly = value ? 1 : 0;
+    /* The deck's own flag used to follow this only at the next startup */
+    tapeSetReadOnly(state.properties->cassette.readOnly);
     archUpdateMenu(0);
 }
 

@@ -84,6 +84,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->errorNoRomInZip         = "Zip paketista ei löytynyt .ROM tiedostoa.";
     ls->errorNoDskInZip         = "Zip paketista ei löytynyt .DSK tiedostoa.";
     ls->errorCreateDiskImage    = "Levykuvatiedoston luonti epäonnistui.";
+    ls->errorCreateTapeImage    = "Kasettitiedoston luonti epäonnistui.";
     ls->errorNoCasInZip         = "Zip paketista ei löytynyt .CAS tiedostoa.";
     ls->errorDirAsDskOverflow   = "%d tiedosto(a) (yhteensä %d KB) ei mahtunut 720 KB:n levykuvaan ja jäi väliin.";
     ls->errorNoHelp             = "blueMSX+:n ohjetiedostoa ei löytynyt.";
@@ -187,7 +188,9 @@ void langInitFinnish(LanguageStrings* ls)
     ls->menuDiskAutoStart       = "Käynnistä uudelleen asettamisen jälkeen";
     ls->menuCartAutoReset       = "Käynnistä uudelleen muutettaessa";
 
+    ls->menuCasInsertNew         = "Uusi kasettitiedosto";
     ls->menuCasRewindAfterInsert = "Kelaa alkuun asetettaessa";
+    ls->menuCasSaveMonitor       = "Kuuntele tallennuksen aikana";
     ls->menuCasUseReadOnly       = "Kirjoitussuojaa kasetti";
     ls->lmenuCasSaveAs           = "Tallenna kasetti nimellä";
     ls->menuCasSetPosition      = "Valitse kohta";
@@ -316,6 +319,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->dlgInsertDiskB          = "Aseta levy asemaan B";
     ls->dlgInsertHarddisk       = "Aseta kovalevy";
     ls->dlgInsertCas            = "Aseta kasetti";
+    ls->dlgCreateCas            = "Luo uusi kasettitiedosto";
     ls->dlgRomType              = "ROM-malli:";
     ls->dlgDiskSize             = "Levyn koko:";             
 
@@ -385,8 +389,10 @@ void langInitFinnish(LanguageStrings* ls)
     ls->propEmuFrontSwitch       = " Aplikaatiokytkin";
     ls->propEmuNoSpriteLimits   = " Poista spritejen rajoitus";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emuloi MSX-näppäimistön erikoisuus";  // New in 2.9
-    ls->propEmuFdcTiming        = " Kiihdytä FDD-käyttöä";
-    ls->propEmuHddSdBoost       = " Kiihdytä HDD/SD-kortin käytön aikana";
+    ls->propEmuBoostText        = "Kiihdytä laitekäytön aikana:";
+    ls->propEmuFdcTiming        = " FDD";
+    ls->propEmuCasBoost         = " Kasetti";
+    ls->propEmuHddSdBoost       = " HDD/SD-kortti";
     ls->propEmuReversePlay      = " Salli taaksepäin suoritus"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " PAUSE-näppäin";
     ls->propEmuAudioSwitch       = " MSX-AUDIO modulin kytkin";

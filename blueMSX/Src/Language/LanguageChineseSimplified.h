@@ -82,6 +82,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->errorNoRomInZip         = "无法在 zip 压缩包内找到 .rom 文件。";
     ls->errorNoDskInZip         = "无法在 zip 压缩包内找到 .dsk 文件。";
     ls->errorCreateDiskImage    = "无法创建磁盘镜像文件。";
+    ls->errorCreateTapeImage    = "无法创建磁带映像文件。";
     ls->errorNoCasInZip         = "无法在 zip 压缩包内找到 .cas 文件。";
     ls->errorDirAsDskOverflow   = "%d 个文件 (总共 %d KB) 未能适配 720 KB 磁盘镜像，已跳过。";
     ls->errorNoHelp             = "无法找到 blueMSX+ 帮助文件。";
@@ -185,7 +186,9 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->menuDiskAutoStart       = "插入后重置";
     ls->menuCartAutoReset       = "插入/移除后重置";
 
+    ls->menuCasInsertNew         = "插入新的磁带映像";
     ls->menuCasRewindAfterInsert = "插入后倒带";
+    ls->menuCasSaveMonitor       = "保存时播放监听声音";
     ls->menuCasUseReadOnly       = "使用磁带时只读";
     ls->lmenuCasSaveAs           = "另存为...";
     ls->menuCasSetPosition      = "磁带位置设置";
@@ -315,6 +318,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->dlgInsertDiskB          = "请在驱动器 B 插入软盘映像";
     ls->dlgInsertHarddisk       = "请插入硬盘";                   
     ls->dlgInsertCas            = "请插入磁带";
+    ls->dlgCreateCas            = "创建新的磁带映像";
     ls->dlgRomType              = "Rom 类型:";
     ls->dlgDiskSize             = "软盘大小:";             
 
@@ -384,8 +388,10 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->propEmuFrontSwitch       = " 前端开关";
     ls->propEmuNoSpriteLimits   = " 禁用精灵数量限制";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " 模拟 MSX 键盘特殊行为";  // New in 2.9
-    ls->propEmuFdcTiming        = " 软盘访问时加速";
-    ls->propEmuHddSdBoost       = " HDD/SD 卡访问时加速";
+    ls->propEmuBoostText        = "设备访问时加速:";
+    ls->propEmuFdcTiming        = " 软盘";
+    ls->propEmuCasBoost         = " 磁带";
+    ls->propEmuHddSdBoost       = " HDD/SD 卡";
     ls->propEmuReversePlay      = " 启用倒放"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " 暂停开关";
     ls->propEmuAudioSwitch       = " MSX-AUDIO 卡开关";

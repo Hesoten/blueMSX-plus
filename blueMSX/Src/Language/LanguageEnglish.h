@@ -82,6 +82,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->errorNoRomInZip         = "Could not locate a .ROM file in the ZIP archive.";
     ls->errorNoDskInZip         = "Could not locate a .DSK file in the ZIP archive.";
     ls->errorCreateDiskImage    = "Could not create the disk image file.";
+    ls->errorCreateTapeImage    = "Could not create the tape image file.";
     ls->errorNoCasInZip         = "Could not locate a .CAS file in the ZIP archive.";
     ls->errorDirAsDskOverflow   = "%d file(s) (%d KB total) did not fit in the 720 KB disk image and were skipped.";
     ls->errorNoHelp             = "Could not locate the blueMSX+ help file.";
@@ -185,7 +186,9 @@ void langInitEnglish(LanguageStrings* ls)
     ls->menuDiskAutoStart       = "Reset After Insert";
     ls->menuCartAutoReset       = "Reset After Insert/Remove";
 
+    ls->menuCasInsertNew        = "Insert New Tape Image";
     ls->menuCasRewindAfterInsert= "Rewind After Insert";
+    ls->menuCasSaveMonitor      = "Monitor Sound While Saving";
     ls->menuCasUseReadOnly      = "Use Cassette Image Read Only";
     ls->lmenuCasSaveAs          = "Save Cassette Image As...";
     ls->menuCasSetPosition      = "Set Position";
@@ -315,6 +318,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->dlgInsertDiskB          = "Insert disk image into drive B";
     ls->dlgInsertHarddisk       = "Insert Hard Disk";
     ls->dlgInsertCas            = "Insert cassette tape";
+    ls->dlgCreateCas            = "Create a new tape image";
     ls->dlgRomType              = "ROM Type:";
     ls->dlgDiskSize             = "Disk Size:";             
 
@@ -405,8 +409,10 @@ void langInitEnglish(LanguageStrings* ls)
     ls->propEmuFrontSwitch      = " Front Switch";
     ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emulate MSX keyboard quirk";  // New in 2.9
-    ls->propEmuFdcTiming        = " Accelerate during FDD access";
-    ls->propEmuHddSdBoost       = " Accelerate during HDD/SD card access";
+    ls->propEmuBoostText        = "Accelerate during device access:";
+    ls->propEmuFdcTiming        = " FDD";
+    ls->propEmuCasBoost         = " Cassette";
+    ls->propEmuHddSdBoost       = " HDD/SD card";
     ls->propEmuReversePlay      = " Enable reverse playback"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " Pause Switch";
     ls->propEmuAudioSwitch      = " MSX-AUDIO cartridge switch";

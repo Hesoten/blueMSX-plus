@@ -308,8 +308,10 @@ static BOOL_DLG_RET CALLBACK emulationDlgProc(HWND hDlg, UINT iMsg, WPARAM wPara
         SetDlgItemTextU(hDlg, IDC_VDPCMDSPEEDTEXT, langPropEmuVdpCmdSpeedText());
         SetDlgItemTextU(hDlg, IDC_EMUFRONTSWITCHGROUPBOX, langPropEmuFrontSwitchGB());
         
+        SetWindowTextU(GetDlgItem(hDlg, IDC_EMUBOOSTTEXT),   langPropEmuBoostText());
         SetWindowTextU(GetDlgItem(hDlg, IDC_EMUFDCTIMING),   langPropEmuFdcTiming());
         SetWindowTextU(GetDlgItem(hDlg, IDC_EMUHDDSDBOOST),  langPropEmuHddSdBoost());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_EMUCASBOOST),    langPropEmuCasBoost());
         SetWindowTextU(GetDlgItem(hDlg, IDC_NOSPRITELIMITS), langPropEmuNoSpriteLimits());
         SetWindowTextU(GetDlgItem(hDlg, IDC_ENABLEMSXKEYBOARDQUIRK), langPropEnableMsxKeyboardQuirk());
         SetWindowTextU(GetDlgItem(hDlg, IDC_EMUFRONTSWITCH), langPropEmuFrontSwitch());
@@ -319,6 +321,7 @@ static BOOL_DLG_RET CALLBACK emulationDlgProc(HWND hDlg, UINT iMsg, WPARAM wPara
 
         setButtonCheck(hDlg, IDC_EMUFDCTIMING,   !pProperties->emulation.enableFdcTiming, 1);
         setButtonCheck(hDlg, IDC_EMUHDDSDBOOST,  pProperties->emulation.enableHddSdBoost, 1);
+        setButtonCheck(hDlg, IDC_EMUCASBOOST,    pProperties->emulation.enableCasBoost, 1);
         setButtonCheck(hDlg, IDC_NOSPRITELIMITS, pProperties->emulation.noSpriteLimits, 1);
         setButtonCheck(hDlg, IDC_ENABLEMSXKEYBOARDQUIRK, pProperties->keyboard.enableKeyboardQuirk, 1);
         setButtonCheck(hDlg, IDC_EMUFRONTSWITCH, pProperties->emulation.frontSwitch, 1);
@@ -450,6 +453,7 @@ static BOOL_DLG_RET CALLBACK emulationDlgProc(HWND hDlg, UINT iMsg, WPARAM wPara
             index = 0;
             pProperties->emulation.enableFdcTiming = !getButtonCheck(hDlg, IDC_EMUFDCTIMING);
             pProperties->emulation.enableHddSdBoost = getButtonCheck(hDlg, IDC_EMUHDDSDBOOST);
+        pProperties->emulation.enableCasBoost = getButtonCheck(hDlg, IDC_EMUCASBOOST);
             pProperties->emulation.noSpriteLimits = getButtonCheck(hDlg, IDC_NOSPRITELIMITS);
             pProperties->keyboard.enableKeyboardQuirk = getButtonCheck(hDlg, IDC_ENABLEMSXKEYBOARDQUIRK);
             pProperties->emulation.frontSwitch = getButtonCheck(hDlg, IDC_EMUFRONTSWITCH);

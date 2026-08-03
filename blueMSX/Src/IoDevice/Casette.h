@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -32,7 +35,8 @@
 
 typedef enum { TAPE_ASCII = 0, TAPE_BINARY, TAPE_BASIC, TAPE_CUSTOM } TapeContentType;
 
-typedef enum { TAPE_UNKNOWN = 0, TAPE_FMSXDOS, TAPE_FMSX98AT, TAPE_SVICAS, TAPE_WAV  } TapeFormat;
+/* Keep TAPE_TSX last: Actions.c matches the save formats by their numbers */
+typedef enum { TAPE_UNKNOWN = 0, TAPE_FMSXDOS, TAPE_FMSX98AT, TAPE_SVICAS, TAPE_WAV, TAPE_TSX } TapeFormat;
 
 typedef struct {
     int             pos;
@@ -44,6 +48,7 @@ void   tapeSetDirectory(char* baseDir, char* prefix);
 int    tapeInsert(char *name, const char *fileInZipFile);
 int    tapeIsInserted();
 int    tapeSave(char *name, TapeFormat format);
+int    tapeImageCreate(const char* name, TapeFormat format);
 void tapeLoadState();
 void tapeSaveState();
 void tapeRewindNextInsert(void);
@@ -53,6 +58,9 @@ void   tapeSetCurrentPos(int pos);
 TapeContent* tapeGetContent(int* count);
 TapeFormat   tapeGetFormat();
 void tapeSetReadOnly(int readOnly);
+
+/* TSX and WAV carry no byte stream, so the BIOS trap cannot serve them */
+int tapeIsSignalOnly(void);
 
 UInt8 tapeWrite(UInt8 value);
 UInt8 tapeRead(UInt8* value);

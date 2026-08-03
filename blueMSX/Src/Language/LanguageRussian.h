@@ -82,6 +82,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->errorNoRomInZip         = "Не нашлось .rom файла в zip архиве.";
     ls->errorNoDskInZip         = "Не нашлось .dsk файла в zip архиве.";
     ls->errorCreateDiskImage    = "Не удалось создать файл образа диска.";
+    ls->errorCreateTapeImage    = "Не удалось создать файл образа кассеты.";
     ls->errorNoCasInZip         = "Не нашлось .cas файла в zip архиве.";
     ls->errorDirAsDskOverflow   = "%d файл(ов) (всего %d КБ) не поместились в образ диска 720 КБ и были пропущены.";
     ls->errorNoHelp             = "Не нашлось файла помощи blueMSX+.";
@@ -185,7 +186,9 @@ void langInitRussian(LanguageStrings* ls)
     ls->menuDiskAutoStart       = "Сбросить после загрузки дискеты";
     ls->menuCartAutoReset       = "Сбросить после загрузки/удаления";
 
+    ls->menuCasInsertNew        = "Вставить новый образ кассеты";
     ls->menuCasRewindAfterInsert= "Промотать после загрузки";
+    ls->menuCasSaveMonitor      = "Звук при записи на плёнку";
     ls->menuCasUseReadOnly      = "Испольовать образ кассеты только для чтения";
     ls->lmenuCasSaveAs          = "Сохранить образ кассеты как...";
     ls->menuCasSetPosition      = "Задать позицию";
@@ -315,6 +318,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->dlgInsertDiskB          = "Вставить образ дискеты в дисковод B";
     ls->dlgInsertHarddisk       = "Вставить жесткий диск";
     ls->dlgInsertCas            = "Вставить кассету";
+    ls->dlgCreateCas            = "Создать новый образ кассеты";
     ls->dlgRomType              = "Rom тип:";
     ls->dlgDiskSize             = "Емкость:";             
 
@@ -384,8 +388,10 @@ void langInitRussian(LanguageStrings* ls)
     ls->propEmuFrontSwitch      = " Передний выключатель";
     ls->propEmuNoSpriteLimits   = " Отключить ограничение спрайтов";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Эмулировать особенность клавиатуры MSX";  // New in 2.9
-    ls->propEmuFdcTiming        = " Ускорение при доступе к FDD";
-    ls->propEmuHddSdBoost       = " Ускорять при доступе к HDD/SD";
+    ls->propEmuBoostText        = "Ускорение при доступе к устройствам:";
+    ls->propEmuFdcTiming        = " FDD";
+    ls->propEmuCasBoost         = " Кассета";
+    ls->propEmuHddSdBoost       = " Карта HDD/SD";
     ls->propEmuReversePlay      = " Включить обратное воспроизведение"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " Кнопка паузы";
     ls->propEmuAudioSwitch      = " Переключатель картриджа MSX-AUDIO";

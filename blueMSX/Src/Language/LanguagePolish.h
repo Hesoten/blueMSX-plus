@@ -82,6 +82,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->errorNoRomInZip         = "Nie znaleziono pliku .rom w archiwum zip.";
     ls->errorNoDskInZip         = "Nie znaleziono pliku .dsk w archiwum zip.";
     ls->errorCreateDiskImage    = "Nie można utworzyć pliku obrazu dysku.";
+    ls->errorCreateTapeImage    = "Nie można utworzyć pliku obrazu taśmy.";
     ls->errorNoCasInZip         = "Nie znaleziono pliku .cas w archiwum zip.";
     ls->errorDirAsDskOverflow   = "%d plik(ów) (%d KB łącznie) nie zmieściło się w obrazie dysku 720 KB i zostały pominięte.";
     ls->errorNoHelp             = "Nie znaleziono pliku pomocy blueMSX+.";
@@ -185,7 +186,9 @@ void langInitPolish(LanguageStrings* ls)
     ls->menuDiskAutoStart       = "Resetuj po zmianie dyskietki";
     ls->menuCartAutoReset       = "Resetuj po zmianie kartrid¿a";
     
+    ls->menuCasInsertNew         = "Włóż nowy obraz taśmy";
     ls->menuCasRewindAfterInsert = "Najpierw przewiñ do pocz¹tku";
+    ls->menuCasSaveMonitor       = "Odsłuch podczas zapisu";
     ls->menuCasUseReadOnly       = "U¿ywaj kaset 'tylko do odczytu'";
     ls->lmenuCasSaveAs           = "Zapisz kasetê jako...";
     ls->menuCasSetPosition      = "Ustaw pozycjê";
@@ -315,6 +318,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->dlgInsertDiskB          = "Wybierz dyskietkê dla stacji B";
     ls->dlgInsertHarddisk       = "Pod³¹cz Twardy Dysk";                   
     ls->dlgInsertCas            = "Wybierz kasetê";
+    ls->dlgCreateCas            = "Utwórz nowy obraz taśmy";
     ls->dlgRomType              = "Typ romu:";
     ls->dlgDiskSize             = "Disk Size:";             // New in 2.6
 
@@ -384,8 +388,10 @@ void langInitPolish(LanguageStrings* ls)
     ls->propEmuFrontSwitch       = " Prze³¹cznik g³ówny";
     ls->propEmuNoSpriteLimits   = " Wyłącz limit duszków";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emuluj specyfikę klawiatury MSX";  // New in 2.9
-    ls->propEmuFdcTiming        = " Przyspiesz podczas dostępu FDD";
-    ls->propEmuHddSdBoost       = " Przyspieszenie podczas dostępu do HDD/SD";
+    ls->propEmuBoostText        = "Przyspiesz podczas dostępu do urządzeń:";
+    ls->propEmuFdcTiming        = " FDD";
+    ls->propEmuCasBoost         = " Kaseta";
+    ls->propEmuHddSdBoost       = " Karta HDD/SD";
     ls->propEmuReversePlay      = " Włącz odtwarzanie wstecz"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " Prze³¹cznik pauzy";
     ls->propEmuAudioSwitch       = " Prze³¹cznik kartrid¿a MSX-AUDIO";

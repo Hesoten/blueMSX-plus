@@ -82,6 +82,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->errorNoRomInZip         = "No s'ha pogut trobar un fitxer .rom dins de l'arxiu zip.";
     ls->errorNoDskInZip         = "No s'ha pogut trobar un fitxer .dsk dins de l'arxiu zip.";
     ls->errorCreateDiskImage    = "No s'ha pogut crear el fitxer d'imatge de disc.";
+    ls->errorCreateTapeImage    = "No s'ha pogut crear el fitxer d'imatge de cinta.";
     ls->errorNoCasInZip         = "No s'ha pogut trobar un fitxer .cas dins de l'arxiu zip.";
     ls->errorDirAsDskOverflow   = "%d fitxer(s) (%d KB en total) no caben a la imatge de disc de 720 KB i s'han ignorat.";
     ls->errorNoHelp             = "No s'ha pogut trobar el fitxer d'ajuda de blueMSX+.";
@@ -185,7 +186,9 @@ void langInitCatalan(LanguageStrings* ls)
     ls->menuDiskAutoStart       = "Reinicia després de la inserció";
     ls->menuCartAutoReset       = "Reinicia després de la inserció/expulsió";
 
+    ls->menuCasInsertNew        = "Insereix una nova imatge de cinta";
     ls->menuCasRewindAfterInsert= "Rebobina després de la inserció";
+    ls->menuCasSaveMonitor      = "So de monitoratge en desar";
     ls->menuCasUseReadOnly      = "Utilitza una imatge de casset només lectura";
     ls->lmenuCasSaveAs          = "Anomena i desa la imatge de casset...";
     ls->menuCasSetPosition      = "Estableix la posició";
@@ -315,6 +318,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->dlgInsertDiskB          = "Insereix la imatge de disc en la unitat B";
     ls->dlgInsertHarddisk       = "Insereix el disc dur";
     ls->dlgInsertCas            = "Insereix una cinta de casset";
+    ls->dlgCreateCas            = "Crea una nova imatge de cinta";
     ls->dlgRomType              = "Tipus Rom:";
     ls->dlgDiskSize             = "Mida del disc:";             
 
@@ -384,8 +388,10 @@ void langInitCatalan(LanguageStrings* ls)
     ls->propEmuFrontSwitch      = " Commutador frontal";
     ls->propEmuNoSpriteLimits   = " Desactiva la limitació d'sprites";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emula la particularitat del teclat MSX";  // New in 2.9
-    ls->propEmuFdcTiming        = " Accelera durant l'accés FDD";
-    ls->propEmuHddSdBoost       = " Acceleració durant l'accés HDD/SD";
+    ls->propEmuBoostText        = "Accelera durant l'accés als dispositius:";
+    ls->propEmuFdcTiming        = " FDD";
+    ls->propEmuCasBoost         = " Cinta";
+    ls->propEmuHddSdBoost       = " Targeta HDD/SD";
     ls->propEmuReversePlay      = " Activa la reproducció inversa"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " Commutador de pausa";
     ls->propEmuAudioSwitch      = " Commutador del cartutx MSX-AUDIO";

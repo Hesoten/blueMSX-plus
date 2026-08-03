@@ -82,6 +82,7 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->errorNoRomInZip         = "Nao foi localizado arquivo .ROM dentro do arquivo zip.";
     ls->errorNoDskInZip         = "Nao foi localizado arquivo .DSK dentro do arquivo zip.";
     ls->errorCreateDiskImage    = "Não foi possível criar o arquivo de imagem de disco.";
+    ls->errorCreateTapeImage    = "Não foi possível criar o arquivo de imagem de fita.";
     ls->errorNoCasInZip         = "Nao foi localizado arquivo .CAS dentro do arquivo zip.";
     ls->errorDirAsDskOverflow   = "%d arquivo(s) (%d KB no total) não couberam na imagem de disco de 720 KB e foram ignorados.";
     ls->errorNoHelp             = "Nao foi localizado arquivo ajuda do blueMSX+";
@@ -185,7 +186,9 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->menuDiskAutoStart       = "Reset após inserir";
     ls->menuCartAutoReset       = "Reset após inserir/remover";
     
+    ls->menuCasInsertNew         = "Inserir nova fita";
     ls->menuCasRewindAfterInsert = "Rebobinar após inserir";
+    ls->menuCasSaveMonitor       = "Monitorizar som ao guardar";
     ls->menuCasUseReadOnly       = "Usar fita cassete somente para leitura";
     ls->lmenuCasSaveAs           = "Salvar imagem da fita cassete como...";
     ls->menuCasSetPosition      = "Ajustar Posição";
@@ -314,6 +317,7 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->dlgInsertDiskA          = "Insira disco no drive A";
     ls->dlgInsertDiskB          = "Insira disco no drive B";
     ls->dlgInsertCas            = "Insira cassette tape";
+    ls->dlgCreateCas            = "Criar nova fita";
     ls->dlgInsertHarddisk       = "Insira disco duro";                   
     ls->dlgRomType              = "Tipo rom:"; 
     ls->dlgDiskSize             = "Tamanho do disco:";             
@@ -384,8 +388,10 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->propEmuFrontSwitch      = " Botão Frontal"; 
     ls->propEmuNoSpriteLimits   = " Desativar limitação de sprites";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emular peculiaridade do teclado MSX";  // New in 2.9
-    ls->propEmuFdcTiming        = " Acelerar durante acesso FDD"; 
-    ls->propEmuHddSdBoost       = " Acelerar durante o acesso a HDD/SD";
+    ls->propEmuBoostText        = "Acelerar durante acesso a dispositivos:";
+    ls->propEmuFdcTiming        = " FDD";
+    ls->propEmuCasBoost         = " Cassete";
+    ls->propEmuHddSdBoost       = " Cartão HDD/SD";
     ls->propEmuReversePlay      = " Ativar reprodução inversa"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " Botão Pause"; 
     ls->propEmuAudioSwitch      = " Botão Cartucho MSX-AUDIO"; 

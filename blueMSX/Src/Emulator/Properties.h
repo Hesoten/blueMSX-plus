@@ -230,6 +230,7 @@ typedef struct {
     char shortcutProfile[PROP_MAXPATH];
     int  enableFdcTiming;
     int  enableHddSdBoost;
+    int  enableCasBoost;
     int  noSpriteLimits;
     int  frontSwitch;
     int  audioSwitch;
@@ -500,6 +501,7 @@ typedef struct {
     int showCustomFiles;
     int readOnly;
     int rewindAfterInsert;
+    int saveMonitor;
 } CassetteProperties;
 
 typedef struct {

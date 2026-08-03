@@ -82,6 +82,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->errorNoRomInZip         = "zip파일 내부의 rom을 찾을 수 없습니다.";
     ls->errorNoDskInZip         = "zip파일 내부의 dsk를 찾을 수 없습니다.";
     ls->errorCreateDiskImage    = "디스크 이미지 파일을 만들 수 없습니다.";
+    ls->errorCreateTapeImage    = "테이프 이미지 파일을 만들 수 없습니다.";
     ls->errorNoCasInZip         = "zip파일 내부의 cas를 찾을 수 없습니다.";
     ls->errorDirAsDskOverflow   = "%d 개의 파일(총 %d KB)이 720 KB 디스크 이미지에 맞지 않아 건너뛰었습니다.";
     ls->errorNoHelp             = "blueMSX+ 도움말을 찾을 수 없습니다.";
@@ -185,7 +186,9 @@ void langInitKorean(LanguageStrings* ls)
     ls->menuDiskAutoStart       = "삽입후에 재시작";
     ls->menuCartAutoReset       = "삽입/제거 후에 재시작";
 
+    ls->menuCasInsertNew         = "새로운 테이프 이미지 삽입";
     ls->menuCasRewindAfterInsert = "삽입후에 되감기";
+    ls->menuCasSaveMonitor       = "저장 중 모니터 소리 재생";
     ls->menuCasUseReadOnly       = "읽기전용";
     ls->lmenuCasSaveAs           = "다른 이름으로 저장...";
     ls->menuCasSetPosition      = "위치 설정";
@@ -315,6 +318,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->dlgInsertDiskB          = "드라이브 B에 디스크 삽입";
     ls->dlgInsertHarddisk       = "하드 디스크 삽입";                   
     ls->dlgInsertCas            = "카세트 테잎 삽입";
+    ls->dlgCreateCas            = "새 테이프 이미지 만들기";
     ls->dlgRomType              = "롬 형식:";
     ls->dlgDiskSize             = "디스크 사이즈:";             
 
@@ -384,8 +388,10 @@ void langInitKorean(LanguageStrings* ls)
     ls->propEmuFrontSwitch       = " 프론트 스위치";
     ls->propEmuNoSpriteLimits   = " 스프라이트 제한 해제";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " MSX 키보드 특성 에뮬레이션";  // New in 2.9
-    ls->propEmuFdcTiming        = " FDD 액세스 시 가속";
-    ls->propEmuHddSdBoost       = " HDD/SD 카드 접근 중 가속";
+    ls->propEmuBoostText        = "장치 액세스 시 가속:";
+    ls->propEmuFdcTiming        = " FDD";
+    ls->propEmuCasBoost         = " 카세트";
+    ls->propEmuHddSdBoost       = " HDD/SD 카드";
     ls->propEmuReversePlay      = " 역재생 사용"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " 일시 정지 스위치";
     ls->propEmuAudioSwitch       = " MSX-AUDIO 카트리지 스위치";

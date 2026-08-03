@@ -79,6 +79,7 @@ typedef struct {
     char* errorNoRomInZip;
     char* errorNoDskInZip;
     char* errorCreateDiskImage;
+    char* errorCreateTapeImage;
     char* errorNoCasInZip;
     char* errorDirAsDskOverflow;
     char* errorNoHelp;
@@ -181,7 +182,9 @@ typedef struct {
     char* menuDiskAutoStart;
     char* menuCartAutoReset;
 
+    char* menuCasInsertNew;
     char* menuCasRewindAfterInsert;
+    char* menuCasSaveMonitor;
     char* menuCasUseReadOnly;
     char* lmenuCasSaveAs;
     char* menuCasSetPosition;
@@ -311,6 +314,7 @@ typedef struct {
     char* dlgInsertDiskB;
     char* dlgInsertHarddisk;
     char* dlgInsertCas;
+    char* dlgCreateCas;
     char* dlgRomType;
     char* dlgDiskSize;
 
@@ -376,7 +380,9 @@ typedef struct {
     char* propEmuVdpCmdSpeedText;
     char* propEmuFrontSwitchGB;
     char* propEmuFrontSwitch;
+    char* propEmuBoostText;
     char* propEmuFdcTiming;
+    char* propEmuCasBoost;
     char* propEmuHddSdBoost;
     char* propEmuNoSpriteLimits;
     char* propEnableMsxKeyboardQuirk;

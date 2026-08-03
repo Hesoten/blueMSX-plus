@@ -266,6 +266,7 @@ static ButtonEvent getAction(TiXmlElement* el, const char* actionTag,
     if (0 == strcmp(action, "audio-togglemutemoonsound")) return (ButtonEvent)actionMuteToggleMoonsound;
     if (0 == strcmp(action, "audio-togglemutesfg"))       return (ButtonEvent)actionMuteToggleYamahaSfg;
     if (0 == strcmp(action, "audio-togglemutemidi"))      return (ButtonEvent)actionMuteToggleMidi;
+    if (0 == strcmp(action, "audio-togglemutecassette"))  return (ButtonEvent)actionMuteToggleCassette;
     
     if (0 == strcmp(action, "printer-forceformfeed"))   return (ButtonEvent)actionPrinterForceFormFeed;
 
@@ -293,6 +294,7 @@ static ButtonEvent getAction(TiXmlElement* el, const char* actionTag,
     if (0 == strcmp(action, "level-moonsound"))   return (ButtonEvent)actionVolumeSetMoonsound;
     if (0 == strcmp(action, "level-sfg"))         return (ButtonEvent)actionVolumeSetYamahaSfg;
     if (0 == strcmp(action, "level-midi"))        return (ButtonEvent)actionVolumeSetMidi;
+    if (0 == strcmp(action, "level-cassette"))    return (ButtonEvent)actionVolumeSetCassette;
     if (0 == strcmp(action, "pan-psg"))           return (ButtonEvent)actionPanSetPsg;
     if (0 == strcmp(action, "pan-pcm"))           return (ButtonEvent)actionPanSetPcm;
     if (0 == strcmp(action, "pan-io"))            return (ButtonEvent)actionPanSetIo;
@@ -303,6 +305,7 @@ static ButtonEvent getAction(TiXmlElement* el, const char* actionTag,
     if (0 == strcmp(action, "pan-moonsound"))     return (ButtonEvent)actionPanSetMoonsound;
     if (0 == strcmp(action, "pan-sfg"))           return (ButtonEvent)actionPanSetYamahaSfg;
     if (0 == strcmp(action, "pan-midi"))          return (ButtonEvent)actionPanSetMidi;
+    if (0 == strcmp(action, "pan-cassette"))      return (ButtonEvent)actionPanSetCassette;
 
     if (0 == strcmp(action, "slider-rensha"))       return (ButtonEvent)actionRenshaSetLevel;
 
@@ -422,6 +425,7 @@ static int getTrigger(TiXmlElement* el, char* triggerName)
     if (0 == strcmp(s, "enable-pcm"))               return t | THEME_TRIGGER_IMG_PCM;
     if (0 == strcmp(s, "enable-io"))                return t | THEME_TRIGGER_IMG_IO;
     if (0 == strcmp(s, "enable-midi"))              return t | THEME_TRIGGER_IMG_MIDI;
+    if (0 == strcmp(s, "enable-cassette"))          return t | THEME_TRIGGER_IMG_CASSETTE;
     if (0 == strcmp(s, "enable-master"))            return t | THEME_TRIGGER_IMG_MASTER;
     if (0 == strcmp(s, "enable-stereo"))            return t | THEME_TRIGGER_IMG_STEREO;
     
@@ -445,6 +449,8 @@ static int getTrigger(TiXmlElement* el, char* triggerName)
     if (0 == strcmp(s, "volume-io-right"))          return t | THEME_TRIGGER_IMG_R_IO;
     if (0 == strcmp(s, "volume-midi-left"))         return t | THEME_TRIGGER_IMG_L_MIDI;
     if (0 == strcmp(s, "volume-midi-right"))        return t | THEME_TRIGGER_IMG_R_MIDI;
+    if (0 == strcmp(s, "volume-cassette-left"))     return t | THEME_TRIGGER_IMG_L_CASSETTE;
+    if (0 == strcmp(s, "volume-cassette-right"))    return t | THEME_TRIGGER_IMG_R_CASSETTE;
     if (0 == strcmp(s, "volume-master-left"))       return t | THEME_TRIGGER_IMG_L_MASTER;
     if (0 == strcmp(s, "volume-master-right"))      return t | THEME_TRIGGER_IMG_R_MASTER;
 
@@ -493,12 +499,14 @@ static int getTrigger(TiXmlElement* el, char* triggerName)
     if (0 == strcmp(s, "level-moonsound"))         return t | THEME_TRIGGER_LEVEL_MOONSOUND;
     if (0 == strcmp(s, "level-sfg"))               return t | THEME_TRIGGER_LEVEL_SFG;
     if (0 == strcmp(s, "level-midi"))              return t | THEME_TRIGGER_LEVEL_MIDI;
+    if (0 == strcmp(s, "level-cassette"))          return t | THEME_TRIGGER_LEVEL_CASSETTE;
     if (0 == strcmp(s, "pan-psg"))                 return t | THEME_TRIGGER_PAN_PSG;
     if (0 == strcmp(s, "pan-pcm"))                 return t | THEME_TRIGGER_PAN_PCM;
     if (0 == strcmp(s, "pan-io"))                  return t | THEME_TRIGGER_PAN_IO;
     if (0 == strcmp(s, "pan-scc"))                 return t | THEME_TRIGGER_PAN_SCC;
     if (0 == strcmp(s, "pan-keyboard"))            return t | THEME_TRIGGER_PAN_KEYBOARD;
     if (0 == strcmp(s, "pan-midi"))                return t | THEME_TRIGGER_PAN_MIDI;
+    if (0 == strcmp(s, "pan-cassette"))            return t | THEME_TRIGGER_PAN_CASSETTE;
     if (0 == strcmp(s, "pan-msxmusic"))            return t | THEME_TRIGGER_PAN_MSXMUSIC;
     if (0 == strcmp(s, "pan-msxaudio"))            return t | THEME_TRIGGER_PAN_MSXAUDIO;
     if (0 == strcmp(s, "pan-moonsound"))           return t | THEME_TRIGGER_PAN_MOONSOUND;

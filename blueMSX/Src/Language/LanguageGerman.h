@@ -82,6 +82,7 @@ void langInitGerman(LanguageStrings* ls)
     ls->errorNoRomInZip          = "Konnte kein .rom-File im Zip-Archiv finden.";
     ls->errorNoDskInZip          = "Konnte kein .dsk-File im Zip-Archiv finden.";
     ls->errorCreateDiskImage     = "Die Disk-Image-Datei konnte nicht erstellt werden.";
+    ls->errorCreateTapeImage     = "Die Cassetten-Image-Datei konnte nicht erstellt werden.";
     ls->errorNoCasInZip          = "Konnte kein .cas-File im Zip-Archiv finden.";
     ls->errorDirAsDskOverflow    = "%d Datei(en) (%d KB insgesamt) passten nicht in das 720-KB-Disk-Image und wurden übersprungen.";
     ls->errorNoHelp              = "Konnte kein blueMSX+-Hilfe-File finden.";
@@ -179,7 +180,9 @@ void langInitGerman(LanguageStrings* ls)
     ls->menuCartMegaFlashRom     = "Mega Flash-ROM";      // New in 2.7
     ls->menuCartFlashCart        = "Flash-Module";
 
+    ls->menuCasInsertNew         = "Neues Cassetten-Image einfügen";
     ls->menuCasRewindAfterInsert = "Zurück nach Einfügen";
+    ls->menuCasSaveMonitor       = "Beim Speichern mithören";
     ls->menuCasUseReadOnly       = "Cassetten-Image nur lesend benutzen";
     ls->lmenuCasSaveAs           = "Speichere Cassetten-Image als ...";
     ls->menuCasSetPosition       = "Positionieren";
@@ -314,6 +317,7 @@ void langInitGerman(LanguageStrings* ls)
     ls->dlgInsertDiskA           = "Disketten-Image in Laufwerk A einfügen";
     ls->dlgInsertDiskB           = "Disketten-Image in Laufwerk B einfügen";
     ls->dlgInsertCas             = "Cassette einfügen";
+    ls->dlgCreateCas             = "Neues Cassetten-Image erstellen";
     ls->dlgInsertHarddisk        = "Festplatte einfügen"; // "Harddisk einfügen";                   
     ls->dlgRomType               = "ROM-Typ:";
     ls->dlgDiskSize              = "Diskettengröße:";                  // New in 2.6 -- "Disk Size:";
@@ -384,8 +388,10 @@ void langInitGerman(LanguageStrings* ls)
     ls->propEmuFrontSwitch       = " Frontschalter";                  // " Front Switch";
     ls->propEmuNoSpriteLimits   = " Sprite-Beschränkung deaktivieren";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " MSX-Tastatureigenart emulieren";  // New in 2.9
-    ls->propEmuFdcTiming         = " FDD-Zugriff beschleunigen";
-    ls->propEmuHddSdBoost       = " Beschleunigen während HDD/SD-Zugriff";
+    ls->propEmuBoostText         = "Gerätezugriff beschleunigen:";
+    ls->propEmuFdcTiming         = " FDD";
+    ls->propEmuCasBoost          = " Kassette";
+    ls->propEmuHddSdBoost       = " HDD/SD-Karte";
     ls->propEmuReversePlay      = " Rückwärtswiedergabe aktivieren"; // New in 2.8.3
     ls->propEmuPauseSwitch       = " Unterbrechungstaste";
     ls->propEmuAudioSwitch       = " MSX-AUDIO-Cartridge-Schalter";

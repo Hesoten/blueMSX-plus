@@ -83,6 +83,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->errorNoRomInZip                 = "Nessun file .ROM trovato nell'archivio compresso.";
     ls->errorNoDskInZip                 = "Nessun file .DSK trovato nell'archivio compresso.";
     ls->errorCreateDiskImage            = "Impossibile creare il file immagine disco.";
+    ls->errorCreateTapeImage            = "Impossibile creare il file immagine cassetta.";
     ls->errorNoCasInZip                 = "Nessun file .CAS trovato nell'archivio compresso.";
     ls->errorDirAsDskOverflow           = "%d file (%d KB totali) non sono entrati nell'immagine disco da 720 KB e sono stati saltati.";
     ls->errorNoHelp                     = "Non trovo il file della guida in linea di blueMSX+.";
@@ -186,7 +187,9 @@ void langInitItalian(LanguageStrings* ls)
     ls->menuDiskAutoStart               = "Riavvia quando inserisci";
     ls->menuCartAutoReset               = "Riavvia quando inserisci/rimuovi";
 
+    ls->menuCasInsertNew                = "Inserisci una nuova cassetta...";
     ls->menuCasRewindAfterInsert        = "Riavvolgi quando inserisci";
+    ls->menuCasSaveMonitor              = "Ascolta durante il salvataggio";
     ls->menuCasUseReadOnly              = "Simula una cassetta di sola lettura";
     ls->lmenuCasSaveAs                  = "Salva la cassetta come...";
     ls->menuCasSetPosition              = "Imposta la posizione del nastro...";
@@ -316,6 +319,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->dlgInsertDiskB                  = "Inserisci un disco nell'unità B";
     ls->dlgInsertHarddisk               = "Inserisci un disco rigido";
     ls->dlgInsertCas                    = "Inserisci una cassetta nel registratore";
+    ls->dlgCreateCas                    = "Crea una nuova cassetta";
     ls->dlgRomType                      = "Tipo ROM:";
     ls->dlgDiskSize                     = "Dimensione:";                                            
 
@@ -385,8 +389,10 @@ void langInitItalian(LanguageStrings* ls)
     ls->propEmuFrontSwitch              = " Interruttore frontale";
     ls->propEmuNoSpriteLimits   = " Disabilita limite sprite";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emula peculiarità tastiera MSX";  // New in 2.9
-    ls->propEmuFdcTiming                = " Accelera l'accesso FDD";
-    ls->propEmuHddSdBoost               = " Accelera durante l'accesso HDD/SD";
+    ls->propEmuBoostText                = "Accelera l'accesso ai dispositivi:";
+    ls->propEmuFdcTiming                = " FDD";
+    ls->propEmuCasBoost                 = " Cassetta";
+    ls->propEmuHddSdBoost               = " Scheda HDD/SD";
     ls->propEmuReversePlay              = " Abilita la riproduzione a ritroso"; // New in 2.8.3
     ls->propEmuPauseSwitch              = " Tasto pausa";
     ls->propEmuAudioSwitch              = " Cartuccia MSX-AUDIO";

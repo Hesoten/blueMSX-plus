@@ -841,6 +841,10 @@
     <ClCompile Include="..\..\Src\Z80\R800Debug.c" />
     <ClCompile Include="..\..\Src\Z80\R800SaveState.c" />
     <ClCompile Include="..\..\Src\IoDevice\Casette.c" />
+    <ClCompile Include="..\..\Src\IoDevice\CasToWave.c" />
+    <ClCompile Include="..\..\Src\IoDevice\TapeSignal.c" />
+    <ClCompile Include="..\..\Src\IoDevice\TsxParser.c" />
+    <ClCompile Include="..\..\Src\IoDevice\WavParser.c" />
     <ClCompile Include="..\..\Src\IoDevice\DirAsDisk.c" />
     <ClCompile Include="..\..\Src\IoDevice\Disk.c" />
     <ClCompile Include="..\..\Src\IoDevice\DiskFormat.c" />
@@ -889,6 +893,7 @@
     <ClCompile Include="..\..\Src\SoundChips\DAC.c" />
     <ClCompile Include="..\..\Src\SoundChips\Fmopl.c" />
     <ClCompile Include="..\..\Src\SoundChips\FmoplBackend.cpp" />
+    <ClCompile Include="..\..\Src\SoundChips\AudioCassette.c" />
     <ClCompile Include="..\..\Src\SoundChips\KeyClick.c" />
     <ClCompile Include="..\..\Src\SoundChips\MameVLM5030.c" />
     <ClCompile Include="..\..\Src\SoundChips\MameYM2151.c" />
@@ -1183,6 +1188,10 @@
     <ClInclude Include="..\..\Src\Z80\R800Dasm.h" />
     <ClInclude Include="..\..\Src\Z80\R800Debug.h" />
     <ClInclude Include="..\..\Src\IoDevice\Casette.h" />
+    <ClInclude Include="..\..\Src\IoDevice\CasToWave.h" />
+    <ClInclude Include="..\..\Src\IoDevice\TapeSignal.h" />
+    <ClInclude Include="..\..\Src\IoDevice\TsxParser.h" />
+    <ClInclude Include="..\..\Src\IoDevice\WavParser.h" />
     <ClInclude Include="..\..\Src\IoDevice\DirAsDisk.h" />
     <ClInclude Include="..\..\Src\IoDevice\Disk.h" />
     <ClInclude Include="..\..\Src\IoDevice\DiskFormat.h" />
@@ -1252,6 +1261,7 @@
     <ClInclude Include="..\..\Src\SoundChips\Fmopl.h" />
     <ClInclude Include="..\..\Src\SoundChips\FmoplBackend.h" />
     <ClInclude Include="..\..\Src\SoundChips\Y8950BackendBase.h" />
+    <ClInclude Include="..\..\Src\SoundChips\AudioCassette.h" />
     <ClInclude Include="..\..\Src\SoundChips\KeyClick.h" />
     <ClInclude Include="..\..\Src\SoundChips\MameVLM5030.h" />
     <ClInclude Include="..\..\Src\SoundChips\MameYM2151.h" />

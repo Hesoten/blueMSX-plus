@@ -1,22 +1,14 @@
 /*****************************************************************************
-** $Source: /cygdrive/d/Private/_SVNROOT/bluemsx/blueMSX/Src/Memory/romMapperCasette.h,v $
 **
-** $Revision: 1.5 $
-**
-** $Date: 2008-03-30 18:38:42 $
-**
-** More info: http://www.bluemsx.com
-**
-** Copyright (C) 2003-2006 Daniel Vik
-**
-** Modified 2026 by Hesoten for blueMSX+ fork.
+** TZX 1.2x / TSX tape image parsing.
+** Copyright (C) 2026 Hesoten
 ** See https://github.com/Hesoten/blueMSX-plus for change history.
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
 ** (at your option) any later version.
-** 
+**
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
 ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -28,17 +20,17 @@
 **
 ******************************************************************************
 */
-#ifndef ROMMAPPER_CASETTE_H
-#define ROMMAPPER_CASETTE_H
+#ifndef TSX_PARSER_H
+#define TSX_PARSER_H
 
 #include "MsxTypes.h"
+#include "TapeSignal.h"
 
-/* The cassette BIOS trap is installed only when the machine config selects
-** romType CasPatch. Signal level images (TSX, WAV) have no byte stream for it
-** to return, so it stands down while one of those is mounted. */
-void romMapperCasetteSetPatchEnable(int enable);
+/* True if the image starts with the ZXTape! signature */
+int tsxIsTsxImage(const UInt8* data, int size);
 
-int romMapperCasetteCreate(const char* filename, UInt8* romData,
-                           int size, int slot, int sslot, int startPage);
+/* Builds a waveform from a TZX/TSX image. Returns NULL on failure and writes
+** a one line reason into err. */
+TapeSignalBuilder* tsxToWave(const UInt8* data, int size, char* err, int errSize);
 
 #endif

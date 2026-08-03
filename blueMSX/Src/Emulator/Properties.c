@@ -289,6 +289,7 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->emulation.vdpSyncMode       = P_VDP_SYNCAUTO;
     properties->emulation.enableFdcTiming   = 1;
     properties->emulation.enableHddSdBoost  = 0;
+    properties->emulation.enableCasBoost    = 0;
     properties->emulation.noSpriteLimits    = 0;
     properties->emulation.frontSwitch       = 0;
     properties->emulation.pauseSwitch       = 0;
@@ -431,6 +432,10 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->sound.mixerChannel[MIXER_CHANNEL_MIDI].pan = 50;
     properties->sound.mixerChannel[MIXER_CHANNEL_MIDI].volume = 90;
 
+    properties->sound.mixerChannel[MIXER_CHANNEL_CASSETTE].enable = 1;
+    properties->sound.mixerChannel[MIXER_CHANNEL_CASSETTE].pan = 50;
+    properties->sound.mixerChannel[MIXER_CHANNEL_CASSETTE].volume = 75;
+
     properties->sound.mixerChannel[MIXER_CHANNEL_KEYBOARD].enable = 1;
     properties->sound.mixerChannel[MIXER_CHANNEL_KEYBOARD].pan = 55;
     properties->sound.mixerChannel[MIXER_CHANNEL_KEYBOARD].volume = 65;
@@ -527,6 +532,7 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->cassette.showCustomFiles = 1;
     properties->cassette.readOnly        = 1;
     properties->cassette.rewindAfterInsert = 0;
+    properties->cassette.saveMonitor    = 0;
 
     properties->ports.Lpt.type           = P_LPT_NONE;
     properties->ports.Lpt.emulation      = P_LPT_MSXPRN;
@@ -654,6 +660,7 @@ static void propLoad(Properties* properties)
     GET_ENUM_VALUE_2(propFile, emulation, vdpSyncMode, VdpSyncPair);
     GET_ENUM_VALUE_2(propFile, emulation, enableFdcTiming, BoolPair);
     GET_ENUM_VALUE_2(propFile, emulation, enableHddSdBoost, BoolPair);
+    GET_ENUM_VALUE_2(propFile, emulation, enableCasBoost, BoolPair);
     GET_ENUM_VALUE_2(propFile, emulation, noSpriteLimits, BoolPair);
     GET_ENUM_VALUE_2(propFile, emulation, frontSwitch, BoolPair);
     GET_ENUM_VALUE_2(propFile, emulation, pauseSwitch, BoolPair);
@@ -807,6 +814,9 @@ static void propLoad(Properties* properties)
     GET_ENUM_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_MIDI, enable, BoolPair);
     GET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_MIDI, pan);
     GET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_MIDI, volume);
+    GET_ENUM_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_CASSETTE, enable, BoolPair);
+    GET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_CASSETTE, pan);
+    GET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_CASSETTE, volume);
     
     GET_ENUM_VALUE_2(propFile, joystick, disablePOV0Dpad, BoolPair);
     
@@ -844,6 +854,7 @@ static void propLoad(Properties* properties)
     GET_INT_VALUE_2(propFile, cassette, showCustomFiles);
     GET_ENUM_VALUE_2(propFile, cassette, readOnly, BoolPair);
     GET_ENUM_VALUE_2(propFile, cassette, rewindAfterInsert, BoolPair);
+    GET_ENUM_VALUE_2(propFile, cassette, saveMonitor, BoolPair);
     
     GET_ENUM_VALUE_2(propFile, nowind, enableDos2, BoolPair);    
     GET_ENUM_VALUE_2(propFile, nowind, enableOtherDiskRoms, BoolPair);    
@@ -1002,6 +1013,7 @@ void propSave(Properties* properties)
     SET_ENUM_VALUE_2(propFile, emulation, vdpSyncMode, VdpSyncPair);
     SET_ENUM_VALUE_2(propFile, emulation, enableFdcTiming, YesNoPair);
     SET_ENUM_VALUE_2(propFile, emulation, enableHddSdBoost, YesNoPair);
+    SET_ENUM_VALUE_2(propFile, emulation, enableCasBoost, YesNoPair);
     SET_ENUM_VALUE_2(propFile, emulation, noSpriteLimits, YesNoPair);
     SET_ENUM_VALUE_2(propFile, emulation, frontSwitch, OnOffPair);
     SET_ENUM_VALUE_2(propFile, emulation, pauseSwitch, OnOffPair);
@@ -1148,6 +1160,9 @@ void propSave(Properties* properties)
     SET_ENUM_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_MIDI, enable, YesNoPair);
     SET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_MIDI, pan);
     SET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_MIDI, volume);
+    SET_ENUM_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_CASSETTE, enable, YesNoPair);
+    SET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_CASSETTE, pan);
+    SET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_CASSETTE, volume);
     
     SET_ENUM_VALUE_2(propFile, joystick, disablePOV0Dpad, YesNoPair);
     
@@ -1184,6 +1199,7 @@ void propSave(Properties* properties)
     SET_INT_VALUE_2(propFile, cassette, showCustomFiles);
     SET_ENUM_VALUE_2(propFile, cassette, readOnly, YesNoPair);
     SET_ENUM_VALUE_2(propFile, cassette, rewindAfterInsert, YesNoPair);
+    SET_ENUM_VALUE_2(propFile, cassette, saveMonitor, YesNoPair);
 
     SET_ENUM_VALUE_2(propFile, nowind, enableDos2, YesNoPair);    
     SET_ENUM_VALUE_2(propFile, nowind, enableOtherDiskRoms, BoolPair);    

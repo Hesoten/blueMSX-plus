@@ -48,6 +48,8 @@
 #include "Disk.h"
 #include "VideoManager.h"
 #include "Casette.h"
+#include "TapeSignal.h"
+#include "romMapperCasette.h"
 #include "MediaDb.h"
 #include "RomLoader.h"
 #include "JoystickPort.h"
@@ -87,7 +89,10 @@ static int fdcTimingEnable = 1;
 static int fdcActive       = 0;
 static UInt32 fdcSectorCount = 0;   /* sectors accessed since the current boost session began */
 static int hddSdBoostEnable = 0;
+static int casBoostEnable   = 0;
+static int casActive        = 0;
 static BoardTimer* fdcTimer;
+static BoardTimer* casTimer;
 static BoardTimer* syncTimer;
 static BoardTimer* mixerTimer;
 static BoardTimer* stateTimer;
@@ -753,10 +758,14 @@ static void fdcScheduleTail(void) {
 }
 
 /* End the current boost session: clear the flag and cancel the
-** pending release timer to keep "fdcActive iff timer scheduled". */
+** pending release timer to keep "active iff timer scheduled". Both boosts go
+** down together: the kill list fires on the sound a game makes once its load
+** has finished, and neither should outlive that. */
 static void fdcKillBoost(void) {
     fdcActive = 0;
     boardTimerRemove(fdcTimer);
+    casActive = 0;
+    boardTimerRemove(casTimer);
 }
 
 void boardSetFdcActive() {
@@ -779,6 +788,32 @@ void boardSetHddSdBoostEnable(int enable) {
 
 int boardGetHddSdBoostEnable(void) {
     return hddSdBoostEnable;
+}
+
+/* Cassette boost: its own timer, because the tape wants the opposite of the
+** disk's guesswork. A tape read is an exact signal that the machine is doing
+** nothing but wait, so the tail only has to bridge the arming interval rather
+** than cover unrelated work after the load. */
+#define CAS_TAIL_MS 50
+
+static void onCasDone(void* ref, UInt32 time)
+{
+    casActive = 0;
+}
+
+void boardSetCasActive(void) {
+    if (casBoostEnable) {
+        boardTimerAdd(casTimer, boardSystemTime() + (UInt32)((UInt64)CAS_TAIL_MS * boardFrequency() / 1000));
+        casActive = 1;
+    }
+}
+
+int boardGetCasActive(void) {
+    return casActive;
+}
+
+void boardSetCasBoostEnable(int enable) {
+    casBoostEnable = enable;
 }
 
 /* PSG channel ch (0=A,1=B,2=C) produces an audible AC signal only if
@@ -833,7 +868,7 @@ void boardCheckFdcBoostKill(UInt16 port, UInt8 value) {
         else              ymf278KeyOn &= ~bit;
     }
 
-    if (!fdcActive) return;
+    if (!fdcActive && !casActive) return;
 
     if (p == 0x9a) {                                    /* VDP palette data (V9938+) */
         /* A palette write during a load is the signature of a visible fade.
@@ -976,7 +1011,9 @@ static void doSync(UInt32 time, int breakpointHit)
 {
     int execTime = 10;
     if (!skipSync) {
-        execTime = syncToRealClock(fdcActive, breakpointHit);
+        execTime = syncToRealClock(casActive ? BOARD_BOOST_TAPE :
+                                   fdcActive ? BOARD_BOOST_DISK : BOARD_BOOST_NONE,
+                                   breakpointHit);
     }
     if (execTime == -99) {
         boardInfo.stop(boardInfo.cpuRef);
@@ -1116,6 +1153,9 @@ int boardRewind()
         boardInfo.loadState();
         if (stashedTime != 0) boardSysTime64 = stashedTime;
     }
+    /* The tape clock is anchored to boardSysTime64, which just went backwards.
+    ** Without this the next update underflows and seeks to the end of the tape. */
+    tapeSignalReset();
     boardCaptureLoadState();
 
 #if 1
@@ -1280,8 +1320,10 @@ int boardRun(Machine* machine,
 
     if (success && loadState) {
         boardInfo.loadState();
-        /* Re-apply the stashed boardSysTime64 (boardInit clobbered it). */
+        /* Re-apply the stashed boardSysTime64 (boardInit clobbered it). The
+        ** tape clock is anchored to it, so it has to be re-anchored too. */
         if (stashedSysTime64 != 0) boardSysTime64 = stashedSysTime64;
+        tapeSignalReset();
         boardCaptureLoadState();
     }
 
@@ -1295,8 +1337,10 @@ int boardRun(Machine* machine,
         ** the old fdcTimer was destroyed without firing onFdcDone, so force
         ** a fresh boost-off state before scheduling new timers. */
         fdcActive = 0;
+        casActive = 0;
         syncTimer = boardTimerCreate(onSync, NULL);
         fdcTimer = boardTimerCreate(onFdcDone, NULL);
+        casTimer = boardTimerCreate(onCasDone, NULL);
         mixerTimer = boardTimerCreate(onMixerSync, NULL);
         
         stateFrequency = boardFrequency() / 1000 * reversePeriod;
@@ -1342,6 +1386,7 @@ int boardRun(Machine* machine,
         ** run skips the re-create, so a stale (freed) pointer here would be
         ** double-freed at the next teardown -> heap corruption / crash. */
         boardTimerDestroy(fdcTimer);   fdcTimer = NULL;
+        boardTimerDestroy(casTimer);   casTimer = NULL;
         boardTimerDestroy(syncTimer);  syncTimer = NULL;
         boardTimerDestroy(mixerTimer); mixerTimer = NULL;
         if (breakpointTimer != NULL) {
@@ -1823,6 +1868,10 @@ void boardChangeCassette(int tapeId, char* name, const char* fileInZipFile)
     }
 
     tapeInsert(name, fileInZipFile);
+
+    /* The trap is installed by the machine config (romType CasPatch). Signal
+    ** only images carry no byte stream, so it has to stand down for those. */
+    romMapperCasetteSetPatchEnable(!tapeIsSignalOnly());
 }
 
 int boardGetCassetteInserted()

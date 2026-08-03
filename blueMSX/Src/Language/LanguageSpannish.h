@@ -82,6 +82,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->errorNoRomInZip         = "No hay archivo .rom en el archivo zip.";
     ls->errorNoDskInZip         = "No hay archivo .dsk en el archivo zip.";
     ls->errorCreateDiskImage    = "No se pudo crear el archivo de imagen de disco.";
+    ls->errorCreateTapeImage    = "No se pudo crear el archivo de imagen de cinta.";
     ls->errorNoCasInZip         = "No hay archivo .cas en el archivo zip.";
     ls->errorDirAsDskOverflow   = "%d archivo(s) (%d KB en total) no caben en la imagen de disco de 720 KB y se han omitido.";
     ls->errorNoHelp             = "Imposible encontrar archivo de ayuda de BlueMSX.";
@@ -185,7 +186,9 @@ void langInitSpanish(LanguageStrings* ls)
     ls->menuDiskAutoStart       = "Reinicio Tras Insertar";
     ls->menuCartAutoReset       = "Reinicio Tras Insertar/Sacar";
 
+    ls->menuCasInsertNew         = "Insertar nueva imagen de Cinta";
     ls->menuCasRewindAfterInsert = "Rebobinar tras Insertar";
+    ls->menuCasSaveMonitor       = "Escuchar al guardar";
     ls->menuCasUseReadOnly       = "Usar Imagen de Cassette Sólo Lectura";
     ls->lmenuCasSaveAs           = "Salvar Imagen de Cassette Como...";
     ls->menuCasSetPosition      = "Posicionar";
@@ -315,6 +318,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->dlgInsertDiskB          = "Insertar imagen de Disco en Unidad B";
     ls->dlgInsertHarddisk       = "Insertar disco duro";                   
     ls->dlgInsertCas            = "Insertar Cinta de cassette";
+    ls->dlgCreateCas            = "Crear nueva imagen de Cinta";
     ls->dlgRomType              = "Tipo rom:"; 
     ls->dlgDiskSize             = "Tamaño del disco:";             
 
@@ -384,8 +388,10 @@ void langInitSpanish(LanguageStrings* ls)
     ls->propEmuFrontSwitch       = " Botón Frontal"; 
     ls->propEmuNoSpriteLimits   = " Desactivar limitación de sprites";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emular peculiaridad del teclado MSX";  // New in 2.9
-    ls->propEmuFdcTiming        = " Acelerar acceso FDD"; 
-    ls->propEmuHddSdBoost       = " Acelerar durante el acceso HDD/SD";
+    ls->propEmuBoostText        = "Acelerar acceso a dispositivos:";
+    ls->propEmuFdcTiming        = " FDD";
+    ls->propEmuCasBoost         = " Cinta";
+    ls->propEmuHddSdBoost       = " Tarjeta HDD/SD";
     ls->propEmuReversePlay      = " Activar reproducción inversa"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " Botón Pause"; 
     ls->propEmuAudioSwitch       = " Botón cartucho MSX-AUDIO"; 

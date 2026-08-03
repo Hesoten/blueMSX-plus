@@ -52,6 +52,7 @@
 #include "SaveState.h"
 #include "resource.h"
 #include "Casette.h"
+#include "TapeSignal.h"
 #include "PrinterIO.h"
 #include "UartIO.h"
 #include "MidiIO.h"
@@ -1985,6 +1986,9 @@ static void registerFileTypes() {
     registerFileType(".sc",  "blueMSXromSega",   "Sega ROM Image", 2);
     registerFileType(".col", "blueMSXromColeco", "ColecoVision ROM Image", 2);
     registerFileType(".cas", "blueMSXcas", "CAS Image", 3);
+    /* .wav stays out on purpose: taking it would steal the media player's
+    ** association from every other wave file on the machine. */
+    registerFileType(".tsx", "blueMSXtsx", "TSX Image", 3);
     registerFileType(".sta", "blueMSXsta", "blueMSX+ State", 4);
     registerFileType(".cap", "blueMSXcap", "blueMSX+ Video Capture", 4);
     registerApplicationOpenWith();
@@ -2006,6 +2010,7 @@ static void unregisterFileTypes() {
     unregisterFileType(".sc",  "blueMSXromSega",   "Sega ROM Image", 2);
     unregisterFileType(".col", "blueMSXromColeco", "ColecoVision ROM Image", 2);
     unregisterFileType(".cas", "blueMSXcas", "CAS Image", 3);
+    unregisterFileType(".tsx", "blueMSXtsx", "TSX Image", 3);
     unregisterFileType(".sta", "blueMSXsta", "blueMSX+ State", 4);
     unregisterFileType(".cap", "blueMSXcap", "blueMSX+ Video Capture", 4);
     unregisterApplicationOpenWith();
@@ -2100,6 +2105,7 @@ void archShowPropertiesDialog(PropPage  startPane) {
     ** and is passed back unchanged. */
     boardSetFdcTimingEnable(pProperties->emulation.enableFdcTiming);
     boardSetHddSdBoostEnable(pProperties->emulation.enableHddSdBoost);
+    boardSetCasBoostEnable(pProperties->emulation.enableCasBoost);
     boardSetNoSpriteLimits(pProperties->emulation.noSpriteLimits);
     boardSetVdpCmdSpeed(pProperties->emulation.vdpCmdSpeed);
 
@@ -4182,6 +4188,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     actionInit(st.pVideo, pProperties, st.mixer);
     langInit();
     tapeSetReadOnly(pProperties->cassette.readOnly);
+    tapeSignalSetSaveMonitor(pProperties->cassette.saveMonitor);
     
     ethIfInitialize(pProperties);
     cdromInitialize();
@@ -4322,6 +4329,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     }
     boardSetFdcTimingEnable(pProperties->emulation.enableFdcTiming);
     boardSetHddSdBoostEnable(pProperties->emulation.enableHddSdBoost);
+    boardSetCasBoostEnable(pProperties->emulation.enableCasBoost);
     boardSetNoSpriteLimits(pProperties->emulation.noSpriteLimits);
     boardSetVdpCmdSpeed(pProperties->emulation.vdpCmdSpeed);
     boardSetY8950Enable(pProperties->sound.chip.enableY8950);
@@ -5265,17 +5273,36 @@ char* archFilenameGetOpenCas(Properties* properties)
     char* title = langDlgInsertCas();
     char  extensionList[512];
     char* defaultDir = properties->cassette.defDir;
-    char* extensions = ".cas\0.zip\0.*\0";
+    char* extensions = ".cas\0.tsx\0.wav\0.zip\0.*\0";
     int* selectedExtension = &properties->media.tapes[0].extensionFilter;
     char* defautExtension = ".cas";
     int createFileSize = 0;
     char* fileName;
 
-    sprintf(extensionList, "%s   (*.cas, *.zip)#*.cas; *.zip#%s   (*.*)#*.*#", langFileCas(), langFileAll());
+    sprintf(extensionList, "%s   (*.cas, *.tsx, *.wav, *.zip)#*.cas; *.tsx; *.wav; *.zip#%s   (*.*)#*.*#", langFileCas(), langFileAll());
     replaceCharInString(extensionList, '#', 0);
 
     enterDialogShow();
     fileName = openFile(getMainHwnd(), title, extensionList, defaultDir, createFileSize, defautExtension, selectedExtension);
+    exitDialogShow();
+    SetCurrentDirectoryU(st.pCurDir);
+
+    return fileName;
+}
+
+char* archFilenameGetNewCas(Properties* properties)
+{
+    char* title = langDlgCreateCas();
+    char  extensionList[512];
+    char* defaultDir = properties->cassette.defDir;
+    char* fileName;
+
+    /* WAV first: it is the only format the deck can record a signal into */
+    sprintf(extensionList, "%s   (*.wav)#*.wav#%s   (*.cas)#*.cas#", langFileCas(), langFileCas());
+    replaceCharInString(extensionList, '#', 0);
+
+    enterDialogShow();
+    fileName = openNewCasFile(getMainHwnd(), title, extensionList, defaultDir);
     exitDialogShow();
     SetCurrentDirectoryU(st.pCurDir);
 
