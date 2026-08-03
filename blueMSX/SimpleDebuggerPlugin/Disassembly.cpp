@@ -68,6 +68,8 @@ public:
         BitBlt(hdc, x, y, width, height, hMemDC, width * index, 0, SRCCOPY);
     }
 
+    int getHeight() { return height; }
+
 private:
     HDC hdcw;
     HDC hMemDC;
@@ -991,23 +993,26 @@ void Disassembly::drawText(int top, int bottom)
             r.left -= 14 * textWidth;
         }
         else {
+            /* Centred in the row: drawing it at the top left the icon sitting
+            ** above the text, which starts below the font's internal leading. */
+            int iconTop = r.top + (textHeight - bitmapIcons->getHeight()) / 2;
             if (lineInfo[i].haspc) {
                 if (Breakpoints::IsBreakpointSet(address)) {
-                    bitmapIcons->drawIcon(hMemdc, 4, r.top, 3);
+                    bitmapIcons->drawIcon(hMemdc, 4, iconTop, 3);
                 }
                 else if (Breakpoints::IsBreakpointDisabled(address)) {
-                    bitmapIcons->drawIcon(hMemdc, 4, r.top, 3);
+                    bitmapIcons->drawIcon(hMemdc, 4, iconTop, 3);
                 }
                 else {
-                    bitmapIcons->drawIcon(hMemdc, 4, r.top, 0);
+                    bitmapIcons->drawIcon(hMemdc, 4, iconTop, 0);
                 }
             }
             else {
                 if (Breakpoints::IsBreakpointSet(address)) {
-                    bitmapIcons->drawIcon(hMemdc, 4, r.top, 1);
+                    bitmapIcons->drawIcon(hMemdc, 4, iconTop, 1);
                 }
                 else if (Breakpoints::IsBreakpointDisabled(address)) {
-                    bitmapIcons->drawIcon(hMemdc, 4, r.top, 2);
+                    bitmapIcons->drawIcon(hMemdc, 4, iconTop, 2);
                 }
             }
 

@@ -82,6 +82,8 @@ public:
         BitBlt(hdc, x, y, width, height, hMemDC, width * index, 0, SRCCOPY);
     }
 
+    int getHeight() { return height; }
+
 private:
     HDC hdcw;
     HDC hMemDC;
@@ -522,11 +524,14 @@ void Breakpoints::drawText(int top, int bottom)
             PatBlt(hMemdc, 21, r.top, rc.right - 21, r.bottom - r.top, PATCOPY);
         }
 
+        /* Centred in the row: drawing it at the top left the icon sitting
+        ** above the text, which starts below the font's internal leading. */
+        int iconTop = r.top + (textHeight - bitmapIcons->getHeight()) / 2;
         if (breakpoints[i]->enabled) {
-            bitmapIcons->drawIcon(hMemdc, 4, r.top, 1);
+            bitmapIcons->drawIcon(hMemdc, 4, iconTop, 1);
         }
         else {
-            bitmapIcons->drawIcon(hMemdc, 4, r.top, 2);
+            bitmapIcons->drawIcon(hMemdc, 4, iconTop, 2);
         }
         
         char breakpointText[64];
