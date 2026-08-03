@@ -576,10 +576,10 @@ void langInitDutch(LanguageStrings* ls)
     ls->enumSoundDrvDirectX     = "DirectX-stuurprogramma";
     ls->enumSoundDrvWasapi      = "WASAPI-stuurprogramma";
 
-    ls->enumEmuSync1ms          = "Synchroniseren tijdens MSX refresh";
+    ls->enumEmuSync1ms          = "Synchroon met MSX refresh";
     ls->enumEmuSyncAuto         = "Automatisch (snel)";
     ls->enumEmuSyncNone         = "Geen";
-    ls->enumEmuSyncVblank       = "Synchroon met PC Vertical Blank";
+    ls->enumEmuSyncVblank       = "Synchroon met PC Vblank";
     ls->enumEmuAsyncVblank      = "Asynchroon met PC Vblank";
 
     ls->enumControlsJoyNone            = "Geen";

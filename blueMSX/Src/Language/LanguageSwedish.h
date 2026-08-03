@@ -578,7 +578,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->enumSoundDrvWasapi      = "WASAPI driver";
 
     ls->enumEmuSync1ms          = "Synkronisera till MSX refresh";
-    ls->enumEmuSyncVblank       = "Synkronisera till PC Vertikal Blank";
+    ls->enumEmuSyncVblank       = "Synkronisera till PC Vblank";
     ls->enumEmuAsyncVblank      = "Asynchronous PC Vblank";             
     ls->enumEmuSyncNone         = "Ingen";
     ls->enumEmuSyncAuto         = "Automatisk (snabb)";

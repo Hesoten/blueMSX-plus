@@ -542,7 +542,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->enumVideoEmuHq2x        = "Hq2x";
 
 
-    ls->enumVideoDrvDirectDrawHW= "Acceleració DirectDraw de maquinari";  
+    ls->enumVideoDrvDirectDrawHW= "Acceleració DirectDraw HW";  
     ls->enumVideoDrvDirectDraw  = "DirectDraw";
     ls->enumVideoDrvGDI         = "GDI";
     ls->enumVideoDrvD3D         = "Direct3D";
@@ -579,7 +579,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->enumEmuSync1ms          = "Sincronitza al refresc de MSX";
     ls->enumEmuSyncAuto         = "Auto (ràpid)";
     ls->enumEmuSyncNone         = "Cap";
-    ls->enumEmuSyncVblank       = "Sincronització sobre PC Vertical Blank";
+    ls->enumEmuSyncVblank       = "Sincronitza al Vblank del PC";
     ls->enumEmuAsyncVblank      = "Desincronització PC Vblank";             
 
     ls->enumControlsJoyNone     = "Cap";

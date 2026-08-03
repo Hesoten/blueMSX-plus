@@ -537,7 +537,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->enumVideoEmuMonitor     = "Monitor";
     ls->enumVideoEmuYcBlur      = "Zaszumiony kabel Y/C (ostry)";
     ls->enumVideoEmuComp        = "Kompozytowe (rozmyte)";
-    ls->enumVideoEmuCompBlur    = "Zaszumione kompozytowe (rozmyte)";
+    ls->enumVideoEmuCompBlur    = "Zaszumione kompozytowe";
     ls->enumVideoEmuScale2x     = "Skalowanie 2x";
     ls->enumVideoEmuHq2x        = "Hq2x";
 
@@ -576,10 +576,10 @@ void langInitPolish(LanguageStrings* ls)
     ls->enumSoundDrvDirectX     = "Driver DirectX";
     ls->enumSoundDrvWasapi      = "Driver WASAPI";
 
-    ls->enumEmuSync1ms          = "Synchronizuj z odświeżaniem MSX";
+    ls->enumEmuSync1ms          = "Synchronizuj z MSX";
     ls->enumEmuSyncAuto         = "Auto (szybkie)";
     ls->enumEmuSyncNone         = "None";
-    ls->enumEmuSyncVblank       = "Synchronizuj z synchronizacją pionową PC";
+    ls->enumEmuSyncVblank       = "Synchronizuj z Vblank PC";
     ls->enumEmuAsyncVblank      = "Asynchronous PC Vblank";             
 
     ls->enumControlsJoyNone     = "Brak";

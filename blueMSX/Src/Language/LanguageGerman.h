@@ -537,7 +537,7 @@ void langInitGerman(LanguageStrings* ls)
     ls->enumVideoEmuMonitor      = "Monitor";
     ls->enumVideoEmuYcBlur       = "Verrauschtes Y/C-Kabel (scharf)";
     ls->enumVideoEmuComp         = "Composit-Signal (verwaschen)";
-    ls->enumVideoEmuCompBlur     = "Verrauschtes Composit-Signal (verwaschen)";
+    ls->enumVideoEmuCompBlur     = "Verrauschtes Composit-Signal";
     ls->enumVideoEmuScale2x      = "Scale 2x";
     ls->enumVideoEmuHq2x         = "Hq2x";
 
