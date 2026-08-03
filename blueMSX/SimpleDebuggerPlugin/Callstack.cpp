@@ -135,7 +135,7 @@ LRESULT CallstackWindow::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
 CallstackWindow::CallstackWindow(HINSTANCE hInstance, HWND owner, Disassembly* disassembly_) : 
     DbgWindow( hInstance, owner, 
                Language::windowCallstack, "Callstack Window", 437, 195, 213, 225, 1),
-    linePos(0), lineCount(0), currentLine(-1),  
+    linePos(0), lineCount(0), currentLine(-1), contentValid(false),
     disassembly(disassembly_), backupSize(0)
 {
     init();
@@ -153,6 +153,7 @@ void CallstackWindow::invalidateContent()
     backupSize = 0;
     currentLine = -1;
     lineCount = 0;
+    contentValid = false;
     updateScroll();
 
     sprintf(lineInfo[lineCount].text, "%s", Language::windowCallstackUnavail);
@@ -166,6 +167,12 @@ void CallstackWindow::invalidateContent()
 
 void CallstackWindow::refresh()
 {
+    /* An invalidated callstack has no frames left, so replaying it would only
+    ** wipe the message that says so. */
+    if (!contentValid) {
+        InvalidateRect(hwnd, NULL, TRUE);
+        return;
+    }
     updateContent(backupCallstack, backupSize);
 }
 
@@ -197,6 +204,7 @@ void CallstackWindow::updateContent(DWORD* callstack, int size)
 
     memcpy(backupCallstack, callstack, size * sizeof(DWORD));
     backupSize = size;
+    contentValid = true;
 
     for (int index = size - 1; index >= 0; index--) {
         UInt16 addr = (UInt16)callstack[index];

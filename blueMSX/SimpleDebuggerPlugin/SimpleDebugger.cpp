@@ -1432,10 +1432,17 @@ void OnEmulatorPause() {
 
 void OnEmulatorResume() {
     if (dbgHwnd != NULL) {
+        /* What the run leaves behind, so drop it. The device views keep theirs:
+        ** they carry the reference copy the next stop colours its changes
+        ** against, which is worth more than dropping it. */
+        disassembly->invalidateContent();
+        callstack->invalidateContent();
+        stack->invalidateContent();
+
         disassembly->disableEdit();
         cpuRegisters->disableEdit();
         periRegisters->disableEdit();
-        ioPorts->enableEdit();
+        ioPorts->disableEdit();
         callstack->disableEdit();
         breakpoints->disableEdit();
         stack->disableEdit();

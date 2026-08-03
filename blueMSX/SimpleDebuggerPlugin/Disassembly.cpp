@@ -478,7 +478,9 @@ LRESULT Disassembly::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
         return 0;
 
     case WM_LBUTTONUP:
-        if (lineCount > 10) {
+        /* Was a lineCount threshold, which only said "there is a listing" by
+        ** accident. The flag says it outright. */
+        if (contentValid) {
             SCROLLINFO si;
             si.cbSize = sizeof (si);
             si.fMask  = SIF_POS;
@@ -563,8 +565,8 @@ UInt16 Disassembly::GetPc() {
 Disassembly::Disassembly(HINSTANCE hInstance, HWND owner, SymbolInfo* symInfo, Breakpoints* breakpts) : 
     DbgWindow( hInstance, owner, 
                Language::windowDisassembly, "Disassembly Window", 3, 2, 432, 418, 1),
-    linePos(0), lineCount(0), currentLine(-1), programCounter(0), 
-    firstVisibleLine(0), 
+    linePos(0), lineCount(0), currentLine(-1), programCounter(0),
+    firstVisibleLine(0), contentValid(false),
     hasKeyboardFocus(false), symbolInfo(symInfo), breakpoints(breakpts)
 {
     memset(backupMemory, 0, 0x10000);
@@ -587,6 +589,11 @@ Disassembly::~Disassembly()
 
 void Disassembly::setCursor(WORD address)
 {
+    /* The placeholder row is not a line the cursor may rest on: from there
+    ** Toggle Breakpoint arms an address the user never chose. */
+    if (!contentValid) {
+        return;
+    }
     for (int i = lineCount - 1; i >= 0; i--) {
         if (address >= lineInfo[i].address) {
             updateScroll(i);
@@ -613,10 +620,14 @@ void Disassembly::invalidateContent()
     breakpoints->clearRuntoBreakpoint();
     currentLine = -1;
     lineCount = 0;
+    contentValid = false;
     updateScroll();
 
     sprintf(lineInfo[lineCount].addr, "%s", Language::windowDisassemblyUnavail);
     lineInfo[lineCount].addrLength = (int)strlen(lineInfo[lineCount].addr);
+    /* The placeholder is not an instruction. Leaving the previous listing's
+    ** address here hands it to whatever manages to put the cursor on it. */
+    lineInfo[lineCount].address = 0;
     lineInfo[lineCount].haspc = 0;
     lineInfo[lineCount].text[0] = 0;
     lineInfo[lineCount].textLength = 0;
@@ -630,6 +641,13 @@ void Disassembly::invalidateContent()
 
 void Disassembly::refresh(bool followPc)
 {
+    /* Nothing has been disassembled since the content was dropped, so the
+    ** backup is an old snapshot or the zeroed buffer, and replaying either
+    ** would show a listing the CPU has left behind. */
+    if (!contentValid) {
+        InvalidateRect(hwnd, NULL, TRUE);
+        return;
+    }
     updateContent(backupMemory, backupPc, followPc);
 }
 
@@ -676,6 +694,7 @@ void Disassembly::updateContent(BYTE* memory, WORD pc, bool followPc)
 
     memcpy(backupMemory, memory, 0x10000);
     backupPc = pc;
+    contentValid = true;
 
     for (; addr < pc; ) {
         const char* symbolName = symbolInfo->find(addr);
@@ -808,6 +827,11 @@ void Disassembly::updateContent(BYTE* memory, WORD pc, bool followPc)
 
 void Disassembly::onWmKeyUp(int keyCode)
 {
+    /* Same reason as setCursor: an arrow key must not walk the cursor onto the
+    ** placeholder row. */
+    if (!contentValid) {
+        return;
+    }
     RECT r;
     GetClientRect(hwnd, &r);
     int visibleLines = r.bottom / textHeight;

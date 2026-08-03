@@ -135,7 +135,7 @@ LRESULT StackWindow::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
 StackWindow::StackWindow(HINSTANCE hInstance, HWND owner) : 
     DbgWindow( hInstance, owner, 
         Language::windowStack, "Stack Window", 653, 3, 137, 417, 1),
-    linePos(0), lineCount(0), currentLine(-1)
+    linePos(0), lineCount(0), currentLine(-1), contentValid(false)
 {
     memset(backupMemory, 0, 0x10000);
     backupSP = 0;
@@ -158,6 +158,7 @@ void StackWindow::invalidateContent()
 {
     currentLine = -1;
     lineCount = 0;
+    contentValid = false;
     updateScroll();
 
     sprintf(lineInfo[lineCount].text, Language::windowStackUnavail);
@@ -172,6 +173,12 @@ void StackWindow::invalidateContent()
 
 void StackWindow::refresh()
 {
+    /* The backup outlives the content it came from, so replaying it here would
+    ** put the stack of a machine state the CPU has left back on screen. */
+    if (!contentValid) {
+        InvalidateRect(hwnd, NULL, TRUE);
+        return;
+    }
     updateContent(backupMemory, backupSP);
 }
 
@@ -209,6 +216,7 @@ void StackWindow::updateContent(BYTE* memory, WORD sp)
     
     memcpy(backupMemory, memory, 0x10000);
     backupSP = sp;
+    contentValid = true;
 
     updateScroll();
     InvalidateRect(hwnd, NULL, TRUE);

@@ -106,6 +106,11 @@ private:
     int      firstVisibleLine;
     int      lineCount;
     int      currentLine;
+
+    /* False between invalidateContent() and the next snapshot: the listing on
+    ** screen says unavailable and nothing may disassemble the backup again. */
+    bool     contentValid;
+
     LineInfo lineInfo[0x20000];
     int      linePos;
     bool     hasKeyboardFocus;

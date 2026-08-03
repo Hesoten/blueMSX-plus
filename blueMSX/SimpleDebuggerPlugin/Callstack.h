@@ -77,6 +77,11 @@ private:
 
     int      lineCount;
     int      currentLine;
+
+    /* False between invalidateContent() and the next snapshot: the listing on
+    ** screen says unavailable and nothing may replay the backup over it. */
+    bool     contentValid;
+
     LineInfo lineInfo[256];
     int      linePos;
     
