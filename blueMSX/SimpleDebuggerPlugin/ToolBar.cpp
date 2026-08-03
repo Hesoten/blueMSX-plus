@@ -172,12 +172,17 @@ void Toolbar::hide()
 
 int Toolbar::getHeight()
 {
-    if (!IsWindowVisible(hwnd)) {
+    /* This window's own state, not IsWindowVisible: that also answers for the
+    ** ancestors, so a view laid out while the debugger is still hidden was
+    ** told the toolbar takes no room and put its content underneath it. */
+    if (!(GetWindowLong(hwnd, GWL_STYLE) & WS_VISIBLE)) {
         return 0;
     }
     RECT r;
     GetWindowRect(hwnd, &r);
-    return r.bottom - r.top - 1;
+    /* The whole window, border included. Reporting one pixel less put the view
+    ** below on top of the toolbar's bottom edge. */
+    return r.bottom - r.top;
 }
 
 void Toolbar::updatePosition()
@@ -188,7 +193,9 @@ void Toolbar::updatePosition()
     GetClientRect(GetParent(hwnd), &parentRect);
     GetWindowRect(hwnd, &rect);
 
-    SetWindowPos(hwnd, NULL, 0, 0, parentRect.left - parentRect.right, rect.bottom - rect.top, SWP_NOMOVE | SWP_NOZORDER);
+    /* right - left: the operands were the other way round, so the width handed
+    ** over was negative and only TB_AUTOSIZE kept the strip the right size. */
+    SetWindowPos(hwnd, NULL, 0, 0, parentRect.right - parentRect.left, rect.bottom - rect.top, SWP_NOMOVE | SWP_NOZORDER);
 }
 
 /* By command, not by position: inserting a button shifts every later index
