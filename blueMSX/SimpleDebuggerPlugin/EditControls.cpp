@@ -68,6 +68,20 @@ void InputDialog::resetModified()
     readBoxText(hwnd, seedText, sizeof(seedText));
 }
 
+void InputDialog::setBoxText(const char* text)
+{
+    SETTEXTEX t = { GT_DEFAULT, CP_ACP };
+    CHARRANGE cr = { 0, -1 };
+    SendDlgItemMessage(hwnd, IDC_ADDRESS, EM_SETTEXTEX, (WPARAM)&t, (LPARAM)text);
+    SendDlgItemMessage(hwnd, IDC_ADDRESS, EM_EXSETSEL, 0, (LPARAM)&cr);
+}
+
+void InputDialog::restoreSeed()
+{
+    setBoxText(seedText);
+    charCount = 0;
+}
+
 bool InputDialog::isModified()
 {
     char text[sizeof(seedText)];
@@ -401,18 +415,22 @@ HexInputDialog::~HexInputDialog()
 {   
 }
 
+/* The 8 leading zeroes are the padding; %x prints at most 8 more digits, so
+** the buffer holds the longest value the field can ever carry. */
+void HexInputDialog::setBoxValue()
+{
+    char text[24] = "00000000";
+    sprintf(text + 8, "%x", fastValue);
+    setBoxText(text + strlen(text) - chars);
+}
+
 void HexInputDialog::setValue(int value, bool setFocus)
 {
-    char text[16] = "00000000";
-    sprintf(text + 8, "%x", value);
-    SETTEXTEX t = { GT_DEFAULT, CP_ACP };
-    SendDlgItemMessage(hwnd, IDC_ADDRESS, EM_SETTEXTEX, (WPARAM)&t, (LPARAM)(text + strlen(text) - chars));
-    CHARRANGE cr = { 0, chars };
-    SendDlgItemMessage(hwnd, IDC_ADDRESS, EM_EXSETSEL, 0, (LPARAM)&cr);
+    fastValue = value;
+    setBoxValue();
     if (setFocus) {
         SetFocus(GetDlgItem(hwnd, IDC_ADDRESS));
     }
-    fastValue = value;
     resetModified();
 }
 
@@ -494,6 +512,15 @@ BOOL HexInputDialog::dlgProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
                             SetWindowLong(hwnd, DWLP_MSGRESULT, 1);
                             return TRUE;
                         }
+                        /* The whole text is selected, so the control's own
+                        ** Delete would empty the box while fastValue kept the
+                        ** digits, and an empty box reads back as 0 and writes 0. */
+                        if (!needReturn && keyfilter->wParam == VK_DELETE) {
+                            fastValue = 0;
+                            restoreSeed();
+                            SetWindowLong(hwnd, DWLP_MSGRESULT, 1);
+                            return TRUE;
+                        }
                         return FALSE;
 
                     case WM_CHAR:
@@ -502,13 +529,30 @@ BOOL HexInputDialog::dlgProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
                         if (len == E_INVALIDARG) {
                             len = 0;
                         }
-                        
+
                         char dummyBuf[32];
                         int selLen = (int)SendDlgItemMessage(hwnd, IDC_ADDRESS, EM_GETSELTEXT, 0, (LPARAM)dummyBuf);
 
                         keyCode = (int)keyfilter->wParam;
 
                         if (!needReturn) {
+                            /* Digits are shifted into fastValue as they arrive,
+                            ** so taking the character back takes the digit too;
+                            ** with none left the box is the seed again. */
+                            if (keyCode == VK_BACK) {
+                                if (charCount > 0) {
+                                    charCount--;
+                                    fastValue /= 16;
+                                }
+                                if (charCount == 0) {
+                                    restoreSeed();
+                                }
+                                else {
+                                    setBoxValue();
+                                }
+                                SetWindowLong(hwnd, DWLP_MSGRESULT, 1);
+                                return TRUE;
+                            }
                             if ((keyCode >= '0' && keyCode <= '9') ||
                                 (keyCode >= 'a' && keyCode <= 'f') ||
                                 (keyCode >= 'A' && keyCode <= 'F'))
@@ -525,13 +569,8 @@ BOOL HexInputDialog::dlgProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
                                 if (keyCode >= 'A' && keyCode <= 'F') {
                                     fastValue = 16 * fastValue + 10 + keyCode - 'A';
                                 }
-                                
-                                char text[16] = "00000000";
-                                sprintf(text + 8, "%x", fastValue);
-                                SETTEXTEX t = { GT_DEFAULT, CP_ACP };
-                                SendDlgItemMessage(hwnd, IDC_ADDRESS, EM_SETTEXTEX, (WPARAM)&t, (LPARAM)(text + strlen(text) - chars));
-                                CHARRANGE cr = { 0, chars };
-                                SendDlgItemMessage(hwnd, IDC_ADDRESS, EM_EXSETSEL, 0, (LPARAM)&cr);
+
+                                setBoxValue();
 
                                 charCount++;
 
@@ -595,10 +634,7 @@ TextInputDialog::~TextInputDialog()
 
 void TextInputDialog::setValue(const char* value, bool setFocus)
 {
-    SETTEXTEX t = { GT_DEFAULT, CP_ACP };
-    SendDlgItemMessage(hwnd, IDC_ADDRESS, EM_SETTEXTEX, (WPARAM)&t, (LPARAM)value);
-    CHARRANGE cr = { 0, chars };
-    SendDlgItemMessage(hwnd, IDC_ADDRESS, EM_EXSETSEL, 0, (LPARAM)&cr);
+    setBoxText(value);
     if (setFocus) {
         SetFocus(GetDlgItem(hwnd, IDC_ADDRESS));
     }
@@ -645,6 +681,15 @@ BOOL TextInputDialog::dlgProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
                             SetWindowLong(hwnd, DWLP_MSGRESULT, 1);
                             return TRUE;
                         }
+                        /* The control's own Delete would empty the box behind
+                        ** the buffer's back, and an empty box reads back as a
+                        ** zero byte and writes one. Discard the entry instead. */
+                        if (!needReturn && keyfilter->wParam == VK_DELETE) {
+                            text[0] = 0;
+                            restoreSeed();
+                            SetWindowLong(hwnd, DWLP_MSGRESULT, 1);
+                            return TRUE;
+                        }
                         return FALSE;
 
                     case WM_CHAR:
@@ -653,16 +698,33 @@ BOOL TextInputDialog::dlgProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
                         if (len == E_INVALIDARG) {
                             len = 0;
                         }
-                        
+
                         char dummyBuf[32];
                         int selLen = (int)SendDlgItemMessage(hwnd, IDC_ADDRESS, EM_GETSELTEXT, 0, (LPARAM)dummyBuf);
 
                         keyCode = (int)keyfilter->wParam;
 
                         if (!needReturn) {
-                            /* Only printable bytes are data here. Backspace and
-                            ** Tab are editing keys, and Tab has already moved
-                            ** the cursor on by the time its WM_CHAR arrives. */
+                            /* Takes the last character back off the buffer as
+                            ** well as off the box; with none left the box is
+                            ** the value it was seeded with again. */
+                            if (keyCode == VK_BACK) {
+                                if (charCount > 0) {
+                                    charCount--;
+                                    text[charCount] = 0;
+                                }
+                                if (charCount == 0) {
+                                    restoreSeed();
+                                }
+                                else {
+                                    setBoxText(text);
+                                }
+                                SetWindowLong(hwnd, DWLP_MSGRESULT, 1);
+                                return TRUE;
+                            }
+                            /* Only printable bytes are data here. Tab is an
+                            ** editing key, and has already moved the cursor on
+                            ** by the time its WM_CHAR arrives. */
                             if (keyCode < ' ' || keyCode > '~') {
                                 SetWindowLong(hwnd, DWLP_MSGRESULT, 1);
                                 return TRUE;
@@ -670,10 +732,7 @@ BOOL TextInputDialog::dlgProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
                             text[charCount] = keyCode;
                             text[charCount + 1] = 0;
 
-                            SETTEXTEX t = { GT_DEFAULT, CP_ACP };
-                            SendDlgItemMessage(hwnd, IDC_ADDRESS, EM_SETTEXTEX, (WPARAM)&t, (LPARAM)(text + strlen(text) - chars));
-                            CHARRANGE cr = { 0, chars };
-                            SendDlgItemMessage(hwnd, IDC_ADDRESS, EM_EXSETSEL, 0, (LPARAM)&cr);
+                            setBoxText(text);
 
                             charCount++;
 

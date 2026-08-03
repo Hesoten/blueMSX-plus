@@ -85,6 +85,14 @@ protected:
 
     void resetModified();
 
+    /* Replaces the whole text and leaves it selected, the way the overlay
+    ** boxes always show their value. */
+    void setBoxText(const char* text);
+
+    /* Puts the seed text back and marks the box unedited: what is left once
+    ** the last typed character has been taken away again. */
+    void restoreSeed();
+
     /* Only the in-place overlay boxes navigate; the modal Goto / Find dialogs
     ** keep their plain edit behaviour. */
     bool navEnabled;
@@ -139,6 +147,9 @@ protected:
     virtual BOOL dlgProc(UINT iMsg, WPARAM wParam, LPARAM lParam);
 
 private:
+    /* Shows fastValue right aligned in `chars` hex digits. */
+    void setBoxValue();
+
     int chars;
     bool needReturn;
     int  fastValue;
