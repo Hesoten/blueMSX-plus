@@ -565,20 +565,23 @@ void Breakpoints::drawText(int top, int bottom)
     }
 }
 
+/* -1 is what the views return for "no line selected". It reaches the CPU as
+** 0xFFFF, so an unguarded caller arms a breakpoint nobody asked for; the run
+** to cursor entry point has always refused it. */
 void Breakpoints::SetBreakpoint(int address) {
-    if (breakpointsInstance != NULL) {
+    if (breakpointsInstance != NULL && address >= 0) {
         breakpointsInstance->setBreakpoint(MakeBreakpoint(address));
     }
 }
 
 void Breakpoints::ClearBreakpoint(int address) {
-    if (breakpointsInstance != NULL) {
+    if (breakpointsInstance != NULL && address >= 0) {
         breakpointsInstance->clearBreakpoint(MakeBreakpoint(address));
     }
 }
 
 void Breakpoints::ToggleBreakpointEnable(int address) {
-    if (breakpointsInstance != NULL) {
+    if (breakpointsInstance != NULL && address >= 0) {
         breakpointsInstance->toggleBreakpointEnable(MakeBreakpoint(address));
     }
 }
