@@ -161,7 +161,9 @@ void StackWindow::invalidateContent()
     contentValid = false;
     updateScroll();
 
-    sprintf(lineInfo[lineCount].text, Language::windowStackUnavail);
+    /* A translation is data, not a format: a '%' in one would read arguments
+    ** that were never passed. */
+    sprintf(lineInfo[lineCount].text, "%s", Language::windowStackUnavail);
     lineInfo[lineCount].textLength = (int)strlen(lineInfo[lineCount].text);
     lineInfo[lineCount].dataText[0] = 0;
     lineInfo[lineCount].dataTextLength = 0;

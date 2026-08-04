@@ -623,10 +623,11 @@ void Disassembly::invalidateContent()
     contentValid = false;
     updateScroll();
 
-    sprintf(lineInfo[lineCount].addr, "%s", Language::windowDisassemblyUnavail);
-    lineInfo[lineCount].addrLength = (int)strlen(lineInfo[lineCount].addr);
-    /* The placeholder is not an instruction. Leaving the previous listing's
-    ** address here hands it to whatever manages to put the cursor on it. */
+    /* One blank row for the scrollbar to have a range; drawText paints the
+    ** unavailable message over it. Nothing here is an instruction, so the
+    ** address stays 0 rather than the one the previous listing left. */
+    lineInfo[lineCount].addr[0] = 0;
+    lineInfo[lineCount].addrLength = 0;
     lineInfo[lineCount].address = 0;
     lineInfo[lineCount].haspc = 0;
     lineInfo[lineCount].text[0] = 0;
@@ -635,7 +636,7 @@ void Disassembly::invalidateContent()
     lineInfo[lineCount].dataTextLength = 0;
     lineInfo[lineCount].isLabel = 0;
     lineCount++;
-    
+
     InvalidateRect(hwnd, NULL, TRUE);
 }
 
@@ -989,6 +990,18 @@ void Disassembly::scrollWindow(int sbAction)
 void Disassembly::drawText(int top, int bottom)
 {
     SCROLLINFO si;
+
+    /* Drawn straight from the translation. Held in a LineInfo it had to fit
+    ** the address field, and the Russian one is 58 bytes against 48. */
+    if (!contentValid) {
+        RECT rc;
+        GetClientRect(hwnd, &rc);
+        RECT msg = { 30, 0, rc.right, textHeight };
+        SetTextColor(hMemdc, colorBlack);
+        DrawTextU(hMemdc, Language::windowDisassemblyUnavail,
+                  (int)strlen(Language::windowDisassemblyUnavail), &msg, DT_LEFT);
+        return;
+    }
 
     si.cbSize = sizeof (si);
     si.fMask  = SIF_POS;
