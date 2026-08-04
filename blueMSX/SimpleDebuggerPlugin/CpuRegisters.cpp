@@ -120,7 +120,10 @@ LRESULT CpuRegisters::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
 
             int row = HIWORD(lParam) / textHeight;
 
-            if (row == 0) {
+            /* The flag header scrolls away with the rest, so testing the screen
+            ** row alone turned a click on the register that took its place into
+            ** a flag toggle written straight into the CPU. */
+            if (row + si.nPos == 0) {
                 /* Negative left of the first flag, where the division would
                 ** truncate towards zero and select flag 0. */
                 int flagX = LOWORD(lParam) - 12 - textWidth * 6;
