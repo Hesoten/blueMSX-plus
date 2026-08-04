@@ -753,6 +753,10 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
                 delete toolBar;
                 toolBar = initializeToolbar(hwnd);
                 toolBar->show();
+                /* addButton makes every button enabled, so a rebuilt toolbar
+                ** offers commands the emulator state forbids until the next
+                ** state change repaints it. The creation path pairs the two. */
+                updateToolBar();
             }
             minimizedState = HIWORD(wParam);
         }
