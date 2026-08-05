@@ -275,11 +275,14 @@ static void updateWindowMenu()
 
     AppendMenuU(hMenuFile, MF_SEPARATOR, 0, NULL);
 
+    /* With no listing there is nothing to write, and the save would otherwise
+    ** walk the user through a file dialog and an overwrite prompt to do
+    ** nothing at all. */
     sprintf(buf, "%s", Language::menuFileSaveDisassembly);
-    AppendMenuU(hMenuFile, MF_STRING, MENU_FILE_SAVEDASM, buf);
+    AppendMenuU(hMenuFile, MF_STRING | (disassembly && disassembly->hasContent() ? 0 : MF_GRAYED), MENU_FILE_SAVEDASM, buf);
 
     sprintf(buf, "%s", Language::menuFileSaveMemory);
-    AppendMenuU(hMenuFile, MF_STRING, MENU_FILE_SAVEMEM, buf);
+    AppendMenuU(hMenuFile, MF_STRING | (memory && memory->hasContent() ? 0 : MF_GRAYED), MENU_FILE_SAVEMEM, buf);
     
     AppendMenuU(hMenuFile, MF_SEPARATOR, 0, NULL);
 
@@ -447,6 +450,12 @@ void saveDisassembly(HWND hwndOwner)
     static char pFileName[MAX_PATH];
     static char buffer[0x20000];
 
+    /* The menu entry is greyed for this, but not before the file dialog and an
+    ** overwrite prompt would have asked the user about a file we cannot write. */
+    if (!disassembly->hasContent()) {
+        return;
+    }
+
     pFileName[0] = 0;
 
     if (!ShellSaveFileDialog(hwndOwner, Language::menuFileSaveDisassembly,
@@ -477,6 +486,12 @@ void saveMemory(HWND hwndOwner)
 {
     static char pFileName[MAX_PATH];
     static char buffer[0x20000];
+
+    /* Same as saveDisassembly: do not open a dialog for a save that cannot
+    ** happen. */
+    if (!memory->hasContent()) {
+        return;
+    }
 
     pFileName[0] = 0;
 

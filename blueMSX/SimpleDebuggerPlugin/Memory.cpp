@@ -583,14 +583,18 @@ void Memory::showEdit(InputDialog* dataInput, DWORD address)
 
 bool Memory::writeToFile(const char* fileName)
 {
+    /* Before the open: "wb+" truncates, so finding out there is nothing to
+    ** write afterwards costs the user the file they picked. */
+    if (currentMemory == NULL) {
+        return false;
+    }
+
     FILE* f = fopenU(fileName, "wb+");
     if (f == NULL) {
         return false;
     }
 
-    if (currentMemory != NULL) {
-        fwrite(currentMemory->memory, 1, currentMemory->size, f);
-    }
+    fwrite(currentMemory->memory, 1, currentMemory->size, f);
 
     fclose(f);
 

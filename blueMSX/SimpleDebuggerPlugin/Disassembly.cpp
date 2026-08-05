@@ -690,6 +690,12 @@ void Disassembly::onFontChanged()
 
 bool Disassembly::writeToFile(const char* fileName)
 {
+    /* Before the open: "w+" truncates, so finding out there is nothing to
+    ** write afterwards costs the user the file they picked. */
+    if (!hasContent()) {
+        return false;
+    }
+
     FILE* f = fopenU(fileName, "w+");
     if (f == NULL) {
         return false;
