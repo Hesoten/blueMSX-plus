@@ -1766,17 +1766,26 @@ void setTapePosition(HWND parent, Properties* pProperties) {
 
 ///////////////////////////////////////////////////////////////////////////
 
-/* Match an incoming hotkey against any of the (up to 3) slots in a
-** ShotcutHotkeySet.  Empty slots (type=NONE) don't match anything. */
-static int hotkeySetMatches(ShotcutHotkey key, const ShotcutHotkeySet* set)
+/* ignoreMods: mods on a release come from the input poll, so they can
+** differ from the press. */
+static unsigned hotkeySetSlotMask(ShotcutHotkey key, const ShotcutHotkeySet* set, int ignoreMods)
 {
+    unsigned mask = 0;
     int b;
     if (key.type == HOTKEY_TYPE_NONE) return 0;
     for (b = 0; b < SHORTCUT_MAX_BINDINGS; b++) {
         if (set->slots[b].type == HOTKEY_TYPE_NONE) continue;
-        if (*(DWORD*)&key == *(DWORD*)&set->slots[b]) return 1;
+        if (ignoreMods ? (set->slots[b].type == key.type && set->slots[b].key == key.key)
+                       : (*(DWORD*)&key == *(DWORD*)&set->slots[b])) {
+            mask |= 1u << b;
+        }
     }
-    return 0;
+    return mask;
+}
+
+static int hotkeySetMatches(ShotcutHotkey key, const ShotcutHotkeySet* set)
+{
+    return hotkeySetSlotMask(key, set, 0) != 0;
 }
 
 #define hotkeyEq(hotkey1, hotkey2Set) hotkeySetMatches((hotkey1), &(hotkey2Set))
@@ -1787,43 +1796,53 @@ static unsigned joyHotkeyCode(int slot, int button)
     return (unsigned)(((slot + 1) << 8) | button);
 }
 
-static int maxSpeedIsSet = 0;
-static int reverseIsSet  = 0;
+static unsigned maxSpeedHeld = 0;
+static unsigned reverseHeld  = 0;
 
 static void checkKeyDown(Shortcuts* s, ShotcutHotkey key) {
-    if (hotkeyEq(key, s->emuSpeedFull)) {
+    unsigned m;
+
+    m = hotkeySetSlotMask(key, &s->emuSpeedFull, 0);
+    if (m != 0) {
+        /* Re-asserted per repeat: max speed can be switched off elsewhere. */
         actionMaxSpeedSet();
-        maxSpeedIsSet = 1;
+        maxSpeedHeld |= m;
     }
-    if (hotkeyEq(key, s->emuPlayReverse)) {
-        actionStartPlayReverse();
-        reverseIsSet = 1;
+    m = hotkeySetSlotMask(key, &s->emuPlayReverse, 0);
+    if (m != 0) {
+        /* Starting reverse play suspends the sound device, which is not
+        ** re-entrant. */
+        if (reverseHeld == 0) actionStartPlayReverse();
+        reverseHeld |= m;
     }
 }
 
 static void shortcutsReleaseHeldActions(void)
 {
-    if (maxSpeedIsSet) {
+    if (maxSpeedHeld != 0) {
         actionMaxSpeedRelease();
-        maxSpeedIsSet = 0;
+        maxSpeedHeld = 0;
     }
 
-    if (reverseIsSet) {
+    if (reverseHeld != 0) {
         actionStopPlayReverse();
-        reverseIsSet = 0;
+        reverseHeld = 0;
     }
 }
 
 static void checkKeyUp(Shortcuts* s, ShotcutHotkey key)
 {
-    if (maxSpeedIsSet) {
-        actionMaxSpeedRelease();
-        maxSpeedIsSet = 0;
-    }
+    unsigned m;
 
-    if (reverseIsSet) {
-        actionStopPlayReverse();
-        reverseIsSet = 0;
+    m = hotkeySetSlotMask(key, &s->emuSpeedFull, 1);
+    if (m != 0 && maxSpeedHeld != 0) {
+        maxSpeedHeld &= ~m;
+        if (maxSpeedHeld == 0) actionMaxSpeedRelease();
+    }
+    m = hotkeySetSlotMask(key, &s->emuPlayReverse, 1);
+    if (m != 0 && reverseHeld != 0) {
+        reverseHeld &= ~m;
+        if (reverseHeld == 0) actionStopPlayReverse();
     }
 
     if (hotkeyEq(key, s->spritesEnable))                actionToggleSpriteEnable();
@@ -3361,6 +3380,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         break;
 
     case WM_ENTERSIZEMOVE:
+        shortcutsReleaseHeldActions();
         emulatorSuspend();
         mouseEmuActivate(0);
         st.showDialog++;
@@ -3373,6 +3393,9 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         break;
 
     case WM_ENTERMENULOOP:
+        /* The loop swallows the key-up, and stopping reverse play resumes
+        ** the sound device, which must happen before the suspend below. */
+        shortcutsReleaseHeldActions();
         emulatorSuspend();
         st.trackMenu = 1;
         SetTimer(st.hwnd, TIMER_MENUUPDATE, 250, NULL);
@@ -3495,7 +3518,8 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         if (LOWORD(wParam) == WA_INACTIVE) {
             inputReset(hwnd);
             mouseEmuActivate(0);
-            actionMaxSpeedRelease();
+            /* The key-up that would end these is going to another window. */
+            shortcutsReleaseHeldActions();
         }
         else {
             mouseEmuActivate(1);
