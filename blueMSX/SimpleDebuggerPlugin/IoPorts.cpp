@@ -96,7 +96,7 @@ LRESULT IoPortWindow::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
             HBITMAP hBitmap = CreateCompatibleBitmap(hdcw, r.right, r.bottom);
             HBITMAP hBitmapOrig = (HBITMAP)SelectObject(hMemdc, hBitmap);
 
-            SelectObject(hMemdc, hBrushWhite); 
+            SelectObject(hMemdc, pageBrush(hBrushWhite)); 
             PatBlt(hMemdc, 0, top, r.right, height, PATCOPY);
 
             drawText(ps.rcPaint.top, ps.rcPaint.bottom);
@@ -137,6 +137,7 @@ IoPortWindow::~IoPortWindow()
 
 void IoPortWindow::invalidateContent()
 {
+    setContentStale(false);
     currentLine = -1;
     updateScroll();
 
@@ -183,6 +184,7 @@ void IoPortWindow::updateContent(Snapshot* snapshot)
 {
     static char* readWrite[4] = { (char*)"", (char*)"In", (char*)"Out", (char*)"I/O" };
 
+    setContentStale(false);
     currentLine = -1;
     for (int i = 0; i < 256; i++) {
         sprintf(lineInfo[i].port, "%.2X", i);

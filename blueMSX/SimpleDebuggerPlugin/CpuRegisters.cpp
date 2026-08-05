@@ -270,7 +270,7 @@ LRESULT CpuRegisters::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
             HBITMAP hBitmap = CreateCompatibleBitmap(hdcw, r.right, r.bottom);
             HBITMAP hBitmapOrig = (HBITMAP)SelectObject(hMemdc, hBitmap);
             
-            SelectObject(hMemdc, hBrushWhite); 
+            SelectObject(hMemdc, pageBrush(hBrushWhite)); 
             PatBlt(hMemdc, 0, top, r.right, height, PATCOPY);
 
             drawText(ps.rcPaint.top, ps.rcPaint.bottom);
@@ -461,6 +461,7 @@ void CpuRegisters::writeRegister(int reg, UInt32 value)
 
 void CpuRegisters::invalidateContent()
 {
+    setContentStale(false);
     currentRegBank = NULL;
 
     endEdit();
@@ -474,6 +475,7 @@ void CpuRegisters::invalidateContent()
 
 void CpuRegisters::updateContent(RegisterBank* regBank)
 {
+    setContentStale(false);
     currentRegBank = regBank;
 
     endEdit();
@@ -591,7 +593,7 @@ void CpuRegisters::drawText(int top, int bottom)
             SelectObject(hMemdc, hBrushLtGray); 
             PatBlt(hMemdc, 0, 0, rc.right, textHeight + 1, PATCOPY);
 
-            SelectObject(hMemdc, hBrushWhite); 
+            SelectObject(hMemdc, pageBrush(hBrushWhite)); 
             WORD regVal = regValue[0];
 
             SelectObject(hMemdc, hFontBold);

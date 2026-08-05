@@ -432,10 +432,6 @@ LRESULT Disassembly::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
         colorBlack = dark ? GetDarkFg()        : RGB(0, 0, 0);
         colorGray  = RGB(160, 160, 160);
         colorWhite = dark ? GetDarkBg()        : RGB(255, 255, 255);
-        /* Nothing may gain contrast by going stale, and the byte column is
-        ** already at colorGray, so the two themes need opposite directions:
-        ** darker than gray towards a dark background, gray itself on white. */
-        colorStale = dark ? RGB(120, 120, 120) : RGB(160, 160, 160);
 
         darkSubWindow(hwnd);
         return 0;
@@ -533,7 +529,7 @@ LRESULT Disassembly::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
             SelectObject(hMemdc, hBrushLtGray);  
             PatBlt(hMemdc, 0, top, 21, height, PATCOPY);
             
-            SelectObject(hMemdc, hBrushWhite); 
+            SelectObject(hMemdc, pageBrush(hBrushWhite)); 
             PatBlt(hMemdc, 21, top, r.right - 21, height, PATCOPY);
 
             drawText(ps.rcPaint.top, ps.rcPaint.bottom);
@@ -573,7 +569,7 @@ Disassembly::Disassembly(HINSTANCE hInstance, HWND owner, SymbolInfo* symInfo, B
     DbgWindow( hInstance, owner, 
                Language::windowDisassembly, "Disassembly Window", 3, 2, 432, 418, 1),
     linePos(0), lineCount(0), currentLine(-1), programCounter(0),
-    firstVisibleLine(0), contentState(CONTENT_NONE),
+    firstVisibleLine(0), contentValid(false),
     hasKeyboardFocus(false), symbolInfo(symInfo), breakpoints(breakpts)
 {
     memset(backupMemory, 0, 0x10000);
@@ -629,21 +625,11 @@ void Disassembly::invalidateContent()
     breakpoints->clearRuntoBreakpoint();
     currentLine = -1;
     lineCount = 0;
-    contentState = CONTENT_NONE;
+    contentValid = false;
+    setContentStale(false);
     updateScroll();
 
     InvalidateRect(hwnd, NULL, TRUE);
-}
-
-void Disassembly::markContentStale()
-{
-    /* Deliberately keeps lineCount, currentLine and every line: the addresses
-    ** are still the machine's, and breakpoints are set by address. Only the
-    ** decode can have moved under us, which the grey says. */
-    if (contentState == CONTENT_FRESH) {
-        contentState = CONTENT_STALE;
-        InvalidateRect(hwnd, NULL, TRUE);
-    }
 }
 
 int Disassembly::lineForAddress(int address)
@@ -674,11 +660,11 @@ void Disassembly::refresh(bool followPc)
     /* The same snapshot laid out again, not a new one: it does not become
     ** current by being rebuilt, and following a stale PC would scroll to the
     ** address the dimming exists to disclaim and take the focus with it. */
-    ContentState wasState = contentState;
+    bool wasStale = isContentStale();
 
-    updateContent(backupMemory, backupPc, followPc && wasState == CONTENT_FRESH);
+    updateContent(backupMemory, backupPc, followPc && !wasStale);
 
-    contentState = wasState;
+    setContentStale(wasStale);
     InvalidateRect(hwnd, NULL, TRUE);
 }
 
@@ -739,7 +725,8 @@ void Disassembly::updateContent(BYTE* memory, WORD pc, bool followPc)
 
     memcpy(backupMemory, memory, 0x10000);
     backupPc = pc;
-    contentState = CONTENT_FRESH;
+    contentValid = true;
+    setContentStale(false);
 
     for (; addr < pc; ) {
         const char* symbolName = symbolInfo->find(addr);
@@ -1061,12 +1048,9 @@ void Disassembly::drawText(int top, int bottom)
         return;
     }
 
-    /* The whole row dimmed while the CPU is somewhere else. The byte column
-    ** and the labels go with it: left at colorGray they end up brighter than
-    ** the code in dark mode, which reads as emphasis rather than as age. */
-    bool stale = contentState == CONTENT_STALE;
-    COLORREF textColor = stale ? colorStale : colorBlack;
-    COLORREF dimColor  = stale ? colorStale : colorGray;
+    /* The tint is on the page, so every column keeps its own colour. Only the
+    ** PC marker has to go: it is a claim about now. */
+    bool stale = isContentStale();
 
     si.cbSize = sizeof (si);
     si.fMask  = SIF_POS;
@@ -1089,7 +1073,7 @@ void Disassembly::drawText(int top, int bottom)
 
         int address = lineInfo[i].address;
         if (lineInfo[i].isLabel) {
-            SetTextColor(hMemdc, dimColor);
+            SetTextColor(hMemdc, colorGray);
             r.left += 14 * textWidth;
             DrawTextU(hMemdc, lineInfo[i].text, lineInfo[i].textLength, &r, DT_LEFT);
             r.left -= 14 * textWidth;
@@ -1100,7 +1084,7 @@ void Disassembly::drawText(int top, int bottom)
             int iconTop = r.top + (textHeight - bitmapIcons->getHeight()) / 2;
             /* The PC marker is a claim about now, and while the machine runs
             ** it is the one thing on this listing that is certainly wrong. */
-            if (lineInfo[i].haspc && contentState == CONTENT_FRESH) {
+            if (lineInfo[i].haspc && !stale) {
                 if (Breakpoints::IsBreakpointSet(address)) {
                     bitmapIcons->drawIcon(hMemdc, 4, iconTop, 3);
                 }
@@ -1120,11 +1104,11 @@ void Disassembly::drawText(int top, int bottom)
                 }
             }
 
-            SetTextColor(hMemdc, dimColor);
+            SetTextColor(hMemdc, colorGray);
             r.left += 6 * textWidth;
             DrawTextU(hMemdc, lineInfo[i].dataText, lineInfo[i].dataTextLength, &r, DT_LEFT);
             r.left -= 6 * textWidth;
-            SetTextColor(hMemdc, i == currentLine && hasKeyboardFocus ? colorWhite : textColor);
+            SetTextColor(hMemdc, i == currentLine && hasKeyboardFocus ? colorWhite : colorBlack);
 
             DrawTextU(hMemdc, lineInfo[i].addr, lineInfo[i].addrLength, &r, DT_LEFT);
             r.left += 18 * textWidth;

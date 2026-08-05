@@ -291,7 +291,8 @@ static LRESULT CALLBACK staticWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARA
 
 DbgWindow::DbgWindow(HINSTANCE hInst, HWND wndOwner, const std::string& name, const std::string& ininame,
                      int defX, int defY, int defW, int defH, int defV) : 
-    hInstance(hInst), owner(wndOwner), editEnabled(false), iniName(ininame), winName(name)
+    hInstance(hInst), owner(wndOwner), editEnabled(false), contentStale(false), hBrushStale(NULL),
+    iniName(ininame), winName(name)
 {
     static WNDCLASSEX wndClass;
 
@@ -338,6 +339,8 @@ void DbgWindow::init()
 
 DbgWindow::~DbgWindow()
 {
+    if (hBrushStale) { DeleteObject(hBrushStale); hBrushStale = NULL; }
+
     iniFileWriteInt( iniName.c_str(), "x",       x);
     iniFileWriteInt( iniName.c_str(), "y",       y);
     iniFileWriteInt( iniName.c_str(), "width",   width);
@@ -380,7 +383,35 @@ void DbgWindow::disableEdit()
     editEnabled = false;
 }
 
-void DbgWindow::updateWindowPos(WINDOWPOS* windowPos) 
+void DbgWindow::setContentStale(bool stale)
+{
+    if (contentStale != stale) {
+        contentStale = stale;
+        InvalidateRect(hwnd, NULL, TRUE);
+    }
+}
+
+/* Away from the extreme the theme sits at, so the shift reads the same size
+** whichever way round the theme is. */
+COLORREF dbgStaleBackground(COLORREF live)
+{
+    int step = IsDarkMode() ? 22 : -22;
+
+    return RGB(GetRValue(live) + step, GetGValue(live) + step, GetBValue(live) + step);
+}
+
+HBRUSH DbgWindow::pageBrush(HBRUSH live)
+{
+    if (!contentStale) {
+        return live;
+    }
+    if (hBrushStale == NULL) {
+        hBrushStale = CreateSolidBrush(dbgStaleBackground(IsDarkMode() ? GetDarkBg() : RGB(255, 255, 255)));
+    }
+    return hBrushStale;
+}
+
+void DbgWindow::updateWindowPos(WINDOWPOS* windowPos)
 {
     x       = windowPos->x;
     y       = windowPos->y;

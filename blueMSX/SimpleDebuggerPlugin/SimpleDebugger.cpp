@@ -1458,10 +1458,17 @@ void OnEmulatorPause() {
 
 void OnEmulatorResume() {
     if (dbgHwnd != NULL) {
-        /* The disassembly keeps its lines: a breakpoint is set by address and
-        ** those are still the machine's, so it only stops claiming to be
-        ** current. The device views keep their reference copy for the same. */
-        disassembly->markContentStale();
+        /* These keep what they last read -- the addresses and the reference
+        ** copy the next stop colours against are still worth having -- and
+        ** only stop claiming it is current. */
+        disassembly->setContentStale(true);
+        cpuRegisters->setContentStale(true);
+        memory->setContentStale(true);
+        periRegisters->setContentStale(true);
+        ioPorts->setContentStale(true);
+
+        /* These two hold values rather than addresses, so once the CPU moves
+        ** there is nothing left to act on. */
         callstack->invalidateContent();
         stack->invalidateContent();
 

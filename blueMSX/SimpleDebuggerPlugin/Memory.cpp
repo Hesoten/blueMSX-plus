@@ -394,7 +394,7 @@ LRESULT Memory::memWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
             HBITMAP hBitmap = CreateCompatibleBitmap(hdcw, r.right, r.bottom);
             HBITMAP hBitmapOrig = (HBITMAP)SelectObject(hMemdc, hBitmap);
             
-            SelectObject(hMemdc, hBrushWhite); 
+            SelectObject(hMemdc, pageBrush(hBrushWhite)); 
             PatBlt(hMemdc, 0, top, r.right, height, PATCOPY);
 
             drawText(ps.rcPaint.top, ps.rcPaint.bottom);
@@ -603,6 +603,7 @@ bool Memory::writeToFile(const char* fileName)
 
 void Memory::invalidateContent()
 {
+    setContentStale(false);
     endEdit();
 
     MemList::iterator it;
@@ -622,6 +623,7 @@ void Memory::invalidateContent()
 
 void Memory::updateContent(Snapshot* snapshot)
 {
+    setContentStale(false);
     endEdit();
 
     bool devicesChanged = false;
@@ -874,7 +876,7 @@ void Memory::drawText(int top, int bottom)
 
     for (int i = FirstLine; i <= LastLine; i++) {
         if  (i == yPos) {
-            SelectObject(hMemdc, hBrushWhite); 
+            SelectObject(hMemdc, pageBrush(hBrushWhite)); 
             PatBlt(hMemdc, 0, 0, rc.right, textHeight + 1, PATCOPY);
             SetTextColor(hMemdc, colorLtGray);
 

@@ -56,17 +56,14 @@ public:
     void updateContent(BYTE* memory, WORD pc, bool followPc = true);
     void invalidateContent();
 
-    /* The listing came out of the machine but the CPU has moved on. Keeps every
-    ** line, so its addresses stay usable, and only says so on screen. */
-    void markContentStale();
-
     /* Redraw what is already there. The breakpoint icons are read from
     ** Breakpoints at paint time, so showing one never needs a rebuild. */
     void repaint() { InvalidateRect(hwnd, NULL, TRUE); }
 
     /* False only while there is no listing at all, which is what the commands
-    ** that read one have to test. */
-    bool hasContent() { return contentState != CONTENT_NONE; }
+    ** that read one have to test. Being stale is a separate question -- a
+    ** stale listing still came out of the machine. */
+    bool hasContent() { return contentValid; }
 
     void updateScroll(int address = -1);
     void setCursor(WORD address);
@@ -105,7 +102,6 @@ private:
     COLORREF colorBlack;
     COLORREF colorGray;
     COLORREF colorWhite;
-    COLORREF colorStale;
 
     int    textHeight = 1;
     int    textWidth  = 1;
@@ -127,11 +123,10 @@ private:
     int      lineCount;
     int      currentLine;
 
-    /* NONE is the only state whose lines are fiction: nothing disassembled
-    ** yet, so the backup is the zeroed buffer. STALE lines came out of the
-    ** machine; only their decode and the PC marker are behind. */
-    enum ContentState { CONTENT_NONE, CONTENT_STALE, CONTENT_FRESH };
-    ContentState contentState;
+    /* False means the lines are fiction: nothing has been disassembled yet, so
+    ** the backup is still the zeroed buffer. True with isContentStale() means
+    ** they are the machine's, only the decode and the PC marker being behind. */
+    bool     contentValid;
 
     LineInfo lineInfo[0x20000];
     int      linePos;

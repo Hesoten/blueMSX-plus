@@ -305,7 +305,7 @@ LRESULT PeripheralRegs::regWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
             HBITMAP hBitmap = CreateCompatibleBitmap(hdcw, r.right, r.bottom);
             HBITMAP hBitmapOrig = (HBITMAP)SelectObject(hMemdc, hBitmap);
             
-            SelectObject(hMemdc, hBrushWhite); 
+            SelectObject(hMemdc, pageBrush(hBrushWhite)); 
             PatBlt(hMemdc, 0, top, r.right, height, PATCOPY);
 
             drawText(ps.rcPaint.top, ps.rcPaint.bottom);
@@ -478,6 +478,7 @@ void PeripheralRegs::updatePosition(RECT& rect)
 
 void PeripheralRegs::invalidateContent()
 {
+    setContentStale(false);
     endEdit();
 
     MemList::iterator it;
@@ -496,6 +497,7 @@ void PeripheralRegs::invalidateContent()
 
 void PeripheralRegs::updateContent(Snapshot* snapshot)
 {
+    setContentStale(false);
     endEdit();
 
     bool devicesChanged = false;
