@@ -330,8 +330,11 @@ static void updateWindowMenu()
 
     AppendMenuU(hMenuDebug, MF_SEPARATOR, 0, NULL);
     
+    /* No cursor term: this asks for an address, it does not read the one in
+    ** the disassembly. Ctrl+B and the Breakpoints window button never had it,
+    ** so the menu was the only place refusing a command the others allowed. */
     sprintf(buf, "%s\tCtrl+B", Language::menuDebugBpAdd);
-    AppendMenuU(hMenuDebug, MF_STRING | (state != EMULATOR_STOPPED && disassembly->isCursorPresent() ? 0 : MF_GRAYED), MENU_DEBUG_SETBP, buf);
+    AppendMenuU(hMenuDebug, MF_STRING | (state != EMULATOR_STOPPED ? 0 : MF_GRAYED), MENU_DEBUG_SETBP, buf);
 
     sprintf(buf, "%s\tF9", Language::menuDebugBpToggle);
     AppendMenuU(hMenuDebug, MF_STRING | (state != EMULATOR_STOPPED && disassembly->isCursorPresent() ? 0 : MF_GRAYED), MENU_DEBUG_BPTOGGLE, buf);
@@ -340,8 +343,9 @@ static void updateWindowMenu()
 
     AppendMenuU(hMenuDebug, MF_SEPARATOR, 0, NULL);
 
+    /* Same as the breakpoint above: an address dialog, not the cursor. */
     sprintf(buf, "%s\tCtrl+W", Language::menuDebugWpAdd);
-    AppendMenuU(hMenuDebug, MF_STRING | (state != EMULATOR_STOPPED && disassembly->isCursorPresent() ? 0 : MF_GRAYED), MENU_DEBUG_SETWP, buf);
+    AppendMenuU(hMenuDebug, MF_STRING | (state != EMULATOR_STOPPED ? 0 : MF_GRAYED), MENU_DEBUG_SETWP, buf);
 
     AppendMenuU(hMenuDebug, MF_SEPARATOR, 0, NULL);
 
