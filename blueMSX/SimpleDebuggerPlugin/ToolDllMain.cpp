@@ -3,6 +3,7 @@
 #include <windows.h>
 #include "BlueMSXToolInterface.h"
 #include "ToolInterface.h"
+#include "Win32TextUtf8.h"
 
 static ToolSnapshotCreate              toolSnapshotCreate;
 static ToolSnapshotDestroy             toolSnapshotDestroy;
@@ -42,6 +43,7 @@ static ToolGetDarkColor                toolGetDarkFg;
 static ToolGetDarkBrush                toolGetDarkBgBrush;
 static ToolShellOpenFile               toolShellOpenFileDialog;
 static ToolShellSaveFile               toolShellSaveFileDialog;
+static ToolMessageBox                  toolMessageBox;
 
 static HINSTANCE hInstance;
 
@@ -216,6 +218,13 @@ bool ShellSaveFileDialog(HWND owner, const char* title, const char* filter,
                                    filterIndex, outPath, outPathCap) != 0;
 }
 
+int ShowMessageBox(HWND owner, const char* text, const char* caption, UInt32 type) {
+    if (toolMessageBox != NULL) {
+        return toolMessageBox(owner, text, caption, type);
+    }
+    return MessageBoxU(owner, text, caption, type);
+}
+
 extern "C" __declspec(dllexport) int __stdcall Create12(Interface* toolInterface, char* name, int length)
 {
     strcpy(name, OnGetName());
@@ -255,6 +264,7 @@ extern "C" __declspec(dllexport) int __stdcall Create12(Interface* toolInterface
     toolGetDarkBgBrush              = toolInterface->getDarkBgBrush;
     toolShellOpenFileDialog         = toolInterface->shellOpenFileDialog;
     toolShellSaveFileDialog         = toolInterface->shellSaveFileDialog;
+    toolMessageBox                  = toolInterface->messageBox;
 
     OnCreateTool();
 

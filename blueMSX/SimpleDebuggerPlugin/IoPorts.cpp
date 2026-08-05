@@ -96,7 +96,7 @@ LRESULT IoPortWindow::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
             HBITMAP hBitmap = CreateCompatibleBitmap(hdcw, r.right, r.bottom);
             HBITMAP hBitmapOrig = (HBITMAP)SelectObject(hMemdc, hBitmap);
 
-            SelectObject(hMemdc, hBrushWhite); 
+            SelectObject(hMemdc, pageBrush(hBrushWhite)); 
             PatBlt(hMemdc, 0, top, r.right, height, PATCOPY);
 
             drawText(ps.rcPaint.top, ps.rcPaint.bottom);
@@ -137,6 +137,7 @@ IoPortWindow::~IoPortWindow()
 
 void IoPortWindow::invalidateContent()
 {
+    setContentStale(false);
     currentLine = -1;
     updateScroll();
 
@@ -183,6 +184,7 @@ void IoPortWindow::updateContent(Snapshot* snapshot)
 {
     static char* readWrite[4] = { (char*)"", (char*)"In", (char*)"Out", (char*)"I/O" };
 
+    setContentStale(false);
     currentLine = -1;
     for (int i = 0; i < 256; i++) {
         sprintf(lineInfo[i].port, "%.2X", i);
@@ -239,17 +241,16 @@ void IoPortWindow::updateScroll()
     GetClientRect(hwnd, &r);
     int visibleLines = r.bottom / textHeight;
 
+    /* Stay where the user scrolled to; this runs on every debugger update. */
+    int oldFirstLine = dbgGetScrollPos(hwnd);
+
     SCROLLINFO si;
     si.cbSize    = sizeof(SCROLLINFO);
-    
-    GetScrollInfo(hwnd, SB_VERT, &si);
-    int oldFirstLine = si.nPos;
-
-    si.fMask     = SIF_PAGE | SIF_POS | SIF_RANGE | (visibleLines >= lineCount ? 0 : 0);
+    si.fMask     = SIF_PAGE | SIF_POS | SIF_RANGE;
     si.nMin      = 0;
-    si.nMax      = lineCount;
+    si.nMax      = lineCount > 0 ? lineCount - 1 : 0;
     si.nPage     = visibleLines;
-    si.nPos      = 0;
+    si.nPos      = oldFirstLine;
 
     SetScrollInfo(hwnd, SB_VERT, &si, TRUE);
     
@@ -315,7 +316,11 @@ void IoPortWindow::drawText(int top, int bottom)
     int FirstLine = max (0, yPos + top / textHeight);
     int LastLine = min (lineCount - 1, yPos + bottom / textHeight);
 
-    RECT r = { 4, textHeight * (FirstLine - yPos), 400, textHeight };
+    /* Column positions scale with textWidth, so a pixel constant for the right
+    ** edge drops the last columns off the view once the font grows. */
+    RECT rc;
+    GetClientRect(hwnd, &rc);
+    RECT r = { 4, textHeight * (FirstLine - yPos), rc.right, textHeight };
 
     r.bottom += r.top;
 

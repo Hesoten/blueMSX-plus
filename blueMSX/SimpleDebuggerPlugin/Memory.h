@@ -50,6 +50,10 @@ public:
 
     bool writeToFile(const char* fileName);
 
+    /* False while no memory block is selected, which is what the commands that
+    ** read one have to test. */
+    bool hasContent() { return currentMemory != NULL; }
+
     void findData(const char* text);
 
     virtual LRESULT wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam);
@@ -101,7 +105,7 @@ private:
     int    textHeight = 1;
     int    textWidth  = 1;
 
-    int    memPerRow;
+    int    memPerRow = 1;
     int    lineCount;
 
     COLORREF colorBlack;

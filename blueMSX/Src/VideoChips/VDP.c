@@ -2053,6 +2053,25 @@ static void loadState(VDP* vdp)
 
 #endif
 
+/* Order of the debug register bank: registers, command registers, palette,
+** status, then the three extras. dbgWriteRegister decodes with these too. */
+static void dbgRegisterLayout(VDP* vdp, int* regCount, int* cmdRegCount,
+                              int* paletteCount, int* statusRegCount)
+{
+    if (vdp->vdpVersion == VDP_V9938 || vdp->vdpVersion == VDP_V9958) {
+        *regCount       = vdp->vdpVersion == VDP_V9938 ? 24 : 32;
+        *cmdRegCount    = 15;
+        *paletteCount   = 16;
+        *statusRegCount = 9;
+    }
+    else {
+        *regCount       = 8;
+        *cmdRegCount    = 0;
+        *paletteCount   = 0;
+        *statusRegCount = 1;
+    }
+}
+
 static void getDebugInfo(VDP* vdp, DbgDevice* dbgDevice)
 {
     DbgRegisterBank* regBank;
@@ -2094,24 +2113,7 @@ static void getDebugInfo(VDP* vdp, DbgDevice* dbgDevice)
 
     dbgDeviceAddMemoryBlock(dbgDevice, langDbgMemVram(), 0, 0, vdp->vramSize, vdp->vram);
 
-    if (vdp->vdpVersion == VDP_V9938) {
-        regCount = 24;
-        statusRegCount = 9;
-        paletteCount = 16;
-        cmdRegCount = 15;
-    }
-    else if (vdp->vdpVersion == VDP_V9958) {
-        regCount = 32;
-        statusRegCount = 9;
-        paletteCount = 16;
-        cmdRegCount = 15;
-    }
-    else {
-        regCount = 8;
-        statusRegCount = 1;
-        paletteCount = 0;
-        cmdRegCount = 0;
-    }
+    dbgRegisterLayout(vdp, &regCount, &cmdRegCount, &paletteCount, &statusRegCount);
 
     regBank = dbgDeviceAddRegisterBank(dbgDevice, langDbgRegs(), 
                                        regCount + 
@@ -2211,22 +2213,9 @@ static int dbgWriteRegister(VDP* vdp, char* name, int regIndex, UInt32 value)
     int regCount;
     int cmdRegCount;
     int paletteCount;
+    int statusRegCount;
 
-    if (vdp->vdpVersion == VDP_V9938) {
-        regCount = 24;
-        paletteCount = 16;
-        cmdRegCount = 15;
-    }
-    else if (vdp->vdpVersion == VDP_V9958) {
-        regCount = 32;
-        paletteCount = 16;
-        cmdRegCount = 15;
-    }
-    else {
-        regCount = 8;
-        paletteCount = 0;
-        cmdRegCount = 0;
-    }
+    dbgRegisterLayout(vdp, &regCount, &cmdRegCount, &paletteCount, &statusRegCount);
 
     if (regIndex < 0) {
         return 0;
@@ -2249,16 +2238,26 @@ static int dbgWriteRegister(VDP* vdp, char* name, int regIndex, UInt32 value)
         value &= 0x0777;
         vdp->paletteReg[regIndex] = (UInt16)value;
         
-        updatePalette(vdp, regIndex, (value & 0x70) * 255 / 112, 
-                                     (value & 0x07) * 255 / 7,
-                                     (value & 0x07) * 255 / 7);
+        /* Green lives in the high byte, the layout writePaletteLatch builds. */
+        updatePalette(vdp, regIndex, (value & 0x0070) * 255 / 112,
+                                     ((value >> 8) & 0x07) * 255 / 7,
+                                     (value & 0x0007) * 255 / 7);
         return 1;
     }
 
     regIndex -= paletteCount;
 
+    /* The status registers sit here and are read only. Without the skip S0
+    ** would land on the VRMP case below and corrupt the VRAM address. */
+    if (regIndex < statusRegCount) {
+        return 0;
+    }
+
+    regIndex -= statusRegCount;
+
     if (regIndex == 0) { // VRMP
         vdp->vramAddress = (UInt16)value & 0x3fff;
+        return 1;
     }
 
     return 0;

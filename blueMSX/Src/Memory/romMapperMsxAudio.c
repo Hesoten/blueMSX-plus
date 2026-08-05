@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -179,6 +182,16 @@ UInt8 philipsMidiReadData(PhilipsMidi* midi)
 {
     midi->status &= ~(STAT_RXRDY | STAT_OE);
     return midi->rxData;
+}
+
+/* The same values without the acknowledge, for the debugger: showing a port
+** must not clear an interrupt the machine has not seen yet. */
+static UInt8 philipsMidiPeek(PhilipsMidi* midi, UInt16 ioPort)
+{
+    if (midi == NULL) {
+        return 0xff;
+    }
+    return (ioPort & 1) ? midi->rxData : midi->status;
 }
 
 void philipsMidiWriteCommand(PhilipsMidi* midi, UInt8 value)
@@ -473,8 +486,8 @@ static void getDebugInfo(RomMapperMsxAudio* rm, DbgDevice* dbgDevice)
     ioPorts = dbgDeviceAddIoPorts(dbgDevice, langDbgDevMsxAudioMidi(), 4);
     dbgIoPortsAddPort(ioPorts, 0, 0x00, DBG_IO_WRITE, 0);
     dbgIoPortsAddPort(ioPorts, 1, 0x01, DBG_IO_WRITE, 0);
-    dbgIoPortsAddPort(ioPorts, 2, 0x04, DBG_IO_READ, midiRead(rm, 0x04));
-    dbgIoPortsAddPort(ioPorts, 3, 0x05, DBG_IO_READ, midiRead(rm, 0x05));
+    dbgIoPortsAddPort(ioPorts, 2, 0x04, DBG_IO_READ, philipsMidiPeek(rm->midi, 0x04));
+    dbgIoPortsAddPort(ioPorts, 3, 0x05, DBG_IO_READ, philipsMidiPeek(rm->midi, 0x05));
 
     y8950GetDebugInfo(rm->y8950, dbgDevice);
 }

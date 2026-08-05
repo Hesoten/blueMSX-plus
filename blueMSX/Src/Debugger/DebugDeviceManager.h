@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -85,6 +88,11 @@ void dbgIoPortsAddPort(DbgIoPorts* ioPorts,
 
 void debugDeviceGetSnapshot(DbgDevice** dbgDeviceList, int* count);
 
+/* True while one of the calls below is running a device callback. They come
+** from the UI thread, which cannot survive being parked, so a device must not
+** stop the board from inside one. */
+int debugDeviceIsInspecting(void);
+
 int debugDeviceWriteMemory(DbgMemoryBlock* memoryBlock, void* data, int startAddr, int size);
 int debugDeviceWriteRegister(DbgRegisterBank* regBank, int regIndex, UInt32 value);
 int debugDeviceWriteIoPort(DbgIoPorts* ioPorts, int portIndex, UInt32 value);
@@ -92,5 +100,18 @@ int debugDeviceWriteIoPort(DbgIoPorts* ioPorts, int portIndex, UInt32 value);
 void debugDeviceSetMemoryWatchpoint(DbgDeviceType devType, int address, DbgWatchpointCondition condition, UInt32 refValue, int size);
 void debugDeviceClearMemoryWatchpoint(DbgDeviceType devType, int address);
 void tryWatchpoint(DbgDeviceType devType, int address, UInt8 value, void* ref, WatchpointReadMemCallback callback);
+
+/* Reports a match without stopping, for callers that have to finish what they
+** are doing before the emulator may be parked. */
+int checkWatchpoint(DbgDeviceType devType, int address, UInt8 value, void* ref, WatchpointReadMemCallback callback);
+
+/* How many watchpoints of that type exist. Exposed as data because the VDP
+** command engine has to test it on every VRAM write it makes. Sized like the
+** list it mirrors, so the same devType always indexes both. */
+extern int debugWatchpointCount[];
+
+/* Whether a watchpoint still covers that address, for a caller holding a hit it
+** could not report at the time and has to re-qualify before it does. */
+int watchpointCovers(DbgDeviceType devType, int address);
 
 #endif /*DEBUG_DEVICE_MANAGER_H*/

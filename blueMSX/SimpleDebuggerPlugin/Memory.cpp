@@ -80,6 +80,7 @@ void Memory::updateDropdown()
         if (index == 0 || (currentMemory && currentMemory->title == mi->title)) {
             SendMessageW(hCombo, CB_SETCURSEL, index, 0);
         }
+        index++;
     }
 }
 
@@ -393,7 +394,7 @@ LRESULT Memory::memWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
             HBITMAP hBitmap = CreateCompatibleBitmap(hdcw, r.right, r.bottom);
             HBITMAP hBitmapOrig = (HBITMAP)SelectObject(hMemdc, hBitmap);
             
-            SelectObject(hMemdc, hBrushWhite); 
+            SelectObject(hMemdc, pageBrush(hBrushWhite)); 
             PatBlt(hMemdc, 0, top, r.right, height, PATCOPY);
 
             drawText(ps.rcPaint.top, ps.rcPaint.bottom);
@@ -582,14 +583,18 @@ void Memory::showEdit(InputDialog* dataInput, DWORD address)
 
 bool Memory::writeToFile(const char* fileName)
 {
+    /* Before the open: "wb+" truncates, so finding out there is nothing to
+    ** write afterwards costs the user the file they picked. */
+    if (currentMemory == NULL) {
+        return false;
+    }
+
     FILE* f = fopenU(fileName, "wb+");
     if (f == NULL) {
         return false;
     }
 
-    if (currentMemory != NULL) {
-        fwrite(currentMemory->memory, 1, currentMemory->size, f);
-    }
+    fwrite(currentMemory->memory, 1, currentMemory->size, f);
 
     fclose(f);
 
@@ -598,6 +603,7 @@ bool Memory::writeToFile(const char* fileName)
 
 void Memory::invalidateContent()
 {
+    setContentStale(false);
     endEdit();
 
     MemList::iterator it;
@@ -617,6 +623,7 @@ void Memory::invalidateContent()
 
 void Memory::updateContent(Snapshot* snapshot)
 {
+    setContentStale(false);
     endEdit();
 
     bool devicesChanged = false;
@@ -626,6 +633,10 @@ void Memory::updateContent(Snapshot* snapshot)
     if (currentMemory != NULL) {
         currentMemoryTitle = currentMemory->title;
     }
+    /* Picked up again by title below. It must not survive the delete: a block
+    ** that goes away would leave this pointing into freed memory, and the
+    ** fallback further down only triggers on NULL. */
+    currentMemory = NULL;
 
     MemList::iterator it;
     for (it = memList.begin(); it != memList.end(); ++it) {
@@ -670,12 +681,17 @@ void Memory::updateContent(Snapshot* snapshot)
         }
     }
 
-    for (it = memList.begin(); it != memList.end(); ++it) {
+    /* erase already hands back the next entry, so the loop must not advance
+    ** again. */
+    for (it = memList.begin(); it != memList.end(); ) {
         MemoryItem* mi = *it;
         if (!mi->flag) {
             devicesChanged = true;
             delete mi;
             it = memList.erase(it);
+        }
+        else {
+            ++it;
         }
     }
 
@@ -751,16 +767,23 @@ void Memory::showAddress(int addr)
 
     currentAddress = addr;
     updateScroll();
+    /* updateScroll keeps the current position now, so ask for the jump here. */
+    dbgSetScrollPos(memHwnd, currentAddress / memPerRow);
+    InvalidateRect(memHwnd, NULL, TRUE);
 }
 
 void Memory::updateScroll() 
 {
+    /* Stay where the user scrolled to. A resize changes memPerRow, so the top
+    ** address is what has to be kept, not the row index. */
+    int topAddress = dbgGetScrollPos(memHwnd) * memPerRow;
+
     RECT r;
     GetClientRect(memHwnd, &r);
     int visibleLines = r.bottom / textHeight;
 
     r.right -= 20 + 13 * textWidth;
- 
+
     memPerRow = 1;
 
     while (r.right > 4 * textWidth) {
@@ -773,15 +796,11 @@ void Memory::updateScroll()
 
     SCROLLINFO si;
     si.cbSize    = sizeof(SCROLLINFO);
-    
-    GetScrollInfo(memHwnd, SB_VERT, &si);
-    int oldFirstLine = si.nPos;
-
     si.fMask     = SIF_PAGE | SIF_POS | SIF_RANGE;
     si.nMin      = 0;
-    si.nMax      = lineCount;
+    si.nMax      = lineCount > 0 ? lineCount - 1 : 0;
     si.nPage     = visibleLines;
-    si.nPos      = currentAddress / memPerRow;
+    si.nPos      = topAddress / memPerRow;
 
     SetScrollInfo(memHwnd, SB_VERT, &si, TRUE);
     
@@ -850,35 +869,37 @@ void Memory::drawText(int top, int bottom)
     }
     int memSize = currentMemory != NULL ? currentMemory->size : 0;
 
+    /* Column positions scale with textWidth, so the rectangle has to end at the
+    ** client edge; a fixed width clips the columns once the font grows. */
+    RECT rc;
+    GetClientRect(memHwnd, &rc);
+
     for (int i = FirstLine; i <= LastLine; i++) {
         if  (i == yPos) {
-            SelectObject(hMemdc, hBrushWhite); 
-            PatBlt(hMemdc, 0, 0, 1024, textHeight + 1, PATCOPY);
+            SelectObject(hMemdc, pageBrush(hBrushWhite)); 
+            PatBlt(hMemdc, 0, 0, rc.right, textHeight + 1, PATCOPY);
             SetTextColor(hMemdc, colorLtGray);
 
-            RECT r = { 10 + textWidth * 8, 0, 100 + textWidth * 8, textHeight };
+            RECT r = { 10 + textWidth * 8, 0, rc.right, textHeight };
             int j;
             char addrText[16];
             for (j = 0; j < memPerRow; j++) {
                 sprintf(addrText, "+%.1X", j & 15);
                 DrawTextU(hMemdc, addrText, (int)strlen(addrText), &r, DT_LEFT);
-                
-                r.left  += textWidth * 3;
-                r.right += textWidth * 3;
+
+                r.left += textWidth * 3;
             }
 
-            r.left  += textWidth * 1;
-            r.right += textWidth * 1;
+            r.left += textWidth * 1;
 
             for (j = 0; j < memPerRow; j++) {
                 sprintf(addrText, "%.1X", j & 15);
                 DrawTextU(hMemdc, addrText, (int)strlen(addrText), &r, DT_LEFT);
-                r.left  += textWidth * 1;
-                r.right += textWidth * 1;
+                r.left += textWidth * 1;
             }
             continue;
         }
-        RECT r = { 10, textHeight * (i - yPos), 100, textHeight * (i + 1 - yPos) };
+        RECT r = { 10, textHeight * (i - yPos), rc.right, textHeight * (i + 1 - yPos) };
         
         int addr = (i - 1) * memPerRow;
 
@@ -888,8 +909,7 @@ void Memory::drawText(int top, int bottom)
         SetTextColor(hMemdc, colorGray);
         DrawTextU(hMemdc, addrText, (int)strlen(addrText), &r, DT_LEFT);
 
-        r.left  += textWidth * 8;
-        r.right += textWidth * 8;
+        r.left += textWidth * 8;
 
         int j;
         for (j = 0; j < memPerRow; j++) {
@@ -910,15 +930,13 @@ void Memory::drawText(int top, int bottom)
             sprintf(addrText, "%.2x", val);
             DrawTextU(hMemdc, addrText, (int)strlen(addrText), &r, DT_LEFT);
             
-            r.left  += textWidth * 3;
-            r.right += textWidth * 3;
+            r.left += textWidth * 3;
         }
-        
-        r.left  += textWidth * 1;
-        r.right += textWidth * 1;
+
+        r.left += textWidth * 1;
 
         for (j = 0; j < memPerRow; j++) {
-            if (addr >= memSize) {
+            if (addr + j >= memSize) {
                 continue;
             }
             
@@ -936,8 +954,7 @@ void Memory::drawText(int top, int bottom)
             
             DrawTextU(hMemdc, addrText, (int)strlen(addrText), &r, DT_LEFT);
             
-            r.left  += textWidth * 1;
-            r.right += textWidth * 1;
+            r.left += textWidth * 1;
         }
     }
 }

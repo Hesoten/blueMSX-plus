@@ -264,7 +264,10 @@ void emulatorSetState(EmuState state) {
         emuSingleStep = 1;
     }
     if (state == EMU_STEP_BACK) {
-        EmuState oldState = state;
+        /* Fall back to the state we came from when there is nothing to rewind
+        ** to. EMU_STEP_BACK is a request, not a state the rest of the code
+        ** knows how to leave: emuState would never reach EMU_PAUSED again. */
+        EmuState oldState = emuState;
         state = EMU_RUNNING;
         if (!boardRewindOne()) {
             state = oldState;

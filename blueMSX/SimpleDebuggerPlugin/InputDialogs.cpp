@@ -74,6 +74,35 @@ struct FindProcData {
     char        value[128];
 };
 
+/* The boxes are laid over templates measured in dialog units, so they have to
+** be placed in those units too. A pixel constant only ever suits one dpi, and
+** the rest of the dialog grows around it. */
+static RECT dlgUnits(HWND hDlg, int x, int y, int w, int h)
+{
+    RECT r = { x, y, x + w, y + h };
+    MapDialogRect(hDlg, &r);
+    return r;
+}
+
+/* A template can only place a control on a whole dialog unit, which is coarser
+** than the rounding it leaves behind, so the rows end up a pixel or two out of
+** line with their labels. Close that here, where real sizes are known. */
+static void centreOnLabel(HWND hDlg, int ctrlId, int labelId)
+{
+    HWND ctrl = GetDlgItem(hDlg, ctrlId);
+    RECT rc, rl;
+
+    if (ctrl == NULL || GetDlgItem(hDlg, labelId) == NULL) {
+        return;
+    }
+    GetWindowRect(ctrl, &rc);
+    GetWindowRect(GetDlgItem(hDlg, labelId), &rl);
+    MapWindowPoints(NULL, hDlg, (POINT*)&rc, 2);
+    MapWindowPoints(NULL, hDlg, (POINT*)&rl, 2);
+    SetWindowPos(ctrl, NULL, rc.left, (rl.top + rl.bottom - (rc.bottom - rc.top)) / 2,
+                 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+}
+
 static INT_PTR CALLBACK staticFindDialogProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     if (inputDialogsInstance == NULL) {
@@ -98,7 +127,10 @@ BOOL InputDialogs::findDialogProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
         if (dataInput) {
             delete dataInput;
         }
-        dataInput = new TextInputDialog(hDlg, 10, 30, 249, 22, 128, true);
+        {
+            RECT b = dlgUnits(hDlg, 7, 19, 166, 14);
+            dataInput = new TextInputDialog(hDlg, b.left, b.top, b.right - b.left, b.bottom - b.top, 128, true);
+        }
         dataInput->setFocus();
         
         return FALSE;
@@ -152,9 +184,12 @@ BOOL InputDialogs::addressDialogProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM
         if (addressInput) {
             delete addressInput;
         }
-        addressInput = new HexInputDialog(hDlg, 10,30,249,22,6, true, symbolInfo, cpuRegisters);
+        {
+            RECT b = dlgUnits(hDlg, 7, 19, 166, 14);
+            addressInput = new HexInputDialog(hDlg, b.left, b.top, b.right - b.left, b.bottom - b.top, 6, true, symbolInfo, cpuRegisters);
+        }
         addressInput->setFocus();
-        
+
         return FALSE;
 
     case WM_COMMAND:
@@ -247,12 +282,31 @@ BOOL InputDialogs::watchpointDialogProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
         SendDlgItemMessage(hDlg, IDC_CONDITION, CB_ADDSTRING, 0, (LPARAM)"Less than");
         SendDlgItemMessage(hDlg, IDC_CONDITION, CB_ADDSTRING, 0, (LPARAM)"Greater than");
 
+        centreOnLabel(hDlg, IDC_MEMTYPE, IDC_TEXT_TYPE);
+        centreOnLabel(hDlg, IDC_RADIO_SIZE_8, IDC_TEXT_SIZE);
+        centreOnLabel(hDlg, IDC_RADIO_SIZE_16, IDC_TEXT_SIZE);
+        centreOnLabel(hDlg, IDC_RADIO_SIZE_32, IDC_TEXT_SIZE);
+        centreOnLabel(hDlg, IDC_CONDITION, IDC_TEXT_CONDITION);
+
         if (addressInput) delete addressInput;
-        addressInput = new HexInputDialog(hDlg, 150,35,199,22,6, true, symbolInfo, cpuRegisters);
+        if (refValueInput) delete refValueInput;
+        {
+            /* Column and width taken from IDC_MEMTYPE, and each box centred on
+            ** the label beside it the way the template centres the combos. */
+            RECT b = dlgUnits(hDlg, 100, 21, 132, 14);
+            addressInput = new HexInputDialog(hDlg, b.left, b.top, b.right - b.left, b.bottom - b.top, 6, true, symbolInfo, cpuRegisters);
+            /* Shares the condition row, so it takes that combo's height and top
+            ** rather than rounding to its own dialog unit. */
+            RECT rcCond;
+            GetWindowRect(GetDlgItem(hDlg, IDC_CONDITION), &rcCond);
+            MapWindowPoints(NULL, hDlg, (POINT*)&rcCond, 2);
+            b = dlgUnits(hDlg, 179, 58, 53, 12);
+            refValueInput = new HexInputDialog(hDlg, b.left, rcCond.top, b.right - b.left, rcCond.bottom - rcCond.top, 1, true, symbolInfo, cpuRegisters);
+        }
+        /* Seeding the value would take the focus with it, and the box is about
+        ** to be hidden for a condition of None. */
+        refValueInput->setValue(0, false);
         addressInput->setFocus();
-        if (refValueInput) refValueInput;
-        refValueInput = new HexInputDialog(hDlg, 268,93,80,22,1, true, symbolInfo, cpuRegisters);
-        refValueInput->setValue(0);
 
         updateWatchpointControls(hDlg, procData->breakpointInfo);
         return FALSE;
@@ -262,7 +316,11 @@ BOOL InputDialogs::watchpointDialogProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
         case IDOK:
             procData->breakpointInfo.address = addressInput->getValue();
             procData->breakpointInfo.referenceValue = refValueInput->getValue();
-            if (procData->breakpointInfo.type == Breakpoints::BreakpointInfo::WATCHPOINT_IO) procData->breakpointInfo.size = 1;
+            /* One byte selects the port, so anything wider would never match. */
+            if (procData->breakpointInfo.type == Breakpoints::BreakpointInfo::WATCHPOINT_IO) {
+                procData->breakpointInfo.size = 1;
+                procData->breakpointInfo.address &= 0xff;
+            }
             EndDialog(hDlg, TRUE);
             return TRUE;
         case IDCANCEL:
@@ -286,6 +344,7 @@ BOOL InputDialogs::watchpointDialogProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
                     (WatchpointCondition)SendDlgItemMessage(hDlg, IDC_CONDITION, CB_GETCURSEL, 0, 0);
                 updateWatchpointControls(hDlg, procData->breakpointInfo);
             }
+            break;
         case IDC_MEMTYPE:
             if (HIWORD(wParam) == CBN_SELCHANGE) {
                 int idx = (int)SendDlgItemMessage(hDlg, IDC_MEMTYPE, CB_GETCURSEL, 0, 0);

@@ -85,7 +85,9 @@ LRESULT StackWindow::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
             si.fMask  = SIF_POS;
             GetScrollInfo (hwnd, SB_VERT, &si);
             int row = si.nPos + HIWORD(lParam) / textHeight;
-            if (row < lineCount) {
+            /* The unavailable row is not a stack entry, so it must not take
+            ** the selection bar as though it were one. */
+            if (contentValid && row < lineCount) {
                 currentLine = row;
             }
             InvalidateRect(hwnd, NULL, TRUE);
@@ -135,7 +137,7 @@ LRESULT StackWindow::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
 StackWindow::StackWindow(HINSTANCE hInstance, HWND owner) : 
     DbgWindow( hInstance, owner, 
         Language::windowStack, "Stack Window", 653, 3, 137, 417, 1),
-    linePos(0), lineCount(0), currentLine(-1)
+    linePos(0), lineCount(0), currentLine(-1), contentValid(false)
 {
     memset(backupMemory, 0, 0x10000);
     backupSP = 0;
@@ -158,9 +160,12 @@ void StackWindow::invalidateContent()
 {
     currentLine = -1;
     lineCount = 0;
+    contentValid = false;
     updateScroll();
 
-    sprintf(lineInfo[lineCount].text, Language::windowStackUnavail);
+    /* A translation is data, not a format: a '%' in one would read arguments
+    ** that were never passed. */
+    sprintf(lineInfo[lineCount].text, "%s", Language::windowStackUnavail);
     lineInfo[lineCount].textLength = (int)strlen(lineInfo[lineCount].text);
     lineInfo[lineCount].dataText[0] = 0;
     lineInfo[lineCount].dataTextLength = 0;
@@ -172,6 +177,12 @@ void StackWindow::invalidateContent()
 
 void StackWindow::refresh()
 {
+    /* The backup outlives the content it came from, so replaying it here would
+    ** put the stack of a machine state the CPU has left back on screen. */
+    if (!contentValid) {
+        InvalidateRect(hwnd, NULL, TRUE);
+        return;
+    }
     updateContent(backupMemory, backupSP);
 }
 
@@ -192,8 +203,10 @@ void StackWindow::updateContent(BYTE* memory, WORD sp)
     lineCount = 0;
 
     for (int addr = sp; addr < 0x10000 && addr < sp + MAX_LINES; ) {
-        WORD newValue = ((int)memory[addr + 1] << 8) | memory[addr];
-        WORD oldValue = ((int)backupMemory[addr + 1] << 8) | backupMemory[addr];
+        /* The high byte wraps like the Z80 does, so SP = 0xFFFF stays in range. */
+        int hiAddr = (addr + 1) & 0xFFFF;
+        WORD newValue = ((int)memory[hiAddr] << 8) | memory[addr];
+        WORD oldValue = ((int)backupMemory[hiAddr] << 8) | backupMemory[addr];
         sprintf(lineInfo[lineCount].text, "%.4X: ", addr);
         lineInfo[lineCount].textLength = (int)strlen(lineInfo[lineCount].text);
         sprintf(lineInfo[lineCount].dataText, "%.4X", newValue);
@@ -207,6 +220,7 @@ void StackWindow::updateContent(BYTE* memory, WORD sp)
     
     memcpy(backupMemory, memory, 0x10000);
     backupSP = sp;
+    contentValid = true;
 
     updateScroll();
     InvalidateRect(hwnd, NULL, TRUE);
@@ -218,15 +232,13 @@ void StackWindow::updateScroll()
     GetClientRect(hwnd, &r);
     int visibleLines = r.bottom / textHeight;
 
+    int oldFirstLine = dbgGetScrollPos(hwnd);
+
     SCROLLINFO si;
     si.cbSize    = sizeof(SCROLLINFO);
-    
-    GetScrollInfo(hwnd, SB_VERT, &si);
-    int oldFirstLine = si.nPos;
-
-    si.fMask     = SIF_PAGE | SIF_POS | SIF_RANGE | (visibleLines >= lineCount ? 0 : 0);
+    si.fMask     = SIF_PAGE | SIF_POS | SIF_RANGE;
     si.nMin      = 0;
-    si.nMax      = lineCount;
+    si.nMax      = lineCount > 0 ? lineCount - 1 : 0;
     si.nPage     = visibleLines;
     si.nPos      = 0;
 
@@ -294,14 +306,14 @@ void StackWindow::drawText(int top, int bottom)
     int FirstLine = max (0, yPos + top / textHeight);
     int LastLine = min (lineCount - 1, yPos + bottom / textHeight);
 
-    RECT r = { 10, textHeight * (FirstLine - yPos), 300, textHeight };
+    RECT rc;
+    GetClientRect(hwnd, &rc);
+    RECT r = { 10, textHeight * (FirstLine - yPos), rc.right, textHeight };
 
     r.bottom += r.top;
 
     for (int i = FirstLine; i <= LastLine; i++) {
         if (i == currentLine) {
-            RECT rc;
-            GetClientRect(hwnd, &rc);
             SelectObject(hMemdc, hBrushDkGray); 
             PatBlt(hMemdc, 0, r.top, rc.right, r.bottom - r.top, PATCOPY);
         }

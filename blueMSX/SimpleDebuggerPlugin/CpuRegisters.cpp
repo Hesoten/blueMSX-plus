@@ -120,42 +120,51 @@ LRESULT CpuRegisters::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
 
             int row = HIWORD(lParam) / textHeight;
 
-            if (row == 0) {
+            /* The flag header scrolls away with the rest, so testing the screen
+            ** row alone turned a click on the register that took its place into
+            ** a flag toggle written straight into the CPU. */
+            if (row + si.nPos == 0) {
+                /* Negative left of the first flag, where the division would
+                ** truncate towards zero and select flag 0. */
+                int flagX = LOWORD(lParam) - 12 - textWidth * 6;
+
+                if (flagX < 0) {
+                    return 0;
+                }
+
                 if (flagMode == FM_CPU) {
-                    int flag = (LOWORD(lParam) - 12 - textWidth * 6) / (textWidth + 4);
-                    if (flag >= 0 && flag < 8) {
-                        if (currentRegBank != NULL) {
-                            regValue[0] ^= (1 << (7 - flag));
-                            DeviceWriteRegisterBankRegister(currentRegBank, 0, regValue[0]);
-                        }
+                    int flag = flagX / (textWidth + 4);
+                    if (flag < 8) {
+                        regValue[0] ^= (1 << (7 - flag));
+                        writeRegister(0, regValue[0]);
                         InvalidateRect(hwnd, NULL, TRUE);
                     }
                 }
                 
                 if (flagMode == FM_ASM) {
-                    int flag = (LOWORD(lParam) - 12 - textWidth * 6) / (2 * textWidth + 7);
+                    int flag = flagX / (2 * textWidth + 7);
                     switch (flag) {
                     case 0: 
                         regValue[0] ^= 0x40; 
-                        DeviceWriteRegisterBankRegister(currentRegBank, 0, regValue[0]);
+                        writeRegister(0, regValue[0]);
                         break;
                     case 1: 
                         regValue[0] ^= 0x01; 
-                        DeviceWriteRegisterBankRegister(currentRegBank, 0, regValue[0]);
+                        writeRegister(0, regValue[0]);
                         break;
                     case 2: 
                         regValue[0] ^= 0x04; 
-                        DeviceWriteRegisterBankRegister(currentRegBank, 0, regValue[0]);
+                        writeRegister(0, regValue[0]);
                         break;
                     case 3: 
                         regValue[0] ^= 0x80;
-                        DeviceWriteRegisterBankRegister(currentRegBank, 0, regValue[0]);
+                        writeRegister(0, regValue[0]);
                         break;
                     case 4:
                         regValue[15] = regValue[15] > 0 ? 0 : 2;
                         regValue[16] = regValue[15] > 0 ? 1 : 0;
-                        DeviceWriteRegisterBankRegister(currentRegBank, 15, regValue[15]);
-                        DeviceWriteRegisterBankRegister(currentRegBank, 16, regValue[16]);
+                        writeRegister(15, regValue[15]);
+                        writeRegister(16, regValue[16]);
                         break;
                     }
                     InvalidateRect(hwnd, NULL, TRUE);
@@ -183,8 +192,8 @@ LRESULT CpuRegisters::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
     case HexInputDialog::EC_NEWVALUE:
         if (currentEditRegister >= 0) {
             UInt32 regVal = (HexInputDialog*)wParam == dataInput2 ? (UInt8)lParam : (UInt16)lParam;
-            if (currentRegBank != NULL && regValue[currentEditRegister] != (int)regVal) {
-                DeviceWriteRegisterBankRegister(currentRegBank, currentEditRegister, regVal);
+            if (regValue[currentEditRegister] != (int)regVal) {
+                writeRegister(currentEditRegister, regVal);
             }
             regValue[currentEditRegister] = regVal;
             InvalidateRect(hwnd, NULL, TRUE);
@@ -209,8 +218,8 @@ LRESULT CpuRegisters::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
             if (input->isModified()) {
                 int value = input->getValue();
                 UInt32 regVal = input == dataInput2 ? (UInt8)value : (UInt16)value;
-                if (currentRegBank != NULL && regValue[currentEditRegister] != (int)regVal) {
-                    DeviceWriteRegisterBankRegister(currentRegBank, currentEditRegister, regVal);
+                if (regValue[currentEditRegister] != (int)regVal) {
+                    writeRegister(currentEditRegister, regVal);
                 }
                 regValue[currentEditRegister] = regVal;
                 InvalidateRect(hwnd, NULL, TRUE);
@@ -261,7 +270,7 @@ LRESULT CpuRegisters::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
             HBITMAP hBitmap = CreateCompatibleBitmap(hdcw, r.right, r.bottom);
             HBITMAP hBitmapOrig = (HBITMAP)SelectObject(hMemdc, hBitmap);
             
-            SelectObject(hMemdc, hBrushWhite); 
+            SelectObject(hMemdc, pageBrush(hBrushWhite)); 
             PatBlt(hMemdc, 0, top, r.right, height, PATCOPY);
 
             drawText(ps.rcPaint.top, ps.rcPaint.bottom);
@@ -403,6 +412,22 @@ CpuRegisters::FlagMode CpuRegisters::getFlagMode()
     return flagMode;
 }
 
+/* The Z80 interrupt enable flag, looked up by name because the bank layout
+** belongs to the emulator side. Unknown counts as disabled: callers use it to
+** decide whether to run on until an interrupt, and that way never returns. */
+bool CpuRegisters::interruptsEnabled()
+{
+    if (currentRegBank == NULL) {
+        return false;
+    }
+    for (UInt32 i = 0; i < currentRegBank->count; i++) {
+        if (strcmp(currentRegBank->reg[i].name, "IFF1") == 0) {
+            return currentRegBank->reg[i].value != 0;
+        }
+    }
+    return false;
+}
+
 BOOL CpuRegisters::lookup(const char* name, WORD* addr)
 {
     if (strlen(name) > 3) {
@@ -423,8 +448,20 @@ BOOL CpuRegisters::lookup(const char* name, WORD* addr)
     return FALSE;
 }
 
+/* The bank is the snapshot the emulator handed over, and nothing refreshes it
+** until the next break, so mirror the write into it as PeripheralRegs does. */
+void CpuRegisters::writeRegister(int reg, UInt32 value)
+{
+    if (currentRegBank == NULL) {
+        return;
+    }
+    DeviceWriteRegisterBankRegister(currentRegBank, reg, value);
+    currentRegBank->reg[reg].value = value;
+}
+
 void CpuRegisters::invalidateContent()
 {
+    setContentStale(false);
     currentRegBank = NULL;
 
     endEdit();
@@ -438,6 +475,7 @@ void CpuRegisters::invalidateContent()
 
 void CpuRegisters::updateContent(RegisterBank* regBank)
 {
+    setContentStale(false);
     currentRegBank = regBank;
 
     endEdit();
@@ -470,13 +508,9 @@ void CpuRegisters::updateScroll()
 
     SCROLLINFO si;
     si.cbSize    = sizeof(SCROLLINFO);
-    
-    GetScrollInfo(hwnd, SB_VERT, &si);
-    int oldFirstLine = si.nPos;
-
     si.fMask     = SIF_PAGE | SIF_POS | SIF_RANGE;
     si.nMin      = 0;
-    si.nMax      = lineCount;
+    si.nMax      = lineCount > 0 ? lineCount - 1 : 0;
     si.nPage     = visibleLines;
     si.nPos      = 0;
 
@@ -551,12 +585,15 @@ void CpuRegisters::drawText(int top, int bottom)
     int FirstLine = max (0, yPos + top / textHeight);
     int LastLine = min (lineCount - 1, yPos + bottom / textHeight);
 
+    RECT rc;
+    GetClientRect(hwnd, &rc);
+
     for (int i = FirstLine; i <= LastLine; i++) {
         if (i == 0) {
             SelectObject(hMemdc, hBrushLtGray); 
-            PatBlt(hMemdc, 0, 0, 300, textHeight + 1, PATCOPY);
+            PatBlt(hMemdc, 0, 0, rc.right, textHeight + 1, PATCOPY);
 
-            SelectObject(hMemdc, hBrushWhite); 
+            SelectObject(hMemdc, pageBrush(hBrushWhite)); 
             WORD regVal = regValue[0];
 
             SelectObject(hMemdc, hFontBold);
@@ -599,7 +636,7 @@ void CpuRegisters::drawText(int top, int bottom)
             continue;
         }
 
-        RECT r = { 10, textHeight * (i - yPos), 100, textHeight * (i + 1 - yPos) };
+        RECT r = { 10, textHeight * (i - yPos), rc.right, textHeight * (i + 1 - yPos) };
         for (int j = 0; j < registersPerRow; j++) {
             int reg = j * (lineCount - 1) + i - 1;
             if (reg > 14) {
@@ -614,8 +651,7 @@ void CpuRegisters::drawText(int top, int bottom)
             DrawTextU(hMemdc, regName[reg], (int)strlen(regName[reg]), &r, DT_LEFT);
             SelectObject(hMemdc, hFont); 
             r.left  += 4 * textWidth;
-            r.right += 4 * textWidth;
-            
+
             char text[5];
             if (regValue[reg] < 0) {
                 SetTextColor(hMemdc, colorGray);

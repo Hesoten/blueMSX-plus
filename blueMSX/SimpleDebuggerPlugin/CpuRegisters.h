@@ -49,6 +49,7 @@ public:
     void invalidateContent();
 
     BOOL lookup(const char* name, WORD* addr);
+    bool interruptsEnabled();
 
     virtual LRESULT wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam);
     virtual void onFontChanged();
@@ -60,6 +61,7 @@ private:
     void updateScroll();
     void drawText(int top, int bottom);
     void showEditRegister(int reg);
+    void writeRegister(int reg, UInt32 value);
     void hideEdit();
     void endEdit();
 

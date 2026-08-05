@@ -64,9 +64,13 @@ public:
 
     bool isVisible() const { return IsWindowVisible(hwnd) != 0; }
 
-    /* False until the text differs from what the box was seeded with, so
-    ** leaving a box alone never writes the displayed value back. Comparing the
-    ** text also covers paste and delete, which produce no WM_CHAR. */
+    /* Pastes the clipboard into the focused box, false if there is none so the
+    ** caller can treat the key as its own shortcut instead. */
+    static bool pasteToFocused();
+
+    /* False until the box is typed in or its text differs from the seed, so
+    ** leaving a box alone never writes the displayed value back. The seed
+    ** covers paste and delete, the count covers retyping the same text. */
     bool isModified();
 
 protected:
@@ -75,7 +79,19 @@ protected:
     /* Text the box was last seeded with, for isModified(). */
     char seedText[64];
 
-    void rememberSeed();
+    /* Keystrokes accepted since the seed. The overlay boxes also use it to
+    ** tell when `chars` of them have arrived. */
+    int charCount;
+
+    void resetModified();
+
+    /* Replaces the whole text and leaves it selected, the way the overlay
+    ** boxes always show their value. */
+    void setBoxText(const char* text);
+
+    /* Puts the seed text back and marks the box unedited: what is left once
+    ** the last typed character has been taken away again. */
+    void restoreSeed();
 
     /* Only the in-place overlay boxes navigate; the modal Goto / Find dialogs
     ** keep their plain edit behaviour. */
@@ -98,6 +114,9 @@ private:
 
     static std::map<HWND, InputDialog*> dialogMap;
     static int  richeditVersion;
+
+    /* The richedit of the box the caret is in, or NULL if it is elsewhere. */
+    static HWND focusedEdit();
 
     void initControl(HWND thisHwnd);
 
@@ -128,9 +147,11 @@ protected:
     virtual BOOL dlgProc(UINT iMsg, WPARAM wParam, LPARAM lParam);
 
 private:
+    /* Shows fastValue right aligned in `chars` hex digits. */
+    void setBoxValue();
+
     int chars;
     bool needReturn;
-    int  charCount;
     int  fastValue;
     SymbolInfo* symbolInfo;
     CpuRegisters* cpuRegisters;
@@ -152,7 +173,6 @@ protected:
 private:
     int chars;
     char text[512];
-    int  charCount;
     bool needReturn;
 };
 

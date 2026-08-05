@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -251,6 +254,10 @@ void dbgSnapshotDestroy(DbgSnapshot* dbgSnapshot)
                 free(dbgDevice->ioPorts[j]);
             }
         }
+        /* dbgDeviceAddCallstack mallocs this one too, and nothing else frees it. */
+        if (dbgDevice->callstack != NULL) {
+            free(dbgDevice->callstack);
+        }
 
         free(dbgDevice);
     }
@@ -380,12 +387,24 @@ void dbgEnableVramAccessCheck(int enable)
     }
 }    
 
+/* No parking needed: this only fills a node in, or prepends one that is
+** already complete, so a walking emulation thread always sees a valid list. */
 void dbgSetWatchpoint(DbgDeviceType devType, int address, DbgWatchpointCondition condition, UInt32 referenceValue, int size)
 {
     debugDeviceSetMemoryWatchpoint(devType, address, condition, referenceValue, size);
 }
 
+/* Frees a node the emulation thread walks on every write it checks, so park it
+** first. Only from EMU_RUNNING: every other state has that thread stopped or
+** about to stop, and leaving one of those is someone else's call to make. */
 void dbgClearWatchpoint(DbgDeviceType devType, int address)
 {
+    int wasRunning = emulatorGetState() == EMU_RUNNING;
+    if (wasRunning) {
+        emulatorSuspend();
+    }
     debugDeviceClearMemoryWatchpoint(devType, address);
+    if (wasRunning) {
+        emulatorResume();
+    }
 }

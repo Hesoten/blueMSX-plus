@@ -109,6 +109,7 @@ static HdType hdType[MAX_HD_COUNT];
 static int     ramMaxStates;
 static int     ramStateCur;
 static int     ramStateCount;
+static UInt32* ramStateTime;
 static int     stateFrequency;
 static int     enableSnapshots;
 static int     useRom;
@@ -1044,7 +1045,7 @@ static void onMixerSync(void* ref, UInt32 time)
 static void onStateSync(void* ref, UInt32 time)
 {    
     if (enableSnapshots) {
-        char memFilename[8];
+        char memFilename[16];
         ramStateCur = (ramStateCur + 1) % ramMaxStates;
         if (ramStateCount < ramMaxStates) {
             ramStateCount++;
@@ -1052,6 +1053,10 @@ static void onStateSync(void* ref, UInt32 time)
 
         sprintf(memFilename, "mem%d", ramStateCur);
         
+        /* What the clock will read once this snapshot is restored; step back
+        ** uses it to pick a snapshot instead of restoring them to find out. */
+        ramStateTime[ramStateCur] = boardSystemTime();
+
         boardSaveState(memFilename, 0);
     }
 
@@ -1065,6 +1070,12 @@ static void onSync(void* ref, UInt32 time)
 
 void boardOnBreakpoint(UInt16 pc)
 {
+    /* Parking here would never come back on the UI thread, which is where a
+    ** debugger callback runs. A caller that must hold the hit rather than lose
+    ** it still tests this itself; the check here covers the ones that do not. */
+    if (debugDeviceIsInspecting()) {
+        return;
+    }
     doSync(boardSystemTime(), 1);
 }
 
@@ -1108,14 +1119,52 @@ static void onBreakpointSync(void* ref, UInt32 time) {
     doSync(time, 1);
 }
 
+/* Discard the newest snapshot without restoring it. */
+static int boardRewindDrop()
+{
+    if (ramStateCount < 2) {
+        return 0;
+    }
+    ramStateCount--;
+    ramStateCur = (ramStateCur + ramMaxStates - 1) % ramMaxStates;
+    return 1;
+}
+
 int boardRewindOne() {
     UInt32 rewindTime;
+    int skip;
     if (stateFrequency <= 0) {
         return 0;
     }
     rewindTime = boardInfo.getTimeTrace(1);
-    if (rewindTime == 0 || !boardRewind()) {
+    if (rewindTime == 0 || ramStateCount < 2) {
         return 0;
+    }
+    /* The trace only advances when PC changes, so halt and block instructions
+    ** can leave the target several snapshots old. Picking the one to land on
+    ** from the recorded times costs one restore instead of one per snapshot. */
+    for (skip = 0; skip <= ramStateCount - 2; skip++) {
+        int slot = (ramStateCur + ramMaxStates - skip) % ramMaxStates;
+        if ((Int32)(ramStateTime[slot] - rewindTime) < 0) {
+            break;
+        }
+    }
+    /* Nothing on the ring is old enough, so take the newest one rather than
+    ** spend the whole history on a single step back. */
+    if (skip > ramStateCount - 2) {
+        skip = 0;
+    }
+    while (skip-- > 0) {
+        boardRewindDrop();
+    }
+    if (!boardRewind()) {
+        return 0;
+    }
+    /* Holds whenever the target predates the whole ring. boardTimerAdd drops a
+    ** timer that has expired, which would leave skipSync set with nothing to
+    ** clear it, so stop where we landed instead. */
+    if ((Int32)(rewindTime - boardSystemTime()) <= 0) {
+        rewindTime = boardSystemTime();
     }
     boardTimerAdd(breakpointTimer, rewindTime);
     skipSync = 1;
@@ -1124,17 +1173,17 @@ int boardRewindOne() {
 
 int boardRewind()
 {
-    char stateFile[8];
+    char stateFile[16];
 
-    if (ramStateCount < 2) {
+    sprintf(stateFile, "mem%d", ramStateCur);
+    if (!boardRewindDrop()) {
         return 0;
     }
 
-    ramStateCount--;
-    sprintf(stateFile, "mem%d", ramStateCur);
-    ramStateCur = (ramStateCur + ramMaxStates - 1) % ramMaxStates;
-
     boardTimerCleanup();
+    /* The cleanup drops fdcTimer without ever running onFdcDone, so the boost
+    ** would stay engaged with no timer to release it. */
+    fdcKillBoost();
 
     saveStateCreateForRead(stateFile);
 
@@ -1156,6 +1205,9 @@ int boardRewind()
     /* The tape clock is anchored to boardSysTime64, which just went backwards.
     ** Without this the next update underflows and seeks to the end of the tape. */
     tapeSignalReset();
+    /* boardSystemTime64 accumulates from oldTime, so it has to follow the clock
+    ** back too. Left alone the next call adds a wrapped UInt32 delta. */
+    oldTime = boardSystemTime();
     boardCaptureLoadState();
 
 #if 1
@@ -1345,10 +1397,16 @@ int boardRun(Machine* machine,
         
         stateFrequency = boardFrequency() / 1000 * reversePeriod;
 
+        /* Outside the test below on purpose: with reverse off there is no ram
+        ** file system at all, and a count left over from the previous run would
+        ** let boardRewind load a memN that no longer exists. */
+        ramStateCur   = 0;
+        ramStateCount = 0;
+
         if (stateFrequency > 0) {
-            ramStateCur  = 0;
             ramMaxStates = reverseBufferCnt;
             memZipFileSystemCreate(ramMaxStates);
+            ramStateTime = calloc(ramMaxStates, sizeof(UInt32));
             stateTimer = boardTimerCreate(onStateSync, NULL);
             breakpointTimer = boardTimerCreate(onBreakpointSync, NULL); 
             boardTimerAdd(stateTimer, boardSystemTime() + stateFrequency);
@@ -1397,6 +1455,8 @@ int boardRun(Machine* machine,
             boardTimerDestroy(stateTimer);
             stateTimer = NULL;
             memZipFileSystemDestroy();
+            free(ramStateTime);
+            ramStateTime = NULL;
         }
     }
     else {

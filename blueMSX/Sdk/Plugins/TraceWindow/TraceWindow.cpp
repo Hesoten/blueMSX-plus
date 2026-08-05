@@ -188,7 +188,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
                 char text[512];
                 sprintf(text, "%s\r\n\r\n%s: " __DATE__ "\r\n\r\n%s    \r\n\r\n\r\n",
                     Language::traceWindowCaption, Language::aboutBuilt, Language::aboutVisit);
-                MessageBoxU(NULL, text, Language::traceWindowCaption, MB_ICONINFORMATION | MB_OK);
+                ShowMessageBox(hwnd, text, Language::traceWindowCaption, MB_ICONINFORMATION | MB_OK);
             }
             return 0;
 

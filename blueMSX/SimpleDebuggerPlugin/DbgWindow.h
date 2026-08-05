@@ -44,6 +44,11 @@ public:
     virtual void enableEdit();
     virtual void disableEdit();
 
+    /* The values on screen came out of the machine, but the CPU has run on
+    ** since. Every view that keeps showing them says so the same way. */
+    void setContentStale(bool stale);
+    bool isContentStale() { return contentStale; }
+
     HWND getOwner() { return owner; }
 
     virtual LRESULT wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam) = 0;
@@ -56,6 +61,11 @@ public:
     HWND   hwnd;
 protected:
     bool   editEnabled;
+    bool   contentStale;
+
+    /* `live` while the content is current, the stale tint while it is not.
+    ** Views pass their own page brush and never own the stale one. */
+    HBRUSH pageBrush(HBRUSH live);
 
     void init();
 
@@ -64,6 +74,8 @@ private:
     HWND      owner;
     std::string iniName;
     std::string winName;
+
+    HBRUSH hBrushStale;
 
     int x;
     int y;
@@ -96,5 +108,10 @@ void dbgRebuildFont(HDC hMemdc, HFONT* hFont, HFONT* hFontBold,
 ** re-font. Bracket the call with these to keep the user's position. */
 int  dbgGetScrollPos(HWND hwnd);
 void dbgSetScrollPos(HWND hwnd, int pos);
+
+/* The page colour for a view showing what the CPU has already moved past. The
+** tint goes on the background so every text colour keeps its meaning -- red
+** for changed, the flag letters, the address column -- and only the page says it. */
+COLORREF dbgStaleBackground(COLORREF live);
 
 #endif //CALLSTACK_H

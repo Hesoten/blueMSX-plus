@@ -72,6 +72,7 @@ void PeripheralRegs::updateDropdown()
         if (index == 0 || (currentRegs && currentRegs->title == r->title)) {
             SendMessageW(hCombo, CB_SETCURSEL, index, 0);
         }
+        index++;
     }
 }
 
@@ -304,7 +305,7 @@ LRESULT PeripheralRegs::regWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
             HBITMAP hBitmap = CreateCompatibleBitmap(hdcw, r.right, r.bottom);
             HBITMAP hBitmapOrig = (HBITMAP)SelectObject(hMemdc, hBitmap);
             
-            SelectObject(hMemdc, hBrushWhite); 
+            SelectObject(hMemdc, pageBrush(hBrushWhite)); 
             PatBlt(hMemdc, 0, top, r.right, height, PATCOPY);
 
             drawText(ps.rcPaint.top, ps.rcPaint.bottom);
@@ -477,6 +478,7 @@ void PeripheralRegs::updatePosition(RECT& rect)
 
 void PeripheralRegs::invalidateContent()
 {
+    setContentStale(false);
     endEdit();
 
     MemList::iterator it;
@@ -495,6 +497,7 @@ void PeripheralRegs::invalidateContent()
 
 void PeripheralRegs::updateContent(Snapshot* snapshot)
 {
+    setContentStale(false);
     endEdit();
 
     bool devicesChanged = false;
@@ -504,6 +507,10 @@ void PeripheralRegs::updateContent(Snapshot* snapshot)
     if (currentRegs != NULL) {
         currentRegsTitle = currentRegs->title;
     }
+    /* Picked up again by title below. It must not survive the delete: a bank
+    ** that goes away would leave this pointing into freed memory, and the
+    ** fallback further down only triggers on NULL. */
+    currentRegs = NULL;
 
     MemList::iterator it;
     for (it = regList.begin(); it != regList.end(); ++it) {
@@ -546,12 +553,17 @@ void PeripheralRegs::updateContent(Snapshot* snapshot)
         }
     }
 
-    for (it = regList.begin(); it != regList.end(); ++it) {
+    /* erase already hands back the next entry, so the loop must not advance
+    ** again. */
+    for (it = regList.begin(); it != regList.end(); ) {
         RegisterItem* r= *it;
         if (!r->flag) {
             devicesChanged = true;
             delete r;
             it = regList.erase(it);
+        }
+        else {
+            ++it;
         }
     }
 
@@ -595,13 +607,9 @@ void PeripheralRegs::updateScroll()
 
     SCROLLINFO si;
     si.cbSize    = sizeof(SCROLLINFO);
-    
-    GetScrollInfo(regHwnd, SB_VERT, &si);
-    int oldFirstLine = si.nPos;
-
     si.fMask     = SIF_PAGE | SIF_POS | SIF_RANGE;
     si.nMin      = 0;
-    si.nMax      = lineCount;
+    si.nMax      = lineCount > 0 ? lineCount - 1 : 0;
     si.nPage     = visibleLines;
     si.nPos      = 0;
 
@@ -676,8 +684,11 @@ void PeripheralRegs::drawText(int top, int bottom)
     int FirstLine = max (0, yPos + top / textHeight);
     int LastLine = min (lineCount - 1, yPos + bottom / textHeight);
 
+    RECT rc;
+    GetClientRect(regHwnd, &rc);
+
     for (int i = FirstLine; i <= LastLine; i++) {
-        RECT r = { 10, textHeight * (i - yPos), 100, textHeight * (i + 1 - yPos) };
+        RECT r = { 10, textHeight * (i - yPos), rc.right, textHeight * (i + 1 - yPos) };
         for (int j = 0; j < regPerRow; j++) {
             UInt32 reg = j * lineCount + i;
 
@@ -695,8 +706,7 @@ void PeripheralRegs::drawText(int top, int bottom)
             DrawTextU(hMemdc, regName, (int)strlen(regName), &r, DT_LEFT);
             SelectObject(hMemdc, hFont); 
             r.left  += 5 * textWidth;
-            r.right += 5 * textWidth;
-            
+
             char text[5];
             if (regValue < 0) {
                 SetTextColor(hMemdc, colorGray);
@@ -713,7 +723,6 @@ void PeripheralRegs::drawText(int top, int bottom)
             }
             DrawTextU(hMemdc, text, (int)strlen(text), &r, DT_LEFT);
             r.left  += 6 * textWidth;
-            r.right += 6 * textWidth;
         }
     }
 }

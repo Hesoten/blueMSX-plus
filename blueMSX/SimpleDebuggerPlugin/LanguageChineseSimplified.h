@@ -112,6 +112,7 @@ public:
         symbolWindowText            = "覆盖旧的符号";
 
         popupOverwrite              = "文件已存在。要覆盖原有文件吗？";
+        popupRemoveBreakpoints      = "断点仍然存在。关闭前要移除它们吗？";
         
         aboutBuilt                  = "创建:";
         aboutVisit                  = "更多详情请登陆：www.bluemsx.com ";
