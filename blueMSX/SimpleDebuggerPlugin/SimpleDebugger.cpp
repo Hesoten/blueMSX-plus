@@ -332,7 +332,7 @@ static void updateWindowMenu()
     
     sprintf(buf, "%s\tCtrl+B", Language::menuDebugBpAdd);
     AppendMenuU(hMenuDebug, MF_STRING | (state != EMULATOR_STOPPED && disassembly->isCursorPresent() ? 0 : MF_GRAYED), MENU_DEBUG_SETBP, buf);
-    
+
     sprintf(buf, "%s\tF9", Language::menuDebugBpToggle);
     AppendMenuU(hMenuDebug, MF_STRING | (state != EMULATOR_STOPPED && disassembly->isCursorPresent() ? 0 : MF_GRAYED), MENU_DEBUG_BPTOGGLE, buf);
     sprintf(buf, "%s\tShift+F9", Language::menuDebugEnable);
@@ -508,7 +508,10 @@ void DebuggerUpdate()
     updateToolBar();
     updateWindowMenu();
     if (disassembly != NULL) {
-        disassembly->refresh();
+        /* Only the breakpoint icons can have changed here, and drawText reads
+        ** those from Breakpoints as it paints. Rebuilding the listing re-ran a
+        ** whole 64K disassembly on every breakpoint click for nothing. */
+        disassembly->repaint();
     }
     if (breakpoints != NULL) {
         breakpoints->updateContent();
@@ -1436,10 +1439,10 @@ void OnEmulatorPause() {
 
 void OnEmulatorResume() {
     if (dbgHwnd != NULL) {
-        /* What the run leaves behind, so drop it. The device views keep theirs:
-        ** they carry the reference copy the next stop colours its changes
-        ** against, which is worth more than dropping it. */
-        disassembly->invalidateContent();
+        /* The disassembly keeps its lines: a breakpoint is set by address and
+        ** those are still the machine's, so it only stops claiming to be
+        ** current. The device views keep their reference copy for the same. */
+        disassembly->markContentStale();
         callstack->invalidateContent();
         stack->invalidateContent();
 

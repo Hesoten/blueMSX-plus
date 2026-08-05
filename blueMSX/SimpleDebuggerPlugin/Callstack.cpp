@@ -84,7 +84,9 @@ LRESULT CallstackWindow::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
             si.fMask  = SIF_POS;
             GetScrollInfo (hwnd, SB_VERT, &si);
             int row = si.nPos + HIWORD(lParam) / textHeight;
-            if (row < lineCount) {
+            /* The unavailable row is not a frame, so it must not move the
+            ** disassembly cursor or take the selection bar. */
+            if (contentValid && row < lineCount) {
                 disassembly->setCursor(lineInfo[row].address);
                 currentLine = row;
             }
@@ -160,6 +162,8 @@ void CallstackWindow::invalidateContent()
     lineInfo[lineCount].textLength = (int)strlen(lineInfo[lineCount].text);
     lineInfo[lineCount].dataText[0] = 0;
     lineInfo[lineCount].dataTextLength = 0;
+    /* Not a frame, so it must not carry the previous listing's address. */
+    lineInfo[lineCount].address = 0;
     lineCount++;
     
     InvalidateRect(hwnd, NULL, TRUE);

@@ -432,6 +432,10 @@ LRESULT Disassembly::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
         colorBlack = dark ? GetDarkFg()        : RGB(0, 0, 0);
         colorGray  = RGB(160, 160, 160);
         colorWhite = dark ? GetDarkBg()        : RGB(255, 255, 255);
+        /* Nothing may gain contrast by going stale, and the byte column is
+        ** already at colorGray, so the two themes need opposite directions:
+        ** darker than gray towards a dark background, gray itself on white. */
+        colorStale = dark ? RGB(120, 120, 120) : RGB(160, 160, 160);
 
         darkSubWindow(hwnd);
         return 0;
@@ -441,7 +445,9 @@ LRESULT Disassembly::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
         return 1;
 
     case WM_SIZE:
-        updateScroll();
+        /* Clamp only. updateScroll would re-centre on the PC, so resizing the
+        ** window threw away wherever the user had scrolled to. */
+        applyScroll();
         break;
 
     case WM_VSCROLL:
@@ -479,8 +485,9 @@ LRESULT Disassembly::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_LBUTTONUP:
         /* Was a lineCount threshold, which only said "there is a listing" by
-        ** accident. The flag says it outright. */
-        if (contentValid) {
+        ** accident. A stale listing is still clickable: its addresses are the
+        ** machine's, and a breakpoint is set by address. */
+        if (hasContent()) {
             SCROLLINFO si;
             si.cbSize = sizeof (si);
             si.fMask  = SIF_POS;
@@ -566,7 +573,7 @@ Disassembly::Disassembly(HINSTANCE hInstance, HWND owner, SymbolInfo* symInfo, B
     DbgWindow( hInstance, owner, 
                Language::windowDisassembly, "Disassembly Window", 3, 2, 432, 418, 1),
     linePos(0), lineCount(0), currentLine(-1), programCounter(0),
-    firstVisibleLine(0), contentValid(false),
+    firstVisibleLine(0), contentState(CONTENT_NONE),
     hasKeyboardFocus(false), symbolInfo(symInfo), breakpoints(breakpts)
 {
     memset(backupMemory, 0, 0x10000);
@@ -589,9 +596,9 @@ Disassembly::~Disassembly()
 
 void Disassembly::setCursor(WORD address)
 {
-    /* The placeholder row is not a line the cursor may rest on: from there
-    ** Toggle Breakpoint arms an address the user never chose. */
-    if (!contentValid) {
+    /* With no listing there is no line to point at, and the addresses in
+    ** lineInfo are whatever the buffer held. */
+    if (!hasContent()) {
         return;
     }
     for (int i = lineCount - 1; i >= 0; i--) {
@@ -615,41 +622,64 @@ WORD Disassembly::dasm(WORD pc, char* dest)
     return 0;
 }
 
+/* There is no listing at all: no machine, or none taken yet. drawText paints
+** the unavailable message instead of walking lineInfo, so no row is needed. */
 void Disassembly::invalidateContent()
 {
     breakpoints->clearRuntoBreakpoint();
     currentLine = -1;
     lineCount = 0;
-    contentValid = false;
+    contentState = CONTENT_NONE;
     updateScroll();
-
-    /* One blank row for the scrollbar to have a range; drawText paints the
-    ** unavailable message over it. Nothing here is an instruction, so the
-    ** address stays 0 rather than the one the previous listing left. */
-    lineInfo[lineCount].addr[0] = 0;
-    lineInfo[lineCount].addrLength = 0;
-    lineInfo[lineCount].address = 0;
-    lineInfo[lineCount].haspc = 0;
-    lineInfo[lineCount].text[0] = 0;
-    lineInfo[lineCount].textLength = 0;
-    lineInfo[lineCount].dataText[0] = 0;
-    lineInfo[lineCount].dataTextLength = 0;
-    lineInfo[lineCount].isLabel = 0;
-    lineCount++;
 
     InvalidateRect(hwnd, NULL, TRUE);
 }
 
+void Disassembly::markContentStale()
+{
+    /* Deliberately keeps lineCount, currentLine and every line: the addresses
+    ** are still the machine's, and breakpoints are set by address. Only the
+    ** decode can have moved under us, which the grey says. */
+    if (contentState == CONTENT_FRESH) {
+        contentState = CONTENT_STALE;
+        InvalidateRect(hwnd, NULL, TRUE);
+    }
+}
+
+int Disassembly::lineForAddress(int address)
+{
+    if (address < 0) {
+        return -1;
+    }
+    for (int i = lineCount - 1; i >= 0; i--) {
+        if (address >= lineInfo[i].address) {
+            if (i + 1 < lineCount && lineInfo[i].isLabel) {
+                i++;
+            }
+            return i;
+        }
+    }
+    return -1;
+}
+
 void Disassembly::refresh(bool followPc)
 {
-    /* Nothing has been disassembled since the content was dropped, so the
-    ** backup is an old snapshot or the zeroed buffer, and replaying either
-    ** would show a listing the CPU has left behind. */
-    if (!contentValid) {
+    /* Nothing has ever been disassembled, so the backup is the zeroed buffer
+    ** and rebuilding from it invents 64K of nop at 0000. */
+    if (!hasContent()) {
         InvalidateRect(hwnd, NULL, TRUE);
         return;
     }
-    updateContent(backupMemory, backupPc, followPc);
+
+    /* The same snapshot laid out again, not a new one: it does not become
+    ** current by being rebuilt, and following a stale PC would scroll to the
+    ** address the dimming exists to disclaim and take the focus with it. */
+    ContentState wasState = contentState;
+
+    updateContent(backupMemory, backupPc, followPc && wasState == CONTENT_FRESH);
+
+    contentState = wasState;
+    InvalidateRect(hwnd, NULL, TRUE);
 }
 
 void Disassembly::onFontChanged()
@@ -690,12 +720,20 @@ void Disassembly::updateContent(BYTE* memory, WORD pc, bool followPc)
     int addr = 0;
     breakpoints->clearRuntoBreakpoint();
 
+    /* The cursor and the top of the view are line indices, and the numbering
+    ** shifts with pc and with the symbols: the same index is a different
+    ** instruction after a rebuild. Carry the addresses over instead. */
+    int cursorAddress = currentLine >= 0 && currentLine < lineCount
+                      ? lineInfo[currentLine].address : -1;
+    int topAddress = firstVisibleLine >= 0 && firstVisibleLine < lineCount
+                   ? lineInfo[firstVisibleLine].address : -1;
+
     lineCount = 0;
     programCounter = 0;
 
     memcpy(backupMemory, memory, 0x10000);
     backupPc = pc;
-    contentValid = true;
+    contentState = CONTENT_FRESH;
 
     for (; addr < pc; ) {
         const char* symbolName = symbolInfo->find(addr);
@@ -809,13 +847,24 @@ void Disassembly::updateContent(BYTE* memory, WORD pc, bool followPc)
         lineCount++;
     }
 
+    /* Only a seed. The cursor is the user's selection -- the PC has its own
+    ** marker and its own Show Next Statement -- so taking it over on every
+    ** stop would leave Run To Cursor permanently aimed at the PC. */
+    currentLine = lineForAddress(cursorAddress);
     if (currentLine == -1) {
         currentLine = programCounter;
     }
+
     if (followPc) {
         updateScroll();
     }
     else {
+        /* Same reason as the cursor: keeping the index would slide the view by
+        ** however many label lines the rebuild added above it. */
+        int top = lineForAddress(topAddress);
+        if (top >= 0) {
+            firstVisibleLine = top;
+        }
         applyScroll();
     }
 
@@ -828,9 +877,8 @@ void Disassembly::updateContent(BYTE* memory, WORD pc, bool followPc)
 
 void Disassembly::onWmKeyUp(int keyCode)
 {
-    /* Same reason as setCursor: an arrow key must not walk the cursor onto the
-    ** placeholder row. */
-    if (!contentValid) {
+    /* Same reason as setCursor: with no listing there is nothing to walk. */
+    if (!hasContent()) {
         return;
     }
     RECT r;
@@ -934,9 +982,13 @@ void Disassembly::applyScroll()
     si.nPos      = firstVisibleLine;
 
     SetScrollInfo(hwnd, SB_VERT, &si, TRUE);
-    
+
+    /* The page can hold the position back from where it was asked to go, and
+    ** drawText paints from the scrollbar, so the cached line has to follow
+    ** what the scrollbar actually took. */
     GetScrollInfo(hwnd, SB_VERT, &si);
-    
+    firstVisibleLine = si.nPos;
+
     InvalidateRect(hwnd, NULL, TRUE);
 }
 
@@ -993,7 +1045,7 @@ void Disassembly::drawText(int top, int bottom)
 
     /* Drawn straight from the translation. Held in a LineInfo it had to fit
     ** the address field, and the Russian one is 58 bytes against 48. */
-    if (!contentValid) {
+    if (!hasContent()) {
         RECT rc;
         GetClientRect(hwnd, &rc);
         RECT msg = { 30, 0, rc.right, textHeight };
@@ -1002,6 +1054,13 @@ void Disassembly::drawText(int top, int bottom)
                   (int)strlen(Language::windowDisassemblyUnavail), &msg, DT_LEFT);
         return;
     }
+
+    /* The whole row dimmed while the CPU is somewhere else. The byte column
+    ** and the labels go with it: left at colorGray they end up brighter than
+    ** the code in dark mode, which reads as emphasis rather than as age. */
+    bool stale = contentState == CONTENT_STALE;
+    COLORREF textColor = stale ? colorStale : colorBlack;
+    COLORREF dimColor  = stale ? colorStale : colorGray;
 
     si.cbSize = sizeof (si);
     si.fMask  = SIF_POS;
@@ -1024,7 +1083,7 @@ void Disassembly::drawText(int top, int bottom)
 
         int address = lineInfo[i].address;
         if (lineInfo[i].isLabel) {
-            SetTextColor(hMemdc, colorGray);
+            SetTextColor(hMemdc, dimColor);
             r.left += 14 * textWidth;
             DrawTextU(hMemdc, lineInfo[i].text, lineInfo[i].textLength, &r, DT_LEFT);
             r.left -= 14 * textWidth;
@@ -1033,7 +1092,9 @@ void Disassembly::drawText(int top, int bottom)
             /* Centred in the row: drawing it at the top left the icon sitting
             ** above the text, which starts below the font's internal leading. */
             int iconTop = r.top + (textHeight - bitmapIcons->getHeight()) / 2;
-            if (lineInfo[i].haspc) {
+            /* The PC marker is a claim about now, and while the machine runs
+            ** it is the one thing on this listing that is certainly wrong. */
+            if (lineInfo[i].haspc && contentState == CONTENT_FRESH) {
                 if (Breakpoints::IsBreakpointSet(address)) {
                     bitmapIcons->drawIcon(hMemdc, 4, iconTop, 3);
                 }
@@ -1053,11 +1114,11 @@ void Disassembly::drawText(int top, int bottom)
                 }
             }
 
-            SetTextColor(hMemdc, colorGray);
+            SetTextColor(hMemdc, dimColor);
             r.left += 6 * textWidth;
             DrawTextU(hMemdc, lineInfo[i].dataText, lineInfo[i].dataTextLength, &r, DT_LEFT);
             r.left -= 6 * textWidth;
-            SetTextColor(hMemdc, i == currentLine && hasKeyboardFocus ? colorWhite : colorBlack);
+            SetTextColor(hMemdc, i == currentLine && hasKeyboardFocus ? colorWhite : textColor);
 
             DrawTextU(hMemdc, lineInfo[i].addr, lineInfo[i].addrLength, &r, DT_LEFT);
             r.left += 18 * textWidth;

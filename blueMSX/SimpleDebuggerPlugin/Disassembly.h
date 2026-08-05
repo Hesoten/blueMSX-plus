@@ -55,15 +55,30 @@ public:
     ** refreshes that are not caused by the CPU actually moving. */
     void updateContent(BYTE* memory, WORD pc, bool followPc = true);
     void invalidateContent();
+
+    /* The listing came out of the machine but the CPU has moved on. Keeps every
+    ** line, so its addresses stay usable, and only says so on screen. */
+    void markContentStale();
+
+    /* Redraw what is already there. The breakpoint icons are read from
+    ** Breakpoints at paint time, so showing one never needs a rebuild. */
+    void repaint() { InvalidateRect(hwnd, NULL, TRUE); }
+
+    /* False only while there is no listing at all, which is what the commands
+    ** that read one have to test. */
+    bool hasContent() { return contentState != CONTENT_NONE; }
+
     void updateScroll(int address = -1);
     void setCursor(WORD address);
     UInt16 getPc() { return backupPc; }
     const BYTE* getMemory() { return backupMemory; }
-    int getCurrentAddress() { return currentLine < 0 ? -1 : lineInfo[currentLine].address; }
+    /* Bounded against lineCount as well, so that asking whether there is a
+    ** cursor and asking for its address can never disagree. */
+    int getCurrentAddress() { return currentLine < 0 || currentLine >= lineCount ? -1 : lineInfo[currentLine].address; }
 
 
-    bool isBpOnCcursor() { return currentLine >= 0 && !Breakpoints::IsBreakpointUnset(lineInfo[currentLine].address); }
-    bool isCursorPresent()    { return currentLine >= 0; }
+    bool isBpOnCcursor() { return getCurrentAddress() >= 0 && !Breakpoints::IsBreakpointUnset((WORD)getCurrentAddress()); }
+    bool isCursorPresent()    { return getCurrentAddress() >= 0; }
 
     bool writeToFile(const char* fileName);
 
@@ -76,6 +91,10 @@ private:
     void applyScroll();
     void drawText(int top, int bottom);
 
+    /* The line holding `address`, or -1. The lines are ordered by address, so
+    ** the last one at or below it is the instruction that contains it. */
+    int  lineForAddress(int address);
+
     HDC    hMemdc;
     HFONT  hFont = NULL;
     HBRUSH hBrushWhite;
@@ -86,6 +105,7 @@ private:
     COLORREF colorBlack;
     COLORREF colorGray;
     COLORREF colorWhite;
+    COLORREF colorStale;
 
     int    textHeight = 1;
     int    textWidth  = 1;
@@ -107,9 +127,11 @@ private:
     int      lineCount;
     int      currentLine;
 
-    /* False between invalidateContent() and the next snapshot: the listing on
-    ** screen says unavailable and nothing may disassemble the backup again. */
-    bool     contentValid;
+    /* NONE is the only state whose lines are fiction: nothing disassembled
+    ** yet, so the backup is the zeroed buffer. STALE lines came out of the
+    ** machine; only their decode and the PC marker are behind. */
+    enum ContentState { CONTENT_NONE, CONTENT_STALE, CONTENT_FRESH };
+    ContentState contentState;
 
     LineInfo lineInfo[0x20000];
     int      linePos;

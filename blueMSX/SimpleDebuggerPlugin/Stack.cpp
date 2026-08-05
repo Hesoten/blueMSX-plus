@@ -85,7 +85,9 @@ LRESULT StackWindow::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
             si.fMask  = SIF_POS;
             GetScrollInfo (hwnd, SB_VERT, &si);
             int row = si.nPos + HIWORD(lParam) / textHeight;
-            if (row < lineCount) {
+            /* The unavailable row is not a stack entry, so it must not take
+            ** the selection bar as though it were one. */
+            if (contentValid && row < lineCount) {
                 currentLine = row;
             }
             InvalidateRect(hwnd, NULL, TRUE);

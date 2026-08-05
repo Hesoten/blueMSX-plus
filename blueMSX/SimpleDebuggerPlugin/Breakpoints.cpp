@@ -901,9 +901,9 @@ void Breakpoints::discardRuntoBreakpoint()
     }
 }
 
-/* The disassembly clears this from updateContent and invalidateContent, and
-** the latter runs as the emulator resumes -- disarming the breakpoint there
-** would leave run to cursor, step over and step out running forever. */
+/* The disassembly clears this from invalidateContent and updateContent, both
+** of which run while the emulator does -- disarming the breakpoint there would
+** leave run to cursor, step over and step out running forever. */
 void Breakpoints::clearRuntoBreakpoint()
 {
     if (GetEmulatorState() == EMULATOR_RUNNING) {
