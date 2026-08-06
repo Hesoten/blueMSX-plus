@@ -1841,6 +1841,7 @@ static updateShortcutsList(HWND hDlg)
     char** profileList = getProfileList();
     int index = 0;
     int indexMod = 0;
+    int matched = 0;
 
     while (CB_ERR != SendDlgItemMessage(hDlg, IDC_SCUTCONFIGS, CB_DELETESTRING, 0, 0));
 
@@ -1848,15 +1849,24 @@ static updateShortcutsList(HWND hDlg)
         ComboAddStringU(GetDlgItem(hDlg, IDC_SCUTCONFIGS), langShortcutNewProfile());
         SendDlgItemMessage(hDlg, IDC_SCUTCONFIGS, CB_SETCURSEL, index, 0);
         indexMod = 1;
+        matched = 1;
     }
-    
+
     while (profileList[index]) {
         ComboAddStringU(GetDlgItem(hDlg, IDC_SCUTCONFIGS), profileList[index]);
-        
-        if (index + indexMod == 0 || 0 == strcmp(profileList[index], shortcutProfile)) {
+
+        if (0 == strcmp(profileList[index], shortcutProfile)) {
             SendDlgItemMessage(hDlg, IDC_SCUTCONFIGS, CB_SETCURSEL, index + indexMod, 0);
+            matched = 1;
         }
         index++;
+    }
+
+    /* The loaded profile can be missing from the list; name it anyway or
+    ** Save would target whichever profile came first. */
+    if (!matched) {
+        SendDlgItemMessage(hDlg, IDC_SCUTCONFIGS, CB_SETCURSEL, (WPARAM)-1, 0);
+        SetWindowTextU(GetDlgItem(hDlg, IDC_SCUTCONFIGS), shortcutProfile);
     }
 }
 
