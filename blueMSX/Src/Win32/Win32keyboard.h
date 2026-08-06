@@ -63,7 +63,8 @@ void keyboardSetDirectory(char* directory);
 void keyboardSetSharedDirectory(char* directory);
 
 int keyboardLoadConfig(char* configName);
-void keyboardSaveConfig(char* configName);
+/* 0 only when the save failed; the failure has already been reported. */
+int keyboardSaveConfig(char* configName);
 char* keyboardGetCurrentConfig();
 /* 1 while the profile in effect is not the one that was asked for. */
 int keyboardConfigIsSubstitute();

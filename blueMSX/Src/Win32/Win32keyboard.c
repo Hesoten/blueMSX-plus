@@ -2207,21 +2207,20 @@ int keyboardLoadConfig(char* configName)
     return 1;
 }
 
-void keyboardSaveConfig(char* configName)
+/* reportFailure is 0 for a profile the user did not ask for. */
+static int keyboardWriteConfig(char* configName, int reportFailure)
 {
 	IniFile *keyConfigFile;
     char fileName[KBD_CONFIGPATH_LEN];
     int i, n;
 
-    /* The path is joined here rather than through keyboardConfigPath: a
-    ** save only ever goes to the writable directory, so the bound on the
-    ** name has to hold again. */
+    /* Still answers success, or the editor's OK can neither save nor close. */
     if (configName[0] == 0 || strlen(configName) >= KBD_CONFIGNAME_LEN) {
-        return;
+        return 1;
     }
 
     if (!keyboardConfigJoin(fileName, keyboardConfigDir, configName)) {
-        return;
+        return 0;
     }
 
     keyConfigFile = iniFileOpen(fileName);
@@ -2255,13 +2254,25 @@ void keyboardSaveConfig(char* configName)
             iniFileWriteString(keyConfigFile, profString, key, dikNames);
         }
     }
-    /* Only mark memory clean once the write landed, or a later Cancel
-    ** would revert to a state that does not match disk. */
-    if (iniFileClose(keyConfigFile)) {
-        bindingsBackupAll();
-        sprintf(currentConfigFile, configName);
-        memset(bindingsRewriteOnSave, 0, sizeof(bindingsRewriteOnSave));
+    /* Mark clean only once the write landed, or Cancel reverts to nothing on disk. */
+    if (!iniFileClose(keyConfigFile)) {
+        if (reportFailure) {
+            char msg[KBD_CONFIGPATH_LEN + 64];
+            sprintf(msg, "Failed to write keyboard profile:\n%s", fileName);
+            MessageBoxU(NULL, msg, "blueMSX+", MB_OK | MB_ICONERROR);
+        }
+        return 0;
     }
+
+    bindingsBackupAll();
+    sprintf(currentConfigFile, configName);
+    memset(bindingsRewriteOnSave, 0, sizeof(bindingsRewriteOnSave));
+    return 1;
+}
+
+int keyboardSaveConfig(char* configName)
+{
+    return keyboardWriteConfig(configName, 1);
 }
 
 void keyboardSetDirectory(char* directory)
@@ -2314,11 +2325,14 @@ void inputInit()
     ** switch.  Every device's defaults go in, so switching a port later
     ** needs no further action. */
     bindingsLoadDefaultsForLayout(!jp);
-    keyboardSaveConfig(jp ? DefaultConfigName : JapaneseConfigName);
+    keyboardWriteConfig(jp ? DefaultConfigName : JapaneseConfigName, 0);
 
     /* This run's profile goes last, so it is the one a further save updates. */
     bindingsLoadDefaults();
-    keyboardSaveConfig(startName);
+    if (!keyboardSaveConfig(startName)) {
+        /* The failed write left the other layout's name behind. */
+        strcpy(currentConfigFile, startName);
+    }
 }
 
 char* archGetSelectedKey()

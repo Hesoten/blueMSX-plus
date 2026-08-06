@@ -657,10 +657,11 @@ static LRESULT CALLBACK keyboardDlgProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
         break;
 
     case WM_BUTTON_OK:
-        if (keyboardConfigIsModified()) {
-            keyboardSaveConfig(keyboardGetCurrentConfig());
+        if (keyboardConfigIsModified() &&
+            !keyboardSaveConfig(keyboardGetCurrentConfig())) {
+            break;
         }
-        
+
         SendMessage(hwnd, WM_CLOSE, 0, 0);
         break;
 
