@@ -562,12 +562,14 @@ static BOOL_DLG_RET CALLBACK saveProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARA
     switch (iMsg) {        
     case WM_INITDIALOG:
         {
-            char buffer[128];
+            char buffer[256];
             SetWindowTextU(hDlg, langShortcutSaveConfig());
 
-            sprintf(buffer, "%s\n\n    \"%s\" ?",
-                    s_savePromptIsCreate ? langShortcutCreateConfig() : langShortcutOverwriteConfig(),
-                    shortcutProfile);
+            /* 86 bytes for the longest translation plus a 127-byte name. */
+            _snprintf(buffer, sizeof(buffer) - 1, "%s\n\n    \"%s\" ?",
+                      s_savePromptIsCreate ? langShortcutCreateConfig() : langShortcutOverwriteConfig(),
+                      shortcutProfile);
+            buffer[sizeof(buffer) - 1] = 0;
 
             SetWindowTextU(GetDlgItem(hDlg, IDC_CONF_SAVEDLG_TEXT), buffer);
             SetWindowTextU(GetDlgItem(hDlg, IDOK), langDlgOK());
