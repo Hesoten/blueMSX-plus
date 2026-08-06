@@ -1053,14 +1053,14 @@ static LRESULT CALLBACK hotkeyCtrlProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPAR
                     const char* sep = ", ";
                     SetTextColor(hdc, normalFg);
                     TextOutU(hdc, x, y, (char*)sep, 2);
-                    GetTextExtentPoint32A(hdc, sep, 2, &sz);
+                    GetTextExtentPoint32U(hdc, sep, 2, &sz);
                     x += sz.cx;
                 }
                 fg = captureHotkeyConflicts(captureBuffer.slots[b], captureSelfIndex)
                         ? conflictFg : normalFg;
                 SetTextColor(hdc, fg);
                 TextOutU(hdc, x, y, one, (int)strlen(one));
-                GetTextExtentPoint32A(hdc, one, (int)strlen(one), &sz);
+                GetTextExtentPoint32U(hdc, one, (int)strlen(one), &sz);
                 x += sz.cx;
                 painted++;
             }
@@ -1078,7 +1078,7 @@ static LRESULT CALLBACK hotkeyCtrlProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPAR
                         const char* sep = ", ";
                         SetTextColor(hdc, normalFg);
                         TextOutU(hdc, x, y, (char*)sep, 2);
-                        GetTextExtentPoint32A(hdc, sep, 2, &sz);
+                        GetTextExtentPoint32U(hdc, sep, 2, &sz);
                         x += sz.cx;
                     }
                     SetTextColor(hdc, placeholderFg);
@@ -1143,6 +1143,8 @@ static void shortcutLoadHotkeySet(IniFile* iniFile, const char* keyName,
     p = buffer;
     for (b = 0; b < SHORTCUT_MAX_BINDINGS && *p; ) {
         char slot[256];
+        char canon[SHORTCUTS_REMEMBERED_LEN];
+        const char* src;
         char* at;
         DWORD value = 0;
         ShotcutHotkey h;
@@ -1166,7 +1168,12 @@ static void shortcutLoadHotkeySet(IniFile* iniFile, const char* keyName,
             /* No device name: an old bare number meant whichever pad
             ** enumerated first, so it is dropped rather than guessed at. */
             if (at == NULL) continue;
-            dik = inputResolveDikName(at + 1);
+            /* Canonicalize first: legacy ANSI bytes would count as a second name. */
+            src = inputCanonicalDikName(at + 1);
+            /* A truncated name is a different control, so it is skipped. */
+            if (strlen(src) >= sizeof(canon)) continue;
+            strcpy(canon, src);
+            dik = inputResolveDikName(canon);
             if (dik > 0) {
                 if (!dikToHotkey(dik, &h)) continue;
             }
@@ -1174,7 +1181,7 @@ static void shortcutLoadHotkeySet(IniFile* iniFile, const char* keyName,
                 /* Device absent: keep the name so the entry survives a
                 ** save, with no DIK behind it so nothing can fire it. */
                 h.mods = 0;
-                h.key  = shortcutRememberName(at + 1);
+                h.key  = shortcutRememberName(canon);
                 if (h.key == 0) continue;
             }
             /* Two spellings can name one control once resolved. */

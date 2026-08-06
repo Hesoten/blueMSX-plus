@@ -120,6 +120,9 @@ char* dik2strDisplay(int dikKey);
 /* The same shortening, for a name held without a DIK behind it. */
 char* dikNameToDisplay(char* full);
 int   inputResolveDikName(const char* token);
+/* Canonical spelling for inputResolveDikName; store this, not the raw
+** token. */
+char* inputCanonicalDikName(const char* token);
 const char* inputNextToken(const char* p, char* out, int outLen);
 void  inputAppendToken(char* list, int listLen, const char* token);
 void keyboardSetFocus(int handle, int focus);

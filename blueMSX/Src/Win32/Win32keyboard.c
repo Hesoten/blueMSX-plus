@@ -1077,8 +1077,22 @@ static BOOL CALLBACK enumAxesCallback(const DIDEVICEOBJECTINSTANCE* pdidoi, void
 
 static void joyCopyDeviceName(char* dst, const char* src)
 {
-    _snprintf(dst, JOY_NAME_MAX - 1, "%s", src);
-    dst[JOY_NAME_MAX - 1] = 0;
+    char utf8[JOY_NAME_MAX * 3];
+    int n;
+
+    /* DirectInput names are ANSI; everything downstream, the profile
+    ** included, is UTF-8. */
+    utf8[0] = 0;
+    AnyToUtf8(src, utf8, sizeof(utf8));
+    /* AnyToUtf8 may write nothing, or leave the buffer unterminated. */
+    utf8[sizeof(utf8) - 1] = 0;
+    n = (int)strlen(utf8);
+    if (n > JOY_NAME_MAX - 1) {
+        n = JOY_NAME_MAX - 1;
+        while (n > 0 && ((unsigned char)utf8[n] & 0xC0) == 0x80) n--;
+    }
+    memcpy(dst, utf8, n);
+    dst[n] = 0;
 }
 
 static void joyNameForDir(char* dst, const char* name, const char* dir)
@@ -1514,11 +1528,22 @@ static void bindingsAppendPending(int table, int ec, char* out, int outLen)
     }
 }
 
+/* Profiles predating UTF-8 device names carry ANSI bytes.  Cleared first:
+** AnyToUtf8 may write nothing, and the static would answer stale. */
+char* inputCanonicalDikName(const char* token)
+{
+    static char utf8[3 * 256];
+    utf8[0] = 0;
+    AnyToUtf8(token, utf8, sizeof(utf8));
+    utf8[sizeof(utf8) - 1] = 0;
+    return utf8;
+}
+
 /* Answers 0 for a control no attached device has, since str2dik answers
 ** from stale names and the binding would fire for whoever claims the slot. */
 int inputResolveDikName(const char* token)
 {
-    int dik = str2dik((char*)token);
+    int dik = str2dik(inputCanonicalDikName(token));
     if (dik >= KEY_CODE_BUTTON1) {
         int slot   = (dik - KEY_CODE_BUTTON1) / 32;
         int offset = (dik - KEY_CODE_BUTTON1) % 32;
