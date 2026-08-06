@@ -553,22 +553,24 @@ static char** getProfileList()
     return profileList;
 }
 
-/* Set by IDC_SAVE before showing saveProc: 0 for overwrite-existing,
-** 1 for create-new. Switches the prompt body text. */
-static int s_savePromptIsCreate = 0;
+typedef struct {
+    const char* profile;
+    int         isCreate;
+} SavePromptInfo;
 
 static BOOL_DLG_RET CALLBACK saveProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (iMsg) {        
     case WM_INITDIALOG:
         {
+            const SavePromptInfo* info = (const SavePromptInfo*)lParam;
             char buffer[256];
             SetWindowTextU(hDlg, langShortcutSaveConfig());
 
             /* 86 bytes for the longest translation plus a 127-byte name. */
             _snprintf(buffer, sizeof(buffer) - 1, "%s\n\n    \"%s\" ?",
-                      s_savePromptIsCreate ? langShortcutCreateConfig() : langShortcutOverwriteConfig(),
-                      shortcutProfile);
+                      info->isCreate ? langShortcutCreateConfig() : langShortcutOverwriteConfig(),
+                      info->profile);
             buffer[sizeof(buffer) - 1] = 0;
 
             SetWindowTextU(GetDlgItem(hDlg, IDC_CONF_SAVEDLG_TEXT), buffer);
@@ -2012,14 +2014,16 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
                     /* Edit-text differs from loaded profile: Save-As path. */
                     char fileName[PROP_MAXPATH];
                     char savedProfile[128];
+                    SavePromptInfo prompt;
                     FILE* file;
                     profilePath(fileName, sizeof(fileName), effective);
                     file = fopen(fileName, "r");
                     strcpy(savedProfile, shortcutProfile);
                     strcpy(shortcutProfile, effective);
-                    s_savePromptIsCreate = (file == NULL);
+                    prompt.profile  = effective;
+                    prompt.isCreate = (file == NULL);
                     if (file != NULL) fclose(file);
-                    rv = (int)DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, saveProc);
+                    rv = (int)DialogBoxParam(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, saveProc, (LPARAM)&prompt);
                     if (rv) {
                         saveShortcuts(shortcutProfile, shortcuts);
                         updateShortcutsList(hDlg);
@@ -2030,8 +2034,10 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
                     }
                 }
                 else {
-                    s_savePromptIsCreate = 0;
-                    rv = (int)DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, saveProc);
+                    SavePromptInfo prompt;
+                    prompt.profile  = shortcutProfile;
+                    prompt.isCreate = 0;
+                    rv = (int)DialogBoxParam(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, saveProc, (LPARAM)&prompt);
                     if (rv) {
                         saveShortcuts(shortcutProfile, shortcuts);
                     }
@@ -2051,7 +2057,10 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
                     profilePath(fileName, sizeof(fileName), tmpShortcutProfile);
                     file = fopen(fileName, "r");
                     if (file != NULL) {
-                        rv = (int)DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, saveProc);
+                        SavePromptInfo prompt;
+                        prompt.profile  = tmpShortcutProfile;
+                        prompt.isCreate = 0;
+                        rv = (int)DialogBoxParam(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, saveProc, (LPARAM)&prompt);
                         fclose(file);
                     }
 
