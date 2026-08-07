@@ -114,6 +114,7 @@ static void updateMachineList(HWND hDlg) {
     while (arrayListCanIterate(iterator)) {
         char buffer[128];
         _snprintf(buffer, sizeof(buffer) - 1, "%s", (const char*)arrayListIterate(iterator));
+        buffer[sizeof(buffer) - 1] = 0;
 
         ComboAddStringU(GetDlgItem(hDlg, IDC_CONF_CONFIGS), buffer);
         if (index == 0 || 0 == strcmp(buffer, machineName)) {
@@ -2358,10 +2359,14 @@ static BOOL_DLG_RET CALLBACK saveProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARA
     switch (iMsg) {        
     case WM_INITDIALOG:
         {
-            char buffer[128];
+            char buffer[256];
             SetWindowTextU(hDlg, langConfSaveTitle());
 
-            sprintf(buffer, "%s\n\n    \"%s\" ?", langConfSaveText(), tmpMachineName);
+            /* The longest translation of the question is 84 bytes and a
+            ** machine name can reach 63. */
+            _snprintf(buffer, sizeof(buffer) - 1, "%s\n\n    \"%s\" ?",
+                      langConfSaveText(), tmpMachineName);
+            buffer[sizeof(buffer) - 1] = 0;
 
             SetWindowTextU(GetDlgItem(hDlg, IDC_CONF_SAVEDLG_TEXT), buffer);
             SetWindowTextU(GetDlgItem(hDlg, IDOK), langDlgOK());
@@ -2495,8 +2500,11 @@ static BOOL_DLG_RET CALLBACK saveAsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
             if (HIWORD(wParam) == 1 || HIWORD(wParam) == 2) {
                 char buffer[64];
                 int index = (int)SendMessage(GetDlgItem(hDlg, IDC_MACHINELIST), LB_GETCURSEL, 0, 0);
-                SendMessage(GetDlgItem(hDlg, IDC_MACHINELIST), LB_GETTEXT, index, (LPARAM)buffer);
-                SetWindowTextU(GetDlgItem(hDlg, IDC_MACHINENAME), buffer);
+                int len = (int)SendMessage(GetDlgItem(hDlg, IDC_MACHINELIST), LB_GETTEXTLEN, index, 0);
+                if (len != LB_ERR && len < (int)sizeof(buffer)) {
+                    SendMessage(GetDlgItem(hDlg, IDC_MACHINELIST), LB_GETTEXT, index, (LPARAM)buffer);
+                    SetWindowTextU(GetDlgItem(hDlg, IDC_MACHINENAME), buffer);
+                }
                 if (HIWORD(wParam) == 2) {
                     SendMessage(hDlg, WM_COMMAND, IDOK, 0);
                 }
@@ -2635,7 +2643,15 @@ static BOOL_DLG_RET CALLBACK configProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
                     isCheckingConfigs = 1;
 
                     idx = (int)SendMessage(GetDlgItem(hDlg, IDC_CONF_CONFIGS), CB_GETCURSEL, 0, 0);
-                    rv = (int)SendMessage(GetDlgItem(hDlg, IDC_CONF_CONFIGS), CB_GETLBTEXT, idx, (LPARAM)machineNameSel);
+                    /* machineNameSel is copied into machineName below,
+                    ** which is the same size. */
+                    rv = (int)SendMessage(GetDlgItem(hDlg, IDC_CONF_CONFIGS), CB_GETLBTEXTLEN, idx, 0);
+                    if (rv != CB_ERR && rv < (int)sizeof(machineNameSel)) {
+                        rv = (int)SendMessage(GetDlgItem(hDlg, IDC_CONF_CONFIGS), CB_GETLBTEXT, idx, (LPARAM)machineNameSel);
+                    }
+                    else {
+                        rv = CB_ERR;
+                    }
                 
                     if (rv != CB_ERR) {
                         if (strcmp(machineNameSel, machineName)) {
