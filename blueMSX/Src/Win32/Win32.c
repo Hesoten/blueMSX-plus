@@ -4080,6 +4080,9 @@ int setDefaultPath(char* cmdLine) {
     sprintf(buffer, "%s\\Keyboard Config", rootDir);
     keyboardSetDirectory(laterDir(buffer));
 
+    sprintf(buffer, "%s\\Keyboard Config", dataDir);
+    keyboardSetSharedDirectory(buffer);
+
     sprintf(buffer, "%s\\Screenshots", rootDir);
     screenshotSetDirectory(laterDir(buffer), "");
 

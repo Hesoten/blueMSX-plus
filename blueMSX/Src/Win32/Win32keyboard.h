@@ -53,6 +53,7 @@ void inputRefreshDevicesIfDirty(void);
 void inputResolveShadowBindings(void);
 
 void keyboardSetDirectory(char* directory);
+void keyboardSetSharedDirectory(char* directory);
 
 int keyboardLoadConfig(char* configName);
 void keyboardSaveConfig(char* configName);

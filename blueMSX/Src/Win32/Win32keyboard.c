@@ -61,7 +61,19 @@ static int selectedDikKey;
 static int selectedTable;
 static int editEnabled;
 
-static char keyboardConfigDir[MAX_PATH];
+/* The listing and the dropdown already refuse anything longer. */
+#define KBD_CONFIGNAME_LEN 64
+
+/* No larger: iniFileOpen copies the path it is given into a member of exactly
+** this size, so a bigger buffer here would only move the overrun into that
+** one. The directory is bounded where it is built, for the same reason. */
+#define KBD_CONFIGPATH_LEN PROP_MAXPATH
+
+/* PROP_MAXPATH rather than MAX_PATH: /rootdir accepts a longer path than 260. */
+static char keyboardConfigDir[PROP_MAXPATH];
+/* This one is only read: it is where the mappings the emulator ships with
+** live. */
+static char keyboardSharedDir[PROP_MAXPATH];
 
 static char DefaultConfigName[] = "blueMSX Default";
 
@@ -1123,65 +1135,114 @@ void keyboardUpdate()
                    (GetAsyncKeyState(VK_RWIN)    > 1UL ? KBD_RWIN     : 0);
 } 
 
-char** keyboardGetConfigs()
+/* Adds the names of the mappings in one directory, skipping any already there. */
+static int keyboardAppendConfigs(const char* directory, char names[][KBD_CONFIGNAME_LEN], int index)
 {
-    static char* keyboardNames[256];
-    char         fileName[MAX_PATH];
-    static char  keyboardArray[256][64];
+    char fileName[KBD_CONFIGPATH_LEN];
 	HANDLE       handle;
 	WIN32_FIND_DATAA wfd;
-    int index = 0;
     BOOL cont = TRUE;
 
-    sprintf(fileName, "%s/*.config", keyboardConfigDir);
+    if (directory[0] == 0) {
+        return index;
+    }
+
+    sprintf(fileName, "%s/*.config", directory);
 
     handle = FindFirstFileU(fileName, &wfd);
 
     if (handle == INVALID_HANDLE_VALUE) {
-        keyboardNames[0] = NULL;
-        return keyboardNames;
+        return index;
     }
 
     while (cont) {
         DWORD fa = wfd.dwFileAttributes;
+        int length = (int)strlen(wfd.cFileName) - 7;
         /* Use wfd.dwFileAttributes (not GetFileAttributes on basename); same
         ** fix as Win32ShortcutsConfig.c::getProfileList. */
-        if (!(fa & FILE_ATTRIBUTE_DIRECTORY)) {
-            char buffer[128];
-            int length = (int)strlen(wfd.cFileName) - 7;
-            strcpy(buffer, wfd.cFileName);
-            buffer[length] = 0;
-            strcpy(keyboardArray[index], buffer);
-            keyboardNames[index] = keyboardArray[index];
-            index++;
+        if (!(fa & FILE_ATTRIBUTE_DIRECTORY) && length > 0 &&
+            length < KBD_CONFIGNAME_LEN && index < 255) {
+            int i;
+            int seen = 0;
+            for (i = 0; i < index; i++) {
+                /* Names are matched the way the file system does, or
+                ** blueMSX.config and bluemsx.config are both offered and both
+                ** open the second. */
+                if (_strnicmp(names[i], wfd.cFileName, length) == 0 &&
+                    names[i][length] == 0) {
+                    seen = 1;
+                }
+            }
+            if (!seen) {
+                memcpy(names[index], wfd.cFileName, length);
+                names[index][length] = 0;
+                index++;
+            }
         }
         cont = FindNextFileU(handle, &wfd);
     }
 
 	FindClose(handle);
     
+    return index;
+}
+
+char** keyboardGetConfigs()
+{
+    static char* keyboardNames[256];
+    static char  keyboardArray[256][KBD_CONFIGNAME_LEN];
+    int index = 0;
+    int i;
+
+    index = keyboardAppendConfigs(keyboardConfigDir, keyboardArray, index);
+    index = keyboardAppendConfigs(keyboardSharedDir, keyboardArray, index);
+
+    for (i = 0; i < index; i++) {
+        keyboardNames[i] = keyboardArray[i];
+    }
     keyboardNames[index] = NULL;
 
     return keyboardNames;
 }
 
+/* ' */
+static void keyboardConfigPath(char fileName[KBD_CONFIGPATH_LEN], const char* configName)
+{
+    FILE* file;
+
+    sprintf(fileName, "%s/%s.config", keyboardConfigDir, configName);
+
+    if (keyboardSharedDir[0] == 0) {
+        return;
+    }
+
+    file = fopen(fileName, "r");
+    if (file != NULL) {
+        fclose(file);
+        return;
+    }
+
+    sprintf(fileName, "%s/%s.config", keyboardSharedDir, configName);
+}
+
 int keyboardLoadConfig(char* configName)
 {
 	IniFile *keyConfigFile;
-    char fileName[MAX_PATH];
+    char fileName[KBD_CONFIGPATH_LEN];
     FILE* file;
     int i;
     int n;
 
+    /* The name is refused before anything is reset, so the mapping in effect
+    ** is left alone. */
+    if (strlen(configName) >= KBD_CONFIGNAME_LEN) {
+        return 0;
+    }
+
     keyboardResetKbd();
     memset(shadowDikNames, 0, sizeof(shadowDikNames));
 
-    if (configName[0] == 0) {
-        sprintf(fileName, "%s/%s.config", keyboardConfigDir, DefaultConfigName);
-    }
-    else {
-        sprintf(fileName, "%s/%s.config", keyboardConfigDir, configName);
-    }
+    keyboardConfigPath(fileName, configName[0] == 0 ? DefaultConfigName : configName);
 
     file = fopen(fileName, "r");
     if (file == NULL) {
@@ -1240,10 +1301,12 @@ int keyboardLoadConfig(char* configName)
 void keyboardSaveConfig(char* configName)
 {
 	IniFile *keyConfigFile;
-    char fileName[MAX_PATH];
+    char fileName[KBD_CONFIGPATH_LEN];
     int i, n;
     
-    if (configName[0] == 0) {
+    /* The two are joined here rather than through keyboardConfigPath, so the
+    ** bound has to hold again. */
+    if (configName[0] == 0 || strlen(configName) >= KBD_CONFIGNAME_LEN) {
         return;
     }
 
@@ -1289,6 +1352,11 @@ void keyboardSetDirectory(char* directory)
     strcpy(keyboardConfigDir, directory);
 }
 
+void keyboardSetSharedDirectory(char* directory)
+{
+    strcpy(keyboardSharedDir, directory);
+}
+
 char* keyboardGetCurrentConfig()
 {
     return currentConfigFile;
@@ -1301,7 +1369,7 @@ int keyboardIsCurrentConfigDefault()
 
 void inputInit()
 {
-    char fileName[MAX_PATH];
+    char fileName[KBD_CONFIGPATH_LEN];
     FILE* file;
 
     initDikStr();
@@ -1309,7 +1377,7 @@ void inputInit()
 
     inputEventReset();
     
-    sprintf(fileName, "%s/%s.config", keyboardConfigDir, DefaultConfigName);
+    keyboardConfigPath(fileName, DefaultConfigName);
     file = fopen(fileName, "r");
     if (file == NULL) {
         keyboardSaveConfig(DefaultConfigName);
