@@ -2315,7 +2315,9 @@ int shortcutsShowDialog(HWND hwnd, Properties* pProperties) {
 
 //    inputDestroy();
     rv = (int)DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SHORTCUTSCONFIG), hwnd, shortcutsProc);
-    if (rv) {
+    /* Only a name with a file behind it: the placeholder for a profile that
+    ** was never saved would load as an empty set and drop every hotkey. */
+    if (rv && shortcutsIsProfileValid(shortcutProfile)) {
         strcpy(pProperties->emulation.shortcutProfile, shortcutProfile);
     }
 
