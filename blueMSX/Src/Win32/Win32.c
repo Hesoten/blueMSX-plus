@@ -4916,18 +4916,40 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
     st.dskWnd = diskQuickviewWindowCreate(st.hwnd);
 
-    if (pProperties->video.windowX < 0 || pProperties->video.windowY < 0) {
+    /* -1,-1 marks "never saved" rather than a coordinate. A monitor left of or
+    ** above the primary one gives real negative positions, so both halves are
+    ** checked. */
+    if (pProperties->video.windowX == -1 && pProperties->video.windowY == -1) {
         GetWindowRect(st.hwnd, &wr);
         pProperties->video.windowX = wr.left;
         pProperties->video.windowY = wr.top;
     }
 
-    if (pProperties->video.windowX > GetSystemMetrics(SM_CXSCREEN) - 300) {
-        pProperties->video.windowX = GetSystemMetrics(SM_CXSCREEN) - 300;
-    }
+    {
+        /* The window is kept reachable on the monitor its corner falls on, not
+        ** on the primary one. */
+        POINT corner;
+        HMONITOR mon;
+        MONITORINFO mi;
 
-    if (pProperties->video.windowY > GetSystemMetrics(SM_CYSCREEN) - 300) {
-        pProperties->video.windowY = GetSystemMetrics(SM_CYSCREEN) - 300;
+        corner.x = pProperties->video.windowX;
+        corner.y = pProperties->video.windowY;
+        mon = MonitorFromPoint(corner, MONITOR_DEFAULTTONEAREST);
+        mi.cbSize = sizeof(mi);
+        if (GetMonitorInfoW(mon, &mi)) {
+            if (pProperties->video.windowX > mi.rcWork.right - 300) {
+                pProperties->video.windowX = mi.rcWork.right - 300;
+            }
+            if (pProperties->video.windowY > mi.rcWork.bottom - 300) {
+                pProperties->video.windowY = mi.rcWork.bottom - 300;
+            }
+            if (pProperties->video.windowX < mi.rcWork.left) {
+                pProperties->video.windowX = mi.rcWork.left;
+            }
+            if (pProperties->video.windowY < mi.rcWork.top) {
+                pProperties->video.windowY = mi.rcWork.top;
+            }
+        }
     }
 
     SetWindowPos(st.hwnd, NULL, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOZORDER);
