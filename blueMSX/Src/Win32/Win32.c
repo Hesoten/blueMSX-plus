@@ -4107,6 +4107,10 @@ static int consoleWriteTo(DWORD stream, const char* text)
 {
     HANDLE out = GetStdHandle(stream);
     DWORD written = 0;
+    DWORD mode;
+    wchar_t stack[1024];
+    wchar_t* wide;
+    int ok = 0;
 
     /* The handle is valid when the shell redirected the output; otherwise a
     ** windows subsystem process has to borrow the parent console. FreeConsole
@@ -4127,7 +4131,30 @@ static int consoleWriteTo(DWORD stream, const char* text)
         return 0;
     }
 
-    return WriteFile(out, text, (DWORD)strlen(text), &written, NULL) != 0;
+    /* The line is UTF-8 and neither sink takes those bytes as they are. */
+    wide = Utf8ToWideAlloc(text, stack, (int)_countof(stack));
+    if (GetConsoleMode(out, &mode)) {
+        ok = WriteConsoleW(out, wide, (DWORD)wcslen(wide), &written, NULL) != 0;
+    }
+    else {
+        /* Redirected, so what reads it back expects the system code page. */
+        char  narrowStack[1024];
+        char* narrow;
+        int   need = WideToAcp(wide, NULL, 0);
+
+        narrow = need <= (int)sizeof(narrowStack) ? narrowStack
+                                                  : (char*)malloc((size_t)need);
+        if (need > 0 && narrow != NULL) {
+            WideToAcp(wide, narrow, need);
+            ok = WriteFile(out, narrow, (DWORD)(need - 1), &written, NULL) != 0;
+            if (narrow != narrowStack) {
+                free(narrow);
+            }
+        }
+    }
+    FreeWideMaybe(wide, stack);
+
+    return ok;
 }
 
 /* This goes to the output, so a listing can be redirected on its own. */
@@ -4397,6 +4424,41 @@ static int getScreenBitDepth()
     return GetDeviceCaps(hdc, BITSPIXEL) * GetDeviceCaps(hdc, PLANES);
 }
 
+/* The line as UTF-8. The one WinMain is handed has been converted to the
+** system code page, so a name outside that page reaches the title and the
+** history as mojibake; everything below reads char* as UTF-8. */
+static char* commandLineUtf8(void)
+{
+    static char line[CMDLINE_MAXLEN];
+    const wchar_t* wide = GetCommandLineW();
+
+    /* This copy still carries the exe name, which the one WinMain is handed
+    ** does not. */
+    if (*wide == L'\"') {
+        for (wide++; *wide != 0 && *wide != L'\"'; wide++) ;
+        if (*wide == L'\"') wide++;
+    }
+    else {
+        while (*wide != 0 && *wide != L' ' && *wide != L'\t') wide++;
+    }
+    while (*wide == L' ' || *wide == L'\t') wide++;
+
+    if (WideToUtf8(wide, line, sizeof(line)) == 0) {
+        /* The whole line did not fit, so keep the head of it. Three bytes is
+        ** the most one character takes. */
+        int chars = (int)((sizeof(line) - 1) / 3);
+        int bytes;
+        if (chars > (int)wcslen(wide)) {
+            chars = (int)wcslen(wide);
+        }
+        bytes = WideCharToMultiByte(CP_UTF8, 0, wide, chars, line,
+                                    (int)sizeof(line) - 1, NULL, NULL);
+        line[bytes > 0 ? bytes : 0] = 0;
+    }
+
+    return line;
+}
+
 ////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////
 
@@ -4427,6 +4489,8 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
         strcat(szLine, argv[i]);
         strcat(szLine, " ");
     }
+#else
+    szLine = commandLineUtf8();
 #endif
 
     /* This is done first, because everything below moves to the exe directory. */
