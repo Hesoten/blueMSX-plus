@@ -614,6 +614,14 @@ void propDestroy(Properties* pProperties);
 /* defDir: preferred location for bluemsx.ini; altDir: fallback if absent. */
 void propertiesSetDirectory(const char* defDir, const char* altDir);
 
+/* Overrides the file propertiesSetDirectory resolved, so a run can be told to
+** read and write one named settings file. Call it after, not before. */
+void propertiesSetSettingsFile(const char* fileName);
+
+/* The machine name in the settings file, or "" when it names none. Read it
+** before propCreate, which quietly substitutes a name it cannot find. */
+const char* propGetSavedMachineName(void);
+
 /* 1 if a saved bluemsx.ini exists (call propertiesSetDirectory first). */
 int propSettingsFileExists(void);
 

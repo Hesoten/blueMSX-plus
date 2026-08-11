@@ -367,7 +367,10 @@ static const CmdLineOption cmdLineOptions[] = {
     { "msxaudio",      "<on|off>","Enable or disable MSX-Audio (Y8950)"              },
     { "moonsound",     "<on|off>","Enable or disable MoonSound (OPL4)"               },
     { "debugger",      NULL,      "Open the debugger after the emulator starts",
-      "Other options:"                                                                },
+      "File locations and other options:"                                             },
+    { "rootdir",       "<dir>",   "Directory for the settings and everything written" },
+    { "machinedir",    "<dir>",   "Directory the machine definitions are read from"  },
+    { "inifile",       "<file>",  "Settings file to use instead of bluemsx.ini"      },
     { "reset",         NULL,      "Reset the settings file and start with it"        },
     { "resetregs",     NULL,      "Reset the settings file and exit without starting" },
     { NULL,            NULL,      NULL                                               }
@@ -395,7 +398,9 @@ int emuCommandLineGetHelpText(char* out, int size) {
         "blueMSX+ command line options\r\n\r\n"
         "  Options may be written /name, -name or --name, in any case. /help\r\n"
         "  is also -h and /?. Quote names that contain spaces (machine, theme,\r\n"
-        "  language and cartridge names do).\r\n"
+        "  language and cartridge names do). /rootdir, /machinedir and\r\n"
+        "  /inifile take a path relative to the current directory; all other\r\n"
+        "  paths are relative to the install directory.\r\n"
         "  A line that is nothing but a file name opens that file.\r\n\r\n");
 
     for (opt = cmdLineOptions; opt->name != NULL; opt++) {

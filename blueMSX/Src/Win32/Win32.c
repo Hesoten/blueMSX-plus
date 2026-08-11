@@ -3773,13 +3773,67 @@ void updateEmuWindow() {
     }
 }
 
-int setDefaultPath() {   
+static void commandLineReport(const char* message);
+static void commandLineFail(const char* message);
+
+static char launchDir[512];
+
+static int isAbsolutePath(const char* path) {
+    /* A drive letter alone is not enough: "C:name" is relative to that drive. */
+    return path[0] == '\\' || path[0] == '/' ||
+           (path[0] != 0 && path[1] == ':' && (path[2] == '\\' || path[2] == '/'));
+}
+
+static const char* resolveArgPath(const char* path, char* buffer, int size) {
+    int length;
+
+    if (isAbsolutePath(path)) {
+        length = (int)strlen(path);
+        if (length >= size) {
+            return NULL;
+        }
+        strcpy(buffer, path);
+        return buffer;
+    }
+
+    length = (int)strlen(launchDir) + 1 + (int)strlen(path);
+    if (length >= size) {
+        return NULL;
+    }
+    sprintf(buffer, "%s\\%s", launchDir, path);
+    return buffer;
+}
+
+/* These are named while the paths are worked out, and created once the line
+** has been accepted. */
+static char writeDirs[8][512];
+static int  writeDirCount = 0;
+
+static char* laterDir(char* path) {
+    if (writeDirCount < (int)(sizeof(writeDirs) / sizeof(writeDirs[0]))) {
+        strcpy(writeDirs[writeDirCount++], path);
+    }
+    return path;
+}
+
+static void createDataDirectories(void) {
+    int i;
+
+    for (i = 0; i < writeDirCount; i++) {
+        mkdirU(writeDirs[i]);
+    }
+}
+
+int setDefaultPath(char* cmdLine) {
     char buffer[512];  
     char buffer2[512];
     /* Base for user-writable data dirs (Screenshots, QuickSave, SRAM, ...).
     ** = exe dir when writable, else My Documents\blueMSX Temporary Files.
     ** Machines/ is deliberately NOT resolved against this -- see below. */
     char rootDir[512];
+    /* The data shipped with the emulator is read from the exe directory,
+    ** however rootDir moves. */
+    char dataDir[512];
     int readOnlyDir;
     DWORD dirattr; 
     FILE* file;
@@ -3832,42 +3886,131 @@ int setDefaultPath() {
         SetCurrentDirectoryU(st.pCurDir);
     }
 
-    // Set up temp directories
-    propertiesSetDirectory(st.pCurDir, rootDir);
+    strcpy(dataDir, st.pCurDir);
 
-    sprintf(buffer, "%s\\Machines", st.pCurDir);
-    machineSetDirectory(buffer);
+    {
+        char* argument = emuCheckValueArgument(cmdLine, "rootdir");
+        /* The option with nothing after it counts as absent, and nothing below
+        ** reads the line again. */
+        if ((argument == NULL || argument[0] == 0) &&
+            emuCheckFlagArgument(cmdLine, "rootdir")) {
+            commandLineFail("/rootdir: needs a directory");
+        }
+        if (argument != NULL) {
+            char resolved[512];
+            char probe[512];
+            FILE* test;
+            DWORD attrs;
+            /* 96 covers the longest path built from this: "\Keyboard Config",
+            ** a separator, a mapping name the listing caps at 63, and
+            ** ".config". */
+            if (resolveArgPath(argument, resolved, sizeof(rootDir) - 96) == NULL) {
+                commandLineFail("/rootdir: that path is too long");
+            }
+            /* The directory has to exist. A typo would otherwise create an
+            ** empty tree and the run would start from the built in settings. */
+            attrs = GetFileAttributesU(resolved);
+            if (attrs == INVALID_FILE_ATTRIBUTES || !(attrs & FILE_ATTRIBUTE_DIRECTORY)) {
+                commandLineFail("/rootdir: no such directory");
+            }
+            sprintf(probe, "%s\\wrtest", resolved);
+            test = fopen(probe, "w");
+            /* Everything below writes into rootDir, so a failed write probe is
+            ** fatal. */
+            if (test == NULL) {
+                commandLineFail("/rootdir: cannot write to that directory");
+            }
+            fclose(test);
+            DeleteFileU(probe);
+            strcpy(rootDir, resolved);
+            readOnlyDir = 0;
+            strcpy(dataDir, st.pCurDir);
+            /* rootDir is passed as both preferred and fallback, or a
+            ** bluemsx.ini beside the exe would win. */
+            propertiesSetDirectory(rootDir, rootDir);
+        }
+        else {
+            propertiesSetDirectory(st.pCurDir, rootDir);
+        }
+    }
+
+    {
+        char* argument = emuCheckValueArgument(cmdLine, "inifile");
+        if ((argument == NULL || argument[0] == 0) &&
+            emuCheckFlagArgument(cmdLine, "inifile")) {
+            commandLineFail("/inifile: needs a file name");
+        }
+        if (argument != NULL) {
+            char resolved[512];
+            DWORD attrs;
+            if (resolveArgPath(argument, resolved, 512) == NULL) {
+                commandLineFail("/inifile: that path is too long");
+            }
+            /* The file has to exist. A typo would otherwise start from the
+            ** built in settings. */
+            attrs = GetFileAttributesU(resolved);
+            if (attrs == INVALID_FILE_ATTRIBUTES || (attrs & FILE_ATTRIBUTE_DIRECTORY)) {
+                commandLineFail("/inifile: no such file");
+            }
+            propertiesSetSettingsFile(resolved);
+        }
+    }
+
+    /* propCreate checks the saved machine name against this directory and
+    ** quietly picks another when it is not there, so it has to be set first. */
+    {
+        char* argument = emuCheckValueArgument(cmdLine, "machinedir");
+        if ((argument == NULL || argument[0] == 0) &&
+            emuCheckFlagArgument(cmdLine, "machinedir")) {
+            commandLineFail("/machinedir: needs a directory");
+        }
+        if (argument != NULL) {
+            char resolved[512];
+            DWORD attrs;
+            /* PROP_MAXPATH less what the readers append into their own buffers
+            ** of that size: a machine name, which a file system caps at 255,
+            ** and then "/config.ini". */
+            if (resolveArgPath(argument, resolved, PROP_MAXPATH - 272) == NULL) {
+                commandLineFail("/machinedir: that path is too long");
+            }
+            attrs = GetFileAttributesU(resolved);
+            if (attrs == INVALID_FILE_ATTRIBUTES || !(attrs & FILE_ATTRIBUTE_DIRECTORY)) {
+                commandLineFail("/machinedir: no such directory");
+            }
+            machineSetDirectory(resolved);
+        }
+        else {
+            sprintf(buffer, "%s\\Machines", st.pCurDir);
+            machineSetDirectory(buffer);
+        }
+    }
 
     sprintf(buffer, "%s\\Audio Capture", rootDir);
-    mkdirU(buffer);
-    actionSetAudioCaptureSetDirectory(buffer, "");
+    actionSetAudioCaptureSetDirectory(laterDir(buffer), "");
 
     sprintf(buffer, "%s\\Video Capture", rootDir);
-    mkdirU(buffer);
-    actionSetVideoCaptureSetDirectory(buffer, "");
+    actionSetVideoCaptureSetDirectory(laterDir(buffer), "");
 
     sprintf(buffer, "%s\\QuickSave", rootDir);
-    mkdirU(buffer);
-    actionSetQuickSaveSetDirectory(buffer, "");
+    actionSetQuickSaveSetDirectory(laterDir(buffer), "");
 
     sprintf(buffer, "%s\\SRAM", rootDir);
-    mkdirU(buffer);
-    boardSetDirectory(buffer);
+    boardSetDirectory(laterDir(buffer));
 
+    /* This one is written to, so it follows the run. The shipped mappings stay
+    ** readable where they are. */
     sprintf(buffer, "%s\\Keyboard Config", rootDir);
-    mkdirU(buffer);
-    keyboardSetDirectory(buffer);
+    keyboardSetDirectory(laterDir(buffer));
 
     sprintf(buffer, "%s\\Screenshots", rootDir);
-    mkdirU(buffer);
-    screenshotSetDirectory(buffer, "");
+    screenshotSetDirectory(laterDir(buffer), "");
 
     sprintf(buffer, "%s\\Casinfo", rootDir);
-    mkdirU(buffer);
-    tapeSetDirectory(buffer, "");
+    tapeSetDirectory(laterDir(buffer), "");
 
-    sprintf(buffer, "%s\\Databases", rootDir);
-    mkdirU(buffer);
+    /* This one is only read, so it is neither created nor moved off the
+    ** install. */
+    sprintf(buffer, "%s\\Databases", dataDir);
     mediaDbLoad(buffer);
 
     mediaDbCreateRomdb();
@@ -4072,6 +4215,11 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     }
 #endif
 
+    /* This is done first, because everything below moves to the exe directory. */
+    if (GetCurrentDirectoryU(sizeof(launchDir) - 1, launchDir) == 0 || launchDir[0] == 0) {
+        strcpy(launchDir, ".");
+    }
+
     /* This is answered before anything is loaded, so asking never disturbs a
     ** running instance. */
     if (emuCheckHelpArgument(szLine)) {
@@ -4143,7 +4291,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
     appConfigLoad();
 
-    readOnlyDir = setDefaultPath();
+    readOnlyDir = setDefaultPath(szLine);
 
     {
         /* Modify scan code map if nessecary */
@@ -4169,13 +4317,50 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
         {
             char themeName[64];
+            char savedMachine[PROP_MAXPATH];
             if (GetSystemMetrics(SM_CYSCREEN) > 600) {
                 strcpy(themeName, "DIGIblue SUITE-X2");
             }
             else {
                 strcpy(themeName, "Classic");
             }
+            /* This is read before propCreate, which is about to replace it. */
+            strcpy(savedMachine, propGetSavedMachineName());
+
             pProperties = propCreate(resetRegistry, getLangType(), kbdLang, syncMode, themeName);
+
+            if (emuCheckValueArgument(szLine, "machinedir") != NULL) {
+                ArrayList* machineList = arrayListCreate();
+                ArrayListIterator* iterator;
+                int machineCount;
+                int found = 0;
+
+                machineFillAvailable(machineList, 0);
+                machineCount = arrayListGetSize(machineList);
+                iterator = arrayListCreateIterator(machineList);
+                while (arrayListCanIterate(iterator)) {
+                    if (strcmp((const char*)arrayListIterate(iterator), savedMachine) == 0) {
+                        found = 1;
+                    }
+                }
+                arrayListDestroyIterator(iterator);
+                arrayListDestroy(machineList);
+
+                /* This is fatal whatever else the line says: an empty
+                ** directory leaves nothing to boot. */
+                if (machineCount == 0) {
+                    commandLineFail("/machinedir: no machines under that directory");
+                }
+                /* This applies only when the file names the machine: /machine,
+                ** /reset and a single machine build each name it otherwise. */
+                if (!found && savedMachine[0] != 0 && !resetRegistry &&
+                    emuCheckValueArgument(szLine, "machine") == NULL &&
+                    appConfigGetString("singlemachine", NULL) == NULL) {
+                    char message[PROP_MAXPATH + 64];
+                    sprintf(message, "/machinedir: that directory has no machine called %.256s", savedMachine);
+                    commandLineFail(message);
+                }
+            }
 
             /* No saved settings (first launch, or --reset) with the Digiblue
                default theme: size the window to the screen instead of a fixed
@@ -4216,33 +4401,44 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
         }
     }
 
-    /* Capture path reconciliation. The Audio/Video/Screenshot directories
-    ** were seeded above with rootDir-based defaults; if the loaded INI also
-    ** has capture.* paths, those win and we push them into the runtime
-    ** statics. Otherwise we copy the runtime defaults back into Properties
-    ** so they round-trip on next save. */
+    /* An INI capture.* path wins; otherwise the rootDir default goes back for
+    ** this run only, or the settings file would follow wherever the run keeps
+    ** its data. */
     if (pProperties->capture.audioDir[0]) {
         actionSetAudioCaptureSetDirectory(pProperties->capture.audioDir, "");
     } else {
         strcpy(pProperties->capture.audioDir, actionGetAudioCaptureDir());
+        emuCommandLineOverrideString(pProperties->capture.audioDir, "");
     }
     if (pProperties->capture.videoDir[0]) {
         actionSetVideoCaptureSetDirectory(pProperties->capture.videoDir, "");
     } else {
         strcpy(pProperties->capture.videoDir, actionGetVideoCaptureDir());
+        emuCommandLineOverrideString(pProperties->capture.videoDir, "");
     }
     if (pProperties->capture.screenshotDir[0]) {
         screenshotSetDirectory(pProperties->capture.screenshotDir, "");
     } else {
         strcpy(pProperties->capture.screenshotDir, screenshotGetDirectory());
+        emuCommandLineOverrideString(pProperties->capture.screenshotDir, "");
     }
     /* Replay output dir defaults to videoDir until UI splits them. */
     if (!pProperties->capture.replayDir[0]) {
         strcpy(pProperties->capture.replayDir, pProperties->capture.videoDir);
+        emuCommandLineOverrideString(pProperties->capture.replayDir, "");
     }
 
-    /* Empty ini value -> write current default back so it's visible/editable. */
-    if (pProperties->emulation.machinesDir[0]) {
+    /* A /machinedir on the line outranks the file, so here it is only recorded
+    ** as a one-shot. */
+    if (emuCheckValueArgument(szLine, "machinedir") != NULL) {
+        char previous[PROP_MAXPATH];
+        strcpy(previous, pProperties->emulation.machinesDir);
+        strncpy(pProperties->emulation.machinesDir, machineGetDirectory(),
+                sizeof(pProperties->emulation.machinesDir) - 1);
+        pProperties->emulation.machinesDir[sizeof(pProperties->emulation.machinesDir) - 1] = 0;
+        emuCommandLineOverrideString(pProperties->emulation.machinesDir, previous);
+    }
+    else if (pProperties->emulation.machinesDir[0]) {
         machineSetDirectory(pProperties->emulation.machinesDir);
     } else {
         strncpy(pProperties->emulation.machinesDir, machineGetDirectory(),
@@ -4264,6 +4460,8 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
         MessageBoxU(NULL, langErrorPortableReadonly(), langErrorTitle(), MB_OK);
         exit(1);
     }
+
+    createDataDirectories();
 
     // Load tools
     sprintf(buffer, "%s\\Tools", st.pCurDir);
