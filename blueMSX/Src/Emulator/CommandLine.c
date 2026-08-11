@@ -29,6 +29,7 @@
 ******************************************************************************
 */
 #include "CommandLine.h"
+#include "RomTypeList.h"
 #include "TokenExtract.h"
 #include "IsFileExtension.h"
 #include "MediaDb.h"
@@ -42,7 +43,24 @@
 #include "StrcmpNoCase.h"
 #include "AppConfig.h"
 #include <stdlib.h>
+#include <errno.h>
 #include <string.h>
+
+/* The SRAM cartridges (MEGA-SCSI, ESE-RAM, ESE-SCC, WAVE-SCSI) are only ever
+** named by their short string, so match on that as well. */
+static RomType romTypeFromShortString(const char* name) {
+    int i;
+
+    for (i = ROM_STANDARD; i <= ROM_MAXROMID; i++) {
+        const char* shortName = romTypeToShortString((RomType)i);
+        if (shortName != NULL && strcmpnocase(shortName, "UNKNOWN") != 0 &&
+            strcmpnocase(shortName, name) == 0) {
+            return (RomType)i;
+        }
+    }
+
+    return ROM_UNKNOWN;
+}
 
 static RomType romNameToType(char* name) {
     RomType romType = ROM_UNKNOWN;
@@ -52,6 +70,10 @@ static RomType romNameToType(char* name) {
     }
 
     romType = mediaDbStringToType(name);
+
+    if (romType == ROM_UNKNOWN) {
+        romType = romTypeFromShortString(name);
+    }
 
     if (romType == ROM_UNKNOWN) {
         romType = atoi(name);
@@ -308,9 +330,11 @@ static const CmdLineOption cmdLineOptions[] = {
       "  the same as when it is chosen from the menu:"                                 },
     { "romtype1",      "<type>",  "Mapper of the /rom1 file"                         },
     { "rom1zip",       "<name>",  "File inside the /rom1 zip, if it holds several"   },
+    { "special1",      "<name>",  "Built-in cartridge in slot 1"                     },
     { "rom2",          "<file>",  "Insert a cartridge image in slot 2"               },
     { "romtype2",      "<type>",  "Mapper of the /rom2 file"                         },
     { "rom2zip",       "<name>",  "File inside the /rom2 zip, if it holds several"   },
+    { "special2",      "<name>",  "Built-in cartridge in slot 2"                     },
     { "diskA",         "<file>",  "Insert a diskette image in drive A"               },
     { "diskAzip",      "<name>",  "File inside the /diskA zip, if it holds several"  },
     { "diskB",         "<file>",  "Insert a diskette image in drive B"               },
@@ -319,6 +343,12 @@ static const CmdLineOption cmdLineOptions[] = {
     { "caszip",        "<name>",  "File inside the /cas zip, if it holds several"    },
     { "ide1primary",   "<file>",  "Attach a hard disk image as IDE 1 primary"        },
     { "ide1secondary", "<file>",  "Attach a hard disk image as IDE 1 secondary"      },
+    { "state",         "<file>",  "Resume from a saved state instead of booting"     },
+    { "scc",           NULL,      "Insert an SCC cartridge in a free slot"           },
+    { "sccplus",       NULL,      "Insert an SCC-I cartridge in a free slot"         },
+    { "fmpac",         NULL,      "Insert an FM-PAC cartridge in a free slot"        },
+    { "pac",           NULL,      "Insert a PAC cartridge in a free slot"            },
+    { "extram",        "<kB>",    "External RAM: 16 32 48 64 512 1024 2048 4096"     },
     /* No help text: the shell writes this one, nobody types it. */
     { "onearg",        "<file>",  NULL                                               },
     { "machine",       "<name>",  "Machine to boot, as named under Machines",
@@ -354,8 +384,8 @@ int emuCommandLineGetHelpText(char* out, int size) {
     helpAppend(out, size,
         "blueMSX+ command line options\r\n\r\n"
         "  Options may be written /name, -name or --name, in any case. /help\r\n"
-        "  is also -h and /?. Quote names that contain spaces (machine, theme\r\n"
-        "  and language names do).\r\n"
+        "  is also -h and /?. Quote names that contain spaces (machine, theme,\r\n"
+        "  language and cartridge names do).\r\n"
         "  A line that is nothing but a file name opens that file.\r\n\r\n");
 
     for (opt = cmdLineOptions; opt->name != NULL; opt++) {
@@ -501,6 +531,51 @@ void emuCheckFullscreenArgument(Properties* properties, char* cmdLine){
     }
 }
 
+static RomType extRamType(int kilobytes) {
+    switch (kilobytes) {
+    case 16:   return ROM_EXTRAM16KB;
+    case 32:   return ROM_EXTRAM32KB;
+    case 48:   return ROM_EXTRAM48KB;
+    case 64:   return ROM_EXTRAM64KB;
+    case 512:  return ROM_EXTRAM512KB;
+    case 1024: return ROM_EXTRAM1MB;
+    case 2048: return ROM_EXTRAM2MB;
+    case 4096: return ROM_EXTRAM4MB;
+    }
+
+    return ROM_UNKNOWN;
+}
+
+static int launchBareFile(Properties* properties, char* fileName) {
+    int i;
+
+    if (*fileName == '\"') fileName++;
+    if (*fileName == 0) {
+        return argError(NULL, "Empty file name", NULL);
+    }
+
+    for (i = 0; i < PROP_MAX_CARTS; i++) {
+        properties->media.carts[i].fileName[0] = 0;
+        properties->media.carts[i].fileNameInZip[0] = 0;
+        properties->media.carts[i].type = ROM_UNKNOWN;
+        updateExtendedRomName(i, properties->media.carts[i].fileName, properties->media.carts[i].fileNameInZip);
+    }
+
+    for (i = 0; i < PROP_MAX_DISKS; i++) {
+        properties->media.disks[i].fileName[0] = 0;
+        properties->media.disks[i].fileNameInZip[0] = 0;
+        updateExtendedDiskName(i, properties->media.disks[i].fileName, properties->media.disks[i].fileNameInZip);
+    }
+
+    /* Only a plain refusal is reported: -1 means the user was asked and
+    ** declined, and saying so again over the dialog would read as a fault. */
+    if (tryLaunchUnknownFile(properties, fileName, 1) == 0) {
+        return argError(NULL, "Cannot open:", fileName);
+    }
+
+    return 1;
+}
+
 static int emuStartWithArguments(Properties* properties, char* commandLine, char *gamedir) {
     int i;
     char    cmdLine[CMDLINE_MAXLEN];
@@ -520,6 +595,14 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
     char    ide1s[256] = "";
     char    cas[512] = "";
     char    caszip[256] = "";
+    char    stateFile[512] = "";
+    char    bareFile[512] = "";
+    RomType builtins[PROP_MAX_CARTS];
+    int     builtinCount = 0;
+    RomType specialType1 = ROM_UNKNOWN;
+    RomType specialType2 = ROM_UNKNOWN;
+    int     romTypeGiven1 = 0;
+    int     romTypeGiven2 = 0;
 #ifdef WII
     int     startEmu = 1; // always start
 #else
@@ -551,31 +634,10 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
     if (!extractToken(cmdLine, 1)) {
         argument = extractToken(cmdLine, 0);
 
-        if (argument && *argument != '/') {
-            if (*argument == '\"') argument++;
-
-            if (*argument) {
-                int i;
-
-                for (i = 0; i < PROP_MAX_CARTS; i++) {
-                    properties->media.carts[i].fileName[0] = 0;
-                    properties->media.carts[i].fileNameInZip[0] = 0;
-                    properties->media.carts[i].type = ROM_UNKNOWN;
-                    updateExtendedRomName(i, properties->media.carts[i].fileName, properties->media.carts[i].fileNameInZip);
-                }
-
-                for (i = 0; i < PROP_MAX_DISKS; i++) {
-                    properties->media.disks[i].fileName[0] = 0;
-                    properties->media.disks[i].fileNameInZip[0] = 0;
-                    updateExtendedDiskName(i, properties->media.disks[i].fileName, properties->media.disks[i].fileNameInZip);
-                }
-
-                if (!tryLaunchUnknownFile(properties, argument, 1)) {
-                    return argError(NULL, "Cannot open:", argument);
-                }
-                return 1;
-            }
-            return argError(NULL, "Empty file name", NULL);
+        /* The dash forms are options too, so a line that is only -mute is not
+        ** a file. */
+        if (argument && *argument != '/' && *argument != '-') {
+            return launchBareFile(properties, argument);
         }
     }
 
@@ -584,10 +646,16 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
 
     for (i = 0; (argument = extractToken(cmdLine, i)) != NULL; i++) {
         const CmdLineOption* opt;
+        RomType builtin = ROM_UNKNOWN;
         char option[64];
 
         if (argument[0] != '/' && argument[0] != '-') {
-            return argError(NULL, "Not an option:", argument);
+            if (bareFile[0]) {
+                return argError(NULL, "More than one file to open:", argument);
+            }
+            copyArg(bareFile, sizeof(bareFile), argument);
+            startEmu = 1;
+            continue;
         }
         /* The name is kept because the branches below overwrite argument with
         ** the value, and an error about the value has to name its option. */
@@ -612,6 +680,7 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
             if (argument == NULL) return argError(option, "needs a mapper name", NULL);
             romType1 = romNameToType(argument);
             if (romType1 == ROM_UNKNOWN) return argError(option, "unknown mapper:", argument);
+            romTypeGiven1 = 1;
             startEmu = 1;
             continue;
         }
@@ -634,6 +703,7 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
             if (argument == NULL) return argError(option, "needs a mapper name", NULL);
             romType2 = romNameToType(argument);
             if (romType2 == ROM_UNKNOWN) return argError(option, "unknown mapper:", argument);
+            romTypeGiven2 = 1;
             startEmu = 1;
             continue;
         }
@@ -693,6 +763,54 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
             startEmu = 1;
             continue;
         }
+        if (emuArgMatches(argument, "special1") || emuArgMatches(argument, "special2")) {
+            int slot2 = emuArgMatches(argument, "special2");
+            RomType special;
+            argument = extractToken(cmdLine, ++i);
+            if (argument == NULL) return argError(option, "needs a cartridge name", NULL);
+            special = romNameToType(argument);
+            /* A mapper name resolves too, so the cartridge has to be one that
+            ** exists without a file of its own. */
+            if (special == ROM_UNKNOWN || romTypeListCartName(special) == NULL) {
+                /* Quoting is mentioned because half of what /listspecials
+                ** prints has a space. */
+                return argError(option, "no built-in cartridge is called (quote a name with spaces):", argument);
+            }
+            if (slot2) { specialType2 = special; } else { specialType1 = special; }
+            startEmu = 1;
+            continue;
+        }
+        if (emuArgMatches(argument, "state")) {
+            argument = extractTokenEx(cmdLine, ++i, gamedir);
+            if (argument == NULL) return argError(option, "needs a file name", NULL);
+            /* The name is copied out, because emulatorStart is reached long
+            ** after this token buffer has been handed to somebody else. */
+            copyArg(stateFile, sizeof(stateFile), argument);
+            startEmu = 1;
+            continue;
+        }
+        if (emuArgMatches(argument, "extram")) {
+            argument = extractToken(cmdLine, ++i);
+            if (argument == NULL) return argError(option, "needs a size in kB", NULL);
+            builtin = extRamType(atoi(argument));
+            if (builtin == ROM_UNKNOWN) return argError(option, "no such size:", argument);
+        }
+        else if (emuArgMatches(argument, "scc"))     { builtin = ROM_SCC;     }
+        else if (emuArgMatches(argument, "sccplus")) { builtin = ROM_SCCPLUS; }
+        else if (emuArgMatches(argument, "fmpac"))   { builtin = ROM_FMPAC;   }
+        else if (emuArgMatches(argument, "pac"))     { builtin = ROM_PAC;     }
+
+        if (builtin != ROM_UNKNOWN) {
+            /* This is left until the whole line is read, because which slot is
+            ** free depends on what the rest of it names. */
+            if (builtinCount >= (int)(sizeof(builtins) / sizeof(builtins[0]))) {
+                return argError(option, "no cartridge slot left", NULL);
+            }
+            builtins[builtinCount++] = builtin;
+            startEmu = 1;
+            continue;
+        }
+
         if (emuArgMatches(argument, "machine")) {
             argument = extractToken(cmdLine, ++i);
             if (argument == NULL) return argError(option, "needs a machine name", NULL);
@@ -723,6 +841,19 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
         return 1;
     }
 
+    /* It clears the slots and starts the emulator itself, so it cannot share
+    ** the line with an option that puts something in one. */
+    if (bareFile[0]) {
+        if (strlen(rom1) || strlen(rom2) || strlen(diskA) || strlen(diskB) ||
+            strlen(cas) || strlen(ide1p) || strlen(ide1s) || builtinCount ||
+            strlen(stateFile) || romTypeGiven1 || romTypeGiven2 ||
+            specialType1 != ROM_UNKNOWN || specialType2 != ROM_UNKNOWN) {
+            return argError(NULL, "Cannot be combined with the other media:", bareFile);
+        }
+        if (strlen(machineName)) strcpy(properties->emulation.machineName, machineName);
+        return launchBareFile(properties, bareFile);
+    }
+
     for (i = 0; i < PROP_MAX_CARTS; i++) {
         properties->media.carts[i].fileName[0] = 0;
         properties->media.carts[i].fileNameInZip[0] = 0;
@@ -742,58 +873,48 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
         updateExtendedCasName(i, properties->media.tapes[i].fileName, properties->media.tapes[i].fileNameInZip);
     }
 
-    if (!strlen(rom1)) {
-        switch (romType1) {
-        case ROM_SCC:         strcat(rom1, CARTNAME_SCC); romType1 = ROM_SCC; break;
-        case ROM_SCCPLUS:     strcat(rom1, CARTNAME_SCCPLUS); romType1 = ROM_SCCPLUS; break;
-        case ROM_SNATCHER:    strcat(rom1, CARTNAME_SNATCHER); break;
-        case ROM_SDSNATCHER:  strcat(rom1, CARTNAME_SDSNATCHER); break;
-        case ROM_SCCMIRRORED: strcat(rom1, CARTNAME_SCCMIRRORED); break;
-        case ROM_SCCEXTENDED: strcat(rom1, CARTNAME_SCCEXPANDED); break;
-        case ROM_FMPAC:       strcat(rom1, CARTNAME_FMPAC); break;
-        case ROM_PAC:         strcat(rom1, CARTNAME_PAC); break;
-        case ROM_GAMEREADER:  strcat(rom1, CARTNAME_GAMEREADER); break;
-        case ROM_SUNRISEIDE:  strcat(rom1, CARTNAME_SUNRISEIDE); break;
-        case ROM_NOWIND:      strcat(rom1, CARTNAME_NOWINDDOS1); break;
-        case ROM_BEERIDE:     strcat(rom1, CARTNAME_BEERIDE); break;
-        case ROM_GIDE:        strcat(rom1, CARTNAME_GIDE); break;
-        case ROM_GOUDASCSI:   strcat(rom1, CARTNAME_GOUDASCSI); break;
-        case ROM_NMS1210:     strcat(rom1, CARTNAME_NMS1210); break;
-        case ROM_SONYHBI55:   strcat(rom1, CARTNAME_SONYHBI55); break;
-        case ROM_MEGAFLSHSCC: strcat(rom1, CARTNAME_MEGAFLSHSCC); break;
-        case ROM_MEGAFLSHSCCPLUS:   strcat(rom1, CARTNAME_MEGAFLSHSCCPLUS); break;
-        case ROM_MEGAFLSHSCCPLUS_SD: strcat(rom1, CARTNAME_MEGAFLSHSCCPLUS_SD); break;
-        case ROM_ASCII16X:    strcat(rom1, CARTNAME_ASCII16X); break;
-        case ROM_YAMANOOTO:   strcat(rom1, CARTNAME_YAMANOOTO); break;
-        case ROM_FLASHROMSCC: strcat(rom1, CARTNAME_FLASHROMSCC); break;
+    /* /special names a whole cartridge and /romtype only says how to read a
+    ** file, so one slot cannot be given both. */
+    if (specialType1 != ROM_UNKNOWN) {
+        if (romTypeGiven1) return argError("/special1", "cannot be used with /romtype1", NULL);
+        if (strlen(rom1))  return argError("/special1", "slot 1 already holds", rom1);
+        romType1 = specialType1;
+    }
+    if (specialType2 != ROM_UNKNOWN) {
+        if (romTypeGiven2) return argError("/special2", "cannot be used with /romtype2", NULL);
+        if (strlen(rom2))  return argError("/special2", "slot 2 already holds", rom2);
+        romType2 = specialType2;
+    }
+
+    if (romTypeGiven1 && !strlen(rom1)) {
+        return argError("/romtype1", "describes the file in /rom1; for a built-in cartridge use /special1", NULL);
+    }
+    if (romTypeGiven2 && !strlen(rom2)) {
+        return argError("/romtype2", "describes the file in /rom2; for a built-in cartridge use /special2", NULL);
+    }
+
+    /* The cartridges named by the line go into whichever slot it did not spell
+    ** out. */
+    for (i = 0; i < builtinCount; i++) {
+        if (!strlen(rom1) && romType1 == ROM_UNKNOWN) {
+            romType1 = builtins[i];
+        }
+        else if (!strlen(rom2) && romType2 == ROM_UNKNOWN) {
+            romType2 = builtins[i];
+        }
+        else {
+            return argError(NULL, "No free cartridge slot for", romTypeListCartName(builtins[i]));
         }
     }
 
+    if (!strlen(rom1)) {
+        const char* name = romTypeListCartName(romType1);
+        if (name != NULL) copyArg(rom1, sizeof(rom1), name);
+    }
+
     if (!strlen(rom2)) {
-        switch (romType2) {
-        case ROM_SCC:         strcat(rom2, CARTNAME_SCC); romType2 = ROM_SCC; break;
-        case ROM_SCCPLUS:     strcat(rom2, CARTNAME_SCCPLUS); romType2 = ROM_SCCPLUS; break;
-        case ROM_SNATCHER:    strcat(rom2, CARTNAME_SNATCHER); break;
-        case ROM_SDSNATCHER:  strcat(rom2, CARTNAME_SDSNATCHER); break;
-        case ROM_SCCMIRRORED: strcat(rom2, CARTNAME_SCCMIRRORED); break;
-        case ROM_SCCEXTENDED: strcat(rom2, CARTNAME_SCCEXPANDED); break;
-        case ROM_FMPAC:       strcat(rom2, CARTNAME_FMPAC); break;
-        case ROM_PAC:         strcat(rom2, CARTNAME_PAC); break;
-        case ROM_GAMEREADER:  strcat(rom2, CARTNAME_GAMEREADER); break;
-        case ROM_SUNRISEIDE:  strcat(rom2, CARTNAME_SUNRISEIDE); break;
-        case ROM_NOWIND:      strcat(rom2, CARTNAME_NOWINDDOS1); break;
-        case ROM_BEERIDE:     strcat(rom2, CARTNAME_BEERIDE); break;
-        case ROM_GIDE:        strcat(rom2, CARTNAME_GIDE); break;
-        case ROM_GOUDASCSI:   strcat(rom2, CARTNAME_GOUDASCSI); break;
-        case ROM_NMS1210:     strcat(rom2, CARTNAME_NMS1210); break;
-        case ROM_SONYHBI55:   strcat(rom2, CARTNAME_SONYHBI55); break;
-        case ROM_MEGAFLSHSCC: strcat(rom2, CARTNAME_MEGAFLSHSCC); break;
-        case ROM_MEGAFLSHSCCPLUS:   strcat(rom2, CARTNAME_MEGAFLSHSCCPLUS); break;
-        case ROM_MEGAFLSHSCCPLUS_SD: strcat(rom2, CARTNAME_MEGAFLSHSCCPLUS_SD); break;
-        case ROM_ASCII16X:    strcat(rom2, CARTNAME_ASCII16X); break;
-        case ROM_YAMANOOTO:   strcat(rom2, CARTNAME_YAMANOOTO); break;
-        case ROM_FLASHROMSCC: strcat(rom2, CARTNAME_FLASHROMSCC); break;
-        }
+        const char* name = romTypeListCartName(romType2);
+        if (name != NULL) copyArg(rom2, sizeof(rom2), name);
     }
 
     if (properties->cassette.rewindAfterInsert) tapeRewindNextInsert();

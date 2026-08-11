@@ -53,6 +53,10 @@
 
 void archUpdateMenu(int show);
 
+/* Nonzero once the user has been asked or already told why, so that
+** tryLaunchUnknownFile answers -1 rather than a plain failure. */
+static int launchAnswered = 0;
+
 /* zipGetFileList hands back a run of NUL terminated names, so the byte length
 ** is only recoverable by walking the entries. */
 static int fileListSize(const char* list, int count)
@@ -177,6 +181,7 @@ int insertCartridge(Properties* properties, int drive, const char* fname, const 
 
             if (count == 0) {
                 archShowNoRomInZipDialog();
+                launchAnswered = 1;
                 return 0;
             }
 
@@ -187,6 +192,7 @@ int insertCartridge(Properties* properties, int drive, const char* fname, const 
                 char* filename = archFilenameGetOpenRomZip(properties, drive, fname, fileList, count, &autostart, &romType);
                 if (filename == NULL) {
                     free(fileList);
+                    launchAnswered = 1;
                     return 0;
                 }
                 strcpy(romName, filename);
@@ -341,6 +347,7 @@ int insertDiskette(Properties* properties, int drive, const char* fname, const c
 
             if (count == 0) {
                 archShowNoDiskInZipDialog();
+                launchAnswered = 1;
                 return 0;
             }
 
@@ -351,6 +358,7 @@ int insertDiskette(Properties* properties, int drive, const char* fname, const c
                 char* filename = archFilenameGetOpenDiskZip(properties, drive, fname, fileList, count, &autostart);
                 if (filename == NULL) {
                     free(fileList);
+                    launchAnswered = 1;
                     return 0;
                 }
                 strcpy(diskName, filename);
@@ -413,6 +421,7 @@ int insertCassette(Properties* properties, int drive, const char* fname, const c
 
             if (fileList == NULL) {
                 archShowNoCasInZipDialog();
+                launchAnswered = 1;
                 return 0;
             }
 
@@ -423,6 +432,7 @@ int insertCassette(Properties* properties, int drive, const char* fname, const c
                 char* filename = archFilenameGetOpenCasZip(properties, fname, fileList, count, &autostart);
                 if (filename == NULL) {
                     free(fileList);
+                    launchAnswered = 1;
                     return 0;
                 }
                 strcpy(tapeName, filename);
@@ -625,6 +635,9 @@ static int insertDisketteOrCartridge(Properties* properties, int drive, const ch
     autostart = forceAutostart;
 
     filename = archFilenameGetOpenAnyZip(properties, fname, fileList, countDsk + countRom + countCas, &autostart, &romType);
+    if (filename == NULL) {
+        launchAnswered = 1;
+    }
     if (filename != NULL) {
         if (isFileExtension(filename, ".rom") || isFileExtension(filename, ".ri") || 
             isFileExtension(filename, ".mx1") || isFileExtension(filename, ".mx2") || 
@@ -670,6 +683,8 @@ int tryLaunchUnknownFile(Properties* properties, const char* fileName, int force
 {
     int rv = 0;
 
+    launchAnswered = 0;
+
     if (isFileExtension(fileName, ".sta")) {
         emulatorStart(fileName);
         return 1;
@@ -710,6 +725,6 @@ int tryLaunchUnknownFile(Properties* properties, const char* fileName, int force
     
     archUpdateMenu(0);
 
-    return rv;
+    return rv ? 1 : (launchAnswered ? -1 : 0);
 }
 
