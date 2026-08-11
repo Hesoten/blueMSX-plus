@@ -1413,7 +1413,6 @@ static BOOL_DLG_RET CALLBACK dskZipDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
 
             for (i = 0; opendialog_getromtype(i) != ROM_UNKNOWN; i++) {
                 ComboAddStringU(GetDlgItem(hDlg, IDC_OPEN_ROMTYPE), romTypeToString(opendialog_getromtype(i)));
-                SendDlgItemMessage(hDlg, IDC_ROMTYPE, CB_SETCURSEL, i, 0);
             }
             ComboAddStringU(GetDlgItem(hDlg, IDC_OPEN_ROMTYPE), romTypeToString(ROM_UNKNOWN));
             EnableWindow(GetDlgItem(hDlg, IDC_OPEN_ROMTYPE), 0);
