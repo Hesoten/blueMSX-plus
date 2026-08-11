@@ -679,6 +679,21 @@ static int insertDisketteOrCartridge(Properties* properties, int drive, const ch
     return success;
 }
 
+/* The names tryLaunchUnknownFile knows what to do with. */
+int launchFileIsSupported(const char* fileName)
+{
+    return isFileExtension(fileName, ".sta") || isFileExtension(fileName, ".cap") ||
+           isFileExtension(fileName, ".rom") || isFileExtension(fileName, ".ri")  ||
+           isFileExtension(fileName, ".mx1") || isFileExtension(fileName, ".mx2") ||
+           isFileExtension(fileName, ".sms") || isFileExtension(fileName, ".col") ||
+           isFileExtension(fileName, ".sg")  || isFileExtension(fileName, ".sc")  ||
+           isFileExtension(fileName, ".dsk") || isFileExtension(fileName, ".di1") ||
+           isFileExtension(fileName, ".di2") || isFileExtension(fileName, ".360") ||
+           isFileExtension(fileName, ".720") || isFileExtension(fileName, ".sf7") ||
+           isFileExtension(fileName, ".cas") || isFileExtension(fileName, ".tsx") ||
+           isFileExtension(fileName, ".wav") || isFileExtension(fileName, ".zip");
+}
+
 int tryLaunchUnknownFile(Properties* properties, const char* fileName, int forceAutostart) 
 {
     int rv = 0;

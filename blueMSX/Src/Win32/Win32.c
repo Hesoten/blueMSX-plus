@@ -1965,7 +1965,63 @@ typedef struct {
 #define WIDTH  320
 #define HEIGHT 240
 
-#define LAUNCH_TEMP_FILE "launch.tmp"
+/* Marks a WM_COPYDATA as ours, so another build of the same class ignores it. */
+#define LAUNCH_COPYDATA_ID   0x424D5846
+
+/* Fills path with the exe of processId. QueryFullProcessImageNameW is used for
+** this process too, so the two paths compare equal. */
+static int imagePathOf(DWORD processId, wchar_t* path, DWORD size)
+{
+    HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, processId);
+    int ok;
+
+    if (process == NULL) {
+        return 0;
+    }
+    ok = QueryFullProcessImageNameW(process, 0, path, &size) != 0;
+    CloseHandle(process);
+
+    return ok;
+}
+
+static int isRegisteredFileName(const char* fileName)
+{
+    const char* const* extension = fileTypesRegisteredExtensions();
+    int i;
+
+    for (i = 0; extension[i] != NULL; i++) {
+        if (isFileExtension((char*)fileName, (char*)extension[i])) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+/* A window of another instance of this exe, or NULL. The class name is shared
+** with stock blueMSX, so the executable behind it has to match. */
+static HWND findRunningInstance(void)
+{
+    wchar_t self[1024];
+    HWND hwnd = NULL;
+
+    if (!imagePathOf(GetCurrentProcessId(), self, _countof(self))) {
+        return NULL;
+    }
+
+    while ((hwnd = FindWindowEx(NULL, hwnd, "blueMSX", NULL)) != NULL) {
+        wchar_t other[1024];
+        DWORD processId = 0;
+
+        GetWindowThreadProcessId(hwnd, &processId);
+        if (imagePathOf(processId, other, _countof(other)) &&
+            _wcsicmp(other, self) == 0) {
+            return hwnd;
+        }
+    }
+
+    return NULL;
+}
 
 static WinState st;
 
@@ -3104,49 +3160,71 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         }
         return 0;
 
+    case WM_COPYDATA:
+        {
+            COPYDATASTRUCT* cds = (COPYDATASTRUCT*)lParam;
+            char candidate[PROP_MAXPATH];
+            char* pending;
+
+            if (cds == NULL || cds->dwData != LAUNCH_COPYDATA_ID ||
+                cds->lpData == NULL || cds->cbData == 0 ||
+                cds->cbData > sizeof(candidate) ||
+                ((const char*)cds->lpData)[cds->cbData - 1] != 0) {
+                return FALSE;
+            }
+            memcpy(candidate, cds->lpData, cds->cbData);
+
+            /* Checked before the media is ejected, so a name this build cannot
+            ** open leaves the slots alone. */
+            if (!candidate[0] || !launchFileIsSupported(candidate)) {
+                return FALSE;
+            }
+
+            pending = (char*)malloc(cds->cbData);
+            if (pending == NULL) {
+                return FALSE;
+            }
+            memcpy(pending, candidate, cds->cbData);
+
+            /* The answer is sent at once and the file is opened afterwards.
+            ** Opening can ask the user a question, which pumps messages and
+            ** would let a second request overwrite the name. */
+            if (!PostMessage(hwnd, WM_LAUNCHFILE, 0, (LPARAM)pending)) {
+                free(pending);
+                return FALSE;
+            }
+        }
+        return TRUE;
+
     case WM_LAUNCHFILE:
         {
-            char fileName[512];
-            FILE* file = fopen(LAUNCH_TEMP_FILE, "r");
-            if (file != NULL) {
-                int size = (int)fread(fileName, 1, 512, file);
-                fclose(file);
-                if (size > 0) {
-                    char* argument;
+            char* fileName = (char*)lParam;
+            int i;
 
-                    fileName[size] = 0;                    
+            emulatorStop();
 
-                    argument = extractToken(fileName, 0);
-                    if (*argument) {
-                        int i;
-
-                        emulatorStop();
-
-                        for (i = 0; i < PROP_MAX_CARTS; i++) {
-                            pProperties->media.carts[i].fileName[0] = 0;
-                            pProperties->media.carts[i].fileNameInZip[0] = 0;
-                            pProperties->media.carts[i].type = ROM_UNKNOWN;
-                            updateExtendedRomName(i, pProperties->media.carts[i].fileName, pProperties->media.carts[i].fileNameInZip);
-                        }
-
-                        for (i = 0; i < PROP_MAX_DISKS; i++) {
-                            pProperties->media.disks[i].fileName[0] = 0;
-                            pProperties->media.disks[i].fileNameInZip[0] = 0;
-                            updateExtendedDiskName(i, pProperties->media.disks[i].fileName, pProperties->media.disks[i].fileNameInZip);
-                        }
-
-                        for (i = 0; i < PROP_MAX_TAPES; i++) {
-                            pProperties->media.tapes[i].fileName[0] = 0;
-                            pProperties->media.tapes[i].fileNameInZip[0] = 0;
-                            updateExtendedCasName(i, pProperties->media.tapes[i].fileName, pProperties->media.tapes[i].fileNameInZip);
-                        }
-
-                        tryLaunchUnknownFile(pProperties, argument, 1);
-                    }
-
-                    SetActiveWindow(hwnd);
-                }
+            for (i = 0; i < PROP_MAX_CARTS; i++) {
+                pProperties->media.carts[i].fileName[0] = 0;
+                pProperties->media.carts[i].fileNameInZip[0] = 0;
+                pProperties->media.carts[i].type = ROM_UNKNOWN;
+                updateExtendedRomName(i, pProperties->media.carts[i].fileName, pProperties->media.carts[i].fileNameInZip);
             }
+
+            for (i = 0; i < PROP_MAX_DISKS; i++) {
+                pProperties->media.disks[i].fileName[0] = 0;
+                pProperties->media.disks[i].fileNameInZip[0] = 0;
+                updateExtendedDiskName(i, pProperties->media.disks[i].fileName, pProperties->media.disks[i].fileNameInZip);
+            }
+
+            for (i = 0; i < PROP_MAX_TAPES; i++) {
+                pProperties->media.tapes[i].fileName[0] = 0;
+                pProperties->media.tapes[i].fileNameInZip[0] = 0;
+                updateExtendedCasName(i, pProperties->media.tapes[i].fileName, pProperties->media.tapes[i].fileNameInZip);
+            }
+
+            tryLaunchUnknownFile(pProperties, fileName, 1);
+            free(fileName);
+            SetActiveWindow(hwnd);
         }
         return 0;
 
@@ -4368,26 +4446,43 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
         MessageBoxU(NULL, langInfoColorDepth(), langInfoTitle(), MB_OK | MB_ICONINFORMATION);
     }
 
-    /* A run that only asks to be told something answers here, so handing the
-    ** line over would leave the question unanswered. */
-    hwnd = commandLineWantsList(szLine) ? NULL : FindWindow("blueMSX", "  blueMSX+");
-    if (hwnd != NULL && *szLine) {
+    /* Only a double clicked file is handed over: one existing file of a type
+    ** the exe is registered for. */
+    if (*szLine) {
         char args[CMDLINE_MAXLEN];
         char* cmdLine = args;
+        char* only;
 
         if (!emuNormalizeOneArg(szLine, args, sizeof(args))) {
             cmdLine = szLine;
         }
-        if (!extractToken(cmdLine, 1)) {
-            FILE* file = fopen(LAUNCH_TEMP_FILE, "w");
-            if (file != NULL) {
-                fwrite(cmdLine, 1, strlen(cmdLine) + 1, file);
-                fclose(file);
-                SendMessage(hwnd, WM_SYSCOMMAND, SC_RESTORE, 0);
-                SetForegroundWindow(hwnd);
-                PostMessage(hwnd, WM_LAUNCHFILE, 0, 0);
+        /* This is read before token 0, which shares the buffer the answer
+        ** lives in. */
+        only = extractToken(cmdLine, 1) != NULL ? NULL : extractToken(cmdLine, 0);
+        /* The path has to be absolute, because the running instance stands in
+        ** a different directory. */
+        if (only != NULL && (int)strlen(only) < PROP_MAXPATH &&
+            isAbsolutePath(only) && isRegisteredFileName(only) &&
+            launchFileIsSupported(only) && archFileExists(only)) {
+            hwnd = findRunningInstance();
+            if (hwnd != NULL) {
+                COPYDATASTRUCT cds;
+                DWORD_PTR answer = 0;
+
+                cds.dwData = LAUNCH_COPYDATA_ID;
+                cds.cbData = (DWORD)strlen(only) + 1;
+                cds.lpData = only;
+                /* The send times out, because a wedged instance must not take
+                ** this process down with it. */
+                if (SendMessageTimeout(hwnd, WM_COPYDATA, (WPARAM)NULL, (LPARAM)&cds,
+                                       SMTO_ABORTIFHUNG, 5000, &answer) && answer) {
+                    /* The window is raised only once it has said it will open
+                    ** the file. */
+                    PostMessage(hwnd, WM_SYSCOMMAND, SC_RESTORE, 0);
+                    SetForegroundWindow(hwnd);
+                    return 0;
+                }
             }
-            return 0;
         }
     }
 

@@ -31,6 +31,9 @@
 #include "MediaDb.h"
 #include "Properties.h"
 
+/* Whether tryLaunchUnknownFile knows how to open a name like this. */
+int launchFileIsSupported(const char* fileName);
+
 /* 1 when it opened, 0 when it could not, and -1 when the user was asked and
 ** said no or has already been shown why. A caller that reports a failure has
 ** to test for 0, or it complains a second time over a dialog. */

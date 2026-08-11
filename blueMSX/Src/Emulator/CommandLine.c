@@ -405,16 +405,24 @@ int emuCommandLineGetHelpText(char* out, int size) {
         "\r\n"
         "Usage:\r\n"
         "\r\n"
+        "  blueMSX+ <file>\r\n"
+        "      Open one media file. This is the form used for a double\r\n"
+        "      clicked file. If an instance is already running, the file is\r\n"
+        "      opened in that instance instead of starting a new one.\r\n"
+        "\r\n"
         "  blueMSX+ /resetregs [/rootdir <dir>] [/inifile <file>]\r\n"
         "      Write the built in settings to the settings file and exit. No\r\n"
         "      other option is allowed, because the emulator does not start.\r\n"
+        "\r\n"
+        "  blueMSX+ [<option> ...]\r\n"
+        "      Start the emulator with the options below. A new instance is\r\n"
+        "      always started, even if one is already running.\r\n"
         "\r\n"
         "  Options may be written /name, -name or --name, in any case. /help\r\n"
         "  is also -h and /?. Quote names that contain spaces (machine, theme,\r\n"
         "  language and cartridge names do). /rootdir, /machinedir and\r\n"
         "  /inifile take a path relative to the current directory; all other\r\n"
-        "  paths are relative to the install directory.\r\n"
-        "  A line that is nothing but a file name opens that file.\r\n\r\n");
+        "  paths are relative to the install directory.\r\n");
 
     for (opt = cmdLineOptions; opt->name != NULL; opt++) {
         if (opt->help == NULL) {
