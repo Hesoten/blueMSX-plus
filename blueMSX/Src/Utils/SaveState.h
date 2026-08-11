@@ -58,5 +58,10 @@ void saveStateSetBuffer(SaveState* state, const char* tagName, void* buffer, UIn
 ** unreliably; the UI warns before loading one. */
 int saveStateFileFormatIsOld(const char* fileName);
 
+/* Non-zero if fileName is a state this build can resume from. The name is not
+** the test: a state is a zip, and the loader only reads the version it holds.
+** Anything else is cold booted from, which reads as having been ignored. */
+int saveStateFileIsState(const char* fileName);
+
 #endif /* SAVE_STATE_H */
 

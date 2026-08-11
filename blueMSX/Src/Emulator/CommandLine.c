@@ -42,6 +42,8 @@
 #include "Emulator.h"
 #include "StrcmpNoCase.h"
 #include "AppConfig.h"
+#include "ArchFile.h"
+#include "SaveState.h"
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
@@ -811,6 +813,12 @@ static int launchBareFile(Properties* properties, char* fileName) {
         return argError(NULL, "Empty file name", NULL);
     }
 
+    /* This name is checked before the slots below are emptied, because the
+    ** media options check theirs. */
+    if (!archFileExists(fileName)) {
+        return argError(NULL, "No such file:", fileName);
+    }
+
     for (i = 0; i < PROP_MAX_CARTS; i++) {
         properties->media.carts[i].fileName[0] = 0;
         properties->media.carts[i].fileNameInZip[0] = 0;
@@ -828,6 +836,38 @@ static int launchBareFile(Properties* properties, char* fileName) {
     ** declined, and saying so again over the dialog would read as a fault. */
     if (tryLaunchUnknownFile(properties, fileName, 1) == 0) {
         return argError(NULL, "Cannot open:", fileName);
+    }
+
+    return 1;
+}
+
+/* The insert takes the entry name as it stands and reports success even when
+** the zip holds no such entry. Checked after the whole line, because the file
+** options refill these while they read a zip. */
+static int checkZipEntry(char* cmdLine, const char* name, const char* entry,
+                         const char* fileOption, const char* fileName) {
+    char option[64];
+    char* typed = emuCheckValueArgument(cmdLine, name);
+
+    /* The value as typed is tested, because the matching file option may
+    ** already have refilled the field. */
+    if (typed == NULL || typed[0] == 0) {
+        return 1;
+    }
+
+    option[0] = '/';
+    copyArg(option + 1, sizeof(option) - 1, name);
+
+    if (fileName[0] == 0) {
+        return argError(option, "names an entry in the zip given with", fileOption);
+    }
+    if (!isFileExtension((char*)fileName, ".zip")) {
+        return argError(option, "only applies to a zip file:", fileName);
+    }
+    /* A * followed by a three character extension stands for the name of the
+    ** zip itself, so a shorter entry would index before the start of it. */
+    if ((entry[0] == '*' && strlen(entry) < 4) || !zipFileExists(fileName, entry)) {
+        return argError(option, "no such entry in the zip:", entry);
     }
 
     return 1;
@@ -922,6 +962,7 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
             argument = extractTokenEx(cmdLine, ++i, gamedir);
             if (argument == NULL) return argError(option, "needs a file name", NULL);
             if (!isRomFileType(argument, rom1zip)) return argError(option, "not a ROM image:", argument);
+            if (!archFileExists(argument)) return argError(option, "no such file:", argument);
             copyArg(rom1, sizeof(rom1), argument);
             startEmu = 1;
             continue;
@@ -945,6 +986,7 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
             argument = extractTokenEx(cmdLine, ++i, gamedir);
             if (argument == NULL) return argError(option, "needs a file name", NULL);
             if (!isRomFileType(argument, rom2zip)) return argError(option, "not a ROM image:", argument);
+            if (!archFileExists(argument)) return argError(option, "no such file:", argument);
             copyArg(rom2, sizeof(rom2), argument);
             startEmu = 1;
             continue;
@@ -968,6 +1010,7 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
             argument = extractTokenEx(cmdLine, ++i, gamedir);
             if (argument == NULL) return argError(option, "needs a file name", NULL);
             if (!isDskFileType(argument, diskAzip)) return argError(option, "not a disk image:", argument);
+            if (!archFileExists(argument)) return argError(option, "no such file:", argument);
             copyArg(diskA, sizeof(diskA), argument);
             startEmu = 1;
             continue;
@@ -982,6 +1025,7 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
             argument = extractTokenEx(cmdLine, ++i, gamedir);
             if (argument == NULL) return argError(option, "needs a file name", NULL);
             if (!isDskFileType(argument, diskBzip)) return argError(option, "not a disk image:", argument);
+            if (!archFileExists(argument)) return argError(option, "no such file:", argument);
             copyArg(diskB, sizeof(diskB), argument);
             startEmu = 1;
             continue;
@@ -996,6 +1040,7 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
             argument = extractTokenEx(cmdLine, ++i, gamedir);
             if (argument == NULL) return argError(option, "needs a file name", NULL);
             if (!isCasFileType(argument, caszip)) return argError(option, "not a cassette image:", argument);
+            if (!archFileExists(argument)) return argError(option, "no such file:", argument);
             copyArg(cas, sizeof(cas), argument);
             startEmu = 1;
             continue;
@@ -1040,6 +1085,10 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
         if (emuArgMatches(argument, "state")) {
             argument = extractTokenEx(cmdLine, ++i, gamedir);
             if (argument == NULL) return argError(option, "needs a file name", NULL);
+            if (!archFileExists(argument)) return argError(option, "no such file:", argument);
+            if (!saveStateFileIsState(argument)) {
+                return argError(option, "not a saved state:", argument);
+            }
             /* The name is copied out, because emulatorStart is reached long
             ** after this token buffer has been handed to somebody else. */
             copyArg(stateFile, sizeof(stateFile), argument);
@@ -1092,6 +1141,16 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
         if (opt->value != NULL && extractToken(cmdLine, ++i) == NULL) {
             return argError(option, "needs a value", NULL);
         }
+    }
+
+    /* Only the settled values are meaningful: one of these can be written
+    ** before its file option clears and refills it. */
+    if (!checkZipEntry(cmdLine, "rom1zip",  rom1zip,  "/rom1",  rom1)  ||
+        !checkZipEntry(cmdLine, "rom2zip",  rom2zip,  "/rom2",  rom2)  ||
+        !checkZipEntry(cmdLine, "diskAzip", diskAzip, "/diskA", diskA) ||
+        !checkZipEntry(cmdLine, "diskBzip", diskBzip, "/diskB", diskB) ||
+        !checkZipEntry(cmdLine, "caszip",   caszip,   "/cas",   cas)) {
+        return 0;
     }
 
     if (!startEmu) {
