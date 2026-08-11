@@ -325,16 +325,20 @@ static const CmdLineOption cmdLineOptions[] = {
       "Show information and exit. The emulator does not start:"                       },
     { "h",             NULL,      NULL                                               },
     { "?",             NULL,      NULL                                               },
+    { "listmachines",  NULL,      "List the machines that can be booted"             },
+    { "listthemes",    NULL,      "List the themes that can be chosen"               },
+    { "listspecials",  NULL,      "List the built-in cartridges"                     },
+    { "listromtypes",  NULL,      "List the mappers for a cartridge image"         },
     { "rom1",          "<file>",  "Insert a cartridge image in slot 1",
       "Load media at start. What is loaded is recorded in the history file,\r\n"
       "  the same as when it is chosen from the menu:"                                 },
-    { "romtype1",      "<type>",  "Mapper of the /rom1 file"                         },
+    { "romtype1",      "<type>",  "Mapper of the /rom1 file; see /listromtypes"      },
     { "rom1zip",       "<name>",  "File inside the /rom1 zip, if it holds several"   },
-    { "special1",      "<name>",  "Built-in cartridge in slot 1"                     },
+    { "special1",      "<name>",  "Built-in cartridge in slot 1; see /listspecials"  },
     { "rom2",          "<file>",  "Insert a cartridge image in slot 2"               },
-    { "romtype2",      "<type>",  "Mapper of the /rom2 file"                         },
+    { "romtype2",      "<type>",  "Mapper of the /rom2 file; see /listromtypes"      },
     { "rom2zip",       "<name>",  "File inside the /rom2 zip, if it holds several"   },
-    { "special2",      "<name>",  "Built-in cartridge in slot 2"                     },
+    { "special2",      "<name>",  "Built-in cartridge in slot 2; see /listspecials"  },
     { "diskA",         "<file>",  "Insert a diskette image in drive A"               },
     { "diskAzip",      "<name>",  "File inside the /diskA zip, if it holds several"  },
     { "diskB",         "<file>",  "Insert a diskette image in drive B"               },
@@ -351,10 +355,10 @@ static const CmdLineOption cmdLineOptions[] = {
     { "extram",        "<kB>",    "External RAM: 16 32 48 64 512 1024 2048 4096"     },
     /* No help text: the shell writes this one, nobody types it. */
     { "onearg",        "<file>",  NULL                                               },
-    { "machine",       "<name>",  "Machine to boot, as named under Machines",
+    { "machine",       "<name>",  "Machine to boot; see /listmachines",
       "Override a setting for this run only. Not written to the settings\r\n"
       "  file unless you save the settings from the settings dialog:"                 },
-    { "theme",         "<name>",  "Theme to start with"                              },
+    { "theme",         "<name>",  "Theme to start with; see /listthemes"             },
     { "language",      "<name>",  "Language to start with"                           },
     { "fullscreen",    NULL,      "Start in full screen"                             },
     { "nofullscreen",  NULL,      "Start windowed, overriding the settings file"     },
@@ -1023,7 +1027,7 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
             if (argument == NULL) return argError(option, "needs a cartridge name", NULL);
             special = romNameToType(argument);
             /* A mapper name resolves too, so the cartridge has to be one that
-            ** exists without a file of its own. */
+            ** exists without a file of its own. /listspecials prints the set. */
             if (special == ROM_UNKNOWN || romTypeListCartName(special) == NULL) {
                 /* Quoting is mentioned because half of what /listspecials
                 ** prints has a space. */

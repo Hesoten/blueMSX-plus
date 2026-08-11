@@ -4066,6 +4066,122 @@ static void commandLinePrintHelp(void)
     consoleWrite(text);
 }
 
+static int commandLineWantsList(char* cmdLine)
+{
+    return emuCheckFlagArgument(cmdLine, "listspecials") ||
+           emuCheckFlagArgument(cmdLine, "listromtypes") ||
+           emuCheckFlagArgument(cmdLine, "listmachines") ||
+           emuCheckFlagArgument(cmdLine, "listthemes");
+}
+
+static void printRomTypeList(int specials)
+{
+    char line[PROP_MAXPATH + 8];
+    const char* names[256];
+    const char* group;
+    const char* name;
+    RomType type;
+    RomType types[256];
+    int printed = 0;
+    int count;
+    int g;
+    int i;
+    int j;
+
+    for (g = 1; (group = specials ? romTypeListCartGroupName(g)
+                                  : romTypeListGroupName(g)) != NULL; g++) {
+        count = 0;
+        for (i = 0; ; i++) {
+            type = specials ? romTypeListCartAt(i) : romTypeListMapperAt(i);
+            if (type == ROM_UNKNOWN) {
+                break;
+            }
+            if (specials && romTypeListCartIsHiddenAt(i)) {
+                continue;
+            }
+            name = romTypeToShortString(type);
+            if (g != (int)(specials ? romTypeListCartCategory(type)
+                                    : romTypeListMapperCategory(type))) {
+                continue;
+            }
+            /* Two ids can share a short string, and the lookup answers with
+            ** the first. */
+            for (j = 0; j < count && strcmp(names[j], name) != 0; j++) {
+            }
+            if (j == count && count < (int)(sizeof(names) / sizeof(names[0]))) {
+                types[count] = type;
+                names[count++] = name;
+            }
+        }
+        if (count == 0) {
+            continue;
+        }
+
+        sprintf(line, "%s  %s\r\n\r\n", printed ? "\r\n" : "", group);
+        consoleWrite(line);
+        printed = 1;
+        for (i = 0; i < count; i++) {
+            const char* description = romTypeToString(types[i]);
+            if (description == NULL) {
+                sprintf(line, "    %s\r\n", names[i]);
+            }
+            else {
+                sprintf(line, "    %-14s  %s\r\n", names[i], description);
+            }
+            consoleWrite(line);
+        }
+    }
+}
+
+static int commandLinePrintLists(char* cmdLine)
+{
+    char line[PROP_MAXPATH + 8];
+
+    if (emuCheckFlagArgument(cmdLine, "listspecials")) {
+        printRomTypeList(1);
+        return 1;
+    }
+
+    if (emuCheckFlagArgument(cmdLine, "listromtypes")) {
+        printRomTypeList(0);
+        return 1;
+    }
+
+    if (emuCheckFlagArgument(cmdLine, "listmachines")) {
+        ArrayList* machineList = arrayListCreate();
+        ArrayListIterator* iterator;
+
+        /* The roms are checked, which is what /machine accepts. */
+        machineFillAvailable(machineList, 1);
+        iterator = arrayListCreateIterator(machineList);
+        while (arrayListCanIterate(iterator)) {
+            sprintf(line, "%s\r\n", (const char*)arrayListIterate(iterator));
+            consoleWrite(line);
+        }
+        arrayListDestroyIterator(iterator);
+        arrayListDestroy(machineList);
+        return 1;
+    }
+
+    if (emuCheckFlagArgument(cmdLine, "listthemes")) {
+        ThemeCollection* builtins[3];
+        ThemeCollection** themeList;
+        int i;
+
+        builtins[0] = themeClassicCreate();
+        builtins[1] = themeClassicCreateDark();
+        builtins[2] = NULL;
+        themeList = createThemeList(builtins);
+        for (i = 0; themeList != NULL && themeList[i] != NULL; i++) {
+            sprintf(line, "%s\r\n", themeList[i]->name);
+            consoleWrite(line);
+        }
+        return 1;
+    }
+
+    return 0;
+}
+
 /* A rejected line has to reach whoever typed it even from a shortcut, so this
 ** falls back to a box. */
 static void commandLineReport(const char* message)
@@ -4138,7 +4254,7 @@ static void checkThemeArgument(char* cmdLine)
         commandLineFail("/theme: needs a theme name");
     }
     if (getThemeListIndex(st.themeList, themeArg, 0) == -1) {
-        sprintf(message, "/theme: no theme is called (quote a name with spaces): %.256s",
+        sprintf(message, "/theme: no theme is called (see /listthemes; quote a name with spaces): %.256s",
                 themeArg);
         commandLineFail(message);
     }
@@ -4150,7 +4266,7 @@ static void checkLanguageArgument(char* cmdLine)
     char names[384];
     char message[640];
 
-    if (!emuCheckFlagArgument(cmdLine, "language")) {
+    if (!emuCheckFlagArgument(cmdLine, "language") || commandLineWantsList(cmdLine)) {
         return;
     }
 
@@ -4232,7 +4348,9 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
         MessageBoxU(NULL, langInfoColorDepth(), langInfoTitle(), MB_OK | MB_ICONINFORMATION);
     }
 
-    hwnd = FindWindow("blueMSX", "  blueMSX+");
+    /* A run that only asks to be told something answers here, so handing the
+    ** line over would leave the question unanswered. */
+    hwnd = commandLineWantsList(szLine) ? NULL : FindWindow("blueMSX", "  blueMSX+");
     if (hwnd != NULL && *szLine) {
         char args[CMDLINE_MAXLEN];
         char* cmdLine = args;
@@ -4329,7 +4447,8 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
             pProperties = propCreate(resetRegistry, getLangType(), kbdLang, syncMode, themeName);
 
-            if (emuCheckValueArgument(szLine, "machinedir") != NULL) {
+            if (emuCheckValueArgument(szLine, "machinedir") != NULL &&
+                !commandLineWantsList(szLine)) {
                 ArrayList* machineList = arrayListCreate();
                 ArrayListIterator* iterator;
                 int machineCount;
@@ -4394,7 +4513,8 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
         /* This runs here because everything below applies these long before
         ** the media pass reads the line. */
-        if (!emuCheckSettingArguments(pProperties, szLine)) {
+        if (!commandLineWantsList(szLine) &&
+            !emuCheckSettingArguments(pProperties, szLine)) {
             /* The settings are left unsaved: a refused line must not write the
             ** part it had applied. */
             commandLineFail(emuCommandLineGetError());
@@ -4444,6 +4564,17 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
         strncpy(pProperties->emulation.machinesDir, machineGetDirectory(),
                 sizeof(pProperties->emulation.machinesDir) - 1);
         pProperties->emulation.machinesDir[sizeof(pProperties->emulation.machinesDir) - 1] = 0;
+    }
+
+    /* langInit runs first, because the lists below print names that come from
+    ** it. */
+    langInit();
+
+    /* The lists are printed here, because they need the directories resolved
+    ** above. */
+    if (commandLinePrintLists(szLine)) {
+        exit(0);
+        return 0;
     }
 
     tempName = appConfigGetString("singlemachine", NULL);
@@ -4521,7 +4652,6 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
     emulatorInit(pProperties, st.mixer);
     actionInit(st.pVideo, pProperties, st.mixer);
-    langInit();
     tapeSetReadOnly(pProperties->cassette.readOnly);
     tapeSignalSetSaveMonitor(pProperties->cassette.saveMonitor);
     
