@@ -955,8 +955,8 @@ extern "C" const char* romTypeToShortString(RomType romType)
     case ROM_EXTRAM48KB:  return "EXTRAM 48";
     case ROM_EXTRAM64KB:  return "EXTRAM 64";
     case ROM_EXTRAM512KB: return "EXTRAM 512";
-    case ROM_EXTRAM1MB:   return "EXTRAM 2MB";
-    case ROM_EXTRAM2MB:   return "EXTRAM 1MB";
+    case ROM_EXTRAM1MB:   return "EXTRAM 1MB";
+    case ROM_EXTRAM2MB:   return "EXTRAM 2MB";
     case ROM_EXTRAM4MB:   return "EXTRAM 4MB";
     case ROM_MSXMUSIC:    return "MSXMUSIC";
     case ROM_MSXAUDIO:    return "MSXAUDIO";

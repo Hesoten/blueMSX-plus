@@ -48,6 +48,7 @@
 #include "AudioMixer.h"
 #include "VideoRender.h"
 #include "CommandLine.h"
+#include "RomTypeList.h"
 #include "Language.h"   
 #include "SaveState.h"
 #include "resource.h"
@@ -1358,7 +1359,8 @@ static void updateRomTypeList(HWND hDlg, ZipFileDlgInfo* dlgInfo) {
         RomType romType = mediaType != NULL ? mediaDbGetRomType(mediaType) : ROM_UNKNOWN;
         int idx = 0;
 
-        while (opendialog_getromtype(idx) != romType) {
+        while (opendialog_getromtype(idx) != romType &&
+               opendialog_getromtype(idx) != ROM_UNKNOWN) {
             idx++;
         }
 

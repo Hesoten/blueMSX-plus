@@ -950,6 +950,7 @@
     <ClCompile Include="..\..\Src\Emulator\FileHistory.c" />
     <ClCompile Include="..\..\Src\Emulator\LaunchFile.c" />
     <ClCompile Include="..\..\Src\Emulator\Properties.c" />
+    <ClCompile Include="..\..\Src\Emulator\RomTypeList.c" />
     <ClCompile Include="..\..\Src\Theme\Theme.c" />
     <ClCompile Include="..\..\Src\Theme\ThemeControls.c" />
     <ClCompile Include="..\..\Src\Theme\ThemeLoader.cpp" />
@@ -1301,6 +1302,7 @@
     <ClInclude Include="..\..\Src\Emulator\FileHistory.h" />
     <ClInclude Include="..\..\Src\Emulator\LaunchFile.h" />
     <ClInclude Include="..\..\Src\Emulator\Properties.h" />
+    <ClInclude Include="..\..\Src\Emulator\RomTypeList.h" />
     <ClInclude Include="..\..\Src\Theme\Theme.h" />
     <ClInclude Include="..\..\Src\Theme\ThemeControls.h" />
     <ClInclude Include="..\..\Src\Theme\ThemeLoader.h" />
