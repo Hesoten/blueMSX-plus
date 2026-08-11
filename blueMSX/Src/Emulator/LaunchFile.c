@@ -685,7 +685,9 @@ int tryLaunchUnknownFile(Properties* properties, const char* fileName, int force
 
     launchAnswered = 0;
 
-    if (isFileExtension(fileName, ".sta")) {
+    /* A replay is a saved state with an input log inside it, so it opens the
+    ** same way and starts playing itself. */
+    if (isFileExtension(fileName, ".sta") || isFileExtension(fileName, ".cap")) {
         emulatorStart(fileName);
         return 1;
     }
