@@ -605,6 +605,13 @@ int emulatorLogFrequencyToHz(int logFrequency) {
     return (int)(3579545 * pow(2.0, (logFrequency - 50) / 15.0515));
 }
 
+/* Percent of the stock clock, clamped to the 10 to 1000 the property accepts. */
+int emulatorPercentToLogFrequency(int percent) {
+    if (percent < 10)   percent = 10;
+    if (percent > 1000) percent = 1000;
+    return (int)(50.0 + 15.0515 * log((double)percent / 100.0) / log(2.0) + 0.5);
+}
+
 void emulatorSetFrequency(int logFrequency, int* frequency) {
     emuFrequency = emulatorLogFrequencyToHz(logFrequency);
 

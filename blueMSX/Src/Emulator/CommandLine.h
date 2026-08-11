@@ -36,6 +36,21 @@
 /* Holds a whole command line. cmd.exe stops at 8191 characters. */
 #define CMDLINE_MAXLEN 8192
 
+/* Longest string setting a one-shot override can put back. */
+#define CMDLINE_MAXOVERRIDE PROP_MAXPATH
+
+/* Replaces a setting for this run only. */
+void emuCommandLineOverrideInt(int* field, int value);
+
+/* The same for a string field. previous is the value it held before it was
+** overwritten. */
+void emuCommandLineOverrideString(char* field, const char* previous);
+
+/* Puts back everything the line replaced. Call before the settings are saved. */
+void emuCommandLineRestoreOverrides(void);
+
+/* Forgets them all, for when the user saves the settings themselves. */
+void emuCommandLineDropOverrides(void);
 
 /* Why the last call refused the line, or "" when it did not refuse one. */
 const char* emuCommandLineGetError(void);
@@ -59,7 +74,10 @@ int emuCommandLineGetHelpText(char* out, int size);
 char* emuCheckValueArgument(char* cmdLine, const char* name);
 
 int emuCheckResetArgument(char* szLine);
-void emuCheckFullscreenArgument(Properties* properties, char* szLine);
+
+/* Applies the options that only change a setting for this run. 0 means the
+** line was refused, and emuCommandLineGetError() says why. */
+int emuCheckSettingArguments(Properties* properties, char* szLine);
 int emuTryStartWithArguments(Properties* properties, char* cmdLine, char *gamedir);
 
 #endif

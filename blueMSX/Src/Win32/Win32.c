@@ -2042,8 +2042,10 @@ void archShowPropertiesDialog(PropPage  startPane) {
         return;
     }
 
-    /* Save properties */
+    /* An explicit save makes the command line values permanent, so the
+    ** overrides are dropped. */
     propSave(pProperties);
+    emuCommandLineDropOverrides();
 
     /* Always update video render */
     
@@ -3946,21 +3948,87 @@ static void commandLineFail(const char* message)
     exit(1);
 }
 
-int emuCheckLanguageArgument(char* cmdLine, int defaultLang){
+/* The names are the ones the settings dialog shows, matched whatever the case. */
+static int languageFromArgument(const char* name)
+{
     int i;
-    int lang;
-    char* argument;
-    
-    for (i = 0; argument = extractToken(cmdLine, i); i++) {
-        if (emuArgMatches(argument, "language")) {
-            argument = extractToken(cmdLine, ++i);
-            if (argument == NULL) return defaultLang;
-            lang = langFromName(argument, 0);
-            return lang == EMU_LANG_UNKNOWN ? defaultLang : lang;
+
+    for (i = 0; langGetType(i) != EMU_LANG_UNKNOWN; i++) {
+        if (strcmpnocase((char*)name, (char*)langToName(langGetType(i), 0)) == 0) {
+            return langGetType(i);
         }
     }
 
-    return defaultLang;
+    return EMU_LANG_UNKNOWN;
+}
+
+static void languageArgumentNames(char* text, int size)
+{
+    int i;
+
+    text[0] = 0;
+    for (i = 0; langGetType(i) != EMU_LANG_UNKNOWN; i++) {
+        const char* name = langToName(langGetType(i), 0);
+        if ((int)(strlen(text) + strlen(name)) + 3 > size) {
+            break;
+        }
+        if (text[0] != 0) {
+            strcat(text, ", ");
+        }
+        strcat(text, name);
+    }
+}
+
+/* The theme is chosen once the window is up, but a wrong name has to be
+** refused before the machine starts. */
+static void checkThemeArgument(char* cmdLine)
+{
+    char* themeArg;
+    char message[PROP_MAXPATH + 96];
+
+    if (!emuCheckFlagArgument(cmdLine, "theme") || st.themeList == NULL) {
+        return;
+    }
+    themeArg = emuCheckValueArgument(cmdLine, "theme");
+    /* The option with nothing after it gives an empty name. */
+    if (themeArg == NULL || themeArg[0] == 0) {
+        commandLineFail("/theme: needs a theme name");
+    }
+    if (getThemeListIndex(st.themeList, themeArg, 0) == -1) {
+        sprintf(message, "/theme: no theme is called (quote a name with spaces): %.256s",
+                themeArg);
+        commandLineFail(message);
+    }
+}
+
+static void checkLanguageArgument(char* cmdLine)
+{
+    char* argument;
+    char names[384];
+    char message[640];
+
+    if (!emuCheckFlagArgument(cmdLine, "language")) {
+        return;
+    }
+
+    argument = emuCheckValueArgument(cmdLine, "language");
+    if (argument == NULL) {
+        commandLineFail("/language: needs a language name");
+    }
+    if (languageFromArgument(argument) == EMU_LANG_UNKNOWN) {
+        languageArgumentNames(names, sizeof(names));
+        sprintf(message, "/language: no language is called: %.128s\r\n"
+                         "  quote a name with spaces. The names are: %s",
+                argument, names);
+        commandLineFail(message);
+    }
+}
+
+int emuCheckLanguageArgument(char* cmdLine, int defaultLang){
+    char* argument = emuCheckValueArgument(cmdLine, "language");
+    int lang = argument != NULL ? languageFromArgument(argument) : EMU_LANG_UNKNOWN;
+
+    return lang == EMU_LANG_UNKNOWN ? defaultLang : lang;
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -4119,16 +4187,33 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
             }
         }
 
-        pProperties->language = emuCheckLanguageArgument(szLine, pProperties->language);
-        
+        /* The value is checked before it is applied, so a refused line never
+        ** switches to what it asked for. */
+        checkLanguageArgument(szLine);
+
+        if (emuCheckFlagArgument(szLine, "language")) {
+            emuCommandLineOverrideInt(&pProperties->language,
+                                      emuCheckLanguageArgument(szLine, pProperties->language));
+        }
+
         if (resetRegistry == 2) {
+            /* /resetregs writes the built in settings, so nothing else the
+            ** line asked for belongs in them. */
+            emuCommandLineRestoreOverrides();
             propDestroy(pProperties);
 
             exit(0);
             return 0;
         }
 
-        emuCheckFullscreenArgument(pProperties, szLine);
+
+        /* This runs here because everything below applies these long before
+        ** the media pass reads the line. */
+        if (!emuCheckSettingArguments(pProperties, szLine)) {
+            /* The settings are left unsaved: a refused line must not write the
+            ** part it had applied. */
+            commandLineFail(emuCommandLineGetError());
+        }
     }
 
     /* Capture path reconciliation. The Audio/Video/Screenshot directories
@@ -4391,10 +4476,8 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
     updateMenu(0);
 
-    if (emuTryStartWithArguments(pProperties, szLine, NULL) < 0) {           
-        commandLineFail(emuCommandLineGetError());
-    }
-
+    /* The theme list is built before the machine starts, so a bad /theme name
+    ** is refused first. */
     st.themePageActive = NULL;
     {
         ThemeCollection* builtins[3];
@@ -4403,11 +4486,33 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
         builtins[2] = NULL;
         st.themeList = createThemeList(builtins);
     }
-    themeSet(emuCheckValueArgument(szLine, "theme"), 0);
+    checkThemeArgument(szLine);
+
+    if (emuTryStartWithArguments(pProperties, szLine, NULL) < 0) {
+        commandLineFail(emuCommandLineGetError());
+    }
+
+    {
+        char* themeArg = emuCheckValueArgument(szLine, "theme");
+        char previousTheme[CMDLINE_MAXOVERRIDE];
+        strncpy(previousTheme, pProperties->settings.themeName, sizeof(previousTheme) - 1);
+        previousTheme[sizeof(previousTheme) - 1] = 0;
+        themeSet(themeArg, 0);
+        /* This is recorded afterwards, because only themeSet knows the name it
+        ** settled on. */
+        if (themeArg != NULL) {
+            emuCommandLineOverrideString(pProperties->settings.themeName, previousTheme);
+        }
+    }
 
     archUpdateWindow();
     ShowWindow(st.hwnd, SW_NORMAL);
     UpdateWindow(st.hwnd);
+
+    /* The debugger attaches to the main window, so this runs after it exists. */
+    if (emuCheckFlagArgument(szLine, "debugger")) {
+        actionToolsShowDebugger();
+    }
 
     archApplyGameSchedulerPolicy(pProperties->emulation.priorityBoost);
 
@@ -4448,6 +4553,8 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     pProperties->joy2.typeId = joystickPortGetType(1);
     recorderRestorePropsAtExit();
     toastDestroy();
+    /* This is the last thing before the settings are written. */
+    emuCommandLineRestoreOverrides();
     propDestroy(pProperties);
 
     archSoundDestroy();

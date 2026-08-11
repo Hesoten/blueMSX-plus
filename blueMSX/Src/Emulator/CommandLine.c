@@ -352,13 +352,23 @@ static const CmdLineOption cmdLineOptions[] = {
     /* No help text: the shell writes this one, nobody types it. */
     { "onearg",        "<file>",  NULL                                               },
     { "machine",       "<name>",  "Machine to boot, as named under Machines",
-      "Change a setting. The new value is written to the settings file when\r\n"
-      "  the emulator exits:"                                                          },
+      "Override a setting for this run only. Not written to the settings\r\n"
+      "  file unless you save the settings from the settings dialog:"                 },
     { "theme",         "<name>",  "Theme to start with"                              },
     { "language",      "<name>",  "Language to start with"                           },
     { "fullscreen",    NULL,      "Start in full screen"                             },
-    { "reset",         NULL,      "Reset the settings file and start with it",
+    { "nofullscreen",  NULL,      "Start windowed, overriding the settings file"     },
+    { "windowsize",    "<1-8>",   "Window scale to start at"                         },
+    { "windowpos",     "<x,y>",   "Position of the top left corner of the window"    },
+    { "speed",         "<pct>",   "Emulation speed, 10 to 1000 percent of normal"    },
+    { "vdpspeed",      "<pct>",   "VDP command engine timing, 0 to 100 percent"      },
+    { "mute",          NULL,      "Start with the sound muted"                       },
+    { "msxmusic",      "<on|off>","Enable or disable MSX-Music (YM2413)"             },
+    { "msxaudio",      "<on|off>","Enable or disable MSX-Audio (Y8950)"              },
+    { "moonsound",     "<on|off>","Enable or disable MoonSound (OPL4)"               },
+    { "debugger",      NULL,      "Open the debugger after the emulator starts",
       "Other options:"                                                                },
+    { "reset",         NULL,      "Reset the settings file and start with it"        },
     { "resetregs",     NULL,      "Reset the settings file and exit without starting" },
     { NULL,            NULL,      NULL                                               }
 };
@@ -415,6 +425,70 @@ static const CmdLineOption* findOption(const char* argument) {
     }
 
     return NULL;
+}
+
+/* A setting the line replaced for this run only, and what the file had before. */
+typedef struct {
+    int*  intField;
+    char* strField;
+    int   savedInt;
+    char  savedStr[CMDLINE_MAXOVERRIDE];
+} CmdLineOverride;
+
+/* Room for every option that can replace a setting, with margin. */
+static CmdLineOverride overrides[32];
+static int overrideCount = 0;
+
+static CmdLineOverride* newOverride(void) {
+    if (overrideCount >= (int)(sizeof(overrides) / sizeof(overrides[0]))) {
+        return NULL;
+    }
+    return &overrides[overrideCount++];
+}
+
+/* The field is left alone when the override cannot be recorded, or the value
+** would stay in the settings file after restore. */
+void emuCommandLineOverrideInt(int* field, int value) {
+    CmdLineOverride* ovr = newOverride();
+
+    if (ovr == NULL) {
+        return;
+    }
+    ovr->intField = field;
+    ovr->strField = NULL;
+    ovr->savedInt = *field;
+    *field = value;
+}
+
+void emuCommandLineOverrideString(char* field, const char* previous) {
+    CmdLineOverride* ovr = newOverride();
+
+    if (ovr != NULL) {
+        ovr->intField = NULL;
+        ovr->strField = field;
+        copyArg(ovr->savedStr, sizeof(ovr->savedStr), previous);
+    }
+}
+
+void emuCommandLineRestoreOverrides(void) {
+    int i;
+
+    /* The order is reversed, because two options can land on one setting:
+    ** undoing them in the order they were applied would leave the first value
+    ** in place. */
+    for (i = overrideCount - 1; i >= 0; i--) {
+        CmdLineOverride* ovr = &overrides[i];
+        if (ovr->intField != NULL) {
+            *ovr->intField = ovr->savedInt;
+        }
+        if (ovr->strField != NULL) {
+            strcpy(ovr->strField, ovr->savedStr);
+        }
+    }
+}
+
+void emuCommandLineDropOverrides(void) {
+    overrideCount = 0;
 }
 
 static char cmdLineError[640];
@@ -514,22 +588,6 @@ int emuCheckResetArgument(char* cmdLine) {
 }
 
 
-void emuCheckFullscreenArgument(Properties* properties, char* cmdLine){
-    int i;
-    char* argument;
-
-    if (NULL == extractToken(cmdLine, 0)) {
-        return;
-    }
-
-//    properties->video.windowSize = P_VIDEO_SIZEX2;
-
-    for (i = 0; (argument = extractToken(cmdLine, i)) != NULL; i++) {
-        if (emuArgMatches(argument, "fullscreen")) {
-            properties->video.windowSize = P_VIDEO_SIZEFULLSCREEN;
-        }
-    }
-}
 
 static RomType extRamType(int kilobytes) {
     switch (kilobytes) {
@@ -544,6 +602,196 @@ static RomType extRamType(int kilobytes) {
     }
 
     return ROM_UNKNOWN;
+}
+
+static int onOffValue(const char* text) {
+    if (strcmpnocase(text, "on") == 0 || strcmpnocase(text, "1") == 0 ||
+        strcmpnocase(text, "yes") == 0) {
+        return 1;
+    }
+    if (strcmpnocase(text, "off") == 0 || strcmpnocase(text, "0") == 0 ||
+        strcmpnocase(text, "no") == 0) {
+        return 0;
+    }
+    return -1;
+}
+
+static int settingError(const char* name, const char* reason) {
+    char option[64];
+
+    option[0] = '/';
+    copyArg(option + 1, sizeof(option) - 1, name);
+    return argError(option, reason, NULL);
+}
+
+/* The token has to be a whole signed number and nothing else. atoi cannot tell
+** a written 0 from a word. */
+static int parseIntToken(const char* token, int* value) {
+    char* end;
+    long parsed;
+
+    if (token == NULL || token[0] == 0) {
+        return 0;
+    }
+    errno = 0;
+    parsed = strtol(token, &end, 10);
+    /* errno is checked as well as the text, because strtol answers LONG_MAX
+    ** for a number too big to hold. */
+    if (*end != 0 || errno != 0) {
+        return 0;
+    }
+    *value = (int)parsed;
+    return 1;
+}
+
+static int rangeArgument(char* cmdLine, const char* name, int lo, int hi,
+                         int* field, int scaleToLog) {
+    char* argument = emuCheckValueArgument(cmdLine, name);
+    int value;
+
+    if (argument == NULL) {
+        if (emuCheckFlagArgument(cmdLine, name)) {
+            return settingError(name, "needs a number");
+        }
+        return 1;
+    }
+
+    if (!parseIntToken(argument, &value)) {
+        return settingError(name, "needs a number");
+    }
+    if (value < lo || value > hi) {
+        return settingError(name, "is out of range");
+    }
+
+    emuCommandLineOverrideInt(field, scaleToLog ? emulatorPercentToLogFrequency(value) : value);
+    return 1;
+}
+
+static int chipArgument(char* cmdLine, const char* name, int* field) {
+    char* argument = emuCheckValueArgument(cmdLine, name);
+    int value;
+
+    if (argument == NULL) {
+        if (emuCheckFlagArgument(cmdLine, name)) {
+            return settingError(name, "needs on or off");
+        }
+        return 1;
+    }
+
+    value = onOffValue(argument);
+    if (value < 0) {
+        return settingError(name, "wants on or off");
+    }
+
+    emuCommandLineOverrideInt(field, value);
+    return 1;
+}
+
+/* The scale is 1 based on the command line and 0 based in the property, so
+** this cannot go through rangeArgument. */
+static int windowSizeArgument(char* cmdLine, Properties* properties) {
+    char* argument = emuCheckValueArgument(cmdLine, "windowsize");
+    int scale;
+
+    if (argument == NULL) {
+        if (emuCheckFlagArgument(cmdLine, "windowsize")) {
+            return settingError("windowsize", "needs a scale of 1 to 8");
+        }
+        return 1;
+    }
+
+    if (!parseIntToken(argument, &scale) || scale < 1 || scale > 8) {
+        return settingError("windowsize", "wants a scale of 1 to 8");
+    }
+
+    emuCommandLineOverrideInt(&properties->video.windowSize, P_VIDEO_SIZEX1 + scale - 1);
+    return 1;
+}
+
+static int windowPosArgument(char* cmdLine, Properties* properties) {
+    char* argument = emuCheckValueArgument(cmdLine, "windowpos");
+    const char* comma;
+    char first[32];
+    int length;
+    int x;
+    int y;
+
+    if (argument == NULL) {
+        if (emuCheckFlagArgument(cmdLine, "windowpos")) {
+            return settingError("windowpos", "wants <x>,<y>");
+        }
+        return 1;
+    }
+
+    comma = strchr(argument, ',');
+    if (comma == NULL) {
+        return settingError("windowpos", "wants <x>,<y>");
+    }
+
+    /* The first number ends at the comma rather than at the end of the token,
+    ** so it has to be cut out before it can be read on its own. */
+    length = (int)(comma - argument);
+    if (length >= (int)sizeof(first)) {
+        return settingError("windowpos", "wants <x>,<y>");
+    }
+    memcpy(first, argument, length);
+    first[length] = 0;
+
+    if (!parseIntToken(first, &x) || !parseIntToken(comma + 1, &y)) {
+        return settingError("windowpos", "wants <x>,<y>");
+    }
+
+    emuCommandLineOverrideInt(&properties->video.windowX, x);
+    emuCommandLineOverrideInt(&properties->video.windowY, y);
+    return 1;
+}
+
+int emuCheckSettingArguments(Properties* properties, char* cmdLine) {
+    if (!rangeArgument(cmdLine, "speed", 10, 1000, &properties->emulation.speed, 1)) {
+        return 0;
+    }
+    if (!rangeArgument(cmdLine, "vdpspeed", 0, 100, &properties->emulation.vdpCmdSpeed, 0)) {
+        return 0;
+    }
+    if (!chipArgument(cmdLine, "msxmusic", &properties->sound.chip.enableYM2413) ||
+        !chipArgument(cmdLine, "msxaudio", &properties->sound.chip.enableY8950) ||
+        !chipArgument(cmdLine, "moonsound", &properties->sound.chip.enableMoonsound)) {
+        return 0;
+    }
+
+    if (emuCheckFlagArgument(cmdLine, "mute")) {
+        emuCommandLineOverrideInt(&properties->sound.masterEnable, 0);
+    }
+
+    if (emuCheckFlagArgument(cmdLine, "fullscreen")) {
+        emuCommandLineOverrideInt(&properties->video.windowSize, P_VIDEO_SIZEFULLSCREEN);
+    }
+    if (!windowSizeArgument(cmdLine, properties)) {
+        return 0;
+    }
+    /* This runs after the size, so a line that says both ends up windowed. */
+    if (emuCheckFlagArgument(cmdLine, "nofullscreen") &&
+        properties->video.windowSize == P_VIDEO_SIZEFULLSCREEN) {
+        emuCommandLineOverrideInt(&properties->video.windowSize, P_VIDEO_SIZEX2);
+    }
+    if (!windowPosArgument(cmdLine, properties)) {
+        return 0;
+    }
+
+    return 1;
+}
+
+/* The machine is a setting like any other, so /machine lasts for this run
+** only. */
+static void overrideMachineName(Properties* properties, const char* machineName) {
+    char previous[CMDLINE_MAXOVERRIDE];
+
+    if (!strlen(machineName)) {
+        return;
+    }
+    copyArg(previous, sizeof(previous), properties->emulation.machineName);
+    strcpy(properties->emulation.machineName, machineName);
+    emuCommandLineOverrideString(properties->emulation.machineName, previous);
 }
 
 static int launchBareFile(Properties* properties, char* fileName) {
@@ -850,7 +1098,7 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
             specialType1 != ROM_UNKNOWN || specialType2 != ROM_UNKNOWN) {
             return argError(NULL, "Cannot be combined with the other media:", bareFile);
         }
-        if (strlen(machineName)) strcpy(properties->emulation.machineName, machineName);
+        overrideMachineName(properties, machineName);
         return launchBareFile(properties, bareFile);
     }
 
@@ -927,13 +1175,13 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
     if (strlen(ide1s) && !insertDiskette(properties, diskGetHdDriveId(0, 1), ide1s, NULL, -1)) return argError("/ide1secondary", "cannot attach", ide1s);
     if (strlen(cas)   && !insertCassette(properties, 0, cas, *caszip ? caszip : NULL, -1)) return argError("/cas", "cannot insert", cas);
 
-    if (strlen(machineName)) strcpy(properties->emulation.machineName, machineName);
+    overrideMachineName(properties, machineName);
 #ifdef WII
-    else strcpy(properties->emulation.machineName, "MSX2 - No Moonsound"); /* If not specified, use MSX2 without moonsound as default */
+    if (!strlen(machineName)) strcpy(properties->emulation.machineName, "MSX2 - No Moonsound"); /* If not specified, use MSX2 without moonsound as default */
 #endif
 
     emulatorStop();
-    emulatorStart(NULL);
+    emulatorStart(strlen(stateFile) ? stateFile : NULL);
 
     return 1;
 }
