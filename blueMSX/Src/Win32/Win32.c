@@ -4238,6 +4238,26 @@ static void languageArgumentNames(char* text, int size)
     }
 }
 
+/* It writes the built in settings and quits, so the only other thing the line
+** may say is where to write them. */
+static void checkResetArgument(char* cmdLine)
+{
+    static const char* const allowed[] = { "reset", "resetregs", "rootdir", "inifile", NULL };
+    const char* other;
+    char message[PROP_MAXPATH + 96];
+
+    if (emuCheckResetArgument(cmdLine) != 2) {
+        return;
+    }
+
+    other = emuFirstOtherArgument(cmdLine, allowed);
+    if (other != NULL) {
+        sprintf(message, "/resetregs takes nothing beside it but /rootdir and /inifile: %.256s",
+                other);
+        commandLineFail(message);
+    }
+}
+
 /* The theme is chosen once the window is up, but a wrong name has to be
 ** refused before the machine starts. */
 static void checkThemeArgument(char* cmdLine)
@@ -4408,6 +4428,10 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     pkg_load("Packages/BombaPack.bpk", NULL, 0);
 
     appConfigLoad();
+
+    /* This runs ahead of the path options it may carry, so one of those is not
+    ** reported instead. */
+    checkResetArgument(szLine);
 
     readOnlyDir = setDefaultPath(szLine);
 

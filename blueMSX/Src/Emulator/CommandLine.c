@@ -401,7 +401,14 @@ int emuCommandLineGetHelpText(char* out, int size) {
 
     out[0] = 0;
     helpAppend(out, size,
-        "blueMSX+ command line options\r\n\r\n"
+        "blueMSX+ command line options\r\n"
+        "\r\n"
+        "Usage:\r\n"
+        "\r\n"
+        "  blueMSX+ /resetregs [/rootdir <dir>] [/inifile <file>]\r\n"
+        "      Write the built in settings to the settings file and exit. No\r\n"
+        "      other option is allowed, because the emulator does not start.\r\n"
+        "\r\n"
         "  Options may be written /name, -name or --name, in any case. /help\r\n"
         "  is also -h and /?. Quote names that contain spaces (machine, theme,\r\n"
         "  language and cartridge names do). /rootdir, /machinedir and\r\n"
@@ -534,6 +541,33 @@ const char* emuCommandLineGetError(void) {
     return cmdLineError;
 }
 
+const char* emuFirstOtherArgument(char* cmdLine, const char* const* allowed) {
+    static char offending[512];
+    char* argument;
+    int i;
+    int j;
+
+    for (i = 0; (argument = extractToken(cmdLine, i)) != NULL; i++) {
+        const CmdLineOption* opt = findOption(argument);
+        int permitted = 0;
+
+        for (j = 0; opt != NULL && allowed[j] != NULL; j++) {
+            if (emuArgMatches(argument, allowed[j])) {
+                permitted = 1;
+            }
+        }
+        if (!permitted) {
+            copyArg(offending, sizeof(offending), argument);
+            return offending;
+        }
+        if (opt->value != NULL) {
+            i++;
+        }
+    }
+
+    return NULL;
+}
+
 /* Whether any token after the first names a real option. A leading dash will
 ** not do as the test: "Aleste 2 - Gaiden.rom" is a path. */
 static int lineHasOption(char* line) {
@@ -584,18 +618,21 @@ char* emuCheckValueArgument(char* cmdLine, const char* name) {
 
 int emuCheckResetArgument(char* cmdLine) {
     int i;
+    int answer = 0;
     char*   argument;
 
+    /* The whole line is scanned rather than stopping at the first of the two:
+    ** a line carrying both /reset and /resetregs means /resetregs. */
     for (i = 0; (argument = extractToken(cmdLine, i)) != NULL; i++) {
-        if (emuArgMatches(argument, "reset")) {
-            return 1;
+        if (emuArgMatches(argument, "reset") && answer == 0) {
+            answer = 1;
         }
         if (emuArgMatches(argument, "resetregs")) {
             return 2;
         }
     }
 
-    return 0;
+    return answer;
 }
 
 

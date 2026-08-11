@@ -73,6 +73,10 @@ int emuCommandLineGetHelpText(char* out, int size);
 ** so copy it before asking for another. */
 char* emuCheckValueArgument(char* cmdLine, const char* name);
 
+/* The first thing on the line outside the allowed option names, or NULL. The
+** result is a static buffer. */
+const char* emuFirstOtherArgument(char* cmdLine, const char* const* allowed);
+
 int emuCheckResetArgument(char* szLine);
 
 /* Applies the options that only change a setting for this run. 0 means the
