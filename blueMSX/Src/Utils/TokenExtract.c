@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -31,6 +34,10 @@
 
 char* extractToken(char* szLine, int argNo) {
     static char argBuf[512];
+    /* A command line token is whatever the user typed, so it can be longer
+    ** than the buffer. Truncating leaves a name that fails to open, which the
+    ** caller reports; writing past the end corrupts memory silently. */
+    char* end = argBuf + sizeof(argBuf) - 1;
     int i;
 
     for (i = 0; i <= argNo; i++) {
@@ -43,14 +50,16 @@ char* extractToken(char* szLine, int argNo) {
         if (*szLine == '\"') {
             szLine++;
             while (*szLine != '\"' && *szLine != 0) {
-                *arg++ = *szLine++;
+                if (arg < end) *arg++ = *szLine;
+                szLine++;
             }
             *arg = 0;
             if (*szLine != 0) szLine++;
         }
         else {
             do {
-                *arg++ = *szLine++;
+                if (arg < end) *arg++ = *szLine;
+                szLine++;
             } while (*szLine != ' ' && *szLine != '\t' && *szLine != '\r' && *szLine != '\n' && *szLine != 0);
             *arg = 0;
             if (*szLine != 0) szLine++;
@@ -68,9 +77,12 @@ char* extractTokenEx(char* szLine, int argNo, char *dir) {
         return p;
     }
     if( p ) {
-        strcpy(argBuf, dir);
-        strcat(argBuf, "/");
-        strcat(argBuf, p);
+        int len = (int)strlen(dir);
+        if (len > (int)sizeof(argBuf) - 2) len = (int)sizeof(argBuf) - 2;
+        memcpy(argBuf, dir, len);
+        argBuf[len++] = '/';
+        argBuf[len] = 0;
+        strncat(argBuf, p, sizeof(argBuf) - len - 1);
         return argBuf;
     }else{
         return NULL;
@@ -86,9 +98,9 @@ char* extractTokens(char* szLine, int argNo) {
     buf = extractToken(szLine, argNo++);
 
     while (buf != NULL) {
-        strcat(argBuf, buf);
+        strncat(argBuf, buf, sizeof(argBuf) - strlen(argBuf) - 1);
         buf = extractToken(szLine, argNo++);
-        strcat(argBuf, buf != NULL ? " " : "");
+        strncat(argBuf, buf != NULL ? " " : "", sizeof(argBuf) - strlen(argBuf) - 1);
     }
 
     return argBuf;

@@ -45,145 +45,16 @@
 #include "DiskFormat.h"
 #include "Casette.h"
 #include "IsFileExtension.h"
+#include "RomTypeList.h"
 
 /* After stdio.h: pkg_fopen overrides fopen for UTF-8 paths. */
 #include "PacketFileSystem.h"
 
 #define WM_DIALOGRESIZE (WM_USER + 1500)
 
-static RomType romTypeList[] = {
-    ROM_PLAIN, /* mirror */
-    ROM_0x4000,
-    ROM_BASIC, /* 8000 */
-    ROM_0xC000,
-    ROM_ASCII8,
-    ROM_ASCII8SRAM,
-    ROM_ASCII16,
-    ROM_ASCII16SRAM,
-    ROM_KOEI,
-    ROM_GAMEMASTER2,
-    ROM_KONAMI4NF,
-    ROM_KONAMKBDMAS,
-    ROM_MAJUTSUSHI,
-    ROM_KONAMISYNTH,
-    ROM_KONWORDPRO,
-    ROM_KONAMI4,
-    ROM_KONAMI5, /* SCC */
-    ROM_SCC,
-    ROM_SCCPLUS, /* SCC-I */
-    ROM_MANBOW2, /* contains SCC */
-    ROM_MANBOW2_V2, /* contains SCC */
-    ROM_HAMARAJANIGHT, /* contains SCC */
-    ROM_MEGAFLSHSCC, /* contains SCC */
-    ROM_MEGAFLSHSCCPLUS, /* contains SCC */
-    ROM_MEGAFLSHSCCPLUS_SD, /* contains SCC + SD */
-    ROM_ASCII16X,
-    ROM_NEO8,
-    ROM_NEO16,
-    ROM_YAMANOOTO, /* contains SCC */
-    ROM_FLASHROMSCC, /* contains SCC */
-    SRAM_ESESCC, /* contains SCC */
-    SRAM_ESERAM,
-    ROM_CROSSBLAIM,
-    ROM_HALNOTE,
-    ROM_HARRYFOX,
-    ROM_HOLYQURAN,
-    ROM_NETTOUYAKYUU, /* jaleco */
-    ROM_LODERUNNER,
-    ROM_MATRAINK,
-    ROM_RTYPE,
-    ROM_PLAYBALL,
-    ROM_DOOLY,
-    ROM_ASCII16NF, /* super pierrot */
-    ROM_KOREAN80,
-    ROM_KOREAN90,
-    ROM_KOREAN126,
-    ROM_ARC,
-    
-    ROM_DISKPATCH,
-    ROM_TC8566AF,
-    ROM_TC8566AF_TR,
-    ROM_MICROSOL,
-    ROM_NATIONALFDC,
-    ROM_PHILIPSFDC,
-    ROM_SVI707FDC,
-    ROM_SVI738FDC,
-    ROM_MSXDOS2, /* related */
-    ROM_BEERIDE,
-    ROM_GIDE,
-    ROM_SUNRISEIDE,
-    ROM_GOUDASCSI,
-    SRAM_MEGASCSI,
-    SRAM_WAVESCSI,
-
-    ROM_NMS1210, /* related */
-    
-    ROM_FMPAC,
-    ROM_FMPAK,
-    ROM_MSXMUSIC,
-    ROM_MSXAUDIO,
-    ROM_MSXAUDIODEV,
-    ROM_MOONSOUND,
-    ROM_TURBORPCM,
-    ROM_YAMAHASFG01,
-    ROM_YAMAHASFG05,
-    ROM_JOYREXPSG,
-    ROM_OPCODEPSG,
-    ROM_MUPACK,
-    
-    ROM_NOWIND,
-    ROM_OBSONET,
-    ROM_YAMAHANET,
-    
-    ROM_PANASONIC8,
-    ROM_PANASONICWX16,
-    ROM_PANASONIC16,
-    ROM_PANASONIC32,
-    ROM_FSA1FMMODEM,
-    
-    ROM_BUNSETU,
-    ROM_JISYO,
-    ROM_KANJI,
-    ROM_KANJI12,
-    ROM_NATIONAL,
-    ROM_SONYHBI55,
-    ROM_SONYHBIV1,
-    ROM_SVI727COL80,
-    ROM_MICROSOL80,
-    ROM_FMDAS,
-    
-    /* no msx */
-    ROM_SVI328CART,
-    ROM_COLECO,
-    ROM_CVMEGACART,
-    ROM_ACTIVISIONPCB,
-    ROM_ACTIVISIONPCB_2K,
-    ROM_ACTIVISIONPCB_16K,
-    ROM_ACTIVISIONPCB_256K,
-    ROM_OPCODEBIOS,
-    ROM_OPCODEMEGA,
-    ROM_OPCODESAVE,
-    ROM_OPCODESLOT,
-    ROM_SG1000,
-    ROM_SC3000,
-    ROM_SF7000IPL,
-    ROM_SG1000CASTLE,
-    ROM_SG1000_RAMEXPANDER_A,
-    ROM_SG1000_RAMEXPANDER_B,
-    ROM_SEGABASIC,
-    
-    ROM_UNKNOWN,
-};
-
 RomType opendialog_getromtype(int i)
 {
-	int last;
-	
-	/* prevent overflow */
-	for (last=0;romTypeList[last]!=ROM_UNKNOWN;last++) { ; }
-	if (i>=last) return ROM_UNKNOWN;
-	
-	return romTypeList[i];
+	return romTypeListMapperAt(i);
 }
 
 char* openRomFile(HWND hwndOwner, char* pTitle, char* pFilter, char* pDir, int mustExist, 

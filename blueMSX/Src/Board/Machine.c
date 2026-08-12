@@ -719,7 +719,9 @@ void machineFillAvailable(ArrayList *list, int checkRoms)
     const int maxNameLength = 512;
  
     if (machineName != NULL) {
-        char filename[128];
+        /* The machines directory alone can fill this; 128 was an overrun for
+        ** any path of real length, never mind what is appended to it. */
+        char filename[PROP_MAXPATH];
         
         FILE* file;
         

@@ -2037,7 +2037,7 @@ int menuCommand(Properties* pProperties, int command)
             insertCartridge(pProperties, i, CARTNAME_GIDE, NULL, ROM_GIDE, 0);
             return 1;
         case ID_FILE_CART_NMS1210:
-            insertCartridge(pProperties, i, CARTNAME_NMS1210, NULL, ROM_GIDE, 0);
+            insertCartridge(pProperties, i, CARTNAME_NMS1210, NULL, ROM_NMS1210, 0);
             return 1;
         case ID_FILE_CART_MEGARAM128:
             insertCartridge(pProperties, i, CARTNAME_MEGARAM128, NULL, ROM_MEGARAM128, 0);

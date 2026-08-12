@@ -48,6 +48,7 @@
 #include "AudioMixer.h"
 #include "VideoRender.h"
 #include "CommandLine.h"
+#include "RomTypeList.h"
 #include "Language.h"   
 #include "SaveState.h"
 #include "resource.h"
@@ -1358,7 +1359,8 @@ static void updateRomTypeList(HWND hDlg, ZipFileDlgInfo* dlgInfo) {
         RomType romType = mediaType != NULL ? mediaDbGetRomType(mediaType) : ROM_UNKNOWN;
         int idx = 0;
 
-        while (opendialog_getromtype(idx) != romType) {
+        while (opendialog_getromtype(idx) != romType &&
+               opendialog_getromtype(idx) != ROM_UNKNOWN) {
             idx++;
         }
 
@@ -1411,7 +1413,6 @@ static BOOL_DLG_RET CALLBACK dskZipDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
 
             for (i = 0; opendialog_getromtype(i) != ROM_UNKNOWN; i++) {
                 ComboAddStringU(GetDlgItem(hDlg, IDC_OPEN_ROMTYPE), romTypeToString(opendialog_getromtype(i)));
-                SendDlgItemMessage(hDlg, IDC_ROMTYPE, CB_SETCURSEL, i, 0);
             }
             ComboAddStringU(GetDlgItem(hDlg, IDC_OPEN_ROMTYPE), romTypeToString(ROM_UNKNOWN));
             EnableWindow(GetDlgItem(hDlg, IDC_OPEN_ROMTYPE), 0);
@@ -1963,7 +1964,63 @@ typedef struct {
 #define WIDTH  320
 #define HEIGHT 240
 
-#define LAUNCH_TEMP_FILE "launch.tmp"
+/* Marks a WM_COPYDATA as ours, so another build of the same class ignores it. */
+#define LAUNCH_COPYDATA_ID   0x424D5846
+
+/* Fills path with the exe of processId. QueryFullProcessImageNameW is used for
+** this process too, so the two paths compare equal. */
+static int imagePathOf(DWORD processId, wchar_t* path, DWORD size)
+{
+    HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, processId);
+    int ok;
+
+    if (process == NULL) {
+        return 0;
+    }
+    ok = QueryFullProcessImageNameW(process, 0, path, &size) != 0;
+    CloseHandle(process);
+
+    return ok;
+}
+
+static int isRegisteredFileName(const char* fileName)
+{
+    const char* const* extension = fileTypesRegisteredExtensions();
+    int i;
+
+    for (i = 0; extension[i] != NULL; i++) {
+        if (isFileExtension((char*)fileName, (char*)extension[i])) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+/* A window of another instance of this exe, or NULL. The class name is shared
+** with stock blueMSX, so the executable behind it has to match. */
+static HWND findRunningInstance(void)
+{
+    wchar_t self[1024];
+    HWND hwnd = NULL;
+
+    if (!imagePathOf(GetCurrentProcessId(), self, _countof(self))) {
+        return NULL;
+    }
+
+    while ((hwnd = FindWindowEx(NULL, hwnd, "blueMSX", NULL)) != NULL) {
+        wchar_t other[1024];
+        DWORD processId = 0;
+
+        GetWindowThreadProcessId(hwnd, &processId);
+        if (imagePathOf(processId, other, _countof(other)) &&
+            _wcsicmp(other, self) == 0) {
+            return hwnd;
+        }
+    }
+
+    return NULL;
+}
 
 static WinState st;
 
@@ -2040,8 +2097,10 @@ void archShowPropertiesDialog(PropPage  startPane) {
         return;
     }
 
-    /* Save properties */
+    /* An explicit save makes the command line values permanent, so the
+    ** overrides are dropped. */
     propSave(pProperties);
+    emuCommandLineDropOverrides();
 
     /* Always update video render */
     
@@ -3100,49 +3159,71 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         }
         return 0;
 
+    case WM_COPYDATA:
+        {
+            COPYDATASTRUCT* cds = (COPYDATASTRUCT*)lParam;
+            char candidate[PROP_MAXPATH];
+            char* pending;
+
+            if (cds == NULL || cds->dwData != LAUNCH_COPYDATA_ID ||
+                cds->lpData == NULL || cds->cbData == 0 ||
+                cds->cbData > sizeof(candidate) ||
+                ((const char*)cds->lpData)[cds->cbData - 1] != 0) {
+                return FALSE;
+            }
+            memcpy(candidate, cds->lpData, cds->cbData);
+
+            /* Checked before the media is ejected, so a name this build cannot
+            ** open leaves the slots alone. */
+            if (!candidate[0] || !launchFileIsSupported(candidate)) {
+                return FALSE;
+            }
+
+            pending = (char*)malloc(cds->cbData);
+            if (pending == NULL) {
+                return FALSE;
+            }
+            memcpy(pending, candidate, cds->cbData);
+
+            /* The answer is sent at once and the file is opened afterwards.
+            ** Opening can ask the user a question, which pumps messages and
+            ** would let a second request overwrite the name. */
+            if (!PostMessage(hwnd, WM_LAUNCHFILE, 0, (LPARAM)pending)) {
+                free(pending);
+                return FALSE;
+            }
+        }
+        return TRUE;
+
     case WM_LAUNCHFILE:
         {
-            char fileName[512];
-            FILE* file = fopen(LAUNCH_TEMP_FILE, "r");
-            if (file != NULL) {
-                int size = (int)fread(fileName, 1, 512, file);
-                fclose(file);
-                if (size > 0) {
-                    char* argument;
+            char* fileName = (char*)lParam;
+            int i;
 
-                    fileName[size] = 0;                    
+            emulatorStop();
 
-                    argument = extractToken(fileName, 0);
-                    if (*argument) {
-                        int i;
-
-                        emulatorStop();
-
-                        for (i = 0; i < PROP_MAX_CARTS; i++) {
-                            pProperties->media.carts[i].fileName[0] = 0;
-                            pProperties->media.carts[i].fileNameInZip[0] = 0;
-                            pProperties->media.carts[i].type = ROM_UNKNOWN;
-                            updateExtendedRomName(i, pProperties->media.carts[i].fileName, pProperties->media.carts[i].fileNameInZip);
-                        }
-
-                        for (i = 0; i < PROP_MAX_DISKS; i++) {
-                            pProperties->media.disks[i].fileName[0] = 0;
-                            pProperties->media.disks[i].fileNameInZip[0] = 0;
-                            updateExtendedDiskName(i, pProperties->media.disks[i].fileName, pProperties->media.disks[i].fileNameInZip);
-                        }
-
-                        for (i = 0; i < PROP_MAX_TAPES; i++) {
-                            pProperties->media.tapes[i].fileName[0] = 0;
-                            pProperties->media.tapes[i].fileNameInZip[0] = 0;
-                            updateExtendedCasName(i, pProperties->media.tapes[i].fileName, pProperties->media.tapes[i].fileNameInZip);
-                        }
-
-                        tryLaunchUnknownFile(pProperties, argument, 1);
-                    }
-
-                    SetActiveWindow(hwnd);
-                }
+            for (i = 0; i < PROP_MAX_CARTS; i++) {
+                pProperties->media.carts[i].fileName[0] = 0;
+                pProperties->media.carts[i].fileNameInZip[0] = 0;
+                pProperties->media.carts[i].type = ROM_UNKNOWN;
+                updateExtendedRomName(i, pProperties->media.carts[i].fileName, pProperties->media.carts[i].fileNameInZip);
             }
+
+            for (i = 0; i < PROP_MAX_DISKS; i++) {
+                pProperties->media.disks[i].fileName[0] = 0;
+                pProperties->media.disks[i].fileNameInZip[0] = 0;
+                updateExtendedDiskName(i, pProperties->media.disks[i].fileName, pProperties->media.disks[i].fileNameInZip);
+            }
+
+            for (i = 0; i < PROP_MAX_TAPES; i++) {
+                pProperties->media.tapes[i].fileName[0] = 0;
+                pProperties->media.tapes[i].fileNameInZip[0] = 0;
+                updateExtendedCasName(i, pProperties->media.tapes[i].fileName, pProperties->media.tapes[i].fileNameInZip);
+            }
+
+            tryLaunchUnknownFile(pProperties, fileName, 1);
+            free(fileName);
+            SetActiveWindow(hwnd);
         }
         return 0;
 
@@ -3769,13 +3850,67 @@ void updateEmuWindow() {
     }
 }
 
-int setDefaultPath() {   
+static void commandLineReport(const char* message);
+static void commandLineFail(const char* message);
+
+static char launchDir[512];
+
+static int isAbsolutePath(const char* path) {
+    /* A drive letter alone is not enough: "C:name" is relative to that drive. */
+    return path[0] == '\\' || path[0] == '/' ||
+           (path[0] != 0 && path[1] == ':' && (path[2] == '\\' || path[2] == '/'));
+}
+
+static const char* resolveArgPath(const char* path, char* buffer, int size) {
+    int length;
+
+    if (isAbsolutePath(path)) {
+        length = (int)strlen(path);
+        if (length >= size) {
+            return NULL;
+        }
+        strcpy(buffer, path);
+        return buffer;
+    }
+
+    length = (int)strlen(launchDir) + 1 + (int)strlen(path);
+    if (length >= size) {
+        return NULL;
+    }
+    sprintf(buffer, "%s\\%s", launchDir, path);
+    return buffer;
+}
+
+/* These are named while the paths are worked out, and created once the line
+** has been accepted. */
+static char writeDirs[8][512];
+static int  writeDirCount = 0;
+
+static char* laterDir(char* path) {
+    if (writeDirCount < (int)(sizeof(writeDirs) / sizeof(writeDirs[0]))) {
+        strcpy(writeDirs[writeDirCount++], path);
+    }
+    return path;
+}
+
+static void createDataDirectories(void) {
+    int i;
+
+    for (i = 0; i < writeDirCount; i++) {
+        mkdirU(writeDirs[i]);
+    }
+}
+
+int setDefaultPath(char* cmdLine) {
     char buffer[512];  
     char buffer2[512];
     /* Base for user-writable data dirs (Screenshots, QuickSave, SRAM, ...).
     ** = exe dir when writable, else My Documents\blueMSX Temporary Files.
     ** Machines/ is deliberately NOT resolved against this -- see below. */
     char rootDir[512];
+    /* The data shipped with the emulator is read from the exe directory,
+    ** however rootDir moves. */
+    char dataDir[512];
     int readOnlyDir;
     DWORD dirattr; 
     FILE* file;
@@ -3828,42 +3963,134 @@ int setDefaultPath() {
         SetCurrentDirectoryU(st.pCurDir);
     }
 
-    // Set up temp directories
-    propertiesSetDirectory(st.pCurDir, rootDir);
+    strcpy(dataDir, st.pCurDir);
 
-    sprintf(buffer, "%s\\Machines", st.pCurDir);
-    machineSetDirectory(buffer);
+    {
+        char* argument = emuCheckValueArgument(cmdLine, "rootdir");
+        /* The option with nothing after it counts as absent, and nothing below
+        ** reads the line again. */
+        if ((argument == NULL || argument[0] == 0) &&
+            emuCheckFlagArgument(cmdLine, "rootdir")) {
+            commandLineFail("/rootdir: needs a directory");
+        }
+        if (argument != NULL) {
+            char resolved[512];
+            char probe[512];
+            FILE* test;
+            DWORD attrs;
+            /* 96 covers the longest path built from this: "\Keyboard Config",
+            ** a separator, a mapping name the listing caps at 63, and
+            ** ".config". */
+            if (resolveArgPath(argument, resolved, sizeof(rootDir) - 96) == NULL) {
+                commandLineFail("/rootdir: that path is too long");
+            }
+            /* The directory has to exist. A typo would otherwise create an
+            ** empty tree and the run would start from the built in settings. */
+            attrs = GetFileAttributesU(resolved);
+            if (attrs == INVALID_FILE_ATTRIBUTES || !(attrs & FILE_ATTRIBUTE_DIRECTORY)) {
+                commandLineFail("/rootdir: no such directory");
+            }
+            sprintf(probe, "%s\\wrtest", resolved);
+            test = fopen(probe, "w");
+            /* Everything below writes into rootDir, so a failed write probe is
+            ** fatal. */
+            if (test == NULL) {
+                commandLineFail("/rootdir: cannot write to that directory");
+            }
+            fclose(test);
+            DeleteFileU(probe);
+            strcpy(rootDir, resolved);
+            readOnlyDir = 0;
+            strcpy(dataDir, st.pCurDir);
+            /* rootDir is passed as both preferred and fallback, or a
+            ** bluemsx.ini beside the exe would win. */
+            propertiesSetDirectory(rootDir, rootDir);
+        }
+        else {
+            propertiesSetDirectory(st.pCurDir, rootDir);
+        }
+    }
+
+    {
+        char* argument = emuCheckValueArgument(cmdLine, "inifile");
+        if ((argument == NULL || argument[0] == 0) &&
+            emuCheckFlagArgument(cmdLine, "inifile")) {
+            commandLineFail("/inifile: needs a file name");
+        }
+        if (argument != NULL) {
+            char resolved[512];
+            DWORD attrs;
+            if (resolveArgPath(argument, resolved, 512) == NULL) {
+                commandLineFail("/inifile: that path is too long");
+            }
+            /* The file has to exist. A typo would otherwise start from the
+            ** built in settings. */
+            attrs = GetFileAttributesU(resolved);
+            if (attrs == INVALID_FILE_ATTRIBUTES || (attrs & FILE_ATTRIBUTE_DIRECTORY)) {
+                commandLineFail("/inifile: no such file");
+            }
+            propertiesSetSettingsFile(resolved);
+        }
+    }
+
+    /* propCreate checks the saved machine name against this directory and
+    ** quietly picks another when it is not there, so it has to be set first. */
+    {
+        char* argument = emuCheckValueArgument(cmdLine, "machinedir");
+        if ((argument == NULL || argument[0] == 0) &&
+            emuCheckFlagArgument(cmdLine, "machinedir")) {
+            commandLineFail("/machinedir: needs a directory");
+        }
+        if (argument != NULL) {
+            char resolved[512];
+            DWORD attrs;
+            /* PROP_MAXPATH less what the readers append into their own buffers
+            ** of that size: a machine name, which a file system caps at 255,
+            ** and then "/config.ini". */
+            if (resolveArgPath(argument, resolved, PROP_MAXPATH - 272) == NULL) {
+                commandLineFail("/machinedir: that path is too long");
+            }
+            attrs = GetFileAttributesU(resolved);
+            if (attrs == INVALID_FILE_ATTRIBUTES || !(attrs & FILE_ATTRIBUTE_DIRECTORY)) {
+                commandLineFail("/machinedir: no such directory");
+            }
+            machineSetDirectory(resolved);
+        }
+        else {
+            sprintf(buffer, "%s\\Machines", st.pCurDir);
+            machineSetDirectory(buffer);
+        }
+    }
 
     sprintf(buffer, "%s\\Audio Capture", rootDir);
-    mkdirU(buffer);
-    actionSetAudioCaptureSetDirectory(buffer, "");
+    actionSetAudioCaptureSetDirectory(laterDir(buffer), "");
 
     sprintf(buffer, "%s\\Video Capture", rootDir);
-    mkdirU(buffer);
-    actionSetVideoCaptureSetDirectory(buffer, "");
+    actionSetVideoCaptureSetDirectory(laterDir(buffer), "");
 
     sprintf(buffer, "%s\\QuickSave", rootDir);
-    mkdirU(buffer);
-    actionSetQuickSaveSetDirectory(buffer, "");
+    actionSetQuickSaveSetDirectory(laterDir(buffer), "");
 
     sprintf(buffer, "%s\\SRAM", rootDir);
-    mkdirU(buffer);
-    boardSetDirectory(buffer);
+    boardSetDirectory(laterDir(buffer));
 
+    /* This one is written to, so it follows the run. The shipped mappings stay
+    ** readable where they are. */
     sprintf(buffer, "%s\\Keyboard Config", rootDir);
-    mkdirU(buffer);
-    keyboardSetDirectory(buffer);
+    keyboardSetDirectory(laterDir(buffer));
+
+    sprintf(buffer, "%s\\Keyboard Config", dataDir);
+    keyboardSetSharedDirectory(buffer);
 
     sprintf(buffer, "%s\\Screenshots", rootDir);
-    mkdirU(buffer);
-    screenshotSetDirectory(buffer, "");
+    screenshotSetDirectory(laterDir(buffer), "");
 
     sprintf(buffer, "%s\\Casinfo", rootDir);
-    mkdirU(buffer);
-    tapeSetDirectory(buffer, "");
+    tapeSetDirectory(laterDir(buffer), "");
 
-    sprintf(buffer, "%s\\Databases", rootDir);
-    mkdirU(buffer);
+    /* This one is only read, so it is neither created nor moved off the
+    ** install. */
+    sprintf(buffer, "%s\\Databases", dataDir);
     mediaDbLoad(buffer);
 
     mediaDbCreateRomdb();
@@ -3878,21 +4105,316 @@ int setDefaultPath() {
 ////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////
 
-int emuCheckLanguageArgument(char* cmdLine, int defaultLang){
-    int i;
-    int lang;
-    char* argument;
-    
-    for (i = 0; argument = extractToken(cmdLine, i); i++) {
-        if (strcmp(argument, "/language") == 0) {
-            argument = extractToken(cmdLine, ++i);
-            if (argument == NULL) return defaultLang;
-            lang = langFromName(argument, 0);
-            return lang == EMU_LANG_UNKNOWN ? defaultLang : lang;
+static int consoleWriteTo(DWORD stream, const char* text)
+{
+    HANDLE out = GetStdHandle(stream);
+    DWORD written = 0;
+    DWORD mode;
+    wchar_t stack[1024];
+    wchar_t* wide;
+    int ok = 0;
+
+    /* The handle is valid when the shell redirected the output; otherwise a
+    ** windows subsystem process has to borrow the parent console. FreeConsole
+    ** is never called: it leaves the handle non-NULL and stale. */
+    if (out == NULL || out == INVALID_HANDLE_VALUE) {
+        if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
+            return 0;
+        }
+        out = GetStdHandle(stream);
+        /* The console is borrowed, so the shell has already printed its prompt
+        ** and the first line would land beside it. */
+        if (out != NULL && out != INVALID_HANDLE_VALUE) {
+            WriteFile(out, "\r\n", 2, &written, NULL);
         }
     }
 
-    return defaultLang;
+    if (out == NULL || out == INVALID_HANDLE_VALUE) {
+        return 0;
+    }
+
+    /* The line is UTF-8 and neither sink takes those bytes as they are. */
+    wide = Utf8ToWideAlloc(text, stack, (int)_countof(stack));
+    if (GetConsoleMode(out, &mode)) {
+        ok = WriteConsoleW(out, wide, (DWORD)wcslen(wide), &written, NULL) != 0;
+    }
+    else {
+        /* Redirected, so what reads it back expects the system code page. */
+        char  narrowStack[1024];
+        char* narrow;
+        int   need = WideToAcp(wide, NULL, 0);
+
+        narrow = need <= (int)sizeof(narrowStack) ? narrowStack
+                                                  : (char*)malloc((size_t)need);
+        if (need > 0 && narrow != NULL) {
+            WideToAcp(wide, narrow, need);
+            ok = WriteFile(out, narrow, (DWORD)(need - 1), &written, NULL) != 0;
+            if (narrow != narrowStack) {
+                free(narrow);
+            }
+        }
+    }
+    FreeWideMaybe(wide, stack);
+
+    return ok;
+}
+
+/* This goes to the output, so a listing can be redirected on its own. */
+static int consoleWrite(const char* text)
+{
+    return consoleWriteTo(STD_OUTPUT_HANDLE, text);
+}
+
+static void commandLinePrintHelp(void)
+{
+    char text[8192];
+
+    emuCommandLineGetHelpText(text, sizeof(text));
+    consoleWrite(text);
+}
+
+static int commandLineWantsList(char* cmdLine)
+{
+    return emuCheckFlagArgument(cmdLine, "listspecials") ||
+           emuCheckFlagArgument(cmdLine, "listromtypes") ||
+           emuCheckFlagArgument(cmdLine, "listmachines") ||
+           emuCheckFlagArgument(cmdLine, "listthemes");
+}
+
+static void printRomTypeList(int specials)
+{
+    char line[PROP_MAXPATH + 8];
+    const char* names[256];
+    const char* group;
+    const char* name;
+    RomType type;
+    RomType types[256];
+    int printed = 0;
+    int count;
+    int g;
+    int i;
+    int j;
+
+    for (g = 1; (group = specials ? romTypeListCartGroupName(g)
+                                  : romTypeListGroupName(g)) != NULL; g++) {
+        count = 0;
+        for (i = 0; ; i++) {
+            type = specials ? romTypeListCartAt(i) : romTypeListMapperAt(i);
+            if (type == ROM_UNKNOWN) {
+                break;
+            }
+            if (specials && romTypeListCartIsHiddenAt(i)) {
+                continue;
+            }
+            name = romTypeToShortString(type);
+            if (g != (int)(specials ? romTypeListCartCategory(type)
+                                    : romTypeListMapperCategory(type))) {
+                continue;
+            }
+            /* Two ids can share a short string, and the lookup answers with
+            ** the first. */
+            for (j = 0; j < count && strcmp(names[j], name) != 0; j++) {
+            }
+            if (j == count && count < (int)(sizeof(names) / sizeof(names[0]))) {
+                types[count] = type;
+                names[count++] = name;
+            }
+        }
+        if (count == 0) {
+            continue;
+        }
+
+        sprintf(line, "%s  %s\r\n\r\n", printed ? "\r\n" : "", group);
+        consoleWrite(line);
+        printed = 1;
+        for (i = 0; i < count; i++) {
+            const char* description = romTypeToString(types[i]);
+            if (description == NULL) {
+                sprintf(line, "    %s\r\n", names[i]);
+            }
+            else {
+                sprintf(line, "    %-14s  %s\r\n", names[i], description);
+            }
+            consoleWrite(line);
+        }
+    }
+}
+
+static int commandLinePrintLists(char* cmdLine)
+{
+    char line[PROP_MAXPATH + 8];
+
+    if (emuCheckFlagArgument(cmdLine, "listspecials")) {
+        printRomTypeList(1);
+        return 1;
+    }
+
+    if (emuCheckFlagArgument(cmdLine, "listromtypes")) {
+        printRomTypeList(0);
+        return 1;
+    }
+
+    if (emuCheckFlagArgument(cmdLine, "listmachines")) {
+        ArrayList* machineList = arrayListCreate();
+        ArrayListIterator* iterator;
+
+        /* The roms are checked, which is what /machine accepts. */
+        machineFillAvailable(machineList, 1);
+        iterator = arrayListCreateIterator(machineList);
+        while (arrayListCanIterate(iterator)) {
+            sprintf(line, "%s\r\n", (const char*)arrayListIterate(iterator));
+            consoleWrite(line);
+        }
+        arrayListDestroyIterator(iterator);
+        arrayListDestroy(machineList);
+        return 1;
+    }
+
+    if (emuCheckFlagArgument(cmdLine, "listthemes")) {
+        ThemeCollection* builtins[3];
+        ThemeCollection** themeList;
+        int i;
+
+        builtins[0] = themeClassicCreate();
+        builtins[1] = themeClassicCreateDark();
+        builtins[2] = NULL;
+        themeList = createThemeList(builtins);
+        for (i = 0; themeList != NULL && themeList[i] != NULL; i++) {
+            sprintf(line, "%s\r\n", themeList[i]->name);
+            consoleWrite(line);
+        }
+        return 1;
+    }
+
+    return 0;
+}
+
+/* A rejected line has to reach whoever typed it even from a shortcut, so this
+** falls back to a box. */
+static void commandLineReport(const char* message)
+{
+    char text[700];
+
+    if (message == NULL || message[0] == 0) {
+        return;
+    }
+
+    sprintf(text, "blueMSX+: %s\r\n", message);
+    /* This goes to the error stream, or a redirected listing would collect the
+    ** complaint too. */
+    if (!consoleWriteTo(STD_ERROR_HANDLE, text)) {
+        /* Not langErrorTitle(): the language table is not built this early. */
+        MessageBoxU(NULL, message, "blueMSX+", MB_OK | MB_ICONERROR);
+    }
+}
+
+static void commandLineFail(const char* message)
+{
+    commandLineReport(message);
+    exit(1);
+}
+
+/* The names are the ones the settings dialog shows, matched whatever the case. */
+static int languageFromArgument(const char* name)
+{
+    int i;
+
+    for (i = 0; langGetType(i) != EMU_LANG_UNKNOWN; i++) {
+        if (strcmpnocase((char*)name, (char*)langToName(langGetType(i), 0)) == 0) {
+            return langGetType(i);
+        }
+    }
+
+    return EMU_LANG_UNKNOWN;
+}
+
+static void languageArgumentNames(char* text, int size)
+{
+    int i;
+
+    text[0] = 0;
+    for (i = 0; langGetType(i) != EMU_LANG_UNKNOWN; i++) {
+        const char* name = langToName(langGetType(i), 0);
+        if ((int)(strlen(text) + strlen(name)) + 3 > size) {
+            break;
+        }
+        if (text[0] != 0) {
+            strcat(text, ", ");
+        }
+        strcat(text, name);
+    }
+}
+
+/* It writes the built in settings and quits, so the only other thing the line
+** may say is where to write them. */
+static void checkResetArgument(char* cmdLine)
+{
+    static const char* const allowed[] = { "reset", "resetregs", "rootdir", "inifile", NULL };
+    const char* other;
+    char message[PROP_MAXPATH + 96];
+
+    if (emuCheckResetArgument(cmdLine) != 2) {
+        return;
+    }
+
+    other = emuFirstOtherArgument(cmdLine, allowed);
+    if (other != NULL) {
+        sprintf(message, "/resetregs takes nothing beside it but /rootdir and /inifile: %.256s",
+                other);
+        commandLineFail(message);
+    }
+}
+
+/* The theme is chosen once the window is up, but a wrong name has to be
+** refused before the machine starts. */
+static void checkThemeArgument(char* cmdLine)
+{
+    char* themeArg;
+    char message[PROP_MAXPATH + 96];
+
+    if (!emuCheckFlagArgument(cmdLine, "theme") || st.themeList == NULL) {
+        return;
+    }
+    themeArg = emuCheckValueArgument(cmdLine, "theme");
+    /* The option with nothing after it gives an empty name. */
+    if (themeArg == NULL || themeArg[0] == 0) {
+        commandLineFail("/theme: needs a theme name");
+    }
+    if (getThemeListIndex(st.themeList, themeArg, 0) == -1) {
+        sprintf(message, "/theme: no theme is called (see /listthemes; quote a name with spaces): %.256s",
+                themeArg);
+        commandLineFail(message);
+    }
+}
+
+static void checkLanguageArgument(char* cmdLine)
+{
+    char* argument;
+    char names[384];
+    char message[640];
+
+    if (!emuCheckFlagArgument(cmdLine, "language") || commandLineWantsList(cmdLine)) {
+        return;
+    }
+
+    argument = emuCheckValueArgument(cmdLine, "language");
+    if (argument == NULL) {
+        commandLineFail("/language: needs a language name");
+    }
+    if (languageFromArgument(argument) == EMU_LANG_UNKNOWN) {
+        languageArgumentNames(names, sizeof(names));
+        sprintf(message, "/language: no language is called: %.128s\r\n"
+                         "  quote a name with spaces. The names are: %s",
+                argument, names);
+        commandLineFail(message);
+    }
+}
+
+int emuCheckLanguageArgument(char* cmdLine, int defaultLang){
+    char* argument = emuCheckValueArgument(cmdLine, "language");
+    int lang = argument != NULL ? languageFromArgument(argument) : EMU_LANG_UNKNOWN;
+
+    return lang == EMU_LANG_UNKNOWN ? defaultLang : lang;
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -3902,6 +4424,41 @@ static int getScreenBitDepth()
     HDC hdc;
     hdc = GetDC(GetDesktopWindow());
     return GetDeviceCaps(hdc, BITSPIXEL) * GetDeviceCaps(hdc, PLANES);
+}
+
+/* The line as UTF-8. The one WinMain is handed has been converted to the
+** system code page, so a name outside that page reaches the title and the
+** history as mojibake; everything below reads char* as UTF-8. */
+static char* commandLineUtf8(void)
+{
+    static char line[CMDLINE_MAXLEN];
+    const wchar_t* wide = GetCommandLineW();
+
+    /* This copy still carries the exe name, which the one WinMain is handed
+    ** does not. */
+    if (*wide == L'\"') {
+        for (wide++; *wide != 0 && *wide != L'\"'; wide++) ;
+        if (*wide == L'\"') wide++;
+    }
+    else {
+        while (*wide != 0 && *wide != L' ' && *wide != L'\t') wide++;
+    }
+    while (*wide == L' ' || *wide == L'\t') wide++;
+
+    if (WideToUtf8(wide, line, sizeof(line)) == 0) {
+        /* The whole line did not fit, so keep the head of it. Three bytes is
+        ** the most one character takes. */
+        int chars = (int)((sizeof(line) - 1) / 3);
+        int bytes;
+        if (chars > (int)wcslen(wide)) {
+            chars = (int)wcslen(wide);
+        }
+        bytes = WideCharToMultiByte(CP_UTF8, 0, wide, chars, line,
+                                    (int)sizeof(line) - 1, NULL, NULL);
+        line[bytes > 0 ? bytes : 0] = 0;
+    }
+
+    return line;
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -3934,54 +4491,64 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
         strcat(szLine, argv[i]);
         strcat(szLine, " ");
     }
+#else
+    szLine = commandLineUtf8();
 #endif
+
+    /* This is done first, because everything below moves to the exe directory. */
+    if (GetCurrentDirectoryU(sizeof(launchDir) - 1, launchDir) == 0 || launchDir[0] == 0) {
+        strcpy(launchDir, ".");
+    }
+
+    /* This is answered before anything is loaded, so asking never disturbs a
+    ** running instance. */
+    if (emuCheckHelpArgument(szLine)) {
+        commandLinePrintHelp();
+        return 0;
+    }
 
     scrDepth = getScreenBitDepth();
     if (scrDepth != 16 && scrDepth != 32) {
         MessageBoxU(NULL, langInfoColorDepth(), langInfoTitle(), MB_OK | MB_ICONINFORMATION);
     }
 
-    hwnd = FindWindow("blueMSX", "  blueMSX+");
-    if (hwnd != NULL && *szLine) {
-        char args[2048];
+    /* Only a double clicked file is handed over: one existing file of a type
+    ** the exe is registered for. */
+    if (*szLine) {
+        char args[CMDLINE_MAXLEN];
         char* cmdLine = args;
+        char* only;
 
-        if (0 == strncmp(szLine, "/onearg ", 8)) {
-            /* /onearg <rest> -- treat the entire rest as one file path.
-            ** Handle both shell-quoted (HKCU "%1") and bare command-line
-            ** input by re-wrapping in exactly one quote pair. */
-            const char* rest = szLine + 8;
-            int len;
-            while (*rest == ' ' || *rest == '\t') rest++;
-            strcpy(args, rest);
-            len = (int)strlen(args);
-            while (len > 0 && (args[len-1] == ' ' || args[len-1] == '\t'
-                            || args[len-1] == '\r' || args[len-1] == '\n')) {
-                args[--len] = 0;
-            }
-            if (len >= 2 && args[0] == '"' && args[len-1] == '"') {
-                args[len-1] = 0;
-                memmove(args, args + 1, len - 1);
-                len -= 2;
-            }
-            memmove(args + 1, args, len + 1);
-            args[0] = '"';
-            args[len + 1] = '"';
-            args[len + 2] = 0;
-        }
-        else {
+        if (!emuNormalizeOneArg(szLine, args, sizeof(args))) {
             cmdLine = szLine;
         }
-        if (!extractToken(cmdLine, 1)) {
-            FILE* file = fopen(LAUNCH_TEMP_FILE, "w");
-            if (file != NULL) {
-                fwrite(cmdLine, 1, strlen(cmdLine) + 1, file);
-                fclose(file);
-                SendMessage(hwnd, WM_SYSCOMMAND, SC_RESTORE, 0);
-                SetForegroundWindow(hwnd);
-                PostMessage(hwnd, WM_LAUNCHFILE, 0, 0);
+        /* This is read before token 0, which shares the buffer the answer
+        ** lives in. */
+        only = extractToken(cmdLine, 1) != NULL ? NULL : extractToken(cmdLine, 0);
+        /* The path has to be absolute, because the running instance stands in
+        ** a different directory. */
+        if (only != NULL && (int)strlen(only) < PROP_MAXPATH &&
+            isAbsolutePath(only) && isRegisteredFileName(only) &&
+            launchFileIsSupported(only) && archFileExists(only)) {
+            hwnd = findRunningInstance();
+            if (hwnd != NULL) {
+                COPYDATASTRUCT cds;
+                DWORD_PTR answer = 0;
+
+                cds.dwData = LAUNCH_COPYDATA_ID;
+                cds.cbData = (DWORD)strlen(only) + 1;
+                cds.lpData = only;
+                /* The send times out, because a wedged instance must not take
+                ** this process down with it. */
+                if (SendMessageTimeout(hwnd, WM_COPYDATA, (WPARAM)NULL, (LPARAM)&cds,
+                                       SMTO_ABORTIFHUNG, 5000, &answer) && answer) {
+                    /* The window is raised only once it has said it will open
+                    ** the file. */
+                    PostMessage(hwnd, WM_SYSCOMMAND, SC_RESTORE, 0);
+                    SetForegroundWindow(hwnd);
+                    return 0;
+                }
             }
-            return 0;
         }
     }
 
@@ -4023,7 +4590,11 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
     appConfigLoad();
 
-    readOnlyDir = setDefaultPath();
+    /* This runs ahead of the path options it may carry, so one of those is not
+    ** reported instead. */
+    checkResetArgument(szLine);
+
+    readOnlyDir = setDefaultPath(szLine);
 
     {
         /* Modify scan code map if nessecary */
@@ -4049,13 +4620,51 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
         {
             char themeName[64];
+            char savedMachine[PROP_MAXPATH];
             if (GetSystemMetrics(SM_CYSCREEN) > 600) {
                 strcpy(themeName, "DIGIblue SUITE-X2");
             }
             else {
                 strcpy(themeName, "Classic");
             }
+            /* This is read before propCreate, which is about to replace it. */
+            strcpy(savedMachine, propGetSavedMachineName());
+
             pProperties = propCreate(resetRegistry, getLangType(), kbdLang, syncMode, themeName);
+
+            if (emuCheckValueArgument(szLine, "machinedir") != NULL &&
+                !commandLineWantsList(szLine)) {
+                ArrayList* machineList = arrayListCreate();
+                ArrayListIterator* iterator;
+                int machineCount;
+                int found = 0;
+
+                machineFillAvailable(machineList, 0);
+                machineCount = arrayListGetSize(machineList);
+                iterator = arrayListCreateIterator(machineList);
+                while (arrayListCanIterate(iterator)) {
+                    if (strcmp((const char*)arrayListIterate(iterator), savedMachine) == 0) {
+                        found = 1;
+                    }
+                }
+                arrayListDestroyIterator(iterator);
+                arrayListDestroy(machineList);
+
+                /* This is fatal whatever else the line says: an empty
+                ** directory leaves nothing to boot. */
+                if (machineCount == 0) {
+                    commandLineFail("/machinedir: no machines under that directory");
+                }
+                /* This applies only when the file names the machine: /machine,
+                ** /reset and a single machine build each name it otherwise. */
+                if (!found && savedMachine[0] != 0 && !resetRegistry &&
+                    emuCheckValueArgument(szLine, "machine") == NULL &&
+                    appConfigGetString("singlemachine", NULL) == NULL) {
+                    char message[PROP_MAXPATH + 64];
+                    sprintf(message, "/machinedir: that directory has no machine called %.256s", savedMachine);
+                    commandLineFail(message);
+                }
+            }
 
             /* No saved settings (first launch, or --reset) with the Digiblue
                default theme: size the window to the screen instead of a fixed
@@ -4067,50 +4676,90 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
             }
         }
 
-        pProperties->language = emuCheckLanguageArgument(szLine, pProperties->language);
-        
+        /* The value is checked before it is applied, so a refused line never
+        ** switches to what it asked for. */
+        checkLanguageArgument(szLine);
+
+        if (emuCheckFlagArgument(szLine, "language")) {
+            emuCommandLineOverrideInt(&pProperties->language,
+                                      emuCheckLanguageArgument(szLine, pProperties->language));
+        }
+
         if (resetRegistry == 2) {
+            /* /resetregs writes the built in settings, so nothing else the
+            ** line asked for belongs in them. */
+            emuCommandLineRestoreOverrides();
             propDestroy(pProperties);
 
             exit(0);
             return 0;
         }
 
-        emuCheckFullscreenArgument(pProperties, szLine);
+
+        /* This runs here because everything below applies these long before
+        ** the media pass reads the line. */
+        if (!commandLineWantsList(szLine) &&
+            !emuCheckSettingArguments(pProperties, szLine)) {
+            /* The settings are left unsaved: a refused line must not write the
+            ** part it had applied. */
+            commandLineFail(emuCommandLineGetError());
+        }
     }
 
-    /* Capture path reconciliation. The Audio/Video/Screenshot directories
-    ** were seeded above with rootDir-based defaults; if the loaded INI also
-    ** has capture.* paths, those win and we push them into the runtime
-    ** statics. Otherwise we copy the runtime defaults back into Properties
-    ** so they round-trip on next save. */
+    /* An INI capture.* path wins; otherwise the rootDir default goes back for
+    ** this run only, or the settings file would follow wherever the run keeps
+    ** its data. */
     if (pProperties->capture.audioDir[0]) {
         actionSetAudioCaptureSetDirectory(pProperties->capture.audioDir, "");
     } else {
         strcpy(pProperties->capture.audioDir, actionGetAudioCaptureDir());
+        emuCommandLineOverrideString(pProperties->capture.audioDir, "");
     }
     if (pProperties->capture.videoDir[0]) {
         actionSetVideoCaptureSetDirectory(pProperties->capture.videoDir, "");
     } else {
         strcpy(pProperties->capture.videoDir, actionGetVideoCaptureDir());
+        emuCommandLineOverrideString(pProperties->capture.videoDir, "");
     }
     if (pProperties->capture.screenshotDir[0]) {
         screenshotSetDirectory(pProperties->capture.screenshotDir, "");
     } else {
         strcpy(pProperties->capture.screenshotDir, screenshotGetDirectory());
+        emuCommandLineOverrideString(pProperties->capture.screenshotDir, "");
     }
     /* Replay output dir defaults to videoDir until UI splits them. */
     if (!pProperties->capture.replayDir[0]) {
         strcpy(pProperties->capture.replayDir, pProperties->capture.videoDir);
+        emuCommandLineOverrideString(pProperties->capture.replayDir, "");
     }
 
-    /* Empty ini value -> write current default back so it's visible/editable. */
-    if (pProperties->emulation.machinesDir[0]) {
+    /* A /machinedir on the line outranks the file, so here it is only recorded
+    ** as a one-shot. */
+    if (emuCheckValueArgument(szLine, "machinedir") != NULL) {
+        char previous[PROP_MAXPATH];
+        strcpy(previous, pProperties->emulation.machinesDir);
+        strncpy(pProperties->emulation.machinesDir, machineGetDirectory(),
+                sizeof(pProperties->emulation.machinesDir) - 1);
+        pProperties->emulation.machinesDir[sizeof(pProperties->emulation.machinesDir) - 1] = 0;
+        emuCommandLineOverrideString(pProperties->emulation.machinesDir, previous);
+    }
+    else if (pProperties->emulation.machinesDir[0]) {
         machineSetDirectory(pProperties->emulation.machinesDir);
     } else {
         strncpy(pProperties->emulation.machinesDir, machineGetDirectory(),
                 sizeof(pProperties->emulation.machinesDir) - 1);
         pProperties->emulation.machinesDir[sizeof(pProperties->emulation.machinesDir) - 1] = 0;
+    }
+
+    /* langInit runs first, because the lists below print names that come from
+    ** it. */
+    langInit();
+
+    /* The lists are printed here, because they need the directories resolved
+    ** above. */
+    if (commandLinePrintLists(szLine)) {
+        exit(0);
+        return 0;
     }
 
     tempName = appConfigGetString("singlemachine", NULL);
@@ -4125,8 +4774,10 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
     if (readOnlyDir && pProperties->settings.portable) {
         MessageBoxU(NULL, langErrorPortableReadonly(), langErrorTitle(), MB_OK);
-        return 0;
+        exit(1);
     }
+
+    createDataDirectories();
 
     // Load tools
     sprintf(buffer, "%s\\Tools", st.pCurDir);
@@ -4186,7 +4837,6 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
     emulatorInit(pProperties, st.mixer);
     actionInit(st.pVideo, pProperties, st.mixer);
-    langInit();
     tapeSetReadOnly(pProperties->cassette.readOnly);
     tapeSignalSetSaveMonitor(pProperties->cassette.saveMonitor);
     
@@ -4265,18 +4915,40 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
     st.dskWnd = diskQuickviewWindowCreate(st.hwnd);
 
-    if (pProperties->video.windowX < 0 || pProperties->video.windowY < 0) {
+    /* -1,-1 marks "never saved" rather than a coordinate. A monitor left of or
+    ** above the primary one gives real negative positions, so both halves are
+    ** checked. */
+    if (pProperties->video.windowX == -1 && pProperties->video.windowY == -1) {
         GetWindowRect(st.hwnd, &wr);
         pProperties->video.windowX = wr.left;
         pProperties->video.windowY = wr.top;
     }
 
-    if (pProperties->video.windowX > GetSystemMetrics(SM_CXSCREEN) - 300) {
-        pProperties->video.windowX = GetSystemMetrics(SM_CXSCREEN) - 300;
-    }
+    {
+        /* The window is kept reachable on the monitor its corner falls on, not
+        ** on the primary one. */
+        POINT corner;
+        HMONITOR mon;
+        MONITORINFO mi;
 
-    if (pProperties->video.windowY > GetSystemMetrics(SM_CYSCREEN) - 300) {
-        pProperties->video.windowY = GetSystemMetrics(SM_CYSCREEN) - 300;
+        corner.x = pProperties->video.windowX;
+        corner.y = pProperties->video.windowY;
+        mon = MonitorFromPoint(corner, MONITOR_DEFAULTTONEAREST);
+        mi.cbSize = sizeof(mi);
+        if (GetMonitorInfoW(mon, &mi)) {
+            if (pProperties->video.windowX > mi.rcWork.right - 300) {
+                pProperties->video.windowX = mi.rcWork.right - 300;
+            }
+            if (pProperties->video.windowY > mi.rcWork.bottom - 300) {
+                pProperties->video.windowY = mi.rcWork.bottom - 300;
+            }
+            if (pProperties->video.windowX < mi.rcWork.left) {
+                pProperties->video.windowX = mi.rcWork.left;
+            }
+            if (pProperties->video.windowY < mi.rcWork.top) {
+                pProperties->video.windowY = mi.rcWork.top;
+            }
+        }
     }
 
     SetWindowPos(st.hwnd, NULL, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOZORDER);
@@ -4339,11 +5011,8 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
     updateMenu(0);
 
-    if (emuTryStartWithArguments(pProperties, szLine, NULL) < 0) {           
-        exit(0);
-        return 0;
-    }
-
+    /* The theme list is built before the machine starts, so a bad /theme name
+    ** is refused first. */
     st.themePageActive = NULL;
     {
         ThemeCollection* builtins[3];
@@ -4352,11 +5021,33 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
         builtins[2] = NULL;
         st.themeList = createThemeList(builtins);
     }
-    themeSet(emuCheckThemeArgument(szLine), 0);
+    checkThemeArgument(szLine);
+
+    if (emuTryStartWithArguments(pProperties, szLine, NULL) < 0) {
+        commandLineFail(emuCommandLineGetError());
+    }
+
+    {
+        char* themeArg = emuCheckValueArgument(szLine, "theme");
+        char previousTheme[CMDLINE_MAXOVERRIDE];
+        strncpy(previousTheme, pProperties->settings.themeName, sizeof(previousTheme) - 1);
+        previousTheme[sizeof(previousTheme) - 1] = 0;
+        themeSet(themeArg, 0);
+        /* This is recorded afterwards, because only themeSet knows the name it
+        ** settled on. */
+        if (themeArg != NULL) {
+            emuCommandLineOverrideString(pProperties->settings.themeName, previousTheme);
+        }
+    }
 
     archUpdateWindow();
     ShowWindow(st.hwnd, SW_NORMAL);
     UpdateWindow(st.hwnd);
+
+    /* The debugger attaches to the main window, so this runs after it exists. */
+    if (emuCheckFlagArgument(szLine, "debugger")) {
+        actionToolsShowDebugger();
+    }
 
     archApplyGameSchedulerPolicy(pProperties->emulation.priorityBoost);
 
@@ -4397,6 +5088,8 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     pProperties->joy2.typeId = joystickPortGetType(1);
     recorderRestorePropsAtExit();
     toastDestroy();
+    /* This is the last thing before the settings are written. */
+    emuCommandLineRestoreOverrides();
     propDestroy(pProperties);
 
     archSoundDestroy();

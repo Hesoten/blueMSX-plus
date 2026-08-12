@@ -1442,6 +1442,31 @@ void propertiesSetDirectory(const char* defDir, const char* altDir)
     }
 }
 
+/* The machine name the settings file holds, or "" when it holds none.  propCreate
+   silently replaces a name it cannot find under the machines directory, so a
+   caller that has to notice that happening must read the file itself first. */
+const char* propGetSavedMachineName(void)
+{
+    static char machineName[PROP_MAXPATH];
+    IniFile* propFile = iniFileOpen(settFilename);
+
+    machineName[0] = 0;
+    if (propFile != NULL) {
+        iniFileGetString(propFile, ROOT_ELEMENT, "emulation.machineName", "", machineName, sizeof(machineName));
+        iniFileClose(propFile);
+    }
+
+    return machineName;
+}
+
+/* Replaces the settings file propertiesSetDirectory just resolved, for a run
+   told to read and write one named file.  The history file is left alone. */
+void propertiesSetSettingsFile(const char* fileName)
+{
+    strncpy(settFilename, fileName, sizeof(settFilename) - 1);
+    settFilename[sizeof(settFilename) - 1] = 0;
+}
+
 /* 1 if a saved bluemsx.ini exists (i.e. not a first launch).  Uses the path
    resolved by propertiesSetDirectory, so call that first. */
 int propSettingsFileExists(void)

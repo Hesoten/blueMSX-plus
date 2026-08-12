@@ -525,6 +525,8 @@ static BOOL_DLG_RET CALLBACK filesDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
         SetWindowTextU(GetDlgItem(hDlg, IDC_SETTINGSROMTYPETEXT), langPropDefaultRomType());
 
         ComboAddStringU(GetDlgItem(hDlg, IDC_SETTINGSROMTYPE), langPropGuessRomType());
+        /* A saved type this list does not offer leaves the box unset, so it
+        ** cannot be read back as a choice. */
         if (pProperties->cartridge.defaultType == opendialog_getromtype(i)) {
             SendDlgItemMessage(hDlg, IDC_SETTINGSROMTYPE, CB_SETCURSEL, i, 0);
         }
