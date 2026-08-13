@@ -706,6 +706,10 @@ void langInitEnglish(LanguageStrings* ls)
     ls->shortcutConfigTitle     = "blueMSX+ - Shortcut Mapping Editor";
     ls->shortcutAssign          = "Assign";
     ls->shortcutPressText       = "Press shortcut key(s):";
+    ls->shortcutHotkeyHint      = "(up to 3 keys)";
+    ls->keyboardMappedHint      = "(up to 3 keys)";
+    ls->shortcutTooltipAlsoBound = "Also bound to: ";
+    ls->keyboardKeyFormat       = "%s key";
     ls->shortcutScheme          = "Mapping Scheme:";
     ls->shortcutCartInsert1     = "Insert Cartridge 1";
     ls->shortcutCartRemove1     = "Remove Cartridge 1";

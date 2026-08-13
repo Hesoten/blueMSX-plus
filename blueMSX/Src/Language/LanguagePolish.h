@@ -686,6 +686,10 @@ void langInitPolish(LanguageStrings* ls)
     ls->shortcutConfigTitle     = "blueMSX+ - Edytor Mapowania Skrótów";
     ls->shortcutAssign          = "Przypisz";
     ls->shortcutPressText       = "Naciśnij przycisk(i) skrótu:";
+    ls->shortcutHotkeyHint      = "(do 3 klawiszy)";
+    ls->keyboardMappedHint      = "(do 3 klawiszy)";
+    ls->shortcutTooltipAlsoBound = "Przypisane również do: ";
+    ls->keyboardKeyFormat       = "klawisz %s";
     ls->shortcutScheme          = "Układ skrótów:";
     ls->shortcutCartInsert1     = "Włóż kartridż 1";
     ls->shortcutCartRemove1     = "Wyjmij kartridż 1";

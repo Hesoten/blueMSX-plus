@@ -97,6 +97,7 @@
 #include "VideoRender.h"
 #include "ThemeLoader.h"
 #include "Win32ThemeClassic.h"
+#include "Win32Window.h"
 #include "ArchNotifications.h"
 #include "ArchEvent.h"
 #include "ArchTimer.h"
@@ -293,6 +294,37 @@ void win32CommonCenterOnOwner(HWND hDlg)
         if (y < mi.rcWork.top)           y = mi.rcWork.top;
     }
     SetWindowPos(hDlg, NULL, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+}
+
+void win32PaintClearChip(HDC hdc, const RECT* r,
+                         int radNumer, int radDenom, int penW,
+                         int fillBg, COLORREF bgCol, COLORREF glyphCol)
+{
+    int side = min(r->right - r->left, r->bottom - r->top);
+    int cx, cy, rad, inset;
+    HPEN pen, oldPen;
+    HBRUSH oldBrush;
+    if (side <= 0) return;
+    cx = (r->left + r->right) / 2;
+    cy = (r->top  + r->bottom) / 2;
+    rad = (side * radNumer) / radDenom;
+    inset = rad / 3;
+    if (fillBg) {
+        HBRUSH bg = CreateSolidBrush(bgCol);
+        FillRect(hdc, r, bg);
+        DeleteObject(bg);
+    }
+    pen = CreatePen(PS_SOLID, penW, glyphCol);
+    oldPen = SelectObject(hdc, pen);
+    oldBrush = SelectObject(hdc, GetStockObject(NULL_BRUSH));
+    Ellipse(hdc, cx - rad, cy - rad, cx + rad + 1, cy + rad + 1);
+    MoveToEx(hdc, cx - rad + inset, cy - rad + inset, NULL);
+    LineTo  (hdc, cx + rad - inset, cy + rad - inset);
+    MoveToEx(hdc, cx - rad + inset, cy + rad - inset, NULL);
+    LineTo  (hdc, cx + rad - inset, cy - rad + inset);
+    SelectObject(hdc, oldPen);
+    SelectObject(hdc, oldBrush);
+    DeleteObject(pen);
 }
 
 static HBRUSH win32GetDarkEditBrush(void) {
@@ -1734,7 +1766,26 @@ void setTapePosition(HWND parent, Properties* pProperties) {
 
 ///////////////////////////////////////////////////////////////////////////
 
-#define hotkeyEq(hotkey1, hotkey2) (*(DWORD*)&hotkey1 == *(DWORD*)&hotkey2)
+/* Match an incoming hotkey against any of the (up to 3) slots in a
+** ShotcutHotkeySet.  Empty slots (type=NONE) don't match anything. */
+static int hotkeySetMatches(ShotcutHotkey key, const ShotcutHotkeySet* set)
+{
+    int b;
+    if (key.type == HOTKEY_TYPE_NONE) return 0;
+    for (b = 0; b < SHORTCUT_MAX_BINDINGS; b++) {
+        if (set->slots[b].type == HOTKEY_TYPE_NONE) continue;
+        if (*(DWORD*)&key == *(DWORD*)&set->slots[b]) return 1;
+    }
+    return 0;
+}
+
+#define hotkeyEq(hotkey1, hotkey2Set) hotkeySetMatches((hotkey1), &(hotkey2Set))
+
+/* A shortcut bound to joy N button M fires on slot N-1's button M. */
+static unsigned joyHotkeyCode(int slot, int button)
+{
+    return (unsigned)(((slot + 1) << 8) | button);
+}
 
 static int maxSpeedIsSet = 0;
 static int reverseIsSet  = 0;
@@ -1750,7 +1801,20 @@ static void checkKeyDown(Shortcuts* s, ShotcutHotkey key) {
     }
 }
 
-static void checkKeyUp(Shortcuts* s, ShotcutHotkey key) 
+static void shortcutsReleaseHeldActions(void)
+{
+    if (maxSpeedIsSet) {
+        actionMaxSpeedRelease();
+        maxSpeedIsSet = 0;
+    }
+
+    if (reverseIsSet) {
+        actionStopPlayReverse();
+        reverseIsSet = 0;
+    }
+}
+
+static void checkKeyUp(Shortcuts* s, ShotcutHotkey key)
 {
     if (maxSpeedIsSet) {
         actionMaxSpeedRelease();
@@ -1924,7 +1988,11 @@ typedef struct {
     Mixer* mixer;
     int enteringFullscreen;
     Shortcuts* shortcuts;
-    DWORD buttonState;
+    DWORD buttonStatePerJoy[INPUT_MAX_JOYSTICKS];
+    /* Bits that produced a key-down; one first seen after polling resumed
+    ** must not produce a key-up. */
+    DWORD dispatchedDownPerJoy[INPUT_MAX_JOYSTICKS];
+    int joyDispatchOpen;
 
     HANDLE ddrawEvent;
     HANDLE ddrawAckEvent;
@@ -3597,8 +3665,6 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 
         case TIMER_POLL_INPUT:
             {
-                DWORD buttonState;
-                DWORD buttons;
                 ShotcutHotkey key;
                 int i;
                 HWND hwndFocus = GetFocus();
@@ -3609,30 +3675,52 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
                     archPollInput();
                 }
 
-                buttonState = joystickGetButtonState();
-                
-                buttons = buttonState & ~st.buttonState;
+                {
+                    int slot;
+                    /* Pads keep feeding the emulated joystick unfocused;
+                    ** shortcuts must not fire. */
+                    int open = (hwndFocus == st.hwnd || hwndFocus == st.emuHwnd);
 
-                for (i = 1; buttons != 0; i++, buttons >>= 1) {
-                    if (buttons & 1) {
-                        key.type = HOTKEY_TYPE_JOYSTICK;
-                        key.mods = 0;
-                        key.key  = i;
-                        checkKeyDown(st.shortcuts, key);
+                    if (!open && st.joyDispatchOpen) {
+                        shortcutsReleaseHeldActions();
+                    }
+                    st.joyDispatchOpen = open;
+
+                    for (slot = 0; slot < INPUT_MAX_JOYSTICKS; slot++) {
+                        DWORD s = joystickGetButtonStatePerJoy(slot);
+                        DWORD down, up;
+
+                        if (!open) {
+                            st.buttonStatePerJoy[slot] = s;
+                            st.dispatchedDownPerJoy[slot] = 0;
+                            continue;
+                        }
+
+                        down = s & ~st.buttonStatePerJoy[slot];
+                        up   = ~s & st.buttonStatePerJoy[slot] &
+                               st.dispatchedDownPerJoy[slot];
+
+                        for (i = 1; down != 0; i++, down >>= 1) {
+                            if (down & 1) {
+                                st.dispatchedDownPerJoy[slot] |= (DWORD)1 << (i - 1);
+                                key.type = HOTKEY_TYPE_JOYSTICK;
+                                key.mods = 0;
+                                key.key  = joyHotkeyCode(slot, i);
+                                checkKeyDown(st.shortcuts, key);
+                            }
+                        }
+                        for (i = 1; up != 0; i++, up >>= 1) {
+                            if (up & 1) {
+                                st.dispatchedDownPerJoy[slot] &= ~((DWORD)1 << (i - 1));
+                                key.type = HOTKEY_TYPE_JOYSTICK;
+                                key.mods = 0;
+                                key.key  = joyHotkeyCode(slot, i);
+                                checkKeyUp(st.shortcuts, key);
+                            }
+                        }
+                        st.buttonStatePerJoy[slot] = s;
                     }
                 }
-                
-                buttons = ~buttonState & st.buttonState;
-                for (i = 1; buttons != 0; i++, buttons >>= 1) {
-                    if (buttons & 1) {
-                        key.type = HOTKEY_TYPE_JOYSTICK;
-                        key.mods = 0;
-                        key.key  = i;
-                        checkKeyUp(st.shortcuts, key);
-                    }
-                }
-
-                st.buttonState = buttonState;
 
                 /* Pause cursor fade only on EMU_STOPPED; keep alive on
                    PAUSED/SUSPENDED so a paused game still fades. */
@@ -3809,12 +3897,8 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
                 }
                 /* fallthrough */
             case DBT_DEVNODES_CHANGED:
-                /* Refresh right away so a fresh pad works without opening
-                ** a config dialog.  Refresh is idempotent (append-only);
-                ** ResolveShadowBindings materialises pending DIK strings. */
                 inputMarkDirty();
                 inputRefreshDevicesIfDirty();
-                inputResolveShadowBindings();
                 /* Reconcile the video-in device cache and gracefully
                 ** transition to None if the active camera was unplugged. */
                 videoInOnDeviceChange();
@@ -4800,7 +4884,6 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     midiInitialize();
 
     st.active = 1;
-    st.buttonState = 0;
     st.showDialog = 0;
     st.enteringFullscreen = 1;
     st.frameCount = 0;
@@ -4848,8 +4931,6 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
         shortcutsGetAnyProfile(pProperties->emulation.shortcutProfile);
     }
 
-    st.shortcuts = shortcutsCreateProfile(pProperties->emulation.shortcutProfile);
-
     if (!pProperties->settings.portable && pProperties->emulation.registerFileTypes) {
         /* Refresh HKCU registration each launch to pick up a new exe
         ** path; the off branch only fires from the dialog. */
@@ -4896,14 +4977,21 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     st.emuHwnd = CreateWindow("blueMSXemuWindow", "", WS_CHILD | WS_CLIPSIBLINGS | WS_VISIBLE, 0, 0, 0, 0, st.hwnd, NULL, hInstance, NULL);
     ShowWindow(st.emuHwnd, SW_HIDE);
 
-    inputInit();
+    /* The built-in joystick defaults name their controls, so make the
+    ** slots first. */
     inputReset(st.hwnd);
-    keyboardLoadConfig(pProperties->keyboard.configFile);
-    sprintf(pProperties->keyboard.configFile, keyboardGetCurrentConfig());
-    
+    inputInit();
     mouseEmuInit(st.emuHwnd, 1);
+    /* Port types must be set before the keyboard config loads: joy-table
+    ** defaults apply only to ECs the selected port devices read. */
     joystickPortSetType(0, pProperties->joy1.typeId);
     joystickPortSetType(1, pProperties->joy2.typeId);
+    keyboardLoadConfig(pProperties->keyboard.configFile);
+    sprintf(pProperties->keyboard.configFile, keyboardGetCurrentConfig());
+
+    /* Joystick shortcuts are stored by device name, so load them after
+    ** input init. */
+    st.shortcuts = shortcutsCreateProfile(pProperties->emulation.shortcutProfile);
 
     printerIoSetType(pProperties->ports.Lpt.type, pProperties->ports.Lpt.fileName);
     uartIoSetType(pProperties->ports.Com.type, pProperties->ports.Com.fileName);
@@ -5566,6 +5654,226 @@ static int toolWindowBringExistingToFront(ThemeCollection** cache,
     return 0;
 }
 
+#define IDC_KBDCFG_CLEAR         21001
+
+static const char* kbdCfgBaseProcProp = "blueMSX.kbdCfgBaseProc";
+static const char* kbdCfgTipProp = "blueMSX.kbdCfgTip";
+
+#define KBDTIP_MAPPEDKEY  1
+#define KBDTIP_HOVEREDKEY 2
+
+static char kbdTipPrevText[512];
+static RECT kbdTipPrevRect;
+static int  kbdTipPrevKey;
+
+static void kbdTipForgetLast(void)
+{
+    kbdTipPrevText[0] = 0;
+    memset(&kbdTipPrevRect, 0, sizeof(kbdTipPrevRect));
+    kbdTipPrevKey = -1;
+}
+
+static void kbdConflictTipUpdate(HWND hTheme)
+{
+    /* Runs on the 100ms theme tick: the TTM round-trip flickers a visible
+    ** tip, so skip it unless the text or rect changed. */
+    HWND tip = (HWND)GetPropA(hTheme, kbdCfgTipProp);
+    Theme* theme;
+    ThemePage* page;
+    int rx, ry, rw, rh;
+    wchar_t wbuf[512];
+    char* text;
+    TOOLINFOW ti;
+
+    if (tip == NULL) return;
+    memset(&ti, 0, sizeof(ti));
+    ti.cbSize = sizeof(ti);
+    ti.hwnd   = hTheme;
+    ti.uId    = KBDTIP_MAPPEDKEY;
+
+    theme = windowGetThemeFromHwnd(hTheme);
+    page  = theme ? themeGetCurrentPage(theme) : NULL;
+    text  = archKeyboardConflictText();
+    if (page == NULL || text[0] == 0 ||
+        !themePageGetItemRectByTrigger(page, THEME_TRIGGER_TEXT_MAPPEDKEY,
+                                       &rx, &ry, &rw, &rh))
+    {
+        if (kbdTipPrevText[0] == 0) return;
+        kbdTipPrevText[0] = 0;
+        ti.lpszText = L"";
+        SendMessageW(tip, TTM_UPDATETIPTEXTW, 0, (LPARAM)&ti);
+        return;
+    }
+    ti.rect.left   = rx;
+    ti.rect.top    = ry;
+    ti.rect.right  = rx + rw;
+    ti.rect.bottom = ry + rh;
+    if (0 == strcmp(text, kbdTipPrevText) &&
+        0 == memcmp(&ti.rect, &kbdTipPrevRect, sizeof(RECT)))
+    {
+        return;
+    }
+    strcpy(kbdTipPrevText, text);
+    kbdTipPrevRect = ti.rect;
+    SendMessageW(tip, TTM_NEWTOOLRECTW, 0, (LPARAM)&ti);
+    MultiByteToWideChar(CP_UTF8, 0, text, -1, wbuf, _countof(wbuf));
+    ti.lpszText = wbuf;
+    SendMessageW(tip, TTM_UPDATETIPTEXTW, 0, (LPARAM)&ti);
+}
+
+static void kbdKeyTipTrack(HWND hTheme, int px, int py)
+{
+    HWND tip = (HWND)GetPropA(hTheme, kbdCfgTipProp);
+    Theme* theme;
+    ThemePage* page;
+    int rx, ry, rw, rh, keyCode;
+    wchar_t wbuf[512];
+    char* text;
+    TOOLINFOW ti;
+
+    if (tip == NULL) return;
+    theme = windowGetThemeFromHwnd(hTheme);
+    page  = theme ? themeGetCurrentPage(theme) : NULL;
+    keyCode = page ? themePageHitTestKeyCode(page, px, py, &rx, &ry, &rw, &rh) : 0;
+    if (keyCode == kbdTipPrevKey) return;
+    kbdTipPrevKey = keyCode;
+
+    memset(&ti, 0, sizeof(ti));
+    ti.cbSize = sizeof(ti);
+    ti.hwnd   = hTheme;
+    ti.uId    = KBDTIP_HOVEREDKEY;
+
+    text = keyCode ? archKeyboardConflictTextForKey(keyCode) : "";
+    if (text[0] == 0) {
+        ti.lpszText = L"";
+        SendMessageW(tip, TTM_UPDATETIPTEXTW, 0, (LPARAM)&ti);
+        return;
+    }
+    ti.rect.left   = rx;
+    ti.rect.top    = ry;
+    ti.rect.right  = rx + rw;
+    ti.rect.bottom = ry + rh;
+    SendMessageW(tip, TTM_NEWTOOLRECTW, 0, (LPARAM)&ti);
+    MultiByteToWideChar(CP_UTF8, 0, text, -1, wbuf, _countof(wbuf));
+    ti.lpszText = wbuf;
+    SendMessageW(tip, TTM_UPDATETIPTEXTW, 0, (LPARAM)&ti);
+}
+
+/* Called on the theme's 100 ms tick, so move only on a real change. */
+static void kbdPlaceChild(HWND btn, int x, int y, int w, int h)
+{
+    RECT cur;
+    if (IsWindowVisible(btn)) {
+        GetWindowRect(btn, &cur);
+        MapWindowPoints(NULL, GetParent(btn), (POINT*)&cur, 2);
+        if (cur.left == x && cur.top == y &&
+            cur.right - cur.left == w && cur.bottom - cur.top == h) {
+            return;
+        }
+    }
+    SetWindowPos(btn, HWND_TOP, x, y, w, h, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+}
+
+static void kbdClearReposition(HWND btn)
+{
+    HWND parent = GetParent(btn);
+    Theme* theme;
+    ThemePage* page;
+    int rx, ry, rw, rh, side, x, y;
+    RECT client;
+    if (!parent) return;
+    theme = windowGetThemeFromHwnd(parent);
+    if (!theme) return;
+    page = themeGetCurrentPage(theme);
+    /* Ports set to mouse, paddle, gun or dongle have no mapped-key widget
+    ** to clear. */
+    if (!themePageGetItemRectByTrigger(page, THEME_TRIGGER_TEXT_MAPPEDKEY,
+                                       &rx, &ry, &rw, &rh)) {
+        ShowWindow(btn, SW_HIDE);
+        return;
+    }
+    if (archKeyboardSelectedBindingCount() == 0) {
+        ShowWindow(btn, SW_HIDE);
+        return;
+    }
+    side = rh > 12 ? rh : 12;
+    /* The underline BMP ends a few px inside the widget rect, so pull the
+    ** x back rather than let it overhang. */
+    x = rx + rw - side - 4;
+    y = ry;
+    GetClientRect(parent, &client);
+    if (x + side > client.right - 2) x = client.right - side - 2;
+    if (x < 0) x = 0;
+    if (y + side > client.bottom - 2) y = client.bottom - side - 2;
+    if (y < 0) y = 0;
+    kbdPlaceChild(btn, x, y, side, side);
+}
+
+/* 192,192,192 matches SEL-BOX.bmp so the chip blends into the box. */
+static void kbdClearDrawItem(DRAWITEMSTRUCT* dis)
+{
+    int side = min(dis->rcItem.right  - dis->rcItem.left,
+                   dis->rcItem.bottom - dis->rcItem.top);
+    int pressed = (dis->itemState & ODS_SELECTED) != 0;
+    COLORREF glyphCol = pressed ? RGB(60, 60, 60) : RGB(90, 90, 90);
+    win32PaintClearChip(dis->hDC, &dis->rcItem,
+                        8, 20, side >= 22 ? 3 : 2,
+                        1, RGB(192, 192, 192), glyphCol);
+}
+
+/* W entry points only: the A variant marks the window ANSI and mangles its label. */
+static LRESULT CALLBACK kbdCfgBtnProc(HWND btn, UINT iMsg, WPARAM wParam, LPARAM lParam)
+{
+    WNDPROC baseProc = (WNDPROC)GetWindowLongPtrW(btn, GWLP_USERDATA);
+    if (iMsg == WM_LBUTTONUP) {
+        POINT p = { (SHORT)LOWORD(lParam), (SHORT)HIWORD(lParam) };
+        RECT r;
+        GetClientRect(btn, &r);
+        if (PtInRect(&r, p)) {
+            HWND parent = GetParent(btn);
+            archKeyboardClearSelectedKey();
+            if (parent) {
+                InvalidateRect(parent, NULL, TRUE);
+                UpdateWindow(parent);
+            }
+        }
+    }
+    return baseProc ? CallWindowProcW(baseProc, btn, iMsg, wParam, lParam)
+                    : DefWindowProcW(btn, iMsg, wParam, lParam);
+}
+
+static LRESULT CALLBACK kbdThemeWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
+{
+    WNDPROC baseProc = (WNDPROC)GetPropA(hwnd, kbdCfgBaseProcProp);
+    if (iMsg == WM_DRAWITEM) {
+        DRAWITEMSTRUCT* dis = (DRAWITEMSTRUCT*)lParam;
+        if (dis && dis->CtlID == IDC_KBDCFG_CLEAR) {
+            kbdClearDrawItem(dis);
+            return TRUE;
+        }
+    }
+    if (iMsg == WM_MOUSEMOVE) {
+        kbdKeyTipTrack(hwnd, (SHORT)LOWORD(lParam), (SHORT)HIWORD(lParam));
+    }
+    {
+        LRESULT rv = baseProc ? CallWindowProcW(baseProc, hwnd, iMsg, wParam, lParam)
+                              : DefWindowProcW(hwnd, iMsg, wParam, lParam);
+        /* WM_UPDATE = explicit page change; TIMER catches in-page state
+        ** changes (e.g. joyport dropdown toggling widget visibility). */
+        if (iMsg == WM_UPDATE ||
+            (iMsg == WM_TIMER && wParam == TIMER_STATUSBAR_UPDATE)) {
+            HWND btn = GetDlgItem(hwnd, IDC_KBDCFG_CLEAR);
+            if (btn) kbdClearReposition(btn);
+            kbdConflictTipUpdate(hwnd);
+        }
+        if (iMsg == WM_NCDESTROY) {
+            RemovePropA(hwnd, kbdCfgBaseProcProp);
+            RemovePropA(hwnd, kbdCfgTipProp);
+        }
+        return rv;
+    }
+}
+
 void archShowKeyboardEditor()
 {
     static ThemeCollection* tc[TOOLTHEME_CACHE_SIZE] = { NULL };
@@ -5588,7 +5896,58 @@ void archShowKeyboardEditor()
         MessageBoxU(NULL, langErrorKeyboardThemeMissing(), langErrorTitle(), MB_ICONERROR | MB_OK);
     }
     else {
+        HWND hTheme;
         themeCollectionOpenWindow(tc[hs], hash);
+        /* A native BUTTON positioned from the theme rect: no theme.xml
+        ** change and no shipped BMP. */
+        hTheme = (HWND)themeCollectionGetWindowHandle(tc[hs], hash);
+        if (hTheme && !GetDlgItem(hTheme, IDC_KBDCFG_CLEAR)) {
+            HWND btn;
+            btn = CreateWindowExW(0, L"BUTTON", L"x",
+                WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | BS_OWNERDRAW,
+                0, 0, 16, 16,
+                hTheme, (HMENU)(INT_PTR)IDC_KBDCFG_CLEAR,
+                GetModuleHandle(NULL), NULL);
+            if (btn) {
+                WNDPROC base;
+                base = (WNDPROC)SetWindowLongPtrW(btn, GWLP_WNDPROC,
+                    (LONG_PTR)kbdCfgBtnProc);
+                SetWindowLongPtrW(btn, GWLP_USERDATA, (LONG_PTR)base);
+            }
+            if (!GetPropA(hTheme, kbdCfgBaseProcProp)) {
+                WNDPROC base = (WNDPROC)SetWindowLongPtrW(hTheme, GWLP_WNDPROC,
+                    (LONG_PTR)kbdThemeWndProc);
+                SetPropA(hTheme, kbdCfgBaseProcProp, (HANDLE)base);
+            }
+            if (!GetPropA(hTheme, kbdCfgTipProp)) {
+                HWND tip = CreateWindowExW(0, TOOLTIPS_CLASSW, NULL,
+                    WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP,
+                    CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+                    hTheme, NULL, GetModuleHandle(NULL), NULL);
+                if (tip) {
+                    TOOLINFOW ti = { 0 };
+                    ti.cbSize   = sizeof(ti);
+                    ti.uFlags   = TTF_SUBCLASS;
+                    ti.hwnd     = hTheme;
+                    ti.uId      = KBDTIP_MAPPEDKEY;
+                    ti.lpszText = L"";
+                    SendMessageW(tip, TTM_ADDTOOLW, 0, (LPARAM)&ti);
+                    ti.uId      = KBDTIP_HOVEREDKEY;
+                    SendMessageW(tip, TTM_ADDTOOLW, 0, (LPARAM)&ti);
+                    /* TTM_SETMAXTIPWIDTH is in physical pixels, so scale it
+                    ** or text wraps early at high DPI. */
+                    SendMessageW(tip, TTM_SETMAXTIPWIDTH, 0,
+                                 MulDiv(400, win32QueryWindowDpi(hTheme), 96));
+                    SetPropA(hTheme, kbdCfgTipProp, (HANDLE)tip);
+                }
+            }
+            btn = GetDlgItem(hTheme, IDC_KBDCFG_CLEAR);
+            if (btn) kbdClearReposition(btn);
+            /* The tooltip is new, so clear the last-seen state or the
+            ** first update is skipped. */
+            kbdTipForgetLast();
+            kbdConflictTipUpdate(hTheme);
+        }
     }
 }
 

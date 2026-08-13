@@ -686,6 +686,10 @@ void langInitKorean(LanguageStrings* ls)
     ls->shortcutConfigTitle     = "blueMSX+ - 단축키 매핑 편집기";
     ls->shortcutAssign          = "적용";
     ls->shortcutPressText       = "단축키 새로 설정:";
+    ls->shortcutHotkeyHint      = "(최대 3개 키)";
+    ls->keyboardMappedHint      = "(최대 3개 키)";
+    ls->shortcutTooltipAlsoBound = "다음에도 할당됨: ";
+    ls->keyboardKeyFormat       = "%s 키";
     ls->shortcutScheme          = "단축키 스타일:";
     ls->shortcutCartInsert1     = "카트리지 1 삽입";
     ls->shortcutCartRemove1     = "카트리지 1 제거";

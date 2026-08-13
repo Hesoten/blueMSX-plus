@@ -104,6 +104,8 @@ typedef struct {
 
 #define WINDOW_DATA_NO 1024
 
+#define WINDOW_DATA_ID_THEME 1
+
 WindowData windowData[WINDOW_DATA_NO];
 
 
@@ -186,6 +188,25 @@ typedef struct WindowInfo {
 
     HWND     hwndSliderTip;   /* lazily created on first slider hover */
 } WindowInfo;
+
+/* A button entry stores its notify id in place of a pointer. */
+static WindowInfo* windowInfoGet(HWND hwnd)
+{
+    int i;
+    for (i = 0; windowData[i].hwnd != NULL; i++) {
+        if (windowData[i].hwnd == hwnd) {
+            return windowData[i].id == WINDOW_DATA_ID_THEME
+                       ? (WindowInfo*)windowData[i].data : NULL;
+        }
+    }
+    return NULL;
+}
+
+Theme* windowGetThemeFromHwnd(HWND hwnd)
+{
+    WindowInfo* wi = windowInfoGet(hwnd);
+    return wi ? wi->theme : NULL;
+}
 
 /* AdjustWindowRectExForDpi-based frame metrics; SM_CXFIXEDFRAME under-
    counts on Win10/11 PerMonitor DPI for WS_DLGFRAME, clipping the
@@ -474,7 +495,7 @@ static void mouseSensSyncVisibility(HWND parent)
     int p1 = joystickPortGetType(1);
     /* Only show on the joystick page whose port has MOUSE selected; hide on
     ** the keyboard tab entirely. Page names come from the theme XML. */
-    WindowInfo* wi = (WindowInfo*)windowDataGet(parent);
+    WindowInfo* wi = windowInfoGet(parent);
     ThemePage* page = (wi && wi->theme) ? themeGetCurrentPage(wi->theme) : NULL;
     const char* pageName = page ? page->name : "";
     int hasMouse = 0;
@@ -569,8 +590,6 @@ static void mouseSensCreateOverlay(HWND parent)
 
 static LRESULT CALLBACK keyboardDlgProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
-    WindowInfo* wi = windowDataGet(hwnd);
-
     switch (iMsg) {
     case WM_CREATE:
         keyboardStartConfig();
@@ -688,7 +707,7 @@ static LRESULT CALLBACK keyboardDlgProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
 //////////////////////////////////////////////////////////////////////////
 static LRESULT CALLBACK windowProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
-    WindowInfo* wi = windowDataGet(hwnd);
+    WindowInfo* wi = windowInfoGet(hwnd);
     LRESULT rv = 0;
 
     switch (iMsg) {
@@ -698,7 +717,7 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
             CREATESTRUCT* cs = (CREATESTRUCT*)lParam;
 
             wi = (WindowInfo*)cs->lpCreateParams;
-            windowDataSet(hwnd, 1, wi);
+            windowDataSet(hwnd, WINDOW_DATA_ID_THEME, wi);
 
             wi->hwnd = hwnd;
             themePage = themeGetCurrentPage(wi->theme);
@@ -914,7 +933,7 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
         return 0;
     }
 
-    wi = windowDataGet(hwnd);
+    wi = windowInfoGet(hwnd);
     if (wi && wi->theme->themeHandler == TH_KBDCONFIG) {
         rv = keyboardDlgProc(hwnd, iMsg, wParam, lParam);
     }

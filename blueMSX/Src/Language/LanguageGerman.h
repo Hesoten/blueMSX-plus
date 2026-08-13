@@ -686,6 +686,10 @@ void langInitGerman(LanguageStrings* ls)
     ls->shortcutConfigTitle        = "blueMSX+ - Shortcut Mapping-Editor";
     ls->shortcutAssign             = "Zuweisen";
     ls->shortcutPressText          = "Drücke Shortcut-Taste(n):";
+    ls->shortcutHotkeyHint         = "(bis zu 3 Tasten)";
+    ls->keyboardMappedHint         = "(bis zu 3 Tasten)";
+    ls->shortcutTooltipAlsoBound   = "Auch zugewiesen an: ";
+    ls->keyboardKeyFormat          = "Taste %s";
     ls->shortcutScheme             = "Mapping Scheme:";
     ls->shortcutCartInsert1        = "Cartridge 1 einfügen";
     ls->shortcutCartRemove1        = "Cartridge 1 entfernen";

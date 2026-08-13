@@ -686,6 +686,10 @@ void langInitDutch(LanguageStrings* ls)
     ls->shortcutConfigTitle     = "blueMSX+ - Snelkoppelingconfiguratie";
     ls->shortcutAssign          = "Toewijzen";
     ls->shortcutPressText       = "Snelkoppelingstoets(en):";
+    ls->shortcutHotkeyHint      = "(max 3 toetsen)";
+    ls->keyboardMappedHint      = "(max 3 toetsen)";
+    ls->shortcutTooltipAlsoBound = "Ook toegewezen aan: ";
+    ls->keyboardKeyFormat       = "toets %s";
     ls->shortcutScheme          = "Schema:";
     ls->shortcutCartInsert1     = "Voer Cartridge in Slot 1";
     ls->shortcutCartRemove1     = "Werp Cartridge uit Slot 1";

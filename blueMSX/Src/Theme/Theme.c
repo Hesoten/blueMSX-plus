@@ -988,3 +988,75 @@ void themeCollectionOpenWindow(ThemeCollection* tc, unsigned long hash)
     ** windowed mode it stays unowned (independent floating window). */
     archWindowApplyOwnership(tc->theme[i]->reference);
 }
+
+void* themeCollectionGetWindowHandle(ThemeCollection* tc, unsigned long hash)
+{
+    int i;
+    if (!tc) return NULL;
+    for (i = 0; i < THEME_MAX_WINDOWS; i++) {
+        if (tc->theme[i] && themeGetNameHash(tc->theme[i]->name) == hash) {
+            return tc->theme[i]->reference;
+        }
+    }
+    return NULL;
+}
+
+/* An item without a visible trigger is always shown. */
+static int themeItemIsVisible(const ThemeItem* it)
+{
+    if ((it->visible & THEME_TRIGGER_MASK) == 0) return 1;
+    return actionTypeToInt(it->visible) > 0;
+}
+
+static void activeRectOut(const ActiveRect* r, int* x, int* y, int* w, int* h)
+{
+    if (x) *x = r->x;
+    if (y) *y = r->y;
+    if (w) *w = r->width;
+    if (h) *h = r->height;
+}
+
+int themePageGetItemRectByTrigger(ThemePage* page, int trigger,
+                                  int* x, int* y, int* w, int* h)
+{
+    ThemeItem* it;
+    int wantMasked = trigger & THEME_TRIGGER_MASK;
+    if (!page) return 0;
+    for (it = page->itemList; it != NULL; it = it->next) {
+        ActiveRect r;
+        if ((it->trigger & THEME_TRIGGER_MASK) != wantMasked || !it->object) {
+            continue;
+        }
+        if (!themeItemIsVisible(it)) continue;
+        activeItemGetRect(it->object, &r);
+        activeRectOut(&r, x, y, w, h);
+        return 1;
+    }
+    return 0;
+}
+
+int themePageHitTestKeyCode(ThemePage* page, int px, int py,
+                            int* x, int* y, int* w, int* h)
+{
+    ThemeItem* it;
+    if (!page) return 0;
+    for (it = page->itemList; it != NULL; it = it->next) {
+        int masked;
+        ActiveRect r;
+        if (!it->object) continue;
+        masked = it->trigger & THEME_TRIGGER_MASK;
+        if (masked < THEME_TRIGGER_FIRST_KEY_CONFIG ||
+            masked > THEME_TRIGGER_LAST_KEY_CONFIG)
+        {
+            continue;
+        }
+        if (!themeItemIsVisible(it)) continue;
+        activeItemGetRect(it->object, &r);
+        if (px < r.x || px >= r.x + r.width || py < r.y || py >= r.y + r.height) {
+            continue;
+        }
+        activeRectOut(&r, x, y, w, h);
+        return masked - THEME_TRIGGER_FIRST_KEY_CONFIG;
+    }
+    return 0;
+}

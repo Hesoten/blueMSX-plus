@@ -49,9 +49,10 @@
 #include "PacketFileSystem.h"
 
 
-#define WM_INITIALIZE (WM_USER + 1634)
-#define WM_SET_HOTKEY (WM_USER + 1635)
-#define WM_GET_HOTKEY (WM_USER + 1636)
+#define WM_INITIALIZE       (WM_USER + 1634)
+#define WM_SET_HOTKEYSET    (WM_USER + 1637)
+#define WM_GET_HOTKEYSET    (WM_USER + 1638)
+#define WM_CLEAR_HOTKEYSET  (WM_USER + 1639)
 
 static char virtualKeys[256][32] = {
     "",
@@ -319,7 +320,146 @@ static WNDPROC    baseHotkeyCtrlProc = NULL;
 static HWND       baseHwnd;
 static Shortcuts* shortcuts;
 static Shortcuts* shortcutsRef;
-static ShotcutHotkey* hotkeyList[128];
+/* Save As moves shortcutProfile ahead of the snapshot, so track it here. */
+static char shortcutsRefProfile[128];
+static ShotcutHotkeySet* hotkeyList[128];
+
+/* hotkeyList[] points into the dialog-scoped copy; 0 once it closes. */
+static int hotkeyListValid = 0;
+
+/* Owned by Win32.c; the conflict counter falls back to it when the dialog is shut. */
+static Shortcuts* liveShortcuts = NULL;
+
+/* Runtime only: on disk a joystick binding is stored by device name. */
+#define SHORTCUTS_MAX_JOY           8
+#define SHORTCUTS_JOY_DIK_BASE      256
+#define SHORTCUTS_JOY_MAX_CONTROL   32
+#define SHORTCUTS_JOY_SLOT(k)       (((k) >> 8) & 0xFF)
+#define SHORTCUTS_JOY_BUTTON(k)     ((k) & 0xFF)
+#define SHORTCUTS_JOY_ENCODE(s, b)  ((unsigned)(((s) + 1) << 8) | (unsigned)(b))
+
+/* A slot past the live range: the device the profile names is not attached. */
+#define SHORTCUTS_JOY_REMEMBERED    (SHORTCUTS_MAX_JOY + 1)
+#define SHORTCUTS_REMEMBERED_BASE   (SHORTCUTS_JOY_REMEMBERED << 8)
+/* LEN must stay under one[] in shortcutSaveHotkeySet. */
+#define SHORTCUTS_REMEMBERED_MAX    512
+#define SHORTCUTS_REMEMBERED_LEN    240
+
+static char rememberedNames[SHORTCUTS_REMEMBERED_MAX][SHORTCUTS_REMEMBERED_LEN];
+static int  rememberedCount = 0;
+
+/* Interning: equal names must give equal keys, the tests compare the key. */
+static unsigned shortcutRememberName(const char* name)
+{
+    int i;
+    for (i = 0; i < rememberedCount; i++) {
+        if (0 == strcmp(rememberedNames[i], name)) break;
+    }
+    if (i == rememberedCount) {
+        if (rememberedCount == SHORTCUTS_REMEMBERED_MAX) return 0;
+        if (strlen(name) >= SHORTCUTS_REMEMBERED_LEN) return 0;
+        strcpy(rememberedNames[i], name);
+        rememberedCount++;
+    }
+    return (unsigned)(SHORTCUTS_REMEMBERED_BASE + i);
+}
+
+static char* shortcutRememberedName(ShotcutHotkey h)
+{
+    int i;
+    if (h.type != HOTKEY_TYPE_JOYSTICK) return "";
+    i = (int)h.key - SHORTCUTS_REMEMBERED_BASE;
+    if (i < 0 || i >= rememberedCount) return "";
+    return rememberedNames[i];
+}
+
+/* Copied from <dinput.h>, which this unit does not include. */
+#define SHORTCUTS_DIK_NUMLOCK 0x45
+#define SHORTCUTS_DIK_PAUSE   0xC5
+
+static int hotkeyToDik(ShotcutHotkey h) {
+    UINT sc;
+    if (h.type == HOTKEY_TYPE_NONE) return 0;
+    if (h.type == HOTKEY_TYPE_JOYSTICK) {
+        int slot   = SHORTCUTS_JOY_SLOT(h.key);
+        int button = SHORTCUTS_JOY_BUTTON(h.key);
+        if (slot < 1 || slot > SHORTCUTS_MAX_JOY) return 0;
+        if (button < 1 || button > SHORTCUTS_JOY_MAX_CONTROL) return 0;
+        return SHORTCUTS_JOY_DIK_BASE + (slot - 1) * 32 + button - 1;
+    }
+    if (h.type != HOTKEY_TYPE_KEYBOARD) return 0;
+    /* MSX bindings have no modifiers, so a modified hotkey never collides. */
+    if (h.mods != 0) return 0;
+    /* MapVirtualKey collapses Pause's E1 prefix onto Numlock's 0x45, so
+    ** both are short-circuited. */
+    if (h.key == VK_PAUSE)   return SHORTCUTS_DIK_PAUSE;
+    if (h.key == VK_NUMLOCK) return SHORTCUTS_DIK_NUMLOCK;
+    /* MAPVK_VK_TO_VSC_EX flags extended keys via 0xE0 in the high byte;
+    ** DirectInput encodes the same as bit 7 of the DIK code
+    ** (DIK_HOME = 0xC7 = 0x80 | 0x47), so we OR it back in. */
+    sc = MapVirtualKey(h.key, MAPVK_VK_TO_VSC_EX);
+    if (sc == 0) return 0;
+    if ((sc & 0xFF00) == 0xE000) return 0x80 | (int)(sc & 0xFF);
+    return (int)(sc & 0xFF);
+}
+
+static int dikToHotkey(int dik, ShotcutHotkey* out) {
+    UINT sc, vk;
+    out->mods = 0;
+    out->key  = 0;
+    out->type = HOTKEY_TYPE_NONE;
+    if (dik <= 0) return 0;
+    if (dik >= SHORTCUTS_JOY_DIK_BASE) {
+        int offset = dik - SHORTCUTS_JOY_DIK_BASE;
+        int slot   = offset / 32;
+        int button = (offset % 32) + 1;
+        if (button < 1 || button > SHORTCUTS_JOY_MAX_CONTROL) return 0;
+        out->type = HOTKEY_TYPE_JOYSTICK;
+        out->key  = SHORTCUTS_JOY_ENCODE(slot, button);
+        return 1;
+    }
+    if (dik == SHORTCUTS_DIK_PAUSE) {
+        out->type = HOTKEY_TYPE_KEYBOARD;
+        out->key  = VK_PAUSE;
+        return 1;
+    }
+    if (dik == SHORTCUTS_DIK_NUMLOCK) {
+        out->type = HOTKEY_TYPE_KEYBOARD;
+        out->key  = VK_NUMLOCK;
+        return 1;
+    }
+    if (dik & 0x80) sc = 0xE000 | (UINT)(dik & 0x7F);
+    else            sc = (UINT)dik;
+    vk = MapVirtualKey(sc, MAPVK_VSC_TO_VK_EX);
+    if (vk == 0) return 0;
+    out->type = HOTKEY_TYPE_KEYBOARD;
+    out->key  = (unsigned)vk;
+    return 1;
+}
+
+static int shortcutSetMatchesDik(const ShotcutHotkeySet* set, ShotcutHotkey probe) {
+    return shortcutSetHasHotkey(set, probe);
+}
+
+int shortcutsCountActionsUsingDik(int dik) {
+    ShotcutHotkey probe;
+    int i, count = 0;
+    if (!dikToHotkey(dik, &probe)) return 0;
+    if (hotkeyListValid) {
+        for (i = 0; i < (int)(sizeof(hotkeyList) / sizeof(void*)); i++) {
+            if (!hotkeyList[i]) continue;
+            if (shortcutSetMatchesDik(hotkeyList[i], probe)) count++;
+        }
+    }
+    else if (liveShortcuts) {
+        const ShotcutHotkeySet* sets = (const ShotcutHotkeySet*)liveShortcuts;
+        int n = (int)(sizeof(Shortcuts) / sizeof(ShotcutHotkeySet));
+        for (i = 0; i < n; i++) {
+            if (shortcutSetMatchesDik(&sets[i], probe)) count++;
+        }
+    }
+    return count;
+}
 
 
 static DWORD hotkey2int(ShotcutHotkey hotkey) {
@@ -328,6 +468,40 @@ static DWORD hotkey2int(ShotcutHotkey hotkey) {
 
 static ShotcutHotkey int2hotkey(DWORD* hotkey) {
     return *(ShotcutHotkey*)hotkey;
+}
+
+static int hotkeyIsBound(ShotcutHotkey h) {
+    return h.type != HOTKEY_TYPE_NONE;
+}
+
+int shortcutSetHasHotkey(const ShotcutHotkeySet* set, ShotcutHotkey hotkey)
+{
+    int b;
+    if (!set || !hotkeyIsBound(hotkey)) return 0;
+    for (b = 0; b < SHORTCUT_MAX_BINDINGS; b++) {
+        if (hotkeyIsBound(set->slots[b]) &&
+            hotkey2int(set->slots[b]) == hotkey2int(hotkey)) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+char* shortcutsSetToString(const ShotcutHotkeySet* set)
+{
+    static char buf[192];
+    int b;
+    buf[0] = 0;
+    if (!set) return buf;
+    for (b = 0; b < SHORTCUT_MAX_BINDINGS; b++) {
+        char* one;
+        if (!hotkeyIsBound(set->slots[b])) continue;
+        one = shortcutsToString(set->slots[b]);
+        if (!one || one[0] == 0) continue;
+        if (buf[0]) strncat(buf, ", ", sizeof(buf) - strlen(buf) - 1);
+        strncat(buf, one, sizeof(buf) - strlen(buf) - 1);
+    }
+    return buf;
 }
 
 static char** getProfileList() 
@@ -556,92 +730,227 @@ static BOOL_DLG_RET CALLBACK saveAsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
     return FALSE;
 }
 
-static LRESULT CALLBACK hotkeyCtrlProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static void captureBufferCompact(ShotcutHotkeySet* buf)
 {
-    static DWORD hotkey;
+    int b, w;
+    for (w = 0, b = 0; b < SHORTCUT_MAX_BINDINGS; b++) {
+        if (buf->slots[b].type != HOTKEY_TYPE_NONE) {
+            buf->slots[w++] = buf->slots[b];
+        }
+    }
+    for (; w < SHORTCUT_MAX_BINDINGS; w++) {
+        buf->slots[w].type = HOTKEY_TYPE_NONE;
+        buf->slots[w].mods = 0;
+        buf->slots[w].key  = 0;
+    }
+}
+
+/* Re-pressing a key drops just that one, so a bad binding can be fixed
+** without re-entering the others. */
+static void captureBufferToggle(ShotcutHotkeySet* buf, ShotcutHotkey h)
+{
+    int b;
+    if (h.type == HOTKEY_TYPE_NONE) return;
+    for (b = 0; b < SHORTCUT_MAX_BINDINGS; b++) {
+        if (buf->slots[b].type != HOTKEY_TYPE_NONE &&
+            hotkey2int(buf->slots[b]) == hotkey2int(h)) {
+            buf->slots[b].type = HOTKEY_TYPE_NONE;
+            buf->slots[b].mods = 0;
+            buf->slots[b].key  = 0;
+            captureBufferCompact(buf);
+            return;
+        }
+    }
+    for (b = 0; b < SHORTCUT_MAX_BINDINGS; b++) {
+        if (buf->slots[b].type == HOTKEY_TYPE_NONE) {
+            buf->slots[b] = h;
+            return;
+        }
+    }
+}
+
+static int captureHotkeyConflicts(ShotcutHotkey probe, int selfIndex)
+{
+    int i;
+    int dik;
+    if (probe.type == HOTKEY_TYPE_NONE) return 0;
+    for (i = 0; i < (int)(sizeof(hotkeyList) / sizeof(void*)); i++) {
+        if (i == selfIndex) continue;
+        if (!hotkeyList[i]) continue;
+        if (shortcutSetHasHotkey(hotkeyList[i], probe)) return 1;
+    }
+    dik = hotkeyToDik(probe);
+    if (dik > 0 && bindingsCountTargetsForDik(dik) > 0) return 1;
+    return 0;
+}
+
+static int captureClearRect(HWND hwnd, RECT* out)
+{
+    RECT r;
+    int side;
+    GetClientRect(hwnd, &r);
+    side = r.bottom - r.top - 2;
+    if (side < 12) side = 12;
+    if (r.right - r.left < side + 4) return 0;
+    out->right  = r.right - 2;
+    out->left   = out->right - side;
+    out->top    = r.top + (r.bottom - r.top - side) / 2;
+    out->bottom = out->top + side;
+    return 1;
+}
+
+static LRESULT CALLBACK hotkeyCtrlProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
+{
+    static ShotcutHotkeySet captureBuffer;
+    static int captureSelfIndex = -1;
     static int modifiers;
     static int virtKey;
-    static int joyButtonState;
-    static int joyButton;
+    static DWORD joyPrevState[SHORTCUTS_MAX_JOY];
     static int keycount;
 
     switch (iMsg) {
     case WM_INITIALIZE:
-        modifiers = 0;
-        virtKey = 0;
-        keycount = 0;
-        joyButton = -1;
-        SetTimer(hwnd, 154, 100, NULL);
-        joystickUpdate();
-        joyButtonState = joystickGetButtonState();
+        {
+            int s;
+            memset(&captureBuffer, 0, sizeof(captureBuffer));
+            captureSelfIndex = -1;
+            modifiers = 0;
+            virtKey = 0;
+            keycount = 0;
+            SetTimer(hwnd, 154, 100, NULL);
+            joystickUpdate();
+            for (s = 0; s < SHORTCUTS_MAX_JOY; s++) {
+                joyPrevState[s] = joystickGetButtonStatePerJoy(s);
+            }
+        }
         return 0;
 
-    case WM_SET_HOTKEY:
+    case WM_SET_HOTKEYSET:
         {
-            ShotcutHotkey hotkey = int2hotkey((DWORD*)&wParam);
+            const ShotcutHotkeySet* src = (const ShotcutHotkeySet*)lParam;
+            if (src) captureBuffer = *src;
+            else memset(&captureBuffer, 0, sizeof(captureBuffer));
+            captureSelfIndex = (int)wParam;
             modifiers = 0;
-            virtKey   = 0;
-            joyButton = -1;
-            if (hotkey.type == HOTKEY_TYPE_KEYBOARD) {
-                modifiers = hotkey.mods;
-                virtKey   = hotkey.key & 0xff;
-            }
-            else if (hotkey.type == HOTKEY_TYPE_JOYSTICK) {
-                joyButton = hotkey.key & 0x1f;
-            }
+            virtKey = 0;
+            keycount = 0;
             InvalidateRect(hwnd, NULL, FALSE);
+            return 0;
         }
 
-    case WM_GET_HOTKEY:
-        {
-            ShotcutHotkey hotkey = { HOTKEY_TYPE_NONE, 0, 0 };
-            if (joyButton >= 0) {
-                hotkey.type = HOTKEY_TYPE_JOYSTICK;
-                hotkey.key  = joyButton + 1;
-            }
-            else if (virtKey != 0) {
-                hotkey.type = HOTKEY_TYPE_KEYBOARD;
-                hotkey.key  = virtKey;
-                hotkey.mods = modifiers;
-            }
-            return hotkey2int(hotkey);
+    case WM_KILLFOCUS:
+        /* A release after focus moves never reaches us, so keycount would
+        ** stay above zero and block every later capture. */
+        if (virtKey != 0) {
+            ShotcutHotkey h;
+            h.type = HOTKEY_TYPE_KEYBOARD; h.mods = modifiers; h.key = virtKey;
+            captureBufferToggle(&captureBuffer, h);
         }
+        keycount = 0;
+        modifiers = 0;
+        virtKey = 0;
+        InvalidateRect(hwnd, NULL, FALSE);
+        break;
+
+    case WM_GET_HOTKEYSET:
+        {
+            ShotcutHotkeySet* dst = (ShotcutHotkeySet*)lParam;
+            /* Assign can arrive before the key is released, so fold the
+            ** pending one into a copy. */
+            ShotcutHotkeySet snap = captureBuffer;
+            if (virtKey != 0) {
+                ShotcutHotkey h;
+                h.type = HOTKEY_TYPE_KEYBOARD; h.mods = modifiers; h.key = virtKey;
+                captureBufferToggle(&snap, h);
+            }
+            if (dst) *dst = snap;
+            return 0;
+        }
+
+    case WM_CLEAR_HOTKEYSET:
+        memset(&captureBuffer, 0, sizeof(captureBuffer));
+        modifiers = 0;
+        virtKey = 0;
+        InvalidateRect(hwnd, NULL, FALSE);
+        return 0;
 
     case WM_TIMER:
         if (wParam == 154) {
-            int i;
-            DWORD newState;
-            
+            int slot, bit;
+            int captured = 0;
+            /* Unfocused, idle sticks and triggers would fill the buffer
+            ** on their own. */
+            if (!IsWindowEnabled(hwnd) || GetFocus() != hwnd) {
+                for (slot = 0; slot < SHORTCUTS_MAX_JOY; slot++) {
+                    joyPrevState[slot] = joystickGetButtonStatePerJoy(slot);
+                }
+                return 0;
+            }
             joystickUpdate();
-
-            newState = joystickGetButtonState();
-            
             if (keycount == 0) {
-                for (i = 0; i < 32; i++) {
-                    if (newState & ~joyButtonState & (1 << i))  {
-                        if (joyButton != i) {
+                for (slot = 0; slot < SHORTCUTS_MAX_JOY && !captured; slot++) {
+                    DWORD newState = joystickGetButtonStatePerJoy(slot);
+                    DWORD rising   = newState & ~joyPrevState[slot];
+                    for (bit = 0; bit < 32 && rising; bit++, rising >>= 1) {
+                        if (rising & 1) {
+                            ShotcutHotkey h;
+                            h.type = HOTKEY_TYPE_JOYSTICK;
+                            h.mods = 0;
+                            h.key  = SHORTCUTS_JOY_ENCODE(slot, bit + 1);
                             modifiers = 0;
                             virtKey = 0;
-                            joyButton = i;
+                            captureBufferToggle(&captureBuffer, h);
                             InvalidateRect(hwnd, NULL, FALSE);
+                            captured = 1;
+                            break;
                         }
-
-                        break;
                     }
                 }
             }
-            joyButtonState = newState;
+            for (slot = 0; slot < SHORTCUTS_MAX_JOY; slot++) {
+                joyPrevState[slot] = joystickGetButtonStatePerJoy(slot);
+            }
             return 0;
         }
         break;
 
     case WM_GETDLGCODE:
         return DLGC_WANTCHARS | DLGC_WANTARROWS;
-        
+
+    case WM_SETCURSOR:
+        {
+            RECT xr;
+            POINT p;
+            if (IsWindowEnabled(hwnd) && captureClearRect(hwnd, &xr)) {
+                GetCursorPos(&p);
+                ScreenToClient(hwnd, &p);
+                if (PtInRect(&xr, p)) {
+                    SetCursor(LoadCursor(NULL, IDC_HAND));
+                    return TRUE;
+                }
+            }
+        }
+        break;
+
+    case WM_LBUTTONDOWN:
+        {
+            RECT xr;
+            POINT p = { (SHORT)LOWORD(lParam), (SHORT)HIWORD(lParam) };
+            if (IsWindowEnabled(hwnd) && captureClearRect(hwnd, &xr) && PtInRect(&xr, p)) {
+                memset(&captureBuffer, 0, sizeof(captureBuffer));
+                modifiers = 0;
+                virtKey = 0;
+                InvalidateRect(hwnd, NULL, FALSE);
+                return 0;
+            }
+        }
+        break;
+
     case WM_KEYDOWN:
     case WM_SYSKEYDOWN:
-        joyButton = -1;
-        keycount++;
+        /* Auto-repeat (lParam bit 30) would push keycount past what the
+        ** releases undo. */
+        if (!(lParam & (1 << 30))) keycount++;
         keyboardUpdate();
         modifiers = keyboardGetModifiers();
         virtKey = wParam & 0xff;
@@ -653,7 +962,12 @@ static LRESULT CALLBACK hotkeyCtrlProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPAR
 
     case WM_KEYUP:
     case WM_SYSKEYUP:
-        if (keycount > 0) keycount--;
+        /* Tabbing in delivers only the release: the dialog manager took the
+        ** press, so committing here would bind the navigation key. */
+        if (keycount == 0) {
+            return 0;
+        }
+        keycount--;
         if (virtKey == 0) {
             virtKey = wParam & 0xff;
             if (!virtualKeys[virtKey][0]) {
@@ -663,6 +977,13 @@ static LRESULT CALLBACK hotkeyCtrlProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPAR
         if (virtKey == 0) {
             keyboardUpdate();
             modifiers = keyboardGetModifiers();
+        }
+        if (keycount == 0 && virtKey != 0) {
+            ShotcutHotkey h;
+            h.type = HOTKEY_TYPE_KEYBOARD; h.mods = modifiers; h.key = virtKey;
+            captureBufferToggle(&captureBuffer, h);
+            modifiers = 0;
+            virtKey = 0;
         }
         InvalidateRect(hwnd, NULL, FALSE);
         return 0;
@@ -675,38 +996,98 @@ static LRESULT CALLBACK hotkeyCtrlProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPAR
         {
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hwnd, &ps);
-            char buf[64] = "";
-            RECT r;
+            RECT r, xr;
             HFONT hFont;
             BOOL dark = win32CommonIsDarkMode();
-            COLORREF prevText;
             int prevBkMode;
+            COLORREF prevText;
+            COLORREF normalFg = dark ? win32CommonDarkFg() : GetSysColor(COLOR_WINDOWTEXT);
+            COLORREF conflictFg = RGB(220, 60, 60);
+            COLORREF placeholderFg = dark ? RGB(140, 140, 140) : GetSysColor(COLOR_GRAYTEXT);
+            int x = 2;
+            int y = 1;
+            int b;
+            int painted = 0;
+            int hasPending = (virtKey != 0);
+            int textRightLimit;
+            int hasClear;
 
             GetClientRect(hwnd, &r);
+            hasClear = captureClearRect(hwnd, &xr);
+            textRightLimit = hasClear ? xr.left - 3 : r.right - 2;
 
-            if (modifiers & KBD_LCTRL)  strcat(buf, "LCtrl + ");
-            if (modifiers & KBD_RCTRL)  strcat(buf, "RCtrl + ");
-            if (modifiers & KBD_LSHIFT) strcat(buf, "LShift + ");
-            if (modifiers & KBD_RSHIFT) strcat(buf, "RShift + ");
-            if (modifiers & KBD_LALT)   strcat(buf, "LAlt + ");
-            if (modifiers & KBD_RALT)   strcat(buf, "RAlt + ");
-            if (modifiers & KBD_LWIN)   strcat(buf, "LWin + ");
-            if (modifiers & KBD_RWIN)   strcat(buf, "RWin + ");
-             
             /* msctls_hotkey32 misses WM_CTLCOLOR* so the dialog dark subclass
             ** cannot tint the background. Paint it directly to match. */
             FillRect(hdc, &r, dark ? win32CommonDarkBgBrush() : (HBRUSH)GetStockObject(WHITE_BRUSH));
 
-            strcat(buf, virtualKeys[virtKey]);
-
-            if (buf[0] == 0 && joyButton >= 0) {
-                sprintf(buf, "%s %d", "Joystick Button", joyButton + 1);
-            }
             hFont = SelectObject(hdc, (HFONT)SendMessage(baseHwnd, WM_GETFONT, 0, 0));
-            prevText   = SetTextColor(hdc, dark ? win32CommonDarkFg() : GetSysColor(COLOR_WINDOWTEXT));
             prevBkMode = SetBkMode(hdc, TRANSPARENT);
-            
-            TextOutU(hdc, 2, 1, buf, (int)strlen(buf));
+            prevText = SetTextColor(hdc, normalFg);
+
+            /* The clear chip has no background of its own, so clip overflow. */
+            SaveDC(hdc);
+            IntersectClipRect(hdc, r.left, r.top, textRightLimit, r.bottom);
+
+            for (b = 0; b < SHORTCUT_MAX_BINDINGS; b++) {
+                SIZE sz;
+                char* one;
+                COLORREF fg;
+                if (captureBuffer.slots[b].type == HOTKEY_TYPE_NONE) continue;
+                one = shortcutsToString(captureBuffer.slots[b]);
+                if (!one || !one[0]) continue;
+                if (painted) {
+                    const char* sep = ", ";
+                    SetTextColor(hdc, normalFg);
+                    TextOutU(hdc, x, y, (char*)sep, 2);
+                    GetTextExtentPoint32A(hdc, sep, 2, &sz);
+                    x += sz.cx;
+                }
+                fg = captureHotkeyConflicts(captureBuffer.slots[b], captureSelfIndex)
+                        ? conflictFg : normalFg;
+                SetTextColor(hdc, fg);
+                TextOutU(hdc, x, y, one, (int)strlen(one));
+                GetTextExtentPoint32A(hdc, one, (int)strlen(one), &sz);
+                x += sz.cx;
+                painted++;
+            }
+
+            if (hasPending) {
+                ShotcutHotkey pending;
+                char* buf;
+                pending.type = HOTKEY_TYPE_KEYBOARD;
+                pending.mods = modifiers;
+                pending.key  = virtKey;
+                buf = shortcutsToString(pending);
+                if (buf[0]) {
+                    SIZE sz;
+                    if (painted) {
+                        const char* sep = ", ";
+                        SetTextColor(hdc, normalFg);
+                        TextOutU(hdc, x, y, (char*)sep, 2);
+                        GetTextExtentPoint32A(hdc, sep, 2, &sz);
+                        x += sz.cx;
+                    }
+                    SetTextColor(hdc, placeholderFg);
+                    TextOutU(hdc, x, y, buf, (int)strlen(buf));
+                    painted++;
+                }
+            }
+
+            RestoreDC(hdc, -1);
+
+            if (!painted) {
+                char* hint = langShortcutHotkeyHint();
+                SetTextColor(hdc, placeholderFg);
+                if (hint) TextOutU(hdc, x, y, hint, (int)strlen(hint));
+            }
+
+            /* Zero fill colours: the chip stays hollow over the field. */
+            if (hasClear && IsWindowEnabled(hwnd) && (painted || hasPending)) {
+                int side = xr.right - xr.left;
+                COLORREF glyphCol = dark ? RGB(160, 160, 160) : RGB(130, 130, 130);
+                win32PaintClearChip(hdc, &xr, 36, 100, side >= 28 ? 2 : 1,
+                                    0, 0, glyphCol);
+            }
 
             SetBkMode(hdc, prevBkMode);
             SetTextColor(hdc, prevText);
@@ -720,27 +1101,137 @@ static LRESULT CALLBACK hotkeyCtrlProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPAR
     return CallWindowProc(baseHotkeyCtrlProc, hwnd, iMsg, wParam, lParam);
 }
 
-#define LOAD_SHORTCUT(iniFile, hotkey)                                          \
-do {                                                                            \
-    char buffer[32];                                                            \
-    DWORD value;                                                                \
-    iniFileGetString(iniFile, "Shortcuts", #hotkey, "0", buffer, 32);           \
-    if (0 == sscanf(buffer, "%X", &value)) value = 0;                           \
-    shortcuts->hotkey = int2hotkey(&value);                                     \
-} while(0)
+/* Entries are matched by prefix, so "recordVideoStart" would otherwise
+** read "recordVideoStartAs"'s value.  Attaching the '=' makes it exact;
+** the writer appends its own, so this form is for lookups only. */
+static void shortcutLookupKey(char* out, int outLen, const char* keyName)
+{
+    _snprintf(out, outLen - 1, "%s=", keyName);
+    out[outLen - 1] = 0;
+}
 
-#define SAVE_SHORTCUT(iniFile, hotkey)                                          \
-do {                                                                            \
-    char buffer[32];                                                            \
-    sprintf(buffer, "%.8X", hotkey2int(shortcuts->hotkey));                     \
-    iniFileWriteString(iniFile, "Shortcuts", #hotkey, buffer);                  \
-} while(0)
+/* Format: comma-separated 8-digit hex words, joystick ones followed by
+** @"<device> : <button>". */
+static void shortcutLoadHotkeySet(IniFile* iniFile, const char* keyName,
+                                  ShotcutHotkeySet* set)
+{
+    char buffer[512];
+    char lookup[128];
+    const char* p;
+    int b;
+    for (b = 0; b < SHORTCUT_MAX_BINDINGS; b++) {
+        set->slots[b].type = HOTKEY_TYPE_NONE;
+        set->slots[b].mods = 0;
+        set->slots[b].key  = 0;
+    }
+    shortcutLookupKey(lookup, sizeof(lookup), keyName);
+    iniFileGetString(iniFile, "Shortcuts", lookup, "0", buffer, sizeof(buffer));
+    p = buffer;
+    for (b = 0; b < SHORTCUT_MAX_BINDINGS && *p; ) {
+        char slot[256];
+        char* at;
+        DWORD value = 0;
+        ShotcutHotkey h;
+
+        p = inputNextToken(p, slot, sizeof(slot));
+        if (slot[0] == 0) {
+            if (*p == 0) break;
+            continue;
+        }
+        at = strchr(slot, '@');
+        if (at) *at = 0;
+        if (sscanf(slot, "%X", &value) != 1) continue;
+        h = int2hotkey(&value);
+
+        /* virtualKeys[] has 256 entries; a hand-edited file must not index
+        ** past it. */
+        if (h.type == HOTKEY_TYPE_KEYBOARD && h.key > 0xFF) continue;
+
+        if (h.type == HOTKEY_TYPE_JOYSTICK) {
+            int dik;
+            /* No device name: an old bare number meant whichever pad
+            ** enumerated first, so it is dropped rather than guessed at. */
+            if (at == NULL) continue;
+            dik = inputResolveDikName(at + 1);
+            if (dik > 0) {
+                if (!dikToHotkey(dik, &h)) continue;
+            }
+            else {
+                /* Device absent: keep the name so the entry survives a
+                ** save, with no DIK behind it so nothing can fire it. */
+                h.mods = 0;
+                h.key  = shortcutRememberName(at + 1);
+                if (h.key == 0) continue;
+            }
+            /* Two spellings can name one control once resolved. */
+            if (shortcutSetHasHotkey(set, h)) continue;
+        }
+        set->slots[b++] = h;
+    }
+}
+
+/* ref is this entry as last read from the same file; unchanged entries
+** are left alone. */
+static void shortcutSaveHotkeySet(IniFile* iniFile, const char* keyName,
+                                  const ShotcutHotkeySet* set,
+                                  const ShotcutHotkeySet* ref)
+{
+    char buffer[512];
+    int b;
+
+    if (ref != NULL && 0 == memcmp(set, ref, sizeof(*set))) {
+        /* Only an entry the file already has may be skipped: an absent one
+        ** has to keep being appended in this function's fixed order, or a
+        ** prefix of a later key would come to sit after it. */
+        char probe[512];
+        char lookup[128];
+        shortcutLookupKey(lookup, sizeof(lookup), keyName);
+        iniFileGetString(iniFile, "Shortcuts", lookup, "\x01",
+                         probe, sizeof(probe));
+        if (probe[0] != '\x01') {
+            return;
+        }
+    }
+
+    buffer[0] = 0;
+    for (b = 0; b < SHORTCUT_MAX_BINDINGS; b++) {
+        char one[256];
+        ShotcutHotkey h = set->slots[b];
+        if (h.type == HOTKEY_TYPE_NONE) continue;
+        if (h.type == HOTKEY_TYPE_JOYSTICK) {
+            /* Zero the key below: the quoted name, not the slot,
+            ** identifies device and button. */
+            int dik = hotkeyToDik(h);
+            const char* name = dik > 0 ? dik2str(dik)
+                                       : shortcutRememberedName(h);
+            if (name[0] == 0) continue;
+            h.key = 0;
+            sprintf(one, "%.8X@\"", hotkey2int(h));
+            strncat(one, name, sizeof(one) - strlen(one) - 2);
+            strcat(one, "\"");
+        }
+        else {
+            sprintf(one, "%.8X", hotkey2int(h));
+        }
+        if (buffer[0]) strncat(buffer, ",", sizeof(buffer) - strlen(buffer) - 1);
+        strncat(buffer, one, sizeof(buffer) - strlen(buffer) - 1);
+    }
+    if (buffer[0] == 0) sprintf(buffer, "%.8X", 0u);
+    iniFileWriteString(iniFile, "Shortcuts", keyName, buffer);
+}
+
+#define LOAD_SHORTCUT(iniFile, hotkey) shortcutLoadHotkeySet(iniFile, #hotkey, &shortcuts->hotkey)
+#define SAVE_SHORTCUT(iniFile, hotkey) \
+    shortcutSaveHotkeySet(iniFile, #hotkey, &shortcuts->hotkey, \
+                          saveRef ? &saveRef->hotkey : NULL)
 
 
 static Shortcuts* loadShortcuts(char* profileName)
 {
     char fileName[MAX_PATH];
-    Shortcuts* shortcuts = (Shortcuts*)malloc(sizeof(Shortcuts));
+    /* Zeroed, not malloc'd: a few sets have no LOAD_SHORTCUT line, and the
+    ** cross-domain conflict counter walks the struct as a flat array. */
+    Shortcuts* shortcuts = (Shortcuts*)calloc(1, sizeof(Shortcuts));
 	IniFile *shortcutFile;
 
     sprintf(fileName, "%s/%s.shortcuts", profileDir, profileName);
@@ -861,6 +1352,7 @@ static void saveShortcuts(char* profileName, Shortcuts* shortcuts)
     char fileName[MAX_PATH];
     IniFile *shortcutFile;
     int closeRc;
+    const Shortcuts* saveRef;
 
     /* mkdir is a no-op if it exists; first save would otherwise silently fail. */
     mkdirU(profileDir);
@@ -868,6 +1360,10 @@ static void saveShortcuts(char* profileName, Shortcuts* shortcuts)
     sprintf(fileName, "%s/%s.shortcuts", profileDir, profileName);
 
     shortcutFile = iniFileOpen(fileName);
+
+    saveRef = (shortcutsRef != NULL &&
+               0 == strcmp(profileName, shortcutsRefProfile) &&
+               iniFileHasSection(shortcutFile, "Shortcuts")) ? shortcutsRef : NULL;
 
     SAVE_SHORTCUT(shortcutFile, msxAudioSwitch);
     SAVE_SHORTCUT(shortcutFile, spritesEnable);
@@ -979,14 +1475,21 @@ static void saveShortcuts(char* profileName, Shortcuts* shortcuts)
         sprintf(msg, "Failed to write shortcut profile:\n%s", fileName);
         MessageBoxU(NULL, msg, "blueMSX+", MB_OK | MB_ICONERROR);
     }
+    else if (shortcutsRef != NULL) {
+        /* Only after the write landed: advancing on failure would make the
+        ** retry find nothing to write and report success. */
+        memcpy(shortcutsRef, shortcuts, sizeof(Shortcuts));
+        _snprintf(shortcutsRefProfile, sizeof(shortcutsRefProfile) - 1, "%s", profileName);
+        shortcutsRefProfile[sizeof(shortcutsRefProfile) - 1] = 0;
+    }
 }
 
-static void addShortcutEntry(HWND hwnd, int entry, char* description, ShotcutHotkey hotkey) {
+static void addShortcutEntry(HWND hwnd, int entry, char* description, const ShotcutHotkeySet* set) {
     /* Listview is in Unicode mode (LVM_SETUNICODEFORMAT). Source strings are
        UTF-8 (/utf-8 build flag). */
     wchar_t wbuf[512];
     LVITEMW lviw = {0};
-    
+
     lviw.mask    = LVIF_TEXT;
     lviw.iItem   = entry;
     lviw.pszText = wbuf;
@@ -995,30 +1498,26 @@ static void addShortcutEntry(HWND hwnd, int entry, char* description, ShotcutHot
     SendMessageW(hwnd, LVM_INSERTITEMW, 0, (LPARAM)&lviw);
 
     lviw.iSubItem++;
-    Utf8ToWide(shortcutsToString(hotkey), wbuf, _countof(wbuf));
+    Utf8ToWide(shortcutsSetToString(set), wbuf, _countof(wbuf));
     SendMessageW(hwnd, LVM_SETITEMW, 0, (LPARAM)&lviw);
 }
 
+/* One list: the dialog listview and the conflict describers both walk it. */
+typedef void (*ShortcutActionVisitor)(void* ref, const char* name,
+                                      ShotcutHotkeySet* set);
+
 #define ADD_SHORTCUT(hotkey, destcription)                                      \
 do {                                                                            \
-    hotkeyList[entry] = &shortcuts->hotkey;                                     \
-    addShortcutEntry(hwnd, entry++, destcription, shortcuts->hotkey);           \
+    visit(ref, destcription, &s->hotkey);                                       \
 } while(0)
 
 #define ADD_SHORTCUTSEPARATOR()                                                 \
 do {                                                                            \
-    ShotcutHotkey hotkey = {0,0,0};                                             \
-    hotkeyList[entry] = NULL;                                                   \
-    addShortcutEntry(hwnd, entry++, "", hotkey);                                \
+    visit(ref, "", NULL);                                                       \
 } while(0)
 
-static void updateShortcutEntries(HWND hDlg) 
+static void shortcutsForEachAction(Shortcuts* s, ShortcutActionVisitor visit, void* ref)
 {
-    HWND hwnd = GetDlgItem(hDlg, IDC_SCUTLIST);
-    int entry = 0;
-
-    ListView_DeleteAllItems(hwnd);
-
     ADD_SHORTCUT(cartInsert[0], langShortcutCartInsert1());
     ADD_SHORTCUT(cartRemove[0], langShortcutCartRemove1());
     ADD_SHORTCUT(cartSpecialMenu[0], langShortcutCartSpecialMenu1());
@@ -1181,39 +1680,117 @@ static void updateShortcutEntries(HWND hDlg)
     ADD_SHORTCUT(msxKeyboardQuirk,     langShortcutEnableMsxKeyboardQuirk());
 }
 
+struct ShortcutEntryAddCtx { HWND hwnd; int entry; };
 
-
-static void updateShortcutEntry(HWND hwnd, int entry, ShotcutHotkey hotkey) {
-    char buffer[512] = {0};
-    LV_ITEM lvi = {0};
-    
-    lvi.mask       = LVIF_TEXT;
-    lvi.iItem      = entry;
-    lvi.pszText    = buffer;
-	lvi.cchTextMax = 512;
-    lvi.iSubItem++;
-
-    strcpy(buffer, shortcutsToString(hotkey));
-    ListView_SetItem(hwnd, &lvi);
+/* Row index and hotkeyList[] index are the same, so one bound covers both. */
+static void shortcutEntryAddVisitor(void* ref, const char* name, ShotcutHotkeySet* set)
+{
+    struct ShortcutEntryAddCtx* ctx = (struct ShortcutEntryAddCtx*)ref;
+    if (ctx->entry >= (int)(sizeof(hotkeyList) / sizeof(hotkeyList[0]))) return;
+    hotkeyList[ctx->entry] = set;
+    addShortcutEntry(ctx->hwnd, ctx->entry++, (char*)name, set);
 }
 
-static void updateHotkeys(HWND hDlg, int index, ShotcutHotkey newHotkey)
+static void updateShortcutEntries(HWND hDlg)
+{
+    struct ShortcutEntryAddCtx ctx;
+    ctx.hwnd  = GetDlgItem(hDlg, IDC_SCUTLIST);
+    ctx.entry = 0;
+
+    ListView_DeleteAllItems(ctx.hwnd);
+    memset(hotkeyList, 0, sizeof(hotkeyList));
+    shortcutsForEachAction(shortcuts, shortcutEntryAddVisitor, &ctx);
+
+    hotkeyListValid = 1;
+}
+
+struct ShortcutNameByIndexCtx { int want; int index; char* out; int outLen; int found; };
+
+static void shortcutNameByIndexVisitor(void* ref, const char* name, ShotcutHotkeySet* set)
+{
+    struct ShortcutNameByIndexCtx* ctx = (struct ShortcutNameByIndexCtx*)ref;
+    if (ctx->index++ != ctx->want) return;
+    strncpy(ctx->out, name, ctx->outLen - 1);
+    ctx->out[ctx->outLen - 1] = 0;
+    ctx->found = name[0] != 0;
+}
+
+static int shortcutsGetActionName(int index, char* out, int outLen)
+{
+    struct ShortcutNameByIndexCtx ctx;
+    if (outLen <= 0) return 0;
+    out[0] = 0;
+    if (shortcuts == NULL) return 0;
+    ctx.want   = index;
+    ctx.index  = 0;
+    ctx.out    = out;
+    ctx.outLen = outLen;
+    ctx.found  = 0;
+    shortcutsForEachAction(shortcuts, shortcutNameByIndexVisitor, &ctx);
+    return ctx.found;
+}
+
+struct ShortcutDikNamesCtx { ShotcutHotkey probe; char* out; int outLen; int count; };
+
+static void shortcutDikNamesVisitor(void* ref, const char* name, ShotcutHotkeySet* set)
+{
+    struct ShortcutDikNamesCtx* ctx = (struct ShortcutDikNamesCtx*)ref;
+    if (set == NULL || name[0] == 0) return;
+    if (!shortcutSetMatchesDik(set, ctx->probe)) return;
+    if (ctx->out[0]) strncat(ctx->out, ", ", ctx->outLen - strlen(ctx->out) - 1);
+    strncat(ctx->out, name, ctx->outLen - strlen(ctx->out) - 1);
+    ctx->count++;
+}
+
+int shortcutsDescribeActionsUsingDik(int dik, char* out, int outLen)
+{
+    struct ShortcutDikNamesCtx ctx;
+    Shortcuts* src = hotkeyListValid ? shortcuts : liveShortcuts;
+
+    if (outLen <= 0) return 0;
+    out[0] = 0;
+    if (src == NULL || !dikToHotkey(dik, &ctx.probe)) return 0;
+    ctx.out    = out;
+    ctx.outLen = outLen;
+    ctx.count  = 0;
+    shortcutsForEachAction(src, shortcutDikNamesVisitor, &ctx);
+    return ctx.count;
+}
+
+
+
+static void updateShortcutEntry(HWND hwnd, int entry, const ShotcutHotkeySet* set) {
+    wchar_t wbuf[512];
+    LVITEMW lviw = {0};
+
+    lviw.mask       = LVIF_TEXT;
+    lviw.iItem      = entry;
+    lviw.pszText    = wbuf;
+    lviw.cchTextMax = _countof(wbuf);
+    lviw.iSubItem   = 1;
+
+    Utf8ToWide(shortcutsSetToString(set), wbuf, _countof(wbuf));
+    SendMessageW(hwnd, LVM_SETITEMW, 0, (LPARAM)&lviw);
+}
+
+/* Overlap with other actions is deliberate: conflicts are highlighted,
+** not unbound. */
+static void updateHotkeys(HWND hDlg, int index, const ShotcutHotkeySet* newSet)
 {
     HWND hwnd = GetDlgItem(hDlg, IDC_SCUTLIST);
-    int i;
+    int b;
 
-    for (i = 0; i < sizeof(hotkeyList) / sizeof(void*); i++) {
-        if (hotkeyList[i] && hotkey2int(*hotkeyList[i]) == hotkey2int(newHotkey)) {
-            hotkeyList[i]->type=hotkeyList[i]->mods=hotkeyList[i]->key=0;
-            updateShortcutEntry(hwnd, i, *hotkeyList[i]); 
+    if (index < 0 || hotkeyList[index] == NULL) return;
+
+    if (newSet) {
+        for (b = 0; b < SHORTCUT_MAX_BINDINGS; b++) {
+            hotkeyList[index]->slots[b] = newSet->slots[b];
         }
     }
-
-    if (hotkeyList[index] != NULL) {
-        *hotkeyList[index] = newHotkey;
-        updateShortcutEntry(hwnd, index, *hotkeyList[index]);
+    else {
+        memset(hotkeyList[index]->slots, 0, sizeof(hotkeyList[index]->slots));
     }
-    return;
+    updateShortcutEntry(hwnd, index, hotkeyList[index]);
 }
 
 /* Reads the editable combobox text as the save target.  Returns 1 when
@@ -1295,7 +1872,7 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
             currIndex = -1;
             hwnd = GetDlgItem(hDlg, IDC_SCUTLIST);
 
-            ListView_SetExtendedListViewStyle(hwnd, LVS_EX_FULLROWSELECT);
+            ListView_SetExtendedListViewStyle(hwnd, LVS_EX_FULLROWSELECT | LVS_EX_INFOTIP | LVS_EX_LABELTIP);
             
             /* Source strings are UTF-8 (/utf-8 build flag); use Unicode-mode
                ListView + explicit UTF-8 -> UTF-16 conversion. */
@@ -1307,7 +1884,6 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
                 lvcw.fmt     = LVCFMT_LEFT;
                 lvcw.pszText = wbuf;
 
-                /* Split listview width 2:1 (Key : Description). */
                 int totalW;
                 {
                     RECT lr;
@@ -1315,7 +1891,7 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
                     totalW = lr.right - lr.left - GetSystemMetrics(SM_CXVSCROLL);
                     if (totalW < 200) totalW = 200;
                 }
-                int col0W = (totalW * 2) / 3;
+                int col0W = totalW / 2;
                 int col1W = totalW - col0W;
 
                 sprintf(buffer, langShortcutKey());
@@ -1348,6 +1924,9 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
 
     case WM_DESTROY:
         keyboardSetFocus(4, 0);
+        /* Callbacks stay registered; they fall back to liveShortcuts. */
+        hotkeyListValid = 0;
+        memset(hotkeyList, 0, sizeof(hotkeyList));
         break;
 
     case WM_COMMAND:
@@ -1379,6 +1958,9 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
                                 free(shortcuts);
                                 shortcuts = loadShortcuts(shortcutProfile);
                                 memcpy(shortcutsRef, shortcuts, sizeof(Shortcuts));
+                                _snprintf(shortcutsRefProfile, sizeof(shortcutsRefProfile) - 1,
+                                          "%s", shortcutProfile);
+                                shortcutsRefProfile[sizeof(shortcutsRefProfile) - 1] = 0;
                                 updateShortcutEntries(hDlg);
                                 EnableWindow(GetDlgItem(hDlg, IDC_SCUTHOTKEY), FALSE);
                                 EnableWindow(GetDlgItem(hDlg, IDC_SCUTASSIGN), FALSE);
@@ -1423,7 +2005,6 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
                     if (file != NULL) fclose(file);
                     rv = (int)DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, saveProc);
                     if (rv) {
-                        memcpy(shortcutsRef, shortcuts, sizeof(Shortcuts));
                         saveShortcuts(shortcutProfile, shortcuts);
                         updateShortcutsList(hDlg);
                         updateShortcutEntries(hDlg);
@@ -1437,7 +2018,6 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
                     rv = (int)DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, saveProc);
                     if (rv) {
                         saveShortcuts(shortcutProfile, shortcuts);
-                        memcpy(shortcutsRef, shortcuts, sizeof(Shortcuts));
                     }
                 }
 
@@ -1461,7 +2041,6 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
 
                     if (rv) {
                         strcpy(shortcutProfile, tmpShortcutProfile);
-                        memcpy(shortcutsRef, shortcuts, sizeof(Shortcuts));
                         saveShortcuts(shortcutProfile, shortcuts);
                         updateShortcutsList(hDlg);
                         updateShortcutEntries(hDlg);
@@ -1473,10 +2052,16 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
 
         case IDC_SCUTASSIGN:
             if (currIndex >= 0) {
-                DWORD key=(DWORD)SendDlgItemMessage(hDlg, IDC_SCUTHOTKEY, WM_GET_HOTKEY, 0, 0);
-                ShotcutHotkey hotkey = int2hotkey(&key);
-                updateHotkeys(hDlg, currIndex, hotkey);
+                ShotcutHotkeySet set;
+                memset(&set, 0, sizeof(set));
+                SendDlgItemMessage(hDlg, IDC_SCUTHOTKEY, WM_GET_HOTKEYSET, 0, (LPARAM)&set);
+                updateHotkeys(hDlg, currIndex, &set);
+                SendDlgItemMessage(hDlg, IDC_SCUTHOTKEY, WM_SET_HOTKEYSET,
+                    (WPARAM)currIndex, (LPARAM)hotkeyList[currIndex]);
                 ListView_SetItemState(hwnd, currIndex, LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
+                /* Any row's conflict colour can change, so repaint the
+                ** whole list. */
+                InvalidateRect(hwnd, NULL, TRUE);
             }
             EnableWindow(GetDlgItem(hDlg, IDC_SAVE), shortcutsSaveEnabled(hDlg));
             return TRUE;
@@ -1502,21 +2087,105 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
                 if (ListView_GetSelectedCount(hwnd)) {
                     int index = ListView_GetNextItem(hwnd, -1, LVNI_SELECTED);
 
-                    if (currIndex == -1 && index != -1) {
+                    if (currIndex != index && index != -1) {
                         EnableWindow(GetDlgItem(hDlg, IDC_SCUTHOTKEY), TRUE);
                         EnableWindow(GetDlgItem(hDlg, IDC_SCUTASSIGN), TRUE);
-                        SendDlgItemMessage(hDlg, IDC_SCUTHOTKEY, WM_SET_HOTKEY, hotkeyList[index] ? hotkey2int(*hotkeyList[index]) : 0, 0);
+                        SendDlgItemMessage(hDlg, IDC_SCUTHOTKEY, WM_SET_HOTKEYSET,
+                            (WPARAM)index, (LPARAM)hotkeyList[index]);
                     }
                     currIndex = index;
                 }
                 else {
                     if (currIndex != -1) {
-                        SendDlgItemMessage(hDlg, IDC_SCUTHOTKEY, WM_SET_HOTKEY, 0, 0);
+                        SendDlgItemMessage(hDlg, IDC_SCUTHOTKEY, WM_CLEAR_HOTKEYSET, 0, 0);
                         EnableWindow(GetDlgItem(hDlg, IDC_SCUTHOTKEY), FALSE);
                         EnableWindow(GetDlgItem(hDlg, IDC_SCUTASSIGN), FALSE);
                     }
                     currIndex = -1;
                 }
+            }
+            else if (((NMHDR FAR *)lParam)->code == LVN_GETINFOTIPW) {
+                NMLVGETINFOTIPW* tip = (NMLVGETINFOTIPW*)lParam;
+                int idx = tip->iItem;
+                if (idx >= 0 && idx < (int)(sizeof(hotkeyList)/sizeof(void*))
+                    && hotkeyList[idx] && tip->pszText && tip->cchTextMax > 32) {
+                    /* Same "<binding> > <targets>" layout as the Controller
+                    ** and Keyboard tips. */
+                    char body[512];
+                    wchar_t out[600];
+                    int b, i;
+                    body[0] = 0;
+                    for (b = 0; b < SHORTCUT_MAX_BINDINGS; b++) {
+                        ShotcutHotkey h = hotkeyList[idx]->slots[b];
+                        char targets[320];
+                        int dik;
+                        if (h.type == HOTKEY_TYPE_NONE) continue;
+                        targets[0] = 0;
+                        for (i = 0; i < (int)(sizeof(hotkeyList)/sizeof(void*)); i++) {
+                            char rowText[128];
+                            if (i == idx || !hotkeyList[i]) continue;
+                            if (!shortcutSetMatchesDik(hotkeyList[i], h)) continue;
+                            if (!shortcutsGetActionName(i, rowText, sizeof(rowText))) continue;
+                            if (targets[0]) strncat(targets, ", ", sizeof(targets) - strlen(targets) - 1);
+                            strncat(targets, rowText, sizeof(targets) - strlen(targets) - 1);
+                        }
+                        dik = hotkeyToDik(h);
+                        if (dik > 0) {
+                            char one[192];
+                            if (bindingsDescribeTargetsForDik(dik, -1, -1, one, sizeof(one)) > 0) {
+                                if (targets[0]) strncat(targets, ", ", sizeof(targets) - strlen(targets) - 1);
+                                strncat(targets, one, sizeof(targets) - strlen(targets) - 1);
+                            }
+                        }
+                        if (targets[0] == 0) continue;
+                        if (shortcutsToString(h)[0] == 0) continue;
+                        if (body[0] == 0) {
+                            strncat(body, langShortcutTooltipAlsoBound(), sizeof(body) - strlen(body) - 1);
+                        }
+                        strncat(body, "\n", sizeof(body) - strlen(body) - 1);
+                        strncat(body, shortcutsToString(h), sizeof(body) - strlen(body) - 1);
+                        strncat(body, " > ", sizeof(body) - strlen(body) - 1);
+                        strncat(body, targets, sizeof(body) - strlen(body) - 1);
+                    }
+                    if (body[0]) {
+                        MultiByteToWideChar(CP_UTF8, 0, body, -1, out, _countof(out));
+                        wcsncpy(tip->pszText, out, tip->cchTextMax - 1);
+                        tip->pszText[tip->cchTextMax - 1] = 0;
+                    }
+                }
+                return 0;
+            }
+            else if (((NMHDR FAR *)lParam)->code == NM_CUSTOMDRAW) {
+                NMLVCUSTOMDRAW* cd = (NMLVCUSTOMDRAW*)lParam;
+                LRESULT rv = CDRF_DODEFAULT;
+                switch (cd->nmcd.dwDrawStage) {
+                case CDDS_PREPAINT:
+                    rv = CDRF_NOTIFYITEMDRAW;
+                    break;
+                case CDDS_ITEMPREPAINT:
+                    rv = CDRF_NOTIFYSUBITEMDRAW;
+                    break;
+                case CDDS_ITEMPREPAINT | CDDS_SUBITEM:
+                    if (cd->iSubItem == 1) {
+                        int idx = (int)cd->nmcd.dwItemSpec;
+                        int conflict = 0;
+                        if (idx >= 0 && idx < (int)(sizeof(hotkeyList)/sizeof(void*)) && hotkeyList[idx]) {
+                            int b;
+                            for (b = 0; b < SHORTCUT_MAX_BINDINGS && !conflict; b++) {
+                                ShotcutHotkey h = hotkeyList[idx]->slots[b];
+                                if (h.type == HOTKEY_TYPE_NONE) continue;
+                                if (captureHotkeyConflicts(h, idx)) conflict = 1;
+                            }
+                        }
+                        cd->clrText = conflict ? RGB(220, 60, 60)
+                                               : (win32CommonIsDarkMode() ? win32CommonDarkFg()
+                                                                          : GetSysColor(COLOR_WINDOWTEXT));
+                        rv = CDRF_NEWFONT;
+                    }
+                    break;
+                }
+                SetWindowLongPtr(hDlg, DWLP_MSGRESULT, rv);
+                return TRUE;
             }
         }
         break;
@@ -1554,10 +2223,20 @@ char* shortcutsToString(ShotcutHotkey hotkey)
         if (hotkey.mods & KBD_RALT)     { strcat(buf, *buf ? "+" : ""); strcat(buf, "RAlt"); }
         if (hotkey.mods & KBD_LWIN)     { strcat(buf, *buf ? "+" : ""); strcat(buf, "LWin"); }
         if (hotkey.mods & KBD_RWIN)     { strcat(buf, *buf ? "+" : ""); strcat(buf, "RWin"); }
-        if (virtualKeys[hotkey.key][0]) { strcat(buf, *buf ? "+" : ""); strcat(buf, virtualKeys[hotkey.key]); }
+        if (hotkey.key < 256 && virtualKeys[hotkey.key][0]) { strcat(buf, *buf ? "+" : ""); strcat(buf, virtualKeys[hotkey.key]); }
         break;
     case HOTKEY_TYPE_JOYSTICK:
-        sprintf(buf, "%s %d", "JoyBt", hotkey.key);
+        {
+            int dik = hotkeyToDik(hotkey);
+            /* Same spelling as the Controller editor, e.g. "XInput1: A". */
+            const char* name =
+                dik > 0 ? dik2strDisplay(dik)
+                        : dikNameToDisplay(shortcutRememberedName(hotkey));
+            if (name[0]) {
+                strncpy(buf, name, sizeof(buf) - 1);
+                buf[sizeof(buf) - 1] = 0;
+            }
+        }
         break;
     }
 
@@ -1584,6 +2263,8 @@ int shortcutsShowDialog(HWND hwnd, Properties* pProperties) {
     shortcuts = loadShortcuts(shortcutProfile);
     shortcutsRef = calloc(1, sizeof(Shortcuts));
     memcpy(shortcutsRef, shortcuts, sizeof(Shortcuts));
+    _snprintf(shortcutsRefProfile, sizeof(shortcutsRefProfile) - 1, "%s", shortcutProfile);
+    shortcutsRefProfile[sizeof(shortcutsRefProfile) - 1] = 0;
 
 //    inputDestroy();
     rv = (int)DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SHORTCUTSCONFIG), hwnd, shortcutsProc);
@@ -1595,6 +2276,9 @@ int shortcutsShowDialog(HWND hwnd, Properties* pProperties) {
 
     free(shortcuts);
     free(shortcutsRef);
+    /* saveShortcuts tests this pointer, so it must not stay dangling. */
+    shortcutsRef = NULL;
+    shortcutsRefProfile[0] = 0;
 
     SetFocus(hwnd);
 //    inputReset(hwnd);
@@ -1638,12 +2322,49 @@ int shortcutsGetAnyProfile(char* profileName)
     return 0;
 }
 
+/* Only liveShortcuts is adopted: the dialog re-reads the file on open, and
+** shifting its copy would read as an unsaved edit. */
+static void shortcutsAdoptArrivedDevices(void)
+{
+    ShotcutHotkeySet* sets;
+    int n, i, b;
+
+    if (liveShortcuts == NULL) return;
+    sets = (ShotcutHotkeySet*)liveShortcuts;
+    n    = (int)(sizeof(Shortcuts) / sizeof(ShotcutHotkeySet));
+
+    for (i = 0; i < n; i++) {
+        for (b = 0; b < SHORTCUT_MAX_BINDINGS; b++) {
+            ShotcutHotkey h = sets[i].slots[b];
+            int dik;
+            if (h.type != HOTKEY_TYPE_JOYSTICK) continue;
+            if (shortcutRememberedName(h)[0] == 0) continue;
+            dik = inputResolveDikName(shortcutRememberedName(h));
+            if (dik <= 0 || !dikToHotkey(dik, &h)) continue;
+            /* Two names can meet on one control; the later one gives way. */
+            if (shortcutSetHasHotkey(&sets[i], h)) {
+                h.type = HOTKEY_TYPE_NONE;
+                h.mods = 0;
+                h.key  = 0;
+            }
+            sets[i].slots[b] = h;
+        }
+    }
+}
+
 Shortcuts* shortcutsCreateProfile(char* profileName)
 {
-    return loadShortcuts(profileName);
+    liveShortcuts = loadShortcuts(profileName);
+    inputSetShortcutDikCounter(shortcutsCountActionsUsingDik);
+    inputSetShortcutDikDescriber(shortcutsDescribeActionsUsingDik);
+    inputSetShortcutDeviceArrival(shortcutsAdoptArrivedDevices);
+    return liveShortcuts;
 }
 
 void shortcutsDestroyProfile(Shortcuts* shortcuts)
 {
+    if (shortcuts == liveShortcuts) {
+        liveShortcuts = NULL;
+    }
     free(shortcuts);
 }
