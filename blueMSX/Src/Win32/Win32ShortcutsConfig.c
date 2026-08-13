@@ -594,9 +594,9 @@ static BOOL_DLG_RET CALLBACK saveProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARA
     return FALSE;
 }
 
-static BOOL_DLG_RET CALLBACK closeProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
+static BOOL_DLG_RET CALLBACK discardChangesProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
-    switch (iMsg) {        
+    switch (iMsg) {
     case WM_INITDIALOG:
         SetWindowTextU(hDlg, langShortcutExitConfig());
         SetWindowTextU(GetDlgItem(hDlg, IDOK), langDlgOK());
@@ -1357,7 +1357,8 @@ static Shortcuts* loadShortcuts(char* profileName)
     return shortcuts;
 }
 
-static void saveShortcuts(char* profileName, Shortcuts* shortcuts)
+/* 0 when the write failed; callers must not close over the error box. */
+static int saveShortcuts(char* profileName, Shortcuts* shortcuts)
 {
     char fileName[PROP_MAXPATH];
     IniFile *shortcutFile;
@@ -1492,6 +1493,8 @@ static void saveShortcuts(char* profileName, Shortcuts* shortcuts)
         _snprintf(shortcutsRefProfile, sizeof(shortcutsRefProfile) - 1, "%s", profileName);
         shortcutsRefProfile[sizeof(shortcutsRefProfile) - 1] = 0;
     }
+
+    return closeRc;
 }
 
 static void addShortcutEntry(HWND hwnd, int entry, char* description, const ShotcutHotkeySet* set) {
@@ -1866,6 +1869,7 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
         inputRefreshDevicesIfDirty();
         SetWindowTextU(hDlg, langShortcutConfigTitle());
         SetWindowTextU(GetDlgItem(hDlg, IDC_OK), langDlgOK());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_SCUTCANCEL), langDlgCancel());
         SetWindowTextU(GetDlgItem(hDlg, IDC_SAVE), langDlgSave());
         SetWindowTextU(GetDlgItem(hDlg, IDC_SAVEAS), langDlgSaveAs());
         SetWindowTextU(GetDlgItem(hDlg, IDC_SCUTASSIGN), langShortcutAssign());
@@ -2076,16 +2080,28 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
             EnableWindow(GetDlgItem(hDlg, IDC_SAVE), shortcutsSaveEnabled(hDlg));
             return TRUE;
 
+        /* Its own id rather than IDCANCEL: esc is a bindable shortcut, and
+        ** the hotkey field does not ask for it. */
+        case IDC_SCUTCANCEL:
+            SendMessage(hDlg, WM_CLOSE, 0, 0);
+            return TRUE;
+
         case IDC_OK:
-            {
-                int rv = 1;
-                if (memcmp(shortcutsRef, shortcuts, sizeof(Shortcuts))) {
-                    rv = (int)DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, closeProc);
+            /* OK saves silently like the Keyboard Config editor; an unnamed
+            ** profile goes through Save As and stays open if that is
+            ** cancelled. */
+            if (memcmp(shortcutsRef, shortcuts, sizeof(Shortcuts))) {
+                if (strcmp(shortcutProfile, langShortcutNewProfile()) == 0) {
+                    SendMessage(hDlg, WM_COMMAND, IDC_SAVEAS, 0);
+                    if (memcmp(shortcutsRef, shortcuts, sizeof(Shortcuts))) {
+                        return TRUE;
+                    }
                 }
-                if (rv) {
-                    EndDialog(hDlg, TRUE);
+                else if (!saveShortcuts(shortcutProfile, shortcuts)) {
+                    return TRUE;
                 }
             }
+            EndDialog(hDlg, TRUE);
             return TRUE;
         }
         return FALSE;
@@ -2205,7 +2221,7 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
             int rv = 1;
 
             if (memcmp(shortcutsRef, shortcuts, sizeof(Shortcuts))) {
-                rv = (int)DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, closeProc);
+                rv = (int)DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, discardChangesProc);
             }
             if (rv) {
                 EndDialog(hDlg, FALSE);
