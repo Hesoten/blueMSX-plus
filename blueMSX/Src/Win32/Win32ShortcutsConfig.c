@@ -313,7 +313,8 @@ static char virtualKeys[256][32] = {
     ""
 };
 
-static char       profileDir[] = "Shortcut Profiles";
+/* shortcutsSetDirectory replaces this with the writable root. */
+static char       profileDir[PROP_MAXPATH] = "Shortcut Profiles";
 static char       shortcutProfile[128];
 static char       tmpShortcutProfile[128];
 static WNDPROC    baseHotkeyCtrlProc = NULL;
@@ -504,17 +505,26 @@ char* shortcutsSetToString(const ShotcutHotkeySet* set)
     return buf;
 }
 
+/* Truncation is safe: a clipped path just matches no file. */
+static void profilePath(char* dst, size_t dstLen, const char* profileName)
+{
+    _snprintf(dst, dstLen - 1, "%s/%s.shortcuts", profileDir, profileName);
+    dst[dstLen - 1] = 0;
+}
+
+
 static char** getProfileList() 
 {
     static char profileArray[128][64];
     static char* profileList[128];
-    char fileName[MAX_PATH];
+    char fileName[PROP_MAXPATH];
 	HANDLE handle;
 	WIN32_FIND_DATAA wfd;
     int index = 0;
     BOOL cont;
     
-    sprintf(fileName, "%s/*.shortcuts", profileDir);
+    _snprintf(fileName, sizeof(fileName) - 1, "%s/*.shortcuts", profileDir);
+    fileName[sizeof(fileName) - 1] = 0;
 
     handle = FindFirstFileU(fileName, &wfd);
     
@@ -1228,13 +1238,13 @@ static void shortcutSaveHotkeySet(IniFile* iniFile, const char* keyName,
 
 static Shortcuts* loadShortcuts(char* profileName)
 {
-    char fileName[MAX_PATH];
+    char fileName[PROP_MAXPATH];
     /* Zeroed, not malloc'd: a few sets have no LOAD_SHORTCUT line, and the
     ** cross-domain conflict counter walks the struct as a flat array. */
     Shortcuts* shortcuts = (Shortcuts*)calloc(1, sizeof(Shortcuts));
 	IniFile *shortcutFile;
 
-    sprintf(fileName, "%s/%s.shortcuts", profileDir, profileName);
+    profilePath(fileName, sizeof(fileName), profileName);
 
     shortcutFile = iniFileOpen(fileName);
 
@@ -1349,7 +1359,7 @@ static Shortcuts* loadShortcuts(char* profileName)
 
 static void saveShortcuts(char* profileName, Shortcuts* shortcuts)
 {
-    char fileName[MAX_PATH];
+    char fileName[PROP_MAXPATH];
     IniFile *shortcutFile;
     int closeRc;
     const Shortcuts* saveRef;
@@ -1357,7 +1367,7 @@ static void saveShortcuts(char* profileName, Shortcuts* shortcuts)
     /* mkdir is a no-op if it exists; first save would otherwise silently fail. */
     mkdirU(profileDir);
 
-    sprintf(fileName, "%s/%s.shortcuts", profileDir, profileName);
+    profilePath(fileName, sizeof(fileName), profileName);
 
     shortcutFile = iniFileOpen(fileName);
 
@@ -1471,7 +1481,7 @@ static void saveShortcuts(char* profileName, Shortcuts* shortcuts)
 
     closeRc = iniFileClose(shortcutFile);
     if (!closeRc) {
-        char msg[MAX_PATH + 64];
+        char msg[PROP_MAXPATH + 64];
         sprintf(msg, "Failed to write shortcut profile:\n%s", fileName);
         MessageBoxU(NULL, msg, "blueMSX+", MB_OK | MB_ICONERROR);
     }
@@ -1994,10 +2004,10 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
 
                 if (strcmp(effective, shortcutProfile) != 0) {
                     /* Edit-text differs from loaded profile: Save-As path. */
-                    char fileName[MAX_PATH];
+                    char fileName[PROP_MAXPATH];
                     char savedProfile[128];
                     FILE* file;
-                    sprintf(fileName, "%s/%s.shortcuts", profileDir, effective);
+                    profilePath(fileName, sizeof(fileName), effective);
                     file = fopen(fileName, "r");
                     strcpy(savedProfile, shortcutProfile);
                     strcpy(shortcutProfile, effective);
@@ -2030,9 +2040,9 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
                 int rv = (int)DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_CONF_SAVEAS), hDlg, saveAsProc);
                 if (rv) {
                     FILE* file;
-                    char fileName[MAX_PATH];
+                    char fileName[PROP_MAXPATH];
 
-                    sprintf(fileName, "%s/%s.shortcuts", profileDir, tmpShortcutProfile);
+                    profilePath(fileName, sizeof(fileName), tmpShortcutProfile);
                     file = fopen(fileName, "r");
                     if (file != NULL) {
                         rv = (int)DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SAVEDLG), hDlg, saveProc);
@@ -2247,11 +2257,11 @@ char* shortcutsToString(ShotcutHotkey hotkey)
 int shortcutsShowDialog(HWND hwnd, Properties* pProperties) {
     BOOL rv;
     FILE* file;
-    char fileName[MAX_PATH];
+    char fileName[PROP_MAXPATH];
 
     strcpy(shortcutProfile, pProperties->emulation.shortcutProfile);
 
-    sprintf(fileName, "%s/%s.shortcuts", profileDir, shortcutProfile);
+    profilePath(fileName, sizeof(fileName), shortcutProfile);
     file = fopen(fileName, "r");
     if (file == NULL) {
         strcpy(shortcutProfile, langShortcutNewProfile());
@@ -2287,12 +2297,19 @@ int shortcutsShowDialog(HWND hwnd, Properties* pProperties) {
     return rv;
 }
 
-int shortcutsIsProfileValid(char* profileName) 
+void shortcutsSetDirectory(char* directory)
+{
+    if (directory == NULL || directory[0] == 0) return;
+    if (strlen(directory) >= sizeof(profileDir)) return;
+    strcpy(profileDir, directory);
+}
+
+int shortcutsIsProfileValid(char* profileName)
 {
     FILE* file;
-    char fileName[MAX_PATH];
+    char fileName[PROP_MAXPATH];
 
-    sprintf(fileName, "%s/%s.shortcuts", profileDir, profileName);
+    profilePath(fileName, sizeof(fileName), profileName);
     file = fopen(fileName, "r");
     if (file != NULL) {
         fclose(file);

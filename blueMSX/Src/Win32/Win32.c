@@ -3967,7 +3967,7 @@ static const char* resolveArgPath(const char* path, char* buffer, int size) {
 
 /* These are named while the paths are worked out, and created once the line
 ** has been accepted. */
-static char writeDirs[8][512];
+static char writeDirs[12][512];
 static int  writeDirCount = 0;
 
 static char* laterDir(char* path) {
@@ -3985,8 +3985,57 @@ static void createDataDirectories(void) {
     }
 }
 
+/* Seeded only after createDataDirectories runs: CopyFile will not create
+** the destination. */
+static char shortcutsSeedDir[512];
+static char shortcutsTemplateDir[512];
+
+static void seedFilesFromTemplates(const char* srcDir, const char* dstDir);
+
+static void seedShortcutProfiles(void) {
+    if (shortcutsTemplateDir[0] != 0) {
+        seedFilesFromTemplates(shortcutsTemplateDir, shortcutsSeedDir);
+    }
+}
+
+/* Shipped defaults carry ".default" so unpacking a release never
+** overwrites edited profiles. */
+#define TEMPLATE_SUFFIX ".default"
+
+static void seedFilesFromTemplates(const char* srcDir, const char* dstDir)
+{
+    WIN32_FIND_DATAA wfd;
+    HANDLE handle;
+    /* Sized for a 512-byte root plus a file name, not MAX_PATH. */
+    char pattern[512 + MAX_PATH];
+
+    sprintf(pattern, "%s\\*%s", srcDir, TEMPLATE_SUFFIX);
+    handle = FindFirstFileU(pattern, &wfd);
+    if (handle == INVALID_HANDLE_VALUE) {
+        return;
+    }
+    do {
+        char src[512 + MAX_PATH];
+        char dst[512 + MAX_PATH];
+        int len = (int)strlen(wfd.cFileName) - (int)strlen(TEMPLATE_SUFFIX);
+        if (len <= 0) continue;
+        sprintf(src, "%s\\%s", srcDir, wfd.cFileName);
+        sprintf(dst, "%s\\%.*s", dstDir, len, wfd.cFileName);
+        /* CopyFile carries source attributes; a read-only template lands
+        ** an unsavable copy. */
+        if (CopyFileU(src, dst, 1)) {
+            DWORD attr = GetFileAttributesU(dst);
+            if (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_READONLY)) {
+                SetFileAttributesU(dst, attr & ~FILE_ATTRIBUTE_READONLY);
+            }
+        }
+    } while (FindNextFileU(handle, &wfd));
+
+    FindClose(handle);
+}
+
 int setDefaultPath(char* cmdLine) {
-    char buffer[512];  
+    char buffer[512];
     char buffer2[512];
     /* Base for user-writable data dirs (Screenshots, QuickSave, SRAM, ...).
     ** = exe dir when writable, else My Documents\blueMSX Temporary Files.
@@ -4062,10 +4111,10 @@ int setDefaultPath(char* cmdLine) {
             char probe[512];
             FILE* test;
             DWORD attrs;
-            /* 96 covers the longest path built from this: "\Keyboard Config",
-            ** a separator, a mapping name the listing caps at 63, and
-            ** ".config". */
-            if (resolveArgPath(argument, resolved, sizeof(rootDir) - 96) == NULL) {
+            /* 156 covers the longest path built from this: "\Shortcut
+            ** Profiles", a separator, a 127 character profile name, and
+            ** ".shortcuts".  Keyboard mappings need only 88. */
+            if (resolveArgPath(argument, resolved, sizeof(rootDir) - 156) == NULL) {
                 commandLineFail("/rootdir: that path is too long");
             }
             /* The directory has to exist. A typo would otherwise create an
@@ -4165,6 +4214,11 @@ int setDefaultPath(char* cmdLine) {
 
     sprintf(buffer, "%s\\Keyboard Config", dataDir);
     keyboardSetSharedDirectory(buffer);
+
+    sprintf(buffer, "%s\\Shortcut Profiles", rootDir);
+    strcpy(shortcutsSeedDir, buffer);
+    shortcutsSetDirectory(laterDir(buffer));
+    sprintf(shortcutsTemplateDir, "%s\\Shortcut Profiles", dataDir);
 
     sprintf(buffer, "%s\\Screenshots", rootDir);
     screenshotSetDirectory(laterDir(buffer), "");
@@ -4862,6 +4916,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     }
 
     createDataDirectories();
+    seedShortcutProfiles();
 
     // Load tools
     sprintf(buffer, "%s\\Tools", st.pCurDir);
