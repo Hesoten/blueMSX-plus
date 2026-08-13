@@ -712,6 +712,7 @@ char* langShortcutHotkeyHint();
 char* langKeyboardMappedHint();
 char* langShortcutTooltipAlsoBound();
 char* langKeyboardKeyFormat();
+char* langKeyconfigResetTab();
 char* langShortcutScheme();
 char* langShortcutCartInsert1();
 char* langShortcutCartRemove1();

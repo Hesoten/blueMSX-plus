@@ -83,6 +83,8 @@ int  archKeyboardSelectedBindingCount(void);
 int  bindingsCountTargetsForDik(int dik);
 int  bindingsDescribeTargetsForDik(int dik, int excludeTable, int excludeEc,
                                    char* out, int outLen);
+void archKeyboardResetTableDefaults(int table);
+int  archKeyboardTableIsResettable(int table);
 char* archKeyboardConflictText(void);
 char* archKeyboardConflictTextForKey(int msxKeyCode);
 

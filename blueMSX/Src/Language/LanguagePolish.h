@@ -690,6 +690,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->keyboardMappedHint      = "(do 3 klawiszy)";
     ls->shortcutTooltipAlsoBound = "Przypisane również do: ";
     ls->keyboardKeyFormat       = "klawisz %s";
+    ls->keyconfigResetTab       = "Przywróć klawisze tej zakładki";
     ls->shortcutScheme          = "Układ skrótów:";
     ls->shortcutCartInsert1     = "Włóż kartridż 1";
     ls->shortcutCartRemove1     = "Wyjmij kartridż 1";

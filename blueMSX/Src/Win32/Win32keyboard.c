@@ -598,6 +598,33 @@ static void bindingsLoadDefaults(void) {
     bindingsLoadDefaultsForLayout(inputKeyboardRegionIsJapanese());
 }
 
+int archKeyboardTableIsResettable(int table)
+{
+    if (table < 0 || table >= KBD_TABLE_NUM) return 0;
+    if (table == 0) return 1;
+    /* Every assignable port device reads the directions, so UP answers
+    ** for the whole table. */
+    return inputPortEcActive(table, table == 1 ? EC_JOY1_UP : EC_JOY2_UP);
+}
+
+/* Explicit user action only: a port or machine change never rewrites
+** bindings. */
+void archKeyboardResetTableDefaults(int table)
+{
+    int ec;
+    if (!archKeyboardTableIsResettable(table)) return;
+    for (ec = 1; ec < EC_KEYCOUNT; ec++) {
+        /* Or resetting a 2-button pad would wipe the Coleco keypad set up
+        ** for another device. */
+        if (table != 0 && !inputPortEcActive(table, ec)) continue;
+        bindingsClearEc(table, ec);
+        bindingsForgetPending(table, ec);
+    }
+    bindingsLoadDefaultsForPortDevice(table);
+    inputEventReset();
+    selectedDikKey = 0;
+}
+
 int bindingsCountTargetsForDik(int dik) {
     int n, b, total = 0;
     if (dik <= 0 || dik >= KBD_TABLE_LEN) return 0;

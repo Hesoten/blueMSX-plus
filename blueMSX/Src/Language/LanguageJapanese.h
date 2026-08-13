@@ -712,6 +712,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->keyboardMappedHint      = "(3つまでキーを入力)";
     ls->shortcutTooltipAlsoBound = "他の割り当て先: ";
     ls->keyboardKeyFormat       = "%s キー";
+    ls->keyconfigResetTab       = "このタブのキー割り当てを\n既定に戻す";
     ls->shortcutScheme          = "構成名:";
     ls->shortcutCartInsert1     = "カートリッジ1 挿入";
     ls->shortcutCartRemove1     = "カートリッジ1 取り出し";

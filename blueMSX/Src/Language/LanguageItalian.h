@@ -691,6 +691,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->keyboardMappedHint              = "(fino a 3 tasti)";
     ls->shortcutTooltipAlsoBound        = "Assegnato anche a: ";
     ls->keyboardKeyFormat               = "tasto %s";
+    ls->keyconfigResetTab               = "Ripristina i tasti di questa scheda";
     ls->shortcutScheme                  = "Schema corrente:";
     ls->shortcutCartInsert1             = "Inserisci una cartuccia nello slot 1";
     ls->shortcutCartRemove1             = "Rimuovi la cartuccia dallo slot 1";

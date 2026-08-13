@@ -690,6 +690,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->keyboardMappedHint      = "(max 3 toetsen)";
     ls->shortcutTooltipAlsoBound = "Ook toegewezen aan: ";
     ls->keyboardKeyFormat       = "toets %s";
+    ls->keyconfigResetTab       = "Toetsen van dit tabblad herstellen";
     ls->shortcutScheme          = "Schema:";
     ls->shortcutCartInsert1     = "Voer Cartridge in Slot 1";
     ls->shortcutCartRemove1     = "Werp Cartridge uit Slot 1";

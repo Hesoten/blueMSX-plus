@@ -691,6 +691,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->keyboardMappedHint      = "(upp till 3 tangenter)";
     ls->shortcutTooltipAlsoBound = "Även tilldelad: ";
     ls->keyboardKeyFormat       = "tangent %s";
+    ls->keyconfigResetTab       = "Återställ tangenterna på denna flik";
     ls->shortcutScheme          = "Kmd-schema:";
     ls->shortcutCartInsert1     = "Sätt in Cartridge 1";
     ls->shortcutCartRemove1     = "Ta ur Cartridge 1";

@@ -690,6 +690,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->keyboardMappedHint      = "(hasta 3 teclas)";
     ls->shortcutTooltipAlsoBound = "También asignado a: ";
     ls->keyboardKeyFormat       = "tecla %s";
+    ls->keyconfigResetTab       = "Restablecer las teclas de esta pestaña";
     ls->shortcutScheme          = "Disposición:";
     ls->shortcutCartInsert1     = "Insertar Cartucho ROM en slot 1";
     ls->shortcutCartRemove1     = "Sacar Cartucho ROM en slot 1";

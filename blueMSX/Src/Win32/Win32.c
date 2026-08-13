@@ -5700,6 +5700,7 @@ static int toolWindowBringExistingToFront(ThemeCollection** cache,
 }
 
 #define IDC_KBDCFG_CLEAR         21001
+#define IDC_KBDCFG_RESET         21002
 
 static const char* kbdCfgBaseProcProp = "blueMSX.kbdCfgBaseProc";
 static const char* kbdCfgTipProp = "blueMSX.kbdCfgTip";
@@ -5854,6 +5855,94 @@ static void kbdClearReposition(HWND btn)
     kbdPlaceChild(btn, x, y, side, side);
 }
 
+static int kbdPageTable(ThemePage* page)
+{
+    if (page == NULL) return -1;
+    if (0 == strcmp(page->name, "keyboard"))  return 0;
+    if (0 == strcmp(page->name, "joystick1")) return 1;
+    if (0 == strcmp(page->name, "joystick2")) return 2;
+    return -1;
+}
+
+/* Cached for the process lifetime so no live control ends up holding a
+** deleted handle. */
+static HFONT kbdScaledFont(int cell)
+{
+    static struct { int cell; HFONT font; } cache[16];
+    static int count = 0;
+    HFONT font;
+    int i;
+
+    if (cell < 8) cell = 8;
+    for (i = 0; i < count; i++) {
+        if (cache[i].cell == cell) return cache[i].font;
+    }
+
+    if (count == (int)(sizeof(cache) / sizeof(cache[0]))) {
+        /* Cache full: a fresh font here would leak on every timer tick. */
+        return (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+    }
+    font = themeCtrlFontCreate(cell);
+    if (font == NULL) {
+        return (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+    }
+    cache[count].cell = cell;
+    cache[count].font = font;
+    count++;
+    return font;
+}
+
+/* Coordinates are in the theme's 500x330 design space. */
+static void kbdResetReposition(HWND btn)
+{
+    HWND parent = GetParent(btn);
+    Theme* theme;
+    ThemePage* page;
+    int table, w, h, x, y;
+    RECT client;
+    if (!parent) return;
+    theme = windowGetThemeFromHwnd(parent);
+    if (!theme) return;
+    page  = themeGetCurrentPage(theme);
+    table = kbdPageTable(page);
+    if (table < 0) {
+        ShowWindow(btn, SW_HIDE);
+        return;
+    }
+    /* Only on a real change: WM_SETTEXT always invalidates the button. */
+    {
+        char cur[160];
+        const char* want = langKeyconfigResetTab();
+        GetWindowTextU(btn, cur, sizeof(cur));
+        if (0 != strcmp(cur, want)) SetWindowTextU(btn, want);
+    }
+    EnableWindow(btn, archKeyboardTableIsResettable(table));
+
+    GetClientRect(parent, &client);
+    /* Between the dropdown (ends at design x=245) and OK (starts 358). */
+    x = client.right * 260 / 500;
+    y = client.bottom * 285 / 330;
+    w = client.right * 84 / 500;
+    h = client.bottom * 24 / 330;
+    if (h < 14) h = 14;
+    if (x + w > client.right - 2 || y + h > client.bottom - 2) {
+        ShowWindow(btn, SW_HIDE);
+        return;
+    }
+    /* 10 rather than the theme's 11px cell, and never more than half the
+    ** room a button leaves inside its border, so two lines always fit. */
+    {
+        int cell = client.bottom * 10 / 330;
+        HFONT font;
+        if (cell > (h - 6) / 2) cell = (h - 6) / 2;
+        font = kbdScaledFont(cell);
+        if ((HFONT)SendMessage(btn, WM_GETFONT, 0, 0) != font) {
+            SendMessage(btn, WM_SETFONT, (WPARAM)font, FALSE);
+        }
+    }
+    kbdPlaceChild(btn, x, y, w, h);
+}
+
 /* 192,192,192 matches SEL-BOX.bmp so the chip blends into the box. */
 static void kbdClearDrawItem(DRAWITEMSTRUCT* dis)
 {
@@ -5876,7 +5965,14 @@ static LRESULT CALLBACK kbdCfgBtnProc(HWND btn, UINT iMsg, WPARAM wParam, LPARAM
         GetClientRect(btn, &r);
         if (PtInRect(&r, p)) {
             HWND parent = GetParent(btn);
-            archKeyboardClearSelectedKey();
+            if (GetDlgCtrlID(btn) == IDC_KBDCFG_RESET) {
+                Theme* theme = parent ? windowGetThemeFromHwnd(parent) : NULL;
+                archKeyboardResetTableDefaults(
+                    kbdPageTable(theme ? themeGetCurrentPage(theme) : NULL));
+            }
+            else {
+                archKeyboardClearSelectedKey();
+            }
             if (parent) {
                 InvalidateRect(parent, NULL, TRUE);
                 UpdateWindow(parent);
@@ -5909,6 +6005,8 @@ static LRESULT CALLBACK kbdThemeWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
             (iMsg == WM_TIMER && wParam == TIMER_STATUSBAR_UPDATE)) {
             HWND btn = GetDlgItem(hwnd, IDC_KBDCFG_CLEAR);
             if (btn) kbdClearReposition(btn);
+            btn = GetDlgItem(hwnd, IDC_KBDCFG_RESET);
+            if (btn) kbdResetReposition(btn);
             kbdConflictTipUpdate(hwnd);
         }
         if (iMsg == WM_NCDESTROY) {
@@ -5959,6 +6057,18 @@ void archShowKeyboardEditor()
                     (LONG_PTR)kbdCfgBtnProc);
                 SetWindowLongPtrW(btn, GWLP_USERDATA, (LONG_PTR)base);
             }
+            btn = CreateWindowExW(0, L"BUTTON", L"",
+                WS_CHILD | WS_CLIPSIBLINGS | BS_PUSHBUTTON | BS_MULTILINE,
+                0, 0, 90, 16,
+                hTheme, (HMENU)(INT_PTR)IDC_KBDCFG_RESET,
+                GetModuleHandle(NULL), NULL);
+            if (btn) {
+                WNDPROC base;
+                SendMessage(btn, WM_SETFONT, (WPARAM)kbdScaledFont(10), TRUE);
+                base = (WNDPROC)SetWindowLongPtrW(btn, GWLP_WNDPROC,
+                    (LONG_PTR)kbdCfgBtnProc);
+                SetWindowLongPtrW(btn, GWLP_USERDATA, (LONG_PTR)base);
+            }
             if (!GetPropA(hTheme, kbdCfgBaseProcProp)) {
                 WNDPROC base = (WNDPROC)SetWindowLongPtrW(hTheme, GWLP_WNDPROC,
                     (LONG_PTR)kbdThemeWndProc);
@@ -5988,6 +6098,8 @@ void archShowKeyboardEditor()
             }
             btn = GetDlgItem(hTheme, IDC_KBDCFG_CLEAR);
             if (btn) kbdClearReposition(btn);
+            btn = GetDlgItem(hTheme, IDC_KBDCFG_RESET);
+            if (btn) kbdResetReposition(btn);
             /* The tooltip is new, so clear the last-seen state or the
             ** first update is skipped. */
             kbdTipForgetLast();

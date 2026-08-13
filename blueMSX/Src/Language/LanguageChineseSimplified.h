@@ -690,6 +690,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->keyboardMappedHint      = "(最多 3 个按键)";
     ls->shortcutTooltipAlsoBound = "同时绑定到: ";
     ls->keyboardKeyFormat       = "%s 键";
+    ls->keyconfigResetTab       = "将此页的按键分配重置为默认";
     ls->shortcutScheme          = "映射方案:";
     ls->shortcutCartInsert1     = "插入卡带 1";
     ls->shortcutCartRemove1     = "移除卡带 1";

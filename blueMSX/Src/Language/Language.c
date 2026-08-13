@@ -904,6 +904,7 @@ char* langShortcutHotkeyHint() { return ls->shortcutHotkeyHint; }
 char* langKeyboardMappedHint() { return ls->keyboardMappedHint; }
 char* langShortcutTooltipAlsoBound() { return ls->shortcutTooltipAlsoBound; }
 char* langKeyboardKeyFormat() { return ls->keyboardKeyFormat; }
+char* langKeyconfigResetTab() { return ls->keyconfigResetTab; }
 char* langShortcutScheme() { return ls->shortcutScheme; }
 char* langShortcutCartInsert1() { return ls->shortcutCartInsert1; }
 char* langShortcutCartRemove1() { return ls->shortcutCartRemove1; }

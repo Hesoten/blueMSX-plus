@@ -690,6 +690,7 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->keyboardMappedHint      = "(最多 3 個按鍵)";
     ls->shortcutTooltipAlsoBound = "同時綁定到: ";
     ls->keyboardKeyFormat       = "%s 鍵";
+    ls->keyconfigResetTab       = "將此頁的按鍵配置重設為預設";
     ls->shortcutScheme          = "對應配置:";
     ls->shortcutCartInsert1     = "插入卡匣 1";
     ls->shortcutCartRemove1     = "移除卡匣 1";

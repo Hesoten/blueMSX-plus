@@ -691,6 +691,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->keyboardMappedHint      = "(enintään 3 näppäintä)";
     ls->shortcutTooltipAlsoBound = "Sidottu myös: ";
     ls->keyboardKeyFormat       = "%s-näppäin";
+    ls->keyconfigResetTab       = "Palauta tämän välilehden näppäimet";
     ls->shortcutScheme          = "Näppäinprofiili:";
     ls->shortcutCartInsert1     = "Aseta moduli 1";
     ls->shortcutCartRemove1     = "Poista moduli 1";

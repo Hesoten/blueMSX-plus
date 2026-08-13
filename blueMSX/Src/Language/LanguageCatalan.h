@@ -690,6 +690,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->keyboardMappedHint      = "(fins a 3 tecles)";
     ls->shortcutTooltipAlsoBound = "També assignat a: ";
     ls->keyboardKeyFormat       = "tecla %s";
+    ls->keyconfigResetTab       = "Restaura les tecles d'aquesta pestanya";
     ls->shortcutScheme          = "Mapatge:";
     ls->shortcutCartInsert1     = "Inserta el cartutx 1";
     ls->shortcutCartRemove1     = "Trau el cartutx 1";

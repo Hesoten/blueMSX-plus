@@ -710,6 +710,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->keyboardMappedHint      = "(up to 3 keys)";
     ls->shortcutTooltipAlsoBound = "Also bound to: ";
     ls->keyboardKeyFormat       = "%s key";
+    ls->keyconfigResetTab       = "Reset this tab's key assignments";
     ls->shortcutScheme          = "Mapping Scheme:";
     ls->shortcutCartInsert1     = "Insert Cartridge 1";
     ls->shortcutCartRemove1     = "Remove Cartridge 1";
