@@ -62,8 +62,8 @@
                     <key code="joy1-down" x="18" y="57" width="10" height="9" />
                     <key code="joy1-left" x="9" y="47" width="9" height="10" />
                     <key code="joy1-right" x="28" y="47" width="9" height="10" />
-                    <key code="joy1-button1" x="75" y="44" width="16" height="16" />
-                    <key code="joy1-button2" x="94" y="44" width="16" height="16" />
+                    <key code="joy1-button1" x="94" y="44" width="16" height="16" />
+                    <key code="joy1-button2" x="75" y="44" width="16" height="16" />
                 </keyboard>
 	        </block>
 
@@ -227,8 +227,8 @@
                     <key code="joy2-down" x="18" y="57" width="10" height="9" />
                     <key code="joy2-left" x="9" y="47" width="9" height="10" />
                     <key code="joy2-right" x="28" y="47" width="9" height="10" />
-                    <key code="joy2-button1" x="75" y="44" width="16" height="16" />
-                    <key code="joy2-button2" x="94" y="44" width="16" height="16" />
+                    <key code="joy2-button1" x="94" y="44" width="16" height="16" />
+                    <key code="joy2-button2" x="75" y="44" width="16" height="16" />
                 </keyboard>
 	        </block>
 
