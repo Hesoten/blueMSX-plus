@@ -528,6 +528,7 @@ char* themeTriggerSliderValueText(int trigger) {
     case THEME_TRIGGER_LEVEL_MOONSOUND: level = themeTriggerLevelMoonsound(); break;
     case THEME_TRIGGER_LEVEL_SFG:       level = themeTriggerLevelYamahaSfg(); break;
     case THEME_TRIGGER_LEVEL_MIDI:      level = themeTriggerLevelMidi();      break;
+    case THEME_TRIGGER_LEVEL_CASSETTE:  level = themeTriggerLevelCassette();  break;
 
     /* Pan is a 0..100 position (50 = centre) with no unit elsewhere in
        the UI, so it stays bare rather than being labelled a percentage. */
@@ -541,6 +542,7 @@ char* themeTriggerSliderValueText(int trigger) {
     case THEME_TRIGGER_PAN_MOONSOUND: sprintf(buffer, "%d", themeTriggerPanMoonsound()); return buffer;
     case THEME_TRIGGER_PAN_SFG:       sprintf(buffer, "%d", themeTriggerPanYamahaSfg()); return buffer;
     case THEME_TRIGGER_PAN_MIDI:      sprintf(buffer, "%d", themeTriggerPanMidi());      return buffer;
+    case THEME_TRIGGER_PAN_CASSETTE:  sprintf(buffer, "%d", themeTriggerPanCassette()); return buffer;
 
     default:
         /* No dedicated unit: show nothing rather than a wrong number. */
