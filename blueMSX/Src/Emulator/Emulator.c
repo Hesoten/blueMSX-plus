@@ -67,7 +67,7 @@ static int    emuExitFlag;
 static UInt32 emuSysTime = 0;
 static UInt32 emuFrequency = 3579545;
 int           emuMaxSpeed = 0;
-int           emuPlayReverse = 0;
+volatile int  emuPlayReverse = 0;
 int           emuMaxEmuSpeed = 0; // Max speed issued by emulation
 
 /* Fast-forward multiplier (max-speed and FDC/HDD boost); higher =
@@ -315,7 +315,12 @@ static int timerCallback(void* timer) {
             if (emuState == EMU_RUNNING) {
                 refreshRate = boardGetRefreshRate();
 
-                if (syncMethod == P_EMU_SYNCAUTO || syncMethod == P_EMU_SYNCNONE) {
+                /* Reverse play leaves WaitForSync at its head, before the
+                ** present the vblank mode relies on, so the screen only
+                ** keeps up while rewinding if this drives it instead. */
+                if (syncMethod == P_EMU_SYNCAUTO || syncMethod == P_EMU_SYNCNONE ||
+                    (syncMethod == P_EMU_SYNCTOVBLANK && emuPlayReverse &&
+                     properties->emulation.reverseEnable)) {
                     archUpdateEmuDisplay(0);
                 }
             }
