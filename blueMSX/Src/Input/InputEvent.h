@@ -200,6 +200,9 @@ const char* inputEventCodeToString(int eventCode);
 #define EC_COLECO2_STAR 150
 #define EC_COLECO2_HASH 151
 
+/* From the Wii port, which drives these from its own controller code.
+** No build here defines WII, and nothing else in the tree reads them. */
+#ifdef WII
 #define EC_HOT_QUIT                     160
 #define EC_HOT_TOGGLE_FDC_TIMING        161
 #define EC_HOT_TOGGLE_SPRITE_ENABLE     162
@@ -240,6 +243,9 @@ const char* inputEventCodeToString(int eventCode);
 #define EC_HOT_FULLSCREEN_TOGGLE        197
 
 #define EC_KEYCOUNT                     198
+#else
+#define EC_KEYCOUNT                     160
+#endif
 
 // Inlines
 extern int eventMap[256];
