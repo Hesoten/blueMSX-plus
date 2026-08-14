@@ -526,6 +526,7 @@ static int bindingsJpOverride(int table, int ec, int jp)
 }
 
 int inputResolveDikName(const char* token);
+static int bindingsTableForEc(int ec);
 
 static void bindingsFillDefaults(int table, int portDeviceOnly, int jp) {
     size_t i;
@@ -2092,6 +2093,11 @@ int keyboardLoadConfig(char* configName)
                 char key[32] = { 0 };
                 char* p;
                 int sawLegacy = 0;
+                /* Older files put ECs in the wrong section; the editor
+                ** could not clear those. */
+                if (n != bindingsTableForEc(i)) {
+                    continue;
+                }
                 strcat(key, keyCode);
                 strcat(key, " ");
                 iniFileGetString(keyConfigFile, profString, key, "",
@@ -2191,6 +2197,13 @@ void keyboardSaveConfig(char* configName)
             /* IniFileParser's readLine has no bound and writes into a
             ** 512-byte caller buffer, so "key =<value>" must fit. */
             char dikNames[448];
+            char key[32] = { 0 };
+            /* The reader skips the same rows, so a value in a section its
+            ** table does not own could never be read back. */
+            if (keyCode == NULL || *keyCode == 0 ||
+                n != bindingsTableForEc(i)) {
+                continue;
+            }
             bindingsFormatEc(n, i, dikNames, sizeof(dikNames));
             bindingsAppendPending(n, i, dikNames, sizeof(dikNames));
             /* Counted, not tested on the text, which is empty for a nameless DIK too. */
@@ -2201,12 +2214,9 @@ void keyboardSaveConfig(char* configName)
                 strcpy(dikNames, kUnassignedName);
                 bindingsRewriteOnSave[n][i] = 0;
             }
-            if (keyCode != NULL) {
-                char key[32] = { 0 };
-                strcat(key, keyCode);
-                strcat(key, " ");
-                iniFileWriteString(keyConfigFile, profString, key, dikNames);
-            }
+            strcat(key, keyCode);
+            strcat(key, " ");
+            iniFileWriteString(keyConfigFile, profString, key, dikNames);
         }
     }
     /* Only mark memory clean once the write landed, or a later Cancel
