@@ -1406,6 +1406,26 @@ void inputAppendToken(char* list, int listLen, const char* token)
     if (quote) strncat(list, "\"", listLen - strlen(list) - 1);
 }
 
+/* J<n> BT <n> and J<n> UP named a slot rather than a device, so str2dik
+** can never match one.  Live joystick names all carry " : ". */
+static int bindingsIsLegacySlotName(const char* token)
+{
+    int slot, button, len = 0;
+    const char* tail;
+
+    if (sscanf(token, "J%d BT %d%n", &slot, &button, &len) == 2 &&
+        len > 0 && token[len] == 0) {
+        return 1;
+    }
+    len = 0;
+    if (sscanf(token, "J%d %n", &slot, &len) != 1 || len == 0) {
+        return 0;
+    }
+    tail = token + len;
+    return 0 == strcmp(tail, "UP")   || 0 == strcmp(tail, "DOWN") ||
+           0 == strcmp(tail, "LEFT") || 0 == strcmp(tail, "RIGHT");
+}
+
 /* Emits DIKs in insertion order, so a reload keeps the oldest to newest
 ** order the editor showed. */
 static void bindingsFormatEc(int table, int ec, char* out, int outLen)
@@ -2071,6 +2091,7 @@ int keyboardLoadConfig(char* configName)
                 char dikNames[512];
                 char key[32] = { 0 };
                 char* p;
+                int sawLegacy = 0;
                 strcat(key, keyCode);
                 strcat(key, " ");
                 iniFileGetString(keyConfigFile, profString, key, "",
@@ -2098,20 +2119,30 @@ int keyboardLoadConfig(char* configName)
                         continue;
                     }
                     dikKey = inputResolveDikName(token);
-                    if (dikKey > 0) {
+                    if (dikKey <= 0) {
+                        if (bindingsIsLegacySlotName(token)) {
+                            sawLegacy = 1;
+                            continue;
+                        }
+                        if (bindingsPendingCount <
+                                (int)(sizeof(bindingsPending) / sizeof(bindingsPending[0])) &&
+                            strlen(token) < sizeof(bindingsPending[0].name)) {
+                            bindingsPending[bindingsPendingCount].table = (short)n;
+                            bindingsPending[bindingsPendingCount].ec    = (short)i;
+                            strcpy(bindingsPending[bindingsPendingCount].name, token);
+                            bindingsPendingCount++;
+                        }
+                    }
+                    else {
                         bindingsAddEdge(n, dikKey, i);
                     }
-                    /* Keep the name so the key starts working the moment
-                    ** its device turns up, rather than only after the
-                    ** profile is read again. */
-                    else if (bindingsPendingCount <
-                                 (int)(sizeof(bindingsPending) / sizeof(bindingsPending[0])) &&
-                             strlen(token) < sizeof(bindingsPending[0].name)) {
-                        bindingsPending[bindingsPendingCount].table = (short)n;
-                        bindingsPending[bindingsPendingCount].ec    = (short)i;
-                        strcpy(bindingsPending[bindingsPendingCount].name, token);
-                        bindingsPendingCount++;
-                    }
+                }
+                /* Slot names were all the entry held, so it takes the
+                ** built-in default the way an empty value does. */
+                if (sawLegacy && bindingsCountDiksForEc(n, i) == 0 &&
+                    !bindingsHasPending(n, i)) {
+                    wantsDefault[n][i] = 1;
+                    bindingsRewriteOnSave[n][i] = 1;
                 }
             }
         }
