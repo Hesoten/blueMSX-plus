@@ -5032,7 +5032,9 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     joystickPortSetType(0, pProperties->joy1.typeId);
     joystickPortSetType(1, pProperties->joy2.typeId);
     keyboardLoadConfig(pProperties->keyboard.configFile);
-    sprintf(pProperties->keyboard.configFile, keyboardGetCurrentConfig());
+    if (!keyboardConfigIsSubstitute()) {
+        sprintf(pProperties->keyboard.configFile, keyboardGetCurrentConfig());
+    }
 
     /* Joystick shortcuts are stored by device name, so load them after
     ** input init. */
@@ -5207,7 +5209,10 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     }
 
     emulatorExit();
-    sprintf(pProperties->keyboard.configFile, keyboardGetCurrentConfig());
+    /* A substitute for a missing profile must not replace the user's choice. */
+    if (!keyboardConfigIsSubstitute()) {
+        sprintf(pProperties->keyboard.configFile, keyboardGetCurrentConfig());
+    }
     shortcutsDestroyProfile(st.shortcuts);
     videoDestroy(st.pVideo);
     

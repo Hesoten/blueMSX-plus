@@ -65,6 +65,8 @@ void keyboardSetSharedDirectory(char* directory);
 int keyboardLoadConfig(char* configName);
 void keyboardSaveConfig(char* configName);
 char* keyboardGetCurrentConfig();
+/* 1 while the profile in effect is not the one that was asked for. */
+int keyboardConfigIsSubstitute();
 char** keyboardGetConfigs();
 
 // For configuration

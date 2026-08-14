@@ -1924,24 +1924,79 @@ char** keyboardGetConfigs()
     return keyboardNames;
 }
 
+/* 0 when the join does not fit, leaving the name empty: a shortened path
+** would open some other file, so it must name none. */
+static int keyboardConfigJoin(char* fileName, const char* dir, const char* name)
+{
+    if (strlen(dir) + strlen(name) + 9 > KBD_CONFIGPATH_LEN) {
+        fileName[0] = 0;
+        return 0;
+    }
+    sprintf(fileName, "%s/%s.config", dir, name);
+    return 1;
+}
+
 /* ' */
 static void keyboardConfigPath(char fileName[KBD_CONFIGPATH_LEN], const char* configName)
 {
     FILE* file;
 
-    sprintf(fileName, "%s/%s.config", keyboardConfigDir, configName);
+    keyboardConfigJoin(fileName, keyboardConfigDir, configName);
 
     if (keyboardSharedDir[0] == 0) {
         return;
     }
 
-    file = fopen(fileName, "r");
+    file = fileName[0] != 0 ? fopen(fileName, "r") : NULL;
     if (file != NULL) {
         fclose(file);
         return;
     }
 
-    sprintf(fileName, "%s/%s.config", keyboardSharedDir, configName);
+    keyboardConfigJoin(fileName, keyboardSharedDir, configName);
+}
+
+/* Either directory counts, though saving only ever goes to the writable
+** one. */
+static int keyboardConfigExists(const char* name)
+{
+    char path[KBD_CONFIGPATH_LEN];
+    FILE* f;
+    if (strlen(name) >= KBD_CONFIGNAME_LEN) return 0;
+    keyboardConfigPath(path, name);
+    f = fopen(path, "r");
+    if (f == NULL) return 0;
+    fclose(f);
+    return 1;
+}
+
+static int currentConfigIsSubstitute = 0;
+
+/* The region's own pair first, so changing the Windows region moves
+** nobody to an unrelated profile. */
+static char* keyboardFallbackConfigName(const char* requested)
+{
+    char* generated[2];
+    char** configs;
+    int i;
+
+    if (inputKeyboardRegionIsJapanese()) {
+        generated[0] = JapaneseConfigName;
+        generated[1] = DefaultConfigName;
+    }
+    else {
+        generated[0] = DefaultConfigName;
+        generated[1] = JapaneseConfigName;
+    }
+    for (i = 0; i < 2; i++) {
+        if (0 == strcmp(generated[i], requested)) continue;
+        if (keyboardConfigExists(generated[i])) return generated[i];
+    }
+    configs = keyboardGetConfigs();
+    if (configs[0] != NULL && 0 != strcmp(configs[0], requested)) {
+        return configs[0];
+    }
+    return NULL;
 }
 
 int keyboardLoadConfig(char* configName)
@@ -1961,10 +2016,18 @@ int keyboardLoadConfig(char* configName)
         configName = inputKeyboardRegionIsJapanese() ? JapaneseConfigName
                                                      : DefaultConfigName;
     }
-    /* The name is refused before anything is reset, so the mapping in effect
-    ** is left alone. */
+    /* Refused before anything is reset.  Clearing the name makes save a
+    ** no-op, so the editor's OK cannot overwrite an unopened profile. */
     if (strlen(configName) >= KBD_CONFIGNAME_LEN) {
+        currentConfigFile[0] = 0;
+        currentConfigIsSubstitute = 1;
         return 0;
+    }
+
+    /* Closing the editor reloads the profile already in use, so only a
+    ** request for a different name clears the stand-in. */
+    if (0 != strcmp(configName, currentConfigFile)) {
+        currentConfigIsSubstitute = 0;
     }
 
     memset(bindingsRewriteOnSave, 0, sizeof(bindingsRewriteOnSave));
@@ -1977,6 +2040,15 @@ int keyboardLoadConfig(char* configName)
     keyboardConfigPath(fileName, configName);
 
     file = fopen(fileName, "r");
+    if (file == NULL) {
+        char* fallback = keyboardFallbackConfigName(configName);
+        if (fallback != NULL) {
+            configName = fallback;
+            currentConfigIsSubstitute = 1;
+            keyboardConfigPath(fileName, configName);
+            file = fopen(fileName, "r");
+        }
+    }
     if (file == NULL) {
         /* Claim the name anyway, or the editor's save would do nothing. */
         bindingsLoadDefaults();
@@ -2067,15 +2139,18 @@ void keyboardSaveConfig(char* configName)
 	IniFile *keyConfigFile;
     char fileName[KBD_CONFIGPATH_LEN];
     int i, n;
-    
-    /* The two are joined here rather than through keyboardConfigPath, so the
-    ** bound has to hold again. */
+
+    /* The path is joined here rather than through keyboardConfigPath: a
+    ** save only ever goes to the writable directory, so the bound on the
+    ** name has to hold again. */
     if (configName[0] == 0 || strlen(configName) >= KBD_CONFIGNAME_LEN) {
         return;
     }
 
-    sprintf(fileName, "%s/%s.config", keyboardConfigDir, configName);
-    
+    if (!keyboardConfigJoin(fileName, keyboardConfigDir, configName)) {
+        return;
+    }
+
     keyConfigFile = iniFileOpen(fileName);
     for (n = 0; n < KBD_TABLE_NUM; n++) {
         char profString[32];
@@ -2125,6 +2200,11 @@ void keyboardSetSharedDirectory(char* directory)
 char* keyboardGetCurrentConfig()
 {
     return currentConfigFile;
+}
+
+int keyboardConfigIsSubstitute()
+{
+    return currentConfigIsSubstitute;
 }
 
 void inputInit()
