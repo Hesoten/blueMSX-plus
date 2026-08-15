@@ -259,6 +259,10 @@ int themeTriggerAudioMidi() {
     return propGetGlobalProperties()->sound.mixerChannel[MIXER_CHANNEL_MIDI].enable ? 1 : 0;
 }
 
+int themeTriggerAudioCassette() {
+    return propGetGlobalProperties()->sound.mixerChannel[MIXER_CHANNEL_CASSETTE].enable ? 1 : 0;
+}
+
 int themeTriggerVolKbdLeft() {
     return mixerGetChannelTypeVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_KEYBOARD, MIXER_CHANNEL_LEFT);
 }
@@ -339,6 +343,14 @@ int themeTriggerVolMidiRight() {
     return mixerGetChannelTypeVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_MIDI, MIXER_CHANNEL_RIGHT);
 }
 
+int themeTriggerVolCassetteLeft() {
+    return mixerGetChannelTypeVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_CASSETTE, MIXER_CHANNEL_LEFT);
+}
+
+int themeTriggerVolCassetteRight() {
+    return mixerGetChannelTypeVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_CASSETTE, MIXER_CHANNEL_RIGHT);
+}
+
 int themeTriggerVolMasterLeft() {
     return mixerGetMasterVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_LEFT);
 }
@@ -391,6 +403,10 @@ int themeTriggerLevelMidi() {
     return propGetGlobalProperties()->sound.mixerChannel[MIXER_CHANNEL_MIDI].volume;
 }
 
+int themeTriggerLevelCassette() {
+    return propGetGlobalProperties()->sound.mixerChannel[MIXER_CHANNEL_CASSETTE].volume;
+}
+
 int themeTriggerPanPsg() {
     return propGetGlobalProperties()->sound.mixerChannel[MIXER_CHANNEL_PSG].pan;
 }
@@ -431,12 +447,110 @@ int themeTriggerPanMidi() {
     return propGetGlobalProperties()->sound.mixerChannel[MIXER_CHANNEL_MIDI].pan;
 }
 
+int themeTriggerPanCassette() {
+    return propGetGlobalProperties()->sound.mixerChannel[MIXER_CHANNEL_CASSETTE].pan;
+}
+
 int themeTriggerLevelRensha() {
     return propGetGlobalProperties()->joy1.autofire * 100 / (11 - 1);
 }
 
 int themeTriggerLevelEmuSpeed() {
     return propGetGlobalProperties()->emulation.speed;
+}
+
+/* Monitor colour / palette emulation names, in the property page's order. */
+static char* videoMonColorName(int monitorColor) {
+    switch (monitorColor) {
+    case P_VIDEO_COLOR: return langEnumVideoMonColor();
+    case P_VIDEO_BW:    return langEnumVideoMonGrey();
+    case P_VIDEO_GREEN: return langEnumVideoMonGreen();
+    case P_VIDEO_AMBER: return langEnumVideoMonAmber();
+    }
+    return "";
+}
+
+static char* videoMonTypeName(int monitorType) {
+    switch (monitorType) {
+    case P_VIDEO_PALNONE:    return langEnumVideoEmuNone();
+    case P_VIDEO_PALMON:     return langEnumVideoEmuMonitor();
+    case P_VIDEO_PALYC:      return langEnumVideoEmuYc();
+    case P_VIDEO_PALNYC:     return langEnumVideoEmuYcBlur();
+    case P_VIDEO_PALCOMP:    return langEnumVideoEmuComp();
+    case P_VIDEO_PALNCOMP:   return langEnumVideoEmuCompBlur();
+    case P_VIDEO_PALSCALE2X: return langEnumVideoEmuScale2x();
+    case P_VIDEO_PALHQ2X:    return langEnumVideoEmuHq2x();
+    }
+    return "";
+}
+
+char* themeTriggerSliderValueText(int trigger) {
+    static char buffer[64];
+    Properties* p = propGetGlobalProperties();
+    int level;
+
+    switch (trigger & THEME_TRIGGER_MASK) {
+    case THEME_TRIGGER_EMUSPEED:
+        {
+            /* Same wording as the property page's strEmuSpeed. */
+            int freq = emulatorLogFrequencyToHz(p->emulation.speed);
+            sprintf(buffer, "%d.%03dMHz (%d%%)", freq / 1000000,
+                    (freq / 1000) % 1000, freq * 10 / 357954);
+        }
+        return buffer;
+
+    case THEME_TRIGGER_RENSHA:           sprintf(buffer, "%d", p->joy1.autofire); return buffer;
+    case THEME_TRIGGER_VIDEO_COLORMODE:  return videoMonColorName(p->video.monitorColor);
+    case THEME_TRIGGER_VIDEO_FILTER:     return videoMonTypeName(p->video.monitorType);
+    case THEME_TRIGGER_VIDEO_SCANLINES:  return themeTriggerVideoScanlinePctText();
+    case THEME_TRIGGER_VIDEO_GAMMA:      return themeTriggerVideoGammaText();
+    case THEME_TRIGGER_VIDEO_BRIGHTNESS: return themeTriggerVideoBrightnessText();
+    case THEME_TRIGGER_VIDEO_CONTRAST:   return themeTriggerVideoContrastText();
+    case THEME_TRIGGER_VIDEO_SATURATION: return themeTriggerVideoSaturationText();
+
+    case THEME_TRIGGER_VIDEO_RFMODULATION:
+        /* Half steps, matching the property page's ghosting width. */
+        if (!p->video.colorSaturationEnable) {
+            return "";
+        }
+        sprintf(buffer, "%d.%d", p->video.colorSaturationWidth / 2,
+                5 * (p->video.colorSaturationWidth & 1));
+        return buffer;
+
+    case THEME_TRIGGER_LEVEL_MASTER:    level = themeTriggerLevelMaster();    break;
+    case THEME_TRIGGER_LEVEL_PSG:       level = themeTriggerLevelPsg();       break;
+    case THEME_TRIGGER_LEVEL_PCM:       level = themeTriggerLevelPcm();       break;
+    case THEME_TRIGGER_LEVEL_IO:        level = themeTriggerLevelIo();        break;
+    case THEME_TRIGGER_LEVEL_SCC:       level = themeTriggerLevelScc();       break;
+    case THEME_TRIGGER_LEVEL_KEYBOARD:  level = themeTriggerLevelKeyboard();  break;
+    case THEME_TRIGGER_LEVEL_MSXMUSIC:  level = themeTriggerLevelMsxMusic();  break;
+    case THEME_TRIGGER_LEVEL_MSXAUDIO:  level = themeTriggerLevelMsxAudio();  break;
+    case THEME_TRIGGER_LEVEL_MOONSOUND: level = themeTriggerLevelMoonsound(); break;
+    case THEME_TRIGGER_LEVEL_SFG:       level = themeTriggerLevelYamahaSfg(); break;
+    case THEME_TRIGGER_LEVEL_MIDI:      level = themeTriggerLevelMidi();      break;
+    case THEME_TRIGGER_LEVEL_CASSETTE:  level = themeTriggerLevelCassette();  break;
+
+    /* Pan is a 0..100 position (50 = centre) with no unit elsewhere in
+       the UI, so it stays bare rather than being labelled a percentage. */
+    case THEME_TRIGGER_PAN_PSG:       sprintf(buffer, "%d", themeTriggerPanPsg());       return buffer;
+    case THEME_TRIGGER_PAN_PCM:       sprintf(buffer, "%d", themeTriggerPanPcm());       return buffer;
+    case THEME_TRIGGER_PAN_IO:        sprintf(buffer, "%d", themeTriggerPanIo());        return buffer;
+    case THEME_TRIGGER_PAN_SCC:       sprintf(buffer, "%d", themeTriggerPanScc());       return buffer;
+    case THEME_TRIGGER_PAN_KEYBOARD:  sprintf(buffer, "%d", themeTriggerPanKeyboard());  return buffer;
+    case THEME_TRIGGER_PAN_MSXMUSIC:  sprintf(buffer, "%d", themeTriggerPanMsxMusic());  return buffer;
+    case THEME_TRIGGER_PAN_MSXAUDIO:  sprintf(buffer, "%d", themeTriggerPanMsxAudio());  return buffer;
+    case THEME_TRIGGER_PAN_MOONSOUND: sprintf(buffer, "%d", themeTriggerPanMoonsound()); return buffer;
+    case THEME_TRIGGER_PAN_SFG:       sprintf(buffer, "%d", themeTriggerPanYamahaSfg()); return buffer;
+    case THEME_TRIGGER_PAN_MIDI:      sprintf(buffer, "%d", themeTriggerPanMidi());      return buffer;
+    case THEME_TRIGGER_PAN_CASSETTE:  sprintf(buffer, "%d", themeTriggerPanCassette()); return buffer;
+
+    default:
+        /* No dedicated unit: show nothing rather than a wrong number. */
+        return "";
+    }
+
+    sprintf(buffer, "%d%%", level);   /* volume levels are real percentages */
+    return buffer;
 }
 
 int themeTriggerMachineMoonsound() {

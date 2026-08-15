@@ -66,7 +66,11 @@ public:
         int size;
         bool enabled;
 
-        BreakpointInfo() : address(-1), enabled(false), type(UNINITIALIZED) {
+        /* Every field, since these are copied whole between sessions and a
+        ** stale breakpointHit would pin the selected row for good. */
+        BreakpointInfo() : type(UNINITIALIZED), breakpointHit(false), address(-1),
+                           condition(WATCHPOINT_ANY), referenceValue(0), size(1),
+                           enabled(false) {
             label[0] = 0;
         }
         bool operator>(const BreakpointInfo& other) {
@@ -128,7 +132,7 @@ public:
             char formatString[32];
             sprintf(formatString, "%%.%dXh", size * 2);
             static char buffer[32];
-            sprintf(buffer, formatString, address);
+            sprintf(buffer, formatString, referenceValue);
             return buffer;    
         }
     };
@@ -154,7 +158,13 @@ public:
     void enableAllBreakpoints();
     void disableAllBreakpoints();
     void clearAllBreakpoints();
-    
+
+    /* The CPU keeps whatever is armed when the window closes, so hand the list
+    ** on to the next debugger session instead of dropping it. */
+    void keepBreakpoints();
+    void restoreBreakpoints();
+    void discardRuntoBreakpoint();
+
     void isBreakpointSet(const BreakpointInfo& breakpoint);
     void setBreakpoint(const BreakpointInfo& breakpoint);
     void clearBreakpoint(const BreakpointInfo& breakpoint);
@@ -163,16 +173,16 @@ public:
     void setWatchpoint(BreakpointInfo& breakpoint);
 
     void updateBreakpoints();
-    bool setStepOverBreakpoint(const UInt8* memory, UInt16 address);
-    void setStepOutBreakpoint(const UInt8* memory, UInt16 address);
+    bool setStepOverBreakpoint(const UInt8* memory, UInt16 address, bool intEnabled);
     int  getEnabledBpCount();
     int  getDisabledBpCount();
 
     // Support for temporary disassembly breakpoints
-    void setRuntoBreakpoint(UInt16 address);
+    bool setRuntoBreakpoint(int address);
     void clearRuntoBreakpoint();
 
     virtual LRESULT wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam);
+    virtual void onFontChanged();
     LRESULT breakpointsWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam);
     BOOL toolDlgProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam);
     BOOL breakpointsDialogProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam);
@@ -182,6 +192,11 @@ private:
     
     BreakpointInfo* find(const BreakpointInfo& breakpointInfo);
     void toggleBreakpointEnable(Breakpoints::BreakpointInfo* bi);
+
+    /* selectedLine is an index, and inserting or erasing moves the rows past it,
+    ** so anything that does either names the row before and restores it after. */
+    BreakpointInfo* selectedRow();
+    void selectRow(const BreakpointInfo* row);
 
     void initializeToolbar(HWND owner);
     void updateToolbar();
@@ -197,8 +212,8 @@ private:
     HWND   breakpointsHwnd;
     Toolbar* toolbar;
     HDC    hMemdc;
-    HFONT  hFont;
-    HFONT  hFontBold;
+    HFONT  hFont     = NULL;
+    HFONT  hFontBold = NULL;
     HBRUSH hBrushWhite;
     HBRUSH hBrushLtGray;
     HBRUSH hBrushDkGray;

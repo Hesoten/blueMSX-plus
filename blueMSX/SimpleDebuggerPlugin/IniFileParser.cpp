@@ -142,10 +142,8 @@ int iniFileGetInt(const char* section,
     char buff[MAX_LINE_LENGTH]; 
     char *ep; 
     char t_section[MAX_LINE_LENGTH]; 
-    char value[6]; 
     int len = (int)strlen(entry);
-    int i; 
-    
+
     rewindBuffer();
 
     sprintf(t_section, "[%s]", section);
@@ -171,13 +169,13 @@ int iniFileGetInt(const char* section,
         return def; 
     }
 
-    for (i = 0; isdigit(ep[i]); i++) {
-        value[i] = ep[i]; 
+    /* strtol takes the sign, which a window on a monitor left of the primary
+    ** needs, and needs no fixed buffer to copy the digits into. */
+    {
+        char* endp;
+        long v = strtol(ep, &endp, 10);
+        return endp == ep ? def : (int)v;
     }
-
-    value[i] = '\0'; 
-    
-    return atoi(value); 
 
 
 } 

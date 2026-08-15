@@ -389,27 +389,42 @@ void moonsoundWrite(Moonsound* moonsound, UInt16 ioPort, UInt8 value)
 {
     UInt32 systemTime = boardSystemTime();
 	if (ioPort < 0xC0) {
+        // wave register select and writes are ignored while NEW2 = 0
+        // (verified on real hardware; reads still work normally)
+        if (!(moonsound->ymf262->peekReg(0x105) & 0x02)) {
+            return;
+        }
 		switch (ioPort & 0x01) {
 		case 0: // select register
 			moonsound->opl4latch = value;
+			moonsound->ymf278->setBusyUntil(systemTime + 56);
 			break;
 		case 1:
             mixerSync(moonsound->mixer);
   			moonsound->ymf278->writeRegOPL4(moonsound->opl4latch, value, systemTime);
+            if (moonsound->opl4latch == 0xF8) {
+                // MIX CONTROL (FM): route to the YMF262 output stage; the
+                // YMF278 stores the register but the level applies to FM.
+                moonsound->ymf262->setMixLevel(value);
+            }
 			break;
 		}
 	} else {
+		// FM register selects and writes also raise the shared BUSY flag
 		switch (ioPort & 0x03) {
 		case 0:
 			moonsound->opl3latch = value;
+			moonsound->ymf278->setBusyUntil(systemTime + 36);
 			break;
 		case 2: // select register bank 1
 			moonsound->opl3latch = value | 0x100;
+			moonsound->ymf278->setBusyUntil(systemTime + 36);
 			break;
 		case 1:
 		case 3: // write fm register
             mixerSync(moonsound->mixer);
 			moonsound->ymf262->writeReg(moonsound->opl3latch, value, systemTime);
+			moonsound->ymf278->setBusyUntil(systemTime + 36);
 			break;
 		}
 	}

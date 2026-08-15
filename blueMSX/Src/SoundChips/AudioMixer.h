@@ -52,6 +52,9 @@ typedef enum {
     MIXER_CHANNEL_PCM,
     MIXER_CHANNEL_IO,
     MIXER_CHANNEL_MIDI,
+    /* Keep after MIDI: mixerRecalculateType indexes the channel array with
+    ** the MIDI type value, so anything inserted before it breaks that. */
+    MIXER_CHANNEL_CASSETTE,
     MIXER_CHANNEL_TYPE_COUNT
 } MixerAudioType;
 

@@ -32,12 +32,20 @@
 
 typedef struct AmdFlash AmdFlash;
 
-typedef enum { AMD_TYPE_1, AMD_TYPE_2 } AmdType;
+/* AMD_TYPE_1: 0xAAA/0x555 command addresses
+** AMD_TYPE_2: 0x555/0x2AA command addresses (Am29F040 style)
+** AMD_TYPE_3: M29W128 in x8 mode (Flash-ROM SCC cartridge) */
+typedef enum { AMD_TYPE_1, AMD_TYPE_2, AMD_TYPE_3 } AmdType;
 
 
 AmdFlash* amdFlashCreate(AmdType type, int flashSize, int sectorSize, UInt32 writeProtectMask, 
                          void* romData, int size, const char* sramFilename, int loadSram);
 void amdFlashDestroy(AmdFlash* rm);
+
+/* Enable the M29W640-family fast program commands (Quadruple Byte Program
+** 0x56).  Off by default: chips like the S29GL064 do not implement them and
+** treating a data value of 0x56 as a command corrupts the flash contents. */
+void amdFlashEnableFastCommands(AmdFlash* rm);
 
 int amdFlashCmdInProgress(AmdFlash* rm);
 

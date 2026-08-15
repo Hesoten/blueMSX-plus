@@ -82,6 +82,8 @@ void langInitItalian(LanguageStrings* ls)
     ls->errorDirectXFailed              = "Non riesco a creare gli oggetti DirectX.          \nHo selezionato automaticamente le GDI.\nVerifica le proprietà video.";
     ls->errorNoRomInZip                 = "Nessun file .ROM trovato nell'archivio compresso.";
     ls->errorNoDskInZip                 = "Nessun file .DSK trovato nell'archivio compresso.";
+    ls->errorCreateDiskImage            = "Impossibile creare il file immagine disco.";
+    ls->errorCreateTapeImage            = "Impossibile creare il file immagine cassetta.";
     ls->errorNoCasInZip                 = "Nessun file .CAS trovato nell'archivio compresso.";
     ls->errorDirAsDskOverflow           = "%d file (%d KB totali) non sono entrati nell'immagine disco da 720 KB e sono stati saltati.";
     ls->errorNoHelp                     = "Non trovo il file della guida in linea di blueMSX+.";
@@ -92,6 +94,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->errorStartEmuConfigInvalid      = "Impossibile leggere config.ini della configurazione di macchina '%s'. Il file potrebbe essere danneggiato o provenire da una versione incompatibile.";
     ls->errorMissingFiles               = "Non è stato possibile caricare i seguenti file:";
     ls->errorPortableReadonly           = "Il dispositivo rimovibile è di sola lettura";
+    ls->errorMidiOpenFailed             = "Impossibile aprire il dispositivo MIDI '%s'. Potrebbe essere usato da un'altra applicazione.";
     ls->infoTitle                       = "Info blueMSX+";
     ls->infoGameReaderRedirect          = "blueMSX+ non supporta direttamente MSX Game Reader (il driver originale ASCII dell'era XP non funziona più su Windows moderno).\n\nAprire MSX Game Reader - Web Dumper (di Kunihiko Ohnaka) nel browser invece?";
     ls->infoColorDepth                  = "blueMSX+ funziona al meglio con una profondità di colore di 16 o 32 bit.";
@@ -105,6 +108,9 @@ void langInitItalian(LanguageStrings* ls)
     ls->infoRecorderComplete            = "File video salvato:\n  %s";
     ls->infoToastSaved                  = "Salvato: %s";
     ls->infoToastAlreadyRecording   = "Già in registrazione";
+    ls->infoToastMouseConnected    = "Mouse PC collegato all'MSX";
+    ls->infoToastMouseDisconnected = "Mouse PC scollegato dall'MSX";
+    ls->propControlsMouseSens      = "Sensibilità:";
     ls->dlgRecorderPickTitle        = "blueMSX+ - Converti replay in video";
     ls->dlgRecorderPickSourceCap    = "File replay da convertire (.cap):";
     ls->dlgRecorderPickOutputMp4    = "File video di uscita (.mp4):";
@@ -181,7 +187,9 @@ void langInitItalian(LanguageStrings* ls)
     ls->menuDiskAutoStart               = "Riavvia quando inserisci";
     ls->menuCartAutoReset               = "Riavvia quando inserisci/rimuovi";
 
+    ls->menuCasInsertNew                = "Inserisci una nuova cassetta...";
     ls->menuCasRewindAfterInsert        = "Riavvolgi quando inserisci";
+    ls->menuCasSaveMonitor              = "Ascolta durante il salvataggio";
     ls->menuCasUseReadOnly              = "Simula una cassetta di sola lettura";
     ls->lmenuCasSaveAs                  = "Salva la cassetta come...";
     ls->menuCasSetPosition              = "Imposta la posizione del nastro...";
@@ -311,6 +319,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->dlgInsertDiskB                  = "Inserisci un disco nell'unità B";
     ls->dlgInsertHarddisk               = "Inserisci un disco rigido";
     ls->dlgInsertCas                    = "Inserisci una cassetta nel registratore";
+    ls->dlgCreateCas                    = "Crea una nuova cassetta";
     ls->dlgRomType                      = "Tipo ROM:";
     ls->dlgDiskSize                     = "Dimensione:";                                            
 
@@ -380,8 +389,10 @@ void langInitItalian(LanguageStrings* ls)
     ls->propEmuFrontSwitch              = " Interruttore frontale";
     ls->propEmuNoSpriteLimits   = " Disabilita limite sprite";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emula peculiarità tastiera MSX";  // New in 2.9
-    ls->propEmuFdcTiming                = " Accelera l'accesso FDD";
-    ls->propEmuHddSdBoost               = " Accelera durante l'accesso HDD/SD";
+    ls->propEmuBoostText                = "Accelera l'accesso ai dispositivi:";
+    ls->propEmuFdcTiming                = " FDD";
+    ls->propEmuCasBoost                 = " Cassetta";
+    ls->propEmuHddSdBoost               = " Scheda HDD/SD";
     ls->propEmuReversePlay              = " Abilita la riproduzione a ritroso"; // New in 2.8.3
     ls->propEmuPauseSwitch              = " Tasto pausa";
     ls->propEmuAudioSwitch              = " Cartuccia MSX-AUDIO";
@@ -401,12 +412,12 @@ void langInitItalian(LanguageStrings* ls)
     ls->propMonHorizStretch             = " Allungamento orizzontale";
     ls->propMonVertStretch              = " Allungamento verticale";
     ls->propMonDeInterlace              = " Deinterlacciato";
-    ls->propBlendFrames                 = " Fusione fotogrammi adiacenti";
+    ls->propBlendFrames                 = " Fusione fotogrammi";
     ls->propMonBrightness               = "Luminosità:";
     ls->propMonContrast                 = "Contrasto:";
     ls->propMonSaturation               = "Saturazione:";
     ls->propMonGamma                    = "Gamma:";
-    ls->propMonScanlines                = " Linee di scansione:";
+    ls->propMonScanlines                = " Scanline:";
     ls->propMonScanlinesBright          = "Comp. lumin.:";
     ls->propMonScanlinesBrightAuto         = " Auto";
     ls->propMonScanlinesShape           = "Preimp.:";
@@ -443,7 +454,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->propSoundChipsY8950GB           = " Backend MSX-AUDIO ";
     ls->propSndOpllAnalogText           = "Filtro analogico:";
     ls->propSndOpllAnalogLpfText        = "Taglio LPF:";
-    ls->enumOpllFilterOff               = "Disattivato";
+    ls->enumOpllFilterOff               = "Spento";
     ls->enumOpllFilterBright            = "Brillante (LPF 12 kHz)";
     ls->enumOpllFilterClear             = "Chiaro (LPF 8 kHz)";
     ls->enumOpllFilterStandard          = "Standard (LPF 5 kHz)";
@@ -472,7 +483,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->propFileTypes                   = " Registra .rom/.dsk/.cas/.sta nel menu \"Apri con\"";
     ls->propOpenDefaultApps             = "Apri le impostazioni delle app predefinite di Windows";
     ls->propWindowsEnvGB                = "Ambiente Windows ";
-    ls->propSetScreenSaver              = " Mantieni l'immagine attiva quando blueMSX+ è in esecuzione (no schermo off/sospensione/salva)";
+    ls->propSetScreenSaver              = " Schermo sempre attivo (blocca screensaver/sospensione)";
     ls->propPriorityBoost               = " Usa lo scheduler giochi di Windows (MMCSS) per l'emulazione";
     ls->propScreenshotPng               = " Utilizza il formato PNG per il salvataggio delle schermate";
     ls->propEjectMediaOnExit            = " Espelli tutti i supporti quando esci da blueMSX+";                      // New in 2.8
@@ -499,8 +510,7 @@ void langInitItalian(LanguageStrings* ls)
 
     ls->propD3DParametersGB         = "Parametri ";                // New in 2.9
     ls->propD3DAspectRatioText      = "Proporzioni";               // New in 2.9
-    ls->propD3DLinearFilteringText  = " Filtro lineare";          // New in 2.9
-    ls->propD3DForceHighResText     = " Forza alta risoluzione";     // New in 2.9
+    ls->propD3DScalingFilterText     = "Filtro di scala";
     ls->propD3DExtendBorderColorText    = " Estendi colore bordo";   // New in 2.9
 
     ls->propD3DCroppingGB               = "Ritaglio ";              // New in 2.9
@@ -550,6 +560,10 @@ void langInitItalian(LanguageStrings* ls)
     ls->enumD3DARPAL            = "PAL";            // New in 2.9
     ls->enumD3DARNTSC           = "NTSC";           // New in 2.9
     ls->enumD3DAR11             = "1:1";            // New in 2.9
+    ls->enumD3DScaleNearest          = "Più vicino";
+    ls->enumD3DScaleBilinear         = "Bilineare";
+    ls->enumD3DScaleSharp            = "Bilineare nitido";
+    ls->enumD3DScalePrescaled     = "Bilineare (2x prescale)";
 
     ls->enumD3DCropNone         = "Nessuno";           // New in 2.9
     ls->enumD3DCropMSX1         = "MSX1";           // New in 2.9
@@ -673,6 +687,11 @@ void langInitItalian(LanguageStrings* ls)
     ls->shortcutConfigTitle             = "blueMSX+ - Gestione tasti rapidi";
     ls->shortcutAssign                  = "Assegna";
     ls->shortcutPressText               = "Combinazione scelta:";
+    ls->shortcutHotkeyHint              = "(fino a 3 tasti)";
+    ls->keyboardMappedHint              = "(fino a 3 tasti)";
+    ls->shortcutTooltipAlsoBound        = "Assegnato anche a: ";
+    ls->keyboardKeyFormat               = "tasto %s";
+    ls->keyconfigResetTab               = "Ripristina i tasti di questa scheda";
     ls->shortcutScheme                  = "Schema corrente:";
     ls->shortcutCartInsert1             = "Inserisci una cartuccia nello slot 1";
     ls->shortcutCartRemove1             = "Rimuovi la cartuccia dallo slot 1";
@@ -731,7 +750,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->shortcutSwitchMsxAudio          = "Interruttore MSX-AUDIO Panasonic";
     ls->shortcutSwitchFront             = "Interruttore frontale Panasonic";
     ls->shortcutSwitchPause             = "Tasto pausa Panasonic";
-    ls->shortcutToggleMouseLock         = "Mostra/Nascondi il puntatore del mouse";
+    ls->shortcutToggleMouseLock         = "Collega/scollega mouse PC all'MSX";
     ls->shortcutEmuSpeedMax             = "Esegui temporaneamente alla massima velocità";
     ls->shortcutEmuSpeedToggle          = "Esegui alla massima velocità di emulazione";
     ls->shortcutEmuSpeedNormal          = "Ripristina la normale velocità di emulazione";

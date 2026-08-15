@@ -48,10 +48,12 @@
 #include "AudioMixer.h"
 #include "VideoRender.h"
 #include "CommandLine.h"
+#include "RomTypeList.h"
 #include "Language.h"   
 #include "SaveState.h"
 #include "resource.h"
 #include "Casette.h"
+#include "TapeSignal.h"
 #include "PrinterIO.h"
 #include "UartIO.h"
 #include "MidiIO.h"
@@ -70,6 +72,7 @@
 #include "Win32Recorder.h"
 #include "FileHistory.h"
 #include "Win32Dir.h"
+#include "DiskFormat.h"
 #include "Win32file.h"
 #include "Win32Help.h"
 #include "Win32Menu.h"
@@ -94,6 +97,7 @@
 #include "VideoRender.h"
 #include "ThemeLoader.h"
 #include "Win32ThemeClassic.h"
+#include "Win32Window.h"
 #include "ArchNotifications.h"
 #include "ArchEvent.h"
 #include "ArchTimer.h"
@@ -290,6 +294,37 @@ void win32CommonCenterOnOwner(HWND hDlg)
         if (y < mi.rcWork.top)           y = mi.rcWork.top;
     }
     SetWindowPos(hDlg, NULL, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+}
+
+void win32PaintClearChip(HDC hdc, const RECT* r,
+                         int radNumer, int radDenom, int penW,
+                         int fillBg, COLORREF bgCol, COLORREF glyphCol)
+{
+    int side = min(r->right - r->left, r->bottom - r->top);
+    int cx, cy, rad, inset;
+    HPEN pen, oldPen;
+    HBRUSH oldBrush;
+    if (side <= 0) return;
+    cx = (r->left + r->right) / 2;
+    cy = (r->top  + r->bottom) / 2;
+    rad = (side * radNumer) / radDenom;
+    inset = rad / 3;
+    if (fillBg) {
+        HBRUSH bg = CreateSolidBrush(bgCol);
+        FillRect(hdc, r, bg);
+        DeleteObject(bg);
+    }
+    pen = CreatePen(PS_SOLID, penW, glyphCol);
+    oldPen = SelectObject(hdc, pen);
+    oldBrush = SelectObject(hdc, GetStockObject(NULL_BRUSH));
+    Ellipse(hdc, cx - rad, cy - rad, cx + rad + 1, cy + rad + 1);
+    MoveToEx(hdc, cx - rad + inset, cy - rad + inset, NULL);
+    LineTo  (hdc, cx + rad - inset, cy + rad - inset);
+    MoveToEx(hdc, cx - rad + inset, cy + rad - inset, NULL);
+    LineTo  (hdc, cx + rad - inset, cy - rad + inset);
+    SelectObject(hdc, oldPen);
+    SelectObject(hdc, oldBrush);
+    DeleteObject(pen);
 }
 
 static HBRUSH win32GetDarkEditBrush(void) {
@@ -864,17 +899,18 @@ static void win32ApplyDarkToDialog(HWND hwnd) {
 
 
 
-void win32SliderTooltipUpdate(HWND* phwndTip, HWND parent, int percent)
+void win32SliderTooltipUpdate(HWND* phwndTip, HWND parent, const char* text)
 {
     /* Explicit TTM_*W: without UNICODE the unsuffixed macros expand to ANSI
        IDs and TOOLTIPS_CLASSW renders our wide string as ANSI
        (= truncated at first 0x00 byte). */
     static HFONT s_tipFont = NULL;
-    wchar_t buf[24];
+    wchar_t stack[128];
+    wchar_t buf[132];
     POINT pt;
     TOOLINFOW ti;
 
-    if (percent < 0) {
+    if (text == NULL) {
         if (phwndTip && *phwndTip) {
             TOOLINFOW tih = { 0 };
             tih.cbSize = sizeof(tih);
@@ -887,7 +923,7 @@ void win32SliderTooltipUpdate(HWND* phwndTip, HWND parent, int percent)
 
     if (!phwndTip || !parent) return;
 
-    /* Larger-than-default font so the percent value is easy to read. */
+    /* Larger-than-default font so the setting value is easy to read. */
     if (s_tipFont == NULL) {
         s_tipFont = CreateFontW(-22, 0, 0, 0, FW_SEMIBOLD,
                                 FALSE, FALSE, FALSE,
@@ -922,7 +958,11 @@ void win32SliderTooltipUpdate(HWND* phwndTip, HWND parent, int percent)
         SendMessageW(*phwndTip, TTM_ADDTOOLW, 0, (LPARAM)&tin);
     }
 
-    swprintf(buf, 24, L" %d %% ", percent);
+    {
+        wchar_t* wtext = Utf8ToWideAlloc(text, stack, (int)_countof(stack));
+        swprintf(buf, _countof(buf), L" %.*s ", (int)_countof(buf) - 3, wtext);
+        FreeWideMaybe(wtext, stack);
+    }
 
     GetCursorPos(&pt);
     pt.x += 20;
@@ -970,31 +1010,6 @@ static EmuLanguageType getLangType()
     }
 
     return EMU_LANG_ENGLISH;
-}
-
-int canHandleVblankSyncMode() {
-    DWORD t1;
-    DWORD t2;
-    DWORD cnt = 0;
-    int currPri;
-    
-    currPri= GetThreadPriority(GetCurrentThread());
-    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
-
-    t1 = t2 = archGetSystemUpTime(100);
-    while (t2 == t1) {
-        t1 = t2;
-        t2 = archGetSystemUpTime(100);
-    }
-    t1 = t2;
-    while (t2 == t1) {
-        t1 = t2;
-        t2 = archGetSystemUpTime(100);
-        cnt++;
-    }
-    SetThreadPriority(GetCurrentThread(), currPri);
-
-    return cnt > 6000;
 }
 
 void centerDialog(HWND hwnd, int noActivate) {
@@ -1351,7 +1366,8 @@ static void updateRomTypeList(HWND hDlg, ZipFileDlgInfo* dlgInfo) {
         RomType romType = mediaType != NULL ? mediaDbGetRomType(mediaType) : ROM_UNKNOWN;
         int idx = 0;
 
-        while (opendialog_getromtype(idx) != romType) {
+        while (opendialog_getromtype(idx) != romType &&
+               opendialog_getromtype(idx) != ROM_UNKNOWN) {
             idx++;
         }
 
@@ -1404,7 +1420,6 @@ static BOOL_DLG_RET CALLBACK dskZipDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
 
             for (i = 0; opendialog_getromtype(i) != ROM_UNKNOWN; i++) {
                 ComboAddStringU(GetDlgItem(hDlg, IDC_OPEN_ROMTYPE), romTypeToString(opendialog_getromtype(i)));
-                SendDlgItemMessage(hDlg, IDC_ROMTYPE, CB_SETCURSEL, i, 0);
             }
             ComboAddStringU(GetDlgItem(hDlg, IDC_OPEN_ROMTYPE), romTypeToString(ROM_UNKNOWN));
             EnableWindow(GetDlgItem(hDlg, IDC_OPEN_ROMTYPE), 0);
@@ -1726,32 +1741,83 @@ void setTapePosition(HWND parent, Properties* pProperties) {
 
 ///////////////////////////////////////////////////////////////////////////
 
-#define hotkeyEq(hotkey1, hotkey2) (*(DWORD*)&hotkey1 == *(DWORD*)&hotkey2)
+/* ignoreMods: mods on a release come from the input poll, so they can
+** differ from the press. */
+static unsigned hotkeySetSlotMask(ShotcutHotkey key, const ShotcutHotkeySet* set, int ignoreMods)
+{
+    unsigned mask = 0;
+    int b;
+    if (key.type == HOTKEY_TYPE_NONE) return 0;
+    for (b = 0; b < SHORTCUT_MAX_BINDINGS; b++) {
+        if (set->slots[b].type == HOTKEY_TYPE_NONE) continue;
+        if (ignoreMods ? (set->slots[b].type == key.type && set->slots[b].key == key.key)
+                       : (*(DWORD*)&key == *(DWORD*)&set->slots[b])) {
+            mask |= 1u << b;
+        }
+    }
+    return mask;
+}
 
-static int maxSpeedIsSet = 0;
-static int reverseIsSet  = 0;
+static int hotkeySetMatches(ShotcutHotkey key, const ShotcutHotkeySet* set)
+{
+    return hotkeySetSlotMask(key, set, 0) != 0;
+}
+
+#define hotkeyEq(hotkey1, hotkey2Set) hotkeySetMatches((hotkey1), &(hotkey2Set))
+
+/* A shortcut bound to joy N button M fires on slot N-1's button M. */
+static unsigned joyHotkeyCode(int slot, int button)
+{
+    return (unsigned)(((slot + 1) << 8) | button);
+}
+
+static unsigned maxSpeedHeld = 0;
+static unsigned reverseHeld  = 0;
 
 static void checkKeyDown(Shortcuts* s, ShotcutHotkey key) {
-    if (hotkeyEq(key, s->emuSpeedFull)) {
+    unsigned m;
+
+    m = hotkeySetSlotMask(key, &s->emuSpeedFull, 0);
+    if (m != 0) {
+        /* Re-asserted per repeat: max speed can be switched off elsewhere. */
         actionMaxSpeedSet();
-        maxSpeedIsSet = 1;
+        maxSpeedHeld |= m;
     }
-    if (hotkeyEq(key, s->emuPlayReverse)) {
-        actionStartPlayReverse();
-        reverseIsSet = 1;
+    m = hotkeySetSlotMask(key, &s->emuPlayReverse, 0);
+    if (m != 0) {
+        /* Starting reverse play suspends the sound device, which is not
+        ** re-entrant. */
+        if (reverseHeld == 0) actionStartPlayReverse();
+        reverseHeld |= m;
     }
 }
 
-static void checkKeyUp(Shortcuts* s, ShotcutHotkey key) 
+static void shortcutsReleaseHeldActions(void)
 {
-    if (maxSpeedIsSet) {
+    if (maxSpeedHeld != 0) {
         actionMaxSpeedRelease();
-        maxSpeedIsSet = 0;
+        maxSpeedHeld = 0;
     }
 
-    if (reverseIsSet) {
+    if (reverseHeld != 0) {
         actionStopPlayReverse();
-        reverseIsSet = 0;
+        reverseHeld = 0;
+    }
+}
+
+static void checkKeyUp(Shortcuts* s, ShotcutHotkey key)
+{
+    unsigned m;
+
+    m = hotkeySetSlotMask(key, &s->emuSpeedFull, 1);
+    if (m != 0 && maxSpeedHeld != 0) {
+        maxSpeedHeld &= ~m;
+        if (maxSpeedHeld == 0) actionMaxSpeedRelease();
+    }
+    m = hotkeySetSlotMask(key, &s->emuPlayReverse, 1);
+    if (m != 0 && reverseHeld != 0) {
+        reverseHeld &= ~m;
+        if (reverseHeld == 0) actionStopPlayReverse();
     }
 
     if (hotkeyEq(key, s->spritesEnable))                actionToggleSpriteEnable();
@@ -1908,13 +1974,19 @@ typedef struct {
     void* bmBitsGDI;
     int frameCount;
     int framesPerSecond;
+    /* Directory where blueMSX.exe lives. Captured once in setDefaultPath()
+    ** and used as the CWD anchor to restore after temporary chdirs. */
     char pCurDir[MAX_PATH];
     Video* pVideo;
     int minimized;
     Mixer* mixer;
     int enteringFullscreen;
     Shortcuts* shortcuts;
-    DWORD buttonState;
+    DWORD buttonStatePerJoy[INPUT_MAX_JOYSTICKS];
+    /* Bits that produced a key-down; one first seen after polling resumed
+    ** must not produce a key-up. */
+    DWORD dispatchedDownPerJoy[INPUT_MAX_JOYSTICKS];
+    int joyDispatchOpen;
 
     HANDLE ddrawEvent;
     HANDLE ddrawAckEvent;
@@ -1934,6 +2006,9 @@ typedef struct {
     ThemePage* themePageActive;
     ThemeCollection** themeList;
     int themeIndex;
+    /* Collection the active page came from; differs from themeList[themeIndex]
+       when a theme with no page for this zoom falls back to Classic. */
+    ThemeCollection* themePageOwner;
     HWND currentHwnd; // Used for arch specific theme events
     POINT currentHwndMouse;
     RECT currentHwndRect;
@@ -1951,7 +2026,63 @@ typedef struct {
 #define WIDTH  320
 #define HEIGHT 240
 
-#define LAUNCH_TEMP_FILE "launch.tmp"
+/* Marks a WM_COPYDATA as ours, so another build of the same class ignores it. */
+#define LAUNCH_COPYDATA_ID   0x424D5846
+
+/* Fills path with the exe of processId. QueryFullProcessImageNameW is used for
+** this process too, so the two paths compare equal. */
+static int imagePathOf(DWORD processId, wchar_t* path, DWORD size)
+{
+    HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, processId);
+    int ok;
+
+    if (process == NULL) {
+        return 0;
+    }
+    ok = QueryFullProcessImageNameW(process, 0, path, &size) != 0;
+    CloseHandle(process);
+
+    return ok;
+}
+
+static int isRegisteredFileName(const char* fileName)
+{
+    const char* const* extension = fileTypesRegisteredExtensions();
+    int i;
+
+    for (i = 0; extension[i] != NULL; i++) {
+        if (isFileExtension((char*)fileName, (char*)extension[i])) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+/* A window of another instance of this exe, or NULL. The class name is shared
+** with stock blueMSX, so the executable behind it has to match. */
+static HWND findRunningInstance(void)
+{
+    wchar_t self[1024];
+    HWND hwnd = NULL;
+
+    if (!imagePathOf(GetCurrentProcessId(), self, _countof(self))) {
+        return NULL;
+    }
+
+    while ((hwnd = FindWindowEx(NULL, hwnd, "blueMSX", NULL)) != NULL) {
+        wchar_t other[1024];
+        DWORD processId = 0;
+
+        GetWindowThreadProcessId(hwnd, &processId);
+        if (imagePathOf(processId, other, _countof(other)) &&
+            _wcsicmp(other, self) == 0) {
+            return hwnd;
+        }
+    }
+
+    return NULL;
+}
 
 static WinState st;
 
@@ -1974,6 +2105,9 @@ static void registerFileTypes() {
     registerFileType(".sc",  "blueMSXromSega",   "Sega ROM Image", 2);
     registerFileType(".col", "blueMSXromColeco", "ColecoVision ROM Image", 2);
     registerFileType(".cas", "blueMSXcas", "CAS Image", 3);
+    /* .wav stays out on purpose: taking it would steal the media player's
+    ** association from every other wave file on the machine. */
+    registerFileType(".tsx", "blueMSXtsx", "TSX Image", 3);
     registerFileType(".sta", "blueMSXsta", "blueMSX+ State", 4);
     registerFileType(".cap", "blueMSXcap", "blueMSX+ Video Capture", 4);
     registerApplicationOpenWith();
@@ -1995,6 +2129,7 @@ static void unregisterFileTypes() {
     unregisterFileType(".sc",  "blueMSXromSega",   "Sega ROM Image", 2);
     unregisterFileType(".col", "blueMSXromColeco", "ColecoVision ROM Image", 2);
     unregisterFileType(".cas", "blueMSXcas", "CAS Image", 3);
+    unregisterFileType(".tsx", "blueMSXtsx", "TSX Image", 3);
     unregisterFileType(".sta", "blueMSXsta", "blueMSX+ State", 4);
     unregisterFileType(".cap", "blueMSXcap", "blueMSX+ Video Capture", 4);
     unregisterApplicationOpenWith();
@@ -2024,8 +2159,10 @@ void archShowPropertiesDialog(PropPage  startPane) {
         return;
     }
 
-    /* Save properties */
+    /* An explicit save makes the command line values permanent, so the
+    ** overrides are dropped. */
     propSave(pProperties);
+    emuCommandLineDropOverrides();
 
     /* Always update video render */
     
@@ -2089,6 +2226,7 @@ void archShowPropertiesDialog(PropPage  startPane) {
     ** and is passed back unchanged. */
     boardSetFdcTimingEnable(pProperties->emulation.enableFdcTiming);
     boardSetHddSdBoostEnable(pProperties->emulation.enableHddSdBoost);
+    boardSetCasBoostEnable(pProperties->emulation.enableCasBoost);
     boardSetNoSpriteLimits(pProperties->emulation.noSpriteLimits);
     boardSetVdpCmdSpeed(pProperties->emulation.vdpCmdSpeed);
 
@@ -2323,6 +2461,33 @@ static void drawThemeOnEmuArea(HWND hwnd, HDC hdc, ThemePageDrawFn drawFn) {
     DeleteDC(hMemDC);
 }
 
+/* First-launch initial zoom: the Digiblue default theme scales its whole
+   800x650 skin by zoom/2, so window height = 650*zoom/2.  Pick the largest
+   zoom whose window stays within the work area (<=85% high, <=90% wide),
+   floored at 2x, so it is neither near-fullscreen nor tiny. */
+static int computeFirstLaunchWindowSize(void) {
+    RECT wa;
+    int workW, workH, z, best = P_VIDEO_SIZEX2;
+
+    if (SystemParametersInfo(SPI_GETWORKAREA, 0, &wa, 0)) {
+        workW = wa.right - wa.left;
+        workH = wa.bottom - wa.top;
+    }
+    else {
+        workW = GetSystemMetrics(SM_CXSCREEN);
+        workH = GetSystemMetrics(SM_CYSCREEN);
+    }
+
+    for (z = 2; z <= 8; z++) {
+        int h = 650 * z / 2;
+        int w = 800 * z / 2;
+        if (h <= workH * 85 / 100 && w <= workW * 90 / 100) {
+            best = z - 1;   /* zoom z -> P_VIDEO_SIZEX(z) enum == z-1 */
+        }
+    }
+    return best;
+}
+
 static int getZoom() {
     if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN && 
         (pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO || 
@@ -2334,6 +2499,35 @@ static int getZoom() {
     return pProperties->video.windowSize + 1;
 }
 
+/* Visible MSX row count after D3D cropping, for mouse-sensitivity scaling.
+** Only the D3D12 driver applies crop; keep in sync with computeUvForRender
+** in Win32D3D12.cpp (same BASE_TEX_H=240 and per-preset border sizes). */
+static int msxVisibleHeight(Properties* props)
+{
+    if (props->video.driver != P_VIDEO_DRVDIRECTX_D3D12) return 240;
+
+    switch (props->video.d3d.cropType) {
+    case P_D3D_CROP_SIZE_MSX1:         return 192;
+    case P_D3D_CROP_SIZE_MSX1_PLUS_8:  return 208;
+    case P_D3D_CROP_SIZE_MSX2:         return 212;
+    case P_D3D_CROP_SIZE_MSX2_PLUS_8:  return 228;
+    case P_D3D_CROP_SIZE_CUSTOM: {
+        int h = 240 - props->video.d3d.cropTop - props->video.d3d.cropBottom;
+        return h > 0 ? h : 240;
+    }
+    default:                           return 240;
+    }
+}
+
+/* Classic / Classic Dark own a real title bar and refresh it from the
+   100 ms poller.  Keyed on the page actually shown, not the selected
+   theme: at x1 a theme with no "small" page falls back to Classic. */
+static int themePageOwnerIsClassic(void)
+{
+    return st.themePageOwner != NULL &&
+           (strcmp(st.themePageOwner->name, "Classic") == 0 ||
+            strcmp(st.themePageOwner->name, "Classic Dark") == 0);
+}
 
 void themeSet(char* themeName, int forceMatch) {
     int x  = 0;
@@ -2383,24 +2577,30 @@ void themeSet(char* themeName, int forceMatch) {
         themeCollectionEnsureLoaded(tc);
         strcpy(pProperties->settings.themeName, tc->name);
 
+        st.themePageOwner = tc;
         if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN) {
             Theme* page = tc->fullscreen;
-            if (page == NULL && st.themeList[0] != NULL) page = st.themeList[0]->fullscreen;
+            if (page == NULL && st.themeList[0] != NULL) {
+                page = st.themeList[0]->fullscreen;
+                st.themePageOwner = st.themeList[0];
+            }
             st.themePageActive = themeGetCurrentPage(page);
         }
         else {
             int zoomIdx = pProperties->video.windowSize + 1;  /* P_VIDEO_SIZEX1..X8 -> 1..8 */
             /* External themes ship zoom[2]+fullscreen; synthesise
-               zoom[3..8] from "normal".  z=1 falls back to Classic. */
+               zoom[3..8] from "normal".  x1 has no synthesis path, so a
+               theme without "small" falls back to Classic as before v3. */
             if (zoomIdx >= 3 && tc->zoom[zoomIdx] == NULL && tc->zoom[2] != NULL) {
                 themeCollectionEnsureZoom(tc, zoomIdx);
             }
             Theme* page = tc->zoom[zoomIdx];
-            if (page == NULL) page = tc->zoom[2];                    /* fallback to normal */
+            if (page == NULL && zoomIdx != 1) page = tc->zoom[2];     /* fallback to normal */
             if (page == NULL && st.themeList[0] != NULL) {
-                /* Last-resort Classic fallback (typically zoom[1]). */
+                /* Classic fallback: x1, or a theme with no "normal". */
                 page = st.themeList[0]->zoom[zoomIdx];
                 if (page == NULL) page = st.themeList[0]->zoom[2];
+                st.themePageOwner = st.themeList[0];
             }
             st.themePageActive = themeGetCurrentPage(page);
         }
@@ -2467,7 +2667,7 @@ void themeSet(char* themeName, int forceMatch) {
         st.hBitmap = CreateCompatibleBitmap(st.hdc, 640, 480);
     }
     
-    if (strcmp(themeName,"Classic")) SetWindowTextU(st.hwnd, "  blueMSX+");
+    if (!themePageOwnerIsClassic()) SetWindowTextU(st.hwnd, "  blueMSX+");
 
     if (st.rgnData != NULL) {
 //        SetWindowRgn(st.hwnd, NULL, TRUE);
@@ -2688,6 +2888,11 @@ void archUpdateWindow() {
         }
 
         mouseEmuSetCaptureInfo(&r, &d);
+        /* Scale MSX deltas so pointer feel stays 1:1 with the on-screen MSX
+        ** area across zoom / custom window size / D3D crop. Vertical avoids
+        ** the horizontalStretch corner case. */
+        mouseEmuSetScale(msxVisibleHeight(pProperties),
+                         r.bottom - r.top);
     }
 
     // Bring the DX12 device up synchronously so recorderStartLive can
@@ -2855,8 +3060,25 @@ static LRESULT CALLBACK emuWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
     case WM_SETCURSOR:
         return mouseEmuSetCursor();
 
-    case WM_MOUSEMOVE:
+    case WM_INPUT: {
+        RAWINPUT ri;
+        UINT sz = sizeof(ri);
+        if (GetRawInputData((HRAWINPUT)lParam, RID_INPUT, &ri, &sz,
+                            sizeof(RAWINPUTHEADER)) != (UINT)-1
+            && ri.header.dwType == RIM_TYPEMOUSE
+            && !(ri.data.mouse.usFlags & MOUSE_MOVE_ABSOLUTE)) {
+            mouseEmuHandleRawInput(ri.data.mouse.lLastX, ri.data.mouse.lLastY,
+                                   ri.header.hDevice);
+        }
+        break;
+    }
+
     case WM_LBUTTONDOWN:
+        mouseEmuOnClick();
+        mouseEmuOnUserMouseActivity();
+        return SendMessage(GetParent(hwnd), iMsg, wParam, lParam);
+
+    case WM_MOUSEMOVE:
     case WM_LBUTTONUP:
     case WM_MBUTTONDOWN:
     case WM_MBUTTONUP:
@@ -2989,8 +3211,10 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             WideToUtf8(wfname, fname, sizeof(fname));
             DragFinish(hDrop);
 
-            fa = GetFileAttributesA(fname);
-            if (fa & FILE_ATTRIBUTE_DIRECTORY) {
+            /* fname is UTF-8, so the ANSI call fails on non-ASCII paths, and
+            ** the INVALID_FILE_ATTRIBUTES it returns has the directory bit. */
+            fa = GetFileAttributesU(fname);
+            if (fa != INVALID_FILE_ATTRIBUTES && (fa & FILE_ATTRIBUTE_DIRECTORY)) {
                 insertDiskette(pProperties, 0, fname, NULL, 0);
             }
             else {
@@ -2999,49 +3223,71 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         }
         return 0;
 
+    case WM_COPYDATA:
+        {
+            COPYDATASTRUCT* cds = (COPYDATASTRUCT*)lParam;
+            char candidate[PROP_MAXPATH];
+            char* pending;
+
+            if (cds == NULL || cds->dwData != LAUNCH_COPYDATA_ID ||
+                cds->lpData == NULL || cds->cbData == 0 ||
+                cds->cbData > sizeof(candidate) ||
+                ((const char*)cds->lpData)[cds->cbData - 1] != 0) {
+                return FALSE;
+            }
+            memcpy(candidate, cds->lpData, cds->cbData);
+
+            /* Checked before the media is ejected, so a name this build cannot
+            ** open leaves the slots alone. */
+            if (!candidate[0] || !launchFileIsSupported(candidate)) {
+                return FALSE;
+            }
+
+            pending = (char*)malloc(cds->cbData);
+            if (pending == NULL) {
+                return FALSE;
+            }
+            memcpy(pending, candidate, cds->cbData);
+
+            /* The answer is sent at once and the file is opened afterwards.
+            ** Opening can ask the user a question, which pumps messages and
+            ** would let a second request overwrite the name. */
+            if (!PostMessage(hwnd, WM_LAUNCHFILE, 0, (LPARAM)pending)) {
+                free(pending);
+                return FALSE;
+            }
+        }
+        return TRUE;
+
     case WM_LAUNCHFILE:
         {
-            char fileName[512];
-            FILE* file = fopen(LAUNCH_TEMP_FILE, "r");
-            if (file != NULL) {
-                int size = (int)fread(fileName, 1, 512, file);
-                fclose(file);
-                if (size > 0) {
-                    char* argument;
+            char* fileName = (char*)lParam;
+            int i;
 
-                    fileName[size] = 0;                    
+            emulatorStop();
 
-                    argument = extractToken(fileName, 0);
-                    if (*argument) {
-                        int i;
-
-                        emulatorStop();
-
-                        for (i = 0; i < PROP_MAX_CARTS; i++) {
-                            pProperties->media.carts[i].fileName[0] = 0;
-                            pProperties->media.carts[i].fileNameInZip[0] = 0;
-                            pProperties->media.carts[i].type = ROM_UNKNOWN;
-                            updateExtendedRomName(i, pProperties->media.carts[i].fileName, pProperties->media.carts[i].fileNameInZip);
-                        }
-
-                        for (i = 0; i < PROP_MAX_DISKS; i++) {
-                            pProperties->media.disks[i].fileName[0] = 0;
-                            pProperties->media.disks[i].fileNameInZip[0] = 0;
-                            updateExtendedDiskName(i, pProperties->media.disks[i].fileName, pProperties->media.disks[i].fileNameInZip);
-                        }
-
-                        for (i = 0; i < PROP_MAX_TAPES; i++) {
-                            pProperties->media.tapes[i].fileName[0] = 0;
-                            pProperties->media.tapes[i].fileNameInZip[0] = 0;
-                            updateExtendedCasName(i, pProperties->media.tapes[i].fileName, pProperties->media.tapes[i].fileNameInZip);
-                        }
-
-                        tryLaunchUnknownFile(pProperties, argument, 1);
-                    }
-
-                    SetActiveWindow(hwnd);
-                }
+            for (i = 0; i < PROP_MAX_CARTS; i++) {
+                pProperties->media.carts[i].fileName[0] = 0;
+                pProperties->media.carts[i].fileNameInZip[0] = 0;
+                pProperties->media.carts[i].type = ROM_UNKNOWN;
+                updateExtendedRomName(i, pProperties->media.carts[i].fileName, pProperties->media.carts[i].fileNameInZip);
             }
+
+            for (i = 0; i < PROP_MAX_DISKS; i++) {
+                pProperties->media.disks[i].fileName[0] = 0;
+                pProperties->media.disks[i].fileNameInZip[0] = 0;
+                updateExtendedDiskName(i, pProperties->media.disks[i].fileName, pProperties->media.disks[i].fileNameInZip);
+            }
+
+            for (i = 0; i < PROP_MAX_TAPES; i++) {
+                pProperties->media.tapes[i].fileName[0] = 0;
+                pProperties->media.tapes[i].fileNameInZip[0] = 0;
+                updateExtendedCasName(i, pProperties->media.tapes[i].fileName, pProperties->media.tapes[i].fileNameInZip);
+            }
+
+            tryLaunchUnknownFile(pProperties, fileName, 1);
+            free(fileName);
+            SetActiveWindow(hwnd);
         }
         return 0;
 
@@ -3111,6 +3357,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         break;
 
     case WM_ENTERSIZEMOVE:
+        shortcutsReleaseHeldActions();
         emulatorSuspend();
         mouseEmuActivate(0);
         st.showDialog++;
@@ -3123,6 +3370,9 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         break;
 
     case WM_ENTERMENULOOP:
+        /* The loop swallows the key-up, and stopping reverse play resumes
+        ** the sound device, which must happen before the suspend below. */
+        shortcutsReleaseHeldActions();
         emulatorSuspend();
         st.trackMenu = 1;
         SetTimer(st.hwnd, TIMER_MENUUPDATE, 250, NULL);
@@ -3245,7 +3495,8 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         if (LOWORD(wParam) == WA_INACTIVE) {
             inputReset(hwnd);
             mouseEmuActivate(0);
-            actionMaxSpeedRelease();
+            /* The key-up that would end these is going to another window. */
+            shortcutsReleaseHeldActions();
         }
         else {
             mouseEmuActivate(1);
@@ -3273,7 +3524,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             ScreenToClient(hwnd, &pt);
             themePageMouseMove(st.themePageActive, hdc, pt.x, pt.y);
             win32SliderTooltipUpdate(&st.hwndSliderTip, hwnd,
-                                     themePageHoverSliderPercent(st.themePageActive, pt.x, pt.y));
+                                     themePageHoverSliderText(st.themePageActive, pt.x, pt.y));
             ReleaseDC(hwnd, hdc);
             checkClipRegion();
             {
@@ -3297,7 +3548,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         break;
 
     case WM_MOUSELEAVE:
-        win32SliderTooltipUpdate(&st.hwndSliderTip, hwnd, -1);
+        win32SliderTooltipUpdate(&st.hwndSliderTip, hwnd, NULL);
         return 0;
 
     case WM_LBUTTONDOWN:
@@ -3307,6 +3558,12 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 
             GetCursorPos(&pt);
             GetWindowRect(st.emuHwnd, &r);
+            /* Only real clicks strictly inside the emu framebuffer rect
+            ** trigger capture. Synthetic PostMessage(WM_LBUTTONDOWN,0,0)
+            ** from WM_EXITMENULOOP would otherwise re-lock silently. */
+            if (PtInRect(&r, pt) && (wParam & MK_LBUTTON)) {
+                mouseEmuOnClick();
+            }
             if (!IsWindowVisible(st.emuHwnd) || !PtInRect(&r, pt)) {
                 SetCapture(hwnd);
                 st.currentHwnd = hwnd;
@@ -3381,9 +3638,9 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 
                 /* Classic / Classic Dark drive their full title from this
                    100ms poller; other themes set theirs at theme change. */
-                if (!strcmp(pProperties->settings.themeName, "Classic") ||
-                    !strcmp(pProperties->settings.themeName, "Classic Dark"))
+                if (themePageOwnerIsClassic()) {
                     themeClassicTitlebarUpdate(hwnd);
+                }
 
                 if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN) {
                     int drv = pProperties->video.driver;
@@ -3409,8 +3666,6 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 
         case TIMER_POLL_INPUT:
             {
-                DWORD buttonState;
-                DWORD buttons;
                 ShotcutHotkey key;
                 int i;
                 HWND hwndFocus = GetFocus();
@@ -3421,30 +3676,52 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
                     archPollInput();
                 }
 
-                buttonState = joystickGetButtonState();
-                
-                buttons = buttonState & ~st.buttonState;
+                {
+                    int slot;
+                    /* Pads keep feeding the emulated joystick unfocused;
+                    ** shortcuts must not fire. */
+                    int open = (hwndFocus == st.hwnd || hwndFocus == st.emuHwnd);
 
-                for (i = 1; buttons != 0; i++, buttons >>= 1) {
-                    if (buttons & 1) {
-                        key.type = HOTKEY_TYPE_JOYSTICK;
-                        key.mods = 0;
-                        key.key  = i;
-                        checkKeyDown(st.shortcuts, key);
+                    if (!open && st.joyDispatchOpen) {
+                        shortcutsReleaseHeldActions();
+                    }
+                    st.joyDispatchOpen = open;
+
+                    for (slot = 0; slot < INPUT_MAX_JOYSTICKS; slot++) {
+                        DWORD s = joystickGetButtonStatePerJoy(slot);
+                        DWORD down, up;
+
+                        if (!open) {
+                            st.buttonStatePerJoy[slot] = s;
+                            st.dispatchedDownPerJoy[slot] = 0;
+                            continue;
+                        }
+
+                        down = s & ~st.buttonStatePerJoy[slot];
+                        up   = ~s & st.buttonStatePerJoy[slot] &
+                               st.dispatchedDownPerJoy[slot];
+
+                        for (i = 1; down != 0; i++, down >>= 1) {
+                            if (down & 1) {
+                                st.dispatchedDownPerJoy[slot] |= (DWORD)1 << (i - 1);
+                                key.type = HOTKEY_TYPE_JOYSTICK;
+                                key.mods = 0;
+                                key.key  = joyHotkeyCode(slot, i);
+                                checkKeyDown(st.shortcuts, key);
+                            }
+                        }
+                        for (i = 1; up != 0; i++, up >>= 1) {
+                            if (up & 1) {
+                                st.dispatchedDownPerJoy[slot] &= ~((DWORD)1 << (i - 1));
+                                key.type = HOTKEY_TYPE_JOYSTICK;
+                                key.mods = 0;
+                                key.key  = joyHotkeyCode(slot, i);
+                                checkKeyUp(st.shortcuts, key);
+                            }
+                        }
+                        st.buttonStatePerJoy[slot] = s;
                     }
                 }
-                
-                buttons = ~buttonState & st.buttonState;
-                for (i = 1; buttons != 0; i++, buttons >>= 1) {
-                    if (buttons & 1) {
-                        key.type = HOTKEY_TYPE_JOYSTICK;
-                        key.mods = 0;
-                        key.key  = i;
-                        checkKeyUp(st.shortcuts, key);
-                    }
-                }
-
-                st.buttonState = buttonState;
 
                 /* Pause cursor fade only on EMU_STOPPED; keep alive on
                    PAUSED/SUSPENDED so a paused game still fades. */
@@ -3621,12 +3898,8 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
                 }
                 /* fallthrough */
             case DBT_DEVNODES_CHANGED:
-                /* Refresh right away so a fresh pad works without opening
-                ** a config dialog.  Refresh is idempotent (append-only);
-                ** ResolveShadowBindings materialises pending DIK strings. */
                 inputMarkDirty();
                 inputRefreshDevicesIfDirty();
-                inputResolveShadowBindings();
                 /* Reconcile the video-in device cache and gracefully
                 ** transition to None if the active camera was unplugged. */
                 videoInOnDeviceChange();
@@ -3662,10 +3935,116 @@ void updateEmuWindow() {
     }
 }
 
-int setDefaultPath() {   
-    char buffer[512];  
+static void commandLineReport(const char* message);
+static void commandLineFail(const char* message);
+
+static char launchDir[512];
+
+static int isAbsolutePath(const char* path) {
+    /* A drive letter alone is not enough: "C:name" is relative to that drive. */
+    return path[0] == '\\' || path[0] == '/' ||
+           (path[0] != 0 && path[1] == ':' && (path[2] == '\\' || path[2] == '/'));
+}
+
+static const char* resolveArgPath(const char* path, char* buffer, int size) {
+    int length;
+
+    if (isAbsolutePath(path)) {
+        length = (int)strlen(path);
+        if (length >= size) {
+            return NULL;
+        }
+        strcpy(buffer, path);
+        return buffer;
+    }
+
+    length = (int)strlen(launchDir) + 1 + (int)strlen(path);
+    if (length >= size) {
+        return NULL;
+    }
+    sprintf(buffer, "%s\\%s", launchDir, path);
+    return buffer;
+}
+
+/* These are named while the paths are worked out, and created once the line
+** has been accepted. */
+static char writeDirs[12][512];
+static int  writeDirCount = 0;
+
+static char* laterDir(char* path) {
+    if (writeDirCount < (int)(sizeof(writeDirs) / sizeof(writeDirs[0]))) {
+        strcpy(writeDirs[writeDirCount++], path);
+    }
+    return path;
+}
+
+static void createDataDirectories(void) {
+    int i;
+
+    for (i = 0; i < writeDirCount; i++) {
+        mkdirU(writeDirs[i]);
+    }
+}
+
+/* Seeded only after createDataDirectories runs: CopyFile will not create
+** the destination. */
+static char shortcutsSeedDir[512];
+static char shortcutsTemplateDir[512];
+
+static void seedFilesFromTemplates(const char* srcDir, const char* dstDir);
+
+static void seedShortcutProfiles(void) {
+    if (shortcutsTemplateDir[0] != 0) {
+        seedFilesFromTemplates(shortcutsTemplateDir, shortcutsSeedDir);
+    }
+}
+
+/* Shipped defaults carry ".default" so unpacking a release never
+** overwrites edited profiles. */
+#define TEMPLATE_SUFFIX ".default"
+
+static void seedFilesFromTemplates(const char* srcDir, const char* dstDir)
+{
+    WIN32_FIND_DATAA wfd;
+    HANDLE handle;
+    /* Sized for a 512-byte root plus a file name, not MAX_PATH. */
+    char pattern[512 + MAX_PATH];
+
+    sprintf(pattern, "%s\\*%s", srcDir, TEMPLATE_SUFFIX);
+    handle = FindFirstFileU(pattern, &wfd);
+    if (handle == INVALID_HANDLE_VALUE) {
+        return;
+    }
+    do {
+        char src[512 + MAX_PATH];
+        char dst[512 + MAX_PATH];
+        int len = (int)strlen(wfd.cFileName) - (int)strlen(TEMPLATE_SUFFIX);
+        if (len <= 0) continue;
+        sprintf(src, "%s\\%s", srcDir, wfd.cFileName);
+        sprintf(dst, "%s\\%.*s", dstDir, len, wfd.cFileName);
+        /* CopyFile carries source attributes; a read-only template lands
+        ** an unsavable copy. */
+        if (CopyFileU(src, dst, 1)) {
+            DWORD attr = GetFileAttributesU(dst);
+            if (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_READONLY)) {
+                SetFileAttributesU(dst, attr & ~FILE_ATTRIBUTE_READONLY);
+            }
+        }
+    } while (FindNextFileU(handle, &wfd));
+
+    FindClose(handle);
+}
+
+int setDefaultPath(char* cmdLine) {
+    char buffer[512];
     char buffer2[512];
+    /* Base for user-writable data dirs (Screenshots, QuickSave, SRAM, ...).
+    ** = exe dir when writable, else My Documents\blueMSX Temporary Files.
+    ** Machines/ is deliberately NOT resolved against this -- see below. */
     char rootDir[512];
+    /* The data shipped with the emulator is read from the exe directory,
+    ** however rootDir moves. */
+    char dataDir[512];
     int readOnlyDir;
     DWORD dirattr; 
     FILE* file;
@@ -3718,42 +4097,139 @@ int setDefaultPath() {
         SetCurrentDirectoryU(st.pCurDir);
     }
 
-    // Set up temp directories
-    propertiesSetDirectory(st.pCurDir, rootDir);
+    strcpy(dataDir, st.pCurDir);
 
-    sprintf(buffer, "%s\\Machines", rootDir);
-	machineSetDirectory(buffer);
+    {
+        char* argument = emuCheckValueArgument(cmdLine, "rootdir");
+        /* The option with nothing after it counts as absent, and nothing below
+        ** reads the line again. */
+        if ((argument == NULL || argument[0] == 0) &&
+            emuCheckFlagArgument(cmdLine, "rootdir")) {
+            commandLineFail("/rootdir: needs a directory");
+        }
+        if (argument != NULL) {
+            char resolved[512];
+            char probe[512];
+            FILE* test;
+            DWORD attrs;
+            /* 156 covers the longest path built from this: "\Shortcut
+            ** Profiles", a separator, a 127 character profile name, and
+            ** ".shortcuts".  Keyboard mappings need only 88. */
+            if (resolveArgPath(argument, resolved, sizeof(rootDir) - 156) == NULL) {
+                commandLineFail("/rootdir: that path is too long");
+            }
+            /* The directory has to exist. A typo would otherwise create an
+            ** empty tree and the run would start from the built in settings. */
+            attrs = GetFileAttributesU(resolved);
+            if (attrs == INVALID_FILE_ATTRIBUTES || !(attrs & FILE_ATTRIBUTE_DIRECTORY)) {
+                commandLineFail("/rootdir: no such directory");
+            }
+            sprintf(probe, "%s\\wrtest", resolved);
+            test = fopen(probe, "w");
+            /* Everything below writes into rootDir, so a failed write probe is
+            ** fatal. */
+            if (test == NULL) {
+                commandLineFail("/rootdir: cannot write to that directory");
+            }
+            fclose(test);
+            DeleteFileU(probe);
+            strcpy(rootDir, resolved);
+            readOnlyDir = 0;
+            strcpy(dataDir, st.pCurDir);
+            /* rootDir is passed as both preferred and fallback, or a
+            ** bluemsx.ini beside the exe would win. */
+            propertiesSetDirectory(rootDir, rootDir);
+        }
+        else {
+            propertiesSetDirectory(st.pCurDir, rootDir);
+        }
+    }
+
+    {
+        char* argument = emuCheckValueArgument(cmdLine, "inifile");
+        if ((argument == NULL || argument[0] == 0) &&
+            emuCheckFlagArgument(cmdLine, "inifile")) {
+            commandLineFail("/inifile: needs a file name");
+        }
+        if (argument != NULL) {
+            char resolved[512];
+            DWORD attrs;
+            if (resolveArgPath(argument, resolved, 512) == NULL) {
+                commandLineFail("/inifile: that path is too long");
+            }
+            /* The file has to exist. A typo would otherwise start from the
+            ** built in settings. */
+            attrs = GetFileAttributesU(resolved);
+            if (attrs == INVALID_FILE_ATTRIBUTES || (attrs & FILE_ATTRIBUTE_DIRECTORY)) {
+                commandLineFail("/inifile: no such file");
+            }
+            propertiesSetSettingsFile(resolved);
+        }
+    }
+
+    /* propCreate checks the saved machine name against this directory and
+    ** quietly picks another when it is not there, so it has to be set first. */
+    {
+        char* argument = emuCheckValueArgument(cmdLine, "machinedir");
+        if ((argument == NULL || argument[0] == 0) &&
+            emuCheckFlagArgument(cmdLine, "machinedir")) {
+            commandLineFail("/machinedir: needs a directory");
+        }
+        if (argument != NULL) {
+            char resolved[512];
+            DWORD attrs;
+            /* PROP_MAXPATH less what the readers append into their own buffers
+            ** of that size: a machine name, which a file system caps at 255,
+            ** and then "/config.ini". */
+            if (resolveArgPath(argument, resolved, PROP_MAXPATH - 272) == NULL) {
+                commandLineFail("/machinedir: that path is too long");
+            }
+            attrs = GetFileAttributesU(resolved);
+            if (attrs == INVALID_FILE_ATTRIBUTES || !(attrs & FILE_ATTRIBUTE_DIRECTORY)) {
+                commandLineFail("/machinedir: no such directory");
+            }
+            machineSetDirectory(resolved);
+        }
+        else {
+            sprintf(buffer, "%s\\Machines", st.pCurDir);
+            machineSetDirectory(buffer);
+        }
+    }
 
     sprintf(buffer, "%s\\Audio Capture", rootDir);
-    mkdirU(buffer);
-    actionSetAudioCaptureSetDirectory(buffer, "");
+    actionSetAudioCaptureSetDirectory(laterDir(buffer), "");
 
     sprintf(buffer, "%s\\Video Capture", rootDir);
-    mkdirU(buffer);
-    actionSetVideoCaptureSetDirectory(buffer, "");
+    actionSetVideoCaptureSetDirectory(laterDir(buffer), "");
 
     sprintf(buffer, "%s\\QuickSave", rootDir);
-    mkdirU(buffer);
-    actionSetQuickSaveSetDirectory(buffer, "");
+    actionSetQuickSaveSetDirectory(laterDir(buffer), "");
 
     sprintf(buffer, "%s\\SRAM", rootDir);
-    mkdirU(buffer);
-    boardSetDirectory(buffer);
+    boardSetDirectory(laterDir(buffer));
 
+    /* This one is written to, so it follows the run. The shipped mappings stay
+    ** readable where they are. */
     sprintf(buffer, "%s\\Keyboard Config", rootDir);
-    mkdirU(buffer);
-    keyboardSetDirectory(buffer);
+    keyboardSetDirectory(laterDir(buffer));
+
+    sprintf(buffer, "%s\\Keyboard Config", dataDir);
+    keyboardSetSharedDirectory(buffer);
+
+    sprintf(buffer, "%s\\Shortcut Profiles", rootDir);
+    strcpy(shortcutsSeedDir, buffer);
+    shortcutsSetDirectory(laterDir(buffer));
+    sprintf(shortcutsTemplateDir, "%s\\Shortcut Profiles", dataDir);
 
     sprintf(buffer, "%s\\Screenshots", rootDir);
-    mkdirU(buffer);
-    screenshotSetDirectory(buffer, "");
+    screenshotSetDirectory(laterDir(buffer), "");
 
     sprintf(buffer, "%s\\Casinfo", rootDir);
-    mkdirU(buffer);
-    tapeSetDirectory(buffer, "");
+    tapeSetDirectory(laterDir(buffer), "");
 
-    sprintf(buffer, "%s\\Databases", rootDir);
-    mkdirU(buffer);
+    /* This one is only read, so it is neither created nor moved off the
+    ** install. */
+    sprintf(buffer, "%s\\Databases", dataDir);
     mediaDbLoad(buffer);
 
     mediaDbCreateRomdb();
@@ -3768,21 +4244,316 @@ int setDefaultPath() {
 ////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////
 
-int emuCheckLanguageArgument(char* cmdLine, int defaultLang){
-    int i;
-    int lang;
-    char* argument;
-    
-    for (i = 0; argument = extractToken(cmdLine, i); i++) {
-        if (strcmp(argument, "/language") == 0) {
-            argument = extractToken(cmdLine, ++i);
-            if (argument == NULL) return defaultLang;
-            lang = langFromName(argument, 0);
-            return lang == EMU_LANG_UNKNOWN ? defaultLang : lang;
+static int consoleWriteTo(DWORD stream, const char* text)
+{
+    HANDLE out = GetStdHandle(stream);
+    DWORD written = 0;
+    DWORD mode;
+    wchar_t stack[1024];
+    wchar_t* wide;
+    int ok = 0;
+
+    /* The handle is valid when the shell redirected the output; otherwise a
+    ** windows subsystem process has to borrow the parent console. FreeConsole
+    ** is never called: it leaves the handle non-NULL and stale. */
+    if (out == NULL || out == INVALID_HANDLE_VALUE) {
+        if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
+            return 0;
+        }
+        out = GetStdHandle(stream);
+        /* The console is borrowed, so the shell has already printed its prompt
+        ** and the first line would land beside it. */
+        if (out != NULL && out != INVALID_HANDLE_VALUE) {
+            WriteFile(out, "\r\n", 2, &written, NULL);
         }
     }
 
-    return defaultLang;
+    if (out == NULL || out == INVALID_HANDLE_VALUE) {
+        return 0;
+    }
+
+    /* The line is UTF-8 and neither sink takes those bytes as they are. */
+    wide = Utf8ToWideAlloc(text, stack, (int)_countof(stack));
+    if (GetConsoleMode(out, &mode)) {
+        ok = WriteConsoleW(out, wide, (DWORD)wcslen(wide), &written, NULL) != 0;
+    }
+    else {
+        /* Redirected, so what reads it back expects the system code page. */
+        char  narrowStack[1024];
+        char* narrow;
+        int   need = WideToAcp(wide, NULL, 0);
+
+        narrow = need <= (int)sizeof(narrowStack) ? narrowStack
+                                                  : (char*)malloc((size_t)need);
+        if (need > 0 && narrow != NULL) {
+            WideToAcp(wide, narrow, need);
+            ok = WriteFile(out, narrow, (DWORD)(need - 1), &written, NULL) != 0;
+            if (narrow != narrowStack) {
+                free(narrow);
+            }
+        }
+    }
+    FreeWideMaybe(wide, stack);
+
+    return ok;
+}
+
+/* This goes to the output, so a listing can be redirected on its own. */
+static int consoleWrite(const char* text)
+{
+    return consoleWriteTo(STD_OUTPUT_HANDLE, text);
+}
+
+static void commandLinePrintHelp(void)
+{
+    char text[8192];
+
+    emuCommandLineGetHelpText(text, sizeof(text));
+    consoleWrite(text);
+}
+
+static int commandLineWantsList(char* cmdLine)
+{
+    return emuCheckFlagArgument(cmdLine, "listspecials") ||
+           emuCheckFlagArgument(cmdLine, "listromtypes") ||
+           emuCheckFlagArgument(cmdLine, "listmachines") ||
+           emuCheckFlagArgument(cmdLine, "listthemes");
+}
+
+static void printRomTypeList(int specials)
+{
+    char line[PROP_MAXPATH + 8];
+    const char* names[256];
+    const char* group;
+    const char* name;
+    RomType type;
+    RomType types[256];
+    int printed = 0;
+    int count;
+    int g;
+    int i;
+    int j;
+
+    for (g = 1; (group = specials ? romTypeListCartGroupName(g)
+                                  : romTypeListGroupName(g)) != NULL; g++) {
+        count = 0;
+        for (i = 0; ; i++) {
+            type = specials ? romTypeListCartAt(i) : romTypeListMapperAt(i);
+            if (type == ROM_UNKNOWN) {
+                break;
+            }
+            if (specials && romTypeListCartIsHiddenAt(i)) {
+                continue;
+            }
+            name = romTypeToShortString(type);
+            if (g != (int)(specials ? romTypeListCartCategory(type)
+                                    : romTypeListMapperCategory(type))) {
+                continue;
+            }
+            /* Two ids can share a short string, and the lookup answers with
+            ** the first. */
+            for (j = 0; j < count && strcmp(names[j], name) != 0; j++) {
+            }
+            if (j == count && count < (int)(sizeof(names) / sizeof(names[0]))) {
+                types[count] = type;
+                names[count++] = name;
+            }
+        }
+        if (count == 0) {
+            continue;
+        }
+
+        sprintf(line, "%s  %s\r\n\r\n", printed ? "\r\n" : "", group);
+        consoleWrite(line);
+        printed = 1;
+        for (i = 0; i < count; i++) {
+            const char* description = romTypeToString(types[i]);
+            if (description == NULL) {
+                sprintf(line, "    %s\r\n", names[i]);
+            }
+            else {
+                sprintf(line, "    %-14s  %s\r\n", names[i], description);
+            }
+            consoleWrite(line);
+        }
+    }
+}
+
+static int commandLinePrintLists(char* cmdLine)
+{
+    char line[PROP_MAXPATH + 8];
+
+    if (emuCheckFlagArgument(cmdLine, "listspecials")) {
+        printRomTypeList(1);
+        return 1;
+    }
+
+    if (emuCheckFlagArgument(cmdLine, "listromtypes")) {
+        printRomTypeList(0);
+        return 1;
+    }
+
+    if (emuCheckFlagArgument(cmdLine, "listmachines")) {
+        ArrayList* machineList = arrayListCreate();
+        ArrayListIterator* iterator;
+
+        /* The roms are checked, which is what /machine accepts. */
+        machineFillAvailable(machineList, 1);
+        iterator = arrayListCreateIterator(machineList);
+        while (arrayListCanIterate(iterator)) {
+            sprintf(line, "%s\r\n", (const char*)arrayListIterate(iterator));
+            consoleWrite(line);
+        }
+        arrayListDestroyIterator(iterator);
+        arrayListDestroy(machineList);
+        return 1;
+    }
+
+    if (emuCheckFlagArgument(cmdLine, "listthemes")) {
+        ThemeCollection* builtins[3];
+        ThemeCollection** themeList;
+        int i;
+
+        builtins[0] = themeClassicCreate();
+        builtins[1] = themeClassicCreateDark();
+        builtins[2] = NULL;
+        themeList = createThemeList(builtins);
+        for (i = 0; themeList != NULL && themeList[i] != NULL; i++) {
+            sprintf(line, "%s\r\n", themeList[i]->name);
+            consoleWrite(line);
+        }
+        return 1;
+    }
+
+    return 0;
+}
+
+/* A rejected line has to reach whoever typed it even from a shortcut, so this
+** falls back to a box. */
+static void commandLineReport(const char* message)
+{
+    char text[700];
+
+    if (message == NULL || message[0] == 0) {
+        return;
+    }
+
+    sprintf(text, "blueMSX+: %s\r\n", message);
+    /* This goes to the error stream, or a redirected listing would collect the
+    ** complaint too. */
+    if (!consoleWriteTo(STD_ERROR_HANDLE, text)) {
+        /* Not langErrorTitle(): the language table is not built this early. */
+        MessageBoxU(NULL, message, "blueMSX+", MB_OK | MB_ICONERROR);
+    }
+}
+
+static void commandLineFail(const char* message)
+{
+    commandLineReport(message);
+    exit(1);
+}
+
+/* The names are the ones the settings dialog shows, matched whatever the case. */
+static int languageFromArgument(const char* name)
+{
+    int i;
+
+    for (i = 0; langGetType(i) != EMU_LANG_UNKNOWN; i++) {
+        if (strcmpnocase((char*)name, (char*)langToName(langGetType(i), 0)) == 0) {
+            return langGetType(i);
+        }
+    }
+
+    return EMU_LANG_UNKNOWN;
+}
+
+static void languageArgumentNames(char* text, int size)
+{
+    int i;
+
+    text[0] = 0;
+    for (i = 0; langGetType(i) != EMU_LANG_UNKNOWN; i++) {
+        const char* name = langToName(langGetType(i), 0);
+        if ((int)(strlen(text) + strlen(name)) + 3 > size) {
+            break;
+        }
+        if (text[0] != 0) {
+            strcat(text, ", ");
+        }
+        strcat(text, name);
+    }
+}
+
+/* It writes the built in settings and quits, so the only other thing the line
+** may say is where to write them. */
+static void checkResetArgument(char* cmdLine)
+{
+    static const char* const allowed[] = { "reset", "resetregs", "rootdir", "inifile", NULL };
+    const char* other;
+    char message[PROP_MAXPATH + 96];
+
+    if (emuCheckResetArgument(cmdLine) != 2) {
+        return;
+    }
+
+    other = emuFirstOtherArgument(cmdLine, allowed);
+    if (other != NULL) {
+        sprintf(message, "/resetregs takes nothing beside it but /rootdir and /inifile: %.256s",
+                other);
+        commandLineFail(message);
+    }
+}
+
+/* The theme is chosen once the window is up, but a wrong name has to be
+** refused before the machine starts. */
+static void checkThemeArgument(char* cmdLine)
+{
+    char* themeArg;
+    char message[PROP_MAXPATH + 96];
+
+    if (!emuCheckFlagArgument(cmdLine, "theme") || st.themeList == NULL) {
+        return;
+    }
+    themeArg = emuCheckValueArgument(cmdLine, "theme");
+    /* The option with nothing after it gives an empty name. */
+    if (themeArg == NULL || themeArg[0] == 0) {
+        commandLineFail("/theme: needs a theme name");
+    }
+    if (getThemeListIndex(st.themeList, themeArg, 0) == -1) {
+        sprintf(message, "/theme: no theme is called (see /listthemes; quote a name with spaces): %.256s",
+                themeArg);
+        commandLineFail(message);
+    }
+}
+
+static void checkLanguageArgument(char* cmdLine)
+{
+    char* argument;
+    char names[384];
+    char message[640];
+
+    if (!emuCheckFlagArgument(cmdLine, "language") || commandLineWantsList(cmdLine)) {
+        return;
+    }
+
+    argument = emuCheckValueArgument(cmdLine, "language");
+    if (argument == NULL) {
+        commandLineFail("/language: needs a language name");
+    }
+    if (languageFromArgument(argument) == EMU_LANG_UNKNOWN) {
+        languageArgumentNames(names, sizeof(names));
+        sprintf(message, "/language: no language is called: %.128s\r\n"
+                         "  quote a name with spaces. The names are: %s",
+                argument, names);
+        commandLineFail(message);
+    }
+}
+
+int emuCheckLanguageArgument(char* cmdLine, int defaultLang){
+    char* argument = emuCheckValueArgument(cmdLine, "language");
+    int lang = argument != NULL ? languageFromArgument(argument) : EMU_LANG_UNKNOWN;
+
+    return lang == EMU_LANG_UNKNOWN ? defaultLang : lang;
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -3792,6 +4563,41 @@ static int getScreenBitDepth()
     HDC hdc;
     hdc = GetDC(GetDesktopWindow());
     return GetDeviceCaps(hdc, BITSPIXEL) * GetDeviceCaps(hdc, PLANES);
+}
+
+/* The line as UTF-8. The one WinMain is handed has been converted to the
+** system code page, so a name outside that page reaches the title and the
+** history as mojibake; everything below reads char* as UTF-8. */
+static char* commandLineUtf8(void)
+{
+    static char line[CMDLINE_MAXLEN];
+    const wchar_t* wide = GetCommandLineW();
+
+    /* This copy still carries the exe name, which the one WinMain is handed
+    ** does not. */
+    if (*wide == L'\"') {
+        for (wide++; *wide != 0 && *wide != L'\"'; wide++) ;
+        if (*wide == L'\"') wide++;
+    }
+    else {
+        while (*wide != 0 && *wide != L' ' && *wide != L'\t') wide++;
+    }
+    while (*wide == L' ' || *wide == L'\t') wide++;
+
+    if (WideToUtf8(wide, line, sizeof(line)) == 0) {
+        /* The whole line did not fit, so keep the head of it. Three bytes is
+        ** the most one character takes. */
+        int chars = (int)((sizeof(line) - 1) / 3);
+        int bytes;
+        if (chars > (int)wcslen(wide)) {
+            chars = (int)wcslen(wide);
+        }
+        bytes = WideCharToMultiByte(CP_UTF8, 0, wide, chars, line,
+                                    (int)sizeof(line) - 1, NULL, NULL);
+        line[bytes > 0 ? bytes : 0] = 0;
+    }
+
+    return line;
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -3824,54 +4630,64 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
         strcat(szLine, argv[i]);
         strcat(szLine, " ");
     }
+#else
+    szLine = commandLineUtf8();
 #endif
+
+    /* This is done first, because everything below moves to the exe directory. */
+    if (GetCurrentDirectoryU(sizeof(launchDir) - 1, launchDir) == 0 || launchDir[0] == 0) {
+        strcpy(launchDir, ".");
+    }
+
+    /* This is answered before anything is loaded, so asking never disturbs a
+    ** running instance. */
+    if (emuCheckHelpArgument(szLine)) {
+        commandLinePrintHelp();
+        return 0;
+    }
 
     scrDepth = getScreenBitDepth();
     if (scrDepth != 16 && scrDepth != 32) {
         MessageBoxU(NULL, langInfoColorDepth(), langInfoTitle(), MB_OK | MB_ICONINFORMATION);
     }
 
-    hwnd = FindWindow("blueMSX", "  blueMSX+");
-    if (hwnd != NULL && *szLine) {
-        char args[2048];
+    /* Only a double clicked file is handed over: one existing file of a type
+    ** the exe is registered for. */
+    if (*szLine) {
+        char args[CMDLINE_MAXLEN];
         char* cmdLine = args;
+        char* only;
 
-        if (0 == strncmp(szLine, "/onearg ", 8)) {
-            /* /onearg <rest> -- treat the entire rest as one file path.
-            ** Handle both shell-quoted (HKCU "%1") and bare command-line
-            ** input by re-wrapping in exactly one quote pair. */
-            const char* rest = szLine + 8;
-            int len;
-            while (*rest == ' ' || *rest == '\t') rest++;
-            strcpy(args, rest);
-            len = (int)strlen(args);
-            while (len > 0 && (args[len-1] == ' ' || args[len-1] == '\t'
-                            || args[len-1] == '\r' || args[len-1] == '\n')) {
-                args[--len] = 0;
-            }
-            if (len >= 2 && args[0] == '"' && args[len-1] == '"') {
-                args[len-1] = 0;
-                memmove(args, args + 1, len - 1);
-                len -= 2;
-            }
-            memmove(args + 1, args, len + 1);
-            args[0] = '"';
-            args[len + 1] = '"';
-            args[len + 2] = 0;
-        }
-        else {
+        if (!emuNormalizeOneArg(szLine, args, sizeof(args))) {
             cmdLine = szLine;
         }
-        if (!extractToken(cmdLine, 1)) {
-            FILE* file = fopen(LAUNCH_TEMP_FILE, "w");
-            if (file != NULL) {
-                fwrite(cmdLine, 1, strlen(cmdLine) + 1, file);
-                fclose(file);
-                SendMessage(hwnd, WM_SYSCOMMAND, SC_RESTORE, 0);
-                SetForegroundWindow(hwnd);
-                PostMessage(hwnd, WM_LAUNCHFILE, 0, 0);
+        /* This is read before token 0, which shares the buffer the answer
+        ** lives in. */
+        only = extractToken(cmdLine, 1) != NULL ? NULL : extractToken(cmdLine, 0);
+        /* The path has to be absolute, because the running instance stands in
+        ** a different directory. */
+        if (only != NULL && (int)strlen(only) < PROP_MAXPATH &&
+            isAbsolutePath(only) && isRegisteredFileName(only) &&
+            launchFileIsSupported(only) && archFileExists(only)) {
+            hwnd = findRunningInstance();
+            if (hwnd != NULL) {
+                COPYDATASTRUCT cds;
+                DWORD_PTR answer = 0;
+
+                cds.dwData = LAUNCH_COPYDATA_ID;
+                cds.cbData = (DWORD)strlen(only) + 1;
+                cds.lpData = only;
+                /* The send times out, because a wedged instance must not take
+                ** this process down with it. */
+                if (SendMessageTimeout(hwnd, WM_COPYDATA, (WPARAM)NULL, (LPARAM)&cds,
+                                       SMTO_ABORTIFHUNG, 5000, &answer) && answer) {
+                    /* The window is raised only once it has said it will open
+                    ** the file. */
+                    PostMessage(hwnd, WM_SYSCOMMAND, SC_RESTORE, 0);
+                    SetForegroundWindow(hwnd);
+                    return 0;
+                }
             }
-            return 0;
         }
     }
 
@@ -3913,76 +4729,164 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
     appConfigLoad();
 
-    readOnlyDir = setDefaultPath();
+    /* This runs ahead of the path options it may carry, so one of those is not
+    ** reported instead. */
+    checkResetArgument(szLine);
+
+    readOnlyDir = setDefaultPath(szLine);
 
     {
-        /* Modify scan code map if nessecary */
-        PropKeyboardLanguage kbdLang = P_KBD_EUROPEAN;
-        int syncMode = 0;
-        char klId[KL_NAMELENGTH];
-        if (GetKeyboardLayoutName(klId)) {
-            if (0 == strcmp(klId + 4, "0411")) {
-                kbdLang = P_KBD_JAPANESE;
-            }
-        }
-        /* Also default to the JP MSX keyboard when the user's system
-           locale is Japanese, even if the active Windows keyboard layout
-           is non-JIS (e.g. US physical keyboard with ja-JP region). */
-        if (PRIMARYLANGID(LANGIDFROMLCID(GetUserDefaultLCID())) == LANG_JAPANESE) {
-            kbdLang = P_KBD_JAPANESE;
-        }
+        /* Via the input layer, so the profile name and the built-in key
+           map agree on the region. */
+        PropKeyboardLanguage kbdLang = inputKeyboardRegionIsJapanese()
+                                           ? P_KBD_JAPANESE : P_KBD_EUROPEAN;
+        /* Nonzero selects sync to the PC vblank. */
+        int syncMode = 1;
 
         resetRegistry = emuCheckResetArgument(szLine);
-        if (resetRegistry) {
-            syncMode = canHandleVblankSyncMode() ? 1 : 0;
-        }
 
         {
             char themeName[64];
+            char savedMachine[PROP_MAXPATH];
             if (GetSystemMetrics(SM_CYSCREEN) > 600) {
                 strcpy(themeName, "DIGIblue SUITE-X2");
             }
             else {
                 strcpy(themeName, "Classic");
             }
+            /* This is read before propCreate, which is about to replace it. */
+            strcpy(savedMachine, propGetSavedMachineName());
+
             pProperties = propCreate(resetRegistry, getLangType(), kbdLang, syncMode, themeName);
+
+            if (emuCheckValueArgument(szLine, "machinedir") != NULL &&
+                !commandLineWantsList(szLine)) {
+                ArrayList* machineList = arrayListCreate();
+                ArrayListIterator* iterator;
+                int machineCount;
+                int found = 0;
+
+                machineFillAvailable(machineList, 0);
+                machineCount = arrayListGetSize(machineList);
+                iterator = arrayListCreateIterator(machineList);
+                while (arrayListCanIterate(iterator)) {
+                    if (strcmp((const char*)arrayListIterate(iterator), savedMachine) == 0) {
+                        found = 1;
+                    }
+                }
+                arrayListDestroyIterator(iterator);
+                arrayListDestroy(machineList);
+
+                /* This is fatal whatever else the line says: an empty
+                ** directory leaves nothing to boot. */
+                if (machineCount == 0) {
+                    commandLineFail("/machinedir: no machines under that directory");
+                }
+                /* This applies only when the file names the machine: /machine,
+                ** /reset and a single machine build each name it otherwise. */
+                if (!found && savedMachine[0] != 0 && !resetRegistry &&
+                    emuCheckValueArgument(szLine, "machine") == NULL &&
+                    appConfigGetString("singlemachine", NULL) == NULL) {
+                    char message[PROP_MAXPATH + 64];
+                    sprintf(message, "/machinedir: that directory has no machine called %.256s", savedMachine);
+                    commandLineFail(message);
+                }
+            }
+
+            /* No saved settings (first launch, or --reset) with the Digiblue
+               default theme: size the window to the screen instead of a fixed
+               4x, which overflows a 1080p display. */
+            if ((resetRegistry || !propSettingsFileExists()) &&
+                strcmp(themeName, "DIGIblue SUITE-X2") == 0) {
+                pProperties->video.windowSize        = computeFirstLaunchWindowSize();
+                pProperties->video.windowSizeInitial = pProperties->video.windowSize;
+            }
         }
 
-        pProperties->language = emuCheckLanguageArgument(szLine, pProperties->language);
-        
+        /* The value is checked before it is applied, so a refused line never
+        ** switches to what it asked for. */
+        checkLanguageArgument(szLine);
+
+        if (emuCheckFlagArgument(szLine, "language")) {
+            emuCommandLineOverrideInt(&pProperties->language,
+                                      emuCheckLanguageArgument(szLine, pProperties->language));
+        }
+
         if (resetRegistry == 2) {
+            /* /resetregs writes the built in settings, so nothing else the
+            ** line asked for belongs in them. */
+            emuCommandLineRestoreOverrides();
             propDestroy(pProperties);
 
             exit(0);
             return 0;
         }
 
-        emuCheckFullscreenArgument(pProperties, szLine);
+
+        /* This runs here because everything below applies these long before
+        ** the media pass reads the line. */
+        if (!commandLineWantsList(szLine) &&
+            !emuCheckSettingArguments(pProperties, szLine)) {
+            /* The settings are left unsaved: a refused line must not write the
+            ** part it had applied. */
+            commandLineFail(emuCommandLineGetError());
+        }
     }
 
-    /* Capture path reconciliation. The Audio/Video/Screenshot directories
-    ** were seeded above with rootDir-based defaults; if the loaded INI also
-    ** has capture.* paths, those win and we push them into the runtime
-    ** statics. Otherwise we copy the runtime defaults back into Properties
-    ** so they round-trip on next save. */
+    /* An INI capture.* path wins; otherwise the rootDir default goes back for
+    ** this run only, or the settings file would follow wherever the run keeps
+    ** its data. */
     if (pProperties->capture.audioDir[0]) {
         actionSetAudioCaptureSetDirectory(pProperties->capture.audioDir, "");
     } else {
         strcpy(pProperties->capture.audioDir, actionGetAudioCaptureDir());
+        emuCommandLineOverrideString(pProperties->capture.audioDir, "");
     }
     if (pProperties->capture.videoDir[0]) {
         actionSetVideoCaptureSetDirectory(pProperties->capture.videoDir, "");
     } else {
         strcpy(pProperties->capture.videoDir, actionGetVideoCaptureDir());
+        emuCommandLineOverrideString(pProperties->capture.videoDir, "");
     }
     if (pProperties->capture.screenshotDir[0]) {
         screenshotSetDirectory(pProperties->capture.screenshotDir, "");
     } else {
         strcpy(pProperties->capture.screenshotDir, screenshotGetDirectory());
+        emuCommandLineOverrideString(pProperties->capture.screenshotDir, "");
     }
     /* Replay output dir defaults to videoDir until UI splits them. */
     if (!pProperties->capture.replayDir[0]) {
         strcpy(pProperties->capture.replayDir, pProperties->capture.videoDir);
+        emuCommandLineOverrideString(pProperties->capture.replayDir, "");
+    }
+
+    /* A /machinedir on the line outranks the file, so here it is only recorded
+    ** as a one-shot. */
+    if (emuCheckValueArgument(szLine, "machinedir") != NULL) {
+        char previous[PROP_MAXPATH];
+        strcpy(previous, pProperties->emulation.machinesDir);
+        strncpy(pProperties->emulation.machinesDir, machineGetDirectory(),
+                sizeof(pProperties->emulation.machinesDir) - 1);
+        pProperties->emulation.machinesDir[sizeof(pProperties->emulation.machinesDir) - 1] = 0;
+        emuCommandLineOverrideString(pProperties->emulation.machinesDir, previous);
+    }
+    else if (pProperties->emulation.machinesDir[0]) {
+        machineSetDirectory(pProperties->emulation.machinesDir);
+    } else {
+        strncpy(pProperties->emulation.machinesDir, machineGetDirectory(),
+                sizeof(pProperties->emulation.machinesDir) - 1);
+        pProperties->emulation.machinesDir[sizeof(pProperties->emulation.machinesDir) - 1] = 0;
+    }
+
+    /* langInit runs first, because the lists below print names that come from
+    ** it. */
+    langInit();
+
+    /* The lists are printed here, because they need the directories resolved
+    ** above. */
+    if (commandLinePrintLists(szLine)) {
+        exit(0);
+        return 0;
     }
 
     tempName = appConfigGetString("singlemachine", NULL);
@@ -3997,8 +4901,11 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
     if (readOnlyDir && pProperties->settings.portable) {
         MessageBoxU(NULL, langErrorPortableReadonly(), langErrorTitle(), MB_OK);
-        return 0;
+        exit(1);
     }
+
+    createDataDirectories();
+    seedShortcutProfiles();
 
     // Load tools
     sprintf(buffer, "%s\\Tools", st.pCurDir);
@@ -4021,7 +4928,6 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     midiInitialize();
 
     st.active = 1;
-    st.buttonState = 0;
     st.showDialog = 0;
     st.enteringFullscreen = 1;
     st.frameCount = 0;
@@ -4058,8 +4964,8 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
     emulatorInit(pProperties, st.mixer);
     actionInit(st.pVideo, pProperties, st.mixer);
-    langInit();
     tapeSetReadOnly(pProperties->cassette.readOnly);
+    tapeSignalSetSaveMonitor(pProperties->cassette.saveMonitor);
     
     ethIfInitialize(pProperties);
     cdromInitialize();
@@ -4068,8 +4974,6 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     if (!shortcutsIsProfileValid(pProperties->emulation.shortcutProfile)) {
         shortcutsGetAnyProfile(pProperties->emulation.shortcutProfile);
     }
-
-    st.shortcuts = shortcutsCreateProfile(pProperties->emulation.shortcutProfile);
 
     if (!pProperties->settings.portable && pProperties->emulation.registerFileTypes) {
         /* Refresh HKCU registration each launch to pick up a new exe
@@ -4117,14 +5021,23 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     st.emuHwnd = CreateWindow("blueMSXemuWindow", "", WS_CHILD | WS_CLIPSIBLINGS | WS_VISIBLE, 0, 0, 0, 0, st.hwnd, NULL, hInstance, NULL);
     ShowWindow(st.emuHwnd, SW_HIDE);
 
-    inputInit();
+    /* The built-in joystick defaults name their controls, so make the
+    ** slots first. */
     inputReset(st.hwnd);
-    keyboardLoadConfig(pProperties->keyboard.configFile);
-    sprintf(pProperties->keyboard.configFile, keyboardGetCurrentConfig());
-    
+    inputInit();
     mouseEmuInit(st.emuHwnd, 1);
+    /* Port types must be set before the keyboard config loads: joy-table
+    ** defaults apply only to ECs the selected port devices read. */
     joystickPortSetType(0, pProperties->joy1.typeId);
     joystickPortSetType(1, pProperties->joy2.typeId);
+    keyboardLoadConfig(pProperties->keyboard.configFile);
+    if (!keyboardConfigIsSubstitute()) {
+        strcpy(pProperties->keyboard.configFile, keyboardGetCurrentConfig());
+    }
+
+    /* Joystick shortcuts are stored by device name, so load them after
+    ** input init. */
+    st.shortcuts = shortcutsCreateProfile(pProperties->emulation.shortcutProfile);
 
     printerIoSetType(pProperties->ports.Lpt.type, pProperties->ports.Lpt.fileName);
     uartIoSetType(pProperties->ports.Com.type, pProperties->ports.Com.fileName);
@@ -4136,18 +5049,40 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
     st.dskWnd = diskQuickviewWindowCreate(st.hwnd);
 
-    if (pProperties->video.windowX < 0 || pProperties->video.windowY < 0) {
+    /* -1,-1 marks "never saved" rather than a coordinate. A monitor left of or
+    ** above the primary one gives real negative positions, so both halves are
+    ** checked. */
+    if (pProperties->video.windowX == -1 && pProperties->video.windowY == -1) {
         GetWindowRect(st.hwnd, &wr);
         pProperties->video.windowX = wr.left;
         pProperties->video.windowY = wr.top;
     }
 
-    if (pProperties->video.windowX > GetSystemMetrics(SM_CXSCREEN) - 300) {
-        pProperties->video.windowX = GetSystemMetrics(SM_CXSCREEN) - 300;
-    }
+    {
+        /* The window is kept reachable on the monitor its corner falls on, not
+        ** on the primary one. */
+        POINT corner;
+        HMONITOR mon;
+        MONITORINFO mi;
 
-    if (pProperties->video.windowY > GetSystemMetrics(SM_CYSCREEN) - 300) {
-        pProperties->video.windowY = GetSystemMetrics(SM_CYSCREEN) - 300;
+        corner.x = pProperties->video.windowX;
+        corner.y = pProperties->video.windowY;
+        mon = MonitorFromPoint(corner, MONITOR_DEFAULTTONEAREST);
+        mi.cbSize = sizeof(mi);
+        if (GetMonitorInfoW(mon, &mi)) {
+            if (pProperties->video.windowX > mi.rcWork.right - 300) {
+                pProperties->video.windowX = mi.rcWork.right - 300;
+            }
+            if (pProperties->video.windowY > mi.rcWork.bottom - 300) {
+                pProperties->video.windowY = mi.rcWork.bottom - 300;
+            }
+            if (pProperties->video.windowX < mi.rcWork.left) {
+                pProperties->video.windowX = mi.rcWork.left;
+            }
+            if (pProperties->video.windowY < mi.rcWork.top) {
+                pProperties->video.windowY = mi.rcWork.top;
+            }
+        }
     }
 
     SetWindowPos(st.hwnd, NULL, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOZORDER);
@@ -4200,6 +5135,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     }
     boardSetFdcTimingEnable(pProperties->emulation.enableFdcTiming);
     boardSetHddSdBoostEnable(pProperties->emulation.enableHddSdBoost);
+    boardSetCasBoostEnable(pProperties->emulation.enableCasBoost);
     boardSetNoSpriteLimits(pProperties->emulation.noSpriteLimits);
     boardSetVdpCmdSpeed(pProperties->emulation.vdpCmdSpeed);
     boardSetY8950Enable(pProperties->sound.chip.enableY8950);
@@ -4209,11 +5145,8 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
     updateMenu(0);
 
-    if (emuTryStartWithArguments(pProperties, szLine, NULL) < 0) {           
-        exit(0);
-        return 0;
-    }
-
+    /* The theme list is built before the machine starts, so a bad /theme name
+    ** is refused first. */
     st.themePageActive = NULL;
     {
         ThemeCollection* builtins[3];
@@ -4222,11 +5155,33 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
         builtins[2] = NULL;
         st.themeList = createThemeList(builtins);
     }
-    themeSet(emuCheckThemeArgument(szLine), 0);
+    checkThemeArgument(szLine);
+
+    if (emuTryStartWithArguments(pProperties, szLine, NULL) < 0) {
+        commandLineFail(emuCommandLineGetError());
+    }
+
+    {
+        char* themeArg = emuCheckValueArgument(szLine, "theme");
+        char previousTheme[CMDLINE_MAXOVERRIDE];
+        strncpy(previousTheme, pProperties->settings.themeName, sizeof(previousTheme) - 1);
+        previousTheme[sizeof(previousTheme) - 1] = 0;
+        themeSet(themeArg, 0);
+        /* This is recorded afterwards, because only themeSet knows the name it
+        ** settled on. */
+        if (themeArg != NULL) {
+            emuCommandLineOverrideString(pProperties->settings.themeName, previousTheme);
+        }
+    }
 
     archUpdateWindow();
     ShowWindow(st.hwnd, SW_NORMAL);
     UpdateWindow(st.hwnd);
+
+    /* The debugger attaches to the main window, so this runs after it exists. */
+    if (emuCheckFlagArgument(szLine, "debugger")) {
+        actionToolsShowDebugger();
+    }
 
     archApplyGameSchedulerPolicy(pProperties->emulation.priorityBoost);
 
@@ -4253,7 +5208,10 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     }
 
     emulatorExit();
-    sprintf(pProperties->keyboard.configFile, keyboardGetCurrentConfig());
+    /* A substitute for a missing profile must not replace the user's choice. */
+    if (!keyboardConfigIsSubstitute()) {
+        strcpy(pProperties->keyboard.configFile, keyboardGetCurrentConfig());
+    }
     shortcutsDestroyProfile(st.shortcuts);
     videoDestroy(st.pVideo);
     
@@ -4267,6 +5225,8 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     pProperties->joy2.typeId = joystickPortGetType(1);
     recorderRestorePropsAtExit();
     toastDestroy();
+    /* This is the last thing before the settings are written. */
+    emuCommandLineRestoreOverrides();
     propDestroy(pProperties);
 
     archSoundDestroy();
@@ -4613,8 +5573,9 @@ void archShowStartEmuFailDialog(const char* machineName)
         _snprintf(body, sizeof(body) - 1, "%s", langErrorStartEmuNoMachine());
         break;
     case MACHINE_LOAD_MACHINES_DIR_MISSING:
-        _snprintf(body, sizeof(body) - 1, "%s",
-                  langErrorStartEmuMachinesDirMissing());
+        _snprintf(body, sizeof(body) - 1, "%s\n\n%s",
+                  langErrorStartEmuMachinesDirMissing(),
+                  machineGetDirectory());
         break;
     case MACHINE_LOAD_CONFIG_INVALID:
         _snprintf(body, sizeof(body) - 1,
@@ -4742,6 +5703,324 @@ static int toolWindowBringExistingToFront(ThemeCollection** cache,
     return 0;
 }
 
+#define IDC_KBDCFG_CLEAR         21001
+#define IDC_KBDCFG_RESET         21002
+
+static const char* kbdCfgBaseProcProp = "blueMSX.kbdCfgBaseProc";
+static const char* kbdCfgTipProp = "blueMSX.kbdCfgTip";
+
+#define KBDTIP_MAPPEDKEY  1
+#define KBDTIP_HOVEREDKEY 2
+
+static char kbdTipPrevText[512];
+static RECT kbdTipPrevRect;
+static int  kbdTipPrevKey;
+
+static void kbdTipForgetLast(void)
+{
+    kbdTipPrevText[0] = 0;
+    memset(&kbdTipPrevRect, 0, sizeof(kbdTipPrevRect));
+    kbdTipPrevKey = -1;
+}
+
+static void kbdConflictTipUpdate(HWND hTheme)
+{
+    /* Runs on the 100ms theme tick: the TTM round-trip flickers a visible
+    ** tip, so skip it unless the text or rect changed. */
+    HWND tip = (HWND)GetPropA(hTheme, kbdCfgTipProp);
+    Theme* theme;
+    ThemePage* page;
+    int rx, ry, rw, rh;
+    wchar_t wbuf[512];
+    char* text;
+    TOOLINFOW ti;
+
+    if (tip == NULL) return;
+    memset(&ti, 0, sizeof(ti));
+    ti.cbSize = sizeof(ti);
+    ti.hwnd   = hTheme;
+    ti.uId    = KBDTIP_MAPPEDKEY;
+
+    theme = windowGetThemeFromHwnd(hTheme);
+    page  = theme ? themeGetCurrentPage(theme) : NULL;
+    text  = archKeyboardConflictText();
+    if (page == NULL || text[0] == 0 ||
+        !themePageGetItemRectByTrigger(page, THEME_TRIGGER_TEXT_MAPPEDKEY,
+                                       &rx, &ry, &rw, &rh))
+    {
+        if (kbdTipPrevText[0] == 0) return;
+        kbdTipPrevText[0] = 0;
+        ti.lpszText = L"";
+        SendMessageW(tip, TTM_UPDATETIPTEXTW, 0, (LPARAM)&ti);
+        return;
+    }
+    ti.rect.left   = rx;
+    ti.rect.top    = ry;
+    ti.rect.right  = rx + rw;
+    ti.rect.bottom = ry + rh;
+    if (0 == strcmp(text, kbdTipPrevText) &&
+        0 == memcmp(&ti.rect, &kbdTipPrevRect, sizeof(RECT)))
+    {
+        return;
+    }
+    strcpy(kbdTipPrevText, text);
+    kbdTipPrevRect = ti.rect;
+    SendMessageW(tip, TTM_NEWTOOLRECTW, 0, (LPARAM)&ti);
+    MultiByteToWideChar(CP_UTF8, 0, text, -1, wbuf, _countof(wbuf));
+    ti.lpszText = wbuf;
+    SendMessageW(tip, TTM_UPDATETIPTEXTW, 0, (LPARAM)&ti);
+}
+
+static void kbdKeyTipTrack(HWND hTheme, int px, int py)
+{
+    HWND tip = (HWND)GetPropA(hTheme, kbdCfgTipProp);
+    Theme* theme;
+    ThemePage* page;
+    int rx, ry, rw, rh, keyCode;
+    wchar_t wbuf[512];
+    char* text;
+    TOOLINFOW ti;
+
+    if (tip == NULL) return;
+    theme = windowGetThemeFromHwnd(hTheme);
+    page  = theme ? themeGetCurrentPage(theme) : NULL;
+    keyCode = page ? themePageHitTestKeyCode(page, px, py, &rx, &ry, &rw, &rh) : 0;
+    if (keyCode == kbdTipPrevKey) return;
+    kbdTipPrevKey = keyCode;
+
+    memset(&ti, 0, sizeof(ti));
+    ti.cbSize = sizeof(ti);
+    ti.hwnd   = hTheme;
+    ti.uId    = KBDTIP_HOVEREDKEY;
+
+    text = keyCode ? archKeyboardConflictTextForKey(keyCode) : "";
+    if (text[0] == 0) {
+        ti.lpszText = L"";
+        SendMessageW(tip, TTM_UPDATETIPTEXTW, 0, (LPARAM)&ti);
+        return;
+    }
+    ti.rect.left   = rx;
+    ti.rect.top    = ry;
+    ti.rect.right  = rx + rw;
+    ti.rect.bottom = ry + rh;
+    SendMessageW(tip, TTM_NEWTOOLRECTW, 0, (LPARAM)&ti);
+    MultiByteToWideChar(CP_UTF8, 0, text, -1, wbuf, _countof(wbuf));
+    ti.lpszText = wbuf;
+    SendMessageW(tip, TTM_UPDATETIPTEXTW, 0, (LPARAM)&ti);
+}
+
+/* Called on the theme's 100 ms tick, so move only on a real change. */
+static void kbdPlaceChild(HWND btn, int x, int y, int w, int h)
+{
+    RECT cur;
+    if (IsWindowVisible(btn)) {
+        GetWindowRect(btn, &cur);
+        MapWindowPoints(NULL, GetParent(btn), (POINT*)&cur, 2);
+        if (cur.left == x && cur.top == y &&
+            cur.right - cur.left == w && cur.bottom - cur.top == h) {
+            return;
+        }
+    }
+    SetWindowPos(btn, HWND_TOP, x, y, w, h, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+}
+
+static void kbdClearReposition(HWND btn)
+{
+    HWND parent = GetParent(btn);
+    Theme* theme;
+    ThemePage* page;
+    int rx, ry, rw, rh, side, x, y;
+    RECT client;
+    if (!parent) return;
+    theme = windowGetThemeFromHwnd(parent);
+    if (!theme) return;
+    page = themeGetCurrentPage(theme);
+    /* Ports set to mouse, paddle, gun or dongle have no mapped-key widget
+    ** to clear. */
+    if (!themePageGetItemRectByTrigger(page, THEME_TRIGGER_TEXT_MAPPEDKEY,
+                                       &rx, &ry, &rw, &rh)) {
+        ShowWindow(btn, SW_HIDE);
+        return;
+    }
+    if (archKeyboardSelectedBindingCount() == 0) {
+        ShowWindow(btn, SW_HIDE);
+        return;
+    }
+    side = rh > 12 ? rh : 12;
+    /* The underline BMP ends a few px inside the widget rect, so pull the
+    ** x back rather than let it overhang. */
+    x = rx + rw - side - 4;
+    y = ry;
+    GetClientRect(parent, &client);
+    if (x + side > client.right - 2) x = client.right - side - 2;
+    if (x < 0) x = 0;
+    if (y + side > client.bottom - 2) y = client.bottom - side - 2;
+    if (y < 0) y = 0;
+    kbdPlaceChild(btn, x, y, side, side);
+}
+
+static int kbdPageTable(ThemePage* page)
+{
+    if (page == NULL) return -1;
+    if (0 == strcmp(page->name, "keyboard"))  return 0;
+    if (0 == strcmp(page->name, "joystick1")) return 1;
+    if (0 == strcmp(page->name, "joystick2")) return 2;
+    return -1;
+}
+
+/* Cached for the process lifetime so no live control ends up holding a
+** deleted handle. */
+static HFONT kbdScaledFont(int cell)
+{
+    static struct { int cell; HFONT font; } cache[16];
+    static int count = 0;
+    HFONT font;
+    int i;
+
+    if (cell < 8) cell = 8;
+    for (i = 0; i < count; i++) {
+        if (cache[i].cell == cell) return cache[i].font;
+    }
+
+    if (count == (int)(sizeof(cache) / sizeof(cache[0]))) {
+        /* Cache full: a fresh font here would leak on every timer tick. */
+        return (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+    }
+    font = themeCtrlFontCreate(cell);
+    if (font == NULL) {
+        return (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+    }
+    cache[count].cell = cell;
+    cache[count].font = font;
+    count++;
+    return font;
+}
+
+/* Coordinates are in the theme's 500x330 design space. */
+static void kbdResetReposition(HWND btn)
+{
+    HWND parent = GetParent(btn);
+    Theme* theme;
+    ThemePage* page;
+    int table, w, h, x, y;
+    RECT client;
+    if (!parent) return;
+    theme = windowGetThemeFromHwnd(parent);
+    if (!theme) return;
+    page  = themeGetCurrentPage(theme);
+    table = kbdPageTable(page);
+    if (table < 0) {
+        ShowWindow(btn, SW_HIDE);
+        return;
+    }
+    /* Only on a real change: WM_SETTEXT always invalidates the button. */
+    {
+        char cur[160];
+        const char* want = langKeyconfigResetTab();
+        GetWindowTextU(btn, cur, sizeof(cur));
+        if (0 != strcmp(cur, want)) SetWindowTextU(btn, want);
+    }
+    EnableWindow(btn, archKeyboardTableIsResettable(table));
+
+    GetClientRect(parent, &client);
+    /* Between the dropdown (ends at design x=245) and OK (starts 358). */
+    x = client.right * 260 / 500;
+    y = client.bottom * 285 / 330;
+    w = client.right * 84 / 500;
+    h = client.bottom * 24 / 330;
+    if (h < 14) h = 14;
+    if (x + w > client.right - 2 || y + h > client.bottom - 2) {
+        ShowWindow(btn, SW_HIDE);
+        return;
+    }
+    /* 10 rather than the theme's 11px cell, and never more than half the
+    ** room a button leaves inside its border, so two lines always fit. */
+    {
+        int cell = client.bottom * 10 / 330;
+        HFONT font;
+        if (cell > (h - 6) / 2) cell = (h - 6) / 2;
+        font = kbdScaledFont(cell);
+        if ((HFONT)SendMessage(btn, WM_GETFONT, 0, 0) != font) {
+            SendMessage(btn, WM_SETFONT, (WPARAM)font, FALSE);
+        }
+    }
+    kbdPlaceChild(btn, x, y, w, h);
+}
+
+/* 192,192,192 matches SEL-BOX.bmp so the chip blends into the box. */
+static void kbdClearDrawItem(DRAWITEMSTRUCT* dis)
+{
+    int side = min(dis->rcItem.right  - dis->rcItem.left,
+                   dis->rcItem.bottom - dis->rcItem.top);
+    int pressed = (dis->itemState & ODS_SELECTED) != 0;
+    COLORREF glyphCol = pressed ? RGB(60, 60, 60) : RGB(90, 90, 90);
+    win32PaintClearChip(dis->hDC, &dis->rcItem,
+                        8, 20, side >= 22 ? 3 : 2,
+                        1, RGB(192, 192, 192), glyphCol);
+}
+
+/* W entry points only: the A variant marks the window ANSI and mangles its label. */
+static LRESULT CALLBACK kbdCfgBtnProc(HWND btn, UINT iMsg, WPARAM wParam, LPARAM lParam)
+{
+    WNDPROC baseProc = (WNDPROC)GetWindowLongPtrW(btn, GWLP_USERDATA);
+    if (iMsg == WM_LBUTTONUP) {
+        POINT p = { (SHORT)LOWORD(lParam), (SHORT)HIWORD(lParam) };
+        RECT r;
+        GetClientRect(btn, &r);
+        if (PtInRect(&r, p)) {
+            HWND parent = GetParent(btn);
+            if (GetDlgCtrlID(btn) == IDC_KBDCFG_RESET) {
+                Theme* theme = parent ? windowGetThemeFromHwnd(parent) : NULL;
+                archKeyboardResetTableDefaults(
+                    kbdPageTable(theme ? themeGetCurrentPage(theme) : NULL));
+            }
+            else {
+                archKeyboardClearSelectedKey();
+            }
+            if (parent) {
+                InvalidateRect(parent, NULL, TRUE);
+                UpdateWindow(parent);
+            }
+        }
+    }
+    return baseProc ? CallWindowProcW(baseProc, btn, iMsg, wParam, lParam)
+                    : DefWindowProcW(btn, iMsg, wParam, lParam);
+}
+
+static LRESULT CALLBACK kbdThemeWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
+{
+    WNDPROC baseProc = (WNDPROC)GetPropA(hwnd, kbdCfgBaseProcProp);
+    if (iMsg == WM_DRAWITEM) {
+        DRAWITEMSTRUCT* dis = (DRAWITEMSTRUCT*)lParam;
+        if (dis && dis->CtlID == IDC_KBDCFG_CLEAR) {
+            kbdClearDrawItem(dis);
+            return TRUE;
+        }
+    }
+    if (iMsg == WM_MOUSEMOVE) {
+        kbdKeyTipTrack(hwnd, (SHORT)LOWORD(lParam), (SHORT)HIWORD(lParam));
+    }
+    {
+        LRESULT rv = baseProc ? CallWindowProcW(baseProc, hwnd, iMsg, wParam, lParam)
+                              : DefWindowProcW(hwnd, iMsg, wParam, lParam);
+        /* WM_UPDATE = explicit page change; TIMER catches in-page state
+        ** changes (e.g. joyport dropdown toggling widget visibility). */
+        if (iMsg == WM_UPDATE ||
+            (iMsg == WM_TIMER && wParam == TIMER_STATUSBAR_UPDATE)) {
+            HWND btn = GetDlgItem(hwnd, IDC_KBDCFG_CLEAR);
+            if (btn) kbdClearReposition(btn);
+            btn = GetDlgItem(hwnd, IDC_KBDCFG_RESET);
+            if (btn) kbdResetReposition(btn);
+            kbdConflictTipUpdate(hwnd);
+        }
+        if (iMsg == WM_NCDESTROY) {
+            RemovePropA(hwnd, kbdCfgBaseProcProp);
+            RemovePropA(hwnd, kbdCfgTipProp);
+        }
+        return rv;
+    }
+}
+
 void archShowKeyboardEditor()
 {
     static ThemeCollection* tc[TOOLTHEME_CACHE_SIZE] = { NULL };
@@ -4764,7 +6043,72 @@ void archShowKeyboardEditor()
         MessageBoxU(NULL, langErrorKeyboardThemeMissing(), langErrorTitle(), MB_ICONERROR | MB_OK);
     }
     else {
+        HWND hTheme;
         themeCollectionOpenWindow(tc[hs], hash);
+        /* A native BUTTON positioned from the theme rect: no theme.xml
+        ** change and no shipped BMP. */
+        hTheme = (HWND)themeCollectionGetWindowHandle(tc[hs], hash);
+        if (hTheme && !GetDlgItem(hTheme, IDC_KBDCFG_CLEAR)) {
+            HWND btn;
+            btn = CreateWindowExW(0, L"BUTTON", L"x",
+                WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | BS_OWNERDRAW,
+                0, 0, 16, 16,
+                hTheme, (HMENU)(INT_PTR)IDC_KBDCFG_CLEAR,
+                GetModuleHandle(NULL), NULL);
+            if (btn) {
+                WNDPROC base;
+                base = (WNDPROC)SetWindowLongPtrW(btn, GWLP_WNDPROC,
+                    (LONG_PTR)kbdCfgBtnProc);
+                SetWindowLongPtrW(btn, GWLP_USERDATA, (LONG_PTR)base);
+            }
+            btn = CreateWindowExW(0, L"BUTTON", L"",
+                WS_CHILD | WS_CLIPSIBLINGS | BS_PUSHBUTTON | BS_MULTILINE,
+                0, 0, 90, 16,
+                hTheme, (HMENU)(INT_PTR)IDC_KBDCFG_RESET,
+                GetModuleHandle(NULL), NULL);
+            if (btn) {
+                WNDPROC base;
+                SendMessage(btn, WM_SETFONT, (WPARAM)kbdScaledFont(10), TRUE);
+                base = (WNDPROC)SetWindowLongPtrW(btn, GWLP_WNDPROC,
+                    (LONG_PTR)kbdCfgBtnProc);
+                SetWindowLongPtrW(btn, GWLP_USERDATA, (LONG_PTR)base);
+            }
+            if (!GetPropA(hTheme, kbdCfgBaseProcProp)) {
+                WNDPROC base = (WNDPROC)SetWindowLongPtrW(hTheme, GWLP_WNDPROC,
+                    (LONG_PTR)kbdThemeWndProc);
+                SetPropA(hTheme, kbdCfgBaseProcProp, (HANDLE)base);
+            }
+            if (!GetPropA(hTheme, kbdCfgTipProp)) {
+                HWND tip = CreateWindowExW(0, TOOLTIPS_CLASSW, NULL,
+                    WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP,
+                    CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+                    hTheme, NULL, GetModuleHandle(NULL), NULL);
+                if (tip) {
+                    TOOLINFOW ti = { 0 };
+                    ti.cbSize   = sizeof(ti);
+                    ti.uFlags   = TTF_SUBCLASS;
+                    ti.hwnd     = hTheme;
+                    ti.uId      = KBDTIP_MAPPEDKEY;
+                    ti.lpszText = L"";
+                    SendMessageW(tip, TTM_ADDTOOLW, 0, (LPARAM)&ti);
+                    ti.uId      = KBDTIP_HOVEREDKEY;
+                    SendMessageW(tip, TTM_ADDTOOLW, 0, (LPARAM)&ti);
+                    /* TTM_SETMAXTIPWIDTH is in physical pixels, so scale it
+                    ** or text wraps early at high DPI. */
+                    SendMessageW(tip, TTM_SETMAXTIPWIDTH, 0,
+                                 MulDiv(400, win32QueryWindowDpi(hTheme), 96));
+                    SetPropA(hTheme, kbdCfgTipProp, (HANDLE)tip);
+                }
+            }
+            btn = GetDlgItem(hTheme, IDC_KBDCFG_CLEAR);
+            if (btn) kbdClearReposition(btn);
+            btn = GetDlgItem(hTheme, IDC_KBDCFG_RESET);
+            if (btn) kbdResetReposition(btn);
+            /* The tooltip is new, so clear the last-seen state or the
+            ** first update is skipped. */
+            kbdTipForgetLast();
+            kbdConflictTipUpdate(hTheme);
+        }
     }
 }
 
@@ -4979,6 +6323,27 @@ char* archDirnameGetOpenDisk(Properties* properties, int drive)
     return filename;
 }
 
+char* archDirnameGetOpenDiskWithFormat(Properties* properties, int drive,
+                                        int* outMsxFormat)
+{
+    char* title = drive == 1 ? langDlgInsertDiskB() : langDlgInsertDiskA();
+    char* defaultDir = properties->media.disks[drive].directory;
+    char* filename;
+    static int lastFormat = (int)DiskFormatMsxDos2;
+    int fmt = lastFormat;
+
+    enterDialogShow();
+    filename = openDirWithFormat(getMainHwnd(), title, defaultDir, &fmt);
+    exitDialogShow();
+    SetCurrentDirectoryU(st.pCurDir);
+
+    if (filename != NULL) {
+        lastFormat = fmt;
+        if (outMsxFormat) *outMsxFormat = fmt;
+    }
+    return filename;
+}
+
 char* archFileOpen(char* title, char* extensionList, char* defaultDir, char* extensions, int* selectedExtension, char* defautExtension, int createFileSize)
 {
     char* fileName;
@@ -5121,17 +6486,36 @@ char* archFilenameGetOpenCas(Properties* properties)
     char* title = langDlgInsertCas();
     char  extensionList[512];
     char* defaultDir = properties->cassette.defDir;
-    char* extensions = ".cas\0.zip\0.*\0";
+    char* extensions = ".cas\0.tsx\0.wav\0.zip\0.*\0";
     int* selectedExtension = &properties->media.tapes[0].extensionFilter;
     char* defautExtension = ".cas";
     int createFileSize = 0;
     char* fileName;
 
-    sprintf(extensionList, "%s   (*.cas, *.zip)#*.cas; *.zip#%s   (*.*)#*.*#", langFileCas(), langFileAll());
+    sprintf(extensionList, "%s   (*.cas, *.tsx, *.wav, *.zip)#*.cas; *.tsx; *.wav; *.zip#%s   (*.*)#*.*#", langFileCas(), langFileAll());
     replaceCharInString(extensionList, '#', 0);
 
     enterDialogShow();
     fileName = openFile(getMainHwnd(), title, extensionList, defaultDir, createFileSize, defautExtension, selectedExtension);
+    exitDialogShow();
+    SetCurrentDirectoryU(st.pCurDir);
+
+    return fileName;
+}
+
+char* archFilenameGetNewCas(Properties* properties)
+{
+    char* title = langDlgCreateCas();
+    char  extensionList[512];
+    char* defaultDir = properties->cassette.defDir;
+    char* fileName;
+
+    /* WAV first: it is the only format the deck can record a signal into */
+    sprintf(extensionList, "%s   (*.wav)#*.wav#%s   (*.cas)#*.cas#", langFileCas(), langFileCas());
+    replaceCharInString(extensionList, '#', 0);
+
+    enterDialogShow();
+    fileName = openNewCasFile(getMainHwnd(), title, extensionList, defaultDir);
     exitDialogShow();
     SetCurrentDirectoryU(st.pCurDir);
 

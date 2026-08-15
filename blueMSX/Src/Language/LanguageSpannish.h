@@ -81,6 +81,8 @@ void langInitSpanish(LanguageStrings* ls)
     ls->errorDirectXFailed      = "Error al crear objetos DirectX.           \n.\nComprueba configuración de Vídeo.";
     ls->errorNoRomInZip         = "No hay archivo .rom en el archivo zip.";
     ls->errorNoDskInZip         = "No hay archivo .dsk en el archivo zip.";
+    ls->errorCreateDiskImage    = "No se pudo crear el archivo de imagen de disco.";
+    ls->errorCreateTapeImage    = "No se pudo crear el archivo de imagen de cinta.";
     ls->errorNoCasInZip         = "No hay archivo .cas en el archivo zip.";
     ls->errorDirAsDskOverflow   = "%d archivo(s) (%d KB en total) no caben en la imagen de disco de 720 KB y se han omitido.";
     ls->errorNoHelp             = "Imposible encontrar archivo de ayuda de BlueMSX.";
@@ -91,6 +93,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->errorStartEmuConfigInvalid       = "No se pudo leer config.ini de la configuración de máquina '%s'. El archivo puede estar dañado o pertenecer a una versión incompatible.";
     ls->errorMissingFiles       = "No se pudieron cargar los siguientes archivos:";
     ls->errorPortableReadonly   = "El dispositivo portable es sólo lectura";        
+    ls->errorMidiOpenFailed     = "No se pudo abrir el dispositivo MIDI '%s'. Puede estar en uso por otra aplicación.";
     ls->infoTitle               = "Info de blueMSX+";
     ls->infoGameReaderRedirect  = "blueMSX+ no admite directamente MSX Game Reader (el controlador original de ASCII de la era XP ya no funciona en Windows moderno).\n\n¿Abrir MSX Game Reader - Web Dumper (por Kunihiko Ohnaka) en su navegador?";
     ls->infoColorDepth          = "blueMSX+ funciona mejor con profundidad de color de 16 o 32 bits.";
@@ -104,6 +107,9 @@ void langInitSpanish(LanguageStrings* ls)
     ls->infoRecorderComplete    = "Archivo de vídeo guardado:\n  %s";
     ls->infoToastSaved          = "Guardado: %s";
     ls->infoToastAlreadyRecording   = "Ya en grabación";
+    ls->infoToastMouseConnected    = "Ratón PC conectado al MSX";
+    ls->infoToastMouseDisconnected = "Ratón PC desconectado del MSX";
+    ls->propControlsMouseSens      = "Sensibilidad:";
     ls->dlgRecorderPickTitle        = "blueMSX+ - Renderizar replay a vídeo";
     ls->dlgRecorderPickSourceCap    = "Archivo de replay a renderizar (.cap):";
     ls->dlgRecorderPickOutputMp4    = "Archivo de vídeo de salida (.mp4):";
@@ -125,7 +131,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->propCaptureSaveDir          = "Carpeta:";
     ls->propCaptureFormat           = "Formato:";
     ls->propCaptureCodec            = "Códec:";
-    ls->propCaptureAutoName         = "Nombre de archivo automático";
+    ls->propCaptureAutoName         = "Nombre de archivo auto.";
     ls->propCapturePromptName       = "Pedir nombre de archivo";
     ls->propCaptureShowToast        = "Mostrar aviso al terminar";
 
@@ -180,7 +186,9 @@ void langInitSpanish(LanguageStrings* ls)
     ls->menuDiskAutoStart       = "Reinicio Tras Insertar";
     ls->menuCartAutoReset       = "Reinicio Tras Insertar/Sacar";
 
+    ls->menuCasInsertNew         = "Insertar nueva imagen de Cinta";
     ls->menuCasRewindAfterInsert = "Rebobinar tras Insertar";
+    ls->menuCasSaveMonitor       = "Escuchar al guardar";
     ls->menuCasUseReadOnly       = "Usar Imagen de Cassette Sólo Lectura";
     ls->lmenuCasSaveAs           = "Salvar Imagen de Cassette Como...";
     ls->menuCasSetPosition      = "Posicionar";
@@ -310,6 +318,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->dlgInsertDiskB          = "Insertar imagen de Disco en Unidad B";
     ls->dlgInsertHarddisk       = "Insertar disco duro";                   
     ls->dlgInsertCas            = "Insertar Cinta de cassette";
+    ls->dlgCreateCas            = "Crear nueva imagen de Cinta";
     ls->dlgRomType              = "Tipo rom:"; 
     ls->dlgDiskSize             = "Tamaño del disco:";             
 
@@ -379,8 +388,10 @@ void langInitSpanish(LanguageStrings* ls)
     ls->propEmuFrontSwitch       = " Botón Frontal"; 
     ls->propEmuNoSpriteLimits   = " Desactivar limitación de sprites";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emular peculiaridad del teclado MSX";  // New in 2.9
-    ls->propEmuFdcTiming        = " Acelerar acceso FDD"; 
-    ls->propEmuHddSdBoost       = " Acelerar durante el acceso HDD/SD";
+    ls->propEmuBoostText        = "Acelerar acceso a dispositivos:";
+    ls->propEmuFdcTiming        = " FDD";
+    ls->propEmuCasBoost         = " Cinta";
+    ls->propEmuHddSdBoost       = " Tarjeta HDD/SD";
     ls->propEmuReversePlay      = " Activar reproducción inversa"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " Botón Pause"; 
     ls->propEmuAudioSwitch       = " Botón cartucho MSX-AUDIO"; 
@@ -400,7 +411,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->propMonHorizStretch      = " Estiramiento Horizontal";
     ls->propMonVertStretch       = " Estiramiento Vertical";
     ls->propMonDeInterlace      = " De-entrelace";
-    ls->propBlendFrames         = " Mezclar frames consecutivas";           
+    ls->propBlendFrames         = " Mezclar frames sucesivas";
     ls->propMonBrightness       = "Brillo:";
     ls->propMonContrast         = "Contraste:";
     ls->propMonSaturation       = "Saturación:";
@@ -418,7 +429,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->enumScanShapeCustom     = "Person.";
     ls->propMonHdrEnable        = "HDR";
     ls->propMonHdrPaperWhite    = "Brillo del blanco:";
-    ls->propMonHdrSystemMode    = "Modo HDR del sistema:";
+    ls->propMonHdrSystemMode    = "Modo HDR sistema:";
     ls->propMonHdrRestartHint   = "Reinicia blueMSX para aplicar el cambio del modo HDR.";
     ls->propMonHdrRecord        = " Grabar en HDR";
     ls->propMonColorGhosting    = " Modulador RF:"; 
@@ -442,7 +453,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->propSoundChipsY8950GB   = " Backend MSX-AUDIO ";
     ls->propSndOpllAnalogText   = "Filtro analógico:";
     ls->propSndOpllAnalogLpfText = "Corte LPF:";
-    ls->enumOpllFilterOff       = "Desactivado";
+    ls->enumOpllFilterOff       = "Sin filtro";
     ls->enumOpllFilterBright    = "Brillante (LPF 12 kHz)";
     ls->enumOpllFilterClear     = "Claro (LPF 8 kHz)";
     ls->enumOpllFilterStandard  = "Estándar (LPF 5 kHz)";
@@ -469,10 +480,10 @@ void langInitSpanish(LanguageStrings* ls)
     ls->propSetFileHistorySize   = "Número de items en Histórico de Archivos:";
     ls->propSetFileHistoryClear  = "Borrar Hostórico";
     ls->propFileTypes            = " Registrar .rom/.dsk/.cas/.sta en el menú \"Abrir con\"";
-    ls->propOpenDefaultApps      = "Abrir configuración de aplicaciones predeterminadas de Windows";
+    ls->propOpenDefaultApps      = "Abrir config. de apps predet. de Windows";
     ls->propWindowsEnvGB         = "Ambiente Windows ";
-    ls->propSetScreenSaver       = " Mantener pantalla activa mientras blueMSX+ esté en ejecución (sin apagado/suspensión/salvapantallas)";
-    ls->propPriorityBoost       = " Usar el planificador de juegos de Windows (MMCSS) para la emulación";
+    ls->propSetScreenSaver       = " Impedir apagado/suspensión/salvapantallas al emular";
+    ls->propPriorityBoost       = " Usar planificador MMCSS de Windows para la emulación";
     ls->propScreenshotPng       = " Utilizar el formato PNG para las capturas de pantalla";  
     ls->propEjectMediaOnExit    = " Eject media when blueMSX+ exits";        // New in 2.8
     ls->propClearHistory         = "¿Desean realmente borrar hostórico?";
@@ -498,8 +509,7 @@ void langInitSpanish(LanguageStrings* ls)
 
     ls->propD3DParametersGB         = "Parámetros ";                // New in 2.9
     ls->propD3DAspectRatioText      = "Relación de aspecto";               // New in 2.9
-    ls->propD3DLinearFilteringText  = " Filtrado lineal";          // New in 2.9
-    ls->propD3DForceHighResText     = " Forzar alta resolución";     // New in 2.9
+    ls->propD3DScalingFilterText     = "Filtro de escala";
     ls->propD3DExtendBorderColorText    = " Extender color del borde";   // New in 2.9
 
     ls->propD3DCroppingGB               = "Recorte ";              // New in 2.9
@@ -549,6 +559,10 @@ void langInitSpanish(LanguageStrings* ls)
     ls->enumD3DARPAL            = "PAL";            // New in 2.9
     ls->enumD3DARNTSC           = "NTSC";           // New in 2.9
     ls->enumD3DAR11             = "1:1";            // New in 2.9
+    ls->enumD3DScaleNearest          = "Más cercano";
+    ls->enumD3DScaleBilinear         = "Bilineal";
+    ls->enumD3DScaleSharp            = "Bilineal nítido";
+    ls->enumD3DScalePrescaled     = "Bilineal (2x prescale)";
 
     ls->enumD3DCropNone         = "Ninguno";           // New in 2.9
     ls->enumD3DCropMSX1         = "MSX1";           // New in 2.9
@@ -667,11 +681,16 @@ void langInitSpanish(LanguageStrings* ls)
     ls->shortcutExitConfig      = "blueMSX+ - Salir del Editor de Atajos";
     ls->shortcutDiscardConfig   = "Quieres descartar cambios de la configuración actual?";
     ls->shortcutSaveConfigAs    = "blueMSX+ - Guardar Configuración de Atajos como...";
-    ls->shortcutConfigName      = "Nombre de la configuración:";
+    ls->shortcutConfigName      = "Nombre de config.:";
     ls->shortcutNewProfile      = "< Nuevo Perfil >";
     ls->shortcutConfigTitle     = "blueMSX+ - Editor de la tarjeta de los atajos";
     ls->shortcutAssign          = "Asigne";
-    ls->shortcutPressText       = "Apoyar en la(s) tecla(s) del atajo";
+    ls->shortcutPressText       = "Pulse tecla(s) del atajo";
+    ls->shortcutHotkeyHint      = "(hasta 3 teclas)";
+    ls->keyboardMappedHint      = "(hasta 3 teclas)";
+    ls->shortcutTooltipAlsoBound = "También asignado a: ";
+    ls->keyboardKeyFormat       = "tecla %s";
+    ls->keyconfigResetTab       = "Restablecer las teclas de esta pestaña";
     ls->shortcutScheme          = "Disposición:";
     ls->shortcutCartInsert1     = "Insertar Cartucho ROM en slot 1";
     ls->shortcutCartRemove1     = "Sacar Cartucho ROM en slot 1";
@@ -730,7 +749,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->shortcutSwitchMsxAudio  = "Impulsar el botón cartucho MSX-AUDIO";
     ls->shortcutSwitchFront     = "Impulsar el botón frontal Panasonic";
     ls->shortcutSwitchPause     = "Impulsar el botón Pause"; 
-    ls->shortcutToggleMouseLock = "Activar/desactivar el bloqueo del ratón";
+    ls->shortcutToggleMouseLock = "Conectar/desconectar el ratón PC al MSX";
     ls->shortcutEmuSpeedMax     = "Velocidad máxima de la emulación";
     ls->shortcutEmuPlayReverse  = "Rebobinar emulación";                     // New in 2.8.3
     ls->shortcutEmuSpeedToggle  = "Balanza velocitad máxima de la emulación"; 

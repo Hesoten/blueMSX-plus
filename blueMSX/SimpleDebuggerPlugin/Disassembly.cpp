@@ -68,6 +68,8 @@ public:
         BitBlt(hdc, x, y, width, height, hMemDC, width * index, 0, SRCCOPY);
     }
 
+    int getHeight() { return height; }
+
 private:
     HDC hdcw;
     HDC hMemDC;
@@ -419,7 +421,7 @@ LRESULT Disassembly::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
         hMemdc = CreateCompatibleDC(hdc);
         ReleaseDC(hwnd, hdc);
         SetBkMode(hMemdc, TRANSPARENT);
-        hFont = CreateFont(-MulDiv(12, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
+        dbgRebuildFont(hMemdc, &hFont, NULL, &textWidth, &textHeight, 1);
 
         BOOL dark = IsDarkMode();
         hBrushWhite  = CreateSolidBrush(dark ? GetDarkBg()        : RGB(255, 255, 255));
@@ -431,12 +433,6 @@ LRESULT Disassembly::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
         colorGray  = RGB(160, 160, 160);
         colorWhite = dark ? GetDarkBg()        : RGB(255, 255, 255);
 
-        SelectObject(hMemdc, hFont); 
-        TEXTMETRIC tm;
-        if (GetTextMetrics(hMemdc, &tm)) {
-            textHeight = tm.tmHeight;
-            textWidth = tm.tmAveCharWidth;
-        }
         darkSubWindow(hwnd);
         return 0;
     }
@@ -445,7 +441,9 @@ LRESULT Disassembly::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
         return 1;
 
     case WM_SIZE:
-        updateScroll();
+        /* Clamp only. updateScroll would re-centre on the PC, so resizing the
+        ** window threw away wherever the user had scrolled to. */
+        applyScroll();
         break;
 
     case WM_VSCROLL:
@@ -482,12 +480,20 @@ LRESULT Disassembly::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
         return 0;
 
     case WM_LBUTTONUP:
-        if (lineCount > 10) {
+        /* Was a lineCount threshold, which only said "there is a listing" by
+        ** accident. A stale listing is still clickable: its addresses are the
+        ** machine's, and a breakpoint is set by address. */
+        if (hasContent()) {
             SCROLLINFO si;
             si.cbSize = sizeof (si);
             si.fMask  = SIF_POS;
             GetScrollInfo (hwnd, SB_VERT, &si);
             int row = si.nPos + HIWORD(lParam) / textHeight;
+            /* The view is taller than the listing, so a click below the last
+            ** instruction would act on whatever the line held before. */
+            if (row < 0 || row >= lineCount) {
+                return 0;
+            }
             if (LOWORD(lParam) < 25) {
                 if (Breakpoints::IsBreakpointSet(lineInfo[row].address)) {
                     Breakpoints::ClearBreakpoint(lineInfo[row].address);
@@ -498,7 +504,7 @@ LRESULT Disassembly::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
             }
             else {
                 currentLine = row;
-                if (lineInfo[currentLine].isLabel) {
+                if (currentLine + 1 < lineCount && lineInfo[currentLine].isLabel) {
                     currentLine++;
                 }
             }
@@ -523,7 +529,7 @@ LRESULT Disassembly::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
             SelectObject(hMemdc, hBrushLtGray);  
             PatBlt(hMemdc, 0, top, 21, height, PATCOPY);
             
-            SelectObject(hMemdc, hBrushWhite); 
+            SelectObject(hMemdc, pageBrush(hBrushWhite)); 
             PatBlt(hMemdc, 21, top, r.right - 21, height, PATCOPY);
 
             drawText(ps.rcPaint.top, ps.rcPaint.bottom);
@@ -562,8 +568,8 @@ UInt16 Disassembly::GetPc() {
 Disassembly::Disassembly(HINSTANCE hInstance, HWND owner, SymbolInfo* symInfo, Breakpoints* breakpts) : 
     DbgWindow( hInstance, owner, 
                Language::windowDisassembly, "Disassembly Window", 3, 2, 432, 418, 1),
-    linePos(0), lineCount(0), currentLine(-1), programCounter(0), 
-    firstVisibleLine(0), 
+    linePos(0), lineCount(0), currentLine(-1), programCounter(0),
+    firstVisibleLine(0), contentValid(false),
     hasKeyboardFocus(false), symbolInfo(symInfo), breakpoints(breakpts)
 {
     memset(backupMemory, 0, 0x10000);
@@ -586,6 +592,11 @@ Disassembly::~Disassembly()
 
 void Disassembly::setCursor(WORD address)
 {
+    /* With no listing there is no line to point at, and the addresses in
+    ** lineInfo are whatever the buffer held. */
+    if (!hasContent()) {
+        return;
+    }
     for (int i = lineCount - 1; i >= 0; i--) {
         if (address >= lineInfo[i].address) {
             updateScroll(i);
@@ -607,33 +618,70 @@ WORD Disassembly::dasm(WORD pc, char* dest)
     return 0;
 }
 
+/* There is no listing at all: no machine, or none taken yet. drawText paints
+** the unavailable message instead of walking lineInfo, so no row is needed. */
 void Disassembly::invalidateContent()
 {
     breakpoints->clearRuntoBreakpoint();
     currentLine = -1;
     lineCount = 0;
+    contentValid = false;
+    setContentStale(false);
     updateScroll();
 
-    sprintf(lineInfo[lineCount].addr, Language::windowDisassemblyUnavail);
-    lineInfo[lineCount].addrLength = (int)strlen(lineInfo[lineCount].addr);
-    lineInfo[lineCount].haspc = 0;
-    lineInfo[lineCount].text[0] = 0;
-    lineInfo[lineCount].textLength = 0;
-    lineInfo[lineCount].dataText[0] = 0;
-    lineInfo[lineCount].dataTextLength = 0;
-    lineInfo[lineCount].isLabel = 0;
-    lineCount++;
-    
     InvalidateRect(hwnd, NULL, TRUE);
 }
 
-void Disassembly::refresh()
+int Disassembly::lineForAddress(int address)
 {
-    updateContent(backupMemory, backupPc);
+    if (address < 0) {
+        return -1;
+    }
+    for (int i = lineCount - 1; i >= 0; i--) {
+        if (address >= lineInfo[i].address) {
+            if (i + 1 < lineCount && lineInfo[i].isLabel) {
+                i++;
+            }
+            return i;
+        }
+    }
+    return -1;
+}
+
+void Disassembly::refresh(bool followPc)
+{
+    /* Nothing has ever been disassembled, so the backup is the zeroed buffer
+    ** and rebuilding from it invents 64K of nop at 0000. */
+    if (!hasContent()) {
+        InvalidateRect(hwnd, NULL, TRUE);
+        return;
+    }
+
+    /* The same snapshot laid out again, not a new one: it does not become
+    ** current by being rebuilt, and following a stale PC would scroll to the
+    ** address the dimming exists to disclaim and take the focus with it. */
+    bool wasStale = isContentStale();
+
+    updateContent(backupMemory, backupPc, followPc && !wasStale);
+
+    setContentStale(wasStale);
+    InvalidateRect(hwnd, NULL, TRUE);
+}
+
+void Disassembly::onFontChanged()
+{
+    dbgRebuildFont(hMemdc, &hFont, NULL, &textWidth, &textHeight, 1);
+    applyScroll();
 }
 
 bool Disassembly::writeToFile(const char* fileName)
 {
+    /* Before the open: "w+" truncates, so finding out there is nothing to
+    ** write afterwards costs the user the file they picked. */
+    if (!hasContent()) {
+        return false;
+    }
+
     FILE* f = fopenU(fileName, "w+");
     if (f == NULL) {
         return false;
@@ -659,16 +707,26 @@ bool Disassembly::writeToFile(const char* fileName)
     return true;
 }
 
-void Disassembly::updateContent(BYTE* memory, WORD pc)
+void Disassembly::updateContent(BYTE* memory, WORD pc, bool followPc)
 {
     int addr = 0;
     breakpoints->clearRuntoBreakpoint();
+
+    /* The cursor and the top of the view are line indices, and the numbering
+    ** shifts with pc and with the symbols: the same index is a different
+    ** instruction after a rebuild. Carry the addresses over instead. */
+    int cursorAddress = currentLine >= 0 && currentLine < lineCount
+                      ? lineInfo[currentLine].address : -1;
+    int topAddress = firstVisibleLine >= 0 && firstVisibleLine < lineCount
+                   ? lineInfo[firstVisibleLine].address : -1;
 
     lineCount = 0;
     programCounter = 0;
 
     memcpy(backupMemory, memory, 0x10000);
     backupPc = pc;
+    contentValid = true;
+    setContentStale(false);
 
     for (; addr < pc; ) {
         const char* symbolName = symbolInfo->find(addr);
@@ -782,18 +840,40 @@ void Disassembly::updateContent(BYTE* memory, WORD pc)
         lineCount++;
     }
 
+    /* Only a seed. The cursor is the user's selection -- the PC has its own
+    ** marker and its own Show Next Statement -- so taking it over on every
+    ** stop would leave Run To Cursor permanently aimed at the PC. */
+    currentLine = lineForAddress(cursorAddress);
     if (currentLine == -1) {
         currentLine = programCounter;
     }
-    updateScroll();
+
+    if (followPc) {
+        updateScroll();
+    }
+    else {
+        /* Same reason as the cursor: keeping the index would slide the view by
+        ** however many label lines the rebuild added above it. */
+        int top = lineForAddress(topAddress);
+        if (top >= 0) {
+            firstVisibleLine = top;
+        }
+        applyScroll();
+    }
 
     DebuggerUpdate();
 
-    SetFocus(hwnd);
+    if (followPc) {
+        SetFocus(hwnd);
+    }
 }
 
 void Disassembly::onWmKeyUp(int keyCode)
 {
+    /* Same reason as setCursor: with no listing there is nothing to walk. */
+    if (!hasContent()) {
+        return;
+    }
     RECT r;
     GetClientRect(hwnd, &r);
     int visibleLines = r.bottom / textHeight;
@@ -818,10 +898,16 @@ void Disassembly::onWmKeyUp(int keyCode)
     if (index < 0) {
         index = 0;
     }
+    if (index >= lineCount) {
+        index = lineCount > 0 ? lineCount - 1 : 0;
+    }
     if (lineInfo[index].isLabel) {
         index += delta < 0 ? -1 : 1;
         if (index < 0) {
             index = 0;
+        }
+        if (index >= lineCount) {
+            index = lineCount > 0 ? lineCount - 1 : 0;
         }
     }
 
@@ -851,7 +937,7 @@ void Disassembly::updateScroll(int index)
     
     else {
         currentLine = index;
-        if (lineInfo[currentLine].isLabel) {
+        if (currentLine + 1 < lineCount && lineInfo[currentLine].isLabel) {
             currentLine++;
         }
         if (currentLine < firstVisibleLine + 1) {
@@ -863,6 +949,17 @@ void Disassembly::updateScroll(int index)
         }
     }
 
+    applyScroll();
+}
+
+/* Clamp firstVisibleLine and push it to the scrollbar without moving the
+** view, so a content refresh can keep the line the user scrolled to. */
+void Disassembly::applyScroll()
+{
+    RECT r;
+    GetClientRect(hwnd, &r);
+    int visibleLines = r.bottom / textHeight;
+
     if (firstVisibleLine >= lineCount) {
         firstVisibleLine = lineCount - visibleLines;
     }
@@ -871,20 +968,20 @@ void Disassembly::updateScroll(int index)
 
     SCROLLINFO si;
     si.cbSize    = sizeof(SCROLLINFO);
-    
-    GetScrollInfo(hwnd, SB_VERT, &si);
-    int oldFirstLine = si.nPos;
-
-    si.fMask     = SIF_PAGE | SIF_POS | SIF_RANGE | (visibleLines >= lineCount ? 0 : 0);
+    si.fMask     = SIF_PAGE | SIF_POS | SIF_RANGE;
     si.nMin      = 0;
-    si.nMax      = lineCount;
+    si.nMax      = lineCount > 0 ? lineCount - 1 : 0;
     si.nPage     = visibleLines;
     si.nPos      = firstVisibleLine;
 
     SetScrollInfo(hwnd, SB_VERT, &si, TRUE);
-    
+
+    /* The page can hold the position back from where it was asked to go, and
+    ** drawText paints from the scrollbar, so the cached line has to follow
+    ** what the scrollbar actually took. */
     GetScrollInfo(hwnd, SB_VERT, &si);
-    
+    firstVisibleLine = si.nPos;
+
     InvalidateRect(hwnd, NULL, TRUE);
 }
 
@@ -926,15 +1023,34 @@ void Disassembly::scrollWindow(int sbAction)
     si.fMask = SIF_POS;
     SetScrollInfo (hwnd, SB_VERT, &si, TRUE);
     GetScrollInfo (hwnd, SB_VERT, &si);
-    if (si.nPos != yPos) {                    
+    if (si.nPos != yPos) {
         ScrollWindow(hwnd, 0, textHeight * (yPos - si.nPos), NULL, NULL);
         UpdateWindow (hwnd);
     }
+    /* drawText paints from the scrollbar, so the cached first line has to
+    ** follow it -- otherwise the next refresh scrolls the view back. */
+    firstVisibleLine = si.nPos;
 }
 
 void Disassembly::drawText(int top, int bottom)
 {
     SCROLLINFO si;
+
+    /* Drawn straight from the translation. Held in a LineInfo it had to fit
+    ** the address field, and the Russian one is 58 bytes against 48. */
+    if (!hasContent()) {
+        RECT rc;
+        GetClientRect(hwnd, &rc);
+        RECT msg = { 30, 0, rc.right, textHeight };
+        SetTextColor(hMemdc, colorBlack);
+        DrawTextU(hMemdc, Language::windowDisassemblyUnavail,
+                  (int)strlen(Language::windowDisassemblyUnavail), &msg, DT_LEFT);
+        return;
+    }
+
+    /* The tint is on the page, so every column keeps its own colour. Only the
+    ** PC marker has to go: it is a claim about now. */
+    bool stale = isContentStale();
 
     si.cbSize = sizeof (si);
     si.fMask  = SIF_POS;
@@ -943,14 +1059,14 @@ void Disassembly::drawText(int top, int bottom)
     int FirstLine = max (0, yPos + top / textHeight);
     int LastLine = min (lineCount - 1, yPos + bottom / textHeight);
 
-    RECT r = { 30, textHeight * (FirstLine - yPos), 600, textHeight };
+    RECT rc;
+    GetClientRect(hwnd, &rc);
+    RECT r = { 30, textHeight * (FirstLine - yPos), rc.right, textHeight };
 
     r.bottom += r.top;
 
     for (int i = FirstLine; i <= LastLine; i++) {
         if (i == currentLine) {
-            RECT rc;
-            GetClientRect(hwnd, &rc);
             SelectObject(hMemdc, hasKeyboardFocus ? hBrushBlack : hBrushDkGray); 
             PatBlt(hMemdc, 21, r.top, rc.right - 21, r.bottom - r.top, PATCOPY);
         }
@@ -963,23 +1079,28 @@ void Disassembly::drawText(int top, int bottom)
             r.left -= 14 * textWidth;
         }
         else {
-            if (lineInfo[i].haspc) {
+            /* Centred in the row: drawing it at the top left the icon sitting
+            ** above the text, which starts below the font's internal leading. */
+            int iconTop = r.top + (textHeight - bitmapIcons->getHeight()) / 2;
+            /* The PC marker is a claim about now, and while the machine runs
+            ** it is the one thing on this listing that is certainly wrong. */
+            if (lineInfo[i].haspc && !stale) {
                 if (Breakpoints::IsBreakpointSet(address)) {
-                    bitmapIcons->drawIcon(hMemdc, 4, r.top, 3);
+                    bitmapIcons->drawIcon(hMemdc, 4, iconTop, 3);
                 }
                 else if (Breakpoints::IsBreakpointDisabled(address)) {
-                    bitmapIcons->drawIcon(hMemdc, 4, r.top, 3);
+                    bitmapIcons->drawIcon(hMemdc, 4, iconTop, 3);
                 }
                 else {
-                    bitmapIcons->drawIcon(hMemdc, 4, r.top, 0);
+                    bitmapIcons->drawIcon(hMemdc, 4, iconTop, 0);
                 }
             }
             else {
                 if (Breakpoints::IsBreakpointSet(address)) {
-                    bitmapIcons->drawIcon(hMemdc, 4, r.top, 1);
+                    bitmapIcons->drawIcon(hMemdc, 4, iconTop, 1);
                 }
                 else if (Breakpoints::IsBreakpointDisabled(address)) {
-                    bitmapIcons->drawIcon(hMemdc, 4, r.top, 2);
+                    bitmapIcons->drawIcon(hMemdc, 4, iconTop, 2);
                 }
             }
 

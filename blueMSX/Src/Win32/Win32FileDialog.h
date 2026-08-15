@@ -111,6 +111,15 @@ BOOL ShellNewDskFileDialog(HWND owner,
                            int* fmtSelectedIndex,
                            char* outPath, int outPathCap);
 
+/* Folder picker with an added MSX-DOS format combobox (DOS1/DOS2/Nextor). */
+BOOL ShellPickFolderWithFormatDialog(HWND owner,
+                                     const char* title,
+                                     const char* initialDir,
+                                     const ShellComboItem* fmtItems,
+                                     int fmtItemCount,
+                                     int* fmtSelectedIndex,
+                                     char* outPath, int outPathCap);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

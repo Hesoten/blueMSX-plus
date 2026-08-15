@@ -501,6 +501,10 @@ static void ShowError() {
 
 void OnShowTool() {
     if (deviceViewerHwnd != NULL) {
+        if (IsIconic(deviceViewerHwnd)) {
+            ShowWindow(deviceViewerHwnd, SW_RESTORE);
+        }
+        SetForegroundWindow(deviceViewerHwnd);
         return;
     }
 

@@ -48,7 +48,7 @@ LRESULT CallstackWindow::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
         hMemdc = CreateCompatibleDC(hdc);
         ReleaseDC(hwnd, hdc);
         SetBkMode(hMemdc, TRANSPARENT);
-        hFont = CreateFont(-MulDiv(12, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
+        dbgRebuildFont(hMemdc, &hFont, NULL, &textWidth, &textHeight, 0);
 
         BOOL dark = IsDarkMode();
         hBrushWhite  = CreateSolidBrush(dark ? GetDarkBg()        : RGB(255, 255, 255));
@@ -58,12 +58,6 @@ LRESULT CallstackWindow::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
         colorBlack = dark ? GetDarkFg()        : RGB(0, 0, 0);
         colorGray  = dark ? RGB(160, 160, 160) : RGB(160, 160, 160);
 
-        SelectObject(hMemdc, hFont); 
-        TEXTMETRIC tm;
-        if (GetTextMetrics(hMemdc, &tm)) {
-            textHeight = tm.tmHeight;
-            textWidth = tm.tmMaxCharWidth;
-        }
         darkSubWindow(hwnd);
         return 0;
     }
@@ -90,7 +84,9 @@ LRESULT CallstackWindow::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
             si.fMask  = SIF_POS;
             GetScrollInfo (hwnd, SB_VERT, &si);
             int row = si.nPos + HIWORD(lParam) / textHeight;
-            if (row < lineCount) {
+            /* The unavailable row is not a frame, so it must not move the
+            ** disassembly cursor or take the selection bar. */
+            if (contentValid && row < lineCount) {
                 disassembly->setCursor(lineInfo[row].address);
                 currentLine = row;
             }
@@ -141,7 +137,7 @@ LRESULT CallstackWindow::wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam)
 CallstackWindow::CallstackWindow(HINSTANCE hInstance, HWND owner, Disassembly* disassembly_) : 
     DbgWindow( hInstance, owner, 
                Language::windowCallstack, "Callstack Window", 437, 195, 213, 225, 1),
-    linePos(0), lineCount(0), currentLine(-1),  
+    linePos(0), lineCount(0), currentLine(-1), contentValid(false),
     disassembly(disassembly_), backupSize(0)
 {
     init();
@@ -154,14 +150,20 @@ CallstackWindow::~CallstackWindow()
 
 void CallstackWindow::invalidateContent()
 {
+    /* getReturnAddress feeds a real breakpoint now, so the frames have to go
+    ** with the display: a kept one belongs to a machine state that is gone. */
+    backupSize = 0;
     currentLine = -1;
     lineCount = 0;
+    contentValid = false;
     updateScroll();
 
-    sprintf(lineInfo[lineCount].text, Language::windowCallstackUnavail);
+    sprintf(lineInfo[lineCount].text, "%s", Language::windowCallstackUnavail);
     lineInfo[lineCount].textLength = (int)strlen(lineInfo[lineCount].text);
     lineInfo[lineCount].dataText[0] = 0;
     lineInfo[lineCount].dataTextLength = 0;
+    /* Not a frame, so it must not carry the previous listing's address. */
+    lineInfo[lineCount].address = 0;
     lineCount++;
     
     InvalidateRect(hwnd, NULL, TRUE);
@@ -169,13 +171,32 @@ void CallstackWindow::invalidateContent()
 
 void CallstackWindow::refresh()
 {
+    /* An invalidated callstack has no frames left, so replaying it would only
+    ** wipe the message that says so. */
+    if (!contentValid) {
+        InvalidateRect(hwnd, NULL, TRUE);
+        return;
+    }
     updateContent(backupCallstack, backupSize);
 }
 
-int CallstackWindow::getMostRecent()
+void CallstackWindow::onFontChanged()
+{
+    int pos = dbgGetScrollPos(hwnd);
+    dbgRebuildFont(hMemdc, &hFont, NULL, &textWidth, &textHeight, 0);
+    updateScroll();
+    dbgSetScrollPos(hwnd, pos);
+    /* updateScroll only repaints when the scroll position moves, which it
+    ** does not here. */
+    InvalidateRect(hwnd, NULL, TRUE);
+}
+
+/* The entries are return addresses, which is what step out breaks on.
+** updateContent subtracts one only to name the call that produced them. */
+int CallstackWindow::getReturnAddress()
 {
     if (backupSize > 0) {
-        return (backupCallstack[backupSize - 1] - 1) & 0xffff;
+        return backupCallstack[backupSize - 1] & 0xffff;
     }
     return -1;
 }
@@ -187,6 +208,7 @@ void CallstackWindow::updateContent(DWORD* callstack, int size)
 
     memcpy(backupCallstack, callstack, size * sizeof(DWORD));
     backupSize = size;
+    contentValid = true;
 
     for (int index = size - 1; index >= 0; index--) {
         UInt16 addr = (UInt16)callstack[index];
@@ -211,15 +233,13 @@ void CallstackWindow::updateScroll()
     GetClientRect(hwnd, &r);
     int visibleLines = r.bottom / textHeight;
 
+    int oldFirstLine = dbgGetScrollPos(hwnd);
+
     SCROLLINFO si;
     si.cbSize    = sizeof(SCROLLINFO);
-    
-    GetScrollInfo(hwnd, SB_VERT, &si);
-    int oldFirstLine = si.nPos;
-
-    si.fMask     = SIF_PAGE | SIF_POS | SIF_RANGE | (visibleLines >= lineCount ? 0 : 0);
+    si.fMask     = SIF_PAGE | SIF_POS | SIF_RANGE;
     si.nMin      = 0;
-    si.nMax      = lineCount;
+    si.nMax      = lineCount > 0 ? lineCount - 1 : 0;
     si.nPage     = visibleLines;
     si.nPos      = 0;
 
@@ -287,14 +307,14 @@ void CallstackWindow::drawText(int top, int bottom)
     int FirstLine = max (0, yPos + top / textHeight);
     int LastLine = min (lineCount - 1, yPos + bottom / textHeight);
 
-    RECT r = { 10, textHeight * (FirstLine - yPos), 300, textHeight };
+    RECT rc;
+    GetClientRect(hwnd, &rc);
+    RECT r = { 10, textHeight * (FirstLine - yPos), rc.right, textHeight };
 
     r.bottom += r.top;
 
     for (int i = FirstLine; i <= LastLine; i++) {
         if (i == currentLine) {
-            RECT rc;
-            GetClientRect(hwnd, &rc);
             SelectObject(hMemdc, hBrushDkGray); 
             PatBlt(hMemdc, 0, r.top, rc.right, r.bottom - r.top, PATCOPY);
         }

@@ -78,6 +78,8 @@ typedef struct {
     char* errorDirectXFailed;
     char* errorNoRomInZip;
     char* errorNoDskInZip;
+    char* errorCreateDiskImage;
+    char* errorCreateTapeImage;
     char* errorNoCasInZip;
     char* errorDirAsDskOverflow;
     char* errorNoHelp;
@@ -89,6 +91,7 @@ typedef struct {
     char* errorStartEmuConfigInvalid;     /* %s = machine name */
     char* errorMissingFiles;
     char* errorPortableReadonly;
+    char* errorMidiOpenFailed;            /* %s = device name */
     char* infoColorDepth;
     char* infoTitle;
     char* infoGameReaderRedirect;
@@ -179,7 +182,9 @@ typedef struct {
     char* menuDiskAutoStart;
     char* menuCartAutoReset;
 
+    char* menuCasInsertNew;
     char* menuCasRewindAfterInsert;
+    char* menuCasSaveMonitor;
     char* menuCasUseReadOnly;
     char* lmenuCasSaveAs;
     char* menuCasSetPosition;
@@ -309,6 +314,7 @@ typedef struct {
     char* dlgInsertDiskB;
     char* dlgInsertHarddisk;
     char* dlgInsertCas;
+    char* dlgCreateCas;
     char* dlgRomType;
     char* dlgDiskSize;
 
@@ -374,7 +380,9 @@ typedef struct {
     char* propEmuVdpCmdSpeedText;
     char* propEmuFrontSwitchGB;
     char* propEmuFrontSwitch;
+    char* propEmuBoostText;
     char* propEmuFdcTiming;
+    char* propEmuCasBoost;
     char* propEmuHddSdBoost;
     char* propEmuNoSpriteLimits;
     char* propEnableMsxKeyboardQuirk;
@@ -495,8 +503,7 @@ typedef struct {
 
 	char* propD3DParametersGB;
     char* propD3DAspectRatioText;
-    char* propD3DLinearFilteringText;
-    char* propD3DForceHighResText;
+    char* propD3DScalingFilterText;
     char* propD3DExtendBorderColorText;
 
     char* propD3DCroppingGB;
@@ -546,6 +553,11 @@ typedef struct {
 	char* enumD3DARPAL;
 	char* enumD3DARNTSC;
 	char* enumD3DAR11;
+
+	char* enumD3DScaleNearest;
+	char* enumD3DScaleBilinear;
+	char* enumD3DScaleSharp;
+	char* enumD3DScalePrescaled;
 
 	char* enumD3DCropNone;
 	char* enumD3DCropMSX1;
@@ -669,6 +681,11 @@ typedef struct {
     char* shortcutConfigTitle;
     char* shortcutAssign;
     char* shortcutPressText;
+    char* shortcutHotkeyHint;
+    char* keyboardMappedHint;
+    char* shortcutTooltipAlsoBound;
+    char* keyboardKeyFormat;
+    char* keyconfigResetTab;
     char* shortcutScheme;
     char* shortcutCartInsert1;
     char* shortcutCartRemove1;
@@ -728,6 +745,9 @@ typedef struct {
     char* shortcutSwitchFront;
     char* shortcutSwitchPause;
     char* shortcutToggleMouseLock;
+    char* infoToastMouseConnected;
+    char* infoToastMouseDisconnected;
+    char* propControlsMouseSens;
     char* shortcutEmuSpeedMax;
     char* shortcutEmuPlayReverse;
     char* shortcutEmuSpeedToggle;

@@ -13,6 +13,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -176,7 +179,9 @@ static void watchpointMemCb(R800Debug* dbg, UInt16 address, UInt8 value)
 
 static void watchpointIoCb(R800Debug* dbg, UInt16 port, UInt8 value) 
 {
-    tryWatchpoint(DBGTYPE_PORT, port, value, dbg, NULL); 
+    /* Only the low byte selects the port; the high one is whatever the CPU put
+    ** on the bus (A for out (n),a, B for out (c),r). */
+    tryWatchpoint(DBGTYPE_PORT, port & 0xff, value, dbg, NULL);
 }
 
 static void debugCb(R800Debug* dbg, int command, const char* data) 

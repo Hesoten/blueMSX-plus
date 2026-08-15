@@ -37,7 +37,6 @@ extern "C" {
 #include "ArchGlob.h"
 #include "Board.h"
 #include "Language.h"
-#include "ziphelper.h"
 }
 
 #include "tinyxml.h"
@@ -121,6 +120,7 @@ RomType mediaDbStringToType(const char* romName)
     if (iequals(name, "MuPack"))           return ROM_MUPACK;
     if (iequals(name, "Manbow2"))          return ROM_MANBOW2;
     if (iequals(name, "Manbow2v2"))        return ROM_MANBOW2_V2;
+    if (iequals(name, "Manbow2_2"))        return ROM_MANBOW2_V2;
     if (iequals(name, "HamarajaNight"))    return ROM_HAMARAJANIGHT;
     if (iequals(name, "MegaFlashRomScc"))  return ROM_MEGAFLSHSCC;
     if (iequals(name, "MegaFlashRomSccPlus")) return ROM_MEGAFLSHSCCPLUS;
@@ -131,6 +131,9 @@ RomType mediaDbStringToType(const char* romName)
     if (iequals(name, "NEO-16"))           return ROM_NEO16;
     if (iequals(name, "NEO16"))            return ROM_NEO16;
     if (iequals(name, "Yamanooto"))        return ROM_YAMANOOTO;
+    if (iequals(name, "FlashRomScc"))      return ROM_FLASHROMSCC;
+    if (iequals(name, "FlashRomSccDev"))   return ROM_FLASHROMSCC;
+    if (iequals(name, "Flash-ROM SCC"))    return ROM_FLASHROMSCC;
     if (iequals(name, "MegaFlashRomSccPlusSD")) return ROM_MEGAFLSHSCCPLUS_SD;
     if (iequals(name, "MegaFlashROM SCC+ SD"))  return ROM_MEGAFLSHSCCPLUS_SD;
     if (iequals(name, "Halnote"))          return ROM_HALNOTE;
@@ -138,6 +141,8 @@ RomType mediaDbStringToType(const char* romName)
     if (iequals(name, "Playball"))         return ROM_PLAYBALL;
     if (iequals(name, "Dooly"))            return ROM_DOOLY;
     if (iequals(name, "HolyQuran"))        return ROM_HOLYQURAN;
+    if (iequals(name, "AlQuran"))          return ROM_HOLYQURAN;
+    if (iequals(name, "AlQuranDecoded"))   return ROM_HOLYQURAN;
     if (iequals(name, "CrossBlaim"))       return ROM_CROSSBLAIM;
     if (iequals(name, "Zemina80in1"))      return ROM_KOREAN80;
     if (iequals(name, "Zemina90in1"))      return ROM_KOREAN90;
@@ -150,6 +155,7 @@ RomType mediaDbStringToType(const char* romName)
     if (iequals(name, "Synthesizer"))      return ROM_KONAMISYNTH;
     if (iequals(name, "KeyboardMaster"))   return ROM_KONAMKBDMAS;
     if (iequals(name, "GenericKonami"))    return ROM_KONAMI4NF;
+    if (iequals(name, "8kB"))              return ROM_KONAMI4NF;
     if (iequals(name, "SuperPierrot"))     return ROM_ASCII16NF;
     if (iequals(name, "WordPro"))          return ROM_KONWORDPRO;
     if (iequals(name, "Normal"))           return ROM_STANDARD;
@@ -161,6 +167,7 @@ RomType mediaDbStringToType(const char* romName)
     if (iequals(name, "CasPatch"))     return ROM_CASPATCH;
     if (iequals(name, "Coleco"))       return ROM_COLECO;
     if (iequals(name, "MegaCart"))     return ROM_CVMEGACART;
+    if (iequals(name, "ColecoMegaCart")) return ROM_CVMEGACART;
     if (iequals(name, "ActivisionPCB")) return ROM_ACTIVISIONPCB;
     if (iequals(name, "ActivisionPCB 2K")) return ROM_ACTIVISIONPCB_2K;
     if (iequals(name, "ActivisionPCB 16K")) return ROM_ACTIVISIONPCB_16K;
@@ -230,11 +237,18 @@ RomType mediaDbStringToType(const char* romName)
 
     // Roms not supproted in this format in the db
     if (iequals(name, "0x4000"))       return ROM_0x4000;
+    if (iequals(name, "0x8000"))       return ROM_BASIC;
     if (iequals(name, "0xC000"))       return ROM_0xC000;
     if (iequals(name, "auto"))         return ROM_PLAIN;
     if (iequals(name, "basic"))        return ROM_BASIC;
 
     if (iequals(name, "mirrored"))     return ROM_PLAIN;
+    /* romdb.vampier.net names plain roms by the 16kB MSX page they occupy;
+    ** ROM_BASIC is the 0x8000 placement and ROM_0x4000 the 0x4000 one. */
+    if (iequals(name, "Mirrored4000")) return ROM_0x4000;
+    if (iequals(name, "Page2"))        return ROM_BASIC;
+    if (iequals(name, "Page12"))       return ROM_0x4000;
+    if (iequals(name, "Page23"))       return ROM_BASIC;
     if (iequals(name, "forteII"))      return ROM_FORTEII;
     if (iequals(name, "msxdos2"))      return ROM_MSXDOS2;
     if (iequals(name, "konami5"))      return ROM_KONAMI5;
@@ -359,6 +373,46 @@ static void mediaDbAddItem(MediaDb* mediaDb, TiXmlElement* dmp, const MediaType&
     }
 }
 
+/* Force the cartridge type a non-MSX platform always uses, unless the entry
+** already names a more specific mapper. Each database spells the platform its
+** own way: the 2.8.2 files use "Coleco"/"SVI", romdb.vampier.net "ColecoVision"
+** and "SG-1000". */
+static RomType mediaDbApplySystemType(RomType romType, const string& system)
+{
+    const char* name = system.c_str();
+
+    if (romType != ROM_CVMEGACART &&
+        romType != ROM_ACTIVISIONPCB && romType != ROM_ACTIVISIONPCB_2K &&
+        romType != ROM_ACTIVISIONPCB_16K && romType != ROM_ACTIVISIONPCB_256K) {
+        if (strcmpnocase(name, "coleco") == 0 ||
+            strcmpnocase(name, "colecovision") == 0) {
+            romType = ROM_COLECO;
+        }
+    }
+
+    if (strcmpnocase(name, "svi") == 0) {
+        if (romType != ROM_SVI328COL80) {
+            romType = ROM_SVI328CART;
+        }
+    }
+
+    if (romType != ROM_SG1000CASTLE && romType != ROM_SEGABASIC &&
+        romType != ROM_SG1000_RAMEXPANDER_A && romType != ROM_SG1000_RAMEXPANDER_B) {
+        if (strcmpnocase(name, "sg1000") == 0 ||
+            strcmpnocase(name, "sg-1000") == 0) {
+            romType = ROM_SG1000;
+        }
+
+        if (strcmpnocase(name, "sc3000") == 0 || strcmpnocase(name, "sc-3000") == 0 ||
+            strcmpnocase(name, "sf7000") == 0 || strcmpnocase(name, "sf-7000") == 0)
+        {
+            romType = ROM_SC3000;
+        }
+    }
+
+    return romType;
+}
+
 static void mediaDbAddDump(TiXmlElement* dmp, 
                            string& title,
                            string& company,
@@ -378,32 +432,7 @@ static void mediaDbAddDump(TiXmlElement* dmp,
             }
         }
 
-        if (romType != ROM_CVMEGACART && 
-            romType != ROM_ACTIVISIONPCB && romType != ROM_ACTIVISIONPCB_2K && 
-            romType != ROM_ACTIVISIONPCB_16K && romType != ROM_ACTIVISIONPCB_256K) {
-            if (strcmpnocase(system.c_str(), "coleco") == 0) {
-                romType = ROM_COLECO;
-            }
-        }
-
-        if (strcmpnocase(system.c_str(), "svi") == 0) {
-            if (romType != ROM_SVI328COL80) {
-                romType = ROM_SVI328CART;
-            }
-        }
-
-        if (romType != ROM_SG1000CASTLE && romType != ROM_SEGABASIC &&
-            romType != ROM_SG1000_RAMEXPANDER_A && romType != ROM_SG1000_RAMEXPANDER_B) {
-            if (strcmpnocase(system.c_str(), "sg1000") == 0) {
-                romType = ROM_SG1000;
-            }
-
-            if (strcmpnocase(system.c_str(), "sc3000") == 0 ||
-                strcmpnocase(system.c_str(), "sf7000") == 0)
-            {
-                romType = ROM_SC3000;
-            }
-        }
+        romType = mediaDbApplySystemType(romType, system);
 
         // For standard roms, a start tag is used to specify start address
         if (romType == ROM_STANDARD) {
@@ -506,22 +535,7 @@ static void mediaDbAddVampierSoftware(TiXmlElement* sw)
         if (a_sha1 == NULL) continue;
 
         RomType romType = (a_type != NULL) ? mediaDbStringToType(a_type) : ROM_PLAIN;
-
-        /* System-based overrides — mirror the policy from mediaDbAddDump. */
-        if (romType != ROM_CVMEGACART &&
-            romType != ROM_ACTIVISIONPCB && romType != ROM_ACTIVISIONPCB_2K &&
-            romType != ROM_ACTIVISIONPCB_16K && romType != ROM_ACTIVISIONPCB_256K) {
-            if (strcmpnocase(system.c_str(), "coleco") == 0) romType = ROM_COLECO;
-        }
-        if (strcmpnocase(system.c_str(), "svi") == 0) {
-            if (romType != ROM_SVI328COL80) romType = ROM_SVI328CART;
-        }
-        if (romType != ROM_SG1000CASTLE && romType != ROM_SEGABASIC &&
-            romType != ROM_SG1000_RAMEXPANDER_A && romType != ROM_SG1000_RAMEXPANDER_B) {
-            if (strcmpnocase(system.c_str(), "sg1000") == 0) romType = ROM_SG1000;
-            if (strcmpnocase(system.c_str(), "sc3000") == 0 ||
-                strcmpnocase(system.c_str(), "sf7000") == 0) romType = ROM_SC3000;
-        }
+        romType = mediaDbApplySystemType(romType, system);
 
         string remark = a_remark ? a_remark : "";
         romdb->sha1Map[string(a_sha1)] =
@@ -529,12 +543,21 @@ static void mediaDbAddVampierSoftware(TiXmlElement* sw)
     }
 }
 
-/* Consume a parsed <softwaredb> document. Split out from mediaDbAddFromXmlFile
-** so the zip loader (mediaDbAddFromZipFile) can share the walking logic. */
-static void mediaDbAddFromParsedDoc(TiXmlDocument& doc)
+static void mediaDbAddFromXmlFile(const char* fileName) 
 {
     static const char* rootTag = "softwaredb";
 
+    if (fileName == NULL) {
+        return;
+    }
+
+    TiXmlDocument doc(fileName);
+
+    doc.LoadFile();
+    if (doc.Error()) {
+        return;
+    }
+    
     TiXmlElement* root = doc.RootElement();
     if (root == NULL || strcmp(root->Value(), rootTag) != 0) {
         return;
@@ -617,49 +640,6 @@ static void mediaDbAddFromParsedDoc(TiXmlDocument& doc)
     }
 }
 
-static void mediaDbAddFromXmlFile(const char* fileName)
-{
-    if (fileName == NULL) {
-        return;
-    }
-    TiXmlDocument doc(fileName);
-    doc.LoadFile();
-    if (doc.Error()) {
-        return;
-    }
-    mediaDbAddFromParsedDoc(doc);
-}
-
-/* Consume every .xml entry inside a zip archive as if each were an independent
-** softwaredb file — lets ReleaseFiles/Databases/ carry the vampier download as
-** the shipped zip (xml-msxromsdb.zip) without a manual extract step. */
-static void mediaDbAddFromZipFile(const char* zipName)
-{
-    if (zipName == NULL) {
-        return;
-    }
-    int count = 0;
-    char* list = zipGetFileList(zipName, ".xml", &count);
-    if (list == NULL) {
-        return;
-    }
-    char* p = list;
-    for (int i = 0; i < count; i++) {
-        int size = 0;
-        void* buf = zipLoadFile(zipName, p, &size);
-        if (buf != NULL && size > 0) {
-            TiXmlDocument doc;
-            doc.Parse((const char*)buf);
-            if (!doc.Error()) {
-                mediaDbAddFromParsedDoc(doc);
-            }
-            free(buf);
-        }
-        p += strlen(p) + 1;
-    }
-    free(list);
-}
-
 extern MediaType* mediaDbLookup(MediaDb* mediaDb, const void *buffer, int size)
 {
     if (size > 2 * 1024 * 1024) {
@@ -702,6 +682,7 @@ extern "C" const char* romTypeToString(RomType romType)
     case ROM_NEO8:        return "NEO-8";
     case ROM_NEO16:       return "NEO-16";
     case ROM_YAMANOOTO:   return "Yamanooto";
+    case ROM_FLASHROMSCC: return "Flash-ROM SCC";
     case ROM_MEGAFLSHSCCPLUS_SD: return "Mega Flash Rom SCC+ SD";
     case ROM_OBSONET:     return langRomTypeObsonet();
     case ROM_DUMAS:       return langRomTypeDumas();
@@ -750,8 +731,8 @@ extern "C" const char* romTypeToString(RomType romType)
     case RAM_NORMAL:      return langRomTypeNormalRam();
     case ROM_KANJI:       return langRomTypeKanji();
     case ROM_HOLYQURAN:   return langRomTypeHolyQuran();
-    case SRAM_MATSUCHITA: return langRomTypeMatsushitaSram();
-    case SRAM_MATSUCHITA_INV: return langRomTypeMasushitaSramInv();
+    case SRAM_MATSUSHITA: return langRomTypeMatsushitaSram();
+    case SRAM_MATSUSHITA_TURBO: return langRomTypeMatsushitaSramTurbo();
     case ROM_PANASONIC8:  return langRomTypePanasonic8();
     case ROM_PANASONICWX16:return langRomTypePanasonicWx16();
     case ROM_PANASONIC16: return langRomTypePanasonic16();
@@ -886,6 +867,7 @@ extern "C" const char* romTypeToShortString(RomType romType)
     case ROM_NEO8:        return "NEO-8";
     case ROM_NEO16:       return "NEO-16";
     case ROM_YAMANOOTO:   return "YAMANOOTO";
+    case ROM_FLASHROMSCC: return "FLASHROMSCC";
     case ROM_OBSONET:     return "OBSONET";
     case ROM_DUMAS:       return "DUMAS";
     case ROM_NOWIND:      return "NOWIND";
@@ -933,8 +915,8 @@ extern "C" const char* romTypeToShortString(RomType romType)
     case RAM_NORMAL:      return "NORMAL RAM";
     case ROM_KANJI:       return "KANJI";
     case ROM_HOLYQURAN:   return "HOLYQURAN";
-    case SRAM_MATSUCHITA:     return "MATSUSHITA";
-    case SRAM_MATSUCHITA_INV: return "MATSUS INV";
+    case SRAM_MATSUSHITA:     return "MATSUSHITA";
+    case SRAM_MATSUSHITA_TURBO: return "MATSU TRBO";
     case ROM_PANASONICWX16:   return "PANASON 16";
     case ROM_PANASONIC16: return "PANASON 16";
     case ROM_PANASONIC32: return "PANASON 32";
@@ -973,8 +955,8 @@ extern "C" const char* romTypeToShortString(RomType romType)
     case ROM_EXTRAM48KB:  return "EXTRAM 48";
     case ROM_EXTRAM64KB:  return "EXTRAM 64";
     case ROM_EXTRAM512KB: return "EXTRAM 512";
-    case ROM_EXTRAM1MB:   return "EXTRAM 2MB";
-    case ROM_EXTRAM2MB:   return "EXTRAM 1MB";
+    case ROM_EXTRAM1MB:   return "EXTRAM 1MB";
+    case ROM_EXTRAM2MB:   return "EXTRAM 2MB";
     case ROM_EXTRAM4MB:   return "EXTRAM 4MB";
     case ROM_MSXMUSIC:    return "MSXMUSIC";
     case ROM_MSXAUDIO:    return "MSXAUDIO";
@@ -1075,8 +1057,8 @@ int romTypeIsRom(RomType romType) {
     case ROM_SVI707FDC:   return 1;
     case ROM_SVI738FDC:   return 1;
     case ROM_HOLYQURAN:   return 1;
-    case SRAM_MATSUCHITA: return 1;
-    case SRAM_MATSUCHITA_INV: return 1;
+    case SRAM_MATSUSHITA: return 1;
+    case SRAM_MATSUSHITA_TURBO: return 1;
     case ROM_BASIC:       return 1;
     case ROM_0x4000:      return 1;
     case ROM_0xC000:      return 1;
@@ -1116,6 +1098,7 @@ int romTypeIsMegaRom(RomType romType) {
     case ROM_NEO8:        return 1;
     case ROM_NEO16:       return 1;
     case ROM_YAMANOOTO:   return 1;
+    case ROM_FLASHROMSCC: return 1;
     case ROM_OBSONET:     return 1;
     case ROM_DUMAS:       return 1;
     case ROM_NOWIND:      return 1;
@@ -1206,22 +1189,15 @@ extern "C" void mediaDbLoad(const char* directory)
     string path = directory;
     path += "/";
 
-    ArchGlob* xmlGlob = archGlob((path + "*.xml").c_str(), ARCH_GLOB_FILES);
-    if (xmlGlob != NULL) {
-        for (int i = 0; i < xmlGlob->count; i++) {
-            mediaDbAddFromXmlFile(xmlGlob->pathVector[i]);
-        }
-        archGlobFree(xmlGlob);
-    }
+    string searchPath = path + "*.xml";
 
-    /* Zip archives get expanded in-memory (see mediaDbAddFromZipFile) so
-    ** users can drop the vampier download unmodified into Databases/. */
-    ArchGlob* zipGlob = archGlob((path + "*.zip").c_str(), ARCH_GLOB_FILES);
-    if (zipGlob != NULL) {
-        for (int i = 0; i < zipGlob->count; i++) {
-            mediaDbAddFromZipFile(zipGlob->pathVector[i]);
+    ArchGlob* glob = archGlob(searchPath.c_str(), ARCH_GLOB_FILES);
+
+    if (glob != NULL) {
+        for (int i = 0; i < glob->count; i++) {
+            mediaDbAddFromXmlFile(glob->pathVector[i]);
         }
-        archGlobFree(zipGlob);
+        archGlobFree(glob);
     }
 }
 
@@ -1454,26 +1430,38 @@ extern "C" MediaType* mediaDbGuessRom(const void *buffer, int size)
         }
     }
 
-    /* Count occurences of characteristic addresses. Track hits to
-    ** ASCII-8-only (0x6800/0x7800) and ASCII-16-only (0x77FF) addresses
-    ** separately for the unique-signal pre-decision below. */
+    /* Count occurences of characteristic addresses.  The ones only a single
+    ** mapper uses are tracked separately for the pre-decisions below. */
     UInt32 ascii8Unique = 0;
     UInt32 ascii16Unique = 0;
+    UInt32 konami4Unique = 0;
+    UInt32 konami5Unique = 0;
+    UInt32 yamanootoEnar = 0;
+    UInt32 yamanootoRegs = 0;
     for (i = 0; i < size - 3; i++) {
         if (romData[i] == 0x32) {
             UInt32 value = romData[i + 1] + ((UInt32)romData[i + 2] << 8);
+
+            if (value == 0x7FFF) {
+                yamanootoEnar++;
+            }
+            else if (value >= 0x7FFC && value <= 0x7FFE) {
+                yamanootoRegs++;
+            }
 
             switch(value) {
             case 0x4000: 
             case 0x8000: 
             case 0xa000: 
                 counters[3]++;
+                konami4Unique++;
                 break;
 
             case 0x5000: 
             case 0x9000: 
             case 0xb000: 
                 counters[2]++;
+                konami5Unique++;
                 break;
 
             case 0x6000: 
@@ -1502,14 +1490,24 @@ extern "C" MediaType* mediaDbGuessRom(const void *buffer, int size)
         }
     }
 
+    /* Yamanooto register writes take priority: an SCC-using Yamanooto ROM
+    ** would otherwise get mis-tagged as Konami-SCC.  0x7FFC-0x7FFE are inert
+    ** until REGEN is set through ENAR, so a lone hit means nothing. */
+    if (yamanootoEnar > 0 && yamanootoRegs > 0) {
+        mediaType->romType = ROM_YAMANOOTO;
+        return mediaType;
+    }
+
     /* 0x6800/0x7800 are ASCII-8-only writes, 0x77FF is ASCII-16-only.
     ** When one side has hits and the other doesn't, decide outright; the
     ** legacy tally below can drop a lone ASCII-8 hit to the -1 bias. */
-    if (ascii8Unique > 0 && ascii16Unique == 0) {
+    if (ascii8Unique > 0 && ascii16Unique == 0 &&
+        ascii8Unique >= konami4Unique && ascii8Unique >= konami5Unique) {
         mediaType->romType = ROM_ASCII8;
         return mediaType;
     }
-    if (ascii16Unique > 0 && ascii8Unique == 0) {
+    if (ascii16Unique > 0 && ascii8Unique == 0 &&
+        ascii16Unique >= konami4Unique && ascii16Unique >= konami5Unique) {
         mediaType->romType = ROM_ASCII16;
         return mediaType;
     }

@@ -50,6 +50,16 @@ extern "C" {
 // 3-10 ms shared mode, fall back to DirectSound if Initialize fails.
 #define WASAPI_BUF_DURATION  10000LL
 
+// Frames to crossfade back in after an underrun gap (about 6 ms).
+#define FADE_FRAMES     256
+
+// Backlog the ring must reach before output resumes after a gap
+// (about 46 ms); prevents click flutter from a struggling producer.
+#define PRIME_FRAMES    2048
+
+// Frames to ramp back in after an overflow skip splice (about 3 ms).
+#define SPLICE_FRAMES   128
+
 // Last measured endpoint buffer size in ms (0 = WASAPI not active).
 static UInt32 g_actualBufferMs = 0;
 
@@ -67,6 +77,16 @@ struct WasapiSound {
     HANDLE              hThread;
 
     volatile BOOL       suspended;
+
+    // click-free underrun concealment (render thread only)
+    Int16               lastFrame[2];
+    UINT32              fadeInFrames;
+    UINT32              primeFrames;
+
+    // overflow skip hysteresis (emulator thread only)
+    BOOL                skipping;
+    UINT32              spliceFrames;
+    Int16               lastWritten[2];
 
     // Lock-free SPSC ring buffer -- interleaved Int16 samples.
     Int16*              ringBuf;
@@ -125,13 +145,45 @@ static UINT32 ringReadFrames(WasapiSound* ws, BYTE* dst, UINT32 frames)
 static Int32 wasapiWrite(void* ref, Int16* buf, UInt32 count)
 {
     WasapiSound* ws = (WasapiSound*)ref;
-    if (ws->suspended) return 0;
+    if (ws->suspended || count == 0) return 0;
 
-    // Drop silently on ring overflow rather than stalling the emulator.
-    UINT32 free = ws->ringSize - ringAvail(ws);
-    if (free < count) return 0;
+    // Overflow hysteresis: a producer ahead of real time (disk boost in
+    // silent loads, catch-up bursts, clock drift) overruns the ring; skip
+    // until half-drained so it yields one splice, not a rapid-fire chop.
+    UINT32 avail = ringAvail(ws);
+    if (ws->skipping) {
+        if (avail > ws->ringSize / 2) return 0;
+        ws->skipping     = FALSE;
+        ws->spliceFrames = SPLICE_FRAMES;
+    }
+    if (ws->ringSize - avail <= count) {
+        ws->skipping = TRUE;
+        return 0;
+    }
 
-    ringWrite(ws, buf, count);
+    UINT32 ch = ws->channels;
+    if (ws->spliceFrames > 0) {
+        // Ramp from the last pre-skip frame into the new data so the
+        // splice does not land as a step discontinuity. Blend into a
+        // local copy; the mixer still owns buf (WAV capture taps it).
+        Int16  tmp[SPLICE_FRAMES * 2];
+        UINT32 frames = count / ch;
+        UINT32 n = ws->spliceFrames < frames ? ws->spliceFrames : frames;
+        for (UINT32 i = 0; i < n; i++) {
+            UINT32 k = SPLICE_FRAMES - ws->spliceFrames + i + 1;
+            for (UINT32 c = 0; c < ch; c++) {
+                tmp[i * ch + c] = (Int16)(((Int32)buf[i * ch + c] * (Int32)k +
+                    (Int32)ws->lastWritten[c] * (Int32)(SPLICE_FRAMES - k)) / SPLICE_FRAMES);
+            }
+        }
+        ws->spliceFrames -= n;
+        ringWrite(ws, tmp, n * ch);
+        if (n * ch < count) ringWrite(ws, buf + n * ch, count - n * ch);
+    } else {
+        ringWrite(ws, buf, count);
+    }
+    ws->lastWritten[0] = buf[count - ch];
+    ws->lastWritten[ch - 1] = buf[count - 1];
     return 0;
 }
 
@@ -148,7 +200,6 @@ static DWORD WINAPI wasapiRenderThread(LPVOID param)
     HANDLE hTask = AvSetMmThreadCharacteristics(TEXT("Pro Audio"), &taskIndex);
 
     HANDLE events[2] = { ws->hFeedEvent, ws->hStopEvent };
-    const UINT32 bytesPerFrame = ws->channels * sizeof(Int16);
 
     while (TRUE) {
         DWORD r = WaitForMultipleObjects(2, events, FALSE, 500);
@@ -156,7 +207,12 @@ static DWORD WINAPI wasapiRenderThread(LPVOID param)
         if (r == WAIT_TIMEOUT) continue;
         if (r != WAIT_OBJECT_0) break;
 
-        if (ws->suspended) continue;
+        // While suspended, discard pending ring data here on the reader
+        // side (which owns ringReadPos): the concealment path below then
+        // decays smoothly instead of the hard Stop/Start click.
+        if (ws->suspended) {
+            InterlockedExchange(&ws->ringReadPos, ws->ringWritePos);
+        }
 
         UINT32 padding = 0;
         if (FAILED(ws->audioClient->GetCurrentPadding(&padding))) continue;
@@ -164,14 +220,65 @@ static DWORD WINAPI wasapiRenderThread(LPVOID param)
         UINT32 available = ws->bufferFrames - padding;
         if (available == 0) continue;
 
+        UINT32 ch = ws->channels;
+
+        // after a gap, keep holding until the ring has refilled enough
+        // that a struggling producer cannot cause a click flutter
+        if (ws->primeFrames > 0 && ringAvail(ws) / ch < ws->primeFrames) {
+            BYTE* pHold = NULL;
+            if (FAILED(ws->renderClient->GetBuffer(available, &pHold))) continue;
+            Int16* hold = (Int16*)pHold;
+            for (UINT32 i = 0; i < available; i++) {
+                for (UINT32 c = 0; c < ch; c++) {
+                    ws->lastFrame[c] = (Int16)(((Int32)ws->lastFrame[c] * 15) / 16);
+                    hold[i * ch + c] = ws->lastFrame[c];
+                }
+            }
+            ws->renderClient->ReleaseBuffer(available, 0);
+            continue;
+        }
+        ws->primeFrames = 0;
+
         BYTE* pData = NULL;
         if (FAILED(ws->renderClient->GetBuffer(available, &pData))) continue;
 
         UINT32 written = ringReadFrames(ws, pData, available);
 
+        Int16* out = (Int16*)pData;
+
+        // crossfade from the held decay into the fresh data after a gap
+        if (written > 0 && ws->fadeInFrames > 0) {
+            UINT32 n = ws->fadeInFrames < written ? ws->fadeInFrames : written;
+            for (UINT32 i = 0; i < n; i++) {
+                UINT32 k = FADE_FRAMES - ws->fadeInFrames + i + 1;
+                for (UINT32 c = 0; c < ch; c++) {
+                    Int32 mixv = ((Int32)out[i * ch + c] * (Int32)k +
+                                  (Int32)ws->lastFrame[c] * (Int32)(FADE_FRAMES - k)) / FADE_FRAMES;
+                    out[i * ch + c] = (Int16)mixv;
+                    ws->lastFrame[c] = (Int16)(((Int32)ws->lastFrame[c] * 15) / 16);
+                }
+            }
+            ws->fadeInFrames -= n;
+        }
+        if (written > 0) {
+            for (UINT32 c = 0; c < ch; c++) {
+                ws->lastFrame[c] = out[(written - 1) * ch + c];
+            }
+        }
+
         if (written < available) {
-            memset(pData + written * bytesPerFrame, 0,
-                   (available - written) * bytesPerFrame);
+            // underrun: decay from the last sample towards silence
+            // instead of jumping to zero, then crossfade back in
+            Int16* fill = out + written * ch;
+            UINT32 gap = available - written;
+            for (UINT32 i = 0; i < gap; i++) {
+                for (UINT32 c = 0; c < ch; c++) {
+                    ws->lastFrame[c] = (Int16)(((Int32)ws->lastFrame[c] * 15) / 16);
+                    fill[i * ch + c] = ws->lastFrame[c];
+                }
+            }
+            ws->fadeInFrames = FADE_FRAMES;
+            ws->primeFrames  = PRIME_FRAMES;
         }
 
         ws->renderClient->ReleaseBuffer(available, 0);
@@ -261,6 +368,10 @@ WasapiSound* wasapiSoundCreate(HWND /*hwnd*/, Mixer* mixer,
     if (!ws->ringBuf) goto fail;
     memset(ws->ringBuf, 0, ws->ringSize * sizeof(Int16));
 
+    // Start in the primed state so playback begins only once the mixer
+    // has produced a solid backlog.
+    ws->primeFrames = PRIME_FRAMES;
+
     ws->hThread = CreateThread(NULL, 0, wasapiRenderThread, ws, 0, NULL);
     if (!ws->hThread) goto fail;
 
@@ -317,22 +428,21 @@ UInt32 wasapiSoundGetActualBufferMs(void)
 void wasapiSoundSuspend(WasapiSound* ws)
 {
     if (!ws) return;
+    // Keep the audio client running: a hard Stop mid-buffer clicks. The
+    // render thread discards pending input and decays to silence itself;
+    // resetting the ring positions here would race the reader.
+    ws->skipping       = FALSE;
+    ws->spliceFrames   = 0;
+    ws->lastWritten[0] = 0;
+    ws->lastWritten[1] = 0;
     ws->suspended = TRUE;
-    if (ws->audioClient) {
-        ws->audioClient->Stop();
-        // Reset() clears the endpoint buffer so the next Start doesn't
-        // replay queued pre-reset samples; mirrors DirectSound's dxClear.
-        ws->audioClient->Reset();
-    }
-    // Clear ring so stale audio does not play on resume.
-    memset(ws->ringBuf, 0, ws->ringSize * sizeof(Int16));
-    InterlockedExchange(&ws->ringWritePos, 0);
-    InterlockedExchange(&ws->ringReadPos,  0);
 }
 
 void wasapiSoundResume(WasapiSound* ws)
 {
     if (!ws) return;
+    // Nothing else to arm: the render thread primed itself and set up the
+    // crossfade in the underrun path when the discarded ring ran dry, and
+    // its fields must not be written from this thread anyway.
     ws->suspended = FALSE;
-    if (ws->audioClient) ws->audioClient->Start();
 }

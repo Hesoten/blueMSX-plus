@@ -81,6 +81,8 @@ void langInitKorean(LanguageStrings* ls)
     ls->errorDirectXFailed      = "DirectX 오브젝트 만들기 실패.           \nGDI로 대체해서 사용합니다.\n그래픽카드 등록정보를 확인하세요.";
     ls->errorNoRomInZip         = "zip파일 내부의 rom을 찾을 수 없습니다.";
     ls->errorNoDskInZip         = "zip파일 내부의 dsk를 찾을 수 없습니다.";
+    ls->errorCreateDiskImage    = "디스크 이미지 파일을 만들 수 없습니다.";
+    ls->errorCreateTapeImage    = "테이프 이미지 파일을 만들 수 없습니다.";
     ls->errorNoCasInZip         = "zip파일 내부의 cas를 찾을 수 없습니다.";
     ls->errorDirAsDskOverflow   = "%d 개의 파일(총 %d KB)이 720 KB 디스크 이미지에 맞지 않아 건너뛰었습니다.";
     ls->errorNoHelp             = "blueMSX+ 도움말을 찾을 수 없습니다.";
@@ -91,6 +93,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->errorStartEmuConfigInvalid       = "머신 구성 '%s'의 config.ini를 읽을 수 없습니다. 파일이 손상되었거나 호환되지 않는 버전에서 온 것일 수 있습니다.";
     ls->errorMissingFiles       = "다음 파일을 로드할 수 없습니다:";
     ls->errorPortableReadonly   = "이동 장치는 읽기 전용입니다.";        
+    ls->errorMidiOpenFailed     = "MIDI 장치 '%s'을(를) 열 수 없습니다. 다른 응용 프로그램에서 사용 중일 수 있습니다.";
     ls->infoTitle               = "blueMSX+ 정보";
     ls->infoGameReaderRedirect  = "blueMSX+ 는 MSX Game Reader 를 직접 지원하지 않습니다 (ASCII 사의 XP 시대 정품 드라이버는 최신 Windows 에서 작동하지 않습니다).\n\n대신 MSX Game Reader - Web Dumper (Kunihiko Ohnaka 제작) 를 브라우저에서 열까요?";
     ls->infoColorDepth          = "blueMSX+ 는 16 또는 32 비트 색상 심도에서 가장 잘 작동합니다.";
@@ -104,6 +107,9 @@ void langInitKorean(LanguageStrings* ls)
     ls->infoRecorderComplete    = "동영상 파일 저장됨:\n  %s";
     ls->infoToastSaved          = "저장됨: %s";
     ls->infoToastAlreadyRecording   = "이미 녹화 중";
+    ls->infoToastMouseConnected    = "PC 마우스를 MSX에 연결했습니다";
+    ls->infoToastMouseDisconnected = "PC 마우스의 MSX 연결을 해제했습니다";
+    ls->propControlsMouseSens      = "감도:";
     ls->dlgRecorderPickTitle        = "blueMSX+ - 재생을 동영상으로 변환";
     ls->dlgRecorderPickSourceCap    = "변환할 재생 파일 (.cap):";
     ls->dlgRecorderPickOutputMp4    = "출력 동영상 파일 (.mp4):";
@@ -180,7 +186,9 @@ void langInitKorean(LanguageStrings* ls)
     ls->menuDiskAutoStart       = "삽입후에 재시작";
     ls->menuCartAutoReset       = "삽입/제거 후에 재시작";
 
+    ls->menuCasInsertNew         = "새로운 테이프 이미지 삽입";
     ls->menuCasRewindAfterInsert = "삽입후에 되감기";
+    ls->menuCasSaveMonitor       = "저장 중 모니터 소리 재생";
     ls->menuCasUseReadOnly       = "읽기전용";
     ls->lmenuCasSaveAs           = "다른 이름으로 저장...";
     ls->menuCasSetPosition      = "위치 설정";
@@ -310,6 +318,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->dlgInsertDiskB          = "드라이브 B에 디스크 삽입";
     ls->dlgInsertHarddisk       = "하드 디스크 삽입";                   
     ls->dlgInsertCas            = "카세트 테잎 삽입";
+    ls->dlgCreateCas            = "새 테이프 이미지 만들기";
     ls->dlgRomType              = "롬 형식:";
     ls->dlgDiskSize             = "디스크 사이즈:";             
 
@@ -379,8 +388,10 @@ void langInitKorean(LanguageStrings* ls)
     ls->propEmuFrontSwitch       = " 프론트 스위치";
     ls->propEmuNoSpriteLimits   = " 스프라이트 제한 해제";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " MSX 키보드 특성 에뮬레이션";  // New in 2.9
-    ls->propEmuFdcTiming        = " FDD 액세스 시 가속";
-    ls->propEmuHddSdBoost       = " HDD/SD 카드 접근 중 가속";
+    ls->propEmuBoostText        = "장치 액세스 시 가속:";
+    ls->propEmuFdcTiming        = " FDD";
+    ls->propEmuCasBoost         = " 카세트";
+    ls->propEmuHddSdBoost       = " HDD/SD 카드";
     ls->propEmuReversePlay      = " 역재생 사용"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " 일시 정지 스위치";
     ls->propEmuAudioSwitch       = " MSX-AUDIO 카트리지 스위치";
@@ -498,8 +509,7 @@ void langInitKorean(LanguageStrings* ls)
 
     ls->propD3DParametersGB         = "매개 변수 ";                // New in 2.9
     ls->propD3DAspectRatioText      = "화면 비율";               // New in 2.9
-    ls->propD3DLinearFilteringText  = " 선형 필터링";          // New in 2.9
-    ls->propD3DForceHighResText     = " 고해상도 강제";     // New in 2.9
+    ls->propD3DScalingFilterText     = "확대 필터";
     ls->propD3DExtendBorderColorText    = " 테두리 색 확장";   // New in 2.9
 
     ls->propD3DCroppingGB               = "자르기 ";              // New in 2.9
@@ -549,6 +559,10 @@ void langInitKorean(LanguageStrings* ls)
     ls->enumD3DARPAL            = "PAL";            // New in 2.9
     ls->enumD3DARNTSC           = "NTSC";           // New in 2.9
     ls->enumD3DAR11             = "1:1";            // New in 2.9
+    ls->enumD3DScaleNearest          = "가장 가까움";
+    ls->enumD3DScaleBilinear         = "이중 선형";
+    ls->enumD3DScaleSharp            = "선명한 이중 선형";
+    ls->enumD3DScalePrescaled     = "이중 선형 (2x 프리스케일)";
 
     ls->enumD3DCropNone         = "없음";           // New in 2.9
     ls->enumD3DCropMSX1         = "MSX1";           // New in 2.9
@@ -672,6 +686,11 @@ void langInitKorean(LanguageStrings* ls)
     ls->shortcutConfigTitle     = "blueMSX+ - 단축키 매핑 편집기";
     ls->shortcutAssign          = "적용";
     ls->shortcutPressText       = "단축키 새로 설정:";
+    ls->shortcutHotkeyHint      = "(최대 3개 키)";
+    ls->keyboardMappedHint      = "(최대 3개 키)";
+    ls->shortcutTooltipAlsoBound = "다음에도 할당됨: ";
+    ls->keyboardKeyFormat       = "%s 키";
+    ls->keyconfigResetTab       = "이 탭의 키 할당을 기본값으로";
     ls->shortcutScheme          = "단축키 스타일:";
     ls->shortcutCartInsert1     = "카트리지 1 삽입";
     ls->shortcutCartRemove1     = "카트리지 1 제거";
@@ -730,7 +749,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->shortcutSwitchMsxAudio  = "MSX-AUDIO 스위치 변환";
     ls->shortcutSwitchFront     = "파나소닉 프론트 스위치 변환";
     ls->shortcutSwitchPause     = "일시 정지 스위치";
-    ls->shortcutToggleMouseLock = "마우스 고정 변환";
+    ls->shortcutToggleMouseLock = "PC 마우스를 MSX에 연결/해제";
     ls->shortcutEmuSpeedMax     = "최대 에뮬레이션 속도";
     ls->shortcutEmuPlayReverse  = "에뮬레이션 되감기";                     // New in 2.8.3
     ls->shortcutEmuSpeedToggle  = "에뮬레이션 속도 최대화 변환";

@@ -109,7 +109,7 @@ void ioPortUnregisterSub(int subport)
 
 int ioPortCheckSub(int subport)
 {
-    return currentSubport = subport;
+    return currentSubport == subport;
 }
 
 UInt8 ioPortRead(void* ref, UInt16 port)

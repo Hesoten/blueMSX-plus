@@ -132,6 +132,17 @@ void themeCollectionDestroy(ThemeCollection* tc);
 void themeCollectionUnload(ThemeCollection* tc);
 void themeCollectionAddWindow(ThemeCollection* tc, Theme* theme);
 void themeCollectionOpenWindow(ThemeCollection* themeCollection, unsigned long hash);
+/* The void* is the platform window handle (HWND on Win32). */
+void* themeCollectionGetWindowHandle(ThemeCollection* tc, unsigned long hash);
+
+/* Trigger is matched with the modifier bits masked out; hidden items
+** are skipped. */
+int themePageGetItemRectByTrigger(ThemePage* page, int trigger,
+                                  int* x, int* y, int* w, int* h);
+
+/* Only visible key items are hit; 0 means no key at that point. */
+int themePageHitTestKeyCode(ThemePage* page, int px, int py,
+                            int* x, int* y, int* w, int* h);
 
 Theme*     themeCreate(const char* name);
 void       themeDestroy(Theme* theme);
@@ -158,9 +169,10 @@ void themePageActivate(ThemePage* theme, void* window);
 void themePageUpdate(ThemePage* theme, void* dc);
 void themePageDraw(ThemePage* theme, void* dc, ThemeItem* startItem);
 void themePageMouseMove(ThemePage* theme, void* dc, int x, int y);
-/* Return the percent value (0..100) of the slider under (x, y), or -1 if
-   none.  Used to drive a hover tooltip on slider controls. */
-int  themePageHoverSliderPercent(ThemePage* theme, int x, int y);
+/* Return the setting text of the slider under (x, y), or NULL if none.
+   Drives the hover tooltip; points at a static buffer that the next
+   call overwrites. */
+const char* themePageHoverSliderText(ThemePage* theme, int x, int y);
 void themePageMouseButtonUp(ThemePage* theme, void* dc, int x, int y);
 void themePageMouseButtonDown(ThemePage* theme, void* dc, int x, int y);
 void themePageSetActive(ThemePage* theme, void* dc, int active);

@@ -1,5 +1,8 @@
 // This file is taken from the openMSX project. 
 // The file has been modified to be built in the blueMSX environment.
+//
+// Modified 2026 by Hesoten for blueMSX+ fork.
+// See https://github.com/Hesoten/blueMSX-plus for change history.
 
 #ifndef __YMF262_HH__
 #define __YMF262_HH__
@@ -197,6 +200,10 @@ class YMF262 : public SoundDevice, public TimerCallback
 		virtual void setSampleRate(int sampleRate, int Oversampling);
 		virtual int* updateBuffer(int length);
 
+		// OPL4 MIX CONTROL (FM) register F8h: bits 0-2 = left attenuation,
+		// bits 3-5 = right attenuation, 3 dB per step, 7 = mute.
+		void setMixLevel(byte x);
+
 		void callback(byte flag);
 
         void loadState();
@@ -225,6 +232,7 @@ class YMF262 : public SoundDevice, public TimerCallback
 		Timer< 3125, STATUS_T2> timer2;	// 320us
 
         int oplOversampling;
+        int lastSampleRate;
 
         YMF262Channel channels[18];	// OPL3 chips have 18 channels
 
@@ -260,9 +268,12 @@ class YMF262 : public SoundDevice, public TimerCallback
 		byte status;			// status flag
 		byte status2;
 		byte statusMask;		// status mask
+		bool new2Signaled;		// NEW2 status quirk fired since reset
 
 		int chanout[20];		// 18 channels + two phase modulation
 		short maxVolume;
+		int mixL;				// OPL4 reg F8h FM mix level, 8.8 fixed point
+		int mixR;				// (256 = 0 dB)
 };
 
 #endif

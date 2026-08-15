@@ -2,6 +2,29 @@
 blueMSX+ change history
 =======================
 
+v 3.1.0     August 15, 2026
+===========================
+
+- The bundled C-BIOS machines gained FDD and turbo R support (v0.29+,
+  https://github.com/Hesoten/cbios-nextor_FDD-and-turboR).
+- Shortcuts, MSX keyboard keys, and controller buttons can now each be
+  bound to up to three keys or buttons.
+- Improved cassette tape support: read/write for cas and wav, plus
+  reading tsx images.
+- MSX mouse speed improvements and a sensitivity adjustment.
+- Improved MoonSound (OPL4) audio quality.
+- Added Direct3D 12 scaling filters.
+- Added Flash-ROM SCC (Developer Edition) support.
+- Expanded command line options.
+- Fixed the machines folder unintentionally landing under <Documents>
+  in cases such as installing below Program Files.
+- Debugger UI and assorted bug fixes.
+- Improved ROM auto-detection, and fixed the zipped database failing to
+  load (database also updated).
+- VDP bug fixes (blink handling and others).
+- Improved UI spots where text did not fit in some languages.
+- Many other smaller fixes and improvements.
+
 v 3.0.1     July 9, 2026
 ========================
 

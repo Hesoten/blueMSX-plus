@@ -34,6 +34,7 @@
 #include "ArchMidi.h"
 #include "SaveState.h"
 #include "Win32TextUtf8.h"
+#include "Language.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -119,6 +120,20 @@ struct ArchMidi {
 };
 
 static MidiDevices midi;
+
+/* winmm can return MMSYSERR_NOERROR while leaving the handle NULL or -1. */
+static int isValidMidiHandle(HMIDI h)
+{
+    return h != NULL && h != INVALID_HANDLE_VALUE;
+}
+
+static void showMidiOpenError(const char* devName)
+{
+    char msg[512];
+    _snprintf(msg, sizeof(msg) - 1, langErrorMidiOpenFailed(), devName);
+    msg[sizeof(msg) - 1] = 0;
+    MessageBoxU(NULL, msg, langErrorTitle(), MB_ICONERROR | MB_OK);
+}
 
 
 void midiInitialize()
@@ -357,7 +372,7 @@ void archMidiSaveState(void)
 ArchMidi* archMidiOutCreate(int device) 
 {
     Properties* pProperties = propGetGlobalProperties();
-    char* propName = device == 0 ? pProperties->sound.MidiOut.name : pProperties->sound.MidiOut.name;
+    char* propName = pProperties->sound.MidiOut.name;
     ArchMidi* archMidi = (ArchMidi*)calloc(1, sizeof(ArchMidi));
 
     if (device != 0) {
@@ -368,17 +383,17 @@ ArchMidi* archMidiOutCreate(int device)
         int i;
         for (i = 0; i < midi.out.count; i++) {
             if (strcmp(midi.out.dev[i].idString, propName) == 0) {
-	            if (midiOutOpen((HMIDIOUT*)&midi.out.dev[i].handle, midi.out.dev[i].id, 0, 0 ,0) == MMSYSERR_NOERROR) {
-		            midi.out.current[device] = &midi.out.dev[i];
-	            }
+                midi.out.dev[i].handle = NULL;
+                if (midiOutOpen((HMIDIOUT*)&midi.out.dev[i].handle, midi.out.dev[i].id, 0, 0, 0) == MMSYSERR_NOERROR
+                        && isValidMidiHandle(midi.out.dev[i].handle)) {
+                    midi.out.current[device] = &midi.out.dev[i];
+                }
+                else {
+                    midi.out.dev[i].handle = NULL;
+                    showMidiOpenError(midi.out.dev[i].name);
+                }
                 break;
             }
-        }
-        if (midi.out.current[device] == NULL && midi.out.count > 0) {
-	        if (midiOutOpen((HMIDIOUT*)&midi.out.dev[0].handle, midi.out.dev[0].id, 0, 0 ,0) == MMSYSERR_NOERROR) {
-		        midi.out.current[device] = &midi.out.dev[0];
-	        }
-            strcpy(propName, midi.out.dev[0].idString);
         }
 
         if (midi.out.current[device] != NULL) {
@@ -562,11 +577,12 @@ static void CALLBACK midiInCallback(HMIDIIN hMidiIn,
                 for (i = 0; i < 2; i++) {
                     DevInfo* di = midi.in.current[i];
                     if (di != NULL && di->id == id) {
+                        int note = buffer[1] & 0x7f;
                         if ((buffer[0] & 0x10) && buffer[2] > 0) {
-                            di->notes[buffer[1]]++;
+                            di->notes[note]++;
                         }
-                        else if (di->notes[buffer[1]] > 0) {
-                            di->notes[buffer[1]]--;
+                        else if (di->notes[note] > 0) {
+                            di->notes[note]--;
                         }
                     }
                 }
@@ -601,7 +617,7 @@ static void CALLBACK midiInCallback(HMIDIIN hMidiIn,
 
         for (i = 0; i < 2; i++) {
             DevInfo* di = midi.in.current[i];
-            if (di != NULL && di->id == id && di->archMidi->callback != NULL) {
+            if (di != NULL && di->id == id && di->archMidi != NULL && di->archMidi->callback != NULL) {
                 di->archMidi->callback(di->archMidi->ref, buffer, length);
             }
         }
@@ -611,7 +627,7 @@ static void CALLBACK midiInCallback(HMIDIIN hMidiIn,
         hdr = (MIDIHDR*)dwParam1;
         for (i = 0; i < 2; i++) {
             DevInfo* di = midi.in.current[i];
-            if (di != NULL && di->id == id && di->archMidi->callback != NULL) {
+            if (di != NULL && di->id == id && di->archMidi != NULL && di->archMidi->callback != NULL) {
                 di->archMidi->callback(di->archMidi->ref, hdr->lpData, hdr->dwBytesRecorded);
             }
         }
@@ -636,23 +652,23 @@ ArchMidi* archMidiInCreate(int device, ArchMidiInCb cb, void* ref)
         int i;
         for (i = 0; i < midi.in.count; i++) {
             if (strcmp(midi.in.dev[i].idString, propName) == 0) {
-                if (midi.in.dev[i].refCount > 0 ||
-                    midiInOpen((HMIDIIN*)&midi.in.dev[i].handle, midi.in.dev[i].id, 
-                               (DWORD_PTR)midiInCallback, midi.in.dev[i].id, CALLBACK_FUNCTION) == MMSYSERR_NOERROR) 
-                {
-		            midi.in.current[device] = &midi.in.dev[i];
-	            }
+                if (midi.in.dev[i].refCount > 0) {
+                    midi.in.current[device] = &midi.in.dev[i];
+                }
+                else {
+                    midi.in.dev[i].handle = NULL;
+                    if (midiInOpen((HMIDIIN*)&midi.in.dev[i].handle, midi.in.dev[i].id,
+                                   (DWORD_PTR)midiInCallback, midi.in.dev[i].id, CALLBACK_FUNCTION) == MMSYSERR_NOERROR
+                            && isValidMidiHandle(midi.in.dev[i].handle)) {
+                        midi.in.current[device] = &midi.in.dev[i];
+                    }
+                    else {
+                        midi.in.dev[i].handle = NULL;
+                        showMidiOpenError(midi.in.dev[i].name);
+                    }
+                }
                 break;
             }
-        }
-        if (midi.in.current[device] == NULL && midi.in.count > 0) {
-            if (midi.in.dev[0].refCount > 0 ||
-	            midiInOpen((HMIDIIN*)&midi.in.dev[0].handle, midi.in.dev[0].id,
-                           (DWORD_PTR)midiInCallback, midi.in.dev[0].id, CALLBACK_FUNCTION) == MMSYSERR_NOERROR) 
-            {
-		        midi.in.current[device] = &midi.in.dev[0];
-	        }
-            strcpy(propName, midi.in.dev[0].idString);
         }
 
         if (midi.in.current[device] != NULL) {
@@ -676,6 +692,12 @@ void archMidiInDestroy(ArchMidi* archMidi)
     if (archMidi->devInfo == NULL) {
         free(archMidi);
         return;
+    }
+
+    /* Drop the back-pointer before freeing so the MIDI-in callback thread
+    ** never dereferences this freed ArchMidi via devInfo->archMidi. */
+    if (archMidi->devInfo->archMidi == archMidi) {
+        archMidi->devInfo->archMidi = NULL;
     }
 
     if (--archMidi->devInfo->refCount > 0) {

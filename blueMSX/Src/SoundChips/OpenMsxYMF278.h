@@ -1,5 +1,8 @@
 // This file is taken from the openMSX project. 
 // The file has been modified to be built in the blueMSX environment.
+//
+// Modified 2026 by Hesoten for blueMSX+ fork.
+// See https://github.com/Hesoten/blueMSX-plus for change history.
 
 #ifndef __YMF278_HH__
 #define __YMF278_HH__
@@ -50,18 +53,17 @@ class YMF278Slot
 		YMF278Slot();
 		void reset();
 		int compute_rate(int val);
-		unsigned int decay_rate(int num, int sample_rate);
-		void envelope_next(int sample_rate);
+		int compute_decay_rate(int val);
 		inline int compute_vib();
 		inline int compute_am();
-		void set_lfo(int newlfo);
 
 		short wave;		// wavetable number
 		short FN;		// f-number
 		char OCT;		// octave
 		char PRVB;		// pseudo-reverb
-		char LD;		// level direct
-		char TL;		// total level
+		char DAMP;		// damp
+		int  TL;		// total level (internal, 0x00..0xFF)
+		int  TLdest;		// interpolation target for TL
 		char pan;		// panpot
 		char lfo;		// LFO
 		char vib;		// vibrato
@@ -77,7 +79,6 @@ class YMF278Slot
 		int step;               // fixed-point frequency step
 		int stepptr;		// fixed-point pointer into the sample
 		int pos;
-		short sample1, sample2;
 
 		bool active;		// slot keyed on
 		byte bits;		// width of the samples
@@ -87,13 +88,9 @@ class YMF278Slot
 
 		byte state;
 		int env_vol;
-		unsigned int env_vol_step;
-		unsigned int env_vol_lim;
 
 		bool lfo_active;
 		int lfo_cnt;
-		int lfo_step;
-		int lfo_max;
 };
 
 static const int MASTER_CLK = 33868800;
@@ -110,6 +107,8 @@ class YMF278 : public SoundDevice
 		byte readRegOPL4(byte reg, const EmuTime &time);
 		byte peekStatus(const EmuTime &time);
 		byte readStatus(const EmuTime &time);
+		// the BUSY flag is shared with register selects and FM writes
+		void setBusyUntil(const EmuTime &time) { BUSY_Time = time; }
         void* getRom() { return rom; }	
         void* getRam() { return ram; }	
         int getRomSize() { return endRom; }
@@ -122,9 +121,12 @@ class YMF278 : public SoundDevice
         void saveState();
 	
 	private:
+		void setupMemoryPointers();
+		void generateSample(int* outLeft, int* outRight);
 		byte readMem(unsigned int address);
 		void writeMem(unsigned int address, byte value);
-		short getSample(YMF278Slot &op);
+		short getSample(YMF278Slot &op, unsigned int pos);
+		unsigned int nextPos(YMF278Slot &op, unsigned int pos, unsigned int increment);
 		void advance();
 		void checkMute();
 		bool anyActive();
@@ -155,10 +157,16 @@ class YMF278 : public SoundDevice
 
 		unsigned int endRom;
 		unsigned int endRam;
+		byte* memPtrs[32];	// 128kB chunk map of the 4MB space
 
-		// precalculated attenuation values with some marging for
-		// enveloppe and pan levels
-		int volume[256 * 4];
+		int masterVol;		// overall gain, 8.8 fixed point
+
+		// generation runs at the native 44100 Hz; when the mixer rate
+		// differs the output is linearly resampled
+		int outRate;
+		unsigned int resamplePos;	// 16.16 phase
+		int lastL, lastR;
+		int curL, curR;
 
 		byte regs[256];
 

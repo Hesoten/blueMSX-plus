@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -58,6 +61,7 @@ typedef enum {
     THEME_TRIGGER_IMG_PCM,
     THEME_TRIGGER_IMG_IO,
     THEME_TRIGGER_IMG_MIDI,
+    THEME_TRIGGER_IMG_CASSETTE,
     THEME_TRIGGER_IMG_L_KBD,
     THEME_TRIGGER_IMG_R_KBD,
     THEME_TRIGGER_IMG_L_MOON,
@@ -78,6 +82,8 @@ typedef enum {
     THEME_TRIGGER_IMG_R_IO,
     THEME_TRIGGER_IMG_L_MIDI,
     THEME_TRIGGER_IMG_R_MIDI,
+    THEME_TRIGGER_IMG_L_CASSETTE,
+    THEME_TRIGGER_IMG_R_CASSETTE,
     THEME_TRIGGER_IMG_L_MASTER,
     THEME_TRIGGER_IMG_R_MASTER,
     THEME_TRIGGER_IMG_M_MOON,
@@ -179,6 +185,7 @@ typedef enum {
     THEME_TRIGGER_LEVEL_MOONSOUND,
     THEME_TRIGGER_LEVEL_SFG,
     THEME_TRIGGER_LEVEL_MIDI,
+    THEME_TRIGGER_LEVEL_CASSETTE,
     THEME_TRIGGER_PAN_PSG,
     THEME_TRIGGER_PAN_PCM,
     THEME_TRIGGER_PAN_IO,
@@ -189,6 +196,7 @@ typedef enum {
     THEME_TRIGGER_PAN_MOONSOUND,
     THEME_TRIGGER_PAN_SFG,
     THEME_TRIGGER_PAN_MIDI,
+    THEME_TRIGGER_PAN_CASSETTE,
 
     THEME_TRIGGER_VIDEO_GAMMA,
     THEME_TRIGGER_VIDEO_BRIGHTNESS,
@@ -273,6 +281,7 @@ int themeTriggerAudioScc();
 int themeTriggerAudioPcm();
 int themeTriggerAudioIo();
 int themeTriggerAudioMidi();
+int themeTriggerAudioCassette();
 
 int themeTriggerMachineMoonsound();
 int themeTriggerMachineYamahaCfg();
@@ -344,6 +353,8 @@ int themeTriggerVolIoLeft();
 int themeTriggerVolIoRight();
 int themeTriggerVolMidiLeft();
 int themeTriggerVolMidiRight();
+int themeTriggerVolCassetteLeft();
+int themeTriggerVolCassetteRight();
 int themeTriggerVolMasterLeft();
 int themeTriggerVolMasterRight();
 
@@ -386,6 +397,7 @@ int themeTriggerLevelMsxAudio();
 int themeTriggerLevelMoonsound();
 int themeTriggerLevelYamahaSfg();
 int themeTriggerLevelMidi();
+int themeTriggerLevelCassette();
 int themeTriggerPanPsg();
 int themeTriggerPanPcm();
 int themeTriggerPanIo();
@@ -396,6 +408,7 @@ int themeTriggerPanMsxAudio();
 int themeTriggerPanMoonsound();
 int themeTriggerPanYamahaSfg();
 int themeTriggerPanMidi();
+int themeTriggerPanCassette();
 
 int themeTriggerLevelRensha();
 int themeTriggerLevelEmuSpeed();
@@ -436,6 +449,11 @@ char* themeTriggerLangKbdMapSCheme();
 
 char* themeTriggerJoyPort1();
 char* themeTriggerJoyPort2();
+
+/* Display text for the setting a slider drives, in the same units and
+   wording as the property pages.  Empty when the trigger has no unit or
+   its effect is switched off; the caller then shows no tooltip. */
+char* themeTriggerSliderValueText(int trigger);
 
 int themeTriggerKeyPressed(int keyCode);
 int themeTriggerKeyEdit(int keyCode);

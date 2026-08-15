@@ -118,24 +118,26 @@ void handleKeyboardInput(WPARAM wParam)
     if ( mod ==  MOD_CONTROL              && key == 'W')       SendMessage(hwnd, WM_HOTKEY, 21, 0);
 }
 
+/* Translations are data, never a printf format -- a stray %s in any language
+** file would otherwise read a non-existent argument. */
 static void updateTooltip(int id, char* str)
 {
     switch (id) {
-    case TB_RESUME:   sprintf(str, Language::toolbarResume);        break;
-    case TB_PAUSE:    sprintf(str, Language::toolbarPause);         break;
-    case TB_STOP:     sprintf(str, Language::toolbarStop);          break;
-    case TB_RUN:      sprintf(str, Language::toolbarRun);           break;
-    case TB_SHOWNEXT: sprintf(str, Language::toolbarShowNext);      break;
-    case TB_STEPIN:   sprintf(str, Language::toolbarStepIn);        break;
-    case TB_STEPBACK: sprintf(str, Language::toolbarStepBack);      break;
-    case TB_STEPOVER: sprintf(str, Language::toolbarStepOver);      break;
-    case TB_STEPOUT:  sprintf(str, Language::toolbarStepOut);       break;
-    case TB_RUNTO:    sprintf(str, Language::toolbarRunTo);         break;
-    case TB_BPTOGGLE: sprintf(str, Language::toolbarBpToggle);      break;
-    case TB_BPENABLE: sprintf(str, Language::toolbarBpEnable);      break;
-    case TB_BPENALL:  sprintf(str, Language::toolbarBpEnableAll);   break;
-    case TB_BPDISALL: sprintf(str, Language::toolbarBpDisableAll);  break;
-    case TB_BPREMALL: sprintf(str, Language::toolbarBpRemoveAll);   break;    
+    case TB_RESUME:   sprintf(str, "%s", Language::toolbarResume);        break;
+    case TB_PAUSE:    sprintf(str, "%s", Language::toolbarPause);         break;
+    case TB_STOP:     sprintf(str, "%s", Language::toolbarStop);          break;
+    case TB_RUN:      sprintf(str, "%s", Language::toolbarRun);           break;
+    case TB_SHOWNEXT: sprintf(str, "%s", Language::toolbarShowNext);      break;
+    case TB_STEPIN:   sprintf(str, "%s", Language::toolbarStepIn);        break;
+    case TB_STEPBACK: sprintf(str, "%s", Language::toolbarStepBack);      break;
+    case TB_STEPOVER: sprintf(str, "%s", Language::toolbarStepOver);      break;
+    case TB_STEPOUT:  sprintf(str, "%s", Language::toolbarStepOut);       break;
+    case TB_RUNTO:    sprintf(str, "%s", Language::toolbarRunTo);         break;
+    case TB_BPTOGGLE: sprintf(str, "%s", Language::toolbarBpToggle);      break;
+    case TB_BPENABLE: sprintf(str, "%s", Language::toolbarBpEnable);      break;
+    case TB_BPENALL:  sprintf(str, "%s", Language::toolbarBpEnableAll);   break;
+    case TB_BPDISALL: sprintf(str, "%s", Language::toolbarBpDisableAll);  break;
+    case TB_BPREMALL: sprintf(str, "%s", Language::toolbarBpRemoveAll);   break;
     }
 }
 
@@ -173,22 +175,23 @@ static void updateToolBar()
 
     EmulatorState state = GetEmulatorState();
     
-    toolBar->enableItem(1, state != EMULATOR_RUNNING);
-    toolBar->enableItem(2, state == EMULATOR_RUNNING);
-    toolBar->enableItem(3, state != EMULATOR_STOPPED);
-    toolBar->enableItem(4, true);
-    
-    toolBar->enableItem(6, state == EMULATOR_PAUSED);
-    toolBar->enableItem(7, state == EMULATOR_PAUSED);
-    toolBar->enableItem(8, state == EMULATOR_PAUSED);
-    toolBar->enableItem(9, state == EMULATOR_PAUSED && callstack->getMostRecent() >= 0);
-    toolBar->enableItem(10, state == EMULATOR_PAUSED && disassembly->isBpOnCcursor());
+    toolBar->enableCommand(TB_RESUME,   state != EMULATOR_RUNNING);
+    toolBar->enableCommand(TB_PAUSE,    state == EMULATOR_RUNNING);
+    toolBar->enableCommand(TB_STOP,     state != EMULATOR_STOPPED);
+    toolBar->enableCommand(TB_RUN,      true);
 
-    toolBar->enableItem(12, state == EMULATOR_PAUSED && disassembly->isCursorPresent());
-    toolBar->enableItem(13, state != EMULATOR_STOPPED && disassembly->isBpOnCcursor());
-    toolBar->enableItem(14, breakpoints->getDisabledBpCount() > 0);
-    toolBar->enableItem(15, breakpoints->getEnabledBpCount() > 0);
-    toolBar->enableItem(16, breakpoints->getEnabledBpCount() || breakpoints->getDisabledBpCount());
+    toolBar->enableCommand(TB_SHOWNEXT, state == EMULATOR_PAUSED);
+    toolBar->enableCommand(TB_STEPBACK, state == EMULATOR_PAUSED);
+    toolBar->enableCommand(TB_STEPIN,   state == EMULATOR_PAUSED);
+    toolBar->enableCommand(TB_STEPOVER, state == EMULATOR_PAUSED);
+    toolBar->enableCommand(TB_STEPOUT,  state == EMULATOR_PAUSED && callstack->getReturnAddress() >= 0);
+    toolBar->enableCommand(TB_RUNTO,    state == EMULATOR_PAUSED && disassembly->isCursorPresent());
+
+    toolBar->enableCommand(TB_BPTOGGLE, state != EMULATOR_STOPPED && disassembly->isCursorPresent());
+    toolBar->enableCommand(TB_BPENABLE, state != EMULATOR_STOPPED && disassembly->isBpOnCcursor());
+    toolBar->enableCommand(TB_BPENALL,  breakpoints->getDisabledBpCount() > 0);
+    toolBar->enableCommand(TB_BPDISALL, breakpoints->getEnabledBpCount() > 0);
+    toolBar->enableCommand(TB_BPREMALL, breakpoints->getEnabledBpCount() || breakpoints->getDisabledBpCount());
 }
 
 static void updateStatusBar()
@@ -214,6 +217,7 @@ static void updateStatusBar()
 #define MENU_FILE_LOADSYM           37101
 #define MENU_FILE_SAVEDASM          37102
 #define MENU_FILE_SAVEMEM           37103
+#define MENU_FILE_REPLACESYM        37104
 
 #define MENU_DEBUG_CONTINUE         37200
 #define MENU_DEBUG_BREAKALL         37201
@@ -249,7 +253,11 @@ static void updateStatusBar()
 
 #define MENU_HELP_ABOUT             37400
 
-static void updateWindowMenu() 
+/* Sticky for the session: whether loading a symbol file discards the symbols
+** already in memory or adds to them. */
+static BOOL replaceSymbols = TRUE;
+
+static void updateWindowMenu()
 {
     static char buf[128];
 
@@ -260,11 +268,21 @@ static void updateWindowMenu()
     sprintf(buf, "%s", Language::menuFileLoadSymbolFile);
     AppendMenuU(hMenuFile, MF_STRING, MENU_FILE_LOADSYM, buf);
 
+    /* Was a checkbox on the old-style open dialog; the shared shell dialog
+    ** takes no custom controls, so the option lives in the menu now. */
+    sprintf(buf, "%s", Language::symbolWindowText);
+    AppendMenuU(hMenuFile, MF_STRING | (replaceSymbols ? MF_CHECKED : 0), MENU_FILE_REPLACESYM, buf);
+
+    AppendMenuU(hMenuFile, MF_SEPARATOR, 0, NULL);
+
+    /* With no listing there is nothing to write, and the save would otherwise
+    ** walk the user through a file dialog and an overwrite prompt to do
+    ** nothing at all. */
     sprintf(buf, "%s", Language::menuFileSaveDisassembly);
-    AppendMenuU(hMenuFile, MF_STRING, MENU_FILE_SAVEDASM, buf);
+    AppendMenuU(hMenuFile, MF_STRING | (disassembly && disassembly->hasContent() ? 0 : MF_GRAYED), MENU_FILE_SAVEDASM, buf);
 
     sprintf(buf, "%s", Language::menuFileSaveMemory);
-    AppendMenuU(hMenuFile, MF_STRING, MENU_FILE_SAVEMEM, buf);
+    AppendMenuU(hMenuFile, MF_STRING | (memory && memory->hasContent() ? 0 : MF_GRAYED), MENU_FILE_SAVEMEM, buf);
     
     AppendMenuU(hMenuFile, MF_SEPARATOR, 0, NULL);
 
@@ -293,7 +311,7 @@ static void updateWindowMenu()
     sprintf(buf, "%s\tF10", Language::menuDebugStepOver);
     AppendMenuU(hMenuDebug, MF_STRING | (state == EMULATOR_PAUSED                  ? 0 : MF_GRAYED), MENU_DEBUG_STEP_OVER, buf);
     sprintf(buf, "%s\tShift+F11", Language::menuDebugStepOut);
-    AppendMenuU(hMenuDebug, MF_STRING | (state == EMULATOR_PAUSED && callstack->getMostRecent() >= 0? 0 : MF_GRAYED), MENU_DEBUG_STEP_OUT, buf);
+    AppendMenuU(hMenuDebug, MF_STRING | (state == EMULATOR_PAUSED && callstack->getReturnAddress() >= 0? 0 : MF_GRAYED), MENU_DEBUG_STEP_OUT, buf);
 
     sprintf(buf, "%s\tShift+F10", Language::menuDebugRunTo);
     AppendMenuU(hMenuDebug, MF_STRING | (state == EMULATOR_PAUSED && disassembly->isCursorPresent() ? 0 : MF_GRAYED), MENU_DEBUG_RUNTO, buf);
@@ -315,9 +333,12 @@ static void updateWindowMenu()
 
     AppendMenuU(hMenuDebug, MF_SEPARATOR, 0, NULL);
     
+    /* No cursor term: this asks for an address, it does not read the one in
+    ** the disassembly. Ctrl+B and the Breakpoints window button never had it,
+    ** so the menu was the only place refusing a command the others allowed. */
     sprintf(buf, "%s\tCtrl+B", Language::menuDebugBpAdd);
-    AppendMenuU(hMenuDebug, MF_STRING | (state != EMULATOR_STOPPED && disassembly->isCursorPresent() ? 0 : MF_GRAYED), MENU_DEBUG_SETBP, buf);
-    
+    AppendMenuU(hMenuDebug, MF_STRING | (state != EMULATOR_STOPPED ? 0 : MF_GRAYED), MENU_DEBUG_SETBP, buf);
+
     sprintf(buf, "%s\tF9", Language::menuDebugBpToggle);
     AppendMenuU(hMenuDebug, MF_STRING | (state != EMULATOR_STOPPED && disassembly->isCursorPresent() ? 0 : MF_GRAYED), MENU_DEBUG_BPTOGGLE, buf);
     sprintf(buf, "%s\tShift+F9", Language::menuDebugEnable);
@@ -325,8 +346,9 @@ static void updateWindowMenu()
 
     AppendMenuU(hMenuDebug, MF_SEPARATOR, 0, NULL);
 
+    /* Same as the breakpoint above: an address dialog, not the cursor. */
     sprintf(buf, "%s\tCtrl+W", Language::menuDebugWpAdd);
-    AppendMenuU(hMenuDebug, MF_STRING | (state != EMULATOR_STOPPED && disassembly->isCursorPresent() ? 0 : MF_GRAYED), MENU_DEBUG_SETWP, buf);
+    AppendMenuU(hMenuDebug, MF_STRING | (state != EMULATOR_STOPPED ? 0 : MF_GRAYED), MENU_DEBUG_SETWP, buf);
 
     AppendMenuU(hMenuDebug, MF_SEPARATOR, 0, NULL);
 
@@ -388,88 +410,18 @@ static void updateWindowMenu()
 }
 
 
-static BOOL replaceSymbols = TRUE;
-
-UINT_PTR CALLBACK hookProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
-{
-    switch (iMsg) {
-    case WM_INITDIALOG:
-        SetWindowTextU(GetDlgItem(hDlg, IDC_SYMBOLSAPPEND), Language::symbolWindowText);
-        SendDlgItemMessage(hDlg, IDC_SYMBOLSAPPEND, BM_SETCHECK, replaceSymbols ? BST_CHECKED : BST_UNCHECKED, 0);
-        return 0;
-
-    case WM_SIZE:
-        {
-            RECT r;
-            int height;
-            int width;
-            HWND hwnd;
-
-            GetClientRect(GetParent(hDlg), &r);
-            
-            height = r.bottom - r.top;
-            width  = r.right - r.left;
-
-            hwnd = GetDlgItem(hDlg, IDC_SYMBOLSAPPEND);
-            SetWindowPos(hwnd, NULL, 81, height - 26, 0, 0, SWP_NOSIZE | SWP_NOZORDER);            
-        }
-        return 0;
-
-    case WM_COMMAND:
-        if (LOWORD(wParam) == IDC_SYMBOLSAPPEND) {
-            int newChecked = BST_CHECKED == SendDlgItemMessage(hDlg, IDC_SYMBOLSAPPEND, BM_GETCHECK, 0, 0);
-            if (newChecked != replaceSymbols) {
-                replaceSymbols = newChecked;
-                InvalidateRect(hDlg, NULL, TRUE);
-            }
-        }
-        return 0;
-
-        
-    }
-    return 0;
-}
-
 void loadSymbolFile(HWND hwndOwner)
 {
-    OPENFILENAME ofn; 
     static char pFileName[MAX_PATH];
     static char buffer[0x20000];
 
-    pFileName[0] = 0; 
+    pFileName[0] = 0;
 
-    char  curDir[MAX_PATH];
-
-    GetCurrentDirectory(MAX_PATH, curDir);
-
-
-    ofn.lStructSize = sizeof(OPENFILENAME); 
-    ofn.hwndOwner = hwndOwner; 
-    ofn.hInstance = GetDllHinstance();
-    ofn.lpstrFilter = "Symbol Files   (*.SYM)\0*.SYM\0All Files   (*.*)\0*.*\0"; 
-    ofn.lpstrCustomFilter = NULL; 
-    ofn.nMaxCustFilter = 0;
-    ofn.nFilterIndex = 0; 
-    ofn.lpstrFile = pFileName; 
-    ofn.nMaxFile = 1024; 
-    ofn.lpstrFileTitle = NULL; 
-    ofn.nMaxFileTitle = 0; 
-    ofn.lpstrInitialDir = NULL; 
-    ofn.lpstrTitle = Language::symbolWindowCaption; 
-    ofn.Flags = OFN_EXPLORER | OFN_ENABLESIZING | OFN_ENABLETEMPLATE | OFN_HIDEREADONLY | OFN_ENABLEHOOK | OFN_FILEMUSTEXIST; 
-    ofn.nFileOffset = 0; 
-    ofn.nFileExtension = 0; 
-    ofn.lpstrDefExt = NULL; 
-    ofn.lCustData = 0; 
-    ofn.lpfnHook = hookProc; 
-    ofn.lpTemplateName = MAKEINTRESOURCE(IDD_OPEN_SYMBOLSDIALOG); 
-
-    BOOL rv = GetOpenFileName(&ofn); 
-
-    SetCurrentDirectory(curDir);
-
-    if (!rv) {
-        return; 
+    if (!ShellOpenFileDialog(hwndOwner, Language::symbolWindowCaption,
+                             "Symbol Files   (*.SYM)\0*.SYM\0All Files   (*.*)\0*.*\0\0",
+                             NULL, "sym", NULL, pFileName, sizeof(pFileName)))
+    {
+        return;
     }
 
     FILE* file = fopenU(pFileName, "r");
@@ -477,8 +429,9 @@ void loadSymbolFile(HWND hwndOwner)
         return;
     }
 
-    fread(buffer, 1, sizeof(buffer), file);
-    buffer[sizeof(buffer) - 1] = 0;
+    /* The buffer is static, so terminate at the byte count actually read. */
+    size_t symbolLen = fread(buffer, 1, sizeof(buffer) - 1, file);
+    buffer[symbolLen] = 0;
     if (replaceSymbols) {
         symbolInfo->clear();
     }
@@ -486,7 +439,7 @@ void loadSymbolFile(HWND hwndOwner)
     std::string strBuffer(buffer);
     symbolInfo->append(strBuffer);
     symbolInfo->show();
-    disassembly->refresh();
+    disassembly->refresh(true);
     callstack->refresh();
     stack->refresh();
     fclose(file);
@@ -494,42 +447,21 @@ void loadSymbolFile(HWND hwndOwner)
 
 void saveDisassembly(HWND hwndOwner)
 {
-    OPENFILENAME ofn; 
     static char pFileName[MAX_PATH];
     static char buffer[0x20000];
 
-    pFileName[0] = 0; 
+    /* The menu entry is greyed for this, but not before the file dialog and an
+    ** overwrite prompt would have asked the user about a file we cannot write. */
+    if (!disassembly->hasContent()) {
+        return;
+    }
 
-    char  curDir[MAX_PATH];
+    pFileName[0] = 0;
 
-    GetCurrentDirectory(MAX_PATH, curDir);
-
-    ofn.lStructSize = sizeof(OPENFILENAME); 
-    ofn.hwndOwner = hwndOwner; 
-    ofn.hInstance = GetDllHinstance();
-    ofn.lpstrFilter = "*.ASM\0*.*\0\0"; 
-    ofn.lpstrCustomFilter = NULL; 
-    ofn.nMaxCustFilter = 0;
-    ofn.nFilterIndex = 0; 
-    ofn.lpstrFile = pFileName; 
-    ofn.nMaxFile = 1024; 
-    ofn.lpstrFileTitle = NULL; 
-    ofn.nMaxFileTitle = 0; 
-    ofn.lpstrInitialDir = NULL; 
-    ofn.lpstrTitle = Language::menuFileSaveDisassembly; 
-    ofn.Flags = OFN_EXPLORER | OFN_ENABLESIZING | OFN_HIDEREADONLY; 
-    ofn.nFileOffset = 0;
-    ofn.nFileExtension = 0; 
-    ofn.lpstrDefExt = NULL; 
-    ofn.lCustData = 0; 
-    ofn.lpfnHook = NULL; 
-    ofn.lpTemplateName = NULL; 
-
-    BOOL rv = GetSaveFileName(&ofn); 
-
-    SetCurrentDirectory(curDir);
-
-    if (!rv) {
+    if (!ShellSaveFileDialog(hwndOwner, Language::menuFileSaveDisassembly,
+                             "*.ASM\0*.*\0\0", NULL, "asm", NULL,
+                             pFileName, sizeof(pFileName)))
+    {
         return;
     }
 
@@ -541,7 +473,7 @@ void saveDisassembly(HWND hwndOwner)
     FILE* f = fopenU(pFileName, "r");
     if (f != NULL) {
         fclose(f);
-        int rv = MessageBoxU(NULL, Language::popupOverwrite, Language::windowDebugger, MB_YESNO | MB_ICONWARNING);
+        int rv = ShowMessageBox(hwndOwner, Language::popupOverwrite, Language::windowDebugger, MB_YESNO | MB_ICONWARNING);
         if (rv != IDYES) {
             return;
         }
@@ -552,43 +484,22 @@ void saveDisassembly(HWND hwndOwner)
 
 void saveMemory(HWND hwndOwner)
 {
-    OPENFILENAME ofn; 
     static char pFileName[MAX_PATH];
     static char buffer[0x20000];
 
-    pFileName[0] = 0; 
+    /* Same as saveDisassembly: do not open a dialog for a save that cannot
+    ** happen. */
+    if (!memory->hasContent()) {
+        return;
+    }
 
-    char  curDir[MAX_PATH];
+    pFileName[0] = 0;
 
-    GetCurrentDirectory(MAX_PATH, curDir);
-
-    ofn.lStructSize = sizeof(OPENFILENAME); 
-    ofn.hwndOwner = hwndOwner; 
-    ofn.hInstance = GetDllHinstance();
-    ofn.lpstrFilter = "*.BIN\0*.*\0\0"; 
-    ofn.lpstrCustomFilter = NULL; 
-    ofn.nMaxCustFilter = 0;
-    ofn.nFilterIndex = 0; 
-    ofn.lpstrFile = pFileName; 
-    ofn.nMaxFile = 1024; 
-    ofn.lpstrFileTitle = NULL; 
-    ofn.nMaxFileTitle = 0; 
-    ofn.lpstrInitialDir = NULL; 
-    ofn.lpstrTitle = Language::menuFileSaveMemory; 
-    ofn.Flags = OFN_EXPLORER | OFN_ENABLESIZING | OFN_HIDEREADONLY; 
-    ofn.nFileOffset = 0;
-    ofn.nFileExtension = 0;
-    ofn.lpstrDefExt = NULL; 
-    ofn.lCustData = 0; 
-    ofn.lpfnHook = NULL; 
-    ofn.lpTemplateName = NULL; 
-
-    BOOL rv = GetSaveFileName(&ofn); 
-
-    SetCurrentDirectory(curDir);
-
-    if (!rv) {
-        return; 
+    if (!ShellSaveFileDialog(hwndOwner, Language::menuFileSaveMemory,
+                             "*.BIN\0*.*\0\0", NULL, "bin", NULL,
+                             pFileName, sizeof(pFileName)))
+    {
+        return;
     }
 
     int len = (int)strlen(pFileName);
@@ -599,7 +510,7 @@ void saveMemory(HWND hwndOwner)
     FILE* f = fopenU(pFileName, "r");
     if (f != NULL) {
         fclose(f);
-        int rv = MessageBoxU(NULL, Language::popupOverwrite, Language::windowDebugger, MB_YESNO | MB_ICONWARNING);
+        int rv = ShowMessageBox(hwndOwner, Language::popupOverwrite, Language::windowDebugger, MB_YESNO | MB_ICONWARNING);
         if (rv != IDYES) {
             return;
         }
@@ -616,7 +527,10 @@ void DebuggerUpdate()
     updateToolBar();
     updateWindowMenu();
     if (disassembly != NULL) {
-        disassembly->refresh();
+        /* Only the breakpoint icons can have changed here, and drawText reads
+        ** those from Breakpoints as it paints. Rebuilding the listing re-ran a
+        ** whole 64K disassembly on every breakpoint click for nothing. */
+        disassembly->repaint();
     }
     if (breakpoints != NULL) {
         breakpoints->updateContent();
@@ -710,8 +624,12 @@ void updateDeviceState()
 }
 
 
-static LRESULT CALLBACK wndProcView(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static LRESULT CALLBACK wndProcView(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
+    if (dbgViewMessage(hwnd, iMsg, wParam)) {
+        return 0;
+    }
+
     switch (iMsg) {
     case WM_CREATE:
         return 0;
@@ -757,16 +675,99 @@ static void updateWindowPositions()
     }
 }
 
-static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+/* RegisterHotKey grabs the key desktop wide, so these may only be held while
+** this window really is the foreground one. GetForegroundWindow lags the
+** activation messages, so DBG_HOTKEY_TIMER stays on as a backstop. */
+#define DBG_HOTKEY_COUNT 21
+#define DBG_HOTKEY_TIMER 1
+#define DBG_HOTKEY_POLL  250
+
+/* Ctrl+V reaches the in-place richedit from the handler rather than by being
+** released here, so that the box that has focus is read at the keystroke. */
+#define DBG_HOTKEY_PASTE 19
+
+static void setDebuggerHotkeys(HWND hwnd, BOOL hold)
+{
+    static BOOL held = FALSE;
+    int i;
+
+    if (hold == held) {
+        return;
+    }
+    held = hold;
+
+    if (!hold) {
+        for (i = 1; i <= DBG_HOTKEY_COUNT; i++) {
+            UnregisterHotKey(hwnd, i);
+        }
+        return;
+    }
+
+    RegisterHotKey(hwnd, 1,  0, VK_F5);
+    RegisterHotKey(hwnd, 2,  MOD_CONTROL | MOD_ALT, VK_CANCEL);
+    RegisterHotKey(hwnd, 3,  MOD_SHIFT, VK_F5);
+    RegisterHotKey(hwnd, 4,  MOD_CONTROL | MOD_SHIFT, VK_F5);
+    RegisterHotKey(hwnd, 5,  0, VK_F11);
+    RegisterHotKey(hwnd, 6,  0, VK_F10);
+    RegisterHotKey(hwnd, 7,  MOD_SHIFT, VK_F11);
+    RegisterHotKey(hwnd, 8,  MOD_SHIFT, VK_F10);
+    RegisterHotKey(hwnd, 9,  0, VK_F9);
+    RegisterHotKey(hwnd, 10, MOD_SHIFT, VK_F9);
+    RegisterHotKey(hwnd, 11, MOD_CONTROL | MOD_SHIFT, VK_F9);
+    RegisterHotKey(hwnd, 12, 0, VK_F8);
+    RegisterHotKey(hwnd, 13, MOD_CONTROL, 'G');
+    RegisterHotKey(hwnd, 14, MOD_CONTROL, 'M');
+    RegisterHotKey(hwnd, 15, MOD_CONTROL, 'B');
+    RegisterHotKey(hwnd, 16, MOD_CONTROL, 'F');
+    RegisterHotKey(hwnd, 17, 0, VK_F3);
+    RegisterHotKey(hwnd, 18, 0, VK_HOME);
+    RegisterHotKey(hwnd, DBG_HOTKEY_PASTE, MOD_CONTROL, 'V');
+    RegisterHotKey(hwnd, 20, MOD_CONTROL, VK_F11);
+    RegisterHotKey(hwnd, 21, MOD_CONTROL, 'W');
+}
+
+static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     static BOOL isActive = FALSE;
+    static BOOL appActive = FALSE;
+
+    if (dbgViewMessage(hwnd, iMsg, wParam)) {
+        return 0;
+    }
 
     switch (iMsg) {
     case WM_CREATE:
+        {
+            /* No activation message has arrived yet, so ask once whether this
+            ** process holds the foreground. Every later change is a message. */
+            DWORD fgPid = 0;
+            GetWindowThreadProcessId(GetForegroundWindow(), &fgPid);
+            appActive = fgPid == GetCurrentProcessId();
+            /* Shared with the window that stood here before, and a window is
+            ** not active until its own WM_ACTIVATE says so. */
+            isActive = FALSE;
+        }
+        SetTimer(hwnd, DBG_HOTKEY_TIMER, DBG_HOTKEY_POLL, NULL);
         return 0;
 
+    case WM_TIMER:
+        if (wParam == DBG_HOTKEY_TIMER) {
+            /* By now the query has caught up with the messages, so this is the
+            ** backstop for a transition they did not describe between them. */
+            setDebuggerHotkeys(hwnd, GetForegroundWindow() == hwnd);
+            return 0;
+        }
+        break;
+
+    case WM_ACTIVATEAPP:
+        appActive = wParam != 0;
+        setDebuggerHotkeys(hwnd, appActive && isActive);
+        break;
+
     case WM_ACTIVATE:
-        isActive = LOWORD(wParam) != WA_INACTIVE;
+        /* Minimized counts as inactive: activation can land on a window the user
+        ** cannot see, and the keys this gates are taken desktop wide. */
+        isActive = LOWORD(wParam) != WA_INACTIVE && HIWORD(wParam) == 0;
 
         if (toolBar != NULL) {
             static int minimizedState = 0;
@@ -774,41 +775,15 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
                 delete toolBar;
                 toolBar = initializeToolbar(hwnd);
                 toolBar->show();
+                /* addButton makes every button enabled, so a rebuilt toolbar
+                ** offers commands the emulator state forbids until the next
+                ** state change repaints it. The creation path pairs the two. */
+                updateToolBar();
             }
             minimizedState = HIWORD(wParam);
         }
 
-#ifndef _DEBUGx
-        if (isActive) {
-            RegisterHotKey(hwnd, 1,  0, VK_F5);
-            RegisterHotKey(hwnd, 2,  MOD_CONTROL | MOD_ALT, VK_CANCEL);
-            RegisterHotKey(hwnd, 3,  MOD_SHIFT, VK_F5);
-            RegisterHotKey(hwnd, 4,  MOD_CONTROL | MOD_SHIFT, VK_F5);
-            RegisterHotKey(hwnd, 5,  0, VK_F11);
-            RegisterHotKey(hwnd, 6,  0, VK_F10);
-            RegisterHotKey(hwnd, 7,  MOD_SHIFT, VK_F11);
-            RegisterHotKey(hwnd, 8,  MOD_SHIFT, VK_F10);
-            RegisterHotKey(hwnd, 9,  0, VK_F9);
-            RegisterHotKey(hwnd, 10, MOD_SHIFT, VK_F9);
-            RegisterHotKey(hwnd, 11, MOD_CONTROL | MOD_SHIFT, VK_F9);        
-            RegisterHotKey(hwnd, 12, 0, VK_F8);     
-            RegisterHotKey(hwnd, 13, MOD_CONTROL, 'G');
-            RegisterHotKey(hwnd, 14, MOD_CONTROL, 'M');
-            RegisterHotKey(hwnd, 15, MOD_CONTROL, 'B');
-            RegisterHotKey(hwnd, 16, MOD_CONTROL, 'F');
-            RegisterHotKey(hwnd, 17, 0, VK_F3);
-            RegisterHotKey(hwnd, 18, 0, VK_HOME);
-            RegisterHotKey(hwnd, 19, MOD_CONTROL, 'V');
-            RegisterHotKey(hwnd, 20, MOD_CONTROL, VK_F11);
-            RegisterHotKey(hwnd, 21, MOD_CONTROL, 'W');
-        }
-        else {
-            int i;
-            for (i = 1; i <= 20; i++) {
-                UnregisterHotKey(hwnd, i);
-            }
-        }
-#endif
+        setDebuggerHotkeys(hwnd, appActive && isActive);
         break;
 
     case WM_HOTKEY:
@@ -838,7 +813,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
                     SendMessage(hwnd, WM_COMMAND, MENU_DEBUG_STEP_OVER, 0);
                 break;
             case 7:
-                if (GetEmulatorState() == EMULATOR_PAUSED && callstack->getMostRecent() >= 0)
+                if (GetEmulatorState() == EMULATOR_PAUSED && callstack->getReturnAddress() >= 0)
                     SendMessage(hwnd, WM_COMMAND, MENU_DEBUG_STEP_OUT, 0);
                 break;
             case 8:
@@ -882,8 +857,12 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             case 18:
                 disassembly->updateScroll();
                 break;
-            case 19:
-                SendMessage(hwnd, WM_COMMAND, MENU_DEBUG_CHECK_VRAM, 0);
+            case DBG_HOTKEY_PASTE:
+                /* Asked here, when the key actually arrives, so the answer
+                ** cannot be stale by the time it is used. */
+                if (!InputDialog::pasteToFocused()) {
+                    SendMessage(hwnd, WM_COMMAND, MENU_DEBUG_CHECK_VRAM, 0);
+                }
                 break;
             case 20:
                 if (GetEmulatorState() == EMULATOR_PAUSED)
@@ -907,6 +886,11 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             loadSymbolFile(hwnd);
             return 0;
 
+        case MENU_FILE_REPLACESYM:
+            replaceSymbols = !replaceSymbols;
+            updateWindowMenu();
+            return 0;
+
         case MENU_FILE_SAVEDASM:
             saveDisassembly(hwnd);
             return 0;
@@ -920,7 +904,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
                 char text[256];
                 sprintf(text, "%s\r\n\r\n%s: " __DATE__ "\r\n\r\n%s    \r\n\r\n\r\n",
                     Language::windowDebugger, Language::aboutBuilt, Language::aboutVisit);
-                MessageBoxU(NULL, text, Language::windowDebugger, MB_ICONINFORMATION | MB_OK);
+                ShowMessageBox(hwnd, text, Language::windowDebugger, MB_ICONINFORMATION | MB_OK);
             }
             return 0;
 
@@ -1042,7 +1026,8 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         case MENU_DEBUG_STEP_OVER:
         case TB_STEPOVER:
             {
-                bool step = breakpoints->setStepOverBreakpoint(disassembly->getMemory(), disassembly->getPc());
+                bool step = breakpoints->setStepOverBreakpoint(disassembly->getMemory(), disassembly->getPc(),
+                                                              cpuRegisters->interruptsEnabled());
                 if (step) {
                     EmulatorStep();
                 }
@@ -1054,14 +1039,16 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 
         case MENU_DEBUG_STEP_OUT:
         case TB_STEPOUT:
-            breakpoints->setStepOutBreakpoint(disassembly->getMemory(), (UInt16)callstack->getMostRecent());
-            EmulatorRun();
+            if (breakpoints->setRuntoBreakpoint(callstack->getReturnAddress())) {
+                EmulatorRun();
+            }
             return 0;
-            
+
         case MENU_DEBUG_RUNTO:
         case TB_RUNTO:
-            breakpoints->setRuntoBreakpoint(disassembly->getCurrentAddress());
-            EmulatorRun();
+            if (breakpoints->setRuntoBreakpoint(disassembly->getCurrentAddress())) {
+                EmulatorRun();
+            }
             return 0;
 
         case MENU_DEBUG_SETBP:
@@ -1097,7 +1084,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             else {
                 symbolInfo->show();
             }
-            disassembly->refresh();
+            disassembly->refresh(true);
             callstack->refresh();
             stack->refresh();
             updateWindowMenu();
@@ -1221,17 +1208,35 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         if (vramCheckAccess) {
             EnableVramAccessCheck(0);
         }
-        DestroyWindow(hwnd);
+        /* Closing the window does not disarm anything, so the emulator would
+        ** keep stopping at addresses the user can no longer see. Ask -- but
+        ** only about the armed ones, since disabled rows stop nothing. */
+        if (breakpoints != NULL && breakpoints->getEnabledBpCount() > 0) {
+            int rv = ShowMessageBox(hwnd, Language::popupRemoveBreakpoints,
+                                    Language::windowDebugger, MB_YESNO | MB_ICONQUESTION);
+            /* The prompt runs a message loop of its own, so the tool can have
+            ** been torn down and `breakpoints` deleted while it was up. */
+            if (rv == IDYES && breakpoints != NULL) {
+                breakpoints->clearAllBreakpoints();
+            }
+        }
+        if (dbgHwnd != NULL) {
+            DestroyWindow(hwnd);
+        }
         return 0;
 
     case WM_DESTROY:
+        KillTimer(hwnd, DBG_HOTKEY_TIMER);
+        setDebuggerHotkeys(hwnd, FALSE);
         iniFileWriteInt( "Main Window", "x",       x);
         iniFileWriteInt( "Main Window", "y",       y);
         iniFileWriteInt( "Main Window", "width",   width);
         iniFileWriteInt( "Main Window", "height",  height);
         iniFileWriteInt( "Main Window", "check vram access",  vramCheckAccess);
+        iniFileWriteInt( "Main Window", "font size",  dbgFontPoints());
 
-        breakpoints->clearAllBreakpoints();
+        breakpoints->discardRuntoBreakpoint();
+        breakpoints->keepBreakpoints();
         dbgHwnd = NULL;
         delete statusBar;
         statusBar = NULL;
@@ -1294,6 +1299,10 @@ void OnDestroyTool() {
 
 void OnShowTool() {
     if (dbgHwnd != NULL) {
+        if (IsIconic(dbgHwnd)) {
+            ShowWindow(dbgHwnd, SW_RESTORE);
+        }
+        SetForegroundWindow(dbgHwnd);
         return;
     }
 
@@ -1309,16 +1318,28 @@ void OnShowTool() {
     width   = iniFileGetInt( "Main Window", "width",  dpiScale(NULL, 800) );
     height  = iniFileGetInt( "Main Window", "height", dpiScale(NULL, 740) );
     vramCheckAccess = iniFileGetInt( "Main Window", "check vram access", 0 );
+    dbgSetFontPoints( iniFileGetInt( "Main Window", "font size", dbgFontPointsDefault() ) );
     
     if (vramCheckAccess) {
         EnableVramAccessCheck(1);
     }
 
-    if (x > GetSystemMetrics(SM_CXSCREEN) - 200) {
-        x = GetSystemMetrics(SM_CXSCREEN) - 200;
-    }
-    if (y > GetSystemMetrics(SM_CYSCREEN) - 200) {
-        y = GetSystemMetrics(SM_CYSCREEN) - 200;
+    /* Clamped to the monitor the saved rectangle lives on. The primary metrics
+    ** would drag a window parked on a secondary monitor back every launch, and
+    ** the virtual screen is a bounding box with coordinates on no monitor. */
+    if (x != CW_USEDEFAULT && y != CW_USEDEFAULT) {
+        RECT saved;
+        MONITORINFO mi;
+        HMONITOR hMon;
+        SetRect(&saved, x, y, x + width, y + height);
+        hMon = MonitorFromRect(&saved, MONITOR_DEFAULTTONEAREST);
+        mi.cbSize = sizeof(mi);
+        if (hMon != NULL && GetMonitorInfo(hMon, &mi)) {
+            if (x + 200 > mi.rcWork.right)  { x = mi.rcWork.right - 200; }
+            if (y + 200 > mi.rcWork.bottom) { y = mi.rcWork.bottom - 200; }
+            if (x < mi.rcWork.left) { x = mi.rcWork.left; }
+            if (y < mi.rcWork.top)  { y = mi.rcWork.top; }
+        }
     }
 
     dbgHwnd = CreateWindow("msxdebugger", NULL,
@@ -1361,7 +1382,11 @@ void OnShowTool() {
     inputDialogs  = new InputDialogs(GetDllHinstance(), viewHwnd, disassembly, symbolInfo, cpuRegisters, memory, breakpoints);
     periRegisters = new PeripheralRegs(GetDllHinstance(), viewHwnd);
     ioPorts       = new IoPortWindow(GetDllHinstance(), viewHwnd);
-    
+
+    /* Last: this re-arms the kept breakpoints, and a hit calls back into every
+    ** view, so they all have to exist first. */
+    breakpoints->restoreBreakpoints();
+
     updateWindowPositions();
     
     if (GetEmulatorState() == EMULATOR_PAUSED) {
@@ -1433,10 +1458,24 @@ void OnEmulatorPause() {
 
 void OnEmulatorResume() {
     if (dbgHwnd != NULL) {
+        /* These keep what they last read -- the addresses and the reference
+        ** copy the next stop colours against are still worth having -- and
+        ** only stop claiming it is current. */
+        disassembly->setContentStale(true);
+        cpuRegisters->setContentStale(true);
+        memory->setContentStale(true);
+        periRegisters->setContentStale(true);
+        ioPorts->setContentStale(true);
+
+        /* These two hold values rather than addresses, so once the CPU moves
+        ** there is nothing left to act on. */
+        callstack->invalidateContent();
+        stack->invalidateContent();
+
         disassembly->disableEdit();
         cpuRegisters->disableEdit();
         periRegisters->disableEdit();
-        ioPorts->enableEdit();
+        ioPorts->disableEdit();
         callstack->disableEdit();
         breakpoints->disableEdit();
         stack->disableEdit();

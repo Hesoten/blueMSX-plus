@@ -39,6 +39,23 @@ int mouseEmuSetCursor();
 void mouseEmuActivate(int activate);
 void mouseEmuSetRunState(int isRunning);
 
+/* Scale physical mouse deltas to MSX-cursor space (msxPixels = visible MSX
+** rows post-crop; physicalPixels = on-screen height they occupy). The final
+** multiplier is combined with the user's Sensitivity slider (1..10). */
+void mouseEmuSetScale(int msxPixels, int physicalPixels);
+
+/* Recompute scale from cached dims after the sensitivity slider changes.
+** Called from the keyboard-config dialog on WM_HSCROLL / slider notify. */
+void mouseEmuRefreshSensitivity(void);
+
+/* Called from emuWndProc's WM_INPUT handler with raw HID mouse deltas
+** (dx/dy in mickeys). hDevice is currently unused. */
+void mouseEmuHandleRawInput(int dx, int dy, HANDLE hDevice);
+
+/* Called from emuWndProc's WM_LBUTTONDOWN handler. Sole user-initiated
+** path to acquire the mouse capture; the timer never auto-locks. */
+void mouseEmuOnClick(void);
+
 /* Reset the auto-hide-cursor idle timer and unhide if currently hidden.
 ** Called from emuWndProc on any mouse activity (move / button) so the
 ** cursor reappears and the next idle countdown starts fresh. */

@@ -40,8 +40,10 @@ public:
     Disassembly(HINSTANCE hInstance, HWND owner, SymbolInfo* symInfo, Breakpoints* breakpoints);
     ~Disassembly();
 
-    void refresh();
-    
+    /* followPc = true is for refreshes that renumber the lines (symbols coming
+    ** and going), where the cached first visible line no longer means anything. */
+    void refresh(bool followPc = false);
+
     static int dasm(SymbolInfo* symbolInfo, const UInt8* memory, WORD PC, char* dest);
     static UInt16 GetPc();
 
@@ -49,29 +51,49 @@ public:
     
     void onWmKeyUp(int keyCode);
 
-    void updateContent(BYTE* memory, WORD pc);
+    /* followPc = false keeps the view and the focused window untouched, for
+    ** refreshes that are not caused by the CPU actually moving. */
+    void updateContent(BYTE* memory, WORD pc, bool followPc = true);
     void invalidateContent();
+
+    /* Redraw what is already there. The breakpoint icons are read from
+    ** Breakpoints at paint time, so showing one never needs a rebuild. */
+    void repaint() { InvalidateRect(hwnd, NULL, TRUE); }
+
+    /* False only while there is no listing at all, which is what the commands
+    ** that read one have to test. Being stale is a separate question -- a
+    ** stale listing still came out of the machine. */
+    bool hasContent() { return contentValid; }
+
     void updateScroll(int address = -1);
     void setCursor(WORD address);
     UInt16 getPc() { return backupPc; }
     const BYTE* getMemory() { return backupMemory; }
-    int getCurrentAddress() { return currentLine < 0 ? -1 : lineInfo[currentLine].address; }
+    /* Bounded against lineCount as well, so that asking whether there is a
+    ** cursor and asking for its address can never disagree. */
+    int getCurrentAddress() { return currentLine < 0 || currentLine >= lineCount ? -1 : lineInfo[currentLine].address; }
 
 
-    bool isBpOnCcursor() { return currentLine >= 0 && !Breakpoints::IsBreakpointUnset(lineInfo[currentLine].address); }
-    bool isCursorPresent()    { return currentLine >= 0; }
+    bool isBpOnCcursor() { return getCurrentAddress() >= 0 && !Breakpoints::IsBreakpointUnset((WORD)getCurrentAddress()); }
+    bool isCursorPresent()    { return getCurrentAddress() >= 0; }
 
     bool writeToFile(const char* fileName);
 
     virtual LRESULT wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam);
+    virtual void onFontChanged();
 
 private:
 
     void scrollWindow(int sbAction);
+    void applyScroll();
     void drawText(int top, int bottom);
 
+    /* The line holding `address`, or -1. The lines are ordered by address, so
+    ** the last one at or below it is the instruction that contains it. */
+    int  lineForAddress(int address);
+
     HDC    hMemdc;
-    HFONT  hFont;
+    HFONT  hFont = NULL;
     HBRUSH hBrushWhite;
     HBRUSH hBrushLtGray;
     HBRUSH hBrushDkGray;
@@ -100,6 +122,12 @@ private:
     int      firstVisibleLine;
     int      lineCount;
     int      currentLine;
+
+    /* False means the lines are fiction: nothing has been disassembled yet, so
+    ** the backup is still the zeroed buffer. True with isContentStale() means
+    ** they are the machine's, only the decode and the PC marker being behind. */
+    bool     contentValid;
+
     LineInfo lineInfo[0x20000];
     int      linePos;
     bool     hasKeyboardFocus;

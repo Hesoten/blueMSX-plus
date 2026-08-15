@@ -4,6 +4,9 @@
 **
 ** Copyright (C) 2003-2004 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 **  This software is provided 'as-is', without any express or implied
 **  warranty.  In no event will the authors be held liable for any damages
 **  arising from the use of this software.
@@ -30,7 +33,6 @@
 #define _WIN32_IE 0x0500
 #endif
 #include <CommCtrl.h>
-#include <vector>
 
 class Toolbar {
 public:
@@ -48,11 +50,10 @@ public:
 
     void onWmNotify(LPARAM lParam);
 
-    void enableItem(int item, bool enable = true);
-    void disableItem(int item);
+    void enableCommand(int command, bool enable = true);
 
 private:
-    std::vector<TBBUTTON> buttons;
+    int buttonCount;
     HBITMAP hBackground;
     HIMAGELIST hImglBtn;
     HWND hwnd;

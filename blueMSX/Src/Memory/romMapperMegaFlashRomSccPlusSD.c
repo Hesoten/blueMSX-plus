@@ -731,6 +731,9 @@ int romMapperMegaFlashRomSccPlusSDCreate(int cartNo, int slot, int sslot, int st
         persistName = (sramExists || seedData != NULL) ? sramPath : NULL;
         rm->flash = amdFlashCreate(AMD_TYPE_2, FLASH_SIZE, 0x10000, 0,
                                    seedData, seedSize, persistName, 0);
+        /* The MFRSD flash is an M29W640 which implements the 0x56
+        ** Quadruple Byte Program command. */
+        amdFlashEnableFastCommands(rm->flash);
         free(seedData);
     }
 

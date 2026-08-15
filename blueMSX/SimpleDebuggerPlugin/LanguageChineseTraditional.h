@@ -112,6 +112,7 @@ public:
         symbolWindowText            = "取代舊的符號";
 
         popupOverwrite              = "檔案已經存在。 您確定要覆寫它嗎？";
+        popupRemoveBreakpoints      = "中斷點仍然存在。 關閉前要移除它們嗎？";
         
         aboutBuilt                  = "組建:";
         aboutVisit                  = "請訪問 http://www.bluemsx.com 取得更多細節";

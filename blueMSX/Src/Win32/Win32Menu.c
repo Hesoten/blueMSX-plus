@@ -181,6 +181,7 @@ extern int showLoadMemoryDlg(HWND hwnd);
 #define ID_FILE_CART_MEGAFLSHSCCPLUS_SD 41118
 #define ID_FILE_CART_ASCII16X           41119
 #define ID_FILE_CART_YAMANOOTO          41120
+#define ID_FILE_CART_FLASHROMSCC        41121
 #define ID_FILE_CART_JOYREXPSG          41110
 #define ID_FILE_CART_EXTRAM16KB         41111
 #define ID_FILE_CART_EXTRAM32KB         41112
@@ -213,6 +214,9 @@ extern int showLoadMemoryDlg(HWND hwnd);
 #define ID_FILE_TAPE_READONLY           41505
 #define ID_FILE_TAPE_AUTOREWNIND        41506
 #define ID_FILE_TAPE_HISTORY            41507
+/* 41508 to 41536 belong to ID_FILE_TAPE_HISTORY + i, one per MAX_HISTORY entry */
+#define ID_FILE_TAPE_INSERTNEW          41537
+#define ID_FILE_TAPE_SAVEMONITOR        41538
 
 #define ID_HARDDISK_REMOVEALL           41599
 
@@ -330,6 +334,7 @@ static const char* getCleanFileName(const char* fileName)
     if (strcmp(fileName, CARTNAME_MEGAFLSHSCCPLUS) == 0)return "Mega Flash Rom SCC+";
     if (strcmp(fileName, CARTNAME_ASCII16X) == 0)       return "ASCII16-X";
     if (strcmp(fileName, CARTNAME_YAMANOOTO) == 0)      return "Yamanooto";
+    if (strcmp(fileName, CARTNAME_FLASHROMSCC) == 0)    return "Flash-ROM SCC";
     if (strcmp(fileName, CARTNAME_ESERAM256) == 0)      return langRomTypeEseRam256();
     if (strcmp(fileName, CARTNAME_ESERAM512) == 0)      return langRomTypeEseRam512();
     if (strcmp(fileName, CARTNAME_ESERAM1MB) == 0)      return langRomTypeEseRam1mb();
@@ -452,12 +457,12 @@ static HMENU menuCreateReset(Properties* pProperties, Shortcuts* shortcuts) {
     
     setMenuColor(hMenu);
 
-    sprintf(langBuffer, "%s        \t%hs", langMenuRunHardReset(), shortcutsToString(shortcuts->resetHard));
+    sprintf(langBuffer, "%s        \t%hs", langMenuRunHardReset(), shortcutsSetToString(&shortcuts->resetHard));
     AppendMenuU(hMenu, MF_STRING, ID_RUN_RESET, langBuffer);
 //    ModifyMenuU(hMenu, 0, MF_BYPOSITION | MF_OWNERDRAW, 0, NULL);
-    sprintf(langBuffer, "%s        \t%hs", langMenuRunSoftReset(), shortcutsToString(shortcuts->resetSoft));
+    sprintf(langBuffer, "%s        \t%hs", langMenuRunSoftReset(), shortcutsSetToString(&shortcuts->resetSoft));
     AppendMenuU(hMenu, MF_STRING, ID_RUN_SOFTRESET, langBuffer);
-    sprintf(langBuffer, "%s        \t%hs", langMenuRunCleanReset(), shortcutsToString(shortcuts->resetClean));
+    sprintf(langBuffer, "%s        \t%hs", langMenuRunCleanReset(), shortcutsSetToString(&shortcuts->resetClean));
     AppendMenuU(hMenu, MF_STRING, ID_RUN_CLEANRESET, langBuffer);
 
     return hMenu;
@@ -592,6 +597,7 @@ static HMENU menuCreateCartSpecial(int cartNo, Properties* pProperties, Shortcut
 
     AppendMenuU(hMenuFlashCart, MF_STRING, idOffset + ID_FILE_CART_ASCII16X, "ASCII16-X");
     AppendMenuU(hMenuFlashCart, MF_STRING, idOffset + ID_FILE_CART_YAMANOOTO, "Yamanooto");
+    AppendMenuU(hMenuFlashCart, MF_STRING, idOffset + ID_FILE_CART_FLASHROMSCC, "Flash-ROM SCC");
 
     AppendMenuU(hMenuWaveSCSI, MF_STRING, idOffset + ID_FILE_CART_WAVESCSI128, "128 kB");
     AppendMenuU(hMenuWaveSCSI, MF_STRING, idOffset + ID_FILE_CART_WAVESCSI256, "256 kB");
@@ -657,7 +663,7 @@ static HMENU menuCreateCart(int cartNo, Properties* pProperties, Shortcuts* shor
                         pProperties->filehistory.cartridgeType[cartNo]);
     }
 #endif
-    sprintf(langBuffer, "%s      \t%hs", langMenuInsert(), shortcutsToString(shortcuts->cartInsert[cartNo]));
+    sprintf(langBuffer, "%s      \t%hs", langMenuInsert(), shortcutsSetToString(&shortcuts->cartInsert[cartNo]));
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_INSERT, langBuffer);
 
     if (enableSpecial) {
@@ -791,7 +797,7 @@ static HMENU menuCreateVideoCapture(Properties* pProperties, Shortcuts* shortcut
     case 0:
     default:
         sprintf(langBuffer, "%s      \t%hs", langMenuVideoRecord(),
-                shortcutsToString(shortcuts->videoCapRec));
+                shortcutsSetToString(&shortcuts->videoCapRec));
         AppendMenuU(hMenu, MF_STRING, ID_FILE_VIDEOCAPREC, langBuffer);
         break;
     case 1:
@@ -799,23 +805,23 @@ static HMENU menuCreateVideoCapture(Properties* pProperties, Shortcuts* shortcut
         ** menu-check gutter, matching audio / video record indicators
         ** in the parent File menu. */
         sprintf(langBuffer, "%s      \t%hs", langMenuVideoStop(),
-                shortcutsToString(shortcuts->videoCapStop));
+                shortcutsSetToString(&shortcuts->videoCapStop));
         AppendMenuU(hMenu, MF_STRING, ID_FILE_VIDEOCAPSTOP, langBuffer);
         setMenuRecDot(hMenu, ID_FILE_VIDEOCAPSTOP);
         break;
     case 2:
         sprintf(langBuffer, "%s      \t%hs", langMenuVideoRecAppend(),
-                shortcutsToString(shortcuts->videoCapRec));
+                shortcutsSetToString(&shortcuts->videoCapRec));
         AppendMenuU(hMenu, MF_STRING, ID_FILE_VIDEOCAPREC, langBuffer);
         break;
     }
 
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
     
-    sprintf(langBuffer, "%s      \t%hs", langMenuVideoLoad(), shortcutsToString(shortcuts->videoCapLoad));
+    sprintf(langBuffer, "%s      \t%hs", langMenuVideoLoad(), shortcutsSetToString(&shortcuts->videoCapLoad));
     AppendMenuU(hMenu, MF_STRING, ID_FILE_VIDEOCAPLOAD, langBuffer);
 
-    sprintf(langBuffer, "%s      \t%hs", langMenuVideoPlay(), shortcutsToString(shortcuts->videoCapPlay));
+    sprintf(langBuffer, "%s      \t%hs", langMenuVideoPlay(), shortcutsSetToString(&shortcuts->videoCapPlay));
     /* Keep Play always enabled: graying it while logVideo==2 left the user
     ** stuck after a replay finished (the menu isn't rebuilt on playback end,
     ** so Play stayed greyed and only "Append" was clickable). */
@@ -823,7 +829,7 @@ static HMENU menuCreateVideoCapture(Properties* pProperties, Shortcuts* shortcut
 
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
 
-    sprintf(langBuffer, "%s      \t%hs", langMenuVideoRender(), shortcutsToString(shortcuts->videoCapSave));
+    sprintf(langBuffer, "%s      \t%hs", langMenuVideoRender(), shortcutsSetToString(&shortcuts->videoCapSave));
     /* Render-to-video now picks the source .cap from disk inside its own
     ** dialog, so there's no requirement that a capture be loaded in memory
     ** first. Keep the item always enabled. */
@@ -889,12 +895,12 @@ static HMENU menuCreateDisk(int diskNo, Properties* pProperties, Shortcuts* shor
     setMenuColor(hMenu);
 
     if (appConfigGetInt("menu.file.disk.insert", 1) > 0) {
-        sprintf(langBuffer, "%s      \t%hs", langMenuInsert(), shortcutsToString(shortcuts->diskInsert[diskNo]));
+        sprintf(langBuffer, "%s      \t%hs", langMenuInsert(), shortcutsSetToString(&shortcuts->diskInsert[diskNo]));
         AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_DISK_INSERT, langBuffer);
     }
 
     if (appConfigGetInt("menu.file.disk.insertdir", 1) > 0) {
-        sprintf(langBuffer, "%s      \t%hs", langMenuDiskDirInsert(), shortcutsToString(shortcuts->diskDirInsert[diskNo]));
+        sprintf(langBuffer, "%s      \t%hs", langMenuDiskDirInsert(), shortcutsSetToString(&shortcuts->diskDirInsert[diskNo]));
         AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_DISK_INSERTDIR, langBuffer);
     }
 
@@ -1107,8 +1113,12 @@ static HMENU menuCreateCassette(Properties* pProperties, Shortcuts* shortcuts)
 
     setMenuColor(hMenu);
 
-    sprintf(langBuffer, "%s      \t%hs", langMenuInsert(), shortcutsToString(shortcuts->casInsert));
+    sprintf(langBuffer, "%s      \t%hs", langMenuInsert(), shortcutsSetToString(&shortcuts->casInsert));
     AppendMenuU(hMenu, MF_STRING, ID_FILE_TAPE_INSERT, langBuffer);
+
+    if (appConfigGetInt("menu.file.cassette.insertnew", 1) > 0) {
+        AppendMenuU(hMenu, MF_STRING, ID_FILE_TAPE_INSERTNEW, langMenuCasInsertNew());
+    }
 
     sprintf(langBuffer, "%s%hs%hs", langMenuEject(), (*pProperties->media.tapes[0].fileName ? ": " : ""), getCleanFileName(pProperties->media.tapes[0].fileName));
     AppendMenuU(hMenu, MF_STRING | (*pProperties->media.tapes[0].fileName ? 0 : MF_GRAYED), ID_FILE_TAPE_REMOVE, langBuffer);
@@ -1117,18 +1127,22 @@ static HMENU menuCreateCassette(Properties* pProperties, Shortcuts* shortcuts)
 
     AppendMenuU(hMenu, MF_STRING | (pProperties->cassette.rewindAfterInsert ? MFS_CHECKED : 0), ID_FILE_TAPE_AUTOREWNIND, langMenuCasRewindAfterInsert());
 
+    AppendMenuU(hMenu, MF_STRING | (pProperties->cassette.saveMonitor ? MFS_CHECKED : 0), ID_FILE_TAPE_SAVEMONITOR, langMenuCasSaveMonitor());
+
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
 
     AppendMenuU(hMenu, MF_STRING | (pProperties->cassette.readOnly ? MFS_CHECKED : 0), ID_FILE_TAPE_READONLY, langMenuCasUseReadOnly());
 
-    AppendMenuU(hMenu, MF_STRING | (*pProperties->media.tapes[0].fileName ? 0 : MF_GRAYED), ID_FILE_TAPE_SAVE, langMenuCasSaveAs());
+    /* Save As only writes the CAS variants, and a signal only image has no byte
+    ** stream to write, so it stays out of reach for those. */
+    AppendMenuU(hMenu, MF_STRING | (*pProperties->media.tapes[0].fileName && !tapeIsSignalOnly() ? 0 : MF_GRAYED), ID_FILE_TAPE_SAVE, langMenuCasSaveAs());
 
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
 
-    sprintf(langBuffer, "%s      \t%hs", langMenuCasSetPosition(), shortcutsToString(shortcuts->casSetPos));
+    sprintf(langBuffer, "%s      \t%hs", langMenuCasSetPosition(), shortcutsSetToString(&shortcuts->casSetPos));
     AppendMenuU(hMenu, MF_STRING | (*pProperties->media.tapes[0].fileName ? 0 : MF_GRAYED), ID_FILE_TAPE_POSITION, langBuffer);
 
-    sprintf(langBuffer, "%s      \t%hs", langMenuCasRewind(), shortcutsToString(shortcuts->casRewind));
+    sprintf(langBuffer, "%s      \t%hs", langMenuCasRewind(), shortcutsSetToString(&shortcuts->casRewind));
     AppendMenuU(hMenu, MF_STRING | (*pProperties->media.tapes[0].fileName ? 0 : MF_GRAYED), ID_FILE_TAPE_REWIND, langBuffer);
 
 #ifndef NO_FILE_HISTORY
@@ -1155,7 +1169,7 @@ static HMENU menuCreatePrinter(Properties* pProperties, Shortcuts* shortcuts)
 
     setMenuColor(hMenu);
 
-    sprintf(langBuffer, "%s      \t%hs", langMenuPrnFormfeed(), shortcutsToString(shortcuts->prnFormFeed));
+    sprintf(langBuffer, "%s      \t%hs", langMenuPrnFormfeed(), shortcutsSetToString(&shortcuts->prnFormFeed));
     AppendMenuU(hMenu, MF_STRING, ID_FILE_PRINTER_FORMFEED, langBuffer);
 
     return hMenu;
@@ -1198,31 +1212,31 @@ static HMENU menuCreateZoom(Properties* pProperties, Shortcuts* shortcuts)
 
     setMenuColor(hMenu);
 
-    sprintf(langBuffer, "%s      \t%hs", langMenuZoom1x(), shortcutsToString(shortcuts->windowSize1x));
+    sprintf(langBuffer, "%s      \t%hs", langMenuZoom1x(), shortcutsSetToString(&shortcuts->windowSize1x));
     AppendMenuU(hMenu, MF_STRING | (pProperties->video.windowSize == P_VIDEO_SIZEX1 ? MFS_CHECKED : 0), ID_SIZE_X1, langBuffer);
 
-    sprintf(langBuffer, "%s      \t%hs", langMenuZoom2x(), shortcutsToString(shortcuts->windowSize2x));
+    sprintf(langBuffer, "%s      \t%hs", langMenuZoom2x(), shortcutsSetToString(&shortcuts->windowSize2x));
     AppendMenuU(hMenu, MF_STRING | (pProperties->video.windowSize == P_VIDEO_SIZEX2 ? MFS_CHECKED : 0), ID_SIZE_X2, langBuffer);
 
-    sprintf(langBuffer, "%s      \t%hs", langMenuZoom3x(), shortcutsToString(shortcuts->windowSize3x));
+    sprintf(langBuffer, "%s      \t%hs", langMenuZoom3x(), shortcutsSetToString(&shortcuts->windowSize3x));
     AppendMenuU(hMenu, MF_STRING | (pProperties->video.windowSize == P_VIDEO_SIZEX3 ? MFS_CHECKED : 0), ID_SIZE_X3, langBuffer);
 
-    sprintf(langBuffer, "%s      \t%hs", langMenuZoom4x(), shortcutsToString(shortcuts->windowSize4x));
+    sprintf(langBuffer, "%s      \t%hs", langMenuZoom4x(), shortcutsSetToString(&shortcuts->windowSize4x));
     AppendMenuU(hMenu, MF_STRING | (pProperties->video.windowSize == P_VIDEO_SIZEX4 ? MFS_CHECKED : 0), ID_SIZE_X4, langBuffer);
 
-    sprintf(langBuffer, "%s      \t%hs", langMenuZoom5x(), shortcutsToString(shortcuts->windowSize5x));
+    sprintf(langBuffer, "%s      \t%hs", langMenuZoom5x(), shortcutsSetToString(&shortcuts->windowSize5x));
     AppendMenuU(hMenu, MF_STRING | (pProperties->video.windowSize == P_VIDEO_SIZEX5 ? MFS_CHECKED : 0), ID_SIZE_X5, langBuffer);
 
-    sprintf(langBuffer, "%s      \t%hs", langMenuZoom6x(), shortcutsToString(shortcuts->windowSize6x));
+    sprintf(langBuffer, "%s      \t%hs", langMenuZoom6x(), shortcutsSetToString(&shortcuts->windowSize6x));
     AppendMenuU(hMenu, MF_STRING | (pProperties->video.windowSize == P_VIDEO_SIZEX6 ? MFS_CHECKED : 0), ID_SIZE_X6, langBuffer);
 
-    sprintf(langBuffer, "%s      \t%hs", langMenuZoom7x(), shortcutsToString(shortcuts->windowSize7x));
+    sprintf(langBuffer, "%s      \t%hs", langMenuZoom7x(), shortcutsSetToString(&shortcuts->windowSize7x));
     AppendMenuU(hMenu, MF_STRING | (pProperties->video.windowSize == P_VIDEO_SIZEX7 ? MFS_CHECKED : 0), ID_SIZE_X7, langBuffer);
 
-    sprintf(langBuffer, "%s      \t%hs", langMenuZoom8x(), shortcutsToString(shortcuts->windowSize8x));
+    sprintf(langBuffer, "%s      \t%hs", langMenuZoom8x(), shortcutsSetToString(&shortcuts->windowSize8x));
     AppendMenuU(hMenu, MF_STRING | (pProperties->video.windowSize == P_VIDEO_SIZEX8 ? MFS_CHECKED : 0), ID_SIZE_X8, langBuffer);
 
-    sprintf(langBuffer, "%s      \t%hs", langMenuZoomFullscreen(), shortcutsToString(shortcuts->windowSizeFullscreen));
+    sprintf(langBuffer, "%s      \t%hs", langMenuZoomFullscreen(), shortcutsSetToString(&shortcuts->windowSizeFullscreen));
     AppendMenuU(hMenu, MF_STRING | (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN ? MFS_CHECKED : 0), ID_SIZE_FULLSCREEN, langBuffer);
 
     return hMenu;
@@ -1370,15 +1384,15 @@ static HMENU menuCreateFile(Properties* pProperties, Shortcuts* shortcuts, int i
     }
 
     if (appConfigGetInt("menu.file.savestate", 1) != 0) {
-        sprintf(langBuffer, "%s        \t%hs", langMenuFileLoadState(), shortcutsToString(shortcuts->cpuStateLoad));
+        sprintf(langBuffer, "%s        \t%hs", langMenuFileLoadState(), shortcutsSetToString(&shortcuts->cpuStateLoad));
         AppendMenuU(hMenu, MF_STRING, ID_FILE_LOAD, langBuffer);
-        sprintf(langBuffer, "%s        \t%hs", langMenuFileSaveState(), shortcutsToString(shortcuts->cpuStateSave));
+        sprintf(langBuffer, "%s        \t%hs", langMenuFileSaveState(), shortcutsSetToString(&shortcuts->cpuStateSave));
         AppendMenuU(hMenu, MF_STRING | (!isStopped ? 0 : MF_GRAYED), ID_FILE_SAVE, langBuffer);
         AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
 
-        sprintf(langBuffer, "%s        \t%hs", langMenuFileQLoadState(), shortcutsToString(shortcuts->cpuStateQuickLoad));
+        sprintf(langBuffer, "%s        \t%hs", langMenuFileQLoadState(), shortcutsSetToString(&shortcuts->cpuStateQuickLoad));
         AppendMenuU(hMenu, MF_STRING | (tempStateExits ? 0 : MF_GRAYED), ID_FILE_QLOAD, langBuffer);
-        sprintf(langBuffer, "%s        \t%hs", langMenuFileQSaveState(), shortcutsToString(shortcuts->cpuStateQuickSave));
+        sprintf(langBuffer, "%s        \t%hs", langMenuFileQSaveState(), shortcutsSetToString(&shortcuts->cpuStateQuickSave));
         AppendMenuU(hMenu, MF_STRING | (!isStopped ? 0 : MF_GRAYED), ID_FILE_QSAVE, langBuffer);
         AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
     }
@@ -1389,11 +1403,11 @@ static HMENU menuCreateFile(Properties* pProperties, Shortcuts* shortcuts, int i
         if (logSound) {
             sprintf(langBuffer, "%s        \t%hs",
                     langMenuFileStopAudio(),
-                    shortcutsToString(shortcuts->wavCapture));
+                    shortcutsSetToString(&shortcuts->wavCapture));
         } else {
             sprintf(langBuffer, "%s        \t%hs",
                     langMenuFileCaptureAudio(),
-                    shortcutsToString(shortcuts->wavCapture));
+                    shortcutsSetToString(&shortcuts->wavCapture));
         }
         AppendMenuU(hMenu, MF_STRING, ID_FILE_LOGWAV, langBuffer);
         if (logSound) setMenuRecDot(hMenu, ID_FILE_LOGWAV);
@@ -1401,17 +1415,17 @@ static HMENU menuCreateFile(Properties* pProperties, Shortcuts* shortcuts, int i
         if (archRecordVideoIsActive()) {
             sprintf(langBuffer, "%s        \t%hs",
                     langMenuFileStopRecordVideo(),
-                    shortcutsToString(shortcuts->recordVideoStop));
+                    shortcutsSetToString(&shortcuts->recordVideoStop));
             AppendMenuU(hMenu, MF_STRING, ID_FILE_RECORD_VIDEO_STOP, langBuffer);
             setMenuRecDot(hMenu, ID_FILE_RECORD_VIDEO_STOP);
         } else {
             sprintf(langBuffer, "%s        \t%hs",
                     langMenuFileRecordVideo(),
-                    shortcutsToString(shortcuts->recordVideoStart));
+                    shortcutsSetToString(&shortcuts->recordVideoStart));
             AppendMenuU(hMenu, MF_STRING, ID_FILE_RECORD_VIDEO_START, langBuffer);
         }
 
-        sprintf(langBuffer, "%s        \t%hs", langMenuFileScreenShot(), shortcutsToString(shortcuts->screenCapture));
+        sprintf(langBuffer, "%s        \t%hs", langMenuFileScreenShot(), shortcutsSetToString(&shortcuts->screenCapture));
         AppendMenuU(hMenu, MF_STRING, ID_FILE_PTRSCR, langBuffer);
 
         /* Replay submenu sits last (more complex / less frequently used). */
@@ -1425,17 +1439,17 @@ static HMENU menuCreateFile(Properties* pProperties, Shortcuts* shortcuts, int i
 
     if (appConfigGetInt("menu.file.run", 0) != 0) {
         if (isRunning) {
-            sprintf(langBuffer, "%s        \t%hs", langMenuRunPause(), shortcutsToString(shortcuts->emulationRunPause));
+            sprintf(langBuffer, "%s        \t%hs", langMenuRunPause(), shortcutsSetToString(&shortcuts->emulationRunPause));
             AppendMenuU(hMenu, MF_STRING, ID_RUN_RUN, langBuffer);
         }
         else {
-            sprintf(langBuffer, "%s        \t%hs", langMenuRunRun(), shortcutsToString(shortcuts->emulationRunPause));
+            sprintf(langBuffer, "%s        \t%hs", langMenuRunRun(), shortcutsSetToString(&shortcuts->emulationRunPause));
             AppendMenuU(hMenu, MF_STRING, ID_RUN_RUN, langBuffer);
         }
         AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);  
     }
 
-    sprintf(langBuffer, "%s        \t%hs", langMenuFileExit(), shortcutsToString(shortcuts->quit));
+    sprintf(langBuffer, "%s        \t%hs", langMenuFileExit(), shortcutsSetToString(&shortcuts->quit));
     AppendMenuU(hMenu, MF_STRING, ID_FILE_EXIT, langBuffer);
 
     return hMenu;
@@ -1449,26 +1463,26 @@ static HMENU menuCreateRun(Properties* pProperties, Shortcuts* shortcuts, int is
     setMenuColor(hMenu);
 
     if (isRunning) {
-        sprintf(langBuffer, "%s        \t%hs", langMenuRunPause(), shortcutsToString(shortcuts->emulationRunPause));
+        sprintf(langBuffer, "%s        \t%hs", langMenuRunPause(), shortcutsSetToString(&shortcuts->emulationRunPause));
         AppendMenuU(hMenu, MF_STRING, ID_RUN_RUN, langBuffer);
     }
     else {
-        sprintf(langBuffer, "%s        \t%hs", langMenuRunRun(), shortcutsToString(shortcuts->emulationRunPause));
+        sprintf(langBuffer, "%s        \t%hs", langMenuRunRun(), shortcutsSetToString(&shortcuts->emulationRunPause));
         AppendMenuU(hMenu, MF_STRING, ID_RUN_RUN, langBuffer);
     }
 
-    sprintf(langBuffer, "%s        \t%hs", langMenuRunStop(), shortcutsToString(shortcuts->emulationStop));
+    sprintf(langBuffer, "%s        \t%hs", langMenuRunStop(), shortcutsSetToString(&shortcuts->emulationStop));
     AppendMenuU(hMenu, MF_STRING | (!isStopped ? 0 : MF_GRAYED), ID_RUN_STOP, langBuffer);
 
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
 
-    sprintf(langBuffer, "%s        \t%hs", langMenuRunHardReset(), shortcutsToString(shortcuts->resetHard));
+    sprintf(langBuffer, "%s        \t%hs", langMenuRunHardReset(), shortcutsSetToString(&shortcuts->resetHard));
     AppendMenuU(hMenu, MF_STRING, ID_RUN_RESET, langBuffer);
 
-    sprintf(langBuffer, "%s        \t%hs", langMenuRunSoftReset(), shortcutsToString(shortcuts->resetSoft));
+    sprintf(langBuffer, "%s        \t%hs", langMenuRunSoftReset(), shortcutsSetToString(&shortcuts->resetSoft));
     AppendMenuU(hMenu, MF_STRING, ID_RUN_SOFTRESET, langBuffer);
 
-    sprintf(langBuffer, "%s        \t%hs", langMenuRunCleanReset(), shortcutsToString(shortcuts->resetClean));
+    sprintf(langBuffer, "%s        \t%hs", langMenuRunCleanReset(), shortcutsSetToString(&shortcuts->resetClean));
     AppendMenuU(hMenu, MF_STRING, ID_RUN_CLEANRESET, langBuffer);
 
     return hMenu;
@@ -2023,7 +2037,7 @@ int menuCommand(Properties* pProperties, int command)
             insertCartridge(pProperties, i, CARTNAME_GIDE, NULL, ROM_GIDE, 0);
             return 1;
         case ID_FILE_CART_NMS1210:
-            insertCartridge(pProperties, i, CARTNAME_NMS1210, NULL, ROM_GIDE, 0);
+            insertCartridge(pProperties, i, CARTNAME_NMS1210, NULL, ROM_NMS1210, 0);
             return 1;
         case ID_FILE_CART_MEGARAM128:
             insertCartridge(pProperties, i, CARTNAME_MEGARAM128, NULL, ROM_MEGARAM128, 0);
@@ -2114,6 +2128,9 @@ int menuCommand(Properties* pProperties, int command)
             return 1;
         case ID_FILE_CART_YAMANOOTO:
             insertCartridge(pProperties, i, CARTNAME_YAMANOOTO, NULL, ROM_YAMANOOTO, 0);
+            return 1;
+        case ID_FILE_CART_FLASHROMSCC:
+            insertCartridge(pProperties, i, CARTNAME_FLASHROMSCC, NULL, ROM_FLASHROMSCC, 0);
             return 1;
         case ID_FILE_CART_WAVESCSI128:
             insertCartridge(pProperties, i, CARTNAME_WAVESCSI128, NULL, SRAM_WAVESCSI128, 0);
@@ -2268,9 +2285,11 @@ int menuCommand(Properties* pProperties, int command)
     case ID_FILE_TAPE_POSITION:             actionCasSetPosition();         return 0;
     case ID_FILE_TAPE_REWIND:               actionCasRewind();              return 0;
     case ID_FILE_TAPE_INSERT:               actionCasInsert();              return 0;
+    case ID_FILE_TAPE_INSERTNEW:            actionCasInsertNew();           return 0;
     case ID_FILE_TAPE_REMOVE:               actionCasRemove();              return 0;
     case ID_FILE_TAPE_READONLY:             actionCasToggleReadonly();      return 0;
     case ID_FILE_TAPE_AUTOREWNIND:          actionToggleCasAutoRewind();    return 0;
+    case ID_FILE_TAPE_SAVEMONITOR:          actionToggleCasSaveMonitor();   return 0;
     case ID_FILE_TAPE_SAVE:                 actionCasSave();                return 0;
     case ID_HARDDISK_REMOVEALL:             actionHarddiskRemoveAll();      return 0;
     }

@@ -64,8 +64,8 @@ void exitDialogShow();
 
 /* Show / update / hide a tracking tooltip showing a slider's value next to
 ** the cursor.  *phwndTip caches the tooltip HWND (one per parent window),
-** created lazily on first show.  Pass percent < 0 to hide. */
-void win32SliderTooltipUpdate(HWND* phwndTip, HWND parent, int percent);
+** created lazily on first show.  text is UTF-8; pass NULL to hide. */
+void win32SliderTooltipUpdate(HWND* phwndTip, HWND parent, const char* text);
 
 /* Theme query helpers for custom-paint controls (no WM_CTLCOLOR* path). */
 BOOL win32CommonIsDarkMode(void);
@@ -80,5 +80,12 @@ void win32CommonApplyDark(HWND hDlg);
 /* Center dialog over its owner (falls back to main HWND) instead of the
 ** monitor (DS_CENTER).  Call from WM_INITDIALOG. */
 void win32CommonCenterOnOwner(HWND hDlg);
+
+/* Paint a subtle clear-chip glyph (hollow circle + diagonal x) inside
+** `r`.  Radius = min(w,h) * radNumer / radDenom.  If fillBg, bgCol
+** fills the rect first; otherwise the caller must pre-paint it. */
+void win32PaintClearChip(HDC hdc, const RECT* r,
+                         int radNumer, int radDenom, int penW,
+                         int fillBg, COLORREF bgCol, COLORREF glyphCol);
 
 #endif

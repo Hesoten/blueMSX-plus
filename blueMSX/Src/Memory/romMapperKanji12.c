@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -142,9 +145,12 @@ static void getDebugInfo(RomMapperKanji12* rm, DbgDevice* dbgDevice)
         DbgIoPorts* ioPorts;
         int i;
 
-        ioPorts = dbgDeviceAddIoPorts(dbgDevice, langDbgDevKanji12(), 2);
+        ioPorts = dbgDeviceAddIoPorts(dbgDevice, langDbgDevKanji12(), 16);
 
-        for (i = 0; i < 16; i++) {
+        /* A write to 40h selects the bank and never reaches the device */
+        dbgIoPortsAddPort(ioPorts, 0, 0x40, DBG_IO_READ, peek(rm, 0));
+
+        for (i = 1; i < 16; i++) {
             dbgIoPortsAddPort(ioPorts, i, 0x40 + i, DBG_IO_READWRITE, peek(rm, i));
         }
     }

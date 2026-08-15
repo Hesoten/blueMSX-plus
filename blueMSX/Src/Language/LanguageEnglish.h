@@ -81,6 +81,8 @@ void langInitEnglish(LanguageStrings* ls)
     ls->errorDirectXFailed      = "Failed to create DirectX objects.           \nUsing GDI instead.\nCheck Video properties.";
     ls->errorNoRomInZip         = "Could not locate a .ROM file in the ZIP archive.";
     ls->errorNoDskInZip         = "Could not locate a .DSK file in the ZIP archive.";
+    ls->errorCreateDiskImage    = "Could not create the disk image file.";
+    ls->errorCreateTapeImage    = "Could not create the tape image file.";
     ls->errorNoCasInZip         = "Could not locate a .CAS file in the ZIP archive.";
     ls->errorDirAsDskOverflow   = "%d file(s) (%d KB total) did not fit in the 720 KB disk image and were skipped.";
     ls->errorNoHelp             = "Could not locate the blueMSX+ help file.";
@@ -91,6 +93,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->errorStartEmuConfigInvalid       = "Could not read config.ini for machine configuration '%s'. The file may be corrupted or from an incompatible version.";
     ls->errorMissingFiles       = "The following files could not be loaded:";
     ls->errorPortableReadonly   = "Portable device is readonly";
+    ls->errorMidiOpenFailed     = "Failed to open MIDI device '%s'. It may be in use by another application.";
     ls->infoTitle                  = "blueMSX+ Info";
     ls->infoGameReaderRedirect     = "blueMSX+ does not directly support the MSX Game Reader (the original ASCII XP-era driver no longer works on modern Windows).\n\nOpen the MSX Game Reader - Web Dumper (by Kunihiko Ohnaka) in your browser instead?";
     ls->infoColorDepth             = "blueMSX+ works best in 16 or 32 bit color depth.";
@@ -104,6 +107,9 @@ void langInitEnglish(LanguageStrings* ls)
     ls->infoRecorderComplete    = "Video file saved:\n  %s";
     ls->infoToastSaved          = "Saved: %s";
     ls->infoToastAlreadyRecording  = "Already recording";
+    ls->infoToastMouseConnected    = "PC mouse connected to MSX";
+    ls->infoToastMouseDisconnected = "PC mouse disconnected from MSX";
+    ls->propControlsMouseSens      = "Sensitivity:";
     ls->dlgRecorderPickTitle       = "blueMSX+ - Render Replay to Video";
     ls->dlgRecorderPickSourceCap   = "Replay file to render (.cap):";
     ls->dlgRecorderPickOutputMp4   = "Output video file (.mp4):";
@@ -180,7 +186,9 @@ void langInitEnglish(LanguageStrings* ls)
     ls->menuDiskAutoStart       = "Reset After Insert";
     ls->menuCartAutoReset       = "Reset After Insert/Remove";
 
+    ls->menuCasInsertNew        = "Insert New Tape Image";
     ls->menuCasRewindAfterInsert= "Rewind After Insert";
+    ls->menuCasSaveMonitor      = "Monitor Sound While Saving";
     ls->menuCasUseReadOnly      = "Use Cassette Image Read Only";
     ls->lmenuCasSaveAs          = "Save Cassette Image As...";
     ls->menuCasSetPosition      = "Set Position";
@@ -310,6 +318,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->dlgInsertDiskB          = "Insert disk image into drive B";
     ls->dlgInsertHarddisk       = "Insert Hard Disk";
     ls->dlgInsertCas            = "Insert cassette tape";
+    ls->dlgCreateCas            = "Create a new tape image";
     ls->dlgRomType              = "ROM Type:";
     ls->dlgDiskSize             = "Disk Size:";             
 
@@ -395,13 +404,15 @@ void langInitEnglish(LanguageStrings* ls)
     ls->propEmuVramSizeText     = "VRAM size:";
     ls->propEmuSpeedGB          = "Emulation Speed ";
     ls->propEmuSpeedText        = "Emulator core:";
-    ls->propEmuVdpCmdSpeedText  = "VDP command wait time:";
+    ls->propEmuVdpCmdSpeedText  = "VDP command wait:";
     ls->propEmuFrontSwitchGB    = "Panasonic Switches ";
     ls->propEmuFrontSwitch      = " Front Switch";
     ls->propEmuNoSpriteLimits   = " Disable Sprites Limitation";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emulate MSX keyboard quirk";  // New in 2.9
-    ls->propEmuFdcTiming        = " Accelerate during FDD access";
-    ls->propEmuHddSdBoost       = " Accelerate during HDD/SD card access";
+    ls->propEmuBoostText        = "Accelerate during device access:";
+    ls->propEmuFdcTiming        = " FDD";
+    ls->propEmuCasBoost         = " Cassette";
+    ls->propEmuHddSdBoost       = " HDD/SD card";
     ls->propEmuReversePlay      = " Enable reverse playback"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " Pause Switch";
     ls->propEmuAudioSwitch      = " MSX-AUDIO cartridge switch";
@@ -492,7 +503,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->propFileTypes           = " Register .ROM/.DSK/.CAS/.STA in the \"Open with\" menu";
     ls->propOpenDefaultApps     = "Open Windows default-apps settings";
     ls->propWindowsEnvGB        = "Windows Environment "; 
-    ls->propSetScreenSaver      = " Keep display on while blueMSX+ is running (no screen-off / sleep / saver)";
+    ls->propSetScreenSaver      = " Keep display on while blueMSX+ is running (no sleep/saver)";
     ls->propPriorityBoost       = " Use Windows game scheduler (MMCSS) for emulation";
     ls->propScreenshotPng       = " Save screenshots in PNG format instead of BMP";
     ls->propEjectMediaOnExit    = " Eject all media when blueMSX+ exits";        // New in 2.8
@@ -519,8 +530,7 @@ void langInitEnglish(LanguageStrings* ls)
 
     ls->propD3DParametersGB         = "Parameters ";                // New in 2.9
     ls->propD3DAspectRatioText      = "Aspect ratio";               // New in 2.9
-    ls->propD3DLinearFilteringText  = " Linear filtering";          // New in 2.9
-    ls->propD3DForceHighResText     = " Force high resolution";     // New in 2.9
+    ls->propD3DScalingFilterText     = "Scaling filter";
     ls->propD3DExtendBorderColorText    = " Extend border color";   // New in 2.9
 
     ls->propD3DCroppingGB               = "Cropping ";              // New in 2.9
@@ -569,6 +579,10 @@ void langInitEnglish(LanguageStrings* ls)
     ls->enumD3DARPAL            = "PAL";            // New in 2.9
     ls->enumD3DARNTSC           = "NTSC";           // New in 2.9
     ls->enumD3DAR11             = "1:1";            // New in 2.9
+    ls->enumD3DScaleNearest          = "Nearest";
+    ls->enumD3DScaleBilinear         = "Bilinear";
+    ls->enumD3DScaleSharp            = "Sharp bilinear";
+    ls->enumD3DScalePrescaled     = "Bilinear (2x prescale)";
 
     ls->enumD3DCropNone         = "None";           // New in 2.9
     ls->enumD3DCropMSX1         = "MSX1";           // New in 2.9
@@ -692,6 +706,11 @@ void langInitEnglish(LanguageStrings* ls)
     ls->shortcutConfigTitle     = "blueMSX+ - Shortcut Mapping Editor";
     ls->shortcutAssign          = "Assign";
     ls->shortcutPressText       = "Press shortcut key(s):";
+    ls->shortcutHotkeyHint      = "(up to 3 keys)";
+    ls->keyboardMappedHint      = "(up to 3 keys)";
+    ls->shortcutTooltipAlsoBound = "Also bound to: ";
+    ls->keyboardKeyFormat       = "%s key";
+    ls->keyconfigResetTab       = "Reset this tab's key assignments";
     ls->shortcutScheme          = "Mapping Scheme:";
     ls->shortcutCartInsert1     = "Insert Cartridge 1";
     ls->shortcutCartRemove1     = "Remove Cartridge 1";
@@ -750,7 +769,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->shortcutSwitchMsxAudio  = "Toggle MSX-AUDIO switch";
     ls->shortcutSwitchFront     = "Toggle Panasonic front switch";
     ls->shortcutSwitchPause     = "Toggle pause switch";
-    ls->shortcutToggleMouseLock = "Toggle mouse lock";
+    ls->shortcutToggleMouseLock = "Connect/disconnect PC mouse to MSX";
     ls->shortcutEmuSpeedMax     = "Max emulation speed";
     ls->shortcutEmuPlayReverse  = "Rewind emulation";                     // New in 2.8.3
     ls->shortcutEmuSpeedToggle  = "Toggle max emulation speed";

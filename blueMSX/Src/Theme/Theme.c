@@ -91,6 +91,7 @@ static int actionTypeToInt(ThemeTrigger actionType)
     case THEME_TRIGGER_IMG_PCM:         idx = TEST(actionType, themeTriggerAudioPcm()); break;
     case THEME_TRIGGER_IMG_IO:          idx = TEST(actionType, themeTriggerAudioIo()); break;
     case THEME_TRIGGER_IMG_MIDI:        idx = TEST(actionType, themeTriggerAudioMidi()); break;
+    case THEME_TRIGGER_IMG_CASSETTE:    idx = TEST(actionType, themeTriggerAudioCassette()); break;
     case THEME_TRIGGER_IMG_MASTER:      idx = TEST(actionType, themeTriggerAudioMaster()); break;
     case THEME_TRIGGER_IMG_STEREO:      idx = TEST(actionType, themeTriggerAudioStereo()); break;
     case THEME_TRIGGER_IMG_L_KBD:       idx = themeTriggerVolKbdLeft(); break;
@@ -113,6 +114,8 @@ static int actionTypeToInt(ThemeTrigger actionType)
     case THEME_TRIGGER_IMG_R_IO:        idx = themeTriggerVolIoRight(); break;
     case THEME_TRIGGER_IMG_L_MIDI:      idx = themeTriggerVolMidiLeft(); break;
     case THEME_TRIGGER_IMG_R_MIDI:      idx = themeTriggerVolMidiRight(); break;
+    case THEME_TRIGGER_IMG_L_CASSETTE:  idx = themeTriggerVolCassetteLeft(); break;
+    case THEME_TRIGGER_IMG_R_CASSETTE:  idx = themeTriggerVolCassetteRight(); break;
     case THEME_TRIGGER_IMG_L_MASTER:    idx = themeTriggerVolMasterLeft(); break;
     case THEME_TRIGGER_IMG_R_MASTER:    idx = themeTriggerVolMasterRight(); break;
 
@@ -155,6 +158,7 @@ static int actionTypeToInt(ThemeTrigger actionType)
     case THEME_TRIGGER_LEVEL_MOONSOUND: idx = themeTriggerLevelMoonsound(); break;
     case THEME_TRIGGER_LEVEL_SFG:       idx = themeTriggerLevelYamahaSfg(); break;
     case THEME_TRIGGER_LEVEL_MIDI:      idx = themeTriggerLevelMidi(); break;
+    case THEME_TRIGGER_LEVEL_CASSETTE:  idx = themeTriggerLevelCassette(); break;
     case THEME_TRIGGER_PAN_PSG:         idx = themeTriggerPanPsg(); break;
     case THEME_TRIGGER_PAN_PCM:         idx = themeTriggerPanPcm(); break;
     case THEME_TRIGGER_PAN_IO:          idx = themeTriggerPanIo(); break;
@@ -165,6 +169,7 @@ static int actionTypeToInt(ThemeTrigger actionType)
     case THEME_TRIGGER_PAN_MOONSOUND:   idx = themeTriggerPanMoonsound(); break;
     case THEME_TRIGGER_PAN_SFG:         idx = themeTriggerPanYamahaSfg(); break;
     case THEME_TRIGGER_PAN_MIDI:        idx = themeTriggerPanMidi(); break;
+    case THEME_TRIGGER_PAN_CASSETTE:    idx = themeTriggerPanCassette(); break;
 
     case THEME_TRIGGER_EMUSPEED:        idx = themeTriggerLevelEmuSpeed(); break;
 
@@ -438,21 +443,25 @@ void themePageAddObject(ThemePage* themePage, void* object, ThemeTrigger visible
     themePageAddLast(themePage, ITEM_OBJECT, object, THEME_TRIGGER_NONE, visible, THEME_TRIGGER_NONE);
 }
 
-int themePageHoverSliderPercent(ThemePage* themePage, int x, int y)
+const char* themePageHoverSliderText(ThemePage* themePage, int x, int y)
 {
     ThemeItem* item;
 
     if (themePage == NULL) {
-        return -1;
+        return NULL;
     }
     for (item = themePage->itemList; item != NULL; item = item->next) {
         if (item->type == ITEM_SLIDER &&
             activeSliderHitTest((ActiveSlider*)item->object, x, y))
         {
-            return activeSliderGetPercent((ActiveSlider*)item->object);
+            /* Read the live setting, not the slider frame index: the
+               sprite quantises to `max` steps, the property does not.
+               Empty text means "no value to show" -> no tooltip. */
+            const char* text = themeTriggerSliderValueText(item->trigger);
+            return (text != NULL && text[0] != 0) ? text : NULL;
         }
     }
-    return -1;
+    return NULL;
 }
 
 void themePageMouseMove(ThemePage* themePage, void*  dc, int x, int y)
@@ -978,4 +987,76 @@ void themeCollectionOpenWindow(ThemeCollection* tc, unsigned long hash)
     ** owned by the main window so it sits above the topmost main; in
     ** windowed mode it stays unowned (independent floating window). */
     archWindowApplyOwnership(tc->theme[i]->reference);
+}
+
+void* themeCollectionGetWindowHandle(ThemeCollection* tc, unsigned long hash)
+{
+    int i;
+    if (!tc) return NULL;
+    for (i = 0; i < THEME_MAX_WINDOWS; i++) {
+        if (tc->theme[i] && themeGetNameHash(tc->theme[i]->name) == hash) {
+            return tc->theme[i]->reference;
+        }
+    }
+    return NULL;
+}
+
+/* An item without a visible trigger is always shown. */
+static int themeItemIsVisible(const ThemeItem* it)
+{
+    if ((it->visible & THEME_TRIGGER_MASK) == 0) return 1;
+    return actionTypeToInt(it->visible) > 0;
+}
+
+static void activeRectOut(const ActiveRect* r, int* x, int* y, int* w, int* h)
+{
+    if (x) *x = r->x;
+    if (y) *y = r->y;
+    if (w) *w = r->width;
+    if (h) *h = r->height;
+}
+
+int themePageGetItemRectByTrigger(ThemePage* page, int trigger,
+                                  int* x, int* y, int* w, int* h)
+{
+    ThemeItem* it;
+    int wantMasked = trigger & THEME_TRIGGER_MASK;
+    if (!page) return 0;
+    for (it = page->itemList; it != NULL; it = it->next) {
+        ActiveRect r;
+        if ((it->trigger & THEME_TRIGGER_MASK) != wantMasked || !it->object) {
+            continue;
+        }
+        if (!themeItemIsVisible(it)) continue;
+        activeItemGetRect(it->object, &r);
+        activeRectOut(&r, x, y, w, h);
+        return 1;
+    }
+    return 0;
+}
+
+int themePageHitTestKeyCode(ThemePage* page, int px, int py,
+                            int* x, int* y, int* w, int* h)
+{
+    ThemeItem* it;
+    if (!page) return 0;
+    for (it = page->itemList; it != NULL; it = it->next) {
+        int masked;
+        ActiveRect r;
+        if (!it->object) continue;
+        masked = it->trigger & THEME_TRIGGER_MASK;
+        if (masked < THEME_TRIGGER_FIRST_KEY_CONFIG ||
+            masked > THEME_TRIGGER_LAST_KEY_CONFIG)
+        {
+            continue;
+        }
+        if (!themeItemIsVisible(it)) continue;
+        activeItemGetRect(it->object, &r);
+        if (px < r.x || px >= r.x + r.width || py < r.y || py >= r.y + r.height) {
+            continue;
+        }
+        activeRectOut(&r, x, y, w, h);
+        return masked - THEME_TRIGGER_FIRST_KEY_CONFIG;
+    }
+    return 0;
 }

@@ -50,6 +50,10 @@
 
 extern void DebuggerUpdate();
 
+/* Parked here between debugger sessions: the plugin is the only place the list
+** exists, since the CPU offers no way to enumerate what it has armed. */
+static std::vector<Breakpoints::BreakpointInfo> keptBreakpoints;
+
 namespace {
 
 
@@ -78,6 +82,8 @@ public:
         BitBlt(hdc, x, y, width, height, hMemDC, width * index, 0, SRCCOPY);
     }
 
+    int getHeight() { return height; }
+
 private:
     HDC hdcw;
     HDC hMemDC;
@@ -92,8 +98,11 @@ static Breakpoints* breakpointsInstance = NULL;
 static BitmapIcons* bitmapIcons = NULL;
 
 
-static LRESULT CALLBACK staticBreakpointsWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static LRESULT CALLBACK staticBreakpointsWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
+    if (dbgViewMessage(hwnd, iMsg, wParam)) {
+        return 0;
+    }
     if (breakpointsInstance != NULL) {
         return breakpointsInstance->breakpointsWndProc(hwnd, iMsg, wParam, lParam);
     }
@@ -195,21 +204,13 @@ LRESULT Breakpoints::breakpointsWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
         colorRed   = dark ? RGB(255, 100, 100) : RGB(255, 0, 0);
         colorWhite = dark ? GetDarkBg()        : RGB(255, 255, 255);
         SetBkMode(hMemdc, TRANSPARENT);
-        hFont = CreateFont(-MulDiv(12, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
-        hFontBold = CreateFont(-MulDiv(12, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, FW_SEMIBOLD, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
+        dbgRebuildFont(hMemdc, &hFont, &hFontBold, &textWidth, &textHeight, 0);
         
         hBrushWhite  = CreateSolidBrush(dark ? GetDarkBg()        : RGB(255, 255, 255));
         hBrushLtGray = CreateSolidBrush(dark ? RGB( 48,  48,  48) : RGB(239, 237, 222));
         hBrushDkGray = CreateSolidBrush(dark ? RGB( 70,  70,  70) : RGB(128, 128, 128));
         hBrushBlack  = CreateSolidBrush(dark ? RGB( 60,  60, 110) : RGB(200, 200, 255));
 
-        SelectObject(hMemdc, hFont); 
-        TEXTMETRIC tm;
-        if (GetTextMetrics(hMemdc, &tm)) {
-            textHeight = tm.tmHeight;
-            textWidth = tm.tmMaxCharWidth;
-        }
-        
         darkSubWindow(hwnd);
         return 0;
     }
@@ -226,7 +227,12 @@ LRESULT Breakpoints::breakpointsWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
 
             int row = HIWORD(lParam) / textHeight;
 
+            /* Clicking past the last entry drops the selection -- a lone
+            ** breakpoint is hard to read while permanently highlighted. */
             if (row + si.nPos  >= (int)breakpoints.size()) {
+                selectedLine = -1;
+                InvalidateRect(hwnd, NULL, TRUE);
+                updateToolbar();
                 return 0;
             }
 
@@ -317,9 +323,9 @@ void Breakpoints::updateToolbar()
     }
     EmulatorState state = GetEmulatorState();
 
-    toolbar->enableItem(1, state != EMULATOR_STOPPED);
-    toolbar->enableItem(2, state != EMULATOR_STOPPED);
-    toolbar->enableItem(4, state != EMULATOR_STOPPED && selectedLine >= 0);
+    toolbar->enableCommand(TB_NEW_BREAKPOINT,    state != EMULATOR_STOPPED);
+    toolbar->enableCommand(TB_NEW_WATCHPOINT,    state != EMULATOR_STOPPED);
+    toolbar->enableCommand(TB_DELETE_BREAKPOINT, state != EMULATOR_STOPPED && selectedLine >= 0);
 }
 
 Breakpoints::Breakpoints(HINSTANCE hInstance, HWND owner, SymbolInfo* symInfo) : 
@@ -394,9 +400,19 @@ void Breakpoints::invalidateContent()
     InvalidateRect(breakpointsHwnd, NULL, TRUE);
 }
 
+void Breakpoints::onFontChanged()
+{
+    int pos = dbgGetScrollPos(breakpointsHwnd);
+    dbgRebuildFont(hMemdc, &hFont, &hFontBold, &textWidth, &textHeight, 0);
+    updateScroll();
+    dbgSetScrollPos(breakpointsHwnd, pos);
+}
+
 void Breakpoints::updateContent()
 {
-    BreakpointInfo* bi;
+    /* NULL, or the "keep the same entry selected" scan below compares against
+    ** an indeterminate pointer and can revive a cleared selection. */
+    BreakpointInfo* bi = NULL;
     if (selectedLine >= 0 && selectedLine < (int)breakpoints.size()) {
         bi = breakpoints[selectedLine];
     }
@@ -429,13 +445,9 @@ void Breakpoints::updateScroll()
 
     SCROLLINFO si;
     si.cbSize    = sizeof(SCROLLINFO);
-    
-    GetScrollInfo(breakpointsHwnd, SB_VERT, &si);
-    int oldFirstLine = si.nPos;
-
     si.fMask     = SIF_PAGE | SIF_POS | SIF_RANGE;
     si.nMin      = 0;
-    si.nMax      = (int)breakpoints.size();
+    si.nMax      = breakpoints.size() > 0 ? (int)breakpoints.size() - 1 : 0;
     si.nPage     = visibleLines;
     si.nPos      = 0;
 
@@ -498,24 +510,28 @@ void Breakpoints::drawText(int top, int bottom)
     int FirstLine = max (0, yPos + top / textHeight);
     int LastLine = min ((int)breakpoints.size() - 1, yPos + bottom / textHeight);
 
+    RECT rc;
+    GetClientRect(breakpointsHwnd, &rc);
+
     for (int i = FirstLine; i <= LastLine; i++) {
         if (i >= (int)breakpoints.size()) {
             continue;
         }
 
-        RECT r = { 28, textHeight * (i - yPos), 400, textHeight * (i + 1 - yPos) };
+        RECT r = { 28, textHeight * (i - yPos), rc.right, textHeight * (i + 1 - yPos) };
         if (i == selectedLine) {
-            RECT rc;
-            GetClientRect(hwnd, &rc);
             SelectObject(hMemdc, hBrushBlack); 
             PatBlt(hMemdc, 21, r.top, rc.right - 21, r.bottom - r.top, PATCOPY);
         }
 
+        /* Centred in the row: drawing it at the top left the icon sitting
+        ** above the text, which starts below the font's internal leading. */
+        int iconTop = r.top + (textHeight - bitmapIcons->getHeight()) / 2;
         if (breakpoints[i]->enabled) {
-            bitmapIcons->drawIcon(hMemdc, 4, r.top, 1);
+            bitmapIcons->drawIcon(hMemdc, 4, iconTop, 1);
         }
         else {
-            bitmapIcons->drawIcon(hMemdc, 4, r.top, 2);
+            bitmapIcons->drawIcon(hMemdc, 4, iconTop, 2);
         }
         
         char breakpointText[64];
@@ -523,7 +539,7 @@ void Breakpoints::drawText(int top, int bottom)
 
         SetTextColor(hMemdc, i == selectedLine ? colorWhite : colorBlack);
         SelectObject(hMemdc, hFontBold);
-        DrawText(hMemdc, breakpointText, (int)strlen(breakpointText), &r, DT_LEFT);
+        DrawTextU(hMemdc, breakpointText, (int)strlen(breakpointText), &r, DT_LEFT);
         r.left  += (int)strlen(breakpointText) * textWidth;
 
         char labelText[64];
@@ -545,24 +561,27 @@ void Breakpoints::drawText(int top, int bottom)
 
         SelectObject(hMemdc, hFont);
         SelectObject(hMemdc, hFontBold);
-        DrawText(hMemdc, breakpointText, (int)strlen(breakpointText), &r, DT_LEFT);
+        DrawTextU(hMemdc, breakpointText, (int)strlen(breakpointText), &r, DT_LEFT);
     }
 }
 
+/* -1 is what the views return for "no line selected". It reaches the CPU as
+** 0xFFFF, so an unguarded caller arms a breakpoint nobody asked for; the run
+** to cursor entry point has always refused it. */
 void Breakpoints::SetBreakpoint(int address) {
-    if (breakpointsInstance != NULL) {
+    if (breakpointsInstance != NULL && address >= 0) {
         breakpointsInstance->setBreakpoint(MakeBreakpoint(address));
     }
 }
 
 void Breakpoints::ClearBreakpoint(int address) {
-    if (breakpointsInstance != NULL) {
+    if (breakpointsInstance != NULL && address >= 0) {
         breakpointsInstance->clearBreakpoint(MakeBreakpoint(address));
     }
 }
 
 void Breakpoints::ToggleBreakpointEnable(int address) {
-    if (breakpointsInstance != NULL) {
+    if (breakpointsInstance != NULL && address >= 0) {
         breakpointsInstance->toggleBreakpointEnable(MakeBreakpoint(address));
     }
 }
@@ -601,8 +620,53 @@ const Breakpoints::BreakpointInfo& Breakpoints::MakeBreakpoint(int address) {
     return breakpointInfo;
 }
 
+Breakpoints::BreakpointInfo* Breakpoints::selectedRow() {
+    if (selectedLine < 0 || selectedLine >= (int)breakpoints.size()) {
+        return NULL;
+    }
+    return breakpoints[selectedLine];
+}
+
+void Breakpoints::selectRow(const Breakpoints::BreakpointInfo* row) {
+    selectedLine = -1;
+    if (row == NULL) {
+        return;
+    }
+    for (int i = 0; i < (int)breakpoints.size(); ++i) {
+        if (breakpoints[i] == row) {
+            selectedLine = i;
+            return;
+        }
+    }
+}
+
 void Breakpoints::setBreakpoint(const Breakpoints::BreakpointInfo& breakpointInfo) {
     BreakpointInfo* bi = find(breakpointInfo);
+    BreakpointInfo* selected = selectedRow();
+    bool replacedSelected = false;
+
+    /* find() matches on address and type only, but a watchpoint also carries a
+    ** size, a condition and a value. Drop the old one so setting it again does
+    ** not silently keep those, and so the list stays sorted by condition. */
+    if (bi != NULL && bi->type != BreakpointInfo::BREAKPOINT) {
+        if (bi->enabled) {
+            toggleBreakpointEnable(bi);
+        }
+        for (std::vector<BreakpointInfo*>::iterator i = breakpoints.begin(); i != breakpoints.end(); ++i) {
+            if (*i == bi) {
+                breakpoints.erase(i);
+                break;
+            }
+        }
+        /* The row about to be inserted stands in for the one being dropped. */
+        if (selected == bi) {
+            replacedSelected = true;
+            selected = NULL;
+        }
+        delete bi;
+        bi = NULL;
+    }
+
     if (bi == NULL) {
         bi = new BreakpointInfo(breakpointInfo);
         bi->enabled = false;
@@ -614,10 +678,14 @@ void Breakpoints::setBreakpoint(const Breakpoints::BreakpointInfo& breakpointInf
             }
         }
         breakpoints.insert(i, bi);
+        if (replacedSelected) {
+            selected = bi;
+        }
     }
     else if (bi->enabled) {
         return;
     }
+    selectRow(selected);
     toggleBreakpointEnable(bi);
     DebuggerUpdate();
     updateScroll();
@@ -626,6 +694,7 @@ void Breakpoints::setBreakpoint(const Breakpoints::BreakpointInfo& breakpointInf
 void Breakpoints::clearBreakpoint(const Breakpoints::BreakpointInfo& breakpointInfo) 
 {
     BreakpointInfo* bi = find(breakpointInfo);
+    BreakpointInfo* selected = selectedRow();
     if (bi == NULL) {
         return;
     }
@@ -638,6 +707,13 @@ void Breakpoints::clearBreakpoint(const Breakpoints::BreakpointInfo& breakpointI
             break;
         }
     }
+    if (selected == bi) {
+        selected = NULL;
+    }
+    /* The vector holds the only pointer to it, so erasing the entry is the
+    ** last chance to release the row. */
+    delete bi;
+    selectRow(selected);
 
     DebuggerUpdate();
     updateScroll();
@@ -681,16 +757,54 @@ void Breakpoints::toggleBreakpointEnable(Breakpoints::BreakpointInfo* bi)
 void Breakpoints::clearAllBreakpoints()
 {
     while (!breakpoints.empty()) {
-        delete breakpoints.front();
+        BreakpointInfo* bi = breakpoints.front();
+        /* Dropping the row is not enough: the CPU would keep stopping there
+        ** with nothing left in the list to explain why. */
+        if (bi->enabled) {
+            toggleBreakpointEnable(bi);
+        }
+        delete bi;
         breakpoints.erase(breakpoints.begin());
     }
+    keptBreakpoints.clear();
     DebuggerUpdate();
+}
+
+void Breakpoints::keepBreakpoints()
+{
+    keptBreakpoints.clear();
+    /* The destructor does not own the rows, so they have to be released here
+    ** once their contents have been copied out. */
+    for (std::vector<BreakpointInfo*>::iterator i = breakpoints.begin(); i != breakpoints.end(); ++i) {
+        keptBreakpoints.push_back(*(*i));
+        delete *i;
+    }
+    breakpoints.clear();
+}
+
+/* Arming a breakpoint can stop the emulator, which calls straight back into
+** the plugin, so this must run only once every view the callback touches
+** exists -- not from the constructor, which is the first of them. */
+void Breakpoints::restoreBreakpoints()
+{
+    for (size_t i = 0; i < keptBreakpoints.size(); i++) {
+        BreakpointInfo* bi = new BreakpointInfo(keptBreakpoints[i]);
+        breakpoints.push_back(bi);
+        /* Arm it again rather than assume it survived -- a machine started
+        ** since the window closed has an empty breakpoint table, and both
+        ** calls ignore an address that is already armed. */
+        if (bi->enabled) {
+            bi->enabled = false;
+            toggleBreakpointEnable(bi);
+        }
+    }
+    invalidateContent();
 }
 
 int Breakpoints::getEnabledBpCount() {
     int count = 0;
     for (std::vector<BreakpointInfo*>::iterator i = breakpoints.begin(); i != breakpoints.end(); ++i) {
-        if (!(*i)->enabled) {
+        if ((*i)->enabled) {
             count++;
         }
     }
@@ -732,44 +846,70 @@ void Breakpoints::updateBreakpoints()
     DebuggerUpdate();
 }
 
-void Breakpoints::setStepOutBreakpoint(const UInt8* memory, UInt16 address)
+bool Breakpoints::setStepOverBreakpoint(const UInt8* memory, UInt16 address, bool intEnabled)
 {
     char str[128];
-    setRuntoBreakpoint((address + Disassembly::dasm(symbolInfo, memory, address, str)) & 0xffff);
-}
-
-bool Breakpoints::setStepOverBreakpoint(const UInt8* memory, UInt16 address)
-{
-    char str[128];
+    int size = Disassembly::dasm(symbolInfo, memory, address, str);
     // If call or rst instruction we need to set a runto breakpoint
     // otherwise its just a regular single step
     bool step = strncmp(str, "call", 4) != 0 && 
                 strncmp(str, "ldir", 4) != 0 && 
                 strncmp(str, "lddr", 4) != 0 && 
                 strncmp(str, "cpir", 4) != 0 && 
+                strncmp(str, "cpdr", 4) != 0 &&
                 strncmp(str, "inir", 4) != 0 && 
                 strncmp(str, "indr", 4) != 0 && 
                 strncmp(str, "otir", 4) != 0 && 
                 strncmp(str, "otdr", 4) != 0 && 
                 strncmp(str, "rst",  3) != 0;
+    /* halt re-executes at its own address, so a plain step never gets past it.
+    ** Running to the next one only terminates once an interrupt arrives, so
+    ** with them disabled keep the step and leave the debugger in control. */
+    if (intEnabled && strncmp(str, "halt", 4) == 0) {
+        step = false;
+    }
     if (!step) {
-        setRuntoBreakpoint((address + Disassembly::dasm(symbolInfo, memory, address, str)) & 0xffff);
+        setRuntoBreakpoint((address + size) & 0xffff);
     }
     return step;
 }
 
-void Breakpoints::setRuntoBreakpoint(UInt16 address)
+/* Callers pass -1 for "no address" (empty callstack, no cursor); taking a
+** UInt16 turned that into a breakpoint at 0xffff. Returns false so the
+** caller can skip the run instead of resuming with nothing to stop it. */
+bool Breakpoints::setRuntoBreakpoint(int address)
 {
     if (address < 0) {
-        return;
+        return false;
     }
 
     runtoBreakpoint = address;
     ::SetBreakpoint(runtoBreakpoint);
+    return true;
 }
 
+/* Step over / run to leaves this armed while the emulator runs, and it is not
+** in the list, so closing the window would strand it: the machine stops there
+** later with no debugger open and nothing that can clear it. */
+void Breakpoints::discardRuntoBreakpoint()
+{
+    if (runtoBreakpoint >= 0) {
+        if (!IsBreakpointSet(runtoBreakpoint)) {
+            ::ClearBreakpoint(runtoBreakpoint);
+        }
+        runtoBreakpoint = -1;
+    }
+}
+
+/* The disassembly clears this from invalidateContent and updateContent, both
+** of which run while the emulator does -- disarming the breakpoint there would
+** leave run to cursor, step over and step out running forever. */
 void Breakpoints::clearRuntoBreakpoint()
 {
+    if (GetEmulatorState() == EMULATOR_RUNNING) {
+        return;
+    }
+
     if (runtoBreakpoint >= 0) {
         if (!IsBreakpointSet(runtoBreakpoint)) {
             ::ClearBreakpoint(runtoBreakpoint);

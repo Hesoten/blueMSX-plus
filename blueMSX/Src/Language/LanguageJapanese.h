@@ -83,6 +83,8 @@ void langInitJapanese(LanguageStrings* ls)
     ls->errorDirectXFailed      = "DirectX オブジェクトを作成できません。          \nGDIを代わりに使用します。\nグラフィックカードの設定を確認してください。";
     ls->errorNoRomInZip         = "zipファイルの中に.romファイルが見つかりません。";
     ls->errorNoDskInZip         = "zipファイルの中に.dskファイルが見つかりません。";
+    ls->errorCreateDiskImage    = "ディスクイメージファイルを作成できませんでした。";
+    ls->errorCreateTapeImage    = "テープイメージファイルを作成できませんでした。";
     ls->errorNoCasInZip         = "zipファイルの中に.casファイルが見つかりません。";
     ls->errorDirAsDskOverflow   = "%d 個のファイル (合計 %d KB) が 720 KB ディスクイメージに収まらず除外されました。";
     ls->errorNoHelp             = "blueMSX+ のヘルプファイルが見つかりません。";
@@ -93,6 +95,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->errorStartEmuConfigInvalid       = "マシン構成 '%s' の config.ini を読み込めませんでした。ファイルが破損しているか、非互換のバージョンの可能性があります。";
     ls->errorMissingFiles       = "以下のファイルが読み込めませんでした:";
     ls->errorPortableReadonly   = "ポータブルデバイスは読込専用です。";
+    ls->errorMidiOpenFailed     = "MIDI デバイス '%s' の open に失敗しました。他のアプリケーションが使用中の可能性があります。";
     ls->infoTitle                  = "blueMSX+ 情報";
     ls->infoGameReaderRedirect     = "blueMSX+ では MSX Game Reader を直接サポートしていません (ASCII 社の XP 時代の純正ドライバは現代の Windows では動作しません)。\n\n代わりに MSX Game Reader - Web Dumper (Kunihiko Ohnaka 氏作成) をブラウザで開きますか?";
     ls->infoColorDepth             = "blueMSX+ は 16 または 32 ビット色深度で最も適切に動作します。";
@@ -106,6 +109,9 @@ void langInitJapanese(LanguageStrings* ls)
     ls->infoRecorderComplete    = "動画ファイルを保存しました:\n  %s";
     ls->infoToastSaved          = "保存しました: %s";
     ls->infoToastAlreadyRecording  = "既に記録中です";
+    ls->infoToastMouseConnected    = "PC のマウスを MSX に接続しました";
+    ls->infoToastMouseDisconnected = "PC のマウスの MSX への接続を解除しました";
+    ls->propControlsMouseSens      = "感度:";
     ls->dlgRecorderPickTitle       = "blueMSX+ - リプレイから動画書き出し";
     ls->dlgRecorderPickSourceCap   = "動画化するリプレイファイル (.cap):";
     ls->dlgRecorderPickOutputMp4   = "出力先動画ファイル (.mp4):";
@@ -182,7 +188,9 @@ void langInitJapanese(LanguageStrings* ls)
     ls->menuDiskAutoStart       = "挿入/取り出し後リセット";
     ls->menuCartAutoReset       = "挿入/取り出し後リセット";
 
+    ls->menuCasInsertNew         = "新規テープイメージを挿入";
     ls->menuCasRewindAfterInsert = "挿入後巻き戻す";
+    ls->menuCasSaveMonitor       = "セーブ中もモニター音を鳴らす";
     ls->menuCasUseReadOnly       = "テープを読み込み専用にする";
     ls->lmenuCasSaveAs           = "テープを別名で保存...";
     ls->menuCasSetPosition      = "テープ位置セット";
@@ -312,6 +320,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->dlgInsertDiskB          = "ディスクイメージをドライブBに挿入";
     ls->dlgInsertHarddisk       = "ハードディスクを挿入";                   
     ls->dlgInsertCas            = "カセットテープを挿入";
+    ls->dlgCreateCas            = "新しいテープイメージを作成";
     ls->dlgRomType              = "ROM タイプ:"; 
     ls->dlgDiskSize             = "ディスク要領:";             
 
@@ -402,8 +411,10 @@ void langInitJapanese(LanguageStrings* ls)
     ls->propEmuFrontSwitch       = " 前面[内蔵ソフト]スイッチ"; 
     ls->propEmuNoSpriteLimits   = " スプライト数制限を解除";
     ls->propEnableMsxKeyboardQuirk = " MSX キーボードの癖をエミュレート";
-    ls->propEmuFdcTiming        = " FDDアクセス時に高速化";
-    ls->propEmuHddSdBoost       = " HDD/SDカードアクセス時に高速化";
+    ls->propEmuBoostText        = "デバイスアクセス時に高速化:";
+    ls->propEmuFdcTiming        = " FDD";
+    ls->propEmuCasBoost         = " カセットテープ";
+    ls->propEmuHddSdBoost       = " HDD/SDカード";
     ls->propEmuReversePlay      = " 巻き戻し再生を有効化";
     ls->propEmuPauseSwitch      = " ポーズスイッチ";
     ls->propEmuAudioSwitch       = " MSX-AUDIO カートリッジスイッチ"; 
@@ -521,8 +532,7 @@ void langInitJapanese(LanguageStrings* ls)
 
     ls->propD3DParametersGB         = " パラメータ ";
     ls->propD3DAspectRatioText      = "アスペクト比:";
-    ls->propD3DLinearFilteringText  = " リニアフィルタリング";
-    ls->propD3DForceHighResText     = " 高解像度を強制";
+    ls->propD3DScalingFilterText     = "拡大フィルタ:";
     ls->propD3DExtendBorderColorText    = " ボーダー色を拡張";
 
     ls->propD3DCroppingGB               = " クロッピング ";
@@ -571,6 +581,10 @@ void langInitJapanese(LanguageStrings* ls)
     ls->enumD3DARPAL            = "PAL";
     ls->enumD3DARNTSC           = "NTSC";
     ls->enumD3DAR11             = "1:1";
+    ls->enumD3DScaleNearest          = "ニアレスト";
+    ls->enumD3DScaleBilinear         = "バイリニア";
+    ls->enumD3DScaleSharp            = "シャープバイリニア";
+    ls->enumD3DScalePrescaled     = "バイリニア(2xプリスケール)";
 
     ls->enumD3DCropNone         = "なし";
     ls->enumD3DCropMSX1         = "MSX1";
@@ -694,6 +708,11 @@ void langInitJapanese(LanguageStrings* ls)
     ls->shortcutConfigTitle     = "blueMSX+ - ショートカット構成編集";
     ls->shortcutAssign          = "割り当て";
     ls->shortcutPressText       = "ショートカットキー入力欄:";
+    ls->shortcutHotkeyHint      = "(3つまでキーを入力)";
+    ls->keyboardMappedHint      = "(3つまでキーを入力)";
+    ls->shortcutTooltipAlsoBound = "他の割り当て先: ";
+    ls->keyboardKeyFormat       = "%s キー";
+    ls->keyconfigResetTab       = "このタブのキー割り当てを\n既定に戻す";
     ls->shortcutScheme          = "構成名:";
     ls->shortcutCartInsert1     = "カートリッジ1 挿入";
     ls->shortcutCartRemove1     = "カートリッジ1 取り出し";
@@ -752,7 +771,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->shortcutSwitchMsxAudio  = "MSX-AUDIO カートリッジスイッチ";
     ls->shortcutSwitchFront     = "パナソニック系 前面[内蔵ソフト]スイッチ";
     ls->shortcutSwitchPause     = "パナソニック系 ポーズスイッチ";
-    ls->shortcutToggleMouseLock = "マウスロック";
+    ls->shortcutToggleMouseLock = "PC のマウスを MSX に接続/解除";
     ls->shortcutEmuSpeedMax     = "エミュレーション実行速度を最速化";
     ls->shortcutEmuPlayReverse  = "巻き戻し再生";
     ls->shortcutEmuSpeedToggle  = "最速動作の有無";

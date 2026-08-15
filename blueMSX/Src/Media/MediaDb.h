@@ -59,7 +59,7 @@ enum  {
     RAM_NORMAL      = 23,
     ROM_KANJI       = 24,
     ROM_HOLYQURAN   = 25,
-    SRAM_MATSUCHITA = 26,
+    SRAM_MATSUSHITA = 26,
     ROM_PANASONIC16 = 27,
     ROM_BUNSETU     = 28,
     ROM_JISYO       = 29,
@@ -189,7 +189,7 @@ enum  {
     ROM_OPCODESLOT  = 156,
     ROM_OPCODESAVE  = 157,
     ROM_OPCODEMEGA  = 158,
-    SRAM_MATSUCHITA_INV = 159,
+    SRAM_MATSUSHITA_TURBO = 159,
     ROM_SVI328RSIDE = 160,
     ROM_ACTIVISIONPCB_2K = 161,
     ROM_SVI707FDC   = 162,
@@ -209,7 +209,8 @@ enum  {
     ROM_NEO8        = 176,           /* NEO-8 mapper */
     ROM_NEO16       = 177,           /* NEO-16 mapper */
     ROM_YAMANOOTO   = 178,           /* Yamanooto */
-    ROM_MAXROMID    = 178
+    ROM_FLASHROMSCC = 179,           /* Flash-ROM SCC (Developer Edition) */
+    ROM_MAXROMID    = 179
 };
 
 typedef struct MediaType MediaType;

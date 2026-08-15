@@ -39,13 +39,14 @@ public:
 
     void refresh();
     
-    int  getMostRecent();
+    int  getReturnAddress();
 
     void updateContent(DWORD* callstack, int size);
     void invalidateContent();
     void updateScroll();
 
     virtual LRESULT wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam);
+    virtual void onFontChanged();
 
 private:
 
@@ -53,7 +54,7 @@ private:
     void drawText(int top, int bottom);
 
     HDC    hMemdc;
-    HFONT  hFont;
+    HFONT  hFont = NULL;
     HBRUSH hBrushWhite;
     HBRUSH hBrushLtGray;
     HBRUSH hBrushDkGray;
@@ -64,9 +65,11 @@ private:
     int    textHeight = 1;
     int    textWidth  = 1;
 
+    /* text holds a disassembled line, which carries a symbol name of up to 63
+    ** characters; Disassembly sizes the same field at 128. */
     struct LineInfo {
         WORD address;
-        char text[48];
+        char text[128];
         int  textLength;
         char dataText[48];
         int  dataTextLength;
@@ -74,6 +77,11 @@ private:
 
     int      lineCount;
     int      currentLine;
+
+    /* False between invalidateContent() and the next snapshot: the listing on
+    ** screen says unavailable and nothing may replay the backup over it. */
+    bool     contentValid;
+
     LineInfo lineInfo[256];
     int      linePos;
     

@@ -50,9 +50,14 @@ public:
 
     bool writeToFile(const char* fileName);
 
+    /* False while no memory block is selected, which is what the commands that
+    ** read one have to test. */
+    bool hasContent() { return currentMemory != NULL; }
+
     void findData(const char* text);
 
     virtual LRESULT wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam);
+    virtual void onFontChanged();
     LRESULT memWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam);
     BOOL toolDlgProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam);
 
@@ -84,20 +89,23 @@ private:
     void updateDropdown();
     void updateWindowPositions();
     void showEdit(InputDialog* dataInput, DWORD address);
+    void hideEdit();
+    void endEdit();
+    InputDialog* activeInput();
     void setNewMemory(const std::string& title);
     void drawText(int top, int bottom);
 
     HWND   memHwnd;
     HWND   toolHwnd;
     HDC    hMemdc;
-    HFONT  hFont;
+    HFONT  hFont = NULL;
     HBRUSH hBrushWhite;
     HBRUSH hBrushLtGray;
     HBRUSH hBrushDkGray;
     int    textHeight = 1;
     int    textWidth  = 1;
 
-    int    memPerRow;
+    int    memPerRow = 1;
     int    lineCount;
 
     COLORREF colorBlack;
@@ -107,6 +115,10 @@ private:
 
     int currentAddress;
     int currentEditAddress;
+
+    /* Set while an edit box is taken down only to be put back somewhere else,
+    ** so the focus loss is not mistaken for the user leaving edit mode. */
+    bool navigating = false;
 
     MemList memList;
     MemoryItem* currentMemory;

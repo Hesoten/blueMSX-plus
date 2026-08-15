@@ -55,7 +55,7 @@ static UINT toolbarDpi(HWND hRef)
 }
 
 Toolbar::Toolbar(HINSTANCE hInstance, HWND owner, int bitmapId, COLORREF transparentColor, int backgroundId) :
-    hBackground(NULL)
+    buttonCount(0), hBackground(NULL)
 {
     INITCOMMONCONTROLSEX icex;
     HBITMAP   hBtn;
@@ -140,8 +140,7 @@ void Toolbar::addButton(int bitmap, int command, int dropdown, int insertBefore)
         button.fsState   = TBSTATE_ENABLED;
         button.fsStyle   = dropdown ? BTNS_DROPDOWN : 0;
         button.iString   = 0;
-        buttons.push_back(button);
-        SendMessage(hwnd, TB_INSERTBUTTON, buttons.size() - 1, (LPARAM)(LPTBBUTTON)&button);
+        SendMessage(hwnd, TB_INSERTBUTTON, buttonCount++, (LPARAM)(LPTBBUTTON)&button);
     }
 }
 
@@ -152,8 +151,7 @@ void Toolbar::addSeparator(int insertBefore)
         button.fsState = TBSTATE_ENABLED; 
         button.fsStyle = BTNS_SEP; 
         button.iString = -1;
-        buttons.push_back(button);
-        SendMessage(hwnd, TB_INSERTBUTTON, buttons.size() - 1, (LPARAM)(LPTBBUTTON)&button);
+        SendMessage(hwnd, TB_INSERTBUTTON, buttonCount++, (LPARAM)(LPTBBUTTON)&button);
     }
 }
 
@@ -174,12 +172,17 @@ void Toolbar::hide()
 
 int Toolbar::getHeight()
 {
-    if (!IsWindowVisible(hwnd)) {
+    /* This window's own state, not IsWindowVisible: that also answers for the
+    ** ancestors, so a view laid out while the debugger is still hidden was
+    ** told the toolbar takes no room and put its content underneath it. */
+    if (!(GetWindowLong(hwnd, GWL_STYLE) & WS_VISIBLE)) {
         return 0;
     }
     RECT r;
     GetWindowRect(hwnd, &r);
-    return r.bottom - r.top - 1;
+    /* The whole window, border included. Reporting one pixel less put the view
+    ** below on top of the toolbar's bottom edge. */
+    return r.bottom - r.top;
 }
 
 void Toolbar::updatePosition()
@@ -190,20 +193,17 @@ void Toolbar::updatePosition()
     GetClientRect(GetParent(hwnd), &parentRect);
     GetWindowRect(hwnd, &rect);
 
-    SetWindowPos(hwnd, NULL, 0, 0, parentRect.left - parentRect.right, rect.bottom - rect.top, SWP_NOMOVE | SWP_NOZORDER);
+    /* right - left: the operands were the other way round, so the width handed
+    ** over was negative and only TB_AUTOSIZE kept the strip the right size. */
+    SetWindowPos(hwnd, NULL, 0, 0, parentRect.right - parentRect.left, rect.bottom - rect.top, SWP_NOMOVE | SWP_NOZORDER);
 }
 
-void Toolbar::enableItem(int item, bool enable)
+/* By command, not by position: inserting a button shifts every later index
+** and silently moves the conditions onto the wrong buttons. TB_ENABLEBUTTON
+** also leaves the button in place instead of deleting and re-inserting it. */
+void Toolbar::enableCommand(int command, bool enable)
 {
-    SendMessage(hwnd, TB_DELETEBUTTON, item, 0);
-
-    buttons[item].fsState = enable ? TBSTATE_ENABLED : 0;
-    SendMessage(hwnd, TB_INSERTBUTTON, item, (LPARAM)(LPTBBUTTON)&(buttons[item]));
-}
-
-void Toolbar::disableItem(int item)
-{
-    enableItem(item, false);
+    SendMessage(hwnd, TB_ENABLEBUTTON, command, MAKELONG(enable ? TRUE : FALSE, 0));
 }
 
 void Toolbar::onWmNotify(LPARAM lParam)

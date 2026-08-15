@@ -274,7 +274,7 @@ static int getDropListIndex(HWND hDlg, int id, char** pList) {
 }
 
 static char* strEmuSpeed(int logFrequency) {
-    UInt32 frequency = (UInt32)(3579545 * pow(2.0, (logFrequency - 50) / 15.0515));
+    UInt32 frequency = (UInt32)emulatorLogFrequencyToHz(logFrequency);
     static char buffer[32];
 
     sprintf(buffer, "%d.%03dMHz (%d%%)", frequency / 1000000, (frequency / 1000) % 1000, frequency * 10 / 357954);
@@ -308,8 +308,10 @@ static BOOL_DLG_RET CALLBACK emulationDlgProc(HWND hDlg, UINT iMsg, WPARAM wPara
         SetDlgItemTextU(hDlg, IDC_VDPCMDSPEEDTEXT, langPropEmuVdpCmdSpeedText());
         SetDlgItemTextU(hDlg, IDC_EMUFRONTSWITCHGROUPBOX, langPropEmuFrontSwitchGB());
         
+        SetWindowTextU(GetDlgItem(hDlg, IDC_EMUBOOSTTEXT),   langPropEmuBoostText());
         SetWindowTextU(GetDlgItem(hDlg, IDC_EMUFDCTIMING),   langPropEmuFdcTiming());
         SetWindowTextU(GetDlgItem(hDlg, IDC_EMUHDDSDBOOST),  langPropEmuHddSdBoost());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_EMUCASBOOST),    langPropEmuCasBoost());
         SetWindowTextU(GetDlgItem(hDlg, IDC_NOSPRITELIMITS), langPropEmuNoSpriteLimits());
         SetWindowTextU(GetDlgItem(hDlg, IDC_ENABLEMSXKEYBOARDQUIRK), langPropEnableMsxKeyboardQuirk());
         SetWindowTextU(GetDlgItem(hDlg, IDC_EMUFRONTSWITCH), langPropEmuFrontSwitch());
@@ -319,6 +321,7 @@ static BOOL_DLG_RET CALLBACK emulationDlgProc(HWND hDlg, UINT iMsg, WPARAM wPara
 
         setButtonCheck(hDlg, IDC_EMUFDCTIMING,   !pProperties->emulation.enableFdcTiming, 1);
         setButtonCheck(hDlg, IDC_EMUHDDSDBOOST,  pProperties->emulation.enableHddSdBoost, 1);
+        setButtonCheck(hDlg, IDC_EMUCASBOOST,    pProperties->emulation.enableCasBoost, 1);
         setButtonCheck(hDlg, IDC_NOSPRITELIMITS, pProperties->emulation.noSpriteLimits, 1);
         setButtonCheck(hDlg, IDC_ENABLEMSXKEYBOARDQUIRK, pProperties->keyboard.enableKeyboardQuirk, 1);
         setButtonCheck(hDlg, IDC_EMUFRONTSWITCH, pProperties->emulation.frontSwitch, 1);
@@ -450,6 +453,7 @@ static BOOL_DLG_RET CALLBACK emulationDlgProc(HWND hDlg, UINT iMsg, WPARAM wPara
             index = 0;
             pProperties->emulation.enableFdcTiming = !getButtonCheck(hDlg, IDC_EMUFDCTIMING);
             pProperties->emulation.enableHddSdBoost = getButtonCheck(hDlg, IDC_EMUHDDSDBOOST);
+        pProperties->emulation.enableCasBoost = getButtonCheck(hDlg, IDC_EMUCASBOOST);
             pProperties->emulation.noSpriteLimits = getButtonCheck(hDlg, IDC_NOSPRITELIMITS);
             pProperties->keyboard.enableKeyboardQuirk = getButtonCheck(hDlg, IDC_ENABLEMSXKEYBOARDQUIRK);
             pProperties->emulation.frontSwitch = getButtonCheck(hDlg, IDC_EMUFRONTSWITCH);
@@ -521,6 +525,8 @@ static BOOL_DLG_RET CALLBACK filesDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
         SetWindowTextU(GetDlgItem(hDlg, IDC_SETTINGSROMTYPETEXT), langPropDefaultRomType());
 
         ComboAddStringU(GetDlgItem(hDlg, IDC_SETTINGSROMTYPE), langPropGuessRomType());
+        /* A saved type this list does not offer leaves the box unset, so it
+        ** cannot be read back as a choice. */
         if (pProperties->cartridge.defaultType == opendialog_getromtype(i)) {
             SendDlgItemMessage(hDlg, IDC_SETTINGSROMTYPE, CB_SETCURSEL, i, 0);
         }
@@ -949,10 +955,14 @@ static BOOL_DLG_RET CALLBACK direct3dProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
         SetDlgItemTextU(hDlg, IDC_PERFSETTINGSGROUPBOX, langPropSettings());
         SetDlgItemTextU(hDlg, IDC_PERFSYNCMODETEXT, langPropPerfSyncModeText());
         SetDlgItemTextU(hDlg, IDC_D3D_EXTENDBORDERCOLOR, langPropD3DExtendBorderColorText());
-        SetDlgItemTextU(hDlg, IDC_D3D_FORCEHIGHRES, langPropD3DForceHighResText());
-        
+        SetDlgItemTextU(hDlg, IDC_D3D_SCALINGFILTERTEXT, langPropD3DScalingFilterText());
+
 		setButtonCheck(hDlg, IDC_D3D_EXTENDBORDERCOLOR, pProperties->video.d3d.extendBorderColor, 1);
-		setButtonCheck(hDlg, IDC_D3D_FORCEHIGHRES, pProperties->video.d3d.forceHighRes, 1);
+        ComboAddStringU(GetDlgItem(hDlg, IDC_D3D_SCALINGFILTER), langEnumD3DScaleNearest());
+        ComboAddStringU(GetDlgItem(hDlg, IDC_D3D_SCALINGFILTER), langEnumD3DScaleSharp());
+        ComboAddStringU(GetDlgItem(hDlg, IDC_D3D_SCALINGFILTER), langEnumD3DScalePrescaled());
+        ComboAddStringU(GetDlgItem(hDlg, IDC_D3D_SCALINGFILTER), langEnumD3DScaleBilinear());
+        SendDlgItemMessage(hDlg, IDC_D3D_SCALINGFILTER, CB_SETCURSEL, pProperties->video.d3d.scalingFilter, 0);
 
         initDropList(hDlg, IDC_FRAMESKIP, pVideoFrameSkip, pProperties->video.frameSkip);
         initDropList(hDlg, IDC_EMUSYNC, pEmuSync, pProperties->emulation.syncMethodD3D);
@@ -1086,7 +1096,10 @@ static BOOL_DLG_RET CALLBACK direct3dProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
 
     case WM_COMMAND:
         pProperties->video.d3d.extendBorderColor = getButtonCheck(hDlg, IDC_D3D_EXTENDBORDERCOLOR);
-        pProperties->video.d3d.forceHighRes = getButtonCheck(hDlg, IDC_D3D_FORCEHIGHRES);
+        {
+            int sel = (int)SendMessage(GetDlgItem(hDlg, IDC_D3D_SCALINGFILTER), CB_GETCURSEL, 0, 0);
+            if (sel >= 0) pProperties->video.d3d.scalingFilter = sel;
+        }
         /* Capture HDR enable on every WM_COMMAND so Apply/OK persists it;
         ** on user toggle that differs from live mode, prompt for restart. */
         {
@@ -1323,15 +1336,9 @@ static BOOL_DLG_RET CALLBACK videoSoftwareDlgProc(HWND hDlg, UINT iMsg, WPARAM w
         SetDlgItemTextU(hDlg, IDC_MONDEINTERLACE, langPropMonDeInterlace());
         SetDlgItemTextU(hDlg, IDC_MONBLENDFRAMES, langPropMonBlendFrames());
         SetDlgItemTextU(hDlg, IDC_EFFECTSGB, langPropMonEffectsGB());
-        SetDlgItemTextU(hDlg, IDC_D3D_LINEARFILTERING, langPropD3DLinearFilteringText());
 
         setButtonCheck(hDlg, IDC_MONDEINTERLACE, pProperties->video.deInterlace, 1);
         setButtonCheck(hDlg, IDC_MONBLENDFRAMES, pProperties->video.blendFrames, 1);
-        setButtonCheck(hDlg, IDC_D3D_LINEARFILTERING, pProperties->video.d3d.linearFiltering, 1);
-        /* Linear filtering only takes effect on D3D-based drivers; grey out for
-           DDraw / GDI so the user knows the checkbox is a no-op there. */
-        EnableWindow(GetDlgItem(hDlg, IDC_D3D_LINEARFILTERING),
-                     liveDriver == P_VIDEO_DRVDIRECTX_D3D12);
         
         /* Init dropdown lists */
         initDropList(hDlg, IDC_MONTYPE, pVideoMon, pProperties->video.monitorColor);
@@ -1553,11 +1560,6 @@ static BOOL_DLG_RET CALLBACK videoSoftwareDlgProc(HWND hDlg, UINT iMsg, WPARAM w
             videoSetBlendFrames(theVideo, pProperties->video.blendFrames);
             updateEmuWindow();
             break;
-        case IDC_D3D_LINEARFILTERING:
-            pProperties->video.d3d.linearFiltering = getButtonCheck(hDlg, IDC_D3D_LINEARFILTERING);
-            updateEmuWindow();
-            break;
-
         }
         return TRUE;
 
@@ -1566,8 +1568,6 @@ static BOOL_DLG_RET CALLBACK videoSoftwareDlgProc(HWND hDlg, UINT iMsg, WPARAM w
             int dx12;
             liveDriver = (int)wParam;
             dx12       = (liveDriver == P_VIDEO_DRVDIRECTX_D3D12);
-            /* Grey out Linear Filter when switching to a non-D3D driver. */
-            EnableWindow(GetDlgItem(hDlg, IDC_D3D_LINEARFILTERING), dx12);
             updateScanlineDx12Controls(hDlg, dx12,
                                        pProperties->video.scanlinesEnable,
                                        pProperties->video.scanlinesBrightAuto);

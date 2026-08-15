@@ -729,8 +729,18 @@ void activeNativeTextDestroy(ActiveNativeText* activeText)
 
 int activeNativeTextSetText(ActiveNativeText* activeText, const char* string)
 {
-    int diff = strcmp(string, activeText->string);
-    strcpy(activeText->string, string);
+    int n = (int)strlen(string);
+    int diff;
+    if (n >= (int)sizeof(activeText->string)) {
+        /* Back up to the start of the character, or a cut UTF-8 sequence
+        ** draws a replacement glyph. */
+        n = (int)sizeof(activeText->string) - 1;
+        while (n > 0 && ((unsigned char)string[n] & 0xC0) == 0x80) n--;
+    }
+    diff = 0 != strncmp(string, activeText->string, n) ||
+           activeText->string[n] != 0;
+    memcpy(activeText->string, string, n);
+    activeText->string[n] = 0;
     return diff;
 }
 
@@ -754,6 +764,8 @@ int activeNativeTextShow(ActiveNativeText* activeText, int show)
 {
     return activeImageShow(activeText->background, show);
 }
+
+#define ACTIVE_TEXT_MAX_COLS 128
 
 struct ActiveText{
     ActiveItem  activeItem;
@@ -785,6 +797,10 @@ ActiveText* activeTextCreate(int x, int y, int cols, ArchBitmap* bitmap, int sta
     activeText->font       = activeImageCreate(x, y, cols, bitmap, charCount);
     activeText->startChar  = startChar;
     activeText->charCount  = charCount;
+    /* activeTextSetText lays the row out in a buffer of exactly this size,
+    ** and the theme file's width reaches here unchecked in both directions. */
+    if (width > ACTIVE_TEXT_MAX_COLS) width = ACTIVE_TEXT_MAX_COLS;
+    if (width < 1) width = 1;
     activeText->string     = calloc(1, width);
     activeText->size       = width;
     activeText->x          = x;
@@ -814,7 +830,7 @@ void activeTextDestroy(ActiveText* activeText)
 
 int activeTextSetText(ActiveText* activeText, const char* string)
 {
-    char tmpString[128];
+    char tmpString[ACTIVE_TEXT_MAX_COLS];
     int count;
 
     if (activeText->nativeText) {
@@ -1043,13 +1059,6 @@ int activeSliderHitTest(ActiveSlider* activeSlider, int x, int y)
            (UInt32)(y - activeSlider->y) < activeSlider->height;
 }
 
-int activeSliderGetPercent(ActiveSlider* activeSlider)
-{
-    if (activeSlider->count <= 1) {
-        return 0;
-    }
-    return activeSlider->index * 100 / (activeSlider->count - 1);
-}
 
 int activeSliderMouseMove(ActiveSlider* activeSlider, int x, int y)
 {

@@ -60,6 +60,136 @@ typedef map<HWND, DbgWindow*> WindowMap;
 static WindowMap windows;
 static DbgWindow* isCreating = NULL;
 
+#define DBG_FONT_MIN     6
+#define DBG_FONT_MAX     24
+#define DBG_FONT_DEFAULT 10
+
+static int fontPoints = DBG_FONT_DEFAULT;
+
+int dbgFontPoints()        { return fontPoints; }
+int dbgFontPointsDefault() { return DBG_FONT_DEFAULT; }
+
+void dbgSetFontPoints(int points)
+{
+    if (points < DBG_FONT_MIN) points = DBG_FONT_MIN;
+    if (points > DBG_FONT_MAX) points = DBG_FONT_MAX;
+    if (points == fontPoints) {
+        return;
+    }
+    fontPoints = points;
+
+    for (WindowMap::iterator i = windows.begin(); i != windows.end(); ++i) {
+        i->second->onFontChanged();
+    }
+}
+
+/* Turn a wheel notch into line scrolls, so every view that already handles
+** WM_VSCROLL follows the wheel without its own scrolling code. */
+static int wheelScroll(HWND hwnd, WPARAM wParam)
+{
+    UINT lines = 3;
+    SystemParametersInfo(SPI_GETWHEELSCROLLLINES, 0, &lines, 0);
+    if (lines == 0) {
+        return 1;
+    }
+    if (lines > 16) {
+        lines = 16;
+    }
+
+    int delta = GET_WHEEL_DELTA_WPARAM(wParam);
+    int notches = delta / WHEEL_DELTA;
+    if (notches == 0) {
+        notches = delta > 0 ? 1 : -1;
+    }
+
+    int action = notches > 0 ? SB_LINEUP : SB_LINEDOWN;
+    int count  = (notches > 0 ? notches : -notches) * (int)lines;
+    for (int i = 0; i < count; i++) {
+        SendMessage(hwnd, WM_VSCROLL, action, 0);
+    }
+    return 1;
+}
+
+int dbgViewMessage(HWND hwnd, UINT iMsg, WPARAM wParam)
+{
+    if (iMsg == WM_MOUSEWHEEL && GetKeyState(VK_CONTROL) >= 0) {
+        return wheelScroll(hwnd, wParam);
+    }
+
+    if (GetKeyState(VK_CONTROL) >= 0) {
+        return 0;
+    }
+
+    if (iMsg == WM_MOUSEWHEEL) {
+        dbgSetFontPoints(fontPoints + (GET_WHEEL_DELTA_WPARAM(wParam) > 0 ? 1 : -1));
+        return 1;
+    }
+
+    if (iMsg == WM_KEYDOWN) {
+        switch (wParam) {
+        case VK_OEM_PLUS:
+        case VK_ADD:
+            dbgSetFontPoints(fontPoints + 1);
+            return 1;
+        case VK_OEM_MINUS:
+        case VK_SUBTRACT:
+            dbgSetFontPoints(fontPoints - 1);
+            return 1;
+        case '0':
+        case VK_NUMPAD0:
+            dbgSetFontPoints(DBG_FONT_DEFAULT);
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int dbgGetScrollPos(HWND hwnd)
+{
+    SCROLLINFO si;
+    si.cbSize = sizeof(si);
+    si.fMask  = SIF_POS;
+    /* GetScrollInfo leaves nPos alone when it fails, which it does until the
+    ** window has a scroll bar, so start from the top rather than from junk. */
+    si.nPos   = 0;
+    GetScrollInfo(hwnd, SB_VERT, &si);
+    return si.nPos;
+}
+
+void dbgSetScrollPos(HWND hwnd, int pos)
+{
+    SCROLLINFO si;
+    si.cbSize = sizeof(si);
+    si.fMask  = SIF_POS;
+    si.nPos   = pos;
+    SetScrollInfo(hwnd, SB_VERT, &si, TRUE);
+}
+
+void dbgRebuildFont(HDC hMemdc, HFONT* hFont, HFONT* hFontBold,
+                    int* textWidth, int* textHeight, int aveCharWidth)
+{
+    int height = -MulDiv(fontPoints, GetDeviceCaps(hMemdc, LOGPIXELSY), 72);
+
+    /* Select the replacement first -- DeleteObject is a no-op on a font that
+    ** is still selected into the DC. */
+    HFONT hNew = CreateFont(height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
+    SelectObject(hMemdc, hNew);
+    if (*hFont) DeleteObject(*hFont);
+    *hFont = hNew;
+
+    if (hFontBold != NULL) {
+        hNew = CreateFont(height, 0, 0, 0, FW_SEMIBOLD, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
+        if (*hFontBold) DeleteObject(*hFontBold);
+        *hFontBold = hNew;
+    }
+
+    TEXTMETRIC tm;
+    if (GetTextMetrics(hMemdc, &tm)) {
+        *textHeight = tm.tmHeight;
+        *textWidth  = aveCharWidth ? tm.tmAveCharWidth : tm.tmMaxCharWidth;
+    }
+}
+
 /* Repaint the NC area dark -- default WS_CAPTION/WS_THICKFRAME paint uses
 ** COLOR_3DLIGHT/3DSHADOW + system caption color which clashes in dark mode. */
 static HFONT s_captionFont    = NULL;
@@ -139,6 +269,10 @@ static LRESULT CALLBACK staticWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARA
         windows[hwnd] = isCreating;
     }
 
+    if (dbgViewMessage(hwnd, iMsg, wParam)) {
+        return 0;
+    }
+
     WindowMap::iterator i = windows.find(hwnd);
     if (i != windows.end()) {
         DbgWindow* window = i->second;
@@ -157,7 +291,8 @@ static LRESULT CALLBACK staticWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARA
 
 DbgWindow::DbgWindow(HINSTANCE hInst, HWND wndOwner, const std::string& name, const std::string& ininame,
                      int defX, int defY, int defW, int defH, int defV) : 
-    hInstance(hInst), owner(wndOwner), editEnabled(false), iniName(ininame), winName(name)
+    hInstance(hInst), owner(wndOwner), editEnabled(false), contentStale(false), hBrushStale(NULL),
+    iniName(ininame), winName(name)
 {
     static WNDCLASSEX wndClass;
 
@@ -204,6 +339,8 @@ void DbgWindow::init()
 
 DbgWindow::~DbgWindow()
 {
+    if (hBrushStale) { DeleteObject(hBrushStale); hBrushStale = NULL; }
+
     iniFileWriteInt( iniName.c_str(), "x",       x);
     iniFileWriteInt( iniName.c_str(), "y",       y);
     iniFileWriteInt( iniName.c_str(), "width",   width);
@@ -246,7 +383,35 @@ void DbgWindow::disableEdit()
     editEnabled = false;
 }
 
-void DbgWindow::updateWindowPos(WINDOWPOS* windowPos) 
+void DbgWindow::setContentStale(bool stale)
+{
+    if (contentStale != stale) {
+        contentStale = stale;
+        InvalidateRect(hwnd, NULL, TRUE);
+    }
+}
+
+/* Away from the extreme the theme sits at, so the shift reads the same size
+** whichever way round the theme is. */
+COLORREF dbgStaleBackground(COLORREF live)
+{
+    int step = IsDarkMode() ? 22 : -22;
+
+    return RGB(GetRValue(live) + step, GetGValue(live) + step, GetBValue(live) + step);
+}
+
+HBRUSH DbgWindow::pageBrush(HBRUSH live)
+{
+    if (!contentStale) {
+        return live;
+    }
+    if (hBrushStale == NULL) {
+        hBrushStale = CreateSolidBrush(dbgStaleBackground(IsDarkMode() ? GetDarkBg() : RGB(255, 255, 255)));
+    }
+    return hBrushStale;
+}
+
+void DbgWindow::updateWindowPos(WINDOWPOS* windowPos)
 {
     x       = windowPos->x;
     y       = windowPos->y;

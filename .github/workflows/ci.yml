@@ -1,11 +1,18 @@
 name: CI
 
-# Build-only validation for pull requests targeting develop/main.
-# No packaging, no publishing - just catch compile breakage before merge.
+# Build validation for pull requests targeting develop/main.
+# Builds Debug/Release x {x64, Win32}, packages each as a zip, and
+# uploads them as short-retention workflow artifacts so reviewers can
+# grab a runnable build without a local toolchain. UPX is disabled.
+# Post-merge builds on develop are handled by dev-build.yml.
 
 on:
   pull_request:
     branches: [develop, main]
+    # 'edited' is on top of the defaults so that a PR retargeted from main to
+    # develop (see retarget-main-pr.yml) gets rebuilt against its new base.
+    # It also fires on title/body edits, which the job-level 'if' filters out.
+    types: [opened, synchronize, reopened, edited]
   push:
     branches: [ci-test]
   workflow_dispatch:
@@ -16,20 +23,49 @@ concurrency:
 
 jobs:
   build:
+    if: github.event.action != 'edited' || github.event.changes.base != null
     runs-on: windows-2022
     strategy:
       fail-fast: false
       matrix:
+        config: [Debug, Release]
         platform: [x64, Win32]
     steps:
       - uses: actions/checkout@v6
 
       - uses: microsoft/setup-msbuild@v3
 
-      - name: Build (Release, no UPX)
+      - name: Compute version tag
+        id: ver
+        shell: pwsh
+        run: |
+          $bn = [regex]::Match((Get-Content blueMSX/Src/BuildInfo/build_info.txt -Raw), '\d+').Value
+          $sha = "${{ github.sha }}".Substring(0, 7)
+          $tag = "ci.b$bn.r${{ github.run_number }}.g$sha"
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+
+      - name: Build (no UPX)
         working-directory: blueMSX/Make/msvc2022
         shell: pwsh
         run: |
           msbuild blueMSX.sln /m `
             '/t:blueMSX;TraceWindow;Trainer;SimpleDebugger' `
-            "/p:Configuration=Release;Platform=${{ matrix.platform }};BlueMsxPackUpx=false"
+            "/p:Configuration=${{ matrix.config }};Platform=${{ matrix.platform }};BlueMsxPackUpx=false"
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $zip = "dist/blueMSX+-${{ matrix.platform }}-${{ matrix.config }}-${{ steps.ver.outputs.tag }}.zip"
+          $pdb = '${{ matrix.config }}' -eq 'Debug'
+          ./scripts/ci-package.ps1 `
+            -Config ${{ matrix.config }} -Platform ${{ matrix.platform }} `
+            -OutZip $zip -IncludePdb:$pdb
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: blueMSX+-ci-${{ matrix.platform }}-${{ matrix.config }}
+          path: dist/*.zip
+          # Review builds are only useful while the PR is open, and every
+          # push replaces them anyway.
+          retention-days: 7
+          if-no-files-found: error

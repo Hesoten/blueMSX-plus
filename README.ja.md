@@ -4,19 +4,27 @@ blueMSX+ は MSX エミュレータ [blueMSX](https://msxblue.com/bluemsx/jindex
 Windows 11 向けに UI や音声周りを中心にモダン化しています。
 
 
-## v3.0.1 リリースの変更点
+## v3.1.0 リリースの変更点
 
-- **単体パッケージ化** — v3.0.0 では別途用意が必要だった、オリジナル blueMSX のファイル群を同梱しました
-- [blueMSX 公式サイト](https://msxblue.com/bluemsx/jresource.html) で公開されている最終版の Rom/Cas/Disk データベースおよびチートデータベースも同梱
-- **C-BIOS 0.29a** を同梱
-- リリースバイナリの UPX 圧縮を廃止 (ウィルス対策ソフトの誤検知回避のため)
-- 新規メモリマッパーへの対応を追加: **ASCII16-X**、**NEO-8**、**NEO-16**、**Yamanooto**
-- エミュレータの起動失敗時に、原因を切り分けて具体的なメッセージを表示するようにしました
+- 同梱する C-BIOS に FDD と turbo R への対応を追加 ([v0.29+](https://github.com/Hesoten/cbios-nextor_FDD-and-turboR))
+- ショートカットや MSX のキーボード・コントローラボタンに、最大 3 つまでのキーやボタンを割り当てられるようにしました
+- カセットテープ機能の対応強化 — cas / wav 形式での読み書きと、tsx 形式の読み込みに対応
+- MSX マウスの速度の改善と調整機能の追加
+- MoonSound (OPL4) の音質を向上
+- Direct3D 12 のスケーリングフィルタを追加
+- Flash-ROM SCC (Developer Edition) 対応の追加
+- コマンドラインオプションの拡充
+- Program Files 以下にインストールした場合などに、意図せずマシン構成フォルダが `<ドキュメントフォルダ>` 以下になってしまう不具合を修正
+- デバッガの UI および各種不具合の修正
+- ROM 自動判別の改善と、zip 版データベースが読み込めていなかった不具合の修正・更新
+- VDP の不具合の修正 (Blink 関連など)
+- 言語によっては UI に文字が収まらない箇所があったのを改善
+- その他、多数の細かな修正・改善
 
 全ての変更履歴は [`blueMSX/changes.txt`](blueMSX/changes.txt) を参照してください。
 
 
-## オリジナル blueMSX に対するの主な改善点
+## オリジナル blueMSX に対する主な改善点
 
 - **Windows 11 ネイティブ対応**
   - 64 bit アプリケーション化、UI ダークモード対応などモダンな Windows 機能に対応
@@ -38,13 +46,7 @@ Windows 11 向けに UI や音声周りを中心にモダン化しています�
 - **MegaFlashROM SCC+ SD カートリッジ対応**
   - SD カードを含めた MegaFlashROM SCC+ SD の多様な機能をエミュレート  
     (カートリッジ搭載 PSG ポートの MSX 内蔵 PSG ポートへの上書きは未サポート)
-- **その他のバグ修正・改善**
-  - スプライト描画不具合を修正 (拡大スプライトの位置ずれなど)
-  - SCREEN 0~4 における VDP コマンドの挙動を修正
-  - R800 モードにおけるブロック I/O 命令のフラグ処理を修正
-  - TurboR PCM の周波数や書き込みタイミングを修正
-  - ディレクトリ挿入時のロングファイルネームへの対応や 720KB オーバー時の警告を追加  
-  - 他、多数
+- その他のバグ修正・改善
 
 
 ## 動作環境
@@ -71,11 +73,17 @@ Windows 11 向けに UI や音声周りを中心にモダン化しています�
 
 - GPLv2 ライセンスのソースコードを含むため、blueMSX+ 全体としては GPLv2 でライセンスします。誰でも自由に複製、改変、配布する事が出来ますが、改変した実行ファイルを配布する場合は、改変後のソースコードを公開するなど GPL に準拠した扱いが必要です。
 - GPLv2 の全文は https://www.gnu.org/licenses/old-licenses/gpl-2.0.html を参照してください。
+- C-BIOS 利用マシン構成に同梱のファイルは、それぞれ以下のライセンスに従います。
+  - C-BIOS: 各 C-BIOS マシン構成フォルダの `cbios.txt`
+  - Nextor: C-BIOS FDD 版マシン構成フォルダの `LICENSE-Nextor.md`
+  - TC8566AF FDC ドライバ: C-BIOS FDD 版マシン構成フォルダの `LICENSE-TC8566AF.txt`
+- 「漢字ROM image file for msx emulaters」のライセンスは `Machines/Shared Roms/LICENSE-KANJI.txt` を参照してください。
 
 
 ## インストール方法
 
 1. [Releases](https://github.com/Hesoten/blueMSX-plus/releases) からリリースアーカイブをダウンロードする
+   - 通常は 64bit 版のアーカイブ (`x64`) を、32bit 版が必要な場合は `Win32` のアーカイブをダウンロードしてください
 2. 好きな場所に展開する
 3. (オプション) お持ちの MSX 実機に対応した BIOS ファイルを、Machines フォルダの該当機種のフォルダに配置する (config.ini 内に記述された BIOS ファイル名と一致するよう配置)
 4. 展開したフォルダ内の `blueMSX+.exe` を起動する
@@ -132,6 +140,17 @@ HDR 出力・高品位スキャンラインと明るさ補正・モニタエミ�
 - **Visual Studio 2022** または **Visual Studio 2026** で対応するソリューションファイル(`Make/msvc2022/blueMSX.sln` または `Make/msvc2026/blueMSX.sln`)を開いてビルドしてください。
 
 
+## 今後追加したい機能 (候補)
+
+- デバッグ関連機能の拡充 (VRAM・スプライト viewer、トレーサーなど)
+- ディレクトリマウント機能の改良 (書き出し・大容量ディスクサポート)
+- データレコーダ UI の追加
+- 巻き戻し再生 UI (OSD?) の追加
+- VDP 描画タイミングの精度向上
+- エミュレーション速度の改善
+- vgm 録音
+
+
 ## 謝辞
 
 素晴らしい MSX エミュレータを開発された、Daniel Vik さんらオリジナル blueMSX の開発チームおよびコントリビューターの皆様に深く感謝いたします。
@@ -144,12 +163,21 @@ emu2413 および emu8950 は Mitsutaka Okazaki さんの著作物です。
 TMS9918A パッチは uniskie さんの著作物です。  
 これらの素晴らしい機能を blueMSX+ に取り込ませていただきました。心より御礼申し上げます。
 
-blueMSX+ にはオープンソースの MSX BIOS 実装である **C-BIOS** 0.29a を同梱しています。
-これにより、MSX 実機の BIOS ROM を用意しなくても起動することができます。  
-詳細については、Machines フォルダの C-BIOS 利用マシン構成に同梱の `cbios.txt` および 
-<https://cbios.sourceforge.net/> を参照してください。
-BouKiCHi、Reikan、Maarten ter Huurne、Albert Beevendorp、Patrick van Arkel、Manuel Bilderbeek、Joost Yervante Damad、Jussi Pitkänen、Eric Boon の各氏をはじめとする C-BIOS プロジェクトの皆様に、
-このような素晴らしい互換 BIOS を開発頂き、また自由に再配布可能な形で公開して頂いていることへの感謝を申し上げます。  
+blueMSX+ には、オープンソースの MSX BIOS 実装である C-BIOS をベースに turbo R やディスク起動への対応を加えたマシン構成を同梱しています。  
+これにより、MSX 実機の BIOS ROM を用意しなくても多くのソフトウェアを実行できます。  
+(注：MSX-BASIC を利用するものは実行できません)  
+
+C-BIOS の詳細については、Machines フォルダの C-BIOS 利用マシン構成に同梱の `cbios.txt` および
+<https://cbios.sourceforge.net/> を参照してください。  
+BouKiCHi、Reikan、Maarten ter Huurne、Albert Beevendorp、Patrick van Arkel、Manuel Bilderbeek、Joost Yervante Damad、Jussi Pitkänen、Eric Boon の各氏をはじめとする C-BIOS プロジェクトの皆様に、このような素晴らしい互換 BIOS を開発頂き、また自由に再配布可能な形で公開して頂いていることへの感謝を申し上げます。
+
+C-BIOS FDD 版のマシン構成では、ディスクカーネルとして **Nextor** を使用しています。  
+Nextor を開発され、継続的に改良を続けられ、またこのようなプロジェクトが成立する形でソースコードを公開して頂いている Nestor Soriano Vilchez (Konamiman) 氏に、心より御礼申し上げます。
+
+C-BIOS の JP 版および turbo R のマシン構成には、A to C さん制作の「漢字ROM image file for msx emulaters」を使用しています。
+パブリックドメインの jiskan16 フォントに MSX 固有グリフを手描きで加えた、自由に再配布可能な漢字フォント ROM を制作された A to C 氏に御礼申し上げます。
+
+MSX Resource Center や GitHub などでフィードバックや要望をくださった皆様にも御礼申し上げます。
 
 blueMSX+ の改良コードは Claude Code で開発を行っています。  
 やりたい機能追加や不具合修正を次々と実現していく能力に、驚きと畏怖の念を覚えます。

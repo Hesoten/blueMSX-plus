@@ -91,7 +91,7 @@
 #include "romMapperSCCplus.h"
 #include "romMapperPanasonic.h"
 #include "romMapperNational.h"
-#include "sramMapperMatsuchita.h"
+#include "sramMapperMatsushita.h"
 #include "romMapperKonamiSynth.h"
 #include "romMapperKonamiKeyboardMaster.h"
 #include "romMapperKonamiWordPro.h"
@@ -139,6 +139,7 @@
 #include "romMapperNeo8.h"
 #include "romMapperNeo16.h"
 #include "romMapperYamanooto.h"
+#include "romMapperFlashRomScc.h"
 #include "romMapperForteII.h"
 #include "romMapperA1FMModem.h"
 #include "romMapperA1FM.h"
@@ -718,7 +719,9 @@ void machineFillAvailable(ArrayList *list, int checkRoms)
     const int maxNameLength = 512;
  
     if (machineName != NULL) {
-        char filename[128];
+        /* The machines directory alone can fill this; 128 was an overrun for
+        ** any path of real length, never mind what is appended to it. */
+        char filename[PROP_MAXPATH];
         
         FILE* file;
         
@@ -1240,12 +1243,14 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
             continue;
         }
 
-        if (machine->slotInfo[i].romType == SRAM_MATSUCHITA) {
-            success &= sramMapperMatsushitaCreate(0);
+        if (machine->slotInfo[i].romType == SRAM_MATSUSHITA) {
+            /* Only the T9769B machines (FS-A1FX/WX/WSX) have the 5.37MHz turbo */
+            success &= sramMapperMatsushitaCreate(machine->board.type == BOARD_MSX_T9769B);
             continue;
         }
 
-        if (machine->slotInfo[i].romType == SRAM_MATSUCHITA_INV) {
+        if (machine->slotInfo[i].romType == SRAM_MATSUSHITA_TURBO) {
+            /* Legacy rom type that explicitly asks for the turbo capable variant */
             success &= sramMapperMatsushitaCreate(1);
             continue;
         }
@@ -1422,6 +1427,9 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
             case ROM_YAMANOOTO:
                 success &= romMapperYamanootoCreate("Yamanooto.rom", NULL, 0, slot, subslot, startPage);
                 break;
+            case ROM_FLASHROMSCC:
+                success &= romMapperFlashRomSccCreate("FlashRomScc.rom", NULL, 0, slot, subslot, startPage);
+                break;
             default:
                 boardReportMissingFile(machine->slotInfo[i].name,
                                        machine->slotInfo[i].inZipName);
@@ -1515,6 +1523,10 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
 
         case ROM_YAMANOOTO:
             success &= romMapperYamanootoCreate(romName, buf, size, slot, subslot, startPage);
+            break;
+
+        case ROM_FLASHROMSCC:
+            success &= romMapperFlashRomSccCreate(romName, buf, size, slot, subslot, startPage);
             break;
 
         case ROM_OBSONET:

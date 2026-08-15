@@ -31,6 +31,7 @@
 #define USE_ARCH_GLOB
 
 #include "DirAsDisk.h"
+#include "DiskFormat.h"
 
 #pragma warning(disable: 4996)
 #if defined(WIN32) || defined (WINDOWS_HOST)
@@ -330,6 +331,7 @@ static void load_dsk_svi(int diskType)
     }
 
     dskimage = (byte *) calloc (1, imageSize * 1024);
+    if (dskimage == NULL) { dskimagesize = 0; return; }
     memset(dskimage, 0xe5, imageSize * 1024);
     dskimagesize = imageSize * 1024;
 
@@ -359,11 +361,30 @@ static void load_dsk_svi(int diskType)
     }
 }
 
+static int msxDirDiskFormat = (int)DiskFormatMsxDos2;
+
+void dirSetMsxDiskFormat(int fmt)
+{
+    if (fmt == (int)DiskFormatMsxDos1 ||
+        fmt == (int)DiskFormatMsxDos2 ||
+        fmt == (int)DiskFormatNextor) {
+        msxDirDiskFormat = fmt;
+    } else {
+        msxDirDiskFormat = (int)DiskFormatMsxDos2;
+    }
+}
+
 static void load_dsk_msx(void) {
+    dskimage = (byte *) calloc (1, 720*1024);
+    if (dskimage == NULL) { dskimagesize = 0; return; }
     dskimagesize = 720*1024;
-    dskimage=(byte *) calloc (1,720*1024);
     memset (dskimage,0,720*1024);
-    memcpy (dskimage,msxboot,512);
+    /* Plant selected DOS1/DOS2/Nextor boot sector; fall back to legacy
+    ** DSKTOOL msxboot on any failure so old call sites stay unchanged. */
+    if (!diskFormatWriteBootSector(dskimage, 720*1024,
+                                    (DiskFormatType)msxDirDiskFormat)) {
+        memcpy (dskimage,msxboot,512);
+    }
     reservedsectors=*(word *)(dskimage+0x0E);
     numberoffats=*(dskimage+0x10);
     sectorsperfat=*(word *)(dskimage+0x16);
@@ -416,11 +437,24 @@ static fileinfo *getfileinfo(int pos) {
   return file;
 }
 
+/* Return -1 on any error (OneDrive placeholder hydration, >2GB files, races)
+** so callers don't feed a signed -1 through the size check and into read(). */
 static int getfilelength(int fd) {
-    int cur = lseek(fd, 0, SEEK_CUR);
-    int length = lseek(fd, 0, SEEK_END);
+#if defined(_WIN32)
+    __int64 cur = _lseeki64(fd, 0, SEEK_CUR);
+    __int64 length = _lseeki64(fd, 0, SEEK_END);
+    if (cur < 0 || length < 0) return -1;
+    _lseeki64(fd, cur, SEEK_SET);
+    if (length > 0x7FFFFFFF) return -1;
+    return (int)length;
+#else
+    off_t cur = lseek(fd, 0, SEEK_CUR);
+    off_t length = lseek(fd, 0, SEEK_END);
+    if (cur < 0 || length < 0) return -1;
     lseek(fd, cur, SEEK_SET);
-    return length;
+    if (length > 0x7FFFFFFF) return -1;
+    return (int)length;
+#endif
 }
 
 /* Cast to unsigned char before toupper: UCRT fast-fails on negative
@@ -732,10 +766,13 @@ static int add_single_file(char *name, const char *pathname) {
     }
   }
 
-  if ((size=getfilelength(fileid))>bytes_free())
+  /* size<0 means getfilelength failed; a signed compare would let -1 slip
+  ** past the check and reach read(fd, buf, (unsigned)-1) = heap smash. */
+  size = getfilelength(fileid);
+  if (size < 0 || size > bytes_free())
   {
     dirLoadOverflowCount++;
-    dirLoadOverflowBytes += size;
+    if (size > 0) dirLoadOverflowBytes += size;
     close (fileid);
     return 1;
   }
@@ -1154,6 +1191,7 @@ void* dirLoadFile(DirDiskType diskType, const char* directory, int* size)
     else {
         load_dsk_svi(diskType);
     }
+    if (dskimage == NULL) { *size = 0; return NULL; }
 
     if ((int)snprintf(filename, sizeof(filename), "%s/*", directory)
         >= (int)sizeof(filename)) {

@@ -29,6 +29,7 @@
 ******************************************************************************
 */
 #include "LaunchFile.h"
+#include "RomTypeList.h"
 #include "IsFileExtension.h"
 #include "ziphelper.h"
 #include "RomLoader.h"
@@ -51,6 +52,50 @@
 
 
 void archUpdateMenu(int show);
+
+/* Nonzero once the user has been asked or already told why, so that
+** tryLaunchUnknownFile answers -1 rather than a plain failure. */
+static int launchAnswered = 0;
+
+/* zipGetFileList hands back a run of NUL terminated names, so the byte length
+** is only recoverable by walking the entries. */
+static int fileListSize(const char* list, int count)
+{
+    int size = 0;
+
+    while (count-- > 0) {
+        size += (int)strlen(list + size) + 1;
+    }
+    return size;
+}
+
+/* Concatenating the runs is all a merge takes. Takes ownership of the inputs so
+** the caller does not have to track which of them a zip actually produced. */
+static char* fileListMerge(char* a, int countA, char* b, int countB,
+                           char* c, int countC, int* count)
+{
+    int   sizeA = fileListSize(a, countA);
+    int   sizeB = fileListSize(b, countB);
+    int   sizeC = fileListSize(c, countC);
+    char* list  = NULL;
+
+    *count = countA + countB + countC;
+    if (*count > 0) {
+        list = malloc(sizeA + sizeB + sizeC);
+        if (list == NULL) {
+            *count = 0;
+        }
+        else {
+            if (sizeA > 0) memcpy(list, a, sizeA);
+            if (sizeB > 0) memcpy(list + sizeA, b, sizeB);
+            if (sizeC > 0) memcpy(list + sizeA + sizeB, c, sizeC);
+        }
+    }
+    free(a);
+    free(b);
+    free(c);
+    return list;
+}
 
 int insertCartridge(Properties* properties, int drive, const char* fname, const char* inZipFile, RomType romType, int forceAutostart) {
     int autostart = forceAutostart == 1 || properties->cartridge.autoReset;
@@ -136,6 +181,7 @@ int insertCartridge(Properties* properties, int drive, const char* fname, const 
 
             if (count == 0) {
                 archShowNoRomInZipDialog();
+                launchAnswered = 1;
                 return 0;
             }
 
@@ -146,6 +192,7 @@ int insertCartridge(Properties* properties, int drive, const char* fname, const 
                 char* filename = archFilenameGetOpenRomZip(properties, drive, fname, fileList, count, &autostart, &romType);
                 if (filename == NULL) {
                     free(fileList);
+                    launchAnswered = 1;
                     return 0;
                 }
                 strcpy(romName, filename);
@@ -186,62 +233,12 @@ int insertCartridge(Properties* properties, int drive, const char* fname, const 
         }
     }
 
-    romType = 0 == strcmp(CARTNAME_SNATCHER,    filename) ? ROM_SNATCHER :
-              0 == strcmp(CARTNAME_SDSNATCHER,  filename) ? ROM_SDSNATCHER :
-              0 == strcmp(CARTNAME_SCCMIRRORED, filename) ? ROM_SCCMIRRORED :
-              0 == strcmp(CARTNAME_SCCEXPANDED, filename) ? ROM_SCCEXTENDED :
-              0 == strcmp(CARTNAME_SCC,         filename) ? ROM_SCC :
-              0 == strcmp(CARTNAME_SCCPLUS,     filename) ? ROM_SCCPLUS :
-              0 == strcmp(CARTNAME_JOYREXPSG,   filename) ? ROM_JOYREXPSG :
-              0 == strcmp(CARTNAME_FMPAC,       filename) ? ROM_FMPAC :
-              0 == strcmp(CARTNAME_PAC,         filename) ? ROM_PAC :
-              0 == strcmp(CARTNAME_GAMEREADER,  filename) ? ROM_GAMEREADER :
-              0 == strcmp(CARTNAME_SUNRISEIDE,  filename) ? ROM_SUNRISEIDE :
-              0 == strcmp(CARTNAME_GIDE,        filename) ? ROM_GIDE :
-              0 == strcmp(CARTNAME_BEERIDE,     filename) ? ROM_BEERIDE :
-              0 == strcmp(CARTNAME_NMS1210,     filename) ? ROM_NMS1210 :
-              0 == strcmp(CARTNAME_GOUDASCSI,   filename) ? ROM_GOUDASCSI :
-              0 == strcmp(CARTNAME_SONYHBI55,   filename) ? ROM_SONYHBI55 :
-              0 == strcmp(CARTNAME_EXTRAM16KB,  filename) ? ROM_EXTRAM16KB :
-              0 == strcmp(CARTNAME_EXTRAM32KB,  filename) ? ROM_EXTRAM32KB :
-              0 == strcmp(CARTNAME_EXTRAM48KB,  filename) ? ROM_EXTRAM48KB :
-              0 == strcmp(CARTNAME_EXTRAM64KB,  filename) ? ROM_EXTRAM64KB :
-              0 == strcmp(CARTNAME_EXTRAM16KB,  filename) ? ROM_EXTRAM16KB :
-              0 == strcmp(CARTNAME_EXTRAM32KB,  filename) ? ROM_EXTRAM32KB :
-              0 == strcmp(CARTNAME_EXTRAM48KB,  filename) ? ROM_EXTRAM48KB :
-              0 == strcmp(CARTNAME_EXTRAM64KB,  filename) ? ROM_EXTRAM64KB :
-              0 == strcmp(CARTNAME_EXTRAM512KB, filename) ? ROM_EXTRAM512KB :
-              0 == strcmp(CARTNAME_EXTRAM1MB,   filename) ? ROM_EXTRAM1MB :
-              0 == strcmp(CARTNAME_EXTRAM2MB,   filename) ? ROM_EXTRAM2MB :
-              0 == strcmp(CARTNAME_EXTRAM4MB,   filename) ? ROM_EXTRAM4MB :
-              0 == strcmp(CARTNAME_MEGARAM128,  filename) ? ROM_MEGARAM128 :
-              0 == strcmp(CARTNAME_MEGARAM256,  filename) ? ROM_MEGARAM256 :
-              0 == strcmp(CARTNAME_MEGARAM512,  filename) ? ROM_MEGARAM512 :
-              0 == strcmp(CARTNAME_MEGARAM768,  filename) ? ROM_MEGARAM768 :
-              0 == strcmp(CARTNAME_MEGARAM2M,   filename) ? ROM_MEGARAM2M  :
-              0 == strcmp(CARTNAME_MEGASCSI128, filename) ? SRAM_MEGASCSI128 :
-              0 == strcmp(CARTNAME_MEGASCSI256, filename) ? SRAM_MEGASCSI256 :
-              0 == strcmp(CARTNAME_MEGASCSI512, filename) ? SRAM_MEGASCSI512 :
-              0 == strcmp(CARTNAME_MEGASCSI1MB, filename) ? SRAM_MEGASCSI1MB :
-              0 == strcmp(CARTNAME_NOWINDDOS1,  filename) ? ROM_NOWIND :
-              0 == strcmp(CARTNAME_NOWINDDOS2,  filename) ? ROM_NOWIND :
-              0 == strcmp(CARTNAME_ESERAM128,   filename) ? SRAM_ESERAM128 :
-              0 == strcmp(CARTNAME_ESERAM256,   filename) ? SRAM_ESERAM256 :
-              0 == strcmp(CARTNAME_ESERAM512,   filename) ? SRAM_ESERAM512 :
-              0 == strcmp(CARTNAME_ESERAM1MB,   filename) ? SRAM_ESERAM1MB :
-              0 == strcmp(CARTNAME_MEGAFLSHSCC, filename) ? ROM_MEGAFLSHSCC :
-              0 == strcmp(CARTNAME_MEGAFLSHSCCPLUS, filename) ? ROM_MEGAFLSHSCCPLUS :
-              0 == strcmp(CARTNAME_MEGAFLSHSCCPLUS_SD, filename) ? ROM_MEGAFLSHSCCPLUS_SD :
-              0 == strcmp(CARTNAME_ASCII16X,    filename) ? ROM_ASCII16X :
-              0 == strcmp(CARTNAME_YAMANOOTO,   filename) ? ROM_YAMANOOTO :
-              0 == strcmp(CARTNAME_WAVESCSI128, filename) ? SRAM_WAVESCSI128 :
-              0 == strcmp(CARTNAME_WAVESCSI256, filename) ? SRAM_WAVESCSI256 :
-              0 == strcmp(CARTNAME_WAVESCSI512, filename) ? SRAM_WAVESCSI512 :
-              0 == strcmp(CARTNAME_WAVESCSI1MB, filename) ? SRAM_WAVESCSI1MB :
-              0 == strcmp(CARTNAME_ESESCC128,   filename) ? SRAM_ESESCC128 :
-              0 == strcmp(CARTNAME_ESESCC256,   filename) ? SRAM_ESESCC256 :
-              0 == strcmp(CARTNAME_ESESCC512,   filename) ? SRAM_ESESCC512 :
-              romType;
+    {
+        RomType builtin = romTypeListCartFromName(filename);
+        if (builtin != ROM_UNKNOWN) {
+            romType = builtin;
+        }
+    }
 
     if (drive == 0) {
         strcpy(properties->media.carts[0].fileName, filename);
@@ -350,6 +347,7 @@ int insertDiskette(Properties* properties, int drive, const char* fname, const c
 
             if (count == 0) {
                 archShowNoDiskInZipDialog();
+                launchAnswered = 1;
                 return 0;
             }
 
@@ -360,6 +358,7 @@ int insertDiskette(Properties* properties, int drive, const char* fname, const c
                 char* filename = archFilenameGetOpenDiskZip(properties, drive, fname, fileList, count, &autostart);
                 if (filename == NULL) {
                     free(fileList);
+                    launchAnswered = 1;
                     return 0;
                 }
                 strcpy(diskName, filename);
@@ -411,11 +410,18 @@ int insertCassette(Properties* properties, int drive, const char* fname, const c
             strcpy(tapeName, inZipFile);
         }
         else {
-            int count;
-            char* fileList = zipGetFileList(filename, ".cas", &count);
+            int count, countCas, countTsx, countWav;
+            char* listCas = zipGetFileList(filename, ".cas", &countCas);
+            char* listTsx = zipGetFileList(filename, ".tsx", &countTsx);
+            char* listWav = zipGetFileList(filename, ".wav", &countWav);
+            /* Merged rather than taken in order of preference: a zip holding
+            ** both a .cas and a .tsx has to offer the user both. */
+            char* fileList = fileListMerge(listCas, countCas, listTsx, countTsx,
+                                           listWav, countWav, &count);
 
             if (fileList == NULL) {
                 archShowNoCasInZipDialog();
+                launchAnswered = 1;
                 return 0;
             }
 
@@ -426,6 +432,7 @@ int insertCassette(Properties* properties, int drive, const char* fname, const c
                 char* filename = archFilenameGetOpenCasZip(properties, fname, fileList, count, &autostart);
                 if (filename == NULL) {
                     free(fileList);
+                    launchAnswered = 1;
                     return 0;
                 }
                 strcpy(tapeName, filename);
@@ -486,7 +493,14 @@ static int insertDisketteOrCartridge(Properties* properties, int drive, const ch
     char* fileListCol = zipGetFileList(fname, ".col", &countCol);
     char* fileListSg  = zipGetFileList(fname, ".sg",  &countSg);
     char* fileListSc  = zipGetFileList(fname, ".sc",  &countSc);
-    char* fileListCas = zipGetFileList(fname, ".cas", &countCas);
+    int   countTsx, countWav;
+    char* listCas = zipGetFileList(fname, ".cas", &countCas);
+    char* listTsx = zipGetFileList(fname, ".tsx", &countTsx);
+    char* listWav = zipGetFileList(fname, ".wav", &countWav);
+    /* One cassette list, so a zip holding only a .tsx still opens the chooser
+    ** instead of falling through as "nothing recognised". */
+    char* fileListCas = fileListMerge(listCas, countCas, listTsx, countTsx,
+                                      listWav, countWav, &countCas);
     int countRom = countRox + countRi + countMx1 + countMx2 + countSms + countCol + countSg + countSc;
     int countDsk = countDsx + countDi1 + countDi2 + count360 + count720 + countSf7;
     char* fileList;
@@ -621,6 +635,9 @@ static int insertDisketteOrCartridge(Properties* properties, int drive, const ch
     autostart = forceAutostart;
 
     filename = archFilenameGetOpenAnyZip(properties, fname, fileList, countDsk + countRom + countCas, &autostart, &romType);
+    if (filename == NULL) {
+        launchAnswered = 1;
+    }
     if (filename != NULL) {
         if (isFileExtension(filename, ".rom") || isFileExtension(filename, ".ri") || 
             isFileExtension(filename, ".mx1") || isFileExtension(filename, ".mx2") || 
@@ -635,7 +652,8 @@ static int insertDisketteOrCartridge(Properties* properties, int drive, const ch
         {
             success = insertDiskette(properties, drive, fname, filename, autostart);
         }
-        else if (isFileExtension(filename, ".cas")) {
+        else if (isFileExtension(filename, ".cas") || isFileExtension(filename, ".tsx") ||
+                 isFileExtension(filename, ".wav")) {
             success = insertCassette(properties, 0, fname, filename, autostart);
         }
     }
@@ -661,11 +679,30 @@ static int insertDisketteOrCartridge(Properties* properties, int drive, const ch
     return success;
 }
 
+/* The names tryLaunchUnknownFile knows what to do with. */
+int launchFileIsSupported(const char* fileName)
+{
+    return isFileExtension(fileName, ".sta") || isFileExtension(fileName, ".cap") ||
+           isFileExtension(fileName, ".rom") || isFileExtension(fileName, ".ri")  ||
+           isFileExtension(fileName, ".mx1") || isFileExtension(fileName, ".mx2") ||
+           isFileExtension(fileName, ".sms") || isFileExtension(fileName, ".col") ||
+           isFileExtension(fileName, ".sg")  || isFileExtension(fileName, ".sc")  ||
+           isFileExtension(fileName, ".dsk") || isFileExtension(fileName, ".di1") ||
+           isFileExtension(fileName, ".di2") || isFileExtension(fileName, ".360") ||
+           isFileExtension(fileName, ".720") || isFileExtension(fileName, ".sf7") ||
+           isFileExtension(fileName, ".cas") || isFileExtension(fileName, ".tsx") ||
+           isFileExtension(fileName, ".wav") || isFileExtension(fileName, ".zip");
+}
+
 int tryLaunchUnknownFile(Properties* properties, const char* fileName, int forceAutostart) 
 {
     int rv = 0;
 
-    if (isFileExtension(fileName, ".sta")) {
+    launchAnswered = 0;
+
+    /* A replay is a saved state with an input log inside it, so it opens the
+    ** same way and starts playing itself. */
+    if (isFileExtension(fileName, ".sta") || isFileExtension(fileName, ".cap")) {
         emulatorStart(fileName);
         return 1;
     }
@@ -694,7 +731,8 @@ int tryLaunchUnknownFile(Properties* properties, const char* fileName, int force
 
         rv = insertDiskette(properties, drive, fileName, NULL, forceAutostart);
     }
-    else if (isFileExtension(fileName, ".cas")) {
+    else if (isFileExtension(fileName, ".cas") || isFileExtension(fileName, ".tsx") ||
+             isFileExtension(fileName, ".wav")) {
         if (properties->cassette.rewindAfterInsert) tapeRewindNextInsert();
         rv = insertCassette(properties, 0, fileName, NULL, forceAutostart);
     }
@@ -704,6 +742,6 @@ int tryLaunchUnknownFile(Properties* properties, const char* fileName, int force
     
     archUpdateMenu(0);
 
-    return rv;
+    return rv ? 1 : (launchAnswered ? -1 : 0);
 }
 

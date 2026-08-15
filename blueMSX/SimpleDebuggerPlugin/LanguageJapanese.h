@@ -119,6 +119,7 @@ public:
         symbolWindowText            = "既存シンボルを置き換える";
         
         popupOverwrite              = "ファイルが既に存在します。上書きしますか?";
+        popupRemoveBreakpoints      = "ブレークポイントが残っています。閉じる前に消去しますか?";
 
         statusRunning               = "実行中";
         statusPaused                = "一時停止";

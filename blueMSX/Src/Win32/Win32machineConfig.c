@@ -31,6 +31,7 @@
 #include <windows.h>
 #include <math.h>
 #include <commctrl.h>
+#include <uxtheme.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -48,7 +49,6 @@
 
 #define WM_UPDATEMAHCINE  (WM_USER + 0)
 
-static HBRUSH hBrush = NULL;
 static HWND hDlgSlots  = NULL;
 static HWND hDlgMemory = NULL;
 static HWND hDlgChips  = NULL;
@@ -114,6 +114,7 @@ static void updateMachineList(HWND hDlg) {
     while (arrayListCanIterate(iterator)) {
         char buffer[128];
         _snprintf(buffer, sizeof(buffer) - 1, "%s", (const char*)arrayListIterate(iterator));
+        buffer[sizeof(buffer) - 1] = 0;
 
         ComboAddStringU(GetDlgItem(hDlg, IDC_CONF_CONFIGS), buffer);
         if (index == 0 || 0 == strcmp(buffer, machineName)) {
@@ -442,16 +443,9 @@ static INT_PTR CALLBACK slotProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lPa
         SetWindowTextU(GetDlgItem(hDlg, IDC_CONF_SLOTSUBSLOTTED4), langConfSlotExpanded());
 
         SendMessage(hDlg, WM_UPDATEMAHCINE, 0, 0);
+        EnableThemeDialogTexture(hDlg, ETDT_ENABLETAB);
         win32CommonApplyDark(hDlg);
         return FALSE;
-
-    case WM_CTLCOLORBTN:
-    case WM_CTLCOLORSTATIC:
-        SetBkColor((HDC)wParam, GetSysColor(COLOR_MENU));
-        return (INT_PTR)hBrush;
-        
-    case WM_ERASEBKGND:
-        return TRUE;
 
     case WM_COMMAND:
         {
@@ -616,8 +610,8 @@ static void getSlotControl(HWND hDlg)
     int i;
     int j;
 
-    if (editSlotInfo.romType == SRAM_MATSUCHITA || editSlotInfo.romType == ROM_GIDE ||
-        editSlotInfo.romType == SRAM_MATSUCHITA_INV ||
+    if (editSlotInfo.romType == SRAM_MATSUSHITA || editSlotInfo.romType == ROM_GIDE ||
+        editSlotInfo.romType == SRAM_MATSUSHITA_TURBO ||
         editSlotInfo.romType == ROM_TURBORTIMER || editSlotInfo.romType == ROM_TURBORIO ||
         editSlotInfo.romType == SRAM_S1985 || editSlotInfo.romType == ROM_S1990 ||
         editSlotInfo.romType == ROM_F4INVERTED || editSlotInfo.romType == ROM_F4DEVICE ||
@@ -770,8 +764,8 @@ static void endEditControls(HWND hDlg)
 
     case SRAM_S1985:
     case ROM_S1990:
-    case SRAM_MATSUCHITA:
-    case SRAM_MATSUCHITA_INV:
+    case SRAM_MATSUSHITA:
+    case SRAM_MATSUSHITA_TURBO:
     case ROM_F4INVERTED:
     case ROM_F4DEVICE:
     case ROM_NMS8280DIGI:
@@ -827,6 +821,7 @@ static void endEditControls(HWND hDlg)
     case ROM_MEGAFLSHSCCPLUS_SD:
     case ROM_ASCII16X:
     case ROM_YAMANOOTO:
+    case ROM_FLASHROMSCC:
     case ROM_OBSONET:
     case ROM_DUMAS:
     case ROM_SCC:
@@ -963,8 +958,8 @@ static void setEditControls(HWND hDlg)
     if (romType != RAM_1KB_MIRRORED && romType != RAM_2KB_MIRRORED && 
         romType != RAM_NORMAL && romType != RAM_MAPPER && 
         romType != ROM_MEGARAM && romType != ROM_EXTRAM &&
-        romType != SRAM_MATSUCHITA && romType != SRAM_S1985 && romType != ROM_S1990 && 
-        romType != SRAM_MATSUCHITA_INV &&
+        romType != SRAM_MATSUSHITA && romType != SRAM_S1985 && romType != ROM_S1990 && 
+        romType != SRAM_MATSUSHITA_TURBO &&
         romType != ROM_F4INVERTED && romType != ROM_F4DEVICE && romType != ROM_NMS8280DIGI && 
         romType != ROM_TURBORTIMER && romType != ROM_TURBORIO && romType != ROM_GIDE && romType != ROM_NMS1210 && 
         romType != ROM_MSXAUDIODEV && romType != ROM_TURBORPCM && romType != ROM_SVI328FDC &&
@@ -989,8 +984,8 @@ static void setEditControls(HWND hDlg)
     }
 
     // Set ram slot
-    if (romType == SRAM_MATSUCHITA || romType == SRAM_S1985 || 
-        romType == SRAM_MATSUCHITA_INV ||
+    if (romType == SRAM_MATSUSHITA || romType == SRAM_S1985 || 
+        romType == SRAM_MATSUSHITA_TURBO ||
         romType == ROM_S1990 || romType == ROM_KANJI ||  romType == ROM_GIDE ||
         romType == ROM_TURBORTIMER || romType == ROM_TURBORIO || romType == ROM_NMS1210 ||
         romType == ROM_F4INVERTED || romType == ROM_F4DEVICE ||
@@ -1328,6 +1323,7 @@ static void setEditControls(HWND hDlg)
     case ROM_MEGAFLSHSCCPLUS_SD:
     case ROM_ASCII16X:
     case ROM_YAMANOOTO:
+    case ROM_FLASHROMSCC:
     case ROM_MUPACK:
     case ROM_OBSONET:
     case ROM_DUMAS:
@@ -1408,8 +1404,8 @@ static void setEditControls(HWND hDlg)
 
     case SRAM_S1985:
     case ROM_S1990:
-    case SRAM_MATSUCHITA:
-    case SRAM_MATSUCHITA_INV:
+    case SRAM_MATSUSHITA:
+    case SRAM_MATSUSHITA_TURBO:
     case ROM_F4INVERTED:
     case ROM_F4DEVICE:
     case ROM_NMS8280DIGI:
@@ -1498,8 +1494,8 @@ static RomType romTypeList[] = {
     ROM_OBSONET,
     ROM_YAMAHANET,
     
-    SRAM_MATSUCHITA,
-    SRAM_MATSUCHITA_INV,
+    SRAM_MATSUSHITA,
+    SRAM_MATSUSHITA_TURBO,
     ROM_DRAM,
     ROM_PANASONIC8,
     ROM_PANASONICWX16,
@@ -1554,6 +1550,7 @@ static RomType romTypeList[] = {
     ROM_NEO8,
     ROM_NEO16,
     ROM_YAMANOOTO, /* contains SCC */
+    ROM_FLASHROMSCC, /* contains SCC */
     SRAM_ESESCC, /* contains SCC */
     SRAM_ESERAM,
     ROM_CROSSBLAIM,
@@ -1962,11 +1959,9 @@ static BOOL_DLG_RET CALLBACK memoryProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
         }
 
         SendMessage(hDlg, WM_UPDATEMAHCINE, 0, 0);
+        EnableThemeDialogTexture(hDlg, ETDT_ENABLETAB);
         win32CommonApplyDark(hDlg);
         return FALSE;
-
-    case WM_ERASEBKGND:
-        return TRUE;
 
     case WM_COMMAND:
         switch (LOWORD(wParam)) {
@@ -2168,17 +2163,10 @@ static INT_PTR CALLBACK extrasProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM l
         SetWindowTextU(GetDlgItem(hDlg, IDC_CMOSENABLE), langConfCmosEnableText());
         SetWindowTextU(GetDlgItem(hDlg, IDC_CMOSBATTERY), langConfCmosBatteryText());
         SendMessage(hDlg, WM_UPDATEMAHCINE, 0, 0);
+        EnableThemeDialogTexture(hDlg, ETDT_ENABLETAB);
         win32CommonApplyDark(hDlg);
         return FALSE;
 
-    case WM_CTLCOLORBTN:
-    case WM_CTLCOLORSTATIC:
-        SetBkColor((HDC)wParam, GetSysColor(COLOR_MENU));
-        return (INT_PTR)hBrush;
-
-    case WM_ERASEBKGND:
-        return TRUE;
-        
     case WM_COMMAND:
         {
             int change = 0;
@@ -2294,16 +2282,9 @@ static INT_PTR CALLBACK chipsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
         
         SendMessage(hDlg, WM_UPDATEMAHCINE, 0, 0);
 
+        EnableThemeDialogTexture(hDlg, ETDT_ENABLETAB);
         win32CommonApplyDark(hDlg);
         return FALSE;
-
-    case WM_CTLCOLORBTN:
-    case WM_CTLCOLORSTATIC:
-        SetBkColor((HDC)wParam, GetSysColor(COLOR_MENU));
-        return (INT_PTR)hBrush;
-        
-    case WM_ERASEBKGND:
-        return TRUE;
 
     case WM_COMMAND:
         {
@@ -2378,10 +2359,14 @@ static BOOL_DLG_RET CALLBACK saveProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARA
     switch (iMsg) {        
     case WM_INITDIALOG:
         {
-            char buffer[128];
+            char buffer[256];
             SetWindowTextU(hDlg, langConfSaveTitle());
 
-            sprintf(buffer, "%s\n\n    \"%s\" ?", langConfSaveText(), tmpMachineName);
+            /* The longest translation of the question is 84 bytes and a
+            ** machine name can reach 63. */
+            _snprintf(buffer, sizeof(buffer) - 1, "%s\n\n    \"%s\" ?",
+                      langConfSaveText(), tmpMachineName);
+            buffer[sizeof(buffer) - 1] = 0;
 
             SetWindowTextU(GetDlgItem(hDlg, IDC_CONF_SAVEDLG_TEXT), buffer);
             SetWindowTextU(GetDlgItem(hDlg, IDOK), langDlgOK());
@@ -2515,8 +2500,11 @@ static BOOL_DLG_RET CALLBACK saveAsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
             if (HIWORD(wParam) == 1 || HIWORD(wParam) == 2) {
                 char buffer[64];
                 int index = (int)SendMessage(GetDlgItem(hDlg, IDC_MACHINELIST), LB_GETCURSEL, 0, 0);
-                SendMessage(GetDlgItem(hDlg, IDC_MACHINELIST), LB_GETTEXT, index, (LPARAM)buffer);
-                SetWindowTextU(GetDlgItem(hDlg, IDC_MACHINENAME), buffer);
+                int len = (int)SendMessage(GetDlgItem(hDlg, IDC_MACHINELIST), LB_GETTEXTLEN, index, 0);
+                if (len != LB_ERR && len < (int)sizeof(buffer)) {
+                    SendMessage(GetDlgItem(hDlg, IDC_MACHINELIST), LB_GETTEXT, index, (LPARAM)buffer);
+                    SetWindowTextU(GetDlgItem(hDlg, IDC_MACHINENAME), buffer);
+                }
                 if (HIWORD(wParam) == 2) {
                     SendMessage(hDlg, WM_COMMAND, IDOK, 0);
                 }
@@ -2586,20 +2574,23 @@ static BOOL_DLG_RET CALLBACK configProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
         hDlgChips  = CreateDialog(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_CONF_VIDEO),  GetDlgItem(hDlg, IDC_CONF_TAB), chipsProc);
         hDlgExtras = CreateDialog(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_CONF_EXTRAS), GetDlgItem(hDlg, IDC_CONF_TAB), extrasProc);
 
-        SetWindowPos(hDlgSlots,  NULL, 3, 24, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
-        SetWindowPos(hDlgMemory, NULL, 3, 24, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
-        SetWindowPos(hDlgChips,  NULL, 3, 24, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
-        SetWindowPos(hDlgExtras, NULL, 3, 24, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
-        
-        ShowWindow(hDlgSlots, SW_NORMAL);
-
         {
             HWND hTab = GetDlgItem(hDlg, IDC_CONF_TAB);
+            RECT rcTab;
             TabInsertItemU(hTab, 0, langConfSlotLayout());
             TabInsertItemU(hTab, 1, langConfMemory());
             TabInsertItemU(hTab, 2, langConfChipEmulation());
             TabInsertItemU(hTab, 3, langConfChipExtras());
+            /* Position pages inside the tab-strip display area (populated
+            ** above) so they don't overlap the strip on high DPI. */
+            GetClientRect(hTab, &rcTab);
+            TabCtrl_AdjustRect(hTab, FALSE, &rcTab);
+            SetWindowPos(hDlgSlots,  NULL, rcTab.left, rcTab.top, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+            SetWindowPos(hDlgMemory, NULL, rcTab.left, rcTab.top, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+            SetWindowPos(hDlgChips,  NULL, rcTab.left, rcTab.top, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+            SetWindowPos(hDlgExtras, NULL, rcTab.left, rcTab.top, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
         }
+        ShowWindow(hDlgSlots, SW_NORMAL);
 
         if (CB_ERRSPACE == SendMessage(GetDlgItem(hDlg, IDC_CONF_CONFIGS), CB_INITSTORAGE, (WPARAM)256, (LPARAM)64))
             MessageBoxU(NULL, "Error allocating machine config", "blueMSX Error", MB_OK |  MB_ICONERROR);
@@ -2652,7 +2643,15 @@ static BOOL_DLG_RET CALLBACK configProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPA
                     isCheckingConfigs = 1;
 
                     idx = (int)SendMessage(GetDlgItem(hDlg, IDC_CONF_CONFIGS), CB_GETCURSEL, 0, 0);
-                    rv = (int)SendMessage(GetDlgItem(hDlg, IDC_CONF_CONFIGS), CB_GETLBTEXT, idx, (LPARAM)machineNameSel);
+                    /* machineNameSel is copied into machineName below,
+                    ** which is the same size. */
+                    rv = (int)SendMessage(GetDlgItem(hDlg, IDC_CONF_CONFIGS), CB_GETLBTEXTLEN, idx, 0);
+                    if (rv != CB_ERR && rv < (int)sizeof(machineNameSel)) {
+                        rv = (int)SendMessage(GetDlgItem(hDlg, IDC_CONF_CONFIGS), CB_GETLBTEXT, idx, (LPARAM)machineNameSel);
+                    }
+                    else {
+                        rv = CB_ERR;
+                    }
                 
                     if (rv != CB_ERR) {
                         if (strcmp(machineNameSel, machineName)) {
@@ -2812,10 +2811,6 @@ int confShowDialog(HWND hwnd, char* initMachineName) {
 
     strcpy(machineName, initMachineName);
     machineModified = 0;
-
-    if (hBrush == NULL) {
-        hBrush = CreateSolidBrush(GetSysColor(COLOR_MENU));
-    }
 
     machine = machineCreate(machineName);
     machineRef = calloc(1, sizeof(Machine));

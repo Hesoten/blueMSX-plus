@@ -43,8 +43,11 @@
 
 static PeripheralRegs* periRegs = NULL;
 
-static LRESULT CALLBACK regViewWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam) 
+static LRESULT CALLBACK regViewWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
+    if (dbgViewMessage(hwnd, iMsg, wParam)) {
+        return 0;
+    }
     if (periRegs != NULL) {
         return periRegs->regWndProc(hwnd, iMsg, wParam, lParam);
     }
@@ -69,6 +72,7 @@ void PeripheralRegs::updateDropdown()
         if (index == 0 || (currentRegs && currentRegs->title == r->title)) {
             SendMessageW(hCombo, CB_SETCURSEL, index, 0);
         }
+        index++;
     }
 }
 
@@ -169,22 +173,16 @@ LRESULT PeripheralRegs::regWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
         colorGray  = dark ? RGB(180, 180, 180) : RGB(128, 128, 128);
         colorRed   = dark ? RGB(255, 100, 100) : RGB(255, 0, 0);
         SetBkMode(hMemdc, TRANSPARENT);
-        hFont = CreateFont(-MulDiv(12, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
-        hFontBold = CreateFont(-MulDiv(12, GetDeviceCaps(hMemdc, LOGPIXELSY), 72), 0, 0, 0, FW_SEMIBOLD, 0, 0, 0, 0, 0, 0, 0, 0, "Courier New");
+        dbgRebuildFont(hMemdc, &hFont, &hFontBold, &textWidth, &textHeight, 0);
         
         hBrushWhite  = CreateSolidBrush(dark ? GetDarkBg()        : RGB(255, 255, 255));
         hBrushLtGray = CreateSolidBrush(dark ? RGB( 48,  48,  48) : RGB(239, 237, 222));
         hBrushDkGray = CreateSolidBrush(dark ? RGB( 70,  70,  70) : RGB(128, 128, 128));
 
-        SelectObject(hMemdc, hFont); 
-        TEXTMETRIC tm;
-        if (GetTextMetrics(hMemdc, &tm)) {
-            textHeight = tm.tmHeight;
-            textWidth = tm.tmMaxCharWidth;
-        }
-        
-        dataInput2 = new HexInputDialog(hwnd, -100,0,23,22,2);
-        dataInput4 = new HexInputDialog(hwnd, -100,0,45,22,4);
+        dataInput2 = new HexInputDialog(hwnd, -100, 0, InputDialog::boxWidth(2, textWidth), InputDialog::boxHeight(textHeight), 2);
+        dataInput4 = new HexInputDialog(hwnd, -100, 0, InputDialog::boxWidth(4, textWidth), InputDialog::boxHeight(textHeight), 4);
+        dataInput2->setFont(hFont);
+        dataInput4->setFont(hFont);
         dataInput2->hide();
         dataInput4->hide();
         darkSubWindow(hwnd);
@@ -214,23 +212,7 @@ LRESULT PeripheralRegs::regWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
             int x = (LOWORD(lParam) - 10) / textWidth;
             if (x >= 0 && x < 11 * regPerRow && x % 11 >= 5 && x % 11 < 9) {
                 int col = x / 11;
-                int reg = col * lineCount + row + si.nPos;
-
-                int regValue    = currentRegs->regBank->reg[reg].value;
-                int regWidth    = currentRegs->refBank->reg[reg].width;
-                
-                if (regWidth == 16) {
-                    currentEditRegister = reg;
-                    dataInput4->setPosition(10 + (11 * col + 5) * textWidth, row * textHeight - 2);
-                    dataInput4->setValue(regValue);
-                    dataInput4->show();
-                }
-                else if (regWidth == 8) {
-                    currentEditRegister = reg;
-                    dataInput2->setPosition(10 + (11 * col + 5) * textWidth, row * textHeight - 2);
-                    dataInput2->setValue(regValue);
-                    dataInput2->show();
-                }
+                showEditRegister(col * lineCount + row + si.nPos);
             }
 
 
@@ -238,18 +220,64 @@ LRESULT PeripheralRegs::regWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
         return 0;
 
     case HexInputDialog::EC_KILLFOCUS:
+        if (navigating) {
+            return FALSE;
+        }
+        /* fall through */
     case HexInputDialog::EC_NEWVALUE:
         if (currentEditRegister >= 0) {
             UInt32 regVal = (HexInputDialog*)wParam == dataInput2 ? (UInt8)lParam : (UInt16)lParam;
             if (currentRegs != NULL && currentRegs->regBank->reg[currentEditRegister].value != regVal) {
                 DeviceWriteRegisterBankRegister(currentRegs->regBank, currentEditRegister, regVal);
+                currentRegs->regBank->reg[currentEditRegister].value = regVal;
             }
-            currentRegs->regBank->reg[currentEditRegister].value = regVal;
             InvalidateRect(hwnd, NULL, TRUE);
         }
-        currentEditRegister = -1;
-        dataInput2->hide();
-        dataInput4->hide();
+        endEdit();
+        return FALSE;
+
+    case InputDialog::EC_NAVIGATE:
+        {
+            HexInputDialog* input = (HexInputDialog*)wParam;
+
+            /* A stray key with no box open must not start editing a register. */
+            if (currentEditRegister < 0) {
+                return FALSE;
+            }
+
+            if ((int)lParam == InputDialog::NAV_CANCEL) {
+                endEdit();
+                return FALSE;
+            }
+
+            if (currentRegs != NULL && input->isModified()) {
+                int value = input->getValue();
+                UInt32 regVal = input == dataInput2 ? (UInt8)value : (UInt16)value;
+                if (currentRegs->regBank->reg[currentEditRegister].value != regVal) {
+                    DeviceWriteRegisterBankRegister(currentRegs->regBank, currentEditRegister, regVal);
+                    currentRegs->regBank->reg[currentEditRegister].value = regVal;
+                }
+                InvalidateRect(hwnd, NULL, TRUE);
+            }
+
+            int delta = 0;
+            switch ((int)lParam) {
+            case InputDialog::NAV_UP:
+            case InputDialog::NAV_PREV:  delta = -1;        break;
+            case InputDialog::NAV_DOWN:
+            case InputDialog::NAV_NEXT:  delta =  1;        break;
+            case InputDialog::NAV_LEFT:  delta = -lineCount; break;
+            case InputDialog::NAV_RIGHT: delta =  lineCount; break;
+            }
+
+            if (delta != 0) {
+                /* Stay in edit mode at the ends rather than dropping out. */
+                showEditRegister(currentEditRegister + delta);
+                return FALSE;
+            }
+
+            endEdit();
+        }
         return FALSE;
 
     case WM_ERASEBKGND:
@@ -260,6 +288,7 @@ LRESULT PeripheralRegs::regWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
         break;
 
     case WM_VSCROLL:
+        endEdit();
         scrollWindow(LOWORD(wParam));
          return 0;
     case WM_PAINT:
@@ -276,7 +305,7 @@ LRESULT PeripheralRegs::regWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
             HBITMAP hBitmap = CreateCompatibleBitmap(hdcw, r.right, r.bottom);
             HBITMAP hBitmapOrig = (HBITMAP)SelectObject(hMemdc, hBitmap);
             
-            SelectObject(hMemdc, hBrushWhite); 
+            SelectObject(hMemdc, pageBrush(hBrushWhite)); 
             PatBlt(hMemdc, 0, top, r.right, height, PATCOPY);
 
             drawText(ps.rcPaint.top, ps.rcPaint.bottom);
@@ -350,24 +379,107 @@ PeripheralRegs::~PeripheralRegs()
 
 void PeripheralRegs::disableEdit()
 {
-    dataInput2->hide();
-    dataInput4->hide();
+    endEdit();
 
     DbgWindow::disableEdit();
 }
 
-void PeripheralRegs::updatePosition(RECT& rect)
+void PeripheralRegs::hideEdit()
 {
+    navigating = true;
     dataInput2->hide();
     dataInput4->hide();
+    navigating = false;
+}
+
+/* Leave edit mode without committing. The register has to be cleared first, or
+** the focus change inside hide() comes back as a confirmation. */
+void PeripheralRegs::endEdit()
+{
+    currentEditRegister = -1;
+    hideEdit();
+}
+
+void PeripheralRegs::showEditRegister(int reg)
+{
+    if (currentRegs == NULL || lineCount < 1 ||
+        reg < 0 || reg >= (int)currentRegs->regBank->count)
+    {
+        return;
+    }
+
+    int width = currentRegs->refBank->reg[reg].width;
+    if (width != 8 && width != 16) {
+        return;
+    }
+
+    hideEdit();
+
+    SCROLLINFO si;
+    si.cbSize = sizeof (si);
+    si.fMask  = SIF_POS | SIF_PAGE;
+    GetScrollInfo (regHwnd, SB_VERT, &si);
+
+    int col  = reg / lineCount;
+    int line = reg % lineCount;
+
+    /* Bring the target line into view before placing the box. */
+    int pos = si.nPos;
+    if (pos > line) {
+        pos = line;
+    }
+    if (si.nPage > 0 && line - pos >= (int)si.nPage) {
+        pos = line - (int)si.nPage + 1;
+    }
+    if (pos < 0) {
+        pos = 0;
+    }
+    if (pos != si.nPos) {
+        scrollTo(pos);
+        si.fMask = SIF_POS;
+        GetScrollInfo (regHwnd, SB_VERT, &si);
+    }
+
+    currentEditRegister = reg;
+
+    HexInputDialog* input = width == 16 ? dataInput4 : dataInput2;
+    input->setPosition(10 + (11 * col + 5) * textWidth, (line - si.nPos) * textHeight - 2);
+    input->setValue(currentRegs->regBank->reg[reg].value);
+    input->show();
+}
+
+void PeripheralRegs::onFontChanged()
+{
+    int pos = dbgGetScrollPos(regHwnd);
+    int reg = currentEditRegister;
+    dbgRebuildFont(hMemdc, &hFont, &hFontBold, &textWidth, &textHeight, 0);
+
+    dataInput2->setSize(InputDialog::boxWidth(2, textWidth), InputDialog::boxHeight(textHeight));
+    dataInput4->setSize(InputDialog::boxWidth(4, textWidth), InputDialog::boxHeight(textHeight));
+    dataInput2->setFont(hFont);
+    dataInput4->setFont(hFont);
+
+    endEdit();
+    updateScroll();
+    dbgSetScrollPos(regHwnd, pos);
+
+    /* The grid re-flowed under the box, so place it again. */
+    if (reg >= 0) {
+        showEditRegister(reg);
+    }
+}
+
+void PeripheralRegs::updatePosition(RECT& rect)
+{
+    endEdit();
 
     SetWindowPos(hwnd, NULL, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, SWP_NOZORDER);
 }
 
 void PeripheralRegs::invalidateContent()
 {
-    dataInput2->hide();
-    dataInput4->hide();
+    setContentStale(false);
+    endEdit();
 
     MemList::iterator it;
     while(!regList.empty()) {
@@ -385,8 +497,8 @@ void PeripheralRegs::invalidateContent()
 
 void PeripheralRegs::updateContent(Snapshot* snapshot)
 {
-    dataInput2->hide();
-    dataInput4->hide();
+    setContentStale(false);
+    endEdit();
 
     bool devicesChanged = false;
 
@@ -395,6 +507,10 @@ void PeripheralRegs::updateContent(Snapshot* snapshot)
     if (currentRegs != NULL) {
         currentRegsTitle = currentRegs->title;
     }
+    /* Picked up again by title below. It must not survive the delete: a bank
+    ** that goes away would leave this pointing into freed memory, and the
+    ** fallback further down only triggers on NULL. */
+    currentRegs = NULL;
 
     MemList::iterator it;
     for (it = regList.begin(); it != regList.end(); ++it) {
@@ -437,12 +553,17 @@ void PeripheralRegs::updateContent(Snapshot* snapshot)
         }
     }
 
-    for (it = regList.begin(); it != regList.end(); ++it) {
+    /* erase already hands back the next entry, so the loop must not advance
+    ** again. */
+    for (it = regList.begin(); it != regList.end(); ) {
         RegisterItem* r= *it;
         if (!r->flag) {
             devicesChanged = true;
             delete r;
             it = regList.erase(it);
+        }
+        else {
+            ++it;
         }
     }
 
@@ -486,19 +607,33 @@ void PeripheralRegs::updateScroll()
 
     SCROLLINFO si;
     si.cbSize    = sizeof(SCROLLINFO);
-    
-    GetScrollInfo(regHwnd, SB_VERT, &si);
-    int oldFirstLine = si.nPos;
-
     si.fMask     = SIF_PAGE | SIF_POS | SIF_RANGE;
     si.nMin      = 0;
-    si.nMax      = lineCount;
+    si.nMax      = lineCount > 0 ? lineCount - 1 : 0;
     si.nPage     = visibleLines;
     si.nPos      = 0;
 
     SetScrollInfo(regHwnd, SB_VERT, &si, TRUE);
     
     InvalidateRect(regHwnd, NULL, TRUE);
+}
+
+void PeripheralRegs::scrollTo(int pos)
+{
+    SCROLLINFO si;
+
+    si.cbSize = sizeof (si);
+    si.fMask  = SIF_POS;
+    GetScrollInfo (regHwnd, SB_VERT, &si);
+    int yPos = si.nPos;
+
+    si.nPos = pos;
+    SetScrollInfo (regHwnd, SB_VERT, &si, TRUE);
+    GetScrollInfo (regHwnd, SB_VERT, &si);
+    if (si.nPos != yPos) {
+        ScrollWindow(regHwnd, 0, textHeight * (yPos - si.nPos), NULL, NULL);
+        UpdateWindow (regHwnd);
+    }
 }
 
 void PeripheralRegs::scrollWindow(int sbAction)
@@ -508,40 +643,34 @@ void PeripheralRegs::scrollWindow(int sbAction)
     si.cbSize = sizeof (si);
     si.fMask  = SIF_ALL;
     GetScrollInfo (regHwnd, SB_VERT, &si);
-    int yPos = si.nPos;
+    int pos = si.nPos;
     switch (sbAction) {
     case SB_TOP:
-        si.nPos = si.nMin;
+        pos = si.nMin;
         break;
     case SB_BOTTOM:
-        si.nPos = si.nMax;
+        pos = si.nMax;
         break;
     case SB_LINEUP:
-        si.nPos -= 1;
+        pos -= 1;
         break;
     case SB_LINEDOWN:
-        si.nPos += 1;
+        pos += 1;
         break;
     case SB_PAGEUP:
-        si.nPos -= si.nPage;
+        pos -= si.nPage;
         break;
     case SB_PAGEDOWN:
-        si.nPos += si.nPage;
+        pos += si.nPage;
         break;
     case SB_THUMBTRACK:
-        si.nPos = si.nTrackPos;
-        break;              
+        pos = si.nTrackPos;
+        break;
     default:
-        break; 
+        break;
     }
 
-    si.fMask = SIF_POS;
-    SetScrollInfo (regHwnd, SB_VERT, &si, TRUE);
-    GetScrollInfo (regHwnd, SB_VERT, &si);
-    if (si.nPos != yPos) {                    
-        ScrollWindow(regHwnd, 0, textHeight * (yPos - si.nPos), NULL, NULL);
-        UpdateWindow (regHwnd);
-    }
+    scrollTo(pos);
 }
 
 void PeripheralRegs::drawText(int top, int bottom)
@@ -555,8 +684,11 @@ void PeripheralRegs::drawText(int top, int bottom)
     int FirstLine = max (0, yPos + top / textHeight);
     int LastLine = min (lineCount - 1, yPos + bottom / textHeight);
 
+    RECT rc;
+    GetClientRect(regHwnd, &rc);
+
     for (int i = FirstLine; i <= LastLine; i++) {
-        RECT r = { 10, textHeight * (i - yPos), 100, textHeight * (i + 1 - yPos) };
+        RECT r = { 10, textHeight * (i - yPos), rc.right, textHeight * (i + 1 - yPos) };
         for (int j = 0; j < regPerRow; j++) {
             UInt32 reg = j * lineCount + i;
 
@@ -571,11 +703,10 @@ void PeripheralRegs::drawText(int top, int bottom)
 
             SetTextColor(hMemdc, colorBlack);
             SelectObject(hMemdc, hFontBold);
-            DrawText(hMemdc, regName, (int)strlen(regName), &r, DT_LEFT);
+            DrawTextU(hMemdc, regName, (int)strlen(regName), &r, DT_LEFT);
             SelectObject(hMemdc, hFont); 
             r.left  += 5 * textWidth;
-            r.right += 5 * textWidth;
-            
+
             char text[5];
             if (regValue < 0) {
                 SetTextColor(hMemdc, colorGray);
@@ -590,9 +721,8 @@ void PeripheralRegs::drawText(int top, int bottom)
                     sprintf(text, "%.2X", regValue);
                 }
             }
-            DrawText(hMemdc, text, (int)strlen(text), &r, DT_LEFT);
+            DrawTextU(hMemdc, text, (int)strlen(text), &r, DT_LEFT);
             r.left  += 6 * textWidth;
-            r.right += 6 * textWidth;
         }
     }
 }

@@ -71,6 +71,14 @@ ValueNamePair YesNoPair[] = {
     { -1,                           "" },
 };
 
+ValueNamePair ScalingFilterPair[] = {
+    { P_D3D_SCALE_NEAREST,          "nearest" },
+    { P_D3D_SCALE_BILINEAR,         "bilinear" },
+    { P_D3D_SCALE_SHARP,            "sharp" },
+    { P_D3D_SCALE_PRESCALED,        "prescaled" },
+    { -1,                           "" },
+};
+
 ValueNamePair ZeroOnePair[] = {
     { 0,                            "0" },
     { 1,                            "1" },
@@ -271,6 +279,7 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
 
     properties->emulation.statsDefDir[0]     = 0;
     properties->emulation.shortcutProfile[0] = 0;
+    properties->emulation.machinesDir[0]     = 0;
     strcpy(properties->emulation.machineName, "MSX2");
     properties->emulation.speed             = 50;
     properties->emulation.syncMethod        = syncMode ? P_EMU_SYNCTOVBLANK : P_EMU_SYNCAUTO;
@@ -280,6 +289,7 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->emulation.vdpSyncMode       = P_VDP_SYNCAUTO;
     properties->emulation.enableFdcTiming   = 1;
     properties->emulation.enableHddSdBoost  = 0;
+    properties->emulation.enableCasBoost    = 0;
     properties->emulation.noSpriteLimits    = 0;
     properties->emulation.frontSwitch       = 0;
     properties->emulation.pauseSwitch       = 0;
@@ -290,6 +300,7 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->emulation.reverseEnable     = 1;
     properties->emulation.reverseMaxTime    = 15;
     properties->emulation.vdpCmdSpeed       = 100;
+    properties->emulation.mouseSensitivity  = 5;
 
     properties->video.monitorColor          = P_VIDEO_COLOR;
     properties->video.monitorType           = P_VIDEO_PALNONE;
@@ -334,6 +345,7 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->video.d3d.extendBorderColor = 0;
     properties->video.d3d.linearFiltering   = 0;
     properties->video.d3d.forceHighRes      = 0;
+    properties->video.d3d.scalingFilter     = P_D3D_SCALE_SHARP;
 
     properties->video.d3d.cropLeft          = 0;
     properties->video.d3d.cropRight         = 0;
@@ -420,6 +432,10 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->sound.mixerChannel[MIXER_CHANNEL_MIDI].pan = 50;
     properties->sound.mixerChannel[MIXER_CHANNEL_MIDI].volume = 90;
 
+    properties->sound.mixerChannel[MIXER_CHANNEL_CASSETTE].enable = 1;
+    properties->sound.mixerChannel[MIXER_CHANNEL_CASSETTE].pan = 50;
+    properties->sound.mixerChannel[MIXER_CHANNEL_CASSETTE].volume = 75;
+
     properties->sound.mixerChannel[MIXER_CHANNEL_KEYBOARD].enable = 1;
     properties->sound.mixerChannel[MIXER_CHANNEL_KEYBOARD].pan = 55;
     properties->sound.mixerChannel[MIXER_CHANNEL_KEYBOARD].volume = 65;
@@ -439,7 +455,7 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->sound.MidiOut.desc[0]         = 0;
     properties->sound.MidiOut.mt32ToGm        = 0;
     
-    properties->joystick.POV0isAxes    = 0;
+    properties->joystick.disablePOV0Dpad = 0;
     
 #ifdef WII
     // Use joystick by default
@@ -464,7 +480,8 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->keyboard.enableKeyboardQuirk = 1;
 
     if (kbdLang == P_KBD_JAPANESE) {
-        strcpy(properties->keyboard.configFile, "blueMSX Japanese Default");
+        /* Matches JapaneseConfigName in Win32keyboard.c. */
+        strcpy(properties->keyboard.configFile, "blueMSX Japanese");
     }
 
     properties->nowind.enableDos2 = 0;
@@ -516,6 +533,7 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->cassette.showCustomFiles = 1;
     properties->cassette.readOnly        = 1;
     properties->cassette.rewindAfterInsert = 0;
+    properties->cassette.saveMonitor    = 0;
 
     properties->ports.Lpt.type           = P_LPT_NONE;
     properties->ports.Lpt.emulation      = P_LPT_MSXPRN;
@@ -633,6 +651,7 @@ static void propLoad(Properties* properties)
     GET_ENUM_VALUE_2(propFile, emulation, registerFileTypes, BoolPair);
     GET_STR_VALUE_2(propFile, emulation, statsDefDir);
     GET_STR_VALUE_2(propFile, emulation, machineName);
+    GET_STR_VALUE_2(propFile, emulation, machinesDir);
     GET_STR_VALUE_2(propFile, emulation, shortcutProfile);
     GET_INT_VALUE_2(propFile, emulation, speed);
     GET_ENUM_VALUE_2(propFile, emulation, syncMethod, EmuSyncPair);
@@ -642,6 +661,7 @@ static void propLoad(Properties* properties)
     GET_ENUM_VALUE_2(propFile, emulation, vdpSyncMode, VdpSyncPair);
     GET_ENUM_VALUE_2(propFile, emulation, enableFdcTiming, BoolPair);
     GET_ENUM_VALUE_2(propFile, emulation, enableHddSdBoost, BoolPair);
+    GET_ENUM_VALUE_2(propFile, emulation, enableCasBoost, BoolPair);
     GET_ENUM_VALUE_2(propFile, emulation, noSpriteLimits, BoolPair);
     GET_ENUM_VALUE_2(propFile, emulation, frontSwitch, BoolPair);
     GET_ENUM_VALUE_2(propFile, emulation, pauseSwitch, BoolPair);
@@ -650,6 +670,7 @@ static void propLoad(Properties* properties)
     GET_ENUM_VALUE_2(propFile, emulation, reverseEnable, BoolPair);
     GET_INT_VALUE_2(propFile, emulation, reverseMaxTime);
     GET_INT_VALUE_2(propFile, emulation, vdpCmdSpeed);
+    GET_INT_VALUE_2(propFile, emulation, mouseSensitivity);
 
     GET_ENUM_VALUE_2(propFile, video, monitorColor, MonitorColorPair);
     GET_ENUM_VALUE_2(propFile, video, monitorType, MonitorTypePair);
@@ -689,6 +710,25 @@ static void propLoad(Properties* properties)
     GET_ENUM_VALUE_3(propFile, video, d3d, linearFiltering, BoolPair);
     GET_ENUM_VALUE_3(propFile, video, d3d, extendBorderColor, BoolPair);
     GET_ENUM_VALUE_3(propFile, video, d3d, forceHighRes, BoolPair);
+    /* scalingFilter absent: migrate from legacy flags only if an ini exists
+       (forceHighRes[+linear]->sharp/prescaled, linear->bilinear, else nearest);
+       a fresh install (no ini) keeps the default (sharp), not nearest. */
+    properties->video.d3d.scalingFilter = -1;
+    GET_ENUM_VALUE_3(propFile, video, d3d, scalingFilter, ScalingFilterPair);
+    if (properties->video.d3d.scalingFilter < 0) {
+        FILE* sf = fopen(settFilename, "r");
+        if (sf != NULL) {
+            fclose(sf);
+            properties->video.d3d.scalingFilter =
+                (properties->video.d3d.forceHighRes && properties->video.d3d.linearFiltering) ? P_D3D_SCALE_PRESCALED :
+                properties->video.d3d.forceHighRes    ? P_D3D_SCALE_SHARP :
+                properties->video.d3d.linearFiltering ? P_D3D_SCALE_BILINEAR :
+                                                        P_D3D_SCALE_NEAREST;
+        }
+        else {
+            properties->video.d3d.scalingFilter = P_D3D_SCALE_SHARP;
+        }
+    }
     GET_INT_VALUE_3(propFile, video, d3d, aspectRatioType);
     GET_INT_VALUE_3(propFile, video, d3d, cropType);
 
@@ -775,8 +815,11 @@ static void propLoad(Properties* properties)
     GET_ENUM_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_MIDI, enable, BoolPair);
     GET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_MIDI, pan);
     GET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_MIDI, volume);
+    GET_ENUM_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_CASSETTE, enable, BoolPair);
+    GET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_CASSETTE, pan);
+    GET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_CASSETTE, volume);
     
-    GET_ENUM_VALUE_2(propFile, joystick, POV0isAxes, BoolPair);
+    GET_ENUM_VALUE_2(propFile, joystick, disablePOV0Dpad, BoolPair);
     
     GET_STR_VALUE_2(propFile, joy1, type);
     properties->joy1.typeId = joystickPortNameToType(0, properties->joy1.type, 0);
@@ -812,6 +855,7 @@ static void propLoad(Properties* properties)
     GET_INT_VALUE_2(propFile, cassette, showCustomFiles);
     GET_ENUM_VALUE_2(propFile, cassette, readOnly, BoolPair);
     GET_ENUM_VALUE_2(propFile, cassette, rewindAfterInsert, BoolPair);
+    GET_ENUM_VALUE_2(propFile, cassette, saveMonitor, BoolPair);
     
     GET_ENUM_VALUE_2(propFile, nowind, enableDos2, BoolPair);    
     GET_ENUM_VALUE_2(propFile, nowind, enableOtherDiskRoms, BoolPair);    
@@ -960,6 +1004,7 @@ void propSave(Properties* properties)
     if (appConfigGetString("singlemachine", NULL) == NULL) {
         SET_STR_VALUE_2(propFile, emulation, machineName);
     }
+    SET_STR_VALUE_2(propFile, emulation, machinesDir);
     SET_STR_VALUE_2(propFile, emulation, shortcutProfile);
     SET_INT_VALUE_2(propFile, emulation, speed);
     SET_ENUM_VALUE_2(propFile, emulation, syncMethod, EmuSyncPair);
@@ -969,6 +1014,7 @@ void propSave(Properties* properties)
     SET_ENUM_VALUE_2(propFile, emulation, vdpSyncMode, VdpSyncPair);
     SET_ENUM_VALUE_2(propFile, emulation, enableFdcTiming, YesNoPair);
     SET_ENUM_VALUE_2(propFile, emulation, enableHddSdBoost, YesNoPair);
+    SET_ENUM_VALUE_2(propFile, emulation, enableCasBoost, YesNoPair);
     SET_ENUM_VALUE_2(propFile, emulation, noSpriteLimits, YesNoPair);
     SET_ENUM_VALUE_2(propFile, emulation, frontSwitch, OnOffPair);
     SET_ENUM_VALUE_2(propFile, emulation, pauseSwitch, OnOffPair);
@@ -977,6 +1023,7 @@ void propSave(Properties* properties)
     SET_ENUM_VALUE_2(propFile, emulation, reverseEnable, BoolPair);
     SET_INT_VALUE_2(propFile, emulation, reverseMaxTime);
     SET_INT_VALUE_2(propFile, emulation, vdpCmdSpeed);
+    SET_INT_VALUE_2(propFile, emulation, mouseSensitivity);
 
     SET_ENUM_VALUE_2(propFile, video, monitorColor, MonitorColorPair);
     SET_ENUM_VALUE_2(propFile, video, monitorType, MonitorTypePair);
@@ -1021,9 +1068,17 @@ void propSave(Properties* properties)
     
     SET_INT_VALUE_2(propFile, video, captureSize);
 
-    SET_ENUM_VALUE_3(propFile, video, d3d, linearFiltering, BoolPair);
-    SET_ENUM_VALUE_3(propFile, video, d3d, extendBorderColor, BoolPair);
-    SET_ENUM_VALUE_3(propFile, video, d3d, forceHighRes, BoolPair);
+    /* Keep legacy flags in sync with scalingFilter so an older build reading
+       this ini still behaves right (sharp->highres+filter, bilinear->filter). */
+    properties->video.d3d.linearFiltering = properties->video.d3d.scalingFilter == P_D3D_SCALE_BILINEAR
+                                         || properties->video.d3d.scalingFilter == P_D3D_SCALE_PRESCALED;
+    properties->video.d3d.forceHighRes    = properties->video.d3d.scalingFilter == P_D3D_SCALE_SHARP
+                                         || properties->video.d3d.scalingFilter == P_D3D_SCALE_PRESCALED;
+    /* YesNoPair (not BoolPair, whose true/false entries are inverted). */
+    SET_ENUM_VALUE_3(propFile, video, d3d, scalingFilter, ScalingFilterPair);
+    SET_ENUM_VALUE_3(propFile, video, d3d, linearFiltering, YesNoPair);
+    SET_ENUM_VALUE_3(propFile, video, d3d, extendBorderColor, YesNoPair);
+    SET_ENUM_VALUE_3(propFile, video, d3d, forceHighRes, YesNoPair);
     SET_INT_VALUE_3(propFile, video, d3d, aspectRatioType);
     SET_INT_VALUE_3(propFile, video, d3d, cropType);
 
@@ -1106,8 +1161,11 @@ void propSave(Properties* properties)
     SET_ENUM_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_MIDI, enable, YesNoPair);
     SET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_MIDI, pan);
     SET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_MIDI, volume);
+    SET_ENUM_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_CASSETTE, enable, YesNoPair);
+    SET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_CASSETTE, pan);
+    SET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_CASSETTE, volume);
     
-    SET_ENUM_VALUE_2(propFile, joystick, POV0isAxes, YesNoPair);
+    SET_ENUM_VALUE_2(propFile, joystick, disablePOV0Dpad, YesNoPair);
     
     strcpy(properties->joy1.type, joystickPortTypeToName(0, 0));
     SET_STR_VALUE_2(propFile, joy1, type);
@@ -1142,6 +1200,7 @@ void propSave(Properties* properties)
     SET_INT_VALUE_2(propFile, cassette, showCustomFiles);
     SET_ENUM_VALUE_2(propFile, cassette, readOnly, YesNoPair);
     SET_ENUM_VALUE_2(propFile, cassette, rewindAfterInsert, YesNoPair);
+    SET_ENUM_VALUE_2(propFile, cassette, saveMonitor, YesNoPair);
 
     SET_ENUM_VALUE_2(propFile, nowind, enableDos2, YesNoPair);    
     SET_ENUM_VALUE_2(propFile, nowind, enableOtherDiskRoms, BoolPair);    
@@ -1348,7 +1407,7 @@ int propertiesIsSpecialCartName(const char* name)
         CARTNAME_ESERAM1MB,
         CARTNAME_MEGAFLSHSCC, CARTNAME_MEGAFLSHSCCPLUS,
         CARTNAME_MEGAFLSHSCCPLUS_SD,
-        CARTNAME_ASCII16X,    CARTNAME_YAMANOOTO,
+        CARTNAME_ASCII16X,    CARTNAME_YAMANOOTO,   CARTNAME_FLASHROMSCC,
         CARTNAME_WAVESCSI128, CARTNAME_WAVESCSI256, CARTNAME_WAVESCSI512,
         CARTNAME_WAVESCSI1MB,
         CARTNAME_ESESCC128,   CARTNAME_ESESCC256,   CARTNAME_ESESCC512,
@@ -1382,6 +1441,43 @@ void propertiesSetDirectory(const char* defDir, const char* altDir)
     else {
         sprintf(histFilename, "%s/bluemsx_history.ini", altDir);
     }
+}
+
+/* The machine name the settings file holds, or "" when it holds none.  propCreate
+   silently replaces a name it cannot find under the machines directory, so a
+   caller that has to notice that happening must read the file itself first. */
+const char* propGetSavedMachineName(void)
+{
+    static char machineName[PROP_MAXPATH];
+    IniFile* propFile = iniFileOpen(settFilename);
+
+    machineName[0] = 0;
+    if (propFile != NULL) {
+        iniFileGetString(propFile, ROOT_ELEMENT, "emulation.machineName", "", machineName, sizeof(machineName));
+        iniFileClose(propFile);
+    }
+
+    return machineName;
+}
+
+/* Replaces the settings file propertiesSetDirectory just resolved, for a run
+   told to read and write one named file.  The history file is left alone. */
+void propertiesSetSettingsFile(const char* fileName)
+{
+    strncpy(settFilename, fileName, sizeof(settFilename) - 1);
+    settFilename[sizeof(settFilename) - 1] = 0;
+}
+
+/* 1 if a saved bluemsx.ini exists (i.e. not a first launch).  Uses the path
+   resolved by propertiesSetDirectory, so call that first. */
+int propSettingsFileExists(void)
+{
+    FILE* f = fopen(settFilename, "r");
+    if (f != NULL) {
+        fclose(f);
+        return 1;
+    }
+    return 0;
 }
 
 

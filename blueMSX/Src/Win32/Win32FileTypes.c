@@ -165,6 +165,20 @@ static const char* exeBaseName(void)
     return baseName;
 }
 
+/* The one list, so that whoever asks what the shell may send us cannot drift
+** from what was actually put in the registry. */
+const char* const* fileTypesRegisteredExtensions(void)
+{
+    static const char* const supported[] = {
+        ".dsk", ".di1", ".di2", ".360", ".720", ".sf7",
+        ".rom", ".ri",  ".mx1", ".mx2",
+        ".sms", ".sg",  ".sc",  ".col",
+        ".cas", ".tsx", ".sta", ".cap", NULL
+    };
+
+    return supported;
+}
+
 /* Register the exe under HKCU\Software\Classes\Applications so the
 ** Open With dialog finds it with the right /onearg command line plus
 ** Friendly App Name and SupportedTypes list. */
@@ -175,12 +189,7 @@ void registerApplicationOpenWith(void)
     char appPath[MAX_PATH];
     char path[MAX_PATH];
     char buffer[MAX_PATH + 32];
-    static const char* const supported[] = {
-        ".dsk", ".di1", ".di2", ".360", ".720", ".sf7",
-        ".rom", ".ri",  ".mx1", ".mx2",
-        ".sms", ".sg",  ".sc",  ".col",
-        ".cas", ".sta", ".cap", NULL
-    };
+    const char* const* supported = fileTypesRegisteredExtensions();
     int i;
 
     GetModuleFileNameA(GetModuleHandle(NULL), fullExe, MAX_PATH);

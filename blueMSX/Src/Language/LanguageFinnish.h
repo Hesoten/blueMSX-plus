@@ -83,6 +83,8 @@ void langInitFinnish(LanguageStrings* ls)
     ls->errorDirectXFailed      = "DirectX objektien luonti epäonnistui.      \nDirectX on korvattu GDI:llä.\nTarkista video asetukset.";
     ls->errorNoRomInZip         = "Zip paketista ei löytynyt .ROM tiedostoa.";
     ls->errorNoDskInZip         = "Zip paketista ei löytynyt .DSK tiedostoa.";
+    ls->errorCreateDiskImage    = "Levykuvatiedoston luonti epäonnistui.";
+    ls->errorCreateTapeImage    = "Kasettitiedoston luonti epäonnistui.";
     ls->errorNoCasInZip         = "Zip paketista ei löytynyt .CAS tiedostoa.";
     ls->errorDirAsDskOverflow   = "%d tiedosto(a) (yhteensä %d KB) ei mahtunut 720 KB:n levykuvaan ja jäi väliin.";
     ls->errorNoHelp             = "blueMSX+:n ohjetiedostoa ei löytynyt.";
@@ -93,6 +95,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->errorStartEmuConfigInvalid       = "Koneen kokoonpanon '%s' config.ini-tiedostoa ei voitu lukea. Tiedosto voi olla vioittunut tai peräisin epäyhteensopivasta versiosta.";
     ls->errorMissingFiles       = "Seuraavia tiedostoja ei voitu ladata:";
     ls->errorPortableReadonly   = "Kannettava laite tukee vain lukemista.";
+    ls->errorMidiOpenFailed     = "MIDI-laitteen '%s' avaus epäonnistui. Toinen sovellus voi käyttää sitä.";
     ls->infoTitle               = "blueMSX+-tiedot";
     ls->infoGameReaderRedirect  = "blueMSX+ ei tue MSX Game Readeria suoraan (ASCII:n alkuperäinen XP-aikakauden ajuri ei enää toimi nykyaikaisessa Windowsissa).\n\nAvataanko sen sijaan MSX Game Reader - Web Dumper (tekijä Kunihiko Ohnaka) selaimessa?";
     ls->infoColorDepth          = "blueMSX+ toimii parhaiten 16 tai 32 bitin värisyvyydellä.";
@@ -106,6 +109,9 @@ void langInitFinnish(LanguageStrings* ls)
     ls->infoRecorderComplete    = "Videotiedosto tallennettu:\n  %s";
     ls->infoToastSaved          = "Tallennettu: %s";
     ls->infoToastAlreadyRecording   = "Tallennus jo käynnissä";
+    ls->infoToastMouseConnected    = "PC-hiiri yhdistetty MSX:aan";
+    ls->infoToastMouseDisconnected = "PC-hiiri katkaistu MSX:sta";
+    ls->propControlsMouseSens      = "Herkkyys:";
     ls->dlgRecorderPickTitle        = "blueMSX+ - Tee uusinnasta video";
     ls->dlgRecorderPickSourceCap    = "Renderöitävä uusintatiedosto (.cap):";
     ls->dlgRecorderPickOutputMp4    = "Tulosvideotiedosto (.mp4):";
@@ -124,10 +130,10 @@ void langInitFinnish(LanguageStrings* ls)
     ls->propCaptureVideoGB          = " Videotallennus ";
     ls->propCaptureScreenshotGB     = " Kuvankaappaus ";
     ls->propCaptureReplayGB         = " Uusintatallennus ";
-    ls->propCaptureSaveDir          = "Tallennuskansio:";
+    ls->propCaptureSaveDir          = "Kansio:";
     ls->propCaptureFormat           = "Muoto:";
     ls->propCaptureCodec            = "Koodekki:";
-    ls->propCaptureAutoName         = "Nimeä tiedosto automaattisesti";
+    ls->propCaptureAutoName         = "Nimeä automaattisesti";
     ls->propCapturePromptName       = "Kysy tiedostonimi";
     ls->propCaptureShowToast        = "Näytä ilmoitus tallennuksen päätyttyä";
 
@@ -182,7 +188,9 @@ void langInitFinnish(LanguageStrings* ls)
     ls->menuDiskAutoStart       = "Käynnistä uudelleen asettamisen jälkeen";
     ls->menuCartAutoReset       = "Käynnistä uudelleen muutettaessa";
 
+    ls->menuCasInsertNew         = "Uusi kasettitiedosto";
     ls->menuCasRewindAfterInsert = "Kelaa alkuun asetettaessa";
+    ls->menuCasSaveMonitor       = "Kuuntele tallennuksen aikana";
     ls->menuCasUseReadOnly       = "Kirjoitussuojaa kasetti";
     ls->lmenuCasSaveAs           = "Tallenna kasetti nimellä";
     ls->menuCasSetPosition      = "Valitse kohta";
@@ -311,6 +319,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->dlgInsertDiskB          = "Aseta levy asemaan B";
     ls->dlgInsertHarddisk       = "Aseta kovalevy";
     ls->dlgInsertCas            = "Aseta kasetti";
+    ls->dlgCreateCas            = "Luo uusi kasettitiedosto";
     ls->dlgRomType              = "ROM-malli:";
     ls->dlgDiskSize             = "Levyn koko:";             
 
@@ -323,7 +332,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->dlgTabPosition          = "Kohta";
     ls->dlgTabType              = "Tyyppi";
     ls->dlgTabFilename          = "Tiedostonimi";
-    ls->dlgZipReset             = "Uudelleenkäynnistys asettamisen jälkeen";
+    ls->dlgZipReset             = "Käynnistä uudelleen";
 
     ls->dlgAboutTitle           = "Tietoja blueMSX+:stä";
 
@@ -375,13 +384,15 @@ void langInitFinnish(LanguageStrings* ls)
     ls->propEmuVramSizeText     = "VRAM koko:";
     ls->propEmuSpeedGB          = "Emulaationopeus ";
     ls->propEmuSpeedText        = "Emulaattorin ydin:";
-    ls->propEmuVdpCmdSpeedText  = "VDP-komennon odotusaika:";
+    ls->propEmuVdpCmdSpeedText  = "VDP-komennon odotus:";
     ls->propEmuFrontSwitchGB     = "Panasonicin kytkimet ";
     ls->propEmuFrontSwitch       = " Aplikaatiokytkin";
     ls->propEmuNoSpriteLimits   = " Poista spritejen rajoitus";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emuloi MSX-näppäimistön erikoisuus";  // New in 2.9
-    ls->propEmuFdcTiming        = " Kiihdytä FDD-käyttöä";
-    ls->propEmuHddSdBoost       = " Kiihdytä HDD/SD-kortin käytön aikana";
+    ls->propEmuBoostText        = "Kiihdytä laitekäytön aikana:";
+    ls->propEmuFdcTiming        = " FDD";
+    ls->propEmuCasBoost         = " Kasetti";
+    ls->propEmuHddSdBoost       = " HDD/SD-kortti";
     ls->propEmuReversePlay      = " Salli taaksepäin suoritus"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " PAUSE-näppäin";
     ls->propEmuAudioSwitch       = " MSX-AUDIO modulin kytkin";
@@ -472,7 +483,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->propFileTypes           = " Rekisteröi .rom/.dsk/.cas/.sta \"Avaa sovelluksessa\" -valikkoon";
     ls->propOpenDefaultApps     = "Avaa Windowsin oletussovellusten asetukset";
     ls->propWindowsEnvGB        = "Windows Ympäristö ";
-    ls->propSetScreenSaver      = " Pidä näyttö päällä blueMSX+ käynnissä (ei näytön sammutusta/lepotilaa/säästäjää)";
+    ls->propSetScreenSaver      = " Estä näytönsäästäjä/lepotila blueMSX+ käynnissä";
     ls->propPriorityBoost       = " Käytä Windowsin peliajastinta (MMCSS) emulointiin";
     ls->propScreenshotPng       = " Tallenna kuvaruutukaappaukset PNG-muodossa";
     ls->propEjectMediaOnExit    = " Poista mediat kun ohjelma suljetaan";        // New in 2.8
@@ -499,8 +510,7 @@ void langInitFinnish(LanguageStrings* ls)
 
     ls->propD3DParametersGB         = "Parametrit ";                // New in 2.9
     ls->propD3DAspectRatioText      = "Kuvasuhde";               // New in 2.9
-    ls->propD3DLinearFilteringText  = " Lineaarinen suodatus";          // New in 2.9
-    ls->propD3DForceHighResText     = " Pakota korkea resoluutio";     // New in 2.9
+    ls->propD3DScalingFilterText     = "Skaalaussuodatin";
     ls->propD3DExtendBorderColorText    = " Laajenna reunan väri";   // New in 2.9
 
     ls->propD3DCroppingGB               = "Rajaus ";              // New in 2.9
@@ -550,6 +560,10 @@ void langInitFinnish(LanguageStrings* ls)
     ls->enumD3DARPAL            = "PAL";            // New in 2.9
     ls->enumD3DARNTSC           = "NTSC";           // New in 2.9
     ls->enumD3DAR11             = "1:1";            // New in 2.9
+    ls->enumD3DScaleNearest          = "Lähin";
+    ls->enumD3DScaleBilinear         = "Bilineaarinen";
+    ls->enumD3DScaleSharp            = "Terävä bilineaar.";
+    ls->enumD3DScalePrescaled     = "Bilineaari (2x prescale)";
 
     ls->enumD3DCropNone         = "Ei mitään";           // New in 2.9
     ls->enumD3DCropMSX1         = "MSX1";           // New in 2.9
@@ -563,11 +577,11 @@ void langInitFinnish(LanguageStrings* ls)
     ls->enumSoundDrvDirectX     = "DirectX-ajuri";
     ls->enumSoundDrvWasapi      = "WASAPI-ajuri";
 
-    ls->enumEmuSync1ms          = "Tahdistus MSX:n ruudunpäivitykseen";
+    ls->enumEmuSync1ms          = "Tahdistus MSX:n mukaan";
     ls->enumEmuSyncAuto         = "Automaattinen (nopea)";
     ls->enumEmuSyncNone         = "Ei käytössä";
-    ls->enumEmuSyncVblank       = "Tahdistus PC:n ruudunpäivitykseen";
-    ls->enumEmuAsyncVblank      = "Tahdistamaton PC:n ruudunpäivitys";           
+    ls->enumEmuSyncVblank       = "Tahdistus PC:n mukaan";
+    ls->enumEmuAsyncVblank      = "Tahdistamaton PC:n mukaan";
 
     ls->enumControlsJoyNone     = "Tyhjä";
     ls->enumControlsJoyMouse    = "Hiiri";
@@ -673,7 +687,12 @@ void langInitFinnish(LanguageStrings* ls)
     ls->shortcutConfigTitle     = "blueMSX+ - Pikanäppäinasetukset";
     ls->shortcutAssign          = "Käytä";
     ls->shortcutPressText       = "Pikanäppäin (paina):";
-    ls->shortcutScheme          = "Pikanäppäin profiili:";
+    ls->shortcutHotkeyHint      = "(enintään 3 näppäintä)";
+    ls->keyboardMappedHint      = "(enintään 3 näppäintä)";
+    ls->shortcutTooltipAlsoBound = "Sidottu myös: ";
+    ls->keyboardKeyFormat       = "%s-näppäin";
+    ls->keyconfigResetTab       = "Palauta tämän välilehden näppäimet";
+    ls->shortcutScheme          = "Näppäinprofiili:";
     ls->shortcutCartInsert1     = "Aseta moduli 1";
     ls->shortcutCartRemove1     = "Poista moduli 1";
     ls->shortcutCartInsert2     = "Aseta moduli 2";
@@ -731,7 +750,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->shortcutSwitchMsxAudio  = "Muuta MSX-AUDIO kytkimen tila";
     ls->shortcutSwitchFront     = "Muuta Panasonic aplikaatiokytkimen tila";
     ls->shortcutSwitchPause     = "Muuta Pause-näppäimen tilaa";
-    ls->shortcutToggleMouseLock = "Muuta hiirenkaappauksen tilaa";
+    ls->shortcutToggleMouseLock = "Yhdistä/katkaise PC-hiiri MSX:ään";
     ls->shortcutEmuSpeedMax     = "Maksimi emulointinopeus";
     ls->shortcutEmuPlayReverse  = "Taaksepäin suoritus";                     // New in 2.8.3
     ls->shortcutEmuSpeedToggle  = "Vaihda maksimi emulointinopeus";

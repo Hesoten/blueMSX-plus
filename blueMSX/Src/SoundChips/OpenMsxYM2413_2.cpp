@@ -3,6 +3,9 @@
 //
 // The file was originally written by Mitsutaka Okazaki.
 //
+// Modified 2026 by Hesoten for blueMSX+ fork.
+// See https://github.com/Hesoten/blueMSX-plus for change history.
+//
 #include "OpenMsxYM2413_2.h"
 
 extern "C" {
@@ -584,6 +587,12 @@ OpenYM2413_2::OpenYM2413_2(const string& name_, short volume, const EmuTime& tim
 		reg[i] = 0; // avoid UMR
 	}
 
+	// the output filter history starts silent; without this the first
+	// samples mix uninitialized memory into a loud random pop
+	for (int i = 0; i < 5; ++i) {
+		in[i] = 0;
+	}
+
 	for (int i = 0; i < 9; ++i) {
 		// TODO cleanup
 		ch[i].patches = patches;
@@ -623,6 +632,10 @@ void OpenYM2413_2::reset(const EmuTime &time)
 	pm_phase = 0;
 	am_phase = 0;
 	noise_seed = 0xFFFF;
+
+	for (int i = 0; i < 5; i++) {
+		in[i] = 0;
+	}
 
 	for(int i = 0; i < 9; i++) {
 		ch[i].reset();
@@ -685,6 +698,9 @@ void OpenYM2413_2::update_rhythm_mode()
 		ch[7].mod.eg_mode = FINISH;
 		ch[7].car.eg_mode = FINISH;
 		ch[7].setPatch(17);
+		// Reload HiHat volume from reg 0x37 on rhythm (re)entry; a volume set
+		// while rhythm was off is otherwise lost. Matches emu2413 / Nuked.
+		ch[7].mod.setVolume((reg[0x37] >> 4) << 2);
 	}
 
 	if (ch[8].patch_number & 0x10) {
@@ -700,6 +716,7 @@ void OpenYM2413_2::update_rhythm_mode()
 		ch[8].mod.eg_mode = FINISH;
 		ch[8].car.eg_mode = FINISH;
 		ch[8].setPatch(18);
+		ch[8].mod.setVolume((reg[0x38] >> 4) << 2); // TomTom, see HiHat above
 	}
 }
 

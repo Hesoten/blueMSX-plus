@@ -49,18 +49,29 @@ public:
     void invalidateContent();
 
     BOOL lookup(const char* name, WORD* addr);
+    bool interruptsEnabled();
 
     virtual LRESULT wndProc(UINT iMsg, WPARAM wParam, LPARAM lParam);
+    virtual void onFontChanged();
 
 private:
 
     void scrollWindow(int sbAction);
+    void scrollTo(int pos);
     void updateScroll();
     void drawText(int top, int bottom);
+    void showEditRegister(int reg);
+    void writeRegister(int reg, UInt32 value);
+    void hideEdit();
+    void endEdit();
+
+    /* Set while the edit box hops to another register, so the focus loss that
+    ** causes is not mistaken for the user leaving edit mode. */
+    bool   navigating = false;
 
     HDC    hMemdc;
-    HFONT  hFont;
-    HFONT  hFontBold;
+    HFONT  hFont     = NULL;
+    HFONT  hFontBold = NULL;
     HBRUSH hBrushWhite;
     HBRUSH hBrushLtGray;
     HBRUSH hBrushDkGray;

@@ -92,6 +92,10 @@ bool ShellSaveFileDialog(HWND owner, const char* title, const char* filter,
                          const char* initialDir, const char* defExt,
                          int* filterIndex, char* outPath, int outPathCap);
 
+/* The emulator's themed message box. Use this rather than MessageBoxU, which
+** the DLL build resolves to the plain system box and stays light. */
+int ShowMessageBox(HWND owner, const char* text, const char* caption, UInt32 type);
+
 //
 // To be implemented by the user....
 //

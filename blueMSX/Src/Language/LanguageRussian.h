@@ -81,6 +81,8 @@ void langInitRussian(LanguageStrings* ls)
     ls->errorDirectXFailed      = "Не удалось создать DirectX объекты.           \nUsing GDI instead.\nCheck Video properties.";
     ls->errorNoRomInZip         = "Не нашлось .rom файла в zip архиве.";
     ls->errorNoDskInZip         = "Не нашлось .dsk файла в zip архиве.";
+    ls->errorCreateDiskImage    = "Не удалось создать файл образа диска.";
+    ls->errorCreateTapeImage    = "Не удалось создать файл образа кассеты.";
     ls->errorNoCasInZip         = "Не нашлось .cas файла в zip архиве.";
     ls->errorDirAsDskOverflow   = "%d файл(ов) (всего %d КБ) не поместились в образ диска 720 КБ и были пропущены.";
     ls->errorNoHelp             = "Не нашлось файла помощи blueMSX+.";
@@ -91,6 +93,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->errorStartEmuConfigInvalid       = "Не удалось прочитать config.ini конфигурации машины '%s'. Возможно, файл повреждён или относится к несовместимой версии.";
     ls->errorMissingFiles       = "Не удалось загрузить следующие файлы:";
     ls->errorPortableReadonly   = "Портативное устройство только для чтения";
+    ls->errorMidiOpenFailed     = "Не удалось открыть MIDI-устройство '%s'. Возможно, оно используется другим приложением.";
     ls->infoTitle               = "Информация blueMSX+";
     ls->infoGameReaderRedirect  = "blueMSX+ не поддерживает MSX Game Reader напрямую (оригинальный драйвер ASCII эпохи XP больше не работает на современном Windows).\n\nОткрыть MSX Game Reader - Web Dumper (автор Kunihiko Ohnaka) в браузере?";
     ls->infoColorDepth          = "blueMSX+ лучше всего работает при глубине цвета 16 или 32 бита.";
@@ -104,6 +107,9 @@ void langInitRussian(LanguageStrings* ls)
     ls->infoRecorderComplete    = "Видеофайл сохранён:\n  %s";
     ls->infoToastSaved          = "Сохранено: %s";
     ls->infoToastAlreadyRecording   = "Запись уже идёт";
+    ls->infoToastMouseConnected    = "ПК мышь подключена к MSX";
+    ls->infoToastMouseDisconnected = "ПК мышь отключена от MSX";
+    ls->propControlsMouseSens      = "Чувствительность:";
     ls->dlgRecorderPickTitle        = "blueMSX+ - Преобразовать повтор в видео";
     ls->dlgRecorderPickSourceCap    = "Файл повтора для обработки (.cap):";
     ls->dlgRecorderPickOutputMp4    = "Выходной видеофайл (.mp4):";
@@ -180,7 +186,9 @@ void langInitRussian(LanguageStrings* ls)
     ls->menuDiskAutoStart       = "Сбросить после загрузки дискеты";
     ls->menuCartAutoReset       = "Сбросить после загрузки/удаления";
 
+    ls->menuCasInsertNew        = "Вставить новый образ кассеты";
     ls->menuCasRewindAfterInsert= "Промотать после загрузки";
+    ls->menuCasSaveMonitor      = "Звук при записи на плёнку";
     ls->menuCasUseReadOnly      = "Испольовать образ кассеты только для чтения";
     ls->lmenuCasSaveAs          = "Сохранить образ кассеты как...";
     ls->menuCasSetPosition      = "Задать позицию";
@@ -310,6 +318,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->dlgInsertDiskB          = "Вставить образ дискеты в дисковод B";
     ls->dlgInsertHarddisk       = "Вставить жесткий диск";
     ls->dlgInsertCas            = "Вставить кассету";
+    ls->dlgCreateCas            = "Создать новый образ кассеты";
     ls->dlgRomType              = "Rom тип:";
     ls->dlgDiskSize             = "Емкость:";             
 
@@ -322,7 +331,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->dlgTabPosition          = "Позиция";
     ls->dlgTabType              = "Тип";
     ls->dlgTabFilename          = "Название";
-    ls->dlgZipReset             = "Сбросить после загрузки";
+    ls->dlgZipReset             = "Сброс после загрузки";
 
     ls->dlgAboutTitle           = "blueMSX+ - О blueMSX+";
 
@@ -374,13 +383,15 @@ void langInitRussian(LanguageStrings* ls)
     ls->propEmuVramSizeText     = "Объем VRAM:";
     ls->propEmuSpeedGB          = "Скорость эмуляции ";
     ls->propEmuSpeedText        = "Ядро эмулятора:";
-    ls->propEmuVdpCmdSpeedText  = "Ожидание команды VDP:";
+    ls->propEmuVdpCmdSpeedText  = "Ожидание VDP:";
     ls->propEmuFrontSwitchGB    = "Переключатели Panasonic ";
     ls->propEmuFrontSwitch      = " Передний выключатель";
     ls->propEmuNoSpriteLimits   = " Отключить ограничение спрайтов";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Эмулировать особенность клавиатуры MSX";  // New in 2.9
-    ls->propEmuFdcTiming        = " Ускорение при доступе к FDD";
-    ls->propEmuHddSdBoost       = " Ускорять при доступе к HDD/SD";
+    ls->propEmuBoostText        = "Ускорение при доступе к устройствам:";
+    ls->propEmuFdcTiming        = " FDD";
+    ls->propEmuCasBoost         = " Кассета";
+    ls->propEmuHddSdBoost       = " Карта HDD/SD";
     ls->propEmuReversePlay      = " Включить обратное воспроизведение"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " Кнопка паузы";
     ls->propEmuAudioSwitch      = " Переключатель картриджа MSX-AUDIO";
@@ -397,10 +408,10 @@ void langInitRussian(LanguageStrings* ls)
     ls->propMonTypeText         = "Тип монитора:";
     ls->propMonEmuText          = "Эмуляция монитора:";
     ls->propVideoTypeText       = "Тип видео:";
-    ls->propMonHorizStretch     = " Растянуть по горизонтали";
+    ls->propMonHorizStretch     = " Растянуть гориз.";
     ls->propMonVertStretch      = " Растянуть по вертикали";
-    ls->propMonDeInterlace      = " Убрать черезполосицу";
-    ls->propBlendFrames         = " Смешивать последовательные кадры";
+    ls->propMonDeInterlace      = " Без чересстрочн.";
+    ls->propBlendFrames         = " Смешение кадров";
     ls->propMonBrightness       = "Яркость:";
     ls->propMonContrast         = "Контраст:";
     ls->propMonSaturation       = "Насыщенность:";
@@ -468,16 +479,16 @@ void langInitRussian(LanguageStrings* ls)
     ls->propSetFileHistoryGB    = "История файлов ";
     ls->propSetFileHistorySize  = "Количество файлов в истории:";
     ls->propSetFileHistoryClear = "Очистить историю";
-    ls->propFileTypes           = " Зарегистрировать .rom/.dsk/.cas/.sta в меню \"Открыть с помощью\"";
+    ls->propFileTypes           = " Регистр. .rom/.dsk/.cas/.sta в \"Открыть с помощью\"";
     ls->propOpenDefaultApps     = "Открыть параметры приложений по умолчанию";
     ls->propWindowsEnvGB        = "Настройки Windows "; 
-    ls->propSetScreenSaver      = " Держать дисплей включённым, пока blueMSX+ работает (без выкл/сна/скринсейвера)";
-    ls->propPriorityBoost       = " Использовать планировщик игр Windows (MMCSS) для эмуляции";
+    ls->propSetScreenSaver      = " Не давать дисплею гаснуть, пока работает blueMSX+";
+    ls->propPriorityBoost       = " Планировщик игр Windows (MMCSS) для эмуляции";
     ls->propScreenshotPng       = " Использовать тип PNG файлов для скриншотов";
     ls->propEjectMediaOnExit    = " Eject media when blueMSX+ exits";        // New in 2.8
     ls->propClearHistory        = "Вы точно хотите очистить файл истории?";
     ls->propOpenRomGB           = "Диалог открытия Rom файла ";
-    ls->propDefaultRomType      = "Тип файла Rom по умолчанию:";
+    ls->propDefaultRomType      = "Тип Rom по умолчанию:";
     ls->propGuessRomType        = "Любой тип Rom";
 
     ls->propSettDefSlotGB       = "Перетаскивание ";
@@ -498,8 +509,7 @@ void langInitRussian(LanguageStrings* ls)
 
     ls->propD3DParametersGB         = "Параметры ";                // New in 2.9
     ls->propD3DAspectRatioText      = "Соотношение сторон";               // New in 2.9
-    ls->propD3DLinearFilteringText  = " Линейная фильтрация";          // New in 2.9
-    ls->propD3DForceHighResText     = " Принудительное высокое разрешение";     // New in 2.9
+    ls->propD3DScalingFilterText     = "Фильтр масштаба";
     ls->propD3DExtendBorderColorText    = " Расширить цвет рамки";   // New in 2.9
 
     ls->propD3DCroppingGB               = "Обрезка ";              // New in 2.9
@@ -549,6 +559,10 @@ void langInitRussian(LanguageStrings* ls)
     ls->enumD3DARPAL            = "PAL";            // New in 2.9
     ls->enumD3DARNTSC           = "NTSC";           // New in 2.9
     ls->enumD3DAR11             = "1:1";            // New in 2.9
+    ls->enumD3DScaleNearest          = "Ближайший";
+    ls->enumD3DScaleBilinear         = "Билинейный";
+    ls->enumD3DScaleSharp            = "Резкий билинейный";
+    ls->enumD3DScalePrescaled     = "Билинейный (2x prescale)";
 
     ls->enumD3DCropNone         = "Нет";           // New in 2.9
     ls->enumD3DCropMSX1         = "MSX1";           // New in 2.9
@@ -595,7 +609,7 @@ void langInitRussian(LanguageStrings* ls)
     //----------------------
 
     ls->confTitle               = "blueMSX+ - Конфигурация машин";
-    ls->confConfigText          = "Название профиля";
+    ls->confConfigText          = "Имя профиля";
     ls->confSlotLayout          = "Расположение слота";
     ls->confMemory              = "Память";
     ls->confChipEmulation       = "Эмуляция чипа";
@@ -672,6 +686,11 @@ void langInitRussian(LanguageStrings* ls)
     ls->shortcutConfigTitle     = "blueMSX+ - Редактор кнопок";
     ls->shortcutAssign          = "Назначить";
     ls->shortcutPressText       = "Нажмите кнопки:";
+    ls->shortcutHotkeyHint      = "(до 3 клавиш)";
+    ls->keyboardMappedHint      = "(до 3 клавиш)";
+    ls->shortcutTooltipAlsoBound = "Также назначено: ";
+    ls->keyboardKeyFormat       = "клавиша %s";
+    ls->keyconfigResetTab       = "Сбросить клавиши этой вкладки";
     ls->shortcutScheme          = "Схема:";
     ls->shortcutCartInsert1     = "Вставьте картридж 1";
     ls->shortcutCartRemove1     = "Убрать картридж 1";
@@ -730,7 +749,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->shortcutSwitchMsxAudio  = "Включить MSX-AUDIO";
     ls->shortcutSwitchFront     = "Включить переключатель Panasonic";
     ls->shortcutSwitchPause     = "Включить переключатель паузы";
-    ls->shortcutToggleMouseLock = "Включить блокировку мышки";
+    ls->shortcutToggleMouseLock = "Подключить/отключить ПК мышь к MSX";
     ls->shortcutEmuSpeedMax     = "Максимальная скорость эмуляции";
     ls->shortcutEmuPlayReverse  = "Перемотать эмуляцию";                     // New in 2.8.3
     ls->shortcutEmuSpeedToggle  = "Включить максимальную скорость эмуляции";

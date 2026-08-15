@@ -47,13 +47,15 @@ typedef struct {
 #define ST_IDENT    1
 #define ST_CFI      2
 
-/* WBP for S29GL064 uses a 32-byte page + 4 setup + 1 confirm = 37 slots.
-** Round up a bit for future headroom. */
-#define AMDFLASH_CMD_SLOTS 40
+/* WBP for S29GL064S uses a 256-byte page + 4 setup + 1 confirm = 261 slots.
+** Round up for future headroom. */
+#define AMDFLASH_WBP_PAGE_BYTES 256
+#define AMDFLASH_CMD_SLOTS      280
 
 struct AmdFlash
 {
     UInt8* romData;
+    AmdType amdType;
     UInt32 cmdAddr1;
     UInt32 cmdAddr2;
     int    state;
@@ -63,6 +65,7 @@ struct AmdFlash
     AmdCmd cmd[AMDFLASH_CMD_SLOTS];
     int    cmdIdx;
     int    writeProtectMask;
+    int    fastCommands;        /* M29W640-family 0x56 quad program enabled */
     char   sramFilename[512];
 };
 
@@ -121,11 +124,12 @@ static int checkCommandProgram(AmdFlash* rm)
     return 0;
 }
 
-/* Quadruple-Byte fast Program command (opcode 0x56, no unlock prefix,
-** followed by 4 data byte writes).  MFR SCC+ SD's OPFXSD path relies
-** on this to program 4 bytes at a time. */
+/* Quadruple-Byte fast Program (0x56, no unlock, then 4 data writes).
+** M29W640-family only: recognized when the mapper opts in via
+** amdFlashEnableFastCommands, else 0x56 stays plain data. */
 static int checkCommandQuadrupleByteProgram(AmdFlash* rm)
 {
+    if (!rm->fastCommands) return 0;
     if (rm->cmdIdx > 0 && rm->cmd[0].value != 0x56) return 0;
     if (rm->cmdIdx < 5) return 1;
 
@@ -155,12 +159,13 @@ static int checkCommandManifacturer(AmdFlash* rm)
     return 0;
 }
 
-/* JEDEC CFI Query entry: single-cycle write of 0x98 to any address.
-** S29GL064 datasheet section "CFI Query Command".  Sets ST_CFI and
-** clears cmd buffer so the next write starts a fresh sequence. */
+/* JEDEC CFI Query entry: write 0x98 to word address 0x55 (byte 0xAA in
+** x8 mode).  Without the address check any 0x98 data write (e.g. an
+** ASCII16-X bank select) would flip reads into CFI query mode. */
 static int checkCommandCfi(AmdFlash* rm)
 {
-    if (rm->cmdIdx == 1 && rm->cmd[0].value == 0x98) {
+    if (rm->isX8X16 && rm->cmdIdx == 1 && rm->cmd[0].value == 0x98 &&
+        (cmdAddrBits(rm, rm->cmd[0].address) & 0xFF) == 0x55) {
         rm->state = ST_CFI;
         rm->cmdIdx = 0;
         return 1;
@@ -169,11 +174,12 @@ static int checkCommandCfi(AmdFlash* rm)
 }
 
 /* Write Buffer Program: aa/55, SA/25, SA/(N-1), N data bytes within one
-** 32-byte page of one sector, then SA/29 confirm.  MSX flashers use this
-** to program the S29GL064 32 bytes at a time. */
+** buffer page of one sector, then SA/29 confirm.  S29GL064S accepts up
+** to 256-byte pages per WBP; smaller batches (e.g. 32 bytes) still work
+** because the tool controls the count. */
 static int checkCommandBufferProgram(AmdFlash* rm)
 {
-    const UInt32 pageMask = 0x1F;
+    const UInt32 pageMask = AMDFLASH_WBP_PAGE_BYTES - 1;
     UInt32 sectorMask;
     UInt32 sectorOfSetup;
     UInt32 pageBase;
@@ -189,7 +195,7 @@ static int checkCommandBufferProgram(AmdFlash* rm)
     sectorOfSetup = rm->cmd[2].address & sectorMask;
     dataCount     = rm->cmd[3].value + 1;
 
-    if (dataCount > 32) return 0;
+    if (dataCount > AMDFLASH_WBP_PAGE_BYTES) return 0;
     if ((rm->cmd[3].address & sectorMask) != sectorOfSetup) return 0;
     if (rm->cmdIdx < 5) return 1;
 
@@ -197,7 +203,7 @@ static int checkCommandBufferProgram(AmdFlash* rm)
     pageBase = rm->cmd[4].address & ~pageMask;
 
     if (rm->cmdIdx <= 4 + dataCount) {
-        /* Still filling data buffer; each byte must stay in same 32-byte page. */
+        /* Still filling data buffer; each byte must stay in the same buffer page. */
         UInt32 lastAddr = rm->cmd[rm->cmdIdx - 1].address;
         if ((lastAddr & ~pageMask) != pageBase) return 0;
         return 1;
@@ -221,6 +227,27 @@ UInt8 amdFlashRead(AmdFlash* rm, UInt32 address)
 {
     if (rm->state == ST_IDENT || rm->state == ST_CFI) {
         rm->cmdIdx = 0;
+        /* M29W128 autoselect in x8 mode: even/odd byte pairs return the
+        ** word's low byte (20 20 7E 7E ... 21 21 01 01).  In CFI mode the
+        ** IDs fill the first 20h bytes, the CFI structure follows. */
+        if (rm->amdType == AMD_TYPE_3) {
+            if (rm->state == ST_IDENT || (address & 0x7F) < 0x20) {
+                switch ((address >> 1) & 0x0f) {
+                case 0x00: return 0x20;      /* Manufacturer: ST/Micron */
+                case 0x01: return 0x7e;      /* Device ID 1 */
+                case 0x02: {                 /* sector protect status */
+                    UInt32 sector = address / rm->sectorSize;
+                    return sector < 32 ? (UInt8)((rm->writeProtectMask >> sector) & 1) : 0;
+                }
+                case 0x03: return 0x19;
+                case 0x0e: return 0x21;      /* Device ID 2 */
+                case 0x0f: return 0x01;      /* Device ID 3 */
+                default:   return 0x00;
+                }
+            }
+            /* ST_CFI, offset 20h+: fall through to the shared CFI query
+            ** structure (parameterized on flashSize/sectorSize). */
+        }
         /* Autoselect IDs (Cypress S29GL064).  MFR=01, DEV=7E, ext=10/00.
         ** Byte offsets 00/02/1C/1E per datasheet; also visible in CFI. */
         if (rm->isX8X16) {
@@ -266,7 +293,7 @@ UInt8 amdFlashRead(AmdFlash* rm, UInt32 address)
                 }
                 case 0x50: return 0x02;      /* interface: x8/x16 async */
                 case 0x52: return 0x00;
-                case 0x54: return 0x05;      /* max write buffer = 2^5 bytes */
+                case 0x54: return 0x08;      /* max write buffer = 2^8 = 256 bytes (S29GL064S) */
                 case 0x56: return 0x00;
                 case 0x58: return 0x01;      /* one uniform erase region */
                 case 0x5A: return (UInt8)((rm->flashSize / rm->sectorSize - 1) & 0xFF);
@@ -330,6 +357,11 @@ int amdFlashCmdInProgress(AmdFlash* rm)
     return rm->cmdIdx != 0;
 }
 
+void amdFlashEnableFastCommands(AmdFlash* rm)
+{
+    rm->fastCommands = 1;
+}
+
 void amdFlashReset(AmdFlash* rm)
 {
     rm->cmdIdx = 0;
@@ -350,6 +382,7 @@ void amdFlashSaveState(AmdFlash* rm)
     }
 
     saveStateSet(state, "cmdIdx",   rm->cmdIdx);
+    saveStateSet(state, "state",    rm->state);
 
     saveStateClose(state);
 }
@@ -368,6 +401,9 @@ void amdFlashLoadState(AmdFlash* rm)
     }
 
     rm->cmdIdx = saveStateGet(state, "cmdIdx", 0);
+    /* Older save states have no "state" field; ST_IDLE (0) matches the
+    ** behavior they were saved with. */
+    rm->state = saveStateGet(state, "state", ST_IDLE);
 
     saveStateClose(state);
 }
@@ -377,12 +413,14 @@ AmdFlash* amdFlashCreate(AmdType type, int flashSize, int sectorSize, UInt32 wri
     AmdFlash* rm = (AmdFlash*)calloc(1, sizeof(AmdFlash));
 
     rm->writeProtectMask = writeProtectMask;
+    rm->amdType = type;
 
-    if (type == 0) {
+    if (type == AMD_TYPE_1) {
         rm->cmdAddr1 = 0xaaa;
         rm->cmdAddr2 = 0x555;
     }
     else {
+        /* AMD_TYPE_2 and AMD_TYPE_3: native word command addresses. */
         rm->cmdAddr1 = 0x555;
         rm->cmdAddr2 = 0x2aa;
     }
@@ -390,8 +428,8 @@ AmdFlash* amdFlashCreate(AmdType type, int flashSize, int sectorSize, UInt32 wri
     /* 8 MB image size selects the x8/x16 dual-mode part MFR SCC+ SD
     ** ships with; MSX wiring runs it in x8 mode so command and ID
     ** addresses are word-shifted relative to the byte address the Z80
-    ** puts on the bus. */
-    rm->isX8X16 = (flashSize == 0x800000);
+    ** puts on the bus.  AMD_TYPE_3 (M29W128) is an x8/x16 part as well. */
+    rm->isX8X16 = (flashSize == 0x800000) || (type == AMD_TYPE_3);
 
     if (sramFilename != NULL) {
         strcpy(rm->sramFilename, sramFilename);
@@ -427,5 +465,6 @@ void amdFlashDestroy(AmdFlash* rm)
     if (rm->sramFilename[0]) {
         sramSave(rm->sramFilename, rm->romData, rm->flashSize, NULL, 0);
     }
+    free(rm->romData);
     free(rm);
 }

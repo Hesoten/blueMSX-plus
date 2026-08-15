@@ -81,6 +81,8 @@ void langInitSwedish(LanguageStrings* ls)
     ls->errorDirectXFailed      = "Misslyckades att skapa DirectX objekt.          \nAnvänder GDI istället.\nKontrollera video inställningarna.";
     ls->errorNoRomInZip         = "Kunde inte hitta en .rom fil i zip arkivet.";
     ls->errorNoDskInZip         = "Kunde inte hitta en .dsk fil i zip arkivet.";
+    ls->errorCreateDiskImage    = "Kunde inte skapa diskavbildsfilen.";
+    ls->errorCreateTapeImage    = "Kunde inte skapa kassettfilen.";
     ls->errorNoCasInZip         = "Kunde inte hitta en .cas fil i zip arkivet.";
     ls->errorDirAsDskOverflow   = "%d fil(er) (%d KB totalt) får inte plats i 720 KB-diskavbilden och hoppades över.";
     ls->errorNoHelp             = "Kunde inte hitta hjälpfilen.";
@@ -91,6 +93,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->errorStartEmuConfigInvalid       = "Det gick inte att läsa config.ini för maskinkonfigurationen '%s'. Filen kan vara skadad eller från en inkompatibel version.";
     ls->errorMissingFiles       = "Följande filer kunde inte laddas:";
     ls->errorPortableReadonly   = "Flyttbar enhet är inte skrivbar";
+    ls->errorMidiOpenFailed     = "Det gick inte att öppna MIDI-enheten '%s'. Kan användas av annan applikation.";
     ls->infoTitle               = "blueMSX+ Info";
     ls->infoGameReaderRedirect  = "blueMSX+ stöder inte MSX Game Reader direkt (den ursprungliga XP-drivrutinen från ASCII fungerar inte längre på moderna Windows).\n\nÖppna MSX Game Reader - Web Dumper (av Kunihiko Ohnaka) i webbläsaren istället?";
     ls->infoColorDepth          = "blueMSX+ fungerar bäst med 16 eller 32 bitars färgdjup.";
@@ -104,6 +107,9 @@ void langInitSwedish(LanguageStrings* ls)
     ls->infoRecorderComplete    = "Videofil sparad:\n  %s";
     ls->infoToastSaved          = "Sparat: %s";
     ls->infoToastAlreadyRecording   = "Spelar redan in";
+    ls->infoToastMouseConnected    = "PC-mus ansluten till MSX";
+    ls->infoToastMouseDisconnected = "PC-mus frånkopplad från MSX";
+    ls->propControlsMouseSens      = "Känslighet:";
     ls->dlgRecorderPickTitle        = "blueMSX+ - Rendera replay till video";
     ls->dlgRecorderPickSourceCap    = "Replayfil att rendera (.cap):";
     ls->dlgRecorderPickOutputMp4    = "Utdatavideofil (.mp4):";
@@ -180,7 +186,9 @@ void langInitSwedish(LanguageStrings* ls)
     ls->menuDiskAutoStart       = "Starta om efter insättning/urdragning";
     ls->menuCartAutoReset       = "Starta om efter insättning/urdragning";
 
+    ls->menuCasInsertNew        = "Sätt in ny kassettfil";
     ls->menuCasRewindAfterInsert= "Spola tillbaka vid insättning";
+    ls->menuCasSaveMonitor      = "Medhörning vid sparning";
     ls->menuCasUseReadOnly      = "Tillåt endast läsning av kassett";
     ls->lmenuCasSaveAs          = "Spara kassett som...";
     ls->menuCasSetPosition      = "Sätt position";
@@ -311,6 +319,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->dlgInsertDiskB          = "Sätt in diskett i diskettstation B";
     ls->dlgInsertHarddisk       = "Sätt in hårddisk";
     ls->dlgInsertCas            = "Sätt in kassettband";
+    ls->dlgCreateCas            = "Skapa ny kassettfil";
     ls->dlgRomType              = "Rom Typ:";
     ls->dlgDiskSize             = "Diskettstorlek:";             
 
@@ -323,7 +332,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->dlgTabPosition          = "Position";
     ls->dlgTabType              = "Typ";
     ls->dlgTabFilename          = "Filnamn";
-    ls->dlgZipReset             = "Starta om efter insättning";
+    ls->dlgZipReset             = "Starta om vid insättning";
     
     ls->dlgAboutTitle           = "blueMSX+ - Information";
 
@@ -375,13 +384,15 @@ void langInitSwedish(LanguageStrings* ls)
     ls->propEmuVramSizeText     = "VRAM storlek:";
     ls->propEmuSpeedGB          = "Emuleringshastighet ";
     ls->propEmuSpeedText        = "Emulatorkärna:";
-    ls->propEmuVdpCmdSpeedText  = "VDP-kommandots väntetid:";
+    ls->propEmuVdpCmdSpeedText  = "VDP-kmd. väntetid:";
     ls->propEmuFrontSwitchGB    = "Panasonicbrytare ";
     ls->propEmuFrontSwitch      = " Frontbrytare";
     ls->propEmuNoSpriteLimits   = " Ignorera sprite begränsning";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " Emulera MSX tangentbordsfel";  // New in 2.9
-    ls->propEmuFdcTiming        = " Snabba upp vid FDD-åtkomst";
-    ls->propEmuHddSdBoost       = " Snabbare vid HDD/SD-åtkomst";
+    ls->propEmuBoostText        = "Snabba upp vid enhetsåtkomst:";
+    ls->propEmuFdcTiming        = " FDD";
+    ls->propEmuCasBoost         = " Kassett";
+    ls->propEmuHddSdBoost       = " HDD/SD-kort";
     ls->propEmuReversePlay      = " Tillåt baklänges uppspelning";
     ls->propEmuPauseSwitch      = " Pausbrytare";
     ls->propEmuAudioSwitch      = " MSX-AUDIO cartridge switch";
@@ -472,7 +483,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->propFileTypes           = " Registrera .rom/.dsk/.cas/.sta i \"Öppna med\"-menyn";
     ls->propOpenDefaultApps     = "Öppna Windows standardappar";
     ls->propWindowsEnvGB        = "Windows Miljö ";
-    ls->propSetScreenSaver      = " Håll skärmen på när blueMSX+ kör (ingen skärmavstängning/vila/skärmsläckare)";
+    ls->propSetScreenSaver      = " Håll skärmen aktiv (ingen vila/skärmsläckare) vid körning";
     ls->propPriorityBoost       = " Använd Windows spelschemaläggare (MMCSS) för emuleringen";
     ls->propScreenshotPng       = " Använd Portable Network Graphics (.png) skärmdump";
     ls->propEjectMediaOnExit    = " Ta ur media när blueMSX+ avslutas";
@@ -499,15 +510,14 @@ void langInitSwedish(LanguageStrings* ls)
 
     ls->propD3DParametersGB         = "Parametrar ";                // New in 2.9
     ls->propD3DAspectRatioText      = "Bildförhållande";               // New in 2.9
-    ls->propD3DLinearFilteringText  = " Linjärt filter";          // New in 2.9
-    ls->propD3DForceHighResText     = " Tvinga högupplösning";     // New in 2.9
+    ls->propD3DScalingFilterText     = "Skalningsfilter";
     ls->propD3DExtendBorderColorText    = " Expandera ramfärger";   // New in 2.9
 
     ls->propD3DCroppingGB               = "Trimning ";              // New in 2.9
     ls->propD3DCroppingTypeText         = "Trimningstyp:";         // New in 2.9
     ls->propD3DCroppingLeftText         = "Vänster:";                  // New in 2.9
     ls->propD3DCroppingRightText        = "Höger:";                 // New in 2.9
-    ls->propD3DCroppingTopText          = "Upptill:";                   // New in 2.9
+    ls->propD3DCroppingTopText          = "Övre:";                   // New in 2.9
     ls->propD3DCroppingBottomText       = "Nertill:";                // New in 2.9
 
 
@@ -550,6 +560,10 @@ void langInitSwedish(LanguageStrings* ls)
     ls->enumD3DARPAL            = "PAL";            // New in 2.9
     ls->enumD3DARNTSC           = "NTSC";           // New in 2.9
     ls->enumD3DAR11             = "1:1";            // New in 2.9
+    ls->enumD3DScaleNearest          = "Närmaste";
+    ls->enumD3DScaleBilinear         = "Bilinjär";
+    ls->enumD3DScaleSharp            = "Skarp bilinjär";
+    ls->enumD3DScalePrescaled     = "Bilinjär (2x prescale)";
 
     ls->enumD3DCropNone         = "Ingen";           // New in 2.9
     ls->enumD3DCropMSX1         = "MSX1";           // New in 2.9
@@ -564,7 +578,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->enumSoundDrvWasapi      = "WASAPI driver";
 
     ls->enumEmuSync1ms          = "Synkronisera till MSX refresh";
-    ls->enumEmuSyncVblank       = "Synkronisera till PC Vertikal Blank";
+    ls->enumEmuSyncVblank       = "Synkronisera till PC Vblank";
     ls->enumEmuAsyncVblank      = "Asynchronous PC Vblank";             
     ls->enumEmuSyncNone         = "Ingen";
     ls->enumEmuSyncAuto         = "Automatisk (snabb)";
@@ -673,7 +687,12 @@ void langInitSwedish(LanguageStrings* ls)
     ls->shortcutConfigTitle     = "blueMSX+ - Konfigurering av Kortkommandon";
     ls->shortcutAssign          = "Tilldela";
     ls->shortcutPressText       = "Tryck kortkommando:";
-    ls->shortcutScheme          = "Kommandoschema:";
+    ls->shortcutHotkeyHint      = "(upp till 3 tangenter)";
+    ls->keyboardMappedHint      = "(upp till 3 tangenter)";
+    ls->shortcutTooltipAlsoBound = "Även tilldelad: ";
+    ls->keyboardKeyFormat       = "tangent %s";
+    ls->keyconfigResetTab       = "Återställ tangenterna på denna flik";
+    ls->shortcutScheme          = "Kmd-schema:";
     ls->shortcutCartInsert1     = "Sätt in Cartridge 1";
     ls->shortcutCartRemove1     = "Ta ur Cartridge 1";
     ls->shortcutCartInsert2     = "Sätt in Cartridge 2";
@@ -731,7 +750,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->shortcutSwitchMsxAudio  = "Slå om MSX-AUDIO brytare";
     ls->shortcutSwitchFront     = "Slå om Panasonic Front brytare";
     ls->shortcutSwitchPause     = "Slå om Pausbrytare";
-    ls->shortcutToggleMouseLock = "Slå om Muslås";
+    ls->shortcutToggleMouseLock = "Anslut/koppla från PC-mus till MSX";
     ls->shortcutEmuSpeedMax     = "Maximal Emuleringshastighet";
     ls->shortcutEmuPlayReverse  = "Spola tillbaka";                     // New in 2.8.3
     ls->shortcutEmuSpeedToggle  = "Växla Mellan Normal och Max Emuleringshastighet";

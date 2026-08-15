@@ -292,3 +292,20 @@ int saveStateFileFormatIsOld(const char* fileName)
     }
     return isOld;
 }
+
+int saveStateFileIsState(const char* fileName)
+{
+    int   size;
+    int   isState = 0;
+    char* version = zipLoadFile((char*)fileName, "version", &size);
+
+    if (version != NULL) {
+        /* The two stamps boardRun resumes from. zipLoadFile gives back exactly
+        ** the stored bytes with no terminator, so the length is checked first
+        ** rather than letting strncmp walk off the end of a short entry. */
+        isState = (size >= 21 && 0 == strncmp(version, "blueMSX - state  v 10", 21)) ||
+                  (size >= 20 && 0 == strncmp(version, "blueMSX - state  v 8",  20));
+        free(version);
+    }
+    return isState;
+}

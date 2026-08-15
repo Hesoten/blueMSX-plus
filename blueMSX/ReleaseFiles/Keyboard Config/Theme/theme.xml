@@ -35,11 +35,11 @@
 
             <button x="128" y="38" src="TurboRN/JOY1-JOY2-BUTTON.bmp" action="theme-setpage" arga="joystick2"/>
             <button x="220" y="38" src="TurboRN/JOY1-KEYBOARD-BUTTON.bmp" action="theme-setpage" arga="keyboard"/>
-            <text x="20" y="292" width="100" fgcolor="D8E0E7" src="TurboRN/SEL-TEXT.bmp" type="native"
+            <text x="14" y="292" width="100" fgcolor="D8E0E7" src="TurboRN/SEL-TEXT.bmp" type="native"
                 trigger="lang-kbd-mapscheme" />
-            <object x="150" y="287" width="135" height="21" id="dropdown-keyconfigs" />
-            <object x="310" y="287" width="80" height="21" id="button-ok" />
-            <object x="400" y="287" width="80" height="21" id="button-cancel" />
+            <object x="144" y="285" width="101" height="24" id="dropdown-keyconfigs" />
+            <object x="358" y="285" width="60" height="24" id="button-ok" />
+            <object x="426" y="285" width="60" height="24" id="button-cancel" />
 
             <text x="150" y="90" width="140" fgcolor="000000" src="TurboRN/SEL-DROP.bmp" type="native"
                 trigger="text-joyport1"/>
@@ -51,24 +51,24 @@
 		    <block x="50" y="115" visible="port1-joystick">
                 <text x="170" y="20" width="100" fgcolor="D8E0E7" src="TurboRN/SEL-TEXT.bmp" type="native"
                     trigger="lang-kbd-selkey" />
-                <text x="170" y="35" width="300" fgcolor="000000" src="TurboRN/SEL-BOX.bmp" align="right"
+                <text x="170" y="35" width="300" fgcolor="000000" src="TurboRN/SEL-BOX.bmp" align="left"
                     type="native" trigger="text-selectedkey" />
                 <text x="170" y="60" width="100" fgcolor="D8E0E7" src="TurboRN/SEL-TEXT.bmp" type="native"
                     trigger="lang-kbd-mappedto" />
-                <text x="170" y="75" width="300" fgcolor="000000" src="TurboRN/SEL-BOX.bmp" align="right"
+                <text x="170" y="75" width="300" fgcolor="000000" src="TurboRN/SEL-BOX.bmp" align="left"
                     type="native" trigger="text-mappedkey" />
                 <keyboard x="25" y="17" src="TurboRN/EOS-JOYSTICK.bmp">
                     <key code="joy1-up" x="18" y="38" width="10" height="9" />
                     <key code="joy1-down" x="18" y="57" width="10" height="9" />
                     <key code="joy1-left" x="9" y="47" width="9" height="10" />
                     <key code="joy1-right" x="28" y="47" width="9" height="10" />
-                    <key code="joy1-button1" x="75" y="44" width="16" height="16" />
-                    <key code="joy1-button2" x="94" y="44" width="16" height="16" />
+                    <key code="joy1-button1" x="94" y="44" width="16" height="16" />
+                    <key code="joy1-button2" x="75" y="44" width="16" height="16" />
                 </keyboard>
 	        </block>
 
-		    <block x="80" y="115" visible="port1-mouse">
-	            <image x="100" y="17" src="TurboRN/EOS-MOUSE.bmp"/>
+		    <block x="0" y="115" visible="port1-mouse">
+	            <image x="80" y="17" src="TurboRN/EOS-MOUSE.bmp"/>
 	        </block>
 
 		    <block x="80" y="115" visible="port1-arkanoidpad">
@@ -94,11 +94,11 @@
 		    <block x="50" y="115" visible="port1-colecojoystick">
                 <text x="170" y="20" width="100" fgcolor="D8E0E7" src="TurboRN/SEL-TEXT.bmp" type="native"
                     trigger="lang-kbd-selkey" />
-                <text x="170" y="35" width="300" fgcolor="000000" src="TurboRN/SEL-BOX.bmp" align="right"
+                <text x="170" y="35" width="300" fgcolor="000000" src="TurboRN/SEL-BOX.bmp" align="left"
                     type="native" trigger="text-selectedkey" />
                 <text x="170" y="60" width="100" fgcolor="D8E0E7" src="TurboRN/SEL-TEXT.bmp" type="native"
                     trigger="lang-kbd-mappedto" />
-                <text x="170" y="75" width="300" fgcolor="000000" src="TurboRN/SEL-BOX.bmp" align="right"
+                <text x="170" y="75" width="300" fgcolor="000000" src="TurboRN/SEL-BOX.bmp" align="left"
                     type="native" trigger="text-mappedkey" />
                 <keyboard x="65" y="0" src="TurboRN/EOS-COLECO.bmp">
                     <key code="joy1-left" x="11" y="9" width="9" height="11" />
@@ -125,11 +125,11 @@
 		    <block x="50" y="115" visible="port1-superaction">
                 <text x="170" y="20" width="100" fgcolor="D8E0E7" src="TurboRN/SEL-TEXT.bmp" type="native"
                     trigger="lang-kbd-selkey" />
-                <text x="170" y="35" width="300" fgcolor="000000" src="TurboRN/SEL-BOX.bmp" align="right"
+                <text x="170" y="35" width="300" fgcolor="000000" src="TurboRN/SEL-BOX.bmp" align="left"
                     type="native" trigger="text-selectedkey" />
                 <text x="170" y="60" width="100" fgcolor="D8E0E7" src="TurboRN/SEL-TEXT.bmp" type="native"
                     trigger="lang-kbd-mappedto" />
-                <text x="170" y="75" width="300" fgcolor="000000" src="TurboRN/SEL-BOX.bmp" align="right"
+                <text x="170" y="75" width="300" fgcolor="000000" src="TurboRN/SEL-BOX.bmp" align="left"
                     type="native" trigger="text-mappedkey" />
                 <keyboard x="15" y="0" src="TurboRN/EOS-SACONTROL.bmp">
                     <key code="joy1-left" x="11" y="11" width="12" height="12" />
@@ -200,11 +200,11 @@
 
             <button x="33" y="38" src="TurboRN/JOY2-JOY1-BUTTON.bmp" action="theme-setpage" arga="joystick1"/>
             <button x="220" y="38" src="TurboRN/JOY2-KEYBOARD-BUTTON.bmp" action="theme-setpage" arga="keyboard"/>
-            <text x="20" y="292" width="100" fgcolor="D8E0E7" src="TurboRN/SEL-TEXT.bmp" type="native"
+            <text x="14" y="292" width="100" fgcolor="D8E0E7" src="TurboRN/SEL-TEXT.bmp" type="native"
                 trigger="lang-kbd-mapscheme" />
-            <object x="150" y="287" width="135" height="21" id="dropdown-keyconfigs" />
-            <object x="310" y="287" width="80" height="21" id="button-ok" />
-            <object x="400" y="287" width="80" height="21" id="button-cancel" />
+            <object x="144" y="285" width="101" height="24" id="dropdown-keyconfigs" />
+            <object x="358" y="285" width="60" height="24" id="button-ok" />
+            <object x="426" y="285" width="60" height="24" id="button-cancel" />
             
             <text x="150" y="90" width="140" fgcolor="000000" src="TurboRN/SEL-DROP.bmp" type="native"
                 trigger="text-joyport2"/>
@@ -216,24 +216,24 @@
 		    <block x="50" y="115" visible="port2-joystick">
                 <text x="170" y="20" width="100" fgcolor="D8E0E7" src="TurboRN/SEL-TEXT.bmp" type="native"
                     trigger="lang-kbd-selkey" />
-                <text x="170" y="35" width="300" fgcolor="000000" src="TurboRN/SEL-BOX.bmp" align="right"
+                <text x="170" y="35" width="300" fgcolor="000000" src="TurboRN/SEL-BOX.bmp" align="left"
                     type="native" trigger="text-selectedkey" />
                 <text x="170" y="60" width="100" fgcolor="D8E0E7" src="TurboRN/SEL-TEXT.bmp" type="native"
                     trigger="lang-kbd-mappedto" />
-                <text x="170" y="75" width="300" fgcolor="000000" src="TurboRN/SEL-BOX.bmp" align="right"
+                <text x="170" y="75" width="300" fgcolor="000000" src="TurboRN/SEL-BOX.bmp" align="left"
                     type="native" trigger="text-mappedkey" />
                 <keyboard x="25" y="17" src="TurboRN/EOS-JOYSTICK.bmp">
                     <key code="joy2-up" x="18" y="38" width="10" height="9" />
                     <key code="joy2-down" x="18" y="57" width="10" height="9" />
                     <key code="joy2-left" x="9" y="47" width="9" height="10" />
                     <key code="joy2-right" x="28" y="47" width="9" height="10" />
-                    <key code="joy2-button1" x="75" y="44" width="16" height="16" />
-                    <key code="joy2-button2" x="94" y="44" width="16" height="16" />
+                    <key code="joy2-button1" x="94" y="44" width="16" height="16" />
+                    <key code="joy2-button2" x="75" y="44" width="16" height="16" />
                 </keyboard>
 	        </block>
 
-		    <block x="80" y="115" visible="port2-mouse">
-	            <image x="100" y="17" src="TurboRN/EOS-MOUSE.bmp"/>
+		    <block x="0" y="115" visible="port2-mouse">
+	            <image x="80" y="17" src="TurboRN/EOS-MOUSE.bmp"/>
 	        </block>
 
 		    <block x="80" y="115" visible="port2-arkanoidpad">
@@ -259,11 +259,11 @@
 		    <block x="50" y="115" visible="port2-colecojoystick">
                 <text x="170" y="20" width="100" fgcolor="D8E0E7" src="TurboRN/SEL-TEXT.bmp" type="native"
                     trigger="lang-kbd-selkey" />
-                <text x="170" y="35" width="300" fgcolor="000000" src="TurboRN/SEL-BOX.bmp" align="right"
+                <text x="170" y="35" width="300" fgcolor="000000" src="TurboRN/SEL-BOX.bmp" align="left"
                     type="native" trigger="text-selectedkey" />
                 <text x="170" y="60" width="100" fgcolor="D8E0E7" src="TurboRN/SEL-TEXT.bmp" type="native"
                     trigger="lang-kbd-mappedto" />
-                <text x="170" y="75" width="300" fgcolor="000000" src="TurboRN/SEL-BOX.bmp" align="right"
+                <text x="170" y="75" width="300" fgcolor="000000" src="TurboRN/SEL-BOX.bmp" align="left"
                     type="native" trigger="text-mappedkey" />
                 <keyboard x="65" y="0" src="TurboRN/EOS-COLECO.bmp">
                     <key code="joy2-left" x="11" y="9" width="9" height="11" />
@@ -290,11 +290,11 @@
 		    <block x="50" y="115" visible="port2-superaction">
                 <text x="170" y="20" width="100" fgcolor="D8E0E7" src="TurboRN/SEL-TEXT.bmp" type="native"
                     trigger="lang-kbd-selkey" />
-                <text x="170" y="35" width="300" fgcolor="000000" src="TurboRN/SEL-BOX.bmp" align="right"
+                <text x="170" y="35" width="300" fgcolor="000000" src="TurboRN/SEL-BOX.bmp" align="left"
                     type="native" trigger="text-selectedkey" />
                 <text x="170" y="60" width="100" fgcolor="D8E0E7" src="TurboRN/SEL-TEXT.bmp" type="native"
                     trigger="lang-kbd-mappedto" />
-                <text x="170" y="75" width="300" fgcolor="000000" src="TurboRN/SEL-BOX.bmp" align="right"
+                <text x="170" y="75" width="300" fgcolor="000000" src="TurboRN/SEL-BOX.bmp" align="left"
                     type="native" trigger="text-mappedkey" />
                 <keyboard x="15" y="0" src="TurboRN/EOS-SACONTROL.bmp">
                     <key code="joy2-left" x="11" y="11" width="12" height="12" />
@@ -372,17 +372,17 @@
 
             <text x="66" y="225" width="100" fgcolor="D8E0E7" src="TurboRN/SEL-TEXT.bmp" type="native"
                 trigger="lang-kbd-selkey" />
-            <text x="200" y="225" width="300" fgcolor="000000" src="TurboRN/SEL-BOX.bmp" align="right"
+            <text x="200" y="225" width="300" fgcolor="000000" src="TurboRN/SEL-BOX.bmp" align="left"
                 type="native" trigger="text-selectedkey" />
             <text x="66" y="240" width="100" fgcolor="D8E0E7" src="TurboRN/SEL-TEXT.bmp" type="native"
                 trigger="lang-kbd-mappedto" />
-            <text x="200" y="240" width="300" fgcolor="000000" src="TurboRN/SEL-BOX.bmp" align="right"
+            <text x="200" y="240" width="300" fgcolor="000000" src="TurboRN/SEL-BOX.bmp" align="left"
                 type="native" trigger="text-mappedkey" />
-            <text x="20" y="292" width="100" fgcolor="D8E0E7" src="TurboRN/SEL-TEXT.bmp" type="native"
+            <text x="14" y="292" width="100" fgcolor="D8E0E7" src="TurboRN/SEL-TEXT.bmp" type="native"
                 trigger="lang-kbd-mapscheme" />
-            <object x="150" y="287" width="135" height="21" id="dropdown-keyconfigs" />
-            <object x="310" y="287" width="80" height="21" id="button-ok" />
-            <object x="400" y="287" width="80" height="21" id="button-cancel" />
+            <object x="144" y="285" width="101" height="24" id="dropdown-keyconfigs" />
+            <object x="358" y="285" width="60" height="24" id="button-ok" />
+            <object x="426" y="285" width="60" height="24" id="button-cancel" />
             <keyboard x="62" y="94" src="TurboRN/EOS-key.bmp">
                 <key code="f1" x="10" y="4" width="27" height="15" />
                 <key code="f2" x="37" y="4" width="26" height="15" />

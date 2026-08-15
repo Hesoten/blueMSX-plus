@@ -112,6 +112,7 @@ public:
         symbolWindowText            = "이전 심볼 교체";
 
         popupOverwrite              = "파일이 이미 있습니다. 덮어 쓰시겠습니까?";
+        popupRemoveBreakpoints      = "중단점이 남아 있습니다. 닫기 전에 제거하시겠습니까?";
         
         aboutBuilt                  = "빌드:";
         aboutVisit                  = "자세한 것은 http://www.bluemsx.com 을 방문하세요.";

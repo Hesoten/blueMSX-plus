@@ -67,12 +67,22 @@ static int    emuExitFlag;
 static UInt32 emuSysTime = 0;
 static UInt32 emuFrequency = 3579545;
 int           emuMaxSpeed = 0;
-int           emuPlayReverse = 0;
+volatile int  emuPlayReverse = 0;
 int           emuMaxEmuSpeed = 0; // Max speed issued by emulation
 
 /* Fast-forward multiplier (max-speed and FDC/HDD boost); higher =
 ** faster, capped by host emu throughput.  Stock blueMSX used 10. */
 #define EMU_MAXSPEED_FACTOR 15
+
+/* Emulated ms handed out per iteration during a tape boost. Not a speed
+** limit: that path does not queue for a sync tick, so the host's throughput
+** sets the rate and this only decides how often the loop comes up for air
+** (suspend latency, input polling, per-iteration overhead). */
+#define EMU_TAPE_SLICE_MS   60
+
+/* What a rewind does once no snapshot is left: 1 ends it and lets play
+** resume, 0 stays on the oldest frame until the key is let go. */
+#define EMU_REVERSE_STOP_AT_RING_END 1
 static char   emuStateName[512];
 static volatile int      emuSuspendFlag;
 static volatile EmuState emuState = EMU_STOPPED;
@@ -203,7 +213,8 @@ static int emuUseSynchronousUpdate()
     if (properties->emulation.speed == 50 &&
         enableSynchronousUpdate &&
         emulatorGetMaxSpeed() == 0 &&
-        !boardGetFdcActive())
+        !boardGetFdcActive() &&
+        !boardGetCasActive())
     {
         return properties->emulation.syncMethod;
     }
@@ -257,7 +268,10 @@ void emulatorSetState(EmuState state) {
         emuSingleStep = 1;
     }
     if (state == EMU_STEP_BACK) {
-        EmuState oldState = state;
+        /* Fall back to the state we came from when there is nothing to rewind
+        ** to. EMU_STEP_BACK is a request, not a state the rest of the code
+        ** knows how to leave: emuState would never reach EMU_PAUSED again. */
+        EmuState oldState = emuState;
         state = EMU_RUNNING;
         if (!boardRewindOne()) {
             state = oldState;
@@ -305,7 +319,12 @@ static int timerCallback(void* timer) {
             if (emuState == EMU_RUNNING) {
                 refreshRate = boardGetRefreshRate();
 
-                if (syncMethod == P_EMU_SYNCAUTO || syncMethod == P_EMU_SYNCNONE) {
+                /* Reverse play leaves WaitForSync at its head, before the
+                ** present the vblank mode relies on, so the screen only
+                ** keeps up while rewinding if this drives it instead. */
+                if (syncMethod == P_EMU_SYNCAUTO || syncMethod == P_EMU_SYNCNONE ||
+                    (syncMethod == P_EMU_SYNCTOVBLANK && emuPlayReverse &&
+                     properties->emulation.reverseEnable)) {
                     archUpdateEmuDisplay(0);
                 }
             }
@@ -586,8 +605,24 @@ void emulatorStop() {
 
 
 
+/* emulation.speed is a log scale: 0 = 10%, 50 = 3.579MHz (100%), 100 =
+   1000%.  Shared so the property page and theme tooltips cannot drift
+   from the clock the board is actually given. */
+int emulatorLogFrequencyToHz(int logFrequency) {
+    if (logFrequency < 0)   logFrequency = 0;
+    if (logFrequency > 100) logFrequency = 100;
+    return (int)(3579545 * pow(2.0, (logFrequency - 50) / 15.0515));
+}
+
+/* Percent of the stock clock, clamped to the 10 to 1000 the property accepts. */
+int emulatorPercentToLogFrequency(int percent) {
+    if (percent < 10)   percent = 10;
+    if (percent > 1000) percent = 1000;
+    return (int)(50.0 + 15.0515 * log((double)percent / 100.0) / log(2.0) + 0.5);
+}
+
 void emulatorSetFrequency(int logFrequency, int* frequency) {
-    emuFrequency = (int)(3579545 * pow(2.0, (logFrequency - 50) / 15.0515));
+    emuFrequency = emulatorLogFrequencyToHz(logFrequency);
 
     if (frequency != NULL) {
         *frequency  = emuFrequency;
@@ -777,7 +812,17 @@ int WaitReverse()
         archEventWait(emuSyncEvent, -1);
     }
 
-    boardRewind();
+    if (!boardRewind()) {
+        /* No snapshot left to restore. Granting emulated time here is what
+        ** used to run the guest forward, muted, for as long as the key was
+        ** held. Leave a paused emulator alone: it must not regain sound. */
+#if EMU_REVERSE_STOP_AT_RING_END
+        if (emuState == EMU_RUNNING) {
+            emulatorPlayReverse(0);
+        }
+#endif
+        return 0;
+    }
 
     return -60;
 }
@@ -844,6 +889,13 @@ static int WaitForSync(int maxSpeed, int breakpointHit) {
             overflowCount--;
         }
     }
+    else if (emuMaxEmuSpeed == BOARD_BOOST_TAPE && emuState == EMU_RUNNING && !emuExitFlag) {
+        /* Do not queue for a sync tick. One tick is handed out every syncPeriod
+        ** ms whatever the host can do, so waiting for one pins the rate at
+        ** slice-per-tick; skipping it lets the tape run out as fast as the host
+        ** manages, which is the whole point of boosting a load. */
+        overflowCount = 0;
+    }
     else {
         do {
 #ifdef NO_TIMERS
@@ -891,7 +943,13 @@ static int WaitForSync(int maxSpeed, int breakpointHit) {
         diffTime = 0;
     }
 #endif
-    if (emuMaxSpeed || emuMaxEmuSpeed) {
+    if (emuMaxEmuSpeed == BOARD_BOOST_TAPE && !emuSingleStep) {
+        /* The measured elapsed time is no use without the tick wait: an
+        ** iteration can be shorter than the 1 ms clock resolution and would
+        ** read as zero. A fixed slice is what the loop runs on instead. */
+        diffTime = EMU_TAPE_SLICE_MS;
+    }
+    else if (emuMaxSpeed || emuMaxEmuSpeed) {
         diffTime *= EMU_MAXSPEED_FACTOR;
         if (diffTime > 2 * EMU_MAXSPEED_FACTOR * syncPeriod) {
             diffTime =  2 * EMU_MAXSPEED_FACTOR * syncPeriod;

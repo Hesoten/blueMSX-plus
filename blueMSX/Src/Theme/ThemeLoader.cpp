@@ -266,6 +266,7 @@ static ButtonEvent getAction(TiXmlElement* el, const char* actionTag,
     if (0 == strcmp(action, "audio-togglemutemoonsound")) return (ButtonEvent)actionMuteToggleMoonsound;
     if (0 == strcmp(action, "audio-togglemutesfg"))       return (ButtonEvent)actionMuteToggleYamahaSfg;
     if (0 == strcmp(action, "audio-togglemutemidi"))      return (ButtonEvent)actionMuteToggleMidi;
+    if (0 == strcmp(action, "audio-togglemutecassette"))  return (ButtonEvent)actionMuteToggleCassette;
     
     if (0 == strcmp(action, "printer-forceformfeed"))   return (ButtonEvent)actionPrinterForceFormFeed;
 
@@ -293,6 +294,7 @@ static ButtonEvent getAction(TiXmlElement* el, const char* actionTag,
     if (0 == strcmp(action, "level-moonsound"))   return (ButtonEvent)actionVolumeSetMoonsound;
     if (0 == strcmp(action, "level-sfg"))         return (ButtonEvent)actionVolumeSetYamahaSfg;
     if (0 == strcmp(action, "level-midi"))        return (ButtonEvent)actionVolumeSetMidi;
+    if (0 == strcmp(action, "level-cassette"))    return (ButtonEvent)actionVolumeSetCassette;
     if (0 == strcmp(action, "pan-psg"))           return (ButtonEvent)actionPanSetPsg;
     if (0 == strcmp(action, "pan-pcm"))           return (ButtonEvent)actionPanSetPcm;
     if (0 == strcmp(action, "pan-io"))            return (ButtonEvent)actionPanSetIo;
@@ -303,6 +305,7 @@ static ButtonEvent getAction(TiXmlElement* el, const char* actionTag,
     if (0 == strcmp(action, "pan-moonsound"))     return (ButtonEvent)actionPanSetMoonsound;
     if (0 == strcmp(action, "pan-sfg"))           return (ButtonEvent)actionPanSetYamahaSfg;
     if (0 == strcmp(action, "pan-midi"))          return (ButtonEvent)actionPanSetMidi;
+    if (0 == strcmp(action, "pan-cassette"))      return (ButtonEvent)actionPanSetCassette;
 
     if (0 == strcmp(action, "slider-rensha"))       return (ButtonEvent)actionRenshaSetLevel;
 
@@ -422,6 +425,7 @@ static int getTrigger(TiXmlElement* el, char* triggerName)
     if (0 == strcmp(s, "enable-pcm"))               return t | THEME_TRIGGER_IMG_PCM;
     if (0 == strcmp(s, "enable-io"))                return t | THEME_TRIGGER_IMG_IO;
     if (0 == strcmp(s, "enable-midi"))              return t | THEME_TRIGGER_IMG_MIDI;
+    if (0 == strcmp(s, "enable-cassette"))          return t | THEME_TRIGGER_IMG_CASSETTE;
     if (0 == strcmp(s, "enable-master"))            return t | THEME_TRIGGER_IMG_MASTER;
     if (0 == strcmp(s, "enable-stereo"))            return t | THEME_TRIGGER_IMG_STEREO;
     
@@ -445,6 +449,8 @@ static int getTrigger(TiXmlElement* el, char* triggerName)
     if (0 == strcmp(s, "volume-io-right"))          return t | THEME_TRIGGER_IMG_R_IO;
     if (0 == strcmp(s, "volume-midi-left"))         return t | THEME_TRIGGER_IMG_L_MIDI;
     if (0 == strcmp(s, "volume-midi-right"))        return t | THEME_TRIGGER_IMG_R_MIDI;
+    if (0 == strcmp(s, "volume-cassette-left"))     return t | THEME_TRIGGER_IMG_L_CASSETTE;
+    if (0 == strcmp(s, "volume-cassette-right"))    return t | THEME_TRIGGER_IMG_R_CASSETTE;
     if (0 == strcmp(s, "volume-master-left"))       return t | THEME_TRIGGER_IMG_L_MASTER;
     if (0 == strcmp(s, "volume-master-right"))      return t | THEME_TRIGGER_IMG_R_MASTER;
 
@@ -493,12 +499,14 @@ static int getTrigger(TiXmlElement* el, char* triggerName)
     if (0 == strcmp(s, "level-moonsound"))         return t | THEME_TRIGGER_LEVEL_MOONSOUND;
     if (0 == strcmp(s, "level-sfg"))               return t | THEME_TRIGGER_LEVEL_SFG;
     if (0 == strcmp(s, "level-midi"))              return t | THEME_TRIGGER_LEVEL_MIDI;
+    if (0 == strcmp(s, "level-cassette"))          return t | THEME_TRIGGER_LEVEL_CASSETTE;
     if (0 == strcmp(s, "pan-psg"))                 return t | THEME_TRIGGER_PAN_PSG;
     if (0 == strcmp(s, "pan-pcm"))                 return t | THEME_TRIGGER_PAN_PCM;
     if (0 == strcmp(s, "pan-io"))                  return t | THEME_TRIGGER_PAN_IO;
     if (0 == strcmp(s, "pan-scc"))                 return t | THEME_TRIGGER_PAN_SCC;
     if (0 == strcmp(s, "pan-keyboard"))            return t | THEME_TRIGGER_PAN_KEYBOARD;
     if (0 == strcmp(s, "pan-midi"))                return t | THEME_TRIGGER_PAN_MIDI;
+    if (0 == strcmp(s, "pan-cassette"))            return t | THEME_TRIGGER_PAN_CASSETTE;
     if (0 == strcmp(s, "pan-msxmusic"))            return t | THEME_TRIGGER_PAN_MSXMUSIC;
     if (0 == strcmp(s, "pan-msxaudio"))            return t | THEME_TRIGGER_PAN_MSXAUDIO;
     if (0 == strcmp(s, "pan-moonsound"))           return t | THEME_TRIGGER_PAN_MOONSOUND;
@@ -618,8 +626,9 @@ static ArchBitmap* loadBitmap(TiXmlElement* el, int* x, int* y, int* columns)
 }
 
 /* Pre-stretch to g_themeScale.  Sprite frames stay NN; single-frame uses
-   HALFTONE at non-integer zoom.  Returns input on failure. */
-static ArchBitmap* applyThemeScale(ArchBitmap* bm, int frameCount)
+   HALFTONE at non-integer zoom.  forceNearest keeps a menu-band background
+   on the NN grid so its band split lines up.  Returns input on failure. */
+static ArchBitmap* applyThemeScale(ArchBitmap* bm, int frameCount, bool forceNearest = false)
 {
     if (bm == NULL || g_themeScale == 1.0) {
         return bm;
@@ -641,7 +650,7 @@ static ArchBitmap* applyThemeScale(ArchBitmap* bm, int frameCount)
     bool integerZoom = (g_themeScale == (double)(int)g_themeScale);
 
     ArchBitmap* scaled;
-    if (!useSprite && !integerZoom) {
+    if (!useSprite && !integerZoom && !forceNearest) {
         scaled = archBitmapCreateScaledCopySmooth(bm, dstW, dstH);
     } else {
         scaled = archBitmapCreateScaledCopy(bm, dstW, dstH);
@@ -705,7 +714,8 @@ static int splitImageAtMenuBand(ArchBitmap** bm, ArchBitmap* designBm,
     }
 
     /* Stretch in a single NN step from the design bitmap -- double-interp
-       via applyThemeScale smears 1-px dividers at x3/x5/x7. */
+       via applyThemeScale smears 1-px dividers at x3/x5/x7.  The caller
+       forces NN for these images so both land on the same pixel grid. */
     if (botRowsScaled > topRowsScaled && menuRowsDesign > 0) {
         int menuRowsSrcH = botRowsScaled - topRowsScaled;
         int menuDstHRuntime = menuHRuntime + EXTERNAL_THEME_TOP_GAP;
@@ -778,7 +788,7 @@ static void addImage(ThemeCollection* themeCollection, Theme* theme, ThemePage* 
         }
     }
 
-    bitmap = applyThemeScale(bitmap, spriteFrameCount(cols, 1));
+    bitmap = applyThemeScale(bitmap, spriteFrameCount(cols, 1), designClone != NULL);
 
     if (visible == THEME_TRIGGER_NONE) {
         visible = (ThemeTrigger)getTrigger(el, "visible");
@@ -844,7 +854,7 @@ static void addGrabImage(ThemeCollection* themeCollection, Theme* theme, ThemePa
         }
     }
 
-    bitmap = applyThemeScale(bitmap, spriteFrameCount(cols, count));
+    bitmap = applyThemeScale(bitmap, spriteFrameCount(cols, count), designClone != NULL);
 
     if (visible == THEME_TRIGGER_NONE) {
         visible = (ThemeTrigger)getTrigger(el, "visible");
@@ -1379,9 +1389,7 @@ static ThemePage* loadThemePage(ThemeCollection* themeCollection, Theme* theme,
     int menuX          = 0;
     int menuY          = -100;
     int menuYxml       = -100;  /* raw XML menu y for topShift calc */
-    /* Span most of the page so localized menu text fits when <menu width=>
-       is omitted (the historical 357 default truncated CJK locales). */
-    int menuWidth      = width > 0 ? width - 8 : 800;
+    int menuWidth      = -1;    /* <0 = no <menu width=>; defaulted below */
     int menuColor      = archRGB(219, 221, 224);
     int menuFocusColor = archRGB(128, 128, 255);
     int menuTextColor  = archRGB(0, 0, 0);
@@ -1442,6 +1450,15 @@ static ThemePage* loadThemePage(ThemeCollection* themeCollection, Theme* theme,
                 }
             }
         }
+    }
+
+    /* Default spans from menu x to an 8 px right gap so localized text
+       fits (the historical 357 default truncated CJK) without covering
+       the theme's own right edge.  Drop the gap before it goes unusable. */
+    if (menuWidth < 0) {
+        menuWidth = (width > 0 ? width : 800) - menuX;
+        if (menuWidth > 8) menuWidth -= 8;
+        if (menuWidth < 1) menuWidth = width > 0 ? width : 800;
     }
 
     /* Set menu band globals: themeScaledY shifts only below-band content;

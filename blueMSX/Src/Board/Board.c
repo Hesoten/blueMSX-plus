@@ -48,6 +48,8 @@
 #include "Disk.h"
 #include "VideoManager.h"
 #include "Casette.h"
+#include "TapeSignal.h"
+#include "romMapperCasette.h"
 #include "MediaDb.h"
 #include "RomLoader.h"
 #include "JoystickPort.h"
@@ -87,7 +89,10 @@ static int fdcTimingEnable = 1;
 static int fdcActive       = 0;
 static UInt32 fdcSectorCount = 0;   /* sectors accessed since the current boost session began */
 static int hddSdBoostEnable = 0;
+static int casBoostEnable   = 0;
+static int casActive        = 0;
 static BoardTimer* fdcTimer;
+static BoardTimer* casTimer;
 static BoardTimer* syncTimer;
 static BoardTimer* mixerTimer;
 static BoardTimer* stateTimer;
@@ -104,6 +109,7 @@ static HdType hdType[MAX_HD_COUNT];
 static int     ramMaxStates;
 static int     ramStateCur;
 static int     ramStateCount;
+static UInt32* ramStateTime;
 static int     stateFrequency;
 static int     enableSnapshots;
 static int     useRom;
@@ -753,10 +759,14 @@ static void fdcScheduleTail(void) {
 }
 
 /* End the current boost session: clear the flag and cancel the
-** pending release timer to keep "fdcActive iff timer scheduled". */
+** pending release timer to keep "active iff timer scheduled". Both boosts go
+** down together: the kill list fires on the sound a game makes once its load
+** has finished, and neither should outlive that. */
 static void fdcKillBoost(void) {
     fdcActive = 0;
     boardTimerRemove(fdcTimer);
+    casActive = 0;
+    boardTimerRemove(casTimer);
 }
 
 void boardSetFdcActive() {
@@ -781,6 +791,32 @@ int boardGetHddSdBoostEnable(void) {
     return hddSdBoostEnable;
 }
 
+/* Cassette boost: its own timer, because the tape wants the opposite of the
+** disk's guesswork. A tape read is an exact signal that the machine is doing
+** nothing but wait, so the tail only has to bridge the arming interval rather
+** than cover unrelated work after the load. */
+#define CAS_TAIL_MS 50
+
+static void onCasDone(void* ref, UInt32 time)
+{
+    casActive = 0;
+}
+
+void boardSetCasActive(void) {
+    if (casBoostEnable) {
+        boardTimerAdd(casTimer, boardSystemTime() + (UInt32)((UInt64)CAS_TAIL_MS * boardFrequency() / 1000));
+        casActive = 1;
+    }
+}
+
+int boardGetCasActive(void) {
+    return casActive;
+}
+
+void boardSetCasBoostEnable(int enable) {
+    casBoostEnable = enable;
+}
+
 /* PSG channel ch (0=A,1=B,2=C) produces an audible AC signal only if
 ** its tone or noise is enabled in mixer R7 (bit set = disabled): with
 ** both off, a fixed level is just silent DC (see AY8910.c). */
@@ -791,8 +827,8 @@ static int psgChannelAudibleViaMixer(UInt8 r7, int ch) {
 /* Drop the FDC boost on melodic sound-chip writes that cause the
 ** audible "BGM at double speed" tail. Excluded: VDP VRAM (sector
 ** streaming), PPI (VBLANK keyboard scan), PSG R15. Included: VDP
-** palette R0x9A (fades) plus key-on / non-mute volume / TL writes
-** on YM2413, Y8950, OPL3, OPL4, Turbo-R PCM. */
+** palette R0x9A (fades), key-on / volume / TL / pitch writes on
+** YM2413, Y8950, OPL3, OPL4 FM+wave, Turbo-R PCM, OPL4 mix. */
 void boardCheckFdcBoostKill(UInt16 port, UInt8 value) {
     static UInt8  ym2413LatchedReg = 0;
     static UInt8  y8950LatchedReg  = 0;
@@ -802,6 +838,7 @@ void boardCheckFdcBoostKill(UInt16 port, UInt8 value) {
     static UInt8  psgReg7          = 0xff;  /* PSG mixer R7 (1 = ch disabled) */
     static UInt8  psgVol[3]        = { 0, 0, 0 }; /* PSG R8-R10 ch volumes */
     static UInt8  pcmStatus        = 0;     /* Turbo-R PCM status (port 0xA5), low 5 bits */
+    static UInt32 ymf278KeyOn      = 0;     /* wave key-on bits, ch 0-23 */
     UInt8 p = (UInt8)(port & 0xff);
 
     /* Address latches: keep in sync regardless of boost state. */
@@ -823,8 +860,16 @@ void boardCheckFdcBoostKill(UInt16 port, UInt8 value) {
     ** write handler). Tracked regardless of boost state so the 0xA4 sample
     ** audibility test stays correct across boost on/off transitions. */
     if (p == 0xa5) pcmStatus = value & 0x1f;
+    /* YMF278 wave key-on bits (regs 0x68-0x7F, bit 7): tracked regardless of
+    ** boost state so the wave audibility tests below stay in sync with the
+    ** chip across boost on/off transitions. */
+    if (p == 0x7f && ymf278LatchedReg >= 0x68 && ymf278LatchedReg <= 0x7f) {
+        UInt32 bit = 1ul << (ymf278LatchedReg - 0x68);
+        if (value & 0x80) ymf278KeyOn |= bit;
+        else              ymf278KeyOn &= ~bit;
+    }
 
-    if (!fdcActive) return;
+    if (!fdcActive && !casActive) return;
 
     if (p == 0x9a) {                                    /* VDP palette data (V9938+) */
         /* A palette write during a load is the signature of a visible fade.
@@ -879,8 +924,25 @@ void boardCheckFdcBoostKill(UInt16 port, UInt8 value) {
         return;
     }
     if (p == 0x7f) {                                    /* YMF278 data */
-        if (ymf278LatchedReg >= 0x68 && ymf278LatchedReg <= 0x7f &&
-            (value & 0xc0) == 0x80) {
+        UInt8 r = ymf278LatchedReg;
+        if (r >= 0x68 && r <= 0x7f && (value & 0xc0) == 0x80) {
+            fdcKillBoost();                             /* key on, damp off */
+            return;
+        }
+        /* Sounds on a keyed-on channel without a key-on write: wave number
+        ** (0x08, retrigger), pitch (0x20/0x38, slides), TL in bits 7:1 of
+        ** 0x50 (fades; mute 0x7F excluded, bit 0 is the LD flag). */
+        if (r >= 0x08 && r <= 0x67 &&
+            (ymf278KeyOn & (1ul << ((UInt8)(r - 0x08) % 24)))) {
+            if (r < 0x50 || (value & 0xfe) != 0xfe) {
+                fdcKillBoost();
+            }
+            return;
+        }
+        /* Wave mix control (F9h): a master fade on held wave notes. The FM
+        ** mix (F8h) cannot be gated on the wave key-on mask, so it is left
+        ** to the YMF262 key-on / TL tests above. */
+        if (r == 0xf9 && ymf278KeyOn) {
             fdcKillBoost();
         }
         return;
@@ -950,7 +1012,9 @@ static void doSync(UInt32 time, int breakpointHit)
 {
     int execTime = 10;
     if (!skipSync) {
-        execTime = syncToRealClock(fdcActive, breakpointHit);
+        execTime = syncToRealClock(casActive ? BOARD_BOOST_TAPE :
+                                   fdcActive ? BOARD_BOOST_DISK : BOARD_BOOST_NONE,
+                                   breakpointHit);
     }
     if (execTime == -99) {
         boardInfo.stop(boardInfo.cpuRef);
@@ -981,7 +1045,7 @@ static void onMixerSync(void* ref, UInt32 time)
 static void onStateSync(void* ref, UInt32 time)
 {    
     if (enableSnapshots) {
-        char memFilename[8];
+        char memFilename[16];
         ramStateCur = (ramStateCur + 1) % ramMaxStates;
         if (ramStateCount < ramMaxStates) {
             ramStateCount++;
@@ -989,6 +1053,10 @@ static void onStateSync(void* ref, UInt32 time)
 
         sprintf(memFilename, "mem%d", ramStateCur);
         
+        /* What the clock will read once this snapshot is restored; step back
+        ** uses it to pick a snapshot instead of restoring them to find out. */
+        ramStateTime[ramStateCur] = boardSystemTime();
+
         boardSaveState(memFilename, 0);
     }
 
@@ -1002,6 +1070,12 @@ static void onSync(void* ref, UInt32 time)
 
 void boardOnBreakpoint(UInt16 pc)
 {
+    /* Parking here would never come back on the UI thread, which is where a
+    ** debugger callback runs. A caller that must hold the hit rather than lose
+    ** it still tests this itself; the check here covers the ones that do not. */
+    if (debugDeviceIsInspecting()) {
+        return;
+    }
     doSync(boardSystemTime(), 1);
 }
 
@@ -1045,14 +1119,52 @@ static void onBreakpointSync(void* ref, UInt32 time) {
     doSync(time, 1);
 }
 
+/* Discard the newest snapshot without restoring it. */
+static int boardRewindDrop()
+{
+    if (ramStateCount < 2) {
+        return 0;
+    }
+    ramStateCount--;
+    ramStateCur = (ramStateCur + ramMaxStates - 1) % ramMaxStates;
+    return 1;
+}
+
 int boardRewindOne() {
     UInt32 rewindTime;
+    int skip;
     if (stateFrequency <= 0) {
         return 0;
     }
     rewindTime = boardInfo.getTimeTrace(1);
-    if (rewindTime == 0 || !boardRewind()) {
+    if (rewindTime == 0 || ramStateCount < 2) {
         return 0;
+    }
+    /* The trace only advances when PC changes, so halt and block instructions
+    ** can leave the target several snapshots old. Picking the one to land on
+    ** from the recorded times costs one restore instead of one per snapshot. */
+    for (skip = 0; skip <= ramStateCount - 2; skip++) {
+        int slot = (ramStateCur + ramMaxStates - skip) % ramMaxStates;
+        if ((Int32)(ramStateTime[slot] - rewindTime) < 0) {
+            break;
+        }
+    }
+    /* Nothing on the ring is old enough, so take the newest one rather than
+    ** spend the whole history on a single step back. */
+    if (skip > ramStateCount - 2) {
+        skip = 0;
+    }
+    while (skip-- > 0) {
+        boardRewindDrop();
+    }
+    if (!boardRewind()) {
+        return 0;
+    }
+    /* Holds whenever the target predates the whole ring. boardTimerAdd drops a
+    ** timer that has expired, which would leave skipSync set with nothing to
+    ** clear it, so stop where we landed instead. */
+    if ((Int32)(rewindTime - boardSystemTime()) <= 0) {
+        rewindTime = boardSystemTime();
     }
     boardTimerAdd(breakpointTimer, rewindTime);
     skipSync = 1;
@@ -1061,17 +1173,17 @@ int boardRewindOne() {
 
 int boardRewind()
 {
-    char stateFile[8];
+    char stateFile[16];
 
-    if (ramStateCount < 2) {
+    sprintf(stateFile, "mem%d", ramStateCur);
+    if (!boardRewindDrop()) {
         return 0;
     }
 
-    ramStateCount--;
-    sprintf(stateFile, "mem%d", ramStateCur);
-    ramStateCur = (ramStateCur + ramMaxStates - 1) % ramMaxStates;
-
     boardTimerCleanup();
+    /* The cleanup drops fdcTimer without ever running onFdcDone, so the boost
+    ** would stay engaged with no timer to release it. */
+    fdcKillBoost();
 
     saveStateCreateForRead(stateFile);
 
@@ -1090,6 +1202,12 @@ int boardRewind()
         boardInfo.loadState();
         if (stashedTime != 0) boardSysTime64 = stashedTime;
     }
+    /* The tape clock is anchored to boardSysTime64, which just went backwards.
+    ** Without this the next update underflows and seeks to the end of the tape. */
+    tapeSignalReset();
+    /* boardSystemTime64 accumulates from oldTime, so it has to follow the clock
+    ** back too. Left alone the next call adds a wrapped UInt32 delta. */
+    oldTime = boardSystemTime();
     boardCaptureLoadState();
 
 #if 1
@@ -1254,8 +1372,10 @@ int boardRun(Machine* machine,
 
     if (success && loadState) {
         boardInfo.loadState();
-        /* Re-apply the stashed boardSysTime64 (boardInit clobbered it). */
+        /* Re-apply the stashed boardSysTime64 (boardInit clobbered it). The
+        ** tape clock is anchored to it, so it has to be re-anchored too. */
         if (stashedSysTime64 != 0) boardSysTime64 = stashedSysTime64;
+        tapeSignalReset();
         boardCaptureLoadState();
     }
 
@@ -1269,16 +1389,24 @@ int boardRun(Machine* machine,
         ** the old fdcTimer was destroyed without firing onFdcDone, so force
         ** a fresh boost-off state before scheduling new timers. */
         fdcActive = 0;
+        casActive = 0;
         syncTimer = boardTimerCreate(onSync, NULL);
         fdcTimer = boardTimerCreate(onFdcDone, NULL);
+        casTimer = boardTimerCreate(onCasDone, NULL);
         mixerTimer = boardTimerCreate(onMixerSync, NULL);
         
         stateFrequency = boardFrequency() / 1000 * reversePeriod;
 
+        /* Outside the test below on purpose: with reverse off there is no ram
+        ** file system at all, and a count left over from the previous run would
+        ** let boardRewind load a memN that no longer exists. */
+        ramStateCur   = 0;
+        ramStateCount = 0;
+
         if (stateFrequency > 0) {
-            ramStateCur  = 0;
             ramMaxStates = reverseBufferCnt;
             memZipFileSystemCreate(ramMaxStates);
+            ramStateTime = calloc(ramMaxStates, sizeof(UInt32));
             stateTimer = boardTimerCreate(onStateSync, NULL);
             breakpointTimer = boardTimerCreate(onBreakpointSync, NULL); 
             boardTimerAdd(stateTimer, boardSystemTime() + stateFrequency);
@@ -1316,6 +1444,7 @@ int boardRun(Machine* machine,
         ** run skips the re-create, so a stale (freed) pointer here would be
         ** double-freed at the next teardown -> heap corruption / crash. */
         boardTimerDestroy(fdcTimer);   fdcTimer = NULL;
+        boardTimerDestroy(casTimer);   casTimer = NULL;
         boardTimerDestroy(syncTimer);  syncTimer = NULL;
         boardTimerDestroy(mixerTimer); mixerTimer = NULL;
         if (breakpointTimer != NULL) {
@@ -1326,6 +1455,8 @@ int boardRun(Machine* machine,
             boardTimerDestroy(stateTimer);
             stateTimer = NULL;
             memZipFileSystemDestroy();
+            free(ramStateTime);
+            ramStateTime = NULL;
         }
     }
     else {
@@ -1797,6 +1928,10 @@ void boardChangeCassette(int tapeId, char* name, const char* fileInZipFile)
     }
 
     tapeInsert(name, fileInZipFile);
+
+    /* The trap is installed by the machine config (romType CasPatch). Signal
+    ** only images carry no byte stream, so it has to stand down for those. */
+    romMapperCasetteSetPatchEnable(!tapeIsSignalOnly());
 }
 
 int boardGetCassetteInserted()

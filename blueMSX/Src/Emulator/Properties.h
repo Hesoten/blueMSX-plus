@@ -85,6 +85,7 @@
 #define CARTNAME_MEGAFLSHSCCPLUS_SD "MegaFlashRomSccPlusSD"
 #define CARTNAME_ASCII16X "ASCII16X"
 #define CARTNAME_YAMANOOTO "Yamanooto"
+#define CARTNAME_FLASHROMSCC "FlashRomScc"
 #define CARTNAME_WAVESCSI128 "128kB WAVE-SCSI"
 #define CARTNAME_WAVESCSI256 "256kB WAVE-SCSI"
 #define CARTNAME_WAVESCSI512 "512kB WAVE-SCSI"
@@ -223,9 +224,13 @@ enum {
 typedef struct {
     char statsDefDir[PROP_MAXPATH];
     char machineName[PROP_MAXPATH];
+    /* Optional bluemsx.ini override (key "emulation.machinesDir");
+    ** empty = default <exe dir>\Machines. */
+    char machinesDir[PROP_MAXPATH];
     char shortcutProfile[PROP_MAXPATH];
     int  enableFdcTiming;
     int  enableHddSdBoost;
+    int  enableCasBoost;
     int  noSpriteLimits;
     int  frontSwitch;
     int  audioSwitch;
@@ -242,12 +247,14 @@ typedef struct {
     int  reverseEnable;
     int  reverseMaxTime;
     int  vdpCmdSpeed;   /* VDP command engine wait scale, 0..100 (% of stock timing) */
+    int  mouseSensitivity;  /* MSX-mouse sensitivity slider 1..10 (default 5) */
 } EmulationProperties;
 
 typedef struct {
-		int linearFiltering;
+		int linearFiltering;   /* legacy; derived from scalingFilter for downgrade */
 		int extendBorderColor;
-		int forceHighRes;
+		int forceHighRes;      /* legacy; derived from scalingFilter for downgrade */
+		int scalingFilter;     /* P_D3D_SCALE_* */
 
 		int aspectRatioType;
 		int cropType;
@@ -312,6 +319,13 @@ enum {
 	P_D3D_RES_AUTO = 0,
 	P_D3D_RES_256,
 	P_D3D_RES_512
+};
+
+enum {
+	P_D3D_SCALE_NEAREST = 0,   /* combo order: crisp -> soft */
+	P_D3D_SCALE_SHARP,
+	P_D3D_SCALE_PRESCALED,      /* integer 2x nearest prescale, then bilinear */
+	P_D3D_SCALE_BILINEAR
 };
 
 enum {
@@ -427,7 +441,7 @@ typedef struct {
 } SoundProperties;
 
 typedef struct {
-	int POV0isAxes;
+	int disablePOV0Dpad;
 } JoystickGeneric;
 
 typedef struct {
@@ -487,6 +501,7 @@ typedef struct {
     int showCustomFiles;
     int readOnly;
     int rewindAfterInsert;
+    int saveMonitor;
 } CassetteProperties;
 
 typedef struct {
@@ -596,7 +611,19 @@ Properties* propCreate(int useDefault,
 void propSave(Properties* pProperties);
 void propDestroy(Properties* pProperties);
 
+/* defDir: preferred location for bluemsx.ini; altDir: fallback if absent. */
 void propertiesSetDirectory(const char* defDir, const char* altDir);
+
+/* Overrides the file propertiesSetDirectory resolved, so a run can be told to
+** read and write one named settings file. Call it after, not before. */
+void propertiesSetSettingsFile(const char* fileName);
+
+/* The machine name in the settings file, or "" when it names none. Read it
+** before propCreate, which quietly substitutes a name it cannot find. */
+const char* propGetSavedMachineName(void);
+
+/* 1 if a saved bluemsx.ini exists (call propertiesSetDirectory first). */
+int propSettingsFileExists(void);
 
 Properties* propGetGlobalProperties();
 

@@ -298,6 +298,8 @@ char* langErrorEnterFullscreen() { return ls->errorEnterFullscreen; }
 char* langErrorDirectXFailed() { return ls->errorDirectXFailed; }
 char* langErrorNoRomInZip() { return ls->errorNoRomInZip; }
 char* langErrorNoDskInZip() { return ls->errorNoDskInZip; }
+char* langErrorCreateDiskImage() { return ls->errorCreateDiskImage; }
+char* langErrorCreateTapeImage() { return ls->errorCreateTapeImage; }
 char* langErrorNoCasInZip() { return ls->errorNoCasInZip; }
 char* langErrorDirAsDskOverflow() { return ls->errorDirAsDskOverflow; }
 char* langErrorNoHelp() { return ls->errorNoHelp; }
@@ -308,6 +310,7 @@ char* langErrorStartEmuMachineNotFound()    { return ls->errorStartEmuMachineNot
 char* langErrorStartEmuConfigInvalid()      { return ls->errorStartEmuConfigInvalid; }
 char* langErrorMissingFiles() { return ls->errorMissingFiles; }
 char* langErrorPortableReadonly()  {return ls->errorPortableReadonly; }
+char* langErrorMidiOpenFailed()    { return ls->errorMidiOpenFailed; }
 char* langInfoColorDepth()                 { return ls->infoColorDepth; }
 char* langInfoTitle()                      { return ls->infoTitle; }
 char* langInfoGameReaderRedirect()         { return ls->infoGameReaderRedirect; }
@@ -321,6 +324,9 @@ char* langErrorRecorderRequiresDX12Title() { return ls->errorRecorderRequiresDX1
 char* langInfoRecorderComplete()           { return ls->infoRecorderComplete; }
 char* langInfoToastSaved()                 { return ls->infoToastSaved; }
 char* langInfoToastAlreadyRecording()      { return ls->infoToastAlreadyRecording; }
+char* langInfoToastMouseConnected()        { return ls->infoToastMouseConnected; }
+char* langInfoToastMouseDisconnected()     { return ls->infoToastMouseDisconnected; }
+char* langPropControlsMouseSens()          { return ls->propControlsMouseSens; }
 char* langDlgRecorderPickTitle()       { return ls->dlgRecorderPickTitle; }
 char* langDlgRecorderPickSourceCap()   { return ls->dlgRecorderPickSourceCap; }
 char* langDlgRecorderPickOutputMp4()   { return ls->dlgRecorderPickOutputMp4; }
@@ -397,7 +403,9 @@ char* langMenuDiskDirInsert() { return ls->menuDiskDirInsert; }
 char* langMenuDiskAutoStart() { return ls->menuDiskAutoStart; }
 char* langMenuCartAutoReset() { return ls->menuCartAutoReset; }
 
+char* langMenuCasInsertNew() { return ls->menuCasInsertNew; }
 char* langMenuCasRewindAfterInsert() { return ls->menuCasRewindAfterInsert; }
+char* langMenuCasSaveMonitor() { return ls->menuCasSaveMonitor; }
 char* langMenuCasUseReadOnly() { return ls->menuCasUseReadOnly; }
 char* langMenuCasSaveAs() { return ls->lmenuCasSaveAs; }
 char* langMenuCasSetPosition() { return ls->menuCasSetPosition; }
@@ -526,6 +534,7 @@ char* langDlgInsertDiskA() { return ls->dlgInsertDiskA; }
 char* langDlgInsertDiskB() { return ls->dlgInsertDiskB; }
 char* langDlgInsertHarddisk() { return ls->dlgInsertHarddisk; }
 char* langDlgInsertCas() { return ls->dlgInsertCas; }
+char* langDlgCreateCas() { return ls->dlgCreateCas; }
 char* langDlgRomType() { return ls->dlgRomType; }
 char* langDlgDiskSize() { return ls->dlgDiskSize; }
 
@@ -586,7 +595,9 @@ char* langPropEmuSpeedText() { return ls->propEmuSpeedText; }
 char* langPropEmuVdpCmdSpeedText() { return ls->propEmuVdpCmdSpeedText; }
 char* langPropEmuFrontSwitchGB() { return ls->propEmuFrontSwitchGB; }
 char* langPropEmuFrontSwitch() { return ls->propEmuFrontSwitch; }
+char* langPropEmuBoostText() { return ls->propEmuBoostText; }
 char* langPropEmuFdcTiming() { return ls->propEmuFdcTiming; }
+char* langPropEmuCasBoost() { return ls->propEmuCasBoost; }
 char* langPropEmuHddSdBoost() { return ls->propEmuHddSdBoost; }
 char* langPropEmuReversePlay() { return ls->propEmuReversePlay; }
 char* langPropEmuNoSpriteLimits() { return ls->propEmuNoSpriteLimits; }
@@ -745,6 +756,11 @@ char* langEnumD3DARPAL() { return ls->enumD3DARPAL; }
 char* langEnumD3DARNTSC() { return ls->enumD3DARNTSC; }
 char* langEnumD3DAR11() { return ls->enumD3DAR11; }
 
+char* langEnumD3DScaleNearest() { return ls->enumD3DScaleNearest; }
+char* langEnumD3DScaleBilinear() { return ls->enumD3DScaleBilinear; }
+char* langEnumD3DScaleSharp() { return ls->enumD3DScaleSharp; }
+char* langEnumD3DScalePrescaled() { return ls->enumD3DScalePrescaled; }
+
 char* langEnumD3DCropNone() { return ls->enumD3DCropNone; }
 char* langEnumD3DCropMSX1() { return ls->enumD3DCropMSX1; }
 char* langEnumD3DCropMSX1Plus8() { return ls->enumD3DCropMSX1Plus8; }
@@ -754,8 +770,7 @@ char* langEnumD3DCropCustom() { return ls->enumD3DCropCustom; }
 
 char* langPropD3DParametersGB() { return ls->propD3DParametersGB; }
 char* langPropD3DAspectRatioText() { return ls->propD3DAspectRatioText; }
-char* langPropD3DLinearFilteringText() { return ls->propD3DLinearFilteringText; }
-char* langPropD3DForceHighResText() { return ls->propD3DForceHighResText; }
+char* langPropD3DScalingFilterText() { return ls->propD3DScalingFilterText; }
 char* langPropD3DExtendBorderColorText() { return ls->propD3DExtendBorderColorText; }
 
 char* langpropD3DCroppingGB() { return ls->propD3DCroppingGB; }
@@ -885,6 +900,11 @@ char* langShortcutNewProfile() { return ls->shortcutNewProfile; }
 char* langShortcutConfigTitle() { return ls->shortcutConfigTitle; }
 char* langShortcutAssign() { return ls->shortcutAssign; }
 char* langShortcutPressText() { return ls->shortcutPressText; }
+char* langShortcutHotkeyHint() { return ls->shortcutHotkeyHint; }
+char* langKeyboardMappedHint() { return ls->keyboardMappedHint; }
+char* langShortcutTooltipAlsoBound() { return ls->shortcutTooltipAlsoBound; }
+char* langKeyboardKeyFormat() { return ls->keyboardKeyFormat; }
+char* langKeyconfigResetTab() { return ls->keyconfigResetTab; }
 char* langShortcutScheme() { return ls->shortcutScheme; }
 char* langShortcutCartInsert1() { return ls->shortcutCartInsert1; }
 char* langShortcutCartRemove1() { return ls->shortcutCartRemove1; }
@@ -1040,7 +1060,7 @@ char* langRomTypeNormalRam() { return ls->romTypeNormalRam; }
 char* langRomTypeKanji() { return "Kanji"; }
 char* langRomTypeHolyQuran() { return "Holy Quran"; }
 char* langRomTypeMatsushitaSram() { return "Matsushita SRAM"; }
-char* langRomTypeMasushitaSramInv() { return "Matsushita SRAM - Turbo 5.37MHz"; }
+char* langRomTypeMatsushitaSramTurbo() { return "Matsushita SRAM - Turbo 5.37MHz"; }
 char* langRomTypePanasonic8()  { return "Panasonic FM 8kB SRAM"; }
 char* langRomTypePanasonicWx16() { return "Panasonic WX 16kB SRAM"; }
 char* langRomTypePanasonic16() { return "Panasonic 16kB SRAM"; }

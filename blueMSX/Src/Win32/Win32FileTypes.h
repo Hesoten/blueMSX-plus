@@ -37,6 +37,10 @@
 BOOL registerFileType(char* extension, char* appName, char* description, int iconIndex);
 BOOL unregisterFileType(char* extension, char* appName, char* description, int iconIndex);
 
+/* The extensions the exe registers for, NULL terminated. Shared so a caller
+** asking whether the shell could have sent a name reads the same list. */
+const char* const* fileTypesRegisteredExtensions(void);
+
 /* Register the EXE under HKCU\Software\Classes\Applications as a
 ** first-class Open With target. */
 void registerApplicationOpenWith(void);

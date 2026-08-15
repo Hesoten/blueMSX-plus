@@ -81,6 +81,8 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->errorDirectXFailed      = "无法创建 DirectX 对象。           \n改为使用GDI。\n请检查显卡设置。";
     ls->errorNoRomInZip         = "无法在 zip 压缩包内找到 .rom 文件。";
     ls->errorNoDskInZip         = "无法在 zip 压缩包内找到 .dsk 文件。";
+    ls->errorCreateDiskImage    = "无法创建磁盘镜像文件。";
+    ls->errorCreateTapeImage    = "无法创建磁带映像文件。";
     ls->errorNoCasInZip         = "无法在 zip 压缩包内找到 .cas 文件。";
     ls->errorDirAsDskOverflow   = "%d 个文件 (总共 %d KB) 未能适配 720 KB 磁盘镜像，已跳过。";
     ls->errorNoHelp             = "无法找到 blueMSX+ 帮助文件。";
@@ -91,6 +93,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->errorStartEmuConfigInvalid       = "无法读取机器配置 '%s' 的 config.ini。该文件可能已损坏，或来自不兼容的版本。";
     ls->errorMissingFiles       = "无法加载以下文件：";
     ls->errorPortableReadonly   = "便携设备为只读";        
+    ls->errorMidiOpenFailed     = "无法打开 MIDI 设备 '%s'。可能有其他应用程序正在使用它。";
     ls->infoTitle               = "blueMSX+ 信息";
     ls->infoGameReaderRedirect  = "blueMSX+ 不直接支持 MSX Game Reader (ASCII 公司 XP 时代的原版驱动无法在现代 Windows 上运行)。\n\n是否改为在浏览器中打开 MSX Game Reader - Web Dumper (Kunihiko Ohnaka 制作)?";
     ls->infoColorDepth          = "blueMSX+ 在 16 或 32 位色深下运行最佳。";
@@ -104,6 +107,9 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->infoRecorderComplete    = "视频文件已保存：\n  %s";
     ls->infoToastSaved          = "已保存：%s";
     ls->infoToastAlreadyRecording   = "已在录制中";
+    ls->infoToastMouseConnected    = "PC 鼠标已连接到 MSX";
+    ls->infoToastMouseDisconnected = "PC 鼠标已从 MSX 断开";
+    ls->propControlsMouseSens      = "灵敏度:";
     ls->dlgRecorderPickTitle        = "blueMSX+ - 将回放转换为视频";
     ls->dlgRecorderPickSourceCap    = "要转换的回放文件 (.cap)：";
     ls->dlgRecorderPickOutputMp4    = "输出视频文件 (.mp4)：";
@@ -180,7 +186,9 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->menuDiskAutoStart       = "插入后重置";
     ls->menuCartAutoReset       = "插入/移除后重置";
 
+    ls->menuCasInsertNew         = "插入新的磁带映像";
     ls->menuCasRewindAfterInsert = "插入后倒带";
+    ls->menuCasSaveMonitor       = "保存时播放监听声音";
     ls->menuCasUseReadOnly       = "使用磁带时只读";
     ls->lmenuCasSaveAs           = "另存为...";
     ls->menuCasSetPosition      = "磁带位置设置";
@@ -310,6 +318,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->dlgInsertDiskB          = "请在驱动器 B 插入软盘映像";
     ls->dlgInsertHarddisk       = "请插入硬盘";                   
     ls->dlgInsertCas            = "请插入磁带";
+    ls->dlgCreateCas            = "创建新的磁带映像";
     ls->dlgRomType              = "Rom 类型:";
     ls->dlgDiskSize             = "软盘大小:";             
 
@@ -379,8 +388,10 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->propEmuFrontSwitch       = " 前端开关";
     ls->propEmuNoSpriteLimits   = " 禁用精灵数量限制";  // New in 2.9
     ls->propEnableMsxKeyboardQuirk = " 模拟 MSX 键盘特殊行为";  // New in 2.9
-    ls->propEmuFdcTiming        = " 软盘访问时加速";
-    ls->propEmuHddSdBoost       = " HDD/SD 卡访问时加速";
+    ls->propEmuBoostText        = "设备访问时加速:";
+    ls->propEmuFdcTiming        = " 软盘";
+    ls->propEmuCasBoost         = " 磁带";
+    ls->propEmuHddSdBoost       = " HDD/SD 卡";
     ls->propEmuReversePlay      = " 启用倒放"; // New in 2.8.3
     ls->propEmuPauseSwitch      = " 暂停开关";
     ls->propEmuAudioSwitch       = " MSX-AUDIO 卡开关";
@@ -498,8 +509,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
 
     ls->propD3DParametersGB         = "参数 ";                // New in 2.9
     ls->propD3DAspectRatioText      = "宽高比";               // New in 2.9
-    ls->propD3DLinearFilteringText  = " 线性过滤";          // New in 2.9
-    ls->propD3DForceHighResText     = " 强制高分辨率";     // New in 2.9
+    ls->propD3DScalingFilterText     = "缩放滤镜";
     ls->propD3DExtendBorderColorText    = " 扩展边框颜色";   // New in 2.9
 
     ls->propD3DCroppingGB               = "裁剪 ";              // New in 2.9
@@ -549,6 +559,10 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->enumD3DARPAL            = "PAL";            // New in 2.9
     ls->enumD3DARNTSC           = "NTSC";           // New in 2.9
     ls->enumD3DAR11             = "1:1";            // New in 2.9
+    ls->enumD3DScaleNearest          = "最近邻";
+    ls->enumD3DScaleBilinear         = "双线性";
+    ls->enumD3DScaleSharp            = "锐利双线性";
+    ls->enumD3DScalePrescaled     = "双线性(2x预缩放)";
 
     ls->enumD3DCropNone         = "无";           // New in 2.9
     ls->enumD3DCropMSX1         = "MSX1";           // New in 2.9
@@ -672,6 +686,11 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->shortcutConfigTitle     = "blueMSX+ - 快捷键方案编辑工具";
     ls->shortcutAssign          = "分配";
     ls->shortcutPressText       = "请输入快捷键:";
+    ls->shortcutHotkeyHint      = "(最多 3 个按键)";
+    ls->keyboardMappedHint      = "(最多 3 个按键)";
+    ls->shortcutTooltipAlsoBound = "同时绑定到: ";
+    ls->keyboardKeyFormat       = "%s 键";
+    ls->keyconfigResetTab       = "将此页的按键分配重置为默认";
     ls->shortcutScheme          = "映射方案:";
     ls->shortcutCartInsert1     = "插入卡带 1";
     ls->shortcutCartRemove1     = "移除卡带 1";
@@ -730,7 +749,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->shortcutSwitchMsxAudio  = "切换 MSX-AUDIO 卡开关";
     ls->shortcutSwitchFront     = "切换 Panasonic 前端开关";
     ls->shortcutSwitchPause     = "切换暂停开关";
-    ls->shortcutToggleMouseLock = "切换鼠标锁定";
+    ls->shortcutToggleMouseLock = "连接/断开 PC 鼠标与 MSX";
     ls->shortcutEmuSpeedMax     = "最高速模拟";
     ls->shortcutEmuPlayReverse  = "回退模拟";                     // New in 2.8.3
     ls->shortcutEmuSpeedToggle  = "锁定最高速模拟";
