@@ -67,7 +67,7 @@ static int    emuExitFlag;
 static UInt32 emuSysTime = 0;
 static UInt32 emuFrequency = 3579545;
 int           emuMaxSpeed = 0;
-int           emuPlayReverse = 0;
+volatile int  emuPlayReverse = 0;
 int           emuMaxEmuSpeed = 0; // Max speed issued by emulation
 
 /* Fast-forward multiplier (max-speed and FDC/HDD boost); higher =
@@ -79,6 +79,10 @@ int           emuMaxEmuSpeed = 0; // Max speed issued by emulation
 ** sets the rate and this only decides how often the loop comes up for air
 ** (suspend latency, input polling, per-iteration overhead). */
 #define EMU_TAPE_SLICE_MS   60
+
+/* What a rewind does once no snapshot is left: 1 ends it and lets play
+** resume, 0 stays on the oldest frame until the key is let go. */
+#define EMU_REVERSE_STOP_AT_RING_END 1
 static char   emuStateName[512];
 static volatile int      emuSuspendFlag;
 static volatile EmuState emuState = EMU_STOPPED;
@@ -315,7 +319,12 @@ static int timerCallback(void* timer) {
             if (emuState == EMU_RUNNING) {
                 refreshRate = boardGetRefreshRate();
 
-                if (syncMethod == P_EMU_SYNCAUTO || syncMethod == P_EMU_SYNCNONE) {
+                /* Reverse play leaves WaitForSync at its head, before the
+                ** present the vblank mode relies on, so the screen only
+                ** keeps up while rewinding if this drives it instead. */
+                if (syncMethod == P_EMU_SYNCAUTO || syncMethod == P_EMU_SYNCNONE ||
+                    (syncMethod == P_EMU_SYNCTOVBLANK && emuPlayReverse &&
+                     properties->emulation.reverseEnable)) {
                     archUpdateEmuDisplay(0);
                 }
             }
@@ -803,7 +812,17 @@ int WaitReverse()
         archEventWait(emuSyncEvent, -1);
     }
 
-    boardRewind();
+    if (!boardRewind()) {
+        /* No snapshot left to restore. Granting emulated time here is what
+        ** used to run the guest forward, muted, for as long as the key was
+        ** held. Leave a paused emulator alone: it must not regain sound. */
+#if EMU_REVERSE_STOP_AT_RING_END
+        if (emuState == EMU_RUNNING) {
+            emulatorPlayReverse(0);
+        }
+#endif
+        return 0;
+    }
 
     return -60;
 }
