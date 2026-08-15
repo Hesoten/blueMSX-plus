@@ -6,14 +6,22 @@ Modernization focuses on the UI and audio paths, targeting Windows 11.
 [日本語版はこちら / Japanese version](README.ja.md)
 
 
-## What's new in v3.0.1
+## What's new in v3.1.0
 
-- **Self-contained package** — the upstream blueMSX data files that 3.0.0 required you to install separately are now bundled
-- Also bundles the latest Rom/Cas/Disk database and cheat database published on the [official blueMSX site](https://msxblue.com/bluemsx/resource.html)
-- **C-BIOS 0.29a** bundled
-- Release binaries are no longer UPX-packed (avoids antivirus false positives)
-- Added support for new memory mappers: **ASCII16-X**, **NEO-8**, **NEO-16**, and **Yamanooto**
-- Emulator start failure now reports a specific cause instead of a generic error
+- The bundled C-BIOS machines gained FDD and turbo R support ([v0.29+](https://github.com/Hesoten/cbios-nextor_FDD-and-turboR))
+- Shortcuts, MSX keyboard keys, and controller buttons can now each be bound to up to three keys or buttons
+- Improved cassette tape support — read/write for cas and wav, plus reading tsx images
+- MSX mouse speed improvements and a sensitivity adjustment
+- Improved MoonSound (OPL4) audio quality
+- Added Direct3D 12 scaling filters
+- Added Flash-ROM SCC (Developer Edition) support
+- Expanded command line options
+- Fixed the machines folder unintentionally landing under `<Documents>` in cases such as installing below Program Files
+- Debugger UI and assorted bug fixes
+- Improved ROM auto-detection, and fixed the zipped database failing to load (database also updated)
+- VDP bug fixes (blink handling and others)
+- Improved UI spots where text did not fit in some languages
+- Many other smaller fixes and improvements
 
 See [`blueMSX/changes.txt`](blueMSX/changes.txt) for the full change history.
 
@@ -40,13 +48,7 @@ See [`blueMSX/changes.txt`](blueMSX/changes.txt) for the full change history.
 - **MegaFlashROM SCC+ SD cartridge support**
   - Emulates the breadth of MegaFlashROM SCC+ SD features including the SD card  
     (overriding the internal MSX PSG via the cartridge-side PSG port is not yet supported)
-- **Other bug fixes and improvements**
-  - Fixed sprite rendering issues (e.g. position offset of magnified sprites)
-  - Fixed VDP command behavior in SCREEN 0–4
-  - Fixed R800 block I/O instruction flag handling
-  - Fixed TurboR PCM frequency and write timing
-  - Added long filename support for directory-as-disk insertion + warning when contents exceed 720 KB
-  - And more
+- Other bug fixes and improvements
 
 
 ## System requirements
@@ -66,7 +68,7 @@ See [`blueMSX/changes.txt`](blueMSX/changes.txt) for the full change history.
 - blueMSX+ is an **unofficial fork** of blueMSX. **Please do not direct inquiries about this software to the original blueMSX team or to any MSX-related companies / organizations.**
 
 - **About using HDR mode on OLED displays**  
-  The HDR scanline brightness-compensation feature uses locally elevated luminance — higher than that of regular pixels — to compensate for the screen being darkened by scanlines. **Displaying the same content at excessively high brightness settings, or extended continuous use, may accelerate burn-in on OLED displays.** We recommend using it in combination with the display's built-in protection features, and exiting the emulator when it is not in use.
+  The HDR scanline brightness-compensation feature uses locally elevated luminance — higher than that of regular pixels — to compensate for the screen being darkened by scanlines. **Displaying the same content at excessively high brightness settings, or extended continuous use, may accelerate burn-in on OLED displays.** Using it together with the display's built-in protection features, and exiting the emulator when it is not in use, is recommended.
 
 
 ## License
@@ -83,6 +85,7 @@ See [`blueMSX/changes.txt`](blueMSX/changes.txt) for the full change history.
 ## Installation
 
 1. Download the release archive from [Releases](https://github.com/Hesoten/blueMSX-plus/releases)
+   - Normally take the 64-bit archive (`x64`); download the `Win32` archive if you need the 32-bit build
 2. Extract the archive anywhere you like
 3. (Optional) If you own real MSX hardware and want to run its BIOS, place the BIOS ROM file(s) into the matching machine's folder under `Machines/` (use the filenames listed in that machine's `config.ini`)
 4. Launch `blueMSX+.exe` from inside the extracted folder
@@ -139,16 +142,27 @@ When multiple backends are enabled, **emulation runs in all enabled backends sim
 - Open the matching solution file (`Make/msvc2022/blueMSX.sln` or `Make/msvc2026/blueMSX.sln`) in **Visual Studio 2022** or **Visual Studio 2026** and build.
 
 
+## Ideas for future releases
+
+- More debugging features (VRAM and sprite viewers, a tracer, and so on)
+- Better directory mounting (writing back, large disk support)
+- A data recorder UI
+- A reverse play UI (OSD?)
+- More accurate VDP rendering timing
+- Faster emulation
+- vgm recording
+
+
 ## Acknowledgments
 
-We extend our deepest gratitude to Daniel Vik and the rest of the original blueMSX development team and contributors for creating such an excellent MSX emulator.
+Many thanks to Daniel Vik and the rest of the original blueMSX development team and contributors for creating such an excellent MSX emulator.
 
-When extending and debugging blueMSX+, we frequently consulted openMSX. Our respect and gratitude also go to the openMSX development members and contributors, who continue to develop an outstanding MSX emulator.
+openMSX has been a constant reference when extending and debugging blueMSX+. Many thanks and much respect to the openMSX development members and contributors, who continue to develop an outstanding MSX emulator.
 
 Nuked-OPLL is a work by Nuke.YKT.  
 emu2413 and emu8950 are works by Mitsutaka Okazaki.  
 The TMS9918A patch is a work by uniskie.  
-We are honored to incorporate these excellent contributions into blueMSX+. Our heartfelt thanks.
+It is an honor to incorporate these excellent contributions into blueMSX+. Many thanks to all of them.
 
 blueMSX+ ships with machine configurations based on C-BIOS, an open-source MSX BIOS replacement, extended here with turbo R and disk-boot support.  
 This lets you run much of the MSX software library without owning a real MSX BIOS ROM.  
@@ -164,5 +178,7 @@ Many thanks to Nestor Soriano Vilchez (Konamiman) for creating Nextor and contin
 The JP and turbo R C-BIOS machines use "Kanji ROM image file for msx emulaters" by A to C.
 Many thanks to A to C for creating this freely redistributable Kanji font ROM, built from the public-domain jiskan16 font plus hand-drawn MSX-specific glyphs.
 
+Many thanks as well to everyone who has sent feedback and feature requests, on the MSX Resource Center, GitHub, and elsewhere.
+
 blueMSX+ enhancements are developed using Claude Code.  
-We are continually amazed (and a little awed) by its ability to ship feature requests and bug fixes one after another.
+Its ability to ship feature requests and bug fixes one after another is a constant source of amazement — and a little awe.
