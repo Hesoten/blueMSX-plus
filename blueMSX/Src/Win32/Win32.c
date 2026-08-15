@@ -3236,8 +3236,10 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             WideToUtf8(wfname, fname, sizeof(fname));
             DragFinish(hDrop);
 
-            fa = GetFileAttributesA(fname);
-            if (fa & FILE_ATTRIBUTE_DIRECTORY) {
+            /* fname is UTF-8, so the ANSI call fails on non-ASCII paths, and
+            ** the INVALID_FILE_ATTRIBUTES it returns has the directory bit. */
+            fa = GetFileAttributesU(fname);
+            if (fa != INVALID_FILE_ATTRIBUTES && (fa & FILE_ATTRIBUTE_DIRECTORY)) {
                 insertDiskette(pProperties, 0, fname, NULL, 0);
             }
             else {
