@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE softwaredb SYSTEM "softwaredb1.dtd">
-<softwaredb timestamp="1784912029">
+<softwaredb timestamp="1786627785">
 <!-- Credits -->
 <![CDATA[
 The softwaredb.xml file contains information about rom mapper types
@@ -277,6 +277,9 @@ The Database is located at https://romdb.vampier.net/
   </software>
   <software title="Air Hockey" system="MSX" company="ASCII" year="1992" country="JP" genmsxid="1693">
     <rom sha1="3e0a376b92967e9c6ea86a4add21a8a912291e70" type="Mirrored" status="Hack" remark="FRS Hack" />
+  </software>
+  <software title="Airplane" system="MSX" company="Jeroen Derwort" year="2026" country="NL">
+    <rom sha1="549c6ae14dd7ca107cca7c17da3d8f9f5e71c1c7" type="Mirrored" remark="Developped in 1992" />
   </software>
   <software title="Akarui Nouen" system="MSX" company="Hudson Soft" year="1983" country="JP">
     <rom sha1="8a05e795d5f548e256910acc0227bbb46851039d" type="Mirrored" />
@@ -659,7 +662,7 @@ The Database is located at https://romdb.vampier.net/
   <software title="Assistant" system="MSX" company="Barq" year="1987" country="KW" genmsxid="1854">
     <rom sha1="e98dd601ef1773b6f23a4b1f77a7dd55820b196f" type="Mirrored" />
   </software>
-  <software title="Asteroid Rescue" system="MSX" company="Electric Adventures" year="2026" country="AU">
+  <software title="Asteroid Rescue" system="MSX" company="Electric Adventures" year="2026" country="AU" genmsxid="9273">
     <rom sha1="d15424faeed5224d441cab58e59fb809d278fe83" type="Mirrored" status="Author" remark="MSXDev2025" />
     <rom sha1="786b56c435c2b0d7ef758914c8df9cc0cfc944ec" type="Mirrored" status="Verified" remark="MSXDev2025 - Padded by TFH" />
   </software>
@@ -762,7 +765,7 @@ The Database is located at https://romdb.vampier.net/
   <software title="Aventuras de Rudolphine Rur" system="MSX" company="Dwalin" year="2020" country="ES">
     <rom sha1="134217f95c7707c4311bd549d843136075a7c0ca" type="ASCII8" status="Author" remark="MSXDev2020" />
   </software>
-  <software title="Awass" system="MSX" company="Inufuto" year="2026" country="JP">
+  <software title="Awass" system="MSX" company="Inufuto" year="2026" country="JP" genmsxid="9182">
     <rom sha1="d73c35ea5f2326dddefad790a1852c49b153f414" type="Mirrored" status="Author" />
   </software>
   <software title="Azzurro 8bit Jam" system="MSX" company="RELEVO Videogames" year="2011" country="ES" genmsxid="4235">
@@ -975,6 +978,7 @@ The Database is located at https://romdb.vampier.net/
   </software>
   <software title="BC&apos;s Quest For Tires II - Grog&apos;s Revenge" system="MSX" company="Coleco Canada" year="1984" country="CA">
     <rom sha1="5f19da9f2a7e212ea10aa5df6b86e05d7dcd47dc" type="KonamiSCC" status="Hack" remark="Coleco to MSX conversion By Taylor" />
+    <rom sha1="a99422f807a46049b4493017d30d365dcc402bad" type="Mirrored" status="Hack" remark="Push F2 for - Super Trainer by Mef" />
   </software>
   <software title="Beach Head" system="MSX" company="Access Software" year="1985" country="GB" genmsxid="2779">
     <rom sha1="1bdb1898796e2b48b62a356035192b163113962c" type="Mirrored" />
@@ -1862,7 +1866,7 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="87b9eb98f60607bd6e70400e83d3e7e83f8eb6ac" type="Mirrored" />
     <rom sha1="1d2ed0dbd3ac08d3e0916a23ba4a6e3012ed83ee" type="KonamiSCC" />
   </software>
-  <software title="Chiku1GP" system="MSX" company="Chikuwa Empire" year="2023" country="JP">
+  <software title="Chiku1GP" system="MSX" company="Chikuwa Empire" year="2023" country="JP" genmsxid="7846">
     <rom sha1="9ca8a37c0c04e328b47808862ce1ee1fbb2d1d16" type="Mirrored" status="Author" />
     <rom sha1="0603c5510a5549c6ac1b39e8c25350c3277dee57" type="Mirrored" status="Author" />
   </software>
@@ -1870,10 +1874,10 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="f24807cae5f2a256ead65d84b7293d7aae26b8d3" type="Mirrored" status="Author" />
     <rom sha1="1ba882f545128918b2185843aeec1bf6f9ec8cad" type="Mirrored" status="Author" />
   </software>
-  <software title="Chikuwa Music" system="MSX" company="Chikuwa Empire" year="2023" country="JP">
+  <software title="Chikuwa Music" system="MSX" company="Chikuwa Empire" year="2023" country="JP" genmsxid="7826">
     <rom sha1="16c3548162e13cbf2d6bf02064a657d870773992" type="Mirrored" status="Author" remark="Made for MSX0 Stack" />
   </software>
-  <software title="Chikuwa Puzzle" system="MSX" company="Chikuwa Empire" year="2023" country="JP">
+  <software title="Chikuwa Puzzle" system="MSX" company="Chikuwa Empire" year="2023" country="JP" genmsxid="7823">
     <rom sha1="c24476d54ac6f1f506c3f1ddd0208ac42af220eb" type="Mirrored" status="Author" />
   </software>
   <software title="Chikuwa Taberu" system="MSX" company="Chikuwa Empire" year="2023" country="JP">
@@ -1922,7 +1926,7 @@ The Database is located at https://romdb.vampier.net/
   <software title="Choy-Lee-Fut Kung-Fu Warrior" system="MSX" company="Positive" year="1990" country="ES" genmsxid="2277">
     <rom sha1="1ba29d4860cd2f4622ebefc9d4b7f993524302fb" type="ASCII8" />
   </software>
-  <software title="Chrono Runner" system="MSX" company="MSX Italia Association" year="2026" country="IT">
+  <software title="Chrono Runner" system="MSX" company="MSX Italia Association" year="2026" country="IT" genmsxid="9266">
     <rom sha1="50fecdd1ed3b6d9acba98740daaaf68d1641b533" type="ASCII16" status="Author" remark="MSXDev2025" />
     <rom sha1="64df7f8d1c404ef0f47bf8604a6f0ffaeaef8328" type="ASCII16" status="Author" remark="MSXDev2025" />
   </software>
@@ -2410,7 +2414,7 @@ The Database is located at https://romdb.vampier.net/
   <software title="Damspel" system="MSX" company="GP Versluis" year="1988" country="NL" genmsxid="5435">
     <rom sha1="8c5cf2df5f0b9df67239161aa843d9804af46f0e" type="Mirrored" />
   </software>
-  <software title="Dancing Defense" system="MSX" company="Chikuwa Empire" year="2023" country="JP">
+  <software title="Dancing Defense" system="MSX" company="Chikuwa Empire" year="2023" country="JP" genmsxid="7819">
     <rom sha1="307e98f6fb6d30953952a3677e1d498a35ffbc8d" type="Mirrored" status="Author" />
   </software>
   <software title="Dangan Trooper" system="MSX" company="Cobinee" year="2021" country="JP">
@@ -2433,7 +2437,7 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="9be7612db1f968455dcd0b115239efcb91474e91" type="Mirrored" status="Author" remark="MSXDev2010" />
     <rom sha1="053c7ff78dce7c3b24250f64ca6b139182e14844" type="Mirrored" status="Author" remark="MSXDev2010" />
   </software>
-  <software title="Dariayu" system="MSX" company="MDPC" year="2026" country="JP">
+  <software title="Dariayu" system="MSX" company="MDPC" year="2026" country="JP" genmsxid="9272">
     <rom sha1="8da43e2b64a963f8bfda04a74af238e2ce01e2d4" type="ASCII8" status="Author" remark="Pre Release Review" />
   </software>
   <software title="David II" system="MSX" company="ASCII" year="1984" country="JP" genmsxid="210">
@@ -2621,6 +2625,9 @@ The Database is located at https://romdb.vampier.net/
   </software>
   <software title="Discovery" system="MSX" company="Eurosoft" year="1988" country="NL" genmsxid="3053">
     <rom sha1="3731f197797a88dd0454d4e8a88049cd834138f3" type="ASCII16" />
+  </software>
+  <software title="DiskClicker" system="MSX" company="Chien Loco" year="2026" country="BR">
+    <rom sha1="3770b864034a6e03c042dc166dba70ee3cbb8899" type="Mirrored" status="Author" remark="Revista Clube MSX" />
   </software>
   <software title="Dizzy Balloon" system="MSX" company="Pony Canyon" year="1984" country="JP" genmsxid="559">
     <rom sha1="fcda3e58d683258c1dc425203184b54b27a87460" type="Mirrored" />
@@ -2878,7 +2885,8 @@ The Database is located at https://romdb.vampier.net/
   </software>
   <software title="Dungeon Master" system="MSX" company="ASCII" year="1986" country="JP" genmsxid="787">
     <rom sha1="353e2bd901e5502375dc92a04e1686c1192fcf42" type="Mirrored" status="GoodMSX" />
-    <rom sha1="c0dca32ae18315ca589aa5f1dcde58916c537ed6" />
+    <rom sha1="c0dca32ae18315ca589aa5f1dcde58916c537ed6" type="Mirrored" />
+    <rom sha1="ba7083262767d5f7e1e03a1dc057d41e8ea35749" type="Mirrored" status="Hack" remark="Push F2 for - Super Trainer by Mef" />
   </software>
   <software title="Dunk Shot" system="MSX" company="HAL Laboratory" year="1986" country="JP" genmsxid="785">
     <rom sha1="f63d274a8a7ad8e285dd8800264ab9c14aa9f870" type="Mirrored" status="GoodMSX" />
@@ -3199,6 +3207,7 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="935cc7e682a3f99003d70245e9becd7bb157b206" type="KonamiSCC" status="Hack" remark="Darky Version - No SCC" />
     <rom sha1="6e1408b25b880ad275f01d591a36720b8a14cfc5" type="KonamiSCC" status="Hack" remark="MSX Pico Wave Version" />
     <rom sha1="e3a648118551a25329ac8a85249a529a5004e6ba" type="KonamiSCC" status="Hack" remark="MSX Pico WaveGame v1.1" />
+    <rom sha1="cc1a21fa4a44c5060070796227e8c2b6d7e60895" type="KonamiSCC" status="Hack" remark="Early Sample Version - Penguin Edition" />
   </software>
   <software title="F16 Fighting Falcon" system="MSX" company="NEXA" year="1984" country="JP" genmsxid="392">
     <rom sha1="5c7a13b64b48065231f05c35b4c8b209534f3a8b" type="Mirrored" status="GoodMSX" />
@@ -3428,7 +3437,7 @@ The Database is located at https://romdb.vampier.net/
   <software title="FM Musiwriter" system="MSX" company="Rittor Music / MCS" year="1984" country="JP" genmsxid="400">
     <rom sha1="07299eb581da7d1d19cde35d39b16b3112e6a424" type="Mirrored" status="Bad" remark="Unable to boot" />
   </software>
-  <software title="FM Sound Synthesizer Unit II" system="MSX" company="YAMAHA" year="1985" country="JP">
+  <software title="FM Sound Synthesizer Unit II" system="MSX" company="YAMAHA" year="1985" country="JP" genmsxid="395">
     <rom sha1="3e85d2a374c7ea0449d5a69b13f445376060611c" type="Mirrored" status="Verified" remark="M5.01.011 - Page12" />
     <rom sha1="6680d7118d85418813f1db9449bf3e20942b16da" type="Mirrored" status="Verified" remark="M5.01.011 - Page01" />
     <rom sha1="dd3c7899274af84183c817f2e671218149db97de" type="Mirrored" status="Verified" remark="M5.00.007 - Page12" />
@@ -3816,7 +3825,7 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="1b166ab8a2e6741eb664b030e1dae7b7a60e0ee6" type="Mirrored" />
     <rom sha1="a0c498ebbc8881eaf60ccc355b7024d1e68dc84d" type="ASCII8" />
   </software>
-  <software title="Ghosts&apos;n Goblins" system="MSX" company="Amusement Factory" year="2008" country="ES">
+  <software title="Ghosts&apos;n Goblins" system="MSX" company="Amusement Factory" year="2008" country="ES" genmsxid="5204">
     <rom sha1="6420c0296695e177c32bd687ae07fb68c35ac10a" type="KonamiSCC" />
   </software>
   <software title="Glass" system="MSX" company="Quicksilva" year="1985" country="GB" genmsxid="3125">
@@ -3884,6 +3893,7 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="5718c00983e40ce6eaf3d4fe9a414d48142d9629" type="KonamiSCC" status="Hack" remark="Darky Version - SCC - Victor Martinez Enhancement" />
     <rom sha1="a51813ff7f0aabf13e47d5b3e79edb2344d115c5" type="KonamiSCC" remark="Wii Virtual Console" />
     <rom sha1="68a284a5b145bfc962d67e9e615300f7537676a8" type="KonamiSCC" status="Hack" remark="MSX1fix" />
+    <rom sha1="ccb8f83c4a2de3bf616fd87a7f2be21900f2398e" type="KonamiSCC" status="Hack" remark="Puhs F2 for - Super Trainer by Mef" />
   </software>
   <software title="Gokiburi Daisakusen - Bug Bomb" system="MSX" company="Magic software" year="1983" country="JP" genmsxid="26">
     <rom sha1="30e3681be376a76cf9e0f89e54555a7631759e15" type="Mirrored" status="GoodMSX" />
@@ -3941,7 +3951,7 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="cbb07c6625207a1752b82dc98f98ebf2d690c26f" type="Mirrored" status="Bad" />
     <rom sha1="d5f1c4e13f3f815f96b0d83406eb264ea9114570" type="Mirrored" />
   </software>
-  <software title="Gonzzalezz" system="MSX" company="Opera Soft" year="1989" country="ES">
+  <software title="Gonzzalezz" system="MSX" company="Opera Soft" year="1989" country="ES" genmsxid="2246">
     <rom sha1="fe99b5905cb707e710ace6e1ebd7e578a8246df9" type="KonamiSCC" remark="No Turbo-R" />
   </software>
   <software title="Goody" system="MSX" company="Opera Soft" year="1987" country="ES" genmsxid="2247">
@@ -4039,6 +4049,7 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="bd940f28b1ff407aec71f69518877bbe0a4ec5b0" type="KonamiSCC" status="Hack" remark="Darky Version - Enanched version" />
     <rom sha1="9f9759907853d6e174390c419b92aad72defaf02" type="KonamiSCC" status="Hack" remark="SFG-05 Needed - BGM Enhanced" />
     <rom sha1="95c8dc0f030cd3a7c66473ba006ded3c71172093" type="Konami" status="Verified" remark="Wii Virtual Console" />
+    <rom sha1="ee0905499e867d8190880573ae0d2f6b8b4f402d" type="Konami" remark="Push f2 for - Super Trainer by MEF" />
   </software>
   <software title="Gradius 2 - Nemesis 2" system="MSX" company="Konami" year="1987" country="JP" genmsxid="932">
     <rom sha1="d63e20369f98487767810a0c57603bef6a2a07e5" type="KonamiSCC" status="GoodMSX" />
@@ -4127,6 +4138,7 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="66cc24cc927236850065f61078d806a3abe236be" type="KonamiSCC" status="Hack" remark="Zemina Hack" />
     <rom sha1="5258208807aa02a34644e6709ec2ab12195ffd91" type="KonamiSCC" remark="FRS Patched" />
     <rom sha1="9f4bd1a19def4a470b34169760a43c58cc12a489" type="KonamiSCC" status="Overdump" remark="FRS Patched" />
+    <rom sha1="712b8a2096e925ab4b6b2997c0e2d49442a21ce4" type="KonamiSCC" status="Hack" remark="Push F2 for - Super Trainer by Mef" />
   </software>
   <software title="Gradius 2 - Nemesis 2 - Voice Set Add-on" system="MSX" company="WYZ" country="ES">
     <rom sha1="ef4734eadabeb0ed599f68bc6b299d5cae443983" type="Mirrored" status="Author" />
@@ -4211,7 +4223,7 @@ The Database is located at https://romdb.vampier.net/
   <software title="Gruta Mortal" system="MSX" company="Jose Vicente Rosell" year="1987" country="ES">
     <rom sha1="b41cc3b284de3d5ea5e78c25ca7fc9330758230e" type="Page2" status="Hack" />
   </software>
-  <software title="GS Soccer" system="MSX" company="Fausto Pracek" year="2025" country="IT">
+  <software title="GS Soccer" system="MSX" company="Fausto Pracek" year="2025" country="IT" genmsxid="9158">
     <rom sha1="1bfe9225a36fc869cb5c98840bc2810d20847deb" type="Mirrored" status="Author" remark="MSXDev2025" />
     <rom sha1="dec3734459c2954f447f19e403b5b42110a4fb24" type="Mirrored" status="Author" remark="MSXDev2025" />
     <rom sha1="7c16f07e390e3e4a533636da89810aa166847dc5" type="Mirrored" status="Author" remark="MSXDev2025" />
@@ -4882,7 +4894,7 @@ The Database is located at https://romdb.vampier.net/
   <software title="Invaders" system="MSX" company="German Gomez Herrera" year="2008" country="ES" genmsxid="3323">
     <rom sha1="46f995308d736da235ba7f17841d8afeff403c99" type="KonamiSCC" status="Author" />
   </software>
-  <software title="Invaders Revenge" system="MSX" company="M.M.G. Software" country="IT">
+  <software title="Invaders Revenge" system="MSX" company="M.M.G. Software" country="IT" genmsxid="8077">
     <rom sha1="6f00ed1b3d76d1e95716988d13fa2375fb2b1b2c" type="KonamiSCC" status="Hack" remark="DSK2ROM" />
   </software>
   <software title="Invasion" system="MSX" company="Sherif Hashim" year="2011">
@@ -5060,7 +5072,7 @@ The Database is located at https://romdb.vampier.net/
   <software title="Jump Land" system="MSX" company="Nippon Columbia / Colpax / Universal" year="1985" country="JP" genmsxid="503">
     <rom sha1="0b3a217d3278a43d7460136f955171c762a1f8e5" type="Mirrored" />
   </software>
-  <software title="Jumpin Joselin" system="MSX" company="joesg" year="2026" country="ES">
+  <software title="Jumpin Joselin" system="MSX" company="joesg" year="2026" country="ES" genmsxid="9270">
     <rom sha1="7c753eae67949f72f4f593b854c7617d60d450ad" type="Mirrored" status="Author" remark="MSXDev2025" />
     <rom sha1="2ff9c7a154522f1d356d036bbdee576a815fd341" type="Mirrored" status="Author" remark="MSXDev2025" />
   </software>
@@ -5938,6 +5950,7 @@ The Database is located at https://romdb.vampier.net/
   <software title="Lunar Ball" system="MSX" company="Compile" year="1985" country="JP" genmsxid="679">
     <rom sha1="95f75fae9b3e961149e352cef3d7e478e9887d5a" type="Mirrored" status="GoodMSX" />
     <rom sha1="6ce808d69e9198a0343e9fd06744deb6f9e59419" type="ASCII8" status="Bad" />
+    <rom sha1="bc70bb9714880d665ec477af6bf4fc444e10410d" type="Mirrored" remark="Older Revision" />
   </software>
   <software title="M-Force" system="MSX" company="Chikuwa Teikoku" year="2023" country="JP" genmsxid="7890">
     <rom sha1="a159a01ea2f4bfb8596bb773e610fb7ee4ed2a73" type="Mirrored" status="Author" />
@@ -6118,14 +6131,14 @@ The Database is located at https://romdb.vampier.net/
   <software title="Manicomio" system="MSX" company="Crappysoft" year="2005" country="ES" genmsxid="3699">
     <rom sha1="386cf567b7b73105d7f603463e1fe2bd919c3d0d" type="Mirrored" status="Author" remark="MSXDev2005" />
   </software>
-  <software title="Mantis 1" system="MSX" company="Raven" year="1989" country="ES">
+  <software title="Mantis 1" system="MSX" company="Raven" year="1989" country="ES" genmsxid="5553">
     <rom sha1="b21531d51f650f3714f811c8fcb1a60721763c2c" type="ASCII16" remark="Conversion by SXM Team &amp; FX" />
   </software>
   <software title="Mantis 1 &amp; 2" system="MSX" company="Raven" year="1989" country="ES">
     <rom sha1="ca3498700e95506e7926af8537df90e390a0290e" type="ASCII16" remark="Conversation by SXM Team &amp; FX" />
     <rom sha1="1564c86a4410985232ed70d95af83a8be555e491" type="Mirrored" remark="Mantis 1 &amp; 2 - Raven (1989)(FX)" />
   </software>
-  <software title="Mantis 2" system="MSX" company="Raven" year="1989" country="ES">
+  <software title="Mantis 2" system="MSX" company="Raven" year="1989" country="ES" genmsxid="2288">
     <rom sha1="37a32a015420e7c43dd603eeeeca1adf66238a8e" type="ASCII16" remark="Conversation by SXM Team &amp; FX" />
   </software>
   <software title="Mappy" system="MSX" company="NAMCO" year="1984" country="JP" genmsxid="329">
@@ -6491,8 +6504,8 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="32dd13176dde59836a7961d55cdea23fb4f24857" type="Page2" remark="Sharp Epcom" />
   </software>
   <software title="Mole Mole" system="MSX" company="Cross Media Soft" year="1985" country="JP" genmsxid="668">
-    <rom sha1="5720bf88ea080ac58e73ad11ffa116cf29733d76" type="Mirrored" />
-    <rom sha1="ca24614be75c14394629976cbaa42e4e077b2554" type="Mirrored" status="Translated" remark="Translated to English" />
+    <rom sha1="5720bf88ea080ac58e73ad11ffa116cf29733d76" type="Mirrored" status="Translated" remark="CAS2ROM - Portuguese" />
+    <rom sha1="ca24614be75c14394629976cbaa42e4e077b2554" type="Mirrored" remark="CAS2ROM" />
   </software>
   <software title="Mole Mole 2" system="MSX" company="Cross Media Soft" year="1987" country="JP" genmsxid="1578">
     <rom sha1="f364a44d0b4ceaaa8706830237c0b824dcf9ce0c" type="Mirrored" status="GoodMSX" />
@@ -6504,7 +6517,7 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="9239c4769666a11754a3cf8ba6a976be0bc32d1a" type="Mirrored" status="Author" remark="MSXDev2024 - Spanish" />
     <rom sha1="2d0a486e4a69f86d266a92e48ced6d1d7016765f" type="Mirrored" status="Author" remark="MSXDev2024 - English" />
   </software>
-  <software title="Momomaru VS Aomaru" system="MSX" company="Chikuwa Empire" year="2023" country="JP">
+  <software title="Momomaru VS Aomaru" system="MSX" company="Chikuwa Empire" year="2023" country="JP" genmsxid="7821">
     <rom sha1="fde598f73912f98c3d4e55f54d2fafd10fdcc38b" type="Mirrored" status="Author" />
     <rom sha1="82302ace5b2298551348896fbb906d859a0cb769" type="Mirrored" status="Author" />
   </software>
@@ -6893,7 +6906,7 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="520cbc45dac2080171b0274ff9e842d4ce4af556" type="Mirrored" />
     <rom sha1="801ed5fe6096bfe7db8dc678ddeaf6ce3a61942a" type="Mirrored" />
   </software>
-  <software title="MT-Telcom II" system="MSX" company="Micro Technology" year="1987" country="NL">
+  <software title="MT-Telcom II" system="MSX" company="Micro Technology" year="1987" country="NL" genmsxid="6287">
     <rom sha1="aab4d7b50da05858bfc6fb0c0b2347a2de841f0f" type="Mirrored" />
     <rom sha1="3b4ac664b7b14d5481c41ff1891c20135c10b186" type="Mirrored" remark="MT-Telcom_II" />
     <rom sha1="d00c3deffe63a37c0ffd96c1b605f271b1fb1847" type="Mirrored" remark="With OPG Farma" />
@@ -6985,7 +6998,7 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="d9195b9a24f6e7c5b99eca046908915bfe369d46" type="Mirrored" />
     <rom sha1="11927d62332a3310ad462f2f532ac30533c1fc17" type="Mirrored" />
   </software>
-  <software title="Mysterious Assault Suit Episode 1 Safe Landing" system="MSX" company="Chikuwa Empire" year="2023" country="JP">
+  <software title="Mysterious Assault Suit Episode 1 Safe Landing" system="MSX" company="Chikuwa Empire" year="2023" country="JP" genmsxid="7749">
     <rom sha1="63b67cc840f788a404ff809e424f18a480e6fa64" type="Mirrored" status="Author" />
   </software>
   <software title="Mysterious Ninja Momomaru-Kun" system="MSX" company="Chikuwa Empire" year="2023" country="JP">
@@ -7245,7 +7258,7 @@ The Database is located at https://romdb.vampier.net/
   <software title="o.v.n.i." system="MSX" company="Maria Teresa Guillen" year="1987" country="ES">
     <rom sha1="7e8b9f3976b94670783e7b1bf40377af0e91dd12" type="Page2" status="Hack" />
   </software>
-  <software title="Obake 2" system="MSX" company="Andrs MC" year="2026" country="ES">
+  <software title="Obake 2" system="MSX" company="Andrs MC" year="2026" country="ES" genmsxid="9359">
     <rom sha1="3d86096bc720530b5e0bd4b135dbd628d959a21e" type="Page2" status="Author" />
   </software>
   <software title="Obliterator" system="MSX" company="Melbourne House" year="1989" country="GB" genmsxid="3348">
@@ -7471,6 +7484,7 @@ The Database is located at https://romdb.vampier.net/
   <software title="Parodius - Tako Saves Earth" system="MSX" company="Konami" year="1988" country="JP" genmsxid="1188">
     <rom sha1="2220363ae56ef707ab2471fcdb36f4816ad1d32c" type="KonamiSCC" status="GoodMSX" />
     <rom sha1="7352afdd4c26217189b0c199fdcad90af4e83449" type="KonamiSCC" status="Hack" remark="Smooth Scroll v0.8.2 by saebaryo_xyz" />
+    <rom sha1="3e9a2a6523faca94ad2b0595aa17fe10a7727297" type="KonamiSCC" status="Translated" remark="Smooth Scroll v0.8.2 by saebaryo_xyz - English Translation" />
     <rom sha1="0b02dda5316a318a7f75a811aa54200ddd7abc30" type="KonamiSCC" status="Bad" remark="Needs SCC in slot 2" />
     <rom sha1="75d3b72d9ceeaa55c76223d935629a30ae4124d6" type="KonamiSCC" />
     <rom sha1="2111cec4b5ea698d772bb80664f6be690b47391c" type="KonamiSCC" status="Hack" remark="cheat version" />
@@ -7488,6 +7502,7 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="9d8f720f26e086a229fa5cb8d0ca10d79faf5902" type="KonamiSCC" status="Bad" remark="Saturn MSX Collection Dump - Only works on Saturn Konami MSX Emulation" />
     <rom sha1="81105b0a866a1c3a96eb9394b37aad961543ac30" type="KonamiSCC" status="Bad" remark="Smoothscroll - English v0.81" />
     <rom sha1="8d1434e43561c168d1fa48e679c485712f3d6e6b" type="KonamiSCC" status="Hack" remark="Smooth Scroll v0.8.1 by saebaryo_xyz" />
+    <rom sha1="a38560a0de1ae118d92bbe817916e8fd94297001" type="KonamiSCC" status="Bad" remark="Smooth Scroll v0.8.2" />
   </software>
   <software title="Pass Ball" system="MSX" company="ASCII" year="1983" country="JP" genmsxid="56">
     <rom sha1="aeb705ac42f8d9d62ecdb25899535d1f14f1c49c" type="Page2" status="GoodMSX" />
@@ -7758,6 +7773,10 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="4a28e8bc5ff7b57c63ce810972c3ffc2683ee3d4" type="Mirrored" />
     <rom sha1="eb164a0a65077687c6e71f3ba2f3956f3aea6bb3" type="Mirrored" />
     <rom sha1="60d1de0c217be896902c7d80e1d216715a2be562" type="Mirrored" />
+  </software>
+  <software title="Pinball 99 Maggoo" system="MSX" company="Magoo" year="2026" country="EU">
+    <rom sha1="e79ebde81142c9482e663dee032da82902a81abd" type="Mirrored" status="Author" remark="WIP 07 08 2026" />
+    <rom sha1="e2dfeae1ae49f00b996643f2daa053a85643e8c5" type="Mirrored" status="Author" remark="WIP 10-08-2026" />
   </software>
   <software title="Pinball Blaster" system="MSX" company="Eurosoft" year="1988" country="NL" genmsxid="3021">
     <rom sha1="c95f8edb24edca9f5d38c26d0e8a34c6b61efb0c" type="ASCII16" />
@@ -8040,7 +8059,7 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="f848ad905a22e177b80069f0497bb60ff4205485" type="Mirrored" status="Author" />
     <rom sha1="a84dff41ba8980590941f77e27e74df457eb2ba6" status="Author" />
   </software>
-  <software title="PSGSE Honpo" system="MSX" company="NukegaraDHP" year="2026" country="JP">
+  <software title="PSGSE Honpo" system="MSX" company="NukegaraDHP" year="2026" country="JP" genmsxid="9305">
     <rom sha1="b0f5de34461e3b9b861bb05afaf4b3d829207ca0" type="Mirrored" status="Author" />
   </software>
   <software title="Psychedelia" system="MSX" company="Llamasoft" year="1984" country="GB" genmsxid="2807">
@@ -8203,7 +8222,7 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="7e25ae09274d65c47247ec958dd4dc488943ffe4" type="Mirrored" status="Author" />
     <rom sha1="4a7a5227a0f71e3e66400e3e7f6b297e20183739" type="Mirrored" status="Author" />
   </software>
-  <software title="Race" system="MSX" company="Sergio Yukio Koshimizu" year="2026" country="BR">
+  <software title="Race" system="MSX" company="Sergio Yukio Koshimizu" year="2026" country="BR" genmsxid="9247">
     <rom sha1="e7c29b2b5b9c32ec44ff898e7cd219d15d6657c8" type="Mirrored" status="Author" />
   </software>
   <software title="Racing" system="MSX" company="Bosch77" year="2025" country="IT" genmsxid="8725">
@@ -8620,6 +8639,9 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="72b90bda4ad401636f31e2609effe533ab8ab889" type="Mirrored" />
     <rom sha1="2da5d80e31f58c8041007421f7c8e1398ed37fdd" type="Mirrored" />
   </software>
+  <software title="Sane BASIC" system="MSX" company="Kartik Agaram &amp; bsittler" year="2026" country="US">
+    <rom sha1="44a4aa1b2bf652e42b6db87e8749336d6c689af9" type="Mirrored" status="Author" remark="WIP - Experimental Basic without line numbers" />
+  </software>
   <software title="Sangokushi 1 - Romance Of Three Kingdoms" system="MSX" company="KOEI" year="1986" country="JP" genmsxid="757">
     <rom sha1="14ff6fe464362c6b7dbb47b2ecda3a8c5f05ef79" type="ASCII8" status="GoodMSX" />
     <rom sha1="3f741ba2ab08c5e9fb658882b36b8e3d01682f58" type="ASCII8" status="GoodMSX" />
@@ -8829,7 +8851,7 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="6be1ee2b07dbb3e08fccfe6f1b37adfeb742bd23" type="Mirrored" />
     <rom sha1="1ec1da455ee2fe69833fb7f32ba367eeecdd1061" type="Mirrored" />
   </software>
-  <software title="Shift" system="MSX" company="Haplo" year="2026" country="AU">
+  <software title="Shift" system="MSX" company="Haplo" year="2026" country="AU" genmsxid="9183">
     <rom sha1="a8c04f47cad87fb9c303618dd63178dd795ca161" type="Mirrored" status="Author" remark="MSXDev2025" />
     <rom sha1="824760b457755bb2ab3bdf4f84cd1ff3f2066a26" type="Mirrored" status="Author" remark="MSXDev2025" />
   </software>
@@ -9096,6 +9118,9 @@ The Database is located at https://romdb.vampier.net/
   <software title="Snackbar" system="MSX" company="H. Mak" year="1986" country="NL" genmsxid="4275">
     <rom sha1="c6122975275a4542423ae6cc3a6413e2d0951666" type="Page2" status="Author" />
   </software>
+  <software title="snAIk" system="MSX" company="Rubicon Lab" year="2026" country="NL">
+    <rom sha1="ee483cd2646f2a74a5560fb4cde1fea5a76fe51e" type="Mirrored" status="Auth" />
+  </software>
   <software title="Snail Maze" system="MSX" company="Karoshi Corporation" year="2004" country="ES" genmsxid="3685">
     <rom sha1="5db0acc008672f298d01686da4d56428b690b77f" type="Mirrored" status="Author" remark="MSXDev2004" />
     <rom sha1="d81a4fee5bff14eda613fb72bc78429874bbb18f" status="Author" remark="MSXDev2004" />
@@ -9132,7 +9157,7 @@ The Database is located at https://romdb.vampier.net/
   <software title="Snowclimber" system="MSX" company="Joyrex" year="2003" country="NL">
     <rom sha1="ae62d7cd44e6a85ee6d30a319ef5e3476f784148" type="Mirrored" />
   </software>
-  <software title="Soccer League" system="MSX" company="Fausto Pracek" year="2026" country="IT">
+  <software title="Soccer League" system="MSX" company="Fausto Pracek" year="2026" country="IT" genmsxid="9252">
     <rom sha1="6a6f2769d74cec7d3636295bccd130123aacab82" type="KonamiSCC" status="Author" remark="MSXDev2025 - v9990 needed" />
     <rom sha1="5384e5c15e8863c2e9f5f0309009f26fa9be9ddb" type="ASCII16" status="Author" remark="MSXDev2025 - v9990 needed" />
     <rom sha1="d1d745344bcd137ef4cd7733025d295923a575db" type="ASCII16" status="Author" remark="MSXDev2025 - v9990 needed" />
@@ -9485,7 +9510,7 @@ The Database is located at https://romdb.vampier.net/
   <software title="Starbyte" system="MSX" company="Mister Chip" country="ES" genmsxid="5261">
     <rom sha1="657a4880da2d0df283475d8cbac3dddc2d95879a" type="ASCII16" />
   </software>
-  <software title="Starling" system="MSX" company="Zydrel" year="2026" country="NL">
+  <software title="Starling" system="MSX" company="Zydrel" year="2026" country="NL" genmsxid="9347">
     <rom sha1="18324c2733c71822d23d3c4f0997fee22426cdd0" type="Mirrored" status="Author" />
   </software>
   <software title="Starman" system="MSX" company="Unknown" country="UN">
@@ -9741,7 +9766,7 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="fea9e602ef8619c2c86ca7c080b6874bf8c725c9" type="KonamiSCC" status="Author" remark="MSXDev2023" />
     <rom sha1="17d3a4e686f148165f60b2902a6d18e98057faca" type="KonamiSCC" status="Author" remark="MSXDev2023" />
   </software>
-  <software title="Super Pac-Man" system="MSX" company="NAMCO" year="2026" country="JP">
+  <software title="Super Pac-Man" system="MSX" company="NAMCO" year="2026" country="JP" genmsxid="9310">
     <rom sha1="c510b591be1fd68e38aab8073e4969a6fdba6661" type="Mirrored" status="Author" remark="Conversion by Mastropiero" />
   </software>
   <software title="Super Pachinko" system="MSX" company="Nippon Columbia / Colpax / Universal" year="1985" country="JP" genmsxid="520">
@@ -9840,7 +9865,7 @@ The Database is located at https://romdb.vampier.net/
   <software title="Sword Work" system="MSX" company="Inufuto" year="2026" country="JP">
     <rom sha1="b1f2c17a894a37c99a75621873559a54da3650b5" type="Mirrored" status="Author" />
   </software>
-  <software title="Synthe Saurus" system="MSX" company="BIT2" year="1988" country="JP" genmsxid="1137">
+  <software title="Synthe Saurus" system="MSX" company="Bit²" year="1988" country="JP" genmsxid="1137">
     <rom sha1="cf088b4eefe7f426e438dd2fe7a3433140abba52" type="ASCII8" status="GoodMSX" />
     <rom sha1="11c4df13f097f75195a5033c424d3d05011e432a" type="ASCII8" />
     <rom sha1="88b38205ec0f72874da4742f0e3b8db0f7c6427e" type="ASCII8" />
@@ -10110,7 +10135,7 @@ The Database is located at https://romdb.vampier.net/
   <software title="Terminus - The Prison Planet" system="MSX" company="Mastertronic" year="1987" country="GB" genmsxid="2790">
     <rom sha1="6cde17f9805aac9d5c9f9cb5bb15da656895bbbc" type="ASCII16" />
   </software>
-  <software title="TerMSX" system="MSX" company="RutaGames" year="2026" country="ES">
+  <software title="TerMSX" system="MSX" company="RutaGames" year="2026" country="ES" genmsxid="9110">
     <rom sha1="7663d108ff1f8475e14ed553179ff54431e72259" type="ASCII8" status="Author" remark="MSXDev2025 - No Turbo-R" />
     <rom sha1="b71e148fed2274aeb6d5545595866f8efeffd8a4" type="ASCII8" status="Author" remark="MSXDev2025" />
     <rom sha1="2c758032a5af039aaf5e028c125f6de2c19529fb" type="ASCII8" status="Author" remark="MSXDev2025" />
@@ -10221,6 +10246,7 @@ The Database is located at https://romdb.vampier.net/
   </software>
   <software title="The Castle" system="MSX" company="ASCII" year="1986" country="JP" genmsxid="752">
     <rom sha1="615c08820b926e28b143cd7812852e011d3eeffb" type="Mirrored" status="GoodMSX" />
+    <rom sha1="2f9b35f92bd61b65cb51ebd7926d470d57c60c42" type="Mirrored" remark="Shop Kiosk Demo - Self Playing" />
     <rom sha1="f53bdd847d0097fd4ca47dab031570366c882e65" type="Mirrored" status="Hack" remark="Static Soft Corp" />
     <rom sha1="b5b24db1a01ba6778b6768df15efb097fad5856f" type="Mirrored" status="Hack" remark="cheat version" />
     <rom sha1="7f5a95689b81da98387d812e0f6280466f51b832" type="Mirrored" status="Hack" remark="cheat version" />
@@ -10505,7 +10531,7 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="8e77da5f053efa1dac4231a32c361fdf3bd5e50c" type="Konami" status="Author" />
     <rom sha1="892e014d6f88d74ce3e5de04a4e4ca7142ce58e3" type="Konami" status="Author" />
   </software>
-  <software title="Three Weeks In Paradise" system="MSX" company="Fregarni" year="2025" country="ES">
+  <software title="Three Weeks In Paradise" system="MSX" company="Fregarni" year="2025" country="ES" genmsxid="9147">
     <rom sha1="655c9b2e1c84557d1facfb7501e94ed72ac16480" type="Mirrored" remark="MSXDev2025" />
   </software>
   <software title="Threshold" system="MSX" company="Sierra On Line" year="1983" country="GB">
@@ -10586,7 +10612,7 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="3ea3d91f1084d1fdc488aa17cd01c88a18e64c77" type="Mirrored" status="Author" />
     <rom sha1="849a3e72e2d9015deb9ab14166b49934e31c933c" type="Mirrored" status="Author" remark="2018.12.22 update" />
   </software>
-  <software title="Tiny Tetris VS" system="MSX" company="Antxiko" year="2026" country="ES">
+  <software title="Tiny Tetris VS" system="MSX" company="Antxiko" year="2026" country="ES" genmsxid="9271">
     <rom sha1="4f98ac0784fa4a72a8b5c7ec2e3aee7afe9e1e4e" type="Mirrored" status="Author" remark="MSXDev2025" />
     <rom sha1="a1baf296e0b2a5abb48571ebdfe6a70a044b859b" type="Mirrored" status="Author" remark="MSXDev2025" />
   </software>
@@ -10677,7 +10703,7 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="388cedd9f211ac416163d3cf01ace168afc1c2ed" type="Mirrored" />
     <rom sha1="f90ab19f3908160a633e9c8570186c67964a2630" type="Mirrored" />
   </software>
-  <software title="Toxic Tubes" system="MSX" company="Murilo T. Carmello" year="2026" country="PT">
+  <software title="Toxic Tubes" system="MSX" company="Murilo T. Carmello" year="2026" country="PT" genmsxid="9268">
     <rom sha1="cd71fec39b8c0ce428e5c31aca5738967747dec2" type="Mirrored" status="Author" remark="MSXDev2025" />
   </software>
   <software title="Traffic" system="MSX" company="Sony" year="1985" country="JP" genmsxid="764">
@@ -11280,7 +11306,7 @@ The Database is located at https://romdb.vampier.net/
   <software title="Wizard of Id&apos;s Wizmath" system="MSX" company="Sydney Development" year="1984" country="US">
     <rom sha1="34bc24e5891a5869f56db670706897e0f24c4315" type="KonamiSCC" status="Hack" remark="Conversion by Taylor" />
   </software>
-  <software title="Wizard of Wor" system="MSX" company="Midway" year="1980" country="US">
+  <software title="Wizard of Wor" system="MSX" company="Midway" year="1980" country="US" genmsxid="6306">
     <rom sha1="e25e3561f623167e87c04d537e4b33df0ef67e12" type="Konami" status="Hack" />
   </software>
   <software title="Wolf of the Battlefield - Commando" system="MSX" company="Capcom" year="1985" country="JP" genmsxid="778">
@@ -11825,13 +11851,16 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="72b00f0a63ad6233557d681d60cd002a9b395344" type="Konami" />
     <rom sha1="1fd3a268067fd5b9e84fef3013c7759de611a861" type="Konami" status="Translated" remark="English" />
     <rom sha1="af95c4b450d4fce190216baa4410bd6c6d0898c1" type="ASCII16" status="Hack" remark="Fix Turbo R" />
+    <rom sha1="002ed9094665a755c40d80bf5275dbd681f66154" type="Konami" status="Bad" remark="Super Trainer by Mef" />
+    <rom sha1="c38abc0f477e468723ef9795783c479011be5d13" type="Konami" status="Hack" remark="Push F2 for Super Trainer by Mef" />
   </software>
   <software title="Aleste 2" system="MSX2" company="Compile" year="1989" country="JP" genmsxid="1246">
     <rom sha1="df29d62a536ebaaf7a101478574ff3cc44833cd4" type="ASCII8" status="Verified" remark="ROM Version y Jose Angel Morente" />
-    <rom sha1="91801b7b2d571c4e7af97c21d85daa896e22cf59" type="Mirrored" remark="ROM Version by Ricbit (GR8NET)" />
+    <rom sha1="91801b7b2d571c4e7af97c21d85daa896e22cf59" type="KonamiSCC" remark="ROM Version by Ricbit (GR8NET)" />
     <rom sha1="e93d0840c59c6eba273df546d22148d486a150a6" type="KonamiSCC" status="Verified" remark="ROM Version by Ricbit" />
     <rom sha1="075eaf508e5d8b4131453bf9c452cfd28f34389e" type="KonamiSCC" remark="ROM Version by Ricbit" />
     <rom sha1="a099892e8fefa98425b515d4ef2706f647610aaf" type="KonamiSCC" remark="ROM Version by Ricbit" />
+    <rom sha1="56d2bb3c09adbb2f2b0917b40a6ed465dea03c7e" type="KonamiSCC" status="Hack" remark="ROM Version by Ricbit (GR8NET) - Push F2 for trainer menu" />
   </software>
   <software title="Aleste Collection" system="MSX2" company="Compile" year="2018" country="JP">
     <rom sha1="fdcf01da8b91108517c614fdc6a040f28b223f29" type="KonamiSCC" remark="Compilation by FX-Software" />
@@ -11864,7 +11893,7 @@ The Database is located at https://romdb.vampier.net/
   <software title="Alien 8 Remake" system="MSX2" company="Manuel Pazos &amp; LordFred" year="2009" country="ES" genmsxid="3826">
     <rom sha1="4a3069426214aeecac1a57632a9978cbfb2acc21" type="Mirrored" status="Author" />
   </software>
-  <software title="Alley Cat" system="MSX2" company="RutaGames" year="2024" country="ES">
+  <software title="Alley Cat" system="MSX2" company="RutaGames" year="2024" country="ES" genmsxid="8627">
     <rom sha1="0d9644a6b08aef30228536e90fc63529d7a34a88" type="ASCII8" status="Author" />
     <rom sha1="e1b269d8f614c08c2fc9400b09d8660f5b756001" type="ASCII8" status="Author" />
   </software>
@@ -11945,7 +11974,7 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="a8059dc1820b461418713acf2af14f3a25734bd3" type="ASCII8" status="GoodMSX" />
     <rom sha1="e839f3ac7d52c427ecc011d01e6e241f88ca850c" type="ASCII8" />
   </software>
-  <software title="AshGuine Story I" system="MSX2" company="BIT2" year="1987" country="JP" genmsxid="978">
+  <software title="AshGuine Story I" system="MSX2" company="Bit²" year="1987" country="JP" genmsxid="978">
     <rom sha1="f57b46154cf0711e3f5218e00f67c375d95d1d5d" type="ASCII8" status="GoodMSX" />
     <rom sha1="48ee0f46abafe6adc858a697091cb833b585b162" type="Konami" status="Translated" remark="English by Django" />
     <rom sha1="a8eeac428a5992a2390b1827db1358f4c733e200" type="Konami" />
@@ -11978,7 +12007,7 @@ The Database is located at https://romdb.vampier.net/
   <software title="Aster Buster" system="MSX2" company="Masachan Soft" year="1988" country="KW">
     <rom sha1="544bd06398d96d024a29d45839003dc17e2f49eb" type="Page2" />
   </software>
-  <software title="Asteroids" system="MSX2" company="NOP" year="2026" country="NL">
+  <software title="Asteroids" system="MSX2" company="NOP" year="2026" country="NL" genmsxid="9277">
     <rom sha1="b9e75e523cd824e9191adc4260b1ce31948df7dd" type="ASCII16-X" />
     <rom sha1="a696936adef7d230de2ad405f96dd639701b0d6d" type="ASCII16-X" status="Author" remark="MSXDev2025" />
   </software>
@@ -12275,7 +12304,7 @@ The Database is located at https://romdb.vampier.net/
   <software title="F15 Strike Eagle" system="MSX2" company="System Soft" year="1987" country="JP" genmsxid="1071">
     <rom sha1="39bc111c953bdf25683db7ff4c0bad79b5c49958" type="ASCII8" status="GoodMSX" />
   </software>
-  <software title="Famicle Parodic" system="MSX2" company="BIT2" year="1988" country="JP" genmsxid="1196">
+  <software title="Famicle Parodic" system="MSX2" company="Bit²" year="1988" country="JP" genmsxid="1196">
     <rom sha1="f12ad34dc3b4279da0fc7094f3d50d6b8bb517dc" type="ASCII8" status="GoodMSX" />
     <rom sha1="f04f5c6936301eed31a79c23571f8fc497864dbb" type="Konami" />
     <rom sha1="18eada2178fc1a89895087aa513305d1ba73c926" type="Konami" />
@@ -12286,8 +12315,8 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="d39bde46f0ff17e566f9918b825d2cf1e54b0000" type="Konami" />
     <rom sha1="beb1997cdc2dd29ab7114e3a7eef1c64e09cd2f3" type="ASCII8" status="Hack" remark="Sofarun Fix" />
   </software>
-  <software title="Famicle Parodic 2" system="MSX2" company="BIT2" year="1988" country="JP">
-    <rom sha1="9c9b2f028d0306cfafd478351ab14e93cfd5e882" type="ASCII8" status="Hack" remark="The Boss crack" />
+  <software title="Famicle Parodic 2" system="MSX2" company="Bit²" year="1990" country="JP" genmsxid="1382">
+    <rom sha1="9c9b2f028d0306cfafd478351ab14e93cfd5e882" type="ASCII8" status="Hack" remark="The Boss crack - DKS2ROM" />
   </software>
   <software title="Family Billiards" system="MSX2" company="Pack-In-Video" year="1987" country="JP" genmsxid="1004">
     <rom sha1="924fcf87b3747dae06e621975903ee73c42016f2" type="ASCII8" status="GoodMSX" />
@@ -12357,7 +12386,7 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="f05bf992eae26269a729711fb70f861c913864fe" type="Konami" status="Translated" remark="Korean Translation" />
     <rom sha1="d248b8e57b2ca6ef02269ef9273eeb783a2f16ce" type="Konami" status="Hack" remark="2 x PSG - DARKY&amp;MFR" />
   </software>
-  <software title="Fiver" system="MSX2" company="Bosch77" year="2026" country="IT">
+  <software title="Fiver" system="MSX2" company="Bosch77" year="2026" country="IT" genmsxid="9241">
     <rom sha1="634383ebc048138b9a701c1386c92f56c2d3c303" type="KonamiSCC" status="Author" remark="MSXDev2025" />
     <rom sha1="b1f64eb275dcaf8967a284851236c68ed36be216" type="KonamiSCC" status="Author" remark="MSXDev2025" />
     <rom sha1="806e374b4479e5195a1dc764c46e95503b66db94" type="KonamiSCC" status="Author" remark="MSXDev2025" />
@@ -12439,7 +12468,7 @@ The Database is located at https://romdb.vampier.net/
   <software title="Gitahei" system="MSX2" company="Microcabin" year="1986" country="JP" genmsxid="736">
     <rom sha1="b74f759ba3837968a04e9b64321b47cf087e76ff" type="ASCII8" status="GoodMSX" />
   </software>
-  <software title="Go Figure" system="MSX2" company="Fabulous 8 Bit" year="2026" country="NO">
+  <software title="Go Figure" system="MSX2" company="Fabulous 8 Bit" year="2026" country="NO" genmsxid="9251">
     <rom sha1="013341623344124ddca83cd89edfeba472ce0236" type="ASCII16-X" status="Author" remark="MSXDev2025 - NO OPL4 &amp; VDP5 check" />
     <rom sha1="4f5e3e8d1dea6f8a84c62a734b685bea35deace8" type="ASCII16-X" status="Author" remark="MSXDev2025 - Needs Moonsound" />
     <rom sha1="47136eaf25d0cafc5c0769012056f676e9ec7ca3" type="ASCII16-X" status="Author" remark="MSXDev2025 - Needs Moonsound" />
@@ -12572,7 +12601,7 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="3f82bf204b653a68f62c11e5ef3ca88205f0379d" type="Mirrored" status="Hack" remark="Turbo-R fix" />
     <rom sha1="b163b7a4b4f148f8ea1ee73d5ff9ed1e8519c75d" type="Mirrored" remark="MSX2 only" />
   </software>
-  <software title="Hungry Mousy" system="MSX2" company="Meichnpp" year="2026" country="JP">
+  <software title="Hungry Mousy" system="MSX2" company="Meichnpp" year="2026" country="JP" genmsxid="9413">
     <rom sha1="6059cf6f207fedd2a0e69644f52da90e0b600e48" type="ASCII8" remark="ReConversion Lars18th" />
     <rom sha1="def6d41aed059c4b59a1cb6b183f9cdb043f4324" type="ASCII8" status="Author" remark="DSK2ROM" />
   </software>
@@ -12772,6 +12801,11 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="d57fc4121d716182a091bb53c666b46c10142668" type="ASCII8" />
     <rom sha1="b7129a5612ef5c6c76569c274219207a7ca30de8" type="ASCII8" status="Translated" remark="Partial English Translation by Django" />
     <rom sha1="96c4438cc4bcce904d08e7d5fe42b52dd0bc9f19" type="ASCII8" status="Translated" remark="English Translation" />
+  </software>
+  <software title="Lick &amp; Mick Adventure" system="MSX2" company="Humming Bird Soft" year="1987" country="JP" genmsxid="1036">
+    <rom sha1="a57f8ec4f89ab84936f46821969de6bca9f46d8e" type="ASCII8" status="GoodMSX" />
+    <rom sha1="d3a936e5ef24fdbc7a02a81644ab6cd4b88119d3" type="Konami" />
+    <rom sha1="1b8b1573f81501574387b586efeea3b1320e9a3c" type="ASCII8" />
   </software>
   <software title="Life On Earth" system="MSX2" company="Kai Magazine" year="2018" country="ES" genmsxid="5741">
     <rom sha1="2795cec5fbbf93e8b4d521938728f390037f33e4" type="KonamiSCC" status="Author" remark="Demo - GFX9000 needed" />
@@ -12979,7 +13013,7 @@ The Database is located at https://romdb.vampier.net/
   <software title="Michelangelo II" system="MSX2" company="Rittor Music / MCS" year="1990" country="JP" genmsxid="3514">
     <rom sha1="effda370998ede9aee5e9779ccc10db9418176d2" type="ASCII8" />
   </software>
-  <software title="MIDI Saurus" system="MSX2" company="BIT2" year="1990" country="JP" genmsxid="1414">
+  <software title="MIDI Saurus" system="MSX2" company="Bit²" year="1990" country="JP" genmsxid="1414">
     <rom sha1="4f41f85124a682b0243e9d64a5f7f6a99258ea20" type="Mirrored" remark="Part of hardware package and 2 disks" />
   </software>
   <software title="Mirai - Future" system="MSX2" company="XAIN / Sein" year="1987" country="JP" genmsxid="1772">
@@ -13079,7 +13113,7 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="6075cd96bc85864f22c643b023302f006b565049" type="Konami" />
     <rom sha1="688b70e60dc272654ac6b0a72237fefdce2ef9ff" type="ASCII8" />
   </software>
-  <software title="Neon Horizon" system="MSX2" company="Norakomi and Wolf" year="2026" country="NL">
+  <software title="Neon Horizon" system="MSX2" company="Norakomi and Wolf" year="2026" country="NL" genmsxid="9267">
     <rom sha1="a70db63839fa44cc3e3aae0b58b97976cfd8f158" type="ASCII16-X" status="Author" remark="MSXDev2025" />
     <rom sha1="f306f246b8a2d7d289ddcfb1c2e54ad60b27d1c5" type="ASCII16-X" status="Author" remark="MSXDev2025 - No 16x check" />
   </software>
@@ -13108,7 +13142,7 @@ The Database is located at https://romdb.vampier.net/
   <software title="Nothing Thing" system="MSX2" company="Nitrofurano" year="2013" country="PT">
     <rom sha1="08bd42d445b0357da6c8b034875a2704ad8e9cce" type="Mirrored" status="Author" remark="MSXDev2013 - MSX2+ or Higher" />
   </software>
-  <software title="Nyancle Racing" system="MSX2" company="BIT2" year="1988" country="JP" genmsxid="1105">
+  <software title="Nyancle Racing" system="MSX2" company="Bit²" year="1988" country="JP" genmsxid="1105">
     <rom sha1="e4071d077b689cddcd3ec0154660c63f6c9e0d15" type="ASCII8" status="Bad" remark="End stage unable to complete" />
   </software>
   <software title="O&apos;Conner" system="MSX2" company="Santa Claus Software" year="1990" country="ES">
@@ -13204,7 +13238,7 @@ The Database is located at https://romdb.vampier.net/
   <software title="Pro Baseball Fan" system="MSX2" company="Telenet Japan" year="1987" country="JP" genmsxid="1013">
     <rom sha1="f52690157a51c662ffdf4ae3592ada93d7be4032" type="ASCII8" status="GoodMSX" />
   </software>
-  <software title="Professional Mahjong" system="MSX2" company="Chatnoir" year="1985" country="JP">
+  <software title="Professional Mahjong" system="MSX2" company="Chatnoir" year="1985" country="JP" genmsxid="5484">
     <rom sha1="ec6cda31205695d94ecd35fd5e17e842641aedf8" type="Mirrored" />
   </software>
   <software title="Professional Mahjong Gokuh" system="MSX2" company="Chatnoir" year="1988" country="JP" genmsxid="1208">
@@ -13256,7 +13290,7 @@ The Database is located at https://romdb.vampier.net/
   <software title="Quarth Demo Version" system="MSX2" company="Konami" year="1990" country="JP" genmsxid="1850">
     <rom sha1="1ccac7caeaaa1c5a89503221b0a5eec2f34b1c91" type="KonamiSCC" status="GoodMSX" />
   </software>
-  <software title="Quinpl" system="MSX2" company="BIT2" year="1988" country="JP" genmsxid="1098">
+  <software title="Quinpl" system="MSX2" company="Bit²" year="1988" country="JP" genmsxid="1098">
     <rom sha1="c82c6e054313f4c8864e64897baea8b63776020d" type="ASCII8" status="GoodMSX" />
     <rom sha1="cec9f58b9ce61ada4baa24611c8353038415d173" type="ASCII8" status="Translated" remark="English" />
     <rom sha1="33a26e3c43bfc677849d137cfef1aaf281084841" type="ASCII8" />
@@ -13296,11 +13330,6 @@ The Database is located at https://romdb.vampier.net/
   </software>
   <software title="Revenge Of The Boing Ball" system="MSX2" company="R.Bittencourt" year="2004" country="BR">
     <rom sha1="0f1c600fc3c3f7ef390214ee8028ce118d2cf5b8" type="Mirrored" />
-  </software>
-  <software title="Rick &amp; Mick&apos;s Adventure" system="MSX2" company="Humming Bird Soft" year="1987" country="JP" genmsxid="1036">
-    <rom sha1="a57f8ec4f89ab84936f46821969de6bca9f46d8e" type="ASCII8" status="GoodMSX" />
-    <rom sha1="d3a936e5ef24fdbc7a02a81644ab6cd4b88119d3" type="Konami" />
-    <rom sha1="1b8b1573f81501574387b586efeea3b1320e9a3c" type="ASCII8" />
   </software>
   <software title="Rite of the Druid" system="MSX2" company="Paul Weller" year="2022" country="GB">
     <rom sha1="417ff75bd89fbeb706283ca3e3eb261777ac9c82" type="ASCII8" status="Author" remark="MSXDev2022" />
@@ -13422,10 +13451,10 @@ The Database is located at https://romdb.vampier.net/
   <software title="Smooth Scroll Test" system="MSX2" company="Unknown" country="UN">
     <rom sha1="d42a4377036fd0019ea513a03435fc69cfe92ab2" type="Mirrored" />
   </software>
-  <software title="Snake Escape" system="MSX2" company="2NICE" year="2026" country="NL">
+  <software title="Snake Escape" system="MSX2" company="2NICE" year="2026" country="NL" genmsxid="9287">
     <rom sha1="0a7827d7cb2f44f5e38e338482b235029cf11a83" type="Mirrored" status="Author" remark="Playable Demo" />
   </software>
-  <software title="Soul Trapped - The House" system="MSX2" company="Pixel Phenix" year="2026" country="FR">
+  <software title="Soul Trapped - The House" system="MSX2" company="Pixel Phenix" year="2026" country="FR" genmsxid="9275">
     <rom sha1="337c3e839eefff8b3a909942e5ad92f9f0655e6c" type="NEO-16" status="Author" remark="MSXDev2025" />
     <rom sha1="df61df9a8dfb4d7f1f1264c6f503161569eddb3b" type="NEO-16" status="Author" remark="MSXDev2025" />
   </software>
@@ -13719,7 +13748,7 @@ The Database is located at https://romdb.vampier.net/
   <software title="Thunderbird Enhanced" system="MSX2" company="Grandslam Entertainments" year="1989" country="GB" genmsxid="2704">
     <rom sha1="b63bf6b368cc9a866bb628c637af754b64f8522d" type="ASCII8" status="Verified" />
   </software>
-  <software title="Tiny Magic" system="MSX2" company="Abyss" year="2024" country="BE">
+  <software title="Tiny Magic" system="MSX2" company="Abyss" year="2024" country="BE" genmsxid="8089">
     <rom sha1="b9664e6094d8488e8e0b8103b1be5443d8da0cd0" type="KonamiSCC" status="Verified" remark="Digital Edition" />
   </software>
   <software title="Title Memory" system="MSX2" company="Konami" year="1989" country="JP" genmsxid="1376">
@@ -13939,7 +13968,7 @@ The Database is located at https://romdb.vampier.net/
   <software title="Wordle" system="MSX2" company="RutaGames" year="2025" country="ES">
     <rom sha1="6ea5bb55d3f5c242d3cd1e8af74d2078b568f5b9" type="ASCII8" status="Author" remark="Portuguese" />
   </software>
-  <software title="World Soccer" system="MSX2" company="Fausto Pracek" year="2026" country="IT">
+  <software title="World Soccer" system="MSX2" company="Fausto Pracek" year="2026" country="IT" genmsxid="9423">
     <rom sha1="79fb7f37d2e679a01f2e81585e39b87dabf95d27" type="YAMANOOTO" status="Author" />
   </software>
   <software title="XeGrader" system="MSX2" company="Tokihiro Naito" year="2025" country="JP">
@@ -14043,7 +14072,7 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="6e4962d5e22dffc069efe89d28756122e47ccc81" type="ASCII8" status="Translated" remark="Partial English Translation" />
     <rom sha1="606a85bafe80ac4767209fb695e45e23fb462ebd" type="ASCII8" status="Translated" remark="Full English Translation" />
   </software>
-  <software title="Tannhauser Gate" system="MSX2Plus" company="Furcifer Studios" year="2026" country="NL">
+  <software title="Tannhauser Gate" system="MSX2Plus" company="Furcifer Studios" year="2026" country="NL" genmsxid="9265">
     <rom sha1="be3b87f041ff7bab6d1963b273a1d5736803ed03" type="Konami" status="Author" remark="MSXDev" />
     <rom sha1="f6e16151742173d51465413e403fe5a08393c619" type="Konami" status="Author" remark="MSXDev2025" />
     <rom sha1="5145b5bc4140feae909ca3ca4cf650f54bd8d77c" type="Konami" status="Author" remark="MSXDev2025" />
@@ -17427,6 +17456,6 @@ The Database is located at https://romdb.vampier.net/
     <rom sha1="b6dd7af36c8d16b04fca4963f081db534e91b360" type="Mirrored" remark="SD-003C" />
   </software>
 
-<!-- Roms in this XML file: 9875 - Created on Fri Jul 24 2026 - 16:53:49
-      Per platform: ColecoVision: 1341 | MSX: 6740 | MSX Turbo-R: 11 | MSX2: 1427 | MSX2Plus: 4 | SG-1000: 341 | SVI: 11 -->
+<!-- Roms in this XML file: 9894 - Created on Thu Aug 13 2026 - 13:29:46
+      Per platform: ColecoVision: 1341 | MSX: 6756 | MSX Turbo-R: 11 | MSX2: 1430 | MSX2Plus: 4 | SG-1000: 341 | SVI: 11 -->
 </softwaredb>
