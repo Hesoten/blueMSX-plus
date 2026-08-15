@@ -1012,31 +1012,6 @@ static EmuLanguageType getLangType()
     return EMU_LANG_ENGLISH;
 }
 
-int canHandleVblankSyncMode() {
-    DWORD t1;
-    DWORD t2;
-    DWORD cnt = 0;
-    int currPri;
-    
-    currPri= GetThreadPriority(GetCurrentThread());
-    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
-
-    t1 = t2 = archGetSystemUpTime(100);
-    while (t2 == t1) {
-        t1 = t2;
-        t2 = archGetSystemUpTime(100);
-    }
-    t1 = t2;
-    while (t2 == t1) {
-        t1 = t2;
-        t2 = archGetSystemUpTime(100);
-        cnt++;
-    }
-    SetThreadPriority(GetCurrentThread(), currPri);
-
-    return cnt > 6000;
-}
-
 void centerDialog(HWND hwnd, int noActivate) {
     RECT r1;
     RECT r2;
@@ -4765,12 +4740,10 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
            map agree on the region. */
         PropKeyboardLanguage kbdLang = inputKeyboardRegionIsJapanese()
                                            ? P_KBD_JAPANESE : P_KBD_EUROPEAN;
-        int syncMode = 0;
+        /* Nonzero selects sync to the PC vblank. */
+        int syncMode = 1;
 
         resetRegistry = emuCheckResetArgument(szLine);
-        if (resetRegistry) {
-            syncMode = canHandleVblankSyncMode() ? 1 : 0;
-        }
 
         {
             char themeName[64];
