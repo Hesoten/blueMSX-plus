@@ -686,6 +686,11 @@ void langInitRussian(LanguageStrings* ls)
     ls->shortcutConfigTitle     = "blueMSX+ - Редактор кнопок";
     ls->shortcutAssign          = "Назначить";
     ls->shortcutPressText       = "Нажмите кнопки:";
+    ls->shortcutHotkeyHint      = "(до 3 клавиш)";
+    ls->keyboardMappedHint      = "(до 3 клавиш)";
+    ls->shortcutTooltipAlsoBound = "Также назначено: ";
+    ls->keyboardKeyFormat       = "клавиша %s";
+    ls->keyconfigResetTab       = "Сбросить клавиши этой вкладки";
     ls->shortcutScheme          = "Схема:";
     ls->shortcutCartInsert1     = "Вставьте картридж 1";
     ls->shortcutCartRemove1     = "Убрать картридж 1";

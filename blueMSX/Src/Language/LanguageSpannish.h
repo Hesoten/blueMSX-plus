@@ -686,6 +686,11 @@ void langInitSpanish(LanguageStrings* ls)
     ls->shortcutConfigTitle     = "blueMSX+ - Editor de la tarjeta de los atajos";
     ls->shortcutAssign          = "Asigne";
     ls->shortcutPressText       = "Pulse tecla(s) del atajo";
+    ls->shortcutHotkeyHint      = "(hasta 3 teclas)";
+    ls->keyboardMappedHint      = "(hasta 3 teclas)";
+    ls->shortcutTooltipAlsoBound = "También asignado a: ";
+    ls->keyboardKeyFormat       = "tecla %s";
+    ls->keyconfigResetTab       = "Restablecer las teclas de esta pestaña";
     ls->shortcutScheme          = "Disposición:";
     ls->shortcutCartInsert1     = "Insertar Cartucho ROM en slot 1";
     ls->shortcutCartRemove1     = "Sacar Cartucho ROM en slot 1";

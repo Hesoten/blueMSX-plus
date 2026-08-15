@@ -681,6 +681,11 @@ typedef struct {
     char* shortcutConfigTitle;
     char* shortcutAssign;
     char* shortcutPressText;
+    char* shortcutHotkeyHint;
+    char* keyboardMappedHint;
+    char* shortcutTooltipAlsoBound;
+    char* keyboardKeyFormat;
+    char* keyconfigResetTab;
     char* shortcutScheme;
     char* shortcutCartInsert1;
     char* shortcutCartRemove1;

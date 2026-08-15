@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -200,6 +203,9 @@ const char* inputEventCodeToString(int eventCode);
 #define EC_COLECO2_STAR 150
 #define EC_COLECO2_HASH 151
 
+/* From the Wii port, which drives these from its own controller code.
+** No build here defines WII, and nothing else in the tree reads them. */
+#ifdef WII
 #define EC_HOT_QUIT                     160
 #define EC_HOT_TOGGLE_FDC_TIMING        161
 #define EC_HOT_TOGGLE_SPRITE_ENABLE     162
@@ -240,17 +246,24 @@ const char* inputEventCodeToString(int eventCode);
 #define EC_HOT_FULLSCREEN_TOGGLE        197
 
 #define EC_KEYCOUNT                     198
+#else
+#define EC_KEYCOUNT                     160
+#endif
 
 // Inlines
 extern int eventMap[256];
 
+/* The wheel codes sit outside the contiguous blocks, so they have to be
+** named here or a port's own events count as MSX keyboard events. */
 #define inputEventIsJoystick1(eventCode) \
         ((eventCode >= EC_JOY1_UP   && eventCode <= EC_JOY1_BUTTON6) || \
-         (eventCode >= EC_COLECO1_0 && eventCode <= EC_COLECO1_HASH))
+         (eventCode >= EC_COLECO1_0 && eventCode <= EC_COLECO1_HASH) || \
+         (eventCode) == EC_JOY1_WHEELA || (eventCode) == EC_JOY1_WHEELB)
 
 #define inputEventIsJoystick2(eventCode) \
         ((eventCode >= EC_JOY2_UP   && eventCode <= EC_JOY2_BUTTON6) || \
-         (eventCode >= EC_COLECO2_0 && eventCode <= EC_COLECO2_HASH))
+         (eventCode >= EC_COLECO2_0 && eventCode <= EC_COLECO2_HASH) || \
+         (eventCode) == EC_JOY2_WHEELA || (eventCode) == EC_JOY2_WHEELB)
 
 #define inputEventIsKeyboard(eventCode) \
         (!inputEventIsJoystick1(eventCode) && !inputEventIsJoystick2(eventCode))

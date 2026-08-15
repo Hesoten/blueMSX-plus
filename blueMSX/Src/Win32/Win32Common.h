@@ -81,4 +81,11 @@ void win32CommonApplyDark(HWND hDlg);
 ** monitor (DS_CENTER).  Call from WM_INITDIALOG. */
 void win32CommonCenterOnOwner(HWND hDlg);
 
+/* Paint a subtle clear-chip glyph (hollow circle + diagonal x) inside
+** `r`.  Radius = min(w,h) * radNumer / radDenom.  If fillBg, bgCol
+** fills the rect first; otherwise the caller must pre-paint it. */
+void win32PaintClearChip(HDC hdc, const RECT* r,
+                         int radNumer, int radDenom, int penW,
+                         int fillBg, COLORREF bgCol, COLORREF glyphCol);
+
 #endif

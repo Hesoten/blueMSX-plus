@@ -686,6 +686,11 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->shortcutConfigTitle     = "blueMSX+ - Editor do Mapa dos Atalhos";
     ls->shortcutAssign          = "Atribuir";
     ls->shortcutPressText       = "Apoiar sobre Tecla(s) :";
+    ls->shortcutHotkeyHint      = "(até 3 teclas)";
+    ls->keyboardMappedHint      = "(até 3 teclas)";
+    ls->shortcutTooltipAlsoBound = "Também atribuído a: ";
+    ls->keyboardKeyFormat       = "tecla %s";
+    ls->keyconfigResetTab       = "Repor as teclas deste separador";
     ls->shortcutScheme          = "Disposição:";
     ls->shortcutCartInsert1     = "Inserir Cartucho no Slot 1";
     ls->shortcutCartRemove1     = "Remover Cartucho no Slot 1";

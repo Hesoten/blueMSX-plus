@@ -480,7 +480,8 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->keyboard.enableKeyboardQuirk = 1;
 
     if (kbdLang == P_KBD_JAPANESE) {
-        strcpy(properties->keyboard.configFile, "blueMSX Japanese Default");
+        /* Matches JapaneseConfigName in Win32keyboard.c. */
+        strcpy(properties->keyboard.configFile, "blueMSX Japanese");
     }
 
     properties->nowind.enableDos2 = 0;

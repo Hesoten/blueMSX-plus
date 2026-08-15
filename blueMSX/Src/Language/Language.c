@@ -900,6 +900,11 @@ char* langShortcutNewProfile() { return ls->shortcutNewProfile; }
 char* langShortcutConfigTitle() { return ls->shortcutConfigTitle; }
 char* langShortcutAssign() { return ls->shortcutAssign; }
 char* langShortcutPressText() { return ls->shortcutPressText; }
+char* langShortcutHotkeyHint() { return ls->shortcutHotkeyHint; }
+char* langKeyboardMappedHint() { return ls->keyboardMappedHint; }
+char* langShortcutTooltipAlsoBound() { return ls->shortcutTooltipAlsoBound; }
+char* langKeyboardKeyFormat() { return ls->keyboardKeyFormat; }
+char* langKeyconfigResetTab() { return ls->keyconfigResetTab; }
 char* langShortcutScheme() { return ls->shortcutScheme; }
 char* langShortcutCartInsert1() { return ls->shortcutCartInsert1; }
 char* langShortcutCartRemove1() { return ls->shortcutCartRemove1; }

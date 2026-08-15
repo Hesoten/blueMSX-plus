@@ -104,6 +104,8 @@ typedef struct {
 
 #define WINDOW_DATA_NO 1024
 
+#define WINDOW_DATA_ID_THEME 1
+
 WindowData windowData[WINDOW_DATA_NO];
 
 
@@ -186,6 +188,25 @@ typedef struct WindowInfo {
 
     HWND     hwndSliderTip;   /* lazily created on first slider hover */
 } WindowInfo;
+
+/* A button entry stores its notify id in place of a pointer. */
+static WindowInfo* windowInfoGet(HWND hwnd)
+{
+    int i;
+    for (i = 0; windowData[i].hwnd != NULL; i++) {
+        if (windowData[i].hwnd == hwnd) {
+            return windowData[i].id == WINDOW_DATA_ID_THEME
+                       ? (WindowInfo*)windowData[i].data : NULL;
+        }
+    }
+    return NULL;
+}
+
+Theme* windowGetThemeFromHwnd(HWND hwnd)
+{
+    WindowInfo* wi = windowInfoGet(hwnd);
+    return wi ? wi->theme : NULL;
+}
 
 /* AdjustWindowRectExForDpi-based frame metrics; SM_CXFIXEDFRAME under-
    counts on Win10/11 PerMonitor DPI for WS_DLGFRAME, clipping the
@@ -474,7 +495,7 @@ static void mouseSensSyncVisibility(HWND parent)
     int p1 = joystickPortGetType(1);
     /* Only show on the joystick page whose port has MOUSE selected; hide on
     ** the keyboard tab entirely. Page names come from the theme XML. */
-    WindowInfo* wi = (WindowInfo*)windowDataGet(parent);
+    WindowInfo* wi = windowInfoGet(parent);
     ThemePage* page = (wi && wi->theme) ? themeGetCurrentPage(wi->theme) : NULL;
     const char* pageName = page ? page->name : "";
     int hasMouse = 0;
@@ -569,8 +590,6 @@ static void mouseSensCreateOverlay(HWND parent)
 
 static LRESULT CALLBACK keyboardDlgProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
-    WindowInfo* wi = windowDataGet(hwnd);
-
     switch (iMsg) {
     case WM_CREATE:
         keyboardStartConfig();
@@ -613,7 +632,7 @@ static LRESULT CALLBACK keyboardDlgProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
     case WM_TIMER:
         switch(wParam) {
         case TIMER_POLL_INPUT:
-            objectEnable(hwnd, WM_BUTTON_SAVE, !keyboardIsCurrentConfigDefault() && keyboardConfigIsModified());
+            objectEnable(hwnd, WM_BUTTON_SAVE, keyboardConfigIsModified());
             mouseSensSyncVisibility(hwnd);
             break;
         }
@@ -630,17 +649,19 @@ static LRESULT CALLBACK keyboardDlgProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
     case WM_DROPDOWN_KEYBOARDCONFIG:
         {
             char* name = (char*)lParam;
-            if (name != NULL) {
+            /* Reloading the profile already open would discard the edits. */
+            if (name != NULL && 0 != strcmp(name, keyboardGetCurrentConfig())) {
                 keyboardLoadConfig(name);
             }
         }
         break;
 
     case WM_BUTTON_OK:
-        if (keyboardConfigIsModified()) {
-            keyboardSaveConfig(keyboardGetCurrentConfig());
+        if (keyboardConfigIsModified() &&
+            !keyboardSaveConfig(keyboardGetCurrentConfig())) {
+            break;
         }
-        
+
         SendMessage(hwnd, WM_CLOSE, 0, 0);
         break;
 
@@ -675,7 +696,7 @@ static LRESULT CALLBACK keyboardDlgProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
         return WM_CLOSE_RESULT_OK;
     }
 
-    return DefWindowProc(hwnd, iMsg, wParam, lParam);
+    return DefWindowProcW(hwnd, iMsg, wParam, lParam);
 }
 
 
@@ -688,7 +709,7 @@ static LRESULT CALLBACK keyboardDlgProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
 //////////////////////////////////////////////////////////////////////////
 static LRESULT CALLBACK windowProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
-    WindowInfo* wi = windowDataGet(hwnd);
+    WindowInfo* wi = windowInfoGet(hwnd);
     LRESULT rv = 0;
 
     switch (iMsg) {
@@ -698,7 +719,7 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
             CREATESTRUCT* cs = (CREATESTRUCT*)lParam;
 
             wi = (WindowInfo*)cs->lpCreateParams;
-            windowDataSet(hwnd, 1, wi);
+            windowDataSet(hwnd, WINDOW_DATA_ID_THEME, wi);
 
             wi->hwnd = hwnd;
             themePage = themeGetCurrentPage(wi->theme);
@@ -914,12 +935,14 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
         return 0;
     }
 
-    wi = windowDataGet(hwnd);
+    wi = windowInfoGet(hwnd);
     if (wi && wi->theme->themeHandler == TH_KBDCONFIG) {
         rv = keyboardDlgProc(hwnd, iMsg, wParam, lParam);
     }
     else {
-        rv = iMsg == WM_CLOSE ? 0 : DefWindowProc(hwnd, iMsg, wParam, lParam);
+        /* The A variant would turn this W-registered window ANSI and
+        ** mangle its title. */
+        rv = iMsg == WM_CLOSE ? 0 : DefWindowProcW(hwnd, iMsg, wParam, lParam);
     }
 
     if (iMsg == WM_CLOSE) {
@@ -1134,9 +1157,58 @@ typedef struct {
     int height;
     int notifyId;
     Theme* theme;
-    char text[64];
+    char text[PROP_MAXPATH];
 } DropdownInfo;
 
+
+static const char themeCtrlFontProp[] = "bmsxThemeCtrlFont";
+
+/* Must match DEFAULT_FONT in blueMSX.rc; change both together. */
+#define THEME_CTRL_FONT_FACE  "Segoe UI"
+
+HFONT themeCtrlFontCreate(int cellHeight)
+{
+    LOGFONT lf;
+    memset(&lf, 0, sizeof(lf));
+    if (cellHeight < 8) cellHeight = 8;
+    lf.lfHeight  = cellHeight;  /* positive = cell height, not char height */
+    lf.lfWeight  = FW_NORMAL;
+    lf.lfCharSet = DEFAULT_CHARSET;
+    strcpy(lf.lfFaceName, THEME_CTRL_FONT_FACE);
+    return CreateFontIndirect(&lf);
+}
+
+/* The theme reference is an 11px cell in a 24px row. */
+static void themeCtrlFontApply(HWND dlg, HWND ctrl, int widgetHeight)
+{
+    HFONT font = themeCtrlFontCreate(widgetHeight * 11 / 24);
+    if (font == NULL) return;
+    SetPropA(dlg, themeCtrlFontProp, (HANDLE)font);
+    SendMessage(ctrl, WM_SETFONT, (WPARAM)font, FALSE);
+}
+
+/* Call from WM_NCDESTROY, not WM_DESTROY: the child control that holds
+** the font is destroyed after the parent's WM_DESTROY returns, so freeing
+** it earlier leaves a live control pointing at a recycled GDI handle. */
+static void themeCtrlFontRelease(HWND dlg)
+{
+    HFONT font = (HFONT)GetPropA(dlg, themeCtrlFontProp);
+    if (font != NULL) {
+        RemovePropA(dlg, themeCtrlFontProp);
+        DeleteObject(font);
+    }
+}
+
+static int comboGetSelText(HWND combo, char* dst, int dstCap)
+{
+    /* CB_GETLBTEXT takes no buffer length, so check the fit first. */
+    int idx = (int)SendMessage(combo, CB_GETCURSEL, 0, 0);
+    int len;
+    if (idx == CB_ERR) return 0;
+    len = (int)SendMessage(combo, CB_GETLBTEXTLEN, idx, 0);
+    if (len == CB_ERR || len >= dstCap) return 0;
+    return CB_ERR != SendMessage(combo, CB_GETLBTEXT, idx, (LPARAM)dst);
+}
 
 //////////////////////////////////////////////////////////////////////////
 /// Function:
@@ -1161,6 +1233,7 @@ static BOOL_DLG_RET CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, L
             HWND  combo = GetDlgItem(hwnd, IDC_CONTROL);
             int   natural;
             int   yOffset;
+            themeCtrlFontApply(hwnd, combo, oi->height);
             {
                 HFONT hFont   = (HFONT)SendMessage(combo, WM_GETFONT, 0, 0);
                 HDC   hdc     = GetDC(combo);
@@ -1182,15 +1255,11 @@ static BOOL_DLG_RET CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, L
         if (LOWORD(wParam) == IDC_CONTROL) {
             static int isChanging = 0;
             if (isChanging == 0 && HIWORD(wParam) == CBN_SELCHANGE) {
-                char sel[64];
-                int idx;
-                int rv;
+                char sel[256];
 
                 isChanging = 1;
 
-                idx = (int)SendMessage(GetDlgItem(hwnd, IDC_CONTROL), CB_GETCURSEL, 0, 0);
-                rv = (int)SendMessage(GetDlgItem(hwnd, IDC_CONTROL), CB_GETLBTEXT, idx, (LPARAM)sel);
-                if (rv != CB_ERR) {
+                if (comboGetSelText(GetDlgItem(hwnd, IDC_CONTROL), sel, sizeof(sel))) {
                     oi = (DropdownInfo*)windowDataGet(hwnd);
                     SendMessage(GetParent(hwnd), (UINT)oi->notifyId, 0, (LPARAM)sel);
                 }
@@ -1204,12 +1273,14 @@ static BOOL_DLG_RET CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, L
         free(oi);
         break;
 
+    case WM_NCDESTROY:
+        themeCtrlFontRelease(hwnd);
+        break;
+
     case WM_OBJECT_GET:
         {
             static char buffer[512];
-            int idx = (int)SendDlgItemMessage(hwnd, IDC_CONTROL, CB_GETCURSEL, 0, 0);
-            int rv = (int)SendDlgItemMessage(hwnd, IDC_CONTROL, CB_GETLBTEXT, idx, (LPARAM)buffer);
-            if (rv != CB_ERR) {
+            if (comboGetSelText(GetDlgItem(hwnd, IDC_CONTROL), buffer, sizeof(buffer))) {
                 SetWindowLongPtr(hwnd, DWLP_MSGRESULT, (LRESULT)(LPVOID)buffer);
                 return TRUE;
             }
@@ -1222,11 +1293,16 @@ static BOOL_DLG_RET CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, L
 
         oi = (DropdownInfo*)windowDataGet(hwnd);
         if (lParam != 0) {
-            strcpy(oi->text, (char*)lParam);
+            strncpy(oi->text, (char*)lParam, sizeof(oi->text) - 1);
+            oi->text[sizeof(oi->text) - 1] = 0;
         }
         {
-            char** items = { NULL };
+            /* MACHINECONFIG fills the combo itself, so the loop below needs
+            ** an empty list. */
+            static char* noItems[] = { NULL };
+            char** items = noItems;
             int index = 0;
+            int matched = 0;
 
             switch (oi->notifyId) {
             case WM_DROPDOWN_MACHINECONFIG:
@@ -1260,13 +1336,23 @@ static BOOL_DLG_RET CALLBACK dropdownProc(HWND hwnd, UINT iMsg, WPARAM wParam, L
             }
 
             while (*items != NULL) {
+                int isMatch = (0 == strcmp(*items, oi->text));
                 ComboAddStringU(GetDlgItem(hwnd, IDC_CONTROL), *items);
 
-                if (index == 0 || 0 == strcmp(*items, oi->text)) {
+                if (index == 0 || isMatch) {
                     SendDlgItemMessage(hwnd, IDC_CONTROL, CB_SETCURSEL, index, 0);
+                }
+                if (isMatch) {
+                    matched = 1;
                 }
                 items++;
                 index++;
+            }
+            /* Falling back to item 0 would silently retarget Save to
+            ** another profile. */
+            if (!matched && oi->notifyId == WM_DROPDOWN_KEYBOARDCONFIG && oi->text[0]) {
+                ComboAddStringU(GetDlgItem(hwnd, IDC_CONTROL), oi->text);
+                SendDlgItemMessage(hwnd, IDC_CONTROL, CB_SETCURSEL, index, 0);
             }
         }
         break;
@@ -1371,6 +1457,7 @@ static BOOL_DLG_RET CALLBACK buttonProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
         oi = (ButtonInfo*)lParam;
         SetWindowPos(hwnd, NULL, oi->x, oi->y, oi->width, oi->height, SWP_NOZORDER | SWP_SHOWWINDOW);
         SetWindowPos(GetDlgItem(hwnd, IDC_CONTROL), NULL, 0, 0, oi->width, oi->height, SWP_NOZORDER);
+        themeCtrlFontApply(hwnd, GetDlgItem(hwnd, IDC_CONTROL), oi->height);
         SetWindowTextU(GetDlgItem(hwnd, IDC_CONTROL), oi->text);
         /* Stash notifyId in the void* slot.  Cast through UINT_PTR so x64
         ** does not warn about int<->pointer size mismatch (the message id
@@ -1384,6 +1471,9 @@ static BOOL_DLG_RET CALLBACK buttonProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
         return TRUE;
     case WM_CLOSE:
         windowDataSet(hwnd, 0, NULL);
+        break;
+    case WM_NCDESTROY:
+        themeCtrlFontRelease(hwnd);
         break;
     case WM_OBJECT_SHOW:
         ShowWindow(hwnd, (int)lParam);

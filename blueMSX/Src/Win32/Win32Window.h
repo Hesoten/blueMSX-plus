@@ -36,7 +36,12 @@
 
 void* archWindowCreate(Theme* theme, int childWindow);
 
-void* archObjectCreate(char* id, void* window, int x, int y, 
+Theme* windowGetThemeFromHwnd(HWND hwnd);
+
+void* archObjectCreate(char* id, void* window, int x, int y,
                        int width, int height, LONG_PTR arg1, LONG_PTR arg2);
 void archObjectDestroy(char* id, void* object);
+
+/* Caller owns the returned HFONT. */
+HFONT themeCtrlFontCreate(int cellHeight);
 #endif

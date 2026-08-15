@@ -182,6 +182,7 @@ static void initKeyNameTable()
     eventNames[EC_COLECO2_STAR] = "coleco2-star";
     eventNames[EC_COLECO2_HASH] = "coleco2-hashmark";
 
+#ifdef WII
     eventNames[EC_HOT_QUIT]                     = "hotkey_quit";
     eventNames[EC_HOT_TOGGLE_FDC_TIMING]        = "hotkey_fdc_timing";
     eventNames[EC_HOT_TOGGLE_SPRITE_ENABLE]     = "hotkey_sprite_enable";
@@ -220,6 +221,7 @@ static void initKeyNameTable()
     eventNames[EC_HOT_WINDOW_SIZE_NORMAL]       = "hotkey_window_size_normal";
     eventNames[EC_HOT_WINDOW_SIZE_FULLSCREEN]   = "hotkey_window_size_fullscreen";
     eventNames[EC_HOT_FULLSCREEN_TOGGLE]        = "hotkey_fullscreen_toggle";
+#endif
 }
 
 int inputEventStringToCode(const char* eventName)

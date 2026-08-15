@@ -685,6 +685,11 @@ void langInitFrench(LanguageStrings* ls)
     ls->shortcutConfigTitle     = "blueMSX+ - Editeur de la carte des raccourcis";
     ls->shortcutAssign          = "Assigner";
     ls->shortcutPressText       = "Appuyer sur les touches:";
+    ls->shortcutHotkeyHint      = "(jusqu'à 3 touches)";
+    ls->keyboardMappedHint      = "(jusqu'à 3 touches)";
+    ls->shortcutTooltipAlsoBound = "Également assigné à : ";
+    ls->keyboardKeyFormat       = "touche %s";
+    ls->keyconfigResetTab       = "Réinitialiser les touches de cet onglet";
     ls->shortcutScheme          = "Agencement:";
     ls->shortcutCartInsert1     = "Insérer une cartouche dans le port 1";
     ls->shortcutCartRemove1     = "Ejecter la cartouche du port 1";

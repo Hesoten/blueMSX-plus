@@ -132,6 +132,17 @@ void themeCollectionDestroy(ThemeCollection* tc);
 void themeCollectionUnload(ThemeCollection* tc);
 void themeCollectionAddWindow(ThemeCollection* tc, Theme* theme);
 void themeCollectionOpenWindow(ThemeCollection* themeCollection, unsigned long hash);
+/* The void* is the platform window handle (HWND on Win32). */
+void* themeCollectionGetWindowHandle(ThemeCollection* tc, unsigned long hash);
+
+/* Trigger is matched with the modifier bits masked out; hidden items
+** are skipped. */
+int themePageGetItemRectByTrigger(ThemePage* page, int trigger,
+                                  int* x, int* y, int* w, int* h);
+
+/* Only visible key items are hit; 0 means no key at that point. */
+int themePageHitTestKeyCode(ThemePage* page, int px, int py,
+                            int* x, int* y, int* w, int* h);
 
 Theme*     themeCreate(const char* name);
 void       themeDestroy(Theme* theme);

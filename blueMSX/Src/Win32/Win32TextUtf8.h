@@ -437,6 +437,13 @@ static __inline DWORD GetFileAttributesU(const char* path)
     return GetFileAttributesW(wPath);
 }
 
+static __inline BOOL SetFileAttributesU(const char* path, DWORD attributes)
+{
+    wchar_t wPath[1024];
+    PathToWide(path, wPath, _countof(wPath));
+    return SetFileAttributesW(wPath, attributes);
+}
+
 static __inline BOOL DeleteFileU(const char* path)
 {
     wchar_t wPath[1024];
