@@ -1198,7 +1198,10 @@ int boardRewind()
         SaveState* bs = saveStateOpenForRead("board");
         UInt64 stashedTime = (UInt64)saveStateGet(bs, "boardSysTime64Hi", 0) << 32
                            | (UInt64)saveStateGet(bs, "boardSysTime64Lo", 0);
+        UInt32 snapInt = saveStateGet(bs, "pendingInt", 0);
         saveStateClose(bs);
+        /* boardLoadState is not called here, so this field is taken by hand. */
+        pendingInt = (int)snapInt;
         boardInfo.loadState();
         if (stashedTime != 0) boardSysTime64 = stashedTime;
     }
