@@ -1119,6 +1119,8 @@ static void onBreakpointSync(void* ref, UInt32 time) {
     doSync(time, 1);
 }
 
+static int boardRewindLoad(int drop);
+
 /* Discard the newest snapshot without restoring it. */
 static int boardRewindDrop()
 {
@@ -1157,7 +1159,10 @@ int boardRewindOne() {
     while (skip-- > 0) {
         boardRewindDrop();
     }
-    if (!boardRewind()) {
+    /* Kept, not consumed: the next step back targets one instruction earlier
+    ** and can land on the same one. Dropping it moved the restore point 50ms
+    ** further back on every press and drained the ring. */
+    if (!boardRewindLoad(0)) {
         return 0;
     }
     /* Holds whenever the target predates the whole ring. boardTimerAdd drops a
@@ -1173,10 +1178,15 @@ int boardRewindOne() {
 
 int boardRewind()
 {
+    return boardRewindLoad(1);
+}
+
+static int boardRewindLoad(int drop)
+{
     char stateFile[16];
 
     sprintf(stateFile, "mem%d", ramStateCur);
-    if (!boardRewindDrop()) {
+    if (drop ? !boardRewindDrop() : ramStateCount < 1) {
         return 0;
     }
 
@@ -1198,7 +1208,10 @@ int boardRewind()
         SaveState* bs = saveStateOpenForRead("board");
         UInt64 stashedTime = (UInt64)saveStateGet(bs, "boardSysTime64Hi", 0) << 32
                            | (UInt64)saveStateGet(bs, "boardSysTime64Lo", 0);
+        UInt32 snapInt = saveStateGet(bs, "pendingInt", 0);
         saveStateClose(bs);
+        /* boardLoadState is not called here, so this field is taken by hand. */
+        pendingInt = (int)snapInt;
         boardInfo.loadState();
         if (stashedTime != 0) boardSysTime64 = stashedTime;
     }
