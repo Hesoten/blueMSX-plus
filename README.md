@@ -6,6 +6,12 @@ Modernization focuses on the UI and audio paths, targeting Windows 11.
 [日本語版はこちら / Japanese version](README.ja.md)
 
 
+## What's new in v3.1.1
+
+- Fixed the emulator terminating abnormally when the window was minimized while the sync mode was **Sync to PC Vertical Blank** (the default since v3.1.0)
+- Fixed the debugger's step back becoming progressively slower
+
+
 ## What's new in v3.1.0
 
 - The bundled C-BIOS machines gained FDD and turbo R support ([v0.29+](https://github.com/Hesoten/cbios-nextor_FDD-and-turboR))
@@ -146,6 +152,7 @@ When multiple backends are enabled, **emulation runs in all enabled backends sim
 
 - More debugging features (VRAM and sprite viewers, a tracer, and so on)
 - Better directory mounting (writing back, large disk support)
+- Improved network support
 - A data recorder UI
 - A reverse play UI (OSD?)
 - More accurate VDP rendering timing
