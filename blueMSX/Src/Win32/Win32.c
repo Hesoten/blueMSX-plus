@@ -3264,6 +3264,11 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             char* fileName = (char*)lParam;
             int i;
 
+            /* Only WM_COPYDATA posts this, with a name it allocated. */
+            if (fileName == NULL) {
+                return 0;
+            }
+
             emulatorStop();
 
             for (i = 0; i < PROP_MAX_CARTS; i++) {
