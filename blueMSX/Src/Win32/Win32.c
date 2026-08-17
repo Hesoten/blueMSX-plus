@@ -6845,6 +6845,10 @@ int archWaitForAckOrSuspend(void* ackEvent, int timeoutMs) {
 
 int archUpdateEmuDisplay(int syncMode) {
     st.diplayUpdateOnVblank = syncMode == 4;
+    if (st.minimized) {
+        /* No present to pace the emu thread; let WaitForSync use the timer. */
+        return 0;
+    }
     if (pProperties->video.driver == P_VIDEO_DRVGDI) {
         if (syncMode == 0) {
             PostMessage(getMainHwnd(), WM_UPDATE, 0, 0);

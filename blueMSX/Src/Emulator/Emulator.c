@@ -184,7 +184,7 @@ static void emuCalcCpuUsage() {
 
     emuTimeOverflow = emuTimeAverage > 940;
 
-    if ((cnt++ & 0x1f) == 0) {
+    if ((cnt++ & 0x1f) == 0 && newSysTime != oldSysTime) {
         UInt32 usageAverage = emuUsageCurrent * 100 / (newSysTime - oldSysTime) * emuFrequency / 3579545;
         if (usageAverage > 98 && usageAverage < 102) {
             usageAverage = 100;
