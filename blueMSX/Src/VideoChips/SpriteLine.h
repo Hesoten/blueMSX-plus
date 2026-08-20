@@ -77,6 +77,8 @@ UInt8* spritesLine(VDP* vdp, int line) {
     int visibleCnt;
     int collision;
     int dispLine;
+    int solidColor;
+    int color0Collides;
 
     idx = line;
 
@@ -99,6 +101,9 @@ UInt8* spritesLine(VDP* vdp, int line) {
     attrib = &vdp->vram[vdp->sprTabBase & (-1 << 7)];
     size   = vdpIsSprites16x16(vdp->vdpRegs) ? 16 : 8;
     scale  = vdpIsSpritesBig(vdp->vdpRegs) ? 2 : 1;
+    solidColor = vdpIsColor0Solid(vdp->vdpRegs) ? 1 : 0;
+    /* A transparent color 0 sprite still collides on the TMS99x8 family, but not on the V99x8. */
+    color0Collides = vdpIsMsx1Vdp(vdp);
     dispLine = line;
     line   = (line + vdpVScroll(vdp)) & 0xff;
     
@@ -169,6 +174,7 @@ UInt8* spritesLine(VDP* vdp, int line) {
     
     while (visibleCnt--) {
         UInt8  color;
+        UInt8  rawColor;
         UInt8* patternPtr;
         UInt8  pattern;
         UInt8* linePtr;
@@ -182,10 +188,16 @@ UInt8* spritesLine(VDP* vdp, int line) {
         colPtr     = collisionBuf + colOffset;
         colChck    = colChckBuf   + colOffset;
         linePtr    = lineBuf      + colOffset;
-        color      = attrib[3] & 0x0f;
+        rawColor   = attrib[3] & 0x0f;
+        /* Bit 0 marks the dot as painted so color 0 stays distinct from an empty line buffer. */
+        color      = (rawColor << 1) | solidColor;
         patternPtr = &vdp->vram[(vdp->sprGenBase & (-1 << 11)) + ((int)(attrib[2] & patternMask) << 3) + spriteLine[visibleCnt]];
 
-        if (!vdpIsColor0Solid(vdp->vdpRegs) && color == 0) {
+        if (!solidColor && rawColor == 0) {
+            if (!color0Collides) {
+                continue;
+            }
+
             if (scale == 1) {
                 pattern = patternPtr[0]; 
                 if (pattern) {
@@ -203,8 +215,8 @@ UInt8* spritesLine(VDP* vdp, int line) {
                     pattern = patternPtr[16];
 
                     if (pattern) {
-                        if (pattern & 0x80) { collision |= colPtr[8];  colPtr[8]  = colChck[8]; }
-                        if (pattern & 0x40) { collision |= colPtr[9];  colPtr[9]  = colChck[9]; }
+                        if (pattern & 0x80) { collision |= colPtr[8];  colPtr[8] += colChck[8]; }
+                        if (pattern & 0x40) { collision |= colPtr[9];  colPtr[9] += colChck[9]; }
                         if (pattern & 0x20) { collision |= colPtr[10]; colPtr[10] += colChck[10]; }
                         if (pattern & 0x10) { collision |= colPtr[11]; colPtr[11] += colChck[11]; }
                         if (pattern & 0x08) { collision |= colPtr[12]; colPtr[12] += colChck[12]; }
@@ -217,11 +229,11 @@ UInt8* spritesLine(VDP* vdp, int line) {
             else {
                 pattern = patternPtr[0];
                 if (pattern) {
-                    if (pattern & 0x80) { collision |= colPtr[0];  colPtr[0]  = colChck[0];  collision |= colPtr[1];  colPtr[1]  = colChck[1]; }
-                    if (pattern & 0x40) { collision |= colPtr[2];  colPtr[2]  = colChck[2];  collision |= colPtr[3];  colPtr[3]  = colChck[3]; }
-                    if (pattern & 0x20) { collision |= colPtr[4];  colPtr[4]  = colChck[4];  collision |= colPtr[5];  colPtr[5]  = colChck[5]; }
-                    if (pattern & 0x10) { collision |= colPtr[6];  colPtr[6]  = colChck[6];  collision |= colPtr[7];  colPtr[7]  = colChck[7]; }
-                    if (pattern & 0x08) { collision |= colPtr[8];  colPtr[8]  = colChck[8];  collision |= colPtr[9];  colPtr[9]  = colChck[9]; }
+                    if (pattern & 0x80) { collision |= colPtr[0];  colPtr[0] += colChck[0];  collision |= colPtr[1];  colPtr[1] += colChck[1]; }
+                    if (pattern & 0x40) { collision |= colPtr[2];  colPtr[2] += colChck[2];  collision |= colPtr[3];  colPtr[3] += colChck[3]; }
+                    if (pattern & 0x20) { collision |= colPtr[4];  colPtr[4] += colChck[4];  collision |= colPtr[5];  colPtr[5] += colChck[5]; }
+                    if (pattern & 0x10) { collision |= colPtr[6];  colPtr[6] += colChck[6];  collision |= colPtr[7];  colPtr[7] += colChck[7]; }
+                    if (pattern & 0x08) { collision |= colPtr[8];  colPtr[8] += colChck[8];  collision |= colPtr[9];  colPtr[9] += colChck[9]; }
                     if (pattern & 0x04) { collision |= colPtr[10]; colPtr[10] += colChck[10]; collision |= colPtr[11]; colPtr[11] += colChck[11]; }
                     if (pattern & 0x02) { collision |= colPtr[12]; colPtr[12] += colChck[12]; collision |= colPtr[13]; colPtr[13] += colChck[13]; }
                     if (pattern & 0x01) { collision |= colPtr[14]; colPtr[14] += colChck[14]; collision |= colPtr[15]; colPtr[15] += colChck[15]; }
@@ -260,8 +272,8 @@ UInt8* spritesLine(VDP* vdp, int line) {
                     pattern = patternPtr[16];
 
                     if (pattern) {
-                        if (pattern & 0x80) { linePtr[8]  = color; collision |= colPtr[8];  colPtr[8]  = colChck[8]; }
-                        if (pattern & 0x40) { linePtr[9]  = color; collision |= colPtr[9];  colPtr[9]  = colChck[9]; }
+                        if (pattern & 0x80) { linePtr[8]  = color; collision |= colPtr[8];  colPtr[8] += colChck[8]; }
+                        if (pattern & 0x40) { linePtr[9]  = color; collision |= colPtr[9];  colPtr[9] += colChck[9]; }
                         if (pattern & 0x20) { linePtr[10] = color; collision |= colPtr[10]; colPtr[10] += colChck[10]; }
                         if (pattern & 0x10) { linePtr[11] = color; collision |= colPtr[11]; colPtr[11] += colChck[11]; }
                         if (pattern & 0x08) { linePtr[12] = color; collision |= colPtr[12]; colPtr[12] += colChck[12]; }
@@ -274,11 +286,11 @@ UInt8* spritesLine(VDP* vdp, int line) {
             else {
                 pattern = patternPtr[0];
                 if (pattern) {
-                    if (pattern & 0x80) { linePtr[0]  = linePtr[1]  = color; collision |= colPtr[0];  colPtr[0]  = colChck[0];  collision |= colPtr[1];  colPtr[1]  = colChck[1]; }
-                    if (pattern & 0x40) { linePtr[2]  = linePtr[3]  = color; collision |= colPtr[2];  colPtr[2]  = colChck[2];  collision |= colPtr[3];  colPtr[3]  = colChck[3]; }
-                    if (pattern & 0x20) { linePtr[4]  = linePtr[5]  = color; collision |= colPtr[4];  colPtr[4]  = colChck[4];  collision |= colPtr[5];  colPtr[5]  = colChck[5]; }
-                    if (pattern & 0x10) { linePtr[6]  = linePtr[7]  = color; collision |= colPtr[6];  colPtr[6]  = colChck[6];  collision |= colPtr[7];  colPtr[7]  = colChck[7]; }
-                    if (pattern & 0x08) { linePtr[8]  = linePtr[9]  = color; collision |= colPtr[8];  colPtr[8]  = colChck[8];  collision |= colPtr[9];  colPtr[9]  = colChck[9]; }
+                    if (pattern & 0x80) { linePtr[0]  = linePtr[1]  = color; collision |= colPtr[0];  colPtr[0] += colChck[0];  collision |= colPtr[1];  colPtr[1] += colChck[1]; }
+                    if (pattern & 0x40) { linePtr[2]  = linePtr[3]  = color; collision |= colPtr[2];  colPtr[2] += colChck[2];  collision |= colPtr[3];  colPtr[3] += colChck[3]; }
+                    if (pattern & 0x20) { linePtr[4]  = linePtr[5]  = color; collision |= colPtr[4];  colPtr[4] += colChck[4];  collision |= colPtr[5];  colPtr[5] += colChck[5]; }
+                    if (pattern & 0x10) { linePtr[6]  = linePtr[7]  = color; collision |= colPtr[6];  colPtr[6] += colChck[6];  collision |= colPtr[7];  colPtr[7] += colChck[7]; }
+                    if (pattern & 0x08) { linePtr[8]  = linePtr[9]  = color; collision |= colPtr[8];  colPtr[8] += colChck[8];  collision |= colPtr[9];  colPtr[9] += colChck[9]; }
                     if (pattern & 0x04) { linePtr[10] = linePtr[11] = color; collision |= colPtr[10]; colPtr[10] += colChck[10]; collision |= colPtr[11]; colPtr[11] += colChck[11]; }
                     if (pattern & 0x02) { linePtr[12] = linePtr[13] = color; collision |= colPtr[12]; colPtr[12] += colChck[12]; collision |= colPtr[13]; colPtr[13] += colChck[13]; }
                     if (pattern & 0x01) { linePtr[14] = linePtr[15] = color; collision |= colPtr[14]; colPtr[14] += colChck[14]; collision |= colPtr[15]; colPtr[15] += colChck[15]; }
@@ -343,8 +355,7 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
     int   collision;
     int   idx;
     int   dispLine;
-    static UInt8 ccColorMask;
-    static UInt8 ccColorCheckMask;
+    int   first;
 
     idx = line;
 
@@ -356,11 +367,6 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
 
     if (line == 0xffffffff) {
         nonVisibleLine = -1000;
-        // This is an not 100% correct optimization. CC sprites should be shown only when
-        // they collide with a non CC sprite. However very few games/demos uses this and
-        // it is safe to disable the CC sprites if no non CC sprites are visible.
-        ccColorMask = ccColorCheckMask;
-        ccColorCheckMask = 0xf0;
     }
 
     if (idx == 0 || nonVisibleLine == line) {
@@ -412,17 +418,6 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
         offset = (vdp->sprGenBase & 0x1f800) + ((int)(*MAP_VRAM(vdp, attribOffset + 2) & patternMask) << 3) + spriteLine;
         color  = *MAP_VRAM(vdp, vdp->sprTabBase & ((-1 << 10) | (sprite * 16 + spriteLine)));
 
-        if (color & 0x40) {
-            if (visibleCnt == 0) {
-                continue;
-            }
-
-            color &= ccColorMask;
-        }
-        else if ((color & 0x0f) || solidColor) {
-            ccColorCheckMask = 0xff;
-        }
-
         attribTable[visibleCnt].color         = color;
         attribTable[visibleCnt].horizontalPos = (int)*MAP_VRAM(vdp, attribOffset + 1) + 24 - ((attribTable[visibleCnt].color >> 2) & 0x20);
         attribTable[visibleCnt].pattern       = *MAP_VRAM(vdp, offset);
@@ -446,8 +441,11 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
     memset(lineBuf, 0, 384);
     memset(collisionBuf, 0, 384);
 
+    /* A CC sprite is shown only from the first CC=0 sprite of the line onwards. */
+    for (first = 0; first < visibleCnt && (attribTable[first].color & 0x40); first++);
+
     /* Draw the visible sprites */
-    for (idx = visibleCnt - 1; idx >= 0; idx--) {
+    for (idx = visibleCnt - 1; idx >= first; idx--) {
         SpriteAttribute* attrib = &attribTable[idx];
         UInt8* linePtr;
         UInt8* colPtr;
@@ -458,7 +456,10 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
         int idx2;
 
         if (scr6) {
-            color = ((attrib->color & 0x0c) << 2) | ((attrib->color & 0x03) << 1) | (solidColor * 9);
+            /* Tiled dot pair: bits 3-2 even, bits 1-0 odd, bits 3 and 0 mark both halves painted. */
+            color = (attrib->color & 0x0f) || solidColor
+                  ? ((attrib->color & 0x0c) << 2) | ((attrib->color & 0x03) << 1) | 0x09
+                  : 0;
         }
         else {
             color = ((attrib->color & 0x0f) << 1) | solidColor;
@@ -538,7 +539,9 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
             }
                 
             if (scr6) {
-                color = ((attrib->color & 0x0c) << 2) | ((attrib->color & 0x03) << 1) | (solidColor * 9);
+                color = (attrib->color & 0x0f) || solidColor
+                      ? ((attrib->color & 0x0c) << 2) | ((attrib->color & 0x03) << 1) | 0x09
+                      : 0;
             }
             else {
                 color = ((attrib->color & 0x0f) << 1) | solidColor;

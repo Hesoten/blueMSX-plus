@@ -148,6 +148,7 @@ static int vramAddr;
 #define vdpIsSprites16x16(regs)      (regs[1]  & 0x02)
 #define vdpIsSpritesOff(regs)        (regs[8]  & 0x02)
 #define vdpIsColor0Solid(regs)       (regs[8]  & 0x20)
+#define vdpIsMsx1Vdp(vdp)            ((vdp)->vdpVersion == VDP_TMS9918A || (vdp)->vdpVersion == VDP_TMS99x8A || (vdp)->vdpVersion == VDP_TMS9929A)
 #define vdpIsVideoPal(vdp)          (((vdp)->vdpRegs[9]  & (vdp)->palMask & 0x02) | (vdp)->palValue)
 #define vdpIsOddPage(vdp)           (((~(vdp)->vdpStatus[2] & 0x02) << 7) & (((vdp)->vdpRegs[9]  & 0x04) << 6))
 // V9938 blink page alternation: while the blink OFF phase is active the odd
