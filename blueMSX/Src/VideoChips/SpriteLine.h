@@ -539,7 +539,9 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
             }
                 
             if (scr6) {
-                color = ((attrib->color & 0x0c) << 2) | ((attrib->color & 0x03) << 1) | (solidColor * 9);
+                color = (attrib->color & 0x0f) || solidColor
+                      ? ((attrib->color & 0x0c) << 2) | ((attrib->color & 0x03) << 1) | 0x09
+                      : 0;
             }
             else {
                 color = ((attrib->color & 0x0f) << 1) | solidColor;
