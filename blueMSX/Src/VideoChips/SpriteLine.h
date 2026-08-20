@@ -77,6 +77,7 @@ UInt8* spritesLine(VDP* vdp, int line) {
     int visibleCnt;
     int collision;
     int dispLine;
+    int solidColor;
 
     idx = line;
 
@@ -99,6 +100,7 @@ UInt8* spritesLine(VDP* vdp, int line) {
     attrib = &vdp->vram[vdp->sprTabBase & (-1 << 7)];
     size   = vdpIsSprites16x16(vdp->vdpRegs) ? 16 : 8;
     scale  = vdpIsSpritesBig(vdp->vdpRegs) ? 2 : 1;
+    solidColor = vdpIsColor0Solid(vdp->vdpRegs) ? 1 : 0;
     dispLine = line;
     line   = (line + vdpVScroll(vdp)) & 0xff;
     
@@ -169,6 +171,7 @@ UInt8* spritesLine(VDP* vdp, int line) {
     
     while (visibleCnt--) {
         UInt8  color;
+        UInt8  rawColor;
         UInt8* patternPtr;
         UInt8  pattern;
         UInt8* linePtr;
@@ -182,10 +185,12 @@ UInt8* spritesLine(VDP* vdp, int line) {
         colPtr     = collisionBuf + colOffset;
         colChck    = colChckBuf   + colOffset;
         linePtr    = lineBuf      + colOffset;
-        color      = attrib[3] & 0x0f;
+        rawColor   = attrib[3] & 0x0f;
+        /* Bit 0 marks the dot as painted so color 0 stays distinct from an empty line buffer. */
+        color      = (rawColor << 1) | solidColor;
         patternPtr = &vdp->vram[(vdp->sprGenBase & (-1 << 11)) + ((int)(attrib[2] & patternMask) << 3) + spriteLine[visibleCnt]];
 
-        if (!vdpIsColor0Solid(vdp->vdpRegs) && color == 0) {
+        if (!solidColor && rawColor == 0) {
             if (scale == 1) {
                 pattern = patternPtr[0]; 
                 if (pattern) {
