@@ -355,8 +355,7 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
     int   collision;
     int   idx;
     int   dispLine;
-    static UInt8 ccColorMask;
-    static UInt8 ccColorCheckMask;
+    int   first;
 
     idx = line;
 
@@ -368,11 +367,6 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
 
     if (line == 0xffffffff) {
         nonVisibleLine = -1000;
-        // This is an not 100% correct optimization. CC sprites should be shown only when
-        // they collide with a non CC sprite. However very few games/demos uses this and
-        // it is safe to disable the CC sprites if no non CC sprites are visible.
-        ccColorMask = ccColorCheckMask;
-        ccColorCheckMask = 0xf0;
     }
 
     if (idx == 0 || nonVisibleLine == line) {
@@ -424,17 +418,6 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
         offset = (vdp->sprGenBase & 0x1f800) + ((int)(*MAP_VRAM(vdp, attribOffset + 2) & patternMask) << 3) + spriteLine;
         color  = *MAP_VRAM(vdp, vdp->sprTabBase & ((-1 << 10) | (sprite * 16 + spriteLine)));
 
-        if (color & 0x40) {
-            if (visibleCnt == 0) {
-                continue;
-            }
-
-            color &= ccColorMask;
-        }
-        else if ((color & 0x0f) || solidColor) {
-            ccColorCheckMask = 0xff;
-        }
-
         attribTable[visibleCnt].color         = color;
         attribTable[visibleCnt].horizontalPos = (int)*MAP_VRAM(vdp, attribOffset + 1) + 24 - ((attribTable[visibleCnt].color >> 2) & 0x20);
         attribTable[visibleCnt].pattern       = *MAP_VRAM(vdp, offset);
@@ -458,8 +441,11 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
     memset(lineBuf, 0, 384);
     memset(collisionBuf, 0, 384);
 
+    /* A CC sprite is shown only from the first CC=0 sprite of the line onwards. */
+    for (first = 0; first < visibleCnt && (attribTable[first].color & 0x40); first++);
+
     /* Draw the visible sprites */
-    for (idx = visibleCnt - 1; idx >= 0; idx--) {
+    for (idx = visibleCnt - 1; idx >= first; idx--) {
         SpriteAttribute* attrib = &attribTable[idx];
         UInt8* linePtr;
         UInt8* colPtr;
