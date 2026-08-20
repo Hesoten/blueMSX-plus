@@ -203,8 +203,8 @@ UInt8* spritesLine(VDP* vdp, int line) {
                     pattern = patternPtr[16];
 
                     if (pattern) {
-                        if (pattern & 0x80) { collision |= colPtr[8];  colPtr[8]  = colChck[8]; }
-                        if (pattern & 0x40) { collision |= colPtr[9];  colPtr[9]  = colChck[9]; }
+                        if (pattern & 0x80) { collision |= colPtr[8];  colPtr[8] += colChck[8]; }
+                        if (pattern & 0x40) { collision |= colPtr[9];  colPtr[9] += colChck[9]; }
                         if (pattern & 0x20) { collision |= colPtr[10]; colPtr[10] += colChck[10]; }
                         if (pattern & 0x10) { collision |= colPtr[11]; colPtr[11] += colChck[11]; }
                         if (pattern & 0x08) { collision |= colPtr[12]; colPtr[12] += colChck[12]; }
@@ -217,11 +217,11 @@ UInt8* spritesLine(VDP* vdp, int line) {
             else {
                 pattern = patternPtr[0];
                 if (pattern) {
-                    if (pattern & 0x80) { collision |= colPtr[0];  colPtr[0]  = colChck[0];  collision |= colPtr[1];  colPtr[1]  = colChck[1]; }
-                    if (pattern & 0x40) { collision |= colPtr[2];  colPtr[2]  = colChck[2];  collision |= colPtr[3];  colPtr[3]  = colChck[3]; }
-                    if (pattern & 0x20) { collision |= colPtr[4];  colPtr[4]  = colChck[4];  collision |= colPtr[5];  colPtr[5]  = colChck[5]; }
-                    if (pattern & 0x10) { collision |= colPtr[6];  colPtr[6]  = colChck[6];  collision |= colPtr[7];  colPtr[7]  = colChck[7]; }
-                    if (pattern & 0x08) { collision |= colPtr[8];  colPtr[8]  = colChck[8];  collision |= colPtr[9];  colPtr[9]  = colChck[9]; }
+                    if (pattern & 0x80) { collision |= colPtr[0];  colPtr[0] += colChck[0];  collision |= colPtr[1];  colPtr[1] += colChck[1]; }
+                    if (pattern & 0x40) { collision |= colPtr[2];  colPtr[2] += colChck[2];  collision |= colPtr[3];  colPtr[3] += colChck[3]; }
+                    if (pattern & 0x20) { collision |= colPtr[4];  colPtr[4] += colChck[4];  collision |= colPtr[5];  colPtr[5] += colChck[5]; }
+                    if (pattern & 0x10) { collision |= colPtr[6];  colPtr[6] += colChck[6];  collision |= colPtr[7];  colPtr[7] += colChck[7]; }
+                    if (pattern & 0x08) { collision |= colPtr[8];  colPtr[8] += colChck[8];  collision |= colPtr[9];  colPtr[9] += colChck[9]; }
                     if (pattern & 0x04) { collision |= colPtr[10]; colPtr[10] += colChck[10]; collision |= colPtr[11]; colPtr[11] += colChck[11]; }
                     if (pattern & 0x02) { collision |= colPtr[12]; colPtr[12] += colChck[12]; collision |= colPtr[13]; colPtr[13] += colChck[13]; }
                     if (pattern & 0x01) { collision |= colPtr[14]; colPtr[14] += colChck[14]; collision |= colPtr[15]; colPtr[15] += colChck[15]; }
@@ -260,8 +260,8 @@ UInt8* spritesLine(VDP* vdp, int line) {
                     pattern = patternPtr[16];
 
                     if (pattern) {
-                        if (pattern & 0x80) { linePtr[8]  = color; collision |= colPtr[8];  colPtr[8]  = colChck[8]; }
-                        if (pattern & 0x40) { linePtr[9]  = color; collision |= colPtr[9];  colPtr[9]  = colChck[9]; }
+                        if (pattern & 0x80) { linePtr[8]  = color; collision |= colPtr[8];  colPtr[8] += colChck[8]; }
+                        if (pattern & 0x40) { linePtr[9]  = color; collision |= colPtr[9];  colPtr[9] += colChck[9]; }
                         if (pattern & 0x20) { linePtr[10] = color; collision |= colPtr[10]; colPtr[10] += colChck[10]; }
                         if (pattern & 0x10) { linePtr[11] = color; collision |= colPtr[11]; colPtr[11] += colChck[11]; }
                         if (pattern & 0x08) { linePtr[12] = color; collision |= colPtr[12]; colPtr[12] += colChck[12]; }
@@ -274,11 +274,11 @@ UInt8* spritesLine(VDP* vdp, int line) {
             else {
                 pattern = patternPtr[0];
                 if (pattern) {
-                    if (pattern & 0x80) { linePtr[0]  = linePtr[1]  = color; collision |= colPtr[0];  colPtr[0]  = colChck[0];  collision |= colPtr[1];  colPtr[1]  = colChck[1]; }
-                    if (pattern & 0x40) { linePtr[2]  = linePtr[3]  = color; collision |= colPtr[2];  colPtr[2]  = colChck[2];  collision |= colPtr[3];  colPtr[3]  = colChck[3]; }
-                    if (pattern & 0x20) { linePtr[4]  = linePtr[5]  = color; collision |= colPtr[4];  colPtr[4]  = colChck[4];  collision |= colPtr[5];  colPtr[5]  = colChck[5]; }
-                    if (pattern & 0x10) { linePtr[6]  = linePtr[7]  = color; collision |= colPtr[6];  colPtr[6]  = colChck[6];  collision |= colPtr[7];  colPtr[7]  = colChck[7]; }
-                    if (pattern & 0x08) { linePtr[8]  = linePtr[9]  = color; collision |= colPtr[8];  colPtr[8]  = colChck[8];  collision |= colPtr[9];  colPtr[9]  = colChck[9]; }
+                    if (pattern & 0x80) { linePtr[0]  = linePtr[1]  = color; collision |= colPtr[0];  colPtr[0] += colChck[0];  collision |= colPtr[1];  colPtr[1] += colChck[1]; }
+                    if (pattern & 0x40) { linePtr[2]  = linePtr[3]  = color; collision |= colPtr[2];  colPtr[2] += colChck[2];  collision |= colPtr[3];  colPtr[3] += colChck[3]; }
+                    if (pattern & 0x20) { linePtr[4]  = linePtr[5]  = color; collision |= colPtr[4];  colPtr[4] += colChck[4];  collision |= colPtr[5];  colPtr[5] += colChck[5]; }
+                    if (pattern & 0x10) { linePtr[6]  = linePtr[7]  = color; collision |= colPtr[6];  colPtr[6] += colChck[6];  collision |= colPtr[7];  colPtr[7] += colChck[7]; }
+                    if (pattern & 0x08) { linePtr[8]  = linePtr[9]  = color; collision |= colPtr[8];  colPtr[8] += colChck[8];  collision |= colPtr[9];  colPtr[9] += colChck[9]; }
                     if (pattern & 0x04) { linePtr[10] = linePtr[11] = color; collision |= colPtr[10]; colPtr[10] += colChck[10]; collision |= colPtr[11]; colPtr[11] += colChck[11]; }
                     if (pattern & 0x02) { linePtr[12] = linePtr[13] = color; collision |= colPtr[12]; colPtr[12] += colChck[12]; collision |= colPtr[13]; colPtr[13] += colChck[13]; }
                     if (pattern & 0x01) { linePtr[14] = linePtr[15] = color; collision |= colPtr[14]; colPtr[14] += colChck[14]; collision |= colPtr[15]; colPtr[15] += colChck[15]; }
