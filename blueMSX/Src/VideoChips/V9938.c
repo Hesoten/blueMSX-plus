@@ -36,9 +36,12 @@
 #define VDPSTATUS_BO 0x10
 #define VDPSTATUS_CE 0x01
 
+/* Parts of a VDP cycle the budget and every wait against it are counted in. */
+#define VDP_TIMING_SCALE 8
+
 /* Most unspent budget an engine may hold. Above anything a command can spend
 ** or a flush hands out in one pass, and far below where an int overflows. */
-#define MAX_OPS_CREDIT 4000000
+#define MAX_OPS_CREDIT (4000000 * VDP_TIMING_SCALE)
 
 /*************************************************************
 ** Other useful defines
@@ -84,6 +87,8 @@ static int tmp;
 ** re-used here so that they have to be entered only once
 **************************************************************
 */
+/* The breaks below come before the charges, so a command that reached its end
+** still has budget left and is not taken for one that ran out. */
 #define pre_loop \
     while (cnt > 0) {
 
@@ -235,39 +240,39 @@ static int   PPB[5]  = { 2, 4, 2, 1, 1 };
 static int   PPL[5]  = { 256, 512, 512, 256, 256 };
 
 
-/* Baseline (accurate) per-step wait values. Runtime arrays below are derived
-** from these scaled by vdpCmdWaitPct so the boost slider can shorten them.
-*/
-static const int srch_timing_base[8] = { 92,  125, 92,  92  };
-static const int line_timing_base[8] = { 120, 147, 120, 120 };
-//static const int line_timing_base[8] = { 120, 147, 120, 132 };
-static const int hmmv_timing_base[8] = { 49,  65,  49,  62  };
-static const int lmmv_timing_base[8] = { 98,  137, 98,  124 };
-static const int ymmm_timing_base[8] = { 65,  125, 65,  68  };
-static const int hmmm_timing_base[8] = { 92,  136, 92,  97  };
-static const int lmmm_timing_base[8] = { 129, 197, 129, 132 };
+/* Wait per step, in eighths of a cycle. A transfer charges one for every byte;
+** every other command charges one before every step but the first. */
+static const int srch_timing_base[8] = { 736,  1000, 736,  736  };
+static const int line_timing_base[8] = { 960,  1176, 960,  960  };
+//static const int line_timing_base[8] = { 960, 1176, 960, 1056 };
+static const int hmmv_timing_base[8] = { 392,  520,  392,  496  };
+static const int lmmv_timing_base[8] = { 784,  1096, 784,  992  };
+static const int ymmm_timing_base[8] = { 520,  1000, 520,  544  };
+static const int hmmm_timing_base[8] = { 736,  1088, 736,  776  };
+static const int lmmm_timing_base[8] = { 1032, 1576, 1032, 1056 };
 
-static int srch_timing[8] = { 92,  125, 92,  92  };
-static int line_timing[8] = { 120, 147, 120, 120 };
-static int hmmv_timing[8] = { 49,  65,  49,  62  };
-static int lmmv_timing[8] = { 98,  137, 98,  124 };
-static int ymmm_timing[8] = { 65,  125, 65,  68  };
-static int hmmm_timing[8] = { 92,  136, 92,  97  };
-static int lmmm_timing[8] = { 129, 197, 129, 132 };
+static int srch_timing[8] = { 736,  1000, 736,  736  };
+static int line_timing[8] = { 960,  1176, 960,  960  };
+static int hmmv_timing[8] = { 392,  520,  392,  496  };
+static int lmmv_timing[8] = { 784,  1096, 784,  992  };
+static int ymmm_timing[8] = { 520,  1000, 520,  544  };
+static int hmmm_timing[8] = { 736,  1088, 736,  776  };
+static int lmmm_timing[8] = { 1032, 1576, 1032, 1056 };
 
 static int vdpCmdWaitPct = 100;
 
 static void recomputeVdpCmdTimings(void) {
+    const int floor = VDP_TIMING_SCALE;     /* one whole cycle per step */
     int i;
     for (i = 0; i < 8; i++) {
         int v;
-        v = (srch_timing_base[i] * vdpCmdWaitPct) / 100; srch_timing[i] = v < 1 ? 1 : v;
-        v = (line_timing_base[i] * vdpCmdWaitPct) / 100; line_timing[i] = v < 1 ? 1 : v;
-        v = (hmmv_timing_base[i] * vdpCmdWaitPct) / 100; hmmv_timing[i] = v < 1 ? 1 : v;
-        v = (lmmv_timing_base[i] * vdpCmdWaitPct) / 100; lmmv_timing[i] = v < 1 ? 1 : v;
-        v = (ymmm_timing_base[i] * vdpCmdWaitPct) / 100; ymmm_timing[i] = v < 1 ? 1 : v;
-        v = (hmmm_timing_base[i] * vdpCmdWaitPct) / 100; hmmm_timing[i] = v < 1 ? 1 : v;
-        v = (lmmm_timing_base[i] * vdpCmdWaitPct) / 100; lmmm_timing[i] = v < 1 ? 1 : v;
+        v = (srch_timing_base[i] * vdpCmdWaitPct) / 100; srch_timing[i] = v < floor ? floor : v;
+        v = (line_timing_base[i] * vdpCmdWaitPct) / 100; line_timing[i] = v < floor ? floor : v;
+        v = (hmmv_timing_base[i] * vdpCmdWaitPct) / 100; hmmv_timing[i] = v < floor ? floor : v;
+        v = (lmmv_timing_base[i] * vdpCmdWaitPct) / 100; lmmv_timing[i] = v < floor ? floor : v;
+        v = (ymmm_timing_base[i] * vdpCmdWaitPct) / 100; ymmm_timing[i] = v < floor ? floor : v;
+        v = (hmmm_timing_base[i] * vdpCmdWaitPct) / 100; hmmm_timing[i] = v < floor ? floor : v;
+        v = (lmmm_timing_base[i] * vdpCmdWaitPct) / 100; lmmm_timing[i] = v < floor ? floor : v;
     }
 }
 
@@ -1393,7 +1398,10 @@ void vdpCmdExecute(VdpCmdState* vdpCmd, UInt32 systemTime)
         vdpCmd->VdpOpsCnt = MAX_OPS_CREDIT;
     }
 
-    vdpCmd->VdpOpsCnt += systemTime - vdpCmd->systemTime;
+    /* Modular: vdpCmdFlush runs systemTime ahead, so the elapsed time is often
+    ** negative and the budget legitimately goes into debt by that much. */
+    vdpCmd->VdpOpsCnt = (int)((UInt32)vdpCmd->VdpOpsCnt +
+                              (systemTime - vdpCmd->systemTime) * VDP_TIMING_SCALE);
     vdpCmd->systemTime = systemTime;
     
     if (vdpCmd->VdpOpsCnt <= 0) {
@@ -1478,7 +1486,9 @@ void vdpCmdLoadState(VdpCmdState* vdpCmd)
     vdpCmd->TX            =         saveStateGet(state, "TX",         0);
     vdpCmd->TY            =         saveStateGet(state, "TY",         0);
     vdpCmd->MX            =         saveStateGet(state, "MX",         0);
-    vdpCmd->VdpOpsCnt     =         saveStateGet(state, "VdpOpsCnt",  0);
+    /* Held in whole cycles so a state stays readable whatever unit the budget
+    ** is carried in. Signed on the way back: an engine can be in debt. */
+    vdpCmd->VdpOpsCnt     = (int)saveStateGet(state, "VdpOpsCnt", 0) * VDP_TIMING_SCALE;
     vdpCmd->systemTime    =         saveStateGet(state, "systemTime", boardSystemTime());
     vdpCmd->newScrMode    =         saveStateGet(state, "newScrMode", 0);
     vdpCmd->screenMode    =         saveStateGet(state, "screenMode", 0);
@@ -1526,7 +1536,7 @@ void vdpCmdSaveState(VdpCmdState* vdpCmd)
     saveStateSet(state, "TX",         vdpCmd->TX);
     saveStateSet(state, "TY",         vdpCmd->TY);
     saveStateSet(state, "MX",         vdpCmd->MX);
-    saveStateSet(state, "VdpOpsCnt",  vdpCmd->VdpOpsCnt);
+    saveStateSet(state, "VdpOpsCnt",  vdpCmd->VdpOpsCnt / VDP_TIMING_SCALE);
     saveStateSet(state, "systemTime", vdpCmd->systemTime);
     saveStateSet(state, "newScrMode", vdpCmd->newScrMode);
     saveStateSet(state, "screenMode", vdpCmd->screenMode);
