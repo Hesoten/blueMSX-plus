@@ -250,6 +250,8 @@ static int   PPL[5]  = { 256, 512, 512, 256, 256 };
 ** every other command charges one before every step but the first. */
 static const int srch_timing_base[8] = { 706,  995,  706,  755  };
 static const int line_timing_base[8] = { 913,  1093, 913,  995  };
+static const int lmmc_timing_base[8] = { 841,  1169, 841,  1051 };
+static const int lmcm_timing_base[8] = { 877,  1334, 877,  994  };
 static const int hmmv_timing_base[8] = { 390,  521,  390,  497  };
 static const int lmmv_timing_base[8] = { 781,  1094, 781,  994  };
 static const int ymmm_timing_base[8] = { 521,  994,  521,  547  };
@@ -274,6 +276,8 @@ static const int lmmm_wrap_base[8]   = { 245, 409,  245, 401 };
 
 static int srch_timing[8] = { 706,  995,  706,  755  };
 static int line_timing[8] = { 913,  1093, 913,  995  };
+static int lmmc_timing[8] = { 841,  1169, 841,  1051 };
+static int lmcm_timing[8] = { 877,  1334, 877,  994  };
 static int hmmv_timing[8] = { 390,  521,  390,  497  };
 static int lmmv_timing[8] = { 781,  1094, 781,  994  };
 static int ymmm_timing[8] = { 521,  994,  521,  547  };
@@ -300,6 +304,8 @@ static void recomputeVdpCmdTimings(void) {
         int v;
         v = (srch_timing_base[i] * vdpCmdWaitPct) / 100; srch_timing[i] = v < floor ? floor : v;
         v = (line_timing_base[i] * vdpCmdWaitPct) / 100; line_timing[i] = v < floor ? floor : v;
+        v = (lmmc_timing_base[i] * vdpCmdWaitPct) / 100; lmmc_timing[i] = v < floor ? floor : v;
+        v = (lmcm_timing_base[i] * vdpCmdWaitPct) / 100; lmcm_timing[i] = v < floor ? floor : v;
         v = (hmmv_timing_base[i] * vdpCmdWaitPct) / 100; hmmv_timing[i] = v < floor ? floor : v;
         v = (lmmv_timing_base[i] * vdpCmdWaitPct) / 100; lmmv_timing[i] = v < floor ? floor : v;
         v = (ymmm_timing_base[i] * vdpCmdWaitPct) / 100; ymmm_timing[i] = v < floor ? floor : v;
@@ -892,6 +898,7 @@ static void LmcmEngine(VdpCmdState* vdpCmd)
 {
     if (!(vdpCmd->status & VDPSTATUS_TR)) {
         vdpCmd->CL = getPixel(vdpCmd, vdpCmd->screenMode, vdpCmd->ASX, vdpCmd->SY);
+        vdpCmd->VdpOpsCnt -= lmcm_timing[vdpCmd->timingMode];
         vdpCmd->status |= VDPSTATUS_TR;
 
         if (!--vdpCmd->ANX || ((vdpCmd->ASX+=vdpCmd->TX)&vdpCmd->MX)) {
@@ -922,6 +929,7 @@ static void LmmcEngine(VdpCmdState* vdpCmd)
 
         UInt8 CL=vdpCmd->CL & Mask[SM];
         setPixel(vdpCmd, SM, vdpCmd->ADX, vdpCmd->DY, CL, vdpCmd->LO);
+        vdpCmd->VdpOpsCnt -= lmmc_timing[vdpCmd->timingMode];
         vdpCmd->status |= VDPSTATUS_TR;
 
         if (!--vdpCmd->ANX || ((vdpCmd->ADX+=vdpCmd->TX)&vdpCmd->MX)) {
