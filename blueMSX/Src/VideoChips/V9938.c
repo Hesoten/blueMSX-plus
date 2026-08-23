@@ -36,6 +36,10 @@
 #define VDPSTATUS_BO 0x10
 #define VDPSTATUS_CE 0x01
 
+/* Most unspent budget an engine may hold. Above anything a command can spend
+** or a flush hands out in one pass, and far below where an int overflows. */
+#define MAX_OPS_CREDIT 4000000
+
 /*************************************************************
 ** Other useful defines
 **************************************************************
@@ -1348,9 +1352,11 @@ UInt8 vdpGetColor(VdpCmdState* vdpCmd) {
 void vdpCmdFlush(VdpCmdState* vdpCmd) 
 {
     while (vdpCmd->CM != 0 && !(vdpCmd->status & VDPSTATUS_TR)) {
-        int opsCnt = vdpCmd->VdpOpsCnt += 1000000;
-        vdpCmdExecute(vdpCmd, vdpCmd->systemTime + opsCnt);
-        if (vdpCmd->VdpOpsCnt == 0 || vdpCmd->VdpOpsCnt == opsCnt) {
+        /* Let vdpCmdExecute grant the slice, so one slice of time buys one. */
+        vdpCmdExecute(vdpCmd, vdpCmd->systemTime + 1000000);
+        /* An engine with nothing left to run zeroes its budget, the only way
+        ** out for a command that neither finishes nor waits. */
+        if (vdpCmd->VdpOpsCnt == 0) {
             break;
         }
     }
@@ -1381,6 +1387,12 @@ void vdpCmdFlushAll()
 */
 void vdpCmdExecute(VdpCmdState* vdpCmd, UInt32 systemTime)
 {
+    /* A transfer parked waiting on the CPU charges nothing for the wait, so
+    ** trim what it has banked before the elapsed time below is added to it. */
+    if (vdpCmd->VdpOpsCnt > MAX_OPS_CREDIT) {
+        vdpCmd->VdpOpsCnt = MAX_OPS_CREDIT;
+    }
+
     vdpCmd->VdpOpsCnt += systemTime - vdpCmd->systemTime;
     vdpCmd->systemTime = systemTime;
     
