@@ -248,14 +248,13 @@ static int   PPL[5]  = { 256, 512, 512, 256, 256 };
 
 /* Wait per step, in eighths of a cycle. A transfer charges one for every byte;
 ** every other command charges one before every step but the first. */
-static const int srch_timing_base[8] = { 736,  1000, 736,  736  };
-static const int line_timing_base[8] = { 960,  1176, 960,  960  };
-//static const int line_timing_base[8] = { 960, 1176, 960, 1056 };
-static const int hmmv_timing_base[8] = { 392,  520,  392,  496  };
-static const int lmmv_timing_base[8] = { 784,  1096, 784,  992  };
-static const int ymmm_timing_base[8] = { 520,  1000, 520,  544  };
-static const int hmmm_timing_base[8] = { 736,  1088, 736,  776  };
-static const int lmmm_timing_base[8] = { 1032, 1576, 1032, 1056 };
+static const int srch_timing_base[8] = { 706,  995,  706,  755  };
+static const int line_timing_base[8] = { 913,  1093, 913,  995  };
+static const int hmmv_timing_base[8] = { 390,  521,  390,  497  };
+static const int lmmv_timing_base[8] = { 781,  1094, 781,  994  };
+static const int ymmm_timing_base[8] = { 521,  994,  521,  547  };
+static const int hmmm_timing_base[8] = { 729,  1094, 729,  781  };
+static const int lmmm_timing_base[8] = { 1042, 1564, 1042, 1059 };
 
 /* Ticks a CPU access to the VRAM port takes from the engine, same columns.
 ** The first row is what a line costs, and covers everything without a row. */
@@ -273,13 +272,13 @@ static const int ymmm_wrap_base[8]   = { 513, 378,  513, 794 };
 static const int hmmm_wrap_base[8]   = { 738, 0,    738, 205 };
 static const int lmmm_wrap_base[8]   = { 245, 409,  245, 401 };
 
-static int srch_timing[8] = { 736,  1000, 736,  736  };
-static int line_timing[8] = { 960,  1176, 960,  960  };
-static int hmmv_timing[8] = { 392,  520,  392,  496  };
-static int lmmv_timing[8] = { 784,  1096, 784,  992  };
-static int ymmm_timing[8] = { 520,  1000, 520,  544  };
-static int hmmm_timing[8] = { 736,  1088, 736,  776  };
-static int lmmm_timing[8] = { 1032, 1576, 1032, 1056 };
+static int srch_timing[8] = { 706,  995,  706,  755  };
+static int line_timing[8] = { 913,  1093, 913,  995  };
+static int hmmv_timing[8] = { 390,  521,  390,  497  };
+static int lmmv_timing[8] = { 781,  1094, 781,  994  };
+static int ymmm_timing[8] = { 521,  994,  521,  547  };
+static int hmmm_timing[8] = { 729,  1094, 729,  781  };
+static int lmmm_timing[8] = { 1042, 1564, 1042, 1059 };
 static int steal_other[8] = { 19, 280, 19,  65  };
 static int hmmv_steal[8]  = { 18, 285, 18,  1   };
 static int lmmv_steal[8]  = { 26, 264, 26,  11  };
