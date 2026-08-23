@@ -103,6 +103,7 @@ static int tmp;
             if ((--NY & 1023) == 0 || DY == -1) {\
                 break; \
 		    } \
+            cnt-=wrap; \
         } \
         cnt-=delta; \
     }
@@ -115,6 +116,7 @@ static int tmp;
 			if ((--NY & 1023) == 0 || SY == -1 || DY == -1) { \
 				break; \
 			} \
+            cnt-=wrap; \
 		} \
         cnt-=delta; \
 	}
@@ -127,6 +129,7 @@ static int tmp;
 			if ((--NY & 1023) == 0 || SY == -1 || DY == -1) { \
 				break; \
 			} \
+            cnt-=wrap; \
 		} \
         cnt-=delta; \
 	}
@@ -143,6 +146,7 @@ static int tmp;
 			if ((--vdpCmd->NY & 1023) == 0 || vdpCmd->SY == -1 || vdpCmd->DY == -1) { \
 				break; \
 			} \
+            vdpCmd->VdpOpsCnt -= wrap; \
 		} \
         vdpCmd->VdpOpsCnt -= delta; \
 	}
@@ -262,6 +266,13 @@ static const int ymmm_steal_base[8]  = { 43, 267, 43,  125 };
 static const int hmmm_steal_base[8]  = { 6,  252, 6,   57  };
 static const int lmmm_steal_base[8]  = { 2,  276, 2,   107 };
 
+/* Extra wait when a rectangle command steps to the next row, same columns. */
+static const int hmmv_wrap_base[8]   = { 778, 512,  778, 447 };
+static const int lmmv_wrap_base[8]   = { 583, 1082, 583, 22  };
+static const int ymmm_wrap_base[8]   = { 513, 378,  513, 794 };
+static const int hmmm_wrap_base[8]   = { 738, 0,    738, 205 };
+static const int lmmm_wrap_base[8]   = { 245, 409,  245, 401 };
+
 static int srch_timing[8] = { 736,  1000, 736,  736  };
 static int line_timing[8] = { 960,  1176, 960,  960  };
 static int hmmv_timing[8] = { 392,  520,  392,  496  };
@@ -275,6 +286,11 @@ static int lmmv_steal[8]  = { 26, 264, 26,  11  };
 static int ymmm_steal[8]  = { 43, 267, 43,  125 };
 static int hmmm_steal[8]  = { 6,  252, 6,   57  };
 static int lmmm_steal[8]  = { 2,  276, 2,   107 };
+static int hmmv_wrap[8]   = { 778, 512,  778, 447 };
+static int lmmv_wrap[8]   = { 583, 1082, 583, 22  };
+static int ymmm_wrap[8]   = { 513, 378,  513, 794 };
+static int hmmm_wrap[8]   = { 738, 0,    738, 205 };
+static int lmmm_wrap[8]   = { 245, 409,  245, 401 };
 
 static int vdpCmdWaitPct = 100;
 
@@ -296,6 +312,11 @@ static void recomputeVdpCmdTimings(void) {
         ymmm_steal[i]  = (ymmm_steal_base[i]  * vdpCmdWaitPct) / 100;
         hmmm_steal[i]  = (hmmm_steal_base[i]  * vdpCmdWaitPct) / 100;
         lmmm_steal[i]  = (lmmm_steal_base[i]  * vdpCmdWaitPct) / 100;
+        hmmv_wrap[i]   = (hmmv_wrap_base[i]   * vdpCmdWaitPct) / 100;
+        lmmv_wrap[i]   = (lmmv_wrap_base[i]   * vdpCmdWaitPct) / 100;
+        ymmm_wrap[i]   = (ymmm_wrap_base[i]   * vdpCmdWaitPct) / 100;
+        hmmm_wrap[i]   = (hmmm_wrap_base[i]   * vdpCmdWaitPct) / 100;
+        lmmm_wrap[i]   = (lmmm_wrap_base[i]   * vdpCmdWaitPct) / 100;
     }
 }
 
@@ -760,6 +781,7 @@ static void LmmvEngine(VdpCmdState* vdpCmd)
     UInt8 CL=vdpCmd->CL & Mask[vdpCmd->screenMode];
     UInt8 LO=vdpCmd->LO;
     int delta = lmmv_timing[vdpCmd->timingMode];
+    int wrap  = lmmv_wrap[vdpCmd->timingMode];
     int cnt;
 
     cnt = vdpCmd->VdpOpsCnt;
@@ -819,6 +841,7 @@ static void LmmmEngine(VdpCmdState* vdpCmd)
     int ANX=vdpCmd->ANX;
     UInt8 LO=vdpCmd->LO;
     int delta = lmmm_timing[vdpCmd->timingMode];
+    int wrap  = lmmm_wrap[vdpCmd->timingMode];
     int cnt;
 
     cnt = vdpCmd->VdpOpsCnt;
@@ -935,6 +958,7 @@ static void HmmvEngine(VdpCmdState* vdpCmd)
     int ANX=vdpCmd->ANX;
     UInt8 CL=vdpCmd->CL;
     int delta = hmmv_timing[vdpCmd->timingMode];
+    int wrap  = hmmv_wrap[vdpCmd->timingMode];
     int cnt;
 
     cnt = vdpCmd->VdpOpsCnt;
@@ -982,6 +1006,7 @@ static void HmmvEngine(VdpCmdState* vdpCmd)
 static void HmmmEngine(VdpCmdState* vdpCmd)
 {
     int delta = hmmm_timing[vdpCmd->timingMode];
+    int wrap  = hmmm_wrap[vdpCmd->timingMode];
 
     switch (vdpCmd->screenMode) {
     case 0: 
@@ -1025,6 +1050,7 @@ static void YmmmEngine(VdpCmdState* vdpCmd)
     int NY=vdpCmd->NY;
     int ADX=vdpCmd->ADX;
     int delta = ymmm_timing[vdpCmd->timingMode];
+    int wrap  = ymmm_wrap[vdpCmd->timingMode];
     int cnt;
 
     cnt = vdpCmd->VdpOpsCnt;
