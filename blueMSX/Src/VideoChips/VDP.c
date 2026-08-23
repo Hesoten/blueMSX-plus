@@ -348,6 +348,9 @@ struct VDP {
     int    blinkCnt;
     int    blinkLineBase;
     int    drawArea;
+    /* drawArea as the command engine sees it. Fetching starts a fetch window
+    ** before the first display line, so this goes up earlier. */
+    int    cmdDrawArea;
     UInt16 paletteReg[16];
     int    vramSize;
     int    vramPages;
@@ -608,6 +611,7 @@ static void onVint(VDP* vdp, UInt32 time)
         }
 //    }
 //    vdp->drawArea = 0;
+    vdp->cmdDrawArea = 0;
     vdpSetTimingMode(vdp->cmdEngine, vdp->vdpRegs[8] & 2);
 }
 
@@ -617,6 +621,7 @@ static void onDrawAreaEnd(VDP* vdp, UInt32 time)
 
     vdp->timeDrawAreaEndEn = 0;
     vdp->drawArea = 0;
+    vdp->cmdDrawArea = 0;
 }
 
 static void onTmsVint(VDP* vdp, UInt32 time)
@@ -633,6 +638,9 @@ static void onVStart(VDP* vdp, UInt32 time)
     vdp->timeVStartEn = 0;
 //    vdp->lineOffset = -1;
     vdp->vdpStatus[2] &= ~0x40;
+
+    vdp->cmdDrawArea = 1;
+    vdpSetTimingMode(vdp->cmdEngine, ((vdp->vdpRegs[1] >> 6) & vdp->cmdDrawArea) | (vdp->vdpRegs[8] & 2));
 }
 
 static void onDrawAreaStart(VDP* vdp, UInt32 time)
@@ -642,8 +650,9 @@ static void onDrawAreaStart(VDP* vdp, UInt32 time)
     vdp->timeDrawAreaStartEn = 0;
 
     vdp->drawArea = 1;
+    vdp->cmdDrawArea = 1;
     vdp->vdpStatus[2] &= ~0x40;
-    vdpSetTimingMode(vdp->cmdEngine, ((vdp->vdpRegs[1] >> 6) & vdp->drawArea) | (vdp->vdpRegs[8] & 2));
+    vdpSetTimingMode(vdp->cmdEngine, ((vdp->vdpRegs[1] >> 6) & vdp->cmdDrawArea) | (vdp->vdpRegs[8] & 2));
 }
 
 static UInt32 frameStartTime;
@@ -693,6 +702,9 @@ static void onDisplay(VDP* vdp, UInt32 time)
 
     vdp->scr0splitLine = 0;
     vdp->curLine = 0;
+    /* Line 0 is blanked whatever the last frame did, and rescheduling can drop
+    ** the timer that would have cleared this, so clear it here. */
+    vdp->cmdDrawArea = 0;
     vdp->VAdjust = (-((Int8)(vdp->vdpRegs[18]) >> 4));
 
     vdp->lastLine = isPal ? 313 : 262;
@@ -975,7 +987,7 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
             scheduleScrModeChange(vdp);
         }
         
-        vdpSetTimingMode(vdp->cmdEngine, ((value >> 6) & vdp->drawArea) | (vdp->vdpRegs[8] & 2));
+        vdpSetTimingMode(vdp->cmdEngine, ((value >> 6) & vdp->cmdDrawArea) | (vdp->vdpRegs[8] & 2));
         break;
 
     case 2: 
@@ -1006,7 +1018,7 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
 
     case 8:
         vdp->vramAccMask  = vdp->vramMasks[((vdp->vdpRegs[8] & 0x08) >> 2) | (((vdp->vdpRegs[0x2d] >> 6) & 1))];
-        vdpSetTimingMode(vdp->cmdEngine, ((vdp->vdpRegs[1] >> 6) & vdp->drawArea) | (value & 2));
+        vdpSetTimingMode(vdp->cmdEngine, ((vdp->vdpRegs[1] >> 6) & vdp->cmdDrawArea) | (value & 2));
         if (change & 0xb0) {
             updateOutputMode(vdp);
         }
@@ -1905,6 +1917,9 @@ static void loadState(VDP* vdp)
     vdp->blinkCnt = saveStateGet(state, "blinkCnt",         0);
     
     vdp->drawArea = saveStateGet(state, "drawArea",         0);
+    /* Derived rather than stored: it only differs from drawArea for the fetch
+    ** window before the first display line, and the next frame resets it. */
+    vdp->cmdDrawArea = vdp->drawArea;
     
     for (i = 0; i < sizeof(vdp->paletteReg) / sizeof(vdp->paletteReg[0]); i++) {
         sprintf(tag, "paletteRegNo%d", i);
@@ -2296,6 +2311,7 @@ static void reset(VDP* vdp)
     vdp->blinkCnt        = 0;
     vdp->blinkLineBase   = 0;
     vdp->drawArea        = 0;
+    vdp->cmdDrawArea     = 0;
     vdp->lastLine        = 0;
     vdp->displayOffest   = 0;
     vdp->screenOn        = 0;
