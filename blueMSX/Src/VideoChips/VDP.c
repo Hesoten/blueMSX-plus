@@ -1122,6 +1122,7 @@ static UInt8 readNoTimingCheck(VDP* vdp, UInt16 ioPort)
 
     if (vdp->vdpVersion == VDP_V9938 || vdp->vdpVersion == VDP_V9958) {
         vdpCmdExecute(vdp->cmdEngine, boardSystemTime());
+        vdpCmdStealAccessSlot(vdp->cmdEngine);
     }
 
 	value = vdp->vdpData;
@@ -1298,6 +1299,9 @@ static void write(VDP* vdp, UInt16 ioPort, UInt8 value)
 
     if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A || vdp->vdpVersion == VDP_TMS9918A) {
         checkVramAccessTimeTms(vdp);
+    }
+    if (vdp->vdpVersion == VDP_V9938 || vdp->vdpVersion == VDP_V9958) {
+        vdpCmdStealAccessSlot(vdp->cmdEngine);
     }
 
     if (vdp->vramEnable) {

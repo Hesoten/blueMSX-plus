@@ -39,6 +39,8 @@
 /* Parts of a VDP cycle the budget and every wait against it are counted in. */
 #define VDP_TIMING_SCALE 8
 
+#define MAX_STEAL_DEBT (512 * VDP_TIMING_SCALE)
+
 /* Most unspent budget an engine may hold. Above anything a command can spend
 ** or a flush hands out in one pass, and far below where an int overflows. */
 #define MAX_OPS_CREDIT (4000000 * VDP_TIMING_SCALE)
@@ -251,6 +253,15 @@ static const int ymmm_timing_base[8] = { 520,  1000, 520,  544  };
 static const int hmmm_timing_base[8] = { 736,  1088, 736,  776  };
 static const int lmmm_timing_base[8] = { 1032, 1576, 1032, 1056 };
 
+/* Ticks a CPU access to the VRAM port takes from the engine, same columns.
+** The first row is what a line costs, and covers everything without a row. */
+static const int steal_other_base[8] = { 19, 280, 19,  65  };
+static const int hmmv_steal_base[8]  = { 18, 285, 18,  1   };
+static const int lmmv_steal_base[8]  = { 26, 264, 26,  11  };
+static const int ymmm_steal_base[8]  = { 43, 267, 43,  125 };
+static const int hmmm_steal_base[8]  = { 6,  252, 6,   57  };
+static const int lmmm_steal_base[8]  = { 2,  276, 2,   107 };
+
 static int srch_timing[8] = { 736,  1000, 736,  736  };
 static int line_timing[8] = { 960,  1176, 960,  960  };
 static int hmmv_timing[8] = { 392,  520,  392,  496  };
@@ -258,6 +269,12 @@ static int lmmv_timing[8] = { 784,  1096, 784,  992  };
 static int ymmm_timing[8] = { 520,  1000, 520,  544  };
 static int hmmm_timing[8] = { 736,  1088, 736,  776  };
 static int lmmm_timing[8] = { 1032, 1576, 1032, 1056 };
+static int steal_other[8] = { 19, 280, 19,  65  };
+static int hmmv_steal[8]  = { 18, 285, 18,  1   };
+static int lmmv_steal[8]  = { 26, 264, 26,  11  };
+static int ymmm_steal[8]  = { 43, 267, 43,  125 };
+static int hmmm_steal[8]  = { 6,  252, 6,   57  };
+static int lmmm_steal[8]  = { 2,  276, 2,   107 };
 
 static int vdpCmdWaitPct = 100;
 
@@ -273,6 +290,12 @@ static void recomputeVdpCmdTimings(void) {
         v = (ymmm_timing_base[i] * vdpCmdWaitPct) / 100; ymmm_timing[i] = v < floor ? floor : v;
         v = (hmmm_timing_base[i] * vdpCmdWaitPct) / 100; hmmm_timing[i] = v < floor ? floor : v;
         v = (lmmm_timing_base[i] * vdpCmdWaitPct) / 100; lmmm_timing[i] = v < floor ? floor : v;
+        steal_other[i] = (steal_other_base[i] * vdpCmdWaitPct) / 100;
+        hmmv_steal[i]  = (hmmv_steal_base[i]  * vdpCmdWaitPct) / 100;
+        lmmv_steal[i]  = (lmmv_steal_base[i]  * vdpCmdWaitPct) / 100;
+        ymmm_steal[i]  = (ymmm_steal_base[i]  * vdpCmdWaitPct) / 100;
+        hmmm_steal[i]  = (hmmm_steal_base[i]  * vdpCmdWaitPct) / 100;
+        lmmm_steal[i]  = (lmmm_steal_base[i]  * vdpCmdWaitPct) / 100;
     }
 }
 
@@ -1311,6 +1334,34 @@ void vdpSetScreenMode(VdpCmdState* vdpCmd, int screenMode, int commandEnable) {
 */
 void vdpSetTimingMode(VdpCmdState* vdpCmd, UInt8 timingMode) {
     vdpCmd->timingMode = timingMode;
+}
+
+/*************************************************************
+** vdpCmdStealAccessSlot
+**
+** Description:
+**      Charges the command engine for a VRAM slot the CPU took
+**************************************************************
+*/
+void vdpCmdStealAccessSlot(VdpCmdState* vdpCmd)
+{
+    const int* steal;
+
+    switch (vdpCmd->CM) {
+    case 0:       return;
+    case CM_HMMV: steal = hmmv_steal;  break;
+    case CM_LMMV: steal = lmmv_steal;  break;
+    case CM_YMMM: steal = ymmm_steal;  break;
+    case CM_HMMM: steal = hmmm_steal;  break;
+    case CM_LMMM: steal = lmmm_steal;  break;
+    default:      steal = steal_other; break;
+    }
+
+    /* An engine already this far behind has no next slot left to lose, and
+    ** charging it anyway would let a fast CPU run the debt away. */
+    if (vdpCmd->VdpOpsCnt > -MAX_STEAL_DEBT) {
+        vdpCmd->VdpOpsCnt -= steal[vdpCmd->timingMode];
+    }
 }
 
 /*************************************************************
