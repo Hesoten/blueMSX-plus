@@ -1542,6 +1542,7 @@ void vdpCmdExecute(VdpCmdState* vdpCmd, UInt32 systemTime)
 void vdpCmdLoadState(VdpCmdState* vdpCmd)
 {
     SaveState* state = saveStateOpenForRead("vdpCommandEngine");
+    int opsCnt;
 
     vdpCmd->SX            =         saveStateGet(state, "SX",         0);
     vdpCmd->SY            =         saveStateGet(state, "SY",         0);
@@ -1563,12 +1564,23 @@ void vdpCmdLoadState(VdpCmdState* vdpCmd)
     vdpCmd->TY            =         saveStateGet(state, "TY",         0);
     vdpCmd->MX            =         saveStateGet(state, "MX",         0);
     /* Held in whole cycles so a state stays readable whatever unit the budget
-    ** is carried in. Signed on the way back: an engine can be in debt. */
-    vdpCmd->VdpOpsCnt     = (int)saveStateGet(state, "VdpOpsCnt", 0) * VDP_TIMING_SCALE;
+    ** is carried in. Signed for debt, and clamped to keep the scaling in range. */
+    opsCnt = (int)saveStateGet(state, "VdpOpsCnt", 0);
+    if (opsCnt >  MAX_OPS_CREDIT / VDP_TIMING_SCALE) opsCnt =  MAX_OPS_CREDIT / VDP_TIMING_SCALE;
+    if (opsCnt < -MAX_OPS_CREDIT / VDP_TIMING_SCALE) opsCnt = -MAX_OPS_CREDIT / VDP_TIMING_SCALE;
+    vdpCmd->VdpOpsCnt     = opsCnt * VDP_TIMING_SCALE;
     vdpCmd->systemTime    =         saveStateGet(state, "systemTime", boardSystemTime());
     vdpCmd->newScrMode    =         saveStateGet(state, "newScrMode", 0);
     vdpCmd->screenMode    =         saveStateGet(state, "screenMode", 0);
-    vdpCmd->timingMode    =         saveStateGet(state, "timingMode", 0);
+    /* Both index the pixel tables, so a damaged state must not reach past them.
+    ** An engine left with no mode to run in has nothing to go on with either. */
+    if (vdpCmd->newScrMode < -1 || vdpCmd->newScrMode > 4) vdpCmd->newScrMode = -1;
+    if (vdpCmd->screenMode < -1 || vdpCmd->screenMode > 4) {
+        vdpCmd->screenMode = -1;
+        vdpCmd->CM         = 0;
+        vdpCmd->status    &= ~VDPSTATUS_CE;
+    }
+    vdpCmd->timingMode    =         saveStateGet(state, "timingMode", 0) & 3;
     
     saveStateClose(state);
 
