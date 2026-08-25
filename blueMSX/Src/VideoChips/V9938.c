@@ -287,31 +287,32 @@ static const int ymmm_wrap_base[8]   = { 513, 378,  513, 794 };
 static const int hmmm_wrap_base[8]   = { 738, 0,    738, 205 };
 static const int lmmm_wrap_base[8]   = { 245, 409,  245, 401 };
 
-static int srch_timing[8] = { 706,  995,  706,  755  };
-static int line_timing[8] = { 913,  1093, 913,  995  };
-static int lmmc_timing[8] = { 841,  1169, 841,  1051 };
-static int lmcm_timing[8] = { 877,  1334, 877,  994  };
-static int hmmv_timing[8] = { 390,  521,  390,  497  };
-static int lmmv_timing[8] = { 781,  1094, 781,  994  };
-static int ymmm_timing[8] = { 521,  994,  521,  547  };
-static int hmmm_timing[8] = { 729,  1094, 729,  781  };
-static int lmmm_timing[8] = { 1042, 1564, 1042, 1059 };
-static int steal_other[8] = { 19, 280, 19,  65  };
-static int hmmv_steal[8]  = { 18, 285, 18,  1   };
-static int lmmv_steal[8]  = { 26, 264, 26,  11  };
-static int ymmm_steal[8]  = { 43, 267, 43,  125 };
-static int hmmm_steal[8]  = { 6,  252, 6,   57  };
-static int lmmm_steal[8]  = { 2,  276, 2,   107 };
-static int hmmv_wrap[8]   = { 778, 512,  778, 447 };
-static int lmmv_wrap[8]   = { 583, 1082, 583, 22  };
-static int ymmm_wrap[8]   = { 513, 378,  513, 794 };
-static int hmmm_wrap[8]   = { 738, 0,    738, 205 };
-static int lmmm_wrap[8]   = { 245, 409,  245, 401 };
-static int cmd_start[8]   = { 1735, 1838, 1735, 1512 };
-static int srch_start[8]  = { 1291, 1176, 1291, 1163 };
-static int line_start[8]  = { 1771, 2093, 1771, 1912 };
-static int copy_start[8]  = { 1735, 2046, 1735, 1840 };
-static int lmmm_start[8]  = { 1735, 2502, 1735, 2088 };
+/* The tables above scaled by vdpCmdWaitPct. Empty until an engine is created. */
+static int srch_timing[8];
+static int line_timing[8];
+static int lmmc_timing[8];
+static int lmcm_timing[8];
+static int hmmv_timing[8];
+static int lmmv_timing[8];
+static int ymmm_timing[8];
+static int hmmm_timing[8];
+static int lmmm_timing[8];
+static int steal_other[8];
+static int hmmv_steal[8];
+static int lmmv_steal[8];
+static int ymmm_steal[8];
+static int hmmm_steal[8];
+static int lmmm_steal[8];
+static int hmmv_wrap[8];
+static int lmmv_wrap[8];
+static int ymmm_wrap[8];
+static int hmmm_wrap[8];
+static int lmmm_wrap[8];
+static int cmd_start[8];
+static int srch_start[8];
+static int line_start[8];
+static int copy_start[8];
+static int lmmm_start[8];
 
 static int vdpCmdWaitPct = 100;
 
@@ -1173,6 +1174,10 @@ VdpCmdState* vdpCmdCreate(int vramSize, UInt8* vramPtr, UInt32 systemTime)
     vdpCmd->maskWrite = vdpCmd->vramMask[0];
 
     vdpCmdGlobal = vdpCmd; // Ugly fix to make the cmd engine flushable
+
+    /* The tables are still empty here, and a per-step wait of zero would spin an
+    ** engine that never finishes its command. */
+    recomputeVdpCmdTimings();
 
     return vdpCmd;
 }
