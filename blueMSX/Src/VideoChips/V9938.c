@@ -41,6 +41,10 @@
 
 #define MAX_STEAL_DEBT (512 * VDP_TIMING_SCALE)
 
+/* Deepest arrears the wait before a command's first step may leave. No row
+** below reaches 320 cycles, so sixteen back to back all still pay. */
+#define MAX_CMD_START_DEBT (16 * 320 * VDP_TIMING_SCALE)
+
 /* Most unspent budget an engine may hold. Above anything a command can spend
 ** or a flush hands out in one pass, and far below where an int overflows. */
 #define MAX_OPS_CREDIT (4000000 * VDP_TIMING_SCALE)
@@ -267,6 +271,15 @@ static const int ymmm_steal_base[8]  = { 43, 267, 43,  125 };
 static const int hmmm_steal_base[8]  = { 6,  252, 6,   57  };
 static const int lmmm_steal_base[8]  = { 2,  276, 2,   107 };
 
+/* Wait a stepping command serves before its first step, same columns. It
+** stands in for that first step as well, which is charged nothing, so commands
+** whose steps cost different amounts need rows of their own. */
+static const int cmd_start_base[8] = { 1735, 1838, 1735, 1512 };
+static const int srch_start_base[8] = { 1291, 1176, 1291, 1163 };
+static const int line_start_base[8] = { 1771, 2093, 1771, 1912 };
+static const int copy_start_base[8] = { 1735, 2046, 1735, 1840 };
+static const int lmmm_start_base[8] = { 1735, 2502, 1735, 2088 };
+
 /* Extra wait when a rectangle command steps to the next row, same columns. */
 static const int hmmv_wrap_base[8]   = { 778, 512,  778, 447 };
 static const int lmmv_wrap_base[8]   = { 583, 1082, 583, 22  };
@@ -294,6 +307,11 @@ static int lmmv_wrap[8]   = { 583, 1082, 583, 22  };
 static int ymmm_wrap[8]   = { 513, 378,  513, 794 };
 static int hmmm_wrap[8]   = { 738, 0,    738, 205 };
 static int lmmm_wrap[8]   = { 245, 409,  245, 401 };
+static int cmd_start[8]   = { 1735, 1838, 1735, 1512 };
+static int srch_start[8]  = { 1291, 1176, 1291, 1163 };
+static int line_start[8]  = { 1771, 2093, 1771, 1912 };
+static int copy_start[8]  = { 1735, 2046, 1735, 1840 };
+static int lmmm_start[8]  = { 1735, 2502, 1735, 2088 };
 
 static int vdpCmdWaitPct = 100;
 
@@ -322,6 +340,11 @@ static void recomputeVdpCmdTimings(void) {
         ymmm_wrap[i]   = (ymmm_wrap_base[i]   * vdpCmdWaitPct) / 100;
         hmmm_wrap[i]   = (hmmm_wrap_base[i]   * vdpCmdWaitPct) / 100;
         lmmm_wrap[i]   = (lmmm_wrap_base[i]   * vdpCmdWaitPct) / 100;
+        cmd_start[i]   = (cmd_start_base[i]   * vdpCmdWaitPct) / 100;
+        srch_start[i]  = (srch_start_base[i]  * vdpCmdWaitPct) / 100;
+        line_start[i]  = (line_start_base[i]  * vdpCmdWaitPct) / 100;
+        copy_start[i]  = (copy_start_base[i]  * vdpCmdWaitPct) / 100;
+        lmmm_start[i]  = (lmmm_start_base[i]  * vdpCmdWaitPct) / 100;
     }
 }
 
@@ -1178,6 +1201,8 @@ void vdpCmdDestroy(VdpCmdState* vdpCmd)
 */
 static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
 {
+    const int* start;
+
     vdpCmd->screenMode = vdpCmd->newScrMode;
 
     if (vdpCmd->screenMode < 0) {
@@ -1249,6 +1274,26 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
 
     /* Command execution started */
     vdpCmd->status |= VDPSTATUS_CE;
+
+    switch (vdpCmd->CM) {
+    case CM_SRCH: start = srch_start;  break;
+    case CM_LINE: start = line_start;  break;
+    case CM_YMMM:
+    case CM_HMMM: start = copy_start;  break;
+    case CM_LMMM: start = lmmm_start;  break;
+    /* A transfer takes the byte already in R#44 as its first, so holding its
+    ** first step back lets the CPU overwrite that byte and strands the count. */
+    case CM_LMMC:
+    case CM_LMCM:
+    case CM_HMMC: start = 0;           break;
+    default:      start = cmd_start;   break;
+    }
+
+    /* Skipped once the engine is too far in arrears for the budget to stay in
+    ** range, which costs less than letting a stall compound without bound. */
+    if (start != 0 && vdpCmd->VdpOpsCnt > -MAX_CMD_START_DEBT) {
+        vdpCmd->VdpOpsCnt -= start[vdpCmd->timingMode];
+    }
 
     vdpCmd->systemTime = systemTime;
 }
