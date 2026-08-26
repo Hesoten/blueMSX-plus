@@ -53,6 +53,10 @@ UInt8 vdpCmdPeek(VdpCmdState* vdpCmd, UInt8 reg, UInt32 systemTime);
 void vdpSetScreenMode(VdpCmdState* state, int screenMode, int commandEnable);
 void vdpSetTimingMode(VdpCmdState* state, UInt8 timingMode);
 
+/* Call for every CPU access to the VRAM port, which takes a slot the engine
+** would otherwise have used. */
+void vdpCmdStealAccessSlot(VdpCmdState* state);
+
 /* VDP command-engine wait scaling: 100 = accurate, 0 = turbo. */
 void vdpCmdSetWaitPct(int percent);
 int  vdpCmdGetWaitPct(void);

@@ -5835,7 +5835,8 @@ static void r800SwitchCpu(R800* r800) {
         r800->delay[DLY_PUSH]      = freqAdjust * 1;
         r800->delay[DLY_RET]       = freqAdjust * 0;
         r800->delay[DLY_RLD]       = freqAdjust * 1;
-        r800->delay[DLY_S1990VDP]  = freqAdjust * 57;
+        /* Fewest R800 cycles the S1990 leaves between two VDP port accesses. */
+        r800->delay[DLY_S1990VDP]  = freqAdjust * 62;
         r800->delay[DLY_T9769VDP]  = freqAdjust * ((r800->cpuFlags & CPU_VDP_IO_DELAY) ? 1 : 0);
         r800->delay[DLY_LDSPHL]    = freqAdjust * 0;
         r800->delay[DLY_BITIX]     = freqAdjust * 0;

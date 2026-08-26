@@ -36,6 +36,19 @@
 #define VDPSTATUS_BO 0x10
 #define VDPSTATUS_CE 0x01
 
+/* Parts of a VDP cycle the budget and every wait against it are counted in. */
+#define VDP_TIMING_SCALE 8
+
+#define MAX_STEAL_DEBT (512 * VDP_TIMING_SCALE)
+
+/* Deepest arrears the wait before a command's first step may leave. No row
+** below reaches 320 cycles, so sixteen back to back all still pay. */
+#define MAX_CMD_START_DEBT (16 * 320 * VDP_TIMING_SCALE)
+
+/* Most unspent budget an engine may hold. Above anything a command can spend
+** or a flush hands out in one pass, and far below where an int overflows. */
+#define MAX_OPS_CREDIT (4000000 * VDP_TIMING_SCALE)
+
 /*************************************************************
 ** Other useful defines
 **************************************************************
@@ -80,6 +93,8 @@ static int tmp;
 ** re-used here so that they have to be entered only once
 **************************************************************
 */
+/* The breaks below come before the charges, so a command that reached its end
+** still has budget left and is not taken for one that ran out. */
 #define pre_loop \
     while (cnt > 0) {
 
@@ -92,6 +107,7 @@ static int tmp;
             if ((--NY & 1023) == 0 || DY == -1) {\
                 break; \
 		    } \
+            cnt-=wrap; \
         } \
         cnt-=delta; \
     }
@@ -104,6 +120,7 @@ static int tmp;
 			if ((--NY & 1023) == 0 || SY == -1 || DY == -1) { \
 				break; \
 			} \
+            cnt-=wrap; \
 		} \
         cnt-=delta; \
 	}
@@ -116,6 +133,7 @@ static int tmp;
 			if ((--NY & 1023) == 0 || SY == -1 || DY == -1) { \
 				break; \
 			} \
+            cnt-=wrap; \
 		} \
         cnt-=delta; \
 	}
@@ -132,6 +150,7 @@ static int tmp;
 			if ((--vdpCmd->NY & 1023) == 0 || vdpCmd->SY == -1 || vdpCmd->DY == -1) { \
 				break; \
 			} \
+            vdpCmd->VdpOpsCnt -= wrap; \
 		} \
         vdpCmd->VdpOpsCnt -= delta; \
 	}
@@ -231,39 +250,102 @@ static int   PPB[5]  = { 2, 4, 2, 1, 1 };
 static int   PPL[5]  = { 256, 512, 512, 256, 256 };
 
 
-/* Baseline (accurate) per-step wait values. Runtime arrays below are derived
-** from these scaled by vdpCmdWaitPct so the boost slider can shorten them.
-*/
-static const int srch_timing_base[8] = { 92,  125, 92,  92  };
-static const int line_timing_base[8] = { 120, 147, 120, 120 };
-//static const int line_timing_base[8] = { 120, 147, 120, 132 };
-static const int hmmv_timing_base[8] = { 49,  65,  49,  62  };
-static const int lmmv_timing_base[8] = { 98,  137, 98,  124 };
-static const int ymmm_timing_base[8] = { 65,  125, 65,  68  };
-static const int hmmm_timing_base[8] = { 92,  136, 92,  97  };
-static const int lmmm_timing_base[8] = { 129, 197, 129, 132 };
+/* Wait per step, in eighths of a cycle. A transfer charges one for every byte;
+** every other command charges one before every step but the first. */
+static const int srch_timing_base[8] = { 706,  995,  706,  755  };
+static const int line_timing_base[8] = { 913,  1093, 913,  995  };
+static const int lmmc_timing_base[8] = { 841,  1169, 841,  1051 };
+static const int lmcm_timing_base[8] = { 877,  1334, 877,  994  };
+static const int hmmv_timing_base[8] = { 390,  521,  390,  497  };
+static const int lmmv_timing_base[8] = { 781,  1094, 781,  994  };
+static const int ymmm_timing_base[8] = { 521,  994,  521,  547  };
+static const int hmmm_timing_base[8] = { 729,  1094, 729,  781  };
+static const int lmmm_timing_base[8] = { 1042, 1564, 1042, 1059 };
 
-static int srch_timing[8] = { 92,  125, 92,  92  };
-static int line_timing[8] = { 120, 147, 120, 120 };
-static int hmmv_timing[8] = { 49,  65,  49,  62  };
-static int lmmv_timing[8] = { 98,  137, 98,  124 };
-static int ymmm_timing[8] = { 65,  125, 65,  68  };
-static int hmmm_timing[8] = { 92,  136, 92,  97  };
-static int lmmm_timing[8] = { 129, 197, 129, 132 };
+/* Ticks a CPU access to the VRAM port takes from the engine, same columns.
+** The first row is what a line costs, and covers everything without a row. */
+static const int steal_other_base[8] = { 19, 280, 19,  65  };
+static const int hmmv_steal_base[8]  = { 18, 285, 18,  1   };
+static const int lmmv_steal_base[8]  = { 26, 264, 26,  11  };
+static const int ymmm_steal_base[8]  = { 43, 267, 43,  125 };
+static const int hmmm_steal_base[8]  = { 6,  252, 6,   57  };
+static const int lmmm_steal_base[8]  = { 2,  276, 2,   107 };
+
+/* Wait a stepping command serves before its first step, same columns. It
+** stands in for that first step as well, which is charged nothing, so commands
+** whose steps cost different amounts need rows of their own. */
+static const int cmd_start_base[8] = { 1735, 1838, 1735, 1512 };
+static const int srch_start_base[8] = { 1291, 1176, 1291, 1163 };
+static const int line_start_base[8] = { 1771, 2093, 1771, 1912 };
+static const int copy_start_base[8] = { 1735, 2046, 1735, 1840 };
+static const int lmmm_start_base[8] = { 1735, 2502, 1735, 2088 };
+
+/* Extra wait when a rectangle command steps to the next row, same columns. */
+static const int hmmv_wrap_base[8]   = { 778, 512,  778, 447 };
+static const int lmmv_wrap_base[8]   = { 583, 1082, 583, 22  };
+static const int ymmm_wrap_base[8]   = { 513, 378,  513, 794 };
+static const int hmmm_wrap_base[8]   = { 738, 0,    738, 205 };
+static const int lmmm_wrap_base[8]   = { 245, 409,  245, 401 };
+
+/* The tables above scaled by vdpCmdWaitPct. Empty until an engine is created. */
+static int srch_timing[8];
+static int line_timing[8];
+static int lmmc_timing[8];
+static int lmcm_timing[8];
+static int hmmv_timing[8];
+static int lmmv_timing[8];
+static int ymmm_timing[8];
+static int hmmm_timing[8];
+static int lmmm_timing[8];
+static int steal_other[8];
+static int hmmv_steal[8];
+static int lmmv_steal[8];
+static int ymmm_steal[8];
+static int hmmm_steal[8];
+static int lmmm_steal[8];
+static int hmmv_wrap[8];
+static int lmmv_wrap[8];
+static int ymmm_wrap[8];
+static int hmmm_wrap[8];
+static int lmmm_wrap[8];
+static int cmd_start[8];
+static int srch_start[8];
+static int line_start[8];
+static int copy_start[8];
+static int lmmm_start[8];
 
 static int vdpCmdWaitPct = 100;
 
 static void recomputeVdpCmdTimings(void) {
+    const int floor = VDP_TIMING_SCALE;     /* one whole cycle per step */
     int i;
     for (i = 0; i < 8; i++) {
         int v;
-        v = (srch_timing_base[i] * vdpCmdWaitPct) / 100; srch_timing[i] = v < 1 ? 1 : v;
-        v = (line_timing_base[i] * vdpCmdWaitPct) / 100; line_timing[i] = v < 1 ? 1 : v;
-        v = (hmmv_timing_base[i] * vdpCmdWaitPct) / 100; hmmv_timing[i] = v < 1 ? 1 : v;
-        v = (lmmv_timing_base[i] * vdpCmdWaitPct) / 100; lmmv_timing[i] = v < 1 ? 1 : v;
-        v = (ymmm_timing_base[i] * vdpCmdWaitPct) / 100; ymmm_timing[i] = v < 1 ? 1 : v;
-        v = (hmmm_timing_base[i] * vdpCmdWaitPct) / 100; hmmm_timing[i] = v < 1 ? 1 : v;
-        v = (lmmm_timing_base[i] * vdpCmdWaitPct) / 100; lmmm_timing[i] = v < 1 ? 1 : v;
+        v = (srch_timing_base[i] * vdpCmdWaitPct) / 100; srch_timing[i] = v < floor ? floor : v;
+        v = (line_timing_base[i] * vdpCmdWaitPct) / 100; line_timing[i] = v < floor ? floor : v;
+        v = (lmmc_timing_base[i] * vdpCmdWaitPct) / 100; lmmc_timing[i] = v < floor ? floor : v;
+        v = (lmcm_timing_base[i] * vdpCmdWaitPct) / 100; lmcm_timing[i] = v < floor ? floor : v;
+        v = (hmmv_timing_base[i] * vdpCmdWaitPct) / 100; hmmv_timing[i] = v < floor ? floor : v;
+        v = (lmmv_timing_base[i] * vdpCmdWaitPct) / 100; lmmv_timing[i] = v < floor ? floor : v;
+        v = (ymmm_timing_base[i] * vdpCmdWaitPct) / 100; ymmm_timing[i] = v < floor ? floor : v;
+        v = (hmmm_timing_base[i] * vdpCmdWaitPct) / 100; hmmm_timing[i] = v < floor ? floor : v;
+        v = (lmmm_timing_base[i] * vdpCmdWaitPct) / 100; lmmm_timing[i] = v < floor ? floor : v;
+        steal_other[i] = (steal_other_base[i] * vdpCmdWaitPct) / 100;
+        hmmv_steal[i]  = (hmmv_steal_base[i]  * vdpCmdWaitPct) / 100;
+        lmmv_steal[i]  = (lmmv_steal_base[i]  * vdpCmdWaitPct) / 100;
+        ymmm_steal[i]  = (ymmm_steal_base[i]  * vdpCmdWaitPct) / 100;
+        hmmm_steal[i]  = (hmmm_steal_base[i]  * vdpCmdWaitPct) / 100;
+        lmmm_steal[i]  = (lmmm_steal_base[i]  * vdpCmdWaitPct) / 100;
+        hmmv_wrap[i]   = (hmmv_wrap_base[i]   * vdpCmdWaitPct) / 100;
+        lmmv_wrap[i]   = (lmmv_wrap_base[i]   * vdpCmdWaitPct) / 100;
+        ymmm_wrap[i]   = (ymmm_wrap_base[i]   * vdpCmdWaitPct) / 100;
+        hmmm_wrap[i]   = (hmmm_wrap_base[i]   * vdpCmdWaitPct) / 100;
+        lmmm_wrap[i]   = (lmmm_wrap_base[i]   * vdpCmdWaitPct) / 100;
+        cmd_start[i]   = (cmd_start_base[i]   * vdpCmdWaitPct) / 100;
+        srch_start[i]  = (srch_start_base[i]  * vdpCmdWaitPct) / 100;
+        line_start[i]  = (line_start_base[i]  * vdpCmdWaitPct) / 100;
+        copy_start[i]  = (copy_start_base[i]  * vdpCmdWaitPct) / 100;
+        lmmm_start[i]  = (lmmm_start_base[i]  * vdpCmdWaitPct) / 100;
     }
 }
 
@@ -728,6 +810,7 @@ static void LmmvEngine(VdpCmdState* vdpCmd)
     UInt8 CL=vdpCmd->CL & Mask[vdpCmd->screenMode];
     UInt8 LO=vdpCmd->LO;
     int delta = lmmv_timing[vdpCmd->timingMode];
+    int wrap  = lmmv_wrap[vdpCmd->timingMode];
     int cnt;
 
     cnt = vdpCmd->VdpOpsCnt;
@@ -787,6 +870,7 @@ static void LmmmEngine(VdpCmdState* vdpCmd)
     int ANX=vdpCmd->ANX;
     UInt8 LO=vdpCmd->LO;
     int delta = lmmm_timing[vdpCmd->timingMode];
+    int wrap  = lmmm_wrap[vdpCmd->timingMode];
     int cnt;
 
     cnt = vdpCmd->VdpOpsCnt;
@@ -838,6 +922,7 @@ static void LmcmEngine(VdpCmdState* vdpCmd)
 {
     if (!(vdpCmd->status & VDPSTATUS_TR)) {
         vdpCmd->CL = getPixel(vdpCmd, vdpCmd->screenMode, vdpCmd->ASX, vdpCmd->SY);
+        vdpCmd->VdpOpsCnt -= lmcm_timing[vdpCmd->timingMode];
         vdpCmd->status |= VDPSTATUS_TR;
 
         if (!--vdpCmd->ANX || ((vdpCmd->ASX+=vdpCmd->TX)&vdpCmd->MX)) {
@@ -868,6 +953,7 @@ static void LmmcEngine(VdpCmdState* vdpCmd)
 
         UInt8 CL=vdpCmd->CL & Mask[SM];
         setPixel(vdpCmd, SM, vdpCmd->ADX, vdpCmd->DY, CL, vdpCmd->LO);
+        vdpCmd->VdpOpsCnt -= lmmc_timing[vdpCmd->timingMode];
         vdpCmd->status |= VDPSTATUS_TR;
 
         if (!--vdpCmd->ANX || ((vdpCmd->ADX+=vdpCmd->TX)&vdpCmd->MX)) {
@@ -903,6 +989,7 @@ static void HmmvEngine(VdpCmdState* vdpCmd)
     int ANX=vdpCmd->ANX;
     UInt8 CL=vdpCmd->CL;
     int delta = hmmv_timing[vdpCmd->timingMode];
+    int wrap  = hmmv_wrap[vdpCmd->timingMode];
     int cnt;
 
     cnt = vdpCmd->VdpOpsCnt;
@@ -950,6 +1037,7 @@ static void HmmvEngine(VdpCmdState* vdpCmd)
 static void HmmmEngine(VdpCmdState* vdpCmd)
 {
     int delta = hmmm_timing[vdpCmd->timingMode];
+    int wrap  = hmmm_wrap[vdpCmd->timingMode];
 
     switch (vdpCmd->screenMode) {
     case 0: 
@@ -993,6 +1081,7 @@ static void YmmmEngine(VdpCmdState* vdpCmd)
     int NY=vdpCmd->NY;
     int ADX=vdpCmd->ADX;
     int delta = ymmm_timing[vdpCmd->timingMode];
+    int wrap  = ymmm_wrap[vdpCmd->timingMode];
     int cnt;
 
     cnt = vdpCmd->VdpOpsCnt;
@@ -1086,6 +1175,10 @@ VdpCmdState* vdpCmdCreate(int vramSize, UInt8* vramPtr, UInt32 systemTime)
 
     vdpCmdGlobal = vdpCmd; // Ugly fix to make the cmd engine flushable
 
+    /* The tables are still empty here, and a per-step wait of zero would spin an
+    ** engine that never finishes its command. */
+    recomputeVdpCmdTimings();
+
     return vdpCmd;
 }
 
@@ -1113,6 +1206,8 @@ void vdpCmdDestroy(VdpCmdState* vdpCmd)
 */
 static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
 {
+    const int* start;
+
     vdpCmd->screenMode = vdpCmd->newScrMode;
 
     if (vdpCmd->screenMode < 0) {
@@ -1184,6 +1279,26 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
 
     /* Command execution started */
     vdpCmd->status |= VDPSTATUS_CE;
+
+    switch (vdpCmd->CM) {
+    case CM_SRCH: start = srch_start;  break;
+    case CM_LINE: start = line_start;  break;
+    case CM_YMMM:
+    case CM_HMMM: start = copy_start;  break;
+    case CM_LMMM: start = lmmm_start;  break;
+    /* A transfer takes the byte already in R#44 as its first, so holding its
+    ** first step back lets the CPU overwrite that byte and strands the count. */
+    case CM_LMMC:
+    case CM_LMCM:
+    case CM_HMMC: start = 0;           break;
+    default:      start = cmd_start;   break;
+    }
+
+    /* Skipped once the engine is too far in arrears for the budget to stay in
+    ** range, which costs less than letting a stall compound without bound. */
+    if (start != 0 && vdpCmd->VdpOpsCnt > -MAX_CMD_START_DEBT) {
+        vdpCmd->VdpOpsCnt -= start[vdpCmd->timingMode];
+    }
 
     vdpCmd->systemTime = systemTime;
 }
@@ -1305,6 +1420,34 @@ void vdpSetTimingMode(VdpCmdState* vdpCmd, UInt8 timingMode) {
 }
 
 /*************************************************************
+** vdpCmdStealAccessSlot
+**
+** Description:
+**      Charges the command engine for a VRAM slot the CPU took
+**************************************************************
+*/
+void vdpCmdStealAccessSlot(VdpCmdState* vdpCmd)
+{
+    const int* steal;
+
+    switch (vdpCmd->CM) {
+    case 0:       return;
+    case CM_HMMV: steal = hmmv_steal;  break;
+    case CM_LMMV: steal = lmmv_steal;  break;
+    case CM_YMMM: steal = ymmm_steal;  break;
+    case CM_HMMM: steal = hmmm_steal;  break;
+    case CM_LMMM: steal = lmmm_steal;  break;
+    default:      steal = steal_other; break;
+    }
+
+    /* An engine already this far behind has no next slot left to lose, and
+    ** charging it anyway would let a fast CPU run the debt away. */
+    if (vdpCmd->VdpOpsCnt > -MAX_STEAL_DEBT) {
+        vdpCmd->VdpOpsCnt -= steal[vdpCmd->timingMode];
+    }
+}
+
+/*************************************************************
 ** vdpGetStatus
 **
 ** Description:
@@ -1348,9 +1491,11 @@ UInt8 vdpGetColor(VdpCmdState* vdpCmd) {
 void vdpCmdFlush(VdpCmdState* vdpCmd) 
 {
     while (vdpCmd->CM != 0 && !(vdpCmd->status & VDPSTATUS_TR)) {
-        int opsCnt = vdpCmd->VdpOpsCnt += 1000000;
-        vdpCmdExecute(vdpCmd, vdpCmd->systemTime + opsCnt);
-        if (vdpCmd->VdpOpsCnt == 0 || vdpCmd->VdpOpsCnt == opsCnt) {
+        /* Let vdpCmdExecute grant the slice, so one slice of time buys one. */
+        vdpCmdExecute(vdpCmd, vdpCmd->systemTime + 1000000);
+        /* An engine with nothing left to run zeroes its budget, the only way
+        ** out for a command that neither finishes nor waits. */
+        if (vdpCmd->VdpOpsCnt == 0) {
             break;
         }
     }
@@ -1381,7 +1526,16 @@ void vdpCmdFlushAll()
 */
 void vdpCmdExecute(VdpCmdState* vdpCmd, UInt32 systemTime)
 {
-    vdpCmd->VdpOpsCnt += systemTime - vdpCmd->systemTime;
+    /* A transfer parked waiting on the CPU charges nothing for the wait, so
+    ** trim what it has banked before the elapsed time below is added to it. */
+    if (vdpCmd->VdpOpsCnt > MAX_OPS_CREDIT) {
+        vdpCmd->VdpOpsCnt = MAX_OPS_CREDIT;
+    }
+
+    /* Modular: vdpCmdFlush runs systemTime ahead, so the elapsed time is often
+    ** negative and the budget legitimately goes into debt by that much. */
+    vdpCmd->VdpOpsCnt = (int)((UInt32)vdpCmd->VdpOpsCnt +
+                              (systemTime - vdpCmd->systemTime) * VDP_TIMING_SCALE);
     vdpCmd->systemTime = systemTime;
     
     if (vdpCmd->VdpOpsCnt <= 0) {
@@ -1446,6 +1600,7 @@ void vdpCmdExecute(VdpCmdState* vdpCmd, UInt32 systemTime)
 void vdpCmdLoadState(VdpCmdState* vdpCmd)
 {
     SaveState* state = saveStateOpenForRead("vdpCommandEngine");
+    int opsCnt;
 
     vdpCmd->SX            =         saveStateGet(state, "SX",         0);
     vdpCmd->SY            =         saveStateGet(state, "SY",         0);
@@ -1466,11 +1621,24 @@ void vdpCmdLoadState(VdpCmdState* vdpCmd)
     vdpCmd->TX            =         saveStateGet(state, "TX",         0);
     vdpCmd->TY            =         saveStateGet(state, "TY",         0);
     vdpCmd->MX            =         saveStateGet(state, "MX",         0);
-    vdpCmd->VdpOpsCnt     =         saveStateGet(state, "VdpOpsCnt",  0);
+    /* Held in whole cycles so a state stays readable whatever unit the budget
+    ** is carried in. Signed for debt, and clamped to keep the scaling in range. */
+    opsCnt = (int)saveStateGet(state, "VdpOpsCnt", 0);
+    if (opsCnt >  MAX_OPS_CREDIT / VDP_TIMING_SCALE) opsCnt =  MAX_OPS_CREDIT / VDP_TIMING_SCALE;
+    if (opsCnt < -MAX_OPS_CREDIT / VDP_TIMING_SCALE) opsCnt = -MAX_OPS_CREDIT / VDP_TIMING_SCALE;
+    vdpCmd->VdpOpsCnt     = opsCnt * VDP_TIMING_SCALE;
     vdpCmd->systemTime    =         saveStateGet(state, "systemTime", boardSystemTime());
     vdpCmd->newScrMode    =         saveStateGet(state, "newScrMode", 0);
     vdpCmd->screenMode    =         saveStateGet(state, "screenMode", 0);
-    vdpCmd->timingMode    =         saveStateGet(state, "timingMode", 0);
+    /* Both index the pixel tables, so a damaged state must not reach past them.
+    ** An engine left with no mode to run in has nothing to go on with either. */
+    if (vdpCmd->newScrMode < -1 || vdpCmd->newScrMode > 4) vdpCmd->newScrMode = -1;
+    if (vdpCmd->screenMode < -1 || vdpCmd->screenMode > 4) {
+        vdpCmd->screenMode = -1;
+        vdpCmd->CM         = 0;
+        vdpCmd->status    &= ~VDPSTATUS_CE;
+    }
+    vdpCmd->timingMode    =         saveStateGet(state, "timingMode", 0) & 3;
     
     saveStateClose(state);
 
@@ -1514,7 +1682,7 @@ void vdpCmdSaveState(VdpCmdState* vdpCmd)
     saveStateSet(state, "TX",         vdpCmd->TX);
     saveStateSet(state, "TY",         vdpCmd->TY);
     saveStateSet(state, "MX",         vdpCmd->MX);
-    saveStateSet(state, "VdpOpsCnt",  vdpCmd->VdpOpsCnt);
+    saveStateSet(state, "VdpOpsCnt",  vdpCmd->VdpOpsCnt / VDP_TIMING_SCALE);
     saveStateSet(state, "systemTime", vdpCmd->systemTime);
     saveStateSet(state, "newScrMode", vdpCmd->newScrMode);
     saveStateSet(state, "screenMode", vdpCmd->screenMode);
