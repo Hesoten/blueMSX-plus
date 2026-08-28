@@ -183,6 +183,7 @@ struct VdpCmdState {
     int    textBackColor;
     int    fontAddress;
     int    fontColor;
+    int    cmdEnd;
     int    yMask;
     int    yHigh;
     int    nyMask;
@@ -1636,10 +1637,14 @@ void vdpCmdWrite(VdpCmdState* vdpCmd, UInt8 reg, UInt8 value, UInt32 systemTime)
 	case 0x18: vdpCmd->WEX = (vdpCmd->WEX & 0x0ff) | ((value & 0x01) << 8); break;
 	case 0x19: vdpCmd->WEY = (vdpCmd->WEY & 0x700) | value;                 break;
 	case 0x1a: vdpCmd->WEY = (vdpCmd->WEY & 0x0ff) | ((value & 0x07) << 8); break;
-	case 0x0e: 
+	case 0x0e:
 		vdpCmd->LO = value & 0x0F;
 		vdpCmd->CM = value >> 4;
 		vdpCmdSetCommand(vdpCmd, systemTime);
+        /* One that never starts still counts as one that ended. */
+        if (vdpCmd->CM == 0) {
+            vdpCmd->cmdEnd = 1;
+        }
 		break;
     }
 }
@@ -1724,6 +1729,17 @@ void vdpCmdSetExtCommands(VdpCmdState* vdpCmd, int enable)
 void vdpCmdSetTextBackColor(VdpCmdState* vdpCmd, int color)
 {
     vdpCmd->textBackColor = color;
+}
+
+/* Sticky until acknowledged, and set whether or not anyone is listening. */
+int vdpCmdGetEndFlag(VdpCmdState* vdpCmd)
+{
+    return vdpCmd->cmdEnd;
+}
+
+void vdpCmdClearEndFlag(VdpCmdState* vdpCmd)
+{
+    vdpCmd->cmdEnd = 0;
 }
 
 void vdpCmdSetExpansionWindow(VdpCmdState* vdpCmd, int enable)
@@ -1889,6 +1905,8 @@ void vdpCmdFlushAll()
 */
 void vdpCmdExecute(VdpCmdState* vdpCmd, UInt32 systemTime)
 {
+    UInt8 running;
+
     /* A transfer parked waiting on the CPU charges nothing for the wait, so
     ** trim what it has banked before the elapsed time below is added to it. */
     if (vdpCmd->VdpOpsCnt > MAX_OPS_CREDIT) {
@@ -1904,6 +1922,8 @@ void vdpCmdExecute(VdpCmdState* vdpCmd, UInt32 systemTime)
     if (vdpCmd->VdpOpsCnt <= 0) {
         return;
     }
+
+    running = vdpCmd->CM;
 
     switch (vdpCmd->CM) {
     case CM_SRCH:
@@ -1947,6 +1967,10 @@ void vdpCmdExecute(VdpCmdState* vdpCmd, UInt32 systemTime)
         break;
     default:
         vdpCmd->VdpOpsCnt = 0;
+    }
+
+    if (running != 0 && vdpCmd->CM == 0) {
+        vdpCmd->cmdEnd = 1;
     }
 
     /* Breaking here and not mid-loop leaves the counters written back, so a save
@@ -2018,6 +2042,7 @@ void vdpCmdLoadState(VdpCmdState* vdpCmd)
     vdpCmd->fontAddress   =         saveStateGet(state, "fontAddress", 0);
     /* A state without the latch carries the colour in CL. */
     vdpCmd->fontColor     =         saveStateGet(state, "fontColor", vdpCmd->CL);
+    vdpCmd->cmdEnd        =         saveStateGet(state, "cmdEnd", 0);
     /* Both index the pixel tables, so a damaged state must not reach past them.
     ** An engine left with no mode to run in has nothing to go on with either. */
     if (vdpCmd->newScrMode < -1 || vdpCmd->newScrMode > 4) vdpCmd->newScrMode = -1;
@@ -2084,6 +2109,7 @@ void vdpCmdSaveState(VdpCmdState* vdpCmd)
     saveStateSet(state, "vram256",    vdpCmd->vram256);
     saveStateSet(state, "fontAddress", vdpCmd->fontAddress);
     saveStateSet(state, "fontColor", vdpCmd->fontColor);
+    saveStateSet(state, "cmdEnd", vdpCmd->cmdEnd);
     saveStateSet(state, "timingMode", vdpCmd->timingMode);
     
     saveStateClose(state);
