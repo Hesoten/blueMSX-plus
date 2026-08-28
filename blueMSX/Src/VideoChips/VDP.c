@@ -179,11 +179,8 @@ static int vramAddr;
 #define vdpIsModeYJK(regs)           (regs[25] & 0x08)
 #define vdpIsModeYAE(regs)           (regs[25] & 0x10)
 #define vdpVScroll(vdp)              ((vdp)->vdpRegs[23])
-/* Start of a bitmap line: the page bit lands at 15 and the scrolled row at
-   14-7, with the base doubling as the AND mask the chip applies to the row. */
-#define vdpBitmapLine(vdp, y)                                                  \
-    (vdpBitmapBase(vdp) & (~(vdpIsOddPage(vdp) | vdpBlinkEvenPage(vdp)) << 7)  \
-                        & ((-1 << 15) | (((y) - (vdp)->firstLine + vdpVScroll(vdp)) << 7)))
+/* R#20 bit5 FIL: the two interlace fields become one image in memory. */
+#define vdpIsFlatInterlace(vdp)     (vdpIsV9968(vdp) && ((vdp)->vdpRegs[20] & 0x20))
 #define vdpHScroll(vdp)       ((((int)((vdp)->vdpRegs[26]&0x3F)<<3)-(int)((vdp)->vdpRegs[27]&0x07))&~(~(int)vdpHScroll512(vdp)<<8))
 #define vdpHScroll512(vdp)    ((vdp)->vdpRegs[25]&((vdp)->vdpRegs[2]>>5)&0x1)
 
@@ -496,6 +493,22 @@ static int vdpBitmapBase(VDP* vdp)
     return base;
 }
 
+/* Start of a bitmap line. The page bit lands at 15 and the scrolled row at
+** 14-7, the base doubling as the AND mask the chip applies to the row. Flat
+** interlace instead gives the row bit 15 too and puts the field at bit 7. */
+static int vdpBitmapLine(VDP* vdp, int y)
+{
+    int row  = y - vdp->firstLine + vdpVScroll(vdp);
+    int base = vdpBitmapBase(vdp);
+
+    if (vdpIsFlatInterlace(vdp)) {
+        return (base & ((-1 << 16) | (row << 8)))
+             | ((vdp->vdpStatus[2] & 0x02) << 6);
+    }
+    return base & (~(vdpIsOddPage(vdp) | vdpBlinkEvenPage(vdp)) << 7)
+                & ((-1 << 15) | (row << 7));
+}
+
 #include "SpriteLine.h"
 #include "Common.h"
 
@@ -771,8 +784,13 @@ static void onDisplay(VDP* vdp, UInt32 time)
             // only IL+EO+vram128 (mode 3) is true ODD/EVEN alternation.
             int il = vdpIsInterlaceOn(vdp->vdpRegs) ? 1 : 0;
             int eo = (vdp->vdpRegs[9] & 0x04) ? 1 : 0;
-            frameBuffer->interlaceRaster = il;
-            if (il && eo && vdp->vram128) {
+            // Flat interlace shifts the raster in every mode, but only a bitmap
+            // mode takes the field into the address and so has two fields worth
+            // weaving.
+            int fil = vdpIsFlatInterlace(vdp) ? 1 : 0;
+            int filWeave = fil && vdp->screenMode >= 5 && vdp->screenMode <= 12;
+            frameBuffer->interlaceRaster = il | fil;
+            if (filWeave || (il && eo && vdp->vram128)) {
                 frameBufferSetInterlace(frameBuffer,
                     (vdp->vdpStatus[2] & 0x02) ? INTERLACE_EVEN : INTERLACE_ODD);
             }
