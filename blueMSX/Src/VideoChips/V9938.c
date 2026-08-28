@@ -1136,6 +1136,51 @@ static void LmmcEngine(VdpCmdState* vdpCmd)
 }
 
 /*************************************************************
+** LfmcEngine
+**
+** Description:
+**      CPU font byte -> Vram, one bit per dot
+**************************************************************
+*/
+static void LfmcEngine(VdpCmdState* vdpCmd)
+{
+    UInt8 SM = vdpCmd->screenMode;
+    UInt8 CL = vdpCmd->fontColor & Mask[SM];
+    UInt8 BG = vdpCmd->textBackColor & Mask[SM];
+
+    /* A byte has to be drawn whole: only the dot counters survive between
+    ** calls, so a bit part way through one could not be picked up again. */
+    while (!(vdpCmd->status & VDPSTATUS_TR) && vdpCmd->VdpOpsCnt > 0) {
+        UInt8 bits = vdpCmd->CL;
+        int i;
+
+        for (i = 0; i < 8; i++) {
+            setPixel(vdpCmd, SM, vdpCmd->ADX, vdpCmd->DY, (bits & (0x80 >> i)) ? CL : BG, vdpCmd->LO);
+            vdpCmd->VdpOpsCnt -= fast_timing;
+
+            if (!--vdpCmd->ANX || ((vdpCmd->ADX += vdpCmd->TX) & vdpCmd->MX)) {
+                vdpCmd->DY += vdpCmd->TY;
+                if (!(--vdpCmd->NY & vdpCmd->nyMask) || vdpCmd->DY == -1) {
+                    vdpCmd->status &= ~VDPSTATUS_CE;
+                    vdpCmd->CM = 0;
+                    vdpCmd->status |= VDPSTATUS_TR;
+                    return;
+                }
+                vdpCmd->ADX = vdpCmd->DX;
+                vdpCmd->ANX = vdpCmd->NX;
+                break;
+            }
+        }
+
+        /* Another byte is only asked for once all eight bits have gone, so a
+        ** row that ends part way through one restarts it on the next row. */
+        if (i >= 7) {
+            vdpCmd->status |= VDPSTATUS_TR;
+        }
+    }
+}
+
+/*************************************************************
 ** HmmvEngine
 **
 ** Description:
@@ -1432,11 +1477,13 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
         }
         break;
 
-    /* An undefined code stops the command, so the executing flag falls with it. */
     case CM_LFMC:
-        vdpCmd->CM = 0;
-        vdpCmd->status &= ~VDPSTATUS_CE;
-        return;
+        if (!vdpCmd->extCommands) {
+            vdpCmd->CM = 0;
+            vdpCmd->status &= ~VDPSTATUS_CE;
+            return;
+        }
+        break;
 
     case CM_POINT:
         vdpCmd->CM = 0;
@@ -1498,6 +1545,13 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
         vdpCmd->ANX = lfmmStripRows(vdpCmd);
         vdpCmd->fontColor = vdpCmd->CL;
         start = lmmm_start;
+        break;
+    /* R#44 holds the colour when the command starts and the font bytes after,
+    ** so the first byte has to come from the CPU. */
+    case CM_LFMC:
+        vdpCmd->fontColor = vdpCmd->CL;
+        vdpCmd->status |= VDPSTATUS_TR;
+        start = 0;
         break;
     case CM_LRMM:
     {
@@ -1884,6 +1938,9 @@ void vdpCmdExecute(VdpCmdState* vdpCmd, UInt32 systemTime)
         break;
     case CM_LFMM:
         LfmmEngine(vdpCmd);
+        break;
+    case CM_LFMC:
+        LfmcEngine(vdpCmd);
         break;
     case CM_LRMM:
         LrmmEngine(vdpCmd);
