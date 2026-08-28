@@ -154,6 +154,8 @@ static int vramAddr;
 #define vdpIsV9968(vdp)              ((vdp)->vdpVersion == VDP_V9968)
 // R#21 bit0 V58: set means behave as a V9958, clear means as a V9968.
 #define vdpIsV9968Native(vdp)        (vdpIsV9968(vdp) && !((vdp)->vdpRegs[21] & 0x01))
+// R#20 bit4 EPAL: 256 entries of 5 bit RGB, written three bytes at a time.
+#define vdpIsExtPalette(vdp)         (vdpIsV9968(vdp) && ((vdp)->vdpRegs[20] & 0x10))
 #define vdpIsVideoPal(vdp)          (((vdp)->vdpRegs[9]  & (vdp)->palMask & 0x02) | (vdp)->palValue)
 #define vdpIsOddPage(vdp)           (((~(vdp)->vdpStatus[2] & 0x02) << 7) & (((vdp)->vdpRegs[9]  & 0x04) << 6))
 // V9938 blink page alternation: while the blink OFF phase is active the odd
@@ -199,7 +201,7 @@ static const UInt8 registerValueMaskMSX2p[64] = {
 static const UInt8 registerValueMaskV9968[64] = {
 	0x7e, 0x7f, 0x7f, 0xff, 0x3f, 0xff, 0x3f, 0xff,
 	0xfb, 0xbf, 0x07, 0x03, 0xff, 0xff, 0x07, 0x0f,
-	0x0f, 0xbf, 0xff, 0xff, 0xff, 0x3f, 0x3f, 0xff,
+	0xff, 0xbf, 0xff, 0xff, 0xff, 0x3f, 0x3f, 0xff,
     0x00, 0x7f, 0x3f, 0x07, 0x00, 0x00, 0x00, 0x00,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -351,6 +353,10 @@ struct VDP {
     /* P#4 bit7. While set, writes to R#20 and R#21 are discarded. */
     int    extRegsLocked;
 
+    /* Which byte of a palette entry comes next: two per entry, three with EPAL.
+    ** The first shares the write latch with the register ports, as it always has. */
+    int    palKey;
+    UInt8  paletteLatch;
 
     UInt8  palMask;
     UInt8  palValue;
@@ -398,7 +404,6 @@ struct VDP {
     UInt8  vdpRegs[64];
     UInt8  vdpStatus[16];
 
-    int    palKey;
     int    vdpKey;
     UInt8  vdpData;
     UInt8  vdpDataLatch;
@@ -435,6 +440,8 @@ struct VDP {
     UInt32 screenOffTime;
     
     Pixel paletteFixed[256];
+    Pixel  paletteExt[256];
+    UInt16 paletteExtReg[256];
     Pixel paletteSprite8[16];
     Pixel  palette0;
     Pixel palette[16];
@@ -1110,7 +1117,7 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
         }
         break;
 
-    case 16: 
+    case 16:
         vdp->palKey = 0;
         break;
 
@@ -1560,24 +1567,60 @@ static void updatePalette(VDP* vdp, int palEntry, int r, int g, int b)
             updateOutputMode(vdp);
         }
     }
+    vdp->paletteExt[palEntry & 0x0f] = color;
+}
+
+/* r, g and b are 5 bit. Entries 0-15 are the ones the 16 colour modes read. */
+static void updateExtPalette(VDP* vdp, int palEntry, int r, int g, int b)
+{
+    palEntry &= 0xff;
+
+    if (palEntry < 16) {
+        vdp->paletteReg[palEntry] = ((g >> 2) << 8) | ((r >> 2) << 4) | (b >> 2);
+        updatePalette(vdp, palEntry, 255 * r / 31, 255 * g / 31, 255 * b / 31);
+    }
+    else {
+        vdp->paletteExt[palEntry] = videoGetColor(255 * r / 31, 255 * g / 31, 255 * b / 31);
+    }
+    vdp->paletteExtReg[palEntry] = (UInt16)((r << 10) | (g << 5) | b);
 }
 
 static void writePaletteLatch(VDP* vdp, UInt16 ioPort, UInt8 value)
 {
+    int palEntry = vdp->vdpRegs[16];
+
+    if (vdpIsExtPalette(vdp)) {
+        value &= 0x1f;
+        if (vdp->palKey == 0) {
+            vdp->vdpDataLatch = value;
+            vdp->palKey = 1;
+            return;
+        }
+        if (vdp->palKey == 1) {
+            vdp->paletteLatch = value;
+            vdp->palKey = 2;
+            return;
+        }
+        sync(vdp, boardSystemTime());
+        updateExtPalette(vdp, palEntry, vdp->vdpDataLatch, vdp->paletteLatch, value);
+        vdp->vdpRegs[16] = (palEntry + 1) & 0xff;
+        vdp->palKey = 0;
+        return;
+    }
+
     if (vdp->palKey) {
-		int palEntry = vdp->vdpRegs[16];
+        palEntry &= 0x0f;
         sync(vdp, boardSystemTime());
         vdp->paletteReg[palEntry] = 256 * (value & 0x07) | (vdp->vdpDataLatch & 0x77);
-        updatePalette(vdp, palEntry, (vdp->vdpDataLatch & 0x70) * 255 / 112, 
+        updatePalette(vdp, palEntry, (vdp->vdpDataLatch & 0x70) * 255 / 112,
                                      (value & 0x07) * 255 / 7,
                                      (vdp->vdpDataLatch & 0x07) * 255 / 7);
-
         vdp->vdpRegs[16] = (palEntry + 1) & 0x0f;
-		vdp->palKey = 0;
-	} 
+        vdp->palKey = 0;
+	}
     else {
 		vdp->vdpDataLatch = value;
-		vdp->palKey = 1;
+        vdp->palKey = 1;
 	}
 }
 
@@ -1717,7 +1760,6 @@ static void saveState(VDP* vdp)
 
     saveStateSet(state, "frameStartTime",    vdp->frameStartTime);
 
-    saveStateSet(state, "palKey",          vdp->palKey);
     saveStateSet(state, "vdpKey",          vdp->vdpKey);
     saveStateSet(state, "vramAddress",     vdp->vramAddress);
     saveStateSet(state, "vdpData",         vdp->vdpData);
@@ -1776,7 +1818,6 @@ static void loadState(VDP* vdp)
     vdp->frameStartTime      =      saveStateGet(state, "frameStartTime",      systemTime);
 //    vdp->timeTmsVint       =      saveStateGet(state, "timeTmsVint",       systemTime);
 
-    vdp->palKey         =         saveStateGet(state, "palKey",          0);
     vdp->vdpKey         =         saveStateGet(state, "vdpKey",          0);
     vdp->vramAddress    = (UInt16)saveStateGet(state, "vramAddress",     0);
     vdp->vdpData        = (UInt8) saveStateGet(state, "vdpData",         0);
@@ -1924,7 +1965,6 @@ static void saveState(VDP* vdp)
     saveStateSetBuffer(state, "regs", vdp->vdpRegs, sizeof(vdp->vdpRegs));
     saveStateSetBuffer(state, "vdpStatus", vdp->vdpStatus, sizeof(vdp->vdpStatus));
     
-    saveStateSet(state, "palKey",         vdp->palKey);
     saveStateSet(state, "vdpKey",         vdp->vdpKey);
     saveStateSet(state, "vdpData",         vdp->vdpData);
     saveStateSet(state, "vdpDataLatch",         vdp->vdpDataLatch);
@@ -1958,6 +1998,9 @@ static void saveState(VDP* vdp)
 
     saveStateSet(state, "vramAccMask",         vdp->vramAccMask);
     saveStateSet(state, "extRegsLocked",       vdp->extRegsLocked);
+    saveStateSet(state, "palKey",              vdp->palKey);
+    saveStateSet(state, "paletteLatch",        vdp->paletteLatch);
+    saveStateSetBuffer(state, "paletteExtReg", vdp->paletteExtReg, sizeof(vdp->paletteExtReg));
 
     saveStateSetBuffer(state, "vram", vdp->vram, sizeof(vdp->vram));
 
@@ -2025,7 +2068,6 @@ static void loadState(VDP* vdp)
     saveStateGetBuffer(state, "regs", vdp->vdpRegs, sizeof(vdp->vdpRegs));
     saveStateGetBuffer(state, "vdpStatus", vdp->vdpStatus, sizeof(vdp->vdpStatus));
     
-    vdp->palKey = saveStateGet(state, "palKey",         0);
     vdp->vdpKey = saveStateGet(state, "vdpKey",         0);
     vdp->vdpData = saveStateGet(state, "vdpData",         0);
     vdp->vdpDataLatch = saveStateGet(state, "vdpDataLatch",         0);
@@ -2059,6 +2101,21 @@ static void loadState(VDP* vdp)
 
     vdp->vramAccMask = saveStateGet(state, "vramAccMask",         0);
     vdp->extRegsLocked = saveStateGet(state, "extRegsLocked",     0);
+    vdp->palKey        = saveStateGet(state, "palKey",            0);
+    vdp->paletteLatch  = (UInt8)saveStateGet(state, "paletteLatch", 0);
+    saveStateGetBuffer(state, "paletteExtReg", vdp->paletteExtReg, sizeof(vdp->paletteExtReg));
+    /* The first sixteen entries are the sixteen colour palette seen a second
+    ** time, so they come back from there rather than from the five bit copy.
+    ** Entry zero keeps its own colour, the one transparency substitutes for. */
+    vdp->paletteExt[0] = vdp->palette0;
+    for (i = 1; i < 16; i++) {
+        vdp->paletteExt[i] = vdp->palette[i];
+    }
+    for (i = 16; i < 256; i++) {
+        vdp->paletteExt[i] = videoGetColor(255 * ((vdp->paletteExtReg[i] >> 10) & 0x1f) / 31,
+                                           255 * ((vdp->paletteExtReg[i] >>  5) & 0x1f) / 31,
+                                           255 * ( vdp->paletteExtReg[i]        & 0x1f) / 31);
+    }
 
     if (isOldFormat) {
         /* Old (2.8.2) tag-name overrides:
@@ -2444,6 +2501,21 @@ static void reset(VDP* vdp)
         for (i = 0; i < 16; i++) {
             updatePalette(vdp, i, msx2Palette[i].r, msx2Palette[i].g, msx2Palette[i].b);
         }
+    }
+
+    /* The 16 boot colours are repeated across all 16 sets. The five bit copy
+    ** has to be laid down too: it is what a save state carries, and three bits
+    ** reach five as v2 v1 v0 v2 v1. */
+    for (i = 0; i < 256; i++) {
+        int reg = defaultPaletteRegs[i & 0x0f];
+        int r   = (reg >> 4) & 7;
+        int g   = (reg >> 8) & 7;
+        int b   =  reg       & 7;
+
+        vdp->paletteExt[i]    = vdp->palette[i & 0x0f];
+        vdp->paletteExtReg[i] = (UInt16)((((r << 2) | (r >> 1)) << 10) |
+                                         (((g << 2) | (g >> 1)) <<  5) |
+                                          ((b << 2) | (b >> 1)));
     }
 
     /* The engine keeps its own copy of R#45, so a stale one would decide the
