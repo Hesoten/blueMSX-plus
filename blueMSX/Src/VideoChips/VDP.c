@@ -2366,6 +2366,10 @@ static void reset(VDP* vdp)
         }
     }
 
+    /* The engine keeps its own copy of R#45, so a stale one would decide the
+    ** addressing of the next command the guest never asked for. */
+    vdpCmdWrite(vdp->cmdEngine, 0x0d, 0, boardSystemTime());
+
     memcpy(vdp->paletteReg, defaultPaletteRegs, sizeof(vdp->paletteReg));
 
     onScrModeChange(vdp, boardSystemTime());
