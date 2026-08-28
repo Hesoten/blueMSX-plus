@@ -513,6 +513,7 @@ static void vdpUpdateVramMode(VDP* vdp)
         vdp->vramEnable = 1;
     }
     vdpCmdSetVram256(vdp->cmdEngine, wide);
+    vdpCmdSetExtCommands(vdp->cmdEngine, vdpIsV9968Native(vdp));
 }
 
 
@@ -1262,6 +1263,10 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
                 vdp->XBGColor = vdp->vdpRegs[12] & 0x0f;
             }
         }
+        break;
+
+    case 12:
+        vdpCmdSetTextBackColor(vdp->cmdEngine, value & 0x0f);
         break;
 
     case 14:
@@ -2420,6 +2425,9 @@ static void loadState(VDP* vdp)
 
     vdp->vramPtr = vdp->vram + vdp->vramOffsets[(vdp->vdpRegs[0x2d] >> 6) & 1];
     vdpUpdateVramMode(vdp);
+    /* The engine holds its own copy of R#12, and a command using it can be part
+    ** way through. */
+    vdpCmdSetTextBackColor(vdp->cmdEngine, vdp->vdpRegs[12] & 0x0f);
 
     canFlipFrameBuffer = 0;
     vdp->flippedEarly  = 0;
@@ -3826,6 +3834,7 @@ static void reset(VDP* vdp)
     /* The engine keeps its own copy of R#45, so a stale one would decide the
     ** addressing of the next command the guest never asked for. */
     vdpCmdWrite(vdp->cmdEngine, 0x0d, 0, boardSystemTime());
+    vdpCmdSetTextBackColor(vdp->cmdEngine, 0);
     vdpUpdateVramMode(vdp);
 
     memcpy(vdp->paletteReg, defaultPaletteRegs, sizeof(vdp->paletteReg));
