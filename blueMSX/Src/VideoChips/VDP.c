@@ -181,6 +181,10 @@ static int vramAddr;
 #define vdpVScroll(vdp)              ((vdp)->vdpRegs[23])
 /* R#20 bit5 FIL: the two interlace fields become one image in memory. */
 #define vdpIsFlatInterlace(vdp)     (vdpIsV9968(vdp) && ((vdp)->vdpRegs[20] & 0x20))
+/* R#25 bit7 SPS: the plane scan takes a stride, so a crowded line drops a
+** different set of sprites each frame. The end of table marker cannot end a
+** scan that arrives out of order, so every plane is looked at. */
+#define vdpIsSpriteShuffle(vdp)     (vdpIsV9968(vdp) && ((vdp)->vdpRegs[25] & 0x80))
 #define vdpHScroll(vdp)       ((((int)((vdp)->vdpRegs[26]&0x3F)<<3)-(int)((vdp)->vdpRegs[27]&0x07))&~(~(int)vdpHScroll512(vdp)<<8))
 #define vdpHScroll512(vdp)    ((vdp)->vdpRegs[25]&((vdp)->vdpRegs[2]>>5)&0x1)
 
@@ -211,13 +215,14 @@ static const UInt8 registerValueMaskMSX2p[64] = {
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
 };
 
-/* The V9958 mask, widened for the 8 bit R#16 index, the R#20 mode bits and the
-** A17 the table bases gain: R#2 bit7, R#4 and R#6 bit6, R#10 bit3, R#11 bit2. */
+/* The V9958 mask, widened for the 8 bit R#16 index, the R#20 mode bits, the
+** R#25 sprite shuffle and the A17 the table bases gain: R#2 bit7, R#4 and R#6
+** bit6, R#10 bit3, R#11 bit2. */
 static const UInt8 registerValueMaskV9968[64] = {
 	0x7e, 0x7f, 0xff, 0xff, 0x7f, 0xff, 0x7f, 0xff,
 	0xfb, 0xbf, 0x0f, 0x07, 0xff, 0xff, 0x0f, 0x0f,
 	0xff, 0xbf, 0xff, 0xff, 0xff, 0x3f, 0x3f, 0xff,
-    0x00, 0x7f, 0x3f, 0x07, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0xff, 0x3f, 0x07, 0x00, 0x00, 0x00, 0x00,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -401,6 +406,7 @@ struct VDP {
     int    vram256;
     int    vramA17;
     int    sprMode3;
+    int    sprPlaneStart;
     int    vram192;
     int    vram16;
     int    vramEnable;
@@ -491,6 +497,20 @@ static int vdpBitmapBase(VDP* vdp)
         base = ((base & 0xffff) | ((base & 0x10000) << 1)) & vdp->vramMask;
     }
     return base;
+}
+
+/* Which plane the scan looks at on its step'th pass. An interleaved fetch
+** brings back two attributes at once, so the shuffle takes them as a sibling
+** pair and strides between pairs instead. */
+static int vdpSpritePlane(VDP* vdp, int step, int mask)
+{
+    if (!vdpIsSpriteShuffle(vdp)) {
+        return step;
+    }
+    if (vdpIsInterleaved(vdp)) {
+        return (vdp->sprPlaneStart + (step >> 1) * 38 + (step & 1)) & mask;
+    }
+    return (vdp->sprPlaneStart + step * 19) & mask;
 }
 
 /* Start of a bitmap line. The page bit lands at 15 and the scrolled row at
@@ -816,6 +836,15 @@ static void onDisplay(VDP* vdp, UInt32 time)
         boardClearInt(INT_IE1);
     }
     vdp->vdpStatus[2] ^= 0x02;
+    if (!vdpIsSpriteShuffle(vdp)) {
+        vdp->sprPlaneStart = 0;
+    }
+    else if (vdpIsInterleaved(vdp)) {
+        vdp->sprPlaneStart = (((vdp->sprPlaneStart >> 1) + 9) << 1) & 0x3f;
+    }
+    else {
+        vdp->sprPlaneStart = (vdp->sprPlaneStart + 17) & 0x3f;
+    }
     RefreshScreen(vdp->screenMode);
 
     /* Per-frame (VSYNC) blink clock. In line-blink mode the phase is derived
@@ -1243,7 +1272,10 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
         break;
 
     case 25:
-        if (change) {
+        if (!(value & 0x80)) {
+            vdp->sprPlaneStart = 0;
+        }
+        if (change & 0x7f) {
             scheduleScrModeChange(vdp);
         }
         break;
@@ -2144,6 +2176,7 @@ static void saveState(VDP* vdp)
 
     saveStateSet(state, "vramAccMask",         vdp->vramAccMask);
     saveStateSet(state, "extRegsLocked",       vdp->extRegsLocked);
+    saveStateSet(state, "sprPlaneStart",       vdp->sprPlaneStart);
     saveStateSet(state, "palKey",              vdp->palKey);
     saveStateSet(state, "paletteLatch",        vdp->paletteLatch);
     saveStateSetBuffer(state, "paletteExtReg", vdp->paletteExtReg, sizeof(vdp->paletteExtReg));
@@ -2250,6 +2283,7 @@ static void loadState(VDP* vdp)
 
     vdp->vramAccMask = saveStateGet(state, "vramAccMask",         0);
     vdp->extRegsLocked = saveStateGet(state, "extRegsLocked",     0);
+    vdp->sprPlaneStart = saveStateGet(state, "sprPlaneStart",     0);
     vdp->palKey        = saveStateGet(state, "palKey",            0);
     vdp->paletteLatch  = (UInt8)saveStateGet(state, "paletteLatch", 0);
     saveStateGetBuffer(state, "paletteExtReg", vdp->paletteExtReg, sizeof(vdp->paletteExtReg));
@@ -2628,6 +2662,7 @@ static void reset(VDP* vdp)
 
     vdp->extRegsLocked = 0;
     vdp->sprMode3      = 0;
+    vdp->sprPlaneStart = 0;
     boardClearInt(INT_IE2);
 
     vdp->vdpStatus[0] = 0x9f;
