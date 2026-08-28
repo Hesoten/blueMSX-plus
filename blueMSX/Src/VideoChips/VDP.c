@@ -151,8 +151,9 @@ void vdpUnregisterDaConverter(int vdpDaHandle)
 static int vramAddr;
 /* A17 sits outside the odd/even rotation and picks a 128kB half. */
 #define VDP_ILV(vdp, a) ((vdp)->vramA17 ? (((a) & 0x20000) | VDP_VRAM_INDEX((a) & 0x1ffff)) : VDP_VRAM_INDEX(a))
-#define MAP_VRAM(vdp, addr) ((vdp)->vramPtr + ((vramAddr = addr, VDP_VRAM_INTERLEAVED((vdp)->screenMode) && !(vdp)->sprMode3 ? VDP_ILV(vdp, vramAddr) : vramAddr) & (vdp)->vramAccMask))
-#define MAP_VRAMINDEX(vdp, addr) (((vramAddr = addr, VDP_VRAM_INTERLEAVED((vdp)->screenMode) && !(vdp)->sprMode3 ? VDP_ILV(vdp, vramAddr) : vramAddr)))
+#define vdpIsInterleaved(vdp) (VDP_VRAM_INTERLEAVED((vdp)->screenMode) && !(vdp)->sprMode3)
+#define MAP_VRAM(vdp, addr) ((vdp)->vramPtr + ((vramAddr = addr, vdpIsInterleaved(vdp) ? VDP_ILV(vdp, vramAddr) : vramAddr) & (vdp)->vramAccMask))
+#define MAP_VRAMINDEX(vdp, addr) ((vramAddr = addr, vdpIsInterleaved(vdp) ? VDP_ILV(vdp, vramAddr) : vramAddr))
 
 #define vdpIsSpritesBig(regs)        (regs[1]  & 0x01)
 #define vdpIsSprites16x16(regs)      (regs[1]  & 0x02)
@@ -188,8 +189,8 @@ static int vramAddr;
 /* Start of a bitmap line: the page bit lands at 15 and the scrolled row at
    14-7, with the base doubling as the AND mask the chip applies to the row. */
 #define vdpBitmapLine(vdp, y)                                                  \
-    ((vdp)->chrTabBase & (~(vdpIsOddPage(vdp) | vdpBlinkEvenPage(vdp)) << 7)   \
-                       & ((-1 << 15) | (((y) - (vdp)->firstLine + vdpVScroll(vdp)) << 7)))
+    (vdpBitmapBase(vdp) & (~(vdpIsOddPage(vdp) | vdpBlinkEvenPage(vdp)) << 7)  \
+                        & ((-1 << 15) | (((y) - (vdp)->firstLine + vdpVScroll(vdp)) << 7)))
 #define vdpHScroll(vdp)       ((((int)((vdp)->vdpRegs[26]&0x3F)<<3)-(int)((vdp)->vdpRegs[27]&0x07))&~(~(int)vdpHScroll512(vdp)<<8))
 #define vdpHScroll512(vdp)    ((vdp)->vdpRegs[25]&((vdp)->vdpRegs[2]>>5)&0x1)
 
@@ -220,10 +221,11 @@ static const UInt8 registerValueMaskMSX2p[64] = {
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
 };
 
-/* The V9958 mask, widened for the 8 bit R#16 index and the R#20 mode bits. */
+/* The V9958 mask, widened for the 8 bit R#16 index, the R#20 mode bits and the
+** A17 the table bases gain: R#2 bit7, R#4 and R#6 bit6, R#10 bit3, R#11 bit2. */
 static const UInt8 registerValueMaskV9968[64] = {
-	0x7e, 0x7f, 0x7f, 0xff, 0x3f, 0xff, 0x3f, 0xff,
-	0xfb, 0xbf, 0x07, 0x03, 0xff, 0xff, 0x0f, 0x0f,
+	0x7e, 0x7f, 0xff, 0xff, 0x7f, 0xff, 0x7f, 0xff,
+	0xfb, 0xbf, 0x0f, 0x07, 0xff, 0xff, 0x0f, 0x0f,
 	0xff, 0xbf, 0xff, 0xff, 0xff, 0x3f, 0x3f, 0xff,
     0x00, 0x7f, 0x3f, 0x07, 0x00, 0x00, 0x00, 0x00,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -497,6 +499,19 @@ struct VDP {
     FrameBufferData* frameBuffer;
 };
 
+/* An interleaved mode keeps its odd bytes at bit 16, so the base bit above the
+** page steps over them to reach the second 128kB and the one after that is
+** never used. */
+static int vdpBitmapBase(VDP* vdp)
+{
+    int base = vdp->chrTabBase;
+
+    if (vdpIsV9968(vdp) && vdpIsInterleaved(vdp)) {
+        base = ((base & 0xffff) | ((base & 0x10000) << 1)) & vdp->vramMask;
+    }
+    return base;
+}
+
 #include "SpriteLine.h"
 #include "Common.h"
 
@@ -505,7 +520,7 @@ static void digitize(VDP* vdp);
 static void updateOutputMode(VDP* vdp);
 
 /* R#21 bit0 clear is what opens the second 128kB to the CPU port and the
-** command engine. The display tables still cap at 17 bits. */
+** command engine. */
 static void vdpUpdateVramMode(VDP* vdp)
 {
     int wide = vdp->vram256 && vdpIsV9968Native(vdp);
@@ -1663,7 +1678,7 @@ static void digitize(VDP* vdp)
 #define videoDaGet(sm, x, y, pal, cnt) vdpDaDevice.callbacks.daRead(vdpDaDevice.ref, sm, x, y, pal, cnt)
 
     for (y = 0; y < 212; y++) {
-        UInt8* charTable = vdp->vram + (vdp->chrTabBase & (~vdpIsOddPage(vdp) << 7) & ((-1 << 15) | ((y + vdpVScroll(vdp)) << 7)));
+        UInt8* charTable = vdp->vram + (vdpBitmapBase(vdp) & (~vdpIsOddPage(vdp) << 7) & ((-1 << 15) | ((y + vdpVScroll(vdp)) << 7)));
 
         switch (vdp->screenMode) {
         case 5:
