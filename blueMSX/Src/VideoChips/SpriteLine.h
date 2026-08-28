@@ -379,7 +379,7 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
     }
 
     solidColor   = vdpIsColor0Solid(vdp->vdpRegs) ? 1 : 0;
-    attribOffset = vdp->sprTabBase & 0x1fe00;
+    attribOffset = vdp->sprTabBase & 0x3fe00;
     size         = vdpIsSprites16x16(vdp->vdpRegs) ? 16 : 8;
     scale        = vdpIsSpritesBig(vdp->vdpRegs) ? 2 : 1;
 	patternMask  = vdpIsSprites16x16(vdp->vdpRegs) ? 0xfc : 0xff;
@@ -414,7 +414,7 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
 				break;
         }
 
-        offset = (vdp->sprGenBase & 0x1f800) + ((int)(*MAP_VRAM(vdp, attribOffset + 2) & patternMask) << 3) + spriteLine;
+        offset = (vdp->sprGenBase & 0x3f800) + ((int)(*MAP_VRAM(vdp, attribOffset + 2) & patternMask) << 3) + spriteLine;
         color  = *MAP_VRAM(vdp, vdp->sprTabBase & ((-1 << 10) | (sprite * 16 + spriteLine)));
 
         attribTable[visibleCnt].color         = color;
