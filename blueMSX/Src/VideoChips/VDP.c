@@ -168,8 +168,11 @@ static int vramAddr;
 #define vdpSpritesPerLine(vdp, n)    (((vdp)->vdpRegs[20] & 0x80) && vdpIsV9968(vdp) ? 16 : (n))
 // R#20 bit3 SP3 also takes the SCREEN 7 and 8 odd/even interleave out of use.
 #define vdpIsSpriteMode3(vdp)        (((vdp)->vdpRegs[20] & 0x08) && vdpIsV9968(vdp))
-// R#20 bit4 EPAL: 256 entries of 5 bit RGB, written three bytes at a time.
+// R#20 bit4 EPAL: 256 entries of 5 bit RGB, written three bytes at a time. It
+// also turns the 256 colour modes into indexed ones, backdrop included.
 #define vdpIsExtPalette(vdp)         (vdpIsV9968(vdp) && ((vdp)->vdpRegs[20] & 0x10))
+#define vdpBackdropYjk(vdp)          (vdpIsExtPalette(vdp) ? (vdp)->paletteExt[(vdp)->vdpRegs[7]] \
+                                                           : (vdp)->palette[(vdp)->BGColor])
 #define vdpIsVideoPal(vdp)          (((vdp)->vdpRegs[9]  & (vdp)->palMask & 0x02) | (vdp)->palValue)
 #define vdpIsOddPage(vdp)           (((~(vdp)->vdpStatus[2] & 0x02) << 7) & (((vdp)->vdpRegs[9]  & 0x04) << 6))
 // V9938 blink page alternation: while the blink OFF phase is active the odd

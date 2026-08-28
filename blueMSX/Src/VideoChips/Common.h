@@ -2373,12 +2373,13 @@ static void RefreshLine8(VDP* vdp, int Y, int X, int X2)
     static int     chrTabO;
     static int     pairStep;
     static int     ofs[9];
+    Pixel* pal256 = vdpIsExtPalette(vdp) ? vdp->paletteExt : vdp->paletteFixed;
     int col;
     int rightBorder;
 
     if (X == -1) {
         X++;
-        linePtr8 = RefreshBorder(vdp, Y, vdp->paletteFixed[vdp->vdpRegs[7]], 0, 0);
+        linePtr8 = RefreshBorder(vdp, Y, pal256[vdp->vdpRegs[7]], 0, 0);
         sprLine = getSpritesLine(vdp, Y);
 
         if (linePtr8 == NULL) {
@@ -2415,7 +2416,7 @@ static void RefreshLine8(VDP* vdp, int Y, int X, int X2)
     }
 
     if (!vdp->screenOn || !vdp->drawArea) {
-        Pixel bgColor = vdp->paletteFixed[vdp->vdpRegs[7]];
+        Pixel bgColor = pal256[vdp->vdpRegs[7]];
         while (X < X2) {
             linePtr8[0] = bgColor;
             linePtr8[1] = bgColor;
@@ -2448,7 +2449,7 @@ static void RefreshLine8(VDP* vdp, int Y, int X, int X2)
         }
 
         if (X == 0 && vdpIsEdgeMasked(vdp->vdpRegs)) {
-            Pixel bgColor = vdp->paletteFixed[vdp->vdpRegs[7]];
+            Pixel bgColor = pal256[vdp->vdpRegs[7]];
             linePtr8[0] = bgColor;
             linePtr8[1] = bgColor;
             linePtr8[2] = bgColor;
@@ -2468,39 +2469,39 @@ static void RefreshLine8(VDP* vdp, int Y, int X, int X2)
         while (X < X2) {
             if (scroll & 1) {
                 col = sprLine[0]; linePtr8[0] = col ? vdp->paletteSprite8[col >> 1] : 
-                vdp->paletteFixed[charTable[ofs[1]]]; UPDATE_TABLE_8();
+                pal256[charTable[ofs[1]]]; UPDATE_TABLE_8();
                 col = sprLine[1]; linePtr8[1] = col ? vdp->paletteSprite8[col >> 1] : 
-                vdp->paletteFixed[charTable[ofs[2]]]; UPDATE_TABLE_8();
+                pal256[charTable[ofs[2]]]; UPDATE_TABLE_8();
                 col = sprLine[2]; linePtr8[2] = col ? vdp->paletteSprite8[col >> 1] : 
-                vdp->paletteFixed[charTable[ofs[3]]]; UPDATE_TABLE_8();
+                pal256[charTable[ofs[3]]]; UPDATE_TABLE_8();
                 col = sprLine[3]; linePtr8[3] = col ? vdp->paletteSprite8[col >> 1] : 
-                vdp->paletteFixed[charTable[ofs[4]]]; UPDATE_TABLE_8();
+                pal256[charTable[ofs[4]]]; UPDATE_TABLE_8();
                 col = sprLine[4]; linePtr8[4] = col ? vdp->paletteSprite8[col >> 1] : 
-                vdp->paletteFixed[charTable[ofs[5]]]; UPDATE_TABLE_8();
+                pal256[charTable[ofs[5]]]; UPDATE_TABLE_8();
                 col = sprLine[5]; linePtr8[5] = col ? vdp->paletteSprite8[col >> 1] : 
-                vdp->paletteFixed[charTable[ofs[6]]]; UPDATE_TABLE_8();
+                pal256[charTable[ofs[6]]]; UPDATE_TABLE_8();
                 col = sprLine[6]; linePtr8[6] = col ? vdp->paletteSprite8[col >> 1] : 
-                vdp->paletteFixed[charTable[ofs[7]]]; UPDATE_TABLE_8();
+                pal256[charTable[ofs[7]]]; UPDATE_TABLE_8();
                 col = sprLine[7]; linePtr8[7] = col ? vdp->paletteSprite8[col >> 1] : 
-                vdp->paletteFixed[charTable[ofs[8]]]; UPDATE_TABLE_8();
+                pal256[charTable[ofs[8]]]; UPDATE_TABLE_8();
             }
             else {
                 col = sprLine[0]; linePtr8[0] = col ? vdp->paletteSprite8[col >> 1] : 
-                vdp->paletteFixed[charTable[ofs[0]]]; UPDATE_TABLE_8();
+                pal256[charTable[ofs[0]]]; UPDATE_TABLE_8();
                 col = sprLine[1]; linePtr8[1] = col ? vdp->paletteSprite8[col >> 1] : 
-                vdp->paletteFixed[charTable[ofs[1]]]; UPDATE_TABLE_8();
+                pal256[charTable[ofs[1]]]; UPDATE_TABLE_8();
                 col = sprLine[2]; linePtr8[2] = col ? vdp->paletteSprite8[col >> 1] : 
-                vdp->paletteFixed[charTable[ofs[2]]]; UPDATE_TABLE_8();
+                pal256[charTable[ofs[2]]]; UPDATE_TABLE_8();
                 col = sprLine[3]; linePtr8[3] = col ? vdp->paletteSprite8[col >> 1] : 
-                vdp->paletteFixed[charTable[ofs[3]]]; UPDATE_TABLE_8();
+                pal256[charTable[ofs[3]]]; UPDATE_TABLE_8();
                 col = sprLine[4]; linePtr8[4] = col ? vdp->paletteSprite8[col >> 1] : 
-                vdp->paletteFixed[charTable[ofs[4]]]; UPDATE_TABLE_8();
+                pal256[charTable[ofs[4]]]; UPDATE_TABLE_8();
                 col = sprLine[5]; linePtr8[5] = col ? vdp->paletteSprite8[col >> 1] : 
-                vdp->paletteFixed[charTable[ofs[5]]]; UPDATE_TABLE_8();
+                pal256[charTable[ofs[5]]]; UPDATE_TABLE_8();
                 col = sprLine[6]; linePtr8[6] = col ? vdp->paletteSprite8[col >> 1] : 
-                vdp->paletteFixed[charTable[ofs[6]]]; UPDATE_TABLE_8();
+                pal256[charTable[ofs[6]]]; UPDATE_TABLE_8();
                 col = sprLine[7]; linePtr8[7] = col ? vdp->paletteSprite8[col >> 1] : 
-                vdp->paletteFixed[charTable[ofs[7]]]; UPDATE_TABLE_8();
+                pal256[charTable[ofs[7]]]; UPDATE_TABLE_8();
             }
             sprLine += 8; 
 
@@ -2510,7 +2511,7 @@ static void RefreshLine8(VDP* vdp, int Y, int X, int X2)
 
     if (rightBorder) {
 //        colorSpritesLine(vdp, Y, 0);
-        RefreshRightBorder(vdp, Y, vdp->paletteFixed[vdp->vdpRegs[7]], 0, 0);
+        RefreshRightBorder(vdp, Y, pal256[vdp->vdpRegs[7]], 0, 0);
     }
 }
 
@@ -2527,6 +2528,10 @@ static void RefreshLine10(VDP* vdp, int Y, int X, int X2)
     static int chrTabO;
     static int pairStep;
     static int ofs[9];
+    /* A dot flagged as colour takes its index from the whole byte once the
+    ** extended palette is on, and from four bits of it otherwise. */
+    Pixel* yaePal  = vdpIsExtPalette(vdp) ? vdp->paletteExt : vdp->palette;
+    int    yaeShift = vdpIsExtPalette(vdp) ? 0 : 4;
     int col;
     UInt8 t0, t1, t2, t3;
     int y, J, K;
@@ -2534,7 +2539,7 @@ static void RefreshLine10(VDP* vdp, int Y, int X, int X2)
 
     if (X == -1) {
         X++;
-        linePtr10 = RefreshBorder(vdp, Y, vdp->palette[vdp->BGColor], 0, 0);
+        linePtr10 = RefreshBorder(vdp, Y, vdpBackdropYjk(vdp), 0, 0);
         sprLine = getSpritesLine(vdp, Y);
 
         if (linePtr10 == NULL) {
@@ -2571,7 +2576,7 @@ rightBorder = X2 == 33;
     }
 
     if (!vdp->screenOn || !vdp->drawArea) {
-        Pixel bgColor = vdp->palette[vdp->BGColor];
+        Pixel bgColor = vdpBackdropYjk(vdp);
         while (X < X2) {
             linePtr10[0] = bgColor;
             linePtr10[1] = bgColor;
@@ -2607,7 +2612,7 @@ rightBorder = X2 == 33;
 
         if (X == 0) {
             if (vdpIsEdgeMasked(vdp->vdpRegs)) {
-                Pixel bgColor = vdp->palette[vdp->BGColor];
+                Pixel bgColor = vdpBackdropYjk(vdp);
                 linePtr10[0] = bgColor;
                 linePtr10[1] = bgColor;
                 linePtr10[2] = bgColor;
@@ -2636,13 +2641,13 @@ rightBorder = X2 == 33;
             if (vdp->screenOn && vdp->drawArea) {
                 switch (hscroll & 3) {
                 case 0:
-                    col = sprLine[0]; y = t0 >> 3; *linePtr10++ = col ? vdp->palette[col >> 1] : y & 1 ? vdp->palette[y >> 1] : vdp->yjkColor[y][J][K];
+                    col = sprLine[0]; y = t0 >> 3; *linePtr10++ = col ? vdp->palette[col >> 1] : y & 1 ? yaePal[t0 >> yaeShift] : vdp->yjkColor[y][J][K];
                 case 1:
-                    col = sprLine[1]; y = t1 >> 3; *linePtr10++ = col ? vdp->palette[col >> 1] : y & 1 ? vdp->palette[y >> 1] : vdp->yjkColor[y][J][K];
+                    col = sprLine[1]; y = t1 >> 3; *linePtr10++ = col ? vdp->palette[col >> 1] : y & 1 ? yaePal[t1 >> yaeShift] : vdp->yjkColor[y][J][K];
                 case 2:
-                    col = sprLine[2]; y = t2 >> 3; *linePtr10++ = col ? vdp->palette[col >> 1] : y & 1 ? vdp->palette[y >> 1] : vdp->yjkColor[y][J][K];
+                    col = sprLine[2]; y = t2 >> 3; *linePtr10++ = col ? vdp->palette[col >> 1] : y & 1 ? yaePal[t2 >> yaeShift] : vdp->yjkColor[y][J][K];
                 case 3:
-                    col = sprLine[3]; y = t3 >> 3; *linePtr10++ = col ? vdp->palette[col >> 1] : y & 1 ? vdp->palette[y >> 1] : vdp->yjkColor[y][J][K];
+                    col = sprLine[3]; y = t3 >> 3; *linePtr10++ = col ? vdp->palette[col >> 1] : y & 1 ? yaePal[t3 >> yaeShift] : vdp->yjkColor[y][J][K];
                 }
                 sprLine += 4;
                 charTable += ofs[4];
@@ -2657,10 +2662,10 @@ rightBorder = X2 == 33;
             K=(t0 & 0x07) | ((t1 & 0x07) << 3);
             J=(t2 & 0x07) | ((t3 & 0x07) << 3);
 
-            col = sprLine[0]; y = t0 >> 3; linePtr10[0] = col ? vdp->palette[col >> 1] : y & 1 ? vdp->palette[y >> 1] : vdp->yjkColor[y][J][K];
-            col = sprLine[1]; y = t1 >> 3; linePtr10[1] = col ? vdp->palette[col >> 1] : y & 1 ? vdp->palette[y >> 1] : vdp->yjkColor[y][J][K];
-            col = sprLine[2]; y = t2 >> 3; linePtr10[2] = col ? vdp->palette[col >> 1] : y & 1 ? vdp->palette[y >> 1] : vdp->yjkColor[y][J][K];
-            col = sprLine[3]; y = t3 >> 3; linePtr10[3] = col ? vdp->palette[col >> 1] : y & 1 ? vdp->palette[y >> 1] : vdp->yjkColor[y][J][K];
+            col = sprLine[0]; y = t0 >> 3; linePtr10[0] = col ? vdp->palette[col >> 1] : y & 1 ? yaePal[t0 >> yaeShift] : vdp->yjkColor[y][J][K];
+            col = sprLine[1]; y = t1 >> 3; linePtr10[1] = col ? vdp->palette[col >> 1] : y & 1 ? yaePal[t1 >> yaeShift] : vdp->yjkColor[y][J][K];
+            col = sprLine[2]; y = t2 >> 3; linePtr10[2] = col ? vdp->palette[col >> 1] : y & 1 ? yaePal[t2 >> yaeShift] : vdp->yjkColor[y][J][K];
+            col = sprLine[3]; y = t3 >> 3; linePtr10[3] = col ? vdp->palette[col >> 1] : y & 1 ? yaePal[t3 >> yaeShift] : vdp->yjkColor[y][J][K];
 
             t0 = charTable[ofs[4]];        UPDATE_TABLE_10();
             t1 = charTable[ofs[5]];  UPDATE_TABLE_10();
@@ -2673,18 +2678,18 @@ rightBorder = X2 == 33;
             if (X == 31) {
                 switch (hscroll & 3) {
                 case 1:
-                    y = t2 >> 3; col = sprLine[6]; linePtr10[6] = col ? vdp->palette[col >> 1] : y & 1 ? vdp->palette[y >> 1] : vdp->yjkColor[y][J][K];
+                    y = t2 >> 3; col = sprLine[6]; linePtr10[6] = col ? vdp->palette[col >> 1] : y & 1 ? yaePal[t2 >> yaeShift] : vdp->yjkColor[y][J][K];
                 case 2:
-                    y = t1 >> 3; col = sprLine[5]; linePtr10[5] = col ? vdp->palette[col >> 1] : y & 1 ? vdp->palette[y >> 1] : vdp->yjkColor[y][J][K];
+                    y = t1 >> 3; col = sprLine[5]; linePtr10[5] = col ? vdp->palette[col >> 1] : y & 1 ? yaePal[t1 >> yaeShift] : vdp->yjkColor[y][J][K];
                 case 3:
-                    y = t0 >> 3; col = sprLine[4]; linePtr10[4] = col ? vdp->palette[col >> 1] : y & 1 ? vdp->palette[y >> 1] : vdp->yjkColor[y][J][K];
+                    y = t0 >> 3; col = sprLine[4]; linePtr10[4] = col ? vdp->palette[col >> 1] : y & 1 ? yaePal[t0 >> yaeShift] : vdp->yjkColor[y][J][K];
                 }
             }
             else {
-                col = sprLine[4]; y = t0 >> 3; linePtr10[4] = col ? vdp->palette[col >> 1] : y & 1 ? vdp->palette[y >> 1] : vdp->yjkColor[y][J][K];
-                col = sprLine[5]; y = t1 >> 3; linePtr10[5] = col ? vdp->palette[col >> 1] : y & 1 ? vdp->palette[y >> 1] : vdp->yjkColor[y][J][K];
-                col = sprLine[6]; y = t2 >> 3; linePtr10[6] = col ? vdp->palette[col >> 1] : y & 1 ? vdp->palette[y >> 1] : vdp->yjkColor[y][J][K];
-                col = sprLine[7]; y = t3 >> 3; linePtr10[7] = col ? vdp->palette[col >> 1] : y & 1 ? vdp->palette[y >> 1] : vdp->yjkColor[y][J][K];
+                col = sprLine[4]; y = t0 >> 3; linePtr10[4] = col ? vdp->palette[col >> 1] : y & 1 ? yaePal[t0 >> yaeShift] : vdp->yjkColor[y][J][K];
+                col = sprLine[5]; y = t1 >> 3; linePtr10[5] = col ? vdp->palette[col >> 1] : y & 1 ? yaePal[t1 >> yaeShift] : vdp->yjkColor[y][J][K];
+                col = sprLine[6]; y = t2 >> 3; linePtr10[6] = col ? vdp->palette[col >> 1] : y & 1 ? yaePal[t2 >> yaeShift] : vdp->yjkColor[y][J][K];
+                col = sprLine[7]; y = t3 >> 3; linePtr10[7] = col ? vdp->palette[col >> 1] : y & 1 ? yaePal[t3 >> yaeShift] : vdp->yjkColor[y][J][K];
                 sprLine += 8; 
             }
 
@@ -2695,7 +2700,7 @@ rightBorder = X2 == 33;
 
     if (rightBorder) {
 //        colorSpritesLine(vdp, Y, 0);
-        RefreshRightBorder(vdp, Y, vdp->palette[vdp->BGColor], 0, 0);
+        RefreshRightBorder(vdp, Y, vdpBackdropYjk(vdp), 0, 0);
     }
 }
 
@@ -2719,7 +2724,7 @@ static void RefreshLine12(VDP* vdp, int Y, int X, int X2)
 
     if (X == -1) {
         X++;
-        linePtr12 = RefreshBorder(vdp, Y, vdp->palette[vdp->BGColor], 0, 0);
+        linePtr12 = RefreshBorder(vdp, Y, vdpBackdropYjk(vdp), 0, 0);
         sprLine = getSpritesLine(vdp, Y);
 
         if (linePtr12 == NULL) {
@@ -2756,7 +2761,7 @@ static void RefreshLine12(VDP* vdp, int Y, int X, int X2)
     }
 
     if (!vdp->screenOn || !vdp->drawArea) {
-        Pixel bgColor = vdp->palette[vdp->BGColor];
+        Pixel bgColor = vdpBackdropYjk(vdp);
         while (X < X2) {
             linePtr12[0] = bgColor;
             linePtr12[1] = bgColor;
@@ -2792,7 +2797,7 @@ static void RefreshLine12(VDP* vdp, int Y, int X, int X2)
 
         if (X == 0) {
             if (vdpIsEdgeMasked(vdp->vdpRegs)) {
-                Pixel bgColor = vdp->palette[vdp->BGColor];
+                Pixel bgColor = vdpBackdropYjk(vdp);
                 linePtr12[0] = bgColor;
                 linePtr12[1] = bgColor;
                 linePtr12[2] = bgColor;
@@ -2880,6 +2885,6 @@ static void RefreshLine12(VDP* vdp, int Y, int X, int X2)
 
     if (rightBorder) {
 //        colorSpritesLine(vdp, Y, 0);
-        RefreshRightBorder(vdp, Y, vdp->palette[vdp->BGColor], 0, 0);
+        RefreshRightBorder(vdp, Y, vdpBackdropYjk(vdp), 0, 0);
     }
 }
