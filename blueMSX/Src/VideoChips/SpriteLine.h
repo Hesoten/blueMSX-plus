@@ -404,7 +404,7 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
         sprite       = vdpSpritePlane(vdp, step, 31);
         attribOffset = attribBase + 4 * sprite;
 
-        spriteLine = *MAP_VRAM(vdp, attribOffset);
+        spriteLine = *vdpSpriteVram(vdp, attribOffset);
         if (spriteLine == 216 && !vdpIsSpriteShuffle(vdp)) {
             break;
         }
@@ -423,14 +423,14 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
 				break;
         }
 
-        offset = (vdp->sprGenBase & 0x3f800) + ((int)(*MAP_VRAM(vdp, attribOffset + 2) & patternMask) << 3) + spriteLine;
-        color  = *MAP_VRAM(vdp, vdp->sprTabBase & ((-1 << 10) | (sprite * 16 + spriteLine)));
+        offset = (vdp->sprGenBase & 0x3f800) + ((int)(*vdpSpriteVram(vdp, attribOffset + 2) & patternMask) << 3) + spriteLine;
+        color  = *vdpSpriteVram(vdp, vdp->sprTabBase & ((-1 << 10) | (sprite * 16 + spriteLine)));
 
         attribTable[visibleCnt].color         = color;
-        attribTable[visibleCnt].horizontalPos = (int)*MAP_VRAM(vdp, attribOffset + 1) + 24 - ((attribTable[visibleCnt].color >> 2) & 0x20);
-        attribTable[visibleCnt].pattern       = *MAP_VRAM(vdp, offset);
+        attribTable[visibleCnt].horizontalPos = (int)*vdpSpriteVram(vdp, attribOffset + 1) + 24 - ((attribTable[visibleCnt].color >> 2) & 0x20);
+        attribTable[visibleCnt].pattern       = *vdpSpriteVram(vdp, offset);
         if (vdpIsSprites16x16(vdp->vdpRegs)) {
-            attribTable[visibleCnt].pattern = (attribTable[visibleCnt].pattern << 8) | *MAP_VRAM(vdp, offset + 16);
+            attribTable[visibleCnt].pattern = (attribTable[visibleCnt].pattern << 8) | *vdpSpriteVram(vdp, offset + 16);
             attribTable[visibleCnt].horizontalPos += 8;
         }
         visibleCnt++;
@@ -639,7 +639,7 @@ static int spriteM3PatternByte(VDP* vdp, int page, int pattern, int row, int col
     int addr = (vdp->sprGenBase & 0x3f800) + (page << 15) + ((pattern >> 4) << 11) + (row << 7) +
                ((pattern & 0x0f) << 3) + (column >> 1);
 
-    return *MAP_VRAM(vdp, addr);
+    return *vdpSpriteVram(vdp, addr);
 }
 
 int spritesLineMode3(VDP* vdp, int Y)
@@ -671,14 +671,14 @@ int spritesLineMode3(VDP* vdp, int Y)
     for (step = 0; step < 64; step++) {
         int plane  = vdpSpritePlane(vdp, step, 63);
         int attrib = (base & ~0x1ff) | ((planeMaskHigh & (plane >> 4)) << 7) | ((plane & 0x0f) << 3);
-        int y    = *MAP_VRAM(vdp, attrib);
-        int b1   = *MAP_VRAM(vdp, attrib + 1);
-        int mgy  = *MAP_VRAM(vdp, attrib + 2);
-        int mode = *MAP_VRAM(vdp, attrib + 3);
-        int x    = *MAP_VRAM(vdp, attrib + 4);
-        int b5   = *MAP_VRAM(vdp, attrib + 5);
-        int mgx  = *MAP_VRAM(vdp, attrib + 6);
-        int pattern = *MAP_VRAM(vdp, attrib + 7);
+        int y    = *vdpSpriteVram(vdp, attrib);
+        int b1   = *vdpSpriteVram(vdp, attrib + 1);
+        int mgy  = *vdpSpriteVram(vdp, attrib + 2);
+        int mode = *vdpSpriteVram(vdp, attrib + 3);
+        int x    = *vdpSpriteVram(vdp, attrib + 4);
+        int b5   = *vdpSpriteVram(vdp, attrib + 5);
+        int mgx  = *vdpSpriteVram(vdp, attrib + 6);
+        int pattern = *vdpSpriteVram(vdp, attrib + 7);
         int rows, dy, srcY, weight, set, page, dx;
 
         lastPlane = plane;
