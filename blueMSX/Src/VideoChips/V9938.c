@@ -55,21 +55,23 @@
 */
 static UInt8 scratch[1];
 static int tmp;
-#define VDP_VRMP5R(s, X, Y) ((s)->vramRead + (((Y & (s)->yMask) << 7) + (((X & 255) >> 1)) & (s)->maskRead))
-#define VDP_VRMP6R(s, X, Y) ((s)->vramRead + (((Y & (s)->yMask) << 7) + (((X & 511) >> 2)) & (s)->maskRead))
 /* Interleaving rotates a line address so bit 0 lands at bit 16, putting the odd
-** bytes in the upper 64kB of the 128kB half A17 picks. */
+** bytes in the upper 64kB of the 128kB half A17 picks. The screen decides it,
+** so a forced Graphic4 address is rotated too. */
 #define VDP_ILVA(s, a) ((s)->interleave ? (((a) & 0x20000) | (((a) & 1) << 16) | (((a) >> 1) & 0xffff)) : (a))
+#define VDP_LINE5(s, X, Y) (((Y & (s)->yMask) << 7) + ((X & 255) >> 1))
 #define VDP_LINE7(s, X, Y) (((Y & ((s)->yMask | (s)->yHigh)) << 8) + ((X & 511) >> 1))
 #define VDP_LINE8(s, X, Y) (((Y & ((s)->yMask | (s)->yHigh)) << 8) + (X & 255))
 
+#define VDP_VRMP5R(s, X, Y) ((s)->vramRead + (VDP_ILVA(s, VDP_LINE5(s, X, Y)) & (s)->maskRead))
+#define VDP_VRMP6R(s, X, Y) ((s)->vramRead + (((Y & (s)->yMask) << 7) + (((X & 511) >> 2)) & (s)->maskRead))
 #define VDP_VRMP7R(s, X, Y) ((s)->vramRead + (VDP_ILVA(s, VDP_LINE7(s, X, Y)) & (s)->maskRead))
 #define VDP_VRMP8R(s, X, Y) ((s)->vramRead + (VDP_ILVA(s, VDP_LINE8(s, X, Y)) & (s)->maskRead))
 /* Address the VDP as a linear 1-byte/pixel plane instead of the planar
 ** bitmap modes (SM=0..3). */
 #define VDP_VRMP_NB_R(s, X, Y) ((s)->vramRead + (((Y & (s)->yMask) << 8) + (X & 255) & (s)->maskRead))
 
-#define VDP_VRMP5W(s, X, Y) (tmp = ((Y & (s)->yMask) << 7) + (((X & 255) >> 1)), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
+#define VDP_VRMP5W(s, X, Y) (tmp = VDP_ILVA(s, VDP_LINE5(s, X, Y)), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
 #define VDP_VRMP6W(s, X, Y) (tmp = ((Y & (s)->yMask) << 7) + (((X & 511) >> 2)), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
 #define VDP_VRMP7W(s, X, Y) (tmp = VDP_ILVA(s, VDP_LINE7(s, X, Y)), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
 #define VDP_VRMP8W(s, X, Y) (tmp = VDP_ILVA(s, VDP_LINE8(s, X, Y)), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
@@ -191,6 +193,9 @@ struct VdpCmdState {
     int    fontColor;
     int    cmdEnd;
     int    highSpeed;
+    int    forceGraphic4;
+    int    rawScrMode;
+    int    cmdEnable;
     int    yMask;
     int    yHigh;
     int    nyMask;
@@ -241,6 +246,8 @@ static VdpCmdState* vdpCmdGlobal = NULL;
 **************************************************************
 */
 static UInt8 *getVramPointerW(VdpCmdState* vdpCmd, UInt8 M, int X, int Y);
+
+static void vdpCmdApplyForceGraphic4(VdpCmdState* vdpCmd);
 
 static UInt8 getPixel(VdpCmdState* vdpCmd, UInt8 SM, int SX, int SY);
 static UInt8 getPixel5(VdpCmdState* vdpCmd, int SX, int SY);
@@ -1640,7 +1647,8 @@ void vdpCmdWrite(VdpCmdState* vdpCmd, UInt8 reg, UInt8 value, UInt32 systemTime)
             vdpCmd->maskWrite = vdpCmd->vramMask[(value >> 5) & 1];
         }
         vdpCmd->xhr = vdpCmd->extCommands ? ((value >> 6) & 1) : 0;
-        vdpCmd->ARG = value; 
+        vdpCmd->ARG = value;
+        vdpCmdApplyForceGraphic4(vdpCmd);
         break;
 	case 0x0f: vdpCmd->VX  = (vdpCmd->VX  & ~0xff) | value;                 break;
 	case 0x10: vdpCmd->VX  = (Int16)((vdpCmd->VX & 0xff) | (value << 8));   break;
@@ -1741,6 +1749,8 @@ static void vdpCmdApplyVram256(VdpCmdState* vdpCmd)
 void vdpCmdSetExtCommands(VdpCmdState* vdpCmd, int enable)
 {
     vdpCmd->extCommands = enable;
+    vdpCmd->xhr = enable ? ((vdpCmd->ARG >> 6) & 1) : 0;
+    vdpCmdApplyForceGraphic4(vdpCmd);
 }
 
 void vdpCmdSetTextBackColor(VdpCmdState* vdpCmd, int color)
@@ -1788,12 +1798,21 @@ void vdpCmdSetVram256(VdpCmdState* vdpCmd, int enable)
     }
 }
 
-void vdpSetScreenMode(VdpCmdState* vdpCmd, int screenMode, int commandEnable) {
-    if (screenMode > 8 && screenMode <= 12) {
+/* R#45 bit7 FG4 runs every command as SCREEN 5 whatever is on screen, which is
+** how a sprite mode 3 pattern gets worked on with the drawing commands.
+** Answers whether the engine has just lost the screen it was drawing on. */
+static int applyScreenMode(VdpCmdState* vdpCmd)
+{
+    int screenMode = vdpCmd->rawScrMode;
+
+    if (vdpCmd->forceGraphic4) {
+        screenMode = 0;
+    }
+    else if (screenMode > 8 && screenMode <= 12) {
         screenMode = 3;
     }
     else if (screenMode < 5 || screenMode > 12) {
-        if (commandEnable) {
+        if (vdpCmd->cmdEnable) {
             /* R#25 bit 6 (CMD) with a non-bitmap screen selects the */
             /* linear (SM=4) addressing path.                        */
             screenMode = 4;
@@ -1807,11 +1826,26 @@ void vdpSetScreenMode(VdpCmdState* vdpCmd, int screenMode, int commandEnable) {
     }
     if (vdpCmd->newScrMode != screenMode) {
         vdpCmd->newScrMode = screenMode;
-        if (screenMode == -1) {
-            vdpCmd->CM = 0;
-            vdpCmd->status &= ~VDPSTATUS_CE;
-        }
+        return screenMode == -1;
     }
+    return 0;
+}
+
+void vdpSetScreenMode(VdpCmdState* vdpCmd, int screenMode, int commandEnable) {
+    vdpCmd->rawScrMode = screenMode;
+    vdpCmd->cmdEnable  = commandEnable;
+    if (applyScreenMode(vdpCmd)) {
+        vdpCmd->CM = 0;
+        vdpCmd->status &= ~VDPSTATUS_CE;
+    }
+}
+
+/* A command in flight keeps its own copy of the mode, so taking the bit away
+** again redirects the next command rather than abandoning this one. */
+static void vdpCmdApplyForceGraphic4(VdpCmdState* vdpCmd)
+{
+    vdpCmd->forceGraphic4 = vdpCmd->extCommands ? ((vdpCmd->ARG >> 7) & 1) : 0;
+    applyScreenMode(vdpCmd);
 }
 
 /*************************************************************
@@ -2057,6 +2091,13 @@ void vdpCmdLoadState(VdpCmdState* vdpCmd)
     ** so the screen mode still gives the answer. */
     vdpCmd->interleave    =         saveStateGet(state, "interleave",
                                                  vdpCmd->screenMode == 2 || vdpCmd->screenMode == 3);
+    /* What the screen mode is worked out from, so a later R#45 write can work it
+    ** out again. A state carrying only the answer is read back the other way:
+    ** 0-3 bitmap, 4 a non-bitmap one the command bit opened, -1 one it did not. */
+    vdpCmd->rawScrMode    =         saveStateGet(state, "rawScrMode",
+                                                 vdpCmd->newScrMode >= 0 && vdpCmd->newScrMode < 4
+                                                 ? vdpCmd->newScrMode + 5 : 0);
+    vdpCmd->cmdEnable     =         saveStateGet(state, "cmdEnable", vdpCmd->newScrMode == 4);
     /* A state without these was taken where there was no rotation, so the window
     ** has to come back open rather than shut. */
     vdpCmd->VX            =  (Int16)saveStateGet(state, "VX",  0);
@@ -2128,6 +2169,8 @@ void vdpCmdSaveState(VdpCmdState* vdpCmd)
     saveStateSet(state, "newScrMode", vdpCmd->newScrMode);
     saveStateSet(state, "screenMode", vdpCmd->screenMode);
     saveStateSet(state, "interleave", vdpCmd->interleave);
+    saveStateSet(state, "rawScrMode", vdpCmd->rawScrMode);
+    saveStateSet(state, "cmdEnable",  vdpCmd->cmdEnable);
     saveStateSet(state, "VX",         vdpCmd->VX);
     saveStateSet(state, "VY",         vdpCmd->VY);
     saveStateSet(state, "WSX",        vdpCmd->WSX);
