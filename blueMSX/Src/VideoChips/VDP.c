@@ -1837,10 +1837,12 @@ static void refreshLine(VDP* vdp, int line, int x, int x2)
 {
     vdp->RefreshLine(vdp, line, x, x2);
 
-    if (vdp->sprMode3 && x2 == 33 && spritesEnable && spritesLineMode3(vdp, line)) {
+    if (vdp->sprMode3 && x2 == 33 && spritesLineMode3(vdp, line)) {
         int startDot = spritesMode3StartDot(vdp);
 
-        if (startDot >= 0 && vdp->drawArea && displayOrigin != NULL) {
+        /* The scan reports the fifth sprite and the collision either way, so the
+        ** view toggle and the border gate hold back only the drawing. */
+        if (spritesEnable && startDot >= 0 && vdp->drawArea && displayOrigin != NULL) {
             spritesOverlayMode3(vdp, line, displayOrigin, displayDotStep, startDot);
         }
     }
