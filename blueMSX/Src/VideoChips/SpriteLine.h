@@ -106,7 +106,7 @@ UInt8* spritesLine(VDP* vdp, int line) {
     color0Collides = vdpIsMsx1Vdp(vdp);
     /* The line built here is the one shown next. */
     dispLine = line + 1;
-    line   = (line + vdpVScroll(vdp)) & 0xff;
+    line   = (line + vdpSpriteVScroll(vdp)) & 0xff;
     
 	patternMask = vdpIsSprites16x16(vdp->vdpRegs) ? 0xfc : 0xff;
     visibleCnt = 0;
@@ -147,7 +147,7 @@ UInt8* spritesLine(VDP* vdp, int line) {
 #endif
         }
         
-        if (visibleCnt == 4) {
+        if (visibleCnt == vdpSpritesPerLine(vdp, 4)) {
 			if ((vdp->vdpStatus[0] & 0xc0) == 0) {
 				vdp->vdpStatus[0] = (vdp->vdpStatus[0] & 0xe0) | 0x40 | idx;
 			}
@@ -388,7 +388,7 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
     collision    = 0;
     /* The line built here is the one shown next. */
     dispLine     = line + 1;
-    line         = (line + vdpVScroll(vdp)) & 0xff;
+    line         = (line + vdpSpriteVScroll(vdp)) & 0xff;
 
     /* Find visible sprites on current line */
     for (sprite = 0; sprite < 32; sprite++, attribOffset += 4) {
@@ -406,7 +406,7 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
             continue;
         }
 
-        if (visibleCnt == 8) {
+        if (visibleCnt == vdpSpritesPerLine(vdp, 8)) {
 //            printf("%d\t%d\t%d\t####\n", idx, line, boardSystemTime());
 			if ((vdp->vdpStatus[0] & 0xc0) == 0) {
 				vdp->vdpStatus[0] = (vdp->vdpStatus[0] & 0xe0) | 0x40 | sprite;
