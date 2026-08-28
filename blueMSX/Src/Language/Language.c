@@ -1214,6 +1214,7 @@ char* langDbgDevTms99x8A() { return "TMS99x8A"; }
 char* langDbgDevTms9918A() { return "TMS9918A"; }
 char* langDbgDevV9938() { return "V9938"; }
 char* langDbgDevV9958() { return "V9958"; }
+char* langDbgDevV9968() { return "V9968"; }
 char* langDbgDevZ80() { return "Z80"; }
 char* langDbgDevMsxMidi() { return "MSX MIDI"; }
 char* langDbgDevPpi() { return "PPI"; }

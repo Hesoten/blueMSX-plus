@@ -149,6 +149,11 @@ static int vramAddr;
 #define vdpIsSpritesOff(regs)        (regs[8]  & 0x02)
 #define vdpIsColor0Solid(regs)       (regs[8]  & 0x20)
 #define vdpIsMsx1Vdp(vdp)            ((vdp)->vdpVersion == VDP_TMS9918A || (vdp)->vdpVersion == VDP_TMS99x8A || (vdp)->vdpVersion == VDP_TMS9929A)
+// The VDPs with 64 registers, a command engine and the extended port set.
+#define vdpIsV99x8(vdp)              ((vdp)->vdpVersion == VDP_V9938 || (vdp)->vdpVersion == VDP_V9958 || (vdp)->vdpVersion == VDP_V9968)
+#define vdpIsV9968(vdp)              ((vdp)->vdpVersion == VDP_V9968)
+// R#21 bit0 V58: set means behave as a V9958, clear means as a V9968.
+#define vdpIsV9968Native(vdp)        (vdpIsV9968(vdp) && !((vdp)->vdpRegs[21] & 0x01))
 #define vdpIsVideoPal(vdp)          (((vdp)->vdpRegs[9]  & (vdp)->palMask & 0x02) | (vdp)->palValue)
 #define vdpIsOddPage(vdp)           (((~(vdp)->vdpStatus[2] & 0x02) << 7) & (((vdp)->vdpRegs[9]  & 0x04) << 6))
 // V9938 blink page alternation: while the blink OFF phase is active the odd
@@ -183,6 +188,18 @@ static const UInt8 registerValueMaskMSX2p[64] = {
 	0x7e, 0x7f, 0x7f, 0xff, 0x3f, 0xff, 0x3f, 0xff,   /* R#1 bit 2 (line-blink) writable */
 	0xfb, 0xbf, 0x07, 0x03, 0xff, 0xff, 0x07, 0x0f,
 	0x0f, 0xbf, 0xff, 0xff, 0x3f, 0x3f, 0x3f, 0xff,
+    0x00, 0x7f, 0x3f, 0x07, 0x00, 0x00, 0x00, 0x00,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
+};
+
+/* The V9958 mask, widened for the 8 bit R#16 index and the R#20 mode bits. */
+static const UInt8 registerValueMaskV9968[64] = {
+	0x7e, 0x7f, 0x7f, 0xff, 0x3f, 0xff, 0x3f, 0xff,
+	0xfb, 0xbf, 0x07, 0x03, 0xff, 0xff, 0x07, 0x0f,
+	0x0f, 0xbf, 0xff, 0xff, 0xff, 0x3f, 0x3f, 0xff,
     0x00, 0x7f, 0x3f, 0x07, 0x00, 0x00, 0x00, 0x00,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -330,6 +347,10 @@ struct VDP {
 
     const UInt8* registerValueMask;
     UInt8  registerMask;
+
+    /* P#4 bit7. While set, writes to R#20 and R#21 are discarded. */
+    int    extRegsLocked;
+
 
     UInt8  palMask;
     UInt8  palValue;
@@ -937,6 +958,11 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
 
     reg   &= vdp->registerMask;
     value &= vdp->registerValueMask[reg];
+
+    if (vdpIsV9968(vdp) && vdp->extRegsLocked && (reg == 20 || reg == 21)) {
+        return;
+    }
+
     sync(vdp, boardSystemTime());
 
 //    if (reg == 0 || reg == 1 || reg == 5 || reg == 6 || reg == 8 || reg == 9 || reg == 11 || reg == 23)
@@ -1112,7 +1138,14 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
         }
         break;
 
-    case 25: 
+    case 21:
+        /* S#1 bits 5-1 are the id, bit0 is FH and must survive. */
+        if ((change & 0x01) && vdpIsV9968(vdp)) {
+            vdp->vdpStatus[1] = (vdp->vdpStatus[1] & ~0x3e) | (vdpIsV9968Native(vdp) ? 0x06 : 0x04);
+        }
+        break;
+
+    case 25:
         if (change) {
             scheduleScrModeChange(vdp);
         }
@@ -1121,11 +1154,11 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
     default:
         break;
     }
-} 
+}
 
 static UInt8 peek(VDP* vdp, UInt16 ioPort) 
 {
-    if (vdp->vdpVersion == VDP_V9938 || vdp->vdpVersion == VDP_V9958) {
+    if (vdpIsV99x8(vdp)) {
         vdpCmdExecute(vdp->cmdEngine, boardSystemTime());
     }
 
@@ -1136,7 +1169,7 @@ static UInt8 readNoTimingCheck(VDP* vdp, UInt16 ioPort)
 {
     UInt8 value;
 
-    if (vdp->vdpVersion == VDP_V9938 || vdp->vdpVersion == VDP_V9958) {
+    if (vdpIsV99x8(vdp)) {
         vdpCmdExecute(vdp->cmdEngine, boardSystemTime());
         vdpCmdStealAccessSlot(vdp->cmdEngine);
     }
@@ -1316,7 +1349,7 @@ static void write(VDP* vdp, UInt16 ioPort, UInt8 value)
     if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A || vdp->vdpVersion == VDP_TMS9918A) {
         checkVramAccessTimeTms(vdp);
     }
-    if (vdp->vdpVersion == VDP_V9938 || vdp->vdpVersion == VDP_V9958) {
+    if (vdpIsV99x8(vdp)) {
         vdpCmdStealAccessSlot(vdp->cmdEngine);
     }
 
@@ -1562,6 +1595,45 @@ static void writeRegister(VDP* vdp, UInt16 ioPort, UInt8 value)
     }
 }
 
+/* P#4: bit0 F, bit1 FH, bit7 the R#20/R#21 lock. Bits 0-1 are
+** write-one-to-clear, bit7 is a plain load, and reading clears nothing. */
+static UInt8 readInterruptStatus(VDP* vdp, UInt16 ioPort)
+{
+    UInt8 status;
+
+    sync(vdp, boardSystemTime());
+
+    status = vdp->extRegsLocked ? 0x80 : 0x00;
+    if (vdp->vdpStatus[0] & 0x80) {
+        status |= 0x01;
+    }
+    if (vdp->vdpRegs[0] & 0x10) {
+        if (boardGetInt(INT_IE1)) {
+            status |= 0x02;
+        }
+    }
+    else if (boardSystemTime() - vdp->timeHint < HPERIOD - vdp->displayArea) {
+        status |= 0x02;
+    }
+
+    return status;
+}
+
+static void writeInterruptStatus(VDP* vdp, UInt16 ioPort, UInt8 value)
+{
+    sync(vdp, boardSystemTime());
+
+    if (value & 0x01) {
+        vdp->vdpStatus[0] &= ~0x80;
+        boardClearInt(INT_IE0);
+    }
+    if (value & 0x02) {
+        boardClearInt(INT_IE1);
+    }
+
+    vdp->extRegsLocked = (value >> 7) & 1;
+}
+
 void vdpForceSync()
 {
     if (theVdp != NULL) {
@@ -1576,7 +1648,7 @@ static void sync(VDP* vdp, UInt32 systemTime)
     int lineTime = frameTime % HPERIOD - (vdp->leftBorder - 20);
     int curLineOffset;
 
-    if (vdp->vdpVersion == VDP_V9938 || vdp->vdpVersion == VDP_V9958) {
+    if (vdpIsV99x8(vdp)) {
         vdpCmdExecute(vdp->cmdEngine, boardSystemTime());
     }
 
@@ -1885,6 +1957,7 @@ static void saveState(VDP* vdp)
     }
 
     saveStateSet(state, "vramAccMask",         vdp->vramAccMask);
+    saveStateSet(state, "extRegsLocked",       vdp->extRegsLocked);
 
     saveStateSetBuffer(state, "vram", vdp->vram, sizeof(vdp->vram));
 
@@ -1985,6 +2058,7 @@ static void loadState(VDP* vdp)
     }
 
     vdp->vramAccMask = saveStateGet(state, "vramAccMask",         0);
+    vdp->extRegsLocked = saveStateGet(state, "extRegsLocked",     0);
 
     if (isOldFormat) {
         /* Old (2.8.2) tag-name overrides:
@@ -2082,7 +2156,7 @@ static void loadState(VDP* vdp)
 static void dbgRegisterLayout(VDP* vdp, int* regCount, int* cmdRegCount,
                               int* paletteCount, int* statusRegCount)
 {
-    if (vdp->vdpVersion == VDP_V9938 || vdp->vdpVersion == VDP_V9958) {
+    if (vdpIsV99x8(vdp)) {
         *regCount       = vdp->vdpVersion == VDP_V9938 ? 24 : 32;
         *cmdRegCount    = 15;
         *paletteCount   = 16;
@@ -2181,7 +2255,7 @@ static void getDebugInfo(VDP* vdp, DbgDevice* dbgDevice)
     // Add IO Ports
     switch (vdp->vdpConnector) {
     case VDP_MSX:
-        if (vdp->vdpVersion == VDP_V9938 || vdp->vdpVersion == VDP_V9958) {
+        if (vdpIsV99x8(vdp)) {
             ioPorts = dbgDeviceAddIoPorts(dbgDevice, vdpVersionName, 4);
             dbgIoPortsAddPort(ioPorts, 0, 0x98, DBG_IO_READWRITE,  peek(vdp, 0x98));
             dbgIoPortsAddPort(ioPorts, 1, 0x99, DBG_IO_READWRITE,  peekStatus(vdp, 0x99));
@@ -2340,8 +2414,10 @@ static void reset(VDP* vdp)
     memset(vdp->vdpStatus, 0, sizeof(vdp->vdpStatus));
     memset(vdp->vdpRegs, 0, sizeof(vdp->vdpRegs));
 
+    vdp->extRegsLocked = 0;
+
     vdp->vdpStatus[0] = 0x9f;
-    vdp->vdpStatus[1] = vdp->vdpVersion == VDP_V9958 ? 0x04 : 0;
+    vdp->vdpStatus[1] = (vdp->vdpVersion == VDP_V9958 || vdpIsV9968(vdp)) ? 0x04 : 0;
     vdp->vdpStatus[2] = 0x6c;
         
     vdp->vdpRegs[1]  = 0x10;
@@ -2397,6 +2473,9 @@ static void destroy(VDP* vdp)
         ioPortUnregister(0x99);
         ioPortUnregister(0x9a);
         ioPortUnregister(0x9b);
+        if (vdpIsV9968(vdp)) {
+            ioPortUnregister(0x9c);
+        }
         break;
 
     case VDP_SVI:
@@ -2557,6 +2636,12 @@ void vdpCreate(VdpConnector connector, VdpVersion version, VdpSyncMode sync, int
         vdpVersionString       = langDbgDevV9958();
         vdp->hAdjustSc0        = 1; // 9
         break;
+    case VDP_V9968:
+        vdp->registerValueMask = registerValueMaskV9968;
+        vdp->registerMask      = 0x3f;
+        vdpVersionString       = langDbgDevV9968();
+        vdp->hAdjustSc0        = 1; // 9
+        break;
     }
     
     vdp->debugHandle = debugDeviceRegister(DBGTYPE_VIDEO, vdpVersionString, &dbgCallbacks, vdp);
@@ -2565,9 +2650,12 @@ void vdpCreate(VdpConnector connector, VdpVersion version, VdpSyncMode sync, int
     case VDP_MSX:
         ioPortRegister(0x98, read,       write,      vdp);
         ioPortRegister(0x99, readStatus, writeLatch, vdp);
-        if (vdp->vdpVersion == VDP_V9938 || vdp->vdpVersion == VDP_V9958) {
+        if (vdpIsV99x8(vdp)) {
             ioPortRegister(0x9a, NULL, writePaletteLatch, vdp);
             ioPortRegister(0x9b, NULL, writeRegister,     vdp);
+        }
+        if (vdpIsV9968(vdp)) {
+            ioPortRegister(0x9c, readInterruptStatus, writeInterruptStatus, vdp);
         }
         break;
 
