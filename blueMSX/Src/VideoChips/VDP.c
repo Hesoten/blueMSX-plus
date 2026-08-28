@@ -495,6 +495,7 @@ static void vdpUpdateVramMode(VDP* vdp)
         vdp->vramEnable = 1;
     }
     vdpCmdSetVram256(vdp->cmdEngine, wide);
+    vdpCmdSetExtCommands(vdp->cmdEngine, vdpIsV9968Native(vdp));
 }
 
 
@@ -1138,6 +1139,10 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
                 vdp->XBGColor = vdp->vdpRegs[12] & 0x0f;
             }
         }
+        break;
+
+    case 12:
+        vdpCmdSetTextBackColor(vdp->cmdEngine, value & 0x0f);
         break;
 
     case 14:
@@ -2213,6 +2218,9 @@ static void loadState(VDP* vdp)
 
     vdp->vramPtr = vdp->vram + vdp->vramOffsets[(vdp->vdpRegs[0x2d] >> 6) & 1];
     vdpUpdateVramMode(vdp);
+    /* The engine holds its own copy of R#12, and a command using it can be part
+    ** way through. */
+    vdpCmdSetTextBackColor(vdp->cmdEngine, vdp->vdpRegs[12] & 0x0f);
 
     canFlipFrameBuffer = 0;
 
