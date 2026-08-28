@@ -68,10 +68,12 @@ UInt8* spritesLine(VDP* vdp, int line) {
     int bufIndex;
     UInt8 collisionBuf[384];
     UInt8* attrib;
+    UInt8* attribBase;
     UInt8* attribTable[32];
     int spriteLine[33];
     UInt8 patternMask;
     int idx;
+    int step;
     int size;
     int scale;
     int visibleCnt;
@@ -98,7 +100,7 @@ UInt8* spritesLine(VDP* vdp, int line) {
         return lineBufs[bufIndex ^ 1];
     }
 
-    attrib = &vdp->vram[vdp->sprTabBase & (-1 << 7)];
+    attribBase = &vdp->vram[vdp->sprTabBase & (-1 << 7)];
     size   = vdpIsSprites16x16(vdp->vdpRegs) ? 16 : 8;
     scale  = vdpIsSpritesBig(vdp->vdpRegs) ? 2 : 1;
     solidColor = vdpIsColor0Solid(vdp->vdpRegs) ? 1 : 0;
@@ -112,11 +114,13 @@ UInt8* spritesLine(VDP* vdp, int line) {
     visibleCnt = 0;
     collision = 0;
     /* Find visible sprites on current line */
-    for (idx = 0; idx < 32; idx++, attrib += 4) {
-        if (attrib[0] == 208) {
+    for (step = 0; step < 32; step++) {
+        idx    = vdpSpritePlane(vdp, step, 31);
+        attrib = attribBase + 4 * idx;
+        if (attrib[0] == 208 && !vdpIsSpriteShuffle(vdp)) {
             break;
         }
-       
+
         spriteLine[visibleCnt] = ((line - attrib[0]) & 0xff) / scale;
 		if (spriteLine[visibleCnt] >= size) {
 #if 1
@@ -346,8 +350,10 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
     UInt8 collisionBuf[384];
     SpriteAttribute attribTable[32];
     UInt8 patternMask;
+    int   attribBase;
     int   attribOffset;
     int   sprite;
+    int   step;
     int   size;
     int   scale;
     int   visibleCnt;
@@ -379,7 +385,7 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
     }
 
     solidColor   = vdpIsColor0Solid(vdp->vdpRegs) ? 1 : 0;
-    attribOffset = vdp->sprTabBase & 0x3fe00;
+    attribBase   = vdp->sprTabBase & 0x3fe00;
     size         = vdpIsSprites16x16(vdp->vdpRegs) ? 16 : 8;
     scale        = vdpIsSpritesBig(vdp->vdpRegs) ? 2 : 1;
 	patternMask  = vdpIsSprites16x16(vdp->vdpRegs) ? 0xfc : 0xff;
@@ -390,13 +396,16 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
     line         = (line + vdpSpriteVScroll(vdp)) & 0xff;
 
     /* Find visible sprites on current line */
-    for (sprite = 0; sprite < 32; sprite++, attribOffset += 4) {
+    for (step = 0; step < 32; step++) {
         int spriteLine;
         int offset;
         int color;
 
+        sprite       = vdpSpritePlane(vdp, step, 31);
+        attribOffset = attribBase + 4 * sprite;
+
         spriteLine = *MAP_VRAM(vdp, attribOffset);
-        if (spriteLine == 216) {
+        if (spriteLine == 216 && !vdpIsSpriteShuffle(vdp)) {
             break;
         }
        
@@ -642,7 +651,7 @@ int spritesLineMode3(VDP* vdp, int Y)
     int base = (((int)vdp->vdpRegs[11] & 0x07) << 15) | ((int)vdp->vdpRegs[5] << 7);
     int planeMaskHigh = (base >> 7) & 0x03;
     int visible = 0;
-    int plane;
+    int step;
     int i;
 
     for (i = 0; i < SPRITE_M3_WIDTH; i++) {
@@ -657,7 +666,8 @@ int spritesLineMode3(VDP* vdp, int Y)
     line = vdpIsSpriteVScrollOff(vdp) ? (line & 0x3ff)
                                       : ((line + vdpSpriteVScroll(vdp)) & 0xff);
 
-    for (plane = 0; plane < 64; plane++) {
+    for (step = 0; step < 64; step++) {
+        int plane  = vdpSpritePlane(vdp, step, 63);
         int attrib = (base & ~0x1ff) | ((planeMaskHigh & (plane >> 4)) << 7) | ((plane & 0x0f) << 3);
         int y    = *MAP_VRAM(vdp, attrib);
         int b1   = *MAP_VRAM(vdp, attrib + 1);
@@ -672,7 +682,7 @@ int spritesLineMode3(VDP* vdp, int Y)
         /* The whole ten bit Y ends the table, so a sprite parked below the
         ** screen is not mistaken for the marker by its low byte alone. */
         y |= (b1 & 0x03) << 8;
-        if (y == 216) {
+        if (y == 216 && !vdpIsSpriteShuffle(vdp)) {
             break;
         }
 
