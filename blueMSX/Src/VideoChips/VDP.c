@@ -143,8 +143,8 @@ void vdpUnregisterDaConverter(int vdpDaHandle)
 static int vramAddr;
 /* A17 sits outside the odd/even rotation and picks a 128kB half. */
 #define VDP_ILV(vdp, a) ((vdp)->vramA17 ? (((a) & 0x20000) | (((a) >> 1) & 0xffff) | (((a) & 1) << 16)) : ((a) >> 1 | (((a) & 1) << 16)))
-#define MAP_VRAM(vdp, addr) ((vdp)->vramPtr + ((vramAddr = addr, (vdp)->screenMode >= 7 && (vdp)->screenMode <= 12 ? VDP_ILV(vdp, vramAddr) : vramAddr) & (vdp)->vramAccMask))
-#define MAP_VRAMINDEX(vdp, addr) (((vramAddr = addr, (vdp)->screenMode >= 7 && (vdp)->screenMode <= 12 ? VDP_ILV(vdp, vramAddr) : vramAddr)))
+#define MAP_VRAM(vdp, addr) ((vdp)->vramPtr + ((vramAddr = addr, (vdp)->screenMode >= 7 && (vdp)->screenMode <= 12 && !(vdp)->sprMode3 ? VDP_ILV(vdp, vramAddr) : vramAddr) & (vdp)->vramAccMask))
+#define MAP_VRAMINDEX(vdp, addr) (((vramAddr = addr, (vdp)->screenMode >= 7 && (vdp)->screenMode <= 12 && !(vdp)->sprMode3 ? VDP_ILV(vdp, vramAddr) : vramAddr)))
 
 #define vdpIsSpritesBig(regs)        (regs[1]  & 0x01)
 #define vdpIsSprites16x16(regs)      (regs[1]  & 0x02)
@@ -158,9 +158,12 @@ static int vramAddr;
 #define vdpIsV9968Native(vdp)        (vdpIsV9968(vdp) && !((vdp)->vdpRegs[21] & 0x01))
 // R#20 bit1 SVNS and bit2 ILNS take the sprites and the line interrupt off
 // the R#23 vertical offset; bit7 S16 raises the sprites per line to sixteen.
-#define vdpSpriteVScroll(vdp)        (((vdp)->vdpRegs[20] & 0x02) && vdpIsV9968(vdp) ? 0 : (vdp)->vdpRegs[23])
+#define vdpIsSpriteVScrollOff(vdp)   (((vdp)->vdpRegs[20] & 0x02) && vdpIsV9968(vdp))
+#define vdpSpriteVScroll(vdp)        (vdpIsSpriteVScrollOff(vdp) ? 0 : (vdp)->vdpRegs[23])
 #define vdpLineIntVScroll(vdp)       (((vdp)->vdpRegs[20] & 0x04) && vdpIsV9968(vdp) ? 0 : (vdp)->vdpRegs[23])
 #define vdpSpritesPerLine(vdp, n)    (((vdp)->vdpRegs[20] & 0x80) && vdpIsV9968(vdp) ? 16 : (n))
+// R#20 bit3 SP3 also takes the SCREEN 7 and 8 odd/even interleave out of use.
+#define vdpIsSpriteMode3(vdp)        (((vdp)->vdpRegs[20] & 0x08) && vdpIsV9968(vdp))
 // R#20 bit4 EPAL: 256 entries of 5 bit RGB, written three bytes at a time.
 #define vdpIsExtPalette(vdp)         (vdpIsV9968(vdp) && ((vdp)->vdpRegs[20] & 0x10))
 #define vdpIsVideoPal(vdp)          (((vdp)->vdpRegs[9]  & (vdp)->palMask & 0x02) | (vdp)->palValue)
@@ -391,6 +394,7 @@ struct VDP {
     int    vram128;
     int    vram256;
     int    vramA17;
+    int    sprMode3;
     int    vram192;
     int    vram16;
     int    vramEnable;
@@ -1175,6 +1179,10 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
         }
         break;
 
+    case 20:
+        vdp->sprMode3 = vdpIsSpriteMode3(vdp);
+        break;
+
     case 21:
         /* S#1 bits 5-1 are the id, bit0 is FH and must survive. */
         if ((change & 0x01) && vdpIsV9968(vdp)) {
@@ -1715,6 +1723,39 @@ void vdpForceSync()
     }
 }
 
+/* The dot the mode 3 overlay may start at, or -1 where the ordinary sprite
+** paths put nothing: text, and the line the unknown modes fall back to. A
+** renderer that masks the left edge repaints it after compositing sprites. */
+static int spritesMode3StartDot(VDP* vdp)
+{
+    if (vdp->RefreshLine == RefreshLineBlank) {
+        return -1;
+    }
+
+    switch (vdp->screenMode) {
+    case 3:
+        return 0;
+    case 1: case 2: case 4: case 5: case 6:
+    case 7: case 8: case 10: case 12:
+        return vdpIsEdgeMasked(vdp->vdpRegs) ? 8 : 0;
+    }
+
+    return -1;
+}
+
+static void refreshLine(VDP* vdp, int line, int x, int x2)
+{
+    vdp->RefreshLine(vdp, line, x, x2);
+
+    if (vdp->sprMode3 && x2 == 33 && spritesEnable && spritesLineMode3(vdp, line)) {
+        int startDot = spritesMode3StartDot(vdp);
+
+        if (startDot >= 0 && vdp->drawArea && displayOrigin != NULL) {
+            spritesOverlayMode3(vdp, line, displayOrigin, displayDotStep, startDot);
+        }
+    }
+}
+
 static void sync(VDP* vdp, UInt32 systemTime) 
 {
     int frameTime = systemTime - vdp->frameStartTime;
@@ -1734,7 +1775,7 @@ static void sync(VDP* vdp, UInt32 systemTime)
         if (vdp->lineOffset <= 32) {
             if (vdp->curLine >= vdp->displayOffest && vdp->curLine < vdp->displayOffest + SCREEN_HEIGHT) {
                 if (vdp->vdpRegs[1] & 0x04) vdpLineBlink(vdp);
-                vdp->RefreshLine(vdp, vdp->curLine, vdp->lineOffset, 33);
+                refreshLine(vdp, vdp->curLine, vdp->lineOffset, 33);
             }
         }
         vdp->lineOffset = -1;
@@ -1742,7 +1783,7 @@ static void sync(VDP* vdp, UInt32 systemTime)
         while (vdp->curLine < scanLine) {
             if (vdp->curLine >= vdp->displayOffest && vdp->curLine < vdp->displayOffest + SCREEN_HEIGHT) {
                 if (vdp->vdpRegs[1] & 0x04) vdpLineBlink(vdp);
-                vdp->RefreshLine(vdp, vdp->curLine, -1, 33);
+                refreshLine(vdp, vdp->curLine, -1, 33);
             }
             vdp->curLine++;
         }
@@ -1760,7 +1801,7 @@ static void sync(VDP* vdp, UInt32 systemTime)
     if (vdp->lineOffset < curLineOffset) {
         if (vdp->curLine >= vdp->displayOffest && vdp->curLine < vdp->displayOffest + SCREEN_HEIGHT) {
             if (vdp->vdpRegs[1] & 0x04) vdpLineBlink(vdp);
-            vdp->RefreshLine(vdp, vdp->curLine, vdp->lineOffset, curLineOffset);
+            refreshLine(vdp, vdp->curLine, vdp->lineOffset, curLineOffset);
         }
         vdp->lineOffset = curLineOffset;
     }
@@ -2098,7 +2139,10 @@ static void loadState(VDP* vdp)
     
     saveStateGetBuffer(state, "regs", vdp->vdpRegs, sizeof(vdp->vdpRegs));
     saveStateGetBuffer(state, "vdpStatus", vdp->vdpStatus, sizeof(vdp->vdpStatus));
-    
+    /* Sprite mode 3 also decides how VRAM is addressed, so it cannot be left
+    ** to the next R#20 write to work out. */
+    vdp->sprMode3 = vdpIsSpriteMode3(vdp);
+
     vdp->vdpKey = saveStateGet(state, "vdpKey",         0);
     vdp->vdpData = saveStateGet(state, "vdpData",         0);
     vdp->vdpDataLatch = saveStateGet(state, "vdpDataLatch",         0);
@@ -2504,6 +2548,7 @@ static void reset(VDP* vdp)
     memset(vdp->vdpRegs, 0, sizeof(vdp->vdpRegs));
 
     vdp->extRegsLocked = 0;
+    vdp->sprMode3      = 0;
 
     vdp->vdpStatus[0] = 0x9f;
     vdp->vdpStatus[1] = (vdp->vdpVersion == VDP_V9958 || vdpIsV9968(vdp)) ? 0x04 : 0;
