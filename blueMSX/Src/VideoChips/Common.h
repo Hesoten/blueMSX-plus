@@ -83,6 +83,11 @@ static Pixel* linePtrBlank = NULL;
 static Pixel* linePtrStart = NULL;
 static int    linePtrStartLine = -1;
 
+/* Where the display starts on the line just drawn and what one MSX dot costs
+** there, so a compositor running after the renderer does not have to guess. */
+static Pixel* displayOrigin = NULL;
+static int    displayDotStep = 1;
+
 
 void RefreshLineReset()
 {
@@ -103,6 +108,8 @@ void RefreshLineReset()
     linePtrBlank = NULL;
     linePtrStart = NULL;
     linePtrStartLine = -1;
+    displayOrigin = NULL;
+    displayDotStep = 1;
 }
 
 Pixel *RefreshBorder(VDP* vdp, int Y, Pixel bgColor, int line512, int borderExtra)
@@ -134,6 +141,9 @@ Pixel *RefreshBorder(VDP* vdp, int Y, Pixel bgColor, int line512, int borderExtr
     for (offset = lineSize * (BORDER_WIDTH + vdp->HAdjust + borderExtra) - 1; offset >= 0; offset--) {
         *linePtr++ = bgColor;
     }
+
+    displayOrigin  = linePtr;
+    displayDotStep = lineSize;
 
     return linePtrStart = linePtr;
 }
@@ -168,6 +178,9 @@ Pixel *RefreshBorder6(VDP* vdp, int Y, Pixel bgColor1, Pixel bgColor2, int line5
         *linePtr++ = bgColor1;
         *linePtr++ = bgColor2;
     }
+
+    displayOrigin  = linePtr;
+    displayDotStep = lineSize;
 
     return linePtrStart = linePtr;
 }

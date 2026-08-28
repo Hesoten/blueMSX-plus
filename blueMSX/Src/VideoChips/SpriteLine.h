@@ -93,7 +93,7 @@ UInt8* spritesLine(VDP* vdp, int line) {
         return nullSpritesLine();
     }
 
-    if (!vdp->screenOn || (vdp->vdpStatus[2] & 0x40) ||vdpIsSpritesOff(vdp->vdpRegs)) {
+    if (!vdp->screenOn || (vdp->vdpStatus[2] & 0x40) || vdpIsSpritesOff(vdp->vdpRegs) || vdp->sprMode3) {
         lineBufs[bufIndex] = nullSpritesLine();
         return lineBufs[bufIndex ^ 1];
     }
@@ -373,8 +373,7 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
         return nullSpritesLine();
     }
 
-    if (!vdp->screenOn || (vdp->vdpStatus[2] & 0x40) ||vdpIsSpritesOff(vdp->vdpRegs)) {
-//    if (!vdp->screenOn ||vdpIsSpritesOff(vdp->vdpRegs)) {
+    if (!vdp->screenOn || (vdp->vdpStatus[2] & 0x40) || vdpIsSpritesOff(vdp->vdpRegs) || vdp->sprMode3) {
         lineBufs[bufIndex] = nullSpritesLine();
         return lineBufs[bufIndex ^ 1];
     }
@@ -590,6 +589,199 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
     }
 
     return lineBufs[bufIndex ^ 1];
+}
+
+
+/* Sixty four planes of eight bytes, sixteen to a line. A plane can be
+** translucent, so a dot cannot be a palette index: this leaves a colour and a
+** weight for the caller to blend over the finished scanline. */
+#define SPRITE_M3_WIDTH 256
+
+static Pixel sprM3Pixel[SPRITE_M3_WIDTH];
+static UInt8 sprM3Weight[SPRITE_M3_WIDTH];   /* 0 clear, else sprite share of four */
+
+/* Resizing divides by a normalised reciprocal, not exactly: the magnification
+** is shifted until its top bit is bit 7, multiplied by 65536 / (128 + index),
+** then shifted back. The difference from exact division is part of the picture. */
+static int spriteM3Sample(int offset, int magnify, int sizeShift)
+{
+    int limit = (16 << sizeShift) - 1;
+    int exp = 0;
+    int value;
+
+    if (magnify == 0) {
+        value = ((offset << 3) << sizeShift) >> 7;
+    }
+    else {
+        while ((magnify >> (exp + 1)) != 0) {
+            exp++;
+        }
+        value = 65536 / (128 + ((magnify << (7 - exp)) & 0x7f));
+        value = (((value * offset) >> 5) << sizeShift) >> exp;
+    }
+
+    return value > limit ? limit : value;
+}
+
+/* Patterns are laid out as a SCREEN 5 bitmap, so a pattern is the 16 wide tile
+** at ((n & 15) * 16, (n >> 4) * 16) of a 32kB page. */
+static int spriteM3PatternByte(VDP* vdp, int page, int pattern, int row, int column)
+{
+    int addr = (vdp->sprGenBase & 0x3f800) + (page << 15) + ((pattern >> 4) << 11) + (row << 7) +
+               ((pattern & 0x0f) << 3) + (column >> 1);
+
+    return *MAP_VRAM(vdp, addr);
+}
+
+int spritesLineMode3(VDP* vdp, int Y)
+{
+    /* A sprite is scanned one line before the one it appears on, so an
+    ** attribute Y reaches the screen a line below it. */
+    int row  = Y - vdp->firstLine;
+    int line = row - 1;
+    int base = (((int)vdp->vdpRegs[11] & 0x07) << 15) | ((int)vdp->vdpRegs[5] << 7);
+    int planeMaskHigh = (base >> 7) & 0x03;
+    int visible = 0;
+    int plane;
+    int i;
+
+    for (i = 0; i < SPRITE_M3_WIDTH; i++) {
+        sprM3Weight[i] = 0;
+    }
+
+    if (!vdp->screenOn || vdpIsSpritesOff(vdp->vdpRegs) || row < 0) {
+        return 0;
+    }
+
+    /* The R#23 offset is added in eight bits, so the scan position wraps. */
+    line = vdpIsSpriteVScrollOff(vdp) ? (line & 0x3ff)
+                                      : ((line + vdpSpriteVScroll(vdp)) & 0xff);
+
+    for (plane = 0; plane < 64; plane++) {
+        int attrib = (base & ~0x1ff) | ((planeMaskHigh & (plane >> 4)) << 7) | ((plane & 0x0f) << 3);
+        int y    = *MAP_VRAM(vdp, attrib);
+        int b1   = *MAP_VRAM(vdp, attrib + 1);
+        int mgy  = *MAP_VRAM(vdp, attrib + 2);
+        int mode = *MAP_VRAM(vdp, attrib + 3);
+        int x    = *MAP_VRAM(vdp, attrib + 4);
+        int b5   = *MAP_VRAM(vdp, attrib + 5);
+        int mgx  = *MAP_VRAM(vdp, attrib + 6);
+        int pattern = *MAP_VRAM(vdp, attrib + 7);
+        int rows, dy, srcY, weight, set, page, dx;
+
+        /* The whole ten bit Y ends the table, so a sprite parked below the
+        ** screen is not mistaken for the marker by its low byte alone. */
+        y |= (b1 & 0x03) << 8;
+        if (y == 216) {
+            break;
+        }
+
+        x |= (b5 & 0x03) << 8;
+        rows = 16 << (b1 >> 6);
+
+        dy = (line - y) & 0x3ff;
+        if (dy >= (mgy ? mgy : 256)) {
+            continue;
+        }
+
+        if (visible == 16 && !noSpriteLimits) {
+            break;
+        }
+        visible++;
+
+        srcY = spriteM3Sample(dy, mgy, b1 >> 6);
+        if (mode & 0x20) {
+            srcY = rows - 1 - srcY;
+        }
+
+        weight = 4 - (mode >> 6);
+        set    = mode & 0x0f;
+        page   = (b5 >> 4) & 0x07;
+
+        /* An MGX of zero is no dots at all, not 256 the way an MGY of zero is. */
+        for (dx = 0; dx < mgx; dx++) {
+            int screenX = (x + dx) & 0x3ff;
+            int srcX;
+            int colour;
+
+            if (screenX >= SPRITE_M3_WIDTH || sprM3Weight[screenX]) {
+                continue;
+            }
+
+            srcX = spriteM3Sample(dx, mgx, 0);
+            if (mode & 0x10) {
+                srcX = 15 - srcX;
+            }
+
+            colour = spriteM3PatternByte(vdp, page, pattern, srcY, srcX);
+            colour = (srcX & 1) ? (colour & 0x0f) : (colour >> 4);
+            if (colour == 0) {
+                continue;
+            }
+
+            sprM3Pixel[screenX]  = vdp->paletteExt[(set << 4) | colour];
+            sprM3Weight[screenX] = (UInt8)weight;
+        }
+    }
+
+    return 1;
+}
+
+#if defined(WII)
+#define SPR_M3_R(p) (((p) >> 11) & 0x1f)
+#define SPR_M3_G(p) (((p) >>  6) & 0x1f)
+#define SPR_M3_B(p) ( (p)        & 0x1f)
+#define SPR_M3_MAKE(r, g, b) (Pixel)(((r) << 11) | ((g) << 6) | (b))
+#elif defined(VIDEO_COLOR_TYPE_RGB565)
+#define SPR_M3_R(p) (((p) >> 11) & 0x1f)
+#define SPR_M3_G(p) (((p) >>  5) & 0x3f)
+#define SPR_M3_B(p) ( (p)        & 0x1f)
+#define SPR_M3_MAKE(r, g, b) (Pixel)(((r) << 11) | ((g) << 5) | (b))
+#elif defined(VIDEO_COLOR_TYPE_RGBA5551)
+#define SPR_M3_R(p) (((p) >> 11) & 0x1f)
+#define SPR_M3_G(p) (((p) >>  6) & 0x1f)
+#define SPR_M3_B(p) (((p) >>  1) & 0x1f)
+#define SPR_M3_MAKE(r, g, b) (Pixel)(((r) << 11) | ((g) << 6) | ((b) << 1))
+#else
+#define SPR_M3_R(p) (((p) >> 10) & 0x1f)
+#define SPR_M3_G(p) (((p) >>  5) & 0x1f)
+#define SPR_M3_B(p) ( (p)        & 0x1f)
+#define SPR_M3_MAKE(r, g, b) (Pixel)(((r) << 10) | ((g) << 5) | (b))
+#endif
+
+#define SPR_M3_MIX(s, d, w) (((s) * (w) + (d) * (4 - (w))) >> 2)
+
+/* A sprite dot always spans one MSX dot, which is one or two Pixels of the
+** line depending on what the renderer laid down, and startDot is where the
+** left edge mask the renderer already applied ends. */
+void spritesOverlayMode3(VDP* vdp, int Y, Pixel* origin, int dotStep, int startDot)
+{
+    int x;
+
+    for (x = startDot; x < SPRITE_M3_WIDTH; x++) {
+        Pixel* dst = origin + x * dotStep;
+        int w = sprM3Weight[x];
+        Pixel s, d;
+
+        if (w == 0) {
+            continue;
+        }
+
+        s = sprM3Pixel[x];
+        /* A superimpose key holds no colour to blend against, so the dot takes
+        ** the sprite whole rather than a share of black. */
+        if (w != 4 && !(dst[0] & BKMODE_TRANSPARENT)) {
+            d = dst[0];
+            s = SPR_M3_MAKE(SPR_M3_MIX(SPR_M3_R(s), SPR_M3_R(d), w),
+                            SPR_M3_MIX(SPR_M3_G(s), SPR_M3_G(d), w),
+                            SPR_M3_MIX(SPR_M3_B(s), SPR_M3_B(d), w));
+        }
+
+        dst[0] = s;
+        if (dotStep == 2) {
+            dst[1] = s;
+        }
+    }
 }
 
 UInt8* getSpritesLine(VDP* vdp, int line) {
