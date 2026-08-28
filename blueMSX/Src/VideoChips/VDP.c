@@ -137,6 +137,7 @@ void vdpUnregisterDaConverter(int vdpDaHandle)
 
 #define INT_IE0     0x01
 #define INT_IE1     0x02
+#define INT_IE2     0x04
 
 #define VRAM_SIZE (256 * 1024)
 
@@ -357,6 +358,7 @@ static void RefreshLine10(VDP*, int, int, int);
 static void RefreshLine12(VDP*, int, int, int);
 
 static void sync(VDP*, UInt32);
+static void updateCmdEndInt(VDP*);
 
 struct VDP {
     VdpCmdState* cmdEngine;
@@ -1206,6 +1208,9 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
 
     case 20:
         vdp->sprMode3 = vdpIsSpriteMode3(vdp);
+        if (change & 0x40) {
+            updateCmdEndInt(vdp);
+        }
         break;
 
     case 21:
@@ -1702,8 +1707,8 @@ static void writeRegister(VDP* vdp, UInt16 ioPort, UInt8 value)
     }
 }
 
-/* P#4: bit0 F, bit1 FH, bit7 the R#20/R#21 lock. Bits 0-1 are
-** write-one-to-clear, bit7 is a plain load, and reading clears nothing. */
+/* P#4: bit0 F, bit1 FH, bit2 command end, bit7 the R#20/R#21 lock. Bits 0-2
+** are write-one-to-clear, bit7 is a plain load, and reading clears nothing. */
 static UInt8 readInterruptStatus(VDP* vdp, UInt16 ioPort)
 {
     UInt8 status;
@@ -1711,6 +1716,9 @@ static UInt8 readInterruptStatus(VDP* vdp, UInt16 ioPort)
     sync(vdp, boardSystemTime());
 
     status = vdp->extRegsLocked ? 0x80 : 0x00;
+    if (vdpCmdGetEndFlag(vdp->cmdEngine)) {
+        status |= 0x04;
+    }
     if (vdp->vdpStatus[0] & 0x80) {
         status |= 0x01;
     }
@@ -1737,8 +1745,12 @@ static void writeInterruptStatus(VDP* vdp, UInt16 ioPort, UInt8 value)
     if (value & 0x02) {
         boardClearInt(INT_IE1);
     }
+    if (value & 0x04) {
+        vdpCmdClearEndFlag(vdp->cmdEngine);
+    }
 
     vdp->extRegsLocked = (value >> 7) & 1;
+    updateCmdEndInt(vdp);
 }
 
 void vdpForceSync()
@@ -1781,7 +1793,22 @@ static void refreshLine(VDP* vdp, int line, int x, int x2)
     }
 }
 
-static void sync(VDP* vdp, UInt32 systemTime) 
+/* CEIE gates the interrupt line only: the flag behind P#4 bit2 is set either
+** way, so software can poll for the end of a command without taking one. */
+static void updateCmdEndInt(VDP* vdp)
+{
+    if (!vdpIsV9968(vdp)) {
+        return;
+    }
+    if ((vdp->vdpRegs[20] & 0x40) && vdpCmdGetEndFlag(vdp->cmdEngine)) {
+        boardSetInt(INT_IE2);
+    }
+    else {
+        boardClearInt(INT_IE2);
+    }
+}
+
+static void sync(VDP* vdp, UInt32 systemTime)
 {
     int frameTime = systemTime - vdp->frameStartTime;
     int scanLine = frameTime / HPERIOD;
@@ -1790,6 +1817,7 @@ static void sync(VDP* vdp, UInt32 systemTime)
 
     if (vdpIsV99x8(vdp)) {
         vdpCmdExecute(vdp->cmdEngine, boardSystemTime());
+        updateCmdEndInt(vdp);
     }
 
     if (!vdp->videoEnabled || !displayEnable || frameBufferGetDrawFrame() == NULL) {
@@ -2577,6 +2605,7 @@ static void reset(VDP* vdp)
 
     vdp->extRegsLocked = 0;
     vdp->sprMode3      = 0;
+    boardClearInt(INT_IE2);
 
     vdp->vdpStatus[0] = 0x9f;
     vdp->vdpStatus[1] = (vdp->vdpVersion == VDP_V9958 || vdpIsV9968(vdp)) ? 0x04 : 0;
