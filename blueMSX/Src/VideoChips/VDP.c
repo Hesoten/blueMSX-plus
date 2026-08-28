@@ -144,7 +144,9 @@ void vdpUnregisterDaConverter(int vdpDaHandle)
 static int vramAddr;
 /* A17 sits outside the odd/even rotation and picks a 128kB half. */
 #define VDP_ILV(vdp, a) ((vdp)->vramA17 ? (((a) & 0x20000) | (((a) >> 1) & 0xffff) | (((a) & 1) << 16)) : ((a) >> 1 | (((a) & 1) << 16)))
-#define vdpIsInterleaved(vdp) ((vdp)->screenMode >= 7 && (vdp)->screenMode <= 12 && !(vdp)->sprMode3)
+#define vdpIsPairedBitmap(vdp) ((vdp)->screenMode >= 7 && (vdp)->screenMode <= 12)
+#define vdpIsInterleaved(vdp)  (vdpIsPairedBitmap(vdp) && !(vdp)->sprMode3)
+#define vdpIsBitmapLinear(vdp) (vdpIsPairedBitmap(vdp) && (vdp)->sprMode3)
 #define MAP_VRAM(vdp, addr) ((vdp)->vramPtr + ((vramAddr = addr, vdpIsInterleaved(vdp) ? VDP_ILV(vdp, vramAddr) : vramAddr) & (vdp)->vramAccMask))
 #define MAP_VRAMINDEX(vdp, addr) ((vramAddr = addr, vdpIsInterleaved(vdp) ? VDP_ILV(vdp, vramAddr) : vramAddr))
 
@@ -476,8 +478,9 @@ struct VDP {
     int    vramAccMask;
     int vramOffsets[2];
     int vramMasks[4];
-    UInt8  vram[VRAM_SIZE];
-    
+    /* The renderers read on from a line start that can be the last page. */
+    UInt8  vram[VRAM_SIZE + 1024];
+
     int deviceHandle;
     int debugHandle;
     int videoHandle;
@@ -486,15 +489,18 @@ struct VDP {
     FrameBufferData* frameBuffer;
 };
 
-/* An interleaved mode keeps its odd bytes at bit 16, so the base bit above the
-** page steps over them to reach the second 128kB and the one after that is
-** never used. */
+/* Interleaved, the odd bytes sit at bit 16, so the base bit above the page
+** steps over them into the second 128kB and the next one is unused. Linear,
+** the same two base bits sit one place higher. */
 static int vdpBitmapBase(VDP* vdp)
 {
     int base = vdp->chrTabBase;
 
     if (vdpIsV9968(vdp) && vdpIsInterleaved(vdp)) {
         base = ((base & 0xffff) | ((base & 0x10000) << 1)) & vdp->vramMask;
+    }
+    else if (vdpIsBitmapLinear(vdp)) {
+        base = (base << 1) & vdp->vramMask;
     }
     return base;
 }
@@ -513,20 +519,34 @@ static int vdpSpritePlane(VDP* vdp, int step, int mask)
     return (vdp->sprPlaneStart + step * 19) & mask;
 }
 
-/* Start of a bitmap line. The page bit lands at 15 and the scrolled row at
-** 14-7, the base doubling as the AND mask the chip applies to the row. Flat
-** interlace instead gives the row bit 15 too and puts the field at bit 7. */
+/* Start of a bitmap line: the page bit sits just above the scrolled row, the
+** base doubles as the AND mask, and flat interlace adds a row bit with the
+** field below it. A linear line is twice as wide, so all of it moves up one. */
 static int vdpBitmapLine(VDP* vdp, int y)
 {
-    int row  = y - vdp->firstLine + vdpVScroll(vdp);
-    int base = vdpBitmapBase(vdp);
+    int row   = y - vdp->firstLine + vdpVScroll(vdp);
+    int base  = vdpBitmapBase(vdp);
+    int shift = vdpIsBitmapLinear(vdp) ? 8 : 7;
 
     if (vdpIsFlatInterlace(vdp)) {
-        return (base & ((-1 << 16) | (row << 8)))
-             | ((vdp->vdpStatus[2] & 0x02) << 6);
+        return (base & ((-1 << (shift + 9)) | (row << (shift + 1))))
+             | ((vdp->vdpStatus[2] & 0x02) << (shift - 1));
     }
-    return base & (~(vdpIsOddPage(vdp) | vdpBlinkEvenPage(vdp)) << 7)
-                & ((-1 << 15) | (row << 7));
+    return base & (~(vdpIsOddPage(vdp) | vdpBlinkEvenPage(vdp)) << shift)
+                & ((-1 << (shift + 8)) | (row << shift));
+}
+
+/* Where the n'th byte of a bitmap line sits and, returned, what one pair of
+** them costs. Interleaving parks the odd bytes in the second half of VRAM. */
+static int vdpBitmapBytes(VDP* vdp, int* ofs)
+{
+    int pairStep = vdpIsBitmapLinear(vdp) ? 2 : 1;
+    int n;
+
+    for (n = 0; n < 9; n++) {
+        ofs[n] = pairStep == 2 ? n : ((n >> 1) | ((n & 1) ? vdp->vram128 : 0));
+    }
+    return pairStep;
 }
 
 #include "SpriteLine.h"
@@ -551,6 +571,7 @@ static void vdpUpdateVramMode(VDP* vdp)
     }
     vdpCmdSetVram256(vdp->cmdEngine, wide);
     vdpCmdSetExtCommands(vdp->cmdEngine, vdpIsV9968Native(vdp));
+    vdpCmdSetInterleave(vdp->cmdEngine, vdpIsInterleaved(vdp));
 }
 
 
@@ -1034,6 +1055,7 @@ static void onScrModeChange(VDP* vdp, UInt32 time)
     vdp->screenOn = vdp->vdpRegs[1] & 0x40;
     
     vdpSetScreenMode(vdp->cmdEngine, cmdEngineScreenMode(vdp), vdp->vdpRegs[25] & 0x40);
+    vdpCmdSetInterleave(vdp->cmdEngine, vdpIsInterleaved(vdp));
 
     if (screenMode != vdp->screenMode) {
         vdp->scr0splitLine = (scanLine - vdp->firstLine) & ~7;
@@ -1255,6 +1277,7 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
 
     case 20:
         vdp->sprMode3 = vdpIsSpriteMode3(vdp);
+        vdpUpdateVramMode(vdp);
         if (change & 0x01) {
             vdpCmdSetHighSpeed(vdp->cmdEngine, vdpIsV9968(vdp) && (value & 0x01));
         }
@@ -1598,6 +1621,9 @@ static void digitize(VDP* vdp)
 {
     UInt8 colorMask = vdp->vdpRegs[7];
     int yDelta = 14 + vdp->VAdjust;
+    int ofs[9];
+    int pairStep = vdpBitmapBytes(vdp, ofs);
+    int shift = pairStep == 2 ? 8 : 7;
     int x, y;
 
     vdpDaDevice.callbacks.daStart(vdpDaDevice.ref, vdpIsOddPage(vdp));
@@ -1605,7 +1631,8 @@ static void digitize(VDP* vdp)
 #define videoDaGet(sm, x, y, pal, cnt) vdpDaDevice.callbacks.daRead(vdpDaDevice.ref, sm, x, y, pal, cnt)
 
     for (y = 0; y < 212; y++) {
-        UInt8* charTable = vdp->vram + (vdpBitmapBase(vdp) & (~vdpIsOddPage(vdp) << 7) & ((-1 << 15) | ((y + vdpVScroll(vdp)) << 7)));
+        UInt8* charTable = vdp->vram + (vdpBitmapBase(vdp) & (~vdpIsOddPage(vdp) << shift)
+                                      & ((-1 << (shift + 8)) | ((y + vdpVScroll(vdp)) << shift)));
 
         switch (vdp->screenMode) {
         case 5:
@@ -1624,10 +1651,10 @@ static void digitize(VDP* vdp)
             break;
         case 7:
             for (x = 0; x < 128; x++) {
-                charTable[x] =                ((videoDaGet(vdp->screenMode, 4 * x + 0, y + yDelta, vdp->palette, 16) & colorMask) << 4) |
-                                              ((videoDaGet(vdp->screenMode, 4 * x + 1, y + yDelta, vdp->palette, 16) & colorMask) << 0);
-                charTable[x + vdp->vram128] = ((videoDaGet(vdp->screenMode, 4 * x + 2, y + yDelta, vdp->palette, 16) & colorMask) << 4) |
-                                              ((videoDaGet(vdp->screenMode, 4 * x + 3, y + yDelta, vdp->palette, 16) & colorMask) << 0);
+                charTable[x * pairStep] =          ((videoDaGet(vdp->screenMode, 4 * x + 0, y + yDelta, vdp->palette, 16) & colorMask) << 4) |
+                                                   ((videoDaGet(vdp->screenMode, 4 * x + 1, y + yDelta, vdp->palette, 16) & colorMask) << 0);
+                charTable[x * pairStep + ofs[1]] = ((videoDaGet(vdp->screenMode, 4 * x + 2, y + yDelta, vdp->palette, 16) & colorMask) << 4) |
+                                                   ((videoDaGet(vdp->screenMode, 4 * x + 3, y + yDelta, vdp->palette, 16) & colorMask) << 0);
             }
             break;
         case 8:
@@ -1635,8 +1662,8 @@ static void digitize(VDP* vdp)
         case 11:
         case 12:
             for (x = 0; x < 128; x++) {
-                charTable[x]                = videoDaGet(vdp->screenMode, 4 * x + 0, y + yDelta, NULL, 0) & colorMask;
-                charTable[x + vdp->vram128] = videoDaGet(vdp->screenMode, 4 * x + 2, y + yDelta, NULL, 0) & colorMask;
+                charTable[x * pairStep]          = videoDaGet(vdp->screenMode, 4 * x + 0, y + yDelta, NULL, 0) & colorMask;
+                charTable[x * pairStep + ofs[1]] = videoDaGet(vdp->screenMode, 4 * x + 2, y + yDelta, NULL, 0) & colorMask;
             }
         }
     }
@@ -2347,6 +2374,7 @@ static void loadState(VDP* vdp)
         vdp->screenOn   = vdp->vdpRegs[1] & 0x40;
         vdp->vramEnable = vdp->vram192 || !((vdp->vdpRegs[0x2d] >> 6) & 1);
         vdpSetScreenMode(vdp->cmdEngine, cmdEngineScreenMode(vdp), vdp->vdpRegs[25] & 0x40);
+        vdpCmdSetInterleave(vdp->cmdEngine, vdpIsInterleaved(vdp));
         if (vdp->screenMode == 0 || vdp->screenMode == 13) {
             vdp->displayArea = 960;
             vdp->leftBorder  = 102 + 92;
@@ -2873,7 +2901,7 @@ void vdpCreate(VdpConnector connector, VdpVersion version, VdpSyncMode sync, int
         vdp->palValue = 0x00;
     }
 
-    memset(vdp->vram, 0, VRAM_SIZE);
+    memset(vdp->vram, 0, sizeof(vdp->vram));
     vdp->cmdEngine = vdpCmdCreate(vramSize, vdp->vram, boardSystemTime());
     vdpCmdSetExpansionWindow(vdp->cmdEngine, version != VDP_V9968);
     vdpCmdSetV9968(vdp->cmdEngine, version == VDP_V9968);

@@ -57,16 +57,22 @@ static UInt8 scratch[1];
 static int tmp;
 #define VDP_VRMP5R(s, X, Y) ((s)->vramRead + (((Y & (s)->yMask) << 7) + (((X & 255) >> 1)) & (s)->maskRead))
 #define VDP_VRMP6R(s, X, Y) ((s)->vramRead + (((Y & (s)->yMask) << 7) + (((X & 511) >> 2)) & (s)->maskRead))
-#define VDP_VRMP7R(s, X, Y) ((s)->vramRead + (((Y & (s)->yMask) << 7) + ((Y & (s)->yHigh) << 8) + ((((X & 511) >> 2) + ((X & 2) << 15))) & (s)->maskRead))
-#define VDP_VRMP8R(s, X, Y) ((s)->vramRead + (((Y & (s)->yMask) << 7) + ((Y & (s)->yHigh) << 8) + ((((X & 255) >> 1) + ((X & 1) << 16))) & (s)->maskRead))
+/* Interleaving rotates a line address so bit 0 lands at bit 16, putting the odd
+** bytes in the upper 64kB of the 128kB half A17 picks. */
+#define VDP_ILVA(s, a) ((s)->interleave ? (((a) & 0x20000) | (((a) & 1) << 16) | (((a) >> 1) & 0xffff)) : (a))
+#define VDP_LINE7(s, X, Y) (((Y & ((s)->yMask | (s)->yHigh)) << 8) + ((X & 511) >> 1))
+#define VDP_LINE8(s, X, Y) (((Y & ((s)->yMask | (s)->yHigh)) << 8) + (X & 255))
+
+#define VDP_VRMP7R(s, X, Y) ((s)->vramRead + (VDP_ILVA(s, VDP_LINE7(s, X, Y)) & (s)->maskRead))
+#define VDP_VRMP8R(s, X, Y) ((s)->vramRead + (VDP_ILVA(s, VDP_LINE8(s, X, Y)) & (s)->maskRead))
 /* Address the VDP as a linear 1-byte/pixel plane instead of the planar
 ** bitmap modes (SM=0..3). */
 #define VDP_VRMP_NB_R(s, X, Y) ((s)->vramRead + (((Y & (s)->yMask) << 8) + (X & 255) & (s)->maskRead))
 
 #define VDP_VRMP5W(s, X, Y) (tmp = ((Y & (s)->yMask) << 7) + (((X & 255) >> 1)), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
 #define VDP_VRMP6W(s, X, Y) (tmp = ((Y & (s)->yMask) << 7) + (((X & 511) >> 2)), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
-#define VDP_VRMP7W(s, X, Y) (tmp = ((Y & (s)->yMask) << 7) + ((Y & (s)->yHigh) << 8) + ((((X & 511) >> 2) + ((X & 2) << 15))), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
-#define VDP_VRMP8W(s, X, Y) (tmp = ((Y & (s)->yMask) << 7) + ((Y & (s)->yHigh) << 8) + ((((X & 255) >> 1) + ((X & 1) << 16))), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
+#define VDP_VRMP7W(s, X, Y) (tmp = VDP_ILVA(s, VDP_LINE7(s, X, Y)), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
+#define VDP_VRMP8W(s, X, Y) (tmp = VDP_ILVA(s, VDP_LINE8(s, X, Y)), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
 #define VDP_VRMP_NB_W(s, X, Y) (tmp = ((Y & (s)->yMask) << 8) + (X & 255), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
 
 #define CM_ABRT  0x0
@@ -188,6 +194,8 @@ struct VdpCmdState {
     int    yMask;
     int    yHigh;
     int    nyMask;
+    int    newInterleave;
+    int    interleave;
     int    vram256;
     int    expWindow;
     /* Separate from extCommands, which R#21 turns off while the part stays a V9968. */
@@ -1443,7 +1451,10 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
 {
     const int* start;
 
+    /* Taken with the screen mode it belongs to, so a mode change part way
+    ** through cannot leave the two describing different layouts. */
     vdpCmd->screenMode = vdpCmd->newScrMode;
+    vdpCmd->interleave = vdpCmd->newInterleave;
     vdpCmdUpdateAddressing(vdpCmd);
 
     if (vdpCmd->screenMode < 0) {
@@ -1764,6 +1775,11 @@ void vdpCmdSetV9968(VdpCmdState* vdpCmd, int enable)
     vdpCmd->isV9968 = enable;
 }
 
+void vdpCmdSetInterleave(VdpCmdState* vdpCmd, int enable)
+{
+    vdpCmd->newInterleave = enable;
+}
+
 void vdpCmdSetVram256(VdpCmdState* vdpCmd, int enable)
 {
     if (vdpCmd->vram256 != enable) {
@@ -2037,6 +2053,10 @@ void vdpCmdLoadState(VdpCmdState* vdpCmd)
     vdpCmd->systemTime    =         saveStateGet(state, "systemTime", boardSystemTime());
     vdpCmd->newScrMode    =         saveStateGet(state, "newScrMode", 0);
     vdpCmd->screenMode    =         saveStateGet(state, "screenMode", 0);
+    /* A state without this was taken where only a paired bitmap was ever split,
+    ** so the screen mode still gives the answer. */
+    vdpCmd->interleave    =         saveStateGet(state, "interleave",
+                                                 vdpCmd->screenMode == 2 || vdpCmd->screenMode == 3);
     /* A state without these was taken where there was no rotation, so the window
     ** has to come back open rather than shut. */
     vdpCmd->VX            =  (Int16)saveStateGet(state, "VX",  0);
@@ -2107,6 +2127,7 @@ void vdpCmdSaveState(VdpCmdState* vdpCmd)
     saveStateSet(state, "systemTime", vdpCmd->systemTime);
     saveStateSet(state, "newScrMode", vdpCmd->newScrMode);
     saveStateSet(state, "screenMode", vdpCmd->screenMode);
+    saveStateSet(state, "interleave", vdpCmd->interleave);
     saveStateSet(state, "VX",         vdpCmd->VX);
     saveStateSet(state, "VY",         vdpCmd->VY);
     saveStateSet(state, "WSX",        vdpCmd->WSX);
