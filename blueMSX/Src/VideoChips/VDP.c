@@ -156,6 +156,11 @@ static int vramAddr;
 #define vdpIsV9968(vdp)              ((vdp)->vdpVersion == VDP_V9968)
 // R#21 bit0 V58: set means behave as a V9958, clear means as a V9968.
 #define vdpIsV9968Native(vdp)        (vdpIsV9968(vdp) && !((vdp)->vdpRegs[21] & 0x01))
+// R#20 bit1 SVNS and bit2 ILNS take the sprites and the line interrupt off
+// the R#23 vertical offset; bit7 S16 raises the sprites per line to sixteen.
+#define vdpSpriteVScroll(vdp)        (((vdp)->vdpRegs[20] & 0x02) && vdpIsV9968(vdp) ? 0 : (vdp)->vdpRegs[23])
+#define vdpLineIntVScroll(vdp)       (((vdp)->vdpRegs[20] & 0x04) && vdpIsV9968(vdp) ? 0 : (vdp)->vdpRegs[23])
+#define vdpSpritesPerLine(vdp, n)    (((vdp)->vdpRegs[20] & 0x80) && vdpIsV9968(vdp) ? 16 : (n))
 // R#20 bit4 EPAL: 256 entries of 5 bit RGB, written three bytes at a time.
 #define vdpIsExtPalette(vdp)         (vdpIsV9968(vdp) && ((vdp)->vdpRegs[20] & 0x10))
 #define vdpIsVideoPal(vdp)          (((vdp)->vdpRegs[9]  & (vdp)->palMask & 0x02) | (vdp)->palValue)
@@ -593,7 +598,7 @@ static void scheduleScrModeChange(VDP* vdp)
 static void scheduleHint(VDP* vdp)
 {
     vdp->timeHint = vdp->frameStartTime + 
-        (vdp->firstLine + ((vdp->vdpRegs[19] - vdp->vdpRegs[23]) & 0xff)) * HPERIOD + 
+        (vdp->firstLine + ((vdp->vdpRegs[19] - vdpLineIntVScroll(vdp)) & 0xff)) * HPERIOD + 
         vdp->leftBorder + vdp->displayArea;
     vdp->timeHintEn = 1;
     boardTimerAdd(vdp->timerHint, vdp->timeHint + 20);
