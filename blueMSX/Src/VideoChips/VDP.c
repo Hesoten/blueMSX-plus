@@ -539,6 +539,17 @@ static int vdpBitmapLine(VDP* vdp, int y)
                 & ((-1 << (shift + 8)) | (row << shift));
 }
 
+/* A sprite is fetched by the display, and the display is not narrowed to the
+** first 128kB the way the CPU port is while the compatibility bit is set. The
+** background renderers already read the whole of VRAM. */
+static UInt8* vdpSpriteVram(VDP* vdp, int addr)
+{
+    if (!vdpIsV9968(vdp)) {
+        return MAP_VRAM(vdp, addr);
+    }
+    return vdp->vram + ((vdpIsInterleaved(vdp) ? VDP_ILV(vdp, addr) : addr) & vdp->vramMask);
+}
+
 /* Where the n'th byte of a bitmap line sits and, returned, what one pair of
 ** them costs. Interleaving parks the odd bytes in the second half of VRAM. */
 static int vdpBitmapBytes(VDP* vdp, int* ofs)
