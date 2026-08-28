@@ -651,6 +651,8 @@ int spritesLineMode3(VDP* vdp, int Y)
     int base = (((int)vdp->vdpRegs[11] & 0x07) << 15) | ((int)vdp->vdpRegs[5] << 7);
     int planeMaskHigh = (base >> 7) & 0x03;
     int visible = 0;
+    int collisionX = -1;
+    int lastPlane = 0;
     int step;
     int i;
 
@@ -658,7 +660,7 @@ int spritesLineMode3(VDP* vdp, int Y)
         sprM3Weight[i] = 0;
     }
 
-    if (!vdp->screenOn || vdpIsSpritesOff(vdp->vdpRegs) || row < 0) {
+    if (!vdp->screenOn || (vdp->vdpStatus[2] & 0x40) || vdpIsSpritesOff(vdp->vdpRegs) || row < 0) {
         return 0;
     }
 
@@ -679,6 +681,7 @@ int spritesLineMode3(VDP* vdp, int Y)
         int pattern = *MAP_VRAM(vdp, attrib + 7);
         int rows, dy, srcY, weight, set, page, dx;
 
+        lastPlane = plane;
         /* The whole ten bit Y ends the table, so a sprite parked below the
         ** screen is not mistaken for the marker by its low byte alone. */
         y |= (b1 & 0x03) << 8;
@@ -694,8 +697,13 @@ int spritesLineMode3(VDP* vdp, int Y)
             continue;
         }
 
-        if (visible == 16 && !noSpriteLimits) {
-            break;
+        if (visible == 16) {
+            if ((vdp->vdpStatus[0] & 0xc0) == 0) {
+                vdp->vdpStatus[0] = (vdp->vdpStatus[0] & 0xe0) | 0x40 | (plane & 0x1f);
+            }
+            if (!noSpriteLimits) {
+                break;
+            }
         }
         visible++;
 
@@ -714,7 +722,10 @@ int spritesLineMode3(VDP* vdp, int Y)
             int srcX;
             int colour;
 
-            if (screenX >= SPRITE_M3_WIDTH || sprM3Weight[screenX]) {
+            /* An occluded dot still has to be looked at while it could be the
+            ** leftmost collision, and can be skipped once it cannot. */
+            if (screenX >= SPRITE_M3_WIDTH ||
+                (sprM3Weight[screenX] && collisionX >= 0 && screenX >= collisionX)) {
                 continue;
             }
 
@@ -729,9 +740,28 @@ int spritesLineMode3(VDP* vdp, int Y)
                 continue;
             }
 
+            if (sprM3Weight[screenX]) {
+                if (collisionX < 0 || screenX < collisionX) {
+                    collisionX = screenX;
+                }
+                continue;
+            }
+
             sprM3Pixel[screenX]  = vdp->paletteExt[(set << 4) | colour];
             sprM3Weight[screenX] = (UInt8)weight;
         }
+    }
+
+    if ((vdp->vdpStatus[0] & 0xc0) == 0) {
+        vdp->vdpStatus[0] = (vdp->vdpStatus[0] & 0xe0) | (lastPlane & 0x1f);
+    }
+
+    if (collisionX >= 0 && (vdp->vdpStatus[0] & 0x20) == 0) {
+        vdp->vdpStatus[0] |= 0x20;
+        vdp->vdpStatus[3] = (UInt8)(collisionX + 12);
+        vdp->vdpStatus[4] = (UInt8)((collisionX + 12) >> 8);
+        vdp->vdpStatus[5] = (UInt8)(row + 8);
+        vdp->vdpStatus[6] = (UInt8)((row + 8) >> 8);
     }
 
     return 1;
