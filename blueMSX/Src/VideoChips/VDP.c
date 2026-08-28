@@ -2606,6 +2606,7 @@ static void reset(VDP* vdp)
     /* The engine keeps its own copy of R#45, so a stale one would decide the
     ** addressing of the next command the guest never asked for. */
     vdpCmdWrite(vdp->cmdEngine, 0x0d, 0, boardSystemTime());
+    vdpCmdResetExtRegs(vdp->cmdEngine);
     vdpUpdateVramMode(vdp);
 
     memcpy(vdp->paletteReg, defaultPaletteRegs, sizeof(vdp->paletteReg));
@@ -2765,6 +2766,7 @@ void vdpCreate(VdpConnector connector, VdpVersion version, VdpSyncMode sync, int
     memset(vdp->vram, 0, VRAM_SIZE);
     vdp->cmdEngine = vdpCmdCreate(vramSize, vdp->vram, boardSystemTime());
     vdpCmdSetExpansionWindow(vdp->cmdEngine, version != VDP_V9968);
+    vdpCmdSetV9968(vdp->cmdEngine, version == VDP_V9968);
 
     reset(vdp);
 

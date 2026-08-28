@@ -52,7 +52,9 @@ UInt8 vdpCmdPeek(VdpCmdState* vdpCmd, UInt8 reg, UInt32 systemTime);
 
 void vdpCmdSetVram256(VdpCmdState* state, int enable);
 void vdpCmdSetExpansionWindow(VdpCmdState* state, int enable);
+void vdpCmdSetV9968(VdpCmdState* state, int enable);
 void vdpCmdSetExtCommands(VdpCmdState* state, int enable);
+void vdpCmdResetExtRegs(VdpCmdState* state);
 void vdpCmdSetTextBackColor(VdpCmdState* state, int color);
 
 void vdpSetScreenMode(VdpCmdState* state, int screenMode, int commandEnable);
