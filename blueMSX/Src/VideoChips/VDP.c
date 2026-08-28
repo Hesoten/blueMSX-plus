@@ -177,6 +177,11 @@ static int vramAddr;
 #define vdpIsModeYJK(regs)           (regs[25] & 0x08)
 #define vdpIsModeYAE(regs)           (regs[25] & 0x10)
 #define vdpVScroll(vdp)              ((vdp)->vdpRegs[23])
+/* Start of a bitmap line: the page bit lands at 15 and the scrolled row at
+   14-7, with the base doubling as the AND mask the chip applies to the row. */
+#define vdpBitmapLine(vdp, y)                                                  \
+    ((vdp)->chrTabBase & (~(vdpIsOddPage(vdp) | vdpBlinkEvenPage(vdp)) << 7)   \
+                       & ((-1 << 15) | (((y) - (vdp)->firstLine + vdpVScroll(vdp)) << 7)))
 #define vdpHScroll(vdp)       ((((int)((vdp)->vdpRegs[26]&0x3F)<<3)-(int)((vdp)->vdpRegs[27]&0x07))&~(~(int)vdpHScroll512(vdp)<<8))
 #define vdpHScroll512(vdp)    ((vdp)->vdpRegs[25]&((vdp)->vdpRegs[2]>>5)&0x1)
 
