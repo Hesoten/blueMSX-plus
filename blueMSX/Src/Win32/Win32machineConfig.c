@@ -2220,14 +2220,20 @@ static void updateVramList(HWND hDlg) {
         maxVram = 128;
     }
 
-    if (machine->video.vdpVersion == VDP_V9958 || machine->video.vdpVersion == VDP_V9968) {
+    if (machine->video.vdpVersion == VDP_V9958) {
         vram    = 128;
+        maxVram = 256;
+    }
+
+    /* Kept apart from the V9958, whose 192kB comes from the rewrite below. */
+    if (machine->video.vdpVersion == VDP_V9968) {
+        vram    = 256;
         maxVram = 256;
     }
 
     for (i = 0; vram <= maxVram; i++) {
         char buffer[128];
-        if (vram == 256) vram = 192;
+        if (vram == 256 && machine->video.vdpVersion != VDP_V9968) vram = 192;
         if (vram == 32) vram = 64;
         sprintf(buffer, "%d kB", vram);
         ComboAddStringU(GetDlgItem(hDlg, IDC_CONF_VRAM), buffer);
@@ -2258,6 +2264,9 @@ static int getVramList(HWND hDlg) {
     }
     if (0 == strcmp(vramSel, "192 kB")) {
         machine->video.vramSize = 192 * 1024;
+    }
+    if (0 == strcmp(vramSel, "256 kB")) {
+        machine->video.vramSize = 256 * 1024;
     }
 
     return vramSize != machine->video.vramSize;

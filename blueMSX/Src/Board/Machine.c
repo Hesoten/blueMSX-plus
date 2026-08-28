@@ -285,6 +285,7 @@ static int readMachine(Machine* machine, const char* machineName, const char* fi
     else if (0 == strcmp(buffer, "64kB")) machine->video.vramSize = 64 * 1024;
     else if (0 == strcmp(buffer, "128kB")) machine->video.vramSize = 128 * 1024;
     else if (0 == strcmp(buffer, "192kB")) machine->video.vramSize = 192 * 1024;
+    else if (0 == strcmp(buffer, "256kB")) machine->video.vramSize = 256 * 1024;
     else { iniFileClose(configIni); return 0; }
 
     // Read CMOS info
@@ -897,7 +898,11 @@ void machineUpdate(Machine* machine)
             machine->video.vramSize = 16 * 1024;
         }
     }
-    else if (machine->video.vdpVersion == VDP_V9958 || machine->video.vdpVersion == VDP_V9968) {
+    else if (machine->video.vdpVersion == VDP_V9968) {
+        /* The part carries its 256kB on the die. */
+        machine->video.vramSize = 256 * 1024;
+    }
+    else if (machine->video.vdpVersion == VDP_V9958) {
         if (machine->video.vramSize >= 192 * 1024) {
             machine->video.vramSize = 192 * 1024;
         }
