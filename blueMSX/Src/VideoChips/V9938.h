@@ -59,6 +59,7 @@ void vdpCmdSetTextBackColor(VdpCmdState* state, int color);
 
 int  vdpCmdGetEndFlag(VdpCmdState* state);
 void vdpCmdClearEndFlag(VdpCmdState* state);
+void vdpCmdSetHighSpeed(VdpCmdState* state, int enable);
 
 void vdpSetScreenMode(VdpCmdState* state, int screenMode, int commandEnable);
 void vdpSetTimingMode(VdpCmdState* state, UInt8 timingMode);

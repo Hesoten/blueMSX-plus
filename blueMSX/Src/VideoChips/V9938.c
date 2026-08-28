@@ -184,6 +184,7 @@ struct VdpCmdState {
     int    fontAddress;
     int    fontColor;
     int    cmdEnd;
+    int    highSpeed;
     int    yMask;
     int    yHigh;
     int    nyMask;
@@ -346,6 +347,11 @@ static int vdpCmdWaitPct = 100;
 ** compatibility wait runs at this flat cost. */
 static const int fast_timing_base = 2 * VDP_TIMING_SCALE;
 static int fast_timing;
+
+static int cmdDelta(const VdpCmdState* vdpCmd, int delta)
+{
+    return vdpCmd->highSpeed ? fast_timing : delta;
+}
 
 static void recomputeVdpCmdTimings(void) {
     const int floor = VDP_TIMING_SCALE;     /* one whole cycle per step */
@@ -673,7 +679,7 @@ static void SrchEngine(VdpCmdState* vdpCmd)
     int TX=vdpCmd->TX;
     int ANX=vdpCmd->ANX;
     UInt8 CL=vdpCmd->CL & Mask[vdpCmd->screenMode];
-    int delta = srch_timing[vdpCmd->timingMode];
+    int delta = cmdDelta(vdpCmd, srch_timing[vdpCmd->timingMode]);
     int cnt;
 
     cnt = vdpCmd->VdpOpsCnt;
@@ -742,7 +748,7 @@ static void LineEngine(VdpCmdState* vdpCmd)
     int ADX=vdpCmd->ADX;
     UInt8 CL=vdpCmd->CL & Mask[vdpCmd->screenMode];
     UInt8 LO=vdpCmd->LO;
-    int delta = line_timing[vdpCmd->timingMode];
+    int delta = cmdDelta(vdpCmd, line_timing[vdpCmd->timingMode]);
     int cnt;
 
     cnt = vdpCmd->VdpOpsCnt;
@@ -975,7 +981,7 @@ static void LmmvEngine(VdpCmdState* vdpCmd)
     int ANX=vdpCmd->ANX;
     UInt8 CL=vdpCmd->CL & Mask[vdpCmd->screenMode];
     UInt8 LO=vdpCmd->LO;
-    int delta = lmmv_timing[vdpCmd->timingMode];
+    int delta = cmdDelta(vdpCmd, lmmv_timing[vdpCmd->timingMode]);
     int wrap  = lmmv_wrap[vdpCmd->timingMode];
     int cnt;
 
@@ -1035,7 +1041,7 @@ static void LmmmEngine(VdpCmdState* vdpCmd)
     int ADX=vdpCmd->ADX;
     int ANX=vdpCmd->ANX;
     UInt8 LO=vdpCmd->LO;
-    int delta = lmmm_timing[vdpCmd->timingMode];
+    int delta = cmdDelta(vdpCmd, lmmm_timing[vdpCmd->timingMode]);
     int wrap  = lmmm_wrap[vdpCmd->timingMode];
     int cnt;
 
@@ -1088,7 +1094,7 @@ static void LmcmEngine(VdpCmdState* vdpCmd)
 {
     if (!(vdpCmd->status & VDPSTATUS_TR)) {
         vdpCmd->CL = getPixel(vdpCmd, vdpCmd->screenMode, vdpCmd->ASX, vdpCmd->SY);
-        vdpCmd->VdpOpsCnt -= lmcm_timing[vdpCmd->timingMode];
+        vdpCmd->VdpOpsCnt -= cmdDelta(vdpCmd, lmcm_timing[vdpCmd->timingMode]);
         vdpCmd->status |= VDPSTATUS_TR;
 
         if (!--vdpCmd->ANX || ((vdpCmd->ASX+=vdpCmd->TX)&vdpCmd->MX)) {
@@ -1119,7 +1125,7 @@ static void LmmcEngine(VdpCmdState* vdpCmd)
 
         UInt8 CL=vdpCmd->CL & Mask[SM];
         setPixel(vdpCmd, SM, vdpCmd->ADX, vdpCmd->DY, CL, vdpCmd->LO);
-        vdpCmd->VdpOpsCnt -= lmmc_timing[vdpCmd->timingMode];
+        vdpCmd->VdpOpsCnt -= cmdDelta(vdpCmd, lmmc_timing[vdpCmd->timingMode]);
         vdpCmd->status |= VDPSTATUS_TR;
 
         if (!--vdpCmd->ANX || ((vdpCmd->ADX+=vdpCmd->TX)&vdpCmd->MX)) {
@@ -1199,7 +1205,7 @@ static void HmmvEngine(VdpCmdState* vdpCmd)
     int ADX=vdpCmd->ADX;
     int ANX=vdpCmd->ANX;
     UInt8 CL=vdpCmd->CL;
-    int delta = hmmv_timing[vdpCmd->timingMode];
+    int delta = cmdDelta(vdpCmd, hmmv_timing[vdpCmd->timingMode]);
     int wrap  = hmmv_wrap[vdpCmd->timingMode];
     int cnt;
 
@@ -1247,7 +1253,7 @@ static void HmmvEngine(VdpCmdState* vdpCmd)
 */
 static void HmmmEngine(VdpCmdState* vdpCmd)
 {
-    int delta = hmmm_timing[vdpCmd->timingMode];
+    int delta = cmdDelta(vdpCmd, hmmm_timing[vdpCmd->timingMode]);
     int wrap  = hmmm_wrap[vdpCmd->timingMode];
 
     switch (vdpCmd->screenMode) {
@@ -1291,7 +1297,7 @@ static void YmmmEngine(VdpCmdState* vdpCmd)
     int TY=vdpCmd->TY;
     int NY=vdpCmd->NY;
     int ADX=vdpCmd->ADX;
-    int delta = ymmm_timing[vdpCmd->timingMode];
+    int delta = cmdDelta(vdpCmd, ymmm_timing[vdpCmd->timingMode]);
     int wrap  = ymmm_wrap[vdpCmd->timingMode];
     int cnt;
 
@@ -1342,7 +1348,7 @@ static void HmmcEngine(VdpCmdState* vdpCmd)
 {
     if (!(vdpCmd->status & VDPSTATUS_TR)) {
         vramPoke(vdpCmd, getVramPointerW(vdpCmd, vdpCmd->screenMode, vdpCmd->ADX, vdpCmd->DY), vdpCmd->CL);
-        vdpCmd->VdpOpsCnt-=hmmv_timing[vdpCmd->timingMode];
+        vdpCmd->VdpOpsCnt-=cmdDelta(vdpCmd, hmmv_timing[vdpCmd->timingMode]);
         vdpCmd->status |= VDPSTATUS_TR;
 
         if (!--vdpCmd->ANX || ((vdpCmd->ADX+=vdpCmd->TX)&vdpCmd->MX)) {
@@ -1740,6 +1746,11 @@ int vdpCmdGetEndFlag(VdpCmdState* vdpCmd)
 void vdpCmdClearEndFlag(VdpCmdState* vdpCmd)
 {
     vdpCmd->cmdEnd = 0;
+}
+
+void vdpCmdSetHighSpeed(VdpCmdState* vdpCmd, int enable)
+{
+    vdpCmd->highSpeed = enable;
 }
 
 void vdpCmdSetExpansionWindow(VdpCmdState* vdpCmd, int enable)
