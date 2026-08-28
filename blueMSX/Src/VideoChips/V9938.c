@@ -55,19 +55,19 @@
 */
 static UInt8 scratch[1];
 static int tmp;
-#define VDP_VRMP5R(s, X, Y) ((s)->vramRead + (((Y & 1023) << 7) + (((X & 255) >> 1)) & (s)->maskRead))
-#define VDP_VRMP6R(s, X, Y) ((s)->vramRead + (((Y & 1023) << 7) + (((X & 511) >> 2)) & (s)->maskRead))
-#define VDP_VRMP7R(s, X, Y) ((s)->vramRead + (((Y &  511) << 7) + ((((X & 511) >> 2) + ((X & 2) << 15))) & (s)->maskRead))
-#define VDP_VRMP8R(s, X, Y) ((s)->vramRead + (((Y &  511) << 7) + ((((X & 255) >> 1) + ((X & 1) << 16))) & (s)->maskRead))
+#define VDP_VRMP5R(s, X, Y) ((s)->vramRead + (((Y & (s)->yMask) << 7) + (((X & 255) >> 1)) & (s)->maskRead))
+#define VDP_VRMP6R(s, X, Y) ((s)->vramRead + (((Y & (s)->yMask) << 7) + (((X & 511) >> 2)) & (s)->maskRead))
+#define VDP_VRMP7R(s, X, Y) ((s)->vramRead + (((Y & (s)->yMask) << 7) + ((Y & (s)->yHigh) << 8) + ((((X & 511) >> 2) + ((X & 2) << 15))) & (s)->maskRead))
+#define VDP_VRMP8R(s, X, Y) ((s)->vramRead + (((Y & (s)->yMask) << 7) + ((Y & (s)->yHigh) << 8) + ((((X & 255) >> 1) + ((X & 1) << 16))) & (s)->maskRead))
 /* Address the VDP as a linear 1-byte/pixel plane instead of the planar
 ** bitmap modes (SM=0..3). */
-#define VDP_VRMP_NB_R(s, X, Y) ((s)->vramRead + (((Y &  511) << 8) + (X & 255) & (s)->maskRead))
+#define VDP_VRMP_NB_R(s, X, Y) ((s)->vramRead + (((Y & (s)->yMask) << 8) + (X & 255) & (s)->maskRead))
 
-#define VDP_VRMP5W(s, X, Y) (tmp = ((Y & 1023) << 7) + (((X & 255) >> 1)), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
-#define VDP_VRMP6W(s, X, Y) (tmp = ((Y & 1023) << 7) + (((X & 511) >> 2)), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
-#define VDP_VRMP7W(s, X, Y) (tmp = ((Y &  511) << 7) + ((((X & 511) >> 2) + ((X & 2) << 15))), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
-#define VDP_VRMP8W(s, X, Y) (tmp = ((Y &  511) << 7) + ((((X & 255) >> 1) + ((X & 1) << 16))), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
-#define VDP_VRMP_NB_W(s, X, Y) (tmp = ((Y &  511) << 8) + (X & 255), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
+#define VDP_VRMP5W(s, X, Y) (tmp = ((Y & (s)->yMask) << 7) + (((X & 255) >> 1)), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
+#define VDP_VRMP6W(s, X, Y) (tmp = ((Y & (s)->yMask) << 7) + (((X & 511) >> 2)), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
+#define VDP_VRMP7W(s, X, Y) (tmp = ((Y & (s)->yMask) << 7) + ((Y & (s)->yHigh) << 8) + ((((X & 511) >> 2) + ((X & 2) << 15))), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
+#define VDP_VRMP8W(s, X, Y) (tmp = ((Y & (s)->yMask) << 7) + ((Y & (s)->yHigh) << 8) + ((((X & 255) >> 1) + ((X & 1) << 16))), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
+#define VDP_VRMP_NB_W(s, X, Y) (tmp = ((Y & (s)->yMask) << 8) + (X & 255), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
 
 #define CM_ABRT  0x0
 #define CM_NOOP1 0x1
@@ -104,7 +104,7 @@ static int tmp;
 		if (--ANX == 0 || (ADX & MX)) { \
             DY += TY; \
             ADX = DX; ANX = NX; \
-            if ((--NY & 1023) == 0 || DY == -1) {\
+            if ((--NY & vdpCmd->nyMask) == 0 || DY == -1) {\
                 break; \
 		    } \
             cnt-=wrap; \
@@ -117,7 +117,7 @@ static int tmp;
         if (ADX & MX) { \
 			SY += TY; DY += TY; \
 			ADX = DX; \
-			if ((--NY & 1023) == 0 || SY == -1 || DY == -1) { \
+			if ((--NY & vdpCmd->nyMask) == 0 || SY == -1 || DY == -1) { \
 				break; \
 			} \
             cnt-=wrap; \
@@ -130,7 +130,7 @@ static int tmp;
 		if (--ANX == 0 || ((ASX | ADX) & MX)) { \
 			SY += TY; DY += TY; \
 			ASX = SX; ADX = DX; ANX = NX; \
-			if ((--NY & 1023) == 0 || SY == -1 || DY == -1) { \
+			if ((--NY & vdpCmd->nyMask) == 0 || SY == -1 || DY == -1) { \
 				break; \
 			} \
             cnt-=wrap; \
@@ -147,7 +147,7 @@ static int tmp;
 		if (--vdpCmd->ANX == 0 || ((vdpCmd->ASX | vdpCmd->ADX) & MX)) { \
 			vdpCmd->SY += vdpCmd->TY; vdpCmd->DY += vdpCmd->TY; \
 			vdpCmd->ASX = vdpCmd->SX; vdpCmd->ADX = vdpCmd->DX; vdpCmd->ANX = vdpCmd->NX; \
-			if ((--vdpCmd->NY & 1023) == 0 || vdpCmd->SY == -1 || vdpCmd->DY == -1) { \
+			if ((--vdpCmd->NY & vdpCmd->nyMask) == 0 || vdpCmd->SY == -1 || vdpCmd->DY == -1) { \
 				break; \
 			} \
             vdpCmd->VdpOpsCnt -= wrap; \
@@ -168,6 +168,11 @@ struct VdpCmdState {
     int    vramSize;
     int    breakPending;
     int    breakPendingAddr;
+    int    yMask;
+    int    yHigh;
+    int    nyMask;
+    int    vram256;
+    int    expWindow;
     int    vramOffset[2];
     int    vramMask[2];
     int   SX;
@@ -927,7 +932,7 @@ static void LmcmEngine(VdpCmdState* vdpCmd)
 
         if (!--vdpCmd->ANX || ((vdpCmd->ASX+=vdpCmd->TX)&vdpCmd->MX)) {
             vdpCmd->SY+=vdpCmd->TY;
-            if (!(--vdpCmd->NY & 1023) || vdpCmd->SY==-1) {
+            if (!(--vdpCmd->NY & vdpCmd->nyMask) || vdpCmd->SY==-1) {
                 vdpCmd->status &= ~VDPSTATUS_CE;
                 vdpCmd->CM = 0;
             }
@@ -1156,6 +1161,9 @@ static void HmmcEngine(VdpCmdState* vdpCmd)
 **      Initializes the command engine.
 **************************************************************
 */
+static void vdpCmdUpdateAddressing(VdpCmdState* vdpCmd);
+static void vdpCmdApplyVram256(VdpCmdState* vdpCmd);
+
 VdpCmdState* vdpCmdCreate(int vramSize, UInt8* vramPtr, UInt32 systemTime)
 {
     VdpCmdState* vdpCmd = calloc(1, sizeof(VdpCmdState));
@@ -1167,11 +1175,13 @@ VdpCmdState* vdpCmdCreate(int vramSize, UInt8* vramPtr, UInt32 systemTime)
     vdpCmd->vramOffset[1] = vramSize > 0x20000 ? 0x20000 : 0;
     vdpCmd->vramMask[0]   = vramSize > 0x20000 ? 0x1ffff : vramSize - 1;
     vdpCmd->vramMask[1]   = vramSize > 0x20000 ? 0xffff  : vramSize - 1;
+    vdpCmd->expWindow     = 1;
 
     vdpCmd->vramRead  = vdpCmd->vramBase + vdpCmd->vramOffset[0];
     vdpCmd->vramWrite = vdpCmd->vramBase + vdpCmd->vramOffset[0];
     vdpCmd->maskRead  = vdpCmd->vramMask[0];
     vdpCmd->maskWrite = vdpCmd->vramMask[0];
+    vdpCmdUpdateAddressing(vdpCmd);
 
     vdpCmdGlobal = vdpCmd; // Ugly fix to make the cmd engine flushable
 
@@ -1209,6 +1219,7 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
     const int* start;
 
     vdpCmd->screenMode = vdpCmd->newScrMode;
+    vdpCmdUpdateAddressing(vdpCmd);
 
     if (vdpCmd->screenMode < 0) {
         vdpCmd->CM = 0;
@@ -1216,12 +1227,15 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
         return;
     }
     
-    vdpCmd->SX &= 0x1ff;
-    vdpCmd->SY &= 0x3ff;
-    vdpCmd->DX &= 0x1ff;
-    vdpCmd->DY &= 0x3ff;
-    vdpCmd->NX &= 0x3ff;
-    vdpCmd->NY &= 0x3ff;
+    {
+        int yClamp = vdpCmd->vram256 ? 0x7ff : 0x3ff;
+        vdpCmd->SX &= 0x1ff;
+        vdpCmd->SY &= yClamp;
+        vdpCmd->DX &= 0x1ff;
+        vdpCmd->DY &= yClamp;
+        vdpCmd->NX &= 0x3ff;
+        vdpCmd->NY &= yClamp;
+    }
 
     switch (vdpCmd->CM) {
     case CM_ABRT:
@@ -1318,15 +1332,15 @@ void vdpCmdWrite(VdpCmdState* vdpCmd, UInt8 reg, UInt8 value, UInt32 systemTime)
 	case 0x00: vdpCmd->SX = (vdpCmd->SX & 0xff00) | value;                   break;
 	case 0x01: vdpCmd->SX = (vdpCmd->SX & 0x00ff) | ((value & 0x01) << 8);   break;
 	case 0x02: vdpCmd->SY = (vdpCmd->SY & 0xff00) | value;                   break;
-	case 0x03: vdpCmd->SY = (vdpCmd->SY & 0x00ff) | ((value & 0x03) << 8);   break;
+	case 0x03: vdpCmd->SY = (vdpCmd->SY & 0x00ff) | ((value & (vdpCmd->vram256 ? 0x07 : 0x03)) << 8); break;
 	case 0x04: vdpCmd->DX = (vdpCmd->DX & 0xff00) | value;                   break;
 	case 0x05: vdpCmd->DX = (vdpCmd->DX & 0x00ff) | ((value & 0x01) << 8);   break;
 	case 0x06: vdpCmd->DY = (vdpCmd->DY & 0xff00) | value;                   break;
-	case 0x07: vdpCmd->DY = (vdpCmd->DY & 0x00ff) | ((value & 0x03) << 8);   break;
+	case 0x07: vdpCmd->DY = (vdpCmd->DY & 0x00ff) | ((value & (vdpCmd->vram256 ? 0x07 : 0x03)) << 8); break;
 	case 0x08: vdpCmd->kNX = (vdpCmd->kNX & 0xff00) | value;                 break;
 	case 0x09: vdpCmd->kNX = (vdpCmd->kNX & 0x00ff) | ((value & 0x03) << 8); break;
 	case 0x0a: vdpCmd->NY = (vdpCmd->NY & 0xff00) | value;                   break;
-	case 0x0b: vdpCmd->NY = (vdpCmd->NY & 0x00ff) | ((value & 0x03) << 8);   break;
+	case 0x0b: vdpCmd->NY = (vdpCmd->NY & 0x00ff) | ((value & (vdpCmd->vram256 ? 0x07 : 0x03)) << 8); break;
 	case 0x0c: 
         vdpCmd->CL = value;
         vdpCmd->status &= ~VDPSTATUS_TR;
@@ -1384,6 +1398,56 @@ UInt8 vdpCmdPeek(VdpCmdState* vdpCmd, UInt8 reg, UInt32 systemTime)
 **      Sets the current screen mode
 **************************************************************
 */
+static void vdpCmdUpdateAddressing(VdpCmdState* vdpCmd)
+{
+    int rows128 = vdpCmd->screenMode == 0 || vdpCmd->screenMode == 1;
+
+    vdpCmd->yMask  = rows128 ? 1023 : 511;
+    vdpCmd->yHigh  = 0;
+    vdpCmd->nyMask = 1023;
+    if (vdpCmd->vram256) {
+        vdpCmd->nyMask = 2047;
+        if (rows128) {
+            vdpCmd->yMask = 2047;
+        }
+        else if (vdpCmd->screenMode == 4) {
+            vdpCmd->yMask = 1023;
+        }
+        else {
+            vdpCmd->yHigh = 512;
+        }
+    }
+}
+
+/* A flat 256kB has no expansion window, so MXS and MXD stop selecting one. */
+static void vdpCmdApplyVram256(VdpCmdState* vdpCmd)
+{
+    int big = vdpCmd->expWindow && vdpCmd->vramSize > 0x20000;
+
+    vdpCmd->vramOffset[1] = vdpCmd->vram256 ? 0 : (big ? 0x20000 : 0);
+    vdpCmd->vramMask[0]   = vdpCmd->vram256 ? 0x3ffff : (big ? 0x1ffff : (vdpCmd->vramSize > 0x20000 ? 0x1ffff : vdpCmd->vramSize - 1));
+    vdpCmd->vramMask[1]   = vdpCmd->vram256 ? 0x3ffff : (big ? 0xffff  : (vdpCmd->vramSize > 0x20000 ? 0x1ffff : vdpCmd->vramSize - 1));
+    vdpCmd->vramRead      = vdpCmd->vramBase + vdpCmd->vramOffset[(vdpCmd->ARG >> 4) & 1];
+    vdpCmd->vramWrite     = vdpCmd->vramBase + vdpCmd->vramOffset[(vdpCmd->ARG >> 5) & 1];
+    vdpCmd->maskRead      = vdpCmd->vramMask[(vdpCmd->ARG >> 4) & 1];
+    vdpCmd->maskWrite     = vdpCmd->vramMask[(vdpCmd->ARG >> 5) & 1];
+    vdpCmdUpdateAddressing(vdpCmd);
+}
+
+void vdpCmdSetExpansionWindow(VdpCmdState* vdpCmd, int enable)
+{
+    vdpCmd->expWindow = enable;
+    vdpCmdApplyVram256(vdpCmd);
+}
+
+void vdpCmdSetVram256(VdpCmdState* vdpCmd, int enable)
+{
+    if (vdpCmd->vram256 != enable) {
+        vdpCmd->vram256 = enable;
+        vdpCmdApplyVram256(vdpCmd);
+    }
+}
+
 void vdpSetScreenMode(VdpCmdState* vdpCmd, int screenMode, int commandEnable) {
     if (screenMode > 8 && screenMode <= 12) {
         screenMode = 3;
@@ -1632,6 +1696,7 @@ void vdpCmdLoadState(VdpCmdState* vdpCmd)
     vdpCmd->systemTime    =         saveStateGet(state, "systemTime", boardSystemTime());
     vdpCmd->newScrMode    =         saveStateGet(state, "newScrMode", 0);
     vdpCmd->screenMode    =         saveStateGet(state, "screenMode", 0);
+    vdpCmd->vram256       =         saveStateGet(state, "vram256", 0) && vdpCmd->vramSize > 0x20000;
     /* Both index the pixel tables, so a damaged state must not reach past them.
     ** An engine left with no mode to run in has nothing to go on with either. */
     if (vdpCmd->newScrMode < -1 || vdpCmd->newScrMode > 4) vdpCmd->newScrMode = -1;
@@ -1647,10 +1712,7 @@ void vdpCmdLoadState(VdpCmdState* vdpCmd)
     /* Never saved: a hit noted before the load belongs to the run being dropped. */
     vdpCmd->breakPending = 0;
 
-    vdpCmd->vramRead  = vdpCmd->vramBase + vdpCmd->vramOffset[(vdpCmd->ARG >> 4) & 1];
-    vdpCmd->vramWrite = vdpCmd->vramBase + vdpCmd->vramOffset[(vdpCmd->ARG >> 5) & 1];
-    vdpCmd->maskRead  = vdpCmd->vramMask[(vdpCmd->ARG >> 4) & 1];
-    vdpCmd->maskWrite = vdpCmd->vramMask[(vdpCmd->ARG >> 5) & 1];
+    vdpCmdApplyVram256(vdpCmd);
 }
 
 
@@ -1688,6 +1750,7 @@ void vdpCmdSaveState(VdpCmdState* vdpCmd)
     saveStateSet(state, "systemTime", vdpCmd->systemTime);
     saveStateSet(state, "newScrMode", vdpCmd->newScrMode);
     saveStateSet(state, "screenMode", vdpCmd->screenMode);
+    saveStateSet(state, "vram256",    vdpCmd->vram256);
     saveStateSet(state, "timingMode", vdpCmd->timingMode);
     
     saveStateClose(state);

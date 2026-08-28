@@ -138,11 +138,13 @@ void vdpUnregisterDaConverter(int vdpDaHandle)
 #define INT_IE0     0x01
 #define INT_IE1     0x02
 
-#define VRAM_SIZE (192 * 1024)
+#define VRAM_SIZE (256 * 1024)
 
 static int vramAddr;
-#define MAP_VRAM(vdp, addr) ((vdp)->vramPtr + ((vramAddr = addr, (vdp)->screenMode >= 7 && (vdp)->screenMode <= 12 ? (vramAddr >> 1 | ((vramAddr & 1) << 16)) : vramAddr) & (vdp)->vramAccMask))
-#define MAP_VRAMINDEX(vdp, addr) (((vramAddr = addr, (vdp)->screenMode >= 7 && (vdp)->screenMode <= 12 ? (vramAddr >> 1 | ((vramAddr & 1) << 16)) : vramAddr)))
+/* A17 sits outside the odd/even rotation and picks a 128kB half. */
+#define VDP_ILV(vdp, a) ((vdp)->vramA17 ? (((a) & 0x20000) | (((a) >> 1) & 0xffff) | (((a) & 1) << 16)) : ((a) >> 1 | (((a) & 1) << 16)))
+#define MAP_VRAM(vdp, addr) ((vdp)->vramPtr + ((vramAddr = addr, (vdp)->screenMode >= 7 && (vdp)->screenMode <= 12 ? VDP_ILV(vdp, vramAddr) : vramAddr) & (vdp)->vramAccMask))
+#define MAP_VRAMINDEX(vdp, addr) (((vramAddr = addr, (vdp)->screenMode >= 7 && (vdp)->screenMode <= 12 ? VDP_ILV(vdp, vramAddr) : vramAddr)))
 
 #define vdpIsSpritesBig(regs)        (regs[1]  & 0x01)
 #define vdpIsSprites16x16(regs)      (regs[1]  & 0x02)
@@ -200,7 +202,7 @@ static const UInt8 registerValueMaskMSX2p[64] = {
 /* The V9958 mask, widened for the 8 bit R#16 index and the R#20 mode bits. */
 static const UInt8 registerValueMaskV9968[64] = {
 	0x7e, 0x7f, 0x7f, 0xff, 0x3f, 0xff, 0x3f, 0xff,
-	0xfb, 0xbf, 0x07, 0x03, 0xff, 0xff, 0x07, 0x0f,
+	0xfb, 0xbf, 0x07, 0x03, 0xff, 0xff, 0x0f, 0x0f,
 	0xff, 0xbf, 0xff, 0xff, 0xff, 0x3f, 0x3f, 0xff,
     0x00, 0x7f, 0x3f, 0x07, 0x00, 0x00, 0x00, 0x00,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -382,6 +384,8 @@ struct VDP {
     int    vramSize;
     int    vramPages;
     int    vram128;
+    int    vram256;
+    int    vramA17;
     int    vram192;
     int    vram16;
     int    vramEnable;
@@ -467,6 +471,22 @@ struct VDP {
 
 static void digitize(VDP* vdp);
 static void updateOutputMode(VDP* vdp);
+
+/* R#21 bit0 clear is what opens the second 128kB to the CPU port and the
+** command engine. The display tables still cap at 17 bits. */
+static void vdpUpdateVramMode(VDP* vdp)
+{
+    int wide = vdp->vram256 && vdpIsV9968Native(vdp);
+
+    vdp->vramA17     = wide ? 0x20000 : 0;
+    vdp->vramAccMask = wide ? vdp->vramMask
+                            : vdp->vramMasks[((vdp->vdpRegs[8] & 0x08) >> 2) | ((vdp->vdpRegs[0x2d] >> 6) & 1)];
+    if (wide) {
+        vdp->vramPtr    = vdp->vram;
+        vdp->vramEnable = 1;
+    }
+    vdpCmdSetVram256(vdp->cmdEngine, wide);
+}
 
 
 #include "SpriteLine.h"
@@ -986,9 +1006,11 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
 
     if (reg >= 0x20) {
         if (reg == 0x2d && (change & 0x40)) {
-            vdp->vramPtr      = vdp->vram + vdp->vramOffsets[(value >> 6) & 1];
-            vdp->vramAccMask  = vdp->vramMasks[((vdp->vdpRegs[8] & 0x08) >> 2) | (((vdp->vdpRegs[0x2d] >> 6) & 1))];
-            vdp->vramEnable   = vdp->vram192 || !((value >> 6) & 1);
+            if (!vdpIsV9968Native(vdp)) {
+                vdp->vramPtr    = vdp->vram + vdp->vramOffsets[(value >> 6) & 1];
+                vdp->vramEnable = vdp->vram192 || !((value >> 6) & 1);
+            }
+            vdpUpdateVramMode(vdp);
         }
         vdpCmdWrite(vdp->cmdEngine, reg - 0x20, value, boardSystemTime());
         return;
@@ -1054,7 +1076,7 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
         break;
 
     case 8:
-        vdp->vramAccMask  = vdp->vramMasks[((vdp->vdpRegs[8] & 0x08) >> 2) | (((vdp->vdpRegs[0x2d] >> 6) & 1))];
+        vdpUpdateVramMode(vdp);
         vdpSetTimingMode(vdp->cmdEngine, ((vdp->vdpRegs[1] >> 6) & vdp->cmdDrawArea) | (value & 2));
         if (change & 0xb0) {
             updateOutputMode(vdp);
@@ -1110,7 +1132,10 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
         break;
 
     case 14:
-        value &= vdp->vramPages - 1;
+        if (!vdpIsV9968Native(vdp)) {
+            vdp->vdpRegs[14] &= 0x07;
+        }
+        value = vdp->vdpRegs[14] & (vdp->vramPages - 1);
         vdp->vramPage = (int)value << 14; 
         if (vdp->vram16) {
             vdp->vramEnable = value == 0;
@@ -1149,6 +1174,7 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
         /* S#1 bits 5-1 are the id, bit0 is FH and must survive. */
         if ((change & 0x01) && vdpIsV9968(vdp)) {
             vdp->vdpStatus[1] = (vdp->vdpStatus[1] & ~0x3e) | (vdpIsV9968Native(vdp) ? 0x06 : 0x04);
+            vdpUpdateVramMode(vdp);
         }
         break;
 
@@ -1185,7 +1211,7 @@ static UInt8 readNoTimingCheck(VDP* vdp, UInt16 ioPort)
     vdp->vdpData = vdp->vramEnable ? *MAP_VRAM(vdp, (vdp->vdpRegs[14] << 14) | vdp->vramAddress) : 0xff;
 	vdp->vramAddress = (vdp->vramAddress + 1) & 0x3fff;
     if (vdp->vramAddress == 0 && vdp->screenMode > 3) {
-        vdp->vdpRegs[14] = (vdp->vdpRegs[14] + 1) & (vdp->vramPages - 1);
+        vdp->vdpRegs[14] = (vdp->vdpRegs[14] + 1) & ((vdp->vramPages - 1) & (vdpIsV9968Native(vdp) ? 0x0f : 0x07));
     }
 	vdp->vdpKey = 0;
 
@@ -1374,7 +1400,7 @@ static void write(VDP* vdp, UInt16 ioPort, UInt8 value)
 	vdp->vdpKey = 0;
     vdp->vramAddress = (vdp->vramAddress + 1) & 0x3fff;
     if (vdp->vramAddress == 0 && vdp->screenMode > 3) {
-        vdp->vdpRegs[14] = (vdp->vdpRegs[14] + 1 )& (vdp->vramPages - 1);
+        vdp->vdpRegs[14] = (vdp->vdpRegs[14] + 1) & ((vdp->vramPages - 1) & (vdpIsV9968Native(vdp) ? 0x0f : 0x07));
     }
     if (!vdp->videoEnabled && boardGetVideoAutodetect() && videoManagerGetCount() > 1) {
         videoManagerSetActive(vdp->videoHandle);
@@ -2002,7 +2028,7 @@ static void saveState(VDP* vdp)
     saveStateSet(state, "paletteLatch",        vdp->paletteLatch);
     saveStateSetBuffer(state, "paletteExtReg", vdp->paletteExtReg, sizeof(vdp->paletteExtReg));
 
-    saveStateSetBuffer(state, "vram", vdp->vram, sizeof(vdp->vram));
+    saveStateSetBuffer(state, "vram", vdp->vram, VRAM_SIZE);
 
     saveStateClose(state);
 
@@ -2130,13 +2156,14 @@ static void loadState(VDP* vdp)
         }
     }
 
-    saveStateGetBuffer(state, "vram", vdp->vram, sizeof(vdp->vram));
+    saveStateGetBuffer(state, "vram", vdp->vram, VRAM_SIZE);
 
     saveStateClose(state);
 
     vdpCmdLoadState(vdp->cmdEngine);
 
     vdp->vramPtr = vdp->vram + vdp->vramOffsets[(vdp->vdpRegs[0x2d] >> 6) & 1];
+    vdpUpdateVramMode(vdp);
 
     canFlipFrameBuffer = 0;
 
@@ -2151,7 +2178,7 @@ static void loadState(VDP* vdp)
         vdp->colTabBase = (((int)vdp->vdpRegs[10] << 14) | ((int)vdp->vdpRegs[3] << 6) | ~(-1 << 6)) & vdp->vramMask;
         vdp->sprTabBase = (((int)vdp->vdpRegs[11] << 15) | ((int)vdp->vdpRegs[5] << 7) | ~(-1 << 7)) & vdp->vramMask;
         vdp->sprGenBase = (((int)vdp->vdpRegs[6] << 11) | ~(-1 << 11)) & vdp->vramMask;
-        vdp->vramAccMask = vdp->vramMasks[((vdp->vdpRegs[8] & 0x08) >> 2) | (((vdp->vdpRegs[0x2d] >> 6) & 1))];
+        vdpUpdateVramMode(vdp);
 
         vdp->screenOn   = vdp->vdpRegs[1] & 0x40;
         vdp->vramEnable = vdp->vram192 || !((vdp->vdpRegs[0x2d] >> 6) & 1);
@@ -2521,6 +2548,7 @@ static void reset(VDP* vdp)
     /* The engine keeps its own copy of R#45, so a stale one would decide the
     ** addressing of the next command the guest never asked for. */
     vdpCmdWrite(vdp->cmdEngine, 0x0d, 0, boardSystemTime());
+    vdpUpdateVramMode(vdp);
 
     memcpy(vdp->paletteReg, defaultPaletteRegs, sizeof(vdp->paletteReg));
 
@@ -2640,16 +2668,22 @@ void vdpCreate(VdpConnector connector, VdpVersion version, VdpSyncMode sync, int
     vdp->vramMasks[1]   = vramSize > 0x8000  ? 0x7fff  : vramSize - 1;
     vdp->vramMasks[2]   = vramSize > 0x20000 ? 0x1ffff : vramSize - 1;
     vdp->vramMasks[3]   = vramSize > 0x20000 ? 0xffff  : vramSize - 1;
+    if (version == VDP_V9968) {
+        vdp->vramOffsets[1] = 0;
+        vdp->vramMasks[2]   = vramSize > 0x20000 ? 0x1ffff : vramSize - 1;
+        vdp->vramMasks[3]   = vdp->vramMasks[2];
+    }
     vdp->vramPtr        = vdp->vram + vdp->vramOffsets[0];
     vdp->vramAccMask    = vdp->vramMasks[2];
     vdp->vramEnable     = 1;
 
-    if (vramPages > 8) {
-        vramPages = 8;
+    if (vramPages > (version == VDP_V9968 ? 16 : 8)) {
+        vramPages = version == VDP_V9968 ? 16 : 8;
     }
 
     vdp->vramPages     = vramPages;
     vdp->vram128       = vramPages >= 8 ? 0x10000 : 0;
+    vdp->vram256       = vramPages > 8;
     vdp->vramMask      = (vramPages << 14) - 1;
     vdp->vdpVersion    = version;
     vdp->vdpConnector  = connector;
@@ -2672,6 +2706,7 @@ void vdpCreate(VdpConnector connector, VdpVersion version, VdpSyncMode sync, int
 
     memset(vdp->vram, 0, VRAM_SIZE);
     vdp->cmdEngine = vdpCmdCreate(vramSize, vdp->vram, boardSystemTime());
+    vdpCmdSetExpansionWindow(vdp->cmdEngine, version != VDP_V9968);
 
     reset(vdp);
 
