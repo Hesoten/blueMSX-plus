@@ -105,6 +105,7 @@ const char* vdpVersionName(int version)
     switch (version) {
     case VDP_V9938:    return "V9938";
     case VDP_V9958:    return "V9958";
+    case VDP_V9968:    return "V9968";
     case VDP_TMS9929A: return "TMS9929A";
     case VDP_TMS99x8A: return "TMS99x8A";
     case VDP_TMS9918A: return "TMS9918A";
