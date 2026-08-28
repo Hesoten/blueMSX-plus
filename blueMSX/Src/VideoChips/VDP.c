@@ -1332,6 +1332,9 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
 
     case 20:
         vdp->sprMode3 = vdpIsSpriteMode3(vdp);
+        if (change & 0x01) {
+            vdpCmdSetHighSpeed(vdp->cmdEngine, vdpIsV9968(vdp) && (value & 0x01));
+        }
         if (change & 0x40) {
             updateCmdEndInt(vdp);
         }
@@ -2476,9 +2479,10 @@ static void loadState(VDP* vdp)
 
     vdp->vramPtr = vdp->vram + vdp->vramOffsets[(vdp->vdpRegs[0x2d] >> 6) & 1];
     vdpUpdateVramMode(vdp);
-    /* The engine holds its own copy of R#12, and a command using it can be part
-    ** way through. */
+    /* The engine holds its own copies of R#12 and of the R#20 speed bit, and a
+    ** command using either can be part way through. */
     vdpCmdSetTextBackColor(vdp->cmdEngine, vdp->vdpRegs[12] & 0x0f);
+    vdpCmdSetHighSpeed(vdp->cmdEngine, vdpIsV9968(vdp) && (vdp->vdpRegs[20] & 0x01));
 
     canFlipFrameBuffer = 0;
     vdp->flippedEarly  = 0;
@@ -2496,6 +2500,7 @@ static void loadState(VDP* vdp)
         vdp->sprTabBase = (((int)vdp->vdpRegs[11] << 15) | ((int)vdp->vdpRegs[5] << 7) | ~(-1 << 7)) & vdp->vramMask;
         vdp->sprGenBase = (((int)vdp->vdpRegs[6] << 11) | ~(-1 << 11)) & vdp->vramMask;
         vdpUpdateVramMode(vdp);
+        vdpCmdSetHighSpeed(vdp->cmdEngine, vdpIsV9968(vdp) && (vdp->vdpRegs[20] & 0x01));
 
         vdp->screenOn   = vdp->vdpRegs[1] & 0x40;
         vdp->vramEnable = vdp->vram192 || !((vdp->vdpRegs[0x2d] >> 6) & 1);
@@ -3890,6 +3895,7 @@ static void reset(VDP* vdp)
     vdpCmdSetTextBackColor(vdp->cmdEngine, 0);
     vdpCmdClearEndFlag(vdp->cmdEngine);
     vdpUpdateVramMode(vdp);
+    vdpCmdSetHighSpeed(vdp->cmdEngine, 0);
 
     memcpy(vdp->paletteReg, defaultPaletteRegs, sizeof(vdp->paletteReg));
 
