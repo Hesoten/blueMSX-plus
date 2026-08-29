@@ -1760,6 +1760,14 @@ static void keyboardHanldeKeypress(int code, int pressed)
     }
 }
 
+/* The eisu and hankaku keys, whose vk names the IME mode a press selects and
+** so varies; elsewhere these scancodes are CapsLock and backquote. */
+int keyboardIsImeLatchKey(int scan, int vk)
+{
+    if (scan != 0x29 && scan != 0x3A) return 0;
+    return vk == 0x19 || (vk >= 0xF0 && vk <= 0xF6);
+}
+
 static DWORD buttonState = 0;
 static int hasFocus = 0;
 

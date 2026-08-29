@@ -105,6 +105,7 @@ void inputSetShortcutDeviceArrival(ShortcutDeviceArrival fn);
 
 void keyboardEnable(int enable);
 void keyboardUpdate();
+int keyboardIsImeLatchKey(int scan, int vk);
 
 int keyboardGetModifiers();
 
