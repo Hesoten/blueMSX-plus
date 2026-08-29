@@ -32,6 +32,8 @@
 #define _WIN32_DCOM
 
 #include <windows.h>
+#include <imm.h>
+#pragma comment(lib, "imm32.lib")
 #include <direct.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -4998,6 +5000,9 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
                             WS_SYSMENU | WS_MINIMIZEBOX | (pProperties->video.maximizeIsFullscreen?WS_MAXIMIZEBOX:0), 
                             CW_USEDEFAULT, CW_USEDEFAULT, 800, 200, NULL, NULL, hInstance, NULL);
 
+    /* No text is typed here, so no IME context: its toggle keys arrive as plain keys. */
+    ImmAssociateContext(st.hwnd, NULL);
+
     /* Main window is not a dialog so it doesn't go through win32CommonApplyDark.
     ** Apply the immersive dark titlebar directly. */
     win32ApplyDarkTitle(st.hwnd);
@@ -5024,6 +5029,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     }
 
     st.emuHwnd = CreateWindow("blueMSXemuWindow", "", WS_CHILD | WS_CLIPSIBLINGS | WS_VISIBLE, 0, 0, 0, 0, st.hwnd, NULL, hInstance, NULL);
+    ImmAssociateContext(st.emuHwnd, NULL);
     ShowWindow(st.emuHwnd, SW_HIDE);
 
     /* The built-in joystick defaults name their controls, so make the

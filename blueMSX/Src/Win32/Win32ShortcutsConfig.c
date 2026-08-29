@@ -1902,6 +1902,7 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
             
 //            inputReset(hDlg);
             baseHwnd = hDlg;
+            ImmAssociateContext(GetDlgItem(hDlg, IDC_SCUTHOTKEY), NULL);
             baseHotkeyCtrlProc = (WNDPROC)SetWindowLongPtr(GetDlgItem(hDlg, IDC_SCUTHOTKEY), GWLP_WNDPROC, (LONG_PTR)hotkeyCtrlProc);
             SendDlgItemMessage(hDlg, IDC_SCUTHOTKEY, WM_INITIALIZE, 0, 0);
 
