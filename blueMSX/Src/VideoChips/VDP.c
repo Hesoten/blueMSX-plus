@@ -671,6 +671,10 @@ static void onDisplay(VDP* vdp, UInt32 time)
 
     vdp->timeDisplayEn = 0;
 
+    boardCheckVdpBoostKill((UInt32)vdp->vdpRegs[23]              |
+                           ((UInt32)vdp->vdpRegs[26] <<  8)      |
+                           ((UInt32)vdp->vdpRegs[27] << 16));
+
     if (vdp->videoEnabled) {
         FrameBuffer* frameBuffer;
         if (canFlipFrameBuffer >= 2) {

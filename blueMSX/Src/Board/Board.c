@@ -991,6 +991,22 @@ void boardCheckSccBoostKill(UInt8 address, UInt8 value)
     }
 }
 
+/* Compared per frame rather than per write: a split-screen panel rewrites the
+** same registers every frame without the picture moving. */
+void boardCheckVdpBoostKill(UInt32 origin)
+{
+    static UInt32 lastOrigin;
+    UInt32 prevOrigin = lastOrigin;
+
+    lastOrigin = origin;
+
+    if (!fdcActive && !casActive) return;
+
+    if (origin != prevOrigin) {
+        fdcKillBoost();
+    }
+}
+
 void boardSetBreakpoint(UInt16 address) {
     if (boardRunning) {
         boardInfo.setBreakpoint(boardInfo.cpuRef, address);
