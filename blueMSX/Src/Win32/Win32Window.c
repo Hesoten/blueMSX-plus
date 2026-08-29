@@ -743,6 +743,14 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
         // Special handling at the end
         break;
 
+    /* No menu bar here, so Alt would only open a modal loop that starves the
+    ** pump the latched keys are rebuilt from; Alt is itself an MSX key. */
+    case WM_SYSCOMMAND:
+        if ((wParam & 0xFFF0) == SC_KEYMENU) {
+            return 0;
+        }
+        break;
+
     case WM_ENTERSIZEMOVE:
         if (wi != NULL) {
             wi->isMoving = 1;

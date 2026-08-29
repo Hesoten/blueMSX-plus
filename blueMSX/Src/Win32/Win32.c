@@ -3337,6 +3337,11 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         return 0;
 
     case WM_SYSCOMMAND:
+        /* Alt on a child window arrives here, and the menu loop it opens
+        ** would suspend the emulator until Escape. */
+        if ((wParam & 0xFFF0) == SC_KEYMENU) {
+            return 0;
+        }
         switch(wParam) {
         case SC_MAXIMIZE:
             vdpSetDisplayEnable(1);
