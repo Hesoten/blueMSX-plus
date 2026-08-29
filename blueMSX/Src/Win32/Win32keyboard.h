@@ -105,6 +105,8 @@ void inputSetShortcutDeviceArrival(ShortcutDeviceArrival fn);
 
 void keyboardEnable(int enable);
 void keyboardUpdate();
+/* Feed from the message pump; rebuilds what DirectInput latches. */
+void keyboardKeyDownMessage(WPARAM wParam, LPARAM lParam);
 int keyboardIsImeLatchKey(int scan, int vk);
 
 int keyboardGetModifiers();

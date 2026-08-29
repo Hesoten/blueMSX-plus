@@ -3059,6 +3059,11 @@ static LRESULT CALLBACK emuWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
     case WM_CREATE:
         return 0;
 
+    case WM_SYSKEYDOWN:
+    case WM_KEYDOWN:
+        keyboardKeyDownMessage(wParam, lParam);
+        break;
+
     case WM_SETCURSOR:
         return mouseEmuSetCursor();
 
@@ -3308,6 +3313,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
     case WM_KEYDOWN:
         {
             ShotcutHotkey key;
+            keyboardKeyDownMessage(wParam, lParam);
             key.type = HOTKEY_TYPE_KEYBOARD;
             key.mods = keyboardGetModifiers();
             key.key  = wParam & 0xff;
@@ -5202,6 +5208,10 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
             if (msg.message == WM_QUIT) {
                 doExit = 1;
                 break;
+            }
+            /* Reaches the keys a focused child control would otherwise eat. */
+            if (msg.message == WM_KEYDOWN || msg.message == WM_SYSKEYDOWN) {
+                keyboardKeyDownMessage(msg.wParam, msg.lParam);
             }
             TranslateMessage(&msg);
             DispatchMessage(&msg);
