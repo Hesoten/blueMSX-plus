@@ -415,8 +415,18 @@ static int hotkeyToDik(ShotcutHotkey h) {
     return (int)(sc & 0xFF);
 }
 
+/* MAPVK_VSC_TO_VK_EX answers with the navigation twin for these, but NumLock
+** deciding what a key types does not make it a second binding. */
+static const struct { int dik; unsigned vk; } numpadDikVk[] = {
+    { 0x47, VK_NUMPAD7 }, { 0x48, VK_NUMPAD8 }, { 0x49, VK_NUMPAD9 },
+    { 0x4B, VK_NUMPAD4 }, { 0x4C, VK_NUMPAD5 }, { 0x4D, VK_NUMPAD6 },
+    { 0x4F, VK_NUMPAD1 }, { 0x50, VK_NUMPAD2 }, { 0x51, VK_NUMPAD3 },
+    { 0x52, VK_NUMPAD0 }, { 0x53, VK_DECIMAL  }
+};
+
 static int dikToHotkey(int dik, ShotcutHotkey* out) {
     UINT sc, vk;
+    int i;
     out->mods = 0;
     out->key  = 0;
     out->type = HOTKEY_TYPE_NONE;
@@ -439,6 +449,13 @@ static int dikToHotkey(int dik, ShotcutHotkey* out) {
         out->type = HOTKEY_TYPE_KEYBOARD;
         out->key  = VK_NUMLOCK;
         return 1;
+    }
+    for (i = 0; i < (int)(sizeof(numpadDikVk) / sizeof(numpadDikVk[0])); i++) {
+        if (numpadDikVk[i].dik == dik) {
+            out->type = HOTKEY_TYPE_KEYBOARD;
+            out->key  = numpadDikVk[i].vk;
+            return 1;
+        }
     }
     if (dik & 0x80) sc = 0xE000 | (UINT)(dik & 0x7F);
     else            sc = (UINT)dik;
