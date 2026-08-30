@@ -378,8 +378,18 @@ static char* shortcutRememberedName(ShotcutHotkey h)
 #define SHORTCUTS_DIK_NUMLOCK 0x45
 #define SHORTCUTS_DIK_PAUSE   0xC5
 
+/* MAPVK_VK_TO_VSC_EX answers with the numpad twin for the navigation keys and
+** with 0x54 for Print Screen, so their DirectInput codes are read from here. */
+static const struct { unsigned vk; int dik; } vkDikExtended[] = {
+    { VK_UP,     0xC8 }, { VK_DOWN,   0xD0 }, { VK_LEFT,   0xCB },
+    { VK_RIGHT,  0xCD }, { VK_HOME,   0xC7 }, { VK_END,    0xCF },
+    { VK_PRIOR,  0xC9 }, { VK_NEXT,   0xD1 }, { VK_INSERT, 0xD2 },
+    { VK_DELETE, 0xD3 }, { VK_SNAPSHOT, 0xB7 }
+};
+
 static int hotkeyToDik(ShotcutHotkey h) {
     UINT sc;
+    int i;
     if (h.type == HOTKEY_TYPE_NONE) return 0;
     if (h.type == HOTKEY_TYPE_JOYSTICK) {
         int slot   = SHORTCUTS_JOY_SLOT(h.key);
@@ -391,21 +401,32 @@ static int hotkeyToDik(ShotcutHotkey h) {
     if (h.type != HOTKEY_TYPE_KEYBOARD) return 0;
     /* MSX bindings have no modifiers, so a modified hotkey never collides. */
     if (h.mods != 0) return 0;
-    /* MapVirtualKey collapses Pause's E1 prefix onto Numlock's 0x45, so
-    ** both are short-circuited. */
+    /* Pause answers 0xE11D, whose low byte is another key; NumLock is guarded
+    ** beside it because drivers differ on whether it counts as extended. */
     if (h.key == VK_PAUSE)   return SHORTCUTS_DIK_PAUSE;
     if (h.key == VK_NUMLOCK) return SHORTCUTS_DIK_NUMLOCK;
-    /* MAPVK_VK_TO_VSC_EX flags extended keys via 0xE0 in the high byte;
-    ** DirectInput encodes the same as bit 7 of the DIK code
-    ** (DIK_HOME = 0xC7 = 0x80 | 0x47), so we OR it back in. */
+    for (i = 0; i < (int)(sizeof(vkDikExtended) / sizeof(vkDikExtended[0])); i++) {
+        if (vkDikExtended[i].vk == h.key) return vkDikExtended[i].dik;
+    }
+    /* An E0 prefix is bit 7 of the DIK code (DIK_DIVIDE = 0xB5 = 0x80 | 0x35). */
     sc = MapVirtualKey(h.key, MAPVK_VK_TO_VSC_EX);
     if (sc == 0) return 0;
     if ((sc & 0xFF00) == 0xE000) return 0x80 | (int)(sc & 0xFF);
     return (int)(sc & 0xFF);
 }
 
+/* MAPVK_VSC_TO_VK_EX answers with the navigation twin for these, but NumLock
+** deciding what a key types does not make it a second binding. */
+static const struct { int dik; unsigned vk; } numpadDikVk[] = {
+    { 0x47, VK_NUMPAD7 }, { 0x48, VK_NUMPAD8 }, { 0x49, VK_NUMPAD9 },
+    { 0x4B, VK_NUMPAD4 }, { 0x4C, VK_NUMPAD5 }, { 0x4D, VK_NUMPAD6 },
+    { 0x4F, VK_NUMPAD1 }, { 0x50, VK_NUMPAD2 }, { 0x51, VK_NUMPAD3 },
+    { 0x52, VK_NUMPAD0 }, { 0x53, VK_DECIMAL  }
+};
+
 static int dikToHotkey(int dik, ShotcutHotkey* out) {
     UINT sc, vk;
+    int i;
     out->mods = 0;
     out->key  = 0;
     out->type = HOTKEY_TYPE_NONE;
@@ -428,6 +449,13 @@ static int dikToHotkey(int dik, ShotcutHotkey* out) {
         out->type = HOTKEY_TYPE_KEYBOARD;
         out->key  = VK_NUMLOCK;
         return 1;
+    }
+    for (i = 0; i < (int)(sizeof(numpadDikVk) / sizeof(numpadDikVk[0])); i++) {
+        if (numpadDikVk[i].dik == dik) {
+            out->type = HOTKEY_TYPE_KEYBOARD;
+            out->key  = numpadDikVk[i].vk;
+            return 1;
+        }
     }
     if (dik & 0x80) sc = 0xE000 | (UINT)(dik & 0x7F);
     else            sc = (UINT)dik;
