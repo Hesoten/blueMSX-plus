@@ -35,6 +35,7 @@
 #include "IniFileParser.h"
 #include "JoystickPort.h"
 #include "Properties.h"
+#include "Board.h"
 #include <windows.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -626,6 +627,12 @@ void archKeyboardResetTableDefaults(int table)
     selectedDikKey = 0;
 }
 
+/* Only the SVI keyboard reads this key, so on any other machine nothing
+** answers to it.  It has no key in the editor, so it can never be cleared. */
+static int bindingsEcHasHardware(int ec) {
+    return ec != EC_PRINT || boardGetType() == BOARD_SVI;
+}
+
 int bindingsCountTargetsForDik(int dik) {
     int n, b, total = 0;
     if (dik <= 0 || dik >= KBD_TABLE_LEN) return 0;
@@ -634,6 +641,7 @@ int bindingsCountTargetsForDik(int dik) {
             int ec = bindingsEcsForDik[n][dik][b];
             if (ec == 0) continue;
             if (n != 0 && !inputPortEcActive(n, ec)) continue;
+            if (n == 0 && !bindingsEcHasHardware(ec)) continue;
             total++;
         }
     }
@@ -654,6 +662,7 @@ int bindingsDescribeTargetsForDik(int dik, int excludeTable, int excludeEc,
             if (ec == 0) continue;
             if (n == excludeTable && ec == excludeEc) continue;
             if (n != 0 && !inputPortEcActive(n, ec)) continue;
+            if (n == 0 && !bindingsEcHasHardware(ec)) continue;
             name = inputEventCodeToString(ec);
             if (name == NULL || name[0] == 0) continue;
             if (out[0]) strncat(out, ", ", outLen - strlen(out) - 1);
