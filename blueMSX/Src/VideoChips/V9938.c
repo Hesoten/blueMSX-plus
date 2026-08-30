@@ -1229,10 +1229,12 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
         vdpCmd->status &= ~VDPSTATUS_CE;
         return;
 
+    /* An undefined code stops the command, so the executing flag falls with it. */
     case CM_NOOP1:
     case CM_NOOP2:
     case CM_NOOP3:
         vdpCmd->CM = 0;
+        vdpCmd->status &= ~VDPSTATUS_CE;
         return;
 
     case CM_POINT:

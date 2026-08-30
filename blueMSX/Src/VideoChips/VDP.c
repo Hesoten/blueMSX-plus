@@ -671,6 +671,10 @@ static void onDisplay(VDP* vdp, UInt32 time)
 
     vdp->timeDisplayEn = 0;
 
+    boardCheckVdpBoostKill((UInt32)vdp->vdpRegs[23]              |
+                           ((UInt32)vdp->vdpRegs[26] <<  8)      |
+                           ((UInt32)vdp->vdpRegs[27] << 16));
+
     if (vdp->videoEnabled) {
         FrameBuffer* frameBuffer;
         if (canFlipFrameBuffer >= 2) {
@@ -2365,6 +2369,10 @@ static void reset(VDP* vdp)
             updatePalette(vdp, i, msx2Palette[i].r, msx2Palette[i].g, msx2Palette[i].b);
         }
     }
+
+    /* The engine keeps its own copy of R#45, so a stale one would decide the
+    ** addressing of the next command the guest never asked for. */
+    vdpCmdWrite(vdp->cmdEngine, 0x0d, 0, boardSystemTime());
 
     memcpy(vdp->paletteReg, defaultPaletteRegs, sizeof(vdp->paletteReg));
 

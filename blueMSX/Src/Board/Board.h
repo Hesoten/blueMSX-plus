@@ -178,6 +178,10 @@ void boardCheckFdcBoostKill(UInt16 port, UInt8 value);
 ** doesn't see it).  address is the SCC register offset. */
 void boardCheckSccBoostKill(UInt8 address, UInt8 value);
 
+/* Drop the boost once the picture starts moving; called once per frame with
+** the scroll registers packed into origin. */
+void boardCheckVdpBoostKill(UInt32 origin);
+
 RomType boardGetRomType(int cartNo);
 
 typedef enum { HD_NONE, HD_SUNRISEIDE, HD_BEERIDE, HD_GIDE, HD_RSIDE,
