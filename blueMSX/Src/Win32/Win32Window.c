@@ -571,6 +571,7 @@ static void mouseSensCreateOverlay(HWND parent)
     /* Strip the visual style so WM_CTLCOLORSTATIC (below) actually paints
     ** the trackbar background white to match the surrounding card. */
     if (sld) SetWindowTheme(sld, L"", L"");
+    if (sld) ImmAssociateContext(sld, NULL);
     val = CreateWindowExW(0, L"STATIC", L"",
         WS_CHILD | WS_VISIBLE | SS_LEFT | SS_CENTERIMAGE, 0, 0, 25, 20, parent,
         (HMENU)(INT_PTR)ID_MOUSESENS_VALUE, GetModuleHandle(NULL), NULL);
@@ -740,6 +741,14 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
 
     case WM_CLOSE:
         // Special handling at the end
+        break;
+
+    /* No menu bar here, so Alt would only open a modal loop that starves the
+    ** pump the latched keys are rebuilt from; Alt is itself an MSX key. */
+    case WM_SYSCOMMAND:
+        if ((wParam & 0xFFF0) == SC_KEYMENU) {
+            return 0;
+        }
         break;
 
     case WM_ENTERSIZEMOVE:
@@ -981,6 +990,7 @@ void* archWindowCreate(Theme* theme, int childWindow)
     HINSTANCE hInstance = GetModuleHandle(NULL);
     WindowInfo* wi;
     wchar_t wTitle[128];
+    HWND hwnd;
 
     (void)childWindow;
 
@@ -1008,11 +1018,13 @@ void* archWindowCreate(Theme* theme, int childWindow)
     wi = calloc(1, sizeof(WindowInfo));
     wi->theme = theme;
     Utf8ToWide(theme->name, wTitle, _countof(wTitle));
-    return CreateWindowW(L"blueMSX Popup", wTitle,
+    hwnd = CreateWindowW(L"blueMSX Popup", wTitle,
                         WS_OVERLAPPED | WS_CLIPCHILDREN | WS_BORDER | WS_DLGFRAME |
                         WS_SYSMENU | WS_MINIMIZEBOX,
                         CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, NULL, NULL,
                         hInstance, wi);
+    ImmAssociateContext(hwnd, NULL);
+    return hwnd;
 }
 
 void archWindowApplyOwnership(void* p)

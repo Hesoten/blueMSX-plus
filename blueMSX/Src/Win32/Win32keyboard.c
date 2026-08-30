@@ -1726,12 +1726,6 @@ static void keyboardHanldeKeypress(int code, int pressed)
         if (!isEditing && !bindingsHasAnyEcForDik(n, code)) continue;
 
         if (pressed && isEditing) {
-            /* DirectInput reports no release for Hankaku/Zenkaku: it reads
-            ** pressed from its first press onwards, so a binding to it
-            ** would hold its MSX key down for good. */
-            if (code == DIK_KANJI) {
-                continue;
-            }
             /* Press again to unbind.  Release first, or the EC becomes
             ** unreachable while held. */
             if (bindingsHasEdge(n, code, selectedKey)) {
@@ -1760,8 +1754,63 @@ static void keyboardHanldeKeypress(int code, int pressed)
     }
 }
 
+/* The eisu and hankaku keys, whose vk names the IME mode a press selects and
+** so varies; elsewhere these scancodes are CapsLock and backquote. */
+int keyboardIsImeLatchKey(int scan, int vk)
+{
+    if (scan != 0x29 && scan != 0x3A) return 0;
+    return vk == 0x19 || (vk >= 0xF0 && vk <= 0xF6);
+}
+
 static DWORD buttonState = 0;
 static int hasFocus = 0;
+
+/* Releases are unusable for these keys: one never sends any, the other pairs
+** a phantom with every press, so a press is a fixed pulse. */
+typedef struct {
+    BYTE scan;
+    BYTE dik;
+    volatile ULONGLONG downTick;
+} MsgKey;
+
+static MsgKey msgKeys[] = {
+    { 0x3A, DIK_CAPITAL, 0 },
+    { 0x29, DIK_KANJI,   0 },
+};
+#define MSG_KEY_COUNT (int)(sizeof(msgKeys) / sizeof(msgKeys[0]))
+
+void keyboardKeyDownMessage(WPARAM wParam, LPARAM lParam)
+{
+    int scan = (int)((lParam >> 16) & 0xFF);
+    int i;
+    if (lParam & (1 << 24)) {
+        return;
+    }
+    for (i = 0; i < MSG_KEY_COUNT; i++) {
+        MsgKey* k = &msgKeys[i];
+        if (k->scan != scan) continue;
+        /* On other layouts sc 0x29 is backquote, which is no IME key. */
+        if (k->scan == 0x29 && !keyboardIsImeLatchKey(scan, (int)(wParam & 0xFF))) {
+            return;
+        }
+        {
+            ULONGLONG t = GetTickCount64();
+            k->downTick = t ? t : 1;
+        }
+        return;
+    }
+}
+
+/* Long enough for the input poll to sample the press, short enough that one
+** tap cannot reach the MSX key repeat that re-toggles the lock. */
+#define KEY_TAP_MS 100
+
+static int keyboardMsgKeyPressed(MsgKey* k)
+{
+    ULONGLONG start = k->downTick;
+    if (start == 0) return 0;
+    return (GetTickCount64() - start) < KEY_TAP_MS;
+}
 
 void keyboardSetFocus(int handle, int focus) 
 {
@@ -1781,6 +1830,9 @@ static void keyboardResetKbd()
         for (i = 0; i < KBD_TABLE_LEN; i++) {
             if (keyStatus[n][i]) keyboardHanldeKeypress(i, 0);
         }
+    }
+    for (i = 0; i < MSG_KEY_COUNT; i++) {
+        msgKeys[i].downTick = 0;
     }
     inputEventReset();
     buttonState = 0;
@@ -1878,6 +1930,14 @@ void keyboardUpdate()
         }
 
         if (rv >= 0) { 
+            {
+                int mk;
+                for (mk = 0; mk < MSG_KEY_COUNT; mk++) {
+                    buffer[msgKeys[mk].dik] =
+                        keyboardMsgKeyPressed(&msgKeys[mk]) ? (char)0x80 : 0;
+                }
+            }
+
             kbdModifiers = ((buffer[DIK_LSHIFT]   & 0x80) >> 7) | ((buffer[DIK_RSHIFT]   & 0x80) >> 6) | 
                            ((buffer[DIK_LCONTROL] & 0x80) >> 5) | ((buffer[DIK_RCONTROL] & 0x80) >> 4) | 
                            ((buffer[DIK_LALT]     & 0x80) >> 3) | ((buffer[DIK_RALT]     & 0x80) >> 2) | 

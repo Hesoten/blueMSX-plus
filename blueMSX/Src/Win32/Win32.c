@@ -32,6 +32,8 @@
 #define _WIN32_DCOM
 
 #include <windows.h>
+#include <imm.h>
+#pragma comment(lib, "imm32.lib")
 #include <direct.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -3057,6 +3059,11 @@ static LRESULT CALLBACK emuWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
     case WM_CREATE:
         return 0;
 
+    case WM_SYSKEYDOWN:
+    case WM_KEYDOWN:
+        keyboardKeyDownMessage(wParam, lParam);
+        break;
+
     case WM_SETCURSOR:
         return mouseEmuSetCursor();
 
@@ -3306,6 +3313,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
     case WM_KEYDOWN:
         {
             ShotcutHotkey key;
+            keyboardKeyDownMessage(wParam, lParam);
             key.type = HOTKEY_TYPE_KEYBOARD;
             key.mods = keyboardGetModifiers();
             key.key  = wParam & 0xff;
@@ -3329,6 +3337,11 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         return 0;
 
     case WM_SYSCOMMAND:
+        /* Alt on a child window arrives here, and the menu loop it opens
+        ** would suspend the emulator until Escape. */
+        if ((wParam & 0xFFF0) == SC_KEYMENU) {
+            return 0;
+        }
         switch(wParam) {
         case SC_MAXIMIZE:
             vdpSetDisplayEnable(1);
@@ -4998,6 +5011,9 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
                             WS_SYSMENU | WS_MINIMIZEBOX | (pProperties->video.maximizeIsFullscreen?WS_MAXIMIZEBOX:0), 
                             CW_USEDEFAULT, CW_USEDEFAULT, 800, 200, NULL, NULL, hInstance, NULL);
 
+    /* No text is typed here, so no IME context: its toggle keys arrive as plain keys. */
+    ImmAssociateContext(st.hwnd, NULL);
+
     /* Main window is not a dialog so it doesn't go through win32CommonApplyDark.
     ** Apply the immersive dark titlebar directly. */
     win32ApplyDarkTitle(st.hwnd);
@@ -5024,6 +5040,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     }
 
     st.emuHwnd = CreateWindow("blueMSXemuWindow", "", WS_CHILD | WS_CLIPSIBLINGS | WS_VISIBLE, 0, 0, 0, 0, st.hwnd, NULL, hInstance, NULL);
+    ImmAssociateContext(st.emuHwnd, NULL);
     ShowWindow(st.emuHwnd, SW_HIDE);
 
     /* The built-in joystick defaults name their controls, so make the
@@ -5196,6 +5213,10 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
             if (msg.message == WM_QUIT) {
                 doExit = 1;
                 break;
+            }
+            /* Reaches the keys a focused child control would otherwise eat. */
+            if (msg.message == WM_KEYDOWN || msg.message == WM_SYSKEYDOWN) {
+                keyboardKeyDownMessage(msg.wParam, msg.lParam);
             }
             TranslateMessage(&msg);
             DispatchMessage(&msg);

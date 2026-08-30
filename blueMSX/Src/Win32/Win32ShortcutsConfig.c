@@ -963,6 +963,10 @@ static LRESULT CALLBACK hotkeyCtrlProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPAR
 
     case WM_KEYDOWN:
     case WM_SYSKEYDOWN:
+        /* No release pairs with these presses, so a hotkey on them could not key up. */
+        if (keyboardIsImeLatchKey((int)((lParam >> 16) & 0xFF), (int)(wParam & 0xff))) {
+            return 0;
+        }
         /* Auto-repeat (lParam bit 30) would push keycount past what the
         ** releases undo. */
         if (!(lParam & (1 << 30))) keycount++;
@@ -977,6 +981,10 @@ static LRESULT CALLBACK hotkeyCtrlProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPAR
 
     case WM_KEYUP:
     case WM_SYSKEYUP:
+        /* Their presses were never counted, so a release would spend another key's count. */
+        if (keyboardIsImeLatchKey((int)((lParam >> 16) & 0xFF), (int)(wParam & 0xff))) {
+            return 0;
+        }
         /* Tabbing in delivers only the release: the dialog manager took the
         ** press, so committing here would bind the navigation key. */
         if (keycount == 0) {
@@ -1902,6 +1910,7 @@ static BOOL_DLG_RET CALLBACK shortcutsProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
             
 //            inputReset(hDlg);
             baseHwnd = hDlg;
+            ImmAssociateContext(GetDlgItem(hDlg, IDC_SCUTHOTKEY), NULL);
             baseHotkeyCtrlProc = (WNDPROC)SetWindowLongPtr(GetDlgItem(hDlg, IDC_SCUTHOTKEY), GWLP_WNDPROC, (LONG_PTR)hotkeyCtrlProc);
             SendDlgItemMessage(hDlg, IDC_SCUTHOTKEY, WM_INITIALIZE, 0, 0);
 
