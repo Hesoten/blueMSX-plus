@@ -1062,7 +1062,6 @@ static BOOL CALLBACK enumKeyboards(LPCDIDEVICEINSTANCE devInst, LPVOID ref)
 static BOOL CALLBACK enumAxesCallback(const DIDEVICEOBJECTINSTANCE* pdidoi, void* pContext)
 {
     DIPROPRANGE diprg;
-    HRESULT rv;
 
     diprg.diph.dwSize       = sizeof(DIPROPRANGE);
     diprg.diph.dwHeaderSize = sizeof(DIPROPHEADER);
@@ -1071,11 +1070,10 @@ static BOOL CALLBACK enumAxesCallback(const DIDEVICEOBJECTINSTANCE* pdidoi, void
     diprg.lMin              = -100;
     diprg.lMax              = +100;
 
-    rv = IDirectInputDevice_SetProperty((LPDIRECTINPUTDEVICE)pContext, DIPROP_RANGE, &diprg.diph);
-
-    if (rv != DI_OK) {
-        return DIENUM_STOP;
-    }
+    /* The result goes unchecked: SetProperty answers DI_PROPNOEFFECT on
+    ** success, and one axis that refuses the range must not cost the axes
+    ** enumerated after it. */
+    IDirectInputDevice_SetProperty((LPDIRECTINPUTDEVICE)pContext, DIPROP_RANGE, &diprg.diph);
 
     return DIENUM_CONTINUE;
 }
