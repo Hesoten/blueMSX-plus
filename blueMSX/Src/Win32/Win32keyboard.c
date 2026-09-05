@@ -1931,12 +1931,16 @@ void keyboardUpdate()
         rv = IDirectInputDevice_GetDeviceState(kbdDevice, sizeof(buffer), (LPVOID)&buffer); 
         if (rv == DIERR_INPUTLOST || rv == DIERR_NOTACQUIRED) {
             rv = IDirectInputDevice_Acquire(kbdDevice);
-            if (rv == DI_OK) {
+            /* SUCCEEDED, not DI_OK: Acquire answers S_FALSE for a device it
+            ** already holds, and the state still has to be read. */
+            if (SUCCEEDED(rv)) {
                 rv = IDirectInputDevice_GetDeviceState(kbdDevice, sizeof(buffer), (LPVOID)&buffer); 
             }
         }
 
-        if (rv >= 0) { 
+        /* DI_OK alone says DirectInput filled the buffer; on every other
+        ** answer it still holds whatever the stack had. */
+        if (rv == DI_OK) {
             {
                 int mk;
                 for (mk = 0; mk < MSG_KEY_COUNT; mk++) {
