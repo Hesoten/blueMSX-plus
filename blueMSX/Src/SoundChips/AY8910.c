@@ -62,7 +62,8 @@ struct AY8910 {
     void*           ioPortArg;
     Ay8910Connector connector;
 
-    UInt8  address;
+    UInt8  address;             /* always 0-15                       */
+    UInt8  registerSelected;    /* the latched upper nibble was zero */
     UInt8  regs[16];
 
     UInt32 tonePhase[3];
@@ -95,7 +96,9 @@ static void ay8910LoadStateImpl(AY8910* ay8910, const char* chunkTag)
     char tag[32];
     int i;
 
-    ay8910->address          = (UInt8) saveStateGet(state, "address",         0);
+    ay8910->address          = (UInt8) saveStateGet(state, "address",         0) & 0x0f;
+    /* A state without the key was written with a register selected. */
+    ay8910->registerSelected = (UInt8) saveStateGet(state, "registerSelected", 1);
     ay8910->noisePhase       =         saveStateGet(state, "noisePhase",      0);
     ay8910->noiseStep        =         saveStateGet(state, "noiseStep",       0);
     ay8910->noiseRand        =         saveStateGet(state, "noiseRand",       0);
@@ -138,7 +141,9 @@ static void ay8910SaveStateImpl(AY8910* ay8910, const char* chunkTag)
     char tag[32];
     int i;
 
+    /* Must stay 0-15: readers index regs[] with it directly. */
     saveStateSet(state, "address",         ay8910->address);
+    saveStateSet(state, "registerSelected", ay8910->registerSelected);
     saveStateSet(state, "noisePhase",      ay8910->noisePhase);
     saveStateSet(state, "noiseStep",       ay8910->noiseStep);
     saveStateSet(state, "noiseRand",       ay8910->noiseRand);
@@ -361,13 +366,26 @@ void ay8910SetIoPort(AY8910* ay8910, AY8910ReadCb readCb, AY8910ReadCb pollCb, A
 
 void ay8910WriteAddress(AY8910* ay8910, UInt16 ioPort, UInt8 address)
 {
-    ay8910->address = address & 0xf;
+    /* The upper four bits are a chip select that has to read 0000. Only a
+    ** selecting write latches the register number; the rest leave it as it
+    ** was, with the chip held off the bus until the next valid address. */
+    if ((address & 0xf0) == 0) {
+        ay8910->address          = address & 0x0f;
+        ay8910->registerSelected = 1;
+    }
+    else {
+        ay8910->registerSelected = 0;
+    }
 }
 
 UInt8 ay8910PeekData(AY8910* ay8910, UInt16 ioPort)
 {
     UInt8  address = ay8910->address;
     UInt8  value = ay8910->regs[address];
+
+    if (!ay8910->registerSelected) {
+        return 0xff;    /* the data bus floats high */
+    }
 
     if (address >= 14) {
         int port = address - 14;
@@ -382,7 +400,9 @@ UInt8 ay8910ReadData(AY8910* ay8910, UInt16 ioPort)
 {
     UInt8  address = ay8910->address;
 
-//    if (address > 15) printf("TADA!!\n");
+    if (!ay8910->registerSelected) {
+        return 0xff;    /* the data bus floats high */
+    }
 
     if (address >= 14) {
         int port = address - 14;
@@ -393,6 +413,7 @@ UInt8 ay8910ReadData(AY8910* ay8910, UInt16 ioPort)
     return ay8910->regs[address];
 }
 
+/* regIndex must be 0-15: it indexes regMask[] and regs[] unchecked. */
 static void updateRegister(AY8910* ay8910, UInt8 regIndex, UInt8 data)
 {
     UInt32 period;
@@ -462,6 +483,9 @@ int   curFramecounter = 0;
 
 void ay8910WriteData(AY8910* ay8910, UInt16 ioPort, UInt8 data)
 {
+    if (!ay8910->registerSelected) {
+        return;
+    }
 #if 0
     if (ay8910->address < 2 || ay8910->address == 8) {
         if (framecounter > curFramecounter) {
