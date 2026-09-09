@@ -104,7 +104,8 @@ UInt8* spritesLine(VDP* vdp, int line) {
     solidColor = vdpIsColor0Solid(vdp->vdpRegs) ? 1 : 0;
     /* A transparent color 0 sprite still collides on the TMS99x8 family, but not on the V99x8. */
     color0Collides = vdpIsMsx1Vdp(vdp);
-    dispLine = line;
+    /* The line built here is the one shown next. */
+    dispLine = line + 1;
     line   = (line + vdpVScroll(vdp)) & 0xff;
     
 	patternMask = vdpIsSprites16x16(vdp->vdpRegs) ? 0xfc : 0xff;
@@ -318,8 +319,6 @@ UInt8* spritesLine(VDP* vdp, int line) {
         int xCol;
         // Leftmost pixel covered by two collidable sprites on this line.
         for (xCol = 0; xCol < 288 && collisionBuf[xCol + 32] < 2; xCol++);
-        // Latched by the first collision while the S#0 C flag is clear;
-        // held until an S#5 read resets them (verified against openMSX).
         vdp->vdpStatus[0] |= 0x20;
         vdp->vdpStatus[3] = (UInt8)(xCol + 12);
         vdp->vdpStatus[4] = (UInt8)((xCol + 12) >> 8);
@@ -387,7 +386,8 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
 	patternMask  = vdpIsSprites16x16(vdp->vdpRegs) ? 0xfc : 0xff;
     visibleCnt   = 0;
     collision    = 0;
-    dispLine     = line;
+    /* The line built here is the one shown next. */
+    dispLine     = line + 1;
     line         = (line + vdpVScroll(vdp)) & 0xff;
 
     /* Find visible sprites on current line */
@@ -576,8 +576,6 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
         int xCol;
         // Leftmost pixel covered by two collidable sprites on this line.
         for (xCol = 0; xCol < 288 && collisionBuf[xCol + 32] < 2; xCol++);
-        // Latched by the first collision while the S#0 C flag is clear;
-        // held until an S#5 read resets them (verified against openMSX).
         vdp->vdpStatus[0] |= 0x20;
         vdp->vdpStatus[3] = (UInt8)(xCol + 12);
         vdp->vdpStatus[4] = (UInt8)((xCol + 12) >> 8);
