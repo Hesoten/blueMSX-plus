@@ -258,7 +258,7 @@ int romMapperOpcodeModuleCreate(char* filename, UInt8* romData,
     rm->deviceHandle = deviceManagerRegister(ROM_OPCODEPSG, &callbacks, rm);
     rm->debugHandle = debugDeviceRegister(DBGTYPE_AUDIO, "AY8910", &dbgCallbacks, rm);
 
-    rm->ay8910 = ay8910Create(boardGetMixer(), AY8910_MSX, PSGTYPE_AY8910, 0, NULL);
+    rm->ay8910 = ay8910Create(boardGetMixer(), AY8910_NONE, PSGTYPE_AY8910, 0, NULL);
 
     ioPortRegister(0x40, read, write, rm);
     ioPortRegister(0x50, NULL, write, rm);

@@ -37,7 +37,9 @@
 /* Type definitions */
 typedef struct AY8910 AY8910;
 
-typedef enum { AY8910_MSX, AY8910_MSX_SCCPLUS, AY8910_SVI } Ay8910Connector;
+/* AY8910_NONE claims no I/O ports: the owning device decodes the bus itself
+** and calls the register accessors. */
+typedef enum { AY8910_MSX, AY8910_MSX_SCCPLUS, AY8910_SVI, AY8910_NONE } Ay8910Connector;
 
 typedef enum { PSGTYPE_AY8910, PSGTYPE_YM2149, PSGTYPE_SN76489 } PsgType;
 

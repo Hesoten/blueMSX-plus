@@ -235,6 +235,9 @@ static void getDebugInfo(AY8910* ay8910, DbgDevice* dbgDevice)
         dbgIoPortsAddPort(ioPorts, 1, 0x8c, DBG_IO_WRITE, 0);
         dbgIoPortsAddPort(ioPorts, 2, 0x90, DBG_IO_READ, ay8910PeekData(ay8910, 0x90));
         break;
+
+    case AY8910_NONE:
+        break;
     }
 }
 
@@ -309,6 +312,9 @@ AY8910* ay8910Create(Mixer* mixer, Ay8910Connector connector, PsgType type, Int3
         ioPortRegister(0x8c, NULL,           ay8910WriteData,    ay8910);
         ioPortRegister(0x90, ay8910ReadData, NULL,               ay8910);
         break;
+
+    case AY8910_NONE:
+        break;
     }
 
     ay8910->debugHandle = debugDeviceRegister(DBGTYPE_AUDIO, langDbgDevAy8910(), &dbgCallbacks, ay8910);
@@ -349,6 +355,9 @@ void ay8910Destroy(AY8910* ay8910)
         ioPortUnregister(0x88);
         ioPortUnregister(0x8c);
         ioPortUnregister(0x90);
+        break;
+
+    case AY8910_NONE:
         break;
     }
 
