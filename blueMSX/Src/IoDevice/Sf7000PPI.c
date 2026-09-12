@@ -49,6 +49,8 @@ typedef struct {
 
 static void destroy(Sf7000PPI* ppi)
 {
+    ioPortUnregister(0xe0);
+    ioPortUnregister(0xe1);
     ioPortUnregister(0xe4);
     ioPortUnregister(0xe5);
     ioPortUnregister(0xe6);

@@ -135,14 +135,14 @@ static void loadState(RomMapperOpcodeModule* rm)
 
 static void destroy(RomMapperOpcodeModule* rm)
 {
-    int i;
     deviceManagerUnregister(rm->deviceHandle);
     debugDeviceUnregister(rm->debugHandle);
     ay8910Destroy(rm->ay8910);
 
-    for (i = 0; i < 16; i++) {
-        ioPortUnregister(0x60 + i);
-    }
+    ioPortUnregister(0x40);
+    ioPortUnregister(0x50);
+    ioPortUnregister(0x51);
+    ioPortUnregister(0x52);
 
     free(rm);
 }
