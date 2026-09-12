@@ -46,12 +46,12 @@ typedef struct {
 
 static void destroy(RomMapperMoonsound* rm)
 {
-    ioPortUnregister(0x7e);
-    ioPortUnregister(0x7f);
-    ioPortUnregister(0xc4);
-    ioPortUnregister(0xc5);
-    ioPortUnregister(0xc6);
-    ioPortUnregister(0xc7);
+    ioPortUnregister(0x7e, rm);
+    ioPortUnregister(0x7f, rm);
+    ioPortUnregister(0xc4, rm);
+    ioPortUnregister(0xc5, rm);
+    ioPortUnregister(0xc6, rm);
+    ioPortUnregister(0xc7, rm);
 
     if (rm->moonsound != NULL) {
         moonsoundDestroy(rm->moonsound);

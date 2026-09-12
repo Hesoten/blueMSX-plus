@@ -73,7 +73,7 @@ static void destroy(RomMapperOpcodeBios* rm)
     deviceManagerUnregister(rm->deviceHandle);
     debugDeviceUnregister(rm->debugHandle);
 
-    ioPortUnregister(0x40);
+    ioPortUnregister(0x40, rm);
 
     free(rm);
 }

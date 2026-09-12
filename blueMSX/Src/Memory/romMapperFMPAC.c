@@ -104,8 +104,8 @@ static void destroy(RomMapperFMPAC* rm)
 {
     sramSave(rm->sramFilename, rm->sram, 0x1ffe, pacHeader, (int)strlen(pacHeader));
 
-    ioPortUnregister(0x7c);
-    ioPortUnregister(0x7d);
+    ioPortUnregister(0x7c, rm);
+    ioPortUnregister(0x7d, rm);
     
     if (rm->ym2413 != NULL) {
         ym2413Destroy(rm->ym2413);

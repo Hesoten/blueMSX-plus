@@ -2393,28 +2393,28 @@ static void destroy(VDP* vdp)
 
     switch (vdp->vdpConnector) {
     case VDP_MSX:
-        ioPortUnregister(0x98);
-        ioPortUnregister(0x99);
-        ioPortUnregister(0x9a);
-        ioPortUnregister(0x9b);
+        ioPortUnregister(0x98, vdp);
+        ioPortUnregister(0x99, vdp);
+        ioPortUnregister(0x9a, vdp);
+        ioPortUnregister(0x9b, vdp);
         break;
 
     case VDP_SVI:
-        ioPortUnregister(0x80);
-        ioPortUnregister(0x81);
-        ioPortUnregister(0x84);
-        ioPortUnregister(0x85);
+        ioPortUnregister(0x80, vdp);
+        ioPortUnregister(0x81, vdp);
+        ioPortUnregister(0x84, vdp);
+        ioPortUnregister(0x85, vdp);
         break;
 
     case VDP_COLECO:
         for (i = 0xa0; i < 0xc0; i++) {
-            ioPortUnregister(i);
+            ioPortUnregister(i, vdp);
         }
         break;
 
     case VDP_SG1000:
         for (i = 0x80; i < 0xc0; i++) {
-            ioPortUnregister(i);
+            ioPortUnregister(i, vdp);
         }
         break;
     }

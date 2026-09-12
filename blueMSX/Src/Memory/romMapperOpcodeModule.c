@@ -139,10 +139,10 @@ static void destroy(RomMapperOpcodeModule* rm)
     debugDeviceUnregister(rm->debugHandle);
     ay8910Destroy(rm->ay8910);
 
-    ioPortUnregister(0x40);
-    ioPortUnregister(0x50);
-    ioPortUnregister(0x51);
-    ioPortUnregister(0x52);
+    ioPortUnregister(0x40, rm);
+    ioPortUnregister(0x50, rm);
+    ioPortUnregister(0x51, rm);
+    ioPortUnregister(0x52, rm);
 
     free(rm);
 }

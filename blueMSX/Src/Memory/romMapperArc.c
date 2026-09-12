@@ -51,7 +51,7 @@ typedef struct {
 
 static void destroy(Arc* rm)
 {
-    ioPortUnregister(0x7f);
+    ioPortUnregister(0x7f, rm);
 
     slotUnregister(rm->slot, rm->sslot, rm->startPage);
     deviceManagerUnregister(rm->deviceHandle);

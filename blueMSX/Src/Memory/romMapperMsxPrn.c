@@ -68,8 +68,8 @@ static void destroy(RomMapperMsxPrn* prn)
     deviceManagerUnregister(prn->deviceHandle);
     debugDeviceUnregister(prn->debugHandle);
 
-    ioPortUnregister(0x90);
-    ioPortUnregister(0x91);
+    ioPortUnregister(0x90, prn);
+    ioPortUnregister(0x91, prn);
 
     printerIODestroy(prn->printerIO);
 

@@ -132,11 +132,11 @@ typedef struct {
 
 static void destroy(SviPPI* ppi)
 {
-    ioPortUnregister(0x98);
-    ioPortUnregister(0x99);
-    ioPortUnregister(0x96);
-    ioPortUnregister(0x97);
-    ioPortUnregister(0x9A);
+    ioPortUnregister(0x98, ppi->i8255);
+    ioPortUnregister(0x99, ppi->i8255);
+    ioPortUnregister(0x96, ppi->i8255);
+    ioPortUnregister(0x97, ppi->i8255);
+    ioPortUnregister(0x9A, ppi);
 
     audioKeyClickDestroy(ppi->keyClick);
     deviceManagerUnregister(ppi->deviceHandle);

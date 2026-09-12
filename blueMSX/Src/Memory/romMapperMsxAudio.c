@@ -343,21 +343,19 @@ static void destroy(RomMapperMsxAudio* rm)
         philipsMidiDestroy(rm->midi);
     }
 
-    ioPortUnregister(0x00);
-    ioPortUnregister(0x01);
-    ioPortUnregister(0x04);
-    ioPortUnregister(0x05);
+    ioPortUnregister(0x00, rm);
+    ioPortUnregister(0x01, rm);
+    ioPortUnregister(0x04, rm);
+    ioPortUnregister(0x05, rm);
 
-    ioPortUnregister(rm->ioBase + 0);
-    ioPortUnregister(rm->ioBase + 1);
+    ioPortUnregister(rm->ioBase + 0, rm->y8950);
+    ioPortUnregister(rm->ioBase + 1, rm->y8950);
     
     if (rm->y8950) {
-    	if (ioPortGetRef(0xc0)==rm->y8950&&ioPortGetRef(0xc1)==rm->y8950) {
-    		ioPortUnregister(0xc0); ioPortUnregister(0xc1);
-    	}
-    	if (ioPortGetRef(0xc2)==rm->y8950&&ioPortGetRef(0xc3)==rm->y8950) {
-    		ioPortUnregister(0xc2); ioPortUnregister(0xc3);
-    	}
+    	ioPortUnregister(0xc0, rm->y8950);
+    	ioPortUnregister(0xc1, rm->y8950);
+    	ioPortUnregister(0xc2, rm->y8950);
+    	ioPortUnregister(0xc3, rm->y8950);
     }
 
     deviceCount--;
@@ -400,7 +398,7 @@ static void write(RomMapperMsxAudio* rm, UInt16 address, UInt8 value)
 			ioPortRegister(0xc1, y8950Read, y8950Write, rm->y8950);
 		}
 		else if (ioPortGetRef(0xc0)==rm->y8950&&ioPortGetRef(0xc1)==rm->y8950) {
-			ioPortUnregister(0xc0); ioPortUnregister(0xc1);
+			ioPortUnregister(0xc0, rm->y8950); ioPortUnregister(0xc1, rm->y8950);
 		}
 		
 		if (value&2) {
@@ -408,7 +406,7 @@ static void write(RomMapperMsxAudio* rm, UInt16 address, UInt8 value)
 			ioPortRegister(0xc3, y8950Read, y8950Write, rm->y8950);
 		}
 		else if (ioPortGetRef(0xc2)==rm->y8950&&ioPortGetRef(0xc3)==rm->y8950) {
-			ioPortUnregister(0xc2); ioPortUnregister(0xc3);
+			ioPortUnregister(0xc2, rm->y8950); ioPortUnregister(0xc3, rm->y8950);
 		}
 	}
 #endif

@@ -96,10 +96,10 @@ static void destroy(RomMapperOpcodeMegaRam* rm)
     deviceManagerUnregister(rm->deviceHandle);
     debugDeviceUnregister(rm->debugHandle);
 
-    ioPortUnregister(0x48);
-    ioPortUnregister(0x49);
-    ioPortUnregister(0x4a);
-    ioPortUnregister(0x4b);
+    ioPortUnregister(0x48, rm);
+    ioPortUnregister(0x49, rm);
+    ioPortUnregister(0x4a, rm);
+    ioPortUnregister(0x4b, rm);
 
     free(rm);
 }

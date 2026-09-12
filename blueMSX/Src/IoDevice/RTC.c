@@ -365,8 +365,8 @@ void rtcDestroy(RTC* rtc)
 {
     debugDeviceUnregister(rtc->debugHandle);
 
-    ioPortUnregister(0xb4);
-    ioPortUnregister(0xb5);
+    ioPortUnregister(0xb4, rtc);
+    ioPortUnregister(0xb5, rtc);
 
     if (rtc->cmosName[0]) {
         FILE* file = fopen(rtc->cmosName, "w");

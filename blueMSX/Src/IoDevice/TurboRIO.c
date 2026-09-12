@@ -57,7 +57,7 @@ static UInt8 read(TurboRIO* turboRIO, UInt16 ioPort)
 
 static void destroy(TurboRIO* turboRIO)
 {
-    ioPortUnregister(0xa7);
+    ioPortUnregister(0xa7, turboRIO);
 
     debugDeviceUnregister(turboRIO->debugHandle);
     deviceManagerUnregister(turboRIO->deviceHandle);

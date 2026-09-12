@@ -82,7 +82,7 @@ static void loadState(RomMapperKorean90* rm)
 
 static void destroy(RomMapperKorean90* rm)
 {
-    if (ioPortGetRef(0x77)&&ioPortGetRef(0x77)==rm) ioPortUnregister(0x77);
+    ioPortUnregister(0x77, rm);
     
     slotUnregister(rm->slot, rm->sslot, rm->startPage);
     deviceManagerUnregister(rm->deviceHandle);

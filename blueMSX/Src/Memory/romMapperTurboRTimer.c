@@ -71,8 +71,8 @@ static void destroy(RomMapperTurboRTimer* rm)
 {
     deviceManagerUnregister(rm->deviceHandle);
 
-    ioPortUnregister(0xe6);
-    ioPortUnregister(0xe7);
+    ioPortUnregister(0xe6, rm);
+    ioPortUnregister(0xe7, rm);
 
     free(rm);
 

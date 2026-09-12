@@ -58,10 +58,10 @@ typedef struct {
 
 static void destroy(SonyHBI55* rm)
 {
-    ioPortUnregister(0xb0);
-    ioPortUnregister(0xb1);
-    ioPortUnregister(0xb2);
-    ioPortUnregister(0xb3);
+    ioPortUnregister(0xb0, rm->i8255);
+    ioPortUnregister(0xb1, rm->i8255);
+    ioPortUnregister(0xb2, rm->i8255);
+    ioPortUnregister(0xb3, rm->i8255);
     
     sramSave(sramCreateFilename("HBI-55.SRAM"), rm->sram, 0x1000, NULL, 0);
 

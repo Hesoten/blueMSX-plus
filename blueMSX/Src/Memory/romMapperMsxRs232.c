@@ -114,13 +114,13 @@ static void loadState(MSXRs232* msxRs232)
 
 static void destroy(MSXRs232* msxRs232)
 {
-    ioPortUnregister(0x80);
-    ioPortUnregister(0x81);
-    ioPortUnregister(0x82);
-    ioPortUnregister(0x84);
-    ioPortUnregister(0x85);
-    ioPortUnregister(0x86);
-    ioPortUnregister(0x87);
+    ioPortUnregister(0x80, msxRs232);
+    ioPortUnregister(0x81, msxRs232);
+    ioPortUnregister(0x82, msxRs232);
+    ioPortUnregister(0x84, msxRs232);
+    ioPortUnregister(0x85, msxRs232);
+    ioPortUnregister(0x86, msxRs232);
+    ioPortUnregister(0x87, msxRs232);
        
     i8251Destroy(msxRs232->i8251);
     i8254Destroy(msxRs232->i8254);

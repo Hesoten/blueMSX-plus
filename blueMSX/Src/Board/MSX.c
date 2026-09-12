@@ -106,7 +106,7 @@ static void destroy() {
 
     r800DebugDestroy();
     
-	ioPortUnregister(0x2e);
+	ioPortUnregister(0x2e, NULL);
 
     deviceManagerDestroy();
 

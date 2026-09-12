@@ -133,9 +133,9 @@ static void destroy(RomMapperMegaFlashRomScc* rm)
         ay8910Destroy(rm->ay8910);
     sccDestroy(rm->scc);
 
-    ioPortUnregister(0x10);
-    ioPortUnregister(0x11);
-    ioPortUnregister(0x12);
+    ioPortUnregister(0x10, rm);
+    ioPortUnregister(0x11, rm);
+    ioPortUnregister(0x12, rm);
 
     free(rm->romData);
     free(rm);

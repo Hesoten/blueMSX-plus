@@ -67,10 +67,10 @@ typedef struct {
 
 static void destroy(MsxPPI* ppi)
 {
-    ioPortUnregister(0xa8);
-    ioPortUnregister(0xa9);
-    ioPortUnregister(0xaa);
-    ioPortUnregister(0xab);
+    ioPortUnregister(0xa8, ppi->i8255);
+    ioPortUnregister(0xa9, ppi->i8255);
+    ioPortUnregister(0xaa, ppi->i8255);
+    ioPortUnregister(0xab, ppi->i8255);
 
     audioKeyClickDestroy(ppi->keyClick);
     audioCassetteDestroy(ppi->cassette);

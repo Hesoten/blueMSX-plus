@@ -34,8 +34,14 @@ typedef UInt8 (*IoPortRead)(void*, UInt16);
 typedef void  (*IoPortWrite)(void*, UInt16, UInt8);
 
 void* ioPortGetRef(int port);
+
+/* More than one device may claim the same port, which is what happens on a
+** real bus when a cartridge doubles a chip the machine already has. A write
+** reaches every claim; a read is the AND of the claims that drive one. The
+** ref identifies the caller's own claim, so releasing one device leaves the
+** others answering. */
 void ioPortRegister(int port, IoPortRead read, IoPortWrite write, void* ref);
-void ioPortUnregister(int port);
+void ioPortUnregister(int port, void* ref);
 
 void ioPortRegisterUnused(int idx, IoPortRead read, IoPortWrite write, void* ref);
 void ioPortUnregisterUnused(int idx);

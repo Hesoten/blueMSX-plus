@@ -139,8 +139,8 @@ extern "C" void msxaudioDestroy(void* rm) {
     MsxAudio* msxaudio = (MsxAudio*)rm;
     deviceManagerUnregister(msxaudio->deviceHandle);
 
-    ioPortUnregister(0xc0);
-    ioPortUnregister(0xc1);
+    ioPortUnregister(0xc0, msxaudio);
+    ioPortUnregister(0xc1, msxaudio);
 
     mixerUnregisterChannel(msxaudio->mixer, msxaudio->handle);
 
