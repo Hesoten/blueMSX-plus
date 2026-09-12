@@ -71,11 +71,6 @@ static void destroy(RomMapperKanji12* rm)
     deviceManagerUnregister(rm->deviceHandle);
     debugDeviceUnregister(rm->debugHandle);
 
-    ioPortUnregister(0xd9);
-    ioPortUnregister(0xd8);
-    ioPortUnregister(0xda);
-    ioPortUnregister(0xdb);
-
     free(rm->romData);
     free(rm);
 }
