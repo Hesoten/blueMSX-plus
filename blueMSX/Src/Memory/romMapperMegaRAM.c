@@ -95,7 +95,7 @@ static void loadState(RomMapperMegaRAM* rm)
 
 static void destroy(RomMapperMegaRAM* rm)
 {
-    ioPortUnregister(0x8e);
+    ioPortUnregister(0x8e, rm);
     slotUnregister(rm->slot, rm->sslot, rm->startPage);
     deviceManagerUnregister(rm->deviceHandle);
     debugDeviceUnregister(rm->debugHandle);

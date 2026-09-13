@@ -50,8 +50,8 @@ typedef struct {
 
 static void destroy(MsxMusic* rm)
 {
-    ioPortUnregister(0x7c);
-    ioPortUnregister(0x7d);
+    ioPortUnregister(0x7c, rm);
+    ioPortUnregister(0x7d, rm);
 
     if (rm->ym2413 != NULL) {
         ym2413Destroy(rm->ym2413);

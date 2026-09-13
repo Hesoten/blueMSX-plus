@@ -107,13 +107,13 @@ static void sg1000IoPortDestroy(void* dummy)
 	int i;
 
 	for (i=0x40; i<0x80; i++)
-		ioPortUnregister(i);
+		ioPortUnregister(i, NULL);
 
 	for (i=0xC0; i<0x100; i+=2)
-		ioPortUnregister(i);
+		ioPortUnregister(i, NULL);
 
-	ioPortUnregister(0xc1);
-	ioPortUnregister(0xdd);
+	ioPortUnregister(0xc1, NULL);
+	ioPortUnregister(0xdd, NULL);
 }
 
 static void sg1000IoPortCreate()

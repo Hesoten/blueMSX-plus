@@ -71,8 +71,8 @@ static void destroy(RomMapperS1990* rm)
     deviceManagerUnregister(rm->deviceHandle);
     debugDeviceUnregister(rm->debugHandle);
 
-    ioPortUnregister(0xe4);
-    ioPortUnregister(0xe5);
+    ioPortUnregister(0xe4, rm);
+    ioPortUnregister(0xe5, rm);
 
     free(rm);
 }

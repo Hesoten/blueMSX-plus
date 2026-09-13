@@ -65,9 +65,9 @@ static void loadState(RomMapperSvi328Prn* prn)
 
 static void destroy(RomMapperSvi328Prn* prn)
 {
-    ioPortUnregister(0x10);
-    ioPortUnregister(0x11);
-    ioPortUnregister(0x12);
+    ioPortUnregister(0x10, prn);
+    ioPortUnregister(0x11, prn);
+    ioPortUnregister(0x12, prn);
 
     deviceManagerUnregister(prn->deviceHandle);
     debugDeviceUnregister(prn->debugHandle);

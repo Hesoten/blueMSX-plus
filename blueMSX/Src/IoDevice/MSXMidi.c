@@ -113,7 +113,7 @@ static void loadState(MSXMidi* msxMidi)
 
 static void destroy(MSXMidi* msxMidi)
 {
-    ioPortUnregister(0xe2);
+    ioPortUnregister(0xe2, msxMidi);
     unregisterIoPorts(msxMidi);
 
     midiIoDestroy(msxMidi->midiIo);
@@ -285,7 +285,7 @@ static void unregisterIoPorts(MSXMidi* msxMidi) {
     }
     
     for (i = 0; i < (msxMidi->ioStart == 0xe0 ? 2 : 8); i++) {
-        ioPortUnregister(msxMidi->ioStart + i);
+        ioPortUnregister(msxMidi->ioStart + i, msxMidi);
     }
 
     msxMidi->ioStart = 0;

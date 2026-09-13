@@ -114,15 +114,15 @@ static void loadState(NMS1210Rs232* nms1210Rs232)
 
 static void destroy(NMS1210Rs232* nms1210Rs232)
 {
-    ioPortUnregister(0x37);
-    ioPortUnregister(0x38);
-    ioPortUnregister(0x39);
-    ioPortUnregister(0x3a);
-    ioPortUnregister(0x3b);
-    ioPortUnregister(0x3c);
-    ioPortUnregister(0x3d);
-    ioPortUnregister(0x3e);
-    ioPortUnregister(0x3f);
+    ioPortUnregister(0x37, nms1210Rs232);
+    ioPortUnregister(0x38, nms1210Rs232);
+    ioPortUnregister(0x39, nms1210Rs232);
+    ioPortUnregister(0x3a, nms1210Rs232);
+    ioPortUnregister(0x3b, nms1210Rs232);
+    ioPortUnregister(0x3c, nms1210Rs232);
+    ioPortUnregister(0x3d, nms1210Rs232);
+    ioPortUnregister(0x3e, nms1210Rs232);
+    ioPortUnregister(0x3f, nms1210Rs232);
 
     z8530Destroy(nms1210Rs232->z8530);
     i8254Destroy(nms1210Rs232->i8254);

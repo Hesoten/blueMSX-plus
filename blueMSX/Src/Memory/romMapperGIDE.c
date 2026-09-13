@@ -81,18 +81,18 @@ static void destroy(RomMapperGIde* rm)
 
     portBase = (boardGetType() == BOARD_SVI) ? 0x40:0x60;
 
-    ioPortUnregister(portBase | 0x04);
-    ioPortUnregister(portBase | 0x05);
-    ioPortUnregister(portBase | 0x06);
-    ioPortUnregister(portBase | 0x07);
-    ioPortUnregister(portBase | 0x08);
-    ioPortUnregister(portBase | 0x09);
-    ioPortUnregister(portBase | 0x0a);
-    ioPortUnregister(portBase | 0x0b);
-    ioPortUnregister(portBase | 0x0c);
-    ioPortUnregister(portBase | 0x0d);
-    ioPortUnregister(portBase | 0x0e);
-    ioPortUnregister(portBase | 0x0f);
+    ioPortUnregister(portBase | 0x04, rm);
+    ioPortUnregister(portBase | 0x05, rm);
+    ioPortUnregister(portBase | 0x06, rm);
+    ioPortUnregister(portBase | 0x07, rm);
+    ioPortUnregister(portBase | 0x08, rm);
+    ioPortUnregister(portBase | 0x09, rm);
+    ioPortUnregister(portBase | 0x0a, rm);
+    ioPortUnregister(portBase | 0x0b, rm);
+    ioPortUnregister(portBase | 0x0c, rm);
+    ioPortUnregister(portBase | 0x0d, rm);
+    ioPortUnregister(portBase | 0x0e, rm);
+    ioPortUnregister(portBase | 0x0f, rm);
 
     deviceManagerUnregister(rm->deviceHandle);
     debugDeviceUnregister(rm->debugHandle);

@@ -97,10 +97,10 @@ static void loadState(RamMapperIo* rm)
 
 static void destroy(RamMapperIo* rm) 
 {
-    ioPortUnregister(0xfc);
-    ioPortUnregister(0xfd);
-    ioPortUnregister(0xfe);
-    ioPortUnregister(0xff);
+    ioPortUnregister(0xfc, rm);
+    ioPortUnregister(0xfd, rm);
+    ioPortUnregister(0xfe, rm);
+    ioPortUnregister(0xff, rm);
 
     deviceManagerUnregister(rm->deviceHandle);
     debugDeviceUnregister(rm->debugHandle);

@@ -59,8 +59,8 @@ static void loadState(RomMapperSvi727Col80* rm)
 
 static void destroy(RomMapperSvi727Col80* rm)
 {
-    ioPortUnregister(0x78);
-    ioPortUnregister(0x79);
+    ioPortUnregister(0x78, rm);
+    ioPortUnregister(0x79, rm);
 
     slotUnregister(rm->slot, rm->sslot, rm->startPage);
     deviceManagerUnregister(rm->deviceHandle);
