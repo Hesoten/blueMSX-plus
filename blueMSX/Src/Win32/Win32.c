@@ -64,6 +64,7 @@
 #include "FrameBuffer.h"
 #include "Win32Midi.h"
 #include "Win32Sound.h"
+#include "KeyMatrixInput.h"
 #include "Win32Properties.h"
 #include "Win32ToolLoader.h"
 #include "Win32joystick.h"
@@ -1981,6 +1982,8 @@ typedef struct {
     char pCurDir[MAX_PATH];
     Video* pVideo;
     int minimized;
+    /* Started with /hidden: never shown, silent, and no dialogs. */
+    int hidden;
     Mixer* mixer;
     int enteringFullscreen;
     Shortcuts* shortcuts;
@@ -2030,6 +2033,8 @@ typedef struct {
 
 /* Marks a WM_COPYDATA as ours, so another build of the same class ignores it. */
 #define LAUNCH_COPYDATA_ID   0x424D5846
+/* Key matrix commands (KeyMatrixInput.h); an empty one asks how many are left. */
+#define KEYMATRIX_COPYDATA_ID 0x424D5854
 
 /* Fills path with the exe of processId. QueryFullProcessImageNameW is used for
 ** this process too, so the two paths compare equal. */
@@ -2075,6 +2080,12 @@ static HWND findRunningInstance(void)
     while ((hwnd = FindWindowEx(NULL, hwnd, "blueMSX", NULL)) != NULL) {
         wchar_t other[1024];
         DWORD processId = 0;
+
+        /* A hidden instance belongs to a script; a double clicked file has to
+        ** open where the user can see it. */
+        if (!IsWindowVisible(hwnd)) {
+            continue;
+        }
 
         GetWindowThreadProcessId(hwnd, &processId);
         if (imagePathOf(processId, other, _countof(other)) &&
@@ -2655,7 +2666,7 @@ void themeSet(char* themeName, int forceMatch) {
             eh = appConfigGetInt("screen.normal.height", 480);
         }
 
-        SetWindowPos(st.hwnd, z, x, y, w, h, SWP_SHOWWINDOW);
+        SetWindowPos(st.hwnd, z, x, y, w, h, st.hidden ? SWP_NOACTIVATE : SWP_SHOWWINDOW);
         SetWindowPos(st.emuHwnd, NULL, ex, ey, ew, eh, SWP_NOZORDER);
     }
 
@@ -3235,6 +3246,22 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             COPYDATASTRUCT* cds = (COPYDATASTRUCT*)lParam;
             char candidate[PROP_MAXPATH];
             char* pending;
+
+            if (cds != NULL && cds->dwData == KEYMATRIX_COPYDATA_ID) {
+                const char* text = (const char*)cds->lpData;
+
+                if (text == NULL || cds->cbData == 0 || text[0] == 0) {
+                    return keyMatrixInputRemaining();
+                }
+                if (text[cds->cbData - 1] != 0) {
+                    return FALSE;
+                }
+                return keyMatrixInputSubmit(text) ? TRUE : FALSE;
+            }
+
+            if (st.hidden) {
+                return FALSE;
+            }
 
             if (cds == NULL || cds->dwData != LAUNCH_COPYDATA_ID ||
                 cds->lpData == NULL || cds->cbData == 0 ||
@@ -4459,10 +4486,18 @@ static void commandLineReport(const char* message)
     sprintf(text, "blueMSX+: %s\r\n", message);
     /* This goes to the error stream, or a redirected listing would collect the
     ** complaint too. */
-    if (!consoleWriteTo(STD_ERROR_HANDLE, text)) {
+    if (!consoleWriteTo(STD_ERROR_HANDLE, text) && !st.hidden) {
         /* Not langErrorTitle(): the language table is not built this early. */
         MessageBoxU(NULL, message, "blueMSX+", MB_OK | MB_ICONERROR);
     }
+}
+
+/* A hidden run has no one to click a dialog away, so a failure to start ends
+** the process with its own exit code instead. */
+static void hiddenStartFail(const char* message)
+{
+    commandLineReport(message);
+    exit(2);
 }
 
 static void commandLineFail(const char* message)
@@ -4651,6 +4686,8 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 #else
     szLine = commandLineUtf8();
 #endif
+
+    st.hidden = emuCheckFlagArgument(szLine, "hidden");
 
     /* This is done first, because everything below moves to the exe directory. */
     if (GetCurrentDirectoryU(sizeof(launchDir) - 1, launchDir) == 0 || launchDir[0] == 0) {
@@ -4849,6 +4886,20 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
             ** part it had applied. */
             commandLineFail(emuCommandLineGetError());
         }
+    }
+
+    /* Nothing a hidden run does may wait on a person: files get their
+    ** automatic names, no toast pops up, and full screen would show. */
+    if (st.hidden) {
+        emuCommandLineOverrideInt(&pProperties->capture.audioPromptFilename, 0);
+        emuCommandLineOverrideInt(&pProperties->capture.videoPromptFilename, 0);
+        emuCommandLineOverrideInt(&pProperties->capture.screenshotPromptFilename, 0);
+        emuCommandLineOverrideInt(&pProperties->capture.replayPromptFilename, 0);
+        emuCommandLineOverrideInt(&pProperties->capture.showCompletionToast, 0);
+        if (pProperties->video.windowSize == P_VIDEO_SIZEFULLSCREEN) {
+            emuCommandLineOverrideInt(&pProperties->video.windowSize, P_VIDEO_SIZEX2);
+        }
+        joystickSetPolling(0);
     }
 
     /* An INI capture.* path wins; otherwise the rootDir default goes back for
@@ -5111,8 +5162,11 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
     st.enteringFullscreen = 0;
 
-    soundDriverConfig(st.hwnd, pProperties->sound.driver);
+    /* With no driver the mixer still runs, so a WAV capture keeps recording. */
+    soundDriverConfig(st.hwnd, st.hidden ? SOUND_DRV_NONE : pProperties->sound.driver);
     emulatorRestartSound();
+
+    keyMatrixInputInit();
 
     /* Driver runs 2ch unconditionally; bring mixer's stereo flag in line
     ** with the user's saved preference now that the driver no longer
@@ -5197,8 +5251,10 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     }
 
     archUpdateWindow();
-    ShowWindow(st.hwnd, SW_NORMAL);
-    UpdateWindow(st.hwnd);
+    if (!st.hidden) {
+        ShowWindow(st.hwnd, SW_NORMAL);
+        UpdateWindow(st.hwnd);
+    }
 
     /* The debugger attaches to the main window, so this runs after it exists. */
     if (emuCheckFlagArgument(szLine, "debugger")) {
@@ -5222,7 +5278,12 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
             DispatchMessage(&msg);
         }
         if (rv == WAIT_OBJECT_0) {
-            if (!st.minimized) {
+            /* The drivers flip the view frame as they draw. A hidden run draws
+            ** nothing, so it flips here, which is what a screenshot reads. */
+            if (st.hidden) {
+                frameBufferFlipViewFrame(0);
+            }
+            else if (!st.minimized) {
                 emuWindowDraw(st.diplayUpdateOnVblank);
             }
             SetEvent(st.ddrawAckEvent);
@@ -5564,6 +5625,18 @@ int MessageBoxLargeU(HWND hwnd, const char* mainInstr, const char* content,
 static void showStartEmuFailDialogShared(void)
 {
     int n = boardGetMissingFileCount();
+
+    if (st.hidden) {
+        char text[4096];
+        int  off = _snprintf(text, sizeof(text) - 1, "%s", langErrorStartEmu());
+        int  i;
+        for (i = 0; i < n && off >= 0 && off < (int)sizeof(text) - 256; i++) {
+            off += _snprintf(text + off, sizeof(text) - off - 1, " %s", boardGetMissingFile(i));
+        }
+        text[sizeof(text) - 1] = 0;
+        hiddenStartFail(text);
+    }
+
     if (n > 0) {
         /* Use the TaskDialog "main instruction" line for the headline so the
         ** missing-files list (small body text) is visually distinct from the
@@ -5617,6 +5690,10 @@ void archShowStartEmuFailDialog(const char* machineName)
         break;
     }
     body[sizeof(body) - 1] = 0;
+
+    if (st.hidden) {
+        hiddenStartFail(body);
+    }
 
     MessageBoxLargeU(NULL, langErrorStartEmu(), body, langErrorTitle(),
                      MB_ICONHAND | MB_OK);

@@ -112,6 +112,7 @@ int keyboardIsImeLatchKey(int scan, int vk);
 int keyboardGetModifiers();
 
 void joystickUpdate();
+void joystickSetPolling(int enable);
 DWORD joystickGetButtonState();
 /* Zero for a slot with no device; joystickGetButtonState merges all
 ** slots. */

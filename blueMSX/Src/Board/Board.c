@@ -53,6 +53,7 @@
 #include "MediaDb.h"
 #include "RomLoader.h"
 #include "JoystickPort.h"
+#include "KeyMatrixInput.h"
 #include "FileHistory.h"
 #include "Utf8Conv.h"
 
@@ -1453,11 +1454,15 @@ int boardRun(Machine* machine,
             boardTimerAdd(periodicTimer, boardSystemTime() + periodicInterval);
         }
 
+        keyMatrixInputBoardStart();
+
         if (!skipSync) {
             syncToRealClock(0, 0);
         }
 
         boardInfo.run(boardInfo.cpuRef);
+
+        keyMatrixInputBoardStop();
 
         if (periodicTimer != NULL) {
             boardTimerDestroy(periodicTimer);
