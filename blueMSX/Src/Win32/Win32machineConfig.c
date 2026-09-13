@@ -2225,9 +2225,15 @@ static void updateVramList(HWND hDlg) {
         maxVram = 256;
     }
 
+    /* Kept apart from the V9958, whose 192kB comes from the rewrite below. */
+    if (machine->video.vdpVersion == VDP_V9968) {
+        vram    = 256;
+        maxVram = 256;
+    }
+
     for (i = 0; vram <= maxVram; i++) {
         char buffer[128];
-        if (vram == 256) vram = 192;
+        if (vram == 256 && machine->video.vdpVersion != VDP_V9968) vram = 192;
         if (vram == 32) vram = 64;
         sprintf(buffer, "%d kB", vram);
         ComboAddStringU(GetDlgItem(hDlg, IDC_CONF_VRAM), buffer);
@@ -2259,6 +2265,9 @@ static int getVramList(HWND hDlg) {
     if (0 == strcmp(vramSel, "192 kB")) {
         machine->video.vramSize = 192 * 1024;
     }
+    if (0 == strcmp(vramSel, "256 kB")) {
+        machine->video.vramSize = 256 * 1024;
+    }
 
     return vramSize != machine->video.vramSize;
 }
@@ -2276,6 +2285,7 @@ static INT_PTR CALLBACK chipsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
         ComboAddStringU(GetDlgItem(hDlg, IDC_CONF_VIDEOCHIP), "TMS9918A   (NTSC)");
         ComboAddStringU(GetDlgItem(hDlg, IDC_CONF_VIDEOCHIP), "V9938");
         ComboAddStringU(GetDlgItem(hDlg, IDC_CONF_VIDEOCHIP), "V9958");
+        ComboAddStringU(GetDlgItem(hDlg, IDC_CONF_VIDEOCHIP), "V9968");
 
         SetWindowTextU(GetDlgItem(hDlg, IDC_AUDIOGROUPBOX), langConfChipSoundGB());
         SetWindowTextU(GetDlgItem(hDlg, IDC_AUDIOPSGSTEREO), langConfChipPsgStereoText());
@@ -2314,6 +2324,9 @@ static INT_PTR CALLBACK chipsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
                         if (0 == strcmp(videoSel, "V9958")) {
                             machine->video.vdpVersion = VDP_V9958;
                         }
+                        if (0 == strcmp(videoSel, "V9968")) {
+                            machine->video.vdpVersion = VDP_V9968;
+                        }
                     }
                     change = vdpVersion != machine->video.vdpVersion;
                     if (change) {
@@ -2345,6 +2358,7 @@ static INT_PTR CALLBACK chipsProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lP
         case VDP_TMS9918A:  SendDlgItemMessage(hDlg, IDC_CONF_VIDEOCHIP, CB_SETCURSEL, 2, 0); break;
         case VDP_V9938: SendDlgItemMessage(hDlg, IDC_CONF_VIDEOCHIP, CB_SETCURSEL, 3, 0); break;
         case VDP_V9958: SendDlgItemMessage(hDlg, IDC_CONF_VIDEOCHIP, CB_SETCURSEL, 4, 0); break;
+        case VDP_V9968: SendDlgItemMessage(hDlg, IDC_CONF_VIDEOCHIP, CB_SETCURSEL, 5, 0); break;
         }
         updateVramList(hDlg);
         setBtCheck(hDlg, IDC_AUDIOPSGSTEREO, machine->audio.psgstereo, 1);

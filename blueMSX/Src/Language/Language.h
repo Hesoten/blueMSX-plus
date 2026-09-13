@@ -1025,6 +1025,7 @@ char* langDbgDevTms99x8A();
 char* langDbgDevTms9918A();
 char* langDbgDevV9938();
 char* langDbgDevV9958();
+char* langDbgDevV9968();
 char* langDbgDevZ80();
 char* langDbgDevMsxMidi();
 char* langDbgDevPpi();
