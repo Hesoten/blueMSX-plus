@@ -252,6 +252,10 @@ const char* inputEventCodeToString(int eventCode);
 
 // Inlines
 extern int eventMap[256];
+/* Events held from outside the host's input devices (KeyMatrixInput). The
+** keyboard layer clears eventMap whenever the window lacks focus, so these
+** are kept apart and survive that. */
+extern int eventInjected[256];
 
 /* The wheel codes sit outside the contiguous blocks, so they have to be
 ** named here or a port's own events count as MSX keyboard events. */
@@ -270,6 +274,7 @@ extern int eventMap[256];
 
 #define inputEventSet(eventCode) eventMap[eventCode] = 1
 #define inputEventUnset(eventCode) eventMap[eventCode] = 0
-#define inputEventGetState(eventCode) eventMap[eventCode]
+#define inputEventGetState(eventCode) (eventMap[eventCode] | eventInjected[eventCode])
+#define inputEventInject(eventCode, held) eventInjected[eventCode] = (held)
 
 #endif

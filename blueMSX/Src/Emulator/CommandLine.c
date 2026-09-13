@@ -369,6 +369,7 @@ static const CmdLineOption cmdLineOptions[] = {
     { "speed",         "<pct>",   "Emulation speed, 10 to 1000 percent of normal"    },
     { "vdpspeed",      "<pct>",   "VDP command engine timing, 0 to 100 percent"      },
     { "mute",          NULL,      "Start with the sound muted"                       },
+    { "hidden",        NULL,      "Run without a window, sound or dialogs"           },
     { "msxmusic",      "<on|off>","Enable or disable MSX-Music (YM2413)"             },
     { "msxaudio",      "<on|off>","Enable or disable MSX-Audio (Y8950)"              },
     { "moonsound",     "<on|off>","Enable or disable MoonSound (OPL4)"               },
