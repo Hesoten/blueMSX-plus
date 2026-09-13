@@ -3715,7 +3715,10 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
                 int i;
                 HWND hwndFocus = GetFocus();
 
-                keyboardSetFocus(1, hwndFocus == st.hwnd || hwndFocus == st.emuHwnd);
+                /* GetFocus answers for this thread even while another program
+                ** is in front, and the keyboard device reads in the background,
+                ** so a hidden instance would take the keys typed elsewhere. */
+                keyboardSetFocus(1, !st.hidden && (hwndFocus == st.hwnd || hwndFocus == st.emuHwnd));
                 
                 if (emulatorGetState() != EMU_RUNNING) {
                     archPollInput();

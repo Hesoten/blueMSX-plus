@@ -39,9 +39,11 @@ typedef struct {
     UInt16 value;       /* the mask, or the wait in milliseconds */
 } Command;
 
-/* The same rows MsxPPI reads, most significant bit first. The events are the
-** ones the host keyboard sets too, so a key pressed here is indistinguishable
-** from one pressed on the keyboard, and key bindings never come into it. */
+/* The same rows MsxPPI reads, most significant bit first. Keys are held in
+** the injected events rather than set like the host keyboard's: the keyboard
+** layer resets its events on every poll while the window has no focus, which
+** would let a held key go within milliseconds. Key bindings never come into
+** it either way. */
 static const int matrix[MATRIX_ROWS][8] = {
     { EC_7,       EC_6,      EC_5,       EC_4,       EC_3,      EC_2,      EC_1,      EC_0      },
     { EC_SEMICOL, EC_LBRACK, EC_AT,      EC_BKSLASH, EC_CIRCFLX,EC_NEG,    EC_9,      EC_8      },
@@ -226,13 +228,7 @@ static void press(int row, int mask, int down)
 
     for (bit = 0; bit < 8; bit++) {
         if (mask & (1 << bit)) {
-            int ec = matrix[row][7 - bit];
-            if (down) {
-                inputEventSet(ec);
-            }
-            else {
-                inputEventUnset(ec);
-            }
+            inputEventInject(matrix[row][7 - bit], down);
         }
     }
     held[row] = (UInt8)(down ? (held[row] | mask) : (held[row] & ~mask));
