@@ -679,7 +679,7 @@ int romMapperMegaFlashRomSccPlusSDCreate(int cartNo, int slot, int sslot, int st
 
     rm->scc = sccCreate(boardGetMixer());
     sccSetMode(rm->scc, SCC_REAL);
-    rm->ay8910 = ay8910Create(boardGetMixer(), AY8910_MSX, PSGTYPE_AY8910, 0, NULL);
+    rm->ay8910 = ay8910Create(boardGetMixer(), AY8910_NONE, PSGTYPE_AY8910, 0, NULL);
 
     rm->megaRam = calloc(1, MEGARAM_SIZE);
 

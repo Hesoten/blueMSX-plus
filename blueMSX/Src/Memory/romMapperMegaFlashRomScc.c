@@ -273,7 +273,7 @@ int romMapperMegaFlashRomSccCreate(const char* filename, UInt8* romData,
     sccSetMode(rm->scc, SCC_REAL);
     rm->sccEnable = 0;
     if (hasPsg) {
-        rm->ay8910 = ay8910Create(boardGetMixer(), AY8910_MSX, PSGTYPE_AY8910, 0, NULL);
+        rm->ay8910 = ay8910Create(boardGetMixer(), AY8910_NONE, PSGTYPE_AY8910, 0, NULL);
     }
 
     rm->flash = amdFlashCreate(AMD_TYPE_2, flashSize, 0x10000, writeProtectMask, romData, size, sramCreateFilenameWithSuffix(filename, "", ".sram"), 1);
