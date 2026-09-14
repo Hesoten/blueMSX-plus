@@ -114,10 +114,10 @@ static void loadState(RomMapperRsIde* rm)
 
 static void destroy(RomMapperRsIde* rm)
 {
-    ioPortUnregister(0x14);
-    ioPortUnregister(0x15);
-    ioPortUnregister(0x16);
-    ioPortUnregister(0x17);
+    ioPortUnregister(0x14, rm->i8255);
+    ioPortUnregister(0x15, rm->i8255);
+    ioPortUnregister(0x16, rm->i8255);
+    ioPortUnregister(0x17, rm->i8255);
 
     deviceManagerUnregister(rm->deviceHandle);
     debugDeviceUnregister(rm->debugHandle);

@@ -89,9 +89,9 @@ static void reset(RomMapperGoudaSCSI* rm)
 
 static void destroy(RomMapperGoudaSCSI* rm)
 {
-    ioPortUnregister(PORT_BASE + 0);
-    ioPortUnregister(PORT_BASE + 1);
-    ioPortUnregister(PORT_BASE + 2);
+    ioPortUnregister(PORT_BASE + 0, rm->wd33c93);
+    ioPortUnregister(PORT_BASE + 1, rm->wd33c93);
+    ioPortUnregister(PORT_BASE + 2, rm);
 
     debugDeviceUnregister(rm->debugHandle);
     slotUnregister(rm->slot, rm->sslot, rm->startPage);

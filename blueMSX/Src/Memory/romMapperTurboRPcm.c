@@ -95,8 +95,8 @@ static void destroy(RomMapperTurboRPcm* rm)
     boardTimerDestroy(rm->flushTimer);
     dacDestroy(rm->dac);
 
-    ioPortUnregister(0xa4);
-    ioPortUnregister(0xa5);
+    ioPortUnregister(0xa4, rm);
+    ioPortUnregister(0xa5, rm);
 
     free(rm);
 }

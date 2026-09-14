@@ -49,12 +49,12 @@ typedef struct {
 
 static void destroy(Sf7000PPI* ppi)
 {
-    ioPortUnregister(0xe0);
-    ioPortUnregister(0xe1);
-    ioPortUnregister(0xe4);
-    ioPortUnregister(0xe5);
-    ioPortUnregister(0xe6);
-    ioPortUnregister(0xe7);
+    ioPortUnregister(0xe0, ppi);
+    ioPortUnregister(0xe1, ppi);
+    ioPortUnregister(0xe4, ppi);
+    ioPortUnregister(0xe5, ppi);
+    ioPortUnregister(0xe6, ppi);
+    ioPortUnregister(0xe7, ppi);
 
     deviceManagerUnregister(ppi->deviceHandle);
     debugDeviceUnregister(ppi->debugHandle);

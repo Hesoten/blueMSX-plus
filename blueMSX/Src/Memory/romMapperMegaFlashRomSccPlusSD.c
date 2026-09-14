@@ -561,9 +561,9 @@ static void destroy(RomMapperMfrSccSd* rm)
     if (rm->sdCard[0]) sdCardDestroy(rm->sdCard[0]);
     if (rm->sdCard[1]) sdCardDestroy(rm->sdCard[1]);
 
-    ioPortUnregister(0x10);
-    ioPortUnregister(0x11);
-    ioPortUnregister(0x12);
+    ioPortUnregister(0x10, rm);
+    ioPortUnregister(0x11, rm);
+    ioPortUnregister(0x12, rm);
 
     ramMapperIoRemove(rm->memMapperIoHandle);
 

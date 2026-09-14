@@ -340,21 +340,21 @@ void ay8910Destroy(AY8910* ay8910)
 
     switch (ay8910->connector) {
     case AY8910_MSX:
-        ioPortUnregister(0xa0);
-        ioPortUnregister(0xa1);
-        ioPortUnregister(0xa2);
+        ioPortUnregister(0xa0, ay8910);
+        ioPortUnregister(0xa1, ay8910);
+        ioPortUnregister(0xa2, ay8910);
         break;
 
     case AY8910_MSX_SCCPLUS:
-        ioPortUnregister(0x10);
-        ioPortUnregister(0x11);
-        ioPortUnregister(0x12);
+        ioPortUnregister(0x10, ay8910);
+        ioPortUnregister(0x11, ay8910);
+        ioPortUnregister(0x12, ay8910);
         break;
 
     case AY8910_SVI:
-        ioPortUnregister(0x88);
-        ioPortUnregister(0x8c);
-        ioPortUnregister(0x90);
+        ioPortUnregister(0x88, ay8910);
+        ioPortUnregister(0x8c, ay8910);
+        ioPortUnregister(0x90, ay8910);
         break;
 
     case AY8910_NONE:

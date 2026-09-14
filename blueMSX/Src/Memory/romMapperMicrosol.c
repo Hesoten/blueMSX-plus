@@ -52,11 +52,11 @@ typedef struct {
 
 static void destroy(Microsol* rm)
 {
-    ioPortUnregister(0xd0);
-    ioPortUnregister(0xd1);
-    ioPortUnregister(0xd2);
-    ioPortUnregister(0xd3);
-    ioPortUnregister(0xd4);
+    ioPortUnregister(0xd0, rm);
+    ioPortUnregister(0xd1, rm);
+    ioPortUnregister(0xd2, rm);
+    ioPortUnregister(0xd3, rm);
+    ioPortUnregister(0xd4, rm);
 
     slotUnregister(rm->slot, rm->sslot, rm->startPage);
     deviceManagerUnregister(rm->deviceHandle);

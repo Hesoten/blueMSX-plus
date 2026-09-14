@@ -118,10 +118,10 @@ static void loadState(RomMapperBeerIde* rm)
 
 static void destroy(RomMapperBeerIde* rm)
 {
-    ioPortUnregister(0x30);
-    ioPortUnregister(0x31);
-    ioPortUnregister(0x32);
-    ioPortUnregister(0x33);
+    ioPortUnregister(0x30, rm->i8255);
+    ioPortUnregister(0x31, rm->i8255);
+    ioPortUnregister(0x32, rm->i8255);
+    ioPortUnregister(0x33, rm->i8255);
 
     slotUnregister(rm->slot, rm->sslot, rm->startPage);
     deviceManagerUnregister(rm->deviceHandle);

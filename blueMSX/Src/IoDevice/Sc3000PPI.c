@@ -147,10 +147,10 @@ static UInt16 getKeyState(Sc3000PPI* ppi)
 
 static void destroy(Sc3000PPI* ppi)
 {
-    ioPortUnregister(0xdc);
-    ioPortUnregister(0xdd);
-    ioPortUnregister(0xde);
-    ioPortUnregister(0xdf);
+    ioPortUnregister(0xdc, ppi->i8255);
+    ioPortUnregister(0xdd, ppi->i8255);
+    ioPortUnregister(0xde, ppi->i8255);
+    ioPortUnregister(0xdf, ppi->i8255);
 
     deviceManagerUnregister(ppi->deviceHandle);
     debugDeviceUnregister(ppi->debugHandle);

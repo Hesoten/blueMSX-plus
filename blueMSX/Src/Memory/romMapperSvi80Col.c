@@ -65,9 +65,9 @@ static void loadState(RomMapperSvi328Col80* svi328col80)
 static void destroy(RomMapperSvi328Col80* svi328col80)
 {
 
-    ioPortUnregister(0x50);
-    ioPortUnregister(0x51);
-    ioPortUnregister(0x58);
+    ioPortUnregister(0x50, svi328col80);
+    ioPortUnregister(0x51, svi328col80);
+    ioPortUnregister(0x58, svi328col80);
 
     deviceManagerUnregister(svi328col80->deviceHandle);
     debugDeviceUnregister(svi328col80->debugHandle);

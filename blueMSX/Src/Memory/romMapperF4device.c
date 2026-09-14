@@ -66,7 +66,7 @@ static void destroy(RomMapperF4device* rm)
     deviceManagerUnregister(rm->deviceHandle);
     debugDeviceUnregister(rm->debugHandle);
 
-    ioPortUnregister(0xf4);
+    ioPortUnregister(0xf4, rm);
 
     free(rm);
 }

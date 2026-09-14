@@ -68,12 +68,12 @@ static void loadState(Svi328Fdc* rm)
 
 static void destroy(Svi328Fdc* rm)
 {
-    ioPortUnregister(0x30);
-    ioPortUnregister(0x31);
-    ioPortUnregister(0x32);
-    ioPortUnregister(0x33);
-    ioPortUnregister(0x34);
-    ioPortUnregister(0x38);
+    ioPortUnregister(0x30, rm);
+    ioPortUnregister(0x31, rm);
+    ioPortUnregister(0x32, rm);
+    ioPortUnregister(0x33, rm);
+    ioPortUnregister(0x34, rm);
+    ioPortUnregister(0x38, rm);
 
     deviceManagerUnregister(rm->deviceHandle);
     debugDeviceUnregister(rm->debugHandle);

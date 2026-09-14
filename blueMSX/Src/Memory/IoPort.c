@@ -34,15 +34,24 @@
 #include <string.h>
 #include <stdio.h>
 
-typedef struct IoPortInfo {
+/* Room for the overlaps real hardware produces - a cartridge sound chip
+** doubling a built-in one - with slack. Claims past this are dropped. */
+#define IO_PORT_MAX_CLAIMS 4
+
+typedef struct IoPortClaim {
     IoPortRead  read;
     IoPortWrite write;
     void*       ref;
+} IoPortClaim;
+
+typedef struct IoPortInfo {
+    IoPortClaim claim[IO_PORT_MAX_CLAIMS];
+    int         count;
 } IoPortInfo;
 
-static IoPortInfo ioTable[256];
-static IoPortInfo ioSubTable[256];
-static IoPortInfo ioUnused[2];
+static IoPortInfo  ioTable[256];
+static IoPortClaim ioSubTable[256];
+static IoPortClaim ioUnused[2];
 static int currentSubport;
 
 void ioPortReset()
@@ -55,27 +64,48 @@ void ioPortReset()
 
 void* ioPortGetRef(int port)
 {
-	return ioTable[port].ref;
+	return ioTable[port].count > 0 ? ioTable[port].claim[0].ref : NULL;
 }
 
 void ioPortRegister(int port, IoPortRead read, IoPortWrite write, void* ref)
 {
-    if (ioTable[port].read  == NULL && 
-        ioTable[port].write == NULL && 
-        ioTable[port].ref   == NULL)
-    {
-        ioTable[port].read  = read;
-        ioTable[port].write = write;
-        ioTable[port].ref   = ref;
+    IoPortInfo* info = &ioTable[port];
+    int i;
+
+    for (i = 0; i < info->count; i++) {
+        if (info->claim[i].ref == ref) {
+            info->claim[i].read  = read;
+            info->claim[i].write = write;
+            return;
+        }
     }
+
+    if (info->count == IO_PORT_MAX_CLAIMS) {
+        return;
+    }
+
+    info->claim[info->count].read  = read;
+    info->claim[info->count].write = write;
+    info->claim[info->count].ref   = ref;
+    info->count++;
 }
 
 
-void ioPortUnregister(int port)
+void ioPortUnregister(int port, void* ref)
 {
-    ioTable[port].read  = NULL;
-    ioTable[port].write = NULL;
-    ioTable[port].ref   = NULL;
+    IoPortInfo* info = &ioTable[port];
+    int i;
+
+    for (i = 0; i < info->count; i++) {
+        if (info->claim[i].ref == ref) {
+            info->count--;
+            /* Writes go out in claim order, so close the gap rather than
+            ** swapping the last entry into it. */
+            memmove(&info->claim[i], &info->claim[i + 1],
+                    (size_t)(info->count - i) * sizeof(IoPortClaim));
+            return;
+        }
+    }
 }
 
 void ioPortRegisterUnused(int idx, IoPortRead read, IoPortWrite write, void* ref)
@@ -112,8 +142,25 @@ int ioPortCheckSub(int subport)
     return currentSubport == subport;
 }
 
+/* A handler may claim or release ports while it runs - an I/O enabler does
+** exactly that - so walk a copy instead of the live table. */
+static int ioPortTakeClaims(int port, IoPortClaim* out)
+{
+    int count = ioTable[port].count;
+
+    memcpy(out, ioTable[port].claim, (size_t)count * sizeof(IoPortClaim));
+
+    return count;
+}
+
 UInt8 ioPortRead(void* ref, UInt16 port)
 {
+    IoPortClaim claim[IO_PORT_MAX_CLAIMS];
+    UInt8 value = 0xff;
+    int driven = 0;
+    int count;
+    int i;
+
     port &= 0xff;
 
     if (boardGetType() == BOARD_MSX && port >= 0x40 && port < 0x50) {
@@ -124,21 +171,37 @@ UInt8 ioPortRead(void* ref, UInt16 port)
         return ioSubTable[currentSubport].read(ioSubTable[currentSubport].ref, port);
     }
 
-    if (ioTable[port].read == NULL) {
-        if (ioUnused[0].read != NULL) {
-            return ioUnused[0].read(ioUnused[0].ref, port);
+    count = ioPortTakeClaims(port, claim);
+
+    for (i = 0; i < count; i++) {
+        if (claim[i].read != NULL) {
+            /* Two cards answering at once pull the bus down together. */
+            value &= claim[i].read(claim[i].ref, port);
+            driven = 1;
         }
-        if (ioUnused[1].read != NULL) {
-            return ioUnused[1].read(ioUnused[1].ref, port);
-        }
-        return 0xff;
     }
 
-    return ioTable[port].read(ioTable[port].ref, port);
+    if (driven) {
+        return value;
+    }
+
+    if (ioUnused[0].read != NULL) {
+        return ioUnused[0].read(ioUnused[0].ref, port);
+    }
+    if (ioUnused[1].read != NULL) {
+        return ioUnused[1].read(ioUnused[1].ref, port);
+    }
+
+    return 0xff;
 }
 
 void  ioPortWrite(void* ref, UInt16 port, UInt8 value)
 {
+    IoPortClaim claim[IO_PORT_MAX_CLAIMS];
+    int taken = 0;
+    int count;
+    int i;
+
     boardCheckFdcBoostKill(port, value);
 
     port &= 0xff;
@@ -155,15 +218,23 @@ void  ioPortWrite(void* ref, UInt16 port, UInt8 value)
         return;
     }
 
-    if (ioTable[port].write != NULL) {
-        ioTable[port].write(ioTable[port].ref, port, value);
+    count = ioPortTakeClaims(port, claim);
+
+    for (i = 0; i < count; i++) {
+        if (claim[i].write != NULL) {
+            claim[i].write(claim[i].ref, port, value);
+            taken = 1;
+        }
     }
-    else if (ioUnused[0].write != NULL) {
+
+    if (taken) {
+        return;
+    }
+
+    if (ioUnused[0].write != NULL) {
         ioUnused[0].write(ioUnused[0].ref, port, value);
     }
     else if (ioUnused[1].write != NULL) {
         ioUnused[1].write(ioUnused[1].ref, port, value);
     }
 }
-
-

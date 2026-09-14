@@ -155,8 +155,8 @@ static void writeConfigReg(RomMapperYamanooto* rm, UInt8 value)
             ioPortRegister(0xA0, NULL, ioWrite, rm);
             ioPortRegister(0xA1, NULL, ioWrite, rm);
         } else {
-            ioPortUnregister(0xA0);
-            ioPortUnregister(0xA1);
+            ioPortUnregister(0xA0, rm);
+            ioPortUnregister(0xA1, rm);
         }
     }
     if (changed & (MDIS | ROMDIS | K4)) {
@@ -175,12 +175,12 @@ static void destroy(RomMapperYamanooto* rm)
     if (rm->ay8910) {
         ay8910Destroy(rm->ay8910);
     }
-    ioPortUnregister(0x10);
-    ioPortUnregister(0x11);
-    ioPortUnregister(0x12);
+    ioPortUnregister(0x10, rm);
+    ioPortUnregister(0x11, rm);
+    ioPortUnregister(0x12, rm);
     if (rm->configReg & ECHO) {
-        ioPortUnregister(0xA0);
-        ioPortUnregister(0xA1);
+        ioPortUnregister(0xA0, rm);
+        ioPortUnregister(0xA1, rm);
     }
     slotUnregister(rm->slot, rm->sslot, rm->startPage);
     deviceManagerUnregister(rm->deviceHandle);

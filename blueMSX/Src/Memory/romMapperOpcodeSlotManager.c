@@ -74,7 +74,7 @@ static void destroy(RomMapperOpcodeSlotManager* rm)
     deviceManagerUnregister(rm->deviceHandle);
     debugDeviceUnregister(rm->debugHandle);
 
-    ioPortUnregister(0x41);
+    ioPortUnregister(0x41, rm);
 
     free(rm);
 }

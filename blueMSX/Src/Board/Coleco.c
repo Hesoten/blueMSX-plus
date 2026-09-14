@@ -243,7 +243,7 @@ static void colecoJoyIoDestroy(void* dummy)
 {
     int i;
     for (i = 0xe0; i <= 0xff; i++) {
-        ioPortUnregister(i);
+        ioPortUnregister(i, NULL);
     }
     
     if (joyDevice[0] != NULL && joyDevice[0]->destroy != NULL) {

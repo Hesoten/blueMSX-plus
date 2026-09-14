@@ -59,7 +59,7 @@ static void destroy(RomMapperJoyrexPsg* rm)
     debugDeviceUnregister(rm->debugHandle);
     sn76489Destroy(rm->sn76489);
 
-    ioPortUnregister(0xf0);
+    ioPortUnregister(0xf0, rm);
 
     free(rm);
 }

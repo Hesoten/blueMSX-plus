@@ -73,8 +73,8 @@ static void loadState(RomMapperKonamiKeyboardMaster* rm)
 
 static void destroy(RomMapperKonamiKeyboardMaster* rm)
 {
-    ioPortUnregister(0x00);
-    ioPortUnregister(0x20);
+    ioPortUnregister(0x00, rm);
+    ioPortUnregister(0x20, rm);
 
     slotUnregister(rm->slot, rm->sslot, rm->startPage);
     deviceManagerUnregister(rm->deviceHandle);

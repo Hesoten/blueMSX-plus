@@ -77,8 +77,8 @@ static void destroy(void* arg)
 {
     RomMapperFMPAK* rm = (RomMapperFMPAK*)arg;
 
-    ioPortUnregister(0x7c);
-    ioPortUnregister(0x7d);
+    ioPortUnregister(0x7c, rm);
+    ioPortUnregister(0x7d, rm);
 
     slotUnregister(rm->slot, rm->sslot, rm->startPage);
     deviceManagerUnregister(rm->deviceHandle);

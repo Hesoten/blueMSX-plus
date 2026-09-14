@@ -76,25 +76,25 @@ static void destroy(RomMapperSvi328Rs232* rs232)
 {
     switch (rs232->connector) {
     case SVI328_MODEM:
-        ioPortUnregister(0x20);
-        ioPortUnregister(0x21);
-        ioPortUnregister(0x22);
-        ioPortUnregister(0x23);
-        ioPortUnregister(0x24);
-        ioPortUnregister(0x25);
-        ioPortUnregister(0x26);
-        ioPortUnregister(0x27);
+        ioPortUnregister(0x20, rs232);
+        ioPortUnregister(0x21, rs232);
+        ioPortUnregister(0x22, rs232);
+        ioPortUnregister(0x23, rs232);
+        ioPortUnregister(0x24, rs232);
+        ioPortUnregister(0x25, rs232);
+        ioPortUnregister(0x26, rs232);
+        ioPortUnregister(0x27, rs232);
         break;
 
     case SVI328_RS232:
-        ioPortUnregister(0x28);
-        ioPortUnregister(0x29);
-        ioPortUnregister(0x2A);
-        ioPortUnregister(0x2B);
-        ioPortUnregister(0x2C);
-        ioPortUnregister(0x2D);
-        ioPortUnregister(0x2E);
-        ioPortUnregister(0x2F);
+        ioPortUnregister(0x28, rs232);
+        ioPortUnregister(0x29, rs232);
+        ioPortUnregister(0x2A, rs232);
+        ioPortUnregister(0x2B, rs232);
+        ioPortUnregister(0x2C, rs232);
+        ioPortUnregister(0x2D, rs232);
+        ioPortUnregister(0x2E, rs232);
+        ioPortUnregister(0x2F, rs232);
         break;
     }
     
