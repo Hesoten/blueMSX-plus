@@ -208,6 +208,18 @@ static UInt8 ym2148ReadData(YM2148* midi)
     return midi->rxData;
 }
 
+/* The cast matches ym2148ReadStatus, which drops everything above the
+** low byte before the guest sees it. */
+static UInt8 ym2148PeekStatus(YM2148* midi)
+{
+    return (UInt8)midi->status;
+}
+
+static UInt8 ym2148PeekData(YM2148* midi)
+{
+    return midi->rxData;
+}
+
 static void ym2148SetVector(YM2148* midi, UInt8 value)
 {
     midi->vector = value;
@@ -406,6 +418,21 @@ static UInt8 read(RomMapperSfg05* rm, UInt16 address)
     return 0xff;
 }
 
+/* Reading the MIDI data and status ports clears the receive and
+** interrupt flags.  The switch takes the address unmasked, unlike the
+** one in read, so a 32 KB ROM keeps its image bytes at 0x7ff5. */
+static UInt8 peek(RomMapperSfg05* rm, UInt16 address)
+{
+    switch (address) {
+    case 0x3ff5:
+        return ym2148PeekData(rm->ym2148);
+    case 0x3ff6:
+        return ym2148PeekStatus(rm->ym2148);
+    }
+
+    return read(rm, address);
+}
+
 static void reset(RomMapperSfg05* rm) 
 {
     ym2151Reset(rm->ym2151);
@@ -469,7 +496,7 @@ int romMapperSfg05Create(const char* filename, UInt8* romData,
     rm->deviceHandle = deviceManagerRegister(pages == 2 ? ROM_YAMAHASFG01 : ROM_YAMAHASFG05, &callbacks, rm);
     rm->debugHandle = debugDeviceRegister(DBGTYPE_AUDIO, langDbgDevSfg05(), &dbgCallbacks, rm);
 
-    slotRegister(slot, sslot, startPage, pages, read, read, write, destroy, rm);
+    slotRegister(slot, sslot, startPage, pages, read, peek, write, destroy, rm);
 
     rm->romData = malloc(size);
     memcpy(rm->romData, romData, size);

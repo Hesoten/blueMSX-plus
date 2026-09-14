@@ -162,6 +162,13 @@ static void writeToFlash(RomMapperMfrSccSd* rm, UInt32 flashAddr, UInt8 value)
     }
 }
 
+/* amdFlashRead drops the command buffer while the chip answers in ident
+** or CFI mode, so observers take the stored image instead. */
+static UInt8 peekFlash(RomMapperMfrSccSd* rm, UInt32 flashAddr)
+{
+    return (flashAddr != 0xFFFFFFFFu) ? *amdFlashGetPage(rm->flash, flashAddr) : 0xFF;
+}
+
 
 /* ------------------- SCC enable detection (subslot 1) ------------------- */
 
@@ -255,7 +262,7 @@ static UInt8 peekMemSubSlot1(RomMapperMfrSccSd* rm, UInt16 addr)
     }
 
     flashAddr = getFlashAddrSubSlot1(rm, addr);
-    return (flashAddr != 0xFFFFFFFFu) ? amdFlashRead(rm->flash, flashAddr) : 0xFF;
+    return peekFlash(rm, flashAddr);
 }
 
 static void writeMemSubSlot1(RomMapperMfrSccSd* rm, UInt16 addr, UInt8 value)
@@ -398,12 +405,19 @@ static UInt32 getFlashAddrSubSlot3(RomMapperMfrSccSd* rm, UInt16 addr)
            (addr & 0x1FFF) + BASE_SUBSLOT3;
 }
 
+/* Bank register 0 swaps the flash at 0x4000-0x5FFF for the card's SPI
+** port, with A12 driving chip select. */
+static int isSdWindow(RomMapperMfrSccSd* rm, UInt16 addr)
+{
+    return ((rm->bankRegsSubSlot3[0] & 0xC0) == 0x40) &&
+           addr >= 0x4000 && addr < 0x6000;
+}
+
 static UInt8 readMemSubSlot3(RomMapperMfrSccSd* rm, UInt16 addr)
 {
     UInt32 flashAddr;
 
-    if (((rm->bankRegsSubSlot3[0] & 0xC0) == 0x40) &&
-        addr >= 0x4000 && addr < 0x6000) {
+    if (isSdWindow(rm, addr)) {
         SdCard* card = rm->sdCard[rm->selectedCard];
         return (card == NULL) ? 0xFF
                               : sdCardTransferCs(card, 0xFF, (addr & 0x1000) != 0);
@@ -418,10 +432,23 @@ static UInt8 readMemSubSlot3(RomMapperMfrSccSd* rm, UInt16 addr)
     return 0xFF;
 }
 
+/* The SD window is a live SPI port: clocking it moves the card on, so
+** answer the way an empty slot does. */
+static UInt8 peekMemSubSlot3(RomMapperMfrSccSd* rm, UInt16 addr)
+{
+    if (isSdWindow(rm, addr)) {
+        return 0xFF;
+    }
+
+    if (addr >= 0x4000 && addr < 0xC000) {
+        return peekFlash(rm, getFlashAddrSubSlot3(rm, addr));
+    }
+    return 0xFF;
+}
+
 static void writeMemSubSlot3(RomMapperMfrSccSd* rm, UInt16 addr, UInt8 value)
 {
-    if (((rm->bankRegsSubSlot3[0] & 0xC0) == 0x40) &&
-        addr >= 0x4000 && addr < 0x6000) {
+    if (isSdWindow(rm, addr)) {
         SdCard* card = rm->sdCard[rm->selectedCard];
         if (addr >= 0x5800) {
             rm->selectedCard = value & 1;
@@ -464,7 +491,7 @@ static void writeMemSubSlot3(RomMapperMfrSccSd* rm, UInt16 addr, UInt8 value)
 ** so dispatch from each subslot's thunk: expander-disabled => subslot 1. */
 
 static UInt8 thunkRead0(RomMapperMfrSccSd* rm, UInt16 addr)  { return isSlotExpanderEnabled(rm) ? readMemSubSlot0(rm, addr) : readMemSubSlot1(rm, addr); }
-static UInt8 thunkPeek0(RomMapperMfrSccSd* rm, UInt16 addr)  { return isSlotExpanderEnabled(rm) ? amdFlashRead(rm->flash, addr & 0x3FFF) : peekMemSubSlot1(rm, addr); }
+static UInt8 thunkPeek0(RomMapperMfrSccSd* rm, UInt16 addr)  { return isSlotExpanderEnabled(rm) ? peekFlash(rm, addr & 0x3FFF) : peekMemSubSlot1(rm, addr); }
 static void  thunkWrite0(RomMapperMfrSccSd* rm, UInt16 addr, UInt8 v) { if (isSlotExpanderEnabled(rm)) writeMemSubSlot0(rm, addr, v); else writeMemSubSlot1(rm, addr, v); }
 
 static UInt8 thunkRead1(RomMapperMfrSccSd* rm, UInt16 addr)  { return readMemSubSlot1(rm, addr); }
@@ -476,7 +503,7 @@ static UInt8 thunkPeek2(RomMapperMfrSccSd* rm, UInt16 addr)  { return !isSlotExp
 static void  thunkWrite2(RomMapperMfrSccSd* rm, UInt16 addr, UInt8 v) { if (!isSlotExpanderEnabled(rm)) writeMemSubSlot1(rm, addr, v); else if (isMemoryMapperEnabled(rm)) writeMemSubSlot2(rm, addr, v); }
 
 static UInt8 thunkRead3(RomMapperMfrSccSd* rm, UInt16 addr)  { return isSlotExpanderEnabled(rm) ? readMemSubSlot3(rm, addr) : readMemSubSlot1(rm, addr); }
-static UInt8 thunkPeek3(RomMapperMfrSccSd* rm, UInt16 addr)  { return isSlotExpanderEnabled(rm) ? readMemSubSlot3(rm, addr) : peekMemSubSlot1(rm, addr); }
+static UInt8 thunkPeek3(RomMapperMfrSccSd* rm, UInt16 addr)  { return isSlotExpanderEnabled(rm) ? peekMemSubSlot3(rm, addr) : peekMemSubSlot1(rm, addr); }
 static void  thunkWrite3(RomMapperMfrSccSd* rm, UInt16 addr, UInt8 v) { if (isSlotExpanderEnabled(rm)) writeMemSubSlot3(rm, addr, v); else writeMemSubSlot1(rm, addr, v); }
 
 /* ------------------- SaveState ------------------- */

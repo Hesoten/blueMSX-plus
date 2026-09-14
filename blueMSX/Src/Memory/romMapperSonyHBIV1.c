@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik, Tomas Karlsson
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -293,6 +296,19 @@ static UInt8 read(RomMapperSonyHbiV1* rm, UInt16 address)
     return value;
 }
 
+/* The digitizer port steps to the next byte on every read and 0x3ffc
+** flips two status bits, so report what a read would return right now. */
+static UInt8 peek(RomMapperSonyHbiV1* rm, UInt16 address)
+{
+    if (address >= 0x3e00 && address < 0x3f00) {
+        return rm->vram[rm->vramLine][rm->vramOffset];
+    }
+    if (address == 0x3ffc) {
+        return (rm->status0 ^ 060) | rm->command;
+    }
+    return read(rm, address);
+}
+
 static void write(RomMapperSonyHbiV1* rm, UInt16 address, UInt8 value) 
 {
     if (address >= 0x8000) {
@@ -375,7 +391,7 @@ int romMapperSonyHbiV1Create(const char* filename, UInt8* romData, int size,
     rm = malloc(sizeof(RomMapperSonyHbiV1));
 
     rm->deviceHandle = deviceManagerRegister(ROM_SONYHBIV1, &callbacks, rm);
-    slotRegister(slot, sslot, startPage, 4, read, read, write, destroy, rm);
+    slotRegister(slot, sslot, startPage, 4, read, peek, write, destroy, rm);
 
     rm->romData = calloc(1, size);
     memcpy(rm->romData, romData, size);

@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -208,6 +211,16 @@ static UInt8 ym2148ReadData(YM2148* midi)
     return midi->rxData;
 }
 
+static UInt8 ym2148PeekStatus(YM2148* midi)
+{
+    return midi->status;
+}
+
+static UInt8 ym2148PeekData(YM2148* midi)
+{
+    return midi->rxData;
+}
+
 static void ym2148SetVector(YM2148* midi, UInt8 value)
 {
     midi->vector = value;
@@ -392,6 +405,21 @@ static UInt8 read(RomMapperNet* rm, UInt16 address)
     return 0xff;
 }
 
+/* Reading the MIDI data and status ports clears the receive and
+** interrupt flags.  The switch takes the address unmasked, unlike the
+** one in read, so a 32 KB ROM keeps its image bytes at 0x7ff5. */
+static UInt8 peek(RomMapperNet* rm, UInt16 address)
+{
+    switch (address) {
+    case 0x3ff5:
+        return ym2148PeekData(rm->ym2148);
+    case 0x3ff6:
+        return ym2148PeekStatus(rm->ym2148);
+    }
+
+    return read(rm, address);
+}
+
 static void reset(RomMapperNet* rm) 
 {
     ym2151Reset(rm->ym2151);
@@ -455,7 +483,7 @@ int romMapperNetCreate(const char* filename, UInt8* romData,
     rm->deviceHandle = deviceManagerRegister(ROM_YAMAHANET, &callbacks, rm);
     rm->debugHandle = debugDeviceRegister(DBGTYPE_BIOS, "Yamaha Net", &dbgCallbacks, rm);
 
-    slotRegister(slot, sslot, startPage, pages, read, read, write, destroy, rm);
+    slotRegister(slot, sslot, startPage, pages, read, peek, write, destroy, rm);
 
     rm->romData = malloc(size);
     memcpy(rm->romData, romData, size);
