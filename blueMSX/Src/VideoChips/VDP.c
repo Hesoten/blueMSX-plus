@@ -360,6 +360,9 @@ struct VDP {
     int    vramEnable;
     int    vramMask;
     int    lineOffset;
+    /* Set while the current line is being laid out again after a mid-line
+    ** horizontal scroll change, so the replay repeats no side effects. */
+    int    reScroll;
     int    firstLine;
     int    lastLine;
     int    displayOffest;
@@ -931,6 +934,43 @@ static void onScrModeChange(VDP* vdp, UInt32 time)
     vdp->leftBorder += vdp->HAdjust;
 }
 
+/* R#26/R#27 written part way through a scan line. The renderers read the
+** scroll once, when the line starts, so lay the line out again with the new
+** value and put back the pixels that were already on screen. */
+static void rescrollLine(VDP* vdp)
+{
+    Pixel  saved[FB_MAX_LINE_WIDTH];
+    Pixel* start;
+    int drawn;
+
+    if (vdp->lineOffset < 0 || vdp->lineOffset > 32) {
+        return;
+    }
+    if (vdp->curLine < vdp->displayOffest || vdp->curLine >= vdp->displayOffest + SCREEN_HEIGHT) {
+        return;
+    }
+    if (!vdp->videoEnabled || !displayEnable || frameBufferGetDrawFrame() == NULL) {
+        return;
+    }
+
+    start = RefreshLineStart(vdp->curLine);
+    drawn = RefreshLineDrawn(vdp);
+    if (start == NULL || drawn < 0 || drawn > FB_MAX_LINE_WIDTH) {
+        return;
+    }
+    if (drawn > 0) {
+        memcpy(saved, start, drawn * sizeof(Pixel));
+    }
+
+    vdp->reScroll = 1;
+    vdp->RefreshLine(vdp, vdp->curLine, -1, vdp->lineOffset);
+    vdp->reScroll = 0;
+
+    if (drawn > 0) {
+        memcpy(start, saved, drawn * sizeof(Pixel));
+    }
+}
+
 static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
 { 
     UInt8 change;
@@ -1115,6 +1155,13 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
     case 25: 
         if (change) {
             scheduleScrModeChange(vdp);
+        }
+        break;
+
+    case 26:
+    case 27:
+        if (change) {
+            rescrollLine(vdp);
         }
         break;
 

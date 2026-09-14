@@ -80,6 +80,8 @@ static Pixel* linePtr8 = NULL;
 static Pixel* linePtr10 = NULL;
 static Pixel* linePtr12 = NULL;
 static Pixel* linePtrBlank = NULL;
+static Pixel* linePtrStart = NULL;
+static int    linePtrStartLine = -1;
 
 
 void RefreshLineReset()
@@ -99,6 +101,8 @@ void RefreshLineReset()
     linePtr10 = NULL;
     linePtr12 = NULL;
     linePtrBlank = NULL;
+    linePtrStart = NULL;
+    linePtrStartLine = -1;
 }
 
 Pixel *RefreshBorder(VDP* vdp, int Y, Pixel bgColor, int line512, int borderExtra)
@@ -112,6 +116,7 @@ Pixel *RefreshBorder(VDP* vdp, int Y, Pixel bgColor, int line512, int borderExtr
         return NULL;
     }
 
+    linePtrStartLine = Y;
     Y -= vdp->displayOffest;
 
     frameBufferSetScanline(Y);
@@ -130,7 +135,7 @@ Pixel *RefreshBorder(VDP* vdp, int Y, Pixel bgColor, int line512, int borderExtr
         *linePtr++ = bgColor;
     }
 
-    return linePtr;
+    return linePtrStart = linePtr;
 }
 
 Pixel *RefreshBorder6(VDP* vdp, int Y, Pixel bgColor1, Pixel bgColor2, int line512, int borderExtra)
@@ -144,6 +149,7 @@ Pixel *RefreshBorder6(VDP* vdp, int Y, Pixel bgColor1, Pixel bgColor2, int line5
         return NULL;
     }
 
+    linePtrStartLine = Y;
     Y -= vdp->displayOffest;
 
     frameBufferSetScanline(Y);
@@ -163,7 +169,7 @@ Pixel *RefreshBorder6(VDP* vdp, int Y, Pixel bgColor1, Pixel bgColor2, int line5
         *linePtr++ = bgColor2;
     }
 
-    return linePtr;
+    return linePtrStart = linePtr;
 }
 
 static void RefreshRightBorder(VDP* vdp, int Y, Pixel bgColor, int line512, int borderExtra) {
@@ -1505,7 +1511,7 @@ static void RefreshLine5(VDP* vdp, int Y, int X, int X2)
     }
 
 #define BRK_5 24
-    if (X < BRK_5 && X2 >= BRK_5) colorSpritesLine(vdp, Y, 0);
+    if (!vdp->reScroll && X < BRK_5 && X2 >= BRK_5) colorSpritesLine(vdp, Y, 0);
 
     rightBorder = X2 == 33;
     if (rightBorder) {
@@ -1991,7 +1997,7 @@ static void RefreshLine6(VDP* vdp, int Y, int X, int X2)
     }
 
 #define BRK_6 24
-    if (X < BRK_6 && X2 >= BRK_6) colorSpritesLine(vdp, Y, 1);
+    if (!vdp->reScroll && X < BRK_6 && X2 >= BRK_6) colorSpritesLine(vdp, Y, 1);
 
     rightBorder = X2 == 33;
     if (rightBorder) {
@@ -2136,7 +2142,7 @@ static void RefreshLine7(VDP* vdp, int Y, int X, int X2)
     }
 
 #define BRK_7 24
-    if (X < BRK_7 && X2 >= BRK_7) colorSpritesLine(vdp, Y, 0);
+    if (!vdp->reScroll && X < BRK_7 && X2 >= BRK_7) colorSpritesLine(vdp, Y, 0);
 
     rightBorder = X2 == 33;
     if (rightBorder) {
@@ -2382,7 +2388,7 @@ static void RefreshLine8(VDP* vdp, int Y, int X, int X2)
     }
 
 #define BRK_8 24
-    if (X < BRK_8 && X2 >= BRK_8) colorSpritesLine(vdp, Y, 0);
+    if (!vdp->reScroll && X < BRK_8 && X2 >= BRK_8) colorSpritesLine(vdp, Y, 0);
 
     rightBorder = X2 == 33;
     if (rightBorder) {
@@ -2533,7 +2539,7 @@ static void RefreshLine10(VDP* vdp, int Y, int X, int X2)
     }
 
 #define BRK_10 24
-    if (X < BRK_10 && X2 >= BRK_10) colorSpritesLine(vdp, Y, 0);
+    if (!vdp->reScroll && X < BRK_10 && X2 >= BRK_10) colorSpritesLine(vdp, Y, 0);
 
 rightBorder = X2 == 33;
     if (rightBorder) {
@@ -2713,7 +2719,7 @@ static void RefreshLine12(VDP* vdp, int Y, int X, int X2)
     }
 
 #define BRK_12 24
-    if (X < BRK_12 && X2 >= BRK_12) colorSpritesLine(vdp, Y, 0);
+    if (!vdp->reScroll && X < BRK_12 && X2 >= BRK_12) colorSpritesLine(vdp, Y, 0);
 
     rightBorder = X2 == 33;
     if (rightBorder) {
@@ -2845,4 +2851,35 @@ static void RefreshLine12(VDP* vdp, int Y, int X, int X2)
 //        colorSpritesLine(vdp, Y, 0);
         RefreshRightBorder(vdp, Y, vdp->palette[vdp->BGColor], 0, 0);
     }
+}
+
+/* Where the active area of line Y begins, or NULL if the line has not been
+** started or another line was drawn since. */
+static Pixel* RefreshLineStart(int Y)
+{
+    return linePtrStartLine == Y ? linePtrStart : NULL;
+}
+
+/* How many entries of the active area the renderer has written. A mode this
+** does not know about answers none. */
+static int RefreshLineDrawn(VDP* vdp)
+{
+    Pixel* cur = NULL;
+
+    if      (vdp->RefreshLine == RefreshLine0)     cur = linePtr0;
+    else if (vdp->RefreshLine == RefreshLine0Plus) cur = linePtr0p;
+    else if (vdp->RefreshLine == RefreshLine0Mix)  cur = linePtr0m;
+    else if (vdp->RefreshLine == RefreshLineTx80)  cur = linePtr0w;
+    else if (vdp->RefreshLine == RefreshLine1)     cur = linePtr1;
+    else if (vdp->RefreshLine == RefreshLine2)     cur = linePtr2;
+    else if (vdp->RefreshLine == RefreshLine3)     cur = linePtr3;
+    else if (vdp->RefreshLine == RefreshLine4)     cur = linePtr4;
+    else if (vdp->RefreshLine == RefreshLine5)     cur = linePtr5;
+    else if (vdp->RefreshLine == RefreshLine6)     cur = linePtr6;
+    else if (vdp->RefreshLine == RefreshLine7)     cur = linePtr7;
+    else if (vdp->RefreshLine == RefreshLine8)     cur = linePtr8;
+    else if (vdp->RefreshLine == RefreshLine10)    cur = linePtr10;
+    else if (vdp->RefreshLine == RefreshLine12)    cur = linePtr12;
+
+    return cur == NULL || linePtrStart == NULL ? 0 : (int)(cur - linePtrStart);
 }
