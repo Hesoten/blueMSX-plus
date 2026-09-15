@@ -240,6 +240,7 @@ static void press(int row, int mask, int down)
 static void onTimer(void* ref, UInt32 time)
 {
     UInt32 next = time + boardFrequency() / 1000 * IDLE_POLL_MS;
+    UInt32 now;
 
     takeLock();
 
@@ -264,6 +265,13 @@ static void onTimer(void* ref, UInt32 time)
 
     dropLock();
 
+    /* boardTimerAdd drops a timer whose time has passed, and the time handed
+    ** to a callback is its own timeout, which the clock may already be past.
+    ** A zero wait would otherwise stop the queue for good. */
+    now = boardSystemTime();
+    if (next - time <= now - time) {
+        next = now + 1;
+    }
     boardTimerAdd(timer, next);
 }
 
