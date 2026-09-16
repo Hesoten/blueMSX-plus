@@ -124,11 +124,16 @@ static void sg1000IoPortCreate()
 	for (i=0x40; i<0x80; i++)
 		ioPortRegister(i, NULL, sg1000Sn76489Write, NULL);
 
+	/* The SC-3000 and SF-7000 read the joysticks through a PPI that already
+	** holds some of these ports. */
 	for (i=0xC0; i<0x100; i+=2)
-		ioPortRegister(i, joyIoRead, NULL, NULL);
-    
-	ioPortRegister(0xc1, joyIoRead, NULL, NULL);
-	ioPortRegister(0xdd, joyIoRead, NULL, NULL);
+		if (ioPortGetRef(i) == NULL)
+			ioPortRegister(i, joyIoRead, NULL, NULL);
+
+	if (ioPortGetRef(0xc1) == NULL)
+		ioPortRegister(0xc1, joyIoRead, NULL, NULL);
+	if (ioPortGetRef(0xdd) == NULL)
+		ioPortRegister(0xdd, joyIoRead, NULL, NULL);
 }
 
 // -----------------------------------------------------
