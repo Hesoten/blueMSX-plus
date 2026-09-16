@@ -241,35 +241,20 @@ void msxPPICreate(int ignoreKeyboard)
 
 static UInt8 getKeyState(int row)
 {
-	#define _ROW(k7,k6,k5,k4,k3,k2,k1,k0) ((inputEventGetState(k7)<<7)|(inputEventGetState(k6)<<6)|(inputEventGetState(k5)<<5)|(inputEventGetState(k4)<<4)|(inputEventGetState(k3)<<3)|(inputEventGetState(k2)<<2)|(inputEventGetState(k1)<<1)|inputEventGetState(k0))
-	#define ROW0  ~_ROW(EC_7,      EC_6,      EC_5,      EC_4,      EC_3,      EC_2,      EC_1,      EC_0      )
-	#define ROW1  ~_ROW(EC_SEMICOL,EC_LBRACK, EC_AT,     EC_BKSLASH,EC_CIRCFLX,EC_NEG,    EC_9,      EC_8      )
-	#define ROW2  ~_ROW(EC_B,      EC_A,      EC_UNDSCRE,EC_DIV,    EC_PERIOD, EC_COMMA,  EC_RBRACK, EC_COLON  )
-	#define ROW3  ~_ROW(EC_J,      EC_I,      EC_H,      EC_G,      EC_F,      EC_E,      EC_D,      EC_C      )
-	#define ROW4  ~_ROW(EC_R,      EC_Q,      EC_P,      EC_O,      EC_N,      EC_M,      EC_L,      EC_K      )
-	#define ROW5  ~_ROW(EC_Z,      EC_Y,      EC_X,      EC_W,      EC_V,      EC_U,      EC_T,      EC_S      )
-	#define ROW6 ~(_ROW(EC_F3,     EC_F2,     EC_F1,     EC_CODE,   EC_CAPS,   EC_GRAPH,  EC_CTRL,   EC_LSHIFT )|inputEventGetState(EC_RSHIFT))
-	#define ROW7  ~_ROW(EC_RETURN, EC_SELECT, EC_BKSPACE,EC_STOP,   EC_TAB,    EC_ESC,    EC_F5,     EC_F4     )
-	#define ROW8  ~_ROW(EC_RIGHT,  EC_DOWN,   EC_UP,     EC_LEFT,   EC_DEL,    EC_INS,    EC_CLS,    EC_SPACE  )
-	#define ROW9  ~_ROW(EC_NUM4,   EC_NUM3,   EC_NUM2,   EC_NUM1,   EC_NUM0,   EC_NUMDIV, EC_NUMADD, EC_NUMMUL )
-	#define ROW10 ~_ROW(EC_NUMPER, EC_NUMCOM, EC_NUMSUB, EC_NUM9,   EC_NUM8,   EC_NUM7,   EC_NUM6,   EC_NUM5   )
-	#define ROW11 ~((inputEventGetState(EC_TORIKE)<<3)|(inputEventGetState(EC_JIKKOU)<<1))
+	/* An empty position is EC_NONE, which is 0, so the test folds away and
+	** event 0 is never read. It can be set, and would look like a key. */
+	#define MSX_KEY_BIT(k,n) ((k) ? (inputEventGetState(k)<<(n)) : 0)
+	#define MSX_KEY_ALT(r)   ((r)==6 ? inputEventGetState(EC_RSHIFT) : 0)
+	#define MSX_KEY_ROW(r,k7,k6,k5,k4,k3,k2,k1,k0) \
+		~(MSX_KEY_BIT(k7,7)|MSX_KEY_BIT(k6,6)|MSX_KEY_BIT(k5,5)|MSX_KEY_BIT(k4,4)| \
+		  MSX_KEY_BIT(k3,3)|MSX_KEY_BIT(k2,2)|MSX_KEY_BIT(k1,1)|MSX_KEY_BIT(k0,0)|MSX_KEY_ALT(r))
 
     Properties* pProperties = propGetGlobalProperties();
     if (!pProperties->keyboard.enableKeyboardQuirk) {
 	    switch (row) {
-		    case 0:  return ROW0;
-		    case 1:  return ROW1;
-		    case 2:  return ROW2;
-		    case 3:  return ROW3;
-		    case 4:  return ROW4;
-		    case 5:  return ROW5;
-		    case 6:  return ROW6;
-		    case 7:  return ROW7;
-		    case 8:  return ROW8;
-		    case 9:  return ROW9;
-		    case 10: return ROW10;
-		    case 11: return ROW11;
+	#define X(r,k7,k6,k5,k4,k3,k2,k1,k0) case r: return MSX_KEY_ROW(r,k7,k6,k5,k4,k3,k2,k1,k0);
+		    MSX_KEY_MATRIX(X)
+	#undef X
 		    default: break;
 	    }
 	    return 0xff;
@@ -279,7 +264,9 @@ static UInt8 getKeyState(int row)
 	    Same, but including MSX keyboard matrix quirk, eg. pressing X+Z+J results in X+Z+H+J.
 	    Slower than the above, since it needs data of all rows
 	    */
-	    UInt8 keyrow[12]={ROW0,ROW1,ROW2,ROW3,ROW4,ROW5,ROW6,ROW7,ROW8,ROW9,ROW10,ROW11};
+	#define X(r,k7,k6,k5,k4,k3,k2,k1,k0) MSX_KEY_ROW(r,k7,k6,k5,k4,k3,k2,k1,k0),
+	    UInt8 keyrow[12]={MSX_KEY_MATRIX(X)};
+	#undef X
 	    int i=11;
 	
 	    if (row>11) return 0xff;
@@ -311,3 +298,7 @@ static UInt8 getKeyState(int row)
 	    return keyrow[row];
     }
 }
+
+#undef MSX_KEY_ROW
+#undef MSX_KEY_ALT
+#undef MSX_KEY_BIT
