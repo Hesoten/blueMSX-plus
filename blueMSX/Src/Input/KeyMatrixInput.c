@@ -22,6 +22,7 @@
 */
 #include "KeyMatrixInput.h"
 #include "InputEvent.h"
+#include "MsxPPI.h"
 #include "Board.h"
 #include "ArchEvent.h"
 #include <string.h>
@@ -39,25 +40,14 @@ typedef struct {
     UInt16 value;       /* the mask, or the wait in milliseconds */
 } Command;
 
-/* The same rows MsxPPI reads, most significant bit first. Keys are held in
-** the injected events rather than set like the host keyboard's: the keyboard
-** layer resets its events on every poll while the window has no focus, which
-** would let a held key go within milliseconds. Key bindings never come into
-** it either way. */
+/* Keys are held in the injected events rather than set like the host
+** keyboard's: the keyboard layer resets its events on every poll while the
+** window has no focus, which would let a held key go within milliseconds. */
+#define X(r,k7,k6,k5,k4,k3,k2,k1,k0) { k7, k6, k5, k4, k3, k2, k1, k0 },
 static const int matrix[MATRIX_ROWS][8] = {
-    { EC_7,       EC_6,      EC_5,       EC_4,       EC_3,      EC_2,      EC_1,      EC_0      },
-    { EC_SEMICOL, EC_LBRACK, EC_AT,      EC_BKSLASH, EC_CIRCFLX,EC_NEG,    EC_9,      EC_8      },
-    { EC_B,       EC_A,      EC_UNDSCRE, EC_DIV,     EC_PERIOD, EC_COMMA,  EC_RBRACK, EC_COLON  },
-    { EC_J,       EC_I,      EC_H,       EC_G,       EC_F,      EC_E,      EC_D,      EC_C      },
-    { EC_R,       EC_Q,      EC_P,       EC_O,       EC_N,      EC_M,      EC_L,      EC_K      },
-    { EC_Z,       EC_Y,      EC_X,       EC_W,       EC_V,      EC_U,      EC_T,      EC_S      },
-    { EC_F3,      EC_F2,     EC_F1,      EC_CODE,    EC_CAPS,   EC_GRAPH,  EC_CTRL,   EC_LSHIFT },
-    { EC_RETURN,  EC_SELECT, EC_BKSPACE, EC_STOP,    EC_TAB,    EC_ESC,    EC_F5,     EC_F4     },
-    { EC_RIGHT,   EC_DOWN,   EC_UP,      EC_LEFT,    EC_DEL,    EC_INS,    EC_CLS,    EC_SPACE  },
-    { EC_NUM4,    EC_NUM3,   EC_NUM2,    EC_NUM1,    EC_NUM0,   EC_NUMDIV, EC_NUMADD, EC_NUMMUL },
-    { EC_NUMPER,  EC_NUMCOM, EC_NUMSUB,  EC_NUM9,    EC_NUM8,   EC_NUM7,   EC_NUM6,   EC_NUM5   },
-    { EC_NONE,    EC_NONE,   EC_NONE,    EC_NONE,    EC_TORIKE, EC_NONE,   EC_JIKKOU, EC_NONE   },
+    MSX_KEY_MATRIX(X)
 };
+#undef X
 
 /* The queue is filled by whoever receives a request and emptied on the
 ** emulation thread, so both sides take the lock. */
