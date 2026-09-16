@@ -32,6 +32,7 @@
 
 static char* eventNames[256];
 int   eventMap[256];
+int   eventInjected[256];
 
 static void initKeyNameTable()
 {

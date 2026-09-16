@@ -979,6 +979,7 @@
     <ClCompile Include="..\..\Src\Input\CoinDevice.c" />
     <ClCompile Include="..\..\Src\Input\ColecoJoystick.c" />
     <ClCompile Include="..\..\Src\Input\InputEvent.c" />
+    <ClCompile Include="..\..\Src\Input\KeyMatrixInput.c" />
     <ClCompile Include="..\..\Src\Input\JoystickPort.c" />
     <ClCompile Include="..\..\Src\Input\MagicKeyDongle.c" />
     <ClCompile Include="..\..\Src\Input\MsxArkanoidPad.c" />
@@ -1352,6 +1353,7 @@
     <ClInclude Include="..\..\Src\Input\ColecoJoystick.h" />
     <ClInclude Include="..\..\Src\Input\ColecoJoystickDevice.h" />
     <ClInclude Include="..\..\Src\Input\InputEvent.h" />
+    <ClInclude Include="..\..\Src\Input\KeyMatrixInput.h" />
     <ClInclude Include="..\..\Src\Input\JoystickPort.h" />
     <ClInclude Include="..\..\Src\Input\MagicKeyDongle.h" />
     <ClInclude Include="..\..\Src\Input\MsxArkanoidPad.h" />

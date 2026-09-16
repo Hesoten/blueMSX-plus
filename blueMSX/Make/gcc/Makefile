@@ -349,6 +349,7 @@ SOURCE_FILES += ColecoJoystick.c
 SOURCE_FILES += ColecoSteeringWheel.c
 SOURCE_FILES += ColecoSuperAction.c
 SOURCE_FILES += InputEvent.c
+SOURCE_FILES += KeyMatrixInput.c
 SOURCE_FILES += JoystickPort.c
 SOURCE_FILES += MagicKeyDongle.c
 SOURCE_FILES += MsxArkanoidPad.c

@@ -2491,9 +2491,20 @@ void archKeyboardSetSelectedKey(int msxKeyCode) {
     }
 }
 
+/* Pads are read without focus, which a hidden instance must not do: it would
+** take the input of whoever is using the pad elsewhere. */
+static int joystickPolling = 1;
+
+void joystickSetPolling(int enable)
+{
+    joystickPolling = enable;
+}
+
 void archPollInput() {
     keyboardUpdate();
-    joystickUpdate();
+    if (joystickPolling) {
+        joystickUpdate();
+    }
 }
 
 int archKeyboardIsKeySelected(int msxKeyCode)
