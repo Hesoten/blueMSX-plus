@@ -1062,7 +1062,6 @@ static BOOL CALLBACK enumKeyboards(LPCDIDEVICEINSTANCE devInst, LPVOID ref)
 static BOOL CALLBACK enumAxesCallback(const DIDEVICEOBJECTINSTANCE* pdidoi, void* pContext)
 {
     DIPROPRANGE diprg;
-    HRESULT rv;
 
     diprg.diph.dwSize       = sizeof(DIPROPRANGE);
     diprg.diph.dwHeaderSize = sizeof(DIPROPHEADER);
@@ -1071,11 +1070,10 @@ static BOOL CALLBACK enumAxesCallback(const DIDEVICEOBJECTINSTANCE* pdidoi, void
     diprg.lMin              = -100;
     diprg.lMax              = +100;
 
-    rv = IDirectInputDevice_SetProperty((LPDIRECTINPUTDEVICE)pContext, DIPROP_RANGE, &diprg.diph);
-
-    if (rv != DI_OK) {
-        return DIENUM_STOP;
-    }
+    /* The result goes unchecked: SetProperty answers DI_PROPNOEFFECT on
+    ** success, and one axis that refuses the range must not cost the axes
+    ** enumerated after it. */
+    IDirectInputDevice_SetProperty((LPDIRECTINPUTDEVICE)pContext, DIPROP_RANGE, &diprg.diph);
 
     return DIENUM_CONTINUE;
 }
@@ -1933,12 +1931,16 @@ void keyboardUpdate()
         rv = IDirectInputDevice_GetDeviceState(kbdDevice, sizeof(buffer), (LPVOID)&buffer); 
         if (rv == DIERR_INPUTLOST || rv == DIERR_NOTACQUIRED) {
             rv = IDirectInputDevice_Acquire(kbdDevice);
-            if (rv == DI_OK) {
+            /* SUCCEEDED, not DI_OK: Acquire answers S_FALSE for a device it
+            ** already holds, and the state still has to be read. */
+            if (SUCCEEDED(rv)) {
                 rv = IDirectInputDevice_GetDeviceState(kbdDevice, sizeof(buffer), (LPVOID)&buffer); 
             }
         }
 
-        if (rv >= 0) { 
+        /* DI_OK alone says DirectInput filled the buffer; on every other
+        ** answer it still holds whatever the stack had. */
+        if (rv == DI_OK) {
             {
                 int mk;
                 for (mk = 0; mk < MSG_KEY_COUNT; mk++) {
