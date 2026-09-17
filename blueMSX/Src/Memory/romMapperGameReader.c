@@ -33,6 +33,8 @@
 #include "SaveState.h"
 #include "IoPort.h"
 #include "GameReader.h"
+#include "SCC.h"
+#include "Board.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -50,6 +52,8 @@ typedef struct {
     int slot;
     int sslot;
     int cartSlot;
+    int sccEnable;
+    SCC* scc;
     int cacheLineEnabled[CACHE_LINES];
     UInt8 cacheLineData[CACHE_LINES][1 << CACHE_LINE_BITS];
 } RomMapperGameReader;
@@ -57,15 +61,24 @@ typedef struct {
 static void saveState(RomMapperGameReader* rm)
 {
     SaveState* state = saveStateOpenForWrite("mapperGameReader");
+    saveStateSet(state, "sccEnable", rm->sccEnable);
     saveStateClose(state);
+    sccSaveState(rm->scc);
 }
 
 static void loadState(RomMapperGameReader* rm)
 {
     SaveState* state = saveStateOpenForRead("mapperGameReader");
+    rm->sccEnable = saveStateGet(state, "sccEnable", 0);
     saveStateClose(state);
+    sccLoadState(rm->scc);
 }
 
+static void reset(RomMapperGameReader* rm)
+{
+    rm->sccEnable = 0;
+    sccReset(rm->scc);
+}
 
 static void destroy(RomMapperGameReader* rm)
 {
@@ -75,8 +88,7 @@ static void destroy(RomMapperGameReader* rm)
         slotUnregister(rm->slot, rm->sslot, 0);
     }
     deviceManagerUnregister(rm->deviceHandle);
-
-//    fclose(f);
+    sccDestroy(rm->scc);
     f = NULL;
 
     free(rm);
@@ -116,6 +128,9 @@ static void writeIo(RomMapperGameReader* rm, UInt16 port, UInt8 value)
 static UInt8 read(RomMapperGameReader* rm, UInt16 address) 
 {
     int bank = address >> CACHE_LINE_BITS;
+    if (rm->sccEnable && address >= 0x9800 && address < 0xa000) {
+        return sccRead(rm->scc, (UInt8)(address & 0xff));
+    }
     if (!rm->cacheLineEnabled[bank]) {
         if (!gameReaderRead(rm->gameReader, bank << CACHE_LINE_BITS, rm->cacheLineData[bank], CACHE_LINE_SIZE)) {
             memset(rm->cacheLineData[bank], 0xff, CACHE_LINE_SIZE);
@@ -127,6 +142,14 @@ static UInt8 read(RomMapperGameReader* rm, UInt16 address)
     return rm->cacheLineData[bank][address & (CACHE_LINE_SIZE - 1)];
 }
 
+static UInt8 peek(RomMapperGameReader* rm, UInt16 address)
+{
+    if (rm->sccEnable && address >= 0x9800 && address < 0xa000) {
+        return sccPeek(rm->scc, (UInt8)(address & 0xff));
+    }
+    return read(rm, address);
+}
+
 //#define WRITE_CHECK
 static void write(RomMapperGameReader* rm, UInt16 address, UInt8 value) 
 {
@@ -134,8 +157,15 @@ static void write(RomMapperGameReader* rm, UInt16 address, UInt8 value)
     static UInt8 buf1[0x10000];
     static UInt8 buf2[0x10000];
 #endif
-    int bank = address >> 13;
     int i;
+
+    if (address >= 0x9000 && address < 0x9800) {
+        rm->sccEnable = (value & 0x3f) == 0x3f;
+    }
+    if (rm->sccEnable && address >= 0x9800 && address < 0xa000) {
+        sccWrite(rm->scc, (UInt8)(address & 0xff), value);
+        return;
+    }
 
 //    fprintf(f, "W %.4x : 0x%.2x\n", address, value);
 
@@ -167,7 +197,7 @@ static void write(RomMapperGameReader* rm, UInt16 address, UInt8 value)
 
 int romMapperGameReaderCreate(int cartSlot, int slot, int sslot) 
 {
-    DeviceCallbacks callbacks = { destroy, NULL, saveState, loadState };
+    DeviceCallbacks callbacks = { destroy, reset, saveState, loadState };
     RomMapperGameReader* rm;
     int i;
 
@@ -178,8 +208,9 @@ int romMapperGameReaderCreate(int cartSlot, int slot, int sslot)
     rm->slot     = slot;
     rm->sslot    = sslot;
     rm->cartSlot = cartSlot;
-
-//    f = fopen("c:\\grlog.txt", "w+");
+    rm->sccEnable = 0;
+    rm->scc = sccCreate(boardGetMixer());
+    sccSetMode(rm->scc, SCC_REAL);
     rm->gameReader = gameReaderCreate(cartSlot);
 
     for (i = 0; i < CACHE_LINES; i++) {
@@ -188,8 +219,8 @@ int romMapperGameReaderCreate(int cartSlot, int slot, int sslot)
 
     if (rm->gameReader != NULL) {
         ioPortRegisterUnused(cartSlot, readIo, writeIo, rm);
-        slotRegister(slot, sslot, 0, 8, read, read, write, destroy, rm);
-        for (i = 0; i < 8; i++) {   
+        slotRegister(slot, sslot, 0, 8, read, peek, write, destroy, rm);
+        for (i = 0; i < 8; i++) {
             slotMapPage(rm->slot, rm->sslot, i, NULL, 0, 0);
         }
     }
