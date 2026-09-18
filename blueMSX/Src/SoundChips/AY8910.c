@@ -523,7 +523,9 @@ static Int32* ay8910Sync(void* ref, UInt32 count)
         while (ay8910->noisePhase >> 28) {
             ay8910->noisePhase  -= 0x10000000;
             ay8910->noiseVolume ^= ((ay8910->noiseRand + 1) >> 1) & 1;
-            ay8910->noiseRand    = (ay8910->noiseRand ^ (0x28000 * (ay8910->noiseRand & 1))) >> 1;
+            /* Bit 1 of the mask must stay clear: the line above tracks bit 0
+            ** of the next state by XOR-ing bits 0 and 1 of the current one. */
+            ay8910->noiseRand    = (ay8910->noiseRand ^ (0x24000 * (ay8910->noiseRand & 1))) >> 1;
         }
 
         /* Update envelope phase */
