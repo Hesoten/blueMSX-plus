@@ -375,19 +375,18 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->sound.chip.moonsoundOversampling = 2;
 
     /* YM2413: openmsx_2 + emu2413 + nuked enabled by default; openmsx
-    ** (initial) is dead-coded.  Active = openmsx_2 (historical default). */
+    ** (initial) is dead-coded. */
     properties->sound.chip.ym2413BackendOpenmsxEnabled    = 0;
     properties->sound.chip.ym2413BackendOpenmsx2Enabled   = 1;
     properties->sound.chip.ym2413BackendEmu2413Enabled    = 1;
     properties->sound.chip.ym2413BackendNukedEnabled      = 1;
-    properties->sound.chip.ym2413BackendActive            = PROP_YM2413_BACKEND_OPENMSX_2;
+    properties->sound.chip.ym2413BackendActive            = PROP_YM2413_BACKEND_EMU2413;
 
-    /* Y8950: fmopl + emu8950 + openmsx all enabled by default.  Active =
-    ** fmopl (historical default). */
+    /* Y8950: fmopl + emu8950 + openmsx all enabled by default. */
     properties->sound.chip.y8950BackendFmoplEnabled       = 1;
     properties->sound.chip.y8950BackendEmu8950Enabled     = 1;
     properties->sound.chip.y8950BackendOpenmsxEnabled     = 1;
-    properties->sound.chip.y8950BackendActive             = PROP_Y8950_BACKEND_FMOPL;
+    properties->sound.chip.y8950BackendActive             = PROP_Y8950_BACKEND_EMU8950;
 
     /* OPLL analog stage filter defaults.  The Custom Hz fields persist
     ** even while a named preset is selected, so toggling back to Custom

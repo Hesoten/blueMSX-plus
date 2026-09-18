@@ -2185,7 +2185,7 @@ static BOOL_DLG_RET CALLBACK soundDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
                                                        pProperties->sound.chip.y8950BackendActive);
                 active = soundChipsClampActive(active, yEnabled,
                                                y8950BackendDisplayOrder, y8950BackendDisplayCount,
-                                               PROP_Y8950_BACKEND_FMOPL);
+                                               PROP_Y8950_BACKEND_EMU8950);
                 soundChipsComboFill(GetDlgItem(hDlg, IDC_SNDCHIPS_Y8950_ACTIVE),
                                     y8950BackendDisplayOrder, y8950BackendDisplayCount,
                                     sndChipsY8950DisplayName, yEnabled, active);

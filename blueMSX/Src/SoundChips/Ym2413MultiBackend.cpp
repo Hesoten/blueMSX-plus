@@ -31,7 +31,7 @@ extern "C" {
 }
 #include <cstring>
 
-static int g_ym2413Active = PROP_YM2413_BACKEND_OPENMSX_2;
+static int g_ym2413Active = PROP_YM2413_BACKEND_EMU2413;
 
 static const char* const kBackendDisplay[YM2413_BACKEND_COUNT] = {
     "openmsx",

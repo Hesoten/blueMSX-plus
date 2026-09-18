@@ -411,12 +411,12 @@ Y8950* y8950Create(Mixer* mixer)
     y8950->rate    = mixerGetSampleRate(mixer);
     y8950->backend->setSampleRate(y8950->rate);
 
-    /* Active backend comes from Properties; clamp to fmopl if the
+    /* Active backend comes from Properties; clamp to emu8950 if the
     ** chosen backend was opted out of. */
     {
         Properties* props = propGetGlobalProperties();
-        int desired = props ? props->sound.chip.y8950BackendActive : PROP_Y8950_BACKEND_FMOPL;
-        if (!y8950BackendIsEnabled(desired)) desired = PROP_Y8950_BACKEND_FMOPL;
+        int desired = props ? props->sound.chip.y8950BackendActive : PROP_Y8950_BACKEND_EMU8950;
+        if (!y8950BackendIsEnabled(desired)) desired = PROP_Y8950_BACKEND_EMU8950;
         y8950BackendActiveSet(desired);
     }
 
