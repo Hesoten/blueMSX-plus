@@ -46,13 +46,13 @@ extern "C" {
 #define FREQUENCY        3579545
  
 
-#define YM2413_DEFAULT_LPF_HZ 5000
-#define YM2413_DEFAULT_HPF_HZ 20
+/* Off until the emulator pushes the real setting, so that a chip built
+** before that point matches the shipped default of no filter. */
+static int      g_ym2413AnalogLpfHz = 0;
+static int      g_ym2413AnalogHpfHz = 0;
 
 /* Back-pointer to the live chip so the Properties dialog can apply
 ** filter changes in place (assumes a single OPLL is active at a time). */
-static int      g_ym2413AnalogLpfHz = YM2413_DEFAULT_LPF_HZ;
-static int      g_ym2413AnalogHpfHz = YM2413_DEFAULT_HPF_HZ;
 static YM_2413* g_ym2413Instance    = NULL;
 
 struct YM_2413 {
