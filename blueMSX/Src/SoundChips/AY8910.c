@@ -41,7 +41,6 @@
 #define BASE_PHASE_STEP 0x28959becUL  /* = (1 << 28) * 3579545 / 32 / 44100 */
 
 static Int16 voltTable[16];
-static Int16 voltEnvTable[32];
 
 static const UInt8 regMask[16] = {
     0xff, 0x0f, 0xff, 0x0f, 0xff, 0x0f, 0x1f, 0x3f, 
@@ -86,6 +85,9 @@ struct AY8910 {
 
     Int32  stereo;
     Int32  pan[3];
+
+    /* Per instance: the step count depends on the chip type. */
+    Int16  voltEnvTable[32];
 
     Int32  buffer[AUDIO_STEREO_BUFFER_SIZE];
 };
@@ -257,24 +259,25 @@ AY8910* ay8910Create(Mixer* mixer, Ay8910Connector connector, PsgType type, Int3
     DoubleT v = 0x26a9;
     for (i = 15; i >= 0; i--) {
         voltTable[i] = (Int16)v;
-        voltEnvTable[2 * i + 0] = (Int16)v;
-        voltEnvTable[2 * i + 1] = (Int16)v;
+        ay8910->voltEnvTable[2 * i + 0] = (Int16)v;
+        ay8910->voltEnvTable[2 * i + 1] = (Int16)v;
         v *= 0.70794578438413791080221494218943;
     }
 
     if ( type == PSGTYPE_YM2149) {
         DoubleT v = 0x26a9;
         for (i = 31; i >= 0; i--) {
-            voltEnvTable[i] = (Int16)v;
+            ay8910->voltEnvTable[i] = (Int16)v;
             v *= 0.84139514164519509115274189380029;
         }
     }
 
-    for (i = 0; i < 16; i++) {
-        voltTable[i] -= voltTable[0];
-    }
-    for (i = 0; i < 32; i++) {
-        voltEnvTable[i] -= voltEnvTable[0];
+    /* Level 0 is silence; on the 16-level chip it fills both of the
+    ** bottom envelope slots. */
+    voltTable[0] = 0;
+    ay8910->voltEnvTable[0] = 0;
+    if (type != PSGTYPE_YM2149) {
+        ay8910->voltEnvTable[1] = 0;
     }
 
     ay8910->mixer = mixer;
@@ -563,7 +566,7 @@ static Int32* ay8910Sync(void* ref, UInt32 count)
 
             /* Amplify sample using either envelope volume or channel volume */
             if (ay8910->ampVolume[channel] & 0x10) {
-                sampleVolume[channel] += (Int16)tone * voltEnvTable[envVolume] / 16;
+                sampleVolume[channel] += (Int16)tone * ay8910->voltEnvTable[envVolume] / 16;
             }
             else {
                 sampleVolume[channel] += (Int16)tone * voltTable[ay8910->ampVolume[channel]] / 16;
