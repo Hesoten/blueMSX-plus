@@ -80,11 +80,9 @@ static void reset(RomMapperGameReader* rm)
 
 static void destroy(RomMapperGameReader* rm)
 {
-    if (rm->gameReader != NULL) {
-        gameReaderDestroy(rm->gameReader);
-        ioPortUnregisterUnused(rm->cartSlot);
-        slotUnregister(rm->slot, rm->sslot, 0);
-    }
+    gameReaderDestroy(rm->gameReader);
+    ioPortUnregisterUnused(rm->cartSlot);
+    slotUnregister(rm->slot, rm->sslot, 0);
     deviceManagerUnregister(rm->deviceHandle);
     sccDestroy(rm->scc);
 
@@ -179,21 +177,28 @@ int romMapperGameReaderCreate(int cartSlot, int slot, int sslot)
     rm->slot     = slot;
     rm->sslot    = sslot;
     rm->cartSlot = cartSlot;
+    rm->gameReader = gameReaderCreate();
+
+    if (rm->gameReader == NULL) {
+        /* Freed here, as the eject callback never runs with nothing
+        ** registered. Still a success, or the machine would not boot. */
+        deviceManagerUnregister(rm->deviceHandle);
+        free(rm);
+        return 1;
+    }
+
     rm->sccEnable = 0;
     rm->scc = sccCreate(boardGetMixer());
     sccSetMode(rm->scc, SCC_REAL);
-    rm->gameReader = gameReaderCreate(cartSlot);
 
     for (i = 0; i < CACHE_LINES; i++) {
         rm->cacheLineEnabled[i] = 0;
     }
 
-    if (rm->gameReader != NULL) {
-        ioPortRegisterUnused(cartSlot, readIo, writeIo, rm);
-        slotRegister(slot, sslot, 0, 8, read, peek, write, destroy, rm);
-        for (i = 0; i < 8; i++) {
-            slotMapPage(rm->slot, rm->sslot, i, NULL, 0, 0);
-        }
+    ioPortRegisterUnused(cartSlot, readIo, writeIo, rm);
+    slotRegister(slot, sslot, 0, 8, read, peek, write, destroy, rm);
+    for (i = 0; i < 8; i++) {
+        slotMapPage(rm->slot, rm->sslot, i, NULL, 0, 0);
     }
 
     return 1;
