@@ -70,13 +70,14 @@ int CMSXGr::Init()
 		return CMSXGR_NO_LIBRARY;
 	}
 
-	// Wait for the driver to attach the game reader(s)
+	// Wait for the driver to attach the game reader(s), bounded because
+	// nothing arrives when none is plugged in.
 	int nSlot;
-	int nTry=0;
-	while (nTry<5) {
+	int nTry;
+	for (nTry = 0; nTry < 5; nTry++) {
 		Sleep(300);
 		for (nSlot=0;nSlot<16;nSlot++)
-			if (IsSlotEnable(nSlot)) nTry = 5;
+			if (IsSlotEnable(nSlot)) return 0;
 	}
 
 	return 0;
