@@ -35,7 +35,16 @@
 
 typedef void* GrHandle;
 
+#define GAMEREADER_AVAILABLE 0  /* library loaded and enough readers found  */
+#define GAMEREADER_NO_DLL    1  /* MSXGr.dll absent, or not an MSXGr.dll    */
+#define GAMEREADER_NO_DEVICE 2  /* library is fine, but too few readers     */
+
 int gameReaderSupported();
+
+/* One of the GAMEREADER_ values above. Answers whether at least wanted readers
+** are attached, counting any already driving a cartridge. wanted must be at
+** least 1. */
+int gameReaderAvailability(int wanted);
 
 /* The next free reader, or NULL when there is none. Readers are handed out in
 ** the order they were detected, which has nothing to do with cartridge slots. */

@@ -73,6 +73,7 @@ class CMSXGr
 
 
 static CMSXGr* MsxGr;
+static int MsxGrInitError;
 
 struct GameReader 
 {
@@ -189,6 +190,17 @@ static int grFreeIndex()
     return -1;
 }
 
+static int grDetectedCount()
+{
+    int n = 0;
+    for (int i = 0; i < MAX_GAMEREADERS; i++) {
+        if (GameReaders[i] != NULL) {
+            n++;
+        }
+    }
+    return n;
+}
+
 static int grAnyClaimed()
 {
     for (int i = 0; i < MAX_GAMEREADERS; i++) {
@@ -206,7 +218,9 @@ static void InitializeGameReaders()
 
         int gameReaderCount = 0;
 
-        if (MsxGr->Init() == 0) {
+        MsxGrInitError = MsxGr->Init();
+
+        if (MsxGrInitError == 0) {
             for (int i = 0; i < 16 && gameReaderCount < MAX_GAMEREADERS; i++) {
                 if (MsxGr->IsSlotEnable(i)) {
                     GameReaders[gameReaderCount++] = new GameReader(i);
@@ -228,12 +242,33 @@ static void DeinitializeGameReaders()
         }
         delete MsxGr;
         MsxGr = NULL;
+        MsxGrInitError = 0;
     }
 }
 
 /////////////////////////////////////////////////////////////
 //
 // Public C interface
+
+extern "C" int gameReaderAvailability(int wanted)
+{
+    InitializeGameReaders();
+
+    if (MsxGrInitError == CMSXGR_NO_LIBRARY) {
+        /* Nothing was enumerated, so nothing can be claimed. */
+        DeinitializeGameReaders();
+        return GAMEREADER_NO_DLL;
+    }
+    if (grDetectedCount() >= wanted) {
+        return GAMEREADER_AVAILABLE;
+    }
+    if (!grAnyClaimed()) {
+        /* Dropped so the next ask enumerates again rather than repeating a
+        ** stale answer. */
+        DeinitializeGameReaders();
+    }
+    return GAMEREADER_NO_DEVICE;
+}
 
 extern "C" GrHandle* gameReaderCreate(void)
 {

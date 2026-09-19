@@ -95,7 +95,10 @@ void langInitKorean(LanguageStrings* ls)
     ls->errorPortableReadonly   = "이동 장치는 읽기 전용입니다.";        
     ls->errorMidiOpenFailed     = "MIDI 장치 '%s'을(를) 열 수 없습니다. 다른 응용 프로그램에서 사용 중일 수 있습니다.";
     ls->infoTitle               = "blueMSX+ 정보";
-    ls->infoGameReaderRedirect  = "blueMSX+ 는 MSX Game Reader 를 직접 지원하지 않습니다 (ASCII 사의 XP 시대 정품 드라이버는 최신 Windows 에서 작동하지 않습니다).\n\n대신 MSX Game Reader - Web Dumper (Kunihiko Ohnaka 제작) 를 브라우저에서 열까요?";
+    ls->infoGameReaderNoDll     = "MSX Game Reader 를 사용하려면 MSXGr.dll 이 필요합니다.\nASCII 정품 DLL 은 현재 Windows 에서 작동하지 않으므로 MSXGr-WinUSB (Sebbeug 제작) 를 설치하거나 MSX Game Reader - Web Dumper (Kunihiko Ohnaka 제작) 를 이용하세요.";
+    ls->infoGameReaderNoDevice  = "카트리지 슬롯 %d 용 MSX Game Reader 를 찾을 수 없습니다. 올바르게 연결되어 있는지 확인하세요.";
+    ls->dlgGameReaderGetDll     = "MSXGr-WinUSB 다운로드 페이지 열기";
+    ls->dlgGameReaderWebDumper  = "Web Dumper 열기";
     ls->infoColorDepth          = "blueMSX+ 는 16 또는 32 비트 색상 심도에서 가장 잘 작동합니다.";
     ls->errorKeyboardThemeMissing = "키보드 편집기 테마를 찾을 수 없습니다.";
     ls->errorMixerThemeMissing    = "믹서 테마를 찾을 수 없습니다.";

@@ -97,7 +97,10 @@ void langInitFinnish(LanguageStrings* ls)
     ls->errorPortableReadonly   = "Kannettava laite tukee vain lukemista.";
     ls->errorMidiOpenFailed     = "MIDI-laitteen '%s' avaus epäonnistui. Toinen sovellus voi käyttää sitä.";
     ls->infoTitle               = "blueMSX+-tiedot";
-    ls->infoGameReaderRedirect  = "blueMSX+ ei tue MSX Game Readeria suoraan (ASCII:n alkuperäinen XP-aikakauden ajuri ei enää toimi nykyaikaisessa Windowsissa).\n\nAvataanko sen sijaan MSX Game Reader - Web Dumper (tekijä Kunihiko Ohnaka) selaimessa?";
+    ls->infoGameReaderNoDll     = "MSX Game Readerin käyttöön tarvitaan MSXGr.dll.\nASCII:n alkuperäinen DLL ei toimi nykyisessä Windowsissa, joten asenna MSXGr-WinUSB (tekijä Sebbeug) tai käytä MSX Game Reader - Web Dumperia (tekijä Kunihiko Ohnaka).";
+    ls->infoGameReaderNoDevice  = "Korttipaikalle %d ei löytynyt MSX Game Readeria. Tarkista, että se on kytketty oikein.";
+    ls->dlgGameReaderGetDll     = "Avaa MSXGr-WinUSB:n lataussivu";
+    ls->dlgGameReaderWebDumper  = "Avaa Web Dumper";
     ls->infoColorDepth          = "blueMSX+ toimii parhaiten 16 tai 32 bitin värisyvyydellä.";
     ls->errorKeyboardThemeMissing = "Näppäimistön muokkaus -teemaa ei löydy.";
     ls->errorMixerThemeMissing    = "Mikserin teemaa ei löydy.";

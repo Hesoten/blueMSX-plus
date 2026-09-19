@@ -44,6 +44,7 @@
 #include "AppConfig.h"
 #include "ArchFile.h"
 #include "SaveState.h"
+#include "GameReader.h"
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
@@ -1280,6 +1281,21 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
     }
 
     if (properties->cassette.rewindAfterInsert) tapeRewindNextInsert();
+
+    /* Asked slot by slot, so the slot named is the first one the readers to
+    ** hand cannot cover. */
+    {
+        int grNth = 0;
+
+        if (romType1 == ROM_GAMEREADER && gameReaderAvailability(++grNth) != GAMEREADER_AVAILABLE) {
+            return argError("/special1", "the MSX Game Reader is not available; check "
+                            "MSXGr.dll and that the reader is connected", NULL);
+        }
+        if (romType2 == ROM_GAMEREADER && gameReaderAvailability(++grNth) != GAMEREADER_AVAILABLE) {
+            return argError("/special2", "the MSX Game Reader is not available; check "
+                            "MSXGr.dll and that the reader is connected", NULL);
+        }
+    }
 
     if (strlen(rom1)  && !insertCartridge(properties, 0, rom1, *rom1zip ? rom1zip : NULL, romType1, -1)) return argError("/rom1", "cannot insert", rom1);
     if (strlen(rom2)  && !insertCartridge(properties, 1, rom2, *rom2zip ? rom2zip : NULL, romType2, -1)) return argError("/rom2", "cannot insert", rom2);

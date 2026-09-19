@@ -144,6 +144,8 @@
 
 #define IDD_LARGEMSG                    138
 
+#define IDD_GAMEREADER_NODLL            139
+
 #define IDC_JOY1                        1000
 #define IDC_JOY2                        1001
 #define IDC_CHARSET                     1002
@@ -571,6 +573,11 @@
 
 #define IDC_LARGEMSG_TEXT                   3200
 #define IDC_LARGEMSG_ICON                   3201
+
+#define IDC_GRNODLL_TEXT                    3206
+#define IDC_GRNODLL_ICON                    3207
+#define IDC_GRNODLL_GETDLL                  3208
+#define IDC_GRNODLL_WEBDUMPER               3209
 
 #define IDC_STATIC                      -1
 

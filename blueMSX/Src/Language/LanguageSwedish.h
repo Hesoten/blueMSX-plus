@@ -95,7 +95,10 @@ void langInitSwedish(LanguageStrings* ls)
     ls->errorPortableReadonly   = "Flyttbar enhet är inte skrivbar";
     ls->errorMidiOpenFailed     = "Det gick inte att öppna MIDI-enheten '%s'. Kan användas av annan applikation.";
     ls->infoTitle               = "blueMSX+ Info";
-    ls->infoGameReaderRedirect  = "blueMSX+ stöder inte MSX Game Reader direkt (den ursprungliga XP-drivrutinen från ASCII fungerar inte längre på moderna Windows).\n\nÖppna MSX Game Reader - Web Dumper (av Kunihiko Ohnaka) i webbläsaren istället?";
+    ls->infoGameReaderNoDll     = "MSXGr.dll krävs för att använda MSX Game Reader.\nASCII:s original-DLL fungerar inte på nuvarande Windows, så installera MSXGr-WinUSB (av Sebbeug) eller använd MSX Game Reader - Web Dumper (av Kunihiko Ohnaka).";
+    ls->infoGameReaderNoDevice  = "Ingen MSX Game Reader hittades för kassettplats %d. Kontrollera att den är korrekt ansluten.";
+    ls->dlgGameReaderGetDll     = "Öppna hämtningssidan för MSXGr-WinUSB";
+    ls->dlgGameReaderWebDumper  = "Öppna Web Dumper";
     ls->infoColorDepth          = "blueMSX+ fungerar bäst med 16 eller 32 bitars färgdjup.";
     ls->errorKeyboardThemeMissing = "Tangentbordsredigerarens tema kunde inte hittas.";
     ls->errorMixerThemeMissing    = "Mixerns tema kunde inte hittas.";

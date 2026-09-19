@@ -52,6 +52,10 @@ void archShowNoCasInZipDialog();
 ** mode message to show (missing dir vs invalid config.ini vs no selection). */
 void archShowStartEmuFailDialog(const char* machineName);
 void archShowDirAsDskOverflowDialog(int skippedCount, int skippedBytes);
+/* reason is a GAMEREADER_* value other than GAMEREADER_AVAILABLE. cartSlot is
+** the slot that goes without; it reaches the message only for
+** GAMEREADER_NO_DEVICE. */
+void archShowGameReaderUnavailableDialog(int reason, int cartSlot);
 
 void archMaximizeWindow();
 void archMinimizeWindow();

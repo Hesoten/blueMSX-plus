@@ -94,7 +94,10 @@ typedef struct {
     char* errorMidiOpenFailed;            /* %s = device name */
     char* infoColorDepth;
     char* infoTitle;
-    char* infoGameReaderRedirect;
+    char* infoGameReaderNoDll;
+    char* infoGameReaderNoDevice;
+    char* dlgGameReaderGetDll;
+    char* dlgGameReaderWebDumper;
     char* errorKeyboardThemeMissing;
     char* errorMixerThemeMissing;
     char* errorRecorderTitle;
