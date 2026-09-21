@@ -51,6 +51,8 @@ int gameReaderAvailability(int wanted);
 GrHandle* gameReaderCreate(void);
 void gameReaderDestroy(GrHandle* grHandle);
 
+/* 0 when the reader holds no cartridge or the transfer failed; buffer is then
+** left untouched. */
 int gameReaderRead(GrHandle* grHandle, UInt16 address, void* buffer, int length);
 int gameReaderWrite(GrHandle* grHandle, UInt16 address, void* buffer, int length);
 

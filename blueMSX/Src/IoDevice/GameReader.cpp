@@ -111,14 +111,16 @@ bool GameReader::readMemory(UInt16 address, void* buffer, int length)
         inserted = MsxGr->IsCartridgeInserted(slot);
     }
 
-    if (inserted) {
-        //printf("### Reading address %.4x - %.4x\n", address, address + length - 1);
-        if (MsxGr->ReadMemory(slot, globalBuffer, address, length) != 0) {
-            inserted = MsxGr->IsCartridgeInserted(slot);
-            return false;
-        }
-        memcpy(buffer, globalBuffer, length);
+    if (!inserted) {
+        return false;
     }
+
+    //printf("### Reading address %.4x - %.4x\n", address, address + length - 1);
+    if (MsxGr->ReadMemory(slot, globalBuffer, address, length) != 0) {
+        inserted = MsxGr->IsCartridgeInserted(slot);
+        return false;
+    }
+    memcpy(buffer, globalBuffer, length);
     return true;
 }
 
@@ -128,13 +130,15 @@ bool GameReader::writeMemory(UInt16 address, void* buffer, int length)
         inserted = MsxGr->IsCartridgeInserted(slot);
     }
 
-    if (inserted) {
-        memcpy(globalBuffer, buffer, length);
-        //printf("### Writing address %.4x - %.4x\n", address, address + length - 1);
-        if (MsxGr->WriteMemory(slot, globalBuffer, address, length) != 0) {
-            inserted = MsxGr->IsCartridgeInserted(slot);
-            return false;
-        }
+    if (!inserted) {
+        return false;
+    }
+
+    memcpy(globalBuffer, buffer, length);
+    //printf("### Writing address %.4x - %.4x\n", address, address + length - 1);
+    if (MsxGr->WriteMemory(slot, globalBuffer, address, length) != 0) {
+        inserted = MsxGr->IsCartridgeInserted(slot);
+        return false;
     }
     return true;
 }
@@ -145,13 +149,15 @@ bool GameReader::readIo(UInt16 port, UInt8* value)
         inserted = MsxGr->IsCartridgeInserted(slot);
     }
 
-    if (inserted) {
-        if (MsxGr->ReadIO(slot, globalBuffer, port, 1) != 0) {
-            inserted = MsxGr->IsCartridgeInserted(slot);
-            return false;
-        }
-        *value = *(UInt8*)globalBuffer;
+    if (!inserted) {
+        return false;
     }
+
+    if (MsxGr->ReadIO(slot, globalBuffer, port, 1) != 0) {
+        inserted = MsxGr->IsCartridgeInserted(slot);
+        return false;
+    }
+    *value = *(UInt8*)globalBuffer;
     return true;
 }
 
@@ -161,12 +167,14 @@ bool GameReader::writeIo(UInt16 port, UInt8 value)
         inserted = MsxGr->IsCartridgeInserted(slot);
     }
 
-    if (inserted) {
-        *(UInt8*)globalBuffer = value;
-        if (MsxGr->WriteIO(slot, globalBuffer, port, 1) != 0) {
-            inserted = MsxGr->IsCartridgeInserted(slot);
-            return false;
-        }
+    if (!inserted) {
+        return false;
+    }
+
+    *(UInt8*)globalBuffer = value;
+    if (MsxGr->WriteIO(slot, globalBuffer, port, 1) != 0) {
+        inserted = MsxGr->IsCartridgeInserted(slot);
+        return false;
     }
     return true;
 }
