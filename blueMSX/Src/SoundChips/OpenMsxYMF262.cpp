@@ -1137,9 +1137,11 @@ void YMF262::set_ksl_tl(byte sl, byte v)
 	YMF262Channel &ch = channels[chan_no];
 	YMF262Slot &slot = ch.slots[sl & 1];
 
-	int ksl = v >> 6; // 0 / 1.5 / 3.0 / 6.0 dB/OCT 
+	// KSL [0..3] is {0.0, 3.0, 1.5, 6.0} dB/oct here; note the illogical
+	// order of the 2nd and 3rd elements. OPLL differs and is not swapped.
+	static const byte ksl_shift[4] = { 31, 1, 2, 0 };
 
-	slot.ksl = ksl ? 3 - ksl : 31;
+	slot.ksl = ksl_shift[v >> 6];
 	slot.TL  = (v & 0x3F) << (ENV_BITS - 1 - 7); // 7 bits TL (bit 6 = always 0) 
 
 	if (OPL3_mode) {

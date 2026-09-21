@@ -30,7 +30,7 @@ extern "C" {
 #include <cstddef>
 #include <cstdlib>
 
-static int s_active = PROP_Y8950_BACKEND_FMOPL;
+static int s_active = PROP_Y8950_BACKEND_EMU8950;
 
 extern "C" const int y8950BackendDisplayOrder[] = {
     PROP_Y8950_BACKEND_EMU8950,
