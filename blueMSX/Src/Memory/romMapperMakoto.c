@@ -32,16 +32,17 @@
 #define MAKOTO_PORT_BASE     0x14
 #define MAKOTO_CLOCK         8000000
 
-/* 1-bit DRAM mode addresses 4-byte units with 16 bits, which is as far as
-** the chip reaches in the mode the cartridge's drivers select. */
+/* The cartridge carries 256 KB, which is also all that 1-bit DRAM mode
+** (4-byte units, 16-bit addresses) can reach. */
 #define MAKOTO_ADPCM_RAM     0x40000
 
 /* The YM2608's internal rhythm ROM cannot be distributed; it is read from
 ** here when the user has put it there, and the rhythm is silent otherwise. */
 #define MAKOTO_RHYTHM_ROM    "Machines/Shared Roms/ym2608_rhythm.rom"
 
-/* Whether /IRQ reaches the MSX /INT is not known, so it is left unwired. */
-#define MAKOTO_IRQ_MASK      0
+/* /IRQ is wired to the MSX /INT. The board keeps one bit per interrupt
+** source, and no other device raises this one. */
+#define MAKOTO_IRQ_MASK      0x20
 
 typedef struct {
     YM2608* ym2608;
