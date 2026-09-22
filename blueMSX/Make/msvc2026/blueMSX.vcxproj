@@ -894,6 +894,7 @@
     <ClCompile Include="..\..\Src\Memory\romMapperHarryFox.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperHolyQuran.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperJoyrexPsg.c" />
+    <ClCompile Include="..\..\Src\Memory\romMapperMakoto.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperKanji.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperKanji12.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperKoei.c" />
@@ -1052,6 +1053,10 @@
     <ClCompile Include="..\..\Src\SoundChips\MameVLM5030.c" />
     <ClCompile Include="..\..\Src\SoundChips\MameYM2151.c" />
     <ClCompile Include="..\..\Src\SoundChips\Moonsound.cpp" />
+    <ClCompile Include="..\..\Src\SoundChips\ymfm\ymfm_opn.cpp" />
+    <ClCompile Include="..\..\Src\SoundChips\ymfm\ymfm_adpcm.cpp" />
+    <ClCompile Include="..\..\Src\SoundChips\ymfm\ymfm_ssg.cpp" />
+    <ClCompile Include="..\..\Src\SoundChips\YM2608.cpp" />
     <ClCompile Include="..\..\Src\SoundChips\MsxAudio.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
@@ -1301,6 +1306,7 @@
     <ClInclude Include="..\..\Src\Memory\romMapperDumas.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperForteII.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperJoyrexPsg.h" />
+    <ClInclude Include="..\..\Src\Memory\romMapperMakoto.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperMatraINK.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperMegaFlashRomScc.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperMegaFlashRomSccPlusSD.h" />
@@ -1532,6 +1538,13 @@
     <ClInclude Include="..\..\Src\SoundChips\OpenMsxYM2413_2.h" />
     <ClInclude Include="..\..\Src\SoundChips\Emu2413\emu2413.h" />
     <ClInclude Include="..\..\Src\SoundChips\Emu2413Backend.h" />
+    <ClInclude Include="..\..\Src\SoundChips\ymfm\ymfm.h" />
+    <ClInclude Include="..\..\Src\SoundChips\ymfm\ymfm_fm.h" />
+    <ClInclude Include="..\..\Src\SoundChips\ymfm\ymfm_fm.ipp" />
+    <ClInclude Include="..\..\Src\SoundChips\ymfm\ymfm_opn.h" />
+    <ClInclude Include="..\..\Src\SoundChips\ymfm\ymfm_adpcm.h" />
+    <ClInclude Include="..\..\Src\SoundChips\ymfm\ymfm_ssg.h" />
+    <ClInclude Include="..\..\Src\SoundChips\YM2608.h" />
     <ClInclude Include="..\..\Src\SoundChips\Emu8950\emu8950.h" />
     <ClInclude Include="..\..\Src\SoundChips\Emu8950\emuadpcm.h" />
     <ClInclude Include="..\..\Src\SoundChips\Emu8950Backend.h" />

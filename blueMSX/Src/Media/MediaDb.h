@@ -214,7 +214,11 @@ enum  {
     ROM_GFX9000     = 181,           /* GFX9000 (V9990) */
     ROM_VIDEO9000   = 182,           /* Video9000 (V9990 with superimpose) */
     ROM_V9968CART   = 183,           /* V9968 cartridge with geo3d */
-    ROM_MAXROMID    = 183
+    /* Makoto keeps the number that builds released outside this repository
+    ** gave it, since their machine configurations, cartridge history and
+    ** save states already store 188. */
+    ROM_MAKOTO      = 188,           /* Makoto YM2608 (OPNA) cartridge */
+    ROM_MAXROMID    = 188
 };
 
 typedef struct MediaType MediaType;

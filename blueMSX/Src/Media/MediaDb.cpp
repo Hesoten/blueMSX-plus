@@ -806,6 +806,7 @@ extern "C" const char* romTypeToString(RomType romType)
     case ROM_MSXPRN:      return langRomTypeMsxPrinter();
     case ROM_TURBORPCM:   return langRomTypeTurborPcm();
     case ROM_JOYREXPSG:   return "Joyrex PSG";
+    case ROM_MAKOTO:      return "Makoto";
     case ROM_OPCODEPSG:   return "Opcode PSG";
     case ROM_GAMEREADER:  return langRomTypeGameReader();
     case ROM_SUNRISEIDE:  return langRomTypeSunriseIde();
@@ -992,6 +993,7 @@ extern "C" const char* romTypeToShortString(RomType romType)
     case ROM_MSXPRN:      return "MSXPRN";
     case ROM_TURBORPCM:   return "TURBOR PCM";
     case ROM_JOYREXPSG:   return "JOYREX PSG";
+    case ROM_MAKOTO:      return "MAKOTO";
     case ROM_OPCODEPSG:   return "OPCODE PSG";
     case ROM_OPCODEBIOS:  return "OPCODE BIOS";
     case ROM_OPCODEMEGA:  return "OPCODE MEGA";

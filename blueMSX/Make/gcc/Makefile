@@ -83,6 +83,7 @@ vpath % $(ROOT_DIR)/Src/Common
 vpath % $(ROOT_DIR)/Src/Debugger
 vpath % $(ROOT_DIR)/Src/Emulator
 vpath % $(ROOT_DIR)/Src/Input
+vpath % $(ROOT_DIR)/Src/SoundChips/ymfm
 vpath % $(ROOT_DIR)/Src/IoDevice
 vpath % $(ROOT_DIR)/Src/Language
 vpath % $(ROOT_DIR)/Src/Media
@@ -207,6 +208,7 @@ SOURCE_FILES += romMapperHalnote.c
 SOURCE_FILES += romMapperHarryFox.c
 SOURCE_FILES += romMapperHolyQuran.c
 SOURCE_FILES += romMapperJoyrexPsg.c
+SOURCE_FILES += romMapperMakoto.c
 SOURCE_FILES += romMapperKanji.c
 SOURCE_FILES += romMapperKanji12.c
 SOURCE_FILES += romMapperKoei.c
@@ -380,6 +382,10 @@ SOURCE_FILES += KeyClick.c
 SOURCE_FILES += MameVLM5030.c
 SOURCE_FILES += MameYM2151.c
 SOURCE_FILES += Moonsound.cpp
+SOURCE_FILES += ymfm_opn.cpp
+SOURCE_FILES += ymfm_adpcm.cpp
+SOURCE_FILES += ymfm_ssg.cpp
+SOURCE_FILES += YM2608.cpp
 SOURCE_FILES += MsxAudio.cpp
 SOURCE_FILES += MsxPsg.c
 SOURCE_FILES += OpenMsxY8950.cpp

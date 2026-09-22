@@ -60,6 +60,9 @@
 #ifdef EXCLUDE_JOYREXPSG
 #define romMapperJoyrexPsgCreate() 0
 #endif
+#ifdef EXCLUDE_MAKOTO
+#define romMapperMakotoCreate() 0
+#endif
 #ifdef EXCLUDE_OPCODE_DEVICES
 #define romMapperOpcodePsgCreate() 0
 #define romMapperOpcodeMegaRamCreate(a, b, c) 0

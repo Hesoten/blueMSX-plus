@@ -150,6 +150,7 @@
 #include "romMapperNettouYakyuu.h"
 #include "romMapperNet.h"
 #include "romMapperJoyrexPsg.h"
+#include "romMapperMakoto.h"
 #include "romMapperOpcodePsg.h"
 #include "romMapperArc.h"
 #include "romMapperOpcodeBios.h"
@@ -1363,6 +1364,11 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
 
         if (machine->slotInfo[i].romType == ROM_MSXAUDIODEV) {
             success &= romMapperMsxAudioCreate(NULL, NULL, 0, 0, 0, 0);
+            continue;
+        }
+
+        if (machine->slotInfo[i].romType == ROM_MAKOTO) {
+            success &= romMapperMakotoCreate();
             continue;
         }
 

@@ -193,6 +193,7 @@ static const RomTypeCart cartList[] = {
 
     { ROM_FMPAC,                 CARTNAME_FMPAC,              ROMCAT_SOUND,      0 },
     { ROM_JOYREXPSG,             CARTNAME_JOYREXPSG,          ROMCAT_SOUND,      0 },
+    { ROM_MAKOTO,                CARTNAME_MAKOTO,             ROMCAT_SOUND,      0 },
     { ROM_PAC,                   CARTNAME_PAC,                ROMCAT_SOUND,      0 },
     { ROM_SCC,                   CARTNAME_SCC,                ROMCAT_SOUND,      0 },
     { ROM_SCCPLUS,               CARTNAME_SCCPLUS,            ROMCAT_SOUND,      0 },
