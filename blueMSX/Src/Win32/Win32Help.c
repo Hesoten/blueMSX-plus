@@ -36,6 +36,11 @@
 #include "Resource.h"
 #include "version.h"
 #include <stdio.h>
+
+/* Set by the build from git, such as "main-1a2b3c4". */
+#ifndef BUILD_GIT_LABEL
+#define BUILD_GIT_LABEL "unknown"
+#endif
  
 /* DLGPROC returns INT_PTR: BOOL truncates HBRUSH replies from
 ** WM_CTLCOLOR* messages on x64. */
@@ -65,7 +70,7 @@ static INT_PTR CALLBACK aboutDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM
             char aboutText[4096];
 
             sprintf(aboutText, "%s\r\n\r\n"
-                                "%s\t%s (%s %s)\r\n"
+                                "%s\t%s (%s, %s %s)\r\n"
                                 "%s\t%d\r\n"
                                 "%s\t%s\r\n\r\n"
                                 "%s\r\n\r\n"
@@ -146,7 +151,7 @@ static INT_PTR CALLBACK aboutDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM
                                 "Wouter Vermaelen\r\n",
                         langDlgAboutAbout(),
                         langDlgAboutVersion(),
-                        BLUE_MSX_VERSION, BUILD_PLATFORM, BUILD_CONFIG,
+                        BLUE_MSX_VERSION, BUILD_GIT_LABEL, BUILD_PLATFORM, BUILD_CONFIG,
                         langDlgAboutBuildNumber(),
                         BUILD_NUMBER,
                         langDlgAboutBuildDate(),

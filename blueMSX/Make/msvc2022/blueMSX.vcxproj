@@ -1481,6 +1481,21 @@ buildnumber.exe
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
+  <!-- The About dialog shows the branch and commit from git. stderr is dropped so that
+       an error message can never become the label. -->
+  <Target Name="GitBuildLabel" BeforeTargets="PrepareForBuild">
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)..\..\Src\BuildInfo\git_label.ps1&quot; 2&gt;nul" ConsoleToMSBuild="true" IgnoreExitCode="true" StandardOutputImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="BlueMsxGitLabel" />
+    </Exec>
+    <PropertyGroup>
+      <BlueMsxGitLabel Condition="'$(BlueMsxGitLabel)'==''">unknown</BlueMsxGitLabel>
+    </PropertyGroup>
+    <ItemGroup>
+      <ClCompile Condition="'%(Filename)%(Extension)'=='Win32Help.c'">
+        <PreprocessorDefinitions>BUILD_GIT_LABEL="$(BlueMsxGitLabel)";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      </ClCompile>
+    </ItemGroup>
+  </Target>
   <!-- Touch Win32Help.c every build so BUILD_DATE (= __DATE__ " " __TIME__)
        expands to the current build time. Win32Help.c is the only TU that
        references BUILD_DATE, so forcing just this ~180-line file to
