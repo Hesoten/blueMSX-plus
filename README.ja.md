@@ -4,6 +4,37 @@ blueMSX+ は MSX エミュレータ [blueMSX](https://msxblue.com/bluemsx/jindex
 Windows 11 向けに UI や音声周りを中心にモダン化しています。
 
 
+## このブランチについて: V9968 試験対応版
+
+この `experimental/v9968` ブランチは、HRA! 氏が開発中の VDP [**V9968**](https://github.com/hra1129/V9968_Cartridge) に**試験的に**対応したものです。  
+正式なリリースではありません。V9968 の仕様にも追従中のため、挙動は今後も変わることがあります。  
+V9968 カートリッジ(VDP 増設)には対応していません。内蔵の V9958 を V9968 に置き換える使い方のみサポートしています。  
+V9958 互換モードのエミュレーションは、blueMSX+ の既存の V9958 コードでエミュレーションを行います。V9968 に実装される V9958 互換機能の評価には使えません。
+
+[Releases](https://github.com/Hesoten/blueMSX-plus/releases) の pre-release からビルド済みのバイナリをダウンロードできます。
+
+### V9968 の有効化
+
+1. メニューの **ツール → マシン構成編集** を開く
+2. **マシン構成** で、元にしたい構成を選ぶ (例: `MSX2+ - Panasonic FS-A1WSX`、`MSXturboR - Panasonic FS-A1GT`)
+3. **チップ** タブで **ビデオチップ** を `V9968` にし、**ビデオ RAM** が `256 kB` になっていることを確認する
+4. **別名保存...** で、`MSX2+ - Panasonic FS-A1WSX V9968` のように `<元の構成名> V9968` といった名前を付けて保存する
+5. **起動** を押す
+
+次回からは、保存した構成をマシンとして選ぶだけで V9968 で起動します。
+
+### V9968 対応ソフトウェア
+
+以下の V9968 対応ソフトウェアが動作することを確認しています。
+
+- [hra1129/V9968_Cartridge](https://github.com/hra1129/V9968_Cartridge) — HRA! 氏の V9968 開発リポジトリ内の [devcon](https://github.com/hra1129/V9968_Cartridge/tree/main/fpga/V9968_Cartridge_TangNano20K/src/v9968/devcon) デモ
+- [kanon-ai/V9968_SampleDemo](https://github.com/kanon-ai/V9968_SampleDemo) — Kanon 氏制作の V9968 のサンプルデモ集
+- [kanon-ai/NEON_REVENANT](https://github.com/kanon-ai/NEON_REVENANT) — Kanon 氏制作の疑似 3D シューティング
+- [renatus-xxxx/openmsx-v9968-windows-setup](https://github.com/renatus-xxxx/openmsx-v9968-windows-setup) — renatus 氏制作の V9968 TECH DEMO と SCENE3 BENCHMARK (`demos` 以下)
+
+ROM の種別を自動判別できないものがあります。各リポジトリに書かれている ROM 種別 (ASCII16 など) を指定して開いてください。
+
+
 ## v3.1.1 リリースの変更点
 
 - 同期モードが「**Windowsに同期**」(v3.1.0 以降の既定) のときに、ウィンドウを最小化すると異常終了する不具合を修正
