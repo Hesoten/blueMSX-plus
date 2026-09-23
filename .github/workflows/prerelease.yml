@@ -1,0 +1,88 @@
+name: prerelease
+
+# Test builds for a GitHub pre-release published from any tag on any branch, attached
+# to that pre-release. The About dialog names the branch the release targets and the commit.
+
+on:
+  release:
+    types: [prereleased]
+
+jobs:
+  build:
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [x64, Win32]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Put the checkout on the branch the pre-release targets
+        shell: pwsh
+        env:
+          TARGET: ${{ github.event.release.target_commitish }}
+        run: |
+          # The target only says where a new tag is cut; for an existing tag it can name another branch.
+          $branch = $env:TARGET
+          git merge-base --is-ancestor HEAD "origin/$branch" 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            $found = @(git branch -r --contains HEAD --format='%(refname:lstrip=3)' | Where-Object { $_ -ne 'HEAD' })
+            if ($found.Count -ne 1) {
+              throw "Cannot tell which branch $(git rev-parse HEAD) belongs to (candidates: $($found -join ', ')). Publish the pre-release with a new tag and its branch as the target."
+            }
+            $branch = $found[0]
+          }
+          git checkout -B $branch
+          if ($LASTEXITCODE -ne 0) { throw "Cannot check out $branch" }
+
+      - name: Compute the zip name
+        id: ver
+        shell: pwsh
+        run: |
+          $ver = [regex]::Match((Get-Content blueMSX/Src/BuildInfo/version.h -Raw), 'BLUE_MSX_VERSION "([^"]+)"').Groups[1].Value
+          $branch = (git symbolic-ref -q HEAD) -creplace '^refs/heads/', ''
+          $label = ($branch -creplace '[^A-Za-z0-9._-]', '-') + '-' + (git rev-parse --short=7 HEAD).Trim()
+          "zip=blueMSX+-v$ver-$label" >> $env:GITHUB_OUTPUT
+
+      - uses: microsoft/setup-msbuild@v3
+
+      - name: Build (Final, no UPX)
+        working-directory: blueMSX/Make/msvc2022
+        shell: pwsh
+        run: |
+          msbuild blueMSX.sln /m `
+            '/t:blueMSX;TraceWindow;Trainer;SimpleDebugger' `
+            "/p:Configuration=Final;Platform=${{ matrix.platform }};BlueMsxPackUpx=false"
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $zip = "dist/${{ steps.ver.outputs.zip }}-${{ matrix.platform }}.zip"
+          ./scripts/ci-package.ps1 -Config Final -Platform ${{ matrix.platform }} -OutZip $zip
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: prerelease-${{ matrix.platform }}
+          path: dist/*.zip
+          retention-days: 3
+          if-no-files-found: error
+
+  attach:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v6
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Attach the zips to the pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" dist/*.zip --clobber
