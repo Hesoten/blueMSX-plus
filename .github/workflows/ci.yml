@@ -33,6 +33,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # A pull request is checked out detached; the About dialog reads the branch from git.
+      - name: Put the checkout on the pull request branch
+        if: github.event_name == 'pull_request'
+        shell: pwsh
+        env:
+          BRANCH: ${{ github.head_ref }}
+        run: git checkout -B $env:BRANCH
+
       - uses: microsoft/setup-msbuild@v3
 
       - name: Compute version tag
