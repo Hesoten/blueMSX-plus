@@ -292,7 +292,7 @@ int romMapperSCCplusCreate(const char* filename, UInt8* romData,
     rm->slot            = slot;
     rm->sslot           = sslot;
     rm->startPage       = startPage;
-    rm->modeRegister    = sccType == SCCP_EXTENDED ? 0x20 : 0;
+    rm->modeRegister    = sccType == SCCP_EXTENDED && romData != NULL ? 0x20 : 0;
     rm->isRamSegment[0] = 0;
     rm->isRamSegment[1] = 0;
     rm->isRamSegment[2] = 0;
