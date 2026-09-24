@@ -93,6 +93,11 @@ static UInt32 sccEffectivePeriod(UInt32 period, UInt8 deformReg)
     return period;
 }
 
+static UInt32 sccPhaseStep(UInt32 effPeriod)
+{
+    return effPeriod > 8 ? BASE_PHASE_STEP / (1 + effPeriod) : 0;
+}
+
 /* Chip clocks since the rotation counter last restarted. deformTicks is
 ** folded forward on emulation-thread accesses so the 32-bit board time
 ** difference never has to span more than one wrap. */
@@ -286,7 +291,7 @@ static void sccUpdateFreqAndVol(SCC* scc, UInt8 address, UInt8 value)
         period = sccEffectivePeriod(scc->period[channel], scc->deformReg);
         scc->effPeriod[channel] = period;
         
-        scc->phaseStep[channel] = period > 0 ? BASE_PHASE_STEP / (1 + period) : 0;
+        scc->phaseStep[channel] = sccPhaseStep(period);
         
         scc->volume[channel] = scc->nextVolume[channel];
         scc->phase[channel] &= 0x1f << 23;
