@@ -313,7 +313,10 @@ char* langErrorPortableReadonly()  {return ls->errorPortableReadonly; }
 char* langErrorMidiOpenFailed()    { return ls->errorMidiOpenFailed; }
 char* langInfoColorDepth()                 { return ls->infoColorDepth; }
 char* langInfoTitle()                      { return ls->infoTitle; }
-char* langInfoGameReaderRedirect()         { return ls->infoGameReaderRedirect; }
+char* langInfoGameReaderNoDll()            { return ls->infoGameReaderNoDll; }
+char* langInfoGameReaderNoDevice()         { return ls->infoGameReaderNoDevice; }
+char* langDlgGameReaderGetDll()            { return ls->dlgGameReaderGetDll; }
+char* langDlgGameReaderWebDumper()         { return ls->dlgGameReaderWebDumper; }
 char* langErrorKeyboardThemeMissing()      { return ls->errorKeyboardThemeMissing; }
 char* langErrorMixerThemeMissing()         { return ls->errorMixerThemeMissing; }
 char* langErrorRecorderTitle()             { return ls->errorRecorderTitle; }

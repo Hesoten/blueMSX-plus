@@ -95,7 +95,10 @@ void langInitCatalan(LanguageStrings* ls)
     ls->errorPortableReadonly   = "El dispositiu portàtil és de només lectura";
     ls->errorMidiOpenFailed     = "No s'ha pogut obrir el dispositiu MIDI '%s'. Potser l'usa una altra aplicació.";
     ls->infoTitle               = "blueMSX+ Informació";
-    ls->infoGameReaderRedirect  = "blueMSX+ no admet directament el MSX Game Reader (el controlador original d'ASCII de l'era XP ja no funciona a Windows modern).\n\nVoleu obrir el MSX Game Reader - Web Dumper (per Kunihiko Ohnaka) al vostre navegador?";
+    ls->infoGameReaderNoDll     = "Cal MSXGr.dll per utilitzar el MSX Game Reader.\nLa DLL original d'ASCII no funciona al Windows actual, així que instal·leu MSXGr-WinUSB (per Sebbeug) o feu servir el MSX Game Reader - Web Dumper (per Kunihiko Ohnaka).";
+    ls->infoGameReaderNoDevice  = "No s'ha trobat cap MSX Game Reader per a la ranura de cartutx %d. Comproveu que estigui ben connectat.";
+    ls->dlgGameReaderGetDll     = "Obre la baixada de MSXGr-WinUSB";
+    ls->dlgGameReaderWebDumper  = "Obre el Web Dumper";
     ls->infoColorDepth          = "blueMSX+ funciona millor amb 16 o 32 bits de profunditat de color.";
     ls->errorKeyboardThemeMissing = "No s'ha pogut trobar el tema de l'editor de teclat.";
     ls->errorMixerThemeMissing    = "No s'ha pogut trobar el tema del mesclador.";

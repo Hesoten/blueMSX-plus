@@ -12,6 +12,9 @@
 //  any later version. See COPYING for more details.
 //
 // Copyright 2005 Vincent van Dam (vincentd@erg.verweg.com)
+//
+// Modified 2026 by Hesoten for blueMSX+ fork.
+// See https://github.com/Hesoten/blueMSX-plus for change history.
 // -----------------------------------------------------------------------
 
 #ifdef WII
@@ -22,6 +25,9 @@
 
 #ifndef _CMSXGR
 #define _CMSXGR
+
+// Init's own failure, kept clear of the error codes MSXGR_Init returns.
+#define CMSXGR_NO_LIBRARY (-0x10000)
 
 // MSXGr.dll prototypes
 typedef int   (__cdecl *_MSXGR_Init)();
@@ -40,7 +46,19 @@ typedef int   (__cdecl *_MSXGR_WriteIO)(int,char*,int,int);
 class CMSXGr
 {
 	public:
-		CMSXGr() {};
+		CMSXGr() :
+			hLib(NULL),
+			nLastError(0),
+			MSXGR_Err2Str(NULL),
+			MSXGR_GetVersion(NULL),
+			MSXGR_SetDebugMode(NULL),
+			MSXGR_IsSlotEnable(NULL),
+			MSXGR_GetSlotStatus(NULL),
+			MSXGR_ReadMemory(NULL),
+			MSXGR_WriteMemory(NULL),
+			MSXGR_WriteIO(NULL),
+			MSXGR_ReadIO(NULL)
+		{};
 		~CMSXGr() { Uninit(); };
 
 		// (un)initialise the msx gamereader

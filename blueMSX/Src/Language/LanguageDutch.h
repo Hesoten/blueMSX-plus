@@ -95,7 +95,10 @@ void langInitDutch(LanguageStrings* ls)
     ls->errorPortableReadonly   = "Het draagbare apparaat is Alleen-Lezen";
     ls->errorMidiOpenFailed     = "Kon MIDI-apparaat '%s' niet openen. Mogelijk in gebruik door andere toepassing.";
     ls->infoTitle               = "blueMSX+ Info";
-    ls->infoGameReaderRedirect  = "blueMSX+ ondersteunt de MSX Game Reader niet direct (de originele XP-driver van ASCII werkt niet meer op moderne Windows).\n\nWilt u in plaats daarvan de MSX Game Reader - Web Dumper (van Kunihiko Ohnaka) in uw browser openen?";
+    ls->infoGameReaderNoDll     = "MSXGr.dll is nodig om de MSX Game Reader te gebruiken.\nDe originele DLL van ASCII werkt niet op het huidige Windows; installeer MSXGr-WinUSB (van Sebbeug) of gebruik de MSX Game Reader - Web Dumper (van Kunihiko Ohnaka).";
+    ls->infoGameReaderNoDevice  = "Geen MSX Game Reader gevonden voor cartridgesleuf %d. Controleer of deze goed is aangesloten.";
+    ls->dlgGameReaderGetDll     = "MSXGr-WinUSB downloaden";
+    ls->dlgGameReaderWebDumper  = "Web Dumper openen";
     ls->infoColorDepth          = "blueMSX+ werkt het best met 16 of 32 bits kleurdiepte.";
     ls->errorKeyboardThemeMissing = "Kon het thema van de Toetsenbord-editor niet vinden.";
     ls->errorMixerThemeMissing    = "Kon het thema van de Mixer niet vinden.";

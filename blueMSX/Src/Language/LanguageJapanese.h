@@ -97,7 +97,10 @@ void langInitJapanese(LanguageStrings* ls)
     ls->errorPortableReadonly   = "ポータブルデバイスは読込専用です。";
     ls->errorMidiOpenFailed     = "MIDI デバイス '%s' の open に失敗しました。他のアプリケーションが使用中の可能性があります。";
     ls->infoTitle                  = "blueMSX+ 情報";
-    ls->infoGameReaderRedirect     = "blueMSX+ では MSX Game Reader を直接サポートしていません (ASCII 社の XP 時代の純正ドライバは現代の Windows では動作しません)。\n\n代わりに MSX Game Reader - Web Dumper (Kunihiko Ohnaka 氏作成) をブラウザで開きますか?";
+    ls->infoGameReaderNoDll        = "MSX Game Reader を使うには MSXGr.dll が必要です。\nASCII 純正の DLL は現在の Windows では動作しないため、MSXGr-WinUSB (Sebbeug 氏開発)をインストールするか、あるいは MSX Game Reader - Web Dumper (Kunihiko Ohnaka 氏作成) を利用してください。";
+    ls->infoGameReaderNoDevice     = "カートリッジスロット %d 用の MSX Game Reader が見つかりません。正しく接続されているか確認してください。";
+    ls->dlgGameReaderGetDll        = "MSXGr-WinUSB の入手ページを開く";
+    ls->dlgGameReaderWebDumper     = "Web Dumper を開く";
     ls->infoColorDepth             = "blueMSX+ は 16 または 32 ビット色深度で最も適切に動作します。";
     ls->errorKeyboardThemeMissing  = "キーボードエディターのテーマが見つかりません。";
     ls->errorMixerThemeMissing     = "ミキサーのテーマが見つかりません。";

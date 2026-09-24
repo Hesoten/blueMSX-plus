@@ -95,7 +95,10 @@ void langInitSpanish(LanguageStrings* ls)
     ls->errorPortableReadonly   = "El dispositivo portable es sólo lectura";        
     ls->errorMidiOpenFailed     = "No se pudo abrir el dispositivo MIDI '%s'. Puede estar en uso por otra aplicación.";
     ls->infoTitle               = "Info de blueMSX+";
-    ls->infoGameReaderRedirect  = "blueMSX+ no admite directamente MSX Game Reader (el controlador original de ASCII de la era XP ya no funciona en Windows moderno).\n\n¿Abrir MSX Game Reader - Web Dumper (por Kunihiko Ohnaka) en su navegador?";
+    ls->infoGameReaderNoDll     = "Se necesita MSXGr.dll para usar MSX Game Reader.\nEl DLL original de ASCII no funciona en Windows actual, así que instale MSXGr-WinUSB (por Sebbeug) o use MSX Game Reader - Web Dumper (por Kunihiko Ohnaka).";
+    ls->infoGameReaderNoDevice  = "No se encontró ningún MSX Game Reader para la ranura de cartucho %d. Compruebe que esté bien conectado.";
+    ls->dlgGameReaderGetDll     = "Abrir la descarga de MSXGr-WinUSB";
+    ls->dlgGameReaderWebDumper  = "Abrir el Web Dumper";
     ls->infoColorDepth          = "blueMSX+ funciona mejor con profundidad de color de 16 o 32 bits.";
     ls->errorKeyboardThemeMissing = "No se pudo encontrar el tema del editor de teclado.";
     ls->errorMixerThemeMissing    = "No se pudo encontrar el tema del mezclador.";

@@ -95,7 +95,10 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->errorPortableReadonly   = "可攜式裝置為唯讀屬性";        
     ls->errorMidiOpenFailed     = "無法開啟 MIDI 裝置 '%s'。可能有其他應用程式正在使用它。";
     ls->infoTitle               = "blueMSX+ 資訊";
-    ls->infoGameReaderRedirect  = "blueMSX+ 不直接支援 MSX Game Reader (ASCII 公司 XP 時代的原版驅動程式無法在現代 Windows 上運作)。\n\n是否改為在瀏覽器中開啟 MSX Game Reader - Web Dumper (Kunihiko Ohnaka 製作)?";
+    ls->infoGameReaderNoDll     = "使用 MSX Game Reader 需要 MSXGr.dll。\nASCII 公司的原版 DLL 無法在目前的 Windows 上運作，請安裝 MSXGr-WinUSB (Sebbeug 製作)，或使用 MSX Game Reader - Web Dumper (Kunihiko Ohnaka 製作)。";
+    ls->infoGameReaderNoDevice  = "找不到用於卡匣插槽 %d 的 MSX Game Reader。請檢查是否已正確連接。";
+    ls->dlgGameReaderGetDll     = "開啟 MSXGr-WinUSB 下載頁面";
+    ls->dlgGameReaderWebDumper  = "開啟 Web Dumper";
     ls->infoColorDepth          = "blueMSX+ 在 16 或 32 位元色深下運行最佳。";
     ls->errorKeyboardThemeMissing = "無法找到鍵盤編輯器佈景主題。";
     ls->errorMixerThemeMissing    = "無法找到混音器佈景主題。";

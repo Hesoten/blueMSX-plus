@@ -1489,7 +1489,6 @@ static RomType romTypeList[] = {
     ROM_JOYREXPSG,
     ROM_OPCODEPSG,
     
-    ROM_GAMEREADER,
     ROM_NOWIND,
     ROM_OBSONET,
     ROM_YAMAHANET,
@@ -1584,10 +1583,24 @@ static RomType romTypeList[] = {
     ROM_UNKNOWN,
 };
 
+/* Also the item index in IDC_ROMTYPE, which is filled from this list in order.
+** -1 for a type the list does not offer. */
+static int romTypeListIndex(RomType romType)
+{
+    int i;
+
+    for (i = 0; romTypeList[i] != ROM_UNKNOWN; i++) {
+        if (romTypeList[i] == romType) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 static void setEditProps(HWND hDlg, char* fileName)
 {
     int size;
-    int idx = 0;
+    int idx;
     char* buf = romLoad(fileName, NULL, &size);
 
     if ((buf != NULL) &&
@@ -1620,17 +1633,16 @@ static void setEditProps(HWND hDlg, char* fileName)
 
     if (buf != NULL) {
         MediaType* mediaType = mediaDbLookupRom(buf, size);
-        if (mediaType != NULL && mediaDbGetRomType(mediaType) != ROM_UNKNOWN) {
+        /* A detected type the list cannot show would leave the box naming
+        ** something else, so the slot keeps the default instead. */
+        if (mediaType != NULL && romTypeListIndex(mediaDbGetRomType(mediaType)) >= 0) {
             editSlotInfo.romType = mediaDbGetRomType(mediaType);
         }
 
         free(buf);
     }
 
-    while (romTypeList[idx] != editSlotInfo.romType) {
-        idx++;
-    }
-
+    idx = romTypeListIndex(editSlotInfo.romType);
     SendMessage(GetDlgItem(hDlg, IDC_ROMTYPE), CB_SETCURSEL, idx, 0);
 }
 
@@ -1740,10 +1752,13 @@ static BOOL_DLG_RET CALLBACK slotEditProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
             return TRUE;
 
         case IDC_ROMTYPE:
-            {
+            if (HIWORD(wParam) == 1) {
                 int idx = (int)SendMessage(GetDlgItem(hDlg, IDC_ROMTYPE), CB_GETCURSEL, 0, 0);
 
-                editSlotInfo.romType = idx == CB_ERR ? -1 : romTypeList[idx];
+                /* An unselected box cannot name the slot's current type. */
+                if (idx != CB_ERR) {
+                    editSlotInfo.romType = romTypeList[idx];
+                }
 
                 setEditControls(hDlg);
             }

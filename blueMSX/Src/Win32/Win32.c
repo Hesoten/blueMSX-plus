@@ -51,7 +51,9 @@
 #include "VideoRender.h"
 #include "CommandLine.h"
 #include "RomTypeList.h"
-#include "Language.h"   
+#include "GameReader.h"
+#include "ArchDialog.h"
+#include "Language.h"
 #include "SaveState.h"
 #include "resource.h"
 #include "Casette.h"
@@ -4677,6 +4679,8 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     RECT wr;
     MSG msg;
     int i;
+    int grNth;
+    int grShown;
     int readOnlyDir;
     const char* tempName;
     int scrDepth;
@@ -5189,8 +5193,23 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     
     mediaDbSetDefaultRomType(pProperties->cartridge.defaultType);
 
+    /* Asked slot by slot, so the slot named is the first one the readers to
+    ** hand cannot cover. Only the first is named, but every slot it cannot
+    ** cover is left out of the insert below. */
+    grNth = 0;
+    grShown = 0;
     for (i = 0; i < PROP_MAX_CARTS; i++) {
-        if (pProperties->media.carts[i].fileName[0]) insertCartridge(pProperties, i, pProperties->media.carts[i].fileName, pProperties->media.carts[i].fileNameInZip, pProperties->media.carts[i].type, -1);
+        int grState = GAMEREADER_AVAILABLE;
+        if (pProperties->media.carts[i].fileName[0]) {
+            if (pProperties->media.carts[i].type == ROM_GAMEREADER) {
+                grState = gameReaderAvailability(++grNth);
+                if (grState != GAMEREADER_AVAILABLE && !grShown) {
+                    archShowGameReaderUnavailableDialog(grState, i);
+                    grShown = 1;
+                }
+            }
+            if (grState == GAMEREADER_AVAILABLE) insertCartridge(pProperties, i, pProperties->media.carts[i].fileName, pProperties->media.carts[i].fileNameInZip, pProperties->media.carts[i].type, -1);
+        }
         updateExtendedRomName(i, pProperties->media.carts[i].fileName, pProperties->media.carts[i].fileNameInZip);
     }
 
@@ -5622,6 +5641,200 @@ int MessageBoxLargeU(HWND hwnd, const char* mainInstr, const char* content,
         return MessageBoxW(hwnd, wcontent, wcap, type);
     }
     return (int)rv;
+}
+
+static INT_PTR CALLBACK gameReaderNoDllProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    switch (msg) {
+    case WM_INITDIALOG: {
+        wchar_t wtext[2048];
+        HWND hStatic  = GetDlgItem(hDlg, IDC_GRNODLL_TEXT);
+        HWND hIconCtl = GetDlgItem(hDlg, IDC_GRNODLL_ICON);
+        HWND btnHwnds[3];
+        int  btnW[3];
+        int  i;
+
+        SetWindowTextU(hDlg, langInfoTitle());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_GRNODLL_GETDLL),    langDlgGameReaderGetDll());
+        SetWindowTextU(GetDlgItem(hDlg, IDC_GRNODLL_WEBDUMPER), langDlgGameReaderWebDumper());
+        SetWindowTextU(GetDlgItem(hDlg, IDCANCEL),              langDlgCancel());
+
+        {
+            /* A static control wants \r\n, and the language tables carry \n. */
+            wchar_t raw[1024];
+            int     r = 0;
+            int     w = 0;
+            raw[0] = 0;
+            Utf8ToWide(langInfoGameReaderNoDll(), raw, _countof(raw));
+            raw[_countof(raw) - 1] = 0;
+            while (raw[r] != 0 && w < _countof(wtext) - 2) {
+                if (raw[r] == L'\n') {
+                    wtext[w++] = L'\r';
+                }
+                wtext[w++] = raw[r++];
+            }
+            wtext[w] = 0;
+        }
+        SetWindowTextW(hStatic, wtext);
+
+        btnHwnds[0] = GetDlgItem(hDlg, IDC_GRNODLL_GETDLL);
+        btnHwnds[1] = GetDlgItem(hDlg, IDC_GRNODLL_WEBDUMPER);
+        btnHwnds[2] = GetDlgItem(hDlg, IDCANCEL);
+
+        const int iconSize = 48;
+        HICON hIcon = (HICON)LoadImageW(NULL, (LPCWSTR)IDI_INFORMATION, IMAGE_ICON,
+                                        iconSize, iconSize, LR_SHARED);
+        if (hIcon) {
+            SendMessageW(hIconCtl, STM_SETICON, (WPARAM)hIcon, 0);
+        }
+
+        /* Measured per caption, so a long translation widens its button. */
+        HFONT font    = (HFONT)SendMessageW(hStatic, WM_GETFONT, 0, 0);
+        HDC   hdc     = GetDC(hStatic);
+        HFONT oldFont = (HFONT)SelectObject(hdc, font);
+
+        RECT btnRect;
+        GetWindowRect(btnHwnds[0], &btnRect);
+        int btnH     = btnRect.bottom - btnRect.top;
+        int buttonsW = 0;
+        int btnGap   = 10;
+
+        for (i = 0; i < 3; i++) {
+            wchar_t wcap[256];
+            RECT capRect = { 0, 0, 0, 0 };
+            GetWindowTextW(btnHwnds[i], wcap, _countof(wcap));
+            DrawTextW(hdc, wcap, -1, &capRect, DT_CALCRECT | DT_SINGLELINE | DT_NOPREFIX);
+            btnW[i] = (capRect.right - capRect.left) + 24;
+            if (btnW[i] < 70) btnW[i] = 70;
+            buttonsW += btnW[i];
+        }
+        buttonsW += btnGap * 2;
+
+        int padX    = 20;
+        int padTop  = 14;
+        int padMid  = 18;
+        int padBot  = 14;
+        int iconGap = 16;
+
+        /* The button row settles the width, so the wrap follows from it. */
+        int textW = 460;
+        if (buttonsW > iconSize + iconGap + textW) {
+            textW = buttonsW - iconSize - iconGap;
+        }
+
+        RECT wrapRect = { 0, 0, textW, 10000 };
+        DrawTextW(hdc, wtext, -1, &wrapRect,
+                  DT_CALCRECT | DT_LEFT | DT_NOPREFIX | DT_WORDBREAK);
+        int textH = wrapRect.bottom - wrapRect.top;
+        if (wrapRect.right - wrapRect.left < textW) {
+            textW = wrapRect.right - wrapRect.left;
+        }
+
+        SelectObject(hdc, oldFont);
+        ReleaseDC(hStatic, hdc);
+
+        int rowW    = iconSize + iconGap + textW;
+        int clientW = (rowW > buttonsW ? rowW : buttonsW) + padX * 2;
+        int rowH    = textH > iconSize ? textH : iconSize;
+        int clientH = padTop + rowH + padMid + btnH + padBot;
+
+        int rowX  = padX;
+        int textY = padTop + (rowH - textH) / 2;
+        int btnY  = padTop + rowH + padMid;
+        int btnX  = clientW - padX - buttonsW;
+
+        SetWindowPos(hIconCtl, NULL, rowX, padTop + (rowH - iconSize) / 2,
+                     iconSize, iconSize, SWP_NOZORDER);
+        SetWindowPos(hStatic, NULL, rowX + iconSize + iconGap, textY,
+                     textW, textH, SWP_NOZORDER);
+        for (i = 0; i < 3; i++) {
+            SetWindowPos(btnHwnds[i], NULL, btnX, btnY, btnW[i], btnH, SWP_NOZORDER);
+            btnX += btnW[i] + btnGap;
+        }
+
+        RECT wr, cr;
+        GetWindowRect(hDlg, &wr);
+        GetClientRect(hDlg, &cr);
+        SetWindowPos(hDlg, NULL, 0, 0,
+                     clientW + (wr.right - wr.left) - (cr.right - cr.left),
+                     clientH + (wr.bottom - wr.top) - (cr.bottom - cr.top),
+                     SWP_NOMOVE | SWP_NOZORDER);
+        win32CommonCenterOnOwner(hDlg);
+
+        win32CommonApplyDark(hDlg);
+        return TRUE;
+    }
+    case WM_COMMAND: {
+        int id = LOWORD(wParam);
+        if (id == IDC_GRNODLL_GETDLL || id == IDC_GRNODLL_WEBDUMPER || id == IDCANCEL) {
+            EndDialog(hDlg, id);
+            return TRUE;
+        }
+        break;
+    }
+    case WM_CLOSE:
+        EndDialog(hDlg, IDCANCEL);
+        return TRUE;
+    }
+    return FALSE;
+}
+
+void archShowGameReaderUnavailableDialog(int reason, int cartSlot)
+{
+    INT_PTR choice;
+    const char* url;
+    /* An owned popup of a window that is not up yet gets no taskbar button. */
+    HWND owner = IsWindowVisible(st.hwnd) ? getMainHwnd() : NULL;
+
+    if (reason != GAMEREADER_NO_DLL) {
+        char body[512];
+        _snprintf(body, sizeof(body) - 1, langInfoGameReaderNoDevice(), cartSlot + 1);
+        body[sizeof(body) - 1] = 0;
+
+        if (st.hidden) {
+            commandLineReport(body);
+            return;
+        }
+        enterDialogShow();
+        MessageBoxU(owner, body, langInfoTitle(), MB_OK | MB_ICONWARNING);
+        exitDialogShow();
+        return;
+    }
+
+    /* A hidden run has no one to click a dialog away. */
+    if (st.hidden) {
+        commandLineReport(langInfoGameReaderNoDll());
+        return;
+    }
+
+    enterDialogShow();
+    choice = DialogBoxW(GetModuleHandle(NULL),
+                        MAKEINTRESOURCEW(IDD_GAMEREADER_NODLL),
+                        owner, gameReaderNoDllProc);
+    exitDialogShow();
+
+    if (choice == -1 || choice == 0) {
+        enterDialogShow();
+        MessageBoxU(owner, langInfoGameReaderNoDll(), langInfoTitle(),
+                    MB_OK | MB_ICONINFORMATION);
+        exitDialogShow();
+        return;
+    }
+
+    if (choice == IDC_GRNODLL_GETDLL) {
+        url = "https://github.com/Sebbeug/MSXGr-WinUSB/releases";
+    }
+    else if (choice == IDC_GRNODLL_WEBDUMPER) {
+        url = pProperties->language == EMU_LANG_JAPANESE
+              ? "https://kunichiko.github.io/MSX-GameReader-web/?lang=ja"
+              : "https://kunichiko.github.io/MSX-GameReader-web/?lang=en";
+    }
+    else {
+        return;
+    }
+
+    /* Launched after the modal closes, or the browser comes up behind it. */
+    ShellExecuteA(owner, "open", url, NULL, NULL, SW_SHOWNORMAL);
 }
 
 /* Common start-failed dialog: appends boardRun's missing-files list. */

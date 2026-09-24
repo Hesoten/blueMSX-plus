@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -70,11 +73,12 @@ class CMSXGr
 
 
 static CMSXGr* MsxGr;
+static int MsxGrInitError;
 
 struct GameReader 
 {
 public:
-    GameReader(int grSlot = -1);
+    GameReader(int grSlot);
     ~GameReader();
 
     inline bool readMemory(UInt16 address, void* buffer, int length);
@@ -103,82 +107,74 @@ GameReader::~GameReader() {
 
 bool GameReader::readMemory(UInt16 address, void* buffer, int length)
 {
-    if (slot == -1) {
-        return false;
-    }
-    
     if (!inserted) {
         inserted = MsxGr->IsCartridgeInserted(slot);
     }
-    
-    if (inserted) {
-        //printf("### Reading address %.4x - %.4x\n", address, address + length - 1);
-        if (MsxGr->ReadMemory(slot, globalBuffer, address, length) != 0) {
-            inserted = MsxGr->IsCartridgeInserted(slot);
-            return false;
-        }
-        memcpy(buffer, globalBuffer, length);
+
+    if (!inserted) {
+        return false;
     }
+
+    //printf("### Reading address %.4x - %.4x\n", address, address + length - 1);
+    if (MsxGr->ReadMemory(slot, globalBuffer, address, length) != 0) {
+        inserted = MsxGr->IsCartridgeInserted(slot);
+        return false;
+    }
+    memcpy(buffer, globalBuffer, length);
     return true;
 }
 
 bool GameReader::writeMemory(UInt16 address, void* buffer, int length)
 {
-    if (slot == -1) {
-        return false;
-    }
-    
     if (!inserted) {
         inserted = MsxGr->IsCartridgeInserted(slot);
     }
-    
-    if (inserted) {
-        memcpy(globalBuffer, buffer, length);
-        //printf("### Writing address %.4x - %.4x\n", address, address + length - 1);
-        if (MsxGr->WriteMemory(slot, globalBuffer, address, length) != 0) {
-            inserted = MsxGr->IsCartridgeInserted(slot);
-            return false;
-        }
+
+    if (!inserted) {
+        return false;
+    }
+
+    memcpy(globalBuffer, buffer, length);
+    //printf("### Writing address %.4x - %.4x\n", address, address + length - 1);
+    if (MsxGr->WriteMemory(slot, globalBuffer, address, length) != 0) {
+        inserted = MsxGr->IsCartridgeInserted(slot);
+        return false;
     }
     return true;
 }
 
 bool GameReader::readIo(UInt16 port, UInt8* value)
 {
-    if (slot == -1) {
-        return false;
-    }
-    
     if (!inserted) {
         inserted = MsxGr->IsCartridgeInserted(slot);
     }
 
-    if (inserted) {
-        if (MsxGr->ReadIO(slot, globalBuffer, port, 1) != 0) {
-            inserted = MsxGr->IsCartridgeInserted(slot);
-            return false;
-        }
-        *value = *(UInt8*)globalBuffer;
+    if (!inserted) {
+        return false;
     }
+
+    if (MsxGr->ReadIO(slot, globalBuffer, port, 1) != 0) {
+        inserted = MsxGr->IsCartridgeInserted(slot);
+        return false;
+    }
+    *value = *(UInt8*)globalBuffer;
     return true;
 }
 
 bool GameReader::writeIo(UInt16 port, UInt8 value)
 {
-    if (slot == -1) {
-        return false;
-    }
-    
     if (!inserted) {
         inserted = MsxGr->IsCartridgeInserted(slot);
     }
 
-    if (inserted) {
-        *(UInt8*)globalBuffer = value;
-        if (MsxGr->WriteIO(slot, globalBuffer, port, 1) != 0) {
-            inserted = MsxGr->IsCartridgeInserted(slot);
-            return false;
-        }
+    if (!inserted) {
+        return false;
+    }
+
+    *(UInt8*)globalBuffer = value;
+    if (MsxGr->WriteIO(slot, globalBuffer, port, 1) != 0) {
+        inserted = MsxGr->IsCartridgeInserted(slot);
+        return false;
     }
     return true;
 }
@@ -187,6 +183,42 @@ bool GameReader::writeIo(UInt16 port, UInt8 value)
 
 static GameReader* GameReaders[MAX_GAMEREADERS] = { NULL, NULL };
 
+/* A NULL entry is a reader that is not there; the flag beside it says whether
+** the entry has been handed to a cartridge. The enumeration is not revisited
+** while a cartridge holds a reader, so one plugged in meanwhile is not seen. */
+static int GameReaderClaimed[MAX_GAMEREADERS];
+
+static int grFreeIndex()
+{
+    for (int i = 0; i < MAX_GAMEREADERS; i++) {
+        if (GameReaders[i] != NULL && !GameReaderClaimed[i]) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+static int grDetectedCount()
+{
+    int n = 0;
+    for (int i = 0; i < MAX_GAMEREADERS; i++) {
+        if (GameReaders[i] != NULL) {
+            n++;
+        }
+    }
+    return n;
+}
+
+static int grAnyClaimed()
+{
+    for (int i = 0; i < MAX_GAMEREADERS; i++) {
+        if (GameReaderClaimed[i]) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 static void InitializeGameReaders()
 {
     if (MsxGr == NULL) {
@@ -194,16 +226,14 @@ static void InitializeGameReaders()
 
         int gameReaderCount = 0;
 
-        if (MsxGr->Init() == 0) {
+        MsxGrInitError = MsxGr->Init();
+
+        if (MsxGrInitError == 0) {
             for (int i = 0; i < 16 && gameReaderCount < MAX_GAMEREADERS; i++) {
                 if (MsxGr->IsSlotEnable(i)) {
                     GameReaders[gameReaderCount++] = new GameReader(i);
                 }
             }
-        }
-
-        for (; gameReaderCount < 2; gameReaderCount++) {
-            GameReaders[gameReaderCount] = new GameReader;
         }
     }
 }
@@ -216,9 +246,11 @@ static void DeinitializeGameReaders()
                 delete GameReaders[i];
                 GameReaders[i] = NULL;
             }
+            GameReaderClaimed[i] = 0;
         }
         delete MsxGr;
         MsxGr = NULL;
+        MsxGrInitError = 0;
     }
 }
 
@@ -226,16 +258,64 @@ static void DeinitializeGameReaders()
 //
 // Public C interface
 
-extern "C" GrHandle* gameReaderCreate(int slot)
+extern "C" int gameReaderAvailability(int wanted)
 {
     InitializeGameReaders();
 
-    return (GrHandle*)GameReaders[slot];
+    if (MsxGrInitError == CMSXGR_NO_LIBRARY) {
+        /* Nothing was enumerated, so nothing can be claimed. */
+        DeinitializeGameReaders();
+        return GAMEREADER_NO_DLL;
+    }
+    if (grDetectedCount() >= wanted) {
+        return GAMEREADER_AVAILABLE;
+    }
+    if (!grAnyClaimed()) {
+        /* Dropped so the next ask enumerates again rather than repeating a
+        ** stale answer. */
+        DeinitializeGameReaders();
+    }
+    return GAMEREADER_NO_DEVICE;
+}
+
+extern "C" GrHandle* gameReaderCreate(void)
+{
+    int i;
+
+    InitializeGameReaders();
+
+    i = grFreeIndex();
+    if (i < 0) {
+        if (!grAnyClaimed()) {
+            DeinitializeGameReaders();
+        }
+        return NULL;
+    }
+
+    GameReaderClaimed[i] = 1;
+    return (GrHandle*)GameReaders[i];
 }
 
 extern "C" void gameReaderDestroy(GrHandle* grHandle)
 {
-    DeinitializeGameReaders();
+    int i;
+
+    if (grHandle == NULL) {
+        return;
+    }
+
+    /* Matched on the claim as well as the pointer, so releasing a handle twice
+    ** cannot take the pool down under whoever still holds the other reader. */
+    for (i = 0; i < MAX_GAMEREADERS; i++) {
+        if ((GrHandle*)GameReaders[i] == grHandle && GameReaderClaimed[i]) {
+            GameReaderClaimed[i] = 0;
+            break;
+        }
+    }
+
+    if (!grAnyClaimed()) {
+        DeinitializeGameReaders();
+    }
 }
 
 extern "C" int gameReaderRead(GrHandle* grHandle, UInt16 address, void* buffer, int length)

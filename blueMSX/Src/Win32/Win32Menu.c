@@ -51,6 +51,8 @@
 #include "ArchInput.h"
 #include "JoystickPort.h"
 #include "GameReader.h"
+#include "ArchDialog.h"
+#include "Emulator.h"
 #include "AppConfig.h"
 
 /* showLoadMemoryDlg is the IDD_LOAD_MEMORY entry point, defined
@@ -2014,19 +2016,28 @@ int menuCommand(Properties* pProperties, int command)
         case ID_FILE_CART_EXTRAM4MB:
             insertCartridge(pProperties, i, CARTNAME_EXTRAM4MB, NULL, ROM_EXTRAM4MB, 0);
             return 1;
-        case ID_FILE_CART_GAMEREADER:
-            /* MSXGr.dll no longer installs cleanly; redirect to the
-            ** WebUSB-based dumper instead. */
-            if (MessageBoxU(getMainHwnd(),
-                            langInfoGameReaderRedirect(),
-                            langInfoTitle(),
-                            MB_OKCANCEL | MB_ICONINFORMATION) == IDOK) {
-                const char* url = (pProperties->language == EMU_LANG_JAPANESE)
-                                  ? "https://kunichiko.github.io/MSX-GameReader-web/?lang=ja"
-                                  : "https://kunichiko.github.io/MSX-GameReader-web/?lang=en";
-                ShellExecuteA(getMainHwnd(), "open", url, NULL, NULL, SW_SHOWNORMAL);
+        case ID_FILE_CART_GAMEREADER: {
+            /* Once insertCartridge has run it is too late to refuse. */
+            int grState;
+            int grWanted = 1;
+            int grRunning = emulatorGetState() == EMU_RUNNING;
+            int j;
+
+            for (j = 0; j < PROP_MAX_CARTS; j++) {
+                if (j != i && pProperties->media.carts[j].fileName[0] &&
+                    pProperties->media.carts[j].type == ROM_GAMEREADER) grWanted++;
             }
+
+            if (grRunning) emulatorSuspend();
+            grState = gameReaderAvailability(grWanted);
+            if (grRunning) emulatorResume();
+            if (grState != GAMEREADER_AVAILABLE) {
+                archShowGameReaderUnavailableDialog(grState, i);
+                return 1;
+            }
+            insertCartridge(pProperties, i, CARTNAME_GAMEREADER, NULL, ROM_GAMEREADER, 0);
             return 1;
+        }
         case ID_FILE_CART_SUNRISEIDE:
             insertCartridge(pProperties, i, CARTNAME_SUNRISEIDE, NULL, ROM_SUNRISEIDE, 0);
             return 1;

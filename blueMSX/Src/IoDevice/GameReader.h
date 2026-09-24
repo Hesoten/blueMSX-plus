@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -32,11 +35,24 @@
 
 typedef void* GrHandle;
 
+#define GAMEREADER_AVAILABLE 0  /* library loaded and enough readers found  */
+#define GAMEREADER_NO_DLL    1  /* MSXGr.dll absent, or not an MSXGr.dll    */
+#define GAMEREADER_NO_DEVICE 2  /* library is fine, but too few readers     */
+
 int gameReaderSupported();
 
-GrHandle* gameReaderCreate(int slot);
+/* One of the GAMEREADER_ values above. Answers whether at least wanted readers
+** are attached, counting any already driving a cartridge. wanted must be at
+** least 1. */
+int gameReaderAvailability(int wanted);
+
+/* The next free reader, or NULL when there is none. Readers are handed out in
+** the order they were detected, which has nothing to do with cartridge slots. */
+GrHandle* gameReaderCreate(void);
 void gameReaderDestroy(GrHandle* grHandle);
 
+/* 0 when the reader holds no cartridge or the transfer failed; buffer is then
+** left untouched. */
 int gameReaderRead(GrHandle* grHandle, UInt16 address, void* buffer, int length);
 int gameReaderWrite(GrHandle* grHandle, UInt16 address, void* buffer, int length);
 

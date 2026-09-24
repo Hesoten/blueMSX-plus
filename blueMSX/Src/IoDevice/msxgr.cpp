@@ -11,6 +11,9 @@
 //  any later version. See COPYING for more details.
 //
 // Copyright 2005 Vincent van Dam (vincentd@erg.verweg.com)
+//
+// Modified 2026 by Hesoten for blueMSX+ fork.
+// See https://github.com/Hesoten/blueMSX-plus for change history.
 // -----------------------------------------------------------------------
 
 #include "msxgr.h"
@@ -25,7 +28,7 @@ int CMSXGr::Init()
 
 	if (!hLib)	{
 		// DLL could not be found.
-		return -1;
+		return CMSXGR_NO_LIBRARY;
 	}
 
 	_MSXGR_Init MSXGR_Init =
@@ -33,14 +36,18 @@ int CMSXGr::Init()
 
 	if (MSXGR_Init == NULL) {
 		// MSXGR_Init method not found, assume corrupt DLL.
-		return -1;
+		FreeLibrary(hLib);
+		hLib = NULL;
+		return CMSXGR_NO_LIBRARY;
 	}
-	
+
 	nLastError = MSXGR_Init();
 
 	if (nLastError) {
-		// Error during initialisation
-		FreeLibrary(hLib);   
+		// Error during initialisation. hLib has to go too, or Uninit calls
+		// through an unloaded module.
+		FreeLibrary(hLib);
+		hLib = NULL;
 		return nLastError;
 	}
 
@@ -55,13 +62,22 @@ int CMSXGr::Init()
 	MSXGR_WriteIO =	(_MSXGR_WriteIO)GetProcAddress(hLib, "MSXGR_WriteIO");
 	MSXGR_ReadIO = (_MSXGR_ReadIO)GetProcAddress(hLib, "MSXGR_ReadIO");
 
-	// Wait for the driver to attach the game reader(s)
+	// The entry points the emulator reaches; the other three have no caller.
+	if (MSXGR_IsSlotEnable == NULL || MSXGR_GetSlotStatus == NULL ||
+		MSXGR_ReadMemory == NULL || MSXGR_WriteMemory == NULL ||
+		MSXGR_ReadIO == NULL || MSXGR_WriteIO == NULL) {
+		Uninit();
+		return CMSXGR_NO_LIBRARY;
+	}
+
+	// Wait for the driver to attach the game reader(s), bounded because
+	// nothing arrives when none is plugged in.
 	int nSlot;
-	int nTry=0;
-	while (nTry<5) {
+	int nTry;
+	for (nTry = 0; nTry < 5; nTry++) {
 		Sleep(300);
 		for (nSlot=0;nSlot<16;nSlot++)
-			if (IsSlotEnable(nSlot)) nTry = 5;
+			if (IsSlotEnable(nSlot)) return 0;
 	}
 
 	return 0;
@@ -86,6 +102,16 @@ void CMSXGr::Uninit()
 	// unload dll
 	FreeLibrary(hLib);
 	hLib = NULL;
+
+	MSXGR_Err2Str = NULL;
+	MSXGR_GetVersion = NULL;
+	MSXGR_SetDebugMode = NULL;
+	MSXGR_IsSlotEnable = NULL;
+	MSXGR_GetSlotStatus = NULL;
+	MSXGR_ReadMemory = NULL;
+	MSXGR_WriteMemory = NULL;
+	MSXGR_WriteIO = NULL;
+	MSXGR_ReadIO = NULL;
 
 	return;
 }
