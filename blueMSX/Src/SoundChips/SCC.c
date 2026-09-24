@@ -123,6 +123,7 @@ void sccLoadState(SCC* scc)
 {
     SaveState* state = saveStateOpenForRead("scc");
     char tag[32];
+    UInt32 curWave;
     int i;
 
     scc->mode      =         saveStateGet(state, "mode", SCC_COMPATIBLE);
@@ -141,9 +142,6 @@ void sccLoadState(SCC* scc)
         sprintf(tag, "phase%d", i);
         scc->phase[i] = saveStateGet(state, tag, 0);
         
-        sprintf(tag, "step%d", i);
-        scc->phaseStep[i] = saveStateGet(state, tag, 0);
-        
         sprintf(tag, "volume%d", i);
         scc->volume[i] = saveStateGet(state, tag, 0);
         
@@ -161,7 +159,14 @@ void sccLoadState(SCC* scc)
 
         sprintf(tag, "effPeriod%d", i);
         scc->effPeriod[i] = saveStateGet(state, tag, sccEffectivePeriod(scc->period[i], scc->deformReg));
+        scc->phaseStep[i] = sccPhaseStep(scc->effPeriod[i]);
+
+        curWave = scc->oldSample[i] >= 0 && scc->oldSample[i] < 32 ? (UInt8)scc->wave[i][scc->oldSample[i]] : 0;
+        sprintf(tag, "curWave%d", i);
+        scc->curWave[i] = (Int8)saveStateGet(state, tag, curWave);
     }
+
+    scc->enable = (UInt8)saveStateGet(state, "enable", 0xff);
 
     scc->deformRef   = saveStateGet(state, "deformRef", boardSystemTime());
     scc->deformTicks = saveStateGet(state, "deformTicks", 0);
@@ -211,7 +216,12 @@ void sccSaveState(SCC* scc)
 
         sprintf(tag, "effPeriod%d", i);
         saveStateSet(state, tag, scc->effPeriod[i]);
+
+        sprintf(tag, "curWave%d", i);
+        saveStateSet(state, tag, (UInt8)scc->curWave[i]);
     }
+
+    saveStateSet(state, "enable", scc->enable);
 
     saveStateSet(state, "deformRef",   scc->deformRef);
     saveStateSet(state, "deformTicks", scc->deformTicks);
