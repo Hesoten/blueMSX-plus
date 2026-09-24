@@ -117,7 +117,7 @@ static void mapBank(RomMapperYamanooto* rm, int page)
 
 static void updateSccChipMode(RomMapperYamanooto* rm)
 {
-    sccSetMode(rm->scc, (rm->sccMode & 0x20) ? SCC_PLUS : SCC_REAL);
+    sccSetMode(rm->scc, (rm->sccMode & 0x20) ? SCC_PLUS : SCC_COMPATIBLE);
 }
 
 static void applyBankWrite(RomMapperYamanooto* rm, int page, UInt8 value)
@@ -471,7 +471,7 @@ int romMapperYamanootoCreate(const char* filename, UInt8* romData,
     rm->startPage = startPage;
 
     rm->scc = sccCreate(boardGetMixer());
-    sccSetMode(rm->scc, SCC_REAL);
+    sccSetMode(rm->scc, SCC_COMPATIBLE);
 
     rm->ay8910 = ay8910Create(boardGetMixer(), AY8910_NONE, PSGTYPE_AY8910, 0, NULL);
 
