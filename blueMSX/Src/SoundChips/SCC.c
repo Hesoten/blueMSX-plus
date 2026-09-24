@@ -68,7 +68,9 @@ struct SCC
     int rotate[5];
     int readOnly[5];
     Int32 oldSample[5];
-    Int32 deformSample[5];
+    UInt32 effPeriod[5];
+    UInt32 deformRef;
+    UInt32 deformTicks;
     Int32  daVolume[5];
 
     Int32 in[95];
@@ -77,6 +79,41 @@ struct SCC
 
     Int32  buffer[AUDIO_MONO_BUFFER_SIZE];
 };
+
+#define SCC_TICK (boardFrequency() / 3579545)
+
+static UInt32 sccEffectivePeriod(UInt32 period, UInt8 deformReg)
+{
+    if (deformReg & 2) {
+        return period & 0xff;
+    }
+    if (deformReg & 1) {
+        return period >> 8;
+    }
+    return period;
+}
+
+/* Chip clocks since the rotation counter last restarted. deformTicks is
+** folded forward on emulation-thread accesses so the 32-bit board time
+** difference never has to span more than one wrap. */
+static UInt32 sccDeformTicks(SCC* scc)
+{
+    return scc->deformTicks + (boardSystemTime() - scc->deformRef) / SCC_TICK;
+}
+
+static void sccFoldDeformTicks(SCC* scc)
+{
+    UInt32 ticks = (boardSystemTime() - scc->deformRef) / SCC_TICK;
+
+    scc->deformTicks += ticks;
+    scc->deformRef   += ticks * SCC_TICK;
+}
+
+static void sccRestartDeformTicks(SCC* scc)
+{
+    scc->deformTicks = 0;
+    scc->deformRef   = boardSystemTime();
+}
 
 void sccLoadState(SCC* scc)
 {
@@ -120,7 +157,13 @@ void sccLoadState(SCC* scc)
 
         sprintf(tag, "oldSample%d", i);
         scc->oldSample[i] = saveStateGet(state, tag, 0);
+
+        sprintf(tag, "effPeriod%d", i);
+        scc->effPeriod[i] = saveStateGet(state, tag, sccEffectivePeriod(scc->period[i], scc->deformReg));
     }
+
+    scc->deformRef   = saveStateGet(state, "deformRef", boardSystemTime());
+    scc->deformTicks = saveStateGet(state, "deformTicks", 0);
 
     saveStateClose(state);
 }
@@ -167,7 +210,13 @@ void sccSaveState(SCC* scc)
 
         sprintf(tag, "oldSample%d", i);
         saveStateSet(state, tag, scc->oldSample[i]);
+
+        sprintf(tag, "effPeriod%d", i);
+        saveStateSet(state, tag, scc->effPeriod[i]);
     }
+
+    saveStateSet(state, "deformRef",   scc->deformRef);
+    saveStateSet(state, "deformTicks", scc->deformTicks);
 
     saveStateClose(state);
 }
@@ -182,9 +231,7 @@ static UInt8 sccGetWave(SCC* scc, UInt8 channel, UInt8 address)
     else {
         UInt8 periodCh = channel;
         UInt8 value;
-        int shift;
-
-        mixerSync(scc->mixer);
+        UInt32 shift;
 
          if ((scc->deformReg & 0xc0) == 0x80) {
              if (channel == 4) {
@@ -195,7 +242,7 @@ static UInt8 sccGetWave(SCC* scc, UInt8 channel, UInt8 address)
              periodCh = 4;
          }
 
-         shift = scc->oldSample[periodCh] - scc->deformSample[periodCh];
+         shift = sccDeformTicks(scc) / (scc->effPeriod[periodCh] + 1);
 
         value = scc->wave[channel][(address + shift) & 0x1f];
         scc->bus = value;
@@ -239,15 +286,10 @@ static void sccUpdateFreqAndVol(SCC* scc, UInt8 address, UInt8 value)
         }
         if (scc->deformReg & 0x20) {
             scc->phase[channel] = 0;
+            sccRestartDeformTicks(scc);
         }
-        period = scc->period[channel];
-
-        if (scc->deformReg & 2) {
-            period &= 0xff;
-        }
-        else if (scc->deformReg & 1) {
-            period >>= 8;
-        }
+        period = sccEffectivePeriod(scc->period[channel], scc->deformReg);
+        scc->effPeriod[channel] = period;
         
         scc->phaseStep[channel] = period > 0 ? BASE_PHASE_STEP / (1 + period) : 0;
         
@@ -275,9 +317,7 @@ static void sccUpdateDeformation(SCC* scc, UInt8 value)
 
     scc->deformReg = value;
     
-    for (channel = 0; channel < 5; channel++) {
-        scc->deformSample[channel] = scc->oldSample[channel];
-    }
+    sccRestartDeformTicks(scc);
 
     if (scc->mode != SCC_REAL) {
         value &= ~0x80;
@@ -371,6 +411,7 @@ SCC* sccCreate(Mixer* mixer)
 
     scc->handle = mixerRegisterChannel(mixer, MIXER_CHANNEL_SCC, 0, sccSync, NULL, scc);
 
+    sccRestartDeformTicks(scc);
     sccReset(scc);
 
     return scc;
@@ -385,6 +426,8 @@ void sccDestroy(SCC* scc)
 
 UInt8 sccRead(SCC* scc, UInt8 address)
 {
+    sccFoldDeformTicks(scc);
+
     switch (scc->mode) {
 
     case SCC_REAL:
@@ -498,6 +541,7 @@ UInt8 sccPeek(SCC* scc, UInt8 address)
 void sccWrite(SCC* scc, UInt8 address, UInt8 value)
 {
     mixerSync(scc->mixer);
+    sccFoldDeformTicks(scc);
 
     switch (scc->mode) {
     case SCC_REAL:
