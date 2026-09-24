@@ -142,11 +142,6 @@ static void destroy(RomMapperSCCplus* rm)
     free(rm);
 }
 
-static void reset(RomMapperSCCplus* rm)
-{
-    sccReset(rm->scc);
-}
-
 static UInt8 read(RomMapperSCCplus* rm, UInt16 address) 
 {
     int bank;
@@ -212,6 +207,34 @@ static void updateEnable(RomMapperSCCplus* rm)
     }
 }
 
+static void setMapper(RomMapperSCCplus* rm, int bank, UInt8 value)
+{
+    rm->romMapper[bank] = value;
+    value &= rm->mapperMask;
+    rm->isMapped[bank]  = (value >= 8 && rm->sccType != SCC_SNATCHER) ||
+                            (value < 8  && rm->sccType != SCC_SDSNATCHER);
+
+    if (rm->isMapped[bank]) {
+        slotMapPage(rm->slot, rm->sslot, rm->startPage + bank, rm->romData + 0x2000 * value, 1, 0);
+    }
+    else {
+        slotMapPage(rm->slot, rm->sslot, rm->startPage + bank, rm->romData + 0x20000, 1, 0);
+    }
+}
+
+static void reset(RomMapperSCCplus* rm)
+{
+    int bank;
+
+    rm->modeRegister = 0;
+    for (bank = 0; bank < 4; bank++) {
+        rm->isRamSegment[bank] = 0;
+        setMapper(rm, bank, bank);
+    }
+    updateEnable(rm);
+    sccReset(rm->scc);
+}
+
 static void write(RomMapperSCCplus* rm, UInt16 address, UInt8 value) 
 {
     int bank;
@@ -244,18 +267,7 @@ static void write(RomMapperSCCplus* rm, UInt16 address, UInt8 value)
     }
 
     if ((address & 0x1800) == 0x1000) {
-        rm->romMapper[bank] = value;
-        value &= rm->mapperMask;
-        rm->isMapped[bank]  = (value >= 8 && rm->sccType != SCC_SNATCHER) || 
-                                (value < 8  && rm->sccType != SCC_SDSNATCHER);
-
-        if (rm->isMapped[bank]) {
-            slotMapPage(rm->slot, rm->sslot, rm->startPage + bank, rm->romData + 0x2000 * value, 1, 0);
-        }
-        else {
-            slotMapPage(rm->slot, rm->sslot, rm->startPage + bank, rm->romData + 0x20000, 1, 0);
-        }
-
+        setMapper(rm, bank, value);
         updateEnable(rm);
 
         return;
