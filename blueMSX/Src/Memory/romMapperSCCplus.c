@@ -57,6 +57,7 @@ typedef struct {
 } RomMapperSCCplus;
 
 static void updateEnable(RomMapperSCCplus* rm);
+static void setMapper(RomMapperSCCplus* rm, int bank, UInt8 value);
 
 static void saveState(RomMapperSCCplus* rm)
 {
@@ -113,12 +114,7 @@ static void loadState(RomMapperSCCplus* rm)
     sccLoadState(rm->scc);
 
     for (bank = 0; bank < 4; bank++) {   
-        if (rm->isMapped[bank]) {
-            slotMapPage(rm->slot, rm->sslot, rm->startPage + bank, rm->romData + 0x2000 * rm->romMapper[bank], 1, 0);
-        }
-        else {
-            slotMapPage(rm->slot, rm->sslot, rm->startPage + bank, rm->romData + 0x20000, 1, 0);
-        }
+        setMapper(rm, bank, (UInt8)rm->romMapper[bank]);
     }
     
     if (rm->sccMode == SCC_PLUS) {
