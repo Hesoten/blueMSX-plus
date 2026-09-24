@@ -203,27 +203,6 @@ static UInt8 sccGetWave(SCC* scc, UInt8 channel, UInt8 address)
     }
 }
 
-static UInt8 sccGetFreqAndVol(SCC* scc, UInt8 address)
-{
-    address &= 0x0f;
-
-    if (address < 0x0a) {
-        // get period
-        UInt8 channel = address / 2;
-        if (address & 1) {
-            return (UInt8)(scc->period[channel] >> 8);
-        } else {
-            return (UInt8)(scc->period[channel] & 0xff);
-        }
-    } else if (address < 0x0f) {
-        // get volume
-        return scc->nextVolume[address - 0xa];
-    } else {
-        // get enable-bits
-        return scc->enable;
-    }
-}
-
 static void sccUpdateWave(SCC* scc, UInt8 channel, UInt8 address, UInt8 value)
 {
     if (!scc->readOnly[channel]) {
@@ -413,10 +392,6 @@ UInt8 sccRead(SCC* scc, UInt8 address)
             return sccGetWave(scc, address >> 5, address);
         } 
         
-        if (address < 0xa0) {
-            return sccGetFreqAndVol(scc, address);
-        } 
-        
         if (address < 0xe0) {
             return 0xff;
         }
@@ -431,7 +406,7 @@ UInt8 sccRead(SCC* scc, UInt8 address)
         } 
         
         if (address < 0xa0) {
-            return sccGetFreqAndVol(scc, address);
+            return 0xff;
         }
         
         if (address < 0xc0) {
@@ -451,7 +426,7 @@ UInt8 sccRead(SCC* scc, UInt8 address)
         } 
         
         if (address < 0xc0) {
-            return sccGetFreqAndVol(scc, address);
+            return 0xff;
         } 
         
         if (address < 0xe0) {
@@ -476,10 +451,6 @@ UInt8 sccPeek(SCC* scc, UInt8 address)
             return sccGetWave(scc, address >> 5, address);
         } 
         
-        if (address < 0xa0) {
-            return sccGetFreqAndVol(scc, address);
-        } 
-        
         if (address < 0xe0) {
             return 0xff;
         }
@@ -492,7 +463,7 @@ UInt8 sccPeek(SCC* scc, UInt8 address)
         } 
         
         if (address < 0xa0) {
-            return sccGetFreqAndVol(scc, address);
+            return 0xff;
         }
         
         if (address < 0xc0) {
@@ -511,7 +482,7 @@ UInt8 sccPeek(SCC* scc, UInt8 address)
         } 
         
         if (address < 0xc0) {
-            return sccGetFreqAndVol(scc, address);
+            return 0xff;
         } 
         
         if (address < 0xe0) {
