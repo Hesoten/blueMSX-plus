@@ -71,7 +71,6 @@ struct SCC
     UInt32 effPeriod[5];
     UInt32 deformRef;
     UInt32 deformTicks;
-    Int32  daVolume[5];
 
     Int32 in[95];
     Int32 inHp[3];
@@ -157,9 +156,6 @@ void sccLoadState(SCC* scc)
         sprintf(tag, "readOnly%d", i);
         scc->readOnly[i] = saveStateGet(state, tag, 0);
         
-        sprintf(tag, "daVolume%d", i);
-        scc->daVolume[i] = saveStateGet(state, tag, 0);
-
         sprintf(tag, "oldSample%d", i);
         scc->oldSample[i] = saveStateGet(state, tag, 0);
 
@@ -210,9 +206,6 @@ void sccSaveState(SCC* scc)
         sprintf(tag, "readOnly%d", i);
         saveStateSet(state, tag, scc->readOnly[i]);
         
-        sprintf(tag, "daVolume%d", i);
-        saveStateSet(state, tag, scc->daVolume[i]);
-
         sprintf(tag, "oldSample%d", i);
         saveStateSet(state, tag, scc->oldSample[i]);
 
@@ -374,7 +367,6 @@ void sccReset(SCC* scc) {
         scc->nextVolume[channel] = 0;
         scc->rotate[channel]     = ROTATE_OFF;
         scc->readOnly[channel]   = 0;
-        scc->daVolume[channel]   = 0;
         scc->oldSample[channel]  = 0xff;
     }
 
@@ -702,7 +694,6 @@ static Int32* sccSync(SCC* scc, UInt32 count)
         int i;
         for (i = 0; i < 4; i++) {
             for (channel = 0; channel < 5; channel++) {
-                Int32 refVolume;
                 Int32 phase;
                 Int32 sample;
 
@@ -729,16 +720,13 @@ static Int32* sccSync(SCC* scc, UInt32 count)
                     scc->oldSample[channel] = sample;   
                 }
 
-                refVolume = 25 * ((scc->enable >> channel) & 1) * (Int32)scc->volume[channel];
-                if (scc->daVolume[channel] < refVolume) {
-                    scc->daVolume[channel] = refVolume;
+                if (!((scc->enable >> channel) & 1)) {
+                    scc->curWave[channel] = 0;
                 }
 
-                masterVolume[i] += scc->curWave[channel] * scc->daVolume[channel];
-                
-                if (scc->daVolume[channel] > refVolume) {
-                    scc->daVolume[channel] = scc->daVolume[channel] * 9 / 10;
-                }
+                /* The chip drops the low 4 bits of each product before the sum;
+                ** 400 = 25 * 16 keeps the output level the mixer is balanced for. */
+                masterVolume[i] += 400 * ((scc->curWave[channel] * scc->volume[channel]) >> 4);
             }
         }
         buffer[index] = filter4(scc, masterVolume[0], masterVolume[1], masterVolume[2], masterVolume[3]);
