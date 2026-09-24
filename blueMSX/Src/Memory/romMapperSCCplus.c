@@ -56,6 +56,8 @@ typedef struct {
     SCC* scc;
 } RomMapperSCCplus;
 
+static void updateEnable(RomMapperSCCplus* rm);
+
 static void saveState(RomMapperSCCplus* rm)
 {
     SaveState* state = saveStateOpenForWrite("mapperSCCplus");
@@ -131,6 +133,17 @@ static void loadState(RomMapperSCCplus* rm)
         slotMapPage(rm->slot, rm->sslot, rm->startPage + 2, NULL, 1, 0);
         slotMapPage(rm->slot, rm->sslot, rm->startPage + 3, NULL, 1, 0);
     }
+
+    /* A saved state may carry RAM or SCC+ settings this cartridge does not have. */
+    if (rm->sccType == SCC_KONAMI) {
+        memset(rm->romData, 0xff, sizeof(rm->romData));
+        rm->modeRegister = 0;
+        for (bank = 0; bank < 4; bank++) {
+            rm->isRamSegment[bank] = 0;
+        }
+        updateEnable(rm);
+        sccSetMode(rm->scc, SCC_REAL);
+    }
 }
 
 static void destroy(RomMapperSCCplus* rm)
@@ -197,7 +210,7 @@ static void updateEnable(RomMapperSCCplus* rm)
     else if (!(rm->modeRegister & 0x20) && (rm->romMapper[2] & 0x3f) == 0x3f) {
         slotUpdatePage(rm->slot, rm->sslot, rm->startPage + 2, NULL, 0, 0);
         slotUpdatePage(rm->slot, rm->sslot, rm->startPage + 3, NULL, 1, 0);
-        sccSetMode(rm->scc, SCC_COMPATIBLE);
+        sccSetMode(rm->scc, rm->sccType == SCC_KONAMI ? SCC_REAL : SCC_COMPATIBLE);
         rm->sccMode = SCC_COMPATIBLE;
     }
     else {
@@ -245,7 +258,7 @@ static void write(RomMapperSCCplus* rm, UInt16 address, UInt8 value)
         return;
     }
 
-    if ((address | 1) == 0xbfff) {
+    if ((address | 1) == 0xbfff && rm->sccType != SCC_KONAMI) {
         rm->modeRegister = value;
         rm->isRamSegment[0] = (value & 0x10) | (value & 0x01);
         rm->isRamSegment[1] = (value & 0x10) | (value & 0x02);
@@ -317,6 +330,10 @@ int romMapperSCCplusCreate(const char* filename, UInt8* romData,
     rm->scc             = sccCreate(boardGetMixer());
     rm->sccType         = sccType;
     rm->sccMode         = SCC_NONE;
+
+    if (sccType == SCC_KONAMI) {
+        sccSetMode(rm->scc, SCC_REAL);
+    }
 
     rm->romMapper[0] = 0;
     rm->romMapper[1] = 1;
