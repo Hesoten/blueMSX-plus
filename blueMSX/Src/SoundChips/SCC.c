@@ -370,19 +370,12 @@ void sccReset(SCC* scc) {
     }
 
     for (channel = 0; channel < 5; channel++) {
-        scc->curWave[channel]    = 0;
-        scc->phase[channel]      = 0;
-        scc->phaseStep[channel]  = 0;
-        scc->volume[channel]     = 0;
-        scc->nextVolume[channel] = 0;
         scc->rotate[channel]     = ROTATE_OFF;
         scc->readOnly[channel]   = 0;
-        scc->oldSample[channel]  = 0xff;
     }
 
     scc->deformReg = 0;
-    scc->enable      = 0xFF;
-    scc->bus         = 0xFFFF;
+    scc->enable      = 0;
 }
 
 void sccSetMode(SCC* scc, SccMode newMode)
@@ -406,8 +399,18 @@ SCC* sccCreate(Mixer* mixer)
 {
     DebugCallbacks dbgCallbacks = { getDebugInfo, NULL, NULL, NULL };
     SCC* scc = (SCC*)calloc(1, sizeof(SCC));
+    int channel;
 
     scc->mixer = mixer;
+
+    /* Chip power-on contents: waveforms FFh, full volume, channels off. */
+    memset(scc->wave, 0xff, sizeof(scc->wave));
+    for (channel = 0; channel < 5; channel++) {
+        scc->volume[channel]     = 15;
+        scc->nextVolume[channel] = 15;
+        scc->oldSample[channel]  = 0xff;
+    }
+    scc->bus = 0xFFFF;
 
 //    scc->debugHandle = debugDeviceRegister(DBGTYPE_AUDIO, langDbgDevScc(), &dbgCallbacks, scc);
 
