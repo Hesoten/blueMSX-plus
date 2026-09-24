@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -107,6 +110,13 @@ static void destroy(RomMapperKonami5* rm)
 
 static void reset(RomMapperKonami5* rm)
 {
+    int i;
+
+    rm->sccEnable = 0;
+    for (i = 0; i < 4; i++) {
+        rm->romMapper[i] = i;
+        slotMapPage(rm->slot, rm->sslot, rm->startPage + i, rm->romData + i * 0x2000, 1, 0);
+    }
     sccReset(rm->scc);
 }
 

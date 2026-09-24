@@ -556,6 +556,7 @@ static void loadState(RomMapperMfrSccSd* rm)
     saveStateClose(state);
 
     sccLoadState(rm->scc);
+    sccSetMode(rm->scc, (rm->sccMode & 0x20) ? SCC_PLUS : SCC_COMPATIBLE);
     if (rm->ay8910) ay8910LoadStateWithTag(rm->ay8910, "mfrSccSdPsg");
     amdFlashLoadState(rm->flash);
     if (rm->sdCard[0]) sdCardLoadState(rm->sdCard[0], "mfrSccSd0");
@@ -705,7 +706,7 @@ int romMapperMegaFlashRomSccPlusSDCreate(int cartNo, int slot, int sslot, int st
     rm->startPage = 0;
 
     rm->scc = sccCreate(boardGetMixer());
-    sccSetMode(rm->scc, SCC_REAL);
+    sccSetMode(rm->scc, SCC_COMPATIBLE);
     rm->ay8910 = ay8910Create(boardGetMixer(), AY8910_NONE, PSGTYPE_AY8910, 0, NULL);
 
     rm->megaRam = calloc(1, MEGARAM_SIZE);

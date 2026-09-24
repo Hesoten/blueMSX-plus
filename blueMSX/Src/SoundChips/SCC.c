@@ -68,8 +68,9 @@ struct SCC
     int rotate[5];
     int readOnly[5];
     Int32 oldSample[5];
-    Int32 deformSample[5];
-    Int32  daVolume[5];
+    UInt32 effPeriod[5];
+    UInt32 deformRef;
+    UInt32 deformTicks;
 
     Int32 in[95];
     Int32 inHp[3];
@@ -78,10 +79,51 @@ struct SCC
     Int32  buffer[AUDIO_MONO_BUFFER_SIZE];
 };
 
+#define SCC_TICK (boardFrequency() / 3579545)
+
+static UInt32 sccEffectivePeriod(UInt32 period, UInt8 deformReg)
+{
+    if (deformReg & 2) {
+        return period & 0xff;
+    }
+    if (deformReg & 1) {
+        return period >> 8;
+    }
+    return period;
+}
+
+static UInt32 sccPhaseStep(UInt32 effPeriod)
+{
+    return effPeriod > 8 ? BASE_PHASE_STEP / (1 + effPeriod) : 0;
+}
+
+/* Chip clocks since the rotation counter last restarted. deformTicks is
+** folded forward on emulation-thread accesses so the 32-bit board time
+** difference never has to span more than one wrap. */
+static UInt32 sccDeformTicks(SCC* scc)
+{
+    return scc->deformTicks + (boardSystemTime() - scc->deformRef) / SCC_TICK;
+}
+
+static void sccFoldDeformTicks(SCC* scc)
+{
+    UInt32 ticks = (boardSystemTime() - scc->deformRef) / SCC_TICK;
+
+    scc->deformTicks += ticks;
+    scc->deformRef   += ticks * SCC_TICK;
+}
+
+static void sccRestartDeformTicks(SCC* scc)
+{
+    scc->deformTicks = 0;
+    scc->deformRef   = boardSystemTime();
+}
+
 void sccLoadState(SCC* scc)
 {
     SaveState* state = saveStateOpenForRead("scc");
     char tag[32];
+    UInt32 curWave;
     int i;
 
     scc->mode      =         saveStateGet(state, "mode", SCC_COMPATIBLE);
@@ -100,9 +142,6 @@ void sccLoadState(SCC* scc)
         sprintf(tag, "phase%d", i);
         scc->phase[i] = saveStateGet(state, tag, 0);
         
-        sprintf(tag, "step%d", i);
-        scc->phaseStep[i] = saveStateGet(state, tag, 0);
-        
         sprintf(tag, "volume%d", i);
         scc->volume[i] = saveStateGet(state, tag, 0);
         
@@ -115,12 +154,22 @@ void sccLoadState(SCC* scc)
         sprintf(tag, "readOnly%d", i);
         scc->readOnly[i] = saveStateGet(state, tag, 0);
         
-        sprintf(tag, "daVolume%d", i);
-        scc->daVolume[i] = saveStateGet(state, tag, 0);
-
         sprintf(tag, "oldSample%d", i);
         scc->oldSample[i] = saveStateGet(state, tag, 0);
+
+        sprintf(tag, "effPeriod%d", i);
+        scc->effPeriod[i] = saveStateGet(state, tag, sccEffectivePeriod(scc->period[i], scc->deformReg));
+        scc->phaseStep[i] = sccPhaseStep(scc->effPeriod[i]);
+
+        curWave = scc->oldSample[i] >= 0 && scc->oldSample[i] < 32 ? (UInt8)scc->wave[i][scc->oldSample[i]] : 0;
+        sprintf(tag, "curWave%d", i);
+        scc->curWave[i] = (Int8)saveStateGet(state, tag, curWave);
     }
+
+    scc->enable = (UInt8)saveStateGet(state, "enable", 0xff);
+
+    scc->deformRef   = saveStateGet(state, "deformRef", boardSystemTime());
+    scc->deformTicks = saveStateGet(state, "deformTicks", 0);
 
     saveStateClose(state);
 }
@@ -162,12 +211,20 @@ void sccSaveState(SCC* scc)
         sprintf(tag, "readOnly%d", i);
         saveStateSet(state, tag, scc->readOnly[i]);
         
-        sprintf(tag, "daVolume%d", i);
-        saveStateSet(state, tag, scc->daVolume[i]);
-
         sprintf(tag, "oldSample%d", i);
         saveStateSet(state, tag, scc->oldSample[i]);
+
+        sprintf(tag, "effPeriod%d", i);
+        saveStateSet(state, tag, scc->effPeriod[i]);
+
+        sprintf(tag, "curWave%d", i);
+        saveStateSet(state, tag, (UInt8)scc->curWave[i]);
     }
+
+    saveStateSet(state, "enable", scc->enable);
+
+    saveStateSet(state, "deformRef",   scc->deformRef);
+    saveStateSet(state, "deformTicks", scc->deformTicks);
 
     saveStateClose(state);
 }
@@ -175,16 +232,11 @@ void sccSaveState(SCC* scc)
 static UInt8 sccGetWave(SCC* scc, UInt8 channel, UInt8 address)
 {
     if (scc->rotate[channel] == ROTATE_OFF) {
-        UInt8 value = scc->wave[channel][address & 0x1f];
-        scc->bus = value;
-        return value;
+        return scc->wave[channel][address & 0x1f];
     } 
     else {
         UInt8 periodCh = channel;
-        UInt8 value;
-        int shift;
-
-        mixerSync(scc->mixer);
+        UInt32 shift;
 
          if ((scc->deformReg & 0xc0) == 0x80) {
              if (channel == 4) {
@@ -195,32 +247,9 @@ static UInt8 sccGetWave(SCC* scc, UInt8 channel, UInt8 address)
              periodCh = 4;
          }
 
-         shift = scc->oldSample[periodCh] - scc->deformSample[periodCh];
+         shift = sccDeformTicks(scc) / (scc->effPeriod[periodCh] + 1);
 
-        value = scc->wave[channel][(address + shift) & 0x1f];
-        scc->bus = value;
-        return value;
-    }
-}
-
-static UInt8 sccGetFreqAndVol(SCC* scc, UInt8 address)
-{
-    address &= 0x0f;
-
-    if (address < 0x0a) {
-        // get period
-        UInt8 channel = address / 2;
-        if (address & 1) {
-            return (UInt8)(scc->period[channel] >> 8);
-        } else {
-            return (UInt8)(scc->period[channel] & 0xff);
-        }
-    } else if (address < 0x0f) {
-        // get volume
-        return scc->nextVolume[address - 0xa];
-    } else {
-        // get enable-bits
-        return scc->enable;
+        return scc->wave[channel][(address + shift) & 0x1f];
     }
 }
 
@@ -260,17 +289,12 @@ static void sccUpdateFreqAndVol(SCC* scc, UInt8 address, UInt8 value)
         }
         if (scc->deformReg & 0x20) {
             scc->phase[channel] = 0;
+            sccRestartDeformTicks(scc);
         }
-        period = scc->period[channel];
-
-        if (scc->deformReg & 2) {
-            period &= 0xff;
-        }
-        else if (scc->deformReg & 1) {
-            period >>= 8;
-        }
+        period = sccEffectivePeriod(scc->period[channel], scc->deformReg);
+        scc->effPeriod[channel] = period;
         
-        scc->phaseStep[channel] = period > 0 ? BASE_PHASE_STEP / (1 + period) : 0;
+        scc->phaseStep[channel] = sccPhaseStep(period);
         
         scc->volume[channel] = scc->nextVolume[channel];
         scc->phase[channel] &= 0x1f << 23;
@@ -296,9 +320,7 @@ static void sccUpdateDeformation(SCC* scc, UInt8 value)
 
     scc->deformReg = value;
     
-    for (channel = 0; channel < 5; channel++) {
-        scc->deformSample[channel] = scc->oldSample[channel];
-    }
+    sccRestartDeformTicks(scc);
 
     if (scc->mode != SCC_REAL) {
         value &= ~0x80;
@@ -348,20 +370,12 @@ void sccReset(SCC* scc) {
     }
 
     for (channel = 0; channel < 5; channel++) {
-        scc->curWave[channel]    = 0;
-        scc->phase[channel]      = 0;
-        scc->phaseStep[channel]  = 0;
-        scc->volume[channel]     = 0;
-        scc->nextVolume[channel] = 0;
         scc->rotate[channel]     = ROTATE_OFF;
         scc->readOnly[channel]   = 0;
-        scc->daVolume[channel]   = 0;
-        scc->oldSample[channel]  = 0xff;
     }
 
     scc->deformReg = 0;
-    scc->enable      = 0xFF;
-    scc->bus         = 0xFFFF;
+    scc->enable      = 0;
 }
 
 void sccSetMode(SCC* scc, SccMode newMode)
@@ -385,13 +399,24 @@ SCC* sccCreate(Mixer* mixer)
 {
     DebugCallbacks dbgCallbacks = { getDebugInfo, NULL, NULL, NULL };
     SCC* scc = (SCC*)calloc(1, sizeof(SCC));
+    int channel;
 
     scc->mixer = mixer;
+
+    /* Chip power-on contents: waveforms FFh, full volume, channels off. */
+    memset(scc->wave, 0xff, sizeof(scc->wave));
+    for (channel = 0; channel < 5; channel++) {
+        scc->volume[channel]     = 15;
+        scc->nextVolume[channel] = 15;
+        scc->oldSample[channel]  = 0xff;
+    }
+    scc->bus = 0xFFFF;
 
 //    scc->debugHandle = debugDeviceRegister(DBGTYPE_AUDIO, langDbgDevScc(), &dbgCallbacks, scc);
 
     scc->handle = mixerRegisterChannel(mixer, MIXER_CHANNEL_SCC, 0, sccSync, NULL, scc);
 
+    sccRestartDeformTicks(scc);
     sccReset(scc);
 
     return scc;
@@ -406,15 +431,13 @@ void sccDestroy(SCC* scc)
 
 UInt8 sccRead(SCC* scc, UInt8 address)
 {
+    sccFoldDeformTicks(scc);
+
     switch (scc->mode) {
 
     case SCC_REAL:
         if (address < 0x80) {
             return sccGetWave(scc, address >> 5, address);
-        } 
-        
-        if (address < 0xa0) {
-            return sccGetFreqAndVol(scc, address);
         } 
         
         if (address < 0xe0) {
@@ -431,7 +454,7 @@ UInt8 sccRead(SCC* scc, UInt8 address)
         } 
         
         if (address < 0xa0) {
-            return sccGetFreqAndVol(scc, address);
+            return 0xff;
         }
         
         if (address < 0xc0) {
@@ -451,7 +474,7 @@ UInt8 sccRead(SCC* scc, UInt8 address)
         } 
         
         if (address < 0xc0) {
-            return sccGetFreqAndVol(scc, address);
+            return 0xff;
         } 
         
         if (address < 0xe0) {
@@ -467,17 +490,11 @@ UInt8 sccRead(SCC* scc, UInt8 address)
 
 UInt8 sccPeek(SCC* scc, UInt8 address)
 {
-    UInt8 result;
-
     switch (scc->mode) {
 
     case SCC_REAL:
         if (address < 0x80) {
             return sccGetWave(scc, address >> 5, address);
-        } 
-        
-        if (address < 0xa0) {
-            return sccGetFreqAndVol(scc, address);
         } 
         
         if (address < 0xe0) {
@@ -492,18 +509,14 @@ UInt8 sccPeek(SCC* scc, UInt8 address)
         } 
         
         if (address < 0xa0) {
-            return sccGetFreqAndVol(scc, address);
+            return 0xff;
         }
         
         if (address < 0xc0) {
-            result = sccGetWave(scc, 4, address);
+            return sccGetWave(scc, 4, address);
         } 
 
-        if (address < 0xe0) {
-            return 0xff;
-        }
- 
-        result = 0xff;
+        return 0xff;
 
     case SCC_PLUS:
         if (address < 0xa0) {
@@ -511,7 +524,7 @@ UInt8 sccPeek(SCC* scc, UInt8 address)
         } 
         
         if (address < 0xc0) {
-            return sccGetFreqAndVol(scc, address);
+            return 0xff;
         } 
         
         if (address < 0xe0) {
@@ -527,6 +540,7 @@ UInt8 sccPeek(SCC* scc, UInt8 address)
 void sccWrite(SCC* scc, UInt8 address, UInt8 value)
 {
     mixerSync(scc->mixer);
+    sccFoldDeformTicks(scc);
 
     switch (scc->mode) {
     case SCC_REAL:
@@ -693,7 +707,6 @@ static Int32* sccSync(SCC* scc, UInt32 count)
         int i;
         for (i = 0; i < 4; i++) {
             for (channel = 0; channel < 5; channel++) {
-                Int32 refVolume;
                 Int32 phase;
                 Int32 sample;
 
@@ -720,16 +733,13 @@ static Int32* sccSync(SCC* scc, UInt32 count)
                     scc->oldSample[channel] = sample;   
                 }
 
-                refVolume = 25 * ((scc->enable >> channel) & 1) * (Int32)scc->volume[channel];
-                if (scc->daVolume[channel] < refVolume) {
-                    scc->daVolume[channel] = refVolume;
+                if (!((scc->enable >> channel) & 1)) {
+                    scc->curWave[channel] = 0;
                 }
 
-                masterVolume[i] += scc->curWave[channel] * scc->daVolume[channel];
-                
-                if (scc->daVolume[channel] > refVolume) {
-                    scc->daVolume[channel] = scc->daVolume[channel] * 9 / 10;
-                }
+                /* The chip drops the low 4 bits of each product before the sum;
+                ** 400 = 25 * 16 keeps the output level the mixer is balanced for. */
+                masterVolume[i] += 400 * ((scc->curWave[channel] * scc->volume[channel]) >> 4);
             }
         }
         buffer[index] = filter4(scc, masterVolume[0], masterVolume[1], masterVolume[2], masterVolume[3]);

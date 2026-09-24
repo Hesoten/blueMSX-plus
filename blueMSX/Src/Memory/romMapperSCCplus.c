@@ -56,6 +56,9 @@ typedef struct {
     SCC* scc;
 } RomMapperSCCplus;
 
+static void updateEnable(RomMapperSCCplus* rm);
+static void setMapper(RomMapperSCCplus* rm, int bank, UInt8 value);
+
 static void saveState(RomMapperSCCplus* rm)
 {
     SaveState* state = saveStateOpenForWrite("mapperSCCplus");
@@ -111,12 +114,7 @@ static void loadState(RomMapperSCCplus* rm)
     sccLoadState(rm->scc);
 
     for (bank = 0; bank < 4; bank++) {   
-        if (rm->isMapped[bank]) {
-            slotMapPage(rm->slot, rm->sslot, rm->startPage + bank, rm->romData + 0x2000 * rm->romMapper[bank], 1, 0);
-        }
-        else {
-            slotMapPage(rm->slot, rm->sslot, rm->startPage + bank, rm->romData + 0x20000, 1, 0);
-        }
+        setMapper(rm, bank, (UInt8)rm->romMapper[bank]);
     }
     
     if (rm->sccMode == SCC_PLUS) {
@@ -131,6 +129,17 @@ static void loadState(RomMapperSCCplus* rm)
         slotMapPage(rm->slot, rm->sslot, rm->startPage + 2, NULL, 1, 0);
         slotMapPage(rm->slot, rm->sslot, rm->startPage + 3, NULL, 1, 0);
     }
+
+    /* A saved state may carry RAM or SCC+ settings this cartridge does not have. */
+    if (rm->sccType == SCC_KONAMI) {
+        memset(rm->romData, 0xff, sizeof(rm->romData));
+        rm->modeRegister = 0;
+        for (bank = 0; bank < 4; bank++) {
+            rm->isRamSegment[bank] = 0;
+        }
+        updateEnable(rm);
+        sccSetMode(rm->scc, SCC_REAL);
+    }
 }
 
 static void destroy(RomMapperSCCplus* rm)
@@ -140,11 +149,6 @@ static void destroy(RomMapperSCCplus* rm)
     sccDestroy(rm->scc);
 
     free(rm);
-}
-
-static void reset(RomMapperSCCplus* rm)
-{
-    sccReset(rm->scc);
 }
 
 static UInt8 read(RomMapperSCCplus* rm, UInt16 address) 
@@ -202,7 +206,7 @@ static void updateEnable(RomMapperSCCplus* rm)
     else if (!(rm->modeRegister & 0x20) && (rm->romMapper[2] & 0x3f) == 0x3f) {
         slotUpdatePage(rm->slot, rm->sslot, rm->startPage + 2, NULL, 0, 0);
         slotUpdatePage(rm->slot, rm->sslot, rm->startPage + 3, NULL, 1, 0);
-        sccSetMode(rm->scc, SCC_COMPATIBLE);
+        sccSetMode(rm->scc, rm->sccType == SCC_KONAMI ? SCC_REAL : SCC_COMPATIBLE);
         rm->sccMode = SCC_COMPATIBLE;
     }
     else {
@@ -210,6 +214,34 @@ static void updateEnable(RomMapperSCCplus* rm)
         slotUpdatePage(rm->slot, rm->sslot, rm->startPage + 3, NULL, 1, 0);
         rm->sccMode = SCC_NONE;
     }
+}
+
+static void setMapper(RomMapperSCCplus* rm, int bank, UInt8 value)
+{
+    rm->romMapper[bank] = value;
+    value &= rm->mapperMask;
+    rm->isMapped[bank]  = (value >= 8 && rm->sccType != SCC_SNATCHER) ||
+                            (value < 8  && rm->sccType != SCC_SDSNATCHER);
+
+    if (rm->isMapped[bank]) {
+        slotMapPage(rm->slot, rm->sslot, rm->startPage + bank, rm->romData + 0x2000 * value, 1, 0);
+    }
+    else {
+        slotMapPage(rm->slot, rm->sslot, rm->startPage + bank, rm->romData + 0x20000, 1, 0);
+    }
+}
+
+static void reset(RomMapperSCCplus* rm)
+{
+    int bank;
+
+    rm->modeRegister = 0;
+    for (bank = 0; bank < 4; bank++) {
+        rm->isRamSegment[bank] = 0;
+        setMapper(rm, bank, bank);
+    }
+    updateEnable(rm);
+    sccReset(rm->scc);
 }
 
 static void write(RomMapperSCCplus* rm, UInt16 address, UInt8 value) 
@@ -222,7 +254,7 @@ static void write(RomMapperSCCplus* rm, UInt16 address, UInt8 value)
         return;
     }
 
-    if ((address | 1) == 0xbfff) {
+    if ((address | 1) == 0xbfff && rm->sccType != SCC_KONAMI) {
         rm->modeRegister = value;
         rm->isRamSegment[0] = (value & 0x10) | (value & 0x01);
         rm->isRamSegment[1] = (value & 0x10) | (value & 0x02);
@@ -244,18 +276,7 @@ static void write(RomMapperSCCplus* rm, UInt16 address, UInt8 value)
     }
 
     if ((address & 0x1800) == 0x1000) {
-        rm->romMapper[bank] = value;
-        value &= rm->mapperMask;
-        rm->isMapped[bank]  = (value >= 8 && rm->sccType != SCC_SNATCHER) || 
-                                (value < 8  && rm->sccType != SCC_SDSNATCHER);
-
-        if (rm->isMapped[bank]) {
-            slotMapPage(rm->slot, rm->sslot, rm->startPage + bank, rm->romData + 0x2000 * value, 1, 0);
-        }
-        else {
-            slotMapPage(rm->slot, rm->sslot, rm->startPage + bank, rm->romData + 0x20000, 1, 0);
-        }
-
+        setMapper(rm, bank, value);
         updateEnable(rm);
 
         return;
@@ -292,7 +313,7 @@ int romMapperSCCplusCreate(const char* filename, UInt8* romData,
     rm->slot            = slot;
     rm->sslot           = sslot;
     rm->startPage       = startPage;
-    rm->modeRegister    = sccType == SCCP_EXTENDED ? 0x20 : 0;
+    rm->modeRegister    = sccType == SCCP_EXTENDED && romData != NULL ? 0x20 : 0;
     rm->isRamSegment[0] = 0;
     rm->isRamSegment[1] = 0;
     rm->isRamSegment[2] = 0;
@@ -305,6 +326,10 @@ int romMapperSCCplusCreate(const char* filename, UInt8* romData,
     rm->scc             = sccCreate(boardGetMixer());
     rm->sccType         = sccType;
     rm->sccMode         = SCC_NONE;
+
+    if (sccType == SCC_KONAMI) {
+        sccSetMode(rm->scc, SCC_REAL);
+    }
 
     rm->romMapper[0] = 0;
     rm->romMapper[1] = 1;

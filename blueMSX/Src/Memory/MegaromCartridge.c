@@ -364,11 +364,11 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
                 break;
 
             case ROM_SCCEXTENDED:
-                success &= romMapperSCCplusCreate(NULL, NULL, 0, slot, sslot, 2, SCC_EXTENDED);
+                success &= romMapperSCCplusCreate(NULL, NULL, 0, slot, sslot, 2, SCC_KONAMI);
                 break;
 
             case ROM_SCC:
-                success &= romMapperSCCplusCreate(romName, NULL, 0, slot, sslot, 2, SCC_EXTENDED);
+                success &= romMapperSCCplusCreate(romName, NULL, 0, slot, sslot, 2, SCC_KONAMI);
                 break;
 
             case ROM_SCCPLUS:

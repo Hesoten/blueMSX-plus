@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -143,7 +146,13 @@ static void destroy(RomMapperMegaFlashRomScc* rm)
 
 static void reset(RomMapperMegaFlashRomScc* rm)
 {
+    int i;
+
     amdFlashReset(rm->flash);
+    rm->sccEnable = 0;
+    for (i = 0; i < 4; i++) {
+        mapPage(rm, i, i);
+    }
     sccReset(rm->scc);
     if (rm->ay8910)
         ay8910Reset(rm->ay8910);
