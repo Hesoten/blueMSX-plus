@@ -224,13 +224,10 @@ void sccSaveState(SCC* scc)
 static UInt8 sccGetWave(SCC* scc, UInt8 channel, UInt8 address)
 {
     if (scc->rotate[channel] == ROTATE_OFF) {
-        UInt8 value = scc->wave[channel][address & 0x1f];
-        scc->bus = value;
-        return value;
+        return scc->wave[channel][address & 0x1f];
     } 
     else {
         UInt8 periodCh = channel;
-        UInt8 value;
         UInt32 shift;
 
          if ((scc->deformReg & 0xc0) == 0x80) {
@@ -244,9 +241,7 @@ static UInt8 sccGetWave(SCC* scc, UInt8 channel, UInt8 address)
 
          shift = sccDeformTicks(scc) / (scc->effPeriod[periodCh] + 1);
 
-        value = scc->wave[channel][(address + shift) & 0x1f];
-        scc->bus = value;
-        return value;
+        return scc->wave[channel][(address + shift) & 0x1f];
     }
 }
 
@@ -485,8 +480,6 @@ UInt8 sccRead(SCC* scc, UInt8 address)
 
 UInt8 sccPeek(SCC* scc, UInt8 address)
 {
-    UInt8 result;
-
     switch (scc->mode) {
 
     case SCC_REAL:
@@ -510,14 +503,10 @@ UInt8 sccPeek(SCC* scc, UInt8 address)
         }
         
         if (address < 0xc0) {
-            result = sccGetWave(scc, 4, address);
+            return sccGetWave(scc, 4, address);
         } 
 
-        if (address < 0xe0) {
-            return 0xff;
-        }
- 
-        result = 0xff;
+        return 0xff;
 
     case SCC_PLUS:
         if (address < 0xa0) {
