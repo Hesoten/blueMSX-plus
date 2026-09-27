@@ -234,6 +234,11 @@ static const UInt8 registerValueMaskV9968[64] = {
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
 };
 
+/* The A17 of each table base, held at 0 while R#21 bit0 V58 is set. */
+static const UInt8 tableBaseA17[12] = {
+    0, 0, 0x80, 0, 0x40, 0, 0x40, 0, 0, 0, 0x08, 0x04
+};
+
 static struct {
     int r;
     int g;
@@ -1042,6 +1047,26 @@ static int cmdEngineScreenMode(VDP* vdp)
     return mode;
 }
 
+static void updateTableBases(VDP* vdp)
+{
+    vdp->chrTabBase = ((((int)vdp->vdpRegs[2] << 10) & ~((int)(vdp->vdpRegs[25] & 1) << 15)) | ~(-1 << 10)) & vdp->vramMask;
+    vdp->chrGenBase = (((int)vdp->vdpRegs[4] << 11) | ~(-1 << 11)) & vdp->vramMask;
+    vdp->colTabBase = (((int)vdp->vdpRegs[10] << 14) | ((int)vdp->vdpRegs[3] << 6) | ~(-1 << 6)) & vdp->vramMask;
+
+    vdp->sprTabBase = (((int)vdp->vdpRegs[11] << 15) | ((int)vdp->vdpRegs[5] << 7) | ~(-1 << 7)) & vdp->vramMask;
+    vdp->sprGenBase = (((int)vdp->vdpRegs[6] << 11) | ~(-1 << 11)) & vdp->vramMask;
+}
+
+static void clearTableBaseA17(VDP* vdp)
+{
+    int i;
+
+    for (i = 0; i < 12; i++) {
+        vdp->vdpRegs[i] &= ~tableBaseA17[i];
+    }
+    updateTableBases(vdp);
+}
+
 static void onScrModeChange(VDP* vdp, UInt32 time)
 {
     int scanLine = (boardSystemTime() - vdp->frameStartTime) / HPERIOD;
@@ -1052,12 +1077,7 @@ static void onScrModeChange(VDP* vdp, UInt32 time)
     
     vdp->screenMode = updateScreenMode(vdp);
     
-    vdp->chrTabBase = ((((int)vdp->vdpRegs[2] << 10) & ~((int)(vdp->vdpRegs[25] & 1) << 15)) | ~(-1 << 10)) & vdp->vramMask;
-    vdp->chrGenBase = (((int)vdp->vdpRegs[4] << 11) | ~(-1 << 11)) & vdp->vramMask;
-    vdp->colTabBase = (((int)vdp->vdpRegs[10] << 14) | ((int)vdp->vdpRegs[3] << 6) | ~(-1 << 6)) & vdp->vramMask;
-
-    vdp->sprTabBase = (((int)vdp->vdpRegs[11] << 15) | ((int)vdp->vdpRegs[5] << 7) | ~(-1 << 7)) & vdp->vramMask;
-    vdp->sprGenBase = (((int)vdp->vdpRegs[6] << 11) | ~(-1 << 11)) & vdp->vramMask;
+    updateTableBases(vdp);
 
 #ifdef ENABLE_VRAM_DECAY
     if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A || vdp->vdpVersion == VDP_TMS9918A) {
@@ -1143,6 +1163,9 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
 
     if (vdpIsV9968(vdp) && vdp->extRegsLocked && (reg == 20 || reg == 21)) {
         return;
+    }
+    if (reg < 12 && vdpIsV9968(vdp) && !vdpIsV9968Native(vdp)) {
+        value &= ~tableBaseA17[reg];
     }
 
     sync(vdp, boardSystemTime());
@@ -1345,6 +1368,10 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
         if ((change & 0x01) && vdpIsV9968(vdp)) {
             vdp->vdpStatus[1] = (vdp->vdpStatus[1] & ~0x3e) | (vdpIsV9968Native(vdp) ? 0x06 : 0x04);
             vdpUpdateVramMode(vdp);
+        }
+        /* Every write of V58 = 1 does this, not only the change to it. */
+        if ((value & 0x01) && vdpIsV9968(vdp)) {
+            clearTableBaseA17(vdp);
         }
         break;
 
@@ -2769,6 +2796,9 @@ static void reset(VDP* vdp)
     vdp->vdpRegs[9]  = (0x02 & vdp->palMask) | vdp->palValue;
     vdp->vdpRegs[21] = 0x3b;
     vdp->vdpRegs[22] = 0x05;
+    if (vdpIsV9968(vdp)) {
+        clearTableBaseA17(vdp);
+    }
 
     if (vdp->vdpVersion == VDP_TMS9918A) {
         for (i = 0; i < 16; i++) {
