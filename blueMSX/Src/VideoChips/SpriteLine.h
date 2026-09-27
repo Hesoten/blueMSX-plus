@@ -652,7 +652,6 @@ int spritesLineMode3(VDP* vdp, int Y)
     int planeMaskHigh = (base >> 7) & 0x03;
     int visible = 0;
     int collisionX = -1;
-    int lastPlane = 0;
     int step;
     int i;
 
@@ -681,7 +680,6 @@ int spritesLineMode3(VDP* vdp, int Y)
         int pattern = *vdpSpriteVram(vdp, attrib + 7);
         int rows, dy, srcY, weight, set, page, dx;
 
-        lastPlane = plane;
         /* The whole ten bit Y ends the table, so a sprite parked below the
         ** screen is not mistaken for the marker by its low byte alone. */
         y |= (b1 & 0x03) << 8;
@@ -699,7 +697,8 @@ int spritesLineMode3(VDP* vdp, int Y)
 
         if (visible == 16) {
             if ((vdp->vdpStatus[0] & 0xc0) == 0) {
-                vdp->vdpStatus[0] = (vdp->vdpStatus[0] & 0xe0) | 0x40 | (plane & 0x1f);
+                /* Planes 32 to 63 do not fit the five bits of S#0 and report 31. */
+                vdp->vdpStatus[0] = (vdp->vdpStatus[0] & 0xe0) | 0x40 | (plane < 32 ? plane : 31);
             }
             if (!noSpriteLimits) {
                 break;
@@ -750,10 +749,6 @@ int spritesLineMode3(VDP* vdp, int Y)
             sprM3Pixel[screenX]  = vdp->paletteExt[(set << 4) | colour];
             sprM3Weight[screenX] = (UInt8)weight;
         }
-    }
-
-    if ((vdp->vdpStatus[0] & 0xc0) == 0) {
-        vdp->vdpStatus[0] = (vdp->vdpStatus[0] & 0xe0) | (lastPlane & 0x1f);
     }
 
     if (collisionX >= 0 && (vdp->vdpStatus[0] & 0x20) == 0) {
