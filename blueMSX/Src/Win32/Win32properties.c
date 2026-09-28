@@ -3098,7 +3098,7 @@ static BOOL_DLG_RET CALLBACK portsDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
 
         case IDC_COM1FILENAMEBROWSE:
             if (openLogFile(hDlg, pProperties->ports.Com.fileName)) {
-                SetWindowTextU(GetDlgItem(hDlg, IDC_COM1FILENAMEBROWSE), pProperties->ports.Com.fileName);
+                SetWindowTextU(GetDlgItem(hDlg, IDC_COM1FILENAME), pProperties->ports.Com.fileName);
             }
             return TRUE;
         case IDC_CDROMMETHODLIST:
