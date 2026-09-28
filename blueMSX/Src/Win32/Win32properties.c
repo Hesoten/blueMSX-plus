@@ -2743,6 +2743,10 @@ static BOOL_DLG_RET CALLBACK diskDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LP
 static void getPortsLptList(HWND hDlg, int id, Properties* pProperties) {
     int idx = (int)SendDlgItemMessage(hDlg, id, CB_GETCURSEL, 0, 0);
 
+    if (idx == CB_ERR) {
+        return;
+    }
+
     if (idx < P_LPT_HOST) {
         pProperties->ports.Lpt.type = idx;
         return;
@@ -2882,6 +2886,10 @@ static BOOL IsNumeric(LPCTSTR pszString, BOOL bIgnoreColon)
 
 static void getPortsComList(HWND hDlg, int id, Properties* pProperties) {
     int idx = (int)SendDlgItemMessage(hDlg, id, CB_GETCURSEL, 0, 0);
+
+    if (idx == CB_ERR) {
+        return;
+    }
 
     if (idx < P_COM_HOST) {
         pProperties->ports.Com.type = idx;
@@ -3132,7 +3140,9 @@ static BOOL_DLG_RET CALLBACK portsDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
         index = (int)SendDlgItemMessage(hDlg, IDC_CDROMMETHODLIST, CB_GETCURSEL, 0, 0);
         pProperties->diskdrive.cdromMethod = (int)SendDlgItemMessage(hDlg, IDC_CDROMMETHODLIST, CB_GETITEMDATA, index, 0);
         index = (int)SendDlgItemMessage(hDlg, IDC_CDROMDRIVELIST, CB_GETCURSEL, 0, 0);
-        pProperties->diskdrive.cdromDrive = (int)SendDlgItemMessage(hDlg, IDC_CDROMDRIVELIST, CB_GETITEMDATA, index, 0);
+        if (index != CB_ERR) {
+            pProperties->diskdrive.cdromDrive = (int)SendDlgItemMessage(hDlg, IDC_CDROMDRIVELIST, CB_GETITEMDATA, index, 0);
+        }
 
         return TRUE;
     }
