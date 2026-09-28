@@ -3144,6 +3144,8 @@ static BOOL_DLG_RET CALLBACK portsDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
             pProperties->diskdrive.cdromDrive = (int)SendDlgItemMessage(hDlg, IDC_CDROMDRIVELIST, CB_GETITEMDATA, index, 0);
         }
 
+        propModified = 1;
+
         return TRUE;
     }
 
