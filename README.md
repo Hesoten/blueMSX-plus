@@ -6,9 +6,9 @@ Modernization focuses on the UI and audio paths, targeting Windows 11.
 [日本語版はこちら / Japanese version](README.ja.md)
 
 
-## About this branch: experimental V9968 support
+## About this branch: experimental V9968 and geo3d support
 
-This `experimental/v9968` branch adds **experimental** support for the VDP [**V9968**](https://github.com/hra1129/V9968_Cartridge), which HRA! is developing.  
+This `experimental/v9968-geo3d` branch is the `experimental/v9968` branch, which adds **experimental** support for the VDP [**V9968**](https://github.com/hra1129/V9968_Cartridge) that HRA! is developing, plus support for [geo3d](https://github.com/alexmoncks/V9968_Cartridge/tree/main/geo3d).  
 It is not an official release, and it keeps following the V9968 specification, so its behavior may still change.  
 The V9968 cartridge (a second VDP) is not supported; only replacing the built-in V9958 with a V9968 is.  
 V9958 compatible mode runs on the existing V9958 code, so it cannot evaluate the V9968's V9958 compatibility.
@@ -35,6 +35,15 @@ The following software for the V9968 has been confirmed to run.
 - [renatus-xxxx/openmsx-v9968-windows-setup](https://github.com/renatus-xxxx/openmsx-v9968-windows-setup) — V9968 TECH DEMO and SCENE3 BENCHMARK by renatus (under `demos`)
 
 Some of these ROMs cannot be recognized automatically. Open them with the ROM type their repository names (such as ASCII16).
+
+### geo3d
+
+[geo3d](https://github.com/alexmoncks/V9968_Cartridge/tree/main/geo3d) is a 3D coprocessor for the V9968 that Alex Moncks is developing. It is an unofficial add-on built into the same FPGA as the V9968: it transforms coordinates and fills faces, and draws them with V9968 commands.  
+On this branch, setting the video chip to V9968 always brings geo3d with it (ports 9Dh / 9Fh).
+
+The following software for geo3d has been confirmed to run. Use the builds for port 98h (`_98`) and open them as ASCII16.
+
+- [alexmoncks/V9968_Cartridge](https://github.com/alexmoncks/V9968_Cartridge/tree/main/geo3d) — the shooter VECTOR RAID (`game/release/GEO3D_SHOOTER_98.ROM`) and the demo ROM (`GEO3D_98.ROM`, built with `rom/build_rom.py --base 0x98`) by Alex Moncks
 
 
 ## What's new in v3.1.1

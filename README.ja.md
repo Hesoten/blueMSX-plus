@@ -4,9 +4,9 @@ blueMSX+ は MSX エミュレータ [blueMSX](https://msxblue.com/bluemsx/jindex
 Windows 11 向けに UI や音声周りを中心にモダン化しています。
 
 
-## このブランチについて: V9968 試験対応版
+## このブランチについて: V9968・geo3d 試験対応版
 
-この `experimental/v9968` ブランチは、HRA! 氏が開発中の VDP [**V9968**](https://github.com/hra1129/V9968_Cartridge) に**試験的に**対応したものです。  
+この `experimental/v9968-geo3d` ブランチは、HRA! 氏が開発中の VDP [**V9968**](https://github.com/hra1129/V9968_Cartridge) に**試験的に**対応した `experimental/v9968` ブランチに、[geo3d](https://github.com/alexmoncks/V9968_Cartridge/tree/main/geo3d) への対応を加えたものです。  
 正式なリリースではありません。V9968 の仕様にも追従中のため、挙動は今後も変わることがあります。  
 V9968 カートリッジ(VDP 増設)には対応していません。内蔵の V9958 を V9968 に置き換える使い方のみサポートしています。  
 V9958 互換モードのエミュレーションは、blueMSX+ の既存の V9958 コードでエミュレーションを行います。V9968 に実装される V9958 互換機能の評価には使えません。
@@ -33,6 +33,15 @@ V9958 互換モードのエミュレーションは、blueMSX+ の既存の V995
 - [renatus-xxxx/openmsx-v9968-windows-setup](https://github.com/renatus-xxxx/openmsx-v9968-windows-setup) — renatus 氏制作の V9968 TECH DEMO と SCENE3 BENCHMARK (`demos` 以下)
 
 ROM の種別を自動判別できないものがあります。各リポジトリに書かれている ROM 種別 (ASCII16 など) を指定して開いてください。
+
+### geo3d
+
+[geo3d](https://github.com/alexmoncks/V9968_Cartridge/tree/main/geo3d) は、Alex Moncks 氏が開発している V9968 用の 3D コプロセッサです。V9968 と同じ FPGA に組み込む非公式の追加回路で、座標変換や面の塗りつぶしを行い、V9968 のコマンドで描画します。  
+このブランチでは、ビデオチップを V9968 にすると geo3d も常に組み込まれます (ポート 9Dh / 9Fh)。
+
+以下の geo3d 対応ソフトウェアが動作することを確認しています。ポート 98h 用 (`_98`) のものを、ROM 種別 ASCII16 で開いてください。
+
+- [alexmoncks/V9968_Cartridge](https://github.com/alexmoncks/V9968_Cartridge/tree/main/geo3d) — Alex Moncks 氏制作のシューティング VECTOR RAID (`game/release/GEO3D_SHOOTER_98.ROM`) と、デモ ROM (`rom/build_rom.py --base 0x98` でビルドする `GEO3D_98.ROM`)
 
 
 ## v3.1.1 リリースの変更点
