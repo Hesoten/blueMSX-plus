@@ -79,6 +79,8 @@ int vdpDebugColorsMatch(int first, int second);
 /* The machine VDP frames begun since power-on, the one in progress included: it goes back
 ** with a state load or a rewind, as it is part of the state. 0 without a VDP. */
 UInt32 vdpGetMachineFrame(void);
+int  vdpGetCommandBusy();
+void vdpWriteCommandRegister(UInt8 reg, UInt8 value);
 
 // Video DA Interface
 
