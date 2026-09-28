@@ -76,7 +76,9 @@ static void removeType(PrinterIO* printerIO)
         printerIO->printerReady = 0;
         break;
     case PRN_FILE:
-        fclose(printerIO->file);
+        if (printerIO->file != NULL) {
+            fclose(printerIO->file);
+        }
         break;
     case PRN_SIMPL:
         dacDestroy(printerIO->dac);
@@ -91,7 +93,9 @@ void printerIOWrite(PrinterIO* printerIO, UInt8 value)
         archPrinterWrite(value);
         break;
     case PRN_FILE:
-        fwrite(&value, 1, 1, printerIO->file);
+        if (printerIO->file != NULL) {
+            fwrite(&value, 1, 1, printerIO->file);
+        }
         break;
     case PRN_SIMPL:
         dacWrite(printerIO->dac, DAC_CH_MONO, value);
