@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -42,6 +45,7 @@
 #include "RTC.h"
 #include "MsxPsg.h"
 #include "VDP.h"
+#include "Geo3DDevice.h"
 #include "Casette.h"
 #include "Disk.h"
 #include "MegaromCartridge.h"
@@ -241,6 +245,10 @@ int msxCreate(Machine* machine,
     msxRam = NULL;
 
     vdpCreate(VDP_MSX, machine->video.vdpVersion, vdpSyncMode, machine->video.vramSize / 0x4000);
+    /* geo3d is built into the same FPGA as the V9968. */
+    if (machine->video.vdpVersion == VDP_V9968) {
+        geo3dDeviceCreate();
+    }
 
     for (i = 0; i < 4; i++) {
         slotSetSubslotted(i, machine->slot[i].subslotted);

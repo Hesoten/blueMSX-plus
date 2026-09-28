@@ -54,6 +54,9 @@ int  vdpGetDisplayEnable();
 
 void vdpForceSync();
 
+int  vdpGetCommandBusy();
+void vdpWriteCommandRegister(UInt8 reg, UInt8 value);
+
 // Video DA Interface
 
 #define VDP_VIDEODA_WIDTH  544

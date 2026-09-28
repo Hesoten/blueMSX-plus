@@ -829,6 +829,13 @@
     <ClCompile Include="..\..\Src\Memory\sramMapperS1985.c" />
     <ClCompile Include="..\..\Src\VideoChips\CRTC6845.c" />
     <ClCompile Include="..\..\Src\VideoChips\FrameBuffer.c" />
+    <ClCompile Include="..\..\Src\VideoChips\Geo3D.cpp">
+      <LanguageStandard>stdcpp20</LanguageStandard>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\VideoChips\Geo3DCore.cpp">
+      <LanguageStandard>stdcpp20</LanguageStandard>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\VideoChips\Geo3DDevice.c" />
     <ClCompile Include="..\..\Src\VideoChips\V9938.c" />
     <ClCompile Include="..\..\Src\VideoChips\VDP.c" />
     <ClCompile Include="..\..\Src\VideoChips\VideoManager.c" />
@@ -1176,6 +1183,9 @@
     <ClInclude Include="..\..\Src\VideoChips\Common.h" />
     <ClInclude Include="..\..\Src\VideoChips\CRTC6845.h" />
     <ClInclude Include="..\..\Src\VideoChips\FrameBuffer.h" />
+    <ClInclude Include="..\..\Src\VideoChips\Geo3D.h" />
+    <ClInclude Include="..\..\Src\VideoChips\Geo3DCore.h" />
+    <ClInclude Include="..\..\Src\VideoChips\Geo3DDevice.h" />
     <ClInclude Include="..\..\Src\VideoChips\SpriteLine.h" />
     <ClInclude Include="..\..\Src\VideoChips\V9938.h" />
     <ClInclude Include="..\..\Src\VideoChips\VDP.h" />

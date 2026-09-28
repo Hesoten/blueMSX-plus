@@ -1928,6 +1928,26 @@ void vdpForceSync()
     }
 }
 
+/* geo3d feeds the command engine of the V9968 it lives in. On any other VDP
+** these do nothing: an MSX1 VDP would take R#36 as R#4. */
+int vdpGetCommandBusy()
+{
+    if (theVdp == NULL || theVdp->vdpVersion != VDP_V9968) {
+        return 0;
+    }
+    vdpCmdExecute(theVdp->cmdEngine, boardSystemTime());
+    updateCmdEndInt(theVdp);
+    return vdpGetStatus(theVdp->cmdEngine) & 0x01;
+}
+
+/* The same path as a register write from the Z80. */
+void vdpWriteCommandRegister(UInt8 reg, UInt8 value)
+{
+    if (theVdp != NULL && theVdp->vdpVersion == VDP_V9968) {
+        vdpUpdateRegisters(theVdp, reg, value);
+    }
+}
+
 /* The dot the mode 3 overlay may start at, or -1 where the ordinary sprite
 ** paths put nothing: text, and the line the unknown modes fall back to. A
 ** renderer that masks the left edge repaints it after compositing sprites. */
