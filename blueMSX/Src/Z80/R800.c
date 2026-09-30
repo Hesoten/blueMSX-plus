@@ -122,6 +122,10 @@ static void fd_cb(R800* r800);
 #define delayLdSpHl(r800)   { r800->systemTime += r800->delay[DLY_LDSPHL];   }
 #define delayBitIx(r800)    { r800->systemTime += r800->delay[DLY_BITIX];    }
 
+/* On a turbo R, OTIR from RAM takes 13.8 R800 cycles per byte: the I/O
+ * cost alone, so an I/O block repeat adds nothing in R800 mode. */
+#define delayBlockIo(r800)  { if (r800->cpuMode != CPU_R800) delayBlock(r800); }
+
 /*
 #define delayVdpIO(r800, port) do {                                          \
     if ((port & 0xfffc) == 0x98) {                                           \
@@ -5307,7 +5311,7 @@ static void ini(R800* r800) {
 static void inir(R800* r800) { 
     ini(r800);
     if (r800->regs.BC.B.h != 0) {
-        delayBlock(r800); 
+        delayBlockIo(r800);
         r800->regs.PC.W -= 2; 
         r800->instCnt--;
     }
@@ -5336,7 +5340,7 @@ static void ind(R800* r800) {
 static void indr(R800* r800) { 
     ind(r800);
     if (r800->regs.BC.B.h != 0) {
-        delayBlock(r800); 
+        delayBlockIo(r800);
         r800->regs.PC.W -= 2; 
         r800->instCnt--;
     }
@@ -5364,7 +5368,7 @@ static void outi(R800* r800) {
 static void otir(R800* r800) { 
     outi(r800);
     if (r800->regs.BC.B.h != 0) {
-        delayBlock(r800); 
+        delayBlockIo(r800);
         r800->regs.PC.W -= 2; 
         r800->instCnt--;
     }
@@ -5392,7 +5396,7 @@ static void outd(R800* r800) {
 static void otdr(R800* r800) { 
     outd(r800);
     if (r800->regs.BC.B.h != 0) {
-        delayBlock(r800); 
+        delayBlockIo(r800);
         r800->regs.PC.W -= 2; 
         r800->instCnt--;
     }
@@ -5814,8 +5818,10 @@ void r800UpdateDelays(R800* r800) {
         r800->delay[DLY_MEM]       = freqAdjust * 2;
         r800->delay[DLY_MEMOP]     = freqAdjust * 1;
         r800->delay[DLY_MEMPAGE]   = freqAdjust * 1;
-        r800->delay[DLY_PREIO]     = freqAdjust * 0;
-        r800->delay[DLY_POSTIO]    = freqAdjust * 3;
+        /* OUT (n),A and IN A,(n) take 11.5 cycles from RAM on an FS-A1GT,
+         * on every port that has no VDP spacing. */
+        r800->delay[DLY_PREIO]     = freqAdjust * 1;
+        r800->delay[DLY_POSTIO]    = freqAdjust * 6;
         r800->delay[DLY_M1]        = freqAdjust * 0;
         r800->delay[DLY_XD]        = freqAdjust * 0;
         r800->delay[DLY_IM]        = freqAdjust * 0;
