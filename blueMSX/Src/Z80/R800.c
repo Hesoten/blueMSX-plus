@@ -137,13 +137,15 @@ static void fd_cb(R800* r800);
 } while (0)
 */
 
+/* The S1990 spaces R800 accesses to the VDP ports 98h-9Bh only; 9Ch-9Fh are
+** ordinary I/O on a turbo R. */
 #define delayVdpIO(r800, port) do {                                          \
     if ((port & 0xfc) == 0x98) {                                             \
         delayT9769(r800);                                                    \
     }                                                                        \
     if (r800->cpuMode == CPU_R800) {                                         \
         r800->systemTime = 6 * ((r800->systemTime + 5) / 6);                 \
-        if ((port & 0xf8) == 0x98) {                                         \
+        if ((port & 0xfc) == 0x98) {                                         \
             if (r800->systemTime - r800->vdpTime < r800->delay[DLY_S1990VDP])\
                 r800->systemTime = r800->vdpTime + r800->delay[DLY_S1990VDP];\
             r800->vdpTime = r800->systemTime;                                \
