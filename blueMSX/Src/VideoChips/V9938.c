@@ -188,11 +188,17 @@ struct VdpCmdState {
     int    lrmmSY;
     int    lrmmRowSX;
     int    lrmmRowSY;
+    /* The 32-bit source word the last LRMM dot read, -1 for none yet. */
+    int    lrmmSrcWord;
     int    textBackColor;
     int    fontAddress;
     int    fontColor;
     int    cmdEnd;
     int    highSpeed;
+    /* Taken at the start of a command: whether it runs on the V9968's own
+    ** timing, and what each of its steps costs there. */
+    int    hsModel;
+    int    hsStep;
     int    forceGraphic4;
     int    rawScrMode;
     int    cmdEnable;
@@ -357,24 +363,126 @@ static int lmmm_start[8];
 
 static int vdpCmdWaitPct = 100;
 
-/* The engine's own clock, four to a board cycle: a step costs four when its
-** VRAM is cached and about twice that when it is not. A command that takes no
-** compatibility wait runs at this flat cost. */
+/* A V9968 step that waits on the CPU for its byte: eight of the engine's own
+** clocks, four to a board cycle. */
 static const int fast_timing_base = 2 * VDP_TIMING_SCALE;
-static int fast_timing;
 
 static int cmdDelta(const VdpCmdState* vdpCmd, int delta)
 {
-    return vdpCmd->highSpeed ? fast_timing : delta;
+    return vdpCmd->hsModel ? vdpCmd->hsStep : delta;
+}
+
+static int hsScale(int units, int floor)
+{
+    int v = (units * vdpCmdWaitPct) / 100;
+    return v < floor ? floor : v;
+}
+
+/* Costs in eighths of a unit, fitted to HRA's RTL on an FPGA (V68BENCH and the
+** geo3d scenes): the work of a dot or byte, and of a 32-bit word it moves on
+** to, which evicts a dirty one, or which is read in clean as a source. */
+#define HS_COPY_DOT      139
+#define HS_LINE_DOT      116
+#define HS_FILL_BYTE     64
+#define HS_FILL_BYTE_ILV 83
+#define HS_COPY_BYTE     167
+#define HS_COPY_BYTE_ILV 182
+#define HS_EVICT         456
+#define HS_LINE_WORD     404
+#define HS_SRC_MISS      307
+
+/* A VRAM access plus the wait after it without R#20 HS, in units. */
+#define HS_COMPAT_ACCESS 336
+
+/* The 32-bit words a row of n dots from x touches. */
+static int hsRowWords(int x, int n, int ppw, int tx)
+{
+    int lead = tx > 0 ? (x & (ppw - 1)) : (ppw - 1 - (x & (ppw - 1)));
+    return (lead + n + ppw - 1) / ppw;
+}
+
+/* Sets the V9968's cost of a step and returns what the command pays before its
+** first: 4 to start, the step, and the fractions of a unit the steps cannot
+** carry. There is no wait between rows, nor a write back of its own. */
+static int hsSetTiming(VdpCmdState* vdpCmd)
+{
+    int sm   = vdpCmd->screenMode;
+    int ppw  = 4 * PPB[sm];
+    int ppb  = (vdpCmd->CM & 0x0c) == 0x0c ? PPB[sm] : 1;
+    /* A count of 0 runs to the edge, and to the last row. */
+    int edge = vdpCmd->TX > 0 ? (vdpCmd->MX - vdpCmd->DX + ppb - 1) / ppb : vdpCmd->DX / ppb + 1;
+    int nx   = vdpCmd->NX ? vdpCmd->NX : (edge < 1 ? 1 : edge);
+    int ny   = vdpCmd->NY ? vdpCmd->NY : vdpCmd->nyMask + 1;
+    int row  = 0;
+    int rest = 0;
+    int step = fast_timing_base;
+
+    vdpCmd->lrmmSrcWord = -1;
+
+    /* Without R#20 HS the RTL waits the same after every VRAM read and write,
+    ** whatever the mode and the display. The extended commands never wait. */
+    if (!vdpCmd->highSpeed && vdpCmd->CM != CM_LRMM && vdpCmd->CM != CM_LFMM && vdpCmd->CM != CM_LFMC) {
+        int access;
+
+        switch (vdpCmd->CM) {
+        case CM_HMMV:
+        case CM_HMMC:
+        case CM_SRCH:
+        case CM_LMCM: access = 1; break;
+        case CM_LMMM: access = 3; break;
+        default:      access = 2; break;
+        }
+        vdpCmd->hsStep = hsScale(HS_COMPAT_ACCESS * access, VDP_TIMING_SCALE);
+        return hsScale(4 + HS_COMPAT_ACCESS * access, 0);
+    }
+
+    switch (vdpCmd->CM) {
+    case CM_LINE:
+        /* A Y-major line enters a new word on every dot, an X-major one on every
+        ** word it crosses and every row it steps down. */
+        nx  = vdpCmd->NX + 1;
+        ny  = 1;
+        row = nx * HS_LINE_DOT + HS_LINE_WORD *
+              ((vdpCmd->ARG & 0x01) ? nx : (vdpCmd->NX + ppw) / ppw + vdpCmd->NY);
+        break;
+    /* A font byte puts its eight dots on a row of their own. */
+    case CM_LFMM: step = 8 * 18 + 10 + 36 * ((8 + ppw - 1) / ppw) + 36 / 4; break;
+    case CM_SRCH: step = 14 + 36 / ppw; break;
+    /* The RTL fills a rectangle row the way it draws a line. */
+    case CM_LMMV:
+        row = nx * HS_LINE_DOT + HS_LINE_WORD * hsRowWords(vdpCmd->DX, nx, ppw, vdpCmd->TX);
+        break;
+    case CM_LMMM:
+    case CM_LRMM:
+        row = nx * HS_COPY_DOT + HS_EVICT * hsRowWords(vdpCmd->DX, nx, ppw, vdpCmd->TX);
+        if (vdpCmd->CM == CM_LMMM) {
+            row += HS_SRC_MISS * hsRowWords(vdpCmd->SX, nx, ppw, vdpCmd->TX);
+        }
+        break;
+    /* With SCREEN 7 and 8 interleaved, as they are unless sprite mode 3 is on,
+    ** consecutive bytes sit in different words and evictions come back to back. */
+    case CM_HMMV: row = nx * (vdpCmd->interleave ? HS_FILL_BYTE_ILV : HS_FILL_BYTE); break;
+    /* YMMM runs to the edge whatever NX says. */
+    case CM_YMMM:
+        nx = edge < 1 ? 1 : edge;
+        /* fall through */
+    case CM_HMMM: row = nx * (vdpCmd->interleave ? HS_COPY_BYTE_ILV : HS_COPY_BYTE); break;
+    /* LMMC, LMCM, HMMC and LFMC wait on the CPU for every step. */
+    default: break;
+    }
+    /* The fraction of a unit a row's steps cannot carry is paid up front. */
+    if (row != 0) {
+        step = row / (8 * nx);
+        rest = (row / 8 - step * nx) * ny;
+    }
+
+    vdpCmd->hsStep = hsScale(step, VDP_TIMING_SCALE);
+    return hsScale(4 + step + rest, 0);
 }
 
 static void recomputeVdpCmdTimings(void) {
     const int floor = VDP_TIMING_SCALE;     /* one whole cycle per step */
     int i;
-    fast_timing = (fast_timing_base * vdpCmdWaitPct) / 100;
-    if (fast_timing < floor) {
-        fast_timing = floor;
-    }
     for (i = 0; i < 8; i++) {
         int v;
         v = (srch_timing_base[i] * vdpCmdWaitPct) / 100; srch_timing[i] = v < floor ? floor : v;
@@ -870,7 +978,7 @@ static void LfmmEngine(VdpCmdState* vdpCmd)
     int ANX = vdpCmd->ANX;
     UInt8 CL = vdpCmd->fontColor & Mask[vdpCmd->screenMode];
     UInt8 BG = vdpCmd->textBackColor & Mask[vdpCmd->screenMode];
-    int delta = fast_timing;
+    int delta = vdpCmd->hsStep;
     int cnt = vdpCmd->VdpOpsCnt;
 
     while (cnt > 0) {
@@ -928,7 +1036,10 @@ static void LrmmEngine(VdpCmdState* vdpCmd)
     /* XHR counts a source line in halves, so the row vector covers two of them
     ** and the row being sampled sits one bit further up. */
     int step = vdpCmd->xhr ? 2 : 1;
-    int delta = fast_timing;
+    int delta = vdpCmd->hsStep;
+    int miss = hsScale(HS_SRC_MISS / 8, 0);
+    int owed = 0;
+    int ppw = 4 * PPB[vdpCmd->screenMode];
     int cnt = vdpCmd->VdpOpsCnt;
 
     while (cnt > 0) {
@@ -940,6 +1051,15 @@ static void LrmmEngine(VdpCmdState* vdpCmd)
             colour = CL;
         }
         else {
+            int word = (sy << 10) | ((sx / ppw) & 0x3ff);
+
+            /* A dot that reads another source word than the last one pays for
+            ** reading it in, with the step, so the last dot cannot pass for a
+            ** command that ran out of budget. */
+            if (word != vdpCmd->lrmmSrcWord) {
+                vdpCmd->lrmmSrcWord = word;
+                owed += miss;
+            }
             colour = getPixel(vdpCmd, vdpCmd->screenMode, sx, sy);
         }
         setPixel(vdpCmd, vdpCmd->screenMode, ADX, DY, colour & Mask[vdpCmd->screenMode], LO);
@@ -960,7 +1080,8 @@ static void LrmmEngine(VdpCmdState* vdpCmd)
                 break;
             }
         }
-        cnt -= delta;
+        cnt -= delta + owed;
+        owed = 0;
     }
 
     if ((vdpCmd->VdpOpsCnt = cnt) > 0) {
@@ -997,7 +1118,7 @@ static void LmmvEngine(VdpCmdState* vdpCmd)
     UInt8 CL=vdpCmd->CL & Mask[vdpCmd->screenMode];
     UInt8 LO=vdpCmd->LO;
     int delta = cmdDelta(vdpCmd, lmmv_timing[vdpCmd->timingMode]);
-    int wrap  = lmmv_wrap[vdpCmd->timingMode];
+    int wrap  = vdpCmd->hsModel ? 0 : lmmv_wrap[vdpCmd->timingMode];
     int cnt;
 
     cnt = vdpCmd->VdpOpsCnt;
@@ -1057,7 +1178,7 @@ static void LmmmEngine(VdpCmdState* vdpCmd)
     int ANX=vdpCmd->ANX;
     UInt8 LO=vdpCmd->LO;
     int delta = cmdDelta(vdpCmd, lmmm_timing[vdpCmd->timingMode]);
-    int wrap  = lmmm_wrap[vdpCmd->timingMode];
+    int wrap  = vdpCmd->hsModel ? 0 : lmmm_wrap[vdpCmd->timingMode];
     int cnt;
 
     cnt = vdpCmd->VdpOpsCnt;
@@ -1178,7 +1299,7 @@ static void LfmcEngine(VdpCmdState* vdpCmd)
 
         for (i = 0; i < 8; i++) {
             setPixel(vdpCmd, SM, vdpCmd->ADX, vdpCmd->DY, (bits & (0x80 >> i)) ? CL : BG, vdpCmd->LO);
-            vdpCmd->VdpOpsCnt -= fast_timing;
+            vdpCmd->VdpOpsCnt -= vdpCmd->hsStep;
 
             if (!--vdpCmd->ANX || ((vdpCmd->ADX += vdpCmd->TX) & vdpCmd->MX)) {
                 vdpCmd->DY += vdpCmd->TY;
@@ -1221,7 +1342,7 @@ static void HmmvEngine(VdpCmdState* vdpCmd)
     int ANX=vdpCmd->ANX;
     UInt8 CL=vdpCmd->CL;
     int delta = cmdDelta(vdpCmd, hmmv_timing[vdpCmd->timingMode]);
-    int wrap  = hmmv_wrap[vdpCmd->timingMode];
+    int wrap  = vdpCmd->hsModel ? 0 : hmmv_wrap[vdpCmd->timingMode];
     int cnt;
 
     cnt = vdpCmd->VdpOpsCnt;
@@ -1269,7 +1390,7 @@ static void HmmvEngine(VdpCmdState* vdpCmd)
 static void HmmmEngine(VdpCmdState* vdpCmd)
 {
     int delta = cmdDelta(vdpCmd, hmmm_timing[vdpCmd->timingMode]);
-    int wrap  = hmmm_wrap[vdpCmd->timingMode];
+    int wrap  = vdpCmd->hsModel ? 0 : hmmm_wrap[vdpCmd->timingMode];
 
     switch (vdpCmd->screenMode) {
     case 0: 
@@ -1313,7 +1434,7 @@ static void YmmmEngine(VdpCmdState* vdpCmd)
     int NY=vdpCmd->NY;
     int ADX=vdpCmd->ADX;
     int delta = cmdDelta(vdpCmd, ymmm_timing[vdpCmd->timingMode]);
-    int wrap  = ymmm_wrap[vdpCmd->timingMode];
+    int wrap  = vdpCmd->hsModel ? 0 : ymmm_wrap[vdpCmd->timingMode];
     int cnt;
 
     cnt = vdpCmd->VdpOpsCnt;
@@ -1457,6 +1578,7 @@ void vdpCmdDestroy(VdpCmdState* vdpCmd)
 static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
 {
     const int* start;
+    int hsStart;
 
     /* Taken with the screen mode it belongs to, so a mode change part way
     ** through cannot leave the two describing different layouts. */
@@ -1552,6 +1674,11 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
     else
         vdpCmd->ANX = vdpCmd->NX;
 
+    /* A V9968 runs on its own timing in its native mode, and with R#20 HS in
+    ** either mode. With R#21 V58 set and no HS it keeps the V9958's. */
+    vdpCmd->hsModel = vdpCmd->highSpeed || vdpCmd->extCommands;
+    hsStart = vdpCmd->hsModel ? hsSetTiming(vdpCmd) : 0;
+
     /* Command execution started */
     vdpCmd->status |= VDPSTATUS_CE;
 
@@ -1594,7 +1721,7 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
     /* Skipped once the engine is too far in arrears for the budget to stay in
     ** range, which costs less than letting a stall compound without bound. */
     if (start != 0 && vdpCmd->VdpOpsCnt > -MAX_CMD_START_DEBT) {
-        vdpCmd->VdpOpsCnt -= start[vdpCmd->timingMode];
+        vdpCmd->VdpOpsCnt -= vdpCmd->hsModel ? hsStart : start[vdpCmd->timingMode];
     }
 
     vdpCmd->systemTime = systemTime;
@@ -2115,6 +2242,11 @@ void vdpCmdLoadState(VdpCmdState* vdpCmd)
     /* A state without the latch carries the colour in CL. */
     vdpCmd->fontColor     =         saveStateGet(state, "fontColor", vdpCmd->CL);
     vdpCmd->cmdEnd        =         saveStateGet(state, "cmdEnd", 0);
+    vdpCmd->hsModel       =         saveStateGet(state, "hsModel", 0);
+    /* A step that costs nothing would spin an engine for ever. */
+    vdpCmd->hsStep        =         saveStateGet(state, "hsStep", fast_timing_base);
+    vdpCmd->lrmmSrcWord   = -1;
+    if (vdpCmd->hsStep < VDP_TIMING_SCALE) vdpCmd->hsStep = VDP_TIMING_SCALE;
     /* Both index the pixel tables, so a damaged state must not reach past them.
     ** An engine left with no mode to run in has nothing to go on with either. */
     if (vdpCmd->newScrMode < -1 || vdpCmd->newScrMode > 4) vdpCmd->newScrMode = -1;
@@ -2185,6 +2317,8 @@ void vdpCmdSaveState(VdpCmdState* vdpCmd)
     saveStateSet(state, "fontAddress", vdpCmd->fontAddress);
     saveStateSet(state, "fontColor", vdpCmd->fontColor);
     saveStateSet(state, "cmdEnd", vdpCmd->cmdEnd);
+    saveStateSet(state, "hsModel", vdpCmd->hsModel);
+    saveStateSet(state, "hsStep", vdpCmd->hsStep);
     saveStateSet(state, "timingMode", vdpCmd->timingMode);
     
     saveStateClose(state);
