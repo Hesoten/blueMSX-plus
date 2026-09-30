@@ -361,6 +361,9 @@ void r800Destroy(R800* r800);
 */
 void r800SetFrequency(R800* r800, CpuMode cpuMode, UInt32 frequency);
 
+/* Rebuilds the timing table for the current CPU mode and frequencies. */
+void r800UpdateDelays(R800* r800);
+
 /************************************************************************
 ** r800Reset
 **

@@ -106,6 +106,8 @@ void r800LoadState(R800* r800)
         sprintf(tag, "delay%d", i);
         r800->delay[i] = saveStateGet(state, tag, 0);
     }
+    /* A state from an older build holds its own costs; use this build's. */
+    r800UpdateDelays(r800);
 
     r800LoadRegisterState(state, r800->regs,        00);
     r800LoadRegisterState(state, r800->regBanks[0], 01);
