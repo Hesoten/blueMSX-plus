@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -66,12 +69,31 @@ static Slot             slotTable[4][4][8];
 static Slot             slotAddr0;
 static UInt8            emptyRAM[0x2000];
 static Int32            initialized;
+static UInt8            waitClass[4][4][8];
+static UInt8            pageWait[8];
 
 void slotMapRamPage(int slot, int sslot, int page)
 {
     ramslot[page].readEnable  = slotTable[slot][sslot][page].readEnable;
     ramslot[page].writeEnable = slotTable[slot][sslot][page].writeEnable;
     ramslot[page].pageData    = slotTable[slot][sslot][page].pageData;
+    pageWait[page]            = waitClass[slot][sslot][page];
+}
+
+void slotSetWaitClass(int slot, int sslot, int page, UInt8 waitCls)
+{
+    waitClass[slot][sslot][page] = waitCls;
+
+    if (pslot[page >> 1].state == slot &&
+        (pslot[slot].subslotted ? pslot[page >> 1].substate : 0) == sslot)
+    {
+        pageWait[page] = waitCls;
+    }
+}
+
+const UInt8* slotGetPageWaits()
+{
+    return pageWait;
 }
 
 void slotSetRamSlot(int slot, int psl)
@@ -275,6 +297,8 @@ void slotManagerCreate()
     memset(pslot, 0, sizeof(pslot));
     memset(slotTable, 0, sizeof(slotTable));
     memset(&slotAddr0, 0, sizeof(slotAddr0));
+    memset(waitClass, 0, sizeof(waitClass));
+    memset(pageWait, 0, sizeof(pageWait));
 
     for (slot = 0; slot < 4; slot++) {
         for (sslot = 0; sslot < 4; sslot++) {

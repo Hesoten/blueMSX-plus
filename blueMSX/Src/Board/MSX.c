@@ -54,6 +54,7 @@
 #include "DeviceManager.h"
 #include "ramMapperIo.h"
 #include "CoinDevice.h"
+#include "romMapperDRAM.h"
 
 void PatchZ80(void* ref, CpuRegs* cpuRegs);
 
@@ -65,6 +66,67 @@ static UInt8*          msxRam;
 static UInt32          msxRamSize;
 static UInt32          msxRamStart;
 static UInt32          z80Frequency;
+static UInt8           msxWaitClass[2][4][4][8];   /* [DRAM mode][slot][sslot][page] */
+static int             msxDramHandle = -1;
+
+static void msxSetDramWaits(void* ref, int dramMode)
+{
+    int slot;
+    int sslot;
+    int page;
+
+    for (slot = 0; slot < 4; slot++) {
+        for (sslot = 0; sslot < 4; sslot++) {
+            for (page = 0; page < 8; page++) {
+                slotSetWaitClass(slot, sslot, page, msxWaitClass[dramMode ? 1 : 0][slot][sslot][page]);
+            }
+        }
+    }
+}
+
+/* The S1990 slows R800 accesses to the cartridge slots and to internal ROM,
+ * but not to DRAM, including the ROMs it copies to DRAM in DRAM mode. */
+static void msxCreateWaits(Machine* machine)
+{
+    int i;
+    int slot;
+    int sslot;
+    int page;
+
+    for (slot = 0; slot < 4; slot++) {
+        int ext = slot != 0 && (slot == machine->cart[0].slot || slot == machine->cart[1].slot);
+        for (sslot = 0; sslot < 4; sslot++) {
+            for (page = 0; page < 8; page++) {
+                msxWaitClass[0][slot][sslot][page] = ext ? R800_WAIT_EXT : R800_WAIT_ROM;
+                msxWaitClass[1][slot][sslot][page] = ext ? R800_WAIT_EXT : R800_WAIT_ROM;
+            }
+        }
+    }
+
+    for (i = 0; i < machine->slotInfoCount; i++) {
+        SlotInfo* si = &machine->slotInfo[i];
+        int ram = si->romType == RAM_MAPPER || si->romType == RAM_NORMAL;
+        /* romMapperDRAM copies only the 0-0 and 3-1 ROMs below 8000h. */
+        int dram = si->romType == ROM_DRAM &&
+                   ((si->slot == 0 && si->subslot == 0) || (si->slot == 3 && si->subslot == 1));
+
+        if (si->slot != 0 && (si->slot == machine->cart[0].slot || si->slot == machine->cart[1].slot)) {
+            continue;
+        }
+        for (page = si->startPage; page < si->startPage + si->pageCount && page < 8; page++) {
+            if (ram) {
+                msxWaitClass[0][si->slot][si->subslot][page] = R800_WAIT_NONE;
+            }
+            if (ram || (dram && page < 4)) {
+                msxWaitClass[1][si->slot][si->subslot][page] = R800_WAIT_NONE;
+            }
+        }
+    }
+
+    msxSetDramWaits(NULL, 0);
+    msxDramHandle = panasonicDramRegister(msxSetDramWaits, NULL);
+    r800SetPageWaits(r800, slotGetPageWaits());
+}
 
 void msxSetCpu(int mode)
 {
@@ -101,7 +163,12 @@ static void reset()
     deviceManagerReset();
 }
 
-static void destroy() {        
+static void destroy() {
+    if (msxDramHandle >= 0) {
+        panasonicDramUnregister(msxDramHandle);
+        msxDramHandle = -1;
+    }
+
     rtcDestroy(rtc);
 
     boardRemoveExternalDevices();
@@ -259,6 +326,10 @@ int msxCreate(Machine* machine,
     }
 
     success = machineInitialize(machine, &msxRam, &msxRamSize, &msxRamStart);
+
+    if (machine->cpu.hasR800) {
+        msxCreateWaits(machine);
+    }
 
     msxPsg = msxPsgCreate(machine->board.type == BOARD_MSX || 
                           machine->board.type == BOARD_MSX_FORTE_II 

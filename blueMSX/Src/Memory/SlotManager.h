@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -60,6 +63,11 @@ void slotUnregisterWrite0();
 void slotSetRamSlot(int slot, int psl);
 int slotGetRamSlot(int page);
 void slotMapRamPage(int slot, int sslot, int page);
+
+/* Memory wait class of an 8kB page of a slot, in the R800's terms. The
+ * array holds the classes of the 8 pages the CPU currently sees. */
+void slotSetWaitClass(int slot, int sslot, int page, UInt8 waitCls);
+const UInt8* slotGetPageWaits();
 
 void slotMapPage(int slot, int sslot, int page, UInt8* pageData, 
                  int readEnable, int writeEnable);
