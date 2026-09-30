@@ -81,6 +81,8 @@ int vdpDebugColorsMatch(int first, int second);
 UInt32 vdpGetMachineFrame(void);
 int  vdpGetCommandBusy();
 void vdpWriteCommandRegister(UInt8 reg, UInt8 value);
+UInt32 vdpGetCommandEndTime();
+void vdpAddCommandCredit(int units);
 
 // Video DA Interface
 

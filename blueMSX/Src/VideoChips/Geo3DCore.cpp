@@ -53,6 +53,7 @@ void Geo3DCore::reset()
 	vbuf.clear(); ebuf.clear(); fbuf.clear(); tbuf.clear();
 	ctrlFace = ctrlTex = false;
 	cmds.clear(); cmdPos = 0;
+	clk = endClk = xfEndClk = 0;
 	running = false;
 	cntSkip = cntDraw = cntCull = 0;
 }
@@ -166,15 +167,17 @@ void Geo3DCore::writeData(uint8_t b)
 	}
 }
 
-uint8_t Geo3DCore::readStatus() const
+uint8_t Geo3DCore::readStatus(uint32_t ec, uint32_t edgeEnd) const
 {
-	// bit0 RUN busy, bit2 edge phase (commands still to be issued);
-	// the transform phase (bit1) and core busy (bit3) take no time here.
-	uint8_t edge = (running && hasCommand()) ? 0x04 : 0x00;
-	return uint8_t((imm.flags & 0xF0) | edge | (running ? 0x01 : 0x00));
+	// bit0 RUN busy, bit1 transform phase, bit2 edge/face phase up to R_DRAIN;
+	// core busy (bit3) is never seen, an immediate vertex being done at once.
+	uint8_t st = running ? 0x01 : 0x00;
+	if (running && ec < xfEndClk) st |= 0x02;
+	if (running && ec >= xfEndClk && ec < edgeEnd) st |= 0x04;
+	return uint8_t((imm.flags & 0xF0) | st);
 }
 
-uint8_t Geo3DCore::readReg(uint8_t idx) const
+uint8_t Geo3DCore::readReg(uint8_t idx, uint32_t ec, uint32_t edgeEnd) const
 {
 	switch (idx) {
 	case 0x30: return uint8_t(imm.sx);
@@ -192,7 +195,7 @@ uint8_t Geo3DCore::readReg(uint8_t idx) const
 	case 0x45: return lop;
 	case 0x46: return uint8_t(ypage);
 	case 0x47: return uint8_t(ypage >> 8);
-	case 0x48: return readStatus();
+	case 0x48: return readStatus(ec, edgeEnd);
 	case 0x4A: return uint8_t(cntSkip);
 	case 0x4B: return uint8_t(cntSkip >> 8);
 	case 0x4C: return uint8_t(cntDraw);
@@ -206,14 +209,14 @@ uint8_t Geo3DCore::readReg(uint8_t idx) const
 	}
 }
 
-uint8_t Geo3DCore::peekData() const
+uint8_t Geo3DCore::peekData(uint32_t ec, uint32_t edgeEnd) const
 {
-	return readReg(rptr);
+	return readReg(rptr, ec, edgeEnd);
 }
 
-uint8_t Geo3DCore::readData()
+uint8_t Geo3DCore::readData(uint32_t ec, uint32_t edgeEnd)
 {
-	uint8_t v = readReg(rptr);
+	uint8_t v = readReg(rptr, ec, edgeEnd);
 	if (rptr == 0x36) {
 		rptr = 0x30;
 	} else if ((rptr >> 4) == 4) {
@@ -261,7 +264,7 @@ struct Reader {
 
 // One field list for both directions (Writer or Reader).
 template<typename IO, typename U8, typename I64>
-void Geo3DCore::visitState(Geo3DCore& c, IO& io, U8 u8, I64 i64)
+void Geo3DCore::visitState(Geo3DCore& c, IO& io, U8 u8, I64 i64, int layout)
 {
 	for (auto& x : c.cfg) i64(io, x);
 	for (auto& x : c.ivtx) i64(io, x);
@@ -308,7 +311,10 @@ void Geo3DCore::visitState(Geo3DCore& c, IO& io, U8 u8, I64 i64)
 	for (auto& cmd : c.cmds) {
 		u8(io, cmd.size);
 		for (auto& x : cmd.bytes) u8(io, x);
+		if (layout >= 2) { int64_t r = cmd.ready; i64(io, r); cmd.ready = uint32_t(r); }
 	}
+	if (layout >= 2) { int64_t e = c.endClk; i64(io, e); c.endClk = uint32_t(e); }
+	if (layout >= 3) { int64_t x = c.xfEndClk; i64(io, x); c.xfEndClk = uint32_t(x); }
 }
 
 std::vector<uint8_t> Geo3DCore::saveState() const
@@ -318,17 +324,17 @@ std::vector<uint8_t> Geo3DCore::saveState() const
 	auto& self = const_cast<Geo3DCore&>(*this);   // visitState only reads when writing
 	visitState(self, w,
 	           [](Writer& o, uint8_t& x) { o.u8(x); },
-	           [](Writer& o, int64_t& x) { o.i64(x); });
+	           [](Writer& o, int64_t& x) { o.i64(x); }, STATE_LAYOUT);
 	return out;
 }
 
-void Geo3DCore::loadState(const std::vector<uint8_t>& data)
+void Geo3DCore::loadState(const std::vector<uint8_t>& data, int layout)
 {
 	Geo3DCore tmp;
 	Reader r{data};
 	visitState(tmp, r,
 	           [](Reader& i, uint8_t& x) { x = i.u8(); },
-	           [](Reader& i, int64_t& x) { x = i.i64(); });
+	           [](Reader& i, int64_t& x) { x = i.i64(); }, layout);
 	if (r.ok && r.pos == data.size()) *this = tmp;
 }
 
@@ -369,12 +375,19 @@ Geo3DCore::Proj Geo3DCore::project(const std::array<int64_t, 18>& c,
 	return {sx, sy, zout, flags};
 }
 
+// Engine clocks (ec) below are the RTL's state counts, confirmed against
+// Verilator traces of geo3d_engine.v.
 void Geo3DCore::startRun(uint8_t ctrl)
 {
 	cntSkip = cntDraw = cntCull = 0;
+	clk = 4;                                 // RUN request to the first state
 	for (unsigned vi = 0; vi < nvert; ++vi) {
 		pmem[vi] = project(cfg, vmem[vi]);
+		// the core stops early behind the near plane and per saturated axis
+		unsigned f = pmem[vi].flags;
+		clk += (f & 1) ? 13 : 52 - 16 * (((f >> 1) & 1) + ((f >> 2) & 1));
 	}
+	xfEndClk = (nvert != 0) ? clk : 0;
 	if (nvert != 0) {
 		// the engine streams the vertices through the same core, so the
 		// immediate registers end up holding the last one
@@ -388,6 +401,7 @@ void Geo3DCore::startRun(uint8_t ctrl)
 	} else {
 		renderEdges();
 	}
+	endClk = clk + 1;                        // R_DRAIN
 	running = true;
 }
 
@@ -408,9 +422,11 @@ Pt mid(Pt a, Pt b)
 
 enum class Clip { SKIP, CULL, DRAW };
 
-Clip clipEdge(Pt A, Pt B, int64_t w, int64_t h, Pt& e1, Pt& e2)
+// ec: the edge's E_ states; E_SRCH, E_BIS and E_BISE take one ec per step.
+Clip clipEdge(Pt A, Pt B, int64_t w, int64_t h, Pt& e1, Pt& e2, unsigned& ec)
 {
 	unsigned ca = ocode(A, w, h), cb = ocode(B, w, h);
+	ec = 9;                                  // E_ADDR..E_CLASS, E_NEXT
 	if (ca & cb) return Clip::CULL;
 	Pt p;
 	if (ca == 0) {
@@ -421,6 +437,7 @@ Clip clipEdge(Pt A, Pt B, int64_t w, int64_t h, Pt& e1, Pt& e2)
 		Pt lo = A, hi = B;
 		bool found = false;
 		for (int it = 0; it < 16; ++it) {
+			++ec;
 			Pt m = mid(lo, hi);
 			unsigned cm = ocode(m, w, h);
 			if (cm == 0) { p = m; found = true; break; }
@@ -444,6 +461,7 @@ Clip clipEdge(Pt A, Pt B, int64_t w, int64_t h, Pt& e1, Pt& e2)
 	};
 	e1 = (ca == 0) ? A : bisect(p, A);
 	e2 = (cb == 0) ? B : bisect(p, B);
+	ec += 3 + ((ca != 0) ? 17 : 0) + ((cb != 0) ? 17 : 0);   // E_E1, E_E2, E_BUILD
 	return Clip::DRAW;
 }
 
@@ -452,15 +470,20 @@ Clip clipEdge(Pt A, Pt B, int64_t w, int64_t h, Pt& e1, Pt& e2)
 void Geo3DCore::renderEdges()
 {
 	int64_t w = cfg[16], h = cfg[17];
+	clk += 1;                                // E_START
 	for (unsigned e = 0; e < nedge; ++e) {
 		const Proj& pa = pmem[emem[e][0]];
 		const Proj& pb = pmem[emem[e][1]];
 		if ((pa.flags & 7) || (pb.flags & 7)) {
+			clk += 9;
 			++cntSkip;
 			continue;
 		}
 		Pt e1, e2;
-		switch (clipEdge({pa.sx, pa.sy}, {pb.sx, pb.sy}, w, h, e1, e2)) {
+		unsigned ec;
+		Clip clip = clipEdge({pa.sx, pa.sy}, {pb.sx, pb.sy}, w, h, e1, e2, ec);
+		clk += ec;
+		switch (clip) {
 		case Clip::SKIP: ++cntSkip; break;
 		case Clip::CULL: ++cntCull; break;
 		case Clip::DRAW: {
@@ -478,6 +501,7 @@ void Geo3DCore::renderEdges()
 			           uint8_t(nx & 0xFF), uint8_t((nx >> 8) & 7),
 			           uint8_t(ny & 0xFF), uint8_t((ny >> 8) & 7),
 			           color, arg, uint8_t(0x70 | lop)};
+			c.ready = clk - 1;               // E_BUILD, before E_NEXT
 			cmds.push_back(c);
 			++cntDraw;
 			break;
@@ -496,6 +520,7 @@ void Geo3DCore::renderFaces(bool texOn)
 		for (int i = 0; i < 3; ++i) s += cfg[3 * i + j] * light[i];
 		lm[j] = sat18(s >> 14);
 	}
+	clk += 18 + 1;                           // L_OP/L_ACC, F_START
 
 	struct Vis { int64_t key; unsigned fidx; uint8_t col; int64_t lvl; };
 	std::vector<Vis> vis;
@@ -507,12 +532,16 @@ void Geo3DCore::renderFaces(bool texOn)
 			pv[k] = &pmem[f.i[k]];
 			if (pv[k]->flags & 7) near = true;
 		}
+		// F_ADDR..F_W2, 4 x V_ADDR..V_W2, F_CHK, F_NEXT
+		clk += 17;
 		if (near) { ++cntSkip; continue; }
 		int64_t x0 = pv[0]->sx, y0 = pv[0]->sy;
 		int64_t x1 = pv[1]->sx, y1 = pv[1]->sy;
 		int64_t x2 = pv[2]->sx, y2 = pv[2]->sy;
 		int64_t area = (x1 - x0) * (y2 - y0) - (y1 - y0) * (x2 - x0);
+		clk += 3;                            // F_A1..F_A3
 		if (area <= 0) { ++cntCull; continue; }
+		clk += 4;                            // F_S1..F_S4
 		int64_t shade = (lm[0] * f.n[0] + lm[1] * f.n[1] + lm[2] * f.n[2]) >> 14;
 		int64_t lvl = (shade <= 0) ? 0 : std::min<int64_t>(6, (shade * 7) >> 14);
 		int64_t key = pv[0]->z + pv[1]->z + pv[2]->z + pv[3]->z;
@@ -522,6 +551,7 @@ void Geo3DCore::renderFaces(bool texOn)
 	std::stable_sort(vis.begin(), vis.end(),
 	                 [](const Vis& a, const Vis& b) { return a.key > b.key; });
 	cntDraw = uint16_t(vis.size());
+	clk += 1;                                // D_START
 
 	struct Cand { int64_t x, u, v; };
 	for (const auto& vf : vis) {
@@ -536,9 +566,13 @@ void Geo3DCore::renderFaces(bool texOn)
 			us[k] = uv[2 * k];
 			vs[k] = uv[2 * k + 1];
 		}
+		// selection scan (D_SRD..D_SW2 per visible face), D_SEL, D_FW1, D_FW2,
+		// 4 x V_ADDR..V_W2, D_YR0, D_YR
+		clk += 3 * uint32_t(vis.size()) + 3 + 12 + 2;
 		int64_t ymin = std::max<int64_t>(0, std::min({ys[0], ys[1], ys[2], ys[3]}));
 		int64_t ymax = std::min<int64_t>(h - 1, std::max({ys[0], ys[1], ys[2], ys[3]}));
 		for (int64_t y = ymin; y <= ymax; ++y) {
+			clk += 1 + 4 * 3 + 1 + 1 + 1;    // D_ROW, 4 edges, D_SPAN0, D_SPAN, D_YNEXT
 			bool have = false;
 			Cand L{}, R{};
 			auto cand = [&](Cand c) {
@@ -551,10 +585,13 @@ void Geo3DCore::renderFaces(bool texOn)
 				int64_t xa = xs[a], ya = ys[a], xb = xs[b], yb = ys[b];
 				if (ya == yb) {
 					if (y == ya) {
+						clk += 2;            // D_CAND twice
 						cand({xa, us[a] * 256, vs[a] * 256});
 						cand({xb, us[b] * 256, vs[b] * 256});
 					}
 				} else if (std::min(ya, yb) <= y && y <= std::max(ya, yb)) {
+					// divider (D_EMUL, 18 x D_DIV, D_DQ) once for x, twice more for u, v
+					clk += textured ? 64 : 22;
 					int64_t dy_ = y - ya, den = yb - ya;
 					int64_t x = xa + floorDiv(dy_ * (xb - xa), den);
 					int64_t u = 0, v = 0;
@@ -565,10 +602,10 @@ void Geo3DCore::renderFaces(bool texOn)
 					cand({x, u, v});
 				}
 			}
-			if (!have) continue;
+			if (!have) { clk += textured ? 1 : 0; continue; }   // D_T0
 			int64_t xl = L.x, xr = R.x;
 			int64_t cl = std::max<int64_t>(xl, 0), cr = std::min<int64_t>(xr, w - 1);
-			if (cl > cr) continue;
+			if (cl > cr) { clk += textured ? 1 : 0; continue; }
 			int64_t dy = (y + ypage) & 0x7FF;
 			Command c;
 			if (!textured) {
@@ -578,13 +615,16 @@ void Geo3DCore::renderFaces(bool texOn)
 				           uint8_t(dy & 0xFF), uint8_t(dy >> 8),
 				           uint8_t(nx & 0xFF), uint8_t((nx >> 8) & 7), 0, 0,
 				           vf.col, 0, uint8_t(0x70 | lop)};
+				c.ready = clk - 1;           // D_SPAN, before D_YNEXT
 				cmds.push_back(c);
 				continue;
 			}
 			int64_t du, dv;
 			if (xr == xl) {
+				clk += 4;                    // D_T0, D_T3..D_T5
 				du = dv = 0;
 			} else {
+				clk += 46;                   // D_T0..D_T5 with two divisions
 				int64_t d = sat18(xr - xl);
 				du = sat(floorDiv(sat18(R.u - L.u), d), -32767, 32767);
 				dv = sat(floorDiv(sat18(R.v - L.v), d), -32767, 32767);
@@ -605,8 +645,10 @@ void Geo3DCore::renderFaces(bool texOn)
 			           uint8_t(du & 0xFF), uint8_t((du >> 8) & 0xFF),
 			           uint8_t(dv & 0xFF), uint8_t((dv >> 8) & 0xFF),
 			           uint8_t(0x30 | lop)};
+			c.ready = clk - 1;
 			cmds.push_back(c);
 		}
+		clk += 1;                            // D_NEXTR
 	}
 }
 
