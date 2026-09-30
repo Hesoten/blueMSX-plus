@@ -54,19 +54,19 @@ extern "C" void geo3dWriteData(Geo3D* geo3d, UInt8 value)
     geo3d->core.writeData(value);
 }
 
-extern "C" UInt8 geo3dReadStatus(Geo3D* geo3d)
+extern "C" UInt8 geo3dReadStatus(Geo3D* geo3d, UInt32 ec, UInt32 edgeEnd)
 {
-    return geo3d->core.readStatus();
+    return geo3d->core.readStatus(ec, edgeEnd);
 }
 
-extern "C" UInt8 geo3dReadData(Geo3D* geo3d)
+extern "C" UInt8 geo3dReadData(Geo3D* geo3d, UInt32 ec, UInt32 edgeEnd)
 {
-    return geo3d->core.readData();
+    return geo3d->core.readData(ec, edgeEnd);
 }
 
-extern "C" UInt8 geo3dPeekData(Geo3D* geo3d)
+extern "C" UInt8 geo3dPeekData(Geo3D* geo3d, UInt32 ec, UInt32 edgeEnd)
 {
-    return geo3d->core.peekData();
+    return geo3d->core.peekData(ec, edgeEnd);
 }
 
 extern "C" int geo3dIsRunning(Geo3D* geo3d)
@@ -92,6 +92,26 @@ extern "C" void geo3dFinishRun(Geo3D* geo3d)
     geo3d->core.finishRun();
 }
 
+extern "C" int geo3dPeekCommand(Geo3D* geo3d, UInt32* ready)
+{
+    if (!geo3d->core.hasCommand()) {
+        return 0;
+    }
+    const Geo3DCore::Command& c = geo3d->core.peekCommand();
+    *ready = c.ready;
+    return c.size;
+}
+
+extern "C" UInt32 geo3dEndClock(Geo3D* geo3d)
+{
+    return geo3d->core.endClock();
+}
+
+extern "C" int geo3dCommandsLeft(Geo3D* geo3d)
+{
+    return (int)geo3d->core.commandsLeft();
+}
+
 /* No exception may cross into the C callers: a state that cannot be made is
 ** saved empty, and one that cannot be read leaves the core reset. */
 extern "C" UInt8* geo3dSaveState(Geo3D* geo3d, UInt32* size)
@@ -112,11 +132,11 @@ extern "C" UInt8* geo3dSaveState(Geo3D* geo3d, UInt32* size)
     return data;
 }
 
-extern "C" void geo3dLoadState(Geo3D* geo3d, const UInt8* data, UInt32 size)
+extern "C" void geo3dLoadState(Geo3D* geo3d, const UInt8* data, UInt32 size, int layout)
 {
     geo3d->core.reset();
     try {
-        geo3d->core.loadState(std::vector<uint8_t>(data, data + size));
+        geo3d->core.loadState(std::vector<uint8_t>(data, data + size), layout);
     }
     catch (...) {
         geo3d->core.reset();

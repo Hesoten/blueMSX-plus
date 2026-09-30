@@ -194,6 +194,11 @@ struct VdpCmdState {
     int    fontAddress;
     int    fontColor;
     int    cmdEnd;
+    /* When the last command ended, in budget units (VDP_TIMING_SCALE per
+    ** board tick) and wrapping: the budget left over is time it did not use. */
+    UInt32 cmdEndTime;
+    /* When the command in flight started, in the same units. */
+    UInt32 cmdStartTime;
     int    highSpeed;
     /* Taken at the start of a command: whether it runs on the V9968's own
     ** timing, and what each of its steps costs there. */
@@ -1528,6 +1533,8 @@ VdpCmdState* vdpCmdCreate(int vramSize, UInt8* vramPtr, UInt32 systemTime)
 {
     VdpCmdState* vdpCmd = calloc(1, sizeof(VdpCmdState));
     vdpCmd->systemTime = systemTime;
+    vdpCmd->cmdEndTime = systemTime * VDP_TIMING_SCALE;
+    vdpCmd->cmdStartTime = systemTime * VDP_TIMING_SCALE;
     vdpCmd->vramBase = vramPtr;
     vdpCmd->vramSize = vramSize;
 
@@ -1575,10 +1582,23 @@ void vdpCmdDestroy(VdpCmdState* vdpCmd)
 **      Set VDP command to ececute
 **************************************************************
 */
+/* A transfer banks idle budget and a flush runs ahead of the board, so the
+** end the budget implies is kept between the start and the real time. */
+static void vdpCmdSetEndTime(VdpCmdState* vdpCmd, UInt32 endTime)
+{
+    UInt32 now = boardSystemTime() * VDP_TIMING_SCALE;
+
+    if ((Int32)(endTime - vdpCmd->cmdStartTime) < 0) endTime = vdpCmd->cmdStartTime;
+    if ((Int32)(endTime - now) > 0) endTime = now;
+    vdpCmd->cmdEndTime = endTime;
+}
+
 static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
 {
     const int* start;
     int hsStart;
+
+    vdpCmd->cmdStartTime = systemTime * VDP_TIMING_SCALE;
 
     /* Taken with the screen mode it belongs to, so a mode change part way
     ** through cannot leave the two describing different layouts. */
@@ -1796,6 +1816,7 @@ void vdpCmdWrite(VdpCmdState* vdpCmd, UInt8 reg, UInt8 value, UInt32 systemTime)
         /* One that never starts still counts as one that ended. */
         if (vdpCmd->CM == 0) {
             vdpCmd->cmdEnd = 1;
+            vdpCmdSetEndTime(vdpCmd, systemTime * VDP_TIMING_SCALE);
         }
 		break;
     }
@@ -1896,6 +1917,21 @@ void vdpCmdClearEndFlag(VdpCmdState* vdpCmd)
     vdpCmd->cmdEnd = 0;
 }
 
+UInt32 vdpCmdGetEndTime(VdpCmdState* vdpCmd)
+{
+    return vdpCmd->cmdEndTime;
+}
+
+/* Lets a command written late run as if it had started up to that much
+** earlier. Only while one runs: an idle engine drops its budget anyway. */
+void vdpCmdAddCredit(VdpCmdState* vdpCmd, int units)
+{
+    if (vdpCmd->CM != 0 && units > 0) {
+        vdpCmd->VdpOpsCnt += units;
+        vdpCmd->cmdStartTime -= units;
+    }
+}
+
 void vdpCmdSetHighSpeed(VdpCmdState* vdpCmd, int enable)
 {
     vdpCmd->highSpeed = enable;
@@ -1962,6 +1998,9 @@ void vdpSetScreenMode(VdpCmdState* vdpCmd, int screenMode, int commandEnable) {
     vdpCmd->rawScrMode = screenMode;
     vdpCmd->cmdEnable  = commandEnable;
     if (applyScreenMode(vdpCmd)) {
+        if (vdpCmd->CM != 0) {
+            vdpCmdSetEndTime(vdpCmd, boardSystemTime() * VDP_TIMING_SCALE);
+        }
         vdpCmd->CM = 0;
         vdpCmd->status &= ~VDPSTATUS_CE;
     }
@@ -2159,6 +2198,7 @@ void vdpCmdExecute(VdpCmdState* vdpCmd, UInt32 systemTime)
 
     if (running != 0 && vdpCmd->CM == 0) {
         vdpCmd->cmdEnd = 1;
+        vdpCmdSetEndTime(vdpCmd, systemTime * VDP_TIMING_SCALE - (UInt32)vdpCmd->VdpOpsCnt);
     }
 
     /* Breaking here and not mid-loop leaves the counters written back, so a save
@@ -2242,6 +2282,10 @@ void vdpCmdLoadState(VdpCmdState* vdpCmd)
     /* A state without the latch carries the colour in CL. */
     vdpCmd->fontColor     =         saveStateGet(state, "fontColor", vdpCmd->CL);
     vdpCmd->cmdEnd        =         saveStateGet(state, "cmdEnd", 0);
+    vdpCmd->cmdEndTime    =         saveStateGet(state, "cmdEndTime",
+                                                 vdpCmd->systemTime * VDP_TIMING_SCALE);
+    vdpCmd->cmdStartTime  =         saveStateGet(state, "cmdStartTime",
+                                                 vdpCmd->systemTime * VDP_TIMING_SCALE);
     vdpCmd->hsModel       =         saveStateGet(state, "hsModel", 0);
     /* A step that costs nothing would spin an engine for ever. */
     vdpCmd->hsStep        =         saveStateGet(state, "hsStep", fast_timing_base);
@@ -2317,6 +2361,8 @@ void vdpCmdSaveState(VdpCmdState* vdpCmd)
     saveStateSet(state, "fontAddress", vdpCmd->fontAddress);
     saveStateSet(state, "fontColor", vdpCmd->fontColor);
     saveStateSet(state, "cmdEnd", vdpCmd->cmdEnd);
+    saveStateSet(state, "cmdEndTime", vdpCmd->cmdEndTime);
+    saveStateSet(state, "cmdStartTime", vdpCmd->cmdStartTime);
     saveStateSet(state, "hsModel", vdpCmd->hsModel);
     saveStateSet(state, "hsStep", vdpCmd->hsStep);
     saveStateSet(state, "timingMode", vdpCmd->timingMode);

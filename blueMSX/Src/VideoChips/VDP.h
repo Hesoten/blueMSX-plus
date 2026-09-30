@@ -56,6 +56,8 @@ void vdpForceSync();
 
 int  vdpGetCommandBusy();
 void vdpWriteCommandRegister(UInt8 reg, UInt8 value);
+UInt32 vdpGetCommandEndTime();
+void vdpAddCommandCredit(int units);
 
 // Video DA Interface
 

@@ -37,9 +37,10 @@ void   geo3dReset(Geo3D* geo3d);
 
 void   geo3dWriteIndex(Geo3D* geo3d, UInt8 value);
 void   geo3dWriteData(Geo3D* geo3d, UInt8 value);
-UInt8  geo3dReadStatus(Geo3D* geo3d);
-UInt8  geo3dReadData(Geo3D* geo3d);
-UInt8  geo3dPeekData(Geo3D* geo3d);
+/* ec: engine clocks since RUN; edgeEnd: when the producer ends, same scale. */
+UInt8  geo3dReadStatus(Geo3D* geo3d, UInt32 ec, UInt32 edgeEnd);
+UInt8  geo3dReadData(Geo3D* geo3d, UInt32 ec, UInt32 edgeEnd);
+UInt8  geo3dPeekData(Geo3D* geo3d, UInt32 ec, UInt32 edgeEnd);
 
 /* A RUN hands out its VDP commands one by one: the register numbers and
 ** values of the next one, in write order, and their count; 0 when none is
@@ -48,9 +49,17 @@ int    geo3dIsRunning(Geo3D* geo3d);
 int    geo3dNextCommand(Geo3D* geo3d, UInt8* regs, UInt8* values);
 void   geo3dFinishRun(Geo3D* geo3d);
 
+/* Engine clocks (2 per board tick) from the RUN: when the producer, never
+** stalled, has the next command ready (returns its register count, 0 for
+** none), and when it reaches its end. */
+int    geo3dPeekCommand(Geo3D* geo3d, UInt32* ready);
+UInt32 geo3dEndClock(Geo3D* geo3d);
+int    geo3dCommandsLeft(Geo3D* geo3d);
+
 /* The whole state as bytes, freed by the caller. */
 UInt8* geo3dSaveState(Geo3D* geo3d, UInt32* size);
-void   geo3dLoadState(Geo3D* geo3d, const UInt8* data, UInt32 size);
+/* layout: 1 for a state without timing, 2 without the transform end, else 3. */
+void   geo3dLoadState(Geo3D* geo3d, const UInt8* data, UInt32 size, int layout);
 
 #ifdef __cplusplus
 }

@@ -1948,6 +1948,23 @@ void vdpWriteCommandRegister(UInt8 reg, UInt8 value)
     }
 }
 
+/* When the last command ended, in 1/8 board ticks (wrapping). */
+UInt32 vdpGetCommandEndTime()
+{
+    if (theVdp == NULL || theVdp->vdpVersion != VDP_V9968) {
+        return boardSystemTime() * 8;
+    }
+    return vdpCmdGetEndTime(theVdp->cmdEngine);
+}
+
+/* Runs the command just started as if written that many 1/8 ticks earlier. */
+void vdpAddCommandCredit(int units)
+{
+    if (theVdp != NULL && theVdp->vdpVersion == VDP_V9968) {
+        vdpCmdAddCredit(theVdp->cmdEngine, units);
+    }
+}
+
 /* The dot the mode 3 overlay may start at, or -1 where the ordinary sprite
 ** paths put nothing: text, and the line the unknown modes fall back to. A
 ** renderer that masks the left edge repaints it after compositing sprites. */
