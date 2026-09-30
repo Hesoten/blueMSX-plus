@@ -89,6 +89,10 @@ static void fd_cb(R800* r800);
 #define DLY_T9769VDP  29
 #define DLY_LDSPHL    30
 #define DLY_BITIX     31
+#define DLY_EXTACC    32
+#define DLY_EXTBUS    33
+#define DLY_EXTALIGN  34
+#define DLY_ROMWAIT   35
 
 #define delayMem(r800)      { r800->systemTime += r800->delay[DLY_MEM];      }
 #define delayMemOp(r800)    { r800->systemTime += r800->delay[DLY_MEMOP];    }
@@ -155,10 +159,35 @@ static void fd_cb(R800* r800);
     }                                                                        \
 } while (0)
 
+/* The S1990 starts an external access at least 6 R800 cycles after the
+ * previous one; DLY_EXTBUS is 0 in the Z80 table, so it never waits then. */
+#define delayExtBus(r800) do {                                               \
+    if (r800->systemTime - r800->extBusTime < r800->delay[DLY_EXTBUS])      \
+        r800->systemTime = r800->extBusTime + r800->delay[DLY_EXTBUS];      \
+} while (0)
+
+/* An R800 access to an external slot starts on an even cycle and takes
+ * 4 cycles, matching fetches and reads from a cartridge on an FS-A1GT. */
+static void delayExtAccess(R800* r800) {
+    UInt32 align = r800->delay[DLY_EXTALIGN];
+
+    delayExtBus(r800);
+    r800->systemTime += (align - r800->systemTime % align) % align;
+    r800->extBusTime = r800->systemTime;
+    r800->systemTime += r800->delay[DLY_EXTACC];
+    r800->cachePage = 0xffff;
+}
+
+/* Keyed on the table, not cpuMode: they differ until a mode switch lands. */
+#define isExtAccess(r800, address)                                           \
+    (r800->pageWait[(address) >> 13] == R800_WAIT_EXT &&                     \
+     r800->delay[DLY_EXTACC] != 0 && r800->delay[DLY_EXTALIGN] != 0)
+
 static UInt8 readPort(R800* r800, UInt16 port) {
     UInt8 value;
 
     r800->regs.SH.W = port + 1;
+    delayExtBus(r800);
     delayPreIo(r800);
 
     delayVdpIO(r800, port);
@@ -171,6 +200,7 @@ static UInt8 readPort(R800* r800, UInt16 port) {
 
 static void writePort(R800* r800, UInt16 port, UInt8 value) {
     r800->regs.SH.W = port + 1;
+    delayExtBus(r800);
     delayPreIo(r800);
 
     delayVdpIO(r800, port);
@@ -186,12 +216,31 @@ static void writePort(R800* r800, UInt16 port, UInt8 value) {
 }
 
 static UInt8 readMem(R800* r800, UInt16 address) {
-    delayMem(r800);
+    if (isExtAccess(r800, address)) {
+        delayExtAccess(r800);
+    }
+    else {
+        delayMem(r800);
+        if (r800->pageWait[address >> 13] == R800_WAIT_ROM) {
+            r800->systemTime += r800->delay[DLY_ROMWAIT];
+        }
+    }
     r800->cachePage = 0xffff;
     return r800->readMemory(r800->ref, address);
 }
 
 static UInt8 readOpcode(R800* r800, UInt16 address) {
+    if (isExtAccess(r800, address)) {
+        delayExtAccess(r800);
+        return r800->readMemory(r800->ref, address);
+    }
+    if (r800->pageWait[address >> 13] == R800_WAIT_ROM && r800->delay[DLY_ROMWAIT] != 0) {
+        /* Internal ROM has no page mode: each fetch is a page break plus a wait. */
+        r800->systemTime += r800->delay[DLY_MEMOP] + r800->delay[DLY_MEMPAGE] +
+                            r800->delay[DLY_ROMWAIT];
+        r800->cachePage = 0xffff;
+        return r800->readMemory(r800->ref, address);
+    }
     delayMemOp(r800);
     if ((address >> 8) ^ r800->cachePage) {
         r800->cachePage = address >> 8;
@@ -201,7 +250,12 @@ static UInt8 readOpcode(R800* r800, UInt16 address) {
 }
 
 static void writeMem(R800* r800, UInt16 address, UInt8 value) {
-    delayMem(r800);
+    if (isExtAccess(r800, address)) {
+        delayExtAccess(r800);
+    }
+    else {
+        delayMem(r800);
+    }
     r800->cachePage = 0xffff;
     r800->writeMemory(r800->ref, address, value);
 
@@ -5812,6 +5866,10 @@ void r800UpdateDelays(R800* r800) {
         r800->delay[DLY_T9769VDP]  = freqAdjust * ((r800->cpuFlags & CPU_VDP_IO_DELAY) ? 1 : 0);
         r800->delay[DLY_LDSPHL]    = freqAdjust * 2;
         r800->delay[DLY_BITIX]     = freqAdjust * 2;
+        r800->delay[DLY_EXTACC]    = freqAdjust * 0;
+        r800->delay[DLY_EXTBUS]    = freqAdjust * 0;
+        r800->delay[DLY_EXTALIGN]  = freqAdjust * 0;
+        r800->delay[DLY_ROMWAIT]   = freqAdjust * 0;
         break;
 
     case CPU_R800:
@@ -5850,8 +5908,20 @@ void r800UpdateDelays(R800* r800) {
         r800->delay[DLY_T9769VDP]  = freqAdjust * ((r800->cpuFlags & CPU_VDP_IO_DELAY) ? 1 : 0);
         r800->delay[DLY_LDSPHL]    = freqAdjust * 0;
         r800->delay[DLY_BITIX]     = freqAdjust * 0;
+        /* Waits the S1990 adds on an FS-A1GT: see delayExtAccess(). Internal
+         * ROM in ROM mode adds 1 cycle to every read, fetches included. */
+        r800->delay[DLY_EXTACC]    = freqAdjust * 4;
+        r800->delay[DLY_EXTBUS]    = freqAdjust * 6;
+        r800->delay[DLY_EXTALIGN]  = freqAdjust * 2;
+        r800->delay[DLY_ROMWAIT]   = freqAdjust * 1;
         break;
     }
+}
+
+void r800SetPageWaits(R800* r800, const UInt8* pageWait) {
+    static const UInt8 noWaits[8] = { 0 };
+
+    r800->pageWait = pageWait != NULL ? pageWait : noWaits;
 }
 
 R800* r800Create(UInt32 cpuFlags, 
@@ -5894,6 +5964,7 @@ R800* r800Create(UInt32 cpuFlags,
 
     r800->instCnt         = 0;
 
+    r800SetPageWaits(r800, NULL);
     r800Reset(r800, 0);
 
     return r800;
