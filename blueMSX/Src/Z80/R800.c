@@ -6086,9 +6086,13 @@ void r800Execute(R800* r800) {
         }
 
         if (r800->cpuMode == CPU_R800) {
-            if (r800->systemTime - r800->lastRefreshTime > 222 * 3) {
-                r800->lastRefreshTime = r800->systemTime;
-                r800->systemTime += 20 * 3;
+            /* Refresh on a fixed 210-cycle grid, 25 cycles each: NOPs from
+             * RAM run at 1.16 cycles on an FS-A1GT. */
+            UInt32 elapsed = r800->systemTime - r800->lastRefreshTime;
+            if (elapsed >= 210 * 3) {
+                r800->lastRefreshTime = r800->systemTime - elapsed % (210 * 3);
+                r800->systemTime += 25 * 3;
+                r800->cachePage = 0xffff;
             }
         }
 
