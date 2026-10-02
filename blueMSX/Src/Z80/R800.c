@@ -93,6 +93,10 @@ static void fd_cb(R800* r800);
 #define DLY_EXTBUS    33
 #define DLY_EXTALIGN  34
 #define DLY_ROMWAIT   35
+#define DLY_MEMNEXT   36
+#define DLY_JP        37
+#define DLY_DIIM      38
+#define DLY_CALLPEN   39
 
 #define delayMem(r800)      { r800->systemTime += r800->delay[DLY_MEM];      }
 #define delayMemOp(r800)    { r800->systemTime += r800->delay[DLY_MEMOP];    }
@@ -102,8 +106,8 @@ static void fd_cb(R800* r800);
 #define delayM1(r800)       { r800->systemTime += r800->delay[DLY_M1];       }
 #define delayXD(r800)       { r800->systemTime += r800->delay[DLY_XD];       }
 #define delayIm(r800)       { r800->systemTime += r800->delay[DLY_IM];       }
-#define delayIm2(r800)      { r800->systemTime += r800->delay[DLY_IM2];      }
-#define delayNmi(r800)      { r800->systemTime += r800->delay[DLY_NMI];      }
+#define delayIm2(r800)      { r800->systemTime += r800->delay[DLY_IM2]; r800->cachePage = 0xffff; }
+#define delayNmi(r800)      { r800->systemTime += r800->delay[DLY_NMI]; r800->cachePage = 0xffff; }
 #define delayParallel(r800) { r800->systemTime += r800->delay[DLY_PARALLEL]; }
 #define delayBlock(r800)    { r800->systemTime += r800->delay[DLY_BLOCK];    }
 #define delayAdd8(r800)     { r800->systemTime += r800->delay[DLY_ADD8];     }
@@ -129,6 +133,12 @@ static void fd_cb(R800* r800);
 /* On a turbo R, OTIR from RAM takes 13.8 R800 cycles per byte: the I/O
  * cost alone, so an I/O block repeat adds nothing in R800 mode. */
 #define delayBlockIo(r800)  { if (r800->cpuMode != CPU_R800) delayBlock(r800); }
+
+/* An LDIR repeat costs no more than an LDI in R800 mode (7 cycles each). */
+#define delayBlockLd(r800)  { if (r800->cpuMode != CPU_R800) delayBlock(r800); }
+
+#define delayJp(r800)       { r800->systemTime += r800->delay[DLY_JP]; r800->cachePage = 0xffff; }
+#define delayDiIm(r800)     { r800->systemTime += r800->delay[DLY_DIIM];     }
 
 /*
 #define delayVdpIO(r800, port) do {                                          \
@@ -256,6 +266,37 @@ static void writeMem(R800* r800, UInt16 address, UInt8 value) {
     else {
         delayMem(r800);
     }
+    r800->cachePage = 0xffff;
+    r800->writeMemory(r800->ref, address, value);
+
+#ifdef ENABLE_WATCHPOINTS
+    if (r800->watchpointMemCb != NULL) {
+        r800->watchpointMemCb(r800->ref, address, value);
+    }
+#endif
+}
+
+/* The second byte of a word in the same 256-byte DRAM page as the first
+ * needs no new row address: 1 R800 cycle instead of 2 (r800test.txt). */
+#define isMemNext(r800, address, prev)                                       \
+    ((((address) ^ (prev)) & 0xff00) == 0 &&                                 \
+     r800->pageWait[(address) >> 13] == R800_WAIT_NONE)
+
+static UInt8 readMemNext(R800* r800, UInt16 address, UInt16 prev) {
+    if (!isMemNext(r800, address, prev)) {
+        return readMem(r800, address);
+    }
+    r800->systemTime += r800->delay[DLY_MEMNEXT];
+    r800->cachePage = 0xffff;
+    return r800->readMemory(r800->ref, address);
+}
+
+static void writeMemNext(R800* r800, UInt16 address, UInt16 prev, UInt8 value) {
+    if (!isMemNext(r800, address, prev)) {
+        writeMem(r800, address, value);
+        return;
+    }
+    r800->systemTime += r800->delay[DLY_MEMNEXT];
     r800->cachePage = 0xffff;
     r800->writeMemory(r800->ref, address, value);
 
@@ -479,6 +520,7 @@ static void JP(R800* r800) {
 
     addr.B.l = readOpcode(r800, r800->regs.PC.W++);
     addr.B.h = readOpcode(r800, r800->regs.PC.W++);
+    delayJp(r800);
     r800->regs.PC.W = addr.W;
     r800->regs.SH.W = addr.W;
 }
@@ -500,10 +542,12 @@ static void CALL(R800* r800) {
 #ifdef ENABLE_CALLSTACK
     r800->callstack[r800->callstackSize++ & 0xff] = r800->regs.PC.W;
 #endif
-    writeMem(r800, --r800->regs.SP.W, r800->regs.PC.B.h);
-    writeMem(r800, --r800->regs.SP.W, r800->regs.PC.B.l);
+    r800->regs.SP.W -= 2;
+    writeMem(r800, r800->regs.SP.W + 1, r800->regs.PC.B.h);
+    writeMemNext(r800, r800->regs.SP.W, r800->regs.SP.W + 1, r800->regs.PC.B.l);
     r800->regs.PC.W = addr.W;
     r800->regs.SH.W = addr.W;
+    r800->callPenalty = 1;
 }
 
 static void SKIP_CALL(R800* r800) {
@@ -516,10 +560,12 @@ static void SKIP_CALL(R800* r800) {
 
 static void RET(R800* r800) { 
     RegisterPair addr;
-    addr.B.l = readMem(r800, r800->regs.SP.W++);
-    addr.B.h = readMem(r800, r800->regs.SP.W++);
+    addr.B.l = readMem(r800, r800->regs.SP.W);
+    addr.B.h = readMemNext(r800, r800->regs.SP.W + 1, r800->regs.SP.W);
+    r800->regs.SP.W += 2;
     r800->regs.PC.W = addr.W;
     r800->regs.SH.W = addr.W;
+    r800->retTaken = 1;
 #ifdef ENABLE_CALLSTACK
     if (r800->callstack[(r800->callstackSize - 1) & 0xff] == addr.W) {
         r800->callstackSize--;
@@ -530,14 +576,16 @@ static void RET(R800* r800) {
 static void PUSH(R800* r800, UInt16* reg) {
     RegisterPair* pair = (RegisterPair*)reg;
     delayPush(r800);
-    writeMem(r800, --r800->regs.SP.W, pair->B.h);
-    writeMem(r800, --r800->regs.SP.W, pair->B.l);
+    r800->regs.SP.W -= 2;
+    writeMem(r800, r800->regs.SP.W + 1, pair->B.h);
+    writeMemNext(r800, r800->regs.SP.W, r800->regs.SP.W + 1, pair->B.l);
 }
 
 static void POP(R800* r800, UInt16* reg) {
     RegisterPair* pair = (RegisterPair*)reg;
-    pair->B.l = readMem(r800, r800->regs.SP.W++);
-    pair->B.h = readMem(r800, r800->regs.SP.W++);
+    pair->B.l = readMem(r800, r800->regs.SP.W);
+    pair->B.h = readMemNext(r800, r800->regs.SP.W + 1, r800->regs.SP.W);
+    r800->regs.SP.W += 2;
 }
 
 static void RST(R800* r800, UInt16 vector) {
@@ -547,16 +595,18 @@ static void RST(R800* r800, UInt16 vector) {
     PUSH(r800, &r800->regs.PC.W);
     r800->regs.PC.W = vector;
     r800->regs.SH.W = vector;
+    r800->callPenalty = 1;
 }
 
 static void EX_SP(R800* r800, UInt16* reg) {
     RegisterPair* pair = (RegisterPair*)reg;
     RegisterPair addr;
+    UInt16 sp = r800->regs.SP.W;
 
-    addr.B.l = readMem(r800, r800->regs.SP.W++);
-    addr.B.h = readMem(r800, r800->regs.SP.W);
-    writeMem(r800, r800->regs.SP.W--, pair->B.h);
-    writeMem(r800, r800->regs.SP.W,   pair->B.l);
+    addr.B.l = readMem(r800, sp);
+    addr.B.h = readMemNext(r800, (UInt16)(sp + 1), sp);
+    writeMemNext(r800, (UInt16)(sp + 1), (UInt16)(sp + 1), pair->B.h);
+    writeMemNext(r800, sp, (UInt16)(sp + 1), pair->B.l);
     pair->W   = addr.W;
     r800->regs.SH.W = addr.W;
     delayExSpHl(r800);
@@ -1702,7 +1752,7 @@ static void ld_xword_bc(R800* r800) {
     addr.B.l = readOpcode(r800, r800->regs.PC.W++);
     addr.B.h = readOpcode(r800, r800->regs.PC.W++);
     writeMem(r800, addr.W++, r800->regs.BC.B.l);
-    writeMem(r800, addr.W,   r800->regs.BC.B.h);
+    writeMemNext(r800, addr.W, (UInt16)(addr.W - 1), r800->regs.BC.B.h);
     r800->regs.SH.W = addr.W;
 }
 
@@ -1711,7 +1761,7 @@ static void ld_xword_de(R800* r800) {
     addr.B.l = readOpcode(r800, r800->regs.PC.W++);
     addr.B.h = readOpcode(r800, r800->regs.PC.W++);
     writeMem(r800, addr.W++, r800->regs.DE.B.l);
-    writeMem(r800, addr.W,   r800->regs.DE.B.h);
+    writeMemNext(r800, addr.W, (UInt16)(addr.W - 1), r800->regs.DE.B.h);
     r800->regs.SH.W = addr.W;
 }
 
@@ -1720,7 +1770,7 @@ static void ld_xword_hl(R800* r800) {
     addr.B.l = readOpcode(r800, r800->regs.PC.W++);
     addr.B.h = readOpcode(r800, r800->regs.PC.W++);
     writeMem(r800, addr.W++, r800->regs.HL.B.l);
-    writeMem(r800, addr.W,   r800->regs.HL.B.h);
+    writeMemNext(r800, addr.W, (UInt16)(addr.W - 1), r800->regs.HL.B.h);
     r800->regs.SH.W = addr.W;
 }
 
@@ -1729,7 +1779,7 @@ static void ld_xword_ix(R800* r800) {
     addr.B.l = readOpcode(r800, r800->regs.PC.W++);
     addr.B.h = readOpcode(r800, r800->regs.PC.W++);
     writeMem(r800, addr.W++, r800->regs.IX.B.l);
-    writeMem(r800, addr.W,   r800->regs.IX.B.h);
+    writeMemNext(r800, addr.W, (UInt16)(addr.W - 1), r800->regs.IX.B.h);
     r800->regs.SH.W = addr.W;
 }
 
@@ -1738,7 +1788,7 @@ static void ld_xword_iy(R800* r800) {
     addr.B.l = readOpcode(r800, r800->regs.PC.W++);
     addr.B.h = readOpcode(r800, r800->regs.PC.W++);
     writeMem(r800, addr.W++, r800->regs.IY.B.l);
-    writeMem(r800, addr.W,   r800->regs.IY.B.h);
+    writeMemNext(r800, addr.W, (UInt16)(addr.W - 1), r800->regs.IY.B.h);
     r800->regs.SH.W = addr.W;
 }
 
@@ -1747,7 +1797,7 @@ static void ld_xword_sp(R800* r800) {
     addr.B.l = readOpcode(r800, r800->regs.PC.W++);
     addr.B.h = readOpcode(r800, r800->regs.PC.W++);
     writeMem(r800, addr.W++, r800->regs.SP.B.l);
-    writeMem(r800, addr.W,   r800->regs.SP.B.h);
+    writeMemNext(r800, addr.W, (UInt16)(addr.W - 1), r800->regs.SP.B.h);
     r800->regs.SH.W = addr.W;
 }
 
@@ -1756,7 +1806,7 @@ static void ld_bc_xword(R800* r800) {
     addr.B.l = readOpcode(r800, r800->regs.PC.W++);
     addr.B.h = readOpcode(r800, r800->regs.PC.W++);
     r800->regs.BC.B.l = readMem(r800, addr.W++);
-    r800->regs.BC.B.h = readMem(r800, addr.W);
+    r800->regs.BC.B.h = readMemNext(r800, addr.W, (UInt16)(addr.W - 1));
     r800->regs.SH.W = addr.W;
 }
 
@@ -1765,7 +1815,7 @@ static void ld_de_xword(R800* r800) {
     addr.B.l = readOpcode(r800, r800->regs.PC.W++);
     addr.B.h = readOpcode(r800, r800->regs.PC.W++);
     r800->regs.DE.B.l = readMem(r800, addr.W++);
-    r800->regs.DE.B.h = readMem(r800, addr.W);
+    r800->regs.DE.B.h = readMemNext(r800, addr.W, (UInt16)(addr.W - 1));
     r800->regs.SH.W = addr.W;
 }
 
@@ -1774,7 +1824,7 @@ static void ld_hl_xword(R800* r800) {
     addr.B.l = readOpcode(r800, r800->regs.PC.W++);
     addr.B.h = readOpcode(r800, r800->regs.PC.W++);
     r800->regs.HL.B.l = readMem(r800, addr.W++);
-    r800->regs.HL.B.h = readMem(r800, addr.W);
+    r800->regs.HL.B.h = readMemNext(r800, addr.W, (UInt16)(addr.W - 1));
     r800->regs.SH.W = addr.W;
 }
 
@@ -1783,7 +1833,7 @@ static void ld_ix_xword(R800* r800) {
     addr.B.l = readOpcode(r800, r800->regs.PC.W++);
     addr.B.h = readOpcode(r800, r800->regs.PC.W++);
     r800->regs.IX.B.l = readMem(r800, addr.W++);
-    r800->regs.IX.B.h = readMem(r800, addr.W);
+    r800->regs.IX.B.h = readMemNext(r800, addr.W, (UInt16)(addr.W - 1));
     r800->regs.SH.W = addr.W;
 }
 
@@ -1792,7 +1842,7 @@ static void ld_iy_xword(R800* r800) {
     addr.B.l = readOpcode(r800, r800->regs.PC.W++);
     addr.B.h = readOpcode(r800, r800->regs.PC.W++);
     r800->regs.IY.B.l = readMem(r800, addr.W++);
-    r800->regs.IY.B.h = readMem(r800, addr.W);
+    r800->regs.IY.B.h = readMemNext(r800, addr.W, (UInt16)(addr.W - 1));
     r800->regs.SH.W = addr.W;
 }
 
@@ -1801,7 +1851,7 @@ static void ld_sp_xword(R800* r800) {
     addr.B.l = readOpcode(r800, r800->regs.PC.W++);
     addr.B.h = readOpcode(r800, r800->regs.PC.W++);
     r800->regs.SP.B.l = readMem(r800, addr.W++);
-    r800->regs.SP.B.h = readMem(r800, addr.W);
+    r800->regs.SP.B.h = readMemNext(r800, addr.W, (UInt16)(addr.W - 1));
     r800->regs.SH.W = addr.W;
 }
 
@@ -4713,16 +4763,19 @@ static void jp(R800* r800) {
     JP(r800);
 }
 
-static void jp_hl(R800* r800) { 
-    r800->regs.PC.W = r800->regs.HL.W; 
+static void jp_hl(R800* r800) {
+    delayJp(r800);
+    r800->regs.PC.W = r800->regs.HL.W;
 }
 
-static void jp_ix(R800* r800) { 
-    r800->regs.PC.W = r800->regs.IX.W; 
+static void jp_ix(R800* r800) {
+    delayJp(r800);
+    r800->regs.PC.W = r800->regs.IX.W;
 }
 
-static void jp_iy(R800* r800) { 
-    r800->regs.PC.W = r800->regs.IY.W; 
+static void jp_iy(R800* r800) {
+    delayJp(r800);
+    r800->regs.PC.W = r800->regs.IY.W;
 }
 
 static void jp_z(R800* r800) {
@@ -5149,6 +5202,7 @@ static void rrd(R800* r800) {
 }
 
 static void di(R800* r800) {
+    delayDiIm(r800);
     r800->regs.iff1 = 0;
     r800->regs.iff2 = 0;
 }
@@ -5164,14 +5218,17 @@ static void ei(R800* r800) {
 }
 
 static void im_0(R800* r800)  {
+    delayDiIm(r800);
     r800->regs.im = 0;
 }
 
 static void im_1(R800* r800)  {
+    delayDiIm(r800);
     r800->regs.im = 1;
 }
 
 static void im_2(R800* r800)  {
+    delayDiIm(r800);
     r800->regs.im = 2;
 }
 
@@ -5314,7 +5371,7 @@ static void ldi(R800* r800) {
 static void ldir(R800* r800) { 
     ldi(r800);
     if (r800->regs.BC.W != 0) {
-        delayBlock(r800); 
+        delayBlockLd(r800);
         r800->regs.PC.W -= 2; 
         r800->instCnt--;
     }
@@ -5334,7 +5391,7 @@ static void ldd(R800* r800) {
 static void lddr(R800* r800) { 
     ldd(r800);
     if (r800->regs.BC.W != 0) {
-        delayBlock(r800); 
+        delayBlockLd(r800);
         r800->regs.PC.W -= 2; 
         r800->instCnt--;
     }
@@ -5709,9 +5766,29 @@ static void fd(R800* r800) {
 }
 
 static void executeInstruction(R800* r800, UInt8 opcode) {
+    int callPenalty = r800->callPenalty;
+
+    r800->callPenalty = 0;
+    r800->retTaken = 0;
     M1(r800);
     r800->instCnt++;
     opcodeMain[opcode](r800);
+
+    /* After a CALL or RST the R800 loses a cycle, except on a one-byte POP
+     * or a taken RET (openMSX doc r800-call.txt); RETI/RETN pay it. */
+    if (callPenalty && !(r800->retTaken && opcode != 0xed) && (opcode & 0xcf) != 0xc1) {
+        r800->systemTime += r800->delay[DLY_CALLPEN];
+    }
+}
+
+/* An interrupt runs RST 38h (IM1) or a bus opcode (IM0) without the CALL
+ * penalty of a real RST, and leaves a pending one in place. */
+static void executeIrqInstruction(R800* r800, UInt8 opcode) {
+    UInt8 callPenalty = r800->callPenalty;
+
+    r800->callPenalty = 0;
+    executeInstruction(r800, opcode);
+    r800->callPenalty = callPenalty;
 }
 
 static UInt8 readMemoryDummy(void* ref, UInt16 address) {
@@ -5870,6 +5947,10 @@ void r800UpdateDelays(R800* r800) {
         r800->delay[DLY_EXTBUS]    = freqAdjust * 0;
         r800->delay[DLY_EXTALIGN]  = freqAdjust * 0;
         r800->delay[DLY_ROMWAIT]   = freqAdjust * 0;
+        r800->delay[DLY_MEMNEXT]   = freqAdjust * 3;
+        r800->delay[DLY_JP]        = freqAdjust * 0;
+        r800->delay[DLY_DIIM]      = freqAdjust * 0;
+        r800->delay[DLY_CALLPEN]   = freqAdjust * 0;
         break;
 
     case CPU_R800:
@@ -5883,8 +5964,10 @@ void r800UpdateDelays(R800* r800) {
         r800->delay[DLY_M1]        = freqAdjust * 0;
         r800->delay[DLY_XD]        = freqAdjust * 0;
         r800->delay[DLY_IM]        = freqAdjust * 0;
-        r800->delay[DLY_IM2]       = freqAdjust * 3;
-        r800->delay[DLY_NMI]       = freqAdjust * 0;
+        /* IM2 and NMI acceptance write the stack without going through
+         * writeMem(), so these hold their whole cost: 8 and 4 cycles. */
+        r800->delay[DLY_IM2]       = freqAdjust * 8;
+        r800->delay[DLY_NMI]       = freqAdjust * 4;
         r800->delay[DLY_PARALLEL]  = freqAdjust * 0;
         r800->delay[DLY_BLOCK]     = freqAdjust * 1;
         r800->delay[DLY_ADD8]      = freqAdjust * 1;
@@ -5914,6 +5997,12 @@ void r800UpdateDelays(R800* r800) {
         r800->delay[DLY_EXTBUS]    = freqAdjust * 6;
         r800->delay[DLY_EXTALIGN]  = freqAdjust * 2;
         r800->delay[DLY_ROMWAIT]   = freqAdjust * 1;
+        /* Cycle counts from openMSX's R800 model and r800test.txt: see
+         * readMemNext(), delayJp() and executeInstruction(). */
+        r800->delay[DLY_MEMNEXT]   = freqAdjust * 1;
+        r800->delay[DLY_JP]        = freqAdjust * 1;
+        r800->delay[DLY_DIIM]      = freqAdjust * 1;
+        r800->delay[DLY_CALLPEN]   = freqAdjust * 1;
         break;
     }
 }
@@ -6221,12 +6310,12 @@ void r800Execute(R800* r800) {
             delayIm(r800);
             address = r800->dataBus;
             r800->dataBus = r800->defaultDatabus;
-            executeInstruction(r800, (UInt8)(address & 0xff));
+            executeIrqInstruction(r800, (UInt8)(address & 0xff));
             break;
 
         case 1:
             delayIm(r800);
-            executeInstruction(r800, 0xff);
+            executeIrqInstruction(r800, 0xff);
             break;
 
         case 2:
@@ -6311,13 +6400,13 @@ void r800ExecuteUntil(R800* r800, UInt32 endTime) {
         switch (r800->regs.im) {
         case 0:
             delayIm(r800);
-            executeInstruction(r800, r800->dataBus);
+            executeIrqInstruction(r800, r800->dataBus);
             r800->dataBus = r800->defaultDatabus;
             break;
 
         case 1:
             delayIm(r800);
-            executeInstruction(r800, 0xff);
+            executeIrqInstruction(r800, 0xff);
             break;
 
         case 2:
@@ -6398,13 +6487,13 @@ void r800ExecuteInstruction(R800* r800) {
     switch (r800->regs.im) {
     case 0:
         delayIm(r800);
-        executeInstruction(r800, r800->dataBus);
+        executeIrqInstruction(r800, r800->dataBus);
         r800->dataBus = r800->defaultDatabus;
         break;
 
     case 1:
         delayIm(r800);
-        executeInstruction(r800, 0xff);
+        executeIrqInstruction(r800, 0xff);
         break;
 
     case 2:
