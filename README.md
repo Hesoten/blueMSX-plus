@@ -44,6 +44,7 @@ On this branch, setting the video chip to V9968 always brings geo3d with it (por
 The following software for geo3d has been confirmed to run. Use the builds for port 98h (`_98`) and open them as ASCII16.
 
 - [alexmoncks/V9968_Cartridge](https://github.com/alexmoncks/V9968_Cartridge/tree/main/geo3d) — the shooter VECTOR RAID (`game/release/GEO3D_SHOOTER_98.ROM`) and the demo ROM (`GEO3D_98.ROM`, built with `rom/build_rom.py --base 0x98`) by Alex Moncks
+- [kanon-ai/V9968_Geo3D_SampleDemo](https://github.com/kanon-ai/V9968_Geo3D_SampleDemo) — a collection of V9968 + geo3d sample demos by Kanon, including NIGHT RAVEN and OBSIDIAN
 
 
 ## What's new in v3.1.1

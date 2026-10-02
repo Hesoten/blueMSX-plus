@@ -42,6 +42,7 @@ ROM の種別を自動判別できないものがあります。各リポジト�
 以下の geo3d 対応ソフトウェアが動作することを確認しています。ポート 98h 用 (`_98`) のものを、ROM 種別 ASCII16 で開いてください。
 
 - [alexmoncks/V9968_Cartridge](https://github.com/alexmoncks/V9968_Cartridge/tree/main/geo3d) — Alex Moncks 氏制作のシューティング VECTOR RAID (`game/release/GEO3D_SHOOTER_98.ROM`) と、デモ ROM (`rom/build_rom.py --base 0x98` でビルドする `GEO3D_98.ROM`)
+- [kanon-ai/V9968_Geo3D_SampleDemo](https://github.com/kanon-ai/V9968_Geo3D_SampleDemo) — Kanon 氏制作の V9968 + geo3d のサンプルデモ集 (NIGHT RAVEN、OBSIDIAN ほか)
 
 
 ## v3.1.1 リリースの変更点
