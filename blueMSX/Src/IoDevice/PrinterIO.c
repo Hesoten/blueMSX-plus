@@ -60,7 +60,7 @@ static void setType(PrinterIO* printerIO)
         printerIO->printerReady = archPrinterCreate();
         break;
     case PRN_FILE:
-        printerIO->file = fopen(theFileName, "w+");
+        printerIO->file = fopen(theFileName, "wb");
         break;
     case PRN_SIMPL:
         printerIO->dac = dacCreate(boardGetMixer(), DAC_MONO);
