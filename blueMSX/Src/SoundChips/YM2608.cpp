@@ -49,6 +49,11 @@ extern "C" {
 #define SINC_STEPS          1024
 #define SINC_COEF_BITS      14
 
+/* ymfm's saved state carries no mark of its layout, so the state says which
+** one it holds. Layout 1, which a state without the mark has, keeps the
+** ADPCM-B channel in nine values of which seven mean something else now. */
+#define CHIP_STATE_LAYOUT   2
+
 /* ym2608::generate() brings FM+ADPCM and the SSG to one common rate by
 ** repeating and averaging samples. Its protected members let the two parts
 ** be clocked apart, each at the rate the chip produces it at, without
@@ -76,6 +81,21 @@ public:
     }
 
     UInt32 prescale() const { return m_fm.clock_prescale(); }
+
+    /* Puts the ADPCM-B channel back to where a reset leaves it: stopped,
+    ** output at zero, no transfer under way. The registers keep their
+    ** values; the engine can only be reset as a whole, so they are saved
+    ** around it. */
+    void restartAdpcmB()
+    {
+        std::vector<uint8_t> regs;
+        ymfm::ymfm_saved_state saver(regs, true);
+        ymfm::ymfm_saved_state loader(regs, false);
+
+        m_adpcm_b.regs().save_restore(saver);
+        m_adpcm_b.reset();
+        m_adpcm_b.regs().save_restore(loader);
+    }
 };
 
 /* Brings one stream from the rate the chip produces it at to the mixer
@@ -581,6 +601,7 @@ void ym2608SaveState(YM2608* ym2608)
     saveStateSetBuffer(state, "regs", ym2608->regs, sizeof(ym2608->regs));
     saveStateSet(state, "adpcmRamSize",  ym2608->adpcmRamSize);
     saveStateSetBuffer(state, "adpcmRam", ym2608->adpcmRam, ym2608->adpcmRamSize);
+    saveStateSet(state, "chipStateLayout", CHIP_STATE_LAYOUT);
     saveStateSet(state, "chipStateSize", (UInt32)chipState.size());
     saveStateSetBuffer(state, "chipState", chipState.data(), (UInt32)chipState.size());
 
@@ -626,6 +647,15 @@ void ym2608LoadState(YM2608* ym2608)
         saveStateGetBuffer(state, "chipState", chipState.data(), size);
         ymfm::ymfm_saved_state loader(chipState, false);
         ym2608->host->chip.save_restore(loader);
+
+        /* The ADPCM-B channel is the one part whose values changed their
+        ** meaning between the layouts, at the same size. Read as they are
+        ** they leave its output and its address somewhere else, so the
+        ** channel starts over; ADPCM-B that was playing is silent after
+        ** the load, and everything else goes on. */
+        if (saveStateGet(state, "chipStateLayout", 1) != CHIP_STATE_LAYOUT) {
+            ym2608->host->chip.restartAdpcmB();
+        }
     }
 
     /* The prescaler comes with the chip's state. The streams go on where
