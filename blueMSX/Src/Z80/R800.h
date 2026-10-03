@@ -130,6 +130,11 @@ typedef enum {
 */
 #define R800_MASTER_FREQUENCY  21477270
 
+/* Memory wait class of a page, used in R800 mode only. */
+#define R800_WAIT_NONE  0   /* DRAM                        */
+#define R800_WAIT_ROM   1   /* Internal ROM                */
+#define R800_WAIT_EXT   2   /* External slot (cartridges)  */
+
 
 /*****************************************************
 ** ASDBG_*
@@ -246,7 +251,11 @@ typedef struct
     SystemTime    lastRefreshTime;  /* R800 DRAM-refresh phase (saved)  */
     UInt16        cachePage;        /* Current page in cache           */
     CpuRegs       regs;             /* Active register bank            */
-    UInt32        delay[32];        /* Instruction timing table        */
+    UInt32        delay[40];        /* Instruction timing table        */
+    UInt8         callPenalty;      /* Last instruction was CALL/RST   */
+    UInt8         retTaken;         /* This instruction returned       */
+    const UInt8*  pageWait;         /* Wait class of each 8kB page     */
+    SystemTime    extBusTime;       /* Start of last external access  */
     UInt8         dataBus;          /* Current value on the data bus   */
     UInt8         defaultDatabus;   /* Value that is set after im2     */
     int           intState;         /* Sate of interrupt line          */
@@ -360,6 +369,12 @@ void r800Destroy(R800* r800);
 *************************************************************************
 */
 void r800SetFrequency(R800* r800, CpuMode cpuMode, UInt32 frequency);
+
+/* Rebuilds the timing table for the current CPU mode and frequencies. */
+void r800UpdateDelays(R800* r800);
+
+/* Points the R800 at the R800_WAIT_* class of each 8kB page it sees. */
+void r800SetPageWaits(R800* r800, const UInt8* pageWait);
 
 /************************************************************************
 ** r800Reset
