@@ -17,4 +17,7 @@ Only what the YM2608 (`ym2608` in `ymfm_opn.h`) needs is included:
 
 `ymfm_opn.cpp` also holds the other chips of the OPN family; they are
 compiled but not used. To update, copy the same files from a newer commit
-and change the commit above. The blueMSX side is `../YM2608.cpp`.
+and change the commit above. The blueMSX side is `../YM2608.cpp`. It clocks
+the FM and the SSG part of the chip separately through protected members of
+`ym2608` (`clock_fm_and_adpcm`, `m_last_fm`, `m_ssg`, `m_fm`), so an update
+that hides them stops the build there.
