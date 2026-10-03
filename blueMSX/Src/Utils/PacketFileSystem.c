@@ -61,6 +61,12 @@ typedef struct
 
 static PKG_FILE pkg_files[PKG_FILE_CNT];
 
+static int isPkgFile(const FILE* file)
+{
+    return (const char*)file >= (const char*)pkg_files &&
+           (const char*)file <  (const char*)(pkg_files + PKG_FILE_CNT);
+}
+
 #define PKG_HDR         "blueMSX Pkg 001"
 #define PKG_HDR_SIZE    16
 
@@ -213,7 +219,7 @@ int pkg_fclose(FILE* file)
 {
     PKG_FILE* pkg_file = (PKG_FILE*)file;
 
-    if ((char*)file < (char*)pkg_files || (char*)file >= ((char*)pkg_files + PKG_FILE_CNT)) {
+    if (!isPkgFile(file)) {
         return fclose(file);
     }
     pkg_file->offset = 0;
@@ -224,7 +230,7 @@ size_t pkg_fwrite(const void* buffer, size_t size, size_t count, FILE* file)
 {
     PKG_FILE* pkg_file = (PKG_FILE*)file;
 
-    if ((char*)file < (char*)pkg_files || (char*)file >= ((char*)pkg_files + PKG_FILE_CNT)) {
+    if (!isPkgFile(file)) {
         return fwrite(buffer, size, count, file);
     }
     return 0;
@@ -234,7 +240,7 @@ size_t pkg_fread(void* buffer, size_t size, size_t count, FILE* file)
 {
     PKG_FILE* pkg_file = (PKG_FILE*)file;
 
-    if ((char*)file < (char*)pkg_files || (char*)file >= ((char*)pkg_files + PKG_FILE_CNT)) {
+    if (!isPkgFile(file)) {
         return fread(buffer, size, count, file);
     }
 
@@ -258,7 +264,7 @@ int pkg_fseek(FILE* file, long offset, int origin)
     PKG_FILE* pkg_file = (PKG_FILE*)file;
     int newPos = 0;
 
-    if ((char*)file < (char*)pkg_files || (char*)file >= ((char*)pkg_files + PKG_FILE_CNT)) {
+    if (!isPkgFile(file)) {
         return fseek(file, offset, origin);
     }
 
@@ -295,7 +301,7 @@ long pkg_ftell(FILE* file)
 {
     PKG_FILE* pkg_file = (PKG_FILE*)file;
 
-    if ((char*)file < (char*)pkg_files || (char*)file >= ((char*)pkg_files + PKG_FILE_CNT)) {
+    if (!isPkgFile(file)) {
         return ftell(file);
     }
 
@@ -313,7 +319,7 @@ char *pkg_fgets(char* string, int n, FILE* file)
     char* s;
     char* ptr;
 
-    if ((char*)file < (char*)pkg_files || (char*)file >= ((char*)pkg_files + PKG_FILE_CNT)) {
+    if (!isPkgFile(file)) {
         return fgets(string, n, file);
     }
 
