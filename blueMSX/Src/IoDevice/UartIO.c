@@ -74,7 +74,9 @@ static void removeType(UartIO* uartIO)
         uartIO->uartReady = 0;
         break;
     case UART_FILE:
-        fclose(uartIO->file);
+        if (uartIO->file != NULL) {
+            fclose(uartIO->file);
+        }
         break;
     }
 }
@@ -86,7 +88,9 @@ void uartIOTransmit(UartIO* uartIO, UInt8 value)
         archUartTransmit(value);
         break;
     case UART_FILE:
-        fwrite(&value, 1, 1, uartIO->file);
+        if (uartIO->file != NULL) {
+            fwrite(&value, 1, 1, uartIO->file);
+        }
         break;
     }
 }
