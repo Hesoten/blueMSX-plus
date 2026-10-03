@@ -95,6 +95,9 @@ void printerIOWrite(PrinterIO* printerIO, UInt8 value)
     case PRN_FILE:
         if (printerIO->file != NULL) {
             fwrite(&value, 1, 1, printerIO->file);
+            if (value == 0x0A) {
+                fflush(printerIO->file);
+            }
         }
         break;
     case PRN_SIMPL:
