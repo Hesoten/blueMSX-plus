@@ -275,7 +275,8 @@ struct YM2608 {
     YM2608() : fm(2), ssg(1) {}
 
     Mixer*      mixer;
-    Int32       handle;
+    Int32       fmHandle;
+    Int32       ssgHandle;
     UInt32      clock;
     UInt32      irqMask;
     UInt32      sampleRate;
@@ -292,7 +293,9 @@ struct YM2608 {
     /* The two streams of the chip: FM with rhythm and ADPCM in stereo, and
     ** the SSG. Each has its own number of clocks per sample, which follows
     ** the prescaler, and its clock ticks against sampleRate times that
-    ** number, so the ratio between chip and mixer samples stays exact. */
+    ** number, so the ratio between chip and mixer samples stays exact.
+    ** Each is a mixer channel of its own, with its own level: the chip
+    ** leaves mixing the two to the board. */
     UInt32      prescale;
     UInt32      fmClocks;
     UInt32      ssgClocks;
@@ -309,7 +312,8 @@ struct YM2608 {
     UInt8       address[2];
     UInt8       regs[2][256];
 
-    Int32       buffer[AUDIO_STEREO_BUFFER_SIZE];
+    Int32       fmBuffer[AUDIO_STEREO_BUFFER_SIZE];
+    Int32       ssgBuffer[AUDIO_MONO_BUFFER_SIZE];
 };
 
 static UInt32 clocksToBoardTime(YM2608* ym2608, UInt32 clocks)
@@ -420,39 +424,55 @@ static void setRates(YM2608* ym2608)
     ym2608->ssg.configure((double)ym2608->clock / ((double)ym2608->ssgClocks * ym2608->sampleRate));
 }
 
-static Int32* ym2608Sync(void* ref, UInt32 count)
+static Int32* ym2608FmSync(void* ref, UInt32 count)
 {
     YM2608* ym2608 = (YM2608*)ref;
     Ym2608Chip& chip = ym2608->host->chip;
-    UInt32 fmPeriod  = ym2608->sampleRate * ym2608->fmClocks;
-    UInt32 ssgPeriod = ym2608->sampleRate * ym2608->ssgClocks;
+    UInt32 period = ym2608->sampleRate * ym2608->fmClocks;
     UInt32 i;
 
     for (i = 0; i < count; i++) {
         Int16 sample[2];
         Int32 fm[2];
-        Int32 ssg;
 
         ym2608->fmAcc += ym2608->clock;
-        while (ym2608->fmAcc >= fmPeriod) {
-            ym2608->fmAcc -= fmPeriod;
+        while (ym2608->fmAcc >= period) {
+            ym2608->fmAcc -= period;
             chip.clockFm(sample);
             ym2608->fm.put(sample);
         }
-        ym2608->ssgAcc += ym2608->clock;
-        while (ym2608->ssgAcc >= ssgPeriod) {
-            ym2608->ssgAcc -= ssgPeriod;
-            sample[0] = chip.clockSsg();
-            ym2608->ssg.put(sample);
-        }
-        ym2608->fm.get(ym2608->fmAcc, fmPeriod, fm);
-        ym2608->ssg.get(ym2608->ssgAcc, ssgPeriod, &ssg);
+        ym2608->fm.get(ym2608->fmAcc, period, fm);
 
-        ym2608->buffer[2 * i + 0] = OUTPUT_GAIN * (fm[0] + ssg);
-        ym2608->buffer[2 * i + 1] = OUTPUT_GAIN * (fm[1] + ssg);
+        ym2608->fmBuffer[2 * i + 0] = OUTPUT_GAIN * fm[0];
+        ym2608->fmBuffer[2 * i + 1] = OUTPUT_GAIN * fm[1];
     }
 
-    return ym2608->buffer;
+    return ym2608->fmBuffer;
+}
+
+static Int32* ym2608SsgSync(void* ref, UInt32 count)
+{
+    YM2608* ym2608 = (YM2608*)ref;
+    Ym2608Chip& chip = ym2608->host->chip;
+    UInt32 period = ym2608->sampleRate * ym2608->ssgClocks;
+    UInt32 i;
+
+    for (i = 0; i < count; i++) {
+        Int16 sample;
+        Int32 ssg;
+
+        ym2608->ssgAcc += ym2608->clock;
+        while (ym2608->ssgAcc >= period) {
+            ym2608->ssgAcc -= period;
+            sample = chip.clockSsg();
+            ym2608->ssg.put(&sample);
+        }
+        ym2608->ssg.get(ym2608->ssgAcc, period, &ssg);
+
+        ym2608->ssgBuffer[i] = OUTPUT_GAIN * ssg;
+    }
+
+    return ym2608->ssgBuffer;
 }
 
 static void ym2608SetSampleRate(void* ref, UInt32 rate)
@@ -492,8 +512,11 @@ YM2608* ym2608Create(Mixer* mixer, UInt32 clock, UInt32 adpcmRamSize,
 
     ym2608->sampleRate = mixerGetSampleRate(mixer);
     setRates(ym2608);
-    ym2608->handle = mixerRegisterChannel(mixer, MIXER_CHANNEL_YAMAHA_SFG, 1,
-                                          ym2608Sync, ym2608SetSampleRate, ym2608);
+    /* The rate callback of the FM channel sets the rates of both streams. */
+    ym2608->fmHandle  = mixerRegisterChannel(mixer, MIXER_CHANNEL_OPNA_FM, 1,
+                                             ym2608FmSync, ym2608SetSampleRate, ym2608);
+    ym2608->ssgHandle = mixerRegisterChannel(mixer, MIXER_CHANNEL_OPNA_SSG, 0,
+                                             ym2608SsgSync, NULL, ym2608);
 
     ym2608Reset(ym2608);
 
@@ -502,7 +525,8 @@ YM2608* ym2608Create(Mixer* mixer, UInt32 clock, UInt32 adpcmRamSize,
 
 void ym2608Destroy(YM2608* ym2608)
 {
-    mixerUnregisterChannel(ym2608->mixer, ym2608->handle);
+    mixerUnregisterChannel(ym2608->mixer, ym2608->fmHandle);
+    mixerUnregisterChannel(ym2608->mixer, ym2608->ssgHandle);
 
     boardTimerDestroy(ym2608->timer[0]);
     boardTimerDestroy(ym2608->timer[1]);
