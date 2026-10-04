@@ -403,6 +403,7 @@ int tapeInsert(char *name, const char *fileInZipFile)
 
     if (ramImageBuffer != NULL) {
         tapeSignalSetRefreshCallback(refreshSignal);
+        tapeSignalSetCommitCallback(tapeFlush);
         signalDirty = 1;
     }
     updateRecordable();
@@ -490,6 +491,14 @@ int tapeSave(char *name, TapeFormat format)
     fclose(file);
 
     return 1;
+}
+
+/* Runs when a save stops writing, so the file holds it without an eject */
+void tapeFlush(void)
+{
+    if (ramImageBuffer != NULL && *tapeName && tapeRdWr) {
+        tapeSave(tapeName, tapeFormat);
+    }
 }
 
 /* A blank tape: CAS is an empty byte stream, WAV a header of zero samples */

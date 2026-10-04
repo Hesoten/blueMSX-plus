@@ -98,6 +98,7 @@ static int    driving;
 static int    refreshArmed;
 static UInt64 lastBoostArmT;
 static TapeSignalRefreshCb refreshCb = NULL;
+static TapeSignalCommitCb  commitCb  = NULL;
 
 /* rec holds what was captured since the motor started, spliced in when it stops */
 static int    recordable;
@@ -656,6 +657,10 @@ static void spliceRecording(TapeSignalBuilder* src, UInt64 tailWidth)
         /* The recording is what put the tape here, so the signal cursor is the
         ** authority on the position even though nothing has played yet. */
         driving = 1;
+
+        if (commitCb != NULL) {
+            commitCb();
+        }
     }
 }
 
@@ -1010,6 +1015,11 @@ int tapeSignalSaveCas(const char* name, const UInt8* marker, int markerSize,
 void tapeSignalSetRefreshCallback(TapeSignalRefreshCb cb)
 {
     refreshCb = cb;
+}
+
+void tapeSignalSetCommitCallback(TapeSignalCommitCb cb)
+{
+    commitCb = cb;
 }
 
 void tapeSignalSetMotor(int on)

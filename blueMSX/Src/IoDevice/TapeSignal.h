@@ -76,6 +76,10 @@ int  tapeSignalIsDriving(void);
 typedef void (*TapeSignalRefreshCb)(void);
 void tapeSignalSetRefreshCallback(TapeSignalRefreshCb cb);
 
+/* Called once a recording is spliced onto the tape, so the owner can save it */
+typedef void (*TapeSignalCommitCb)(void);
+void tapeSignalSetCommitCallback(TapeSignalCommitCb cb);
+
 void  tapeSignalSetMotor(int on);
 UInt8 tapeSignalReadBit(void);
 
