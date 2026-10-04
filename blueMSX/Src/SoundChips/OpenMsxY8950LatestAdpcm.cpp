@@ -144,7 +144,9 @@ void Y8950Adpcm::schedule()
         if (reg7 & R07_MEMORY_DATA) {
             /* sync(time) has run, so the clock is up to date. */
             Clock<CLOCK_FREQ, CLOCK_FREQ_DIV> stop(clock);
-            uint64_t samples = stopAddr - emu.memPtr + 1;
+            /* A stop address moved behind the play pointer ends the sample
+            ** at the next nibble, as one just behind it does. */
+            uint64_t samples = (emu.memPtr <= stopAddr) ? (stopAddr - emu.memPtr + 1) : 0;
             uint64_t length = (samples << STEP_BITS) +
                     ((1 << STEP_BITS) - emu.nowStep) +
                     (delta - 1);
