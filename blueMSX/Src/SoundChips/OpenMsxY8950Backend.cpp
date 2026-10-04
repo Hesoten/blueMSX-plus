@@ -141,6 +141,17 @@ void OpenMsxY8950Backend::writeIo(int port, UInt8 value)
 UInt8 OpenMsxY8950Backend::readIo(int port)
 {
     if ((port & 1) == 0) {
+        /* Bring the ADPCM up to date as upstream's status read does. The
+        ** mixer goes first: ending a sample stops its audio side. */
+        mixerSync(boardGetMixer());
+        inst->chip.readStatus((openmsx::EmuTime)boardSystemTime());
+    }
+    return peekIo(port);
+}
+
+UInt8 OpenMsxY8950Backend::peekIo(int port)
+{
+    if ((port & 1) == 0) {
         /* Build status from regCache mask so dispatcher-driven T1/T2
         ** fires are visible even when chip's own statusMask is 0. */
         UInt8 raw     = (UInt8)inst->chip.peekRawStatus();
@@ -149,11 +160,6 @@ UInt8 OpenMsxY8950Backend::readIo(int port)
         return (UInt8)((vis ? (vis | 0x80) : 0) | 0x06);
     }
     return regCache[latchedAddr];
-}
-
-UInt8 OpenMsxY8950Backend::peekIo(int port)
-{
-    return readIo(port);
 }
 
 UInt8 OpenMsxY8950Backend::readReg(int reg)
