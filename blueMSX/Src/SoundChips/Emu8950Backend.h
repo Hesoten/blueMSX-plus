@@ -26,6 +26,7 @@
 #include "Y8950BackendBase.h"
 extern "C" {
 #include "AudioMixer.h"
+#include "Board.h"
 }
 
 struct __OPL;
@@ -52,12 +53,20 @@ public:
     virtual void   copyAdpcmRamFrom(const UInt8* src, UInt32 len);
 
     virtual void   onTimerOverflow(int timer_idx);
+    virtual bool   irqPending();
 
 private:
+    void          armEos();
+    bool          deliverEos();
+    static void   onEosTimer(void* ref, UInt32 time);
+
     struct __OPL* opl;
     UInt32        mixerRate;
     Int32         off, e1, e2;
     Int32         buffer[AUDIO_MONO_BUFFER_SIZE];
+    BoardTimer*   eosTimer;
+    UInt32        eosAddr, eosStep;   /* ADPCM position when last armed */
+    bool          eosArmed;           /* a sample is being watched for its end */
 };
 
 #endif

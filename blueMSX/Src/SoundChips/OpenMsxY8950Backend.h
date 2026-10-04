@@ -52,6 +52,7 @@ public:
     virtual void   copyAdpcmRamFrom(const UInt8* src, UInt32 len);
 
     virtual void   onTimerOverflow(int timer_idx);
+    virtual bool   irqPending();
 
 private:
     OpenMsxY8950InstState* inst;

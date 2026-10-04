@@ -213,6 +213,11 @@ void OpenMsxY8950Backend::onTimerOverflow(int timer_idx)
     uint8_t bit = (timer_idx == 0) ? 0x40 : 0x20;
     inst->chip.setStatus(bit);
     if (!(regCache[0x04] & bit)) {
-        boardSetInt(0x10);
+        y8950BackendIrq(PROP_Y8950_BACKEND_OPENMSX, 1);
     }
+}
+
+bool OpenMsxY8950Backend::irqPending()
+{
+    return (inst->chip.peekRawStatus() & 0x80) != 0;
 }

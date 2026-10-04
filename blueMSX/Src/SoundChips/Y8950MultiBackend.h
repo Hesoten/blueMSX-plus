@@ -58,10 +58,12 @@ public:
 
 private:
     Y8950BackendBase* pickRamSourceBackend() const;
+    void resyncIrqLine(bool force);
     void              replayRegistersTo(Y8950BackendBase* b);
 
     Y8950BackendBase* backends[Y8950_BACKEND_COUNT];
     UInt8          latchedAddr;
+    unsigned       seenGen;     /* s_activeGen the IRQ line was last set for */
     UInt8          regCache[256];  /* last bus-side value per address */
 };
 

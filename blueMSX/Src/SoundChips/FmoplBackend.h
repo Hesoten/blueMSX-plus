@@ -57,8 +57,13 @@ public:
     virtual void   copyAdpcmRamFrom(const UInt8* src, UInt32 len);
 
     virtual void   onTimerOverflow(int timer_idx);
+    virtual bool   irqPending();
 
 private:
+    void        armEos();
+    bool        deliverEos();
+    static void onEosTimer(void* ref, UInt32 time);
+
     void*       hostRef;       /* opaque Y8950 host pointer used by Fmopl callbacks */
     FM_OPL*     opl;
     UInt32      rate;          /* mixer sample rate */
@@ -66,6 +71,8 @@ private:
     Int32       off;
     Int32       s1, s2;
     Int32       buffer[AUDIO_MONO_BUFFER_SIZE];
+    BoardTimer* eosTimer;
+    UInt32      eosAddr, eosStep;   /* ADPCM position when last armed */
 };
 
 #endif

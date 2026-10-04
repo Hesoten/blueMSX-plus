@@ -26,6 +26,8 @@ extern "C" {
 #include "Emu8950/emuadpcm.h"
 #include "../Utils/SaveState.h"
 #include "Board.h"
+#include "Properties.h"
+#include "Y8950.h"
 }
 #include <cstdio>
 #include <cstring>
@@ -34,21 +36,87 @@ extern "C" {
 #define SAMPLERATE (FREQUENCY / 72)
 
 Emu8950Backend::Emu8950Backend()
-    : opl(NULL), mixerRate(SAMPLERATE), off(0), e1(0), e2(0)
+    : opl(NULL), mixerRate(SAMPLERATE), off(0), e1(0), e2(0),
+      eosTimer(NULL), eosAddr(0), eosStep(0), eosArmed(false)
 {
     memset(buffer, 0, sizeof(buffer));
     opl = (struct __OPL*)OPL_new((uint32_t)FREQUENCY, (uint32_t)SAMPLERATE);
     OPL_setChipType((OPL*)opl, 0);  /* 0 = Y8950 */
     OPL_reset((OPL*)opl);
+    eosTimer = boardTimerCreate(onEosTimer, this);
 }
 
 Emu8950Backend::~Emu8950Backend()
 {
+    if (eosTimer) boardTimerDestroy(eosTimer);
     if (opl) OPL_delete((OPL*)opl);
+}
+
+/* The ADPCM advances only as audio is rendered, so its end is predicted
+** from its position and the timer brings the audio up to date first.
+** It steps once per 72 chip clocks, which is 432 board cycles. */
+void Emu8950Backend::armEos()
+{
+    OPL* p = (OPL*)opl;
+    OPL_ADPCM* a = p->adpcm;
+    if (!a || !a->play_start || a->delta_n == 0 || (a->reg[0x07] & 0x18)) {
+        boardTimerRemove(eosTimer);
+        eosArmed = false;
+        return;
+    }
+    UInt32 m = a->play_addr_mask;
+    UInt64 left = ((a->stop_addr & m) - a->play_addr) & m;
+    if (left == 0) left = (UInt64)m + 1;
+    UInt64 steps = ((left << 16) - a->delta_addr + a->delta_n - 1) / a->delta_n;
+    if (steps > SAMPLERATE + 1) steps = SAMPLERATE + 1;
+    UInt64 ticks = steps * boardFrequency() * 72 / FREQUENCY + boardFrequency() / mixerRate + 1;
+    if (ticks > boardFrequency()) ticks = boardFrequency();
+    eosAddr  = a->play_addr;
+    eosStep  = a->delta_addr;
+    eosArmed = true;
+    boardTimerAdd(eosTimer, boardSystemTime() + (UInt32)ticks);
+}
+
+/* Raises the EOS a watched sample has reached, whether the timer finds it
+** or a register write gets there first, since the mixer may have rendered
+** past the end before the timer is due. */
+bool Emu8950Backend::deliverEos()
+{
+    OPL* p = (OPL*)opl;
+    OPL_ADPCM* a = p->adpcm;
+    if (!eosArmed || !a || a->play_start || !(a->status & 0x10)) return false;
+    eosArmed = false;
+    boardTimerRemove(eosTimer);
+    if (!(p->reg[0x04] & 0x10)) {
+        y8950BackendIrq(PROP_Y8950_BACKEND_EMU8950, 1);
+    }
+    return true;
+}
+
+void Emu8950Backend::onEosTimer(void* ref, UInt32 /*time*/)
+{
+    Emu8950Backend* self = (Emu8950Backend*)ref;
+    OPL_ADPCM* a = ((OPL*)self->opl)->adpcm;
+
+    mixerSync(boardGetMixer());
+    if (self->deliverEos()) return;
+    if (!a || !a->play_start) {
+        self->eosArmed = false;
+        return;
+    }
+    /* No progress means the audio is not being rendered (mixer off):
+    ** look again a mixer period later instead of every chip step. */
+    if (a->play_addr != self->eosAddr || a->delta_addr != self->eosStep) {
+        self->armEos();
+    } else {
+        boardTimerAdd(self->eosTimer, boardSystemTime() + boardFrequency() / 50);
+    }
 }
 
 void Emu8950Backend::reset()
 {
+    boardTimerRemove(eosTimer);
+    eosArmed = false;
     OPL_reset((OPL*)opl);
     off = 0;
     e1  = 0;
@@ -87,7 +155,11 @@ Int32* Emu8950Backend::updateBuffer(UInt32 count)
 
 void Emu8950Backend::writeIo(int port, UInt8 value)
 {
-    OPL_writeIO((OPL*)opl, (uint32_t)port, value);
+    OPL* p = (OPL*)opl;
+    bool adpcmReg = (port & 1) && p->adr >= 0x07 && p->adr <= 0x12;
+    if (adpcmReg) deliverEos();
+    OPL_writeIO(p, (uint32_t)port, value);
+    if (adpcmReg) armEos();
 }
 
 UInt8 Emu8950Backend::readIo(int port)
@@ -129,15 +201,24 @@ void Emu8950Backend::copyAdpcmRamFrom(const UInt8* src, UInt32 len)
     memcpy(p->adpcm->memory[0], src, len);
 }
 
-/* Dispatcher fired; set status + raise boardSetInt if not masked. */
+/* Dispatcher fired; set status + raise the IRQ if not masked. */
 void Emu8950Backend::onTimerOverflow(int timer_idx)
 {
     OPL* p = (OPL*)opl;
     uint8_t bit = (timer_idx == 0) ? 0x40 : 0x20;
     p->status |= bit;
     if (!(p->reg[0x04] & bit)) {
-        boardSetInt(0x10);
+        y8950BackendIrq(PROP_Y8950_BACKEND_EMU8950, 1);
     }
+}
+
+/* BUF_RDY is left out: emu8950 always reports it set. */
+bool Emu8950Backend::irqPending()
+{
+    OPL* p = (OPL*)opl;
+    UInt8 flags = p->status;
+    if (p->adpcm) flags |= p->adpcm->status & 0x10;
+    return (flags & ~p->reg[0x04] & 0x78) != 0;
 }
 
 /* Field-by-field. Skips pointers; OPL_relinkAfterRestore rebuilds them.
@@ -253,6 +334,7 @@ void Emu8950Backend::loadState()
         saveStateClose(s);
         OPL_reset(p);
         loadHadOwnState_ = false;
+        armEos();
         return;
     }
     loadHadOwnState_ = true;
@@ -347,4 +429,7 @@ void Emu8950Backend::loadState()
     }
 
     saveStateClose(s);
+
+    /* The timer is not saved; a rewind has also dropped it. */
+    armEos();
 }

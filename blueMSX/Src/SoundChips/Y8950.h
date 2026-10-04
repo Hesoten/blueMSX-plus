@@ -60,6 +60,10 @@ int         y8950BackendIsEnabled(int idx);
 int         y8950BackendCycle(void);
 const char* y8950BackendName(int idx);
 
+/* Every backend runs, but only the active one may raise or clear the IRQ
+** line; the others keep their status to themselves. */
+void        y8950BackendIrq(int idx, int on);
+
 extern const int y8950BackendDisplayOrder[];
 extern const int y8950BackendDisplayCount;
 
