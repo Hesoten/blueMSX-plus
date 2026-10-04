@@ -110,6 +110,17 @@ static UInt64 recEdgeT;
 static int    recPinLevel;
 static int    recDirty;
 
+/* What a WAV file on disk still lacks. Outside [loT, hiT) it keeps its own
+** bytes, which is only safe while full is clear: our layout, levels and length. */
+typedef struct {
+    int    pending;
+    int    full;
+    UInt64 loT;
+    UInt64 hiT;
+    UInt32 diskSamples;
+} WavDisk;
+static WavDisk wavDisk = { 0, 1, 0, 0, 0 };
+
 /* Position read from a save state, applied once a waveform is mounted */
 static int    stPending;
 static UInt64 stPos;
@@ -501,6 +512,9 @@ void tapeSignalEject(void)
     rec       = NULL;
     recDirty  = 0;
 
+    wavDisk.pending = 0;
+    wavDisk.full    = 1;
+
     /* A tape swapped in while the motor runs still gets built on the next read */
     refreshArmed = 1;
 }
@@ -598,6 +612,9 @@ static void spliceRecording(TapeSignalBuilder* src, UInt64 tailWidth)
     UInt64 edgeT   = 0;
     UInt32 index   = 0;
     UInt32 i       = 0;
+    UInt64 oldLenT;
+    UInt64 newLenT;
+    WavDisk disk;
 
     if (out == NULL) {
         return;
@@ -651,7 +668,33 @@ static void spliceRecording(TapeSignalBuilder* src, UInt64 tailWidth)
 
     carryIndex(out, recEndT, source);
 
+    /* Install ejects, which forgets the disk state; this splice extends it */
+    oldLenT = sig != NULL ? sig->timeT : 0;
+    newLenT = out->timeT;
+    disk    = wavDisk;
+
     if (tapeSignalInstall(out, source)) {
+        /* Only [recStartT, recEndT) and growth change, unless a clamped seam
+        ** moved the tail and with it everything up to the end. */
+        UInt64 lo = recStartT < oldLenT ? recStartT : oldLenT;
+        UInt64 hi = (oldLenT > recEndT && newLenT == oldLenT) ? recEndT :
+                    (newLenT > oldLenT ? newLenT : oldLenT);
+
+        wavDisk = disk;
+        if (wavDisk.pending) {
+            if (lo < wavDisk.loT) {
+                wavDisk.loT = lo;
+            }
+            if (hi > wavDisk.hiT) {
+                wavDisk.hiT = hi;
+            }
+        }
+        else {
+            wavDisk.loT = lo;
+            wavDisk.hiT = hi;
+        }
+        wavDisk.pending = 1;
+
         recDirty = 1;
         tapeSignalSetPosT(recEndT);
         /* The recording is what put the tape here, so the signal cursor is the
@@ -789,15 +832,37 @@ void tapeSignalWavHeader(UInt8* hdr, UInt32 sampleCount)
     memcpy(hdr + 36, "data", 4);   putLe(hdr + 40, sampleCount, 4);
 }
 
+/* Samples [sampleAt(fromT), upto) at the file position. The full render and the
+** in-place update both go through here, so a patch matches a full render byte for byte. */
+static int writeWavSpan(FILE* file, UInt64 fromT, UInt32 upto)
+{
+    UInt32 done = sampleAt(fromT);
+    UInt64 edgeT;
+    UInt32 index;
+    UInt8  level;
+
+    seekCursor(fromT, &index, &edgeT, &level);
+    while (done < upto && index < sig->pulseCount) {
+        UInt32 end;
+
+        edgeT += readPulse(sig, &index);
+        end = sampleAt(edgeT) < upto ? sampleAt(edgeT) : upto;
+        if (end > done) {
+            if (!writeRun(file, level ? WAV_HIGH : WAV_LOW, end - done)) {
+                return 0;
+            }
+            done = end;
+        }
+        level ^= 1;
+    }
+    return done == upto;
+}
+
 int tapeSignalSaveWav(const char* name)
 {
     UInt8  hdr[TAPE_WAV_HEADER_SIZE];
     FILE*  file;
-    UInt64 edgeT = 0;
-    UInt32 index = 0;
-    UInt32 done  = 0;
     UInt32 total;
-    UInt8  level = 0;
 
     if (sig == NULL) {
         return 0;
@@ -810,27 +875,112 @@ int tapeSignalSaveWav(const char* name)
     }
     tapeSignalWavHeader(hdr, total);
 
-    if (fwrite(hdr, 1, sizeof(hdr), file) != sizeof(hdr)) {
+    if (fwrite(hdr, 1, sizeof(hdr), file) != sizeof(hdr) ||
+        !writeWavSpan(file, 0, total)) {
         fclose(file);
         return 0;
-    }
-
-    while (index < sig->pulseCount) {
-        edgeT += readPulse(sig, &index);
-        {
-            UInt32 upto = sampleAt(edgeT);
-            if (!writeRun(file, level ? WAV_HIGH : WAV_LOW, upto - done)) {
-                fclose(file);
-                return 0;
-            }
-            done = upto;
-        }
-        level ^= 1;
     }
 
     /* The last block only reaches the disk here, so a full volume shows up
     ** as a close failure rather than as a silently short image. */
     return fclose(file) == 0;
+}
+
+/* Only a file in our own layout and levels can be patched in place: other
+** levels would move the peak the parser takes its threshold from. */
+void tapeSignalWavMounted(const UInt8* data, UInt32 size)
+{
+    UInt8  hdr[TAPE_WAV_HEADER_SIZE];
+    UInt32 count;
+    UInt32 i;
+
+    if (sig == NULL || data == NULL || size < TAPE_WAV_HEADER_SIZE) {
+        return;
+    }
+    count = size - TAPE_WAV_HEADER_SIZE;
+    tapeSignalWavHeader(hdr, count);
+    if (memcmp(data, hdr, sizeof(hdr)) != 0 || sampleAt(sig->timeT) != count) {
+        return;
+    }
+    for (i = TAPE_WAV_HEADER_SIZE; i < size; i++) {
+        if (data[i] != WAV_HIGH && data[i] != WAV_LOW) {
+            return;
+        }
+    }
+    wavDisk.full        = 0;
+    wavDisk.diskSamples = count;
+}
+
+static int updateWavInPlace(const char* name)
+{
+    UInt8  hdr[TAPE_WAV_HEADER_SIZE];
+    UInt8  disk[TAPE_WAV_HEADER_SIZE];
+    UInt32 total = sampleAt(sig->timeT);
+    UInt32 from  = sampleAt(wavDisk.loT);
+    UInt32 upto  = sampleAt(wavDisk.hiT);
+    FILE*  file;
+    int    ok;
+
+    if (upto > total) {
+        upto = total;
+    }
+    /* r+b cannot shrink the file, and growth must be written to the end */
+    if (total < wavDisk.diskSamples || from > wavDisk.diskSamples ||
+        (total > wavDisk.diskSamples && upto < total) ||
+        total > 0x7fffffff - TAPE_WAV_HEADER_SIZE) {
+        return 0;
+    }
+
+    file = fopen(name, "r+b");
+    if (file == NULL) {
+        return 0;
+    }
+    tapeSignalWavHeader(hdr, wavDisk.diskSamples);
+    ok = fread(disk, 1, sizeof(disk), file) == sizeof(disk) &&
+         memcmp(disk, hdr, sizeof(hdr)) == 0 &&
+         fseek(file, 0, SEEK_END) == 0 &&
+         ftell(file) == (long)(TAPE_WAV_HEADER_SIZE + wavDisk.diskSamples) &&
+         fseek(file, (long)(TAPE_WAV_HEADER_SIZE + from), SEEK_SET) == 0 &&
+         writeWavSpan(file, wavDisk.loT, upto);
+
+    /* The size goes last: until then a reader still sees the old length */
+    if (ok && total != wavDisk.diskSamples) {
+        tapeSignalWavHeader(hdr, total);
+        ok = fseek(file, 0, SEEK_SET) == 0 &&
+             fwrite(hdr, 1, sizeof(hdr), file) == sizeof(hdr);
+    }
+    if (fclose(file) != 0) {
+        ok = 0;
+    }
+    return ok;
+}
+
+/* Writes what the recordings since the last save changed, so a long tape is
+** not re-rendered, and truncated, for every save on it */
+int tapeSignalUpdateWav(const char* name)
+{
+    int ok;
+
+    if (!wavDisk.pending) {
+        return 1;
+    }
+    if (sig == NULL) {
+        return 0;
+    }
+
+    ok = !wavDisk.full && updateWavInPlace(name);
+    if (!ok) {
+        ok = tapeSignalSaveWav(name);
+    }
+    if (ok) {
+        wavDisk.pending     = 0;
+        wavDisk.full        = 0;
+        wavDisk.diskSamples = sampleAt(sig->timeT);
+    }
+    else {
+        wavDisk.full = 1;
+    }
+    return ok;
 }
 
 /*****************************************************************************
