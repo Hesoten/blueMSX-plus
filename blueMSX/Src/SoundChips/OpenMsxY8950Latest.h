@@ -219,15 +219,31 @@ private:
 };
 
 class Scheduler {};
+
+/* A sync point is a board timer. */
 class Schedulable {
 public:
-    Schedulable() = default;
-    explicit Schedulable(Scheduler&) {}
-    virtual ~Schedulable() = default;
-    void removeSyncPoint() {}
-    void setSyncPoint(EmuTime) {}
+    Schedulable() : timer(boardTimerCreate(&Schedulable::onFire, this)) {}
+    explicit Schedulable(Scheduler&) : Schedulable() {}
+    Schedulable(const Schedulable&) = delete;
+    Schedulable& operator=(const Schedulable&) = delete;
+    virtual ~Schedulable() { boardTimerDestroy(timer); }
+    void removeSyncPoint() { boardTimerRemove(timer); }
+    void setSyncPoint(EmuTime time) { boardTimerAdd(timer, (UInt32)time); }
     EmuTime getCurrentTime() const { return (EmuTime)boardSystemTime(); }
     virtual void executeUntil(EmuTime) {}
+private:
+    static void onFire(void* ref, UInt32 /*time*/) {
+        Schedulable* self = (Schedulable*)ref;
+        /* A register write reaches the chip after the dispatcher has brought
+        ** the mixer up to date. A sync point changes the chip's state without
+        ** passing the dispatcher, so the mixer is brought up to date here. */
+        mixerSync(boardGetMixer());
+        /* The current time, not the one the timer was set for: a register
+        ** write in the instruction that crossed it may have synced past it. */
+        self->executeUntil(self->getCurrentTime());
+    }
+    BoardTimer* timer;
 };
 
 class MSXMotherBoard {

@@ -140,17 +140,31 @@ void Y8950Adpcm::sync(EmuTime time)
 
 void Y8950Adpcm::schedule()
 {
-    /* In the openMSX integration this would set a sync-point so the
-    ** scheduler fires executeUntil() at end-of-sample.  Our Schedulable
-    ** stub has no scheduler, so EOS is detected lazily during sync()
-    ** instead.  Accuracy is good enough for the audio thread; cycle-
-    ** exact IRQ timing is not preserved. */
+    if ((stopAddr > startAddr) && (delta != 0)) {
+        if (reg7 & R07_MEMORY_DATA) {
+            /* sync(time) has run, so the clock is up to date. */
+            Clock<CLOCK_FREQ, CLOCK_FREQ_DIV> stop(clock);
+            uint64_t samples = stopAddr - emu.memPtr + 1;
+            uint64_t length = (samples << STEP_BITS) +
+                    ((1 << STEP_BITS) - emu.nowStep) +
+                    (delta - 1);
+            /* A board timer reaches no further ahead than half the range of
+            ** the 32 bit board time, about 100 s, and a long sample played
+            ** slowly lasts longer. Such a sample is walked a second at a
+            ** time; executeUntil() sets the next sync point. */
+            uint64_t ticks = std::min<uint64_t>(length / delta, CLOCK_FREQ / CLOCK_FREQ_DIV);
+            stop += unsigned(ticks);
+            setSyncPoint(stop.getTime());
+        }
+    }
 }
 
 void Y8950Adpcm::executeUntil(EmuTime time)
 {
     sync(time);
-    if (isPlaying() && (reg7 & R07_REPEAT)) {
+    /* Not only when the sample repeats: a sync point may fall short of the
+    ** end, see schedule(). */
+    if (isPlaying()) {
         schedule();
     }
 }
@@ -344,6 +358,13 @@ uint8_t Y8950Adpcm::readMemory(unsigned memPtr) const
 int Y8950Adpcm::calcSample()
 {
     if (!isPlaying()) return 0;
+    /* The emu side ends the sample, at its sync point, and the mixer is
+    ** brought up to that very moment first. The audio side would then take
+    ** one more nibble, from behind the stop address; it waits there instead. */
+    if ((reg7 & R07_MEMORY_DATA) && !(reg7 & R07_REPEAT) &&
+        (aud.memPtr > stopAddr) && ((aud.nowStep + delta) & ~STEP_MASK)) {
+        return 0;
+    }
     int output = calcSample(false);
     return (reg7 & R07_SP_OFF) ? 0 : output;
 }
@@ -450,6 +471,12 @@ void Y8950Adpcm::blueMsxLoadStateImpl(SaveState* s)
 
     /* Audio-side PlayData is a 1:1 mirror of the emu side at load. */
     aud = emu;
+
+    /* The clock and the sync point follow the board time, which a load
+    ** replaces, so the state carries neither. */
+    removeSyncPoint();
+    clock.reset(getCurrentTime());
+    if (isPlaying()) schedule();
 }
 
 void Y8950Adpcm::blueMsxCopyRamTo(uint8_t* dst, unsigned len) const

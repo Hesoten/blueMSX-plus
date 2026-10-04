@@ -986,6 +986,11 @@ void Y8950::changeStatusMask(uint8_t newMask)
 
 void Y8950::blueMsxSaveStateImpl(SaveState* s)
 {
+    /* The state carries the ADPCM's emu side, which is only brought up to
+    ** date when something asks. That can end a sample and so change the
+    ** status, hence before anything is written. */
+    if (adpcm) adpcm->sync((EmuTime)boardSystemTime());
+
     BMSAVE_INT(s, "hasChip", 1);
     BMSAVE_BUF(s, "reg", reg.data(), reg.size());
     BMSAVE_INT(s, "pm_phase",     pm_phase);
