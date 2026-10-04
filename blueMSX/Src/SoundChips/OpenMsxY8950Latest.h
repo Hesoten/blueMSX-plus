@@ -192,40 +192,58 @@ private:
     std::vector<uint8_t> data;
 };
 
+/* Board time is a 32 bit count of master clock cycles that wraps every 200 s,
+** so elapsed time is taken modulo 2^32 instead of by comparing two times.
+** The clock stays on a tick boundary: the part of a tick that has gone by at
+** one sync is still there at the next, however close together they come. */
 template<int FREQ, int DIV>
 class Clock {
 public:
-    explicit Clock(EmuTime now) : currentTime(now) {}
-    EmuTime  getTime() const { return currentTime; }
-    void     reset(EmuTime now) { currentTime = now; }
-    void     advance(EmuTime now) { if (now > currentTime) currentTime = now; }
+    explicit Clock(EmuTime now) : lastTick((UInt32)now) {}
+    EmuTime  getTime() const { return (EmuTime)lastTick; }
+    void     reset(EmuTime now) { lastTick = (UInt32)now; }
+    void     advance(EmuTime now) { lastTick += getTicksTill(now) * PERIOD; }
     unsigned getTicksTill(EmuTime now) const {
-        if (now <= currentTime) return 0;
-        UInt64 elapsed = (UInt64)(now - currentTime);
-        UInt64 ticksPerSec = (UInt64)FREQ / (UInt64)DIV;
-        UInt64 mclkPerSec  = (UInt64)boardFrequency();
-        return mclkPerSec ? (unsigned)(elapsed * ticksPerSec / mclkPerSec) : 0;
+        return (unsigned)(((UInt32)now - lastTick) / PERIOD);
     }
     Clock& operator+=(unsigned ticks) {
-        UInt64 mclkPerSec  = (UInt64)boardFrequency();
-        UInt64 ticksPerSec = (UInt64)FREQ / (UInt64)DIV;
-        if (ticksPerSec) currentTime += (EmuTime)((UInt64)ticks * mclkPerSec / ticksPerSec);
+        lastTick += (UInt32)ticks * PERIOD;
         return *this;
     }
 private:
-    EmuTime currentTime;
+    /* Master clock cycles per tick. */
+    static constexpr UInt32 PERIOD = (UInt32)((UInt64)boardFrequency() * DIV / FREQ);
+    static_assert((UInt64)boardFrequency() * DIV % FREQ == 0,
+                  "a tick must be a whole number of master clock cycles");
+    UInt32 lastTick;
 };
 
 class Scheduler {};
+
+/* A sync point is a board timer. */
 class Schedulable {
 public:
-    Schedulable() = default;
-    explicit Schedulable(Scheduler&) {}
-    virtual ~Schedulable() = default;
-    void removeSyncPoint() {}
-    void setSyncPoint(EmuTime) {}
+    Schedulable() : timer(boardTimerCreate(&Schedulable::onFire, this)) {}
+    explicit Schedulable(Scheduler&) : Schedulable() {}
+    Schedulable(const Schedulable&) = delete;
+    Schedulable& operator=(const Schedulable&) = delete;
+    virtual ~Schedulable() { boardTimerDestroy(timer); }
+    void removeSyncPoint() { boardTimerRemove(timer); }
+    void setSyncPoint(EmuTime time) { boardTimerAdd(timer, (UInt32)time); }
     EmuTime getCurrentTime() const { return (EmuTime)boardSystemTime(); }
     virtual void executeUntil(EmuTime) {}
+private:
+    static void onFire(void* ref, UInt32 /*time*/) {
+        Schedulable* self = (Schedulable*)ref;
+        /* A register write reaches the chip after the dispatcher has brought
+        ** the mixer up to date. A sync point changes the chip's state without
+        ** passing the dispatcher, so the mixer is brought up to date here. */
+        mixerSync(boardGetMixer());
+        /* The current time, not the one the timer was set for: a register
+        ** write in the instruction that crossed it may have synced past it. */
+        self->executeUntil(self->getCurrentTime());
+    }
+    BoardTimer* timer;
 };
 
 class MSXMotherBoard {
