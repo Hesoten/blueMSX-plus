@@ -56,6 +56,9 @@ public:
     /* Dispatcher-driven Y8950 timer fire. */
     virtual void   onTimerOverflow(int timer_idx) {}
 
+    /* True while the chip holds an unmasked interrupt. No side effects. */
+    virtual bool   irqPending() { return false; }
+
 protected:
     bool loadHadOwnState_;
 };

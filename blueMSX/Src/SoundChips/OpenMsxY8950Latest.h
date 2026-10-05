@@ -43,6 +43,8 @@
 extern "C" {
 #include "Board.h"
 #include "AudioMixer.h"
+#include "Properties.h"
+#include "Y8950.h"
 }
 
 /* Forward-declare blueMSX's SaveState in the global namespace so the
@@ -124,8 +126,8 @@ class IRQHelper {
 public:
     IRQHelper() = default;
     IRQHelper(MSXMotherBoard&, const std::string&) {}
-    void reset()  { boardClearInt(0x10); }
-    void set()    { boardSetInt  (0x10); }
+    void reset()  { y8950BackendIrq(PROP_Y8950_BACKEND_OPENMSX, 0); }
+    void set()    { y8950BackendIrq(PROP_Y8950_BACKEND_OPENMSX, 1); }
 };
 
 class EmuTimerCallback {

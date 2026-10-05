@@ -255,7 +255,7 @@ void y8950GetDebugInfo(Y8950* y8950, DbgDevice* dbgDevice)
     regBank = dbgDeviceAddRegisterBank(dbgDevice, langDbgRegsAy8950(), c);
 
     c = 0;
-    dbgRegisterBankAddRegister(regBank, c++, "SR", 8, y8950->backend->readIo(0));
+    dbgRegisterBankAddRegister(regBank, c++, "SR", 8, y8950->backend->peekIo(0));
 
     for (r = 0; r < (int)sizeof(regsAvailAY8950); r++) {
         if (regsAvailAY8950[r]) {

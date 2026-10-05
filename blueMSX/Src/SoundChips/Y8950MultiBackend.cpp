@@ -27,10 +27,28 @@
 extern "C" {
 #include "SaveState.h"
 }
+#include <atomic>
 #include <cstddef>
 #include <cstdlib>
 
-static int s_active = PROP_Y8950_BACKEND_EMU8950;
+/* Written from the UI thread. A switch stores s_active, then bumps the
+** generation; the emu thread reads them the other way round. */
+static std::atomic<int>      s_active(PROP_Y8950_BACKEND_EMU8950);
+static std::atomic<unsigned> s_activeGen(1);
+static std::atomic<unsigned> s_built(0);   /* bit per backend actually created */
+
+/* A backend enabled after the machine was built is selectable but absent;
+** the line then follows the first one present, as reads do. */
+static int effectiveActive()
+{
+    int a = s_active;
+    unsigned built = s_built;
+    if (built & (1u << a)) return a;
+    for (int i = 0; i < Y8950_BACKEND_COUNT; i++) {
+        if (built & (1u << i)) return i;
+    }
+    return a;
+}
 
 extern "C" const int y8950BackendDisplayOrder[] = {
     PROP_Y8950_BACKEND_EMU8950,
@@ -59,6 +77,7 @@ extern "C" void y8950BackendActiveSet(int idx)
 {
     if (idx >= 0 && idx < Y8950_BACKEND_COUNT && backendEnabledFromProperties(idx)) {
         s_active = idx;
+        s_activeGen++;
     }
 }
 
@@ -73,10 +92,18 @@ extern "C" int y8950BackendCycle(void)
         int idx = y8950BackendDisplayOrder[(start + i) % y8950BackendDisplayCount];
         if (backendEnabledFromProperties(idx)) {
             s_active = idx;
-            return s_active;
+            s_activeGen++;
+            return idx;
         }
     }
     return s_active;
+}
+
+extern "C" void y8950BackendIrq(int idx, int on)
+{
+    if (idx != effectiveActive()) return;
+    if (on) boardSetInt(0x10);
+    else    boardClearInt(0x10);
 }
 
 extern "C" const char* y8950BackendName(int idx)
@@ -90,7 +117,7 @@ extern "C" const char* y8950BackendName(int idx)
 }
 
 Y8950MultiBackend::Y8950MultiBackend(void* hostRef)
-    : latchedAddr(0)
+    : latchedAddr(0), seenGen(0)
 {
     for (int i = 0; i < Y8950_BACKEND_COUNT; i++) backends[i] = NULL;
     for (int i = 0; i < (int)sizeof(regCache); i++) regCache[i] = 0;
@@ -104,6 +131,11 @@ Y8950MultiBackend::Y8950MultiBackend(void* hostRef)
     if (backendEnabledFromProperties(PROP_Y8950_BACKEND_OPENMSX)) {
         backends[PROP_Y8950_BACKEND_OPENMSX] = new OpenMsxY8950Backend();
     }
+    unsigned built = 0;
+    for (int i = 0; i < Y8950_BACKEND_COUNT; i++) {
+        if (backends[i]) built |= 1u << i;
+    }
+    s_built = built;
 
     /* Snap s_active onto an enabled slot so audio dispatch never sees a
     ** NULL backend.  Initial value is taken from Properties; a stale
@@ -141,8 +173,23 @@ void Y8950MultiBackend::setSampleRate(UInt32 rate)
     }
 }
 
+/* The IRQ line belongs to the active backend, so after a switch it is set
+** from that one's status. Runs on the emu thread, at the next status or
+** data read, timer overflow or mixer sync after the switch. */
+void Y8950MultiBackend::resyncIrqLine(bool force)
+{
+    unsigned gen = s_activeGen;
+    if (!force && gen == seenGen) return;
+    seenGen = gen;
+    Y8950BackendBase* b = backends[effectiveActive()];
+    if (b && b->irqPending()) boardSetInt(0x10);
+    else                      boardClearInt(0x10);
+}
+
 Int32* Y8950MultiBackend::updateBuffer(UInt32 count)
 {
+    resyncIrqLine(false);
+
     /* Drive every live backend so envelope / LFO state stays in lockstep
     ** with the running music and switching the active selection is
     ** glitch-free.  Only forward the active backend's samples to the
@@ -182,7 +229,9 @@ void Y8950MultiBackend::writeIo(int port, UInt8 value)
 
 UInt8 Y8950MultiBackend::readIo(int port)
 {
-    if (backends[s_active]) return backends[s_active]->readIo(port);
+    resyncIrqLine(false);
+    Y8950BackendBase* active = backends[s_active];
+    if (active) return active->readIo(port);
     for (int i = 0; i < Y8950_BACKEND_COUNT; i++) {
         if (backends[i]) return backends[i]->readIo(port);
     }
@@ -191,7 +240,8 @@ UInt8 Y8950MultiBackend::readIo(int port)
 
 UInt8 Y8950MultiBackend::peekIo(int port)
 {
-    if (backends[s_active]) return backends[s_active]->peekIo(port);
+    Y8950BackendBase* active = backends[s_active];
+    if (active) return active->peekIo(port);
     for (int i = 0; i < Y8950_BACKEND_COUNT; i++) {
         if (backends[i]) return backends[i]->peekIo(port);
     }
@@ -200,7 +250,8 @@ UInt8 Y8950MultiBackend::peekIo(int port)
 
 UInt8 Y8950MultiBackend::readReg(int reg)
 {
-    if (backends[s_active]) return backends[s_active]->readReg(reg);
+    Y8950BackendBase* active = backends[s_active];
+    if (active) return active->readReg(reg);
     for (int i = 0; i < Y8950_BACKEND_COUNT; i++) {
         if (backends[i]) return backends[i]->readReg(reg);
     }
@@ -211,7 +262,8 @@ UInt8 Y8950MultiBackend::readReg(int reg)
 ** non-NULL slot is a valid source (active preferred for hot cache). */
 Y8950BackendBase* Y8950MultiBackend::pickRamSourceBackend() const
 {
-    if (backends[s_active]) return backends[s_active];
+    Y8950BackendBase* active = backends[s_active];
+    if (active) return active;
     for (int i = 0; i < Y8950_BACKEND_COUNT; i++) {
         if (backends[i]) return backends[i];
     }
@@ -298,6 +350,9 @@ void Y8950MultiBackend::loadState()
             }
         }
     }
+
+    /* The state may have been saved with another backend active. */
+    resyncIrqLine(true);
 }
 
 /* Replay bus-side register history into a backend with no own dump.
@@ -329,7 +384,8 @@ void Y8950MultiBackend::replayRegistersTo(Y8950BackendBase* b)
 
 const UInt8* Y8950MultiBackend::getAdpcmRam(UInt32* size_out)
 {
-    if (backends[s_active]) return backends[s_active]->getAdpcmRam(size_out);
+    Y8950BackendBase* active = backends[s_active];
+    if (active) return active->getAdpcmRam(size_out);
     for (int i = 0; i < Y8950_BACKEND_COUNT; i++) {
         if (backends[i]) return backends[i]->getAdpcmRam(size_out);
     }
@@ -347,6 +403,7 @@ void Y8950MultiBackend::copyAdpcmRamFrom(const UInt8* src, UInt32 len)
 /* Broadcast so a runtime backend switch shows the correct timer state. */
 void Y8950MultiBackend::onTimerOverflow(int timer_idx)
 {
+    resyncIrqLine(false);
     for (int i = 0; i < Y8950_BACKEND_COUNT; i++) {
         if (backends[i]) backends[i]->onTimerOverflow(timer_idx);
     }

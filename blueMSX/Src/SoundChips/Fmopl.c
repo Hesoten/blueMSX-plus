@@ -21,6 +21,8 @@
 #include "Switches.h"
 #include "SaveState.h"
 #include "Board.h"
+#include "Properties.h"
+#include "Y8950.h"
 
 #ifndef	PI
 #define	PI 3.14159265358979323846
@@ -231,7 +233,7 @@ void OPL_STATUS_SET(FM_OPL *OPL,int	flag)
 		if(OPL->status & OPL->statusmask)
 		{	/* IRQ on */
 			OPL->status	|= 0x80;
-			boardSetInt(0x10);
+			y8950BackendIrq(PROP_Y8950_BACKEND_FMOPL, 1);
 		}
 	}
 }
@@ -246,7 +248,7 @@ void OPL_STATUS_RESET(FM_OPL *OPL,int flag)
 		if (!(OPL->status &	OPL->statusmask) )
 		{
 			OPL->status	&= 0x7f;
-			boardClearInt(0x10);
+			y8950BackendIrq(PROP_Y8950_BACKEND_FMOPL, 0);
 		}
 	}
 }
