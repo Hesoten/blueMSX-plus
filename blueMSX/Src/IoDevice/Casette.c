@@ -196,6 +196,10 @@ static void refreshSignal(void)
         return;     /* keep signalDirty set so the next motor start retries */
     }
 
+    if (tapeFormat == TAPE_WAV) {
+        tapeSignalWavMounted((UInt8*)ramImageBuffer, ramImageSize);
+    }
+
     signalDirty = 0;
     tapeSignalSetPosByByte(ramImagePos);
     tapeSignalApplyLoadedState();
@@ -274,11 +278,7 @@ int tapeInsert(char *name, const char *fileInZipFile)
             fclose(file);
         }
 
-        /* Rewriting a WAV re-renders megabytes, so only once it has changed */
-        if (*tapeName && tapeRdWr &&
-            (tapeFormat != TAPE_WAV || tapeSignalRecordDirty())) {
-            tapeSave(tapeName, tapeFormat);
-        }
+        tapeFlush();
 
         free(ramImageBuffer);
         ramImageBuffer = NULL;
@@ -403,6 +403,7 @@ int tapeInsert(char *name, const char *fileInZipFile)
 
     if (ramImageBuffer != NULL) {
         tapeSignalSetRefreshCallback(refreshSignal);
+        tapeSignalSetCommitCallback(tapeFlush);
         signalDirty = 1;
     }
     updateRecordable();
@@ -490,6 +491,21 @@ int tapeSave(char *name, TapeFormat format)
     fclose(file);
 
     return 1;
+}
+
+/* Runs when a save stops writing and at eject, so the file holds a save before
+** the tape comes out. A WAV writes only what changed, and nothing when nothing did. */
+void tapeFlush(void)
+{
+    if (ramImageBuffer == NULL || !*tapeName || !tapeRdWr) {
+        return;
+    }
+    if (tapeFormat == TAPE_WAV) {
+        tapeSignalUpdateWav(tapeName);
+    }
+    else {
+        tapeSave(tapeName, tapeFormat);
+    }
 }
 
 /* A blank tape: CAS is an empty byte stream, WAV a header of zero samples */

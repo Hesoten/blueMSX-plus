@@ -76,6 +76,10 @@ int  tapeSignalIsDriving(void);
 typedef void (*TapeSignalRefreshCb)(void);
 void tapeSignalSetRefreshCallback(TapeSignalRefreshCb cb);
 
+/* Called once a recording is spliced onto the tape, so the owner can save it */
+typedef void (*TapeSignalCommitCb)(void);
+void tapeSignalSetCommitCallback(TapeSignalCommitCb cb);
+
 void  tapeSignalSetMotor(int on);
 UInt8 tapeSignalReadBit(void);
 
@@ -88,6 +92,10 @@ void tapeSignalSetBlankSource(TapeSignalSource source);
 void tapeSignalWriteBit(int level);
 int  tapeSignalRecordDirty(void);
 int  tapeSignalSaveWav(const char* name);
+
+/* The mounted WAV's file bytes, which decide whether later saves can patch it */
+void tapeSignalWavMounted(const UInt8* data, UInt32 size);
+int  tapeSignalUpdateWav(const char* name);
 
 /* Whether the deck is heard while it writes, as a few of them could be */
 void tapeSignalSetSaveMonitor(int on);
