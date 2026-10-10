@@ -107,6 +107,7 @@
 #include "romMapperGoudaSCSI.h"
 #include "romMapperMegaFlashRomScc.h"
 #include "romMapperMegaFlashRomSccPlusSD.h"
+#include "romMapperRookieDrive.h"
 #include "romMapperASCII16X.h"
 #include "romMapperNeo8.h"
 #include "romMapperNeo16.h"
@@ -389,6 +390,10 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
 
             case ROM_MEGAFLSHSCCPLUS_SD:
                 success &= romMapperMegaFlashRomSccPlusSDCreate(cartNo, slot, sslot, 2);
+                break;
+
+            case ROM_ROOKIEDRIVE:
+                success &= romMapperRookieDriveCreate(cartNo, slot, sslot, 2);
                 break;
 
             case ROM_ASCII16X:

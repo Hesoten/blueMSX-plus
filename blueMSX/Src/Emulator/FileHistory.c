@@ -170,6 +170,7 @@ void verifyFileHistory(char* history, RomType* historyType) {
             strcmp(fname, CARTNAME_MEGAFLSHSCC) &&
             strcmp(fname, CARTNAME_MEGAFLSHSCCPLUS) &&
             strcmp(fname, CARTNAME_MEGAFLSHSCCPLUS_SD) &&
+            strcmp(fname, CARTNAME_ROOKIEDRIVE) &&
             strcmp(fname, CARTNAME_ASCII16X) &&
             strcmp(fname, CARTNAME_YAMANOOTO) &&
             strcmp(fname, CARTNAME_FLASHROMSCC) &&
@@ -464,6 +465,7 @@ int createSaveFileBaseName(char* fileBase,Properties* properties, int useExtende
                 properties->media.carts[i].type != ROM_BEERIDE             &&
                 properties->media.carts[i].type != ROM_GIDE                &&
                 properties->media.carts[i].type != ROM_GOUDASCSI           &&
+                properties->media.carts[i].type != ROM_ROOKIEDRIVE         &&
                 properties->media.carts[i].type != ROM_MSXAUDIO            &&
                 properties->media.carts[i].type != ROM_MOONSOUND           &&
                 properties->media.carts[i].type != ROM_SNATCHER            &&

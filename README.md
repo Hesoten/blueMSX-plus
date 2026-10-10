@@ -54,6 +54,9 @@ See [`blueMSX/changes.txt`](blueMSX/changes.txt) for the full change history.
 - **MegaFlashROM SCC+ SD cartridge support**
   - Emulates the breadth of MegaFlashROM SCC+ SD features including the SD card  
     (overriding the internal MSX PSG via the cartridge-side PSG port is not yet supported)
+- **Rookie Drive NX cartridge support**
+  - A hard disk image serves as a virtual USB drive  
+    (real USB devices and the USB FDD mode are not supported)
 - Other bug fixes and improvements
 
 
@@ -141,6 +144,15 @@ When multiple backends are enabled, **emulation runs in all enabled backends sim
 2. Extract `mfrsd.zip` and place `mfrsd.rom` in blueMSX+'s `Machines/Shared Roms/` folder
 3. Launch blueMSX+ and select `Cartridge Slot 1 (or 2)` → `Insert Special` → `MegaFlashROM SCC+ SD` from the menu
 4. From the `File` → `Hard Disk / SD Card` menu, either create a blank image or pick an existing image file to insert as the SD card
+
+
+## Using Rookie Drive NX
+
+1. Download the firmware for Rookie Drive NX from the [Rookie Drive download page](https://rookiedrive.com/download/)
+   - Firmware → latest version (`RDFIRMWA.ROM`)
+2. Place `RDFIRMWA.ROM` in blueMSX+'s `Machines/Shared Roms/` folder
+3. Launch blueMSX+ and select `Cartridge Slot 1 (or 2)` → `Insert Special` → `Rookie Drive NX` from the menu
+4. From the `File` → `Hard Disk / SD Card` menu, either create a blank image or pick an existing image file to insert as the USB drive
 
 
 ## Building from source
