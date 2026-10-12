@@ -32,6 +32,7 @@
 
 #include "DirAsDisk.h"
 #include "DiskFormat.h"
+#include "Utf8Conv.h"
 
 #pragma warning(disable: 4996)
 #if defined(WIN32) || defined (WINDOWS_HOST)
@@ -607,7 +608,7 @@ static int short_name_fits(const char* src, int name_max, int ext_max)
         if ((int)(p - src) == sep_off) {
             continue;
         }
-        if (c == '.' || c == ' ' || c < 0x20 || c == 0x7f) {
+        if (c == '.' || c == ' ' || c < 0x20 || c >= 0x7f) {
             return 0;
         }
     }
@@ -662,7 +663,7 @@ static void build_short_name(const char* src,
 
     for (i = 0; i < prefix_len; i++) {
         unsigned char c = (unsigned char)src[i];
-        if (c == '.' || c == ' ' || c < 0x20 || c == 0x7f) {
+        if (c == '.' || c == ' ' || c < 0x20 || c >= 0x7f) {
             c = '_';
         }
         out_name[i] = (char)toupper(c);
@@ -677,7 +678,7 @@ static void build_short_name(const char* src,
         int limit = (e_len < ext_max) ? e_len : ext_max;
         for (i = 0; i < limit; i++) {
             unsigned char c = (unsigned char)dot[1 + i];
-            if (c == ' ' || c < 0x20 || c == 0x7f) {
+            if (c == ' ' || c < 0x20 || c >= 0x7f) {
                 c = '_';
             }
             out_ext[i] = (char)toupper(c);
@@ -751,7 +752,18 @@ static int add_single_file(char *name, const char *pathname) {
       >= (int)sizeof(fullname)) {
       return -1;
   }
+#ifdef _WIN32
+  {
+    wchar_t widename[1024];
+
+    if (PathToWide(fullname, widename, 1024) <= 0) {
+      return -1;
+    }
+    fileid=_wopen (widename,O_BINARY|O_RDONLY);
+  }
+#else
   fileid=open (fullname,O_BINARY|O_RDONLY);
+#endif
   
   if (fileid < 0) {
       return -1;
@@ -792,6 +804,7 @@ static int add_single_file(char *name, const char *pathname) {
 
   b = buffer=(byte *) malloc ((size+1023)&(~1023));
   read (fileid,buffer,size);
+  result = fstat(fileid, &s);
 
   close (fileid);
 
@@ -812,8 +825,6 @@ static int add_single_file(char *name, const char *pathname) {
   memset (direc+pos*32,0,32);
   memset (direc+pos*32,0x20,11);
   msx_assign_short_name(name, pos, direc + pos * 32);
-
-  result = stat(fullname, &s);
 
   *(word *)(direc+pos*32+0x1A)=first;
   *(int *)(direc+pos*32+0x1C)=size;
