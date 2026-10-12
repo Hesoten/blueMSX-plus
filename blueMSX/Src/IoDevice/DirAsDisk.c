@@ -32,6 +32,7 @@
 
 #include "DirAsDisk.h"
 #include "DiskFormat.h"
+#include "Utf8Conv.h"
 
 #pragma warning(disable: 4996)
 #if defined(WIN32) || defined (WINDOWS_HOST)
@@ -487,9 +488,11 @@ static int match(fileinfo *file, char *name) {
       return 1;
     if (toupper((unsigned char)*name) != toupper((unsigned char)*p))
       return 0;
+    if (!*name)
+      return 1;
     name++; p++;
   }
-  return 1;
+  return !*name;
 }
 
 static int next_link(int link) {
@@ -533,9 +536,9 @@ static void wipe(fileinfo *file) {
   int current;
 
   current=file->first;
-  do {
+  /* Only data clusters are followed, so an empty file frees nothing. */
+  while (current>=2 && current<2+fatelements)
     current=remove_link (current);
-  } while (current!=0xFFF);
   direc[file->pos*32]=0xE5;
 }
 
@@ -607,7 +610,7 @@ static int short_name_fits(const char* src, int name_max, int ext_max)
         if ((int)(p - src) == sep_off) {
             continue;
         }
-        if (c == '.' || c == ' ' || c < 0x20 || c == 0x7f) {
+        if (c == '.' || c == ' ' || c < 0x20 || c >= 0x7f) {
             return 0;
         }
     }
@@ -662,7 +665,7 @@ static void build_short_name(const char* src,
 
     for (i = 0; i < prefix_len; i++) {
         unsigned char c = (unsigned char)src[i];
-        if (c == '.' || c == ' ' || c < 0x20 || c == 0x7f) {
+        if (c == '.' || c == ' ' || c < 0x20 || c >= 0x7f) {
             c = '_';
         }
         out_name[i] = (char)toupper(c);
@@ -677,7 +680,7 @@ static void build_short_name(const char* src,
         int limit = (e_len < ext_max) ? e_len : ext_max;
         for (i = 0; i < limit; i++) {
             unsigned char c = (unsigned char)dot[1 + i];
-            if (c == ' ' || c < 0x20 || c == 0x7f) {
+            if (c == ' ' || c < 0x20 || c >= 0x7f) {
                 c = '_';
             }
             out_ext[i] = (char)toupper(c);
@@ -751,7 +754,18 @@ static int add_single_file(char *name, const char *pathname) {
       >= (int)sizeof(fullname)) {
       return -1;
   }
+#ifdef _WIN32
+  {
+    wchar_t widename[1024];
+
+    if (PathToWide(fullname, widename, 1024) <= 0) {
+      return -1;
+    }
+    fileid=_wopen (widename,O_BINARY|O_RDONLY);
+  }
+#else
   fileid=open (fullname,O_BINARY|O_RDONLY);
+#endif
   
   if (fileid < 0) {
       return -1;
@@ -792,11 +806,13 @@ static int add_single_file(char *name, const char *pathname) {
 
   b = buffer=(byte *) malloc ((size+1023)&(~1023));
   read (fileid,buffer,size);
+  result = fstat(fileid, &s);
 
   close (fileid);
 
   total=(size+1023)>>10;
-  current=first=get_free ();
+  /* An empty file owns no cluster and has first cluster 0. */
+  current=first=total ? get_free () : 0;
 
   for (i=0; i<total;) {
     memcpy (cluster+(current-2)*1024,buffer,1024);
@@ -813,27 +829,33 @@ static int add_single_file(char *name, const char *pathname) {
   memset (direc+pos*32,0x20,11);
   msx_assign_short_name(name, pos, direc + pos * 32);
 
-  result = stat(fullname, &s);
+  *(word *)(direc+pos*32+0x1A)=first;
+  *(int *)(direc+pos*32+0x1C)=size;
 
-  t = localtime(&s.st_mtime);
-  if (t == NULL) {
-      time_t tmp = time(NULL);
-      t = localtime(&tmp);
-  }
-;
-  if (t == NULL) {
-      result = -1;
-  }
-  else {
-    *(word *)(direc+pos*32+0x1A)=first;
-    *(int *)(direc+pos*32+0x1C)=size;
-    *(word *)(direc+pos*32+0x16)=
-        (t->tm_sec>>1)+(t->tm_min<<5)+(t->tm_hour<<11);
-    *(word *)(direc+pos*32+0x18)=
-        (t->tm_mday)+(t->tm_mon<<5)+((t->tm_year-1980)<<9);
+  {
+    /* A FAT date starts at 1980-01-01, which also stands for any earlier time. */
+    word date = (1 << 5) + 1;
+    word clock = 0;
+
+    if (result == 0) {
+      t = localtime(&s.st_mtime);
+    }
+    else {
+      time_t now = time(NULL);
+      t = localtime(&now);
+    }
+    if (t != NULL && t->tm_year >= 80) {
+      /* Years count from 1980 in 7 bits and months from 1. */
+      int year = t->tm_year - 80 > 127 ? 127 : t->tm_year - 80;
+
+      date = (word)(t->tm_mday + ((t->tm_mon + 1) << 5) + (year << 9));
+      clock = (word)((t->tm_sec >> 1) + (t->tm_min << 5) + (t->tm_hour << 11));
+    }
+    *(word *)(direc+pos*32+0x16)=clock;
+    *(word *)(direc+pos*32+0x18)=date;
   }
   free (b);
-  return result;
+  return 0;
 }
 
 /* strupr is not a standard ANSI function, so define our own version.
