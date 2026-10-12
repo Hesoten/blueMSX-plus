@@ -815,25 +815,33 @@ static int add_single_file(char *name, const char *pathname) {
 
   result = stat(fullname, &s);
 
-  t = localtime(&s.st_mtime);
-  if (t == NULL) {
-      time_t tmp = time(NULL);
-      t = localtime(&tmp);
-  }
-;
-  if (t == NULL) {
-      result = -1;
-  }
-  else {
-    *(word *)(direc+pos*32+0x1A)=first;
-    *(int *)(direc+pos*32+0x1C)=size;
-    *(word *)(direc+pos*32+0x16)=
-        (t->tm_sec>>1)+(t->tm_min<<5)+(t->tm_hour<<11);
-    *(word *)(direc+pos*32+0x18)=
-        (t->tm_mday)+(t->tm_mon<<5)+((t->tm_year-1980)<<9);
+  *(word *)(direc+pos*32+0x1A)=first;
+  *(int *)(direc+pos*32+0x1C)=size;
+
+  {
+    /* A FAT date starts at 1980-01-01, which also stands for any earlier time. */
+    word date = (1 << 5) + 1;
+    word clock = 0;
+
+    if (result == 0) {
+      t = localtime(&s.st_mtime);
+    }
+    else {
+      time_t now = time(NULL);
+      t = localtime(&now);
+    }
+    if (t != NULL && t->tm_year >= 80) {
+      /* Years count from 1980 in 7 bits and months from 1. */
+      int year = t->tm_year - 80 > 127 ? 127 : t->tm_year - 80;
+
+      date = (word)(t->tm_mday + ((t->tm_mon + 1) << 5) + (year << 9));
+      clock = (word)((t->tm_sec >> 1) + (t->tm_min << 5) + (t->tm_hour << 11));
+    }
+    *(word *)(direc+pos*32+0x16)=clock;
+    *(word *)(direc+pos*32+0x18)=date;
   }
   free (b);
-  return result;
+  return 0;
 }
 
 /* strupr is not a standard ANSI function, so define our own version.
