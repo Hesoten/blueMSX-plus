@@ -488,9 +488,11 @@ static int match(fileinfo *file, char *name) {
       return 1;
     if (toupper((unsigned char)*name) != toupper((unsigned char)*p))
       return 0;
+    if (!*name)
+      return 1;
     name++; p++;
   }
-  return 1;
+  return !*name;
 }
 
 static int next_link(int link) {
