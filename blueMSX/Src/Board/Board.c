@@ -1892,6 +1892,7 @@ void boardChangeCartridge(int cartNo, RomType romType, char* cart, char* cartZip
         if (currentRomType[cartNo] == SRAM_WAVESCSI1MB) hdType[cartNo] = HD_WAVESCSI;
         if (currentRomType[cartNo] == ROM_GOUDASCSI)    hdType[cartNo] = HD_GOUDASCSI;
         if (currentRomType[cartNo] == ROM_MEGAFLSHSCCPLUS_SD) hdType[cartNo] = HD_MFRSD;
+        if (currentRomType[cartNo] == ROM_ROOKIEDRIVE)  hdType[cartNo] = HD_ROOKIEDRIVE;
     }
 
     if (boardRunning && cartNo < boardInfo.cartridgeCount) {

@@ -52,6 +52,9 @@ Windows 11 向けに UI や音声周りを中心にモダン化しています�
 - **MegaFlashROM SCC+ SD カートリッジ対応**
   - SD カードを含めた MegaFlashROM SCC+ SD の多様な機能をエミュレート  
     (カートリッジ搭載 PSG ポートの MSX 内蔵 PSG ポートへの上書きは未サポート)
+- **Rookie Drive NX カートリッジ対応**
+  - ハードディスクイメージを仮想 USB ドライブとして使用  
+    (実物の USB デバイスと USB FDD モードは未サポート)
 - その他のバグ修正・改善
 
 
@@ -139,6 +142,15 @@ HDR 出力・高品位スキャンラインと明るさ補正・モニタエミ�
 2. `mfrsd.zip` を展開して、中の `mfrsd.rom` を blueMSX+ の `Machines/Shared Roms/` フォルダに置く
 3. blueMSX+ を起動し、メニュー `ROMスロット1 (または 2)` → `特殊カートリッジ` → `Mega Flash ROM SCC+ SD` を選択
 4. メニュー `ファイル` → `ハードディスク / SDカード` から空イメージ作成または既存イメージファイルを指定して SD カードを挿入
+
+
+## Rookie Drive NX の使い方
+
+1. Rookie Drive NX のファームウェアを [Rookie Drive のダウンロードページ](https://rookiedrive.com/download/) からダウンロード
+   - Firmware → 最新版 (`RDFIRMWA.ROM`) をダウンロード
+2. `RDFIRMWA.ROM` を blueMSX+ の `Machines/Shared Roms/` フォルダに置く
+3. blueMSX+ を起動し、メニュー `ROMスロット1 (または 2)` → `特殊カートリッジ` → `Rookie Drive NX` を選択
+4. メニュー `ファイル` → `ハードディスク / SDカード` から空イメージ作成または既存イメージファイルを指定して USB ドライブとして挿入
 
 
 ## ビルド方法

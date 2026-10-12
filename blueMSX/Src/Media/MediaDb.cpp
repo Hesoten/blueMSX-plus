@@ -131,6 +131,7 @@ RomType mediaDbStringToType(const char* romName)
     if (iequals(name, "NEO-16"))           return ROM_NEO16;
     if (iequals(name, "NEO16"))            return ROM_NEO16;
     if (iequals(name, "Yamanooto"))        return ROM_YAMANOOTO;
+    if (iequals(name, "RookieDriveNX"))    return ROM_ROOKIEDRIVE;
     if (iequals(name, "FlashRomScc"))      return ROM_FLASHROMSCC;
     if (iequals(name, "FlashRomSccDev"))   return ROM_FLASHROMSCC;
     if (iequals(name, "Flash-ROM SCC"))    return ROM_FLASHROMSCC;
@@ -682,6 +683,7 @@ extern "C" const char* romTypeToString(RomType romType)
     case ROM_NEO8:        return "NEO-8";
     case ROM_NEO16:       return "NEO-16";
     case ROM_YAMANOOTO:   return "Yamanooto";
+    case ROM_ROOKIEDRIVE: return "Rookie Drive NX";
     case ROM_FLASHROMSCC: return "Flash-ROM SCC";
     case ROM_MEGAFLSHSCCPLUS_SD: return "Mega Flash Rom SCC+ SD";
     case ROM_OBSONET:     return langRomTypeObsonet();
@@ -867,6 +869,7 @@ extern "C" const char* romTypeToShortString(RomType romType)
     case ROM_NEO8:        return "NEO-8";
     case ROM_NEO16:       return "NEO-16";
     case ROM_YAMANOOTO:   return "YAMANOOTO";
+    case ROM_ROOKIEDRIVE: return "ROOKIEDRIVE";
     case ROM_FLASHROMSCC: return "FLASHROMSCC";
     case ROM_OBSONET:     return "OBSONET";
     case ROM_DUMAS:       return "DUMAS";
@@ -1098,6 +1101,7 @@ int romTypeIsMegaRom(RomType romType) {
     case ROM_NEO8:        return 1;
     case ROM_NEO16:       return 1;
     case ROM_YAMANOOTO:   return 1;
+    case ROM_ROOKIEDRIVE: return 1;
     case ROM_FLASHROMSCC: return 1;
     case ROM_OBSONET:     return 1;
     case ROM_DUMAS:       return 1;

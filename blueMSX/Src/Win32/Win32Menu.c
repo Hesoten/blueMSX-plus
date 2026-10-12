@@ -184,6 +184,7 @@ extern int showLoadMemoryDlg(HWND hwnd);
 #define ID_FILE_CART_ASCII16X           41119
 #define ID_FILE_CART_YAMANOOTO          41120
 #define ID_FILE_CART_FLASHROMSCC        41121
+#define ID_FILE_CART_ROOKIEDRIVE        41122
 #define ID_FILE_CART_JOYREXPSG          41110
 #define ID_FILE_CART_EXTRAM16KB         41111
 #define ID_FILE_CART_EXTRAM32KB         41112
@@ -337,6 +338,7 @@ static const char* getCleanFileName(const char* fileName)
     if (strcmp(fileName, CARTNAME_ASCII16X) == 0)       return "ASCII16-X";
     if (strcmp(fileName, CARTNAME_YAMANOOTO) == 0)      return "Yamanooto";
     if (strcmp(fileName, CARTNAME_FLASHROMSCC) == 0)    return "Flash-ROM SCC";
+    if (strcmp(fileName, CARTNAME_ROOKIEDRIVE) == 0)    return "Rookie Drive NX";
     if (strcmp(fileName, CARTNAME_ESERAM256) == 0)      return langRomTypeEseRam256();
     if (strcmp(fileName, CARTNAME_ESERAM512) == 0)      return langRomTypeEseRam512();
     if (strcmp(fileName, CARTNAME_ESERAM1MB) == 0)      return langRomTypeEseRam1mb();
@@ -630,6 +632,7 @@ static HMENU menuCreateCartSpecial(int cartNo, Properties* pProperties, Shortcut
     AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuIde, langMenuCartIde());
     AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuScsi, langMenuCartScsi());
     AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuNowind, "Nowind USB Disk Controller");
+    AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_ROOKIEDRIVE, "Rookie Drive NX");
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_FMPAC, langMenuCartFMPac());
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_PAC, langMenuCartPac());
@@ -1074,6 +1077,11 @@ static HMENU menuCreateHarddisk(Properties* pProperties, Shortcuts* shortcuts)
             AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 0), pProperties, shortcuts, 0), langBuffer);
             sprintf(langBuffer, "SD%d - MFR SCC+ SD slot 2", i);
             AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 1), pProperties, shortcuts, 0), langBuffer);
+            break;
+        case HD_ROOKIEDRIVE:
+            hasHd = 1;
+            sprintf(langBuffer, "USB%d - Rookie Drive NX", i);
+            AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 0), pProperties, shortcuts, 0), langBuffer);
             break;
         }
     }
@@ -2133,6 +2141,9 @@ int menuCommand(Properties* pProperties, int command)
             return 1;
         case ID_FILE_CART_MEGAFLSHSCCPLUS_SD:
             insertCartridge(pProperties, i, CARTNAME_MEGAFLSHSCCPLUS_SD, NULL, ROM_MEGAFLSHSCCPLUS_SD, 0);
+            return 1;
+        case ID_FILE_CART_ROOKIEDRIVE:
+            insertCartridge(pProperties, i, CARTNAME_ROOKIEDRIVE, NULL, ROM_ROOKIEDRIVE, 0);
             return 1;
         case ID_FILE_CART_ASCII16X:
             insertCartridge(pProperties, i, CARTNAME_ASCII16X, NULL, ROM_ASCII16X, 0);
