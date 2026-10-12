@@ -534,9 +534,9 @@ static void wipe(fileinfo *file) {
   int current;
 
   current=file->first;
-  do {
+  /* Only data clusters are followed, so an empty file frees nothing. */
+  while (current>=2 && current<2+fatelements)
     current=remove_link (current);
-  } while (current!=0xFFF);
   direc[file->pos*32]=0xE5;
 }
 
@@ -809,7 +809,8 @@ static int add_single_file(char *name, const char *pathname) {
   close (fileid);
 
   total=(size+1023)>>10;
-  current=first=get_free ();
+  /* An empty file owns no cluster and has first cluster 0. */
+  current=first=total ? get_free () : 0;
 
   for (i=0; i<total;) {
     memcpy (cluster+(current-2)*1024,buffer,1024);
