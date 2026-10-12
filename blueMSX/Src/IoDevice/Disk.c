@@ -599,6 +599,7 @@ UInt8 diskChange(int driveId, const char* fileName, const char* fileInZipFile)
         return 0;
 
     drivesIsCdrom[driveId] = 0;
+    RdOnly[driveId] = 0;
 
     /* Close previous disk image */
     if(drives[driveId] != NULL) { 
