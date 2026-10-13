@@ -59,8 +59,7 @@ typedef struct SdCard SdCard;
 SdCard* sdCardCreate(int diskId);
 void    sdCardDestroy(SdCard* sd);
 
-/* Power-on / hardware reset.  Same effect as toggling CS with the card
-** un-initialised (forces CMD0 sequence). */
+/* MSX reset.  The card keeps its power, and has to be initialised again. */
 void    sdCardReset(SdCard* sd);
 
 /* Chip select line.  csActiveLow == 0 means CS is asserted (card
