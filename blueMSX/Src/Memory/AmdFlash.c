@@ -124,13 +124,13 @@ static int checkCommandProgram(AmdFlash* rm)
     return 0;
 }
 
-/* Quadruple-Byte fast Program (0x56, no unlock, then 4 data writes).
-** M29W640-family only: recognized when the mapper opts in via
-** amdFlashEnableFastCommands, else 0x56 stays plain data. */
+/* Quadruple-Byte fast Program: 0x56 at the first command address, no unlock,
+** then 4 data writes. Elsewhere 0x56 is plain data, such as a bank number.
+** Only when the mapper opts in via amdFlashEnableFastCommands. */
 static int checkCommandQuadrupleByteProgram(AmdFlash* rm)
 {
     if (!rm->fastCommands) return 0;
-    if (rm->cmdIdx > 0 && rm->cmd[0].value != 0x56) return 0;
+    if (rm->cmdIdx > 0 && (cmdAddrBits(rm, rm->cmd[0].address) != rm->cmdAddr1 || rm->cmd[0].value != 0x56)) return 0;
     if (rm->cmdIdx < 5) return 1;
 
     {
