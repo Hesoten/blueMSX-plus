@@ -52,6 +52,8 @@ void archShowNoCasInZipDialog();
 ** mode message to show (missing dir vs invalid config.ini vs no selection). */
 void archShowStartEmuFailDialog(const char* machineName);
 void archShowDirAsDskOverflowDialog(int skippedCount, int skippedBytes);
+/* Tells what a directory inserted as a hard disk left out. Win32 only. */
+void archShowDirDiskSkippedDialog(int tooLarge, int onlineOnly, int subDirs);
 /* reason is a GAMEREADER_* value other than GAMEREADER_AVAILABLE. cartSlot is
 ** the slot that goes without; it reaches the message only for
 ** GAMEREADER_NO_DEVICE. */

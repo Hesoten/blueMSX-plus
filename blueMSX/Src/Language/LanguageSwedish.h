@@ -85,6 +85,9 @@ void langInitSwedish(LanguageStrings* ls)
     ls->errorCreateTapeImage    = "Kunde inte skapa kassettfilen.";
     ls->errorNoCasInZip         = "Kunde inte hitta en .cas fil i zip arkivet.";
     ls->errorDirAsDskOverflow   = "%d fil(er) (%d KB totalt) får inte plats i 720 KB-diskavbilden och hoppades över.";
+    ls->errorDirDiskTooLarge    = "%d fil(er) fick inte plats på disken och utelämnades.";
+    ls->errorDirDiskOnline      = "%d fil(er) som bara finns online utelämnades. Gör dem tillgängliga på den här enheten för att ta med dem.";
+    ls->errorDirDiskSubdirs     = "%d mapp(ar) utelämnades eftersom det valda formatet inte kan innehålla dem.";
     ls->errorNoHelp             = "Kunde inte hitta hjälpfilen.";
     ls->errorStartEmu           = "Misslyckades att starta emulatorn.";
     ls->errorStartEmuNoMachine           = "Ingen MSX-maskin är inställd för emulering. Välj en under Egenskaper -> Emulering -> MSX familj.";

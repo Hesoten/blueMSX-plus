@@ -30,6 +30,7 @@
 */
 #include "Disk.h"
 #include "DirAsDisk.h"
+#include "DirDisk.h"
 #include "ArchDialog.h"
 #include "ziphelper.h"
 #include <stdlib.h>
@@ -74,6 +75,11 @@ static const DiskHostMedium* hostMedium[MAXDRIVES];
 static void* hostMediumRef[MAXDRIVES];
 static Int64 hostMediumSize[MAXDRIVES];
 static int   hostMediumInserted[MAXDRIVES];
+/* A directory volume outlives the reinsertions a reset causes, so that what the
+** MSX wrote to it stays; dirActive tells whether the drive shows it now. */
+static DirDisk* dirVolume[MAXDRIVES];
+static int   dirActive[MAXDRIVES];
+static int   dirFormat[MAXDRIVES];
 /* Per-drive memory of the directory whose 720 KB overflow dialog has
 ** already been shown -- shared by diskChange() and diskPreviewDirOverflow()
 ** to dedupe the warning across insert + emulator-start. */
@@ -227,7 +233,14 @@ static int hostMediumIo(int driveId, int write, Int64 offset, UInt8* buffer, int
 {
     const DiskHostMedium* medium = hostMedium[driveId];
 
-    if (medium == NULL || offset < 0 || length < 0 || fileSize[driveId] < offset + length) {
+    if (offset < 0 || length < 0 || fileSize[driveId] < offset + length) {
+        return 0;
+    }
+    if (dirActive[driveId]) {
+        return write ? dirDiskWrite(dirVolume[driveId], offset, buffer, length)
+                     : dirDiskRead(dirVolume[driveId], offset, buffer, length);
+    }
+    if (medium == NULL) {
         return 0;
     }
     if (!write) {
@@ -637,11 +650,63 @@ void diskSetHostMedium(int driveId, const DiskHostMedium* medium, void* ref, Int
         return;
     }
     /* A drive that still shows the previous medium must stop using it. */
-    hostMediumInserted[driveId] = 0;
+    if (!dirActive[driveId]) {
+        hostMediumInserted[driveId] = 0;
+    }
     hostMedium[driveId]     = medium;
     hostMediumRef[driveId]  = ref;
     hostMediumSize[driveId] = size;
     changed[driveId]        = 1;
+}
+
+void diskSetDirFormat(int driveId, int format)
+{
+    if (driveId >= 0 && driveId < MAXDRIVES) {
+        dirFormat[driveId] = format;
+    }
+}
+
+int diskPrepareDir(int driveId, const char* directory, int format)
+{
+    if (driveId < MAX_FDC_COUNT || driveId >= MAXDRIVES) {
+        return 0;
+    }
+    diskDiscardDir(driveId);
+    dirFormat[driveId] = format;
+    dirVolume[driveId] = dirDiskCreate(directory, format);
+    return dirVolume[driveId] != NULL;
+}
+
+int diskIsDirPath(const char* path)
+{
+    return path != NULL && path[0] != 0 && dirDiskIsDirPath(path);
+}
+
+void diskDiscardDir(int driveId)
+{
+    if (driveId >= 0 && driveId < MAXDRIVES && dirVolume[driveId] != NULL) {
+        if (dirActive[driveId]) {
+            dirActive[driveId] = 0;
+            hostMediumInserted[driveId] = 0;
+            changed[driveId] = 1;
+        }
+        dirDiskDestroy(dirVolume[driveId]);
+        dirVolume[driveId] = NULL;
+    }
+}
+
+int diskGetDirSkipped(int driveId, int* tooLarge, int* onlineOnly, int* subDirs)
+{
+    DirSkipped skipped;
+
+    if (driveId < 0 || driveId >= MAXDRIVES || dirVolume[driveId] == NULL) {
+        return 0;
+    }
+    dirDiskGetSkipped(dirVolume[driveId], &skipped);
+    *tooLarge   = skipped.tooLarge;
+    *onlineOnly = skipped.onlineOnly;
+    *subDirs    = skipped.subDirs;
+    return skipped.tooLarge + skipped.onlineOnly + skipped.subDirs > 0;
 }
 
 void diskWithdrawHostMedia(void)
@@ -685,6 +750,11 @@ UInt8 diskChange(int driveId, const char* fileName, const char* fileInZipFile)
     drivesIsCdrom[driveId] = 0;
     RdOnly[driveId] = 0;
     hostMediumInserted[driveId] = 0;
+    dirActive[driveId] = 0;
+    if (fileName != NULL && dirVolume[driveId] != NULL &&
+        strcmp(dirDiskGetDirectory(dirVolume[driveId]), fileName) != 0) {
+        diskDiscardDir(driveId);
+    }
 
     /* Close previous disk image */
     if(drives[driveId] != NULL) { 
@@ -724,8 +794,21 @@ UInt8 diskChange(int driveId, const char* fileName, const char* fileInZipFile)
     }
 
     rv = stat(fileName, &s);
-    if (rv == 0) {
-        if (s.st_mode & S_IFDIR) {
+    if (diskIsDirPath(fileName)) {
+        if (driveId >= MAX_FDC_COUNT) {
+            if (dirVolume[driveId] == NULL) {
+                dirVolume[driveId] = dirDiskCreate(fileName, dirFormat[driveId]);
+            }
+            if (dirVolume[driveId] == NULL) {
+                return 0;
+            }
+            dirActive[driveId] = 1;
+            hostMediumInserted[driveId] = 1;
+            fileSize[driveId] = dirDiskGetSize(dirVolume[driveId]);
+            diskHdUpdateInfo(driveId);
+            return 1;
+        }
+        if (rv == 0) {
             ramImageBuffer[driveId] = dirLoadFile(DDT_MSX, fileName, &ramImageSize[driveId]);
             fileSize[driveId] = ramImageSize[driveId];
             diskUpdateInfo(driveId);

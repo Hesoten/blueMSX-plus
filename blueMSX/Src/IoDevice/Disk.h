@@ -66,6 +66,19 @@ UInt8 diskChange(int driveId, const char* fileName, const char* fileInZipFile);
 ** drive uses it once diskChange gets a host medium name. */
 void diskSetHostMedium(int driveId, const DiskHostMedium* medium, void* ref, Int64 size);
 void diskWithdrawHostMedia(void);
+
+/* A directory inserted in a hard disk drive shows as a partitioned FAT volume
+** whose files stay on the host. format is a DiskFormatType, used when the
+** drive has to build the volume itself. */
+void diskSetDirFormat(int driveId, int format);
+/* Reads the directory afresh so that inserting it shows it as it is now; zero if it cannot be read. */
+int  diskPrepareDir(int driveId, const char* directory, int format);
+/* Forgets the volume of the drive together with what the MSX wrote to it. */
+void diskDiscardDir(int driveId);
+/* Whether the name is that of a host directory, inserted or not. */
+int  diskIsDirPath(const char* path);
+/* Counts what the volume of the drive left out; zero when there is nothing to tell. */
+int  diskGetDirSkipped(int driveId, int* tooLarge, int* onlineOnly, int* subDirs);
 int  diskIsHostMediumName(const char* fileName);
 int  diskIsHostMediumOffered(int driveId);
 int  diskHasHostMedium(void);

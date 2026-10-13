@@ -308,6 +308,7 @@ SOURCE_FILES += R800SaveState.c
 
 SOURCE_FILES += Casette.c 
 SOURCE_FILES += DirAsDisk.c
+SOURCE_FILES += DirDisk.c
 SOURCE_FILES += Disk.c
 SOURCE_FILES += FdcAudio.c
 SOURCE_FILES += ft245.c

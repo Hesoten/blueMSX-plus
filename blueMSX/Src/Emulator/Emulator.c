@@ -386,6 +386,7 @@ static void setDeviceInfo(BoardDeviceInfo* deviceInfo)
     for (i = 0; i < PROP_MAX_DISKS; i++) {
         deviceInfo->disks[i].inserted =  (int)strlen(properties->media.disks[i].fileName);
         strcpy(deviceInfo->disks[i].name, properties->media.disks[i].fileName);
+        diskSetDirFormat(i, properties->media.disks[i].dirFormat);
         strcpy(deviceInfo->disks[i].inZipName, properties->media.disks[i].fileNameInZip);
     }
 

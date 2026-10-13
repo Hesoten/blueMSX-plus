@@ -85,6 +85,9 @@ void langInitKorean(LanguageStrings* ls)
     ls->errorCreateTapeImage    = "테이프 이미지 파일을 만들 수 없습니다.";
     ls->errorNoCasInZip         = "zip파일 내부의 cas를 찾을 수 없습니다.";
     ls->errorDirAsDskOverflow   = "%d 개의 파일(총 %d KB)이 720 KB 디스크 이미지에 맞지 않아 건너뛰었습니다.";
+    ls->errorDirDiskTooLarge    = "%d개의 파일이 디스크에 들어가지 않아 제외되었습니다.";
+    ls->errorDirDiskOnline      = "온라인 전용 파일 %d개가 제외되었습니다. 포함하려면 이 장치에서 사용할 수 있게 하십시오.";
+    ls->errorDirDiskSubdirs     = "선택한 형식에서는 다룰 수 없어 %d개의 디렉토리가 제외되었습니다.";
     ls->errorNoHelp             = "blueMSX+ 도움말을 찾을 수 없습니다.";
     ls->errorStartEmu           = "MSX 에뮬레이터를 시작할 수 없습니다.";
     ls->errorStartEmuNoMachine           = "에뮬레이션에 사용할 MSX 머신이 설정되지 않았습니다. 옵션 -> 에뮬레이션 -> MSX 머신 에서 선택하세요.";

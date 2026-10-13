@@ -462,6 +462,7 @@ typedef struct {
     char directory[PROP_MAXPATH];
     int  extensionFilter;
     int  type;
+    int  dirFormat;
 } FileProperties;
 
 typedef struct {

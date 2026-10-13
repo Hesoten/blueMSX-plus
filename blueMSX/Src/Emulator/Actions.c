@@ -202,6 +202,27 @@ void actionHarddiskInsertNew(int diskNo)
 
 void actionHarddiskInsertDir(int diskNo)
 {
+#if defined(_WIN32) || defined(WIN32)
+    int msxFormat = 2;
+    char* filename;
+
+    emulatorSuspend();
+    filename = archDirnameGetOpenDiskWithFormat(state.properties, diskNo, &msxFormat);
+    if (filename != NULL && diskPrepareDir(diskNo, filename, msxFormat)) {
+        int tooLarge;
+        int onlineOnly;
+        int subDirs;
+
+        strcpy(state.properties->media.disks[diskNo].directory, filename);
+        state.properties->media.disks[diskNo].dirFormat = msxFormat;
+        insertDiskette(state.properties, diskNo, filename, NULL, 0);
+        if (diskGetDirSkipped(diskNo, &tooLarge, &onlineOnly, &subDirs)) {
+            archShowDirDiskSkippedDialog(tooLarge, onlineOnly, subDirs);
+        }
+    }
+    emulatorResume();
+    archUpdateMenu(0);
+#endif
 }
 
 void actionHarddiskRemove(int diskNo)
@@ -209,11 +230,12 @@ void actionHarddiskRemove(int diskNo)
     state.properties->media.disks[diskNo].fileName[0] = 0;
     state.properties->media.disks[diskNo].fileNameInZip[0] = 0;
     updateExtendedDiskName(diskNo, state.properties->media.disks[diskNo].fileName, state.properties->media.disks[diskNo].fileNameInZip);
+    emulatorSuspend();
     if (emulatorGetState() != EMU_STOPPED) {
-        emulatorSuspend();
         boardChangeDiskette(diskNo, NULL, NULL);
-        emulatorResume();
     }
+    diskDiscardDir(diskNo);
+    emulatorResume();
     archUpdateMenu(0);
 }
 
@@ -235,6 +257,7 @@ void actionHarddiskRemoveAll()
                     state.properties->media.disks[diskNo].fileNameInZip[0] = 0;
                     updateExtendedDiskName(diskNo, state.properties->media.disks[diskNo].fileName, state.properties->media.disks[diskNo].fileNameInZip);
                     if (flag) boardChangeDiskette(diskNo, NULL, NULL);
+                    diskDiscardDir(diskNo);
                 }
             }
         //}

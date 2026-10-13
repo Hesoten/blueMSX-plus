@@ -82,6 +82,9 @@ typedef struct {
     char* errorCreateTapeImage;
     char* errorNoCasInZip;
     char* errorDirAsDskOverflow;
+    char* errorDirDiskTooLarge;
+    char* errorDirDiskOnline;
+    char* errorDirDiskSubdirs;
     char* errorNoHelp;
     char* errorStartEmu;
     /* Machine-load failure details shown as the body of errorStartEmu. */

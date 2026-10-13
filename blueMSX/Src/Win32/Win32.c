@@ -4490,7 +4490,8 @@ static void commandLineReport(const char* message)
         return;
     }
 
-    sprintf(text, "blueMSX+: %s\r\n", message);
+    _snprintf(text, sizeof(text) - 1, "blueMSX+: %s\r\n", message);
+    text[sizeof(text) - 1] = 0;
     /* This goes to the error stream, or a redirected listing would collect the
     ** complaint too. */
     if (!consoleWriteTo(STD_ERROR_HANDLE, text) && !st.hidden) {
@@ -5417,6 +5418,29 @@ void archShowDirAsDskOverflowDialog(int skippedCount, int skippedBytes) {
     char msg[512];
     enterDialogShow();
     sprintf(msg, langErrorDirAsDskOverflow(), skippedCount, (skippedBytes + 1023) / 1024);
+    MessageBoxU(NULL, msg, langMenuDiskDirInsert(), MB_OK | MB_ICONWARNING);
+    exitDialogShow();
+}
+
+void archShowDirDiskSkippedDialog(int tooLarge, int onlineOnly, int subDirs) {
+    char msg[1536] = "";
+
+    if (tooLarge > 0) {
+        sprintf(msg + strlen(msg), langErrorDirDiskTooLarge(), tooLarge);
+    }
+    if (onlineOnly > 0) {
+        strcat(msg, msg[0] ? "\n\n" : "");
+        sprintf(msg + strlen(msg), langErrorDirDiskOnline(), onlineOnly);
+    }
+    if (subDirs > 0) {
+        strcat(msg, msg[0] ? "\n\n" : "");
+        sprintf(msg + strlen(msg), langErrorDirDiskSubdirs(), subDirs);
+    }
+    if (st.hidden) {
+        commandLineReport(msg);
+        return;
+    }
+    enterDialogShow();
     MessageBoxU(NULL, msg, langMenuDiskDirInsert(), MB_OK | MB_ICONWARNING);
     exitDialogShow();
 }
@@ -6651,7 +6675,7 @@ char* archDirnameGetOpenDisk(Properties* properties, int drive)
 char* archDirnameGetOpenDiskWithFormat(Properties* properties, int drive,
                                         int* outMsxFormat)
 {
-    char* title = drive == 1 ? langDlgInsertDiskB() : langDlgInsertDiskA();
+    char* title = drive == 0 ? langDlgInsertDiskA() : drive == 1 ? langDlgInsertDiskB() : langMenuDiskDirInsert();
     char* defaultDir = properties->media.disks[drive].directory;
     char* filename;
     static int lastFormat = (int)DiskFormatMsxDos2;

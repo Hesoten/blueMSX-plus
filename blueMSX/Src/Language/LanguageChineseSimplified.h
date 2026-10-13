@@ -85,6 +85,9 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->errorCreateTapeImage    = "无法创建磁带映像文件。";
     ls->errorNoCasInZip         = "无法在 zip 压缩包内找到 .cas 文件。";
     ls->errorDirAsDskOverflow   = "%d 个文件 (总共 %d KB) 未能适配 720 KB 磁盘镜像，已跳过。";
+    ls->errorDirDiskTooLarge    = "%d 个文件无法放入磁盘，已被排除。";
+    ls->errorDirDiskOnline      = "已排除 %d 个仅联机文件。若要包含它们，请使其在此设备上可用。";
+    ls->errorDirDiskSubdirs     = "所选格式无法容纳，已排除 %d 个目录。";
     ls->errorNoHelp             = "无法找到 blueMSX+ 帮助文件。";
     ls->errorStartEmu           = "无法启动 MSX 模拟器。";
     ls->errorStartEmuNoMachine           = "尚未设置用于模拟的 MSX 机器。请在 选项 -> 模拟 -> MSX 机型 中选择一个。";

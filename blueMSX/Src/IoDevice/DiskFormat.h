@@ -48,6 +48,10 @@ int diskImageCreate(const char* path, int sizeBytes, DiskFormatType fmt);
 int diskFormatWriteBootSector(unsigned char* dst, int sizeBytes,
                               DiskFormatType fmt);
 
+/* The 512-byte boot sector to start from; NULL for an unformatted disk.
+** A FAT16 volume takes the same one whatever the format. */
+const unsigned char* diskFormatBootTemplate(DiskFormatType fmt, int fat16);
+
 #ifdef __cplusplus
 }
 #endif

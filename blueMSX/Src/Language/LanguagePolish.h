@@ -85,6 +85,9 @@ void langInitPolish(LanguageStrings* ls)
     ls->errorCreateTapeImage    = "Nie można utworzyć pliku obrazu taśmy.";
     ls->errorNoCasInZip         = "Nie znaleziono pliku .cas w archiwum zip.";
     ls->errorDirAsDskOverflow   = "%d plik(ów) (%d KB łącznie) nie zmieściło się w obrazie dysku 720 KB i zostały pominięte.";
+    ls->errorDirDiskTooLarge    = "Liczba plików, które nie zmieściły się na dysku i zostały pominięte: %d.";
+    ls->errorDirDiskOnline      = "Liczba pominiętych plików dostępnych tylko online: %d. Udostępnij je na tym urządzeniu, aby je uwzględnić.";
+    ls->errorDirDiskSubdirs     = "Liczba folderów pominiętych, ponieważ wybrany format ich nie obsługuje: %d.";
     ls->errorNoHelp             = "Nie znaleziono pliku pomocy blueMSX+.";
     ls->errorStartEmu           = "Nie udało się uruchomić emulatora MSX.";
     ls->errorStartEmuNoMachine           = "Nie ustawiono maszyny MSX do emulacji. Wybierz jedną w Opcje -> Emulacja -> Typ MSX.";

@@ -302,6 +302,9 @@ char* langErrorCreateDiskImage() { return ls->errorCreateDiskImage; }
 char* langErrorCreateTapeImage() { return ls->errorCreateTapeImage; }
 char* langErrorNoCasInZip() { return ls->errorNoCasInZip; }
 char* langErrorDirAsDskOverflow() { return ls->errorDirAsDskOverflow; }
+char* langErrorDirDiskTooLarge() { return ls->errorDirDiskTooLarge; }
+char* langErrorDirDiskOnline() { return ls->errorDirDiskOnline; }
+char* langErrorDirDiskSubdirs() { return ls->errorDirDiskSubdirs; }
 char* langErrorNoHelp() { return ls->errorNoHelp; }
 char* langErrorStartEmu() { return ls->errorStartEmu; }
 char* langErrorStartEmuNoMachine()          { return ls->errorStartEmuNoMachine; }

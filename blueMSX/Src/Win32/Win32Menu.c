@@ -992,6 +992,7 @@ static HMENU menuCreateIdeHd(int diskNo, Properties* pProperties, Shortcuts* sho
     setMenuColor(hMenu);
 
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_HARDDISK_INSERT, langMenuInsert());
+    AppendMenuU(hMenu, MF_STRING, idOffset + ID_HARDDISK_INSERTDIR, langMenuDiskDirInsert());
     if (showCdrom) {
         AppendMenuU(hMenu, MF_STRING, idOffset + ID_HARDDISK_INSERTCDROM, langMenuDiskDirInsertCdrom());
     }

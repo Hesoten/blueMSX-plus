@@ -85,6 +85,9 @@ void langInitEnglish(LanguageStrings* ls)
     ls->errorCreateTapeImage    = "Could not create the tape image file.";
     ls->errorNoCasInZip         = "Could not locate a .CAS file in the ZIP archive.";
     ls->errorDirAsDskOverflow   = "%d file(s) (%d KB total) did not fit in the 720 KB disk image and were skipped.";
+    ls->errorDirDiskTooLarge    = "%d file(s) did not fit on the disk and were left out.";
+    ls->errorDirDiskOnline      = "%d online-only file(s) were left out. Make them available on this device to include them.";
+    ls->errorDirDiskSubdirs     = "Subdirectories left out because the chosen format cannot hold them: %d.";
     ls->errorNoHelp             = "Could not locate the blueMSX+ help file.";
     ls->errorStartEmu           = "Failed to Start MSX emulator.";
     ls->errorStartEmuNoMachine           = "No machine has been set for emulation. Pick one from Options -> Emulation -> MSX machine.";
