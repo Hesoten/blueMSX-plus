@@ -1145,7 +1145,8 @@ int dirDiskWrite(void* ref, Int64 offset, const UInt8* buffer, int length)
     DirDisk* disk = (DirDisk*)ref;
     int done;
 
-    if (!inRange(disk, offset, length)) {
+    /* The partition table stays as it is, so the MSX cannot repartition the volume. */
+    if (!inRange(disk, offset, length) || offset == 0) {
         return 0;
     }
     for (done = 0; done < length; done += SECTOR) {
