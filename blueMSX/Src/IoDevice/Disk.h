@@ -67,14 +67,16 @@ UInt8 diskChange(int driveId, const char* fileName, const char* fileInZipFile);
 void diskSetHostMedium(int driveId, const DiskHostMedium* medium, void* ref, Int64 size);
 void diskWithdrawHostMedia(void);
 
-/* A directory inserted in a hard disk drive shows as a partitioned FAT volume
-** whose files stay on the host. format is a DiskFormatType, used when the
+/* A directory inserted in a drive shows as a FAT volume (partitioned on a hard
+** disk) whose files stay on the host. format is a DiskFormatType, used when the
 ** drive has to build the volume itself. */
 void diskSetDirFormat(int driveId, int format);
 /* Reads the directory afresh so that inserting it shows it as it is now; zero if it cannot be read. */
 int  diskPrepareDir(int driveId, const char* directory, int format);
 /* What the MSX writes to the directory from now on is not written back until it starts afresh. */
 void diskDirDisarm(int driveId);
+/* Tells once what the directory in a drive left out; returns 1 when it told. */
+int diskNotifyDirSkipped(int driveId);
 /* Tells the directories that the machine is starting, from a saved state or not;
 ** stopped says that nothing is reading the drives meanwhile. */
 void diskDirStart(int fromState, int stopped);

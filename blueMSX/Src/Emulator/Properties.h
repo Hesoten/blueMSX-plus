@@ -513,6 +513,7 @@ typedef struct {
     char    cartridge[2][MAX_HISTORY][PROP_MAXPATH];
     RomType cartridgeType[2][MAX_HISTORY];
     char    diskdrive[2][MAX_HISTORY][PROP_MAXPATH];
+    int     diskdriveFormat[2][MAX_HISTORY];
     char    cassette[1][MAX_HISTORY][PROP_MAXPATH];
 #endif
     char    quicksave[PROP_MAXPATH];

@@ -40,6 +40,10 @@ int launchFileIsSupported(const char* fileName);
 int tryLaunchUnknownFile(Properties* properties, const char* fileName, int forceAutostart);
 int insertCartridge(Properties* properties, int drive, const char* fname, const char* inZipFile, RomType romType, int forceAutostart);
 int insertDiskette(Properties* properties, int drive, const char* fname, const char* inZipFile, int forceAutostart);
+#if defined(_WIN32) || defined(WIN32)
+/* A floppy directory goes in with the format the drive's history recorded for it, else MSX-DOS 2. */
+int insertDisketteRecalled(Properties* properties, int drive, const char* fname);
+#endif
 int insertCassette(Properties* properties, int drive, const char* fname, const char* inZipFile, int forceAutostart);
 
 #endif

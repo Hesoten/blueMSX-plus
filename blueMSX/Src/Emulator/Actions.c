@@ -131,20 +131,61 @@ void actionDiskInsertNew(int diskNo)
     archUpdateMenu(0);
 }
 
+static int dirGateActive;
+/* A directory is being chosen for a drive; the MSX is not paused, stepped or asked about meanwhile. */
+static int dirInsertActive;
+static int dirStateTold;
+
 void actionDiskInsertDir(int diskNo)
 {
+#if defined(_WIN32) || defined(WIN32)
+    Properties* properties = state.properties;
+    int msxFormat = 2;  /* DiskFormatMsxDos2 */
+    char* filename;
+
+    if (dirGateActive || dirInsertActive) {
+        return;
+    }
+    dirInsertActive = 1;
+    emulatorSuspend();
+    filename = archDirnameGetOpenDirDisk(properties, diskNo, &msxFormat);
+    /* Something let in while a dialog was open may have set the MSX going again. */
+    emulatorSuspend();
+    if (filename != NULL && actionDirWriteBack(diskNo)) {
+        properties->media.disks[diskNo].dirFormat = msxFormat;
+        diskSetDirFormat(diskNo, msxFormat);
+        if (!diskPrepareDir(diskNo, filename, msxFormat)) {
+            properties->media.disks[diskNo].fileName[0] = 0;
+            properties->media.disks[diskNo].fileNameInZip[0] = 0;
+            updateExtendedDiskName(diskNo, properties->media.disks[diskNo].fileName, properties->media.disks[diskNo].fileNameInZip);
+            if (emulatorGetState() != EMU_STOPPED) {
+                boardChangeDiskette(diskNo, NULL, NULL);
+            }
+            archShowDirUnreadable(filename);
+        }
+        else {
+            int restart = diskNo == 0 && properties->diskdrive.autostartA;
+
+            strcpy(properties->media.disks[diskNo].directory, filename);
+            /* The insert restarts the machine, whose emulator thread would otherwise show the dialog. */
+            if (restart) {
+                diskNotifyDirSkipped(diskNo);
+            }
+            insertDiskette(properties, diskNo, filename, NULL, 0);
+            /* The dialog takes down the toast the insert may have put up. */
+            if (!restart && diskNotifyDirSkipped(diskNo) && emulatorGetState() != EMU_STOPPED) {
+                actionDirInsertedNotice();
+            }
+        }
+    }
+    dirInsertActive = 0;
+    emulatorResume();
+    archUpdateMenu(0);
+#else
     char* filename;
 
     emulatorSuspend();
-#if defined(_WIN32) || defined(WIN32)
-    {
-        int msxFormat = 2;  /* DiskFormatMsxDos2 */
-        filename = archDirnameGetOpenDiskWithFormat(state.properties, diskNo, &msxFormat);
-        if (filename != NULL) dirSetMsxDiskFormat(msxFormat);
-    }
-#else
     filename = archDirnameGetOpenDisk(state.properties, diskNo);
-#endif
     if (filename != NULL) {
         strcpy(state.properties->media.disks[diskNo].directory, filename);
         diskPreviewDirOverflow(diskNo, filename);
@@ -152,17 +193,23 @@ void actionDiskInsertDir(int diskNo)
     }
     emulatorResume();
     archUpdateMenu(0);
+#endif
 }
 
 void actionDiskRemove(int i) {
+    emulatorSuspend();
+    if (!actionDirWriteBack(i)) {
+        emulatorResume();
+        return;
+    }
     state.properties->media.disks[i].fileName[0] = 0;
     state.properties->media.disks[i].fileNameInZip[0] = 0;
     updateExtendedDiskName(i, state.properties->media.disks[i].fileName, state.properties->media.disks[i].fileNameInZip);
     if (emulatorGetState() != EMU_STOPPED) {
-        emulatorSuspend();
         boardChangeDiskette(i, NULL, NULL);
-        emulatorResume();
     }
+    diskDiscardDir(i);
+    emulatorResume();
     archUpdateMenu(0);
 }
 
@@ -185,10 +232,6 @@ int actionHarddiskCanChange(int diskNo, int isDir)
     /* The others would not notice any change of medium. */
     return 0;
 }
-
-static int dirGateActive;
-/* A directory is being chosen for a drive; the MSX is not paused, stepped or asked about meanwhile. */
-static int dirInsertActive;
 
 int actionDirAnyPending(void)
 {
@@ -331,8 +374,6 @@ void actionDirMemoryNotice(void)
     }
 }
 
-static int dirStateTold;
-
 void actionDirStateNotice(void)
 {
 #if defined(_WIN32) || defined(WIN32)
@@ -343,7 +384,7 @@ void actionDirStateNotice(void)
     if (session == 0 || session == dirStateTold) {
         return;
     }
-    for (i = MAX_FDC_COUNT; i < PROP_MAX_DISKS; i++) {
+    for (i = 0; i < PROP_MAX_DISKS; i++) {
         if (diskIsDir(i)) {
             dirStateTold = session;
             archShowDirStateLoaded();
@@ -1129,7 +1170,8 @@ void actionStopPlayReverse()
 }
 
 void actionDiskQuickChange() {
-    if (*state.properties->media.disks[0].fileName) {
+    /* A directory has no next diskette to go to. */
+    if (*state.properties->media.disks[0].fileName && !diskIsDirPath(state.properties->media.disks[0].fileName)) {
         if (*state.properties->media.disks[0].fileNameInZip) {
             strcpy(state.properties->media.disks[0].fileNameInZip, fileGetNext(state.properties->media.disks[0].fileNameInZip, state.properties->media.disks[0].fileName));
 #ifdef WII

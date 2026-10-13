@@ -37,9 +37,9 @@ typedef struct {
     int subDirs;        /* subdirectories the chosen format cannot hold */
 } DirSkipped;
 
-/* format is a DiskFormatType. The files stay on the host; only the
-** directory structure is kept in memory. Writes never reach the host. */
-DirDisk* dirDiskCreate(const char* directory, int format);
+/* format is a DiskFormatType; floppy asks for an unpartitioned 720 kB diskette.
+** The files stay on the host; only the directory structure is kept in memory. */
+DirDisk* dirDiskCreate(const char* directory, int format, int floppy);
 void dirDiskDestroy(DirDisk* disk);
 
 /* The path is UTF-8, which the C library does not take everywhere. */

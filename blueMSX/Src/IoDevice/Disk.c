@@ -86,6 +86,12 @@ static int   dirFormat[MAXDRIVES];
 static int   dirStateLoaded;
 static int   dirStateSession;
 static int   dirMemoryStep[MAXDRIVES];
+/* The first drive a directory is shown in as a volume of its own; the floppy drives too where it can be written back. */
+#if defined(_WIN32) || defined(WIN32)
+#define DIR_VOLUME_FIRST 0
+#else
+#define DIR_VOLUME_FIRST MAX_FDC_COUNT
+#endif
 /* Per-drive memory of the directory whose 720 KB overflow dialog has
 ** already been shown -- shared by diskChange() and diskPreviewDirOverflow()
 ** to dedupe the warning across insert + emulator-start. */
@@ -110,6 +116,34 @@ static void notifyDirOverflowIfAny(int driveId, const char* path)
         snprintf(dirOverflowShownPath[driveId],
                  sizeof(dirOverflowShownPath[driveId]), "%s", path);
     }
+}
+
+/* The same for a diskette directory shown as a volume of its own. */
+static int notifyDirSkipped(int driveId, const char* path)
+{
+#if defined(_WIN32) || defined(WIN32)
+    DirSkipped skipped;
+
+    dirDiskGetSkipped(dirVolume[driveId], &skipped);
+    if (skipped.tooLarge + skipped.onlineOnly + skipped.subDirs == 0 || strcmp(dirOverflowShownPath[driveId], path) == 0) {
+        return 0;
+    }
+    archShowDirDiskSkippedDialog(skipped.tooLarge, skipped.onlineOnly, skipped.subDirs);
+    snprintf(dirOverflowShownPath[driveId], sizeof(dirOverflowShownPath[driveId]), "%s", path);
+    return 1;
+#else
+    (void)driveId;
+    (void)path;
+    return 0;
+#endif
+}
+
+int diskNotifyDirSkipped(int driveId)
+{
+    if (driveId >= 0 && driveId < MAXDRIVES && dirVolume[driveId] != NULL) {
+        return notifyDirSkipped(driveId, dirDiskGetDirectory(dirVolume[driveId]));
+    }
+    return 0;
 }
 
 void diskPreviewDirOverflow(int driveId, const char* path)
@@ -676,12 +710,12 @@ void diskSetDirFormat(int driveId, int format)
 
 int diskPrepareDir(int driveId, const char* directory, int format)
 {
-    if (driveId < MAX_FDC_COUNT || driveId >= MAXDRIVES) {
+    if (driveId < DIR_VOLUME_FIRST || driveId >= MAXDRIVES) {
         return 0;
     }
     diskDiscardDir(driveId);
     dirFormat[driveId] = format;
-    dirVolume[driveId] = dirDiskCreate(directory, format);
+    dirVolume[driveId] = dirDiskCreate(directory, format, driveId < MAX_FDC_COUNT);
     if (dirVolume[driveId] == NULL) {
         return 0;
     }
@@ -721,8 +755,9 @@ void diskDirStart(int fromState, int stopped)
         if (fromState) {
             dirDiskDisarm(dirVolume[i]);
         }
-        else if (stopped && dirDiskIsDisarmed(dirVolume[i])) {
-            /* The MSX starts afresh, so the directory can be read anew and trusted again. */
+        else if (stopped && (dirDiskIsDisarmed(dirVolume[i]) || (i < MAX_FDC_COUNT && !diskDirPending(i)))) {
+            /* The MSX starts afresh, so the directory can be read anew and trusted again.
+            ** A diskette with nothing to write back is read anew at every start. */
             diskDiscardDir(i);
         }
     }
@@ -918,9 +953,11 @@ UInt8 diskChange(int driveId, const char* fileName, const char* fileInZipFile)
 
     rv = stat(fileName, &s);
     if (diskIsDirPath(fileName)) {
-        if (driveId >= MAX_FDC_COUNT) {
-            if (dirVolume[driveId] == NULL) {
-                dirVolume[driveId] = dirDiskCreate(fileName, dirFormat[driveId]);
+        if (driveId >= DIR_VOLUME_FIRST) {
+            int created = dirVolume[driveId] == NULL;
+
+            if (created) {
+                dirVolume[driveId] = dirDiskCreate(fileName, dirFormat[driveId], driveId < MAX_FDC_COUNT);
             }
             if (dirVolume[driveId] == NULL) {
                 return 0;
@@ -931,7 +968,15 @@ UInt8 diskChange(int driveId, const char* fileName, const char* fileInZipFile)
             dirActive[driveId] = 1;
             hostMediumInserted[driveId] = 1;
             fileSize[driveId] = dirDiskGetSize(dirVolume[driveId]);
-            diskHdUpdateInfo(driveId);
+            if (driveId < MAX_FDC_COUNT) {
+                diskUpdateInfo(driveId);
+                if (created) {
+                    notifyDirSkipped(driveId, fileName);
+                }
+            }
+            else {
+                diskHdUpdateInfo(driveId);
+            }
             return 1;
         }
         if (rv == 0) {

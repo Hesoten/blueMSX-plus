@@ -66,6 +66,9 @@ typedef struct {
 struct DirDisk {
     char*   directory;
     int     format;
+    /* A floppy volume has no partition table: start, the sector of the boot sector, is 0 instead of 1. */
+    int     floppy;
+    UInt32  start;
     DirNode* root;
     DirLayout layout;
     UInt32  dataStart;

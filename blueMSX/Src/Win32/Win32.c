@@ -3236,7 +3236,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             ** the INVALID_FILE_ATTRIBUTES it returns has the directory bit. */
             fa = GetFileAttributesU(fname);
             if (fa != INVALID_FILE_ATTRIBUTES && (fa & FILE_ATTRIBUTE_DIRECTORY)) {
-                insertDiskette(pProperties, 0, fname, NULL, 0);
+                insertDisketteRecalled(pProperties, 0, fname);
             }
             else {
                 tryLaunchUnknownFile(pProperties, fname, 0);
@@ -6776,36 +6776,18 @@ char* archDirnameGetOpenDisk(Properties* properties, int drive)
     return filename;
 }
 
-char* archDirnameGetOpenDiskWithFormat(Properties* properties, int drive,
-                                        int* outMsxFormat)
+char* archDirnameGetOpenDirDisk(Properties* properties, int drive, int* outMsxFormat)
 {
     char* title = drive == 0 ? langDlgInsertDiskA() : drive == 1 ? langDlgInsertDiskB() : langMenuDiskDirInsert();
     char* defaultDir = properties->media.disks[drive].directory;
     char* filename;
-    static int lastFormat = (int)DiskFormatMsxDos2;
-    int fmt = lastFormat;
+    /* The format last chosen, for a diskette and for a hard disk. */
+    static int lastFormats[2] = { (int)DiskFormatMsxDos2, (int)DiskFormatNextor };
+    int* lastFormat = &lastFormats[drive > 1];
+    int fmt = *lastFormat;
 
     enterDialogShow();
     filename = openDirWithFormat(getMainHwnd(), title, defaultDir, &fmt);
-    exitDialogShow();
-    SetCurrentDirectoryU(st.pCurDir);
-
-    if (filename != NULL) {
-        lastFormat = fmt;
-        if (outMsxFormat) *outMsxFormat = fmt;
-    }
-    return filename;
-}
-
-char* archDirnameGetOpenDirDisk(Properties* properties, int drive, int* outMsxFormat)
-{
-    char* defaultDir = properties->media.disks[drive].directory;
-    char* filename;
-    static int lastFormat = (int)DiskFormatNextor;
-    int fmt = lastFormat;
-
-    enterDialogShow();
-    filename = openDirWithFormat(getMainHwnd(), langMenuDiskDirInsert(), defaultDir, &fmt);
     exitDialogShow();
     SetCurrentDirectoryU(st.pCurDir);
 
@@ -6814,7 +6796,7 @@ char* archDirnameGetOpenDirDisk(Properties* properties, int drive, int* outMsxFo
         return NULL;
     }
     if (filename != NULL) {
-        lastFormat = fmt;
+        *lastFormat = fmt;
         *outMsxFormat = fmt;
     }
     return filename;

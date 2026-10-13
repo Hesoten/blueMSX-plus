@@ -560,6 +560,8 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
         properties->filehistory.cartridgeType[1][i] = ROM_UNKNOWN;
         properties->filehistory.diskdrive[0][i][0] = 0;
         properties->filehistory.diskdrive[1][i][0] = 0;
+        properties->filehistory.diskdriveFormat[0][i] = 0;
+        properties->filehistory.diskdriveFormat[1][i] = 0;
         properties->filehistory.cassette[0][i][0] = 0;
     }
 
@@ -967,7 +969,9 @@ static void propLoad(Properties* properties)
         GET_STR_VALUE_2i(histFile, filehistory, cartridge[1], i);
         GET_INT_VALUE_2i(histFile, filehistory, cartridgeType[1], i);
         GET_STR_VALUE_2i(histFile, filehistory, diskdrive[0], i);
+        GET_INT_VALUE_2i(histFile, filehistory, diskdriveFormat[0], i);
         GET_STR_VALUE_2i(histFile, filehistory, diskdrive[1], i);
+        GET_INT_VALUE_2i(histFile, filehistory, diskdriveFormat[1], i);
         GET_STR_VALUE_2i(histFile, filehistory, cassette[0], i);
     }
 
@@ -1338,7 +1342,9 @@ void propSave(Properties* properties)
         SET_STR_VALUE_2i(histFile, filehistory, cartridge[1], i);
         SET_INT_VALUE_2i(histFile, filehistory, cartridgeType[1], i);
         SET_STR_VALUE_2i(histFile, filehistory, diskdrive[0], i);
+        SET_INT_VALUE_2i(histFile, filehistory, diskdriveFormat[0], i);
         SET_STR_VALUE_2i(histFile, filehistory, diskdrive[1], i);
+        SET_INT_VALUE_2i(histFile, filehistory, diskdriveFormat[1], i);
         SET_STR_VALUE_2i(histFile, filehistory, cassette[0], i);
     }
 

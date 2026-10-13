@@ -288,7 +288,7 @@ int insertDiskette(Properties* properties, int drive, const char* fname, const c
     if (diskIsHostMediumName(fname)) {
         return 0;
     }
-    if (drive >= MAX_FDC_COUNT && (!actionHarddiskCanChange(drive, 0) || !actionDirWriteBack(drive))) {
+    if (!actionHarddiskCanChange(drive, 0)) {
         return 0;
     }
 
@@ -382,12 +382,17 @@ int insertDiskette(Properties* properties, int drive, const char* fname, const c
         }
     }
 
+    if (!actionDirWriteBack(drive)) {
+        return 0;
+    }
+
     strcpy(properties->media.disks[drive].fileName, filename);
     strcpy(properties->media.disks[drive].fileNameInZip, diskName);
     updateExtendedDiskName(drive, properties->media.disks[drive].fileName, properties->media.disks[drive].fileNameInZip);
 #ifndef NO_FILE_HISTORY
     if (drive < 2) {
-        updateFileHistory(*properties->filehistory.diskdrive[drive], NULL, filename, 0);
+        updateFileHistory(*properties->filehistory.diskdrive[drive], properties->filehistory.diskdriveFormat[drive], filename,
+                          diskIsDirPath(filename) ? properties->media.disks[drive].dirFormat : 0);
     }
 #endif
 
@@ -396,13 +401,68 @@ int insertDiskette(Properties* properties, int drive, const char* fname, const c
         emulatorStart(NULL);
     }
     else if (emulatorGetState() != EMU_STOPPED) {
+        int unreadable = 0;
+
         emulatorSuspend();
         boardChangeDiskette(drive, filename, isZip ? diskName : NULL);
+#if defined(_WIN32) || defined(WIN32)
+        unreadable = diskIsDirPath(filename) && !diskIsDir(drive);
+        if (unreadable) {
+            properties->media.disks[drive].fileName[0] = 0;
+            properties->media.disks[drive].fileNameInZip[0] = 0;
+            updateExtendedDiskName(drive, properties->media.disks[drive].fileName, properties->media.disks[drive].fileNameInZip);
+            boardChangeDiskette(drive, NULL, NULL);
+        }
+#endif
         emulatorResume();
+#if defined(_WIN32) || defined(WIN32)
+        if (unreadable) {
+            archShowDirUnreadable(filename);
+        }
+        else if (diskIsDir(drive)) {
+            actionDirInsertedNotice();
+        }
+#endif
     }
 
     return 1;
 }
+
+#if defined(_WIN32) || defined(WIN32)
+/* fname may point into the history, which the insert reorders, so it is not read after the insert. */
+int insertDisketteRecalled(Properties* properties, int drive, const char* fname)
+{
+    int format = 0;
+    int previous = properties->media.disks[drive].dirFormat;
+
+    if (drive >= 2 || !diskIsDirPath(fname)) {
+        return insertDiskette(properties, drive, fname, NULL, 0);
+    }
+    if (!actionDirWriteBack(drive)) {
+        return 0;
+    }
+#ifndef NO_FILE_HISTORY
+    {
+        int i;
+
+        for (i = 0; i < MAX_HISTORY; i++) {
+            if (strcmp(properties->filehistory.diskdrive[drive][i], fname) == 0) {
+                format = properties->filehistory.diskdriveFormat[drive][i];
+                break;
+            }
+        }
+    }
+#endif
+    properties->media.disks[drive].dirFormat = format;
+    diskSetDirFormat(drive, format);
+    if (!insertDiskette(properties, drive, fname, NULL, 0)) {
+        properties->media.disks[drive].dirFormat = previous;
+        diskSetDirFormat(drive, previous);
+        return 0;
+    }
+    return 1;
+}
+#endif
 
 int insertCassette(Properties* properties, int drive, const char* fname, const char* inZipFile, int forceAutostart) {
     int autostart = forceAutostart == 1;

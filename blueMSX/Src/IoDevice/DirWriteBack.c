@@ -190,7 +190,7 @@ static int sameLayout(DirPlan* plan)
 {
     UInt8 boot[DIR_SECTOR];
 
-    if (!dirDiskReadSector(plan->disk, 1, boot)) {
+    if (!dirDiskReadSector(plan->disk, plan->disk->start, boot)) {
         return 0;
     }
     return memcmp(boot + 0x0b, plan->disk->boot + 0x0b, 13) == 0 &&
@@ -209,11 +209,11 @@ static int loadFat(DirPlan* plan)
         return 0;
     }
     for (i = 0; i < layout->fatSectors; i++) {
-        if (!dirDiskReadSector(plan->disk, 2 + i, plan->fat + i * DIR_SECTOR)) {
+        if (!dirDiskReadSector(plan->disk, plan->disk->start + 1 + i, plan->fat + i * DIR_SECTOR)) {
             return 0;
         }
     }
-    for (i = plan->disk->dataStart; i < plan->disk->overlaySectors && i < layout->total + 1; i++) {
+    for (i = plan->disk->dataStart; i < plan->disk->overlaySectors && i < layout->total + plan->disk->start; i++) {
         if (plan->disk->overlaySlot[i] != 0) {
             UInt32 cluster = 2 + (i - plan->disk->dataStart) / layout->spc;
 
@@ -241,7 +241,7 @@ static int parseDirectory(DirPlan* plan, Entry* dir, UInt32 first, UInt32 parent
         return 0;
     }
     if (first == 0) {
-        UInt32 rootStart = 2 + 2 * layout->fatSectors;
+        UInt32 rootStart = plan->disk->start + 1 + 2 * layout->fatSectors;
 
         bytes = layout->rootEntries * 32;
         raw = (UInt8*)malloc(bytes);

@@ -52,7 +52,7 @@ void archShowNoCasInZipDialog();
 ** mode message to show (missing dir vs invalid config.ini vs no selection). */
 void archShowStartEmuFailDialog(const char* machineName);
 void archShowDirAsDskOverflowDialog(int skippedCount, int skippedBytes);
-/* Tells what a directory inserted as a hard disk left out. Win32 only. */
+/* Tells what a directory volume left out. Win32 only. */
 void archShowDirDiskSkippedDialog(int tooLarge, int onlineOnly, int subDirs);
 void archShowDirUnreadable(const char* directory);
 /* The questions around writing the changes of the MSX back to a directory.
