@@ -168,11 +168,22 @@ void actionDiskRemove(int i) {
 
 int actionHarddiskCanChange(int diskNo, int isDir)
 {
+    HdType type;
+
     if (emulatorGetState() == EMU_STOPPED || diskNo < MAX_FDC_COUNT || diskNo >= MAXDRIVES) {
         return 1;
     }
-    /* A directory only goes in or out while the MSX is off: it would not notice the change. */
-    return !isDir && !diskIsDir(diskNo);
+    type = boardGetHdType((diskNo - MAX_FDC_COUNT) / MAX_DRIVES_PER_HD);
+    /* The drivers of these find a changed medium and have the MSX read it from the start. */
+    if (type == HD_ROOKIEDRIVE || type == HD_MFRSD) {
+        return 1;
+    }
+    /* These take another image or disc at any time; a directory only goes in or out while the MSX is off. */
+    if (type == HD_MEGASCSI || type == HD_WAVESCSI || type == HD_GOUDASCSI || type == HD_NOWIND) {
+        return !isDir && !diskIsDir(diskNo);
+    }
+    /* The others would not notice any change of medium. */
+    return 0;
 }
 
 static int dirGateActive;
@@ -411,7 +422,6 @@ void actionHarddiskInsertDir(int diskNo)
             int subDirs;
 
             strcpy(properties->media.disks[diskNo].directory, filename);
-            dirStateTold = 0;
             insertDiskette(properties, diskNo, filename, NULL, 0);
             properties->media.disks[diskNo].dirFormat = msxFormat;
             if (diskGetDirSkipped(diskNo, &tooLarge, &onlineOnly, &subDirs)) {

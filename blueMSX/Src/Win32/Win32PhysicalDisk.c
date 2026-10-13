@@ -945,7 +945,14 @@ void physicalDiskInsert(int driveId)
 
     emulatorSuspend();
     enterDialogShow();
-    chosen = choose(owner, properties, &info) && actionDirWriteBack(driveId);
+    chosen = choose(owner, properties, &info);
+    /* A disk is in one drive at a time, and the drive that has it may not be free to let go. */
+    for (other = 0; chosen && other < MAXDRIVES; other++) {
+        if (attachments[other].disk != NULL && attachments[other].diskNumber == info.number && !actionHarddiskCanChange(other, 0)) {
+            chosen = 0;
+        }
+    }
+    chosen = chosen && actionDirWriteBack(driveId);
     if (chosen) {
         actionHarddiskEjectDir(driveId);
     }
@@ -953,7 +960,6 @@ void physicalDiskInsert(int driveId)
         chosen = 0;
     }
     if (chosen) {
-        /* A disk is in one drive at a time. */
         for (other = 0; other < MAXDRIVES; other++) {
             if (attachments[other].disk != NULL && attachments[other].diskNumber == info.number) {
                 release(other);

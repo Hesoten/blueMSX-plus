@@ -656,12 +656,14 @@ void diskSetHostMedium(int driveId, const DiskHostMedium* medium, void* ref, Int
     }
     /* A drive that still shows the previous medium must stop using it. */
     if (!dirActive[driveId]) {
+        if (hostMediumInserted[driveId]) {
+            changed[driveId] = 1;
+        }
         hostMediumInserted[driveId] = 0;
     }
     hostMedium[driveId]     = medium;
     hostMediumRef[driveId]  = ref;
     hostMediumSize[driveId] = size;
-    changed[driveId]        = 1;
 }
 
 void diskSetDirFormat(int driveId, int format)
