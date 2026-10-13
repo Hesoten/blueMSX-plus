@@ -319,6 +319,18 @@ int actionDirWriteBack(int diskNo)
 #endif
 }
 
+void actionDirMemoryNotice(void)
+{
+    int megabytes = diskDirMemoryNotice();
+
+    if (megabytes > 0) {
+        char text[512];
+
+        snprintf(text, sizeof(text), langInfoDirMemory(), megabytes);
+        archCaptureToastInfo(text);
+    }
+}
+
 static int dirStateTold;
 
 void actionDirStateNotice(void)

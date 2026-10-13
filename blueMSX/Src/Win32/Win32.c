@@ -5346,6 +5346,9 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
         /* Covers record-end paths that never hit emulatorStop (RLE buffer
         ** overflow inside boardCaptureUInt8); no-op when nothing pending. */
         actionReplayFlushCompletionToast();
+        if (!st.hidden) {
+            actionDirMemoryNotice();
+        }
     }
 
     emulatorExit();

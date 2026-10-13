@@ -27,9 +27,7 @@
 #include <stdio.h>
 
 #define DIR_SECTOR             512
-#define DIR_OVERLAY_SECTORS    (64 * 1024 * 1024 / DIR_SECTOR)
 #define DIR_OVERLAY_BLOCK      2048
-#define DIR_OVERLAY_HASH       (1u << 18)
 #define DIR_ATTR_READONLY      0x01
 #define DIR_ATTR_LABEL         0x08
 #define DIR_ATTR_DIRECTORY     0x10
@@ -83,10 +81,11 @@ struct DirDisk {
     FILE*   openFile;
     DirNode* openNode;
 
-    /* overlayKey holds sector + 1, zero for a free place. */
-    UInt32* overlayKey;
+    /* overlaySlot holds, for every sector of the volume, its place in the
+    ** blocks plus one; zero while the MSX has not written the sector. */
     UInt32* overlaySlot;
-    UInt8*  overlayBlock[DIR_OVERLAY_SECTORS / DIR_OVERLAY_BLOCK];
+    UInt8** overlayBlock;
+    UInt32  overlaySectors;
     UInt32  overlayCount;
 };
 

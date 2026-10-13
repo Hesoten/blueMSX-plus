@@ -124,6 +124,7 @@ char* langErrorDirWriteInvalid();
 char* langErrorDirWriteFailed();
 char* langErrorDirWriteHost();
 char* langInfoDirWriteState();
+char* langInfoDirMemory();
 char* langErrorNoHelp();
 char* langErrorStartEmu();
 char* langErrorStartEmuNoMachine();

@@ -100,6 +100,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->errorDirWriteFailed     = "%d 個の項目を書き戻せませんでした。次のディレクトリの log.txt に一覧があります:\n%s";
     ls->errorDirWriteHost       = "MSX での変更をこのディレクトリへ書き込めませんでした:\n%s\n\nディレクトリが読み取り専用か、ディスクの空きが不足している可能性があります。\n\n変更を破棄しますか？";
     ls->infoDirWriteState       = "MSX は保存したステートから動作しています。MSX の電源を入れ直すまで、このディレクトリへの変更は反映されません。";
+    ls->infoDirMemory           = "ディレクトリへの変更の保持に必要なメモリが %d MB を超えました。";
     ls->errorNoHelp             = "blueMSX+ のヘルプファイルが見つかりません。";
     ls->errorStartEmu           = "blueMSX+ の開始に失敗しました。";
     ls->errorStartEmuNoMachine           = "エミュレートするマシンが設定されていません。 オプション → エミュレーション → マシン構成 から選択してください。";

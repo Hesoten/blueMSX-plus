@@ -100,6 +100,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->errorDirWriteFailed     = "%d kohdetta ei voitu kirjoittaa takaisin. Tämän hakemiston log.txt luettelee ne:\n%s";
     ls->errorDirWriteHost       = "MSX:n tekemiä muutoksia ei voitu kirjoittaa tähän hakemistoon:\n%s\n\nHakemisto voi olla vain luku -tilassa tai levy täynnä.\n\nHylätäänkö muutokset?";
     ls->infoDirWriteState       = "MSX toimii tallennetusta tilasta. Tämän hakemiston muutoksia ei kirjoiteta takaisin ennen kuin MSX on sammutettu ja käynnistetty uudelleen.";
+    ls->infoDirMemory           = "Hakemiston muutosten säilyttämiseen tarvittava muisti ylittää nyt %d Mt.";
     ls->errorNoHelp             = "blueMSX+:n ohjetiedostoa ei löytynyt.";
     ls->errorStartEmu           = "MSX emulaattorin käynnistys epäonnistui.";
     ls->errorStartEmuNoMachine           = "Emulaatiolle ei ole asetettu MSX-konetta. Valitse yksi kohdasta Asetukset -> Emulaatio -> MSX malli.";

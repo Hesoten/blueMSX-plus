@@ -98,6 +98,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->errorDirWriteFailed     = "%d element(s) no s'han pogut escriure. El fitxer log.txt d'aquest directori els enumera:\n%s";
     ls->errorDirWriteHost       = "Els canvis fets per l'MSX no s'han pogut escriure en aquest directori:\n%s\n\nPot ser que el directori sigui només de lectura o que el disc sigui ple.\n\nVoleu descartar els canvis?";
     ls->infoDirWriteState       = "L'MSX funciona a partir d'un estat desat. Els canvis d'aquest directori no s'hi escriuran fins que l'MSX s'hagi apagat i tornat a engegar.";
+    ls->infoDirMemory           = "La memòria necessària per conservar els canvis al directori ja supera els %d MB.";
     ls->errorNoHelp             = "No s'ha pogut trobar el fitxer d'ajuda de blueMSX+.";
     ls->errorStartEmu           = "No s'ha pogut iniciar l'emulador MSX.";
     ls->errorStartEmuNoMachine           = "No hi ha cap màquina MSX configurada per a l'emulació. Trieu-ne una a Opcions -> Emulació -> Màquina MSX.";

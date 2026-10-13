@@ -98,6 +98,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->errorDirWriteFailed     = "%d개 항목을 디렉토리에 기록하지 못했습니다. 다음 디렉토리의 log.txt에 목록이 있습니다:\n%s";
     ls->errorDirWriteHost       = "MSX의 변경 내용을 이 디렉토리에 기록할 수 없습니다:\n%s\n\n디렉토리가 읽기 전용이거나 디스크 공간이 부족할 수 있습니다.\n\n변경 내용을 버리시겠습니까?";
     ls->infoDirWriteState       = "MSX가 저장된 상태에서 실행 중입니다. MSX 전원을 껐다 다시 켤 때까지 이 디렉토리의 변경 내용은 기록되지 않습니다.";
+    ls->infoDirMemory           = "디렉토리 변경 내용을 보관하는 데 필요한 메모리가 %d MB를 넘었습니다.";
     ls->errorNoHelp             = "blueMSX+ 도움말을 찾을 수 없습니다.";
     ls->errorStartEmu           = "MSX 에뮬레이터를 시작할 수 없습니다.";
     ls->errorStartEmuNoMachine           = "에뮬레이션에 사용할 MSX 머신이 설정되지 않았습니다. 옵션 -> 에뮬레이션 -> MSX 머신 에서 선택하세요.";

@@ -213,11 +213,9 @@ static int loadFat(DirPlan* plan)
             return 0;
         }
     }
-    for (i = 0; i < DIR_OVERLAY_HASH; i++) {
-        UInt32 key = plan->disk->overlayKey[i];
-
-        if (key > plan->disk->dataStart && key - 1 < layout->total + 1) {
-            UInt32 cluster = 2 + (key - 1 - plan->disk->dataStart) / layout->spc;
+    for (i = plan->disk->dataStart; i < plan->disk->overlaySectors && i < layout->total + 1; i++) {
+        if (plan->disk->overlaySlot[i] != 0) {
+            UInt32 cluster = 2 + (i - plan->disk->dataStart) / layout->spc;
 
             if (inData(plan, cluster)) {
                 setBit(plan->dirty, cluster);

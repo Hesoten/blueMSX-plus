@@ -98,6 +98,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->errorDirWriteFailed     = "%d objekt kunde inte skrivas tillbaka. log.txt i den här mappen listar dem:\n%s";
     ls->errorDirWriteHost       = "De ändringar MSX har gjort kunde inte skrivas till den här mappen:\n%s\n\nMappen kan vara skrivskyddad eller disken full.\n\nVill du förkasta ändringarna?";
     ls->infoDirWriteState       = "MSX körs från ett sparat tillstånd. Ändringar i den här mappen skrivs inte tillbaka förrän MSX har stängts av och slagits på igen.";
+    ls->infoDirMemory           = "Minnet som krävs för ändringarna i mappen överstiger nu %d MB.";
     ls->errorNoHelp             = "Kunde inte hitta hjälpfilen.";
     ls->errorStartEmu           = "Misslyckades att starta emulatorn.";
     ls->errorStartEmuNoMachine           = "Ingen MSX-maskin är inställd för emulering. Välj en under Egenskaper -> Emulering -> MSX familj.";

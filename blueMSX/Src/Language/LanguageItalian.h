@@ -99,6 +99,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->errorDirWriteFailed     = "Non è stato possibile scrivere %d elementi. Il file log.txt in questa cartella li elenca:\n%s";
     ls->errorDirWriteHost       = "Non è stato possibile scrivere in questa cartella le modifiche fatte dall'MSX:\n%s\n\nLa cartella potrebbe essere di sola lettura o il disco potrebbe essere pieno.\n\nScartare le modifiche?";
     ls->infoDirWriteState       = "L'MSX sta funzionando da uno stato salvato. Le modifiche a questa cartella non verranno scritte finché l'MSX non sarà stato spento e riacceso.";
+    ls->infoDirMemory           = "La memoria necessaria per conservare le modifiche alla cartella supera ora %d MB.";
     ls->errorNoHelp                     = "Non trovo il file della guida in linea di blueMSX+.";
     ls->errorStartEmu                   = "Avvio dell'emulatore fallito!";
     ls->errorStartEmuNoMachine          = "Nessuna macchina MSX impostata per l'emulazione. Sceglietene una da Opzioni -> Emulazione -> Modello emulato.";

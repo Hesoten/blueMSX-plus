@@ -315,6 +315,7 @@ char* langErrorDirWriteInvalid() { return ls->errorDirWriteInvalid; }
 char* langErrorDirWriteFailed() { return ls->errorDirWriteFailed; }
 char* langErrorDirWriteHost() { return ls->errorDirWriteHost; }
 char* langInfoDirWriteState() { return ls->infoDirWriteState; }
+char* langInfoDirMemory() { return ls->infoDirMemory; }
 char* langErrorNoHelp() { return ls->errorNoHelp; }
 char* langErrorStartEmu() { return ls->errorStartEmu; }
 char* langErrorStartEmuNoMachine()          { return ls->errorStartEmuNoMachine; }

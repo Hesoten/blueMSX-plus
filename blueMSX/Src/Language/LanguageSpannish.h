@@ -98,6 +98,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->errorDirWriteFailed     = "%d elemento(s) no se pudieron escribir. El archivo log.txt de este directorio los enumera:\n%s";
     ls->errorDirWriteHost       = "Los cambios hechos por el MSX no se han podido escribir en este directorio:\n%s\n\nPuede que el directorio sea de solo lectura o que el disco esté lleno.\n\n¿Descartar los cambios?";
     ls->infoDirWriteState       = "El MSX funciona a partir de un estado guardado. Los cambios en este directorio no se escribirán hasta que el MSX se haya apagado y vuelto a encender.";
+    ls->infoDirMemory           = "La memoria necesaria para guardar los cambios en el directorio ya supera los %d MB.";
     ls->errorNoHelp             = "Imposible encontrar archivo de ayuda de BlueMSX.";
     ls->errorStartEmu           = "Error al iniciar MSX emulator.";
     ls->errorStartEmuNoMachine           = "No hay ninguna máquina MSX configurada para la emulación. Elija una en Opciones -> Emulación -> Familia MSX.";

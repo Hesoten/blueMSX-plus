@@ -98,6 +98,7 @@ void langInitGerman(LanguageStrings* ls)
     ls->errorDirWriteFailed     = "%d Element(e) konnten nicht zurückgeschrieben werden. log.txt in diesem Directory führt sie auf:\n%s";
     ls->errorDirWriteHost       = "Die Änderungen des MSX konnten nicht in dieses Directory geschrieben werden:\n%s\n\nDas Directory ist möglicherweise schreibgeschützt oder der Datenträger ist voll.\n\nÄnderungen verwerfen?";
     ls->infoDirWriteState       = "Der MSX läuft mit einem geladenen Speicherstand. Änderungen an diesem Directory werden erst zurückgeschrieben, nachdem der MSX aus- und wieder eingeschaltet wurde.";
+    ls->infoDirMemory           = "Der Speicher für die Änderungen am Directory übersteigt jetzt %d MB.";
     ls->errorNoHelp              = "Konnte kein blueMSX+-Hilfe-File finden.";
     ls->errorStartEmu            = "Der MSX-Emulator konnte nicht gestartet werden.";
     ls->errorStartEmuNoMachine           = "Es ist keine MSX-Maschine für die Emulation eingestellt. Wählen Sie eine unter Options -> Emulation -> MSX-Maschine.";

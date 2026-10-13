@@ -52,9 +52,7 @@
 #define DOS1_ROOT_MAX       240
 #define ROOT_MAX            512
 #define RESERVE_BYTES       (2 * 1024 * 1024)
-#define OVERLAY_SECTORS     DIR_OVERLAY_SECTORS
 #define OVERLAY_BLOCK       DIR_OVERLAY_BLOCK
-#define OVERLAY_HASH        DIR_OVERLAY_HASH
 #define ATTR_READONLY       DIR_ATTR_READONLY
 #define ATTR_DIRECTORY      DIR_ATTR_DIRECTORY
 #define ATTR_ARCHIVE        DIR_ATTR_ARCHIVE
@@ -922,9 +920,7 @@ DirDisk* dirDiskCreate(const char* directory, int format)
     disk->format      = format;
     disk->directory   = copyText(directory);
     disk->root        = newNode(directory, "", 1);
-    disk->overlayKey  = (UInt32*)calloc(OVERLAY_HASH, sizeof(UInt32));
-    disk->overlaySlot = (UInt32*)calloc(OVERLAY_HASH, sizeof(UInt32));
-    if (disk->directory == NULL || disk->root == NULL || disk->overlayKey == NULL || disk->overlaySlot == NULL) {
+    if (disk->directory == NULL || disk->root == NULL) {
         dirDiskDestroy(disk);
         return NULL;
     }
@@ -939,7 +935,10 @@ DirDisk* dirDiskCreate(const char* directory, int format)
 
     disk->dataStart = 1 + 1 + 2 * disk->layout.fatSectors + disk->layout.rootEntries / 16;
     disk->fat = (UInt8*)calloc(disk->layout.fatSectors, SECTOR);
-    if (disk->fat == NULL) {
+    disk->overlaySectors = (UInt32)(dirDiskGetSize(disk) / SECTOR);
+    disk->overlaySlot  = (UInt32*)calloc(disk->overlaySectors, sizeof(UInt32));
+    disk->overlayBlock = (UInt8**)calloc(disk->overlaySectors / OVERLAY_BLOCK + 1, sizeof(UInt8*));
+    if (disk->fat == NULL || disk->overlaySlot == NULL || disk->overlayBlock == NULL) {
         dirDiskDestroy(disk);
         return NULL;
     }
@@ -962,10 +961,10 @@ void dirDiskDestroy(DirDisk* disk)
     if (disk->openFile != NULL) {
         fclose(disk->openFile);
     }
-    for (i = 0; i < OVERLAY_SECTORS / OVERLAY_BLOCK; i++) {
+    for (i = 0; disk->overlayBlock != NULL && i < (int)(disk->overlaySectors / OVERLAY_BLOCK + 1); i++) {
         free(disk->overlayBlock[i]);
     }
-    free(disk->overlayKey);
+    free(disk->overlayBlock);
     free(disk->overlaySlot);
     free(disk->extent);
     free(disk->fat);
@@ -1030,6 +1029,11 @@ int dirDiskIsDirty(DirDisk* disk)
     return disk->overlayCount > 0;
 }
 
+int dirDiskMemoryMegabytes(DirDisk* disk)
+{
+    return (int)(disk->overlayCount / (1024 * 1024 / SECTOR));
+}
+
 void dirDiskReleaseHostFile(DirDisk* disk)
 {
     if (disk->openFile != NULL) {
@@ -1041,25 +1045,15 @@ void dirDiskReleaseHostFile(DirDisk* disk)
 
 /* ------------------------------ Overlay ----------------------------- */
 
-/* The slot that holds sector, or where it would go; NULL when the table is full. */
+/* Where the place of sector is kept; NULL outside the volume. */
 static UInt32* overlayFind(DirDisk* disk, UInt32 sector)
 {
-    UInt32 index = (sector * 2654435761u) >> 14;
-    UInt32 probes;
-
-    for (probes = 0; probes < OVERLAY_HASH; probes++) {
-        UInt32* key = &disk->overlayKey[(index + probes) & (OVERLAY_HASH - 1)];
-
-        if (*key == 0 || *key == sector + 1) {
-            return key;
-        }
-    }
-    return NULL;
+    return sector < disk->overlaySectors ? &disk->overlaySlot[sector] : NULL;
 }
 
 static UInt8* overlayData(DirDisk* disk, const UInt32* key)
 {
-    UInt32 slot = disk->overlaySlot[key - disk->overlayKey];
+    UInt32 slot = *key - 1;
 
     return disk->overlayBlock[slot / OVERLAY_BLOCK] + (slot % OVERLAY_BLOCK) * SECTOR;
 }
@@ -1074,18 +1068,14 @@ static int overlayWrite(DirDisk* disk, UInt32 sector, const UInt8* buffer)
     if (*key == 0) {
         UInt32 slot = disk->overlayCount;
 
-        if (slot >= OVERLAY_SECTORS) {
-            return 0;
-        }
         if (disk->overlayBlock[slot / OVERLAY_BLOCK] == NULL) {
             disk->overlayBlock[slot / OVERLAY_BLOCK] = (UInt8*)malloc(OVERLAY_BLOCK * SECTOR);
             if (disk->overlayBlock[slot / OVERLAY_BLOCK] == NULL) {
                 return 0;
             }
         }
-        disk->overlaySlot[key - disk->overlayKey] = slot;
         disk->overlayCount++;
-        *key = sector + 1;
+        *key = slot + 1;
     }
     memcpy(overlayData(disk, key), buffer, SECTOR);
     return 1;

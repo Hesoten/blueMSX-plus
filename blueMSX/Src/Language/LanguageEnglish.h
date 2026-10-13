@@ -98,6 +98,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->errorDirWriteFailed     = "%d item(s) could not be written back. log.txt in the following directory lists them:\n%s";
     ls->errorDirWriteHost       = "The changes the MSX made could not be written to this directory:\n%s\n\nThe directory may be read-only, or the disk may be full.\n\nDiscard the changes?";
     ls->infoDirWriteState       = "The MSX is running from a saved state. Changes to this directory will not be written back until the MSX has been powered off and on again.";
+    ls->infoDirMemory           = "The memory needed to hold the changes to the directory now exceeds %d MB.";
     ls->errorNoHelp             = "Could not locate the blueMSX+ help file.";
     ls->errorStartEmu           = "Failed to Start MSX emulator.";
     ls->errorStartEmuNoMachine           = "No machine has been set for emulation. Pick one from Options -> Emulation -> MSX machine.";

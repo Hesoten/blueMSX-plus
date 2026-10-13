@@ -98,6 +98,7 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->errorDirWriteFailed     = "%d item(ns) não puderam ser gravados no diretório. O arquivo log.txt no diretório a seguir lista esses itens:\n%s";
     ls->errorDirWriteHost       = "As alterações feitas pelo MSX não puderam ser gravadas neste diretório:\n%s\n\nO diretório pode ser somente leitura ou o disco pode estar cheio.\n\nDescartar as alterações?";
     ls->infoDirWriteState       = "O MSX está em execução a partir de um estado salvo. As alterações neste diretório não serão gravadas até que o MSX seja desligado e ligado novamente.";
+    ls->infoDirMemory           = "A memória necessária para guardar as alterações ao diretório já ultrapassa %d MB.";
     ls->errorNoHelp             = "Nao foi localizado arquivo ajuda do blueMSX+";
     ls->errorStartEmu           = "Falha ao Iniciar o emulador MSX.";
     ls->errorStartEmuNoMachine           = "Nenhuma máquina MSX configurada para emulação. Escolha uma em Opções -> Emulação -> MSX.";

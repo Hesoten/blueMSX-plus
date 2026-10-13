@@ -85,6 +85,7 @@ static int   dirFormat[MAXDRIVES];
 ** directory is not what the directory holds, so nothing is written back. */
 static int   dirStateLoaded;
 static int   dirStateSession;
+static int   dirMemoryStep[MAXDRIVES];
 /* Per-drive memory of the directory whose 720 KB overflow dialog has
 ** already been shown -- shared by diskChange() and diskPreviewDirOverflow()
 ** to dedupe the warning across insert + emulator-start. */
@@ -727,6 +728,21 @@ void diskDirStart(int fromState, int stopped)
     }
 }
 
+int diskDirMemoryNotice(void)
+{
+    int i;
+
+    for (i = 0; i < MAXDRIVES; i++) {
+        int step = dirVolume[i] != NULL ? dirDiskMemoryMegabytes(dirVolume[i]) / 64 : 0;
+
+        if (step > dirMemoryStep[i]) {
+            dirMemoryStep[i] = step;
+            return step * 64;
+        }
+    }
+    return 0;
+}
+
 int diskDirPending(int driveId)
 {
     return driveId >= 0 && driveId < MAXDRIVES && dirVolume[driveId] != NULL &&
@@ -794,8 +810,11 @@ void diskDiscardDir(int driveId)
             hostMediumInserted[driveId] = 0;
             changed[driveId] = 1;
         }
-        dirDiskDestroy(dirVolume[driveId]);
+        DirDisk* volume = dirVolume[driveId];
+
         dirVolume[driveId] = NULL;
+        dirDiskDestroy(volume);
+        dirMemoryStep[driveId] = 0;
     }
 }
 

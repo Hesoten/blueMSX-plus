@@ -95,6 +95,7 @@ typedef struct {
     char* errorDirWriteFailed;
     char* errorDirWriteHost;
     char* infoDirWriteState;
+    char* infoDirMemory;
     char* errorNoHelp;
     char* errorStartEmu;
     /* Machine-load failure details shown as the body of errorStartEmu. */

@@ -98,6 +98,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->errorDirWriteFailed     = "%d item(s) konden niet worden teruggeschreven. log.txt in deze map somt ze op:\n%s";
     ls->errorDirWriteHost       = "De wijzigingen van de MSX konden niet naar deze map worden geschreven:\n%s\n\nDe map is mogelijk alleen-lezen of de schijf is vol.\n\nDe wijzigingen verwerpen?";
     ls->infoDirWriteState       = "De MSX draait vanuit een opgeslagen status. Wijzigingen in deze map worden pas teruggeschreven nadat de MSX is uit- en weer ingeschakeld.";
+    ls->infoDirMemory           = "Het geheugen voor de wijzigingen in de map is nu meer dan %d MB.";
     ls->errorNoHelp             = "Het blueMSX+ helpbestand is niet gevonden.";
     ls->errorStartEmu           = "Het is niet gelukt om de MSX emulator te starten.";
     ls->errorStartEmuNoMachine           = "Er is geen MSX-machine ingesteld voor emulatie. Kies er een bij Opties -> Emulatie -> MSX-familie.";

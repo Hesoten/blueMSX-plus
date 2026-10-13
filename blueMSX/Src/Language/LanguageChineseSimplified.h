@@ -98,6 +98,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->errorDirWriteFailed     = "有 %d 个项目无法写回。此目录中的 log.txt 列出了这些项目:\n%s";
     ls->errorDirWriteHost       = "无法将 MSX 所做的更改写入此目录:\n%s\n\n目录可能是只读的，或者磁盘空间不足。\n\n要放弃这些更改吗？";
     ls->infoDirWriteState       = "MSX 正从已保存的状态运行。在关闭并重新打开 MSX 电源之前，对此目录的更改不会写回。";
+    ls->infoDirMemory           = "保存对目录的更改所需的内存已超过 %d MB。";
     ls->errorNoHelp             = "无法找到 blueMSX+ 帮助文件。";
     ls->errorStartEmu           = "无法启动 MSX 模拟器。";
     ls->errorStartEmuNoMachine           = "尚未设置用于模拟的 MSX 机器。请在 选项 -> 模拟 -> MSX 机型 中选择一个。";

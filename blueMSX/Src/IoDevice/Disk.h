@@ -80,6 +80,8 @@ void diskDirDisarm(int driveId);
 void diskDirStart(int fromState, int stopped);
 /* Zero after a power-on; otherwise it numbers the run of saved states, in which nothing is written back. */
 int  diskDirStateSession(void);
+/* The megabytes of memory a directory's changes have grown past, once for every 64 of them; else zero. */
+int  diskDirMemoryNotice(void);
 /* Whether the drive holds changes that are still to be written back. */
 int  diskDirPending(int driveId);
 int  diskIsDir(int driveId);

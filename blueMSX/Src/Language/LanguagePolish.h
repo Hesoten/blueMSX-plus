@@ -98,6 +98,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->errorDirWriteFailed     = "Liczba elementów, których nie udało się zapisać: %d. Wymienia je plik log.txt w tym folderze:\n%s";
     ls->errorDirWriteHost       = "Zmian wprowadzonych przez MSX nie udało się zapisać w tym folderze:\n%s\n\nFolder może być tylko do odczytu albo dysk jest pełny.\n\nOdrzucić zmiany?";
     ls->infoDirWriteState       = "MSX działa z zapisanego stanu. Zmiany w tym folderze nie będą zapisywane, dopóki MSX nie zostanie wyłączony i włączony ponownie.";
+    ls->infoDirMemory           = "Pamięć potrzebna na zmiany w folderze przekracza już %d MB.";
     ls->errorNoHelp             = "Nie znaleziono pliku pomocy blueMSX+.";
     ls->errorStartEmu           = "Nie udało się uruchomić emulatora MSX.";
     ls->errorStartEmuNoMachine           = "Nie ustawiono maszyny MSX do emulacji. Wybierz jedną w Opcje -> Emulacja -> Typ MSX.";

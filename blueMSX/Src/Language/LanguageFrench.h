@@ -98,6 +98,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->errorDirWriteFailed     = "%d élément(s) n'ont pas pu être écrits dans le répertoire. Le fichier log.txt du répertoire suivant en donne la liste :\n%s";
     ls->errorDirWriteHost       = "Les modifications faites par le MSX n'ont pas pu être écrites dans ce répertoire :\n%s\n\nLe répertoire est peut-être en lecture seule ou le disque est plein.\n\nAbandonner les modifications ?";
     ls->infoDirWriteState       = "Le MSX fonctionne à partir d'un état enregistré. Les modifications de ce répertoire ne seront pas écrites tant que le MSX n'aura pas été éteint puis rallumé.";
+    ls->infoDirMemory           = "La mémoire nécessaire pour conserver les modifications du répertoire dépasse maintenant %d Mo.";
     ls->errorNoHelp             = "Impossible de trouver le fichier d'aide.";
     ls->errorStartEmu           = "Erreur lors du lancement de l'émulateur.";
     ls->errorStartEmuNoMachine           = "Aucune machine MSX n'est configurée pour l'émulation. Choisissez-en une dans Options -> Emulation -> Type de MSX.";

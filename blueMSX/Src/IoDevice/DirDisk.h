@@ -55,6 +55,8 @@ void dirDiskGetSkipped(DirDisk* disk, DirSkipped* skipped);
 ** may no longer see as they are. */
 void dirDiskDisarm(DirDisk* disk);
 int  dirDiskIsDisarmed(DirDisk* disk);
+/* How much memory holds what the MSX wrote. */
+int  dirDiskMemoryMegabytes(DirDisk* disk);
 int  dirDiskWriteBackArmed(DirDisk* disk);
 /* Whether the MSX has written anything. */
 int  dirDiskIsDirty(DirDisk* disk);
