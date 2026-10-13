@@ -73,6 +73,29 @@ void diskWithdrawHostMedia(void);
 void diskSetDirFormat(int driveId, int format);
 /* Reads the directory afresh so that inserting it shows it as it is now; zero if it cannot be read. */
 int  diskPrepareDir(int driveId, const char* directory, int format);
+/* What the MSX writes to the directory from now on is not written back until it starts afresh. */
+void diskDirDisarm(int driveId);
+/* Tells the directories that the machine is starting, from a saved state or not;
+** stopped says that nothing is reading the drives meanwhile. */
+void diskDirStart(int fromState, int stopped);
+/* Zero after a power-on; otherwise it numbers the run of saved states, in which nothing is written back. */
+int  diskDirStateSession(void);
+/* Whether the drive holds changes that are still to be written back. */
+int  diskDirPending(int driveId);
+int  diskIsDir(int driveId);
+const char* diskDirPath(int driveId);
+
+#define DISK_DIR_NOTHING 0
+#define DISK_DIR_CHANGED 1
+#define DISK_DIR_INVALID 2
+#define DISK_DIR_ERROR   3
+/* Works out what the MSX changed; the host directory is not touched. The plan
+** is to be given to diskDirApply or diskDirFreePlan. */
+int  diskDirPlan(int driveId, void** plan, int* created, int* changed, int* deleted, int* skipped, int* mass);
+/* Zero when nothing could be written; the directory is then as it was. The
+** volume has to be discarded afterwards. */
+int  diskDirApply(int driveId, void* plan, int* failed, char* session, int sessionSize);
+void diskDirFreePlan(void* plan);
 /* Forgets the volume of the drive together with what the MSX wrote to it. */
 void diskDiscardDir(int driveId);
 /* Whether the name is that of a host directory, inserted or not. */

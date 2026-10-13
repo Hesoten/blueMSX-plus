@@ -88,6 +88,16 @@ void langInitEnglish(LanguageStrings* ls)
     ls->errorDirDiskTooLarge    = "%d file(s) did not fit on the disk and were left out.";
     ls->errorDirDiskOnline      = "%d online-only file(s) were left out. Make them available on this device to include them.";
     ls->errorDirDiskSubdirs     = "Subdirectories left out because the chosen format cannot hold them: %d.";
+    ls->errorDirDiskUnreadable  = "Failed to insert the directory because it could not be read:\n%s";
+    ls->dlgDirWriteSummary      = "The MSX changed the contents of this directory:\n%s\n\nNew files: %d\nChanged files: %d\nDeleted files (moved to .blueMSX-trash): %d\nSkipped: %d\n\nWrite the changes to the directory?";
+    ls->dlgDirWriteMass         = "Most of the files were deleted. The MSX may have formatted the volume.";
+    ls->dlgDirWriteApply        = "Write";
+    ls->dlgDirWriteDiscard      = "Discard";
+    ls->dlgDirWriteDiscardSure  = "Really discard the changes the MSX made? They cannot be restored.";
+    ls->errorDirWriteInvalid    = "The changes the MSX made to this directory cannot be written, because the file system on the disk (its FAT and directories) is half-written or damaged:\n%s\n\nIf the MSX may still have been writing to the disk, choose No, wait until it has finished (the MSX-DOS prompt or the BASIC Ok) and try again. If the MSX formatted or repartitioned the disk, the changes cannot be written.\n\nDiscard the changes?";
+    ls->errorDirWriteFailed     = "%d item(s) could not be written back. log.txt in the following directory lists them:\n%s";
+    ls->errorDirWriteHost       = "The changes the MSX made could not be written to this directory:\n%s\n\nThe directory may be read-only, or the disk may be full.\n\nDiscard the changes?";
+    ls->infoDirWriteState       = "The MSX is running from a saved state. Changes to this directory will not be written back until the MSX has been powered off and on again.";
     ls->errorNoHelp             = "Could not locate the blueMSX+ help file.";
     ls->errorStartEmu           = "Failed to Start MSX emulator.";
     ls->errorStartEmuNoMachine           = "No machine has been set for emulation. Pick one from Options -> Emulation -> MSX machine.";
@@ -352,7 +362,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->dlgPhysDriveContinue    = "Continue";
     ls->dlgPhysDriveInUse       = "The drive is in use by Windows or another program. Close the files and windows that use it and try again.";
     ls->dlgPhysDriveFailed      = "The drive could not be opened.";
-    ls->infoRewindNoMedium      = "Rewind is not available while a physical drive is inserted.";
+    ls->infoRewindNoMedium      = "Rewind is not available while a physical drive is inserted, or while changes the MSX made to a directory are not yet written to it.";
 
     ls->dlgAboutTitle           = "blueMSX+ - About";
 

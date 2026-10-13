@@ -31,6 +31,7 @@
 #include "Win32TextUtf8.h"
 #include "Resource.h"
 #include "Disk.h"
+#include "Actions.h"
 #include "Board.h"
 #include "Emulator.h"
 #include "Properties.h"
@@ -751,7 +752,7 @@ static void shiftControl(HWND hDlg, int id, int dy)
 static void fitWarningText(HWND hDlg)
 {
     HWND text = GetDlgItem(hDlg, IDC_PHYSDRIVE_TEXT);
-    wchar_t message[2048];
+    wchar_t message[4096];
     MONITORINFO monitor;
     RECT have;
     RECT want;
@@ -780,6 +781,7 @@ static void fitWarningText(HWND hDlg)
     SetWindowPos(text, NULL, 0, 0, have.right, want.bottom, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
     shiftControl(hDlg, IDC_PHYSDRIVE_NOWARNING, dy);
     shiftControl(hDlg, IDOK, dy);
+    shiftControl(hDlg, IDC_PHYSDRIVE_OTHER, dy);
     shiftControl(hDlg, IDCANCEL, dy);
     GetWindowRect(hDlg, &window);
     top = window.top - dy / 2;
@@ -791,20 +793,62 @@ static void fitWarningText(HWND hDlg)
                  SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
+typedef struct {
+    const char* text;
+    const char* checkLabel;
+    int*        checked;
+    const char* yesLabel;
+    const char* otherLabel;
+} WarningInfo;
+
+/* Spreads the three buttons over the width the two took. */
+static void placeThreeButtons(HWND hDlg)
+{
+    RECT yes;
+    RECT cancel;
+    RECT client;
+    int width;
+    int gap;
+    int left;
+
+    GetWindowRect(GetDlgItem(hDlg, IDOK), &yes);
+    GetWindowRect(GetDlgItem(hDlg, IDCANCEL), &cancel);
+    MapWindowPoints(NULL, hDlg, (POINT*)&yes, 2);
+    MapWindowPoints(NULL, hDlg, (POINT*)&cancel, 2);
+    GetClientRect(hDlg, &client);
+    width = yes.right - yes.left;
+    gap = cancel.left - yes.right;
+    left = (client.right - 3 * width - 2 * gap) / 2;
+    SetWindowPos(GetDlgItem(hDlg, IDOK), NULL, left, yes.top, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+    SetWindowPos(GetDlgItem(hDlg, IDC_PHYSDRIVE_OTHER), NULL, left + width + gap, yes.top, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+    SetWindowPos(GetDlgItem(hDlg, IDCANCEL), NULL, left + 2 * (width + gap), yes.top, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
 static BOOL_DLG_RET CALLBACK warningProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
-    static int* noWarning;
+    const WarningInfo* info = (const WarningInfo*)GetWindowLongPtr(hDlg, DWLP_USER);
 
     switch (iMsg) {
     case WM_INITDIALOG:
-        noWarning = (int*)lParam;
+        info = (const WarningInfo*)lParam;
+        SetWindowLongPtr(hDlg, DWLP_USER, lParam);
         SetWindowTextU(hDlg, langWarningTitle());
         SendDlgItemMessage(hDlg, IDC_PHYSDRIVE_ICON, STM_SETICON, (WPARAM)LoadIcon(NULL, IDI_WARNING), 0);
-        SetDlgItemTextU(hDlg, IDC_PHYSDRIVE_TEXT, langDlgPhysDriveWarning());
+        SetDlgItemTextU(hDlg, IDC_PHYSDRIVE_TEXT, info->text);
         fitWarningText(hDlg);
-        SetDlgItemTextU(hDlg, IDC_PHYSDRIVE_NOWARNING, langDlgPhysDriveNoWarning());
-        SetDlgItemTextU(hDlg, IDOK, langDlgPhysDriveContinue());
+        if (info->checkLabel != NULL) {
+            SetDlgItemTextU(hDlg, IDC_PHYSDRIVE_NOWARNING, info->checkLabel);
+        }
+        else {
+            ShowWindow(GetDlgItem(hDlg, IDC_PHYSDRIVE_NOWARNING), SW_HIDE);
+        }
+        SetDlgItemTextU(hDlg, IDOK, info->yesLabel);
         SetDlgItemTextU(hDlg, IDCANCEL, langDlgCancel());
+        if (info->otherLabel != NULL) {
+            SetDlgItemTextU(hDlg, IDC_PHYSDRIVE_OTHER, info->otherLabel);
+            placeThreeButtons(hDlg);
+            ShowWindow(GetDlgItem(hDlg, IDC_PHYSDRIVE_OTHER), SW_SHOW);
+        }
         win32CommonApplyDark(hDlg);
         SetFocus(GetDlgItem(hDlg, IDCANCEL));
         return FALSE;
@@ -812,16 +856,41 @@ static BOOL_DLG_RET CALLBACK warningProc(HWND hDlg, UINT iMsg, WPARAM wParam, LP
     case WM_COMMAND:
         switch (LOWORD(wParam)) {
         case IDOK:
-            *noWarning = IsDlgButtonChecked(hDlg, IDC_PHYSDRIVE_NOWARNING) == BST_CHECKED;
-            EndDialog(hDlg, TRUE);
+            if (info->checked != NULL) {
+                *info->checked = info->checkLabel != NULL && IsDlgButtonChecked(hDlg, IDC_PHYSDRIVE_NOWARNING) == BST_CHECKED;
+            }
+            EndDialog(hDlg, 1);
+            return TRUE;
+        case IDC_PHYSDRIVE_OTHER:
+            EndDialog(hDlg, 2);
             return TRUE;
         case IDCANCEL:
-            EndDialog(hDlg, FALSE);
+            EndDialog(hDlg, 0);
             return TRUE;
         }
         return FALSE;
     }
     return FALSE;
+}
+
+int win32WarningDialog(HWND owner, const char* text, const char* checkLabel, int* checked, const char* yesLabel, const char* otherLabel)
+{
+    WarningInfo info;
+    INT_PTR answer;
+
+    info.text       = text;
+    info.checkLabel = checkLabel;
+    info.checked    = checked;
+    info.yesLabel   = yesLabel;
+    info.otherLabel = otherLabel;
+    answer = DialogBoxParam(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_PHYSDRIVE_WARNING), owner, warningProc, (LPARAM)&info);
+    if (answer == -1) {
+        /* The dialog could not be made; the question still has to be put. */
+        int choice = MessageBoxU(owner, text, langWarningTitle(), (otherLabel != NULL ? MB_YESNOCANCEL : MB_OKCANCEL) | MB_ICONWARNING);
+
+        return choice == IDYES || choice == IDOK ? 1 : choice == IDNO ? 2 : 0;
+    }
+    return answer == 1 || answer == 2 ? (int)answer : 0;
 }
 
 /* ------------------------------ Insert ------------------------------ */
@@ -846,7 +915,7 @@ static int choose(HWND owner, Properties* properties, DiskInfo* chosen)
     if (properties->diskdrive.physicalDriveWarning) {
         int noWarning = 0;
 
-        if (DialogBoxParam(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_PHYSDRIVE_WARNING), owner, warningProc, (LPARAM)&noWarning) != TRUE) {
+        if (win32WarningDialog(owner, langDlgPhysDriveWarning(), langDlgPhysDriveNoWarning(), &noWarning, langDlgPhysDriveContinue(), NULL) != 1) {
             return 0;
         }
         if (noWarning) {
@@ -868,7 +937,7 @@ void physicalDiskInsert(int driveId)
     int other;
     int chosen;
 
-    if (inserting || !physicalDiskAllowed(driveId)) {
+    if (inserting || !physicalDiskAllowed(driveId) || !actionHarddiskCanChange(driveId, 0)) {
         return;
     }
     inserting = 1;
@@ -876,7 +945,10 @@ void physicalDiskInsert(int driveId)
 
     emulatorSuspend();
     enterDialogShow();
-    chosen = choose(owner, properties, &info);
+    chosen = choose(owner, properties, &info) && actionDirWriteBack(driveId);
+    if (chosen) {
+        actionHarddiskEjectDir(driveId);
+    }
     if (chosen && attachments[driveId].disk != NULL && attachments[driveId].diskNumber == info.number) {
         chosen = 0;
     }

@@ -40,6 +40,7 @@
 #include "FileHistory.h"
 #include "LaunchFile.h"
 #include "Emulator.h"
+#include "Actions.h"
 #include "StrcmpNoCase.h"
 #include "AppConfig.h"
 #include "ArchFile.h"
@@ -1312,6 +1313,7 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
 
     emulatorStop();
     emulatorStart(strlen(stateFile) ? stateFile : NULL);
+    actionDirStateNotice();
 
     return 1;
 }
@@ -1323,6 +1325,7 @@ int emuTryStartWithArguments(Properties* properties, char* cmdLine, char *gamedi
         if (appConfigGetInt("autostart", 0) != 0) {
             emulatorStop();
             emulatorStart(properties->filehistory.quicksave);
+            actionDirStateNotice();
         }
         return 0;
     }

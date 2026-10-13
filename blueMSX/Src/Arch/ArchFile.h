@@ -75,6 +75,9 @@ char* archDirnameGetOpenDisk(Properties* properties, int drive);
 ** *outMsxFormat is a DiskFormatType (1/2/3).  Win32 only. */
 char* archDirnameGetOpenDiskWithFormat(Properties* properties, int drive,
                                         int* outMsxFormat);
+/* The directory for a drive, with a MSX-DOS format combobox; *outMsxFormat is a
+** DiskFormatType (1/2/3). Win32 only. */
+char* archDirnameGetOpenDirDisk(Properties* properties, int drive, int* outMsxFormat);
 #endif
 
 char* archFilenameGetOpenRomZip(Properties* properties, int cartSlot, const char* fname, const char* fileList, int count, int* autostart, int* romType);

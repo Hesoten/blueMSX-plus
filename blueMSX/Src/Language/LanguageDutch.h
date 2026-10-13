@@ -88,6 +88,16 @@ void langInitDutch(LanguageStrings* ls)
     ls->errorDirDiskTooLarge    = "%d bestand(en) pasten niet op de schijf en zijn weggelaten.";
     ls->errorDirDiskOnline      = "%d bestand(en) die alleen online beschikbaar zijn, zijn weggelaten. Maak ze beschikbaar op dit apparaat om ze op te nemen.";
     ls->errorDirDiskSubdirs     = "%d map(pen) zijn weggelaten omdat het gekozen formaat ze niet kan bevatten.";
+    ls->errorDirDiskUnreadable  = "Het invoeren van de map is mislukt omdat deze niet kon worden gelezen:\n%s";
+    ls->dlgDirWriteSummary      = "De MSX heeft de inhoud van deze map gewijzigd:\n%s\n\nNieuwe bestanden: %d\nGewijzigde bestanden: %d\nVerwijderde bestanden (verplaatst naar .blueMSX-trash): %d\nOvergeslagen: %d\n\nDe wijzigingen naar de map schrijven?";
+    ls->dlgDirWriteMass         = "De meeste bestanden zijn verwijderd. Mogelijk heeft de MSX het volume geformatteerd.";
+    ls->dlgDirWriteApply        = "Schrijven";
+    ls->dlgDirWriteDiscard      = "Verwerpen";
+    ls->dlgDirWriteDiscardSure  = "De wijzigingen die de MSX heeft aangebracht echt verwerpen? Ze kunnen niet worden hersteld.";
+    ls->errorDirWriteInvalid    = "De wijzigingen die de MSX in deze map heeft aangebracht, kunnen niet worden geschreven, omdat het bestandssysteem op de schijf (de FAT en de mappen) half geschreven of beschadigd is:\n%s\n\nAls de MSX mogelijk nog naar de schijf aan het schrijven was, kies dan Nee, wacht tot hij klaar is (de MSX-DOS-prompt of de Ok van BASIC) en probeer het opnieuw. Als de MSX de schijf heeft geformatteerd of opnieuw gepartitioneerd, kunnen de wijzigingen niet worden geschreven.\n\nDe wijzigingen verwerpen?";
+    ls->errorDirWriteFailed     = "%d item(s) konden niet worden teruggeschreven. log.txt in deze map somt ze op:\n%s";
+    ls->errorDirWriteHost       = "De wijzigingen van de MSX konden niet naar deze map worden geschreven:\n%s\n\nDe map is mogelijk alleen-lezen of de schijf is vol.\n\nDe wijzigingen verwerpen?";
+    ls->infoDirWriteState       = "De MSX draait vanuit een opgeslagen status. Wijzigingen in deze map worden pas teruggeschreven nadat de MSX is uit- en weer ingeschakeld.";
     ls->errorNoHelp             = "Het blueMSX+ helpbestand is niet gevonden.";
     ls->errorStartEmu           = "Het is niet gelukt om de MSX emulator te starten.";
     ls->errorStartEmuNoMachine           = "Er is geen MSX-machine ingesteld voor emulatie. Kies er een bij Opties -> Emulatie -> MSX-familie.";
@@ -350,7 +360,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->dlgPhysDriveContinue    = "Doorgaan";
     ls->dlgPhysDriveInUse       = "Het station is in gebruik door Windows of een ander programma. Sluit de bestanden en vensters die het gebruiken en probeer het opnieuw.";
     ls->dlgPhysDriveFailed      = "Het station kon niet worden geopend.";
-    ls->infoRewindNoMedium      = "Terugspoelen is niet beschikbaar zolang een fysiek station is ingevoerd.";
+    ls->infoRewindNoMedium      = "Terugspoelen is niet beschikbaar zolang er een fysiek station is ingevoerd of zolang wijzigingen die de MSX in een map heeft aangebracht nog niet naar die map zijn geschreven.";
 
     ls->dlgAboutTitle           = "Over blueMSX+";
 

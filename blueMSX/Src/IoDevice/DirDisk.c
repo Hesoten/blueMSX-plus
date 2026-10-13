@@ -20,7 +20,7 @@
 **
 ******************************************************************************
 */
-#include "DirDisk.h"
+#include "DirDiskPrivate.h"
 #include "DiskFormat.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,6 +31,7 @@
 #include <windows.h>
 #include <io.h>
 #include <fcntl.h>
+#define DIR_TRASH_NAME_WIDE L".blueMSX-trash"
 #ifndef FILE_ATTRIBUTE_RECALL_ON_OPEN
 #define FILE_ATTRIBUTE_RECALL_ON_OPEN        0x00040000
 #endif
@@ -39,80 +40,33 @@
 #endif
 #else
 #include <dirent.h>
+#include <strings.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #endif
 
-#define SECTOR              512
+#define SECTOR              DIR_SECTOR
 #define MAX_DEPTH           8
 #define ROOT_SPARE          16
 #define DOS1_ROOT_MAX       240
 #define ROOT_MAX            512
 #define RESERVE_BYTES       (2 * 1024 * 1024)
-#define OVERLAY_SECTORS     (64 * 1024 * 1024 / SECTOR)
-#define OVERLAY_BLOCK       2048
-#define OVERLAY_HASH        (1u << 18)
-#define ATTR_READONLY       0x01
-#define ATTR_DIRECTORY      0x10
-#define ATTR_ARCHIVE        0x20
-#define ATTR_LABEL          0x08
+#define OVERLAY_SECTORS     DIR_OVERLAY_SECTORS
+#define OVERLAY_BLOCK       DIR_OVERLAY_BLOCK
+#define OVERLAY_HASH        DIR_OVERLAY_HASH
+#define ATTR_READONLY       DIR_ATTR_READONLY
+#define ATTR_DIRECTORY      DIR_ATTR_DIRECTORY
+#define ATTR_ARCHIVE        DIR_ATTR_ARCHIVE
+#define ATTR_LABEL          DIR_ATTR_LABEL
 
-typedef struct Node {
-    char*   path;
-    char*   hostName;
-    UInt8   name[11];
-    UInt8   attr;
-    UInt16  time;
-    UInt16  date;
-    UInt32  size;
-    int     isDir;
-    int     dropped;
-    struct Node** child;
-    int     childCount;
-    int     childCapacity;
-    UInt32  first;
-    UInt32  clusters;
-    UInt8*  data;
-} Node;
-
-typedef struct {
-    int     fat16;
-    UInt32  sizeK;
-    UInt32  spc;
-    UInt32  fatSectors;
-    UInt32  clusters;
-    UInt32  rootEntries;
-    UInt32  total;
-} Layout;
-
-struct DirDisk {
-    char*   directory;
-    int     format;
-    Node*   root;
-    Layout  layout;
-    UInt32  dataStart;
-    UInt8   mbr[SECTOR];
-    UInt8   boot[SECTOR];
-    UInt8*  fat;
-    Node**  extent;
-    int     extentCount;
-    int     extentCapacity;
-    DirSkipped skipped;
-
-    FILE*   openFile;
-    Node*   openNode;
-
-    UInt32* overlayKey;
-    UInt32* overlaySlot;
-    UInt8*  overlayBlock[OVERLAY_SECTORS / OVERLAY_BLOCK];
-    UInt32  overlayCount;
-};
+typedef DirNode Node;
+typedef DirLayout Layout;
 
 /* ---------------------------- Host access --------------------------- */
 
 #ifdef _WIN32
-static void widePath(const char* path, wchar_t* wide, int capacity)
+void dirDiskWidePath(const char* path, wchar_t* wide, int capacity)
 {
     wchar_t given[1024];
     int offset = 0;
@@ -141,7 +95,7 @@ static FILE* openHostFile(const char* path)
     FILE* file;
     int descriptor;
 
-    widePath(path, wide, 1024);
+    dirDiskWidePath(path, wide, 1024);
     if (wide[0] == 0) {
         return NULL;
     }
@@ -282,7 +236,7 @@ static int enumerate(DirDisk* disk, Node* parent, int depth, int allowSubdirs)
     HANDLE find;
     size_t length;
 
-    widePath(parent->path, pattern, 1020);
+    dirDiskWidePath(parent->path, pattern, 1020);
     length = wcslen(pattern);
     if (length == 0) {
         return 0;
@@ -300,7 +254,8 @@ static int enumerate(DirDisk* disk, Node* parent, int depth, int allowSubdirs)
         SYSTEMTIME when;
         Node* node;
 
-        if (wcscmp(found.cFileName, L".") == 0 || wcscmp(found.cFileName, L"..") == 0) {
+        if (wcscmp(found.cFileName, L".") == 0 || wcscmp(found.cFileName, L"..") == 0 ||
+            _wcsicmp(found.cFileName, DIR_TRASH_NAME_WIDE) == 0) {
             continue;
         }
         if ((attributes & FILE_ATTRIBUTE_HIDDEN) && (attributes & FILE_ATTRIBUTE_SYSTEM)) {
@@ -331,6 +286,7 @@ static int enumerate(DirDisk* disk, Node* parent, int depth, int allowSubdirs)
             break;
         }
         node->size = isDir ? 0 : found.nFileSizeLow;
+        node->hostTime = ((Int64)found.ftLastWriteTime.dwHighDateTime << 32) | found.ftLastWriteTime.dwLowDateTime;
         if (attributes & FILE_ATTRIBUTE_READONLY) {
             node->attr |= ATTR_READONLY;
         }
@@ -363,7 +319,8 @@ static int enumerate(DirDisk* disk, Node* parent, int depth, int allowSubdirs)
         Node* node;
         int isDir;
 
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0 ||
+            strcasecmp(entry->d_name, DIR_TRASH_NAME) == 0) {
             continue;
         }
         if (snprintf(path, sizeof(path), "%s/%s", parent->path, entry->d_name) >= (int)sizeof(path) ||
@@ -388,6 +345,7 @@ static int enumerate(DirDisk* disk, Node* parent, int depth, int allowSubdirs)
             break;
         }
         node->size = isDir ? 0 : (UInt32)info.st_size;
+        node->hostTime = (Int64)info.st_mtime;
         when = localtime(&info.st_mtime);
         if (when != NULL) {
             setDosTime(node, when->tm_year + 1900, when->tm_mon + 1, when->tm_mday, when->tm_hour, when->tm_min, when->tm_sec);
@@ -433,61 +391,131 @@ static int compareNodes(const void* a, const void* b)
 
 /* ---------------------------- Short names --------------------------- */
 
-static int shortNameChar(unsigned char c)
+/* The host name in the character codes the MSX uses; what has no code becomes '_'. */
+static int nameBytes(const char* hostName, UInt8* out, int capacity)
 {
+    int length = 0;
+#ifdef _WIN32
+    wchar_t wide[512];
+    int count = MultiByteToWideChar(CP_UTF8, 0, hostName, -1, wide, 512);
+    int i;
+
+    for (i = 0; i + 1 < count && length + 2 < capacity; i++) {
+        char bytes[4];
+        BOOL lost = FALSE;
+        int made = WideCharToMultiByte(932, WC_NO_BEST_FIT_CHARS, &wide[i], 1, bytes, sizeof(bytes), NULL, &lost);
+
+        if (made < 1 || made > 2 || lost) {
+            /* A surrogate pair is one character. */
+            if (wide[i] >= 0xd800 && wide[i] < 0xdc00 && i + 2 < count) {
+                i++;
+            }
+            out[length++] = '_';
+            continue;
+        }
+        memcpy(out + length, bytes, made);
+        length += made;
+    }
+#else
+    for (; *hostName != 0 && length + 1 < capacity; hostName++) {
+        out[length++] = (UInt8)((unsigned char)*hostName < 0x80 ? *hostName : '_');
+    }
+#endif
+    out[length] = 0;
+    return length;
+}
+
+/* The number of bytes the character at text takes: two for a kanji. */
+static int unitLength(const UInt8* text)
+{
+    return ((text[0] >= 0x81 && text[0] <= 0x9f) || (text[0] >= 0xe0 && text[0] <= 0xfc)) && text[1] != 0 ? 2 : 1;
+}
+
+static int shortNameUnit(const UInt8* text)
+{
+    UInt8 c = text[0];
+
+    if (unitLength(text) == 2 || (c >= 0xa1 && c <= 0xdf)) {
+        return 1;
+    }
     return c > 0x20 && c < 0x7f && strchr("\"*+,./:;<=>?[\\]|", c) == NULL;
 }
 
-/* Splits at the last dot that is not the first character. */
-static const char* extensionOf(const char* name)
+/* Where the extension starts, or the end: at the last dot that is not the first character. */
+static int extensionAt(const UInt8* name, int length)
 {
-    const char* dot = strrchr(name, '.');
+    int dot = length;
+    int i;
 
-    return dot == NULL || dot == name ? NULL : dot;
+    for (i = 0; i < length; i += unitLength(name + i)) {
+        if (name[i] == '.' && i > 0) {
+            dot = i;
+        }
+    }
+    return dot;
 }
 
-static int fitsShortName(const char* name)
+static int fitsShortName(const UInt8* name, int length)
 {
-    const char* dot = extensionOf(name);
-    size_t baseLength = dot != NULL ? (size_t)(dot - name) : strlen(name);
-    size_t i;
+    int dot = extensionAt(name, length);
+    int i;
 
-    if (baseLength == 0 || baseLength > 8 || (dot != NULL && strlen(dot + 1) > 3)) {
+    if (dot == 0 || dot > 8 || length - dot > 4) {
         return 0;
     }
-    for (i = 0; name[i] != 0; i++) {
-        if (name + i != dot && !shortNameChar((unsigned char)name[i])) {
+    for (i = 0; i < length; i += unitLength(name + i)) {
+        if (i != dot && !shortNameUnit(name + i)) {
             return 0;
         }
     }
     return 1;
 }
 
-/* tilde 0 keeps the name as it is; otherwise the base ends in ~<tilde>. */
-static void makeShortName(const char* name, int tilde, UInt8* out)
+/* Copies whole characters while they fit in room bytes. */
+static void copyUnits(const UInt8* from, int length, UInt8* to, int room)
 {
-    const char* dot = extensionOf(name);
-    int baseLength = dot != NULL ? (int)(dot - name) : (int)strlen(name);
-    char tag[12] = "";
-    int keep = 8;
+    int used = 0;
     int i;
 
+    for (i = 0; i < length; i += unitLength(from + i)) {
+        int size = unitLength(from + i);
+
+        if (used + size > room) {
+            break;
+        }
+        if (!shortNameUnit(from + i)) {
+            to[used++] = '_';
+        }
+        else if (size == 2) {
+            to[used++] = from[i];
+            to[used++] = from[i + 1];
+        }
+        else {
+            to[used++] = (UInt8)(from[i] < 0x80 ? toupper(from[i]) : from[i]);
+        }
+    }
+}
+
+/* tilde 0 keeps the name as it is; otherwise the base ends in ~<tilde>. */
+static void makeShortName(const UInt8* name, int length, int tilde, UInt8* out)
+{
+    int dot = extensionAt(name, length);
+    char tag[12] = "";
+    UInt8 base[8];
+    int used;
+
     memset(out, ' ', 11);
+    memset(base, ' ', 8);
     if (tilde > 0) {
         sprintf(tag, "~%d", tilde);
-        keep = 8 - (int)strlen(tag);
     }
-    if (keep > baseLength) {
-        keep = baseLength;
+    copyUnits(name, dot, base, 8 - (int)strlen(tag));
+    for (used = 8; used > 0 && base[used - 1] == ' '; used--) {
     }
-    for (i = 0; i < keep; i++) {
-        unsigned char c = (unsigned char)name[i];
-        out[i] = (UInt8)(shortNameChar(c) ? toupper(c) : '_');
-    }
-    memcpy(out + keep, tag, strlen(tag));
-    for (i = 0; dot != NULL && i < 3 && dot[1 + i] != 0; i++) {
-        unsigned char c = (unsigned char)dot[1 + i];
-        out[8 + i] = (UInt8)(shortNameChar(c) ? toupper(c) : '_');
+    memcpy(out, base, used);
+    memcpy(out + used, tag, strlen(tag));
+    if (dot < length) {
+        copyUnits(name + dot + 1, length - dot - 1, out + 8, 3);
     }
 }
 
@@ -530,19 +558,21 @@ static void nameChildren(Node* parent)
     memset(table, 0xff, capacity * sizeof(int));
     for (i = 0; i < parent->childCount; i++) {
         Node* node = parent->child[i];
-        int tilde = fitsShortName(node->hostName) ? 0 : 1;
+        UInt8 bytes[1024];
+        int length = nameBytes(node->hostName, bytes, sizeof(bytes));
+        int tilde = fitsShortName(bytes, length) ? 0 : 1;
         int* slot;
 
         /* A run of names that shorten alike carries on from the number the last one got. */
         if (tilde > 0) {
-            makeShortName(node->hostName, 1, node->name);
+            makeShortName(bytes, length, 1, node->name);
             if (previousTilde > 0 && memcmp(node->name, previousFirst, 11) == 0) {
                 tilde = previousTilde + 1;
             }
             memcpy(previousFirst, node->name, 11);
         }
         for (;;) {
-            makeShortName(node->hostName, tilde, node->name);
+            makeShortName(bytes, length, tilde, node->name);
             slot = nameSlot(parent, table, capacity, node->name);
             if (*slot < 0 || tilde >= 999999) {
                 break;
@@ -762,6 +792,10 @@ static void setFat(DirDisk* disk, UInt32 cluster, UInt32 value)
 static void writeEntry(UInt8* entry, const UInt8* name, const Node* node, UInt32 first)
 {
     memcpy(entry, name, 11);
+    /* E5 in the first place marks a deleted entry, so a name starting with it is stored with 05. */
+    if (entry[0] == 0xe5) {
+        entry[0] = 0x05;
+    }
     entry[11] = node->attr;
     entry[22] = (UInt8)node->time;
     entry[23] = (UInt8)(node->time >> 8);
@@ -956,7 +990,7 @@ int dirDiskIsDirPath(const char* path)
     wchar_t wide[1024];
     DWORD attributes;
 
-    widePath(path, wide, 1024);
+    dirDiskWidePath(path, wide, 1024);
     attributes = wide[0] != 0 ? GetFileAttributesW(wide) : INVALID_FILE_ATTRIBUTES;
     return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
 #else
@@ -974,6 +1008,35 @@ int dirDiskGetFormat(DirDisk* disk)
 void dirDiskGetSkipped(DirDisk* disk, DirSkipped* skipped)
 {
     *skipped = disk->skipped;
+}
+
+void dirDiskDisarm(DirDisk* disk)
+{
+    disk->disarmed = 1;
+}
+
+int dirDiskIsDisarmed(DirDisk* disk)
+{
+    return disk->disarmed;
+}
+
+int dirDiskWriteBackArmed(DirDisk* disk)
+{
+    return !disk->disarmed;
+}
+
+int dirDiskIsDirty(DirDisk* disk)
+{
+    return disk->overlayCount > 0;
+}
+
+void dirDiskReleaseHostFile(DirDisk* disk)
+{
+    if (disk->openFile != NULL) {
+        fclose(disk->openFile);
+    }
+    disk->openFile = NULL;
+    disk->openNode = NULL;
 }
 
 /* ------------------------------ Overlay ----------------------------- */
@@ -1079,7 +1142,7 @@ static int readFileSector(DirDisk* disk, Node* node, UInt32 offset, UInt8* buffe
     return seekHostFile(disk->openFile, offset) && fread(buffer, 1, wanted, disk->openFile) == wanted;
 }
 
-static int readSector(DirDisk* disk, UInt32 sector, UInt8* buffer)
+int dirDiskReadSector(DirDisk* disk, UInt32 sector, UInt8* buffer)
 {
     const Layout* layout = &disk->layout;
     const UInt32* key = overlayFind(disk, sector);
@@ -1133,7 +1196,7 @@ int dirDiskRead(void* ref, Int64 offset, UInt8* buffer, int length)
         return 0;
     }
     for (done = 0; done < length; done += SECTOR) {
-        if (!readSector(disk, (UInt32)((offset + done) / SECTOR), buffer + done)) {
+        if (!dirDiskReadSector(disk, (UInt32)((offset + done) / SECTOR), buffer + done)) {
             return 0;
         }
     }

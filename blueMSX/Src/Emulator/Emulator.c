@@ -465,6 +465,7 @@ void emulatorStart(const char* stateName) {
     if (emuStateName[0] != 0) {
         diskWithdrawHostMedia();
     }
+    diskDirStart(emuStateName[0] != 0, emuState == EMU_STOPPED);
         dbgEnable();
 
     archEmulationStartNotification();
@@ -669,8 +670,14 @@ int emuWaitForResume(void) {
     return emuExitFlag;
 }
 
+static int emuHoldSuspended;
+
+void emulatorHoldSuspended(int hold) {
+    emuHoldSuspended = hold;
+}
+
 void emulatorResume() {
-    if (emuState == EMU_SUSPENDED) {
+    if (emuState == EMU_SUSPENDED && !emuHoldSuspended) {
         emuSysTime = 0;
 
         archSoundResume();

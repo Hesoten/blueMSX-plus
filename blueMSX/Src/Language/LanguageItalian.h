@@ -89,6 +89,16 @@ void langInitItalian(LanguageStrings* ls)
     ls->errorDirDiskTooLarge    = "%d file non entravano nel disco e sono stati esclusi.";
     ls->errorDirDiskOnline      = "%d file disponibili solo online sono stati esclusi. Rendili disponibili su questo dispositivo per includerli.";
     ls->errorDirDiskSubdirs     = "%d cartelle sono state escluse perché il formato scelto non può contenerle.";
+    ls->errorDirDiskUnreadable  = "Impossibile inserire la cartella perché non è stato possibile leggerla:\n%s";
+    ls->dlgDirWriteSummary      = "L'MSX ha modificato il contenuto di questa cartella:\n%s\n\nNuovi file: %d\nFile modificati: %d\nFile eliminati (spostati in .blueMSX-trash): %d\nIgnorati: %d\n\nScrivere le modifiche nella cartella?";
+    ls->dlgDirWriteMass         = "La maggior parte dei file è stata eliminata. L'MSX potrebbe aver formattato il volume.";
+    ls->dlgDirWriteApply        = "Scrivi";
+    ls->dlgDirWriteDiscard      = "Scarta";
+    ls->dlgDirWriteDiscardSure  = "Scartare davvero le modifiche apportate dall'MSX? Non potranno essere ripristinate.";
+    ls->errorDirWriteInvalid    = "Le modifiche fatte dall'MSX a questa cartella non possono essere scritte, perché il file system del disco (la FAT e le cartelle) è scritto a metà o danneggiato:\n%s\n\nSe è possibile che l'MSX stesse ancora scrivendo sul disco, scegli No, attendi che abbia finito (il prompt di MSX-DOS o l'Ok del BASIC) e riprova. Se l'MSX ha formattato o ripartizionato il disco, le modifiche non possono essere scritte.\n\nScartare le modifiche?";
+    ls->errorDirWriteFailed     = "Non è stato possibile scrivere %d elementi. Il file log.txt in questa cartella li elenca:\n%s";
+    ls->errorDirWriteHost       = "Non è stato possibile scrivere in questa cartella le modifiche fatte dall'MSX:\n%s\n\nLa cartella potrebbe essere di sola lettura o il disco potrebbe essere pieno.\n\nScartare le modifiche?";
+    ls->infoDirWriteState       = "L'MSX sta funzionando da uno stato salvato. Le modifiche a questa cartella non verranno scritte finché l'MSX non sarà stato spento e riacceso.";
     ls->errorNoHelp                     = "Non trovo il file della guida in linea di blueMSX+.";
     ls->errorStartEmu                   = "Avvio dell'emulatore fallito!";
     ls->errorStartEmuNoMachine          = "Nessuna macchina MSX impostata per l'emulazione. Sceglietene una da Opzioni -> Emulazione -> Modello emulato.";
@@ -351,7 +361,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->dlgPhysDriveContinue    = "Continua";
     ls->dlgPhysDriveInUse       = "L'unità è in uso da parte di Windows o di un altro programma. Chiudi i file e le finestre che la usano e riprova.";
     ls->dlgPhysDriveFailed      = "Impossibile aprire l'unità.";
-    ls->infoRewindNoMedium      = "La riproduzione a ritroso non è disponibile mentre è inserita un'unità fisica.";
+    ls->infoRewindNoMedium      = "La riproduzione a ritroso non è disponibile mentre è inserita un'unità fisica o mentre le modifiche apportate dall'MSX a una cartella non vi sono ancora state scritte.";
 
     ls->dlgAboutTitle                   = "blueMSX+ - Informazioni";
 

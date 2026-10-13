@@ -88,6 +88,16 @@ void langInitSpanish(LanguageStrings* ls)
     ls->errorDirDiskTooLarge    = "%d archivo(s) no cabían en el disco y se han omitido.";
     ls->errorDirDiskOnline      = "Se han omitido %d archivo(s) disponibles solo en línea. Haga que estén disponibles en este dispositivo para incluirlos.";
     ls->errorDirDiskSubdirs     = "Se han omitido %d directorio(s) porque el formato elegido no los admite.";
+    ls->errorDirDiskUnreadable  = "No se ha podido insertar el directorio porque no se ha podido leer:\n%s";
+    ls->dlgDirWriteSummary      = "El MSX ha modificado el contenido de este directorio:\n%s\n\nArchivos nuevos: %d\nArchivos modificados: %d\nArchivos borrados (movidos a .blueMSX-trash): %d\nOmitidos: %d\n\n¿Escribir los cambios en el directorio?";
+    ls->dlgDirWriteMass         = "Se ha borrado la mayoría de los archivos. Puede que el MSX haya formateado el volumen.";
+    ls->dlgDirWriteApply        = "Escribir";
+    ls->dlgDirWriteDiscard      = "Descartar";
+    ls->dlgDirWriteDiscardSure  = "¿Descartar de verdad los cambios que ha hecho el MSX? No se podrán recuperar.";
+    ls->errorDirWriteInvalid    = "Los cambios que el MSX ha hecho en este directorio no se pueden escribir, porque el sistema de archivos del disco (la FAT y los directorios) está escrito a medias o dañado:\n%s\n\nSi es posible que el MSX todavía estuviera escribiendo en el disco, elija No, espere a que termine (el símbolo de MSX-DOS o el Ok de BASIC) e inténtelo de nuevo. Si el MSX ha formateado o reparticionado el disco, los cambios no se pueden escribir.\n\n¿Descartar los cambios?";
+    ls->errorDirWriteFailed     = "%d elemento(s) no se pudieron escribir. El archivo log.txt de este directorio los enumera:\n%s";
+    ls->errorDirWriteHost       = "Los cambios hechos por el MSX no se han podido escribir en este directorio:\n%s\n\nPuede que el directorio sea de solo lectura o que el disco esté lleno.\n\n¿Descartar los cambios?";
+    ls->infoDirWriteState       = "El MSX funciona a partir de un estado guardado. Los cambios en este directorio no se escribirán hasta que el MSX se haya apagado y vuelto a encender.";
     ls->errorNoHelp             = "Imposible encontrar archivo de ayuda de BlueMSX.";
     ls->errorStartEmu           = "Error al iniciar MSX emulator.";
     ls->errorStartEmuNoMachine           = "No hay ninguna máquina MSX configurada para la emulación. Elija una en Opciones -> Emulación -> Familia MSX.";
@@ -350,7 +360,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->dlgPhysDriveContinue    = "Continuar";
     ls->dlgPhysDriveInUse       = "Windows u otro programa está usando la unidad. Cierre los archivos y las ventanas que la usan e inténtelo de nuevo.";
     ls->dlgPhysDriveFailed      = "No se pudo abrir la unidad.";
-    ls->infoRewindNoMedium      = "El rebobinado no está disponible mientras hay una unidad física insertada.";
+    ls->infoRewindNoMedium      = "El rebobinado no está disponible mientras hay insertada una unidad física o mientras los cambios que el MSX ha hecho en un directorio aún no se han escrito en él.";
 
     ls->dlgAboutTitle           = "blueMSX+ - Acerca de";
 

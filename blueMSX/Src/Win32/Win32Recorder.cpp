@@ -1515,6 +1515,7 @@ extern "C" void recorderStartRender(HWND hwndOwner, Properties* prop, Video* vid
     if (filename == NULL) return;
 
     actionEmuStop();
+    if (emulatorGetState() != EMU_STOPPED) return;
 
     int width  = 320 * g_zoom;
     int height = 240 * g_zoom;

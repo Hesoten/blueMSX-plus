@@ -88,6 +88,16 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->errorDirDiskTooLarge    = "%d 个文件无法放入磁盘，已被排除。";
     ls->errorDirDiskOnline      = "已排除 %d 个仅联机文件。若要包含它们，请使其在此设备上可用。";
     ls->errorDirDiskSubdirs     = "所选格式无法容纳，已排除 %d 个目录。";
+    ls->errorDirDiskUnreadable  = "无法读取目录，因此插入失败：\n%s";
+    ls->dlgDirWriteSummary      = "MSX 更改了此目录的内容:\n%s\n\n新文件: %d\n已更改的文件: %d\n已删除的文件 (移动到 .blueMSX-trash): %d\n已跳过: %d\n\n要将更改写入目录吗？";
+    ls->dlgDirWriteMass         = "大部分文件已被删除。MSX 可能格式化了该卷。";
+    ls->dlgDirWriteApply        = "写入";
+    ls->dlgDirWriteDiscard      = "放弃";
+    ls->dlgDirWriteDiscardSure  = "确定要放弃 MSX 所做的更改吗？放弃的更改无法恢复。";
+    ls->errorDirWriteInvalid    = "磁盘上的文件系统（FAT 和目录）尚未写完或已损坏，因此无法写入 MSX 对此目录所做的更改:\n%s\n\n如果 MSX 可能仍在向磁盘写入，请选择“否”，等待写入完成（出现 MSX-DOS 提示符或 BASIC 的 Ok）后重试。如果 MSX 格式化了磁盘或重新分区，则无法写入这些更改。\n\n要放弃这些更改吗？";
+    ls->errorDirWriteFailed     = "有 %d 个项目无法写回。此目录中的 log.txt 列出了这些项目:\n%s";
+    ls->errorDirWriteHost       = "无法将 MSX 所做的更改写入此目录:\n%s\n\n目录可能是只读的，或者磁盘空间不足。\n\n要放弃这些更改吗？";
+    ls->infoDirWriteState       = "MSX 正从已保存的状态运行。在关闭并重新打开 MSX 电源之前，对此目录的更改不会写回。";
     ls->errorNoHelp             = "无法找到 blueMSX+ 帮助文件。";
     ls->errorStartEmu           = "无法启动 MSX 模拟器。";
     ls->errorStartEmuNoMachine           = "尚未设置用于模拟的 MSX 机器。请在 选项 -> 模拟 -> MSX 机型 中选择一个。";
@@ -350,7 +360,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->dlgPhysDriveContinue    = "继续";
     ls->dlgPhysDriveInUse       = "该驱动器正被 Windows 或其他程序使用。请关闭正在使用它的文件和窗口，然后重试。";
     ls->dlgPhysDriveFailed      = "无法打开该驱动器。";
-    ls->infoRewindNoMedium      = "已插入物理驱动器时无法回退模拟。";
+    ls->infoRewindNoMedium      = "已插入物理驱动器时，或 MSX 对目录的更改尚未写入时，无法回退模拟。";
 
     ls->dlgAboutTitle           = "blueMSX+ - 关于";
 

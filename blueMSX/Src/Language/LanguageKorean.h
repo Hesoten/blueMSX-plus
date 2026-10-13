@@ -88,6 +88,16 @@ void langInitKorean(LanguageStrings* ls)
     ls->errorDirDiskTooLarge    = "%d개의 파일이 디스크에 들어가지 않아 제외되었습니다.";
     ls->errorDirDiskOnline      = "온라인 전용 파일 %d개가 제외되었습니다. 포함하려면 이 장치에서 사용할 수 있게 하십시오.";
     ls->errorDirDiskSubdirs     = "선택한 형식에서는 다룰 수 없어 %d개의 디렉토리가 제외되었습니다.";
+    ls->errorDirDiskUnreadable  = "디렉토리를 읽을 수 없어 삽입하지 못했습니다:\n%s";
+    ls->dlgDirWriteSummary      = "MSX가 이 디렉토리의 내용을 변경했습니다:\n%s\n\n새 파일: %d\n변경된 파일: %d\n삭제된 파일 (.blueMSX-trash로 이동): %d\n건너뜀: %d\n\n변경 내용을 디렉토리에 기록하시겠습니까?";
+    ls->dlgDirWriteMass         = "대부분의 파일이 삭제되었습니다. MSX에서 볼륨을 포맷했을 수 있습니다.";
+    ls->dlgDirWriteApply        = "기록";
+    ls->dlgDirWriteDiscard      = "버리기";
+    ls->dlgDirWriteDiscardSure  = "MSX가 만든 변경 내용을 정말 버리시겠습니까? 버린 변경 내용은 되돌릴 수 없습니다.";
+    ls->errorDirWriteInvalid    = "디스크의 파일 시스템(FAT와 디렉토리)이 기록 도중의 상태이거나 손상되어 MSX가 이 디렉토리에 가한 변경 내용을 기록할 수 없습니다:\n%s\n\nMSX가 아직 디스크에 기록하는 중이었을 수 있다면 '아니요'를 선택하고, 기록이 끝난 다음(MSX-DOS 프롬프트 또는 BASIC의 Ok가 나타난 다음) 다시 시도하십시오. MSX에서 디스크를 포맷하거나 파티션을 다시 나눈 경우에는 변경 내용을 기록할 수 없습니다.\n\n변경 내용을 버리시겠습니까?";
+    ls->errorDirWriteFailed     = "%d개 항목을 디렉토리에 기록하지 못했습니다. 다음 디렉토리의 log.txt에 목록이 있습니다:\n%s";
+    ls->errorDirWriteHost       = "MSX의 변경 내용을 이 디렉토리에 기록할 수 없습니다:\n%s\n\n디렉토리가 읽기 전용이거나 디스크 공간이 부족할 수 있습니다.\n\n변경 내용을 버리시겠습니까?";
+    ls->infoDirWriteState       = "MSX가 저장된 상태에서 실행 중입니다. MSX 전원을 껐다 다시 켤 때까지 이 디렉토리의 변경 내용은 기록되지 않습니다.";
     ls->errorNoHelp             = "blueMSX+ 도움말을 찾을 수 없습니다.";
     ls->errorStartEmu           = "MSX 에뮬레이터를 시작할 수 없습니다.";
     ls->errorStartEmuNoMachine           = "에뮬레이션에 사용할 MSX 머신이 설정되지 않았습니다. 옵션 -> 에뮬레이션 -> MSX 머신 에서 선택하세요.";
@@ -350,7 +360,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->dlgPhysDriveContinue    = "계속";
     ls->dlgPhysDriveInUse       = "드라이브를 Windows 또는 다른 프로그램이 사용 중입니다. 사용 중인 파일과 창을 닫은 다음 다시 시도하십시오.";
     ls->dlgPhysDriveFailed      = "드라이브를 열 수 없습니다.";
-    ls->infoRewindNoMedium      = "물리 드라이브가 삽입되어 있는 동안에는 되감기를 사용할 수 없습니다.";
+    ls->infoRewindNoMedium      = "물리 드라이브가 삽입되어 있거나 MSX가 디렉토리에 만든 변경 내용이 아직 기록되지 않은 동안에는 되감기를 사용할 수 없습니다.";
 
     ls->dlgAboutTitle           = "blueMSX+에 대하여";
 

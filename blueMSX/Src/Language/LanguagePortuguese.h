@@ -88,6 +88,16 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->errorDirDiskTooLarge    = "%d arquivo(s) não couberam no disco e foram omitidos.";
     ls->errorDirDiskOnline      = "%d arquivo(s) disponíveis somente online foram omitidos. Torne-os disponíveis neste dispositivo para incluí-los.";
     ls->errorDirDiskSubdirs     = "%d diretório(s) foram omitidos porque o formato escolhido não os comporta.";
+    ls->errorDirDiskUnreadable  = "Falha ao inserir o diretório porque não foi possível lê-lo:\n%s";
+    ls->dlgDirWriteSummary      = "O MSX alterou o conteúdo deste diretório:\n%s\n\nArquivos novos: %d\nArquivos alterados: %d\nArquivos apagados (movidos para .blueMSX-trash): %d\nIgnorados: %d\n\nGravar as alterações no diretório?";
+    ls->dlgDirWriteMass         = "A maioria dos arquivos foi apagada. O MSX pode ter formatado o volume.";
+    ls->dlgDirWriteApply        = "Gravar";
+    ls->dlgDirWriteDiscard      = "Descartar";
+    ls->dlgDirWriteDiscardSure  = "Deseja realmente descartar as alterações feitas pelo MSX? Elas não poderão ser restauradas.";
+    ls->errorDirWriteInvalid    = "As alterações feitas pelo MSX neste diretório não podem ser gravadas, porque o sistema de arquivos do disco (a FAT e os diretórios) está gravado pela metade ou danificado:\n%s\n\nSe for possível que o MSX ainda estivesse gravando no disco, escolha Não, aguarde até que ele termine (o prompt do MSX-DOS ou o Ok do BASIC) e tente novamente. Se o MSX formatou ou reparticionou o disco, as alterações não podem ser gravadas.\n\nDescartar as alterações?";
+    ls->errorDirWriteFailed     = "%d item(ns) não puderam ser gravados no diretório. O arquivo log.txt no diretório a seguir lista esses itens:\n%s";
+    ls->errorDirWriteHost       = "As alterações feitas pelo MSX não puderam ser gravadas neste diretório:\n%s\n\nO diretório pode ser somente leitura ou o disco pode estar cheio.\n\nDescartar as alterações?";
+    ls->infoDirWriteState       = "O MSX está em execução a partir de um estado salvo. As alterações neste diretório não serão gravadas até que o MSX seja desligado e ligado novamente.";
     ls->errorNoHelp             = "Nao foi localizado arquivo ajuda do blueMSX+";
     ls->errorStartEmu           = "Falha ao Iniciar o emulador MSX.";
     ls->errorStartEmuNoMachine           = "Nenhuma máquina MSX configurada para emulação. Escolha uma em Opções -> Emulação -> MSX.";
@@ -350,7 +360,7 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->dlgPhysDriveContinue    = "Continuar";
     ls->dlgPhysDriveInUse       = "A unidade está em uso pelo Windows ou por outro programa. Feche os arquivos e as janelas que a utilizam e tente novamente.";
     ls->dlgPhysDriveFailed      = "Não foi possível abrir a unidade.";
-    ls->infoRewindNoMedium      = "Não é possível rebobinar enquanto uma unidade física está inserida.";
+    ls->infoRewindNoMedium      = "Não é possível rebobinar enquanto uma unidade física estiver inserida, ou enquanto as alterações feitas pelo MSX em um diretório ainda não tiverem sido gravadas nele.";
 
     ls->dlgAboutTitle           = "blueMSX+ - Sobre";
 

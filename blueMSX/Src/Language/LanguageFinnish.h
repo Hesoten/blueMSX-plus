@@ -90,6 +90,16 @@ void langInitFinnish(LanguageStrings* ls)
     ls->errorDirDiskTooLarge    = "%d tiedosto(a) ei mahtunut levylle, ja ne jätettiin pois.";
     ls->errorDirDiskOnline      = "%d vain verkossa olevaa tiedostoa jätettiin pois. Ota ne käyttöön tässä laitteessa, jos haluat ne mukaan.";
     ls->errorDirDiskSubdirs     = "%d hakemistoa jätettiin pois, koska valittu muoto ei tue niitä.";
+    ls->errorDirDiskUnreadable  = "Hakemiston asettaminen asemaan epäonnistui, koska sitä ei voitu lukea:\n%s";
+    ls->dlgDirWriteSummary      = "MSX muutti tämän hakemiston sisältöä:\n%s\n\nUusia tiedostoja: %d\nMuutettuja tiedostoja: %d\nPoistettuja tiedostoja (siirretty hakemistoon .blueMSX-trash): %d\nOhitettuja: %d\n\nKirjoitetaanko muutokset hakemistoon?";
+    ls->dlgDirWriteMass         = "Suurin osa tiedostoista poistettiin. MSX on ehkä alustanut taltion.";
+    ls->dlgDirWriteApply        = "Kirjoita";
+    ls->dlgDirWriteDiscard      = "Hylkää";
+    ls->dlgDirWriteDiscardSure  = "Haluatko varmasti hylätä MSX:n tekemät muutokset? Niitä ei voi palauttaa.";
+    ls->errorDirWriteInvalid    = "MSX:n tähän hakemistoon tekemiä muutoksia ei voi kirjoittaa, koska levyn tiedostojärjestelmä (FAT ja hakemistot) on puoliksi kirjoitettu tai vahingoittunut:\n%s\n\nJos MSX saattoi olla vielä kirjoittamassa levylle, valitse Ei, odota, kunnes se on valmis (MSX-DOS-kehote tai BASICin Ok), ja yritä uudelleen. Jos MSX alusti levyn tai osioi sen uudelleen, muutoksia ei voi kirjoittaa.\n\nHylätäänkö muutokset?";
+    ls->errorDirWriteFailed     = "%d kohdetta ei voitu kirjoittaa takaisin. Tämän hakemiston log.txt luettelee ne:\n%s";
+    ls->errorDirWriteHost       = "MSX:n tekemiä muutoksia ei voitu kirjoittaa tähän hakemistoon:\n%s\n\nHakemisto voi olla vain luku -tilassa tai levy täynnä.\n\nHylätäänkö muutokset?";
+    ls->infoDirWriteState       = "MSX toimii tallennetusta tilasta. Tämän hakemiston muutoksia ei kirjoiteta takaisin ennen kuin MSX on sammutettu ja käynnistetty uudelleen.";
     ls->errorNoHelp             = "blueMSX+:n ohjetiedostoa ei löytynyt.";
     ls->errorStartEmu           = "MSX emulaattorin käynnistys epäonnistui.";
     ls->errorStartEmuNoMachine           = "Emulaatiolle ei ole asetettu MSX-konetta. Valitse yksi kohdasta Asetukset -> Emulaatio -> MSX malli.";
@@ -351,7 +361,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->dlgPhysDriveContinue    = "Jatka";
     ls->dlgPhysDriveInUse       = "Asema on Windowsin tai toisen ohjelman käytössä. Sulje sitä käyttävät tiedostot ja ikkunat ja yritä uudelleen.";
     ls->dlgPhysDriveFailed      = "Asemaa ei voitu avata.";
-    ls->infoRewindNoMedium      = "Taaksepäin suoritus ei ole käytettävissä, kun fyysinen asema on asetettuna.";
+    ls->infoRewindNoMedium      = "Taaksepäin suoritus ei ole käytettävissä, kun asetettuna on fyysinen asema tai kun MSX:n hakemistoon tekemiä muutoksia ei ole vielä kirjoitettu siihen.";
 
     ls->dlgAboutTitle           = "Tietoja blueMSX+:stä";
 

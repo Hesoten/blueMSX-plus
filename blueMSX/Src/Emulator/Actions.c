@@ -166,10 +166,183 @@ void actionDiskRemove(int i) {
     archUpdateMenu(0);
 }
 
+int actionHarddiskCanChange(int diskNo, int isDir)
+{
+    if (emulatorGetState() == EMU_STOPPED || diskNo < MAX_FDC_COUNT || diskNo >= MAXDRIVES) {
+        return 1;
+    }
+    /* A directory only goes in or out while the MSX is off: it would not notice the change. */
+    return !isDir && !diskIsDir(diskNo);
+}
+
+static int dirGateActive;
+/* A directory is being chosen for a drive; the MSX is not paused, stepped or asked about meanwhile. */
+static int dirInsertActive;
+
+int actionDirAnyPending(void)
+{
+    int i;
+
+    for (i = 0; i < MAXDRIVES; i++) {
+        if (diskDirPending(i)) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+void actionHarddiskEjectDir(int diskNo)
+{
+    if (diskNo < 0 || diskNo >= MAXDRIVES || !diskIsDir(diskNo)) {
+        return;
+    }
+    state.properties->media.disks[diskNo].fileName[0] = 0;
+    state.properties->media.disks[diskNo].fileNameInZip[0] = 0;
+    updateExtendedDiskName(diskNo, state.properties->media.disks[diskNo].fileName, state.properties->media.disks[diskNo].fileNameInZip);
+    if (emulatorGetState() != EMU_STOPPED) {
+        boardChangeDiskette(diskNo, NULL, NULL);
+    }
+    diskDiscardDir(diskNo);
+}
+
+int actionDirWriteBack(int diskNo)
+{
+#if defined(_WIN32) || defined(WIN32)
+    int wasRunning = emulatorGetState() == EMU_RUNNING;
+    int first = diskNo < 0 ? 0 : diskNo;
+    int last = diskNo < 0 ? MAXDRIVES - 1 : diskNo;
+    void* plans[MAXDRIVES];
+    int answers[MAXDRIVES];  /* 0 untouched, 1 write, 2 forget what the MSX wrote */
+    int written[MAXDRIVES];
+    int goOn = 1;
+    int i;
+
+    /* A question is already on the screen; whatever asks again has to wait. */
+    if (dirGateActive || (diskNo < 0 && dirInsertActive)) {
+        return 0;
+    }
+    dirGateActive = 1;
+    if (wasRunning) {
+        emulatorSuspend();
+    }
+    /* Nothing that comes in while the question is open may set the MSX going. */
+    emulatorHoldSuspended(1);
+    for (i = 0; i < MAXDRIVES; i++) {
+        plans[i] = NULL;
+        answers[i] = 0;
+        written[i] = 0;
+    }
+    /* Every drive is asked about before any is written, so a later cancel leaves all of them as they were. */
+    for (i = first; goOn && i <= last; i++) {
+        char directory[PROP_MAXPATH];
+        void* plan;
+        int created, changed, deleted, skipped, mass;
+        int status;
+
+        if (!diskDirPending(i)) {
+            continue;
+        }
+        strcpy(directory, diskDirPath(i));
+        status = diskDirPlan(i, &plan, &created, &changed, &deleted, &skipped, &mass);
+        if (status == DISK_DIR_NOTHING) {
+            continue;
+        }
+        if (status == DISK_DIR_INVALID) {
+            goOn = archAskDirInvalid(directory);
+            answers[i] = 2;
+        }
+        else if (status == DISK_DIR_ERROR) {
+            goOn = archAskDirHostError(directory);
+            answers[i] = 2;
+        }
+        else {
+            plans[i] = plan;
+            answers[i] = archAskDirChanges(directory, created, changed, deleted, skipped, mass);
+            goOn = answers[i] != 0;
+        }
+    }
+    for (i = first; goOn && i <= last; i++) {
+        char session[1024];
+        int failed;
+
+        if (answers[i] != 1) {
+            continue;
+        }
+        if (!diskDirApply(i, plans[i], &failed, session, sizeof(session))) {
+            goOn = archAskDirHostError(diskDirPath(i));
+        }
+        else {
+            written[i] = 1;
+            if (failed > 0) {
+                archShowDirWriteFailed(failed, session);
+            }
+        }
+    }
+    for (i = first; i <= last; i++) {
+        if (plans[i] != NULL) {
+            diskDirFreePlan(plans[i]);
+        }
+        /* What the MSX wrote is dealt with; the directory is read anew when it is next used. */
+        if (goOn && answers[i] != 0) {
+            diskDiscardDir(i);
+        }
+        /* The MSX goes on with a directory that now holds its writes; a drive that may not change medium keeps it unwritten. */
+        else if (!goOn && written[i]) {
+            if (actionHarddiskCanChange(i, 1)) {
+                actionHarddiskEjectDir(i);
+            }
+            else {
+                diskDirDisarm(i);
+            }
+        }
+    }
+    emulatorHoldSuspended(0);
+    if (wasRunning) {
+        emulatorResume();
+    }
+    dirGateActive = 0;
+    return goOn;
+#else
+    (void)diskNo;
+    return 1;
+#endif
+}
+
+static int dirStateTold;
+
+void actionDirStateNotice(void)
+{
+#if defined(_WIN32) || defined(WIN32)
+    int session = diskDirStateSession();
+    int i;
+
+    /* Once for each time a saved state takes over from a power-on. */
+    if (session == 0 || session == dirStateTold) {
+        return;
+    }
+    for (i = MAX_FDC_COUNT; i < PROP_MAX_DISKS; i++) {
+        if (diskIsDir(i)) {
+            dirStateTold = session;
+            archShowDirStateLoaded();
+            return;
+        }
+    }
+#endif
+}
+
+void actionDirInsertedNotice(void)
+{
+    dirStateTold = 0;
+    actionDirStateNotice();
+}
+
 void actionHarddiskInsert(int diskNo)
 {
     char* filename;
 
+    if (!actionHarddiskCanChange(diskNo, 0)) {
+        return;
+    }
     emulatorSuspend();
     filename = archFilenameGetOpenHarddisk(state.properties, diskNo, 0);
     if (filename != NULL) {        
@@ -181,6 +354,9 @@ void actionHarddiskInsert(int diskNo)
 
 void actionHarddiskInsertCdrom(int diskNo)
 {
+    if (!actionHarddiskCanChange(diskNo, 0)) {
+        return;
+    }
     emulatorSuspend();
     insertDiskette(state.properties, diskNo, DISK_CDROM, NULL, 0);
     emulatorResume();
@@ -191,6 +367,9 @@ void actionHarddiskInsertNew(int diskNo)
 {
     char* filename;
 
+    if (!actionHarddiskCanChange(diskNo, 0)) {
+        return;
+    }
     emulatorSuspend();
     filename = archFilenameGetOpenHarddisk(state.properties, diskNo, 1);
     if (filename != NULL) {        
@@ -203,23 +382,48 @@ void actionHarddiskInsertNew(int diskNo)
 void actionHarddiskInsertDir(int diskNo)
 {
 #if defined(_WIN32) || defined(WIN32)
-    int msxFormat = 2;
+    Properties* properties = state.properties;
+    int msxFormat = 3;  /* DiskFormatNextor */
     char* filename;
 
+    if (dirGateActive || dirInsertActive || !actionHarddiskCanChange(diskNo, 1)) {
+        return;
+    }
+    dirInsertActive = 1;
     emulatorSuspend();
-    filename = archDirnameGetOpenDiskWithFormat(state.properties, diskNo, &msxFormat);
-    if (filename != NULL && diskPrepareDir(diskNo, filename, msxFormat)) {
-        int tooLarge;
-        int onlineOnly;
-        int subDirs;
+    filename = archDirnameGetOpenDirDisk(properties, diskNo, &msxFormat);
+    /* Something let in while a dialog was open may have set the MSX going again. */
+    emulatorSuspend();
+    if (filename != NULL && actionHarddiskCanChange(diskNo, 1) && actionDirWriteBack(diskNo)) {
+        if (!diskPrepareDir(diskNo, filename, msxFormat)) {
+            /* What the drive held is dealt with and gone, and the new directory cannot be read. */
+            properties->media.disks[diskNo].fileName[0] = 0;
+            properties->media.disks[diskNo].fileNameInZip[0] = 0;
+            updateExtendedDiskName(diskNo, properties->media.disks[diskNo].fileName, properties->media.disks[diskNo].fileNameInZip);
+            if (emulatorGetState() != EMU_STOPPED) {
+                boardChangeDiskette(diskNo, NULL, NULL);
+            }
+            archShowDirUnreadable(filename);
+        }
+        else {
+            int tooLarge;
+            int onlineOnly;
+            int subDirs;
 
-        strcpy(state.properties->media.disks[diskNo].directory, filename);
-        state.properties->media.disks[diskNo].dirFormat = msxFormat;
-        insertDiskette(state.properties, diskNo, filename, NULL, 0);
-        if (diskGetDirSkipped(diskNo, &tooLarge, &onlineOnly, &subDirs)) {
-            archShowDirDiskSkippedDialog(tooLarge, onlineOnly, subDirs);
+            strcpy(properties->media.disks[diskNo].directory, filename);
+            dirStateTold = 0;
+            insertDiskette(properties, diskNo, filename, NULL, 0);
+            properties->media.disks[diskNo].dirFormat = msxFormat;
+            if (diskGetDirSkipped(diskNo, &tooLarge, &onlineOnly, &subDirs)) {
+                archShowDirDiskSkippedDialog(tooLarge, onlineOnly, subDirs);
+                /* The dialog takes down the toast the insert may have put up. */
+                if (emulatorGetState() != EMU_STOPPED) {
+                    actionDirInsertedNotice();
+                }
+            }
         }
     }
+    dirInsertActive = 0;
     emulatorResume();
     archUpdateMenu(0);
 #endif
@@ -227,10 +431,17 @@ void actionHarddiskInsertDir(int diskNo)
 
 void actionHarddiskRemove(int diskNo)
 {
+    if (!actionHarddiskCanChange(diskNo, diskIsDir(diskNo))) {
+        return;
+    }
+    emulatorSuspend();
+    if (!actionDirWriteBack(diskNo)) {
+        emulatorResume();
+        return;
+    }
     state.properties->media.disks[diskNo].fileName[0] = 0;
     state.properties->media.disks[diskNo].fileNameInZip[0] = 0;
     updateExtendedDiskName(diskNo, state.properties->media.disks[diskNo].fileName, state.properties->media.disks[diskNo].fileNameInZip);
-    emulatorSuspend();
     if (emulatorGetState() != EMU_STOPPED) {
         boardChangeDiskette(diskNo, NULL, NULL);
     }
@@ -252,6 +463,13 @@ void actionHarddiskRemoveAll()
         //if (boardGetHdType(i) != HD_NONE) {
             for (j = 0; j < MAX_DRIVES_PER_HD; j++) {
                 diskNo = diskGetHdDriveId(i, j);
+                if (!actionHarddiskCanChange(diskNo, diskIsDir(diskNo))) {
+                    continue;
+                }
+                if (!actionDirWriteBack(diskNo)) {
+                    i = MAX_HD_COUNT;
+                    break;
+                }
                 if (state.properties->media.disks[diskNo].fileName) {
                     state.properties->media.disks[diskNo].fileName[0] = 0;
                     state.properties->media.disks[diskNo].fileNameInZip[0] = 0;
@@ -460,8 +678,13 @@ void actionVideoCaptureLoad() {
     filename = archFilenameGetOpenCapture(state.properties);
     if (filename != NULL) {
         strcpy(state.properties->filehistory.videocap, filename);
+        if (!actionDirWriteBack(-1)) {
+            emulatorResume();
+            return;
+        }
         emulatorStop();
         emulatorStart(filename);
+        actionDirStateNotice();
     }
     else {
         emulatorResume();
@@ -480,10 +703,16 @@ void actionVideoCapturePlay() {
         return;
     }
 
+    emulatorSuspend();
+    if (!actionDirWriteBack(-1)) {
+        emulatorResume();
+        return;
+    }
     if (emulatorGetState() != EMU_STOPPED) {
         emulatorStop();
     }
     emulatorStart(fname);
+    actionDirStateNotice();
     archUpdateMenu(0);
 }
 
@@ -675,8 +904,13 @@ void actionLoadState() {
     emulatorSuspend();
     filename = archFilenameGetOpenState(state.properties);
     if (filename != NULL) {
+        if (!actionDirWriteBack(-1)) {
+            emulatorResume();
+            return;
+        }
         emulatorStop();
         emulatorStart(filename);
+        actionDirStateNotice();
     }
     else {
         emulatorResume();
@@ -708,8 +942,14 @@ void actionSaveState() {
 
 void actionQuickLoadState() {
     if (fileExist(state.properties->filehistory.quicksave, NULL)) {
+        emulatorSuspend();
+        if (!actionDirWriteBack(-1)) {
+            emulatorResume();
+            return;
+        }
         emulatorStop();
         emulatorStart(state.properties->filehistory.quicksave);
+        actionDirStateNotice();
     }
     archUpdateMenu(0);
 }
@@ -777,7 +1017,7 @@ void actionToggleMouseCapture() {
 }
 
 void actionEmuStep() {
-    if (emulatorGetState() == EMU_PAUSED) {
+    if (!dirGateActive && !dirInsertActive && emulatorGetState() == EMU_PAUSED) {
         emulatorSetState(EMU_STEP);
     }
 }
@@ -785,12 +1025,15 @@ void actionEmuStep() {
 static int rewindAvailable(void);
 
 void actionEmuStepBack() {
-    if (emulatorGetState() == EMU_PAUSED && rewindAvailable()) {
+    if (!dirGateActive && !dirInsertActive && emulatorGetState() == EMU_PAUSED && rewindAvailable()) {
         emulatorSetState(EMU_STEP_BACK);
     }
 }
 
 void actionEmuTogglePause() {
+    if (dirGateActive || dirInsertActive) {
+        return;
+    }
     if (emulatorGetState() == EMU_STOPPED) {
         emulatorStart(NULL);
     }
@@ -807,6 +1050,11 @@ void actionEmuTogglePause() {
 
 void actionEmuStop() {
     if (emulatorGetState() != EMU_STOPPED) {
+        emulatorSuspend();
+        if (!actionDirWriteBack(-1)) {
+            emulatorResume();
+            return;
+        }
         emulatorStop();
     }
     archUpdateMenu(0);
@@ -1023,6 +1271,11 @@ void actionEmuResetHard() {
 void actionEmuResetClean() {
     int i;
 
+    emulatorSuspend();
+    if (!actionDirWriteBack(-1)) {
+        emulatorResume();
+        return;
+    }
     emulatorStop();
 
     for (i = 0; i < PROP_MAX_CARTS; i++) {

@@ -27,6 +27,9 @@
 
 typedef struct DirDisk DirDisk;
 
+/* A directory of this name, at any depth, is kept for the emulator and never shown to the MSX. */
+#define DIR_TRASH_NAME ".blueMSX-trash"
+
 /* What was left out of the volume when it was built. */
 typedef struct {
     int tooLarge;       /* files that did not fit */
@@ -46,6 +49,15 @@ Int64 dirDiskGetSize(DirDisk* disk);
 const char* dirDiskGetDirectory(DirDisk* disk);
 int dirDiskGetFormat(DirDisk* disk);
 void dirDiskGetSkipped(DirDisk* disk, DirSkipped* skipped);
+
+/* The changes the MSX made are carried over to the host directory when it is
+** taken out. Disarming is for good: it marks a volume whose contents the MSX
+** may no longer see as they are. */
+void dirDiskDisarm(DirDisk* disk);
+int  dirDiskIsDisarmed(DirDisk* disk);
+int  dirDiskWriteBackArmed(DirDisk* disk);
+/* Whether the MSX has written anything. */
+int  dirDiskIsDirty(DirDisk* disk);
 
 /* offset and length are multiples of 512. Zero on failure. */
 int dirDiskRead(void* disk, Int64 offset, UInt8* buffer, int length);

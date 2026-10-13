@@ -88,6 +88,16 @@ void langInitGerman(LanguageStrings* ls)
     ls->errorDirDiskTooLarge    = "%d Datei(en) passten nicht auf die Disk und wurden ausgelassen.";
     ls->errorDirDiskOnline      = "%d nur online verfügbare Datei(en) wurden ausgelassen. Machen Sie sie auf diesem Gerät verfügbar, um sie einzubeziehen.";
     ls->errorDirDiskSubdirs     = "%d Directorys wurden ausgelassen, weil das gewählte Format sie nicht aufnehmen kann.";
+    ls->errorDirDiskUnreadable  = "Das Einfügen des Directorys ist fehlgeschlagen, da es nicht gelesen werden konnte:\n%s";
+    ls->dlgDirWriteSummary      = "Der MSX hat den Inhalt dieses Directorys geändert:\n%s\n\nNeue Dateien: %d\nGeänderte Dateien: %d\nGelöschte Dateien (nach .blueMSX-trash verschoben): %d\nÜbersprungen: %d\n\nÄnderungen in das Directory schreiben?";
+    ls->dlgDirWriteMass         = "Die meisten Dateien wurden gelöscht. Möglicherweise hat der MSX das Volume formatiert.";
+    ls->dlgDirWriteApply        = "Schreiben";
+    ls->dlgDirWriteDiscard      = "Verwerfen";
+    ls->dlgDirWriteDiscardSure  = "Die Änderungen des MSX wirklich verwerfen? Sie können nicht wiederhergestellt werden.";
+    ls->errorDirWriteInvalid    = "Die Änderungen des MSX an diesem Directory können nicht geschrieben werden, weil das Dateisystem auf dem Datenträger (FAT und Directorys) unvollständig geschrieben oder beschädigt ist:\n%s\n\nFalls der MSX möglicherweise noch auf den Datenträger schrieb, wählen Sie Nein, warten Sie, bis er fertig ist (MSX-DOS-Eingabeaufforderung bzw. Ok in BASIC), und versuchen Sie es erneut. Wenn der MSX den Datenträger formatiert oder neu partitioniert hat, können die Änderungen nicht geschrieben werden.\n\nÄnderungen verwerfen?";
+    ls->errorDirWriteFailed     = "%d Element(e) konnten nicht zurückgeschrieben werden. log.txt in diesem Directory führt sie auf:\n%s";
+    ls->errorDirWriteHost       = "Die Änderungen des MSX konnten nicht in dieses Directory geschrieben werden:\n%s\n\nDas Directory ist möglicherweise schreibgeschützt oder der Datenträger ist voll.\n\nÄnderungen verwerfen?";
+    ls->infoDirWriteState       = "Der MSX läuft mit einem geladenen Speicherstand. Änderungen an diesem Directory werden erst zurückgeschrieben, nachdem der MSX aus- und wieder eingeschaltet wurde.";
     ls->errorNoHelp              = "Konnte kein blueMSX+-Hilfe-File finden.";
     ls->errorStartEmu            = "Der MSX-Emulator konnte nicht gestartet werden.";
     ls->errorStartEmuNoMachine           = "Es ist keine MSX-Maschine für die Emulation eingestellt. Wählen Sie eine unter Options -> Emulation -> MSX-Maschine.";
@@ -350,7 +360,7 @@ void langInitGerman(LanguageStrings* ls)
     ls->dlgPhysDriveContinue    = "Fortfahren";
     ls->dlgPhysDriveInUse       = "Das Laufwerk wird von Windows oder einem anderen Programm verwendet. Schließen Sie die Dateien und Fenster, die es verwenden, und versuchen Sie es erneut.";
     ls->dlgPhysDriveFailed      = "Das Laufwerk konnte nicht geöffnet werden.";
-    ls->infoRewindNoMedium      = "Zurückspulen ist nicht verfügbar, solange ein physisches Laufwerk eingefügt ist.";
+    ls->infoRewindNoMedium      = "Zurückspulen ist nicht verfügbar, solange ein physisches Laufwerk eingefügt ist oder Änderungen des MSX an einem Directory noch nicht in das Directory geschrieben sind.";
 
     ls->dlgAboutTitle            = "Über blueMSX+";
 

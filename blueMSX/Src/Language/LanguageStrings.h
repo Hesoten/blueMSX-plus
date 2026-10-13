@@ -85,6 +85,16 @@ typedef struct {
     char* errorDirDiskTooLarge;
     char* errorDirDiskOnline;
     char* errorDirDiskSubdirs;
+    char* errorDirDiskUnreadable;
+    char* dlgDirWriteSummary;
+    char* dlgDirWriteMass;
+    char* dlgDirWriteApply;
+    char* dlgDirWriteDiscard;
+    char* dlgDirWriteDiscardSure;
+    char* errorDirWriteInvalid;
+    char* errorDirWriteFailed;
+    char* errorDirWriteHost;
+    char* infoDirWriteState;
     char* errorNoHelp;
     char* errorStartEmu;
     /* Machine-load failure details shown as the body of errorStartEmu. */

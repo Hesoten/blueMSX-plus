@@ -384,6 +384,7 @@
 #define IDC_PHYSDRIVE_LIST              1206
 #define IDC_PHYSDRIVE_NOWARNING         1207
 #define IDC_PHYSDRIVE_ICON              1208
+#define IDC_PHYSDRIVE_OTHER             1209
 
 #define IDC_VIDEOPROGRESSTEXT           1210
 #define IDC_RECORDER_CAPLABEL           1211

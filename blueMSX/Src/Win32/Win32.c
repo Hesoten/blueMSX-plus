@@ -3305,6 +3305,12 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             if (fileName == NULL) {
                 return 0;
             }
+            emulatorSuspend();
+            if (!actionDirWriteBack(-1)) {
+                emulatorResume();
+                free(fileName);
+                return 0;
+            }
 
             emulatorStop();
 
@@ -3903,8 +3909,27 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         return 0;
         
     case WM_CLOSE:
+        /* Asked here, where staying open is still possible. */
+        emulatorSuspend();
+        if (!actionDirWriteBack(-1)) {
+            emulatorResume();
+            return 0;
+        }
+        emulatorStop();
         DestroyWindow(hwnd);
         return 0;
+
+    case WM_QUERYENDSESSION:
+        if (actionDirAnyPending()) {
+            emulatorSuspend();
+            if (!actionDirWriteBack(-1)) {
+                emulatorResume();
+                return FALSE;
+            }
+            /* The directories are written and let go; the MSX must not go on with them. */
+            emulatorStop();
+        }
+        return TRUE;
 
     case WM_DESTROY:
         
@@ -5445,6 +5470,82 @@ void archShowDirDiskSkippedDialog(int tooLarge, int onlineOnly, int subDirs) {
     exitDialogShow();
 }
 
+void archShowDirUnreadable(const char* directory) {
+    char msg[1536];
+
+    snprintf(msg, sizeof(msg), langErrorDirDiskUnreadable(), directory);
+    if (st.hidden) {
+        commandLineReport(msg);
+        return;
+    }
+    enterDialogShow();
+    MessageBoxU(getMainHwnd(), msg, langWarningTitle(), MB_OK | MB_ICONWARNING);
+    exitDialogShow();
+}
+
+int archAskDirChanges(const char* directory, int created, int changed, int deleted, int skipped, int mass) {
+    char text[4096];
+    int answer;
+
+    snprintf(text, sizeof(text) - 512, langDlgDirWriteSummary(), directory, created, changed, deleted, skipped);
+    if (mass) {
+        strcat(text, "\n\n");
+        strncat(text, langDlgDirWriteMass(), 500);
+    }
+    enterDialogShow();
+    do {
+        answer = win32WarningDialog(getMainHwnd(), text, NULL, NULL, langDlgDirWriteApply(), langDlgDirWriteDiscard());
+    } while (answer == 2 && MessageBoxU(getMainHwnd(), langDlgDirWriteDiscardSure(), langWarningTitle(),
+                                        MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2) != IDYES);
+    exitDialogShow();
+    return answer;
+}
+
+int archAskDirInvalid(const char* directory) {
+    char text[4096];
+    int answer;
+
+    snprintf(text, sizeof(text), langErrorDirWriteInvalid(), directory);
+    enterDialogShow();
+    answer = MessageBoxU(getMainHwnd(), text, langWarningTitle(), MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2);
+    exitDialogShow();
+    return answer == IDYES;
+}
+
+int archAskDirHostError(const char* directory) {
+    char text[4096];
+    int answer;
+
+    snprintf(text, sizeof(text), langErrorDirWriteHost(), directory);
+    enterDialogShow();
+    answer = MessageBoxU(getMainHwnd(), text, langWarningTitle(), MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2);
+    exitDialogShow();
+    return answer == IDYES;
+}
+
+void archShowDirStateLoaded(void) {
+    if (st.hidden) {
+        commandLineReport(langInfoDirWriteState());
+        return;
+    }
+    archCaptureToastInfo(langInfoDirWriteState());
+}
+
+void archShowDirWriteFailed(int failed, const char* session) {
+    char text[4096];
+    char shown[1024];
+    char* slash;
+
+    snprintf(shown, sizeof(shown), "%s", session);
+    for (slash = shown; (slash = strchr(slash, '/')) != NULL; ) {
+        *slash = '\\';
+    }
+    snprintf(text, sizeof(text), langErrorDirWriteFailed(), failed, shown);
+    enterDialogShow();
+    MessageBoxU(getMainHwnd(), text, langWarningTitle(), MB_OK | MB_ICONWARNING);
+    exitDialogShow();
+}
+
 /* IDD_LARGEMSG custom dialog backing MessageBoxLargeU: 11pt, ~800px wide,
 ** auto-sized to text, optional 48px MB_ICON*; localized button captions. */
 typedef struct {
@@ -6693,6 +6794,29 @@ char* archDirnameGetOpenDiskWithFormat(Properties* properties, int drive,
     return filename;
 }
 
+char* archDirnameGetOpenDirDisk(Properties* properties, int drive, int* outMsxFormat)
+{
+    char* defaultDir = properties->media.disks[drive].directory;
+    char* filename;
+    static int lastFormat = (int)DiskFormatNextor;
+    int fmt = lastFormat;
+
+    enterDialogShow();
+    filename = openDirWithFormat(getMainHwnd(), langMenuDiskDirInsert(), defaultDir, &fmt);
+    exitDialogShow();
+    SetCurrentDirectoryU(st.pCurDir);
+
+    if (filename != NULL && strlen(filename) >= PROP_MAXPATH) {
+        archShowDirUnreadable(filename);
+        return NULL;
+    }
+    if (filename != NULL) {
+        lastFormat = fmt;
+        *outMsxFormat = fmt;
+    }
+    return filename;
+}
+
 char* archFileOpen(char* title, char* extensionList, char* defaultDir, char* extensions, int* selectedExtension, char* defautExtension, int createFileSize)
 {
     char* fileName;
@@ -6969,7 +7093,7 @@ void archUpdateMenu(int show) {
 }
 
 void archQuit() {
-    DestroyWindow(getMainHwnd());
+    PostMessage(getMainHwnd(), WM_CLOSE, 0, 0);
 }
 
 char* archFilenameGetOpenAnyZip(Properties* properties, const char* fname, const char* fileList, int count, int* autostart, int* romType)
@@ -7366,6 +7490,9 @@ void archWindowEndMove() {
 void archVideoCaptureSave()
 {
     actionEmuStop();
+    if (emulatorGetState() != EMU_STOPPED) {
+        return;
+    }
 
     st.renderVideo = 1;
     recorderStartRender(getMainHwnd(), propGetGlobalProperties(), st.pVideo);

@@ -31,6 +31,7 @@
 #include "Disk.h"
 #include "DirAsDisk.h"
 #include "DirDisk.h"
+#include "DirWriteBack.h"
 #include "ArchDialog.h"
 #include "ziphelper.h"
 #include <stdlib.h>
@@ -80,6 +81,10 @@ static int   hostMediumInserted[MAXDRIVES];
 static DirDisk* dirVolume[MAXDRIVES];
 static int   dirActive[MAXDRIVES];
 static int   dirFormat[MAXDRIVES];
+/* Set while the machine runs from a loaded state: what it then sees of a
+** directory is not what the directory holds, so nothing is written back. */
+static int   dirStateLoaded;
+static int   dirStateSession;
 /* Per-drive memory of the directory whose 720 KB overflow dialog has
 ** already been shown -- shared by diskChange() and diskPreviewDirOverflow()
 ** to dedupe the warning across insert + emulator-start. */
@@ -674,7 +679,104 @@ int diskPrepareDir(int driveId, const char* directory, int format)
     diskDiscardDir(driveId);
     dirFormat[driveId] = format;
     dirVolume[driveId] = dirDiskCreate(directory, format);
-    return dirVolume[driveId] != NULL;
+    if (dirVolume[driveId] == NULL) {
+        return 0;
+    }
+    if (dirStateLoaded) {
+        dirDiskDisarm(dirVolume[driveId]);
+    }
+    return 1;
+}
+
+void diskDirDisarm(int driveId)
+{
+    if (driveId >= 0 && driveId < MAXDRIVES && dirVolume[driveId] != NULL) {
+        dirDiskDisarm(dirVolume[driveId]);
+    }
+}
+
+int diskDirStateSession(void)
+{
+    return dirStateLoaded ? dirStateSession : 0;
+}
+
+void diskDirStart(int fromState, int stopped)
+{
+    int i;
+
+    if (fromState && !dirStateLoaded) {
+        dirStateSession++;
+    }
+    /* A reset of a machine that was not switched off leaves it as it is. */
+    if (stopped || fromState) {
+        dirStateLoaded = fromState;
+    }
+    for (i = 0; i < MAXDRIVES; i++) {
+        if (dirVolume[i] == NULL) {
+            continue;
+        }
+        if (fromState) {
+            dirDiskDisarm(dirVolume[i]);
+        }
+        else if (stopped && dirDiskIsDisarmed(dirVolume[i])) {
+            /* The MSX starts afresh, so the directory can be read anew and trusted again. */
+            diskDiscardDir(i);
+        }
+    }
+}
+
+int diskDirPending(int driveId)
+{
+    return driveId >= 0 && driveId < MAXDRIVES && dirVolume[driveId] != NULL &&
+           dirDiskWriteBackArmed(dirVolume[driveId]) && dirDiskIsDirty(dirVolume[driveId]);
+}
+
+int diskIsDir(int driveId)
+{
+    return driveId >= 0 && driveId < MAXDRIVES && dirActive[driveId];
+}
+
+const char* diskDirPath(int driveId)
+{
+    return driveId >= 0 && driveId < MAXDRIVES && dirVolume[driveId] != NULL ? dirDiskGetDirectory(dirVolume[driveId]) : "";
+}
+
+int diskDirPlan(int driveId, void** plan, int* created, int* changed, int* deleted, int* skipped, int* mass)
+{
+    DirChanges changes;
+    DirPlan* made = NULL;
+    DirWbStatus status;
+
+    *plan = NULL;
+    if (!diskDirPending(driveId)) {
+        return DISK_DIR_NOTHING;
+    }
+    status = dirWriteBackPlan(dirVolume[driveId], &made, &changes);
+    *created = changes.created;
+    *changed = changes.changed;
+    *deleted = changes.deleted;
+    *skipped = changes.skipped;
+    *mass    = changes.mass;
+    *plan    = made;
+    return status == DIR_WB_OK ? DISK_DIR_CHANGED : status == DIR_WB_NOTHING ? DISK_DIR_NOTHING :
+           status == DIR_WB_INVALID ? DISK_DIR_INVALID : DISK_DIR_ERROR;
+}
+
+int diskDirApply(int driveId, void* plan, int* failed, char* session, int sessionSize)
+{
+    DirWbStatus status = DIR_WB_HOST;
+
+    *failed = 0;
+    session[0] = 0;
+    if (driveId >= 0 && driveId < MAXDRIVES && dirVolume[driveId] != NULL && plan != NULL) {
+        status = dirWriteBackApply(dirVolume[driveId], (DirPlan*)plan, failed, session, sessionSize);
+    }
+    return status == DIR_WB_OK;
+}
+
+void diskDirFreePlan(void* plan)
+{
+    dirWriteBackFree((DirPlan*)plan);
 }
 
 int diskIsDirPath(const char* path)
@@ -731,7 +833,7 @@ int diskHasHostMedium(void)
     int i;
 
     for (i = 0; i < MAXDRIVES; i++) {
-        if (hostMedium[i] != NULL) {
+        if (hostMedium[i] != NULL || diskDirPending(i)) {
             return 1;
         }
     }
@@ -801,6 +903,9 @@ UInt8 diskChange(int driveId, const char* fileName, const char* fileInZipFile)
             }
             if (dirVolume[driveId] == NULL) {
                 return 0;
+            }
+            if (dirStateLoaded) {
+                dirDiskDisarm(dirVolume[driveId]);
             }
             dirActive[driveId] = 1;
             hostMediumInserted[driveId] = 1;

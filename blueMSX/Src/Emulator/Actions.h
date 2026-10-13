@@ -55,6 +55,19 @@ void actionHarddiskInsertNew(int diskNo);
 void actionHarddiskInsertDir(int diskNo);
 void actionHarddiskRemove(int diskNo);
 void actionHarddiskRemoveAll();
+/* Whether the medium of the drive may be put in, changed or taken out now:
+** while the MSX runs, only an interface that tells it of the change allows it. */
+int  actionHarddiskCanChange(int diskNo, int isDir);
+/* Writes the changes the MSX made to the directory in the drive (all drives when
+** negative) back to it, asking first. Zero when the user backs out. */
+int  actionDirWriteBack(int diskNo);
+/* Whether any directory holds changes that are still to be written back. */
+int  actionDirAnyPending(void);
+void actionDirStateNotice(void);
+/* Tells, during a run resumed from a saved state, that a directory just inserted takes none of the MSX's writes. */
+void actionDirInsertedNotice(void);
+/* Takes a directory out of the drive without writing anything back. */
+void actionHarddiskEjectDir(int diskNo);
 
 void actionQuit();
 void actionLoadState();
