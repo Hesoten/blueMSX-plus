@@ -184,6 +184,7 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->menuCartFlashCart       = "快閃卡帶";
 
     ls->menuDiskInsertNew       = "插入新的磁碟映像檔";              
+    ls->menuDiskInsertPhysical  = "插入實體磁碟機";
     ls->menuDiskInsertCdrom     = "Insert CD-Rom";       // New in 2.7
     ls->menuDiskDirInsert       = "插入目錄";
     ls->menuDiskAutoStart       = "插入之後重置";
@@ -335,6 +336,18 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->dlgTabType               = "類型";
     ls->dlgTabFilename           = "檔案名稱";
     ls->dlgZipReset             = "插入之後重置";
+
+    ls->dlgPhysDriveTitle       = "blueMSX+ - 實體磁碟機";
+    ls->dlgPhysDriveChoose      = "請選擇要插入的卸除式磁碟機:";
+    ls->dlgPhysDriveNone        = "找不到卸除式磁碟機。";
+    ls->dlgPhysDriveWarning     = "直接存取實體磁碟機需要系統管理員權限。\n\n"
+                                  "磁碟機插入 blueMSX+ 期間，Windows 無法存取該磁碟機。MSX 端的操作、模擬器的錯誤或寫入過程中的異常結束，都可能損毀或清除磁碟機上的檔案系統與資料。請事先備份重要資料。\n\n"
+                                  "退出之前請勿拔除磁碟機。";
+    ls->dlgPhysDriveNoWarning   = "不再顯示此警告";
+    ls->dlgPhysDriveContinue    = "繼續";
+    ls->dlgPhysDriveInUse       = "該磁碟機正由 Windows 或其他程式使用。請關閉正在使用它的檔案與視窗，然後再試一次。";
+    ls->dlgPhysDriveFailed      = "無法開啟該磁碟機。";
+    ls->infoRewindNoMedium      = "已插入實體磁碟機時無法回退模擬。";
 
     ls->dlgAboutTitle           = "blueMSX+ - 關於";
 

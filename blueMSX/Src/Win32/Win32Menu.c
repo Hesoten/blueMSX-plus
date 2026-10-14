@@ -43,6 +43,7 @@
 #include "Actions.h"
 #include "Casette.h"
 #include "Disk.h"
+#include "Win32PhysicalDisk.h"
 #include "VideoManager.h"
 #include "Win32VideoIn.h"
 #include "Win32Eth.h"
@@ -234,6 +235,7 @@ extern int showLoadMemoryDlg(HWND hwnd);
 #define ID_HARDDISK_HISTORY             41605
 #define ID_NOWINDHD_INSERT              41606
 #define ID_NOWINDDD_INSERT              41607
+#define ID_HARDDISK_INSERTPHYSICAL      41608
 
 
 
@@ -350,6 +352,8 @@ static const char* getCleanFileName(const char* fileName)
     if (strcmp(fileName, CARTNAME_ESESCC256) == 0)      return langRomTypeEseSCC256();
     if (strcmp(fileName, CARTNAME_ESESCC512) == 0)      return langRomTypeEseSCC512();
     if (strcmp(fileName, CARTNAME_GOUDASCSI) == 0)      return langRomTypeGoudaSCSI();
+
+    if (diskIsHostMediumName(fileName))                 return fileName + strlen(DISK_HOSTMEDIUM_PREFIX);
 
     return stripPath(fileName);
 }
@@ -979,7 +983,7 @@ static HMENU menuCreateNowindSettings(Properties* pProperties)
     return hMenu;
 }
 
-static HMENU menuCreateIdeHd(int diskNo, Properties* pProperties, Shortcuts* shortcuts, int showCdrom)
+static HMENU menuCreateIdeHd(int diskNo, Properties* pProperties, Shortcuts* shortcuts, int showCdrom, int showPhysical)
 {
     int idOffset = diskNo * ID_HARDDISK_OFFSET;
     HMENU hMenu = CreatePopupMenu();
@@ -990,6 +994,9 @@ static HMENU menuCreateIdeHd(int diskNo, Properties* pProperties, Shortcuts* sho
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_HARDDISK_INSERT, langMenuInsert());
     if (showCdrom) {
         AppendMenuU(hMenu, MF_STRING, idOffset + ID_HARDDISK_INSERTCDROM, langMenuDiskDirInsertCdrom());
+    }
+    if (showPhysical) {
+        AppendMenuU(hMenu, MF_STRING, idOffset + ID_HARDDISK_INSERTPHYSICAL, langMenuDiskInsertPhysical());
     }
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_HARDDISK_INSERTNEW, langMenuDiskInsertNew());
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
@@ -1015,37 +1022,37 @@ static HMENU menuCreateHarddisk(Properties* pProperties, Shortcuts* shortcuts)
         case HD_SUNRISEIDE:
             hasHd = 1;
             sprintf(langBuffer, "IDE%d  - Sunrise Primary", i);
-            AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 0), pProperties, shortcuts, 0), langBuffer);
+            AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 0), pProperties, shortcuts, 0, 0), langBuffer);
             sprintf(langBuffer, "IDE%d  - Sunrise Secondary", i);
-            AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 1), pProperties, shortcuts, 0), langBuffer);
+            AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 1), pProperties, shortcuts, 0, 0), langBuffer);
             break;
         case HD_BEERIDE:
             hasHd = 1;
             sprintf(langBuffer, "IDE%d Beer", i);
-            AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 0), pProperties, shortcuts, 0), langBuffer);
+            AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 0), pProperties, shortcuts, 0, 0), langBuffer);
             break;
         case HD_NOWIND:
             hasHd = 1;
             sprintf(langBuffer, "Disk 1");
-            AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 0), pProperties, shortcuts, 0), langBuffer);
+            AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 0), pProperties, shortcuts, 0, 0), langBuffer);
             sprintf(langBuffer, "Disk 2");
-            AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 1), pProperties, shortcuts, 0), langBuffer);
+            AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 1), pProperties, shortcuts, 0, 0), langBuffer);
             sprintf(langBuffer, "Disk 3");
-            AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 2), pProperties, shortcuts, 0), langBuffer);
+            AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 2), pProperties, shortcuts, 0, 0), langBuffer);
             sprintf(langBuffer, "Disk 4");
-            AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 3), pProperties, shortcuts, 0), langBuffer);
+            AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 3), pProperties, shortcuts, 0, 0), langBuffer);
             AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
             AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateNowindSettings(pProperties), langPropSettings());
             break;
         case HD_RSIDE:
             hasHd = 1;
             sprintf(langBuffer, "IDE%d RS IDE", i);
-            AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 0), pProperties, shortcuts, 0), langBuffer);
+            AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 0), pProperties, shortcuts, 0, 0), langBuffer);
             break;
         case HD_GIDE:
             hasHd = 1;
             sprintf(langBuffer, "IDE%d GIDE", i);
-            AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 0), pProperties, shortcuts, 0), langBuffer);
+            AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 0), pProperties, shortcuts, 0, 0), langBuffer);
             break;
         case HD_MEGASCSI:
         case HD_WAVESCSI:
@@ -1053,10 +1060,10 @@ static HMENU menuCreateHarddisk(Properties* pProperties, Shortcuts* shortcuts)
             for (j = 0; j < 8; j++) {
                 sprintf(langBuffer, "SCSI%d %s-SCSI #%d", i, (boardGetHdType(i) == HD_MEGASCSI) ? "MEGA" : "WAVE", j);
 #if 1  // CD_UPDATE: Don't grey out id #6
-                AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, j), pProperties, shortcuts, 1), langBuffer);
+                AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, j), pProperties, shortcuts, 1, 0), langBuffer);
 #else
                 if (j != 6) {
-                    AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, j), pProperties, shortcuts, 1), langBuffer);
+                    AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, j), pProperties, shortcuts, 1, 0), langBuffer);
                 } else {
                     AppendMenuU(hMenu, MF_STRING | MF_GRAYED, 0, langBuffer);
                 }
@@ -1068,20 +1075,20 @@ static HMENU menuCreateHarddisk(Properties* pProperties, Shortcuts* shortcuts)
             // CD_UPDATE: Add id #3 (should it be 8 as the mega scsi??
             for (j = 0; j < 8; j++) {
                 sprintf(langBuffer, "SCSI%d Gouda SCSI #%d", i, j);
-                AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, j), pProperties, shortcuts, 1), langBuffer);
+                AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, j), pProperties, shortcuts, 1, 0), langBuffer);
             }
             break;
         case HD_MFRSD:
             hasHd = 1;
             sprintf(langBuffer, "SD%d - MFR SCC+ SD slot 1", i);
-            AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 0), pProperties, shortcuts, 0), langBuffer);
+            AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 0), pProperties, shortcuts, 0, 1), langBuffer);
             sprintf(langBuffer, "SD%d - MFR SCC+ SD slot 2", i);
-            AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 1), pProperties, shortcuts, 0), langBuffer);
+            AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 1), pProperties, shortcuts, 0, 1), langBuffer);
             break;
         case HD_ROOKIEDRIVE:
             hasHd = 1;
             sprintf(langBuffer, "USB%d - Rookie Drive NX", i);
-            AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 0), pProperties, shortcuts, 0), langBuffer);
+            AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)menuCreateIdeHd(diskGetHdDriveId(i, 0), pProperties, shortcuts, 0, 1), langBuffer);
             break;
         }
     }
@@ -2283,6 +2290,9 @@ int menuCommand(Properties* pProperties, int command)
             return 0;
         case ID_HARDDISK_INSERTNEW:
             actionHarddiskInsertNew(i); 
+            return 0;
+        case ID_HARDDISK_INSERTPHYSICAL:
+            physicalDiskInsert(i);
             return 0;
         case ID_HARDDISK_INSERTDIR:
             actionHarddiskInsertDir(i);

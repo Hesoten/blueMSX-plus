@@ -401,6 +401,7 @@ char* langMenuCartMegaFlashRom() { return ls->menuCartMegaFlashRom; }
 char* langMenuCartFlashCart() { return ls->menuCartFlashCart; }
 
 char* langMenuDiskInsertNew() { return ls->menuDiskInsertNew; }
+char* langMenuDiskInsertPhysical() { return ls->menuDiskInsertPhysical; }
 char* langMenuDiskDirInsertCdrom() { return ls->menuDiskInsertCdrom; }
 char* langMenuDiskDirInsert() { return ls->menuDiskDirInsert; }
 char* langMenuDiskAutoStart() { return ls->menuDiskAutoStart; }
@@ -551,6 +552,16 @@ char* langDlgTabPosition() { return ls->dlgTabPosition; }
 char* langDlgTabType() { return ls->dlgTabType; }
 char* langDlgTabFilename() { return ls->dlgTabFilename; }
 char* langDlgZipReset() { return ls->dlgZipReset; }
+
+char* langDlgPhysDriveTitle() { return ls->dlgPhysDriveTitle; }
+char* langDlgPhysDriveChoose() { return ls->dlgPhysDriveChoose; }
+char* langDlgPhysDriveNone() { return ls->dlgPhysDriveNone; }
+char* langDlgPhysDriveWarning() { return ls->dlgPhysDriveWarning; }
+char* langDlgPhysDriveNoWarning() { return ls->dlgPhysDriveNoWarning; }
+char* langDlgPhysDriveContinue() { return ls->dlgPhysDriveContinue; }
+char* langDlgPhysDriveInUse() { return ls->dlgPhysDriveInUse; }
+char* langDlgPhysDriveFailed() { return ls->dlgPhysDriveFailed; }
+char* langInfoRewindNoMedium() { return ls->infoRewindNoMedium; }
 
 char* langDlgAboutTitle() { return ls->dlgAboutTitle; }
 

@@ -185,6 +185,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->menuCartFlashCart               = "Cartucce Flash";
 
     ls->menuDiskInsertNew               = "Inserisci un nuovo disco...";
+    ls->menuDiskInsertPhysical  = "Inserisci un'unità fisica...";
     ls->menuDiskInsertCdrom             = "Collega l'unità CD-ROM";       // New in 2.7
     ls->menuDiskDirInsert               = "Inserisci una cartella...";
     ls->menuDiskAutoStart               = "Riavvia quando inserisci";
@@ -336,6 +337,18 @@ void langInitItalian(LanguageStrings* ls)
     ls->dlgTabType                      = "Tipo";
     ls->dlgTabFilename                  = "Nome del file";
     ls->dlgZipReset                     = "Riavvia quando inserisci";
+
+    ls->dlgPhysDriveTitle       = "blueMSX+ - Unità fisica";
+    ls->dlgPhysDriveChoose      = "Scegli l'unità rimovibile da inserire:";
+    ls->dlgPhysDriveNone        = "Nessuna unità rimovibile trovata.";
+    ls->dlgPhysDriveWarning     = "Per accedere direttamente a un'unità fisica sono necessari i diritti di amministratore.\n\n"
+                                  "Windows non può accedere all'unità finché è inserita in blueMSX+. Le operazioni eseguite dall'MSX, così come un bug dell'emulatore o un arresto anomalo durante la scrittura, possono danneggiare o cancellare il file system e i dati dell'unità. Esegui prima un backup dei dati importanti.\n\n"
+                                  "Non scollegare l'unità prima di averla espulsa.";
+    ls->dlgPhysDriveNoWarning   = "Non mostrare più questo avviso";
+    ls->dlgPhysDriveContinue    = "Continua";
+    ls->dlgPhysDriveInUse       = "L'unità è in uso da parte di Windows o di un altro programma. Chiudi i file e le finestre che la usano e riprova.";
+    ls->dlgPhysDriveFailed      = "Impossibile aprire l'unità.";
+    ls->infoRewindNoMedium      = "La riproduzione a ritroso non è disponibile mentre è inserita un'unità fisica.";
 
     ls->dlgAboutTitle                   = "blueMSX+ - Informazioni";
 

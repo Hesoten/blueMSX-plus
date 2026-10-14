@@ -184,6 +184,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->menuCartFlashCart       = "Flash Cartridges";
 
     ls->menuDiskInsertNew       = "Insert New Disk Image";
+    ls->menuDiskInsertPhysical  = "Insert Physical Drive";
     ls->menuDiskInsertCdrom     = "Insert CD-ROM";       // New in 2.7
     ls->menuDiskDirInsert       = "Insert Directory";
     ls->menuDiskAutoStart       = "Reset After Insert";
@@ -335,6 +336,20 @@ void langInitEnglish(LanguageStrings* ls)
     ls->dlgTabType              = "Type";
     ls->dlgTabFilename          = "Filename";
     ls->dlgZipReset             = "Reset after insert";
+
+    ls->dlgPhysDriveTitle       = "blueMSX+ - Physical drive";
+    ls->dlgPhysDriveChoose      = "Choose a removable drive to insert:";
+    ls->dlgPhysDriveNone        = "No removable drive was found.";
+    ls->dlgPhysDriveWarning     = "Administrator rights are required to access a physical drive directly.\n\n"
+                                  "Windows cannot access the drive while it is inserted in blueMSX+. Operations on the MSX side, "
+                                  "as well as a bug in the emulator or a crash while writing, can corrupt or erase "
+                                  "the file system and data on the drive. Back up important data first.\n\n"
+                                  "Do not unplug the drive before ejecting it.";
+    ls->dlgPhysDriveNoWarning   = "Do not show this warning again";
+    ls->dlgPhysDriveContinue    = "Continue";
+    ls->dlgPhysDriveInUse       = "The drive is in use by Windows or another program. Close the files and windows that use it and try again.";
+    ls->dlgPhysDriveFailed      = "The drive could not be opened.";
+    ls->infoRewindNoMedium      = "Rewind is not available while a physical drive is inserted.";
 
     ls->dlgAboutTitle           = "blueMSX+ - About";
 

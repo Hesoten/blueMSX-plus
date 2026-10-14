@@ -184,6 +184,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->menuCartFlashCart       = "Cartouches Flash";
 
     ls->menuDiskInsertNew       = "Insérer un nouveau disque";              
+    ls->menuDiskInsertPhysical  = "Insérer un lecteur physique";
     ls->menuDiskInsertCdrom     = "Insérer CD-Rom";       // New in 2.7
     ls->menuDiskDirInsert       = "Insérer répertoire"; 
     ls->menuDiskAutoStart       = "Reset après insertion";
@@ -335,6 +336,18 @@ void langInitFrench(LanguageStrings* ls)
     ls->dlgTabType              = "Type";
     ls->dlgTabFilename          = "Nom du fichier";
     ls->dlgZipReset             = "Reset après l'insertion";
+
+    ls->dlgPhysDriveTitle       = "blueMSX+ - Lecteur physique";
+    ls->dlgPhysDriveChoose      = "Choisissez le lecteur amovible à insérer :";
+    ls->dlgPhysDriveNone        = "Aucun lecteur amovible n'a été trouvé.";
+    ls->dlgPhysDriveWarning     = "L'accès direct à un lecteur physique nécessite les droits d'administrateur.\n\n"
+                                  "Windows ne peut pas accéder au lecteur tant qu'il est inséré dans blueMSX+. Les opérations effectuées depuis le MSX, mais aussi un bogue de l'émulateur ou un plantage pendant une écriture, peuvent endommager ou effacer le système de fichiers et les données du lecteur. Sauvegardez d'abord les données importantes.\n\n"
+                                  "Ne débranchez pas le lecteur avant de l'avoir éjecté.";
+    ls->dlgPhysDriveNoWarning   = "Ne plus afficher cet avertissement";
+    ls->dlgPhysDriveContinue    = "Continuer";
+    ls->dlgPhysDriveInUse       = "Le lecteur est utilisé par Windows ou par un autre programme. Fermez les fichiers et les fenêtres qui l'utilisent, puis réessayez.";
+    ls->dlgPhysDriveFailed      = "Impossible d'ouvrir le lecteur.";
+    ls->infoRewindNoMedium      = "Le rembobinage n'est pas disponible tant qu'un lecteur physique est inséré.";
 
     ls->dlgAboutTitle           = "blueMSX+ - A propos";
 

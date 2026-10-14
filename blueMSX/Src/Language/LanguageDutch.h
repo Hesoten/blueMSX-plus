@@ -184,6 +184,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->menuCartFlashCart       = "Flash-cartridges";
 
     ls->menuDiskInsertNew       = "Voer Nieuw Diskettebestand in";
+    ls->menuDiskInsertPhysical  = "Voer Fysiek Station in";
     ls->menuDiskInsertCdrom     = "Voer CD-ROM in";
     ls->menuDiskDirInsert       = "Voer Map in";
     ls->menuDiskAutoStart       = "Herstart na invoeren";
@@ -335,6 +336,18 @@ void langInitDutch(LanguageStrings* ls)
     ls->dlgTabType              = "Type";
     ls->dlgTabFilename          = "Bestandsnaam";
     ls->dlgZipReset             = "Herstart na invoeren";
+
+    ls->dlgPhysDriveTitle       = "blueMSX+ - Fysiek station";
+    ls->dlgPhysDriveChoose      = "Kies het verwisselbare station dat u wilt invoeren:";
+    ls->dlgPhysDriveNone        = "Er is geen verwisselbaar station gevonden.";
+    ls->dlgPhysDriveWarning     = "Voor directe toegang tot een fysiek station zijn beheerdersrechten nodig.\n\n"
+                                  "Windows heeft geen toegang tot het station zolang het in blueMSX+ is ingevoerd. Bewerkingen vanaf de MSX, maar ook een fout in de emulator of een crash tijdens het schrijven, kunnen het bestandssysteem en de gegevens op het station beschadigen of wissen. Maak eerst een back-up van belangrijke gegevens.\n\n"
+                                  "Koppel het station niet los voordat u het hebt uitgeworpen.";
+    ls->dlgPhysDriveNoWarning   = "Deze waarschuwing niet meer tonen";
+    ls->dlgPhysDriveContinue    = "Doorgaan";
+    ls->dlgPhysDriveInUse       = "Het station is in gebruik door Windows of een ander programma. Sluit de bestanden en vensters die het gebruiken en probeer het opnieuw.";
+    ls->dlgPhysDriveFailed      = "Het station kon niet worden geopend.";
+    ls->infoRewindNoMedium      = "Terugspoelen is niet beschikbaar zolang een fysiek station is ingevoerd.";
 
     ls->dlgAboutTitle           = "Over blueMSX+";
 

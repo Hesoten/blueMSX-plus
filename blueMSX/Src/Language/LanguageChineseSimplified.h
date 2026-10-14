@@ -184,6 +184,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->menuCartFlashCart       = "闪存卡带";
 
     ls->menuDiskInsertNew       = "插入新的软盘映像";              
+    ls->menuDiskInsertPhysical  = "插入物理驱动器";
     ls->menuDiskInsertCdrom     = "Insert CD-Rom";       // New in 2.7
     ls->menuDiskDirInsert       = "插入目录";
     ls->menuDiskAutoStart       = "插入后重置";
@@ -335,6 +336,18 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->dlgTabType               = "类型";
     ls->dlgTabFilename           = "文件名";
     ls->dlgZipReset             = "插入后重置";
+
+    ls->dlgPhysDriveTitle       = "blueMSX+ - 物理驱动器";
+    ls->dlgPhysDriveChoose      = "请选择要插入的可移动驱动器:";
+    ls->dlgPhysDriveNone        = "未找到可移动驱动器。";
+    ls->dlgPhysDriveWarning     = "直接访问物理驱动器需要管理员权限。\n\n"
+                                  "驱动器插入 blueMSX+ 期间，Windows 无法访问该驱动器。MSX 端的操作、模拟器的缺陷或写入过程中的异常退出，都可能损坏或清除驱动器上的文件系统和数据。请事先备份重要数据。\n\n"
+                                  "弹出之前请勿拔出驱动器。";
+    ls->dlgPhysDriveNoWarning   = "不再显示此警告";
+    ls->dlgPhysDriveContinue    = "继续";
+    ls->dlgPhysDriveInUse       = "该驱动器正被 Windows 或其他程序使用。请关闭正在使用它的文件和窗口，然后重试。";
+    ls->dlgPhysDriveFailed      = "无法打开该驱动器。";
+    ls->infoRewindNoMedium      = "已插入物理驱动器时无法回退模拟。";
 
     ls->dlgAboutTitle           = "blueMSX+ - 关于";
 

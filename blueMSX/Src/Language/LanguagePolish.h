@@ -184,6 +184,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->menuCartFlashCart       = "Kartridże Flash";
 
     ls->menuDiskInsertNew       = "Włóż nowy obraz dysku";              
+    ls->menuDiskInsertPhysical  = "Włóż dysk fizyczny";
     ls->menuDiskInsertCdrom     = "Insert CD-Rom";       // New in 2.7
     ls->menuDiskDirInsert       = "Podepnij folder";
     ls->menuDiskAutoStart       = "Resetuj po zmianie dyskietki";
@@ -335,6 +336,18 @@ void langInitPolish(LanguageStrings* ls)
     ls->dlgTabType               = "Typ";
     ls->dlgTabFilename           = "Nazwa pliku";
     ls->dlgZipReset             = "Resetuj po zmianie";
+
+    ls->dlgPhysDriveTitle       = "blueMSX+ - Dysk fizyczny";
+    ls->dlgPhysDriveChoose      = "Wybierz dysk wymienny, który chcesz włożyć:";
+    ls->dlgPhysDriveNone        = "Nie znaleziono dysku wymiennego.";
+    ls->dlgPhysDriveWarning     = "Bezpośredni dostęp do dysku fizycznego wymaga uprawnień administratora.\n\n"
+                                  "Dopóki dysk jest włożony do blueMSX+, system Windows nie ma do niego dostępu. Operacje po stronie MSX, a także błąd emulatora lub awaria podczas zapisu mogą uszkodzić lub usunąć system plików i dane na dysku. Najpierw wykonaj kopię zapasową ważnych danych.\n\n"
+                                  "Nie odłączaj dysku przed jego wysunięciem.";
+    ls->dlgPhysDriveNoWarning   = "Nie pokazuj więcej tego ostrzeżenia";
+    ls->dlgPhysDriveContinue    = "Kontynuuj";
+    ls->dlgPhysDriveInUse       = "Dysk jest używany przez system Windows lub inny program. Zamknij pliki i okna, które z niego korzystają, i spróbuj ponownie.";
+    ls->dlgPhysDriveFailed      = "Nie można otworzyć dysku.";
+    ls->infoRewindNoMedium      = "Przewijanie wstecz nie jest dostępne, gdy włożony jest dysk fizyczny.";
 
     ls->dlgAboutTitle           = "blueMSX+ - O programie";
 

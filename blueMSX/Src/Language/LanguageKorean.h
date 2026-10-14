@@ -184,6 +184,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->menuCartFlashCart       = "플래시 카트리지";
 
     ls->menuDiskInsertNew       = "새로운 디스크 이미지 삽입";              
+    ls->menuDiskInsertPhysical  = "물리 드라이브 삽입";
     ls->menuDiskInsertCdrom     = "시디롬 삽입";       // New in 2.7
     ls->menuDiskDirInsert       = "디렉토리 삽입";
     ls->menuDiskAutoStart       = "삽입후에 재시작";
@@ -335,6 +336,18 @@ void langInitKorean(LanguageStrings* ls)
     ls->dlgTabType               = "형식";
     ls->dlgTabFilename           = "파일 이름";
     ls->dlgZipReset             = "삽입후 재시작";
+
+    ls->dlgPhysDriveTitle       = "blueMSX+ - 물리 드라이브";
+    ls->dlgPhysDriveChoose      = "삽입할 이동식 드라이브를 선택하십시오:";
+    ls->dlgPhysDriveNone        = "이동식 드라이브를 찾을 수 없습니다.";
+    ls->dlgPhysDriveWarning     = "물리 드라이브에 직접 접근하려면 관리자 권한이 필요합니다.\n\n"
+                                  "blueMSX+에 삽입되어 있는 동안에는 Windows에서 이 드라이브에 접근할 수 없습니다. MSX 쪽의 조작뿐 아니라 에뮬레이터의 버그이나 쓰기 도중의 비정상 종료로도 드라이브의 파일 시스템과 데이터가 손상되거나 지워질 수 있습니다. 중요한 데이터는 미리 백업하십시오.\n\n"
+                                  "꺼내기 전에 드라이브를 뽑지 마십시오.";
+    ls->dlgPhysDriveNoWarning   = "이 경고를 다시 표시하지 않음";
+    ls->dlgPhysDriveContinue    = "계속";
+    ls->dlgPhysDriveInUse       = "드라이브를 Windows 또는 다른 프로그램이 사용 중입니다. 사용 중인 파일과 창을 닫은 다음 다시 시도하십시오.";
+    ls->dlgPhysDriveFailed      = "드라이브를 열 수 없습니다.";
+    ls->infoRewindNoMedium      = "물리 드라이브가 삽입되어 있는 동안에는 되감기를 사용할 수 없습니다.";
 
     ls->dlgAboutTitle           = "blueMSX+에 대하여";
 

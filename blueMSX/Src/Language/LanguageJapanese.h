@@ -186,6 +186,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->menuCartFlashCart       = "Flash カートリッジ";
 
     ls->menuDiskInsertNew       = "新規ディスクイメージを挿入";
+    ls->menuDiskInsertPhysical  = "物理ドライブを挿入";
     ls->menuDiskInsertCdrom     = "CD-ROM挿入";          // New in 2.7
     ls->menuDiskDirInsert       = "ディレクトリ挿入";
     ls->menuDiskAutoStart       = "挿入/取り出し後リセット";
@@ -337,6 +338,20 @@ void langInitJapanese(LanguageStrings* ls)
     ls->dlgTabType               = "タイプ";
     ls->dlgTabFilename           = "ファイル名";
     ls->dlgZipReset             = "挿入後リセット";
+
+    ls->dlgPhysDriveTitle       = "blueMSX+ - 物理ドライブ";
+    ls->dlgPhysDriveChoose      = "挿入するリムーバブルドライブを選択してください:";
+    ls->dlgPhysDriveNone        = "リムーバブルドライブが見つかりません。";
+    ls->dlgPhysDriveWarning     = "物理ドライブへ直接アクセスするには管理者権限が必要です。\n\n"
+                                  "blueMSX+ に挿入している間は、Windows からこのドライブにアクセスできなくなります。MSX 側の操作のほか、"
+                                  "エミュレータの不具合や書き込み中の異常終了によっても、ドライブ上のファイルシステムや"
+                                  "データが破損・消去されるおそれがあります。大切なデータは事前にバックアップしてください。\n\n"
+                                  "取り出す前にドライブを抜かないでください。";
+    ls->dlgPhysDriveNoWarning   = "今後この警告を表示しない";
+    ls->dlgPhysDriveContinue    = "続行";
+    ls->dlgPhysDriveInUse       = "ドライブは Windows または他のプログラムが使用中です。使用しているファイルやウィンドウを閉じてから、もう一度お試しください。";
+    ls->dlgPhysDriveFailed      = "ドライブを開けませんでした。";
+    ls->infoRewindNoMedium      = "物理ドライブの挿入中は巻き戻し再生を使えません。";
 
     ls->dlgAboutTitle           = "blueMSX+ について";
 

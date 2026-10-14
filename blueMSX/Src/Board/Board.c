@@ -1060,9 +1060,14 @@ static void onMixerSync(void* ref, UInt32 time)
 }
 
 static void onStateSync(void* ref, UInt32 time)
-{    
-    if (enableSnapshots) {
+{
+    /* A medium that cannot be taken back with the MSX leaves nothing to rewind to. */
+    if (enableSnapshots && diskHasHostMedium()) {
+        ramStateCount = 0;
+    }
+    else if (enableSnapshots) {
         char memFilename[16];
+
         ramStateCur = (ramStateCur + 1) % ramMaxStates;
         if (ramStateCount < ramMaxStates) {
             ramStateCount++;
@@ -1152,7 +1157,7 @@ static int boardRewindDrop()
 int boardRewindOne() {
     UInt32 rewindTime;
     int skip;
-    if (stateFrequency <= 0) {
+    if (stateFrequency <= 0 || diskHasHostMedium()) {
         return 0;
     }
     rewindTime = boardInfo.getTimeTrace(1);
@@ -1203,6 +1208,9 @@ static int boardRewindLoad(int drop)
     char stateFile[16];
 
     sprintf(stateFile, "mem%d", ramStateCur);
+    if (diskHasHostMedium()) {
+        return 0;
+    }
     if (drop ? !boardRewindDrop() : ramStateCount < 1) {
         return 0;
     }
@@ -1616,6 +1624,12 @@ static BoardType boardLoadState(void)
         saveStateGetBuffer(state, tag, di->disks[i].name, sizeof(di->disks[i].name));
         sprintf(tag, "diskInZip%.2d", i);
         saveStateGetBuffer(state, tag, di->disks[i].inZipName, sizeof(di->disks[i].inZipName));
+        /* A state never brings a host medium back. */
+        if (diskIsHostMediumName(di->disks[i].name)) {
+            di->disks[i].inserted = 0;
+            di->disks[i].name[0] = 0;
+            di->disks[i].inZipName[0] = 0;
+        }
     }
 #endif
 
