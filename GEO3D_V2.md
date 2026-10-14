@@ -65,7 +65,9 @@ goes from F_START straight to R_DRAIN and the core still counted D_START
 counts it as the RTL does. It is 23 ns per RUN, and
 `experimental/v9968-geo3d` still has it.
 
-**Not done:** blueMSX+ itself has not been built with this branch (it needs
-MSVC 2022, which is not on the machine where this was written), so the
-emulator has not been run with it. `Geo3DDevice.c` is C and was not
-compiled.
+blueMSX+ itself was then built from this branch with the Visual Studio 2022
+Build Tools (`msbuild blueMSX.sln /t:blueMSX /p:Configuration=Release
+/p:Platform=x64`), without errors and with no warning in the geo3d files.
+On the `MSX2+ - C-BIOS V9968` machine it runs GEO FIGHTER (a geo3d v1.0.0
+program with a resident scene) at 100 % and draws its fight. No geo3d v2.0
+program has run in it yet: none exists.
