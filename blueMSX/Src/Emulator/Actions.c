@@ -134,6 +134,8 @@ static int dirGateActive;
 /* A directory is being chosen for a drive; the MSX is not paused, stepped or asked about meanwhile. */
 static int dirInsertActive;
 static int dirStateTold;
+/* For runs with no one to ask: the drives whose directory takes the MSX's changes. */
+static int dirUnattendedWrite[MAXDRIVES];
 
 void actionDiskInsertDir(int diskNo)
 {
@@ -296,6 +298,11 @@ int actionDirWriteBack(int diskNo)
             goOn = archAskDirHostError(directory);
             answers[i] = 2;
         }
+        else if (archDirUnattended()) {
+            plans[i] = plan;
+            answers[i] = dirUnattendedWrite[i] ? 1 : 2;
+            archReportDirUnattended(directory, answers[i] == 1);
+        }
         else {
             plans[i] = plan;
             answers[i] = archAskDirChanges(directory, created, changed, deleted, skipped, mass);
@@ -379,6 +386,13 @@ void actionDirStateNotice(void)
         }
     }
 #endif
+}
+
+void actionDirSetUnattendedWrite(int driveId, int write)
+{
+    if (driveId >= 0 && driveId < MAXDRIVES) {
+        dirUnattendedWrite[driveId] = write;
+    }
 }
 
 void actionDirInsertedNotice(void)

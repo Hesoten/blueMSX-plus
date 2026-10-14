@@ -5478,6 +5478,18 @@ void archShowDirUnreadable(const char* directory) {
     exitDialogShow();
 }
 
+int archDirUnattended(void) {
+    return st.hidden;
+}
+
+void archReportDirUnattended(const char* directory, int written) {
+    char text[1024];
+
+    snprintf(text, sizeof(text), "%s %s", written ? "Writing what the MSX changed to the directory:" :
+             "Dropping what the MSX changed, as its writeback option is not given:", directory);
+    commandLineReport(text);
+}
+
 int archAskDirChanges(const char* directory, int created, int changed, int deleted, int skipped, int mass) {
     char text[4096];
     int answer;
@@ -5501,6 +5513,10 @@ int archAskDirInvalid(const char* directory) {
     int answer;
 
     snprintf(text, sizeof(text), langErrorDirWriteInvalid(), directory);
+    if (st.hidden) {
+        commandLineReport(text);
+        return 1;
+    }
     enterDialogShow();
     answer = MessageBoxU(getMainHwnd(), text, langWarningTitle(), MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2);
     exitDialogShow();
@@ -5512,6 +5528,10 @@ int archAskDirHostError(const char* directory) {
     int answer;
 
     snprintf(text, sizeof(text), langErrorDirWriteHost(), directory);
+    if (st.hidden) {
+        commandLineReport(text);
+        return 1;
+    }
     enterDialogShow();
     answer = MessageBoxU(getMainHwnd(), text, langWarningTitle(), MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2);
     exitDialogShow();
@@ -5536,6 +5556,10 @@ void archShowDirWriteFailed(int failed, const char* session) {
         *slash = '\\';
     }
     snprintf(text, sizeof(text), langErrorDirWriteFailed(), failed, shown);
+    if (st.hidden) {
+        commandLineReport(text);
+        return;
+    }
     enterDialogShow();
     MessageBoxU(getMainHwnd(), text, langWarningTitle(), MB_OK | MB_ICONWARNING);
     exitDialogShow();
