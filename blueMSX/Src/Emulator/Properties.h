@@ -495,6 +495,7 @@ typedef struct {
     int  quickStartDrive;
     int  cdromMethod;
     int  cdromDrive;
+    int  physicalDriveWarning;
 } DiskdriveProperties;
 
 typedef struct {

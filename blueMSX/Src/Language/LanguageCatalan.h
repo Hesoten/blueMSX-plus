@@ -184,6 +184,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->menuCartFlashCart       = "Cartutxos Flash";
 
     ls->menuDiskInsertNew       = "Insereix una nova imatge de disc";
+    ls->menuDiskInsertPhysical  = "Insereix una unitat física";
     ls->menuDiskInsertCdrom     = "Insereix un CD-Rom";       // New in 2.7
     ls->menuDiskDirInsert       = "Insereix directori";
     ls->menuDiskAutoStart       = "Reinicia després de la inserció";
@@ -335,6 +336,18 @@ void langInitCatalan(LanguageStrings* ls)
     ls->dlgTabType              = "Tipus";
     ls->dlgTabFilename          = "Nom del fitxer:";
     ls->dlgZipReset             = "Reinicia en inserir-lo";
+
+    ls->dlgPhysDriveTitle       = "blueMSX+ - Unitat física";
+    ls->dlgPhysDriveChoose      = "Trieu la unitat extraïble que voleu inserir:";
+    ls->dlgPhysDriveNone        = "No s'ha trobat cap unitat extraïble.";
+    ls->dlgPhysDriveWarning     = "Calen drets d'administrador per accedir directament a una unitat física.\n\n"
+                                  "Windows no pot accedir a la unitat mentre està inserida a blueMSX+. Les operacions des de l'MSX, així com un error de l'emulador o un tancament inesperat durant l'escriptura, poden malmetre o esborrar el sistema de fitxers i les dades de la unitat. Feu abans una còpia de seguretat de les dades importants.\n\n"
+                                  "No desconnecteu la unitat abans d'expulsar-la.";
+    ls->dlgPhysDriveNoWarning   = "No tornis a mostrar aquest avís";
+    ls->dlgPhysDriveContinue    = "Continua";
+    ls->dlgPhysDriveInUse       = "Windows o un altre programa està fent servir la unitat. Tanqueu els fitxers i les finestres que la fan servir i torneu-ho a provar.";
+    ls->dlgPhysDriveFailed      = "No s'ha pogut obrir la unitat.";
+    ls->infoRewindNoMedium      = "No es pot rebobinar mentre hi ha una unitat física inserida.";
 
     ls->dlgAboutTitle           = "blueMSX+ - Al voltant de";
 

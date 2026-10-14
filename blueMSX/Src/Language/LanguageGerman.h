@@ -200,6 +200,7 @@ void langInitGerman(LanguageStrings* ls)
     ls->menuVideoRender          = "Videofile wiedergeben";      // New in 2.6 -- "Render Video File";
 
     ls->menuDiskInsertNew        = "Neues Disk-Image einfügen";              
+    ls->menuDiskInsertPhysical  = "Physisches Laufwerk einfügen";
     ls->menuDiskInsertCdrom      = "CDROM einfügen";             // New in 2.7 -- "Insert CD-Rom";
     ls->menuDiskDirInsert        = "Directory einfügen";
     ls->menuDiskAutoStart        = "Reset nach Einfügen";
@@ -335,6 +336,18 @@ void langInitGerman(LanguageStrings* ls)
     ls->dlgTabType               = "Typ";
     ls->dlgTabFilename           = "Filename";
     ls->dlgZipReset              = "Reset nach Einfügen";
+
+    ls->dlgPhysDriveTitle       = "blueMSX+ - Physisches Laufwerk";
+    ls->dlgPhysDriveChoose      = "Wählen Sie das Wechsellaufwerk, das eingefügt werden soll:";
+    ls->dlgPhysDriveNone        = "Es wurde kein Wechsellaufwerk gefunden.";
+    ls->dlgPhysDriveWarning     = "Für den direkten Zugriff auf ein physisches Laufwerk sind Administratorrechte erforderlich.\n\n"
+                                  "Solange das Laufwerk in blueMSX+ eingefügt ist, kann Windows nicht darauf zugreifen. Vorgänge auf der MSX-Seite, aber auch ein Fehler im Emulator oder ein Absturz während des Schreibens können das Dateisystem und die Daten auf dem Laufwerk beschädigen oder löschen. Sichern Sie wichtige Daten vorher.\n\n"
+                                  "Ziehen Sie das Laufwerk nicht ab, bevor Sie es ausgeworfen haben.";
+    ls->dlgPhysDriveNoWarning   = "Diese Warnung nicht mehr anzeigen";
+    ls->dlgPhysDriveContinue    = "Fortfahren";
+    ls->dlgPhysDriveInUse       = "Das Laufwerk wird von Windows oder einem anderen Programm verwendet. Schließen Sie die Dateien und Fenster, die es verwenden, und versuchen Sie es erneut.";
+    ls->dlgPhysDriveFailed      = "Das Laufwerk konnte nicht geöffnet werden.";
+    ls->infoRewindNoMedium      = "Zurückspulen ist nicht verfügbar, solange ein physisches Laufwerk eingefügt ist.";
 
     ls->dlgAboutTitle            = "Über blueMSX+";
 

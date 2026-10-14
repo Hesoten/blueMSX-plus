@@ -211,6 +211,7 @@ char* langMenuCartFlashCart();
 char* langMenuDiskDirInsert();
 char* langMenuDiskDirInsertCdrom();
 char* langMenuDiskInsertNew();
+char* langMenuDiskInsertPhysical();
 char* langMenuDiskAutoStart();
 char* langMenuCartAutoReset();
 
@@ -359,6 +360,16 @@ char* langDlgTabType();
 char* langDlgTabFilename();
 char* langDlgTapeTotalTime();
 char* langDlgZipReset();
+
+char* langDlgPhysDriveTitle();
+char* langDlgPhysDriveChoose();
+char* langDlgPhysDriveNone();
+char* langDlgPhysDriveWarning();
+char* langDlgPhysDriveNoWarning();
+char* langDlgPhysDriveContinue();
+char* langDlgPhysDriveInUse();
+char* langDlgPhysDriveFailed();
+char* langInfoRewindNoMedium();
 
 char* langDlgAboutTitle();
 

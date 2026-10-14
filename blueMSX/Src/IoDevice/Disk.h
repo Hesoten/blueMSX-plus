@@ -50,7 +50,26 @@ typedef enum {
     DSKE_CRC_ERROR
 } DSKE;
 
+/* A medium the host serves in place of an image file. Offsets and lengths
+** are in bytes; a medium without write is read only. */
+typedef struct {
+    int (*read)(void* ref, Int64 offset, UInt8* buffer, int length);
+    int (*write)(void* ref, Int64 offset, const UInt8* buffer, int length);
+} DiskHostMedium;
+
+/* Starts the name a drive carries while a host medium is inserted. */
+#define DISK_HOSTMEDIUM_PREFIX   "physical://"
+
 UInt8 diskChange(int driveId, const char* fileName, const char* fileInZipFile);
+
+/* Offers a medium of size bytes to a drive, or withdraws it with NULL. The
+** drive uses it once diskChange gets a host medium name. */
+void diskSetHostMedium(int driveId, const DiskHostMedium* medium, void* ref, Int64 size);
+void diskWithdrawHostMedia(void);
+int  diskIsHostMediumName(const char* fileName);
+int  diskIsHostMediumOffered(int driveId);
+int  diskHasHostMedium(void);
+
 
 /* Surface the 720 KB overflow dialog at insert time (not next emu
 ** start); marks (driveId, path) so the next diskChange remount of the

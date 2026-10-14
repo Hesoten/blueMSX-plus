@@ -40,6 +40,7 @@
 #include "JoystickPort.h"
 #include "Board.h"
 #include "AppConfig.h"
+#include "Disk.h"
 #include "ziphelper.h"           /* zipResolveUtf8EntryName for fileNameInZip migration */
 #ifdef _WIN32
 #include "Utf8Conv.h"            /* AnyToUtf8 for fileNameInZip save-side conversion */
@@ -527,6 +528,7 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->diskdrive.quickStartDrive = 0;
     properties->diskdrive.cdromMethod     = P_CDROM_DRVNONE;
     properties->diskdrive.cdromDrive      = 0;
+    properties->diskdrive.physicalDriveWarning = 1;
 
     properties->cassette.defDir[0]       = 0;
     properties->cassette.showCustomFiles = 1;
@@ -850,6 +852,7 @@ static void propLoad(Properties* properties)
 
     GET_ENUM_VALUE_2(propFile, diskdrive, cdromMethod, CdromDrvPair);
     GET_INT_VALUE_2(propFile, diskdrive, cdromDrive);
+    GET_ENUM_VALUE_2(propFile, diskdrive, physicalDriveWarning, BoolPair);
     
     GET_INT_VALUE_2(propFile, cassette, showCustomFiles);
     GET_ENUM_VALUE_2(propFile, cassette, readOnly, BoolPair);
@@ -925,6 +928,11 @@ static void propLoad(Properties* properties)
         GET_STR_VALUE_2i1(histFile, media, disks, i, directory);
         GET_INT_VALUE_2i1(histFile, media, disks, i, extensionFilter);
         GET_INT_VALUE_2i1(histFile, media, disks, i, type);
+        /* A host medium is gone once the program has ended. */
+        if (diskIsHostMediumName(properties->media.disks[i].fileName)) {
+            properties->media.disks[i].fileName[0] = 0;
+            properties->media.disks[i].fileNameInZip[0] = 0;
+        }
         if (properties->media.disks[i].fileNameInZip[0] != '\0') {
             char raw[PROP_MAXPATH];
             if (zipResolveUtf8EntryName(properties->media.disks[i].fileName,
@@ -1195,6 +1203,7 @@ void propSave(Properties* properties)
 
     SET_ENUM_VALUE_2(propFile, diskdrive, cdromMethod, CdromDrvPair);
     SET_INT_VALUE_2(propFile, diskdrive, cdromDrive);
+    SET_ENUM_VALUE_2(propFile, diskdrive, physicalDriveWarning, YesNoPair);
     
     SET_INT_VALUE_2(propFile, cassette, showCustomFiles);
     SET_ENUM_VALUE_2(propFile, cassette, readOnly, YesNoPair);

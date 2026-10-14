@@ -32,6 +32,7 @@
 #include "MsxTypes.h"
 #include "Debugger.h"
 #include "Board.h"
+#include "Disk.h"
 #include "FileHistory.h"
 #include "Switches.h"
 #include "Led.h"
@@ -457,6 +458,12 @@ void emulatorStart(const char* stateName) {
     ** extractToken on machine config and clobbers that buffer, so copy
     ** the path into emuStateName up-front before any such call. */
     strcpy(emuStateName, stateName ? stateName : "");
+
+    /* A state brings back what the MSX remembered of a disk, and that must
+    ** not be written to a host medium. */
+    if (emuStateName[0] != 0) {
+        diskWithdrawHostMedia();
+    }
         dbgEnable();
 
     archEmulationStartNotification();

@@ -184,6 +184,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->menuCartFlashCart       = "Flash-kassetter";
 
     ls->menuDiskInsertNew       = "Sätt in ny diskett fil";
+    ls->menuDiskInsertPhysical  = "Sätt in fysisk enhet";
     ls->menuDiskInsertCdrom     = "Sätt in CD-Rom";      // New in 2.7
     ls->menuDiskDirInsert       = "Sätt in mapp";
     ls->menuDiskAutoStart       = "Starta om efter insättning/urdragning";
@@ -336,6 +337,18 @@ void langInitSwedish(LanguageStrings* ls)
     ls->dlgTabType              = "Typ";
     ls->dlgTabFilename          = "Filnamn";
     ls->dlgZipReset             = "Starta om vid insättning";
+
+    ls->dlgPhysDriveTitle       = "blueMSX+ - Fysisk enhet";
+    ls->dlgPhysDriveChoose      = "Välj den flyttbara enhet som ska sättas in:";
+    ls->dlgPhysDriveNone        = "Ingen flyttbar enhet hittades.";
+    ls->dlgPhysDriveWarning     = "Administratörsrättigheter krävs för direkt åtkomst till en fysisk enhet.\n\n"
+                                  "Windows kan inte komma åt enheten medan den är insatt i blueMSX+. Åtgärder från MSX-sidan, liksom ett fel i emulatorn eller en krasch under skrivning, kan skada eller radera filsystemet och data på enheten. Säkerhetskopiera viktiga data först.\n\n"
+                                  "Koppla inte bort enheten från datorn innan du har tagit ur den i emulatorn.";
+    ls->dlgPhysDriveNoWarning   = "Visa inte den här varningen igen";
+    ls->dlgPhysDriveContinue    = "Fortsätt";
+    ls->dlgPhysDriveInUse       = "Enheten används av Windows eller ett annat program. Stäng de filer och fönster som använder den och försök igen.";
+    ls->dlgPhysDriveFailed      = "Enheten kunde inte öppnas.";
+    ls->infoRewindNoMedium      = "Tillbakaspolning är inte tillgänglig medan en fysisk enhet är insatt.";
     
     ls->dlgAboutTitle           = "blueMSX+ - Information";
 

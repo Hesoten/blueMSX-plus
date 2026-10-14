@@ -186,6 +186,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->menuCartFlashCart       = "Flash-kasetit";
 
     ls->menuDiskInsertNew       = "Uusi levytiedosto";
+    ls->menuDiskInsertPhysical  = "Aseta fyysinen asema";
     ls->menuDiskInsertCdrom     = "Aseta CD-ROM";       // New in 2.7
     ls->menuDiskDirInsert       = "Aseta hakemisto";
     ls->menuDiskAutoStart       = "Käynnistä uudelleen asettamisen jälkeen";
@@ -336,6 +337,18 @@ void langInitFinnish(LanguageStrings* ls)
     ls->dlgTabType              = "Tyyppi";
     ls->dlgTabFilename          = "Tiedostonimi";
     ls->dlgZipReset             = "Käynnistä uudelleen";
+
+    ls->dlgPhysDriveTitle       = "blueMSX+ - Fyysinen asema";
+    ls->dlgPhysDriveChoose      = "Valitse asetettava siirrettävä asema:";
+    ls->dlgPhysDriveNone        = "Siirrettävää asemaa ei löytynyt.";
+    ls->dlgPhysDriveWarning     = "Fyysisen aseman suora käyttö vaatii järjestelmänvalvojan oikeudet.\n\n"
+                                  "Windows ei voi käyttää asemaa sinä aikana, kun se on asetettuna blueMSX+:aan. MSX:n toiminnot sekä emulaattorin virhe tai kaatuminen kirjoituksen aikana voivat vioittaa tai tyhjentää aseman tiedostojärjestelmän ja tiedot. Varmuuskopioi tärkeät tiedot etukäteen.\n\n"
+                                  "Älä irrota asemaa tietokoneesta ennen kuin olet poistanut sen emulaattorista.";
+    ls->dlgPhysDriveNoWarning   = "Älä näytä tätä varoitusta uudelleen";
+    ls->dlgPhysDriveContinue    = "Jatka";
+    ls->dlgPhysDriveInUse       = "Asema on Windowsin tai toisen ohjelman käytössä. Sulje sitä käyttävät tiedostot ja ikkunat ja yritä uudelleen.";
+    ls->dlgPhysDriveFailed      = "Asemaa ei voitu avata.";
+    ls->infoRewindNoMedium      = "Taaksepäin suoritus ei ole käytettävissä, kun fyysinen asema on asetettuna.";
 
     ls->dlgAboutTitle           = "Tietoja blueMSX+:stä";
 

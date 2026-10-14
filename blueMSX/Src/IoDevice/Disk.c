@@ -70,6 +70,10 @@ static int   changed[MAXDRIVES];
 static int   diskType[MAXDRIVES];
 static int   maxSector[MAXDRIVES];
 static char* drivesErrors[MAXDRIVES];
+static const DiskHostMedium* hostMedium[MAXDRIVES];
+static void* hostMediumRef[MAXDRIVES];
+static Int64 hostMediumSize[MAXDRIVES];
+static int   hostMediumInserted[MAXDRIVES];
 /* Per-drive memory of the directory whose 720 KB overflow dialog has
 ** already been shown -- shared by diskChange() and diskPreviewDirOverflow()
 ** to dedupe the warning across insert + emulator-start. */
@@ -136,7 +140,7 @@ void  diskEnable(int driveId, int enable)
 UInt8 diskPresent(int driveId)
 {
     return driveId >= 0 && driveId < MAXDRIVES && 
-        (drives[driveId] != NULL || ramImageBuffer[driveId] != NULL);
+        (drives[driveId] != NULL || ramImageBuffer[driveId] != NULL || hostMediumInserted[driveId]);
 }
 
 int diskGetSectorsPerTrack(int driveId)
@@ -218,10 +222,31 @@ static DSKE diskReadError(int driveId, int sector)
     }
 }
 
+
+static int hostMediumIo(int driveId, int write, Int64 offset, UInt8* buffer, int length)
+{
+    const DiskHostMedium* medium = hostMedium[driveId];
+
+    if (medium == NULL || offset < 0 || length < 0 || fileSize[driveId] < offset + length) {
+        return 0;
+    }
+    if (!write) {
+        return medium->read(hostMediumRef[driveId], offset, buffer, length);
+    }
+    if (medium->write == NULL) {
+        return 0;
+    }
+    return medium->write(hostMediumRef[driveId], offset, buffer, length);
+}
+
 DSKE diskRead(int driveId, UInt8* buffer, int sector)
 {
     if (!diskPresent(driveId))
         return DSKE_NO_DATA;
+
+    if (hostMediumInserted[driveId]) {
+        return hostMediumIo(driveId, 0, (Int64)sector * sectorSize[driveId], buffer, sectorSize[driveId]) ? DSKE_OK : DSKE_NO_DATA;
+    }
 
     if (ramImageBuffer[driveId] != NULL) {
         Int64 offset = (Int64)sector * sectorSize[driveId];
@@ -262,6 +287,10 @@ DSKE diskReadSector(int driveId, UInt8* buffer, int sector, int side, int track,
 
     if (sectorSize != NULL) {
         *sectorSize = secSize;
+    }
+
+    if (hostMediumInserted[driveId]) {
+        return hostMediumIo(driveId, 0, offset, buffer, secSize) ? DSKE_OK : DSKE_NO_DATA;
     }
 
     if (ramImageBuffer[driveId] != NULL) {
@@ -504,6 +533,10 @@ UInt8 diskWrite(int driveId, UInt8 *buffer, int sector)
         return 0;
     }
 
+    if (hostMediumInserted[driveId]) {
+        return (UInt8)hostMediumIo(driveId, 1, (Int64)sector * sectorSize[driveId], buffer, sectorSize[driveId]);
+    }
+
     if (sector >= maxSector[driveId]) {
         return 0;
     }
@@ -540,7 +573,7 @@ UInt8 diskWriteSector(int driveId, UInt8 *buffer, int sector, int side, int trac
     if (!diskPresent(driveId))
         return 0;
 
-    if (sector >= maxSector[driveId])
+    if (sector >= maxSector[driveId] && !hostMediumInserted[driveId])
         return 0;
 
     if (density == 0) {
@@ -549,6 +582,10 @@ UInt8 diskWriteSector(int driveId, UInt8 *buffer, int sector, int side, int trac
 
     offset = diskGetSectorOffset(driveId, sector, side, track, density);
     secSize = diskGetSectorSize(driveId, side, track, density);
+
+    if (hostMediumInserted[driveId]) {
+        return (UInt8)hostMediumIo(driveId, 1, offset, buffer, secSize);
+    }
 
     if (ramImageBuffer[driveId] != NULL) {
         if (offset < 0 || (Int64)ramImageSize[driveId] < offset + secSize) {
@@ -589,6 +626,53 @@ static char *makeErrorsFileName(const char *fileName)
     }
 }
 
+int diskIsHostMediumName(const char* fileName)
+{
+    return fileName != NULL && strncmp(fileName, DISK_HOSTMEDIUM_PREFIX, strlen(DISK_HOSTMEDIUM_PREFIX)) == 0;
+}
+
+void diskSetHostMedium(int driveId, const DiskHostMedium* medium, void* ref, Int64 size)
+{
+    if (driveId < 0 || driveId >= MAXDRIVES) {
+        return;
+    }
+    /* A drive that still shows the previous medium must stop using it. */
+    hostMediumInserted[driveId] = 0;
+    hostMedium[driveId]     = medium;
+    hostMediumRef[driveId]  = ref;
+    hostMediumSize[driveId] = size;
+    changed[driveId]        = 1;
+}
+
+void diskWithdrawHostMedia(void)
+{
+    int i;
+
+    for (i = 0; i < MAXDRIVES; i++) {
+        if (hostMedium[i] != NULL) {
+            diskSetHostMedium(i, NULL, NULL, 0);
+        }
+    }
+}
+
+int diskIsHostMediumOffered(int driveId)
+{
+    return driveId >= 0 && driveId < MAXDRIVES && hostMedium[driveId] != NULL;
+}
+
+
+int diskHasHostMedium(void)
+{
+    int i;
+
+    for (i = 0; i < MAXDRIVES; i++) {
+        if (hostMedium[i] != NULL) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 UInt8 diskChange(int driveId, const char* fileName, const char* fileInZipFile)
 {
     struct stat s;
@@ -600,6 +684,7 @@ UInt8 diskChange(int driveId, const char* fileName, const char* fileInZipFile)
 
     drivesIsCdrom[driveId] = 0;
     RdOnly[driveId] = 0;
+    hostMediumInserted[driveId] = 0;
 
     /* Close previous disk image */
     if(drives[driveId] != NULL) { 
@@ -624,6 +709,17 @@ UInt8 diskChange(int driveId, const char* fileName, const char* fileInZipFile)
 
     if (strcmp(fileName, DISK_CDROM) == 0) {
         drivesIsCdrom[driveId] = 1;
+        return 1;
+    }
+
+    if (diskIsHostMediumName(fileName)) {
+        if (hostMedium[driveId] == NULL) {
+            return 0;
+        }
+        hostMediumInserted[driveId] = 1;
+        fileSize[driveId] = hostMediumSize[driveId];
+        RdOnly[driveId] = hostMedium[driveId]->write == NULL;
+        diskHdUpdateInfo(driveId);
         return 1;
     }
 
@@ -794,6 +890,10 @@ int _diskRead2(int driveId, UInt8* buffer, int sector, int numSectors)
     if (!diskPresent(driveId))
         return 0;
 
+    if (hostMediumInserted[driveId]) {
+        return sector >= 0 && numSectors >= 0 && hostMediumIo(driveId, 0, (Int64)sector * 512, buffer, length);
+    }
+
     if (ramImageBuffer[driveId] == NULL) {
         if ((drives[driveId] != NULL)) {
             if (0 == disk_fseek(drives[driveId], (Int64)sector * 512, SEEK_SET))
@@ -819,6 +919,10 @@ int _diskWrite2(int driveId, UInt8* buffer, int sector, int numSectors)
     int length  = numSectors * 512;
     if (!diskPresent(driveId))
         return 0;
+
+    if (hostMediumInserted[driveId]) {
+        return sector >= 0 && numSectors >= 0 && hostMediumIo(driveId, 1, (Int64)sector * 512, buffer, length);
+    }
 
     if (ramImageBuffer[driveId] == NULL) {
         if ((drives[driveId] != NULL)) {

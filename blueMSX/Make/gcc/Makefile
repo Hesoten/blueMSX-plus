@@ -114,6 +114,7 @@ SOURCE_FILES += Win32directXSound.c
 SOURCE_FILES += Win32Eth.c
 SOURCE_FILES += Win32Event.c 
 SOURCE_FILES += Win32file.c 
+SOURCE_FILES += Win32PhysicalDisk.c
 SOURCE_FILES += Win32FileTypes.c
 SOURCE_FILES += Win32Glob.c
 SOURCE_FILES += Win32Help.c 

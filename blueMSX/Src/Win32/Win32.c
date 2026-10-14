@@ -93,6 +93,7 @@
 #include "Win32machineConfig.h"
 #include "Win32ShortcutsConfig.h"
 #include "Win32Cdrom.h"
+#include "Win32PhysicalDisk.h"
 #include "Actions.h"
 #include "LaunchFile.h"
 #include "TokenExtract.h"
@@ -3915,6 +3916,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         }
         
         emulatorStop();
+        physicalDiskEjectAll();
         toolUnLoadAll();
         if (pProperties->video.windowSize != P_VIDEO_SIZEFULLSCREEN) {
             RECT r;
@@ -4693,6 +4695,10 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 #else
     szLine = commandLineUtf8();
 #endif
+
+    if (physicalDiskHelperCommand(szLine, &i)) {
+        return i;
+    }
 
     st.hidden = emuCheckFlagArgument(szLine, "hidden");
 
@@ -6934,6 +6940,7 @@ void archVideoOutputChange()
 }
 
 void archUpdateMenu(int show) {
+    physicalDiskSync();
     updateMenu(show);
 }
 

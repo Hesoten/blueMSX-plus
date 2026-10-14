@@ -184,6 +184,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->menuCartFlashCart       = "Flash-картриджи";
 
     ls->menuDiskInsertNew       = "Вставить новый образ дискеты";
+    ls->menuDiskInsertPhysical  = "Вставить физический диск";
     ls->menuDiskInsertCdrom     = "Вставить CD-Rom диск";       // New in 2.7
     ls->menuDiskDirInsert       = "Вставить папку";
     ls->menuDiskAutoStart       = "Сбросить после загрузки дискеты";
@@ -335,6 +336,18 @@ void langInitRussian(LanguageStrings* ls)
     ls->dlgTabType              = "Тип";
     ls->dlgTabFilename          = "Название";
     ls->dlgZipReset             = "Сброс после загрузки";
+
+    ls->dlgPhysDriveTitle       = "blueMSX+ - Физический диск";
+    ls->dlgPhysDriveChoose      = "Выберите съёмный диск, который нужно вставить:";
+    ls->dlgPhysDriveNone        = "Съёмные диски не найдены.";
+    ls->dlgPhysDriveWarning     = "Для прямого доступа к физическому диску требуются права администратора.\n\n"
+                                  "Пока диск вставлен в blueMSX+, Windows не имеет к нему доступа. Действия со стороны MSX, а также ошибка эмулятора или аварийное завершение во время записи могут повредить или стереть файловую систему и данные на диске. Заранее сделайте резервную копию важных данных.\n\n"
+                                  "Не отсоединяйте диск от компьютера, пока не уберёте его в эмуляторе.";
+    ls->dlgPhysDriveNoWarning   = "Больше не показывать это предупреждение";
+    ls->dlgPhysDriveContinue    = "Продолжить";
+    ls->dlgPhysDriveInUse       = "Диск используется Windows или другой программой. Закройте файлы и окна, которые его используют, и повторите попытку.";
+    ls->dlgPhysDriveFailed      = "Не удалось открыть диск.";
+    ls->infoRewindNoMedium      = "Перемотка назад недоступна, пока вставлен физический диск.";
 
     ls->dlgAboutTitle           = "blueMSX+ - О blueMSX+";
 

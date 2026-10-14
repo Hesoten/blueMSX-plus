@@ -180,6 +180,7 @@ typedef struct {
     char* menuCartFlashCart;
 
     char* menuDiskInsertNew;
+    char* menuDiskInsertPhysical;
     char* menuDiskInsertCdrom;
     char* menuDiskDirInsert;
     char* menuDiskAutoStart;
@@ -331,6 +332,16 @@ typedef struct {
     char* dlgTabType;
     char* dlgTabFilename;
     char* dlgZipReset;
+
+    char* dlgPhysDriveTitle;
+    char* dlgPhysDriveChoose;
+    char* dlgPhysDriveNone;
+    char* dlgPhysDriveWarning;
+    char* dlgPhysDriveNoWarning;
+    char* dlgPhysDriveContinue;
+    char* dlgPhysDriveInUse;
+    char* dlgPhysDriveFailed;
+    char* infoRewindNoMedium;
 
     char* dlgAboutTitle;
 

@@ -759,8 +759,10 @@ void actionEmuStep() {
     }
 }
 
+static int rewindAvailable(void);
+
 void actionEmuStepBack() {
-    if (emulatorGetState() == EMU_PAUSED) {
+    if (emulatorGetState() == EMU_PAUSED && rewindAvailable()) {
         emulatorSetState(EMU_STEP_BACK);
     }
 }
@@ -811,9 +813,21 @@ void actionMaxSpeedRelease() {
     emulatorSetMaxSpeed(0);
 }
 
+/* Says why when a medium that cannot be taken back with the MSX is in a drive. */
+static int rewindAvailable(void)
+{
+    if (emulatorGetState() == EMU_STOPPED || !diskHasHostMedium()) {
+        return 1;
+    }
+    archCaptureToastInfo(langInfoRewindNoMedium());
+    return 0;
+}
+
 void actionStartPlayReverse()
 {
-    emulatorPlayReverse(1);
+    if (rewindAvailable()) {
+        emulatorPlayReverse(1);
+    }
 }
 
 void actionStopPlayReverse()

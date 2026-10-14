@@ -184,6 +184,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->menuCartFlashCart       = "Cartuchos Flash";
 
     ls->menuDiskInsertNew       = "Insertar nueva imagen de Disco";              
+    ls->menuDiskInsertPhysical  = "Insertar unidad física";
     ls->menuDiskInsertCdrom     = "Insertar CD-Rom";       // New in 2.7
     ls->menuDiskDirInsert       = "Insertar directorio"; 
     ls->menuDiskAutoStart       = "Reinicio Tras Insertar";
@@ -335,6 +336,18 @@ void langInitSpanish(LanguageStrings* ls)
     ls->dlgTabType               = "Tipo";
     ls->dlgTabFilename           = "Nombre Archivo";
     ls->dlgZipReset             = "Reiniciar Tras Insertar";
+
+    ls->dlgPhysDriveTitle       = "blueMSX+ - Unidad física";
+    ls->dlgPhysDriveChoose      = "Elija la unidad extraíble que desea insertar:";
+    ls->dlgPhysDriveNone        = "No se ha encontrado ninguna unidad extraíble.";
+    ls->dlgPhysDriveWarning     = "Se necesitan derechos de administrador para acceder directamente a una unidad física.\n\n"
+                                  "Windows no puede acceder a la unidad mientras está insertada en blueMSX+. Las operaciones realizadas desde el MSX, así como un error del emulador o un cierre inesperado durante la escritura, pueden dañar o borrar el sistema de archivos y los datos de la unidad. Haga antes una copia de seguridad de los datos importantes.\n\n"
+                                  "No desconecte la unidad del equipo antes de sacarla del emulador.";
+    ls->dlgPhysDriveNoWarning   = "No volver a mostrar esta advertencia";
+    ls->dlgPhysDriveContinue    = "Continuar";
+    ls->dlgPhysDriveInUse       = "Windows u otro programa está usando la unidad. Cierre los archivos y las ventanas que la usan e inténtelo de nuevo.";
+    ls->dlgPhysDriveFailed      = "No se pudo abrir la unidad.";
+    ls->infoRewindNoMedium      = "El rebobinado no está disponible mientras hay una unidad física insertada.";
 
     ls->dlgAboutTitle           = "blueMSX+ - Acerca de";
 

@@ -284,6 +284,10 @@ int insertDiskette(Properties* properties, int drive, const char* fname, const c
     int noautostart = forceAutostart == -1;
     int isZip = isFileExtension(fname, ".zip");
 
+    if (diskIsHostMediumName(fname)) {
+        return 0;
+    }
+
     if (fname) strcpy(filename, fname);
 
     emulatorResetMixer();
