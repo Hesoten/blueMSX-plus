@@ -45,8 +45,9 @@
 ** a cap above the longest such step. */
 #define MAX_CREDIT (256 * UNITS_PER_TICK)
 
-/* 3: the core carries the transform end. 2: the engine timing. 1: no timing. */
-#define STATE_VERSION 3
+/* 4: geo3d v2.0 (1024 entries, 10-bit counts). 3: the core carries the
+** transform end. 2: the engine timing. 1: no timing. */
+#define STATE_VERSION 4
 
 /* Where a RUN stands: about to start, waiting for the VDP to finish a command,
 ** for the next command to land in R#46, or for RUN busy to clear. */
