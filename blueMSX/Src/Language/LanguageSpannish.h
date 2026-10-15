@@ -84,7 +84,6 @@ void langInitSpanish(LanguageStrings* ls)
     ls->errorCreateDiskImage    = "No se pudo crear el archivo de imagen de disco.";
     ls->errorCreateTapeImage    = "No se pudo crear el archivo de imagen de cinta.";
     ls->errorNoCasInZip         = "No hay archivo .cas en el archivo zip.";
-    ls->errorDirAsDskOverflow   = "%d archivo(s) (%d KB en total) no caben en la imagen de disco de 720 KB y se han omitido.";
     ls->errorDirDiskTooLarge    = "%d archivo(s) no cabían en el disco y se han omitido.";
     ls->errorDirDiskOnline      = "Se han omitido %d archivo(s) disponibles solo en línea. Haga que estén disponibles en este dispositivo para incluirlos.";
     ls->errorDirDiskSubdirs     = "Se han omitido %d directorio(s) porque el formato elegido no los admite.";

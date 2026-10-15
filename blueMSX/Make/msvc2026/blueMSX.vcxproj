@@ -848,7 +848,6 @@
     <ClCompile Include="..\..\Src\IoDevice\TapeSignal.c" />
     <ClCompile Include="..\..\Src\IoDevice\TsxParser.c" />
     <ClCompile Include="..\..\Src\IoDevice\WavParser.c" />
-    <ClCompile Include="..\..\Src\IoDevice\DirAsDisk.c" />
     <ClCompile Include="..\..\Src\IoDevice\Disk.c" />
     <ClCompile Include="..\..\Src\IoDevice\DiskFormat.c" />
     <ClCompile Include="..\..\Src\IoDevice\DirDisk.c" />
@@ -1202,7 +1201,6 @@
     <ClInclude Include="..\..\Src\IoDevice\TapeSignal.h" />
     <ClInclude Include="..\..\Src\IoDevice\TsxParser.h" />
     <ClInclude Include="..\..\Src\IoDevice\WavParser.h" />
-    <ClInclude Include="..\..\Src\IoDevice\DirAsDisk.h" />
     <ClInclude Include="..\..\Src\IoDevice\Disk.h" />
     <ClInclude Include="..\..\Src\IoDevice\DiskFormat.h" />
     <ClInclude Include="..\..\Src\IoDevice\DirDisk.h" />

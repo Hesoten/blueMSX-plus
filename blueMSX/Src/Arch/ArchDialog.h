@@ -51,10 +51,12 @@ void archShowNoCasInZipDialog();
 /* machineName is the config the user asked for and identifies which failure
 ** mode message to show (missing dir vs invalid config.ini vs no selection). */
 void archShowStartEmuFailDialog(const char* machineName);
-void archShowDirAsDskOverflowDialog(int skippedCount, int skippedBytes);
-/* Tells what a directory inserted as a hard disk left out. Win32 only. */
+/* Tells what a directory volume left out. Win32 only. */
 void archShowDirDiskSkippedDialog(int tooLarge, int onlineOnly, int subDirs);
 void archShowDirUnreadable(const char* directory);
+/* Nonzero when there is no one to ask, as in a run without a window. */
+int  archDirUnattended(void);
+void archReportDirUnattended(const char* directory, int written);
 /* The questions around writing the changes of the MSX back to a directory.
 ** Win32 only. Changes: 1 write, 2 discard, 0 cancel. The others: nonzero to go on. */
 int  archAskDirChanges(const char* directory, int created, int changed, int deleted, int skipped, int mass);

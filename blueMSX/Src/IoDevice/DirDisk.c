@@ -689,6 +689,18 @@ static void layoutFor(int format, UInt32 sizeK, int rootCount, Layout* layout)
     }
 }
 
+/* A 720 kB diskette, which is the one size a directory in a floppy drive has. */
+static void floppyLayout(Layout* layout)
+{
+    layout->fat16       = 0;
+    layout->sizeK       = 720;
+    layout->spc         = 2;
+    layout->fatSectors  = 3;
+    layout->clusters    = 713;
+    layout->rootEntries = 112;
+    layout->total       = 1440;
+}
+
 /* The smallest size that holds everything with some room left, or the largest the format allows. */
 static void chooseLayout(DirDisk* disk)
 {
@@ -874,6 +886,16 @@ static int buildSystemSectors(DirDisk* disk)
         disk->format == DiskFormatMsxDos1 ? DiskFormatMsxDos2 : (DiskFormatType)disk->format, layout->fat16);
     UInt32 id = volumeId(disk->directory);
 
+    if (disk->floppy) {
+        if (!diskFormatWriteBootSector(disk->boot, (int)dirDiskGetSize(disk), (DiskFormatType)disk->format)) {
+            return 0;
+        }
+        /* Where the system goes by the volume id, this tells one directory from another. */
+        if (memcmp(disk->boot + 0x20, "VOL_ID", 6) == 0) {
+            put32(disk->boot + 0x27, id);
+        }
+        return 1;
+    }
     if (bootTemplate == NULL) {
         return 0;
     }
@@ -906,7 +928,7 @@ static int buildSystemSectors(DirDisk* disk)
     return 1;
 }
 
-DirDisk* dirDiskCreate(const char* directory, int format)
+DirDisk* dirDiskCreate(const char* directory, int format, int floppy)
 {
     DirDisk* disk = (DirDisk*)calloc(1, sizeof(DirDisk));
     UInt32 next = 2;
@@ -918,6 +940,8 @@ DirDisk* dirDiskCreate(const char* directory, int format)
         format = DiskFormatMsxDos2;
     }
     disk->format      = format;
+    disk->floppy      = floppy;
+    disk->start       = floppy ? 0 : 1;
     disk->directory   = copyText(directory);
     disk->root        = newNode(directory, "", 1);
     if (disk->directory == NULL || disk->root == NULL) {
@@ -925,15 +949,20 @@ DirDisk* dirDiskCreate(const char* directory, int format)
         return NULL;
     }
     setDosTime(disk->root, 1980, 1, 1, 0, 0, 0);
-    if (!enumerate(disk, disk->root, 0, format != DiskFormatMsxDos1)) {
+    if (!enumerate(disk, disk->root, 0, !floppy && format != DiskFormatMsxDos1)) {
         dirDiskDestroy(disk);
         return NULL;
     }
     nameChildren(disk->root);
-    chooseLayout(disk);
+    if (floppy) {
+        floppyLayout(&disk->layout);
+    }
+    else {
+        chooseLayout(disk);
+    }
     allocate(disk, disk->root, &next, 1);
 
-    disk->dataStart = 1 + 1 + 2 * disk->layout.fatSectors + disk->layout.rootEntries / 16;
+    disk->dataStart = disk->start + 1 + 2 * disk->layout.fatSectors + disk->layout.rootEntries / 16;
     disk->fat = (UInt8*)calloc(disk->layout.fatSectors, SECTOR);
     disk->overlaySectors = (UInt32)(dirDiskGetSize(disk) / SECTOR);
     disk->overlaySlot  = (UInt32*)calloc(disk->overlaySectors, sizeof(UInt32));
@@ -942,7 +971,7 @@ DirDisk* dirDiskCreate(const char* directory, int format)
         dirDiskDestroy(disk);
         return NULL;
     }
-    setFat(disk, 0, 0xfff0);
+    setFat(disk, 0, floppy ? 0xfff9 : 0xfff0);
     setFat(disk, 1, 0xffff);
     if (!buildDirectory(disk, disk->root, NULL) || !buildSystemSectors(disk)) {
         dirDiskDestroy(disk);
@@ -1136,26 +1165,27 @@ int dirDiskReadSector(DirDisk* disk, UInt32 sector, UInt8* buffer)
 {
     const Layout* layout = &disk->layout;
     const UInt32* key = overlayFind(disk, sector);
-    UInt32 rootStart = 2 + 2 * layout->fatSectors;
+    UInt32 fatStart = disk->start + 1;
+    UInt32 rootStart = fatStart + 2 * layout->fatSectors;
 
     if (key != NULL && *key != 0) {
         memcpy(buffer, overlayData(disk, key), SECTOR);
         return 1;
     }
     memset(buffer, 0, SECTOR);
-    if (sector == 0) {
+    if (sector < disk->start) {
         memcpy(buffer, disk->mbr, SECTOR);
     }
-    else if (sector == 1) {
+    else if (sector == disk->start) {
         memcpy(buffer, disk->boot, SECTOR);
     }
     else if (sector < rootStart) {
-        memcpy(buffer, disk->fat + ((sector - 2) % layout->fatSectors) * SECTOR, SECTOR);
+        memcpy(buffer, disk->fat + ((sector - fatStart) % layout->fatSectors) * SECTOR, SECTOR);
     }
     else if (sector < disk->dataStart) {
         memcpy(buffer, disk->root->data + (sector - rootStart) * SECTOR, SECTOR);
     }
-    else if (sector < layout->total + 1) {
+    else if (sector < layout->total + disk->start) {
         UInt32 cluster = 2 + (sector - disk->dataStart) / layout->spc;
         Node* node = extentAt(disk, cluster);
 
@@ -1199,7 +1229,7 @@ int dirDiskWrite(void* ref, Int64 offset, const UInt8* buffer, int length)
     int done;
 
     /* The partition table stays as it is, so the MSX cannot repartition the volume. */
-    if (!inRange(disk, offset, length) || offset == 0) {
+    if (!inRange(disk, offset, length) || (Int64)disk->start * SECTOR > offset) {
         return 0;
     }
     for (done = 0; done < length; done += SECTOR) {

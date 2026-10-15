@@ -85,7 +85,6 @@ void langInitItalian(LanguageStrings* ls)
     ls->errorCreateDiskImage            = "Impossibile creare il file immagine disco.";
     ls->errorCreateTapeImage            = "Impossibile creare il file immagine cassetta.";
     ls->errorNoCasInZip                 = "Nessun file .CAS trovato nell'archivio compresso.";
-    ls->errorDirAsDskOverflow           = "%d file (%d KB totali) non sono entrati nell'immagine disco da 720 KB e sono stati saltati.";
     ls->errorDirDiskTooLarge    = "%d file non entravano nel disco e sono stati esclusi.";
     ls->errorDirDiskOnline      = "%d file disponibili solo online sono stati esclusi. Rendili disponibili su questo dispositivo per includerli.";
     ls->errorDirDiskSubdirs     = "%d cartelle sono state escluse perché il formato scelto non può contenerle.";

@@ -86,7 +86,6 @@ void langInitJapanese(LanguageStrings* ls)
     ls->errorCreateDiskImage    = "ディスクイメージファイルを作成できませんでした。";
     ls->errorCreateTapeImage    = "テープイメージファイルを作成できませんでした。";
     ls->errorNoCasInZip         = "zipファイルの中に.casファイルが見つかりません。";
-    ls->errorDirAsDskOverflow   = "%d 個のファイル (合計 %d KB) が 720 KB ディスクイメージに収まらず除外されました。";
     ls->errorDirDiskTooLarge    = "%d 個のファイルがディスクに収まらず除外されました。";
     ls->errorDirDiskOnline      = "%d 個のオンラインのみのファイルが除外されました。含めるには、このデバイス上で利用できるようにしてください。";
     ls->errorDirDiskSubdirs     = "%d 個のサブディレクトリが、選択した形式では扱えないため除外されました。";

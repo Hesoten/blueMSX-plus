@@ -46,9 +46,13 @@
 #include "ArchFile.h"
 #include "SaveState.h"
 #include "GameReader.h"
+#include "DiskFormat.h"
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
+#if defined(_WIN32) || defined(WIN32)
+#include <windows.h>
+#endif
 
 /* The SRAM cartridges (MEGA-SCSI, ESE-RAM, ESE-SCC, WAVE-SCSI) are only ever
 ** named by their short string, so match on that as well. */
@@ -251,6 +255,51 @@ static int isCasFileType(char* filename, char* inZip) {
            isFileExtension(filename, ".wav");
 }
 
+/* A directory named like a zip file is left to the zip handling, which refuses it. */
+static int isDirPath(const char* path) {
+    return !isFileExtension(path, ".zip") && diskIsDirPath(path);
+}
+
+/* Drops the separators after a directory name, but not the one that names a root. */
+static void trimDirPath(char* path) {
+    size_t len = strlen(path);
+
+    while (len > 1 && (path[len - 1] == '\\' || path[len - 1] == '/') && path[len - 2] != ':') {
+        path[--len] = 0;
+    }
+}
+
+/* The working directory changes later on, so a directory is kept by its full
+** path; path holds PROP_MAXPATH bytes. Zero when it cannot be made. */
+static int makeFullDirPath(char* path) {
+#if defined(_WIN32) || defined(WIN32)
+    wchar_t given[1024];
+    wchar_t full[1024];
+    char utf8[PROP_MAXPATH];
+    DWORD length;
+
+    if (MultiByteToWideChar(CP_UTF8, 0, path, -1, given, 1024) == 0) {
+        return 0;
+    }
+    length = GetFullPathNameW(given, 1024, full, NULL);
+    if (length == 0 || length >= 1024 ||
+        WideCharToMultiByte(CP_UTF8, 0, full, -1, utf8, sizeof(utf8), NULL, NULL) == 0) {
+        return 0;
+    }
+    trimDirPath(utf8);
+    strcpy(path, utf8);
+#endif
+    return 1;
+}
+
+static int dirFormatFromName(const char* name) {
+    if (strlen(name) > 8) return 0;
+    if (strcmpnocase(name, "msxdos1") == 0) return DiskFormatMsxDos1;
+    if (strcmpnocase(name, "msxdos2") == 0) return DiskFormatMsxDos2;
+    if (strcmpnocase(name, "nextor")  == 0) return DiskFormatNextor;
+    return 0;
+}
+
 int emuNormalizeOneArg(const char* cmdLine, char* out, int outSize) {
     const char* rest;
     int len;
@@ -343,14 +392,24 @@ static const CmdLineOption cmdLineOptions[] = {
     { "romtype2",      "<type>",  "Mapper of the /rom2 file; see /listromtypes"      },
     { "rom2zip",       "<name>",  "File inside the /rom2 zip, if it holds several"   },
     { "special2",      "<name>",  "Built-in cartridge in slot 2; see /listspecials"  },
-    { "diskA",         "<file>",  "Insert a diskette image in drive A"               },
+    { "diskA",         "<file>",  "Insert a diskette image or a directory in drive A" },
     { "diskAzip",      "<name>",  "File inside the /diskA zip, if it holds several"  },
-    { "diskB",         "<file>",  "Insert a diskette image in drive B"               },
+    { "diskAformat",   "<format>", "/diskA directory format: msxdos1 msxdos2 nextor" },
+    { "diskAwriteback", NULL,     "With /hidden, write the MSX's /diskA changes"     },
+    { "diskB",         "<file>",  "Insert a diskette image or a directory in drive B" },
     { "diskBzip",      "<name>",  "File inside the /diskB zip, if it holds several"  },
+    { "diskBformat",   "<format>", "/diskB directory format: msxdos1 msxdos2 nextor" },
+    { "diskBwriteback", NULL,     "With /hidden, write the MSX's /diskB changes"     },
     { "cas",           "<file>",  "Insert a cassette image"                          },
     { "caszip",        "<name>",  "File inside the /cas zip, if it holds several"    },
-    { "ide1primary",   "<file>",  "Attach a hard disk image as IDE 1 primary"        },
-    { "ide1secondary", "<file>",  "Attach a hard disk image as IDE 1 secondary"      },
+    { "hd1",           "<file>",  "Image or directory for the first hard disk drive" },
+    { "hd1format",     "<format>", "/hd1 directory format; as /diskAformat"          },
+    { "hd1writeback",  NULL,      "With /hidden, write the MSX's /hd1 changes"       },
+    { "hd2",           "<file>",  "Image or directory for the second hard disk drive" },
+    { "hd2format",     "<format>", "/hd2 directory format; as /diskAformat"          },
+    { "hd2writeback",  NULL,      "With /hidden, write the MSX's /hd2 changes"       },
+    { "ide1primary",   "<file>",  "Old name of /hd1"                                 },
+    { "ide1secondary", "<file>",  "Old name of /hd2"                                 },
     { "state",         "<file>",  "Resume from a saved state instead of booting"     },
     { "scc",           NULL,      "Insert an SCC cartridge in a free slot"           },
     { "sccplus",       NULL,      "Insert an SCC-I cartridge in a free slot"         },
@@ -425,7 +484,16 @@ int emuCommandLineGetHelpText(char* out, int size) {
         "  is also -h and /?. Quote names that contain spaces (machine, theme,\r\n"
         "  language and cartridge names do). /rootdir, /machinedir and\r\n"
         "  /inifile take a path relative to the current directory; all other\r\n"
-        "  paths are relative to the install directory.\r\n");
+        "  paths are relative to the install directory.\r\n"
+        "\r\n"
+        "  /hd1 and /hd2 are the first two drives of the hard disk interface\r\n"
+        "  in cartridge slot 1, not of a built-in one. A directory path is taken\r\n"
+        "  from the install directory when it is not a full one. What the MSX\r\n"
+        "  changes in a directory is written to it on eject, power off and exit\r\n"
+        "  after a question; files that are replaced or deleted move to\r\n"
+        "  .blueMSX-trash inside it. With /hidden nothing asks: the changes\r\n"
+        "  are written only to the directories whose writeback option is given\r\n"
+        "  and dropped from the others.\r\n");
 
     for (opt = cmdLineOptions; opt->name != NULL; opt++) {
         if (opt->help == NULL) {
@@ -853,6 +921,40 @@ static void overrideMachineName(Properties* properties, const char* machineName)
     emuCommandLineOverrideString(properties->emulation.machineName, previous);
 }
 
+/* Decides the format before the insert. */
+static int prepareDirDrive(Properties* properties, int drive, const char* path, int format) {
+    if (format == 0) {
+        format = drive < MAX_FDC_COUNT ? DiskFormatMsxDos2 : DiskFormatNextor;
+    }
+    properties->media.disks[drive].dirFormat = format;
+#if defined(_WIN32) || defined(WIN32)
+    if (!diskPrepareDir(drive, path, format)) {
+        return 0;
+    }
+#endif
+    return 1;
+}
+
+/* Without /hidden every change is asked about, so the option would do nothing. */
+static int checkWriteBack(const char* option, const char* mediaOption, int given, int isDir, const char* path, char* cmdLine) {
+    char text[64];
+
+    if (!given) {
+        return 1;
+    }
+    if (!emuCheckFlagArgument(cmdLine, "hidden")) {
+        return argError(option, "only works with /hidden", NULL);
+    }
+    if (!*path) {
+        snprintf(text, sizeof(text), "describes the directory in %s", mediaOption);
+        return argError(option, text, NULL);
+    }
+    if (!isDir) {
+        return argError(option, "only applies to a directory:", path);
+    }
+    return 1;
+}
+
 static int launchBareFile(Properties* properties, char* fileName) {
     int i;
 
@@ -865,6 +967,9 @@ static int launchBareFile(Properties* properties, char* fileName) {
     ** media options check theirs. */
     if (!archFileExists(fileName)) {
         return argError(NULL, "No such file:", fileName);
+    }
+    if (isDirPath(fileName)) {
+        return argError(NULL, "Is a directory; give it to /diskA or /hd1:", fileName);
     }
 
     for (i = 0; i < PROP_MAX_CARTS; i++) {
@@ -936,8 +1041,8 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
     char    diskB[512] = "";
     char    diskAzip[256] = "";
     char    diskBzip[256] = "";
-    char    ide1p[256] = "";
-    char    ide1s[256] = "";
+    char    hd1[512] = "";
+    char    hd2[512] = "";
     char    cas[512] = "";
     char    caszip[256] = "";
     char    stateFile[512] = "";
@@ -948,6 +1053,9 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
     RomType specialType2 = ROM_UNKNOWN;
     int     romTypeGiven1 = 0;
     int     romTypeGiven2 = 0;
+    int     dirA = 0, dirB = 0, dirP = 0, dirS = 0;
+    int     writeA = 0, writeB = 0, writeP = 0, writeS = 0;
+    int     formatA = 0, formatB = 0, formatP = 0, formatS = 0;
 #ifdef WII
     int     startEmu = 1; // always start
 #else
@@ -1057,8 +1165,16 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
         if (emuArgMatches(argument, "diskA")) {
             argument = extractTokenEx(cmdLine, ++i, gamedir);
             if (argument == NULL) return argError(option, "needs a file name", NULL);
-            if (!isDskFileType(argument, diskAzip)) return argError(option, "not a disk image:", argument);
-            if (!archFileExists(argument)) return argError(option, "no such file:", argument);
+            trimDirPath(argument);
+            dirA = isDirPath(argument);
+            if (dirA) {
+                if (!makeFullDirPath(argument)) return argError(option, "cannot read the directory:", argument);
+                diskAzip[0] = 0;
+            }
+            else {
+                if (!archFileExists(argument)) return argError(option, "no such file or directory:", argument);
+                if (!isDskFileType(argument, diskAzip)) return argError(option, "not a disk image or a directory:", argument);
+            }
             copyArg(diskA, sizeof(diskA), argument);
             startEmu = 1;
             continue;
@@ -1072,8 +1188,16 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
         if (emuArgMatches(argument, "diskB")) {
             argument = extractTokenEx(cmdLine, ++i, gamedir);
             if (argument == NULL) return argError(option, "needs a file name", NULL);
-            if (!isDskFileType(argument, diskBzip)) return argError(option, "not a disk image:", argument);
-            if (!archFileExists(argument)) return argError(option, "no such file:", argument);
+            trimDirPath(argument);
+            dirB = isDirPath(argument);
+            if (dirB) {
+                if (!makeFullDirPath(argument)) return argError(option, "cannot read the directory:", argument);
+                diskBzip[0] = 0;
+            }
+            else {
+                if (!archFileExists(argument)) return argError(option, "no such file or directory:", argument);
+                if (!isDskFileType(argument, diskBzip)) return argError(option, "not a disk image or a directory:", argument);
+            }
             copyArg(diskB, sizeof(diskB), argument);
             startEmu = 1;
             continue;
@@ -1099,20 +1223,43 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
             copyArg(caszip, sizeof(caszip), argument);
             continue;
         }
-        if (emuArgMatches(argument, "ide1primary")) {
+        if (emuArgMatches(argument, "hd1") || emuArgMatches(argument, "ide1primary")) {
             argument = extractToken(cmdLine, ++i);
             if (argument == NULL) return argError(option, "needs a file name", NULL);
-            copyArg(ide1p, sizeof(ide1p), argument);
+            trimDirPath(argument);
+            dirP = isDirPath(argument);
+            if (dirP && !makeFullDirPath(argument)) return argError(option, "cannot read the directory:", argument);
+            copyArg(hd1, sizeof(hd1), argument);
             startEmu = 1;
             continue;
         }
-        if (emuArgMatches(argument, "ide1secondary")) {
+        if (emuArgMatches(argument, "hd2") || emuArgMatches(argument, "ide1secondary")) {
             argument = extractToken(cmdLine, ++i);
             if (argument == NULL) return argError(option, "needs a file name", NULL);
-            copyArg(ide1s, sizeof(ide1s), argument);
+            trimDirPath(argument);
+            dirS = isDirPath(argument);
+            if (dirS && !makeFullDirPath(argument)) return argError(option, "cannot read the directory:", argument);
+            copyArg(hd2, sizeof(hd2), argument);
             startEmu = 1;
             continue;
         }
+        if (emuArgMatches(argument, "diskAformat") || emuArgMatches(argument, "diskBformat") ||
+            emuArgMatches(argument, "hd1format") || emuArgMatches(argument, "hd2format")) {
+            int* format = emuArgMatches(argument, "diskAformat") ? &formatA :
+                          emuArgMatches(argument, "diskBformat") ? &formatB :
+                          emuArgMatches(argument, "hd1format") ? &formatP : &formatS;
+
+            argument = extractToken(cmdLine, ++i);
+            if (argument == NULL) return argError(option, "needs a format name", NULL);
+            *format = dirFormatFromName(argument);
+            if (*format == 0) return argError(option, "unknown format (msxdos1, msxdos2 or nextor):", argument);
+            startEmu = 1;
+            continue;
+        }
+        if (emuArgMatches(argument, "diskAwriteback")) { writeA = 1; startEmu = 1; continue; }
+        if (emuArgMatches(argument, "diskBwriteback")) { writeB = 1; startEmu = 1; continue; }
+        if (emuArgMatches(argument, "hd1writeback"))   { writeP = 1; startEmu = 1; continue; }
+        if (emuArgMatches(argument, "hd2writeback"))   { writeS = 1; startEmu = 1; continue; }
         if (emuArgMatches(argument, "special1") || emuArgMatches(argument, "special2")) {
             int slot2 = emuArgMatches(argument, "special2");
             RomType special;
@@ -1209,13 +1356,30 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
     ** the line with an option that puts something in one. */
     if (bareFile[0]) {
         if (strlen(rom1) || strlen(rom2) || strlen(diskA) || strlen(diskB) ||
-            strlen(cas) || strlen(ide1p) || strlen(ide1s) || builtinCount ||
+            strlen(cas) || strlen(hd1) || strlen(hd2) || builtinCount ||
             strlen(stateFile) || romTypeGiven1 || romTypeGiven2 ||
+            formatA || formatB || formatP || formatS ||
+            writeA || writeB || writeP || writeS ||
             specialType1 != ROM_UNKNOWN || specialType2 != ROM_UNKNOWN) {
             return argError(NULL, "Cannot be combined with the other media:", bareFile);
         }
         overrideMachineName(properties, machineName);
         return launchBareFile(properties, bareFile);
+    }
+
+    if (formatA && !*diskA) return argError("/diskAformat", "describes the directory in /diskA", NULL);
+    if (formatA && !dirA) return argError("/diskAformat", "only applies to a directory:", diskA);
+    if (formatB && !*diskB) return argError("/diskBformat", "describes the directory in /diskB", NULL);
+    if (formatB && !dirB) return argError("/diskBformat", "only applies to a directory:", diskB);
+    if (formatP && !*hd1) return argError("/hd1format", "describes the directory in /hd1", NULL);
+    if (formatP && !dirP) return argError("/hd1format", "only applies to a directory:", hd1);
+    if (formatS && !*hd2) return argError("/hd2format", "describes the directory in /hd2", NULL);
+    if (formatS && !dirS) return argError("/hd2format", "only applies to a directory:", hd2);
+    if (!checkWriteBack("/diskAwriteback", "/diskA", writeA, dirA, diskA, cmdLine) ||
+        !checkWriteBack("/diskBwriteback", "/diskB", writeB, dirB, diskB, cmdLine) ||
+        !checkWriteBack("/hd1writeback", "/hd1", writeP, dirP, hd1, cmdLine) ||
+        !checkWriteBack("/hd2writeback", "/hd2", writeS, dirS, hd2, cmdLine)) {
+        return 0;
     }
 
     for (i = 0; i < PROP_MAX_CARTS; i++) {
@@ -1300,10 +1464,22 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
 
     if (strlen(rom1)  && !insertCartridge(properties, 0, rom1, *rom1zip ? rom1zip : NULL, romType1, -1)) return argError("/rom1", "cannot insert", rom1);
     if (strlen(rom2)  && !insertCartridge(properties, 1, rom2, *rom2zip ? rom2zip : NULL, romType2, -1)) return argError("/rom2", "cannot insert", rom2);
+    if (dirA && !prepareDirDrive(properties, 0, diskA, formatA)) return argError("/diskA", "cannot read the directory:", diskA);
+    if (dirB && !prepareDirDrive(properties, 1, diskB, formatB)) return argError("/diskB", "cannot read the directory:", diskB);
+    if (dirP && !prepareDirDrive(properties, diskGetHdDriveId(0, 0), hd1, formatP)) return argError("/hd1", "cannot read the directory:", hd1);
+    if (dirS && !prepareDirDrive(properties, diskGetHdDriveId(0, 1), hd2, formatS)) return argError("/hd2", "cannot read the directory:", hd2);
     if (strlen(diskA) && !insertDiskette(properties, 0, diskA, *diskAzip ? diskAzip : NULL, -1)) return argError("/diskA", "cannot insert", diskA);
     if (strlen(diskB) && !insertDiskette(properties, 1, diskB, *diskBzip ? diskBzip : NULL, -1)) return argError("/diskB", "cannot insert", diskB);
-    if (strlen(ide1p) && !insertDiskette(properties, diskGetHdDriveId(0, 0), ide1p, NULL, -1)) return argError("/ide1primary", "cannot attach", ide1p);
-    if (strlen(ide1s) && !insertDiskette(properties, diskGetHdDriveId(0, 1), ide1s, NULL, -1)) return argError("/ide1secondary", "cannot attach", ide1s);
+    if (strlen(hd1) && !insertDiskette(properties, diskGetHdDriveId(0, 0), hd1, NULL, -1)) return argError("/hd1", "cannot attach", hd1);
+    if (strlen(hd2) && !insertDiskette(properties, diskGetHdDriveId(0, 1), hd2, NULL, -1)) return argError("/hd2", "cannot attach", hd2);
+    if (dirA) diskNotifyDirSkipped(0);
+    if (dirB) diskNotifyDirSkipped(1);
+    if (dirP) diskNotifyDirSkipped(diskGetHdDriveId(0, 0));
+    if (dirS) diskNotifyDirSkipped(diskGetHdDriveId(0, 1));
+    actionDirSetUnattendedWrite(0, writeA);
+    actionDirSetUnattendedWrite(1, writeB);
+    actionDirSetUnattendedWrite(diskGetHdDriveId(0, 0), writeP);
+    actionDirSetUnattendedWrite(diskGetHdDriveId(0, 1), writeS);
     if (strlen(cas)   && !insertCassette(properties, 0, cas, *caszip ? caszip : NULL, -1)) return argError("/cas", "cannot insert", cas);
 
     overrideMachineName(properties, machineName);

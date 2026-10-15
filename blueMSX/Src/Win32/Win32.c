@@ -3236,7 +3236,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             ** the INVALID_FILE_ATTRIBUTES it returns has the directory bit. */
             fa = GetFileAttributesU(fname);
             if (fa != INVALID_FILE_ATTRIBUTES && (fa & FILE_ATTRIBUTE_DIRECTORY)) {
-                insertDiskette(pProperties, 0, fname, NULL, 0);
+                insertDisketteRecalled(pProperties, 0, fname);
             }
             else {
                 tryLaunchUnknownFile(pProperties, fname, 0);
@@ -5442,14 +5442,6 @@ void archShowNoCasInZipDialog() {
     enterDialogShow();
 }
 
-void archShowDirAsDskOverflowDialog(int skippedCount, int skippedBytes) {
-    char msg[512];
-    enterDialogShow();
-    sprintf(msg, langErrorDirAsDskOverflow(), skippedCount, (skippedBytes + 1023) / 1024);
-    MessageBoxU(NULL, msg, langMenuDiskDirInsert(), MB_OK | MB_ICONWARNING);
-    exitDialogShow();
-}
-
 void archShowDirDiskSkippedDialog(int tooLarge, int onlineOnly, int subDirs) {
     char msg[1536] = "";
 
@@ -5486,6 +5478,18 @@ void archShowDirUnreadable(const char* directory) {
     exitDialogShow();
 }
 
+int archDirUnattended(void) {
+    return st.hidden;
+}
+
+void archReportDirUnattended(const char* directory, int written) {
+    char text[1024];
+
+    snprintf(text, sizeof(text), "%s %s", written ? "Writing what the MSX changed to the directory:" :
+             "Dropping what the MSX changed, as its writeback option is not given:", directory);
+    commandLineReport(text);
+}
+
 int archAskDirChanges(const char* directory, int created, int changed, int deleted, int skipped, int mass) {
     char text[4096];
     int answer;
@@ -5509,6 +5513,10 @@ int archAskDirInvalid(const char* directory) {
     int answer;
 
     snprintf(text, sizeof(text), langErrorDirWriteInvalid(), directory);
+    if (st.hidden) {
+        commandLineReport(text);
+        return 1;
+    }
     enterDialogShow();
     answer = MessageBoxU(getMainHwnd(), text, langWarningTitle(), MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2);
     exitDialogShow();
@@ -5520,6 +5528,10 @@ int archAskDirHostError(const char* directory) {
     int answer;
 
     snprintf(text, sizeof(text), langErrorDirWriteHost(), directory);
+    if (st.hidden) {
+        commandLineReport(text);
+        return 1;
+    }
     enterDialogShow();
     answer = MessageBoxU(getMainHwnd(), text, langWarningTitle(), MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2);
     exitDialogShow();
@@ -5544,6 +5556,10 @@ void archShowDirWriteFailed(int failed, const char* session) {
         *slash = '\\';
     }
     snprintf(text, sizeof(text), langErrorDirWriteFailed(), failed, shown);
+    if (st.hidden) {
+        commandLineReport(text);
+        return;
+    }
     enterDialogShow();
     MessageBoxU(getMainHwnd(), text, langWarningTitle(), MB_OK | MB_ICONWARNING);
     exitDialogShow();
@@ -6762,50 +6778,18 @@ void archSetCurrentDirectory(const char* pathname)
     SetCurrentDirectoryU(pathname);
 }
 
-char* archDirnameGetOpenDisk(Properties* properties, int drive)
-{
-    char* title = drive == 1 ? langDlgInsertDiskB() : langDlgInsertDiskA();
-    char* defaultDir = properties->media.disks[drive].directory;
-    char* filename;
-
-    enterDialogShow();
-    filename = openDir(getMainHwnd(), title, defaultDir);
-    exitDialogShow();
-    SetCurrentDirectoryU(st.pCurDir);
-
-    return filename;
-}
-
-char* archDirnameGetOpenDiskWithFormat(Properties* properties, int drive,
-                                        int* outMsxFormat)
+char* archDirnameGetOpenDirDisk(Properties* properties, int drive, int* outMsxFormat)
 {
     char* title = drive == 0 ? langDlgInsertDiskA() : drive == 1 ? langDlgInsertDiskB() : langMenuDiskDirInsert();
     char* defaultDir = properties->media.disks[drive].directory;
     char* filename;
-    static int lastFormat = (int)DiskFormatMsxDos2;
-    int fmt = lastFormat;
+    /* The format last chosen, for a diskette and for a hard disk. */
+    static int lastFormats[2] = { (int)DiskFormatMsxDos2, (int)DiskFormatNextor };
+    int* lastFormat = &lastFormats[drive > 1];
+    int fmt = *lastFormat;
 
     enterDialogShow();
     filename = openDirWithFormat(getMainHwnd(), title, defaultDir, &fmt);
-    exitDialogShow();
-    SetCurrentDirectoryU(st.pCurDir);
-
-    if (filename != NULL) {
-        lastFormat = fmt;
-        if (outMsxFormat) *outMsxFormat = fmt;
-    }
-    return filename;
-}
-
-char* archDirnameGetOpenDirDisk(Properties* properties, int drive, int* outMsxFormat)
-{
-    char* defaultDir = properties->media.disks[drive].directory;
-    char* filename;
-    static int lastFormat = (int)DiskFormatNextor;
-    int fmt = lastFormat;
-
-    enterDialogShow();
-    filename = openDirWithFormat(getMainHwnd(), langMenuDiskDirInsert(), defaultDir, &fmt);
     exitDialogShow();
     SetCurrentDirectoryU(st.pCurDir);
 
@@ -6814,7 +6798,7 @@ char* archDirnameGetOpenDirDisk(Properties* properties, int drive, int* outMsxFo
         return NULL;
     }
     if (filename != NULL) {
-        lastFormat = fmt;
+        *lastFormat = fmt;
         *outMsxFormat = fmt;
     }
     return filename;

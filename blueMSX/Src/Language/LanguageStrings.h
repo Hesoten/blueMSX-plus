@@ -81,7 +81,6 @@ typedef struct {
     char* errorCreateDiskImage;
     char* errorCreateTapeImage;
     char* errorNoCasInZip;
-    char* errorDirAsDskOverflow;
     char* errorDirDiskTooLarge;
     char* errorDirDiskOnline;
     char* errorDirDiskSubdirs;

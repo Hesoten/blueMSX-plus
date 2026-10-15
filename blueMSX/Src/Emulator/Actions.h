@@ -66,6 +66,8 @@ int  actionDirAnyPending(void);
 void actionDirStateNotice(void);
 /* Tells, during a run resumed from a saved state, that a directory just inserted takes none of the MSX's writes. */
 void actionDirInsertedNotice(void);
+/* In a run with no one to ask, write the changes to the directory of this drive instead of dropping them. */
+void actionDirSetUnattendedWrite(int driveId, int write);
 void actionDirMemoryNotice(void);
 /* Takes a directory out of the drive without writing anything back. */
 void actionHarddiskEjectDir(int diskNo);

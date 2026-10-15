@@ -898,7 +898,7 @@ static HMENU menuCreateDisk(int diskNo, Properties* pProperties, Shortcuts* shor
 
 #ifndef NO_FILE_HISTORY
     if (appConfigGetInt("filehistory", 1) != 0) {
-        verifyFileHistory(*pProperties->filehistory.diskdrive[diskNo], NULL);
+        verifyFileHistory(*pProperties->filehistory.diskdrive[diskNo], pProperties->filehistory.diskdriveFormat[diskNo]);
     }
 #endif
     setMenuColor(hMenu);
@@ -2237,7 +2237,7 @@ int menuCommand(Properties* pProperties, int command)
         if (appConfigGetInt("filehistory", 1) != 0) {
             h = cmd - ID_FILE_DISK_HISTORY;
             if (h >= 0 && h < MAX_HISTORY) {
-                insertDiskette(pProperties, i, pProperties->filehistory.diskdrive[i][h], NULL, 0);
+                insertDisketteRecalled(pProperties, i, pProperties->filehistory.diskdrive[i][h]);
                 return 1;
             }
         }
