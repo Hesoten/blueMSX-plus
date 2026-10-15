@@ -1,11 +1,11 @@
-# geo3d v2.0 on blueMSX+ (local branch `geo3d-v2.0`)
+# geo3d v2.0 on blueMSX+ (branch `geo3d-v2.0`)
 
-This branch is **not part of Hesoten's blueMSX+**. It is a local branch made
-by Alex Moncks on top of `experimental/v9968-geo3d` (2090cd26) to try
+This branch, by Alex Moncks, is proposed to Hesoten's blueMSX+ as a pull
+request on top of `experimental/v9968-geo3d` (2090cd26). It brings
 **geo3d v2.0**, the development version of the geo3d coprocessor described in
 [geo3d/docs/geo3d_v2.md](https://github.com/alexmoncks/V9968_Cartridge/blob/geo3d-v2.0/geo3d/docs/geo3d_v2.md).
 geo3d v2.0 is not the version in HRA!'s official V9968 distribution (that is
-v1.0.0) and has not run on hardware. Nothing here has been sent to Hesoten.
+v1.0.0) and has not run on hardware yet.
 
 ## What changed
 
