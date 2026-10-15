@@ -68,8 +68,6 @@ char* archFilenameGetSaveCapture(Properties* properties,
                                   const char* extension,
                                   const char* fileTypeLabel);
 
-char* archDirnameGetOpenDisk(Properties* properties, int drive);
-
 #if defined(_WIN32) || defined(WIN32)
 /* The directory for a drive, with a MSX-DOS format combobox; *outMsxFormat is a
 ** DiskFormatType (1/2/3). Win32 only. */

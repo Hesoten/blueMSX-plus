@@ -84,7 +84,6 @@ void langInitDutch(LanguageStrings* ls)
     ls->errorCreateDiskImage    = "Kan de schijfkopie niet aanmaken.";
     ls->errorCreateTapeImage    = "Kan het cassettebestand niet aanmaken.";
     ls->errorNoCasInZip         = "Er zijn geen .CAS-bestanden gevonden in het ZIP-bestand.";
-    ls->errorDirAsDskOverflow   = "%d bestand(en) (%d KB totaal) pasten niet op de 720 KB-schijfkopie en zijn overgeslagen.";
     ls->errorDirDiskTooLarge    = "%d bestand(en) pasten niet op de schijf en zijn weggelaten.";
     ls->errorDirDiskOnline      = "%d bestand(en) die alleen online beschikbaar zijn, zijn weggelaten. Maak ze beschikbaar op dit apparaat om ze op te nemen.";
     ls->errorDirDiskSubdirs     = "%d map(pen) zijn weggelaten omdat het gekozen formaat ze niet kan bevatten.";

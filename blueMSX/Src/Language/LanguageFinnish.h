@@ -86,7 +86,6 @@ void langInitFinnish(LanguageStrings* ls)
     ls->errorCreateDiskImage    = "Levykuvatiedoston luonti epäonnistui.";
     ls->errorCreateTapeImage    = "Kasettitiedoston luonti epäonnistui.";
     ls->errorNoCasInZip         = "Zip paketista ei löytynyt .CAS tiedostoa.";
-    ls->errorDirAsDskOverflow   = "%d tiedosto(a) (yhteensä %d KB) ei mahtunut 720 KB:n levykuvaan ja jäi väliin.";
     ls->errorDirDiskTooLarge    = "%d tiedosto(a) ei mahtunut levylle, ja ne jätettiin pois.";
     ls->errorDirDiskOnline      = "%d vain verkossa olevaa tiedostoa jätettiin pois. Ota ne käyttöön tässä laitteessa, jos haluat ne mukaan.";
     ls->errorDirDiskSubdirs     = "%d hakemistoa jätettiin pois, koska valittu muoto ei tue niitä.";

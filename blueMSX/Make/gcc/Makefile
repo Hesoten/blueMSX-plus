@@ -307,7 +307,6 @@ SOURCE_FILES += R800Debug.c
 SOURCE_FILES += R800SaveState.c 
 
 SOURCE_FILES += Casette.c 
-SOURCE_FILES += DirAsDisk.c
 SOURCE_FILES += DirDisk.c
 SOURCE_FILES += DirWriteBack.c
 SOURCE_FILES += Disk.c

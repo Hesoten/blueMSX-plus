@@ -29,7 +29,6 @@
 ******************************************************************************
 */
 #include "Disk.h"
-#include "DirAsDisk.h"
 #include "DirDisk.h"
 #include "DirWriteBack.h"
 #include "ArchDialog.h"
@@ -37,7 +36,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <sys/stat.h>
 
 // PacketFileSystem.h Need to be included after all other includes
 #include "PacketFileSystem.h"
@@ -86,50 +84,26 @@ static int   dirFormat[MAXDRIVES];
 static int   dirStateLoaded;
 static int   dirStateSession;
 static int   dirMemoryStep[MAXDRIVES];
-/* The first drive a directory is shown in as a volume of its own; the floppy drives too where it can be written back. */
-#if defined(_WIN32) || defined(WIN32)
-#define DIR_VOLUME_FIRST 0
-#else
-#define DIR_VOLUME_FIRST MAX_FDC_COUNT
-#endif
-/* Per-drive memory of the directory whose 720 KB overflow dialog has
-** already been shown -- shared by diskChange() and diskPreviewDirOverflow()
-** to dedupe the warning across insert + emulator-start. */
-static char  dirOverflowShownPath[MAXDRIVES][1024];
+/* The directory whose left-out files each drive last told about, so that it is told once. */
+static char  dirSkipShownPath[MAXDRIVES][1024];
 static const UInt8 svi328Cpm80track[] = "CP/M-80";
 static void diskHdUpdateInfo(int driveId);
 static void diskReadHdIdentifySector(int driveId, UInt8* buffer);
 
 enum { MSX_DISK, SVI328_DISK, IDEHD_DISK } diskTypes;
 
-/* Show the 720 KB overflow dialog once per (driveId, path). The path key
-** lets a later remount of the SAME directory suppress the duplicate that
-** would otherwise pop up at emulator-start after the insert-time preview. */
-static void notifyDirOverflowIfAny(int driveId, const char* path)
-{
-    if (driveId < 0 || driveId >= MAXDRIVES) return;
-    if (dirLoadLastSkippedCount() <= 0) return;
-    if (path != NULL && strcmp(dirOverflowShownPath[driveId], path) == 0) return;
-    archShowDirAsDskOverflowDialog(dirLoadLastSkippedCount(),
-                                   dirLoadLastSkippedBytes());
-    if (path != NULL) {
-        snprintf(dirOverflowShownPath[driveId],
-                 sizeof(dirOverflowShownPath[driveId]), "%s", path);
-    }
-}
-
-/* The same for a diskette directory shown as a volume of its own. */
+/* Tells once for each path what the directory volume of a drive left out; 1 when it told. */
 static int notifyDirSkipped(int driveId, const char* path)
 {
 #if defined(_WIN32) || defined(WIN32)
     DirSkipped skipped;
 
     dirDiskGetSkipped(dirVolume[driveId], &skipped);
-    if (skipped.tooLarge + skipped.onlineOnly + skipped.subDirs == 0 || strcmp(dirOverflowShownPath[driveId], path) == 0) {
+    if (skipped.tooLarge + skipped.onlineOnly + skipped.subDirs == 0 || strcmp(dirSkipShownPath[driveId], path) == 0) {
         return 0;
     }
     archShowDirDiskSkippedDialog(skipped.tooLarge, skipped.onlineOnly, skipped.subDirs);
-    snprintf(dirOverflowShownPath[driveId], sizeof(dirOverflowShownPath[driveId]), "%s", path);
+    snprintf(dirSkipShownPath[driveId], sizeof(dirSkipShownPath[driveId]), "%s", path);
     return 1;
 #else
     (void)driveId;
@@ -144,18 +118,6 @@ int diskNotifyDirSkipped(int driveId)
         return notifyDirSkipped(driveId, dirDiskGetDirectory(dirVolume[driveId]));
     }
     return 0;
-}
-
-void diskPreviewDirOverflow(int driveId, const char* path)
-{
-    struct stat s;
-    void* preview;
-    int previewSize = 0;
-    if (path == NULL) return;
-    if (stat(path, &s) != 0 || !(s.st_mode & S_IFDIR)) return;
-    preview = dirLoadFile(DDT_MSX, path, &previewSize);
-    free(preview);
-    notifyDirOverflowIfAny(driveId, path);
 }
 
 UInt8 diskEnabled(int driveId)
@@ -710,7 +672,7 @@ void diskSetDirFormat(int driveId, int format)
 
 int diskPrepareDir(int driveId, const char* directory, int format)
 {
-    if (driveId < DIR_VOLUME_FIRST || driveId >= MAXDRIVES) {
+    if (driveId < 0 || driveId >= MAXDRIVES) {
         return 0;
     }
     diskDiscardDir(driveId);
@@ -898,8 +860,6 @@ int diskHasHostMedium(void)
 
 UInt8 diskChange(int driveId, const char* fileName, const char* fileInZipFile)
 {
-    struct stat s;
-    int rv;
     char *fname;
 
     if (driveId >= MAXDRIVES)
@@ -951,41 +911,31 @@ UInt8 diskChange(int driveId, const char* fileName, const char* fileInZipFile)
         return 1;
     }
 
-    rv = stat(fileName, &s);
     if (diskIsDirPath(fileName)) {
-        if (driveId >= DIR_VOLUME_FIRST) {
-            int created = dirVolume[driveId] == NULL;
+        int created = dirVolume[driveId] == NULL;
 
-            if (created) {
-                dirVolume[driveId] = dirDiskCreate(fileName, dirFormat[driveId], driveId < MAX_FDC_COUNT);
-            }
-            if (dirVolume[driveId] == NULL) {
-                return 0;
-            }
-            if (dirStateLoaded) {
-                dirDiskDisarm(dirVolume[driveId]);
-            }
-            dirActive[driveId] = 1;
-            hostMediumInserted[driveId] = 1;
-            fileSize[driveId] = dirDiskGetSize(dirVolume[driveId]);
-            if (driveId < MAX_FDC_COUNT) {
-                diskUpdateInfo(driveId);
-                if (created) {
-                    notifyDirSkipped(driveId, fileName);
-                }
-            }
-            else {
-                diskHdUpdateInfo(driveId);
-            }
-            return 1;
+        if (created) {
+            dirVolume[driveId] = dirDiskCreate(fileName, dirFormat[driveId], driveId < MAX_FDC_COUNT);
         }
-        if (rv == 0) {
-            ramImageBuffer[driveId] = dirLoadFile(DDT_MSX, fileName, &ramImageSize[driveId]);
-            fileSize[driveId] = ramImageSize[driveId];
+        if (dirVolume[driveId] == NULL) {
+            return 0;
+        }
+        if (dirStateLoaded) {
+            dirDiskDisarm(dirVolume[driveId]);
+        }
+        dirActive[driveId] = 1;
+        hostMediumInserted[driveId] = 1;
+        fileSize[driveId] = dirDiskGetSize(dirVolume[driveId]);
+        if (driveId < MAX_FDC_COUNT) {
             diskUpdateInfo(driveId);
-            notifyDirOverflowIfAny(driveId, fileName);
-            return ramImageBuffer[driveId] != NULL;
+            if (created) {
+                notifyDirSkipped(driveId, fileName);
+            }
         }
+        else {
+            diskHdUpdateInfo(driveId);
+        }
+        return 1;
     }
 
     if (fileInZipFile != NULL) {

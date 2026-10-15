@@ -84,7 +84,6 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->errorCreateDiskImage    = "无法创建磁盘镜像文件。";
     ls->errorCreateTapeImage    = "无法创建磁带映像文件。";
     ls->errorNoCasInZip         = "无法在 zip 压缩包内找到 .cas 文件。";
-    ls->errorDirAsDskOverflow   = "%d 个文件 (总共 %d KB) 未能适配 720 KB 磁盘镜像，已跳过。";
     ls->errorDirDiskTooLarge    = "%d 个文件无法放入磁盘，已被排除。";
     ls->errorDirDiskOnline      = "已排除 %d 个仅联机文件。若要包含它们，请使其在此设备上可用。";
     ls->errorDirDiskSubdirs     = "所选格式无法容纳，已排除 %d 个目录。";

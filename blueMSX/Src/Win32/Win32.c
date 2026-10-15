@@ -5442,14 +5442,6 @@ void archShowNoCasInZipDialog() {
     enterDialogShow();
 }
 
-void archShowDirAsDskOverflowDialog(int skippedCount, int skippedBytes) {
-    char msg[512];
-    enterDialogShow();
-    sprintf(msg, langErrorDirAsDskOverflow(), skippedCount, (skippedBytes + 1023) / 1024);
-    MessageBoxU(NULL, msg, langMenuDiskDirInsert(), MB_OK | MB_ICONWARNING);
-    exitDialogShow();
-}
-
 void archShowDirDiskSkippedDialog(int tooLarge, int onlineOnly, int subDirs) {
     char msg[1536] = "";
 
@@ -6760,20 +6752,6 @@ int archCreateDirectory(const char* pathname)
 void archSetCurrentDirectory(const char* pathname)
 {
     SetCurrentDirectoryU(pathname);
-}
-
-char* archDirnameGetOpenDisk(Properties* properties, int drive)
-{
-    char* title = drive == 1 ? langDlgInsertDiskB() : langDlgInsertDiskA();
-    char* defaultDir = properties->media.disks[drive].directory;
-    char* filename;
-
-    enterDialogShow();
-    filename = openDir(getMainHwnd(), title, defaultDir);
-    exitDialogShow();
-    SetCurrentDirectoryU(st.pCurDir);
-
-    return filename;
 }
 
 char* archDirnameGetOpenDirDisk(Properties* properties, int drive, int* outMsxFormat)

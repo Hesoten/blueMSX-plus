@@ -84,7 +84,6 @@ void langInitFrench(LanguageStrings* ls)
     ls->errorCreateDiskImage    = "Impossible de créer le fichier image disque.";
     ls->errorCreateTapeImage    = "Impossible de créer le fichier image cassette.";
     ls->errorNoCasInZip         = "Il n'y a pas de fichier .cas dans votre archive zip";
-    ls->errorDirAsDskOverflow   = "%d fichier(s) (%d KB au total) ne tiennent pas dans l'image disque de 720 KB et ont été ignorés.";
     ls->errorDirDiskTooLarge    = "%d fichier(s) ne tenaient pas sur le disque et ont été omis.";
     ls->errorDirDiskOnline      = "%d fichier(s) disponibles uniquement en ligne ont été omis. Rendez-les disponibles sur cet appareil pour les inclure.";
     ls->errorDirDiskSubdirs     = "%d répertoire(s) ont été omis car le format choisi ne peut pas les contenir.";

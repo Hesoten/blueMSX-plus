@@ -110,11 +110,6 @@ int  diskIsHostMediumName(const char* fileName);
 int  diskIsHostMediumOffered(int driveId);
 int  diskHasHostMedium(void);
 
-
-/* Surface the 720 KB overflow dialog at insert time (not next emu
-** start); marks (driveId, path) so the next diskChange remount of the
-** same dir doesn't repeat it. */
-void diskPreviewDirOverflow(int driveId, const char* path);
 void diskSetInfo(int driveId, char* fileName, const char* fileInZipFile);
 void  diskEnable(int driveId, int enable);
 UInt8 diskEnabled(int driveId);
