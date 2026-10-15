@@ -385,9 +385,11 @@ struct VDP {
     int    extRegsLocked;
 
     /* Which byte of a palette entry comes next: two per entry, three with EPAL.
-    ** The first shares the write latch with the register ports, as it always has. */
+    ** Standard palettes retain the shared register-port latch. EPAL keeps R
+    ** independently, as the V9968 does, so intervening register writes are safe. */
     int    palKey;
     UInt8  paletteLatch;
+    UInt8  paletteExtRedLatch;
 
     UInt8  palMask;
     UInt8  palValue;
@@ -1829,7 +1831,7 @@ static void writePaletteLatch(VDP* vdp, UInt16 ioPort, UInt8 value)
     if (vdpIsExtPalette(vdp)) {
         value &= 0x1f;
         if (vdp->palKey == 0) {
-            vdp->vdpDataLatch = value;
+            vdp->paletteExtRedLatch = value;
             vdp->palKey = 1;
             return;
         }
@@ -1839,7 +1841,7 @@ static void writePaletteLatch(VDP* vdp, UInt16 ioPort, UInt8 value)
             return;
         }
         sync(vdp, boardSystemTime());
-        updateExtPalette(vdp, palEntry, vdp->vdpDataLatch, vdp->paletteLatch, value);
+        updateExtPalette(vdp, palEntry, vdp->paletteExtRedLatch, vdp->paletteLatch, value);
         vdp->vdpRegs[16] = (palEntry + 1) & 0xff;
         vdp->palKey = 0;
         return;
@@ -2333,6 +2335,7 @@ static void saveState(VDP* vdp)
     saveStateSet(state, "sprPlaneStart",       vdp->sprPlaneStart);
     saveStateSet(state, "palKey",              vdp->palKey);
     saveStateSet(state, "paletteLatch",        vdp->paletteLatch);
+    saveStateSet(state, "paletteExtRedLatch",  vdp->paletteExtRedLatch);
     saveStateSetBuffer(state, "paletteExtReg", vdp->paletteExtReg, sizeof(vdp->paletteExtReg));
 
     saveStateSetBuffer(state, "vram", vdp->vram, VRAM_SIZE);
@@ -2440,6 +2443,8 @@ static void loadState(VDP* vdp)
     vdp->sprPlaneStart = saveStateGet(state, "sprPlaneStart",     0);
     vdp->palKey        = saveStateGet(state, "palKey",            0);
     vdp->paletteLatch  = (UInt8)saveStateGet(state, "paletteLatch", 0);
+    /* Earlier EPAL states kept the pending R component in vdpDataLatch. */
+    vdp->paletteExtRedLatch = (UInt8)saveStateGet(state, "paletteExtRedLatch", vdp->vdpDataLatch);
     saveStateGetBuffer(state, "paletteExtReg", vdp->paletteExtReg, sizeof(vdp->paletteExtReg));
     /* The first sixteen entries are the sixteen colour palette seen a second
     ** time, so they come back from there rather than from the five bit copy.
@@ -2778,6 +2783,7 @@ static void reset(VDP* vdp)
     vdp->chrTabBase      = 0;
     vdp->chrGenBase      = 0;
     vdp->palKey          = 0;
+    vdp->paletteExtRedLatch = 0;
     vdp->vdpKey          = 0;
 	vdp->vramAddress     = 0;
 	vdp->vdpData         = 0;
