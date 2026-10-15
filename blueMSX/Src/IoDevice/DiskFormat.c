@@ -258,8 +258,10 @@ static int writeFill(FILE* f, unsigned char byte, long sizeBytes)
     return 1;
 }
 
-/* Silence unused-symbol warning for the FAT16 template (kept for later). */
-static const void* diskFormatUnusedSymbols[] = { kNextorFat16BootBlock };
+const unsigned char* diskFormatBootTemplate(DiskFormatType fmt, int fat16)
+{
+    return fat16 ? kNextorFat16BootBlock : pickTemplate(fmt);
+}
 
 int diskFormatWriteBootSector(unsigned char* dst, int sizeBytes,
                               DiskFormatType fmt)
@@ -283,7 +285,6 @@ int diskImageCreate(const char* path, int sizeBytes, DiskFormatType fmt)
     unsigned char sector[SECTOR_SIZE];
     int fatIdx, i;
     long dataStartSec, dataEndSec, fillBytes;
-    (void)diskFormatUnusedSymbols;
 
     if (path == NULL || sizeBytes <= 0) return 0;
 

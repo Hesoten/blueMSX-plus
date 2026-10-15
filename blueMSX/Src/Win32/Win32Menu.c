@@ -988,20 +988,25 @@ static HMENU menuCreateIdeHd(int diskNo, Properties* pProperties, Shortcuts* sho
     int idOffset = diskNo * ID_HARDDISK_OFFSET;
     HMENU hMenu = CreatePopupMenu();
     char langBuffer[560];
+    UINT image = actionHarddiskCanChange(diskNo, 0) ? 0 : MF_GRAYED;
+    UINT dir = actionHarddiskCanChange(diskNo, 1) ? 0 : MF_GRAYED;
 
     setMenuColor(hMenu);
 
-    AppendMenuU(hMenu, MF_STRING, idOffset + ID_HARDDISK_INSERT, langMenuInsert());
+    /* While the MSX runs, most interfaces could not tell it that the medium changed. */
+    AppendMenuU(hMenu, MF_STRING | image, idOffset + ID_HARDDISK_INSERT, langMenuInsert());
+    AppendMenuU(hMenu, MF_STRING | dir, idOffset + ID_HARDDISK_INSERTDIR, langMenuDiskDirInsert());
     if (showCdrom) {
-        AppendMenuU(hMenu, MF_STRING, idOffset + ID_HARDDISK_INSERTCDROM, langMenuDiskDirInsertCdrom());
+        AppendMenuU(hMenu, MF_STRING | image, idOffset + ID_HARDDISK_INSERTCDROM, langMenuDiskDirInsertCdrom());
     }
     if (showPhysical) {
-        AppendMenuU(hMenu, MF_STRING, idOffset + ID_HARDDISK_INSERTPHYSICAL, langMenuDiskInsertPhysical());
+        AppendMenuU(hMenu, MF_STRING | image, idOffset + ID_HARDDISK_INSERTPHYSICAL, langMenuDiskInsertPhysical());
     }
-    AppendMenuU(hMenu, MF_STRING, idOffset + ID_HARDDISK_INSERTNEW, langMenuDiskInsertNew());
+    AppendMenuU(hMenu, MF_STRING | image, idOffset + ID_HARDDISK_INSERTNEW, langMenuDiskInsertNew());
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
     sprintf(langBuffer, "%s%hs%hs", langMenuEject(), (*pProperties->media.disks[diskNo].fileName ? ": " : ""), getCleanFileName(pProperties->media.disks[diskNo].fileName));
-    AppendMenuU(hMenu, MF_STRING | (*pProperties->media.disks[diskNo].fileName ? 0 : MF_GRAYED), idOffset + ID_HARDDISK_REMOVE, langBuffer);
+    AppendMenuU(hMenu, MF_STRING | (*pProperties->media.disks[diskNo].fileName && actionHarddiskCanChange(diskNo, diskIsDir(diskNo)) ? 0 : MF_GRAYED),
+                idOffset + ID_HARDDISK_REMOVE, langBuffer);
 
     return hMenu;
 }

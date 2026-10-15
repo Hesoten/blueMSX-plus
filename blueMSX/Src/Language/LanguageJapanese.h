@@ -87,6 +87,20 @@ void langInitJapanese(LanguageStrings* ls)
     ls->errorCreateTapeImage    = "テープイメージファイルを作成できませんでした。";
     ls->errorNoCasInZip         = "zipファイルの中に.casファイルが見つかりません。";
     ls->errorDirAsDskOverflow   = "%d 個のファイル (合計 %d KB) が 720 KB ディスクイメージに収まらず除外されました。";
+    ls->errorDirDiskTooLarge    = "%d 個のファイルがディスクに収まらず除外されました。";
+    ls->errorDirDiskOnline      = "%d 個のオンラインのみのファイルが除外されました。含めるには、このデバイス上で利用できるようにしてください。";
+    ls->errorDirDiskSubdirs     = "%d 個のサブディレクトリが、選択した形式では扱えないため除外されました。";
+    ls->errorDirDiskUnreadable  = "ディレクトリを読み取れなかったため、挿入に失敗しました:\n%s";
+    ls->dlgDirWriteSummary      = "MSX がこのディレクトリの内容を変更しました:\n%s\n\n新規ファイル: %d\n変更されたファイル: %d\n削除されたファイル (.blueMSX-trash へ移動): %d\nスキップ: %d\n\n変更をディレクトリへ書き込みますか？";
+    ls->dlgDirWriteMass         = "ほとんどのファイルが削除されています。MSX 側でボリュームがフォーマットされた可能性があります。";
+    ls->dlgDirWriteApply        = "書き込む";
+    ls->dlgDirWriteDiscard      = "破棄";
+    ls->dlgDirWriteDiscardSure  = "MSX が加えた変更を本当に破棄しますか？破棄した変更は元に戻せません。";
+    ls->errorDirWriteInvalid    = "MSX 側のディスクのファイル管理情報（FAT やディレクトリ）が書きかけの状態か壊れているため、MSX がこのディレクトリに加えた変更を書き込めません:\n%s\n\nMSX がディスクへ書き込んでいる途中だった可能性がある場合は、「いいえ」を選び、書き込みが終わってから（MSX-DOS ならプロンプト、BASIC なら Ok が出てから）やり直してください。MSX 側でフォーマットや区画の作り直しをした場合は、変更を書き込めません。\n\n変更を破棄しますか？";
+    ls->errorDirWriteFailed     = "%d 個の項目を書き戻せませんでした。次のディレクトリの log.txt に一覧があります:\n%s";
+    ls->errorDirWriteHost       = "MSX での変更をこのディレクトリへ書き込めませんでした:\n%s\n\nディレクトリが読み取り専用か、ディスクの空きが不足している可能性があります。\n\n変更を破棄しますか？";
+    ls->infoDirWriteState       = "MSX は保存したステートから動作しています。MSX の電源を入れ直すまで、このディレクトリへの変更は反映されません。";
+    ls->infoDirMemory           = "ディレクトリへの変更の保持に必要なメモリが %d MB を超えました。";
     ls->errorNoHelp             = "blueMSX+ のヘルプファイルが見つかりません。";
     ls->errorStartEmu           = "blueMSX+ の開始に失敗しました。";
     ls->errorStartEmuNoMachine           = "エミュレートするマシンが設定されていません。 オプション → エミュレーション → マシン構成 から選択してください。";
@@ -351,7 +365,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->dlgPhysDriveContinue    = "続行";
     ls->dlgPhysDriveInUse       = "ドライブは Windows または他のプログラムが使用中です。使用しているファイルやウィンドウを閉じてから、もう一度お試しください。";
     ls->dlgPhysDriveFailed      = "ドライブを開けませんでした。";
-    ls->infoRewindNoMedium      = "物理ドライブの挿入中は巻き戻し再生を使えません。";
+    ls->infoRewindNoMedium      = "物理ドライブの挿入中、または MSX がディレクトリに加えた変更をまだ反映していない間は巻き戻し再生を使えません。";
 
     ls->dlgAboutTitle           = "blueMSX+ について";
 

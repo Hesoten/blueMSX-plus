@@ -44,7 +44,7 @@ extern "C" {
 #endif
 
 /* Show a text message in the non-activating topmost toast (fades out
-** after ~4s, dismisses on click).
+** after ~7s, dismisses on click).
 ** Calling again replaces the message and restarts the timer.
 **   ownerHwnd : top-level window that owns the toast for z-order /
 **               lifetime. Required (NULL = no-op).

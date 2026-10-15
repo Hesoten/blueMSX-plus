@@ -85,6 +85,20 @@ void langInitCatalan(LanguageStrings* ls)
     ls->errorCreateTapeImage    = "No s'ha pogut crear el fitxer d'imatge de cinta.";
     ls->errorNoCasInZip         = "No s'ha pogut trobar un fitxer .cas dins de l'arxiu zip.";
     ls->errorDirAsDskOverflow   = "%d fitxer(s) (%d KB en total) no caben a la imatge de disc de 720 KB i s'han ignorat.";
+    ls->errorDirDiskTooLarge    = "%d fitxer(s) no han cabut al disc i s'han omès.";
+    ls->errorDirDiskOnline      = "S'han omès %d fitxer(s) disponibles només en línia. Feu-los disponibles en aquest dispositiu per incloure'ls.";
+    ls->errorDirDiskSubdirs     = "S'han omès %d directoris perquè el format triat no els admet.";
+    ls->errorDirDiskUnreadable  = "No s'ha pogut inserir el directori perquè no s'ha pogut llegir:\n%s";
+    ls->dlgDirWriteSummary      = "L'MSX ha modificat el contingut d'aquest directori:\n%s\n\nFitxers nous: %d\nFitxers modificats: %d\nFitxers esborrats (moguts a .blueMSX-trash): %d\nOmesos: %d\n\nVoleu escriure els canvis al directori?";
+    ls->dlgDirWriteMass         = "S'han esborrat la majoria dels fitxers. Pot ser que l'MSX hagi formatat el volum.";
+    ls->dlgDirWriteApply        = "Escriu";
+    ls->dlgDirWriteDiscard      = "Descarta";
+    ls->dlgDirWriteDiscardSure  = "Segur que voleu descartar els canvis que ha fet l'MSX? No es podran recuperar.";
+    ls->errorDirWriteInvalid    = "Els canvis que l'MSX ha fet en aquest directori no es poden escriure, perquè el sistema de fitxers del disc (la FAT i els directoris) està escrit a mitges o malmès:\n%s\n\nSi és possible que l'MSX encara estigués escrivint al disc, trieu No, espereu que acabi (l'indicador de l'MSX-DOS o l'Ok del BASIC) i torneu-ho a provar. Si l'MSX ha formatat o ha tornat a particionar el disc, els canvis no es poden escriure.\n\nVoleu descartar els canvis?";
+    ls->errorDirWriteFailed     = "%d element(s) no s'han pogut escriure. El fitxer log.txt d'aquest directori els enumera:\n%s";
+    ls->errorDirWriteHost       = "Els canvis fets per l'MSX no s'han pogut escriure en aquest directori:\n%s\n\nPot ser que el directori sigui només de lectura o que el disc sigui ple.\n\nVoleu descartar els canvis?";
+    ls->infoDirWriteState       = "L'MSX funciona a partir d'un estat desat. Els canvis d'aquest directori no s'hi escriuran fins que l'MSX s'hagi apagat i tornat a engegar.";
+    ls->infoDirMemory           = "La memòria necessària per conservar els canvis al directori ja supera els %d MB.";
     ls->errorNoHelp             = "No s'ha pogut trobar el fitxer d'ajuda de blueMSX+.";
     ls->errorStartEmu           = "No s'ha pogut iniciar l'emulador MSX.";
     ls->errorStartEmuNoMachine           = "No hi ha cap màquina MSX configurada per a l'emulació. Trieu-ne una a Opcions -> Emulació -> Màquina MSX.";
@@ -347,7 +361,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->dlgPhysDriveContinue    = "Continua";
     ls->dlgPhysDriveInUse       = "Windows o un altre programa està fent servir la unitat. Tanqueu els fitxers i les finestres que la fan servir i torneu-ho a provar.";
     ls->dlgPhysDriveFailed      = "No s'ha pogut obrir la unitat.";
-    ls->infoRewindNoMedium      = "No es pot rebobinar mentre hi ha una unitat física inserida.";
+    ls->infoRewindNoMedium      = "No es pot rebobinar mentre hi ha inserida una unitat física o mentre els canvis que l'MSX ha fet en un directori encara no s'hi han escrit.";
 
     ls->dlgAboutTitle           = "blueMSX+ - Al voltant de";
 

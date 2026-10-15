@@ -52,6 +52,16 @@ void archShowNoCasInZipDialog();
 ** mode message to show (missing dir vs invalid config.ini vs no selection). */
 void archShowStartEmuFailDialog(const char* machineName);
 void archShowDirAsDskOverflowDialog(int skippedCount, int skippedBytes);
+/* Tells what a directory inserted as a hard disk left out. Win32 only. */
+void archShowDirDiskSkippedDialog(int tooLarge, int onlineOnly, int subDirs);
+void archShowDirUnreadable(const char* directory);
+/* The questions around writing the changes of the MSX back to a directory.
+** Win32 only. Changes: 1 write, 2 discard, 0 cancel. The others: nonzero to go on. */
+int  archAskDirChanges(const char* directory, int created, int changed, int deleted, int skipped, int mass);
+int  archAskDirInvalid(const char* directory);
+int  archAskDirHostError(const char* directory);
+void archShowDirStateLoaded(void);
+void archShowDirWriteFailed(int failed, const char* session);
 /* reason is a GAMEREADER_* value other than GAMEREADER_AVAILABLE. cartSlot is
 ** the slot that goes without; it reaches the message only for
 ** GAMEREADER_NO_DEVICE. */

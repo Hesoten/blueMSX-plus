@@ -85,6 +85,20 @@ void langInitPolish(LanguageStrings* ls)
     ls->errorCreateTapeImage    = "Nie można utworzyć pliku obrazu taśmy.";
     ls->errorNoCasInZip         = "Nie znaleziono pliku .cas w archiwum zip.";
     ls->errorDirAsDskOverflow   = "%d plik(ów) (%d KB łącznie) nie zmieściło się w obrazie dysku 720 KB i zostały pominięte.";
+    ls->errorDirDiskTooLarge    = "Liczba plików, które nie zmieściły się na dysku i zostały pominięte: %d.";
+    ls->errorDirDiskOnline      = "Liczba pominiętych plików dostępnych tylko online: %d. Udostępnij je na tym urządzeniu, aby je uwzględnić.";
+    ls->errorDirDiskSubdirs     = "Liczba folderów pominiętych, ponieważ wybrany format ich nie obsługuje: %d.";
+    ls->errorDirDiskUnreadable  = "Nie udało się włożyć folderu, ponieważ nie można go odczytać:\n%s";
+    ls->dlgDirWriteSummary      = "MSX zmienił zawartość tego folderu:\n%s\n\nNowe pliki: %d\nZmienione pliki: %d\nUsunięte pliki (przeniesione do .blueMSX-trash): %d\nPominięte: %d\n\nZapisać zmiany w folderze?";
+    ls->dlgDirWriteMass         = "Usunięto większość plików. MSX mógł sformatować wolumin.";
+    ls->dlgDirWriteApply        = "Zapisz";
+    ls->dlgDirWriteDiscard      = "Odrzuć";
+    ls->dlgDirWriteDiscardSure  = "Czy na pewno odrzucić zmiany wprowadzone przez MSX? Nie będzie można ich przywrócić.";
+    ls->errorDirWriteInvalid    = "Zmian wprowadzonych przez MSX w tym folderze nie można zapisać, ponieważ system plików na dysku (FAT i foldery) jest zapisany częściowo lub uszkodzony:\n%s\n\nJeśli MSX mógł jeszcze zapisywać na dysk, wybierz Nie, poczekaj, aż skończy (znak zachęty MSX-DOS lub Ok w BASIC-u), i spróbuj ponownie. Jeśli MSX sformatował dysk lub zmienił jego podział na partycje, zmian nie można zapisać.\n\nOdrzucić zmiany?";
+    ls->errorDirWriteFailed     = "Liczba elementów, których nie udało się zapisać: %d. Wymienia je plik log.txt w tym folderze:\n%s";
+    ls->errorDirWriteHost       = "Zmian wprowadzonych przez MSX nie udało się zapisać w tym folderze:\n%s\n\nFolder może być tylko do odczytu albo dysk jest pełny.\n\nOdrzucić zmiany?";
+    ls->infoDirWriteState       = "MSX działa z zapisanego stanu. Zmiany w tym folderze nie będą zapisywane, dopóki MSX nie zostanie wyłączony i włączony ponownie.";
+    ls->infoDirMemory           = "Pamięć potrzebna na zmiany w folderze przekracza już %d MB.";
     ls->errorNoHelp             = "Nie znaleziono pliku pomocy blueMSX+.";
     ls->errorStartEmu           = "Nie udało się uruchomić emulatora MSX.";
     ls->errorStartEmuNoMachine           = "Nie ustawiono maszyny MSX do emulacji. Wybierz jedną w Opcje -> Emulacja -> Typ MSX.";
@@ -347,7 +361,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->dlgPhysDriveContinue    = "Kontynuuj";
     ls->dlgPhysDriveInUse       = "Dysk jest używany przez system Windows lub inny program. Zamknij pliki i okna, które z niego korzystają, i spróbuj ponownie.";
     ls->dlgPhysDriveFailed      = "Nie można otworzyć dysku.";
-    ls->infoRewindNoMedium      = "Przewijanie wstecz nie jest dostępne, gdy włożony jest dysk fizyczny.";
+    ls->infoRewindNoMedium      = "Przewijanie wstecz nie jest dostępne, gdy włożony jest dysk fizyczny lub gdy zmiany wprowadzone przez MSX w folderze nie zostały jeszcze w nim zapisane.";
 
     ls->dlgAboutTitle           = "blueMSX+ - O programie";
 

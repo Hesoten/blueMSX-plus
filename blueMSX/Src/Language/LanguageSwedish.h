@@ -85,6 +85,20 @@ void langInitSwedish(LanguageStrings* ls)
     ls->errorCreateTapeImage    = "Kunde inte skapa kassettfilen.";
     ls->errorNoCasInZip         = "Kunde inte hitta en .cas fil i zip arkivet.";
     ls->errorDirAsDskOverflow   = "%d fil(er) (%d KB totalt) får inte plats i 720 KB-diskavbilden och hoppades över.";
+    ls->errorDirDiskTooLarge    = "%d fil(er) fick inte plats på disken och utelämnades.";
+    ls->errorDirDiskOnline      = "%d fil(er) som bara finns online utelämnades. Gör dem tillgängliga på den här enheten för att ta med dem.";
+    ls->errorDirDiskSubdirs     = "%d mapp(ar) utelämnades eftersom det valda formatet inte kan innehålla dem.";
+    ls->errorDirDiskUnreadable  = "Det gick inte att sätta in mappen eftersom den inte kunde läsas:\n%s";
+    ls->dlgDirWriteSummary      = "MSX har ändrat innehållet i den här mappen:\n%s\n\nNya filer: %d\nÄndrade filer: %d\nBorttagna filer (flyttade till .blueMSX-trash): %d\nÖverhoppade: %d\n\nVill du skriva ändringarna till mappen?";
+    ls->dlgDirWriteMass         = "De flesta filerna har tagits bort. MSX kan ha formaterat volymen.";
+    ls->dlgDirWriteApply        = "Skriv";
+    ls->dlgDirWriteDiscard      = "Förkasta";
+    ls->dlgDirWriteDiscardSure  = "Vill du verkligen förkasta ändringarna som MSX har gjort? De kan inte återställas.";
+    ls->errorDirWriteInvalid    = "De ändringar MSX har gjort i den här mappen kan inte skrivas, eftersom filsystemet på disken (FAT och mappar) är ofullständigt skrivet eller skadat:\n%s\n\nOm MSX fortfarande kan ha skrivit till disken väljer du Nej, väntar tills den är klar (MSX-DOS-prompten eller Ok i BASIC) och försöker igen. Om MSX har formaterat eller partitionerat om disken kan ändringarna inte skrivas.\n\nVill du förkasta ändringarna?";
+    ls->errorDirWriteFailed     = "%d objekt kunde inte skrivas tillbaka. log.txt i den här mappen listar dem:\n%s";
+    ls->errorDirWriteHost       = "De ändringar MSX har gjort kunde inte skrivas till den här mappen:\n%s\n\nMappen kan vara skrivskyddad eller disken full.\n\nVill du förkasta ändringarna?";
+    ls->infoDirWriteState       = "MSX körs från ett sparat tillstånd. Ändringar i den här mappen skrivs inte tillbaka förrän MSX har stängts av och slagits på igen.";
+    ls->infoDirMemory           = "Minnet som krävs för ändringarna i mappen överstiger nu %d MB.";
     ls->errorNoHelp             = "Kunde inte hitta hjälpfilen.";
     ls->errorStartEmu           = "Misslyckades att starta emulatorn.";
     ls->errorStartEmuNoMachine           = "Ingen MSX-maskin är inställd för emulering. Välj en under Egenskaper -> Emulering -> MSX familj.";
@@ -348,7 +362,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->dlgPhysDriveContinue    = "Fortsätt";
     ls->dlgPhysDriveInUse       = "Enheten används av Windows eller ett annat program. Stäng de filer och fönster som använder den och försök igen.";
     ls->dlgPhysDriveFailed      = "Enheten kunde inte öppnas.";
-    ls->infoRewindNoMedium      = "Tillbakaspolning är inte tillgänglig medan en fysisk enhet är insatt.";
+    ls->infoRewindNoMedium      = "Tillbakaspolning är inte tillgänglig medan en fysisk enhet är insatt, eller medan ändringar som MSX har gjort i en mapp ännu inte har skrivits till den.";
     
     ls->dlgAboutTitle           = "blueMSX+ - Information";
 

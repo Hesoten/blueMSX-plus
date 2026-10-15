@@ -85,6 +85,20 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->errorCreateTapeImage    = "無法建立磁帶映像檔。";
     ls->errorNoCasInZip         = "無法在 zip 壓縮檔案中找出 .cas 檔案。";
     ls->errorDirAsDskOverflow   = "%d 個檔案 (共 %d KB) 無法容納於 720 KB 磁碟鏡像，已跳過。";
+    ls->errorDirDiskTooLarge    = "%d 個檔案無法放入磁碟，已被排除。";
+    ls->errorDirDiskOnline      = "已排除 %d 個僅限線上的檔案。若要包含它們，請讓它們可在此裝置上使用。";
+    ls->errorDirDiskSubdirs     = "所選格式無法容納，已排除 %d 個目錄。";
+    ls->errorDirDiskUnreadable  = "無法讀取目錄，因此插入失敗：\n%s";
+    ls->dlgDirWriteSummary      = "MSX 變更了此目錄的內容:\n%s\n\n新檔案: %d\n已變更的檔案: %d\n已刪除的檔案 (移至 .blueMSX-trash): %d\n已略過: %d\n\n要將變更寫入目錄嗎？";
+    ls->dlgDirWriteMass         = "大部分檔案已被刪除。MSX 可能格式化了該磁碟區。";
+    ls->dlgDirWriteApply        = "寫入";
+    ls->dlgDirWriteDiscard      = "捨棄";
+    ls->dlgDirWriteDiscardSure  = "確定要捨棄 MSX 所做的變更嗎？捨棄的變更無法復原。";
+    ls->errorDirWriteInvalid    = "磁碟上的檔案系統（FAT 和目錄）尚未寫完或已損毀，因此無法寫入 MSX 對此目錄所做的變更:\n%s\n\n如果 MSX 可能仍在寫入磁碟，請選擇「否」，等寫入完成（出現 MSX-DOS 提示字元或 BASIC 的 Ok）後再試一次。如果 MSX 已將磁碟格式化或重新分割，則無法寫入這些變更。\n\n要捨棄這些變更嗎？";
+    ls->errorDirWriteFailed     = "有 %d 個項目無法寫回。此目錄中的 log.txt 列出了這些項目:\n%s";
+    ls->errorDirWriteHost       = "無法將 MSX 所做的變更寫入此目錄:\n%s\n\n目錄可能是唯讀的，或磁碟空間不足。\n\n要捨棄這些變更嗎？";
+    ls->infoDirWriteState       = "MSX 正從已儲存的狀態執行。在關閉並重新開啟 MSX 電源之前，對此目錄的變更不會寫回。";
+    ls->infoDirMemory           = "保存對目錄的變更所需的記憶體已超過 %d MB。";
     ls->errorNoHelp             = "無法找到 blueMSX+ 說明檔案。";
     ls->errorStartEmu           = "無法啟動 MSX 模擬器。";
     ls->errorStartEmuNoMachine           = "尚未設定用於模擬的 MSX 機器。請在 選項 -> 模擬 -> MSX 機種 中選擇一個。";
@@ -347,7 +361,7 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->dlgPhysDriveContinue    = "繼續";
     ls->dlgPhysDriveInUse       = "該磁碟機正由 Windows 或其他程式使用。請關閉正在使用它的檔案與視窗，然後再試一次。";
     ls->dlgPhysDriveFailed      = "無法開啟該磁碟機。";
-    ls->infoRewindNoMedium      = "已插入實體磁碟機時無法回退模擬。";
+    ls->infoRewindNoMedium      = "已插入實體磁碟機時，或 MSX 對目錄的變更尚未寫入時，無法回退模擬。";
 
     ls->dlgAboutTitle           = "blueMSX+ - 關於";
 

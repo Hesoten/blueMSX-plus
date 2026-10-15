@@ -39,4 +39,8 @@ void physicalDiskEjectAll(void);
 ** then, and the process must end with *exitCode. */
 int physicalDiskHelperCommand(const char* commandLine, int* exitCode);
 
+/* A warning with an optional check box and an optional third button. One for
+** yesLabel, two for otherLabel, zero for Cancel; checked is set on yes only. */
+int win32WarningDialog(HWND owner, const char* text, const char* checkLabel, int* checked, const char* yesLabel, const char* otherLabel);
+
 #endif

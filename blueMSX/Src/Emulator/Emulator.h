@@ -50,6 +50,9 @@ int  emulatorPercentToLogFrequency(int percent);
 void emulatorRestartSound();
 void emulatorSuspend();
 void emulatorResume();
+/* While held, emulatorResume does nothing: whoever suspended the machine to
+** ask a question keeps it suspended until the answer is acted on. */
+void emulatorHoldSuspended(int hold);
 void emulatorDoResume();
 /* Suspend-yield helper invoked from archWaitForAckOrSuspend: parks the
 ** emu thread until emuState returns to EMU_RUNNING. Returns non-zero

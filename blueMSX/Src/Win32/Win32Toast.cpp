@@ -47,7 +47,7 @@ extern "C" {
 
 namespace {
 
-constexpr DWORD kTotalDurationMs = 4000;
+constexpr DWORD kTotalDurationMs = 7000;
 constexpr DWORD kFadeOutMs       = 600;
 constexpr BYTE  kPeakAlpha       = 235;
 constexpr int   kPaddingDu       = 12;

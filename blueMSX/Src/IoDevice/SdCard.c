@@ -152,35 +152,7 @@ struct SdCard {
 
 static UInt32 readSectorCount(int diskId)
 {
-    /* No public helper exposes the image size, so probe via binary
-    ** search of diskReadSector return codes.  blueMSX's Disk layer
-    ** uses 1-based sector numbers internally; we keep the rest of
-    ** this file in SDHC's 0-based convention and translate only here
-    ** and in CMD17/24.
-    **
-    ** The number is advisory -- only populates CSD.C_SIZE.  Nextor
-    ** reads the partition table for the real volume extent, so an
-    ** approximate value is sufficient. */
-    UInt8 buf[BLOCK_LEN];
-    UInt32 lo = 0;        /* highest *1-based* sector confirmed readable */
-    UInt32 hi = 1;        /* first 1-based sector confirmed unreadable */
-
-    /* Exponential hunt for an unreadable bound. */
-    while (hi <= 0x10000000u &&
-           diskReadSector(diskId, buf, (int)hi, 0, 0, 0, NULL) == DSKE_OK) {
-        lo = hi;
-        hi *= 2;
-    }
-    /* Binary search between lo (good) and hi (bad). */
-    while (lo + 1 < hi) {
-        UInt32 mid = lo + (hi - lo) / 2;
-        if (diskReadSector(diskId, buf, (int)mid, 0, 0, 0, NULL) == DSKE_OK) {
-            lo = mid;
-        } else {
-            hi = mid;
-        }
-    }
-    return lo;            /* lo is now the 1-based sector count */
+    return (UInt32)_diskGetTotalSectors(diskId);
 }
 
 static void buildCid(SdCard* sd)

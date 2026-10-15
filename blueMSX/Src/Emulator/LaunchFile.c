@@ -38,6 +38,7 @@
 #include "Board.h"
 #include "ArchFile.h"
 #include "Disk.h"
+#include "Actions.h"
 #include "Casette.h"
 #include "ArchDialog.h"
 #include <stdio.h>
@@ -285,6 +286,9 @@ int insertDiskette(Properties* properties, int drive, const char* fname, const c
     int isZip = isFileExtension(fname, ".zip");
 
     if (diskIsHostMediumName(fname)) {
+        return 0;
+    }
+    if (drive >= MAX_FDC_COUNT && (!actionHarddiskCanChange(drive, 0) || !actionDirWriteBack(drive))) {
         return 0;
     }
 
@@ -707,7 +711,16 @@ int tryLaunchUnknownFile(Properties* properties, const char* fileName, int force
     /* A replay is a saved state with an input log inside it, so it opens the
     ** same way and starts playing itself. */
     if (isFileExtension(fileName, ".sta") || isFileExtension(fileName, ".cap")) {
+        emulatorSuspend();
+        if (!actionDirWriteBack(-1)) {
+            emulatorResume();
+            return 0;
+        }
+        if (emulatorGetState() != EMU_STOPPED) {
+            emulatorStop();
+        }
         emulatorStart(fileName);
+        actionDirStateNotice();
         return 1;
     }
 

@@ -504,6 +504,7 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
         properties->media.disks[i].directory[0] = 0;
         properties->media.disks[i].extensionFilter = 0;
         properties->media.disks[i].type = 0;
+        properties->media.disks[i].dirFormat = 0;
     }
 
     for (i = 0; i < PROP_MAX_TAPES; i++) {
@@ -928,6 +929,7 @@ static void propLoad(Properties* properties)
         GET_STR_VALUE_2i1(histFile, media, disks, i, directory);
         GET_INT_VALUE_2i1(histFile, media, disks, i, extensionFilter);
         GET_INT_VALUE_2i1(histFile, media, disks, i, type);
+        GET_INT_VALUE_2i1(histFile, media, disks, i, dirFormat);
         /* A host medium is gone once the program has ended. */
         if (diskIsHostMediumName(properties->media.disks[i].fileName)) {
             properties->media.disks[i].fileName[0] = 0;
@@ -1302,6 +1304,7 @@ void propSave(Properties* properties)
         SET_STR_VALUE_2i1(histFile, media, disks, i, directory);
         SET_INT_VALUE_2i1(histFile, media, disks, i, extensionFilter);
         SET_INT_VALUE_2i1(histFile, media, disks, i, type);
+        SET_INT_VALUE_2i1(histFile, media, disks, i, dirFormat);
     }
     
     for (i = 0; i < PROP_MAX_TAPES; i++) {
