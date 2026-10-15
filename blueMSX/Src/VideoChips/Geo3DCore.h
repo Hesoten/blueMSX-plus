@@ -21,6 +21,14 @@
 // in int64_t with explicit saturations and masks, floor division and
 // arithmetic right shifts, like Python integers.
 //
+// This is geo3d v2.0 (index 0x49 reads 0x20): the model RAMs have 1024
+// entries (v1.0.0: 256), the counts and write pointers 10 bits (high bits at
+// 0x68-0x6E), XCTRL (0x6F) bit 0 selects the extended mode (the write
+// pointers count on their 10 bits, edges take 3 bytes and faces 12, with
+// 10-bit indices) and VFIRST, EFIRST, FFIRST (0x54, 0x66, 0x56) say where
+// the transform, edge and face phases of a RUN start. A v1.0.0 program sees
+// no difference: every new register resets to 0.
+//
 // After a RUN the whole command list is computed at once, each command
 // stamped with the engine clock (ec, 2 per 21.477 MHz tick, from RUN) at which
 // the RTL's producer would have it ready if it never stalled on the holding
@@ -84,8 +92,10 @@ public:
 
 	// Whole state as bytes (savestates / reverse), no openMSX dependency.
 	[[nodiscard]] std::vector<uint8_t> saveState() const;
-	// Layout 1 has no timing, 2 no transform end, 3 is the current one.
-	static constexpr int STATE_LAYOUT = 3;
+	// Layout 1 has no timing, 2 no transform end, 3 is geo3d v1.0.0's last
+	// one (256 entries, 8-bit counts and pointers), 4 is geo3d v2.0's.
+	static constexpr int STATE_LAYOUT = 4;
+	static constexpr int STATE_V2 = 4;
 	void loadState(const std::vector<uint8_t>& data, int layout = STATE_LAYOUT);   // ignores bad data
 
 	// Projection of one vertex (sim/gen_vectors.py model()).
@@ -107,17 +117,34 @@ private:
 	std::array<int64_t, 3> ivtx;           // immediate vertex (0x24..0x29)
 	Proj imm;                              // immediate results (0x30..0x36)
 
-	struct Face { uint8_t i[4]; int64_t n[3]; uint8_t base; };
-	std::array<std::array<int64_t, 3>, 256> vmem;
-	std::array<std::array<uint8_t, 2>, 256> emem;
-	std::array<Face, 256> fmem;
-	std::array<std::array<uint8_t, 8>, 256> tmem;
-	std::array<Proj, 256> pmem;            // projected vertices (kept between RUNs)
+	// address bits of the model RAMs (the RTL's AW parameter; XCTRL bits 7-4)
+	static constexpr unsigned AW = 10;
+	static constexpr unsigned NMEM = 1u << AW;
+	static constexpr unsigned MASK = NMEM - 1;
+	static constexpr uint8_t ID = 0x20;    // index 0x49: geo3d v2.0
+
+	// a write pointer after an entry: 10 bits in the extended mode; else
+	// only the low byte counts, as in v1.0.0 (it wraps at 256)
+	[[nodiscard]] uint16_t bump(uint16_t p) const {
+		return ext ? uint16_t((p + 1) & MASK)
+		           : uint16_t((p & 0x300) | ((p + 1) & 0xFF));
+	}
+
+	struct Face { uint16_t i[4]; int64_t n[3]; uint8_t base; };
+	std::array<std::array<int64_t, 3>, NMEM> vmem;
+	std::array<std::array<uint16_t, 2>, NMEM> emem;
+	std::array<Face, NMEM> fmem;
+	std::array<std::array<uint8_t, 8>, NMEM> tmem;
+	std::array<Proj, NMEM> pmem;           // projected vertices (kept between RUNs)
 
 	uint8_t widx, rptr, lo;
-	uint8_t vaddr, eaddr, nvert, nedge, color, lop;
+	uint16_t vaddr, eaddr, nvert, nedge;   // 10 bits
+	uint16_t faddr, nface, taddr;          // 10 bits
+	uint16_t vfirst, efirst, ffirst;       // where each phase of a RUN starts
+	bool ext;                              // XCTRL bit 0: extended mode
+	uint8_t color, lop;
 	unsigned ypage;                        // 11 bits
-	uint8_t faddr, nface, taddr, tstride;
+	uint8_t tstride;
 	unsigned texx, texy;                   // 9 and 13 bits
 	std::array<int64_t, 3> light;
 	std::vector<uint8_t> vbuf, ebuf, fbuf, tbuf;
