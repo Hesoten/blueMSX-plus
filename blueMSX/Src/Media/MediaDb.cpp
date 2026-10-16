@@ -1392,10 +1392,12 @@ extern "C" MediaType* mediaDbGuessRom(const void *buffer, int size)
     }
 
 
-	if (size <= 0x10000) {
+    /* Images over 32 KB that are not 64 KB with a header at 4000h may be
+    ** megaroms, so they are told apart by their bank writes like the larger
+    ** ones below. */
+	if (size <= 0x8000 || (size == 0x10000 && romData[0x4000] == 'A' && romData[0x4001] == 'B')) {
 		if (size == 0x10000) {
-            if (romData[0x4000] == 'A' && romData[0x4001] == 'B') mediaType->romType = ROM_PLAIN;
-            else mediaType->romType = ROM_ASCII16;
+            mediaType->romType = ROM_PLAIN;
 			return mediaType;
 		} 
         
@@ -1525,6 +1527,19 @@ extern "C" MediaType* mediaDbGuessRom(const void *buffer, int size)
     if (ascii16Unique > 0 && ascii8Unique == 0 &&
         ascii16Unique >= konami4Unique && ascii16Unique >= konami5Unique) {
         mediaType->romType = ROM_ASCII16;
+        return mediaType;
+    }
+
+    /* A 64 KB megarom with no bank write in sight is taken for ASCII16, which
+    ** shows its first 16 KB at both 4000h and 8000h. */
+    if (size == 0x10000 && counters[2] + counters[3] + counters[4] + counters[5] == 0) {
+        mediaType->romType = ROM_ASCII16;
+        return mediaType;
+    }
+
+    /* An image under 64 KB with no bank write in sight is taken for a plain ROM. */
+    if (size < 0x10000 && counters[2] + counters[3] + counters[4] + counters[5] == 0) {
+        mediaType->romType = ROM_PLAIN;
         return mediaType;
     }
 
