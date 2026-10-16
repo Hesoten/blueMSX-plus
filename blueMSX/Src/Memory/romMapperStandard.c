@@ -67,7 +67,9 @@ static void loadState(RomMapperStandard* rm)
 
     for (i = 0; i < 4; i++) {
         sprintf(tag, "romMapper%d", i);
-        rm->romMapper[i] = saveStateGet(state, tag, 0);
+        /* Wrapped as in write(), so a state saved with a bank past the end
+        ** cannot map memory after the ROM. */
+        rm->romMapper[i] = saveStateGet(state, tag, 0) % (rm->size / 0x2000);
     }
 
     saveStateClose(state);
@@ -101,7 +103,7 @@ static void write(RomMapperStandard* rm, UInt16 address, UInt8 value)
     if (rm->romMapper[bank] != value) {
         UInt8* bankData;
 
-        if (value > rm->size / 0x2000) {
+        if (value >= rm->size / 0x2000) {
             value %= rm->size / 0x2000;
         }
         bankData = rm->romData + ((int)value << 13);
