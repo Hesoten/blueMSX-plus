@@ -419,10 +419,6 @@ void frameBufferDataDestroy(FrameBufferData* frameData)
         currentBuffer = NULL;
     }
     free(frameData);
-    if (semaphore != NULL) {
-        archSemaphoreDestroy(semaphore);
-        semaphore = NULL;
-    }
 }
 
 
