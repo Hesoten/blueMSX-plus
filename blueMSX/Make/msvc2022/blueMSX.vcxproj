@@ -834,6 +834,7 @@
     <ClCompile Include="..\..\Src\VideoChips\FrameBuffer.c" />
     <ClCompile Include="..\..\Src\VideoChips\V9938.c" />
     <ClCompile Include="..\..\Src\VideoChips\V9990.c" />
+    <ClCompile Include="..\..\Src\VideoChips\V9990Render.c" />
     <ClCompile Include="..\..\Src\VideoChips\VDP.c" />
     <ClCompile Include="..\..\Src\VideoChips\VideoManager.c" />
     <ClCompile Include="..\..\Src\VideoRender\hq2x.c" />
@@ -1188,6 +1189,7 @@
     <ClInclude Include="..\..\Src\VideoChips\SpriteLine.h" />
     <ClInclude Include="..\..\Src\VideoChips\V9938.h" />
     <ClInclude Include="..\..\Src\VideoChips\V9990.h" />
+    <ClInclude Include="..\..\Src\VideoChips\V9990Render.h" />
     <ClInclude Include="..\..\Src\VideoChips\VDP.h" />
     <ClInclude Include="..\..\Src\VideoChips\VideoManager.h" />
     <ClInclude Include="..\..\Src\VideoRender\hq2x.h" />

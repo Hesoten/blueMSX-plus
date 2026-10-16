@@ -28,6 +28,9 @@
 #define V9990_VRAM_SIZE 0x80000
 #define V9990_VRAM_MASK (V9990_VRAM_SIZE - 1)
 
+/* Physical offset of a bitmap-mode byte address: the banks interleave byte by byte. */
+#define V9990_MAP_BX(a) ((((a) & 1) << 18) | (((a) & V9990_VRAM_MASK) >> 1))
+
 typedef enum {
     V9990_MODE_P1,
     V9990_MODE_P2,

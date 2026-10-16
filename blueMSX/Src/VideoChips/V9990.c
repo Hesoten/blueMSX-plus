@@ -22,6 +22,7 @@
 ******************************************************************************
 */
 #include "V9990.h"
+#include "V9990Render.h"
 #include "Board.h"
 #include "SaveState.h"
 #include "FrameBuffer.h"
@@ -58,7 +59,10 @@
 #define R_PALETTE_PTR   14
 #define R_BACKDROP      15
 #define R_DISPLAY_ADJ   16
+#define R_SCROLL_AY_LO  17
 #define R_SCROLL_AY_HI  18
+#define R_SCROLL_AX_LO  19
+#define R_SCROLL_AX_HI  20
 #define R_SCROLL_BY_HI  22
 #define R_CMD_OPCODE    52
 #define R_CMD_BORDER_LO 53
@@ -106,6 +110,7 @@ struct V9990 {
 
     /* Display mode, recomputed at the line start after R#6, R#7 or MCS change. */
     V9990Mode mode;
+    UInt8  modeR6;
     int    modeMcs;
     int    modePending;
     UInt32 modeApplyTime;
@@ -133,6 +138,10 @@ struct V9990 {
     int    displayEndLine;
     int    windowTopLine;
 
+    /* The line that shows image row SCAY: the display start, or the line
+    ** after an R#17 write during the display. */
+    int    scrollLineA;
+
     /* Lines from lineZero; lines before renderLine are in the frame buffer. */
     FrameBufferData* frameBufferData;
     int    videoHandle;
@@ -149,11 +158,6 @@ struct V9990 {
     UInt32 hiTime;
 };
 
-static UInt32 mapBx(UInt32 address)
-{
-    return ((address & 1) << 18) | ((address & 0x7fffe) >> 1);
-}
-
 UInt32 v9990MapAddress(V9990Mode mode, UInt32 address)
 {
     address &= V9990_VRAM_MASK;
@@ -164,14 +168,14 @@ UInt32 v9990MapAddress(V9990Mode mode, UInt32 address)
         return address;
     case V9990_MODE_P2:
         if (address < 0x78000) {
-            return mapBx(address);
+            return V9990_MAP_BX(address);
         }
         if (address < 0x7c000) {
             return address - 0x3c000;
         }
         return address;
     default:
-        return mapBx(address);
+        return V9990_MAP_BX(address);
     }
 }
 
@@ -352,6 +356,7 @@ static void syncMode(V9990* v9990, UInt32 time)
     if (v9990->modePending && (Int32)(time - v9990->modeApplyTime) >= 0) {
         v9990->modePending = 0;
         v9990->mode    = calcMode(v9990);
+        v9990->modeR6  = v9990->regs[R_SCREEN_MODE0];
         v9990->modeMcs = v9990->mcs;
     }
 }
@@ -373,12 +378,7 @@ static void scheduleModeChange(V9990* v9990, UInt32 time)
 
 static UInt16 paletteColor(V9990* v9990, int index)
 {
-    const UInt8* entry = v9990->palette + 4 * (index & 0x3f);
-    int r = entry[0] & 0x1f;
-    int g = entry[1] & 0x1f;
-    int b = entry[2] & 0x1f;
-
-    return (UInt16)videoGetColor((r << 3) | (r >> 2), (g << 3) | (g >> 2), (b << 3) | (b >> 2));
+    return v9990PaletteColor(v9990->palette, index);
 }
 
 static void fillLine(UInt16* line, int count, UInt16 color)
@@ -388,6 +388,53 @@ static void fillLine(UInt16* line, int count, UInt16 color)
     for (x = 0; x < count; x++) {
         line[x] = color;
     }
+}
+
+/* Draws the B1/B3 image over the display samples of a line, whose samples
+** are one dot each. */
+static void drawBitmap(V9990* v9990, UInt16* line, int count, int ucPerSample,
+                       int window, int left, int right, int scanLine)
+{
+    int first = floorDiv(left - window - ucPerSample / 2 + ucPerSample - 1, ucPerSample);
+    int end   = floorDiv(right - window - ucPerSample / 2 + ucPerSample - 1, ucPerSample);
+    UInt32 scrollX = v9990->regs[R_SCROLL_AX_LO] | (v9990->regs[R_SCROLL_AX_HI] << 3);
+    UInt32 scrollY = v9990->regs[R_SCROLL_AY_LO] | (v9990->latchScrollAYHi << 8);
+    UInt32 rollMask;
+    UInt32 row;
+    UInt32 dot;
+
+    if (first < 0) {
+        first = 0;
+    }
+    if (end > count) {
+        end = count;
+    }
+    if (first >= end) {
+        return;
+    }
+    dot = floorDiv(window + first * ucPerSample + ucPerSample / 2 - left, ucPerSample);
+
+    /* B3 at 16 bpp scrolls in 2-dot units. */
+    if (v9990->mode == V9990_MODE_B3 && (v9990->modeR6 & 3) == 3) {
+        scrollX &= ~1;
+    }
+
+    /* A frame redrawn after a state load can start above a restart line. */
+    row = scanLine >= v9990->scrollLineA ? scanLine - v9990->scrollLineA
+                                         : scanLine - v9990->displayStartLine;
+    if (v9990->latchIl && (v9990->regs[R_SCREEN_MODE1] & 0x04)) {
+        row = 2 * row + (v9990->secondField ? 1 : 0);
+    }
+
+    switch (v9990->latchScrollAYHi >> 6) {
+    case 0:  rollMask = 0x1fff; break;
+    case 2:  rollMask = 0x01ff; break;
+    default: rollMask = 0x00ff; break;
+    }
+
+    v9990RenderBitmapLine(line + first, end - first, v9990->vram, v9990->palette,
+                          v9990->modeR6, v9990->regs[R_PALETTE_CTRL], dot + scrollX,
+                          (scrollY & ~rollMask & 0x1fff) + ((row + scrollY) & rollMask));
 }
 
 /* Draws scan line scanLine (counted from lineZero) into frame buffer line y. */
@@ -425,11 +472,15 @@ static void drawLine(V9990* v9990, FrameBuffer* frame, int y, int scanLine)
         return;
     }
 
-    /* No display mode is drawn yet: the display area shows the backdrop. */
+    /* Display modes that are not drawn show the backdrop. */
     calcHorizontalArea(v9990, &left, &right, &window);
     for (x = 0; x < count; x++) {
         int center = window + x * ucPerSample + ucPerSample / 2;
         line[x] = center >= left && center < right ? backdrop : border;
+    }
+
+    if (mode == V9990_MODE_B1 || mode == V9990_MODE_B3) {
+        drawBitmap(v9990, line, count, ucPerSample, window, left, right, scanLine);
     }
 }
 
@@ -600,6 +651,7 @@ static void frameStart(V9990* v9990, UInt32 time)
     }
     v9990->frameStartTime = time;
     calcFrameGeometry(v9990);
+    v9990->scrollLineA = v9990->displayStartLine;
     startPicture(v9990, frameBufferFlipDrawFrameOf(v9990->frameBufferData));
     followDisplay(v9990, wasOn);
 
@@ -698,6 +750,19 @@ static UInt8 readRegister(V9990* v9990, int reg)
     return v9990->regs[reg];
 }
 
+/* Writing the low byte of SCAY during the display makes the current line
+** image row SCAY, as the first display line is. */
+static void restartScrollA(V9990* v9990, UInt32 time)
+{
+    Int32 t = (Int32)(time - v9990->frameStartTime) - (Int32)v9990->lineZero;
+    int line = floorDiv(t, (Int32)v9990->lineTicks);
+
+    if ((v9990->latchControl & 0x80) &&
+        line >= v9990->displayStartLine && line < v9990->displayEndLine) {
+        v9990->scrollLineA = line;
+    }
+}
+
 static void writeRegister(V9990* v9990, int reg, UInt8 value, UInt32 time)
 {
     if (!(regAccess[reg] & REG_W)) {
@@ -726,6 +791,9 @@ static void writeRegister(V9990* v9990, int reg, UInt8 value, UInt32 time)
         break;
     case R_INT_ENABLE:
         updateIrq(v9990);
+        break;
+    case R_SCROLL_AY_LO:
+        restartScrollA(v9990, time);
         break;
     case R_INT_LINE_LO:
     case R_INT_LINE_HI:
@@ -897,6 +965,7 @@ void v9990Reset(V9990* v9990)
     v9990->mcs         = 0;
     v9990->systemReset = 0;
     v9990->mode        = calcMode(v9990);
+    v9990->modeR6      = 0;
     v9990->modeMcs     = 0;
     v9990->modePending = 0;
     v9990->secondField = 1;
@@ -977,6 +1046,7 @@ void v9990SaveState(V9990* v9990)
     saveStateSet(state, "mcs",             v9990->mcs);
     saveStateSet(state, "systemReset",     v9990->systemReset);
     saveStateSet(state, "mode",            v9990->mode);
+    saveStateSet(state, "modeR6",          v9990->modeR6);
     saveStateSet(state, "modeMcs",         v9990->modeMcs);
     saveStateSet(state, "modePending",     v9990->modePending);
     saveStateSet(state, "modeApplyTime",   v9990->modeApplyTime);
@@ -995,6 +1065,7 @@ void v9990SaveState(V9990* v9990)
     saveStateSet(state, "viTime",          v9990->viTime);
     saveStateSet(state, "hiArmed",         v9990->hiArmed);
     saveStateSet(state, "hiTime",          v9990->hiTime);
+    saveStateSet(state, "scrollLineA",     v9990->scrollLineA);
 
     saveStateClose(state);
 
@@ -1025,6 +1096,7 @@ void v9990LoadState(V9990* v9990)
     v9990->mcs             = (UInt8)saveStateGet(state, "mcs",             0);
     v9990->systemReset     = (UInt8)saveStateGet(state, "systemReset",     0);
     v9990->mode            = (V9990Mode)saveStateGet(state, "mode",        V9990_MODE_P1);
+    v9990->modeR6          = (UInt8)saveStateGet(state, "modeR6",   v9990->regs[R_SCREEN_MODE0]);
     v9990->modeMcs         = saveStateGet(state, "modeMcs",         0);
     v9990->modePending     = saveStateGet(state, "modePending",     0);
     v9990->modeApplyTime   = saveStateGet(state, "modeApplyTime",   0);
@@ -1043,6 +1115,7 @@ void v9990LoadState(V9990* v9990)
     v9990->viTime          = saveStateGet(state, "viTime",          0);
     v9990->hiArmed         = saveStateGet(state, "hiArmed",         0);
     v9990->hiTime          = saveStateGet(state, "hiTime",          0);
+    v9990->scrollLineA     = saveStateGet(state, "scrollLineA",     -1);
 
     saveStateClose(state);
 
@@ -1056,6 +1129,9 @@ void v9990LoadState(V9990* v9990)
     saveStateClose(state);
 
     calcFrameGeometry(v9990);
+    if (v9990->scrollLineA < 0) {
+        v9990->scrollLineA = v9990->displayStartLine;
+    }
 
     /* The shown source is restored by the video manager, not switched here. */
     videoManagerClaim(v9990->videoHandle, displayLatched(v9990));
