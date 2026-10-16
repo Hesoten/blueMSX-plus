@@ -442,6 +442,9 @@ static void emulatorThread() {
 
     archThreadEndEmulationProfile(mmcssHandle);
 
+    /* The recorder may have rendered on this thread; its buffers die with it. */
+    frameBufferClearDeinterlace();
+
     ledSetAll(0);
     emuState = EMU_STOPPED;
 

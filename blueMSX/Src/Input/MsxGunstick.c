@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -70,7 +73,7 @@ static UInt8 read(MsxGunstick* joystick) {
         myHigh = MIN(myHigh, frameBufferGetLineCount(frameBuffer));
         
         for (y = myLow; y < myHigh; y++) {
-            int x = mx * (frameBufferGetDoubleWidth(frameBuffer, y) ? 2 : 1) * frameBufferGetMaxWidth(frameBuffer) / 0x10000;
+            int x = mx * frameBufferGetLineWidth(frameBuffer, y) / 0x10000;
             Pixel rgb = frameBufferGetLine(frameBuffer, y)[x];
             int R = 256 * ((rgb >> COLSHIFT_R) & COLMASK_R) / COLMASK_R;
             int G = 256 * ((rgb >> COLSHIFT_G) & COLMASK_G) / COLMASK_G;

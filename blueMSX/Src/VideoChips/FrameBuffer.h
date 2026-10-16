@@ -36,13 +36,13 @@
 #ifdef WII
 #define FB_MAX_LINE_WIDTH 544
 #else
-#define FB_MAX_LINE_WIDTH 640
+#define FB_MAX_LINE_WIDTH 1088
 #endif
 #define FB_MAX_LINES      480
 
 #ifndef NO_FRAMEBUFFER
 typedef struct {
-    int doubleWidth; // 1 when normal, 2 when 2 src pixels per dest pixel
+    int doubleWidth; // width shift: the line holds maxWidth << doubleWidth pixels
     UInt16 buffer[FB_MAX_LINE_WIDTH];
 } LineBuffer;
 #endif
@@ -88,6 +88,7 @@ int frameBufferGetScanline();
 FrameBuffer* frameBufferGetWhiteNoiseFrame();
 FrameBuffer* frameBufferDeinterlace(FrameBuffer* frameBuffer);
 void frameBufferClearDeinterlace();
+FrameBuffer* frameBufferNarrow(FrameBuffer* frameBuffer);
 
 FrameBufferData* frameBufferDataCreate(int maxWidth, int maxHeight, int defaultHorizZoom);
 void frameBufferDataDestroy(FrameBufferData* frameData);
@@ -142,5 +143,8 @@ int    frameBufferGetMaxWidth(FrameBuffer* frameBuffer);
 #define frameBufferGetLineCount(frameBuffer)            frameBuffer->lines
 #define frameBufferGetMaxWidth(frameBuffer)             frameBuffer->maxWidth
 #endif
+
+#define frameBufferGetLineShift(frameBuffer, y)  frameBufferGetDoubleWidth(frameBuffer, y)
+#define frameBufferGetLineWidth(frameBuffer, y)  (frameBufferGetMaxWidth(frameBuffer) << frameBufferGetLineShift(frameBuffer, y))
 
 #endif

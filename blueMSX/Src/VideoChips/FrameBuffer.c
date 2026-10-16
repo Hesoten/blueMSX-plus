@@ -56,9 +56,19 @@ struct FrameBufferData {
 #endif
 };
 
+#ifdef WII
+#define FB_THREAD_LOCAL
+#elif defined(_MSC_VER)
+#define FB_THREAD_LOCAL __declspec(thread)
+#else
+#define FB_THREAD_LOCAL __thread
+#endif
+
 static int curScanline = 0;
 static void* semaphore = NULL;
-static FrameBuffer* deintBuffer = NULL;
+/* Per thread: the UI thread and the recorder on the emu thread both render. */
+static FB_THREAD_LOCAL FrameBuffer* deintBuffer = NULL;
+static FB_THREAD_LOCAL FrameBuffer* narrowBuffer = NULL;
 #ifndef WII
 static int confBlendFrames = 0;
 #endif
@@ -506,6 +516,7 @@ FrameBuffer* frameBufferGetWhiteNoiseFrame()
     return frameBuffer;
 }
 
+/* Frees the calling thread's deinterlace and narrowing buffers. */
 void frameBufferClearDeinterlace()
 {
     if (deintBuffer != NULL) {
@@ -513,6 +524,60 @@ void frameBufferClearDeinterlace()
         deintBuffer = NULL;
         free(buf);
     }
+    if (narrowBuffer != NULL) {
+        void* buf = narrowBuffer;
+        narrowBuffer = NULL;
+        free(buf);
+    }
+}
+
+/* Returns frameBuffer with its four-times-wide lines halved (each ARGB1555
+** channel the floor average of a pixel pair), or frameBuffer itself if it
+** has none. For renderers that handle at most twice the logical width. */
+FrameBuffer* frameBufferNarrow(FrameBuffer* frameBuffer)
+{
+    int y;
+    int x;
+
+    for (y = 0; y < frameBuffer->lines; y++) {
+        if (frameBuffer->line[y].doubleWidth > 1) {
+            break;
+        }
+    }
+    if (y == frameBuffer->lines) {
+        return frameBuffer;
+    }
+    if (narrowBuffer == NULL) {
+        narrowBuffer = calloc(1, sizeof(FrameBuffer));
+        if (narrowBuffer == NULL) {
+            return frameBuffer;
+        }
+    }
+
+    narrowBuffer->age             = frameBuffer->age;
+    narrowBuffer->interlace       = frameBuffer->interlace;
+    narrowBuffer->interlaceRaster = frameBuffer->interlaceRaster;
+    narrowBuffer->maxWidth        = frameBuffer->maxWidth;
+    narrowBuffer->lines           = frameBuffer->lines;
+
+    for (y = 0; y < frameBuffer->lines; y++) {
+        LineBuffer* src = &frameBuffer->line[y];
+        LineBuffer* dst = &narrowBuffer->line[y];
+        int width = frameBuffer->maxWidth << 1;
+
+        if (src->doubleWidth <= 1) {
+            dst->doubleWidth = src->doubleWidth;
+            memcpy(dst->buffer, src->buffer, (frameBuffer->maxWidth << src->doubleWidth) * sizeof(UInt16));
+            continue;
+        }
+        dst->doubleWidth = 1;
+        for (x = 0; x < width; x++) {
+            UInt16 a = src->buffer[2 * x];
+            UInt16 b = src->buffer[2 * x + 1];
+            dst->buffer[x] = (UInt16)(((a & b) + (((a ^ b) & 0x7bde) >> 1)) & 0x7fff);
+        }
+    }
+    return narrowBuffer;
 }
 
 FrameBuffer* frameBufferDeinterlace(FrameBuffer* frameBuffer)
@@ -567,7 +632,7 @@ static FrameBuffer* mixFrame(FrameBuffer* d, FrameBuffer* a, FrameBuffer* b, int
     d->maxWidth        = a->maxWidth;
 
     for (y = 0; y < a->lines; y++) {
-        int width = a->line[y].doubleWidth ? a->maxWidth: a->maxWidth / 2;
+        int width = (a->maxWidth << a->line[y].doubleWidth) / 2;
         UInt32* ap = (UInt32*)a->line[y].buffer;
         UInt32* bp = (UInt32*)b->line[y].buffer;
         UInt32* dp = (UInt32*)d->line[y].buffer;
@@ -631,7 +696,7 @@ static FrameBuffer* mixFrameInterlace(FrameBuffer* d, FrameBuffer* a, FrameBuffe
     }
 
     for (y = 0; y < a->lines * 2; y++) {
-        int     width = a->line[y / 2].doubleWidth ? a->maxWidth: a->maxWidth / 2;
+        int     width = (a->maxWidth << a->line[y / 2].doubleWidth) / 2;
         UInt32* ap;
         UInt32* bp;
         UInt32* dp;
@@ -703,7 +768,7 @@ static void frameBufferExternal(FrameBuffer* a)
     int imageHeight = a->lines;
     int imageWidth  = a->maxWidth;
 
-    if (a->maxWidth <= FB_MAX_LINE_WIDTH / 2) {
+    if (a->maxWidth <= 320) {
         scaleWidth = 1;
         imageWidth *= 2;
     }
@@ -747,7 +812,7 @@ static void frameBufferSuperimpose(FrameBuffer* a)
     int imageHeight = a->lines;
     int imageWidth  = a->maxWidth;
 
-    if (a->maxWidth <= FB_MAX_LINE_WIDTH / 2) {
+    if (a->maxWidth <= 320) {
         scaleWidth = 1;
         imageWidth *= 2;
     }
