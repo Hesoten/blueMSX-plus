@@ -424,10 +424,23 @@ void frameBufferDataDestroy(FrameBufferData* frameData)
 
 void frameBufferSetActive(FrameBufferData* frameData)
 {
+    waitSem();
+    // Frame indices are only kept in range for the active buffer.
+    if (frameData != NULL &&
+        (frameData->viewFrame >= frameBufferCount || frameData->drawFrame >= frameBufferCount))
+    {
+        int i;
+        frameData->viewFrame = 0;
+        frameData->drawFrame = frameBufferCount > 1 ? 1 : 0;
+        for (i = 0; i < MAX_FRAMES_PER_FRAMEBUFFER; i++) {
+            frameData->frame[i].age = 0;
+        }
+    }
     currentBuffer = frameData;
     if (frameData == NULL) {
         mixMode = MIXMODE_INTERNAL;
     }
+    signalSem();
 }
 
 void frameBufferSetMixMode(FrameBufferMixMode mode,  FrameBufferMixMode mask)
