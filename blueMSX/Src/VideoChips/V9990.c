@@ -23,6 +23,7 @@
 */
 #include "V9990.h"
 #include "V9990Render.h"
+#include "V9990Cmd.h"
 #include "Board.h"
 #include "SaveState.h"
 #include "FrameBuffer.h"
@@ -108,7 +109,6 @@ struct V9990 {
     UInt8  palette[256];
     UInt8  regSelect;
     UInt8  readBuffer;
-    UInt8  cmdData;
     UInt8  pending;
     UInt8  mcs;
     UInt8  systemReset;
@@ -154,6 +154,8 @@ struct V9990 {
     int    showOnDisplay;
     int    loading;
     int    renderLine;
+
+    V9990Cmd* cmd;
 
     BoardTimer* timerFrame;
     BoardTimer* timerVi;
@@ -588,10 +590,11 @@ static int committedLines(V9990* v9990, UInt32 time)
     return t / (Int32)v9990->lineTicks + 1;
 }
 
-/* Brings the picture and the display mode up to time. Every port access and
-** timer calls this first, so a line is drawn with the state at its commit. */
+/* Brings the command engine, the picture and the display mode up to time.
+** Every port access and timer calls this first. */
 static void sync(V9990* v9990, UInt32 time)
 {
+    v9990CmdSync(v9990->cmd, time);
     renderLines(v9990, committedLines(v9990, time));
     syncMode(v9990, time);
 }
@@ -746,6 +749,11 @@ static void onVi(V9990* v9990, UInt32 time)
     raiseIrq(v9990, IRQ_VI);
 }
 
+static void onCommandEnd(void* ref)
+{
+    raiseIrq((V9990*)ref, IRQ_CE);
+}
+
 static void onHi(V9990* v9990, UInt32 time)
 {
     sync(v9990, time);
@@ -762,7 +770,7 @@ static UInt8 readStatus(V9990* v9990, UInt32 time)
     int left;
     int right;
     int window;
-    UInt8 status = 0;
+    UInt8 status = v9990CmdGetStatus(v9990->cmd, time);
 
     calcHorizontalArea(v9990, &left, &right, &window);
 
@@ -798,14 +806,16 @@ static UInt8 readVramCpu(V9990* v9990, UInt32 address)
     return v9990->vram[v9990MapAddress(v9990->mode, address)];
 }
 
-static UInt8 readRegister(V9990* v9990, int reg)
+static UInt8 readRegister(V9990* v9990, int reg, UInt32 time)
 {
     if (v9990->systemReset || !(regAccess[reg] & REG_R)) {
         return 0xff;
     }
-    /* Border X of a search command; without a command engine it stays 0. */
-    if (reg == R_CMD_BORDER_LO || reg == R_CMD_BORDER_HI) {
-        return 0x00;
+    if (reg == R_CMD_BORDER_LO) {
+        return (UInt8)v9990CmdGetBorderX(v9990->cmd, time);
+    }
+    if (reg == R_CMD_BORDER_HI) {
+        return (UInt8)(v9990CmdGetBorderX(v9990->cmd, time) >> 8);
     }
     return v9990->regs[reg];
 }
@@ -831,10 +841,12 @@ static void writeRegister(V9990* v9990, int reg, UInt8 value, UInt32 time)
 
     if (reg >= 32) {
         v9990->regs[reg] = value;
-        /* No command engine yet: every opcode, STOP included, ends at once
-        ** without CE in P#5 ever reading 1, and raises the CE flag in P#6. */
         if (reg == R_CMD_OPCODE) {
-            raiseIrq(v9990, IRQ_CE);
+            v9990CmdStart(v9990->cmd, value, calcMode(v9990), v9990->regs[R_SCREEN_MODE0], time);
+            v9990CmdSync(v9990->cmd, time);
+        }
+        else {
+            v9990CmdWriteRegister(v9990->cmd, reg, value, time);
         }
         return;
     }
@@ -911,11 +923,10 @@ UInt8 v9990ReadPort(V9990* v9990, UInt16 port)
         return value;
 
     case P_COMMAND_DATA:
-        /* No transfer is ever ready (TR = 0) without a command engine. */
-        return 0xff;
+        return v9990CmdReadData(v9990->cmd, time);
 
     case P_REGISTER_DATA:
-        value = readRegister(v9990, v9990->regSelect & 0x3f);
+        value = readRegister(v9990, v9990->regSelect & 0x3f, time);
         if (!v9990->systemReset && !(v9990->regSelect & 0x40)) {
             v9990->regSelect = (UInt8)((v9990->regSelect + 1) & ~0x40);
         }
@@ -959,7 +970,7 @@ void v9990WritePort(V9990* v9990, UInt16 port, UInt8 value)
         break;
 
     case P_COMMAND_DATA:
-        v9990->cmdData = value;
+        v9990CmdWriteData(v9990->cmd, value, time);
         break;
 
     case P_REGISTER_DATA:
@@ -1023,7 +1034,6 @@ void v9990Reset(V9990* v9990)
     memset(v9990->regs, 0, sizeof(v9990->regs));
     v9990->regSelect   = 0xff;
     v9990->readBuffer  = 0;
-    v9990->cmdData     = 0;
     v9990->pending     = 0;
     v9990->mcs         = 0;
     v9990->systemReset = 0;
@@ -1032,6 +1042,7 @@ void v9990Reset(V9990* v9990)
     v9990->modeMcs     = 0;
     v9990->modePending = 0;
     v9990->secondField = 1;
+    v9990CmdReset(v9990->cmd, boardSystemTime());
 
     updateIrq(v9990);
     frameStart(v9990, boardSystemTime());
@@ -1057,6 +1068,7 @@ V9990* v9990Create(void)
     V9990* v9990 = calloc(1, sizeof(V9990));
 
     v9990->vram = malloc(V9990_VRAM_SIZE);
+    v9990->cmd  = v9990CmdCreate(v9990->vram, onCommandEnd, v9990);
 
     v9990->timerFrame = boardTimerCreate(onFrame, v9990);
     v9990->timerVi    = boardTimerCreate(onVi, v9990);
@@ -1091,6 +1103,7 @@ void v9990Destroy(V9990* v9990)
     videoManagerUnregister(v9990->videoHandle);
     frameBufferDataDestroy(v9990->frameBufferData);
 
+    v9990CmdDestroy(v9990->cmd);
     free(v9990->vram);
     free(v9990);
 }
@@ -1104,7 +1117,6 @@ void v9990SaveState(V9990* v9990)
 
     saveStateSet(state, "regSelect",       v9990->regSelect);
     saveStateSet(state, "readBuffer",      v9990->readBuffer);
-    saveStateSet(state, "cmdData",         v9990->cmdData);
     saveStateSet(state, "pending",         v9990->pending);
     saveStateSet(state, "mcs",             v9990->mcs);
     saveStateSet(state, "systemReset",     v9990->systemReset);
@@ -1136,6 +1148,8 @@ void v9990SaveState(V9990* v9990)
     state = saveStateOpenForWrite("V9990Vram");
     saveStateSetBuffer(state, "vram", v9990->vram, V9990_VRAM_SIZE);
     saveStateClose(state);
+
+    v9990CmdSaveState(v9990->cmd);
 }
 
 void v9990LoadState(V9990* v9990)
@@ -1155,7 +1169,6 @@ void v9990LoadState(V9990* v9990)
 
     v9990->regSelect       = (UInt8)saveStateGet(state, "regSelect",       0xff);
     v9990->readBuffer      = (UInt8)saveStateGet(state, "readBuffer",      0);
-    v9990->cmdData         = (UInt8)saveStateGet(state, "cmdData",         0);
     v9990->pending         = (UInt8)saveStateGet(state, "pending",         0);
     v9990->mcs             = (UInt8)saveStateGet(state, "mcs",             0);
     v9990->systemReset     = (UInt8)saveStateGet(state, "systemReset",     0);
@@ -1192,6 +1205,8 @@ void v9990LoadState(V9990* v9990)
         saveStateGetBuffer(state, "vram", v9990->vram, V9990_VRAM_SIZE);
     }
     saveStateClose(state);
+
+    v9990CmdLoadState(v9990->cmd, boardSystemTime());
 
     calcFrameGeometry(v9990);
     if (v9990->scrollLineA < 0) {
