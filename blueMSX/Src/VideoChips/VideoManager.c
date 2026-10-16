@@ -54,11 +54,13 @@ typedef struct {
 } VideoManager;
 
 static VideoManager videoManager;
+static int loadedActiveIndex = -2;
 
 void videoManagerReset() 
 {
     videoManager.count = 0;
     videoManager.lastHandle = 0;
+    loadedActiveIndex = -2;
 }
 
 int videoManagerGetCount() 
@@ -215,13 +217,21 @@ void videoManagerUnregister(int handle)
 }
 
 
+// Runs before the machine's video chips exist; the index is applied
+// once they have registered, in videoManagerApplyLoadedState().
 void videoManagerLoadState()
 {
     SaveState* state = saveStateOpenForRead("VideoManager");
-    int index = saveStateGet(state, "ActiveFrameBuffer",  0);
+    loadedActiveIndex = saveStateGet(state, "ActiveFrameBuffer",  0);
     saveStateClose(state);
-    videoManagerSetActive(index);
+}
 
+void videoManagerApplyLoadedState()
+{
+    if (loadedActiveIndex != -2) {
+        videoManagerSetActive(loadedActiveIndex);
+        loadedActiveIndex = -2;
+    }
 }
 
 void videoManagerSaveState()

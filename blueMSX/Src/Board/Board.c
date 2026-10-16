@@ -1410,6 +1410,7 @@ int boardRun(Machine* machine,
 
     if (success && loadState) {
         boardInfo.loadState();
+        videoManagerApplyLoadedState();
         /* Re-apply the stashed boardSysTime64 (boardInit clobbered it). The
         ** tape clock is anchored to it, so it has to be re-anchored too. */
         if (stashedSysTime64 != 0) boardSysTime64 = stashedSysTime64;

@@ -58,6 +58,7 @@ char* videoManagerGetName(int index);
 void videoManagerReset();
 
 void videoManagerLoadState();
+void videoManagerApplyLoadedState();
 void videoManagerSaveState();
 
 int videoManagerRegister(const char* name, FrameBufferData* frameBuffer, 
