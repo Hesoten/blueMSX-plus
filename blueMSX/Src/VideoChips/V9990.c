@@ -1564,6 +1564,11 @@ void v9990SetShowOnDisplay(V9990* v9990, int enable)
     videoManagerClaim(v9990->videoHandle, displayLatched(v9990));
 }
 
+int v9990GetVideoHandle(V9990* v9990)
+{
+    return v9990->videoHandle;
+}
+
 void v9990Destroy(V9990* v9990)
 {
     debugDeviceUnregister(v9990->debugHandle);

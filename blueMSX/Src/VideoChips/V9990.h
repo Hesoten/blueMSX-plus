@@ -53,6 +53,8 @@ void   v9990Destroy(V9990* v9990);
 /* While enabled, the chip claims the screen whenever its frame-latched DISP
 ** is set, and a DISP edge switches the shown source if autodetect is on. */
 void   v9990SetShowOnDisplay(V9990* v9990, int enable);
+/* The video manager handle of the chip's picture. */
+int    v9990GetVideoHandle(V9990* v9990);
 void   v9990Reset(V9990* v9990);
 void   v9990SaveState(V9990* v9990);
 void   v9990LoadState(V9990* v9990);

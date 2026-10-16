@@ -22,6 +22,7 @@
 */
 #include "romMapperGfx9000.h"
 #include "V9990.h"
+#include "VideoManager.h"
 #include "MediaDb.h"
 #include "SlotManager.h"
 #include "DeviceManager.h"
@@ -101,6 +102,9 @@ int romMapperGfx9000Create(int slot, int sslot)
     rm->sslot = sslot;
     rm->v9990 = v9990Create();
     v9990SetShowOnDisplay(rm->v9990, 1);
+    /* The VDP registers first. It keeps drawing while the V9990 is shown, so
+    ** its status flags stay right and switching back shows a current picture. */
+    videoManagerSetDrawSource(v9990GetVideoHandle(rm->v9990), videoManagerGetHandle(0));
 
     rm->deviceHandle = deviceManagerRegister(ROM_GFX9000, &callbacks, rm);
 
