@@ -1449,6 +1449,12 @@ extern "C" MediaType* mediaDbGuessRom(const void *buffer, int size)
     UInt32 yamanootoEnar = 0;
     UInt32 yamanootoRegs = 0;
     for (i = 0; i < size - 3; i++) {
+        /* The boot code that sets the banks up sits at the start of the ROM,
+        ** and later data can look like ld (nnnn),a.  Go on past the first
+        ** 16 KB only when it holds no bank write at all. */
+        if (i == 0x4000 && counters[2] + counters[3] + counters[4] + counters[5] > 0) {
+            break;
+        }
         if (romData[i] == 0x32) {
             UInt32 value = romData[i + 1] + ((UInt32)romData[i + 2] << 8);
 
