@@ -83,6 +83,9 @@
 #define V9990_FB_LINES     240
 #define V9990_FB_WINDOW_UC (8 * V9990_FB_WIDTH)
 
+/* A command timing slot that lasts to the next frame start. */
+#define COMMAND_NO_END  0x7fffffff
+
 static const UInt8 regAccess[64] = {
     REG_W,  REG_W,  REG_W,  REG_W,  REG_W,  REG_W,  REG_RW, REG_RW,
     REG_RW, REG_RW, REG_RW, REG_RW, REG_RW, REG_W,  REG_W,  REG_RW,
@@ -160,6 +163,7 @@ struct V9990 {
     BoardTimer* timerFrame;
     BoardTimer* timerVi;
     BoardTimer* timerHi;
+    BoardTimer* timerCe;
     int    viArmed;
     UInt32 viTime;
     int    hiArmed;
@@ -590,13 +594,120 @@ static int committedLines(V9990* v9990, UInt32 time)
     return t / (Int32)v9990->lineTicks + 1;
 }
 
+/* Command timing slot at t ticks from the frame start, and where it ends:
+** the display lines are timed by R#8 SPD, the rest of the frame as blanking. */
+static int commandSlot(V9990* v9990, Int32 t, Int32* end)
+{
+    Int32 start = (Int32)(v9990->lineZero + v9990->displayStartLine * v9990->lineTicks);
+    Int32 stop  = (Int32)(v9990->lineZero + v9990->displayEndLine * v9990->lineTicks);
+
+    *end = COMMAND_NO_END;
+    if (!(v9990->latchControl & 0x80) || t >= stop) {
+        return V9990_CMD_SLOT_BLANK;
+    }
+    if (t < start) {
+        *end = start;
+        return V9990_CMD_SLOT_BLANK;
+    }
+    *end = stop;
+    return (v9990->regs[R_CONTROL] & 0x40) ? V9990_CMD_SLOT_DISPLAY : V9990_CMD_SLOT_SPRITES;
+}
+
+/* Runs the command engine to time, changing the slot where the display
+** lines start and end. */
+static void runCommand(V9990* v9990, UInt32 time)
+{
+    V9990Cmd* cmd = v9990->cmd;
+    Int32 limit = (Int32)(time - v9990->frameStartTime);
+    Int32 end;
+    Int32 t;
+
+    t = (Int32)(v9990CmdTime(cmd, NULL) - v9990->frameStartTime);
+    while (v9990CmdIsRunning(cmd)) {
+        v9990CmdSetTiming(cmd, commandSlot(v9990, t, &end));
+        if (end >= limit) {
+            break;
+        }
+        v9990CmdSync(cmd, v9990->frameStartTime + end);
+        t = end;
+    }
+    v9990CmdSync(cmd, time);
+}
+
 /* Brings the command engine, the picture and the display mode up to time.
-** Every port access and timer calls this first. */
+** While a command runs, each line is drawn after the engine reaches it. */
 static void sync(V9990* v9990, UInt32 time)
 {
-    v9990CmdSync(v9990->cmd, time);
+    if (v9990CmdIsActive(v9990->cmd)) {
+        int end = committedLines(v9990, time);
+
+        if (end > v9990->frameLines) {
+            end = v9990->frameLines;
+        }
+        while (v9990->renderLine < end && v9990CmdIsRunning(v9990->cmd)) {
+            UInt32 lineStart = v9990->frameStartTime + v9990->lineZero +
+                               v9990->renderLine * v9990->lineTicks;
+
+            syncMode(v9990, lineStart);
+            runCommand(v9990, lineStart + commitTicks(v9990));
+            renderLines(v9990, v9990->renderLine + 1);
+        }
+        runCommand(v9990, time);
+    }
     renderLines(v9990, committedLines(v9990, time));
     syncMode(v9990, time);
+}
+
+/* Arms the CE timer at the end of the running command, as far as the slots
+** of this frame tell. A frame start, R#8 or a late end arms it again. */
+static void scheduleCommandEnd(V9990* v9990, UInt32 now)
+{
+    V9990Cmd* cmd = v9990->cmd;
+    UInt32 costs[3];
+    UInt32 units;
+    UInt32 pos;
+    UInt32 avail;
+    UInt32 n;
+    UInt32 target;
+    Int32 end;
+    Int32 t;
+    int half;
+
+    boardTimerRemove(v9990->timerCe);
+    units = v9990CmdUnitsLeft(cmd, costs);
+    if (units == 0) {
+        return;
+    }
+
+    t   = (Int32)(v9990CmdTime(cmd, &half) - v9990->frameStartTime);
+    pos = 2 * (UInt32)t + half;
+    for (;;) {
+        UInt32 cost = costs[commandSlot(v9990, t, &end)];
+
+        if (cost == 0) {
+            return;
+        }
+        avail = end == COMMAND_NO_END ? 0xffffffff : 2 * (UInt32)end - pos;
+        n = avail / cost;
+        if (units <= n) {
+            pos += units * cost;
+            break;
+        }
+        pos   += n * cost;
+        units -= n;
+        t      = end;
+    }
+
+    /* The board drops a timeout before its current time, which can be later
+    ** than now; one at that time still fires in this dispatch. */
+    target = v9990->frameStartTime + (pos + 1) / 2;
+    if ((Int32)(target - now) <= 0) {
+        target = now + 1;
+    }
+    if ((Int32)(target - boardSystemTime()) < 0) {
+        target = boardSystemTime();
+    }
+    boardTimerAdd(v9990->timerCe, target);
 }
 
 static void scheduleHi(V9990* v9990, UInt32 time)
@@ -692,8 +803,8 @@ static void frameStart(V9990* v9990, UInt32 time)
     int wasOn = displayLatched(v9990);
 
     /* Also completes a frame that a reset cut short. */
+    sync(v9990, time);
     renderLines(v9990, v9990->frameLines);
-    syncMode(v9990, time);
 
     v9990->secondField     = !v9990->secondField;
     v9990->frameMode       = v9990->mode;
@@ -730,6 +841,7 @@ static void frameStart(V9990* v9990, UInt32 time)
     boardTimerAdd(v9990->timerVi, v9990->viTime);
 
     scheduleHi(v9990, time);
+    scheduleCommandEnd(v9990, time);
 }
 
 static void onFrame(V9990* v9990, UInt32 time)
@@ -751,7 +863,16 @@ static void onVi(V9990* v9990, UInt32 time)
 
 static void onCommandEnd(void* ref)
 {
-    raiseIrq((V9990*)ref, IRQ_CE);
+    V9990* v9990 = (V9990*)ref;
+
+    boardTimerRemove(v9990->timerCe);
+    raiseIrq(v9990, IRQ_CE);
+}
+
+static void onCe(V9990* v9990, UInt32 time)
+{
+    sync(v9990, time);
+    scheduleCommandEnd(v9990, time);
 }
 
 static void onHi(V9990* v9990, UInt32 time)
@@ -843,7 +964,8 @@ static void writeRegister(V9990* v9990, int reg, UInt8 value, UInt32 time)
         v9990->regs[reg] = value;
         if (reg == R_CMD_OPCODE) {
             v9990CmdStart(v9990->cmd, value, calcMode(v9990), v9990->regs[R_SCREEN_MODE0], time);
-            v9990CmdSync(v9990->cmd, time);
+            runCommand(v9990, time);
+            scheduleCommandEnd(v9990, time);
         }
         else {
             v9990CmdWriteRegister(v9990->cmd, reg, value, time);
@@ -860,6 +982,9 @@ static void writeRegister(V9990* v9990, int reg, UInt8 value, UInt32 time)
     case R_SCREEN_MODE0:
     case R_SCREEN_MODE1:
         scheduleModeChange(v9990, time);
+        break;
+    case R_CONTROL:
+        scheduleCommandEnd(v9990, time);
         break;
     case R_INT_ENABLE:
         updateIrq(v9990);
@@ -957,6 +1082,9 @@ void v9990WritePort(V9990* v9990, UInt16 port, UInt8 value)
             if (!(v9990->regs[R_VRAM_WRITE + 2] & 0x80)) {
                 setVramAddress(v9990, R_VRAM_WRITE, address + 1);
             }
+            if (v9990CmdReadsVram(v9990->cmd)) {
+                scheduleCommandEnd(v9990, time);
+            }
         }
         break;
 
@@ -1043,6 +1171,7 @@ void v9990Reset(V9990* v9990)
     v9990->modePending = 0;
     v9990->secondField = 1;
     v9990CmdReset(v9990->cmd, boardSystemTime());
+    boardTimerRemove(v9990->timerCe);
 
     updateIrq(v9990);
     frameStart(v9990, boardSystemTime());
@@ -1073,6 +1202,7 @@ V9990* v9990Create(void)
     v9990->timerFrame = boardTimerCreate(onFrame, v9990);
     v9990->timerVi    = boardTimerCreate(onVi, v9990);
     v9990->timerHi    = boardTimerCreate(onHi, v9990);
+    v9990->timerCe    = boardTimerCreate(onCe, v9990);
 
     v9990->frameBufferData = frameBufferDataCreate(V9990_FB_WIDTH, V9990_FB_LINES, 1);
 
@@ -1097,6 +1227,7 @@ void v9990Destroy(V9990* v9990)
     boardTimerDestroy(v9990->timerFrame);
     boardTimerDestroy(v9990->timerVi);
     boardTimerDestroy(v9990->timerHi);
+    boardTimerDestroy(v9990->timerCe);
 
     boardClearInt(V9990_INT);
 
@@ -1253,6 +1384,7 @@ void v9990LoadState(V9990* v9990)
     else {
         boardTimerRemove(v9990->timerHi);
     }
+    scheduleCommandEnd(v9990, boardSystemTime());
 
     updateIrq(v9990);
 }

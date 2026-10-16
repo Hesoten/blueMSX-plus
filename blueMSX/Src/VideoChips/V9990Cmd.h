@@ -43,6 +43,28 @@ void      v9990CmdReset(V9990Cmd* cmd, UInt32 time);
 ** the engine or VRAM calls this first. */
 void      v9990CmdSync(V9990Cmd* cmd, UInt32 time);
 
+/* Timing slots: the display shown with cursors or sprites, shown without
+** them, and blanking or display off. The engine is synced before a change. */
+#define V9990_CMD_SLOT_SPRITES 0
+#define V9990_CMD_SLOT_DISPLAY 1
+#define V9990_CMD_SLOT_BLANK   2
+
+void      v9990CmdSetTiming(V9990Cmd* cmd, int slot);
+
+/* Active: CE is set. Running: active and not waiting for the CPU. */
+int       v9990CmdIsActive(V9990Cmd* cmd);
+int       v9990CmdIsRunning(V9990Cmd* cmd);
+
+/* The running command ends at a time that depends on what VRAM holds. */
+int       v9990CmdReadsVram(V9990Cmd* cmd);
+
+/* How far the engine has run; half (may be NULL) is 1 for one more UC. */
+UInt32    v9990CmdTime(V9990Cmd* cmd, int* half);
+
+/* Units the running command still takes and the UC per unit in each slot;
+** 0 when it takes no time. SRCH holds while VRAM does not change. */
+UInt32    v9990CmdUnitsLeft(V9990Cmd* cmd, UInt32 costs[3]);
+
 /* reg is R#32-R#51. */
 void      v9990CmdWriteRegister(V9990Cmd* cmd, int reg, UInt8 value, UInt32 time);
 

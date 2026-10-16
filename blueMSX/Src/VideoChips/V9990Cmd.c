@@ -83,8 +83,12 @@ struct V9990Cmd {
     int    bpp;
     int    width;
 
-    /* time is how far the command has run; it only moves while it runs. */
+    /* time is how far the command has run, plus half a tick when half is
+    ** set; it only moves while the command runs. */
     UInt32 time;
+    UInt8  half;
+    int    slot;
+    UInt32 unitCost;
     int    waiting;
     int    anx;
     int    any;
@@ -94,16 +98,112 @@ struct V9990Cmd {
     UInt32 srcAddress;
     UInt32 dstAddress;
     UInt8  data;
+    UInt8  buffer;
     UInt8  partial;
     int    bits;
     int    lastDot;
     int    lastByte;
 };
 
-/* Command timing is not emulated: every step takes no time. */
+/* UC per unit by [mode][slot][depth]: mode B0/B2/B4, other Bx, P1, P2; slot
+** as V9990_CMD_SLOT_*; depth 2, 4, 8, 16 bpp. The values are openMSX's, from
+** its measurements on an FS-A1GT. */
+typedef UInt8 CostTable[4][3][4];
+
+static const CostTable costLmmv = {
+    { {   8,  11,  15,  30 }, {   7,  10,  13,  26 }, {   7,  10,  13,  25 } },
+    { {   5,   7,   9,  18 }, {   5,   6,   8,  17 }, {   5,   6,   8,  17 } },
+    { {  56,  56,  56,  56 }, {  25,  25,  25,  25 }, {   9,   9,   9,   9 } },
+    { {  28,  28,  28,  28 }, {  15,  15,  15,  15 }, {   6,   6,   6,   6 } }
+};
+static const CostTable costLmmm = {
+    { {  10,  16,  32,  66 }, {   8,  14,  28,  57 }, {   8,  13,  27,  54 } },
+    { {   6,  10,  20,  39 }, {   5,   9,  18,  35 }, {   5,   9,  17,  35 } },
+    { { 115, 115, 115, 115 }, {  52,  52,  52,  52 }, {  18,  18,  18,  18 } },
+    { {  57,  57,  57,  57 }, {  25,  25,  25,  25 }, {   9,   9,   9,   9 } }
+};
+static const CostTable costBmxl = {
+    { {  38,  33,  32,  33 }, {  33,  28,  28,  28 }, {  33,  27,  27,  27 } },
+    { {  24,  20,  20,  19 }, {  22,  18,  18,  18 }, {  21,  17,  17,  17 } },
+    { { 171, 171, 171, 171 }, {  82,  82,  82,  82 }, {  29,  29,  29,  29 } },
+    { { 114, 114, 114, 114 }, {  50,  50,  50,  50 }, {  18,  18,  18,  18 } }
+};
+static const CostTable costBmlx = {
+    { {  10,  16,  32,  66 }, {   8,  14,  28,  57 }, {   8,  13,  27,  54 } },
+    { {   6,  10,  20,  39 }, {   5,   9,  18,  35 }, {   5,   9,  17,  35 } },
+    { {  84,  84,  84,  84 }, {  44,  44,  44,  44 }, {  17,  17,  17,  17 } },
+    { {  57,  57,  57,  57 }, {  25,  25,  25,  25 }, {   9,   9,   9,   9 } }
+};
+static const CostTable costBmll = {
+    { {  33,  33,  33,  33 }, {  28,  28,  28,  28 }, {  27,  27,  27,  27 } },
+    { {  20,  20,  20,  20 }, {  18,  18,  18,  18 }, {  18,  18,  18,  18 } },
+    { { 118, 118, 118, 118 }, {  52,  52,  52,  52 }, {  18,  18,  18,  18 } },
+    { { 118, 118, 118, 118 }, {  52,  52,  52,  52 }, {  18,  18,  18,  18 } }
+};
+
+/* CMMM, LINE and SRCH are not measured; openMSX uses this value too. */
+#define COST_UNMEASURED 24
+
+static int costMode(V9990Cmd* cmd)
+{
+    switch (cmd->mode) {
+    case V9990_MODE_B0:
+    case V9990_MODE_B2:
+    case V9990_MODE_B4: return 0;
+    case V9990_MODE_P1: return 2;
+    case V9990_MODE_P2: return 3;
+    default:            return 1;
+    }
+}
+
+static int costDepth(V9990Cmd* cmd)
+{
+    switch (cmd->bpp) {
+    case 2:  return 0;
+    case 4:  return 1;
+    case 8:  return 2;
+    default: return 3;
+    }
+}
+
+/* A unit is a dot, except below 16 bpp a byte read for BMXL and a byte
+** written for BMLX, and a byte moved for BMLL. */
+static UInt32 unitCost(V9990Cmd* cmd, int slot)
+{
+    int m = costMode(cmd);
+    int d = costDepth(cmd);
+
+    switch (cmd->opcode >> 4) {
+    case OP_LMMV: return costLmmv[m][slot][d];
+    case OP_LMMM: return costLmmm[m][slot][d];
+    case OP_BMLX: return costBmlx[m][slot][d];
+    case OP_BMXL: return costBmxl[m][slot][d];
+    case OP_BMLL: return costBmll[m][slot][d];
+    case OP_CMMM:
+    case OP_LINE:
+    case OP_SRCH: return COST_UNMEASURED;
+    }
+    return 0;
+}
+
+/* Cost in UC of the next step. CPU transfers, POINT and PSET take no time. */
 static UInt32 stepCost(V9990Cmd* cmd)
 {
-    return 0;
+    switch (cmd->opcode >> 4) {
+    case OP_BMXL:
+        if (cmd->bpp == 16) {
+            return 2 * cmd->unitCost;
+        }
+        return cmd->bits == 0 ? cmd->unitCost : 0;
+    case OP_BMLX:
+        if (cmd->bpp == 16 || cmd->bits + cmd->bpp == 8 || (cmd->anx == 1 && cmd->any == 1)) {
+            return cmd->unitCost;
+        }
+        return 0;
+    case OP_BMLL:
+        return cmd->bpp == 16 ? 2 * cmd->unitCost : cmd->unitCost;
+    }
+    return cmd->unitCost;
 }
 
 static UInt8 logOp(UInt8 lop, UInt8 src, UInt8 dst)
@@ -455,12 +555,12 @@ static int stepLmmm(V9990Cmd* cmd)
 static int stepCmmm(V9990Cmd* cmd)
 {
     if (cmd->bits == 0) {
-        cmd->data       = readLinear(cmd, cmd->srcAddress);
+        cmd->buffer     = readLinear(cmd, cmd->srcAddress);
         cmd->srcAddress = (cmd->srcAddress + 1) & V9990_VRAM_MASK;
         cmd->bits       = 8;
     }
     cmd->bits--;
-    drawColor(cmd, cmd->dx, cmd->dy, ((cmd->data >> cmd->bits) & 1) ? cmd->fc : cmd->bc);
+    drawColor(cmd, cmd->dx, cmd->dy, ((cmd->buffer >> cmd->bits) & 1) ? cmd->fc : cmd->bc);
     if (nextDot(cmd, MOVE_DST)) {
         finish(cmd);
     }
@@ -477,12 +577,12 @@ static int stepBmxl(V9990Cmd* cmd)
     }
     else {
         if (cmd->bits == 0) {
-            cmd->data       = readLinear(cmd, cmd->srcAddress);
+            cmd->buffer     = readLinear(cmd, cmd->srcAddress);
             cmd->srcAddress = (cmd->srcAddress + 1) & V9990_VRAM_MASK;
             cmd->bits       = 8;
         }
         cmd->bits -= cmd->bpp;
-        value = (UInt16)((cmd->data >> cmd->bits) & pixelMask(cmd));
+        value = (UInt16)((cmd->buffer >> cmd->bits) & pixelMask(cmd));
     }
     writePixel(cmd, cmd->dx, cmd->dy, value);
     if (nextDot(cmd, MOVE_DST)) {
@@ -503,13 +603,13 @@ static int stepBmlx(V9990Cmd* cmd)
         cmd->dstAddress = (cmd->dstAddress + 2) & V9990_VRAM_MASK;
     }
     else {
-        cmd->data |= (UInt8)(value << (8 - cmd->bpp - cmd->bits));
+        cmd->buffer |= (UInt8)(value << (8 - cmd->bpp - cmd->bits));
         cmd->bits += cmd->bpp;
         if (cmd->bits == 8 || last) {
-            writeLinear(cmd, cmd->dstAddress, cmd->data);
+            writeLinear(cmd, cmd->dstAddress, cmd->buffer);
             cmd->dstAddress = (cmd->dstAddress + 1) & V9990_VRAM_MASK;
-            cmd->data = 0;
-            cmd->bits = 0;
+            cmd->buffer = 0;
+            cmd->bits   = 0;
         }
     }
     if (last) {
@@ -635,14 +735,32 @@ static int step(V9990Cmd* cmd)
     return 1;
 }
 
+/* A step takes effect when its time is over, so the engine never runs past
+** time. */
 void v9990CmdSync(V9990Cmd* cmd, UInt32 time)
 {
-    while ((cmd->status & V9990_CMD_CE) && (Int32)(time - cmd->time) >= 0) {
+    Int32 ticks = (Int32)(time - cmd->time);
+    Int32 left;
+    UInt32 cost;
+
+    if (ticks < 0) {
+        return;
+    }
+    left = (ticks > 0x10000000 ? 0x20000000 : 2 * ticks) - cmd->half;
+
+    while (cmd->status & V9990_CMD_CE) {
+        cost = stepCost(cmd);
+        if ((Int32)cost > left) {
+            break;
+        }
         cmd->waiting = !step(cmd);
         if (cmd->waiting) {
             break;
         }
-        cmd->time += stepCost(cmd);
+        left -= cost;
+        cost += cmd->half;
+        cmd->time += cost >> 1;
+        cmd->half  = (UInt8)(cost & 1);
     }
 }
 
@@ -651,8 +769,148 @@ void v9990CmdSync(V9990Cmd* cmd, UInt32 time)
 static void resume(V9990Cmd* cmd, UInt32 time)
 {
     if (cmd->waiting) {
-        cmd->time = time;
+        cmd->waiting = 0;
+        cmd->time    = time;
+        cmd->half    = 0;
     }
+}
+
+void v9990CmdSetTiming(V9990Cmd* cmd, int slot)
+{
+    cmd->slot     = slot;
+    cmd->unitCost = unitCost(cmd, slot);
+}
+
+int v9990CmdIsActive(V9990Cmd* cmd)
+{
+    return (cmd->status & V9990_CMD_CE) != 0;
+}
+
+int v9990CmdIsRunning(V9990Cmd* cmd)
+{
+    return (cmd->status & V9990_CMD_CE) && !cmd->waiting;
+}
+
+int v9990CmdReadsVram(V9990Cmd* cmd)
+{
+    return (cmd->status & V9990_CMD_CE) && (cmd->opcode >> 4) == OP_SRCH;
+}
+
+UInt32 v9990CmdTime(V9990Cmd* cmd, int* half)
+{
+    if (half != NULL) {
+        *half = cmd->half;
+    }
+    return cmd->time;
+}
+
+static UInt32 ceilDiv(UInt32 n, UInt32 d)
+{
+    return (n + d - 1) / d;
+}
+
+static UInt32 dotsLeft(V9990Cmd* cmd)
+{
+    return cmd->anx + (cmd->any - 1) * wrappedNx(cmd);
+}
+
+/* Steps until LINE ends, walking X and the error term as the steps would. */
+static UInt32 lineSteps(V9990Cmd* cmd)
+{
+    UInt16 ax  = cmd->ax;
+    UInt16 err = cmd->err;
+    UInt32 count = cmd->count;
+    UInt32 n;
+
+    for (n = 1;; n++) {
+        if (!(cmd->arg & ARG_MAJ)) {
+            ax = (UInt16)(ax + ((cmd->arg & ARG_DIX) ? -1 : 1));
+            if (err < cmd->ny) {
+                err = (UInt16)(err + cmd->nx);
+            }
+        }
+        else if (err < cmd->ny) {
+            err = (UInt16)(err + cmd->nx);
+            ax  = (UInt16)(ax + ((cmd->arg & ARG_DIX) ? -1 : 1));
+        }
+        err = (UInt16)(err - cmd->ny);
+        if (count++ == cmd->nx || (ax & cmd->width)) {
+            return n;
+        }
+    }
+}
+
+/* Steps until SRCH ends, from a look at VRAM that changes nothing. */
+static UInt32 searchSteps(V9990Cmd* cmd)
+{
+    UInt16 x = cmd->ax;
+    UInt32 n;
+    UInt32 address;
+    int shift;
+    int equal;
+
+    for (n = 1;; n++) {
+        address = pixelAddress(cmd, x, cmd->sy, &shift);
+        equal   = readPixelAt(cmd, address, shift) == colorAt(cmd, address, shift, cmd->fc);
+        if (equal != ((cmd->arg & ARG_NEQ) != 0)) {
+            return n;
+        }
+        x = (UInt16)(x + ((cmd->arg & ARG_DIX) ? -1 : 1));
+        if (x & cmd->width) {
+            return n;
+        }
+    }
+}
+
+UInt32 v9990CmdUnitsLeft(V9990Cmd* cmd, UInt32 costs[3])
+{
+    UInt32 ppb = 8 / cmd->bpp;
+    UInt32 dots;
+    UInt32 units;
+    int i;
+
+    for (i = 0; i < 3; i++) {
+        costs[i] = unitCost(cmd, i);
+    }
+    if (!v9990CmdIsRunning(cmd)) {
+        return 0;
+    }
+
+    switch (cmd->opcode >> 4) {
+    case OP_LMMV:
+    case OP_LMMM:
+    case OP_CMMM:
+        return dotsLeft(cmd);
+    case OP_BMXL:
+        dots = dotsLeft(cmd);
+        if (cmd->bpp == 16) {
+            for (i = 0; i < 3; i++) {
+                costs[i] *= 2;
+            }
+            return dots;
+        }
+        /* The dots left in the byte in hand are paid for. */
+        units = (UInt32)cmd->bits / cmd->bpp;
+        return dots > units ? ceilDiv(dots - units, ppb) : 0;
+    case OP_BMLX:
+        dots = dotsLeft(cmd);
+        if (cmd->bpp == 16) {
+            return dots;
+        }
+        return ceilDiv(dots + (UInt32)cmd->bits / cmd->bpp, ppb);
+    case OP_BMLL:
+        if (cmd->bpp == 16) {
+            for (i = 0; i < 3; i++) {
+                costs[i] *= 2;
+            }
+        }
+        return cmd->count;
+    case OP_LINE:
+        return lineSteps(cmd);
+    case OP_SRCH:
+        return searchSteps(cmd);
+    }
+    return 0;
 }
 
 void v9990CmdWriteRegister(V9990Cmd* cmd, int reg, UInt8 value, UInt32 time)
@@ -709,12 +967,15 @@ void v9990CmdStart(V9990Cmd* cmd, UInt8 opcode, V9990Mode mode, UInt8 r6, UInt32
     setMode(cmd, mode, r6);
     cmd->opcode   = opcode;
     cmd->time     = time;
+    cmd->half     = 0;
+    cmd->waiting  = 0;
     cmd->status   = (UInt8)((cmd->status & V9990_CMD_BD) | V9990_CMD_CE);
     cmd->anx      = wrappedNx(cmd);
     cmd->any      = wrappedNy(cmd);
     cmd->bits     = 0;
     cmd->lastDot  = 0;
     cmd->lastByte = 0;
+    v9990CmdSetTiming(cmd, cmd->slot);
 
     switch (opcode >> 4) {
     case OP_STOP:
@@ -732,7 +993,7 @@ void v9990CmdStart(V9990Cmd* cmd, UInt8 opcode, V9990Mode mode, UInt8 r6, UInt32
         break;
     case OP_BMLX:
         cmd->dstAddress = linearAddress(cmd->dx, cmd->dy);
-        cmd->data = 0;
+        cmd->buffer = 0;
         break;
     case OP_BMLL:
         cmd->srcAddress = linearAddress(cmd->sx, cmd->sy);
@@ -860,6 +1121,8 @@ void v9990CmdSaveState(V9990Cmd* cmd)
     saveStateSet(state, "bpp",        cmd->bpp);
     saveStateSet(state, "width",      cmd->width);
     saveStateSet(state, "time",       cmd->time);
+    saveStateSet(state, "half",       cmd->half);
+    saveStateSet(state, "slot",       cmd->slot);
     saveStateSet(state, "waiting",    cmd->waiting);
     saveStateSet(state, "anx",        cmd->anx);
     saveStateSet(state, "any",        cmd->any);
@@ -869,6 +1132,7 @@ void v9990CmdSaveState(V9990Cmd* cmd)
     saveStateSet(state, "srcAddress", cmd->srcAddress);
     saveStateSet(state, "dstAddress", cmd->dstAddress);
     saveStateSet(state, "data",       cmd->data);
+    saveStateSet(state, "buffer",     cmd->buffer);
     saveStateSet(state, "partial",    cmd->partial);
     saveStateSet(state, "bits",       cmd->bits);
     saveStateSet(state, "lastDot",    cmd->lastDot);
@@ -905,6 +1169,8 @@ void v9990CmdLoadState(V9990Cmd* cmd, UInt32 time)
     cmd->bpp        = saveStateGet(state, "bpp",        4);
     cmd->width      = saveStateGet(state, "width",      256);
     cmd->time       = saveStateGet(state, "time",       time);
+    cmd->half       = (UInt8) saveStateGet(state, "half",       0);
+    cmd->slot       = saveStateGet(state, "slot",       0);
     cmd->waiting    = saveStateGet(state, "waiting",    0);
     cmd->anx        = saveStateGet(state, "anx",        0);
     cmd->any        = saveStateGet(state, "any",        0);
@@ -914,10 +1180,12 @@ void v9990CmdLoadState(V9990Cmd* cmd, UInt32 time)
     cmd->srcAddress = saveStateGet(state, "srcAddress", 0);
     cmd->dstAddress = saveStateGet(state, "dstAddress", 0);
     cmd->data       = (UInt8) saveStateGet(state, "data",       0);
+    cmd->buffer     = (UInt8) saveStateGet(state, "buffer",     0);
     cmd->partial    = (UInt8) saveStateGet(state, "partial",    0);
     cmd->bits       = saveStateGet(state, "bits",       0);
     cmd->lastDot    = saveStateGet(state, "lastDot",    0);
     cmd->lastByte   = saveStateGet(state, "lastByte",   0);
+    v9990CmdSetTiming(cmd, cmd->slot);
 
     saveStateClose(state);
 }
