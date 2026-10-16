@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -83,8 +86,23 @@ int videoManagerGetActive()
     return -1;
 }
 
-void videoManagerSetMode(int index, VideoMode videoMode, VideoMode modeMask)
+static int videoManagerIndexOf(int handle)
 {
+    int index;
+    for (index = 0; index < videoManager.count; index++) {
+        if (videoManager.di[index].handle == handle + 1) {
+            return index;
+        }
+    }
+    return -1;
+}
+
+void videoManagerSetMode(int handle, VideoMode videoMode, VideoMode modeMask)
+{
+    int index = videoManagerIndexOf(handle);
+    if (index < 0) {
+        return;
+    }
     videoManager.di[index].videoMode = videoMode;
     videoManager.di[index].videoMask = modeMask;
     if (videoManagerIsActive(index)) {
@@ -122,6 +140,14 @@ void videoManagerSetActive(int index)
         if (activeIndex != index && videoManager.di[index].callbacks.enable != NULL) {
             videoManager.di[index].callbacks.enable(videoManager.di[index].ref);
         }
+    }
+}
+
+void videoManagerActivate(int handle)
+{
+    int index = videoManagerIndexOf(handle);
+    if (index >= 0) {
+        videoManagerSetActive(index);
     }
 }
 
@@ -163,19 +189,9 @@ int videoManagerRegister(const char* name, FrameBufferData* frameBuffer,
 void videoManagerUnregister(int handle)
 {
     int isActive;
-    int i;
+    int i = videoManagerIndexOf(handle);
 
-    if (videoManager.count == 0) {
-        return;
-    }
-
-    for (i = 0; i < videoManager.count; i++) {
-        if (videoManager.di[i].handle == handle + 1) {
-            break;
-        }
-    }
-
-    if (i == videoManager.count) {
+    if (i < 0) {
         return;
     }
 

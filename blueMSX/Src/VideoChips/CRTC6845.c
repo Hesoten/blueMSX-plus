@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik, Tomas Karlsson
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -234,7 +237,7 @@ void crtcMemWrite(CRTC6845* crtc, UInt16 address, UInt8 value)
 {
     crtc->vram[address & crtc->vramMask] = value;
     if (!crtc->videoEnabled && boardGetVideoAutodetect() && videoManagerGetCount() > 1) {
-        videoManagerSetActive(crtc->videoHandle);
+        videoManagerActivate(crtc->videoHandle);
     }
 }
 
