@@ -170,73 +170,86 @@ static FrameBuffer* frameBufferFlipViewFrame4(int mixFrames)
 }
 
 
-static FrameBuffer* frameBufferFlipDrawFrame1()
+// Frame indices are only kept in range for the active buffer.
+static void resetStaleIndices(FrameBufferData* fb)
 {
-    if (currentBuffer == NULL) {
-        return NULL;
+    if (fb->viewFrame >= frameBufferCount || fb->drawFrame >= frameBufferCount) {
+        int i;
+        fb->viewFrame = 0;
+        fb->drawFrame = frameBufferCount > 1 ? 1 : 0;
+        for (i = 0; i < MAX_FRAMES_PER_FRAMEBUFFER; i++) {
+            fb->frame[i].age = 0;
+        }
     }
-    return currentBuffer->frame;
 }
 
-static FrameBuffer* frameBufferFlipDrawFrame2()
+static FrameBuffer* frameBufferFlipDrawFrame1(FrameBufferData* fb)
+{
+    if (fb == NULL) {
+        return NULL;
+    }
+    return fb->frame;
+}
+
+static FrameBuffer* frameBufferFlipDrawFrame2(FrameBufferData* fb)
 {
     FrameBuffer* frame;
 
-    if (currentBuffer == NULL) {
+    if (fb == NULL) {
         return NULL;
     }
     waitSem();
-    currentBuffer->drawFrame = currentBuffer->viewFrame;
-    frame = currentBuffer->frame + currentBuffer->drawFrame;
-    frame->age = ++currentBuffer->currentAge;
+    fb->drawFrame = fb->viewFrame;
+    frame = fb->frame + fb->drawFrame;
+    frame->age = ++fb->currentAge;
     signalSem();
     return frame;
 }
 
-static FrameBuffer* frameBufferFlipDrawFrame3()
+static FrameBuffer* frameBufferFlipDrawFrame3(FrameBufferData* fb)
 {
     FrameBuffer* frame;
 
-    if (currentBuffer == NULL) {
+    if (fb == NULL) {
         return NULL;
     }
     waitSem();
-    switch (currentBuffer->drawFrame) {
-    case 0: currentBuffer->drawFrame = currentBuffer->viewFrame == 1 ? 2 : 1; break;
-    case 1: currentBuffer->drawFrame = currentBuffer->viewFrame == 2 ? 0 : 2; break;
-    case 2: currentBuffer->drawFrame = currentBuffer->viewFrame == 0 ? 1 : 0; break;
+    switch (fb->drawFrame) {
+    case 0: fb->drawFrame = fb->viewFrame == 1 ? 2 : 1; break;
+    case 1: fb->drawFrame = fb->viewFrame == 2 ? 0 : 2; break;
+    case 2: fb->drawFrame = fb->viewFrame == 0 ? 1 : 0; break;
     }
-    frame = currentBuffer->frame + currentBuffer->drawFrame;
-    frame->age = ++currentBuffer->currentAge;
+    frame = fb->frame + fb->drawFrame;
+    frame->age = ++fb->currentAge;
     signalSem();
     return frame;
 }
 
 
-static FrameBuffer* frameBufferFlipDrawFrame4()
+static FrameBuffer* frameBufferFlipDrawFrame4(FrameBufferData* fb)
 {
     FrameBuffer* frame;
-    int drawFrame = currentBuffer->drawFrame;
+    int drawFrame = fb->drawFrame;
     int drawAge = 0x7fffffff;
     int i;
 
-    if (currentBuffer == NULL) {
+    if (fb == NULL) {
         return NULL;
     }
 
     waitSem();
 
     for (i = 0; i < 4; i++) {
-        if (i == currentBuffer->viewFrame) continue;
-        if (currentBuffer->frame[i].age < drawAge) {
-            drawAge = currentBuffer->frame[i].age;
-            currentBuffer->drawFrame = i;
+        if (i == fb->viewFrame) continue;
+        if (fb->frame[i].age < drawAge) {
+            drawAge = fb->frame[i].age;
+            fb->drawFrame = i;
         }
     }
 
     signalSem();
-    frame = currentBuffer->frame + currentBuffer->drawFrame;
-    frame->age = ++currentBuffer->currentAge;
+    frame = fb->frame + fb->drawFrame;
+    frame->age = ++fb->currentAge;
     return frame;
 }
 
@@ -257,26 +270,31 @@ int frameBufferGetScanline()
     return curScanline;
 }
 
-FrameBuffer* frameBufferGetDrawFrame()
+FrameBuffer* frameBufferGetDrawFrameOf(FrameBufferData* fb)
 {
     FrameBuffer* frameBuffer;
 
-    if (currentBuffer == NULL) {
+    if (fb == NULL) {
         return NULL;
     }
 #ifdef WII
 
-    frameBuffer = currentBuffer->frame + currentBuffer->drawFrame;
+    frameBuffer = fb->frame + fb->drawFrame;
 #else
     if (confBlendFrames) {
-        frameBuffer = currentBuffer->blendFrame + currentBuffer->currentBlendFrame;
+        frameBuffer = fb->blendFrame + fb->currentBlendFrame;
     }
     else {
-        frameBuffer = currentBuffer->frame + currentBuffer->drawFrame;
+        frameBuffer = fb->frame + fb->drawFrame;
     }
 #endif
 
     return frameBuffer;
+}
+
+FrameBuffer* frameBufferGetDrawFrame()
+{
+    return frameBufferGetDrawFrameOf(currentBuffer);
 }
 
 void frameBufferSetFrameCount(int frameCount)
@@ -320,32 +338,39 @@ FrameBuffer* frameBufferFlipViewFrame(int mixFrames)
     return frameBuffer;
 }
 
-FrameBuffer* frameBufferFlipDrawFrame()
+FrameBuffer* frameBufferFlipDrawFrameOf(FrameBufferData* fb)
 {
     FrameBuffer* frameBuffer;
 
 #ifdef WII
     archThreadSleep(0); // wait one frame
 #endif
-    if (currentBuffer == NULL) {
+    if (fb == NULL) {
         return NULL;
+    }
+    if (fb != currentBuffer) {
+        waitSem();
+        resetStaleIndices(fb);
+        signalSem();
     }
 #ifndef WII
     if (confBlendFrames) {
-        mixFrame(currentBuffer->frame + currentBuffer->drawFrame,
-                 &currentBuffer->blendFrame[0], &currentBuffer->blendFrame[1], 50);
+        mixFrame(fb->frame + fb->drawFrame,
+                 &fb->blendFrame[0], &fb->blendFrame[1], 50);
     }
 #endif
-    curScanline = 0;
+    if (fb == currentBuffer) {
+        curScanline = 0;
 
-    if (mixMode == MIXMODE_EXTERNAL) {
-        frameBufferExternal(currentBuffer->frame + currentBuffer->drawFrame);
-    }
-    else if (mixMode == MIXMODE_BOTH) {
-        frameBufferSuperimpose(currentBuffer->frame + currentBuffer->drawFrame);
-    }
-    else if (mixMode == MIXMODE_NONE) {
-        frameBufferBlack(currentBuffer->frame + currentBuffer->drawFrame);
+        if (mixMode == MIXMODE_EXTERNAL) {
+            frameBufferExternal(fb->frame + fb->drawFrame);
+        }
+        else if (mixMode == MIXMODE_BOTH) {
+            frameBufferSuperimpose(fb->frame + fb->drawFrame);
+        }
+        else if (mixMode == MIXMODE_NONE) {
+            frameBufferBlack(fb->frame + fb->drawFrame);
+        }
     }
 
 //    ++xxxx;
@@ -354,25 +379,30 @@ FrameBuffer* frameBufferFlipDrawFrame()
 
     switch (frameBufferCount) {
     case 2:
-        frameBuffer = frameBufferFlipDrawFrame2();
+        frameBuffer = frameBufferFlipDrawFrame2(fb);
         break;
     case 3:
-        frameBuffer = frameBufferFlipDrawFrame3();
+        frameBuffer = frameBufferFlipDrawFrame3(fb);
         break;
     case 4:
-        frameBuffer = frameBufferFlipDrawFrame4();
+        frameBuffer = frameBufferFlipDrawFrame4(fb);
         break;
     default:
-        frameBuffer = frameBufferFlipDrawFrame1();
+        frameBuffer = frameBufferFlipDrawFrame1(fb);
         break;
     }
 #ifndef WII
     if (confBlendFrames) {
-        currentBuffer->currentBlendFrame ^= 1;
-        frameBuffer = currentBuffer->blendFrame + currentBuffer->currentBlendFrame;
+        fb->currentBlendFrame ^= 1;
+        frameBuffer = fb->blendFrame + fb->currentBlendFrame;
     }
 #endif
     return frameBuffer;
+}
+
+FrameBuffer* frameBufferFlipDrawFrame()
+{
+    return frameBufferFlipDrawFrameOf(currentBuffer);
 }
 
 void frameBufferSetBlendFrames(int blendFrames)
@@ -425,16 +455,8 @@ void frameBufferDataDestroy(FrameBufferData* frameData)
 void frameBufferSetActive(FrameBufferData* frameData)
 {
     waitSem();
-    // Frame indices are only kept in range for the active buffer.
-    if (frameData != NULL &&
-        (frameData->viewFrame >= frameBufferCount || frameData->drawFrame >= frameBufferCount))
-    {
-        int i;
-        frameData->viewFrame = 0;
-        frameData->drawFrame = frameBufferCount > 1 ? 1 : 0;
-        for (i = 0; i < MAX_FRAMES_PER_FRAMEBUFFER; i++) {
-            frameData->frame[i].age = 0;
-        }
+    if (frameData != NULL) {
+        resetStaleIndices(frameData);
     }
     currentBuffer = frameData;
     if (frameData == NULL) {

@@ -77,8 +77,10 @@ void frameBufferSetFrameCount(int frameCount);
 
 FrameBuffer* frameBufferGetViewFrame();
 FrameBuffer* frameBufferGetDrawFrame();
+FrameBuffer* frameBufferGetDrawFrameOf(FrameBufferData* frameData);
 FrameBuffer* frameBufferFlipViewFrame(int mixFrames);
 FrameBuffer* frameBufferFlipDrawFrame();
+FrameBuffer* frameBufferFlipDrawFrameOf(FrameBufferData* frameData);
 
 void frameBufferSetScanline(int scanline);
 int frameBufferGetScanline();
