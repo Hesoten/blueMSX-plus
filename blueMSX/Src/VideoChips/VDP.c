@@ -155,6 +155,8 @@ static int vramAddr;
 #define vdpIsPairedBitmap(vdp) (VDP_VRAM_INTERLEAVED((vdp)->screenMode))
 #define vdpIsInterleaved(vdp)  (vdpIsPairedBitmap(vdp) && !(vdp)->sprMode3)
 #define vdpIsBitmapLinear(vdp) (vdpIsPairedBitmap(vdp) && (vdp)->sprMode3)
+/* What the display and the sprites take of the command engine's VRAM slots. */
+#define vdpCmdSlotLoad(vdp)    (!((vdp)->vdpRegs[1] & 0x40) ? 0 : vdpIsSpritesOff((vdp)->vdpRegs) ? 1 : (vdp)->sprMode3 ? 3 : 2)
 #define MAP_VRAM(vdp, addr) ((vdp)->vramPtr + ((vramAddr = addr, vdpIsInterleaved(vdp) ? VDP_ILV(vdp, vramAddr) : vramAddr) & (vdp)->vramAccMask))
 #define MAP_VRAMINDEX(vdp, addr) ((vramAddr = addr, vdpIsInterleaved(vdp) ? VDP_ILV(vdp, vramAddr) : vramAddr))
 
@@ -611,6 +613,7 @@ static void vdpUpdateVramMode(VDP* vdp)
     vdpCmdSetVram256(vdp->cmdEngine, wide);
     vdpCmdSetExtCommands(vdp->cmdEngine, vdpIsV9968Native(vdp));
     vdpCmdSetInterleave(vdp->cmdEngine, vdpIsInterleaved(vdp));
+    vdpCmdSetSlotLoad(vdp->cmdEngine, vdpCmdSlotLoad(vdp));
 }
 
 
@@ -1178,6 +1181,7 @@ static void onScrModeChange(VDP* vdp, UInt32 time)
     
     vdpSetScreenMode(vdp->cmdEngine, cmdEngineScreenMode(vdp), vdp->vdpRegs[25] & 0x40);
     vdpCmdSetInterleave(vdp->cmdEngine, vdpIsInterleaved(vdp));
+    vdpCmdSetSlotLoad(vdp->cmdEngine, vdpCmdSlotLoad(vdp));
 
     if (screenMode != vdp->screenMode) {
         vdp->scr0splitLine = (scanLine - vdp->firstLine) & ~7;

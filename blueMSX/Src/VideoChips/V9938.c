@@ -206,6 +206,9 @@ struct VdpCmdState {
     ** timing, and what each of its steps costs there. */
     int    hsModel;
     int    hsStep;
+    /* hsSlotLoad's index for what the display and the sprites take of the VRAM
+    ** slots. The VDP keeps it up to date, so it is not saved. */
+    int    slotLoad;
     int    forceGraphic4;
     int    rawScrMode;
     int    cmdEnable;
@@ -398,6 +401,11 @@ static int hsScale(int units, int floor)
 #define HS_LINE_WORD     404
 #define HS_SRC_MISS      307
 
+/* LRMM's VRAM accesses in thousandths of the above, which came with sprite mode
+** 2 on, for the display off, the sprites off, mode 1 or 2 and SP3. The RTL loses
+** slots to the sprites by mode, not by how many are shown (SPRBENCH). */
+static const int hsSlotLoad[4] = { 951, 974, 1000, 1027 };
+
 /* A VRAM access plus the wait after it without R#20 HS, in units. */
 #define HS_COMPAT_ACCESS 336
 
@@ -461,10 +469,14 @@ static int hsSetTiming(VdpCmdState* vdpCmd)
         break;
     case CM_LMMM:
     case CM_LRMM:
-        row = nx * HS_COPY_DOT + HS_EVICT * hsRowWords(vdpCmd->DX, nx, ppw, vdpCmd->TX);
+        row = HS_EVICT * hsRowWords(vdpCmd->DX, nx, ppw, vdpCmd->TX);
         if (vdpCmd->CM == CM_LMMM) {
             row += HS_SRC_MISS * hsRowWords(vdpCmd->SX, nx, ppw, vdpCmd->TX);
         }
+        else {
+            row = row * hsSlotLoad[vdpCmd->slotLoad] / 1000;
+        }
+        row += nx * HS_COPY_DOT;
         break;
     /* With SCREEN 7 and 8 interleaved, as they are unless sprite mode 3 is on,
     ** consecutive bytes sit in different words and evictions come back to back. */
@@ -1047,7 +1059,7 @@ static void LrmmEngine(VdpCmdState* vdpCmd)
     ** and the row being sampled sits one bit further up. */
     int step = vdpCmd->xhr ? 2 : 1;
     int delta = vdpCmd->hsStep;
-    int miss = hsScale(HS_SRC_MISS / 8, 0);
+    int miss = hsScale((HS_SRC_MISS / 8 * 8 * hsSlotLoad[vdpCmd->slotLoad] / 1000 + 4) / 8, 0);
     int owed = 0;
     int ppw = 4 * PPB[vdpCmd->screenMode];
     int cnt = vdpCmd->VdpOpsCnt;
@@ -1055,21 +1067,20 @@ static void LrmmEngine(VdpCmdState* vdpCmd)
     while (cnt > 0) {
         int sx = vdpCmd->lrmmSX >> 8;
         int sy = vdpCmd->lrmmSY >> (vdpCmd->xhr ? 9 : 8);
+        int word = ((sy & 0x1fff) << 10) | (((sx & 0xfff) / ppw) & 0x3ff);
         UInt8 colour;
 
+        /* A dot that reads another source word than the last one pays for
+        ** reading it in, with the step, so the last dot cannot pass for a
+        ** command that ran out of budget. The RTL reads outside the window too. */
+        if (word != vdpCmd->lrmmSrcWord) {
+            vdpCmd->lrmmSrcWord = word;
+            owed += miss;
+        }
         if (sx < vdpCmd->WSX || sx > vdpCmd->WEX || sy < vdpCmd->WSY || sy > vdpCmd->WEY) {
             colour = CL;
         }
         else {
-            int word = (sy << 10) | ((sx / ppw) & 0x3ff);
-
-            /* A dot that reads another source word than the last one pays for
-            ** reading it in, with the step, so the last dot cannot pass for a
-            ** command that ran out of budget. */
-            if (word != vdpCmd->lrmmSrcWord) {
-                vdpCmd->lrmmSrcWord = word;
-                owed += miss;
-            }
             colour = getPixel(vdpCmd, vdpCmd->screenMode, sx, sy);
         }
         setPixel(vdpCmd, vdpCmd->screenMode, ADX, DY, colour & Mask[vdpCmd->screenMode], LO);
@@ -1548,6 +1559,7 @@ VdpCmdState* vdpCmdCreate(int vramSize, UInt8* vramPtr, UInt32 systemTime)
     vdpCmd->vramMask[0]   = vramSize > 0x20000 ? 0x1ffff : vramSize - 1;
     vdpCmd->vramMask[1]   = vramSize > 0x20000 ? 0xffff  : vramSize - 1;
     vdpCmd->expWindow     = 1;
+    vdpCmd->slotLoad      = 2;
     vdpCmdResetExtRegs(vdpCmd);
 
     vdpCmd->vramRead  = vdpCmd->vramBase + vdpCmd->vramOffset[0];
@@ -1940,6 +1952,11 @@ void vdpCmdAddCredit(VdpCmdState* vdpCmd, int units)
 void vdpCmdSetHighSpeed(VdpCmdState* vdpCmd, int enable)
 {
     vdpCmd->highSpeed = enable;
+}
+
+void vdpCmdSetSlotLoad(VdpCmdState* vdpCmd, int load)
+{
+    vdpCmd->slotLoad = load & 3;
 }
 
 void vdpCmdSetExpansionWindow(VdpCmdState* vdpCmd, int enable)

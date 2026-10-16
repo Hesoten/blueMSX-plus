@@ -63,6 +63,8 @@ void vdpCmdClearEndFlag(VdpCmdState* state);
 UInt32 vdpCmdGetEndTime(VdpCmdState* state);
 void vdpCmdAddCredit(VdpCmdState* state, int units);
 void vdpCmdSetHighSpeed(VdpCmdState* state, int enable);
+/* 0 display off, 1 sprites off, 2 sprite mode 1 or 2, 3 sprite mode 3. */
+void vdpCmdSetSlotLoad(VdpCmdState* state, int load);
 
 void vdpSetScreenMode(VdpCmdState* state, int screenMode, int commandEnable);
 void vdpSetTimingMode(VdpCmdState* state, UInt8 timingMode);
