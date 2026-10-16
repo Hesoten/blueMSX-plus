@@ -835,6 +835,7 @@
     <ClCompile Include="..\..\Src\VideoChips\V9938.c" />
     <ClCompile Include="..\..\Src\VideoChips\V9990.c" />
     <ClCompile Include="..\..\Src\VideoChips\V9990Render.c" />
+    <ClCompile Include="..\..\Src\VideoChips\V9990RenderPattern.c" />
     <ClCompile Include="..\..\Src\VideoChips\VDP.c" />
     <ClCompile Include="..\..\Src\VideoChips\VideoManager.c" />
     <ClCompile Include="..\..\Src\VideoRender\hq2x.c" />

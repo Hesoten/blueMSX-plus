@@ -34,4 +34,17 @@ UInt16 v9990PaletteColor(const UInt8* palette, int index);
 int v9990RenderBitmapLine(UInt16* dst, int count, const UInt8* vram, const UInt8* palette,
                           UInt8 r6, UInt8 r13, UInt32 x, UInt32 y);
 
+/* A P1 or P2 display line, with the registers as they stand at its commit. */
+typedef struct {
+    int    p2;
+    int    displayY;    /* display line, for sprites and the R#27 boundary */
+    UInt32 ax, ay;      /* image dot and line of layer A at display dot 0 */
+    UInt32 bx, by;      /* the same for layer B (P1 only) */
+    UInt8  r8, r13, r15, r25, r27;
+} V9990PatternLine;
+
+/* Draws count dots of a pattern-mode display line, from display dot dot. */
+void v9990RenderPatternLine(UInt16* dst, int count, const UInt8* vram, const UInt8* palette,
+                            const V9990PatternLine* line, int dot);
+
 #endif

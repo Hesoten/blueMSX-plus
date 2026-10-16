@@ -63,7 +63,12 @@
 #define R_SCROLL_AY_HI  18
 #define R_SCROLL_AX_LO  19
 #define R_SCROLL_AX_HI  20
+#define R_SCROLL_BY_LO  21
 #define R_SCROLL_BY_HI  22
+#define R_SCROLL_BX_LO  23
+#define R_SCROLL_BX_HI  24
+#define R_SPRITE_BASE   25
+#define R_PRIORITY      27
 #define R_CMD_OPCODE    52
 #define R_CMD_BORDER_LO 53
 #define R_CMD_BORDER_HI 54
@@ -139,8 +144,9 @@ struct V9990 {
     int    windowTopLine;
 
     /* The line that shows image row SCAY: the display start, or the line
-    ** after an R#17 write during the display. */
+    ** of an R#17 write during the display. R#21 does the same for SCBY. */
     int    scrollLineA;
+    int    scrollLineB;
 
     /* Lines from lineZero; lines before renderLine are in the frame buffer. */
     FrameBufferData* frameBufferData;
@@ -390,51 +396,101 @@ static void fillLine(UInt16* line, int count, UInt16 color)
     }
 }
 
+/* Finds the samples [first, end) of a line whose centres fall in the display,
+** where a sample is one dot, and the display dot of sample first. */
+static int displaySpan(int count, int ucPerSample, int window, int left, int right,
+                       int* first, int* end, int* dot)
+{
+    *first = floorDiv(left - window - ucPerSample / 2 + ucPerSample - 1, ucPerSample);
+    *end   = floorDiv(right - window - ucPerSample / 2 + ucPerSample - 1, ucPerSample);
+    if (*first < 0) {
+        *first = 0;
+    }
+    if (*end > count) {
+        *end = count;
+    }
+    *dot = floorDiv(window + *first * ucPerSample + ucPerSample / 2 - left, ucPerSample);
+    return *first < *end;
+}
+
+/* Image rows since the line that shows the scroll origin. A frame redrawn
+** after a state load can start above a restart line. */
+static UInt32 scrollRow(V9990* v9990, int scanLine, int restartLine)
+{
+    return scanLine >= restartLine ? scanLine - restartLine : scanLine - v9990->displayStartLine;
+}
+
+/* Layer A rolls at the image height unless R#18 asks for 256 or 512 lines. */
+static UInt32 rollMask(V9990* v9990, UInt32 noRoll)
+{
+    switch (v9990->latchScrollAYHi >> 6) {
+    case 0:  return noRoll;
+    case 2:  return 0x01ff;
+    default: return 0x00ff;
+    }
+}
+
 /* Draws the B1/B3 image over the display samples of a line, whose samples
 ** are one dot each. */
 static void drawBitmap(V9990* v9990, UInt16* line, int count, int ucPerSample,
                        int window, int left, int right, int scanLine)
 {
-    int first = floorDiv(left - window - ucPerSample / 2 + ucPerSample - 1, ucPerSample);
-    int end   = floorDiv(right - window - ucPerSample / 2 + ucPerSample - 1, ucPerSample);
     UInt32 scrollX = v9990->regs[R_SCROLL_AX_LO] | (v9990->regs[R_SCROLL_AX_HI] << 3);
     UInt32 scrollY = v9990->regs[R_SCROLL_AY_LO] | (v9990->latchScrollAYHi << 8);
-    UInt32 rollMask;
+    UInt32 mask = rollMask(v9990, 0x1fff);
     UInt32 row;
-    UInt32 dot;
+    int first;
+    int end;
+    int dot;
 
-    if (first < 0) {
-        first = 0;
-    }
-    if (end > count) {
-        end = count;
-    }
-    if (first >= end) {
+    if (!displaySpan(count, ucPerSample, window, left, right, &first, &end, &dot)) {
         return;
     }
-    dot = floorDiv(window + first * ucPerSample + ucPerSample / 2 - left, ucPerSample);
 
     /* B3 at 16 bpp scrolls in 2-dot units. */
     if (v9990->mode == V9990_MODE_B3 && (v9990->modeR6 & 3) == 3) {
         scrollX &= ~1;
     }
 
-    /* A frame redrawn after a state load can start above a restart line. */
-    row = scanLine >= v9990->scrollLineA ? scanLine - v9990->scrollLineA
-                                         : scanLine - v9990->displayStartLine;
+    row = scrollRow(v9990, scanLine, v9990->scrollLineA);
     if (v9990->latchIl && (v9990->regs[R_SCREEN_MODE1] & 0x04)) {
         row = 2 * row + (v9990->secondField ? 1 : 0);
     }
 
-    switch (v9990->latchScrollAYHi >> 6) {
-    case 0:  rollMask = 0x1fff; break;
-    case 2:  rollMask = 0x01ff; break;
-    default: rollMask = 0x00ff; break;
-    }
-
     v9990RenderBitmapLine(line + first, end - first, v9990->vram, v9990->palette,
                           v9990->modeR6, v9990->regs[R_PALETTE_CTRL], dot + scrollX,
-                          (scrollY & ~rollMask & 0x1fff) + ((row + scrollY) & rollMask));
+                          (scrollY & ~mask & 0x1fff) + ((row + scrollY) & mask));
+}
+
+/* Draws a P1 or P2 line over its display samples. Layer B always rolls at 512 lines. */
+static void drawPattern(V9990* v9990, UInt16* line, int count, int ucPerSample,
+                        int window, int left, int right, int scanLine)
+{
+    V9990PatternLine p;
+    UInt32 scrollAY = v9990->regs[R_SCROLL_AY_LO] | (v9990->latchScrollAYHi << 8);
+    UInt32 scrollBY = v9990->regs[R_SCROLL_BY_LO] | ((v9990->latchScrollBYHi & 1) << 8);
+    UInt32 mask = rollMask(v9990, 0x1ff);
+    int first;
+    int end;
+    int dot;
+
+    if (!displaySpan(count, ucPerSample, window, left, right, &first, &end, &dot)) {
+        return;
+    }
+
+    p.p2       = v9990->mode == V9990_MODE_P2;
+    p.displayY = scanLine - v9990->displayStartLine;
+    p.ax = (v9990->regs[R_SCROLL_AX_LO] | (v9990->regs[R_SCROLL_AX_HI] << 3)) & (p.p2 ? 0x3ff : 0x1ff);
+    p.ay = (scrollAY & ~mask & 0x1ff) + ((scrollRow(v9990, scanLine, v9990->scrollLineA) + scrollAY) & mask);
+    p.bx = (v9990->regs[R_SCROLL_BX_LO] | (v9990->regs[R_SCROLL_BX_HI] << 3)) & 0x1ff;
+    p.by = (scrollRow(v9990, scanLine, v9990->scrollLineB) + scrollBY) & 0x1ff;
+    p.r8  = v9990->regs[R_CONTROL];
+    p.r13 = v9990->regs[R_PALETTE_CTRL];
+    p.r15 = v9990->regs[R_BACKDROP];
+    p.r25 = v9990->regs[R_SPRITE_BASE];
+    p.r27 = v9990->regs[R_PRIORITY];
+
+    v9990RenderPatternLine(line + first, end - first, v9990->vram, v9990->palette, &p, dot);
 }
 
 /* Draws scan line scanLine (counted from lineZero) into frame buffer line y. */
@@ -481,6 +537,9 @@ static void drawLine(V9990* v9990, FrameBuffer* frame, int y, int scanLine)
 
     if (mode == V9990_MODE_B1 || mode == V9990_MODE_B3) {
         drawBitmap(v9990, line, count, ucPerSample, window, left, right, scanLine);
+    }
+    else if (mode == V9990_MODE_P1 || mode == V9990_MODE_P2) {
+        drawPattern(v9990, line, count, ucPerSample, window, left, right, scanLine);
     }
 }
 
@@ -652,6 +711,7 @@ static void frameStart(V9990* v9990, UInt32 time)
     v9990->frameStartTime = time;
     calcFrameGeometry(v9990);
     v9990->scrollLineA = v9990->displayStartLine;
+    v9990->scrollLineB = v9990->displayStartLine;
     startPicture(v9990, frameBufferFlipDrawFrameOf(v9990->frameBufferData));
     followDisplay(v9990, wasOn);
 
@@ -750,16 +810,16 @@ static UInt8 readRegister(V9990* v9990, int reg)
     return v9990->regs[reg];
 }
 
-/* Writing the low byte of SCAY during the display makes the current line
-** image row SCAY, as the first display line is. */
-static void restartScrollA(V9990* v9990, UInt32 time)
+/* Writing the low byte of SCAY (SCBY) during the display makes the current
+** line image row SCAY (SCBY), as the first display line is. */
+static void restartScroll(V9990* v9990, int* restartLine, UInt32 time)
 {
     Int32 t = (Int32)(time - v9990->frameStartTime) - (Int32)v9990->lineZero;
     int line = floorDiv(t, (Int32)v9990->lineTicks);
 
     if ((v9990->latchControl & 0x80) &&
         line >= v9990->displayStartLine && line < v9990->displayEndLine) {
-        v9990->scrollLineA = line;
+        *restartLine = line;
     }
 }
 
@@ -793,7 +853,10 @@ static void writeRegister(V9990* v9990, int reg, UInt8 value, UInt32 time)
         updateIrq(v9990);
         break;
     case R_SCROLL_AY_LO:
-        restartScrollA(v9990, time);
+        restartScroll(v9990, &v9990->scrollLineA, time);
+        break;
+    case R_SCROLL_BY_LO:
+        restartScroll(v9990, &v9990->scrollLineB, time);
         break;
     case R_INT_LINE_LO:
     case R_INT_LINE_HI:
@@ -1066,6 +1129,7 @@ void v9990SaveState(V9990* v9990)
     saveStateSet(state, "hiArmed",         v9990->hiArmed);
     saveStateSet(state, "hiTime",          v9990->hiTime);
     saveStateSet(state, "scrollLineA",     v9990->scrollLineA);
+    saveStateSet(state, "scrollLineB",     v9990->scrollLineB);
 
     saveStateClose(state);
 
@@ -1116,6 +1180,7 @@ void v9990LoadState(V9990* v9990)
     v9990->hiArmed         = saveStateGet(state, "hiArmed",         0);
     v9990->hiTime          = saveStateGet(state, "hiTime",          0);
     v9990->scrollLineA     = saveStateGet(state, "scrollLineA",     -1);
+    v9990->scrollLineB     = saveStateGet(state, "scrollLineB",     -1);
 
     saveStateClose(state);
 
@@ -1131,6 +1196,9 @@ void v9990LoadState(V9990* v9990)
     calcFrameGeometry(v9990);
     if (v9990->scrollLineA < 0) {
         v9990->scrollLineA = v9990->displayStartLine;
+    }
+    if (v9990->scrollLineB < 0) {
+        v9990->scrollLineB = v9990->displayStartLine;
     }
 
     /* The shown source is restored by the video manager, not switched here. */
