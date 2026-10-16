@@ -195,6 +195,9 @@ struct V9990 {
     int    debugHandle;
 };
 
+/* The chip takes ports 0x60-0x6F, so there is at most one. */
+static V9990* theV9990 = NULL;
+
 UInt32 v9990MapAddress(V9990Mode mode, UInt32 address)
 {
     address &= V9990_VRAM_MASK;
@@ -1617,6 +1620,8 @@ V9990* v9990Create(void)
 
     v9990->debugHandle = debugDeviceRegister(DBGTYPE_VIDEO, "V9990", &debugCallbacks, v9990);
 
+    theV9990 = v9990;
+
     return v9990;
 }
 
@@ -1629,6 +1634,24 @@ void v9990SetShowOnDisplay(V9990* v9990, int enable)
 int v9990GetVideoHandle(V9990* v9990)
 {
     return v9990->videoHandle;
+}
+
+V9990Mode v9990GetShownMode(int* superimposed)
+{
+    V9990* v9990 = theV9990;
+
+    *superimposed = 0;
+    if (v9990 == NULL) {
+        return V9990_MODE_NONE;
+    }
+    if (v9990->presenter >= 0 && videoManagerIsHandleActive(v9990->presenter)) {
+        *superimposed = v9990->superimpose;
+        return v9990->frameMode;
+    }
+    if (videoManagerIsHandleActive(v9990->videoHandle)) {
+        return v9990->frameMode;
+    }
+    return V9990_MODE_NONE;
 }
 
 int v9990IsFrameKeyed(V9990* v9990)
@@ -1645,6 +1668,9 @@ void v9990SetPresenter(V9990* v9990, int handle, int superimpose)
 
 void v9990Destroy(V9990* v9990)
 {
+    if (theV9990 == v9990) {
+        theV9990 = NULL;
+    }
     debugDeviceUnregister(v9990->debugHandle);
 
     boardTimerDestroy(v9990->timerFrame);

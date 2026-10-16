@@ -42,7 +42,8 @@ typedef enum {
     V9990_MODE_B5,
     V9990_MODE_B6,
     V9990_MODE_B7,
-    V9990_MODE_STANDBY
+    V9990_MODE_STANDBY,
+    V9990_MODE_NONE
 } V9990Mode;
 
 typedef struct V9990 V9990;
@@ -59,6 +60,9 @@ int    v9990GetVideoHandle(V9990* v9990);
 ** and gives it its refresh rate and aspect; superimpose marks the YS
 ** colours and the blanking with frame buffer bit 15. */
 void   v9990SetPresenter(V9990* v9990, int handle, int superimpose);
+/* The display mode of the V9990 picture on the screen, or V9990_MODE_NONE
+** if it is not shown; superimposed is set if the VDP picture is under it. */
+V9990Mode v9990GetShownMode(int* superimposed);
 /* Nonzero if the frame that the last frame flip completed was drawn with
 ** the keys of a superimposing presenter. */
 int    v9990IsFrameKeyed(V9990* v9990);
