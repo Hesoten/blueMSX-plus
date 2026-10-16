@@ -73,6 +73,7 @@
 #define R_SCROLL_BX_HI  24
 #define R_SPRITE_BASE   25
 #define R_PRIORITY      27
+#define R_CURSOR_PAL    28
 #define R_CMD_OPCODE    52
 #define R_CMD_BORDER_LO 53
 #define R_CMD_BORDER_HI 54
@@ -521,6 +522,68 @@ static void expandDots(UInt16* line, int first, int end, int origin, int sampleW
     }
 }
 
+/* Draws the two 32x32 cursors over display dots [dot0, dot0 + n); cursor 0
+** is on top. X counts display dots and Y display lines (in non-overscan
+** lines), both rolling at 1024x512; Y + 1 is shown, Y + 2 in interlace. */
+static void drawCursors(V9990* v9990, UInt16* dots, int dot0, int n, int scanLine)
+{
+    UInt32 pattern[2];
+    UInt16 color[2];
+    UInt8  flags[2];
+    int    x[2];
+    int    line = scanLine - v9990->displayStartLine;
+    int    shown = 0;
+    int    c;
+    int    i;
+
+    if (v9990->regs[R_CONTROL] & 0x40) {
+        return;
+    }
+    if (v9990->latchIl && (v9990->regs[R_SCREEN_MODE1] & 0x04)) {
+        line = 2 * line + (v9990->secondField ? 1 : 0);
+    }
+    if (isOverscan(v9990->frameMode)) {
+        line -= v9990->latchPal ? 41 : 14;
+    }
+
+    for (c = 0; c < 2; c++) {
+        UInt32 attr = 0x7fe00 + 8 * c;
+        int y = v9990->vram[V9990_MAP_BX(attr)] | ((v9990->vram[V9990_MAP_BX(attr + 2)] & 1) << 8);
+        int row = (line - y - (v9990->latchIl ? 2 : 1)) & 511;
+
+        flags[c]   = v9990->vram[V9990_MAP_BX(attr + 6)];
+        x[c]       = v9990->vram[V9990_MAP_BX(attr + 4)] | ((flags[c] & 3) << 8);
+        pattern[c] = 0;
+        if (row >= 32 || (flags[c] & 0x10) || !(flags[c] & 0xe0)) {
+            continue;
+        }
+        for (i = 0; i < 4; i++) {
+            pattern[c] = (pattern[c] << 8) |
+                         v9990->vram[V9990_MAP_BX(0x7ff00 + 0x80 * c + 4 * row + i)];
+        }
+        /* EOR complements the image, or the palette colour when CC != 0. */
+        color[c] = paletteColor(v9990, ((v9990->regs[R_CURSOR_PAL] & 0x0f) << 2) | (flags[c] >> 6));
+        if (flags[c] & 0x20) {
+            color[c] ^= 0x7fff;
+        }
+        shown |= pattern[c] != 0;
+    }
+    if (!shown) {
+        return;
+    }
+
+    for (i = 0; i < n; i++) {
+        for (c = 0; c < 2; c++) {
+            int bit = (dot0 + i - x[c]) & 1023;
+
+            if (bit < 32 && (pattern[c] & (0x80000000u >> bit))) {
+                dots[i] = (flags[c] & 0xc0) ? color[c] : dots[i] ^ 0x7fff;
+                break;
+            }
+        }
+    }
+}
+
 /* Draws the bitmap image over the samples of a line that the display
 ** [0, displayW) covers, in the units of expandDots. */
 static void drawBitmap(V9990* v9990, UInt16* line, int count, int origin, int sampleW,
@@ -574,11 +637,11 @@ static void drawBitmap(V9990* v9990, UInt16* line, int count, int origin, int sa
 
     hiRes = mode == V9990_MODE_B4 || mode == V9990_MODE_B5 ||
             mode == V9990_MODE_B6 || mode == V9990_MODE_B7;
-    if (v9990RenderBitmapLine(dots, dot1 - dot0, v9990->vram, v9990->palette,
-                              v9990->modeR6, v9990->regs[R_PALETTE_CTRL], dot0 + scrollX,
-                              (scrollY & ~mask & 0x1fff) + ((row + scrollY) & mask), hiRes)) {
-        expandDots(line, first, end, origin, sampleW, dotW, dots, dot0, dot1 - dot0);
-    }
+    v9990RenderBitmapLine(dots, dot1 - dot0, v9990->vram, v9990->palette,
+                          v9990->modeR6, v9990->regs[R_PALETTE_CTRL], dot0 + scrollX,
+                          (scrollY & ~mask & 0x1fff) + ((row + scrollY) & mask), hiRes);
+    drawCursors(v9990, dots, dot0, dot1 - dot0, scanLine);
+    expandDots(line, first, end, origin, sampleW, dotW, dots, dot0, dot1 - dot0);
 }
 
 /* Draws a P1 or P2 line over its display samples. Layer B always rolls at 512 lines. */

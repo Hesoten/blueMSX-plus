@@ -24,6 +24,7 @@
 #include "V9990Render.h"
 #include "V9990.h"
 #include "FrameBuffer.h"
+#include <stddef.h>
 
 /* The DAC is linear: 5-bit levels widen to 8 bits by bit replication. */
 #define COLOR5(r, g, b) ((UInt16)videoGetColor(((r) << 3) | ((r) >> 2), \
@@ -130,8 +131,55 @@ static void drawBd16(UInt16* dst, int count, const UInt8* vram, UInt32 pos)
     }
 }
 
-int v9990RenderBitmapLine(UInt16* dst, int count, const UInt8* vram, const UInt8* palette,
-                          UInt8 r6, UInt8 r13, UInt32 x, UInt32 y, int hiRes)
+static int clamp5(int v)
+{
+    return v < 0 ? 0 : v > 31 ? 31 : v;
+}
+
+/* Groups of 4 dots share U (J) from bytes 2-3 and V (K) from bytes 0-1; YJK
+** is YUV with G and B swapped. With pal (YAE), A = 1 selects a palette
+** colour and the low bit of Y reads 0. */
+static void drawYuv(UInt16* dst, int count, const UInt8* vram, const UInt16* pal,
+                    int yjk, UInt32 pos)
+{
+    UInt32 address = pos & ~3u;
+    int k = (int)(pos & 3);
+    int i = 0;
+
+    while (i < count) {
+        UInt8 d[4];
+        int u;
+        int v;
+
+        d[0] = readBx(vram, address);
+        d[1] = readBx(vram, address + 1);
+        d[2] = readBx(vram, address + 2);
+        d[3] = readBx(vram, address + 3);
+        address += 4;
+        u = (d[2] & 7) + ((d[3] & 3) << 3) - ((d[3] & 4) << 3);
+        v = (d[0] & 7) + ((d[1] & 3) << 3) - ((d[1] & 4) << 3);
+        for (; k < 4 && i < count; k++, i++) {
+            int y;
+            int r;
+            int g;
+            int b;
+
+            if (pal != NULL && (d[k] & 0x08)) {
+                dst[i] = pal[d[k] >> 4];
+                continue;
+            }
+            y = pal != NULL ? (d[k] >> 3) & 0x1e : d[k] >> 3;
+            r = clamp5(y + u);
+            g = clamp5((5 * y - 2 * u - v) / 4);
+            b = clamp5(y + v);
+            dst[i] = yjk ? COLOR5(r, b, g) : COLOR5(r, g, b);
+        }
+        k = 0;
+    }
+}
+
+void v9990RenderBitmapLine(UInt16* dst, int count, const UInt8* vram, const UInt8* palette,
+                           UInt8 r6, UInt8 r13, UInt32 x, UInt32 y, int hiRes)
 {
     UInt32 pos = y * (256u << ((r6 >> 2) & 3)) + x;
     UInt16 pal[64];
@@ -140,7 +188,7 @@ int v9990RenderBitmapLine(UInt16* dst, int count, const UInt8* vram, const UInt8
     int i;
 
     if (count <= 0) {
-        return 1;
+        return;
     }
 
     /* In high resolution, PLTO5 is replaced by the dot's image x parity. */
@@ -153,7 +201,7 @@ int v9990RenderBitmapLine(UInt16* dst, int count, const UInt8* vram, const UInt8
             pal[i + 4] = v9990PaletteColor(palette, offset + odd + i);
         }
         drawBp2(dst, count, vram, pal, pal + 4, pos);
-        return 1;
+        return;
 
     case 1:
         offset = (r13 & (hiRes ? 0x04 : 0x0c)) << 2;
@@ -163,7 +211,7 @@ int v9990RenderBitmapLine(UInt16* dst, int count, const UInt8* vram, const UInt8
             pal[i + 16] = v9990PaletteColor(palette, offset + odd + i);
         }
         drawBp4(dst, count, vram, pal, pal + 16, pos);
-        return 1;
+        return;
 
     case 2:
         switch (r13 >> 6) {
@@ -172,15 +220,23 @@ int v9990RenderBitmapLine(UInt16* dst, int count, const UInt8* vram, const UInt8
                 pal[i] = v9990PaletteColor(palette, i);
             }
             drawBp6(dst, count, vram, pal, pos);
-            return 1;
+            return;
         case 1:
             drawBd8(dst, count, vram, pos);
-            return 1;
+            return;
         }
-        return 0;
+        /* YAE: palette pixels use PLTO5-4 and the high nibble. */
+        if (r13 & 0x20) {
+            offset = (r13 & 0x0c) << 2;
+            for (i = 0; i < 16; i++) {
+                pal[i] = v9990PaletteColor(palette, offset + i);
+            }
+        }
+        drawYuv(dst, count, vram, (r13 & 0x20) ? pal : NULL, (r13 >> 6) == 2, pos);
+        return;
 
     default:
         drawBd16(dst, count, vram, pos);
-        return 1;
+        return;
     }
 }
