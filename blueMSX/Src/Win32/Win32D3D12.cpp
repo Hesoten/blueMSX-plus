@@ -43,7 +43,7 @@ using Microsoft::WRL::ComPtr;
 
 // --- constants ---------------------------------------------------------------
 static const UINT  FRAME_COUNT = 2;
-static const UINT  TEX_W       = 544;   // matches FB_MAX_LINE_WIDTH
+static const UINT  TEX_W       = 1088;  // matches FB_MAX_LINE_WIDTH (272 << 2)
 static const UINT  TEX_H       = 480;   // matches FB_MAX_LINES
 static const float NTSC_AR     = 1.151f;
 static const float PAL_AR      = 1.151f * 60.0f / 50.0f;
@@ -91,7 +91,7 @@ cbuffer EffectParams : register(b0) {
     float4 borderColor;
     float2 srcUvMin;
     float2 srcUvMax;
-    float srcWf;                // = (float)srcW (= maxWidth, or 2*maxWidth if doubleWidth)
+    float srcWf;                // = (float)srcW (= maxWidth << the frame's widest line shift)
     float srcHf;                // = (float)fb->lines
     float texWf;                // = (float)TEX_W (texture width)
     float texHf;                // = (float)TEX_H (texture height)
@@ -526,7 +526,7 @@ struct EffectCB12 {
     float borderR, borderG, borderB, borderA;
     float srcUvMinU, srcUvMinV;
     float srcUvMaxU, srcUvMaxV;
-    float srcWf;               // = (float)srcW (= maxWidth, or 2*maxWidth if doubleWidth)
+    float srcWf;               // = (float)srcW (= maxWidth << the frame's widest line shift)
     float srcHf;               // = (float)fb->lines
     float texWf;               // = (float)TEX_W
     float texHf;               // = (float)TEX_H
@@ -821,7 +821,12 @@ static UvRender12 computeUvForRender(int targetW, int targetH,
     case P_D3D_AR_NTSC:    fAR = NTSC_AR; break;
     case P_D3D_AR_PAL:     fAR = PAL_AR;  break;
     case P_D3D_AR_1:       fAR = 1.0f;    break;
-    case P_D3D_AR_AUTO:    fAR = (vdpGetRefreshRate() == 60) ? NTSC_AR : PAL_AR; break;
+    case P_D3D_AR_AUTO: {
+        int rate = videoManagerGetActiveAspectRate();
+        if (rate == 0) rate = vdpGetRefreshRate();
+        fAR = (rate == 60) ? NTSC_AR : PAL_AR;
+        break;
+    }
     case P_D3D_AR_STRETCH: fAR = (fMSXH * fWs) / (fMSXW * fHs); break;
     default:               fAR = NTSC_AR; break;
     }
@@ -836,15 +841,17 @@ static UvRender12 computeUvForRender(int targetW, int targetH,
     const float wUvScale = (float)srcW / ((float)BASE_TEX_W * fTexW);
     fWm *= wUvScale;
 
-    const bool  isDeint = (srcH > BASE_TEX_H);
-    const float hUvDiv  = isDeint ? (float)BASE_TEX_H : fTexH;
+    // Over 240 rows the frame spans the full height: 480 (deinterlaced) or
+    // 400 (V9990 B5); for 480 these are exactly the plain 240 and 0.5.
+    const bool  fullHeight = (srcH > BASE_TEX_H);
+    const float hUvDiv     = fullHeight ? (float)BASE_TEX_H * fTexH / (float)srcH : fTexH;
     fHm /= hUvDiv;
 
     const float fDx = (float)(iBorderLeft - iBorderRight) * 0.5f * wUvScale;
     const float fDy = (float)(iBorderTop  - iBorderBottom) * 0.5f / hUvDiv;
 
     const float uCtr = (float)srcW * 0.5f / fTexW;
-    const float vCtr = isDeint ? 0.5f : (float)srcH * 0.5f / fTexH;
+    const float vCtr = (float)srcH * 0.5f / fTexH;
 
     o.u0 = uCtr - fWm * 0.5f + fDx;
     o.u1 = uCtr + fWm * 0.5f + fDx;
@@ -868,6 +875,62 @@ static UvRender12 computeUvForRender(int targetW, int targetH,
     o.scanUvPeriod = 1.0f / (float)TEX_H;
 
     return o;
+}
+
+// --- frame upload ------------------------------------------------------------
+
+// Widest line of the frame as a width shift (0..2): the texture extent.
+static int frameShiftOf(FrameBuffer* fb)
+{
+    int shift = 0;
+    for (int y = 0; y < fb->lines; y++) {
+        if (fb->line[y].doubleWidth > shift) shift = fb->line[y].doubleWidth;
+    }
+    return shift > 2 ? 2 : shift;
+}
+
+// Four-times-wide frames are halved for the PAL kernels (written for at most
+// twice the width) and when the target has fewer pixels than the visible
+// texels, where point and bilinear sampling would drop columns.
+static FrameBuffer* narrowForTarget(FrameBuffer* fb, Video* pVideo,
+                                    int targetW, int targetH, D3DProperties* props)
+{
+    if (frameShiftOf(fb) < 2) return fb;
+    if (pVideo->palMode == VIDEO_PAL_FAST) {
+        UvRender12 uv = computeUvForRender(targetW, targetH,
+                                           fb->maxWidth << 2, fb->lines, props);
+        if ((uv.u1 - uv.u0) * (float)TEX_W <= (float)targetW) return fb;
+    }
+    return frameBufferNarrow(fb);
+}
+
+// ARGB1555 -> BGRA8 rows at the frame's width. Narrower lines (SM5->SM7 mid-
+// frame) repeat each pixel, so the right part doesn't sample the black tail.
+static void uploadFrameRows(FrameBuffer* fb, int frameShift, UINT8* dst, UINT rowPitch)
+{
+    int startLine = (fb->interlace == INTERLACE_ODD) ? 1 : 0;
+
+    for (int y = 0; y < fb->lines; y++) {
+        UINT32*       d32    = (UINT32*)(dst + (UINT)((y + startLine) * (int)rowPitch));
+        const UINT16* srcRow = fb->line[y].buffer;
+        int lineShift = fb->line[y].doubleWidth > frameShift ? frameShift : fb->line[y].doubleWidth;
+        int rowW      = fb->maxWidth << lineShift;
+        int stride    = 1 << (frameShift - lineShift);
+        if (rowW > FB_MAX_LINE_WIDTH) rowW = FB_MAX_LINE_WIDTH;
+
+        for (int x = 0; x < rowW; x++) {
+            UINT16 p = srcRow[x];
+            UINT32 r = (p >> 10) & 0x1F; r = (r << 3) | (r >> 2);
+            UINT32 g = (p >>  5) & 0x1F; g = (g << 3) | (g >> 2);
+            UINT32 b = (p >>  0) & 0x1F; b = (b << 3) | (b >> 2);
+            // DXGI_FORMAT_B8G8R8A8_UNORM: memory [B,G,R,A]
+            // as uint32 LE: A<<24 | R<<16 | G<<8 | B
+            UINT32 v = (0xFFu << 24) | (r << 16) | (g << 8) | b;
+            for (int k = 0; k < stride && x * stride + k < (int)TEX_W; k++) {
+                d32[x * stride + k] = v;
+            }
+        }
+    }
 }
 
 // --- synchronization helpers -------------------------------------------------
@@ -1288,7 +1351,7 @@ static bool bD3D12Init(HWND hWnd, int w, int h, int syncVblank)
         if (FAILED(hr)) return false;
     }
 
-    // -- GPU texture (544x480, BGRA8) ------------------------------------------
+    // -- GPU texture (TEX_W x TEX_H, BGRA8) -------------------------------------
     {
         D3D12_RESOURCE_DESC td = {};
         td.Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
@@ -1664,15 +1727,15 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
     bool isInterlacedSource = (fb->interlace != INTERLACE_NONE);
     if (isInterlacedSource && pVideo->deInterlace)
         fb = frameBufferDeinterlace(fb);
+    fb = narrowForTarget(fb, pVideo, w, h, props);
 
-    // -- Data extent in the texture: maxWidth (or 2*maxWidth for any
-    // doubleWidth line -- SCREEN6/7, SCREEN0 80-col, etc.).  Used by the
-    // upload loop, noise generation, AR/UV math and the shader's clamp.
-    int  srcW            = fb->maxWidth;
-    bool frameDoubleWidth = false;
-    for (int y = 0; y < fb->lines; y++) {
-        if (fb->line[y].doubleWidth) { srcW *= 2; frameDoubleWidth = true; break; }
-    }
+    // -- Data extent in the texture: maxWidth << the widest line's shift
+    // (1 for SCREEN6/7, SCREEN0 80-col, etc.).  Used by the upload loop,
+    // noise generation, AR/UV math and the shader's clamp.
+    int  frameShift       = frameShiftOf(fb);
+    int  srcW             = fb->maxWidth << frameShift;
+    bool frameDoubleWidth = frameShift >= 1;
+    if (srcW > (int)TEX_W) srcW = (int)TEX_W;
     int srcH = fb->lines;
 
     // -- ARGB1555 -> BGRA8 -> upload buffer -------------------------------------
@@ -1680,35 +1743,7 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
     // the last frame in this slot (visible on deinterlace toggle).
     memset(g12_uploadPtr[g12_frameIndex], 0,
            (size_t)g12_uploadRowPitch * (size_t)TEX_H);
-    {
-        int lines     = fb->lines;
-        int startLine = (fb->interlace == INTERLACE_ODD) ? 1 : 0;
-
-        for (int y = 0; y < lines; y++) {
-            UINT8*        dstRow = g12_uploadPtr[g12_frameIndex]
-                                 + (UINT)((y + startLine) * (int)g12_uploadRowPitch);
-            const UINT16* srcRow = fb->line[y].buffer;
-            int srcW = fb->maxWidth;
-            if (fb->line[y].doubleWidth) srcW *= 2;
-            // SM5->SM7 mid-frame mixes single-width lines into a double-width
-            // frame; duplicate them so the right half doesn't sample the
-            // memset(0)=black tail and produce the upper-right black rectangle.
-            int stride = (frameDoubleWidth && !fb->line[y].doubleWidth) ? 2 : 1;
-
-            UINT32* dst = (UINT32*)dstRow;
-            for (int x = 0; x < srcW; x++) {
-                UINT16 p = srcRow[x];
-                UINT32 r = (p >> 10) & 0x1F; r = (r << 3) | (r >> 2);
-                UINT32 g = (p >>  5) & 0x1F; g = (g << 3) | (g >> 2);
-                UINT32 b = (p >>  0) & 0x1F; b = (b << 3) | (b >> 2);
-                // DXGI_FORMAT_B8G8R8A8_UNORM: memory [B,G,R,A]
-                // as uint32 LE: A<<24 | R<<16 | G<<8 | B
-                UINT32 v = (0xFFu << 24) | (r << 16) | (g << 8) | b;
-                dst[x * stride] = v;
-                if (stride > 1) dst[x * stride + 1] = v;
-            }
-        }
-    }
+    uploadFrameRows(fb, frameShift, g12_uploadPtr[g12_frameIndex], g12_uploadRowPitch);
 
     // -- Read blendFrames from global properties (not stored in Video struct) --
     // User-controlled only.  Mode 1 (software pseudo-interlace) is handled
@@ -1962,7 +1997,7 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
         cb.saturation         = (float)pVideo->saturation;
         cb.brightness         = (float)pVideo->brightness / 100.0f;
         cb.colorSatEnable     = pVideo->colorSaturationEnable ? 1.0f : 0.0f;
-        cb.colorSatWidth      = satW / (float)TEX_W;
+        cb.colorSatWidth      = satW * (frameShift >= 2 ? 2.0f : 1.0f) / (float)TEX_W;
         cb.monitorColor       = gp ? (float)gp->video.monitorColor : 0.0f;
 
         /* Border colour: when extendBorderColor is set, use the MSX VDP
@@ -1991,7 +2026,7 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
         cb.srcUvMaxU = uv.cropU1;
         cb.srcUvMaxV = uv.cropV1;
 
-        /* srcWf is the data extent (= 2*maxWidth in doubleWidth modes), not
+        /* srcWf is the data extent (= maxWidth << the line width shift), not
            just maxWidth, so the shader's clamp doesn't repeat the rightmost
            pixel across the right half. */
         cb.palMode         = (float)(int)pVideo->palMode;
@@ -2639,42 +2674,17 @@ extern "C" int D3D12RecordCaptureFromFrame(FrameBuffer* fb, Video* pVideo,
     bool isInterlacedSource = (fb->interlace != INTERLACE_NONE);
     if (isInterlacedSource && pVideo->deInterlace)
         fb = frameBufferDeinterlace(fb);
+    fb = narrowForTarget(fb, pVideo, g12_recW, g12_recH, props);
 
-    int  srcW             = fb->maxWidth;
-    bool frameDoubleWidth = false;
-    for (int y = 0; y < fb->lines; y++) {
-        if (fb->line[y].doubleWidth) { srcW *= 2; frameDoubleWidth = true; break; }
-    }
+    int  frameShift       = frameShiftOf(fb);
+    int  srcW             = fb->maxWidth << frameShift;
+    bool frameDoubleWidth = frameShift >= 1;
+    if (srcW > (int)TEX_W) srcW = (int)TEX_W;
     int srcH = fb->lines;
 
     // 2) ARGB1555 -> BGRA8 into the capture-owned upload buffer.
     memset(g12_recUploadPtr, 0, (size_t)g12_recUploadRowPitch * (size_t)TEX_H);
-    {
-        int lines     = fb->lines;
-        int startLine = (fb->interlace == INTERLACE_ODD) ? 1 : 0;
-        for (int y = 0; y < lines; y++) {
-            UINT8* dstRow = g12_recUploadPtr
-                          + (UINT)((y + startLine) * (int)g12_recUploadRowPitch);
-            const UINT16* srcRow = fb->line[y].buffer;
-            int rowSrcW = fb->maxWidth;
-            if (fb->line[y].doubleWidth) rowSrcW *= 2;
-            // Mid-frame SM5->SM7 mix: duplicate single-width pixels so the
-            // right half of the texture isn't memset(0)=black (same fix as
-            // D3D12UpdateSurface above).
-            int stride = (frameDoubleWidth && !fb->line[y].doubleWidth) ? 2 : 1;
-
-            UINT32* d32 = (UINT32*)dstRow;
-            for (int x = 0; x < rowSrcW; x++) {
-                UINT16 p = srcRow[x];
-                UINT32 r = (p >> 10) & 0x1F; r = (r << 3) | (r >> 2);
-                UINT32 g = (p >>  5) & 0x1F; g = (g << 3) | (g >> 2);
-                UINT32 b = (p >>  0) & 0x1F; b = (b << 3) | (b >> 2);
-                UINT32 v = (0xFFu << 24) | (r << 16) | (g << 8) | b;
-                d32[x * stride] = v;
-                if (stride > 1) d32[x * stride + 1] = v;
-            }
-        }
-    }
+    uploadFrameRows(fb, frameShift, g12_recUploadPtr, g12_recUploadRowPitch);
 
     // 3) Noise mask (only when palMode requests it). Same PRNG mechanic as
     //    live render, but advanced by a capture-local counter so the live
@@ -2793,7 +2803,7 @@ extern "C" int D3D12RecordCaptureFromFrame(FrameBuffer* fb, Video* pVideo,
         cb.brightness         = (float)pVideo->brightness / 100.0f;
         cb.colorSatEnable     = pVideo->colorSaturationEnable ? 1.0f : 0.0f;
         float satW = (float)(pVideo->colorSaturationWidth < 1 ? 1 : pVideo->colorSaturationWidth);
-        cb.colorSatWidth      = satW / (float)TEX_W;
+        cb.colorSatWidth      = satW * (frameShift >= 2 ? 2.0f : 1.0f) / (float)TEX_W;
 
         Properties* gp = propGetGlobalProperties();
         cb.monitorColor       = gp ? (float)gp->video.monitorColor : 0.0f;

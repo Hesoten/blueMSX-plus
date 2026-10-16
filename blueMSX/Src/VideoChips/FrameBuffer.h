@@ -36,13 +36,13 @@
 #ifdef WII
 #define FB_MAX_LINE_WIDTH 544
 #else
-#define FB_MAX_LINE_WIDTH 640
+#define FB_MAX_LINE_WIDTH 1088
 #endif
 #define FB_MAX_LINES      480
 
 #ifndef NO_FRAMEBUFFER
 typedef struct {
-    int doubleWidth; // 1 when normal, 2 when 2 src pixels per dest pixel
+    int doubleWidth; // width shift: the line holds maxWidth << doubleWidth pixels
     UInt16 buffer[FB_MAX_LINE_WIDTH];
 } LineBuffer;
 #endif
@@ -66,6 +66,11 @@ typedef struct {
 
 typedef struct FrameBufferData FrameBufferData;
 
+/* Called after a frame buffer's draw frame flips, with the frame just
+** completed and that frame as drawn before frame blending, or with NULLs
+** when the frame buffer is destroyed. */
+typedef void (*FrameBufferFlipHook)(void* ref, FrameBuffer* completed, FrameBuffer* drawn);
+
 typedef enum {
     MIXMODE_INTERNAL = 1,
     MIXMODE_BOTH     = 2,
@@ -77,8 +82,12 @@ void frameBufferSetFrameCount(int frameCount);
 
 FrameBuffer* frameBufferGetViewFrame();
 FrameBuffer* frameBufferGetDrawFrame();
+FrameBuffer* frameBufferGetDrawFrameOf(FrameBufferData* frameData);
 FrameBuffer* frameBufferFlipViewFrame(int mixFrames);
 FrameBuffer* frameBufferFlipDrawFrame();
+FrameBuffer* frameBufferFlipDrawFrameOf(FrameBufferData* frameData);
+FrameBuffer* frameBufferGetLastCompletedOf(FrameBufferData* frameData);
+void frameBufferSetFlipHook(FrameBufferData* frameData, FrameBufferFlipHook hook, void* ref);
 
 void frameBufferSetScanline(int scanline);
 int frameBufferGetScanline();
@@ -86,14 +95,21 @@ int frameBufferGetScanline();
 FrameBuffer* frameBufferGetWhiteNoiseFrame();
 FrameBuffer* frameBufferDeinterlace(FrameBuffer* frameBuffer);
 void frameBufferClearDeinterlace();
+FrameBuffer* frameBufferNarrow(FrameBuffer* frameBuffer);
+FrameBuffer* frameBufferFitLines(FrameBuffer* frameBuffer);
 
 FrameBufferData* frameBufferDataCreate(int maxWidth, int maxHeight, int defaultHorizZoom);
 void frameBufferDataDestroy(FrameBufferData* frameData);
+/* Frame blending (frameBufferSetBlendFrames) leaves this frame buffer alone. */
+void frameBufferDataSetNoBlend(FrameBufferData* frameData, int noBlend);
 
 void frameBufferSetActive(FrameBufferData* frameData);
+/* Shows frameData while the VDP draws into drawData. */
+void frameBufferSetActiveDraw(FrameBufferData* frameData, FrameBufferData* drawData);
 void frameBufferSetMixMode(FrameBufferMixMode mode, FrameBufferMixMode mask);
 
 FrameBufferData* frameBufferGetActive();
+FrameBufferData* frameBufferGetActiveDraw();
 
 void frameBufferSetBlendFrames(int blendFrames);
 
@@ -140,5 +156,8 @@ int    frameBufferGetMaxWidth(FrameBuffer* frameBuffer);
 #define frameBufferGetLineCount(frameBuffer)            frameBuffer->lines
 #define frameBufferGetMaxWidth(frameBuffer)             frameBuffer->maxWidth
 #endif
+
+#define frameBufferGetLineShift(frameBuffer, y)  frameBufferGetDoubleWidth(frameBuffer, y)
+#define frameBufferGetLineWidth(frameBuffer, y)  (frameBufferGetMaxWidth(frameBuffer) << frameBufferGetLineShift(frameBuffer, y))
 
 #endif

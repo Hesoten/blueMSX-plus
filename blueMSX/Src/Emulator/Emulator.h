@@ -73,6 +73,7 @@ UInt32 emulatorGetCpuSpeed();
 UInt32 emulatorGetCpuUsage();
 void emulatorResetMixer();
 int emulatorGetCurrentScreenMode();
+void emulatorRefreshFromSource();
 
 #endif
 

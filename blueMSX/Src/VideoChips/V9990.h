@@ -1,0 +1,81 @@
+/*****************************************************************************
+**
+** Yamaha V9990 video chip.
+** Copyright (C) 2026 Hesoten
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
+** This program is free software; you can redistribute it and/or modify
+** it under the terms of the GNU General Public License as published by
+** the Free Software Foundation; either version 2 of the License, or
+** (at your option) any later version.
+**
+** This program is distributed in the hope that it will be useful,
+** but WITHOUT ANY WARRANTY; without even the implied warranty of
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+** GNU General Public License for more details.
+**
+** You should have received a copy of the GNU General Public License
+** along with this program; if not, write to the Free Software
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+**
+******************************************************************************
+*/
+#ifndef V9990_H
+#define V9990_H
+
+#include "MsxTypes.h"
+
+#define V9990_VRAM_SIZE 0x80000
+#define V9990_VRAM_MASK (V9990_VRAM_SIZE - 1)
+
+/* Physical offset of a bitmap-mode byte address: the banks interleave byte by byte. */
+#define V9990_MAP_BX(a) ((((a) & 1) << 18) | (((a) & V9990_VRAM_MASK) >> 1))
+
+typedef enum {
+    V9990_MODE_P1,
+    V9990_MODE_P2,
+    V9990_MODE_B0,
+    V9990_MODE_B1,
+    V9990_MODE_B2,
+    V9990_MODE_B3,
+    V9990_MODE_B4,
+    V9990_MODE_B5,
+    V9990_MODE_B6,
+    V9990_MODE_B7,
+    V9990_MODE_STANDBY,
+    V9990_MODE_NONE
+} V9990Mode;
+
+typedef struct V9990 V9990;
+
+/* Creates the chip in its power-on state with its timers running. */
+V9990* v9990Create(void);
+void   v9990Destroy(V9990* v9990);
+/* While enabled, the chip claims the screen whenever its frame-latched DISP
+** is set, and a DISP edge switches the shown source if autodetect is on. */
+void   v9990SetShowOnDisplay(V9990* v9990, int enable);
+/* The video manager handle of the chip's picture. */
+int    v9990GetVideoHandle(V9990* v9990);
+/* While source handle (none if -1) is shown, the chip presents the screen
+** and gives it its refresh rate and aspect; superimpose marks the YS
+** colours and the blanking with frame buffer bit 15. */
+void   v9990SetPresenter(V9990* v9990, int handle, int superimpose);
+/* The display mode of the V9990 picture on the screen, or V9990_MODE_NONE
+** if it is not shown; superimposed is set if the VDP picture is under it. */
+V9990Mode v9990GetShownMode(int* superimposed);
+/* Nonzero if the frame that the last frame flip completed was drawn with
+** the keys of a superimposing presenter. */
+int    v9990IsFrameKeyed(V9990* v9990);
+void   v9990Reset(V9990* v9990);
+void   v9990SaveState(V9990* v9990);
+void   v9990LoadState(V9990* v9990);
+
+/* port is the low nibble of the I/O address (P#0-P#F). */
+UInt8  v9990ReadPort(V9990* v9990, UInt16 port);
+void   v9990WritePort(V9990* v9990, UInt16 port, UInt8 value);
+
+/* Turns a logical VRAM address, as the CPU or a command sees it in the
+** given display mode, into an index into the physical 512 KB array. */
+UInt32 v9990MapAddress(V9990Mode mode, UInt32 address);
+
+#endif

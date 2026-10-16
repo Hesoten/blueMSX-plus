@@ -222,6 +222,8 @@ static const RomTypeCart cartList[] = {
     { SRAM_WAVESCSI1MB,          CARTNAME_WAVESCSI1MB,        ROMCAT_STORAGE,    0 },
 
     { ROM_GAMEREADER,            CARTNAME_GAMEREADER,         ROMCAT_OTHER,      0 },
+    { ROM_GFX9000,               CARTNAME_GFX9000,            ROMCAT_OTHER,      0 },
+    { ROM_VIDEO9000,             CARTNAME_VIDEO9000,          ROMCAT_OTHER,      0 },
     { ROM_SONYHBI55,             CARTNAME_SONYHBI55,          ROMCAT_OTHER,      0 },
     { ROM_NMS1210,               CARTNAME_NMS1210,            ROMCAT_OTHER,      0 },
 

@@ -186,6 +186,8 @@ extern int showLoadMemoryDlg(HWND hwnd);
 #define ID_FILE_CART_YAMANOOTO          41120
 #define ID_FILE_CART_FLASHROMSCC        41121
 #define ID_FILE_CART_ROOKIEDRIVE        41122
+#define ID_FILE_CART_GFX9000            41123
+#define ID_FILE_CART_VIDEO9000          41124
 #define ID_FILE_CART_JOYREXPSG          41110
 #define ID_FILE_CART_EXTRAM16KB         41111
 #define ID_FILE_CART_EXTRAM32KB         41112
@@ -341,6 +343,8 @@ static const char* getCleanFileName(const char* fileName)
     if (strcmp(fileName, CARTNAME_YAMANOOTO) == 0)      return "Yamanooto";
     if (strcmp(fileName, CARTNAME_FLASHROMSCC) == 0)    return "Flash-ROM SCC";
     if (strcmp(fileName, CARTNAME_ROOKIEDRIVE) == 0)    return "Rookie Drive NX";
+    if (strcmp(fileName, CARTNAME_GFX9000) == 0)        return "GFX9000";
+    if (strcmp(fileName, CARTNAME_VIDEO9000) == 0)      return "Video9000";
     if (strcmp(fileName, CARTNAME_ESERAM256) == 0)      return langRomTypeEseRam256();
     if (strcmp(fileName, CARTNAME_ESERAM512) == 0)      return langRomTypeEseRam512();
     if (strcmp(fileName, CARTNAME_ESERAM1MB) == 0)      return langRomTypeEseRam1mb();
@@ -644,6 +648,9 @@ static HMENU menuCreateCartSpecial(int cartNo, Properties* pProperties, Shortcut
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_SONYHBI55, langMenuCartHBI55());
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_NMS1210, "Philips NMS1210 Serial Interface");
+    AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
+    AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_GFX9000, "GFX9000");
+    AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_VIDEO9000, "Video9000");
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
     AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuExtRam, langMenuCartExternalRam());
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
@@ -2157,6 +2164,12 @@ int menuCommand(Properties* pProperties, int command)
         case ID_FILE_CART_ROOKIEDRIVE:
             insertCartridge(pProperties, i, CARTNAME_ROOKIEDRIVE, NULL, ROM_ROOKIEDRIVE, 0);
             return 1;
+        case ID_FILE_CART_GFX9000:
+            insertCartridge(pProperties, i, CARTNAME_GFX9000, NULL, ROM_GFX9000, 0);
+            return 1;
+        case ID_FILE_CART_VIDEO9000:
+            insertCartridge(pProperties, i, CARTNAME_VIDEO9000, NULL, ROM_VIDEO9000, 0);
+            return 1;
         case ID_FILE_CART_ASCII16X:
             insertCartridge(pProperties, i, CARTNAME_ASCII16X, NULL, ROM_ASCII16X, 0);
             return 1;
@@ -2342,12 +2355,16 @@ int menuCommand(Properties* pProperties, int command)
     
     i = command - ID_VIDEO_CONNECTORS;
     if (i >= 0 && i < 16) {
+        int running = emulatorGetState() == EMU_RUNNING;
+
+        if (running) emulatorSuspend();
         if (videoManagerGetActive() == i) {
             videoManagerSetActive(-1);
         }
         else {
             videoManagerSetActive(i);
         }
+        if (running) emulatorResume();
         return 1;
     }
 

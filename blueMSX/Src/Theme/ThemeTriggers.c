@@ -46,6 +46,7 @@
 #include "ArchInput.h"
 #include "ArchTimer.h"
 #include "VideoManager.h"
+#include "V9990.h"
 #include "InputEvent.h"
 #include "JoystickPort.h"
 #include "Language.h"
@@ -893,6 +894,37 @@ char* themeTriggerVideoMonName3Text() {
     return videoManagerGetName(2);
 }
 
+/* The V9990 mode while its picture is shown, followed by the VDP's
+** screen mode when superimposed; NULL while it is not shown. */
+static char* screenModeOfV9990(int shortText) {
+    static const char* txtMode[V9990_MODE_NONE] = {
+        "P1", "P2", "B0", "B1", "B2", "B3", "B4", "B5", "B6", "B7", "STANDBY"
+    };
+    static char texts[2][16];
+    char* text = texts[shortText];
+    int superimposed;
+    V9990Mode mode = v9990GetShownMode(&superimposed);
+    int screenMode = emulatorGetCurrentScreenMode();
+
+    if (mode < 0 || mode >= V9990_MODE_NONE) {
+        return NULL;
+    }
+    if (mode == V9990_MODE_STANDBY) {
+        return shortText ? "STBY" : "STANDBY";
+    }
+    if (!superimposed) {
+        sprintf(text, "%s %s", shortText ? "V9" : "V9990", txtMode[mode]);
+    }
+    else if (screenMode == 13) {
+        sprintf(text, "%s+T80", txtMode[mode]);
+    }
+    else {
+        sprintf(text, "%s+%s%d", txtMode[mode],
+                shortText && screenMode >= 10 ? "S" : "SC", screenMode);
+    }
+    return text;
+}
+
 char* themeTriggerScreenMode() {
     static char* txtScreenMode[14] = {
         "SCREEN 0",  "SCREEN 1", "SCREEN 2",  "SCREEN 3",
@@ -900,8 +932,14 @@ char* themeTriggerScreenMode() {
         "SCREEN 8",  "SCREEN 9", "SCREEN 10", "SCREEN 11",
         "SCREEN 12", "TEXT80"
     };
+    char* v9990Text;
+
     if (emulatorGetState() == EMU_STOPPED) {
         return "";
+    }
+    v9990Text = screenModeOfV9990(0);
+    if (v9990Text != NULL) {
+        return v9990Text;
     }
     return txtScreenMode[emulatorGetCurrentScreenMode()];
 }
@@ -913,8 +951,14 @@ char* themeTriggerScreenModeShort() {
         "SCR 8",  "SCR 9", "SCR 10", "SCR 11",
         "SCR 12", "TXT 80"
     };
+    char* v9990Text;
+
     if (emulatorGetState() == EMU_STOPPED) {
         return "";
+    }
+    v9990Text = screenModeOfV9990(1);
+    if (v9990Text != NULL) {
+        return v9990Text;
     }
     return txtScreenModeShort[emulatorGetCurrentScreenMode()];
 }

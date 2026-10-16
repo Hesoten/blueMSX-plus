@@ -1238,6 +1238,8 @@ static int boardRewindLoad(int drop)
         /* boardLoadState is not called here, so this field is taken by hand. */
         pendingInt = (int)snapInt;
         boardInfo.loadState();
+        videoManagerLoadState();
+        videoManagerApplyLoadedState();
         if (stashedTime != 0) boardSysTime64 = stashedTime;
     }
     /* The tape clock is anchored to boardSysTime64, which just went backwards.
@@ -1410,6 +1412,7 @@ int boardRun(Machine* machine,
 
     if (success && loadState) {
         boardInfo.loadState();
+        videoManagerApplyLoadedState();
         /* Re-apply the stashed boardSysTime64 (boardInit clobbered it). The
         ** tape clock is anchored to it, so it has to be re-anchored too. */
         if (stashedSysTime64 != 0) boardSysTime64 = stashedSysTime64;

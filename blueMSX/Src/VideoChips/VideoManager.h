@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -34,6 +37,11 @@
 typedef struct {
     void (*enable)(void*);
     void (*disable)(void*);
+    /* Nonzero if the source presents the screen itself while it is shown. */
+    int  pacesScreen;
+    /* Nonzero if other sources, except the claimant, cannot activate
+    ** themselves while it is shown. */
+    int  holdsScreen;
 } VideoCallbacks;
 
 typedef enum {
@@ -47,13 +55,34 @@ typedef enum {
 int videoManagerGetCount();
 int videoManagerGetActive();
 void videoManagerSetActive(int index);
-void videoManagerSetMode(int index, VideoMode videoMode, VideoMode modeMask);
+/* Shows the source unless another source holds a claim, or holds the
+** screen and the source is not the claimant. */
+void videoManagerActivate(int handle);
+/* While claimed, videoManagerActivate ignores every other source. */
+void videoManagerClaim(int handle, int claim);
+/* Shows the machine's own video chip, which registers first. */
+void videoManagerActivateDefault();
+void videoManagerSetMode(int handle, VideoMode videoMode, VideoMode modeMask);
 int videoManagerIsActive(int index);
 char* videoManagerGetName(int index);
+int videoManagerIsHandleActive(int handle);
+void videoManagerSetRefreshRate(int handle, int rate);
+int videoManagerGetActiveRefreshRate();
+void videoManagerSetAspectRate(int handle, int rate);
+int videoManagerGetActiveAspectRate();
+int videoManagerActivePacesScreen();
+void videoManagerSetPacesScreen(int handle, int pacesScreen);
+/* While source handle is shown, source drawHandle (none if -1) stays
+** enabled and the VDP drawing functions draw into its frame buffer. */
+void videoManagerSetDrawSource(int handle, int drawHandle);
+/* The handle of the source at index, or -1. */
+int videoManagerGetHandle(int index);
+FrameBufferData* videoManagerGetFrameBuffer(int handle);
 
 void videoManagerReset();
 
 void videoManagerLoadState();
+void videoManagerApplyLoadedState();
 void videoManagerSaveState();
 
 int videoManagerRegister(const char* name, FrameBufferData* frameBuffer, 

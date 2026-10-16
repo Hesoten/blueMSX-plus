@@ -1384,7 +1384,7 @@ static void write(VDP* vdp, UInt16 ioPort, UInt8 value)
         vdp->vdpRegs[14] = (vdp->vdpRegs[14] + 1 )& (vdp->vramPages - 1);
     }
     if (!vdp->videoEnabled && boardGetVideoAutodetect() && videoManagerGetCount() > 1) {
-        videoManagerSetActive(vdp->videoHandle);
+        videoManagerActivate(vdp->videoHandle);
     }
 }
 
