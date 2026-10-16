@@ -1777,19 +1777,25 @@ void actionMenuTools(int x, int y) {
     archShowMenuTools(x, y);
 }
 
-void actionVideoEnableMon1(int value) {
-    videoManagerSetActive(videoManagerGetActive() != 0 ? 0 : -1);
+static void videoToggleMonitor(int index) {
+    int running = emulatorGetState() == EMU_RUNNING;
+
+    if (running) emulatorSuspend();
+    videoManagerSetActive(videoManagerGetActive() != index ? index : -1);
+    if (running) emulatorResume();
     archUpdateMenu(0);
+}
+
+void actionVideoEnableMon1(int value) {
+    videoToggleMonitor(0);
 }
 
 void actionVideoEnableMon2(int value) {
-    videoManagerSetActive(videoManagerGetActive() != 1 ? 1 : -1);
-    archUpdateMenu(0);
+    videoToggleMonitor(1);
 }
 
 void actionVideoEnableMon3(int value) {
-    videoManagerSetActive(videoManagerGetActive() != 2 ? 2 : -1);
-    archUpdateMenu(0);
+    videoToggleMonitor(2);
 }
 
 // Actions controlled by value 0 - 100

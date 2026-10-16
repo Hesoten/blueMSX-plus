@@ -2342,12 +2342,16 @@ int menuCommand(Properties* pProperties, int command)
     
     i = command - ID_VIDEO_CONNECTORS;
     if (i >= 0 && i < 16) {
+        int running = emulatorGetState() == EMU_RUNNING;
+
+        if (running) emulatorSuspend();
         if (videoManagerGetActive() == i) {
             videoManagerSetActive(-1);
         }
         else {
             videoManagerSetActive(i);
         }
+        if (running) emulatorResume();
         return 1;
     }
 
