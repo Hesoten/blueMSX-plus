@@ -44,6 +44,7 @@ typedef struct {
     void* ref;
     VideoMode videoMode;
     VideoMode videoMask;
+    int   refreshRate;
     char  name[32];
 } VideoInfo;
 
@@ -56,11 +57,18 @@ typedef struct {
 static VideoManager videoManager;
 static int loadedActiveIndex = -2;
 
+/* Copies of the shown source's values, so that the timer thread can read them
+** without touching a source that may be ejected meanwhile. */
+static volatile int activeRefreshRate = 0;
+static volatile int activePacesScreen = 0;
+
 void videoManagerReset() 
 {
     videoManager.count = 0;
     videoManager.lastHandle = 0;
     loadedActiveIndex = -2;
+    activeRefreshRate = 0;
+    activePacesScreen = 0;
 }
 
 int videoManagerGetCount() 
@@ -112,12 +120,20 @@ void videoManagerSetMode(int handle, VideoMode videoMode, VideoMode modeMask)
     }
 }
 
+static void updateActiveCache()
+{
+    int index = videoManagerGetActive();
+    activeRefreshRate = index < 0 ? 0 : videoManager.di[index].refreshRate;
+    activePacesScreen = index < 0 ? 0 : videoManager.di[index].callbacks.pacesScreen;
+}
+
 void videoManagerSetActive(int index)
 {
     int activeIndex;
 
     if (videoManager.count <= 0) {
         frameBufferSetActive(NULL);
+        updateActiveCache();
         return;
     }
 
@@ -143,6 +159,7 @@ void videoManagerSetActive(int index)
             videoManager.di[index].callbacks.enable(videoManager.di[index].ref);
         }
     }
+    updateActiveCache();
 }
 
 void videoManagerActivate(int handle)
@@ -161,6 +178,35 @@ char* videoManagerGetName(int index)
     return videoManager.di[index].name;
 }
 
+int videoManagerIsHandleActive(int handle)
+{
+    int index = videoManagerIndexOf(handle);
+    return index >= 0 && videoManagerIsActive(index);
+}
+
+/* rate is frames per second, or 0 to leave the rate to the VDP. */
+void videoManagerSetRefreshRate(int handle, int rate)
+{
+    int index = videoManagerIndexOf(handle);
+    if (index < 0) {
+        return;
+    }
+    videoManager.di[index].refreshRate = rate;
+    if (videoManagerIsActive(index)) {
+        activeRefreshRate = rate;
+    }
+}
+
+int videoManagerGetActiveRefreshRate()
+{
+    return activeRefreshRate;
+}
+
+int videoManagerActivePacesScreen()
+{
+    return activePacesScreen;
+}
+
 int videoManagerRegister(const char* name, FrameBufferData* frameBuffer, 
                          VideoCallbacks* callbacks, void* ref)
 {
@@ -174,6 +220,7 @@ int videoManagerRegister(const char* name, FrameBufferData* frameBuffer,
     videoManager.di[videoManager.count].ref         = ref;
     videoManager.di[videoManager.count].videoMode   = VIDEO_INTERNAL;
     videoManager.di[videoManager.count].videoMask   = VIDEO_INTERNAL;
+    videoManager.di[videoManager.count].refreshRate = 0;
 
     strcpy(videoManager.di[videoManager.count].name, name);
 

@@ -187,7 +187,8 @@ int getPC(){return r800->regs.PC.W;}
 
 static int getRefreshRate()
 {
-    return vdpGetRefreshRate();
+    int rate = videoManagerGetActiveRefreshRate();
+    return rate != 0 ? rate : vdpGetRefreshRate();
 }
 
 static UInt32 getTimeTrace(int offset) {

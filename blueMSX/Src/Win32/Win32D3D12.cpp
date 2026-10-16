@@ -821,7 +821,12 @@ static UvRender12 computeUvForRender(int targetW, int targetH,
     case P_D3D_AR_NTSC:    fAR = NTSC_AR; break;
     case P_D3D_AR_PAL:     fAR = PAL_AR;  break;
     case P_D3D_AR_1:       fAR = 1.0f;    break;
-    case P_D3D_AR_AUTO:    fAR = (vdpGetRefreshRate() == 60) ? NTSC_AR : PAL_AR; break;
+    case P_D3D_AR_AUTO: {
+        int rate = videoManagerGetActiveRefreshRate();
+        if (rate == 0) rate = vdpGetRefreshRate();
+        fAR = (rate == 60) ? NTSC_AR : PAL_AR;
+        break;
+    }
     case P_D3D_AR_STRETCH: fAR = (fMSXH * fWs) / (fMSXW * fHs); break;
     default:               fAR = NTSC_AR; break;
     }

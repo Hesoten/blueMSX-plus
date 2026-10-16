@@ -37,6 +37,8 @@
 typedef struct {
     void (*enable)(void*);
     void (*disable)(void*);
+    /* Nonzero if the source presents the screen itself while it is shown. */
+    int  pacesScreen;
 } VideoCallbacks;
 
 typedef enum {
@@ -54,6 +56,10 @@ void videoManagerActivate(int handle);
 void videoManagerSetMode(int handle, VideoMode videoMode, VideoMode modeMask);
 int videoManagerIsActive(int index);
 char* videoManagerGetName(int index);
+int videoManagerIsHandleActive(int handle);
+void videoManagerSetRefreshRate(int handle, int rate);
+int videoManagerGetActiveRefreshRate();
+int videoManagerActivePacesScreen();
 
 void videoManagerReset();
 

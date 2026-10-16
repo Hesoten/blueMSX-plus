@@ -26,6 +26,7 @@
 #include "SaveState.h"
 #include "FrameBuffer.h"
 #include "VideoManager.h"
+#include "Emulator.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -236,6 +237,15 @@ static void raiseIrq(V9990* v9990, UInt8 flag)
     updateIrq(v9990);
 }
 
+/* B5 and B6 run at their own line counts (about 57.6 and 51.1 Hz). */
+static int frameRate(V9990* v9990)
+{
+    if (isHighScan(v9990->frameMode)) {
+        return (boardFrequency() + v9990->frameTicks / 2) / v9990->frameTicks;
+    }
+    return v9990->latchPal ? 50 : 60;
+}
+
 static void calcFrameGeometry(V9990* v9990)
 {
     V9990Mode mode = v9990->frameMode;
@@ -299,6 +309,8 @@ static void calcFrameGeometry(V9990* v9990)
     /* The 240 lines are centred on the nominal display, as in the V9938:
     ** 14 border lines above a 212-line display. */
     v9990->windowTopLine = windowTop + topBorder + (displayLines - V9990_FB_LINES) / 2;
+
+    videoManagerSetRefreshRate(v9990->videoHandle, frameRate(v9990));
 }
 
 /* Horizontal display area in UC (42.95 MHz) from the line start, using the
@@ -579,6 +591,11 @@ static void frameStart(V9990* v9990, UInt32 time)
 static void onFrame(V9990* v9990, UInt32 time)
 {
     frameStart(v9990, time);
+
+    /* While shown, the screen is presented at this chip's frame rate. */
+    if (videoManagerIsHandleActive(v9990->videoHandle)) {
+        emulatorRefreshFromSource();
+    }
 }
 
 static void onVi(V9990* v9990, UInt32 time)
@@ -868,7 +885,7 @@ static void powerOn(V9990* v9990)
 
 V9990* v9990Create(void)
 {
-    VideoCallbacks videoCallbacks = { NULL, NULL };
+    VideoCallbacks videoCallbacks = { NULL, NULL, 1 };
     V9990* v9990 = calloc(1, sizeof(V9990));
 
     v9990->vram = malloc(V9990_VRAM_SIZE);
@@ -879,9 +896,12 @@ V9990* v9990Create(void)
 
     v9990->frameBufferData = frameBufferDataCreate(V9990_FB_WIDTH, V9990_FB_LINES, 1);
 
+    /* Not registered yet: no handle for calcFrameGeometry to report the rate to. */
+    v9990->videoHandle = -1;
     powerOn(v9990);
 
     v9990->videoHandle = videoManagerRegister("V9990", v9990->frameBufferData, &videoCallbacks, v9990);
+    videoManagerSetRefreshRate(v9990->videoHandle, frameRate(v9990));
 
     return v9990;
 }

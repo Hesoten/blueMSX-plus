@@ -51,6 +51,7 @@
 #include "ArchDialog.h"
 #include "ArchNotifications.h"
 #include "YM2413.h"
+#include "VideoManager.h"
 #include <math.h>
 #include <string.h>
 
@@ -318,7 +319,10 @@ static int timerCallback(void* timer) {
         if (frameCount >= framePeriod) {
             frameCount %= framePeriod;
             if (emuState == EMU_RUNNING) {
-                refreshRate = boardGetRefreshRate();
+                int rate = boardGetRefreshRate();
+                if (rate > 0) {
+                    refreshRate = rate;
+                }
 
                 /* Reverse play leaves WaitForSync at its head, before the
                 ** present the vblank mode relies on, so the screen only
@@ -766,12 +770,20 @@ int emulatorSyncScreen()
 }
 
 
+void emulatorRefreshFromSource() {
+    if (emuUseSynchronousUpdate() == P_EMU_SYNCFRAMES && emuState == EMU_RUNNING) {
+        emulatorSyncScreen();
+    }
+}
+
+/* Called by the VDP every frame. A shown source that paces the screen itself
+** calls emulatorRefreshFromSource instead; the screen mode still follows the VDP. */
 void RefreshScreen(int screenMode) {
 
     lastScreenMode = screenMode;
 
-    if (emuUseSynchronousUpdate() == P_EMU_SYNCFRAMES && emuState == EMU_RUNNING) {
-        emulatorSyncScreen();
+    if (!videoManagerActivePacesScreen()) {
+        emulatorRefreshFromSource();
     }
 }
 
