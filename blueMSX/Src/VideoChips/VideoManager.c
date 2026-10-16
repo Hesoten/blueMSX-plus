@@ -44,6 +44,8 @@ typedef struct {
     void* ref;
     VideoMode videoMode;
     VideoMode videoMask;
+    /* Handle + 1 of the source that keeps drawing while this one is shown, or 0. */
+    int   drawHandle;
     int   refreshRate;
     int   aspectRate;
     char  name[32];
@@ -115,6 +117,27 @@ static int videoManagerIndexOf(int handle)
     return -1;
 }
 
+/* The source that draws while source index is shown: its draw source if
+** that is registered, else itself. */
+static int videoManagerDrawIndexOf(int index)
+{
+    int drawIndex;
+
+    if (index < 0 || videoManager.di[index].drawHandle == 0) {
+        return index;
+    }
+    drawIndex = videoManagerIndexOf(videoManager.di[index].drawHandle - 1);
+    return drawIndex >= 0 ? drawIndex : index;
+}
+
+/* Nonzero while the source is enabled: shown or drawing for the shown one. */
+static int videoManagerIsEnabled(int index)
+{
+    FrameBufferData* frameBuffer = videoManager.di[index].frameBufer;
+    return frameBuffer != NULL &&
+           (frameBuffer == frameBufferGetActive() || frameBuffer == frameBufferGetActiveDraw());
+}
+
 void videoManagerSetMode(int handle, VideoMode videoMode, VideoMode modeMask)
 {
     int index = videoManagerIndexOf(handle);
@@ -123,7 +146,7 @@ void videoManagerSetMode(int handle, VideoMode videoMode, VideoMode modeMask)
     }
     videoManager.di[index].videoMode = videoMode;
     videoManager.di[index].videoMask = modeMask;
-    if (videoManagerIsActive(index)) {
+    if (index == videoManagerDrawIndexOf(videoManagerGetActive())) {
         frameBufferSetMixMode(videoManager.di[index].videoMode, videoManager.di[index].videoMask);
     }
 }
@@ -138,7 +161,8 @@ static void updateActiveCache()
 
 void videoManagerSetActive(int index)
 {
-    int activeIndex;
+    int drawIndex;
+    int i;
 
     if (videoManager.count <= 0) {
         frameBufferSetActive(NULL);
@@ -150,11 +174,12 @@ void videoManagerSetActive(int index)
         return;
     }
 
-    for (activeIndex = 0; activeIndex < videoManager.count; activeIndex++) {
-        if (videoManagerIsActive(activeIndex)) {
-            if (activeIndex != index && videoManager.di[activeIndex].callbacks.disable != NULL) {
-                videoManager.di[activeIndex].callbacks.disable(videoManager.di[activeIndex].ref);
-            }
+    drawIndex = videoManagerDrawIndexOf(index);
+    for (i = 0; i < videoManager.count; i++) {
+        if (videoManagerIsEnabled(i) && i != index && i != drawIndex &&
+            videoManager.di[i].callbacks.disable != NULL)
+        {
+            videoManager.di[i].callbacks.disable(videoManager.di[i].ref);
         }
     }
 
@@ -162,10 +187,14 @@ void videoManagerSetActive(int index)
         frameBufferSetActive(NULL);
     }
     else {
-        frameBufferSetActive(videoManager.di[index].frameBufer);
-        frameBufferSetMixMode(videoManager.di[index].videoMode, videoManager.di[index].videoMask);
-        if (activeIndex != index && videoManager.di[index].callbacks.enable != NULL) {
+        frameBufferSetActiveDraw(videoManager.di[index].frameBufer,
+                                 videoManager.di[drawIndex].frameBufer);
+        frameBufferSetMixMode(videoManager.di[drawIndex].videoMode, videoManager.di[drawIndex].videoMask);
+        if (videoManager.di[index].callbacks.enable != NULL) {
             videoManager.di[index].callbacks.enable(videoManager.di[index].ref);
+        }
+        if (drawIndex != index && videoManager.di[drawIndex].callbacks.enable != NULL) {
+            videoManager.di[drawIndex].callbacks.enable(videoManager.di[drawIndex].ref);
         }
     }
     updateActiveCache();
@@ -257,6 +286,44 @@ int videoManagerActivePacesScreen()
     return activePacesScreen;
 }
 
+void videoManagerSetPacesScreen(int handle, int pacesScreen)
+{
+    int index = videoManagerIndexOf(handle);
+    if (index < 0) {
+        return;
+    }
+    videoManager.di[index].callbacks.pacesScreen = pacesScreen;
+    if (videoManagerIsActive(index)) {
+        activePacesScreen = pacesScreen;
+    }
+}
+
+void videoManagerSetDrawSource(int handle, int drawHandle)
+{
+    int index = videoManagerIndexOf(handle);
+    if (index < 0) {
+        return;
+    }
+    videoManager.di[index].drawHandle = drawHandle < 0 ? 0 : drawHandle + 1;
+    if (videoManagerIsActive(index)) {
+        videoManagerSetActive(index);
+    }
+}
+
+int videoManagerGetHandle(int index)
+{
+    if (index < 0 || index >= videoManager.count) {
+        return -1;
+    }
+    return videoManager.di[index].handle - 1;
+}
+
+FrameBufferData* videoManagerGetFrameBuffer(int handle)
+{
+    int index = videoManagerIndexOf(handle);
+    return index < 0 ? NULL : videoManager.di[index].frameBufer;
+}
+
 int videoManagerRegister(const char* name, FrameBufferData* frameBuffer, 
                          VideoCallbacks* callbacks, void* ref)
 {
@@ -270,6 +337,7 @@ int videoManagerRegister(const char* name, FrameBufferData* frameBuffer,
     videoManager.di[videoManager.count].ref         = ref;
     videoManager.di[videoManager.count].videoMode   = VIDEO_INTERNAL;
     videoManager.di[videoManager.count].videoMask   = VIDEO_INTERNAL;
+    videoManager.di[videoManager.count].drawHandle  = 0;
     videoManager.di[videoManager.count].refreshRate = 0;
     videoManager.di[videoManager.count].aspectRate = 0;
 
@@ -289,6 +357,7 @@ int videoManagerRegister(const char* name, FrameBufferData* frameBuffer,
 void videoManagerUnregister(int handle)
 {
     int isActive;
+    int isEnabled;
     int i = videoManagerIndexOf(handle);
 
     if (i < 0) {
@@ -296,6 +365,7 @@ void videoManagerUnregister(int handle)
     }
 
     isActive = videoManagerIsActive(i);
+    isEnabled = videoManagerIsEnabled(i);
     videoManagerClaim(handle, 0);
 
     videoManager.count--;
@@ -306,6 +376,10 @@ void videoManagerUnregister(int handle)
 
     if (isActive || videoManager.count == 0) {
         videoManagerSetActive(0);
+    }
+    else if (isEnabled) {
+        /* It drew for the shown source, which now draws for itself. */
+        videoManagerSetActive(videoManagerGetActive());
     }
 
     if (videoManager.count == 0) {

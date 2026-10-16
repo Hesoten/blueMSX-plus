@@ -33,6 +33,7 @@
 #include "ArchVideoIn.h"
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 
 //int xxxx = 0;
@@ -54,6 +55,9 @@ struct FrameBufferData {
 #ifndef WII
     FrameBuffer blendFrame[2];
 #endif
+    int noBlend;
+    FrameBufferFlipHook flipHook;
+    void* flipRef;
 };
 
 #ifdef WII
@@ -118,6 +122,9 @@ static void signalSem() {
 
 
 static FrameBufferData* currentBuffer = NULL;
+/* The buffer the VDP draws into: currentBuffer unless a source is shown
+** while the VDP keeps drawing into its own buffer. */
+static FrameBufferData* drawBuffer = NULL;
 static FrameBufferMixMode mixMode = MIXMODE_INTERNAL;
 static FrameBufferMixMode mixMask = MIXMODE_INTERNAL;
 static int frameBufferCount = MAX_FRAMES_PER_FRAMEBUFFER;
@@ -315,7 +322,7 @@ FrameBuffer* frameBufferGetDrawFrameOf(FrameBufferData* fb)
 
     frameBuffer = fb->frame + fb->drawFrame;
 #else
-    if (confBlendFrames) {
+    if (confBlendFrames && !fb->noBlend) {
         frameBuffer = fb->blendFrame + fb->currentBlendFrame;
     }
     else {
@@ -328,7 +335,7 @@ FrameBuffer* frameBufferGetDrawFrameOf(FrameBufferData* fb)
 
 FrameBuffer* frameBufferGetDrawFrame()
 {
-    return frameBufferGetDrawFrameOf(currentBuffer);
+    return frameBufferGetDrawFrameOf(drawBuffer);
 }
 
 void frameBufferSetFrameCount(int frameCount)
@@ -342,6 +349,15 @@ void frameBufferSetFrameCount(int frameCount)
 
         for (i = 0; i < MAX_FRAMES_PER_FRAMEBUFFER; i++) {
             currentBuffer->frame[i].age = 0;
+        }
+    }
+    if (drawBuffer != NULL && drawBuffer != currentBuffer) {
+        int i;
+        drawBuffer->viewFrame = 0;
+        drawBuffer->drawFrame = 0;
+
+        for (i = 0; i < MAX_FRAMES_PER_FRAMEBUFFER; i++) {
+            drawBuffer->frame[i].age = 0;
         }
     }
     signalSem();
@@ -375,6 +391,10 @@ FrameBuffer* frameBufferFlipViewFrame(int mixFrames)
 FrameBuffer* frameBufferFlipDrawFrameOf(FrameBufferData* fb)
 {
     FrameBuffer* frameBuffer;
+    FrameBuffer* completed;
+    FrameBuffer* drawn;
+    int drawFrame;
+    int blend;
 
 #ifdef WII
     archThreadSleep(0); // wait one frame
@@ -382,18 +402,22 @@ FrameBuffer* frameBufferFlipDrawFrameOf(FrameBufferData* fb)
     if (fb == NULL) {
         return NULL;
     }
+    drawFrame = fb->drawFrame;
     if (fb != currentBuffer) {
         waitSem();
         resetStaleIndices(fb);
         signalSem();
     }
-#ifndef WII
-    if (confBlendFrames) {
+#ifdef WII
+    blend = 0;
+#else
+    blend = confBlendFrames && !fb->noBlend;
+    if (blend) {
         mixFrame(fb->frame + fb->drawFrame,
                  &fb->blendFrame[0], &fb->blendFrame[1], 50);
     }
 #endif
-    if (fb == currentBuffer) {
+    if (fb == drawBuffer) {
         curScanline = 0;
 
         if (mixMode == MIXMODE_EXTERNAL) {
@@ -411,6 +435,13 @@ FrameBuffer* frameBufferFlipDrawFrameOf(FrameBufferData* fb)
     //printf("%d\n", xxxx);
 //    confBlendFrames = xxxx < 2100 || (xxxx >= 7900 && xxxx <= 9400);
 
+    completed = fb->frame + fb->drawFrame;
+    drawn = completed;
+#ifndef WII
+    if (blend) {
+        drawn = fb->blendFrame + fb->currentBlendFrame;
+    }
+#endif
     switch (frameBufferCount) {
     case 2:
         frameBuffer = frameBufferFlipDrawFrame2(fb);
@@ -426,17 +457,57 @@ FrameBuffer* frameBufferFlipDrawFrameOf(FrameBufferData* fb)
         break;
     }
 #ifndef WII
-    if (confBlendFrames) {
+    if (blend) {
         fb->currentBlendFrame ^= 1;
         frameBuffer = fb->blendFrame + fb->currentBlendFrame;
     }
 #endif
+    /* A buffer neither shown nor drawing gets its indices reset here after a
+    ** frame count change: the frame completed is then not the one drawn. */
+    if (fb->flipHook != NULL && completed == fb->frame + drawFrame) {
+        fb->flipHook(fb->flipRef, completed, drawn);
+    }
     return frameBuffer;
 }
 
 FrameBuffer* frameBufferFlipDrawFrame()
 {
-    return frameBufferFlipDrawFrameOf(currentBuffer);
+    return frameBufferFlipDrawFrameOf(drawBuffer);
+}
+
+/* The newest frame drawn to its end, or NULL before there is one. With one
+** or two frames that is the frame being drawn, or the last blended one. */
+FrameBuffer* frameBufferGetLastCompletedOf(FrameBufferData* fb)
+{
+    int best = -1;
+    int i;
+
+    if (fb == NULL) {
+        return NULL;
+    }
+    if (frameBufferCount <= 2) {
+        return fb->frame + fb->drawFrame;
+    }
+    for (i = 0; i < frameBufferCount && i < MAX_FRAMES_PER_FRAMEBUFFER; i++) {
+        if (i != fb->drawFrame && fb->frame[i].age > 0 &&
+            (best < 0 || fb->frame[i].age > fb->frame[best].age))
+        {
+            best = i;
+        }
+    }
+    return best < 0 ? NULL : fb->frame + best;
+}
+
+void frameBufferSetFlipHook(FrameBufferData* fb, FrameBufferFlipHook hook, void* ref)
+{
+    assert(hook == NULL || fb->flipHook == NULL);
+    fb->flipHook = hook;
+    fb->flipRef  = ref;
+}
+
+void frameBufferDataSetNoBlend(FrameBufferData* fb, int noBlend)
+{
+    fb->noBlend = noBlend;
 }
 
 void frameBufferSetBlendFrames(int blendFrames)
@@ -479,20 +550,40 @@ FrameBufferData* frameBufferDataCreate(int maxWidth, int maxHeight, int defaultH
 
 void frameBufferDataDestroy(FrameBufferData* frameData)
 {
+    if (frameData == NULL) {
+        return;
+    }
+    if (frameData->flipHook != NULL) {
+        frameData->flipHook(frameData->flipRef, NULL, NULL);
+    }
+    waitSem();
     if (frameData == currentBuffer) {
         currentBuffer = NULL;
     }
+    if (frameData == drawBuffer) {
+        drawBuffer = currentBuffer;
+    }
+    signalSem();
     free(frameData);
 }
 
 
 void frameBufferSetActive(FrameBufferData* frameData)
 {
+    frameBufferSetActiveDraw(frameData, frameData);
+}
+
+void frameBufferSetActiveDraw(FrameBufferData* frameData, FrameBufferData* drawData)
+{
     waitSem();
     if (frameData != NULL) {
         resetStaleIndices(frameData);
     }
+    if (drawData != NULL) {
+        resetStaleIndices(drawData);
+    }
     currentBuffer = frameData;
+    drawBuffer    = drawData;
     if (frameData == NULL) {
         mixMode = MIXMODE_INTERNAL;
     }
@@ -508,6 +599,11 @@ void frameBufferSetMixMode(FrameBufferMixMode mode,  FrameBufferMixMode mask)
 FrameBufferData* frameBufferGetActive()
 {
     return currentBuffer;
+}
+
+FrameBufferData* frameBufferGetActiveDraw()
+{
+    return drawBuffer;
 }
 
 FrameBuffer* frameBufferGetWhiteNoiseFrame()

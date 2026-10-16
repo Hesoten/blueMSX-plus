@@ -69,6 +69,13 @@ int videoManagerGetActiveRefreshRate();
 void videoManagerSetAspectRate(int handle, int rate);
 int videoManagerGetActiveAspectRate();
 int videoManagerActivePacesScreen();
+void videoManagerSetPacesScreen(int handle, int pacesScreen);
+/* While source handle is shown, source drawHandle (none if -1) stays
+** enabled and the VDP drawing functions draw into its frame buffer. */
+void videoManagerSetDrawSource(int handle, int drawHandle);
+/* The handle of the source at index, or -1. */
+int videoManagerGetHandle(int index);
+FrameBufferData* videoManagerGetFrameBuffer(int handle);
 
 void videoManagerReset();
 
