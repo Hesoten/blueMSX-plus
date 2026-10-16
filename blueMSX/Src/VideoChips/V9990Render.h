@@ -29,10 +29,11 @@
 UInt16 v9990PaletteColor(const UInt8* palette, int index);
 
 /* Draws count pixels of a bitmap image line, starting at image coordinates
-** (x, y), in the colour type selected by R#6 and R#13. Returns 0 without
-** drawing for a colour type it does not handle. */
+** (x, y), in the colour type selected by R#6 and R#13; hiRes selects the
+** dual palette of B4-B7. Returns 0 without drawing for a colour type it does
+** not handle. */
 int v9990RenderBitmapLine(UInt16* dst, int count, const UInt8* vram, const UInt8* palette,
-                          UInt8 r6, UInt8 r13, UInt32 x, UInt32 y);
+                          UInt8 r6, UInt8 r13, UInt32 x, UInt32 y, int hiRes);
 
 /* A P1 or P2 display line, with the registers as they stand at its commit. */
 typedef struct {

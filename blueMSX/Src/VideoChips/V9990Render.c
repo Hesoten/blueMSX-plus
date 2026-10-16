@@ -46,7 +46,10 @@ static UInt8 readBx(const UInt8* vram, UInt32 address)
     return vram[V9990_MAP_BX(address)];
 }
 
-static void drawBp2(UInt16* dst, int count, const UInt8* vram, const UInt16* pal, UInt32 pos)
+/* palOdd colours the odd image dots; it is pal except in the dual-palette
+** high-resolution modes. */
+static void drawBp2(UInt16* dst, int count, const UInt8* vram, const UInt16* pal,
+                    const UInt16* palOdd, UInt32 pos)
 {
     UInt32 address = pos >> 2;
     int shift = 6 - 2 * (int)(pos & 3);
@@ -54,7 +57,7 @@ static void drawBp2(UInt16* dst, int count, const UInt8* vram, const UInt16* pal
     int i;
 
     for (i = 0; i < count; i++) {
-        dst[i] = pal[(data >> shift) & 3];
+        dst[i] = (((pos + i) & 1) ? palOdd : pal)[(data >> shift) & 3];
         shift -= 2;
         if (shift < 0) {
             shift = 6;
@@ -63,18 +66,19 @@ static void drawBp2(UInt16* dst, int count, const UInt8* vram, const UInt16* pal
     }
 }
 
-static void drawBp4(UInt16* dst, int count, const UInt8* vram, const UInt16* pal, UInt32 pos)
+static void drawBp4(UInt16* dst, int count, const UInt8* vram, const UInt16* pal,
+                    const UInt16* palOdd, UInt32 pos)
 {
     UInt32 address = pos >> 1;
     int i = 0;
 
     if ((pos & 1) && count > 0) {
-        dst[i++] = pal[readBx(vram, address++) & 0x0f];
+        dst[i++] = palOdd[readBx(vram, address++) & 0x0f];
     }
     for (; i + 1 < count; i += 2) {
         UInt8 data = readBx(vram, address++);
         dst[i]     = pal[data >> 4];
-        dst[i + 1] = pal[data & 0x0f];
+        dst[i + 1] = palOdd[data & 0x0f];
     }
     if (i < count) {
         dst[i] = pal[readBx(vram, address) >> 4];
@@ -127,32 +131,38 @@ static void drawBd16(UInt16* dst, int count, const UInt8* vram, UInt32 pos)
 }
 
 int v9990RenderBitmapLine(UInt16* dst, int count, const UInt8* vram, const UInt8* palette,
-                          UInt8 r6, UInt8 r13, UInt32 x, UInt32 y)
+                          UInt8 r6, UInt8 r13, UInt32 x, UInt32 y, int hiRes)
 {
     UInt32 pos = y * (256u << ((r6 >> 2) & 3)) + x;
     UInt16 pal[64];
     int offset;
+    int odd;
     int i;
 
     if (count <= 0) {
         return 1;
     }
 
+    /* In high resolution, PLTO5 is replaced by the dot's image x parity. */
     switch (r6 & 3) {
     case 0:
-        offset = (r13 & 0x0f) << 2;
+        offset = (r13 & (hiRes ? 0x07 : 0x0f)) << 2;
+        odd = hiRes ? 32 : 0;
         for (i = 0; i < 4; i++) {
-            pal[i] = v9990PaletteColor(palette, offset + i);
+            pal[i]     = v9990PaletteColor(palette, offset + i);
+            pal[i + 4] = v9990PaletteColor(palette, offset + odd + i);
         }
-        drawBp2(dst, count, vram, pal, pos);
+        drawBp2(dst, count, vram, pal, pal + 4, pos);
         return 1;
 
     case 1:
-        offset = (r13 & 0x0c) << 2;
+        offset = (r13 & (hiRes ? 0x04 : 0x0c)) << 2;
+        odd = hiRes ? 32 : 0;
         for (i = 0; i < 16; i++) {
-            pal[i] = v9990PaletteColor(palette, offset + i);
+            pal[i]      = v9990PaletteColor(palette, offset + i);
+            pal[i + 16] = v9990PaletteColor(palette, offset + odd + i);
         }
-        drawBp4(dst, count, vram, pal, pos);
+        drawBp4(dst, count, vram, pal, pal + 16, pos);
         return 1;
 
     case 2:

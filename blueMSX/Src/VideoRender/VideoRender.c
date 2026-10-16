@@ -3208,6 +3208,7 @@ int videoRender(Video* pVideo, FrameBuffer* frame, int bitDepth, int zoom,
         frame = frameBufferDeinterlace(frame);
     }
     frame = frameBufferNarrow(frame);
+    frame = frameBufferFitLines(frame);
 
     zoom_final = zoom;
     zoom = min(zoom, 2);

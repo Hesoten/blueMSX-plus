@@ -66,6 +66,8 @@ char* videoManagerGetName(int index);
 int videoManagerIsHandleActive(int handle);
 void videoManagerSetRefreshRate(int handle, int rate);
 int videoManagerGetActiveRefreshRate();
+void videoManagerSetAspectRate(int handle, int rate);
+int videoManagerGetActiveAspectRate();
 int videoManagerActivePacesScreen();
 
 void videoManagerReset();

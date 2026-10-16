@@ -822,7 +822,7 @@ static UvRender12 computeUvForRender(int targetW, int targetH,
     case P_D3D_AR_PAL:     fAR = PAL_AR;  break;
     case P_D3D_AR_1:       fAR = 1.0f;    break;
     case P_D3D_AR_AUTO: {
-        int rate = videoManagerGetActiveRefreshRate();
+        int rate = videoManagerGetActiveAspectRate();
         if (rate == 0) rate = vdpGetRefreshRate();
         fAR = (rate == 60) ? NTSC_AR : PAL_AR;
         break;
@@ -841,15 +841,17 @@ static UvRender12 computeUvForRender(int targetW, int targetH,
     const float wUvScale = (float)srcW / ((float)BASE_TEX_W * fTexW);
     fWm *= wUvScale;
 
-    const bool  isDeint = (srcH > BASE_TEX_H);
-    const float hUvDiv  = isDeint ? (float)BASE_TEX_H : fTexH;
+    // Over 240 rows the frame spans the full height: 480 (deinterlaced) or
+    // 400 (V9990 B5); for 480 these are exactly the plain 240 and 0.5.
+    const bool  fullHeight = (srcH > BASE_TEX_H);
+    const float hUvDiv     = fullHeight ? (float)BASE_TEX_H * fTexH / (float)srcH : fTexH;
     fHm /= hUvDiv;
 
     const float fDx = (float)(iBorderLeft - iBorderRight) * 0.5f * wUvScale;
     const float fDy = (float)(iBorderTop  - iBorderBottom) * 0.5f / hUvDiv;
 
     const float uCtr = (float)srcW * 0.5f / fTexW;
-    const float vCtr = isDeint ? 0.5f : (float)srcH * 0.5f / fTexH;
+    const float vCtr = (float)srcH * 0.5f / fTexH;
 
     o.u0 = uCtr - fWm * 0.5f + fDx;
     o.u1 = uCtr + fWm * 0.5f + fDx;

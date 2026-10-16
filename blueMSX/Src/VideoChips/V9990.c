@@ -83,6 +83,14 @@
 #define V9990_FB_LINES     240
 #define V9990_FB_WINDOW_UC (8 * V9990_FB_WIDTH)
 
+/* Four-times-wide lines must fit a frame buffer line. */
+typedef char V9990FbLineFits[(V9990_FB_WIDTH << 2) <= FB_MAX_LINE_WIDTH ? 1 : -1];
+
+/* B5 and B6 show 640 dots over the whole window, at 10/17 dot per sample. */
+#define V9990_HS_DOTS      640
+#define V9990_HS_DOT_W     17
+#define V9990_HS_SAMPLE_W  10
+
 /* A command timing slot that lasts to the next frame start. */
 #define COMMAND_NO_END  0x7fffffff
 
@@ -145,6 +153,7 @@ struct V9990 {
     int    displayStartLine;
     int    displayEndLine;
     int    windowTopLine;
+    int    fbLines;
 
     /* The line that shows image row SCAY: the display start, or the line
     ** of an R#17 write during the display. R#21 does the same for SCBY. */
@@ -230,6 +239,28 @@ static int isOverscan(V9990Mode mode)
 static int isHighScan(V9990Mode mode)
 {
     return mode == V9990_MODE_B5 || mode == V9990_MODE_B6;
+}
+
+static int isBitmap(V9990Mode mode)
+{
+    return mode != V9990_MODE_P1 && mode != V9990_MODE_P2 && mode != V9990_MODE_STANDBY;
+}
+
+/* Dot width in UC of a line drawn in mode. B5 and B6 lines in a frame
+** that is not high-scan are drawn as B7. */
+static int dotUc(V9990Mode mode)
+{
+    switch (mode) {
+    case V9990_MODE_B0: return 12;
+    case V9990_MODE_P1:
+    case V9990_MODE_B1:
+    case V9990_MODE_STANDBY: return 8;
+    case V9990_MODE_B2: return 6;
+    case V9990_MODE_P2:
+    case V9990_MODE_B3: return 4;
+    case V9990_MODE_B4: return 3;
+    default: return 2;
+    }
 }
 
 /* A set-adjust nibble of 0 is the nominal position; 8-15 move right or down
@@ -325,15 +356,24 @@ static void calcFrameGeometry(V9990* v9990)
     v9990->displayEndLine   = v9990->displayStartLine + displayLines;
 
     /* The 240 lines are centred on the nominal display, as in the V9938:
-    ** 14 border lines above a 212-line display. */
-    v9990->windowTopLine = windowTop + topBorder + (displayLines - V9990_FB_LINES) / 2;
+    ** 14 border lines above a 212-line display. B5 and B6 fill the window
+    ** with their 400 or 480 lines, as a monitor does, at a 4:3 aspect. */
+    if (isHighScan(mode)) {
+        v9990->windowTopLine = windowTop;
+        v9990->fbLines       = displayLines;
+    }
+    else {
+        v9990->windowTopLine = windowTop + topBorder + (displayLines - V9990_FB_LINES) / 2;
+        v9990->fbLines       = V9990_FB_LINES;
+    }
 
     videoManagerSetRefreshRate(v9990->videoHandle, frameRate(v9990));
+    videoManagerSetAspectRate(v9990->videoHandle, isHighScan(mode) ? 60 : 0);
 }
 
 /* Horizontal display area in UC (42.95 MHz) from the line start, using the
 ** display mode in effect now. window is where frame buffer sample 0 starts:
-** the 2176 UC window is centred on the nominal display. */
+** the 2176 UC window is centred on the nominal display (B5/B6: at its start). */
 static void calcHorizontalArea(V9990* v9990, int* left, int* right, int* window)
 {
     V9990Mode mode = v9990->mode;
@@ -354,6 +394,9 @@ static void calcHorizontalArea(V9990* v9990, int* left, int* right, int* window)
     }
 
     *window = blank + border + (display - V9990_FB_WINDOW_UC) / 2;
+    if (isHighScan(v9990->frameMode)) {
+        *window = blank;
+    }
     *left   = blank + border + adjustOffset(v9990->latchAdjust & 0x0f) * unit;
     *right  = *left + display;
 }
@@ -436,25 +479,86 @@ static UInt32 rollMask(V9990* v9990, UInt32 noRoll)
     }
 }
 
-/* Draws the B1/B3 image over the display samples of a line, whose samples
-** are one dot each. */
-static void drawBitmap(V9990* v9990, UInt16* line, int count, int ucPerSample,
-                       int window, int left, int right, int scanLine)
+/* Mixes two frame buffer colours by weights wa and wb (sum total), each
+** channel rounded; the key bit stays only where both colours have it. */
+static UInt16 blendColor(UInt16 a, int wa, UInt16 b, int wb, int total)
 {
+    int r = (((a >> 10) & 0x1f) * wa + ((b >> 10) & 0x1f) * wb + total / 2) / total;
+    int g = (((a >> 5) & 0x1f) * wa + ((b >> 5) & 0x1f) * wb + total / 2) / total;
+    int c = ((a & 0x1f) * wa + (b & 0x1f) * wb + total / 2) / total;
+
+    return (UInt16)((a & b & 0x8000) | (r << 10) | (g << 5) | c);
+}
+
+/* Covers samples [first, end) with dots: sample x starts at origin + x * sampleW
+** and dot d at d * dotW (sampleW <= dotW). A sample over two dots gets their
+** area-weighted mix; dots outside [dot0, dot0 + n) keep the sample's colour. */
+static void expandDots(UInt16* line, int first, int end, int origin, int sampleW,
+                       int dotW, const UInt16* dots, int dot0, int n)
+{
+    int x;
+
+    for (x = first; x < end; x++) {
+        int u = origin + x * sampleW;
+        int d = floorDiv(u, dotW);
+        int f = u - d * dotW;
+        UInt16 a;
+        UInt16 b;
+
+        d -= dot0;
+        a = d >= 0 && d < n ? dots[d] : line[x];
+        if (f + sampleW <= dotW) {
+            line[x] = a;
+            continue;
+        }
+        b = d + 1 >= 0 && d + 1 < n ? dots[d + 1] : line[x];
+        line[x] = blendColor(a, dotW - f, b, f + sampleW - dotW, sampleW);
+    }
+}
+
+/* Draws the bitmap image over the samples of a line that the display
+** [0, displayW) covers, in the units of expandDots. */
+static void drawBitmap(V9990* v9990, UInt16* line, int count, int origin, int sampleW,
+                       int dotW, int displayW, int scanLine)
+{
+    static UInt16 dots[FB_MAX_LINE_WIDTH + 2];
+    V9990Mode mode = v9990->mode;
     UInt32 scrollX = v9990->regs[R_SCROLL_AX_LO] | (v9990->regs[R_SCROLL_AX_HI] << 3);
     UInt32 scrollY = v9990->regs[R_SCROLL_AY_LO] | (v9990->latchScrollAYHi << 8);
     UInt32 mask = rollMask(v9990, 0x1fff);
     UInt32 row;
-    int first;
-    int end;
-    int dot;
+    int first = floorDiv(-origin, sampleW);
+    int end   = -floorDiv(origin - displayW, sampleW);
+    int dot0;
+    int dot1;
+    int hiRes;
 
-    if (!displaySpan(count, ucPerSample, window, left, right, &first, &end, &dot)) {
+    if (first < 0) {
+        first = 0;
+    }
+    if (end > count) {
+        end = count;
+    }
+    if (first >= end) {
+        return;
+    }
+    dot0 = floorDiv(origin + first * sampleW, dotW);
+    dot1 = floorDiv(origin + end * sampleW - 1, dotW) + 1;
+    if (dot0 < 0) {
+        dot0 = 0;
+    }
+    if (dot1 > displayW / dotW) {
+        dot1 = displayW / dotW;
+    }
+    if (dot1 - dot0 > FB_MAX_LINE_WIDTH + 2) {
+        dot1 = dot0 + FB_MAX_LINE_WIDTH + 2;
+    }
+    if (dot0 >= dot1) {
         return;
     }
 
     /* B3 at 16 bpp scrolls in 2-dot units. */
-    if (v9990->mode == V9990_MODE_B3 && (v9990->modeR6 & 3) == 3) {
+    if (mode == V9990_MODE_B3 && (v9990->modeR6 & 3) == 3) {
         scrollX &= ~1;
     }
 
@@ -463,9 +567,13 @@ static void drawBitmap(V9990* v9990, UInt16* line, int count, int ucPerSample,
         row = 2 * row + (v9990->secondField ? 1 : 0);
     }
 
-    v9990RenderBitmapLine(line + first, end - first, v9990->vram, v9990->palette,
-                          v9990->modeR6, v9990->regs[R_PALETTE_CTRL], dot + scrollX,
-                          (scrollY & ~mask & 0x1fff) + ((row + scrollY) & mask));
+    hiRes = mode == V9990_MODE_B4 || mode == V9990_MODE_B5 ||
+            mode == V9990_MODE_B6 || mode == V9990_MODE_B7;
+    if (v9990RenderBitmapLine(dots, dot1 - dot0, v9990->vram, v9990->palette,
+                              v9990->modeR6, v9990->regs[R_PALETTE_CTRL], dot0 + scrollX,
+                              (scrollY & ~mask & 0x1fff) + ((row + scrollY) & mask), hiRes)) {
+        expandDots(line, first, end, origin, sampleW, dotW, dots, dot0, dot1 - dot0);
+    }
 }
 
 /* Draws a P1 or P2 line over its display samples. Layer B always rolls at 512 lines. */
@@ -499,13 +607,38 @@ static void drawPattern(V9990* v9990, UInt16* line, int count, int ucPerSample,
     v9990RenderPatternLine(line + first, end - first, v9990->vram, v9990->palette, &p, dot);
 }
 
-/* Draws scan line scanLine (counted from lineZero) into frame buffer line y. */
+/* Draws a B5/B6 scan line: the 640 dots fill the 1088 samples, moved by
+** the set-adjust in 4-dot units, with blanking where they do not reach. */
+static void drawHighScanLine(V9990* v9990, UInt16* line, int count, int scanLine)
+{
+    int shift = adjustOffset(v9990->latchAdjust & 0x0f) * 4;
+
+    if (!(v9990->latchControl & 0x80)) {
+        fillLine(line, count, paletteColor(v9990, v9990->regs[R_BACKDROP]));
+        return;
+    }
+    fillLine(line, count, 0);
+    if (scanLine < v9990->displayStartLine || scanLine >= v9990->displayEndLine) {
+        return;
+    }
+    if (!isBitmap(v9990->mode)) {
+        fillLine(line, count, paletteColor(v9990, v9990->regs[R_BACKDROP]));
+        return;
+    }
+    drawBitmap(v9990, line, count, -shift * V9990_HS_DOT_W, V9990_HS_SAMPLE_W,
+               V9990_HS_DOT_W, V9990_HS_DOTS * V9990_HS_DOT_W, scanLine);
+}
+
+/* Draws scan line scanLine (counted from lineZero) into frame buffer line y.
+** Lines hold 272 << shift samples of 8 >> shift UC: B0 and B2 dots are 3
+** samples wide, B4 dots 1.5. */
 static void drawLine(V9990* v9990, FrameBuffer* frame, int y, int scanLine)
 {
     V9990Mode mode = v9990->mode;
-    int wide = mode == V9990_MODE_P2 || mode == V9990_MODE_B3;
-    int count = V9990_FB_WIDTH << wide;
-    int ucPerSample = 8 >> wide;
+    int dotW = dotUc(mode);
+    int shift;
+    int count;
+    int ucPerSample;
     UInt16* line = frameBufferGetLine(frame, y);
     UInt16 backdrop;
     UInt16 border;
@@ -514,10 +647,29 @@ static void drawLine(V9990* v9990, FrameBuffer* frame, int y, int scanLine)
     int window;
     int x;
 
-    frameBufferSetDoubleWidth(frame, y, wide);
+    if (isHighScan(v9990->frameMode)) {
+        shift = 2;
+    }
+    else if (dotW == 8) {
+        shift = 0;
+    }
+    else if (dotW == 4 || dotW == 12) {
+        shift = 1;
+    }
+    else {
+        shift = 2;
+    }
+    count = V9990_FB_WIDTH << shift;
+    ucPerSample = 8 >> shift;
+
+    frameBufferSetDoubleWidth(frame, y, shift);
 
     if (mode == V9990_MODE_STANDBY) {
         fillLine(line, count, 0);
+        return;
+    }
+    if (isHighScan(v9990->frameMode)) {
+        drawHighScanLine(v9990, line, count, scanLine);
         return;
     }
 
@@ -527,8 +679,8 @@ static void drawLine(V9990* v9990, FrameBuffer* frame, int y, int scanLine)
         return;
     }
 
-    /* Outside the display, overscan and high-scan modes show the blanking. */
-    border = isOverscan(mode) || isHighScan(v9990->frameMode) ? 0 : backdrop;
+    /* Outside the display, overscan modes show the blanking. */
+    border = isOverscan(mode) ? 0 : backdrop;
     if (scanLine < v9990->displayStartLine || scanLine >= v9990->displayEndLine) {
         fillLine(line, count, border);
         return;
@@ -541,10 +693,10 @@ static void drawLine(V9990* v9990, FrameBuffer* frame, int y, int scanLine)
         line[x] = center >= left && center < right ? backdrop : border;
     }
 
-    if (mode == V9990_MODE_B1 || mode == V9990_MODE_B3) {
-        drawBitmap(v9990, line, count, ucPerSample, window, left, right, scanLine);
+    if (isBitmap(mode)) {
+        drawBitmap(v9990, line, count, window - left, ucPerSample, dotW, right - left, scanLine);
     }
-    else if (mode == V9990_MODE_P1 || mode == V9990_MODE_P2) {
+    else {
         drawPattern(v9990, line, count, ucPerSample, window, left, right, scanLine);
     }
 }
@@ -577,7 +729,7 @@ static void renderLines(V9990* v9990, int endLine)
         int y = scanLine - v9990->windowTopLine;
 
         syncMode(v9990, v9990->frameStartTime + v9990->lineZero + scanLine * v9990->lineTicks);
-        if (frame != NULL && y >= 0 && y < V9990_FB_LINES) {
+        if (frame != NULL && y >= 0 && y < v9990->fbLines) {
             drawLine(v9990, frame, y, scanLine);
         }
     }
@@ -755,16 +907,17 @@ static void scheduleHi(V9990* v9990, UInt32 time)
 /* Sets up the frame buffer frame that this frame is drawn into, from line 0. */
 static void startPicture(V9990* v9990, FrameBuffer* frame)
 {
-    V9990Mode mode = v9990->frameMode;
-    int bitmap = mode != V9990_MODE_P1 && mode != V9990_MODE_P2 && mode != V9990_MODE_STANDBY;
+    int bitmap = isBitmap(v9990->frameMode);
 
     v9990->renderLine = 0;
     if (frame == NULL) {
         return;
     }
 
-    frameBufferSetLineCount(frame, V9990_FB_LINES);
-    frame->interlaceRaster = v9990->latchIl;
+    frameBufferSetLineCount(frame, v9990->fbLines);
+    /* Neither an interlaced raster nor a B5/B6 frame leaves gaps between
+    ** lines, so the display is told not to draw scanlines over them. */
+    frame->interlaceRaster = v9990->latchIl || isHighScan(v9990->frameMode);
     /* EO selects the second field's lines only with IL, and only in Bx. */
     if (v9990->latchIl && bitmap && (v9990->regs[R_SCREEN_MODE1] & 0x04)) {
         frameBufferSetInterlace(frame, v9990->secondField ? INTERLACE_ODD : INTERLACE_EVEN);

@@ -45,6 +45,7 @@ typedef struct {
     VideoMode videoMode;
     VideoMode videoMask;
     int   refreshRate;
+    int   aspectRate;
     char  name[32];
 } VideoInfo;
 
@@ -64,6 +65,7 @@ static int claimHandle = 0;
 /* Copies of the shown source's values, so that the timer thread can read them
 ** without touching a source that may be ejected meanwhile. */
 static volatile int activeRefreshRate = 0;
+static volatile int activeAspectRate = 0;
 static volatile int activePacesScreen = 0;
 
 void videoManagerReset() 
@@ -73,6 +75,7 @@ void videoManagerReset()
     loadedActiveIndex = -2;
     claimHandle = 0;
     activeRefreshRate = 0;
+    activeAspectRate = 0;
     activePacesScreen = 0;
 }
 
@@ -129,6 +132,7 @@ static void updateActiveCache()
 {
     int index = videoManagerGetActive();
     activeRefreshRate = index < 0 ? 0 : videoManager.di[index].refreshRate;
+    activeAspectRate  = index < 0 ? 0 : videoManager.di[index].aspectRate;
     activePacesScreen = index < 0 ? 0 : videoManager.di[index].callbacks.pacesScreen;
 }
 
@@ -229,6 +233,25 @@ int videoManagerGetActiveRefreshRate()
     return activeRefreshRate;
 }
 
+/* rate is the TV rate whose aspect the picture has, or 0 for its refresh rate. */
+void videoManagerSetAspectRate(int handle, int rate)
+{
+    int index = videoManagerIndexOf(handle);
+    if (index < 0) {
+        return;
+    }
+    videoManager.di[index].aspectRate = rate;
+    if (videoManagerIsActive(index)) {
+        activeAspectRate = rate;
+    }
+}
+
+int videoManagerGetActiveAspectRate()
+{
+    int rate = activeAspectRate;
+    return rate != 0 ? rate : activeRefreshRate;
+}
+
 int videoManagerActivePacesScreen()
 {
     return activePacesScreen;
@@ -248,6 +271,7 @@ int videoManagerRegister(const char* name, FrameBufferData* frameBuffer,
     videoManager.di[videoManager.count].videoMode   = VIDEO_INTERNAL;
     videoManager.di[videoManager.count].videoMask   = VIDEO_INTERNAL;
     videoManager.di[videoManager.count].refreshRate = 0;
+    videoManager.di[videoManager.count].aspectRate = 0;
 
     strcpy(videoManager.di[videoManager.count].name, name);
 

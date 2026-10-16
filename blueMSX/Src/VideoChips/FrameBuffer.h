@@ -89,6 +89,7 @@ FrameBuffer* frameBufferGetWhiteNoiseFrame();
 FrameBuffer* frameBufferDeinterlace(FrameBuffer* frameBuffer);
 void frameBufferClearDeinterlace();
 FrameBuffer* frameBufferNarrow(FrameBuffer* frameBuffer);
+FrameBuffer* frameBufferFitLines(FrameBuffer* frameBuffer);
 
 FrameBufferData* frameBufferDataCreate(int maxWidth, int maxHeight, int defaultHorizZoom);
 void frameBufferDataDestroy(FrameBufferData* frameData);

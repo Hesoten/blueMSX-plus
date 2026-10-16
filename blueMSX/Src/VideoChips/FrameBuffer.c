@@ -69,6 +69,30 @@ static void* semaphore = NULL;
 /* Per thread: the UI thread and the recorder on the emu thread both render. */
 static FB_THREAD_LOCAL FrameBuffer* deintBuffer = NULL;
 static FB_THREAD_LOCAL FrameBuffer* narrowBuffer = NULL;
+static FB_THREAD_LOCAL FrameBuffer* fitBuffer = NULL;
+
+/* Samples in line y, at most what a line buffer holds. */
+static int lineWidth(FrameBuffer* frameBuffer, int y)
+{
+    int width = frameBuffer->maxWidth << frameBuffer->line[y].doubleWidth;
+    return width < FB_MAX_LINE_WIDTH ? width : FB_MAX_LINE_WIDTH;
+}
+
+/* Halves a four-times-wide line in place; a mixed sample keeps the key bit
+** only where both samples have it. */
+static void narrowLine(FrameBuffer* frameBuffer, int y)
+{
+    LineBuffer* line = &frameBuffer->line[y];
+    int width = lineWidth(frameBuffer, y) / 2;
+    int x;
+
+    for (x = 0; x < width; x++) {
+        UInt16 a = line->buffer[2 * x];
+        UInt16 b = line->buffer[2 * x + 1];
+        line->buffer[x] = (UInt16)((a & b & 0x8000) | (((a & b) + (((a ^ b) & 0x7bde) >> 1)) & 0x7fff));
+    }
+    line->doubleWidth = 1;
+}
 #ifndef WII
 static int confBlendFrames = 0;
 #endif
@@ -529,6 +553,11 @@ void frameBufferClearDeinterlace()
         narrowBuffer = NULL;
         free(buf);
     }
+    if (fitBuffer != NULL) {
+        void* buf = fitBuffer;
+        fitBuffer = NULL;
+        free(buf);
+    }
 }
 
 /* Returns frameBuffer with its four-times-wide lines halved (each ARGB1555
@@ -563,11 +592,11 @@ FrameBuffer* frameBufferNarrow(FrameBuffer* frameBuffer)
     for (y = 0; y < frameBuffer->lines; y++) {
         LineBuffer* src = &frameBuffer->line[y];
         LineBuffer* dst = &narrowBuffer->line[y];
-        int width = frameBuffer->maxWidth << 1;
+        int width = lineWidth(frameBuffer, y) / 2;
 
         if (src->doubleWidth <= 1) {
             dst->doubleWidth = src->doubleWidth;
-            memcpy(dst->buffer, src->buffer, (frameBuffer->maxWidth << src->doubleWidth) * sizeof(UInt16));
+            memcpy(dst->buffer, src->buffer, lineWidth(frameBuffer, y) * sizeof(UInt16));
             continue;
         }
         dst->doubleWidth = 1;
@@ -578,6 +607,38 @@ FrameBuffer* frameBufferNarrow(FrameBuffer* frameBuffer)
         }
     }
     return narrowBuffer;
+}
+
+/* Returns a progressive frame of between 240 and 480 lines stretched to 480
+** lines by repeating lines, or frameBuffer itself if it has another count. */
+FrameBuffer* frameBufferFitLines(FrameBuffer* frameBuffer)
+{
+    int y;
+
+    if (frameBuffer->lines <= FB_MAX_LINES / 2 || frameBuffer->lines >= FB_MAX_LINES ||
+        frameBuffer->interlace != INTERLACE_NONE) {
+        return frameBuffer;
+    }
+    if (fitBuffer == NULL) {
+        fitBuffer = calloc(1, sizeof(FrameBuffer));
+        if (fitBuffer == NULL) {
+            return frameBuffer;
+        }
+    }
+
+    fitBuffer->age             = frameBuffer->age;
+    fitBuffer->interlace       = INTERLACE_NONE;
+    fitBuffer->interlaceRaster = frameBuffer->interlaceRaster;
+    fitBuffer->maxWidth        = frameBuffer->maxWidth;
+    fitBuffer->lines           = FB_MAX_LINES;
+
+    for (y = 0; y < FB_MAX_LINES; y++) {
+        int src = y * frameBuffer->lines / FB_MAX_LINES;
+        fitBuffer->line[y].doubleWidth = frameBuffer->line[src].doubleWidth;
+        memcpy(fitBuffer->line[y].buffer, frameBuffer->line[src].buffer,
+               lineWidth(frameBuffer, src) * sizeof(UInt16));
+    }
+    return fitBuffer;
 }
 
 FrameBuffer* frameBufferDeinterlace(FrameBuffer* frameBuffer)
@@ -632,7 +693,7 @@ static FrameBuffer* mixFrame(FrameBuffer* d, FrameBuffer* a, FrameBuffer* b, int
     d->maxWidth        = a->maxWidth;
 
     for (y = 0; y < a->lines; y++) {
-        int width = (a->maxWidth << a->line[y].doubleWidth) / 2;
+        int width = lineWidth(a, y) / 2;
         UInt32* ap = (UInt32*)a->line[y].buffer;
         UInt32* bp = (UInt32*)b->line[y].buffer;
         UInt32* dp = (UInt32*)d->line[y].buffer;
@@ -696,7 +757,7 @@ static FrameBuffer* mixFrameInterlace(FrameBuffer* d, FrameBuffer* a, FrameBuffe
     }
 
     for (y = 0; y < a->lines * 2; y++) {
-        int     width = (a->maxWidth << a->line[y / 2].doubleWidth) / 2;
+        int     width = lineWidth(a, y / 2) / 2;
         UInt32* ap;
         UInt32* bp;
         UInt32* dp;
@@ -843,6 +904,11 @@ static void frameBufferSuperimpose(FrameBuffer* a)
             UInt16* pImg1 = pImage+(2*y+0) * imageWidth;
             UInt16* pImg2 = pImage+(2*y+1) * imageWidth;
 
+            /* The mixing below handles lines of up to twice the width. */
+            if (a->line[y].doubleWidth > 1) {
+                narrowLine(a, y);
+            }
+
             if (scaleWidth && a->line[y].doubleWidth) {
                 for (x = imageWidth - 1; x >= 0; x--) {
                     UInt16 val = pSrc[x];
@@ -893,6 +959,11 @@ static void frameBufferSuperimpose(FrameBuffer* a)
             UInt16* pSrc = a->line[y].buffer;
             UInt16* pDst = a->line[y].buffer;
             UInt16* pImg = pImage + y * imageWidth;
+
+            /* The mixing below handles lines of up to twice the width. */
+            if (a->line[y].doubleWidth > 1) {
+                narrowLine(a, y);
+            }
 
             if (scaleWidth && a->line[y].doubleWidth) {
                 for (x = imageWidth - 1; x >= 0; x--) {
