@@ -77,6 +77,12 @@ UInt16    v9990CmdGetBorderX(V9990Cmd* cmd, UInt32 time);
 void      v9990CmdWriteData(V9990Cmd* cmd, UInt8 value, UInt32 time);
 UInt8     v9990CmdReadData(V9990Cmd* cmd, UInt32 time);
 
+/* The engine as of its last sync, for the debugger: these change nothing.
+** PeekData is the byte P#2 would return. */
+UInt8     v9990CmdPeekStatus(V9990Cmd* cmd);
+UInt16    v9990CmdPeekBorderX(V9990Cmd* cmd);
+UInt8     v9990CmdPeekData(V9990Cmd* cmd);
+
 void      v9990CmdSaveState(V9990Cmd* cmd);
 void      v9990CmdLoadState(V9990Cmd* cmd, UInt32 time);
 

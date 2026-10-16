@@ -29,6 +29,9 @@
 #include "FrameBuffer.h"
 #include "VideoManager.h"
 #include "Emulator.h"
+#include "DebugDeviceManager.h"
+#include "Language.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -177,6 +180,8 @@ struct V9990 {
     UInt32 viTime;
     int    hiArmed;
     UInt32 hiTime;
+
+    int    debugHandle;
 };
 
 UInt32 v9990MapAddress(V9990Mode mode, UInt32 address)
@@ -1035,7 +1040,8 @@ static void onHi(V9990* v9990, UInt32 time)
     raiseIrq(v9990, IRQ_HI);
 }
 
-static UInt8 readStatus(V9990* v9990, UInt32 time)
+/* P#5 at time, given the command engine's bits; computing it changes nothing. */
+static UInt8 statusAt(V9990* v9990, UInt32 time, UInt8 status)
 {
     UInt32 lineTicks = v9990->lineTicks;
     UInt32 pos = (time - v9990->frameStartTime) + lineTicks - v9990->lineZero;
@@ -1044,7 +1050,6 @@ static UInt8 readStatus(V9990* v9990, UInt32 time)
     int left;
     int right;
     int window;
-    UInt8 status = v9990CmdGetStatus(v9990->cmd, time);
 
     calcHorizontalArea(v9990, &left, &right, &window);
 
@@ -1061,6 +1066,11 @@ static UInt8 readStatus(V9990* v9990, UInt32 time)
         status |= 0x02;
     }
     return status;
+}
+
+static UInt8 readStatus(V9990* v9990, UInt32 time)
+{
+    return statusAt(v9990, time, v9990CmdGetStatus(v9990->cmd, time));
 }
 
 static UInt32 getVramAddress(V9990* v9990, int reg)
@@ -1080,18 +1090,29 @@ static UInt8 readVramCpu(V9990* v9990, UInt32 address)
     return v9990->vram[v9990MapAddress(v9990->mode, address)];
 }
 
-static UInt8 readRegister(V9990* v9990, int reg, UInt32 time)
+/* What P#3 returns for reg; borderX is only used for R#53 and R#54. */
+static UInt8 registerValue(V9990* v9990, int reg, UInt16 borderX)
 {
     if (v9990->systemReset || !(regAccess[reg] & REG_R)) {
         return 0xff;
     }
     if (reg == R_CMD_BORDER_LO) {
-        return (UInt8)v9990CmdGetBorderX(v9990->cmd, time);
+        return (UInt8)borderX;
     }
     if (reg == R_CMD_BORDER_HI) {
-        return (UInt8)(v9990CmdGetBorderX(v9990->cmd, time) >> 8);
+        return (UInt8)(borderX >> 8);
     }
     return v9990->regs[reg];
+}
+
+static UInt8 readRegister(V9990* v9990, int reg, UInt32 time)
+{
+    UInt16 borderX = 0;
+
+    if (!v9990->systemReset && (reg == R_CMD_BORDER_LO || reg == R_CMD_BORDER_HI)) {
+        borderX = v9990CmdGetBorderX(v9990->cmd, time);
+    }
+    return registerValue(v9990, reg, borderX);
 }
 
 /* Writing the low byte of SCAY (SCBY) during the display makes the current
@@ -1344,9 +1365,112 @@ static void powerOn(V9990* v9990)
     v9990Reset(v9990);
 }
 
+#define DBG_PALETTE_NAME "Palette"
+
+/* What a read of P#port would return, without its side effects. The command
+** engine is not synced, so its bits are as of the last access that synced it. */
+static UInt8 peekPort(V9990* v9990, int port, UInt32 time)
+{
+    switch (port) {
+    case P_VRAM_DATA:
+        return v9990->readBuffer;
+    case P_PALETTE_DATA:
+        return v9990->palette[v9990->regs[R_PALETTE_PTR]];
+    case P_COMMAND_DATA:
+        return v9990CmdPeekData(v9990->cmd);
+    case P_REGISTER_DATA:
+        return registerValue(v9990, v9990->regSelect & 0x3f, v9990CmdPeekBorderX(v9990->cmd));
+    case P_STATUS:
+        return statusAt(v9990, time, v9990CmdPeekStatus(v9990->cmd));
+    case P_INT_FLAG:
+        return v9990->pending;
+    }
+    return 0xff;
+}
+
+static void getDebugInfo(V9990* v9990, DbgDevice* dbgDevice)
+{
+    static const UInt8 portDirection[8] = {
+        DBG_IO_READWRITE, DBG_IO_READWRITE, DBG_IO_READWRITE, DBG_IO_READWRITE,
+        DBG_IO_WRITE,     DBG_IO_READ,      DBG_IO_READWRITE, DBG_IO_WRITE
+    };
+    UInt32 time = boardSystemTime();
+    UInt16 borderX = v9990CmdPeekBorderX(v9990->cmd);
+    UInt8 palette[64 * 3];
+    DbgRegisterBank* regBank;
+    DbgIoPorts* ioPorts;
+    int i;
+
+    dbgDeviceAddMemoryBlock(dbgDevice, langDbgMemVram(), 0, 0, V9990_VRAM_SIZE, v9990->vram);
+
+    for (i = 0; i < 64 * 3; i++) {
+        palette[i] = v9990->palette[4 * (i / 3) + i % 3];
+    }
+    dbgDeviceAddMemoryBlock(dbgDevice, DBG_PALETTE_NAME, 0, 0, sizeof(palette), palette);
+
+    regBank = dbgDeviceAddRegisterBank(dbgDevice, langDbgRegs(), 64);
+    for (i = 0; i < 64; i++) {
+        char name[8];
+        UInt8 value = v9990->regs[i];
+
+        if (i == R_CMD_BORDER_LO) value = (UInt8)borderX;
+        if (i == R_CMD_BORDER_HI) value = (UInt8)(borderX >> 8);
+        sprintf(name, "R%d", i);
+        dbgRegisterBankAddRegister(regBank, i, name, 8, value);
+    }
+
+    ioPorts = dbgDeviceAddIoPorts(dbgDevice, "V9990", 16);
+    for (i = 0; i < 16; i++) {
+        dbgIoPortsAddPort(ioPorts, i, (UInt16)(0x60 + i),
+                          i < 8 ? portDirection[i] : DBG_IO_NONE, peekPort(v9990, i, time));
+    }
+}
+
+static int dbgWriteMemory(V9990* v9990, char* name, void* data, int start, int size)
+{
+    UInt8* bytes = data;
+    int i;
+
+    if (start < 0 || size < 0) {
+        return 0;
+    }
+    if (strcmp(name, langDbgMemVram()) == 0) {
+        if (start + size > V9990_VRAM_SIZE) {
+            return 0;
+        }
+        memcpy(v9990->vram + start, data, size);
+        return 1;
+    }
+    if (strcmp(name, DBG_PALETTE_NAME) == 0) {
+        if (start + size > 64 * 3) {
+            return 0;
+        }
+        for (i = start; i < start + size; i++) {
+            v9990->palette[4 * (i / 3) + i % 3] = bytes[i - start] & paletteMask[i % 3];
+        }
+        return 1;
+    }
+    return 0;
+}
+
+/* Goes through the normal register write. The command registers live in the
+** engine and R#52 would start a command, so R#32 and above are refused. */
+static int dbgWriteRegister(V9990* v9990, char* name, int regIndex, UInt32 value)
+{
+    UInt32 time = boardSystemTime();
+
+    if (regIndex < 0 || regIndex >= 32 || !(regAccess[regIndex] & REG_W)) {
+        return 0;
+    }
+    sync(v9990, time);
+    writeRegister(v9990, regIndex, (UInt8)value, time);
+    return 1;
+}
+
 V9990* v9990Create(void)
 {
     VideoCallbacks videoCallbacks = { NULL, NULL, 1, 1 };
+    DebugCallbacks debugCallbacks = { getDebugInfo, dbgWriteMemory, dbgWriteRegister, NULL };
     V9990* v9990 = calloc(1, sizeof(V9990));
 
     v9990->vram = malloc(V9990_VRAM_SIZE);
@@ -1366,6 +1490,8 @@ V9990* v9990Create(void)
     v9990->videoHandle = videoManagerRegister("V9990", v9990->frameBufferData, &videoCallbacks, v9990);
     videoManagerSetRefreshRate(v9990->videoHandle, frameRate(v9990));
 
+    v9990->debugHandle = debugDeviceRegister(DBGTYPE_VIDEO, "V9990", &debugCallbacks, v9990);
+
     return v9990;
 }
 
@@ -1377,6 +1503,8 @@ void v9990SetShowOnDisplay(V9990* v9990, int enable)
 
 void v9990Destroy(V9990* v9990)
 {
+    debugDeviceUnregister(v9990->debugHandle);
+
     boardTimerDestroy(v9990->timerFrame);
     boardTimerDestroy(v9990->timerVi);
     boardTimerDestroy(v9990->timerHi);

@@ -1062,6 +1062,21 @@ UInt8 v9990CmdReadData(V9990Cmd* cmd, UInt32 time)
     return value;
 }
 
+UInt8 v9990CmdPeekStatus(V9990Cmd* cmd)
+{
+    return cmd->status;
+}
+
+UInt16 v9990CmdPeekBorderX(V9990Cmd* cmd)
+{
+    return (UInt16)(cmd->borderX & 0x7ff);
+}
+
+UInt8 v9990CmdPeekData(V9990Cmd* cmd)
+{
+    return (cmd->status & V9990_CMD_TR) ? cmd->data : 0xff;
+}
+
 static void clearState(V9990Cmd* cmd, UInt32 time)
 {
     UInt8* vram = cmd->vram;
