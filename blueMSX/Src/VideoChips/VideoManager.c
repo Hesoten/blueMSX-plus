@@ -57,6 +57,10 @@ typedef struct {
 static VideoManager videoManager;
 static int loadedActiveIndex = -2;
 
+/* Handle + 1 of the source that keeps other sources from activating
+** themselves, or 0. */
+static int claimHandle = 0;
+
 /* Copies of the shown source's values, so that the timer thread can read them
 ** without touching a source that may be ejected meanwhile. */
 static volatile int activeRefreshRate = 0;
@@ -67,6 +71,7 @@ void videoManagerReset()
     videoManager.count = 0;
     videoManager.lastHandle = 0;
     loadedActiveIndex = -2;
+    claimHandle = 0;
     activeRefreshRate = 0;
     activePacesScreen = 0;
 }
@@ -165,9 +170,31 @@ void videoManagerSetActive(int index)
 void videoManagerActivate(int handle)
 {
     int index = videoManagerIndexOf(handle);
+    int active = videoManagerGetActive();
+    if (claimHandle != 0 && claimHandle != handle + 1) {
+        return;
+    }
+    if (active >= 0 && active != index && videoManager.di[active].callbacks.holdsScreen) {
+        return;
+    }
     if (index >= 0) {
         videoManagerSetActive(index);
     }
+}
+
+void videoManagerClaim(int handle, int claim)
+{
+    if (claim) {
+        claimHandle = handle + 1;
+    }
+    else if (claimHandle == handle + 1) {
+        claimHandle = 0;
+    }
+}
+
+void videoManagerActivateDefault()
+{
+    videoManagerSetActive(0);
 }
 
 char* videoManagerGetName(int index)
@@ -245,6 +272,7 @@ void videoManagerUnregister(int handle)
     }
 
     isActive = videoManagerIsActive(i);
+    videoManagerClaim(handle, 0);
 
     videoManager.count--;
     while (i < videoManager.count) {

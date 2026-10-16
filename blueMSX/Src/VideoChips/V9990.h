@@ -47,6 +47,9 @@ typedef struct V9990 V9990;
 /* Creates the chip in its power-on state with its timers running. */
 V9990* v9990Create(void);
 void   v9990Destroy(V9990* v9990);
+/* While enabled, the chip claims the screen whenever its frame-latched DISP
+** is set, and a DISP edge switches the shown source if autodetect is on. */
+void   v9990SetShowOnDisplay(V9990* v9990, int enable);
 void   v9990Reset(V9990* v9990);
 void   v9990SaveState(V9990* v9990);
 void   v9990LoadState(V9990* v9990);

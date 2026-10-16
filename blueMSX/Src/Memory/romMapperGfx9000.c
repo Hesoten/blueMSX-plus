@@ -100,6 +100,7 @@ int romMapperGfx9000Create(int slot, int sslot)
     rm->slot  = slot;
     rm->sslot = sslot;
     rm->v9990 = v9990Create();
+    v9990SetShowOnDisplay(rm->v9990, 1);
 
     rm->deviceHandle = deviceManagerRegister(ROM_GFX9000, &callbacks, rm);
 

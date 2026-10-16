@@ -39,6 +39,8 @@ typedef struct {
     void (*disable)(void*);
     /* Nonzero if the source presents the screen itself while it is shown. */
     int  pacesScreen;
+    /* Nonzero if other sources cannot activate themselves while it is shown. */
+    int  holdsScreen;
 } VideoCallbacks;
 
 typedef enum {
@@ -52,7 +54,12 @@ typedef enum {
 int videoManagerGetCount();
 int videoManagerGetActive();
 void videoManagerSetActive(int index);
+/* Shows the source unless another source holds a claim or the screen. */
 void videoManagerActivate(int handle);
+/* While claimed, videoManagerActivate ignores every other source. */
+void videoManagerClaim(int handle, int claim);
+/* Shows the machine's own video chip, which registers first. */
+void videoManagerActivateDefault();
 void videoManagerSetMode(int handle, VideoMode videoMode, VideoMode modeMask);
 int videoManagerIsActive(int index);
 char* videoManagerGetName(int index);

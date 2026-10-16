@@ -136,6 +136,8 @@ struct V9990 {
     /* Lines from lineZero; lines before renderLine are in the frame buffer. */
     FrameBufferData* frameBufferData;
     int    videoHandle;
+    int    showOnDisplay;
+    int    loading;
     int    renderLine;
 
     BoardTimer* timerFrame;
@@ -548,8 +550,34 @@ static void startPicture(V9990* v9990, FrameBuffer* frame)
     }
 }
 
+static int displayLatched(V9990* v9990)
+{
+    return v9990->showOnDisplay && (v9990->latchControl & 0x80);
+}
+
+/* A DISP edge overrides any earlier menu choice. */
+static void followDisplay(V9990* v9990, int wasOn)
+{
+    int on = displayLatched(v9990);
+
+    if (on == wasOn) {
+        return;
+    }
+    videoManagerClaim(v9990->videoHandle, on);
+    if (boardGetVideoAutodetect() && !v9990->loading) {
+        if (on) {
+            videoManagerActivate(v9990->videoHandle);
+        }
+        else {
+            videoManagerActivateDefault();
+        }
+    }
+}
+
 static void frameStart(V9990* v9990, UInt32 time)
 {
+    int wasOn = displayLatched(v9990);
+
     /* Also completes a frame that a reset cut short. */
     renderLines(v9990, v9990->frameLines);
     syncMode(v9990, time);
@@ -573,6 +601,7 @@ static void frameStart(V9990* v9990, UInt32 time)
     v9990->frameStartTime = time;
     calcFrameGeometry(v9990);
     startPicture(v9990, frameBufferFlipDrawFrameOf(v9990->frameBufferData));
+    followDisplay(v9990, wasOn);
 
     boardTimerAdd(v9990->timerFrame, time + v9990->frameTicks);
 
@@ -874,6 +903,13 @@ void v9990Reset(V9990* v9990)
 
     updateIrq(v9990);
     frameStart(v9990, boardSystemTime());
+
+    /* After a reset the display is off, so a V9990 chosen by hand gives way too. */
+    if (v9990->showOnDisplay && boardGetVideoAutodetect() &&
+        videoManagerIsHandleActive(v9990->videoHandle))
+    {
+        videoManagerActivateDefault();
+    }
 }
 
 static void powerOn(V9990* v9990)
@@ -885,7 +921,7 @@ static void powerOn(V9990* v9990)
 
 V9990* v9990Create(void)
 {
-    VideoCallbacks videoCallbacks = { NULL, NULL, 1 };
+    VideoCallbacks videoCallbacks = { NULL, NULL, 1, 1 };
     V9990* v9990 = calloc(1, sizeof(V9990));
 
     v9990->vram = malloc(V9990_VRAM_SIZE);
@@ -904,6 +940,12 @@ V9990* v9990Create(void)
     videoManagerSetRefreshRate(v9990->videoHandle, frameRate(v9990));
 
     return v9990;
+}
+
+void v9990SetShowOnDisplay(V9990* v9990, int enable)
+{
+    v9990->showOnDisplay = enable;
+    videoManagerClaim(v9990->videoHandle, displayLatched(v9990));
 }
 
 void v9990Destroy(V9990* v9990)
@@ -1015,6 +1057,9 @@ void v9990LoadState(V9990* v9990)
 
     calcFrameGeometry(v9990);
 
+    /* The shown source is restored by the video manager, not switched here. */
+    videoManagerClaim(v9990->videoHandle, displayLatched(v9990));
+
     /* The frame buffer is not saved: redraw this frame from its first line. */
     startPicture(v9990, frameBufferGetDrawFrameOf(v9990->frameBufferData));
 
@@ -1029,7 +1074,9 @@ void v9990LoadState(V9990* v9990)
         v9990->pending |= IRQ_HI;
     }
     if ((Int32)(v9990->frameStartTime + v9990->frameTicks - boardSystemTime()) <= 0) {
+        v9990->loading = 1;
         frameStart(v9990, v9990->frameStartTime + v9990->frameTicks);
+        v9990->loading = 0;
         updateIrq(v9990);
         return;
     }
