@@ -207,7 +207,10 @@ void videoManagerActivate(int handle)
     if (claimHandle != 0 && claimHandle != handle + 1) {
         return;
     }
-    if (active >= 0 && active != index && videoManager.di[active].callbacks.holdsScreen) {
+    /* The claimant switches even from a source picked by hand. */
+    if (claimHandle != handle + 1 && active >= 0 && active != index &&
+        videoManager.di[active].callbacks.holdsScreen)
+    {
         return;
     }
     if (index >= 0) {

@@ -25,7 +25,8 @@
 
 #include "MsxTypes.h"
 
-/* Frame buffer colour of palette entry index (6 bits); YS is not shown. */
+/* Frame buffer colour of palette entry index (6 bits), with bit 15 set if
+** the entry has YS. Bit 15 marks a pixel that superimpose makes transparent. */
 UInt16 v9990PaletteColor(const UInt8* palette, int index);
 
 /* Draws count pixels of a bitmap image line, starting at image coordinates

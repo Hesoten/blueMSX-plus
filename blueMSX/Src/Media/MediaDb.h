@@ -212,7 +212,8 @@ enum  {
     ROM_FLASHROMSCC = 179,           /* Flash-ROM SCC (Developer Edition) */
     ROM_ROOKIEDRIVE = 180,           /* Rookie Drive NX */
     ROM_GFX9000     = 181,           /* GFX9000 (V9990) */
-    ROM_MAXROMID    = 181
+    ROM_VIDEO9000   = 182,           /* Video9000 (V9990 with superimpose) */
+    ROM_MAXROMID    = 182
 };
 
 typedef struct MediaType MediaType;

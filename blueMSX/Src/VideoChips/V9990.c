@@ -168,6 +168,16 @@ struct V9990 {
     FrameBufferData* frameBufferData;
     int    videoHandle;
     int    showOnDisplay;
+
+    /* A source that shows this chip's picture through a compositor, or -1. */
+    int    presenter;
+    int    superimpose;
+    /* Latched at frame start: ysMask keeps bit 15 (YS) only while the
+    ** presenter superimposes with R#8 YSE; blank is the blanking colour. */
+    UInt16 ysMask;
+    UInt16 blank;
+    /* Nonzero if the frame that the last flip completed has keys. */
+    int    frameKeyed;
     int    loading;
     int    renderLine;
 
@@ -301,6 +311,14 @@ static int frameRate(V9990* v9990)
     return v9990->latchPal ? 50 : 60;
 }
 
+static void reportRates(V9990* v9990, int handle)
+{
+    if (handle >= 0) {
+        videoManagerSetRefreshRate(handle, frameRate(v9990));
+        videoManagerSetAspectRate(handle, isHighScan(v9990->frameMode) ? 60 : 0);
+    }
+}
+
 static void calcFrameGeometry(V9990* v9990)
 {
     V9990Mode mode = v9990->frameMode;
@@ -373,8 +391,8 @@ static void calcFrameGeometry(V9990* v9990)
         v9990->fbLines       = V9990_FB_LINES;
     }
 
-    videoManagerSetRefreshRate(v9990->videoHandle, frameRate(v9990));
-    videoManagerSetAspectRate(v9990->videoHandle, isHighScan(mode) ? 60 : 0);
+    reportRates(v9990, v9990->videoHandle);
+    reportRates(v9990, v9990->presenter);
 }
 
 /* Horizontal display area in UC (42.95 MHz) from the line start, using the
@@ -451,6 +469,18 @@ static void fillLine(UInt16* line, int count, UInt16 color)
     }
 }
 
+static void maskLine(UInt16* line, int count, UInt16 mask)
+{
+    int x;
+
+    if (mask == 0xffff) {
+        return;
+    }
+    for (x = 0; x < count; x++) {
+        line[x] &= mask;
+    }
+}
+
 /* Finds the samples [first, end) of a line whose centres fall in the display,
 ** where a sample is one dot, and the display dot of sample first. */
 static int displaySpan(int count, int ucPerSample, int window, int left, int right,
@@ -522,10 +552,10 @@ static void expandDots(UInt16* line, int first, int end, int origin, int sampleW
     }
 }
 
-/* Draws the two 32x32 cursors over display dots [dot0, dot0 + n); cursor 0
-** is on top. X counts display dots and Y display lines (in non-overscan
-** lines), both rolling at 1024x512; Y + 1 is shown, Y + 2 in interlace. */
-static void drawCursors(V9990* v9990, UInt16* dots, int dot0, int n, int scanLine)
+/* Draws the two 32x32 cursors (0 on top) over display dots [dot0, dot0 + n), nonzero if
+** one has dots here. X counts display dots and Y display lines (in non-overscan lines),
+** both rolling at 1024x512; Y + 1 is shown, Y + 2 in interlace. */
+static int drawCursors(V9990* v9990, UInt16* dots, int dot0, int n, int scanLine)
 {
     UInt32 pattern[2];
     UInt16 color[2];
@@ -533,11 +563,12 @@ static void drawCursors(V9990* v9990, UInt16* dots, int dot0, int n, int scanLin
     int    x[2];
     int    line = scanLine - v9990->displayStartLine;
     int    shown = 0;
+    int    bd16Black;
     int    c;
     int    i;
 
     if (v9990->regs[R_CONTROL] & 0x40) {
-        return;
+        return 0;
     }
     if (v9990->latchIl && (v9990->regs[R_SCREEN_MODE1] & 0x04)) {
         line = 2 * line + (v9990->secondField ? 1 : 0);
@@ -569,8 +600,17 @@ static void drawCursors(V9990* v9990, UInt16* dots, int dot0, int n, int scanLin
         shown |= pattern[c] != 0;
     }
     if (!shown) {
-        return;
+        return 0;
     }
+
+    /* A line with cursor dots is not keyed; a superimposed 16-bit YS dot
+    ** shows black there. */
+    bd16Black = v9990->ysMask == 0xffff && (v9990->modeR6 & 3) == 3;
+    for (i = 0; i < n; i++) {
+        dots[i] = bd16Black && (dots[i] & 0x8000) ? 0 : dots[i] & 0x7fff;
+    }
+    color[0] &= 0x7fff;
+    color[1] &= 0x7fff;
 
     for (i = 0; i < n; i++) {
         for (c = 0; c < 2; c++) {
@@ -582,6 +622,7 @@ static void drawCursors(V9990* v9990, UInt16* dots, int dot0, int n, int scanLin
             }
         }
     }
+    return 1;
 }
 
 /* Draws the bitmap image over the samples of a line that the display
@@ -640,7 +681,9 @@ static void drawBitmap(V9990* v9990, UInt16* line, int count, int origin, int sa
     v9990RenderBitmapLine(dots, dot1 - dot0, v9990->vram, v9990->palette,
                           v9990->modeR6, v9990->regs[R_PALETTE_CTRL], dot0 + scrollX,
                           (scrollY & ~mask & 0x1fff) + ((row + scrollY) & mask), hiRes);
-    drawCursors(v9990, dots, dot0, dot1 - dot0, scanLine);
+    if (!drawCursors(v9990, dots, dot0, dot1 - dot0, scanLine)) {
+        maskLine(dots, dot1 - dot0, v9990->ysMask);
+    }
     expandDots(line, first, end, origin, sampleW, dotW, dots, dot0, dot1 - dot0);
 }
 
@@ -673,6 +716,7 @@ static void drawPattern(V9990* v9990, UInt16* line, int count, int ucPerSample,
     p.r27 = v9990->regs[R_PRIORITY];
 
     v9990RenderPatternLine(line + first, end - first, v9990->vram, v9990->palette, &p, dot);
+    maskLine(line + first, end - first, v9990->ysMask);
 }
 
 /* Draws a B5/B6 scan line: the 640 dots fill the 1088 samples, moved by
@@ -680,17 +724,18 @@ static void drawPattern(V9990* v9990, UInt16* line, int count, int ucPerSample,
 static void drawHighScanLine(V9990* v9990, UInt16* line, int count, int scanLine)
 {
     int shift = adjustOffset(v9990->latchAdjust & 0x0f) * 4;
+    UInt16 backdrop = paletteColor(v9990, v9990->regs[R_BACKDROP]) & v9990->ysMask;
 
     if (!(v9990->latchControl & 0x80)) {
-        fillLine(line, count, paletteColor(v9990, v9990->regs[R_BACKDROP]));
+        fillLine(line, count, backdrop);
         return;
     }
-    fillLine(line, count, 0);
+    fillLine(line, count, v9990->blank);
     if (scanLine < v9990->displayStartLine || scanLine >= v9990->displayEndLine) {
         return;
     }
     if (!isBitmap(v9990->mode)) {
-        fillLine(line, count, paletteColor(v9990, v9990->regs[R_BACKDROP]));
+        fillLine(line, count, backdrop);
         return;
     }
     drawBitmap(v9990, line, count, -shift * V9990_HS_DOT_W, V9990_HS_SAMPLE_W,
@@ -741,14 +786,14 @@ static void drawLine(V9990* v9990, FrameBuffer* frame, int y, int scanLine)
         return;
     }
 
-    backdrop = paletteColor(v9990, v9990->regs[R_BACKDROP]);
+    backdrop = paletteColor(v9990, v9990->regs[R_BACKDROP]) & v9990->ysMask;
     if (!(v9990->latchControl & 0x80)) {
         fillLine(line, count, backdrop);
         return;
     }
 
     /* Outside the display, overscan modes show the blanking. */
-    border = isOverscan(mode) ? 0 : backdrop;
+    border = isOverscan(mode) ? v9990->blank : backdrop;
     if (scanLine < v9990->displayStartLine || scanLine >= v9990->displayEndLine) {
         fillLine(line, count, border);
         return;
@@ -995,6 +1040,17 @@ static void startPicture(V9990* v9990, FrameBuffer* frame)
     }
 }
 
+/* While a superimposing presenter is shown, the blanking is transparent,
+** and with R#8 YSE the YS colours are too. */
+static void latchSuperimpose(V9990* v9990)
+{
+    int on = v9990->superimpose && v9990->presenter >= 0 &&
+             videoManagerIsHandleActive(v9990->presenter);
+
+    v9990->blank  = on ? 0x8000 : 0;
+    v9990->ysMask = on && (v9990->latchControl & 0x20) ? 0xffff : 0x7fff;
+}
+
 static int displayLatched(V9990* v9990)
 {
     return v9990->showOnDisplay && (v9990->latchControl & 0x80);
@@ -1037,6 +1093,8 @@ static void frameStart(V9990* v9990, UInt32 time)
     v9990->latchControl    = v9990->regs[R_CONTROL];
     v9990->latchScrollAYHi = v9990->regs[R_SCROLL_AY_HI];
     v9990->latchScrollBYHi = v9990->regs[R_SCROLL_BY_HI];
+    v9990->frameKeyed      = v9990->blank != 0;
+    latchSuperimpose(v9990);
     if (isHighScan(v9990->frameMode)) {
         v9990->latchPal = 0;
         v9990->latchIl  = 0;
@@ -1070,7 +1128,9 @@ static void onFrame(V9990* v9990, UInt32 time)
     frameStart(v9990, time);
 
     /* While shown, the screen is presented at this chip's frame rate. */
-    if (videoManagerIsHandleActive(v9990->videoHandle)) {
+    if (videoManagerIsHandleActive(v9990->videoHandle) ||
+        (v9990->presenter >= 0 && videoManagerIsHandleActive(v9990->presenter)))
+    {
         emulatorRefreshFromSource();
     }
 }
@@ -1548,6 +1608,8 @@ V9990* v9990Create(void)
 
     /* Not registered yet: no handle for calcFrameGeometry to report the rate to. */
     v9990->videoHandle = -1;
+    v9990->presenter   = -1;
+    v9990->ysMask      = 0x7fff;
     powerOn(v9990);
 
     v9990->videoHandle = videoManagerRegister("V9990", v9990->frameBufferData, &videoCallbacks, v9990);
@@ -1567,6 +1629,18 @@ void v9990SetShowOnDisplay(V9990* v9990, int enable)
 int v9990GetVideoHandle(V9990* v9990)
 {
     return v9990->videoHandle;
+}
+
+int v9990IsFrameKeyed(V9990* v9990)
+{
+    return v9990->frameKeyed;
+}
+
+void v9990SetPresenter(V9990* v9990, int handle, int superimpose)
+{
+    v9990->presenter   = handle;
+    v9990->superimpose = superimpose;
+    reportRates(v9990, handle);
 }
 
 void v9990Destroy(V9990* v9990)
@@ -1689,6 +1763,7 @@ void v9990LoadState(V9990* v9990)
     v9990CmdLoadState(v9990->cmd, boardSystemTime());
 
     calcFrameGeometry(v9990);
+    latchSuperimpose(v9990);
     if (v9990->scrollLineA < 0) {
         v9990->scrollLineA = v9990->displayStartLine;
     }

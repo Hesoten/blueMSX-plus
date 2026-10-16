@@ -38,7 +38,7 @@ UInt16 v9990PaletteColor(const UInt8* palette, int index)
     int g = entry[1] & 0x1f;
     int b = entry[2] & 0x1f;
 
-    return COLOR5(r, g, b);
+    return (UInt16)(COLOR5(r, g, b) | ((entry[0] & 0x80) << 8));
 }
 
 /* Bitmap modes interleave the two VRAM banks byte by byte. */
@@ -108,6 +108,8 @@ static void drawBd8(UInt16* dst, int count, const UInt8* vram, UInt32 pos)
         for (i = 0; i < 256; i++) {
             table[i] = COLOR5(level3[(i >> 2) & 7], level3[i >> 5], level2[i & 3]);
         }
+        /* Superimpose makes colour 0 transparent. */
+        table[0] |= 0x8000;
         tableReady = 1;
     }
     for (i = 0; i < count; i++) {
@@ -115,8 +117,8 @@ static void drawBd8(UInt16* dst, int count, const UInt8* vram, UInt32 pos)
     }
 }
 
-/* G5 R5 B5; bit 15 (YS) only keys a superimposed picture. The low byte of
-** a pixel is in bank 0 and the high byte in bank 1. */
+/* G5 R5 B5, and bit 15 (YS). The low byte of a pixel is in bank 0 and the
+** high byte in bank 1. */
 static void drawBd16(UInt16* dst, int count, const UInt8* vram, UInt32 pos)
 {
     int i;
@@ -127,7 +129,7 @@ static void drawBd16(UInt16* dst, int count, const UInt8* vram, UInt32 pos)
         int g = (value >> 10) & 0x1f;
         int r = (value >> 5) & 0x1f;
         int b = value & 0x1f;
-        dst[i] = COLOR5(r, g, b);
+        dst[i] = (UInt16)(COLOR5(r, g, b) | (value & 0x8000));
     }
 }
 

@@ -28,5 +28,7 @@
 /* Returns 0 without inserting anything on a machine that is not an MSX or
 ** when another device already answers on one of the ports 0x60-0x6F. */
 int romMapperGfx9000Create(int slot, int sslot);
+/* The GFX9000 with the Video9000 switch on port 0x6F. */
+int romMapperVideo9000Create(int slot, int sslot);
 
 #endif

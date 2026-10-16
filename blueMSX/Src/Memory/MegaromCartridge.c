@@ -232,6 +232,10 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
         success &= romMapperGfx9000Create(slot, sslot);
         break;
 
+    case ROM_VIDEO9000:
+        success &= romMapperVideo9000Create(slot, sslot);
+        break;
+
     case ROM_GIDE:
         success &= romMapperGIdeCreate(cartNo);
         break;

@@ -55,6 +55,13 @@ void   v9990Destroy(V9990* v9990);
 void   v9990SetShowOnDisplay(V9990* v9990, int enable);
 /* The video manager handle of the chip's picture. */
 int    v9990GetVideoHandle(V9990* v9990);
+/* While source handle (none if -1) is shown, the chip presents the screen
+** and gives it its refresh rate and aspect; superimpose marks the YS
+** colours and the blanking with frame buffer bit 15. */
+void   v9990SetPresenter(V9990* v9990, int handle, int superimpose);
+/* Nonzero if the frame that the last frame flip completed was drawn with
+** the keys of a superimposing presenter. */
+int    v9990IsFrameKeyed(V9990* v9990);
 void   v9990Reset(V9990* v9990);
 void   v9990SaveState(V9990* v9990);
 void   v9990LoadState(V9990* v9990);
