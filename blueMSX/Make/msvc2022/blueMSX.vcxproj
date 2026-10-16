@@ -751,6 +751,7 @@
     <ClCompile Include="..\..\Src\Memory\romMapperForteII.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperGameMaster2.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperGameReader.c" />
+    <ClCompile Include="..\..\Src\Memory\romMapperGfx9000.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperGIDE.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperGoudaSCSI.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperHalnote.c" />
@@ -832,6 +833,7 @@
     <ClCompile Include="..\..\Src\VideoChips\CRTC6845.c" />
     <ClCompile Include="..\..\Src\VideoChips\FrameBuffer.c" />
     <ClCompile Include="..\..\Src\VideoChips\V9938.c" />
+    <ClCompile Include="..\..\Src\VideoChips\V9990.c" />
     <ClCompile Include="..\..\Src\VideoChips\VDP.c" />
     <ClCompile Include="..\..\Src\VideoChips\VideoManager.c" />
     <ClCompile Include="..\..\Src\VideoRender\hq2x.c" />
@@ -1111,6 +1113,7 @@
     <ClInclude Include="..\..\Src\Memory\romMapperFMPAK.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperGameMaster2.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperGameReader.h" />
+    <ClInclude Include="..\..\Src\Memory\romMapperGfx9000.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperGIDE.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperGoudaSCSI.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperHalnote.h" />
@@ -1184,6 +1187,7 @@
     <ClInclude Include="..\..\Src\VideoChips\FrameBuffer.h" />
     <ClInclude Include="..\..\Src\VideoChips\SpriteLine.h" />
     <ClInclude Include="..\..\Src\VideoChips\V9938.h" />
+    <ClInclude Include="..\..\Src\VideoChips\V9990.h" />
     <ClInclude Include="..\..\Src\VideoChips\VDP.h" />
     <ClInclude Include="..\..\Src\VideoChips\VideoManager.h" />
     <ClInclude Include="..\..\Src\VideoRender\hq2x.h" />

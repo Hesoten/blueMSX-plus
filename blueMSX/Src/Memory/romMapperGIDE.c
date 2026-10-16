@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik, Tomas Karlsson
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -294,12 +297,17 @@ int romMapperGIdeCreate(int hdId)
     RomMapperGIde* rm;
     int portBase;
 
+    portBase = (boardGetType() == BOARD_SVI) ? 0x40:0x60;
+
+    /* A GFX9000 decodes 0x60-0x6F and would see every IDE access. */
+    if (portBase == 0x60 && ioPortGetRef(0x60) != NULL) {
+        return 0;
+    }
+
     rm = malloc(sizeof(RomMapperGIde));
 
     rm->deviceHandle = deviceManagerRegister(ROM_GIDE, &callbacks, rm);
     rm->debugHandle = debugDeviceRegister(DBGTYPE_PORT, langDbgDevIdeGide(), &dbgCallbacks, rm);
-
-    portBase = (boardGetType() == BOARD_SVI) ? 0x40:0x60;
 
     ioPortRegister(portBase | 0x04, readIo, writeIo, rm);
     ioPortRegister(portBase | 0x05, readIo, writeIo, rm);

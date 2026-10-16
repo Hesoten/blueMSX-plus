@@ -211,7 +211,8 @@ enum  {
     ROM_YAMANOOTO   = 178,           /* Yamanooto */
     ROM_FLASHROMSCC = 179,           /* Flash-ROM SCC (Developer Edition) */
     ROM_ROOKIEDRIVE = 180,           /* Rookie Drive NX */
-    ROM_MAXROMID    = 180
+    ROM_GFX9000     = 181,           /* GFX9000 (V9990) */
+    ROM_MAXROMID    = 181
 };
 
 typedef struct MediaType MediaType;

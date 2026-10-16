@@ -135,6 +135,7 @@ void verifyFileHistory(char* history, RomType* historyType) {
             strcmp(fname, CARTNAME_SCC)         &&
             strcmp(fname, CARTNAME_SCCPLUS)     &&
             strcmp(fname, CARTNAME_JOYREXPSG)   &&
+            strcmp(fname, CARTNAME_GFX9000)     &&
             strcmp(fname, CARTNAME_FMPAC)       &&
             strcmp(fname, CARTNAME_PAC)         &&
             strcmp(fname, CARTNAME_GAMEREADER)  &&
@@ -413,6 +414,7 @@ int createSaveFileBaseName(char* fileBase,Properties* properties, int useExtende
                 strcmp(properties->media.carts[i].fileName, CARTNAME_SCC)          &&
                 strcmp(properties->media.carts[i].fileName, CARTNAME_SCCPLUS)      &&
                 strcmp(properties->media.carts[i].fileName, CARTNAME_JOYREXPSG)    &&
+                strcmp(properties->media.carts[i].fileName, CARTNAME_GFX9000)      &&
                 strcmp(properties->media.carts[i].fileName, CARTNAME_FMPAC)        &&
                 strcmp(properties->media.carts[i].fileName, CARTNAME_PAC)          &&
                 strcmp(properties->media.carts[i].fileName, CARTNAME_GAMEREADER)   &&
@@ -466,6 +468,7 @@ int createSaveFileBaseName(char* fileBase,Properties* properties, int useExtende
                 properties->media.carts[i].type != ROM_GIDE                &&
                 properties->media.carts[i].type != ROM_GOUDASCSI           &&
                 properties->media.carts[i].type != ROM_ROOKIEDRIVE         &&
+                properties->media.carts[i].type != ROM_GFX9000             &&
                 properties->media.carts[i].type != ROM_MSXAUDIO            &&
                 properties->media.carts[i].type != ROM_MOONSOUND           &&
                 properties->media.carts[i].type != ROM_SNATCHER            &&
