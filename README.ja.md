@@ -4,9 +4,10 @@ blueMSX+ は MSX エミュレータ [blueMSX](https://msxblue.com/bluemsx/jindex
 Windows 11 向けに UI や音声周りを中心にモダン化しています。
 
 
-## このブランチについて: V9968・geo3d 試験対応版
+## このブランチについて: V9968・geo3d v2.0 試験対応版
 
-この `experimental/v9968-geo3d` ブランチは、HRA! 氏が開発中の VDP [**V9968**](https://github.com/hra1129/V9968_Cartridge) に**試験的に**対応した `experimental/v9968` ブランチに、[geo3d](https://github.com/alexmoncks/V9968_Cartridge/tree/main/geo3d) への対応を加えたものです。  
+この `experimental/v9968-geo3d-v2.0` ブランチは、HRA! 氏が開発中の VDP [**V9968**](https://github.com/hra1129/V9968_Cartridge) に**試験的に**対応した `experimental/v9968` ブランチに、geo3d の開発版である [geo3d v2.0](https://github.com/alexmoncks/V9968_Cartridge/blob/geo3d-v2.0/geo3d/docs/geo3d_v2.md) への対応を加えたものです。  
+HRA! 氏の V9968 公式配布に含まれる geo3d v1.0.0 を使う場合は、`experimental/v9968-geo3d` ブランチを使ってください。  
 正式なリリースではありません。V9968 の仕様にも追従中のため、挙動は今後も変わることがあります。  
 V9968 カートリッジ(VDP 増設)には対応していません。内蔵の V9958 を V9968 に置き換える使い方のみサポートしています。  
 V9958 互換モードのエミュレーションは、blueMSX+ の既存の V9958 コードでエミュレーションを行います。V9968 に実装される V9958 互換機能の評価には使えません。
@@ -37,9 +38,26 @@ ROM の種別を自動判別できないものがあります。各リポジト�
 ### geo3d
 
 [geo3d](https://github.com/alexmoncks/V9968_Cartridge/tree/main/geo3d) は、Alex Moncks 氏が開発している V9968 用の 3D コプロセッサです。V9968 と同じ FPGA に組み込む非公式の追加回路で、座標変換や面の塗りつぶしを行い、V9968 のコマンドで描画します。  
-このブランチでは、ビデオチップを V9968 にすると geo3d も常に組み込まれます (ポート 9Dh / 9Fh)。
+このブランチでは、ビデオチップを V9968 にすると geo3d v2.0 も常に組み込まれます (ポート 9Dh / 9Fh)。
 
-以下の geo3d 対応ソフトウェアが動作することを確認しています。ポート 98h 用 (`_98`) のものを、ROM 種別 ASCII16 で開いてください。
+geo3d v2.0 では、v1.0.0 に次の機能が加わりました。
+
+- geo3d に常駐できる頂点・辺・面がそれぞれ最大 1023 個に (v1.0.0 は 255 個)
+- VFIRST・FFIRST・EFIRST で RUN が処理する最初の頂点・面・辺を指定でき、常駐させた場面を送り直さずに描き直せる
+- エンジンの高速化 (見える面をヒープで並べ替え、除算を高速化、面の頂点を連続して読み出し)。塗りつぶした面の描画が高速に
+- インデックス 49h の読み出しが 20h に (v1.0.0 は FFh)。プログラムから v1.0.0 と区別できる
+
+geo3d v1.0.0 用のプログラムはそのまま動き、V9968 に送られるコマンドも同じです。描画が高速になる点だけが異なります。
+
+以下の geo3d v2.0 対応ソフトウェアが動作することを確認しています。ROM 種別 ASCII16 で開いてください。geo3d v2.0 専用のため、`experimental/v9968-geo3d` では動きません。
+
+- [kanon-ai/V9968_Geo3D_SampleDemo](https://github.com/kanon-ai/V9968_Geo3D_SampleDemo/releases) — Kanon 氏制作の geo3d v2.0 対応版
+  - NIGHT RAVEN Geo3D V2.0 版 (`night-raven-geo3d-v2-v0.1.0`)
+  - NIGHT RAVEN 3 ステージ Geo3D v2 試験版 (`night-raven-three-stage-geo3d-v2-v0.1.0`)
+  - BULLRUSH Geo3D V2.0 対応版の通常版とにぎやか版 (`bullrush-geo3d-v2-v0.1.0`)
+  - OBSIDIAN、ORBITAL、ORBITAL TYPE REAL、SKYBOUND、VECTOR RUSH、FOUR SEASONS、BASIC FUNCTIONS、LUNAR COMMUTE (`geo3d-v2-extra-v0.1.0`)
+
+以下の geo3d v1.0.0 対応ソフトウェアも動作することを確認しています。ポート 98h 用 (`_98`) のものを、ROM 種別 ASCII16 で開いてください。
 
 - [alexmoncks/V9968_Cartridge](https://github.com/alexmoncks/V9968_Cartridge/tree/main/geo3d) — Alex Moncks 氏制作のシューティング VECTOR RAID (`game/release/GEO3D_SHOOTER_98.ROM`) と、デモ ROM (`rom/build_rom.py --base 0x98` でビルドする `GEO3D_98.ROM`)
 - [kanon-ai/V9968_Geo3D_SampleDemo](https://github.com/kanon-ai/V9968_Geo3D_SampleDemo) — Kanon 氏制作の V9968 + geo3d のサンプルデモ集 (NIGHT RAVEN、OBSIDIAN ほか)
