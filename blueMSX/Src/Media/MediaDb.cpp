@@ -1508,10 +1508,11 @@ extern "C" MediaType* mediaDbGuessRom(const void *buffer, int size)
         }
     }
 
-    /* Yamanooto register writes take priority: an SCC-using Yamanooto ROM
-    ** would otherwise get mis-tagged as Konami-SCC.  0x7FFC-0x7FFE are inert
-    ** until REGEN is set through ENAR, so a lone hit means nothing. */
-    if (yamanootoEnar > 0 && yamanootoRegs > 0) {
+    /* Yamanooto writes ENAR (0x7FFF) before its other registers, but a game
+    ** that uses ENAR only for flash saves writes the Konami-SCC banks instead.
+    ** Konami-SCC ignores 0x7FFF; the other registers are inert until ENAR. */
+    if (yamanootoEnar > 0 && (yamanootoRegs > 0 ||
+        (konami5Unique > 0 && konami5Unique >= ascii8Unique && konami5Unique >= konami4Unique))) {
         mediaType->romType = ROM_YAMANOOTO;
         return mediaType;
     }
