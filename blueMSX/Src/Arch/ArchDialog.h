@@ -48,6 +48,8 @@ void archShowMachineEditor();
 void archShowNoRomInZipDialog();
 void archShowNoDiskInZipDialog();
 void archShowNoCasInZipDialog();
+/* A dropped file that is neither a known type nor a ROM. Win32 only. */
+void archShowUnknownFileTypeDialog(const char* fileName);
 /* machineName is the config the user asked for and identifies which failure
 ** mode message to show (missing dir vs invalid config.ini vs no selection). */
 void archShowStartEmuFailDialog(const char* machineName);

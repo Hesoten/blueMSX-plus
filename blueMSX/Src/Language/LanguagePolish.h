@@ -84,6 +84,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->errorCreateDiskImage    = "Nie można utworzyć pliku obrazu dysku.";
     ls->errorCreateTapeImage    = "Nie można utworzyć pliku obrazu taśmy.";
     ls->errorNoCasInZip         = "Nie znaleziono pliku .cas w archiwum zip.";
+    ls->errorUnknownFileType    = "Nie można otworzyć pliku: nieznany typ pliku.";
     ls->errorDirDiskTooLarge    = "Liczba plików, które nie zmieściły się na dysku i zostały pominięte: %d.";
     ls->errorDirDiskOnline      = "Liczba pominiętych plików dostępnych tylko online: %d. Udostępnij je na tym urządzeniu, aby je uwzględnić.";
     ls->errorDirDiskSubdirs     = "Liczba folderów pominiętych, ponieważ wybrany format ich nie obsługuje: %d.";

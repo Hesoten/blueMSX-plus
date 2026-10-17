@@ -84,6 +84,7 @@ void langInitGerman(LanguageStrings* ls)
     ls->errorCreateDiskImage     = "Die Disk-Image-Datei konnte nicht erstellt werden.";
     ls->errorCreateTapeImage     = "Die Cassetten-Image-Datei konnte nicht erstellt werden.";
     ls->errorNoCasInZip          = "Konnte kein .cas-File im Zip-Archiv finden.";
+    ls->errorUnknownFileType     = "Die Datei kann nicht geöffnet werden: unbekannter Dateityp.";
     ls->errorDirDiskTooLarge    = "%d Datei(en) passten nicht auf die Disk und wurden ausgelassen.";
     ls->errorDirDiskOnline      = "%d nur online verfügbare Datei(en) wurden ausgelassen. Machen Sie sie auf diesem Gerät verfügbar, um sie einzubeziehen.";
     ls->errorDirDiskSubdirs     = "%d Directorys wurden ausgelassen, weil das gewählte Format sie nicht aufnehmen kann.";
