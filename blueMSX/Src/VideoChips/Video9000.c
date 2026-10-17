@@ -100,10 +100,12 @@ static InterlaceMode interlaceOf(FrameBuffer* frame, int lines)
 }
 
 /* Each output sample shows top unless bit 15 of key, which has the geometry
-** of top, is set; the narrower line is widened by repeating its samples. */
+** of top, is set; the narrower line is widened by repeating its samples.
+** A narrower bottom frame is centred, its edge samples repeated outside. */
 static void superimposeFrame(FrameBuffer* dst, FrameBuffer* top, FrameBuffer* key, FrameBuffer* bottom)
 {
     int lines = lineCount(top) > lineCount(bottom) ? lineCount(top) : lineCount(bottom);
+    int offset = (top->maxWidth - bottom->maxWidth) / 2;
     int y;
 
     dst->interlace       = interlaceOf(top, lines) != INTERLACE_NONE ?
@@ -132,10 +134,10 @@ static void superimposeFrame(FrameBuffer* dst, FrameBuffer* top, FrameBuffer* ke
         dst->line[y].doubleWidth = shift;
         for (x = 0; x < width; x++) {
             int tx = x >> (shift - ts);
-            int bx = x >> (shift - bs);
+            int bx = (x >> (shift - bs)) - offset * (1 << bs);
             UInt16 v = t[tx < tw ? tx : tw];
             if (k[tx < tw ? tx : tw] & 0x8000) {
-                v = b[bx < bw ? bx : bw];
+                v = b[bx < 0 ? 0 : bx < bw ? bx : bw];
             }
             d[x] = v & 0x7fff;
         }

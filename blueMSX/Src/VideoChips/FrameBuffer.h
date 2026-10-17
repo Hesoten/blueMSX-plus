@@ -36,7 +36,7 @@
 #ifdef WII
 #define FB_MAX_LINE_WIDTH 544
 #else
-#define FB_MAX_LINE_WIDTH 1088
+#define FB_MAX_LINE_WIDTH 1152
 #endif
 #define FB_MAX_LINES      480
 
