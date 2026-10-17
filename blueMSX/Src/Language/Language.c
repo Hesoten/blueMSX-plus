@@ -322,6 +322,12 @@ char* langErrorStartEmuMachinesDirMissing() { return ls->errorStartEmuMachinesDi
 char* langErrorStartEmuMachineNotFound()    { return ls->errorStartEmuMachineNotFound; }
 char* langErrorStartEmuConfigInvalid()      { return ls->errorStartEmuConfigInvalid; }
 char* langErrorMissingFiles() { return ls->errorMissingFiles; }
+char* langErrorFlashInvalid()      { return ls->errorFlashInvalid; }
+char* langErrorFlashSramSize()     { return ls->errorFlashSramSize; }
+char* langErrorFlashUnreadable()   { return ls->errorFlashUnreadable; }
+char* langErrorFlashNotKept()      { return ls->errorFlashNotKept; }
+char* langErrorFlashFixFile()      { return ls->errorFlashFixFile; }
+char* langErrorFlashFixInUse()     { return ls->errorFlashFixInUse; }
 char* langErrorPortableReadonly()  {return ls->errorPortableReadonly; }
 char* langErrorMidiOpenFailed()    { return ls->errorMidiOpenFailed; }
 char* langInfoColorDepth()                 { return ls->infoColorDepth; }

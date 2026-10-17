@@ -105,6 +105,12 @@ void langInitGerman(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "Die ausgewählte Maschinenkonfiguration '%s' wurde nicht gefunden.";
     ls->errorStartEmuConfigInvalid       = "Die config.ini der Maschinenkonfiguration '%s' konnte nicht gelesen werden. Die Datei ist möglicherweise beschädigt oder stammt aus einer inkompatiblen Version.";
     ls->errorMissingFiles        = "Folgende Dateien konnten nicht geladen werden:";
+    ls->errorFlashInvalid        = "Die Speicherdaten von %s sind beschädigt und konnten nicht geladen werden.";
+    ls->errorFlashSramSize       = "Die Speicherdaten von %s haben die falsche Größe und konnten nicht geladen werden.";
+    ls->errorFlashUnreadable     = "Die Speicherdaten von %s konnten nicht geöffnet werden. Vielleicht verwendet sie ein anderes Programm.";
+    ls->errorFlashNotKept        = "Der Start ist trotzdem möglich, aber Gespeichertes bleibt nicht erhalten.";
+    ls->errorFlashFixFile        = "Löschen oder verschieben Sie die unten genannte Datei und starten Sie dann neu.";
+    ls->errorFlashFixInUse       = "Schließen Sie das Programm, das die unten genannte Datei verwendet, und starten Sie dann neu.";
     ls->errorPortableReadonly    = "Austauschbarer Datenträger ist nur lesbar"; // "Portable device is readonly";        
     ls->errorMidiOpenFailed      = "MIDI-Gerät '%s' konnte nicht geöffnet werden. Wird evtl. von anderer Anwendung genutzt.";
     ls->infoTitle                = "blueMSX+ Info";

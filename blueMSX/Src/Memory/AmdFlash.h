@@ -38,8 +38,21 @@ typedef struct AmdFlash AmdFlash;
 typedef enum { AMD_TYPE_1, AMD_TYPE_2, AMD_TYPE_3 } AmdType;
 
 
-AmdFlash* amdFlashCreate(AmdType type, int flashSize, int sectorSize, UInt32 writeProtectMask, 
-                         void* romData, int size, const char* sramFilename, int loadSram);
+/* How the flash survives a restart: the whole image in sramFilename, or only
+** the bytes the MSX erased or programmed, in the same name with ".flash", so
+** a ROM rebuilt under the same name shows through everywhere else. */
+#define AMDFLASH_PERSIST_FULL     0
+#define AMDFLASH_PERSIST_OVERLAY  1
+
+AmdFlash* amdFlashCreate(AmdType type, int flashSize, int sectorSize, UInt32 writeProtectMask,
+                         void* romData, int size, const char* sramFilename, int persistMode);
+
+/* Save files that could not be used; that session keeps nothing. */
+#define AMDFLASH_PROBLEM_FLASH_INVALID  1
+#define AMDFLASH_PROBLEM_SRAM_SIZE      2
+#define AMDFLASH_PROBLEM_UNREADABLE     3
+
+void amdFlashSetProblemHandler(void (*handler)(int problem, const char* fileName));
 void amdFlashDestroy(AmdFlash* rm);
 
 /* Enable the M29W640-family fast program commands (Quadruple Byte Program

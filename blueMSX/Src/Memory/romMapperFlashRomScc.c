@@ -313,7 +313,8 @@ int romMapperFlashRomSccCreate(const char* filename, UInt8* romData,
 
     rm->flash = amdFlashCreate(AMD_TYPE_3, FLASHROMSCC_FLASH_SIZE, FLASHROMSCC_FLASH_SECTOR,
                                0, romData, size,
-                               sramCreateFilenameWithSuffix(filename, "", ".sram"), 1);
+                               sramCreateFilenameWithSuffix(filename, "", ".sram"),
+                               AMDFLASH_PERSIST_OVERLAY);
 
     rm->romMask = FLASHROMSCC_FLASH_SIZE / 0x2000 - 1;   /* 0x7FF */
     rm->slot  = slot;

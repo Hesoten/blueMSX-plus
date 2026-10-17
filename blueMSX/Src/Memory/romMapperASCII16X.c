@@ -168,7 +168,8 @@ int romMapperASCII16XCreate(const char* filename, UInt8* romData,
 
     rm->flash = amdFlashCreate(AMD_TYPE_2, ASCII16X_FLASH_SIZE, ASCII16X_FLASH_SECTOR,
                                0, romData, size,
-                               sramCreateFilenameWithSuffix(filename, "", ".sram"), 1);
+                               sramCreateFilenameWithSuffix(filename, "", ".sram"),
+                               AMDFLASH_PERSIST_OVERLAY);
 
     rm->romMask = ASCII16X_FLASH_SIZE / 0x4000 - 1;  /* 0x1FF for 8 MB */
     rm->slot  = slot;

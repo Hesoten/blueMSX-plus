@@ -105,6 +105,12 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "找不到所選的機器組態 '%s'。";
     ls->errorStartEmuConfigInvalid       = "無法讀取機器組態 '%s' 的 config.ini。該檔案可能已損壞，或來自不相容的版本。";
     ls->errorMissingFiles       = "無法載入以下檔案：";
+    ls->errorFlashInvalid       = "「%s」的存檔已損毀，無法載入。";
+    ls->errorFlashSramSize      = "「%s」的存檔大小不符，無法載入。";
+    ls->errorFlashUnreadable    = "無法開啟「%s」的存檔，可能有其他程式正在使用。";
+    ls->errorFlashNotKept       = "仍可以啟動，但之後儲存的內容不會保留。";
+    ls->errorFlashFixFile       = "若要解決，請刪除或移走下列檔案，然後重新啟動。";
+    ls->errorFlashFixInUse      = "若要解決，請關閉正在使用下列檔案的程式，然後重新啟動。";
     ls->errorPortableReadonly   = "可攜式裝置為唯讀屬性";        
     ls->errorMidiOpenFailed     = "無法開啟 MIDI 裝置 '%s'。可能有其他應用程式正在使用它。";
     ls->infoTitle               = "blueMSX+ 資訊";

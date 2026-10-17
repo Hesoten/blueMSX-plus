@@ -463,7 +463,8 @@ int romMapperYamanootoCreate(const char* filename, UInt8* romData,
 
     rm->flash = amdFlashCreate(AMD_TYPE_2, YAMANOOTO_FLASH_SIZE, YAMANOOTO_FLASH_SECTOR,
                                0, romData, size,
-                               sramCreateFilenameWithSuffix(filename, "", ".sram"), 1);
+                               sramCreateFilenameWithSuffix(filename, "", ".sram"),
+                               AMDFLASH_PERSIST_OVERLAY);
 
     rm->romMask = YAMANOOTO_FLASH_SIZE / 0x2000 - 1;   /* 0x3FF */
     rm->slot  = slot;

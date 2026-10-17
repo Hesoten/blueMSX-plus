@@ -105,6 +105,12 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "Não foi possível encontrar a configuração de máquina selecionada '%s'.";
     ls->errorStartEmuConfigInvalid       = "Não foi possível ler config.ini da configuração de máquina '%s'. O arquivo pode estar corrompido ou pertencer a uma versão incompatível.";
     ls->errorMissingFiles       = "Não foi possível carregar os seguintes arquivos:";
+    ls->errorFlashInvalid       = "Os dados salvos de %s estão danificados e não puderam ser carregados.";
+    ls->errorFlashSramSize      = "Os dados salvos de %s têm o tamanho errado e não puderam ser carregados.";
+    ls->errorFlashUnreadable    = "Não foi possível abrir os dados salvos de %s. Talvez outro programa os esteja usando.";
+    ls->errorFlashNotKept       = "Ainda é possível iniciar, mas o que salvar não será mantido.";
+    ls->errorFlashFixFile       = "Para resolver, apague ou mova o arquivo abaixo e inicie novamente.";
+    ls->errorFlashFixInUse      = "Para resolver, feche o programa que está usando o arquivo abaixo e inicie novamente.";
     ls->errorPortableReadonly   = "O dispositivo portátil é somente leitura";        
     ls->errorMidiOpenFailed     = "Não foi possível abrir o dispositivo MIDI '%s'. Pode estar em uso por outra aplicação.";
     ls->infoTitle               = "Info blueMSX+";

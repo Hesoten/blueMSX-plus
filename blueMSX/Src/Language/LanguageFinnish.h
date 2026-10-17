@@ -107,6 +107,12 @@ void langInitFinnish(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "Valittua koneen kokoonpanoa '%s' ei löytynyt.";
     ls->errorStartEmuConfigInvalid       = "Koneen kokoonpanon '%s' config.ini-tiedostoa ei voitu lukea. Tiedosto voi olla vioittunut tai peräisin epäyhteensopivasta versiosta.";
     ls->errorMissingFiles       = "Seuraavia tiedostoja ei voitu ladata:";
+    ls->errorFlashInvalid       = "Ohjelman %s tallennetut tiedot ovat vioittuneet, eikä niitä voitu ladata.";
+    ls->errorFlashSramSize      = "Ohjelman %s tallennetut tiedot ovat väärän kokoiset, eikä niitä voitu ladata.";
+    ls->errorFlashUnreadable    = "Ohjelman %s tallennettuja tietoja ei voitu avata. Jokin toinen ohjelma saattaa käyttää niitä.";
+    ls->errorFlashNotKept       = "Ohjelma käynnistyy silti, mutta tallennukset eivät säily.";
+    ls->errorFlashFixFile       = "Korjaa tilanne poistamalla tai siirtämällä alla oleva tiedosto ja käynnistämällä uudelleen.";
+    ls->errorFlashFixInUse      = "Korjaa tilanne sulkemalla alla olevaa tiedostoa käyttävä ohjelma ja käynnistämällä uudelleen.";
     ls->errorPortableReadonly   = "Kannettava laite tukee vain lukemista.";
     ls->errorMidiOpenFailed     = "MIDI-laitteen '%s' avaus epäonnistui. Toinen sovellus voi käyttää sitä.";
     ls->infoTitle               = "blueMSX+-tiedot";

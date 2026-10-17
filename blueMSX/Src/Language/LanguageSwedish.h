@@ -105,6 +105,12 @@ void langInitSwedish(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "Den valda maskinkonfigurationen '%s' hittades inte.";
     ls->errorStartEmuConfigInvalid       = "Det gick inte att läsa config.ini för maskinkonfigurationen '%s'. Filen kan vara skadad eller från en inkompatibel version.";
     ls->errorMissingFiles       = "Följande filer kunde inte laddas:";
+    ls->errorFlashInvalid       = "Sparade data för %s är skadade och kunde inte läsas in.";
+    ls->errorFlashSramSize      = "Sparade data för %s har fel storlek och kunde inte läsas in.";
+    ls->errorFlashUnreadable    = "Sparade data för %s kunde inte öppnas. Kanske använder ett annat program dem.";
+    ls->errorFlashNotKept       = "Det går ändå att starta, men det du sparar behålls inte.";
+    ls->errorFlashFixFile       = "Ta bort eller flytta filen nedan och starta om för att åtgärda detta.";
+    ls->errorFlashFixInUse      = "Stäng programmet som använder filen nedan och starta om för att åtgärda detta.";
     ls->errorPortableReadonly   = "Flyttbar enhet är inte skrivbar";
     ls->errorMidiOpenFailed     = "Det gick inte att öppna MIDI-enheten '%s'. Kan användas av annan applikation.";
     ls->infoTitle               = "blueMSX+ Info";
