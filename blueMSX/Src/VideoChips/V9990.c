@@ -82,13 +82,15 @@
 #define REG_W  2
 #define REG_RW (REG_R | REG_W)
 
-/* The frame buffer window is the V9938's: 8 + 256 + 8 samples of 8 UC, 240 lines. */
-#define V9990_FB_WIDTH     272
-#define V9990_FB_LINES     240
-#define V9990_FB_WINDOW_UC (8 * V9990_FB_WIDTH)
+/* The frame buffer window is the V9938's: 8 + 256 + 8 samples of 8 UC, 240 lines.
+** Overscan frames widen it to their whole 2304 UC display. */
+#define V9990_FB_WIDTH      272
+#define V9990_FB_WIDE_WIDTH 288
+#define V9990_FB_LINES      240
+#define V9990_FB_WINDOW_UC  (8 * V9990_FB_WIDTH)
 
 /* Four-times-wide lines must fit a frame buffer line. */
-typedef char V9990FbLineFits[(V9990_FB_WIDTH << 2) <= FB_MAX_LINE_WIDTH ? 1 : -1];
+typedef char V9990FbLineFits[(V9990_FB_WIDE_WIDTH << 2) <= FB_MAX_LINE_WIDTH ? 1 : -1];
 
 /* B5 and B6 show 640 dots over the whole window, at 10/17 dot per sample. */
 #define V9990_HS_DOTS      640
@@ -260,6 +262,18 @@ static int isHighScan(V9990Mode mode)
     return mode == V9990_MODE_B5 || mode == V9990_MODE_B6;
 }
 
+/* Frame buffer samples of 8 UC per line in this frame. */
+static int frameWidth(V9990* v9990)
+{
+    return isOverscan(v9990->frameMode) ? V9990_FB_WIDE_WIDTH : V9990_FB_WIDTH;
+}
+
+/* Overscan display start in UC from the line start. */
+static int overscanStart(V9990* v9990)
+{
+    return v9990->latchSm ? 366 : 372;
+}
+
 static int isBitmap(V9990Mode mode)
 {
     return mode != V9990_MODE_P1 && mode != V9990_MODE_P2 && mode != V9990_MODE_STANDBY;
@@ -399,8 +413,8 @@ static void calcFrameGeometry(V9990* v9990)
 }
 
 /* Horizontal display area in UC (42.95 MHz) from the line start, using the
-** display mode in effect now. window is where frame buffer sample 0 starts:
-** the 2176 UC window is centred on the nominal display (B5/B6: at its start). */
+** display mode in effect now. window is where a 2176 UC window centred on the
+** nominal display starts (B5/B6: at its start); overscan frames draw wider. */
 static void calcHorizontalArea(V9990* v9990, int* left, int* right, int* window)
 {
     V9990Mode mode = v9990->mode;
@@ -413,7 +427,7 @@ static void calcHorizontalArea(V9990* v9990, int* left, int* right, int* window)
         blank = 288; border = 0; display = 1280; unit = 8;
     }
     else if (isOverscan(mode)) {
-        blank = v9990->latchSm ? 366 : 372; border = 0; display = 2304; unit = 12;
+        blank = overscanStart(v9990); border = 0; display = 2304; unit = 12;
     }
     else {
         blank = v9990->latchSm ? 394 : 400; border = 112; display = 2048;
@@ -746,8 +760,8 @@ static void drawHighScanLine(V9990* v9990, UInt16* line, int count, int scanLine
 }
 
 /* Draws scan line scanLine (counted from lineZero) into frame buffer line y.
-** Lines hold 272 << shift samples of 8 >> shift UC: B0 and B2 dots are 3
-** samples wide, B4 dots 1.5. */
+** Lines hold frameWidth << shift samples of 8 >> shift UC: B0 and B2 dots
+** are 3 samples wide, B4 dots 1.5. */
 static void drawLine(V9990* v9990, FrameBuffer* frame, int y, int scanLine)
 {
     V9990Mode mode = v9990->mode;
@@ -775,7 +789,7 @@ static void drawLine(V9990* v9990, FrameBuffer* frame, int y, int scanLine)
     else {
         shift = 2;
     }
-    count = V9990_FB_WIDTH << shift;
+    count = frameWidth(v9990) << shift;
     ucPerSample = 8 >> shift;
 
     frameBufferSetDoubleWidth(frame, y, shift);
@@ -804,6 +818,11 @@ static void drawLine(V9990* v9990, FrameBuffer* frame, int y, int scanLine)
 
     /* Display modes that are not drawn show the backdrop. */
     calcHorizontalArea(v9990, &left, &right, &window);
+    /* A wide frame places every line from the overscan display start, as
+    ** its frame mode does, whatever mode the line itself is drawn in. */
+    if (frameWidth(v9990) != V9990_FB_WIDTH) {
+        window = overscanStart(v9990);
+    }
     for (x = 0; x < count; x++) {
         int center = window + x * ucPerSample + ucPerSample / 2;
         line[x] = center >= left && center < right ? backdrop : border;
@@ -817,7 +836,8 @@ static void drawLine(V9990* v9990, FrameBuffer* frame, int y, int scanLine)
     }
 }
 
-/* A line is committed where its first frame buffer sample starts. */
+/* A line is committed where the 2176 UC window starts, in wide overscan
+** frames too, so that the timing does not depend on the frame width. */
 static UInt32 commitTicks(V9990* v9990)
 {
     int left;
@@ -1030,6 +1050,7 @@ static void startPicture(V9990* v9990, FrameBuffer* frame)
         return;
     }
 
+    frame->maxWidth = frameWidth(v9990);
     frameBufferSetLineCount(frame, v9990->fbLines);
     /* Neither an interlaced raster nor a B5/B6 frame leaves gaps between
     ** lines, so the display is told not to draw scanlines over them. */

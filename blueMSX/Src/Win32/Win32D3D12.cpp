@@ -43,13 +43,14 @@ using Microsoft::WRL::ComPtr;
 
 // --- constants ---------------------------------------------------------------
 static const UINT  FRAME_COUNT = 2;
-static const UINT  TEX_W       = 1088;  // matches FB_MAX_LINE_WIDTH (272 << 2)
+static const UINT  TEX_W       = 2176;  // >= FB_MAX_LINE_WIDTH; a power-of-two multiple of 1088 keeps 272-wide UVs exact
 static const UINT  TEX_H       = 480;   // matches FB_MAX_LINES
 static const float NTSC_AR     = 1.151f;
 static const float PAL_AR      = 1.151f * 60.0f / 50.0f;
 // D3D9 used a 272x240 base texture; crop values are expressed in those units
 static const int   BASE_TEX_W  = 272;
 static const int   BASE_TEX_H  = 240;
+static const int   OVERSCAN_TEX_W = 288; // V9990 B0/B2/B4 frames: 2304 UC
 
 // --- vertex ------------------------------------------------------------------
 struct Vtx12 { float x, y, u, v; };
@@ -491,6 +492,9 @@ static ComPtr<ID3D12Resource>            g12_texture;
 // Previous-frame copy used by the blendFrames effect (same size/format as g12_texture)
 static ComPtr<ID3D12Resource>            g12_prevTexture;
 static bool                              g12_prevTextureValid = false;
+// Columns of g12_texture that may be nonzero, and the maxWidth of its frame.
+static UINT                              g12_texUsedW = TEX_W;
+static int                               g12_texFrameW = BASE_TEX_W;
 // Noise mask for SHARP_NOISE / BLUR_NOISE: R8 texture sized like g12_texture,
 // each texel holds the top-3-bit DD PRNG value (= same noise that
 // videoRender's copy*PAL_2x2_32 adds at that source pixel position).
@@ -583,6 +587,7 @@ static UINT                              g12_recRowPitchAligned = 0;
 // Capture-owned source/noise textures + upload buffers, kept independent of
 // the live g12_texture / g12_noiseTexture state.
 static ComPtr<ID3D12Resource>            g12_recSrcTexture;
+static UINT                              g12_recTexUsedW = TEX_W;
 static ComPtr<ID3D12Resource>            g12_recUploadBuf;
 static UINT8*                            g12_recUploadPtr = nullptr;
 static UINT                              g12_recUploadRowPitch = 0;
@@ -775,7 +780,7 @@ struct UvRender12 {
 };
 
 static UvRender12 computeUvForRender(int targetW, int targetH,
-                                     int srcW, int srcH,
+                                     int srcW, int srcH, int frameW,
                                      D3DProperties* props)
 {
     UvRender12 o = {};
@@ -811,8 +816,11 @@ static UvRender12 computeUvForRender(int targetW, int targetH,
     const float fWs   = (float)targetW;
     const float fHs   = (float)targetH;
 
-    // Use fixed logical dimensions (BASE_TEX_W=272, BASE_TEX_H=240) for the
-    // aspect-ratio formula, matching D3D9's C_iTextureWidth/Height approach.
+    // Fixed 272x240 logical dimensions for the aspect-ratio formula, as D3D9.
+    // A V9990 overscan frame spans 288 at that scale; uncropped, it shows as
+    // far as the side bars reach. Wider CRTC frames keep the 272 span.
+    const int   spanW = frameW == OVERSCAN_TEX_W ? frameW : BASE_TEX_W;
+    const int   viewW = props->cropType == P_D3D_CROP_SIZE_NONE ? spanW : BASE_TEX_W;
     const float fMSXW = (float)(BASE_TEX_W - iBorderLeft - iBorderRight);
     const float fMSXH = (float)(BASE_TEX_H - iBorderTop  - iBorderBottom);
 
@@ -838,7 +846,7 @@ static UvRender12 computeUvForRender(int targetW, int targetH,
     else
         fWm = fWs * fHm / (fHs * fAR);
 
-    const float wUvScale = (float)srcW / ((float)BASE_TEX_W * fTexW);
+    const float wUvScale = (float)srcW / ((float)spanW * fTexW);
     fWm *= wUvScale;
 
     // Over 240 rows the frame spans the full height: 480 (deinterlaced) or
@@ -861,7 +869,7 @@ static UvRender12 computeUvForRender(int targetW, int targetH,
     /* Crop UV bounds: outside them the shader renders borderColor, so
     ** AR-fit bars never leak source rows the crop removed. */
     {
-        const float fCropWuv = (float)fMSXW * wUvScale;
+        const float fCropWuv = (float)(viewW - iBorderLeft - iBorderRight) * wUvScale;
         const float fCropHuv = (float)fMSXH / hUvDiv;
         o.cropU0 = uCtr - fCropWuv * 0.5f + fDx;
         o.cropU1 = uCtr + fCropWuv * 0.5f + fDx;
@@ -898,7 +906,7 @@ static FrameBuffer* narrowForTarget(FrameBuffer* fb, Video* pVideo,
     if (frameShiftOf(fb) < 2) return fb;
     if (pVideo->palMode == VIDEO_PAL_FAST) {
         UvRender12 uv = computeUvForRender(targetW, targetH,
-                                           fb->maxWidth << 2, fb->lines, props);
+                                           fb->maxWidth << 2, fb->lines, fb->maxWidth, props);
         if ((uv.u1 - uv.u0) * (float)TEX_W <= (float)targetW) return fb;
     }
     return frameBufferNarrow(fb);
@@ -931,6 +939,21 @@ static void uploadFrameRows(FrameBuffer* fb, int frameShift, UINT8* dst, UINT ro
             }
         }
     }
+}
+
+// Clears the upload rows as far as the copy into the texture reaches: the
+// frame, the zero column right of it, and what the previous frame left. The
+// texture then holds zeros right of the frame, as a full-width copy would.
+static UINT clearUploadColumns(UINT8* dst, UINT rowPitch, int srcW, UINT* usedW)
+{
+    UINT copyW = (UINT)srcW + 1;
+    if (copyW < *usedW) copyW = *usedW;
+    if (copyW > TEX_W)  copyW = TEX_W;
+    for (UINT y = 0; y < TEX_H; y++) {
+        memset(dst + (size_t)y * rowPitch, 0, (size_t)copyW * 4);
+    }
+    *usedW = (UINT)srcW;
+    return copyW;
 }
 
 // --- synchronization helpers -------------------------------------------------
@@ -1370,6 +1393,7 @@ static bool bD3D12Init(HWND hWnd, int w, int h, int syncVblank)
                                                   D3D12_RESOURCE_STATE_COPY_DEST,
                                                   nullptr, IID_PPV_ARGS(&g12_texture));
         if (FAILED(hr)) return false;
+        g12_texUsedW = TEX_W;
 
         D3D12_SHADER_RESOURCE_VIEW_DESC srvd = {};
         srvd.Format                    = DXGI_FORMAT_B8G8R8A8_UNORM;
@@ -1741,8 +1765,8 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
     // -- ARGB1555 -> BGRA8 -> upload buffer -------------------------------------
     // Clear unused buffer rows/cols; otherwise stale pixels persist from
     // the last frame in this slot (visible on deinterlace toggle).
-    memset(g12_uploadPtr[g12_frameIndex], 0,
-           (size_t)g12_uploadRowPitch * (size_t)TEX_H);
+    UINT copyW = clearUploadColumns(g12_uploadPtr[g12_frameIndex], g12_uploadRowPitch,
+                                    srcW, &g12_texUsedW);
     uploadFrameRows(fb, frameShift, g12_uploadPtr[g12_frameIndex], g12_uploadRowPitch);
 
     // -- Read blendFrames from global properties (not stored in Video struct) --
@@ -1750,6 +1774,9 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
     // upstream via VDP.c interlaceRaster=1 (scanlines suppressed).
     Properties* globalProps = propGetGlobalProperties();
     int blendFramesEnable  = (globalProps && globalProps->video.blendFrames) ? 1 : 0;
+    // The previous frame does not line up with one of another width.
+    bool prevSameWidth = g12_texFrameW == fb->maxWidth;
+    g12_texFrameW = fb->maxWidth;
 
     // -- Noise mask generation ------------------------------------------------
     // Mirrors DD's `rndVal *= 13; rnd *= 23` PRNG.  rndVal advances every
@@ -1860,7 +1887,8 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
         src_loc.PlacedFootprint.Footprint.Depth      = 1;
         src_loc.PlacedFootprint.Footprint.RowPitch   = g12_uploadRowPitch;
 
-        g12_cmdList->CopyTextureRegion(&dst_loc, 0, 0, 0, &src_loc, nullptr);
+        D3D12_BOX box = { 0, 0, 0, copyW, TEX_H, 1 };
+        g12_cmdList->CopyTextureRegion(&dst_loc, 0, 0, 0, &src_loc, &box);
 
         // Transition current back to PIXEL_SHADER_RESOURCE for the draw
         D3D12_RESOURCE_BARRIER rbBack = {};
@@ -1902,7 +1930,9 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
         srcN.PlacedFootprint.Footprint.Height     = TEX_H;
         srcN.PlacedFootprint.Footprint.Depth      = 1;
         srcN.PlacedFootprint.Footprint.RowPitch   = g12_noiseUploadRowPitch;
-        g12_cmdList->CopyTextureRegion(&dstN, 0, 0, 0, &srcN, nullptr);
+        // The shader reads the noise only inside the frame.
+        D3D12_BOX boxN = { 0, 0, 0, (UINT)srcW, TEX_H, 1 };
+        g12_cmdList->CopyTextureRegion(&dstN, 0, 0, 0, &srcN, &boxN);
 
         rbN.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
         rbN.Transition.StateAfter  = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
@@ -1916,7 +1946,7 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
                            && !isInterlacedSource
                            && !fb->interlaceRaster;
 
-    UvRender12 uv = computeUvForRender(w, h, srcW, srcH, props);
+    UvRender12 uv = computeUvForRender(w, h, srcW, srcH, fb->maxWidth, props);
     /* AA mode (pxPerRow >= 2.5): period 1/TEX_H, offset 0; the shader
     ** integrates sin over each screen pixel's source-row footprint.
     ** Legacy (< 2.5): period (v1-v0)/srcH, offset v0, plain point-sample
@@ -1991,7 +2021,7 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
             cb.scanShapeP = (float)spct / 100.0f * 4.0f;
         }
         cb.scalingFilter = (float)props->scalingFilter;
-        cb.blendFramesEnable  = blendFramesEnable ? 1.0f : 0.0f;
+        cb.blendFramesEnable  = blendFramesEnable && prevSameWidth ? 1.0f : 0.0f;
         cb.gammaExp           = (float)pVideo->gamma;
         cb.contrast           = (float)pVideo->contrast;
         cb.saturation         = (float)pVideo->saturation;
@@ -2546,6 +2576,7 @@ static int allocRecordResources(int width, int height, int hdr)
             D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, nullptr,
             IID_PPV_ARGS(&g12_recSrcTexture));
         if (FAILED(hr)) { releaseRecordResources(); return 0; }
+        g12_recTexUsedW = TEX_W;
     }
 
     // ---- Upload buffer for the source texture (CPU-mapped, 256-aligned rows) --
@@ -2683,7 +2714,8 @@ extern "C" int D3D12RecordCaptureFromFrame(FrameBuffer* fb, Video* pVideo,
     int srcH = fb->lines;
 
     // 2) ARGB1555 -> BGRA8 into the capture-owned upload buffer.
-    memset(g12_recUploadPtr, 0, (size_t)g12_recUploadRowPitch * (size_t)TEX_H);
+    UINT copyW = clearUploadColumns(g12_recUploadPtr, g12_recUploadRowPitch,
+                                    srcW, &g12_recTexUsedW);
     uploadFrameRows(fb, frameShift, g12_recUploadPtr, g12_recUploadRowPitch);
 
     // 3) Noise mask (only when palMode requests it). Same PRNG mechanic as
@@ -2728,7 +2760,7 @@ extern "C" int D3D12RecordCaptureFromFrame(FrameBuffer* fb, Video* pVideo,
     //      (NTSC PAR / PAL PAR / 1:1 / Auto / Stretch) is honoured. The
     //      visible source region inside the record RT is letterboxed /
     //      pillarboxed by the shader's border-color clamp.
-    UvRender12 uv = computeUvForRender(g12_recW, g12_recH, srcW, srcH, props);
+    UvRender12 uv = computeUvForRender(g12_recW, g12_recH, srcW, srcH, fb->maxWidth, props);
     /* Mirror the live path's AA / legacy mode selection. */
     float vSpanRec = uv.v1 - uv.v0;
     float pxPerRowRec = (vSpanRec > 1e-6f)
@@ -2888,7 +2920,8 @@ extern "C" int D3D12RecordCaptureFromFrame(FrameBuffer* fb, Video* pVideo,
         sl.PlacedFootprint.Footprint.Height   = TEX_H;
         sl.PlacedFootprint.Footprint.Depth    = 1;
         sl.PlacedFootprint.Footprint.RowPitch = g12_recUploadRowPitch;
-        g12_recCmdList->CopyTextureRegion(&dl, 0, 0, 0, &sl, nullptr);
+        D3D12_BOX box = { 0, 0, 0, copyW, TEX_H, 1 };
+        g12_recCmdList->CopyTextureRegion(&dl, 0, 0, 0, &sl, &box);
     }
     barrier(g12_recSrcTexture.Get(),
             D3D12_RESOURCE_STATE_COPY_DEST,
@@ -2911,7 +2944,8 @@ extern "C" int D3D12RecordCaptureFromFrame(FrameBuffer* fb, Video* pVideo,
         sl.PlacedFootprint.Footprint.Height   = TEX_H;
         sl.PlacedFootprint.Footprint.Depth    = 1;
         sl.PlacedFootprint.Footprint.RowPitch = g12_recNoiseUploadRowPitch;
-        g12_recCmdList->CopyTextureRegion(&dl, 0, 0, 0, &sl, nullptr);
+        D3D12_BOX box = { 0, 0, 0, (UINT)srcW, TEX_H, 1 };
+        g12_recCmdList->CopyTextureRegion(&dl, 0, 0, 0, &sl, &box);
         barrier(g12_recNoiseTexture.Get(),
                 D3D12_RESOURCE_STATE_COPY_DEST,
                 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);

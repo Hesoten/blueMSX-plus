@@ -413,8 +413,13 @@ FrameBuffer* frameBufferFlipDrawFrameOf(FrameBufferData* fb)
 #else
     blend = confBlendFrames && !fb->noBlend;
     if (blend) {
-        mixFrame(fb->frame + fb->drawFrame,
-                 &fb->blendFrame[0], &fb->blendFrame[1], 50);
+        FrameBuffer* a = &fb->blendFrame[0];
+        FrameBuffer* b = &fb->blendFrame[1];
+        /* Frames of different widths do not line up: the newest is shown alone. */
+        if (a->maxWidth != b->maxWidth) {
+            a = b = fb->blendFrame + fb->currentBlendFrame;
+        }
+        mixFrame(fb->frame + fb->drawFrame, a, b, 50);
     }
 #endif
     if (fb == drawBuffer) {
@@ -770,6 +775,11 @@ static FrameBuffer* mixFrame(FrameBuffer* d, FrameBuffer* a, FrameBuffer* b, int
             dst = (FrameBuffer*)calloc(1, sizeof(FrameBuffer));
         }
         d = dst;
+    }
+
+    /* Frames of different widths do not line up: a is shown alone. */
+    if (a->maxWidth != b->maxWidth) {
+        b = a;
     }
 
     if (a->interlace != INTERLACE_NONE) {
