@@ -82,6 +82,48 @@ public:
 
     UInt32 prescale() const { return m_fm.clock_prescale(); }
 
+    /* reset() puts the IRQ enable and flag control registers back but
+    ** leaves the IRQ mask made from them, and the prescaler, as the program
+    ** last set them. */
+    void resetChip()
+    {
+        reset();
+        update_prescale(6);
+        m_fm.set_irq_mask(m_irq_enable & ~m_flag_control & 0x1f);
+    }
+
+    /* ymfm brings the ADPCM-B flags into the status, and so to the IRQ
+    ** line, only when the upper status is read; the chip raises the line
+    ** when the flag comes up. This does the same as that read, for the
+    ** ADPCM-B bits alone, so the timer flags stay as they were. */
+    void updateAdpcmBStatus()
+    {
+        /* ym2608's STATUS_ADPCM_B_* are private; these are their values. */
+        const uint8_t EOS     = 0x04;
+        const uint8_t BRDY    = 0x08;
+        const uint8_t PLAYING = 0x20;
+        uint8_t adpcm = m_adpcm_b.status();
+        uint8_t set = 0;
+
+        if (adpcm & ymfm::adpcm_b_channel::STATUS_EOS)     set |= EOS;
+        if (adpcm & ymfm::adpcm_b_channel::STATUS_BRDY)    set |= BRDY;
+        if (adpcm & ymfm::adpcm_b_channel::STATUS_PLAYING) set |= PLAYING;
+        set &= ~(m_flag_control & 0x1f);
+        m_fm.set_reset_status(set, (EOS | BRDY | PLAYING) & ~set);
+    }
+
+    bool csmMode() { return m_fm.regs().csm() != 0; }
+
+    /* ymfm takes the CSM key-on back only when it next prepares the
+    ** channels, which without a register write is up to 4096 samples
+    ** later. Asking for that after the sample the key-on went into makes
+    ** the key-on one sample long. */
+    void releaseCsmKey() { m_fm.invalidate_caches(); }
+
+    /* With the ROM bit of register 01h the chip addresses its ROM, not the
+    ** sample RAM, and ymfm does not tell the two apart (ymfm issue #76). */
+    bool adpcmBRom() { return m_adpcm_b.regs().rom_ram() != 0; }
+
     /* Puts the ADPCM-B channel back to where a reset leaves it: stopped,
     ** output at zero, no transfer under way. The registers keep their
     ** values; the engine can only be reset as a whole, so they are saved
@@ -289,6 +331,7 @@ struct YM2608 {
     UInt32      timerExpiring[2];
     UInt32      busyEnd;
     UInt32      irqAsserted;
+    UInt32      csmPending;
 
     /* The two streams of the chip: FM with rhythm and ADPCM in stereo, and
     ** the SSG. Each has its own number of clocks per sample, which follows
@@ -378,7 +421,8 @@ uint8_t Ym2608Host::ymfm_external_read(ymfm::access_class type, uint32_t address
         }
         return ym2608->rhythmRom[address & (RHYTHM_ROM_SIZE - 1)];
     case ymfm::ACCESS_ADPCM_B:
-        if (address >= ym2608->adpcmRamSize) {
+        /* Makoto has no ADPCM ROM; nothing drives the bus. */
+        if (chip.adpcmBRom() || address >= ym2608->adpcmRamSize) {
             return 0xff;
         }
         return ym2608->adpcmRam[address];
@@ -391,7 +435,7 @@ void Ym2608Host::ymfm_external_write(ymfm::access_class type, uint32_t address, 
 {
     YM2608* ym2608 = owner;
 
-    if (type == ymfm::ACCESS_ADPCM_B && address < ym2608->adpcmRamSize) {
+    if (type == ymfm::ACCESS_ADPCM_B && !chip.adpcmBRom() && address < ym2608->adpcmRamSize) {
         ym2608->adpcmRam[address] = data;
     }
 }
@@ -403,6 +447,9 @@ static void onTimeout(YM2608* ym2608, int tnum)
     ym2608->timerExpiring[tnum] = 1;
     ym2608->host->timerExpired(tnum);
     ym2608->timerExpiring[tnum] = 0;
+    if (tnum == 0 && ym2608->host->chip.csmMode()) {
+        ym2608->csmPending = 1;
+    }
 }
 
 static void onTimeoutA(void* ref, UInt32 time) { onTimeout((YM2608*)ref, 0); }
@@ -440,12 +487,17 @@ static Int32* ym2608FmSync(void* ref, UInt32 count)
             ym2608->fmAcc -= period;
             chip.clockFm(sample);
             ym2608->fm.put(sample);
+            if (ym2608->csmPending) {
+                ym2608->csmPending = 0;
+                chip.releaseCsmKey();
+            }
         }
         ym2608->fm.get(ym2608->fmAcc, period, fm);
 
         ym2608->fmBuffer[2 * i + 0] = OUTPUT_GAIN * fm[0];
         ym2608->fmBuffer[2 * i + 1] = OUTPUT_GAIN * fm[1];
     }
+    chip.updateAdpcmBStatus();
 
     return ym2608->fmBuffer;
 }
@@ -549,18 +601,23 @@ void ym2608Reset(YM2608* ym2608)
     }
     ym2608->busyEnd     = boardSystemTime();
     ym2608->irqAsserted = 0;
+    ym2608->csmPending  = 0;
     ym2608->address[0]  = 0;
     ym2608->address[1]  = 0;
     memset(ym2608->regs, 0, sizeof(ym2608->regs));
 
-    ym2608->host->chip.reset();
+    ym2608->host->chip.resetChip();
     setRates(ym2608);
 }
 
 UInt8 ym2608Read(YM2608* ym2608, int offset)
 {
+    UInt8 value;
+
     mixerSync(ym2608->mixer);
-    return ym2608->host->chip.read(offset & 3);
+    value = ym2608->host->chip.read(offset & 3);
+    ym2608->host->chip.updateAdpcmBStatus();
+    return value;
 }
 
 /* Only the lower status is free of side effects: reading the upper status
@@ -587,6 +644,7 @@ void ym2608Write(YM2608* ym2608, int offset, UInt8 value)
         ym2608->address[hi] = value;
     }
     ym2608->host->chip.write(offset & 3, value);
+    ym2608->host->chip.updateAdpcmBStatus();
 
     /* Selecting address 2Dh-2Fh changes the prescaler. */
     if (ym2608->host->chip.prescale() != ym2608->prescale) {
@@ -652,6 +710,9 @@ void ym2608LoadState(YM2608* ym2608)
     ym2608->timerTimeout[1] =        saveStateGet(state, "timerTimeoutB", 0);
     ym2608->busyEnd         =        boardSystemTime() + saveStateGet(state, "busyLeft", 0);
     ym2608->irqAsserted     =        saveStateGet(state, "irqAsserted",   0);
+    /* A state saved between a CSM key-on and the sample it goes into does
+    ** not say so; preparing the channels once more is harmless otherwise. */
+    ym2608->csmPending      = 1;
     ym2608->address[0]      = (UInt8)saveStateGet(state, "address0",      0);
     ym2608->address[1]      = (UInt8)saveStateGet(state, "address1",      0);
     saveStateGetBuffer(state, "regs", ym2608->regs, sizeof(ym2608->regs));
