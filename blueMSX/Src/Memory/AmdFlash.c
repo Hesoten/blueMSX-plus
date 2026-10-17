@@ -64,7 +64,7 @@ struct AmdFlash
     int    isX8X16;             /* x16 chip in x8 mode: cmd-decode address is byte_addr >> 1 */
     AmdCmd cmd[AMDFLASH_CMD_SLOTS];
     int    cmdIdx;
-    int    writeProtectMask;
+    UInt32 writeProtectMask;
     int    fastCommands;        /* M29W640-family 0x56 quad program enabled */
     char   sramFilename[512];
 };
@@ -78,7 +78,15 @@ static UInt32 cmdAddrBits(AmdFlash* rm, UInt32 addr)
     return addr & 0x7ff;
 }
 
-static int checkCommandEraseSector(AmdFlash* rm) 
+/* The mask covers the first 32 sectors; the address is folded into the
+** flash first, so a mirrored address checks the sector it writes to. */
+static int isProtected(AmdFlash* rm, UInt32 address)
+{
+    UInt32 sector = (address & (rm->flashSize - 1)) / rm->sectorSize;
+    return sector < 32 && ((rm->writeProtectMask >> sector) & 1);
+}
+
+static int checkCommandEraseSector(AmdFlash* rm)
 {
     if (rm->cmdIdx > 0 && (cmdAddrBits(rm, rm->cmd[0].address) != rm->cmdAddr1 || rm->cmd[0].value != 0xaa)) return 0;
     if (rm->cmdIdx > 1 && (cmdAddrBits(rm, rm->cmd[1].address) != rm->cmdAddr2 || rm->cmd[1].value != 0x55)) return 0;
@@ -89,7 +97,7 @@ static int checkCommandEraseSector(AmdFlash* rm)
 
     if (rm->cmdIdx < 6) return 1;
 
-    if (((rm->writeProtectMask >> (rm->cmd[5].address / rm->sectorSize)) & 1) == 0) {
+    if (!isProtected(rm, rm->cmd[5].address)) {
         memset(rm->romData + (rm->cmd[5].address & ~(rm->sectorSize - 1) & (rm->flashSize - 1)), 0xff, rm->sectorSize);
     }
     return 0;
@@ -106,7 +114,14 @@ static int checkCommandEraseChip(AmdFlash* rm)
 
     if (rm->cmdIdx < 6) return 1;
 
-    memset(rm->romData, 0xff, rm->flashSize);
+    {
+        int offset;
+        for (offset = 0; offset < rm->flashSize; offset += rm->sectorSize) {
+            if (!isProtected(rm, offset)) {
+                memset(rm->romData + offset, 0xff, rm->sectorSize);
+            }
+        }
+    }
     return 0;
 }
 
@@ -118,7 +133,7 @@ static int checkCommandProgram(AmdFlash* rm)
 
     if (rm->cmdIdx < 4) return 1;
 
-    if (((rm->writeProtectMask >> (rm->cmd[3].address / rm->sectorSize)) & 1) == 0) {
+    if (!isProtected(rm, rm->cmd[3].address)) {
         rm->romData[rm->cmd[3].address & (rm->flashSize - 1)] &= rm->cmd[3].value;
     }
     return 0;
@@ -137,7 +152,7 @@ static int checkCommandQuadrupleByteProgram(AmdFlash* rm)
         int i;
         for (i = 1; i <= 4; i++) {
             UInt32 a = rm->cmd[i].address & (rm->flashSize - 1);
-            if (((rm->writeProtectMask >> (a / rm->sectorSize)) & 1) == 0) {
+            if (!isProtected(rm, a)) {
                 rm->romData[a] &= rm->cmd[i].value;
             }
         }
@@ -216,7 +231,7 @@ static int checkCommandBufferProgram(AmdFlash* rm)
 
     for (i = 4; i < 4 + dataCount; i++) {
         UInt32 addr = rm->cmd[i].address & (rm->flashSize - 1);
-        if (((rm->writeProtectMask >> (addr / rm->sectorSize)) & 1) == 0) {
+        if (!isProtected(rm, addr)) {
             rm->romData[addr] &= rm->cmd[i].value;
         }
     }
@@ -235,10 +250,8 @@ UInt8 amdFlashRead(AmdFlash* rm, UInt32 address)
                 switch ((address >> 1) & 0x0f) {
                 case 0x00: return 0x20;      /* Manufacturer: ST/Micron */
                 case 0x01: return 0x7e;      /* Device ID 1 */
-                case 0x02: {                 /* sector protect status */
-                    UInt32 sector = address / rm->sectorSize;
-                    return sector < 32 ? (UInt8)((rm->writeProtectMask >> sector) & 1) : 0;
-                }
+                case 0x02:                   /* sector protect status */
+                    return (UInt8)isProtected(rm, address);
                 case 0x03: return 0x19;
                 case 0x0e: return 0x21;      /* Device ID 2 */
                 case 0x0f: return 0x01;      /* Device ID 3 */
@@ -254,7 +267,7 @@ UInt8 amdFlashRead(AmdFlash* rm, UInt32 address)
             switch (address & 0x7F) {
             case 0x00: return 0x01;
             case 0x02: return 0x7E;
-            case 0x04: return (rm->writeProtectMask >> (address / rm->sectorSize)) & 1;
+            case 0x04: return (UInt8)isProtected(rm, address);
             case 0x06: return 0x08;
             case 0x1C: return 0x10;
             case 0x1E: return 0x00;
@@ -310,7 +323,7 @@ UInt8 amdFlashRead(AmdFlash* rm, UInt32 address)
         case 1: 
             return 0xa4;
         case 2:
-            return (rm->writeProtectMask >> (address / rm->sectorSize)) & 1;
+            return (UInt8)isProtected(rm, address);
         case 3:
             return 0x01;
         }
