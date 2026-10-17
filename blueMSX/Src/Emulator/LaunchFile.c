@@ -762,6 +762,37 @@ int launchFileIsSupported(const char* fileName)
            isFileExtension(fileName, ".wav") || isFileExtension(fileName, ".zip");
 }
 
+/* A file of any extension whose size and "AB" header look like a ROM image.
+** A .sram is left out: inserted as a cartridge it would save over itself. */
+static int launchFileLooksLikeRom(const char* fileName)
+{
+    UInt8 head[0x4002];
+    size_t length;
+    long size;
+    FILE* file;
+
+    if (isFileExtension(fileName, ".sram")) {
+        return 0;
+    }
+
+    file = fopen(fileName, "rb");
+    if (file == NULL) {
+        return 0;
+    }
+    fseek(file, 0, SEEK_END);
+    size = ftell(file);
+    if (size < 0x2000 || size > 64 * 1024 * 1024 || size % 0x2000 != 0) {
+        fclose(file);
+        return 0;
+    }
+    fseek(file, 0, SEEK_SET);
+    length = fread(head, 1, sizeof(head), file);
+    fclose(file);
+
+    return (length >= 2 && head[0] == 'A' && head[1] == 'B') ||
+           (length == sizeof(head) && head[0x4000] == 'A' && head[0x4001] == 'B');
+}
+
 int tryLaunchUnknownFile(Properties* properties, const char* fileName, int forceAutostart) 
 {
     int rv = 0;
@@ -816,7 +847,10 @@ int tryLaunchUnknownFile(Properties* properties, const char* fileName, int force
     else if (isFileExtension(fileName, ".zip")) {
         rv = insertDisketteOrCartridge(properties, properties->cartridge.quickStartDrive, fileName, forceAutostart);
     }
-    
+    else if (launchFileLooksLikeRom(fileName)) {
+        rv = insertCartridge(properties, properties->cartridge.quickStartDrive, fileName, NULL, ROM_UNKNOWN, forceAutostart);
+    }
+
     archUpdateMenu(0);
 
     return rv ? 1 : (launchAnswered ? -1 : 0);
