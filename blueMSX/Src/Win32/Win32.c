@@ -5679,10 +5679,11 @@ static INT_PTR CALLBACK largeMsgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM 
         fullText[_countof(fullText) - 1] = 0;
         SetDlgItemTextW(hDlg, IDC_LARGEMSG_TEXT, fullText);
 
-        /* SS_NOPREFIX: paths with '&' must not become accelerator hints. */
+        /* SS_NOPREFIX: paths with '&' must not become accelerator hints.
+        ** SS_EDITCONTROL breaks a path too long for a line, as measured below. */
         HWND hStatic = GetDlgItem(hDlg, IDC_LARGEMSG_TEXT);
         SetWindowLong(hStatic, GWL_STYLE,
-                      GetWindowLong(hStatic, GWL_STYLE) | SS_NOPREFIX);
+                      GetWindowLong(hStatic, GWL_STYLE) | SS_NOPREFIX | SS_EDITCONTROL);
 
         /* Localize Cancel/Yes/No; OK stays universal. */
         SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
@@ -5758,9 +5759,11 @@ static INT_PTR CALLBACK largeMsgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM 
         int textH    = rawH;
         if (textW > maxTextW) {
             textW = maxTextW;
+            /* Without DT_EDITCONTROL a long path widens the measure, so the other
+            ** lines wrap at its width, the height comes out short and the end is cut off. */
             RECT wrapRect = { 0, 0, maxTextW, 10000 };
             DrawTextW(hdc, fullText, -1, &wrapRect,
-                      DT_CALCRECT | DT_LEFT | DT_NOPREFIX | DT_WORDBREAK);
+                      DT_CALCRECT | DT_LEFT | DT_NOPREFIX | DT_WORDBREAK | DT_EDITCONTROL);
             textH = wrapRect.bottom - wrapRect.top;
         }
         if (textW < minTextW) textW = minTextW;
