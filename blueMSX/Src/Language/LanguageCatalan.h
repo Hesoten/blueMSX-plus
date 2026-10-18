@@ -106,6 +106,12 @@ void langInitCatalan(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "No s'ha pogut trobar la configuració de màquina seleccionada '%s'.";
     ls->errorStartEmuConfigInvalid       = "No s'ha pogut llegir config.ini de la configuració de màquina '%s'. El fitxer pot estar malmès o provenir d'una versió incompatible.";
     ls->errorMissingFiles       = "No s'han pogut carregar els següents fitxers:";
+    ls->errorFlashInvalid       = "Les dades desades de %s estan malmeses i no s'han pogut carregar.";
+    ls->errorFlashSramSize      = "Les dades desades de %s no tenen la mida correcta i no s'han pogut carregar.";
+    ls->errorFlashUnreadable    = "No s'han pogut obrir les dades desades de %s. Potser un altre programa les fa servir.";
+    ls->errorFlashNotKept       = "Es pot iniciar igualment, però el que deseu no es conservarà.";
+    ls->errorFlashFixFile       = "Per solucionar-ho, elimineu o moveu el fitxer següent i torneu a iniciar.";
+    ls->errorFlashFixInUse      = "Per solucionar-ho, tanqueu el programa que fa servir el fitxer següent i torneu a iniciar.";
     ls->errorPortableReadonly   = "El dispositiu portàtil és de només lectura";
     ls->errorMidiOpenFailed     = "No s'ha pogut obrir el dispositiu MIDI '%s'. Potser l'usa una altra aplicació.";
     ls->infoTitle               = "blueMSX+ Informació";

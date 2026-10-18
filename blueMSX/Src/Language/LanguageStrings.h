@@ -104,6 +104,13 @@ typedef struct {
     char* errorStartEmuMachineNotFound;   /* %s = machine name */
     char* errorStartEmuConfigInvalid;     /* %s = machine name */
     char* errorMissingFiles;
+    /* A flash save file left unused: the cause, then NotKept, a Fix line and the path. */
+    char* errorFlashInvalid;              /* %s = software name */
+    char* errorFlashSramSize;             /* %s = software name */
+    char* errorFlashUnreadable;           /* %s = software name */
+    char* errorFlashNotKept;
+    char* errorFlashFixFile;              /* after Invalid or SramSize */
+    char* errorFlashFixInUse;             /* after Unreadable */
     char* errorPortableReadonly;
     char* errorMidiOpenFailed;            /* %s = device name */
     char* infoColorDepth;

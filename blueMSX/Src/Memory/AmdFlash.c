@@ -67,7 +67,36 @@ struct AmdFlash
     UInt32 writeProtectMask;
     int    fastCommands;        /* M29W640-family 0x56 quad program enabled */
     char   sramFilename[512];
+    char   flashFilename[520];
+    int    persistMode;         /* PM_* below */
+    UInt8* writtenMask;         /* one bit per byte the MSX erased or programmed */
+    int    wroteThisSession;
 };
+
+#define PM_FULL     0           /* whole image in sramFilename */
+#define PM_OVERLAY  1           /* written bytes only, in flashFilename */
+#define PM_NONE     2           /* save file unusable: load and save nothing */
+
+#define FLASHFILE_MAGIC   "BMXFLSH"
+#define FLASHFILE_BLOCK   4096
+#define FLASHFILE_MASK    (FLASHFILE_BLOCK / 8)
+#define FLASHFILE_HEADER  24
+#define FLASHFILE_RECORD  (4 + FLASHFILE_MASK + FLASHFILE_BLOCK)
+
+static void (*problemHandler)(int problem, const char* fileName);
+
+static void markWritten(AmdFlash* rm, UInt32 offset, UInt32 length)
+{
+    UInt32 i;
+
+    if (rm->writtenMask == NULL) {
+        return;
+    }
+    for (i = offset; i < offset + length; i++) {
+        rm->writtenMask[i >> 3] |= (UInt8)(1 << (i & 7));
+    }
+    rm->wroteThisSession = 1;
+}
 
 /* On x8/x16 chips wired in x8 mode the internal command decoder inspects
 ** native word addresses; the byte address the host writes is right-shifted
@@ -98,7 +127,9 @@ static int checkCommandEraseSector(AmdFlash* rm)
     if (rm->cmdIdx < 6) return 1;
 
     if (!isProtected(rm, rm->cmd[5].address)) {
-        memset(rm->romData + (rm->cmd[5].address & ~(rm->sectorSize - 1) & (rm->flashSize - 1)), 0xff, rm->sectorSize);
+        UInt32 base = rm->cmd[5].address & ~(rm->sectorSize - 1) & (rm->flashSize - 1);
+        memset(rm->romData + base, 0xff, rm->sectorSize);
+        markWritten(rm, base, rm->sectorSize);
     }
     return 0;
 }
@@ -119,6 +150,7 @@ static int checkCommandEraseChip(AmdFlash* rm)
         for (offset = 0; offset < rm->flashSize; offset += rm->sectorSize) {
             if (!isProtected(rm, offset)) {
                 memset(rm->romData + offset, 0xff, rm->sectorSize);
+                markWritten(rm, offset, rm->sectorSize);
             }
         }
     }
@@ -134,7 +166,9 @@ static int checkCommandProgram(AmdFlash* rm)
     if (rm->cmdIdx < 4) return 1;
 
     if (!isProtected(rm, rm->cmd[3].address)) {
-        rm->romData[rm->cmd[3].address & (rm->flashSize - 1)] &= rm->cmd[3].value;
+        UInt32 a = rm->cmd[3].address & (rm->flashSize - 1);
+        rm->romData[a] &= rm->cmd[3].value;
+        markWritten(rm, a, 1);
     }
     return 0;
 }
@@ -154,6 +188,7 @@ static int checkCommandQuadrupleByteProgram(AmdFlash* rm)
             UInt32 a = rm->cmd[i].address & (rm->flashSize - 1);
             if (!isProtected(rm, a)) {
                 rm->romData[a] &= rm->cmd[i].value;
+                markWritten(rm, a, 1);
             }
         }
     }
@@ -233,6 +268,7 @@ static int checkCommandBufferProgram(AmdFlash* rm)
         UInt32 addr = rm->cmd[i].address & (rm->flashSize - 1);
         if (!isProtected(rm, addr)) {
             rm->romData[addr] &= rm->cmd[i].value;
+            markWritten(rm, addr, 1);
         }
     }
     return 0;
@@ -421,7 +457,186 @@ void amdFlashLoadState(AmdFlash* rm)
     saveStateClose(state);
 }
 
-AmdFlash* amdFlashCreate(AmdType type, int flashSize, int sectorSize, UInt32 writeProtectMask, void* romData, int size, const char* sramFilename, int loadSram)
+void amdFlashSetProblemHandler(void (*handler)(int problem, const char* fileName))
+{
+    problemHandler = handler;
+}
+
+static void reportProblem(AmdFlash* rm, int problem, const char* fileName)
+{
+    rm->persistMode = PM_NONE;
+    if (problemHandler != NULL) {
+        problemHandler(problem, fileName);
+    }
+}
+
+static UInt32 getLe32(const UInt8* p)
+{
+    return p[0] | (p[1] << 8) | (p[2] << 16) | ((UInt32)p[3] << 24);
+}
+
+static void putLe32(UInt8* p, UInt32 v)
+{
+    p[0] = (UInt8)v;
+    p[1] = (UInt8)(v >> 8);
+    p[2] = (UInt8)(v >> 16);
+    p[3] = (UInt8)(v >> 24);
+}
+
+/* Little endian: magic, version 1, flash size, block size, block count, then
+** per block with any written byte: block number, written mask, contents.
+** Every field is checked before anything is applied. */
+static int flashFileApply(AmdFlash* rm, const UInt8* buf, int length)
+{
+    UInt32 blocks = rm->flashSize / FLASHFILE_BLOCK;
+    UInt32 count;
+    UInt32 i;
+    UInt32 j;
+    const UInt8* rec;
+
+    if (length < FLASHFILE_HEADER || memcmp(buf, FLASHFILE_MAGIC, 8) != 0) {
+        return 0;
+    }
+    count = getLe32(buf + 20);
+    if (getLe32(buf + 8) != 1 || getLe32(buf + 12) != (UInt32)rm->flashSize ||
+        getLe32(buf + 16) != FLASHFILE_BLOCK || count > blocks ||
+        (UInt32)length != FLASHFILE_HEADER + count * FLASHFILE_RECORD) {
+        return 0;
+    }
+    for (i = 0, rec = buf + FLASHFILE_HEADER; i < count; i++, rec += FLASHFILE_RECORD) {
+        if (getLe32(rec) >= blocks || (i > 0 && getLe32(rec) <= getLe32(rec - FLASHFILE_RECORD))) {
+            return 0;
+        }
+    }
+
+    /* Bytes in write-protected sectors are dropped: the MSX cannot have
+    ** written them on this cartridge. */
+    for (i = 0, rec = buf + FLASHFILE_HEADER; i < count; i++, rec += FLASHFILE_RECORD) {
+        UInt32 base = getLe32(rec) * FLASHFILE_BLOCK;
+        const UInt8* mask = rec + 4;
+        const UInt8* data = rec + 4 + FLASHFILE_MASK;
+
+        for (j = 0; j < FLASHFILE_BLOCK; j++) {
+            if ((mask[j >> 3] & (1 << (j & 7))) && !isProtected(rm, base + j)) {
+                rm->romData[base + j] = data[j];
+                rm->writtenMask[(base + j) >> 3] |= (UInt8)(1 << (j & 7));
+            }
+        }
+    }
+    return 1;
+}
+
+static void flashFileSave(AmdFlash* rm)
+{
+    UInt32 blocks = rm->flashSize / FLASHFILE_BLOCK;
+    UInt32 count = 0;
+    UInt32 b;
+    UInt8* buf = (UInt8*)malloc(FLASHFILE_HEADER + blocks * FLASHFILE_RECORD);
+    UInt8* rec;
+
+    if (buf == NULL) {
+        return;
+    }
+    rec = buf + FLASHFILE_HEADER;
+    for (b = 0; b < blocks; b++) {
+        const UInt8* mask = rm->writtenMask + b * FLASHFILE_MASK;
+        int k;
+
+        for (k = 0; k < FLASHFILE_MASK && mask[k] == 0; k++) {
+        }
+        if (k == FLASHFILE_MASK) {
+            continue;
+        }
+        putLe32(rec, b);
+        memcpy(rec + 4, mask, FLASHFILE_MASK);
+        memcpy(rec + 4 + FLASHFILE_MASK, rm->romData + b * FLASHFILE_BLOCK, FLASHFILE_BLOCK);
+        rec += FLASHFILE_RECORD;
+        count++;
+    }
+    memcpy(buf, FLASHFILE_MAGIC, 8);
+    putLe32(buf + 8, 1);
+    putLe32(buf + 12, rm->flashSize);
+    putLe32(buf + 16, FLASHFILE_BLOCK);
+    putLe32(buf + 20, count);
+    sramSaveReplace(rm->flashFilename, buf, (int)(rec - buf));
+    free(buf);
+}
+
+/* A .flash file wins; without one, a .sram of exactly the flash size is an
+** image from before .flash files and keeps being used whole. Anything that
+** cannot be used is reported and left untouched, and nothing is saved. */
+static void loadWritten(AmdFlash* rm)
+{
+    size_t n = strlen(rm->sramFilename);
+    int fileSize;
+    int sramSize;
+    int status;
+
+    strcpy(rm->flashFilename, rm->sramFilename);
+    if (n >= 5 && strcmp(rm->flashFilename + n - 5, ".sram") == 0) {
+        n -= 5;
+    }
+    strcpy(rm->flashFilename + n, ".flash");
+
+    status = sramFileStatus(rm->flashFilename, &fileSize);
+    if (status == SRAM_FILE_ERROR) {
+        reportProblem(rm, AMDFLASH_PROBLEM_UNREADABLE, rm->flashFilename);
+        return;
+    }
+    if (status == SRAM_FILE_MISSING) {
+        status = sramFileStatus(rm->sramFilename, &sramSize);
+        if (status == SRAM_FILE_ERROR) {
+            reportProblem(rm, AMDFLASH_PROBLEM_UNREADABLE, rm->sramFilename);
+            return;
+        }
+        if (status == SRAM_FILE_PRESENT) {
+            int length;
+            UInt8* buf;
+
+            if (sramSize != rm->flashSize) {
+                reportProblem(rm, AMDFLASH_PROBLEM_SRAM_SIZE, rm->sramFilename);
+                return;
+            }
+            /* Not sramLoad: it cannot report a failed read, and the whole
+            ** image would then be saved over with the ROM at exit. */
+            buf = sramLoadFile(rm->sramFilename, &length);
+            if (buf == NULL) {
+                reportProblem(rm, AMDFLASH_PROBLEM_UNREADABLE, rm->sramFilename);
+                return;
+            }
+            if (length != rm->flashSize) {
+                free(buf);
+                reportProblem(rm, AMDFLASH_PROBLEM_SRAM_SIZE, rm->sramFilename);
+                return;
+            }
+            memcpy(rm->romData, buf, length);
+            free(buf);
+            rm->persistMode = PM_FULL;
+            return;
+        }
+    }
+
+    rm->writtenMask = (UInt8*)calloc(rm->flashSize / 8, 1);
+    if (rm->writtenMask == NULL) {
+        rm->persistMode = PM_NONE;
+        return;
+    }
+    rm->persistMode = PM_OVERLAY;
+    if (status == SRAM_FILE_PRESENT) {
+        int length;
+        UInt8* buf = sramLoadFile(rm->flashFilename, &length);
+
+        if (buf == NULL) {
+            reportProblem(rm, AMDFLASH_PROBLEM_UNREADABLE, rm->flashFilename);
+        }
+        else if (!flashFileApply(rm, buf, length)) {
+            reportProblem(rm, AMDFLASH_PROBLEM_FLASH_INVALID, rm->flashFilename);
+        }
+        free(buf);
+    }
+}
+
+AmdFlash* amdFlashCreate(AmdType type, int flashSize, int sectorSize, UInt32 writeProtectMask, void* romData, int size, const char* sramFilename, int persistMode)
 {
     AmdFlash* rm = (AmdFlash*)calloc(1, sizeof(AmdFlash));
 
@@ -456,28 +671,35 @@ AmdFlash* amdFlashCreate(AmdType type, int flashSize, int sectorSize, UInt32 wri
         size = flashSize;
     }
 
-    /* Seed: blank -> source ROM -> sram overlay.  Sram wins so MSX-side flash
-    ** writes persist across sessions; delete bin/SRAM/*.sram to reset to the
-    ** factory image.  Manbow2 relies on writeProtectMask instead of order. */
+    /* Seed: blank -> source ROM -> what the MSX wrote in earlier sessions. */
     memset(rm->romData, 0xff, flashSize);
 
     if (size > 0) {
         memcpy(rm->romData, romData, size);
     }
 
+    rm->persistMode = PM_FULL;
     if (rm->sramFilename[0]) {
-        sramLoad(rm->sramFilename, rm->romData, rm->flashSize, NULL, 0);
+        if (persistMode == AMDFLASH_PERSIST_OVERLAY) {
+            loadWritten(rm);
+        }
+        else {
+            sramLoad(rm->sramFilename, rm->romData, rm->flashSize, NULL, 0);
+        }
     }
-    (void)loadSram;
 
     return rm;
 }
 
 void amdFlashDestroy(AmdFlash* rm)
 {
-    if (rm->sramFilename[0]) {
+    if (rm->sramFilename[0] && rm->persistMode == PM_FULL) {
         sramSave(rm->sramFilename, rm->romData, rm->flashSize, NULL, 0);
     }
+    if (rm->persistMode == PM_OVERLAY && rm->wroteThisSession) {
+        flashFileSave(rm);
+    }
+    free(rm->writtenMask);
     free(rm->romData);
     free(rm);
 }

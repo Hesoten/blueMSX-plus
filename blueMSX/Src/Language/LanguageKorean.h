@@ -106,6 +106,12 @@ void langInitKorean(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "선택한 머신 구성 '%s'을(를) 찾을 수 없습니다.";
     ls->errorStartEmuConfigInvalid       = "머신 구성 '%s'의 config.ini를 읽을 수 없습니다. 파일이 손상되었거나 호환되지 않는 버전에서 온 것일 수 있습니다.";
     ls->errorMissingFiles       = "다음 파일을 로드할 수 없습니다:";
+    ls->errorFlashInvalid       = "'%s'의 세이브 데이터가 손상되어 불러오지 못했습니다.";
+    ls->errorFlashSramSize      = "'%s'의 세이브 데이터 크기가 맞지 않아 불러오지 못했습니다.";
+    ls->errorFlashUnreadable    = "'%s'의 세이브 데이터를 열지 못했습니다. 다른 프로그램이 사용 중일 수 있습니다.";
+    ls->errorFlashNotKept       = "이대로 시작할 수는 있지만 저장해도 남지 않습니다.";
+    ls->errorFlashFixFile       = "해결하려면 아래 파일을 삭제하거나 옮긴 뒤 다시 시작하십시오.";
+    ls->errorFlashFixInUse      = "해결하려면 아래 파일을 사용 중인 프로그램을 닫은 뒤 다시 시작하십시오.";
     ls->errorPortableReadonly   = "이동 장치는 읽기 전용입니다.";        
     ls->errorMidiOpenFailed     = "MIDI 장치 '%s'을(를) 열 수 없습니다. 다른 응용 프로그램에서 사용 중일 수 있습니다.";
     ls->infoTitle               = "blueMSX+ 정보";

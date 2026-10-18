@@ -443,7 +443,7 @@ int romMapperMegaFlashRomSccPlusCreate(const char* filename, UInt8* romData,
     sccSetMode(rm->scc, SCC_PLUS);
     rm->sccEnable = 0;
 
-    rm->flash = amdFlashCreate(AMD_TYPE_2, 0x80000, 0x10000, writeProtectMask, romData, size, sramCreateFilenameWithSuffix(filename, "", ".sram"), 1);
+    rm->flash = amdFlashCreate(AMD_TYPE_2, 0x80000, 0x10000, writeProtectMask, romData, size, sramCreateFilenameWithSuffix(filename, "", ".sram"), AMDFLASH_PERSIST_FULL);
 
     for (i = 0; i < 4; i++) {   
         mapPage(rm, i, i);

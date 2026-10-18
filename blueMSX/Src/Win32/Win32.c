@@ -96,6 +96,7 @@
 #include "Win32PhysicalDisk.h"
 #include "Actions.h"
 #include "LaunchFile.h"
+#include "AmdFlash.h"
 #include "TokenExtract.h"
 #include "Emulator.h"
 #include "JoystickPort.h"
@@ -1938,6 +1939,79 @@ static void checkKeyUp(Shortcuts* s, ShotcutHotkey key)
 
 #define WM_UPDATE            (WM_USER + 1245)
 #define WM_LAUNCHFILE        (WM_USER + 1249)
+#define WM_FLASHPROBLEM      (WM_USER + 1250)
+
+/* Runs on the emulator thread while a cartridge is created, so the dialog is
+** left to the window: a modal box here would stall the thread being waited on. */
+static void flashProblemPost(int problem, const char* fileName)
+{
+    char* copy = (char*)malloc(strlen(fileName) + 1);
+
+    if (copy == NULL) {
+        return;
+    }
+    strcpy(copy, fileName);
+    if (getMainHwnd() == NULL || !PostMessage(getMainHwnd(), WM_FLASHPROBLEM, problem, (LPARAM)copy)) {
+        free(copy);
+    }
+}
+
+/* Once per file: loading a state or resetting creates the cartridge again. */
+static void flashProblemShow(int problem, char* fileName)
+{
+    static char* shown[32];
+    static int shownCount = 0;
+    const char* text;
+    const char* fix;
+    const char* base;
+    char game[256];
+    char cause[768];
+    char body[2048];
+    char* dot;
+    int kept = 0;
+    int i;
+
+    for (i = 0; i < shownCount; i++) {
+        if (_stricmp(shown[i], fileName) == 0) {
+            free(fileName);
+            return;
+        }
+    }
+    if (shownCount < 32) {
+        shown[shownCount++] = fileName;
+        kept = 1;
+    }
+
+    text = problem == AMDFLASH_PROBLEM_SRAM_SIZE   ? langErrorFlashSramSize() :
+           problem == AMDFLASH_PROBLEM_FLASH_INVALID ? langErrorFlashInvalid() :
+                                                       langErrorFlashUnreadable();
+    fix  = problem == AMDFLASH_PROBLEM_UNREADABLE ? langErrorFlashFixInUse() : langErrorFlashFixFile();
+    /* The save file is named after the ROM, so its name stands for the game. */
+    base = fileName;
+    for (i = 0; fileName[i]; i++) {
+        if (fileName[i] == '\\' || fileName[i] == '/') {
+            base = fileName + i + 1;
+        }
+    }
+    strncpy(game, base, sizeof(game) - 1);
+    game[sizeof(game) - 1] = 0;
+    dot = strrchr(game, '.');
+    if (dot != NULL) {
+        *dot = 0;
+    }
+    _snprintf(cause, sizeof(cause) - 1, text, game);
+    cause[sizeof(cause) - 1] = 0;
+    _snprintf(body, sizeof(body) - 1, "%s\n\n%s\n%s\n\n%s",
+              cause, langErrorFlashNotKept(), fix, fileName);
+    body[sizeof(body) - 1] = 0;
+    enterDialogShow();
+    MessageBoxU(getMainHwnd(), body, langErrorTitle(), MB_OK | MB_ICONERROR);
+    exitDialogShow();
+
+    if (!kept) {
+        free(fileName);
+    }
+}
 
 #define TIMER_STATUSBAR_UPDATE              10
 #define TIMER_POLL_INPUT                    11
@@ -3296,6 +3370,15 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             }
         }
         return TRUE;
+
+    case WM_FLASHPROBLEM:
+        if (lParam != 0 && st.hidden) {
+            free((char*)lParam);
+        }
+        else if (lParam != 0) {
+            flashProblemShow((int)wParam, (char*)lParam);
+        }
+        return 0;
 
     case WM_LAUNCHFILE:
         {
@@ -5072,6 +5155,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     st.mixer  = mixerCreate();
 
     emulatorInit(pProperties, st.mixer);
+    amdFlashSetProblemHandler(flashProblemPost);
     actionInit(st.pVideo, pProperties, st.mixer);
     tapeSetReadOnly(pProperties->cassette.readOnly);
     tapeSignalSetSaveMonitor(pProperties->cassette.saveMonitor);
@@ -5606,10 +5690,11 @@ static INT_PTR CALLBACK largeMsgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM 
         fullText[_countof(fullText) - 1] = 0;
         SetDlgItemTextW(hDlg, IDC_LARGEMSG_TEXT, fullText);
 
-        /* SS_NOPREFIX: paths with '&' must not become accelerator hints. */
+        /* SS_NOPREFIX: paths with '&' must not become accelerator hints.
+        ** SS_EDITCONTROL breaks a path too long for a line, as measured below. */
         HWND hStatic = GetDlgItem(hDlg, IDC_LARGEMSG_TEXT);
         SetWindowLong(hStatic, GWL_STYLE,
-                      GetWindowLong(hStatic, GWL_STYLE) | SS_NOPREFIX);
+                      GetWindowLong(hStatic, GWL_STYLE) | SS_NOPREFIX | SS_EDITCONTROL);
 
         /* Localize Cancel/Yes/No; OK stays universal. */
         SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
@@ -5685,9 +5770,11 @@ static INT_PTR CALLBACK largeMsgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM 
         int textH    = rawH;
         if (textW > maxTextW) {
             textW = maxTextW;
+            /* Without DT_EDITCONTROL a long path widens the measure, so the other
+            ** lines wrap at its width, the height comes out short and the end is cut off. */
             RECT wrapRect = { 0, 0, maxTextW, 10000 };
             DrawTextW(hdc, fullText, -1, &wrapRect,
-                      DT_CALCRECT | DT_LEFT | DT_NOPREFIX | DT_WORDBREAK);
+                      DT_CALCRECT | DT_LEFT | DT_NOPREFIX | DT_WORDBREAK | DT_EDITCONTROL);
             textH = wrapRect.bottom - wrapRect.top;
         }
         if (textW < minTextW) textW = minTextW;

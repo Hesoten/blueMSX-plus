@@ -108,6 +108,12 @@ void langInitJapanese(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "選択されたマシン構成 '%s' が見つかりません。";
     ls->errorStartEmuConfigInvalid       = "マシン構成 '%s' の config.ini を読み込めませんでした。ファイルが破損しているか、非互換のバージョンの可能性があります。";
     ls->errorMissingFiles       = "以下のファイルが読み込めませんでした:";
+    ls->errorFlashInvalid       = "「%s」のセーブデータが壊れているため、読み込めませんでした。";
+    ls->errorFlashSramSize      = "「%s」のセーブデータのサイズが合わないため、読み込めませんでした。";
+    ls->errorFlashUnreadable    = "「%s」のセーブデータを開けませんでした。ほかのプログラムが使用中の可能性があります。";
+    ls->errorFlashNotKept       = "このまま起動はできますが、セーブしても保存されません。";
+    ls->errorFlashFixFile       = "解決するには、以下のファイルを削除または退避してから、起動しなおしてください。";
+    ls->errorFlashFixInUse      = "解決するには、以下のファイルを使っているプログラムを閉じてから、起動しなおしてください。";
     ls->errorPortableReadonly   = "ポータブルデバイスは読込専用です。";
     ls->errorMidiOpenFailed     = "MIDI デバイス '%s' の open に失敗しました。他のアプリケーションが使用中の可能性があります。";
     ls->infoTitle                  = "blueMSX+ 情報";

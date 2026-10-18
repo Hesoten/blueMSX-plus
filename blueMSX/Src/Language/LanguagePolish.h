@@ -106,6 +106,12 @@ void langInitPolish(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "Nie znaleziono wybranej konfiguracji maszyny '%s'.";
     ls->errorStartEmuConfigInvalid       = "Nie udało się odczytać pliku config.ini konfiguracji maszyny '%s'. Plik może być uszkodzony lub pochodzić z niekompatybilnej wersji.";
     ls->errorMissingFiles       = "Nie można wczytać następujących plików:";
+    ls->errorFlashInvalid       = "Zapis dla %s jest uszkodzony i nie udało się go wczytać.";
+    ls->errorFlashSramSize      = "Zapis dla %s ma nieprawidłowy rozmiar i nie udało się go wczytać.";
+    ls->errorFlashUnreadable    = "Nie udało się otworzyć zapisu dla %s. Być może używa go inny program.";
+    ls->errorFlashNotKept       = "Uruchomienie jest nadal możliwe, ale zapisy nie zostaną zachowane.";
+    ls->errorFlashFixFile       = "Aby to naprawić, usuń lub przenieś poniższy plik, a następnie uruchom ponownie.";
+    ls->errorFlashFixInUse      = "Aby to naprawić, zamknij program używający poniższego pliku, a następnie uruchom ponownie.";
     ls->errorPortableReadonly   = "Urządzenie przenośne - tylko do odczytu";        
     ls->errorMidiOpenFailed     = "Nie udało się otworzyć urządzenia MIDI '%s'. Może używać go inna aplikacja.";
     ls->infoTitle               = "Informacje blueMSX+";

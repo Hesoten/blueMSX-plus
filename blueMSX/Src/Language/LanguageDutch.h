@@ -106,6 +106,12 @@ void langInitDutch(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "De geselecteerde machineconfiguratie '%s' is niet gevonden.";
     ls->errorStartEmuConfigInvalid       = "Kon config.ini van machineconfiguratie '%s' niet lezen. Het bestand is mogelijk beschadigd of afkomstig uit een niet-compatibele versie.";
     ls->errorMissingFiles       = "De volgende bestanden konden niet worden geladen:";
+    ls->errorFlashInvalid       = "De opgeslagen gegevens van %s zijn beschadigd en konden niet worden geladen.";
+    ls->errorFlashSramSize      = "De opgeslagen gegevens van %s hebben de verkeerde grootte en konden niet worden geladen.";
+    ls->errorFlashUnreadable    = "De opgeslagen gegevens van %s konden niet worden geopend. Misschien gebruikt een ander programma ze.";
+    ls->errorFlashNotKept       = "Het start wel, maar wat je opslaat blijft niet bewaard.";
+    ls->errorFlashFixFile       = "Verwijder of verplaats het onderstaande bestand en start opnieuw om dit op te lossen.";
+    ls->errorFlashFixInUse      = "Sluit het programma dat het onderstaande bestand gebruikt en start opnieuw om dit op te lossen.";
     ls->errorPortableReadonly   = "Het draagbare apparaat is Alleen-Lezen";
     ls->errorMidiOpenFailed     = "Kon MIDI-apparaat '%s' niet openen. Mogelijk in gebruik door andere toepassing.";
     ls->infoTitle               = "blueMSX+ Info";
