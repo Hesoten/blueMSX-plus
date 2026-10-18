@@ -170,7 +170,7 @@ int insertCartridge(Properties* properties, int drive, const char* fname, const 
                 sizeSc += (int)strlen(fileListSc + sizeSc) + 1;
             }
 
-            fileList = malloc(sizeRom + sizeMx1 + sizeMx2 + sizeSms + sizeCol + sizeRi + sizeSg);
+            fileList = malloc(sizeRom + sizeMx1 + sizeMx2 + sizeSms + sizeCol + sizeRi + sizeSg + sizeSc);
             memcpy(fileList, fileListRom, sizeRom);
             memcpy(fileList + sizeRom, fileListMx1, sizeMx1);
             memcpy(fileList + sizeRom + sizeMx1, fileListMx2, sizeMx2);
@@ -336,7 +336,7 @@ int insertDiskette(Properties* properties, int drive, const char* fname, const c
                 sizeDi2 += (int)strlen(fileListDi2 + sizeDi2) + 1;
             }
             for (i = 0; i < count360; i++) {
-                sizeDi2 += (int)strlen(fileList360 + size360) + 1;
+                size360 += (int)strlen(fileList360 + size360) + 1;
             }
             for (i = 0; i < count720; i++) {
                 size720 += (int)strlen(fileList720 + size720) + 1;
@@ -606,7 +606,7 @@ static int insertDisketteOrCartridge(Properties* properties, int drive, const ch
         sizeDi2 += (int)strlen(fileListDi2 + sizeDi2) + 1;
     }
     for (i = 0; i < count360; i++) {
-        sizeDi2 += (int)strlen(fileList360 + size360) + 1;
+        size360 += (int)strlen(fileList360 + size360) + 1;
     }
     for (i = 0; i < count720; i++) {
         size720 += (int)strlen(fileList720 + size720) + 1;
@@ -616,7 +616,7 @@ static int insertDisketteOrCartridge(Properties* properties, int drive, const ch
     }
 
     if (countDsk > 0) {
-        fileListDsk = malloc(sizeDsx + sizeDi1 + sizeDi2);
+        fileListDsk = malloc(sizeDsx + sizeDi1 + sizeDi2 + size360 + size720 + sizeSf7);
         memcpy(fileListDsk, fileListDsx, sizeDsx);
         memcpy(fileListDsk + sizeDsx, fileListDi1, sizeDi1);
         memcpy(fileListDsk + sizeDsx + sizeDi1, fileListDi2, sizeDi2);
