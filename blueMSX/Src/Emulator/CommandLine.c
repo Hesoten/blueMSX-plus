@@ -169,6 +169,17 @@ static int isRomFileType(char* filename, char* inZip) {
            isFileExtension(filename, ".sc");
 }
 
+/* /rom1 and /rom2 take a file of any extension, its mapper guessed from the
+** contents unless /romtype1 or /romtype2 names one; a zip still has to hold
+** an entry with a ROM extension. */
+static int isRomArgument(char* filename, char* inZip) {
+    if (isFileExtension(filename, ".zip")) {
+        return isRomFileType(filename, inZip);
+    }
+    inZip[0] = 0;
+    return 1;
+}
+
 static int isDskFileType(char* filename, char* inZip) {
     inZip[0] = 0;
 
@@ -1117,8 +1128,9 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
         if (emuArgMatches(argument, "rom1")) {
             argument = extractTokenEx(cmdLine, ++i, gamedir);
             if (argument == NULL) return argError(option, "needs a file name", NULL);
-            if (!isRomFileType(argument, rom1zip)) return argError(option, "not a ROM image:", argument);
             if (!archFileExists(argument)) return argError(option, "no such file:", argument);
+            if (isDirPath(argument)) return argError(option, "is a directory:", argument);
+            if (!isRomArgument(argument, rom1zip)) return argError(option, "no ROM image in the zip:", argument);
             copyArg(rom1, sizeof(rom1), argument);
             startEmu = 1;
             continue;
@@ -1141,8 +1153,9 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
         if (emuArgMatches(argument, "rom2")) {
             argument = extractTokenEx(cmdLine, ++i, gamedir);
             if (argument == NULL) return argError(option, "needs a file name", NULL);
-            if (!isRomFileType(argument, rom2zip)) return argError(option, "not a ROM image:", argument);
             if (!archFileExists(argument)) return argError(option, "no such file:", argument);
+            if (isDirPath(argument)) return argError(option, "is a directory:", argument);
+            if (!isRomArgument(argument, rom2zip)) return argError(option, "no ROM image in the zip:", argument);
             copyArg(rom2, sizeof(rom2), argument);
             startEmu = 1;
             continue;

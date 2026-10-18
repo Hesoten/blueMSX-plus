@@ -84,6 +84,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->errorCreateDiskImage    = "Kunde inte skapa diskavbildsfilen.";
     ls->errorCreateTapeImage    = "Kunde inte skapa kassettfilen.";
     ls->errorNoCasInZip         = "Kunde inte hitta en .cas fil i zip arkivet.";
+    ls->errorUnknownFileType    = "Kan inte öppna filen: okänd filtyp.";
     ls->errorDirDiskTooLarge    = "%d fil(er) fick inte plats på disken och utelämnades.";
     ls->errorDirDiskOnline      = "%d fil(er) som bara finns online utelämnades. Gör dem tillgängliga på den här enheten för att ta med dem.";
     ls->errorDirDiskSubdirs     = "%d mapp(ar) utelämnades eftersom det valda formatet inte kan innehålla dem.";

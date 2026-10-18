@@ -84,6 +84,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->errorCreateDiskImage    = "No s'ha pogut crear el fitxer d'imatge de disc.";
     ls->errorCreateTapeImage    = "No s'ha pogut crear el fitxer d'imatge de cinta.";
     ls->errorNoCasInZip         = "No s'ha pogut trobar un fitxer .cas dins de l'arxiu zip.";
+    ls->errorUnknownFileType    = "No es pot obrir el fitxer: el tipus de fitxer és desconegut.";
     ls->errorDirDiskTooLarge    = "%d fitxer(s) no han cabut al disc i s'han omès.";
     ls->errorDirDiskOnline      = "S'han omès %d fitxer(s) disponibles només en línia. Feu-los disponibles en aquest dispositiu per incloure'ls.";
     ls->errorDirDiskSubdirs     = "S'han omès %d directoris perquè el format triat no els admet.";

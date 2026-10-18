@@ -84,6 +84,7 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->errorCreateDiskImage    = "無法建立磁碟鏡像檔案。";
     ls->errorCreateTapeImage    = "無法建立磁帶映像檔。";
     ls->errorNoCasInZip         = "無法在 zip 壓縮檔案中找出 .cas 檔案。";
+    ls->errorUnknownFileType    = "無法開啟檔案：檔案類型不明。";
     ls->errorDirDiskTooLarge    = "%d 個檔案無法放入磁碟，已被排除。";
     ls->errorDirDiskOnline      = "已排除 %d 個僅限線上的檔案。若要包含它們，請讓它們可在此裝置上使用。";
     ls->errorDirDiskSubdirs     = "所選格式無法容納，已排除 %d 個目錄。";

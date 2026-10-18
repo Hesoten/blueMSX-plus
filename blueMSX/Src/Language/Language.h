@@ -110,6 +110,7 @@ char* langErrorNoDskInZip();
 char* langErrorCreateDiskImage();
 char* langErrorCreateTapeImage();
 char* langErrorNoCasInZip();
+char* langErrorUnknownFileType();
 char* langErrorDirDiskTooLarge();
 char* langErrorDirDiskOnline();
 char* langErrorDirDiskSubdirs();

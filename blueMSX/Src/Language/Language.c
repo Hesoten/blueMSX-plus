@@ -301,6 +301,7 @@ char* langErrorNoDskInZip() { return ls->errorNoDskInZip; }
 char* langErrorCreateDiskImage() { return ls->errorCreateDiskImage; }
 char* langErrorCreateTapeImage() { return ls->errorCreateTapeImage; }
 char* langErrorNoCasInZip() { return ls->errorNoCasInZip; }
+char* langErrorUnknownFileType() { return ls->errorUnknownFileType; }
 char* langErrorDirDiskTooLarge() { return ls->errorDirDiskTooLarge; }
 char* langErrorDirDiskOnline() { return ls->errorDirDiskOnline; }
 char* langErrorDirDiskSubdirs() { return ls->errorDirDiskSubdirs; }

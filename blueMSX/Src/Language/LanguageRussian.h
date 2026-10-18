@@ -84,6 +84,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->errorCreateDiskImage    = "Не удалось создать файл образа диска.";
     ls->errorCreateTapeImage    = "Не удалось создать файл образа кассеты.";
     ls->errorNoCasInZip         = "Не нашлось .cas файла в zip архиве.";
+    ls->errorUnknownFileType    = "Не удаётся открыть файл: неизвестный тип файла.";
     ls->errorDirDiskTooLarge    = "Файлов, которые не поместились на диск и были пропущены: %d.";
     ls->errorDirDiskOnline      = "Пропущено файлов, доступных только в сети: %d. Чтобы включить их, сделайте их доступными на этом устройстве.";
     ls->errorDirDiskSubdirs     = "Пропущено папок, которые не поддерживает выбранный формат: %d.";

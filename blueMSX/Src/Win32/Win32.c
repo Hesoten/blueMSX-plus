@@ -3238,8 +3238,9 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             if (fa != INVALID_FILE_ATTRIBUTES && (fa & FILE_ATTRIBUTE_DIRECTORY)) {
                 insertDisketteRecalled(pProperties, 0, fname);
             }
-            else {
-                tryLaunchUnknownFile(pProperties, fname, 0);
+            else if (tryLaunchUnknownFile(pProperties, fname, 0) == 0 &&
+                     !launchFileIsSupported(fname)) {
+                archShowUnknownFileTypeDialog(fname);
             }
         }
         return 0;
@@ -5440,6 +5441,16 @@ void archShowNoCasInZipDialog() {
     enterDialogShow();
     MessageBoxU(NULL, langErrorNoCasInZip(), langErrorTitle(), MB_OK);
     enterDialogShow();
+}
+
+void archShowUnknownFileTypeDialog(const char* fileName) {
+    char body[PROP_MAXPATH + 512];
+
+    _snprintf(body, sizeof(body) - 1, "%s\n\n%s", langErrorUnknownFileType(), fileName);
+    body[sizeof(body) - 1] = 0;
+    enterDialogShow();
+    MessageBoxU(NULL, body, langErrorTitle(), MB_OK | MB_ICONERROR);
+    exitDialogShow();
 }
 
 void archShowDirDiskSkippedDialog(int tooLarge, int onlineOnly, int subDirs) {
