@@ -3174,6 +3174,9 @@ static LRESULT CALLBACK emuWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
         return SendMessage(GetParent(hwnd), iMsg, wParam, lParam);
 
     case WM_MOUSEMOVE:
+        if (mouseEmuCursorMoved()) mouseEmuOnUserMouseActivity();
+        return SendMessage(GetParent(hwnd), iMsg, wParam, lParam);
+
     case WM_LBUTTONUP:
     case WM_MBUTTONDOWN:
     case WM_MBUTTONUP:
@@ -3654,7 +3657,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         break;
 
     case WM_MOUSEMOVE:
-        mouseEmuOnUserMouseActivity();
+        if (mouseEmuCursorMoved()) mouseEmuOnUserMouseActivity();
         if (st.themePageActive) {
             HDC hdc = GetDC(hwnd);
             POINT pt;
