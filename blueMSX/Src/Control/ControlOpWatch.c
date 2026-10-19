@@ -31,6 +31,7 @@
 #include "Emulator.h"
 #include "VDP.h"
 #include "V9990.h"
+#include "romMapperV9968Cart.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -267,6 +268,10 @@ static void reportWatchSet(CtrlCall* call, const WatchTarget* target, const Watc
         if (v9990IsPresent()) {
             ctrlTextAdd(&call->text, "this is the VDP's video memory; writes to the V9990's "
                         "video memory do not stop it\n");
+        }
+        if (romMapperV9968CartIsPresent()) {
+            ctrlTextAdd(&call->text, "this is the VDP's video memory; writes to the V9968 "
+                        "cartridge's video memory do not stop it\n");
         }
     }
     else {

@@ -109,6 +109,7 @@
 #include "romMapperMegaFlashRomSccPlusSD.h"
 #include "romMapperRookieDrive.h"
 #include "romMapperGfx9000.h"
+#include "romMapperV9968Cart.h"
 #include "romMapperASCII16X.h"
 #include "romMapperNeo8.h"
 #include "romMapperNeo16.h"
@@ -257,6 +258,10 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
 
     case ROM_VIDEO9000:
         success &= romMapperVideo9000Create(slot, sslot);
+        break;
+
+    case ROM_V9968CART:
+        success &= romMapperV9968CartCreate(slot, sslot);
         break;
 
     case ROM_GIDE:

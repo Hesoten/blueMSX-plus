@@ -108,12 +108,12 @@ int ctrlOpScreen(CtrlCall* call)
         strcpy(as, "png");
     }
     /* The screen mode is read only from a paused machine; a running one gets the PNG,
-    ** as does a V9990 picture, which has no text to read. */
+    ** as does a V9990 or V9968 cartridge picture, which has no text to read. */
     if (strcmp(as, "auto") == 0) {
         int superimposed;
 
         strcpy(as, call->view.held == DBG_ACCESS_VIEW && ctrlScreenIsTextMode() &&
-                   !ctrlScreenV9990Shown(&superimposed) ? "text" : "png");
+                   !ctrlScreenV9990Shown(&superimposed) && !ctrlScreenV9968CartShown() ? "text" : "png");
     }
 
     if (strcmp(as, "text") == 0) {

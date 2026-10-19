@@ -85,6 +85,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->errorCreateTapeImage    = "无法创建磁带映像文件。";
     ls->errorNoCasInZip         = "无法在 zip 压缩包内找到 .cas 文件。";
     ls->errorUnknownFileType    = "无法打开文件：文件类型未知。";
+    ls->errorCartV9968WithV9990 = "V9968 卡带无法与 GFX9000 或 Video9000 同时插入，因为两者都会接管画面。请先取出另一个卡带。";
     ls->errorDirDiskTooLarge    = "%d 个文件无法放入磁盘，已被排除。";
     ls->errorDirDiskOnline      = "已排除 %d 个仅联机文件。若要包含它们，请使其在此设备上可用。";
     ls->errorDirDiskSubdirs     = "所选格式无法容纳，已排除 %d 个目录。";

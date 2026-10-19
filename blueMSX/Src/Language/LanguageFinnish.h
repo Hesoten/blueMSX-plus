@@ -87,6 +87,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->errorCreateTapeImage    = "Kasettitiedoston luonti epäonnistui.";
     ls->errorNoCasInZip         = "Zip paketista ei löytynyt .CAS tiedostoa.";
     ls->errorUnknownFileType    = "Tiedostoa ei voi avata: tuntematon tiedostotyyppi.";
+    ls->errorCartV9968WithV9990 = "V9968-moduulia ei voi asettaa yhtä aikaa GFX9000- tai Video9000-moduulin kanssa, koska molemmat ottavat näytön hallintaansa. Poista ensin toinen moduuli.";
     ls->errorDirDiskTooLarge    = "%d tiedosto(a) ei mahtunut levylle, ja ne jätettiin pois.";
     ls->errorDirDiskOnline      = "%d vain verkossa olevaa tiedostoa jätettiin pois. Ota ne käyttöön tässä laitteessa, jos haluat ne mukaan.";
     ls->errorDirDiskSubdirs     = "%d hakemistoa jätettiin pois, koska valittu muoto ei tue niitä.";

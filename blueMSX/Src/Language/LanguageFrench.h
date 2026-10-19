@@ -85,6 +85,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->errorCreateTapeImage    = "Impossible de créer le fichier image cassette.";
     ls->errorNoCasInZip         = "Il n'y a pas de fichier .cas dans votre archive zip";
     ls->errorUnknownFileType    = "Impossible d'ouvrir le fichier : type de fichier inconnu.";
+    ls->errorCartV9968WithV9990 = "La cartouche V9968 ne peut pas être insérée en même temps qu'une GFX9000 ou une Video9000, car toutes deux prennent le contrôle de l'écran. Retirez d'abord l'autre cartouche.";
     ls->errorDirDiskTooLarge    = "%d fichier(s) ne tenaient pas sur le disque et ont été omis.";
     ls->errorDirDiskOnline      = "%d fichier(s) disponibles uniquement en ligne ont été omis. Rendez-les disponibles sur cet appareil pour les inclure.";
     ls->errorDirDiskSubdirs     = "%d répertoire(s) ont été omis car le format choisi ne peut pas les contenir.";

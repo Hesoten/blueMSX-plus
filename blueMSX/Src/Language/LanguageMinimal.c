@@ -169,6 +169,7 @@ char* langRomTypeSvi727col80()      { return "SVI-727 80 Column Card"; }
 char* langRomTypeColecoCart()       { return "Coleco Cartridge"; }
 char* langRomTypeSg1000Cart()       { return "SG-1000 Cartridge"; }
 char* langRomTypeSc3000Cart()       { return "SC-3000 Cartridge"; }
+char* langRomTypeV9968Cart()        { return "V9968 Cartridge"; }
 char* langRomTypeTheCastle()        { return "The Castle"; }
 char* langRomTypeSonyHbi55()        { return "Sony HBI-55"; }
 char* langRomTypeMsxPrinter()       { return "MSX Printer"; }

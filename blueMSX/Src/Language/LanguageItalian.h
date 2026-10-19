@@ -86,6 +86,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->errorCreateTapeImage            = "Impossibile creare il file immagine cassetta.";
     ls->errorNoCasInZip                 = "Nessun file .CAS trovato nell'archivio compresso.";
     ls->errorUnknownFileType            = "Impossibile aprire il file: tipo di file sconosciuto.";
+    ls->errorCartV9968WithV9990 = "La cartuccia V9968 non può essere inserita insieme a una GFX9000 o a una Video9000, perché entrambe prendono il controllo dello schermo. Rimuovi prima l'altra cartuccia.";
     ls->errorDirDiskTooLarge    = "%d file non entravano nel disco e sono stati esclusi.";
     ls->errorDirDiskOnline      = "%d file disponibili solo online sono stati esclusi. Rendili disponibili su questo dispositivo per includerli.";
     ls->errorDirDiskSubdirs     = "%d cartelle sono state escluse perché il formato scelto non può contenerle.";

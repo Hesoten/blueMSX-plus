@@ -58,6 +58,8 @@
 #include "ControlClient.h"
 #include "ControlSocket.h"
 #include "ControlInstance.h"
+#include "V9990.h"
+#include "romMapperV9968Cart.h"
 #include "Win32ActivityPanel.h"
 
 /* showLoadMemoryDlg is the IDD_LOAD_MEMORY entry point, defined
@@ -202,6 +204,7 @@ extern int showLoadMemoryDlg(HWND hwnd);
 #define ID_FILE_CART_ROOKIEDRIVE        41122
 #define ID_FILE_CART_GFX9000            41123
 #define ID_FILE_CART_VIDEO9000          41124
+#define ID_FILE_CART_V9968CART          41125
 #define ID_FILE_CART_JOYREXPSG          41110
 #define ID_FILE_CART_EXTRAM16KB         41111
 #define ID_FILE_CART_EXTRAM32KB         41112
@@ -359,6 +362,7 @@ static const char* getCleanFileName(const char* fileName)
     if (strcmp(fileName, CARTNAME_ROOKIEDRIVE) == 0)    return "Rookie Drive NX";
     if (strcmp(fileName, CARTNAME_GFX9000) == 0)        return "GFX9000";
     if (strcmp(fileName, CARTNAME_VIDEO9000) == 0)      return "Video9000";
+    if (strcmp(fileName, CARTNAME_V9968CART) == 0)      return langRomTypeV9968Cart();
     if (strcmp(fileName, CARTNAME_ESERAM256) == 0)      return langRomTypeEseRam256();
     if (strcmp(fileName, CARTNAME_ESERAM512) == 0)      return langRomTypeEseRam512();
     if (strcmp(fileName, CARTNAME_ESERAM1MB) == 0)      return langRomTypeEseRam1mb();
@@ -665,6 +669,7 @@ static HMENU menuCreateCartSpecial(int cartNo, Properties* pProperties, Shortcut
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_GFX9000, "GFX9000");
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_VIDEO9000, "Video9000");
+    AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_V9968CART, langRomTypeV9968Cart());
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
     AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuExtRam, langMenuCartExternalRam());
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
@@ -2096,6 +2101,19 @@ void archShowMenuTools(int x, int y) {
     showPopupMenu(hMenuTools, x, y);
 }
 
+int menuCartClashRefused(Properties* pProperties, int cartNo, int romType)
+{
+    /* Stopped, the properties are what the next start builds; running, the device must be in. */
+    int other = pProperties->media.carts[cartNo ^ 1].type, stopped = emulatorGetState() == EMU_STOPPED;
+    int clash = romType == ROM_V9968CART ? (other == ROM_GFX9000 || other == ROM_VIDEO9000) && (stopped || v9990IsPresent()) :
+                (romType == ROM_GFX9000 || romType == ROM_VIDEO9000) && other == ROM_V9968CART &&
+                (stopped || romMapperV9968CartIsPresent());
+    if (clash) {
+        MessageBoxU(getMainHwnd(), langErrorCartV9968WithV9990(), langErrorTitle(), MB_OK | MB_ICONERROR);
+    }
+    return clash;
+}
+
 int menuCommand(Properties* pProperties, int command) 
 {
     int i;
@@ -2109,7 +2127,9 @@ int menuCommand(Properties* pProperties, int command)
         if (appConfigGetInt("filehistory", 1) != 0) {
             h = cmd - ID_FILE_CART_HISTORY;
             if (h >= 0 && h < MAX_HISTORY) {
-                insertCartridge(pProperties, i, pProperties->filehistory.cartridge[i][h], NULL, pProperties->filehistory.cartridgeType[i][h], 0);
+                if (!menuCartClashRefused(pProperties, i, pProperties->filehistory.cartridgeType[i][h])) {
+                    insertCartridge(pProperties, i, pProperties->filehistory.cartridge[i][h], NULL, pProperties->filehistory.cartridgeType[i][h], 0);
+                }
                 return 1;
             }
         }
@@ -2262,10 +2282,19 @@ int menuCommand(Properties* pProperties, int command)
             insertCartridge(pProperties, i, CARTNAME_ROOKIEDRIVE, NULL, ROM_ROOKIEDRIVE, 0);
             return 1;
         case ID_FILE_CART_GFX9000:
-            insertCartridge(pProperties, i, CARTNAME_GFX9000, NULL, ROM_GFX9000, 0);
+            if (!menuCartClashRefused(pProperties, i, ROM_GFX9000)) {
+                insertCartridge(pProperties, i, CARTNAME_GFX9000, NULL, ROM_GFX9000, 0);
+            }
             return 1;
         case ID_FILE_CART_VIDEO9000:
-            insertCartridge(pProperties, i, CARTNAME_VIDEO9000, NULL, ROM_VIDEO9000, 0);
+            if (!menuCartClashRefused(pProperties, i, ROM_VIDEO9000)) {
+                insertCartridge(pProperties, i, CARTNAME_VIDEO9000, NULL, ROM_VIDEO9000, 0);
+            }
+            return 1;
+        case ID_FILE_CART_V9968CART:
+            if (!menuCartClashRefused(pProperties, i, ROM_V9968CART)) {
+                insertCartridge(pProperties, i, CARTNAME_V9968CART, NULL, ROM_V9968CART, 0);
+            }
             return 1;
         case ID_FILE_CART_ASCII16X:
             insertCartridge(pProperties, i, CARTNAME_ASCII16X, NULL, ROM_ASCII16X, 0);

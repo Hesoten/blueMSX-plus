@@ -302,6 +302,7 @@ char* langErrorCreateDiskImage() { return ls->errorCreateDiskImage; }
 char* langErrorCreateTapeImage() { return ls->errorCreateTapeImage; }
 char* langErrorNoCasInZip() { return ls->errorNoCasInZip; }
 char* langErrorUnknownFileType() { return ls->errorUnknownFileType; }
+char* langErrorCartV9968WithV9990() { return ls->errorCartV9968WithV9990; }
 char* langErrorDirDiskTooLarge() { return ls->errorDirDiskTooLarge; }
 char* langErrorDirDiskOnline() { return ls->errorDirDiskOnline; }
 char* langErrorDirDiskSubdirs() { return ls->errorDirDiskSubdirs; }
@@ -1230,6 +1231,7 @@ char* langRomTypeSvi727col80() { return ls->romTypeSvi727col80; }
 char* langRomTypeColecoCart() { return ls->romTypeColecoCart; }
 char* langRomTypeSg1000Cart() { return ls->romTypeSg1000Cart; }
 char* langRomTypeSc3000Cart() { return ls->romTypeSc3000Cart; }
+char* langRomTypeV9968Cart() { return ls->romTypeV9968Cart; }
 char* langRomTypeTheCastle() { return "SG-1000 The Castle"; }
 char* langRomTypeSonyHbi55() { return "Sony HBI-55"; }
 char* langRomTypeMsxPrinter() { return ls->romTypeMsxPrinter; }

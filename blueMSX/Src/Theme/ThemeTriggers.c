@@ -47,6 +47,7 @@
 #include "ArchTimer.h"
 #include "VideoManager.h"
 #include "V9990.h"
+#include "romMapperV9968Cart.h"
 #include "InputEvent.h"
 #include "JoystickPort.h"
 #include "Language.h"
@@ -925,6 +926,13 @@ static char* screenModeOfV9990(int shortText) {
     return text;
 }
 
+/* The V9968 cartridge's screen mode while its picture is shown. */
+static int shownScreenMode(void) {
+    int mode = romMapperV9968CartGetShownScreenMode();
+
+    return mode >= 0 ? mode : emulatorGetCurrentScreenMode();
+}
+
 char* themeTriggerScreenMode() {
     static char* txtScreenMode[14] = {
         "SCREEN 0",  "SCREEN 1", "SCREEN 2",  "SCREEN 3",
@@ -941,7 +949,7 @@ char* themeTriggerScreenMode() {
     if (v9990Text != NULL) {
         return v9990Text;
     }
-    return txtScreenMode[emulatorGetCurrentScreenMode()];
+    return txtScreenMode[shownScreenMode()];
 }
 
 char* themeTriggerScreenModeShort() {
@@ -960,7 +968,7 @@ char* themeTriggerScreenModeShort() {
     if (v9990Text != NULL) {
         return v9990Text;
     }
-    return txtScreenModeShort[emulatorGetCurrentScreenMode()];
+    return txtScreenModeShort[shownScreenMode()];
 }
 
 char* themeTriggerMemoryRam() {
