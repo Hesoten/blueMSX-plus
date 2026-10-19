@@ -1,6 +1,7 @@
 /*****************************************************************************
 **
-** geo3d 3D coprocessor in the V9968, on I/O ports 9Dh and 9Fh.
+** geo3d 3D coprocessor of the V9968 on I/O ports 9Dh/9Fh or 8Dh/8Fh.
+** on the V9968 cartridge.
 ** Copyright (C) 2026 Hesoten
 ** See https://github.com/Hesoten/blueMSX-plus for change history.
 **
@@ -53,9 +54,12 @@
 ** for the next command to land in R#46, or for RUN busy to clear. */
 enum { PH_IDLE, PH_WAIT_CE, PH_LAND, PH_DRAIN, PH_START };
 
-typedef struct {
+struct Geo3DDevice {
     int         deviceHandle;
     int         debugHandle;
+    int         port;       /* index and status; port + 2 is the data */
+    struct VDP* vdp;        /* NULL for the machine VDP */
+    const char* stateName;
     Geo3D*      geo3d;
     BoardTimer* timer;
     int         phase;
@@ -69,7 +73,7 @@ typedef struct {
     UInt32      nextReady;  /* P and E of the command due to land */
     UInt32      nextEnd;
     UInt32      due;        /* when it lands, or when RUN busy clears */
-} Geo3DDevice;
+};
 
 static UInt32 later(UInt32 a, UInt32 b)
 {
@@ -164,9 +168,9 @@ static void issue(Geo3DDevice* dev, UInt32 now)
     geo3dPeekCommand(dev->geo3d, &readyEc);
     count = geo3dNextCommand(dev->geo3d, regs, values);
     for (i = 0; i < count; i++) {
-        vdpWriteCommandRegister(NULL, regs[i], values[i]);
+        vdpWriteCommandRegister(dev->vdp, regs[i], values[i]);
     }
-    vdpAddCommandCredit(NULL, late < MAX_CREDIT ? late : MAX_CREDIT);
+    vdpAddCommandCredit(dev->vdp, late < MAX_CREDIT ? late : MAX_CREDIT);
 
     dev->issued++;
     dev->lastReady = readyEc;
@@ -187,21 +191,21 @@ static void pump(Geo3DDevice* dev)
         switch (dev->phase) {
         case PH_START:
             /* A RUN with nothing to draw does not wait on the VDP. */
-            if (geo3dPeekCommand(dev->geo3d, &readyEc) != 0 && vdpGetCommandBusy(NULL)) {
+            if (geo3dPeekCommand(dev->geo3d, &readyEc) != 0 && vdpGetCommandBusy(dev->vdp)) {
                 dev->phase = PH_WAIT_CE;
                 break;
             }
             dev->ceFall  = dev->runTime - 2 * UNITS_PER_EC;
-            dev->endSeen = vdpGetCommandEndTime(NULL);
+            dev->endSeen = vdpGetCommandEndTime(dev->vdp);
             plan(dev);
             break;
         case PH_WAIT_CE:
-            if (vdpGetCommandBusy(NULL)) {
+            if (vdpGetCommandBusy(dev->vdp)) {
                 boardTimerAdd(dev->timer, time + POLL_TICKS);
                 return;
             }
             /* Read only after the engine was seen busy, so it is never stale. */
-            dev->ceFall  = vdpGetCommandEndTime(NULL);
+            dev->ceFall  = vdpGetCommandEndTime(dev->vdp);
             dev->endSeen = dev->ceFall;
             plan(dev);
             break;
@@ -220,12 +224,12 @@ static void pump(Geo3DDevice* dev)
             }
             /* A CPU command written while this one was overdue goes first, as
             ** if it had come first; ours waits for it rather than cutting in. */
-            if (vdpGetCommandBusy(NULL)) {
+            if (vdpGetCommandBusy(dev->vdp)) {
                 dev->phase = PH_WAIT_CE;
                 break;
             }
             /* One the CPU both started and finished since the plan moves it. */
-            endTime = vdpGetCommandEndTime(NULL);
+            endTime = vdpGetCommandEndTime(dev->vdp);
             if (endTime != dev->endSeen) {
                 dev->ceFall  = endTime;
                 dev->endSeen = endTime;
@@ -258,7 +262,7 @@ static void onTimer(Geo3DDevice* dev, UInt32 time)
 
 static void saveState(Geo3DDevice* dev)
 {
-    SaveState* state = saveStateOpenForWrite("Geo3DDevice");
+    SaveState* state = saveStateOpenForWrite(dev->stateName);
     UInt32 size;
     UInt8* data = geo3dSaveState(dev->geo3d, &size);
 
@@ -283,7 +287,7 @@ static void saveState(Geo3DDevice* dev)
 
 static void loadState(Geo3DDevice* dev)
 {
-    SaveState* state = saveStateOpenForRead("Geo3DDevice");
+    SaveState* state = saveStateOpenForRead(dev->stateName);
     UInt32 version = saveStateGet(state, "version", 0);
     UInt32 size = saveStateGet(state, "size", 0);
     UInt8* data = NULL;
@@ -335,8 +339,8 @@ static void destroy(Geo3DDevice* dev)
     deviceManagerUnregister(dev->deviceHandle);
     debugDeviceUnregister(dev->debugHandle);
 
-    ioPortUnregister(0x9d, dev);
-    ioPortUnregister(0x9f, dev);
+    ioPortUnregister(dev->port,     dev);
+    ioPortUnregister(dev->port + 2, dev);
 
     boardTimerDestroy(dev->timer);
     geo3dDestroy(dev->geo3d);
@@ -351,7 +355,8 @@ static void reset(Geo3DDevice* dev)
     dev->phase = PH_IDLE;
 }
 
-/* 9Dh is the index when written and the status when read, 9Fh the data. */
+/* 9Dh is the index when written and the status when read, 9Fh the data; 8Dh
+** and 8Fh on the cartridge. */
 static UInt8 read(Geo3DDevice* dev, UInt16 ioPort)
 {
     UInt32 ec;
@@ -399,24 +404,63 @@ static void getDebugInfo(Geo3DDevice* dev, DbgDevice* dbgDevice)
     DbgIoPorts* ioPorts;
 
     ioPorts = dbgDeviceAddIoPorts(dbgDevice, "geo3d", 2);
-    dbgIoPortsAddPort(ioPorts, 0, 0x9d, DBG_IO_READWRITE, peek(dev, 0x9d));
-    dbgIoPortsAddPort(ioPorts, 1, 0x9f, DBG_IO_READWRITE, peek(dev, 0x9f));
+    dbgIoPortsAddPort(ioPorts, 0, dev->port,     DBG_IO_READWRITE, peek(dev, dev->port));
+    dbgIoPortsAddPort(ioPorts, 1, dev->port + 2, DBG_IO_READWRITE, peek(dev, dev->port + 2));
 }
 
-void geo3dDeviceCreate()
+/* The machine's own registers with the device manager; a cartridge's is run
+** by its mapper. */
+static Geo3DDevice* create(int port, struct VDP* vdp, const char* stateName, const char* name, int machine)
 {
     DeviceCallbacks callbacks = { destroy, reset, saveState, loadState };
     DebugCallbacks dbgCallbacks = { getDebugInfo, NULL, NULL, NULL };
     Geo3DDevice* dev = calloc(1, sizeof(Geo3DDevice));
 
-    dev->deviceHandle = deviceManagerRegister(ROM_V9958, &callbacks, dev);
-    dev->debugHandle = debugDeviceRegister(DBGTYPE_VIDEO, "geo3d", &dbgCallbacks, dev);
+    dev->port      = port;
+    dev->vdp       = vdp;
+    dev->stateName = stateName;
+
+    if (machine) {
+        dev->deviceHandle = deviceManagerRegister(ROM_V9958, &callbacks, dev);
+    }
+    dev->debugHandle = debugDeviceRegister(DBGTYPE_VIDEO, name, &dbgCallbacks, dev);
 
     dev->geo3d = geo3dCreate();
     dev->timer = boardTimerCreate(onTimer, dev);
 
-    ioPortRegister(0x9d, read, write, dev);
-    ioPortRegister(0x9f, read, write, dev);
+    ioPortRegister(port,     read, write, dev);
+    ioPortRegister(port + 2, read, write, dev);
 
     reset(dev);
+    return dev;
+}
+
+void geo3dDeviceCreate()
+{
+    create(0x9d, NULL, "Geo3DDevice", "geo3d", 1);
+}
+
+Geo3DDevice* geo3dDeviceCreateSecondary(int port, struct VDP* vdp, const char* stateName, const char* name)
+{
+    return create(port, vdp, stateName, name, 0);
+}
+
+void geo3dDeviceDestroy(Geo3DDevice* dev)
+{
+    destroy(dev);
+}
+
+void geo3dDeviceReset(Geo3DDevice* dev)
+{
+    reset(dev);
+}
+
+void geo3dDeviceSaveState(Geo3DDevice* dev)
+{
+    saveState(dev);
+}
+
+void geo3dDeviceLoadState(Geo3DDevice* dev)
+{
+    loadState(dev);
 }
