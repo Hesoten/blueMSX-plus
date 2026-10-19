@@ -65,51 +65,29 @@ static UInt32 cr;
 static int jumpTable[] =  { -128, -128, -0x8080, 0x7f80 };
 static int jumpTable4[] = {  -32, -32,  -0x8020, 0x7fe0 };
 
-static Pixel* linePtr0 = NULL;
-static Pixel* linePtr0p = NULL;
-static Pixel* linePtr0m = NULL;
-static Pixel* linePtr0w = NULL;
-static Pixel* linePtr1 = NULL;
-static Pixel* linePtr2 = NULL;
-static Pixel* linePtr3 = NULL;
-static Pixel* linePtr4 = NULL;
-static Pixel* linePtr5 = NULL;
-static Pixel* linePtr6 = NULL;
-static Pixel* linePtr7 = NULL;
-static Pixel* linePtr8 = NULL;
-static Pixel* linePtr10 = NULL;
-static Pixel* linePtr12 = NULL;
-static Pixel* linePtrBlank = NULL;
-static Pixel* linePtrStart = NULL;
-static int    linePtrStartLine = -1;
-
-/* Where the display starts on the line just drawn and what one MSX dot costs
-** there, so a compositor running after the renderer does not have to guess. */
-static Pixel* displayOrigin = NULL;
-static int    displayDotStep = 1;
-
-
-void RefreshLineReset()
+static void RefreshLineReset(VDP* vdp)
 {
-    linePtr0 = NULL;
-    linePtr0p = NULL;
-    linePtr0m = NULL;
-    linePtr0w = NULL;
-    linePtr1 = NULL;
-    linePtr2 = NULL;
-    linePtr3 = NULL;
-    linePtr4 = NULL;
-    linePtr5 = NULL;
-    linePtr6 = NULL;
-    linePtr7 = NULL;
-    linePtr8 = NULL;
-    linePtr10 = NULL;
-    linePtr12 = NULL;
-    linePtrBlank = NULL;
-    linePtrStart = NULL;
-    linePtrStartLine = -1;
-    displayOrigin = NULL;
-    displayDotStep = 1;
+    VdpRender* r = &vdp->render;
+
+    r->blank.linePtr     = NULL;
+    r->line0.linePtr     = NULL;
+    r->line0Plus.linePtr = NULL;
+    r->line0Mix.linePtr  = NULL;
+    r->tx80.linePtr      = NULL;
+    r->line1.linePtr     = NULL;
+    r->line2.linePtr     = NULL;
+    r->line3.linePtr     = NULL;
+    r->line4.linePtr     = NULL;
+    r->line5.linePtr     = NULL;
+    r->line6.linePtr     = NULL;
+    r->line7.linePtr     = NULL;
+    r->line8.linePtr     = NULL;
+    r->line10.linePtr    = NULL;
+    r->line12.linePtr    = NULL;
+    r->linePtrStart      = NULL;
+    r->linePtrStartLine  = -1;
+    r->displayOrigin     = NULL;
+    r->displayDotStep    = 1;
 }
 
 Pixel *RefreshBorder(VDP* vdp, int Y, Pixel bgColor, int line512, int borderExtra)
@@ -123,7 +101,7 @@ Pixel *RefreshBorder(VDP* vdp, int Y, Pixel bgColor, int line512, int borderExtr
         return NULL;
     }
 
-    linePtrStartLine = Y;
+    vdp->render.linePtrStartLine = Y;
     Y -= vdp->displayOffest;
 
     frameBufferSetScanline(Y);
@@ -142,10 +120,10 @@ Pixel *RefreshBorder(VDP* vdp, int Y, Pixel bgColor, int line512, int borderExtr
         *linePtr++ = bgColor;
     }
 
-    displayOrigin  = linePtr;
-    displayDotStep = lineSize;
+    vdp->render.displayOrigin  = linePtr;
+    vdp->render.displayDotStep = lineSize;
 
-    return linePtrStart = linePtr;
+    return vdp->render.linePtrStart = linePtr;
 }
 
 Pixel *RefreshBorder6(VDP* vdp, int Y, Pixel bgColor1, Pixel bgColor2, int line512, int borderExtra)
@@ -159,7 +137,7 @@ Pixel *RefreshBorder6(VDP* vdp, int Y, Pixel bgColor1, Pixel bgColor2, int line5
         return NULL;
     }
 
-    linePtrStartLine = Y;
+    vdp->render.linePtrStartLine = Y;
     Y -= vdp->displayOffest;
 
     frameBufferSetScanline(Y);
@@ -179,10 +157,10 @@ Pixel *RefreshBorder6(VDP* vdp, int Y, Pixel bgColor1, Pixel bgColor2, int line5
         *linePtr++ = bgColor2;
     }
 
-    displayOrigin  = linePtr;
-    displayDotStep = lineSize;
+    vdp->render.displayOrigin  = linePtr;
+    vdp->render.displayDotStep = lineSize;
 
-    return linePtrStart = linePtr;
+    return vdp->render.linePtrStart = linePtr;
 }
 
 static void RefreshRightBorder(VDP* vdp, int Y, Pixel bgColor, int line512, int borderExtra) {
@@ -233,6 +211,8 @@ static void RefreshRightBorder6(VDP* vdp, int Y, Pixel bgColor1, Pixel bgColor2)
 
 static void RefreshLineBlank(VDP* vdp, int Y, int X, int X2)
 {
+    VdpLineState* st = &vdp->render.blank;
+    Pixel* linePtrBlank = st->linePtr;
     Pixel bgColor = vdp->palette[0];
     int rightBorder;
 
@@ -242,9 +222,9 @@ static void RefreshLineBlank(VDP* vdp, int Y, int X, int X2)
     }
 
     if (linePtrBlank == NULL) {
-        return;
+        goto done;
     }
-    
+
     rightBorder = X2 == 33;
     if (rightBorder) {
         X2--;
@@ -266,17 +246,21 @@ static void RefreshLineBlank(VDP* vdp, int Y, int X, int X2)
     if (rightBorder) {
         RefreshRightBorder(vdp, Y, bgColor, 0, 0);
     }
+done:
+    st->linePtr = linePtrBlank;
 }
 
 static void RefreshLine0(VDP* vdp, int Y, int X, int X2)
 {
-    static int     patternBase;
-    static int     pattern;
-    static int     x;
-    static int     y;
-    static int     shift;
+    VdpLineState* st = &vdp->render.line0;
+    Pixel* linePtr0    = st->linePtr;
+    int    patternBase = st->patternBase;
+    int    pattern     = st->pattern;
+    int    x           = st->x;
+    int    y           = st->y;
+    int    shift       = st->shift;
 
-    static int     hScroll;
+    int    hScroll     = st->hScroll;
 
     int    rightBorder;
 
@@ -299,7 +283,7 @@ static void RefreshLine0(VDP* vdp, int Y, int X, int X2)
     }
 
     if (linePtr0 == NULL) {
-        return;
+        goto done;
     }
 
     rightBorder = X2 == 33;
@@ -363,18 +347,28 @@ static void RefreshLine0(VDP* vdp, int Y, int X, int X2)
     if (rightBorder) {
         RefreshRightBorder(vdp, Y, vdp->palette[vdp->BGColor], 0, -vdp->hAdjustSc0);
     }
+done:
+    st->linePtr     = linePtr0;
+    st->patternBase = patternBase;
+    st->pattern     = pattern;
+    st->x           = x;
+    st->y           = y;
+    st->shift       = shift;
+    st->hScroll     = hScroll;
 }
 
 
 static void RefreshLine0Plus(VDP* vdp, int Y, int X, int X2)
 {
-    static int     patternBase;
-    static int     pattern;
-    static int     x;
-    static int     y;
-    static int     shift;
+    VdpLineState* st = &vdp->render.line0Plus;
+    Pixel* linePtr0p   = st->linePtr;
+    int    patternBase = st->patternBase;
+    int    pattern     = st->pattern;
+    int    x           = st->x;
+    int    y           = st->y;
+    int    shift       = st->shift;
 
-    static int     hScroll;
+    int    hScroll     = st->hScroll;
 
     int    rightBorder;
 
@@ -397,7 +391,7 @@ static void RefreshLine0Plus(VDP* vdp, int Y, int X, int X2)
     }
 
     if (linePtr0p == NULL) {
-        return;
+        goto done;
     }
 
     rightBorder = X2 == 33;
@@ -461,17 +455,27 @@ static void RefreshLine0Plus(VDP* vdp, int Y, int X, int X2)
     if (rightBorder) {
         RefreshRightBorder(vdp, Y, vdp->palette[vdp->BGColor], 0, -vdp->hAdjustSc0);
     }
+done:
+    st->linePtr     = linePtr0p;
+    st->patternBase = patternBase;
+    st->pattern     = pattern;
+    st->x           = x;
+    st->y           = y;
+    st->shift       = shift;
+    st->hScroll     = hScroll;
 }
 
 static void RefreshLine0Mix(VDP* vdp, int Y, int X, int X2)
 {
-    static int     patternBase;
-    static int     pattern;
-    static int     x;
-    static int     y;
-    static int     shift;
+    VdpLineState* st = &vdp->render.line0Mix;
+    Pixel* linePtr0m   = st->linePtr;
+    int    patternBase = st->patternBase;
+    int    pattern     = st->pattern;
+    int    x           = st->x;
+    int    y           = st->y;
+    int    shift       = st->shift;
 
-    static int     hScroll;
+    int    hScroll     = st->hScroll;
 
     int    rightBorder;
 
@@ -494,7 +498,7 @@ static void RefreshLine0Mix(VDP* vdp, int Y, int X, int X2)
     }
 
     if (linePtr0m == NULL) {
-        return;
+        goto done;
     }
 
     rightBorder = X2 == 33;
@@ -556,6 +560,14 @@ static void RefreshLine0Mix(VDP* vdp, int Y, int X, int X2)
     if (rightBorder) {
         RefreshRightBorder(vdp, Y, vdp->palette[vdp->BGColor], 0, -vdp->hAdjustSc0);
     }
+done:
+    st->linePtr     = linePtr0m;
+    st->patternBase = patternBase;
+    st->pattern     = pattern;
+    st->x           = x;
+    st->y           = y;
+    st->shift       = shift;
+    st->hScroll     = hScroll;
 }
 
 /* In the R#12 phase the blink colours bypass the backdrop: colour 0 is
@@ -685,17 +697,18 @@ static void RefreshLineTx80(VDP* vdp, int Y, int X, int X2)
 
 static void RefreshLineTx80(VDP* vdp, int Y, int X, int X2)
 {
-    static UInt8*  sprLine;
-    static int     patternBase;
-    static UInt8   colPattern;
-    static int     pattern;
-    static int     x;
-    static int     y;
-    static int     shift;
-    static Pixel color[2];
+    VdpLineState* st = &vdp->render.tx80;
+    Pixel* linePtr0w   = st->linePtr;
+    int    patternBase = st->patternBase;
+    UInt8  colPattern  = st->colPattern;
+    int    pattern     = st->pattern;
+    int    x           = st->x;
+    int    y           = st->y;
+    int    shift       = st->shift;
+    Pixel* color       = st->color;
     int    rightBorder;
 
-    static int     hScroll;
+    int    hScroll     = st->hScroll;
 
     if (X == -1) {
         int i;
@@ -715,7 +728,7 @@ static void RefreshLineTx80(VDP* vdp, int Y, int X, int X2)
     }
 
     if (linePtr0w == NULL) {
-        return;
+        goto done;
     }
 
     rightBorder = X2 == 33;
@@ -788,7 +801,7 @@ static void RefreshLineTx80(VDP* vdp, int Y, int X, int X2)
 
                     linePtr0w[0] = color[(pattern >> --shift) & 1];
                     linePtr0w[1] = color[(pattern >> --shift) & 1];
-                    linePtr0w += 2; 
+                    linePtr0w += 2;
                 }
                 X++;
             }
@@ -797,6 +810,15 @@ static void RefreshLineTx80(VDP* vdp, int Y, int X, int X2)
     if (rightBorder) {
         RefreshRightBorder(vdp, Y, vdp->palette[vdp->BGColor], 1, -vdp->hAdjustSc0);
     }
+done:
+    st->linePtr     = linePtr0w;
+    st->patternBase = patternBase;
+    st->colPattern  = colPattern;
+    st->pattern     = pattern;
+    st->x           = x;
+    st->y           = y;
+    st->shift       = shift;
+    st->hScroll     = hScroll;
 }
 
 #endif
@@ -804,14 +826,16 @@ static void RefreshLineTx80(VDP* vdp, int Y, int X, int X2)
 
 static void RefreshLine1(VDP* vdp, int Y, int X, int X2)
 {
-    static UInt8*  sprLine;
-    static UInt8*  charTable;
-    static int     patternBase;
-    static int     hScroll;
-    static int     hScroll512;
-    static int*    jump;
-    static int     page;
-    static int     scroll;
+    VdpLineState* st = &vdp->render.line1;
+    Pixel* linePtr1    = st->linePtr;
+    UInt8* sprLine     = st->sprLine;
+    UInt8* charTable   = st->charTable;
+    int    patternBase = st->patternBase;
+    int    hScroll     = st->hScroll;
+    int    hScroll512  = st->hScroll512;
+    int*   jump        = st->jump;
+    int    page        = st->page;
+    int    scroll      = st->scroll;
     UInt8  charPattern;
     UInt8  colPattern;
     UInt8  col;
@@ -901,7 +925,7 @@ static void RefreshLine1(VDP* vdp, int Y, int X, int X2)
     }
 
     if (linePtr1 == NULL) {
-        return;
+        goto done;
     }
 
     rightBorder = X2 == 33;
@@ -949,19 +973,31 @@ static void RefreshLine1(VDP* vdp, int Y, int X, int X2)
         spritesLine(vdp, Y);
         RefreshRightBorder(vdp, Y, vdp->palette[vdp->BGColor], 0, 0);
     }
+done:
+    st->linePtr     = linePtr1;
+    st->sprLine     = sprLine;
+    st->charTable   = charTable;
+    st->patternBase = patternBase;
+    st->hScroll     = hScroll;
+    st->hScroll512  = hScroll512;
+    st->jump        = jump;
+    st->page        = page;
+    st->scroll      = scroll;
 }
 
 
 static void RefreshLine2(VDP* vdp, int Y, int X, int X2)
 {
-    static UInt8*  sprLine;
-    static UInt8*  charTable;
-    static int     base;
-    static int     hScroll;
-    static int     hScroll512;
-    static int*    jump;
-    static int     page;
-    static int     scroll;
+    VdpLineState* st = &vdp->render.line2;
+    Pixel* linePtr2    = st->linePtr;
+    UInt8* sprLine     = st->sprLine;
+    UInt8* charTable   = st->charTable;
+    int    base        = st->base;
+    int    hScroll     = st->hScroll;
+    int    hScroll512  = st->hScroll512;
+    int*   jump        = st->jump;
+    int    page        = st->page;
+    int    scroll      = st->scroll;
     UInt8  charPattern;
     UInt8  colPattern;
     UInt8  col;
@@ -977,7 +1013,7 @@ static void RefreshLine2(VDP* vdp, int Y, int X, int X2)
         sprLine = getSpritesLine(vdp, Y);
 
         if (linePtr2 == NULL) {
-            return;
+            goto done;
         }
 
         hScroll    = vdpHScroll(vdp);
@@ -1061,7 +1097,7 @@ static void RefreshLine2(VDP* vdp, int Y, int X, int X2)
     }
 
     if (linePtr2 == NULL) {
-        return;
+        goto done;
     }
 
     rightBorder = X2 == 33;
@@ -1111,6 +1147,16 @@ static void RefreshLine2(VDP* vdp, int Y, int X, int X2)
         spritesLine(vdp, Y);
         RefreshRightBorder(vdp, Y, vdp->palette[vdp->BGColor], 0, 0);
     }
+done:
+    st->linePtr    = linePtr2;
+    st->sprLine    = sprLine;
+    st->charTable  = charTable;
+    st->base       = base;
+    st->hScroll    = hScroll;
+    st->hScroll512 = hScroll512;
+    st->jump       = jump;
+    st->page       = page;
+    st->scroll     = scroll;
 }
 
 /* palette[0] is the backdrop in Multicolor, but a sprite of colour 0
@@ -1122,7 +1168,9 @@ static Pixel multiSpriteColor(VDP* vdp, UInt8 col)
 
 static void RefreshLine3(VDP* vdp, int Y, int X, int X2)
 {
-    static UInt8*  sprLine;
+    VdpLineState* st = &vdp->render.line3;
+    Pixel* linePtr3 = st->linePtr;
+    UInt8* sprLine  = st->sprLine;
     int    rightBorder;
 
     if (X == -1) {
@@ -1132,7 +1180,7 @@ static void RefreshLine3(VDP* vdp, int Y, int X, int X2)
     }
 
     if (linePtr3 == NULL) {
-        return;
+        goto done;
     }
 
     rightBorder = X2 == 33;
@@ -1185,20 +1233,25 @@ static void RefreshLine3(VDP* vdp, int Y, int X, int X2)
         spritesLine(vdp, Y);
         RefreshRightBorder(vdp, Y, vdp->palette[vdp->BGColor], 0, 0);
     }
+done:
+    st->linePtr = linePtr3;
+    st->sprLine = sprLine;
 }
 
 #if 1
 
 static void RefreshLine4(VDP* vdp, int Y, int X, int X2)
 {
-    static UInt8*  sprLine;
-    static UInt8*  charTable;
-    static int     base;
-    static int     hScroll;
-    static int     hScroll512;
-    static int*    jump;
-    static int     page;
-    static int     scroll;
+    VdpLineState* st = &vdp->render.line4;
+    Pixel* linePtr4    = st->linePtr;
+    UInt8* sprLine     = st->sprLine;
+    UInt8* charTable   = st->charTable;
+    int    base        = st->base;
+    int    hScroll     = st->hScroll;
+    int    hScroll512  = st->hScroll512;
+    int*   jump        = st->jump;
+    int    page        = st->page;
+    int    scroll      = st->scroll;
     UInt8  charPattern;
     UInt8  colPattern;
     UInt8  col;
@@ -1214,7 +1267,7 @@ static void RefreshLine4(VDP* vdp, int Y, int X, int X2)
         sprLine = getSpritesLine(vdp, Y);
 
         if (linePtr4 == NULL) {
-            return;
+            goto done;
         }
 
         //hScroll    =  ((((int)(vdp->vdpRegs[26] & 0x3F & ~(~vdpHScroll512(vdp) << 5))) << 3) - (int)(vdp->vdpRegs[27] & 0x07) & 0xffffffff);
@@ -1283,7 +1336,7 @@ static void RefreshLine4(VDP* vdp, int Y, int X, int X2)
     }
 
     if (linePtr4 == NULL) {
-        return;
+        goto done;
     }
 
     rightBorder = X2 == 33;
@@ -1333,6 +1386,16 @@ static void RefreshLine4(VDP* vdp, int Y, int X, int X2)
         colorSpritesLine(vdp, Y, 0);
         RefreshRightBorder(vdp, Y, vdp->palette[vdp->BGColor], 0, 0);
     }
+done:
+    st->linePtr    = linePtr4;
+    st->sprLine    = sprLine;
+    st->charTable  = charTable;
+    st->base       = base;
+    st->hScroll    = hScroll;
+    st->hScroll512 = hScroll512;
+    st->jump       = jump;
+    st->page       = page;
+    st->scroll     = scroll;
 }
 
 
@@ -1506,15 +1569,17 @@ static void RefreshLine4(VDP* vdp, int Y, int X, int X2)
 
 static void RefreshLine5(VDP* vdp, int Y, int X, int X2)
 {
-    static UInt8*  charTable;
-    static UInt8*  sprLine;
-    static int     hScroll512;
-    static int*    jump;
-    static int     page;
-    static int     scroll;
-    static int     hScroll;
-    static int     vscroll;
-    static int     chrTabO;
+    VdpLineState* st = &vdp->render.line5;
+    Pixel* linePtr5   = st->linePtr;
+    UInt8* charTable  = st->charTable;
+    UInt8* sprLine    = st->sprLine;
+    int    hScroll512 = st->hScroll512;
+    int*   jump       = st->jump;
+    int    page       = st->page;
+    int    scroll     = st->scroll;
+    int    hScroll    = st->hScroll;
+    int    vscroll    = st->vscroll;
+    int    chrTabO    = st->chrTabO;
     int col;
     int rightBorder;
 
@@ -1524,7 +1589,7 @@ static void RefreshLine5(VDP* vdp, int Y, int X, int X2)
         sprLine   = getSpritesLine(vdp, Y);
 
         if (linePtr5 == NULL) {
-            return;
+            goto done;
         }
 
         hScroll512 = vdpHScroll512(vdp);
@@ -1544,7 +1609,7 @@ static void RefreshLine5(VDP* vdp, int Y, int X, int X2)
     }
 
     if (linePtr5 == NULL || X2 <= 0) {
-        return;
+        goto done;
     }
 
 #define BRK_5 24
@@ -1666,6 +1731,17 @@ static void RefreshLine5(VDP* vdp, int Y, int X, int X2)
 //        colorSpritesLine(vdp, Y, 0);
         RefreshRightBorder(vdp, Y, vdp->palette[vdp->BGColor], 0, 0);
     }
+done:
+    st->linePtr    = linePtr5;
+    st->charTable  = charTable;
+    st->sprLine    = sprLine;
+    st->hScroll512 = hScroll512;
+    st->jump       = jump;
+    st->page       = page;
+    st->scroll     = scroll;
+    st->hScroll    = hScroll;
+    st->vscroll    = vscroll;
+    st->chrTabO    = chrTabO;
 }
 
 #ifdef MAX_VIDEO_WIDTH_320
@@ -2003,12 +2079,14 @@ static void RefreshLine7(VDP* vdp, int Y, int X, int X2)
 
 static void RefreshLine6(VDP* vdp, int Y, int X, int X2)
 {
-    static int*    jump;
-    static int     hScroll512;
-    static int     scroll;
-    static int     page;
-    static UInt8*  charTable;
-    static UInt8*  sprLine;
+    VdpLineState* st = &vdp->render.line6;
+    Pixel* linePtr6   = st->linePtr;
+    int*   jump       = st->jump;
+    int    hScroll512 = st->hScroll512;
+    int    scroll     = st->scroll;
+    int    page       = st->page;
+    UInt8* charTable  = st->charTable;
+    UInt8* sprLine    = st->sprLine;
     int col;
     int rightBorder;
 
@@ -2018,7 +2096,7 @@ static void RefreshLine6(VDP* vdp, int Y, int X, int X2)
         sprLine   = getSpritesLine(vdp, Y);
 
         if (linePtr6 == NULL) {
-            return;
+            goto done;
         }
 
         hScroll512 = vdpHScroll512(vdp);
@@ -2035,7 +2113,7 @@ static void RefreshLine6(VDP* vdp, int Y, int X, int X2)
     }
 
     if (linePtr6 == NULL || X2 <= 0) {
-        return;
+        goto done;
     }
 
 #define BRK_6 24
@@ -2139,20 +2217,30 @@ static void RefreshLine6(VDP* vdp, int Y, int X, int X2)
 //        colorSpritesLine(vdp, Y, 1);
         RefreshRightBorder6(vdp, Y, vdp->palette[(vdp->BGColor >> 2) & 0x03], vdp->palette[vdp->BGColor & 0x03]);
     }
+done:
+    st->linePtr    = linePtr6;
+    st->jump       = jump;
+    st->hScroll512 = hScroll512;
+    st->scroll     = scroll;
+    st->page       = page;
+    st->charTable  = charTable;
+    st->sprLine    = sprLine;
 }
 
 static void RefreshLine7(VDP* vdp, int Y, int X, int X2)
 {
-    static UInt8*  charTable;
-    static UInt8*  sprLine;
-    static int     hScroll512;
-    static int     page;
-    static int*    jump;
-    static int     scroll;
-    static int     vscroll;
-    static int     chrTabO;
-    static int     pairStep;
-    static int     ofs[9];
+    VdpLineState* st = &vdp->render.line7;
+    Pixel* linePtr7   = st->linePtr;
+    UInt8* charTable  = st->charTable;
+    UInt8* sprLine    = st->sprLine;
+    int    hScroll512 = st->hScroll512;
+    int    page       = st->page;
+    int*   jump       = st->jump;
+    int    scroll     = st->scroll;
+    int    vscroll    = st->vscroll;
+    int    chrTabO    = st->chrTabO;
+    int    pairStep   = st->pairStep;
+    int*   ofs        = st->ofs;
     int col;
     int rightBorder;
 
@@ -2162,7 +2250,7 @@ static void RefreshLine7(VDP* vdp, int Y, int X, int X2)
         sprLine = getSpritesLine(vdp, Y);
 
         if (linePtr7 == NULL) {
-            return;
+            goto done;
         }
 
         hScroll512 = vdpHScroll512(vdp);
@@ -2183,7 +2271,7 @@ static void RefreshLine7(VDP* vdp, int Y, int X, int X2)
     }
 
     if (linePtr7 == NULL || X2 <= 0) {
-        return;
+        goto done;
     }
 
 #define BRK_7 24
@@ -2386,23 +2474,36 @@ static void RefreshLine7(VDP* vdp, int Y, int X, int X2)
 //        colorSpritesLine(vdp, Y, 0);
         RefreshRightBorder(vdp, Y, vdp->palette[vdp->BGColor], 1, 0);
     }
+done:
+    st->linePtr    = linePtr7;
+    st->charTable  = charTable;
+    st->sprLine    = sprLine;
+    st->hScroll512 = hScroll512;
+    st->page       = page;
+    st->jump       = jump;
+    st->scroll     = scroll;
+    st->vscroll    = vscroll;
+    st->chrTabO    = chrTabO;
+    st->pairStep   = pairStep;
 }
 
 #endif
 
 static void RefreshLine8(VDP* vdp, int Y, int X, int X2)
 {
-    static UInt8*  charTable;
-    static UInt8*  sprLine;
-    static int     hScroll;
-    static int     hScroll512;
-    static int*    jump;
-    static int     page;
-    static int     scroll;
-    static int     vscroll;
-    static int     chrTabO;
-    static int     pairStep;
-    static int     ofs[9];
+    VdpLineState* st = &vdp->render.line8;
+    Pixel* linePtr8   = st->linePtr;
+    UInt8* charTable  = st->charTable;
+    UInt8* sprLine    = st->sprLine;
+    int    hScroll    = st->hScroll;
+    int    hScroll512 = st->hScroll512;
+    int*   jump       = st->jump;
+    int    page       = st->page;
+    int    scroll     = st->scroll;
+    int    vscroll    = st->vscroll;
+    int    chrTabO    = st->chrTabO;
+    int    pairStep   = st->pairStep;
+    int*   ofs        = st->ofs;
     Pixel* pal256 = vdpIsExtPalette(vdp) ? vdp->paletteExt : vdp->paletteFixed;
     int col;
     int rightBorder;
@@ -2413,7 +2514,7 @@ static void RefreshLine8(VDP* vdp, int Y, int X, int X2)
         sprLine = getSpritesLine(vdp, Y);
 
         if (linePtr8 == NULL) {
-            return;
+            goto done;
         }
 
         hScroll    = vdpHScroll(vdp);
@@ -2434,7 +2535,7 @@ static void RefreshLine8(VDP* vdp, int Y, int X, int X2)
     }
 
     if (linePtr8 == NULL || X2 <= 0) {
-        return;
+        goto done;
     }
 
 #define BRK_8 24
@@ -2543,21 +2644,35 @@ static void RefreshLine8(VDP* vdp, int Y, int X, int X2)
 //        colorSpritesLine(vdp, Y, 0);
         RefreshRightBorder(vdp, Y, pal256[vdp->vdpRegs[7]], 0, 0);
     }
+done:
+    st->linePtr    = linePtr8;
+    st->charTable  = charTable;
+    st->sprLine    = sprLine;
+    st->hScroll    = hScroll;
+    st->hScroll512 = hScroll512;
+    st->jump       = jump;
+    st->page       = page;
+    st->scroll     = scroll;
+    st->vscroll    = vscroll;
+    st->chrTabO    = chrTabO;
+    st->pairStep   = pairStep;
 }
 
 static void RefreshLine10(VDP* vdp, int Y, int X, int X2)
 {
-    static UInt8* charTable;
-    static UInt8* sprLine;
-    static int hScroll512;
-    static int* jump;
-    static int page;
-    static int scroll;
-    static int vscroll;
-    static int hscroll;
-    static int chrTabO;
-    static int pairStep;
-    static int ofs[9];
+    VdpLineState* st = &vdp->render.line10;
+    Pixel* linePtr10 = st->linePtr;
+    UInt8* charTable = st->charTable;
+    UInt8* sprLine = st->sprLine;
+    int hScroll512 = st->hScroll512;
+    int* jump = st->jump;
+    int page = st->page;
+    int scroll = st->scroll;
+    int vscroll = st->vscroll;
+    int hscroll = st->hscroll;
+    int chrTabO = st->chrTabO;
+    int pairStep = st->pairStep;
+    int* ofs = st->ofs;
     /* A dot flagged as colour takes its index from the whole byte once the
     ** extended palette is on, and from four bits of it otherwise. */
     Pixel* yaePal  = vdpIsExtPalette(vdp) ? vdp->paletteExt : vdp->palette;
@@ -2573,7 +2688,7 @@ static void RefreshLine10(VDP* vdp, int Y, int X, int X2)
         sprLine = getSpritesLine(vdp, Y);
 
         if (linePtr10 == NULL) {
-            return;
+            goto done;
         }
 
         hScroll512 = vdpHScroll512(vdp);
@@ -2594,7 +2709,7 @@ static void RefreshLine10(VDP* vdp, int Y, int X, int X2)
     }
 
     if (linePtr10 == NULL || X2 <= 0) {
-        return;
+        goto done;
     }
 
 #define BRK_10 24
@@ -2732,21 +2847,35 @@ rightBorder = X2 == 33;
 //        colorSpritesLine(vdp, Y, 0);
         RefreshRightBorder(vdp, Y, vdpBackdropYjk(vdp), 0, 0);
     }
+done:
+    st->linePtr    = linePtr10;
+    st->charTable  = charTable;
+    st->sprLine    = sprLine;
+    st->hScroll512 = hScroll512;
+    st->jump       = jump;
+    st->page       = page;
+    st->scroll     = scroll;
+    st->vscroll    = vscroll;
+    st->hscroll    = hscroll;
+    st->chrTabO    = chrTabO;
+    st->pairStep   = pairStep;
 }
 
 static void RefreshLine12(VDP* vdp, int Y, int X, int X2)
 {
-    static UInt8* charTable;
-    static UInt8* sprLine;
-    static int hScroll512;
-    static int* jump;
-    static int page;
-    static int scroll;
-    static int vscroll;
-    static int hscroll;
-    static int chrTabO;
-    static int pairStep;
-    static int ofs[9];
+    VdpLineState* st = &vdp->render.line12;
+    Pixel* linePtr12 = st->linePtr;
+    UInt8* charTable = st->charTable;
+    UInt8* sprLine = st->sprLine;
+    int hScroll512 = st->hScroll512;
+    int* jump = st->jump;
+    int page = st->page;
+    int scroll = st->scroll;
+    int vscroll = st->vscroll;
+    int hscroll = st->hscroll;
+    int chrTabO = st->chrTabO;
+    int pairStep = st->pairStep;
+    int* ofs = st->ofs;
     int col;
     UInt8 t0, t1, t2, t3;
     int J, K;
@@ -2758,7 +2887,7 @@ static void RefreshLine12(VDP* vdp, int Y, int X, int X2)
         sprLine = getSpritesLine(vdp, Y);
 
         if (linePtr12 == NULL) {
-            return;
+            goto done;
         }
 
         hScroll512 = vdpHScroll512(vdp);
@@ -2779,7 +2908,7 @@ static void RefreshLine12(VDP* vdp, int Y, int X, int X2)
     }
 
     if (linePtr12 == NULL || X2 <= 0) {
-        return;
+        goto done;
     }
 
 #define BRK_12 24
@@ -2917,13 +3046,25 @@ static void RefreshLine12(VDP* vdp, int Y, int X, int X2)
 //        colorSpritesLine(vdp, Y, 0);
         RefreshRightBorder(vdp, Y, vdpBackdropYjk(vdp), 0, 0);
     }
+done:
+    st->linePtr    = linePtr12;
+    st->charTable  = charTable;
+    st->sprLine    = sprLine;
+    st->hScroll512 = hScroll512;
+    st->jump       = jump;
+    st->page       = page;
+    st->scroll     = scroll;
+    st->vscroll    = vscroll;
+    st->hscroll    = hscroll;
+    st->chrTabO    = chrTabO;
+    st->pairStep   = pairStep;
 }
 
 /* Where the active area of line Y begins, or NULL if the line has not been
 ** started or another line was drawn since. */
-static Pixel* RefreshLineStart(int Y)
+static Pixel* RefreshLineStart(VDP* vdp, int Y)
 {
-    return linePtrStartLine == Y ? linePtrStart : NULL;
+    return vdp->render.linePtrStartLine == Y ? vdp->render.linePtrStart : NULL;
 }
 
 /* How many entries of the active area the renderer has written. A mode this
@@ -2932,20 +3073,22 @@ static int RefreshLineDrawn(VDP* vdp)
 {
     Pixel* cur = NULL;
 
-    if      (vdp->RefreshLine == RefreshLine0)     cur = linePtr0;
-    else if (vdp->RefreshLine == RefreshLine0Plus) cur = linePtr0p;
-    else if (vdp->RefreshLine == RefreshLine0Mix)  cur = linePtr0m;
-    else if (vdp->RefreshLine == RefreshLineTx80)  cur = linePtr0w;
-    else if (vdp->RefreshLine == RefreshLine1)     cur = linePtr1;
-    else if (vdp->RefreshLine == RefreshLine2)     cur = linePtr2;
-    else if (vdp->RefreshLine == RefreshLine3)     cur = linePtr3;
-    else if (vdp->RefreshLine == RefreshLine4)     cur = linePtr4;
-    else if (vdp->RefreshLine == RefreshLine5)     cur = linePtr5;
-    else if (vdp->RefreshLine == RefreshLine6)     cur = linePtr6;
-    else if (vdp->RefreshLine == RefreshLine7)     cur = linePtr7;
-    else if (vdp->RefreshLine == RefreshLine8)     cur = linePtr8;
-    else if (vdp->RefreshLine == RefreshLine10)    cur = linePtr10;
-    else if (vdp->RefreshLine == RefreshLine12)    cur = linePtr12;
+    VdpRender* r = &vdp->render;
 
-    return cur == NULL || linePtrStart == NULL ? 0 : (int)(cur - linePtrStart);
+    if      (vdp->RefreshLine == RefreshLine0)     cur = r->line0.linePtr;
+    else if (vdp->RefreshLine == RefreshLine0Plus) cur = r->line0Plus.linePtr;
+    else if (vdp->RefreshLine == RefreshLine0Mix)  cur = r->line0Mix.linePtr;
+    else if (vdp->RefreshLine == RefreshLineTx80)  cur = r->tx80.linePtr;
+    else if (vdp->RefreshLine == RefreshLine1)     cur = r->line1.linePtr;
+    else if (vdp->RefreshLine == RefreshLine2)     cur = r->line2.linePtr;
+    else if (vdp->RefreshLine == RefreshLine3)     cur = r->line3.linePtr;
+    else if (vdp->RefreshLine == RefreshLine4)     cur = r->line4.linePtr;
+    else if (vdp->RefreshLine == RefreshLine5)     cur = r->line5.linePtr;
+    else if (vdp->RefreshLine == RefreshLine6)     cur = r->line6.linePtr;
+    else if (vdp->RefreshLine == RefreshLine7)     cur = r->line7.linePtr;
+    else if (vdp->RefreshLine == RefreshLine8)     cur = r->line8.linePtr;
+    else if (vdp->RefreshLine == RefreshLine10)    cur = r->line10.linePtr;
+    else if (vdp->RefreshLine == RefreshLine12)    cur = r->line12.linePtr;
+
+    return cur == NULL || r->linePtrStart == NULL ? 0 : (int)(cur - r->linePtrStart);
 }

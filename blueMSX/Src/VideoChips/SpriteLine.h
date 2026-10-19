@@ -58,10 +58,13 @@ static UInt8 lineBufferNull[512];
 
 #define nullSpritesLine() lineBufferNull
 
-static UInt8 lineBuffer[2][384];
-static UInt8* lineBufs[2] = { nullSpritesLine(), nullSpritesLine() };
-static UInt8* lineBuf = nullSpritesLine();
-static int nonVisibleLine = -1;
+static void spriteLineReset(VDP* vdp)
+{
+    vdp->render.lineBufs[0]    = nullSpritesLine();
+    vdp->render.lineBufs[1]    = nullSpritesLine();
+    vdp->render.lineBuf        = nullSpritesLine();
+    vdp->render.nonVisibleLine = -1;
+}
 
 
 UInt8* spritesLine(VDP* vdp, int line) {
@@ -91,13 +94,13 @@ UInt8* spritesLine(VDP* vdp, int line) {
 //    vdp->vdpStatus[0] &= 0xbf;
 
     if (idx == 0) {
-        lineBufs[bufIndex] = nullSpritesLine();
+        vdp->render.lineBufs[bufIndex] = nullSpritesLine();
         return nullSpritesLine();
     }
 
     if (!vdp->screenOn || (vdp->vdpStatus[2] & 0x40) || vdpIsSpritesOff(vdp->vdpRegs) || vdp->sprMode3) {
-        lineBufs[bufIndex] = nullSpritesLine();
-        return lineBufs[bufIndex ^ 1];
+        vdp->render.lineBufs[bufIndex] = nullSpritesLine();
+        return vdp->render.lineBufs[bufIndex ^ 1];
     }
 
     attribBase = &vdp->vram[vdp->sprTabBase & (-1 << 7)];
@@ -163,16 +166,16 @@ UInt8* spritesLine(VDP* vdp, int line) {
     }
 
     if (visibleCnt == 0) {
-        lineBufs[bufIndex] = nullSpritesLine();
-        return lineBufs[bufIndex ^ 1];
+        vdp->render.lineBufs[bufIndex] = nullSpritesLine();
+        return vdp->render.lineBufs[bufIndex ^ 1];
     }
 
 	if ((vdp->vdpStatus[0] & 0xc0) == 0) {
 		vdp->vdpStatus[0] = (vdp->vdpStatus[0] & 0xe0) | (idx < 32 ? idx : 31);
 	}
     
-    lineBuf = lineBuffer[bufIndex];
-    memset(lineBuf, 0, 384);
+    vdp->render.lineBuf = vdp->render.lineBuffer[bufIndex];
+    memset(vdp->render.lineBuf, 0, 384);
     memset(collisionBuf, 0, 384);
 
     collision = 0;
@@ -192,7 +195,7 @@ UInt8* spritesLine(VDP* vdp, int line) {
         colOffset = ((int)attrib[1] + 32 - ((attrib[3] >> 2) & 0x20));
         colPtr     = collisionBuf + colOffset;
         colChck    = colChckBuf   + colOffset;
-        linePtr    = lineBuf      + colOffset;
+        linePtr    = vdp->render.lineBuf + colOffset;
         rawColor   = attrib[3] & 0x0f;
         /* Bit 0 marks the dot as painted so color 0 stays distinct from an empty line buffer. */
         color      = (rawColor << 1) | solidColor;
@@ -330,18 +333,18 @@ UInt8* spritesLine(VDP* vdp, int line) {
         vdp->vdpStatus[6] = (UInt8)((dispLine + 8) >> 8);
     }
 
-    lineBufs[bufIndex] = lineBuf + 32;
+    vdp->render.lineBufs[bufIndex] = vdp->render.lineBuf + 32;
 
     if (!spritesEnable) {
         return nullSpritesLine();
     }
 
-    return lineBufs[bufIndex ^ 1];
+    return vdp->render.lineBufs[bufIndex ^ 1];
 }
 
 
 void spriteLineInvalidate(VDP* vdp, int line) {
-    nonVisibleLine = line - vdp->firstLine;
+    vdp->render.nonVisibleLine = line - vdp->firstLine;
 }
 
 UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
@@ -371,17 +374,17 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
 //    vdp->vdpStatus[0] &= 0x80;
 
     if (line == 0xffffffff) {
-        nonVisibleLine = -1000;
+        vdp->render.nonVisibleLine = -1000;
     }
 
-    if (idx == 0 || nonVisibleLine == line) {
-        lineBufs[bufIndex] = nullSpritesLine();
+    if (idx == 0 || vdp->render.nonVisibleLine == line) {
+        vdp->render.lineBufs[bufIndex] = nullSpritesLine();
         return nullSpritesLine();
     }
 
     if (!vdp->screenOn || (vdp->vdpStatus[2] & 0x40) || vdpIsSpritesOff(vdp->vdpRegs) || vdp->sprMode3) {
-        lineBufs[bufIndex] = nullSpritesLine();
-        return lineBufs[bufIndex ^ 1];
+        vdp->render.lineBufs[bufIndex] = nullSpritesLine();
+        return vdp->render.lineBufs[bufIndex ^ 1];
     }
 
     solidColor   = vdpIsColor0Solid(vdp->vdpRegs) ? 1 : 0;
@@ -437,16 +440,16 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
     }
 
     if (visibleCnt == 0) {
-        lineBufs[bufIndex] = nullSpritesLine();
-        return lineBufs[bufIndex ^ 1];
+        vdp->render.lineBufs[bufIndex] = nullSpritesLine();
+        return vdp->render.lineBufs[bufIndex ^ 1];
     }
 
 	if ((vdp->vdpStatus[0] & 0xc0) == 0) {
 		vdp->vdpStatus[0] = (vdp->vdpStatus[0] & 0xe0) | (sprite < 32 ? sprite : 31);
 	}
     
-    lineBuf = lineBuffer[bufIndex];
-    memset(lineBuf, 0, 384);
+    vdp->render.lineBuf = vdp->render.lineBuffer[bufIndex];
+    memset(vdp->render.lineBuf, 0, 384);
     memset(collisionBuf, 0, 384);
 
     /* A CC sprite is shown only from the first CC=0 sprite of the line onwards. */
@@ -479,7 +482,7 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
         colPtr  = collisionBuf + attrib->horizontalPos;
         colChck = colChckBuf   + attrib->horizontalPos;
 
-        linePtr = lineBuf + attrib->horizontalPos;
+        linePtr = vdp->render.lineBuf + attrib->horizontalPos;
         pattern = attrib->pattern;
         offset  = scale * (size - 1) + (16 - size);
 
@@ -554,7 +557,7 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
             else {
                 color = ((attrib->color & 0x0f) << 1) | solidColor;
             }
-            linePtr = lineBuf + attrib->horizontalPos;
+            linePtr = vdp->render.lineBuf + attrib->horizontalPos;
             pattern = attrib->pattern;
             offset  = scale * (size - 1) + (16 - size);
             
@@ -591,13 +594,13 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
         vdp->vdpStatus[6] = (UInt8)((dispLine + 8) >> 8);
     }
 
-    lineBufs[bufIndex] = lineBuf + 32;
+    vdp->render.lineBufs[bufIndex] = vdp->render.lineBuf + 32;
 
     if (!spritesEnable) {
         return nullSpritesLine();
     }
 
-    return lineBufs[bufIndex ^ 1];
+    return vdp->render.lineBufs[bufIndex ^ 1];
 }
 
 
@@ -605,9 +608,6 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
 ** translucent, so a dot cannot be a palette index: this leaves a colour and a
 ** weight for the caller to blend over the finished scanline. */
 #define SPRITE_M3_WIDTH 256
-
-static Pixel sprM3Pixel[SPRITE_M3_WIDTH];
-static UInt8 sprM3Weight[SPRITE_M3_WIDTH];   /* 0 clear, else sprite share of four */
 
 /* Resizing divides by a normalised reciprocal, not exactly: the magnification
 ** is shifted until its top bit is bit 7, multiplied by 65536 / (128 + index),
@@ -656,7 +656,7 @@ int spritesLineMode3(VDP* vdp, int Y)
     int i;
 
     for (i = 0; i < SPRITE_M3_WIDTH; i++) {
-        sprM3Weight[i] = 0;
+        vdp->render.sprM3Weight[i] = 0;
     }
 
     if (!vdp->screenOn || (vdp->vdpStatus[2] & 0x40) || vdpIsSpritesOff(vdp->vdpRegs) || row < 0) {
@@ -724,7 +724,7 @@ int spritesLineMode3(VDP* vdp, int Y)
             /* An occluded dot still has to be looked at while it could be the
             ** leftmost collision, and can be skipped once it cannot. */
             if (screenX >= SPRITE_M3_WIDTH ||
-                (sprM3Weight[screenX] && collisionX >= 0 && screenX >= collisionX)) {
+                (vdp->render.sprM3Weight[screenX] && collisionX >= 0 && screenX >= collisionX)) {
                 continue;
             }
 
@@ -739,15 +739,15 @@ int spritesLineMode3(VDP* vdp, int Y)
                 continue;
             }
 
-            if (sprM3Weight[screenX]) {
+            if (vdp->render.sprM3Weight[screenX]) {
                 if (collisionX < 0 || screenX < collisionX) {
                     collisionX = screenX;
                 }
                 continue;
             }
 
-            sprM3Pixel[screenX]  = vdp->paletteExt[(set << 4) | colour];
-            sprM3Weight[screenX] = (UInt8)weight;
+            vdp->render.sprM3Pixel[screenX]  = vdp->paletteExt[(set << 4) | colour];
+            vdp->render.sprM3Weight[screenX] = (UInt8)weight;
         }
     }
 
@@ -795,14 +795,14 @@ void spritesOverlayMode3(VDP* vdp, int Y, Pixel* origin, int dotStep, int startD
 
     for (x = startDot; x < SPRITE_M3_WIDTH; x++) {
         Pixel* dst = origin + x * dotStep;
-        int w = sprM3Weight[x];
+        int w = vdp->render.sprM3Weight[x];
         Pixel s, d;
 
         if (w == 0) {
             continue;
         }
 
-        s = sprM3Pixel[x];
+        s = vdp->render.sprM3Pixel[x];
         /* A superimpose key holds no colour to blend against, so the dot takes
         ** the sprite whole rather than a share of black. */
         if (w != 4 && !(dst[0] & BKMODE_TRANSPARENT)) {
@@ -824,7 +824,7 @@ UInt8* getSpritesLine(VDP* vdp, int line) {
         return nullSpritesLine();
     }
 
-    return lineBufs[(line & 1) ^ 1];
+    return vdp->render.lineBufs[(line & 1) ^ 1];
 }
 
 #endif

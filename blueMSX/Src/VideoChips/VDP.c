@@ -384,6 +384,66 @@ static void RefreshLine12(VDP*, int, int, int);
 static void sync(VDP*, UInt32);
 static void updateCmdEndInt(VDP*);
 
+/* What a line renderer keeps between the calls that draw one line in parts.
+** Each renderer uses the fields it needs, under the names it gives them. */
+typedef struct {
+    Pixel* linePtr;
+    UInt8* sprLine;
+    UInt8* charTable;
+    int*   jump;
+    int    patternBase;
+    int    base;
+    int    pattern;
+    int    x;
+    int    y;
+    int    shift;
+    int    page;
+    int    scroll;
+    int    hScroll;
+    int    hscroll;
+    int    hScroll512;
+    int    vscroll;
+    int    chrTabO;
+    int    pairStep;
+    UInt8  colPattern;
+    Pixel  color[2];
+    int    ofs[9];
+} VdpLineState;
+
+typedef struct {
+    VdpLineState blank;
+    VdpLineState line0;
+    VdpLineState line0Plus;
+    VdpLineState line0Mix;
+    VdpLineState tx80;
+    VdpLineState line1;
+    VdpLineState line2;
+    VdpLineState line3;
+    VdpLineState line4;
+    VdpLineState line5;
+    VdpLineState line6;
+    VdpLineState line7;
+    VdpLineState line8;
+    VdpLineState line10;
+    VdpLineState line12;
+
+    /* The active area of the line last started, for redrawing part of it. */
+    Pixel* linePtrStart;
+    int    linePtrStartLine;
+    /* Where the display starts on the line just drawn and what one MSX dot
+    ** costs there, so a compositor running after the renderer need not guess. */
+    Pixel* displayOrigin;
+    int    displayDotStep;
+
+    /* Sprite lines are worked out one line ahead, into alternate buffers. */
+    UInt8  lineBuffer[2][384];
+    UInt8* lineBufs[2];
+    UInt8* lineBuf;
+    int    nonVisibleLine;
+    Pixel  sprM3Pixel[256];
+    UInt8  sprM3Weight[256];
+} VdpRender;
+
 struct VDP {
     VdpCmdState* cmdEngine;
     void (*RefreshLine)(VDP*, int, int, int);
@@ -517,6 +577,8 @@ struct VDP {
     UInt32 machineFrame;   /* machine VDP frames begun since power-on; saved with the state */
 
     FrameBufferData* frameBuffer;
+
+    VdpRender render;
 };
 
 /* Interleaved, the odd bytes sit at bit 16, so the base bit above the page
@@ -1225,7 +1287,7 @@ static void rescrollLine(VDP* vdp)
         return;
     }
 
-    start = RefreshLineStart(vdp->curLine);
+    start = RefreshLineStart(vdp, vdp->curLine);
     drawn = RefreshLineDrawn(vdp);
     if (start == NULL || drawn < 0 || drawn > FB_MAX_LINE_WIDTH) {
         return;
@@ -2154,8 +2216,8 @@ static void refreshLine(VDP* vdp, int line, int x, int x2)
 
         /* The scan reports the fifth sprite and the collision either way, so the
         ** view toggle and the border gate hold back only the drawing. */
-        if (spritesEnable && startDot >= 0 && vdp->drawArea && displayOrigin != NULL) {
-            spritesOverlayMode3(vdp, line, displayOrigin, displayDotStep, startDot);
+        if (spritesEnable && startDot >= 0 && vdp->drawArea && vdp->render.displayOrigin != NULL) {
+            spritesOverlayMode3(vdp, line, vdp->render.displayOrigin, vdp->render.displayDotStep, startDot);
         }
     }
 }
@@ -3150,7 +3212,7 @@ static int shotDrawnSamples(VDP* vdp, FrameBuffer* draw, int y)
     if (vdp->lineOffset > 32) {
         return VDP_SHOT_WIDTH;
     }
-    start = (const UInt16*)RefreshLineStart(vdp->curLine);
+    start = (const UInt16*)RefreshLineStart(vdp, vdp->curLine);
     if (start == NULL || start < line || start > line + VDP_SHOT_WIDTH) {
         return 0;
     }
@@ -3543,7 +3605,7 @@ static void sprSplitLineDone(VDP* vdp, int from)
     shift = fb->line[y].doubleWidth;
     width = MIN(fb->maxWidth << shift, VDP_SHOT_WIDTH);
     memcpy(plane->bg[y], line, sizeof(plane->bg[y]));
-    start = (UInt16*)RefreshLineStart(vdp->curLine);
+    start = (UInt16*)RefreshLineStart(vdp, vdp->curLine);
 
     memcpy(line, saved, sizeof(saved));
     fb->line[y].doubleWidth = savedShift;
@@ -3959,7 +4021,7 @@ static void reset(VDP* vdp)
 {
     int i;
 
-    RefreshLineReset();
+    RefreshLineReset(vdp);
 
     vdp->frameStartTime  = boardSystemTime();
     vdp->timeDisplay     = boardSystemTime();
@@ -4230,6 +4292,7 @@ void vdpCreate(VdpConnector connector, VdpVersion version, VdpSyncMode sync, int
     vdpCmdSetExpansionWindow(vdp->cmdEngine, version != VDP_V9968);
     vdpCmdSetV9968(vdp->cmdEngine, version == VDP_V9968);
 
+    spriteLineReset(vdp);
     reset(vdp);
 
     switch (vdp->vdpVersion) {
