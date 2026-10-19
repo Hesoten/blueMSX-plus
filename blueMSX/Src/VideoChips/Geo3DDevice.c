@@ -164,9 +164,9 @@ static void issue(Geo3DDevice* dev, UInt32 now)
     geo3dPeekCommand(dev->geo3d, &readyEc);
     count = geo3dNextCommand(dev->geo3d, regs, values);
     for (i = 0; i < count; i++) {
-        vdpWriteCommandRegister(regs[i], values[i]);
+        vdpWriteCommandRegister(NULL, regs[i], values[i]);
     }
-    vdpAddCommandCredit(late < MAX_CREDIT ? late : MAX_CREDIT);
+    vdpAddCommandCredit(NULL, late < MAX_CREDIT ? late : MAX_CREDIT);
 
     dev->issued++;
     dev->lastReady = readyEc;
@@ -187,21 +187,21 @@ static void pump(Geo3DDevice* dev)
         switch (dev->phase) {
         case PH_START:
             /* A RUN with nothing to draw does not wait on the VDP. */
-            if (geo3dPeekCommand(dev->geo3d, &readyEc) != 0 && vdpGetCommandBusy()) {
+            if (geo3dPeekCommand(dev->geo3d, &readyEc) != 0 && vdpGetCommandBusy(NULL)) {
                 dev->phase = PH_WAIT_CE;
                 break;
             }
             dev->ceFall  = dev->runTime - 2 * UNITS_PER_EC;
-            dev->endSeen = vdpGetCommandEndTime();
+            dev->endSeen = vdpGetCommandEndTime(NULL);
             plan(dev);
             break;
         case PH_WAIT_CE:
-            if (vdpGetCommandBusy()) {
+            if (vdpGetCommandBusy(NULL)) {
                 boardTimerAdd(dev->timer, time + POLL_TICKS);
                 return;
             }
             /* Read only after the engine was seen busy, so it is never stale. */
-            dev->ceFall  = vdpGetCommandEndTime();
+            dev->ceFall  = vdpGetCommandEndTime(NULL);
             dev->endSeen = dev->ceFall;
             plan(dev);
             break;
@@ -220,12 +220,12 @@ static void pump(Geo3DDevice* dev)
             }
             /* A CPU command written while this one was overdue goes first, as
             ** if it had come first; ours waits for it rather than cutting in. */
-            if (vdpGetCommandBusy()) {
+            if (vdpGetCommandBusy(NULL)) {
                 dev->phase = PH_WAIT_CE;
                 break;
             }
             /* One the CPU both started and finished since the plan moves it. */
-            endTime = vdpGetCommandEndTime();
+            endTime = vdpGetCommandEndTime(NULL);
             if (endTime != dev->endSeen) {
                 dev->ceFall  = endTime;
                 dev->endSeen = endTime;

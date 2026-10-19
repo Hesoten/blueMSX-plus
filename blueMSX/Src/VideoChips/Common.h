@@ -92,7 +92,7 @@ static void RefreshLineReset(VDP* vdp)
 
 Pixel *RefreshBorder(VDP* vdp, int Y, Pixel bgColor, int line512, int borderExtra)
 {
-    FrameBuffer* frameBuffer = frameBufferGetDrawFrame();
+    FrameBuffer* frameBuffer = vdpDrawFrame(vdp);
     int lineSize = line512 ? 2 : 1;
     Pixel *linePtr;
     int offset;
@@ -104,7 +104,10 @@ Pixel *RefreshBorder(VDP* vdp, int Y, Pixel bgColor, int line512, int borderExtr
     vdp->render.linePtrStartLine = Y;
     Y -= vdp->displayOffest;
 
-    frameBufferSetScanline(Y);
+    /* The light guns follow the machine VDP's raster. */
+    if (!vdp->secondary) {
+        frameBufferSetScanline(Y);
+    }
 
     linePtr = frameBufferGetLine(frameBuffer, Y);
 
@@ -128,7 +131,7 @@ Pixel *RefreshBorder(VDP* vdp, int Y, Pixel bgColor, int line512, int borderExtr
 
 Pixel *RefreshBorder6(VDP* vdp, int Y, Pixel bgColor1, Pixel bgColor2, int line512, int borderExtra)
 {
-    FrameBuffer* frameBuffer = frameBufferGetDrawFrame();
+    FrameBuffer* frameBuffer = vdpDrawFrame(vdp);
     int lineSize = line512 ? 2 : 1;
     Pixel *linePtr;
     int offset;
@@ -140,7 +143,10 @@ Pixel *RefreshBorder6(VDP* vdp, int Y, Pixel bgColor1, Pixel bgColor2, int line5
     vdp->render.linePtrStartLine = Y;
     Y -= vdp->displayOffest;
 
-    frameBufferSetScanline(Y);
+    /* The light guns follow the machine VDP's raster. */
+    if (!vdp->secondary) {
+        frameBufferSetScanline(Y);
+    }
 
     linePtr = frameBufferGetLine(frameBuffer, Y);
 
@@ -164,7 +170,7 @@ Pixel *RefreshBorder6(VDP* vdp, int Y, Pixel bgColor1, Pixel bgColor2, int line5
 }
 
 static void RefreshRightBorder(VDP* vdp, int Y, Pixel bgColor, int line512, int borderExtra) {
-    FrameBuffer* frameBuffer = frameBufferGetDrawFrame();
+    FrameBuffer* frameBuffer = vdpDrawFrame(vdp);
     int lineSize = line512 ? 2 : 1;
     Pixel *linePtr;
     int offset;
@@ -187,7 +193,7 @@ static void RefreshRightBorder(VDP* vdp, int Y, Pixel bgColor, int line512, int 
 }
 
 static void RefreshRightBorder6(VDP* vdp, int Y, Pixel bgColor1, Pixel bgColor2) {
-    FrameBuffer* frameBuffer = frameBufferGetDrawFrame();
+    FrameBuffer* frameBuffer = vdpDrawFrame(vdp);
     Pixel *linePtr;
     int offset;
 

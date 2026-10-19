@@ -249,11 +249,13 @@ struct VdpCmdState {
     int    screenMode;
     int    newScrMode;
     int    timingMode;
+    const char* stateName;
+    /* Off for an engine whose VRAM the debugger does not show. */
+    int    watch;
 };
 
-// Pointer to initialized command engine. This should be a list
-// but since there are only one instance at the time its not
-// a big deal. It is also only used in vdpCmdFlushAll()
+// The machine VDP's command engine, the first one created. It is only
+// used in vdpCmdFlushAll().
 static VdpCmdState* vdpCmdGlobal = NULL;
 
 
@@ -660,7 +662,7 @@ static UInt8 peekVramCmd(void* ref, int address)
 ** only noted and vdpCmdExecute breaks once the counters are written back. */
 INLINE void vramWatch(VdpCmdState* vdpCmd, UInt8* P)
 {
-    if (debugWatchpointCount[DBGTYPE_VIDEO] != 0 && P != scratch) {
+    if (debugWatchpointCount[DBGTYPE_VIDEO] != 0 && vdpCmd->watch && P != scratch) {
         int kind = checkWatchpoint(DBGTYPE_VIDEO, (int)(P - vdpCmd->vramBase), *P, vdpCmd, peekVramCmd);
         if (kind != DBG_WATCH_NONE) {
             /* The first hit of the run is the one reported, and its address is
@@ -1568,7 +1570,12 @@ VdpCmdState* vdpCmdCreate(int vramSize, UInt8* vramPtr, UInt32 systemTime)
     vdpCmd->maskWrite = vdpCmd->vramMask[0];
     vdpCmdUpdateAddressing(vdpCmd);
 
-    vdpCmdGlobal = vdpCmd; // Ugly fix to make the cmd engine flushable
+    vdpCmd->stateName = "vdpCommandEngine";
+    vdpCmd->watch     = 1;
+
+    if (vdpCmdGlobal == NULL) {
+        vdpCmdGlobal = vdpCmd;
+    }
 
     /* The tables are still empty here, and a per-step wait of zero would spin an
     ** engine that never finishes its command. */
@@ -1587,8 +1594,18 @@ VdpCmdState* vdpCmdCreate(int vramSize, UInt8* vramPtr, UInt32 systemTime)
 */
 void vdpCmdDestroy(VdpCmdState* vdpCmd)
 {
+    if (vdpCmdGlobal == vdpCmd) {
+        vdpCmdGlobal = NULL;
+    }
     free(vdpCmd);
-    vdpCmdGlobal = 0l;
+}
+
+/* For a second VDP: its own save state section, and no watchpoints, which
+** stand for the machine VDP's VRAM. */
+void vdpCmdSetSecondary(VdpCmdState* vdpCmd, const char* stateName)
+{
+    vdpCmd->stateName = stateName;
+    vdpCmd->watch     = 0;
 }
 
 
@@ -2249,7 +2266,7 @@ void vdpCmdExecute(VdpCmdState* vdpCmd, UInt32 systemTime)
 */
 void vdpCmdLoadState(VdpCmdState* vdpCmd)
 {
-    SaveState* state = saveStateOpenForRead("vdpCommandEngine");
+    SaveState* state = saveStateOpenForRead(vdpCmd->stateName);
     int opsCnt;
 
     vdpCmd->SX            =         saveStateGet(state, "SX",         0);
@@ -2345,7 +2362,7 @@ void vdpCmdLoadState(VdpCmdState* vdpCmd)
 */
 void vdpCmdSaveState(VdpCmdState* vdpCmd)
 {
-    SaveState* state = saveStateOpenForWrite("vdpCommandEngine");
+    SaveState* state = saveStateOpenForWrite(vdpCmd->stateName);
 
     saveStateSet(state, "SX",         vdpCmd->SX);
     saveStateSet(state, "SY",         vdpCmd->SY);

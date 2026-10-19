@@ -56,7 +56,6 @@ static int spritesEnable = 1;
 static int noSpriteLimits = 0;
 static int displayEnable = 1;
 static int refreshRate   = 0;
-static int canFlipFrameBuffer = 0;
 
 /* The setting; spritesEnable drops to 0 while the sprite split redraws a line. */
 static int spritesSetting = 1;
@@ -141,6 +140,7 @@ void vdpUnregisterDaConverter(int vdpDaHandle)
 
 #define HPERIOD      1368
 
+/* The machine VDP's interrupt bits; a secondary one brings its own. */
 #define INT_IE0     0x01
 #define INT_IE1     0x02
 #define INT_IE2     0x04
@@ -577,9 +577,34 @@ struct VDP {
     UInt32 machineFrame;   /* machine VDP frames begun since power-on; saved with the state */
 
     FrameBufferData* frameBuffer;
+    int canFlipFrameBuffer;
+
+    /* A VDP beside the machine's own, as on a cartridge: other ports and
+    ** interrupt bits, its own frame buffer, and none of the machine wide
+    ** hooks. frameDone is told when each of its frames starts. */
+    int secondary;
+    int portBase;
+    int intIE0;
+    int intIE1;
+    int intIE2;
+    const char* stateName;
+    void (*frameDone)(void* ref, VDP* vdp, int isPal);
+    void* frameDoneRef;
 
     VdpRender render;
 };
+
+/* The machine VDP draws where the shown source says; a secondary one into its
+** own frame buffer. */
+static FrameBuffer* vdpDrawFrame(VDP* vdp)
+{
+    return vdp->secondary ? frameBufferGetDrawFrameOf(vdp->frameBuffer) : frameBufferGetDrawFrame();
+}
+
+static FrameBuffer* vdpFlipDrawFrame(VDP* vdp)
+{
+    return vdp->secondary ? frameBufferFlipDrawFrameOf(vdp->frameBuffer) : frameBufferFlipDrawFrame();
+}
 
 /* Interleaved, the odd bytes sit at bit 16, so the base bit above the page
 ** steps over them into the second 128kB and the next one is unused. Linear,
@@ -827,7 +852,7 @@ static void onHint(VDP* vdp, UInt32 time)
     if (vdpRasterArmed) vdpRasterNoteLineInt(vdp);
 
     if (vdp->vdpRegs[0] & 0x10) {
-        boardSetInt(INT_IE1);
+        boardSetInt(vdp->intIE1);
     }
 }
 
@@ -869,7 +894,7 @@ static void showEarly(void* ref)
     }
     vdp->flippedEarly  = 1;
     vdp->lastFlipEarly = 1;
-    frameBufferFlipDrawFrame();
+    vdpFlipDrawFrame(vdp);
 }
 
 static void onVint(VDP* vdp, UInt32 time)
@@ -878,14 +903,16 @@ static void onVint(VDP* vdp, UInt32 time)
 
     vdp->timeVintEn = 0;
 
-    framecounter++;
+    if (!vdp->secondary) {
+        framecounter++;
+    }
 
 //    vdp->lineOffset = -1;
     vdp->vdpStatus[0] |= 0x80;
     vdp->vdpStatus[2] |= 0x40;
 //    if (vdp->vdpVersion != VDP_TMS9929A && vdp->vdpVersion != VDP_TMS99x8A && vdp->vdpVersion != VDP_TMS9918A) {
         if (vdp->vdpRegs[1] & 0x20) {
-            boardSetInt(INT_IE0);
+            boardSetInt(vdp->intIE0);
         }
 //    }
 //    vdp->drawArea = 0;
@@ -897,7 +924,7 @@ static void onVint(VDP* vdp, UInt32 time)
         vdpAtShown = 1;
         emulatorTap(EMU_TAP_VDP_SHOWN);
         vdpAtShown = 0;
-        emulatorShownDisplayEnded(vdp->videoEnabled && canFlipFrameBuffer >= 2,
+        emulatorShownDisplayEnded(vdp->videoEnabled && vdp->canFlipFrameBuffer >= 2,
                                   !videoManagerActivePacesScreen() && frameBufferGetActiveDraw() == vdp->frameBuffer,
                                   showEarly, vdp);
     }
@@ -915,7 +942,7 @@ static void onDrawAreaEnd(VDP* vdp, UInt32 time)
 static void onTmsVint(VDP* vdp, UInt32 time)
 {
     if (vdp->vdpRegs[1] & 0x20) {
-        boardSetInt(INT_IE0);
+        boardSetInt(vdp->intIE0);
     }
 }
 
@@ -967,26 +994,28 @@ static void onDisplay(VDP* vdp, UInt32 time)
         vdp->machineFrame++;
     }
 
-    boardCheckVdpBoostKill((UInt32)vdp->vdpRegs[23]              |
-                           ((UInt32)vdp->vdpRegs[26] <<  8)      |
-                           ((UInt32)vdp->vdpRegs[27] << 16));
+    if (!vdp->secondary) {
+        boardCheckVdpBoostKill((UInt32)vdp->vdpRegs[23]              |
+                               ((UInt32)vdp->vdpRegs[26] <<  8)      |
+                               ((UInt32)vdp->vdpRegs[27] << 16));
+    }
 
     if (vdp->videoEnabled) {
         FrameBuffer* frameBuffer;
         if (early) {
-            frameBuffer = frameBufferGetDrawFrame();
+            frameBuffer = vdpDrawFrame(vdp);
         }
         else if (emulatorRewindReplaying()) {
             /* Shown only at its end of active display; a frame begun after the load is whole. */
-            frameBuffer = frameBufferGetDrawFrame();
-            canFlipFrameBuffer = 2;
+            frameBuffer = vdpDrawFrame(vdp);
+            vdp->canFlipFrameBuffer = 2;
         }
-        else if (canFlipFrameBuffer >= 2) {
-            frameBuffer = frameBufferFlipDrawFrame();
+        else if (vdp->canFlipFrameBuffer >= 2) {
+            frameBuffer = vdpFlipDrawFrame(vdp);
         }
         else {
-            frameBuffer = frameBufferGetDrawFrame();
-            canFlipFrameBuffer++;
+            frameBuffer = vdpDrawFrame(vdp);
+            vdp->canFlipFrameBuffer++;
         }
         frameBufferSetLineCount(frameBuffer, 240);
         {
@@ -1011,7 +1040,9 @@ static void onDisplay(VDP* vdp, UInt32 time)
         }
     }
 
-    refreshRate = isPal ? 50 : 60; // Update global refresh rate
+    if (!vdp->secondary) {
+        refreshRate = isPal ? 50 : 60; // Update global refresh rate
+    }
 
     vdp->scr0splitLine = 0;
     vdp->curLine = 0;
@@ -1024,7 +1055,7 @@ static void onDisplay(VDP* vdp, UInt32 time)
     vdp->displayOffest = isPal ? 27 : 0;
     vdp->firstLine = vdp->displayOffest + (vdpIsScanLines212(vdp->vdpRegs) ? 14 : 24) + vdp->VAdjust;
     if (!(vdp->vdpRegs[0] & 0x10)) {
-        boardClearInt(INT_IE1);
+        boardClearInt(vdp->intIE1);
     }
     vdp->vdpStatus[2] ^= 0x02;
     if (!vdpIsSpriteShuffle(vdp)) {
@@ -1036,9 +1067,14 @@ static void onDisplay(VDP* vdp, UInt32 time)
     else {
         vdp->sprPlaneStart = (vdp->sprPlaneStart + 17) & 0x3f;
     }
-    RefreshScreen(vdp->screenMode, early,
-                  vdp == theVdp && vdp->videoEnabled && canFlipFrameBuffer >= 2 &&
-                  frameBufferGetActiveDraw() == vdp->frameBuffer);
+    if (vdp->secondary) {
+        vdp->frameDone(vdp->frameDoneRef, vdp, isPal);
+    }
+    else {
+        RefreshScreen(vdp->screenMode, early,
+                      vdp == theVdp && vdp->videoEnabled && vdp->canFlipFrameBuffer >= 2 &&
+                      frameBufferGetActiveDraw() == vdp->frameBuffer);
+    }
 
     /* Per-frame (VSYNC) blink clock. In line-blink mode the phase is derived
     ** per scan line instead; advance its base by one frame of lines so the
@@ -1062,6 +1098,10 @@ static void onDisplay(VDP* vdp, UInt32 time)
     scheduleDrawAreaStart(vdp);
     scheduleHint(vdp);
     scheduleVint(vdp);
+
+    if (vdp->secondary) {
+        return;
+    }
 
     frameStartTime = vdp->frameStartTime;
     timeDisplay    = HPERIOD * vdp->lastLine;
@@ -1283,7 +1323,7 @@ static void rescrollLine(VDP* vdp)
     if (vdp->curLine < vdp->displayOffest || vdp->curLine >= vdp->displayOffest + SCREEN_HEIGHT) {
         return;
     }
-    if (!vdp->videoEnabled || !displayEnable || frameBufferGetDrawFrame() == NULL) {
+    if (!vdp->videoEnabled || !displayEnable || vdpDrawFrame(vdp) == NULL) {
         return;
     }
 
@@ -1349,7 +1389,7 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
     switch (reg) {
     case 0: 
         if (!(value & 0x10)) {
-            boardClearInt(INT_IE1);
+            boardClearInt(vdp->intIE1);
         }
 
         if (change & 0x0e) {
@@ -1365,10 +1405,10 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
     case 1: 
         if (vdp->vdpStatus[0] & 0x80) {
 			if (value & 0x20) {
-				boardSetInt(INT_IE0);
+				boardSetInt(vdp->intIE0);
 			}
 			else {
-				boardClearInt(INT_IE0);
+				boardClearInt(vdp->intIE0);
 			}
         }
 
@@ -1500,7 +1540,7 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
             spriteLineInvalidate(vdp, (boardSystemTime() - vdp->frameStartTime) / HPERIOD);
         }
         if (!(vdp->vdpRegs[0] & 0x10)) {
-            boardClearInt(INT_IE1);
+            boardClearInt(vdp->intIE1);
         }
         break;
 
@@ -1599,7 +1639,7 @@ static UInt8 peekStatus(VDP* vdp, UInt16 ioPort)
     switch(vdp->vdpRegs[15]) {
     case 1: 
         if (vdp->vdpRegs[0] & 0x10) {
-            if (boardGetInt(INT_IE1)) {
+            if (boardGetInt(vdp->intIE1)) {
                 vdpStatus |=  0x01;
             }
         }
@@ -1658,7 +1698,7 @@ static UInt8 readStatus(VDP* vdp, UInt16 ioPort)
     if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A || vdp->vdpVersion == VDP_TMS9918A) {
         vdpStatus = vdp->vdpStatus[0];
         vdp->vdpStatus[0] &= 0x1f;
-        boardClearInt(INT_IE0);
+        boardClearInt(vdp->intIE0);
         return vdpStatus;
     }
     
@@ -1668,13 +1708,13 @@ static UInt8 readStatus(VDP* vdp, UInt16 ioPort)
     case 0: 
 //        printf("I %.2x: 0x%.2x\t%d\n", vdp->vdpRegs[15], vdpStatus, boardSystemTime());
         vdp->vdpStatus[0] &= 0x1f;
-        boardClearInt(INT_IE0);
+        boardClearInt(vdp->intIE0);
         break;
 
     case 1: 
         if (vdp->vdpRegs[0] & 0x10) {
-            if (boardGetInt(INT_IE1)) {
-                boardClearInt(INT_IE1);
+            if (boardGetInt(vdp->intIE1)) {
+                boardClearInt(vdp->intIE1);
                 vdpStatus |=  0x01;
             }
         }
@@ -1750,7 +1790,9 @@ static void write(VDP* vdp, UInt16 ioPort, UInt8 value)
         if (!(index & ~vdp->vramAccMask)) {
             vdp->vram[index] = value;
 
-            tryWatchpoint(DBGTYPE_VIDEO, index, value, vdp, peekVram);
+            if (!vdp->secondary) {
+                tryWatchpoint(DBGTYPE_VIDEO, index, value, vdp, peekVram);
+            }
 //        printf("W(0x%.4x): %.2x\n", (vdp->vdpRegs[14] << 14) | vdp->vramAddress, value);
 //            *MAP_VRAM(vdp, (vdp->vdpRegs[14] << 14) | vdp->vramAddress) = value;
         }
@@ -1919,20 +1961,22 @@ static void updateOutputMode(VDP* vdp)
     int textOrMulti  = vdp->screenMode == 0 || vdp->screenMode == 3 || vdp->screenMode == 13;
     int transparency = textOrMulti ||
                        ((vdp->screenMode < 8 || vdp->screenMode > 12) && (vdp->vdpRegs[8] & 0x20) == 0);
+    /* The video input belongs to the machine VDP. */
+    VideoMode modeMask = vdp->secondary ? VIDEO_INTERNAL : vdpDaDevice.videoModeMask;
 
-    if (mode == 2 || 
-        (!(vdp->vdpRegs[8] & 0x80) && (vdp->vdpRegs[8] & 0x10)) || (vdp->vdpRegs[0] & 0x40)) 
+    if (mode == 2 ||
+        (!(vdp->vdpRegs[8] & 0x80) && (vdp->vdpRegs[8] & 0x10)) || (vdp->vdpRegs[0] & 0x40))
     {
         if (vdp->screenMode >=5 && vdp->screenMode <= 12) {
-            videoManagerSetMode(vdp->videoHandle, VIDEO_EXTERNAL, vdpDaDevice.videoModeMask);
+            videoManagerSetMode(vdp->videoHandle, VIDEO_EXTERNAL, modeMask);
         }
         else {
-            videoManagerSetMode(vdp->videoHandle, VIDEO_INTERNAL, vdpDaDevice.videoModeMask);
+            videoManagerSetMode(vdp->videoHandle, VIDEO_INTERNAL, modeMask);
         }
     }
-    else if (mode == 1 && transparency) {
+    else if (mode == 1 && transparency && !vdp->secondary) {
         vdp->palette[0] = videoGetTransparentColor();
-        videoManagerSetMode(vdp->videoHandle, VIDEO_MIX, vdpDaDevice.videoModeMask);
+        videoManagerSetMode(vdp->videoHandle, VIDEO_MIX, modeMask);
     }
     else {
         if (vdp->BGColor == 0 || !transparency || vdp->screenMode == 6) {
@@ -1943,7 +1987,7 @@ static void updateOutputMode(VDP* vdp)
         else {
             vdp->palette[0] = vdp->palette[vdp->BGColor];
         }
-        videoManagerSetMode(vdp->videoHandle, VIDEO_INTERNAL, vdpDaDevice.videoModeMask);
+        videoManagerSetMode(vdp->videoHandle, VIDEO_INTERNAL, modeMask);
     }
 }
 
@@ -2060,7 +2104,7 @@ static UInt8 readInterruptStatus(VDP* vdp, UInt16 ioPort)
         status |= 0x01;
     }
     if (vdp->vdpRegs[0] & 0x10) {
-        if (boardGetInt(INT_IE1)) {
+        if (boardGetInt(vdp->intIE1)) {
             status |= 0x02;
         }
     }
@@ -2077,10 +2121,10 @@ static void writeInterruptStatus(VDP* vdp, UInt16 ioPort, UInt8 value)
 
     if (value & 0x01) {
         vdp->vdpStatus[0] &= ~0x80;
-        boardClearInt(INT_IE0);
+        boardClearInt(vdp->intIE0);
     }
     if (value & 0x02) {
-        boardClearInt(INT_IE1);
+        boardClearInt(vdp->intIE1);
     }
     if (value & 0x04) {
         vdpCmdClearEndFlag(vdp->cmdEngine);
@@ -2150,40 +2194,53 @@ UInt32 vdpGetMachineFrame(void)
     return theVdp != NULL ? theVdp->machineFrame : 0;
 }
 
-/* geo3d feeds the command engine of the V9968 it lives in. On any other VDP
-** these do nothing: an MSX1 VDP would take R#36 as R#4. */
-int vdpGetCommandBusy()
+/* geo3d feeds the command engine of the V9968 it lives in, the machine VDP
+** when vdp is NULL. On any other VDP these do nothing: an MSX1 VDP would take
+** R#36 as R#4. */
+static VDP* geo3dVdp(VDP* vdp)
 {
-    if (theVdp == NULL || theVdp->vdpVersion != VDP_V9968) {
+    if (vdp == NULL) {
+        vdp = theVdp;
+    }
+    return vdp != NULL && vdp->vdpVersion == VDP_V9968 ? vdp : NULL;
+}
+
+int vdpGetCommandBusy(VDP* vdp)
+{
+    vdp = geo3dVdp(vdp);
+    if (vdp == NULL) {
         return 0;
     }
-    vdpCmdExecute(theVdp->cmdEngine, boardSystemTime());
-    updateCmdEndInt(theVdp);
-    return vdpGetStatus(theVdp->cmdEngine) & 0x01;
+    vdpCmdExecute(vdp->cmdEngine, boardSystemTime());
+    updateCmdEndInt(vdp);
+    return vdpGetStatus(vdp->cmdEngine) & 0x01;
 }
 
 /* The same path as a register write from the Z80. */
-void vdpWriteCommandRegister(UInt8 reg, UInt8 value)
+void vdpWriteCommandRegister(VDP* vdp, UInt8 reg, UInt8 value)
 {
-    if (theVdp != NULL && theVdp->vdpVersion == VDP_V9968) {
-        vdpUpdateRegisters(theVdp, reg, value);
+    vdp = geo3dVdp(vdp);
+    if (vdp != NULL) {
+        vdpUpdateRegisters(vdp, reg, value);
     }
 }
 
 /* When the last command ended, in 1/8 board ticks (wrapping). */
-UInt32 vdpGetCommandEndTime()
+UInt32 vdpGetCommandEndTime(VDP* vdp)
 {
-    if (theVdp == NULL || theVdp->vdpVersion != VDP_V9968) {
+    vdp = geo3dVdp(vdp);
+    if (vdp == NULL) {
         return boardSystemTime() * 8;
     }
-    return vdpCmdGetEndTime(theVdp->cmdEngine);
+    return vdpCmdGetEndTime(vdp->cmdEngine);
 }
 
 /* Runs the command just started as if written that many 1/8 ticks earlier. */
-void vdpAddCommandCredit(int units)
+void vdpAddCommandCredit(VDP* vdp, int units)
 {
-    if (theVdp != NULL && theVdp->vdpVersion == VDP_V9968) {
-        vdpCmdAddCredit(theVdp->cmdEngine, units);
+    vdp = geo3dVdp(vdp);
+    if (vdp != NULL) {
+        vdpCmdAddCredit(vdp->cmdEngine, units);
     }
 }
 
@@ -2230,10 +2287,10 @@ static void updateCmdEndInt(VDP* vdp)
         return;
     }
     if ((vdp->vdpRegs[20] & 0x40) && vdpCmdGetEndFlag(vdp->cmdEngine)) {
-        boardSetInt(INT_IE2);
+        boardSetInt(vdp->intIE2);
     }
     else {
-        boardClearInt(INT_IE2);
+        boardClearInt(vdp->intIE2);
     }
 }
 
@@ -2252,7 +2309,7 @@ static void sync(VDP* vdp, UInt32 systemTime)
         }
     }
 
-    if (!vdp->videoEnabled || !displayEnable || frameBufferGetDrawFrame() == NULL) {
+    if (!vdp->videoEnabled || !displayEnable || vdpDrawFrame(vdp) == NULL) {
         return;
     }
 
@@ -2469,7 +2526,7 @@ static void loadState(VDP* vdp)
 
     onScrModeChange(vdp, boardSystemTime());
 
-    canFlipFrameBuffer = 0;
+    vdp->canFlipFrameBuffer = 0;
 }
 
 #else
@@ -2477,7 +2534,7 @@ static void loadState(VDP* vdp)
 
 static void saveState(VDP* vdp)
 {
-    SaveState* state = saveStateOpenForWrite("vdp");
+    SaveState* state = saveStateOpenForWrite(vdp->stateName);
     char tag[32];
     int i;
 
@@ -2575,7 +2632,7 @@ static void saveState(VDP* vdp)
 
 static void loadState(VDP* vdp)
 {
-    SaveState* state = saveStateOpenForRead("vdp");
+    SaveState* state = saveStateOpenForRead(vdp->stateName);
     UInt32 systemTime = boardSystemTime() + 100;
     char tag[32];
     int i;
@@ -2714,7 +2771,7 @@ static void loadState(VDP* vdp)
     vdpCmdSetTextBackColor(vdp->cmdEngine, vdp->vdpRegs[12] & 0x0f);
     vdpCmdSetHighSpeed(vdp->cmdEngine, vdpIsV9968(vdp) && (vdp->vdpRegs[20] & 0x01));
 
-    canFlipFrameBuffer = 0;
+    vdp->canFlipFrameBuffer = 0;
     vdp->flippedEarly  = 0;
     vdp->lastFlipEarly = 0;
 
@@ -3508,6 +3565,9 @@ static int    sprPalStartLine = -1;
 
 static void sprPaletteDisplayStart(VDP* vdp)
 {
+    if (vdp != theVdp) {
+        return;
+    }
     memcpy(sprPalStart, vdp->paletteReg, sizeof(sprPalStart));
     sprPalStartFrame = vdp->frameStartTime;
     sprPalStartLine  = vdp->curLine;
@@ -3909,18 +3969,18 @@ static void getDebugInfo(VDP* vdp, DbgDevice* dbgDevice)
     case VDP_MSX:
         if (vdpIsV99x8(vdp)) {
             ioPorts = dbgDeviceAddIoPorts(dbgDevice, vdpVersionName, vdpIsV9968(vdp) ? 5 : 4);
-            dbgIoPortsAddPort(ioPorts, 0, 0x98, DBG_IO_READWRITE,  peek(vdp, 0x98));
-            dbgIoPortsAddPort(ioPorts, 1, 0x99, DBG_IO_READWRITE,  peekStatus(vdp, 0x99));
-            dbgIoPortsAddPort(ioPorts, 2, 0x9a, DBG_IO_WRITE, 0);
-            dbgIoPortsAddPort(ioPorts, 3, 0x9b, DBG_IO_WRITE, 0);
+            dbgIoPortsAddPort(ioPorts, 0, vdp->portBase + 0, DBG_IO_READWRITE,  peek(vdp, vdp->portBase + 0));
+            dbgIoPortsAddPort(ioPorts, 1, vdp->portBase + 1, DBG_IO_READWRITE,  peekStatus(vdp, vdp->portBase + 1));
+            dbgIoPortsAddPort(ioPorts, 2, vdp->portBase + 2, DBG_IO_WRITE, 0);
+            dbgIoPortsAddPort(ioPorts, 3, vdp->portBase + 3, DBG_IO_WRITE, 0);
             if (vdpIsV9968(vdp)) {
-                dbgIoPortsAddPort(ioPorts, 4, 0x9c, DBG_IO_READWRITE, readInterruptStatus(vdp, 0x9c));
+                dbgIoPortsAddPort(ioPorts, 4, vdp->portBase + 4, DBG_IO_READWRITE, readInterruptStatus(vdp, vdp->portBase + 4));
             }
         }
         else {
             ioPorts = dbgDeviceAddIoPorts(dbgDevice, vdpVersionName, 2);
-            dbgIoPortsAddPort(ioPorts, 0, 0x98, DBG_IO_READWRITE,  peek(vdp, 0x98));
-            dbgIoPortsAddPort(ioPorts, 1, 0x99, DBG_IO_READWRITE,  peekStatus(vdp, 0x99));
+            dbgIoPortsAddPort(ioPorts, 0, vdp->portBase + 0, DBG_IO_READWRITE,  peek(vdp, vdp->portBase + 0));
+            dbgIoPortsAddPort(ioPorts, 1, vdp->portBase + 1, DBG_IO_READWRITE,  peekStatus(vdp, vdp->portBase + 1));
         }
         break;
 
@@ -4074,7 +4134,7 @@ static void reset(VDP* vdp)
     vdp->extRegsLocked = 0;
     vdp->sprMode3      = 0;
     vdp->sprPlaneStart = 0;
-    boardClearInt(INT_IE2);
+    boardClearInt(vdp->intIE2);
 
     vdp->vdpStatus[0] = 0x9f;
     vdp->vdpStatus[1] = (vdp->vdpVersion == VDP_V9958 || vdpIsV9968(vdp)) ? 0x04 : 0;
@@ -4086,7 +4146,8 @@ static void reset(VDP* vdp)
     vdp->vdpRegs[4]  = 0xff;
     vdp->vdpRegs[5]  = 0xff;
     vdp->vdpRegs[8]  = 0x08;
-    vdp->vdpRegs[9]  = (0x02 & vdp->palMask) | vdp->palValue;
+    /* No BIOS sets up a secondary VDP, which comes out of reset at 60 Hz. */
+    vdp->vdpRegs[9]  = vdp->secondary ? 0 : (0x02 & vdp->palMask) | vdp->palValue;
     vdp->vdpRegs[21] = 0x3b;
     vdp->vdpRegs[22] = 0x05;
     if (vdpIsV9968(vdp)) {
@@ -4144,7 +4205,12 @@ static void destroy(VDP* vdp)
 {
     int i;
 
-    theVdp = NULL;
+    if (theVdp == vdp) {
+        theVdp = NULL;
+    }
+    if (vdp->secondary) {
+        boardClearInt(vdp->intIE0 | vdp->intIE1 | vdp->intIE2);
+    }
 
     debugDeviceUnregister(vdp->debugHandle);
     deviceManagerUnregister(vdp->deviceHandle);
@@ -4152,12 +4218,12 @@ static void destroy(VDP* vdp)
 
     switch (vdp->vdpConnector) {
     case VDP_MSX:
-        ioPortUnregister(0x98, vdp);
-        ioPortUnregister(0x99, vdp);
-        ioPortUnregister(0x9a, vdp);
-        ioPortUnregister(0x9b, vdp);
+        ioPortUnregister(vdp->portBase + 0, vdp);
+        ioPortUnregister(vdp->portBase + 1, vdp);
+        ioPortUnregister(vdp->portBase + 2, vdp);
+        ioPortUnregister(vdp->portBase + 3, vdp);
         if (vdpIsV9968(vdp)) {
-            ioPortUnregister(0x9c, vdp);
+            ioPortUnregister(vdp->portBase + 4, vdp);
         }
         break;
 
@@ -4207,22 +4273,46 @@ static void videoDisable(VDP* vdp)
     vdp->videoEnabled = 0;
 }
 
-void vdpCreate(VdpConnector connector, VdpVersion version, VdpSyncMode sync, int vramPages)
+static VDP* create(VdpConnector connector, VdpVersion version, VdpSyncMode sync, int vramPages,
+                   const VdpSecondaryConfig* secondary)
 {
     DeviceCallbacks callbacks = { destroy, reset, saveState, loadState };
     DebugCallbacks dbgCallbacks = { getDebugInfo, dbgWriteMemory, dbgWriteRegister, NULL };
     VideoCallbacks videoCallbacks = { videoEnable, videoDisable };
+    /* Drawn all the time, so its status flags hold while another source is
+    ** shown, and it paces the screen while shown. */
+    VideoCallbacks secondaryVideoCallbacks = { NULL, NULL, 1, 1 };
     char* vdpVersionString;
     int vramSize;
     int i;
 
     VDP* vdp = (VDP*)calloc(1, sizeof(VDP));
 
-    theVdp = vdp;
+    if (secondary == NULL) {
+        theVdp = vdp;
+        vdp->portBase  = 0x98;
+        vdp->intIE0    = INT_IE0;
+        vdp->intIE1    = INT_IE1;
+        vdp->intIE2    = INT_IE2;
+        vdp->stateName = "vdp";
+    }
+    else {
+        vdp->secondary    = 1;
+        vdp->portBase     = secondary->portBase;
+        vdp->intIE0       = secondary->intBase;
+        vdp->intIE1       = secondary->intBase << 1;
+        vdp->intIE2       = secondary->intBase << 2;
+        vdp->stateName    = secondary->stateName;
+        vdp->frameDone    = secondary->frameDone;
+        vdp->frameDoneRef = secondary->ref;
+        vdp->videoEnabled = 1;
+    }
 
     initPalette(vdp);
 
-    vdp->deviceHandle = deviceManagerRegister(ROM_V9958, &callbacks, vdp);
+    if (secondary == NULL) {
+        vdp->deviceHandle = deviceManagerRegister(ROM_V9958, &callbacks, vdp);
+    }
 
     vdp->timerDisplay       = boardTimerCreate(onDisplay, vdp);
     vdp->timerDrawAreaStart = boardTimerCreate(onDrawAreaStart, vdp);
@@ -4272,7 +4362,12 @@ void vdpCreate(VdpConnector connector, VdpVersion version, VdpSyncMode sync, int
     vdp->vdpConnector  = connector;
 
     vdp->frameBuffer   = frameBufferDataCreate(8 + 256 + 8, 240, 1);
-    vdp->videoHandle   = videoManagerRegister(VdpNames[version], vdp->frameBuffer, &videoCallbacks, vdp);
+    if (secondary == NULL) {
+        vdp->videoHandle = videoManagerRegister(VdpNames[version], vdp->frameBuffer, &videoCallbacks, vdp);
+    }
+    else {
+        vdp->videoHandle = videoManagerRegister(secondary->name, vdp->frameBuffer, &secondaryVideoCallbacks, vdp);
+    }
 
     if (sync == VDP_SYNC_AUTO) {
         vdp->palMask  = ~0;
@@ -4291,6 +4386,9 @@ void vdpCreate(VdpConnector connector, VdpVersion version, VdpSyncMode sync, int
     vdp->cmdEngine = vdpCmdCreate(vramSize, vdp->vram, boardSystemTime());
     vdpCmdSetExpansionWindow(vdp->cmdEngine, version != VDP_V9968);
     vdpCmdSetV9968(vdp->cmdEngine, version == VDP_V9968);
+    if (secondary != NULL) {
+        vdpCmdSetSecondary(vdp->cmdEngine, secondary->cmdStateName);
+    }
 
     spriteLineReset(vdp);
     reset(vdp);
@@ -4336,18 +4434,21 @@ void vdpCreate(VdpConnector connector, VdpVersion version, VdpSyncMode sync, int
         break;
     }
     
+    if (secondary != NULL) {
+        vdpVersionString = (char*)secondary->name;
+    }
     vdp->debugHandle = debugDeviceRegister(DBGTYPE_VIDEO, vdpVersionString, &dbgCallbacks, vdp);
 
     switch (vdp->vdpConnector) {
     case VDP_MSX:
-        ioPortRegister(0x98, read,       write,      vdp);
-        ioPortRegister(0x99, readStatus, writeLatch, vdp);
+        ioPortRegister(vdp->portBase + 0, read,       write,      vdp);
+        ioPortRegister(vdp->portBase + 1, readStatus, writeLatch, vdp);
         if (vdpIsV99x8(vdp)) {
-            ioPortRegister(0x9a, NULL, writePaletteLatch, vdp);
-            ioPortRegister(0x9b, NULL, writeRegister,     vdp);
+            ioPortRegister(vdp->portBase + 2, NULL, writePaletteLatch, vdp);
+            ioPortRegister(vdp->portBase + 3, NULL, writeRegister,     vdp);
         }
         if (vdpIsV9968(vdp)) {
-            ioPortRegister(0x9c, readInterruptStatus, writeInterruptStatus, vdp);
+            ioPortRegister(vdp->portBase + 4, readInterruptStatus, writeInterruptStatus, vdp);
         }
         break;
 
@@ -4370,6 +4471,56 @@ void vdpCreate(VdpConnector connector, VdpVersion version, VdpSyncMode sync, int
         ioPortRegister(0xbf, readStatus, writeLatch, vdp);
         break;
     }
+
+    return vdp;
+}
+
+void vdpCreate(VdpConnector connector, VdpVersion version, VdpSyncMode sync, int vramPages)
+{
+    create(connector, version, sync, vramPages, NULL);
+}
+
+/* The V9968 picks 50 or 60 Hz from its own R#9, whatever the machine's setting. */
+VDP* vdpCreateSecondary(const VdpSecondaryConfig* config)
+{
+    return create(VDP_MSX, VDP_V9968, VDP_SYNC_AUTO, 16, config);
+}
+
+void vdpDestroySecondary(VDP* vdp)
+{
+    destroy(vdp);
+}
+
+/* A reset drops /INT; the BIOS clears only the machine VDP's. */
+void vdpResetSecondary(VDP* vdp)
+{
+    boardClearInt(vdp->intIE0 | vdp->intIE1 | vdp->intIE2);
+    reset(vdp);
+}
+
+void vdpSaveStateSecondary(VDP* vdp)
+{
+    saveState(vdp);
+}
+
+void vdpLoadStateSecondary(VDP* vdp)
+{
+    loadState(vdp);
+}
+
+int vdpGetVideoHandle(VDP* vdp)
+{
+    return vdp->videoHandle;
+}
+
+int vdpGetScreenMode(VDP* vdp)
+{
+    return vdp->screenMode;
+}
+
+int vdpIsDisplayOn(VDP* vdp)
+{
+    return (vdp->vdpRegs[1] & 0x40) != 0;
 }
 
 

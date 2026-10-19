@@ -79,10 +79,38 @@ int vdpDebugColorsMatch(int first, int second);
 /* The machine VDP frames begun since power-on, the one in progress included: it goes back
 ** with a state load or a rewind, as it is part of the state. 0 without a VDP. */
 UInt32 vdpGetMachineFrame(void);
-int  vdpGetCommandBusy();
-void vdpWriteCommandRegister(UInt8 reg, UInt8 value);
-UInt32 vdpGetCommandEndTime();
-void vdpAddCommandCredit(int units);
+
+struct VDP;
+
+/* A V9968 beside the machine's VDP, as on a cartridge. It answers on ports
+** portBase to portBase + 4 and raises intBase, intBase << 1 and intBase << 2.
+** Its owner resets, saves, loads and destroys it; frameDone is called as each
+** of its frames starts. */
+typedef struct {
+    int portBase;
+    int intBase;
+    const char* name;
+    const char* stateName;
+    const char* cmdStateName;
+    void (*frameDone)(void* ref, struct VDP* vdp, int isPal);
+    void* ref;
+} VdpSecondaryConfig;
+
+struct VDP* vdpCreateSecondary(const VdpSecondaryConfig* config);
+void vdpDestroySecondary(struct VDP* vdp);
+void vdpResetSecondary(struct VDP* vdp);
+void vdpSaveStateSecondary(struct VDP* vdp);
+void vdpLoadStateSecondary(struct VDP* vdp);
+int  vdpGetVideoHandle(struct VDP* vdp);
+int  vdpGetScreenMode(struct VDP* vdp);
+/* R#1 BL. */
+int  vdpIsDisplayOn(struct VDP* vdp);
+
+/* geo3d drives the command engine through these; NULL is the machine VDP. */
+int  vdpGetCommandBusy(struct VDP* vdp);
+void vdpWriteCommandRegister(struct VDP* vdp, UInt8 reg, UInt8 value);
+UInt32 vdpGetCommandEndTime(struct VDP* vdp);
+void vdpAddCommandCredit(struct VDP* vdp, int units);
 
 // Video DA Interface
 

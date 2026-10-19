@@ -31,6 +31,7 @@ typedef struct VdpCmdState VdpCmdState;
 VdpCmdState* vdpCmdCreate(int vramSize, UInt8* vramPtr, UInt32 systemTime);
 
 void vdpCmdDestroy(VdpCmdState* state);
+void vdpCmdSetSecondary(VdpCmdState* state, const char* stateName);
 
 /*************************************************************
 ** vdpCmdWrite
