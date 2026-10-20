@@ -61,4 +61,9 @@ void mouseEmuOnClick(void);
 ** cursor reappears and the next idle countdown starts fresh. */
 void mouseEmuOnUserMouseActivity(void);
 
+/* Zero only if the cursor is still where mouseEmuOnUserMouseActivity last
+** saw it. Windows sends WM_MOUSEMOVE when a window appears or moves under
+** a still cursor, so WM_MOUSEMOVE alone does not mean the user moved it. */
+int mouseEmuCursorMoved(void);
+
 #endif
