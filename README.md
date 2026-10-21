@@ -6,6 +6,37 @@ Modernization focuses on the UI and audio paths, targeting Windows 11.
 [日本語版はこちら / Japanese version](README.ja.md)
 
 
+## About this branch: experimental V9968 support
+
+This `experimental/v9968` branch adds **experimental** support for the VDP [**V9968**](https://github.com/hra1129/V9968_Cartridge), which HRA! is developing.  
+It is not an official release, and it keeps following the V9968 specification, so its behavior may still change.  
+The V9968 cartridge (a second VDP) is not supported; only replacing the built-in V9958 with a V9968 is.  
+V9958 compatible mode runs on the existing V9958 code, so it cannot evaluate the V9968's V9958 compatibility.
+
+Prebuilt binaries can be downloaded from the pre-releases on the [Releases](https://github.com/Hesoten/blueMSX-plus/releases) page.
+
+### Enabling the V9968
+
+1. Open **Tools → Machine Editor**
+2. Under **Profile Name**, pick the machine to start from (for example `MSX2+ - Panasonic FS-A1WSX` or `MSXturboR - Panasonic FS-A1GT`)
+3. On the **Chip Emulation** tab, set **Video Chip** to `V9968` and check that **Video RAM** reads `256 kB`
+4. Use **Save As...** and give it a name such as `<base machine name> V9968`, for example `MSX2+ - Panasonic FS-A1WSX V9968`
+5. Press **Run**
+
+From then on, choosing the saved machine starts it with the V9968.
+
+### Software for the V9968
+
+The following software for the V9968 has been confirmed to run.
+
+- [hra1129/V9968_Cartridge](https://github.com/hra1129/V9968_Cartridge) — the [devcon](https://github.com/hra1129/V9968_Cartridge/tree/main/fpga/V9968_Cartridge_TangNano20K/src/v9968/devcon) demo in HRA!'s V9968 development repository
+- [kanon-ai/V9968_SampleDemo](https://github.com/kanon-ai/V9968_SampleDemo) — a collection of V9968 sample demos by Kanon
+- [kanon-ai/NEON_REVENANT](https://github.com/kanon-ai/NEON_REVENANT) — a pseudo-3D shooter by Kanon
+- [renatus-xxxx/openmsx-v9968-windows-setup](https://github.com/renatus-xxxx/openmsx-v9968-windows-setup) — V9968 TECH DEMO and SCENE3 BENCHMARK by renatus (under `demos`)
+
+Some of these ROMs cannot be recognized automatically. Open them with the ROM type their repository names (such as ASCII16).
+
+
 ## What's new in v3.1.1
 
 - Fixed the emulator terminating abnormally when the window was minimized while the sync mode was **Sync to PC Vertical Blank** (the default since v3.1.0)

@@ -55,9 +55,9 @@ typedef void FrameBuffer;
 typedef struct {
     int age;           // Internal use
     InterlaceMode interlace;
-    int interlaceRaster; // 1 if VDP IL bit set (480-raster).  Independent
-                         // of `interlace`: Mode 1 has raster=1, interlace=
-                         // NONE; Mode 3 sets both.  Suppresses scanlines.
+    int interlaceRaster; // 1 when the raster is shifted a half line (480-raster).
+                         // Independent of `interlace`: one page on that raster
+                         // has interlace=NONE.  Suppresses scanlines.
     int maxWidth;
     int lines;         // Number of lines in frame buffer
     LineBuffer line[FB_MAX_LINES];
