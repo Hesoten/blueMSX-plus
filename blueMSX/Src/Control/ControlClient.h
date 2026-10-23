@@ -44,7 +44,7 @@ void ctrlClientCreate(void);
 CtrlClient ctrlClientOpen(void);
 void       ctrlClientClose(CtrlClient client);
 
-/* Asked before a request is served. */
+/* Asked before a request is served, and by the accesses that read or change the machine. */
 int  ctrlClientAllowed(CtrlClient client);
 
 void ctrlClientBlockAll(int block);
@@ -59,5 +59,9 @@ int  ctrlClientAllBlocked(void);
 int  ctrlGateLevel(void);
 void ctrlGateSetLevel(int level);
 const char* ctrlGateLevelText(int level);
+
+/* Client the current work belongs to; set around each request by whatever services it. */
+void       ctrlClientSetCurrent(CtrlClient client);
+CtrlClient ctrlClientCurrent(void);
 
 #endif

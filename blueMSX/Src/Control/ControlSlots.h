@@ -26,7 +26,8 @@
 #include "ControlText.h"
 #include "MsxTypes.h"
 
-/* One row per Z80 page. */
+/* One row per Z80 page, then every banked device and how to address its segments,
+** then the slots with contents but no segments that are not paged in. */
 void ctrlSlotsDescribe(CtrlText* text);
 
 /* Each Z80 page's slot and segment. */
@@ -37,5 +38,8 @@ void ctrlSlotsDescribePages(CtrlText* text);
 Int32 ctrlSlotsPagedIn(UInt16 z80, int* slot, int* subSlot);
 /* The same slot and subslot alone. */
 void  ctrlSlotsPageSlot(UInt16 z80, int* slot, int* subSlot);
+
+/* Says that a slot with contents reports no segments and what to use instead; no newline. */
+void ctrlSlotsDescribeNoSegments(CtrlText* text, int slot, int subSlot);
 
 #endif

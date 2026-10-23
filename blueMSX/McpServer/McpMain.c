@@ -245,9 +245,11 @@ static void handle(const char* request)
                   "\"capabilities\":{\"tools\":{}},"
                   "\"serverInfo\":{\"name\":\"bluemsx\",\"version\":\"1.0\"},"
                   "\"instructions\":\"Debugging an MSX program running in blueMSX+. "
-                  "Registers and the text screen are read only while the machine "
+                  "Memory, registers and the text screen are read only while the machine "
                   "is paused: pause it (bmsx_run how=pause) or let it run to a stop "
-                  "with bmsx_run_until (Full access) first.\"}}",
+                  "with bmsx_run_until (Full access) first. "
+                  "Addresses these tools print can be sent straight back to them; do "
+                  "not work out slot or segment arithmetic yourself.\"}}",
                   id);
         emit(outLine);
         return;

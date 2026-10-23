@@ -96,6 +96,10 @@ int debugDeviceIsInspecting(void);
 void debugDeviceInspectBegin(void);
 void debugDeviceInspectEnd(void);
 
+/* A VRAM address as the program uses it in that screen mode, to the index of its byte in the
+** chips, and back. Only below 0x20000 do the interleaving modes number the bytes otherwise. */
+int debugDeviceVramIndex(int screenMode, int address);
+int debugDeviceVramAddress(int screenMode, int index);
 
 int debugDeviceWriteMemory(DbgMemoryBlock* memoryBlock, void* data, int startAddr, int size);
 int debugDeviceWriteRegister(DbgRegisterBank* regBank, int regIndex, UInt32 value);

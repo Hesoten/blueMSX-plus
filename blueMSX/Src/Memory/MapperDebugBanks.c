@@ -43,7 +43,7 @@ void mapperBanksInit(MapperBanks* banks, const MapperBanksType* type, void* ref,
 
 void mapperBanksProgramWrote(MapperBanks* banks, int reg)
 {
-    /* The window's write through the bus is a debugger switch. */
+    /* An agent's or the window's write through the bus is a debugger switch. */
     if (debugDeviceIsInspecting()) {
         return;
     }

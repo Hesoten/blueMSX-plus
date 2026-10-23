@@ -35,6 +35,11 @@ void ctrlTextInit(CtrlText* text, char* buffer, int capacity)
     }
 }
 
+int ctrlTextIsFull(const CtrlText* text)
+{
+    return text->full;
+}
+
 int ctrlTextHexDigit(int c)
 {
     if (c >= '0' && c <= '9') return c - '0';

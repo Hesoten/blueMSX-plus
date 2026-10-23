@@ -61,6 +61,17 @@ UInt8* vdpDebugGetVram(UInt32* size);
 int vdpDebugGetRegisters(UInt8* registers, int max);
 int vdpDebugGetScreenMode(void);
 
+/* SCREEN 7, 8 and 10-12 interleave the two 64 kB banks: below 0x20000, program address a
+** is the chips' byte VDP_VRAM_INDEX(a), and byte i is address VDP_VRAM_ADDRESS(i). */
+#define VDP_VRAM_INTERLEAVED(mode) ((mode) >= 7 && (mode) <= 12)
+#define VDP_VRAM_INDEX(a)          (((a) >> 1) | (((a) & 1) << 16))
+#define VDP_VRAM_ADDRESS(i)        ((((i) & 0xffff) << 1) | ((i) >> 16))
+
+/* 1 when that screen mode interleaves the two 64 kB banks of VRAM. */
+int vdpVramInterleaved(int mode);
+/* 1 when the two screen modes lay VRAM out the same way. */
+int vdpVramSameLayout(int mode, int other);
+
 /* 1 when the two colour indices are drawn in exactly the same colour now (palette, backdrop for 0). */
 int vdpDebugColorsMatch(int first, int second);
 

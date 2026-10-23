@@ -36,6 +36,11 @@ int ctrlOpStatus(CtrlCall* call);
 /* ControlOpSlots.c */
 int ctrlOpSlots(CtrlCall* call);
 
+/* ControlOpMemory.c */
+int ctrlOpMemRead(CtrlCall* call);
+int ctrlOpMemResolve(CtrlCall* call);
+int ctrlOpMemWrite(CtrlCall* call);
+
 /* ControlOpScreen.c */
 int ctrlOpScreen(CtrlCall* call);
 

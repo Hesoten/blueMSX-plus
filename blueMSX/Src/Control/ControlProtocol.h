@@ -39,6 +39,12 @@
 /* Reply texts name the MCP tools to call next (bmsx_run how=pause): those names are part of
 ** this protocol. */
 
+/* The most bytes one mem.write takes, in any data form however spaced. */
+#define CTRL_MEM_WRITE_MAX 511
+
+/* The longest "at", in bytes. */
+#define CTRL_AT_MAX 255
+
 /* A path in a request, in UTF-8 bytes: MAX_PATH characters at 3 bytes each, and the NUL. */
 #define CTRL_PATH_MAX 1024
 
@@ -47,6 +53,9 @@
 #define CTRL_STR(x)  CTRL_STR_(x)
 
 /* Each op's default, smallest and largest value of a number argument. */
+#define CTRL_MEM_READ_COUNT_DEFAULT       256
+#define CTRL_MEM_READ_COUNT_MIN           1
+#define CTRL_MEM_READ_COUNT_MAX           65536
 #define CTRL_RUN_COUNT_DEFAULT            1
 #define CTRL_RUN_COUNT_MIN                1
 #define CTRL_RUN_COUNT_MAX                100000

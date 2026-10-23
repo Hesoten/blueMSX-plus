@@ -21,6 +21,7 @@
 ******************************************************************************
 */
 #include "ControlCall.h"
+#include "ControlMemory.h"
 #include "ControlProtocol.h"
 #include "Debugger.h"
 #include "Emulator.h"
@@ -245,6 +246,6 @@ int ctrlRefuseAccess(CtrlCall* call, int result)
     case DBG_ACCESS_CHANGING:
         return ctrlReplyError(call, "busy", CTRL_TEXT_CHANGING);
     default:
-        return ctrlReplyError(call, "busy", "the emulation thread could not be stopped in time");
+        return ctrlReplyError(call, "busy", ctrlMemErrorText(CTRL_MEM_NOVIEW));
     }
 }

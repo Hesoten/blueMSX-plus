@@ -33,6 +33,7 @@ typedef struct {
 
 void ctrlTextInit(CtrlText* text, char* buffer, int capacity);
 void ctrlTextAdd(CtrlText* text, const char* format, ...);
+int  ctrlTextIsFull(const CtrlText* text);
 
 /* The value of a hex digit, 0-15, or -1 when c is none. */
 int  ctrlTextHexDigit(int c);

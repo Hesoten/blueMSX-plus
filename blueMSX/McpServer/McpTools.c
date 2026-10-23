@@ -34,10 +34,20 @@
 #define SCHEMA(body) "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\"," \
                      "\"type\":\"object\"," body "}"
 
+#define AT_PROPERTY \
+    "\"at\":{\"type\":\"string\",\"description\":" \
+    "\"Where. One of: 0xC000 (what the Z80 sees now), slot1.0:seg5+0x100 (a " \
+    "segment of a slot, whether or not it is paged in), ram:seg12+0x1A30 (the " \
+    "memory mapper in page 3), vram:0x1B00 (as the program addresses video memory " \
+    "through the VDP). Addresses printed by these tools can be " \
+    "sent straight back.\"}"
+
 #define READ_ONLY "\"readOnlyHint\":true,\"destructiveHint\":false," \
                   "\"idempotentHint\":true,\"openWorldHint\":false"
 #define CHANGES   "\"readOnlyHint\":false,\"destructiveHint\":false," \
                   "\"idempotentHint\":false,\"openWorldHint\":false"
+#define DESTROYS  "\"readOnlyHint\":false,\"destructiveHint\":true," \
+                  "\"idempotentHint\":true,\"openWorldHint\":false"
 
 const McpTool mcpTools[] = {
 {
@@ -55,11 +65,34 @@ const McpTool mcpTools[] = {
 },
 {
     "bmsx_slots",
-    "The slot map: what fills every slot and subslot and which segment each Z80 "
-    "page is showing.",
+    "The slot map: what fills every slot and subslot, which segment each Z80 "
+    "page is showing, and what else is in the machine that is not paged in "
+    "right now but can still be read.",
     SCHEMA("\"properties\":{}"),
     READ_ONLY,
     "slots",
+    NULL
+},
+{
+    "bmsx_mem_read",
+    "Read memory as a hex dump. Works on segments that are not currently "
+    "paged in, which is where most of a mapper program lives.",
+    SCHEMA("\"properties\":{" AT_PROPERTY ","
+           "\"count\":{\"type\":\"integer\",\"default\":" CTRL_STR(CTRL_MEM_READ_COUNT_DEFAULT) ","
+           "\"minimum\":" CTRL_STR(CTRL_MEM_READ_COUNT_MIN) ",\"maximum\":"
+           CTRL_STR(CTRL_MEM_READ_COUNT_MAX) "}},\"required\":[\"at\"]"),
+    READ_ONLY,
+    "mem.read",
+    NULL
+},
+{
+    "bmsx_mem_resolve",
+    "What an address turns out to be right now: which slot and segment, "
+    "whether the Z80 can currently see it and at what address, and what the "
+    "slot holds.",
+    SCHEMA("\"properties\":{" AT_PROPERTY "},\"required\":[\"at\"]"),
+    READ_ONLY,
+    "mem.resolve",
     NULL
 },
 {
@@ -110,6 +143,17 @@ const McpTool mcpTools[] = {
            "replaced; Full access only\"}}"),
     READ_ONLY,
     "screen",
+    NULL
+},
+{
+    "bmsx_mem_write",
+    "Write bytes into the machine. This changes the program that is running.",
+    SCHEMA("\"properties\":{" AT_PROPERTY ","
+           "\"data\":{\"type\":\"string\",\"description\":"
+           "\"hex bytes, for example \\\"3E 01 C9\\\"\"}},"
+           "\"required\":[\"at\",\"data\"]"),
+    DESTROYS,
+    "mem.write",
     NULL
 },
 };

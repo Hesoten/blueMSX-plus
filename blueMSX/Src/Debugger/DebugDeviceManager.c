@@ -31,6 +31,7 @@
 #include "DebugDeviceManager.h"
 #include "Board.h"
 #include "ArchThread.h"
+#include "VDP.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -109,6 +110,22 @@ static ARCH_THREAD_LOCAL int inspecting = 0;
 int debugDeviceIsInspecting(void)
 {
     return inspecting != 0;
+}
+
+int debugDeviceVramIndex(int screenMode, int address)
+{
+    if (!VDP_VRAM_INTERLEAVED(screenMode) || address < 0 || address >= 0x20000) {
+        return address;
+    }
+    return VDP_VRAM_INDEX(address);
+}
+
+int debugDeviceVramAddress(int screenMode, int index)
+{
+    if (!VDP_VRAM_INTERLEAVED(screenMode) || index < 0 || index >= 0x20000) {
+        return index;
+    }
+    return VDP_VRAM_ADDRESS(index);
 }
 
 void debugDeviceInspectBegin(void)

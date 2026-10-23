@@ -979,6 +979,7 @@
     <ClCompile Include="..\..\Src\Media\Sha1.cpp" />
     <ClCompile Include="..\..\Src\Debugger\DebugDeviceManager.c" />
     <ClCompile Include="..\..\Src\Control\ControlClient.c" />
+    <ClCompile Include="..\..\Src\Control\ControlAddress.c" />
     <ClCompile Include="..\..\Src\Control\ControlCpu.c" />
     <ClCompile Include="..\..\Src\Control\ControlStopLog.c" />
     <ClCompile Include="..\..\Src\Control\ControlSlots.c" />
@@ -987,17 +988,20 @@
     <ClCompile Include="..\..\Src\Control\ControlDebuggerListener.c" />
     <ClCompile Include="..\..\Src\Control\ControlScreen.c" />
     <ClCompile Include="..\..\Src\Control\ControlRequest.c" />
+    <ClCompile Include="..\..\Src\Control\ControlMemory.c" />
     <ClCompile Include="..\..\Src\Control\ControlText.c" />
     <ClCompile Include="..\..\Src\Control\ControlPath.c" />
     <ClCompile Include="..\..\Src\Control\ControlSession.c" />
     <ClCompile Include="..\..\Src\Control\ControlCall.c" />
     <ClCompile Include="..\..\Src\Control\ControlOpSlots.c" />
+    <ClCompile Include="..\..\Src\Control\ControlOpMemory.c" />
     <ClCompile Include="..\..\Src\Control\ControlOpRun.c" />
     <ClCompile Include="..\..\Src\Control\ControlOpScreen.c" />
     <ClCompile Include="..\..\Src\Control\ControlView.c" />
     <ClCompile Include="..\..\Src\Control\ControlHello.c" />
     <ClCompile Include="..\..\Src\Win32\Win32ControlInstance.c" />
     <ClCompile Include="..\..\Src\Win32\Win32ControlPeer.c" />
+    <ClCompile Include="..\..\Src\Control\ControlAddressArg.c" />
     <ClCompile Include="..\..\Src\Control\ControlVram.c" />
     <ClCompile Include="..\..\Src\Debugger\Debugger.c" />
     <ClCompile Include="..\..\Src\Debugger\DebugBreakpoints.c" />
@@ -1384,6 +1388,7 @@
     <ClInclude Include="..\..\Src\Media\Sha1.h" />
     <ClInclude Include="..\..\Src\Debugger\DebugDeviceManager.h" />
     <ClInclude Include="..\..\Src\Control\ControlClient.h" />
+    <ClInclude Include="..\..\Src\Control\ControlAddress.h" />
     <ClInclude Include="..\..\Src\Control\ControlCpu.h" />
     <ClInclude Include="..\..\Src\Control\ControlStopLog.h" />
     <ClInclude Include="..\..\Src\Control\ControlSlots.h" />
@@ -1394,6 +1399,7 @@
     <ClInclude Include="..\..\Src\Control\ControlScreen.h" />
     <ClInclude Include="..\..\Src\Control\ControlRequest.h" />
     <ClInclude Include="..\..\Src\Control\ControlSocket.h" />
+    <ClInclude Include="..\..\Src\Control\ControlMemory.h" />
     <ClInclude Include="..\..\Src\Control\ControlText.h" />
     <ClInclude Include="..\..\Src\Control\ControlPath.h" />
     <ClInclude Include="..\..\Src\Control\ControlSession.h" />
@@ -1403,6 +1409,7 @@
     <ClInclude Include="..\..\Src\Control\ControlHello.h" />
     <ClInclude Include="..\..\Src\Control\ControlInstance.h" />
     <ClInclude Include="..\..\Src\Control\ControlPeer.h" />
+    <ClInclude Include="..\..\Src\Control\ControlAddressArg.h" />
     <ClInclude Include="..\..\Src\Control\ControlVram.h" />
     <ClInclude Include="..\..\Src\Control\ControlAddressType.h" />
     <ClInclude Include="..\..\Src\Debugger\Debugger.h" />

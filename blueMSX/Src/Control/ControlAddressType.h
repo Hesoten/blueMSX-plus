@@ -41,6 +41,31 @@ typedef struct {
     UInt8  subSlot;
     Int32  segment;
     UInt32 offset;
+    /* For a parsed ram: address: why it named this slot (CTRL_RAM_*), and the slot page 3
+    ** showed then, so a reply says what the parse saw rather than reading page 3 again. */
+    UInt8  ramWhy;
+    UInt8  ramPage3Slot;
+    UInt8  ramPage3SubSlot;
 } CtrlAddr;
+
+/* An address resolved against the machine as it stands now. */
+#define CTRL_CONTENTS_MAX 128
+
+typedef struct {
+    CtrlAddr canonical;   /* always CTRL_SPACE_SLOT or CTRL_SPACE_VRAM     */
+    Int32    z80Address;  /* -1 when the Z80 cannot reach it right now     */
+    Int32    z80Page;     /* -1 likewise                                   */
+    Int32    segmentSize; /* in bytes, 0 if none is reported               */
+    Int32    segmentCount;/* segments in the slot, -1 if unknown           */
+    UInt32   spaceSize;   /* bytes the whole space holds, 0 if unpublished */
+    int      readable;    /* the bytes can be produced at all              */
+    int      writable;
+    char     contents[CTRL_CONTENTS_MAX];
+} CtrlAddrInfo;
+
+/* Why "ram:" names the slot it does: CtrlAddr.ramWhy. */
+#define CTRL_RAM_NONE  0   /* it names nothing */
+#define CTRL_RAM_PAGE3 1   /* the memory mapper in page 3 now, the RAM the program runs in */
+#define CTRL_RAM_MAIN  2   /* page 3 is no memory mapper: the machine's own main RAM */
 
 #endif

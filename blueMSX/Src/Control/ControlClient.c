@@ -27,6 +27,8 @@
 static CtrlClientInfo clients[CTRL_CLIENT_MAX];
 static int        clientUsed[CTRL_CLIENT_MAX];
 static CtrlClient nextClientId = 1;
+/* Written only by the thread that serves agents. */
+static CtrlClient currentClient;
 static volatile int blockAll;
 /* A leaf lock over the clients: the window's thread revokes them too. */
 static void*      clientLock;
@@ -49,6 +51,7 @@ void ctrlClientCreate(void)
     memset(clients, 0, sizeof(clients));
     memset(clientUsed, 0, sizeof(clientUsed));
     nextClientId = 1;
+    currentClient = CTRL_CLIENT_NONE;
 }
 
 static CtrlClientInfo* findClient(CtrlClient client)
@@ -150,4 +153,14 @@ const char* ctrlGateLevelText(int level)
     case CTRL_GATE_FULL:     return "full";
     default:                 return "off";
     }
+}
+
+void ctrlClientSetCurrent(CtrlClient client)
+{
+    currentClient = client;
+}
+
+CtrlClient ctrlClientCurrent(void)
+{
+    return currentClient;
 }

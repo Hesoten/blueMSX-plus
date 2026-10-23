@@ -52,6 +52,15 @@ typedef struct {
 static int ctrlOpHelp(CtrlCall* call);
 
 /* What each op reads, in the order its help row names them. */
+static const CtrlArg memReadArgs[] = {
+    { "at", CTRL_ARG_TEXT, CTRL_AT_MAX }, { "count", CTRL_ARG_INT, 0 }, { NULL }
+};
+static const CtrlArg memWriteArgs[] = {
+    { "at", CTRL_ARG_TEXT, CTRL_AT_MAX }, { "data", CTRL_ARG_TEXT, CTRL_LINE_MAX - 1 }, { NULL }
+};
+static const CtrlArg memResolveArgs[] = {
+    { "at", CTRL_ARG_TEXT, CTRL_AT_MAX }, { NULL }
+};
 static const CtrlArg runArgs[] = {
     { "how", CTRL_ARG_TEXT, 15 }, { "count", CTRL_ARG_INT, 0 }, { NULL }
 };
@@ -72,6 +81,12 @@ static const CtrlOp opTable[] = {
       "  status\n" },
     { "slots",             CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpSlots, NULL,
       "  slots\n" },
+    { "mem.read",          CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpMemRead, OP_ARGS(memReadArgs),
+      "  mem.read     at, count\n" },
+    { "mem.write",         CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpMemWrite, OP_ARGS(memWriteArgs),
+      "  mem.write    at, data (hex)\n" },
+    { "mem.resolve",       CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpMemResolve, OP_ARGS(memResolveArgs),
+      "  mem.resolve  at\n" },
     { "run",               CTRL_OP_CHANGES, CTRL_OP_SELF, ctrlOpRun, OP_ARGS(runArgs),
       "  run          how = pause|resume|step, count\n" },
     { "run.until",         CTRL_OP_CHANGES, CTRL_OP_SELF, ctrlOpRunUntil, OP_ARGS(runUntilArgs),
@@ -100,6 +115,13 @@ static int ctrlOpHelp(CtrlCall* call)
     for (i = 0; i < (int)(sizeof(opTable) / sizeof(opTable[0])); i++) {
         ctrlTextAdd(&call->text, "%s", opTable[i].help);
     }
+    ctrlTextAdd(&call->text,
+        "\n"
+        "addresses are one of:\n"
+        "  0xC000                what the Z80 can see right now\n"
+        "  slot1.0:seg5+0x0100   a segment of a slot, paged in or not\n"
+        "  ram:seg12+0x1A30      the memory mapper in page 3\n"
+        "  vram:0x1B00           as the program addresses video memory through the VDP\n");
     return ctrlReplyDone(call);
 }
 
@@ -184,6 +206,7 @@ int ctrlRequestHandle(CtrlClient client, const char* request,
                               "person at the keyboard for Tools, Agent Control, Full.");
     }
 
+    ctrlClientSetCurrent(client);
     ctrlTextInit(&call.text, textBuffer, TEXT_MAX);
     ctrlReplyBegin(&call);
 

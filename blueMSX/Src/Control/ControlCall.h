@@ -23,6 +23,7 @@
 #ifndef CONTROL_CALL_H
 #define CONTROL_CALL_H
 
+#include "ControlAddressType.h"
 #include "ControlJson.h"
 #include "ControlSession.h"
 #include "ControlText.h"
@@ -71,6 +72,7 @@ typedef struct {
     const CtrlArg* args;      /* what the op reads, ending in { NULL }; NULL for nothing */
     CtrlArgValue   values[CTRL_OP_ARGS_MAX];
     const char*    undeclared;  /* the first key the handler read that args does not have */
+    int            atUnread;    /* "at" names a register the machine cannot give now */
 } CtrlCall;
 
 /* Reads every argument the op declares, in order, and refuses the first one that is bad. */
