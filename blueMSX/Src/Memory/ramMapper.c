@@ -148,7 +148,8 @@ static void getDebugInfo(RamMapper* rm, DbgDevice* dbgDevice)
 
 static int dbgWriteMemory(RamMapper* rm, char* name, void* data, int start, int size)
 {
-    if (strcmp(name, "Mapped") || start + size > rm->size) {
+    /* The block is registered under the translated name. */
+    if (strcmp(name, langDbgMemRamMapped()) || start + size > rm->size) {
         return 0;
     }
 
