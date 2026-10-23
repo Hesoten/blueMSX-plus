@@ -61,6 +61,9 @@ static const CtrlArg memWriteArgs[] = {
 static const CtrlArg memResolveArgs[] = {
     { "at", CTRL_ARG_TEXT, CTRL_AT_MAX }, { NULL }
 };
+static const CtrlArg regWriteArgs[] = {
+    { "reg", CTRL_ARG_TEXT, 15 }, { "value", CTRL_ARG_TEXT, 95 }, { NULL }
+};
 static const CtrlArg runArgs[] = {
     { "how", CTRL_ARG_TEXT, 15 }, { "count", CTRL_ARG_INT, 0 }, { NULL }
 };
@@ -87,6 +90,8 @@ static const CtrlOp opTable[] = {
       "  mem.write    at, data (hex)\n" },
     { "mem.resolve",       CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpMemResolve, OP_ARGS(memResolveArgs),
       "  mem.resolve  at\n" },
+    { "reg.write",         CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpRegWrite, OP_ARGS(regWriteArgs),
+      "  reg.write    reg, value\n" },
     { "run",               CTRL_OP_CHANGES, CTRL_OP_SELF, ctrlOpRun, OP_ARGS(runArgs),
       "  run          how = pause|resume|step, count\n" },
     { "run.until",         CTRL_OP_CHANGES, CTRL_OP_SELF, ctrlOpRunUntil, OP_ARGS(runUntilArgs),

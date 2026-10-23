@@ -156,6 +156,24 @@ const McpTool mcpTools[] = {
     "mem.write",
     NULL
 },
+{
+    "bmsx_reg_write",
+    "Set a CPU register. This is how to carry on from a mistake instead of "
+    "starting the program again: move the PC past the call that faults, put "
+    "back a value a routine clobbered, take the other branch. The reply says "
+    "what the register held before, so the change can be put back by hand.",
+    SCHEMA("\"properties\":{"
+           "\"reg\":{\"type\":\"string\",\"description\":"
+           "\"AF BC DE HL, the alternates AF1 BC1 DE1 HL1, IX IY SP PC I R IM "
+           "IFF1 IFF2, or a half: A F B C D E H L IXH IXL IYH IYL\"},"
+           "\"value\":{\"type\":\"string\",\"description\":"
+           "\"0x4000, 4000h or a decimal number. A "
+           "bare number is decimal.\"}},"
+           "\"required\":[\"reg\",\"value\"]"),
+    DESTROYS,
+    "reg.write",
+    NULL
+},
 };
 
 const int mcpToolCount = (int)(sizeof(mcpTools) / sizeof(mcpTools[0]));

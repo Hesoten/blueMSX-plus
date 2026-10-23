@@ -35,6 +35,15 @@ Int32 ctrlCpuPc(void);
 ** view. */
 Int32 ctrlCpuRegister(const char* name);
 
+/* Non-zero when name is a register, or a half of one, that can be set; else 0 with err. */
+int ctrlCpuCheckName(const char* name, char* err, int errLen);
+
+/* Sets a CPU register by its printed name or an 8 bit half (A, H, IXL...).
+** The caller must hold a view. *previous, if not NULL, gets the old value.
+** Returns 0 with err filled on refusal, -1 when no view gave the registers. */
+int ctrlCpuSetRegister(const char* name, UInt32 value, Int32* previous,
+                       char* err, int errLen);
+
 /* A breakpoint at pc: a plain one, or a segment one for the segment paged in there now. */
 int ctrlCpuBreakpointAt(Int32 pc);
 

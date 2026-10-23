@@ -90,6 +90,159 @@ Int32 ctrlCpuRegister(const char* name)
     return value;
 }
 
+/* The CPU bank publishes only pairs; these halves are mapped onto them. */
+static const struct { const char* name; const char* pair; int high; } regHalf[] = {
+    { "A",   "AF", 1 }, { "F",   "AF", 0 },
+    { "B",   "BC", 1 }, { "C",   "BC", 0 },
+    { "D",   "DE", 1 }, { "E",   "DE", 0 },
+    { "H",   "HL", 1 }, { "L",   "HL", 0 },
+    { "IXH", "IX", 1 }, { "IXL", "IX", 0 },
+    { "IYH", "IY", 1 }, { "IYL", "IY", 0 },
+    { NULL, NULL, 0 }
+};
+
+/* Clock and count entries: the core accepts writes to them and does nothing. */
+static int isDerived(const char* name)
+{
+    return sameName(name, "CLKH") || sameName(name, "CLKL") ||
+           sameName(name, "CNT");
+}
+
+/* The index into regHalf of an 8 bit half's name, or -1. */
+static int halfIndex(const char* name)
+{
+    int i;
+
+    for (i = 0; regHalf[i].name != NULL; i++) {
+        if (sameName(regHalf[i].name, name)) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+/* The names the CPU bank publishes, as the refusal below lists them. */
+static const char* const bankNames[] = {
+    "AF", "BC", "DE", "HL", "AF1", "BC1", "DE1", "HL1", "IX", "IY", "SP", "PC",
+    "I", "R", "IM", "IFF1", "IFF2", NULL
+};
+
+static void noSuchRegister(const char* name, char* err, int errLen)
+{
+    snprintf(err, (size_t)errLen,
+             "this CPU has no register called %s. It has AF BC DE HL, the "
+             "alternates AF1 BC1 DE1 HL1, IX IY SP PC I R IM IFF1 IFF2, and "
+             "the halves A F B C D E H L IXH IXL IYH IYL",
+             name);
+}
+
+int ctrlCpuCheckName(const char* name, char* err, int errLen)
+{
+    int i;
+
+    if (isDerived(name)) {
+        snprintf(err, (size_t)errLen,
+                 "%s is the clock, not a register the CPU reads; it cannot be set",
+                 name);
+        return 0;
+    }
+    if (halfIndex(name) >= 0) {
+        return 1;
+    }
+    for (i = 0; bankNames[i] != NULL; i++) {
+        if (sameName(bankNames[i], name)) {
+            return 1;
+        }
+    }
+    noSuchRegister(name, err, errLen);
+    return 0;
+}
+
+/* Fills err and returns 0 when value is out of range for the register. */
+static int valueFits(const char* name, const char* target, int width, UInt32 value,
+                     char* err, int errLen)
+{
+    if (value > (width == 16 ? 0xffffu : 0xffu)) {
+        snprintf(err, (size_t)errLen,
+                 "%s holds %d bits, so 0x%X does not fit", name, width,
+                 (unsigned)value);
+        return 0;
+    }
+
+    /* The core clamps IM, IFF1 and IFF2 to 2 instead of refusing. */
+    if (value > 2 && sameName(target, "IM")) {
+        snprintf(err, (size_t)errLen, "%s is 0, 1 or 2", name);
+        return 0;
+    }
+    if (value > 1 && (sameName(target, "IFF1") || sameName(target, "IFF2"))) {
+        snprintf(err, (size_t)errLen, "%s is one bit: 0 or 1", name);
+        return 0;
+    }
+    return 1;
+}
+
+static int setInBank(DbgRegisterBank* regs, const char* name, int half, UInt32 value,
+                     Int32* previous, char* err, int errLen)
+{
+    const char* target = half >= 0 ? regHalf[half].pair : name;
+    int         index  = registerIndex(regs, target);
+    int         width;
+    UInt32      held;
+    UInt32      toWrite = value;
+
+    if (index < 0) {
+        noSuchRegister(name, err, errLen);
+        return 0;
+    }
+
+    width = half >= 0 ? 8 : (regs->reg[index].width > 8 ? 16 : 8);
+    if (!valueFits(name, target, width, value, err, errLen)) {
+        return 0;
+    }
+
+    held = regs->reg[index].value & 0xffff;
+    if (half >= 0) {
+        int high = regHalf[half].high;
+
+        if (previous != NULL) {
+            *previous = (Int32)(high ? held >> 8 : held & 0xff);
+        }
+        toWrite = high ? ((value & 0xff) << 8) | (held & 0x00ff)
+                       : (held & 0xff00) | (value & 0xff);
+    }
+    else if (previous != NULL) {
+        *previous = (Int32)held;
+    }
+
+    if (!dbgDeviceWriteRegister(regs, index, toWrite)) {
+        snprintf(err, (size_t)errLen, "this CPU refused to set %s", name);
+        return 0;
+    }
+    return 1;
+}
+
+int ctrlCpuSetRegister(const char* name, UInt32 value, Int32* previous,
+                       char* err, int errLen)
+{
+    DbgSnapshot* snapshot;
+    int          ok;
+
+    if (!ctrlCpuCheckName(name, err, errLen)) {
+        return 0;
+    }
+
+    snapshot = ctrlViewDevices();
+    if (snapshot == NULL) {
+        snprintf(err, (size_t)errLen, "set %s without a view of the paused machine", name);
+        return -1;
+    }
+
+    ok = setInBank(ctrlCpuRegisterBankIn(snapshot), name, halfIndex(name), value,
+                   previous, err, errLen);
+    dbgSnapshotDestroy(snapshot);
+    return ok;
+}
+
 int ctrlCpuBreakpointAt(Int32 pc)
 {
     return pc >= 0 && (dbgHasBreakpoint((UInt16)pc) ||
