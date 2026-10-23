@@ -359,6 +359,18 @@ int dbgPause()
     return 1;
 }
 
+/* Spins on the calling thread. Zero when it did not park in time or there was
+** no machine to pause. */
+int dbgPauseSync(int timeoutMs)
+{
+    dbgPause();
+
+    if (emulatorGetState() != EMU_PAUSED) {
+        return 0;
+    }
+    return emulatorWaitParked(timeoutMs);
+}
+
 void dbgStep()
 {
     if (emulatorGetState() == EMU_PAUSED) {

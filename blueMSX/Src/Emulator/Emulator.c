@@ -65,7 +65,7 @@ static void*  emuStartEvent;
 #ifndef WII
 static void*  emuTimer;
 #endif
-static int    emuExitFlag;
+static volatile int emuExitFlag;
 static UInt32 emuSysTime = 0;
 static UInt32 emuFrequency = 3579545;
 int           emuMaxSpeed = 0;
@@ -709,6 +709,33 @@ void emulatorSetFrequency(int logFrequency, int* frequency) {
     boardSetFrequency(emuFrequency);
 }
 
+/* A pauser writes the state under the lock, a full fence, before it reads the flag; this
+** clears the flag, fences and reads the state, so one of the two sees the other. Non-zero,
+** with the flag set again, when the thread is to stay parked. */
+static int stayParked(void)
+{
+    emuSuspendFlag = 0;
+    archMemoryBarrier();
+    if (emuExitFlag || emuState == EMU_RUNNING) {
+        return 0;
+    }
+    emuSuspendFlag = 1;
+    return 1;
+}
+
+int emulatorWaitParked(int timeoutMs)
+{
+    UInt32 start = archGetSystemUpTime(1000);
+
+    while (!emuSuspendFlag) {
+        if (emuState != EMU_PAUSED || (int)(archGetSystemUpTime(1000) - start) >= timeoutMs) {
+            return 0;
+        }
+        archThreadSleep(1);
+    }
+    return emuState == EMU_PAUSED;
+}
+
 void emulatorSuspend() {
     if (emuState != EMU_RUNNING) {
         return;
@@ -735,11 +762,14 @@ void emulatorSuspend() {
 ** honour a suspend that arrives while it is blocked on a platform
 ** event wait. */
 int emuWaitForResume(void) {
+    int wasParked = emuSuspendFlag;
     emuSuspendFlag = 1;
-    while (emuState != EMU_RUNNING && !emuExitFlag) {
-        archEventWait(emuSyncEvent, -1);
-    }
-    emuSuspendFlag = 0;
+    /* Inside WaitForSync the thread is still parked when this returns, so the flag stays. */
+    do {
+        while (emuState != EMU_RUNNING && !emuExitFlag) {
+            archEventWait(emuSyncEvent, -1);
+        }
+    } while (!wasParked && stayParked());
     return emuExitFlag;
 }
 
@@ -1003,7 +1033,11 @@ static int WaitForSync(int maxSpeed, int breakpointHit) {
         } while (!emuExitFlag && emuState != EMU_RUNNING);
     }
 
-    emuSuspendFlag = 0;
+    /* A pause that came after the loop last looked at the state, or on the tape boost
+    ** branch that does not wait, is waited out here. */
+    while (stayParked()) {
+        archEventWait(emuSyncEvent, -1);
+    }
     li2 = archGetHiresTimer();
 
     emuTimeIdle  += li2 - li1;

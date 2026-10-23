@@ -50,6 +50,10 @@ int  emulatorLogFrequencyToHz(int logFrequency);
 /* Percent of the stock clock (10..1000) -> emulation.speed. */
 int  emulatorPercentToLogFrequency(int percent);
 void emulatorRestartSound();
+/* Waits for the emulation thread to park on a paused machine; zero when it did not in time,
+** or the machine is no longer paused. */
+int  emulatorWaitParked(int timeoutMs);
+
 void emulatorSuspend();
 void emulatorResume();
 /* While held, emulatorResume does nothing: whoever suspended the machine to

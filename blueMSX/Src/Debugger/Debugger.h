@@ -133,6 +133,11 @@ void dbgRun();
 void dbgStop();
 /* Pauses a running machine only; non-zero when it did. */
 int  dbgPause();
+
+/* Pause and wait until the emulation thread has parked; non-zero once it has.
+** Use this rather than dbgPause before reading memory. */
+int  dbgPauseSync(int timeoutMs);
+
 void dbgStep();
 void dbgStepBack();
 

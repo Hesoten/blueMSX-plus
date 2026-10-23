@@ -41,6 +41,9 @@ void  archThreadDestroy(void* thread);
 
 void archThreadSleep(int milliseconds);
 
+/* A full fence: no load or store moves across it, in the compiler or the CPU. */
+void archMemoryBarrier(void);
+
 /* Attach the calling thread to MMCSS "Games" (Win32) so it bypasses
 ** EcoQoS; returns an opaque handle for the End call. */
 void* archThreadBeginEmulationProfile(int enable);
