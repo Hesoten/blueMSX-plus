@@ -131,7 +131,8 @@ int dbgDeviceWriteIoPort(DbgIoPorts* ioPorts, int portIndex, UInt32 value);
 
 void dbgRun();
 void dbgStop();
-void dbgPause();
+/* Pauses a running machine only; non-zero when it did. */
+int  dbgPause();
 void dbgStep();
 void dbgStepBack();
 
@@ -160,6 +161,9 @@ struct DbgDevice {
     DbgIoPorts*      ioPorts[MAX_DBG_COMPONENTS];
     DbgCallstack*    callstack;
 };
+
+/* For the emulator, under its state lock: a pause or a resume sets the state here as it happens. */
+void dbgSetRunState(DbgState state);
 
 void debuggerNotifyEmulatorStart();
 void debuggerNotifyEmulatorStop();

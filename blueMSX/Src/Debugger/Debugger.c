@@ -34,6 +34,7 @@
 #include "Emulator.h"
 #include "Actions.h"
 #include "Board.h"
+#include "ArchMenu.h"
 #include <stdlib.h>
 
 struct BlueDebugger {
@@ -56,7 +57,7 @@ struct DbgSnapshot {
 };
 
 static BlueDebugger* debuggerList[MAX_DEBUGGERS];
-static DbgState  dbgState = DBG_STOPPED;
+static volatile DbgState dbgState = DBG_STOPPED;
 static int debuggerVramAccessEnable = 0;
 
 static void onDefault(void* ref) {
@@ -148,8 +149,6 @@ void debuggerNotifyEmulatorStop()
 void debuggerNotifyEmulatorPause()
 {
     int i;
-    
-    dbgState = DBG_PAUSED;
 
     for (i = 0; i < MAX_DEBUGGERS; i++) {
         if (debuggerList[i] != NULL) {
@@ -161,8 +160,6 @@ void debuggerNotifyEmulatorPause()
 void debuggerNotifyEmulatorResume()
 {
     int i;
-    
-    dbgState = DBG_RUNNING;
 
     for (i = 0; i < MAX_DEBUGGERS; i++) {
         if (debuggerList[i] != NULL) {
@@ -269,6 +266,11 @@ DbgState dbgGetState()
     return dbgState;
 }
 
+void dbgSetRunState(DbgState state)
+{
+    dbgState = state;
+}
+
 int dbgSnapshotGetDeviceCount(DbgSnapshot* dbgSnapshot)
 {
     return dbgSnapshot->count;
@@ -346,11 +348,15 @@ void dbgStop()
     emulatorStop();
 }
 
-void dbgPause()
+int dbgPause()
 {
-    if (emulatorGetState() == EMU_RUNNING) {
-        actionEmuTogglePause();
+    /* As the toggle it replaces: nothing pauses while a question about a folder disk is open. */
+    if (actionDirGateOpen() || !emulatorPauseIfRunning()) {
+        return 0;
     }
+    debuggerNotifyEmulatorPause();
+    archUpdateMenu(0);
+    return 1;
 }
 
 void dbgStep()

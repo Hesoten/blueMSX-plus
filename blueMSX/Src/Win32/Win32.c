@@ -5132,6 +5132,9 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     createDataDirectories();
     seedShortcutProfiles();
 
+    /* Before any plugin, which may pause or run the machine as it loads. */
+    emulatorCreateLocks();
+
     // Load tools
     sprintf(buffer, "%s\\Tools", st.pCurDir);
     toolLoadAll(buffer, pProperties->language);

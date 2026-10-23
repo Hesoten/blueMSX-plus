@@ -39,6 +39,8 @@ typedef enum { EMU_RUNNING, EMU_PAUSED, EMU_STOPPED, EMU_SUSPENDED, EMU_STEP, EM
 
 void emulatorInit(Properties* properties, Mixer* mixer);
 void emulatorExit();
+/* Once at startup, before any plugin loads: the lock every change of the run state takes. */
+void emulatorCreateLocks(void);
 
 void emuEnableSynchronousUpdate(int enable);
 
@@ -71,6 +73,9 @@ EmuState emulatorGetState();
 /* Non-zero while a single step runs its one instruction. */
 int emulatorIsSingleStepping(void);
 void emulatorSetState(EmuState state);
+/* A pause only from running, in one step under the state lock, with the sound following;
+** zero when the machine was not running. It does not notify. */
+int  emulatorPauseIfRunning(void);
 UInt32 emulatorGetCpuSpeed();
 UInt32 emulatorGetCpuUsage();
 void emulatorResetMixer();

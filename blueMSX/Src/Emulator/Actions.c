@@ -1080,6 +1080,11 @@ void actionToggleMouseCapture() {
     archMouseSetForceLock(state.mouseLock);
 }
 
+int actionDirGateOpen(void)
+{
+    return dirGateActive || dirInsertActive;
+}
+
 void actionEmuStep() {
     if (!dirGateActive && !dirInsertActive && emulatorGetState() == EMU_PAUSED) {
         emulatorSetState(EMU_STEP);

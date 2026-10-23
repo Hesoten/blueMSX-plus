@@ -89,6 +89,11 @@ static char   emuStateName[512];
 static volatile int      emuSuspendFlag;
 static volatile EmuState emuState = EMU_STOPPED;
 static volatile int      emuSingleStep = 0;
+/* A leaf lock, held only while emuState is written; under it only the debugger's state is set,
+** which takes no lock. */
+static void*             emuStateLock;
+/* Set while a question about the media is open: nothing may resume the machine meanwhile. */
+static int               emuHoldSuspended;
 static Properties* properties;
 static Mixer* mixer;
 static BoardDeviceInfo deviceInfo;
@@ -256,11 +261,64 @@ EmuState emulatorGetState() {
     return emuState;
 }
 
+void emulatorCreateLocks(void)
+{
+    if (emuStateLock == NULL) {
+        emuStateLock = archSemaphoreCreate(1);
+    }
+}
+
+/* The one place emuState is written, with emuStateLock held; with setsDebugger the
+** debugger's state follows in the same step. */
+static void writeHeld(EmuState state, int setsDebugger)
+{
+    emuState = state;
+    if (setsDebugger) {
+        dbgSetRunState(state == EMU_PAUSED ? DBG_PAUSED : DBG_RUNNING);
+    }
+}
+
+/* setsDebugger for a pause or a resume: a notify that comes late cannot leave the debugger's
+** state stale then. */
+static void writeState(EmuState state, int setsDebugger)
+{
+    archSemaphoreWait(emuStateLock, -1);
+    writeHeld(state, setsDebugger);
+    archSemaphoreSignal(emuStateLock);
+}
+
+/* A change only from the state named, decided and made in one locked step; zero when the
+** machine was not in from. Nothing goes to running while a suspend is held. */
+static int switchState(EmuState from, EmuState to, int setsDebugger)
+{
+    int switched;
+
+    archSemaphoreWait(emuStateLock, -1);
+    switched = emuState == from && !(to == EMU_RUNNING && emuHoldSuspended);
+    if (switched) {
+        writeHeld(to, setsDebugger);
+    }
+    archSemaphoreSignal(emuStateLock);
+    return switched;
+}
+
+int emulatorPauseIfRunning(void)
+{
+    if (!switchState(EMU_RUNNING, EMU_PAUSED, 1)) {
+        return 0;
+    }
+    archSoundSuspend();
+    archMidiEnable(0);
+    return 1;
+}
+
 int emulatorIsSingleStepping(void) {
     return emuSingleStep;
 }
 
 void emulatorSetState(EmuState state) {
+    int pauseOrResume = state == EMU_PAUSED || state == EMU_RUNNING;
+
     if (state == EMU_RUNNING) {
         archSoundResume();
         archMidiEnable(1);
@@ -284,7 +342,7 @@ void emulatorSetState(EmuState state) {
         }
         
     }
-    emuState = state;
+    writeState(state, pauseOrResume);
 }
 
 
@@ -450,7 +508,7 @@ static void emulatorThread() {
     frameBufferClearDeinterlace();
 
     ledSetAll(0);
-    emuState = EMU_STOPPED;
+    writeState(EMU_STOPPED, 0);
 
 #ifndef WII
     archTimerDestroy(emuTimer);
@@ -502,7 +560,7 @@ void emulatorStart(const char* stateName) {
         ** archEmulationStartFailure would stack a second identical dialog. */
         archShowStartEmuFailDialog(properties->emulation.machineName);
         archEmulationStopNotification();
-        emuState = EMU_STOPPED;
+        writeState(EMU_STOPPED, 0);
         return;
     }
 
@@ -525,7 +583,7 @@ void emulatorStart(const char* stateName) {
     archSoundResume();
     archMidiEnable(1);
 
-    emuState = EMU_PAUSED;
+    writeState(EMU_PAUSED, 0);
     emulationStartFailure = 0;
 
     clearlog();
@@ -546,7 +604,7 @@ void emulatorStart(const char* stateName) {
 
     if (emulationStartFailure) {
         archEmulationStopNotification();
-        emuState = EMU_STOPPED;
+        writeState(EMU_STOPPED, 0);
         archEmulationStartFailure();
     }
     if (emuState != EMU_STOPPED) {
@@ -570,7 +628,7 @@ void emulatorStart(const char* stateName) {
 
         debuggerNotifyEmulatorStart();
 
-        emuState = EMU_RUNNING;
+        writeState(EMU_RUNNING, 0);
     }
 #endif
 }
@@ -582,7 +640,7 @@ void emulatorStop() {
 
     debuggerNotifyEmulatorStop();
 
-    emuState = EMU_STOPPED;
+    writeState(EMU_STOPPED, 0);
 
     /* Same modal-loop-aware wake as emulatorSuspend: if the emu thread
     ** is parked in archWaitForAckOrSuspend, signal it so it observes
@@ -652,19 +710,23 @@ void emulatorSetFrequency(int logFrequency, int* frequency) {
 }
 
 void emulatorSuspend() {
-    if (emuState == EMU_RUNNING) {
-        emuState = EMU_SUSPENDED;
-        /* Wake the emu thread if it is mid-wait inside
-        ** archWaitForAckOrSuspend so it observes the suspend immediately
-        ** instead of running out the wrapper's safety timeout. The hook
-        ** is a no-op on platforms without modal-loop coupling. */
-        archEmuSuspendSignal();
-        while (!emuSuspendFlag) {
-            archThreadSleep(1);
-        }
-        archSoundSuspend();
-        archMidiEnable(0);
+    if (emuState != EMU_RUNNING) {
+        return;
     }
+    /* Locked: a pause made since the look above stays, and nothing is suspended. */
+    if (!switchState(EMU_RUNNING, EMU_SUSPENDED, 0)) {
+        return;
+    }
+    /* Wake the emu thread if it is mid-wait inside
+    ** archWaitForAckOrSuspend so it observes the suspend immediately
+    ** instead of running out the wrapper's safety timeout. The hook
+    ** is a no-op on platforms without modal-loop coupling. */
+    archEmuSuspendSignal();
+    while (!emuSuspendFlag) {
+        archThreadSleep(1);
+    }
+    archSoundSuspend();
+    archMidiEnable(0);
 }
 
 /* Cancel-cooperative wait used by archWaitForAckOrSuspend. Mirrors the
@@ -681,19 +743,19 @@ int emuWaitForResume(void) {
     return emuExitFlag;
 }
 
-static int emuHoldSuspended;
-
 void emulatorHoldSuspended(int hold) {
     emuHoldSuspended = hold;
 }
 
 void emulatorResume() {
+    /* The suspended thread is parked and does not read it; its clock starts over as it runs. */
     if (emuState == EMU_SUSPENDED && !emuHoldSuspended) {
         emuSysTime = 0;
-
+    }
+    /* Locked: only a suspend ends here, not a state another thread set since. */
+    if (switchState(EMU_SUSPENDED, EMU_RUNNING, 0)) {
         archSoundResume();
         archMidiEnable(1);
-        emuState = EMU_RUNNING;
         archUpdateEmuDisplay(0);
     }
 }
@@ -889,7 +951,7 @@ static int WaitForSync(int maxSpeed, int breakpointHit) {
     if (emuSingleStep || breakpointHit) {
         /* Paused before the notify, so whoever it wakes can step again. */
         emuSingleStep = 0;
-        emuState = EMU_PAUSED;
+        writeState(EMU_PAUSED, 1);
         archSoundSuspend();
         archMidiEnable(0);
         debuggerNotifyEmulatorPause();

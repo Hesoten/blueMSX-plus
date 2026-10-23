@@ -81,6 +81,8 @@ void actionQuickSaveStateUndo();
 void actionCartInsert1();
 void actionCartInsert2();
 void actionEmuTogglePause();
+/* Non-zero while a folder disk is being chosen or asked about: nothing may pause or run. */
+int  actionDirGateOpen(void);
 void actionEmuStep();
 void actionEmuStepBack();
 void actionEmuStop();
