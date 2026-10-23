@@ -2102,6 +2102,9 @@ typedef struct {
     int hidden;
     /* The start the command line asked for is over; later ones may fail and be retried. */
     int firstStartDone;
+    /* /exitafter and /screenshot. Zero frames means run until told to stop. */
+    int exitAfterFrames;
+    char exitScreenshot[MAX_PATH];
     Mixer* mixer;
     int enteringFullscreen;
     Shortcuts* shortcuts;
@@ -5526,10 +5529,42 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
         actionToolsShowDebugger();
     }
 
+    if (emuCheckFlagArgument(szLine, "paused")) {
+        dbgPause();
+    }
+    {
+        /* Use each value before asking for the next: they share one static buffer. */
+        char* argument = emuCheckValueArgument(szLine, "exitafter");
+
+        if (argument != NULL) {
+            st.exitAfterFrames = strtol(argument, NULL, 10);
+        }
+        argument = emuCheckValueArgument(szLine, "screenshot");
+        if (argument != NULL) {
+            strncpy(st.exitScreenshot, argument, sizeof(st.exitScreenshot) - 1);
+            st.exitScreenshot[sizeof(st.exitScreenshot) - 1] = 0;
+        }
+    }
+
     archApplyGameSchedulerPolicy(pProperties->emulation.priorityBoost);
 
     while (!doExit) {
-        DWORD rv = MsgWaitForMultipleObjects(1, &st.ddrawEvent, FALSE, INFINITE, QS_ALLINPUT);    
+        DWORD rv;
+
+        /* Closes the way the window's X does, so the machine stops and media are
+        ** written back; the emulation thread must not tear the machine down itself. */
+        if (st.exitAfterFrames > 0 &&
+            emulatorGetFramesRun() >= (UInt32)st.exitAfterFrames)
+        {
+            if (st.exitScreenshot[0] != 0) {
+                archScreenCaptureToFile(SC_LARGE, st.exitScreenshot);
+                st.exitScreenshot[0] = 0;
+            }
+            st.exitAfterFrames = 0;
+            archQuit();
+        }
+
+        rv = MsgWaitForMultipleObjects(1, &st.ddrawEvent, FALSE, INFINITE, QS_ALLINPUT);
         while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
             if (msg.message == WM_QUIT) {
                 doExit = 1;

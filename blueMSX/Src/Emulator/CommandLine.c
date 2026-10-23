@@ -447,6 +447,9 @@ static const CmdLineOption cmdLineOptions[] = {
     { "moonsound",     "<on|off>","Enable or disable MoonSound (OPL4)"               },
     { "agentcontrol",  "<off|read|full>",
                                   "Let a debugging tool connect over the local socket" },
+    { "paused",        NULL,      "Pause the machine as soon as it has started"     },
+    { "exitafter",     "<frames>","Quit after that many emulated frames"            },
+    { "screenshot",    "<file>",  "Write a screenshot when /exitafter quits"        },
     { "debugger",      NULL,      "Open the debugger after the emulator starts",
       "File locations and other options:"                                             },
     { "rootdir",       "<dir>",   "Directory for the settings and everything written" },
@@ -877,6 +880,30 @@ static int agentControlArgument(char* cmdLine, Properties* properties) {
     return 1;
 }
 
+/* Only checked here; the emulator reads both values once it is running. */
+static int exitAfterArgument(char* cmdLine) {
+    char* argument = emuCheckValueArgument(cmdLine, "exitafter");
+    int   exitAfter = argument != NULL;
+    int   frames;
+
+    if (argument == NULL && emuCheckFlagArgument(cmdLine, "exitafter")) {
+        return settingError("exitafter", "needs a number of frames");
+    }
+    if (argument != NULL && (!parseIntToken(argument, &frames) || frames < 1)) {
+        return settingError("exitafter", "wants a number of frames, 1 or more");
+    }
+
+    argument = emuCheckValueArgument(cmdLine, "screenshot");
+    if ((argument == NULL && emuCheckFlagArgument(cmdLine, "screenshot")) ||
+        (argument != NULL && (argument[0] == '/' || argument[0] == '-'))) {
+        return settingError("screenshot", "needs a file name");
+    }
+    if (argument != NULL && !exitAfter) {
+        return settingError("screenshot", "only works with /exitafter");
+    }
+    return 1;
+}
+
 /* The scale is 1 based on the command line and 0 based in the property, so
 ** this cannot go through rangeArgument. */
 static int windowSizeArgument(char* cmdLine, Properties* properties) {
@@ -968,6 +995,9 @@ int emuCheckSettingArguments(Properties* properties, char* cmdLine) {
         return 0;
     }
     if (!agentControlArgument(cmdLine, properties)) {
+        return 0;
+    }
+    if (!exitAfterArgument(cmdLine)) {
         return 0;
     }
 
