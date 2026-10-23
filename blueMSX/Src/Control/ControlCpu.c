@@ -37,6 +37,11 @@ DbgRegisterBank* ctrlCpuRegisterBankIn(DbgSnapshot* snapshot)
     return device != NULL ? device->registerBank[0] : NULL;
 }
 
+Int32 ctrlCpuPcIn(DbgSnapshot* snapshot)
+{
+    return ctrlCpuRegisterIn(snapshot, "PC");
+}
+
 Int32 ctrlCpuPc(void)
 {
     return ctrlCpuRegister("PC");

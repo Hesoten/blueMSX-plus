@@ -46,6 +46,8 @@ typedef struct {
     UInt8  ramWhy;
     UInt8  ramPage3Slot;
     UInt8  ramPage3SubSlot;
+    /* For a parsed @NAME of several definitions: the one paged in then was taken. */
+    UInt8  symbolByPaging;
 } CtrlAddr;
 
 /* An address resolved against the machine as it stands now. */

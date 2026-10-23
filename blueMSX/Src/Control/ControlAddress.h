@@ -27,8 +27,8 @@
 #include "ControlText.h"
 
 /* Parses 0xC000, C000h, $C000, #C000, 49152, cpu:0xC000, slot1.0:seg5+0x100, 1.0:seg5+0x100,
-** slot3.0+0x4000, ram:seg12+0x1A30 or vram:0x1B00, and a register such as pc or hl+2 once
-** ctrlAddrSubstituteRegister has rewritten it. Returns 0 and fills err otherwise. */
+** slot3.0+0x4000, ram:seg12+0x1A30, vram:0x1B00 or @SYMBOL+3, and a register such as pc or
+** hl+2 once ctrlAddrSubstituteRegister has rewritten it. Returns 0 and fills err otherwise. */
 int ctrlAddrParse(const char* text, CtrlAddr* addr, char* err, int errLen);
 
 /* Rewrites a leading register name ("pc", "hl+2") as its value. Returns 1 when it did, or

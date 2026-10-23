@@ -46,7 +46,7 @@
 /* The most plain breakpoints a reply lists or counts; it says "more than" past that. */
 #define CTRL_PLAIN_LIST_MAX 64
 
-/* The longest "at", in bytes. */
+/* The longest "at", in bytes: a long @name with an offset fits. */
 #define CTRL_AT_MAX 255
 
 /* A path in a request, in UTF-8 bytes: MAX_PATH characters at 3 bytes each, and the NUL. */

@@ -26,6 +26,7 @@
 #include "ControlCpu.h"
 #include "ControlSlots.h"
 #include "ControlStopLog.h"
+#include "ControlSymbol.h"
 #include "Debugger.h"
 #include "Emulator.h"
 #include "VDP.h"
@@ -84,6 +85,31 @@ static void statusState(CtrlText* text, int stopReason, EmuState state)
     ctrlTextAdd(text, "\n");
 }
 
+/* The nearest symbol before pc, seen from the segment paged in there. */
+static void statusPcSymbol(CtrlText* text, Int32 pc)
+{
+    CtrlSymHome home;
+    CtrlSymNear near;
+    int slot;
+    int subSlot;
+
+    home.segment = ctrlSlotsPagedIn((UInt16)pc, &slot, &subSlot);
+    home.slot    = (UInt8)slot;
+    home.subSlot = (UInt8)subSlot;
+
+    if (ctrlSymNearest(&home, (UInt16)pc, &near)) {
+        ctrlTextAdd(text, "pc:     0x%04X  ", (unsigned)pc);
+        if (near.segment >= 0) {
+            ctrlTextAdd(text, "seg%d:", (int)near.segment);
+        }
+        ctrlTextAdd(text, "%s", near.name);
+        if (near.offset > 0) {
+            ctrlTextAdd(text, "+0x%X", near.offset);
+        }
+        ctrlTextAdd(text, "\n");
+    }
+}
+
 /* What the status reads under when the request holds nothing: a view of a paused machine, waited
 ** for when the request found it paused (it may not have parked yet), else a hold of its layout.
 ** Returns DBG_ACCESS_OK with a view, else why there is none. */
@@ -123,6 +149,7 @@ void ctrlStatusDescribe(CtrlText* text, int stopReason, int stateAsFound)
     /* No machine now is the state, whatever the request found. */
     int   noMachine = stateAsFound == EMU_STOPPED || emulatorGetState() == EMU_STOPPED;
     CtrlView own = { 0 };
+    Int32 pc = -1;
     int   access;
 
     if (stateAsFound != CTRL_STATUS_STATE_UNSAID) {
@@ -132,11 +159,16 @@ void ctrlStatusDescribe(CtrlText* text, int stopReason, int stateAsFound)
     access = statusAccess(&own, stateAsFound);
     snapshot = ctrlViewDevices();
     if (snapshot != NULL) {
+        pc = ctrlCpuPcIn(snapshot);
         describeRegisters(text, ctrlCpuRegisterBankIn(snapshot), "regs:");
         dbgSnapshotDestroy(snapshot);
     }
     else {
         ctrlTextAdd(text, "%-8s not readable; %s\n", "regs:", statusNotRead(access, noMachine));
+    }
+
+    if (pc >= 0 && ctrlSymCount() > 0) {
+        statusPcSymbol(text, pc);
     }
 
     /* With no machine the slot map reads 0.0 everywhere, which is not a layout. */

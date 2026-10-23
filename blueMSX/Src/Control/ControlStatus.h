@@ -25,7 +25,7 @@
 
 #include "ControlText.h"
 
-/* The status lines: run state and stop reason, registers, pages.
+/* The status lines: run state and stop reason, registers, PC symbol, pages.
 ** stateAsFound is the run state seen before the caller stopped the machine, or
 ** CTRL_STATUS_STATE_UNSAID to omit the state line (emulatorGetState lags a stop). */
 #define CTRL_STATUS_STATE_UNSAID (-1)

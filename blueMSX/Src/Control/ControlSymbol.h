@@ -112,7 +112,7 @@ int ctrlSymAddress(const CtrlSymbolInfo* symbol, CtrlAddr* addr);
 /* The nearest symbol at or before `at`, for "NAME+offset" labels. */
 int ctrlSymNearest(const CtrlSymHome* home, UInt16 at, CtrlSymNear* out);
 
-/* How many definitions of one name sym.find lists. */
+/* How many definitions of one name sym.find lists and an @NAME address looks through. */
 #define CTRL_SYM_BY_NAME_MAX 64
 
 /* Every symbol of that exact name, by Z80 address, then slot, subslot and segment; with

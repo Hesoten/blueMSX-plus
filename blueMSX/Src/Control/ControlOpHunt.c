@@ -24,6 +24,7 @@
 #include "ControlAddress.h"
 #include "ControlVram.h"
 #include "ControlClient.h"
+#include "ControlSymbol.h"
 #include "ControlHunt.h"
 #include "ControlMemory.h"
 #include "ControlProtocol.h"
@@ -192,6 +193,17 @@ static void describeHuntList(CtrlText* text, const CtrlHunt* hunt,
                         printed,
                         (unsigned)found[i].prevValue,
                         (unsigned)found[i].curValue);
+        }
+        if (found[i].addr.space == CTRL_SPACE_SLOT &&
+            found[i].addr.segment >= 0)
+        {
+            const char* symbol = ctrlSymInSegment(found[i].addr.slot,
+                                                  found[i].addr.subSlot,
+                                                  found[i].addr.segment,
+                                                  found[i].addr.offset);
+            if (symbol != NULL) {
+                ctrlTextAdd(text, "  %s", symbol);
+            }
         }
         if (found[i].z80Address >= 0) {
             ctrlTextAdd(text, "   z80 0x%04X\n", found[i].z80Address);

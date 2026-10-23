@@ -28,6 +28,9 @@
 /* The CPU's register bank in a snapshot the caller took, or NULL. */
 DbgRegisterBank* ctrlCpuRegisterBankIn(DbgSnapshot* snapshot);
 
+/* The program counter from a snapshot the caller took, or -1. */
+Int32 ctrlCpuPcIn(DbgSnapshot* snapshot);
+
 /* The program counter from a snapshot of its own, so also -1 without a view. */
 Int32 ctrlCpuPc(void);
 

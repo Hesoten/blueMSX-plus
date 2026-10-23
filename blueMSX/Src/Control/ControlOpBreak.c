@@ -172,7 +172,7 @@ static int breakOp(CtrlCall* call, int setting)
         return refused;
     }
 
-    /* A Z80 address arrives as CPU space; say what it was pinned to. */
+    /* A Z80 address or a label with no bank arrives as CPU space; say what it was pinned to. */
     if (info.canonical.segment >= 0) {
         reportSegmentBreak(call, &addr, &info, setting);
     }

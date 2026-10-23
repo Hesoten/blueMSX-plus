@@ -27,16 +27,17 @@
 #include "ControlAddressArg.h"
 #include "ControlStatus.h"
 #include "ControlStopLog.h"
-#include "ControlProtocol.h"
+#include "ControlSymbol.h"
+#include "SlotManager.h"
 #include <stdio.h>
 
-/* The value a register is set to, as an address: a number or a segment address.
+/* The value a register is set to, as an address: a number, a label, or a segment address.
 ** Returns 0 with where set, else the refusal. */
 static int regValueAddress(CtrlCall* call, const char* valueText, CtrlAddr* where)
 {
     char err[CTRL_ADDR_ERR_MAX];
 
-    /* Parsed as an address so a segment address is accepted; a bare number is decimal. */
+    /* Parsed as an address so a label is accepted; a bare number is decimal. */
     if (!ctrlAddrParse(valueText, where, err, sizeof(err))) {
         return ctrlReplyError(call, "bad_value", err);
     }
@@ -87,7 +88,8 @@ int ctrlOpRegWrite(CtrlCall* call)
     }
     if (valueText == NULL) {
         return ctrlReplyError(call, "missing_value",
-                              "setting a register needs \"value\", for example \"0x4000\"");
+                              "setting a register needs \"value\", for example \"0x4000\" or "
+                              "\"@DRAW_SPRITES\"");
     }
     if (valueText[0] == '-') {
         return ctrlReplyError(call, "bad_value",
@@ -120,7 +122,17 @@ int ctrlOpRegWrite(CtrlCall* call)
     return ctrlReplyDone(call);
 }
 
-/* The return addresses on the stack, innermost first, with the segment paged in there.
+/* True when a CALL, an RST other than 38h (blank ROM, and IM1), or a HALT ends just before ret. */
+static int callEndsAt(UInt16 ret)
+{
+    UInt8 op3 = slotPeek(NULL, (UInt16)(ret - 3));
+    UInt8 op1 = slotPeek(NULL, (UInt16)(ret - 1));
+
+    return op3 == 0xCD || (op3 & 0xC7) == 0xC4 || op1 == 0x76 ||
+           ((op1 & 0xC7) == 0xC7 && op1 != 0xFF);
+}
+
+/* The return addresses on the stack, innermost first, with segment and nearest symbol.
 ** The caller must hold a view: the stack memory is read to check each one. */
 static void describeCallstack(CtrlText* text, int max)
 {
@@ -159,6 +171,28 @@ static void describeCallstack(CtrlText* text, int max)
         ctrlTextAdd(text, "  %d.%d", slot, subSlot);
         if (segment >= 0) {
             ctrlTextAdd(text, ":seg%d", (int)segment);
+        }
+
+        if (ctrlSymCount() > 0) {
+            CtrlSymHome home;
+            CtrlSymNear near;
+
+            home.slot    = (UInt8)slot;
+            home.subSlot = (UInt8)subSlot;
+            home.segment = segment >= 0 ? segment : CTRL_SYM_SEG_ANY;
+
+            if (ctrlSymNearest(&home, frames[i], &near)) {
+                ctrlTextAdd(text, "  %s", near.name);
+                if (near.offset > 0) {
+                    ctrlTextAdd(text, "+0x%X", near.offset);
+                }
+                /* The call log keeps no segment, so a switched window may show another one's code. */
+                if (segment >= 0 && !callEndsAt(frames[i])) {
+                    ctrlTextAdd(text, "  (no CALL, RST or HALT ends just before it in seg%d: "
+                                "an interrupt, or a call made while another segment was paged "
+                                "in, so the label may be wrong)", (int)segment);
+                }
+            }
         }
         ctrlTextAdd(text, "  (on the stack at 0x%04X)\n", where[i]);
     }

@@ -123,8 +123,8 @@ const McpTool mcpTools[] = {
 {
     "bmsx_stack",
     "The return addresses on the stack: the CPU's call log, confirmed against "
-    "stack memory above SP, innermost first, each with where it sits and the slot and "
-    "segment paged in there. A return address on its own "
+    "stack memory above SP, innermost first, each with where it sits, the slot and "
+    "segment paged in there and the nearest symbol. A return address on its own "
     "means little on a bank switched program, where 0x4140 is in thirty-two "
     "places at once.",
     SCHEMA("\"properties\":{"
@@ -156,7 +156,7 @@ const McpTool mcpTools[] = {
     "Set or clear a breakpoint. Give a segment address and the breakpoint "
     "only fires when that segment is the one paged in, so code in a bank that "
     "is not currently visible can still be broken on. A Z80 address in a mapper "
-    "slot is pinned to the segment paged in there when "
+    "slot, or a label with no bank, is pinned to the segment paged in there when "
     "it is set and fires only while that segment is paged in; the reply names it. "
     "Where no segment is known, as in the BIOS or under a mapper that does not "
     "report its segments, it is a plain breakpoint. "
@@ -315,7 +315,7 @@ const McpTool mcpTools[] = {
            "\"AF BC DE HL, the alternates AF1 BC1 DE1 HL1, IX IY SP PC I R IM "
            "IFF1 IFF2, or a half: A F B C D E H L IXH IXL IYH IYL\"},"
            "\"value\":{\"type\":\"string\",\"description\":"
-           "\"0x4000, 4000h or a decimal number. A "
+           "\"0x4000, 4000h, a decimal number, or a label as @DRAW_SPRITES. A "
            "bare number is decimal.\"}},"
            "\"required\":[\"reg\",\"value\"]"),
     DESTROYS,

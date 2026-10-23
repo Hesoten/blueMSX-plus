@@ -25,7 +25,7 @@
 
 #include "ControlCall.h"
 
-/* Reads "at", a register name too, into addr, and tells in the text how it was
+/* Reads "at", a register name or a symbol too, into addr, and tells in the text how it was
 ** read; refuses one missing, unreadable, or in a slot with contents but no segments. A
 ** register a running machine cannot give marks atUnread, which the refusals below refuse. */
 #define CTRL_ADDR_ARG_NEEDS_MACHINE 1   /* refused with no machine */
@@ -39,7 +39,8 @@ int  ctrlAddrArgRefusePastEnd(CtrlCall* call, const CtrlAddr* addr);
 /* A vram: range with a byte that has no video memory behind it in that screen mode. */
 int  ctrlAddrArgRefuseNoVram(CtrlCall* call, UInt32 address, UInt32 size, int mode);
 
-/* Says in the text how a typed address was read: which mapper ram: took. */
+/* Says in the text how a typed address was read: which mapper
+** ram: took, and that an @NAME was chosen from a running layout. */
 void ctrlAddrArgTellHowRead(CtrlCall* call, const char* typed, const CtrlAddr* addr);
 
 #endif

@@ -79,7 +79,7 @@ static int watchAddress(CtrlCall* call, int setting, WatchTarget* target)
     /* With no machine, only a plain or vram: address means what it did;
     ** the others read the fake slot map. */
     if (!setting && emulatorGetState() == EMU_STOPPED && typed != NULL &&
-        (!ctrlAddrParse(typed, &target->addr, err, sizeof(err)) ||
+        (strchr(typed, '@') != NULL || !ctrlAddrParse(typed, &target->addr, err, sizeof(err)) ||
          (target->addr.space != CTRL_SPACE_CPU && target->addr.space != CTRL_SPACE_VRAM)))
     {
         return ctrlReplyError(call, "no_machine",

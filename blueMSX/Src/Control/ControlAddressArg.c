@@ -66,6 +66,10 @@ static void tellRamChoice(CtrlText* out, const CtrlAddr* addr)
 void ctrlAddrArgTellHowRead(CtrlCall* call, const char* typed, const CtrlAddr* addr)
 {
     tellRamChoice(&call->text, addr);
+    if (addr->symbolByPaging && emulatorGetState() == EMU_RUNNING) {
+        ctrlTextAdd(&call->text, "Of the definitions of that name, the one paged in was taken. "
+                    "%s\n", CTRL_TEXT_RUNNING_LAYOUT);
+    }
 }
 
 int ctrlAddrArgRead(CtrlCall* call, int flags, CtrlAddr* addr)
@@ -82,7 +86,7 @@ int ctrlAddrArgRead(CtrlCall* call, int flags, CtrlAddr* addr)
     if ((typed = ctrlCallText(call, "at")) == NULL) {
         return ctrlReplyError(call, "missing_at",
                               "this request needs an address in \"at\", for example "
-                              "\"0xC000\", \"pc\", "
+                              "\"0xC000\", \"pc\", \"@DRAW_SPRITES\", "
                               "\"ram:seg12+0x1A30\" or \"slot1.0:seg5+0x100\"");
     }
     strcpy(text, typed);

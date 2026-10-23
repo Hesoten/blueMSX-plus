@@ -22,9 +22,9 @@
 */
 #include "ControlAddress.h"
 #include "ControlSlots.h"
+#include "ControlSymbol.h"
 #include "ControlText.h"
 #include "ControlCpu.h"
-#include "ControlProtocol.h"
 #include "SlotManager.h"
 #include "Board.h"
 #include <stdio.h>
@@ -205,6 +205,231 @@ static int ctrlAddrRamSlot(int* slot, int* subSlot, int* page3Slot, int* page3Su
     if (slot    != NULL) { *slot    = s;  }
     if (subSlot != NULL) { *subSlot = ss; }
     return why;
+}
+
+/* How many definitions a refusal lists for the agent to choose from. */
+#define NAME_CHOICES_MAX 8
+
+/* Appends to message, as addresses to paste, up to most of the definitions not skipped;
+** returns how many it appended. */
+static int appendDefinitions(char* message, int size, const CtrlSymbolInfo* found,
+                             const int* skip, int matches, int most)
+{
+    int at = (int)strlen(message);
+    int printed = 0;
+    int i;
+
+    for (i = 0; i < matches && printed < most && at < size - 40; i++) {
+        if (skip[i]) {
+            continue;
+        }
+        if (!ctrlSymHasSegmentAddress(&found[i])) {
+            at += snprintf(message + at, (size_t)(size - at), "%s0x%04X",
+                           printed > 0 ? ", " : "", found[i].z80Address);
+        }
+        else {
+            CtrlAddr where;
+            char     segment[48];
+
+            if (!ctrlSymAddress(&found[i], &where)) {
+                where.offset = found[i].z80Address;
+            }
+            ctrlAddrPrintSegment(segment, sizeof(segment), 0, where.slot, where.subSlot,
+                                 (int)where.segment, where.offset);
+            at += snprintf(message + at, (size_t)(size - at), "%s%s",
+                           printed > 0 ? ", " : "", segment);
+        }
+        printed++;
+    }
+    return printed;
+}
+
+/* The name after the @, up to a sign or a space; returns what follows, or NULL. */
+static const char* readSymbolName(const char* s, char* name, char* err, int errLen)
+{
+    size_t length = 0;
+
+    while (s[length] != 0 && s[length] != '+' && s[length] != '-' &&
+           s[length] != ' ' && length < CTRL_SYM_NAME_MAX - 1)
+    {
+        name[length] = s[length];
+        length++;
+    }
+    name[length] = 0;
+    s += length;
+
+    if (length == 0) {
+        fail(err, errLen, "expected a symbol name after the @");
+        return NULL;
+    }
+    if (length == CTRL_SYM_NAME_MAX - 1 && *s != 0 && *s != '+' && *s != '-' && *s != ' ') {
+        char message[64];
+        snprintf(message, sizeof(message), "a symbol name is at most %d bytes",
+                 CTRL_SYM_NAME_MAX - 1);
+        fail(err, errLen, message);
+        return NULL;
+    }
+    return s;
+}
+
+/* Of the definitions found, marks in skip those with a bank but no slot, and returns the
+** one to use: the one paged in, else the first that has an address. known gets how many
+** have one, reachable how many are paged in, unbound the first skipped one or -1. */
+static int chooseDefinition(const CtrlSymbolInfo* found, int matches, int* skip,
+                            int* known, int* reachable, int* unbound)
+{
+    int chosen = -1;
+    int i;
+
+    for (i = 0; i < matches; i++) {
+        CtrlAddr candidate;
+        CtrlAddrInfo info;
+
+        /* A bank number with no slot: banked, but where is not known. */
+        skip[i] = 0;
+        if (found[i].slot == CTRL_SYM_SLOT_NONE &&
+            found[i].segment != CTRL_SYM_SEG_ANY)
+        {
+            if (*unbound < 0) {
+                *unbound = i;
+            }
+            skip[i] = 1;
+        }
+        if (skip[i]) {
+            continue;
+        }
+        (*known)++;
+        if (!ctrlSymHasSegmentAddress(&found[i])) {
+            if (chosen < 0) {
+                chosen = i;
+            }
+            continue;
+        }
+        /* Paged in or not does not hang on the offset, unknown with no segment size. */
+        ctrlSymAddress(&found[i], &candidate);
+        if (ctrlAddrResolve(&candidate, &info) && info.z80Address >= 0) {
+            chosen = i;
+            (*reachable)++;
+        }
+        else if (chosen < 0) {
+            chosen = i;
+        }
+    }
+    return chosen;
+}
+
+/* The ones not looked through may be paged in too, so none can be chosen. */
+static void refuseTooMany(const char* name, int total, const CtrlSymbolInfo* found,
+                          const int* skip, int matches, char* err, int errLen)
+{
+    char message[CTRL_ADDR_ERR_MAX];
+    size_t at;
+
+    snprintf(message, sizeof(message),
+             "%d symbols are called %.40s, more than the %d an address looks "
+             "through. Use one of these as the address: ", total, name,
+             CTRL_SYM_BY_NAME_MAX);
+    appendDefinitions(message, (int)sizeof(message), found, skip, matches,
+                      NAME_CHOICES_MAX);
+    at = strlen(message);
+    snprintf(message + at, sizeof(message) - at, ", or page through all of them "
+             "with bmsx_symbols search");
+    fail(err, errLen, message);
+}
+
+static void refuseUnbound(const char* name, const CtrlSymbolInfo* unbound, char* err,
+                          int errLen)
+{
+    char message[CTRL_ADDR_ERR_MAX];
+    CtrlSymFile file;
+
+    if (!ctrlSymFileGet(unbound->fileId, &file)) {
+        memset(&file, 0, sizeof(file));
+    }
+    snprintf(message, sizeof(message),
+             "%.60s is in %s %d of %.60s, which is not bound to a slot, so "
+             "its address is not known. The load said why; if it listed slots "
+             "that could hold the file, load it again with one of them, as in "
+             "slot=\"1.0\"", name,
+             ctrlSymFileHasPages(&file) ? "page" : "bank",
+             (int)unbound->segment, file.name);
+    fail(err, errLen, message);
+}
+
+static void refuseAmbiguous(const char* name, int known, const CtrlSymbolInfo* found,
+                            const int* skip, int matches, char* err, int errLen)
+{
+    char message[CTRL_ADDR_ERR_MAX];
+    int  printed;
+    size_t at;
+
+    snprintf(message, sizeof(message),
+             "%d symbols are called %.40s and none is uniquely paged "
+             "in. Use one of these as the address: ", known, name);
+    printed = appendDefinitions(message, (int)sizeof(message), found, skip, matches,
+                                NAME_CHOICES_MAX);
+    at = strlen(message);
+    if (known > printed) {
+        snprintf(message + at, sizeof(message) - at, ", and %d more; bmsx_symbols "
+                 "find lists them all with addresses", known - printed);
+    }
+    fail(err, errLen, message);
+}
+
+/* @NAME. Of several segments defining the name, the one uniquely paged in wins; otherwise,
+** or with more definitions than are looked through, it is refused. */
+static const char* parseSymbolForm(const char* s, CtrlAddr* addr, char* err, int errLen)
+{
+    CtrlSymbolInfo found[CTRL_SYM_BY_NAME_MAX];
+    char name[CTRL_SYM_NAME_MAX];
+    int  skip[CTRL_SYM_BY_NAME_MAX];
+    int  matches;
+    int  total = 0;
+    int  chosen;
+    int  reachable = 0;
+    int  known = 0;
+    int  unbound = -1;
+
+    s = readSymbolName(s, name, err, errLen);
+    if (s == NULL) {
+        return NULL;
+    }
+
+    /* The same definition in several files counts once. */
+    matches = ctrlSymByName(name, found, CTRL_SYM_BY_NAME_MAX, 1, &total);
+    if (matches == 0) {
+        char message[200];
+        snprintf(message, sizeof(message),
+                 "no symbol called %.60s (names are case sensitive). A symbol "
+                 "search takes a pattern, and the symbol status says what is loaded.",
+                 name);
+        fail(err, errLen, message);
+        return NULL;
+    }
+
+    chosen = chooseDefinition(found, matches, skip, &known, &reachable, &unbound);
+    if (total > matches) {
+        refuseTooMany(name, total, found, skip, matches, err, errLen);
+        return NULL;
+    }
+    if (known == 0) {
+        refuseUnbound(name, &found[unbound], err, errLen);
+        return NULL;
+    }
+    if (known > 1 && reachable != 1) {
+        refuseAmbiguous(name, known, found, skip, matches, err, errLen);
+        return NULL;
+    }
+
+    if (!ctrlSymHasSegmentAddress(&found[chosen])) {
+        addr->space  = CTRL_SPACE_CPU;
+        addr->offset = found[chosen].z80Address;
+    }
+    else if (!ctrlSymAddress(&found[chosen], addr)) {
+        addr->offset = found[chosen].z80Address;
+    }
+    addr->symbolByPaging = known > 1;
+    return s;
 }
 
 /* vram:0x1B00 or cpu:0xC000; returns what follows, or NULL. */
@@ -440,6 +665,9 @@ int ctrlAddrParse(const char* text, CtrlAddr* addr, char* err, int errLen)
 
     if (prefixIs(s, "vram:") || prefixIs(s, "cpu:")) {
         s = parseSpacePrefix(s, addr, err, errLen);
+    }
+    else if (*s == '@') {
+        s = parseSymbolForm(s + 1, addr, err, errLen);
     }
     else if (prefixIs(s, "ram:")) {
         s = parseRamForm(s, addr, err, errLen);
