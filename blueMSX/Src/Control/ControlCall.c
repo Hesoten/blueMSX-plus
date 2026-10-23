@@ -207,6 +207,11 @@ int ctrlReplyDone(CtrlCall* call)
     return call->out.length;
 }
 
+int ctrlReplyTextAsError(CtrlCall* call, const char* code)
+{
+    return ctrlReplyError(call, code, call->text.data);
+}
+
 int ctrlReplyErrorf(CtrlCall* call, const char* code, const char* format, ...)
 {
     /* Its own buffer: the arguments may point into call->text. */

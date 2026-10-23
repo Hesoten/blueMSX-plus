@@ -74,3 +74,19 @@ void ctrlTextAdd(CtrlText* text, const char* format, ...)
     }
     text->length += written;
 }
+
+CtrlTextMark ctrlTextMark(const CtrlText* text)
+{
+    CtrlTextMark mark;
+
+    mark.length = text->length;
+    mark.full   = text->full;
+    return mark;
+}
+
+void ctrlTextCut(CtrlText* text, CtrlTextMark mark)
+{
+    text->length            = mark.length;
+    text->data[mark.length] = 0;
+    text->full              = mark.full;
+}

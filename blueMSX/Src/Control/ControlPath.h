@@ -23,7 +23,20 @@
 #ifndef CONTROL_PATH_H
 #define CONTROL_PATH_H
 
+#include "MsxTypes.h"
+
+/* The file name after the last \ or /. */
+const char* ctrlPathLeaf(const char* path);
+
+/* The file name without its folder and its last extension, cut to fit out. */
+void ctrlPathLeafStem(const char* path, char* out, int outLen);
+
 /* C:\..., C:/... or \\server\...; anything else opens against the emulator's folder. */
 int ctrlPathIsFull(const char* path);
+
+/* The last write time of a file, in 100 ns units; 0 when it is not there. */
+Int64 ctrlFileWriteTime(const char* path);
+/* The time now, in the units of ctrlFileWriteTime. */
+Int64 ctrlFileTimeNow(void);
 
 #endif

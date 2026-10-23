@@ -991,8 +991,10 @@
     <ClCompile Include="..\..\Src\Control\ControlScreen.c" />
     <ClCompile Include="..\..\Src\Control\ControlRequest.c" />
     <ClCompile Include="..\..\Src\Control\ControlMemory.c" />
+    <ClCompile Include="..\..\Src\Control\ControlSymbol.c" />
     <ClCompile Include="..\..\Src\Control\ControlText.c" />
     <ClCompile Include="..\..\Src\Control\ControlPath.c" />
+    <ClCompile Include="..\..\Src\Control\ControlSymbolParse.c" />
     <ClCompile Include="..\..\Src\Control\ControlSession.c" />
     <ClCompile Include="..\..\Src\Control\ControlCall.c" />
     <ClCompile Include="..\..\Src\Control\ControlOpSlots.c" />
@@ -1002,6 +1004,7 @@
     <ClCompile Include="..\..\Src\Control\ControlOpBreak.c" />
     <ClCompile Include="..\..\Src\Control\ControlOpWatch.c" />
     <ClCompile Include="..\..\Src\Control\ControlOpHunt.c" />
+    <ClCompile Include="..\..\Src\Control\ControlOpSymbol.c" />
     <ClCompile Include="..\..\Src\Control\ControlOpScreen.c" />
     <ClCompile Include="..\..\Src\Control\ControlView.c" />
     <ClCompile Include="..\..\Src\Control\ControlHello.c" />
@@ -1410,8 +1413,10 @@
     <ClInclude Include="..\..\Src\Control\ControlRequest.h" />
     <ClInclude Include="..\..\Src\Control\ControlSocket.h" />
     <ClInclude Include="..\..\Src\Control\ControlMemory.h" />
+    <ClInclude Include="..\..\Src\Control\ControlSymbol.h" />
     <ClInclude Include="..\..\Src\Control\ControlText.h" />
     <ClInclude Include="..\..\Src\Control\ControlPath.h" />
+    <ClInclude Include="..\..\Src\Control\ControlSymbolParse.h" />
     <ClInclude Include="..\..\Src\Control\ControlSession.h" />
     <ClInclude Include="..\..\Src\Control\ControlCall.h" />
     <ClInclude Include="..\..\Src\Control\ControlOp.h" />

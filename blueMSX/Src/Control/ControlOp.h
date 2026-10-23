@@ -64,6 +64,13 @@ int ctrlOpHuntRefine(CtrlCall* call);
 int ctrlOpHuntList(CtrlCall* call);
 int ctrlOpHuntEnd(CtrlCall* call);
 
+/* ControlOpSymbol.c */
+int ctrlOpSymLoad(CtrlCall* call);
+int ctrlOpSymFind(CtrlCall* call);
+int ctrlOpSymSearch(CtrlCall* call);
+int ctrlOpSymStatus(CtrlCall* call);
+int ctrlOpSymClear(CtrlCall* call);
+
 /* ControlOpScreen.c */
 int ctrlOpScreen(CtrlCall* call);
 

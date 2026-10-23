@@ -21,7 +21,34 @@
 ******************************************************************************
 */
 #include "ControlPath.h"
+#include <windows.h>
 #include <ctype.h>
+#include <string.h>
+#include "Utf8Conv.h"
+
+const char* ctrlPathLeaf(const char* path)
+{
+    const char* back  = strrchr(path, '\\');
+    const char* slash = strrchr(path, '/');
+
+    if (slash != NULL && (back == NULL || slash > back)) {
+        back = slash;
+    }
+    return back != NULL ? back + 1 : path;
+}
+
+void ctrlPathLeafStem(const char* path, char* out, int outLen)
+{
+    const char* leaf = ctrlPathLeaf(path);
+    const char* dot  = strrchr(leaf, '.');
+    int length = dot != NULL ? (int)(dot - leaf) : (int)strlen(leaf);
+
+    if (length >= outLen) {
+        length = outLen - 1;
+    }
+    memcpy(out, leaf, (size_t)length);
+    out[length] = 0;
+}
 
 int ctrlPathIsFull(const char* path)
 {
@@ -31,4 +58,30 @@ int ctrlPathIsFull(const char* path)
         return 1;
     }
     return (path[0] == '\\' && path[1] == '\\') || (path[0] == '/' && path[1] == '/');
+}
+
+static Int64 fileTimeValue(const FILETIME* time)
+{
+    return ((Int64)time->dwHighDateTime << 32) | time->dwLowDateTime;
+}
+
+Int64 ctrlFileWriteTime(const char* path)
+{
+    WIN32_FILE_ATTRIBUTE_DATA data;
+    wchar_t wide[1024];
+
+    if (!PathToWide(path, wide, 1024) ||
+        !GetFileAttributesExW(wide, GetFileExInfoStandard, &data))
+    {
+        return 0;
+    }
+    return fileTimeValue(&data.ftLastWriteTime);
+}
+
+Int64 ctrlFileTimeNow(void)
+{
+    FILETIME now;
+
+    GetSystemTimeAsFileTime(&now);
+    return fileTimeValue(&now);
 }

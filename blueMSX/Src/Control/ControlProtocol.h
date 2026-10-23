@@ -82,6 +82,11 @@
 #define CTRL_HUNT_LIST_COUNT_DEFAULT      20
 #define CTRL_HUNT_LIST_COUNT_MIN          1
 #define CTRL_HUNT_LIST_COUNT_MAX          64
+#define CTRL_SYM_SEARCH_FIRST_DEFAULT     0
+#define CTRL_SYM_SEARCH_FIRST_MIN         0
+#define CTRL_SYM_SEARCH_COUNT_DEFAULT     20
+#define CTRL_SYM_SEARCH_COUNT_MIN         1
+#define CTRL_SYM_SEARCH_COUNT_MAX         40
 
 /* The defaults of the text arguments that have one. */
 #define CTRL_WP_CONDITION_DEFAULT         "any"

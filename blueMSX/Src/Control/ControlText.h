@@ -34,6 +34,15 @@ typedef struct {
 void ctrlTextInit(CtrlText* text, char* buffer, int capacity);
 void ctrlTextAdd(CtrlText* text, const char* format, ...);
 int  ctrlTextIsFull(const CtrlText* text);
+/* Where a text stands, to go back to with ctrlTextCut. */
+typedef struct {
+    int length;
+    int full;
+} CtrlTextMark;
+
+CtrlTextMark ctrlTextMark(const CtrlText* text);
+/* Drops what came after the mark, leaving the text as it was there, full or not. */
+void ctrlTextCut(CtrlText* text, CtrlTextMark mark);
 
 /* The value of a hex digit, 0-15, or -1 when c is none. */
 int  ctrlTextHexDigit(int c);

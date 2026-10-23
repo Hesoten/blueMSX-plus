@@ -98,6 +98,8 @@ void ctrlReplyBegin(CtrlCall* call);
 int  ctrlReplyDone(CtrlCall* call);
 /* Writes an error reply in place of any reply begun; returns its length. */
 int  ctrlReplyError(CtrlCall* call, const char* code, const char* message);
+/* An error whose message is the text built so far. */
+int  ctrlReplyTextAsError(CtrlCall* call, const char* code);
 /* An error with a formatted message, cut to CTRL_ERRORF_MAX. */
 #define CTRL_ERRORF_MAX 4096
 int  ctrlReplyErrorf(CtrlCall* call, const char* code, const char* format, ...);

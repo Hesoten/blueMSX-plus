@@ -53,6 +53,7 @@
                                 "\"idempotentHint\":false,\"openWorldHint\":false"
 
 static void buildByOp(const McpTool* tool, const char* arguments, JsonOut* request);
+static void buildSymbols(const McpTool* tool, const char* arguments, JsonOut* request);
 
 const McpTool mcpTools[] = {
 {
@@ -228,6 +229,35 @@ const McpTool mcpTools[] = {
     CHANGES,
     "wp.",
     buildByOp
+},
+{
+    "bmsx_symbols",
+    "Load a symbol file, or look one up. Symbols are bound to the segment they "
+    "were assembled for, so a megaROM whose thirty-two banks all run at 0x4000 "
+    "gets the right labels for each one instead of whichever file was read last. "
+    "Reads bank numbers from sjasmplus .sld, asMSX .sym, WLA-DX .sym and SDCC "
+    ".noi or .map, and plain NAME equ VALUE files without them.",
+    SCHEMA("\"properties\":{"
+           "\"op\":{\"type\":\"string\","
+           "\"enum\":[\"load\",\"find\",\"search\",\"status\",\"clear\"]},"
+           "\"path\":{\"type\":\"string\",\"description\":\"for load: the full path of "
+           "the file\"},"
+           "\"slot\":{\"type\":\"string\",\"description\":\"for load, as in \\\"1.0\\\", "
+           "when the file's banks belong to a slot it could not work out\"},"
+           "\"replace_all\":{\"type\":\"boolean\",\"default\":false,\"description\":"
+           "\"for load: unload every other symbol file first. Without it the other "
+           "files stay, and a file of the same name replaces its earlier load\"},"
+           "\"name\":{\"type\":\"string\",\"description\":\"for find\"},"
+           "\"pattern\":{\"type\":\"string\",\"description\":\"for search; * and ? work\"},"
+           "\"first\":{\"type\":\"integer\",\"default\":" CTRL_STR(CTRL_SYM_SEARCH_FIRST_DEFAULT)
+           ",\"minimum\":" CTRL_STR(CTRL_SYM_SEARCH_FIRST_MIN) "},"
+           "\"count\":{\"type\":\"integer\",\"default\":" CTRL_STR(CTRL_SYM_SEARCH_COUNT_DEFAULT)
+           ",\"minimum\":" CTRL_STR(CTRL_SYM_SEARCH_COUNT_MIN) ",\"maximum\":"
+           CTRL_STR(CTRL_SYM_SEARCH_COUNT_MAX) "}},"
+           "\"required\":[\"op\"]"),
+    READ_ONLY,
+    "sym.",
+    buildSymbols
 },
 {
     "bmsx_screen",
@@ -546,6 +576,20 @@ static void buildByOp(const McpTool* tool, const char* arguments, JsonOut* reque
 {
     if (writeOp(tool, arguments, request)) {
         mcpToolCopy(tool, arguments, request, NULL);
+    }
+}
+
+/* As buildByOp, with replace_all sent as the emulator's "replace". */
+static void buildSymbols(const McpTool* tool, const char* arguments, JsonOut* request)
+{
+    int replaceAll;
+
+    if (!writeOp(tool, arguments, request)) {
+        return;
+    }
+    mcpToolCopy(tool, arguments, request, "replace_all");
+    if (jsonGetBool(arguments, "replace_all", &replaceAll)) {
+        jsonOutBool(request, "replace", replaceAll);
     }
 }
 

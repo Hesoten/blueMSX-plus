@@ -38,7 +38,8 @@ struct McpTool {
     const char*  description;
     const char*  schema;
     const char*  annotations;
-    /* The op sent, whole; for buildByOp its start, which the "op" argument ends. */
+    /* The op sent, whole; for buildByOp and buildSymbols its start, which the "op" argument
+    ** ends. */
     const char*  op;
     McpToolBuild build;          /* NULL: "op" is op, and every argument is copied */
 };

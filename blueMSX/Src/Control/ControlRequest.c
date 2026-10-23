@@ -24,6 +24,7 @@
 #include "ControlJson.h"
 #include "ControlOp.h"
 #include "ControlProtocol.h"
+#include "ControlSymbolParse.h"
 #include "ControlSession.h"
 #include "Debugger.h"
 #include <string.h>
@@ -98,6 +99,16 @@ static const CtrlArg huntRefineArgs[] = {
 static const CtrlArg huntListArgs[] = {
     { "first", CTRL_ARG_INT, 0 }, { "count", CTRL_ARG_INT, 0 }, { NULL }
 };
+static const CtrlArg symLoadArgs[] = {
+    { "path", CTRL_ARG_TEXT, CTRL_PATH_MAX - 1 }, { "slot", CTRL_ARG_TEXT, 31 },
+    { "replace", CTRL_ARG_BOOL, 0 }, { NULL }
+};
+static const CtrlArg symFindArgs[] = {
+    { "name", CTRL_ARG_TEXT, CTRL_SYM_NAME_MAX - 1 }, { NULL }
+};
+static const CtrlArg symSearchArgs[] = {
+    { "pattern", CTRL_ARG_TEXT, 127 }, { "first", CTRL_ARG_INT, 0 }, { "count", CTRL_ARG_INT, 0 }, { NULL }
+};
 static const CtrlArg screenArgs[] = {
     { "as", CTRL_ARG_TEXT, 11 }, { "path", CTRL_ARG_TEXT, CTRL_PATH_MAX - 1 }, { NULL }
 };
@@ -160,6 +171,16 @@ static const CtrlOp opTable[] = {
       "  hunt.list    first, count\n" },
     { "hunt.end",          CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpHuntEnd, NULL,
       "  hunt.end\n" },
+    { "sym.load",          CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpSymLoad, OP_ARGS(symLoadArgs),
+      "  sym.load     path, slot, replace\n" },
+    { "sym.find",          CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpSymFind, OP_ARGS(symFindArgs),
+      "  sym.find     name\n" },
+    { "sym.search",        CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpSymSearch, OP_ARGS(symSearchArgs),
+      "  sym.search   pattern, first, count\n" },
+    { "sym.status",        CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpSymStatus, NULL,
+      "  sym.status\n" },
+    { "sym.clear",         CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpSymClear, NULL,
+      "  sym.clear\n" },
     { "screen",            CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpScreen, OP_ARGS(screenArgs),
       "  screen       as = auto|text|png, path\n" },
 };
