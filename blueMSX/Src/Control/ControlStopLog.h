@@ -30,7 +30,7 @@
 #define CTRL_STOP_STEP       2  /* a single step finished                  */
 #define CTRL_STOP_BREAKPOINT 3  /* a breakpoint fired                      */
 #define CTRL_STOP_MACHINE    4  /* the machine stopped or was replaced     */
-#define CTRL_STOP_WATCH      6  /* a watchpoint fired                      */
+#define CTRL_STOP_WATCH      6  /* a watchpoint fired; watchType says where */
 #define CTRL_STOP_VRAM_TIMING 7 /* the VDP was accessed faster than it can be */
 #define CTRL_STOP_STEP_BACK  8  /* a step back reached its moment          */
 
@@ -38,6 +38,10 @@ typedef struct {
     UInt32 seq;
     UInt8  reason;
     UInt32 runGeneration;
+    UInt8  watchType;   /* a DbgDeviceType, for CTRL_STOP_WATCH only */
+    UInt32 watchAddress;
+    Int8   watchMode;   /* the screen mode at a VIDEO hit, whose layout watchAddress indexes */
+    UInt8  watchKind;   /* the DBG_WATCH_ kind of watchpoint that matched */
 } CtrlStop;
 
 void ctrlStopLogCreate(void);
@@ -45,8 +49,9 @@ void ctrlStopLogCreate(void);
 /* The reason a pause's cause (a DBG_STOP_ value) is logged as. */
 int ctrlStopReasonOf(int cause);
 
-/* Logs a stop of the run generation it ended. */
-void ctrlStopPost(int reason, UInt32 runGeneration);
+/* Logs a stop of the run generation it ended; the watch fields for a watch only. */
+void ctrlStopPost(int reason, UInt32 runGeneration, int watchType, UInt32 watchAddress,
+                  int watchMode, int watchKind);
 
 /* The highest sequence number written so far. */
 UInt32 ctrlStopSeq(void);

@@ -129,11 +129,26 @@ Int32 ctrlCallInt(CtrlCall* call, const char* key, Int32 fallback)
            value->number < -0x7FFFFFFF - 1 ? -0x7FFFFFFF - 1 : (Int32)value->number;
 }
 
+int ctrlCallInt64(CtrlCall* call, const char* key, Int64* v)
+{
+    const CtrlArgValue* value = argValue(call, key);
+
+    *v = value != NULL && value->given && value->text == NULL ? value->number : 0;
+    return value != NULL && value->given;
+}
+
 int ctrlCallBool(CtrlCall* call, const char* key, int fallback)
 {
     const CtrlArgValue* value = argValue(call, key);
 
     return value != NULL && value->given && value->text == NULL ? value->number != 0 : fallback;
+}
+
+int ctrlCallGiven(CtrlCall* call, const char* key)
+{
+    const CtrlArgValue* value = argValue(call, key);
+
+    return value != NULL && value->given;
 }
 
 int ctrlReplyError(CtrlCall* call, const char* code, const char* message)
@@ -227,6 +242,11 @@ int ctrlRefuseUnlessViewed(CtrlCall* call)
         return refused;
     }
     return ctrlReplyError(call, "not_paused", CTRL_TEXT_NOT_PAUSED);
+}
+
+void ctrlCallReleaseView(CtrlCall* call)
+{
+    ctrlViewRelease(&call->view);
 }
 
 int ctrlCallTakeView(CtrlCall* call, CtrlView* view)

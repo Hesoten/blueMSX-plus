@@ -23,6 +23,7 @@
 #include "ControlDebuggerListener.h"
 #include "ControlStopLog.h"
 #include "ControlInstance.h"
+#include "DebugDeviceManager.h"
 #include "Debugger.h"
 #include "Emulator.h"
 #include "Properties.h"
@@ -37,12 +38,21 @@ static void onStart(void* ref)
 /* The stop transition was made on this thread just before. */
 static void onStop(void* ref)
 {
-    ctrlStopPost(CTRL_STOP_MACHINE, emulatorOwnStateSeq());
+    ctrlStopPost(CTRL_STOP_MACHINE, emulatorOwnStateSeq(), 0, 0, -1, DBG_WATCH_NONE);
 }
 
 static void onPause(void* ref, int cause, UInt32 runGeneration)
 {
-    ctrlStopPost(ctrlStopReasonOf(cause), runGeneration);
+    int    watchType = 0;
+    UInt32 watchAddress = 0;
+    int    watchMode = -1;
+    int    watchKind = DBG_WATCH_NONE;
+
+    if (cause == DBG_STOP_WATCH) {
+        debugDeviceLastWatchHit(&watchType, &watchAddress, &watchMode, &watchKind);
+    }
+    ctrlStopPost(ctrlStopReasonOf(cause), runGeneration, watchType, watchAddress, watchMode,
+                 watchKind);
 }
 
 void ctrlDebuggerListenerCreate(void)

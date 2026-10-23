@@ -652,17 +652,27 @@ void dbgEnableVramAccessCheck(int enable)
     }
 }    
 
-/* No parking needed: this only fills a node in, or prepends one that is
-** already complete, so a walking emulation thread always sees a valid list. */
 void dbgSetWatchpoint(DbgDeviceType devType, int address, DbgWatchpointCondition condition, UInt32 referenceValue, int size)
 {
-    debugDeviceSetMemoryWatchpoint(devType, address, condition, referenceValue, size);
+    dbgSetWatchpointEx(devType, address, condition, referenceValue, size, 0);
+}
+
+/* No parking needed: this only fills a node in, or prepends one that is
+** already complete, so a walking emulation thread always sees a valid list. */
+void dbgSetWatchpointEx(DbgDeviceType devType, int address, DbgWatchpointCondition condition, UInt32 referenceValue, int size, int byProgram)
+{
+    debugDeviceSetMemoryWatchpointEx(devType, address, condition, referenceValue, size, byProgram);
+}
+
+void dbgClearWatchpoint(DbgDeviceType devType, int address)
+{
+    dbgClearWatchpointEx(devType, address, 0);
 }
 
 /* Frees a node the emulation thread walks on every write it checks, so park it
 ** first. Only from EMU_RUNNING: every other state has that thread stopped or
 ** about to stop, and leaving one of those is someone else's call to make. */
-void dbgClearWatchpoint(DbgDeviceType devType, int address)
+void dbgClearWatchpointEx(DbgDeviceType devType, int address, int byProgram)
 {
     int wasRunning = emulatorGetState() == EMU_RUNNING;
     if (wasRunning) {
@@ -672,7 +682,7 @@ void dbgClearWatchpoint(DbgDeviceType devType, int address)
         /* A paused machine is parked, but an agent may be reading through that node. */
         dbgChangeBegin();
     }
-    debugDeviceClearMemoryWatchpoint(devType, address);
+    debugDeviceClearMemoryWatchpointEx(devType, address, byProgram);
     if (wasRunning) {
         emulatorResume();
     }

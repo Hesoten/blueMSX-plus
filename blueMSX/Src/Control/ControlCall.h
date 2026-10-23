@@ -87,7 +87,10 @@ int ctrlCallReadArgs(CtrlCall* call);
 const char* ctrlCallText(CtrlCall* call, const char* key);
 /* The number given, clamped to 32 bits as jsonGetInt does, or fallback. */
 Int32 ctrlCallInt(CtrlCall* call, const char* key, Int32 fallback);
+/* Non-zero when given; v gets the number, 0 for text. */
+int   ctrlCallInt64(CtrlCall* call, const char* key, Int64* v);
 int   ctrlCallBool(CtrlCall* call, const char* key, int fallback);
+int   ctrlCallGiven(CtrlCall* call, const char* key);
 
 /* Starts the reply object with the id and ok:true; the handler adds members to out. */
 void ctrlReplyBegin(CtrlCall* call);
@@ -106,6 +109,8 @@ int  ctrlReplyErrorf(CtrlCall* call, const char* code, const char* format, ...);
 int  ctrlRefuseWithoutMachine(CtrlCall* call, const char* suffix);
 /* The machine runs, or there is none: the op reads what only a view of a paused one may. */
 int  ctrlRefuseUnlessViewed(CtrlCall* call);
+/* Lets go of what the dispatcher holds, before the op changes the machine itself. */
+void ctrlCallReleaseView(CtrlCall* call);
 /* For an op that holds nothing: takes a view of the paused machine, else refuses. */
 int  ctrlCallTakeView(CtrlCall* call, CtrlView* view);
 /* The reply to a view or hold not taken (a DBG_ACCESS_ result); 0 for DBG_ACCESS_OK. */

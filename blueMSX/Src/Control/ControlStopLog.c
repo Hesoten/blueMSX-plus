@@ -84,7 +84,8 @@ int ctrlStopReasonOf(int cause)
     }
 }
 
-void ctrlStopPost(int reason, UInt32 runGeneration)
+void ctrlStopPost(int reason, UInt32 runGeneration, int watchType, UInt32 watchAddress,
+                  int watchMode, int watchKind)
 {
     UInt32 seq;
     CtrlStop* slot;
@@ -99,6 +100,10 @@ void ctrlStopPost(int reason, UInt32 runGeneration)
     slot->seq           = seq;
     slot->reason        = (UInt8)reason;
     slot->runGeneration = runGeneration;
+    slot->watchType     = (UInt8)watchType;
+    slot->watchAddress  = watchAddress;
+    slot->watchMode     = (Int8)watchMode;
+    slot->watchKind     = (UInt8)watchKind;
 
     nextSeq = seq + 1;
     unlock();

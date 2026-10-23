@@ -52,6 +52,11 @@ int ctrlOpBpClearAll(CtrlCall* call);
 int ctrlOpBpList(CtrlCall* call);
 int ctrlOpSessionEnd(CtrlCall* call);
 
+/* ControlOpWatch.c */
+int ctrlOpWpSet(CtrlCall* call);
+int ctrlOpWpClear(CtrlCall* call);
+int ctrlOpWpList(CtrlCall* call);
+
 /* ControlOpScreen.c */
 int ctrlOpScreen(CtrlCall* call);
 

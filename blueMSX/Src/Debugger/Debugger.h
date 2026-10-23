@@ -239,6 +239,9 @@ int dbgBreakpointAllows(UInt16 address);
 
 void dbgSetWatchpoint(DbgDeviceType devType, int address, DbgWatchpointCondition condition, UInt32 referenceValue, int size);
 void dbgClearWatchpoint(DbgDeviceType devType, int address);
+/* The same for a VIDEO watchpoint at the address the program uses when byProgram is non-zero. */
+void dbgSetWatchpointEx(DbgDeviceType devType, int address, DbgWatchpointCondition condition, UInt32 referenceValue, int size, int byProgram);
+void dbgClearWatchpointEx(DbgDeviceType devType, int address, int byProgram);
 
 int debuggerCheckVramAccess(void);
 
@@ -270,7 +273,7 @@ void debuggerNotifyEmulatorStop();
 #define DBG_STOP_USER        1  /* a pause was asked for                     */
 #define DBG_STOP_STEP        2  /* a single step finished                    */
 #define DBG_STOP_BREAKPOINT  3
-#define DBG_STOP_WATCH       4  /* a watchpoint matched                      */
+#define DBG_STOP_WATCH       4  /* debugDeviceLastWatchHit says which        */
 #define DBG_STOP_VRAM_TIMING 5  /* the VDP was accessed faster than it takes */
 #define DBG_STOP_STEP_BACK   6  /* a step back reached its moment            */
 

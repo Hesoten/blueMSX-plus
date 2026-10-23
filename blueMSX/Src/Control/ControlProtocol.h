@@ -69,7 +69,14 @@
 #define CTRL_RUN_UNTIL_TIMEOUT_MS_DEFAULT 5000
 #define CTRL_RUN_UNTIL_TIMEOUT_MS_MIN     1
 #define CTRL_RUN_UNTIL_TIMEOUT_MS_MAX     600000
+#define CTRL_WP_PORT_MIN                  0
+#define CTRL_WP_PORT_MAX                  255
+#define CTRL_WP_SIZE_DEFAULT              1
+#define CTRL_WP_SIZE_MIN                  1
+#define CTRL_WP_SIZE_MAX                  4096
+
 /* The defaults of the text arguments that have one. */
+#define CTRL_WP_CONDITION_DEFAULT         "any"
 #define CTRL_SCREEN_AS_DEFAULT            "auto"
 
 /* What an argument of each kind must be, after "\"name\" must be ". */

@@ -92,6 +92,17 @@ void debugDeviceGetSnapshot(DbgDevice** dbgDeviceList, int* count);
 ** from the UI thread, which cannot survive being parked, so a device must not
 ** stop the board from inside one. */
 int debugDeviceIsInspecting(void);
+/* What a match of a watchpoint found: none, one set at the device's own address, or a VRAM
+** one set at the address the program uses. */
+#define DBG_WATCH_NONE     0
+#define DBG_WATCH_PHYSICAL 1
+#define DBG_WATCH_PROGRAM  2
+
+/* The watchpoint hit a WATCH stop is for: noted on the emulation thread before it stops,
+** and read back as that stop is told. A VIDEO hit has the screen mode at the write. */
+void debugDeviceNoteWatchHit(int devType, UInt32 address, int screenMode, int kind);
+void debugDeviceLastWatchHit(int* devType, UInt32* address, int* screenMode, int* kind);
+
 /* The same for a whole access by another thread, so a VDP sync under it keeps a hit pending. */
 void debugDeviceInspectBegin(void);
 void debugDeviceInspectEnd(void);
@@ -107,10 +118,17 @@ int debugDeviceWriteIoPort(DbgIoPorts* ioPorts, int portIndex, UInt32 value);
 
 void debugDeviceSetMemoryWatchpoint(DbgDeviceType devType, int address, DbgWatchpointCondition condition, UInt32 refValue, int size);
 void debugDeviceClearMemoryWatchpoint(DbgDeviceType devType, int address);
+
+/* The same with byProgram: non-zero for a VIDEO watchpoint at the address the program uses,
+** matched in the screen mode of each write. It is another watchpoint than one at that index.
+** Has says whether one starts exactly there, which is what a clear matches. */
+void debugDeviceSetMemoryWatchpointEx(DbgDeviceType devType, int address, DbgWatchpointCondition condition, UInt32 refValue, int size, int byProgram);
+void debugDeviceClearMemoryWatchpointEx(DbgDeviceType devType, int address, int byProgram);
+int  debugDeviceHasMemoryWatchpointEx(DbgDeviceType devType, int address, int byProgram);
 void tryWatchpoint(DbgDeviceType devType, int address, UInt8 value, void* ref, WatchpointReadMemCallback callback);
 
 /* Reports a match without stopping, for callers that have to finish what they
-** are doing before the emulator may be parked. */
+** are doing before the emulator may be parked; a DBG_WATCH_ value. */
 int checkWatchpoint(DbgDeviceType devType, int address, UInt8 value, void* ref, WatchpointReadMemCallback callback);
 
 /* How many watchpoints of that type exist. Exposed as data because the VDP
@@ -118,8 +136,8 @@ int checkWatchpoint(DbgDeviceType devType, int address, UInt8 value, void* ref, 
 ** list it mirrors, so the same devType always indexes both. */
 extern int debugWatchpointCount[];
 
-/* Whether a watchpoint still covers that address, for a caller holding a hit it
-** could not report at the time and has to re-qualify before it does. */
-int watchpointCovers(DbgDeviceType devType, int address);
+/* For a caller holding a hit it could not report at the time: the DBG_WATCH_ kind of a watchpoint
+** that still covers that address in that screen mode, kind itself while one of that kind does. */
+int watchpointCovers(DbgDeviceType devType, int address, int screenMode, int kind);
 
 #endif /*DEBUG_DEVICE_MANAGER_H*/

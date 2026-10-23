@@ -168,6 +168,8 @@ struct VdpCmdState {
     int    vramSize;
     int    breakPending;
     int    breakPendingAddr;
+    int    breakPendingKind;   /* the DBG_WATCH_ kind of watchpoint that matched */
+    int    breakPendingMode;   /* the screen mode the matched write was made in */
     int    vramOffset[2];
     int    vramMask[2];
     int   SX;
@@ -478,11 +480,14 @@ static UInt8 peekVramCmd(void* ref, int address)
 INLINE void vramWatch(VdpCmdState* vdpCmd, UInt8* P)
 {
     if (debugWatchpointCount[DBGTYPE_VIDEO] != 0 && P != scratch) {
-        if (checkWatchpoint(DBGTYPE_VIDEO, (int)(P - vdpCmd->vramBase), *P, vdpCmd, peekVramCmd)) {
+        int kind = checkWatchpoint(DBGTYPE_VIDEO, (int)(P - vdpCmd->vramBase), *P, vdpCmd, peekVramCmd);
+        if (kind != DBG_WATCH_NONE) {
             /* The first hit of the run is the one reported, and its address is
             ** kept so it can be re-qualified against the list when it lands. */
             if (!vdpCmd->breakPending) {
                 vdpCmd->breakPendingAddr = (int)(P - vdpCmd->vramBase);
+                vdpCmd->breakPendingKind = kind;
+                vdpCmd->breakPendingMode = vdpDebugGetScreenMode();
                 vdpCmd->breakPending = 1;
             }
         }
@@ -1583,10 +1588,14 @@ void vdpCmdExecute(VdpCmdState* vdpCmd, UInt32 systemTime)
     ** sees the VRAM the guest really has. Reading the VDP for the debugger runs
     ** the engine on the UI thread, which cannot park, so the hit waits. */
     if (vdpCmd->breakPending && !debugDeviceIsInspecting()) {
-        vdpCmd->breakPending = 0;
         /* The watchpoint that matched can have been removed while the hit was
         ** waiting, so the address is re-qualified rather than merely counted. */
-        if (watchpointCovers(DBGTYPE_VIDEO, vdpCmd->breakPendingAddr)) {
+        int kind = watchpointCovers(DBGTYPE_VIDEO, vdpCmd->breakPendingAddr,
+                                    vdpCmd->breakPendingMode, vdpCmd->breakPendingKind);
+        vdpCmd->breakPending = 0;
+        if (kind != DBG_WATCH_NONE) {
+            debugDeviceNoteWatchHit(DBGTYPE_VIDEO, (UInt32)vdpCmd->breakPendingAddr,
+                                    vdpCmd->breakPendingMode, kind);
             boardOnBreakpoint(DBG_STOP_WATCH);
         }
     }

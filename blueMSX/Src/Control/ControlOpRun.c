@@ -21,6 +21,7 @@
 ******************************************************************************
 */
 #include "ControlOp.h"
+#include "ControlWatch.h"
 #include "ControlClient.h"
 #include "ControlCpu.h"
 #include "ControlStopLog.h"
@@ -39,6 +40,19 @@ static int machineStopState(const CtrlStop* stop)
 {
     return stop->runGeneration == emulatorGetStateSeq() ? EMU_STOPPED
                                                        : (int)emulatorGetState();
+}
+
+/* A register of the paused machine through a view of its own, or -1. */
+static Int32 registerNow(const char* name)
+{
+    CtrlView view;
+    Int32 value = -1;
+
+    if (ctrlViewTake(&view, DBG_ACCESS_VIEW, CTRL_VIEW_TIMEOUT_MS) == DBG_ACCESS_OK) {
+        value = ctrlCpuRegister(name);
+        ctrlViewRelease(&view);
+    }
+    return value;
 }
 
 /* A resume refused: no machine, or the window holds it for a question or a change. Returns
@@ -124,6 +138,34 @@ static int replyLostStep(CtrlCall* call)
     return ctrlReplyDone(call);
 }
 
+/* The first step after a watchpoint stop, which stopped inside the writing instruction, may
+** only finish it: then the counter did not go up (an LDIR repeat takes one off). Returns how
+** many steps that counts as, 0 or 1. */
+static Int32 stepPastWatch(CtrlCall* call, int* finishedWrite, int* lost, int* refused)
+{
+    CtrlStop latest;
+    Int32 before;
+    Int32 after;
+    Int32 moved;
+    int   stepped;
+
+    if (!ctrlStopLatest(&latest) || latest.reason != CTRL_STOP_WATCH) {
+        return 0;
+    }
+    before = registerNow("CNT");
+    if ((stepped = stepAndWait(call, 0, refused)) != 1) {
+        *lost = stepped == 0;
+        return 0;
+    }
+    after = registerNow("CNT");
+    moved = (after - before) & 0xFFFF;
+    if (before >= 0 && after >= 0 && (moved == 0 || moved == 0xFFFF)) {
+        *finishedWrite = 1;
+        return 0;
+    }
+    return 1;
+}
+
 /* A step loop cut short by Off, Read Only or the client going: why, after how many. */
 static int refuseCutSteps(CtrlCall* call, Int32 done, Int32 count)
 {
@@ -148,6 +190,7 @@ static int refuseCutSteps(CtrlCall* call, Int32 done, Int32 count)
 ** reported, else the reply. */
 static int runStep(CtrlCall* call, Int32 count)
 {
+    int   finishedWrite = 0;
     int   lost = 0;
     int   refused = 0;
     int   stepped;
@@ -160,7 +203,7 @@ static int runStep(CtrlCall* call, Int32 count)
     if ((refused = refuseUnlessPaused(call)) != 0) {
         return refused;
     }
-    i = 0;
+    i = stepPastWatch(call, &finishedWrite, &lost, &refused);
     for (; i < count && !lost && !refused && !ctrlClientAllBlocked() &&
            ctrlGateLevel() == CTRL_GATE_FULL && !ctrlPeerGone(); i++) {
         if ((stepped = stepAndWait(call, i, &refused)) != 1) {
@@ -170,6 +213,10 @@ static int runStep(CtrlCall* call, Int32 count)
     }
     if (refused != 0 || (refused = refuseCutSteps(call, i, count)) != 0) {
         return refused;
+    }
+    if (finishedWrite) {
+        ctrlTextAdd(&call->text, "first finished the instruction the watch stopped inside; "
+                    "that is not counted as a step\n");
     }
     if (lost) {
         ctrlTextAdd(&call->text, "stepped %d of %d; the machine did not come back to a stop "
@@ -262,6 +309,7 @@ static int reportUnreadStop(CtrlCall* call)
     ctrlTextAdd(&call->text, "this stop happened before the call and nothing ran; "
                 "call again to run on\n");
     ctrlStatusDescribe(&call->text, stop.reason, EMU_PAUSED);
+    ctrlWatchDescribeStop(&call->text, &stop);
     return ctrlReplyDone(call);
 }
 
@@ -337,6 +385,7 @@ int ctrlOpRunUntil(CtrlCall* call)
         ctrlStatusDescribe(&call->text, stop.reason,
                            stop.reason == CTRL_STOP_MACHINE ? machineStopState(&stop)
                                                             : EMU_PAUSED);
+        ctrlWatchDescribeStop(&call->text, &stop);
     }
     else if ((replied = reportNoStop(call, timeout)) != 0) {
         return replied;
@@ -380,6 +429,9 @@ int ctrlOpStatus(CtrlCall* call)
         ctrlTextAdd(&call->text, "frames:  %u\n", (unsigned)emulatorGetFramesRun());
         ctrlTextAdd(&call->text, "(registers, CPU and VDP omitted: the machine is running; pause "
                     "to read registers)\n");
+    }
+    if (reason == CTRL_STOP_WATCH) {
+        ctrlWatchDescribeStop(&call->text, &stop);
     }
     jsonOutUInt(&call->out, "stop_seq", ctrlStopSeq());
     jsonOutUInt(&call->out, "machine_generation", dbgMachineGeneration());

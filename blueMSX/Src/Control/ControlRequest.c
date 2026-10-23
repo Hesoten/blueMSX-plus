@@ -79,6 +79,13 @@ static const CtrlArg bpSetArgs[] = {
 static const CtrlArg bpClearArgs[] = {
     { "at", CTRL_ARG_TEXT, CTRL_AT_MAX }, { NULL }
 };
+static const CtrlArg wpSetArgs[] = {
+    { "at", CTRL_ARG_TEXT, CTRL_AT_MAX }, { "port", CTRL_ARG_INT, 0 },
+    { "condition", CTRL_ARG_TEXT, 15 }, { "value", CTRL_ARG_INT, 0 }, { "size", CTRL_ARG_INT, 0 }, { NULL }
+};
+static const CtrlArg wpClearArgs[] = {
+    { "at", CTRL_ARG_TEXT, CTRL_AT_MAX }, { "port", CTRL_ARG_INT, 0 }, { NULL }
+};
 static const CtrlArg screenArgs[] = {
     { "as", CTRL_ARG_TEXT, 11 }, { "path", CTRL_ARG_TEXT, CTRL_PATH_MAX - 1 }, { NULL }
 };
@@ -125,6 +132,12 @@ static const CtrlOp opTable[] = {
       "                             no \"owner\", or a different one)\n" },
     { "bp.list",           CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpBpList, NULL,
       "  bp.list\n" },
+    { "wp.set",            CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpWpSet, OP_ARGS(wpSetArgs),
+      "  wp.set       at | port, condition, value, size\n" },
+    { "wp.clear",          CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpWpClear, OP_ARGS(wpClearArgs),
+      "  wp.clear     at | port\n" },
+    { "wp.list",           CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpWpList, NULL,
+      "  wp.list\n" },
     { "screen",            CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpScreen, OP_ARGS(screenArgs),
       "  screen       as = auto|text|png, path\n" },
 };

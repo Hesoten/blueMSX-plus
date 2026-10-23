@@ -273,6 +273,6 @@ int ctrlOpSessionEnd(CtrlCall* call)
 {
     ctrlBreakDropPlain();
     ctrlTextAdd(&call->text, "session ended: the plain breakpoints set with bp.set were cleared. "
-                "Segment breakpoints stay until cleared.\n");
+                "Segment breakpoints and watchpoints stay until cleared.\n");
     return ctrlReplyDone(call);
 }

@@ -157,6 +157,31 @@ const McpTool mcpTools[] = {
     buildByOp
 },
 {
+    "bmsx_watch",
+    "Stop the machine when a byte is written (reads do not count, and an "
+    "unchanged value still counts), or when an I/O port gets an OUT. Works on "
+    "a Z80 address whatever segment is paged in, on video memory -- which is how "
+    "to find out what drew over your sprite -- and on ports. A condition is "
+    "checked after each byte is written, and a value of more than 1 byte is "
+    "little endian. Then bmsx_run_until reports the stop and bmsx_status says "
+    "where the code was. list shows the watches agents set, not the debugger window's.",
+    SCHEMA("\"properties\":{"
+           "\"op\":{\"type\":\"string\",\"enum\":[\"set\",\"clear\",\"list\"],\"default\":\"set\"},"
+           AT_PROPERTY ","
+           "\"port\":{\"type\":\"integer\",\"minimum\":" CTRL_STR(CTRL_WP_PORT_MIN) ",\"maximum\":"
+           CTRL_STR(CTRL_WP_PORT_MAX) ","
+           "\"description\":\"an I/O port instead of an address\"},"
+           "\"condition\":{\"type\":\"string\",\"enum\":[\"any\",\"eq\",\"ne\",\"lt\",\"gt\"],"
+           "\"default\":\"" CTRL_WP_CONDITION_DEFAULT "\"},"
+           "\"value\":{\"type\":\"integer\",\"description\":\"what to compare against\"},"
+           "\"size\":{\"type\":\"integer\",\"default\":" CTRL_STR(CTRL_WP_SIZE_DEFAULT)
+           ",\"minimum\":" CTRL_STR(CTRL_WP_SIZE_MIN) ",\"maximum\":" CTRL_STR(CTRL_WP_SIZE_MAX)
+           "}}"),
+    CHANGES,
+    "wp.",
+    buildByOp
+},
+{
     "bmsx_screen",
     "What is on the screen. In a text mode it comes back as text, which is far "
     "cheaper to read than an image: the character codes the program wrote, not the "
