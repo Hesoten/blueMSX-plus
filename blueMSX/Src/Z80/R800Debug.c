@@ -254,3 +254,8 @@ int r800DebugIsR800(void)
     return dbg != NULL && r800GetMode(dbg->r800) == CPU_R800;
 }
 
+int r800DebugWaitsInHalt(void)
+{
+    return cpuWaitsInHalt();
+}
+

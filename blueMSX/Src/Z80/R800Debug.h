@@ -43,4 +43,7 @@ void r800DebugDestroy();
 /* Whether the running CPU is in R800 mode. Only while a machine exists. */
 int r800DebugIsR800(void);
 
+/* Whether the CPU waits in a HALT, where a breakpoint fires only on arriving. */
+int r800DebugWaitsInHalt(void);
+
 #endif

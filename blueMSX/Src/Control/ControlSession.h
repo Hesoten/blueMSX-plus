@@ -28,8 +28,8 @@
 /* One per connection. */
 typedef struct {
     CtrlClient client;
-    /* The last stop this client was told of: status (ControlOpRun.c) moves it on; a new
-    ** session sets it. */
+    /* The last stop this client was told of: status and the run ops (ControlOpRun.c) move it
+    ** on; a new session sets it. */
     UInt32     stopCursor;
 } CtrlSession;
 

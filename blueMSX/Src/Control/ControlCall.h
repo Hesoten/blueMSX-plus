@@ -29,8 +29,13 @@
 #include "ControlView.h"
 
 #define CTRL_TEXT_NO_MACHINE "no machine is running: the emulator is stopped, or is being reset"
+#define CTRL_TEXT_NOT_PAUSED "the machine is running; pause it first (bmsx_run how=pause) or " \
+                             "let it run to a stop with bmsx_run_until (Full access)"
 #define CTRL_TEXT_CHANGING   "the emulator window is changing the machine, or has a menu or " \
                              "dialog open; call again once it is closed"
+/* Why the machine was not resumed or stepped; what was not done follows. */
+#define CTRL_TEXT_FOLDER_DISK_BUSY "the emulator window has a question about a folder disk " \
+                                   "open, or is changing the machine"
 
 /* An argument an op reads: its name, its kind and, for text, the most bytes it takes. */
 typedef struct {
@@ -65,10 +70,19 @@ typedef struct {
     const char*    op;        /* the op's name, once it is known */
     const CtrlArg* args;      /* what the op reads, ending in { NULL }; NULL for nothing */
     CtrlArgValue   values[CTRL_OP_ARGS_MAX];
+    const char*    undeclared;  /* the first key the handler read that args does not have */
 } CtrlCall;
 
 /* Reads every argument the op declares, in order, and refuses the first one that is bad. */
 int ctrlCallReadArgs(CtrlCall* call);
+
+/* The arguments of the call, as the op's args read them; null counts as absent. Reading a
+** key args does not have turns the reply into an internal error. */
+/* The text given, or NULL when it is absent or a number. */
+const char* ctrlCallText(CtrlCall* call, const char* key);
+/* The number given, clamped to 32 bits as jsonGetInt does, or fallback. */
+Int32 ctrlCallInt(CtrlCall* call, const char* key, Int32 fallback);
+int   ctrlCallBool(CtrlCall* call, const char* key, int fallback);
 
 /* Starts the reply object with the id and ok:true; the handler adds members to out. */
 void ctrlReplyBegin(CtrlCall* call);
@@ -85,6 +99,10 @@ int  ctrlReplyErrorf(CtrlCall* call, const char* code, const char* format, ...);
 
 /* The emulator is stopped, so nothing reads as the machine; suffix is added, or NULL. */
 int  ctrlRefuseWithoutMachine(CtrlCall* call, const char* suffix);
+/* The machine runs, or there is none: the op reads what only a view of a paused one may. */
+int  ctrlRefuseUnlessViewed(CtrlCall* call);
+/* For an op that holds nothing: takes a view of the paused machine, else refuses. */
+int  ctrlCallTakeView(CtrlCall* call, CtrlView* view);
 /* The reply to a view or hold not taken (a DBG_ACCESS_ result); 0 for DBG_ACCESS_OK. */
 int  ctrlRefuseAccess(CtrlCall* call, int result);
 

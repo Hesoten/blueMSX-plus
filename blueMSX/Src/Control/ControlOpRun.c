@@ -21,12 +21,338 @@
 ******************************************************************************
 */
 #include "ControlOp.h"
+#include "ControlClient.h"
+#include "ControlCpu.h"
 #include "ControlStopLog.h"
 #include "ControlStatus.h"
+#include "ControlProtocol.h"
+#include "ControlPeer.h"
 #include "Debugger.h"
 #include "Emulator.h"
 #include "Properties.h"
 #include "R800Debug.h"
+#include <stdio.h>
+#include <string.h>
+
+/* A machine stop posts before the state says stopped; a start since bumps the generation. */
+static int machineStopState(const CtrlStop* stop)
+{
+    return stop->runGeneration == emulatorGetStateSeq() ? EMU_STOPPED
+                                                       : (int)emulatorGetState();
+}
+
+/* A resume refused: no machine, or the window holds it for a question or a change. Returns
+** 0 when it resumed, or the machine was not paused to begin with. */
+static int refuseResume(CtrlCall* call, int result)
+{
+    if (result == DBG_RESUME_NO_MACHINE) {
+        return ctrlReplyError(call, "no_machine", CTRL_TEXT_NO_MACHINE "; a resume never starts one");
+    }
+    if (result == DBG_RESUME_BUSY) {
+        return ctrlReplyError(call, "busy", CTRL_TEXT_FOLDER_DISK_BUSY ", so nothing was "
+                              "resumed; call again once it is closed");
+    }
+    return 0;
+}
+
+/* A pause that did not pause a machine not paused already: there is none, or the window holds
+** it suspended. Returns 0 when it is paused. */
+static int refusePause(CtrlCall* call, int paused)
+{
+    int refused;
+
+    if (paused || emulatorGetState() == EMU_PAUSED) {
+        return 0;
+    }
+    if ((refused = ctrlRefuseWithoutMachine(call, NULL)) != 0) {
+        return refused;
+    }
+    return ctrlReplyError(call, "busy", "the emulator window is changing the machine, or has a "
+                          "menu, a dialog or a question about a folder disk open, so nothing was "
+                          "paused; call again once it is closed");
+}
+
+/* A step refused after done steps: no machine, or the window holds it for a question or a
+** change. Returns the reply. */
+static int refuseStep(CtrlCall* call, int result, Int32 done)
+{
+    char after[40] = "";
+
+    if (done > 0) {
+        snprintf(after, sizeof(after), " after %d steps", (int)done);
+    }
+    if (result == DBG_RESUME_NO_MACHINE) {
+        return ctrlReplyErrorf(call, "no_machine", "%s, so it did not step%s",
+                               CTRL_TEXT_NO_MACHINE, after);
+    }
+    return ctrlReplyErrorf(call, "busy", CTRL_TEXT_FOLDER_DISK_BUSY ", so it did not step%s; "
+                           "call again once it is closed", after);
+}
+
+/* Steps once and waits for the posted stop: 1 when it came back to one, 0 when none came, so
+** the step may not have happened, or -1 with the refusal in *refused. */
+static int stepAndWait(CtrlCall* call, Int32 done, int* refused)
+{
+    CtrlStop stop;
+    UInt32 from = ctrlStopSeq();
+    int    result = dbgStep();
+
+    if (result == DBG_RESUME_NO_MACHINE || result == DBG_RESUME_BUSY) {
+        *refused = refuseStep(call, result, done);
+        return -1;
+    }
+    if (result == DBG_RESUME_OK && ctrlStopWait(from, 1000, &stop)) {
+        call->session->stopCursor = stop.seq;
+        return 1;
+    }
+    return 0;
+}
+
+/* Stepping needs a paused machine; stepping a running one does not stop it. */
+static int refuseUnlessPaused(CtrlCall* call)
+{
+    /* A run takes its own view, so it holds none: refused as an op without one is. */
+    return emulatorGetState() == EMU_PAUSED ? 0 : ctrlRefuseUnlessViewed(call);
+}
+
+/* A step that did not come back to a stop: the machine is not assumed paused, as it was
+** resumed or changed underneath. */
+static int replyLostStep(CtrlCall* call)
+{
+    call->session->stopCursor = ctrlStopSeq();
+    ctrlStatusDescribe(&call->text, CTRL_STOP_UNKNOWN, (int)emulatorGetState());
+    return ctrlReplyDone(call);
+}
+
+/* A step loop cut short by Off, Read Only or the client going: why, after how many. */
+static int refuseCutSteps(CtrlCall* call, Int32 done, Int32 count)
+{
+    if (ctrlClientAllBlocked()) {
+        return ctrlReplyErrorf(call, "revoked", "agent control was turned off at the "
+                               "emulator after %d of the %d steps", (int)done, (int)count);
+    }
+    /* Read only refuses new steps, so it ends a long loop too. */
+    if (ctrlGateLevel() != CTRL_GATE_FULL) {
+        return ctrlReplyErrorf(call, "read_only", "the emulator was set to read only "
+                               "after %d of the %d steps", (int)done, (int)count);
+    }
+    if (ctrlPeerGone()) {
+        return ctrlReplyErrorf(call, "abandoned", "the connection was closed after %d "
+                               "of the %d steps, so the loop ended there", (int)done,
+                               (int)count);
+    }
+    return 0;
+}
+
+/* how=step: count instructions, one stop each. Returns 0 when the run state is to be
+** reported, else the reply. */
+static int runStep(CtrlCall* call, Int32 count)
+{
+    int   lost = 0;
+    int   refused = 0;
+    int   stepped;
+    Int32 i;
+
+    if (count < CTRL_RUN_COUNT_MIN || count > CTRL_RUN_COUNT_MAX) {
+        return ctrlReplyErrorf(call, "out_of_range", "count must be between %d and %d",
+                               CTRL_RUN_COUNT_MIN, CTRL_RUN_COUNT_MAX);
+    }
+    if ((refused = refuseUnlessPaused(call)) != 0) {
+        return refused;
+    }
+    i = 0;
+    for (; i < count && !lost && !refused && !ctrlClientAllBlocked() &&
+           ctrlGateLevel() == CTRL_GATE_FULL && !ctrlPeerGone(); i++) {
+        if ((stepped = stepAndWait(call, i, &refused)) != 1) {
+            lost = stepped == 0;
+            break;
+        }
+    }
+    if (refused != 0 || (refused = refuseCutSteps(call, i, count)) != 0) {
+        return refused;
+    }
+    if (lost) {
+        ctrlTextAdd(&call->text, "stepped %d of %d; the machine did not come back to a stop "
+                    "after the next one, so it may have been resumed or changed "
+                    "underneath\n", (int)i, (int)count);
+        return replyLostStep(call);
+    }
+    return 0;
+}
+
+/* After a pause, a resume or a step of one instruction: what the next run meets at PC. */
+static int reportRunState(CtrlCall* call, const char* how)
+{
+    CtrlView view = { 0 };
+    int stepped = strcmp(how, "step") == 0;
+
+    /* A step ends on a parked machine; its PC and registers are read in one view, and the status
+    ** waits for the park after a pause itself. A resume says running, so it reads no
+    ** registers even from a stop met at once. */
+    if (stepped) {
+        ctrlViewTake(&view, DBG_ACCESS_VIEW, CTRL_VIEW_TIMEOUT_MS);
+    }
+    else if (strcmp(how, "resume") == 0) {
+        ctrlViewTake(&view, DBG_ACCESS_HOLD, 0);
+    }
+    /* A step tests no breakpoint where it ends, so the next run does, before anything runs. */
+    if (stepped) {
+        Int32 pc = ctrlCpuPc();
+
+        if (ctrlCpuStopsAtOnce(pc)) {
+            ctrlTextAdd(&call->text, "PC 0x%04X has a breakpoint, checked before the instruction "
+                        "there runs: resume and run_until stop here again at once; how=step runs "
+                        "it first\n", (unsigned)pc);
+        }
+    }
+    /* A resume set its own, from before it: a stop met as it went is one to report. */
+    if (strcmp(how, "resume") != 0) {
+        call->session->stopCursor = ctrlStopSeq();
+    }
+    /* From the request, not emulatorGetState(), which lags the stop. */
+    ctrlStatusDescribe(&call->text, CTRL_STOP_UNKNOWN,
+                       strcmp(how, "resume") == 0 ? EMU_RUNNING : EMU_PAUSED);
+    ctrlViewRelease(&view);
+    return ctrlReplyDone(call);
+}
+
+int ctrlOpRun(CtrlCall* call)
+{
+    const char* how = ctrlCallText(call, "how");
+    Int32  count = ctrlCallInt(call, "count", CTRL_RUN_COUNT_DEFAULT);
+    int    replied = 0;
+    UInt32 before = ctrlStopSeq();
+
+    if (how == NULL) {
+        return ctrlReplyError(call, "missing_how",
+                              "\"how\" is needed: pause, resume or step");
+    }
+
+    if (strcmp(how, "pause") == 0) {
+        replied = refusePause(call, dbgPause());
+    }
+    else if (strcmp(how, "resume") == 0) {
+        call->session->stopCursor = before;
+        replied = refuseResume(call, dbgResume());
+    }
+    else if (strcmp(how, "step") == 0) {
+        replied = runStep(call, count);
+    }
+    else {
+        return ctrlReplyError(call, "bad_how",
+                              "\"how\" must be pause, resume or step");
+    }
+    return replied != 0 ? replied : reportRunState(call, how);
+}
+
+/* Still in a stop nobody has read: reports it instead of running. Returns 0 when there
+** is none, else the reply. */
+static int reportUnreadStop(CtrlCall* call)
+{
+    CtrlStop stop;
+
+    if (emulatorGetState() != EMU_PAUSED || !ctrlStopLatest(&stop) ||
+        stop.seq <= call->session->stopCursor)
+    {
+        return 0;
+    }
+    call->session->stopCursor = stop.seq;
+    jsonOutString(&call->out, "reason", ctrlStopReasonText(stop.reason));
+    jsonOutUInt(&call->out, "stop_seq", stop.seq);
+    ctrlTextAdd(&call->text, "this stop happened before the call and nothing ran; "
+                "call again to run on\n");
+    ctrlStatusDescribe(&call->text, stop.reason, EMU_PAUSED);
+    return ctrlReplyDone(call);
+}
+
+/* The wait ended with no stop: why, and what the machine is doing. Returns 0 when it is a
+** plain timeout said in the text, else the refusal. */
+static int reportNoStop(CtrlCall* call, Int32 timeout)
+{
+    int state = (int)emulatorGetState();
+
+    if (ctrlClientAllBlocked()) {
+        return ctrlReplyError(call, "revoked",
+                              "agent control was turned off at the emulator while "
+                              "this waited, so the wait ended before any stop");
+    }
+    if (ctrlPeerGone()) {
+        return ctrlReplyError(call, "abandoned",
+                              "the connection was closed while this waited, so the "
+                              "wait ended before any stop");
+    }
+    jsonOutString(&call->out, "reason", "timeout");
+    jsonOutUInt(&call->out, "stop_seq", ctrlStopSeq());
+    if (state == EMU_STOPPED) {
+        ctrlTextAdd(&call->text, "no machine has run for %d ms: the emulator is stopped, "
+                    "or is being reset\n", (int)timeout);
+    }
+    else if (state == EMU_PAUSED) {
+        ctrlTextAdd(&call->text, "the machine is paused, but no new stop was logged in "
+                    "%d ms; the status report shows where it is\n", (int)timeout);
+    }
+    else {
+        ctrlTextAdd(&call->text, "still running after %d ms\n", (int)timeout);
+    }
+    return 0;
+}
+
+int ctrlOpRunUntil(CtrlCall* call)
+{
+    CtrlStop stop;
+    Int32 timeout = ctrlCallInt(call, "timeout_ms", CTRL_RUN_UNTIL_TIMEOUT_MS_DEFAULT);
+    int   pauseAtTimeout = ctrlCallBool(call, "pause_at_timeout", 0);
+    int   replied;
+
+    if (timeout < CTRL_RUN_UNTIL_TIMEOUT_MS_MIN || timeout > CTRL_RUN_UNTIL_TIMEOUT_MS_MAX) {
+        return ctrlReplyErrorf(call, "out_of_range", "timeout_ms must be between %d and %d",
+                               CTRL_RUN_UNTIL_TIMEOUT_MS_MIN, CTRL_RUN_UNTIL_TIMEOUT_MS_MAX);
+    }
+    if ((replied = reportUnreadStop(call)) != 0) {
+        return replied;
+    }
+
+    if (emulatorGetState() == EMU_PAUSED) {
+        /* Only a stop from this run answers it. */
+        call->session->stopCursor = ctrlStopSeq();
+        if ((replied = refuseResume(call, dbgResume())) != 0) {
+            return replied;
+        }
+    }
+    else {
+        /* Unread stops from earlier runs were resumed from, so they are not this one. */
+        while (ctrlStopGet(call->session->stopCursor, &stop) &&
+               stop.runGeneration != emulatorGetStateSeq())
+        {
+            call->session->stopCursor = stop.seq;
+        }
+    }
+
+    /* Hold no view while waiting: the machine must run to reach a stop. */
+    if (ctrlStopWait(call->session->stopCursor, timeout, &stop)) {
+        call->session->stopCursor = stop.seq;
+        jsonOutString(&call->out, "reason", ctrlStopReasonText(stop.reason));
+        jsonOutUInt(&call->out, "stop_seq", stop.seq);
+        /* Not emulatorGetState(), which lags the stop. */
+        ctrlStatusDescribe(&call->text, stop.reason,
+                           stop.reason == CTRL_STOP_MACHINE ? machineStopState(&stop)
+                                                            : EMU_PAUSED);
+    }
+    else if ((replied = reportNoStop(call, timeout)) != 0) {
+        return replied;
+    }
+    else if (pauseAtTimeout && dbgPause()) {
+        /* Its own pause is no stop to report later. */
+        call->session->stopCursor = ctrlStopSeq();
+        ctrlTextAdd(&call->text, "paused it, as pause_at_timeout asked: read what you need, "
+                    "then run on with bmsx_run_until\n");
+        ctrlStatusDescribe(&call->text, CTRL_STOP_UNKNOWN, EMU_PAUSED);
+    }
+    if (ctrlStopDropped() > 0) {
+        jsonOutUInt(&call->out, "stops_dropped", ctrlStopDropped());
+    }
+    return ctrlReplyDone(call);
+}
 
 int ctrlOpStatus(CtrlCall* call)
 {

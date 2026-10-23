@@ -94,14 +94,63 @@ int ctrlCallReadArgs(CtrlCall* call)
     return 0;
 }
 
+/* The value of a declared argument; NULL, with the call marked, when key is not one. */
+static const CtrlArgValue* argValue(CtrlCall* call, const char* key)
+{
+    int i;
+
+    for (i = 0; call->args != NULL && i < CTRL_OP_ARGS_MAX && call->args[i].name != NULL; i++) {
+        if (strcmp(call->args[i].name, key) == 0) {
+            return &call->values[i];
+        }
+    }
+    if (call->undeclared == NULL) {
+        call->undeclared = key;
+    }
+    return NULL;
+}
+
+const char* ctrlCallText(CtrlCall* call, const char* key)
+{
+    const CtrlArgValue* value = argValue(call, key);
+
+    return value != NULL && value->given ? value->text : NULL;
+}
+
+Int32 ctrlCallInt(CtrlCall* call, const char* key, Int32 fallback)
+{
+    const CtrlArgValue* value = argValue(call, key);
+
+    if (value == NULL || !value->given || value->text != NULL) {
+        return fallback;
+    }
+    return value->number > 0x7FFFFFFF      ? 0x7FFFFFFF :
+           value->number < -0x7FFFFFFF - 1 ? -0x7FFFFFFF - 1 : (Int32)value->number;
+}
+
+int ctrlCallBool(CtrlCall* call, const char* key, int fallback)
+{
+    const CtrlArgValue* value = argValue(call, key);
+
+    return value != NULL && value->given && value->text == NULL ? value->number != 0 : fallback;
+}
+
 int ctrlReplyError(CtrlCall* call, const char* code, const char* message)
 {
+    static char undeclared[128];
     JsonOut out;
 
     /* A view is refused on a stopped machine too; that is not a slow one. */
     if (strcmp(code, "busy") == 0 && emulatorGetState() == EMU_STOPPED) {
         code    = "no_machine";
         message = CTRL_TEXT_NO_MACHINE;
+    }
+    /* A key missing from the op's args is a bug here, whatever the op meant to answer. */
+    if (call->undeclared != NULL) {
+        snprintf(undeclared, sizeof(undeclared), "op %s read undeclared argument %s", call->op,
+                 call->undeclared);
+        code    = "internal";
+        message = undeclared;
     }
 
     jsonOutInit(&out, call->reply, call->replyLen);
@@ -129,6 +178,9 @@ void ctrlReplyBegin(CtrlCall* call)
 
 int ctrlReplyDone(CtrlCall* call)
 {
+    if (call->undeclared != NULL) {
+        return ctrlReplyError(call, "internal", "");
+    }
     jsonOutString(&call->out, "text", call->text.data);
     jsonOutEndObject(&call->out);
 
@@ -163,6 +215,24 @@ int ctrlRefuseWithoutMachine(CtrlCall* call, const char* suffix)
                            suffix != NULL ? suffix : "");
 }
 
+int ctrlRefuseUnlessViewed(CtrlCall* call)
+{
+    int refused;
+
+    if (call->view.held == DBG_ACCESS_VIEW) {
+        return 0;
+    }
+    if ((refused = ctrlRefuseWithoutMachine(call, NULL)) != 0) {
+        return refused;
+    }
+    return ctrlReplyError(call, "not_paused", CTRL_TEXT_NOT_PAUSED);
+}
+
+int ctrlCallTakeView(CtrlCall* call, CtrlView* view)
+{
+    return ctrlRefuseAccess(call, ctrlViewTake(view, DBG_ACCESS_VIEW, CTRL_VIEW_TIMEOUT_MS));
+}
+
 int ctrlRefuseAccess(CtrlCall* call, int result)
 {
     switch (result) {
@@ -170,6 +240,8 @@ int ctrlRefuseAccess(CtrlCall* call, int result)
         return 0;
     case DBG_ACCESS_NO_MACHINE:
         return ctrlReplyError(call, "no_machine", CTRL_TEXT_NO_MACHINE);
+    case DBG_ACCESS_NOT_PAUSED:
+        return ctrlReplyError(call, "not_paused", CTRL_TEXT_NOT_PAUSED);
     case DBG_ACCESS_CHANGING:
         return ctrlReplyError(call, "busy", CTRL_TEXT_CHANGING);
     default:

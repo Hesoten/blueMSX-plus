@@ -21,6 +21,8 @@
 ******************************************************************************
 */
 #include "ControlStopLog.h"
+#include "ControlClient.h"
+#include "ControlPeer.h"
 #include "ArchEvent.h"
 #include "Debugger.h"
 #include "Emulator.h"
@@ -114,6 +116,69 @@ UInt32 ctrlStopSeq(void)
     seq = nextSeq - 1;
     unlock();
     return seq;
+}
+
+UInt32 ctrlStopDropped(void)
+{
+    UInt32 count;
+
+    lock();
+    count = dropped;
+    unlock();
+    return count;
+}
+
+int ctrlStopGet(UInt32 afterSeq, CtrlStop* out)
+{
+    UInt32 want = afterSeq + 1;
+    int    got = 0;
+
+    lock();
+    if (nextSeq > want) {
+        /* Older stops have been overwritten; resume from the oldest still held. */
+        UInt32 oldest = nextSeq > CTRL_STOP_RING ? nextSeq - CTRL_STOP_RING : 1;
+
+        if (want < oldest) {
+            want = oldest;
+        }
+        *out = ring[want % CTRL_STOP_RING];
+        got = out->seq == want;
+    }
+    unlock();
+    return got;
+}
+
+int ctrlStopWait(UInt32 afterSeq, int timeoutMs, CtrlStop* out)
+{
+    int waited = 0;
+
+    if (ctrlStopGet(afterSeq, out)) {
+        return 1;
+    }
+    if (arrived == NULL) {
+        return 0;
+    }
+
+    /* Poll in slices: the event may have been set by a stop this caller already read. */
+    for (;;) {
+        int slice = timeoutMs - waited;
+        if (slice <= 0) {
+            return 0;
+        }
+        if (slice > 20) {
+            slice = 20;
+        }
+        archEventWait(arrived, slice);
+        waited += slice;
+
+        if (ctrlStopGet(afterSeq, out)) {
+            return 1;
+        }
+        /* Agent control was turned off, or the client hung up; the caller tells which. */
+        if (ctrlClientAllBlocked() || ctrlPeerGone()) {
+            return 0;
+        }
+    }
 }
 
 int ctrlStopLatest(CtrlStop* out)

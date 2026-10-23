@@ -36,9 +36,20 @@
 /* Enough for a full 64kB hex dump, the largest single reply. */
 #define CTRL_REPLY_MAX (1024 * 768)
 
+/* Reply texts name the MCP tools to call next (bmsx_run how=pause): those names are part of
+** this protocol. */
+
 /* A number as the text a schema writes; the numbers below are plain decimal for this. */
 #define CTRL_STR_(x) #x
 #define CTRL_STR(x)  CTRL_STR_(x)
+
+/* Each op's default, smallest and largest value of a number argument. */
+#define CTRL_RUN_COUNT_DEFAULT            1
+#define CTRL_RUN_COUNT_MIN                1
+#define CTRL_RUN_COUNT_MAX                100000
+#define CTRL_RUN_UNTIL_TIMEOUT_MS_DEFAULT 5000
+#define CTRL_RUN_UNTIL_TIMEOUT_MS_MIN     1
+#define CTRL_RUN_UNTIL_TIMEOUT_MS_MAX     600000
 
 /* What an argument of each kind must be, after "\"name\" must be ". */
 #define CTRL_TEXT_WANT_INT            "a whole number, as in 16 or \"0x10\""

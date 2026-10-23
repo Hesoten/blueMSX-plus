@@ -319,6 +319,18 @@ int emulatorPauseIfRunning(void)
     return 1;
 }
 
+int emulatorResumeIfPaused(void)
+{
+    /* Leaving a pause, as in emulatorSetState. */
+    dbgChangeBegin();
+    if (!switchState(EMU_PAUSED, EMU_RUNNING, 1)) {
+        return 0;
+    }
+    archSoundResume();
+    archMidiEnable(1);
+    return 1;
+}
+
 UInt32 emulatorGetStateSeq(void)
 {
     return emuStateSeq;

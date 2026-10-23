@@ -163,6 +163,11 @@ void dbgSetBreakpoint(UInt16 address)
     unlockWriters();
 }
 
+int dbgHasBreakpoint(UInt16 address)
+{
+    return plainBreakpoint[address];
+}
+
 void dbgClearBreakpoint(UInt16 address)
 {
     lockWriters();
@@ -241,6 +246,11 @@ int dbgClearSegmentBreakpoint(int slot, int subSlot, int segment, int offset)
     unlockWriters();
 
     return found;
+}
+
+int dbgSegmentBreakpointCount(void)
+{
+    return segmentBpCount;
 }
 
 void dbgBreakpointsOnEmulatorStart(void)

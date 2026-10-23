@@ -36,6 +36,8 @@
 
 #define READ_ONLY "\"readOnlyHint\":true,\"destructiveHint\":false," \
                   "\"idempotentHint\":true,\"openWorldHint\":false"
+#define CHANGES   "\"readOnlyHint\":false,\"destructiveHint\":false," \
+                  "\"idempotentHint\":false,\"openWorldHint\":false"
 
 const McpTool mcpTools[] = {
 {
@@ -54,6 +56,37 @@ const McpTool mcpTools[] = {
     SCHEMA("\"properties\":{}"),
     READ_ONLY,
     "slots",
+    NULL
+},
+{
+    "bmsx_run",
+    "Pause the machine, let it go again, or step. step runs count instructions (1 by "
+    "default).",
+    SCHEMA("\"properties\":{"
+           "\"how\":{\"type\":\"string\",\"enum\":[\"pause\",\"resume\",\"step\"]},"
+           "\"count\":{\"type\":\"integer\",\"default\":" CTRL_STR(CTRL_RUN_COUNT_DEFAULT)
+           ",\"minimum\":" CTRL_STR(CTRL_RUN_COUNT_MIN) ","
+           "\"maximum\":" CTRL_STR(CTRL_RUN_COUNT_MAX)
+           ",\"description\":\"instructions, for step\"}},"
+           "\"required\":[\"how\"]"),
+    CHANGES,
+    "run",
+    NULL
+},
+{
+    "bmsx_run_until",
+    "Let the machine run and wait for it to stop, reporting why: do not poll "
+    "bmsx_status in a loop. With "
+    "pause_at_timeout, a wait that times out pauses the machine, so it can be read.",
+    SCHEMA("\"properties\":{"
+           "\"timeout_ms\":{\"type\":\"integer\",\"default\":"
+           CTRL_STR(CTRL_RUN_UNTIL_TIMEOUT_MS_DEFAULT) ","
+           "\"minimum\":" CTRL_STR(CTRL_RUN_UNTIL_TIMEOUT_MS_MIN) ",\"maximum\":"
+           CTRL_STR(CTRL_RUN_UNTIL_TIMEOUT_MS_MAX) "},"
+           "\"pause_at_timeout\":{\"type\":\"boolean\",\"default\":false,"
+           "\"description\":\"pause the machine when the wait times out\"}}"),
+    CHANGES,
+    "run.until",
     NULL
 },
 };

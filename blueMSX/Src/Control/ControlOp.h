@@ -29,6 +29,8 @@
 typedef int (*CtrlOpHandler)(CtrlCall* call);
 
 /* ControlOpRun.c */
+int ctrlOpRun(CtrlCall* call);
+int ctrlOpRunUntil(CtrlCall* call);
 int ctrlOpStatus(CtrlCall* call);
 
 /* ControlOpSlots.c */

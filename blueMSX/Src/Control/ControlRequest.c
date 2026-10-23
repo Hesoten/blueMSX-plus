@@ -51,6 +51,17 @@ typedef struct {
 
 static int ctrlOpHelp(CtrlCall* call);
 
+/* What each op reads, in the order its help row names them. */
+static const CtrlArg runArgs[] = {
+    { "how", CTRL_ARG_TEXT, 15 }, { "count", CTRL_ARG_INT, 0 }, { NULL }
+};
+static const CtrlArg runUntilArgs[] = {
+    { "timeout_ms", CTRL_ARG_INT, 0 }, { "pause_at_timeout", CTRL_ARG_BOOL, 0 }, { NULL }
+};
+
+/* An op's args in its row; an array longer than CTRL_OP_ARGS_MAX and its { NULL } fails to compile. */
+#define OP_ARGS(a) ((a) + 0 * sizeof(char[sizeof(a) / sizeof((a)[0]) <= CTRL_OP_ARGS_MAX + 1 ? 1 : -1]))
+
 static const CtrlOp opTable[] = {
     { "help",              CTRL_OP_LOOKS,   CTRL_OP_SELF, ctrlOpHelp, NULL,
       "  help\n" },
@@ -58,6 +69,10 @@ static const CtrlOp opTable[] = {
       "  status\n" },
     { "slots",             CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpSlots, NULL,
       "  slots\n" },
+    { "run",               CTRL_OP_CHANGES, CTRL_OP_SELF, ctrlOpRun, OP_ARGS(runArgs),
+      "  run          how = pause|resume|step, count\n" },
+    { "run.until",         CTRL_OP_CHANGES, CTRL_OP_SELF, ctrlOpRunUntil, OP_ARGS(runUntilArgs),
+      "  run.until    timeout_ms, pause_at_timeout\n" },
 };
 
 static const CtrlOp* findOp(const char* name)
@@ -97,10 +112,17 @@ static int runHolding(CtrlCall* call, const CtrlOp* row)
     return length;
 }
 
-/* What read only refuses: an op that changes the machine. */
-static int refusedReadOnly(const CtrlOp* row)
+/* What read only refuses: an op that changes the machine, but not a pause, which changes
+** nothing in it and is what lets read only read it. */
+static int refusedReadOnly(const CtrlOp* row, const char* request)
 {
-    return row != NULL && row->effect == CTRL_OP_CHANGES;
+    char how[16];
+
+    if (row == NULL || row->effect != CTRL_OP_CHANGES) {
+        return 0;
+    }
+    return !(strcmp(row->name, "run") == 0 &&
+             jsonGetString(request, "how", how, sizeof(how)) && strcmp(how, "pause") == 0);
 }
 
 int ctrlRequestRefuseLine(const char* line, char* reply, int replyLen)
@@ -151,7 +173,7 @@ int ctrlRequestHandle(CtrlClient client, const char* request,
     }
 
     /* Read only denies anything that changes the machine. */
-    if (ctrlGateLevel() != CTRL_GATE_FULL && refusedReadOnly(row)) {
+    if (ctrlGateLevel() != CTRL_GATE_FULL && refusedReadOnly(row, request)) {
         return ctrlReplyError(&call, "read_only",
                               "this emulator is set to read only. To change it, ask the "
                               "person at the keyboard for Tools, Agent Control, Full.");

@@ -51,7 +51,7 @@ void ctrlClientBlockAll(int block);
 int  ctrlClientAllBlocked(void);
 
 /* How much of the machine a connected client may touch; enforced where a request is answered
-** (ControlRequest.c), never in a bridge. */
+** (ControlRequest.c and the ops that check it), never in a bridge. */
 #define CTRL_GATE_OFF      0  /* not listening at all                       */
 #define CTRL_GATE_READONLY 1  /* may look; may not write, run or break      */
 #define CTRL_GATE_FULL     2

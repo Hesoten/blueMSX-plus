@@ -51,8 +51,18 @@ void ctrlStopPost(int reason, UInt32 runGeneration);
 /* The highest sequence number written so far. */
 UInt32 ctrlStopSeq(void);
 
+/* The first stop numbered above afterSeq. Non-zero when there was one. */
+int ctrlStopGet(UInt32 afterSeq, CtrlStop* out);
+
+/* The same, but waits up to timeoutMs for one; takes no lock while it waits.
+** Gives up early, returning 0, once agent control is turned off. */
+int ctrlStopWait(UInt32 afterSeq, int timeoutMs, CtrlStop* out);
+
 /* The newest stop, only while the machine is still in it. Non-zero when there is one. */
 int ctrlStopLatest(CtrlStop* out);
+
+/* How many stops have been overwritten in the ring, read or not. */
+UInt32 ctrlStopDropped(void);
 
 const char* ctrlStopReasonText(int reason);
 

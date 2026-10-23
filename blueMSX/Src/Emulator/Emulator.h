@@ -85,9 +85,11 @@ EmuState emulatorGetState();
 /* Non-zero while a single step runs its one instruction. */
 int emulatorIsSingleStepping(void);
 void emulatorSetState(EmuState state);
-/* A pause only from running, in one step under the state lock, with the sound following;
-** zero when the machine was not running. It does not notify. */
+/* A pause only from running and a resume only from paused, each in one step under the state
+** lock, with the sound following; zero when the machine was not in that state. Neither
+** notifies; a resume is refused while emulatorHoldSuspended holds. */
 int  emulatorPauseIfRunning(void);
+int  emulatorResumeIfPaused(void);
 UInt32 emulatorGetCpuSpeed();
 UInt32 emulatorGetCpuUsage();
 void emulatorResetMixer();

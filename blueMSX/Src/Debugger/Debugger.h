@@ -145,6 +145,14 @@ void dbgStop();
 /* Pauses a running machine only; non-zero when it did. */
 int  dbgPause();
 
+/* Resumes a paused machine only, as an agent asks: it never starts a stopped one, and is
+** refused (busy) while the window holds the machine for a question or a change. */
+#define DBG_RESUME_OK         0
+#define DBG_RESUME_NO_MACHINE 1
+#define DBG_RESUME_NOT_PAUSED 2
+#define DBG_RESUME_BUSY       3
+int  dbgResume(void);
+
 /* Pause and wait until the emulation thread has parked; non-zero once it has.
 ** Use this rather than dbgPause before reading memory. */
 int  dbgPauseSync(int timeoutMs);
@@ -180,10 +188,14 @@ void dbgChangeBegin(void);
 void dbgChangesDone(void);
 /* Non-zero while the window's thread has a change under way. */
 int  dbgChangePending(void);
-void dbgStep();
+/* Steps a paused machine one instruction; a DBG_RESUME_ result. On an agent's thread it is
+** refused (busy) while the window has a change under way, as dbgResume is. */
+int  dbgStep(void);
 void dbgStepBack();
 
 void dbgSetBreakpoint(UInt16 address);
+/* Whether a plain breakpoint is set here. */
+int  dbgHasBreakpoint(UInt16 address);
 void dbgClearBreakpoint(UInt16 address);
 
 /* Breakpoint at an offset into a mapper segment of a slot; fires only while that
@@ -192,6 +204,7 @@ void dbgClearBreakpoint(UInt16 address);
 int  dbgSetSegmentBreakpoint(int slot, int subSlot, int segment, int offset);
 /* Non-zero when one was set there. */
 int  dbgClearSegmentBreakpoint(int slot, int subSlot, int segment, int offset);
+int  dbgSegmentBreakpointCount();
 
 /* Once at startup, with debuggerCreateLocks: the lock every writer of the tables takes. */
 void dbgBreakpointsCreateLock(void);

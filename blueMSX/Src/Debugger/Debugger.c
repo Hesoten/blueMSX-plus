@@ -447,6 +447,23 @@ int dbgPause()
     return 1;
 }
 
+int dbgResume(void)
+{
+    if (emulatorGetState() == EMU_STOPPED) {
+        return DBG_RESUME_NO_MACHINE;
+    }
+    if (actionDirGateOpen() || dbgChangePending()) {
+        return DBG_RESUME_BUSY;
+    }
+    if (!emulatorResumeIfPaused()) {
+        return emulatorGetState() == EMU_PAUSED ? DBG_RESUME_BUSY : DBG_RESUME_NOT_PAUSED;
+    }
+    RACE_TEST_POINT(RACE_RESUME_NOTIFY);
+    debuggerNotifyEmulatorResume();
+    archUpdateMenu(0);
+    return DBG_RESUME_OK;
+}
+
 /* Spins on the calling thread. Zero when it did not park in time or there was
 ** no machine to pause. */
 int dbgPauseSync(int timeoutMs)
@@ -602,11 +619,20 @@ int dbgAccessHeld(void)
     return accessHeld;
 }
 
-void dbgStep()
+int dbgStep(void)
 {
-    if (emulatorGetState() == EMU_PAUSED) {
-        actionEmuStep();
+    if (emulatorGetState() == EMU_STOPPED) {
+        return DBG_RESUME_NO_MACHINE;
     }
+    /* On the window's thread a pending change is its own, so only an agent's step waits. */
+    if (actionDirGateOpen() || (isAgentThread && dbgChangePending())) {
+        return DBG_RESUME_BUSY;
+    }
+    if (emulatorGetState() != EMU_PAUSED) {
+        return DBG_RESUME_NOT_PAUSED;
+    }
+    actionEmuStep();
+    return DBG_RESUME_OK;
 }
 
 void dbgStepBack()
