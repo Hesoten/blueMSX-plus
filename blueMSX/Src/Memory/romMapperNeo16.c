@@ -48,6 +48,9 @@ static void mapBank(RomMapperNeo16* rm, int region)
     int page = rm->startPage + region * 2;
     slotMapPage(rm->slot, rm->sslot, page,     bankData,          1, 0);
     slotMapPage(rm->slot, rm->sslot, page + 1, bankData + 0x2000, 1, 0);
+    /* Both 8kB banks of a 16kB segment report the masked segment number. */
+    slotSetBankSegment(rm->slot, rm->sslot, page,     (int)bank);
+    slotSetBankSegment(rm->slot, rm->sslot, page + 1, (int)bank);
 }
 
 static void destroy(RomMapperNeo16* rm)
@@ -138,6 +141,7 @@ int romMapperNeo16Create(const char* filename, UInt8* romData,
 
     rm = calloc(1, sizeof(RomMapperNeo16));
     rm->deviceHandle = deviceManagerRegister(ROM_NEO16, &callbacks, rm);
+    slotSetSegmentSize(slot, sslot, 0x4000);
     slotRegister(slot, sslot, startPage, 6, NULL, NULL, write, destroy, rm);
 
     rm->romData = calloc(1, size);

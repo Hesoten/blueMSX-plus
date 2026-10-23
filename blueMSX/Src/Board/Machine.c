@@ -35,9 +35,11 @@
 #include "ArchGlob.h"
 #include <string.h>
 #include <ctype.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include "ArchFile.h"
 #include "MediaDb.h"
+#include "SlotManager.h"
 #include "TokenExtract.h"
 #include "Disk.h"
 #include "unzip.h"
@@ -1058,6 +1060,45 @@ void machineSaveState(Machine* machine)
     saveStateClose(state);
 }
 
+/* Names match the machine editor's, so the debugger and the editor agree. */
+static void recordSlotContents(const SlotInfo* slotInfo, const char* romName, int size)
+{
+    const char* leaf;
+    const char* slash;
+    char text[96];
+
+    /* I/O only devices take no memory here; leave the name to the ROM that does. */
+    if (slotInfo->pageCount == 0) {
+        return;
+    }
+
+    if (slotInfo->romType == RAM_MAPPER) {
+        sprintf(text, "Memory mapper %d kB", size / 1024);
+    }
+    else if (slotInfo->romType == RAM_NORMAL) {
+        sprintf(text, "RAM %d kB", size / 1024);
+    }
+    else {
+        leaf  = strrchr(romName, '\\');
+        slash = strrchr(romName, '/');
+        /* A path can mix the two, as in C:\blueMSX\Machines/Shared Roms/X.rom. */
+        if (leaf == NULL || (slash != NULL && slash > leaf)) {
+            leaf = slash;
+        }
+        leaf = leaf != NULL ? leaf + 1 : romName;
+
+        /* An SRAM device such as PAC has no file, so only its type names it. */
+        if (leaf[0] == 0) {
+            sprintf(text, "%.40s", romTypeToString(slotInfo->romType));
+        }
+        else {
+            sprintf(text, "%.48s (%.40s)", leaf, romTypeToString(slotInfo->romType));
+        }
+    }
+
+    slotAddContents(slotInfo->slot, slotInfo->subslot, text);
+}
+
 int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UInt32* mainRamStart)
 {
     UInt8* ram       = NULL;
@@ -1123,6 +1164,9 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
         subslot   = machine->slotInfo[i].subslot;
         startPage = machine->slotInfo[i].startPage;
         size      = 0x2000 * machine->slotInfo[i].pageCount;
+
+        /* Must be here: once the mappers are up, nothing ties a slot to its file. */
+        recordSlotContents(&machine->slotInfo[i], romName, size);
 
         if (machine->slotInfo[i].romType == RAM_NORMAL) {
             if (ram == NULL && startPage == 0) {

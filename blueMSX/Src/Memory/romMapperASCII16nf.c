@@ -48,6 +48,17 @@ typedef struct {
     int romMapper[4];
 } RomMapperASCII16nf;
 
+/* Both 8kB banks of a 16kB segment report the same segment number. */
+static void mapBank(RomMapperASCII16nf* rm, int bank)
+{
+    UInt8* bankData = rm->romData + (rm->romMapper[bank] << 14);
+
+    slotMapPage(rm->slot, rm->sslot, rm->startPage + bank,     bankData, 1, 0);
+    slotMapPage(rm->slot, rm->sslot, rm->startPage + bank + 1, bankData + 0x2000, 1, 0);
+    slotSetBankSegment(rm->slot, rm->sslot, rm->startPage + bank,     rm->romMapper[bank]);
+    slotSetBankSegment(rm->slot, rm->sslot, rm->startPage + bank + 1, rm->romMapper[bank]);
+}
+
 static void saveState(RomMapperASCII16nf* rm)
 {
     SaveState* state = saveStateOpenForWrite("mapperASCII16nf");
@@ -76,9 +87,7 @@ static void loadState(RomMapperASCII16nf* rm)
     saveStateClose(state);
 
     for (i = 0; i < 4; i += 2) {
-        UInt8* bankData = rm->romData + (rm->romMapper[i] << 14);
-        slotMapPage(rm->slot, rm->sslot, rm->startPage + i,     bankData, 1, 0);
-        slotMapPage(rm->slot, rm->sslot, rm->startPage + i + 1, bankData + 0x2000, 1, 0);
+        mapBank(rm, i);
     }
 }
 
@@ -106,12 +115,8 @@ static void write(RomMapperASCII16nf* rm, UInt16 address, UInt8 value)
     value &= rm->romMask;
 
     if (rm->romMapper[bank] != value) {
-        UInt8* bankData = rm->romData + ((int)value << 14);
-        
         rm->romMapper[bank] = value;
-
-        slotMapPage(rm->slot, rm->sslot, rm->startPage + bank,     bankData, 1, 0);
-        slotMapPage(rm->slot, rm->sslot, rm->startPage + bank + 1, bankData + 0x2000, 1, 0);
+        mapBank(rm, bank);
     }
 }
 
@@ -125,6 +130,7 @@ int romMapperASCII16nfCreate(const char* filename, UInt8* romData,
     rm = malloc(sizeof(RomMapperASCII16nf));
 
     rm->deviceHandle = deviceManagerRegister(ROM_ASCII16NF, &callbacks, rm);
+    slotSetSegmentSize(slot, sslot, 0x4000);
     slotRegister(slot, sslot, startPage, 4, NULL, NULL, write, destroy, rm);
 
     size = (size + 0x3fff) & ~0x3fff;
@@ -139,9 +145,8 @@ int romMapperASCII16nfCreate(const char* filename, UInt8* romData,
     rm->romMapper[0] = 0;
     rm->romMapper[2] = 0;
 
-    for (i = 0; i < 4; i += 2) {   
-        slotMapPage(rm->slot, rm->sslot, rm->startPage + i,     rm->romData + rm->romMapper[i] * 0x2000, 1, 0);
-        slotMapPage(rm->slot, rm->sslot, rm->startPage + i + 1, rm->romData + rm->romMapper[i] * 0x2000 + 0x2000, 1, 0);
+    for (i = 0; i < 4; i += 2) {
+        mapBank(rm, i);
     }
 
     return 1;

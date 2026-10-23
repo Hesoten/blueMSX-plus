@@ -56,6 +56,9 @@ static void mapBank(RomMapperASCII16X* rm, int bank)
     ** ident-mode responses when the flash chip is queried by flasher tools. */
     slotMapPage(rm->slot, rm->sslot, page,     bankData,          0, 0);
     slotMapPage(rm->slot, rm->sslot, page + 1, bankData + 0x2000, 0, 0);
+    /* The masked value: the register is 12 bits but only 9 reach the 8 MB flash. */
+    slotSetBankSegment(rm->slot, rm->sslot, page,     (int)bankNum);
+    slotSetBankSegment(rm->slot, rm->sslot, page + 1, (int)bankNum);
 }
 
 static void destroy(RomMapperASCII16X* rm)
@@ -164,6 +167,7 @@ int romMapperASCII16XCreate(const char* filename, UInt8* romData,
 
     rm = calloc(1, sizeof(RomMapperASCII16X));
     rm->deviceHandle = deviceManagerRegister(ROM_ASCII16X, &callbacks, rm);
+    slotSetSegmentSize(slot, sslot, 0x4000);
     slotRegister(slot, sslot, startPage, 4, read, peek, write, destroy, rm);
 
     rm->flash = amdFlashCreate(AMD_TYPE_2, ASCII16X_FLASH_SIZE, ASCII16X_FLASH_SECTOR,

@@ -77,4 +77,34 @@ void slotUpdatePage(int slot, int sslot, int page, UInt8* pageData,
 
 void slotSetSubslotted(int slot, int subslotted);
 
+/* A "page" is a Z80 16kB page (0..3), a "bank" one of the eight 8kB banks of a
+** slot (0..7). */
+
+/* Bits returned by slotDebugGetBankState. */
+#define SLOT_DEBUG_REGISTERED 0x01  /* a device claims this bank            */
+#define SLOT_DEBUG_READABLE   0x02  /* direct page reads are enabled        */
+#define SLOT_DEBUG_WRITABLE   0x04  /* direct page writes are enabled       */
+#define SLOT_DEBUG_HASDATA    0x08  /* real memory is mapped in, not filler */
+
+int slotDebugGetPagePrimarySlot(int page);
+int slotDebugGetPageSubSlot(int page);
+int slotDebugGetSubslotted(int primarySlot);
+int slotDebugGetSubslotSelect(int primarySlot);
+int slotDebugGetBankState(int primarySlot, int subSlot, int bank);
+
+/* What a slot holds: a ROM file name, a mapper name, a RAM size. Names accumulate
+** until the slot is cleared. slotDebugGetContents never returns NULL. */
+void slotAddContents(int slot, int sslot, const char* description);
+void slotClearContents(int slot, int sslot);
+const char* slotDebugGetContents(int slot, int sslot);
+
+/* Segment a mapper has in an 8kB bank, reported by the mapper as it switches.
+** -1 when no segment is reported there. */
+void slotSetBankSegment(int slot, int sslot, int bank, int segment);
+int slotDebugGetBankSegment(int slot, int sslot, int bank);
+
+/* Segment size in bytes (0x2000 or 0x4000); 0 when no segments are reported. */
+void slotSetSegmentSize(int slot, int sslot, int segmentSize);
+int slotDebugGetSegmentSize(int slot, int sslot);
+
 #endif

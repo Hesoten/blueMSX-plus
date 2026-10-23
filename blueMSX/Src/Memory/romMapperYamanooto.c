@@ -113,6 +113,9 @@ static void mapBank(RomMapperYamanooto* rm, int page)
     /* readEnable=0: reads route through the read callback so SCC ranges
     ** and flash-ident responses are intercepted before hitting the ROM. */
     slotMapPage(rm->slot, rm->sslot, rm->startPage + page, bankData, 0, 0);
+    /* ROMDIS makes every read answer 0xFF, so no segment is paged in. */
+    slotSetBankSegment(rm->slot, rm->sslot, rm->startPage + page,
+                       (rm->configReg & ROMDIS) ? -1 : (int)bankNum);
 }
 
 static void updateSccChipMode(RomMapperYamanooto* rm)
@@ -459,6 +462,7 @@ int romMapperYamanootoCreate(const char* filename, UInt8* romData,
 
     rm = calloc(1, sizeof(RomMapperYamanooto));
     rm->deviceHandle = deviceManagerRegister(ROM_YAMANOOTO, &callbacks, rm);
+    slotSetSegmentSize(slot, sslot, 0x2000);
     slotRegister(slot, sslot, startPage, 4, read, peek, write, destroy, rm);
 
     rm->flash = amdFlashCreate(AMD_TYPE_2, YAMANOOTO_FLASH_SIZE, YAMANOOTO_FLASH_SECTOR,

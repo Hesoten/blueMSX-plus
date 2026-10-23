@@ -101,16 +101,22 @@ static void loadState(RamMapper* rm)
 
 static void writeIo(RamMapper* rm, UInt16 page, UInt8 value)
 {
-    int baseAddr = 0x4000 * (value & rm->mask);
+    int segment = value & rm->mask;
+    int baseAddr = 0x4000 * segment;
     rm->port[page] = value;
     if (rm->dramMode && baseAddr >= (rm->size - 0x10000)) {
         slotMapPage(rm->slot, rm->sslot, 2 * page,     NULL, 0, 0);
         slotMapPage(rm->slot, rm->sslot, 2 * page + 1, NULL, 0, 0);
+        /* The internal DRAM answers here, so no segment of ours is paged in. */
+        segment = -1;
     }
     else {
         slotMapPage(rm->slot, rm->sslot, 2 * page,     rm->ramData + baseAddr, 1, 1);
         slotMapPage(rm->slot, rm->sslot, 2 * page + 1, rm->ramData + baseAddr + 0x2000, 1, 1);
     }
+
+    slotSetBankSegment(rm->slot, rm->sslot, 2 * page,     segment);
+    slotSetBankSegment(rm->slot, rm->sslot, 2 * page + 1, segment);
 }
 
 static void setDram(RamMapper* rm, int enable)
@@ -197,6 +203,9 @@ int ramMapperCreate(int size, int slot, int sslot, int startPage, UInt8** ramPtr
 
     rm->deviceHandle = deviceManagerRegister(RAM_MAPPER, &callbacks, rm);
     slotRegister(slot, sslot, 0, 8, NULL, NULL, NULL, destroy, rm);
+
+    /* Before reset(): its port writes report segments of this size. */
+    slotSetSegmentSize(slot, sslot, 0x4000);
 
     reset(rm);
 

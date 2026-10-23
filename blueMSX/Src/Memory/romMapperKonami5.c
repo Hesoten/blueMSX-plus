@@ -51,6 +51,14 @@ typedef struct {
     SCC* scc;
 } RomMapperKonami5;
 
+/* While the SCC is on, bank 2 is read through read(), which answers its registers. */
+static void mapBank(RomMapperKonami5* rm, int bank)
+{
+    slotMapPage(rm->slot, rm->sslot, rm->startPage + bank,
+                rm->romData + rm->romMapper[bank] * 0x2000, bank != 2 || !rm->sccEnable, 0);
+    slotSetBankSegment(rm->slot, rm->sslot, rm->startPage + bank, rm->romMapper[bank]);
+}
+
 static void saveState(RomMapperKonami5* rm)
 {
     SaveState* state = saveStateOpenForWrite("mapperKonami5");
@@ -86,15 +94,8 @@ static void loadState(RomMapperKonami5* rm)
 
     sccLoadState(rm->scc);
 
-    for (i = 0; i < 4; i++) {   
-        slotMapPage(rm->slot, rm->sslot, rm->startPage + i, rm->romData + rm->romMapper[i] * 0x2000, 1, 0);
-    }
-    
-    if (rm->sccEnable) {
-        slotMapPage(rm->slot, rm->sslot, rm->startPage + 2, rm->romData + rm->romMapper[2] * 0x2000, 0, 0);
-    }
-    else {
-        slotMapPage(rm->slot, rm->sslot, rm->startPage + 2, rm->romData + rm->romMapper[2] * 0x2000, 1, 0);
+    for (i = 0; i < 4; i++) {
+        mapBank(rm, i);
     }
 }
 
@@ -115,7 +116,7 @@ static void reset(RomMapperKonami5* rm)
     rm->sccEnable = 0;
     for (i = 0; i < 4; i++) {
         rm->romMapper[i] = i;
-        slotMapPage(rm->slot, rm->sslot, rm->startPage + i, rm->romData + i * 0x2000, 1, 0);
+        mapBank(rm, i);
     }
     sccReset(rm->scc);
 }
@@ -170,16 +171,8 @@ static void write(RomMapperKonami5* rm, UInt16 address, UInt8 value)
 
     value &= rm->romMask;
     if (rm->romMapper[bank] != value || change) {
-        UInt8* bankData = rm->romData + ((int)value << 13);
-
         rm->romMapper[bank] = value;
-        
-        if (bank == 2 && rm->sccEnable) {
-            slotMapPage(rm->slot, rm->sslot, rm->startPage + 2, rm->romData + rm->romMapper[2] * 0x2000, 0, 0);
-        }
-        else {
-            slotMapPage(rm->slot, rm->sslot, rm->startPage + bank, bankData, 1, 0);
-        }
+        mapBank(rm, bank);
     }
 }
 
@@ -201,6 +194,7 @@ int romMapperKonami5Create(const char* filename, UInt8* romData,
     rm = malloc(sizeof(RomMapperKonami5));
 
     rm->deviceHandle = deviceManagerRegister(ROM_KONAMI5, &callbacks, rm);
+    slotSetSegmentSize(slot, sslot, 0x2000);
     slotRegister(slot, sslot, startPage, 4, read, peek, write, destroy, rm);
 
     rm->romData = calloc(1, size);
@@ -218,8 +212,8 @@ int romMapperKonami5Create(const char* filename, UInt8* romData,
     rm->romMapper[2] = 2;
     rm->romMapper[3] = 3;
 
-    for (i = 0; i < 4; i++) {   
-        slotMapPage(rm->slot, rm->sslot, rm->startPage + i, rm->romData + rm->romMapper[i] * 0x2000, 1, 0);
+    for (i = 0; i < 4; i++) {
+        mapBank(rm, i);
     }
 
     return 1;

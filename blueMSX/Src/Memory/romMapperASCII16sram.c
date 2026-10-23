@@ -49,6 +49,41 @@ typedef struct {
     int romMapper[4];
 } RomMapperASCII16sram;
 
+/* -1 while the SRAM is paged in: the selector keeps the guest's value even then,
+** so sramEnabled decides. */
+static void reportBank(RomMapperASCII16sram* rm, int bank)
+{
+    int segment = (rm->sramEnabled & (1 << ((bank >> 1) + 1))) ? -1 : rm->romMapper[bank];
+
+    slotSetBankSegment(rm->slot, rm->sslot, rm->startPage + bank,     segment);
+    slotSetBankSegment(rm->slot, rm->sslot, rm->startPage + bank + 1, segment);
+}
+
+/* The program's bank select: a value past the ROM's segments pages the SRAM in, which the
+** program writes through write() at 8000-BFFF. */
+static void selectBank(RomMapperASCII16sram* rm, int bank, UInt8 value)
+{
+    UInt8* bankData1;
+    UInt8* bankData2;
+
+    if (value & ~rm->romMask) {
+        bankData1 = rm->sram;
+        bankData2 = rm->sram;
+        rm->sramEnabled |= (1 << ((bank >> 1) + 1));
+    }
+    else {
+        bankData1 = rm->romData + ((int)value << 14);
+        bankData2 = rm->romData + ((int)value << 14) + 0x2000;
+        rm->sramEnabled &= ~(1 << ((bank >> 1) + 1));
+    }
+
+    rm->romMapper[bank] = value;
+
+    slotMapPage(rm->slot, rm->sslot, rm->startPage + bank,     bankData1, 1, 0);
+    slotMapPage(rm->slot, rm->sslot, rm->startPage + bank + 1, bankData2, 1, 0);
+    reportBank(rm, bank);
+}
+
 static void saveState(RomMapperASCII16sram* rm)
 {
     SaveState* state = saveStateOpenForWrite("mapperASCII16sram");
@@ -89,6 +124,7 @@ static void loadState(RomMapperASCII16sram* rm)
             slotMapPage(rm->slot, rm->sslot, rm->startPage + i,     rm->romData + rm->romMapper[i] * 0x4000, 1, 0);
             slotMapPage(rm->slot, rm->sslot, rm->startPage + i + 1, rm->romData + rm->romMapper[i] * 0x4000 + 0x2000, 1, 0);
         }
+        reportBank(rm, i);
     }
 }
 
@@ -109,24 +145,8 @@ static void write(RomMapperASCII16sram* rm, UInt16 address, UInt8 value)
 
     if (address >= 0x6000 && address < 0x7800 && !(address & 0x0800)) {
         int bank = (address & 0x1000) >> 11;
-        UInt8* bankData1;
-        UInt8* bankData2;
 
-        if (value & ~rm->romMask) {
-            bankData1 = rm->sram;
-            bankData2 = rm->sram;
-            rm->sramEnabled |= (1 << ((bank >> 1) + 1));
-        }
-        else {
-            bankData1 = rm->romData + ((int)value << 14);
-            bankData2 = rm->romData + ((int)value << 14) + 0x2000;
-            rm->sramEnabled &= ~(1 << ((bank >> 1) + 1));
-        }
-
-        rm->romMapper[bank] = value;
-
-        slotMapPage(rm->slot, rm->sslot, rm->startPage + bank,     bankData1, 1, 0);
-        slotMapPage(rm->slot, rm->sslot, rm->startPage + bank + 1, bankData2, 1, 0);
+        selectBank(rm, bank, value);
     }
     else if ((1 << (address >> 14)) & rm->sramEnabled & 0x4) {
         int i;
@@ -156,6 +176,7 @@ int romMapperASCII16sramCreate(const char* filename, UInt8* romData,
     rm = malloc(sizeof(RomMapperASCII16sram));
 
     rm->deviceHandle = deviceManagerRegister(ROM_ASCII16SRAM, &callbacks, rm);
+    slotSetSegmentSize(slot, sslot, 0x4000);
     slotRegister(slot, sslot, startPage, 4, NULL, NULL, write, destroy, rm);
 
     rm->romData = calloc(1, size);
@@ -178,9 +199,10 @@ int romMapperASCII16sramCreate(const char* filename, UInt8* romData,
     rm->romMapper[0] = 0;
     rm->romMapper[2] = 0;
 
-    for (i = 0; i < 4; i += 2) {   
+    for (i = 0; i < 4; i += 2) {
         slotMapPage(rm->slot, rm->sslot, rm->startPage + i,     rm->romData + rm->romMapper[i] * 0x2000, 1, 0);
         slotMapPage(rm->slot, rm->sslot, rm->startPage + i + 1, rm->romData + rm->romMapper[i] * 0x2000 + 0x2000, 1, 0);
+        reportBank(rm, i);
     }
 
     return 1;

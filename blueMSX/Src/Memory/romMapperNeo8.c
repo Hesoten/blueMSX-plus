@@ -46,6 +46,8 @@ static void mapBank(RomMapperNeo8* rm, int region)
     UInt32 bank = rm->blockReg[region] & rm->romMask;
     UInt8* bankData = rm->romData + (UInt32)bank * 0x2000;
     slotMapPage(rm->slot, rm->sslot, rm->startPage + region, bankData, 1, 0);
+    /* The masked value: what the slot map reports, not what the guest wrote. */
+    slotSetBankSegment(rm->slot, rm->sslot, rm->startPage + region, (int)bank);
 }
 
 static void destroy(RomMapperNeo8* rm)
@@ -133,6 +135,7 @@ int romMapperNeo8Create(const char* filename, UInt8* romData,
 
     rm = calloc(1, sizeof(RomMapperNeo8));
     rm->deviceHandle = deviceManagerRegister(ROM_NEO8, &callbacks, rm);
+    slotSetSegmentSize(slot, sslot, 0x2000);
     slotRegister(slot, sslot, startPage, 6, NULL, NULL, write, destroy, rm);
 
     rm->romData = calloc(1, size);

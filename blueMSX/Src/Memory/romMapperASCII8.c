@@ -45,6 +45,13 @@ typedef struct {
     int romMapper[4];
 } RomMapperASCII8;
 
+static void mapBank(RomMapperASCII8* rm, int bank)
+{
+    slotMapPage(rm->slot, rm->sslot, rm->startPage + bank,
+                rm->romData + rm->romMapper[bank] * 0x2000, 1, 0);
+    slotSetBankSegment(rm->slot, rm->sslot, rm->startPage + bank, rm->romMapper[bank]);
+}
+
 static void saveState(RomMapperASCII8* rm)
 {
     SaveState* state = saveStateOpenForWrite("mapperASCII8");
@@ -72,8 +79,8 @@ static void loadState(RomMapperASCII8* rm)
 
     saveStateClose(state);
 
-    for (i = 0; i < 4; i++) {   
-        slotMapPage(rm->slot, rm->sslot, rm->startPage + i, rm->romData + rm->romMapper[i] * 0x2000, 1, 0);
+    for (i = 0; i < 4; i++) {
+        mapBank(rm, i);
     }
 }
 
@@ -100,11 +107,9 @@ static void write(RomMapperASCII8* rm, UInt16 address, UInt8 value)
 
     value &= rm->romMask;
     if (rm->romMapper[bank] != value) {
-        UInt8* bankData = rm->romData + ((int)value << 13);
-
         rm->romMapper[bank] = value;
-        
-        slotMapPage(rm->slot, rm->sslot, rm->startPage + bank, bankData, 1, 0);
+
+        mapBank(rm, bank);
     }
 }
 
@@ -125,6 +130,7 @@ int romMapperASCII8Create(const char* filename, UInt8* romData,
     rm = malloc(sizeof(RomMapperASCII8));
 
     rm->deviceHandle = deviceManagerRegister(ROM_ASCII8, &callbacks, rm);
+    slotSetSegmentSize(slot, sslot, 0x2000);
     slotRegister(slot, sslot, startPage, 4, NULL, NULL, write, destroy, rm);
 
     rm->romData = calloc(1, size);
@@ -134,13 +140,12 @@ int romMapperASCII8Create(const char* filename, UInt8* romData,
     rm->sslot = sslot;
     rm->startPage  = startPage;
 
-    rm->romMapper[0] = 0;
-    rm->romMapper[1] = 0;
-    rm->romMapper[2] = 0;
-    rm->romMapper[3] = 0;
+    for (i = 0; i < 4; i++) {
+        rm->romMapper[i] = 0;
+    }
 
-    for (i = 0; i < 4; i++) {   
-        slotMapPage(rm->slot, rm->sslot, rm->startPage + i, rm->romData + rm->romMapper[i] * 0x2000, 1, 0);
+    for (i = 0; i < 4; i++) {
+        mapBank(rm, i);
     }
 
     return 1;

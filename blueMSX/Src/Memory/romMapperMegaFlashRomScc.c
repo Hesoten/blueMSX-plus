@@ -78,6 +78,10 @@ static void mapPage(RomMapperMegaFlashRomScc* rm, int bank, int page)
     readEnable = (bank == 2 && rm->sccEnable) || rm->flashPage[bank] >= 0 ? 0 : 1;
 
     slotMapPage(rm->slot, rm->sslot, rm->startPage + bank, bankData, readEnable, 0);
+    /* Counted in the flash, not romMapper, which is masked to 512kB. A negative
+    ** flash page means the loaded image answers, which is not the published storage. */
+    slotSetBankSegment(rm->slot, rm->sslot, rm->startPage + bank,
+                       rm->flashPage[bank] >= 0 ? rm->flashPage[bank] : -1);
 }
 
 static void saveState(RomMapperMegaFlashRomScc* rm)
@@ -264,6 +268,7 @@ int romMapperMegaFlashRomSccCreate(const char* filename, UInt8* romData,
 
     rm->deviceHandle = deviceManagerRegister(hasPsg ? ROM_MEGAFLSHSCCPLUS : ROM_MEGAFLSHSCC, &callbacks, rm);
     rm->debugHandle = debugDeviceRegister(DBGTYPE_AUDIO, "AY8910", &dbgCallbacks, rm);
+    slotSetSegmentSize(slot, sslot, 0x2000);
     slotRegister(slot, sslot, startPage, 4, read, peek, write, destroy, rm);
 
     if (size >= flashSize) {
@@ -287,7 +292,7 @@ int romMapperMegaFlashRomSccCreate(const char* filename, UInt8* romData,
 
     rm->flash = amdFlashCreate(AMD_TYPE_2, flashSize, 0x10000, writeProtectMask, romData, size, sramCreateFilenameWithSuffix(filename, "", ".sram"), AMDFLASH_PERSIST_FULL);
 
-    for (i = 0; i < 4; i++) {   
+    for (i = 0; i < 4; i++) {
         mapPage(rm, i, i);
     }
     

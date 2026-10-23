@@ -45,6 +45,13 @@ typedef struct {
     int romMapper[4];
 } RomMapperKonami4;
 
+static void mapBank(RomMapperKonami4* rm, int bank)
+{
+    slotMapPage(rm->slot, rm->sslot, rm->startPage + bank,
+                rm->romData + rm->romMapper[bank] * 0x2000, 1, 0);
+    slotSetBankSegment(rm->slot, rm->sslot, rm->startPage + bank, rm->romMapper[bank]);
+}
+
 static void saveState(RomMapperKonami4* rm)
 {
     SaveState* state = saveStateOpenForWrite("mapperKonami4");
@@ -72,8 +79,8 @@ static void loadState(RomMapperKonami4* rm)
 
     saveStateClose(state);
 
-    for (i = 0; i < 4; i++) {   
-        slotMapPage(rm->slot, rm->sslot, rm->startPage + i, rm->romData + rm->romMapper[i] * 0x2000, 1, 0);
+    for (i = 0; i < 4; i++) {
+        mapBank(rm, i);
     }
 }
 
@@ -101,11 +108,8 @@ static void write(RomMapperKonami4* rm, UInt16 address, UInt8 value)
 
     value %= rm->size / 0x2000;
     if (rm->romMapper[bank] != value) {
-        UInt8* bankData = rm->romData + ((int)value << 13);
-
         rm->romMapper[bank] = value;
-        
-        slotMapPage(rm->slot, rm->sslot, rm->startPage + bank, bankData, 1, 0);
+        mapBank(rm, bank);
     }
 }
 
@@ -124,6 +128,7 @@ int romMapperKonami4Create(const char* filename, UInt8* romData,
     rm = malloc(sizeof(RomMapperKonami4));
 
     rm->deviceHandle = deviceManagerRegister(ROM_KONAMI4, &callbacks, rm);
+    slotSetSegmentSize(slot, sslot, 0x2000);
     slotRegister(slot, sslot, startPage, 4, NULL, NULL, write, destroy, rm);
 
     romSize = size > 0x40000 ? size : 0x40000;
@@ -144,8 +149,8 @@ int romMapperKonami4Create(const char* filename, UInt8* romData,
     rm->romMapper[2] = 2;
     rm->romMapper[3] = 3;
 
-    for (i = 0; i < 4; i++) {   
-        slotMapPage(rm->slot, rm->sslot, rm->startPage + i, rm->romData + rm->romMapper[i] * 0x2000, 1, 0);
+    for (i = 0; i < 4; i++) {
+        mapBank(rm, i);
     }
 
     return 1;
