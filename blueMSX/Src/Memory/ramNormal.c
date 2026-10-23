@@ -77,7 +77,7 @@ static void destroy(RamNormal* rm)
 {
     debugDeviceUnregister(rm->debugHandle);
 
-    slotUnregister(rm->slot, rm->sslot, 0);
+    slotUnregister(rm->slot, rm->sslot, rm->startPage);
     deviceManagerUnregister(rm->deviceHandle);
 
     free(rm);
