@@ -1008,6 +1008,7 @@
     <ClCompile Include="..\..\Src\Win32\Win32ControlPeer.c" />
     <ClCompile Include="..\..\Src\Control\ControlAddressArg.c" />
     <ClCompile Include="..\..\Src\Control\ControlVram.c" />
+    <ClCompile Include="..\..\Src\Control\ControlStep.c" />
     <ClCompile Include="..\..\Src\Debugger\Debugger.c" />
     <ClCompile Include="..\..\Src\Debugger\DebugBreakpoints.c" />
     <ClCompile Include="..\..\Src\Debugger\RaceTest.c" />
@@ -1419,6 +1420,7 @@
     <ClInclude Include="..\..\Src\Control\ControlAddressArg.h" />
     <ClInclude Include="..\..\Src\Control\ControlVram.h" />
     <ClInclude Include="..\..\Src\Control\ControlAddressType.h" />
+    <ClInclude Include="..\..\Src\Control\ControlStep.h" />
     <ClInclude Include="..\..\Src\Debugger\Debugger.h" />
     <ClInclude Include="..\..\Src\Debugger\RaceTest.h" />
     <ClInclude Include="..\..\Src\Utils\authkey.h" />

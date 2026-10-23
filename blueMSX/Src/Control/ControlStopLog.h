@@ -66,6 +66,9 @@ int ctrlStopWait(UInt32 afterSeq, int timeoutMs, CtrlStop* out);
 /* The newest stop, only while the machine is still in it. Non-zero when there is one. */
 int ctrlStopLatest(CtrlStop* out);
 
+/* Rewrites the reason of a logged stop, while the ring still holds it. Call only while paused. */
+void ctrlStopRelabel(UInt32 seq, int reason);
+
 /* How many stops have been overwritten in the ring, read or not. */
 UInt32 ctrlStopDropped(void);
 

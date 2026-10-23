@@ -35,6 +35,7 @@ int ctrlOpStatus(CtrlCall* call);
 
 /* ControlOpCpu.c */
 int ctrlOpRegWrite(CtrlCall* call);
+int ctrlOpStack(CtrlCall* call);
 
 /* ControlOpSlots.c */
 int ctrlOpSlots(CtrlCall* call);

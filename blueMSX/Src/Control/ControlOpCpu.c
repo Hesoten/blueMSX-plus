@@ -23,9 +23,11 @@
 #include "ControlOp.h"
 #include "ControlAddress.h"
 #include "ControlCpu.h"
+#include "ControlSlots.h"
 #include "ControlAddressArg.h"
 #include "ControlStatus.h"
 #include "ControlStopLog.h"
+#include "ControlProtocol.h"
 #include <stdio.h>
 
 /* The value a register is set to, as an address: a number or a segment address.
@@ -115,5 +117,74 @@ int ctrlOpRegWrite(CtrlCall* call)
     /* No run state: this request saw no stop, so any state could be stale. */
     ctrlStatusDescribe(&call->text, CTRL_STOP_UNKNOWN, CTRL_STATUS_STATE_UNSAID);
     jsonOutInt(&call->out, "previous", previous);
+    return ctrlReplyDone(call);
+}
+
+/* The return addresses on the stack, innermost first, with the segment paged in there.
+** The caller must hold a view: the stack memory is read to check each one. */
+static void describeCallstack(CtrlText* text, int max)
+{
+    UInt16 frames[64];
+    UInt16 where[64];
+    int    count;
+    int    notFound;
+    int    innerNotFound;
+    int    i;
+
+    if (max > 64) {
+        max = 64;
+    }
+    count = ctrlCpuCallstack(frames, where, max, &notFound, &innerNotFound);
+    if (count < 0) {
+        ctrlTextAdd(text, "the machine has no stack to read right now\n");
+        return;
+    }
+    if (count == 0) {
+        ctrlTextAdd(text, "nothing on the stack is a return address the CPU recorded\n");
+        if (notFound > 0) {
+            ctrlTextAdd(text, "%d call-log entries were not found on the stack above SP "
+                        "(stale, a changed return address, or a stack switch)\n", notFound);
+        }
+        return;
+    }
+
+    ctrlTextAdd(text, "return addresses found on the stack (the CPU's call log, checked "
+                "against stack memory), innermost first:\n");
+    for (i = 0; i < count; i++) {
+        int   slot;
+        int   subSlot;
+        Int32 segment = ctrlSlotsPagedIn(frames[i], &slot, &subSlot);
+
+        ctrlTextAdd(text, " %2d  0x%04X", i, frames[i]);
+        ctrlTextAdd(text, "  %d.%d", slot, subSlot);
+        if (segment >= 0) {
+            ctrlTextAdd(text, ":seg%d", (int)segment);
+        }
+        ctrlTextAdd(text, "  (on the stack at 0x%04X)\n", where[i]);
+    }
+    if (notFound > 0) {
+        ctrlTextAdd(text, "%d call-log entries were not found on the stack above SP and are "
+                    "left out (stale, a changed return address, or a stack switch)\n",
+                    notFound);
+    }
+    ctrlTextAdd(text,
+                "the segment shown is the one paged in there now, which is not "
+                "necessarily the one that was when the call was made\n");
+}
+
+int ctrlOpStack(CtrlCall* call)
+{
+    int refused;
+    Int32 count = CTRL_STACK_COUNT_DEFAULT;
+
+    count = ctrlCallInt(call, "count", count);
+    if (count < CTRL_STACK_COUNT_MIN || count > CTRL_STACK_COUNT_MAX) {
+        return ctrlReplyErrorf(call, "out_of_range", "count must be between %d and %d frames",
+                               CTRL_STACK_COUNT_MIN, CTRL_STACK_COUNT_MAX);
+    }
+    if ((refused = ctrlRefuseUnlessViewed(call)) != 0) {
+        return refused;
+    }
+    describeCallstack(&call->text, (int)count);
     return ctrlReplyDone(call);
 }

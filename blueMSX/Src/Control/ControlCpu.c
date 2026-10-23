@@ -23,6 +23,7 @@
 #include "ControlCpu.h"
 #include "ControlView.h"
 #include "R800Debug.h"
+#include "SlotManager.h"
 #include <stddef.h>
 #include <stdio.h>
 #include <ctype.h>
@@ -241,6 +242,81 @@ int ctrlCpuSetRegister(const char* name, UInt32 value, Int32* previous,
                    previous, err, errLen);
     dbgSnapshotDestroy(snapshot);
     return ok;
+}
+
+/* The first even step from scan holding word, or 0x10000. Stops at 0xFFFE so a+1 fits. */
+static UInt32 findWord(const UInt8* mem, UInt32 scan, UInt16 word)
+{
+    UInt32 a;
+
+    for (a = scan; a <= 0xFFFE; a += 2) {
+        if ((mem[a] | (mem[a + 1] << 8)) == word) {
+            return a;
+        }
+    }
+    return 0x10000;
+}
+
+static int callstackIn(DbgSnapshot* snapshot, UInt16* out, UInt16* where, int max,
+                       int* notFound, int* innerNotFound)
+{
+    static UInt8 stackMem[0x10000];
+    /* The CPU device that publishes the registers also keeps the call log. */
+    const DbgDevice* cpu = dbgSnapshotFindDeviceWithRegisters(snapshot, DBGTYPE_CPU);
+    const DbgCallstack* stack = cpu != NULL ? cpu->callstack : NULL;
+    Int32  sp = ctrlCpuRegisterIn(snapshot, "SP");
+    UInt32 scan;
+    UInt32 a;
+    int written = 0;
+    Int32 i;
+
+    *notFound = 0;
+    *innerNotFound = 0;
+    if (stack == NULL || stack->size == 0 || sp < 0) {
+        return 0;
+    }
+    for (a = (UInt32)sp; a <= 0xFFFF; a++) {
+        stackMem[a] = slotPeek(NULL, (UInt16)a);
+    }
+    /* The log keeps calls the program abandoned, so an entry counts only when its
+    ** word is on the stack, each outer one above the last. */
+    scan = (UInt32)sp;
+    for (i = (Int32)stack->size - 1; i >= 0 && written < max; i--) {
+        UInt16 frame = (UInt16)stack->callstack[i];
+
+        a = findWord(stackMem, scan, frame);
+        /* A stale entry can match high up and hide the real frames below it, so
+        ** the next outer entry found lower wins. */
+        if (a <= 0xFFFE && i > 0 &&
+            findWord(stackMem, scan, (UInt16)stack->callstack[i - 1]) < a)
+        {
+            a = 0x10000;
+        }
+        if (a > 0xFFFE) {
+            (*notFound)++;
+            if (written == 0) {
+                (*innerNotFound)++;
+            }
+            continue;
+        }
+        out[written] = frame;
+        where[written] = (UInt16)a;
+        written++;
+        scan = a + 2;
+    }
+    return written;
+}
+
+int ctrlCpuCallstack(UInt16* out, UInt16* where, int max, int* notFound, int* innerNotFound)
+{
+    DbgSnapshot* snapshot = ctrlViewDevices();
+    int written = -1;
+
+    if (snapshot != NULL) {
+        written = callstackIn(snapshot, out, where, max, notFound, innerNotFound);
+        dbgSnapshotDestroy(snapshot);
+    }
+    return written;
 }
 
 int ctrlCpuBreakpointAt(Int32 pc)

@@ -44,6 +44,11 @@ int ctrlCpuCheckName(const char* name, char* err, int errLen);
 int ctrlCpuSetRegister(const char* name, UInt32 value, Int32* previous,
                        char* err, int errLen);
 
+/* Return addresses from the CPU's call log still on the stack, innermost first, with where
+** on the stack each is. notFound counts log entries left out, innerNotFound those inside
+** the first one kept. Returns how many were written, or -1 without a view. */
+int ctrlCpuCallstack(UInt16* out, UInt16* where, int max, int* notFound, int* innerNotFound);
+
 /* A breakpoint at pc: a plain one, or a segment one for the segment paged in there now. */
 int ctrlCpuBreakpointAt(Int32 pc);
 

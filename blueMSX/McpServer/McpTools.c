@@ -103,9 +103,13 @@ const McpTool mcpTools[] = {
 {
     "bmsx_run",
     "Pause the machine, let it go again, or step. step runs count instructions (1 by "
-    "default).",
+    "default); step_over runs a call to completion instead of going into it; step_out "
+    "runs until the current subroutine returns. Those two wait 2 seconds: if the call has "
+    "not returned by then the reply says timeout and the machine is still running, so "
+    "wait with bmsx_run_until or pause it.",
     SCHEMA("\"properties\":{"
-           "\"how\":{\"type\":\"string\",\"enum\":[\"pause\",\"resume\",\"step\"]},"
+           "\"how\":{\"type\":\"string\",\"enum\":[\"pause\",\"resume\",\"step\","
+           "\"step_over\",\"step_out\"]},"
            "\"count\":{\"type\":\"integer\",\"default\":" CTRL_STR(CTRL_RUN_COUNT_DEFAULT)
            ",\"minimum\":" CTRL_STR(CTRL_RUN_COUNT_MIN) ","
            "\"maximum\":" CTRL_STR(CTRL_RUN_COUNT_MAX)
@@ -113,6 +117,21 @@ const McpTool mcpTools[] = {
            "\"required\":[\"how\"]"),
     CHANGES,
     "run",
+    NULL
+},
+{
+    "bmsx_stack",
+    "The return addresses on the stack: the CPU's call log, confirmed against "
+    "stack memory above SP, innermost first, each with where it sits and the slot and "
+    "segment paged in there. A return address on its own "
+    "means little on a bank switched program, where 0x4140 is in thirty-two "
+    "places at once.",
+    SCHEMA("\"properties\":{"
+           "\"count\":{\"type\":\"integer\",\"default\":" CTRL_STR(CTRL_STACK_COUNT_DEFAULT)
+           ",\"minimum\":" CTRL_STR(CTRL_STACK_COUNT_MIN) ","
+           "\"maximum\":" CTRL_STR(CTRL_STACK_COUNT_MAX) "}}"),
+    READ_ONLY,
+    "stack",
     NULL
 },
 {

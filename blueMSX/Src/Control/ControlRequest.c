@@ -70,6 +70,9 @@ static const CtrlArg undoArgs[] = {
 static const CtrlArg runArgs[] = {
     { "how", CTRL_ARG_TEXT, 15 }, { "count", CTRL_ARG_INT, 0 }, { NULL }
 };
+static const CtrlArg stackArgs[] = {
+    { "count", CTRL_ARG_INT, 0 }, { NULL }
+};
 static const CtrlArg runUntilArgs[] = {
     { "timeout_ms", CTRL_ARG_INT, 0 }, { "pause_at_timeout", CTRL_ARG_BOOL, 0 }, { NULL }
 };
@@ -114,7 +117,9 @@ static const CtrlOp opTable[] = {
     { "undo",              CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpUndo, OP_ARGS(undoArgs),
       "  undo         count        (puts back what mem.write overwrote)\n" },
     { "run",               CTRL_OP_CHANGES, CTRL_OP_SELF, ctrlOpRun, OP_ARGS(runArgs),
-      "  run          how = pause|resume|step, count\n" },
+      "  run          how = pause|resume|step|step_over|step_out, count\n" },
+    { "stack",             CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpStack, OP_ARGS(stackArgs),
+      "  stack        count\n" },
     { "run.until",         CTRL_OP_CHANGES, CTRL_OP_SELF, ctrlOpRunUntil, OP_ARGS(runUntilArgs),
       "  run.until    timeout_ms, pause_at_timeout\n" },
     { "bp.set",            CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpBpSet, OP_ARGS(bpSetArgs),

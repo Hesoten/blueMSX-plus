@@ -21,6 +21,7 @@
 ******************************************************************************
 */
 #include "ControlOp.h"
+#include "ControlStep.h"
 #include "ControlWatch.h"
 #include "ControlClient.h"
 #include "ControlCpu.h"
@@ -227,11 +228,193 @@ static int runStep(CtrlCall* call, Int32 count)
     return 0;
 }
 
+/* Where a step out stops: the return address of the innermost call on the stack, and the
+** SP the RET leaves. Returns 0, or the refusal when there is none. */
+static int stepOutTarget(CtrlCall* call, UInt16* stopAt, Int32* expectSp)
+{
+    UInt16 frames[1];
+    UInt16 frameStackAt[1];
+    int notFound;
+    int innerNotFound;
+
+    if (ctrlCpuCallstack(frames, frameStackAt, 1, &notFound, &innerNotFound) != 1) {
+        return ctrlReplyError(call, "no_frame",
+                              "nothing on the stack is a return address the CPU "
+                              "recorded; at the top of a main loop there is "
+                              "nothing to step out of. Step instead, or let it "
+                              "run until it stops");
+    }
+    if (innerNotFound > 0) {
+        ctrlTextAdd(&call->text, "the innermost %d call-log entr%s not on the stack; "
+                    "stepping out to the first one that is\n", innerNotFound,
+                    innerNotFound == 1 ? "y is" : "ies are");
+    }
+    stopAt[0] = frames[0];
+    /* The RET pops the stack word the return address was found in. */
+    *expectSp = (Int32)frameStackAt[0] + 2;
+    return 0;
+}
+
+/* No stop within the wait: says where the step was headed, and that it runs on. */
+static int reportStepTimeout(CtrlCall* call, const UInt16* stopAt, int stops, int temporary)
+{
+    if (ctrlClientAllBlocked()) {
+        return ctrlReplyError(call, "revoked",
+                              "agent control was turned off at the emulator "
+                              "while this waited, so the step ended early; the "
+                              "machine is left running");
+    }
+    jsonOutString(&call->out, "reason", "timeout");
+    jsonOutUInt(&call->out, "target", stopAt[0]);
+    if (stops == 2) {
+        jsonOutUInt(&call->out, "target2", stopAt[1]);
+        ctrlTextAdd(&call->text, "still running after 2000 ms, at neither 0x%04X nor "
+                    "0x%04X; ", stopAt[0], stopAt[1]);
+    }
+    else {
+        ctrlTextAdd(&call->text, "still running after 2000 ms; ");
+    }
+    ctrlTextAdd(&call->text, temporary == 0
+                ? "the machine is left running\n"
+                : temporary == 1
+                ? "the temporary breakpoint is removed and the machine is left "
+                  "running\n"
+                : "the temporary breakpoints are removed and the machine is left "
+                  "running\n");
+    return ctrlReplyDone(call);
+}
+
+/* The stop a step over or out came to: one of its stops, at the SP a return leaves, or
+** something else on the way. */
+static int reportStepStop(CtrlCall* call, CtrlStop* stop, const UInt16* stopAt,
+                          int stops, const int* hadBreakpoint, Int32 expectSp, int over)
+{
+    int   reached = -1;
+    int   pc = -1;
+    Int32 sp = -1;
+
+    call->session->stopCursor = stop->seq;
+    jsonOutUInt(&call->out, "stop_seq", stop->seq);
+    if (stop->reason == CTRL_STOP_BREAKPOINT) {
+        CtrlView view;
+
+        if (ctrlViewTake(&view, DBG_ACCESS_VIEW, CTRL_VIEW_TIMEOUT_MS) == DBG_ACCESS_OK) {
+            pc = ctrlCpuPc();
+            sp = ctrlCpuRegister("SP");
+            ctrlViewRelease(&view);
+        }
+    }
+    if (pc == stopAt[0] || (stops == 2 && pc == stopAt[1])) {
+        reached = pc == stopAt[0] ? 0 : 1;
+    }
+    if (reached < 0 && stops == 2) {
+        ctrlTextAdd(&call->text, "stopped before reaching 0x%04X or 0x%04X\n",
+                    stopAt[0], stopAt[1]);
+    }
+    else if (reached < 0) {
+        ctrlTextAdd(&call->text, "stopped before reaching 0x%04X\n", stopAt[0]);
+    }
+    else if (expectSp >= 0 && sp != expectSp) {
+        /* Recursion, or a jump to the same address, gets there with another SP. */
+        ctrlTextAdd(&call->text, "reached 0x%04X but SP is 0x%04X, not 0x%04X: another "
+                    "path got there first, not the return\n",
+                    stopAt[reached], (unsigned)sp, (unsigned)expectSp);
+    }
+    else {
+        ctrlTextAdd(&call->text, "%s to 0x%04X\n", over ? "stepped over" : "stepped out",
+                    stopAt[reached]);
+        jsonOutUInt(&call->out, "stopped_at", stopAt[reached]);
+        /* It was our temporary breakpoint, so this is the step finishing. */
+        if (!hadBreakpoint[reached]) {
+            ctrlStopRelabel(stop->seq, CTRL_STOP_STEP);
+            stop->reason = CTRL_STOP_STEP;
+        }
+    }
+    jsonOutString(&call->out, "reason", ctrlStopReasonText(stop->reason));
+    ctrlStatusDescribe(&call->text, stop->reason,
+                       stop->reason == CTRL_STOP_MACHINE ? machineStopState(stop)
+                                                         : EMU_PAUSED);
+    ctrlWatchDescribeStop(&call->text, stop);
+    return ctrlReplyDone(call);
+}
+
+/* Runs to the step's stops, each with a temporary breakpoint where none is set yet. */
+static int waitAtStepStops(CtrlCall* call, const UInt16* stopAt, int stops, Int32 expectSp,
+                           int over)
+{
+    CtrlStop stop;
+    int hadBreakpoint[2] = { 0, 0 };
+    int temporary;
+    int refused;
+
+    call->session->stopCursor = ctrlStopSeq();
+    /* Kept, as the agent's own: the debugger window setting it meanwhile keeps its own. */
+    ctrlStepSetStops(stopAt, stops, hadBreakpoint);
+    temporary = stops - hadBreakpoint[0] - hadBreakpoint[1];
+    if ((refused = refuseResume(call, dbgResume())) != 0) {
+        ctrlStepClearStops(stopAt, stops, hadBreakpoint);
+        return refused;
+    }
+    /* Bounded so a call that never returns does not hang the client. */
+    if (!ctrlStopWait(call->session->stopCursor, 2000, &stop)) {
+        ctrlStepClearStops(stopAt, stops, hadBreakpoint);
+        return reportStepTimeout(call, stopAt, stops, temporary);
+    }
+    ctrlStepClearStops(stopAt, stops, hadBreakpoint);
+    return reportStepStop(call, &stop, stopAt, stops, hadBreakpoint, expectSp, over);
+}
+
+/* how=step_over or step_out. Returns 0 when it stepped once and the run state is to be
+** reported, else the reply. */
+static int runStepOverOrOut(CtrlCall* call, const char* how)
+{
+    CtrlView view;
+    UInt16 stopAt[2] = { 0, 0 };
+    int    stops = 1;
+    Int32  expectSp = -1;
+    int    plainStep = 0;
+    int    over = strcmp(how, "step_over") == 0;
+    int    refused;
+    int    stepped;
+
+    if ((refused = refuseUnlessPaused(call)) != 0) {
+        return refused;
+    }
+    if ((refused = ctrlCallTakeView(call, &view)) != 0) {
+        return refused;
+    }
+
+    if (over) {
+        /* A call returns with SP where it is now. */
+        expectSp = ctrlCpuRegister("SP");
+        plainStep = ctrlStepOverStops(&view, stopAt, &stops);
+    }
+    else if ((refused = stepOutTarget(call, stopAt, &expectSp)) != 0) {
+        ctrlViewRelease(&view);
+        return refused;
+    }
+    /* Decided; the step runs the machine, which no view may outlast. */
+    ctrlViewRelease(&view);
+
+    if (!plainStep) {
+        return waitAtStepStops(call, stopAt, stops, expectSp, over);
+    }
+    if ((stepped = stepAndWait(call, 0, &refused)) == -1) {
+        return refused;
+    }
+    if (stepped == 0) {
+        ctrlTextAdd(&call->text, "the step did not come back to a stop, so it may have been "
+                    "resumed or changed underneath\n");
+        return replyLostStep(call);
+    }
+    return 0;
+}
+
 /* After a pause, a resume or a step of one instruction: what the next run meets at PC. */
 static int reportRunState(CtrlCall* call, const char* how)
 {
     CtrlView view = { 0 };
-    int stepped = strcmp(how, "step") == 0;
+    int stepped = strcmp(how, "step") == 0 || strcmp(how, "step_over") == 0;
 
     /* A step ends on a parked machine; its PC and registers are read in one view, and the status
     ** waits for the park after a pause itself. A resume says running, so it reads no
@@ -248,8 +431,8 @@ static int reportRunState(CtrlCall* call, const char* how)
 
         if (ctrlCpuStopsAtOnce(pc)) {
             ctrlTextAdd(&call->text, "PC 0x%04X has a breakpoint, checked before the instruction "
-                        "there runs: resume and run_until stop here again at once; how=step runs "
-                        "it first\n", (unsigned)pc);
+                        "there runs: resume, run_until, step_out and step_over on a call "
+                        "stop here again at once; how=step runs it first\n", (unsigned)pc);
         }
     }
     /* A resume set its own, from before it: a stop met as it went is one to report. */
@@ -272,7 +455,8 @@ int ctrlOpRun(CtrlCall* call)
 
     if (how == NULL) {
         return ctrlReplyError(call, "missing_how",
-                              "\"how\" is needed: pause, resume or step");
+                              "\"how\" is needed: pause, resume, step, step_over or "
+                              "step_out");
     }
 
     if (strcmp(how, "pause") == 0) {
@@ -285,9 +469,13 @@ int ctrlOpRun(CtrlCall* call)
     else if (strcmp(how, "step") == 0) {
         replied = runStep(call, count);
     }
+    else if (strcmp(how, "step_over") == 0 || strcmp(how, "step_out") == 0) {
+        replied = runStepOverOrOut(call, how);
+    }
     else {
         return ctrlReplyError(call, "bad_how",
-                              "\"how\" must be pause, resume or step");
+                              "\"how\" must be pause, resume, step, step_over or "
+                              "step_out");
     }
     return replied != 0 ? replied : reportRunState(call, how);
 }

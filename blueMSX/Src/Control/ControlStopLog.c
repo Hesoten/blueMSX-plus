@@ -201,3 +201,14 @@ int ctrlStopLatest(CtrlStop* out)
     /* A resume, start or reset since then means the machine has moved on. */
     return got && out->runGeneration == emulatorGetStateSeq();
 }
+
+void ctrlStopRelabel(UInt32 seq, int reason)
+{
+    CtrlStop* slot = &ring[seq % CTRL_STOP_RING];
+
+    lock();
+    if (slot->seq == seq) {
+        slot->reason = (UInt8)reason;
+    }
+    unlock();
+}
