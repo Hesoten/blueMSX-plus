@@ -2068,6 +2068,8 @@ typedef struct {
     int minimized;
     /* Started with /hidden: never shown, silent, and no dialogs. */
     int hidden;
+    /* The start the command line asked for is over; later ones may fail and be retried. */
+    int firstStartDone;
     Mixer* mixer;
     int enteringFullscreen;
     Shortcuts* shortcuts;
@@ -4637,12 +4639,15 @@ static void commandLineReport(const char* message)
     }
 }
 
-/* A hidden run has no one to click a dialog away, so a failure to start ends
-** the process with its own exit code instead. */
+/* A hidden run has no one to click a dialog away. The first start ends the process
+** with exit code 2; a later failure is only reported, since the session (symbols,
+** breakpoints) must survive. */
 static void hiddenStartFail(const char* message)
 {
     commandLineReport(message);
-    exit(2);
+    if (!st.firstStartDone) {
+        exit(2);
+    }
 }
 
 static void commandLineFail(const char* message)
@@ -5403,6 +5408,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     if (emuTryStartWithArguments(pProperties, szLine, NULL) < 0) {
         commandLineFail(emuCommandLineGetError());
     }
+    st.firstStartDone = 1;
 
     {
         char* themeArg = emuCheckValueArgument(szLine, "theme");
@@ -6127,6 +6133,7 @@ static void showStartEmuFailDialogShared(void)
         }
         text[sizeof(text) - 1] = 0;
         hiddenStartFail(text);
+        return;
     }
 
     if (n > 0) {
@@ -6185,6 +6192,7 @@ void archShowStartEmuFailDialog(const char* machineName)
 
     if (st.hidden) {
         hiddenStartFail(body);
+        return;
     }
 
     MessageBoxLargeU(NULL, langErrorStartEmu(), body, langErrorTitle(),
