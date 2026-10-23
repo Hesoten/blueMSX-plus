@@ -39,6 +39,9 @@
 /* Reply texts name the MCP tools to call next (bmsx_run how=pause): those names are part of
 ** this protocol. */
 
+/* A path in a request, in UTF-8 bytes: MAX_PATH characters at 3 bytes each, and the NUL. */
+#define CTRL_PATH_MAX 1024
+
 /* A number as the text a schema writes; the numbers below are plain decimal for this. */
 #define CTRL_STR_(x) #x
 #define CTRL_STR(x)  CTRL_STR_(x)
@@ -50,6 +53,8 @@
 #define CTRL_RUN_UNTIL_TIMEOUT_MS_DEFAULT 5000
 #define CTRL_RUN_UNTIL_TIMEOUT_MS_MIN     1
 #define CTRL_RUN_UNTIL_TIMEOUT_MS_MAX     600000
+/* The defaults of the text arguments that have one. */
+#define CTRL_SCREEN_AS_DEFAULT            "auto"
 
 /* What an argument of each kind must be, after "\"name\" must be ". */
 #define CTRL_TEXT_WANT_INT            "a whole number, as in 16 or \"0x10\""

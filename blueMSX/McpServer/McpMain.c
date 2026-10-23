@@ -245,7 +245,7 @@ static void handle(const char* request)
                   "\"capabilities\":{\"tools\":{}},"
                   "\"serverInfo\":{\"name\":\"bluemsx\",\"version\":\"1.0\"},"
                   "\"instructions\":\"Debugging an MSX program running in blueMSX+. "
-                  "Registers are read only while the machine "
+                  "Registers and the text screen are read only while the machine "
                   "is paused: pause it (bmsx_run how=pause) or let it run to a stop "
                   "with bmsx_run_until (Full access) first.\"}}",
                   id);

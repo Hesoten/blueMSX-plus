@@ -37,7 +37,7 @@ const char* ctrlInstanceToken(void);
 ** NULL keeps the name and rewrites the file if the level changed. */
 void ctrlInstanceSetMachine(const char* machineName);
 
-/* The folder that holds the instance file. */
+/* The folder that holds the instance file, and the screenshots an agent asks for. */
 int  ctrlInstanceAgentFolder(char* out, int outLen);
 
 #endif

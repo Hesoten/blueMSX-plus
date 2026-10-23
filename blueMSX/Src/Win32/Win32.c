@@ -3141,7 +3141,17 @@ static void emuWindowDraw(int onlyOnVblank)
     archSemaphoreSignal(lock);
 }
 
+static void* createScreenShotWritten(int large, int* bitmapSize, int png,
+                                     const char* overrideFilename, int* wroteFile);
+
 void* createScreenShotEx(int large, int* bitmapSize, int png, const char* overrideFilename)
+{
+    return createScreenShotWritten(large, bitmapSize, png, overrideFilename, NULL);
+}
+
+/* wroteFile says whether the file was written; the returned pointer cannot. */
+static void* createScreenShotWritten(int large, int* bitmapSize, int png,
+                                     const char* overrideFilename, int* wroteFile)
 {
     void* bitmap = NULL;
 
@@ -3154,6 +3164,9 @@ void* createScreenShotEx(int large, int* bitmapSize, int png, const char* overri
     
     FrameBuffer* frameBuffer = frameBufferGetViewFrame();
 
+    if (wroteFile != NULL) {
+        *wroteFile = 0;
+    }
     if (frameBuffer == NULL || frameBuffer->maxWidth <= 0 || frameBuffer->lines <= 0) {
         free(bmBitsDst);
         return NULL;
@@ -3181,7 +3194,12 @@ void* createScreenShotEx(int large, int* bitmapSize, int png, const char* overri
         bitmap = ScreenShot2(bmBitsDst, 320 * zoom, frameBuffer->maxWidth * zoom, 240 * zoom, bitmapSize, png);
     }
     else {
-        ScreenShot3Ex(pProperties, bmBitsDst, 320 * zoom, frameBuffer->maxWidth * zoom, 240 * zoom, png, overrideFilename);
+        int wrote = ScreenShot3Ex(pProperties, bmBitsDst, 320 * zoom,
+                                  frameBuffer->maxWidth * zoom, 240 * zoom, png,
+                                  overrideFilename);
+        if (wroteFile != NULL) {
+            *wroteFile = wrote;
+        }
     }
 
     free(bmBitsDst);
@@ -3192,6 +3210,18 @@ void* createScreenShotEx(int large, int* bitmapSize, int png, const char* overri
 void* createScreenShot(int large, int* bitmapSize, int png)
 {
     return createScreenShotEx(large, bitmapSize, png, NULL);
+}
+
+/* Reads the last finished frame, so the emulation need not be stopped. */
+int archScreenCaptureToFile(ScreenCaptureType type, const char* fname)
+{
+    int wrote = 0;
+
+    if (fname == NULL || fname[0] == 0) {
+        return 0;
+    }
+    createScreenShotWritten(type == SC_LARGE, NULL, 1, fname, &wrote);
+    return wrote;
 }
 
 static LRESULT CALLBACK emuWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam) 

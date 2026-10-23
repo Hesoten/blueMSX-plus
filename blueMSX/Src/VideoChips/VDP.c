@@ -1620,7 +1620,45 @@ void vdpForceSync()
     }
 }
 
-static void sync(VDP* vdp, UInt32 systemTime) 
+UInt8* vdpDebugGetVram(UInt32* size)
+{
+    if (theVdp == NULL) {
+        if (size != NULL) {
+            *size = 0;
+        }
+        return NULL;
+    }
+    if (size != NULL) {
+        *size = (UInt32)theVdp->vramSize;
+    }
+    return theVdp->vram;
+}
+
+int vdpDebugGetRegisters(UInt8* registers, int max)
+{
+    int count = (int)sizeof(theVdp->vdpRegs);
+
+    if (theVdp == NULL || registers == NULL || max <= 0) {
+        return 0;
+    }
+    if (count > max) {
+        count = max;
+    }
+    memcpy(registers, theVdp->vdpRegs, (size_t)count);
+    return count;
+}
+
+int vdpDebugGetScreenMode(void)
+{
+    return theVdp != NULL ? theVdp->screenMode : -1;
+}
+
+int vdpDebugColorsMatch(int first, int second)
+{
+    return theVdp != NULL && theVdp->palette[first & 0x0f] == theVdp->palette[second & 0x0f];
+}
+
+static void sync(VDP* vdp, UInt32 systemTime)
 {
     int frameTime = systemTime - vdp->frameStartTime;
     int scanLine = frameTime / HPERIOD;

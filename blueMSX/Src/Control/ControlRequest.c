@@ -58,6 +58,9 @@ static const CtrlArg runArgs[] = {
 static const CtrlArg runUntilArgs[] = {
     { "timeout_ms", CTRL_ARG_INT, 0 }, { "pause_at_timeout", CTRL_ARG_BOOL, 0 }, { NULL }
 };
+static const CtrlArg screenArgs[] = {
+    { "as", CTRL_ARG_TEXT, 11 }, { "path", CTRL_ARG_TEXT, CTRL_PATH_MAX - 1 }, { NULL }
+};
 
 /* An op's args in its row; an array longer than CTRL_OP_ARGS_MAX and its { NULL } fails to compile. */
 #define OP_ARGS(a) ((a) + 0 * sizeof(char[sizeof(a) / sizeof((a)[0]) <= CTRL_OP_ARGS_MAX + 1 ? 1 : -1]))
@@ -73,6 +76,8 @@ static const CtrlOp opTable[] = {
       "  run          how = pause|resume|step, count\n" },
     { "run.until",         CTRL_OP_CHANGES, CTRL_OP_SELF, ctrlOpRunUntil, OP_ARGS(runUntilArgs),
       "  run.until    timeout_ms, pause_at_timeout\n" },
+    { "screen",            CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpScreen, OP_ARGS(screenArgs),
+      "  screen       as = auto|text|png, path\n" },
 };
 
 static const CtrlOp* findOp(const char* name)

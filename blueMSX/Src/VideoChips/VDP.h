@@ -53,6 +53,17 @@ int  vdpGetDisplayEnable();
 
 void vdpForceSync();
 
+/* Live VRAM, current only up to the last vdpForceSync(). NULL when there is no VDP. */
+UInt8* vdpDebugGetVram(UInt32* size);
+
+/* Copies up to max control registers; returns how many, or 0 when there is no
+** VDP. The screen mode is -1 when there is no VDP. */
+int vdpDebugGetRegisters(UInt8* registers, int max);
+int vdpDebugGetScreenMode(void);
+
+/* 1 when the two colour indices are drawn in exactly the same colour now (palette, backdrop for 0). */
+int vdpDebugColorsMatch(int first, int second);
+
 // Video DA Interface
 
 #define VDP_VIDEODA_WIDTH  544

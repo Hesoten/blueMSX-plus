@@ -36,4 +36,7 @@ int ctrlOpStatus(CtrlCall* call);
 /* ControlOpSlots.c */
 int ctrlOpSlots(CtrlCall* call);
 
+/* ControlOpScreen.c */
+int ctrlOpScreen(CtrlCall* call);
+
 #endif

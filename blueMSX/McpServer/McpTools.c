@@ -89,6 +89,25 @@ const McpTool mcpTools[] = {
     "run.until",
     NULL
 },
+{
+    "bmsx_screen",
+    "What is on the screen. In a text mode it comes back as text, which is far "
+    "cheaper to read than an image: the character codes the program wrote, not the "
+    "shapes drawn, with a note for cleared patterns, invisible text colour and a "
+    "display that is off. In a graphics mode it is written as a PNG and the path "
+    "comes back. The text is read only from a paused machine; while it runs, auto "
+    "gives the PNG. While a V9990 picture (GFX9000, Video9000) is shown, auto gives the "
+    "PNG and text is labelled as the VDP's.",
+    SCHEMA("\"properties\":{"
+           "\"as\":{\"type\":\"string\",\"enum\":[\"auto\",\"text\",\"png\"],"
+           "\"default\":\"" CTRL_SCREEN_AS_DEFAULT "\"},"
+           "\"path\":{\"type\":\"string\",\"description\":\"a full Windows path of a new "
+           "file to write the PNG to (as=png is implied); an existing file is refused, never "
+           "replaced; Full access only\"}}"),
+    READ_ONLY,
+    "screen",
+    NULL
+},
 };
 
 const int mcpToolCount = (int)(sizeof(mcpTools) / sizeof(mcpTools[0]));
