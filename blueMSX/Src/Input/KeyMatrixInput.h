@@ -46,5 +46,7 @@ int keyMatrixInputRemaining(void);
 /* Called by the board around a run, from the emulation thread. */
 void keyMatrixInputBoardStart(void);
 void keyMatrixInputBoardStop(void);
+/* After a state is loaded over the running machine, which drops every board timer. */
+void keyMatrixInputBoardRearm(void);
 
 #endif

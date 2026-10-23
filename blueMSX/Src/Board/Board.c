@@ -1261,6 +1261,7 @@ static int boardRewindLoad(int drop)
         boardTimerAdd(periodicTimer, boardSystemTime() + periodicInterval);
     }
 #endif
+    keyMatrixInputBoardRearm();
     return 1;
 }
 

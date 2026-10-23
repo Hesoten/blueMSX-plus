@@ -271,6 +271,14 @@ void keyMatrixInputBoardStart(void)
     boardTimerAdd(timer, boardSystemTime() + 1);
 }
 
+/* The timer is not part of a state, so a load leaves it unarmed and the queue stuck. */
+void keyMatrixInputBoardRearm(void)
+{
+    if (timer != NULL) {
+        boardTimerAdd(timer, boardSystemTime() + 1);
+    }
+}
+
 /* Whatever was still queued belonged to the run that ended. Keys pressed here
 ** are let go, so none stays down into the next run. */
 void keyMatrixInputBoardStop(void)
