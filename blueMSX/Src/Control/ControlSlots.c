@@ -164,7 +164,7 @@ static void slotMapOutOfView(CtrlText* text)
             if (!printedHeader) {
                 ctrlTextAdd(text, "\nnot paged in now, so not in the table above. These report no "
                             "segments, so they have no seg addresses: use Z80 addresses while "
-                            "the slot is paged in.\n");
+                            "the slot is paged in; breakpoints there are plain.\n");
                 printedHeader = 1;
             }
             ctrlTextAdd(text, "  slot%d.%d  %s\n", slot, subSlot,
@@ -190,7 +190,7 @@ Int32 ctrlSlotsPagedIn(UInt16 z80, int* slot, int* subSlot)
 void ctrlSlotsDescribeNoSegments(CtrlText* text, int slot, int subSlot)
 {
     ctrlTextAdd(text, "slot%d.%d (%s) reports no segments, so it has no seg addresses: use "
-                "Z80 addresses while it is paged in",
+                "Z80 addresses while it is paged in; breakpoints there are plain",
                 slot, subSlot, slotDebugGetContents(slot, subSlot));
 }
 

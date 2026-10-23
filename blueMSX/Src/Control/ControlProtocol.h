@@ -43,6 +43,9 @@
 ** holds a write of this size whole. */
 #define CTRL_MEM_WRITE_MAX 511
 
+/* The most plain breakpoints a reply lists or counts; it says "more than" past that. */
+#define CTRL_PLAIN_LIST_MAX 64
+
 /* The longest "at", in bytes. */
 #define CTRL_AT_MAX 255
 

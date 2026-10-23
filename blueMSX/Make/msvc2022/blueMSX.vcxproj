@@ -997,6 +997,7 @@
     <ClCompile Include="..\..\Src\Control\ControlOpMemory.c" />
     <ClCompile Include="..\..\Src\Control\ControlOpRun.c" />
     <ClCompile Include="..\..\Src\Control\ControlOpCpu.c" />
+    <ClCompile Include="..\..\Src\Control\ControlOpBreak.c" />
     <ClCompile Include="..\..\Src\Control\ControlOpScreen.c" />
     <ClCompile Include="..\..\Src\Control\ControlView.c" />
     <ClCompile Include="..\..\Src\Control\ControlHello.c" />

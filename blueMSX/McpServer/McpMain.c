@@ -249,7 +249,8 @@ static void handle(const char* request)
                   "is paused: pause it (bmsx_run how=pause) or let it run to a stop "
                   "with bmsx_run_until (Full access) first. "
                   "Addresses these tools print can be sent straight back to them; do "
-                  "not work out slot or segment arithmetic yourself.\"}}",
+                  "not work out slot or segment arithmetic yourself. To wait for a "
+                  "breakpoint use bmsx_run_until rather than polling bmsx_status.\"}}",
                   id);
         emit(outLine);
         return;

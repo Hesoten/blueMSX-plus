@@ -45,6 +45,12 @@ int ctrlOpMemResolve(CtrlCall* call);
 int ctrlOpMemWrite(CtrlCall* call);
 int ctrlOpUndo(CtrlCall* call);
 
+/* ControlOpBreak.c */
+int ctrlOpBpSet(CtrlCall* call);
+int ctrlOpBpClear(CtrlCall* call);
+int ctrlOpBpClearAll(CtrlCall* call);
+int ctrlOpBpList(CtrlCall* call);
+
 /* ControlOpScreen.c */
 int ctrlOpScreen(CtrlCall* call);
 

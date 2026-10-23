@@ -52,6 +52,8 @@
 #define DESTROYS_NOT_IDEMPOTENT "\"readOnlyHint\":false,\"destructiveHint\":true," \
                                 "\"idempotentHint\":false,\"openWorldHint\":false"
 
+static void buildByOp(const McpTool* tool, const char* arguments, JsonOut* request);
+
 const McpTool mcpTools[] = {
 {
     "bmsx_status",
@@ -115,8 +117,8 @@ const McpTool mcpTools[] = {
 },
 {
     "bmsx_run_until",
-    "Let the machine run and wait for it to stop, reporting why: do not poll "
-    "bmsx_status in a loop. With "
+    "Let the machine run and wait for it to stop, reporting why. This is how "
+    "to wait for a breakpoint: do not poll bmsx_status in a loop. With "
     "pause_at_timeout, a wait that times out pauses the machine, so it can be read.",
     SCHEMA("\"properties\":{"
            "\"timeout_ms\":{\"type\":\"integer\",\"default\":"
@@ -128,6 +130,27 @@ const McpTool mcpTools[] = {
     CHANGES,
     "run.until",
     NULL
+},
+{
+    "bmsx_break",
+    "Set or clear a breakpoint. Give a segment address and the breakpoint "
+    "only fires when that segment is the one paged in, so code in a bank that "
+    "is not currently visible can still be broken on. A Z80 address in a mapper "
+    "slot is pinned to the segment paged in there when "
+    "it is set and fires only while that segment is paged in; the reply names it. "
+    "Where no segment is known, as in the BIOS or under a mapper that does not "
+    "report its segments, it is a plain breakpoint. "
+    "Breakpoints set here stay over resets, state loads and cancelled calls. "
+    "clear_all removes them all, leaving only plain ones the debugger window set. "
+    "Each stays until cleared. list shows both "
+    "kinds that are set, the debugger window's plain ones too.",
+    SCHEMA("\"properties\":{"
+           "\"op\":{\"type\":\"string\",\"enum\":[\"set\",\"clear\",\"clear_all\",\"list\"],"
+           "\"default\":\"set\"},"
+           AT_PROPERTY "}"),
+    CHANGES,
+    "bp.",
+    buildByOp
 },
 {
     "bmsx_screen",
@@ -417,6 +440,34 @@ void mcpToolCopy(const McpTool* tool, const char* arguments, JsonOut* request, c
         if (!copyValue(arguments, key, type, request)) {
             copyFailed = 1;
         }
+    }
+}
+
+/* "op" as tool->op and then the "op" argument, or the schema's default for it, the one place
+** that default is written. 0 when there is neither. */
+static int writeOp(const McpTool* tool, const char* arguments, JsonOut* request)
+{
+    char property[2048];
+    char word[32];
+    char op[64];
+
+    if (!jsonGetString(arguments, "op", word, sizeof(word)) &&
+        !(schemaProperty(tool, "op", property, sizeof(property)) &&
+          jsonGetString(property, "default", word, sizeof(word))))
+    {
+        copyFailed = 1;
+        return 0;
+    }
+    _snprintf(op, sizeof(op), "%s%s", tool->op, word);
+    op[sizeof(op) - 1] = 0;
+    jsonOutString(request, "op", op);
+    return 1;
+}
+
+static void buildByOp(const McpTool* tool, const char* arguments, JsonOut* request)
+{
+    if (writeOp(tool, arguments, request)) {
+        mcpToolCopy(tool, arguments, request, NULL);
     }
 }
 

@@ -29,6 +29,7 @@
 ** read; refuses one missing, unreadable, or in a slot with contents but no segments. A
 ** register a running machine cannot give marks atUnread, which the refusals below refuse. */
 #define CTRL_ADDR_ARG_NEEDS_MACHINE 1   /* refused with no machine */
+#define CTRL_ADDR_ARG_TELLS_KEPT    2   /* the no-segments refusal says how a kept breakpoint goes */
 int  ctrlAddrArgRead(CtrlCall* call, int flags, CtrlAddr* addr);
 /* The address is not on this machine, or atUnread; info is filled otherwise. */
 int  ctrlAddrArgResolve(CtrlCall* call, const CtrlAddr* addr, CtrlAddrInfo* info);

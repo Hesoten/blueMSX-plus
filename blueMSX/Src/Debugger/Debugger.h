@@ -194,8 +194,16 @@ int  dbgStep(void);
 void dbgStepBack();
 
 void dbgSetBreakpoint(UInt16 address);
-/* Whether a plain breakpoint is set here. */
+/* A plain breakpoint that stays when the machine starts again and is armed on the
+** new CPU, as segment ones are. For the control socket; dbgClearKeptBreakpoint removes it. */
+void dbgSetKeptBreakpoint(UInt16 address);
+/* Non-zero when a kept one was set there. The CPU keeps an address dbgSetBreakpoint or a
+** segment one also set, as in dbgClearKeptBreakpoints, which drops all kept ones. */
+int  dbgClearKeptBreakpoint(UInt16 address);
+void dbgClearKeptBreakpoints(void);
+/* Whether a plain breakpoint, from a plugin or the control socket, is set here. */
 int  dbgHasBreakpoint(UInt16 address);
+/* Clears only what dbgSetBreakpoint set; a kept one at the same address stays. */
 void dbgClearBreakpoint(UInt16 address);
 
 /* Breakpoint at an offset into a mapper segment of a slot; fires only while that
@@ -204,18 +212,25 @@ void dbgClearBreakpoint(UInt16 address);
 int  dbgSetSegmentBreakpoint(int slot, int subSlot, int segment, int offset);
 /* Non-zero when one was set there. */
 int  dbgClearSegmentBreakpoint(int slot, int subSlot, int segment, int offset);
+void dbgClearAllSegmentBreakpoints();
 int  dbgSegmentBreakpointCount();
+
+/* For listing: one segment table entry (0 when unused), and the plain addresses up to max. */
+int  dbgGetSegmentBreakpoint(int index, int* slot, int* subSlot, int* segment, int* offset);
+int  dbgSegmentBreakpointCapacity(void);
+int  dbgListBreakpoints(UInt16* out, int max);
+int  dbgListKeptBreakpoints(UInt16* out, int max);
 
 /* Once at startup, with debuggerCreateLocks: the lock every writer of the tables takes. */
 void dbgBreakpointsCreateLock(void);
 
 /* Call on machine start, before the plugins re-arm their own lists. Plain ones are
-** forgotten; segment ones are armed again on the new CPU. */
+** forgotten unless kept; kept and segment ones are armed again on the new CPU. */
 void dbgBreakpointsOnEmulatorStart();
 
 /* Call after a cartridge goes in or out: each segment breakpoint is armed where its segment
 ** can be paged in now. Runs on the GUI thread for a change, and on the emulation thread as
-** a machine starts; it takes the writers' lock. */
+** a machine starts; it takes the writers' lock, as an agent's request does. */
 void dbgBreakpointsOnCartridgeChanged();
 
 /* Whether a hit at this address is one the user asked for. Runs on the

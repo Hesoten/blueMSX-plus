@@ -73,6 +73,12 @@ static const CtrlArg runArgs[] = {
 static const CtrlArg runUntilArgs[] = {
     { "timeout_ms", CTRL_ARG_INT, 0 }, { "pause_at_timeout", CTRL_ARG_BOOL, 0 }, { NULL }
 };
+static const CtrlArg bpSetArgs[] = {
+    { "at", CTRL_ARG_TEXT, CTRL_AT_MAX }, { NULL }
+};
+static const CtrlArg bpClearArgs[] = {
+    { "at", CTRL_ARG_TEXT, CTRL_AT_MAX }, { NULL }
+};
 static const CtrlArg screenArgs[] = {
     { "as", CTRL_ARG_TEXT, 11 }, { "path", CTRL_ARG_TEXT, CTRL_PATH_MAX - 1 }, { NULL }
 };
@@ -101,6 +107,15 @@ static const CtrlOp opTable[] = {
       "  run          how = pause|resume|step, count\n" },
     { "run.until",         CTRL_OP_CHANGES, CTRL_OP_SELF, ctrlOpRunUntil, OP_ARGS(runUntilArgs),
       "  run.until    timeout_ms, pause_at_timeout\n" },
+    { "bp.set",            CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpBpSet, OP_ARGS(bpSetArgs),
+      "  bp.set       at            (fires only in the segment named, or for a Z80\n"
+      "                             address in a mapper slot the one paged in now)\n" },
+    { "bp.clear",          CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpBpClear, OP_ARGS(bpClearArgs),
+      "  bp.clear     at\n" },
+    { "bp.clear_all",      CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpBpClearAll, NULL,
+      "  bp.clear_all               (segment ones, and plain ones set here)\n" },
+    { "bp.list",           CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpBpList, NULL,
+      "  bp.list\n" },
     { "screen",            CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpScreen, OP_ARGS(screenArgs),
       "  screen       as = auto|text|png, path\n" },
 };
@@ -209,7 +224,7 @@ int ctrlRequestHandle(CtrlClient client, const char* request,
                               "Tools, Agent Control, Read Only or Full.");
     }
 
-    /* Read only denies anything that changes the machine. */
+    /* Read only denies anything that changes the machine or its breakpoints. */
     if (ctrlGateLevel() != CTRL_GATE_FULL && refusedReadOnly(row, request)) {
         return ctrlReplyError(&call, "read_only",
                               "this emulator is set to read only. To change it, ask the "

@@ -47,7 +47,11 @@ typedef struct {
 static SegmentBreakpoint segmentBp[MAX_SEGMENT_BREAKPOINTS];
 static volatile int   segmentBpCount;
 static volatile UInt8 plainBreakpoint[0x10000];
-/* Every writer takes it, whichever thread: the window's or the emulation one. */
+/* Of the plain ones, those the control socket set, which outlive a machine start, and
+** those set through dbgSetBreakpoint, as by the debugger window. One can be both. */
+static UInt8 keptBreakpoint[0x10000];
+static UInt8 unkeptBreakpoint[0x10000];
+/* Every writer takes it, whichever thread: the window's, the agent's, the emulation one. */
 static void* writerLock;
 
 void dbgBreakpointsCreateLock(void)
@@ -159,7 +163,52 @@ void dbgSetBreakpoint(UInt16 address)
 {
     lockWriters();
     plainBreakpoint[address] = 1;
+    unkeptBreakpoint[address] = 1;
     boardSetBreakpoint(address);
+    unlockWriters();
+}
+
+void dbgSetKeptBreakpoint(UInt16 address)
+{
+    lockWriters();
+    plainBreakpoint[address] = 1;
+    keptBreakpoint[address] = 1;
+    boardSetBreakpoint(address);
+    unlockWriters();
+}
+
+/* After one source dropped it: still plain if the other wants it, still armed if a segment one does. */
+static void dropPlainUnlessWanted(UInt16 address)
+{
+    plainBreakpoint[address] = keptBreakpoint[address] || unkeptBreakpoint[address];
+    if (!plainBreakpoint[address] && !someSegmentWants(address)) {
+        boardClearBreakpoint(address);
+    }
+}
+
+int dbgClearKeptBreakpoint(UInt16 address)
+{
+    int wasKept;
+
+    lockWriters();
+    wasKept = keptBreakpoint[address];
+    keptBreakpoint[address] = 0;
+    dropPlainUnlessWanted(address);
+    unlockWriters();
+    return wasKept;
+}
+
+void dbgClearKeptBreakpoints(void)
+{
+    int i;
+
+    lockWriters();
+    for (i = 0; i < 0x10000; i++) {
+        if (keptBreakpoint[i]) {
+            keptBreakpoint[i] = 0;
+            dropPlainUnlessWanted((UInt16)i);
+        }
+    }
     unlockWriters();
 }
 
@@ -171,10 +220,8 @@ int dbgHasBreakpoint(UInt16 address)
 void dbgClearBreakpoint(UInt16 address)
 {
     lockWriters();
-    plainBreakpoint[address] = 0;
-    if (!someSegmentWants(address)) {
-        boardClearBreakpoint(address);
-    }
+    unkeptBreakpoint[address] = 0;
+    dropPlainUnlessWanted(address);
     unlockWriters();
 }
 
@@ -248,19 +295,78 @@ int dbgClearSegmentBreakpoint(int slot, int subSlot, int segment, int offset)
     return found;
 }
 
+void dbgClearAllSegmentBreakpoints(void)
+{
+    int i;
+
+    lockWriters();
+    for (i = 0; i < MAX_SEGMENT_BREAKPOINTS; i++) {
+        if (segmentBp[i].inUse) {
+            disarmSegment(&segmentBp[i]);
+            segmentBpCount--;
+        }
+    }
+    unlockWriters();
+}
+
 int dbgSegmentBreakpointCount(void)
 {
     return segmentBpCount;
+}
+
+/* Without the lock: a reader on another thread at worst sees an entry as it is retired. */
+int dbgGetSegmentBreakpoint(int index, int* slot, int* subSlot, int* segment, int* offset)
+{
+    if (index < 0 || index >= MAX_SEGMENT_BREAKPOINTS || !segmentBp[index].inUse) {
+        return 0;
+    }
+    *slot    = segmentBp[index].slot;
+    *subSlot = segmentBp[index].subSlot;
+    *segment = segmentBp[index].segment;
+    *offset  = segmentBp[index].offset;
+    return 1;
+}
+
+int dbgSegmentBreakpointCapacity(void)
+{
+    return MAX_SEGMENT_BREAKPOINTS;
+}
+
+static int listMarked(const volatile UInt8* marked, UInt16* out, int max)
+{
+    int count = 0;
+    int address;
+
+    for (address = 0; address < 0x10000 && count < max; address++) {
+        if (marked[address]) {
+            out[count++] = (UInt16)address;
+        }
+    }
+    return count;
+}
+
+int dbgListBreakpoints(UInt16* out, int max)
+{
+    return listMarked(plainBreakpoint, out, max);
+}
+
+int dbgListKeptBreakpoints(UInt16* out, int max)
+{
+    return listMarked(keptBreakpoint, out, max);
 }
 
 void dbgBreakpointsOnEmulatorStart(void)
 {
     int i;
 
-    /* The new CPU has none: plugins set theirs again after this. */
+    /* The new CPU has none: the kept ones are set here, and plugins set theirs after this. */
     lockWriters();
     for (i = 0; i < 0x10000; i++) {
-        plainBreakpoint[i] = 0;
+        plainBreakpoint[i] = keptBreakpoint[i];
+        unkeptBreakpoint[i] = 0;
+        if (keptBreakpoint[i]) {
+            boardSetBreakpoint((UInt16)i);
+        }
     }
 
     for (i = 0; i < MAX_SEGMENT_BREAKPOINTS; i++) {

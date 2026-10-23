@@ -110,6 +110,11 @@ int ctrlAddrArgRead(CtrlCall* call, int flags, CtrlAddr* addr)
 
         ctrlTextInit(&why, err, sizeof(err));
         ctrlSlotsDescribeNoSegments(&why, addr->slot, addr->subSlot);
+        /* Segment breakpoints stay across a restart, even one under a mapper with no segments. */
+        if (flags & CTRL_ADDR_ARG_TELLS_KEPT) {
+            ctrlTextAdd(&why, "; a segment breakpoint kept from an earlier start is removed "
+                        "with clear_all, which removes every segment breakpoint");
+        }
         return ctrlReplyError(call, "bad_address", err);
     }
     ctrlAddrArgTellHowRead(call, text, addr);
