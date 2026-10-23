@@ -93,6 +93,9 @@ int slotDebugGetSubslotted(int primarySlot);
 int slotDebugGetSubslotSelect(int primarySlot);
 int slotDebugGetBankState(int primarySlot, int subSlot, int bank);
 
+/* The 8kB a bank maps, paged in or not; NULL when it is read through callbacks. */
+const UInt8* slotDebugGetBankData(int primarySlot, int subSlot, int bank);
+
 /* What a slot holds: a ROM file name, a mapper name, a RAM size. Names accumulate
 ** until the slot is cleared. slotDebugGetContents never returns NULL. */
 void slotAddContents(int slot, int sslot, const char* description);

@@ -387,6 +387,26 @@ int slotDebugGetBankState(int primarySlot, int subSlot, int bank)
     return state;
 }
 
+const UInt8* slotDebugGetBankData(int primarySlot, int subSlot, int bank)
+{
+    const Slot* slotInfo;
+
+    if (!initialized ||
+        primarySlot < 0 || primarySlot > 3 ||
+        subSlot     < 0 || subSlot     > 3 ||
+        bank        < 0 || bank        > 7)
+    {
+        return NULL;
+    }
+
+    slotInfo = &slotTable[primarySlot][subSlot][bank];
+    if (!slotInfo->readEnable || slotInfo->pageData == NULL ||
+        slotInfo->pageData == emptyRAM) {
+        return NULL;
+    }
+    return slotInfo->pageData;
+}
+
 void slotMapPage(int slot, int sslot, int page, UInt8* pageData,
                  int readEnable, int writeEnable)
 {

@@ -23,6 +23,8 @@
 #ifndef KEY_MATRIX_INPUT_H
 #define KEY_MATRIX_INPUT_H
 
+#include "MsxTypes.h"
+
 /* A request is ASCII text of commands separated by white space:
 **
 **   d <row> <mask>   press the keys of <mask> in matrix row <row>
@@ -42,6 +44,24 @@ int keyMatrixInputSubmit(const char* text);
 
 /* Commands queued and not yet carried out; a wait counts until it ends. */
 int keyMatrixInputRemaining(void);
+
+/* The same queue by event code, which also reaches joystick directions and
+** buttons, with waits in frames. Queues all the events or none: returns 0 when
+** any event is invalid or the queue is too full. */
+#define KM_DOWN        0
+#define KM_UP          1
+#define KM_WAIT_FRAMES 2
+
+typedef struct {
+    UInt8  kind;
+    UInt16 code;    /* an EC_ code, or a frame count for KM_WAIT_FRAMES */
+} KeyMatrixEvent;
+
+int keyMatrixInputSubmitEvents(const KeyMatrixEvent* events, int count);
+
+/* Drops the event codes still queued and lets go of the keys the dropped
+** commands would have let go, as soon as the wait under way ends. */
+void keyMatrixInputCancel(void);
 
 /* Called by the board around a run, from the emulation thread. */
 void keyMatrixInputBoardStart(void);

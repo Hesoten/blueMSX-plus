@@ -986,6 +986,7 @@
     <ClCompile Include="..\..\Src\Control\ControlStatus.c" />
     <ClCompile Include="..\..\Src\Control\ControlHunt.c" />
     <ClCompile Include="..\..\Src\Control\ControlWatch.c" />
+    <ClCompile Include="..\..\Src\Control\ControlInput.c" />
     <ClCompile Include="..\..\Src\Control\ControlJson.c" />
     <ClCompile Include="..\..\Src\Control\ControlDebuggerListener.c" />
     <ClCompile Include="..\..\Src\Control\ControlScreen.c" />
@@ -1006,6 +1007,7 @@
     <ClCompile Include="..\..\Src\Control\ControlOpWatch.c" />
     <ClCompile Include="..\..\Src\Control\ControlOpHunt.c" />
     <ClCompile Include="..\..\Src\Control\ControlOpSymbol.c" />
+    <ClCompile Include="..\..\Src\Control\ControlOpInput.c" />
     <ClCompile Include="..\..\Src\Control\ControlOpScreen.c" />
     <ClCompile Include="..\..\Src\Control\ControlView.c" />
     <ClCompile Include="..\..\Src\Control\ControlHello.c" />
@@ -1407,6 +1409,7 @@
     <ClInclude Include="..\..\Src\Control\ControlStatus.h" />
     <ClInclude Include="..\..\Src\Control\ControlHunt.h" />
     <ClInclude Include="..\..\Src\Control\ControlWatch.h" />
+    <ClInclude Include="..\..\Src\Control\ControlInput.h" />
     <ClInclude Include="..\..\Src\Control\ControlJson.h" />
     <ClInclude Include="..\..\Src\Control\ControlDebuggerListener.h" />
     <ClInclude Include="..\..\Src\Control\ControlProtocol.h" />

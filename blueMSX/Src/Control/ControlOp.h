@@ -72,6 +72,10 @@ int ctrlOpSymSearch(CtrlCall* call);
 int ctrlOpSymStatus(CtrlCall* call);
 int ctrlOpSymClear(CtrlCall* call);
 
+/* ControlOpInput.c */
+int ctrlOpKey(CtrlCall* call);
+int ctrlOpType(CtrlCall* call);
+
 /* ControlOpScreen.c */
 int ctrlOpScreen(CtrlCall* call);
 

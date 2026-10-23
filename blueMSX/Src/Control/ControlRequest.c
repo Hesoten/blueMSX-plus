@@ -112,6 +112,13 @@ static const CtrlArg symFindArgs[] = {
 static const CtrlArg symSearchArgs[] = {
     { "pattern", CTRL_ARG_TEXT, 127 }, { "first", CTRL_ARG_INT, 0 }, { "count", CTRL_ARG_INT, 0 }, { NULL }
 };
+static const CtrlArg keyArgs[] = {
+    { "how", CTRL_ARG_TEXT, 15 }, { "keys", CTRL_ARG_TEXT, 95 }, { "hold", CTRL_ARG_INT, 0 },
+    { "gap", CTRL_ARG_INT, 0 }, { NULL }
+};
+static const CtrlArg typeArgs[] = {
+    { "text", CTRL_ARG_TEXT, 511 }, { "hold", CTRL_ARG_INT, 0 }, { "gap", CTRL_ARG_INT, 0 }, { NULL }
+};
 static const CtrlArg screenArgs[] = {
     { "as", CTRL_ARG_TEXT, 11 }, { "path", CTRL_ARG_TEXT, CTRL_PATH_MAX - 1 }, { NULL }
 };
@@ -186,6 +193,10 @@ static const CtrlOp opTable[] = {
       "  sym.status\n" },
     { "sym.clear",         CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpSymClear, NULL,
       "  sym.clear\n" },
+    { "key",               CTRL_OP_CHANGES, CTRL_OP_SELF, ctrlOpKey, OP_ARGS(keyArgs),
+      "  key          how = press|release|tap, keys, hold, gap\n" },
+    { "type",              CTRL_OP_CHANGES, CTRL_OP_SELF, ctrlOpType, OP_ARGS(typeArgs),
+      "  type         text, hold, gap\n" },
     { "screen",            CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpScreen, OP_ARGS(screenArgs),
       "  screen       as = auto|text|png, path\n" },
 };
@@ -294,8 +305,8 @@ int ctrlRequestHandle(CtrlClient client, const char* request,
                               "Tools, Agent Control, Read Only or Full.");
     }
 
-    /* Read only denies anything that changes the machine or its breakpoints, but not
-    ** session.end: it drops only what this client set, as another client's hello would. */
+    /* Read only denies anything that changes the machine, its keys or its breakpoints, but
+    ** not session.end: it drops only what this client set, as another client's hello would. */
     if (ctrlGateLevel() != CTRL_GATE_FULL && refusedReadOnly(row, request)) {
         return ctrlReplyError(&call, "read_only",
                               "this emulator is set to read only. To change it, ask the "

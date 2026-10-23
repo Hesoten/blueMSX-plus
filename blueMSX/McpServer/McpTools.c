@@ -292,6 +292,56 @@ const McpTool mcpTools[] = {
     NULL
 },
 {
+    "bmsx_key",
+    "Press, release or tap a key or a joystick button. Names are the ones the "
+    "emulator's shortcut editor uses: return, space, ctrl, stop, f1, "
+    "joy1-button1. Join up to 8 with + to press them together. Names are key "
+    "positions, named after the Japanese keyboard (at, circomflex...); on another "
+    "layout the same position gives a different character, so type text with "
+    "bmsx_type. A joystick name needs a joystick connected to that port.",
+    SCHEMA("\"properties\":{"
+           "\"keys\":{\"type\":\"string\"},"
+           "\"how\":{\"type\":\"string\",\"enum\":[\"tap\",\"press\",\"release\"],"
+           "\"default\":\"" CTRL_KEY_HOW_DEFAULT "\"},"
+           "\"hold\":{\"type\":\"integer\",\"default\":" CTRL_STR(CTRL_KEY_HOLD_DEFAULT)
+           ",\"minimum\":" CTRL_STR(CTRL_KEY_HOLD_MIN) ",\"maximum\":" CTRL_STR(CTRL_KEY_HOLD_MAX)
+           ","
+           "\"description\":\"frames, not milliseconds; on some machines the BIOS reads "
+           "the keyboard only every 2nd or 3rd frame, so a shorter hold can be "
+           "missed\"},"
+           "\"gap\":{\"type\":\"integer\",\"default\":" CTRL_STR(CTRL_KEY_GAP_DEFAULT)
+           ",\"minimum\":" CTRL_STR(CTRL_KEY_GAP_MIN) ",\"maximum\":" CTRL_STR(CTRL_KEY_GAP_MAX)
+           "}},"
+           "\"required\":[\"keys\"]"),
+    CHANGES,
+    "key",
+    NULL
+},
+{
+    "bmsx_type",
+    "Type ASCII text into the machine as key presses, on the Japanese or "
+    "international layout as read from the machine's BIOS; other layouts are "
+    "refused. Returns once the keys have been delivered; one call types about 25 s "
+    "worth (150 to 185 characters at the defaults). The machine has to be running, "
+    "and has to be ready to read them: after a reset, wait for the prompt, and read "
+    "the screen back to check. The BIOS holds about 40 keys while a program is "
+    "busy; more are lost. Refused while a key is held down (let go of a how=press "
+    "first).",
+    SCHEMA("\"properties\":{"
+           "\"text\":{\"type\":\"string\",\"description\":"
+           "\"\\\\n becomes return, \\\\t tab\"},"
+           "\"hold\":{\"type\":\"integer\",\"default\":" CTRL_STR(CTRL_TYPE_HOLD_DEFAULT)
+           ",\"minimum\":" CTRL_STR(CTRL_TYPE_HOLD_MIN) ",\"maximum\":" CTRL_STR(CTRL_TYPE_HOLD_MAX)
+           "},"
+           "\"gap\":{\"type\":\"integer\",\"default\":" CTRL_STR(CTRL_TYPE_GAP_DEFAULT)
+           ",\"minimum\":" CTRL_STR(CTRL_TYPE_GAP_MIN) ",\"maximum\":" CTRL_STR(CTRL_TYPE_GAP_MAX)
+           "}},"
+           "\"required\":[\"text\"]"),
+    CHANGES,
+    "type",
+    NULL
+},
+{
     "bmsx_mem_write",
     "Write bytes into the machine. This changes the program that is running; "
     "it is how a candidate found by bmsx_hunt is confirmed. Says whether the "

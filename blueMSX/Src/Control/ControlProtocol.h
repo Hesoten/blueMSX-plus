@@ -90,10 +90,23 @@
 #define CTRL_SYM_SEARCH_COUNT_DEFAULT     20
 #define CTRL_SYM_SEARCH_COUNT_MIN         1
 #define CTRL_SYM_SEARCH_COUNT_MAX         40
+#define CTRL_KEY_HOLD_DEFAULT             4
+#define CTRL_KEY_HOLD_MIN                 1
+#define CTRL_KEY_HOLD_MAX                 600
+#define CTRL_KEY_GAP_DEFAULT              4
+#define CTRL_KEY_GAP_MIN                  0
+#define CTRL_KEY_GAP_MAX                  600
+#define CTRL_TYPE_HOLD_DEFAULT            4
+#define CTRL_TYPE_HOLD_MIN                4
+#define CTRL_TYPE_HOLD_MAX                60
+#define CTRL_TYPE_GAP_DEFAULT             4
+#define CTRL_TYPE_GAP_MIN                 4
+#define CTRL_TYPE_GAP_MAX                 60
 
 /* The defaults of the text arguments that have one. */
 #define CTRL_WP_CONDITION_DEFAULT         "any"
 #define CTRL_HUNT_START_WIDTH_DEFAULT     "u8"
+#define CTRL_KEY_HOW_DEFAULT              "tap"
 #define CTRL_SCREEN_AS_DEFAULT            "auto"
 
 /* What an argument of each kind must be, after "\"name\" must be ". */
