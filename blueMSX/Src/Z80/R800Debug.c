@@ -149,7 +149,8 @@ static int dbgWriteRegister(R800Debug* dbg, char* name, int regIndex, UInt32 val
     case  8: dbg->r800->regs.IX.W = (UInt16)value; break;
     case  9: dbg->r800->regs.IY.W = (UInt16)value; break;
     case 10: dbg->r800->regs.SP.W = (UInt16)value; break;
-    case 11: dbg->r800->regs.PC.W = (UInt16)value; break;
+    /* A new PC leaves the HALT, so a breakpoint at the new PC can fire. */
+    case 11: dbg->r800->regs.PC.W = (UInt16)value; dbg->r800->regs.halt = 0; break;
     case 12: dbg->r800->regs.I = (UInt8)value; break;
     case 13: dbg->r800->regs.R = (UInt8)value; break;
     case 14: dbg->r800->regs.im = value > 2 ? 2 : (UInt8)value; break;
@@ -161,8 +162,18 @@ static int dbgWriteRegister(R800Debug* dbg, char* name, int regIndex, UInt32 val
 }
 
 
+/* The callbacks get the CPU's ref, which is NULL, so this reads the one CPU directly. */
+static int cpuWaitsInHalt(void)
+{
+    return dbg != NULL && dbg->r800->regs.halt;
+}
+
 static void breakpointCb(R800Debug* dbg, UInt16 pc)
 {
+    /* A HALT runs again every cycle until an interrupt; break only on arriving at it. */
+    if (cpuWaitsInHalt()) {
+        return;
+    }
     /* A step checks only the address it starts from, and stepping from a breakpoint runs it. */
     if (emulatorIsSingleStepping()) {
         return;
@@ -227,8 +238,9 @@ void r800DebugCreate(R800* r800)
 }
 
 void r800DebugDestroy()
-{   
+{
     debugDeviceUnregister(dbg->debugHandle);
     free(dbg);
+    dbg = NULL;
 }
 
