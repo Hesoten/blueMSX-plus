@@ -71,6 +71,9 @@ void ctrlSessionClose(CtrlClient client)
 
     for (i = 0; i < CTRL_CLIENT_MAX; i++) {
         if (sessions[i].client == client) {
+            if (sessions[i].hunt != NULL) {
+                ctrlHuntAbandon(sessions[i].hunt);
+            }
             memset(&sessions[i], 0, sizeof(CtrlSession));
             return;
         }

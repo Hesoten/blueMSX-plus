@@ -58,6 +58,12 @@ int ctrlOpWpSet(CtrlCall* call);
 int ctrlOpWpClear(CtrlCall* call);
 int ctrlOpWpList(CtrlCall* call);
 
+/* ControlOpHunt.c */
+int ctrlOpHuntStart(CtrlCall* call);
+int ctrlOpHuntRefine(CtrlCall* call);
+int ctrlOpHuntList(CtrlCall* call);
+int ctrlOpHuntEnd(CtrlCall* call);
+
 /* ControlOpScreen.c */
 int ctrlOpScreen(CtrlCall* call);
 

@@ -190,7 +190,7 @@ static int checkWatchCondition(CtrlCall* call, const WatchTarget* target, const 
                               "lt and gt only work on 1 byte here; for a "
                               "longer value use eq or ne");
     }
-    /* 4 bytes hold -0x80000000 to 0xFFFFFFFF; fewer, no sign. */
+    /* 4 bytes hold -0x80000000 to 0xFFFFFFFF, as a u32 or s32 hunt does; fewer, no sign. */
     if (args->value < -0x80000000LL || args->value > 0xFFFFFFFFLL ||
         (size < 4 && (args->value < 0 || args->value >= (1LL << (8 * size)))))
     {

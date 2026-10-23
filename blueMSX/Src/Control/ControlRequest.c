@@ -89,6 +89,15 @@ static const CtrlArg wpSetArgs[] = {
 static const CtrlArg wpClearArgs[] = {
     { "at", CTRL_ARG_TEXT, CTRL_AT_MAX }, { "port", CTRL_ARG_INT, 0 }, { NULL }
 };
+static const CtrlArg huntStartArgs[] = {
+    { "width", CTRL_ARG_TEXT, 7 }, { "stride", CTRL_ARG_INT, 0 }, { NULL }
+};
+static const CtrlArg huntRefineArgs[] = {
+    { "compare", CTRL_ARG_TEXT, 19 }, { "value", CTRL_ARG_INT, 0 }, { "value2", CTRL_ARG_INT, 0 }, { NULL }
+};
+static const CtrlArg huntListArgs[] = {
+    { "first", CTRL_ARG_INT, 0 }, { "count", CTRL_ARG_INT, 0 }, { NULL }
+};
 static const CtrlArg screenArgs[] = {
     { "as", CTRL_ARG_TEXT, 11 }, { "path", CTRL_ARG_TEXT, CTRL_PATH_MAX - 1 }, { NULL }
 };
@@ -143,6 +152,14 @@ static const CtrlOp opTable[] = {
       "  wp.clear     at | port\n" },
     { "wp.list",           CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpWpList, NULL,
       "  wp.list\n" },
+    { "hunt.start",        CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpHuntStart, OP_ARGS(huntStartArgs),
+      "  hunt.start   width = u8|u16|u32|s8|s16|s32, stride\n" },
+    { "hunt.refine",       CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpHuntRefine, OP_ARGS(huntRefineArgs),
+      "  hunt.refine  compare, value, value2\n" },
+    { "hunt.list",         CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpHuntList, OP_ARGS(huntListArgs),
+      "  hunt.list    first, count\n" },
+    { "hunt.end",          CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpHuntEnd, NULL,
+      "  hunt.end\n" },
     { "screen",            CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpScreen, OP_ARGS(screenArgs),
       "  screen       as = auto|text|png, path\n" },
 };

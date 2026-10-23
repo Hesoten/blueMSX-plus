@@ -176,6 +176,35 @@ const McpTool mcpTools[] = {
     buildByOp
 },
 {
+    "bmsx_hunt",
+    "Find a variable with no symbol for it, by how its value changes. Start a "
+    "hunt, let the machine change the thing you can see (a score, a life "
+    "count), then refine by how it changed. Repeat until a few candidates are "
+    "left. Unlike the usual version of this, it searches all of physical "
+    "mapper RAM and video RAM, not only the 64kB the Z80 can see. A hunt belongs to "
+    "the connection: a cancelled call reconnects without it, so start it again.",
+    SCHEMA("\"properties\":{"
+           "\"op\":{\"type\":\"string\",\"enum\":[\"start\",\"refine\",\"list\",\"end\"]},"
+           "\"width\":{\"type\":\"string\",\"enum\":[\"u8\",\"u16\",\"u32\",\"s8\",\"s16\",\"s32\"],"
+           "\"default\":\"" CTRL_HUNT_START_WIDTH_DEFAULT
+           "\",\"description\":\"for start. Use a signed width for "
+           "anything that can count down past zero.\"},"
+           "\"compare\":{\"type\":\"string\",\"enum\":[\"changed\",\"unchanged\","
+           "\"increased\",\"decreased\",\"increased_by\",\"decreased_by\",\"eq\",\"ne\","
+           "\"lt\",\"le\",\"gt\",\"ge\",\"in_range\"],\"description\":\"for refine\"},"
+           "\"value\":{\"type\":\"integer\"},"
+           "\"value2\":{\"type\":\"integer\",\"description\":\"upper bound for in_range\"},"
+           "\"first\":{\"type\":\"integer\",\"default\":" CTRL_STR(CTRL_HUNT_LIST_FIRST_DEFAULT)
+           ",\"minimum\":" CTRL_STR(CTRL_HUNT_LIST_FIRST_MIN) "},"
+           "\"count\":{\"type\":\"integer\",\"default\":" CTRL_STR(CTRL_HUNT_LIST_COUNT_DEFAULT)
+           ",\"minimum\":" CTRL_STR(CTRL_HUNT_LIST_COUNT_MIN) ",\"maximum\":"
+           CTRL_STR(CTRL_HUNT_LIST_COUNT_MAX) "}},"
+           "\"required\":[\"op\"]"),
+    READ_ONLY,
+    "hunt.",
+    buildByOp
+},
+{
     "bmsx_watch",
     "Stop the machine when a byte is written (reads do not count, and an "
     "unchanged value still counts), or when an I/O port gets an OUT. Works on "
@@ -221,7 +250,8 @@ const McpTool mcpTools[] = {
 },
 {
     "bmsx_mem_write",
-    "Write bytes into the machine. This changes the program that is running. Says whether the "
+    "Write bytes into the machine. This changes the program that is running; "
+    "it is how a candidate found by bmsx_hunt is confirmed. Says whether the "
     "write can be taken back with bmsx_undo, and if not, why not.",
     SCHEMA("\"properties\":{" AT_PROPERTY ","
            "\"data\":{\"type\":\"string\",\"description\":"

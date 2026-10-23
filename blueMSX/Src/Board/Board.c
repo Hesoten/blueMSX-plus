@@ -1264,7 +1264,7 @@ static int boardRewindLoad(int drop)
     }
 #endif
     keyMatrixInputBoardRearm();
-    /* A write journal kept by an agent was about the machine before this. */
+    /* A hunt or a write journal kept by an agent was about the machine before this. */
     dbgNotifyMachineChanged();
     return 1;
 }

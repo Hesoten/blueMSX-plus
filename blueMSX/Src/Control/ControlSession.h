@@ -24,10 +24,12 @@
 #define CONTROL_SESSION_H
 
 #include "ControlClient.h"
+#include "ControlHunt.h"
 
-/* One per connection. */
+/* One per connection; its hunt is freed when the connection ends. */
 typedef struct {
     CtrlClient client;
+    CtrlHunt*  hunt;
     /* The last stop this client was told of: status and the run ops (ControlOpRun.c) move it
     ** on; a new session sets it. */
     UInt32     stopCursor;

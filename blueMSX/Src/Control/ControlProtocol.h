@@ -77,9 +77,15 @@
 #define CTRL_WP_SIZE_DEFAULT              1
 #define CTRL_WP_SIZE_MIN                  1
 #define CTRL_WP_SIZE_MAX                  4096
+#define CTRL_HUNT_LIST_FIRST_DEFAULT      0
+#define CTRL_HUNT_LIST_FIRST_MIN          0
+#define CTRL_HUNT_LIST_COUNT_DEFAULT      20
+#define CTRL_HUNT_LIST_COUNT_MIN          1
+#define CTRL_HUNT_LIST_COUNT_MAX          64
 
 /* The defaults of the text arguments that have one. */
 #define CTRL_WP_CONDITION_DEFAULT         "any"
+#define CTRL_HUNT_START_WIDTH_DEFAULT     "u8"
 #define CTRL_SCREEN_AS_DEFAULT            "auto"
 
 /* What an argument of each kind must be, after "\"name\" must be ". */

@@ -88,7 +88,7 @@ int romMapperNormalCreate(const char* filename, UInt8* romData,
     rm->romData = malloc(pages * 0x2000);
     memcpy(rm->romData, romData, size);
     /* Storage but no segment size: nothing switches here. RAM beside it in the
-    ** subslot keeps its own, and this ROM is read through the Z80. */
+    ** subslot keeps its own: hunts need it, and this ROM is read through the Z80. */
     if (!ramBeside(slot, sslot, startPage, pages)) {
         slotSetStorageAt(slot, sslot, rm->romData, pages * 0x2000, 0, SLOT_STORAGE_ROM,
                          (UInt32)(startPage * 0x2000));
