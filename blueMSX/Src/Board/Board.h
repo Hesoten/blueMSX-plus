@@ -140,7 +140,8 @@ void        boardReportMissingFile(const char* file, const char* inZip);
 
 UInt8 boardCaptureUInt8(UInt8 logId, UInt8 value);
 
-void boardSaveState(const char* stateFile, int screenshot);
+/* Zero when the state could not be stored whole, as when a part did not fit. */
+int boardSaveState(const char* stateFile, int screenshot);
 
 void boardSetFrequency(int frequency);
 int  boardGetRefreshRate();

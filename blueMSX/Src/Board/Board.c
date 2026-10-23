@@ -1665,7 +1665,7 @@ static BoardType boardLoadState(void)
 }
 
 
-void boardSaveState(const char* stateFile, int screenshot)
+int boardSaveState(const char* stateFile, int screenshot)
 {
     BoardDeviceInfo* di = boardDeviceInfo;
     char buf[128];
@@ -1677,14 +1677,14 @@ void boardSaveState(const char* stateFile, int screenshot)
     int i;
 
     if (!boardRunning) {
-        return;
+        return 0;
     }
 
     saveStateCreateForWrite(stateFile);
     
     rv = zipSaveFile(stateFile, "version", 0, saveStateVersion, (int)strlen(saveStateVersion) + 1);
     if (!rv) {
-        return;
+        return 0;
     }
     
     state = saveStateOpenForWrite("board");
@@ -1751,7 +1751,7 @@ void boardSaveState(const char* stateFile, int screenshot)
 #ifdef WII
             zipSaveFile(stateFile, "screenshot.png", 1, bitmap, size);
 #else
-            zipSaveFile(stateFile, "screenshot.bmp", 1, bitmap, size);
+            rv = zipSaveFile(stateFile, "screenshot.bmp", 1, bitmap, size);
 #endif
         }
         if( bitmap != NULL ) {
@@ -1762,9 +1762,12 @@ void boardSaveState(const char* stateFile, int screenshot)
     memset(buf, 0, 128);
     time(&ltime);
     strftime(buf, 128, "%X   %A, %B %d, %Y", localtime(&ltime));
-    zipSaveFile(stateFile, "date.txt", 1, buf, (int)strlen(buf) + 1);
+    rv = zipSaveFile(stateFile, "date.txt", 1, buf, (int)strlen(buf) + 1) && rv;
 
     saveStateDestroy();
+
+    /* A part left out would load as that device starting afresh. */
+    return rv && !saveStateWriteFailed();
 }
 
 

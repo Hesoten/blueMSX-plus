@@ -43,6 +43,9 @@ SaveState* saveStateOpenForRead(const char* fileName);
 SaveState* saveStateOpenForWrite(const char* fileName);
 void saveStateClose(SaveState* state);
 
+/* Non-zero once a section closed since saveStateCreateForWrite could not be stored. */
+int saveStateWriteFailed(void);
+
 /* Non-zero if the requested section was absent in the loaded zip; lets
 ** LoadState skip restore when a chip was disabled at save time. */
 int saveStateIsEmpty(SaveState* state);
