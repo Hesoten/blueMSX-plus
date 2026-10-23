@@ -21,6 +21,7 @@
 ******************************************************************************
 */
 #include "ControlSession.h"
+#include "ControlBreak.h"
 #include "ControlStopLog.h"
 #include "Emulator.h"
 #include <string.h>
@@ -48,10 +49,11 @@ CtrlSession* ctrlSessionFor(CtrlClient client)
     return &sessions[free];
 }
 
-void ctrlSessionOpen(CtrlClient client)
+int ctrlSessionOpen(CtrlClient client, int owner)
 {
     CtrlSession* session = ctrlSessionFor(client);
     CtrlStop latest;
+    int    dropped = ctrlBreakOpen(owner);
 
     if (session != NULL) {
         /* Skip stops a previous client left unread, but not the one the machine is paused at. */
@@ -60,6 +62,7 @@ void ctrlSessionOpen(CtrlClient client)
             session->stopCursor = latest.seq - 1;
         }
     }
+    return dropped;
 }
 
 void ctrlSessionClose(CtrlClient client)

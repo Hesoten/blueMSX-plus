@@ -50,6 +50,7 @@ int ctrlOpBpSet(CtrlCall* call);
 int ctrlOpBpClear(CtrlCall* call);
 int ctrlOpBpClearAll(CtrlCall* call);
 int ctrlOpBpList(CtrlCall* call);
+int ctrlOpSessionEnd(CtrlCall* call);
 
 /* ControlOpScreen.c */
 int ctrlOpScreen(CtrlCall* call);

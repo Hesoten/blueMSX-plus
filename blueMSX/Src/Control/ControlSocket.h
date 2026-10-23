@@ -28,7 +28,8 @@ int  ctrlSocketStart(void);
 /* Ends the serving thread, waiting for a request in progress; it is killed only when
 ** exiting, otherwise left to end by itself and start refused until it has. */
 void ctrlSocketStop(int exiting);
-/* From the window's loop on each pass: notices when a thread Off could not join has ended. */
+/* From the window's loop on each pass: once that thread has ended, its client's plain
+** breakpoints are dropped, as Off would have done. */
 void ctrlSocketPoll(void);
 
 int  ctrlSocketIsListening(void);

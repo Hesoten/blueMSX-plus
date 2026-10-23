@@ -142,7 +142,11 @@ const McpTool mcpTools[] = {
     "report its segments, it is a plain breakpoint. "
     "Breakpoints set here stay over resets, state loads and cancelled calls. "
     "clear_all removes them all, leaving only plain ones the debugger window set. "
-    "Each stays until cleared. list shows both "
+    "Plain ones set here end when this MCP server goes away (the conversation "
+    "ends) or Agent Control is turned Off: at once on a normal exit or Off, about "
+    "5 s after a killed server or a lost connection unless the same server "
+    "reconnects; a cancelled call reconnects at once and keeps them. "
+    "Segment ones stay until cleared. list shows both "
     "kinds that are set, the debugger window's plain ones too.",
     SCHEMA("\"properties\":{"
            "\"op\":{\"type\":\"string\",\"enum\":[\"set\",\"clear\",\"clear_all\",\"list\"],"

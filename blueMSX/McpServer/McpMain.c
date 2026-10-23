@@ -359,6 +359,8 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    mcpLinkSetOwner();
+
     /* Stdout carries only protocol messages; everything else goes to stderr. */
     setvbuf(stdout, NULL, _IOFBF, 65536);
     /* Unbuffered: the CRT keeps at most the next line's first byte, which watchClient restores. */

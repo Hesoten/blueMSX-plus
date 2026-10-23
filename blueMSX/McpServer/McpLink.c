@@ -30,6 +30,7 @@
 #include <string.h>
 
 #include "ControlJson.h"
+#include "ControlProtocol.h"
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -42,6 +43,10 @@ static int    attachedPid;
 /* So the first reply from a restarted emulator can say that nothing carried over. */
 static int    lastServedPid;
 static int    previousPid;
+/* Given in each hello; picked at start, as Windows reuses a pid for a later server. */
+static unsigned int ownerNumber;
+/* Plain breakpoints that hellos since the last reply say were dropped, this server's own too. */
+static Int32  droppedBreakpoints;
 
 static char socketLine[REPLY_MAX];
 
@@ -130,16 +135,18 @@ static int connectInstance(const McpInstance* instance, char* problem, int probl
     return 1;
 }
 
-/* Sends the hello with the token and reads its answer. */
+/* Sends the hello with the token and reads its answer; adds up the breakpoints it says
+** were dropped. */
 static int sayHello(const McpInstance* instance, char* problem, int problemLen)
 {
     char  hello[160];
     DWORD timeoutMs;
     int   ok = 0;
+    Int32 dropped = 0;
 
     _snprintf(hello, sizeof(hello),
-              "{\"op\":\"hello\",\"token\":\"%s\"}\n",
-              instance->token);
+              "{\"op\":\"hello\",\"token\":\"%s\",\"owner\":%u}\n",
+              instance->token, ownerNumber);
     if (!sendAll(hello, (int)strlen(hello))) {
         detach();
         _snprintf(problem, (size_t)problemLen, "the handshake with blueMSX+ failed");
@@ -171,11 +178,15 @@ static int sayHello(const McpInstance* instance, char* problem, int problemLen)
         _snprintf(problem, (size_t)problemLen, "blueMSX+ refused: %s", safe);
         return 0;
     }
+    /* Added up: a second hello before the next reply must not hide the first one's count. */
+    jsonGetInt(socketLine, "dropped", &dropped);
+    droppedBreakpoints += dropped;
     return 1;
 }
 
-/* Called per request, not at startup: the server must keep running while no emulator is up. */
-static int attach(char* problem, int problemLen)
+/* Called per request, not at startup: the server must keep running while no emulator is up.
+** onlyPid, if not 0, is the one instance to go back to; no other is picked. */
+static int attach(int onlyPid, char* problem, int problemLen)
 {
     McpInstance list[MCP_INSTANCE_MAX];
     int    picked[MCP_INSTANCE_MAX];
@@ -189,8 +200,13 @@ static int attach(char* problem, int problemLen)
         return 1;
     }
 
-    count = mcpInstancePick(list, picked, &live, &stored);
+    count = mcpInstancePick(onlyPid, list, picked, &live, &stored);
     jsonEscape(mcpInstancePinned(), pinText, sizeof(pinText));
+    if (onlyPid != 0 && count == 0) {
+        _snprintf(problem, (size_t)problemLen,
+                  "blueMSX+ (pid %d) is no longer accepting agent connections", onlyPid);
+        return 0;
+    }
     if (count == 0) {
         mcpInstanceExplainNone(list, picked, live, stored, pinText, problem, problemLen);
         return 0;
@@ -302,7 +318,7 @@ static int ask(const char* line, char* problem, int problemLen)
     }
 
     for (attempt = 0; attempt < 2; attempt++) {
-        if (!attach(problem, problemLen)) {
+        if (!attach(0, problem, problemLen)) {
             return 0;
         }
         if (sendAll(line, (int)strlen(line)) && sendAll("\n", 1) && waitForReply()) {
@@ -310,12 +326,33 @@ static int ask(const char* line, char* problem, int problemLen)
         }
         /* Closing the connection is what ends the emulator's side of an abandoned call. */
         detach();
+        /* At once: the emulator ends the plain breakpoints of a server that stays away 5 s. */
+        if (cancelled) {
+            attach(lastServedPid, problem, problemLen);
+        }
         if (cancelled || clientGone) {
             return 0;
         }
     }
     _snprintf(problem, (size_t)problemLen, "blueMSX+ stopped answering");
     return 0;
+}
+
+/* At a normal exit, unlike a cancelled call that reconnects: the emulator then drops at
+** once the plain breakpoints set through this server, so they do not stop the person. */
+static void endSession(void)
+{
+    static const char line[] = "{\"op\":\"session.end\"}\n";
+    static char problem[4096];
+    DWORD timeoutMs = HELLO_TIMEOUT_MS;
+
+    if (lastServedPid == 0 || !attach(lastServedPid, problem, sizeof(problem))) {
+        return;
+    }
+    setsockopt(emulator, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeoutMs, sizeof(timeoutMs));
+    if (sendAll(line, (int)strlen(line))) {
+        readLine(socketLine, REPLY_MAX);
+    }
 }
 
 void mcpLinkNotes(char* note, int noteLen)
@@ -329,11 +366,45 @@ void mcpLinkNotes(char* note, int noteLen)
                   previousPid);
         note[noteLen - 1] = 0;
     }
+    if (droppedBreakpoints > 0) {
+        size_t used = strlen(note);
+        char   count[24];
+
+        if (droppedBreakpoints > CTRL_PLAIN_LIST_MAX) {
+            sprintf(count, "more than %d", CTRL_PLAIN_LIST_MAX);
+        }
+        else {
+            sprintf(count, "%d", (int)droppedBreakpoints);
+        }
+        _snprintf(note + used, (size_t)noteLen - used,
+                  "Note: %s plain breakpoint%s set by an earlier client (an earlier "
+                  "conversation, a script, this server before it was restarted, or this "
+                  "conversation while it was disconnected for more than 5 s or Agent "
+                  "Control was Off) %s "
+                  "dropped by the time this server connected. Set again any that are still "
+                  "needed.\n",
+                  count, droppedBreakpoints == 1 ? "" : "s",
+                  droppedBreakpoints == 1 ? "was" : "were");
+        note[noteLen - 1] = 0;
+    }
 }
 
 void mcpLinkNotesShown(void)
 {
     previousPid        = 0;
+    droppedBreakpoints = 0;
+}
+
+void mcpLinkSetOwner(void)
+{
+    /* The emulator reads it as a positive Int32, and 0 would mean a client that gave none. */
+    if (rand_s(&ownerNumber) != 0) {
+        ownerNumber = (unsigned int)GetCurrentProcessId();
+    }
+    ownerNumber &= 0x7fffffff;
+    if (ownerNumber == 0) {
+        ownerNumber = 1;
+    }
 }
 
 int mcpLinkAsk(const char* line, const char* id, char* problem, int problemLen)
@@ -353,5 +424,6 @@ const char* mcpLinkReply(void)
 
 void mcpLinkEnd(void)
 {
+    endSession();
     detach();
 }

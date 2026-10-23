@@ -89,6 +89,9 @@ static const CtrlArg screenArgs[] = {
 static const CtrlOp opTable[] = {
     { "help",              CTRL_OP_LOOKS,   CTRL_OP_SELF, ctrlOpHelp, NULL,
       "  help\n" },
+    { "session.end",       CTRL_OP_LOOKS,   CTRL_OP_SELF, ctrlOpSessionEnd, NULL,
+      "  session.end                (the client is done and will not reconnect: drops\n"
+      "                             the plain breakpoints set here)\n" },
     { "status",            CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpStatus, NULL,
       "  status\n" },
     { "slots",             CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpSlots, NULL,
@@ -113,7 +116,13 @@ static const CtrlOp opTable[] = {
     { "bp.clear",          CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpBpClear, OP_ARGS(bpClearArgs),
       "  bp.clear     at\n" },
     { "bp.clear_all",      CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpBpClearAll, NULL,
-      "  bp.clear_all               (segment ones, and plain ones set here)\n" },
+      "  bp.clear_all               (segment ones, and plain ones set here; plain ones\n"
+      "                             set here also end at session.end, when Agent\n"
+      /* 5 s is LEFT_GRACE_MS in ControlBreak.c. */
+      "                             Control is turned Off, 5 s after the connection\n"
+      "                             closes unless a hello with the same \"owner\" comes\n"
+      "                             first, or when a client connects whose hello gives\n"
+      "                             no \"owner\", or a different one)\n" },
     { "bp.list",           CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpBpList, NULL,
       "  bp.list\n" },
     { "screen",            CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpScreen, OP_ARGS(screenArgs),
@@ -224,7 +233,8 @@ int ctrlRequestHandle(CtrlClient client, const char* request,
                               "Tools, Agent Control, Read Only or Full.");
     }
 
-    /* Read only denies anything that changes the machine or its breakpoints. */
+    /* Read only denies anything that changes the machine or its breakpoints, but not
+    ** session.end: it drops only what this client set, as another client's hello would. */
     if (ctrlGateLevel() != CTRL_GATE_FULL && refusedReadOnly(row, request)) {
         return ctrlReplyError(&call, "read_only",
                               "this emulator is set to read only. To change it, ask the "

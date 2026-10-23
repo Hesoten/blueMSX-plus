@@ -32,6 +32,9 @@
 ** the link reads the id of a cancel the same way. */
 void mcpIdAsJson(const char* request, const char* key, char* out, int outLen);
 
+/* Picks the owner number this server gives in each hello, as Windows reuses a pid. */
+void mcpLinkSetOwner(void);
+
 #define MCP_LINK_OK          0
 #define MCP_LINK_FAILED      1   /* problem says why, JSON-escaped */
 #define MCP_LINK_CANCELLED   2   /* the client cancelled the call id */
@@ -43,12 +46,12 @@ int mcpLinkAsk(const char* line, const char* id, char* problem, int problemLen);
 /* The reply line mcpLinkAsk read. */
 const char* mcpLinkReply(void);
 
-/* What a reply also has to say: another emulator process than before. Shown, it is cleared
-** with mcpLinkNotesShown. */
+/* What a reply also has to say: another emulator process than before, and plain
+** breakpoints a hello said were dropped. Shown, they are cleared with mcpLinkNotesShown. */
 void mcpLinkNotes(char* note, int noteLen);
 void mcpLinkNotesShown(void);
 
-/* At a normal exit: closes the connection to the emulator. */
+/* At a normal exit: ends the session, so the emulator drops this server's breakpoints. */
 void mcpLinkEnd(void);
 
 #endif

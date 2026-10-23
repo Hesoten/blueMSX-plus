@@ -39,8 +39,8 @@ void mcpInstancePin(const char* pin, size_t length);
 const char* mcpInstancePinned(void);
 
 /* The live instances into list, and the ones this server may attach to into picked (both
-** MCP_INSTANCE_MAX long); returns how many were picked. */
-int mcpInstancePick(McpInstance* list, int* picked, int* live, int* stored);
+** MCP_INSTANCE_MAX long), only onlyPid's when it is not 0; returns how many were picked. */
+int mcpInstancePick(int onlyPid, McpInstance* list, int* picked, int* live, int* stored);
 
 /* Why no instance was picked, or several, and what to do: into problem, JSON-escaped.
 ** pinText is the pin, JSON-escaped; ExplainNone reuses picked as scratch. */

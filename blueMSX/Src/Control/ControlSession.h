@@ -36,8 +36,9 @@ typedef struct {
 /* The session of a client, made on first use; NULL when every one is taken. */
 CtrlSession* ctrlSessionFor(CtrlClient client);
 
-/* Once per connection before any request. */
-void ctrlSessionOpen(CtrlClient client);
+/* Once per connection before any request. owner is the number its hello gives, or 0.
+** Returns what ctrlBreakOpen does. */
+int  ctrlSessionOpen(CtrlClient client, int owner);
 void ctrlSessionClose(CtrlClient client);
 
 #endif

@@ -228,12 +228,24 @@ static int emulatorPath(char* out, int outLen)
     return 0;
 }
 
-/* The live instances --instance picks. Returns how many were picked; live and stored as
-** listInstances gives. */
-int mcpInstancePick(McpInstance* list, int* picked, int* live, int* stored)
+/* The live instances this server may attach to: onlyPid's alone, if not 0, or those
+** --instance picks. Returns how many were picked; live and stored as listInstances gives. */
+int mcpInstancePick(int onlyPid, McpInstance* list, int* picked, int* live, int* stored)
 {
+    int count;
+    int i;
+
     *live = listInstances(list, MCP_INSTANCE_MAX, stored);
-    return pickInstances(list, *stored, picked);
+    count = pickInstances(list, *stored, picked);
+    /* Another instance's hello would drop the plain breakpoints a different conversation kept there. */
+    if (onlyPid != 0) {
+        for (count = 0, i = 0; i < *stored; i++) {
+            if (list[i].pid == onlyPid) {
+                picked[count++] = i;
+            }
+        }
+    }
+    return count;
 }
 
 /* No instance to attach to: what is running instead, and how to start one. */

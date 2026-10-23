@@ -37,7 +37,9 @@ static CtrlClient helloRefused(char* reply, int replyLen, const char* text)
 CtrlClient ctrlHelloAnswer(const char* line, const char* token, char* reply, int replyLen)
 {
     char       given[64];
+    Int32      owner = 0;
     CtrlClient client;
+    int        dropped;
 
     if (strstr(line, "\"op\"") == NULL || strstr(line, "hello") == NULL) {
         return helloRefused(reply, replyLen,
@@ -51,16 +53,17 @@ CtrlClient ctrlHelloAnswer(const char* line, const char* token, char* reply, int
                             "\"message\":\"the token is in the instance file under "
                             "%LOCALAPPDATA%\\\\blueMSXplus\\\\agent\"}");
     }
+    jsonGetInt(line, "owner", &owner);
     client = ctrlClientOpen();
     if (client == CTRL_CLIENT_NONE) {
         return helloRefused(reply, replyLen,
                             "{\"ok\":false,\"error\":\"blocked\",\"message\":"
                             "\"this emulator is not accepting connections\"}");
     }
-    ctrlSessionOpen(client);
+    dropped = ctrlSessionOpen(client, (int)owner);
     snprintf(reply, (size_t)replyLen,
-             "{\"ok\":true,\"protocol\":1,\"level\":\"%s\","
+             "{\"ok\":true,\"protocol\":1,\"level\":\"%s\",\"dropped\":%d,"
              "\"message\":\"send {\\\"op\\\":\\\"help\\\"}\"}",
-             ctrlGateLevelText(ctrlGateLevel()));
+             ctrlGateLevelText(ctrlGateLevel()), dropped);
     return client;
 }

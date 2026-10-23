@@ -30,6 +30,7 @@
 #include "ControlPeer.h"
 #include "ControlInstance.h"
 #include "ControlSession.h"
+#include "ControlBreak.h"
 #include "ControlClient.h"
 #include "ControlProtocol.h"
 #include "ArchThread.h"
@@ -39,7 +40,7 @@
 #pragma comment(lib, "ws2_32.lib")
 
 #define LISTEN_BACKLOG 4
-/* A client that sends no hello in this time is closed. */
+/* A client that sends no hello in this time is closed, so it cannot hold off the grace for long. */
 #define HELLO_TIMEOUT_MS 2000
 
 /* How long a stop waits for a request in progress, pumping only sent messages: a plugin
@@ -155,6 +156,9 @@ finished:
     if (client != CTRL_CLIENT_NONE) {
         ctrlSessionClose(client);
         ctrlClientClose(client);
+        /* Its plain breakpoints end unless it comes back in time; a killed MCP server sends no
+        ** session.end, which would have cleared them already. */
+        ctrlBreakLeft(GetTickCount());
     }
 }
 
@@ -169,7 +173,8 @@ static void acceptLoop(void)
         SOCKET accepted;
         int    ready;
 
-        /* In slices, so a stop is seen while no client connects. */
+        ctrlBreakTick(GetTickCount());
+        /* In slices, so that the grace above ends on time while no client connects. */
         FD_ZERO(&waiting);
         FD_SET(listenSocket, &waiting);
         ready = select(0, &waiting, NULL, NULL, &slice);
@@ -205,6 +210,8 @@ void ctrlSocketPoll(void)
     if (orphan != NULL && WaitForSingleObject((HANDLE)orphan, 0) == WAIT_OBJECT_0) {
         CloseHandle((HANDLE)orphan);
         orphan = NULL;
+        /* Off would have dropped its client's plain breakpoints; that is done now. */
+        ctrlBreakDropDeparted();
     }
 }
 
@@ -343,4 +350,5 @@ void ctrlSocketStop(int exiting)
     }
     CloseHandle((HANDLE)thread);
     thread = NULL;
+    ctrlBreakDropDeparted();
 }

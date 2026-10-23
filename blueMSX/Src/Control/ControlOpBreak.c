@@ -23,6 +23,7 @@
 #include "ControlOp.h"
 #include "ControlAddress.h"
 #include "ControlAddressArg.h"
+#include "ControlBreak.h"
 #include "ControlProtocol.h"
 #include "Debugger.h"
 #include "Emulator.h"
@@ -122,7 +123,11 @@ static void reportPlainBreak(CtrlCall* call, const CtrlAddr* addr, const CtrlAdd
                     "slot%d.%d reports no segment at 0x%04X, so this is a plain "
                     "breakpoint: it fires whenever the CPU runs 0x%04X, whatever is "
                     "paged in there. It stays over resets, state loads and cancelled "
-                    "calls, until op=clear or clear_all removes it.\n",
+                    "calls, until op=clear or clear_all removes it or this MCP server "
+                    "goes away (the conversation ends) or Agent Control is turned Off: "
+                    "it ends at once on a normal exit or Off, and about 5 s after a "
+                    "killed server or a lost connection unless the same server "
+                    "reconnects.\n",
                     info->canonical.slot, info->canonical.subSlot,
                     (unsigned)info->z80Address, (unsigned)info->z80Address);
     }
@@ -260,5 +265,14 @@ int ctrlOpBpList(CtrlCall* call)
     }
     jsonOutInt(&call->out, "segment", segmentCount);
     jsonOutInt(&call->out, "plain", plainCount);
+    return ctrlReplyDone(call);
+}
+
+/* Unlike a cancelled call, which reconnects and finds them still set. */
+int ctrlOpSessionEnd(CtrlCall* call)
+{
+    ctrlBreakDropPlain();
+    ctrlTextAdd(&call->text, "session ended: the plain breakpoints set with bp.set were cleared. "
+                "Segment breakpoints stay until cleared.\n");
     return ctrlReplyDone(call);
 }
