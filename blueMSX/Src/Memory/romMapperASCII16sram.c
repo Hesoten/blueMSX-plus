@@ -29,6 +29,7 @@
 #include "MediaDb.h"
 #include "SlotManager.h"
 #include "DeviceManager.h"
+#include "MapperDebugBanks.h"
 #include "SaveState.h"
 #include "sramLoader.h"
 #include <stdlib.h>
@@ -47,6 +48,7 @@ typedef struct {
     int sramEnabled;
     UInt32 romMask;
     int romMapper[4];
+    MapperBanks banks;
 } RomMapperASCII16sram;
 
 /* -1 while the SRAM is paged in: the selector keeps the guest's value even then,
@@ -83,6 +85,32 @@ static void selectBank(RomMapperASCII16sram* rm, int bank, UInt8 value)
     slotMapPage(rm->slot, rm->sslot, rm->startPage + bank + 1, bankData2, 1, 0);
     reportBank(rm, bank);
 }
+
+static int getBank(void* ref, int reg)
+{
+    RomMapperASCII16sram* rm = (RomMapperASCII16sram*)ref;
+
+    return (rm->sramEnabled & (1 << (reg + 1))) ? MAPPER_BANK_SRAM : rm->romMapper[2 * reg];
+}
+
+static void setBank(void* ref, int reg, int segment)
+{
+    RomMapperASCII16sram* rm = (RomMapperASCII16sram*)ref;
+
+    selectBank(rm, 2 * reg, (UInt8)(segment == MAPPER_BANK_SRAM ? rm->romMask + 1 : segment));
+}
+
+static const char* sramNote(void* ref, int reg)
+{
+    RomMapperASCII16sram* rm = (RomMapperASCII16sram*)ref;
+
+    if (reg != 1 || !(rm->sramEnabled & 0x4)) {
+        return NULL;
+    }
+    return mapperBanksSramNote(&rm->banks, reg, rm->sramFilename);
+}
+
+static const MapperBanksType bankType = { 2, 2, 256, 1, getBank, setBank, NULL, sramNote };
 
 static void saveState(RomMapperASCII16sram* rm)
 {
@@ -126,6 +154,7 @@ static void loadState(RomMapperASCII16sram* rm)
         }
         reportBank(rm, i);
     }
+    mapperBanksSync(&rm->banks);
 }
 
 static void destroy(RomMapperASCII16sram* rm)
@@ -147,6 +176,7 @@ static void write(RomMapperASCII16sram* rm, UInt16 address, UInt8 value)
         int bank = (address & 0x1000) >> 11;
 
         selectBank(rm, bank, value);
+        mapperBanksProgramWrote(&rm->banks, bank >> 1);
     }
     else if ((1 << (address >> 14)) & rm->sramEnabled & 0x4) {
         int i;
@@ -206,6 +236,7 @@ int romMapperASCII16sramCreate(const char* filename, UInt8* romData,
         slotMapPage(rm->slot, rm->sslot, rm->startPage + i + 1, rm->romData + rm->romMapper[i] * 0x2000 + 0x2000, 1, 0);
         reportBank(rm, i);
     }
+    mapperBanksInit(&rm->banks, &bankType, rm, slot, sslot, startPage);
 
     return 1;
 }

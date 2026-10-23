@@ -104,6 +104,12 @@ const char* slotDebugGetContents(int slot, int sslot);
 void slotSetBankSegment(int slot, int sslot, int bank, int segment);
 int slotDebugGetBankSegment(int slot, int sslot, int bank);
 
+/* The bank registers of a mapper the debugger may switch (MapperDebugBanks.h),
+** or NULL. Cleared with the storage when the mapper goes away. */
+struct MapperBanks;
+void slotSetBankSwitch(int slot, int sslot, struct MapperBanks* banks);
+struct MapperBanks* slotDebugGetBankSwitch(int slot, int sslot);
+
 /* Segment size in bytes (0x2000 or 0x4000); 0 when no segments are reported. */
 void slotSetSegmentSize(int slot, int sslot, int segmentSize);
 int slotDebugGetSegmentSize(int slot, int sslot);

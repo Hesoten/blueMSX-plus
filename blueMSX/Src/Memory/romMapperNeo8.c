@@ -25,6 +25,7 @@
 #include "MediaDb.h"
 #include "SlotManager.h"
 #include "DeviceManager.h"
+#include "MapperDebugBanks.h"
 #include "SaveState.h"
 #include <stdlib.h>
 #include <string.h>
@@ -39,6 +40,7 @@ typedef struct {
     int    startPage;
     UInt32 romMask;         /* (romSize / 0x2000) - 1 */
     UInt16 blockReg[6];
+    MapperBanks banks;
 } RomMapperNeo8;
 
 static void mapBank(RomMapperNeo8* rm, int region)
@@ -49,6 +51,24 @@ static void mapBank(RomMapperNeo8* rm, int region)
     /* The masked value: what the slot map reports, not what the guest wrote. */
     slotSetBankSegment(rm->slot, rm->sslot, rm->startPage + region, (int)bank);
 }
+
+static int getBank(void* ref, int reg)
+{
+    RomMapperNeo8* rm = (RomMapperNeo8*)ref;
+
+    return (int)(rm->blockReg[reg] & rm->romMask);
+}
+
+/* Both bytes: a later program write of one keeps the other, as on the hardware. */
+static void setBank(void* ref, int reg, int segment)
+{
+    RomMapperNeo8* rm = (RomMapperNeo8*)ref;
+
+    rm->blockReg[reg] = (UInt16)segment;
+    mapBank(rm, reg);
+}
+
+static const MapperBanksType bankType = { 6, 1, 16384, 0, getBank, setBank, NULL, NULL };
 
 static void destroy(RomMapperNeo8* rm)
 {
@@ -86,6 +106,7 @@ static void loadState(RomMapperNeo8* rm)
     for (i = 0; i < 6; i++) {
         mapBank(rm, i);
     }
+    mapperBanksSync(&rm->banks);
 }
 
 static void write(RomMapperNeo8* rm, UInt16 address, UInt8 value)
@@ -113,6 +134,7 @@ static void write(RomMapperNeo8* rm, UInt16 address, UInt8 value)
     if (rm->blockReg[region] != prev) {
         mapBank(rm, region);
     }
+    mapperBanksProgramWrote(&rm->banks, region);
 }
 
 int romMapperNeo8Create(const char* filename, UInt8* romData,
@@ -153,6 +175,7 @@ int romMapperNeo8Create(const char* filename, UInt8* romData,
     for (i = 0; i < 6; i++) {
         mapBank(rm, i);
     }
+    mapperBanksInit(&rm->banks, &bankType, rm, slot, sslot, startPage);
 
     return 1;
 }

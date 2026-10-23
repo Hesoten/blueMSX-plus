@@ -26,6 +26,7 @@
 #include "MediaDb.h"
 #include "SlotManager.h"
 #include "DeviceManager.h"
+#include "MapperDebugBanks.h"
 #include "sramLoader.h"
 #include "SaveState.h"
 #include <stdlib.h>
@@ -45,6 +46,7 @@ typedef struct {
     int       startPage;
     UInt32    romMask;      /* (FLASH_SIZE / 0x4000) - 1 = 0x1FF */
     UInt16    bankReg[2];   /* 12-bit each: bits[11:8] from address, [7:0] from data */
+    MapperBanks banks;
 } RomMapperASCII16X;
 
 static void mapBank(RomMapperASCII16X* rm, int bank)
@@ -61,6 +63,38 @@ static void mapBank(RomMapperASCII16X* rm, int bank)
     slotSetBankSegment(rm->slot, rm->sslot, page + 1, (int)bankNum);
 }
 
+static int getBank(void* ref, int reg)
+{
+    RomMapperASCII16X* rm = (RomMapperASCII16X*)ref;
+
+    return (int)(rm->bankReg[reg] & rm->romMask);
+}
+
+static void setBank(void* ref, int reg, int segment)
+{
+    RomMapperASCII16X* rm = (RomMapperASCII16X*)ref;
+
+    rm->bankReg[reg] = (UInt16)segment;
+    mapBank(rm, reg);
+}
+
+/* A command's next write goes to the segment paged in when it arrives. */
+static const char* flashBusy(void* ref, int reg)
+{
+    RomMapperASCII16X* rm = (RomMapperASCII16X*)ref;
+
+    return amdFlashCmdInProgress(rm->flash) ? "the program is in the middle of a flash command" : NULL;
+}
+
+static const char* flashNote(void* ref, int reg)
+{
+    RomMapperASCII16X* rm = (RomMapperASCII16X*)ref;
+
+    return mapperBanksFlashNote(&rm->banks, reg, amdFlashPersistFile(rm->flash));
+}
+
+static const MapperBanksType bankType = { 2, 2, 512, 0, getBank, setBank, flashBusy, flashNote };
+
 static void destroy(RomMapperASCII16X* rm)
 {
     amdFlashDestroy(rm->flash);
@@ -76,6 +110,7 @@ static void reset(RomMapperASCII16X* rm)
     rm->bankReg[1] = 0;
     mapBank(rm, 0);
     mapBank(rm, 1);
+    mapperBanksSync(&rm->banks);
 }
 
 static void saveState(RomMapperASCII16X* rm)
@@ -96,6 +131,7 @@ static void loadState(RomMapperASCII16X* rm)
     amdFlashLoadState(rm->flash);
     mapBank(rm, 0);
     mapBank(rm, 1);
+    mapperBanksSync(&rm->banks);
 }
 
 static UInt32 addrToFlash(RomMapperASCII16X* rm, UInt16 msxAddr)
@@ -149,6 +185,7 @@ static void write(RomMapperASCII16X* rm, UInt16 address, UInt8 value)
         rm->bankReg[bank] = newVal;
         mapBank(rm, bank);
     }
+    mapperBanksProgramWrote(&rm->banks, bank);
 }
 
 int romMapperASCII16XCreate(const char* filename, UInt8* romData,
@@ -188,6 +225,7 @@ int romMapperASCII16XCreate(const char* filename, UInt8* romData,
     for (i = 0; i < 2; i++) {
         mapBank(rm, i);
     }
+    mapperBanksInit(&rm->banks, &bankType, rm, slot, sslot, startPage);
 
     return 1;
 }

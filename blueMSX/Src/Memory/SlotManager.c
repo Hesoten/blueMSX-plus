@@ -78,6 +78,7 @@ typedef struct {
 static char             slotContents[4][4][SLOT_CONTENTS_MAX];
 static int              slotBankSegment[4][4][8];
 static int              slotSegmentSize[4][4];
+static struct MapperBanks* slotBankSwitch[4][4];
 static SlotStorage      slotStorage[4][4];
 static int              mainRamSlot = -1;
 static int              mainRamSubSlot;
@@ -242,6 +243,22 @@ int slotDebugGetBankSegment(int slot, int sslot, int bank)
         return -1;
     }
     return slotBankSegment[slot][sslot][bank];
+}
+
+void slotSetBankSwitch(int slot, int sslot, struct MapperBanks* banks)
+{
+    if (slot < 0 || slot > 3 || sslot < 0 || sslot > 3) {
+        return;
+    }
+    slotBankSwitch[slot][sslot] = banks;
+}
+
+struct MapperBanks* slotDebugGetBankSwitch(int slot, int sslot)
+{
+    if (!initialized || slot < 0 || slot > 3 || sslot < 0 || sslot > 3) {
+        return NULL;
+    }
+    return slotBankSwitch[slot][sslot];
 }
 
 void slotSetSegmentSize(int slot, int sslot, int segmentSize)
@@ -518,6 +535,9 @@ void slotUnregister(int slot, int sslot, int startpage)
     /* Left behind, the next plain ROM in this slot would look like a mapper. */
     slotSetSegmentSize(slot, sslot, 0);
 
+    /* The registers are freed with the mapper too. */
+    slotSetBankSwitch(slot, sslot, NULL);
+
     /* The storage is freed with the device, so drop the pointer now. */
     slotSetStorage(slot, sslot, NULL, 0, 0, SLOT_STORAGE_NONE);
 }
@@ -575,6 +595,7 @@ void slotManagerCreate()
     memset(pslot, 0, sizeof(pslot));
     memset(slotContents, 0, sizeof(slotContents));
     memset(slotSegmentSize, 0, sizeof(slotSegmentSize));
+    memset(slotBankSwitch, 0, sizeof(slotBankSwitch));
     memset(slotStorage, 0, sizeof(slotStorage));
     memset(slotTable, 0, sizeof(slotTable));
     mainRamSlot = -1;

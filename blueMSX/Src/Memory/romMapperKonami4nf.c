@@ -29,6 +29,7 @@
 #include "MediaDb.h"
 #include "SlotManager.h"
 #include "DeviceManager.h"
+#include "MapperDebugBanks.h"
 #include "SaveState.h"
 #include <stdlib.h>
 #include <string.h>
@@ -47,6 +48,7 @@ typedef struct {
     int startPage;
     int size;
     int romMapper[4];
+    MapperBanks banks;
 } RomMapperKonami4nf;
 
 static void mapBank(RomMapperKonami4nf* rm, int bank)
@@ -55,6 +57,21 @@ static void mapBank(RomMapperKonami4nf* rm, int bank)
                 rm->romData + rm->romMapper[bank] * 0x2000, 1, 0);
     slotSetBankSegment(rm->slot, rm->sslot, rm->startPage + bank, rm->romMapper[bank]);
 }
+
+static int getBank(void* ref, int reg)
+{
+    return ((RomMapperKonami4nf*)ref)->romMapper[reg];
+}
+
+static void setBank(void* ref, int reg, int segment)
+{
+    RomMapperKonami4nf* rm = (RomMapperKonami4nf*)ref;
+
+    rm->romMapper[reg] = segment;
+    mapBank(rm, reg);
+}
+
+static const MapperBanksType bankType = { 4, 1, 256, 0, getBank, setBank, NULL, NULL };
 
 static void saveState(RomMapperKonami4nf* rm)
 {
@@ -86,6 +103,7 @@ static void loadState(RomMapperKonami4nf* rm)
     for (i = 0; i < 4; i++) {
         mapBank(rm, i);
     }
+    mapperBanksSync(&rm->banks);
 }
 
 static void destroy(RomMapperKonami4nf* rm)
@@ -110,6 +128,7 @@ static void write(RomMapperKonami4nf* rm, UInt16 address, UInt8 value)
         rm->romMapper[bank] = value;
         mapBank(rm, bank);
     }
+    mapperBanksProgramWrote(&rm->banks, bank);
 }
 
 int romMapperKonami4nfCreate(const char* filename, UInt8* romData, 
@@ -145,6 +164,7 @@ int romMapperKonami4nfCreate(const char* filename, UInt8* romData,
     for (i = 0; i < 4; i++) {
         mapBank(rm, i);
     }
+    mapperBanksInit(&rm->banks, &bankType, rm, slot, sslot, startPage);
 
     return 1;
 }

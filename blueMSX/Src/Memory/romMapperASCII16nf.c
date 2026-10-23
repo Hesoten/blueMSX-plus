@@ -29,6 +29,7 @@
 #include "MediaDb.h"
 #include "SlotManager.h"
 #include "DeviceManager.h"
+#include "MapperDebugBanks.h"
 #include "SaveState.h"
 #include <stdlib.h>
 #include <string.h>
@@ -46,6 +47,7 @@ typedef struct {
     int startPage;
     UInt32 romMask;
     int romMapper[4];
+    MapperBanks banks;
 } RomMapperASCII16nf;
 
 /* Both 8kB banks of a 16kB segment report the same segment number. */
@@ -58,6 +60,37 @@ static void mapBank(RomMapperASCII16nf* rm, int bank)
     slotSetBankSegment(rm->slot, rm->sslot, rm->startPage + bank,     rm->romMapper[bank]);
     slotSetBankSegment(rm->slot, rm->sslot, rm->startPage + bank + 1, rm->romMapper[bank]);
 }
+
+static int getBank(void* ref, int reg)
+{
+    return ((RomMapperASCII16nf*)ref)->romMapper[2 * reg];
+}
+
+static void setBank(void* ref, int reg, int segment)
+{
+    RomMapperASCII16nf* rm = (RomMapperASCII16nf*)ref;
+
+    rm->romMapper[2 * reg] = segment;
+    mapBank(rm, 2 * reg);
+}
+
+/* A ROM whose size is no power of two leaves bits out of the mask: segments it never selects. */
+static const char* neverSelected(void* ref, int segment)
+{
+    static char why[96];
+    RomMapperASCII16nf* rm = (RomMapperASCII16nf*)ref;
+
+    if ((segment & ~rm->romMask) == 0) {
+        return NULL;
+    }
+    snprintf(why, sizeof(why), "the mapper keeps only the bits 0x%02X of a bank number",
+             (unsigned)rm->romMask);
+    return why;
+}
+
+static const MapperBanksType bankType = {
+    2, 2, 256, 0, getBank, setBank, NULL, NULL, neverSelected
+};
 
 static void saveState(RomMapperASCII16nf* rm)
 {
@@ -89,6 +122,7 @@ static void loadState(RomMapperASCII16nf* rm)
     for (i = 0; i < 4; i += 2) {
         mapBank(rm, i);
     }
+    mapperBanksSync(&rm->banks);
 }
 
 static void destroy(RomMapperASCII16nf* rm)
@@ -118,6 +152,7 @@ static void write(RomMapperASCII16nf* rm, UInt16 address, UInt8 value)
         rm->romMapper[bank] = value;
         mapBank(rm, bank);
     }
+    mapperBanksProgramWrote(&rm->banks, bank / 2);
 }
 
 int romMapperASCII16nfCreate(const char* filename, UInt8* romData, 
@@ -149,6 +184,7 @@ int romMapperASCII16nfCreate(const char* filename, UInt8* romData,
     for (i = 0; i < 4; i += 2) {
         mapBank(rm, i);
     }
+    mapperBanksInit(&rm->banks, &bankType, rm, slot, sslot, startPage);
 
     return 1;
 }

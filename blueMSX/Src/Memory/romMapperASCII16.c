@@ -29,6 +29,7 @@
 #include "MediaDb.h"
 #include "SlotManager.h"
 #include "DeviceManager.h"
+#include "MapperDebugBanks.h"
 #include "SaveState.h"
 #include <stdlib.h>
 #include <string.h>
@@ -43,6 +44,7 @@ typedef struct {
     int startPage;
     UInt32 romMask;
     int romMapper[4];
+    MapperBanks banks;
 } RomMapperASCII16;
 
 /* Both 8kB banks of a 16kB segment report the same segment number. */
@@ -55,6 +57,21 @@ static void mapBank(RomMapperASCII16* rm, int bank)
     slotSetBankSegment(rm->slot, rm->sslot, rm->startPage + bank,     rm->romMapper[bank]);
     slotSetBankSegment(rm->slot, rm->sslot, rm->startPage + bank + 1, rm->romMapper[bank]);
 }
+
+static int getBank(void* ref, int reg)
+{
+    return ((RomMapperASCII16*)ref)->romMapper[2 * reg];
+}
+
+static void setBank(void* ref, int reg, int segment)
+{
+    RomMapperASCII16* rm = (RomMapperASCII16*)ref;
+
+    rm->romMapper[2 * reg] = segment;
+    mapBank(rm, 2 * reg);
+}
+
+static const MapperBanksType bankType = { 2, 2, 256, 0, getBank, setBank, NULL, NULL };
 
 static void destroy(RomMapperASCII16* rm)
 {
@@ -95,9 +112,10 @@ static void loadState(RomMapperASCII16* rm)
     for (i = 0; i < 4; i += 2) {
         mapBank(rm, i);
     }
+    mapperBanksSync(&rm->banks);
 }
 
-static void write(RomMapperASCII16* rm, UInt16 address, UInt8 value) 
+static void write(RomMapperASCII16* rm, UInt16 address, UInt8 value)
 {
     int bank;
 
@@ -115,6 +133,7 @@ static void write(RomMapperASCII16* rm, UInt16 address, UInt8 value)
         rm->romMapper[bank] = value;
         mapBank(rm, bank);
     }
+    mapperBanksProgramWrote(&rm->banks, bank / 2);
 }
 
 int romMapperASCII16Create(const char* filename, UInt8* romData, 
@@ -152,6 +171,7 @@ int romMapperASCII16Create(const char* filename, UInt8* romData,
     for (i = 0; i < 4; i += 2) {
         mapBank(rm, i);
     }
+    mapperBanksInit(&rm->banks, &bankType, rm, slot, sslot, startPage);
 
     return 1;
 }

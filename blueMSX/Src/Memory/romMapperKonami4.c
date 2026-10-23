@@ -29,6 +29,7 @@
 #include "MediaDb.h"
 #include "SlotManager.h"
 #include "DeviceManager.h"
+#include "MapperDebugBanks.h"
 #include "SaveState.h"
 #include <stdlib.h>
 #include <string.h>
@@ -43,6 +44,7 @@ typedef struct {
     int startPage;
     int size;
     int romMapper[4];
+    MapperBanks banks;
 } RomMapperKonami4;
 
 static void mapBank(RomMapperKonami4* rm, int bank)
@@ -51,6 +53,26 @@ static void mapBank(RomMapperKonami4* rm, int bank)
                 rm->romData + rm->romMapper[bank] * 0x2000, 1, 0);
     slotSetBankSegment(rm->slot, rm->sslot, rm->startPage + bank, rm->romMapper[bank]);
 }
+
+static int getBank(void* ref, int reg)
+{
+    return ((RomMapperKonami4*)ref)->romMapper[reg];
+}
+
+static void setBank(void* ref, int reg, int segment)
+{
+    RomMapperKonami4* rm = (RomMapperKonami4*)ref;
+
+    rm->romMapper[reg] = segment;
+    mapBank(rm, reg);
+}
+
+static const char* fixedBank(void* ref, int reg)
+{
+    return reg == 0 ? "Konami has no register for it, so it is fixed" : NULL;
+}
+
+static const MapperBanksType bankType = { 4, 1, 256, 0, getBank, setBank, fixedBank, NULL };
 
 static void saveState(RomMapperKonami4* rm)
 {
@@ -82,6 +104,7 @@ static void loadState(RomMapperKonami4* rm)
     for (i = 0; i < 4; i++) {
         mapBank(rm, i);
     }
+    mapperBanksSync(&rm->banks);
 }
 
 static void destroy(RomMapperKonami4* rm)
@@ -111,6 +134,7 @@ static void write(RomMapperKonami4* rm, UInt16 address, UInt8 value)
         rm->romMapper[bank] = value;
         mapBank(rm, bank);
     }
+    mapperBanksProgramWrote(&rm->banks, bank);
 }
 
 int romMapperKonami4Create(const char* filename, UInt8* romData, 
@@ -143,6 +167,7 @@ int romMapperKonami4Create(const char* filename, UInt8* romData,
     rm->slot  = slot;
     rm->sslot = sslot;
     rm->startPage  = startPage;
+    slotSetStorage(slot, sslot, rm->romData, romSize, 0, SLOT_STORAGE_ROM);
 
     rm->romMapper[0] = 0;
     rm->romMapper[1] = 1;
@@ -152,6 +177,7 @@ int romMapperKonami4Create(const char* filename, UInt8* romData,
     for (i = 0; i < 4; i++) {
         mapBank(rm, i);
     }
+    mapperBanksInit(&rm->banks, &bankType, rm, slot, sslot, startPage);
 
     return 1;
 }
