@@ -31,6 +31,7 @@
 #include "ControlProtocol.h"
 #include "McpInstance.h"
 #include "McpLink.h"
+#include "McpReference.h"
 #include "McpTools.h"
 
 static char inLine[MCP_LINE_MAX];
@@ -109,6 +110,27 @@ static int readArguments(const char* id, const char* params, char* arguments, in
         strcpy(arguments, "{}");
     }
     return 1;
+}
+
+/* bmsx_reference is answered here, from the guide compiled into this server. */
+static void callReference(const char* id, const char* arguments, char* text, int textLen,
+                          char* escaped, int escapedLen)
+{
+    char   topic[64];
+    size_t length;
+
+    if (!jsonGetString(arguments, "topic", topic, sizeof(topic))) {
+        topic[0] = 0;
+    }
+    /* A copied section starts with its "## " title; a miss retries without a trailing s. */
+    length = strlen(_strlwr(topic));
+    mcpReferenceSection(topic, text, textLen);
+    if (strncmp(text, "## ", 3) != 0 && length > 3 && topic[length - 1] == 's') {
+        topic[length - 1] = 0;
+        mcpReferenceSection(topic, text, textLen);
+    }
+    escapeInto(text, escaped, escapedLen);
+    replyToolText(id, escaped, 0);
 }
 
 /* The emulator's reply in mcpLinkReply() as the tool's result, after the notes. */
@@ -208,6 +230,10 @@ static void callTool(const char* id, const char* request)
         replyToolText(id, escaped, 1);
         return;
     }
+    if (tool->op == NULL && tool->build == NULL) {
+        callReference(id, arguments, text, sizeof(text), escaped, sizeof(escaped));
+        return;
+    }
     if (!prepareRequest(id, tool, arguments, controlLine, sizeof(controlLine), text, sizeof(text),
                         escaped, sizeof(escaped)))
     {
@@ -252,7 +278,8 @@ static void handle(const char* request)
                   "not work out slot or segment arithmetic yourself. To wait for a "
                   "breakpoint use bmsx_run_until rather than polling bmsx_status. To "
                   "find a variable you have no symbol for, use bmsx_hunt: start, let "
-                  "the machine change the value, refine by how it changed, repeat.\"}}",
+                  "the machine change the value, refine by how it changed, repeat. "
+                  "Address forms, symbols per segment and more recipes: bmsx_reference.\"}}",
                   id);
         emit(outLine);
         return;

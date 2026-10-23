@@ -448,6 +448,19 @@ const McpTool mcpTools[] = {
     "snapshot.",
     buildByOp
 },
+{
+    "bmsx_reference",
+    "A section of the blueMSX+ guide to these tools: address forms, symbols per "
+    "segment, and how to find a variable, catch what changed a byte or break on "
+    "code that is not paged in. Without a topic it lists the sections. Needs no "
+    "running emulator.",
+    SCHEMA("\"properties\":{"
+           "\"topic\":{\"type\":\"string\",\"description\":"
+           "\"a word from a section title, such as addresses, limits or binding\"}}"),
+    READ_ONLY,
+    NULL,
+    NULL
+}
 };
 
 const int mcpToolCount = (int)(sizeof(mcpTools) / sizeof(mcpTools[0]));

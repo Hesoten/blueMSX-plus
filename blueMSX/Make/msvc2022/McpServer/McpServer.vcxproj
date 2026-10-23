@@ -113,14 +113,19 @@
     <ClCompile Include="..\..\..\McpServer\McpMain.c" />
     <ClCompile Include="..\..\..\McpServer\McpTools.c" />
     <ClCompile Include="..\..\..\McpServer\McpInstance.c" />
+    <ClCompile Include="..\..\..\McpServer\McpReference.c" />
     <ClCompile Include="..\..\..\Src\Control\ControlJson.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\McpServer\McpLink.h" />
     <ClInclude Include="..\..\..\McpServer\McpTools.h" />
     <ClInclude Include="..\..\..\McpServer\McpInstance.h" />
+    <ClInclude Include="..\..\..\McpServer\McpReference.h" />
     <ClInclude Include="..\..\..\Src\Control\ControlJson.h" />
     <ClInclude Include="..\..\..\Src\Control\ControlProtocol.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="..\..\..\McpServer\McpServer.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

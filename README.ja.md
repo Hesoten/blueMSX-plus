@@ -153,6 +153,12 @@ HDR 出力・高品位スキャンラインと明るさ補正・モニタエミ�
 4. メニュー `ファイル` → `ハードディスク / SDカード` から空イメージ作成または既存イメージファイルを指定して USB ドライブとして挿入
 
 
+## AI エージェントでのデバッグ (MCP)
+
+blueMSX+ には MCP サーバー `Tools\bluemsx-mcp.exe` が付属しています。これを使うと、Claude Code などの AI エージェントがエミュレート中の MSX の中身を調べたり操作したりできます(メモリの読み取り、ブレークポイント、キー入力、画面の読み取りなど)。  
+設定と使い方は [`blueMSX/McpServer/README.ja.md`](blueMSX/McpServer/README.ja.md) にあります。リリースアーカイブにも `Tools\bluemsx-mcp.ja.md` として同梱しています。
+
+
 ## ビルド方法
 
 - **Visual Studio 2022** または **Visual Studio 2026** で対応するソリューションファイル(`Make/msvc2022/blueMSX.sln` または `Make/msvc2026/blueMSX.sln`)を開いてビルドしてください。
