@@ -368,16 +368,17 @@ int ctrlOpStatus(CtrlCall* call)
         }
     }
     ctrlStatusDescribe(&call->text, reason, stateAsFound);
-    /* Registers and the CPU only from a paused machine. */
+    /* Registers, the CPU and the VDP only from a paused machine. */
     if (call->view.held == DBG_ACCESS_VIEW) {
         /* A turbo R switches CPU, and CLKH/CLKL count the clock of the one running. */
         ctrlTextAdd(&call->text, "cpu:     %s\n", r800DebugIsR800() ? "R800" : "Z80");
+        ctrlStatusDescribeVdp(&call->text);
     }
     else if (stateAsFound != EMU_STOPPED) {
         /* What a running machine may say: which one it is, and how far it has run. */
         ctrlTextAdd(&call->text, "machine: %s\n", propGetGlobalProperties()->emulation.machineName);
         ctrlTextAdd(&call->text, "frames:  %u\n", (unsigned)emulatorGetFramesRun());
-        ctrlTextAdd(&call->text, "(registers and CPU omitted: the machine is running; pause "
+        ctrlTextAdd(&call->text, "(registers, CPU and VDP omitted: the machine is running; pause "
                     "to read registers)\n");
     }
     jsonOutUInt(&call->out, "stop_seq", ctrlStopSeq());

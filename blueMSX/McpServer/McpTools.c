@@ -43,7 +43,11 @@ const McpTool mcpTools[] = {
 {
     "bmsx_status",
     "Where the emulated MSX is: run state, why it last stopped, which segment is "
-    "paged into each Z80 page and, while it is paused, every CPU register.",
+    "paged into each Z80 page and, while it is paused, every CPU register and "
+    "every VDP register with the screen mode they add up to. The VDP registers "
+    "are write only to the Z80, so this is the only way to see what the program "
+    "set them to -- start here when the screen is wrong. It also says whether a V9990 "
+    "picture (GFX9000, Video9000) is shown.",
     SCHEMA("\"properties\":{}"),
     READ_ONLY,
     "status",

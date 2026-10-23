@@ -63,6 +63,8 @@ void   v9990SetPresenter(V9990* v9990, int handle, int superimpose);
 /* The display mode of the V9990 picture on the screen, or V9990_MODE_NONE
 ** if it is not shown; superimposed is set if the VDP picture is under it. */
 V9990Mode v9990GetShownMode(int* superimposed);
+/* Nonzero if the machine has a V9990, shown or not. */
+int    v9990IsPresent(void);
 /* Nonzero if the frame that the last frame flip completed was drawn with
 ** the keys of a superimposing presenter. */
 int    v9990IsFrameKeyed(V9990* v9990);

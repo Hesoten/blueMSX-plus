@@ -22,11 +22,14 @@
 */
 #include "ControlStatus.h"
 #include "ControlView.h"
+#include "ControlVram.h"
 #include "ControlCpu.h"
 #include "ControlSlots.h"
 #include "ControlStopLog.h"
 #include "Debugger.h"
 #include "Emulator.h"
+#include "VDP.h"
+#include "V9990.h"
 #include <stdio.h>
 
 static void describeRegisters(CtrlText* text, const DbgRegisterBank* regs,
@@ -147,4 +150,61 @@ void ctrlStatusDescribe(CtrlText* text, int stopReason, int stateAsFound)
         ctrlSlotsDescribePages(text);
     }
     ctrlViewRelease(&own);
+}
+
+/* Whether a V9990 picture is on the screen; needs a view. */
+static void describeV9990(CtrlText* text)
+{
+    static const char* modeNames[V9990_MODE_NONE] = {
+        "P1", "P2", "B0", "B1", "B2", "B3", "B4", "B5", "B6", "B7", "STANDBY (black)"
+    };
+    int       superimposed;
+    V9990Mode mode = v9990GetShownMode(&superimposed);
+
+    if (mode < 0 || mode >= V9990_MODE_NONE) {
+        ctrlTextAdd(text, "v9990:   its picture is not shown; the vdp lines below are the "
+                    "VDP's, not the V9990's\n");
+        return;
+    }
+    ctrlTextAdd(text, "v9990:   its picture is shown in mode %s%s; the vdp lines below are "
+                "the VDP's, not the V9990's\n", modeNames[mode],
+                superimposed ? ", superimposed over the VDP picture"
+                             : " instead of the VDP picture");
+}
+
+void ctrlStatusDescribeVdp(CtrlText* text)
+{
+    DbgSnapshot* snapshot = ctrlViewDevices();
+    const DbgDevice* vdp;
+
+    if (snapshot == NULL) {
+        return;
+    }
+    if (v9990IsPresent()) {
+        describeV9990(text);
+    }
+    vdp = dbgSnapshotFindDeviceWithRegisters(snapshot, DBGTYPE_VIDEO);
+    if (vdp != NULL) {
+        int   mode = vdpDebugGetScreenMode();
+        UInt8 registers[2] = { 0, 0 };
+        int   raw;
+
+        vdpDebugGetRegisters(registers, 2);
+        raw = ((registers[0] & 0x0e) >> 1) | (registers[1] & 0x18);
+        /* updateScreenMode names only these; it draws other mixes blank or from other tables. */
+        switch (raw) {
+        case 0x00: case 0x01: case 0x02: case 0x03: case 0x04:
+        case 0x05: case 0x07: case 0x08: case 0x10: case 0x12:
+            ctrlTextAdd(text, "vdp:     %s, mode %d: %s\n", vdp->name, mode,
+                        ctrlVramModeName(mode));
+            break;
+        default:
+            ctrlTextAdd(text, "vdp:     %s, mode bits 0x%02X (R#0/R#1) are mixed or "
+                        "undefined: the VDP draws them blank or from other tables, so "
+                        "check the PNG\n", vdp->name, raw);
+            break;
+        }
+        describeRegisters(text, vdp->registerBank[0], "");
+    }
+    dbgSnapshotDestroy(snapshot);
 }

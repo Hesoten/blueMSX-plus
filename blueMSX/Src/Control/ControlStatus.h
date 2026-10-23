@@ -32,4 +32,7 @@
 
 void ctrlStatusDescribe(CtrlText* text, int stopReason, int stateAsFound);
 
+/* All VDP registers and the screen mode they select, and whether a V9990 picture is shown. */
+void ctrlStatusDescribeVdp(CtrlText* text);
+
 #endif
