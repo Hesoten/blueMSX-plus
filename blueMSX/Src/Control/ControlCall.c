@@ -45,7 +45,8 @@ static int readText(CtrlCall* call, const CtrlArg* arg, CtrlArgValue* value, int
     }
     if (result == JSON_WRONG_TYPE) {
         return ctrlReplyErrorf(call, "bad_arg", "\"%s\" must be %s", arg->name,
-                               CTRL_TEXT_WANT_STRING);
+                               arg->type == CTRL_ARG_TEXT ? CTRL_TEXT_WANT_STRING
+                                                          : CTRL_TEXT_WANT_INT_OR_STRING);
     }
     if (result == JSON_TEXT_OK) {
         value->given = 1;
@@ -68,7 +69,8 @@ static int readArgument(CtrlCall* call, const CtrlArg* arg, CtrlArgValue* value,
     if (kind == JSON_ABSENT) {
         return 0;
     }
-    if (kind == JSON_NUMBER && arg->type == CTRL_ARG_INT) {
+    /* A segment given as a number is stored as one, whatever its length. */
+    if (kind == JSON_NUMBER && arg->type != CTRL_ARG_BOOL) {
         value->given = jsonGetInt64(call->request, arg->name, &value->number);
         return 0;
     }
@@ -76,6 +78,9 @@ static int readArgument(CtrlCall* call, const CtrlArg* arg, CtrlArgValue* value,
         value->given  = jsonGetBool(call->request, arg->name, &flag);
         value->number = flag;
         return 0;
+    }
+    if (arg->type == CTRL_ARG_INT_OR_TEXT) {
+        return readText(call, arg, value, used);
     }
     return ctrlReplyErrorf(call, "bad_arg", "\"%s\" must be %s", arg->name,
                            arg->type == CTRL_ARG_INT ? CTRL_TEXT_WANT_INT : CTRL_TEXT_WANT_BOOL);

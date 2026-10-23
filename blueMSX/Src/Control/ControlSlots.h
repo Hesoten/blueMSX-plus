@@ -30,6 +30,14 @@
 ** then the slots with contents but no segments that are not paged in. */
 void ctrlSlotsDescribe(CtrlText* text);
 
+/* "seg5", or for MAPPER_BANK_SRAM "the SRAM" in a sentence and "SRAM" in a column. */
+void ctrlSlotsBankName(char* out, int len, int segment, int inSentence);
+
+/* One line for each bank register that shows other than the program's own selection: the
+** footnote to the '*' of the slots table and the status. Nothing without a view. */
+#define CTRL_SLOTS_BANKS_FOOTNOTE 0
+void ctrlSlotsDescribeSwitched(CtrlText* text, int kind);
+
 /* Each Z80 page's slot and segment. */
 void ctrlSlotsDescribePages(CtrlText* text);
 

@@ -54,6 +54,7 @@
 
 static void buildByOp(const McpTool* tool, const char* arguments, JsonOut* request);
 static void buildSymbols(const McpTool* tool, const char* arguments, JsonOut* request);
+static void buildBank(const McpTool* tool, const char* arguments, JsonOut* request);
 
 const McpTool mcpTools[] = {
 {
@@ -78,6 +79,25 @@ const McpTool mcpTools[] = {
     READ_ONLY,
     "slots",
     NULL
+},
+{
+    "bmsx_bank",
+    "Show which segment each switchable mapper bank holds and what the program itself "
+    "selected, or switch one so the CPU sees another segment and you can step it. Listing and "
+    "switching both need a paused machine. To only read or disassemble another segment, do "
+    "not switch: use slot1.0:seg<n>+<offset> in bmsx_mem_read or bmsx_dasm. A switch is a real "
+    "mapper change, as if the program had selected that segment: its next write to that "
+    "register switches it again. Switch back before resuming if the program should not run "
+    "with it.",
+    SCHEMA("\"properties\":{"
+           "\"at\":{\"type\":\"string\",\"description\":\"for a switch: the Z80 address "
+           "of the bank, such as 0x8000, in the slot paged in there now\"},"
+           "\"segment\":{\"description\":\"a segment number, counted from the start of the "
+           "ROM or flash, or \\\"sram\\\" for the SRAM of an SRAM cartridge; given, it "
+           "switches, else the banks are listed\"}}"),
+    CHANGES,
+    NULL,
+    buildBank
 },
 {
     "bmsx_mem_read",
@@ -469,7 +489,8 @@ static void refuseUnknownArgument(const McpTool* tool, const char* properties, c
     out[outLen - 1] = 0;
 }
 
-/* A value of the type the schema gives, and for a string one of its enum, if it has one. */
+/* A value of the type the schema gives, and for a string one of its enum, if it has one; with
+** no type (a bank segment), a number or a string the copier can decode. */
 static int checkArgumentValue(const McpTool* tool, const char* arguments, const char* key,
                               const char* property, char* out, int outLen)
 {
@@ -478,17 +499,20 @@ static int checkArgumentValue(const McpTool* tool, const char* arguments, const 
     char  type[16];
     Int32 number;
     int   flag;
+    int   kind = jsonGetKind(arguments, key);
 
     type[0] = 0;
     jsonGetString(property, "type", type, sizeof(type));
     if ((strcmp(type, "integer") == 0 && !jsonGetInt(arguments, key, &number)) ||
         (strcmp(type, "string") == 0 && !jsonGetString(arguments, key, value, sizeof(value))) ||
-        (strcmp(type, "boolean") == 0 && !jsonGetBool(arguments, key, &flag)))
+        (strcmp(type, "boolean") == 0 && !jsonGetBool(arguments, key, &flag)) ||
+        (type[0] == 0 && kind != JSON_NUMBER &&
+         !(kind == JSON_STRING && jsonGetString(arguments, key, value, sizeof(value)))))
     {
         _snprintf(out, (size_t)outLen, "%s: \"%s\" must be %s.", tool->name, key,
                   strcmp(type, "integer") == 0 ? CTRL_TEXT_WANT_INT :
                   strcmp(type, "string") == 0  ? CTRL_TEXT_WANT_STRING :
-                  strcmp(type, "string") == 0  ? CTRL_TEXT_WANT_STRING : CTRL_TEXT_WANT_BOOL);
+                  strcmp(type, "boolean") == 0 ? CTRL_TEXT_WANT_BOOL : CTRL_TEXT_WANT_INT_OR_STRING);
         out[outLen - 1] = 0;
         return 0;
     }
@@ -562,8 +586,8 @@ int mcpToolCheck(const McpTool* tool, const char* arguments, char* out, int outL
 /* Set when an argument the check passed could not be read again for the request. */
 static int copyFailed;
 
-/* One argument as its type says: an integer unclamped, so the emulator judges its range.
-** 0 when unreadable. */
+/* One argument as its type says: an integer unclamped, so the emulator judges its range; with
+** no type (a bank segment), a string as a string and else a number. 0 when unreadable. */
 static int copyValue(const char* arguments, const char* key, const char* type, JsonOut* request)
 {
     static char text[MCP_LINE_MAX];
@@ -577,14 +601,14 @@ static int copyValue(const char* arguments, const char* key, const char* type, J
         jsonOutBool(request, key, flag);
         return 1;
     }
-    if (strcmp(type, "string") == 0) {
+    if (strcmp(type, "string") == 0 || (type[0] == 0 && jsonGetKind(arguments, key) == JSON_STRING)) {
         if (!jsonGetString(arguments, key, text, sizeof(text))) {
             return 0;
         }
         jsonOutString(request, key, text);
         return 1;
     }
-    if (strcmp(type, "integer") == 0 && jsonGetInt64(arguments, key, &number)) {
+    if ((strcmp(type, "integer") == 0 || type[0] == 0) && jsonGetInt64(arguments, key, &number)) {
         jsonOutInt64(request, key, number);
         return 1;
     }
@@ -654,6 +678,15 @@ static void buildSymbols(const McpTool* tool, const char* arguments, JsonOut* re
     if (jsonGetBool(arguments, "replace_all", &replaceAll)) {
         jsonOutBool(request, "replace", replaceAll);
     }
+}
+
+/* A segment given switches a bank; else the banks are listed. */
+static void buildBank(const McpTool* tool, const char* arguments, JsonOut* request)
+{
+    int switching = jsonHasKey(arguments, "segment") && !jsonIsNull(arguments, "segment");
+
+    jsonOutString(request, "op", switching ? "bank.set" : "bank.list");
+    mcpToolCopy(tool, arguments, request, NULL);
 }
 
 int mcpToolRequest(const McpTool* tool, const char* arguments, char* line, int lineLen)

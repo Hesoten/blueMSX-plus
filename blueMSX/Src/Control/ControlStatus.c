@@ -180,6 +180,7 @@ void ctrlStatusDescribe(CtrlText* text, int stopReason, int stateAsFound)
     }
     else {
         ctrlSlotsDescribePages(text);
+        ctrlSlotsDescribeSwitched(text, CTRL_SLOTS_BANKS_FOOTNOTE);
     }
     ctrlViewRelease(&own);
 }

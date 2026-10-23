@@ -51,6 +51,7 @@ typedef struct {
 #define CTRL_ARG_TEXT        0
 #define CTRL_ARG_INT         1   /* read as Int64 */
 #define CTRL_ARG_BOOL        2
+#define CTRL_ARG_INT_OR_TEXT 3   /* a bank segment: a number, or a word of at most size bytes */
 
 #define CTRL_OP_ARGS_MAX 8
 

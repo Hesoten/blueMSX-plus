@@ -75,6 +75,10 @@ int  mapperBanksSelect(MapperBanks* banks, int reg, int segment, const char** wh
 /* Segments a register can select: the slot's storage, up to the register's reach. */
 int  mapperBanksSegments(const MapperBanks* banks);
 int  mapperBanksHasSram(const MapperBanks* banks);
+/* The register that switches an 8 kB bank of the slot, or -1. */
+int  mapperBanksRegisterAt(const MapperBanks* banks, int bank);
+/* Whether reg shows other than what the program selected. */
+int  mapperBanksSwitched(const MapperBanks* banks, int reg);
 
 /* The Z80 range a register switches, as "8000-9FFF". */
 void mapperBanksRange(const MapperBanks* banks, int reg, char* out, int len);

@@ -53,6 +53,9 @@ typedef struct {
 static int ctrlOpHelp(CtrlCall* call);
 
 /* What each op reads, in the order its help row names them. */
+static const CtrlArg bankSetArgs[] = {
+    { "at", CTRL_ARG_TEXT, CTRL_AT_MAX }, { "segment", CTRL_ARG_INT_OR_TEXT, 7 }, { NULL }
+};
 static const CtrlArg memReadArgs[] = {
     { "at", CTRL_ARG_TEXT, CTRL_AT_MAX }, { "count", CTRL_ARG_INT, 0 }, { NULL }
 };
@@ -136,6 +139,10 @@ static const CtrlOp opTable[] = {
       "  status\n" },
     { "slots",             CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpSlots, NULL,
       "  slots\n" },
+    { "bank.list",         CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpBankList, NULL,
+      "  bank.list                  (switchable mapper banks, their segment and the program's own)\n" },
+    { "bank.set",          CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpBankSet, OP_ARGS(bankSetArgs),
+      "  bank.set     at, segment   (switch as the program would; its next bank write wins)\n" },
     { "mem.read",          CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpMemRead, OP_ARGS(memReadArgs),
       "  mem.read     at, count\n" },
     { "mem.write",         CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpMemWrite, OP_ARGS(memWriteArgs),

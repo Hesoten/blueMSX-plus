@@ -22,17 +22,81 @@
 */
 #include "ControlSlots.h"
 #include "SlotManager.h"
+#include "Debugger.h"
+#include "MapperDebugBanks.h"
 #include <stdio.h>
+#include <string.h>
 
-
-/* "seg5", or "-" where no segment is reported. */
-static void pageSegment(char* out, int len, Int32 segment)
+void ctrlSlotsBankName(char* out, int len, int segment, int inSentence)
 {
-    if (segment >= 0) {
-        snprintf(out, (size_t)len, "seg%d", (int)segment);
+    if (segment == MAPPER_BANK_SRAM) {
+        snprintf(out, (size_t)len, "%s", inSentence ? "the SRAM" : "SRAM");
     }
     else {
-        snprintf(out, (size_t)len, "-");
+        snprintf(out, (size_t)len, "seg%d", segment);
+    }
+}
+
+/* Whether the bank register over an 8 kB bank of a slot shows other than the program's own
+** selection. Only under a view: a hold may not read the mapper. */
+static int bankSwitchedAt(int slot, int subSlot, int bank)
+{
+    const MapperBanks* banks;
+    int reg;
+
+    if (dbgAccessHeld() != DBG_ACCESS_VIEW) {
+        return 0;
+    }
+    banks = slotDebugGetBankSwitch(slot, subSlot);
+    reg = banks != NULL ? mapperBanksRegisterAt(banks, bank) : -1;
+    return reg >= 0 && mapperBanksSwitched(banks, reg);
+}
+
+static void bankSwitchLine(CtrlText* text, const MapperBanks* banks, int reg, int kind)
+{
+    char range[16];
+    char shows[16];
+    char chosen[16];
+
+    mapperBanksRange(banks, reg, range, sizeof(range));
+    ctrlSlotsBankName(shows, sizeof(shows), banks->type->get(banks->ref, reg), 1);
+    ctrlSlotsBankName(chosen, sizeof(chosen), banks->program[reg], 1);
+    ctrlTextAdd(text, "* switched by the debugger: slot%d.%d %s shows %s, the program "
+                "selected %s\n", banks->slot, banks->sslot, range, shows, chosen);
+}
+
+void ctrlSlotsDescribeSwitched(CtrlText* text, int kind)
+{
+    int slot;
+    int subSlot;
+    int reg;
+
+    if (dbgAccessHeld() != DBG_ACCESS_VIEW) {
+        return;
+    }
+    for (slot = 0; slot < 4; slot++) {
+        for (subSlot = 0; subSlot < 4; subSlot++) {
+            const MapperBanks* banks = slotDebugGetBankSwitch(slot, subSlot);
+
+            for (reg = 0; banks != NULL && reg < banks->type->registers; reg++) {
+                if (mapperBanksSwitched(banks, reg)) {
+                    bankSwitchLine(text, banks, reg, kind);
+                }
+            }
+        }
+    }
+}
+
+/* "seg5", "-", with '*' when the debugger switched that bank. */
+static void pageSegment(char* out, int len, Int32 segment, int slot, int subSlot, int bank)
+{
+    const char* mark = bankSwitchedAt(slot, subSlot, bank) ? "*" : "";
+
+    if (segment >= 0) {
+        snprintf(out, (size_t)len, "seg%d%s", (int)segment, mark);
+    }
+    else {
+        snprintf(out, (size_t)len, "-%s", mark);
     }
 }
 
@@ -56,8 +120,8 @@ static void slotMapRow(CtrlText* text, int page, int bank, int span, int showPag
 
     ctrlTextAdd(text, " %-4s %-9s  %d.%-3d ", pageText, range, slot, subSlot);
 
-    pageSegment(segmentText, sizeof(segmentText), segment);
-    /* Wide enough for "seg1023". */
+    pageSegment(segmentText, sizeof(segmentText), segment, slot, subSlot, bank);
+    /* Wide enough for "seg1023*". */
     ctrlTextAdd(text, "%-8s ", segmentText);
 
     ctrlTextAdd(text, "%s%s  %s\n",
@@ -197,6 +261,7 @@ void ctrlSlotsDescribeNoSegments(CtrlText* text, int slot, int subSlot)
 void ctrlSlotsDescribe(CtrlText* text)
 {
     slotMapPages(text);
+    ctrlSlotsDescribeSwitched(text, CTRL_SLOTS_BANKS_FOOTNOTE);
     slotMapBanked(text);
     slotMapOutOfView(text);
 }
@@ -213,13 +278,14 @@ void ctrlSlotsDescribePages(CtrlText* text)
         char  low[16];
         char  high[16];
 
-        pageSegment(low, sizeof(low), segment);
+        pageSegment(low, sizeof(low), segment, slot, subSlot, page * 2);
         if (slotDebugGetSegmentSize(slot, subSlot) == 0x2000) {
             /* 8kB banks: both halves, even when equal, so the form never changes. */
-            pageSegment(high, sizeof(high), slotDebugGetBankSegment(slot, subSlot, page * 2 + 1));
+            pageSegment(high, sizeof(high), slotDebugGetBankSegment(slot, subSlot, page * 2 + 1),
+                        slot, subSlot, page * 2 + 1);
             ctrlTextAdd(text, " %d:%d.%d/%s,%s", page, slot, subSlot, low, high);
         }
-        else if (segment >= 0) {
+        else if (segment >= 0 || strchr(low, '*') != NULL) {
             ctrlTextAdd(text, " %d:%d.%d/%s", page, slot, subSlot, low);
         }
         else {

@@ -80,6 +80,21 @@ int mapperBanksHasSram(const MapperBanks* banks)
     return banks->type->sram && mapperBanksSegments(banks) < 256;
 }
 
+int mapperBanksRegisterAt(const MapperBanks* banks, int bank)
+{
+    int offset = bank - banks->firstBank;
+
+    if (offset < 0 || offset >= banks->type->registers * banks->type->banksPerRegister) {
+        return -1;
+    }
+    return offset / banks->type->banksPerRegister;
+}
+
+int mapperBanksSwitched(const MapperBanks* banks, int reg)
+{
+    return banks->type->get(banks->ref, reg) != banks->program[reg];
+}
+
 int mapperBanksSelect(MapperBanks* banks, int reg, int segment, const char** why)
 {
     const MapperBanksType* type = banks->type;

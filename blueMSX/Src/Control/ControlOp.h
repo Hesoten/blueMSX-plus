@@ -38,6 +38,8 @@ int ctrlOpRegWrite(CtrlCall* call);
 int ctrlOpStack(CtrlCall* call);
 
 /* ControlOpSlots.c */
+int ctrlOpBankList(CtrlCall* call);
+int ctrlOpBankSet(CtrlCall* call);
 int ctrlOpSlots(CtrlCall* call);
 
 /* ControlOpMemory.c */

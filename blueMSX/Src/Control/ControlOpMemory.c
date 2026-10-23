@@ -338,7 +338,8 @@ static void reportBusWrite(CtrlCall* call, const char* echo, const CtrlAddr* add
                 "on a mapper or flash cartridge, a bank selector, a register, or "
                 "flash programming (a flash cartridge may keep that in its save "
                 "file). Read the address back, and the slot map, to see what "
-                "changed. A write that goes to the bus cannot be undone.\n");
+                "changed. A write that goes to the bus cannot be undone. A bank it "
+                "selects shows as switched by the debugger: see bmsx_bank.\n");
 }
 
 int ctrlOpMemWrite(CtrlCall* call)

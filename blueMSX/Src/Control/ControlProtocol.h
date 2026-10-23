@@ -113,6 +113,7 @@
 #define CTRL_TEXT_WANT_INT            "a whole number, as in 16 or \"0x10\""
 #define CTRL_TEXT_WANT_STRING         "a string in quotes, with valid escapes"
 #define CTRL_TEXT_WANT_BOOL           "true or false"
+#define CTRL_TEXT_WANT_INT_OR_STRING  "a whole number or a string"
 /* Printed with CTRL_LINE_MAX - 1, the most bytes a line holds before its newline. */
 #define CTRL_TEXT_LINE_TOO_LONG       "a request line is at most %d bytes; this one was longer, " \
                                       "so none of it was read"
