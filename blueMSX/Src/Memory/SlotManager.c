@@ -67,9 +67,20 @@ typedef struct {
 
 static RamSlotState     ramslot[8];
 static PrimarySlotState pslot[4];
+typedef struct {
+    UInt8* data;
+    UInt32 size;
+    int    writable;
+    int    kind;
+    UInt32 base;
+} SlotStorage;
+
 static char             slotContents[4][4][SLOT_CONTENTS_MAX];
 static int              slotBankSegment[4][4][8];
 static int              slotSegmentSize[4][4];
+static SlotStorage      slotStorage[4][4];
+static int              mainRamSlot = -1;
+static int              mainRamSubSlot;
 static Slot             slotTable[4][4][8];
 static Slot             slotAddr0;
 static UInt8            emptyRAM[0x2000];
@@ -249,6 +260,84 @@ int slotDebugGetSegmentSize(int slot, int sslot)
     return slotSegmentSize[slot][sslot];
 }
 
+void slotSetStorage(int slot, int sslot, UInt8* data, UInt32 size,
+                    int writable, int kind)
+{
+    slotSetStorageAt(slot, sslot, data, size, writable, kind, 0);
+}
+
+void slotSetStorageAt(int slot, int sslot, UInt8* data, UInt32 size,
+                      int writable, int kind, UInt32 base)
+{
+    SlotStorage* storage;
+
+    if (slot < 0 || slot > 3 || sslot < 0 || sslot > 3) {
+        return;
+    }
+    storage = &slotStorage[slot][sslot];
+
+    if (data == NULL || size == 0) {
+        storage->data     = NULL;
+        storage->size     = 0;
+        storage->writable = 0;
+        storage->kind     = SLOT_STORAGE_NONE;
+        storage->base     = 0;
+        return;
+    }
+    storage->data     = data;
+    storage->size     = size;
+    storage->writable = writable;
+    storage->kind     = kind;
+    storage->base     = base;
+}
+
+UInt32 slotDebugGetStorageBase(int slot, int sslot)
+{
+    if (!initialized || slot < 0 || slot > 3 || sslot < 0 || sslot > 3) {
+        return 0;
+    }
+    return slotStorage[slot][sslot].base;
+}
+
+void slotSetMainRam(int slot, int sslot)
+{
+    if (slot < 0 || slot > 3 || sslot < 0 || sslot > 3) {
+        return;
+    }
+    mainRamSlot    = slot;
+    mainRamSubSlot = sslot;
+}
+
+int slotDebugGetMainRam(int* slot, int* sslot)
+{
+    if (!initialized || mainRamSlot < 0) {
+        return 0;
+    }
+    *slot  = mainRamSlot;
+    *sslot = mainRamSubSlot;
+    return 1;
+}
+
+int slotDebugGetStorage(int slot, int sslot, UInt8** data, UInt32* size,
+                        int* writable)
+{
+    const SlotStorage* storage;
+
+    if (!initialized || slot < 0 || slot > 3 || sslot < 0 || sslot > 3) {
+        return SLOT_STORAGE_NONE;
+    }
+    storage = &slotStorage[slot][sslot];
+    if (storage->kind == SLOT_STORAGE_NONE) {
+        return SLOT_STORAGE_NONE;
+    }
+
+    if (data     != NULL) { *data     = storage->data;     }
+    if (size     != NULL) { *size     = storage->size;     }
+    if (writable != NULL) { *writable = storage->writable; }
+
+    return storage->kind;
+}
+
 int slotDebugGetBankState(int primarySlot, int subSlot, int bank)
 {
     const Slot* slotInfo;
@@ -386,10 +475,24 @@ void slotRegister(int slot, int sslot, int startpage, int pages,
 }
 
 
+/* Switched storage belongs to the mapper of the whole subslot, unswitched storage to the
+** device whose pages hold its first byte. */
+static int ownsStorage(int slot, int sslot, int startpage, int pages)
+{
+    const SlotStorage* storage = &slotStorage[slot][sslot];
+    int firstPage = (int)(storage->base / 0x2000);
+
+    if (storage->kind == SLOT_STORAGE_NONE || slotSegmentSize[slot][sslot] > 0) {
+        return 1;
+    }
+    return firstPage >= startpage && firstPage < startpage + pages;
+}
+
 void slotUnregister(int slot, int sslot, int startpage)
 {
     Slot* slotInfo;
     int pages;
+    int owner;
 
     if (!initialized) {
         return;
@@ -397,6 +500,7 @@ void slotUnregister(int slot, int sslot, int startpage)
 
     slotInfo = &slotTable[slot][sslot][startpage];
     pages = slotInfo->pages;
+    owner = ownsStorage(slot, sslot, startpage, pages);
 
     while (pages--) {
         memset(slotInfo, 0, sizeof(Slot));
@@ -406,8 +510,16 @@ void slotUnregister(int slot, int sslot, int startpage)
         slotInfo++;
     }
 
+    /* Storage another device in this subslot owns stays when this one goes. */
+    if (!owner) {
+        return;
+    }
+
     /* Left behind, the next plain ROM in this slot would look like a mapper. */
     slotSetSegmentSize(slot, sslot, 0);
+
+    /* The storage is freed with the device, so drop the pointer now. */
+    slotSetStorage(slot, sslot, NULL, 0, 0, SLOT_STORAGE_NONE);
 }
 
 void slotRemove(int slot, int sslot)
@@ -463,7 +575,9 @@ void slotManagerCreate()
     memset(pslot, 0, sizeof(pslot));
     memset(slotContents, 0, sizeof(slotContents));
     memset(slotSegmentSize, 0, sizeof(slotSegmentSize));
+    memset(slotStorage, 0, sizeof(slotStorage));
     memset(slotTable, 0, sizeof(slotTable));
+    mainRamSlot = -1;
 
     /* A bank that never reports has no known segment. */
     for (slot = 0; slot < 4; slot++) {

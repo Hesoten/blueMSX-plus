@@ -136,6 +136,7 @@ int romMapperStandardCreate(const char* filename, UInt8* romData,
     memcpy(rm->romData, romData, size);
     rm->size = size;
     slotSetSegmentSize(slot, sslot, 0x2000);
+    slotSetStorage(slot, sslot, rm->romData, size, 0, SLOT_STORAGE_ROM);
     rm->slot  = slot;
     rm->sslot = sslot;
     rm->startPage  = startPage;

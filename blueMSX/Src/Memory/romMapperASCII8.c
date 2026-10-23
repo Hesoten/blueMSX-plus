@@ -139,6 +139,7 @@ int romMapperASCII8Create(const char* filename, UInt8* romData,
     rm->slot  = slot;
     rm->sslot = sslot;
     rm->startPage  = startPage;
+    slotSetStorage(slot, sslot, rm->romData, size, 0, SLOT_STORAGE_ROM);
 
     for (i = 0; i < 4; i++) {
         rm->romMapper[i] = 0;

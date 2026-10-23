@@ -328,6 +328,15 @@ int romMapperSCCplusCreate(const char* filename, UInt8* romData,
         memcpy(rm->romData, romData, size);
     }
 
+    /* The 0x2000 past 0x20000 is filler. With no image the array is RAM,
+    ** except on the Konami SCC, which has none. */
+    if (romData != NULL || sccType == SCC_KONAMI) {
+        slotSetStorage(slot, sslot, rm->romData, 0x20000, 0, SLOT_STORAGE_ROM);
+    }
+    else {
+        slotSetStorage(slot, sslot, rm->romData, 0x20000, 1, SLOT_STORAGE_RAM);
+    }
+
     rm->slot            = slot;
     rm->sslot           = sslot;
     rm->startPage       = startPage;

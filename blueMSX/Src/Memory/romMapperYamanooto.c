@@ -470,6 +470,10 @@ int romMapperYamanootoCreate(const char* filename, UInt8* romData,
                                sramCreateFilenameWithSuffix(filename, "", ".sram"),
                                AMDFLASH_PERSIST_OVERLAY);
 
+    /* The flash the banks are cut from, not the loaded image it may differ from. */
+    slotSetStorage(slot, sslot, amdFlashGetPage(rm->flash, 0), YAMANOOTO_FLASH_SIZE,
+                   0, SLOT_STORAGE_ROM);
+
     rm->romMask = YAMANOOTO_FLASH_SIZE / 0x2000 - 1;   /* 0x3FF */
     rm->slot  = slot;
     rm->sslot = sslot;

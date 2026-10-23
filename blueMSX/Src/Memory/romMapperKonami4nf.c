@@ -135,6 +135,7 @@ int romMapperKonami4nfCreate(const char* filename, UInt8* romData,
     rm->slot  = slot;
     rm->sslot = sslot;
     rm->startPage  = startPage;
+    slotSetStorage(slot, sslot, rm->romData, size, 0, SLOT_STORAGE_ROM);
 
     rm->romMapper[0] = 0;
     rm->romMapper[1] = 1;

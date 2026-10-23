@@ -206,12 +206,14 @@ int ramMapperCreate(int size, int slot, int sslot, int startPage, UInt8** ramPtr
 
     /* Before reset(): its port writes report segments of this size. */
     slotSetSegmentSize(slot, sslot, 0x4000);
+    slotSetStorage(slot, sslot, rm->ramData, size, 1, SLOT_STORAGE_RAM);
 
     reset(rm);
 
     if (ramPtr != NULL) {
         // Main RAM
         rm->dramHandle = panasonicDramRegister(setDram, rm);
+        slotSetMainRam(slot, sslot);
         *ramPtr = rm->ramData;
     }
     if (ramSize != NULL) {

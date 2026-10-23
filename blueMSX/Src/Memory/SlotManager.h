@@ -107,4 +107,27 @@ int slotDebugGetBankSegment(int slot, int sslot, int bank);
 void slotSetSegmentSize(int slot, int sslot, int segmentSize);
 int slotDebugGetSegmentSize(int slot, int sslot);
 
+/* The device's whole flat storage, so paged out segments can be read without
+** switching. The pointer is live: the device clears it when it goes away. */
+#define SLOT_STORAGE_NONE 0
+#define SLOT_STORAGE_ROM  1
+#define SLOT_STORAGE_RAM  2
+
+void slotSetStorage(int slot, int sslot, UInt8* data, UInt32 size,
+                    int writable, int kind);
+/* As slotSetStorage, for unswitched storage whose first byte is at slot offset base. */
+void slotSetStorageAt(int slot, int sslot, UInt8* data, UInt32 size,
+                      int writable, int kind, UInt32 base);
+/* Any out argument may be NULL. Returns SLOT_STORAGE_NONE and touches nothing
+** when the slot publishes no storage. */
+int slotDebugGetStorage(int slot, int sslot, UInt8** data, UInt32* size,
+                        int* writable);
+/* The slot offset of the storage's first byte; 0 for switched storage or none. */
+UInt32 slotDebugGetStorageBase(int slot, int sslot);
+
+/* The memory mapper the machine was built with as its main RAM, marked by the mapper
+** itself; a cartridge's mapper is never marked. slotDebugGetMainRam is 0 with no mark. */
+void slotSetMainRam(int slot, int sslot);
+int slotDebugGetMainRam(int* slot, int* sslot);
+
 #endif

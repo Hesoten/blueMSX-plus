@@ -292,6 +292,9 @@ int romMapperMegaFlashRomSccCreate(const char* filename, UInt8* romData,
 
     rm->flash = amdFlashCreate(AMD_TYPE_2, flashSize, 0x10000, writeProtectMask, romData, size, sramCreateFilenameWithSuffix(filename, "", ".sram"), AMDFLASH_PERSIST_FULL);
 
+    /* The flash the banks are cut from, not romData, the loaded image it may differ from. */
+    slotSetStorage(slot, sslot, amdFlashGetPage(rm->flash, 0), flashSize, 0, SLOT_STORAGE_ROM);
+
     for (i = 0; i < 4; i++) {
         mapPage(rm, i, i);
     }

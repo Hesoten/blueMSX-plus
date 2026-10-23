@@ -150,6 +150,7 @@ int romMapperNeo16Create(const char* filename, UInt8* romData,
     rm->slot  = slot;
     rm->sslot = sslot;
     rm->startPage = startPage;
+    slotSetStorage(slot, sslot, rm->romData, size, 0, SLOT_STORAGE_ROM);
 
     for (i = 0; i < 3; i++) {
         rm->blockReg[i] = 0;

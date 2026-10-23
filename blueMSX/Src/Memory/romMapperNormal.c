@@ -52,6 +52,20 @@ static void destroy(RomMapperNormal* rm)
     free(rm);
 }
 
+/* RAM storage already in the subslot, on pages this ROM does not cover. */
+static int ramBeside(int slot, int sslot, int startPage, int pages)
+{
+    UInt32 size = 0;
+    UInt32 base;
+
+    if (slotDebugGetStorage(slot, sslot, NULL, &size, NULL) != SLOT_STORAGE_RAM) {
+        return 0;
+    }
+    base = slotDebugGetStorageBase(slot, sslot);
+    return base + size <= (UInt32)(startPage * 0x2000) ||
+           base >= (UInt32)((startPage + pages) * 0x2000);
+}
+
 int romMapperNormalCreate(const char* filename, UInt8* romData, 
                           int size, int slot, int sslot, int startPage) 
 {
@@ -73,6 +87,12 @@ int romMapperNormalCreate(const char* filename, UInt8* romData,
 
     rm->romData = malloc(pages * 0x2000);
     memcpy(rm->romData, romData, size);
+    /* Storage but no segment size: nothing switches here. RAM beside it in the
+    ** subslot keeps its own, and this ROM is read through the Z80. */
+    if (!ramBeside(slot, sslot, startPage, pages)) {
+        slotSetStorageAt(slot, sslot, rm->romData, pages * 0x2000, 0, SLOT_STORAGE_ROM,
+                         (UInt32)(startPage * 0x2000));
+    }
 
     rm->slot  = slot;
     rm->sslot = sslot;

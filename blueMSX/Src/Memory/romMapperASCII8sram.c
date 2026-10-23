@@ -173,6 +173,8 @@ int romMapperASCII8sramCreate(const char* filename, UInt8* romData,
     rm->sslot = sslot;
     rm->startPage  = startPage;
     rm->sramEnabled = 0;
+    /* The ROM, not the SRAM: reported segment numbers count in this array. */
+    slotSetStorage(slot, sslot, rm->romData, size, 0, SLOT_STORAGE_ROM);
     strcpy(rm->sramFilename, sramCreateFilename(filename));
 
     sramLoad(rm->sramFilename, rm->sram, 0x2000, NULL, 0);

@@ -181,6 +181,9 @@ int romMapperASCII16XCreate(const char* filename, UInt8* romData,
     rm->startPage = startPage;
     rm->bankReg[0] = 0;
     rm->bankReg[1] = 0;
+    /* The flash the banks are cut from, not the loaded image it may differ from. */
+    slotSetStorage(slot, sslot, amdFlashGetPage(rm->flash, 0), ASCII16X_FLASH_SIZE,
+                   0, SLOT_STORAGE_ROM);
 
     for (i = 0; i < 2; i++) {
         mapBank(rm, i);
