@@ -143,6 +143,20 @@ UInt8 boardCaptureUInt8(UInt8 logId, UInt8 value);
 /* Zero when the state could not be stored whole, as when a part did not fit. */
 int boardSaveState(const char* stateFile, int screenshot);
 
+#define BOARD_SNAPSHOT_OK          0
+#define BOARD_SNAPSHOT_NONE        1  /* none since the machine was built or a cartridge changed */
+#define BOARD_SNAPSHOT_HOST_MEDIUM 2  /* a host folder or drive in a disk drive cannot go back  */
+#define BOARD_SNAPSHOT_FAILED      3  /* not stored whole; an earlier one is gone too            */
+
+/* One machine state kept in memory. Only while the emulation thread is parked, on
+** the window's thread, which is where step back loads its states too. */
+int boardSnapshotTake(void);
+int boardSnapshotRestore(void);
+
+/* Non-zero while parked by a breakpoint or a watchpoint stop. A breakpoint stop has
+** tested its address already; a watchpoint stop is in the middle of an instruction. */
+int boardIsParkedInBreakpointStop(void);
+
 void boardSetFrequency(int frequency);
 int  boardGetRefreshRate();
 

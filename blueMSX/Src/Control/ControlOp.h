@@ -81,4 +81,9 @@ int ctrlOpType(CtrlCall* call);
 /* ControlOpScreen.c */
 int ctrlOpScreen(CtrlCall* call);
 
+/* ControlOpMachine.c */
+int ctrlOpReset(CtrlCall* call);
+int ctrlOpSnapshotTake(CtrlCall* call);
+int ctrlOpSnapshotRestore(CtrlCall* call);
+
 #endif

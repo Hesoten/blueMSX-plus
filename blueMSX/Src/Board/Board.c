@@ -79,6 +79,7 @@ static void AnyToUtf8(const char* src, char* dst, int dstCap) {
 extern void PatchReset(BoardType boardType);
 
 static int skipSync;
+static int parkedInBreakpointStop;
 static int pendingInt;
 static int boardType;
 static Mixer* boardMixer = NULL;
@@ -113,6 +114,11 @@ static int     ramStateCur;
 static int     ramStateCount;
 static UInt32* ramStateTime;
 static int     stateFrequency;
+
+/* The "mem" prefix keeps it in memory, beside the rewind ring's memN states. */
+#define SNAPSHOT_STATE "memsnapshot"
+/* Dropped when the machine is built again or a cartridge changes, as it no longer fits. */
+static int     snapshotTaken;
 static int     enableSnapshots;
 static int     useRom;
 static int     useMegaRom;
@@ -1100,7 +1106,14 @@ void boardOnBreakpoint(int cause)
     if (debugDeviceIsInspecting()) {
         return;
     }
+    parkedInBreakpointStop = 1;
     doSync(boardSystemTime(), cause);
+    parkedInBreakpointStop = 0;
+}
+
+int boardIsParkedInBreakpointStop(void)
+{
+    return parkedInBreakpointStop;
 }
 
 int boardInsertExternalDevices()
@@ -1144,6 +1157,7 @@ static void onBreakpointSync(void* ref, UInt32 time) {
 }
 
 static int boardRewindLoad(int drop);
+static int boardLoadStateInPlace(const char* stateFile);
 
 /* Discard the newest snapshot without restoring it. */
 static int boardRewindDrop()
@@ -1216,7 +1230,39 @@ static int boardRewindLoad(int drop)
     if (drop ? !boardRewindDrop() : ramStateCount < 1) {
         return 0;
     }
+    return boardLoadStateInPlace(stateFile);
+}
 
+int boardSnapshotTake(void)
+{
+    if (!boardRunning) {
+        return BOARD_SNAPSHOT_FAILED;
+    }
+    if (diskHasHostMedium()) {
+        return BOARD_SNAPSHOT_HOST_MEDIUM;
+    }
+    snapshotTaken = boardSaveState(SNAPSHOT_STATE, 0);
+    return snapshotTaken ? BOARD_SNAPSHOT_OK : BOARD_SNAPSHOT_FAILED;
+}
+
+int boardSnapshotRestore(void)
+{
+    if (!boardRunning || !snapshotTaken) {
+        return BOARD_SNAPSHOT_NONE;
+    }
+    if (diskHasHostMedium()) {
+        return BOARD_SNAPSHOT_HOST_MEDIUM;
+    }
+    boardLoadStateInPlace(SNAPSHOT_STATE);
+    /* The ring holds moments after the snapshot, so a step back would jump forward. */
+    ramStateCount = 0;
+    return BOARD_SNAPSHOT_OK;
+}
+
+/* Loads a state of this same machine over the running one without building it
+** again, so no device is destroyed and no SRAM is written to its file. */
+static int boardLoadStateInPlace(const char* stateFile)
+{
     boardTimerCleanup();
     /* The cleanup drops fdcTimer without ever running onFdcDone, so the boost
     ** would stay engaged with no timer to release it. */
@@ -1291,6 +1337,7 @@ int boardRun(Machine* machine,
     UInt64 stashedSysTime64 = 0;
 
     syncToRealClock = syncCallback;
+    snapshotTaken   = 0;
 
     videoManagerReset();
     debugDeviceManagerReset();
@@ -1443,15 +1490,15 @@ int boardRun(Machine* machine,
         
         stateFrequency = boardFrequency() / 1000 * reversePeriod;
 
-        /* Outside the test below on purpose: with reverse off there is no ram
-        ** file system at all, and a count left over from the previous run would
-        ** let boardRewind load a memN that no longer exists. */
+        /* Outside the test below on purpose: a count left over from the previous
+        ** run would let boardRewind load a memN this run never saved. */
         ramStateCur   = 0;
         ramStateCount = 0;
+        ramMaxStates  = stateFrequency > 0 ? reverseBufferCnt : 0;
+        /* One more than the ring uses, so a snapshot never takes a slot from step back. */
+        memZipFileSystemCreate(ramMaxStates + 1);
 
         if (stateFrequency > 0) {
-            ramMaxStates = reverseBufferCnt;
-            memZipFileSystemCreate(ramMaxStates);
             ramStateTime = calloc(ramMaxStates, sizeof(UInt32));
             stateTimer = boardTimerCreate(onStateSync, NULL);
             breakpointTimer = boardTimerCreate(onBreakpointSync, NULL); 
@@ -1504,10 +1551,10 @@ int boardRun(Machine* machine,
         if (stateTimer != NULL) {
             boardTimerDestroy(stateTimer);
             stateTimer = NULL;
-            memZipFileSystemDestroy();
             free(ramStateTime);
             ramStateTime = NULL;
         }
+        memZipFileSystemDestroy();
     }
     else {
         boardCaptureStop();
@@ -1926,6 +1973,7 @@ void boardChangeCartridge(int cartNo, RomType romType, char* cart, char* cartZip
             boardInfo.changeCartridge(boardInfo.cpuRef, cartNo, inserted);
         }
         dbgBreakpointsOnCartridgeChanged();
+        snapshotTaken = 0;
         dbgNotifyMachineChanged();
     }
 }

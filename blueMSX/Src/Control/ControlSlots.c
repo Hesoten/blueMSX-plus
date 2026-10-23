@@ -61,8 +61,15 @@ static void bankSwitchLine(CtrlText* text, const MapperBanks* banks, int reg, in
     mapperBanksRange(banks, reg, range, sizeof(range));
     ctrlSlotsBankName(shows, sizeof(shows), banks->type->get(banks->ref, reg), 1);
     ctrlSlotsBankName(chosen, sizeof(chosen), banks->program[reg], 1);
-    ctrlTextAdd(text, "* switched by the debugger: slot%d.%d %s shows %s, the program "
-                "selected %s\n", banks->slot, banks->sslot, range, shows, chosen);
+    if (kind == CTRL_SLOTS_BANKS_SNAPSHOT) {
+        ctrlTextAdd(text, "note: slot%d.%d %s shows %s, switched by the debugger; going back to "
+                    "this snapshot keeps %s there as if the program had selected it\n",
+                    banks->slot, banks->sslot, range, shows, shows);
+    }
+    else {
+        ctrlTextAdd(text, "* switched by the debugger: slot%d.%d %s shows %s, the program "
+                    "selected %s\n", banks->slot, banks->sslot, range, shows, chosen);
+    }
 }
 
 void ctrlSlotsDescribeSwitched(CtrlText* text, int kind)

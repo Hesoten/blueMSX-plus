@@ -48,7 +48,7 @@
                   "\"idempotentHint\":false,\"openWorldHint\":false"
 #define DESTROYS  "\"readOnlyHint\":false,\"destructiveHint\":true," \
                   "\"idempotentHint\":true,\"openWorldHint\":false"
-/* A second undo reverts a different write. */
+/* A second undo reverts a different write, a second take a later moment. */
 #define DESTROYS_NOT_IDEMPOTENT "\"readOnlyHint\":false,\"destructiveHint\":true," \
                                 "\"idempotentHint\":false,\"openWorldHint\":false"
 
@@ -408,6 +408,45 @@ const McpTool mcpTools[] = {
     DESTROYS_NOT_IDEMPOTENT,
     "undo",
     NULL
+},
+{
+    "bmsx_reset",
+    "Reset the machine. hard switches it off and on: cartridge and disk image files are "
+    "read again, so this is how to run a ROM rebuilt under the same name, "
+    "and RAM starts afresh. soft is the reset button: same ROM, RAM kept, and only on a "
+    "running machine. Breakpoints set with bmsx_break stay, and a plain one at 0x0000 "
+    "stops at the very first instruction. A hard reset is refused while a cartridge, "
+    "disk or tape file is missing (a build in progress), and the machine goes on as it "
+    "was. The reply names what did not start afresh: symbol files older than the ROM, "
+    "segment breakpoints left at their old offsets, flash cartridges that started from "
+    "flash saved in an earlier run, and folder disks the drive kept: one the MSX had "
+    "written to, and any hard disk folder.",
+    SCHEMA("\"properties\":{"
+           "\"how\":{\"type\":\"string\",\"enum\":[\"hard\",\"soft\"]}},"
+           "\"required\":[\"how\"]"),
+    DESTROYS,
+    "reset",
+    NULL
+},
+{
+    "bmsx_snapshot",
+    "Keep the whole machine state in the emulator's memory (take) and go back to it "
+    "(restore), as often as needed, to retry a scene that takes minutes to reach. One "
+    "snapshot: take replaces it. Restore puts back the CPU, RAM, VRAM and chips, the "
+    "SRAM of FM-PAC, PAC, MEGA-SCSI, WAVE-SCSI, ESE-RAM, ESE-SCC and the ColecoVision Opcode "
+    "SaveRAM, and the firmware SRAM of the FS-A1WX/WSX and turbo R (their 2 kB Matsushita "
+    "SRAM is not put back); other cartridges' SRAM and flash, and disk contents, are NOT "
+    "put back, and the tape is not wound back. Breakpoints stay as they are, and the hunt "
+    "and the undo journal are dropped. "
+    "A hard reset, a machine change, a state load or a cartridge change drops the snapshot; "
+    "a disk or tape swapped after it is not noticed. Refused while a folder the MSX has "
+    "written to, or a physical drive, is in a disk drive.",
+    SCHEMA("\"properties\":{"
+           "\"op\":{\"type\":\"string\",\"enum\":[\"take\",\"restore\"]}},"
+           "\"required\":[\"op\"]"),
+    DESTROYS_NOT_IDEMPOTENT,
+    "snapshot.",
+    buildByOp
 },
 };
 

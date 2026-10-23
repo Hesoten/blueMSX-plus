@@ -31,7 +31,7 @@ typedef struct {
     CtrlClient client;
     CtrlHunt*  hunt;
     /* The last stop this client was told of: status and the run ops (ControlOpRun.c) move it
-    ** on; a new session sets it. */
+    ** on; reset, restore and a new session set it. */
     UInt32     stopCursor;
 } CtrlSession;
 

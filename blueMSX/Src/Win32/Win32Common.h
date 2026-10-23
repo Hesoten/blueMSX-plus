@@ -57,6 +57,8 @@ void saveDialogPos(HWND hwnd, int dialogID);
 
 HWND getMainHwnd();
 HWND getEmuHwnd();
+/* Posted by the control socket's thread for work it hands to the window's thread. */
+#define WM_CTRLGUICOMMAND (WM_USER + 1251)
 
 
 void enterDialogShow();

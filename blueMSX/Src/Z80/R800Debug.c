@@ -52,6 +52,8 @@ struct R800Debug {
 };
 
 static R800Debug* dbg;
+/* Set while a breakpoint stop parks here, before the instruction at PC runs. */
+static int stoppedBeforeInstruction;
 
 
 static void getDebugInfo(R800Debug* dbg, DbgDevice* dbgDevice)
@@ -184,7 +186,9 @@ static void breakpointCb(R800Debug* dbg, UInt16 pc)
         return;
     }
 
+    stoppedBeforeInstruction = 1;
     boardOnBreakpoint(DBG_STOP_BREAKPOINT);
+    stoppedBeforeInstruction = 0;
 }
   
 UInt8 readMem(void* ref, int address) {
@@ -257,5 +261,10 @@ int r800DebugIsR800(void)
 int r800DebugWaitsInHalt(void)
 {
     return cpuWaitsInHalt();
+}
+
+int r800DebugStoppedBeforeInstruction(void)
+{
+    return stoppedBeforeInstruction;
 }
 

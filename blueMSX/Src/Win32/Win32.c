@@ -104,6 +104,7 @@
 #include "ControlStopLog.h"
 #include "ControlClient.h"
 #include "ControlSocket.h"
+#include "ControlWindowThread.h"
 #include "RaceTest.h"
 #include "JoystickPort.h"
 #include "Theme.h"
@@ -3462,6 +3463,11 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         }
         return TRUE;
 
+    case WM_CTRLGUICOMMAND:
+        /* Only a nested loop (a menu, a dialog, a box) gets here; the work must not run inside it. */
+        ctrlWindowThreadRunPosted(0);
+        return 0;
+
 #ifdef BMSX_RACE_TEST
     case WM_RACETEST:
         if (wParam == RACE_HOLD_CHANGE) {
@@ -5528,6 +5534,11 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
             if (msg.message == WM_QUIT) {
                 doExit = 1;
                 break;
+            }
+            /* Taken only here: a nested loop (a menu, a box) dispatches it to wndProc instead. */
+            if (msg.message == WM_CTRLGUICOMMAND && msg.hwnd == st.hwnd) {
+                ctrlWindowThreadRunPosted(IsWindowEnabled(st.hwnd) && st.showDialog == 0);
+                continue;
             }
             /* Reaches the keys a focused child control would otherwise eat. */
             if (msg.message == WM_KEYDOWN || msg.message == WM_SYSKEYDOWN) {

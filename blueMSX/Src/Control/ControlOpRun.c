@@ -61,7 +61,8 @@ static Int32 registerNow(const char* name)
 static int refuseResume(CtrlCall* call, int result)
 {
     if (result == DBG_RESUME_NO_MACHINE) {
-        return ctrlReplyError(call, "no_machine", CTRL_TEXT_NO_MACHINE "; a resume never starts one");
+        return ctrlReplyError(call, "no_machine", CTRL_TEXT_NO_MACHINE "; a resume never starts "
+                              "one: bmsx_reset how=hard does");
     }
     if (result == DBG_RESUME_BUSY) {
         return ctrlReplyError(call, "busy", CTRL_TEXT_FOLDER_DISK_BUSY ", so nothing was "

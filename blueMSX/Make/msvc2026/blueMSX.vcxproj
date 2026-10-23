@@ -693,6 +693,7 @@
     <ClCompile Include="..\..\Src\Win32\Win32Thread.c" />
     <ClCompile Include="..\..\Src\Win32\Win32Timer.c" />
     <ClCompile Include="..\..\Src\Win32\Win32Toast.cpp" />
+    <ClCompile Include="..\..\Src\Win32\Win32ControlWindowThread.c" />
     <ClCompile Include="..\..\Src\Win32\Win32ControlSocket.c" />
     <ClCompile Include="..\..\Src\Win32\Win32ToolLoader.c" />
     <ClCompile Include="..\..\Src\Win32\Win32Uart.c" />
@@ -1009,6 +1010,7 @@
     <ClCompile Include="..\..\Src\Control\ControlOpSymbol.c" />
     <ClCompile Include="..\..\Src\Control\ControlOpInput.c" />
     <ClCompile Include="..\..\Src\Control\ControlOpScreen.c" />
+    <ClCompile Include="..\..\Src\Control\ControlOpMachine.c" />
     <ClCompile Include="..\..\Src\Control\ControlView.c" />
     <ClCompile Include="..\..\Src\Control\ControlHello.c" />
     <ClCompile Include="..\..\Src\Control\ControlBreak.c" />
@@ -1016,6 +1018,7 @@
     <ClCompile Include="..\..\Src\Win32\Win32ControlPeer.c" />
     <ClCompile Include="..\..\Src\Control\ControlAddressArg.c" />
     <ClCompile Include="..\..\Src\Control\ControlVram.c" />
+    <ClCompile Include="..\..\Src\Control\ControlMachine.c" />
     <ClCompile Include="..\..\Src\Control\ControlStep.c" />
     <ClCompile Include="..\..\Src\Debugger\Debugger.c" />
     <ClCompile Include="..\..\Src\Debugger\DebugBreakpoints.c" />
@@ -1407,6 +1410,7 @@
     <ClInclude Include="..\..\Src\Control\ControlStopLog.h" />
     <ClInclude Include="..\..\Src\Control\ControlSlots.h" />
     <ClInclude Include="..\..\Src\Control\ControlStatus.h" />
+    <ClInclude Include="..\..\Src\Control\ControlWindowThread.h" />
     <ClInclude Include="..\..\Src\Control\ControlHunt.h" />
     <ClInclude Include="..\..\Src\Control\ControlWatch.h" />
     <ClInclude Include="..\..\Src\Control\ControlInput.h" />
@@ -1433,6 +1437,7 @@
     <ClInclude Include="..\..\Src\Control\ControlAddressArg.h" />
     <ClInclude Include="..\..\Src\Control\ControlVram.h" />
     <ClInclude Include="..\..\Src\Control\ControlAddressType.h" />
+    <ClInclude Include="..\..\Src\Control\ControlMachine.h" />
     <ClInclude Include="..\..\Src\Control\ControlStep.h" />
     <ClInclude Include="..\..\Src\Debugger\Debugger.h" />
     <ClInclude Include="..\..\Src\Debugger\RaceTest.h" />

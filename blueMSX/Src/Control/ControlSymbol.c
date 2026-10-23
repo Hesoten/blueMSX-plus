@@ -21,6 +21,7 @@
 ******************************************************************************
 */
 #include "ControlSymbol.h"
+#include "Properties.h"
 #include "Debugger.h"
 #include "ControlSlots.h"
 #include "ControlPath.h"
@@ -1445,4 +1446,43 @@ int ctrlSymSearch(const char* pattern, int first, int max,
         fill(&out[filled++], table.byName[i]);
     }
     return filled;
+}
+
+/* Symbol files changed since they were loaded, or older than a ROM the build rewrote. */
+void ctrlSymDescribeStale(CtrlText* text)
+{
+    int i;
+
+    for (i = 0; i < ctrlSymFileCount(); i++) {
+        CtrlSymFile file;
+        const char* leaf;
+        Int64 now;
+        int   cart;
+
+        if (!ctrlSymFileGet(i, &file) || file.path[0] == 0) {
+            continue;
+        }
+        leaf = ctrlPathLeaf(file.path);
+        now  = ctrlFileWriteTime(file.path);
+        if (now != file.fileTime) {
+            ctrlTextAdd(text, "symbols: %s has %s since it was loaded, so the labels "
+                        "are from the earlier build. Load it again (bmsx_symbols "
+                        "op=load with the same path replaces it).\n",
+                        leaf, now == 0 ? "gone from disk" : "changed on disk");
+            continue;
+        }
+        for (cart = 0; cart < PROP_MAX_CARTS; cart++) {
+            const char* rom = propGetGlobalProperties()->media.carts[cart].fileName;
+
+            if (rom[0] != 0 && ctrlFileWriteTime(rom) > file.loadedAt) {
+                const char* romLeaf = ctrlPathLeaf(rom);
+
+                ctrlTextAdd(text, "symbols: %s was written after %s was loaded, and "
+                            "%s was not. If your build writes both, it did not write "
+                            "%s this time, and the labels may not match the code.\n",
+                            romLeaf, leaf, leaf, leaf);
+                break;
+            }
+        }
+    }
 }

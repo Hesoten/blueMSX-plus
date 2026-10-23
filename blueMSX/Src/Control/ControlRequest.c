@@ -80,6 +80,9 @@ static const CtrlArg stackArgs[] = {
 static const CtrlArg runUntilArgs[] = {
     { "timeout_ms", CTRL_ARG_INT, 0 }, { "pause_at_timeout", CTRL_ARG_BOOL, 0 }, { NULL }
 };
+static const CtrlArg resetArgs[] = {
+    { "how", CTRL_ARG_TEXT, 15 }, { NULL }
+};
 static const CtrlArg bpSetArgs[] = {
     { "at", CTRL_ARG_TEXT, CTRL_AT_MAX }, { NULL }
 };
@@ -159,6 +162,12 @@ static const CtrlOp opTable[] = {
       "  stack        count\n" },
     { "run.until",         CTRL_OP_CHANGES, CTRL_OP_SELF, ctrlOpRunUntil, OP_ARGS(runUntilArgs),
       "  run.until    timeout_ms, pause_at_timeout\n" },
+    { "reset",             CTRL_OP_CHANGES, CTRL_OP_SELF, ctrlOpReset, OP_ARGS(resetArgs),
+      "  reset        how = hard|soft\n" },
+    { "snapshot.take",     CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpSnapshotTake, NULL,
+      "  snapshot.take              (one machine state, kept in memory)\n" },
+    { "snapshot.restore",  CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpSnapshotRestore, NULL,
+      "  snapshot.restore\n" },
     { "bp.set",            CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpBpSet, OP_ARGS(bpSetArgs),
       "  bp.set       at            (fires only in the segment named, or for a Z80\n"
       "                             address in a mapper slot the one paged in now)\n" },

@@ -34,8 +34,10 @@ void ctrlSlotsDescribe(CtrlText* text);
 void ctrlSlotsBankName(char* out, int len, int segment, int inSentence);
 
 /* One line for each bank register that shows other than the program's own selection: the
-** footnote to the '*' of the slots table and the status. Nothing without a view. */
+** footnote to the '*' of the slots table and the status, or what a snapshot keeps. Nothing
+** without a view. */
 #define CTRL_SLOTS_BANKS_FOOTNOTE 0
+#define CTRL_SLOTS_BANKS_SNAPSHOT 1
 void ctrlSlotsDescribeSwitched(CtrlText* text, int kind);
 
 /* Each Z80 page's slot and segment. */

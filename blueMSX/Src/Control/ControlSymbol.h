@@ -24,6 +24,7 @@
 #define CONTROL_SYMBOL_H
 
 #include "ControlAddressType.h"
+#include "ControlText.h"
 #include "ControlProtocol.h"
 #include "ControlSymbolParse.h"
 
@@ -127,5 +128,9 @@ int ctrlSymSearch(const char* pattern, int first, int max,
 
 /* Call from the lookup path when the machine may have changed; may rewrite the table. */
 void ctrlSymRevalidate(void);
+
+/* A "symbols:" line for each file changed since it was loaded, or older than a ROM the
+** build rewrote. */
+void ctrlSymDescribeStale(CtrlText* text);
 
 #endif

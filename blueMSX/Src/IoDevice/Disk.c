@@ -717,12 +717,20 @@ void diskDirStart(int fromState, int stopped)
         if (fromState) {
             dirDiskDisarm(dirVolume[i]);
         }
-        else if (stopped && (dirDiskIsDisarmed(dirVolume[i]) || (i < MAX_FDC_COUNT && !diskDirPending(i)))) {
+        else if (stopped && !diskDirKeptOverStart(i)) {
             /* The MSX starts afresh, so the directory can be read anew and trusted again.
             ** A diskette with nothing to write back is read anew at every start. */
             diskDiscardDir(i);
         }
     }
+}
+
+int diskDirKeptOverStart(int driveId)
+{
+    /* diskDirStart reads every other folder anew when stopped and not from a state. */
+    return driveId >= 0 && driveId < MAXDRIVES && dirVolume[driveId] != NULL &&
+           !dirDiskIsDisarmed(dirVolume[driveId]) &&
+           !(driveId < MAX_FDC_COUNT && !diskDirPending(driveId));
 }
 
 int diskDirMemoryNotice(void)
