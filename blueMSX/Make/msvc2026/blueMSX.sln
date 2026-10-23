@@ -13,6 +13,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SimpleDebugger", "Plugins\S
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DeviceViewer", "Plugins\DeviceViewer\DeviceViewer.vcxproj", "{F2A4C815-7D5B-49E3-B6C8-3A9F1E4D5C26}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "McpServer", "McpServer\McpServer.vcxproj", "{7C3B1A59-4E62-4D8B-95A1-6B2D7F0E8C41}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug Canned|Win32 = Debug Canned|Win32
@@ -134,6 +136,27 @@ Global
 		{F2A4C815-7D5B-49E3-B6C8-3A9F1E4D5C26}.Release|Win32.ActiveCfg = Release|x64
 		{F2A4C815-7D5B-49E3-B6C8-3A9F1E4D5C26}.Release|x64.ActiveCfg = Release|x64
 		{F2A4C815-7D5B-49E3-B6C8-3A9F1E4D5C26}.Release|x64.Build.0 = Release|x64
+		{7C3B1A59-4E62-4D8B-95A1-6B2D7F0E8C41}.Debug Canned|Win32.ActiveCfg = Debug|Win32
+		{7C3B1A59-4E62-4D8B-95A1-6B2D7F0E8C41}.Debug Canned|x64.ActiveCfg = Debug|x64
+		{7C3B1A59-4E62-4D8B-95A1-6B2D7F0E8C41}.Debug Canned|x64.Build.0 = Debug|x64
+		{7C3B1A59-4E62-4D8B-95A1-6B2D7F0E8C41}.Debug|Win32.ActiveCfg = Debug|Win32
+		{7C3B1A59-4E62-4D8B-95A1-6B2D7F0E8C41}.Debug|Win32.Build.0 = Debug|Win32
+		{7C3B1A59-4E62-4D8B-95A1-6B2D7F0E8C41}.Debug|x64.ActiveCfg = Debug|x64
+		{7C3B1A59-4E62-4D8B-95A1-6B2D7F0E8C41}.Debug|x64.Build.0 = Debug|x64
+		{7C3B1A59-4E62-4D8B-95A1-6B2D7F0E8C41}.Final|Win32.ActiveCfg = Release|Win32
+		{7C3B1A59-4E62-4D8B-95A1-6B2D7F0E8C41}.Final|Win32.Build.0 = Release|Win32
+		{7C3B1A59-4E62-4D8B-95A1-6B2D7F0E8C41}.Final|x64.ActiveCfg = Release|x64
+		{7C3B1A59-4E62-4D8B-95A1-6B2D7F0E8C41}.Final|x64.Build.0 = Release|x64
+		{7C3B1A59-4E62-4D8B-95A1-6B2D7F0E8C41}.Release Canned|Win32.ActiveCfg = Release|Win32
+		{7C3B1A59-4E62-4D8B-95A1-6B2D7F0E8C41}.Release Canned|x64.ActiveCfg = Release|x64
+		{7C3B1A59-4E62-4D8B-95A1-6B2D7F0E8C41}.Release Canned|x64.Build.0 = Release|x64
+		{7C3B1A59-4E62-4D8B-95A1-6B2D7F0E8C41}.Release Console|Win32.ActiveCfg = Release|Win32
+		{7C3B1A59-4E62-4D8B-95A1-6B2D7F0E8C41}.Release Console|x64.ActiveCfg = Release|x64
+		{7C3B1A59-4E62-4D8B-95A1-6B2D7F0E8C41}.Release Console|x64.Build.0 = Release|x64
+		{7C3B1A59-4E62-4D8B-95A1-6B2D7F0E8C41}.Release|Win32.ActiveCfg = Release|Win32
+		{7C3B1A59-4E62-4D8B-95A1-6B2D7F0E8C41}.Release|Win32.Build.0 = Release|Win32
+		{7C3B1A59-4E62-4D8B-95A1-6B2D7F0E8C41}.Release|x64.ActiveCfg = Release|x64
+		{7C3B1A59-4E62-4D8B-95A1-6B2D7F0E8C41}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

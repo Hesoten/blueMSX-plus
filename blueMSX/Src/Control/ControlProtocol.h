@@ -30,11 +30,15 @@
 #define CTRL_INSTANCE_PREFIX_LEN (sizeof(CTRL_INSTANCE_PREFIX) - 1)
 #define CTRL_INSTANCE_SUFFIX     ".json"
 
-/* The longest request line, with its NUL. */
+/* The longest request line, with its NUL; the MCP server builds none longer. */
 #define CTRL_LINE_MAX      (64 * 1024)
 
 /* Enough for a full 64kB hex dump, the largest single reply. */
 #define CTRL_REPLY_MAX (1024 * 768)
+
+/* A number as the text a schema writes; the numbers below are plain decimal for this. */
+#define CTRL_STR_(x) #x
+#define CTRL_STR(x)  CTRL_STR_(x)
 
 /* What an argument of each kind must be, after "\"name\" must be ". */
 #define CTRL_TEXT_WANT_INT            "a whole number, as in 16 or \"0x10\""

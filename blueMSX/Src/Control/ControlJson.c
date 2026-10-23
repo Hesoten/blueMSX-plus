@@ -232,7 +232,7 @@ int jsonIsNull(const char* json, const char* key)
     return s != NULL && strncmp(s, "null", 4) == 0;
 }
 
-/* Its own, so this file needs no other Control file. */
+/* Its own, so the MCP server needs no other Control file. */
 static int hexDigit(int c)
 {
     if (c >= '0' && c <= '9') return c - '0';
