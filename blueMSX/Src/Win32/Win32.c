@@ -3122,6 +3122,7 @@ void* createScreenShotEx(int large, int* bitmapSize, int png, const char* overri
     FrameBuffer* frameBuffer = frameBufferGetViewFrame();
 
     if (frameBuffer == NULL || frameBuffer->maxWidth <= 0 || frameBuffer->lines <= 0) {
+        free(bmBitsDst);
         return NULL;
     }
 
