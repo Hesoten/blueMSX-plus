@@ -55,7 +55,7 @@
 #include <math.h>
 #include <string.h>
 
-static int WaitForSync(int maxSpeed, int breakpointHit);
+static int WaitForSync(int maxSpeed, int stopCause);
 
 static void*  emuThread;
 #ifndef WII
@@ -92,6 +92,10 @@ static volatile int      emuSingleStep = 0;
 /* A leaf lock, held only while emuState is written; under it only the debugger's state is set,
 ** which takes no lock. */
 static void*             emuStateLock;
+/* Goes up on every write of emuState, never to 0, so one transition is told from a later one. */
+static volatile UInt32   emuStateSeq = 1;
+/* The seq of the last transition this thread made, for the notify that follows it. */
+static ARCH_THREAD_LOCAL UInt32 emuOwnStateSeq;
 /* Set while a question about the media is open: nothing may resume the machine meanwhile. */
 static int               emuHoldSuspended;
 static Properties* properties;
@@ -273,6 +277,8 @@ void emulatorCreateLocks(void)
 static void writeHeld(EmuState state, int setsDebugger)
 {
     emuState = state;
+    emuStateSeq = emuStateSeq + 1 != 0 ? emuStateSeq + 1 : 1;
+    emuOwnStateSeq = emuStateSeq;
     if (setsDebugger) {
         dbgSetRunState(state == EMU_PAUSED ? DBG_PAUSED : DBG_RUNNING);
     }
@@ -310,6 +316,16 @@ int emulatorPauseIfRunning(void)
     archSoundSuspend();
     archMidiEnable(0);
     return 1;
+}
+
+UInt32 emulatorGetStateSeq(void)
+{
+    return emuStateSeq;
+}
+
+UInt32 emulatorOwnStateSeq(void)
+{
+    return emuOwnStateSeq;
 }
 
 int emulatorIsSingleStepping(void) {
@@ -953,7 +969,7 @@ int WaitReverse()
     return -60;
 }
 
-static int WaitForSync(int maxSpeed, int breakpointHit) {
+static int WaitForSync(int maxSpeed, int stopCause) {
     UInt32 li1;
     UInt32 li2;
     static UInt32 tmp = 0;
@@ -977,14 +993,17 @@ static int WaitForSync(int maxSpeed, int breakpointHit) {
 
     emuSuspendFlag = 1;
 
-    /* A step and a stop met during it make one pause. */
-    if (emuSingleStep || breakpointHit) {
-        /* Paused before the notify, so whoever it wakes can step again. */
+    /* A breakpoint or watch hit during a step is the one stop to report. */
+    if (stopCause == DBG_STOP_NONE && emuSingleStep) {
+        stopCause = DBG_STOP_STEP;
+    }
+    if (stopCause != DBG_STOP_NONE) {
+        /* Paused before the notify posts the stop, so whoever it wakes can step again. */
         emuSingleStep = 0;
         writeState(EMU_PAUSED, 1);
         archSoundSuspend();
         archMidiEnable(0);
-        debuggerNotifyEmulatorPause();
+        debuggerNotifyEmulatorPauseFor(stopCause);
     }
 
     if (emuState != EMU_RUNNING) {

@@ -483,7 +483,7 @@ static void checkVramAccessTimeTms(VDP* vdp)
         }
 
         if (boardSystemTime() - oldTime < minTime) {
-            boardOnBreakpoint(0);
+            boardOnBreakpoint(DBG_STOP_VRAM_TIMING);
         }
         oldTime = boardSystemTime();
     }

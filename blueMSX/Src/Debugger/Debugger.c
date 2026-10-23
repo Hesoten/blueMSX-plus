@@ -42,6 +42,8 @@ struct BlueDebugger {
     DebuggerEvent onEmulatorStart;
     DebuggerEvent onEmulatorStop;
     DebuggerEvent onEmulatorPause;
+    /* The listener's own, told why; NULL for a plugin, which gets onEmulatorPause. */
+    DebuggerPauseEvent onEmulatorPauseFor;
     DebuggerEvent onEmulatorResume;
     DebuggerEvent onEmulatorReset;
     DebuggerTrace onDebugTrace;
@@ -50,7 +52,9 @@ struct BlueDebugger {
 };
 
 #define MAX_DEVICES 64
-#define MAX_DEBUGGERS 8
+/* Slot 0 is the listener's, ahead of the plugins in every fan-out; plugins get the other 8. */
+#define MAX_DEBUGGERS 9
+#define LISTENER_SLOT 0
 
 struct DbgSnapshot {
     int count;
@@ -70,6 +74,29 @@ static void onDefTrace(void* ref, const char* dummy) {
 static void onDefSetBp(void* ref, UInt16 d1, UInt16 d2, UInt16 d3) {
 }
 
+static BlueDebugger* newDebugger(DebuggerEvent onEmulatorStart,
+                                 DebuggerEvent onEmulatorStop,
+                                 DebuggerEvent onEmulatorPause,
+                                 DebuggerEvent onEmulatorResume,
+                                 DebuggerEvent onEmulatorReset,
+                                 DebuggerTrace onDebugTrace,
+                                 DebuggerSetBp onDebugSetBp,
+                                 void* ref)
+{
+    BlueDebugger* debugger = malloc(sizeof(BlueDebugger));
+
+    debugger->onEmulatorStart  = onEmulatorStart  ? onEmulatorStart  : onDefault;
+    debugger->onEmulatorStop   = onEmulatorStop   ? onEmulatorStop   : onDefault;
+    debugger->onEmulatorPause  = onEmulatorPause  ? onEmulatorPause  : onDefault;
+    debugger->onEmulatorResume = onEmulatorResume ? onEmulatorResume : onDefault;
+    debugger->onEmulatorReset  = onEmulatorReset  ? onEmulatorReset  : onDefault;
+    debugger->onDebugTrace     = onDebugTrace     ? onDebugTrace     : onDefTrace;
+    debugger->onDebugSetBp     = onDebugSetBp     ? onDebugSetBp     : onDefSetBp;
+    debugger->onEmulatorPauseFor = NULL;
+    debugger->ref = ref;
+    return debugger;
+}
+
 BlueDebugger* debuggerCreate(DebuggerEvent onEmulatorStart,
                          DebuggerEvent onEmulatorStop,
                          DebuggerEvent onEmulatorPause,
@@ -79,25 +106,29 @@ BlueDebugger* debuggerCreate(DebuggerEvent onEmulatorStart,
                          DebuggerSetBp onDebugSetBp,
                          void* ref)
 {
-    BlueDebugger* debugger = malloc(sizeof(BlueDebugger));
+    BlueDebugger* debugger = newDebugger(onEmulatorStart, onEmulatorStop, onEmulatorPause,
+                                         onEmulatorResume, onEmulatorReset, onDebugTrace,
+                                         onDebugSetBp, ref);
     int i;
 
-    debugger->onEmulatorStart  = onEmulatorStart  ? onEmulatorStart  : onDefault;
-    debugger->onEmulatorStop   = onEmulatorStop   ? onEmulatorStop   : onDefault;
-    debugger->onEmulatorPause  = onEmulatorPause  ? onEmulatorPause  : onDefault;
-    debugger->onEmulatorResume = onEmulatorResume ? onEmulatorResume : onDefault;
-    debugger->onEmulatorReset  = onEmulatorReset  ? onEmulatorReset  : onDefault;
-    debugger->onDebugTrace     = onDebugTrace     ? onDebugTrace     : onDefTrace;
-    debugger->onDebugSetBp     = onDebugSetBp     ? onDebugSetBp     : onDefSetBp;
-    debugger->ref = ref;
-
-    for (i = 0; i < MAX_DEBUGGERS; i++) {
+    for (i = LISTENER_SLOT + 1; i < MAX_DEBUGGERS; i++) {
         if (debuggerList[i] == NULL) {
             debuggerList[i] = debugger;
             break;
         }
     }
 
+    return debugger;
+}
+
+BlueDebugger* debuggerCreateListener(DebuggerEvent onEmulatorStart, DebuggerEvent onEmulatorStop,
+                                     DebuggerPauseEvent onEmulatorPause, void* ref)
+{
+    BlueDebugger* debugger = newDebugger(onEmulatorStart, onEmulatorStop, NULL, NULL, NULL,
+                                         NULL, NULL, ref);
+
+    debugger->onEmulatorPauseFor = onEmulatorPause;
+    debuggerList[LISTENER_SLOT] = debugger;
     return debugger;
 }
 
@@ -152,10 +183,22 @@ void debuggerNotifyEmulatorStop()
 
 void debuggerNotifyEmulatorPause()
 {
+    debuggerNotifyEmulatorPauseFor(DBG_STOP_USER);
+}
+
+void debuggerNotifyEmulatorPauseFor(int cause)
+{
     int i;
 
     for (i = 0; i < MAX_DEBUGGERS; i++) {
-        if (debuggerList[i] != NULL) {
+        if (debuggerList[i] == NULL) {
+            continue;
+        }
+        /* The seq of the transition this pause notifies, made on this thread just before. */
+        if (debuggerList[i]->onEmulatorPauseFor != NULL) {
+            debuggerList[i]->onEmulatorPauseFor(debuggerList[i]->ref, cause, emulatorOwnStateSeq());
+        }
+        else {
             debuggerList[i]->onEmulatorPause(debuggerList[i]->ref);
         }
     }

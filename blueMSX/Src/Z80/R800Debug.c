@@ -184,7 +184,7 @@ static void breakpointCb(R800Debug* dbg, UInt16 pc)
         return;
     }
 
-    boardOnBreakpoint(pc);
+    boardOnBreakpoint(DBG_STOP_BREAKPOINT);
 }
   
 UInt8 readMem(void* ref, int address) {

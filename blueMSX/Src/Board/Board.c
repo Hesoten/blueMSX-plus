@@ -1026,13 +1026,14 @@ static void onFdcDone(void* ref, UInt32 time)
     fdcActive = 0;
 }
 
-static void doSync(UInt32 time, int breakpointHit)
+/* cause is DBG_STOP_NONE for a plain sync, else why the machine is to stop there. */
+static void doSync(UInt32 time, int cause)
 {
     int execTime = 10;
     if (!skipSync) {
         execTime = syncToRealClock(casActive ? BOARD_BOOST_TAPE :
                                    fdcActive ? BOARD_BOOST_DISK : BOARD_BOOST_NONE,
-                                   breakpointHit);
+                                   cause);
     }
     if (execTime == -99) {
         boardInfo.stop(boardInfo.cpuRef);
@@ -1088,10 +1089,10 @@ static void onStateSync(void* ref, UInt32 time)
 
 static void onSync(void* ref, UInt32 time)
 {
-    doSync(time, 0);
+    doSync(time, DBG_STOP_NONE);
 }
 
-void boardOnBreakpoint(UInt16 pc)
+void boardOnBreakpoint(int cause)
 {
     /* Parking here would never come back on the UI thread, which is where a
     ** debugger callback runs. A caller that must hold the hit rather than lose
@@ -1099,7 +1100,7 @@ void boardOnBreakpoint(UInt16 pc)
     if (debugDeviceIsInspecting()) {
         return;
     }
-    doSync(boardSystemTime(), 1);
+    doSync(boardSystemTime(), cause);
 }
 
 int boardInsertExternalDevices()
@@ -1139,7 +1140,7 @@ int boardRemoveExternalDevices()
 
 static void onBreakpointSync(void* ref, UInt32 time) {
     skipSync = 0;
-    doSync(time, 1);
+    doSync(time, DBG_STOP_STEP_BACK);
 }
 
 static int boardRewindLoad(int drop);

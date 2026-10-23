@@ -220,7 +220,8 @@ void boardTimerRemove(BoardTimer* timer);
 void boardTimerCheckTimeout(void* dummy);
 UInt32 boardCalcRelativeTimeout(UInt32 timerFrequency, UInt32 nextTimeout);
 
-void   boardOnBreakpoint(UInt16 pc);
+/* Stops the machine where it is, for cause (a DBG_STOP_ value), which the pause tells on. */
+void   boardOnBreakpoint(int cause);
 
 int boardInsertExternalDevices();
 int boardRemoveExternalDevices();

@@ -1587,7 +1587,7 @@ void vdpCmdExecute(VdpCmdState* vdpCmd, UInt32 systemTime)
         /* The watchpoint that matched can have been removed while the hit was
         ** waiting, so the address is re-qualified rather than merely counted. */
         if (watchpointCovers(DBGTYPE_VIDEO, vdpCmd->breakPendingAddr)) {
-            boardOnBreakpoint(0);
+            boardOnBreakpoint(DBG_STOP_WATCH);
         }
     }
 }

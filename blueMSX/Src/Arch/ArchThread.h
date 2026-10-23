@@ -34,6 +34,13 @@
 #define THREAD_PRIO_NORMAL 0
 #define THREAD_PRIO_HIGH   1
 
+/* Storage class of a variable each thread has its own copy of. */
+#ifdef _MSC_VER
+#define ARCH_THREAD_LOCAL __declspec(thread)
+#else
+#define ARCH_THREAD_LOCAL __thread
+#endif
+
 void* archThreadCreate(void (*entryPoint)(), int priority);
 void* archThreadCreateEx(void (*entryPoint)(), int priority, int stacksize);
 void  archThreadJoin(void* thread, int timeout);

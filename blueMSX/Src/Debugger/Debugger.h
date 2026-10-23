@@ -56,6 +56,8 @@ typedef enum {
 
 
 typedef void (*DebuggerEvent)(void*);
+/* A pause told with its cause (a DBG_STOP_ value) and the run generation it began. */
+typedef void (*DebuggerPauseEvent)(void*, int cause, UInt32 runGeneration);
 typedef void (*DebuggerTrace)(void*, const char*);
 typedef void (*DebuggerSetBp)(void*, UInt16, UInt16, UInt16);
 
@@ -109,6 +111,10 @@ BlueDebugger* debuggerCreate(DebuggerEvent onEmulatorStart,
                          void* ref);
 
 void debuggerDestroy(BlueDebugger* debugger);
+
+/* The one listener inside the emulator, told before every plugin; created before they load. */
+BlueDebugger* debuggerCreateListener(DebuggerEvent onEmulatorStart, DebuggerEvent onEmulatorStop,
+                                     DebuggerPauseEvent onEmulatorPause, void* ref);
 
 DbgSnapshot*     dbgSnapshotCreate();
 void             dbgSnapshotDestroy(DbgSnapshot* dbgSnapshot);
@@ -198,7 +204,17 @@ void dbgSetRunState(DbgState state);
 
 void debuggerNotifyEmulatorStart();
 void debuggerNotifyEmulatorStop();
+/* Why the machine stopped, as a pause tells it on. */
+#define DBG_STOP_NONE        0
+#define DBG_STOP_USER        1  /* a pause was asked for                     */
+#define DBG_STOP_STEP        2  /* a single step finished                    */
+#define DBG_STOP_BREAKPOINT  3
+#define DBG_STOP_WATCH       4  /* a watchpoint matched                      */
+#define DBG_STOP_VRAM_TIMING 5  /* the VDP was accessed faster than it takes */
+#define DBG_STOP_STEP_BACK   6  /* a step back reached its moment            */
+
 void debuggerNotifyEmulatorPause();
+void debuggerNotifyEmulatorPauseFor(int cause);
 void debuggerNotifyEmulatorResume();
 void debuggerNotifyEmulatorReset();
 void debuggerTrace(const char* str);

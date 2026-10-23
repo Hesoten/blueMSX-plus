@@ -42,6 +42,11 @@ void emulatorExit();
 /* Once at startup, before any plugin loads: the lock every change of the run state takes. */
 void emulatorCreateLocks(void);
 
+/* Goes up on every change of the run state, never to 0. */
+UInt32 emulatorGetStateSeq(void);
+/* The seq of the last change of the run state made on the calling thread. */
+UInt32 emulatorOwnStateSeq(void);
+
 void emuEnableSynchronousUpdate(int enable);
 
 void emulatorSetFrequency(int logFrequency, int* frequency);

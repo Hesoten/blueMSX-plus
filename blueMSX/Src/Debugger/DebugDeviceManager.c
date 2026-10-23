@@ -30,6 +30,7 @@
 */
 #include "DebugDeviceManager.h"
 #include "Board.h"
+#include "ArchThread.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -100,16 +101,10 @@ void debugDeviceUnregister(int handle)
     }
 }
 
-#ifdef _MSC_VER
-#define DBG_THREAD_LOCAL __declspec(thread)
-#else
-#define DBG_THREAD_LOCAL __thread
-#endif
-
 /* Counts the debugger callbacks this thread is inside. A device must not stop
 ** the board from one: they run on the UI thread, which cannot park itself and
 ** come back. Per thread, so the emulation loop is never the one silenced. */
-static DBG_THREAD_LOCAL int inspecting = 0;
+static ARCH_THREAD_LOCAL int inspecting = 0;
 
 int debugDeviceIsInspecting(void)
 {
@@ -463,6 +458,6 @@ void tryWatchpoint(DbgDeviceType devType, int address, UInt8 value, void* ref, W
     ** match is what is rare. No device routes a debugger write back through
     ** here today, but one that did would hang the UI thread. */
     if (checkWatchpoint(devType, address, value, ref, callback) && !debugDeviceIsInspecting()) {
-        boardOnBreakpoint(0);
+        boardOnBreakpoint(DBG_STOP_WATCH);
     }
 }
