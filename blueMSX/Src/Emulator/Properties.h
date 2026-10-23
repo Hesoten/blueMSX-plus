@@ -253,6 +253,7 @@ typedef struct {
     int  mouseSensitivity;  /* MSX-mouse sensitivity slider 1..10 (default 5) */
     /* Control socket access: 0 off, 1 read only, 2 full (CTRL_GATE_* in ControlClient.h). */
     int  agentControl;
+    int  activityFontSize;  /* activity panel font in points; Ctrl+plus/minus/0 changes it */
 } EmulationProperties;
 
 typedef struct {

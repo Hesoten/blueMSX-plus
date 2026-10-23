@@ -29,6 +29,7 @@
 #include "ControlStopLog.h"
 #include "ControlSymbol.h"
 #include "SlotManager.h"
+#include <ctype.h>
 #include <stdio.h>
 
 /* The value a register is set to, as an address: a number, a label, or a segment address.
@@ -70,12 +71,30 @@ static int regValue(CtrlCall* call, const CtrlAddr* where, UInt32* value)
     return 0;
 }
 
+/* The register by its upper-case name, and the values as wide as the register. */
+static void noteRegister(const char* name, int bits, UInt32 previous, UInt32 value)
+{
+    char upper[16];
+    char change[32];
+    int  digits = bits > 8 ? 4 : 2;
+    int  i;
+
+    for (i = 0; name[i] != 0 && i < (int)sizeof(upper) - 1; i++) {
+        upper[i] = (char)toupper((unsigned char)name[i]);
+    }
+    upper[i] = 0;
+    snprintf(change, sizeof(change), "0x%0*X -> 0x%0*X", digits, (unsigned)previous,
+             digits, (unsigned)value);
+    ctrlActivityNoteOn(CTRL_ACT_REG_WRITE, upper, change, CTRL_ACT_DONE);
+}
+
 int ctrlOpRegWrite(CtrlCall* call)
 {
     int refused;
     const char* name = ctrlCallText(call, "reg");
     const char* valueText = ctrlCallText(call, "value");
     char  err[CTRL_ADDR_ERR_MAX];
+    int   bits = 16;
     Int32 previous = -1;
     CtrlAddr where;
     UInt32 value;
@@ -110,10 +129,11 @@ int ctrlOpRegWrite(CtrlCall* call)
         return refused;
     }
 
-    if ((set = ctrlCpuSetRegister(name, value, &previous, err, sizeof(err))) <= 0) {
+    if ((set = ctrlCpuSetRegister(name, value, &previous, &bits, err, sizeof(err))) <= 0) {
         /* The view is held, so the registers are always there; -1 is a bug here. */
         return ctrlReplyError(call, set < 0 ? "internal" : "unwritable", err);
     }
+    noteRegister(name, bits, (UInt32)previous, value);
     ctrlTextAdd(&call->text, "%s was 0x%X, is now 0x%X\n", name,
                 (unsigned)previous, (unsigned)value);
     /* No run state: this request saw no stop, so any state could be stale. */

@@ -82,6 +82,7 @@ int ctrlHuntList(const CtrlHunt* hunt, UInt32 first, UInt32 max,
 /* 0 once a reset, cartridge change or savestate load has happened since the hunt began. */
 int ctrlHuntIsValid(const CtrlHunt* hunt);
 
+/* Frees the hunt without an activity entry: only the agent's own hunt.end logs one. */
 void ctrlHuntAbandon(CtrlHunt* hunt);
 
 /* Bytes the hunt scans. */

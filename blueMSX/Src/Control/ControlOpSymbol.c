@@ -22,6 +22,7 @@
 */
 #include "ControlOp.h"
 #include "ControlAddress.h"
+#include "ControlClient.h"
 #include "ControlSymbol.h"
 #include "ControlProtocol.h"
 #include "Emulator.h"
@@ -62,8 +63,10 @@ int ctrlOpSymLoad(CtrlCall* call)
     if (!ctrlSymLoad(path, wantSlot, wantSubSlot, replace,
                      call->text.data, call->text.capacity))
     {
+        ctrlActivityNoteFile(CTRL_ACT_SYM_LOAD, path, CTRL_ACT_FAILED);
         return ctrlReplyTextAsError(call, "sym_load_failed");
     }
+    ctrlActivityNoteFile(CTRL_ACT_SYM_LOAD, path, CTRL_ACT_DONE);
     jsonOutInt(&call->out, "symbols", ctrlSymCount());
     return ctrlReplyDone(call);
 }

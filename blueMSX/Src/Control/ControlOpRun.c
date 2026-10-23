@@ -205,6 +205,7 @@ static int runStep(CtrlCall* call, Int32 count)
     if ((refused = refuseUnlessPaused(call)) != 0) {
         return refused;
     }
+    ctrlActivityNoteAmount(CTRL_ACT_STEP, NULL, (UInt32)count);
     i = stepPastWatch(call, &finishedWrite, &lost, &refused);
     for (; i < count && !lost && !refused && !ctrlClientAllBlocked() &&
            ctrlGateLevel() == CTRL_GATE_FULL && !ctrlPeerGone(); i++) {
@@ -394,6 +395,7 @@ static int runStepOverOrOut(CtrlCall* call, const char* how)
         ctrlViewRelease(&view);
         return refused;
     }
+    ctrlActivityNoteOn(over ? CTRL_ACT_STEP_OVER : CTRL_ACT_STEP_OUT, NULL, NULL, CTRL_ACT_DONE);
     /* Decided; the step runs the machine, which no view may outlast. */
     ctrlViewRelease(&view);
 
@@ -461,11 +463,15 @@ int ctrlOpRun(CtrlCall* call)
     }
 
     if (strcmp(how, "pause") == 0) {
-        replied = refusePause(call, dbgPause());
+        if ((replied = refusePause(call, dbgPause())) == 0) {
+            ctrlActivityNoteOn(CTRL_ACT_PAUSE, NULL, NULL, CTRL_ACT_DONE);
+        }
     }
     else if (strcmp(how, "resume") == 0) {
         call->session->stopCursor = before;
-        replied = refuseResume(call, dbgResume());
+        if ((replied = refuseResume(call, dbgResume())) == 0) {
+            ctrlActivityNoteOn(CTRL_ACT_RUN, NULL, NULL, CTRL_ACT_DONE);
+        }
     }
     else if (strcmp(how, "step") == 0) {
         replied = runStep(call, count);
@@ -555,6 +561,7 @@ int ctrlOpRunUntil(CtrlCall* call)
         if ((replied = refuseResume(call, dbgResume())) != 0) {
             return replied;
         }
+        ctrlActivityNoteOn(CTRL_ACT_RUN_UNTIL_STOP, NULL, NULL, CTRL_ACT_DONE);
     }
     else {
         /* Unread stops from earlier runs were resumed from, so they are not this one. */
@@ -580,6 +587,7 @@ int ctrlOpRunUntil(CtrlCall* call)
         return replied;
     }
     else if (pauseAtTimeout && dbgPause()) {
+        ctrlActivityNoteOn(CTRL_ACT_PAUSE, NULL, NULL, CTRL_ACT_TIMED_OUT);
         /* Its own pause is no stop to report later. */
         call->session->stopCursor = ctrlStopSeq();
         ctrlTextAdd(&call->text, "paused it, as pause_at_timeout asked: read what you need, "

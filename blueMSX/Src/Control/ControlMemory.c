@@ -274,12 +274,44 @@ static int transfer(CtrlView* view, const CtrlAddr* addr, UInt8* bytes, UInt32 s
     return CTRL_MEM_OK;
 }
 
-int ctrlMemRead(CtrlView* view, const CtrlAddr* addr, UInt8* dst, UInt32 size)
+/* The address for the activity log as resolved now, or as given when it cannot be. */
+static void placeForLog(const CtrlAddr* addr, CtrlAddrInfo* where)
 {
+    if (!ctrlAddrResolve(addr, where)) {
+        memset(where, 0, sizeof(CtrlAddrInfo));
+        where->canonical  = *addr;
+        where->z80Address = -1;
+    }
+}
+
+static int readMemory(CtrlView* view, const CtrlAddr* addr, UInt8* dst, UInt32 size, int logged)
+{
+    CtrlAddrInfo where;
+    int result;
+
     if (!ctrlClientAllowed(ctrlClientCurrent())) {
+        if (logged) {
+            ctrlActivityNoteDenied(CTRL_ACT_READ, NULL, addr, NULL, CTRL_ACT_CUT_OFF);
+        }
         return CTRL_MEM_DENIED;
     }
-    return transfer(view, addr, dst, size, 0, vdpDebugGetScreenMode());
+
+    result = transfer(view, addr, dst, size, 0, vdpDebugGetScreenMode());
+    if (result == CTRL_MEM_OK && logged) {
+        placeForLog(addr, &where);
+        ctrlActivityNoteAt(CTRL_ACT_READ, &where, size, NULL, CTRL_ACT_DONE);
+    }
+    return result;
+}
+
+int ctrlMemRead(CtrlView* view, const CtrlAddr* addr, UInt8* dst, UInt32 size)
+{
+    return readMemory(view, addr, dst, size, 1);
+}
+
+int ctrlMemPeek(CtrlView* view, const CtrlAddr* addr, UInt8* dst, UInt32 size)
+{
+    return readMemory(view, addr, dst, size, 0);
 }
 
 /* JOURNAL_SPAN covers the largest mem.write, so a write to RAM can always be taken back. */
@@ -398,9 +430,13 @@ const char* ctrlMemUndoWhyNot(void)
 int ctrlMemUndo(CtrlView* view, CtrlAddr* undone, UInt32* size, int* vramMode)
 {
     JournalEntry* entry;
+    CtrlAddrInfo  where;
+    UInt8 before[CTRL_ACT_PEEK];
+    int   peek;
     int   result;
 
     if (!ctrlClientAllowed(ctrlClientCurrent())) {
+        ctrlActivityNoteDenied(CTRL_ACT_UNDO, NULL, NULL, NULL, CTRL_ACT_CUT_OFF);
         return CTRL_MEM_DENIED;
     }
     if (journalDepth == 0) {
@@ -418,6 +454,11 @@ int ctrlMemUndo(CtrlView* view, CtrlAddr* undone, UInt32* size, int* vramMode)
     *size     = entry->size;
     *vramMode = entry->vramMode;
 
+    peek = (int)(entry->size < CTRL_ACT_PEEK ? entry->size : CTRL_ACT_PEEK);
+    if (transfer(view, &entry->addr, before, (UInt32)peek, 0, entry->vramMode) != CTRL_MEM_OK) {
+        peek = 0;
+    }
+
     /* Not ctrlMemWrite: the undo must not journal itself. */
     result = transfer(view, &entry->addr, entry->bytes, entry->size, 1, entry->vramMode);
 
@@ -430,16 +471,55 @@ int ctrlMemUndo(CtrlView* view, CtrlAddr* undone, UInt32* size, int* vramMode)
         return result;
     }
 
+    placeForLog(&entry->addr, &where);
+    ctrlActivityNoteWrite(CTRL_ACT_UNDO, &where, entry->size,
+                          peek > 0 ? before : NULL, entry->bytes, peek, CTRL_ACT_DONE);
     journalDepth--;
     return CTRL_MEM_OK;
 }
 
+/* Plain ROM: read only, in one 8 kB bank the Z80 sees, and no device takes writes there. */
+static int plainRom(const CtrlAddr* addr, const CtrlAddrInfo* where, UInt32 size)
+{
+    const CtrlAddr* place = &where->canonical;
+    Int32 z80 = addr->space == CTRL_SPACE_CPU ? (Int32)addr->offset : where->z80Address;
+
+    return where->readable && !where->writable && place->space == CTRL_SPACE_SLOT &&
+           z80 >= 0 && (UInt32)(z80 & 0x1fff) + size <= 0x2000 &&
+           !(slotDebugGetBankState(place->slot, place->subSlot, z80 >> 13) & SLOT_DEBUG_REGISTERED);
+}
+
+/* Logs what the memory holds after the write, which ROM or a bank register does not keep.
+** Read back from the segment the row names: a bus write may have switched the bank since. */
+static void noteWrite(CtrlView* view, const CtrlAddr* addr, const CtrlAddrInfo* where,
+                      const UInt8* src, UInt32 size, const UInt8* before, int vramMode)
+{
+    const CtrlAddr* from = where->canonical.space == CTRL_SPACE_SLOT &&
+                           where->canonical.segment >= 0 ? &where->canonical : addr;
+    UInt8 after[CTRL_ACT_PEEK];
+    int   peek = (int)(size < CTRL_ACT_PEEK ? size : CTRL_ACT_PEEK);
+    int   readBack = transfer(view, from, after, (UInt32)peek, 0, vramMode) == CTRL_MEM_OK;
+    int   outcome = CTRL_ACT_DONE;
+
+    if (readBack && memcmp(after, src, (size_t)peek) != 0) {
+        outcome = plainRom(addr, where, size) && before != NULL &&
+                  memcmp(after, before, (size_t)peek) == 0 ? CTRL_ACT_NOT_KEPT_ROM : CTRL_ACT_NOT_KEPT;
+    }
+
+    ctrlActivityNoteWrite(CTRL_ACT_WRITE, where, size, before, readBack ? after : NULL, peek,
+                          outcome);
+}
+
 int ctrlMemWrite(CtrlView* view, const CtrlAddr* addr, const UInt8* src, UInt32 size)
 {
+    CtrlAddrInfo where;
+    UInt8    before[CTRL_ACT_PEEK];
     UInt8    kept[JOURNAL_SPAN];
     CtrlAddr undoAt;
     int      keeping;
-    /* One mode for both transfers, so the undo puts back the bytes this write replaces. */
+    int      placed;
+    int      peek = (int)(size < CTRL_ACT_PEEK ? size : CTRL_ACT_PEEK);
+    /* One mode for all three transfers, so the undo puts back the bytes this write replaces. */
     int      vramMode = vdpDebugGetScreenMode();
     int      result;
 
@@ -447,7 +527,18 @@ int ctrlMemWrite(CtrlView* view, const CtrlAddr* addr, const UInt8* src, UInt32 
     journalWhyNot = NULL;
 
     if (!ctrlClientAllowed(ctrlClientCurrent())) {
+        ctrlActivityNoteDenied(CTRL_ACT_WRITE, NULL, addr, NULL, CTRL_ACT_CUT_OFF);
         return CTRL_MEM_DENIED;
+    }
+
+    memset(before, 0, sizeof(before));
+    placed = transfer(view, addr, before, (UInt32)peek, 0, vramMode) == CTRL_MEM_OK;
+    if (!placed) {
+        peek = 0;
+    }
+    else {
+        /* After the read saw the view, before the write: a bank register write moves the page. */
+        placeForLog(addr, &where);
     }
 
     /* Read from undoAt, where the undo will write, not from addr. */
@@ -468,6 +559,10 @@ int ctrlMemWrite(CtrlView* view, const CtrlAddr* addr, const UInt8* src, UInt32 
         if (keeping) {
             journalPush(&undoAt, kept, size, vramMode);
         }
+        if (!placed) {
+            placeForLog(addr, &where);
+        }
+        noteWrite(view, addr, &where, src, size, peek > 0 ? before : NULL, vramMode);
     }
     return result;
 }

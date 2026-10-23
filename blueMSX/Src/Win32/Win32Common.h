@@ -74,6 +74,8 @@ BOOL win32CommonIsDarkMode(void);
 COLORREF win32CommonDarkBg(void);
 COLORREF win32CommonDarkFg(void);
 HBRUSH   win32CommonDarkBgBrush(void);
+/* Rereads the theme on the next query; call on WM_SETTINGCHANGE "ImmersiveColorSet". */
+void     win32InvalidateDarkModeCache(void);
 
 /* Per-DLGPROC opt-in: apply dark titlebar / SetWindowTheme / WM_CTLCOLOR*
 ** subclass.  Call from WM_INITDIALOG.  Safe in light mode (no-op). */

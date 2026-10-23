@@ -24,6 +24,7 @@
 #include "ControlAddress.h"
 #include "ControlAddressArg.h"
 #include "ControlWatch.h"
+#include "ControlClient.h"
 #include "ControlProtocol.h"
 #include "Debugger.h"
 #include "DebugDeviceManager.h"
@@ -285,6 +286,30 @@ static void reportWatchSet(CtrlCall* call, const WatchTarget* target, const Watc
     }
 }
 
+/* A port, or a watch cleared with no machine, has no address to resolve; args is NULL for a clear. */
+static void noteWatch(int verb, const WatchTarget* target, const WatchArgs* args)
+{
+    char   detail[CTRL_ACT_DETAIL];
+    UInt32 size = args != NULL ? (UInt32)args->size : 0;
+
+    detail[0] = 0;
+    if (args != NULL && args->condition != DBGWP_ANY) {
+        const char* test = args->condition == DBGWP_EQUALS     ? "==" :
+                           args->condition == DBGWP_NOT_EQUALS ? "!=" :
+                           args->condition == DBGWP_LESS_THAN  ? "<"  : ">";
+
+        snprintf(detail, sizeof(detail), "%s 0x%0*llX", test, 2 * (int)args->size,
+                 (unsigned long long)args->value & (args->size >= 8 ? ~0ULL
+                                                    : (1ULL << (8 * args->size)) - 1));
+    }
+    if (target->devType == DBGTYPE_PORT || emulatorGetState() == EMU_STOPPED) {
+        ctrlActivityNoteOn(verb, target->printed, detail, CTRL_ACT_DONE);
+    }
+    else {
+        ctrlActivityNoteAt(verb, &target->info, size, detail, CTRL_ACT_DONE);
+    }
+}
+
 static int setWatch(CtrlCall* call, const WatchTarget* target, const WatchArgs* args)
 {
     /* The Z80 stores the low byte first; the engine reads the first byte highest. */
@@ -299,6 +324,7 @@ static int setWatch(CtrlCall* call, const WatchTarget* target, const WatchArgs* 
         return ctrlReplyErrorf(call, "watch_limit", "%d watches are set over this socket "
                                "already; clear one first", CTRL_WATCH_LIST_MAX);
     }
+    noteWatch(CTRL_ACT_WATCH_SET, target, args);
     for (n = 0; n < (int)args->size && n < 4; n++) {
         reference = (reference << 8) | (((UInt32)args->value >> (8 * n)) & 0xff);
     }
@@ -322,6 +348,7 @@ static int clearWatch(CtrlCall* call, const WatchTarget* target)
                                "cleared; listing the watches shows what is set",
                                target->printed);
     }
+    noteWatch(CTRL_ACT_WATCH_CLEAR, target, NULL);
     /* The clear suspends a running machine, which no request may do while it holds a view. */
     ctrlCallReleaseView(call);
     dbgClearWatchpointEx(target->devType, target->where, target->byProgram);

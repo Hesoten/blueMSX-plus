@@ -60,7 +60,7 @@ int ctrlStepOverStops(CtrlView* view, UInt16* stopAt, int* stops)
     for (i = 0; i < R800_DASM_MAX_LEN; i++) {
         CtrlAddr byteAt = at;
         byteAt.offset = (UInt32)((pc + i) & 0xffff);
-        if (ctrlMemRead(view, &byteAt, &window[i], 1) != CTRL_MEM_OK) {
+        if (ctrlMemPeek(view, &byteAt, &window[i], 1) != CTRL_MEM_OK) {
             return 1;
         }
     }

@@ -23,6 +23,7 @@
 #include "ControlOp.h"
 #include "ControlAddressArg.h"
 #include "ControlStopLog.h"
+#include "ControlClient.h"
 #include "ControlCpu.h"
 #include "ControlSlots.h"
 #include "ControlStatus.h"
@@ -296,6 +297,29 @@ static void outSegment(JsonOut* out, const char* key, int segment)
     }
 }
 
+static void noteSwitch(const MapperBanks* banks, int reg, int previous)
+{
+    char range[RANGE_TEXT_MAX];
+    char target[CTRL_ACT_TARGET];
+    char showed[SEGMENT_TEXT_MAX];
+    char shows[SEGMENT_TEXT_MAX];
+    char detail[CTRL_ACT_DETAIL];
+    int  slot;
+    int  subSlot;
+
+    mapperBanksRange(banks, reg, range, sizeof(range));
+    /* "Z80" only when the Z80 sees this slot there now. */
+    ctrlSlotsPageSlot((UInt16)strtoul(range, NULL, 16), &slot, &subSlot);
+    snprintf(target, sizeof(target),
+             slot == banks->slot && subSlot == banks->sslot ? "slot%d.%d (Z80 0x%.4s-0x%.4s)"
+                                                            : "slot%d.%d 0x%.4s-0x%.4s",
+             banks->slot, banks->sslot, range, range + 5);
+    ctrlSlotsBankName(showed, sizeof(showed), previous, 0);
+    ctrlSlotsBankName(shows, sizeof(shows), banks->type->get(banks->ref, reg), 0);
+    snprintf(detail, sizeof(detail), "%s -> %s", showed, shows);
+    ctrlActivityNoteOn(CTRL_ACT_BANK_SWITCH, target, detail, CTRL_ACT_DONE);
+}
+
 int ctrlOpBankSet(CtrlCall* call)
 {
     CtrlAddr     addr;
@@ -319,6 +343,7 @@ int ctrlOpBankSet(CtrlCall* call)
     if (result != MAPPER_SELECT_OK) {
         return refuseNotSelected(call, banks, reg, result, why, segment);
     }
+    noteSwitch(banks, reg, previous);
     describeSwitch(&call->text, banks, reg, previous);
     note = banks->type->note != NULL ? banks->type->note(banks->ref, reg) : NULL;
     if (note != NULL) {

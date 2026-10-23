@@ -54,6 +54,7 @@ static void*  orphan;
 static int    running;
 static int    boundPort;
 static int    winsockUp;
+static void (*statusListener)(void);
 
 int ctrlSocketIsListening(void)
 {
@@ -212,13 +213,26 @@ void ctrlSocketPoll(void)
         orphan = NULL;
         /* Off would have dropped its client's plain breakpoints; that is done now. */
         ctrlBreakDropDeparted();
+        if (statusListener != NULL) {
+            statusListener();
+        }
     }
+}
+
+void ctrlSocketSetStatusListener(void (*changed)(void))
+{
+    statusListener = changed;
 }
 
 /* Non-zero while the thread a stop could not join is still ending. */
 static int ctrlSocketIsClosing(void)
 {
     ctrlSocketPoll();
+    return orphan != NULL;
+}
+
+int ctrlSocketOrphanPending(void)
+{
     return orphan != NULL;
 }
 

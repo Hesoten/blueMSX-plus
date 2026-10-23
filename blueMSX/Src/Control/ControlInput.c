@@ -203,7 +203,7 @@ static const KeyChar* machineLayout(int* cbios, char* err, int errLen)
         memcpy(bios + 0x2000, high, 0x2000);
     }
     else {
-        read = ctrlMemRead(&view, &addr, bios, sizeof(bios));
+        read = ctrlMemPeek(&view, &addr, bios, sizeof(bios));
     }
     ctrlViewRelease(&view);
     /* A hold reads no memory: the bus of a running machine is not read. */

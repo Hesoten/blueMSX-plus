@@ -105,6 +105,7 @@
 #include "ControlClient.h"
 #include "ControlSocket.h"
 #include "ControlWindowThread.h"
+#include "Win32ActivityPanel.h"
 #include "RaceTest.h"
 #include "JoystickPort.h"
 #include "Theme.h"
@@ -1955,8 +1956,8 @@ static void checkKeyUp(Shortcuts* s, ShotcutHotkey key)
 #define WM_LAUNCHFILE        (WM_USER + 1249)
 #define WM_FLASHPROBLEM      (WM_USER + 1250)
 #ifdef BMSX_RACE_TEST
-/* Arms a race test point: wParam the point, lParam the milliseconds; RACE_HOLD_CHANGE holds
-** a change open as a menu does, for lParam ms. */
+/* Arms a race test point: wParam the point, lParam the milliseconds; point 0 dumps the activity log
+** and RACE_HOLD_CHANGE holds a change open as a menu does, for lParam ms. */
 #define WM_RACETEST          (WM_USER + 1260)
 #define RACE_HOLD_CHANGE     100
 
@@ -1977,6 +1978,32 @@ static void raceTestHoldChange(int ms)
     }
     raceTestLog("change ends");
     emulatorResume();
+}
+
+static void raceTestDumpActivity(void)
+{
+    CtrlActivityEntry entry;
+    char   line[128];
+    UInt32 first;
+    UInt32 last;
+    UInt32 seq;
+    int    i = 0;
+
+    raceTestLog("activity dump");
+    if (!ctrlActivitySeqRange(&first, &last)) {
+        return;
+    }
+    for (seq = first; seq <= last; seq++, i++) {
+        if (!ctrlActivityEntryBySeq(seq, &entry)) {
+            _snprintf(line, sizeof(line), "activity %d missing", i);
+        }
+        else {
+            _snprintf(line, sizeof(line), "activity %d seq %lu actor %ld verb %d count %lu %s", i,
+                      (unsigned long)entry.seq, (long)entry.client, entry.verb,
+                      (unsigned long)entry.count, entry.detail);
+        }
+        raceTestLog(line);
+    }
 }
 #endif
 
@@ -2289,6 +2316,8 @@ void archShowPropertiesDialog(PropPage  startPane) {
     changed = showProperties(pProperties, st.hwnd, startPane, st.mixer, st.pVideo);
     exitDialogShow();
     emulatorSetFrequency(pProperties->emulation.speed, NULL);
+    /* A Cancel restores the old properties; the panel writes its own text size back. */
+    activityPanelSettingsChanged();
     if (!changed) {
         return;
     }
@@ -3476,6 +3505,9 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         if (wParam == RACE_HOLD_CHANGE) {
             raceTestHoldChange((int)lParam);
         }
+        else if (wParam == 0) {
+            raceTestDumpActivity();
+        }
         else {
             raceTestArm((int)wParam, (int)lParam);
         }
@@ -4127,6 +4159,8 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         return TRUE;
 
     case WM_DESTROY:
+        /* Before the stop: a thread killed there may hold the activity lock the panel takes. */
+        activityPanelDestroy();
         /* First, so no client request runs against what follows; only here is it killed. */
         ctrlSocketStop(1);
 
@@ -6369,6 +6403,7 @@ void archShowLanguageDialog()
     for (i = 0; i < toolGetCount(); i++) {
         toolInfoSetLanguage(toolInfoGet(i), pProperties->language);
     }
+    activityPanelSettingsChanged();
 
     updateMenu(0);
 }

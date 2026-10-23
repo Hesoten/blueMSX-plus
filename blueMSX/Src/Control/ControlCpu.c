@@ -188,7 +188,7 @@ static int valueFits(const char* name, const char* target, int width, UInt32 val
 }
 
 static int setInBank(DbgRegisterBank* regs, const char* name, int half, UInt32 value,
-                     Int32* previous, char* err, int errLen)
+                     Int32* previous, int* bits, char* err, int errLen)
 {
     const char* target = half >= 0 ? regHalf[half].pair : name;
     int         index  = registerIndex(regs, target);
@@ -202,6 +202,9 @@ static int setInBank(DbgRegisterBank* regs, const char* name, int half, UInt32 v
     }
 
     width = half >= 0 ? 8 : (regs->reg[index].width > 8 ? 16 : 8);
+    if (bits != NULL) {
+        *bits = width;
+    }
     if (!valueFits(name, target, width, value, err, errLen)) {
         return 0;
     }
@@ -227,7 +230,7 @@ static int setInBank(DbgRegisterBank* regs, const char* name, int half, UInt32 v
     return 1;
 }
 
-int ctrlCpuSetRegister(const char* name, UInt32 value, Int32* previous,
+int ctrlCpuSetRegister(const char* name, UInt32 value, Int32* previous, int* bits,
                        char* err, int errLen)
 {
     DbgSnapshot* snapshot;
@@ -244,7 +247,7 @@ int ctrlCpuSetRegister(const char* name, UInt32 value, Int32* previous,
     }
 
     ok = setInBank(ctrlCpuRegisterBankIn(snapshot), name, halfIndex(name), value,
-                   previous, err, errLen);
+                   previous, bits, err, errLen);
     dbgSnapshotDestroy(snapshot);
     return ok;
 }

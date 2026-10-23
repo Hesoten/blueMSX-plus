@@ -193,6 +193,24 @@ static int reportKeptBreakpoints(CtrlCall* call, int hard)
     return keptCount;
 }
 
+/* Logs a reset only where one may have happened, as failed when unfinished or the machine did
+** not start again; a refusal is left to the failed line the dispatcher logs for its error. */
+static void noteReset(int hard, int result)
+{
+    if (result == CTRL_WINDOW_THREAD_DIALOG || result == CTRL_WINDOW_THREAD_NOT_TAKEN ||
+        result == CTRL_WINDOW_THREAD_BUSY ||
+        (result == CTRL_WINDOW_THREAD_DONE &&
+         (ctrlMachineResetOutcome() == CTRL_MACHINE_RESET_NOT_RUNNING ||
+          ctrlMachineResetOutcome() == CTRL_MACHINE_RESET_FILE_MISSING)))
+    {
+        return;
+    }
+    ctrlActivityNoteOn(hard ? CTRL_ACT_RESET : CTRL_ACT_RESET_SOFT, NULL, NULL,
+                       result == CTRL_WINDOW_THREAD_UNFINISHED ||
+                       ctrlMachineResetOutcome() == CTRL_MACHINE_RESET_NOT_STARTED
+                       ? CTRL_ACT_FAILED : CTRL_ACT_DONE);
+}
+
 int ctrlOpReset(CtrlCall* call)
 {
     int refused;
@@ -213,6 +231,7 @@ int ctrlOpReset(CtrlCall* call)
     }
 
     result = ctrlWindowThreadRun(ctrlMachineReset, hard, RESET_TIMEOUT_MS);
+    noteReset(hard, result);
     if ((refused = refuseResetNotDone(call, result)) != 0) {
         return refused;
     }
@@ -426,6 +445,8 @@ static int snapshotOp(CtrlCall* call, int restore)
         return refused;
     }
 
+    ctrlActivityNoteOn(restore ? CTRL_ACT_SNAPSHOT_RESTORE : CTRL_ACT_SNAPSHOT, NULL, NULL,
+                       CTRL_ACT_DONE);
     pc = ctrlCpuPc();
     if (!restore) {
         describeTake(call, pc);

@@ -23,6 +23,7 @@
 #include "ControlOp.h"
 #include "ControlAddress.h"
 #include "ControlAddressArg.h"
+#include "ControlClient.h"
 #include "ControlBreak.h"
 #include "ControlProtocol.h"
 #include "Debugger.h"
@@ -168,6 +169,8 @@ static int breakOp(CtrlCall* call, int setting)
     }
 
     refused = applyBreak(call, &info, setting);
+    ctrlActivityNoteAt(setting ? CTRL_ACT_BREAK_SET : CTRL_ACT_BREAK_CLEAR, &info, 0, NULL,
+                       refused != 0 ? CTRL_ACT_FAILED : CTRL_ACT_DONE);
     if (refused != 0) {
         return refused;
     }
@@ -201,6 +204,7 @@ int ctrlOpBpClearAll(CtrlCall* call)
 
     dbgClearAllSegmentBreakpoints();
     dbgClearKeptBreakpoints();
+    ctrlActivityNoteOn(CTRL_ACT_BREAK_CLEAR_ALL, NULL, NULL, CTRL_ACT_DONE);
     ctrlTextAdd(&call->text, "cleared %d segment breakpoint%s and ", cleared, cleared == 1 ? "" : "s");
     if (plainCleared > CTRL_PLAIN_LIST_MAX) {
         ctrlTextAdd(&call->text, "more than %d plain ones", CTRL_PLAIN_LIST_MAX);

@@ -37,6 +37,7 @@ static CtrlClient helloRefused(char* reply, int replyLen, const char* text)
 CtrlClient ctrlHelloAnswer(const char* line, const char* token, char* reply, int replyLen)
 {
     char       given[64];
+    char       label[CTRL_CLIENT_LABEL];
     Int32      owner = 0;
     CtrlClient client;
     int        dropped;
@@ -53,8 +54,10 @@ CtrlClient ctrlHelloAnswer(const char* line, const char* token, char* reply, int
                             "\"message\":\"the token is in the instance file under "
                             "%LOCALAPPDATA%\\\\blueMSXplus\\\\agent\"}");
     }
+    label[0] = 0;
+    jsonGetString(line, "client", label, sizeof(label));
     jsonGetInt(line, "owner", &owner);
-    client = ctrlClientOpen();
+    client = ctrlClientOpen(label[0] != 0 ? label : "unnamed client");
     if (client == CTRL_CLIENT_NONE) {
         return helloRefused(reply, replyLen,
                             "{\"ok\":false,\"error\":\"blocked\",\"message\":"

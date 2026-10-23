@@ -41,6 +41,7 @@ static int screenAsText(CtrlCall* call)
     if (!ok) {
         return ctrlReplyError(call, "not_text_mode", err);
     }
+    ctrlActivityNoteOn(CTRL_ACT_SCREEN_TEXT, NULL, NULL, CTRL_ACT_DONE);
     return ctrlReplyDone(call);
 }
 
@@ -53,12 +54,15 @@ static int screenAsPng(CtrlCall* call, const char* wanted)
 
     /* Any path the user can write to; read only gets the default file only. */
     if (wanted[0] != 0 && ctrlGateLevel() != CTRL_GATE_FULL) {
+        ctrlActivityNoteDenied(CTRL_ACT_SCREEN_SAVE, NULL, NULL, wanted, CTRL_ACT_READ_ONLY);
         return ctrlReplyError(call, "read_only",
                               "this emulator is set to read only, so it writes the "
                               "screenshot only to its own file; leave out path.");
     }
     result = ctrlScreenPng(wanted[0] != 0 ? wanted : NULL,
                            path, sizeof(path), err, sizeof(err));
+    ctrlActivityNoteFile(CTRL_ACT_SCREEN_SAVE, result == CTRL_SCREEN_OK ? path : wanted,
+                         result == CTRL_SCREEN_OK ? CTRL_ACT_DONE : CTRL_ACT_FAILED);
     if (result != CTRL_SCREEN_OK) {
         return ctrlReplyError(call,
                               result == CTRL_SCREEN_FILE_EXISTS ? "file_exists"

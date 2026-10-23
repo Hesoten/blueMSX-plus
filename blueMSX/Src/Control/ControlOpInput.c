@@ -21,6 +21,7 @@
 ******************************************************************************
 */
 #include "ControlOp.h"
+#include "ControlClient.h"
 #include "ControlInput.h"
 #include "ControlProtocol.h"
 #include <stdio.h>
@@ -60,6 +61,10 @@ int ctrlOpKey(CtrlCall* call)
     }
 
     result = ctrlInputKey(keys, kind, (int)hold, (int)gap, err, sizeof(err));
+    /* An interrupted press may have reached the machine in part, so it is logged as failed too. */
+    ctrlActivityNoteOn(kind == CTRL_INPUT_PRESS ? CTRL_ACT_KEY_PRESS :
+                       kind == CTRL_INPUT_RELEASE ? CTRL_ACT_KEY_RELEASE : CTRL_ACT_KEY_TAP,
+                       keys, NULL, result > 0 ? CTRL_ACT_DONE : CTRL_ACT_FAILED);
     if (result == CTRL_INPUT_STOPPED) {
         return ctrlReplyError(call, "input_interrupted", err);
     }
@@ -84,6 +89,15 @@ int ctrlOpKey(CtrlCall* call)
         ctrlTextAdd(&call->text, "released %s\n", keys);
     }
     return ctrlReplyDone(call);
+}
+
+/* The typed text, quoted, as the Target. */
+static void noteTyped(const char* typed, int outcome)
+{
+    char quoted[CTRL_ACT_TARGET];
+
+    snprintf(quoted, sizeof(quoted), "\"%.*s\"", (int)sizeof(quoted) - 3, typed);
+    ctrlActivityNoteOn(CTRL_ACT_TYPE, quoted, NULL, outcome);
 }
 
 int ctrlOpType(CtrlCall* call)
@@ -112,6 +126,8 @@ int ctrlOpType(CtrlCall* call)
 
     result = ctrlInputType(typed, (int)hold, (int)gap, &events, &frames,
                            note, sizeof(note), err, sizeof(err));
+    /* One activity line for the whole string, not one per key. */
+    noteTyped(typed, result > 0 ? CTRL_ACT_DONE : CTRL_ACT_FAILED);
     if (result == CTRL_INPUT_STOPPED) {
         return ctrlReplyError(call, "input_interrupted", err);
     }

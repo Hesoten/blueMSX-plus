@@ -145,7 +145,7 @@ static int sayHello(const McpInstance* instance, char* problem, int problemLen)
     Int32 dropped = 0;
 
     _snprintf(hello, sizeof(hello),
-              "{\"op\":\"hello\",\"token\":\"%s\",\"owner\":%u}\n",
+              "{\"op\":\"hello\",\"token\":\"%s\",\"client\":\"mcp\",\"owner\":%u}\n",
               instance->token, ownerNumber);
     if (!sendAll(hello, (int)strlen(hello))) {
         detach();

@@ -58,6 +58,7 @@
 #include "ControlClient.h"
 #include "ControlSocket.h"
 #include "ControlInstance.h"
+#include "Win32ActivityPanel.h"
 
 /* showLoadMemoryDlg is the IDD_LOAD_MEMORY entry point, defined
    alongside the rest of the Win32 dialog handlers in Win32.c.
@@ -137,6 +138,7 @@ extern int showLoadMemoryDlg(HWND hwnd);
 #define ID_TOOLS_AGENT_OFF              43200
 #define ID_TOOLS_AGENT_READONLY         43201
 #define ID_TOOLS_AGENT_FULL             43202
+#define ID_TOOLS_AGENT_ACTIVITY         43203
 
 #define ID_NOWIND_ENABLEDOS2            40100
 #define ID_NOWIND_ENABLEPHANTOMDRIVES   40101
@@ -1361,6 +1363,7 @@ static void setAgentControl(Properties* pProperties, int level)
         /* Rewrites the instance file with the new level. */
         ctrlInstanceSetMachine(NULL);
     }
+    activityPanelStatusChanged();
 }
 
 static HMENU menuCreateTools(Properties* pProperties, Shortcuts* shortcuts)
@@ -1397,6 +1400,9 @@ static HMENU menuCreateTools(Properties* pProperties, Shortcuts* shortcuts)
                     ID_TOOLS_AGENT_READONLY, langMenuAgentReadOnly());
         AppendMenuU(hAgent, MF_STRING | (level == CTRL_GATE_FULL ? MF_CHECKED : 0),
                     ID_TOOLS_AGENT_FULL, langMenuAgentFull());
+        AppendMenuU(hAgent, MF_SEPARATOR, 0, NULL);
+        AppendMenuU(hAgent, MF_STRING, ID_TOOLS_AGENT_ACTIVITY,
+                    langMenuToolsAgentActivity());
 
         AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hAgent, langMenuToolsAgentControl());
     }
@@ -2507,6 +2513,9 @@ int menuCommand(Properties* pProperties, int command)
     case ID_TOOLS_AGENT_FULL:
         setAgentControl(pProperties, CTRL_GATE_FULL);
         return 1;
+    case ID_TOOLS_AGENT_ACTIVITY:
+        activityPanelShow();
+        return 0;
     case ID_HELP_HELP:                      actionHelpShowHelp();           return 0;
     case ID_HELP_ABOUT:                     actionHelpShowAbout();          return 0;
     }

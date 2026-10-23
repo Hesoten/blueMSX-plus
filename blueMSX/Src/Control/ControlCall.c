@@ -185,7 +185,9 @@ int ctrlReplyError(CtrlCall* call, const char* code, const char* message)
     if (jsonOutOverflowed(&out)) {
         /* Cannot even fit the complaint, so send the shortest true thing. */
         snprintf(call->reply, (size_t)call->replyLen, "{\"ok\":false,\"error\":\"internal\"}");
+        code = "internal";
     }
+    call->errorCode = code;
     return (int)strlen(call->reply);
 }
 
@@ -209,6 +211,7 @@ int ctrlReplyDone(CtrlCall* call)
         return ctrlReplyError(call, "too_long",
                               "the answer did not fit in one reply; ask for less at a time");
     }
+    call->errorCode = NULL;
     return call->out.length;
 }
 

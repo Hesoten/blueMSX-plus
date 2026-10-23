@@ -264,6 +264,7 @@ CtrlHunt* ctrlHuntStart(CtrlView* view, int width, int stride)
         return NULL;
     }
     if (!ctrlClientAllowed(ctrlClientCurrent())) {
+        ctrlActivityNoteDenied(CTRL_ACT_HUNT_START, NULL, NULL, NULL, CTRL_ACT_CUT_OFF);
         return NULL;
     }
 
@@ -321,6 +322,7 @@ CtrlHunt* ctrlHuntStart(CtrlView* view, int width, int stride)
     hunt->machineGeneration = dbgMachineGeneration();
     liveHunts++;
 
+    ctrlActivityNoteAmount(CTRL_ACT_HUNT_START, NULL, hunt->alive);
     return hunt;
 }
 
@@ -402,6 +404,7 @@ int ctrlHuntRefine(CtrlHunt* hunt, CtrlView* view, int compare,
         return 0;
     }
     if (!ctrlClientAllowed(ctrlClientCurrent())) {
+        ctrlActivityNoteDenied(CTRL_ACT_HUNT_REFINE, NULL, NULL, NULL, CTRL_ACT_CUT_OFF);
         return 0;
     }
 
@@ -441,6 +444,8 @@ int ctrlHuntRefine(CtrlHunt* hunt, CtrlView* view, int compare,
             }
         }
     }
+
+    ctrlActivityNoteAmount(CTRL_ACT_HUNT_REFINE, ctrlHuntCompareText(compare), hunt->alive);
 
     if (remaining != NULL) {
         *remaining = hunt->alive;

@@ -693,6 +693,7 @@
     <ClCompile Include="..\..\Src\Win32\Win32Thread.c" />
     <ClCompile Include="..\..\Src\Win32\Win32Timer.c" />
     <ClCompile Include="..\..\Src\Win32\Win32Toast.cpp" />
+    <ClCompile Include="..\..\Src\Win32\Win32ActivityPanel.c" />
     <ClCompile Include="..\..\Src\Win32\Win32ControlWindowThread.c" />
     <ClCompile Include="..\..\Src\Win32\Win32ControlSocket.c" />
     <ClCompile Include="..\..\Src\Win32\Win32ToolLoader.c" />
@@ -1420,6 +1421,7 @@
     <ClInclude Include="..\..\Src\Control\ControlScreen.h" />
     <ClInclude Include="..\..\Src\Control\ControlRequest.h" />
     <ClInclude Include="..\..\Src\Control\ControlSocket.h" />
+    <ClInclude Include="..\..\Src\Win32\Win32ActivityPanel.h" />
     <ClInclude Include="..\..\Src\Control\ControlMemory.h" />
     <ClInclude Include="..\..\Src\Control\ControlSymbol.h" />
     <ClInclude Include="..\..\Src\Control\ControlText.h" />

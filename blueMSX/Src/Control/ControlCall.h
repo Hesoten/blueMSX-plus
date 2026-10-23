@@ -77,6 +77,7 @@ typedef struct {
     CtrlArgValue   values[CTRL_OP_ARGS_MAX];
     const char*    undeclared;  /* the first key the handler read that args does not have */
     int            atUnread;    /* "at" names a register the machine cannot give now */
+    const char*    errorCode;   /* the error code of the reply as sent, or NULL */
 } CtrlCall;
 
 /* Reads every argument the op declares, in order, and refuses the first one that is bad. */

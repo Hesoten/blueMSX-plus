@@ -365,6 +365,7 @@ int ctrlOpHuntList(CtrlCall* call)
     if ((refused = ctrlRefuseUnlessViewed(call)) != 0) {
         return refused;
     }
+    ctrlActivityNoteOn(CTRL_ACT_HUNT_LIST, NULL, NULL, CTRL_ACT_DONE);
     describeHuntLayout(&call->text, call->session->hunt);
     describeHuntList(&call->text, call->session->hunt, (UInt32)first, (UInt32)count);
     jsonOutUInt(&call->out, "candidates", ctrlHuntCandidateCount(call->session->hunt));
@@ -376,6 +377,7 @@ int ctrlOpHuntEnd(CtrlCall* call)
     if (call->session->hunt != NULL) {
         ctrlHuntAbandon(call->session->hunt);
         call->session->hunt = NULL;
+        ctrlActivityNoteOn(CTRL_ACT_HUNT_END, NULL, NULL, CTRL_ACT_DONE);
     }
     ctrlTextAdd(&call->text, "hunt abandoned\n");
     return ctrlReplyDone(call);

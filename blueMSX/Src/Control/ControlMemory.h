@@ -46,6 +46,9 @@ int ctrlMemCheck(const CtrlAddr* addr, UInt32 size, int isWrite, int* byPaging);
 
 /* Reads size bytes at addr, across segments if needed. On failure dst is untouched. */
 int ctrlMemRead(CtrlView* view, const CtrlAddr* addr, UInt8* dst, UInt32 size);
+/* The same with no activity entry: only for a read the emulator makes for itself, never one
+** an agent asked for. */
+int ctrlMemPeek(CtrlView* view, const CtrlAddr* addr, UInt8* dst, UInt32 size);
 
 /* A segment address may run into the next segment; a CPU address goes to the
 ** bus unclamped. Journals the old bytes when it can (see ctrlMemUndo). */

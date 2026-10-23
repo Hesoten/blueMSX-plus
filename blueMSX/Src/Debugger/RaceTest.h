@@ -29,6 +29,7 @@
 #define RACE_PAUSE_CHECK   3  /* dbgPause, after it saw the machine running */
 #define RACE_RESUME_NOTIFY 4  /* a resume, between the state change and its notify */
 #define RACE_IN_VIEW       5  /* a view, once it is held */
+#define RACE_APPEND        6  /* the activity log, inside an append */
 #define RACE_SUSPEND_CHECK 7  /* emulatorSuspend, between its look and its switch */
 #define RACE_POINTS        8
 

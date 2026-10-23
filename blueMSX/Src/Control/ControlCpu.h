@@ -42,9 +42,9 @@ Int32 ctrlCpuRegister(const char* name);
 int ctrlCpuCheckName(const char* name, char* err, int errLen);
 
 /* Sets a CPU register by its printed name or an 8 bit half (A, H, IXL...).
-** The caller must hold a view. *previous, if not NULL, gets the old value.
-** Returns 0 with err filled on refusal, -1 when no view gave the registers. */
-int ctrlCpuSetRegister(const char* name, UInt32 value, Int32* previous,
+** The caller must hold a view. *previous and *bits (8 or 16), if not NULL, get the old value
+** and the width. Returns 0 with err filled on refusal, -1 when no view gave the registers. */
+int ctrlCpuSetRegister(const char* name, UInt32 value, Int32* previous, int* bits,
                        char* err, int errLen);
 
 /* Return addresses from the CPU's call log still on the stack, innermost first, with where

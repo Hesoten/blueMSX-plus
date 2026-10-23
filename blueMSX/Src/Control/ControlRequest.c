@@ -47,6 +47,9 @@ typedef struct {
     int           viewOwner;
     CtrlOpHandler handler;
     const CtrlArg* args;    /* what it reads, ending in { NULL }; NULL for nothing */
+    /* The verb a refused or failed request is logged with when it logged nothing itself;
+    ** run, reset, key and screen take theirs from how or as (opVerb). */
+    int           verb;
     const char*   help;     /* its rows in the help, each "  " + name first */
 } CtrlOp;
 
@@ -134,46 +137,66 @@ static const CtrlArg screenArgs[] = {
 
 static const CtrlOp opTable[] = {
     { "help",              CTRL_OP_LOOKS,   CTRL_OP_SELF, ctrlOpHelp, NULL,
+      CTRL_ACT_DENIED,
       "  help\n" },
     { "session.end",       CTRL_OP_LOOKS,   CTRL_OP_SELF, ctrlOpSessionEnd, NULL,
+      CTRL_ACT_DENIED,
       "  session.end                (the client is done and will not reconnect: drops\n"
       "                             the plain breakpoints set here)\n" },
     { "status",            CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpStatus, NULL,
+      CTRL_ACT_DENIED,
       "  status\n" },
     { "slots",             CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpSlots, NULL,
+      CTRL_ACT_DENIED,
       "  slots\n" },
     { "bank.list",         CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpBankList, NULL,
+      CTRL_ACT_DENIED,
       "  bank.list                  (switchable mapper banks, their segment and the program's own)\n" },
     { "bank.set",          CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpBankSet, OP_ARGS(bankSetArgs),
+      CTRL_ACT_BANK_SWITCH,
       "  bank.set     at, segment   (switch as the program would; its next bank write wins)\n" },
     { "mem.read",          CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpMemRead, OP_ARGS(memReadArgs),
+      CTRL_ACT_READ,
       "  mem.read     at, count\n" },
     { "mem.write",         CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpMemWrite, OP_ARGS(memWriteArgs),
+      CTRL_ACT_WRITE,
       "  mem.write    at, data (hex)\n" },
     { "mem.resolve",       CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpMemResolve, OP_ARGS(memResolveArgs),
+      CTRL_ACT_DENIED,
       "  mem.resolve  at\n" },
     { "reg.write",         CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpRegWrite, OP_ARGS(regWriteArgs),
+      CTRL_ACT_REG_WRITE,
       "  reg.write    reg, value\n" },
     { "undo",              CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpUndo, OP_ARGS(undoArgs),
+      CTRL_ACT_UNDO,
       "  undo         count        (puts back what mem.write overwrote)\n" },
     { "run",               CTRL_OP_CHANGES, CTRL_OP_SELF, ctrlOpRun, OP_ARGS(runArgs),
+      CTRL_ACT_DENIED,
       "  run          how = pause|resume|step|step_over|step_out, count\n" },
     { "stack",             CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpStack, OP_ARGS(stackArgs),
+      CTRL_ACT_DENIED,
       "  stack        count\n" },
     { "run.until",         CTRL_OP_CHANGES, CTRL_OP_SELF, ctrlOpRunUntil, OP_ARGS(runUntilArgs),
+      CTRL_ACT_RUN_UNTIL_STOP,
       "  run.until    timeout_ms, pause_at_timeout\n" },
     { "reset",             CTRL_OP_CHANGES, CTRL_OP_SELF, ctrlOpReset, OP_ARGS(resetArgs),
+      CTRL_ACT_DENIED,
       "  reset        how = hard|soft\n" },
     { "snapshot.take",     CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpSnapshotTake, NULL,
+      CTRL_ACT_SNAPSHOT,
       "  snapshot.take              (one machine state, kept in memory)\n" },
     { "snapshot.restore",  CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpSnapshotRestore, NULL,
+      CTRL_ACT_SNAPSHOT_RESTORE,
       "  snapshot.restore\n" },
     { "bp.set",            CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpBpSet, OP_ARGS(bpSetArgs),
+      CTRL_ACT_BREAK_SET,
       "  bp.set       at            (fires only in the segment named, or for a Z80\n"
       "                             address in a mapper slot the one paged in now)\n" },
     { "bp.clear",          CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpBpClear, OP_ARGS(bpClearArgs),
+      CTRL_ACT_BREAK_CLEAR,
       "  bp.clear     at\n" },
     { "bp.clear_all",      CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpBpClearAll, NULL,
+      CTRL_ACT_BREAK_CLEAR_ALL,
       "  bp.clear_all               (segment ones, and plain ones set here; plain ones\n"
       "                             set here also end at session.end, when Agent\n"
       /* 5 s is LEFT_GRACE_MS in ControlBreak.c. */
@@ -182,38 +205,55 @@ static const CtrlOp opTable[] = {
       "                             first, or when a client connects whose hello gives\n"
       "                             no \"owner\", or a different one)\n" },
     { "bp.list",           CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpBpList, NULL,
+      CTRL_ACT_DENIED,
       "  bp.list\n" },
     { "wp.set",            CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpWpSet, OP_ARGS(wpSetArgs),
+      CTRL_ACT_WATCH_SET,
       "  wp.set       at | port, condition, value, size\n" },
     { "wp.clear",          CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpWpClear, OP_ARGS(wpClearArgs),
+      CTRL_ACT_WATCH_CLEAR,
       "  wp.clear     at | port\n" },
     { "wp.list",           CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpWpList, NULL,
+      CTRL_ACT_DENIED,
       "  wp.list\n" },
     { "hunt.start",        CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpHuntStart, OP_ARGS(huntStartArgs),
+      CTRL_ACT_HUNT_START,
       "  hunt.start   width = u8|u16|u32|s8|s16|s32, stride\n" },
     { "hunt.refine",       CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpHuntRefine, OP_ARGS(huntRefineArgs),
+      CTRL_ACT_HUNT_REFINE,
       "  hunt.refine  compare, value, value2\n" },
     { "hunt.list",         CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpHuntList, OP_ARGS(huntListArgs),
+      CTRL_ACT_HUNT_LIST,
       "  hunt.list    first, count\n" },
     { "hunt.end",          CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpHuntEnd, NULL,
+      CTRL_ACT_HUNT_END,
       "  hunt.end\n" },
     { "dasm",              CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpDasm, OP_ARGS(dasmArgs),
+      CTRL_ACT_DENIED,
       "  dasm         at, count\n" },
     { "sym.load",          CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpSymLoad, OP_ARGS(symLoadArgs),
+      CTRL_ACT_SYM_LOAD,
       "  sym.load     path, slot, replace\n" },
     { "sym.find",          CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpSymFind, OP_ARGS(symFindArgs),
+      CTRL_ACT_DENIED,
       "  sym.find     name\n" },
     { "sym.search",        CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpSymSearch, OP_ARGS(symSearchArgs),
+      CTRL_ACT_DENIED,
       "  sym.search   pattern, first, count\n" },
     { "sym.status",        CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpSymStatus, NULL,
+      CTRL_ACT_DENIED,
       "  sym.status\n" },
     { "sym.clear",         CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpSymClear, NULL,
+      CTRL_ACT_DENIED,
       "  sym.clear\n" },
     { "key",               CTRL_OP_CHANGES, CTRL_OP_SELF, ctrlOpKey, OP_ARGS(keyArgs),
+      CTRL_ACT_DENIED,
       "  key          how = press|release|tap, keys, hold, gap\n" },
     { "type",              CTRL_OP_CHANGES, CTRL_OP_SELF, ctrlOpType, OP_ARGS(typeArgs),
+      CTRL_ACT_TYPE,
       "  type         text, hold, gap\n" },
     { "screen",            CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpScreen, OP_ARGS(screenArgs),
+      CTRL_ACT_DENIED,
       "  screen       as = auto|text|png, path\n" },
 };
 
@@ -274,6 +314,103 @@ static int refusedReadOnly(const CtrlOp* row, const char* request)
              jsonGetString(request, "how", how, sizeof(how)) && strcmp(how, "pause") == 0);
 }
 
+/* The activity verb for a request logged without its own line, from its op and its "how"
+** or "as"; CTRL_ACT_DENIED, which shows the op name, when they do not say which. */
+static int opVerb(const char* op, const char* request)
+{
+    const CtrlOp* row = findOp(op);
+    char how[16];
+    char as[8];
+
+    if (!jsonGetString(request, "how", how, sizeof(how))) {
+        how[0] = 0;
+    }
+    if (strcmp(op, "screen") == 0) {
+        if (!jsonGetString(request, "as", as, sizeof(as))) {
+            return CTRL_ACT_DENIED;
+        }
+        return strcmp(as, "text") == 0 ? CTRL_ACT_SCREEN_TEXT :
+               strcmp(as, "png") == 0  ? CTRL_ACT_SCREEN_SAVE : CTRL_ACT_DENIED;
+    }
+    if (strcmp(op, "run") == 0) {
+        return strcmp(how, "pause") == 0     ? CTRL_ACT_PAUSE :
+               strcmp(how, "resume") == 0    ? CTRL_ACT_RUN :
+               strcmp(how, "step") == 0      ? CTRL_ACT_STEP :
+               strcmp(how, "step_over") == 0 ? CTRL_ACT_STEP_OVER :
+               strcmp(how, "step_out") == 0  ? CTRL_ACT_STEP_OUT : CTRL_ACT_DENIED;
+    }
+    if (strcmp(op, "reset") == 0) {
+        return strcmp(how, "soft") == 0 ? CTRL_ACT_RESET_SOFT :
+               strcmp(how, "hard") == 0 ? CTRL_ACT_RESET : CTRL_ACT_DENIED;
+    }
+    if (strcmp(op, "key") == 0) {
+        return strcmp(how, "press") == 0                  ? CTRL_ACT_KEY_PRESS :
+               strcmp(how, "release") == 0                ? CTRL_ACT_KEY_RELEASE :
+               how[0] == 0 || strcmp(how, "tap") == 0     ? CTRL_ACT_KEY_TAP : CTRL_ACT_DENIED;
+    }
+    return row != NULL ? row->verb : CTRL_ACT_DENIED;
+}
+
+/* The place, keys or register a request names, as given (the log shortens it), else its
+** path; empty for none. Returns 1 when it is the path. */
+static int namedTarget(const char* request, char target[CTRL_PATH_MAX])
+{
+    static const char* const keys[] = { "at", "keys", "reg", NULL };
+    int i;
+
+    for (i = 0; keys[i] != NULL; i++) {
+        if (jsonGetString(request, keys[i], target, CTRL_PATH_MAX) && target[0] != 0) {
+            return 0;
+        }
+    }
+    if (jsonGetString(request, "path", target, CTRL_PATH_MAX) && target[0] != 0) {
+        return 1;
+    }
+    target[0] = 0;
+    return 0;
+}
+
+/* Logs a request the access level refused, with what it named as given. */
+static void noteRefused(const char* op, const char* request)
+{
+    char target[CTRL_PATH_MAX];
+    int  isPath = namedTarget(request, target);
+
+    ctrlActivityNoteDenied(opVerb(op, request), op, NULL,
+                           target[0] != 0 && !isPath ? target : NULL, CTRL_ACT_READ_ONLY);
+}
+
+/* Error codes left out of the log: a cut-off client shows once as cut off, a client gone
+** has nothing more to show, and the rest come before there is a request to log. */
+static int logsFailure(const char* code)
+{
+    static const char* const unlogged[] = {
+        "revoked", "abandoned", "missing_op", "too_many_clients", "line_too_long", NULL
+    };
+    int i;
+
+    for (i = 0; unlogged[i] != NULL; i++) {
+        if (strcmp(code, unlogged[i]) == 0) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+/* Logs a request answered with an error as failed, with what it named as given. */
+static void noteFailed(const CtrlCall* call, const char* op)
+{
+    char target[CTRL_PATH_MAX];
+    int  isPath;
+
+    if (call->errorCode == NULL || !logsFailure(call->errorCode)) {
+        return;
+    }
+    isPath = namedTarget(call->request, target);
+    ctrlActivityNoteFailed(opVerb(op, call->request), op[0] != 0 ? op : "?",
+                           target[0] != 0 ? target : NULL, isPath, call->errorCode);
+}
+
 int ctrlRequestRefuseLine(const char* line, char* reply, int replyLen)
 {
     CtrlCall call;
@@ -285,6 +422,26 @@ int ctrlRequestRefuseLine(const char* line, char* reply, int replyLen)
     return ctrlReplyErrorf(&call, "line_too_long", CTRL_TEXT_LINE_TOO_LONG, CTRL_LINE_MAX - 1);
 }
 
+/* Runs the op row is, once its arguments are read; an unknown op or a bad argument is refused. */
+static int dispatch(CtrlCall* call, const CtrlOp* row)
+{
+    int refused;
+
+    if (row == NULL) {
+        return ctrlReplyError(call, "unknown_op",
+                              "no such op; send {\"op\":\"help\"} for the list");
+    }
+    call->op   = row->name;
+    call->args = row->args;
+    if ((refused = ctrlCallReadArgs(call)) != 0) {
+        return refused;
+    }
+    if (row->viewOwner == CTRL_OP_SELF) {
+        return row->handler(call);
+    }
+    return runHolding(call, row);
+}
+
 int ctrlRequestHandle(CtrlClient client, const char* request,
                       char* reply, int replyLen)
 {
@@ -292,7 +449,7 @@ int ctrlRequestHandle(CtrlClient client, const char* request,
     CtrlCall      call;
     const CtrlOp* row;
     int           opRead;
-    int           refused;
+    int           length;
 
     memset(&call, 0, sizeof(call));
     call.request  = request;
@@ -324,6 +481,8 @@ int ctrlRequestHandle(CtrlClient client, const char* request,
     /* Read only denies anything that changes the machine, its keys or its breakpoints, but
     ** not session.end: it drops only what this client set, as another client's hello would. */
     if (ctrlGateLevel() != CTRL_GATE_FULL && refusedReadOnly(row, request)) {
+        ctrlClientSetCurrent(client);
+        noteRefused(op, request);
         return ctrlReplyError(&call, "read_only",
                               "this emulator is set to read only. To change it, ask the "
                               "person at the keyboard for Tools, Agent Control, Full.");
@@ -333,17 +492,7 @@ int ctrlRequestHandle(CtrlClient client, const char* request,
     ctrlTextInit(&call.text, textBuffer, TEXT_MAX);
     ctrlReplyBegin(&call);
 
-    if (row == NULL) {
-        return ctrlReplyError(&call, "unknown_op",
-                              "no such op; send {\"op\":\"help\"} for the list");
-    }
-    call.op   = row->name;
-    call.args = row->args;
-    if ((refused = ctrlCallReadArgs(&call)) != 0) {
-        return refused;
-    }
-    if (row->viewOwner == CTRL_OP_SELF) {
-        return row->handler(&call);
-    }
-    return runHolding(&call, row);
+    length = dispatch(&call, row);
+    noteFailed(&call, op);
+    return length;
 }
