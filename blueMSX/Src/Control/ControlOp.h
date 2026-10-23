@@ -45,6 +45,7 @@ int ctrlOpMemRead(CtrlCall* call);
 int ctrlOpMemResolve(CtrlCall* call);
 int ctrlOpMemWrite(CtrlCall* call);
 int ctrlOpUndo(CtrlCall* call);
+int ctrlOpDasm(CtrlCall* call);
 
 /* ControlOpBreak.c */
 int ctrlOpBpSet(CtrlCall* call);

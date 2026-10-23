@@ -231,6 +231,19 @@ const McpTool mcpTools[] = {
     buildByOp
 },
 {
+    "bmsx_dasm",
+    "Disassemble Z80 code, with the labels of the segment it is in. Works on a "
+    "segment that is not paged in, which is where most of a mapper program is at "
+    "any moment. Every address it prints can be sent straight back to these tools.",
+    SCHEMA("\"properties\":{" AT_PROPERTY ","
+           "\"count\":{\"type\":\"integer\",\"default\":" CTRL_STR(CTRL_DASM_COUNT_DEFAULT) ","
+           "\"minimum\":" CTRL_STR(CTRL_DASM_COUNT_MIN) ",\"maximum\":"
+           CTRL_STR(CTRL_DASM_COUNT_MAX) "}},\"required\":[\"at\"]"),
+    READ_ONLY,
+    "dasm",
+    NULL
+},
+{
     "bmsx_symbols",
     "Load a symbol file, or look one up. Symbols are bound to the segment they "
     "were assembled for, so a megaROM whose thirty-two banks all run at 0x4000 "

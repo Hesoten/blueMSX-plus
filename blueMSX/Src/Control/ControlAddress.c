@@ -676,6 +676,33 @@ int ctrlAddrPastEnd(const CtrlAddrInfo* info)
            info->segmentCount >= 0 && info->canonical.segment >= info->segmentCount;
 }
 
+int ctrlAddrAdvance(CtrlAddr* addr, UInt32 count)
+{
+    switch (addr->space) {
+    case CTRL_SPACE_CPU:
+        if (addr->offset + count > 0x10000) {
+            return 0;
+        }
+        addr->offset += count;
+        return 1;
+
+    case CTRL_SPACE_VRAM:
+        if (addr->offset + count > boardGetVramSize()) {
+            return 0;
+        }
+        addr->offset += count;
+        return 1;
+
+    case CTRL_SPACE_SLOT:
+        addr->offset += count;
+        ctrlAddrNormalize(addr);
+        return 1;
+
+    default:
+        return 0;
+    }
+}
+
 void ctrlAddrDescribe(CtrlText* text, const CtrlAddr* addr)
 {
     CtrlAddrInfo info;

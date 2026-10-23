@@ -41,8 +41,8 @@ int ctrlAddrSubstituteRegister(char* text, int textLen, char* err, int errLen);
 
 /* Formats addr as text; len should be at least 48. */
 void ctrlAddrPrint(const CtrlAddr* addr, char* text, int len);
-/* slotS.U:segN+0xOOOO, or with slotWord 0 the shorter S.U:segN+0xOOOO; both parse back.
-** Returns what snprintf does. */
+/* slotS.U:segN+0xOOOO, or with slotWord 0 the S.U:segN+0xOOOO that listings print; both
+** parse back. Returns what snprintf does. */
 int  ctrlAddrPrintSegment(char* text, int len, int slotWord, int slot, int subSlot,
                           int segment, UInt32 offset);
 
@@ -52,6 +52,10 @@ int ctrlAddrResolve(const CtrlAddr* addr, CtrlAddrInfo* info);
 
 /* Whether a resolved address names a segment beyond the last one its slot publishes. */
 int ctrlAddrPastEnd(const CtrlAddrInfo* info);
+
+/* Steps forward count bytes across segments; 0 when a CPU or VRAM address would
+** leave its space. Slot addresses never fail. */
+int ctrlAddrAdvance(CtrlAddr* addr, UInt32 count);
 
 void ctrlAddrDescribe(CtrlText* text, const CtrlAddr* addr);
 

@@ -60,6 +60,9 @@
 #define CTRL_MEM_READ_COUNT_DEFAULT       256
 #define CTRL_MEM_READ_COUNT_MIN           1
 #define CTRL_MEM_READ_COUNT_MAX           65536
+#define CTRL_DASM_COUNT_DEFAULT           16
+#define CTRL_DASM_COUNT_MIN               1
+#define CTRL_DASM_COUNT_MAX               256
 #define CTRL_STACK_COUNT_DEFAULT          16
 #define CTRL_STACK_COUNT_MIN              1
 #define CTRL_STACK_COUNT_MAX              64

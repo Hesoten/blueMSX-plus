@@ -33,7 +33,8 @@
 int  ctrlAddrArgRead(CtrlCall* call, int flags, CtrlAddr* addr);
 /* The address is not on this machine, or atUnread; info is filled otherwise. */
 int  ctrlAddrArgResolve(CtrlCall* call, const CtrlAddr* addr, CtrlAddrInfo* info);
-/* A segment past the slot's last one, where there is nothing to read or write; or atUnread. */
+/* A segment past the slot's last one, where there is nothing to read, write, watch, break
+** on or disassemble; or atUnread. */
 int  ctrlAddrArgRefusePastEnd(CtrlCall* call, const CtrlAddr* addr);
 /* A vram: range with a byte that has no video memory behind it in that screen mode. */
 int  ctrlAddrArgRefuseNoVram(CtrlCall* call, UInt32 address, UInt32 size, int mode);

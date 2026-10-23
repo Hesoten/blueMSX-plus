@@ -100,7 +100,7 @@ UInt32 ctrlMemRemaining(const CtrlAddr* addr)
         }
         {
             Int32 at = storageOffset(&info.canonical, info.spaceSize, info.segmentSize);
-            /* To the end of the storage, not the segment. */
+            /* To the end of the storage, not the segment; disassembly clamps itself. */
             return at < 0 ? 0 : info.spaceSize - (UInt32)at;
         }
 

@@ -995,6 +995,7 @@
     <ClCompile Include="..\..\Src\Control\ControlText.c" />
     <ClCompile Include="..\..\Src\Control\ControlPath.c" />
     <ClCompile Include="..\..\Src\Control\ControlSymbolParse.c" />
+    <ClCompile Include="..\..\Src\Control\ControlDasm.c" />
     <ClCompile Include="..\..\Src\Control\ControlSession.c" />
     <ClCompile Include="..\..\Src\Control\ControlCall.c" />
     <ClCompile Include="..\..\Src\Control\ControlOpSlots.c" />
@@ -1417,6 +1418,7 @@
     <ClInclude Include="..\..\Src\Control\ControlText.h" />
     <ClInclude Include="..\..\Src\Control\ControlPath.h" />
     <ClInclude Include="..\..\Src\Control\ControlSymbolParse.h" />
+    <ClInclude Include="..\..\Src\Control\ControlDasm.h" />
     <ClInclude Include="..\..\Src\Control\ControlSession.h" />
     <ClInclude Include="..\..\Src\Control\ControlCall.h" />
     <ClInclude Include="..\..\Src\Control\ControlOp.h" />

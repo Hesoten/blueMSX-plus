@@ -99,6 +99,9 @@ static const CtrlArg huntRefineArgs[] = {
 static const CtrlArg huntListArgs[] = {
     { "first", CTRL_ARG_INT, 0 }, { "count", CTRL_ARG_INT, 0 }, { NULL }
 };
+static const CtrlArg dasmArgs[] = {
+    { "at", CTRL_ARG_TEXT, CTRL_AT_MAX }, { "count", CTRL_ARG_INT, 0 }, { NULL }
+};
 static const CtrlArg symLoadArgs[] = {
     { "path", CTRL_ARG_TEXT, CTRL_PATH_MAX - 1 }, { "slot", CTRL_ARG_TEXT, 31 },
     { "replace", CTRL_ARG_BOOL, 0 }, { NULL }
@@ -171,6 +174,8 @@ static const CtrlOp opTable[] = {
       "  hunt.list    first, count\n" },
     { "hunt.end",          CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpHuntEnd, NULL,
       "  hunt.end\n" },
+    { "dasm",              CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpDasm, OP_ARGS(dasmArgs),
+      "  dasm         at, count\n" },
     { "sym.load",          CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpSymLoad, OP_ARGS(symLoadArgs),
       "  sym.load     path, slot, replace\n" },
     { "sym.find",          CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpSymFind, OP_ARGS(symFindArgs),

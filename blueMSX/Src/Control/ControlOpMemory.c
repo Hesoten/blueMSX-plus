@@ -24,6 +24,8 @@
 #include "ControlAddress.h"
 #include "ControlVram.h"
 #include "ControlAddressArg.h"
+#include "ControlCpu.h"
+#include "ControlDasm.h"
 #include "ControlMemory.h"
 #include "ControlProtocol.h"
 #include "Emulator.h"
@@ -499,5 +501,33 @@ int ctrlOpUndo(CtrlCall* call)
     }
     jsonOutInt(&call->out, "undone", done);
     jsonOutInt(&call->out, "undo_depth", ctrlMemUndoDepth());
+    return ctrlReplyDone(call);
+}
+
+int ctrlOpDasm(CtrlCall* call)
+{
+    int refused;
+    CtrlAddr addr;
+    CtrlAddrInfo info;
+    Int32    count = CTRL_DASM_COUNT_DEFAULT;
+
+    if ((refused = ctrlAddrArgRead(call, CTRL_ADDR_ARG_NEEDS_MACHINE, &addr)) != 0) {
+        return refused;
+    }
+    count = ctrlCallInt(call, "count", count);
+    if (count < CTRL_DASM_COUNT_MIN || count > CTRL_DASM_COUNT_MAX) {
+        return ctrlReplyErrorf(call, "out_of_range", "count must be between %d and %d instructions",
+                               CTRL_DASM_COUNT_MIN, CTRL_DASM_COUNT_MAX);
+    }
+    if ((refused = ctrlAddrArgResolve(call, &addr, &info)) != 0) {
+        return refused;
+    }
+    if ((refused = ctrlAddrArgRefusePastEnd(call, &addr)) != 0) {
+        return refused;
+    }
+    if ((refused = ctrlRefuseUnlessViewed(call)) != 0) {
+        return refused;
+    }
+    ctrlDasmList(&call->text, &call->view, &addr, (int)count, ctrlCpuPc());
     return ctrlReplyDone(call);
 }
