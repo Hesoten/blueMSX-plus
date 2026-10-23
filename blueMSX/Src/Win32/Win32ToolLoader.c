@@ -32,6 +32,8 @@
 #include "Win32ToolLoader.h"
 #include "BlueMSXToolInterface.h"
 #include "Debugger.h"
+#include "Emulator.h"
+#include "SlotManager.h"
 #include "Actions.h"
 #include "AppConfig.h"
 #include "build_number.h"
@@ -313,6 +315,83 @@ static int __stdcall toolMessageBox(HWND owner, const char* text, const char* ca
     return MessageBoxLargeU(owner, NULL, text, caption, type);
 }
 
+/* Fails to compile if TOOL_SLOT_* and SLOT_DEBUG_* drift apart. */
+typedef char slotStateBitsAgree[
+    (TOOL_SLOT_REGISTERED == SLOT_DEBUG_REGISTERED &&
+     TOOL_SLOT_READABLE   == SLOT_DEBUG_READABLE   &&
+     TOOL_SLOT_WRITABLE   == SLOT_DEBUG_WRITABLE   &&
+     TOOL_SLOT_HASDATA    == SLOT_DEBUG_HASDATA) ? 1 : -1];
+
+static int __stdcall toolSlotGetPageMapping(int page, int* primarySlot, int* subSlot, int* subslotted)
+{
+    int psl;
+
+    if (page < 0 || page > 3 || emulatorGetState() == EMU_STOPPED) {
+        return 0;
+    }
+    psl = slotDebugGetPagePrimarySlot(page);
+
+    if (primarySlot != NULL) {
+        *primarySlot = psl;
+    }
+    if (subSlot != NULL) {
+        *subSlot = slotDebugGetPageSubSlot(page);
+    }
+    if (subslotted != NULL) {
+        *subslotted = slotDebugGetSubslotted(psl);
+    }
+    return 1;
+}
+
+static int __stdcall toolSlotGetSubslotSelect(int primarySlot)
+{
+    return slotDebugGetSubslotSelect(primarySlot);
+}
+
+static int __stdcall toolSlotGetSubslotted(int primarySlot)
+{
+    return slotDebugGetSubslotted(primarySlot);
+}
+
+static int __stdcall toolSlotGetBankState(int primarySlot, int subSlot, int bank)
+{
+    return slotDebugGetBankState(primarySlot, subSlot, bank);
+}
+
+static const char* __stdcall toolSlotGetContents(int primarySlot, int subSlot)
+{
+    /* Contents outlive the machine until the next one is created. */
+    if (emulatorGetState() == EMU_STOPPED) {
+        return "";
+    }
+    return slotDebugGetContents(primarySlot, subSlot);
+}
+
+static int __stdcall toolSlotGetBankSegment(int primarySlot, int subSlot, int bank)
+{
+    return slotDebugGetBankSegment(primarySlot, subSlot, bank);
+}
+
+static int __stdcall toolSlotGetSegmentSize(int primarySlot, int subSlot)
+{
+    return slotDebugGetSegmentSize(primarySlot, subSlot);
+}
+
+static int __stdcall toolSetSegmentBreakpoint(int primarySlot, int subSlot, int segment, int offset)
+{
+    return dbgSetSegmentBreakpoint(primarySlot, subSlot, segment, offset);
+}
+
+static int __stdcall toolClearSegmentBreakpoint(int primarySlot, int subSlot, int segment, int offset)
+{
+    return dbgClearSegmentBreakpoint(primarySlot, subSlot, segment, offset);
+}
+
+static int __stdcall toolPauseSync(int timeoutMs)
+{
+    return dbgPauseSync(timeoutMs);
+}
+
 static Interface toolInterface = {
     toolSnapshotCreate,
     toolSnapshotDestroy,
@@ -351,6 +430,17 @@ static Interface toolInterface = {
     toolShellOpenFileDialog,
     toolShellSaveFileDialog,
     toolMessageBox,
+    /* slot map introspection */
+    toolSlotGetPageMapping,
+    toolSlotGetSubslotSelect,
+    toolSlotGetSubslotted,
+    toolSlotGetBankState,
+    toolSlotGetContents,
+    toolSlotGetBankSegment,
+    toolSlotGetSegmentSize,
+    toolSetSegmentBreakpoint,
+    toolClearSegmentBreakpoint,
+    toolPauseSync,
 };
 
 void toolLoadAll(const char* path, int languageId)
@@ -384,7 +474,8 @@ void toolLoadAll(const char* path, int languageId)
 
         if (lib != NULL) {
             char description[32] = "Unknown";
-            CreateFn  create   = (CreateFn) GetProcAddress(lib, "Create12");
+            /* Only a Create13 plugin knows the slot map entries. */
+            CreateFn  create   = (CreateFn) GetProcAddress(lib, "Create13");
             NotifyFn  destroy  = (NotifyFn) GetProcAddress(lib, "Destroy");
             NotifyFn  show     = (NotifyFn) GetProcAddress(lib, "Show");
             NotifyFn  onStart  = (NotifyFn) GetProcAddress(lib, "NotifyEmulatorStart");
@@ -397,6 +488,9 @@ void toolLoadAll(const char* path, int languageId)
             SetLgFn   onSetLg  = (SetLgFn)  GetProcAddress(lib, "SetLanguage");
             GetNameFn onGetNm  = (GetNameFn)GetProcAddress(lib, "GetName");
 
+            if (create == NULL) {
+                create   = (CreateFn) GetProcAddress(lib, "Create12");
+            }
             if (create == NULL) {
                 // Check old style dll exports (of blueMSX 2.8.1)
                 create   = (CreateFn) GetProcAddress(lib, "Create11");

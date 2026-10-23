@@ -188,6 +188,12 @@ typedef IoPorts*      (__stdcall *ToolDeviceGetIoPorts)(Device* device, int ioPo
 typedef int           (__stdcall *ToolDeviceWriteIoPort)(IoPorts* ioPorts, int portIndex, UInt32 value);
 typedef void          (__stdcall *ToolAction)();
 typedef void          (__stdcall *ToolBreakpoint)(UInt16);
+/* offset is into the mapper segment; fires once the segment is paged in and reached. */
+typedef int           (__stdcall *ToolSetSegmentBreakpoint)(int primarySlot, int subSlot, int segment, int offset);
+typedef int           (__stdcall *ToolClearSegmentBreakpoint)(int primarySlot, int subSlot, int segment, int offset);
+
+/* Pause and wait until the emulation thread has stopped. Non-zero once it has. */
+typedef int           (__stdcall *ToolPauseSync)(int timeoutMs);
 typedef char*         (__stdcall *ToolPath)();
 typedef void          (__stdcall *ToolEmulatorVersion)(int* major, int* minor, int* buildNumber);
 typedef void          (__stdcall *ToolEnableVramAccessCheck)(int enable);
@@ -203,6 +209,27 @@ typedef HBRUSH        (__stdcall *ToolGetDarkBrush)(void);
 typedef int           (__stdcall *ToolShellOpenFile)(HWND owner, const char* title, const char* filter, const char* initialDir, const char* defExt, int* filterIndex, char* outPath, int outPathCap);
 typedef int           (__stdcall *ToolShellSaveFile)(HWND owner, const char* title, const char* filter, const char* initialDir, const char* defExt, int* filterIndex, char* outPath, int outPathCap);
 typedef int           (__stdcall *ToolMessageBox)(HWND owner, const char* text, const char* caption, UInt32 type);
+
+/* Slot map. A "page" is a Z80 16kB page (0..3), a "bank" one of a slot's eight
+** 8kB banks (0..7). These entries exist only when the host called Create13.
+** The state bits mirror SLOT_DEBUG_* in Src/Memory/SlotManager.h. */
+#define TOOL_SLOT_REGISTERED 0x01  /* a device claims this bank            */
+#define TOOL_SLOT_READABLE   0x02  /* direct page reads are enabled        */
+#define TOOL_SLOT_WRITABLE   0x04  /* direct page writes are enabled       */
+#define TOOL_SLOT_HASDATA    0x08  /* real memory is mapped in, not filler */
+
+/* Any out pointer may be NULL; subslotted says whether the primary slot is
+** expanded. Returns 0 and touches nothing when page is out of range. */
+typedef int           (__stdcall *ToolSlotGetPageMapping)(int page, int* primarySlot, int* subSlot, int* subslotted);
+typedef int           (__stdcall *ToolSlotGetSubslotSelect)(int primarySlot);
+typedef int           (__stdcall *ToolSlotGetSubslotted)(int primarySlot);
+typedef int           (__stdcall *ToolSlotGetBankState)(int primarySlot, int subSlot, int bank);
+/* ROM file name and mapper type, or RAM size; "" for an empty slot, never NULL. */
+typedef const char*   (__stdcall *ToolSlotGetContents)(int primarySlot, int subSlot);
+/* Segment a mapper has in an 8kB bank, or -1 when none is reported there. */
+typedef int           (__stdcall *ToolSlotGetBankSegment)(int primarySlot, int subSlot, int bank);
+/* Segment size in bytes; 0 for a slot that reports no segments. */
+typedef int           (__stdcall *ToolSlotGetSegmentSize)(int primarySlot, int subSlot);
 
 typedef struct {
     ToolSnapshotCreate              create;
@@ -250,6 +277,17 @@ typedef struct {
     ToolShellOpenFile               shellOpenFileDialog;
     ToolShellSaveFile               shellSaveFileDialog;
     ToolMessageBox                  messageBox;
+
+    ToolSlotGetPageMapping          slotGetPageMapping;
+    ToolSlotGetSubslotSelect        slotGetSubslotSelect;
+    ToolSlotGetSubslotted           slotGetSubslotted;
+    ToolSlotGetBankState            slotGetBankState;
+    ToolSlotGetContents             slotGetContents;
+    ToolSlotGetBankSegment          slotGetBankSegment;
+    ToolSlotGetSegmentSize          slotGetSegmentSize;
+    ToolSetSegmentBreakpoint        setSegmentBreakpoint;
+    ToolClearSegmentBreakpoint      clearSegmentBreakpoint;
+    ToolPauseSync                   pauseSync;
 } Interface;
 
 typedef int  (__stdcall *CreateFn)(Interface*, char*, int);

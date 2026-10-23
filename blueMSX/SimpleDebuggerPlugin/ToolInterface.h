@@ -96,6 +96,29 @@ bool ShellSaveFileDialog(HWND owner, const char* title, const char* filter,
 ** the DLL build resolves to the plain system box and stays light. */
 int ShowMessageBox(HWND owner, const char* text, const char* caption, UInt32 type);
 
+/* Read the live machine, so call while paused. On a host without a slot map
+** SlotMapAvailable() is false and the others answer false / 0. */
+bool SlotMapAvailable();
+bool SlotGetPageMapping(int page, int* primarySlot, int* subSlot, int* subslotted);
+int  SlotGetSubslotSelect(int primarySlot);
+int  SlotGetSubslotted(int primarySlot);
+int  SlotGetBankState(int primarySlot, int subSlot, int bank);
+const char* SlotGetContents(int primarySlot, int subSlot);
+int  SlotGetBankSegment(int primarySlot, int subSlot, int bank);
+/* Segment size in bytes; 0 for a slot that reports no segments. */
+int  SlotGetSegmentSize(int primarySlot, int subSlot);
+
+bool SegmentBreakpointsAvailable();
+/* offset is into the mapper segment; fires once the segment is paged in and reached.
+** False when refused: the table is full or offset is outside the segment.
+** ClearSegmentBreakpoint is false when none was set there. */
+bool SetSegmentBreakpoint(int primarySlot, int subSlot, int segment, int offset);
+bool ClearSegmentBreakpoint(int primarySlot, int subSlot, int segment, int offset);
+
+/* Pause and wait until the emulation thread has stopped. Use before reading
+** memory; EmulatorPause() returns before the thread has noticed. */
+bool PauseSync(int timeoutMs);
+
 //
 // To be implemented by the user....
 //

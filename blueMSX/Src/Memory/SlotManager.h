@@ -80,7 +80,8 @@ void slotSetSubslotted(int slot, int subslotted);
 /* A "page" is a Z80 16kB page (0..3), a "bank" one of the eight 8kB banks of a
 ** slot (0..7). */
 
-/* Bits returned by slotDebugGetBankState. */
+/* Bits returned by slotDebugGetBankState. Keep in sync with the TOOL_SLOT_
+** copies in Src/Win32/BlueMSXToolInterface.h, which plugins compile against. */
 #define SLOT_DEBUG_REGISTERED 0x01  /* a device claims this bank            */
 #define SLOT_DEBUG_READABLE   0x02  /* direct page reads are enabled        */
 #define SLOT_DEBUG_WRITABLE   0x04  /* direct page writes are enabled       */
