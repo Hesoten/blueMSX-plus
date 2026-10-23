@@ -68,6 +68,8 @@ int  emulatorGetPlayReverse();
 int emulatorGetCpuOverflow();
 int emulatorGetSyncPeriod();
 EmuState emulatorGetState();
+/* Non-zero while a single step runs its one instruction. */
+int emulatorIsSingleStepping(void);
 void emulatorSetState(EmuState state);
 UInt32 emulatorGetCpuSpeed();
 UInt32 emulatorGetCpuUsage();

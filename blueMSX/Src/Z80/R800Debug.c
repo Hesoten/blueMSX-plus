@@ -40,6 +40,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "Board.h"
+#include "Emulator.h"
 
 
 extern void debuggerTrace(const char* str);
@@ -162,6 +163,11 @@ static int dbgWriteRegister(R800Debug* dbg, char* name, int regIndex, UInt32 val
 
 static void breakpointCb(R800Debug* dbg, UInt16 pc)
 {
+    /* A step checks only the address it starts from, and stepping from a breakpoint runs it. */
+    if (emulatorIsSingleStepping()) {
+        return;
+    }
+
     boardOnBreakpoint(pc);
 }
   

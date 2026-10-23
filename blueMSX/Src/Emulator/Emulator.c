@@ -256,6 +256,10 @@ EmuState emulatorGetState() {
     return emuState;
 }
 
+int emulatorIsSingleStepping(void) {
+    return emuSingleStep;
+}
+
 void emulatorSetState(EmuState state) {
     if (state == EMU_RUNNING) {
         archSoundResume();
@@ -881,19 +885,14 @@ static int WaitForSync(int maxSpeed, int breakpointHit) {
 
     emuSuspendFlag = 1;
 
-    if (emuSingleStep) {
-        debuggerNotifyEmulatorPause();
+    /* A step and a stop met during it make one pause. */
+    if (emuSingleStep || breakpointHit) {
+        /* Paused before the notify, so whoever it wakes can step again. */
         emuSingleStep = 0;
         emuState = EMU_PAUSED;
         archSoundSuspend();
         archMidiEnable(0);
-    }
-
-    if (breakpointHit) {
         debuggerNotifyEmulatorPause();
-        emuState = EMU_PAUSED;
-        archSoundSuspend();
-        archMidiEnable(0);
     }
 
     if (emuState != EMU_RUNNING) {
