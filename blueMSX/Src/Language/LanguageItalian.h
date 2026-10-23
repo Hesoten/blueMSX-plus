@@ -293,6 +293,10 @@ void langInitItalian(LanguageStrings* ls)
     ls->menuToolsCtrlEditor             = "Periferiche di ingresso...";               
     ls->menuToolsMixer                  = "Mixer audio...";
     ls->menuToolsLoadMemory             = "Carico di memoria";
+    ls->menuToolsAgentControl   = "Controllo agente";
+    ls->menuAgentOff            = "Disattivato";
+    ls->menuAgentReadOnly       = "Sola lettura";
+    ls->menuAgentFull           = "Completo";
     ls->menuToolsDebugger               = "Debugger...";
     ls->menuToolsTrainer                = "Trainer...";
     ls->menuToolsTraceLogger            = "Trace logger...";

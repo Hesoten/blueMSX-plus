@@ -72,3 +72,12 @@ void archSemaphoreWait(void* semaphore, int timeout)
     archEventWait(semaphore, timeout);
 }
 
+int archSemaphoreWaitTimeout(void* semaphore, int timeout)
+{
+    if (timeout < 0) {
+        timeout = INFINITE;
+    }
+
+    return WaitForSingleObject(semaphore, timeout) == WAIT_OBJECT_0;
+}
+

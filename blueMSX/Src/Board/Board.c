@@ -1264,6 +1264,8 @@ static int boardRewindLoad(int drop)
     }
 #endif
     keyMatrixInputBoardRearm();
+    /* Tells an agent that what it read was about the machine before this. */
+    dbgNotifyMachineChanged();
     return 1;
 }
 
@@ -1924,6 +1926,7 @@ void boardChangeCartridge(int cartNo, RomType romType, char* cart, char* cartZip
             boardInfo.changeCartridge(boardInfo.cpuRef, cartNo, inserted);
         }
         dbgBreakpointsOnCartridgeChanged();
+        dbgNotifyMachineChanged();
     }
 }
 

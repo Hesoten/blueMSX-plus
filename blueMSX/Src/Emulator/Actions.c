@@ -36,6 +36,7 @@
 #include "Casette.h"
 #include "TapeSignal.h"
 #include "Debugger.h"
+#include "RaceTest.h"
 #include "Disk.h"
 #include "FileHistory.h"
 #include "LaunchFile.h"
@@ -239,6 +240,8 @@ void actionHarddiskEjectDir(int diskNo)
     if (diskNo < 0 || diskNo >= MAXDRIVES || !diskIsDir(diskNo)) {
         return;
     }
+    /* Called with the machine paused too, when no suspend waited for an agent's read. */
+    dbgChangeBegin();
     state.properties->media.disks[diskNo].fileName[0] = 0;
     state.properties->media.disks[diskNo].fileNameInZip[0] = 0;
     updateExtendedDiskName(diskNo, state.properties->media.disks[diskNo].fileName, state.properties->media.disks[diskNo].fileNameInZip);
@@ -1108,6 +1111,7 @@ void actionEmuTogglePause() {
     }
     else if (emulatorGetState() == EMU_PAUSED) {
         emulatorSetState(EMU_RUNNING);
+        RACE_TEST_POINT(RACE_RESUME_NOTIFY);
         debuggerNotifyEmulatorResume();
     }
     else {  
@@ -1176,6 +1180,8 @@ void actionStopPlayReverse()
 }
 
 void actionDiskQuickChange() {
+    /* No suspend comes first, so wait here for an agent's read of a paused machine. */
+    dbgChangeBegin();
     /* A directory has no next diskette to go to. */
     if (*state.properties->media.disks[0].fileName && !diskIsDirPath(state.properties->media.disks[0].fileName)) {
         if (*state.properties->media.disks[0].fileNameInZip) {

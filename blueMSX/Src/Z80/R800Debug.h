@@ -40,4 +40,7 @@ typedef struct R800Debug R800Debug;
 void r800DebugCreate(R800* r800);
 void r800DebugDestroy();
 
+/* Whether the running CPU is in R800 mode. Only while a machine exists. */
+int r800DebugIsR800(void);
+
 #endif

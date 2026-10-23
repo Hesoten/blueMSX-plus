@@ -42,7 +42,7 @@ void emulatorExit();
 /* Once at startup, before any plugin loads: the lock every change of the run state takes. */
 void emulatorCreateLocks(void);
 
-/* Goes up on every change of the run state, never to 0. */
+/* Goes up on every change of the run state, never to 0; the run generation agents compare. */
 UInt32 emulatorGetStateSeq(void);
 /* The seq of the last change of the run state made on the calling thread. */
 UInt32 emulatorOwnStateSeq(void);
@@ -58,6 +58,9 @@ void emulatorRestartSound();
 /* Waits for the emulation thread to park on a paused machine; zero when it did not in time,
 ** or the machine is no longer paused. */
 int  emulatorWaitParked(int timeoutMs);
+
+/* Emulated frames run since the machine started. */
+UInt32 emulatorGetFramesRun(void);
 
 void emulatorSuspend();
 void emulatorResume();

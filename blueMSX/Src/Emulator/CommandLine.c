@@ -445,6 +445,8 @@ static const CmdLineOption cmdLineOptions[] = {
     { "msxmusic",      "<on|off>","Enable or disable MSX-Music (YM2413)"             },
     { "msxaudio",      "<on|off>","Enable or disable MSX-Audio (Y8950)"              },
     { "moonsound",     "<on|off>","Enable or disable MoonSound (OPL4)"               },
+    { "agentcontrol",  "<off|read|full>",
+                                  "Let a debugging tool connect over the local socket" },
     { "debugger",      NULL,      "Open the debugger after the emulator starts",
       "File locations and other options:"                                             },
     { "rootdir",       "<dir>",   "Directory for the settings and everything written" },
@@ -850,6 +852,31 @@ static int chipArgument(char* cmdLine, const char* name, int* field) {
     return 1;
 }
 
+static int agentControlArgument(char* cmdLine, Properties* properties) {
+    char* argument = emuCheckValueArgument(cmdLine, "agentcontrol");
+
+    if (argument == NULL) {
+        if (emuCheckFlagArgument(cmdLine, "agentcontrol")) {
+            return settingError("agentcontrol", "needs off, read or full");
+        }
+        return 1;
+    }
+
+    if (strcmpnocase(argument, "off") == 0) {
+        emuCommandLineOverrideInt(&properties->emulation.agentControl, 0);
+    }
+    else if (strcmpnocase(argument, "read") == 0) {
+        emuCommandLineOverrideInt(&properties->emulation.agentControl, 1);
+    }
+    else if (strcmpnocase(argument, "full") == 0) {
+        emuCommandLineOverrideInt(&properties->emulation.agentControl, 2);
+    }
+    else {
+        return settingError("agentcontrol", "wants off, read or full");
+    }
+    return 1;
+}
+
 /* The scale is 1 based on the command line and 0 based in the property, so
 ** this cannot go through rangeArgument. */
 static int windowSizeArgument(char* cmdLine, Properties* properties) {
@@ -938,6 +965,9 @@ int emuCheckSettingArguments(Properties* properties, char* cmdLine) {
         emuCommandLineOverrideInt(&properties->video.windowSize, P_VIDEO_SIZEX2);
     }
     if (!windowPosArgument(cmdLine, properties)) {
+        return 0;
+    }
+    if (!agentControlArgument(cmdLine, properties)) {
         return 0;
     }
 

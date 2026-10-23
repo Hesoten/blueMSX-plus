@@ -101,14 +101,24 @@ void debugDeviceUnregister(int handle)
     }
 }
 
-/* Counts the debugger callbacks this thread is inside. A device must not stop
-** the board from one: they run on the UI thread, which cannot park itself and
-** come back. Per thread, so the emulation loop is never the one silenced. */
+/* Counts the device reads and writes this thread is inside: a snapshot, a device write, or an
+** agent's whole access. No device may stop the board from one, as this thread cannot park
+** itself; per thread, so the emulation loop running on is never the one silenced. */
 static ARCH_THREAD_LOCAL int inspecting = 0;
 
 int debugDeviceIsInspecting(void)
 {
     return inspecting != 0;
+}
+
+void debugDeviceInspectBegin(void)
+{
+    inspecting++;
+}
+
+void debugDeviceInspectEnd(void)
+{
+    inspecting--;
 }
 
 void debugDeviceGetSnapshot(DbgDevice** dbgDeviceList, int* count)

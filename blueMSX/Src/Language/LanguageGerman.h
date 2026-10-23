@@ -292,6 +292,10 @@ void langInitGerman(LanguageStrings* ls)
     ls->menuToolsCtrlEditor      = "Controllers / Keyboard-Editor"; // New in 2.6
     ls->menuToolsMixer           = "Audio-Mixer";
     ls->menuToolsLoadMemory      = "Laden Speicher";
+    ls->menuToolsAgentControl   = "Agentensteuerung";
+    ls->menuAgentOff            = "Aus";
+    ls->menuAgentReadOnly       = "Nur lesen";
+    ls->menuAgentFull           = "Vollzugriff";
     ls->menuToolsDebugger        = "Debugger";               
     ls->menuToolsTrainer         = "Trainer";                
     ls->menuToolsTraceLogger     = "Trace Logger";           

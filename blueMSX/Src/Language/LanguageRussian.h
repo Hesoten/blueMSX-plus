@@ -292,6 +292,10 @@ void langInitRussian(LanguageStrings* ls)
     ls->menuToolsCtrlEditor     = "Настройка контроллеров / клавиатуры"; 
     ls->menuToolsMixer          = "Эквалайзер";
     ls->menuToolsLoadMemory     = "Загрузить память";
+    ls->menuToolsAgentControl   = "Управление агентом";
+    ls->menuAgentOff            = "Откл.";
+    ls->menuAgentReadOnly       = "Только чтение";
+    ls->menuAgentFull           = "Полный доступ";
     ls->menuToolsDebugger       = "Дебаггер";               
     ls->menuToolsTrainer        = "Коды";                
     ls->menuToolsTraceLogger    = "Логгер клавиатуры";           

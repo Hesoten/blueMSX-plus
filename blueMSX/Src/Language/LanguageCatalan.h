@@ -292,6 +292,10 @@ void langInitCatalan(LanguageStrings* ls)
     ls->menuToolsCtrlEditor     = "Controladors / editor de teclat"; 
     ls->menuToolsMixer          = "Mesclador";
     ls->menuToolsLoadMemory     = "Carrega de memòria";
+    ls->menuToolsAgentControl   = "Control per agent";
+    ls->menuAgentOff            = "Desactivat";
+    ls->menuAgentReadOnly       = "Només lectura";
+    ls->menuAgentFull           = "Complet";
     ls->menuToolsDebugger       = "Debugger";               
     ls->menuToolsTrainer        = "Trainer";                
     ls->menuToolsTraceLogger    = "Trace Logger";           

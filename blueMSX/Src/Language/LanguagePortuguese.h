@@ -292,6 +292,10 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->menuToolsCtrlEditor     = "Configuração de Controladores/Teclado";  
     ls->menuToolsMixer          = "Mixer de Audio"; 
     ls->menuToolsLoadMemory     = "Memória de carga";
+    ls->menuToolsAgentControl   = "Controle por agente";
+    ls->menuAgentOff            = "Desativado";
+    ls->menuAgentReadOnly       = "Somente leitura";
+    ls->menuAgentFull           = "Completo";
     ls->menuToolsDebugger       = "Debugger";               
     ls->menuToolsTrainer        = "Trainer";                
     ls->menuToolsTraceLogger    = "Trace Logger";           

@@ -249,3 +249,8 @@ void r800DebugDestroy()
     dbg = NULL;
 }
 
+int r800DebugIsR800(void)
+{
+    return dbg != NULL && r800GetMode(dbg->r800) == CPU_R800;
+}
+

@@ -292,6 +292,10 @@ void langInitEnglish(LanguageStrings* ls)
     ls->menuToolsCtrlEditor     = "Input Editor"; 
     ls->menuToolsMixer          = "Sound Mixer";
     ls->menuToolsLoadMemory     = "Load Memory";
+    ls->menuToolsAgentControl   = "Agent Control";
+    ls->menuAgentOff            = "Off";
+    ls->menuAgentReadOnly       = "Read Only";
+    ls->menuAgentFull           = "Full";
     ls->menuToolsDebugger       = "Debugger";               
     ls->menuToolsTrainer        = "Trainer";                
     ls->menuToolsTraceLogger    = "Trace Logger";           

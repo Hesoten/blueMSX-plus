@@ -292,6 +292,10 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->menuToolsCtrlEditor     = "控制器 / 键盘编辑器"; 
     ls->menuToolsMixer          = "混音器";
     ls->menuToolsLoadMemory     = "加载内存";
+    ls->menuToolsAgentControl   = "代理控制";
+    ls->menuAgentOff            = "关闭";
+    ls->menuAgentReadOnly       = "只读";
+    ls->menuAgentFull           = "完全访问";
     ls->menuToolsDebugger       = "调试工具";               
     ls->menuToolsTrainer        = "作弊工具";                
     ls->menuToolsTraceLogger    = "追踪记录工具";           

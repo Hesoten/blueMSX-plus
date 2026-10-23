@@ -92,6 +92,10 @@ void debugDeviceGetSnapshot(DbgDevice** dbgDeviceList, int* count);
 ** from the UI thread, which cannot survive being parked, so a device must not
 ** stop the board from inside one. */
 int debugDeviceIsInspecting(void);
+/* The same for a whole access by another thread, so a VDP sync under it keeps a hit pending. */
+void debugDeviceInspectBegin(void);
+void debugDeviceInspectEnd(void);
+
 
 int debugDeviceWriteMemory(DbgMemoryBlock* memoryBlock, void* data, int startAddr, int size);
 int debugDeviceWriteRegister(DbgRegisterBank* regBank, int regIndex, UInt32 value);

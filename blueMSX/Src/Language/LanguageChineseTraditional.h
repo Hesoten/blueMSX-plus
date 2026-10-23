@@ -292,6 +292,10 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->menuToolsCtrlEditor     = "控制器 / 鍵盤編輯器"; 
     ls->menuToolsMixer          = "混合器";
     ls->menuToolsLoadMemory     = "載入記憶體";
+    ls->menuToolsAgentControl   = "代理控制";
+    ls->menuAgentOff            = "關閉";
+    ls->menuAgentReadOnly       = "唯讀";
+    ls->menuAgentFull           = "完全存取";
     ls->menuToolsDebugger       = "偵錯工具";               
     ls->menuToolsTrainer        = "訓練器";                
     ls->menuToolsTraceLogger    = "追蹤記錄器";           

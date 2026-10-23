@@ -292,6 +292,10 @@ void langInitDutch(LanguageStrings* ls)
     ls->menuToolsCtrlEditor     = "Besturing";
     ls->menuToolsMixer          = "Geluidsmixer";
     ls->menuToolsLoadMemory     = "Laden Geheugen";
+    ls->menuToolsAgentControl   = "Agentbesturing";
+    ls->menuAgentOff            = "Uit";
+    ls->menuAgentReadOnly       = "Alleen-lezen";
+    ls->menuAgentFull           = "Volledig";
     ls->menuToolsDebugger       = "Debugger";
     ls->menuToolsTrainer        = "Trainer";
     ls->menuToolsTraceLogger    = "Trace Logger";

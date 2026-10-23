@@ -300,6 +300,10 @@ void langInitKorean(LanguageStrings* ls)
     ls->menuWindow              = "윈도우";
     ls->menuToolsMixer          = "믹서";
     ls->menuToolsLoadMemory     = "메모리 불러오기";
+    ls->menuToolsAgentControl   = "에이전트 제어";
+    ls->menuAgentOff            = "끔";
+    ls->menuAgentReadOnly       = "읽기 전용";
+    ls->menuAgentFull           = "전체 허용";
     ls->menuOptions             = "옵션";
     ls->menuHelp                = "도움말";
 

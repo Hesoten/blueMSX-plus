@@ -35,7 +35,11 @@
 #include "Emulator.h"
 #include "Actions.h"
 #include "Board.h"
+#include "ArchEvent.h"
+#include "ArchThread.h"
+#include "ArchTimer.h"
 #include "ArchMenu.h"
+#include "RaceTest.h"
 #include <stdlib.h>
 
 struct BlueDebugger {
@@ -63,6 +67,8 @@ struct DbgSnapshot {
 
 static BlueDebugger* debuggerList[MAX_DEBUGGERS];
 static volatile DbgState dbgState = DBG_STOPPED;
+/* Bumped when the machine starts, stops, resets or is put back to another moment. */
+static volatile UInt32 machineGeneration = 1;
 static int debuggerVramAccessEnable = 0;
 
 static void onDefault(void* ref) {
@@ -132,6 +138,16 @@ BlueDebugger* debuggerCreateListener(DebuggerEvent onEmulatorStart, DebuggerEven
     return debugger;
 }
 
+UInt32 dbgMachineGeneration(void)
+{
+    return machineGeneration;
+}
+
+void dbgNotifyMachineChanged(void)
+{
+    machineGeneration++;
+}
+
 
 void debuggerDestroy(BlueDebugger* debugger)
 {
@@ -158,6 +174,8 @@ void debuggerNotifyEmulatorStart()
 
     dbgState = DBG_RUNNING;
 
+    dbgNotifyMachineChanged();
+
     /* Before the plugins re-arm their own lists, so both meet the same new CPU. */
     dbgBreakpointsOnEmulatorStart();
 
@@ -173,6 +191,7 @@ void debuggerNotifyEmulatorStop()
     int i;
 
     dbgState = DBG_STOPPED;
+    dbgNotifyMachineChanged();
 
     for (i = 0; i < MAX_DEBUGGERS; i++) {
         if (debuggerList[i] != NULL) {
@@ -218,8 +237,9 @@ void debuggerNotifyEmulatorResume()
 void debuggerNotifyEmulatorReset()
 {
     int i;
-    
+
     dbgState = DBG_RUNNING;
+    dbgNotifyMachineChanged();
 
     for (i = 0; i < MAX_DEBUGGERS; i++) {
         if (debuggerList[i] != NULL) {
@@ -250,10 +270,16 @@ void debuggerSetBreakpoint(UInt16 slot, UInt16 page, UInt16 address)
     }
 }
 
+/* The access this thread holds (dbgAccessBegin), and whether it serves agents. */
+static ARCH_THREAD_LOCAL int accessHeld;
+static ARCH_THREAD_LOCAL int isAgentThread;
+
 DbgSnapshot* dbgSnapshotCreate() 
 {
     DbgSnapshot* dbgSnapshot;
     
+    RACE_TEST_CHECK(!isAgentThread || accessHeld == DBG_ACCESS_VIEW,
+                    "a snapshot on the agent's thread without a view");
     if (dbgState != DBG_PAUSED) {
         return NULL;
     }
@@ -331,6 +357,20 @@ const DbgDevice* dbgSnapshotGetDevice(DbgSnapshot* dbgSnapshot, int index)
     return dbgSnapshot->dbgDevice[index];
 }
 
+const DbgDevice* dbgSnapshotFindDeviceWithRegisters(DbgSnapshot* dbgSnapshot, int type)
+{
+    int count = dbgSnapshotGetDeviceCount(dbgSnapshot);
+    int i;
+
+    for (i = 0; i < count; i++) {
+        const DbgDevice* device = dbgSnapshotGetDevice(dbgSnapshot, i);
+        if (device != NULL && device->type == type && device->registerBankCount > 0) {
+            return device;
+        }
+    }
+    return NULL;
+}
+
 int dbgDeviceGetMemoryBlockCount(DbgDevice* dbgDevice)
 {
     return dbgDevice->memoryBlockCount;
@@ -397,6 +437,7 @@ void dbgStop()
 
 int dbgPause()
 {
+    RACE_TEST_POINT(RACE_PAUSE_CHECK);
     /* As the toggle it replaces: nothing pauses while a question about a folder disk is open. */
     if (actionDirGateOpen() || !emulatorPauseIfRunning()) {
         return 0;
@@ -418,9 +459,147 @@ int dbgPauseSync(int timeoutMs)
     return emulatorWaitParked(timeoutMs);
 }
 
+/* Held for a whole access; only the agent's thread takes it, so it is free while Off. */
+static void* accessLock;
+/* Leaf lock around guiChanging. */
+static void* changeLock;
+static volatile int guiChanging;
+static ARCH_THREAD_LOCAL int isGuiThread;
+
 void debuggerCreateLocks(void)
 {
+    if (accessLock == NULL) {
+        accessLock = archSemaphoreCreate(1);
+        changeLock = archSemaphoreCreate(1);
+    }
     dbgBreakpointsCreateLock();
+}
+
+void dbgMarkGuiThread(void)
+{
+    isGuiThread = 1;
+}
+
+void dbgMarkAgentThread(void)
+{
+    isAgentThread = 1;
+}
+
+int dbgChangePending(void)
+{
+    int pending;
+
+    archSemaphoreWait(changeLock, -1);
+    pending = guiChanging;
+    archSemaphoreSignal(changeLock);
+    return pending;
+}
+
+void dbgChangeBegin(void)
+{
+    if (accessLock == NULL) {
+        return;
+    }
+    if (isGuiThread) {
+        archSemaphoreWait(changeLock, -1);
+        guiChanging = 1;
+        archSemaphoreSignal(changeLock);
+    }
+    /* Only the agent's thread takes access, so on it there is none to wait for. */
+    if (isAgentThread) {
+        RACE_TEST_CHECK(accessHeld == 0, "a change made while holding access");
+        return;
+    }
+    /* Finite: whoever holds access never waits on this thread. */
+    archSemaphoreWait(accessLock, -1);
+    archSemaphoreSignal(accessLock);
+}
+
+void dbgChangesDone(void)
+{
+    /* Only this thread sets it, so a plain look first keeps the idle loop off the lock. */
+    if (guiChanging) {
+        archSemaphoreWait(changeLock, -1);
+        guiChanging = 0;
+        archSemaphoreSignal(changeLock);
+    }
+}
+
+static int timeLeft(UInt32 start, int timeoutMs)
+{
+    int left = timeoutMs - (int)(archGetSystemUpTime(1000) - start);
+
+    return left > 0 ? left : 0;
+}
+
+/* With accessLock taken: whether the machine is as the kind of access needs. */
+static int machineReady(int kind, UInt32 start, int timeoutMs)
+{
+    EmuState state = emulatorGetState();
+
+    if (state == EMU_STOPPED) {
+        return DBG_ACCESS_NO_MACHINE;
+    }
+    if (kind == DBG_ACCESS_HOLD) {
+        return DBG_ACCESS_OK;
+    }
+    if (state != EMU_PAUSED) {
+        return DBG_ACCESS_NOT_PAUSED;
+    }
+    if (!emulatorWaitParked(timeLeft(start, timeoutMs))) {
+        state = emulatorGetState();
+        return state == EMU_STOPPED ? DBG_ACCESS_NO_MACHINE :
+               state != EMU_PAUSED  ? DBG_ACCESS_NOT_PAUSED : DBG_ACCESS_BUSY;
+    }
+    return DBG_ACCESS_OK;
+}
+
+int dbgAccessBegin(int kind, int timeoutMs)
+{
+    UInt32 start = archGetSystemUpTime(1000);
+    int result;
+
+    RACE_TEST_CHECK(accessHeld == 0, "access taken twice");
+    if (accessLock == NULL || accessHeld != 0) {
+        return DBG_ACCESS_BUSY;
+    }
+    for (;;) {
+        if (!archSemaphoreWaitTimeout(accessLock, timeLeft(start, timeoutMs))) {
+            return DBG_ACCESS_BUSY;
+        }
+        if (!dbgChangePending()) {
+            break;
+        }
+        archSemaphoreSignal(accessLock);
+        if (timeLeft(start, timeoutMs) == 0) {
+            return DBG_ACCESS_CHANGING;
+        }
+        archThreadSleep(1);
+    }
+    result = machineReady(kind, start, timeoutMs);
+    if (result != DBG_ACCESS_OK) {
+        archSemaphoreSignal(accessLock);
+        return result;
+    }
+    accessHeld = kind;
+    /* A device read under it, such as a VDP sync, must not stop the machine on this thread. */
+    debugDeviceInspectBegin();
+    RACE_TEST_POINT(RACE_IN_VIEW);
+    return DBG_ACCESS_OK;
+}
+
+void dbgAccessEnd(void)
+{
+    if (accessHeld != 0) {
+        debugDeviceInspectEnd();
+        accessHeld = 0;
+        archSemaphoreSignal(accessLock);
+    }
+}
+
+int dbgAccessHeld(void)
+{
+    return accessHeld;
 }
 
 void dbgStep()
@@ -462,6 +641,10 @@ void dbgClearWatchpoint(DbgDeviceType devType, int address)
     int wasRunning = emulatorGetState() == EMU_RUNNING;
     if (wasRunning) {
         emulatorSuspend();
+    }
+    else {
+        /* A paused machine is parked, but an agent may be reading through that node. */
+        dbgChangeBegin();
     }
     debugDeviceClearMemoryWatchpoint(devType, address);
     if (wasRunning) {

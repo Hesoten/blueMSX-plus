@@ -508,6 +508,10 @@ char* langMenuToolsShortcuts() { return ls->menuToolsShortcuts; }
 char* langMenuToolsCtrlEditor() { return ls->menuToolsCtrlEditor; }
 char* langMenuToolsMixer() { return ls->menuToolsMixer; }
 char* langMenuToolsLoadMemory() { return ls->menuToolsLoadMemory; }
+char* langMenuToolsAgentControl() { return ls->menuToolsAgentControl; }
+char* langMenuAgentOff() { return ls->menuAgentOff; }
+char* langMenuAgentReadOnly() { return ls->menuAgentReadOnly; }
+char* langMenuAgentFull() { return ls->menuAgentFull; }
 char* langMenuToolsDebugger() { return ls->menuToolsDebugger; }
 char* langMenuToolsTrainer() { return ls->menuToolsTrainer; }
 char* langMenuToolsTraceLogger() { return ls->menuToolsTraceLogger; }

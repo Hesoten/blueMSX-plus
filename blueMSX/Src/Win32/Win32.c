@@ -100,6 +100,11 @@
 #include "TokenExtract.h"
 #include "Emulator.h"
 #include "Debugger.h"
+#include "ControlDebuggerListener.h"
+#include "ControlStopLog.h"
+#include "ControlClient.h"
+#include "ControlSocket.h"
+#include "RaceTest.h"
 #include "JoystickPort.h"
 #include "Theme.h"
 #include "VideoRender.h"
@@ -1948,6 +1953,31 @@ static void checkKeyUp(Shortcuts* s, ShotcutHotkey key)
 #define WM_UPDATE            (WM_USER + 1245)
 #define WM_LAUNCHFILE        (WM_USER + 1249)
 #define WM_FLASHPROBLEM      (WM_USER + 1250)
+#ifdef BMSX_RACE_TEST
+/* Arms a race test point: wParam the point, lParam the milliseconds; RACE_HOLD_CHANGE holds
+** a change open as a menu does, for lParam ms. */
+#define WM_RACETEST          (WM_USER + 1260)
+#define RACE_HOLD_CHANGE     100
+
+/* A suspend and a nested message loop, as an open menu has, so the change stays pending. */
+static void raceTestHoldChange(int ms)
+{
+    DWORD start = GetTickCount();
+    MSG   msg;
+
+    emulatorSuspend();
+    raceTestLog("change held");
+    while ((int)(GetTickCount() - start) < ms) {
+        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
+        Sleep(5);
+    }
+    raceTestLog("change ends");
+    emulatorResume();
+}
+#endif
 
 /* Runs on the emulator thread while a cartridge is created, so the dialog is
 ** left to the window: a modal box here would stall the thread being waited on. */
@@ -3402,6 +3432,17 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         }
         return TRUE;
 
+#ifdef BMSX_RACE_TEST
+    case WM_RACETEST:
+        if (wParam == RACE_HOLD_CHANGE) {
+            raceTestHoldChange((int)lParam);
+        }
+        else {
+            raceTestArm((int)wParam, (int)lParam);
+        }
+        return 0;
+#endif
+
     case WM_FLASHPROBLEM:
         if (lParam != 0 && st.hidden) {
             free((char*)lParam);
@@ -4047,7 +4088,9 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         return TRUE;
 
     case WM_DESTROY:
-        
+        /* First, so no client request runs against what follows; only here is it killed. */
+        ctrlSocketStop(1);
+
         if (pProperties->emulation.ejectMediaOnExit) {
         	actionCartRemove1(); actionCartRemove2();
         	actionDiskRemoveA(); actionDiskRemoveB();
@@ -5136,6 +5179,10 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     /* Before any plugin, which may pause or run the machine as it loads. */
     emulatorCreateLocks();
     debuggerCreateLocks();
+    dbgMarkGuiThread();
+    ctrlStopLogCreate();
+    ctrlClientCreate();
+    ctrlDebuggerListenerCreate();
 
     // Load tools
     sprintf(buffer, "%s\\Tools", st.pCurDir);
@@ -5195,6 +5242,10 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     emulatorInit(pProperties, st.mixer);
     amdFlashSetProblemHandler(flashProblemPost);
     actionInit(st.pVideo, pProperties, st.mixer);
+    ctrlGateSetLevel(pProperties->emulation.agentControl);
+    if (ctrlGateLevel() != CTRL_GATE_OFF) {
+        ctrlSocketStart();
+    }
     tapeSetReadOnly(pProperties->cassette.readOnly);
     tapeSignalSetSaveMonitor(pProperties->cassette.saveMonitor);
     
@@ -5455,6 +5506,9 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
+        /* Not inside any handler, menu or dialog: what they changed is done. */
+        dbgChangesDone();
+        ctrlSocketPoll();
         if (rv == WAIT_OBJECT_0) {
             /* The drivers flip the view frame as they draw. A hidden run draws
             ** nothing, so it flips here, which is what a screenshot reads. */

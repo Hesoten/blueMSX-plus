@@ -116,11 +116,16 @@ void debuggerDestroy(BlueDebugger* debugger);
 BlueDebugger* debuggerCreateListener(DebuggerEvent onEmulatorStart, DebuggerEvent onEmulatorStop,
                                      DebuggerPauseEvent onEmulatorPause, void* ref);
 
+/* Bumped when the machine is started, stopped, reset, or a savestate loaded. */
+UInt32 dbgMachineGeneration(void);
+void   dbgNotifyMachineChanged(void);
+
 DbgSnapshot*     dbgSnapshotCreate();
 void             dbgSnapshotDestroy(DbgSnapshot* dbgSnapshot);
 DbgState         dbgGetState();
 int              dbgSnapshotGetDeviceCount(DbgSnapshot* dbgSnapshot);
 const DbgDevice* dbgSnapshotGetDevice(DbgSnapshot* dbgSnapshot, int deviceIndex);
+const DbgDevice* dbgSnapshotFindDeviceWithRegisters(DbgSnapshot* dbgSnapshot, int type);
 
 int                    dbgDeviceGetMemoryBlockCount(DbgDevice* dbgDevice);
 const DbgMemoryBlock*  dbgDeviceGetMemoryBlock(DbgDevice* dbgDevice, int memBlockIndex);
@@ -144,9 +149,37 @@ int  dbgPause();
 ** Use this rather than dbgPause before reading memory. */
 int  dbgPauseSync(int timeoutMs);
 
+/* Access to the machine from an agent's thread, which reads it only while it holds one:
+** a view of a paused, parked machine reads the CPU, memory and devices; a hold, of any
+** machine that is not stopped, only its layout and the last frame. Changers wait for it. */
+#define DBG_ACCESS_HOLD 1
+#define DBG_ACCESS_VIEW 2
+
+#define DBG_ACCESS_OK         0
+#define DBG_ACCESS_NO_MACHINE 1
+#define DBG_ACCESS_NOT_PAUSED 2  /* a view of a machine that runs */
+#define DBG_ACCESS_BUSY       3  /* no park, or no free lock, in time; or one is held already */
+#define DBG_ACCESS_CHANGING   4  /* the window's thread is changing the machine, or has a menu open */
+
 /* Once at startup, before any plugin loads. */
 void debuggerCreateLocks(void);
+/* Which thread is the window's and which serves agents; each calls its own once. */
+void dbgMarkGuiThread(void);
+void dbgMarkAgentThread(void);
 
+/* Waits up to timeoutMs; DBG_ACCESS_OK once this thread holds it. Never nested: a second
+** take while one is held is refused as busy. */
+int  dbgAccessBegin(int kind, int timeoutMs);
+void dbgAccessEnd(void);
+/* The kind this thread holds, or 0. */
+int  dbgAccessHeld(void);
+
+/* For whatever changes the machine: waits for an access in progress to end. On the window's
+** thread it also turns new ones away until dbgChangesDone, called where its loop is idle. */
+void dbgChangeBegin(void);
+void dbgChangesDone(void);
+/* Non-zero while the window's thread has a change under way. */
+int  dbgChangePending(void);
 void dbgStep();
 void dbgStepBack();
 

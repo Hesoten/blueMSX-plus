@@ -293,6 +293,10 @@ void langInitSwedish(LanguageStrings* ls)
     ls->menuToolsCtrlEditor     = "Kontrollers / Tangenbordseditor"; 
     ls->menuToolsMixer          = "Mixer";
     ls->menuToolsLoadMemory     = "Ladda Minne";
+    ls->menuToolsAgentControl   = "Agentstyrning";
+    ls->menuAgentOff            = "Av";
+    ls->menuAgentReadOnly       = "Endast läsning";
+    ls->menuAgentFull           = "Full";
     ls->menuToolsDebugger       = "Avlusare";               
     ls->menuToolsTrainer        = "Spelfusk";                
     ls->menuToolsTraceLogger    = "Spårutskrift";           

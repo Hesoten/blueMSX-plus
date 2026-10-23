@@ -297,6 +297,10 @@ void langInitJapanese(LanguageStrings* ls)
     ls->menuToolsTrainer        = "トレーナー";
     ls->menuToolsTraceLogger    = "トレースロガー";
     ls->menuToolsLoadMemory     = "メモリ読み込み";
+    ls->menuToolsAgentControl   = "エージェント制御";
+    ls->menuAgentOff            = "許可しない";
+    ls->menuAgentReadOnly       = "読み取りのみ";
+    ls->menuAgentFull           = "書き込みも許可";
 
     ls->menuFile                = "ファイル";
     ls->menuRun                 = "実行";

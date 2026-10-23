@@ -293,6 +293,10 @@ void langInitFinnish(LanguageStrings* ls)
     ls->menuToolsCtrlEditor     = "Peliohjaimet / Näppäimistökartta"; 
     ls->menuToolsMixer          = "Mikseri";
     ls->menuToolsLoadMemory     = "Lataa muisti";
+    ls->menuToolsAgentControl   = "Agenttiohjaus";
+    ls->menuAgentOff            = "Pois";
+    ls->menuAgentReadOnly       = "Vain luku";
+    ls->menuAgentFull           = "Täysi";
     ls->menuToolsDebugger       = "Debugger";               
     ls->menuToolsTrainer        = "Trainer";                
     ls->menuToolsTraceLogger    = "Seurantalogi";         
