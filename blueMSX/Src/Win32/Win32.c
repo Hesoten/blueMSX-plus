@@ -3615,8 +3615,8 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             }
             return 0;
         case SC_MINIMIZE:
-            vdpSetDisplayEnable(0);
             st.minimized = 1;
+            updateMinimizedDrawing();
 //            emulatorSuspend();
             break;
         case SC_RESTORE:
@@ -7768,6 +7768,12 @@ void archMinimizeWindow() {
 //        ShowWindow(st.currentHwnd, SW_MINIMIZE);
         SendMessage(st.currentHwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
     }
+}
+
+/* A minimized window stops drawing to save CPU, unless an agent may ask for the screen. */
+void updateMinimizedDrawing(void)
+{
+    vdpSetDisplayEnable(!st.minimized || ctrlGateLevel() != CTRL_GATE_OFF);
 }
 
 void archCloseWindow() {

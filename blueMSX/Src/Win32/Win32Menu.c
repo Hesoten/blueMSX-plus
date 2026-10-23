@@ -1352,6 +1352,8 @@ static void setAgentControl(Properties* pProperties, int level)
     }
     pProperties->emulation.agentControl = level;
     ctrlGateSetLevel(level);
+    /* Before the socket starts, so no client finds a minimized window not drawing. */
+    updateMinimizedDrawing();
 
     if (level == CTRL_GATE_OFF) {
         ctrlClientBlockAll(1);

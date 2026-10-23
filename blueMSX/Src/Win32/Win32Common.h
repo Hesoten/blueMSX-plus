@@ -57,6 +57,9 @@ void saveDialogPos(HWND hwnd, int dialogID);
 
 HWND getMainHwnd();
 HWND getEmuHwnd();
+/* Call after the window is minimized or Agent Control changes level. */
+void updateMinimizedDrawing(void);
+
 /* Posted by the control socket's thread for work it hands to the window's thread. */
 #define WM_CTRLGUICOMMAND (WM_USER + 1251)
 

@@ -65,7 +65,8 @@ static int screenAsPng(CtrlCall* call, const char* wanted)
                          result == CTRL_SCREEN_OK ? CTRL_ACT_DONE : CTRL_ACT_FAILED);
     if (result != CTRL_SCREEN_OK) {
         return ctrlReplyError(call,
-                              result == CTRL_SCREEN_FILE_EXISTS ? "file_exists"
+                              result == CTRL_SCREEN_NOT_DRAWING ? "not_drawing"
+                              : result == CTRL_SCREEN_FILE_EXISTS ? "file_exists"
                               : "screen_failed", err);
     }
     jsonOutString(&call->out, "path", path);

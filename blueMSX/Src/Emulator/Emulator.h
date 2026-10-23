@@ -61,6 +61,8 @@ int  emulatorWaitParked(int timeoutMs);
 
 /* Emulated frames run since the machine started. */
 UInt32 emulatorGetFramesRun(void);
+/* Frames drawn since the last one skipped while minimized; 0xFFFFFFFF if none was. */
+UInt32 emulatorGetFramesDrawnSinceMinimized(void);
 
 void emulatorSuspend();
 void emulatorResume();

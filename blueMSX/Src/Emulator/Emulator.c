@@ -52,6 +52,7 @@
 #include "ArchNotifications.h"
 #include "YM2413.h"
 #include "VideoManager.h"
+#include "VDP.h"
 #include "RaceTest.h"
 #include <math.h>
 #include <string.h>
@@ -902,10 +903,17 @@ void emulatorResetMixer() {
 /* Counted in RefreshScreen, once per VDP frame. Not in emulatorSyncScreen,
 ** which runs once per sync slice on the sync-to-vblank path. */
 static UInt32 emuFramesRun;
+/* The last frame that ran while the minimized window skipped drawing; 0 if none. */
+static UInt32 emuLastFrameNotDrawn;
 
 UInt32 emulatorGetFramesRun(void)
 {
     return emuFramesRun;
+}
+
+UInt32 emulatorGetFramesDrawnSinceMinimized(void)
+{
+    return emuLastFrameNotDrawn != 0 ? emuFramesRun - emuLastFrameNotDrawn : 0xFFFFFFFF;
 }
 
 int emulatorSyncScreen()
@@ -933,6 +941,9 @@ void emulatorRefreshFromSource() {
 void RefreshScreen(int screenMode) {
 
     emuFramesRun++;
+    if (!vdpGetDisplayEnable()) {
+        emuLastFrameNotDrawn = emuFramesRun;
+    }
     lastScreenMode = screenMode;
 
     if (!videoManagerActivePacesScreen()) {

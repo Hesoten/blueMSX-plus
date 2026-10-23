@@ -37,6 +37,7 @@ int ctrlScreenText(CtrlView* view, CtrlText* out, char* err, int errLen);
 
 #define CTRL_SCREEN_OK           1
 #define CTRL_SCREEN_FAILED       0
+#define CTRL_SCREEN_NOT_DRAWING -1  /* minimized under Off, and no frame drawn since */
 #define CTRL_SCREEN_FILE_EXISTS -2  /* a path given names a file that is there */
 
 /* Writes the last finished frame as a PNG; pathOut gets where it went. No view needed.

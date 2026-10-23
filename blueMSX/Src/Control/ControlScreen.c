@@ -22,10 +22,12 @@
 */
 #include "ControlScreen.h"
 #include "ControlVram.h"
+#include "ControlClient.h"
 #include "ControlPath.h"
 #include "VDP.h"
 #include "V9990.h"
 #include "FrameBuffer.h"
+#include "Emulator.h"
 #include "ArchNotifications.h"
 #include "ControlInstance.h"
 #include "ControlProtocol.h"
@@ -355,6 +357,32 @@ int ctrlScreenPng(const char* wantedPath, char* pathOut, int pathOutLen,
     char path[CTRL_PATH_MAX];
     int  created = 0;
     int  result;
+
+    /* Minimized while Agent Control was Off draws nothing; the frame after it can be half old
+    ** lines, and Blend frames mixes that into the next one. */
+    if (emulatorGetFramesDrawnSinceMinimized() < 3) {
+        int fullAccess = ctrlGateLevel() == CTRL_GATE_FULL;
+        int superimposed;
+        /* Only a view reads the VDP's mode; a running machine is not read. */
+        int textMode   = dbgAccessHeld() == DBG_ACCESS_VIEW && ctrlScreenIsTextMode() &&
+                         !ctrlScreenV9990Shown(&superimposed);
+        /* Presence, not the picture shown, as this may run under a hold. */
+        const char* readable = v9990IsPresent() ? " or memory)."
+                                                : ", memory, or the screen as text).";
+
+        snprintf(err, (size_t)errLen,
+                 "the emulator window was minimized while Agent Control was Off, so the "
+                 "screen was not drawn, and no frame has been drawn since; a PNG would show "
+                 "an old picture. %s ask again%s.%s%s",
+                 fullAccess ? "Let the machine run at least three frames (bmsx_run how=resume, "
+                        "then how=pause) and"
+                      : "Ask the person to let the machine run for a moment, then",
+                 textMode ? ", or use as=text" : "",
+                 fullAccess ? " This lets the program go on past where it stopped, so first read "
+                        "what you need at this stop (registers" : "",
+                 fullAccess ? readable : "");
+        return CTRL_SCREEN_NOT_DRAWING;
+    }
 
     if (wantedPath != NULL && wantedPath[0] != 0) {
         /* Git Bash's /c/... is not a full path, and would land elsewhere. */
