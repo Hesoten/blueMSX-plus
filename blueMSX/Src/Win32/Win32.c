@@ -5545,13 +5545,13 @@ void archShowNoRomInZipDialog() {
 void archShowNoDiskInZipDialog() {
     enterDialogShow();
     MessageBoxU(NULL, langErrorNoDskInZip(), langErrorTitle(), MB_OK);
-    enterDialogShow();
+    exitDialogShow();
 }
 
 void archShowNoCasInZipDialog() {
     enterDialogShow();
     MessageBoxU(NULL, langErrorNoCasInZip(), langErrorTitle(), MB_OK);
-    enterDialogShow();
+    exitDialogShow();
 }
 
 void archShowUnknownFileTypeDialog(const char* fileName) {
