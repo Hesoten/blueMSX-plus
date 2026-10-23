@@ -39,7 +39,7 @@ int  ctrlAddrArgRefusePastEnd(CtrlCall* call, const CtrlAddr* addr);
 /* A vram: range with a byte that has no video memory behind it in that screen mode. */
 int  ctrlAddrArgRefuseNoVram(CtrlCall* call, UInt32 address, UInt32 size, int mode);
 
-/* Says in the text how a typed address was read: which mapper
+/* Says in the text how a typed address was read: a bare number as decimal, which mapper
 ** ram: took, and that an @NAME was chosen from a running layout. */
 void ctrlAddrArgTellHowRead(CtrlCall* call, const char* typed, const CtrlAddr* addr);
 

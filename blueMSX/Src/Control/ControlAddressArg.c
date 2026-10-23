@@ -29,6 +29,7 @@
 #include "SlotManager.h"
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 int ctrlAddrArgResolve(CtrlCall* call, const CtrlAddr* addr, CtrlAddrInfo* info)
 {
@@ -39,6 +40,39 @@ int ctrlAddrArgResolve(CtrlCall* call, const CtrlAddr* addr, CtrlAddrInfo* info)
         return 0;
     }
     return ctrlReplyError(call, "bad_address", "there is no such address on this machine");
+}
+
+/* Bare digits are decimal here but hex in symbol files, so a long bare number is echoed. */
+static void tellBareDecimal(CtrlText* out, const char* typed)
+{
+    const char* scan;
+
+    for (scan = typed; *scan != 0; scan++) {
+        const char* end = scan;
+        if (!isdigit((unsigned char)*scan) ||
+            (scan > typed && (isalnum((unsigned char)scan[-1]) || strchr("_.$#", scan[-1]) != NULL)))
+        {
+            continue;
+        }
+        while (isdigit((unsigned char)*end)) {
+            end++;
+        }
+        if (end - scan >= 4 && !isxdigit((unsigned char)*end) &&
+            (*end == 0 || strchr("hHxX", *end) == NULL))
+        {
+            /* Video memory holds at most 192 kB, and every other space 64 kB. */
+            unsigned long most = _strnicmp(typed, "vram:", 5) == 0 ? 0x2FFFF : 0xFFFF;
+
+            ctrlTextAdd(out, "read %.*s as decimal (0x%04X)",
+                        (int)(end - scan), scan, (unsigned)strtoul(scan, NULL, 10));
+            if (strtoul(scan, NULL, 16) <= most) {
+                ctrlTextAdd(out, "; write 0x%.*s for hexadecimal", (int)(end - scan), scan);
+            }
+            ctrlTextAdd(out, "\n");
+            return;
+        }
+        scan = end - 1;
+    }
 }
 
 /* Which mapper ram: took, and why, as the parse saw page 3: reading it again could disagree. */
@@ -65,6 +99,7 @@ static void tellRamChoice(CtrlText* out, const CtrlAddr* addr)
 
 void ctrlAddrArgTellHowRead(CtrlCall* call, const char* typed, const CtrlAddr* addr)
 {
+    tellBareDecimal(&call->text, typed);
     tellRamChoice(&call->text, addr);
     if (addr->symbolByPaging && emulatorGetState() == EMU_RUNNING) {
         ctrlTextAdd(&call->text, "Of the definitions of that name, the one paged in was taken. "
