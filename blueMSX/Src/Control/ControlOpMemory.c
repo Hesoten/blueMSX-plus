@@ -31,6 +31,7 @@
 #include "VDP.h"
 #include "DebugDeviceManager.h"
 #include <stdio.h>
+#include <string.h>
 #include <ctype.h>
 
 /* Room for the largest read, and a write's bytes. */
@@ -335,7 +336,7 @@ static void reportBusWrite(CtrlCall* call, const char* echo, const CtrlAddr* add
                 "on a mapper or flash cartridge, a bank selector, a register, or "
                 "flash programming (a flash cartridge may keep that in its save "
                 "file). Read the address back, and the slot map, to see what "
-                "changed.\n");
+                "changed. A write that goes to the bus cannot be undone.\n");
 }
 
 int ctrlOpMemWrite(CtrlCall* call)
@@ -399,7 +400,104 @@ int ctrlOpMemWrite(CtrlCall* call)
     else {
         ctrlTextAdd(&call->text, "wrote %s to ", echo);
         ctrlAddrDescribe(&call->text, &addr);
+        if (ctrlMemUndoWhyNot() != NULL) {
+            ctrlTextAdd(&call->text, "no undo: %s.\n", ctrlMemUndoWhyNot());
+        }
     }
     jsonOutUInt(&call->out, "written", count);
+    jsonOutBool(&call->out, "undoable", ctrlMemUndoWhyNot() == NULL);
+    jsonOutInt(&call->out, "undo_depth", ctrlMemUndoDepth());
+    return ctrlReplyDone(call);
+}
+
+/* Nothing was put back: the reason, naming the write when undone says which. */
+static int refuseNothingUndone(CtrlCall* call, int result, const CtrlAddr* undone)
+{
+    char where[64] = "";
+
+    if (result != CTRL_MEM_NOUNDO && result != CTRL_MEM_STALE &&
+        result != CTRL_MEM_DENIED)
+    {
+        ctrlAddrPrint(undone, where, sizeof(where));
+    }
+    if (where[0] != 0) {
+        return ctrlReplyErrorf(call, "unwritable", "%s at %s",
+                               ctrlMemErrorText(result), where);
+    }
+    return ctrlReplyError(call,
+                          result == CTRL_MEM_NOUNDO ? "nothing_to_undo" :
+                          result == CTRL_MEM_STALE   ? "stale_undo" :
+                          result == CTRL_MEM_DENIED  ? "revoked" : "unwritable",
+                          ctrlMemErrorText(result));
+}
+
+/* Where an undo put video memory back, when the screen mode now lays it out otherwise. */
+static void tellUndoLayout(CtrlCall* call, const CtrlAddr* undone, int vramMode)
+{
+    char screen[32];
+
+    if (undone->space != CTRL_SPACE_VRAM || vdpVramSameLayout(vramMode, vdpDebugGetScreenMode())) {
+        return;
+    }
+    ctrlVramModeShortName(screen, sizeof(screen), vramMode);
+    ctrlTextAdd(&call->text, "  (addresses as %s laid out video memory at the write)\n", screen);
+}
+
+int ctrlOpUndo(CtrlCall* call)
+{
+    int refused;
+    CtrlAddr undone;
+    UInt32   size = 0;
+    int      vramMode = 0;
+    Int32    count = CTRL_UNDO_COUNT_DEFAULT;
+    Int32    done = 0;
+    int      result = CTRL_MEM_OK;
+
+    /* ctrlMemUndo may leave this untouched, and it is printed on failure. */
+    memset(&undone, 0, sizeof(undone));
+
+    count = ctrlCallInt(call, "count", count);
+    if (count < CTRL_UNDO_COUNT_MIN || count > CTRL_UNDO_COUNT_MAX) {
+        return ctrlReplyErrorf(call, "out_of_range", "count must be between %d and %d writes",
+                               CTRL_UNDO_COUNT_MIN, CTRL_UNDO_COUNT_MAX);
+    }
+    if ((refused = ctrlRefuseWithoutMachine(call, NULL)) != 0) {
+        return refused;
+    }
+    /* An empty journal is told without a view, as an argument would be. */
+    if (ctrlMemUndoDepth() == 0) {
+        return refuseNothingUndone(call, CTRL_MEM_NOUNDO, &undone);
+    }
+    if ((refused = ctrlRefuseUnlessViewed(call)) != 0) {
+        return refused;
+    }
+    while (done < count) {
+        result = ctrlMemUndo(&call->view, &undone, &size, &vramMode);
+        if (result != CTRL_MEM_OK) {
+            break;
+        }
+        done++;
+        ctrlTextAdd(&call->text, "put %u byte%s back at ", (unsigned)size,
+                    size == 1 ? "" : "s");
+        ctrlAddrDescribe(&call->text, &undone);
+        tellUndoLayout(call, &undone, vramMode);
+    }
+
+    if (done == 0) {
+        return refuseNothingUndone(call, result, &undone);
+    }
+    ctrlTextAdd(&call->text,
+                "The bytes are back. Anything the program did after reading "
+                "them is not.\n");
+    if (result != CTRL_MEM_OK && result != CTRL_MEM_NOUNDO) {
+        ctrlTextAdd(&call->text, "stopped after %d: %s\n", (int)done,
+                    ctrlMemErrorText(result));
+    }
+    else if (done < count) {
+        ctrlTextAdd(&call->text, "undid %d of the %d asked for; there were no more writes "
+                    "to undo\n", (int)done, (int)count);
+    }
+    jsonOutInt(&call->out, "undone", done);
+    jsonOutInt(&call->out, "undo_depth", ctrlMemUndoDepth());
     return ctrlReplyDone(call);
 }

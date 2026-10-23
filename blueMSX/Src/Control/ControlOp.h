@@ -43,6 +43,7 @@ int ctrlOpSlots(CtrlCall* call);
 int ctrlOpMemRead(CtrlCall* call);
 int ctrlOpMemResolve(CtrlCall* call);
 int ctrlOpMemWrite(CtrlCall* call);
+int ctrlOpUndo(CtrlCall* call);
 
 /* ControlOpScreen.c */
 int ctrlOpScreen(CtrlCall* call);

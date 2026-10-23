@@ -36,6 +36,8 @@
 #define CTRL_MEM_TOOBIG      7
 #define CTRL_MEM_DENIED      8  /* cut off at the emulator by the user     */
 #define CTRL_MEM_NOVRAM      9  /* no video memory there in this screen mode */
+#define CTRL_MEM_NOUNDO     10  /* nothing left in the journal             */
+#define CTRL_MEM_STALE      11  /* written to a machine that is gone       */
 
 /* What a read (or a write) of size bytes at addr would refuse, found from the layout alone,
 ** so a request can be refused on its arguments before it needs the machine paused. byPaging
@@ -46,8 +48,19 @@ int ctrlMemCheck(const CtrlAddr* addr, UInt32 size, int isWrite, int* byPaging);
 int ctrlMemRead(CtrlView* view, const CtrlAddr* addr, UInt8* dst, UInt32 size);
 
 /* A segment address may run into the next segment; a CPU address goes to the
-** bus unclamped. */
+** bus unclamped. Journals the old bytes when it can (see ctrlMemUndo). */
 int ctrlMemWrite(CtrlView* view, const CtrlAddr* addr, const UInt8* src, UInt32 size);
+
+/* Takes back the most recent journalled write, restoring its bytes only, and reports it in
+** *undone and *size, with the screen mode its vram: address was written in. Only writes into
+** writable RAM storage are journalled. CTRL_MEM_STALE when the machine has changed since. */
+int ctrlMemUndo(CtrlView* view, CtrlAddr* undone, UInt32* size, int* vramMode);
+
+/* How many writes could still be taken back. */
+int ctrlMemUndoDepth(void);
+
+/* Why the last ctrlMemWrite was not journalled, or NULL if it was. */
+const char* ctrlMemUndoWhyNot(void);
 
 /* Why a result code came back, in words that can be shown to whoever asked. */
 const char* ctrlMemErrorText(int result);

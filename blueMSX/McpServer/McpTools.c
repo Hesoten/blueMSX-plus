@@ -48,6 +48,9 @@
                   "\"idempotentHint\":false,\"openWorldHint\":false"
 #define DESTROYS  "\"readOnlyHint\":false,\"destructiveHint\":true," \
                   "\"idempotentHint\":true,\"openWorldHint\":false"
+/* A second undo reverts a different write. */
+#define DESTROYS_NOT_IDEMPOTENT "\"readOnlyHint\":false,\"destructiveHint\":true," \
+                                "\"idempotentHint\":false,\"openWorldHint\":false"
 
 const McpTool mcpTools[] = {
 {
@@ -147,7 +150,8 @@ const McpTool mcpTools[] = {
 },
 {
     "bmsx_mem_write",
-    "Write bytes into the machine. This changes the program that is running.",
+    "Write bytes into the machine. This changes the program that is running. Says whether the "
+    "write can be taken back with bmsx_undo, and if not, why not.",
     SCHEMA("\"properties\":{" AT_PROPERTY ","
            "\"data\":{\"type\":\"string\",\"description\":"
            "\"hex bytes, for example \\\"3E 01 C9\\\"\"}},"
@@ -172,6 +176,23 @@ const McpTool mcpTools[] = {
            "\"required\":[\"reg\",\"value\"]"),
     DESTROYS,
     "reg.write",
+    NULL
+},
+{
+    "bmsx_undo",
+    "Put back what bmsx_mem_write overwrote, most recent first. Writing is "
+    "allowed, so there has to be a way back: what goes wrong is usually not "
+    "the bytes but the place, and by then the old bytes exist nowhere else. "
+    "Restores the bytes only -- whatever the program did after reading them "
+    "has already happened. A write through the Z80's bus into ROM cannot be "
+    "taken back, and bmsx_mem_write says so at the time.",
+    SCHEMA("\"properties\":{"
+           "\"count\":{\"type\":\"integer\",\"default\":" CTRL_STR(CTRL_UNDO_COUNT_DEFAULT) ","
+           "\"minimum\":" CTRL_STR(CTRL_UNDO_COUNT_MIN) ",\"maximum\":"
+           CTRL_STR(CTRL_UNDO_COUNT_MAX) ",\"description\":"
+           "\"how many writes to walk back\"}}"),
+    DESTROYS_NOT_IDEMPOTENT,
+    "undo",
     NULL
 },
 };

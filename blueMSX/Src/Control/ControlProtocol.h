@@ -39,7 +39,8 @@
 /* Reply texts name the MCP tools to call next (bmsx_run how=pause): those names are part of
 ** this protocol. */
 
-/* The most bytes one mem.write takes, in any data form however spaced. */
+/* The most bytes one mem.write takes, in any data form however spaced; the undo journal
+** holds a write of this size whole. */
 #define CTRL_MEM_WRITE_MAX 511
 
 /* The longest "at", in bytes. */
@@ -56,6 +57,9 @@
 #define CTRL_MEM_READ_COUNT_DEFAULT       256
 #define CTRL_MEM_READ_COUNT_MIN           1
 #define CTRL_MEM_READ_COUNT_MAX           65536
+#define CTRL_UNDO_COUNT_DEFAULT           1
+#define CTRL_UNDO_COUNT_MIN               1
+#define CTRL_UNDO_COUNT_MAX               32
 #define CTRL_RUN_COUNT_DEFAULT            1
 #define CTRL_RUN_COUNT_MIN                1
 #define CTRL_RUN_COUNT_MAX                100000

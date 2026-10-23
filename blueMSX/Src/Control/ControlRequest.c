@@ -64,6 +64,9 @@ static const CtrlArg memResolveArgs[] = {
 static const CtrlArg regWriteArgs[] = {
     { "reg", CTRL_ARG_TEXT, 15 }, { "value", CTRL_ARG_TEXT, 95 }, { NULL }
 };
+static const CtrlArg undoArgs[] = {
+    { "count", CTRL_ARG_INT, 0 }, { NULL }
+};
 static const CtrlArg runArgs[] = {
     { "how", CTRL_ARG_TEXT, 15 }, { "count", CTRL_ARG_INT, 0 }, { NULL }
 };
@@ -92,6 +95,8 @@ static const CtrlOp opTable[] = {
       "  mem.resolve  at\n" },
     { "reg.write",         CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpRegWrite, OP_ARGS(regWriteArgs),
       "  reg.write    reg, value\n" },
+    { "undo",              CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpUndo, OP_ARGS(undoArgs),
+      "  undo         count        (puts back what mem.write overwrote)\n" },
     { "run",               CTRL_OP_CHANGES, CTRL_OP_SELF, ctrlOpRun, OP_ARGS(runArgs),
       "  run          how = pause|resume|step, count\n" },
     { "run.until",         CTRL_OP_CHANGES, CTRL_OP_SELF, ctrlOpRunUntil, OP_ARGS(runUntilArgs),
