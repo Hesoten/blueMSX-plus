@@ -179,6 +179,11 @@ static void breakpointCb(R800Debug* dbg, UInt16 pc)
         return;
     }
 
+    /* Segment breakpoints arm every address the segment could land at. */
+    if (!dbgBreakpointAllows(pc)) {
+        return;
+    }
+
     boardOnBreakpoint(pc);
 }
   

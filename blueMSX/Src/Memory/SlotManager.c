@@ -400,7 +400,7 @@ void slotUnregister(int slot, int sslot, int startpage)
 
     while (pages--) {
         memset(slotInfo, 0, sizeof(Slot));
-        /* No segment shows in a bank its mapper has left. */
+        /* A stale segment would have a breakpoint watching the wrong bank. */
         slotSetBankSegment(slot, sslot, startpage + pages, -1);
         slotUnmapPage(slot, sslot, startpage + pages);
         slotInfo++;

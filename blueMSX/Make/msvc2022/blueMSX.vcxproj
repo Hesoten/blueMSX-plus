@@ -977,6 +977,7 @@
     <ClCompile Include="..\..\Src\Media\Sha1.cpp" />
     <ClCompile Include="..\..\Src\Debugger\DebugDeviceManager.c" />
     <ClCompile Include="..\..\Src\Debugger\Debugger.c" />
+    <ClCompile Include="..\..\Src\Debugger\DebugBreakpoints.c" />
     <ClCompile Include="..\..\Src\Utils\blowfish.c" />
     <ClCompile Include="..\..\Src\Utils\IniFileParser.c" />
     <ClCompile Include="..\..\Src\Utils\IsFileExtension.c" />

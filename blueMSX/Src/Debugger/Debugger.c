@@ -31,6 +31,7 @@
 
 #include "Debugger.h"
 #include "DebugDeviceManager.h"
+#include "SlotManager.h"
 #include "Emulator.h"
 #include "Actions.h"
 #include "Board.h"
@@ -123,8 +124,11 @@ int debuggerCheckVramAccess(void)
 void debuggerNotifyEmulatorStart()
 {
     int i;
-    
+
     dbgState = DBG_RUNNING;
+
+    /* Before the plugins re-arm their own lists, so both meet the same new CPU. */
+    dbgBreakpointsOnEmulatorStart();
 
     for (i = 0; i < MAX_DEBUGGERS; i++) {
         if (debuggerList[i] != NULL) {
@@ -371,6 +375,11 @@ int dbgPauseSync(int timeoutMs)
     return emulatorWaitParked(timeoutMs);
 }
 
+void debuggerCreateLocks(void)
+{
+    dbgBreakpointsCreateLock();
+}
+
 void dbgStep()
 {
     if (emulatorGetState() == EMU_PAUSED) {
@@ -383,16 +392,6 @@ void dbgStepBack()
     if (emulatorGetState() == EMU_PAUSED) {
         actionEmuStepBack();
     }
-}
-
-void dbgSetBreakpoint(UInt16 address)
-{
-    boardSetBreakpoint(address);
-}
-
-void dbgClearBreakpoint(UInt16 address)
-{
-    boardClearBreakpoint(address);
 }
 
 void dbgEnableVramAccessCheck(int enable)

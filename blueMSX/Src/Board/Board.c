@@ -39,6 +39,7 @@
 #include "Y8950.h"
 #include "Moonsound.h"
 #include "SaveState.h"
+#include "Debugger.h"
 #include "ziphelper.h"
 #include "ArchNotifications.h"
 #include "VideoManager.h"
@@ -1921,6 +1922,7 @@ void boardChangeCartridge(int cartNo, RomType romType, char* cart, char* cartZip
         if (boardInfo.changeCartridge != NULL) {
             boardInfo.changeCartridge(boardInfo.cpuRef, cartNo, inserted);
         }
+        dbgBreakpointsOnCartridgeChanged();
     }
 }
 

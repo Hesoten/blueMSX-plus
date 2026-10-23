@@ -99,6 +99,7 @@
 #include "AmdFlash.h"
 #include "TokenExtract.h"
 #include "Emulator.h"
+#include "Debugger.h"
 #include "JoystickPort.h"
 #include "Theme.h"
 #include "VideoRender.h"
@@ -5134,6 +5135,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
     /* Before any plugin, which may pause or run the machine as it loads. */
     emulatorCreateLocks();
+    debuggerCreateLocks();
 
     // Load tools
     sprintf(buffer, "%s\\Tools", st.pCurDir);

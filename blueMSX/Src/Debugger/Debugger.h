@@ -138,11 +138,37 @@ int  dbgPause();
 ** Use this rather than dbgPause before reading memory. */
 int  dbgPauseSync(int timeoutMs);
 
+/* Once at startup, before any plugin loads. */
+void debuggerCreateLocks(void);
+
 void dbgStep();
 void dbgStepBack();
 
 void dbgSetBreakpoint(UInt16 address);
 void dbgClearBreakpoint(UInt16 address);
+
+/* Breakpoint at an offset into a mapper segment of a slot; fires only while that
+** segment is paged in. Non-zero once watching; refuses when the table is full or
+** the offset does not fit a segment. */
+int  dbgSetSegmentBreakpoint(int slot, int subSlot, int segment, int offset);
+/* Non-zero when one was set there. */
+int  dbgClearSegmentBreakpoint(int slot, int subSlot, int segment, int offset);
+
+/* Once at startup, with debuggerCreateLocks: the lock every writer of the tables takes. */
+void dbgBreakpointsCreateLock(void);
+
+/* Call on machine start, before the plugins re-arm their own lists. Plain ones are
+** forgotten; segment ones are armed again on the new CPU. */
+void dbgBreakpointsOnEmulatorStart();
+
+/* Call after a cartridge goes in or out: each segment breakpoint is armed where its segment
+** can be paged in now. Runs on the GUI thread for a change, and on the emulation thread as
+** a machine starts; it takes the writers' lock. */
+void dbgBreakpointsOnCartridgeChanged();
+
+/* Whether a hit at this address is one the user asked for. Runs on the
+** emulation thread mid instruction, so it must not block. */
+int dbgBreakpointAllows(UInt16 address);
 
 void dbgSetWatchpoint(DbgDeviceType devType, int address, DbgWatchpointCondition condition, UInt32 referenceValue, int size);
 void dbgClearWatchpoint(DbgDeviceType devType, int address);
