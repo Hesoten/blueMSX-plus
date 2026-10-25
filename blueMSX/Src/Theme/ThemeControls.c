@@ -917,8 +917,12 @@ void activeMeterDestroy(ActiveMeter* activeMeter)
 
 int activeMeterSetImage(ActiveMeter* activeMeter, int index)
 {
+    /* Image 0 is all off and image count-1 is full scale. */
     if (index > 0) {
-        index = 1 + (activeMeter->count - 1) * index / 100;
+        index = (index * (activeMeter->count - 1) + 99) / 100;
+        if (index > activeMeter->count - 1) {
+            index = activeMeter->count - 1;
+        }
     }
     if (index != activeMeter->index) {
         activeMeter->index = index;
