@@ -926,9 +926,9 @@ int activeMeterSetImage(ActiveMeter* activeMeter, int index)
     }
     if (index != activeMeter->index) {
         activeMeter->index = index;
-        activeImageSetImage(activeMeter->bitmap, index);
+        return activeImageSetImage(activeMeter->bitmap, index);
     }
-    return 1;
+    return 0;
 }
 
 int activeMeterShow(ActiveMeter* activeMeter, int show)
