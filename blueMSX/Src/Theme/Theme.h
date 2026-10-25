@@ -167,6 +167,7 @@ void themePageAddSlider(ThemePage* theme, void* object, ThemeTrigger trigger, Th
 void themePageAddObject(ThemePage* theme, void* object, ThemeTrigger visible);
 void themePageActivate(ThemePage* theme, void* window);
 void themePageUpdate(ThemePage* theme, void* dc);
+int  themePageHasMeter(ThemePage* theme);
 void themePageDraw(ThemePage* theme, void* dc, ThemeItem* startItem);
 void themePageMouseMove(ThemePage* theme, void* dc, int x, int y);
 /* Return the setting text of the slider under (x, y), or NULL if none.
