@@ -135,6 +135,9 @@ typedef struct {
     Int32 meterGainLeft;
     Int32 meterGainRight;
     UInt64 meterEnergy[2];
+    Int64  meterSum[2];     /* to take out a constant offset */
+    DoubleT meterDc[2];     /* that offset, followed slowly */
+    Int32  meterDcSet[2];   /* blocks seen: the first may be partial */
     UInt32 active;
 } MixerChannel;
 
@@ -184,6 +187,9 @@ struct Mixer
     UInt32  meterFrames;
     UInt32  meterBlockFill;
     UInt64  meterEnergy[2];
+    Int64   meterSum[2];
+    DoubleT meterDc[2];
+    Int32   meterDcSet[2];
     MeterBlock meterRing[METER_RING];
     volatile UInt32 meterSeq;
     volatile UInt32 meterDelivered;
@@ -339,6 +345,29 @@ static void recalculateChannelVolume(Mixer* mixer, MixerChannel* channel)
 ///////////////////////////////////////////////////////
 // Level meter
 
+/* Mean square of a block around the signal's slowly followed average: a
+** chip whose silence sits at a constant offset (the Nuked OPLL's DAC does)
+** reads as silent, as it sounds. ~0.2 s keeps bass notes whole. */
+static DoubleT acPower(UInt64 energy, Int64 sum, DoubleT* dc, Int32* seen)
+{
+    DoubleT mean = (DoubleT)sum / METER_BLOCK;
+    DoubleT power;
+
+    /* A chip registered mid-block has a partial first block, which would
+    ** understate the offset; the first whole block sets it. */
+    if (*seen < 2) {
+        *dc = mean;
+        if (++*seen == 1) {
+            return 0;
+        }
+    }
+    else {
+        *dc += (mean - *dc) / 64;
+    }
+    power = (DoubleT)energy / METER_BLOCK - 2 * *dc * mean + *dc * *dc;
+    return power > 0 ? power : 0;
+}
+
 /* Emulator thread: close the current block and publish it. */
 static void meterPushBlock(Mixer* mixer)
 {
@@ -347,23 +376,47 @@ static void meterPushBlock(Mixer* mixer)
     int i;
 
     memset(block->type, 0, sizeof(block->type));
-    for (i = 0; i < mixer->channelCount; i++) {
+    /* No chip runs while the turboR PCM mutes the mixer: show silence and
+    ** take the offsets afresh once it is back, dropping the block across. */
+    if (!mixer->enable) {
+        for (i = 0; i < mixer->channelCount; i++) {
+            MixerChannel* channel = mixer->channels + i;
+            channel->meterDcSet[0]  = 0;
+            channel->meterDcSet[1]  = 0;
+            channel->meterEnergy[0] = 0;
+            channel->meterEnergy[1] = 0;
+            channel->meterSum[0]    = 0;
+            channel->meterSum[1]    = 0;
+        }
+        mixer->meterDcSet[0] = 0;
+        mixer->meterDcSet[1] = 0;
+    }
+    for (i = 0; mixer->enable && i < mixer->channelCount; i++) {
         MixerChannel* channel = mixer->channels + i;
-        UInt64 energyRight = channel->stereo ? channel->meterEnergy[1] : channel->meterEnergy[0];
+        DoubleT powerLeft  = acPower(channel->meterEnergy[0], channel->meterSum[0], channel->meterDc + 0, channel->meterDcSet + 0);
+        DoubleT powerRight = channel->stereo ?
+                             acPower(channel->meterEnergy[1], channel->meterSum[1], channel->meterDc + 1, channel->meterDcSet + 1) :
+                             powerLeft;
         DoubleT gainLeft  = channel->meterGainLeft  / 4096.0;
         DoubleT gainRight = channel->meterGainRight / 4096.0;
 
         /* Chips of one type add up like the mixer adds them: in power. */
-        block->type[channel->type][0] += (float)(channel->meterEnergy[0] * gainLeft * gainLeft / METER_BLOCK);
-        block->type[channel->type][1] += (float)(energyRight * gainRight * gainRight / METER_BLOCK);
+        block->type[channel->type][0] += (float)(powerLeft * gainLeft * gainLeft);
+        block->type[channel->type][1] += (float)(powerRight * gainRight * gainRight);
         channel->meterEnergy[0] = 0;
         channel->meterEnergy[1] = 0;
+        channel->meterSum[0]    = 0;
+        channel->meterSum[1]    = 0;
     }
-    block->master[0] = (float)((DoubleT)mixer->meterEnergy[0] / METER_BLOCK);
-    block->master[1] = (float)((DoubleT)mixer->meterEnergy[1] / METER_BLOCK);
+    block->master[0] = !mixer->enable ? 0 :
+                       (float)acPower(mixer->meterEnergy[0], mixer->meterSum[0], mixer->meterDc + 0, mixer->meterDcSet + 0);
+    block->master[1] = !mixer->enable ? 0 :
+                       (float)acPower(mixer->meterEnergy[1], mixer->meterSum[1], mixer->meterDc + 1, mixer->meterDcSet + 1);
     block->endFrame  = mixer->meterFrames;
     mixer->meterEnergy[0] = 0;
     mixer->meterEnergy[1] = 0;
+    mixer->meterSum[0]    = 0;
+    mixer->meterSum[1]    = 0;
     mixer->meterBlockFill = 0;
 
     METER_BARRIER();
@@ -593,6 +646,10 @@ Int32 mixerRegisterChannel(Mixer* mixer, Int32 audioType, Int32 stereo, MixerUpd
     channel->handle         = ++mixer->handleCount;
     channel->meterEnergy[0] = 0;
     channel->meterEnergy[1] = 0;
+    channel->meterSum[0]    = 0;
+    channel->meterSum[1]    = 0;
+    channel->meterDcSet[0]  = 0;
+    channel->meterDcSet[1]  = 0;
 
     recalculateChannelVolume(mixer, channel);
 
@@ -701,12 +758,15 @@ void mixerSync(Mixer* mixer)
                 chanRight = mixer->channels[i].unmutedRight * rawRight;
                 mixer->channels[i].meterEnergy[0] += (UInt64)((Int64)rawLeft  * rawLeft);
                 mixer->channels[i].meterEnergy[1] += (UInt64)((Int64)rawRight * rawRight);
+                mixer->channels[i].meterSum[0]    += rawLeft;
+                mixer->channels[i].meterSum[1]    += rawRight;
             }
             else {
                 Int32 tmp = *chBuff[i]++;
                 chanLeft = mixer->channels[i].unmutedLeft * tmp;
                 chanRight = mixer->channels[i].unmutedRight * tmp;
                 mixer->channels[i].meterEnergy[0] += (UInt64)((Int64)tmp * tmp);
+                mixer->channels[i].meterSum[0]    += tmp;
             }
 
             left  += chanLeft;
@@ -718,6 +778,8 @@ void mixerSync(Mixer* mixer)
 
         mixer->meterEnergy[0] += (UInt64)((Int64)left  * left);
         mixer->meterEnergy[1] += (UInt64)((Int64)right * right);
+        mixer->meterSum[0]    += left;
+        mixer->meterSum[1]    += right;
 
         if (!mixer->masterEnable) {
             left  = 0;
