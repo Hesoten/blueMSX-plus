@@ -100,7 +100,8 @@ void mixerSetTapCallback(Mixer* mixer, MixerWriteCallback callback, void* ref);
 void mixerSetDelayCallback(Mixer* mixer, MixerDelayCallback callback, void* ref);
 
 /* Level meters for the UI thread: 0..100 on a power-curve scale, the RMS
-** of ~46 ms around what plays now. Channel types leave out the master. */
+** of ~46 ms around what plays now, measured before the master mute.
+** Channel types leave out the master volume. */
 Int32 mixerMeterGetTypePercent(Mixer* mixer, Int32 channelType, int leftRight);
 Int32 mixerMeterGetMasterPercent(Mixer* mixer, int leftRight);
 

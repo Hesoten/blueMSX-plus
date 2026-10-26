@@ -128,6 +128,9 @@ typedef struct {
     // Internal config
     Int32 volumeLeft;
     Int32 volumeRight;
+    // The same before the master mute, so the meters still move while muted
+    Int32 unmutedLeft;
+    Int32 unmutedRight;
     // Level meter: gain without the master volume, raw energy in this block
     Int32 meterGainLeft;
     Int32 meterGainRight;
@@ -316,19 +319,21 @@ static void recalculateChannelVolume(Mixer* mixer, MixerChannel* channel)
     DoubleT panLeft       = pow(10.0, (MIN(100 - channel->pan, 50) - 50) / 30.0) - pow(10.0, -50 / 30.0);
     DoubleT panRight      = pow(10.0, (MIN(channel->pan, 50) - 50) / 30.0) - pow(10.0, -50 / 30.0);
 
-    channel->volumeLeft  = channel->enable * mixer->masterEnable * (Int32)(1024 * mixer->masterVolume * volume * panLeft);
-    channel->volumeRight = channel->enable * mixer->masterEnable * (Int32)(1024 * mixer->masterVolume * volume * panRight);
-    channel->meterGainLeft  = channel->enable * mixer->masterEnable * (Int32)(1024 * volume * panLeft);
-    channel->meterGainRight = channel->enable * mixer->masterEnable * (Int32)(1024 * volume * panRight);
+    channel->unmutedLeft    = channel->enable * (Int32)(1024 * mixer->masterVolume * volume * panLeft);
+    channel->unmutedRight   = channel->enable * (Int32)(1024 * mixer->masterVolume * volume * panRight);
+    channel->meterGainLeft  = channel->enable * (Int32)(1024 * volume * panLeft);
+    channel->meterGainRight = channel->enable * (Int32)(1024 * volume * panRight);
 
     if (!mixer->stereo) {
-        Int32 tmp = (channel->volumeLeft + channel->volumeRight) / 2;
-        channel->volumeLeft  = tmp;
-        channel->volumeRight = tmp;
+        Int32 tmp = (channel->unmutedLeft + channel->unmutedRight) / 2;
+        channel->unmutedLeft  = tmp;
+        channel->unmutedRight = tmp;
         tmp = (channel->meterGainLeft + channel->meterGainRight) / 2;
         channel->meterGainLeft  = tmp;
         channel->meterGainRight = tmp;
     }
+    channel->volumeLeft  = mixer->masterEnable * channel->unmutedLeft;
+    channel->volumeRight = mixer->masterEnable * channel->unmutedRight;
 }
 
 ///////////////////////////////////////////////////////
@@ -692,15 +697,15 @@ void mixerSync(Mixer* mixer)
             if (mixer->channels[i].stereo) {
                 Int32 rawLeft  = *chBuff[i]++;
                 Int32 rawRight = *chBuff[i]++;
-                chanLeft = mixer->channels[i].volumeLeft * rawLeft;
-                chanRight = mixer->channels[i].volumeRight * rawRight;
+                chanLeft = mixer->channels[i].unmutedLeft * rawLeft;
+                chanRight = mixer->channels[i].unmutedRight * rawRight;
                 mixer->channels[i].meterEnergy[0] += (UInt64)((Int64)rawLeft  * rawLeft);
                 mixer->channels[i].meterEnergy[1] += (UInt64)((Int64)rawRight * rawRight);
             }
             else {
                 Int32 tmp = *chBuff[i]++;
-                chanLeft = mixer->channels[i].volumeLeft * tmp;
-                chanRight = mixer->channels[i].volumeRight * tmp;
+                chanLeft = mixer->channels[i].unmutedLeft * tmp;
+                chanRight = mixer->channels[i].unmutedRight * tmp;
                 mixer->channels[i].meterEnergy[0] += (UInt64)((Int64)tmp * tmp);
             }
 
@@ -714,6 +719,10 @@ void mixerSync(Mixer* mixer)
         mixer->meterEnergy[0] += (UInt64)((Int64)left  * left);
         mixer->meterEnergy[1] += (UInt64)((Int64)right * right);
 
+        if (!mixer->masterEnable) {
+            left  = 0;
+            right = 0;
+        }
         if (left  >  32767) { left  = 32767; }
         if (left  < -32767) { left  = -32767; }
         if (right >  32767) { right = 32767; }
