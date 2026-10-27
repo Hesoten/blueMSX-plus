@@ -93,6 +93,17 @@ struct WasapiSound {
     UINT32              ringSize;       // capacity in samples (frames * channels)
     volatile LONG       ringWritePos;   // index in samples
     volatile LONG       ringReadPos;    // index in samples
+
+    // Output delay for the mixer meters: frames handed to WASAPI but not
+    // played yet, packed with their time in microseconds so the UI thread
+    // reads both in one load. Written by the render thread only.
+    volatile LONG64     endpointQueued;
+    IAudioClock*        audioClock;     // NULL: estimate from the padding
+    UINT64              clockFreq;
+    UINT64              framesSubmitted;
+    UINT32              sampleRate;
+    UINT32              latencyFrames;
+    BOOL                delayRegistered;
 };
 
 //  helpers
@@ -138,6 +149,55 @@ static UINT32 ringReadFrames(WasapiSound* ws, BYTE* dst, UINT32 frames)
     MemoryBarrier();
     InterlockedExchange(&ws->ringReadPos, (LONG)((rp + samplesToRead) % ws->ringSize));
     return framesAvail;
+}
+
+//  output delay for the mixer meters
+
+static UINT32 nowMicros(void)
+{
+    static LARGE_INTEGER freq;
+    LARGE_INTEGER now;
+    if (freq.QuadPart == 0) QueryPerformanceFrequency(&freq);
+    QueryPerformanceCounter(&now);
+    return (UINT32)((now.QuadPart / freq.QuadPart) * 1000000 +
+                    (now.QuadPart % freq.QuadPart) * 1000000 / freq.QuadPart);
+}
+
+// Render thread, once GetBuffer has granted `available` frames and before
+// the ring is read, so frames leaving the ring are already counted. The
+// device clock covers the engine too, which the padding leaves out.
+static void publishEndpointQueued(WasapiSound* ws, UINT32 padding, UINT32 available)
+{
+    UINT64 position, qpc;
+    UINT32 queued = padding + available + ws->latencyFrames;
+    UINT32 at     = nowMicros();
+
+    ws->framesSubmitted += available;
+    if (ws->audioClock != NULL &&
+        SUCCEEDED(ws->audioClock->GetPosition(&position, &qpc))) {
+        UINT64 played = position * ws->sampleRate / ws->clockFreq;
+        queued = played < ws->framesSubmitted ? (UINT32)(ws->framesSubmitted - played) : 0;
+        at     = (UINT32)(qpc / 10);
+    }
+    InterlockedExchange64(&ws->endpointQueued, ((LONG64)at << 32) | queued);
+}
+
+// UI thread: frames between the mixer and the speakers right now
+static UInt32 wasapiDelay(void* ref)
+{
+    WasapiSound* ws = (WasapiSound*)ref;
+    LONG64 queued   = ws->endpointQueued;
+    UINT32 frames   = (UINT32)queued;
+    UINT32 elapsed  = nowMicros() - (UINT32)((UInt64)queued >> 32);
+    UINT32 played   = (UINT32)((UInt64)elapsed * ws->sampleRate / 1000000);
+    // Read position first: the other order can see the reader pass the
+    // write position read earlier and count a nearly full ring.
+    LONG   rp       = ws->ringReadPos;
+    LONG   wp       = ws->ringWritePos;
+    UINT32 ring     = (UINT32)((wp - rp + (LONG)ws->ringSize) % (LONG)ws->ringSize);
+
+    frames = played < frames ? frames - played : 0;
+    return ring / ws->channels + frames;
 }
 
 //  write callback (emulator thread)
@@ -227,6 +287,7 @@ static DWORD WINAPI wasapiRenderThread(LPVOID param)
         if (ws->primeFrames > 0 && ringAvail(ws) / ch < ws->primeFrames) {
             BYTE* pHold = NULL;
             if (FAILED(ws->renderClient->GetBuffer(available, &pHold))) continue;
+            publishEndpointQueued(ws, padding, available);
             Int16* hold = (Int16*)pHold;
             for (UINT32 i = 0; i < available; i++) {
                 for (UINT32 c = 0; c < ch; c++) {
@@ -241,6 +302,7 @@ static DWORD WINAPI wasapiRenderThread(LPVOID param)
 
         BYTE* pData = NULL;
         if (FAILED(ws->renderClient->GetBuffer(available, &pData))) continue;
+        publishEndpointQueued(ws, padding, available);
 
         UINT32 written = ringReadFrames(ws, pData, available);
 
@@ -354,6 +416,17 @@ WasapiSound* wasapiSoundCreate(HWND /*hwnd*/, Mixer* mixer,
                                      (void**)&ws->renderClient);
     if (FAILED(hr)) goto fail;
 
+    // The meters ask where playback is now; without a clock they fall back
+    // to the padding plus the stream latency.
+    ws->sampleRate = sampleRate;
+    if (FAILED(ws->audioClient->GetService(__uuidof(IAudioClock), (void**)&ws->audioClock)) ||
+        FAILED(ws->audioClock->GetFrequency(&ws->clockFreq)) || ws->clockFreq == 0) {
+        REFERENCE_TIME latency = 0;
+        if (ws->audioClock) { ws->audioClock->Release(); ws->audioClock = NULL; }
+        if (FAILED(ws->audioClient->GetStreamLatency(&latency))) latency = 0;
+        ws->latencyFrames = (UINT32)((UInt64)latency * sampleRate / 10000000);
+    }
+
     // Events and render thread.
     ws->hFeedEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
     ws->hStopEvent = CreateEvent(NULL, TRUE,  FALSE, NULL);
@@ -387,6 +460,9 @@ WasapiSound* wasapiSoundCreate(HWND /*hwnd*/, Mixer* mixer,
     /* Driver always runs 2ch; mixer stereo flag is a user preference. */
     mixerSetWriteCallback(mixer, wasapiWrite, ws, (int)fragmentSamples);
 
+    mixerSetDelayCallback(mixer, wasapiDelay, ws);
+    ws->delayRegistered = TRUE;
+
     return ws;
 
 fail:
@@ -398,6 +474,7 @@ void wasapiSoundDestroy(WasapiSound* ws)
 {
     if (!ws) return;
 
+    if (ws->delayRegistered) mixerSetDelayCallback(ws->mixer, NULL, NULL);
     mixerSetWriteCallback(ws->mixer, NULL, NULL, 0);
 
     if (ws->hThread) {
@@ -409,6 +486,7 @@ void wasapiSoundDestroy(WasapiSound* ws)
         ws->audioClient->Stop();
         ws->audioClient->Release();
     }
+    if (ws->audioClock)   ws->audioClock->Release();
     if (ws->renderClient) ws->renderClient->Release();
     if (ws->hFeedEvent)  CloseHandle(ws->hFeedEvent);
     if (ws->hStopEvent)  CloseHandle(ws->hStopEvent);

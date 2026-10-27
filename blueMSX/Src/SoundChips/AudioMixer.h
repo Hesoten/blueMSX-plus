@@ -66,6 +66,7 @@ typedef enum {
 typedef Int32* (*MixerUpdateCallback)(void*, UInt32);
 typedef void (*MixerSetSampleRateCallback)(void*, UInt32);
 typedef Int32 (*MixerWriteCallback)(void*, Int16*, UInt32);
+typedef UInt32 (*MixerDelayCallback)(void*);
 
 /* Constructor and destructor */
 Mixer* mixerCreate();
@@ -73,14 +74,12 @@ void mixerDestroy(Mixer* mixer);
 
 Mixer* mixerGetGlobalMixer();
 
-Int32 mixerGetMasterVolume(Mixer* mixer, int leftRight);
 void mixerSetMasterVolume(Mixer* mixer, Int32 volume);
 void mixerEnableMaster(Mixer* mixer, Int32 enable);
 void mixerSetStereo(Mixer* mixer, Int32 stereo);
 UInt32 mixerGetSampleRate(Mixer* mixer);
 void mixerSetSampleRate(Mixer* mixer, UInt32 rate);
 
-Int32 mixerGetChannelTypeVolume(Mixer* mixer, Int32 channelType, int leftRight);
 void mixerSetChannelTypeVolume(Mixer* mixer, Int32 channelType, Int32 volume);
 void mixerSetChannelTypePan(Mixer* mixer, Int32 channelType, Int32 pan);
 void mixerEnableChannelType(Mixer* mixer, Int32 channelType, Int32 enable);
@@ -95,6 +94,16 @@ void mixerSetWriteCallback(Mixer* mixer, MixerWriteCallback callback, void*, int
 ** the same fragment cadence the playback driver established via
 ** mixerSetWriteCallback. Pass callback=NULL to remove the tap. */
 void mixerSetTapCallback(Mixer* mixer, MixerWriteCallback callback, void* ref);
+
+/* Frames handed to the driver that have not been heard yet. The meters
+** subtract it to show what plays now. UI thread; NULL means none. */
+void mixerSetDelayCallback(Mixer* mixer, MixerDelayCallback callback, void* ref);
+
+/* Level meters for the UI thread: 0..100 on a power-curve scale, the RMS
+** of ~46 ms around what plays now, measured before the master mute.
+** Channel types leave out the master volume. */
+Int32 mixerMeterGetTypePercent(Mixer* mixer, Int32 channelType, int leftRight);
+Int32 mixerMeterGetMasterPercent(Mixer* mixer, int leftRight);
 
 /* File logging methods */
 void mixerStartLog(Mixer* mixer, char* fileName);

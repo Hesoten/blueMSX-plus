@@ -265,99 +265,99 @@ int themeTriggerAudioCassette() {
 }
 
 int themeTriggerVolKbdLeft() {
-    return mixerGetChannelTypeVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_KEYBOARD, MIXER_CHANNEL_LEFT);
+    return mixerMeterGetTypePercent(mixerGetGlobalMixer(), MIXER_CHANNEL_KEYBOARD, MIXER_CHANNEL_LEFT);
 }
 
 int themeTriggerVolKbdRight() {
-    return mixerGetChannelTypeVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_KEYBOARD, MIXER_CHANNEL_RIGHT);
+    return mixerMeterGetTypePercent(mixerGetGlobalMixer(), MIXER_CHANNEL_KEYBOARD, MIXER_CHANNEL_RIGHT);
 }
 
 int themeTriggerVolMoonsoundLeft() {
-    return mixerGetChannelTypeVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_MOONSOUND, MIXER_CHANNEL_LEFT);
+    return mixerMeterGetTypePercent(mixerGetGlobalMixer(), MIXER_CHANNEL_MOONSOUND, MIXER_CHANNEL_LEFT);
 }
 
 int themeTriggerVolMoonsoundRight() {
-    return mixerGetChannelTypeVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_MOONSOUND, MIXER_CHANNEL_RIGHT);
+    return mixerMeterGetTypePercent(mixerGetGlobalMixer(), MIXER_CHANNEL_MOONSOUND, MIXER_CHANNEL_RIGHT);
 }
 
 int themeTriggerVolYamahaSfgLeft() {
-    return mixerGetChannelTypeVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_YAMAHA_SFG, MIXER_CHANNEL_LEFT);
+    return mixerMeterGetTypePercent(mixerGetGlobalMixer(), MIXER_CHANNEL_YAMAHA_SFG, MIXER_CHANNEL_LEFT);
 }
 
 int themeTriggerVolYamahaSfgRight() {
-    return mixerGetChannelTypeVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_YAMAHA_SFG, MIXER_CHANNEL_RIGHT);
+    return mixerMeterGetTypePercent(mixerGetGlobalMixer(), MIXER_CHANNEL_YAMAHA_SFG, MIXER_CHANNEL_RIGHT);
 }
 
 int themeTriggerVolMsxAudioLeft() {
-    return mixerGetChannelTypeVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_MSXAUDIO, MIXER_CHANNEL_LEFT);
+    return mixerMeterGetTypePercent(mixerGetGlobalMixer(), MIXER_CHANNEL_MSXAUDIO, MIXER_CHANNEL_LEFT);
 }
 
 int themeTriggerVolMsxAudioRight() {
-    return mixerGetChannelTypeVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_MSXAUDIO, MIXER_CHANNEL_RIGHT);
+    return mixerMeterGetTypePercent(mixerGetGlobalMixer(), MIXER_CHANNEL_MSXAUDIO, MIXER_CHANNEL_RIGHT);
 }
 
 int themeTriggerVolMsxMusicLeft() {
-    return mixerGetChannelTypeVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_MSXMUSIC, MIXER_CHANNEL_LEFT);
+    return mixerMeterGetTypePercent(mixerGetGlobalMixer(), MIXER_CHANNEL_MSXMUSIC, MIXER_CHANNEL_LEFT);
 }
 
 int themeTriggerVolMsxMusicRight() {
-    return mixerGetChannelTypeVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_MSXMUSIC, MIXER_CHANNEL_RIGHT);
+    return mixerMeterGetTypePercent(mixerGetGlobalMixer(), MIXER_CHANNEL_MSXMUSIC, MIXER_CHANNEL_RIGHT);
 }
 
 int themeTriggerVolPsgLeft() {
-    return mixerGetChannelTypeVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_PSG, MIXER_CHANNEL_LEFT);
+    return mixerMeterGetTypePercent(mixerGetGlobalMixer(), MIXER_CHANNEL_PSG, MIXER_CHANNEL_LEFT);
 }
 
 int themeTriggerVolPsgRight() {
-    return mixerGetChannelTypeVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_PSG, MIXER_CHANNEL_RIGHT);
+    return mixerMeterGetTypePercent(mixerGetGlobalMixer(), MIXER_CHANNEL_PSG, MIXER_CHANNEL_RIGHT);
 }
 
 int themeTriggerVolSccLeft() {
-    return mixerGetChannelTypeVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_SCC, MIXER_CHANNEL_LEFT);
+    return mixerMeterGetTypePercent(mixerGetGlobalMixer(), MIXER_CHANNEL_SCC, MIXER_CHANNEL_LEFT);
 }
 
 int themeTriggerVolSccRight() {
-    return mixerGetChannelTypeVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_SCC, MIXER_CHANNEL_RIGHT);
+    return mixerMeterGetTypePercent(mixerGetGlobalMixer(), MIXER_CHANNEL_SCC, MIXER_CHANNEL_RIGHT);
 }
 
 int themeTriggerVolPcmLeft() {
-    return mixerGetChannelTypeVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_PCM, MIXER_CHANNEL_LEFT);
+    return mixerMeterGetTypePercent(mixerGetGlobalMixer(), MIXER_CHANNEL_PCM, MIXER_CHANNEL_LEFT);
 }
 
 int themeTriggerVolPcmRight() {
-    return mixerGetChannelTypeVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_PCM, MIXER_CHANNEL_RIGHT);
+    return mixerMeterGetTypePercent(mixerGetGlobalMixer(), MIXER_CHANNEL_PCM, MIXER_CHANNEL_RIGHT);
 }
 
 int themeTriggerVolIoLeft() {
-    return mixerGetChannelTypeVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_IO, MIXER_CHANNEL_LEFT);
+    return mixerMeterGetTypePercent(mixerGetGlobalMixer(), MIXER_CHANNEL_IO, MIXER_CHANNEL_LEFT);
 }
 
 int themeTriggerVolIoRight() {
-    return mixerGetChannelTypeVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_IO, MIXER_CHANNEL_RIGHT);
+    return mixerMeterGetTypePercent(mixerGetGlobalMixer(), MIXER_CHANNEL_IO, MIXER_CHANNEL_RIGHT);
 }
 
 int themeTriggerVolMidiLeft() {
-    return mixerGetChannelTypeVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_MIDI, MIXER_CHANNEL_LEFT);
+    return mixerMeterGetTypePercent(mixerGetGlobalMixer(), MIXER_CHANNEL_MIDI, MIXER_CHANNEL_LEFT);
 }
 
 int themeTriggerVolMidiRight() {
-    return mixerGetChannelTypeVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_MIDI, MIXER_CHANNEL_RIGHT);
+    return mixerMeterGetTypePercent(mixerGetGlobalMixer(), MIXER_CHANNEL_MIDI, MIXER_CHANNEL_RIGHT);
 }
 
 int themeTriggerVolCassetteLeft() {
-    return mixerGetChannelTypeVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_CASSETTE, MIXER_CHANNEL_LEFT);
+    return mixerMeterGetTypePercent(mixerGetGlobalMixer(), MIXER_CHANNEL_CASSETTE, MIXER_CHANNEL_LEFT);
 }
 
 int themeTriggerVolCassetteRight() {
-    return mixerGetChannelTypeVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_CASSETTE, MIXER_CHANNEL_RIGHT);
+    return mixerMeterGetTypePercent(mixerGetGlobalMixer(), MIXER_CHANNEL_CASSETTE, MIXER_CHANNEL_RIGHT);
 }
 
 int themeTriggerVolMasterLeft() {
-    return mixerGetMasterVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_LEFT);
+    return mixerMeterGetMasterPercent(mixerGetGlobalMixer(), MIXER_CHANNEL_LEFT);
 }
 
 int themeTriggerVolMasterRight() {
-    return mixerGetMasterVolume(mixerGetGlobalMixer(), MIXER_CHANNEL_RIGHT);
+    return mixerMeterGetMasterPercent(mixerGetGlobalMixer(), MIXER_CHANNEL_RIGHT);
 }
 
 int themeTriggerLevelMaster() {
