@@ -131,7 +131,7 @@ struct Mixer
     Int16   buffer[AUDIO_STEREO_BUFFER_SIZE];
     AudioTypeInfo audioTypeInfo[MIXER_CHANNEL_TYPE_COUNT];
     MixerChannel channels[MAX_CHANNELS];
-    MixerChannel midi; // This channel is only used for meter output
+    MixerChannel midi; // MIDI's volume and meter; never registered or mixed
     Int32   channelCount;
     Int32   handleCount;
     UInt32  oldTick;
@@ -161,7 +161,7 @@ static void mixerRecalculateType(Mixer* mixer, int audioType)
     int i;
 
     if (audioType == MIXER_CHANNEL_MIDI) {
-        MixerChannel* channel = mixer->channels + MIXER_CHANNEL_MIDI;
+        MixerChannel* channel = &mixer->midi;
         channel->enable         = type->enable;
         channel->volume         = type->volume;
         channel->pan            = type->pan;
@@ -328,8 +328,8 @@ static void updateVolumes(Mixer* mixer)
         }
         
         if (archMidiGetNoteOn()) {
-            mixer->midi.volIntLeft  = MIN(100, mixer->channels[MIXER_CHANNEL_MIDI].volumeLeft / 7);
-            mixer->midi.volIntRight = MIN(100, mixer->channels[MIXER_CHANNEL_MIDI].volumeRight/ 7);
+            mixer->midi.volIntLeft  = MIN(100, mixer->midi.volumeLeft / 7);
+            mixer->midi.volIntRight = MIN(100, mixer->midi.volumeRight/ 7);
         }
         {
             int newVol = mixer->midi.volIntLeft - diff;
