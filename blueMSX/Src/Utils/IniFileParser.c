@@ -134,7 +134,8 @@ static int readFile(IniFile *iniFile)
     return success;
 }
 
-static int readLine(IniFile *iniFile, char *line)
+// A line longer than size - 1 characters is cut there; the rest is skipped.
+static int readLine(IniFile *iniFile, char *line, int size)
 {   
     int i = 0; 
 
@@ -144,11 +145,12 @@ static int readLine(IniFile *iniFile, char *line)
             continue;
         }
         if (c == '\n') {
-            *line = 0;
+            line[i] = 0;
             return i;
         }
-        *line++ = c; 
-        i++;
+        if (i < size - 1) {
+            line[i++] = c;
+        }
     }
 
     return -1;
@@ -288,13 +290,13 @@ int iniFileGetInt(IniFile *iniFile,
     sprintf(t_section, "[%s]", section);
 
     do {   
-        if (readLine(iniFile, buff) < 0) {
+        if (readLine(iniFile, buff, sizeof(buff)) < 0) {
             return def; 
         } 
     } while(strcmp(buff, t_section)); 
 
     do {   
-        if (readLine(iniFile, buff) < 0 || buff[0] == '[') {
+        if (readLine(iniFile, buff, sizeof(buff)) < 0 || buff[0] == '[') {
             return def; 
         } 
     } while(strncmp(buff, entry, len)); 
@@ -340,7 +342,7 @@ int iniFileGetString(IniFile *iniFile,
     sprintf(t_section, "[%s]", section);
      
     do {   
-        if (readLine(iniFile, buff) < 0) {
+        if (readLine(iniFile, buff, sizeof(buff)) < 0) {
             strncpy(buffer, def, bufferLen); 
             buffer[bufferLen - 1] = '\0';
             return (int)strlen(buffer);
@@ -348,7 +350,7 @@ int iniFileGetString(IniFile *iniFile,
     } while (strcmp(buff, t_section)); 
 
     do {   
-        if (readLine(iniFile, buff) < 0 || buff[0] == '[') {
+        if (readLine(iniFile, buff, sizeof(buff)) < 0 || buff[0] == '[') {
             strncpy(buffer, def, bufferLen);   
             buffer[bufferLen - 1] = '\0';  
             return (int)strlen(buffer);
@@ -356,6 +358,11 @@ int iniFileGetString(IniFile *iniFile,
     } while (strncmp(buff, entry, len)); 
 
     ep = strrchr(buff, '=');
+    if (ep == NULL) {
+        strncpy(buffer, def, bufferLen);
+        buffer[bufferLen - 1] = '\0';
+        return (int)strlen(buffer);
+    }
     ep++; 
 
     strncpy(buffer, ep, bufferLen); 
@@ -371,7 +378,7 @@ int iniFileHasSection(IniFile *iniFile, const char* section)
 
     rewindBuffer(iniFile);
     sprintf(t_section, "[%s]", section);
-    while (readLine(iniFile, buff) >= 0) {
+    while (readLine(iniFile, buff, sizeof(buff)) >= 0) {
         if (strcmp(buff, t_section) == 0) return 1;
     }
     return 0;
@@ -392,14 +399,14 @@ int iniFileGetSection(IniFile *iniFile,
     sprintf(t_section, "[%s]", section);
 
     do {   
-        if (readLine(iniFile, buff) < 0) {
+        if (readLine(iniFile, buff, sizeof(buff)) < 0) {
             buffer[offset++] = '\0';
             buffer[offset++] = '\0';
             return (int)strlen(buffer);
         } 
     } while (strcmp(buff, t_section)); 
     
-    while ((len = readLine(iniFile, buff)) >= 0 && buff[0] != '[') {
+    while ((len = readLine(iniFile, buff, sizeof(buff))) >= 0 && buff[0] != '[') {
         if (offset + len + 2 < bufferLen) {
             strcpy(buffer + offset, buff);
             offset += len + 1;
@@ -431,7 +438,7 @@ int iniFileWriteString(IniFile *iniFile,
     len = (int)strlen(t_entry);
 
     do {  
-        if (readLine(iniFile, buff) < 0) {  
+        if (readLine(iniFile, buff, sizeof(buff)) < 0) {  
             writeLine(iniFile, t_section);
             writeLine(iniFile, "\n");
             writeLine(iniFile, t_entry);
@@ -445,7 +452,7 @@ int iniFileWriteString(IniFile *iniFile,
     } while (strcmp(buff, t_section)); 
 
     for (;;) {   
-        if (readLine(iniFile, buff) < 0) {
+        if (readLine(iniFile, buff, sizeof(buff)) < 0) {
             writeLine(iniFile, t_entry);
             writeLine(iniFile, buffer);
             writeLine(iniFile, "\n");
@@ -468,7 +475,7 @@ int iniFileWriteString(IniFile *iniFile,
         writeLine(iniFile, buff);
         writeLine(iniFile, "\n");
     }
-    while (readLine(iniFile, buff) >= 0) {
+    while (readLine(iniFile, buff, sizeof(buff)) >= 0) {
         writeLine(iniFile, buff);
         writeLine(iniFile, "\n");
     }
@@ -493,7 +500,7 @@ int iniFileWriteSection(IniFile *iniFile,
 
     sprintf(t_section, "[%s]", section);
 
-    while (readLine(iniFile, buff) >= 0 && strcmp(buff, t_section) != 0) {
+    while (readLine(iniFile, buff, sizeof(buff)) >= 0 && strcmp(buff, t_section) != 0) {
         writeLine(iniFile, buff);
         writeLine(iniFile, "\n");
     }
@@ -506,12 +513,12 @@ int iniFileWriteSection(IniFile *iniFile,
         buffer += strlen(buffer) + 1;
     }
     
-    while ((len = readLine(iniFile, buff)) >= 0 && buff[0] != '\0' && buff[0] != '[');
+    while ((len = readLine(iniFile, buff, sizeof(buff))) >= 0 && buff[0] != '\0' && buff[0] != '[');
 
     while (len >= 0) {
         writeLine(iniFile, buff);
         writeLine(iniFile, "\n");
-        len = readLine(iniFile, buff);
+        len = readLine(iniFile, buff, sizeof(buff));
     }
 
     destroyWriteBuffer(iniFile);
