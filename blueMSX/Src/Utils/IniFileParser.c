@@ -2,6 +2,7 @@
 #include <string.h> 
 #include <stdlib.h>
 #include <ctype.h>
+#include <limits.h>
 
 #include "unzip.h"
 #include "IniFileParser.h"
@@ -281,10 +282,9 @@ int iniFileGetInt(IniFile *iniFile,
     char buff[MAX_LINE_LENGTH]; 
     char *ep; 
     char t_section[MAX_LINE_LENGTH]; 
-    char value[6]; 
+    long value;
     int len = (int)strlen(entry);
-    int i; 
-    
+
     rewindBuffer(iniFile);
 
     sprintf(t_section, "[%s]", section);
@@ -310,13 +310,17 @@ int iniFileGetInt(IniFile *iniFile,
         return def; 
     }
 
-    for (i = 0; isdigit(ep[i]); i++) {
-        value[i] = ep[i]; 
+    /* A negative value is read as 0 on purpose. */
+    if (*ep == '-') {
+        return 0;
     }
+    if (!isdigit((unsigned char)*ep)) {
+        return def;
+    }
+    value = strtol(ep, NULL, 10);
+    if (value > INT_MAX) value = INT_MAX;
 
-    value[i] = '\0'; 
-    
-    return atoi(value); 
+    return (int)value;
 
 
 } 
