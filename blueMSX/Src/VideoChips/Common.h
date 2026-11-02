@@ -545,6 +545,25 @@ static void RefreshLine0Mix(VDP* vdp, int Y, int X, int X2)
     }
 }
 
+/* In the R#12 phase the blink colours bypass the backdrop: colour 0 is
+** drawn opaque, and a foreground of 0 takes the blink background colour. */
+static void tx80BlinkColors(VDP* vdp, Pixel* color)
+{
+    int bg = vdp->XBGColor;
+    int fg = vdp->XFGColor;
+
+    if (vdp->blinkFlag) {
+        color[0] = vdp->palette[bg];
+        color[1] = vdp->palette[fg];
+        return;
+    }
+    if (fg == 0) {
+        fg = bg;
+    }
+    color[0] = bg ? vdp->palette[bg] : vdp->palette0;
+    color[1] = fg ? vdp->palette[fg] : vdp->palette0;
+}
+
 #ifdef MAX_VIDEO_WIDTH_320
 
 static void RefreshLineTx80(VDP* vdp, int Y, int X, int X2)
@@ -626,8 +645,7 @@ static void RefreshLineTx80(VDP* vdp, int Y, int X, int X2)
                             colPattern = vdp->vram[vdp->colTabBase & ((-1 << 9) | (charIdx / 8))];
                         }
                         if (colPattern & 0x80) {
-                            color[0] = vdp->palette[vdp->XBGColor];
-                            color[1] = vdp->palette[vdp->XFGColor];
+                            tx80BlinkColors(vdp, color);
                         }
                         else {
                             color[0] = vdp->palette[vdp->BGColor];
@@ -744,8 +762,7 @@ static void RefreshLineTx80(VDP* vdp, int Y, int X, int X2)
                             colPattern = vdp->vram[vdp->colTabBase & ((-1 << 9) | (charIdx / 8))];
                         }
                         if (colPattern & 0x80) {
-                            color[0] = vdp->palette[vdp->XBGColor];
-                            color[1] = vdp->palette[vdp->XFGColor];
+                            tx80BlinkColors(vdp, color);
                         }
                         else {
                             color[0] = vdp->palette[vdp->BGColor];
