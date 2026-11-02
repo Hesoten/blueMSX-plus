@@ -1083,6 +1083,13 @@ static void RefreshLine2(VDP* vdp, int Y, int X, int X2)
     }
 }
 
+/* palette[0] is the backdrop in Multicolor, but a sprite of colour 0
+** (drawn only with TP set, col == 1) keeps the true colour 0. */
+static Pixel multiSpriteColor(VDP* vdp, UInt8 col)
+{
+    return col == 1 ? vdp->palette0 : vdp->palette[col >> 1];
+}
+
 static void RefreshLine3(VDP* vdp, int Y, int X, int X2)
 {
     static UInt8*  sprLine;
@@ -1130,14 +1137,14 @@ static void RefreshLine3(VDP* vdp, int Y, int X, int X2)
             Pixel bc = vdp->palette[colPattern & 0x0f];
             UInt8 col;
 
-            col = sprLine[0]; linePtr3[0] = col ? vdp->palette[col >> 1] : fc; 
-            col = sprLine[1]; linePtr3[1] = col ? vdp->palette[col >> 1] : fc;
-            col = sprLine[2]; linePtr3[2] = col ? vdp->palette[col >> 1] : fc; 
-            col = sprLine[3]; linePtr3[3] = col ? vdp->palette[col >> 1] : fc;
-            col = sprLine[4]; linePtr3[4] = col ? vdp->palette[col >> 1] : bc; 
-            col = sprLine[5]; linePtr3[5] = col ? vdp->palette[col >> 1] : bc;
-            col = sprLine[6]; linePtr3[6] = col ? vdp->palette[col >> 1] : bc; 
-            col = sprLine[7]; linePtr3[7] = col ? vdp->palette[col >> 1] : bc;
+            col = sprLine[0]; linePtr3[0] = col ? multiSpriteColor(vdp, col) : fc;
+            col = sprLine[1]; linePtr3[1] = col ? multiSpriteColor(vdp, col) : fc;
+            col = sprLine[2]; linePtr3[2] = col ? multiSpriteColor(vdp, col) : fc;
+            col = sprLine[3]; linePtr3[3] = col ? multiSpriteColor(vdp, col) : fc;
+            col = sprLine[4]; linePtr3[4] = col ? multiSpriteColor(vdp, col) : bc;
+            col = sprLine[5]; linePtr3[5] = col ? multiSpriteColor(vdp, col) : bc;
+            col = sprLine[6]; linePtr3[6] = col ? multiSpriteColor(vdp, col) : bc;
+            col = sprLine[7]; linePtr3[7] = col ? multiSpriteColor(vdp, col) : bc;
             sprLine += 8;
             charTable++; 
             linePtr3 += 8; 

@@ -1532,7 +1532,11 @@ static void digitize(VDP* vdp)
 static void updateOutputMode(VDP* vdp)
 {
     int mode = (vdp->vdpRegs[9] >> 4) & 3;
-    int transparency = (vdp->screenMode < 8 || vdp->screenMode > 12) && (vdp->vdpRegs[8] & 0x20) == 0;
+    /* Text 1/2 and Multicolor ignore TP: colour 0 is always transparent
+    ** there (measured on a V9958). */
+    int textOrMulti  = vdp->screenMode == 0 || vdp->screenMode == 3 || vdp->screenMode == 13;
+    int transparency = textOrMulti ||
+                       ((vdp->screenMode < 8 || vdp->screenMode > 12) && (vdp->vdpRegs[8] & 0x20) == 0);
 
     if (mode == 2 || 
         (!(vdp->vdpRegs[8] & 0x80) && (vdp->vdpRegs[8] & 0x10)) || (vdp->vdpRegs[0] & 0x40)) 
