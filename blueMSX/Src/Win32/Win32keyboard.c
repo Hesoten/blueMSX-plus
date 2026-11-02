@@ -2300,8 +2300,8 @@ static int keyboardWriteConfig(char* configName, int reportFailure)
         sprintf(profString, "Keymapping-%d", n);
         for (i = 0; i < EC_KEYCOUNT; i++) {
             const char* keyCode = inputEventCodeToString(i);
-            /* IniFileParser's readLine has no bound and writes into a
-            ** 512-byte caller buffer, so "key =<value>" must fit. */
+            /* The loader reads the value into 512 bytes, so a longer one
+            ** would come back cut and be saved that way. */
             char dikNames[448];
             char key[32] = { 0 };
             /* The reader skips the same rows, so a value in a section its
