@@ -2096,6 +2096,8 @@ static void loadState(VDP* vdp)
     }
     else {
         updateScreenMode(vdp);
+        /* The output mode is not in the state: rebuild it and colour 0. */
+        updateOutputMode(vdp);
     }
 
     if (vdp->timeScrModeEn) {
