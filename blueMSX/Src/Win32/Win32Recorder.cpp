@@ -1390,14 +1390,7 @@ static BOOL_DLG_RET CALLBACK statusDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
                          SWP_NOMOVE | SWP_NOZORDER);
 
             // Recenter the (now much larger) dialog over its owner window.
-            HWND owner = GetWindow(hDlg, GW_OWNER);
-            RECT ow;
-            if (owner && GetWindowRect(owner, &ow)) {
-                int x = ow.left + ((ow.right - ow.left) - newW) / 2;
-                int y = ow.top  + ((ow.bottom - ow.top) - newH) / 2;
-                SetWindowPos(hDlg, NULL, x, y, 0, 0,
-                             SWP_NOSIZE | SWP_NOZORDER);
-            }
+            win32CommonCenterOnOwner(hDlg);
 
             // Place text on the left, Cancel on the right of the bottom row.
             // Small inner pads (~8 px) keep text/button visually inside the
