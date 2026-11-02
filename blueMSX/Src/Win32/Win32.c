@@ -7380,7 +7380,7 @@ void archEmuSuspendSignal(void) {
 }
 
 /* Suspend-cooperative wait for the emu-thread ack event: raw
-** WaitForSingleObject(ack, 500) would burn the full timeout when the
+** WaitForSingleObject(ack, timeout) would burn the full timeout when the
 ** main thread is parked in a modal loop, so a suspend signal here
 ** short-circuits the wait and defers to emuWaitForResume. */
 int archWaitForAckOrSuspend(void* ackEvent, int timeoutMs) {
@@ -7407,6 +7407,32 @@ int archWaitForAckOrSuspend(void* ackEvent, int timeoutMs) {
     }
 }
 
+/* Emu thread only. A draw that misses the ack timeout is left pending and the
+** emulator runs on its own timer until the ack arrives, so a stalled present
+** freezes the screen but not the emulation or the sound. */
+#define DRAW_ACK_TIMEOUT_MS     50      /* below the 100 ms Emulator.c discards */
+#define DRAW_ACK_GIVE_UP_MS     5000    /* lost-ack safety net */
+
+static int      ackPending;
+static ULONGLONG ackPendingSince;
+
+static int requestDrawAndWait(void) {
+    if (ackPending) {
+        if (WaitForSingleObject(st.ddrawAckEvent, 0) != WAIT_OBJECT_0 &&
+            GetTickCount64() - ackPendingSince < DRAW_ACK_GIVE_UP_MS) {
+            return 0;
+        }
+        ackPending = 0;
+    }
+    SetEvent(st.ddrawEvent);
+    if (archWaitForAckOrSuspend(st.ddrawAckEvent, DRAW_ACK_TIMEOUT_MS) == ARCH_WAIT_TIMEOUT) {
+        ackPending = 1;
+        ackPendingSince = GetTickCount64();
+        return 0;
+    }
+    return st.diplayUpdated;
+}
+
 int archUpdateEmuDisplay(int syncMode) {
     st.diplayUpdateOnVblank = syncMode == 4;
     if (st.minimized) {
@@ -7424,18 +7450,15 @@ int archUpdateEmuDisplay(int syncMode) {
     else if (syncMode == 3) { // VBlank sync -- route Present through main thread
         /* Drive presents from the main thread and block on the ack so
         ** this call still returns synchronously. archWaitForAckOrSuspend
-        ** avoids the ~500 ms freeze at every modal-loop entry. */
+        ** avoids a timeout-long freeze at every modal-loop entry. */
         st.diplayUpdateOnVblank = 1;
-        SetEvent(st.ddrawEvent);
-        archWaitForAckOrSuspend(st.ddrawAckEvent, 500);
-        return st.diplayUpdated;
+        return requestDrawAndWait();
+    }
+    else if (syncMode > 1) {
+        return requestDrawAndWait();
     }
     else {
         SetEvent(st.ddrawEvent);
-        if (syncMode > 1) {
-            archWaitForAckOrSuspend(st.ddrawAckEvent, 500);
-            return st.diplayUpdated;
-        }
     }
     return 0;
 }
