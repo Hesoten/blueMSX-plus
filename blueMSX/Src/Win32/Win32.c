@@ -270,6 +270,20 @@ HBRUSH   win32CommonDarkBgBrush(void) { return win32GetDarkBkBrush(); }
 static void win32ApplyDarkToDialog(HWND hwnd);
 void win32CommonApplyDark(HWND hDlg) { win32ApplyDarkToDialog(hDlg); }
 
+/* Move a w x h window at (*x, *y) inside the monitor's work area. Right and
+** bottom go first so a window larger than the area keeps its title bar on
+** screen. */
+static void keepOnWorkArea(HMONITOR mon, int* x, int* y, int w, int h)
+{
+    MONITORINFO mi;
+    mi.cbSize = sizeof(mi);
+    if (!GetMonitorInfoW(mon, &mi)) return;
+    if (*x + w > mi.rcWork.right)  *x = mi.rcWork.right  - w;
+    if (*y + h > mi.rcWork.bottom) *y = mi.rcWork.bottom - h;
+    if (*x < mi.rcWork.left)       *x = mi.rcWork.left;
+    if (*y < mi.rcWork.top)        *y = mi.rcWork.top;
+}
+
 void win32CommonCenterOnOwner(HWND hDlg)
 {
     HWND owner = GetWindow(hDlg, GW_OWNER);
@@ -291,15 +305,8 @@ void win32CommonCenterOnOwner(HWND hDlg)
     /* Clamp into the work area of the monitor containing the owner so the
     ** dialog can't slip off-screen when the main window is partially off
     ** an edge. */
-    HMONITOR mon = MonitorFromWindow(owner, MONITOR_DEFAULTTONEAREST);
-    MONITORINFO mi;
-    mi.cbSize = sizeof(mi);
-    if (GetMonitorInfoW(mon, &mi)) {
-        if (x + dlgW > mi.rcWork.right)  x = mi.rcWork.right  - dlgW;
-        if (y + dlgH > mi.rcWork.bottom) y = mi.rcWork.bottom - dlgH;
-        if (x < mi.rcWork.left)          x = mi.rcWork.left;
-        if (y < mi.rcWork.top)           y = mi.rcWork.top;
-    }
+    keepOnWorkArea(MonitorFromWindow(owner, MONITOR_DEFAULTTONEAREST),
+                   &x, &y, dlgW, dlgH);
     SetWindowPos(hDlg, NULL, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
 }
 
@@ -1036,10 +1043,13 @@ void centerDialog(HWND hwnd, int noActivate) {
 void updateDialogPos(HWND hwnd, int dialogID, int noMove, int noSize) 
 {
     Properties* pProperties = propGetGlobalProperties();
-
-    int screenWidth  = GetSystemMetrics(SM_CXSCREEN);
-    int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+    HWND parent = GetParent(hwnd);
 	RECT r1;
+    RECT r2;
+    RECT rc;
+    HMONITOR mon;
+    int left;
+    int top;
     int x;
     int y;
     int w;
@@ -1050,41 +1060,38 @@ void updateDialogPos(HWND hwnd, int dialogID, int noMove, int noSize)
         noSize = 1;
     }
 
-    GetWindowRect(GetParent(hwnd), &r1);
+    GetWindowRect(parent, &r1);
+    GetWindowRect(hwnd, &r2);
 
-	x = r1.left + pProperties->settings.windowPos[dialogID].left; 
-    y = r1.top  + pProperties->settings.windowPos[dialogID].top; 
-    w =           pProperties->settings.windowPos[dialogID].width; 
-    h =           pProperties->settings.windowPos[dialogID].height; 
+    /* The ini can be hand-edited, so bound the offsets before adding them. */
+    left = min(max(pProperties->settings.windowPos[dialogID].left, -100000), 100000);
+    top  = min(max(pProperties->settings.windowPos[dialogID].top,  -100000), 100000);
 
-    if (noMove || 
-	   (pProperties->settings.windowPos[dialogID].left == 0 && 
+	x = r1.left + left;
+    y = r1.top  + top;
+    w =           pProperties->settings.windowPos[dialogID].width;
+    h =           pProperties->settings.windowPos[dialogID].height;
+
+    if (noMove ||
+	   (pProperties->settings.windowPos[dialogID].left == 0 &&
 	    pProperties->settings.windowPos[dialogID].top == 0)) {
-        RECT r2;
-        GetWindowRect(hwnd, &r2);
         x = r1.left + (r1.right - r1.left - r2.right + r2.left) / 2;
         y  = r1.top  + (r1.bottom - r1.top - r2.bottom + r2.top) / 2;
     }
-    
-    if (w == 0 || h == 0) {
-        RECT r2;
-        GetWindowRect(hwnd, &r2);
+
+    if (noSize || w == 0 || h == 0) {
         w = r2.right - r2.left;
         h = r2.bottom - r2.top;
     }
-    /* Laurent Halter : Removed because window might be on a secondary display*/
-    /*
-    if (x + w > screenWidth) {
-        x = screenWidth - w;
-    }
 
-    if (y + h > screenHeight) {
-        y = screenHeight - h;
+    /* Keep the whole dialog on the monitor it lands on, or on the parent's
+    ** monitor when the saved place is on none. */
+    SetRect(&rc, x, y, x + w, y + h);
+    mon = MonitorFromRect(&rc, MONITOR_DEFAULTTONULL);
+    if (mon == NULL) {
+        mon = MonitorFromWindow(parent, MONITOR_DEFAULTTONEAREST);
     }
-
-    if (y < 0) {
-        y = 0;
-    }*/
+    keepOnWorkArea(mon, &x, &y, w, h);
 
     SetWindowPos(hwnd, NULL, x, y, w, h, SWP_NOZORDER | (noSize ? SWP_NOSIZE : 0));
 }
