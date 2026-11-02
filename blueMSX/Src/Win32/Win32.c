@@ -2257,9 +2257,21 @@ void archShowPropertiesDialog(PropPage  startPane) {
     }
 
     /* An explicit save makes the command line values permanent, so the
-    ** overrides are dropped. */
-    propSave(pProperties);
-    emuCommandLineDropOverrides();
+    ** overrides are dropped. A mute still as /mute left it is the exception:
+    ** it silences this run only. One the user turned off is theirs to keep. */
+    {
+        int* mute = &pProperties->sound.masterEnable;
+        int  now  = *mute;
+        int  before;
+        int  muted = !now && emuCommandLineSavedInt(mute, &before);
+
+        if (muted) {
+            *mute = before;
+        }
+        propSave(pProperties);
+        *mute = now;
+        emuCommandLineDropOverridesExcept(muted ? mute : NULL);
+    }
 
     /* Always update video render */
     

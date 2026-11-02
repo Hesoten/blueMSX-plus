@@ -599,6 +599,31 @@ void emuCommandLineDropOverrides(void) {
     overrideCount = 0;
 }
 
+int emuCommandLineSavedInt(const int* field, int* saved) {
+    int i;
+
+    /* The first one holds the value from before the command line. */
+    for (i = 0; i < overrideCount; i++) {
+        if (overrides[i].intField == field) {
+            *saved = overrides[i].savedInt;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+void emuCommandLineDropOverridesExcept(const int* keep) {
+    int i;
+    int kept = 0;
+
+    for (i = 0; i < overrideCount; i++) {
+        if (keep != NULL && overrides[i].intField == keep) {
+            overrides[kept++] = overrides[i];
+        }
+    }
+    overrideCount = kept;
+}
+
 static char cmdLineError[640];
 
 static void errAppend(const char* text) {
