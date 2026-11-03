@@ -318,48 +318,59 @@ static int lineByte(const VdpDebugState* s, const UInt8* r, int mode, int base, 
     return base + (n >> 1) + ((n & 1) ? s->vram128 : 0);
 }
 
+/* A V9968's EPAL makes the 256 colour modes index the extended palette,
+** whose first 16 entries are the 16 colour palette. */
+static uint32_t extRgba(const VdpDebugState* s, const uint32_t pal[16], int i)
+{
+    return i < 16 ? pal[i] : vdpRgbToRgba(s->paletteExt[i]);
+}
+
 static uint32_t bitmapPixel(const VdpDebugState* s, const UInt8* r, const VdpBitmapOptions& o, const uint32_t pal[16],
                             int base, int x, int* value, int* phys)
 {
     int p, b;
     switch (o.mode) {
     case 5:
-        p = lineByte(s, r,5, base, x >> 1);
+        p = lineByte(s, r, 5, base, x >> 1);
         b = rd(s, p);
         b = (x & 1) ? b & 0x0f : b >> 4;
         *value = b; *phys = p;
         return pal[b];
     case 6:
-        p = lineByte(s, r,6, base, x >> 2);
+        p = lineByte(s, r, 6, base, x >> 2);
         b = (rd(s, p) >> (6 - 2 * (x & 3))) & 3;
         *value = b; *phys = p;
         return pal[b];
     case 7:
-        p = lineByte(s, r,7, base, x >> 1);
+        p = lineByte(s, r, 7, base, x >> 1);
         b = rd(s, p);
         b = (x & 1) ? b & 0x0f : b >> 4;
         *value = b; *phys = p;
         return pal[b];
     case 8:
-        p = lineByte(s, r,8, base, x);
+        p = lineByte(s, r, 8, base, x);
         b = rd(s, p);
         *value = b; *phys = p;
         if (b == 0 && o.color0 == VDP_COLOR0_TRANSPARENT) return 0;
+        if (s->paletteExtCount) {
+            return extRgba(s, pal, b == 0 && o.color0 == VDP_COLOR0_BACKDROP ? r[7] : b);
+        }
         if (b == 0 && o.color0 == VDP_COLOR0_BACKDROP) return vdpScreen8Rgba(r[7]);
         return vdpScreen8Rgba(b);
     default: {
         int g = x & ~3;
-        int t0 = rd(s, lineByte(s, r,8, base, g));
-        int t1 = rd(s, lineByte(s, r,8, base, g + 1));
-        int t2 = rd(s, lineByte(s, r,8, base, g + 2));
-        int t3 = rd(s, lineByte(s, r,8, base, g + 3));
+        int t0 = rd(s, lineByte(s, r, 8, base, g));
+        int t1 = rd(s, lineByte(s, r, 8, base, g + 1));
+        int t2 = rd(s, lineByte(s, r, 8, base, g + 2));
+        int t3 = rd(s, lineByte(s, r, 8, base, g + 3));
         int K = (t0 & 7) | ((t1 & 7) << 3);
         int J = (t2 & 7) | ((t3 & 7) << 3);
-        p = lineByte(s, r,8, base, x);
+        p = lineByte(s, r, 8, base, x);
         b = rd(s, p);
         *value = b; *phys = p;
         if (o.mode == 10 && ((b >> 3) & 1)) {
-            return pal[b >> 4];
+            /* With EPAL a colour dot takes the whole byte as its index. */
+            return s->paletteExtCount ? extRgba(s, pal, b) : pal[b >> 4];
         }
         return yjkRgba(b >> 3, J, K);
     }

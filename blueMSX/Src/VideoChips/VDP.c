@@ -2035,15 +2035,19 @@ static void updateExtPalette(VDP* vdp, int palEntry, int r, int g, int b)
     vdp->paletteExtReg[palEntry] = (UInt16)((r << 10) | (g << 5) | b);
 }
 
-/* A 9 bit write also sets the 5 bit copy EPAL reads, as at reset. */
-static void notePaletteReg(VDP* vdp, int palEntry)
+/* A 9 bit palette value widened to EPAL's 5 bits, as at reset. */
+static UInt16 paletteReg5(int reg)
 {
-    int reg = vdp->paletteReg[palEntry];
     int r = (reg >> 4) & 7, g = (reg >> 8) & 7, b = reg & 7;
 
+    return (UInt16)((((r << 2) | (r >> 1)) << 10) | (((g << 2) | (g >> 1)) << 5) | ((b << 2) | (b >> 1)));
+}
+
+/* A 9 bit write also sets the 5 bit copy EPAL reads. */
+static void notePaletteReg(VDP* vdp, int palEntry)
+{
     if (vdpIsV9968(vdp)) {
-        vdp->paletteExtReg[palEntry] = (UInt16)((((r << 2) | (r >> 1)) << 10) |
-                                                (((g << 2) | (g >> 1)) <<  5) | ((b << 2) | (b >> 1)));
+        vdp->paletteExtReg[palEntry] = paletteReg5(vdp->paletteReg[palEntry]);
     }
 }
 
@@ -3266,14 +3270,19 @@ int vdpDebugCapture(int index, VdpDebugState* out)
         }
         out->paletteRgb[i] = ((UInt32)r << 16) | ((UInt32)g << 8) | (UInt32)b;
     }
+    /* SP3 sprites read the 256 entries whether EPAL is on or not. An entry
+    ** below 16 shows its 5 bit value once EPAL wrote one the 9 bit copy lacks. */
     out->paletteExtCount = vdpIsExtPalette(vdp) ? 256 : 0;
     memcpy(out->paletteExtReg, vdp->paletteExtReg, sizeof(out->paletteExtReg));
     for (i = 0; i < 256; i++) {
         int reg = vdp->paletteExtReg[i];
-        out->paletteExt[i] = out->paletteExtCount == 0 ? 0 :
-                             ((UInt32)(255 * ((reg >> 10) & 0x1f) / 31) << 16) |
-                             ((UInt32)(255 * ((reg >>  5) & 0x1f) / 31) <<  8) |
-                              (UInt32)(255 * ( reg        & 0x1f) / 31);
+        UInt32 rgb = ((UInt32)(255 * ((reg >> 10) & 0x1f) / 31) << 16) |
+                     ((UInt32)(255 * ((reg >>  5) & 0x1f) / 31) <<  8) |
+                      (UInt32)(255 * ( reg        & 0x1f) / 31);
+        if (i < 16 && vdpIsV9968(vdp) && reg != paletteReg5(vdp->paletteReg[i])) {
+            out->paletteRgb[i] = rgb;
+        }
+        out->paletteExt[i] = !vdpIsV9968(vdp) ? 0 : i < 16 ? out->paletteRgb[i] : rgb;
     }
     out->interleaved  = vdpIsInterleaved(vdp) != 0;
     out->bitmapLinear = vdpIsBitmapLinear(vdp) != 0;

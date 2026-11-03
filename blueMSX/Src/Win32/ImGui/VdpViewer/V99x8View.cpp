@@ -106,11 +106,14 @@ void sheetCell(int ch, int* x, int* y)
     *y = (third * 8 + c / 32) * 8;
 }
 
-const char* cmdName(int cm)
+const char* cmdName(const VdpDebugState* s, int cm)
 {
     static const char* names[16] = { "STOP", "-", "-", "-", "POINT", "PSET", "SRCH", "LINE",
                                      "LMMV", "LMMM", "LMCM", "LMMC", "HMMV", "HMMM", "YMMM", "HMMC" };
-    return names[cm & 15];
+    static const char* ext[4] = { "STOP", "LFMM", "LFMC", "LRMM" };
+    /* A V9968 with R#21 bit 0 V58 clear takes codes 1-3 as its own commands. */
+    bool v9968 = s->version == VDP_V9968 && !(s->regs[21] & 1);
+    return v9968 && (cm & 15) < 4 ? ext[cm & 15] : names[cm & 15];
 }
 
 const char* logOpName(int lo)
@@ -994,7 +997,8 @@ private:
         linePalRaster = shell::rasterVersion();
         linePalLines = raster.lines;
         LinePalettes n;
-        bool ok = o != NULL && o->valid && o->linePalValid && !o->stale && !vdpIsMsx1(s) && raster.valid &&
+        /* An extended palette keeps entries 0-15 outside the 3-bit registers recorded here. */
+        bool ok = o != NULL && o->valid && o->linePalValid && !o->stale && !vdpIsMsx1(s) && s->paletteExtCount == 0 && raster.valid &&
                   o->frameStart == s->raster[0].frameStart;
         if (ok) {
             int y0 = outFirstLine(s, o) - o->displayOffset;
@@ -2658,6 +2662,7 @@ private:
         int    mode, color0, blink, blocks;
         UInt8  regs[32];         /* only those the picture reads, the rest 0 */
         UInt32 palette[16];
+        UInt32 extHash;          /* EPAL's 256 colours, hashed, while a bitmap reads them */
     };
     enum { SP_FIRST, SP_PATTERNS, SP_SPRITES, SP_COUNT };  /* a group's pictures: pages or names first */
 
@@ -2948,7 +2953,10 @@ private:
         if (bitmap) {
             for (int reg : pages) k->regs[reg] = l.regs[reg];
             k->regs[1] = l.regs[1] & 0x03;
-            k->regs[20] = l.regs[20] & 0x08;   /* a V9968's SP3 lays the pages out in order */
+            k->regs[20] = l.regs[20] & 0x18;   /* a V9968's SP3 lays the pages out in order; EPAL */
+            if (l.mode == 8 || l.mode == 10) {
+                k->extHash = fnvWords(s->paletteExt, (size_t)s->paletteExtCount);
+            }
         }
         else if (p == SP_FIRST) {
             for (int reg : names) k->regs[reg] = l.regs[reg];
@@ -6767,7 +6775,7 @@ private:
         if (ce) ui::ItemTip(ts(TS_CMD_NOTE));
         ImGui::SameLine();
         ImGui::AlignTextToFramePadding();
-        ImGui::Text("%s  %s", cmdName(cmr >> 4), logOpName(cmr & 15));
+        ImGui::Text("%s  %s", cmdName(s, cmr >> 4), logOpName(cmr & 15));
         if (!ui::BeginKeyValue("cmd")) return;
         ui::KeyValueMono("SX, SY", "%d, %d", c[0] | ((c[1] & 1) << 8), c[2] | ((c[3] & 3) << 8));
         ui::KeyValueMono("DX, DY", "%d, %d", c[4] | ((c[5] & 1) << 8), c[6] | ((c[7] & 3) << 8));
@@ -6778,8 +6786,30 @@ private:
         ui::EndKeyValue();
     }
 
+    /* A V9968's EPAL: 256 colours of 5 bit R G B, 16 to a row; R#7 is a whole byte. */
+    void extPalette(const VdpDebugState* s)
+    {
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(ui::Px(2), ui::Px(2)));
+        for (int i = 0; i < 256; i++) {
+            char id[16], tip[256];
+            int v = s->paletteExtReg[i];
+            uint32_t rgb = s->paletteExt[i];
+            snprintf(id, sizeof(id), "##epal%d", i);
+            int tl = textf(tip, sizeof(tip), ts(TS_PAL_TIP_EPAL), i, (v >> 10) & 31, (v >> 5) & 31, v & 31, rgb);
+            if (s->regs[7] == i && tl >= 0 && (size_t)tl < sizeof(tip)) textf(tip + tl, sizeof(tip) - tl, "%s", ts(TS_PAL_TIP_BORDER));
+            if (i % 16) ImGui::SameLine();
+            ui::ColorSwatch(id, IM_COL32((rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff, 255), 15,
+                            s->regs[7] == i, tip);
+        }
+        ImGui::PopStyleVar();
+    }
+
     void cardPalette(const VdpDebugState* s)
     {
+        if (s->paletteExtCount == 256) {
+            extPalette(s);
+            return;
+        }
         bool msx1 = vdpIsMsx1(s);
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(ui::Px(6), ui::Px(6)));
         for (int i = 0; i < 16; i++) {

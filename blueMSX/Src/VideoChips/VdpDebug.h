@@ -84,9 +84,9 @@ typedef struct {
     UInt8  status[16];      /* S#7 is CL; S#8/S#9 the border X */
     UInt8  cmdRegs[16];
     UInt16 paletteReg[16];  /* G in bits 8-10, R in 4-6, B in 0-2 */
-    UInt32 paletteRgb[16];  /* 0x00RRGGBB; the fixed colours on a TMS VDP */
-    int    paletteExtCount; /* entries used in paletteExt: 256 while a V9968's EPAL is on, else 0 */
-    UInt32 paletteExt[256]; /* 0x00RRGGBB */
+    UInt32 paletteRgb[16];  /* 0x00RRGGBB; the fixed colours on a TMS VDP; 5 bit ones EPAL wrote */
+    int    paletteExtCount; /* 256 while a V9968's EPAL makes the 256 colour modes read paletteExt, else 0 */
+    UInt32 paletteExt[256]; /* 0x00RRGGBB on a V9968 (SP3 sprites read it either way), else 0 */
     UInt16 paletteExtReg[256]; /* EPAL's 5 bit R in bits 10-14, G in 5-9, B in 0-4 */
     /* How the display reads SCREEN 7-12 now. Interleaved on a 256K V9968,
     ** address bit 17 stays put: byte (a & 0x20000) | VDP_VRAM_INDEX(a & 0x1ffff). */

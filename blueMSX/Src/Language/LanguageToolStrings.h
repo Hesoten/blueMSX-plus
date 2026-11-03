@@ -400,6 +400,7 @@ TS(PAL_NOTE_LINES,            "Lines %s were drawn with other colours; the image
 TS(PAL_NOTE_ALL_LINES,        "Every line was drawn with colours the registers no longer hold; the images use each line's palette.", "全ラインが現在のレジスタとは別の色で描画されました。画像はラインごとのパレットで描画します。")
 TS(PAL_NOTE_LINES_RECENT,     "In recent frames, lines %s were drawn with other colours; the images use each line's palette.", "直近のフレームで、ライン" NB "%s" NB "はこれとは別の色で描画されました。画像はラインごとのパレットで描画します。")
 TS(PAL_NOTE_ALL_LINES_RECENT, "In recent frames, every line was drawn with other colours; the images use each line's palette.", "直近のフレームで、全ラインがこれとは別の色で描画されました。画像はラインごとのパレットで描画します。")
+TS(PAL_TIP_EPAL,              "Colour %d\nR %d  G %d  B %d (5 bit)\n#%06X", "カラー" NB "%d\nR %d  G %d  B %d (5" NB "ビット)\n#%06X")
 TS(SECTION_STATUS,            "Status", "ステータス")
 
 /* V9990 */
