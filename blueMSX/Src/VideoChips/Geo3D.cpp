@@ -74,6 +74,11 @@ extern "C" int geo3dIsRunning(Geo3D* geo3d)
     return geo3d->core.isRunning() ? 1 : 0;
 }
 
+extern "C" int geo3dFacesOn(Geo3D* geo3d)
+{
+    return geo3d->core.facesOn() ? 1 : 0;
+}
+
 extern "C" int geo3dNextCommand(Geo3D* geo3d, UInt8* regs, UInt8* values)
 {
     if (!geo3d->core.hasCommand()) {

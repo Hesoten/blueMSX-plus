@@ -49,6 +49,9 @@ int    geo3dIsRunning(Geo3D* geo3d);
 int    geo3dNextCommand(Geo3D* geo3d, UInt8* regs, UInt8* values);
 void   geo3dFinishRun(Geo3D* geo3d);
 
+/* 1 while CTRL selects faces: a RUN started then draws faces, not edges. */
+int    geo3dFacesOn(Geo3D* geo3d);
+
 /* Engine clocks (2 per board tick) from the RUN: when the producer, never
 ** stalled, has the next command ready (returns its register count, 0 for
 ** none), and when it reaches its end. */

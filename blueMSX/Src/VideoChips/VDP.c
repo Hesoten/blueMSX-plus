@@ -2216,12 +2216,15 @@ int vdpGetCommandBusy(VDP* vdp)
     return vdpGetStatus(vdp->cmdEngine) & 0x01;
 }
 
-/* The same path as a register write from the Z80. */
-void vdpWriteCommandRegister(VDP* vdp, UInt8 reg, UInt8 value)
+/* The Z80's register write path. fillSpan marks the R#46 write of a face
+** fill row, which the V9968 may run as HMMV. */
+void vdpWriteCommandRegister(VDP* vdp, UInt8 reg, UInt8 value, int fillSpan)
 {
     vdp = geo3dVdp(vdp);
     if (vdp != NULL) {
+        vdpCmdTagFillSpan(vdp->cmdEngine, fillSpan);
         vdpUpdateRegisters(vdp, reg, value);
+        vdpCmdTagFillSpan(vdp->cmdEngine, 0);
     }
 }
 

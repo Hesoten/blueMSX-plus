@@ -78,6 +78,8 @@ public:
 
 	// RUN handling, driven by the caller.
 	[[nodiscard]] bool isRunning() const { return running; }
+	// CTRL bit 1 as last written: a RUN started with it draws faces.
+	[[nodiscard]] bool facesOn() const { return ctrlFace; }
 	[[nodiscard]] bool hasCommand() const { return cmdPos < cmds.size(); }
 	const Command& nextCommand() { return cmds[cmdPos++]; }
 	[[nodiscard]] const Command& peekCommand() const { return cmds[cmdPos]; }

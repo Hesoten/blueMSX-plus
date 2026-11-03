@@ -108,7 +108,7 @@ int  vdpIsDisplayOn(struct VDP* vdp);
 
 /* geo3d drives the command engine through these; NULL is the machine VDP. */
 int  vdpGetCommandBusy(struct VDP* vdp);
-void vdpWriteCommandRegister(struct VDP* vdp, UInt8 reg, UInt8 value);
+void vdpWriteCommandRegister(struct VDP* vdp, UInt8 reg, UInt8 value, int fillSpan);
 UInt32 vdpGetCommandEndTime(struct VDP* vdp);
 void vdpAddCommandCredit(struct VDP* vdp, int units);
 

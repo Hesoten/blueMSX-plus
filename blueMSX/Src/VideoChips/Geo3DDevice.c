@@ -73,6 +73,7 @@ struct Geo3DDevice {
     UInt32      nextReady;  /* P and E of the command due to land */
     UInt32      nextEnd;
     UInt32      due;        /* when it lands, or when RUN busy clears */
+    int         faces;      /* the RUN fills faces: its LINEs are fill rows */
 };
 
 static UInt32 later(UInt32 a, UInt32 b)
@@ -163,12 +164,14 @@ static void issue(Geo3DDevice* dev, UInt32 now)
     UInt32 readyEc = 0;
     int late = (Int32)(now - dev->due);
     int count;
+    int fill;
     int i;
 
     geo3dPeekCommand(dev->geo3d, &readyEc);
     count = geo3dNextCommand(dev->geo3d, regs, values);
+    fill = dev->faces && count == 11;
     for (i = 0; i < count; i++) {
-        vdpWriteCommandRegister(dev->vdp, regs[i], values[i]);
+        vdpWriteCommandRegister(dev->vdp, regs[i], values[i], fill && regs[i] == 46);
     }
     vdpAddCommandCredit(dev->vdp, late < MAX_CREDIT ? late : MAX_CREDIT);
 
@@ -249,6 +252,7 @@ static void startRun(Geo3DDevice* dev)
 {
     dev->runTime = boardSystemTime() * UNITS_PER_TICK;
     dev->issued  = 0;
+    dev->faces   = geo3dFacesOn(dev->geo3d);
     dev->phase   = PH_START;
     pump(dev);
 }
@@ -280,6 +284,7 @@ static void saveState(Geo3DDevice* dev)
     saveStateSet(state, "nextReady", dev->nextReady);
     saveStateSet(state, "nextEnd",   dev->nextEnd);
     saveStateSet(state, "due",       dev->due);
+    saveStateSet(state, "faces",     dev->faces);
 
     saveStateClose(state);
     free(data);
@@ -312,6 +317,7 @@ static void loadState(Geo3DDevice* dev)
     dev->issueEnd  = saveStateGet(state, "issueEnd",  0);
     dev->ceFall    = saveStateGet(state, "ceFall",    0);
     dev->endSeen   = saveStateGet(state, "endSeen",   dev->ceFall);
+    dev->faces     = saveStateGet(state, "faces",     0);
     dev->nextReady = saveStateGet(state, "nextReady", 0);
     dev->nextEnd   = saveStateGet(state, "nextEnd",   0);
     dev->due       = saveStateGet(state, "due",       0);

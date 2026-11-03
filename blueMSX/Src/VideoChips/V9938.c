@@ -179,6 +179,7 @@ struct VdpCmdState {
     int    breakPendingKind;   /* the DBG_WATCH_ kind of watchpoint that matched */
     int    breakPendingMode;   /* the screen mode the matched write was made in */
     int    extCommands;
+    int    fillTag;
     int    xhr;
     int    VX;
     int    VY;
@@ -1705,7 +1706,8 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
     /* Argument depends on UInt8 or dot operation */
     if ((vdpCmd->CM & 0x0C) == 0x0C) {
         vdpCmd->TX = vdpCmd->ARG & 0x04 ? -PPB[vdpCmd->screenMode] : PPB[vdpCmd->screenMode];
-        vdpCmd->NX = vdpCmd->kNX/PPB[vdpCmd->screenMode];
+        /* A LINE run as HMMV takes its end dot too. */
+        vdpCmd->NX = (vdpCmd->kNX + vdpCmd->fillTag)/PPB[vdpCmd->screenMode];
     }
     else {
         vdpCmd->NX = vdpCmd->kNX;
@@ -1846,7 +1848,15 @@ void vdpCmdWrite(VdpCmdState* vdpCmd, UInt8 reg, UInt8 value, UInt32 systemTime)
 	case 0x0e:
 		vdpCmd->LO = value & 0x0F;
 		vdpCmd->CM = value >> 4;
+        /* geo3d's one row face fill: the same bytes as LINE, written as HMMV. */
+        vdpCmd->fillTag = vdpCmd->fillTag && value == 0x70 && vdpCmd->rawScrMode == 8 && !vdpCmd->forceGraphic4 &&
+                          vdpCmd->DX < 256 && !(vdpCmd->ARG & 0x0d) && vdpCmd->NY == 0;
+        if (vdpCmd->fillTag) {
+            vdpCmd->CM = CM_HMMV;
+            vdpCmd->NY = 1;
+        }
 		vdpCmdSetCommand(vdpCmd, systemTime);
+        vdpCmd->fillTag = 0;
         /* One that never starts still counts as one that ended. */
         if (vdpCmd->CM == 0) {
             vdpCmd->cmdEnd = 1;
@@ -1964,6 +1974,11 @@ void vdpCmdAddCredit(VdpCmdState* vdpCmd, int units)
         vdpCmd->VdpOpsCnt += units;
         vdpCmd->cmdStartTime -= units;
     }
+}
+
+void vdpCmdTagFillSpan(VdpCmdState* vdpCmd, int tag)
+{
+    vdpCmd->fillTag = tag;
 }
 
 void vdpCmdSetHighSpeed(VdpCmdState* vdpCmd, int enable)
