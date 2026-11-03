@@ -1073,8 +1073,10 @@ void archWindowApplyOwnership(void* p)
             ShowWindow(hwnd, SW_HIDE);
         }
         SetWindowLongPtr(hwnd, GWLP_HWNDPARENT, (LONG_PTR)newOwner);
+        /* SW_SHOWNA, unlike SW_SHOWNOACTIVATE, keeps a minimised or
+        ** maximised window that way. */
         if (wasVisible) {
-            ShowWindow(hwnd, SW_SHOWNOACTIVATE);
+            ShowWindow(hwnd, SW_SHOWNA);
         }
     }
 
