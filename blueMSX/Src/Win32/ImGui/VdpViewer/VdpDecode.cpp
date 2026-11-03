@@ -181,6 +181,46 @@ static int colTabMask(const VdpDebugState* s, const UInt8* r)
     return (((int)r[10] << 14) | ((int)r[3] << 6) | 0x3f) & s->vramMask;
 }
 
+/* A V9968's sprite mode 3: 64 planes of 8 bytes, patterns in 32K pages from R#6. */
+static bool sp3In(const VdpDebugState* s, const UInt8* r, int mode)
+{
+    return s->version == VDP_V9968 && (r[20] & 0x08) && vdpSpriteMode(mode) != 0;
+}
+
+int vdpSp3AttrBase(const UInt8* r)
+{
+    return (((int)r[11] & 7) << 15 | (int)r[5] << 7) & ~0x1ff;
+}
+
+int vdpSp3PatternBase(const UInt8* r)
+{
+    return ((int)r[6] << 11) & 0x3f800;
+}
+
+int vdpSp3Alias(const UInt8* r, int n)
+{
+    return (((n >> 4) & r[5] & 3) << 4) | (n & 15);
+}
+
+/* The pattern pages the planes before the terminator name, a tall pattern running into the next. */
+static void sp3PatternSpan(const VdpDebugState* s, const UInt8* r, int* addr, int* len)
+{
+    int base = vdpSp3AttrBase(r), lo = 8, hi = -1;
+    for (int n = 0; n < 64; n++) {
+        int alias = vdpSp3Alias(r, n);
+        int a = (base | ((alias >> 4) << 7) | ((alias & 15) << 3)) & s->vramMask;
+        int b1 = rd(s, a + 1), page = (rd(s, a + 5) >> 4) & 7;
+        if ((rd(s, a) | (b1 & 3) << 8) == 216 && !(r[25] & 0x80)) break;
+        if (rd(s, a + 6) == 0) continue;
+        int last = page + (((rd(s, a + 7) >> 4) * 16 + (16 << (b1 >> 6)) - 1) >> 8);
+        if (page < lo) lo = page;
+        if (last > hi) hi = last;
+    }
+    if (hi < 0) lo = hi = 0;
+    *addr = (vdpSp3PatternBase(r) + (lo << 15)) & s->vramMask;
+    *len = (hi - lo + 1) << 15;
+}
+
 void vdpDecodeTables(const VdpDebugState* s, const VdpLayout& l, VdpTables* t)
 {
     const UInt8* r = l.regs;
@@ -213,6 +253,11 @@ void vdpDecodeTables(const VdpDebugState* s, const VdpLayout& l, VdpTables* t)
         }
     }
 
+    if (sp3In(s, r, mode)) {
+        t->spriteAttr = vdpSp3AttrBase(r) & m;
+        t->spritePattern = vdpSp3PatternBase(r) & m;
+        return;
+    }
     if (vdpSpriteMode(mode) == 1) {
         t->spriteAttr = sat;
     }
@@ -666,11 +711,12 @@ int vdpTableRanges(const VdpDebugState* s, const VdpLayout& l, VdpRange out[8])
         out[n].kind = VDP_RANGE_COLOR; out[n++].name = ts(mode == 13 ? TS_RANGE_BLINK_TABLE : TS_RANGE_COLOUR_TABLE);
     }
     if (t.spriteAttr >= 0) {
-        out[n].addr = t.spriteAttr; out[n].len = out[n].cap = 128;
+        out[n].addr = t.spriteAttr; out[n].len = out[n].cap = sp3In(s, l.regs, mode) ? 0x200 : 128;
         out[n].kind = VDP_RANGE_SPRITE_ATTR; out[n++].name = ts(TS_RANGE_SPRITE_ATTRIBUTES);
     }
     if (t.spritePattern >= 0) {
         out[n].addr = t.spritePattern; out[n].len = out[n].cap = 0x800;
+        if (sp3In(s, l.regs, mode)) { sp3PatternSpan(s, l.regs, &out[n].addr, &out[n].len); out[n].cap = 8 << 15; }
         out[n].kind = VDP_RANGE_SPRITE_PATTERN; out[n++].name = ts(TS_RANGE_SPRITE_PATTERNS);
     }
     if (t.spriteColor >= 0) {

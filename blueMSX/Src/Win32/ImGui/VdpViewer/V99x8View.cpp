@@ -35,6 +35,7 @@
 #include "RegTables.h"
 #include "VdpDecode.h"
 #include "VdpSprite.h"
+#include "VdpSprite3View.h"
 #include "VdpRaster.h"
 #include "VdpParts.h"
 #include "ToolText.h"
@@ -220,6 +221,7 @@ public:
             f.pinned = false;
             f.kind = FOCUS_NONE;
         }
+        sp3.track(s, f);
         refreshBandPin(s, f);
         /* Also while the card is folded away. */
         notePin(f);
@@ -304,6 +306,9 @@ public:
                 at += (size_t)textf(out + at, size - at, "%s%s %05X", at ? " \xC2\xB7 " : "", r[i].name, r[i].addr);
             }
         }
+        else if (Sp3Panel::active(s)) {
+            sp3.summary(s, out, size);
+        }
         else {
             const_cast<V99x8View*>(this)->ensureScene(s);
             SprView v = shownTable();
@@ -330,7 +335,10 @@ public:
         case C_DISPLAY:   cardDisplay(s); break;
         case C_SPLITS:    splitsBody(s); break;
         case C_TABLES:    cardTables(s); break;
-        case C_SPRITES:   cardSprites(s); break;
+        case C_SPRITES:
+            if (Sp3Panel::active(s)) sp3.card(s, f);
+            else cardSprites(s);
+            break;
         case C_STATUS:    cardStatus(s); break;
         case C_COMMAND:   cardCommand(s); break;
         case C_PALETTE:   cardPalette(s); break;
@@ -465,8 +473,12 @@ public:
     void escape(bool key) override
     {
         selectBand(-1);
+        sp3.unpin();
         /* A click beside the picture fixes the line row's line; only the key lets go of it. */
-        if (key) sprLineFixed = sprLineHeld = -1;
+        if (key) {
+            sprLineFixed = sprLineHeld = -1;
+            sp3.escape();
+        }
     }
 
     bool bandsKnown(const void* st) const override
@@ -503,6 +515,7 @@ public:
         sprPinLine = -1;
         sprSelReset();
         lineRowReset();
+        sp3.forget();
         sprRowSeq = 0;
         sprPinKeepAttr = -1;
         sprPinKeepVer = ~0u;
@@ -621,6 +634,7 @@ private:
     PinSeen         pinSeen = { -1, 0, 0, 0 };  /* a band's pin, and the grid it was last read on */
     bool            selWanted = false;    /* selKey stays picked while no band matches it */
     mutable char    summaries[3][256];    /* the folded Display, Tables and Sprites cards' lines */
+    mutable Sp3Panel sp3;                 /* the Sprites tab and cards while a V9968 is in SP3 */
     float           selLatch = 0;         /* the inspected card's height so far for... */
     float           selLatchKey[6] = {};  /* ...this pin (kind, a, b, address, space) or band, at this width */
     char            palHeldRuns[160] = "";  /* the Palette card's last note while running... */
@@ -1756,6 +1770,7 @@ private:
     {
         selBand = i;
         cardBand = i >= 0;
+        if (i >= 0) sp3.unpin();
         selWanted = i >= 0 && i < (int)raster.bands.size();
         if (selWanted) selKey = vdpBandKeyOf(raster.bands[i]);
     }
@@ -2016,7 +2031,7 @@ private:
         ImGui::EndDisabled();
         if (!sprOnly) sprShown = shown;
         barArtToggle("##spronly", ui::DECOR_CHECKER, ts(TS_SPR_LAYER_ONLY), &sprOnly);
-        barArtToggle("##boxes", ui::DECOR_FRAME, ts(TS_BOXES_TIP), &boxes);
+        if (!Sp3Panel::active(s)) barArtToggle("##boxes", ui::DECOR_FRAME, ts(TS_BOXES_TIP), &boxes);
     }
 
     /* Secondary text on the command bar. */
@@ -2499,8 +2514,10 @@ private:
         bool hasSprites = spriteLayerShape(s, &lw, &lax, &lay);
         int layer = hasSprites ? sprLayer() : SL_SHOWN;
         if (layer != SL_SHOWN) shell::wantSpriteSplit();
-        outBoxes = boxes && hasSprites;
-        outCounts = hasSprites && layer != SL_HIDDEN;
+        /* The mode 1/2 boxes and counts do not apply to SP3 sprites, which the Sprites tab shows. */
+        bool sp3On = Sp3Panel::active(s);
+        outBoxes = boxes && hasSprites && !sp3On;
+        outCounts = hasSprites && layer != SL_HIDDEN && !sp3On;
         ensureRaster(s);
         if (vdpSpriteMode(s->screenMode)) ensureSprites(s);
         outCv.aspectX = 1;
@@ -2520,6 +2537,7 @@ private:
             textf(field, sizeof(field), mixed ? ts(TS_OUT_FIELD_ABOVE) : "%s", name);
             barText(field);
         }
+        if (sp3On) barText(ts(TS_SP3_SCREEN_NOTE));
         zoomGroup(outCv, false);
         ui::EndCommandBar();
 
@@ -5459,6 +5477,10 @@ private:
         sprPatHot = sprPatHotNext;
         sprPatHotNext.p = -1;
         sprPlaceLine = -1;
+        if (Sp3Panel::active(s)) {
+            sp3.drawTab(s, f);
+            return;
+        }
         bool any = false;
         for (int fi : scene.lineFrame) any = any || fi >= 0;
         if (!any) {
@@ -6122,6 +6144,11 @@ private:
     {
         bool pinned = f.pinned && f.kind != FOCUS_NONE;
         notePin(f);
+        /* Picking a band or pinning anything else lets go of the SP3 pin. */
+        if (sp3.pinned() && !pinned && Sp3Panel::active(s)) {
+            sp3.selection(s, f);
+            return;
+        }
         const float* pin = cardPin;
         bool band = selBand >= 0 && selBand < (int)raster.bands.size() && (!pinned || cardBand);
         pinned = pinned && !band;

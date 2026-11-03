@@ -46,6 +46,11 @@ bool vdpIsBitmapMode(int mode);
 bool vdpIsPatternMode(int mode);
 bool vdpIsMsx1(const VdpDebugState* s);
 const char* vdpModeName(int mode);
+/* A V9968's sprite mode 3 from registers r: the attribute table, the pattern pages' base,
+** and the plane whose attributes plane n reads after the R#5 fold. */
+int  vdpSp3AttrBase(const UInt8* r);
+int  vdpSp3PatternBase(const UInt8* r);
+int  vdpSp3Alias(const UInt8* r, int n);
 /* 1 in SCREEN 1-3, 2 in SCREEN 4-12, 0 where the mode has no sprites. */
 int  vdpSpriteMode(int mode);
 const char* vdpVersionName(int version);
