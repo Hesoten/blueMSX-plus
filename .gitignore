@@ -16,3 +16,6 @@ x64/
 .claude/
 CLAUDE.md
 tmp/
+__pycache__/
+dist/
+.venv/
