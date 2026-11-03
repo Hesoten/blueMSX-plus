@@ -6625,7 +6625,7 @@ private:
             /* As SET ADJUST moves the picture, with R#18's nibble beside it. */
             ui::KeyValueMono(ts(TS_KV_ADJUST), "H %d (%X)  V %d (%X)", vdpSetAdjust(adj, false), adj & 15,
                              vdpSetAdjust(adj, true), (adj >> 4) & 15);
-            if (s->version == VDP_V9958) {
+            if (s->version == VDP_V9958 || s->version == VDP_V9968) {
                 ui::KeyValueMono(ts(TS_KV_HSCROLL), "%d", ((s->regs[26] & 0x3f) << 3) - (s->regs[27] & 7));
             }
             ui::KeyValue(ts(TS_KV_BACKDROP), "%d", s->regs[7] & 15);

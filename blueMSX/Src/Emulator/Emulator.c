@@ -120,7 +120,8 @@ int emulatorRewindReplaying(void) {
 void emulatorTap(EmuTapPoint point) {
     EmuTapFn tap = emuTap;
     /* Of a replay only the frame it stops at is copied. */
-    if ((point == EMU_TAP_VDP_SHOWN || point == EMU_TAP_V9990_SHOWN) && emulatorRewindReplaying() &&
+    if ((point == EMU_TAP_VDP_SHOWN || point == EMU_TAP_V9990_SHOWN || point == EMU_TAP_VDP_SECONDARY_SHOWN) &&
+        emulatorRewindReplaying() &&
         (Int32)(boardSystemTime() - rwLo) < 0) {
         return;
     }

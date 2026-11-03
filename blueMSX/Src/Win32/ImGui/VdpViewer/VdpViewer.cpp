@@ -687,15 +687,22 @@ static void commandBar(const ChipSnapshot* snap, const LiveFeedInfo& info, ChipV
     EmuState es = emulatorGetState();
     if (snap && snap->count > 1) {
         const ChipEntry& cur = snap->chip[snap->selected >= 0 ? snap->selected : 0];
-        char preview[64];
-        snprintf(preview, sizeof(preview), "%s", cur.name);
-        const char* names[8];
+        char preview[256];
+        bool twin = false;
+        for (int i = 0; i < snap->count; i++) {
+            if (&snap->chip[i] != &cur && strcmp(snap->chip[i].name, cur.name) == 0) twin = true;
+        }
+        /* Two chips of one name, such as a V9968 in the machine and one on a cartridge. */
+        if (twin) textf(preview, sizeof(preview), ts(cur.cartridge ? TS_CHIP_CARTRIDGE : TS_CHIP_MACHINE), cur.name);
+        else      snprintf(preview, sizeof(preview), "%s", cur.name);
+        const char* names[9];
         int n = 0;
         for (int i = 0; i < snap->count && n < 8; i++) names[n++] = snap->chip[i].name;
+        names[n++] = preview;
         if (ui::BeginCombo("##chip", preview, ui::ComboWidth(names, n, 160))) {
             for (int i = 0; i < snap->count; i++) {
                 char text[256], key[16];
-                textf(text, sizeof(text), ts(snap->chip[i].family == CHIP_V9990 ? TS_CHIP_CARTRIDGE : TS_CHIP_MACHINE),
+                textf(text, sizeof(text), ts(snap->chip[i].cartridge ? TS_CHIP_CARTRIDGE : TS_CHIP_MACHINE),
                       snap->chip[i].name);
                 snprintf(key, sizeof(key), "chip%d", i);
                 ImGui::PushID(i);

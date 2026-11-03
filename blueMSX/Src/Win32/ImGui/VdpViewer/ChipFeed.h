@@ -35,6 +35,7 @@ struct ChipEntry {
     UInt32 id;          /* the selected entry's chip instance; 0 for the others */
     int    family;      /* ChipFamily */
     int    index;       /* within the family */
+    int    cartridge;   /* 1: on a cartridge, beside the machine's own chip */
     char   name[48];
 };
 
@@ -54,7 +55,7 @@ struct ChipFeedRef {
     ** onto the main screen; 0 for none. None or a missing one: the first. */
     volatile LONG want;
     volatile LONG wantFrame; /* nonzero: also copy the picture the chip drew; 1 without its samples */
-    bool   shownV9990;       /* a V9990 was on the main screen at the last capture; the capture's own */
+    LONG   shownChip;        /* chipWant of the cartridge chip on the main screen at the last capture, 0 none; the capture's own */
     int    framesWaiting;    /* VDP frames passed up for the chip's own point since it last came */
 };
 
@@ -76,8 +77,8 @@ const void* chipFeedShot(const ChipSnapshot* snap);
 ** last displayed line, a V99x8 at its end of active display; either also while paused. */
 int         chipFeedCapture(void* dst, void* ref, int point);
 
-/* Forgets the chip asked for, so the next capture takes a V9990 on the main screen,
-** else the first chip. UI thread, before the feed opens. */
+/* Forgets the chip asked for, so the next capture takes a cartridge chip on the
+** main screen, else the first chip. UI thread, before the feed opens. */
 void        chipFeedRefReset(ChipFeedRef* ref);
 
 #endif

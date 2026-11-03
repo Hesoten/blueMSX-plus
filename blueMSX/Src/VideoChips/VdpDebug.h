@@ -48,7 +48,7 @@ typedef struct {
 typedef struct {
     int    valid;           /* 0: not armed, no VDP, or no such frame known */
     int    complete;        /* 0: armed, reset or a state loaded in it; writes may be missing */
-    int    ended;           /* 1: the frame is over, or its active display is (VDP_SHOWN, early flip); 0: beamLine/beamCycle is where it is */
+    int    ended;           /* 1: the frame is over, or its active display is (VDP_SHOWN or VDP_SECONDARY_SHOWN, early flip); 0: beamLine/beamCycle is where it is */
     int    foreign;         /* registers were written from another thread, e.g. the debugger */
     UInt32 frameStart;
     int    lastLine;        /* lines in the frame, 262 or 313 */
@@ -67,6 +67,7 @@ typedef struct {
 typedef struct {
     int    valid;           /* 0: no VDP at this index */
     UInt32 id;              /* debug handle + 1; differs for every VDP created */
+    int    secondary;       /* 0: the machine's own VDP */
     char   name[32];
     int    version;         /* VdpVersion */
     int    vramSize;        /* bytes the machine has */
@@ -84,6 +85,14 @@ typedef struct {
     UInt8  cmdRegs[16];
     UInt16 paletteReg[16];  /* G in bits 8-10, R in 4-6, B in 0-2 */
     UInt32 paletteRgb[16];  /* 0x00RRGGBB; the fixed colours on a TMS VDP */
+    int    paletteExtCount; /* entries used in paletteExt: 256 while a V9968's EPAL is on, else 0 */
+    UInt32 paletteExt[256]; /* 0x00RRGGBB */
+    UInt16 paletteExtReg[256]; /* EPAL's 5 bit R in bits 10-14, G in 5-9, B in 0-4 */
+    /* How the display reads SCREEN 7-12 now. Interleaved on a 256K V9968,
+    ** address bit 17 stays put: byte (a & 0x20000) | VDP_VRAM_INDEX(a & 0x1ffff). */
+    int    interleaved;     /* odd bytes come from the other 64K bank */
+    int    bitmapLinear;    /* V9968 SP3: laid out in address order instead */
+    int    vramA17;         /* 0x20000 on a 256K V9968, else 0 */
     /* [0]: the frame that just ended at a frame tap, or the one in progress
     ** while paused; [1]: the one before it, if known. Entries of ev past
     ** count are stale, so compare snapshots outside raster. */
@@ -121,9 +130,9 @@ typedef struct {
     int    valid;           /* 0: no VDP, or no frame drawn yet */
     int    pixels;          /* 0: copied without the samples; pix is stale, shift holds */
     int    stale;           /* the VDP did not draw the newest frame: not the source drawn, minimised, or the frame count changed */
-    int    ended;           /* 1: all rows are the frame that just ended (at the VDP_SHOWN tap, up to drawnRow); 0: paused within a frame */
-    int    drawnRow;        /* paused or at VDP_SHOWN: rows before it are the frame in progress, the rest the frame before */
-    int    drawnSamples;    /* paused or at VDP_SHOWN: samples of row drawnRow from the frame in progress */
+    int    ended;           /* 1: all rows are the frame that just ended (at the VDP_SHOWN or VDP_SECONDARY_SHOWN tap, up to drawnRow); 0: paused within a frame */
+    int    drawnRow;        /* paused or at a shown tap: rows before it are the frame in progress, the rest the frame before */
+    int    drawnSamples;    /* paused or at a shown tap: samples of row drawnRow from the frame in progress */
     int    restMissing;     /* the frame before is unknown: rows from drawnRow on hold 0x8000 */
     UInt32 frameStart;      /* the frame of the rows (paused: of the rows before drawnRow), as in raster[0] */
     UInt32 seq;             /* frame buffer flip that completed the frame before drawnRow (or of all rows) */
@@ -171,8 +180,13 @@ enum { VDP_SPR_ROW_NONE = 0, VDP_SPR_ROW_EXACT = 1, VDP_SPR_ROW_APPROX = 2 };
 extern "C" {
 #endif
 
+/* The machine's VDP comes first, then a cartridge's. */
 int vdpDebugCount(void);
+/* The index whose picture the main screen shows, else the machine's; -1 for none. */
+int vdpDebugShownIndex(void);
 
+/* Nonzero when VDP number index is a cartridge's, beside the machine's own. */
+int vdpDebugIsCartridge(int index);
 /* The name vdpDebugCapture gives VDP number index, or NULL when there is none. */
 const char* vdpDebugName(int index);
 

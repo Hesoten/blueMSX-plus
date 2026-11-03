@@ -55,7 +55,7 @@ typedef struct {
 static volatile int shownScreenMode = -1;
 static volatile int present;
 
-static void frameDone(void* ref, struct VDP* vdp, int isPal)
+static void frameDone(void* ref, struct VDP* vdp, int isPal, int early)
 {
     RomMapperV9968Cart* rm = (RomMapperV9968Cart*)ref;
     int handle = vdpGetVideoHandle(vdp);
@@ -74,8 +74,11 @@ static void frameDone(void* ref, struct VDP* vdp, int isPal)
     }
     if (videoManagerIsHandleActive(handle)) {
         shownScreenMode = vdpGetScreenMode(vdp);
-        emulatorRefreshFromSource();
-        emulatorShownFrameEnded();
+        /* A frame step showed this frame at the end of its active display already. */
+        if (!early) {
+            emulatorRefreshFromSource();
+            emulatorShownFrameEnded();
+        }
     }
     else {
         shownScreenMode = -1;

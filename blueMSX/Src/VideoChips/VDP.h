@@ -82,17 +82,16 @@ UInt32 vdpGetMachineFrame(void);
 
 struct VDP;
 
-/* A V9968 beside the machine's VDP, as on a cartridge. It answers on ports
-** portBase to portBase + 4 and raises intBase, intBase << 1 and intBase << 2.
-** Its owner resets, saves, loads and destroys it; frameDone is called as each
-** of its frames starts. */
+/* A V9968 beside the machine's VDP, as on a cartridge: ports portBase to portBase + 4,
+** interrupts intBase, << 1 and << 2. Its owner resets, saves, loads and destroys it;
+** frameDone runs as each frame starts, early when a frame step showed its display end. */
 typedef struct {
     int portBase;
     int intBase;
     const char* name;
     const char* stateName;
     const char* cmdStateName;
-    void (*frameDone)(void* ref, struct VDP* vdp, int isPal);
+    void (*frameDone)(void* ref, struct VDP* vdp, int isPal, int early);
     void* ref;
 } VdpSecondaryConfig;
 

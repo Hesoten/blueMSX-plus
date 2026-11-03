@@ -364,6 +364,9 @@ static UInt16 defaultPaletteRegs[16] = {
 typedef struct VDP VDP;
 
 static VDP* theVdp = NULL;
+/* What the debug tools copy: the machine's VDP, then a cartridge's. Read by
+** captures on the emulator thread; destroy empties a slot before anything is freed. */
+static VDP* volatile debugVdps[2];
 static void sprSplitLineDone(VDP*, int);
 static void sprPaletteDisplayStart(VDP*);
 
@@ -588,7 +591,7 @@ struct VDP {
     int intIE1;
     int intIE2;
     const char* stateName;
-    void (*frameDone)(void* ref, VDP* vdp, int isPal);
+    void (*frameDone)(void* ref, VDP* vdp, int isPal, int early);
     void* frameDoneRef;
 
     VdpRender render;
@@ -858,7 +861,7 @@ static void onHint(VDP* vdp, UInt32 time)
 
 int framecounter = 0;
 
-/* Set while the tap runs at theVdp's end of active display. */
+/* Set while the tap runs at a VDP's end of active display, the machine's or a cartridge's. */
 static int vdpAtShown;
 
 static int shotDrawnSamples(VDP* vdp, FrameBuffer* draw, int y);
@@ -927,6 +930,16 @@ static void onVint(VDP* vdp, UInt32 time)
         emulatorShownDisplayEnded(vdp->videoEnabled && vdp->canFlipFrameBuffer >= 2,
                                   !videoManagerActivePacesScreen() && frameBufferGetActiveDraw() == vdp->frameBuffer,
                                   showEarly, vdp);
+    }
+    /* A cartridge VDP is copied, and shown for a frame step, at the end of its own active display. */
+    else if (vdp->secondary && !vdp->flippedEarly && emulatorIsEmuThread()) {
+        if (vdp == debugVdps[1]) {
+            vdpAtShown = 1;
+            emulatorTap(EMU_TAP_VDP_SECONDARY_SHOWN);
+            vdpAtShown = 0;
+        }
+        emulatorShownDisplayEnded(vdp->videoEnabled && vdp->canFlipFrameBuffer >= 2,
+                                  videoManagerIsHandleActive(vdp->videoHandle), showEarly, vdp);
     }
 }
 
@@ -1068,7 +1081,7 @@ static void onDisplay(VDP* vdp, UInt32 time)
         vdp->sprPlaneStart = (vdp->sprPlaneStart + 17) & 0x3f;
     }
     if (vdp->secondary) {
-        vdp->frameDone(vdp->frameDoneRef, vdp, isPal);
+        vdp->frameDone(vdp->frameDoneRef, vdp, isPal, early);
     }
     else {
         RefreshScreen(vdp->screenMode, early,
@@ -3151,20 +3164,50 @@ static void rasterCapture(VDP* vdp, VdpDebugState* out)
     }
 }
 
+/* The index'th of the listed VDPs; each slot is read once. */
+static VDP* debugVdpAt(int index)
+{
+    int i;
+
+    for (i = 0; i < 2; i++) {
+        VDP* vdp = debugVdps[i];
+        if (vdp != NULL && index-- == 0) {
+            return vdp;
+        }
+    }
+    return NULL;
+}
+
 int vdpDebugCount(void)
 {
-    return theVdp != NULL ? 1 : 0;
+    return (debugVdps[0] != NULL) + (debugVdps[1] != NULL);
+}
+
+int vdpDebugShownIndex(void)
+{
+    VDP* cart = debugVdps[1];
+
+    if (cart != NULL && videoManagerIsHandleActive(cart->videoHandle)) {
+        return debugVdps[0] != NULL ? 1 : 0;
+    }
+    return debugVdps[0] != NULL ? 0 : -1;
+}
+
+int vdpDebugIsCartridge(int index)
+{
+    VDP* vdp = debugVdpAt(index);
+    return vdp != NULL && vdp->secondary;
 }
 
 const char* vdpDebugName(int index)
 {
-    VDP* vdp = index == 0 ? theVdp : NULL;
+    VDP* vdp = debugVdpAt(index);
     return vdp != NULL ? VdpNames[vdp->vdpVersion] : NULL;
 }
 
 int vdpDebugCapture(int index, VdpDebugState* out)
 {
-    VDP* vdp = index == 0 ? theVdp : NULL;
+    VDP* vdp = debugVdpAt(index);
     int regCount, cmdRegCount, paletteCount, statusRegCount;
     int vramBytes;
     int i;
@@ -3177,6 +3220,7 @@ int vdpDebugCapture(int index, VdpDebugState* out)
 
     out->valid       = 1;
     out->id          = (UInt32)vdp->debugHandle + 1;
+    out->secondary   = vdp->secondary;
     strncpy(out->name, VdpNames[vdp->vdpVersion], sizeof(out->name) - 1);
     out->name[sizeof(out->name) - 1] = 0;
     out->version     = vdp->vdpVersion;
@@ -3222,6 +3266,18 @@ int vdpDebugCapture(int index, VdpDebugState* out)
         }
         out->paletteRgb[i] = ((UInt32)r << 16) | ((UInt32)g << 8) | (UInt32)b;
     }
+    out->paletteExtCount = vdpIsExtPalette(vdp) ? 256 : 0;
+    memcpy(out->paletteExtReg, vdp->paletteExtReg, sizeof(out->paletteExtReg));
+    for (i = 0; i < 256; i++) {
+        int reg = vdp->paletteExtReg[i];
+        out->paletteExt[i] = out->paletteExtCount == 0 ? 0 :
+                             ((UInt32)(255 * ((reg >> 10) & 0x1f) / 31) << 16) |
+                             ((UInt32)(255 * ((reg >>  5) & 0x1f) / 31) <<  8) |
+                              (UInt32)(255 * ( reg        & 0x1f) / 31);
+    }
+    out->interleaved  = vdpIsInterleaved(vdp) != 0;
+    out->bitmapLinear = vdpIsBitmapLinear(vdp) != 0;
+    out->vramA17      = vdpIsV9968(vdp) && vdp->vram256 ? 0x20000 : 0;
 
     /* A 16K VDP is created with 64K the renderer and engine can reach, so
     ** copy up to vramMask too; nothing past that is ever written. */
@@ -3774,7 +3830,7 @@ static void shotSprRow(VdpFrameShot* out, VDP* vdp, int y, FrameBuffer* fb, int 
 ** the rows the VDP has drawn so far are the frame in progress, the others the one before. */
 int vdpDebugCaptureFrame(int index, VdpFrameShot* out, int pixels)
 {
-    VDP* vdp = index == 0 ? theVdp : NULL;
+    VDP* vdp = debugVdpAt(index);
     FrameBuffer* last;
     FrameBuffer* draw;
     FrameBuffer* head;
@@ -3789,7 +3845,9 @@ int vdpDebugCaptureFrame(int index, VdpFrameShot* out, int pixels)
     }
     last = frameBufferGetLastDrawnOf(vdp->frameBuffer, &out->seq, &flips);
     draw = frameBufferGetDrawFrameOf(vdp->frameBuffer);
-    drawing = vdp->videoEnabled && displayEnable && frameBufferGetActiveDraw() == vdp->frameBuffer;
+    /* A cartridge VDP draws its own buffer whether shown or not. */
+    drawing = vdp->videoEnabled && displayEnable &&
+              (vdp->secondary || frameBufferGetActiveDraw() == vdp->frameBuffer);
 
     out->stale        = !drawing || out->seq != flips;
     /* Ended at a frame end only once it has run; rasterCapture goes by the
@@ -3854,7 +3912,8 @@ int vdpDebugCaptureFrame(int index, VdpFrameShot* out, int pixels)
             shotKey(out, y, 0);
         }
     }
-    out->sprSplit = SPR_SPLIT_GEN != 0;
+    /* The sprite split and tables are recorded for the machine's VDP only. */
+    out->sprSplit = SPR_SPLIT_GEN != 0 && vdp == theVdp;
     out->sprTabCount = 0;
     out->sprTabLost = 0;
     out->sprUseCount = 0;
@@ -3864,8 +3923,8 @@ int vdpDebugCaptureFrame(int index, VdpFrameShot* out, int pixels)
         out->sprUseSince = sprUseSince;
         memcpy(out->sprUse, sprUses, sizeof(sprUses));
     }
-    out->linePalValid = SPR_TAB_GEN != 0;
-    for (y = 0; vdpSprSplitArmed && y < out->rows; y++) {
+    out->linePalValid = SPR_TAB_GEN != 0 && vdp == theVdp;
+    for (y = 0; vdpSprSplitArmed && vdp == theVdp && y < out->rows; y++) {
         if (y < out->drawnRow || (y == out->drawnRow && out->drawnSamples >= VDP_SHOT_WIDTH)) {
             shotSprRow(out, vdp, y, draw, 1);
         }
@@ -4208,6 +4267,13 @@ static void destroy(VDP* vdp)
 {
     int i;
 
+    for (i = 0; i < 2; i++) {
+        if (debugVdps[i] == vdp) {
+            debugVdps[i] = NULL;
+        }
+    }
+    /* Removing the cartridge while paused runs this on the UI thread. */
+    emulatorTapBarrier();
     if (theVdp == vdp) {
         theVdp = NULL;
     }
@@ -4475,6 +4541,11 @@ static VDP* create(VdpConnector connector, VdpVersion version, VdpSyncMode sync,
         break;
     }
 
+    /* Only once it is whole. The machine's replaces any, as theVdp does; a
+    ** second cartridge VDP is not listed. */
+    if (secondary == NULL || debugVdps[1] == NULL) {
+        debugVdps[secondary != NULL] = vdp;
+    }
     return vdp;
 }
 
