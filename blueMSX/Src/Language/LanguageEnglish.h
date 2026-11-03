@@ -1020,6 +1020,15 @@ void langInitEnglish(LanguageStrings* ls)
 
 
     //----------------------
+    // Tool windows
+    //----------------------
+
+#define TS(id, en, ja) ls->tool[TS_##id] = en;
+#include "LanguageToolStrings.h"
+#undef TS
+
+
+    //----------------------
     // Debug type lines
     // Note: Can only be translated to european languages
     //----------------------

@@ -1330,6 +1330,12 @@ char* langDbgDevScc() { return "SCC"; }
 
 
 //----------------------
+// Tool windows
+//----------------------
+
+char* langToolStr(int id) { return id >= 0 && id < TS_COUNT ? ls->tool[id] : ""; }
+
+//----------------------
 // Debug type lines
 // Note: Can only be translated to european languages
 //----------------------

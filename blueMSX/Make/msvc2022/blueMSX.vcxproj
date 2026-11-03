@@ -701,6 +701,10 @@
       <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\ToolText.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
     <ClCompile Include="..\..\Src\Win32\Win32Bitmap.c" />
     <ClCompile Include="..\..\Src\Win32\Win32Cdrom.c" />
     <ClCompile Include="..\..\Src\Win32\Win32D3D12.cpp" />
@@ -1123,6 +1127,7 @@
     <ClInclude Include="..\..\Src\Win32\ImGui\ImGuiHost.h" />
     <ClInclude Include="..\..\Src\Win32\ImGui\ImGuiTheme.h" />
     <ClInclude Include="..\..\Src\Win32\ImGui\ImGuiWidgets.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\ToolText.h" />
     <ClInclude Include="..\..\Src\Win32\Win32Cdrom.h" />
     <ClInclude Include="..\..\Src\Win32\Win32Common.h" />
     <ClInclude Include="..\..\Src\Win32\Win32Dir.h" />
@@ -1367,6 +1372,8 @@
     <ClInclude Include="..\..\Src\Language\LanguageSpannish.h" />
     <ClInclude Include="..\..\Src\Language\LanguageStrings.h" />
     <ClInclude Include="..\..\Src\Language\LanguageSwedish.h" />
+    <ClInclude Include="..\..\Src\Language\LanguageToolIds.h" />
+    <ClInclude Include="..\..\Src\Language\LanguageToolStrings.h" />
     <ClInclude Include="..\..\Src\BuildInfo\build_number.h" />
     <ClInclude Include="..\..\Src\Resources\Resource.h" />
     <ClInclude Include="..\..\Src\BuildInfo\version.h" />

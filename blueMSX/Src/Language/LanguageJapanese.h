@@ -1023,6 +1023,15 @@ void langInitJapanese(LanguageStrings* ls)
 
 
     //----------------------
+    // Tool windows
+    //----------------------
+
+#define TS(id, en, ja) if (*ja) ls->tool[TS_##id] = ja;
+#include "LanguageToolStrings.h"
+#undef TS
+
+
+    //----------------------
     // Debug type lines
     // Note: Can only be translated to european languages
     //----------------------

@@ -1141,6 +1141,13 @@ char* langDbgDevScc();
 
 
 //----------------------
+// Tool windows
+//----------------------
+
+/* The text of a ToolStringId, never NULL. */
+char* langToolStr(int id);
+
+//----------------------
 // Debug type lines
 // Note: Can only be translated to european languages
 //----------------------
