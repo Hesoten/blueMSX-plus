@@ -93,6 +93,10 @@ typedef struct {
     int    interleaved;     /* odd bytes come from the other 64K bank */
     int    bitmapLinear;    /* V9968 SP3: laid out in address order instead */
     int    vramA17;         /* 0x20000 on a 256K V9968, else 0 */
+    /* The sprite scan of the frame that just ended (paused: the one in
+    ** progress is taken to start the same way): plane at each step. */
+    int    sprPlaneStart;
+    UInt8  sprPlaneOrder[64];
     /* [0]: the frame that just ended at a frame tap, or the one in progress
     ** while paused; [1]: the one before it, if known. Entries of ev past
     ** count are stale, so compare snapshots outside raster. */
@@ -184,6 +188,9 @@ extern "C" {
 int vdpDebugCount(void);
 /* The index whose picture the main screen shows, else the machine's; -1 for none. */
 int vdpDebugShownIndex(void);
+/* Which pattern row or column of a sizeShift sized SP3 sprite the renderer
+** samples at offset dots into a magnify dot wide or high sprite. */
+int vdpDebugSpriteM3Sample(int offset, int magnify, int sizeShift);
 
 /* Nonzero when VDP number index is a cartridge's, beside the machine's own. */
 int vdpDebugIsCartridge(int index);

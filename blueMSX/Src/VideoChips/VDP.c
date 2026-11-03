@@ -494,6 +494,7 @@ struct VDP {
     int    vramA17;
     int    sprMode3;
     int    sprPlaneStart;
+    int    sprPlaneStartShown;   /* the frame that just ended started there; for the debug tools */
     int    vram192;
     int    vram16;
     int    vramEnable;
@@ -628,15 +629,20 @@ static int vdpBitmapBase(VDP* vdp)
 /* Which plane the scan looks at on its step'th pass. An interleaved fetch
 ** brings back two attributes at once, so the shuffle takes them as a sibling
 ** pair and strides between pairs instead. */
-static int vdpSpritePlane(VDP* vdp, int step, int mask)
+static int vdpSpritePlaneFrom(VDP* vdp, int start, int step, int mask)
 {
     if (!vdpIsSpriteShuffle(vdp)) {
         return step;
     }
     if (vdpIsInterleaved(vdp)) {
-        return (vdp->sprPlaneStart + (step >> 1) * 38 + (step & 1)) & mask;
+        return (start + (step >> 1) * 38 + (step & 1)) & mask;
     }
-    return (vdp->sprPlaneStart + step * 19) & mask;
+    return (start + step * 19) & mask;
+}
+
+static int vdpSpritePlane(VDP* vdp, int step, int mask)
+{
+    return vdpSpritePlaneFrom(vdp, vdp->sprPlaneStart, step, mask);
 }
 
 /* Start of a bitmap line: the page bit sits just above the scrolled row, the
@@ -682,6 +688,12 @@ static int vdpBitmapBytes(VDP* vdp, int* ofs)
 
 #include "SpriteLine.h"
 #include "Common.h"
+
+/* The renderer's own SP3 resampling, for the debug tools. */
+int vdpDebugSpriteM3Sample(int offset, int magnify, int sizeShift)
+{
+    return spriteM3Sample(offset, magnify, sizeShift);
+}
 
 
 static void digitize(VDP* vdp);
@@ -1071,6 +1083,7 @@ static void onDisplay(VDP* vdp, UInt32 time)
         boardClearInt(vdp->intIE1);
     }
     vdp->vdpStatus[2] ^= 0x02;
+    vdp->sprPlaneStartShown = vdp->sprPlaneStart;
     if (!vdpIsSpriteShuffle(vdp)) {
         vdp->sprPlaneStart = 0;
     }
@@ -3287,6 +3300,10 @@ int vdpDebugCapture(int index, VdpDebugState* out)
     out->interleaved  = vdpIsInterleaved(vdp) != 0;
     out->bitmapLinear = vdpIsBitmapLinear(vdp) != 0;
     out->vramA17      = vdpIsV9968(vdp) && vdp->vram256 ? 0x20000 : 0;
+    out->sprPlaneStart = vdp->sprPlaneStartShown;
+    for (i = 0; i < 64; i++) {
+        out->sprPlaneOrder[i] = (UInt8)vdpSpritePlaneFrom(vdp, vdp->sprPlaneStartShown, i, 63);
+    }
 
     /* A 16K VDP is created with 64K the renderer and engine can reach, so
     ** copy up to vramMask too; nothing past that is ever written. */
