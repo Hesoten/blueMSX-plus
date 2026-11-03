@@ -1086,10 +1086,13 @@ void archWindowApplyOwnership(void* p)
 static BOOL CALLBACK reownEnumProc(HWND hwnd, LPARAM lParam)
 {
     wchar_t className[64];
+    DWORD pid = 0;
     (void)lParam;
-    /* All aux theme windows share the "blueMSX Popup" class; the class
-    ** filter is what makes a desktop-wide EnumWindows walk safe. */
-    if (GetClassNameW(hwnd, className, _countof(className)) > 0 &&
+    /* All aux theme windows share the "blueMSX Popup" class. The walk covers
+    ** the whole desktop, so skip the windows of other running instances. */
+    GetWindowThreadProcessId(hwnd, &pid);
+    if (pid == GetCurrentProcessId() &&
+        GetClassNameW(hwnd, className, _countof(className)) > 0 &&
         wcscmp(className, L"blueMSX Popup") == 0) {
         archWindowApplyOwnership(hwnd);
     }
