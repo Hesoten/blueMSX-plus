@@ -3172,7 +3172,12 @@ static LRESULT CALLBACK emuWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
         break;
 
     case WM_SETCURSOR:
-        return mouseEmuSetCursor();
+        if (mouseEmuSetCursor()) {
+            return TRUE;
+        }
+        /* Let the class arrow replace whatever cursor the window the mouse
+        ** came from left behind, such as a resize arrow. */
+        break;
 
     case WM_INPUT: {
         RAWINPUT ri;
