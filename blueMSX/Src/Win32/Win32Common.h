@@ -65,6 +65,7 @@ void updateMinimizedDrawing(void);
 
 
 void enterDialogShow();
+void enterModalLoop();
 void exitDialogShow();
 
 /* Show / update / hide a tracking tooltip showing a slider's value next to
@@ -79,6 +80,10 @@ COLORREF win32CommonDarkFg(void);
 HBRUSH   win32CommonDarkBgBrush(void);
 /* Rereads the theme on the next query; call on WM_SETTINGCHANGE "ImmersiveColorSet". */
 void     win32InvalidateDarkModeCache(void);
+
+/* Dark or light caption for a top-level window, following the system theme.
+** On WM_SETTINGCHANGE "ImmersiveColorSet", invalidate the cache first. */
+void win32CommonApplyDarkTitle(HWND hwnd);
 
 /* Per-DLGPROC opt-in: apply dark titlebar / SetWindowTheme / WM_CTLCOLOR*
 ** subclass.  Call from WM_INITDIALOG.  Safe in light mode (no-op). */

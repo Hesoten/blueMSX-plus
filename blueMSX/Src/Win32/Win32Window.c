@@ -1088,12 +1088,14 @@ static BOOL CALLBACK reownEnumProc(HWND hwnd, LPARAM lParam)
     wchar_t className[64];
     DWORD pid = 0;
     (void)lParam;
-    /* All aux theme windows share the "blueMSX Popup" class. The walk covers
-    ** the whole desktop, so skip the windows of other running instances. */
+    /* Aux theme windows share the "blueMSX Popup" class and the ImGui tool
+    ** windows are "blueMSXImGuiWindow". The walk covers the whole desktop, so
+    ** skip the windows of other running instances. */
     GetWindowThreadProcessId(hwnd, &pid);
     if (pid == GetCurrentProcessId() &&
         GetClassNameW(hwnd, className, _countof(className)) > 0 &&
-        wcscmp(className, L"blueMSX Popup") == 0) {
+        (wcscmp(className, L"blueMSX Popup") == 0 ||
+         wcscmp(className, L"blueMSXImGuiWindow") == 0)) {
         archWindowApplyOwnership(hwnd);
     }
     return TRUE;

@@ -81,6 +81,7 @@
 #include "Win32file.h"
 #include "Win32Help.h"
 #include "Win32Menu.h"
+#include "ImGui/ImGuiWindow.h"
 #include "Win32FileDialog.h"
 #include "Win32TextUtf8.h"
 #include "ArchMenu.h"
@@ -272,6 +273,7 @@ BOOL win32CommonIsDarkMode(void) { return win32IsDarkMode(); }
 COLORREF win32CommonDarkBg(void) { return DARK_BG; }
 COLORREF win32CommonDarkFg(void) { return DARK_FG; }
 HBRUSH   win32CommonDarkBgBrush(void) { return win32GetDarkBkBrush(); }
+void     win32CommonApplyDarkTitle(HWND hwnd) { win32ApplyDarkTitle(hwnd); }
 
 /* Forward declared so this wrapper can sit alongside the other public dark
 ** helpers; the actual win32ApplyDarkToDialog body is later in this file. */
@@ -2485,6 +2487,12 @@ void enterDialogShow() {
             DirectXSetGDISurface();
         }
     }
+    enterModalLoop();
+}
+
+/* The part of enterDialogShow a window's own move or size loop needs: the
+** emulator stops waiting for frames this thread cannot ack meanwhile. */
+void enterModalLoop() {
     st.showDialog++;
     if (st.showDialog == 1) {
         emuEnableSynchronousUpdate(0);
@@ -4171,6 +4179,8 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         	actionHarddiskRemoveAll();
         }
         
+        /* Not owned by the main window, so they would outlive it until exit. */
+        imguiToolCloseAll();
         emulatorStop();
         physicalDiskEjectAll();
         toolUnLoadAll();
@@ -7712,9 +7722,8 @@ void archReplayMissing(const char* fileName) {
 }
 
 void archPumpEmuDisplay(void) {
-    /* Called from the recorder status dialog's WM_TIMER (main thread) to drain
-    ** st.ddrawEvent, which the dialog's own message loop does not wait on; without
-    ** this the recorded MP4 stays stuck on the frame captured at emu stop. */
+    /* Draws a pending emulator frame and acks it, for a nested loop on the main
+    ** thread that the main loop's wait on st.ddrawEvent does not see. */
     if (st.ddrawEvent && WaitForSingleObject(st.ddrawEvent, 0) == WAIT_OBJECT_0) {
         if (!st.minimized) {
             emuWindowDraw(st.diplayUpdateOnVblank);
