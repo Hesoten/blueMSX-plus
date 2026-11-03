@@ -51,6 +51,7 @@ enum UiFont {
     UI_FONT_BODY,     /* Segoe UI */
     UI_FONT_STRONG,   /* Segoe UI Semibold */
     UI_FONT_MONO,     /* Cascadia Mono, or Consolas */
+    UI_FONT_ICON,     /* Segoe Fluent Icons, or Segoe MDL2 Assets; NULL without either */
     UI_FONT_COUNT
 };
 
@@ -66,7 +67,7 @@ ImGuiToolWindow*     imguiHostCurrentWindow();
 bool                 imguiHostIsDark(ImGuiToolWindow* w);
 /* The colours of a themed window; NULL for one in ImGui's own dark style. */
 const UiTokens*      imguiHostTokens(ImGuiToolWindow* w);
-/* A window in ImGui's own style has one font for every role. */
+/* A window in ImGui's own style has one font for every role but the icons. */
 ImFont*              imguiHostFont(ImGuiToolWindow* w, UiFont role);
 /* The size to give PushFont for text whose em is `em` px at 96 DPI. */
 float                imguiHostFontSize(ImGuiToolWindow* w, UiFont role, float em);

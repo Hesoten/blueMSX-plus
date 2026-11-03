@@ -64,6 +64,8 @@ struct UiTokens {
     ImU32 accentHover;
     ImU32 accentPressed;
     ImU32 textOnAccent;
+    ImU32 accentDisabled;    /* a control on but unavailable, and its text */
+    ImU32 textOnAccentDisabled;
     ImU32 divider;
     ImU32 focusOuter;
     ImU32 focusInner;

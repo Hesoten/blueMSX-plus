@@ -118,9 +118,9 @@ static int      fontJpNo;
 static char     fontMainName[40], fontJpName[40];
 static bool     fontsRead;
 /* The themed windows' set, read only once one of them opens. */
-static FontFile fontBody, fontStrong, fontMono, fontJpBody;
+static FontFile fontBody, fontStrong, fontMono, fontJpBody, fontIcon;
 static int      fontJpBodyNo, fontJpStrongNo;
-static char     fontMonoName[40], fontJpBodyName[40];
+static char     fontMonoName[40], fontJpBodyName[40], fontIconName[40];
 static bool     themedFontsRead;
 
 static void readFontFile(FontFile* f, const char* path)
@@ -219,6 +219,15 @@ static void readThemedFonts()
         wsprintfA(path, "%s\\Fonts\\consola.ttf", dir);
         readFontFile(&fontMono, path);
     }
+    /* Windows 10 has the same glyphs at the same code points in Segoe MDL2 Assets. */
+    lstrcpyA(fontIconName, "SegoeIcons.ttf");
+    wsprintfA(path, "%s\\Fonts\\SegoeIcons.ttf", dir);
+    readFontFile(&fontIcon, path);
+    if (fontIcon.data == NULL) {
+        lstrcpyA(fontIconName, "segmdl2.ttf");
+        wsprintfA(path, "%s\\Fonts\\segmdl2.ttf", dir);
+        readFontFile(&fontIcon, path);
+    }
 }
 
 static void freeFontFile(FontFile* f)
@@ -236,6 +245,7 @@ static void freeFonts()
     freeFontFile(&fontStrong);
     freeFontFile(&fontMono);
     freeFontFile(&fontJpBody);
+    freeFontFile(&fontIcon);
     fontsRead = false;
     themedFontsRead = false;
 }
@@ -317,6 +327,10 @@ static void loadThemedFonts(ImGuiToolWindow* w)
         w->fonts[UI_FONT_MONO] = w->fonts[UI_FONT_BODY];
         w->fontEm[UI_FONT_MONO] = w->fontEm[UI_FONT_BODY];
     }
+    /* Its own font, so no text font answers for its private-use glyphs. */
+    static const FontFile none = { NULL, 0 };
+    w->fontEm[UI_FONT_ICON] = emRatio(&fontIcon, 1.0f);
+    w->fonts[UI_FONT_ICON]  = addThemedFont(&fontIcon, fontIconName, 16 * w->fontEm[UI_FONT_ICON], &none, 0, "");
 }
 
 /* Into the current context's atlas, which only borrows the bytes. */
@@ -1155,7 +1169,7 @@ extern "C" ImGuiToolWindow* imguiToolOpen(const ImGuiToolDesc* desc)
         buildBaseStyle(w);
         loadFonts();
         for (int i = 0; i < UI_FONT_COUNT; i++) {
-            w->fonts[i] = io.Fonts->Fonts[0];
+            w->fonts[i] = i == UI_FONT_ICON ? NULL : io.Fonts->Fonts[0];
             w->fontEm[i] = 1.0f;
         }
     }

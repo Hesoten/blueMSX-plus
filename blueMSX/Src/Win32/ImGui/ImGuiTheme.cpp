@@ -119,6 +119,8 @@ void imguiThemeBuildTokens(UiTokens* t, bool dark, ImU32 accent)
         t->textSecondary       = W(78.6f);
         t->textTertiary        = W(36.28f);
         t->textOnAccent        = rgb(0x000000);
+        t->accentDisabled      = W(15.81f);
+        t->textOnAccentDisabled = W(53.02f);
         t->divider             = W(8.37f);
         t->focusOuter          = W(100);
         t->focusInner          = B(70);
@@ -149,6 +151,8 @@ void imguiThemeBuildTokens(UiTokens* t, bool dark, ImU32 accent)
         t->textSecondary       = B(60.63f);
         t->textTertiary        = B(36.14f);
         t->textOnAccent        = rgb(0xffffff);
+        t->accentDisabled      = B(21.69f);
+        t->textOnAccentDisabled = rgb(0xffffff);
         t->divider             = B(5.88f);
         t->focusOuter          = B(89.56f);
         t->focusInner          = W(100);
