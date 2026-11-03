@@ -98,6 +98,8 @@ struct VdpBitmapOptions {
 
 int  vdpBitmapWidth(int mode);
 int  vdpBitmapPageCount(const VdpDebugState* s, int mode);
+/* The page R#2 shows: 32K pages up to SCREEN 6, 64K from 7 on. */
+int  vdpBitmapPage(const VdpDebugState* s, const UInt8* regs, int mode);
 /* What the layout shows; false when it is not in a bitmap mode. */
 bool vdpDisplayedBitmap(const VdpDebugState* s, const VdpLayout& l, VdpBitmapOptions* out);
 /* o.mode is the mode the VRAM is read as; l gives the registers. */
@@ -148,8 +150,12 @@ struct VdpRange {
 };
 /* The tables the mode reads, as address ranges; returns how many. */
 int vdpTableRanges(const VdpDebugState* s, const VdpLayout& l, VdpRange out[8]);
-/* The index into the snapshot's vram for a CPU address in the mode. */
+/* Whether the mode interleaves the two 64K banks: SCREEN 7-12, unless a V9968's
+** sprite mode 3 lays them out in address order, as it is at the frame's end. */
+bool vdpInterleavedIn(const VdpDebugState* s, int mode);
+/* The index into the snapshot's vram for a CPU address in the mode, and back. */
 int vdpPhysicalAddress(const VdpDebugState* s, int mode, int logical);
+int vdpLogicalAddress(const VdpDebugState* s, int mode, int physical);
 /* Name table cells of lines from firstLine that show character ch (from VdpCharInfo). */
 int vdpCharUseCount(const VdpDebugState* s, const VdpLayout& l, int lines, int firstLine, int ch);
 

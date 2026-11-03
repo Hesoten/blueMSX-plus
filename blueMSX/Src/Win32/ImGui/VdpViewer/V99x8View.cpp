@@ -85,9 +85,9 @@ int cellWidth(int mode)
     return mode == 0 || mode == 13 ? 6 : 8;
 }
 
-bool interleaved(int mode)
+bool interleaved(const VdpDebugState* s, int mode)
 {
-    return mode == 7 || mode == 8 || mode == 10 || mode == 12;
+    return vdpInterleavedIn(s, mode);
 }
 
 /* A pixel's shape as on a TV, 256 dots wide being square: the 512- and
@@ -341,11 +341,13 @@ public:
         VdpRange r[8];
         int n = vdpTableRanges(s, l, r), k = 0;
         for (int i = 0; i < n; i++) {
-            if (interleaved(l.mode)) {
-                /* Even bytes in the low 64K, odd ones from vram128. */
-                UInt32 a = (UInt32)(r[i].addr & 0x1ffff) >> 1, len = (UInt32)r[i].len / 2;
-                if (k < max) out[k++] = VramLane{ a, len, r[i].kind, r[i].name, NULL, band + 1, (UInt32)r[i].cap / 2 };
-                if (k < max) out[k++] = VramLane{ a + (UInt32)s->vram128, len, r[i].kind, r[i].name, NULL, band + 1, (UInt32)r[i].cap / 2 };
+            if (interleaved(s, l.mode)) {
+                /* Even bytes in the low 64K, odd ones from vram128, within each 128K on a 256K V9968. */
+                UInt32 len = (UInt32)r[i].len / 2, cap = (UInt32)r[i].cap / 2;
+                UInt32 a = (UInt32)vdpPhysicalAddress(s, l.mode, r[i].addr & ~1);
+                UInt32 b = (UInt32)vdpPhysicalAddress(s, l.mode, r[i].addr | 1);
+                if (k < max) out[k++] = VramLane{ a, len, r[i].kind, r[i].name, NULL, band + 1, cap };
+                if (k < max) out[k++] = VramLane{ b, len, r[i].kind, r[i].name, NULL, band + 1, cap };
             }
             else if (k < max) {
                 out[k++] = VramLane{ (UInt32)r[i].addr, (UInt32)r[i].len, r[i].kind, r[i].name, NULL, band + 1, (UInt32)r[i].cap };
@@ -935,7 +937,7 @@ private:
     /* A focus on a logical address read in mode; physical when the frame's end maps it otherwise. */
     void focusAddr(const VdpDebugState* s, int mode, int logical, UInt32 len, Focus* f) const
     {
-        if (mode == s->screenMode || interleaved(mode) == interleaved(s->screenMode)) {
+        if (mode == s->screenMode || interleaved(s, mode) == interleaved(s, s->screenMode)) {
             f->space = FOCUS_LOGICAL;
             f->addr = (UInt32)logical;
             f->len = len;
@@ -943,7 +945,7 @@ private:
         }
         f->space = FOCUS_PHYS;
         f->addr = (UInt32)vdpPhysicalAddress(s, mode, logical);
-        f->len = interleaved(mode) && len > 1 ? len / 2 : len;
+        f->len = interleaved(s, mode) && len > 1 ? len / 2 : len;
     }
 
     void ensureSprites(const VdpDebugState* s)
@@ -2920,7 +2922,7 @@ private:
     bool rangeChanged(const VdpDebugState* s, int mode, int addr, int len) const
     {
         if (!stripPrevValid) return true;
-        if (interleaved(mode)) {
+        if (interleaved(s, mode)) {
             int half = (len + 1) / 2;
             return bytesChanged(s, vdpPhysicalAddress(s, mode, addr & ~1), half) ||
                    bytesChanged(s, vdpPhysicalAddress(s, mode, addr | 1), half);
@@ -2946,6 +2948,7 @@ private:
         if (bitmap) {
             for (int reg : pages) k->regs[reg] = l.regs[reg];
             k->regs[1] = l.regs[1] & 0x03;
+            k->regs[20] = l.regs[20] & 0x08;   /* a V9968's SP3 lays the pages out in order */
         }
         else if (p == SP_FIRST) {
             for (int reg : names) k->regs[reg] = l.regs[reg];
@@ -3478,7 +3481,7 @@ private:
         /* The map lights the lanes the hovered table or page overlaps. */
         int mode = stripGroups[it.group].mode;
         UInt32 phys = (UInt32)vdpPhysicalAddress(s, mode, it.addr);
-        Focus hit = { f.chipId, FOCUS_PHYS, phys, (UInt32)(interleaved(mode) ? it.len / 2 : it.len), FOCUS_VRAM, 0, 0, false };
+        Focus hit = { f.chipId, FOCUS_PHYS, phys, (UInt32)(interleaved(s, mode) ? it.len / 2 : it.len), FOCUS_VRAM, 0, 0, false };
         if (clicked && (it.kind == SI_NAME || it.kind == SI_PATGEN)) {
             /* A shared table opens its heading's slot, not whichever twin this picture has. */
             const StripGroup& pg = stripGroups[it.group];
@@ -5596,8 +5599,7 @@ private:
     /* Back to a CPU address in the mode the VRAM is read as. */
     static UInt32 readAsAddress(const VdpDebugState* s, int rm, UInt32 phys)
     {
-        if (!interleaved(rm)) return phys;
-        return phys >= (UInt32)s->vram128 && s->vram128 ? ((phys - s->vram128) << 1) | 1 : phys << 1;
+        return (UInt32)vdpLogicalAddress(s, rm, (int)phys);
     }
 
     /* The pages, read as rm, holding page p of mode: from SCREEN 7 on a page is split
@@ -5634,7 +5636,7 @@ private:
         *x0 = (float)(ox + (within % bpl) * ppb); *x1 = *x0 + ppb;
         if (len >= 256) {
             /* 256 bytes are two lines in SCREEN 5/6; interleaved, every other byte of two lines. */
-            int lines = (int)(interleaved(rm) ? len * 2 : len) / bpl;
+            int lines = (int)(interleaved(s, rm) ? len * 2 : len) / bpl;
             *x0 = (float)ox; *x1 = (float)(ox + grid.tileW);
             *y1 = *y0 + (float)(lines > 1 ? lines : 1);
         }

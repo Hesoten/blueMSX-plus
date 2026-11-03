@@ -139,6 +139,31 @@ void vdpPaletteRegRgb(const UInt16 reg[16], UInt32 out[16])
     }
 }
 
+/* ---- VRAM layout ----------------------------------------------------- */
+
+/* A V9968 in sprite mode 3 lays SCREEN 7-12 out in address order. */
+static bool bitmapLinear(const VdpDebugState* s, const UInt8* r)
+{
+    return s->version == VDP_V9968 && (r[20] & 0x08);
+}
+
+static bool pairedMode(int mode)
+{
+    return mode == 7 || mode == 8 || mode == 10 || mode == 12;
+}
+
+bool vdpInterleavedIn(const VdpDebugState* s, int mode)
+{
+    return pairedMode(mode) && !bitmapLinear(s, s->regs);
+}
+
+/* A 256K V9968 takes one more R#2 bit, so the second 128K holds pages too. */
+int vdpBitmapPage(const VdpDebugState* s, const UInt8* r, int mode)
+{
+    int bits = mode <= 6 ? 3 : 1;
+    return (r[2] >> 5) & (s->vramA17 ? bits * 2 + 1 : bits);
+}
+
 /* ---- tables ---------------------------------------------------------- */
 
 static int chrTabMask(const VdpDebugState* s, const UInt8* r)
@@ -167,7 +192,7 @@ void vdpDecodeTables(const VdpDebugState* s, const VdpLayout& l, VdpTables* t)
     t->spriteAttr = t->spritePattern = t->spriteColor = -1;
 
     if (vdpIsBitmapMode(mode)) {
-        t->name = mode <= 6 ? ((r[2] >> 5) & 3) * 0x8000 : ((r[2] >> 5) & 1) * 0x10000;
+        t->name = vdpBitmapPage(s, r, mode) * (mode <= 6 ? 0x8000 : 0x10000);
     }
     else {
         /* SP2 clears A15 in every pattern mode too, as the emulated VDP's renderer reads the name table. */
@@ -239,19 +264,19 @@ int vdpBitmapWidth(int mode)
 
 int vdpBitmapPageCount(const VdpDebugState* s, int mode)
 {
-    int size = s->vramSize < 0x20000 ? s->vramSize : 0x20000;
+    /* Only a 256K V9968 shows pages past 128K. */
+    int size = s->vramSize < 0x20000 || s->vramA17 ? s->vramSize : 0x20000;
     int n = size / (mode == 5 || mode == 6 ? 0x8000 : 0x10000);
     return n < 1 ? 1 : n;
 }
 
 bool vdpDisplayedBitmap(const VdpDebugState* s, const VdpLayout& l, VdpBitmapOptions* o)
 {
-    (void)s;
     if (!vdpIsBitmapMode(l.mode)) {
         return false;
     }
     o->mode    = l.mode;
-    o->page    = l.mode <= 6 ? (l.regs[2] >> 5) & 3 : (l.regs[2] >> 5) & 1;
+    o->page    = vdpBitmapPage(s, l.regs, l.mode);
     o->lines   = (l.regs[9] & 0x80) ? 212 : 192;
     o->vscroll = l.regs[23];
     o->color0  = VDP_COLOR0_AUTO;
@@ -264,15 +289,30 @@ bool vdpDisplayedBitmap(const VdpDebugState* s, const VdpLayout& l, VdpBitmapOpt
 ** number as on the chip; a page picked by hand is read whole. */
 static int lineBase(const VdpDebugState* s, const UInt8* r, const VdpBitmapOptions& o, int page, int line)
 {
-    int mask = o.displayed ? chrTabMask(s, r) : ((page << 15) | 0x7fff) & s->vramMask;
-    if (o.displayed && o.evenPair) mask &= ~0x8000;
-    return mask & ((-1 << 15) | ((line & 0xff) << 7));
+    bool linear = o.mode >= 7 && bitmapLinear(s, r);
+    bool paired = o.mode >= 7 && !linear;
+    int  shift  = linear ? 8 : 7;
+    int  mask;
+
+    if (o.displayed) {
+        mask = chrTabMask(s, r);
+        /* As the V9968 moves the base: interleaved, the bit above the page
+        ** steps over the odd bytes into the second 128K; linear, all of it up one. */
+        if (paired && s->version == VDP_V9968) mask = ((mask & 0xffff) | ((mask & 0x10000) << 1)) & s->vramMask;
+        else if (linear) mask = (mask << 1) & s->vramMask;
+        if (o.evenPair) mask &= ~(1 << (shift + 8));
+    }
+    else {
+        int at = linear ? page << 16 : paired ? ((page & 1) << 15) | ((page & 2) << 16) : page << 15;
+        mask = (at | ((1 << (shift + 8)) - 1)) & s->vramMask;
+    }
+    return mask & ((-1 << (shift + 8)) | ((line & 0xff) << shift));
 }
 
 /* Byte n (0-127 in SCREEN 5/6, 0-255 from 7 on) of a line. */
-static int lineByte(const VdpDebugState* s, int mode, int base, int n)
+static int lineByte(const VdpDebugState* s, const UInt8* r, int mode, int base, int n)
 {
-    if (mode <= 6) {
+    if (mode <= 6 || bitmapLinear(s, r)) {
         return base + n;
     }
     return base + (n >> 1) + ((n & 1) ? s->vram128 : 0);
@@ -284,24 +324,24 @@ static uint32_t bitmapPixel(const VdpDebugState* s, const UInt8* r, const VdpBit
     int p, b;
     switch (o.mode) {
     case 5:
-        p = lineByte(s, 5, base, x >> 1);
+        p = lineByte(s, r,5, base, x >> 1);
         b = rd(s, p);
         b = (x & 1) ? b & 0x0f : b >> 4;
         *value = b; *phys = p;
         return pal[b];
     case 6:
-        p = lineByte(s, 6, base, x >> 2);
+        p = lineByte(s, r,6, base, x >> 2);
         b = (rd(s, p) >> (6 - 2 * (x & 3))) & 3;
         *value = b; *phys = p;
         return pal[b];
     case 7:
-        p = lineByte(s, 7, base, x >> 1);
+        p = lineByte(s, r,7, base, x >> 1);
         b = rd(s, p);
         b = (x & 1) ? b & 0x0f : b >> 4;
         *value = b; *phys = p;
         return pal[b];
     case 8:
-        p = lineByte(s, 8, base, x);
+        p = lineByte(s, r,8, base, x);
         b = rd(s, p);
         *value = b; *phys = p;
         if (b == 0 && o.color0 == VDP_COLOR0_TRANSPARENT) return 0;
@@ -309,13 +349,13 @@ static uint32_t bitmapPixel(const VdpDebugState* s, const UInt8* r, const VdpBit
         return vdpScreen8Rgba(b);
     default: {
         int g = x & ~3;
-        int t0 = rd(s, lineByte(s, 8, base, g));
-        int t1 = rd(s, lineByte(s, 8, base, g + 1));
-        int t2 = rd(s, lineByte(s, 8, base, g + 2));
-        int t3 = rd(s, lineByte(s, 8, base, g + 3));
+        int t0 = rd(s, lineByte(s, r,8, base, g));
+        int t1 = rd(s, lineByte(s, r,8, base, g + 1));
+        int t2 = rd(s, lineByte(s, r,8, base, g + 2));
+        int t3 = rd(s, lineByte(s, r,8, base, g + 3));
         int K = (t0 & 7) | ((t1 & 7) << 3);
         int J = (t2 & 7) | ((t3 & 7) << 3);
-        p = lineByte(s, 8, base, x);
+        p = lineByte(s, r,8, base, x);
         b = rd(s, p);
         *value = b; *phys = p;
         if (o.mode == 10 && ((b >> 3) & 1)) {
@@ -376,8 +416,9 @@ bool vdpBitmapPixel(const VdpDebugState* s, const VdpLayout& l, const VdpBitmapO
     out->rgba = bitmapPixel(s, l.regs, o, pal, base, x, &out->value, &out->physical);
     n = o.mode == 5 || o.mode == 7 ? x >> 1 : o.mode == 6 ? x >> 2 : x;
     /* From the line's physical start, so R#2 masking and a small VRAM show
-    ** as on the chip; from SCREEN 7 on the two 64K halves interleave. */
-    out->logical = o.mode <= 6 ? base + n : (((base + (n >> 1)) & 0xffff) << 1) | (n & 1);
+    ** as on the chip; from SCREEN 7 on the two 64K halves interleave unless SP3 is on. */
+    out->logical = o.mode <= 6 || bitmapLinear(s, l.regs) ? base + n
+                 : ((base + (n >> 1)) & s->vramA17) | (((base + (n >> 1)) & 0xffff) << 1) | (n & 1);
     return true;
 }
 
@@ -630,11 +671,21 @@ int vdpTableRanges(const VdpDebugState* s, const VdpLayout& l, VdpRange out[8])
 
 int vdpPhysicalAddress(const VdpDebugState* s, int mode, int logical)
 {
-    /* From SCREEN 7 on, even addresses sit in the low 64K, odd ones at vram128. */
-    if (mode == 7 || mode == 8 || mode == 10 || mode == 12) {
-        return ((logical & 0x1ffff) >> 1) + ((logical & 1) ? s->vram128 : 0);
+    /* From SCREEN 7 on, even addresses sit in the low 64K, odd ones at vram128;
+    ** a 256K V9968 does that within each 128K half. */
+    if (vdpInterleavedIn(s, mode)) {
+        return (logical & s->vramA17) | (((logical & 0x1ffff) >> 1) + ((logical & 1) ? s->vram128 : 0));
     }
     return logical;
+}
+
+int vdpLogicalAddress(const VdpDebugState* s, int mode, int physical)
+{
+    if (vdpInterleavedIn(s, mode)) {
+        int half = physical & s->vramA17, p = physical & ~s->vramA17;
+        return half | (s->vram128 && p >= s->vram128 ? ((p - s->vram128) << 1) | 1 : p << 1);
+    }
+    return physical;
 }
 
 int vdpCharUseCount(const VdpDebugState* s, const VdpLayout& l, int lines, int firstLine, int ch)

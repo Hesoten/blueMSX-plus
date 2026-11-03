@@ -186,8 +186,9 @@ static VdpBand bandOf(const VdpDebugState* s, const Replay& rp, const UInt8* r, 
     b.page = -1;
     b.evenSide = false;
     if (vdpIsBitmapMode(mode)) {
-        b.page = mode <= 6 ? (r[2] >> 5) & 3 : (r[2] >> 5) & 1;
-        /* The emulated VDP clears A15 for EO on fields with S#2 bit 1 clear, and in blink's off phase. */
+        b.page = vdpBitmapPage(s, r, mode);
+        /* The emulated VDP clears the page's low bit (A15, A16 under SP3) for EO on fields with
+        ** S#2 bit 1 clear, and in blink's off phase. */
         b.evenSide = (b.page & 1) && (((r[9] & 0x04) && !(rp.field & 1)) || (r[13] != 0 && !rp.blinkFlag));
     }
     memcpy(b.regs, r, sizeof(b.regs));
