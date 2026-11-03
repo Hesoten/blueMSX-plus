@@ -35,6 +35,7 @@
 #include <windows.h>
 #include <d3d11.h>
 #include <dxgi1_2.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -44,6 +45,7 @@
 #include "backends/imgui_impl_dx11.h"
 #include "ImGuiWindow.h"
 #include "ImGuiHost.h"
+#include "ImGuiTheme.h"
 extern "C" {
 #include "../Win32Common.h"
 #include "ArchNotifications.h"
@@ -71,6 +73,11 @@ struct ImGuiToolWindow {
     HWND                    hwnd;
     ImGuiContext*           ctx;
     ImGuiStyle              baseStyle;
+    UiTokens                tokens;
+    ImFont*                 fonts[UI_FONT_COUNT];
+    float                   fontEm[UI_FONT_COUNT];  /* ImGui font size per px of em */
+    bool                    dark;
+    bool                    themeDirty;
     unsigned                generation;    /* of the device it was opened with */
     IDXGISwapChain1*        swapChain;
     ID3D11RenderTargetView* targetView;
@@ -110,6 +117,11 @@ static FontFile fontMain, fontJp;
 static int      fontJpNo;
 static char     fontMainName[40], fontJpName[40];
 static bool     fontsRead;
+/* The themed windows' set, read only once one of them opens. */
+static FontFile fontBody, fontStrong, fontMono, fontJpBody;
+static int      fontJpBodyNo, fontJpStrongNo;
+static char     fontMonoName[40], fontJpBodyName[40];
+static bool     themedFontsRead;
 
 static void readFontFile(FontFile* f, const char* path)
 {
@@ -169,13 +181,142 @@ static void readFonts()
     }
 }
 
+static void readThemedFonts()
+{
+    char dir[MAX_PATH];
+    char path[MAX_PATH];
+    readFonts();
+    if (themedFontsRead) {
+        return;
+    }
+    themedFontsRead = true;
+    UINT len = GetWindowsDirectoryA(dir, MAX_PATH);
+    if (len == 0 || len >= MAX_PATH - 32) {
+        return;
+    }
+    wsprintfA(path, "%s\\Fonts\\segoeui.ttf", dir);
+    readFontFile(&fontBody, path);
+    /* Japanese in the weights of Segoe UI and Semibold: Yu Gothic UI Regular
+    ** and Semibold, or Meiryo UI and Meiryo UI Bold on systems without them. */
+    fontJpBodyNo = 1;   /* YuGothM.ttc: 0 Yu Gothic Medium, 1 Yu Gothic UI Regular */
+    lstrcpyA(fontJpBodyName, "YuGothM.ttc");
+    wsprintfA(path, "%s\\Fonts\\YuGothM.ttc", dir);
+    if (GetFileAttributesA(path) == INVALID_FILE_ATTRIBUTES) {
+        fontJpBodyNo = 2;   /* meiryo.ttc: 2 Meiryo UI */
+        lstrcpyA(fontJpBodyName, "meiryo.ttc");
+        wsprintfA(path, "%s\\Fonts\\meiryo.ttc", dir);
+    }
+    readFontFile(&fontJpBody, path);
+    /* YuGothB.ttc: 2 Yu Gothic UI Semibold; meiryob.ttc keeps Meiryo UI Bold. */
+    fontJpStrongNo = lstrcmpA(fontJpName, "YuGothB.ttc") == 0 ? 2 : fontJpNo;
+    wsprintfA(path, "%s\\Fonts\\seguisb.ttf", dir);
+    readFontFile(&fontStrong, path);
+    lstrcpyA(fontMonoName, "CascadiaMono.ttf");
+    wsprintfA(path, "%s\\Fonts\\CascadiaMono.ttf", dir);
+    readFontFile(&fontMono, path);
+    if (fontMono.data == NULL) {
+        lstrcpyA(fontMonoName, "consola.ttf");
+        wsprintfA(path, "%s\\Fonts\\consola.ttf", dir);
+        readFontFile(&fontMono, path);
+    }
+}
+
+static void freeFontFile(FontFile* f)
+{
+    free(f->data);
+    f->data = NULL;
+    f->size = 0;
+}
+
 static void freeFonts()
 {
-    free(fontMain.data);
-    free(fontJp.data);
-    fontMain.data = fontJp.data = NULL;
-    fontMain.size = fontJp.size = 0;
+    freeFontFile(&fontMain);
+    freeFontFile(&fontJp);
+    freeFontFile(&fontBody);
+    freeFontFile(&fontStrong);
+    freeFontFile(&fontMono);
+    freeFontFile(&fontJpBody);
     fontsRead = false;
+    themedFontsRead = false;
+}
+
+static unsigned readU16(const unsigned char* p) { return (p[0] << 8) | p[1]; }
+static unsigned readU32(const unsigned char* p) { return ((unsigned)readU16(p) << 16) | readU16(p + 2); }
+
+/* ImGui sizes a font by its ascent plus descent (hhea), Windows by its em:
+** the ratio of the two, from the font's own tables. */
+static float emRatio(const FontFile* f, float fallback)
+{
+    const unsigned char* d = (const unsigned char*)f->data;
+    unsigned upem = 0;
+    int asc = 0, desc = 0;
+    if (d == NULL || f->size < 12) {
+        return fallback;
+    }
+    unsigned n = readU16(d + 4);
+    for (unsigned i = 0; i < n && 12 + 16 * (i + 1) <= (unsigned)f->size; i++) {
+        const unsigned char* rec = d + 12 + 16 * i;
+        unsigned off = readU32(rec + 8);
+        if (memcmp(rec, "head", 4) == 0 && (unsigned)f->size >= 20 && off <= (unsigned)f->size - 20) {
+            upem = readU16(d + off + 18);
+        }
+        if (memcmp(rec, "hhea", 4) == 0 && off <= (unsigned)f->size - 8) {
+            asc  = (short)readU16(d + off + 4);
+            desc = (short)readU16(d + off + 6);
+        }
+    }
+    return upem && asc > desc ? (float)(asc - desc) / upem : fallback;
+}
+
+/* f with face jpNo of jp merged in for Japanese. */
+static ImFont* addThemedFont(const FontFile* f, const char* name, float size, const FontFile* jp, int jpNo,
+                             const char* jpName)
+{
+    ImGuiIO& io = ImGui::GetIO();
+    ImFont* font = NULL;
+    if (f->data) {
+        ImFontConfig cfg;
+        cfg.FontDataOwnedByAtlas = false;
+        lstrcpynA(cfg.Name, name, IM_COUNTOF(cfg.Name));
+        font = io.Fonts->AddFontFromMemoryTTF(f->data, f->size, size, &cfg);
+    }
+    if (font && jp->data) {
+        ImFontConfig merge;
+        merge.MergeMode = true;
+        merge.FontNo    = jpNo;
+        merge.FontDataOwnedByAtlas = false;
+        lstrcpynA(merge.Name, jpName, IM_COUNTOF(merge.Name));
+        io.Fonts->AddFontFromMemoryTTF(jp->data, jp->size, size, &merge);
+    }
+    return font;
+}
+
+/* Segoe UI for text, Semibold for headings and Cascadia Mono for numbers,
+** each with Japanese of the same weight merged in. The body comes first: ImGui's default. */
+static void loadThemedFonts(ImGuiToolWindow* w)
+{
+    readThemedFonts();
+    w->fontEm[UI_FONT_BODY]   = emRatio(&fontBody, 1.33f);
+    w->fontEm[UI_FONT_STRONG] = emRatio(fontStrong.data ? &fontStrong : &fontBody, 1.33f);
+    w->fontEm[UI_FONT_MONO]   = emRatio(&fontMono, 1.17f);
+    w->fonts[UI_FONT_BODY]   = addThemedFont(&fontBody, "segoeui.ttf", 14 * w->fontEm[UI_FONT_BODY], &fontJpBody, fontJpBodyNo,
+                                             fontJpBodyName);
+    if (w->fonts[UI_FONT_BODY] == NULL) {
+        w->fonts[UI_FONT_BODY] = ImGui::GetIO().Fonts->AddFontDefault();
+        w->fontEm[UI_FONT_BODY] = w->fontEm[UI_FONT_STRONG] = 13.0f / 14;
+    }
+    w->fonts[UI_FONT_STRONG] = addThemedFont(&fontStrong, "seguisb.ttf", 14 * w->fontEm[UI_FONT_STRONG], &fontJp, fontJpStrongNo,
+                                             fontJpName);
+    w->fonts[UI_FONT_MONO]   = addThemedFont(&fontMono, fontMonoName, 13 * w->fontEm[UI_FONT_MONO], &fontJpBody, fontJpBodyNo,
+                                             fontJpBodyName);
+    if (w->fonts[UI_FONT_STRONG] == NULL) {
+        w->fonts[UI_FONT_STRONG] = w->fonts[UI_FONT_BODY];
+        w->fontEm[UI_FONT_STRONG] = w->fontEm[UI_FONT_BODY];
+    }
+    if (w->fonts[UI_FONT_MONO] == NULL) {
+        w->fonts[UI_FONT_MONO] = w->fonts[UI_FONT_BODY];
+        w->fontEm[UI_FONT_MONO] = w->fontEm[UI_FONT_BODY];
+    }
 }
 
 /* Into the current context's atlas, which only borrows the bytes. */
@@ -313,14 +454,30 @@ static void applyDpi(ImGuiToolWindow* w, float scale)
     style = w->baseStyle;
     style.ScaleAllSizes(scale * w->zoom);
     style.FontScaleDpi = scale * w->zoom;
+    if (!(w->desc.flags & IMGUI_TOOL_ALWAYS_DARK)) {
+        /* ScaleAllSizes truncates and ImGui rounds the font size; controls
+        ** must be Px(24) high exactly, so an odd remainder keeps its half. */
+        float s = scale * w->zoom;
+        float font = floorf(14 * w->fontEm[UI_FONT_BODY] * s + 0.5f);
+        style.FramePadding.y = (floorf(24 * s + 0.5f) - font) / 2;
+    }
 }
 
-/* ImGui's own dark style. Runs with the window's context current. */
+/* Runs with the window's context current, whose style starts as ImGui's dark one. */
 static void buildBaseStyle(ImGuiToolWindow* w)
 {
-    ImGuiStyle style;
-    ImGui::StyleColorsDark(&style);
-    w->baseStyle = style;
+    w->themeDirty = false;
+    if (w->desc.flags & IMGUI_TOOL_ALWAYS_DARK) {
+        ImGuiStyle style;
+        w->dark = true;
+        ImGui::StyleColorsDark(&style);
+        w->baseStyle = style;
+    }
+    else {
+        w->dark = imguiThemeIsDark();
+        imguiThemeBuildTokens(&w->tokens, w->dark, imguiThemeReadAccent(w->dark));
+        imguiThemeBuildStyle(&w->baseStyle, w->tokens, 14 * w->fontEm[UI_FONT_BODY]);
+    }
 }
 
 /* A window opens again at the zoom it was closed with, for the process lifetime. */
@@ -433,6 +590,7 @@ static bool zoomMessage(ImGuiToolWindow* w, UINT msg, WPARAM wParam)
     }
     return false;
 }
+
 
 static bool deviceLost(HRESULT hr)
 {
@@ -557,7 +715,11 @@ static void renderFrame(ImGuiToolWindow* w)
     bool lost = false;
     w->inFrame = true;
     ImGui::SetCurrentContext(w->ctx);
-    if (w->zoom != w->appliedZoom) {
+    if (w->themeDirty) {
+        buildBaseStyle(w);
+        applyDpi(w, w->dpiScale);
+    }
+    else if (w->zoom != w->appliedZoom) {
         applyDpi(w, w->dpiScale);
     }
     ImGui_ImplDX11_NewFrame();
@@ -719,7 +881,12 @@ static LRESULT CALLBACK wndProc(HWND wnd, UINT msg, WPARAM wParam, LPARAM lParam
 
     case WM_DPICHANGED: {
         const RECT* r = (const RECT*)lParam;
-        if (w->ctx) {
+        if (w->ctx && w->inFrame) {
+            /* Inside a frame the style is in use: the next frame rebuilds it. */
+            w->dpiScale = HIWORD(wParam) / 96.0f;
+            w->themeDirty = true;
+        }
+        else if (w->ctx) {
             applyDpi(w, HIWORD(wParam) / 96.0f);
         }
         SetWindowPos(wnd, NULL, r->left, r->top, r->right - r->left, r->bottom - r->top,
@@ -742,6 +909,9 @@ static LRESULT CALLBACK wndProc(HWND wnd, UINT msg, WPARAM wParam, LPARAM lParam
         if (lParam && lstrcmpW((const wchar_t*)lParam, L"ImmersiveColorSet") == 0) {
             win32InvalidateDarkModeCache();
             win32CommonApplyDarkTitle(wnd);
+            if (!(w->desc.flags & IMGUI_TOOL_ALWAYS_DARK)) {
+                w->themeDirty = true;
+            }
         }
         break;
 
@@ -824,6 +994,26 @@ ImGuiToolWindow* imguiHostCurrentWindow()
     return ImGui::GetCurrentContext() ? (ImGuiToolWindow*)ImGui::GetIO().UserData : NULL;
 }
 
+bool imguiHostIsDark(ImGuiToolWindow* w)
+{
+    return w ? w->dark : imguiThemeIsDark();
+}
+
+const UiTokens* imguiHostTokens(ImGuiToolWindow* w)
+{
+    return w && !(w->desc.flags & IMGUI_TOOL_ALWAYS_DARK) ? &w->tokens : NULL;
+}
+
+ImFont* imguiHostFont(ImGuiToolWindow* w, UiFont role)
+{
+    return w && role >= 0 && role < UI_FONT_COUNT ? w->fonts[role] : NULL;
+}
+
+float imguiHostFontSize(ImGuiToolWindow* w, UiFont role, float em)
+{
+    return em * (w && role >= 0 && role < UI_FONT_COUNT ? w->fontEm[role] : 1.0f);
+}
+
 static bool registerClass()
 {
     static bool registered = false;
@@ -840,6 +1030,13 @@ static bool registerClass()
         registered = RegisterClassExW(&wc) != 0;
     }
     return registered;
+}
+
+/* Themed windows draw their popups with a shadow and an edge; the dark stock style keeps ImGui's. */
+static void decoratePopups(ImGuiContext* ctx, ImGuiContextHook* hook)
+{
+    ImGuiToolWindow* w = (ImGuiToolWindow*)hook->UserData;
+    if (!(w->desc.flags & IMGUI_TOOL_ALWAYS_DARK)) imguiThemeDecoratePopups(ctx, w->dark, w->dpiScale * w->appliedZoom);
 }
 
 /* Undoes a window that failed to open, without telling its owner. */
@@ -949,8 +1146,24 @@ extern "C" ImGuiToolWindow* imguiToolOpen(const ImGuiToolDesc* desc)
     ImGuiIO& io = ImGui::GetIO();
     io.IniFilename = NULL;
     io.UserData = w;
-    buildBaseStyle(w);
-    loadFonts();
+    ImGuiContextHook hook;
+    hook.Type = ImGuiContextHookType_RenderPre;
+    hook.Callback = decoratePopups;
+    hook.UserData = w;
+    ImGui::AddContextHook(w->ctx, &hook);
+    if (w->desc.flags & IMGUI_TOOL_ALWAYS_DARK) {
+        buildBaseStyle(w);
+        loadFonts();
+        for (int i = 0; i < UI_FONT_COUNT; i++) {
+            w->fonts[i] = io.Fonts->Fonts[0];
+            w->fontEm[i] = 1.0f;
+        }
+    }
+    else {
+        /* The style's control height follows the body font's. */
+        loadThemedFonts(w);
+        buildBaseStyle(w);
+    }
     ImGui_ImplWin32_Init(wnd);
     ImGui_ImplDX11_Init(device, deviceContext);
     applyDpi(w, ImGui_ImplWin32_GetDpiScaleForHwnd(wnd));

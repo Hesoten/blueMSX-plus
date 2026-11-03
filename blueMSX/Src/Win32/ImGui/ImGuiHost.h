@@ -43,6 +43,16 @@
 
 struct ID3D11Device;
 struct ID3D11DeviceContext;
+struct ImFont;
+struct UiTokens;
+
+/* Text roles of the themed windows. */
+enum UiFont {
+    UI_FONT_BODY,     /* Segoe UI */
+    UI_FONT_STRONG,   /* Segoe UI Semibold */
+    UI_FONT_MONO,     /* Cascadia Mono, or Consolas */
+    UI_FONT_COUNT
+};
 
 /* The device every tool window draws with; NULL while none is open. */
 ID3D11Device*        imguiHostDevice();
@@ -52,5 +62,13 @@ unsigned             imguiHostDeviceGeneration();
 
 /* The window whose ImGui context is current, or NULL. */
 ImGuiToolWindow*     imguiHostCurrentWindow();
+/* Whether the window is drawn with a dark style. */
+bool                 imguiHostIsDark(ImGuiToolWindow* w);
+/* The colours of a themed window; NULL for one in ImGui's own dark style. */
+const UiTokens*      imguiHostTokens(ImGuiToolWindow* w);
+/* A window in ImGui's own style has one font for every role. */
+ImFont*              imguiHostFont(ImGuiToolWindow* w, UiFont role);
+/* The size to give PushFont for text whose em is `em` px at 96 DPI. */
+float                imguiHostFontSize(ImGuiToolWindow* w, UiFont role, float em);
 
 #endif

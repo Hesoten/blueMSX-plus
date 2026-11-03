@@ -48,11 +48,17 @@ typedef void (*ImGuiToolDrawFn)(ImGuiToolWindow* w, void* ref);
 /* Called once the window is gone; ref is no longer used after it returns. */
 typedef void (*ImGuiToolClosedFn)(void* ref);
 
+enum {
+    /* Keep ImGui's own dark style whatever the Windows theme is. */
+    IMGUI_TOOL_ALWAYS_DARK = 1 << 0
+};
+
 typedef struct {
     const char*       id;      /* one window per id */
     const char*       title;   /* UTF-8 */
     int               width;   /* client size at 96 DPI */
     int               height;
+    int               flags;   /* IMGUI_TOOL_* */
     ImGuiToolDrawFn   draw;
     ImGuiToolClosedFn closed;  /* may be NULL */
     void*             ref;
