@@ -251,6 +251,103 @@ void EndKeyValue();
 ** True when clicked. */
 bool ColorSwatch(const char* id, ImU32 rgb, float size, bool selected = false, const char* tip = NULL);
 
+/* Zoom N: a TV line is N screen pixels high, so a 256-dot line is 256 * N wide in every mode. */
+struct CanvasZoom {
+    int  zoom = 2;         /* 1 to 32 */
+    bool fit  = false;     /* the largest scale the space allows instead */
+};
+
+struct CanvasState {
+    CanvasZoom  own;
+    CanvasZoom* shared = NULL;  /* one zoom for several canvases, else own */
+    CanvasZoom&       z()       { return shared ? *shared : own; }
+    const CanvasZoom& z() const { return shared ? *shared : own; }
+    bool grid    = false;  /* pixel lines, drawn from 4 screen pixels up */
+    bool checker = false;  /* a checkerboard behind transparent pixels */
+    /* The shape of an image pixel, e.g. 1:2 for 512 dots on a TV; the view
+    ** sets it before the toolbar. lineRows: image rows per TV line, 2 for half lines. */
+    int  aspectX = 1, aspectY = 1, lineRows = 1;
+    float gutter = 0;      /* px at 96 DPI left of the image, for marks per image line */
+    bool  frameless = false;  /* no frame or tint: the well sits in a card */
+    bool  panning = false;    /* a left drag is scrolling the picture */
+    bool  pressEmpty = false; /* the left button went down beside the picture */
+    /* Last frame's picture, for the wheel's zoom about the mouse. */
+    bool   hovered = false;
+    int    shownFrame = -1;
+    float  shownZoom = 0, wheel = 0;  /* wheel: turns not stepped yet, e.g. from a touchpad */
+    int    wheelOwned = 0;            /* the wheel axes taken from ImGui: 1 vertical, 2 sideways */
+    ImVec2 shownAt = ImVec2(0, 0), shownScale = ImVec2(1, 1), shownWell = ImVec2(0, 0);
+    /* A picture composed of parts, in image px, stepX image px a dot across: the checker
+    ** and the grid go on them only. None: on the whole image. */
+    struct Part { float x0, y0, x1, y1; int stepX; };
+    Part   parts[2] = {};
+    int    partCount = 0;
+};
+
+/* Where the image is on the screen, for drawing over it. */
+struct CanvasXf {
+    ImVec2 origin;         /* screen position of image pixel 0,0 */
+    ImVec2 scale;          /* screen pixels per image pixel, per axis */
+    ImVec2 clipMin, clipMax;
+    ImVec2 gutterMin, gutterMax;  /* the gutter beside the image; empty without one */
+    /* From 1x up, on the screen pixel where image pixel x, y starts as nearest sampling draws it. */
+    ImVec2 toScreen(float x, float y) const { return ImVec2(snap(origin.x + x * scale.x, scale.x), snap(origin.y + y * scale.y, scale.y)); }
+    static float snap(float v, float s) { return s >= 1 ? ceilf(v - 0.5f) : v; }
+};
+
+typedef void (*CanvasOverlayFn)(ImDrawList* dl, const CanvasXf& xf, void* ref);
+
+struct CanvasHit {
+    bool valid;            /* the mouse is over the image */
+    int  x, y;             /* the image pixel under it */
+    bool clicked;          /* and the left button was clicked there, released when it could pan */
+    int  gutterY;          /* the image line beside the mouse in the gutter, or -1 */
+    bool clickedEmpty;     /* a click on the well beside the picture or on its gutter */
+};
+
+/* The pixel shape a state draws with: its aspect, 1:1 when unset. */
+void CanvasAspect(const CanvasState& state, int* ax, int* ay);
+/* Screen pixels per image pixel, per axis, at zoom u. */
+ImVec2 CanvasScale(const CanvasState& state, float u);
+
+/* [-] [2x v] [+] [Fit] for a command bar's right end: what sizes the picture, the
+** zoom's menu holding the steps and the option check when given (e.g. colour 0 transparent). */
+float ZoomControlsWidth();
+void  ZoomControls(const char* id, CanvasState& state, bool* check = NULL, const char* checkLabel = NULL);
+/* [Grid], the last of the bar's left items. */
+void  GridToggle(CanvasState& state);
+
+/* The image in a scrolling well of the given size (0: the space left), sampled nearest. A picture
+** larger than the well pans by a middle drag or a left drag past 4 px (a click then counts on release),
+** scrolls by the wheel (Shift: sideways) and zooms by Ctrl+wheel. overlay draws over it. */
+CanvasHit Canvas(const char* id, ImTextureID tex, int w, int h, CanvasState& state,
+                 ImVec2 size = ImVec2(0, 0), CanvasOverlayFn overlay = NULL, void* ref = NULL);
+
+/* tex over a..b sampled nearest, as Canvas draws its image. */
+void ImageNearest(ImDrawList* dl, ImTextureID tex, ImVec2 a, ImVec2 b, ImVec2 uv0 = ImVec2(0, 0), ImVec2 uv1 = ImVec2(1, 1));
+/* Images added to dl between the two are sampled nearest; nothing else may come between. */
+void BeginNearest(ImDrawList* dl);
+void EndNearest(ImDrawList* dl);
+
+/* For a view that lays out its own zoomed picture in a child instead of Canvas: before
+** the child, the whole zoom Ctrl+wheel steps to over last frame's picture, 0 for none. */
+int  CanvasWheelZoom(CanvasState& state);
+/* After the child: the zoom it showed and whether the mouse was over it, so the zoom
+** controls, Fit and next frame's Ctrl+wheel work as for Canvas. */
+void CanvasShown(CanvasState& state, float zoom, bool hovered);
+
+/* Canvas's grid over a..b of a picture placed as xf says: lines a dot apart, every 8th
+** stronger, none below 4 screen px a dot. */
+void CanvasGrid(ImDrawList* dl, const CanvasXf& xf, ImVec2 a, ImVec2 b);
+
+/* Image pixels start..start+count of rows rowW long, filled and outlined as one shape;
+** label, when given, on a chip at its top left where it has room. */
+void CanvasSpan(ImDrawList* dl, const CanvasXf& xf, unsigned start, unsigned count, unsigned rowW,
+                ImU32 fill, ImU32 line, const char* label = NULL);
+/* The address of every 16th row in the gutter, rowBytes a row; every 64th, 256th... where
+** the labels would touch. Held at the view's left edge while scrolled across. */
+void CanvasAddressRuler(ImDrawList* dl, const CanvasXf& xf, int rows, unsigned rowBytes);
+
 }
 
 #endif

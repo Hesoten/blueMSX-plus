@@ -93,6 +93,7 @@ struct ImGuiToolWindow {
     float                   appliedZoom;
     float                   zoomWantW, zoomWantH;
     LONG                    zoomSetW, zoomSetH;
+    bool                    wheelTaken, wheelTakenNext;  /* a view takes Ctrl+wheel where the mouse is */
     ULONGLONG               lastFrame;
     ImGuiToolWindow*        next;
 };
@@ -587,11 +588,11 @@ static void stepZoom(ImGuiToolWindow* w, int dir)
     }
 }
 
-/* Ctrl+wheel, Ctrl+plus, Ctrl+minus and Ctrl+0 zoom like the debugger's
-** views. Returns true when the message was used. */
+/* Ctrl+wheel (but over a view that zooms with it), Ctrl+plus, Ctrl+minus and
+** Ctrl+0 zoom like the debugger's views. Returns true when the message was used. */
 static bool zoomMessage(ImGuiToolWindow* w, UINT msg, WPARAM wParam)
 {
-    if (msg == WM_MOUSEWHEEL && (GET_KEYSTATE_WPARAM(wParam) & MK_CONTROL)) {
+    if (msg == WM_MOUSEWHEEL && (GET_KEYSTATE_WPARAM(wParam) & MK_CONTROL) && !w->wheelTaken) {
         stepZoom(w, GET_WHEEL_DELTA_WPARAM(wParam) > 0 ? 1 : -1);
         return true;
     }
@@ -746,9 +747,11 @@ static void renderFrame(ImGuiToolWindow* w)
     ImGui::Begin("##imguiWindow", NULL,
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
                  ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus);
+    w->wheelTakenNext = false;
     if (w->desc.draw) {
         w->desc.draw(w, w->desc.ref);
     }
+    w->wheelTaken = w->wheelTakenNext;
     if (w->destroyed) {
         /* The HWND went inside a modal loop in draw, e.g. with its
         ** fullscreen owner; the context could not go before now. */
@@ -1001,6 +1004,14 @@ ID3D11DeviceContext* imguiHostContext()
 unsigned imguiHostDeviceGeneration()
 {
     return deviceGeneration;
+}
+
+void imguiHostTakeWheel()
+{
+    ImGuiToolWindow* w = imguiHostCurrentWindow();
+    if (w) {
+        w->wheelTakenNext = true;
+    }
 }
 
 ImGuiToolWindow* imguiHostCurrentWindow()

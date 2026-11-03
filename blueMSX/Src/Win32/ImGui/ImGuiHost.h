@@ -71,5 +71,8 @@ const UiTokens*      imguiHostTokens(ImGuiToolWindow* w);
 ImFont*              imguiHostFont(ImGuiToolWindow* w, UiFont role);
 /* The size to give PushFont for text whose em is `em` px at 96 DPI. */
 float                imguiHostFontSize(ImGuiToolWindow* w, UiFont role, float em);
+/* Called each frame the mouse is over something the wheel zooms: then
+** Ctrl+wheel goes to it in the next frame instead of zooming the window. */
+void                 imguiHostTakeWheel();
 
 #endif

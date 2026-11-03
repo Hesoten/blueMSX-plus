@@ -42,6 +42,7 @@
 #include "imgui_internal.h"
 #include "ImGuiWidgets.h"
 #include "ImGuiTheme.h"
+#include "ToolText.h"
 
 #ifndef BLUEMSX_IMGUI_CONFIG
 #error "Build ImGui files with IMGUI_USER_CONFIG set to imconfig_bluemsx.h"
@@ -1598,6 +1599,482 @@ void StatusBar()
     ImGui::PopStyleColor();
     PopFont();
     dl->PopClipRect();
+}
+
+/* ---- canvas ----------------------------------------------------------- */
+
+#define CANVAS_ZOOM_MAX 32
+
+void CanvasAspect(const CanvasState& s, int* ax, int* ay)
+{
+    bool ok = s.aspectX >= 1 && s.aspectY >= 1;
+    *ax = ok ? s.aspectX : 1;
+    *ay = ok ? s.aspectY : 1;
+}
+
+ImVec2 CanvasScale(const CanvasState& s, float u)
+{
+    int ax, ay;
+    CanvasAspect(s, &ax, &ay);
+    float ky = u / (s.lineRows > 1 ? s.lineRows : 1);
+    return ImVec2(ky * ax / ay, ky);
+}
+
+static const int zoomSteps[] = { 1, 2, 3, 4, 6, 8, 12, 16, 24, 32 };
+#define ZOOM_WHOLE_MAX 16  /* - and + step by 1 up to here, then by the steps above */
+
+/* "4x" with U+00D7 MULTIPLICATION SIGN. */
+static const char* zoomLabel(int zoom, char* out, size_t size)
+{
+    snprintf(out, size, "%d\xC3\x97", zoom);
+    return out;
+}
+
+/* A scale such as Fit shows, "2.4x"; a whole one prints as "3x". */
+static const char* scaleLabel(float scale, char* out, size_t size)
+{
+    char v[16];
+    snprintf(v, sizeof(v), "%.1f", scale);
+    size_t n = strlen(v);
+    if (n > 2 && strcmp(v + n - 2, ".0") == 0) v[n - 2] = 0;
+    snprintf(out, size, "%s\xC3\x97", v);
+    return out;
+}
+
+/* The zoom button keeps one width, whatever it shows. */
+static float zoomButtonWidth()
+{
+    char z[16];
+    return fmaxf(DropDownButtonWidth(NULL, zoomLabel(CANVAS_ZOOM_MAX, z, sizeof(z)), true, 64),
+                 DropDownButtonWidth(NULL, scaleLabel(CANVAS_ZOOM_MAX - 0.5f, z, sizeof(z)), true, 64));
+}
+
+/* The canvas toggles Fit and Grid: glyph, label without the icon font. */
+static const char* toggleGlyph(int i)
+{
+    return i == 0 ? UI_ICON_FIT : UI_ICON_GRID;
+}
+
+static const char* toggleFallback(int i)
+{
+    return i == 0 ? ::ts(TS_FIT) : ::ts(TS_CANVAS_GRID);
+}
+
+/* Four items, each but the last followed by Px(4). */
+float ZoomControlsWidth()
+{
+    return Px(28) * 2 + zoomButtonWidth() + IconButtonWidth(toggleGlyph(0), toggleFallback(0)) + Px(4) * 3;
+}
+
+void GridToggle(CanvasState& s)
+{
+    CommandBarItem(IconButtonWidth(toggleGlyph(1), toggleFallback(1)), Px(24));
+    if (IconButton("##grid", toggleGlyph(1), toggleFallback(1), ::ts(TS_CANVAS_GRID_TIP), s.grid)) {
+        s.grid = !s.grid;
+    }
+}
+
+/* The scale last frame's picture was shown at, or 0 when it was not shown then. */
+static float lastScale(const CanvasState& s)
+{
+    return s.shownZoom > 0 && s.shownFrame == ImGui::GetFrameCount() - 1 ? s.shownZoom : 0;
+}
+
+/* Fit turned off: the menu's step at or below the scale shown, 1x below it. */
+static int zoomBelow(const CanvasState& s)
+{
+    float cur = lastScale(s);
+    if (cur <= 0) return s.z().zoom;
+    int z = zoomSteps[0];
+    for (int step : zoomSteps) {
+        if (step <= cur + 0.001f) z = step;
+    }
+    return z;
+}
+
+/* The whole zoom one step in or out from what the picture shows, Fit too; 0 for none. */
+static int zoomStepFrom(const CanvasState& s, int dir)
+{
+    float cur = s.z().fit && s.shownZoom > 0 ? s.shownZoom : (float)s.z().zoom;
+    if ((dir > 0 && cur >= ZOOM_WHOLE_MAX - 0.001f) || (dir < 0 && cur > ZOOM_WHOLE_MAX + 0.001f)) {
+        int z = 0;
+        for (int step : zoomSteps) {
+            if (dir > 0 && step > cur + 0.001f) return step;
+            if (dir < 0 && step < cur - 0.001f) z = step;
+        }
+        return z;
+    }
+    int z = dir > 0 ? (int)floorf(cur + 0.001f) + 1 : (int)ceilf(cur - 0.001f) - 1;
+    return z >= 1 && z <= CANVAS_ZOOM_MAX ? z : 0;
+}
+
+void ZoomControls(const char* id, CanvasState& s, bool* check, const char* checkLabel)
+{
+    char z[16];
+    ImGui::PushID(id);
+    CommandBarItem(Px(28), Px(24));
+    /* U+2212 MINUS SIGN: as wide as the plus, unlike a hyphen. */
+    CanvasZoom& c = s.z();
+    if (IconButton("##out", UI_ICON_REMOVE, "\xe2\x88\x92", ::ts(TS_ZOOM_OUT), false, ImVec2(28, 24), 14) && zoomStepFrom(s, -1)) {
+        c.zoom = zoomStepFrom(s, -1);
+        c.fit = false;
+    }
+    float w = zoomButtonWidth();
+    CommandBarItem(w);
+    /* While Fit is on: the scale it shows, and no step marked. */
+    const char* label = c.fit && lastScale(s) > 0 ? scaleLabel(lastScale(s), z, sizeof(z)) : zoomLabel(c.zoom, z, sizeof(z));
+    if (BeginDropDownButton("zoom", NULL, label, true, w / ImGui::GetStyle().FontScaleDpi, c.fit ? ::ts(TS_ZOOM_FIT_ON_TIP) : NULL)) {
+        for (int step : zoomSteps) {
+            if (MenuRadio(zoomLabel(step, z, sizeof(z)), !c.fit && c.zoom == step)) {
+                c.zoom = step;
+                c.fit = false;
+            }
+        }
+        if (check && checkLabel) {
+            MenuSeparator();
+            MenuCheck(checkLabel, check);
+        }
+        EndDropDownButton();
+    }
+    CommandBarItem(Px(28), Px(24));
+    if (IconButton("##in", UI_ICON_ADD, "+", ::ts(TS_ZOOM_IN), false, ImVec2(28, 24), 14) && zoomStepFrom(s, 1)) {
+        c.zoom = zoomStepFrom(s, 1);
+        c.fit = false;
+    }
+    CommandBarItem(IconButtonWidth(toggleGlyph(0), toggleFallback(0)), Px(24));
+    if (IconButton("##fit", toggleGlyph(0), toggleFallback(0), ::ts(TS_FIT_TIP), c.fit)) {
+        if (c.fit) c.zoom = zoomBelow(s);
+        c.fit = !c.fit;
+    }
+    ImGui::PopID();
+}
+
+/* Fills a..b; squares are counted from o so they stay put when scrolled. */
+static void drawChecker(ImDrawList* dl, ImVec2 o, ImVec2 a, ImVec2 b, float cell)
+{
+    const UiTokens& t = uiTokens();
+    int i0 = (int)floorf((a.x - o.x) / cell);
+    int j0 = (int)floorf((a.y - o.y) / cell);
+    dl->AddRectFilled(a, b, C(t.checkerA));
+    for (int j = j0; o.y + j * cell < b.y; j++) {
+        for (int i = i0; o.x + i * cell < b.x; i++) {
+            if ((i + j) & 1) {
+                ImVec2 q0(fmaxf(o.x + i * cell, a.x), fmaxf(o.y + j * cell, a.y));
+                ImVec2 q1(fminf(o.x + (i + 1) * cell, b.x), fminf(o.y + (j + 1) * cell, b.y));
+                dl->AddRectFilled(q0, q1, C(t.checkerB));
+            }
+        }
+    }
+}
+
+void BeginNearest(ImDrawList* dl)
+{
+    const ImGuiPlatformIO& pio = ImGui::GetPlatformIO();
+    if (pio.DrawCallback_SetSamplerNearest) {
+        dl->AddCallback(pio.DrawCallback_SetSamplerNearest, NULL);
+    }
+}
+
+void EndNearest(ImDrawList* dl)
+{
+    const ImGuiPlatformIO& pio = ImGui::GetPlatformIO();
+    if (pio.DrawCallback_ResetRenderState) {
+        dl->AddCallback(pio.DrawCallback_ResetRenderState, NULL);
+    }
+}
+
+void ImageNearest(ImDrawList* dl, ImTextureID tex, ImVec2 a, ImVec2 b, ImVec2 uv0, ImVec2 uv1)
+{
+    BeginNearest(dl);
+    dl->AddImage(ImTextureRef(tex), a, b, uv0, uv1);
+    EndNearest(dl);
+}
+
+/* Lines a dot apart over va..vb, from image px ox, oy, a dot sx image px across. */
+static void drawGrid(ImDrawList* dl, const CanvasXf& xf, ImVec2 va, ImVec2 vb, float ox = 0, float oy = 0, int sx = 1)
+{
+    const UiTokens& t = uiTokens();
+    float zx = xf.scale.x * sx, zy = xf.scale.y;
+    float bx = xf.origin.x + ox * xf.scale.x, by = xf.origin.y + oy * xf.scale.y;
+    int x0 = (int)((va.x - bx) / zx), x1 = (int)ceilf((vb.x - bx) / zx);
+    int y0 = (int)((va.y - by) / zy), y1 = (int)ceilf((vb.y - by) / zy);
+    for (int x = x0; x <= x1; x++) {
+        float fx = xf.toScreen(ox + (float)(x * sx), 0).x;
+        dl->AddLine(ImVec2(fx, va.y), ImVec2(fx, vb.y), (x & 7) ? C(t.gridLine) : C(t.gridLineMajor));
+    }
+    for (int y = y0; y <= y1; y++) {
+        float fy = xf.toScreen(0, oy + (float)y).y;
+        dl->AddLine(ImVec2(va.x, fy), ImVec2(vb.x, fy), (y & 7) ? C(t.gridLine) : C(t.gridLineMajor));
+    }
+}
+
+void CanvasGrid(ImDrawList* dl, const CanvasXf& xf, ImVec2 a, ImVec2 b)
+{
+    if (fminf(xf.scale.x, xf.scale.y) >= 4 && a.x < b.x && a.y < b.y) drawGrid(dl, xf, a, b);
+}
+
+CanvasHit Canvas(const char* id, ImTextureID tex, int w, int h, CanvasState& state,
+                 ImVec2 size, CanvasOverlayFn overlay, void* ref)
+{
+    const UiTokens& t = uiTokens();
+    CanvasHit hit = { false, 0, 0, false, -1, false };
+    if (size.y <= 0) {
+        size.y = fmaxf(ImGui::GetContentRegionAvail().y, ImGui::GetFrameHeight());
+    }
+    CanvasZoom& zs = state.z();
+    if (zs.zoom < 1) zs.zoom = 1;
+    if (zs.zoom > CANVAS_ZOOM_MAX) zs.zoom = CANVAS_ZOOM_MAX;
+    ImVec2 k = CanvasScale(state, 1);
+    /* Ctrl+wheel over last frame's picture steps its zoom as - and + do,
+    ** keeping the image pixel under the mouse there; the window's zoom stays. */
+    ImGuiIO& io = ImGui::GetIO();
+    bool over = state.hovered && state.shownFrame == ImGui::GetFrameCount() - 1 && w > 0 && h > 0;
+    state.wheel = over && io.KeyCtrl ? state.wheel + io.MouseWheel : 0;
+    int z = fabsf(state.wheel) >= 1 ? zoomStepFrom(state, state.wheel > 0 ? 1 : -1) : 0;
+    if (fabsf(state.wheel) >= 1) state.wheel -= state.wheel > 0 ? 1 : -1;
+    if (z > 0) {
+        ImVec2 m = io.MousePos, at = ImGui::GetCursorScreenPos(), well = state.shownWell;
+        float gw = state.gutter > 0 ? Px(state.gutter) : 0, iw = floorf(w * (float)z * k.x), ih = floorf(h * (float)z * k.y);
+        float px = ImClamp((m.x - state.shownAt.x) / state.shownScale.x, 0.0f, (float)w);
+        float py = ImClamp((m.y - state.shownAt.y) / state.shownScale.y, 0.0f, (float)h);
+        ImGui::SetNextWindowContentSize(ImVec2(iw + gw, ih));
+        ImGui::SetNextWindowScroll(ImVec2(iw + gw > well.x ? fmaxf(0, gw + px * iw / w - (m.x - at.x)) : 0,
+                                          ih > well.y ? fmaxf(0, py * ih / h - (m.y - at.y)) : 0));
+        zs.zoom = z;
+        zs.fit = false;
+    }
+
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, state.frameless ? 0 : t.dark ? IM_COL32(0, 0, 0, 51) : IM_COL32(0, 0, 0, 10));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, ImGui::GetStyle().FrameRounding);
+    ImGui::BeginChild(id, size, state.frameless ? ImGuiChildFlags_None : ImGuiChildFlags_Borders, ImGuiWindowFlags_HorizontalScrollbar);
+    ImGui::PopStyleVar(2);
+    ImGui::PopStyleColor();
+
+    if (w > 0 && h > 0) {
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        ImVec2 avail = ImGui::GetContentRegionAvail();
+        float gw = state.gutter > 0 ? Px(state.gutter) : 0;
+        float u = (float)zs.zoom;
+        if (zs.fit) {
+            /* The whole space, between zoom steps too. */
+            float f = fminf((avail.x - gw) / ((float)w * k.x), avail.y / ((float)h * k.y));
+            u = fmaxf(fminf(f, CANVAS_ZOOM_MAX), 0.01f);
+        }
+        float iw = fmaxf(1.0f, floorf(w * u * k.x)), ih = fmaxf(1.0f, floorf(h * u * k.y));
+        /* What was drawn, so overlays and the hit test agree with it. */
+        ImVec2 scale(iw / w, ih / h);
+        /* Centred while smaller than the well; whole screen pixels, or
+        ** nearest sampling splits image pixels unevenly. */
+        ImVec2 cur = ImGui::GetCursorScreenPos();
+        ImVec2 p0(floorf(cur.x + gw + fmaxf(0, (avail.x - gw - iw) / 2)), floorf(cur.y + fmaxf(0, (avail.y - ih) / 2)));
+        ImVec2 p1(p0.x + iw, p0.y + ih);
+        ImVec2 cmin = dl->GetClipRectMin(), cmax = dl->GetClipRectMax();
+        ImVec2 va(fmaxf(p0.x, cmin.x), fmaxf(p0.y, cmin.y));
+        ImVec2 vb(fminf(p1.x, cmax.x), fminf(p1.y, cmax.y));
+        bool shown = va.x < vb.x && va.y < vb.y;
+        CanvasXf xf;
+        xf.origin  = p0;
+        xf.scale   = scale;
+        xf.clipMin = va;
+        xf.clipMax = vb;
+        xf.gutterMin = ImVec2(p0.x - gw, p0.y);
+        xf.gutterMax = ImVec2(gw > 0 ? p0.x - Px(2) : p0.x, p1.y);
+
+        /* The parts' screen rects within the view; the whole image without parts. */
+        int np = state.partCount > 0 ? ImMin(state.partCount, 2) : 1;
+        ImVec2 pa[2] = { va, va }, pb[2] = { vb, vb }, po[2] = { p0, p0 };
+        for (int i = 0; i < np && state.partCount > 0; i++) {
+            const CanvasState::Part& q = state.parts[i];
+            po[i] = xf.toScreen(q.x0, q.y0);
+            ImVec2 e = xf.toScreen(q.x1, q.y1);
+            pa[i] = ImVec2(fmaxf(po[i].x, va.x), fmaxf(po[i].y, va.y));
+            pb[i] = ImVec2(fminf(e.x, vb.x), fminf(e.y, vb.y));
+        }
+        for (int i = 0; shown && state.checker && i < np; i++) {
+            if (pa[i].x < pb[i].x && pa[i].y < pb[i].y) drawChecker(dl, po[i], pa[i], pb[i], fmaxf(2.0f, Px(8)));
+        }
+        if (shown && tex) {
+            ImageNearest(dl, tex, p0, p1);
+        }
+        for (int i = 0; shown && state.grid && i < np; i++) {
+            const CanvasState::Part* q = state.partCount > 0 ? &state.parts[i] : NULL;
+            int sx = q && q->stepX > 1 ? q->stepX : 1;
+            if (fminf(scale.x * sx, scale.y) < 4 || pa[i].x >= pb[i].x || pa[i].y >= pb[i].y) continue;
+            drawGrid(dl, xf, pa[i], pb[i], q ? q->x0 : 0, q ? q->y0 : 0, sx);
+        }
+        if (shown && overlay) {
+            overlay(dl, xf, ref);
+        }
+
+        ImGui::SetCursorScreenPos(ImVec2(p0.x - gw, p0.y));
+        bool released = ImGui::InvisibleButton("##canvas", ImVec2(iw + gw, ih));
+        /* Held on the picture or on the well around it (ImGui's move id for the child). */
+        bool held = ImGui::IsItemActive() || ImGui::GetActiveID() == ImGui::GetCurrentWindow()->MoveId;
+        bool overflows = ImGui::GetScrollMaxX() > 0 || ImGui::GetScrollMaxY() > 0;
+        bool start = held && overflows && !state.panning && ImGui::IsMouseDragging(ImGuiMouseButton_Left, Px(4));
+        if (start) {
+            state.panning = true;
+        }
+        if (state.panning && held) {
+            /* The first step takes the whole drag so far, so the picture stays under the mouse. */
+            ImVec2 d = start ? ImGui::GetMouseDragDelta(ImGuiMouseButton_Left, 0) : ImGui::GetIO().MouseDelta;
+            ImGui::SetScrollX(ImGui::GetScrollX() - d.x);
+            ImGui::SetScrollY(ImGui::GetScrollY() - d.y);
+        }
+        if (ImGui::IsItemHovered() && !state.panning) {
+            ImVec2 m = ImGui::GetIO().MousePos;
+            /* The image pixel the screen pixel under the mouse samples. */
+            int x = (int)floorf((m.x + 0.5f - p0.x) / scale.x);
+            int y = (int)floorf((m.y + 0.5f - p0.y) / scale.y);
+            if (m.x < p0.x && y >= 0 && y < h) {
+                hit.gutterY = y;
+            }
+            else if (x >= 0 && x < w && y >= 0 && y < h) {
+                hit.valid   = true;
+                hit.x       = x;
+                hit.y       = y;
+                /* Where a drag could pan, a click is a release that did not pan. */
+                hit.clicked = overflows ? released : ImGui::IsItemClicked(ImGuiMouseButton_Left);
+            }
+        }
+        bool middle = ImGui::IsWindowHovered() && ImGui::IsMouseDragging(ImGuiMouseButton_Middle, 0);
+        if (middle) {
+            ImVec2 d = ImGui::GetIO().MouseDelta;
+            ImGui::SetScrollX(ImGui::GetScrollX() - d.x);
+            ImGui::SetScrollY(ImGui::GetScrollY() - d.y);
+        }
+        if (state.panning || (middle && overflows)) {
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+        }
+        /* The wheel taken from ImGui last frame scrolls by ImGui's steps: down, or across
+        ** with Shift or a sideways swipe. */
+        if (over && !io.KeyCtrl) {
+            ImGuiWindow* cw = ImGui::GetCurrentWindow();
+            float stepY = ImTrunc(ImMin(5 * cw->FontRefSize, cw->InnerRect.GetHeight() * 0.67f));
+            float stepX = ImTrunc(ImMin(2 * cw->FontRefSize, cw->InnerRect.GetWidth() * 0.67f));
+            float wx = (state.wheelOwned & 2) ? io.MouseWheelH : 0, wy = 0;
+            if (state.wheelOwned & 1) (io.KeyShift ? wx : wy) += io.MouseWheel;
+            if (wx != 0) ImGui::SetScrollX(ImGui::GetScrollX() - wx * stepX);
+            if (wy != 0) ImGui::SetScrollY(ImGui::GetScrollY() - wy * stepY);
+        }
+        /* A click on the well beside the picture, its gutter too, not on a scrollbar, that did not pan. */
+        ImVec2 mp = io.MousePos;
+        bool beside = (mp.x < p0.x || mp.x >= p1.x || mp.y < p0.y || mp.y >= p1.y) &&
+                      ImGui::GetCurrentWindow()->InnerRect.Contains(mp) && ImGui::IsWindowHovered();
+        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) state.pressEmpty = beside;
+        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+            hit.clickedEmpty = state.pressEmpty && beside && !state.panning && io.MouseDragMaxDistanceSqr[0] < Px(4) * Px(4);
+            state.pressEmpty = false;
+        }
+        if (!held) state.panning = false;
+        state.shownZoom = u;
+        state.shownAt = p0;
+        state.shownScale = scale;
+        state.shownWell = avail;
+    }
+    /* Next frame's wheel is the picture's on an axis it can scroll, and with Ctrl:
+    ** no window scrolls with it then; Ctrl never zooms the window over a picture. */
+    state.hovered = w > 0 && h > 0 && ImGui::IsWindowHovered();
+    state.shownFrame = ImGui::GetFrameCount();
+    bool canX = ImGui::GetScrollMaxX() > 0, canY = ImGui::GetScrollMaxY() > 0;
+    bool ownY = state.hovered && (io.KeyCtrl || (io.KeyShift ? canX : canY)), ownX = state.hovered && canX;
+    state.wheelOwned = (ownY ? 1 : 0) | (ownX ? 2 : 0);
+    if (state.hovered) imguiHostTakeWheel();
+    const ImGuiKey axes[2] = { ImGuiKey_MouseWheelY, ImGuiKey_MouseWheelX };
+    for (int i = 0; i < 2; i++) {
+        if (i == 0 ? ownY : ownX) ImGui::SetKeyOwner(axes[i], ImGui::GetID("##wheel"));
+        else if (ImGui::GetKeyOwner(axes[i]) == ImGui::GetID("##wheel")) ImGui::SetKeyOwner(axes[i], ImGuiKeyOwner_NoOwner);
+    }
+    ImGui::EndChild();
+    return hit;
+}
+
+int CanvasWheelZoom(CanvasState& state)
+{
+    ImGuiIO& io = ImGui::GetIO();
+    bool over = state.hovered && state.shownFrame == ImGui::GetFrameCount() - 1;
+    state.wheel = over && io.KeyCtrl ? state.wheel + io.MouseWheel : 0;
+    int z = fabsf(state.wheel) >= 1 ? zoomStepFrom(state, state.wheel > 0 ? 1 : -1) : 0;
+    if (fabsf(state.wheel) >= 1) state.wheel -= state.wheel > 0 ? 1 : -1;
+    return z;
+}
+
+void CanvasShown(CanvasState& state, float zoom, bool hovered)
+{
+    state.shownZoom = zoom;
+    state.shownFrame = ImGui::GetFrameCount();
+    state.hovered = hovered;
+    /* Ctrl+wheel never zooms the window over the picture. */
+    if (hovered) imguiHostTakeWheel();
+}
+
+void CanvasSpan(ImDrawList* dl, const CanvasXf& xf, unsigned start, unsigned count, unsigned rowW,
+                ImU32 fill, ImU32 line, const char* label)
+{
+    if (count == 0 || rowW == 0) return;
+    unsigned end = start + count, r0 = start / rowW, r1 = (end - 1) / rowW;
+    float c0 = (float)(start % rowW), c1 = (float)((end - 1) % rowW + 1), w = (float)rowW, y0 = (float)r0, y1 = (float)r1;
+    /* The first row's part, the whole rows, the last row's part. */
+    if (r0 == r1) dl->AddRectFilled(xf.toScreen(c0, y0), xf.toScreen(c1, y0 + 1), fill);
+    else {
+        dl->AddRectFilled(xf.toScreen(c0, y0), xf.toScreen(w, y0 + 1), fill);
+        if (r1 > r0 + 1) dl->AddRectFilled(xf.toScreen(0, y0 + 1), xf.toScreen(w, y1), fill);
+        dl->AddRectFilled(xf.toScreen(0, y1), xf.toScreen(c1, y1 + 1), fill);
+    }
+    ImVec2 pts[8];
+    int n = 0;
+    if (r0 == r1) {
+        pts[n++] = xf.toScreen(c0, y0); pts[n++] = xf.toScreen(c1, y0); pts[n++] = xf.toScreen(c1, y0 + 1); pts[n++] = xf.toScreen(c0, y0 + 1);
+    }
+    else {
+        pts[n++] = xf.toScreen(c0, y0); pts[n++] = xf.toScreen(w, y0); pts[n++] = xf.toScreen(w, y1); pts[n++] = xf.toScreen(c1, y1);
+        pts[n++] = xf.toScreen(c1, y1 + 1); pts[n++] = xf.toScreen(0, y1 + 1); pts[n++] = xf.toScreen(0, y0 + 1); pts[n++] = xf.toScreen(c0, y0 + 1);
+    }
+    for (int i = 0; i < n; i++) pts[i] = ImVec2(pts[i].x + 0.5f, pts[i].y + 0.5f);
+    dl->AddPolyline(pts, n, line, fmaxf(1.0f, Px(1)), ImDrawFlags_Closed);
+    if (label == NULL || label[0] == 0) return;
+    /* On the whole rows when the first row holds only its end. */
+    bool below = r1 > r0 && c0 > 0 && (r1 > r0 + 1 || c1 > c0);
+    ImVec2 a = below ? xf.toScreen(0, y0 + 1) : xf.toScreen(c0, y0), b = xf.toScreen(w, y1 + 1);
+    const UiTokens& t = uiTokens();
+    PushFont(UI_FONT_BODY, 11);
+    ImVec2 ts = ImGui::CalcTextSize(label);
+    if (b.y - a.y >= ts.y + Px(2) && b.x - a.x >= ts.x + Px(8)) {
+        dl->AddRectFilled(a, ImVec2(a.x + ts.x + Px(8), a.y + ts.y + Px(2)), WithAlpha(t.layer, 200));
+        dl->AddText(ImVec2(a.x + Px(4), a.y + Px(1)), t.text, label);
+    }
+    PopFont();
+}
+
+void CanvasAddressRuler(ImDrawList* dl, const CanvasXf& xf, int rows, unsigned rowBytes)
+{
+    if (xf.gutterMax.x <= xf.gutterMin.x || rows <= 0) return;
+    const UiTokens& t = uiTokens();
+    PushFont(UI_FONT_MONO, 11);
+    float lh = ImGui::GetTextLineHeight();
+    int step = 16;
+    while (step < rows && xf.scale.y * step < lh + Px(4)) step *= 4;
+    /* From the first label that reaches the clip rect down. */
+    float top = dl->GetClipRectMin().y, bottom = dl->GetClipRectMax().y;
+    /* Scrolled across, the ruler stays at the view's left edge, on a backing over the bytes. */
+    float dx = fmaxf(0, dl->GetClipRectMin().x - xf.gutterMin.x), gx = xf.gutterMax.x + dx;
+    if (dx > 0) {
+        dl->AddRectFilled(ImVec2(xf.gutterMin.x + dx, fmaxf(top, xf.gutterMin.y)), ImVec2(gx + Px(2), fminf(bottom, xf.gutterMax.y)),
+                          WithAlpha(t.layer, 230));
+    }
+    int r = (int)floorf((top - lh - xf.origin.y) / xf.scale.y);
+    r = r < 0 ? 0 : r - r % step;
+    for (; r < rows; r += step) {
+        float y = xf.toScreen(0, (float)r).y;
+        if (y > bottom) break;
+        char lab[16];
+        snprintf(lab, sizeof(lab), "%05X", (unsigned)r * rowBytes);
+        ImVec2 ts = ImGui::CalcTextSize(lab);
+        dl->AddLine(ImVec2(gx - Px(3), y), ImVec2(gx, y), t.textTertiary);
+        dl->AddText(ImVec2(gx - ts.x - Px(5), y), t.textSecondary, lab);
+    }
+    PopFont();
 }
 
 }
