@@ -62,6 +62,9 @@ void amdFlashEnableFastCommands(AmdFlash* rm);
 
 int amdFlashCmdInProgress(AmdFlash* rm);
 
+/* The file that keeps what the MSX writes to the flash, or NULL when nothing is kept. */
+const char* amdFlashPersistFile(AmdFlash* rm);
+
 UInt8 amdFlashRead(AmdFlash* rm, UInt32 address);
 void amdFlashWrite(AmdFlash* rm, UInt32 address, UInt8 value);
 UInt8* amdFlashGetPage(AmdFlash* rm, UInt32 address);

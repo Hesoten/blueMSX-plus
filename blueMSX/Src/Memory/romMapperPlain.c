@@ -195,6 +195,9 @@ int romMapperPlainCreate(const char* filename, UInt8* romData,
     rm->deviceHandle = deviceManagerRegister(ROM_PLAIN, &callbacks, rm);
     slotRegister(slot, sslot, startPage, 8, NULL, NULL, NULL, destroy, rm);
 
+    /* No segment size: nothing switches. rm->size, not the 64kB padded buffer. */
+    slotSetStorage(slot, sslot, rm->romData, rm->size, 0, SLOT_STORAGE_ROM);
+
     for (i = 0; i < 8; i++) {
         slotMapPage(slot, sslot, startPage + i, rm->romData + 0x2000 * romMapper[i], 1, 0);
     }

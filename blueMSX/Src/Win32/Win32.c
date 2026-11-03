@@ -99,6 +99,14 @@
 #include "AmdFlash.h"
 #include "TokenExtract.h"
 #include "Emulator.h"
+#include "Debugger.h"
+#include "ControlDebuggerListener.h"
+#include "ControlStopLog.h"
+#include "ControlClient.h"
+#include "ControlSocket.h"
+#include "ControlWindowThread.h"
+#include "Win32ActivityPanel.h"
+#include "RaceTest.h"
 #include "JoystickPort.h"
 #include "Theme.h"
 #include "VideoRender.h"
@@ -1947,6 +1955,57 @@ static void checkKeyUp(Shortcuts* s, ShotcutHotkey key)
 #define WM_UPDATE            (WM_USER + 1245)
 #define WM_LAUNCHFILE        (WM_USER + 1249)
 #define WM_FLASHPROBLEM      (WM_USER + 1250)
+#ifdef BMSX_RACE_TEST
+/* Arms a race test point: wParam the point, lParam the milliseconds; point 0 dumps the activity log
+** and RACE_HOLD_CHANGE holds a change open as a menu does, for lParam ms. */
+#define WM_RACETEST          (WM_USER + 1260)
+#define RACE_HOLD_CHANGE     100
+
+/* A suspend and a nested message loop, as an open menu has, so the change stays pending. */
+static void raceTestHoldChange(int ms)
+{
+    DWORD start = GetTickCount();
+    MSG   msg;
+
+    emulatorSuspend();
+    raceTestLog("change held");
+    while ((int)(GetTickCount() - start) < ms) {
+        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
+        Sleep(5);
+    }
+    raceTestLog("change ends");
+    emulatorResume();
+}
+
+static void raceTestDumpActivity(void)
+{
+    CtrlActivityEntry entry;
+    char   line[128];
+    UInt32 first;
+    UInt32 last;
+    UInt32 seq;
+    int    i = 0;
+
+    raceTestLog("activity dump");
+    if (!ctrlActivitySeqRange(&first, &last)) {
+        return;
+    }
+    for (seq = first; seq <= last; seq++, i++) {
+        if (!ctrlActivityEntryBySeq(seq, &entry)) {
+            _snprintf(line, sizeof(line), "activity %d missing", i);
+        }
+        else {
+            _snprintf(line, sizeof(line), "activity %d seq %lu actor %ld verb %d count %lu %s", i,
+                      (unsigned long)entry.seq, (long)entry.client, entry.verb,
+                      (unsigned long)entry.count, entry.detail);
+        }
+        raceTestLog(line);
+    }
+}
+#endif
 
 /* Runs on the emulator thread while a cartridge is created, so the dialog is
 ** left to the window: a modal box here would stall the thread being waited on. */
@@ -2068,6 +2127,11 @@ typedef struct {
     int minimized;
     /* Started with /hidden: never shown, silent, and no dialogs. */
     int hidden;
+    /* The start the command line asked for is over; later ones may fail and be retried. */
+    int firstStartDone;
+    /* /exitafter and /screenshot. Zero frames means run until told to stop. */
+    int exitAfterFrames;
+    char exitScreenshot[MAX_PATH];
     Mixer* mixer;
     int enteringFullscreen;
     Shortcuts* shortcuts;
@@ -2252,6 +2316,8 @@ void archShowPropertiesDialog(PropPage  startPane) {
     changed = showProperties(pProperties, st.hwnd, startPane, st.mixer, st.pVideo);
     exitDialogShow();
     emulatorSetFrequency(pProperties->emulation.speed, NULL);
+    /* A Cancel restores the old properties; the panel writes its own text size back. */
+    activityPanelSettingsChanged();
     if (!changed) {
         return;
     }
@@ -3108,7 +3174,17 @@ static void emuWindowDraw(int onlyOnVblank)
     archSemaphoreSignal(lock);
 }
 
+static void* createScreenShotWritten(int large, int* bitmapSize, int png,
+                                     const char* overrideFilename, int* wroteFile);
+
 void* createScreenShotEx(int large, int* bitmapSize, int png, const char* overrideFilename)
+{
+    return createScreenShotWritten(large, bitmapSize, png, overrideFilename, NULL);
+}
+
+/* wroteFile says whether the file was written; the returned pointer cannot. */
+static void* createScreenShotWritten(int large, int* bitmapSize, int png,
+                                     const char* overrideFilename, int* wroteFile)
 {
     void* bitmap = NULL;
 
@@ -3121,7 +3197,11 @@ void* createScreenShotEx(int large, int* bitmapSize, int png, const char* overri
     
     FrameBuffer* frameBuffer = frameBufferGetViewFrame();
 
+    if (wroteFile != NULL) {
+        *wroteFile = 0;
+    }
     if (frameBuffer == NULL || frameBuffer->maxWidth <= 0 || frameBuffer->lines <= 0) {
+        free(bmBitsDst);
         return NULL;
     }
 
@@ -3147,7 +3227,12 @@ void* createScreenShotEx(int large, int* bitmapSize, int png, const char* overri
         bitmap = ScreenShot2(bmBitsDst, 320 * zoom, frameBuffer->maxWidth * zoom, 240 * zoom, bitmapSize, png);
     }
     else {
-        ScreenShot3Ex(pProperties, bmBitsDst, 320 * zoom, frameBuffer->maxWidth * zoom, 240 * zoom, png, overrideFilename);
+        int wrote = ScreenShot3Ex(pProperties, bmBitsDst, 320 * zoom,
+                                  frameBuffer->maxWidth * zoom, 240 * zoom, png,
+                                  overrideFilename);
+        if (wroteFile != NULL) {
+            *wroteFile = wrote;
+        }
     }
 
     free(bmBitsDst);
@@ -3158,6 +3243,18 @@ void* createScreenShotEx(int large, int* bitmapSize, int png, const char* overri
 void* createScreenShot(int large, int* bitmapSize, int png)
 {
     return createScreenShotEx(large, bitmapSize, png, NULL);
+}
+
+/* Reads the last finished frame, so the emulation need not be stopped. */
+int archScreenCaptureToFile(ScreenCaptureType type, const char* fname)
+{
+    int wrote = 0;
+
+    if (fname == NULL || fname[0] == 0) {
+        return 0;
+    }
+    createScreenShotWritten(type == SC_LARGE, NULL, 1, fname, &wrote);
+    return wrote;
 }
 
 static LRESULT CALLBACK emuWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam) 
@@ -3398,6 +3495,25 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         }
         return TRUE;
 
+    case WM_CTRLGUICOMMAND:
+        /* Only a nested loop (a menu, a dialog, a box) gets here; the work must not run inside it. */
+        ctrlWindowThreadRunPosted(0);
+        return 0;
+
+#ifdef BMSX_RACE_TEST
+    case WM_RACETEST:
+        if (wParam == RACE_HOLD_CHANGE) {
+            raceTestHoldChange((int)lParam);
+        }
+        else if (wParam == 0) {
+            raceTestDumpActivity();
+        }
+        else {
+            raceTestArm((int)wParam, (int)lParam);
+        }
+        return 0;
+#endif
+
     case WM_FLASHPROBLEM:
         if (lParam != 0 && st.hidden) {
             free((char*)lParam);
@@ -3499,8 +3615,8 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             }
             return 0;
         case SC_MINIMIZE:
-            vdpSetDisplayEnable(0);
             st.minimized = 1;
+            updateMinimizedDrawing();
 //            emulatorSuspend();
             break;
         case SC_RESTORE:
@@ -4043,7 +4159,11 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         return TRUE;
 
     case WM_DESTROY:
-        
+        /* Before the stop: a thread killed there may hold the activity lock the panel takes. */
+        activityPanelDestroy();
+        /* First, so no client request runs against what follows; only here is it killed. */
+        ctrlSocketStop(1);
+
         if (pProperties->emulation.ejectMediaOnExit) {
         	actionCartRemove1(); actionCartRemove2();
         	actionDiskRemoveA(); actionDiskRemoveB();
@@ -4636,12 +4756,15 @@ static void commandLineReport(const char* message)
     }
 }
 
-/* A hidden run has no one to click a dialog away, so a failure to start ends
-** the process with its own exit code instead. */
+/* A hidden run has no one to click a dialog away. The first start ends the process
+** with exit code 2; a later failure is only reported, since the session (symbols,
+** breakpoints) must survive. */
 static void hiddenStartFail(const char* message)
 {
     commandLineReport(message);
-    exit(2);
+    if (!st.firstStartDone) {
+        exit(2);
+    }
 }
 
 static void commandLineFail(const char* message)
@@ -5126,6 +5249,14 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     createDataDirectories();
     seedShortcutProfiles();
 
+    /* Before any plugin, which may pause or run the machine as it loads. */
+    emulatorCreateLocks();
+    debuggerCreateLocks();
+    dbgMarkGuiThread();
+    ctrlStopLogCreate();
+    ctrlClientCreate();
+    ctrlDebuggerListenerCreate();
+
     // Load tools
     sprintf(buffer, "%s\\Tools", st.pCurDir);
     toolLoadAll(buffer, pProperties->language);
@@ -5184,6 +5315,10 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     emulatorInit(pProperties, st.mixer);
     amdFlashSetProblemHandler(flashProblemPost);
     actionInit(st.pVideo, pProperties, st.mixer);
+    ctrlGateSetLevel(pProperties->emulation.agentControl);
+    if (ctrlGateLevel() != CTRL_GATE_OFF) {
+        ctrlSocketStart();
+    }
     tapeSetReadOnly(pProperties->cassette.readOnly);
     tapeSignalSetSaveMonitor(pProperties->cassette.saveMonitor);
     
@@ -5402,6 +5537,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     if (emuTryStartWithArguments(pProperties, szLine, NULL) < 0) {
         commandLineFail(emuCommandLineGetError());
     }
+    st.firstStartDone = 1;
 
     {
         char* themeArg = emuCheckValueArgument(szLine, "theme");
@@ -5427,14 +5563,51 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
         actionToolsShowDebugger();
     }
 
+    if (emuCheckFlagArgument(szLine, "paused")) {
+        dbgPause();
+    }
+    {
+        /* Use each value before asking for the next: they share one static buffer. */
+        char* argument = emuCheckValueArgument(szLine, "exitafter");
+
+        if (argument != NULL) {
+            st.exitAfterFrames = strtol(argument, NULL, 10);
+        }
+        argument = emuCheckValueArgument(szLine, "screenshot");
+        if (argument != NULL) {
+            strncpy(st.exitScreenshot, argument, sizeof(st.exitScreenshot) - 1);
+            st.exitScreenshot[sizeof(st.exitScreenshot) - 1] = 0;
+        }
+    }
+
     archApplyGameSchedulerPolicy(pProperties->emulation.priorityBoost);
 
     while (!doExit) {
-        DWORD rv = MsgWaitForMultipleObjects(1, &st.ddrawEvent, FALSE, INFINITE, QS_ALLINPUT);    
+        DWORD rv;
+
+        /* Closes the way the window's X does, so the machine stops and media are
+        ** written back; the emulation thread must not tear the machine down itself. */
+        if (st.exitAfterFrames > 0 &&
+            emulatorGetFramesRun() >= (UInt32)st.exitAfterFrames)
+        {
+            if (st.exitScreenshot[0] != 0) {
+                archScreenCaptureToFile(SC_LARGE, st.exitScreenshot);
+                st.exitScreenshot[0] = 0;
+            }
+            st.exitAfterFrames = 0;
+            archQuit();
+        }
+
+        rv = MsgWaitForMultipleObjects(1, &st.ddrawEvent, FALSE, INFINITE, QS_ALLINPUT);
         while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
             if (msg.message == WM_QUIT) {
                 doExit = 1;
                 break;
+            }
+            /* Taken only here: a nested loop (a menu, a box) dispatches it to wndProc instead. */
+            if (msg.message == WM_CTRLGUICOMMAND && msg.hwnd == st.hwnd) {
+                ctrlWindowThreadRunPosted(IsWindowEnabled(st.hwnd) && st.showDialog == 0);
+                continue;
             }
             /* Reaches the keys a focused child control would otherwise eat. */
             if (msg.message == WM_KEYDOWN || msg.message == WM_SYSKEYDOWN) {
@@ -5443,6 +5616,9 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
+        /* Not inside any handler, menu or dialog: what they changed is done. */
+        dbgChangesDone();
+        ctrlSocketPoll();
         if (rv == WAIT_OBJECT_0) {
             /* The drivers flip the view frame as they draw. A hidden run draws
             ** nothing, so it flips here, which is what a screenshot reads. */
@@ -5545,13 +5721,13 @@ void archShowNoRomInZipDialog() {
 void archShowNoDiskInZipDialog() {
     enterDialogShow();
     MessageBoxU(NULL, langErrorNoDskInZip(), langErrorTitle(), MB_OK);
-    enterDialogShow();
+    exitDialogShow();
 }
 
 void archShowNoCasInZipDialog() {
     enterDialogShow();
     MessageBoxU(NULL, langErrorNoCasInZip(), langErrorTitle(), MB_OK);
-    enterDialogShow();
+    exitDialogShow();
 }
 
 void archShowUnknownFileTypeDialog(const char* fileName) {
@@ -6126,6 +6302,7 @@ static void showStartEmuFailDialogShared(void)
         }
         text[sizeof(text) - 1] = 0;
         hiddenStartFail(text);
+        return;
     }
 
     if (n > 0) {
@@ -6184,6 +6361,7 @@ void archShowStartEmuFailDialog(const char* machineName)
 
     if (st.hidden) {
         hiddenStartFail(body);
+        return;
     }
 
     MessageBoxLargeU(NULL, langErrorStartEmu(), body, langErrorTitle(),
@@ -6225,6 +6403,7 @@ void archShowLanguageDialog()
     for (i = 0; i < toolGetCount(); i++) {
         toolInfoSetLanguage(toolInfoGet(i), pProperties->language);
     }
+    activityPanelSettingsChanged();
 
     updateMenu(0);
 }
@@ -7589,6 +7768,12 @@ void archMinimizeWindow() {
 //        ShowWindow(st.currentHwnd, SW_MINIMIZE);
         SendMessage(st.currentHwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
     }
+}
+
+/* A minimized window stops drawing to save CPU, unless an agent may ask for the screen. */
+void updateMinimizedDrawing(void)
+{
+    vdpSetDisplayEnable(!st.minimized || ctrlGateLevel() != CTRL_GATE_OFF);
 }
 
 void archCloseWindow() {

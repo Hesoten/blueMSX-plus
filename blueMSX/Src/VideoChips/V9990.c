@@ -1675,6 +1675,11 @@ V9990Mode v9990GetShownMode(int* superimposed)
     return V9990_MODE_NONE;
 }
 
+int v9990IsPresent(void)
+{
+    return theV9990 != NULL;
+}
+
 int v9990IsFrameKeyed(V9990* v9990)
 {
     return v9990->frameKeyed;

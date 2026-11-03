@@ -197,13 +197,30 @@ static const char* mnemonicMain[256] =
 #define ABS(val)  (((val) & 128) ? 256 - (val) : val)
 
 
-int r800Dasm(R800* r800, UInt16 PC, char* dest)
+typedef struct {
+    const UInt8* code;
+    int          len;
+    int          pos;
+    int          overrun;
+} DasmFetch;
+
+static UInt8 dasmTake(DasmFetch* fetch)
+{
+    if (fetch->pos >= fetch->len) {
+        fetch->overrun = 1;
+        return 0;
+    }
+    return fetch->code[fetch->pos++];
+}
+
+static int dasmDecode(DasmFetch* fetch, UInt16 PC,
+                      R800DasmSymbolFn symbolFn, void* symbolRef,
+                      char* dest)
 {
 	const char* r = "INTERNAL PROGRAM ERROR";
 	char offset = 0;
 	const char* S;
 	char buf[32];
-	int pc = PC;
     int j;
     int k;
     UInt8 val0 = 0;
@@ -213,25 +230,25 @@ int r800Dasm(R800* r800, UInt16 PC, char* dest)
 
 	dest[0] = '\0';
 
-    val0 = r800->readMemory(r800->ref, pc++);
+    val0 = dasmTake(fetch);
 
 	switch (val0) {
 	case 0xcb:
-        val1 = r800->readMemory(r800->ref, pc++);
+        val1 = dasmTake(fetch);
 		S = mnemonicCb[val1];
 		break;
 	case 0xed:
-        val1 = r800->readMemory(r800->ref, pc++);
+        val1 = dasmTake(fetch);
 		S = mnemonicEd[val1];
 		break;
 	case 0xdd:
 		r = "ix";
-        val1 = r800->readMemory(r800->ref, pc++);
+        val1 = dasmTake(fetch);
 		switch (val1) {
 		case 0xcb:
-            val2 = r800->readMemory(r800->ref, pc++);
+            val2 = dasmTake(fetch);
 			offset = val2;
-			S = mnemonicXxCb[r800->readMemory(r800->ref, pc++)];
+			S = mnemonicXxCb[dasmTake(fetch)];
 			break;
 		default:
 			S = mnemonicXx[val1];
@@ -240,12 +257,12 @@ int r800Dasm(R800* r800, UInt16 PC, char* dest)
 		break;
 	case 0xfd:
 		r = "iy";
-        val1 = r800->readMemory(r800->ref, pc++);
+        val1 = dasmTake(fetch);
 		switch (val1) {
 		case 0xcb:
-            val2 = r800->readMemory(r800->ref, pc++);
+            val2 = dasmTake(fetch);
 			offset = val2;
-			S = mnemonicXxCb[r800->readMemory(r800->ref, pc++)];
+			S = mnemonicXxCb[dasmTake(fetch)];
 			break;
 		default:
 			S = mnemonicXx[val1];
@@ -260,20 +277,42 @@ int r800Dasm(R800* r800, UInt16 PC, char* dest)
 	for (j = 0; S[j]; j++) {
 		switch (S[j]) {
 		case 'B':
-			sprintf(buf, "#%02x", r800->readMemory(r800->ref, pc++));
+			sprintf(buf, "#%02x", dasmTake(fetch));
 			strcat(dest, buf);
 			break;
-		case 'R':
-			sprintf (buf, "#%04x", (PC + 2 + (Int8)r800->readMemory(r800->ref, pc++)) & 0xFFFF);
-			strcat(dest, buf);
+		case 'R': {
+            UInt16 target = (UInt16)((PC + 2 + (Int8)dasmTake(fetch)) & 0xFFFF);
+            const char* name = symbolFn != NULL
+                                   ? symbolFn(symbolRef, target, 2) : NULL;
+            if (name != NULL) {
+                strcat(dest, name);
+            }
+            else {
+                sprintf(buf, "#%04x", target);
+                strcat(dest, buf);
+            }
 			break;
-		case 'W':
-            val = r800->readMemory(r800->ref, pc++);
-			sprintf(buf, "#%04x", val + r800->readMemory(r800->ref, pc++) * 256);
-			strcat(dest, buf);
+        }
+		case 'W': {
+            UInt16 target;
+            const char* name;
+            /* In parentheses it is a memory reference, otherwise an immediate. */
+            int isAddress = j > 0 && S[j - 1] == '(';
+
+            val = dasmTake(fetch);
+            target = (UInt16)(val + dasmTake(fetch) * 256);
+            name = symbolFn != NULL ? symbolFn(symbolRef, target, isAddress) : NULL;
+            if (name != NULL) {
+                strcat(dest, name);
+            }
+            else {
+                sprintf(buf, "#%04x", target);
+                strcat(dest, buf);
+            }
 			break;
+        }
 		case 'X':
-            val = r800->readMemory(r800->ref, pc++);
+            val = dasmTake(fetch);
 			sprintf(buf, "(%s%c#%02x)", r, SIGN(val), ABS(val));
 			strcat(dest, buf);
 			break;
@@ -294,16 +333,16 @@ int r800Dasm(R800* r800, UInt16 PC, char* dest)
 			sprintf(dest, "db     #%02x,#CB,#%02x", val0, val2);
 			return 2;
 		case ' ': {
-			int k = (int)strlen(dest);
-            if (k < 6) {
-                k = 7 - k;
+			int pad = (int)strlen(dest);
+            if (pad < 6) {
+                pad = 7 - pad;
             }
             else {
-                k = 1;
+                pad = 1;
             }
 
-			memset(buf, ' ', k);
-			buf[k] = '\0';
+			memset(buf, ' ', pad);
+			buf[pad] = '\0';
 			strcat(dest, buf);
 			break;
 		}
@@ -314,7 +353,7 @@ int r800Dasm(R800* r800, UInt16 PC, char* dest)
 			break;
 		}
 	}
-	
+
     k = (int)strlen(dest);
     if (k < 17) {
         k = 18 - k;
@@ -327,7 +366,68 @@ int r800Dasm(R800* r800, UInt16 PC, char* dest)
 	buf[k] = '\0';
 	strcat(dest, buf);
 
-	return pc - PC;
+	return fetch->pos;
+}
+
+static UInt8 cpuByte(void* ref, UInt16 at)
+{
+    R800* r800 = (R800*)ref;
+    return r800->readMemory(r800->ref, at);
+}
+
+int r800Dasm(R800* r800, UInt16 PC, char* dest)
+{
+    UInt8 window[R800_DASM_MAX_LEN];
+    DasmFetch fetch;
+    int i;
+
+    /* Wraps at 0x10000 as the CPU does. */
+    for (i = 0; i < R800_DASM_MAX_LEN; i++) {
+        window[i] = cpuByte(r800, (UInt16)(PC + i));
+    }
+
+    fetch.code    = window;
+    fetch.len     = R800_DASM_MAX_LEN;
+    fetch.pos     = 0;
+    fetch.overrun = 0;
+
+    return dasmDecode(&fetch, PC, NULL, NULL, dest);
+}
+
+int r800DasmBuf(const UInt8* code, int codeLen, UInt16 pcLabel,
+                R800DasmSymbolFn symbolFn, void* symbolRef,
+                char* dest, int destLen)
+{
+    char      work[R800_DASM_TEXT_MAX];
+    DasmFetch fetch;
+    int       length;
+
+    if (destLen <= 0) {
+        return 0;
+    }
+    dest[0] = 0;
+    if (code == NULL || codeLen <= 0) {
+        return 0;
+    }
+
+    fetch.code    = code;
+    fetch.len     = codeLen < R800_DASM_MAX_LEN ? codeLen : R800_DASM_MAX_LEN;
+    fetch.pos     = 0;
+    fetch.overrun = 0;
+
+    length = dasmDecode(&fetch, pcLabel, symbolFn, symbolRef, work);
+
+    if (fetch.overrun) {
+        /* The missing bytes lie outside this buffer; do not guess them. */
+        strncpy(dest, "(instruction runs past the end of what is readable here)",
+                (size_t)destLen - 1);
+        dest[destLen - 1] = 0;
+        return 0;
+    }
+
+    strncpy(dest, work, (size_t)destLen - 1);
+    dest[destLen - 1] = 0;
+    return length;
 }
 
 int r800OpenTrace(const char* filename)

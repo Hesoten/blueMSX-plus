@@ -36,4 +36,16 @@ void r800CloseTrace();
 
 int r800Dasm(R800* r800, UInt16 PC, char* dest);
 
+/* r800Dasm over a buffer. Returns the length, or 0 with a message in dest when
+** the instruction runs past codeLen. symbolFn may name each 16 bit operand (NULL
+** keeps the number); isAddress is 1 for a (nn) reference and 2 for a relative jump. */
+#define R800_DASM_MAX_LEN  4
+#define R800_DASM_TEXT_MAX 160
+
+typedef const char* (*R800DasmSymbolFn)(void* ref, UInt16 at, int isAddress);
+
+int r800DasmBuf(const UInt8* code, int codeLen, UInt16 pcLabel,
+                R800DasmSymbolFn symbolFn, void* symbolRef,
+                char* dest, int destLen);
+
 #endif

@@ -77,4 +77,67 @@ void slotUpdatePage(int slot, int sslot, int page, UInt8* pageData,
 
 void slotSetSubslotted(int slot, int subslotted);
 
+/* A "page" is a Z80 16kB page (0..3), a "bank" one of the eight 8kB banks of a
+** slot (0..7). */
+
+/* Bits returned by slotDebugGetBankState. Keep in sync with the TOOL_SLOT_
+** copies in Src/Win32/BlueMSXToolInterface.h, which plugins compile against. */
+#define SLOT_DEBUG_REGISTERED 0x01  /* a device claims this bank            */
+#define SLOT_DEBUG_READABLE   0x02  /* direct page reads are enabled        */
+#define SLOT_DEBUG_WRITABLE   0x04  /* direct page writes are enabled       */
+#define SLOT_DEBUG_HASDATA    0x08  /* real memory is mapped in, not filler */
+
+int slotDebugGetPagePrimarySlot(int page);
+int slotDebugGetPageSubSlot(int page);
+int slotDebugGetSubslotted(int primarySlot);
+int slotDebugGetSubslotSelect(int primarySlot);
+int slotDebugGetBankState(int primarySlot, int subSlot, int bank);
+
+/* The 8kB a bank maps, paged in or not; NULL when it is read through callbacks. */
+const UInt8* slotDebugGetBankData(int primarySlot, int subSlot, int bank);
+
+/* What a slot holds: a ROM file name, a mapper name, a RAM size. Names accumulate
+** until the slot is cleared. slotDebugGetContents never returns NULL. */
+void slotAddContents(int slot, int sslot, const char* description);
+void slotClearContents(int slot, int sslot);
+const char* slotDebugGetContents(int slot, int sslot);
+
+/* Segment a mapper has in an 8kB bank, reported by the mapper as it switches.
+** -1 when no segment is reported there. */
+void slotSetBankSegment(int slot, int sslot, int bank, int segment);
+int slotDebugGetBankSegment(int slot, int sslot, int bank);
+
+/* The bank registers of a mapper the debugger may switch (MapperDebugBanks.h),
+** or NULL. Cleared with the storage when the mapper goes away. */
+struct MapperBanks;
+void slotSetBankSwitch(int slot, int sslot, struct MapperBanks* banks);
+struct MapperBanks* slotDebugGetBankSwitch(int slot, int sslot);
+
+/* Segment size in bytes (0x2000 or 0x4000); 0 when no segments are reported. */
+void slotSetSegmentSize(int slot, int sslot, int segmentSize);
+int slotDebugGetSegmentSize(int slot, int sslot);
+
+/* The device's whole flat storage, so paged out segments can be read without
+** switching. The pointer is live: the device clears it when it goes away. */
+#define SLOT_STORAGE_NONE 0
+#define SLOT_STORAGE_ROM  1
+#define SLOT_STORAGE_RAM  2
+
+void slotSetStorage(int slot, int sslot, UInt8* data, UInt32 size,
+                    int writable, int kind);
+/* As slotSetStorage, for unswitched storage whose first byte is at slot offset base. */
+void slotSetStorageAt(int slot, int sslot, UInt8* data, UInt32 size,
+                      int writable, int kind, UInt32 base);
+/* Any out argument may be NULL. Returns SLOT_STORAGE_NONE and touches nothing
+** when the slot publishes no storage. */
+int slotDebugGetStorage(int slot, int sslot, UInt8** data, UInt32* size,
+                        int* writable);
+/* The slot offset of the storage's first byte; 0 for switched storage or none. */
+UInt32 slotDebugGetStorageBase(int slot, int sslot);
+
+/* The memory mapper the machine was built with as its main RAM, marked by the mapper
+** itself; a cartridge's mapper is never marked. slotDebugGetMainRam is 0 with no mark. */
+void slotSetMainRam(int slot, int sslot);
+int slotDebugGetMainRam(int* slot, int* sslot);
+
 #endif

@@ -57,6 +57,11 @@ void saveDialogPos(HWND hwnd, int dialogID);
 
 HWND getMainHwnd();
 HWND getEmuHwnd();
+/* Call after the window is minimized or Agent Control changes level. */
+void updateMinimizedDrawing(void);
+
+/* Posted by the control socket's thread for work it hands to the window's thread. */
+#define WM_CTRLGUICOMMAND (WM_USER + 1251)
 
 
 void enterDialogShow();
@@ -72,6 +77,8 @@ BOOL win32CommonIsDarkMode(void);
 COLORREF win32CommonDarkBg(void);
 COLORREF win32CommonDarkFg(void);
 HBRUSH   win32CommonDarkBgBrush(void);
+/* Rereads the theme on the next query; call on WM_SETTINGCHANGE "ImmersiveColorSet". */
+void     win32InvalidateDarkModeCache(void);
 
 /* Per-DLGPROC opt-in: apply dark titlebar / SetWindowTheme / WM_CTLCOLOR*
 ** subclass.  Call from WM_INITDIALOG.  Safe in light mode (no-op). */

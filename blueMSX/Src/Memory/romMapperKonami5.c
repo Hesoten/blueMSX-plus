@@ -32,6 +32,7 @@
 #include "MediaDb.h"
 #include "SlotManager.h"
 #include "DeviceManager.h"
+#include "MapperDebugBanks.h"
 #include "SCC.h"
 #include "Board.h"
 #include "SaveState.h"
@@ -49,7 +50,39 @@ typedef struct {
     int romMapper[4];
     int sccEnable;
     SCC* scc;
+    MapperBanks banks;
 } RomMapperKonami5;
+
+/* While the SCC is on, bank 2 is read through read(), which answers its registers. */
+static void mapBank(RomMapperKonami5* rm, int bank)
+{
+    slotMapPage(rm->slot, rm->sslot, rm->startPage + bank,
+                rm->romData + rm->romMapper[bank] * 0x2000, bank != 2 || !rm->sccEnable, 0);
+    slotSetBankSegment(rm->slot, rm->sslot, rm->startPage + bank, rm->romMapper[bank]);
+}
+
+static int getBank(void* ref, int reg)
+{
+    return ((RomMapperKonami5*)ref)->romMapper[reg];
+}
+
+/* Only the segment: the SCC stays as the guest left it. */
+static void setBank(void* ref, int reg, int segment)
+{
+    RomMapperKonami5* rm = (RomMapperKonami5*)ref;
+
+    rm->romMapper[reg] = segment;
+    mapBank(rm, reg);
+}
+
+static const char* sccNote(void* ref, int reg)
+{
+    RomMapperKonami5* rm = (RomMapperKonami5*)ref;
+
+    return reg == 2 && rm->sccEnable ? "9800-9FFF still answers with the SCC registers" : NULL;
+}
+
+static const MapperBanksType bankType = { 4, 1, 256, 0, getBank, setBank, NULL, sccNote };
 
 static void saveState(RomMapperKonami5* rm)
 {
@@ -86,16 +119,10 @@ static void loadState(RomMapperKonami5* rm)
 
     sccLoadState(rm->scc);
 
-    for (i = 0; i < 4; i++) {   
-        slotMapPage(rm->slot, rm->sslot, rm->startPage + i, rm->romData + rm->romMapper[i] * 0x2000, 1, 0);
+    for (i = 0; i < 4; i++) {
+        mapBank(rm, i);
     }
-    
-    if (rm->sccEnable) {
-        slotMapPage(rm->slot, rm->sslot, rm->startPage + 2, rm->romData + rm->romMapper[2] * 0x2000, 0, 0);
-    }
-    else {
-        slotMapPage(rm->slot, rm->sslot, rm->startPage + 2, rm->romData + rm->romMapper[2] * 0x2000, 1, 0);
-    }
+    mapperBanksSync(&rm->banks);
 }
 
 static void destroy(RomMapperKonami5* rm)
@@ -115,8 +142,9 @@ static void reset(RomMapperKonami5* rm)
     rm->sccEnable = 0;
     for (i = 0; i < 4; i++) {
         rm->romMapper[i] = i;
-        slotMapPage(rm->slot, rm->sslot, rm->startPage + i, rm->romData + i * 0x2000, 1, 0);
+        mapBank(rm, i);
     }
+    mapperBanksSync(&rm->banks);
     sccReset(rm->scc);
 }
 
@@ -170,17 +198,10 @@ static void write(RomMapperKonami5* rm, UInt16 address, UInt8 value)
 
     value &= rm->romMask;
     if (rm->romMapper[bank] != value || change) {
-        UInt8* bankData = rm->romData + ((int)value << 13);
-
         rm->romMapper[bank] = value;
-        
-        if (bank == 2 && rm->sccEnable) {
-            slotMapPage(rm->slot, rm->sslot, rm->startPage + 2, rm->romData + rm->romMapper[2] * 0x2000, 0, 0);
-        }
-        else {
-            slotMapPage(rm->slot, rm->sslot, rm->startPage + bank, bankData, 1, 0);
-        }
+        mapBank(rm, bank);
     }
+    mapperBanksProgramWrote(&rm->banks, bank);
 }
 
 int romMapperKonami5Create(const char* filename, UInt8* romData, 
@@ -201,6 +222,7 @@ int romMapperKonami5Create(const char* filename, UInt8* romData,
     rm = malloc(sizeof(RomMapperKonami5));
 
     rm->deviceHandle = deviceManagerRegister(ROM_KONAMI5, &callbacks, rm);
+    slotSetSegmentSize(slot, sslot, 0x2000);
     slotRegister(slot, sslot, startPage, 4, read, peek, write, destroy, rm);
 
     rm->romData = calloc(1, size);
@@ -209,6 +231,7 @@ int romMapperKonami5Create(const char* filename, UInt8* romData,
     rm->slot  = slot;
     rm->sslot = sslot;
     rm->startPage  = startPage;
+    slotSetStorage(slot, sslot, rm->romData, size, 0, SLOT_STORAGE_ROM);
     rm->scc = sccCreate(boardGetMixer());
     sccSetMode(rm->scc, SCC_REAL);
     rm->sccEnable = 0;
@@ -218,9 +241,10 @@ int romMapperKonami5Create(const char* filename, UInt8* romData,
     rm->romMapper[2] = 2;
     rm->romMapper[3] = 3;
 
-    for (i = 0; i < 4; i++) {   
-        slotMapPage(rm->slot, rm->sslot, rm->startPage + i, rm->romData + rm->romMapper[i] * 0x2000, 1, 0);
+    for (i = 0; i < 4; i++) {
+        mapBank(rm, i);
     }
+    mapperBanksInit(&rm->banks, &bankType, rm, slot, sslot, startPage);
 
     return 1;
 }

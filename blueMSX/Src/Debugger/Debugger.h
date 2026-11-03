@@ -56,6 +56,8 @@ typedef enum {
 
 
 typedef void (*DebuggerEvent)(void*);
+/* A pause told with its cause (a DBG_STOP_ value) and the run generation it began. */
+typedef void (*DebuggerPauseEvent)(void*, int cause, UInt32 runGeneration);
 typedef void (*DebuggerTrace)(void*, const char*);
 typedef void (*DebuggerSetBp)(void*, UInt16, UInt16, UInt16);
 
@@ -110,11 +112,20 @@ BlueDebugger* debuggerCreate(DebuggerEvent onEmulatorStart,
 
 void debuggerDestroy(BlueDebugger* debugger);
 
+/* The one listener inside the emulator, told before every plugin; created before they load. */
+BlueDebugger* debuggerCreateListener(DebuggerEvent onEmulatorStart, DebuggerEvent onEmulatorStop,
+                                     DebuggerPauseEvent onEmulatorPause, void* ref);
+
+/* Bumped when the machine is started, stopped, reset, or a savestate loaded. */
+UInt32 dbgMachineGeneration(void);
+void   dbgNotifyMachineChanged(void);
+
 DbgSnapshot*     dbgSnapshotCreate();
 void             dbgSnapshotDestroy(DbgSnapshot* dbgSnapshot);
 DbgState         dbgGetState();
 int              dbgSnapshotGetDeviceCount(DbgSnapshot* dbgSnapshot);
 const DbgDevice* dbgSnapshotGetDevice(DbgSnapshot* dbgSnapshot, int deviceIndex);
+const DbgDevice* dbgSnapshotFindDeviceWithRegisters(DbgSnapshot* dbgSnapshot, int type);
 
 int                    dbgDeviceGetMemoryBlockCount(DbgDevice* dbgDevice);
 const DbgMemoryBlock*  dbgDeviceGetMemoryBlock(DbgDevice* dbgDevice, int memBlockIndex);
@@ -131,15 +142,106 @@ int dbgDeviceWriteIoPort(DbgIoPorts* ioPorts, int portIndex, UInt32 value);
 
 void dbgRun();
 void dbgStop();
-void dbgPause();
-void dbgStep();
+/* Pauses a running machine only; non-zero when it did. */
+int  dbgPause();
+
+/* Resumes a paused machine only, as an agent asks: it never starts a stopped one, and is
+** refused (busy) while the window holds the machine for a question or a change. */
+#define DBG_RESUME_OK         0
+#define DBG_RESUME_NO_MACHINE 1
+#define DBG_RESUME_NOT_PAUSED 2
+#define DBG_RESUME_BUSY       3
+int  dbgResume(void);
+
+/* Pause and wait until the emulation thread has parked; non-zero once it has.
+** Use this rather than dbgPause before reading memory. */
+int  dbgPauseSync(int timeoutMs);
+
+/* Access to the machine from an agent's thread, which reads it only while it holds one:
+** a view of a paused, parked machine reads the CPU, memory and devices; a hold, of any
+** machine that is not stopped, only its layout and the last frame. Changers wait for it. */
+#define DBG_ACCESS_HOLD 1
+#define DBG_ACCESS_VIEW 2
+
+#define DBG_ACCESS_OK         0
+#define DBG_ACCESS_NO_MACHINE 1
+#define DBG_ACCESS_NOT_PAUSED 2  /* a view of a machine that runs */
+#define DBG_ACCESS_BUSY       3  /* no park, or no free lock, in time; or one is held already */
+#define DBG_ACCESS_CHANGING   4  /* the window's thread is changing the machine, or has a menu open */
+
+/* Once at startup, before any plugin loads. */
+void debuggerCreateLocks(void);
+/* Which thread is the window's and which serves agents; each calls its own once. */
+void dbgMarkGuiThread(void);
+void dbgMarkAgentThread(void);
+
+/* Waits up to timeoutMs; DBG_ACCESS_OK once this thread holds it. Never nested: a second
+** take while one is held is refused as busy. */
+int  dbgAccessBegin(int kind, int timeoutMs);
+void dbgAccessEnd(void);
+/* The kind this thread holds, or 0. */
+int  dbgAccessHeld(void);
+
+/* For whatever changes the machine: waits for an access in progress to end. On the window's
+** thread it also turns new ones away until dbgChangesDone, called where its loop is idle. */
+void dbgChangeBegin(void);
+void dbgChangesDone(void);
+/* Non-zero while the window's thread has a change under way. */
+int  dbgChangePending(void);
+/* Steps a paused machine one instruction; a DBG_RESUME_ result. On an agent's thread it is
+** refused (busy) while the window has a change under way, as dbgResume is. */
+int  dbgStep(void);
 void dbgStepBack();
 
 void dbgSetBreakpoint(UInt16 address);
+/* A plain breakpoint that stays when the machine starts again and is armed on the
+** new CPU, as segment ones are. For the control socket; dbgClearKeptBreakpoint removes it. */
+void dbgSetKeptBreakpoint(UInt16 address);
+/* Non-zero when a kept one was set there. The CPU keeps an address dbgSetBreakpoint or a
+** segment one also set, as in dbgClearKeptBreakpoints, which drops all kept ones. */
+int  dbgClearKeptBreakpoint(UInt16 address);
+void dbgClearKeptBreakpoints(void);
+/* Whether a plain breakpoint, from a plugin or the control socket, is set here. */
+int  dbgHasBreakpoint(UInt16 address);
+/* Clears only what dbgSetBreakpoint set; a kept one at the same address stays. */
 void dbgClearBreakpoint(UInt16 address);
+
+/* Breakpoint at an offset into a mapper segment of a slot; fires only while that
+** segment is paged in. Non-zero once watching; refuses when the table is full or
+** the offset does not fit a segment. */
+int  dbgSetSegmentBreakpoint(int slot, int subSlot, int segment, int offset);
+/* Non-zero when one was set there. */
+int  dbgClearSegmentBreakpoint(int slot, int subSlot, int segment, int offset);
+void dbgClearAllSegmentBreakpoints();
+int  dbgSegmentBreakpointCount();
+
+/* For listing: one segment table entry (0 when unused), and the plain addresses up to max. */
+int  dbgGetSegmentBreakpoint(int index, int* slot, int* subSlot, int* segment, int* offset);
+int  dbgSegmentBreakpointCapacity(void);
+int  dbgListBreakpoints(UInt16* out, int max);
+int  dbgListKeptBreakpoints(UInt16* out, int max);
+
+/* Once at startup, with debuggerCreateLocks: the lock every writer of the tables takes. */
+void dbgBreakpointsCreateLock(void);
+
+/* Call on machine start, before the plugins re-arm their own lists. Plain ones are
+** forgotten unless kept; kept and segment ones are armed again on the new CPU. */
+void dbgBreakpointsOnEmulatorStart();
+
+/* Call after a cartridge goes in or out: each segment breakpoint is armed where its segment
+** can be paged in now. Runs on the GUI thread for a change, and on the emulation thread as
+** a machine starts; it takes the writers' lock, as an agent's request does. */
+void dbgBreakpointsOnCartridgeChanged();
+
+/* Whether a hit at this address is one the user asked for. Runs on the
+** emulation thread mid instruction, so it must not block. */
+int dbgBreakpointAllows(UInt16 address);
 
 void dbgSetWatchpoint(DbgDeviceType devType, int address, DbgWatchpointCondition condition, UInt32 referenceValue, int size);
 void dbgClearWatchpoint(DbgDeviceType devType, int address);
+/* The same for a VIDEO watchpoint at the address the program uses when byProgram is non-zero. */
+void dbgSetWatchpointEx(DbgDeviceType devType, int address, DbgWatchpointCondition condition, UInt32 referenceValue, int size, int byProgram);
+void dbgClearWatchpointEx(DbgDeviceType devType, int address, int byProgram);
 
 int debuggerCheckVramAccess(void);
 
@@ -161,9 +263,22 @@ struct DbgDevice {
     DbgCallstack*    callstack;
 };
 
+/* For the emulator, under its state lock: a pause or a resume sets the state here as it happens. */
+void dbgSetRunState(DbgState state);
+
 void debuggerNotifyEmulatorStart();
 void debuggerNotifyEmulatorStop();
+/* Why the machine stopped, as a pause tells it on. */
+#define DBG_STOP_NONE        0
+#define DBG_STOP_USER        1  /* a pause was asked for                     */
+#define DBG_STOP_STEP        2  /* a single step finished                    */
+#define DBG_STOP_BREAKPOINT  3
+#define DBG_STOP_WATCH       4  /* debugDeviceLastWatchHit says which        */
+#define DBG_STOP_VRAM_TIMING 5  /* the VDP was accessed faster than it takes */
+#define DBG_STOP_STEP_BACK   6  /* a step back reached its moment            */
+
 void debuggerNotifyEmulatorPause();
+void debuggerNotifyEmulatorPauseFor(int cause);
 void debuggerNotifyEmulatorResume();
 void debuggerNotifyEmulatorReset();
 void debuggerTrace(const char* str);

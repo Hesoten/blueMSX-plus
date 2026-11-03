@@ -141,8 +141,8 @@ void vdpUnregisterDaConverter(int vdpDaHandle)
 #define VRAM_SIZE (192 * 1024)
 
 static int vramAddr;
-#define MAP_VRAM(vdp, addr) ((vdp)->vramPtr + ((vramAddr = addr, (vdp)->screenMode >= 7 && (vdp)->screenMode <= 12 ? (vramAddr >> 1 | ((vramAddr & 1) << 16)) : vramAddr) & (vdp)->vramAccMask))
-#define MAP_VRAMINDEX(vdp, addr) (((vramAddr = addr, (vdp)->screenMode >= 7 && (vdp)->screenMode <= 12 ? (vramAddr >> 1 | ((vramAddr & 1) << 16)) : vramAddr)))
+#define MAP_VRAM(vdp, addr) ((vdp)->vramPtr + ((vramAddr = addr, VDP_VRAM_INTERLEAVED((vdp)->screenMode) ? VDP_VRAM_INDEX(vramAddr) : vramAddr) & (vdp)->vramAccMask))
+#define MAP_VRAMINDEX(vdp, addr) (((vramAddr = addr, VDP_VRAM_INTERLEAVED((vdp)->screenMode) ? VDP_VRAM_INDEX(vramAddr) : vramAddr)))
 
 #define vdpIsSpritesBig(regs)        (regs[1]  & 0x01)
 #define vdpIsSprites16x16(regs)      (regs[1]  & 0x02)
@@ -483,7 +483,7 @@ static void checkVramAccessTimeTms(VDP* vdp)
         }
 
         if (boardSystemTime() - oldTime < minTime) {
-            boardOnBreakpoint(0);
+            boardOnBreakpoint(DBG_STOP_VRAM_TIMING);
         }
         oldTime = boardSystemTime();
     }
@@ -1620,7 +1620,55 @@ void vdpForceSync()
     }
 }
 
-static void sync(VDP* vdp, UInt32 systemTime) 
+UInt8* vdpDebugGetVram(UInt32* size)
+{
+    if (theVdp == NULL) {
+        if (size != NULL) {
+            *size = 0;
+        }
+        return NULL;
+    }
+    if (size != NULL) {
+        *size = (UInt32)theVdp->vramSize;
+    }
+    return theVdp->vram;
+}
+
+int vdpDebugGetRegisters(UInt8* registers, int max)
+{
+    int count = (int)sizeof(theVdp->vdpRegs);
+
+    if (theVdp == NULL || registers == NULL || max <= 0) {
+        return 0;
+    }
+    if (count > max) {
+        count = max;
+    }
+    memcpy(registers, theVdp->vdpRegs, (size_t)count);
+    return count;
+}
+
+int vdpVramInterleaved(int mode)
+{
+    return VDP_VRAM_INTERLEAVED(mode);
+}
+
+int vdpVramSameLayout(int mode, int other)
+{
+    return VDP_VRAM_INTERLEAVED(mode) == VDP_VRAM_INTERLEAVED(other);
+}
+
+int vdpDebugGetScreenMode(void)
+{
+    return theVdp != NULL ? theVdp->screenMode : -1;
+}
+
+int vdpDebugColorsMatch(int first, int second)
+{
+    return theVdp != NULL && theVdp->palette[first & 0x0f] == theVdp->palette[second & 0x0f];
+}
+
+static void sync(VDP* vdp, UInt32 systemTime)
 {
     int frameTime = systemTime - vdp->frameStartTime;
     int scanLine = frameTime / HPERIOD;

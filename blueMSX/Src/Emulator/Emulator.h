@@ -39,6 +39,13 @@ typedef enum { EMU_RUNNING, EMU_PAUSED, EMU_STOPPED, EMU_SUSPENDED, EMU_STEP, EM
 
 void emulatorInit(Properties* properties, Mixer* mixer);
 void emulatorExit();
+/* Once at startup, before any plugin loads: the lock every change of the run state takes. */
+void emulatorCreateLocks(void);
+
+/* Goes up on every change of the run state, never to 0; the run generation agents compare. */
+UInt32 emulatorGetStateSeq(void);
+/* The seq of the last change of the run state made on the calling thread. */
+UInt32 emulatorOwnStateSeq(void);
 
 void emuEnableSynchronousUpdate(int enable);
 
@@ -48,6 +55,15 @@ int  emulatorLogFrequencyToHz(int logFrequency);
 /* Percent of the stock clock (10..1000) -> emulation.speed. */
 int  emulatorPercentToLogFrequency(int percent);
 void emulatorRestartSound();
+/* Waits for the emulation thread to park on a paused machine; zero when it did not in time,
+** or the machine is no longer paused. */
+int  emulatorWaitParked(int timeoutMs);
+
+/* Emulated frames run since the machine started. */
+UInt32 emulatorGetFramesRun(void);
+/* Frames drawn since the last one skipped while minimized; 0xFFFFFFFF if none was. */
+UInt32 emulatorGetFramesDrawnSinceMinimized(void);
+
 void emulatorSuspend();
 void emulatorResume();
 /* While held, emulatorResume does nothing: whoever suspended the machine to
@@ -68,7 +84,14 @@ int  emulatorGetPlayReverse();
 int emulatorGetCpuOverflow();
 int emulatorGetSyncPeriod();
 EmuState emulatorGetState();
+/* Non-zero while a single step runs its one instruction. */
+int emulatorIsSingleStepping(void);
 void emulatorSetState(EmuState state);
+/* A pause only from running and a resume only from paused, each in one step under the state
+** lock, with the sound following; zero when the machine was not in that state. Neither
+** notifies; a resume is refused while emulatorHoldSuspended holds. */
+int  emulatorPauseIfRunning(void);
+int  emulatorResumeIfPaused(void);
 UInt32 emulatorGetCpuSpeed();
 UInt32 emulatorGetCpuUsage();
 void emulatorResetMixer();

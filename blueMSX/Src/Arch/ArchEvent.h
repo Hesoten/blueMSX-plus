@@ -41,6 +41,9 @@ void archSemaphoreDestroy(void* semaphore);
 void archSemaphoreSignal(void* semaphore);
 void archSemaphoreWait(void* semaphore, int timeout);
 
+/* Returns non-zero when the count was taken, zero on timeout. */
+int  archSemaphoreWaitTimeout(void* semaphore, int timeout);
+
 /* Wait wrapper that yields to emuWaitForResume when suspend fires
 ** mid-wait, so a Win32 modal loop doesn't freeze the emu thread. */
 #define ARCH_WAIT_ACK     0

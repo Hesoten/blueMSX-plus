@@ -25,6 +25,7 @@
 #include "MediaDb.h"
 #include "SlotManager.h"
 #include "DeviceManager.h"
+#include "MapperDebugBanks.h"
 #include "SaveState.h"
 #include <stdlib.h>
 #include <string.h>
@@ -39,6 +40,7 @@ typedef struct {
     int    startPage;
     UInt32 romMask;         /* (romSize / 0x4000) - 1 */
     UInt16 blockReg[3];
+    MapperBanks banks;
 } RomMapperNeo16;
 
 static void mapBank(RomMapperNeo16* rm, int region)
@@ -48,7 +50,28 @@ static void mapBank(RomMapperNeo16* rm, int region)
     int page = rm->startPage + region * 2;
     slotMapPage(rm->slot, rm->sslot, page,     bankData,          1, 0);
     slotMapPage(rm->slot, rm->sslot, page + 1, bankData + 0x2000, 1, 0);
+    /* Both 8kB banks of a 16kB segment report the masked segment number. */
+    slotSetBankSegment(rm->slot, rm->sslot, page,     (int)bank);
+    slotSetBankSegment(rm->slot, rm->sslot, page + 1, (int)bank);
 }
+
+static int getBank(void* ref, int reg)
+{
+    RomMapperNeo16* rm = (RomMapperNeo16*)ref;
+
+    return (int)(rm->blockReg[reg] & rm->romMask);
+}
+
+/* Both bytes: a later program write of one keeps the other, as on the hardware. */
+static void setBank(void* ref, int reg, int segment)
+{
+    RomMapperNeo16* rm = (RomMapperNeo16*)ref;
+
+    rm->blockReg[reg] = (UInt16)segment;
+    mapBank(rm, reg);
+}
+
+static const MapperBanksType bankType = { 3, 2, 16384, 0, getBank, setBank, NULL, NULL };
 
 static void destroy(RomMapperNeo16* rm)
 {
@@ -86,6 +109,7 @@ static void loadState(RomMapperNeo16* rm)
     for (i = 0; i < 3; i++) {
         mapBank(rm, i);
     }
+    mapperBanksSync(&rm->banks);
 }
 
 static void write(RomMapperNeo16* rm, UInt16 address, UInt8 value)
@@ -116,6 +140,7 @@ static void write(RomMapperNeo16* rm, UInt16 address, UInt8 value)
     if (rm->blockReg[region] != prev) {
         mapBank(rm, region);
     }
+    mapperBanksProgramWrote(&rm->banks, region);
 }
 
 int romMapperNeo16Create(const char* filename, UInt8* romData,
@@ -138,6 +163,7 @@ int romMapperNeo16Create(const char* filename, UInt8* romData,
 
     rm = calloc(1, sizeof(RomMapperNeo16));
     rm->deviceHandle = deviceManagerRegister(ROM_NEO16, &callbacks, rm);
+    slotSetSegmentSize(slot, sslot, 0x4000);
     slotRegister(slot, sslot, startPage, 6, NULL, NULL, write, destroy, rm);
 
     rm->romData = calloc(1, size);
@@ -146,6 +172,7 @@ int romMapperNeo16Create(const char* filename, UInt8* romData,
     rm->slot  = slot;
     rm->sslot = sslot;
     rm->startPage = startPage;
+    slotSetStorage(slot, sslot, rm->romData, size, 0, SLOT_STORAGE_ROM);
 
     for (i = 0; i < 3; i++) {
         rm->blockReg[i] = 0;
@@ -154,6 +181,7 @@ int romMapperNeo16Create(const char* filename, UInt8* romData,
     for (i = 0; i < 3; i++) {
         mapBank(rm, i);
     }
+    mapperBanksInit(&rm->banks, &bankType, rm, slot, sslot, startPage);
 
     return 1;
 }

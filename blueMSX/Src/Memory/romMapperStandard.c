@@ -76,6 +76,7 @@ static void loadState(RomMapperStandard* rm)
 
     for (i = 0; i < 4; i++) {   
         slotMapPage(rm->slot, rm->sslot, rm->startPage + i, rm->romData + rm->romMapper[i] * 0x2000, 1, 0);
+        slotSetBankSegment(rm->slot, rm->sslot, rm->startPage + i, rm->romMapper[i]);
     }
 }
 
@@ -109,8 +110,9 @@ static void write(RomMapperStandard* rm, UInt16 address, UInt8 value)
         bankData = rm->romData + ((int)value << 13);
 
         rm->romMapper[bank] = value;
-        
+
         slotMapPage(rm->slot, rm->sslot, rm->startPage + bank, bankData, 1, 0);
+        slotSetBankSegment(rm->slot, rm->sslot, rm->startPage + bank, value);
     }
 }
 
@@ -133,6 +135,8 @@ int romMapperStandardCreate(const char* filename, UInt8* romData,
     rm->romData = malloc(size);
     memcpy(rm->romData, romData, size);
     rm->size = size;
+    slotSetSegmentSize(slot, sslot, 0x2000);
+    slotSetStorage(slot, sslot, rm->romData, size, 0, SLOT_STORAGE_ROM);
     rm->slot  = slot;
     rm->sslot = sslot;
     rm->startPage  = startPage;
@@ -142,8 +146,9 @@ int romMapperStandardCreate(const char* filename, UInt8* romData,
     rm->romMapper[2] = 2;
     rm->romMapper[3] = 3;
 
-    for (i = 0; i < 4; i++) {   
+    for (i = 0; i < 4; i++) {
         slotMapPage(rm->slot, rm->sslot, rm->startPage + i, rm->romData + rm->romMapper[i] * 0x2000, 1, 0);
+        slotSetBankSegment(rm->slot, rm->sslot, rm->startPage + i, rm->romMapper[i]);
     }
 
     return 1;

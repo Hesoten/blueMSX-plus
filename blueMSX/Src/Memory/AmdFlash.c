@@ -406,6 +406,14 @@ int amdFlashCmdInProgress(AmdFlash* rm)
     return rm->cmdIdx != 0;
 }
 
+const char* amdFlashPersistFile(AmdFlash* rm)
+{
+    if (rm->sramFilename[0] == 0 || rm->persistMode == PM_NONE) {
+        return NULL;
+    }
+    return rm->persistMode == PM_OVERLAY ? rm->flashFilename : rm->sramFilename;
+}
+
 void amdFlashEnableFastCommands(AmdFlash* rm)
 {
     rm->fastCommands = 1;

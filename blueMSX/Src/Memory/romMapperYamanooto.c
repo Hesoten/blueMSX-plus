@@ -28,6 +28,7 @@
 #include "MediaDb.h"
 #include "SlotManager.h"
 #include "DeviceManager.h"
+#include "MapperDebugBanks.h"
 #include "IoPort.h"
 #include "sramLoader.h"
 #include "SCC.h"
@@ -35,6 +36,7 @@
 #include "SaveState.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #define YAMANOOTO_FLASH_SIZE     0x800000    /* 8 MB */
 #define YAMANOOTO_FLASH_SECTOR   0x10000     /* 64 KB */
@@ -85,6 +87,7 @@ typedef struct {
     UInt8     sccMode;
     UInt8     psgLatch;
     UInt8     fpgaFsm;
+    MapperBanks banks;
 } RomMapperYamanooto;
 
 /* SCC / SCC+ visibility is gated by BOTH the sccMode bit and the RAW bank
@@ -113,6 +116,9 @@ static void mapBank(RomMapperYamanooto* rm, int page)
     /* readEnable=0: reads route through the read callback so SCC ranges
     ** and flash-ident responses are intercepted before hitting the ROM. */
     slotMapPage(rm->slot, rm->sslot, rm->startPage + page, bankData, 0, 0);
+    /* ROMDIS makes every read answer 0xFF, so no segment is paged in. */
+    slotSetBankSegment(rm->slot, rm->sslot, rm->startPage + page,
+                       (rm->configReg & ROMDIS) ? -1 : (int)bankNum);
 }
 
 static void updateSccChipMode(RomMapperYamanooto* rm)
@@ -135,7 +141,62 @@ static void applyBankWrite(RomMapperYamanooto* rm, int page, UInt8 value)
         rm->bankReg[page] = effective;
         mapBank(rm, page);
     }
+    mapperBanksProgramWrote(&rm->banks, page);
 }
+
+/* The segment, absolute: whatever offset the program set, it is that one of the flash. */
+static int getBank(void* ref, int reg)
+{
+    RomMapperYamanooto* rm = (RomMapperYamanooto*)ref;
+
+    return (int)(rm->bankReg[reg] & rm->romMask);
+}
+
+/* The latched number only: rawBank, OFFR and SUBOFF stay, so the SCC answers as before. */
+static void setBank(void* ref, int reg, int segment)
+{
+    RomMapperYamanooto* rm = (RomMapperYamanooto*)ref;
+
+    rm->bankReg[reg] = (UInt16)segment;
+    mapBank(rm, reg);
+}
+
+static const char* switchBlocked(void* ref, int reg)
+{
+    RomMapperYamanooto* rm = (RomMapperYamanooto*)ref;
+
+    if (rm->configReg & ROMDIS) {
+        return "the cartridge has its ROM disabled (CFGR ROMDIS): every read in 4000-BFFF "
+               "answers 0xFF, so no segment shows";
+    }
+    if (reg == 0 && (rm->configReg & K4)) {
+        return "the cartridge is in Konami mode (CFGR K4), where 4000-5FFF has no register";
+    }
+    if (rm->enableReg & WREN) {
+        return "the program is writing the flash (ENAR WREN)";
+    }
+    return amdFlashCmdInProgress(rm->flash) ? "the program is in the middle of a flash command" : NULL;
+}
+
+static const char* switchNote(void* ref, int reg)
+{
+    static char note[800];
+    RomMapperYamanooto* rm = (RomMapperYamanooto*)ref;
+    const char* scc = "";
+
+    if (reg == 2 && isSCCAccess(rm, 0x9800)) {
+        scc = "9800-9FFF still answers with the SCC registers; ";
+    }
+    if (reg == 3 && isSCCAccess(rm, 0xB800)) {
+        scc = "B800-BFFD still answers with the SCC+ registers; ";
+    }
+    snprintf(note, sizeof(note), "%s%s%s", scc, (rm->configReg & MDIS) ? "the program has the "
+             "mapper disabled (CFGR MDIS) and cannot switch it back; " : "",
+             mapperBanksFlashNote(&rm->banks, reg, amdFlashPersistFile(rm->flash)));
+    return note;
+}
+
+static const MapperBanksType bankType = { 4, 1, 1024, 0, getBank, setBank, switchBlocked, switchNote };
 
 static UInt8 ioRead(RomMapperYamanooto* rm, UInt16 ioPort);
 static void ioWrite(RomMapperYamanooto* rm, UInt16 ioPort, UInt8 value);
@@ -210,6 +271,7 @@ static void reset(RomMapperYamanooto* rm)
     for (i = 0; i < 4; i++) {
         mapBank(rm, i);
     }
+    mapperBanksSync(&rm->banks);
 }
 
 static void saveState(RomMapperYamanooto* rm)
@@ -271,6 +333,7 @@ static void loadState(RomMapperYamanooto* rm)
     for (i = 0; i < 4; i++) {
         mapBank(rm, i);
     }
+    mapperBanksSync(&rm->banks);
 }
 
 static UInt32 msxAddrToFlashAddr(RomMapperYamanooto* rm, UInt16 msxAddr)
@@ -459,12 +522,17 @@ int romMapperYamanootoCreate(const char* filename, UInt8* romData,
 
     rm = calloc(1, sizeof(RomMapperYamanooto));
     rm->deviceHandle = deviceManagerRegister(ROM_YAMANOOTO, &callbacks, rm);
+    slotSetSegmentSize(slot, sslot, 0x2000);
     slotRegister(slot, sslot, startPage, 4, read, peek, write, destroy, rm);
 
     rm->flash = amdFlashCreate(AMD_TYPE_2, YAMANOOTO_FLASH_SIZE, YAMANOOTO_FLASH_SECTOR,
                                0, romData, size,
                                sramCreateFilenameWithSuffix(filename, "", ".sram"),
                                AMDFLASH_PERSIST_OVERLAY);
+
+    /* The flash the banks are cut from, not the loaded image it may differ from. */
+    slotSetStorage(slot, sslot, amdFlashGetPage(rm->flash, 0), YAMANOOTO_FLASH_SIZE,
+                   0, SLOT_STORAGE_ROM);
 
     rm->romMask = YAMANOOTO_FLASH_SIZE / 0x2000 - 1;   /* 0x3FF */
     rm->slot  = slot;
@@ -492,6 +560,7 @@ int romMapperYamanootoCreate(const char* filename, UInt8* romData,
     for (i = 0; i < 4; i++) {
         mapBank(rm, i);
     }
+    mapperBanksInit(&rm->banks, &bankType, rm, slot, sslot, startPage);
 
     ioPortRegister(0x10, NULL, ioWrite, rm);
     ioPortRegister(0x11, NULL, ioWrite, rm);

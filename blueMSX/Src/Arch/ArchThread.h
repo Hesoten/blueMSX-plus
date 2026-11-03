@@ -34,12 +34,22 @@
 #define THREAD_PRIO_NORMAL 0
 #define THREAD_PRIO_HIGH   1
 
+/* Storage class of a variable each thread has its own copy of. */
+#ifdef _MSC_VER
+#define ARCH_THREAD_LOCAL __declspec(thread)
+#else
+#define ARCH_THREAD_LOCAL __thread
+#endif
+
 void* archThreadCreate(void (*entryPoint)(), int priority);
 void* archThreadCreateEx(void (*entryPoint)(), int priority, int stacksize);
 void  archThreadJoin(void* thread, int timeout);
 void  archThreadDestroy(void* thread);
 
 void archThreadSleep(int milliseconds);
+
+/* A full fence: no load or store moves across it, in the compiler or the CPU. */
+void archMemoryBarrier(void);
 
 /* Attach the calling thread to MMCSS "Games" (Win32) so it bypasses
 ** EcoQoS; returns an opaque handle for the End call. */

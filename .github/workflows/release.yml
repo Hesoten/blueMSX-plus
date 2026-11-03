@@ -74,7 +74,7 @@ jobs:
         shell: pwsh
         run: |
           msbuild blueMSX.sln /m `
-            '/t:blueMSX;TraceWindow;Trainer;SimpleDebugger' `
+            '/t:blueMSX;TraceWindow;Trainer;SimpleDebugger;McpServer' `
             "/p:Configuration=Final;Platform=${{ matrix.platform }};BlueMsxPackUpx=false"
 
       - name: Package

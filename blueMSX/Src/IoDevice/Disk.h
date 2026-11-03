@@ -80,6 +80,9 @@ int diskNotifyDirSkipped(int driveId);
 /* Tells the directories that the machine is starting, from a saved state or not;
 ** stopped says that nothing is reading the drives meanwhile. */
 void diskDirStart(int fromState, int stopped);
+/* Whether a start from switched off keeps the drive's folder volume as it is, rather than
+** reading the folder afresh. */
+int  diskDirKeptOverStart(int driveId);
 /* Zero after a power-on; otherwise it numbers the run of saved states, in which nothing is written back. */
 int  diskDirStateSession(void);
 /* The megabytes of memory a directory's changes have grown past, once for every 64 of them; else zero. */

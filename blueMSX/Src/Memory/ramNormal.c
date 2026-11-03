@@ -77,7 +77,7 @@ static void destroy(RamNormal* rm)
 {
     debugDeviceUnregister(rm->debugHandle);
 
-    slotUnregister(rm->slot, rm->sslot, 0);
+    slotUnregister(rm->slot, rm->sslot, rm->startPage);
     deviceManagerUnregister(rm->deviceHandle);
 
     free(rm);
@@ -133,6 +133,10 @@ int ramNormalCreate(int size, int slot, int sslot, int startPage, UInt8** ramPtr
 
     rm->deviceHandle = deviceManagerRegister(RAM_NORMAL, &callbacks, rm);
     slotRegister(slot, sslot, startPage, pages, NULL, NULL, NULL, destroy, rm);
+
+    /* Storage but no segment size: this RAM does not switch. */
+    slotSetStorageAt(slot, sslot, rm->ramData, (UInt32)(pages * 0x2000), 1,
+                     SLOT_STORAGE_RAM, (UInt32)(startPage * 0x2000));
 
     if (ramPtr != NULL) {
         *ramPtr = rm->ramData;

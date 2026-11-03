@@ -55,6 +55,10 @@
 #include "ArchDialog.h"
 #include "Emulator.h"
 #include "AppConfig.h"
+#include "ControlClient.h"
+#include "ControlSocket.h"
+#include "ControlInstance.h"
+#include "Win32ActivityPanel.h"
 
 /* showLoadMemoryDlg is the IDD_LOAD_MEMORY entry point, defined
    alongside the rest of the Win32 dialog handlers in Win32.c.
@@ -129,6 +133,12 @@ extern int showLoadMemoryDlg(HWND hwnd);
 #define ID_TOOLS_KEYBOARDEDITOR         40066
 #define ID_TOOLS_MIXER                  40061
 #define ID_TOOLS_LOADMEMORY             40067
+/* Clear of 4006x (window sizes) and 41600-43099 (hard disk entries, multiplied
+** out by ID_HARDDISK_OFFSET); the next block above is 50000. */
+#define ID_TOOLS_AGENT_OFF              43200
+#define ID_TOOLS_AGENT_READONLY         43201
+#define ID_TOOLS_AGENT_FULL             43202
+#define ID_TOOLS_AGENT_ACTIVITY         43203
 
 #define ID_NOWIND_ENABLEDOS2            40100
 #define ID_NOWIND_ENABLEPHANTOMDRIVES   40101
@@ -1333,6 +1343,31 @@ static HMENU menuCreateHelp(Properties* pProperties, Shortcuts* shortcuts)
     return hMenu;
 }
 
+/* Takes effect at once: turning it off disconnects any client. */
+static void setAgentControl(Properties* pProperties, int level)
+{
+    /* The same level again starts a socket a still closing one held off. */
+    if (level == ctrlGateLevel() && (level == CTRL_GATE_OFF || ctrlSocketIsListening())) {
+        return;
+    }
+    pProperties->emulation.agentControl = level;
+    ctrlGateSetLevel(level);
+    /* Before the socket starts, so no client finds a minimized window not drawing. */
+    updateMinimizedDrawing();
+
+    if (level == CTRL_GATE_OFF) {
+        ctrlClientBlockAll(1);
+        ctrlSocketStop(0);
+    }
+    else {
+        ctrlClientBlockAll(0);
+        ctrlSocketStart();
+        /* Rewrites the instance file with the new level. */
+        ctrlInstanceSetMachine(NULL);
+    }
+    activityPanelStatusChanged();
+}
+
 static HMENU menuCreateTools(Properties* pProperties, Shortcuts* shortcuts)
 {
     HMENU hMenu = CreatePopupMenu();
@@ -1354,6 +1389,24 @@ static HMENU menuCreateTools(Properties* pProperties, Shortcuts* shortcuts)
     }
     if (appConfigGetInt("menu.tools.loadmemory", 1) != 0) {
         AppendMenuU(hMenu, MF_STRING, ID_TOOLS_LOADMEMORY, langMenuToolsLoadMemory());
+    }
+
+    {
+        HMENU hAgent = CreatePopupMenu();
+        int   level = ctrlGateLevel();
+
+        setMenuColor(hAgent);
+        AppendMenuU(hAgent, MF_STRING | (level == CTRL_GATE_OFF ? MF_CHECKED : 0),
+                    ID_TOOLS_AGENT_OFF, langMenuAgentOff());
+        AppendMenuU(hAgent, MF_STRING | (level == CTRL_GATE_READONLY ? MF_CHECKED : 0),
+                    ID_TOOLS_AGENT_READONLY, langMenuAgentReadOnly());
+        AppendMenuU(hAgent, MF_STRING | (level == CTRL_GATE_FULL ? MF_CHECKED : 0),
+                    ID_TOOLS_AGENT_FULL, langMenuAgentFull());
+        AppendMenuU(hAgent, MF_SEPARATOR, 0, NULL);
+        AppendMenuU(hAgent, MF_STRING, ID_TOOLS_AGENT_ACTIVITY,
+                    langMenuToolsAgentActivity());
+
+        AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hAgent, langMenuToolsAgentControl());
     }
 
     count = toolGetCount();
@@ -2453,6 +2506,18 @@ int menuCommand(Properties* pProperties, int command)
     case ID_TOOLS_KEYBOARDEDITOR:           actionToolsShowKeyboardEditor();return 0;
     case ID_TOOLS_MIXER:                    actionToolsShowMixer();         return 0;
     case ID_TOOLS_LOADMEMORY:               showLoadMemoryDlg(getMainHwnd()); return 0;
+    case ID_TOOLS_AGENT_OFF:
+        setAgentControl(pProperties, CTRL_GATE_OFF);
+        return 1;
+    case ID_TOOLS_AGENT_READONLY:
+        setAgentControl(pProperties, CTRL_GATE_READONLY);
+        return 1;
+    case ID_TOOLS_AGENT_FULL:
+        setAgentControl(pProperties, CTRL_GATE_FULL);
+        return 1;
+    case ID_TOOLS_AGENT_ACTIVITY:
+        activityPanelShow();
+        return 0;
     case ID_HELP_HELP:                      actionHelpShowHelp();           return 0;
     case ID_HELP_ABOUT:                     actionHelpShowAbout();          return 0;
     }

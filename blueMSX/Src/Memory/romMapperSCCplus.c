@@ -59,6 +59,21 @@ typedef struct {
 static void updateEnable(RomMapperSCCplus* rm);
 static void setMapper(RomMapperSCCplus* rm, int bank, UInt8 value);
 
+/* -1 for a bank on the filler past the image. romMapper holds the unmasked guest value. */
+static void reportBanks(RomMapperSCCplus* rm)
+{
+    int i;
+
+    for (i = 0; i < 4; i++) {
+        int segment = rm->romMapper[i] & rm->mapperMask;
+
+        if (!rm->isMapped[i]) {
+            segment = -1;
+        }
+        slotSetBankSegment(rm->slot, rm->sslot, rm->startPage + i, segment);
+    }
+}
+
 static void saveState(RomMapperSCCplus* rm)
 {
     SaveState* state = saveStateOpenForWrite("mapperSCCplus");
@@ -116,7 +131,7 @@ static void loadState(RomMapperSCCplus* rm)
     for (bank = 0; bank < 4; bank++) {   
         setMapper(rm, bank, (UInt8)rm->romMapper[bank]);
     }
-    
+
     if (rm->sccMode == SCC_PLUS) {
         slotMapPage(rm->slot, rm->sslot, rm->startPage + 2, NULL, 1, 0);
         slotMapPage(rm->slot, rm->sslot, rm->startPage + 3, NULL, 0, 0);
@@ -140,6 +155,7 @@ static void loadState(RomMapperSCCplus* rm)
         updateEnable(rm);
         sccSetMode(rm->scc, SCC_REAL);
     }
+    reportBanks(rm);
 }
 
 static void destroy(RomMapperSCCplus* rm)
@@ -214,6 +230,7 @@ static void updateEnable(RomMapperSCCplus* rm)
         slotUpdatePage(rm->slot, rm->sslot, rm->startPage + 3, NULL, 1, 0);
         rm->sccMode = SCC_NONE;
     }
+    reportBanks(rm);
 }
 
 static void setMapper(RomMapperSCCplus* rm, int bank, UInt8 value)
@@ -299,6 +316,7 @@ int romMapperSCCplusCreate(const char* filename, UInt8* romData,
     rm = malloc(sizeof(RomMapperSCCplus));
 
     rm->deviceHandle = deviceManagerRegister(ROM_SCCEXTENDED, &callbacks, rm);
+    slotSetSegmentSize(slot, sslot, 0x2000);
     slotRegister(slot, sslot, startPage, 4, read, peek, write, destroy, rm);
 
     memset(rm->romData, 0xff, 0x22000);
@@ -308,6 +326,15 @@ int romMapperSCCplusCreate(const char* filename, UInt8* romData,
             size = 0x20000;
         }
         memcpy(rm->romData, romData, size);
+    }
+
+    /* The 0x2000 past 0x20000 is filler. With no image the array is RAM,
+    ** except on the Konami SCC, which has none. */
+    if (romData != NULL || sccType == SCC_KONAMI) {
+        slotSetStorage(slot, sslot, rm->romData, 0x20000, 0, SLOT_STORAGE_ROM);
+    }
+    else {
+        slotSetStorage(slot, sslot, rm->romData, 0x20000, 1, SLOT_STORAGE_RAM);
     }
 
     rm->slot            = slot;
@@ -348,6 +375,7 @@ int romMapperSCCplusCreate(const char* filename, UInt8* romData,
         slotMapPage(rm->slot, rm->sslot, rm->startPage + 2, rm->romData + 0x20000, 1, 0);
         slotMapPage(rm->slot, rm->sslot, rm->startPage + 3, rm->romData + 0x20000, 1, 0);
     }
+    reportBanks(rm);
 
     return 1;
 }

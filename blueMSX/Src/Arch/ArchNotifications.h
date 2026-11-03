@@ -35,9 +35,8 @@ typedef enum { SC_NORMAL, SC_SMALL, SC_LARGE } ScreenCaptureType;
 void* archScreenCapture(ScreenCaptureType type, int* bitmapSize, int onlyBmp);
 /* Save-As screenshot (always prompts, ignores capture.screenshotPromptFilename). */
 void archScreenCaptureAs(void);
-#ifdef WII
+/* Screenshot straight to a named file, no dialog. Not every port implements it. */
 int archScreenCaptureToFile(ScreenCaptureType type, const char *fname);
-#endif
 
 void archUpdateEmuDisplayConfig();
 int  archUpdateEmuDisplay(int synchronous);
