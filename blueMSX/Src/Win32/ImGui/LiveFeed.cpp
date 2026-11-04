@@ -55,6 +55,13 @@ static SRWLOCK       lock = SRWLOCK_INIT;
 static LiveFeed*     feeds;
 static volatile LONG anyWanted;
 
+/* Drains have their own lock, so a long one never keeps a UI request for a snapshot waiting. */
+#define MAX_DRAINS 4
+static SRWLOCK         drainLock = SRWLOCK_INIT;
+static LiveFeedDrainFn drainFn[MAX_DRAINS];
+static void*           drainRef[MAX_DRAINS];
+static volatile LONG   drainCount;
+
 static UInt64 hostTimeUs()
 {
     static LARGE_INTEGER freq;
@@ -84,6 +91,8 @@ static void tap(EmuTapPoint point)
             for (int i = 0; i < 3; i++) memset(&f->slot[i].info, 0, sizeof(f->slot[i].info));
         }
         anyWanted = 0;
+        InitializeSRWLock(&drainLock);
+        for (int i = 0; i < drainCount; i++) drainFn[i](drainRef[i], (int)point);
         return;
     }
     if (point == EMU_TAP_BARRIER) {
@@ -93,6 +102,13 @@ static void tap(EmuTapPoint point)
         AcquireSRWLockExclusive(&lock);
         ReleaseSRWLockExclusive(&lock);
         return;
+    }
+    /* At a VDP's shown tap the drains run before the copies, so these can see what they folded. */
+    if (drainCount > 0 && (point == EMU_TAP_FRAME || point == EMU_TAP_IDLE || point == EMU_TAP_REPLAY ||
+                           point == EMU_TAP_VDP_SHOWN || point == EMU_TAP_VDP_SECONDARY_SHOWN) &&
+        emulatorIsEmuThread() && TryAcquireSRWLockShared(&drainLock)) {
+        for (int i = 0; i < drainCount; i++) drainFn[i](drainRef[i], (int)point);
+        ReleaseSRWLockShared(&drainLock);
     }
     /* Mid-replay: no feed copies a state that is not on screen. */
     if (point == EMU_TAP_REPLAY) {
@@ -201,7 +217,7 @@ extern "C" void liveFeedClose(LiveFeed* feed)
             break;
         }
     }
-    if (feeds == NULL) {
+    if (feeds == NULL && drainCount == 0) {
         emulatorSetTap(NULL);
     }
     ReleaseSRWLockExclusive(&lock);
@@ -230,4 +246,47 @@ extern "C" const void* liveFeedLatest(LiveFeed* feed, LiveFeedInfo* info)
         *info = s->info;
     }
     return s->info.seq != 0 ? s->data : NULL;
+}
+
+extern "C" int liveFeedAddDrain(LiveFeedDrainFn drain, void* ref)
+{
+    int ok = 0;
+    if (drain == NULL) {
+        return 0;
+    }
+    AcquireSRWLockExclusive(&drainLock);
+    if (drainCount < MAX_DRAINS) {
+        drainFn[drainCount]  = drain;
+        drainRef[drainCount] = ref;
+        drainCount++;
+        ok = 1;
+    }
+    ReleaseSRWLockExclusive(&drainLock);
+    if (ok) {
+        emulatorSetTap(tap);
+    }
+    return ok;
+}
+
+extern "C" void liveFeedRemoveDrain(LiveFeedDrainFn drain, void* ref)
+{
+    int i;
+    /* Waits as close does: the drain may be running on the emulator thread. */
+    AcquireSRWLockExclusive(&drainLock);
+    for (i = 0; i < drainCount; i++) {
+        if (drainFn[i] == drain && drainRef[i] == ref) {
+            for (; i + 1 < drainCount; i++) {
+                drainFn[i]  = drainFn[i + 1];
+                drainRef[i] = drainRef[i + 1];
+            }
+            drainCount--;
+            break;
+        }
+    }
+    ReleaseSRWLockExclusive(&drainLock);
+    (void)lockUi(-1);
+    if (feeds == NULL && drainCount == 0) {
+        emulatorSetTap(NULL);
+    }
+    ReleaseSRWLockExclusive(&lock);
 }
