@@ -697,6 +697,10 @@
       <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\LiveFeed.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
     <ClCompile Include="..\..\Src\Win32\ImGui\ImGuiWidgets.cpp">
       <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1126,6 +1130,7 @@
     <ClInclude Include="..\..\Src\Win32\ImGui\ImGuiWindow.h" />
     <ClInclude Include="..\..\Src\Win32\ImGui\ImGuiHost.h" />
     <ClInclude Include="..\..\Src\Win32\ImGui\ImGuiTheme.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\LiveFeed.h" />
     <ClInclude Include="..\..\Src\Win32\ImGui\ImGuiWidgets.h" />
     <ClInclude Include="..\..\Src\Win32\ImGui\ToolText.h" />
     <ClInclude Include="..\..\Src\Win32\Win32Cdrom.h" />

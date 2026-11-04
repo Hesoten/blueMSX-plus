@@ -59,6 +59,31 @@
 
 static int WaitForSync(int maxSpeed, int stopCause);
 
+#ifdef WII
+#define EMU_THREAD_LOCAL
+#elif defined(_MSC_VER)
+#define EMU_THREAD_LOCAL __declspec(thread)
+#else
+#define EMU_THREAD_LOCAL __thread
+#endif
+
+static EMU_THREAD_LOCAL int emuOnThisThread;
+static volatile EmuTapFn emuTap;
+
+void emulatorSetTap(EmuTapFn fn) {
+    emuTap = fn;
+}
+
+int emulatorIsEmuThread(void) {
+    return emuOnThisThread;
+}
+
+/* Paused only: running, these waits sit mid-frame; suspended, the UI thread may be
+** changing the machine. A debugger or agent may still write VRAM or VDP registers
+** while paused, so a copy can be torn; the first after the writes stop is whole. */
+#define EMU_TAP_IF_IDLE() \
+    do { EmuTapFn tap = emuTap; if (tap && emuState == EMU_PAUSED) tap(EMU_TAP_IDLE); } while (0)
+
 static void*  emuThread;
 #ifndef WII
 static void*  emuSyncEvent;
@@ -514,6 +539,7 @@ static void emulatorThread() {
     int reverseBufferCnt = 0;
     void* mmcssHandle;
 
+    emuOnThisThread = 1;
     emulatorSetFrequency(properties->emulation.speed, &frequency);
 
     switchSetFront(properties->emulation.frontSwitch);
@@ -704,6 +730,12 @@ void emulatorStop() {
     archMidiEnable(0);
     machineDestroy(machine);
     archThreadDestroy(emuThread);
+    {
+        EmuTapFn tap = emuTap;
+        if (tap) {
+            tap(EMU_TAP_STOPPED);
+        }
+    }
 #ifndef WII
     archEventDestroy(emuSyncEvent);
 #endif
@@ -813,6 +845,7 @@ int emuWaitForResume(void) {
     do {
         while (emuState != EMU_RUNNING && !emuExitFlag) {
             archEventWait(emuSyncEvent, -1);
+            EMU_TAP_IF_IDLE();
         }
     } while (!wasParked && stayParked());
     return emuExitFlag;
@@ -939,6 +972,11 @@ void emulatorRefreshFromSource() {
 /* Called by the VDP every frame. A shown source that paces the screen itself
 ** calls emulatorRefreshFromSource instead; the screen mode still follows the VDP. */
 void RefreshScreen(int screenMode) {
+    EmuTapFn tap = emuTap;
+
+    if (tap) {
+        tap(EMU_TAP_FRAME);
+    }
 
     emuFramesRun++;
     if (!vdpGetDisplayEnable()) {
@@ -1073,6 +1111,7 @@ static int WaitForSync(int maxSpeed, int stopCause) {
         overflowCount += emulatorSyncScreen() ? 0 : 1;
         while ((!emuExitFlag && emuState != EMU_RUNNING) || overflowCount > 0) {
             archEventWait(emuSyncEvent, -1);
+            EMU_TAP_IF_IDLE();
 #ifdef NO_TIMERS
             while (timerCallback(NULL) == 0) emuExitFlag |= archPollEvent();
 #endif
@@ -1092,6 +1131,7 @@ static int WaitForSync(int maxSpeed, int stopCause) {
             while (timerCallback(NULL) == 0) emuExitFlag |= archPollEvent();
 #endif
             archEventWait(emuSyncEvent, -1);
+            EMU_TAP_IF_IDLE();
             if (((emuMaxSpeed || emuMaxEmuSpeed) && !emuExitFlag) || overflowCount > 0) {
 #ifdef NO_TIMERS
                 while (timerCallback(NULL) == 0) emuExitFlag |= archPollEvent();
@@ -1107,6 +1147,7 @@ static int WaitForSync(int maxSpeed, int stopCause) {
     ** branch that does not wait, is waited out here. */
     while (stayParked()) {
         archEventWait(emuSyncEvent, -1);
+        EMU_TAP_IF_IDLE();
     }
     li2 = archGetHiresTimer();
 

@@ -98,5 +98,13 @@ void emulatorResetMixer();
 int emulatorGetCurrentScreenMode();
 void emulatorRefreshFromSource();
 
+/* A hook for tools that copy emulator state. FRAME comes once per VDP frame,
+** also on the UI thread (soft reset): check emulatorIsEmuThread(). IDLE comes
+** every few ms while paused. STOPPED: emulatorStop has ended the thread. */
+typedef enum { EMU_TAP_FRAME, EMU_TAP_IDLE, EMU_TAP_STOPPED } EmuTapPoint;
+typedef void (*EmuTapFn)(EmuTapPoint point);
+void emulatorSetTap(EmuTapFn fn);
+int  emulatorIsEmuThread(void);
+
 #endif
 
