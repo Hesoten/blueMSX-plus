@@ -58,6 +58,12 @@ struct FrameBufferData {
     int noBlend;
     FrameBufferFlipHook flipHook;
     void* flipRef;
+    UInt32 flips;
+    UInt32 lastDrawnSeq;
+    /* Bumped when the frame indices are reset; seen at the last flip. */
+    volatile UInt32 resets;
+    UInt32 resetsSeen;
+    FrameBuffer* lastDrawn;
 };
 
 #ifdef WII
@@ -218,6 +224,7 @@ static void resetStaleIndices(FrameBufferData* fb)
         int i;
         fb->viewFrame = 0;
         fb->drawFrame = frameBufferCount > 1 ? 1 : 0;
+        fb->resets++;
         for (i = 0; i < MAX_FRAMES_PER_FRAMEBUFFER; i++) {
             fb->frame[i].age = 0;
         }
@@ -346,6 +353,7 @@ void frameBufferSetFrameCount(int frameCount)
         int i;
         currentBuffer->viewFrame = 0;
         currentBuffer->drawFrame = 0;
+        currentBuffer->resets++;
 
         for (i = 0; i < MAX_FRAMES_PER_FRAMEBUFFER; i++) {
             currentBuffer->frame[i].age = 0;
@@ -355,6 +363,7 @@ void frameBufferSetFrameCount(int frameCount)
         int i;
         drawBuffer->viewFrame = 0;
         drawBuffer->drawFrame = 0;
+        drawBuffer->resets++;
 
         for (i = 0; i < MAX_FRAMES_PER_FRAMEBUFFER; i++) {
             drawBuffer->frame[i].age = 0;
@@ -395,6 +404,7 @@ FrameBuffer* frameBufferFlipDrawFrameOf(FrameBufferData* fb)
     FrameBuffer* drawn;
     int drawFrame;
     int blend;
+    UInt32 resets;
 
 #ifdef WII
     archThreadSleep(0); // wait one frame
@@ -402,6 +412,7 @@ FrameBuffer* frameBufferFlipDrawFrameOf(FrameBufferData* fb)
     if (fb == NULL) {
         return NULL;
     }
+    fb->flips++;
     drawFrame = fb->drawFrame;
     if (fb != currentBuffer) {
         waitSem();
@@ -469,9 +480,18 @@ FrameBuffer* frameBufferFlipDrawFrameOf(FrameBufferData* fb)
 #endif
     /* A buffer neither shown nor drawing gets its indices reset here after a
     ** frame count change: the frame completed is then not the one drawn. */
-    if (fb->flipHook != NULL && completed == fb->frame + drawFrame) {
-        fb->flipHook(fb->flipRef, completed, drawn);
+    resets = fb->resets;
+    if (completed == fb->frame + drawFrame) {
+        /* A frame drawn across a frame count change may be torn. */
+        if (resets == fb->resetsSeen) {
+            fb->lastDrawn    = drawn;
+            fb->lastDrawnSeq = fb->flips;
+        }
+        if (fb->flipHook != NULL) {
+            fb->flipHook(fb->flipRef, completed, drawn);
+        }
     }
+    fb->resetsSeen = resets;
     return frameBuffer;
 }
 
@@ -501,6 +521,17 @@ FrameBuffer* frameBufferGetLastCompletedOf(FrameBufferData* fb)
         }
     }
     return best < 0 ? NULL : fb->frame + best;
+}
+
+FrameBuffer* frameBufferGetLastDrawnOf(FrameBufferData* fb, UInt32* seq, UInt32* flips)
+{
+    if (fb == NULL) {
+        *seq = *flips = 0;
+        return NULL;
+    }
+    *seq   = fb->lastDrawnSeq;
+    *flips = fb->flips;
+    return fb->lastDrawn;
 }
 
 void frameBufferSetFlipHook(FrameBufferData* fb, FrameBufferFlipHook hook, void* ref)

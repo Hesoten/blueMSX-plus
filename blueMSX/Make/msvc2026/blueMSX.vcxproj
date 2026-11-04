@@ -1302,6 +1302,7 @@
     <ClInclude Include="..\..\Src\VideoChips\V9990Cmd.h" />
     <ClInclude Include="..\..\Src\VideoChips\V9990Render.h" />
     <ClInclude Include="..\..\Src\VideoChips\VDP.h" />
+    <ClInclude Include="..\..\Src\VideoChips\VdpDebug.h" />
     <ClInclude Include="..\..\Src\VideoChips\Video9000.h" />
     <ClInclude Include="..\..\Src\VideoChips\VideoManager.h" />
     <ClInclude Include="..\..\Src\VideoRender\hq2x.h" />
