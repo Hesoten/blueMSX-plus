@@ -31,6 +31,9 @@ namespace parts {
 /* An icon toggle of the command bar; label is shown without the icon font. */
 void barToggle(const char* id, const char* glyph, const char* label, const char* tip, bool* on);
 
+/* A chip naming a part at a, where the part has room for it. */
+void partChip(ImDrawList* dl, ImVec2 a, ImVec2 b, const char* text);
+
 /* Diagonal lines over a..b, for parts the chip does not draw. */
 void hatch(ImDrawList* dl, ImVec2 a, ImVec2 b, ImU32 col);
 /* Dashes dash px on and off from a to b, across or down: only those that reach the
@@ -47,6 +50,8 @@ void fitCell(const char* text, const char* tip = NULL);
 float monoWidth(const char* const* texts, int n);
 /* A secondary line that wraps at the card's edge. */
 void note(const char* text);
+/* A view with nothing to show: one muted sentence where the picture goes. */
+void emptyView(const char* text);
 
 }
 

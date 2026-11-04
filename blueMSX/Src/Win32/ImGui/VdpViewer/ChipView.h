@@ -27,7 +27,7 @@
 
 namespace ui { struct CanvasZoom; }
 
-/* key e.g. "screen", "vram". */
+/* key e.g. "screen", "patterns", "vram". */
 struct ViewDesc { const char* key; const char* label; const char* glyph; };
 /* No title: the card draws its own header. An expander folds to its title and
 ** summary, and is folded until opened. noHold: the card keeps its own height. */
@@ -44,6 +44,7 @@ enum FocusKind {
     FOCUS_NONE,
     FOCUS_VRAM,    /* a block picked on the VRAM map */
     FOCUS_TILE,    /* a name table cell: a = x, b = scroll line (0-255, past R#23) */
+    FOCUS_CHAR,    /* a character of the pattern sheet: a = sheet x, b = sheet y */
     FOCUS_PIXEL    /* a bitmap pixel: a = x, b = scroll line on a V99x8 */
 };
 

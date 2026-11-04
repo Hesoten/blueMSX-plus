@@ -113,14 +113,18 @@ bool vdpBitmapPixel(const VdpDebugState* s, const VdpLayout& l, const VdpBitmapO
 int  vdpSheetBlocks(const VdpDebugState* s, const VdpLayout& l);
 /* Every character of the pattern generator in rows of 32, a block of 8 rows each. */
 void vdpDecodePatternSheet(const VdpDebugState* s, const VdpLayout& l, int color0, VdpImage& out, int* w, int* h);
+/* The screen rebuilt from the name table, without sprites, from scroll line
+** firstLine (-1: R#23, as displayed); 256 lines show rows 24-31 too. */
+void vdpDecodeNameTable(const VdpDebugState* s, const VdpLayout& l, int lines, int firstLine, int color0, VdpImage& out, int* w, int* h);
 
 struct VdpCharInfo {
     int ch;              /* character number; SCREEN 2/4 add 256 per block */
     int patternAddr;
     int colorAddr;       /* -1 when colours come from registers */
-    int nameAddr;
+    int nameAddr;        /* -1 on the sheet */
     int col, row;
 };
+bool vdpSheetChar(const VdpDebugState* s, const VdpLayout& l, int x, int y, VdpCharInfo* out);
 bool vdpNameTableChar(const VdpDebugState* s, const VdpLayout& l, int x, int y, int firstLine, VdpCharInfo* out);
 int  vdpNameTableWidth(int mode);
 

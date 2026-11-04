@@ -20,6 +20,8 @@
 **
 ******************************************************************************
 */
+#include <limits.h>
+#include <stdio.h>
 #include <string.h>
 #include <algorithm>
 #include "VdpRaster.h"
@@ -334,6 +336,86 @@ int vdpRasterFindBand(const VdpRasterView& v, const VdpBandKey& k)
     for (int i = 0; i < (int)v.bands.size(); i++) {
         const VdpBand& b = v.bands[i];
         int n = vdpModeFamily(b.mode) == k.family ? overlap(b.first, b.last, k.first, k.last) : 0;
+        if (n > most) { most = n; best = i; }
+    }
+    return best;
+}
+
+bool vdpGroupHasBand(const VdpBandGroup& g, const VdpBand& b)
+{
+    /* Bitmap bands of one mode share their pages; pattern bands need the same tables too. */
+    static const int tables[] = { 2, 3, 4, 6, 10 };
+    if (g.mode != b.mode) return false;
+    if (vdpIsBitmapMode(b.mode)) return true;
+    for (int reg : tables) {
+        if (g.regs[reg] != b.regs[reg]) return false;
+    }
+    return ((g.regs[1] ^ b.regs[1]) & 0x03) == 0;
+}
+
+/* Adds lines first to last to the group's runs and its heading. */
+static void addLines(VdpBandGroup& g, int first, int last)
+{
+    if (g.runs > 0 && g.runLast[g.runs - 1] == first - 1) g.runLast[g.runs - 1] = last;
+    else if (g.runs < 8) { g.runFirst[g.runs] = first; g.runLast[g.runs] = last; g.runs++; }
+    g.lineCount += last - first + 1;
+    size_t at = 0;
+    g.lines[0] = 0;
+    for (int i = 0; i < g.runs && at < sizeof(g.lines); i++) {
+        const char* sep = i ? ", " : "";
+        if (g.runFirst[i] == g.runLast[i]) at += (size_t)snprintf(g.lines + at, sizeof(g.lines) - at, "%s%d", sep, g.runFirst[i]);
+        else at += (size_t)snprintf(g.lines + at, sizeof(g.lines) - at, "%s%d-%d", sep, g.runFirst[i], g.runLast[i]);
+    }
+}
+
+void vdpRasterGroups(const VdpRasterView& v, std::vector<VdpBandGroup>& out)
+{
+    out.clear();
+    if (!v.valid) return;
+    for (const VdpBand& b : v.bands) {
+        if (b.mode < 0) continue;
+        size_t k = 0;
+        while (k < out.size() && !vdpGroupHasBand(out[k], b)) k++;
+        if (k == out.size()) {
+            VdpBandGroup g;
+            memset(&g, 0, sizeof(g));
+            g.mode = b.mode;
+            memcpy(g.regs, b.regs, sizeof(g.regs));
+            g.blink = b.blink;
+            g.textSplit = b.textSplit;
+            out.push_back(g);
+        }
+        VdpBandGroup& g = out[k];
+        addLines(g, b.first, b.last);
+    }
+    size_t kept = 0;
+    for (const VdpBandGroup& g : out) {
+        if (g.lineCount > 2) kept++;
+    }
+    if (kept > 0 && kept < out.size()) {
+        out.erase(std::remove_if(out.begin(), out.end(), [](const VdpBandGroup& g) { return g.lineCount <= 2; }), out.end());
+    }
+}
+
+VdpLayout vdpLayoutOf(const VdpBandGroup& g)
+{
+    VdpLayout l = { g.regs, g.mode, g.blink, NULL, g.textSplit };
+    return l;
+}
+
+VdpBandKey vdpGroupKeyOf(const VdpBandGroup& g)
+{
+    VdpBandKey k = { vdpModeFamily(g.mode), g.runs ? g.runFirst[0] : 0, g.runs ? g.runLast[g.runs - 1] : 0 };
+    return k;
+}
+
+int vdpFindGroup(const std::vector<VdpBandGroup>& groups, const VdpBandKey& k)
+{
+    int best = -1, most = 0;
+    for (int i = 0; i < (int)groups.size(); i++) {
+        const VdpBandGroup& g = groups[i];
+        int n = 0;
+        for (int r = 0; vdpModeFamily(g.mode) == k.family && r < g.runs; r++) n += overlap(g.runFirst[r], g.runLast[r], k.first, k.last);
         if (n > most) { most = n; best = i; }
     }
     return best;

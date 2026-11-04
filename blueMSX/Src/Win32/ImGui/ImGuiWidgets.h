@@ -86,6 +86,8 @@ void HoldHeight(HeightHold& h, float y0);
 #define UI_ICON_GRID          "\xEE\xA0\x8A"  /* U+E80A, a 3x3 grid */
 #define UI_ICON_TABLES        "\xEE\xA3\xAC"  /* U+E8EC Tag */
 
+#define UI_ICON_NUMBERS       "\xEE\xA2\xAC"  /* U+E8AC Rename */
+
 /* Whether the window has an icon font; without one icons are not drawn. */
 bool  HasIcons();
 /* glyph em px at 96 DPI high, its box centred on c. */

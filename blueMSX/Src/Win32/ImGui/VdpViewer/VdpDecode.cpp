@@ -434,6 +434,29 @@ void vdpDecodePatternSheet(const VdpDebugState* s, const VdpLayout& l, int color
     }
 }
 
+bool vdpSheetChar(const VdpDebugState* s, const VdpLayout& l, int x, int y, VdpCharInfo* out)
+{
+    int mode = l.mode;
+    if (x < 0 || x >= 256 || y < 0 || y >= 64 * vdpSheetBlocks(s, l)) {
+        return false;
+    }
+    int third = y / 64, ch = (y % 64) / 8 * 32 + x / 8;
+    out->ch = third * 256 + ch;
+    out->col = x / 8;
+    out->row = y / 8;
+    out->nameAddr = -1;
+    if (mode == 2 || mode == 4) {
+        int idx = (-1 << 13) | (third << 11) | (ch * 8);
+        out->patternAddr = chrGenMask(s, l.regs) & idx;
+        out->colorAddr   = colTabMask(s, l.regs) & idx;
+    }
+    else {
+        out->patternAddr = (chrGenMask(s, l.regs) & (-1 << 11)) | (ch * 8);
+        out->colorAddr   = mode == 1 ? colTabMask(s, l.regs) & ((ch / 8) | (-1 << 6)) : -1;
+    }
+    return true;
+}
+
 /* The name table entry for a screen character cell. */
 static int nameAddr(const VdpDebugState* s, const VdpLayout& l, int col, int row)
 {
@@ -462,6 +485,36 @@ int vdpSheetBlocks(const VdpDebugState* s, const VdpLayout& l)
     /* Block 3 reads what block (pm | cm) reads unless R#4 and R#3 keep both its address bits. */
     int pm = (chrGenMask(s, l.regs) >> 11) & 3, cm = (colTabMask(s, l.regs) >> 11) & 3;
     return nameRows(s, l) > 24 && (pm | cm) == 3 ? 4 : 3;
+}
+
+void vdpDecodeNameTable(const VdpDebugState* s, const VdpLayout& l, int lines, int firstLine, int color0, VdpImage& out, int* w, int* h)
+{
+    uint32_t pal[17];
+    int mode = l.mode;
+    int cw = mode == 0 || mode == 13 ? 6 : 8;
+    int width = vdpNameTableWidth(mode);
+    int cols = width / cw;
+    int vscroll = firstLineOf(s, l, firstLine);
+    int x, y;
+    charPalette(s, l, color0, pal);
+    *w = width;
+    *h = lines;
+    out.assign((size_t)width * lines, 0);
+    for (y = 0; y < lines; y++) {
+        int sy = (y + vscroll) & 0xff;
+        for (x = 0; x < cols; x++) {
+            int idx = mode == 13 ? 80 * (sy / 8) + x : -1;
+            int ch = rd(s, nameAddr(s, l, x, sy / 8));
+            uint32_t buf[8];
+            if (mode == 3) {
+                charRow(s, l, pal, ch, ((sy / 8) & 3) * 2 + ((sy >> 2) & 1), 0, -1, buf, 8);
+            }
+            else {
+                charRow(s, l, pal, ch, sy & 7, (sy & 0xc0) >> 6, idx, buf, 8);
+            }
+            for (int i = 0; i < cw; i++) out[(size_t)y * width + x * cw + i] = buf[i];
+        }
+    }
 }
 
 bool vdpNameTableChar(const VdpDebugState* s, const VdpLayout& l, int x, int y, int firstLine, VdpCharInfo* out)

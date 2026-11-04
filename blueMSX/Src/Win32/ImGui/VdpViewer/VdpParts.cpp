@@ -37,6 +37,19 @@ void barToggle(const char* id, const char* glyph, const char* label, const char*
     if (ui::IconButton(id, glyph, label, tip, *on)) *on = !*on;
 }
 
+void partChip(ImDrawList* dl, ImVec2 a, ImVec2 b, const char* text)
+{
+    const UiTokens& t = uiTokens();
+    ui::PushFont(UI_FONT_BODY, 11);
+    ImVec2 ts = ImGui::CalcTextSize(text);
+    if (b.x - a.x >= ts.x + ui::Px(8) && b.y - a.y >= ts.y + ui::Px(2)) {
+        ImU32 back = ui::WithAlpha(t.layer, 200);
+        dl->AddRectFilled(a, ImVec2(a.x + ts.x + ui::Px(8), a.y + ts.y + ui::Px(2)), back);
+        dl->AddText(ImVec2(a.x + ui::Px(4), a.y + ui::Px(1)), t.text, text);
+    }
+    ui::PopFont();
+}
+
 void hatch(ImDrawList* dl, ImVec2 a, ImVec2 b, ImU32 col)
 {
     float step = fmaxf(4.0f, ui::Px(5)), h = b.y - a.y;
@@ -90,6 +103,14 @@ void note(const char* text)
     ImGui::PushStyleColor(ImGuiCol_Text, uiTokens().textSecondary);
     ImGui::TextWrapped("%s", text);
     ImGui::PopStyleColor();
+}
+
+void emptyView(const char* text)
+{
+    ImGui::Dummy(ImVec2(0, ui::Px(16)));
+    ImGui::Indent(ui::Px(16));
+    note(text);
+    ImGui::Unindent(ui::Px(16));
 }
 
 }

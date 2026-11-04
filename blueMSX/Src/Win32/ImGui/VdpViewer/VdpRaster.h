@@ -85,11 +85,31 @@ bool vdpBandBitmap(const VdpDebugState* s, const VdpBand& b, VdpBitmapOptions* o
 
 /* 1 bitmap, 0 pattern modes, -1 none: what a pin or a choice keeps across frames. */
 int  vdpModeFamily(int mode);
-/* A band found again in later frames: by its mode family and the lines
-** it covers, not by scroll, page or adjust registers. */
+/* A band or group found again in later frames: by its mode family and the
+** lines it covers, not by scroll, page or adjust registers. */
 struct VdpBandKey { int family, first, last; };
 VdpBandKey vdpBandKeyOf(const VdpBand& b);
 /* The band of the key's family that shares the most lines with it, or -1. */
 int  vdpRasterFindBand(const VdpRasterView& v, const VdpBandKey& k);
+
+/* Bands drawn in one mode from the same tables (bitmap bands: the same
+** mode), for headings and lists; the pictures are decoded per band. */
+struct VdpBandGroup {
+    int      mode;
+    UInt8    regs[32];     /* of its first band */
+    int      blink;
+    int      textSplit;    /* of its first band */
+    char     lines[64];    /* "0-30, 113-211" */
+    int      runFirst[8], runLast[8], runs, lineCount;
+};
+/* Groups in the order their first lines come; groups of one or two lines,
+** such as the line a mode change takes effect on, are left out when larger
+** ones exist. Empty without a log. */
+void vdpRasterGroups(const VdpRasterView& v, std::vector<VdpBandGroup>& out);
+bool vdpGroupHasBand(const VdpBandGroup& g, const VdpBand& b);
+VdpLayout vdpLayoutOf(const VdpBandGroup& g);
+VdpBandKey vdpGroupKeyOf(const VdpBandGroup& g);
+/* The group of the key's family that shares the most lines with it, or -1. */
+int  vdpFindGroup(const std::vector<VdpBandGroup>& groups, const VdpBandKey& k);
 
 #endif

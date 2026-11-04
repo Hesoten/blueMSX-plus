@@ -116,8 +116,8 @@ class V99x8View : public ChipView {
 public:
     V99x8View()
     {
-        outCv.shared = vramCv.shared = &shell::zoom();
-        vramCv.frameless = outCv.frameless = true;
+        outCv.shared = sheetCv.shared = vramCv.shared = &shell::zoom();
+        sheetCv.frameless = vramCv.frameless = outCv.frameless = true;
         regFadeReset(regFade);
         regFadeReset(statFade);
     }
@@ -152,9 +152,12 @@ public:
 
     int views(ViewDesc* out, int max, const void* st) const override
     {
-        (void)st;
+        const VdpDebugState* s = (const VdpDebugState*)st;
         int n = 0;
+        /* A V9938/58 frame can mix modes, so this view stays; it says when no line uses a pattern mode. */
+        bool fixed = !vdpIsMsx1(s);
         if (n < max) out[n++] = ViewDesc{ "screen", ts(TS_VIEW_SCREEN), UI_ICON_SCREEN };
+        if (n < max && (fixed || vdpIsPatternMode(s->screenMode))) out[n++] = ViewDesc{ "patterns", ts(TS_VIEW_PATTERNS), UI_ICON_PATTERNS };
         if (n < max) out[n++] = ViewDesc{ "vram", "VRAM", UI_ICON_VRAM };
         return n;
     }
@@ -164,10 +167,13 @@ public:
         const VdpDebugState* s = (const VdpDebugState*)st;
         ViewDesc d[8];
         int n = views(d, 8, st);
-        /* A pin on a tile means nothing once the screen is a bitmap, and back; a band's pin follows its line's band. */
+        /* A pin on a tile means nothing once the screen is a bitmap, and back; a band's pin follows its line's
+        ** band, and a character's the group it was read from, letting go once the frame has no such group. */
         int family = vdpIsBitmapMode(s->screenMode) ? 1 : 0;
         ensureRaster(s);
-        if (family != lastFamily && f.pinned && f.kind != FOCUS_VRAM && !bandFocus(f)) {
+        bool byGroup = f.kind == FOCUS_CHAR && charPin.set && f.a == charPin.a && f.b == charPin.b && raster.valid;
+        if (f.pinned && (byGroup ? vdpFindGroup(groups, charPin.key) < 0 :
+                         family != lastFamily && f.kind != FOCUS_VRAM && !bandFocus(f))) {
             f.pinned = false;
             f.kind = FOCUS_NONE;
         }
@@ -183,6 +189,7 @@ public:
         if (v < 0 || v >= n) return;
         ui::BeginTabCard("card");
         if (strcmp(d[v].key, "screen") == 0) drawOutput(s, f);
+        else if (strcmp(d[v].key, "patterns") == 0) drawPatterns(s, f);
         else drawVram(s, f);
         ui::EndTabCard();
     }
@@ -383,10 +390,16 @@ public:
     void forget() override
     {
         outPic.forget();
+        sheetPic.forget();
+        namePic.forget();
+        patPic.forget();
+        patCol = patRow = -1;
         selSheetPic.forget();
         vramPic.forget();
         regFadeReset(regFade);
         regFadeReset(statFade);
+        patGroupSet = false;
+        charPin.set = false;
         lastFamily = -1;
         rasterVer = ~0u;
         rasterBuilt = false;
@@ -398,12 +411,28 @@ public:
     }
 
 private:
-    ViewPicture     vramPic;
+    ViewPicture     sheetPic, vramPic;
     ViewPicture     selSheetPic;          /* the Selection's, for a band's or a cell's pin: never uploaded */
-    ui::CanvasState vramCv;
+    ui::CanvasState sheetCv, vramCv;
+    /* The Patterns tab: the screen the name table builds beside the pattern generator, one
+    ** picture; parts in image px, sdx image px a sheet dot across (2 beside T80's names). */
+    struct PatParts { int nx, ny, nw, nh, sx, sy, sw, sh, sdx, w, h; };
+    bool            patSide = true;
+    bool            patNumbers = false;   /* character numbers on the cells */
+    bool            patGroupSet = false;  /* Patterns reads the group patKey finds */
+    VdpBandKey      patKey = {};
+    PatParts        pat = {};
+    ViewPicture     namePic, patPic;
+    int             patCol = -1, patRow = -1;  /* the name cell last hovered or pinned */
+    Focus           patCellFocus = {};         /* the focus that cell gave */
+    /* The character pinned on the Patterns tab, a and b as its focus, and the group it was read from. */
+    struct CharPin { bool set; int a, b; VdpBandKey key; };
+    CharPin         charPin = {};
+    bool            transparent0 = false;
     int             lastFamily = -1;      /* 1 bitmap, 0 pattern mode */
     bool            vramTint = true;      /* the bytes tinted by the VRAM map's lanes */
     RegFade         regFade, statFade;
+    std::vector<VdpBandGroup> groups;     /* of the bands, rebuilt with them */
     VdpRasterView   raster;
     unsigned        rasterVer = ~0u;
     bool            rasterBuilt = false;
@@ -431,6 +460,7 @@ private:
 
     /* For the overlays, which run inside Canvas. */
     const VdpDebugState* ovState = NULL;
+    VdpLayout            ovLayout = {};          /* the Patterns view's; rgb valid until the next ensureLinePalettes */
     int                  ovRows = 0, ovWidth = 256;  /* the Output picture's */
     int                  ovSplitWidth = 256;  /* dots a split is counted in */
 
@@ -457,24 +487,105 @@ private:
     unsigned             linePalShot = ~0u, linePalRaster = ~0u;
     int                  linePalLines = -1;
 
+    int color0() const
+    {
+        return transparent0 ? VDP_COLOR0_TRANSPARENT : VDP_COLOR0_AUTO;
+    }
+
     /* The pattern sheet of a layout into pic; true when decoded again. */
     bool decodeSheet(const VdpDebugState* s, const VdpLayout& l, ViewPicture& pic)
     {
         char key[64];
         const UInt8* r = l.regs;
-        snprintf(key, sizeof(key), "%d/%02X%02X%02X%02X%02X%02X/%d/%d/%08X", l.mode, r[3], r[4], r[7], r[8], r[10], r[12], l.blink,
+        snprintf(key, sizeof(key), "%d/%d/%02X%02X%02X%02X%02X%02X/%d/%d/%08X", l.mode, color0(), r[3], r[4], r[7], r[8], r[10], r[12], l.blink,
                  vdpSheetBlocks(s, l), palHash(l.rgb));
         bool decoded = pic.needsDecode(key);
         if (decoded) {
-            vdpDecodePatternSheet(s, l, VDP_COLOR0_AUTO, pic.img, &pic.w, &pic.h);
+            vdpDecodePatternSheet(s, l, color0(), pic.img, &pic.w, &pic.h);
         }
         return decoded;
+    }
+
+    void ensureSheet(const VdpDebugState* s, const VdpLayout& l)
+    {
+        decodeSheet(s, l, sheetPic);
     }
 
     /* Display lines of a layout: 212 with R#9 LN. */
     static int layoutLines(const VdpDebugState* s, const UInt8* r)
     {
         return !vdpIsMsx1(s) && (r[9] & 0x80) ? 212 : 192;
+    }
+
+    /* The group Auto reads for the Patterns view, -1 when no line is in a pattern mode; *count
+    ** such groups. Of two or more, it takes a pinned character's, else the band in context's;
+    ** then the group with the most lines. */
+    int autoGroup(int* count) const
+    {
+        int best = -1, n = 0;
+        for (int i = 0; i < (int)groups.size(); i++) {
+            if (!vdpIsPatternMode(groups[i].mode)) continue;
+            n++;
+            if (best < 0 || groups[i].lineCount > groups[best].lineCount) best = i;
+        }
+        *count = n;
+        if (n < 2) return best;
+        const Focus& f = shell::shownFocus();
+        int k = f.pinned && f.kind == FOCUS_CHAR && charPin.set && f.a == charPin.a && f.b == charPin.b ? vdpFindGroup(groups, charPin.key) : -1;
+        if (k < 0) k = groupOfBand(ctxBand());
+        return k >= 0 && vdpIsPatternMode(groups[k].mode) ? k : best;
+    }
+
+    /* The registers the Patterns view reads: the group Auto or the tab picks, the frame's end
+    ** without a log; *group the group, -1 when the frame's end has its only one (*read is the
+    ** group read even then). False when no line of the frame is in a pattern mode. */
+    bool viewLayout(const VdpDebugState* s, VdpLayout* l, int* group, int* read = NULL)
+    {
+        ensureRaster(s);
+        *group = -1;
+        if (read) *read = -1;
+        /* A group picked on the Patterns tab, while the frame still has it. */
+        int k = patGroupSet && raster.valid ? vdpFindGroup(groups, patKey) : -1;
+        if (k >= 0 && vdpIsPatternMode(groups[k].mode)) {
+            *group = k;
+            if (read) *read = k;
+            *l = withPal(vdpLayoutOf(groups[k]), palOfGroup(groups[k]));
+            return true;
+        }
+        if (groups.empty()) {
+            if (!vdpIsPatternMode(s->screenMode)) return false;
+            *l = frameEndLayout(s);
+            return true;
+        }
+        int n, g = autoGroup(&n);
+        if (g < 0) return false;
+        /* The frame's end may be the next frame's tables, but names a lone group as before. */
+        *group = n == 1 && vdpIsPatternMode(s->screenMode) ? -1 : g;
+        if (read) *read = g;
+        *l = withPal(vdpLayoutOf(groups[g]), palOfGroup(groups[g]));
+        return true;
+    }
+
+    /* "Lines 34-191, SCREEN 4" for a view that reads a group, not the frame's end. */
+    const char* groupLabel(int k, char* out, size_t size) const
+    {
+        out[0] = 0;
+        if (k >= 0 && k < (int)groups.size()) textf(out, size, ts(TS_STRIP_GROUP), groups[k].lines, shortModeName(groups[k].mode));
+        return out;
+    }
+
+    /* A focus on a logical address read in mode; physical when the frame's end maps it otherwise. */
+    void focusAddr(const VdpDebugState* s, int mode, int logical, UInt32 len, Focus* f) const
+    {
+        if (mode == s->screenMode || interleaved(mode) == interleaved(s->screenMode)) {
+            f->space = FOCUS_LOGICAL;
+            f->addr = (UInt32)logical;
+            f->len = len;
+            return;
+        }
+        f->space = FOCUS_PHYS;
+        f->addr = (UInt32)vdpPhysicalAddress(s, mode, logical);
+        f->len = interleaved(mode) && len > 1 ? len / 2 : len;
     }
 
     void ensureRaster(const VdpDebugState* s)
@@ -488,6 +599,7 @@ private:
         rasterBuilt = true;
         memcpy(rasterRegs, s->regs, 32);
         vdpRasterBuild(s, lines, &raster);
+        vdpRasterGroups(raster, groups);
         selBand = selWanted ? vdpRasterFindBand(raster, selKey) : -1;
     }
 
@@ -566,6 +678,11 @@ private:
         return best >= 0 ? &linePal.rgb[(size_t)best * 16] : NULL;
     }
 
+    const UInt32* palOfGroup(const VdpBandGroup& g) const
+    {
+        return palOfRuns(g.runFirst, g.runLast, g.runs);
+    }
+
     const UInt32* palOfBand(int bi) const
     {
         return bi >= 0 && bi < (int)raster.bands.size() ? palOfRuns(&raster.bands[bi].first, &raster.bands[bi].last, 1) : NULL;
@@ -597,6 +714,15 @@ private:
     static unsigned palHash(const UInt32* rgb)
     {
         return rgb != NULL ? fnvWords(rgb, 16) : 0u;
+    }
+
+    /* The band the Patterns view takes as context: the one picked on the Splits card,
+    ** else the band of a line pinned on the Output, or -1. */
+    int ctxBand() const
+    {
+        if (selBand >= 0 && selBand < (int)raster.bands.size()) return selBand;
+        const Focus& f = shell::shownFocus();
+        return f.pinned ? bandOfFocus(f) : -1;
     }
 
     /* A pixel or tile picked on a picture drawn band by band: addr is
@@ -656,6 +782,15 @@ private:
             VdpCharInfo ci;
             if (vdpNameTableChar(s, l, f.a, f.b, -1, &ci)) f.addr = (UInt32)ci.patternAddr;
         }
+    }
+
+    /* The group holding a band, or -1. */
+    int groupOfBand(int bi) const
+    {
+        for (int g = 0; bi >= 0 && g < (int)groups.size(); g++) {
+            if (vdpGroupHasBand(groups[g], raster.bands[bi])) return g;
+        }
+        return -1;
     }
 
     void selectBand(int i)
@@ -810,6 +945,7 @@ private:
             return -1;
         }
         if (f.kind == FOCUS_TILE && vdpNameTableChar(s, l, f.a, f.b, 0, &ci)) return ci.ch;
+        if (f.kind == FOCUS_CHAR && vdpSheetChar(s, l, f.a, f.b, &ci)) return ci.ch;
         return -1;
     }
 
@@ -823,11 +959,12 @@ private:
         ImGui::PopStyleColor();
     }
 
-    /* The zoom at the bar's right end. */
-    void zoomGroup(ui::CanvasState& cv)
+    /* The zoom at the bar's right end; with colour0, Colour 0 transparent in its menu. */
+    void zoomGroup(ui::CanvasState& cv, bool colour0)
     {
         ui::CommandBarRight(ui::ZoomControlsWidth());
-        ui::ZoomControls("zoom", cv);
+        ui::ZoomControls("zoom", cv, colour0 ? &transparent0 : NULL, ts(TS_COLOUR0_TRANSPARENT));
+        if (colour0) cv.checker = transparent0;
     }
 
     /* ---- Output: the picture the VDP drew ---- */
@@ -1014,6 +1151,7 @@ private:
             VdpBitmapOptions bo;
             VdpPixelInfo px;
             vdpBandBitmap(s, *b, &bo);
+            bo.color0 = color0();
             int x = dot * vdpBitmapWidth(b->mode) / dots;
             if (vdpBitmapPixel(s, l, bo, x, d, &px)) {
                 Focus hit = { f.chipId, FOCUS_PHYS, (UInt32)px.physical, 1, FOCUS_PIXEL, x, d, false };
@@ -1056,7 +1194,7 @@ private:
             textf(field, sizeof(field), mixed ? ts(TS_OUT_FIELD_ABOVE) : "%s", name);
             barText(field);
         }
-        zoomGroup(outCv);
+        zoomGroup(outCv, false);
         ui::EndCommandBar();
 
         /* Without a new picture the last one stays, dimmed; one copied for another tab has no samples. */
@@ -1153,6 +1291,368 @@ private:
         dashedSegment(dl, a, ImVec2(x1, a.y), col, th, ui::Px(3));
     }
 
+    /* ---- Patterns ---- */
+
+    /* Whether two characters draw from the same bytes: the same pattern, and colours in SCREEN 2 and 4. */
+    static bool sameChar(const VdpCharInfo& a, const VdpCharInfo& b, int mode)
+    {
+        return a.patternAddr == b.patternAddr && (!(mode == 2 || mode == 4) || a.colorAddr == b.colorAddr);
+    }
+
+    /* The sheet character read from the same bytes as ci, or -1. */
+    static int sheetCharLike(const VdpDebugState* s, const VdpLayout& l, const VdpCharInfo& ci)
+    {
+        int blocks = vdpSheetBlocks(s, l);
+        for (int c = 0; c < 256 * blocks; c++) {
+            int x, y;
+            VdpCharInfo sc;
+            sheetCell(c, &x, &y);
+            if (vdpSheetChar(s, l, x, y, &sc) && sameChar(sc, ci, l.mode)) return c;
+        }
+        return -1;
+    }
+
+    /* The focused character on both parts: its sheet cells (every block that mirrors it) and the
+    ** name cells showing it, these only while they are few; the parts' chips. */
+    static void patOverlay(ImDrawList* dl, const ui::CanvasXf& xf, void* ref)
+    {
+        V99x8View* self = (V99x8View*)ref;
+        const UiTokens& t = uiTokens();
+        const PatParts& P = self->pat;
+        const VdpDebugState* s = self->ovState;
+        const VdpLayout& l = self->ovLayout;
+        int mode = l.mode, blocks = vdpSheetBlocks(s, l);
+        float th = fmaxf(1.0f, ui::Px(1));
+        dl->PushClipRect(xf.clipMin, xf.clipMax, true);
+        const Focus& sf = shell::shownFocus(), &cf = self->patCellFocus;
+        int ch = self->focusChar(s, l, sf);
+        VdpCharInfo fc;
+        int fx, fy;
+        if (ch >= 0 && ch < 256 * blocks) sheetCell(ch, &fx, &fy);
+        if (ch >= 0 && ch < 256 * blocks && vdpSheetChar(s, l, fx, fy, &fc)) {
+            for (int c = 0; c < 256 * blocks; c++) {
+                int x, y;
+                VdpCharInfo ci;
+                sheetCell(c, &x, &y);
+                ImVec2 a = xf.toScreen((float)(P.sx + x * P.sdx), (float)(P.sy + y)), b = xf.toScreen((float)(P.sx + (x + 8) * P.sdx), (float)(P.sy + y + 8));
+                if (b.x < xf.clipMin.x || a.x > xf.clipMax.x || b.y < xf.clipMin.y || a.y > xf.clipMax.y) continue;
+                if (c != ch && !(vdpSheetChar(s, l, x, y, &ci) && sameChar(ci, fc, mode))) continue;
+                float w = c == ch ? th * 2 : th;
+                dl->AddRect(ImVec2(a.x - w / 2, a.y - w / 2), ImVec2(b.x + w / 2, b.y + w / 2), c == ch ? t.accent : ui::WithAlpha(t.accent, 160), 0, w);
+            }
+            /* The cell thick only while the focus is still the one it gave, not a pin made elsewhere. */
+            bool own = sf.kind == cf.kind && sf.addr == cf.addr && sf.a == cf.a && sf.b == cf.b;
+            self->patNameMarks(dl, xf, fc, th, own);
+        }
+        if (self->patNumbers) self->patNumbersDraw(dl, xf);
+        VdpTables tb;
+        vdpDecodeTables(s, l, &tb);
+        char chip[64];
+        textf(chip, sizeof(chip), ts(TS_PAT_CHIP_NAMES), tb.name);
+        partChip(dl, xf.toScreen((float)P.nx, (float)P.ny), xf.toScreen((float)(P.nx + P.nw), (float)(P.ny + P.nh)), chip);
+        textf(chip, sizeof(chip), ts(TS_PAT_CHIP_PATTERNS), tb.patternGen);
+        partChip(dl, xf.toScreen((float)P.sx, (float)P.sy), xf.toScreen((float)(P.sx + P.sw), (float)(P.sy + P.sh)), chip);
+        dl->PopClipRect();
+    }
+
+    /* The name cells that show character fc, only those in view; none but the hovered cell when
+    ** more than a quarter of the cells show it (then it marks nothing). own: the focus is the one
+    ** the cell at patCol, patRow gave, which is drawn thick. */
+    void patNameMarks(ImDrawList* dl, const ui::CanvasXf& xf, const VdpCharInfo& fc, float th, bool own) const
+    {
+        const UiTokens& t = uiTokens();
+        const PatParts& P = pat;
+        const VdpDebugState* s = ovState;
+        const VdpLayout& l = ovLayout;
+        int cw = l.mode == 0 || l.mode == 13 ? 6 : 8, cols = P.nw / cw, vs = vdpScreenScroll(s, l);
+        int many = patMatches(fc) * 4 > cols * ((P.nh + 7) / 8);
+        for (int r = 0; r < 32; r++) {
+            /* Row r's lines on the screen: from (8r - scroll) mod 256, in one or two pieces. */
+            int y0 = (r * 8 - vs) & 0xff;
+            for (int piece = 0; piece < 2; piece++) {
+                int a0 = piece == 0 ? y0 : 0, a1 = piece == 0 ? (y0 + 8 < 256 ? y0 + 8 : 256) : y0 + 8 - 256;
+                if (a1 > P.nh) a1 = P.nh;
+                if (a0 >= a1) continue;
+                ImVec2 ya = xf.toScreen(0, (float)(P.ny + a0)), yb = xf.toScreen(0, (float)(P.ny + a1));
+                if (yb.y < xf.clipMin.y || ya.y > xf.clipMax.y) continue;
+                for (int c = 0; c < cols; c++) {
+                    ImVec2 a = xf.toScreen((float)(P.nx + c * cw), (float)(P.ny + a0)), b = xf.toScreen((float)(P.nx + (c + 1) * cw), (float)(P.ny + a1));
+                    if (b.x < xf.clipMin.x || a.x > xf.clipMax.x) continue;
+                    bool hot = own && c == patCol && r == patRow;
+                    if (many && !hot) continue;
+                    VdpCharInfo ci;
+                    if (!vdpNameTableChar(s, l, c * cw, a0, -1, &ci) || !sameChar(ci, fc, l.mode)) continue;
+                    float w = hot ? th * 2 : th;
+                    dl->AddRect(ImVec2(a.x - w / 2, a.y - w / 2), ImVec2(b.x + w / 2, b.y + w / 2), hot ? t.accent : ui::WithAlpha(t.accent, 160), 0, w);
+                }
+            }
+        }
+    }
+
+    /* Each cell's character number in hex, on the cells in view that are 18 px or wider. */
+    void patNumbersDraw(ImDrawList* dl, const ui::CanvasXf& xf) const
+    {
+        const UiTokens& t = uiTokens();
+        const PatParts& P = pat;
+        const VdpLayout& l = ovLayout;
+        int cw = l.mode == 0 || l.mode == 13 ? 6 : 8, vs = vdpScreenScroll(ovState, l);
+        ui::PushFont(UI_FONT_MONO, 11);
+        ImVec2 ts = ImGui::CalcTextSize("FF");
+        auto label = [&](ImVec2 a, int v) {
+            char num[4];
+            snprintf(num, sizeof(num), "%02X", v & 0xff);
+            dl->AddRectFilled(a, ImVec2(a.x + ts.x + ui::Px(2), a.y + ts.y), ui::WithAlpha(t.layer, 170));
+            dl->AddText(ImVec2(a.x + ui::Px(1), a.y), t.text, num);
+        };
+        /* The cells across from x0 a cell w image px wide that reach the view, as c0..c1. */
+        auto across = [&](int x0, float w, int n, int* c0, int* c1) {
+            *c0 = (int)floorf((xf.clipMin.x - xf.origin.x) / (w * xf.scale.x) - x0 / w);
+            *c1 = (int)ceilf((xf.clipMax.x - xf.origin.x) / (w * xf.scale.x) - x0 / w);
+            if (*c0 < 0) *c0 = 0;
+            if (*c1 > n - 1) *c1 = n - 1;
+        };
+        if (cw * xf.scale.x >= ui::Px(18)) {
+            int c0, c1;
+            across(P.nx, (float)cw, P.nw / cw, &c0, &c1);
+            for (int r = 0; r < 32; r++) {
+                int y0 = (r * 8 - vs) & 0xff, h = y0 + 8 <= 256 ? 8 : 256 - y0;
+                if (y0 >= P.nh || h * xf.scale.y < ts.y) continue;
+                ImVec2 ya = xf.toScreen(0, (float)(P.ny + y0));
+                if (ya.y + ts.y < xf.clipMin.y || ya.y > xf.clipMax.y) continue;
+                for (int c = c0; c <= c1; c++) {
+                    VdpCharInfo ci;
+                    if (vdpNameTableChar(ovState, l, c * cw, y0, -1, &ci)) label(xf.toScreen((float)(P.nx + c * cw), (float)(P.ny + y0)), ci.ch);
+                }
+            }
+        }
+        if (8 * P.sdx * xf.scale.x >= ui::Px(18)) {
+            int c0, c1;
+            across(P.sx, 8.0f * P.sdx, 32, &c0, &c1);
+            for (int r = 0; r < P.sh / 8; r++) {
+                ImVec2 ya = xf.toScreen(0, (float)(P.sy + r * 8));
+                if (ya.y + ts.y < xf.clipMin.y || ya.y > xf.clipMax.y) continue;
+                for (int c = c0; c <= c1; c++) label(xf.toScreen((float)(P.sx + c * 8 * P.sdx), (float)(P.sy + r * 8)), (r % 8) * 32 + c);
+            }
+        }
+        ui::PopFont();
+    }
+
+    /* How many name cells on the screen show character fc. */
+    int patMatches(const VdpCharInfo& fc) const
+    {
+        const VdpDebugState* s = ovState;
+        const VdpLayout& l = ovLayout;
+        int cw = l.mode == 0 || l.mode == 13 ? 6 : 8, n = 0;
+        for (int y = 0; y < pat.nh; y += 8) {
+            for (int x = 0; x + cw <= pat.nw; x += cw) {
+                VdpCharInfo ci;
+                if (vdpNameTableChar(s, l, x, y, -1, &ci) && sameChar(ci, fc, l.mode)) n++;
+            }
+        }
+        return n;
+    }
+
+    /* The group a view reads, on the command bar, unless the frame's end is in the mode of its only one. */
+    void groupTag(int k)
+    {
+        char label[128];
+        if (k < 0 || !groupLabel(k, label, sizeof(label))[0]) return;
+        barText(label);
+    }
+
+    /* The name table's screen into namePic; true when decoded again. */
+    bool decodeNames(const VdpDebugState* s, const VdpLayout& l)
+    {
+        char key[64];
+        const UInt8* r = l.regs;
+        int lines = layoutLines(s, r);
+        snprintf(key, sizeof(key), "%d/%d/%d/%02X%02X%02X%02X%02X%02X%02X%02X%d/%d/%08X", l.mode, color0(), lines, r[2], r[3], r[4], r[7],
+                 r[10], r[12], r[13], vdpScreenScroll(s, l), r[25] & 1, l.blink, palHash(l.rgb));
+        bool decoded = namePic.needsDecode(key);
+        if (decoded) vdpDecodeNameTable(s, l, lines, -1, color0(), namePic.img, &namePic.w, &namePic.h);
+        return decoded;
+    }
+
+    /* The parts in one picture: side by side when that fits the well at this zoom (Fit: when it
+    ** shows larger), else one under the other; going back side by side needs 24 px to spare. */
+    void patCompose(const VdpDebugState* s, const VdpLayout& l)
+    {
+        bool nd = decodeNames(s, l);
+        bool sd = decodeSheet(s, l, sheetPic);
+        PatParts P = {};
+        P.sdx = l.mode == 13 ? 2 : 1;
+        P.nw = namePic.w;
+        P.nh = namePic.h;
+        P.sw = sheetPic.w * P.sdx;
+        P.sh = sheetPic.h;
+        int gx = 8 * P.sdx, gy = 8;
+        ImVec2 avail = ImGui::GetContentRegionAvail(), k = ui::CanvasScale(sheetCv, 1);
+        float wellW = avail.x - ImGui::GetStyle().ScrollbarSize, wellH = avail.y - ImGui::GetStyle().ScrollbarSize;
+        float wS = (float)(P.nw + gx + P.sw), hS = (float)(P.nh > P.sh ? P.nh : P.sh);
+        float wT = (float)(P.nw > P.sw ? P.nw : P.sw), hT = (float)(P.nh + gy + P.sh);
+        if (sheetCv.z().fit) {
+            patSide = fminf(wellW / (wS * k.x), wellH / (hS * k.y)) >= fminf(wellW / (wT * k.x), wellH / (hT * k.y));
+        }
+        else {
+            float u = (float)sheetCv.z().zoom;
+            patSide = wS * u * k.x <= wellW - (patSide ? 0 : ui::Px(24));
+        }
+        P.sx = patSide ? P.nw + gx : 0;
+        P.sy = patSide ? 0 : P.nh + gy;
+        P.w = patSide ? (int)wS : (int)wT;
+        P.h = patSide ? (int)hS : (int)hT;
+        char key[64];
+        unsigned hk = 2166136261u;
+        for (const char* c : { namePic.key, sheetPic.key }) {
+            for (; *c; c++) hk = (hk ^ (unsigned char)*c) * 16777619u;
+        }
+        snprintf(key, sizeof(key), "%08X/%d/%d/%dx%d", hk, (int)patSide, P.sdx, P.w, P.h);
+        bool composed = patPic.needsDecode(key) || nd || sd;
+        if (composed) {
+            patPic.w = P.w;
+            patPic.h = P.h;
+            patPic.img.assign((size_t)P.w * P.h, 0);
+            for (int y = 0; y < P.nh; y++) {
+                memcpy(&patPic.img[(size_t)(P.ny + y) * P.w + P.nx], &namePic.img[(size_t)y * namePic.w], (size_t)P.nw * 4);
+            }
+            for (int y = 0; y < P.sh; y++) {
+                for (int x = 0; x < P.sw; x++) patPic.img[(size_t)(P.sy + y) * P.w + P.sx + x] = sheetPic.img[(size_t)y * sheetPic.w + x / P.sdx];
+            }
+        }
+        patPic.upload(composed);
+        pat = P;
+        /* The checker and grid on the parts only; the sheet's grid a sheet dot apart. */
+        sheetCv.partCount = 2;
+        sheetCv.parts[0] = { (float)P.nx, (float)P.ny, (float)(P.nx + P.nw), (float)(P.ny + P.nh), 1 };
+        sheetCv.parts[1] = { (float)P.sx, (float)P.sy, (float)(P.sx + P.sw), (float)(P.sy + P.sh), P.sdx };
+    }
+
+    /* Read as, first on the bar, with two or more groups in pattern modes: Auto (as autoGroup picks)
+    ** or one; else the group read, as a tag. True when it drew the chooser. */
+    bool patGroupChooser(const VdpDebugState* s, int g)
+    {
+        int pg[8], npg = 0;
+        for (int i = 0; raster.valid && i < (int)groups.size() && npg < 8; i++) {
+            if (vdpIsPatternMode(groups[i].mode)) pg[npg++] = i;
+        }
+        if (npg < 2) {
+            groupTag(g);
+            return false;
+        }
+        int n = 0, autoG = raster.valid ? autoGroup(&n) : -1;
+        int autoMode = autoG >= 0 ? groups[autoG].mode : s->screenMode;
+        if (autoG >= 0 && n == 1 && vdpIsPatternMode(s->screenMode)) autoG = -1;
+        bool fixed = patGroupSet && g >= 0;
+        char preview[256], groupText[8][160];
+        if (autoG >= 0) textf(preview, sizeof(preview), ts(TS_READ_AS_GROUP_AUTO), groups[autoG].lines, shortModeName(groups[autoG].mode));
+        else textf(preview, sizeof(preview), ts(TS_READ_AS_AUTO), shortModeName(autoMode));
+        const char* items[9] = { preview };
+        int chosen = -1;
+        for (int k = 0; k < npg; k++) {
+            textf(groupText[k], sizeof(groupText[k]), ts(TS_STRIP_GROUP), groups[pg[k]].lines, shortModeName(groups[pg[k]].mode));
+            items[1 + k] = groupText[k];
+            if (fixed && pg[k] == g) chosen = k;
+        }
+        float comboW = ui::ComboWidth(items, 1 + npg, 120);
+        barText(ts(TS_READ_AS));
+        ui::CommandBarItem(ui::Px(comboW));
+        if (ui::BeginCombo("##patgroup", chosen >= 0 ? groupText[chosen] : preview, comboW)) {
+            if (ui::ComboItem(IdLabel(preview, "auto"), chosen < 0)) patGroupSet = false;
+            for (int k = 0; k < npg; k++) {
+                ImGui::PushID(100 + k);
+                if (ui::ComboItem(IdLabel(groupText[k], "group"), chosen == k)) {
+                    patGroupSet = true;
+                    patKey = vdpGroupKeyOf(groups[pg[k]]);
+                }
+                ImGui::PopID();
+            }
+            ui::EndCombo();
+        }
+        if (fixed) {
+            ui::CommandBarItem(ui::Px(14) + ImGui::CalcTextSize(ts(TS_STATE_FIXED)).x);
+            ui::StatusDot(ts(TS_STATE_FIXED), ui::TONE_CAUTION);
+            IdLabel follow(ts(TS_FOLLOW_MODE), "follow");
+            ui::CommandBarItem(ImGui::CalcTextSize(follow, NULL, true).x + ImGui::GetStyle().FramePadding.x * 2);
+            if (ui::SubtleButton(follow)) patGroupSet = false;
+        }
+        return true;
+    }
+
+    /* A character pinned by a click keeps the group it was read from (read, or -1 for the frame's end). */
+    void noteCharPin(const Focus& f, bool clicked, int read)
+    {
+        if (!clicked || !f.pinned || f.kind != FOCUS_CHAR) return;
+        charPin.set = read >= 0 && read < (int)groups.size();
+        charPin.a = f.a;
+        charPin.b = f.b;
+        if (charPin.set) charPin.key = vdpGroupKeyOf(groups[read]);
+    }
+
+    void drawPatterns(const VdpDebugState* s, Focus& f)
+    {
+        VdpLayout l;
+        int g, read;
+        if (!viewLayout(s, &l, &g, &read)) {
+            emptyView(ts(TS_PATTERNS_NONE));
+            return;
+        }
+        int mode = l.mode, blocks = vdpSheetBlocks(s, l);
+        /* T80's 480 dots a line are half as wide as tall, as on a TV. */
+        sheetCv.aspectX = 1;
+        sheetCv.aspectY = mode == 13 ? 2 : 1;
+        ui::BeginCommandBar("bar");
+        if (patGroupChooser(s, g)) ui::CommandBarSeparator();
+        barToggle("##patnum", UI_ICON_NUMBERS, ts(TS_PAT_NUMBERS), ts(TS_PAT_NUMBERS_TIP), &patNumbers);
+        ui::GridToggle(sheetCv);
+        zoomGroup(sheetCv, true);
+        ui::EndCommandBar();
+        ovState = s;
+        ovLayout = l;
+        patCompose(s, l);
+        const PatParts& P = pat;
+        ui::CanvasHit h = ui::Canvas("sheet", patPic.tex.id(), patPic.w, patPic.h, sheetCv, ImVec2(0, 0), patOverlay, this);
+        bool onPart = false;
+        char status[512] = "";
+        VdpCharInfo ci;
+        if (h.valid && h.x >= P.nx && h.x < P.nx + P.nw && h.y >= P.ny && h.y < P.ny + P.nh &&
+            vdpNameTableChar(s, l, h.x - P.nx, h.y - P.ny, -1, &ci)) {
+            /* A cell: its character, as on the sheet. Rows 24-31 reading a block the sheet leaves out
+            ** stand for the sheet character read from the same bytes (R#4 and R#3 mirror it). */
+            onPart = true;
+            int ch = ci.ch < 256 * blocks ? ci.ch : sheetCharLike(s, l, ci);
+            if (ch >= 0) {
+                int cx, cy;
+                sheetCell(ch, &cx, &cy);
+                Focus hit = { f.chipId, FOCUS_LOGICAL, (UInt32)ci.patternAddr, 8, FOCUS_CHAR, cx, cy, false };
+                focusAddr(s, mode, ci.patternAddr, 8, &hit);
+                pin(f, hit, h.clicked);
+                noteCharPin(f, h.clicked, read);
+            }
+            else if (h.clicked) {
+                shell::releaseSelection();
+            }
+            if (!f.pinned || h.clicked) { patCol = ci.col; patRow = ci.row; patCellFocus = f; }
+            textf(status, sizeof(status), ts(TS_PAT_STATUS_TILE), ci.col, ci.row, ci.nameAddr, ci.ch & 0xff, ci.ch & 0xff, ci.patternAddr);
+        }
+        else if (h.valid && h.x >= P.sx && h.x < P.sx + P.sw && h.y >= P.sy && h.y < P.sy + P.sh &&
+                 vdpSheetChar(s, l, (h.x - P.sx) / P.sdx, h.y - P.sy, &ci)) {
+            onPart = true;
+            Focus hit = { f.chipId, FOCUS_LOGICAL, (UInt32)ci.patternAddr, 8, FOCUS_CHAR, (h.x - P.sx) / P.sdx, h.y - P.sy, false };
+            focusAddr(s, mode, ci.patternAddr, 8, &hit);
+            pin(f, hit, h.clicked);
+            noteCharPin(f, h.clicked, read);
+            if (!f.pinned || h.clicked) patCol = patRow = -1;
+            int third = ci.ch >> 8;
+            size_t at = (size_t)textf(status, sizeof(status), ts(TS_STATUS_CHAR), ci.ch & 0xff, ci.ch & 0xff,
+                                      mode == 2 || mode == 4 ? ts(third == 0 ? TS_THIRD_TOP : third == 1 ? TS_THIRD_MIDDLE : third == 2 ? TS_THIRD_BOTTOM : TS_THIRD_ROWS_24) : "",
+                                      ci.patternAddr, ci.colorAddr >= 0 ? ts(TS_STATUS_CHAR_COLOUR) : "");
+            if (at < sizeof(status)) textf(status + at, sizeof(status) - at, ts(TS_PAT_MATCHES), patMatches(ci));
+        }
+        /* The gap between the parts and the room beside them are as the well. */
+        if (h.clickedEmpty || (h.clicked && !onPart)) shell::releaseSelection();
+        if (status[0]) ui::StatusText("%s", status);
+    }
+
     /* ---- VRAM ---- */
 
     /* Where a physical span lands on the VRAM picture: the one mapping
@@ -1211,7 +1711,7 @@ private:
         ui::BeginCommandBar("bar");
         barToggle("##tint", UI_ICON_TABLES, ts(TS_CARD_TABLES), ts(TS_VRAM_TABLES_TIP), &vramTint);
         ui::GridToggle(vramCv);
-        zoomGroup(vramCv);
+        zoomGroup(vramCv, false);
         ui::EndCommandBar();
         vramCv.checker = false;
         ovState = s;
@@ -1246,11 +1746,11 @@ private:
 
     /* ---- cards ---- */
 
-    /* The pin as clicked, not as worked out again each frame: a VRAM byte is its
-    ** address. A new pin takes the card from a band picked before. */
+    /* The pin as clicked, not as worked out again each frame: a VRAM byte or a pattern
+    ** is its address. A new pin takes the card from a band picked before. */
     void notePin(const Focus& f)
     {
-        bool pinned = f.pinned && f.kind != FOCUS_NONE, fixedAddr = f.kind == FOCUS_VRAM;
+        bool pinned = f.pinned && f.kind != FOCUS_NONE, fixedAddr = f.kind == FOCUS_VRAM || f.kind == FOCUS_CHAR;
         float pin[5] = { (float)(pinned ? f.kind : -1), (float)f.a, (float)f.b, (float)(fixedAddr ? f.addr : 0),
                          (float)(fixedAddr ? f.space : bandFocus(f)) };
         if (memcmp(pin, cardPin, sizeof(pin)) == 0) return;
@@ -1320,7 +1820,8 @@ private:
         else {
             /* A pixel or a tile, read by its line's band or with the frame's end. */
             VdpLayout L = frameEndLayout(s);
-            int lines = screenLines(s), d = bandFocus(f) ? f.b : (f.b - vdpScreenScroll(s, L)) & 0xff;
+            int group = -1, lines = screenLines(s), d = bandFocus(f) ? f.b : (f.b - vdpScreenScroll(s, L)) & 0xff;
+            if (f.kind == FOCUS_CHAR) viewLayout(s, &L, &group);
             if (f.kind == FOCUS_PIXEL) {
                 textf(head, sizeof(head), ts(TS_SEL_HEAD_PIXEL), f.a, d);
             }
@@ -1333,6 +1834,8 @@ private:
             const char* mode = shortModeName(bi >= 0 ? raster.bands[bi].mode : L.mode);
             if (bandFocus(f) && bi < 0) textf(caption, sizeof(caption), ts(TS_SEL_BAND_GONE), f.b);
             else if (bi >= 0 && multi) textf(caption, sizeof(caption), ts(TS_SEL_BAND_HEAD), f.b, raster.bands[bi].first, raster.bands[bi].last, mode);
+            else if (f.kind == FOCUS_CHAR && group >= 0) groupLabel(group, caption, sizeof(caption));
+            else if (f.kind == FOCUS_CHAR) textf(caption, sizeof(caption), "%s", mode);
             else if (bi >= 0 || d < lines) textf(caption, sizeof(caption), ts(TS_SEL_CAPTION_LINE), d, mode);
             else textf(caption, sizeof(caption), ts(TS_SEL_CAPTION_SCROLL), f.b, mode);
         }
@@ -1374,7 +1877,9 @@ private:
     {
         const UiTokens& t = uiTokens();
         VdpLayout L = frameEndLayout(s);
-        int firstLine = 0;    /* a tile's b is a scroll line */
+        int group = -1, firstLine = 0;    /* a tile's b is a scroll line */
+        /* A character comes from the Patterns view, which may read a group of bands. */
+        if (f.kind == FOCUS_CHAR && !viewLayout(s, &L, &group)) return;
         int bi = bandOfFocus(f);
         /* A band's pin kept while its line has no band of its kind to read: the caption says so. */
         if (bandFocus(f) && bi < 0) return;
@@ -1384,18 +1889,21 @@ private:
         }
         int mode = L.mode;
 
-        if (f.kind == FOCUS_TILE) {
+        if (f.kind == FOCUS_TILE || f.kind == FOCUS_CHAR) {
             VdpCharInfo ci;
-            bool ok = vdpNameTableChar(s, L, f.a, f.b, firstLine, &ci);
+            bool ok = f.kind == FOCUS_TILE ? vdpNameTableChar(s, L, f.a, f.b, firstLine, &ci) : vdpSheetChar(s, L, f.a, f.b, &ci);
             if (!ok || !vdpIsPatternMode(mode)) return;
-            ViewPicture& sheet = selSheetPic;
-            decodeSheet(s, L, selSheetPic);
+            /* A band's or the frame end's registers get a sheet of their own, so the Patterns view keeps its. */
+            bool own = bi >= 0 || f.kind == FOCUS_TILE;
+            ViewPicture& sheet = own ? selSheetPic : sheetPic;
+            if (own) decodeSheet(s, L, selSheetPic);
+            else ensureSheet(s, L);
             int sx, sy;
             sheetCell(ci.ch, &sx, &sy);
             /* Rows 24-31 of SCREEN 2/4 may use a fourth block the sheet does not hold. */
             bool direct = sy >= sheet.h;
             uint32_t pal[16];
-            vdpPaletteRgba(s, L, VDP_COLOR0_AUTO, pal);
+            vdpPaletteRgba(s, L, color0(), pal);
             float cell = ui::Px(10);
             ImVec2 p = ImGui::GetCursorScreenPos();
             ImDrawList* dl = ImGui::GetWindowDrawList();
@@ -1422,8 +1930,10 @@ private:
             if (ui::BeginKeyValue("selkv")) {
                 ui::KeyValueMono(ts(TS_KV_CHARACTER), "%d (&H%02X)", ci.ch & 0xff, ci.ch & 0xff);
                 if (mode == 2 || mode == 4) ui::KeyValue(ts(TS_KV_THIRD), "%d%s", ci.ch >> 8, ci.ch >> 8 == 3 ? ts(TS_KV_THIRD_ROWS) : "");
-                ui::KeyValueMono(ts(TS_KV_CELL), "%d, %d", ci.col, ci.row);
-                ui::KeyValueMono(ts(TS_KV_NAME), "%05X", ci.nameAddr);
+                if (f.kind == FOCUS_TILE) {
+                    ui::KeyValueMono(ts(TS_KV_CELL), "%d, %d", ci.col, ci.row);
+                    ui::KeyValueMono(ts(TS_KV_NAME), "%05X", ci.nameAddr);
+                }
                 ui::KeyValue(ts(TS_KV_USED), ts(TS_KV_TIMES), vdpCharUseCount(s, L, layoutLines(s, L.regs), -1, ci.ch));
                 /* Text modes colour every cell from R#7, and from R#12 too while TEXT2 blinks. */
                 if (mode == 0 || mode == 13) {
@@ -1467,6 +1977,7 @@ private:
             /* A band's pin: b is a display line. */
             if (bi < 0) return;
             vdpBandBitmap(s, raster.bands[bi], &o);
+            o.color0 = color0();
             if (!vdpBitmapPixel(s, L, o, f.a, f.b, &px)) return;
             ui::ColorSwatch("##px", rgbaToCol(px.rgba | 0xff000000u), 40);
             ImGui::SameLine(0, ui::Px(12));

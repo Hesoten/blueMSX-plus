@@ -51,6 +51,15 @@ TS(EMU_STOPPED,               "Emulator stopped.", "エミュレータは停止�
 TS(EMU_WAITING,               "Waiting for the emulator.", "エミュレータの応答を待っています。")
 TS(NO_VDP_TO_SHOW,            "This machine has no TMS99xx or V99x8 to show.", "このマシンには表示できる" NB "TMS99xx・V99x8" NB "がありません。")
 
+/* TMS99xx and V99x8: toolbars and views */
+TS(VIEW_PATTERNS,             "Patterns", "パターン")
+TS(COLOUR0_TRANSPARENT,       "Colour 0 transparent", "カラー" NB "0" NB "を透明に")
+TS(READ_AS,                   "Read as", "表示形式")
+TS(READ_AS_AUTO,              "Auto (%s)", "自動" NB "(%s)")
+TS(READ_AS_GROUP_AUTO,        "Auto (lines %s · %s)", "自動（ライン" NB "%s · %s）")
+TS(STATE_FIXED,               "Fixed", "固定")
+TS(FOLLOW_MODE,               "Follow mode", "モードに合わせる")
+
 /* TMS99xx and V99x8: cards */
 TS(CARD_DISPLAY,              "Display", "表示")
 TS(CARD_SPLITS,               "Splits", "画面分割")
@@ -86,8 +95,25 @@ TS(OUT_LINK_FRAME,            "    not linked to VRAM: the image and the registe
 TS(OUT_LINK_BEAM,             "    not linked to VRAM: drawn in the frame before, and the beam has passed this line since", "   " NB "VRAM" NB "との対応なし（前のフレームの画像で、ビームがこのラインを通過済み）")
 TS(OUT_LINK_UNKNOWN,          "    not linked to VRAM: the registers of this line are not known", "   " NB "VRAM" NB "との対応なし（このラインのレジスタは不明）")
 
+TS(STRIP_GROUP,               "Lines %s · %s", "ライン" NB "%s · %s")
+
+TS(PAT_NUMBERS,               "Numbers", "番号")
+TS(PAT_NUMBERS_TIP,           "Character numbers on cells 18 px or wider", "各セルにキャラクタ番号を表示（セルが" NB "18" NB "画素以上のとき）")
+TS(PAT_CHIP_NAMES,            "Name table %05X", "ネームテーブル" NB "%05X")
+TS(PAT_CHIP_PATTERNS,         "Pattern generator %05X", "パターンジェネレータ" NB "%05X")
+TS(PAT_STATUS_TILE,           "Column %d, row %d    name %05X = %d (&H%02X)    pattern %05X", "列" NB "%d、行" NB "%d   " NB "ネーム" NB "%05X = %d (&H%02X)   " NB "パターン" NB "%05X")
+TS(PAT_MATCHES,               " · shown in %d cells", " · %d" NB "セルで使用")
+TS(PATTERNS_NONE,             "No line of this frame is in a pattern mode (SCREEN 0-4).", "このフレームには、パターンモード（SCREEN" NB "0-4）のラインがありません。")
 TS(STATUS_AT_BAND,            "    lines %d-%d · %s", "   " NB "ライン" NB "%d-%d · %s")
 TS(LANE_WHERE,                "%s · lines %s", "%s · ライン" NB "%s")
+
+/* Patterns status line */
+TS(STATUS_CHAR,               "Character %d (&H%02X)%s    pattern %05X%s", "キャラクタ" NB "%d (&H%02X)%s   " NB "パターン" NB "%05X%s")
+TS(THIRD_TOP,                 ", top third", "、上段")
+TS(THIRD_MIDDLE,              ", middle third", "、中段")
+TS(THIRD_BOTTOM,              ", bottom third", "、下段")
+TS(THIRD_ROWS_24,             ", rows 24-31", "、行" NB "24-31")
+TS(STATUS_CHAR_COLOUR,        "    has colour bytes", "   " NB "カラーバイトあり")
 
 /* VRAM view */
 TS(VRAM_PHYS_VALUE,           "Physical %05X    value %d (&H%02X)", "物理" NB "%05X   " NB "値" NB "%d (&H%02X)")
