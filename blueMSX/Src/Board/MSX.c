@@ -55,6 +55,8 @@
 #include "ramMapperIo.h"
 #include "CoinDevice.h"
 #include "romMapperDRAM.h"
+#include "DebugTrace.h"
+#include "Emulator.h"
 
 void PatchZ80(void* ref, CpuRegs* cpuRegs);
 
@@ -181,6 +183,8 @@ static void destroy() {
 
     deviceManagerDestroy();
 
+    emulatorTapBarrier();
+    debugTraceSourceUnregister(r800->traceSource);
     r800Destroy(r800);
 }
 
@@ -267,6 +271,7 @@ int msxCreate(Machine* machine,
     }
 
     r800 = r800Create(cpuFlags, slotRead, slotWrite, ioPortRead, ioPortWrite, PatchZ80, boardTimerCheckTimeout, NULL, NULL, NULL, NULL, NULL, NULL);
+    r800SetTraceSource(r800, debugTraceSourceRegister(DEBUG_TRACE_CPU, r800TraceClass(), "CPU"));
 
     boardInfo->cartridgeCount   = machine->board.type == BOARD_MSX_FORTE_II ? 0 : 2;
     boardInfo->diskdriveCount   = machine->board.type == BOARD_MSX_FORTE_II ? 0 : 2;

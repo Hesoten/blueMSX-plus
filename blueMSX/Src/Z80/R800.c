@@ -34,6 +34,7 @@
 */
 
 #include "R800.h"
+#include "DebugTrace.h"
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -5073,12 +5074,86 @@ static void ccf(R800* r800) { //DIFF
         ((r800->regs.AF.B.l | r800->regs.AF.B.h) & (X_FLAG | Y_FLAG))) ^ C_FLAG;
 }
 
+static const DebugTraceField traceHaltFields[] = {
+    { "pc", DEBUG_TRACE_WORD_A, 0, 16, DEBUG_TRACE_HEX, 1 << 1, NULL, 0 },
+};
+
+static const DebugTraceField traceIrqFields[] = {
+    { "pc", DEBUG_TRACE_WORD_A, 0, 16, DEBUG_TRACE_HEX, 0,      NULL, 0 },
+    { "im", DEBUG_TRACE_WORD_B, 0, 8,  DEBUG_TRACE_DEC, 1 << 1, NULL, 0 },
+};
+
+static const DebugTraceKindDesc traceKinds[] = {
+    { CPU_TRACE_HALT, "halt", traceHaltFields, 1 },
+    { CPU_TRACE_IRQ,  "irq",  traceIrqFields,  2 },
+};
+
+static const DebugTraceClassDesc traceClass = { "cpu", traceKinds, 2 };
+
+const DebugTraceClassDesc* r800TraceClass(void)
+{
+    return &traceClass;
+}
+
+void r800SetTraceSource(R800* r800, UInt16 source)
+{
+    r800->traceSource = source;
+}
+
+/* Trace only: forgets what was open when the trace began a new epoch. */
+static void traceEpochCheck(R800* r800)
+{
+    UInt32 epoch = debugTraceEpoch();
+
+    if (r800->traceEpoch != epoch) {
+        r800->traceEpoch  = epoch;
+        r800->traceHalted = 0;
+        r800->traceInIrq  = 0;
+    }
+}
+
+/* fresh: a HALT just reached, not repeated; a span left open (the debugger moving PC
+** clears the halt unseen) ends there first. */
+static void traceHalt(R800* r800, int halted, int fresh)
+{
+    traceEpochCheck(r800);
+    if (fresh && r800->traceHalted) {
+        r800->traceHalted = 0;
+        debugTraceEmit(r800->traceSource, CPU_TRACE_HALT | DEBUG_TRACE_END, r800->systemTime, 0, r800->regs.PC.W, 0);
+    }
+    if (halted != r800->traceHalted) {
+        r800->traceHalted = (UInt8)halted;
+        debugTraceEmit(r800->traceSource, CPU_TRACE_HALT | (halted ? DEBUG_TRACE_BEGIN : DEBUG_TRACE_END),
+                       r800->systemTime, 0, r800->regs.PC.W, 0);
+    }
+}
+
+/* An interrupt taken, with a the address left; or its handler's first EI, at a. */
+static void traceIrq(R800* r800, int taken, UInt16 a)
+{
+    traceEpochCheck(r800);
+    if (r800->traceInIrq) {
+        r800->traceInIrq = 0;
+        debugTraceEmit(r800->traceSource, CPU_TRACE_IRQ | DEBUG_TRACE_END, r800->systemTime, 0, a, 0);
+    }
+    if (taken) {
+        r800->traceInIrq = 1;
+        debugTraceEmit(r800->traceSource, CPU_TRACE_IRQ | DEBUG_TRACE_BEGIN, r800->systemTime, 0, a, r800->regs.im);
+    }
+}
+
 static void halt(R800* r800) {
     if ((r800->intState == INT_LOW && r800->regs.iff1) || r800->nmiEdge) {
 		r800->regs.halt=0;
+        if (DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_CPU))) {
+            traceHalt(r800, 0, 0);
+        }
     }
 	else {
 		r800->regs.PC.W--;
+        if (DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_CPU))) {
+            traceHalt(r800, 1, !r800->regs.halt);
+        }
 		r800->regs.halt=1;
 	}
 }
@@ -5217,6 +5292,9 @@ static void ei(R800* r800) {
         r800->regs.iff2 = 1;
         r800->regs.iff1 = 1;
 		r800->regs.ei_mode=1;
+    if (DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_CPU))) {
+        traceIrq(r800, 0, (UInt16)(r800->regs.PC.W - 1));
+    }
 }
 
 static void im_0(R800* r800)  {
@@ -6054,6 +6132,7 @@ R800* r800Create(UInt32 cpuFlags,
     r800->oldCpuMode      = CPU_UNKNOWN;
 
     r800->instCnt         = 0;
+    r800->traceSource     = DEBUG_TRACE_NO_SOURCE;
 
     r800SetPageWaits(r800, NULL);
     r800Reset(r800, 0);
@@ -6303,6 +6382,9 @@ void r800Execute(R800* r800) {
             continue;
         }
 
+        if (DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_CPU))) {
+            traceIrq(r800, 1, r800->regs.PC.W);
+        }
         r800->regs.iff1 = 0;
         r800->regs.iff2 = 0;
 
@@ -6377,6 +6459,9 @@ void r800ExecuteUntil(R800* r800, UInt32 endTime) {
         if (r800->regs.halt) { 
             r800->regs.PC.W++;
             r800->regs.halt = 0; 
+            if (DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_CPU))) {
+                traceHalt(r800, 0, 0);
+            }
         }
 
         /* If it is NMI... */
@@ -6396,6 +6481,9 @@ void r800ExecuteUntil(R800* r800, UInt32 endTime) {
             continue;
         }
 
+        if (DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_CPU))) {
+            traceIrq(r800, 1, r800->regs.PC.W);
+        }
         r800->regs.iff1 = 0;
         r800->regs.iff2 = 0;
 
@@ -6464,6 +6552,9 @@ void r800ExecuteInstruction(R800* r800) {
     if (r800->regs.halt) { 
         r800->regs.PC.W++;
         r800->regs.halt = 0; 
+        if (DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_CPU))) {
+            traceHalt(r800, 0, 0);
+        }
     }
 
     /* If it is NMI... */
@@ -6483,6 +6574,9 @@ void r800ExecuteInstruction(R800* r800) {
         return;
     }
 
+    if (DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_CPU))) {
+        traceIrq(r800, 1, r800->regs.PC.W);
+    }
     r800->regs.iff1 = 0;
     r800->regs.iff2 = 0;
 

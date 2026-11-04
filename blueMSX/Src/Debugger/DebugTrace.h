@@ -55,7 +55,8 @@ typedef struct {
 #define DEBUG_TRACE_GEO3D   1
 #define DEBUG_TRACE_VDPCMD  2
 #define DEBUG_TRACE_VDPREG  3
-#define DEBUG_TRACE_CLASSES 4
+#define DEBUG_TRACE_CPU     4
+#define DEBUG_TRACE_CLASSES 5
 #define DEBUG_TRACE_BIT(cls) (1u << (cls))
 
 /* Class CORE, source 0: a = reason, b = the new epoch, link 1 at a resume, else 0. */
