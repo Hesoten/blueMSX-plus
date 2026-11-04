@@ -84,7 +84,9 @@ static const RegField r18[] = {
     { 4, 4, "V", "Vertical adjust (signed, 7 up to -8 down)" },
     { 0, 4, "H", "Horizontal adjust (signed, 7 left to -8 right)" },
 };
+/* SPS first: a V9968's bit, left out of the V9938 and V9958 bank. */
 static const RegField r25[] = {
+    { 7, 1, "SPS", "Shuffle the sprite plane scan order" },
     { 6, 1, "CMD", "Commands in every screen mode" },
     { 5, 1, "VDS", "Vertical sync output on pin 8" },
     { 4, 1, "YAE", "YJK with palette colours (SCREEN 10/11)" },
@@ -134,7 +136,7 @@ static const RegDesc regs[] = {
     { 21, "Colour burst 2",    0, 0 },
     { 22, "Colour burst 3",    0, 0 },
     { 23, "Vertical scroll",   0, 0 },
-    { 25, "Mode 4",            r25, N(r25) },
+    { 25, "Mode 4",            r25 + 1, N(r25) - 1 },
     { 26, "H scroll high",     r26, N(r26) },
     { 27, "H scroll low",      r27, N(r27) },
     { 32, "SX low",  0, 0 },
@@ -153,6 +155,74 @@ static const RegDesc regs[] = {
     { 45, "Argument",      r45, N(r45) },
     { 46, "Command",       r46, N(r46) },
 };
+
+/* A V9968 changes R#20, R#21, R#25 and R#45 and adds VX, VY and the LRMM read window. */
+static const RegField r20x[] = {
+    { 7, 1, "S16",  "16 sprites per line" },
+    { 6, 1, "CEIE", "Interrupt when a command ends" },
+    { 5, 1, "FIL",  "Flat interlace: both fields as one picture" },
+    { 4, 1, "EPAL", "256 colour palette of 5 bit RGB" },
+    { 3, 1, "SP3",  "Sprite mode 3" },
+    { 2, 1, "ILNS", "Line interrupt ignores the vertical scroll" },
+    { 1, 1, "SVNS", "Sprites ignore the vertical scroll" },
+    { 0, 1, "HS",   "High speed commands" },
+};
+static const RegField r21x[] = {
+    { 1, 5, "CB",  "Colour burst" },
+    { 0, 1, "V58", "Work as a V9958: no LRMM, LFMM, LFMC or A17 (set at reset)" },
+};
+static const RegField r45x[] = {
+    { 7, 1, "FG4", "Commands work as in SCREEN 5 (V58 clear)" },
+    { 6, 1, "XHR", "V58 clear: LRMM counts source lines in halves; V58 set: MXC" },
+    { 5, 1, "MXD", "Destination in the expansion RAM" },
+    { 4, 1, "MXS", "Source in the expansion RAM" },
+    { 3, 1, "DIY", "Y goes up" },
+    { 2, 1, "DIX", "X goes left" },
+    { 1, 1, "EQ",  "SRCH stops on the colour (else on another)" },
+    { 0, 1, "MAJ", "LINE: Y is the long side" },
+};
+static const RegField vxHigh[] = { { 0, 8, "15-8", "Signed, in 1/256 dots: the source X step per dot" } };
+static const RegField vyHigh[] = { { 0, 8, "15-8", "Signed, in 1/256 lines (1/512 with XHR): the source Y step per dot" } };
+static const RegField wxHigh[] = { { 0, 1, "8", "Bit 8; LRMM reads CLR outside the window" } };
+static const RegField wyHigh[] = { { 0, 3, "10-8", "Bits 10-8; LRMM reads CLR outside the window" } };
+
+static const RegDesc extra[] = {
+    { 20, "V9968 mode",    r20x, N(r20x) },
+    { 21, "Compatibility", r21x, N(r21x) },
+    { 25, "Mode 4",        r25, N(r25) },
+    { 45, "Argument",      r45x, N(r45x) },
+    { 47, "VX low",  0, 0 },
+    { 48, "VX high", vxHigh, N(vxHigh) },
+    { 49, "VY low",  0, 0 },
+    { 50, "VY high", vyHigh, N(vyHigh) },
+    { 51, "Window X start low",  0, 0 },
+    { 52, "Window X start high", wxHigh, N(wxHigh) },
+    { 53, "Window Y start low",  0, 0 },
+    { 54, "Window Y start high", wyHigh, N(wyHigh) },
+    { 55, "Window X end low",    0, 0 },
+    { 56, "Window X end high",   wxHigh, N(wxHigh) },
+    { 57, "Window Y end low",    0, 0 },
+    { 58, "Window Y end high",   wyHigh, N(wyHigh) },
+};
+
+static RegDesc regsV9968[N(regs) + N(extra)];
+
+/* regs with extra's rows in place of theirs and the new ones after, in index order. */
+const RegBank& regBankV9968()
+{
+    static RegBank bank = { "v99x8regs", "R#", regsV9968, 0 };
+    if (bank.count == 0) {
+        int n = 0, e = 0;
+        for (int i = 0; i < N(regs); i++) {
+            while (e < N(extra) && extra[e].index < regs[i].index) regsV9968[n++] = extra[e++];
+            if (e < N(extra) && extra[e].index == regs[i].index) regsV9968[n++] = extra[e++];
+            else regsV9968[n++] = regs[i];
+        }
+        while (e < N(extra)) regsV9968[n++] = extra[e++];
+        bank.count = n;
+    }
+    return bank;
+}
 
 static const RegField s0[] = {
     { 7, 1, "F",   "Frame interrupt pending" },

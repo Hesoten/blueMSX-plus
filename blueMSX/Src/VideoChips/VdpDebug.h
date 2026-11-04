@@ -82,7 +82,7 @@ typedef struct {
     int    cmdRegCount;     /* R#32 onwards */
     UInt8  regs[64];
     UInt8  status[16];      /* S#7 is CL; S#8/S#9 the border X */
-    UInt8  cmdRegs[16];
+    UInt8  cmdRegs[32];     /* the engine's own, R#32 onwards: counters move as a command runs */
     UInt16 paletteReg[16];  /* G in bits 8-10, R in 4-6, B in 0-2 */
     UInt32 paletteRgb[16];  /* 0x00RRGGBB; the fixed colours on a TMS VDP; 5 bit ones EPAL wrote */
     int    paletteExtCount; /* 256 while a V9968's EPAL makes the 256 colour modes read paletteExt, else 0 */

@@ -36,6 +36,7 @@
 #include "VdpDecode.h"
 #include "VdpSprite.h"
 #include "VdpSprite3View.h"
+#include "VdpCmd9968.h"
 #include "VdpRaster.h"
 #include "VdpParts.h"
 #include "ToolText.h"
@@ -5803,6 +5804,7 @@ private:
                 self->bandFrames(dl, xf, runs, seg, n, (int)i, th);
             }
         }
+        if (rm >= 0) cmdLrmmOverlay(dl, xf, s, rm, CmdPageMap{ self->grid.pages, self->grid.cols, self->grid.tileW, self->grid.tileH, self->grid.gap });
         self->focusMarks(dl, xf, rm);
     }
 
@@ -6804,9 +6806,7 @@ private:
         ImGui::AlignTextToFramePadding();
         ImGui::Text("%s  %s", cmdName(s, cmr >> 4), logOpName(cmr & 15));
         if (!ui::BeginKeyValue("cmd")) return;
-        ui::KeyValueMono("SX, SY", "%d, %d", c[0] | ((c[1] & 1) << 8), c[2] | ((c[3] & 3) << 8));
-        ui::KeyValueMono("DX, DY", "%d, %d", c[4] | ((c[5] & 1) << 8), c[6] | ((c[7] & 3) << 8));
-        ui::KeyValueMono("NX, NY", "%d, %d", c[8] | ((c[9] & 1) << 8), c[10] | ((c[11] & 3) << 8));
+        cmdKeyValues(s);
         ui::KeyValueMono("CLR", "%02X", c[12]);
         ui::KeyValueMono("ARG", "%02X%s%s%s", c[13], (c[13] & 8) ? " DIY" : "", (c[13] & 4) ? " DIX" : "",
                          (c[13] & 1) ? " MAJ" : "");
@@ -6915,8 +6915,8 @@ private:
         UInt8 vals[64];
         memcpy(vals, s->regs, 32);
         memset(vals + 32, 0, 32);
-        memcpy(vals + 32, s->cmdRegs, 16);
-        drawRegBank(regBankV99x8, vals, regFade, regShown, s);
+        memcpy(vals + 32, s->cmdRegs, 32);
+        drawRegBank(s->version == VDP_V9968 ? regBankV9968() : regBankV99x8, vals, regFade, regShown, s);
         ImGui::Spacing();
         ui::SectionTitle(ts(TS_SECTION_STATUS));
         drawRegBank(regBankV99x8Status, s->status, statFade, statusShown, s);

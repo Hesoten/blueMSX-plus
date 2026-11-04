@@ -3234,6 +3234,10 @@ int vdpDebugCapture(int index, VdpDebugState* out)
         return 0;
     }
     dbgRegisterLayout(vdp, &regCount, &cmdRegCount, &paletteCount, &statusRegCount);
+    /* Up to R#58 here, VX/VY and the LRMM window; the debugger keeps 15. */
+    if (vdpIsV9968(vdp)) {
+        cmdRegCount = 27;
+    }
 
     out->valid       = 1;
     out->id          = (UInt32)vdp->debugHandle + 1;

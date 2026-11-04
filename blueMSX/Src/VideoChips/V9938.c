@@ -1891,6 +1891,18 @@ UInt8 vdpCmdPeek(VdpCmdState* vdpCmd, UInt8 reg, UInt32 systemTime)
     case 0x0c: return vdpCmd->CL;
     case 0x0d: return vdpCmd->ARG;
     case 0x0e: return vdpCmd->LO | (vdpCmd->CM << 4);
+    case 0x0f: return vdpCmd->VX & 0xff;
+    case 0x10: return (vdpCmd->VX >> 8) & 0xff;
+    case 0x11: return vdpCmd->VY & 0xff;
+    case 0x12: return (vdpCmd->VY >> 8) & 0xff;
+    case 0x13: return vdpCmd->WSX & 0xff;
+    case 0x14: return vdpCmd->WSX >> 8;
+    case 0x15: return vdpCmd->WSY & 0xff;
+    case 0x16: return vdpCmd->WSY >> 8;
+    case 0x17: return vdpCmd->WEX & 0xff;
+    case 0x18: return vdpCmd->WEX >> 8;
+    case 0x19: return vdpCmd->WEY & 0xff;
+    case 0x1a: return vdpCmd->WEY >> 8;
     }
     return 0xff;
 }
