@@ -59,6 +59,7 @@ void Geo3DCore::reset()
 	clk = endClk = xfEndClk = 0;
 	running = false;
 	cntSkip = cntDraw = cntCull = 0;
+	debugClear();
 }
 
 void Geo3DCore::writeIndex(uint8_t value)
@@ -283,6 +284,69 @@ void Geo3DCore::finishRun()
 	cmdPos = 0;
 }
 
+// ---------------------------------------------------------------- debug
+static_assert((Geo3DCore::DEBUG_RUNS & (Geo3DCore::DEBUG_RUNS - 1)) == 0 &&
+              (Geo3DCore::DEBUG_ITEMS & (Geo3DCore::DEBUG_ITEMS - 1)) == 0 &&
+              (Geo3DCore::DEBUG_CMDS & (Geo3DCore::DEBUG_CMDS - 1)) == 0,
+              "the rings index with wrapping counters");
+static_assert(Geo3DCore::DEBUG_ITEMS >= Geo3DCore::ENTRIES,
+              "a RUN's faces stay in the item ring until it ends");
+
+void Geo3DCore::debugClear()
+{
+	dbgRuns.clear();
+	dbgItems.clear();
+	dbgCmds.clear();
+	dbgSeq = 0;
+	dbgItemTotal = dbgCmdTotal = 0;
+}
+
+const Geo3DCore::DebugRun* Geo3DCore::debugRun(uint32_t seq) const
+{
+	if (seq == 0 || uint32_t(dbgSeq - seq) >= DEBUG_RUNS || dbgRuns.size() != DEBUG_RUNS) {
+		return nullptr;
+	}
+	return &dbgRuns[seq % DEBUG_RUNS];
+}
+
+const Geo3DCore::DebugItem* Geo3DCore::debugItem(uint32_t n) const
+{
+	uint32_t age = dbgItemTotal - n;
+	if (age == 0 || age > DEBUG_ITEMS || dbgItems.size() != DEBUG_ITEMS) return nullptr;
+	return &dbgItems[n % DEBUG_ITEMS];
+}
+
+const Geo3DCore::Command* Geo3DCore::debugCommand(uint32_t n) const
+{
+	uint32_t age = dbgCmdTotal - n;
+	if (age == 0 || age > DEBUG_CMDS || dbgCmds.size() != DEBUG_CMDS) return nullptr;
+	return &dbgCmds[n % DEBUG_CMDS];
+}
+
+void Geo3DCore::debugCamera(DebugItem& d, int j, unsigned k) const
+{
+	const auto& v = vmem[k & MASK];
+	int64_t xyz[3];
+	for (int r = 0; r < 3; r += 2) {
+		int64_t acc = cfg[3 * r] * v[0] + cfg[3 * r + 1] * v[1] + cfg[3 * r + 2] * v[2];
+		xyz[r] = sat((acc >> 14) + cfg[9 + r], -131071, 131071);
+	}
+	d.cx[j] = int32_t(xyz[0]);
+	d.cz[j] = int32_t(xyz[2]);
+}
+
+Geo3DCore::DebugItem& Geo3DCore::debugPush(uint16_t index, Outcome outcome)
+{
+	DebugItem& d = dbgItems[dbgItemTotal++ % DEBUG_ITEMS];
+	d = DebugItem{};
+	d.index = index;
+	d.outcome = outcome;
+	d.ymin = 0;
+	d.ymax = -1;
+	d.cmdFirst = dbgCmdTotal + uint32_t(cmds.size());
+	return d;
+}
+
 // ---------------------------------------------------------------- state
 namespace {
 
@@ -468,6 +532,29 @@ void Geo3DCore::startRun(uint8_t ctrl)
 	}
 	cmds.clear();
 	cmdPos = 0;
+	if (dbgCmds.size() != DEBUG_CMDS) {      // once after a reset; resized last
+		dbgRuns.resize(DEBUG_RUNS);
+		dbgItems.resize(DEBUG_ITEMS);
+		dbgCmds.resize(DEBUG_CMDS);
+	}
+	DebugRun& run = dbgRuns[++dbgSeq % DEBUG_RUNS];
+	run = DebugRun{};
+	run.seq = dbgSeq;
+	run.faces = (ctrl & 2) != 0;
+	run.tex = (ctrl & 4) != 0;
+	run.vfirst = vfirst;
+	run.nvert = nvert;
+	run.first = run.faces ? ffirst : efirst;
+	run.count = run.faces ? nface : nedge;
+	run.ypage = uint16_t(ypage);
+	run.color = color;
+	run.lop = lop;
+	for (int i = 0; i < 18; ++i) run.cfg[i] = int32_t(cfg[i]);
+	run.texx = uint16_t(texx);
+	run.texy = uint16_t(texy);
+	run.tstride = tstride;
+	run.itemFirst = dbgItemTotal;
+	run.cmdFirst = dbgCmdTotal;
 	if (ctrl & 2) {
 		renderFaces((ctrl & 4) != 0);
 	} else {
@@ -475,6 +562,20 @@ void Geo3DCore::startRun(uint8_t ctrl)
 	}
 	endClk = clk + 1;                        // R_DRAIN
 	running = true;
+
+	// the pool keeps the last commands of a RUN longer than itself
+	size_t n = cmds.size();
+	for (size_t k = (n > DEBUG_CMDS) ? n - DEBUG_CMDS : 0; k < n; ++k) {
+		dbgCmds[(dbgCmdTotal + k) % DEBUG_CMDS] = cmds[k];
+	}
+	dbgCmdTotal += uint32_t(n);
+	run.cmdCount = uint32_t(n);
+	run.itemCount = dbgItemTotal - run.itemFirst;
+	run.cntSkip = cntSkip;
+	run.cntDraw = cntDraw;
+	run.cntCull = cntCull;
+	run.xfEndClk = xfEndClk;
+	run.endClk = endClk;
 }
 
 // ---------------------------------------------------------------- wireframe
@@ -547,7 +648,15 @@ void Geo3DCore::renderEdges()
 		unsigned e = (efirst + k) & MASK;     // NEDGE edges from EFIRST on
 		const Proj& pa = pmem[emem[e][0]];
 		const Proj& pb = pmem[emem[e][1]];
+		DebugItem& d = debugPush(uint16_t(e), ITEM_DRAWN);
+		d.v[0] = emem[e][0];
+		d.v[1] = emem[e][1];
+		d.sx[0] = int16_t(pa.sx); d.sy[0] = int16_t(pa.sy);
+		d.sx[1] = int16_t(pb.sx); d.sy[1] = int16_t(pb.sy);
+		debugCamera(d, 0, d.v[0]);
+		debugCamera(d, 1, d.v[1]);
 		if ((pa.flags & 7) || (pb.flags & 7)) {
+			d.outcome = ITEM_NEAR;
 			clk += 9;
 			++cntSkip;
 			continue;
@@ -557,9 +666,13 @@ void Geo3DCore::renderEdges()
 		Clip clip = clipEdge({pa.sx, pa.sy}, {pb.sx, pb.sy}, w, h, e1, e2, ec);
 		clk += ec;
 		switch (clip) {
-		case Clip::SKIP: ++cntSkip; break;
-		case Clip::CULL: ++cntCull; break;
+		case Clip::SKIP: d.outcome = ITEM_UNCUT; ++cntSkip; break;
+		case Clip::CULL: d.outcome = ITEM_OFFSCREEN; ++cntCull; break;
 		case Clip::DRAW: {
+			d.col = color;
+			d.ymin = int16_t(std::min(e1.y, e2.y));
+			d.ymax = int16_t(std::max(e1.y, e2.y));
+			d.cmdCount = 1;
 			int64_t dx = e2.x - e1.x, dy = e2.y - e1.y;
 			int64_t ax = std::abs(dx), ay = std::abs(dy);
 			bool maj = ay > ax;
@@ -592,10 +705,11 @@ void Geo3DCore::renderFaces(bool texOn)
 		int64_t s = 0;
 		for (int i = 0; i < 3; ++i) s += cfg[3 * i + j] * light[i];
 		lm[j] = sat18(s >> 14);
+		dbgRuns[dbgSeq % DEBUG_RUNS].lm[j] = int32_t(lm[j]);
 	}
 	clk += 18 + 1;                           // L_OP/L_ACC, F_START
 
-	struct Vis { int64_t key; unsigned fidx; uint8_t col; int64_t lvl; };
+	struct Vis { int64_t key; unsigned fidx; uint8_t col; int64_t lvl; uint32_t dbg; };
 	// 1 when a is painted before b
 	auto before = [](const Vis& a, const Vis& b) {
 		return (a.key != b.key) ? (a.key > b.key) : (a.fidx < b.fidx);
@@ -610,24 +724,34 @@ void Geo3DCore::renderFaces(bool texOn)
 			pv[k] = &pmem[f.i[k]];
 			if (pv[k]->flags & 7) near = true;
 		}
+		DebugItem& d = debugPush(uint16_t(fidx), ITEM_DRAWN);
+		for (int j = 0; j < 4; ++j) {
+			d.v[j] = f.i[j];
+			d.sx[j] = int16_t(pv[j]->sx);
+			d.sy[j] = int16_t(pv[j]->sy);
+			debugCamera(d, j, d.v[j]);
+		}
 		// F_ADDR..F_W2, V_A1..V_A5, F_CHK, F_NEXT
 		clk += 10;
-		if (near) { ++cntSkip; continue; }
+		if (near) { d.outcome = ITEM_NEAR; ++cntSkip; continue; }
 		int64_t x0 = pv[0]->sx, y0 = pv[0]->sy;
 		int64_t x1 = pv[1]->sx, y1 = pv[1]->sy;
 		int64_t x2 = pv[2]->sx, y2 = pv[2]->sy;
 		int64_t area = (x1 - x0) * (y2 - y0) - (y1 - y0) * (x2 - x0);
 		clk += 3;                            // F_A1..F_A3
-		if (area <= 0) { ++cntCull; continue; }
+		if (area <= 0) { d.outcome = ITEM_BACK; ++cntCull; continue; }
 		clk += 4;                            // F_S1..F_S4
 		int64_t shade = (lm[0] * f.n[0] + lm[1] * f.n[1] + lm[2] * f.n[2]) >> 14;
 		int64_t lvl = (shade <= 0) ? 0 : std::min<int64_t>(6, (shade * 7) >> 14);
 		int64_t key = pv[0]->z + pv[1]->z + pv[2]->z + pv[3]->z;
+		d.col = uint8_t((f.base + lvl) & 0xFF);
+		d.lvl = uint8_t(lvl);
+		d.textured = texOn && (f.base & 0x80);
 		// The visible face goes into the heap as the RTL's does (v2.0):
 		// from the first free place up, while it is painted before its
 		// parent. H_UP, H_UP1, H_UP2 per parent looked at; H_UP alone
 		// when it reaches the root.
-		Vis e{key, fidx, uint8_t((f.base + lvl) & 0xFF), lvl};
+		Vis e{key, fidx, uint8_t((f.base + lvl) & 0xFF), lvl, dbgItemTotal - 1};
 		size_t hole = vis.size();
 		vis.push_back(e);
 		for (;;) {
@@ -648,6 +772,7 @@ void Geo3DCore::renderFaces(bool texOn)
 	if (nface != 0) clk += 1;                // D_START
 
 	struct Cand { int64_t x, u, v; };
+	uint16_t order = 0;
 	for (size_t hn = vis.size(); hn != 0; ) {
 		const Vis vf = vis[0];
 		const Vis last = vis[--hn];
@@ -677,6 +802,13 @@ void Geo3DCore::renderFaces(bool texOn)
 		clk += 1 + 5 + 2;
 		int64_t ymin = std::max<int64_t>(0, std::min({ys[0], ys[1], ys[2], ys[3]}));
 		int64_t ymax = std::min<int64_t>(h - 1, std::max({ys[0], ys[1], ys[2], ys[3]}));
+		// a RUN has fewer faces than the item ring, so this one is still there
+		DebugItem& rec = dbgItems[vf.dbg % DEBUG_ITEMS];
+		const size_t cmd0 = cmds.size();
+		rec.order = order++;
+		rec.ymin = int16_t(ymin);
+		rec.ymax = int16_t(ymax);
+		rec.cmdFirst = dbgCmdTotal + uint32_t(cmd0);
 		for (int64_t y = ymin; y <= ymax; ++y) {
 			clk += 1 + 4 * 3 + 1 + 1 + 1;    // D_ROW, 4 edges, D_SPAN0, D_SPAN, D_YNEXT
 			bool have = false;
@@ -754,6 +886,7 @@ void Geo3DCore::renderFaces(bool texOn)
 			c.ready = clk - 1;
 			cmds.push_back(c);
 		}
+		rec.cmdCount = uint32_t(cmds.size() - cmd0);
 		clk += 1;                            // D_NEXTR
 	}
 }

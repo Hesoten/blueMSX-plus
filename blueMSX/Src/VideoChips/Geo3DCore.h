@@ -159,6 +159,83 @@ private:
 	uint32_t xfEndClk;                     // producer clock when the transform ends
 	bool running;
 	uint16_t cntSkip, cntDraw, cntCull;
+
+public:
+	// Debug record of the latest RUNs, for tools. Not in the state and with no
+	// effect on the model; reset() and loadState() clear it.
+	enum Outcome : uint8_t { ITEM_DRAWN, ITEM_NEAR, ITEM_BACK, ITEM_OFFSCREEN, ITEM_UNCUT };
+	struct DebugItem {                     // one face or edge of a RUN
+		uint16_t index;
+		uint8_t outcome;
+		uint8_t textured;
+		uint8_t col, lvl;
+		uint16_t order;                    // paint order of a drawn face
+		uint16_t v[4];                     // vertex numbers (an edge uses two)
+		int16_t sx[4], sy[4];              // their projections at the RUN
+		int32_t cx[4], cz[4];              // their camera x and z at the RUN
+		int16_t ymin, ymax;                // rows drawn; ymin > ymax for none
+		uint32_t cmdFirst, cmdCount;       // in the command pool
+	};
+	struct DebugRun {
+		uint32_t seq;                      // 1 for the first RUN
+		bool faces, tex;
+		uint16_t vfirst, nvert, first, count;   // first, count: EFIRST/NEDGE or FFIRST/NFACE
+		uint16_t ypage;
+		uint8_t color, lop;
+		uint16_t cntSkip, cntDraw, cntCull;
+		int32_t lm[3];                     // light in model space (faces)
+		int32_t cfg[18];                   // configuration words at RUN
+		uint16_t texx, texy;
+		uint8_t tstride;
+		uint32_t xfEndClk, endClk;
+		uint32_t itemFirst, itemCount;     // in the item pool
+		uint32_t cmdFirst, cmdCount;       // in the command pool
+	};
+	static constexpr unsigned DEBUG_RUNS = 32;
+	static constexpr unsigned DEBUG_ITEMS = 2048;
+	static constexpr unsigned DEBUG_CMDS = 4096;
+	static constexpr unsigned ENTRIES = NMEM;
+
+	[[nodiscard]] uint32_t debugLastSeq() const { return dbgSeq; }
+	[[nodiscard]] uint32_t debugCommandsPushed() const { return dbgCmdTotal; }
+	// nullptr once the record or pool entry was overwritten
+	[[nodiscard]] const DebugRun* debugRun(uint32_t seq) const;
+	[[nodiscard]] const DebugItem* debugItem(uint32_t n) const;
+	[[nodiscard]] const Command* debugCommand(uint32_t n) const;
+
+	// Registers as the data port reads them, without moving the read pointer.
+	[[nodiscard]] uint8_t peekReg(uint8_t idx, uint32_t ec = UINT32_MAX, uint32_t edgeEnd = 0) const {
+		return readReg(idx, ec, edgeEnd);
+	}
+	[[nodiscard]] const std::array<int64_t, 18>& getConfig() const { return cfg; }
+	[[nodiscard]] const std::array<int64_t, 3>& getVertexIn() const { return ivtx; }
+	[[nodiscard]] const Proj& getImmediate() const { return imm; }
+	[[nodiscard]] const std::array<int64_t, 3>& getVertex(unsigned k) const { return vmem[k & MASK]; }
+	[[nodiscard]] const std::array<uint16_t, 2>& getEdge(unsigned k) const { return emem[k & MASK]; }
+	[[nodiscard]] const Face& getFace(unsigned k) const { return fmem[k & MASK]; }
+	[[nodiscard]] const std::array<uint8_t, 8>& getTexture(unsigned k) const { return tmem[k & MASK]; }
+	[[nodiscard]] const Proj& getProjected(unsigned k) const { return pmem[k & MASK]; }
+	[[nodiscard]] const std::array<int64_t, 3>& getLight() const { return light; }
+	[[nodiscard]] unsigned getTexX() const { return texx; }
+	[[nodiscard]] unsigned getTexY() const { return texy; }
+	[[nodiscard]] uint8_t getTexStride() const { return tstride; }
+	[[nodiscard]] uint8_t getIndex() const { return widx; }
+	[[nodiscard]] uint8_t getReadIndex() const { return rptr; }
+	[[nodiscard]] bool texOn() const { return ctrlTex; }
+	[[nodiscard]] size_t commandsTotal() const { return cmds.size(); }
+	[[nodiscard]] size_t commandsIssued() const { return cmdPos; }
+
+private:
+	void debugClear();
+	// camera x and z of vertex k, as project() has them before dividing
+	void debugCamera(DebugItem& d, int j, unsigned k) const;
+	DebugItem& debugPush(uint16_t index, Outcome outcome);
+
+	std::vector<DebugRun> dbgRuns;         // DEBUG_RUNS, by seq
+	std::vector<DebugItem> dbgItems;       // DEBUG_ITEMS, a ring
+	std::vector<Command> dbgCmds;          // DEBUG_CMDS, a ring
+	uint32_t dbgSeq;
+	uint32_t dbgItemTotal, dbgCmdTotal;    // entries ever pushed
 };
 
 
