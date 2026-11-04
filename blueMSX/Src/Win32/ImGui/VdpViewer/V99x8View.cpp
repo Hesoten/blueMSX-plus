@@ -2032,7 +2032,7 @@ private:
         ImGui::EndDisabled();
         if (!sprOnly) sprShown = shown;
         barArtToggle("##spronly", ui::DECOR_CHECKER, ts(TS_SPR_LAYER_ONLY), &sprOnly);
-        if (!Sp3Panel::active(s)) barArtToggle("##boxes", ui::DECOR_FRAME, ts(TS_BOXES_TIP), &boxes);
+        barArtToggle("##boxes", ui::DECOR_FRAME, ts(TS_BOXES_TIP), &boxes);
     }
 
     /* Secondary text on the command bar. */
@@ -2429,6 +2429,7 @@ private:
         else if (self->pinnedSpriteAttr(f) >= 0) self->outputBoxes(dl, xf, self->pinnedSpriteAttr(f));
         if (xf.gutterMax.x > xf.gutterMin.x) dl->AddRectFilled(xf.gutterMin, xf.gutterMax, t.controlFillPressed);
         if (self->outCounts && xf.gutterMax.x > xf.gutterMin.x) self->outputCountGutter(dl, xf);
+        if (Sp3Panel::active(self->ovState)) self->sp3.screenOverlay(dl, xf, self->rasterMarks() ? ui::Px(12) : 0);
         self->drawRaster(dl, xf);
     }
 
@@ -2515,15 +2516,15 @@ private:
         bool hasSprites = spriteLayerShape(s, &lw, &lax, &lay);
         int layer = hasSprites ? sprLayer() : SL_SHOWN;
         if (layer != SL_SHOWN) shell::wantSpriteSplit();
-        /* The mode 1/2 boxes and counts do not apply to SP3 sprites, which the Sprites tab shows. */
-        bool sp3On = Sp3Panel::active(s);
+        /* SP3 sprites have boxes and counts of their own, from the frame end. */
+        bool sp3On = Sp3Panel::active(s), sp3Counts = sp3On && hasSprites && layer != SL_HIDDEN;
         outBoxes = boxes && hasSprites && !sp3On;
         outCounts = hasSprites && layer != SL_HIDDEN && !sp3On;
         ensureRaster(s);
         if (vdpSpriteMode(s->screenMode)) ensureSprites(s);
         outCv.aspectX = 1;
         outCv.aspectY = 2;   /* 544 samples a row: 512-dot units */
-        outCv.gutter = outCounts ? 40.0f : rasterMarks() ? 16.0f : 0.0f;
+        outCv.gutter = outCounts || sp3Counts ? 40.0f : rasterMarks() ? 16.0f : 0.0f;
         outCv.checker = layer == SL_ONLY;
 
         ui::BeginCommandBar("bar");
@@ -2538,7 +2539,6 @@ private:
             textf(field, sizeof(field), mixed ? ts(TS_OUT_FIELD_ABOVE) : "%s", name);
             barText(field);
         }
-        if (sp3On) barText(ts(TS_SP3_SCREEN_NOTE));
         zoomGroup(outCv, false);
         ui::EndCommandBar();
 
@@ -2565,6 +2565,7 @@ private:
         int ax, ay;
         dotAspect(s->screenMode, &ax, &ay);
         ovSplitWidth = ay == 2 ? 512 : 256;
+        if (sp3On) sp3Lines(s, o, sp3Counts);
 
         ui::CanvasHit h = ui::Canvas("output", outPic.tex.id(), outPic.w, outPic.h, outCv, ImVec2(0, 0), outputOverlay, this);
         if (h.clickedEmpty) shell::releaseSelection();
@@ -2597,8 +2598,21 @@ private:
             lineSummary(*gf, d + gf->vscroll, drawLimitOf(*gf), mt, sizeof(mt));
             ui::StatusText(ts(TS_GUTTER_LINE), d, mt);
         }
-        else if (h.valid && o != NULL && outPic.w > 0 && !(outBoxes && outputSpriteHover(s, f, h))) {
+        else if (!(sp3On && sp3.screenHover(s, f, h)) && h.valid && o != NULL && outPic.w > 0 && !(outBoxes && outputSpriteHover(s, f, h))) {
             outputHover(s, o, f, h);
+        }
+    }
+
+    /* Each display line's image row, left edge and band for the SP3 boxes; no band where
+    ** the picture is not of the snapshot's frame, or is the frame before below the beam. */
+    void sp3Lines(const VdpDebugState* s, const VdpFrameShot* o, bool counts)
+    {
+        sp3.screenBegin(s, boxes, counts);
+        bool same = o != NULL && !o->stale && (!raster.valid || o->frameStart == s->raster[0].frameStart);
+        for (int d = 0; same && d < raster.lines; d++) {
+            int bi = vdpRasterBandAt(raster, d), shot = d + outFirstLine(s, o) - o->displayOffset;
+            bool drawn = bi >= 0 && (o->ended || shot < o->drawnRow);
+            sp3.screenLine(d, rowOfDisplayLine(d), outPicBorders ? outOrigin(s, o, d) : 0, drawn ? &raster.bands[bi] : NULL);
         }
     }
 
@@ -3122,6 +3136,12 @@ private:
             any = true;
             if (mode == 6 || mode == 7) wide = mode;
         };
+        /* SP3 places its sprites in 256 dots whatever the mode. */
+        if (Sp3Panel::active(s)) {
+            *w = 256;
+            dotAspect(5, ax, ay);
+            return true;
+        }
         if (raster.valid) {
             for (const VdpBand& b : raster.bands) note(b.mode);
         }
@@ -3173,11 +3193,13 @@ private:
         int w, ax, ay;
         if (!spriteLayerShape(s, &w, &ax, &ay)) return false;
         ensureRaster(s);
+        bool sp3On = Sp3Panel::active(s);
         if (vdpSpriteMode(s->screenMode)) ensureSprites(s);
-        char key[64];
+        char key[96];
         ensureScene(s);
-        snprintf(key, sizeof(key), "L%u/%d/%d/%d/%d/%u/%u", shell::rasterVersion(), w, screenLines(s), vdpGetSpritesEnable(),
-                 vdpGetNoSpritesLimit(), linePal.ver, scene.recorded ? scene.ver : 0u);
+        /* SP3 reads VRAM at the frame end, which a write while paused changes. */
+        snprintf(key, sizeof(key), "L%u/%d/%d/%d/%d/%u/%u/%u", shell::rasterVersion(), w, screenLines(s), vdpGetSpritesEnable(),
+                 vdpGetNoSpritesLimit(), linePal.ver, scene.recorded ? scene.ver : 0u, sp3On ? shell::pictureVersion() : 0u);
         bool render = spriteLayer.needsDecode(key);
         if (render) renderSpriteBands(s, spriteLayer);
         spriteLayer.upload(render);
@@ -3198,6 +3220,24 @@ private:
             return;
         }
         int limit = vdpGetNoSpritesLimit() ? 32 : 0;
+        if (Sp3Panel::active(s)) {
+            /* SP3 lays them out from its own tables as the Screen tab does; a line whose own
+            ** band has SP3 off is cleared, so one that had sprites shows if the frame ends off. */
+            const char* offAtEnd = NULL;
+            if (!sp3.layer(s, lines, limit != 0, pic.img.data(), &offAtEnd)) {
+                std::fill(pic.img.begin(), pic.img.end(), 0u);
+                return;
+            }
+            for (int d = 0; d < lines; d++) {
+                int bi = raster.valid ? vdpRasterBandAt(raster, d) : -1;
+                const VdpBand* b = bi >= 0 ? &raster.bands[bi] : NULL;
+                bool off = raster.valid ? b == NULL || b->prev || b->unknown ||
+                                              sp3LineState(s->regs, b->mode, b->regs) == SP3_LINE_OFF
+                                        : offAtEnd != NULL;
+                if (off) memset(&pic.img[(size_t)d * w], 0, (size_t)w * sizeof(uint32_t));
+            }
+            return;
+        }
         std::vector<const UInt32*> rgb((size_t)lines);
         for (int d = 0; d < lines; d++) rgb[d] = lineRgb(d);
         if (scene.recorded && scene.lines == lines) {
@@ -3484,8 +3524,10 @@ private:
     {
         if (it.kind == SI_SPRITES) {
             if (!vdpGetSpritesEnable()) textf(status, size, "%s", ts(TS_STRIP_SPRITES_OPTION_OFF));
-            else if (!raster.valid && sprites.off) textf(status, size, ts(TS_SPR_NONE_SHOWN), sprites.off);
-            else textf(status, size, ts(TS_STRIP_SPRITES), screenLines(s), perBand ? ts(TS_STRIP_SPRITES_BANDS) : "",
+            else if (const char* off = !raster.valid ? (Sp3Panel::active(s) ? sp3.offReason(s) : sprites.off) : NULL) {
+                textf(status, size, ts(TS_SPR_NONE_SHOWN), off);
+            }
+            else textf(status, size, ts(TS_STRIP_SPRITES), screenLines(s), perBand && !Sp3Panel::active(s) ? ts(TS_STRIP_SPRITES_BANDS) : "",
                        vdpGetNoSpritesLimit() ? ts(TS_STRIP_SPRITES_NO_LIMIT) : "");
             if (clicked) shell::requestView("sprites");
             return;

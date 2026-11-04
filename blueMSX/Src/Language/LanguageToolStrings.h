@@ -259,7 +259,7 @@ TS(SPR_HEAT,                  "Over the limit in %d of the last %d snapshots (%d
 TS(SPR_TAB_FALLBACK_LINE,     "No table was recorded for this line: laid out from its band's registers and VRAM at the frame's end.", "このラインのテーブルは記録されていません。帯のレジスタとフレーム終了時の" NB "VRAM" NB "で配置しています。")
 
 /* V9968 sprite mode 3 (SP3) */
-TS(SP3_SCREEN_NOTE,           "SP3 sprites: see the Sprites tab", "SP3" NB "のスプライト:" NB "スプライトタブを参照")
+TS(SP3_SCREEN_DIFFERS,        "Line %d: the sprite settings change partway down the screen, so no count can be shown", "ライン" NB "%d:" NB "画面の途中でスプライトの設定が変わったため、個数を表示できません")
 TS(SP3_SUM,                   "SP3 · %d per line · %d shown", "SP3 · 1" NB "ラインに" NB "%d" NB "個まで · 表示" NB "%d" NB "個")
 TS(SP3_SUM_OFF,               "SP3 · not shown, %s", "SP3 · 表示なし（%s）")
 TS(SP3_HEAD,                  "SP3 · %d per line · attributes %05X · patterns %05X", "SP3 · 1" NB "ラインに" NB "%d" NB "個まで · 属性" NB "%05X · パターン" NB "%05X")

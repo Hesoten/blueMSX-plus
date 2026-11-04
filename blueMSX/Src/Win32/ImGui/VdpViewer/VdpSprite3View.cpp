@@ -90,6 +90,10 @@ Sp3Panel::Sp3Panel()
     memset(order, 0, sizeof(order));
     memset(atlasAny, 0, sizeof(atlasAny));
     memset(fitKey, 0, sizeof(fitKey));
+    memset(scrRow, 0, sizeof(scrRow));
+    memset(scrOrg, 0, sizeof(scrOrg));
+    memset(scrState, 0, sizeof(scrState));
+    memset(scrDrop, 0, sizeof(scrDrop));
 }
 
 void Sp3Panel::track(const VdpDebugState* s, Focus& f)
@@ -129,21 +133,23 @@ void Sp3Panel::forget()
     fitN = 0;
 }
 
-const Sp3Frame& Sp3Panel::frame(const VdpDebugState* s)
+const Sp3Frame& Sp3Panel::frame(const VdpDebugState* s, bool scanAll)
 {
     if (!fr) fr.reset(new Sp3Frame());
     /* Under SPS the scan order moves every frame while VRAM may not. */
     const char* text = ts(TS_SPR_OFF_BLANKED);
     if (ver == shell::pictureVersion() && memcmp(regs, s->regs, sizeof(regs)) == 0 && mode == s->screenMode &&
-        screenOn == s->screenOn && lang == text && memcmp(order, s->sprPlaneOrder, sizeof(order)) == 0) return *fr;
+        screenOn == s->screenOn && lang == text && memcmp(order, s->sprPlaneOrder, sizeof(order)) == 0 &&
+        (frScanAll == scanAll || fr->off == NULL)) return *fr;
     ver = shell::pictureVersion();
     memcpy(regs, s->regs, sizeof(regs));
     memcpy(order, s->sprPlaneOrder, sizeof(order));
     mode = s->screenMode;
     screenOn = s->screenOn;
     lang = text;
+    frScanAll = scanAll;
     built++;
-    sp3Eval(s, fr.get());
+    sp3Eval(s, fr.get(), scanAll);
     if (pin >= 0 && !fr->on) pin = -1;
     return *fr;
 }
@@ -209,12 +215,13 @@ int Sp3Panel::sheetHit(int x, int y, int* row) const
     return -1;
 }
 
-/* The first plane of the scan whose box covers X x of displayed line d, dropped or not. */
-int Sp3Panel::boxAt(int x, int d) const
+/* The first plane of the scan whose box covers X x of displayed line d, dropped or not; only that one when only >= 0. */
+int Sp3Panel::boxAt(int x, int d, int only) const
 {
     const Sp3Frame& f = *fr;
     if (d < 0 || d >= f.lines) return -1;
     for (int k = 0; k < f.count[d]; k++) {
+        if (only >= 0 && f.id[d][k] != only) continue;
         const Sp3Plane& p = f.p[f.id[d][k]];
         int x0[2], x1[2], n = sp3XRuns(p, x0, x1);
         for (int i = 0; i < n; i++) {
@@ -1072,6 +1079,190 @@ void Sp3Panel::drawTab(const VdpDebugState* s, Focus& f)
         f.kind = FOCUS_VRAM;
         f.a = f.b = 0;
     }
+}
+
+bool Sp3Panel::layer(const VdpDebugState* s, int lines, bool noLimit, uint32_t* out, const char** offAtEnd)
+{
+    /* Each line's own band says whether it has sprites, so scan them all. */
+    const Sp3Frame& fm = frame(s, true);
+    if (fm.lines != lines) return false;
+    sp3RenderPlacement(s, fm, 0, out, noLimit ? SP3_PLANES : SP3_LIMIT, true);
+    *offAtEnd = fm.off;
+    return true;
+}
+
+void Sp3Panel::screenBegin(const VdpDebugState* s, bool boxes, bool counts)
+{
+    /* Each line's own band says whether it has sprites, so scan them all. */
+    const Sp3Frame& fm = frame(s, true);
+    hot = hotNext;
+    hotNext = -1;
+    scrBoxes = boxes;
+    scrCounts = counts;
+    scrLimit = vdpGetNoSpritesLimit() ? SP3_PLANES : SP3_LIMIT;
+    memset(scrState, SP3_LINE_OFF, sizeof(scrState));
+    for (int d = 0; d < SP3_LINES; d++) {
+        scrDrop[d] = 0;
+        for (int k = scrLimit; d < fm.lines && k < fm.count[d]; k++) scrDrop[d] |= 1ull << fm.id[d][k];
+    }
+}
+
+void Sp3Panel::screenLine(int d, int row, int org, const VdpBand* b)
+{
+    if (!fr || d < 0 || d >= fr->lines || row < 0 || b == NULL || b->prev || b->unknown) return;
+    int st = sp3LineState(regs, b->mode, b->regs);
+    scrRow[d] = row;
+    scrOrg[d] = org;
+    scrState[d] = (uint8_t)st;
+}
+
+/* The displayed line shown at image row y that screenLine kept, or -1. */
+int Sp3Panel::screenLineOfRow(int y) const
+{
+    for (int d = 0; fr && d < fr->lines; d++) {
+        if (scrState[d] != SP3_LINE_OFF && scrRow[d] == y) return d;
+    }
+    return -1;
+}
+
+/* Plane n's boxes over the lines that show the frame end, drawn as the mode 1/2 boxes. */
+void Sp3Panel::screenBox(ImDrawList* dl, const ui::CanvasXf& xf, int n, bool me) const
+{
+    const UiTokens& t = uiTokens();
+    const Sp3Frame& f = *fr;
+    const Sp3Plane& p = f.p[n];
+    float th = fmaxf(1.0f, ui::Px(1)), lw = me ? th * 2 : th;
+    int x0[2], x1[2];
+    if (p.step >= f.stopStep || p.firstLine < 0 || sp3XRuns(p, x0, x1) == 0) return;
+    bool dashed = p.alias != n && !me;
+    int end = -2;
+    for (int d = p.firstLine; d <= p.lastLine;) {
+        if (scrState[d] != SP3_LINE_SAME || sp3SourceRow(f, n, d) < 0) {
+            d++;
+            continue;
+        }
+        int e = d;
+        while (e < p.lastLine && scrState[e + 1] == SP3_LINE_SAME && sp3SourceRow(f, n, e + 1) >= 0 &&
+               scrRow[e + 1] == scrRow[e] + 1 && scrOrg[e + 1] == scrOrg[d]) e++;
+        float xa = (float)(scrOrg[d] + 2 * x0[0]), xb = (float)(scrOrg[d] + 2 * x1[0]);
+        ImVec2 a = xf.toScreen(xa, (float)scrRow[d]), b = xf.toScreen(xb, (float)(scrRow[e] + 1));
+        ImU32 col = 0;
+        dl->AddRect(a, b, ui::WithAlpha(t.layer, 200), 0, lw + th * 2);
+        /* One outline; each part, dropped or not, draws its sides, the first the top and the last the bottom. */
+        for (int g = d; g <= e;) {
+            bool drop = ((scrDrop[g] >> n) & 1) != 0;
+            int h = g;
+            while (h < e && (((scrDrop[h + 1] >> n) & 1) != 0) == drop) h++;
+            ImU32 c = me ? t.accent : drop ? t.critical : ui::WithAlpha(t.text, 190);
+            ImVec2 pa = xf.toScreen(xa, (float)scrRow[g]), pb = xf.toScreen(xb, (float)(scrRow[h] + 1));
+            if (g == d) col = c;
+            if (drop) parts::hatch(dl, pa, pb, ui::WithAlpha(t.critical, 150));
+            if (g == d && h == e && dashed) parts::dashedRect(dl, pa, pb, c, lw);
+            else if (g == d && h == e) dl->AddRect(pa, pb, c, 0, lw);
+            else {
+                boxEdge(dl, pa, ImVec2(pa.x, pb.y), c, lw, dashed);
+                boxEdge(dl, ImVec2(pb.x, pa.y), pb, c, lw, dashed);
+                if (g == d) boxEdge(dl, pa, ImVec2(pb.x, pa.y), c, lw, dashed);
+                if (h == e) boxEdge(dl, ImVec2(pa.x, pb.y), pb, c, lw, dashed);
+            }
+            g = h + 1;
+        }
+        /* One number a plane: a box that moved sideways right under another of it goes without. */
+        if (scrRow[d] != end + 1) {
+            char num[8];
+            snprintf(num, sizeof(num), "%d", n);
+            ImVec2 sz = ImGui::CalcTextSize(num);
+            if (b.x - a.x >= sz.x + ui::Px(4) && b.y - a.y >= sz.y) {
+                dl->AddRectFilled(ImVec2(a.x + th, a.y + th), ImVec2(a.x + th + sz.x + ui::Px(2), a.y + th + sz.y), ui::WithAlpha(t.layer, 170));
+                dl->AddText(ImVec2(a.x + th + ui::Px(1), a.y + th), col, num);
+            }
+        }
+        end = scrRow[e];
+        d = e + 1;
+    }
+}
+
+void Sp3Panel::screenOverlay(ImDrawList* dl, const ui::CanvasXf& xf, float marksW) const
+{
+    if (!fr) return;
+    const UiTokens& t = uiTokens();
+    const Sp3Frame& f = *fr;
+    int focus = pin >= 0 ? pin : hot;
+    dl->PushClipRect(xf.clipMin, xf.clipMax, true);
+    /* The plane the scan reaches first wins a dot, so its box goes on top; the focused one over all. */
+    for (int step = SP3_PLANES - 1; scrBoxes && step >= 0; step--) {
+        if (f.order[step] != focus) screenBox(dl, xf, f.order[step], false);
+    }
+    if (focus >= 0 && (scrBoxes || focus == pin)) screenBox(dl, xf, focus, true);
+    dl->PopClipRect();
+    if (!scrCounts || xf.gutterMax.x <= xf.gutterMin.x) return;
+    float th = fmaxf(1.0f, ui::Px(1)), gx0 = xf.gutterMin.x;
+    float per = (xf.gutterMax.x - xf.gutterMin.x - marksW) / (2 * SP3_LIMIT);
+    for (int d = 0; d < f.lines; d++) {
+        int c = f.count[d];
+        if (scrState[d] != SP3_LINE_SAME || c == 0) continue;
+        ImVec2 a = xf.toScreen(0, (float)scrRow[d]), b = xf.toScreen(0, (float)(scrRow[d] + 1));
+        float len = (float)(c < 2 * SP3_LIMIT ? c : 2 * SP3_LIMIT) * per;
+        /* Red past the VDP's 16, at the tick, also while the emulator draws them all. */
+        dl->AddRectFilled(ImVec2(gx0, a.y), ImVec2(gx0 + len, fmaxf(b.y, a.y + 1)), c > SP3_LIMIT ? t.critical : t.textSecondary);
+    }
+    float tx = floorf(gx0 + per * SP3_LIMIT);
+    dl->AddLine(ImVec2(tx, xf.gutterMin.y), ImVec2(tx, xf.gutterMax.y), t.textTertiary, th);
+}
+
+bool Sp3Panel::screenHover(const VdpDebugState* s, Focus& f, const ui::CanvasHit& h)
+{
+    if (!fr) return false;
+    const Sp3Frame& fm = *fr;
+    if (h.gutterY >= 0) {
+        int d = scrCounts ? screenLineOfRow(h.gutterY) : -1;
+        if (d < 0) return false;
+        if (scrState[d] == SP3_LINE_DIFFERS) {
+            ui::StatusText(ts(TS_SP3_SCREEN_DIFFERS), d);
+            return true;
+        }
+        int c = fm.count[d];
+        char drop[256] = "", tail[300] = "";
+        size_t n = 0;
+        for (int i = scrLimit; i < c && n < sizeof(drop); i++) {
+            n += (size_t)snprintf(drop + n, sizeof(drop) - n, "%s%d", i > scrLimit ? ", " : "", fm.id[d][i]);
+        }
+        if (c > scrLimit) textf(tail, sizeof(tail), ts(TS_SP3_GUTTER_DROPPED), drop);
+        ui::StatusText(ts(TS_SP3_GUTTER), d, c, c < scrLimit ? c : scrLimit, tail);
+        return true;
+    }
+    if (!h.valid) return false;
+    int d = screenLineOfRow(h.y);
+    if (d < 0 || scrState[d] != SP3_LINE_SAME || h.x < scrOrg[d]) return false;
+    int dot = (h.x - scrOrg[d]) >> 1, n = -1;
+    if (dot >= 256) return false;
+    /* As with the mode 1/2 boxes: with them off, only the pinned plane answers. */
+    if (scrBoxes) {
+        n = sp3PlaneAt(s, fm, dot, d);
+        if (n < 0) n = boxAt(dot, d);
+    }
+    else if (pin >= 0) {
+        n = boxAt(dot, d, pin);
+    }
+    if (n < 0) return false;
+    const Sp3Plane& p = fm.p[n];
+    int k = 0;
+    while (k < fm.count[d] && fm.id[d][k] != n) k++;
+    hotNext = n;
+    char text[512];
+    textf(text, sizeof(text), ts(TS_SP3_STATUS_SPRITE), n, p.y, p.x, p.page, p.pattern, p.mgx, p.height, p.attr,
+          k >= scrLimit ? ts(TS_STATUS_SPRITE_DROPPED) : "");
+    ui::StatusText("%s", text);
+    if (h.clicked) pinPlane(n, f);
+    /* The hovered plane's attributes light up on the VRAM map. */
+    if (!f.pinned) {
+        f.space = FOCUS_PHYS;
+        f.addr = (UInt32)p.attr;
+        f.len = 8;
+        f.kind = FOCUS_VRAM;
+        f.a = f.b = 0;
+    }
+    return true;
 }
 
 void Sp3Panel::card(const VdpDebugState* s, Focus&)

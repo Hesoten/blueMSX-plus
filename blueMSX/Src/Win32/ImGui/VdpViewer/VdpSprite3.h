@@ -77,10 +77,20 @@ struct Sp3Frame {
     uint8_t rowSt[SP3_PLANES][128];
 };
 
+/* How a displayed line's own registers show the frame end's planes. */
+enum Sp3LineState {
+    SP3_LINE_OFF,        /* no SP3 sprite there: another mode, SP3 clear, R#8 SPD or blanked */
+    SP3_LINE_DIFFERS,    /* its sprite tables, R#20 SVNS, R#23 or R#25 SPS are not the frame end's */
+    SP3_LINE_SAME
+};
+
 /* SP3 is in use: a V9968, R#20 SP3, in a mode with sprites. */
 bool sp3Active(const VdpDebugState* s);
-/* Evaluates every displayed line from the snapshot's registers and VRAM. */
-void sp3Eval(const VdpDebugState* s, Sp3Frame* out);
+/* A line laid out in mode by lineRegs, against the frame end's frameRegs. */
+int  sp3LineState(const UInt8* frameRegs, int mode, const UInt8* lineRegs);
+/* Evaluates every displayed line from the snapshot's registers and VRAM; scanAll scans
+** them even when the frame end has the sprites off (off still says why). */
+void sp3Eval(const VdpDebugState* s, Sp3Frame* out, bool scanAll = false);
 /* The scan line the renderer looks at for displayed line d. */
 int  sp3ScanLine(const Sp3Frame& f, int d);
 /* The pattern row plane n shows on displayed line d, or -1 when out of range. */
@@ -90,8 +100,10 @@ int  sp3PatternDot(const VdpDebugState* s, const Sp3Frame& f, int page, int patt
 /* The plane whose dot shows at X x of displayed line d, or -1. */
 int  sp3PlaneAt(const VdpDebugState* s, const Sp3Frame& f, int x, int d);
 /* The displayed lines alone, 256 dots wide: RGBA with alpha by TP over clear; with
-** dropRgba not 0, dots of dropped planes no drawn one covers are stippled with it. */
-void sp3RenderPlacement(const VdpDebugState* s, const Sp3Frame& f, uint32_t dropRgba, uint32_t* out);
+** dropRgba not 0, dots of the planes past limit no drawn one covers are stippled with it.
+** whenOff draws them even if the frame ends with sprites off (for lines that had them). */
+void sp3RenderPlacement(const VdpDebugState* s, const Sp3Frame& f, uint32_t dropRgba, uint32_t* out,
+                        int limit = SP3_LIMIT, bool whenOff = false);
 /* The 32 KB at patBase + page * 32 KB as 256 x 256 dots of 4 bits, in palette set ps, 0 clear. */
 void sp3RenderPage(const VdpDebugState* s, const Sp3Frame& f, int page, int ps, uint32_t* out);
 /* Plane n's pattern as 16 x rows dots at out, pitch dots a row: in its palette set,

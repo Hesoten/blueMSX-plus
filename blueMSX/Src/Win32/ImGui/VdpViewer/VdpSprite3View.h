@@ -30,6 +30,7 @@
 #include "ViewPicture.h"
 #include "VdpParts.h"
 #include "VdpSprite3.h"
+#include "VdpRaster.h"
 
 /* What the V99x8 view shows of the sprites while SP3 is in use. It keeps its own
 ** pin, a plane number, apart from the view's Focus: the card of what is pinned
@@ -52,17 +53,33 @@ public:
     void selection(const VdpDebugState* s, Focus& f);
     void summary(const VdpDebugState* s, char* out, size_t size);
 
+    /* The Screen tab's boxes and per-line counts. Before its picture: screenBegin, then
+    ** screenLine for each displayed line with its image row, left edge (in image dots)
+    ** and band, NULL where the picture is not of the frame end. */
+    void screenBegin(const VdpDebugState* s, bool boxes, bool counts);
+    void screenLine(int d, int row, int org, const VdpBand* b);
+    void screenOverlay(ImDrawList* dl, const ui::CanvasXf& xf, float marksW) const;
+    /* The plane or the line under the mouse on the status line; false for neither. */
+    bool screenHover(const VdpDebugState* s, Focus& f, const ui::CanvasHit& h);
+    /* The page strip's sprite layer: 256 dots by lines, drawn even where the frame ends with
+    ** sprites off (*offAtEnd says why, else NULL); false when the frame is not lines high. */
+    bool layer(const VdpDebugState* s, int lines, bool noLimit, uint32_t* out, const char** offAtEnd);
+    /* Why the frame ends with no SP3 sprite on screen, or NULL. */
+    const char* offReason(const VdpDebugState* s) { return frame(s, true).off; }
+
 private:
     enum { PART_PLACE, PART_ATTRS, PART_MAG, PART_PATS, PART_COUNT };
     /* The tab's parts at a zoom, in the child's space: as the mode 1/2 tab lays them out. */
     struct Layout { ImVec2 at[PART_COUNT], size[PART_COUNT]; float scale[PART_COUNT], width, height, fitH; int tier; };
 
-    const Sp3Frame& frame(const VdpDebugState* s);
+    const Sp3Frame& frame(const VdpDebugState* s, bool scanAll = false);
     void pinPlane(int n, Focus& f);
     void choosePages();
     int  sheetY(int i) const;
     int  sheetHit(int x, int y, int* row) const;
-    int  boxAt(int x, int d) const;
+    int  boxAt(int x, int d, int only = -1) const;
+    int  screenLineOfRow(int y) const;
+    void screenBox(ImDrawList* dl, const ui::CanvasXf& xf, int n, bool me) const;
     void stateText(int n, char* out, size_t size, bool lead = true) const;
     void selectionBody(const VdpDebugState* s, Focus& f);
     void spriteStatus(int n, bool droppedHere) const;
@@ -92,6 +109,7 @@ private:
     UInt8 regs[64], order[SP3_PLANES];
     int  mode = -1, screenOn = -1;
     const char* lang = NULL;
+    bool frScanAll = false;     /* the frame was scanned for the Screen tab */
 
     ViewPicture placePic, sheetPic, atlasPic;
     bool atlasAny[SP3_PLANES];    /* the atlas's tile of each plane has a dot set */
@@ -108,6 +126,11 @@ private:
     Layout lastL = {};             /* last frame's, for Ctrl+wheel about the mouse */
     ImVec2 lastO = ImVec2(0, 0);
 
+    bool scrBoxes = false, scrCounts = false;
+    int  scrLimit = SP3_LIMIT;   /* scrLimit: the emulator's, 64 when told to draw them all */
+    int  scrRow[SP3_LINES], scrOrg[SP3_LINES];
+    uint8_t  scrState[SP3_LINES];                 /* Sp3LineState, SP3_LINE_OFF without a row */
+    uint64_t scrDrop[SP3_LINES];                  /* bit n: plane n is past scrLimit on the line */
 };
 
 #endif

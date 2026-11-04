@@ -32,10 +32,26 @@ static int rd(const VdpDebugState* s, int addr)
     return s->vram[addr & s->vramMask & (VDP_DEBUG_VRAM_SIZE - 1)];
 }
 
+static bool spriteMode(int m)
+{
+    return (m >= 1 && m <= 8) || m == 10 || m == 12;
+}
+
 bool sp3Active(const VdpDebugState* s)
 {
-    int m = s->screenMode;
-    return s->version == VDP_V9968 && (s->regs[20] & 0x08) && ((m >= 1 && m <= 8) || m == 10 || m == 12);
+    return s->version == VDP_V9968 && (s->regs[20] & 0x08) && spriteMode(s->screenMode);
+}
+
+int sp3LineState(const UInt8* frameRegs, int mode, const UInt8* lineRegs)
+{
+    const UInt8* e = frameRegs;
+    const UInt8* r = lineRegs;
+    if (!spriteMode(mode) || !(r[20] & 0x08) || (r[8] & 0x02) || !(r[1] & 0x40)) return SP3_LINE_OFF;
+    /* SVNS takes the sprites off R#23. */
+    if (r[5] != e[5] || ((r[6] ^ e[6]) & 0x7f) || ((r[11] ^ e[11]) & 7) || ((r[20] ^ e[20]) & 0x0a) ||
+        (!(e[20] & 0x02) && r[23] != e[23]) ||
+        ((r[25] ^ e[25]) & 0x80)) return SP3_LINE_DIFFERS;
+    return SP3_LINE_SAME;
 }
 
 int sp3ScanLine(const Sp3Frame& f, int d)
@@ -85,7 +101,7 @@ int sp3XRuns(const Sp3Plane& p, int* x0, int* x1)
     return n;
 }
 
-void sp3Eval(const VdpDebugState* s, Sp3Frame* out)
+void sp3Eval(const VdpDebugState* s, Sp3Frame* out, bool scanAll)
 {
     Sp3Frame& f = *out;
     const UInt8* r = s->regs;
@@ -139,7 +155,7 @@ void sp3Eval(const VdpDebugState* s, Sp3Frame* out)
 
     /* Off, the renderer scans nothing: no line, no S#0. Nor below the display:
     ** VR (S#2 bit 6) is set as the last displayed line ends, and the scan skips. */
-    for (int d = 0; f.off == NULL && d < f.lines && d < SP3_LINES; d++) {
+    for (int d = 0; (f.off == NULL || scanAll) && d < f.lines && d < SP3_LINES; d++) {
         int c = 0;
         for (int step = 0; step < f.stopStep; step++) {
             int n = f.order[step];
@@ -193,7 +209,7 @@ static int planeDot(const VdpDebugState* s, const Sp3Frame& f, int n, int x, int
 
 int sp3PlaneAt(const VdpDebugState* s, const Sp3Frame& f, int x, int d)
 {
-    if (f.off != NULL || d < 0 || d >= f.lines || x < 0 || x >= 256) return -1;
+    if (d < 0 || d >= f.lines || x < 0 || x >= 256) return -1;
     int c = f.count[d] < SP3_LIMIT ? f.count[d] : SP3_LIMIT;
     /* The first plane of the scan to put a dot there keeps it. */
     for (int k = 0; k < c; k++) {
@@ -202,19 +218,20 @@ int sp3PlaneAt(const VdpDebugState* s, const Sp3Frame& f, int x, int d)
     return -1;
 }
 
-void sp3RenderPlacement(const VdpDebugState* s, const Sp3Frame& f, uint32_t dropRgba, uint32_t* out)
+void sp3RenderPlacement(const VdpDebugState* s, const Sp3Frame& f, uint32_t dropRgba, uint32_t* out, int limit,
+                        bool whenOff)
 {
     static const int alpha[5] = { 0, 64, 128, 191, 255 };
     uint8_t weight[256];
     memset(out, 0, (size_t)256 * f.lines * sizeof(uint32_t));
-    if (f.off != NULL) return;
+    if (f.off != NULL && !whenOff) return;
     for (int d = 0; d < f.lines; d++) {
         uint32_t* dst = out + (size_t)d * 256;
         memset(weight, 0, sizeof(weight));
         for (int k = 0; k < f.count[d]; k++) {
             int n = f.id[d][k];
             const Sp3Plane& p = f.p[n];
-            bool dropped = k >= SP3_LIMIT;
+            bool dropped = k >= limit;
             if (dropped && dropRgba == 0) break;
             int row = sp3SourceRow(f, n, d);
             for (int dx = 0; dx < p.mgx; dx++) {
