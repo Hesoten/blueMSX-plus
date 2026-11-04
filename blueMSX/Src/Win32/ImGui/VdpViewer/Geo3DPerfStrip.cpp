@@ -174,6 +174,7 @@ void Geo3DPerfStrip::forget()
     laneFor = 0;
     hold = SpanHold();
     pinObj = pinRun = 0;
+    od = Overdraw();
     srcId = 0;
     follow = true;
     selNumber = 0;
@@ -190,10 +191,6 @@ void Geo3DPerfStrip::disarm()
 void Geo3DPerfStrip::keep(const VdpDebugState* s)
 {
     UInt64 now = GetTickCount64();
-    if (!shown) {
-        geo3dPerfArm(perf, false);
-        return;
-    }
     if (perf == NULL) {
         if (openFailed) return;
         perf = geo3dPerfOpen();
@@ -235,7 +232,10 @@ void Geo3DPerfStrip::keep(const VdpDebugState* s)
 
 void Geo3DPerfStrip::update()
 {
-    if (perf == NULL || !shown) return;
+    if (perf == NULL) return;
+    /* Folded, the strip cannot be clicked: the overdraw shows the latest picture. It measures
+    ** on, so reverse play still redraws the picture on screen for the faces and top view. */
+    if (!shown) follow = true;
     if (geo3dPerfTake(perf, view)) {
         /* The pictures start again when none is left of those taken before (a new source or a reset). */
         if (view->count == 0 || view->pic[0].number > legendLast) {
@@ -295,9 +295,7 @@ float Geo3DPerfStrip::bottomHeight(float room)
 
 void Geo3DPerfStrip::bottomCard(float paneH)
 {
-    /* Folded, it does not measure; the summary says so. */
-    const char* summary = !shown ? ts(TS_G3D_PERF_FOLDED) : NULL;
-    if (!shell::bottomCardHeader("g3dperf", ts(TS_G3D_PERF), summary, &shown, paneH, 0)) return;
+    if (!shell::bottomCardHeader("g3dperf", ts(TS_G3D_PERF), NULL, &shown, paneH, 0)) return;
     draw(paneH);
     ui::EndExpander();
 }
@@ -474,6 +472,21 @@ void Geo3DPerfStrip::chart(float h)
             pinObj = pinRun = 0;
         }
     }
+}
+
+bool Geo3DPerfStrip::onScreenAt(UInt32 number, UInt32 frameStart) const
+{
+    int i = view != NULL ? geo3dPerfIndexOf(view, number) : -1;
+    Int32 p = view != NULL ? (Int32)view->period : 0;
+    /* A vint W ends the frame that began at frameStart when W - frameStart < p. */
+    if (i < 0 || p == 0 || (Int32)((UInt32)view->frameT - frameStart) <= 0) return false;
+    UInt64 shown = view->pic[i].shownVint;
+    if (shown == 0 || (Int32)((UInt32)shown - frameStart) >= p) return false;
+    /* Replaced once the next one showed, or began without a flip, within that frame. */
+    if (i + 1 >= view->count) return true;
+    const Geo3DPerfPicture& n = view->pic[i + 1];
+    UInt64 next = n.shownVint != 0 ? n.shownVint : n.t0;
+    return (Int32)((UInt32)next - frameStart) >= p;
 }
 
 void Geo3DPerfStrip::picLabel(UInt32 number, char* out, size_t size) const
@@ -1036,6 +1049,7 @@ void Geo3DPerfStrip::runsCard()
         return;
     }
     ui::HoldHeight(textHold, y0);
+    replay();
     /* One line either way, so the bars below hold still: a cut list says so in the heading. */
     if (p.flags & G3P_DETAIL_CUT) {
         int hl = textf(text, sizeof(text), "%s \xC2\xB7 ", ts(TS_G3D_PERF_RUNS_HEAD));
@@ -1068,6 +1082,10 @@ void Geo3DPerfStrip::runsCard()
     textf(rowLabel, sizeof(rowLabel), ts(TS_G3D_PERF_RUN_ROW), 99999u);
     float labelW = ImGui::CalcTextSize(rowLabel).x;
     float barH = floorf(lh * 0.8f), rowH = lh * 2 + ui::Px(8);
+    /* Every row keeps room for the widest share, so the bars share one scale. */
+    char widest[48];
+    textf(widest, sizeof(widest), ts(TS_G3D_PERF_RUN_HIDDEN), "100%");
+    float hw = od.number == view->pic[i].number ? ImGui::CalcTextSize(widest).x + ui::Px(8) : 0;
     for (int r = 0; r < rows; r++) {
         const RunRow& rr = runRows[r];
         ImVec2 at = ImGui::GetCursorScreenPos();
@@ -1082,7 +1100,16 @@ void Geo3DPerfStrip::runsCard()
         char label[48], dur[48];
         textf(label, sizeof(label), ts(TS_G3D_PERF_RUN_ROW), rr.run);
         dl->AddText(ImVec2(at.x + ui::Px(4), at.y + ui::Px(4)), t.text, label);
-        float bx0 = at.x + ui::Px(4) + labelW, bx1 = at.x + w - ui::Px(4), by0 = at.y + ui::Px(4) + floorf((lh - barH) / 2);
+        /* The share of its dots painted over later in the picture, at the end of the bar's line. */
+        char hidden[48] = "";
+        for (const Overdraw::Run& hd : od.runs) {
+            if (hd.run != rr.run || hd.written == 0 || od.number != view->pic[i].number) continue;
+            char share[16];
+            snprintf(share, sizeof(share), "%d%%", (int)(100.0 * hd.hidden / hd.written + 0.5));
+            textf(hidden, sizeof(hidden), ts(TS_G3D_PERF_RUN_HIDDEN), share);
+        }
+        if (hidden[0]) dl->AddText(ImVec2(at.x + w - ui::Px(4) - ImGui::CalcTextSize(hidden).x, at.y + ui::Px(4)), t.textSecondary, hidden);
+        float bx0 = at.x + ui::Px(4) + labelW, bx1 = at.x + w - ui::Px(4) - hw, by0 = at.y + ui::Px(4) + floorf((lh - barH) / 2);
         float scale = (bx1 - bx0) / (float)most;
         if (bx1 > bx0) {
             dl->AddRectFilled(ImVec2(bx0, by0), ImVec2(bx0 + std::max(1.0f, rr.fill * scale), by0 + barH), partColour(G3P_GEO));
@@ -1099,7 +1126,7 @@ void Geo3DPerfStrip::runsCard()
         ticksText(dur, sizeof(dur), (double)rr.fill);
         if (rr.lrmm > 0) textf(text, sizeof(text), ts(TS_G3D_PERF_RUN_VALUE_LRMM), dur, rr.dots, rr.cmds, rr.lrmm);
         else textf(text, sizeof(text), ts(TS_G3D_PERF_RUN_VALUE), dur, rr.dots, rr.cmds);
-        ui::TextFit(dl, ImVec2(at.x + ui::Px(4), at.y + ui::Px(4) + lh), bx1, text, t.textSecondary, hov);
+        ui::TextFit(dl, ImVec2(at.x + ui::Px(4), at.y + ui::Px(4) + lh), at.x + w - ui::Px(4), text, t.textSecondary, hov);
         if (hov) {
             char g[48];
             ImGui::BeginTooltip();
@@ -1113,6 +1140,7 @@ void Geo3DPerfStrip::runsCard()
                 textf(text, sizeof(text), ts(TS_G3D_PERF_RUN_GHOST_TIP), g);
                 ImGui::TextWrapped("%s", text);
             }
+            if (hidden[0]) ImGui::TextWrapped("%s", ts(TS_G3D_PERF_RUN_HIDDEN_TIP));
             ImGui::TextWrapped("%s", ts(TS_G3D_PERF_RUN_PIN_TIP));
             ImGui::PopTextWrapPos();
             ImGui::EndTooltip();
@@ -1120,4 +1148,113 @@ void Geo3DPerfStrip::runsCard()
     }
     ui::HoldHeight(bodyHold, y0);
     ui::EndCard();
+}
+
+const Geo3DPerfStrip::Overdraw* Geo3DPerfStrip::overdraw()
+{
+    replay();
+    return od.number != 0 ? &od : NULL;
+}
+
+/* Replays the shown picture's commands begun in it, in start order, into the engine's space
+** as the engine walks them: blocks by DIX and DIY to the edge, a byte command whole bytes,
+** LINE by its own stepping. */
+void Geo3DPerfStrip::replay()
+{
+    int i = view != NULL ? shownIndex() : -1;
+    if (i < 0 || detail == NULL || detail->number != view->pic[i].number || detail->state != G3P_DETAIL_OK ||
+        spaceW <= 0 || spaceRows <= 0) {
+        od.number = 0;
+        return;
+    }
+    if (od.number == detail->number && od.w == spaceW && od.rows == spaceRows && od.ppb == spacePpb) return;
+    const Geo3DPerfPicture& pic = view->pic[i];
+    const int w = spaceW, rows = spaceRows, ppb = spacePpb;
+    const int clMask = ppb == 4 ? 0x03 : ppb == 2 ? 0x0F : 0xFF;
+    od.number = detail->number;
+    od.w = w;
+    od.rows = rows;
+    od.ppb = ppb;
+    od.page = pic.page;
+    od.count.assign((size_t)w * rows, 0);
+    od.last.assign((size_t)w * rows, 0);
+    od.runs.clear();
+    std::vector<int> order;
+    for (int k = 0; k < detail->count; k++) {
+        const Geo3DPerfSpan& sp = detail->span[k];
+        if (sp.kind <= G3P_SPAN_VDP && !sp.cut && !sp.aborted && sp.s >= pic.t0) order.push_back(k);
+    }
+    std::stable_sort(order.begin(), order.end(), [&](int x, int y) { return detail->span[x].s < detail->span[y].s; });
+    for (int k : order) {
+        const Geo3DPerfSpan& sp = detail->span[k];
+        int cm = sp.cm;
+        bool byteCmd = (cm & 0xC) == 0xC;
+        /* POINT, SRCH and LMCM write nothing; PSET's one dot, LFMM and LFMC are left out. */
+        if (cm == 0x0 || cm == 0x1 || cm == 0x2 || cm == 0x4 || cm == 0x5 || cm == 0x6 || cm == 0xA) continue;
+        /* A fill in a transparent logic op writes nothing in colour 0 and every dot otherwise;
+        ** a copy in one is counted whole, as which of its dots are 0 is not known. */
+        if (!byteCmd && (sp.lo & 8) && (cm == 0x7 || cm == 0x8) && (sp.cl & clMask) == 0) continue;
+        int nx = sp.nx, ny = sp.ny, dx = sp.dx, dy = sp.dy;
+        /* The Z80 clearing half a page or more is not painting. */
+        if (sp.kind == G3P_SPAN_VDP && (cm == 0xC || cm == 0x8) && (long long)(nx ? nx : w) * (ny ? ny : rows) >= (long long)w * 128) continue;
+        /* last holds 0 for the Z80, 1 for geo3d with its RUN not known, else 2 + the RUN's place in runs. */
+        UInt32 me = sp.kind == G3P_SPAN_VDP ? 0 : 1;
+        if (sp.kind == G3P_SPAN_GEO && sp.run != 0) {
+            size_t r = 0;
+            while (r < od.runs.size() && od.runs[r].run != sp.run) r++;
+            if (r == od.runs.size()) od.runs.push_back(Overdraw::Run{ sp.run, 0, 0 });
+            me = (UInt32)r + 2;
+        }
+        auto put = [&](int x, int y) {
+            size_t at = (size_t)y * w + x;
+            UInt32 prev = od.last[at];
+            if (od.count[at] != 0 && prev >= 2) od.runs[prev - 2].hidden++;
+            if (od.count[at] < 255) od.count[at]++;
+            od.last[at] = me;
+            if (me >= 2) od.runs[me - 2].written++;
+        };
+        int tx = (sp.cmdArg & 0x04) ? -1 : 1, ty = (sp.cmdArg & 0x08) ? -1 : 1;
+        if (cm == 0x7) {
+            /* NX dots along the major axis, NY along the minor, NX + 1 in all. */
+            int x = dx, y = dy % rows, asx = (nx - 1) >> 1;
+            bool xMajor = (sp.cmdArg & 0x01) == 0;
+            for (int n = 0; ; n++) {
+                if (x < 0 || x >= w || y < 0) break;
+                put(x, y);
+                if (xMajor) {
+                    x += tx;
+                    if (n == nx || x < 0 || x >= w) break;
+                    if ((asx -= ny) < 0) { asx += nx; y = (y + ty + rows) % rows; }
+                }
+                else {
+                    y = (y + ty + rows) % rows;
+                    if ((asx -= ny) < 0) { asx += nx; x += tx; }
+                    if (n == nx || x < 0 || x >= w) break;
+                }
+                asx &= 1023;
+            }
+            continue;
+        }
+        /* A byte command starts at DX's byte and runs whole bytes, NX / PPB of them or to the edge. */
+        int x0 = dx, width = sp.fill ? nx + 1 : nx ? nx : w;
+        if (byteCmd && ppb > 1) {
+            int bytes = (nx + sp.fill) / ppb;
+            x0 = dx - dx % ppb + (tx < 0 ? ppb - 1 : 0);
+            width = bytes ? bytes * ppb : w;
+        }
+        if (cm == 0xE) width = tx > 0 ? w - (x0 - x0 % ppb) : x0 + 1;   /* YMMM runs to the edge */
+        bool wrapX = cm == 0x3;   /* LRMM wraps along X */
+        int height = ny ? ny : rows;
+        for (int r = 0; r < height; r++) {
+            int y = dy + ty * r;
+            if (y < 0) break;
+            y %= rows;
+            for (int c = 0; c < width; c++) {
+                int x = x0 + tx * c;
+                if (wrapX) x = ((x % w) + w) % w;
+                else if (x < 0 || x >= w) break;
+                put(x, y);
+            }
+        }
+    }
 }

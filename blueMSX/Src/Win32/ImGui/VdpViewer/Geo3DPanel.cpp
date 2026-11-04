@@ -34,6 +34,7 @@
 #include "VdpParts.h"
 #include "ToolText.h"
 extern "C" {
+#include "Board.h"
 #include "Emulator.h"
 #include "Properties.h"
 #include "Geo3DDevice.h"
@@ -443,6 +444,9 @@ const ui::PixelArt* Geo3DPanel::tabArt()
 void Geo3DPanel::forget()
 {
     pic.forget();
+    heatPic.forget();
+    heatShown = heatOnScreen = false;
+    heatHeld = 0;
     regFadeReset(regFade);
     memset(&wordFade, 0, sizeof(wordFade));
     leave();
@@ -461,12 +465,14 @@ void Geo3DPanel::loadUi(const VdpViewerProperties& p)
 {
     pageMode = p.v99x8.g3dPage == 1 ? 1 : 0;
     perfStrip.loadUi(p);
+    fillMode = p.v99x8.g3dHeat == 1 ? 1 : 0;
 }
 
 void Geo3DPanel::saveUi(VdpViewerProperties& p) const
 {
     p.v99x8.g3dPage = pageMode;
     perfStrip.saveUi(p);
+    p.v99x8.g3dHeat = fillMode;
 }
 
 void Geo3DPanel::clearCache()
@@ -960,6 +966,14 @@ void Geo3DPanel::overlay(ImDrawList* dl, const ui::CanvasXf& xf, void* ref)
                        ImVec2(fminf(pb.x, xf.clipMax.x), fminf(pb.y, xf.clipMax.y)));
     }
     dl->PushClipRect(pa, pb, true);
+    /* How many times each dot was painted; over a dark ground once the
+    ** picture is no longer on screen, as VRAM then holds another. */
+    if (self->heatShown && self->heatPic.tex.id() != 0) {
+        ImVec2 a = pa, b = pb;
+        if (!self->heatOnScreen) dl->AddRectFilled(a, b, IM_COL32(20, 20, 20, 255));
+        else dl->AddRectFilled(a, b, IM_COL32(0, 0, 0, 110));
+        dl->AddImage(ImTextureRef(self->heatPic.tex.id()), a, b);
+    }
     /* geo3d clips to W. */
     if (w > 0 && w < pw) {
         parts::dashedSegment(dl, xf.toScreen((float)w, 0), xf.toScreen((float)w, (float)ph), t.textTertiary, th, ui::Px(4));
@@ -1090,6 +1104,10 @@ int Geo3DPanel::noteItems(const VdpDebugState* s, char item[][512]) const
     if (!running && g.running && runHere) {
         textf(item[n++], sizeof(item[0]), ts(TS_G3D_NOTE_RUNNING), g.cmdsIssued, g.cmdsTotal);
     }
+    if (fillMode == 1 && n < 6) {
+        if (!heatShown) textf(item[n++], sizeof(item[0]), "%s", ts(TS_G3D_HEAT_NOTE_NONE));
+        else if (!heatOnScreen && !running) textf(item[n++], sizeof(item[0]), "%s", ts(TS_G3D_HEAT_NOTE_OFF_SCREEN));
+    }
     return n;
 }
 
@@ -1120,6 +1138,7 @@ ImVec2 Geo3DPanel::legend(bool faces, bool dim)
     if (dim) {
         for (ImU32* c : { &t.text, &t.textSecondary, &t.accent }) *c = ui::WithAlpha(*c, (int)((*c >> IM_COL32_A_SHIFT) & 0xFF) / 2);
     }
+    if (fillMode == 1) return heatLegend();
     float lh = ImGui::GetTextLineHeight(), w = std::max(1.0f, floorf(ImGui::GetContentRegionAvail().x));
     ImVec2 p = ImGui::GetCursorScreenPos();
     ImGui::Dummy(ImVec2(w, lh));
@@ -1176,6 +1195,9 @@ void Geo3DPanel::drawTab(const VdpDebugState* s, Focus& f, const VdpRasterView& 
         fitOn = false;
     }
     parts::barArtToggle("##g3dout", ui::DECOR_NONE, ts(TS_G3D_OUTLINES_TIP), &outlines, wireArt);
+    bool heat = fillMode == 1;
+    parts::barToggle("##g3dfill", "\xEE\xA0\x9E" /* U+E81E MapLayers */, ts(TS_G3D_FILL_HEAT), ts(TS_G3D_FILL_TIP), &heat);
+    fillMode = heat ? 1 : 0;
     ui::GridToggle(cv);
     ui::CommandBarRight(ui::ZoomControlsWidth());
     ui::ZoomControls("zoom", cv);
@@ -1193,14 +1215,6 @@ void Geo3DPanel::drawTab(const VdpDebugState* s, Focus& f, const VdpRasterView& 
     int h = std::min(lines + down, rows);
     /* Woven, the screen is twice its display lines high; no more, as the rest is not shown. */
     if (pair) h = std::min(2 * lines, rows);
-    bool faces = set.empty() ? facesMode(g) : false;
-    for (const RunRef& r : set) faces = faces || r.run->faces;
-    char item[6][512];
-    int noteCount = noteItems(s, item);
-    float right = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
-    ImVec2 rest = legend(faces, !outlines);
-    notes(item, noteCount, rest, right);
-
     VdpLayout l = vdpLayoutOf(s);
     VdpBitmapOptions o = { mode, -1, 256, 0, VDP_COLOR0_AUTO, false, false };
     char key[64];
@@ -1217,6 +1231,17 @@ void Geo3DPanel::drawTab(const VdpDebugState* s, Focus& f, const VdpRasterView& 
         }
     }
     pic.upload(decoded);
+    /* The engine's space as the picture is decoded, for replaying the writes; a byte holds 2 dots
+    ** in SCREEN 5 and 7, 4 in 6, 1 in 8. */
+    perfStrip.setSpace(pic.w, rows, mode == 6 ? 4 : mode == 5 || mode == 7 ? 2 : 1);
+    buildHeat(h, s->screenMode, s->frameStartTime);
+    bool faces = set.empty() ? facesMode(g) : false;
+    for (const RunRef& r : set) faces = faces || r.run->faces;
+    char item[6][512];
+    int noteCount = noteItems(s, item);
+    float right = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
+    ImVec2 rest = legend(faces, !outlines);
+    notes(item, noteCount, rest, right);
 
     /* Woven, the picture has twice the rows: 512 wide modes come out square, 256 wide ones stretch across. */
     bool wide = mode == 6 || mode == 7;
@@ -1267,13 +1292,32 @@ void Geo3DPanel::drawTab(const VdpDebugState* s, Focus& f, const VdpRasterView& 
         hotSeqNext = run.seq;
         hotIndexNext = d.index;
         if (hit.clicked) pinItem(run.seq, d.index);
-        if (d.outcome == GEO3D_ITEM_BACK) ui::StatusText(ts(TS_G3D_STATUS_BACK), hit.x, hit.y, d.index, pi.logical);
-        else if (run.faces) ui::StatusText(ts(TS_G3D_STATUS_FACE), hit.x, hit.y, d.index, it.dy, pi.logical);
-        else ui::StatusText(ts(TS_G3D_STATUS_EDGE), hit.x, hit.y, d.index, d.v[0], d.v[1], pi.logical);
+    }
+    char st[384];
+    if (it.item >= 0) {
+        const Geo3DDebugRun& run = *set[it.run].run;
+        const Geo3DDebugItem& d = set[it.run].item[it.item];
+        if (d.outcome == GEO3D_ITEM_BACK) textf(st, sizeof(st), ts(TS_G3D_STATUS_BACK), hit.x, hit.y, d.index, pi.logical);
+        else if (run.faces) textf(st, sizeof(st), ts(TS_G3D_STATUS_FACE), hit.x, hit.y, d.index, it.dy, pi.logical);
+        else textf(st, sizeof(st), ts(TS_G3D_STATUS_EDGE), hit.x, hit.y, d.index, d.v[0], d.v[1], pi.logical);
     }
     else {
-        ui::StatusText(ts(TS_G3D_STATUS_PIXEL), hit.x, hit.y, pi.logical);
+        textf(st, sizeof(st), ts(TS_G3D_STATUS_PIXEL), hit.x, hit.y, pi.logical);
     }
+    /* Overdraw: how often the dot was painted, after what the line already says of it. */
+    const Geo3DPerfStrip::Overdraw* od = heatShown ? perfStrip.overdraw() : NULL;
+    size_t len = strlen(st);
+    if (od != NULL && od->number == heatNumber && hit.x < od->w && len < sizeof(st)) {
+        size_t at = (size_t)((heatBase + hit.y) % od->rows) * od->w + hit.x;
+        int n = od->count[at];
+        UInt32 last = od->last[at];
+        if (n == 0) textf(st + len, sizeof(st) - len, "%s", ts(TS_G3D_HEAT_STATUS_NONE));
+        else if (last >= 2) textf(st + len, sizeof(st) - len, ts(n == 1 ? TS_G3D_HEAT_STATUS_RUN_ONE : TS_G3D_HEAT_STATUS_RUN), n,
+                                  od->runs[last - 2].run);
+        else textf(st + len, sizeof(st) - len, ts(last == 1 ? (n == 1 ? TS_G3D_HEAT_STATUS_GEO_ONE : TS_G3D_HEAT_STATUS_GEO) :
+                                                      (n == 1 ? TS_G3D_HEAT_STATUS_Z80_ONE : TS_G3D_HEAT_STATUS_Z80)), n);
+    }
+    ui::StatusText("%s", st);
     /* The dot lights up on the VRAM map. */
     if (!f.pinned) {
         f.space = FOCUS_PHYS;
@@ -1856,4 +1900,104 @@ void Geo3DPanel::registersCard(const VdpDebugState* s)
     wordTable(s);
     ui::SectionTitle(ts(TS_G3D_READ_REGS));
     drawRegBank(regBankGeo3D, s->geo3d.regs, regFade);
+}
+
+namespace {
+
+/* Painted 1, 2, 3 and 4 or more times. */
+const ImU32 heatColours[4] = { IM_COL32(255, 226, 110, 140), IM_COL32(255, 168, 60, 175), IM_COL32(236, 96, 40, 205),
+                               IM_COL32(196, 24, 40, 235) };
+
+}
+
+/* The heat image over the rows the picture shows: of the picture on screen, from its own
+** row; of one no longer there, from the row of the page it showed on. */
+void Geo3DPanel::buildHeat(int h, int screenMode, UInt32 frameStart)
+{
+    const Geo3DPerfStrip::Overdraw* od = fillMode == 1 ? perfStrip.overdraw() : NULL;
+    heatShown = false;
+    bool running = emulatorGetState() == EMU_RUNNING || emulatorGetState() == EMU_SUSPENDED;
+    /* The trace and the snapshot drift a few frames apart while running: the heat seen over
+    ** this page in the last ten frames or so stands in rather than the dark ground. */
+    auto holdLast = [&]() {
+        if (fillMode != 1 || !running || !perfStrip.following() || pageMode != 0 || heatHeld == 0 || heatPic.h != h ||
+            heatPic.w != pic.w || heatHeldBase != picStart || (UInt32)(frameStart - heatHeldAt) > boardFrequency() / 6) {
+            return false;
+        }
+        heatBase = heatHeldBase;
+        heatNumber = heatHeld;
+        heatOnScreen = true;
+        heatShown = true;
+        return true;
+    };
+    if (od == NULL || od->w != pic.w || od->rows != rows || rows <= 0) {
+        holdLast();
+        return;
+    }
+    /* The trace counts pages as the screen does, 32 kB up to SCREEN 6 and 64 kB from 7, in
+    ** rows of the engine's mode: 128 bytes in its SCREEN 5 and 6, 256 in 7 and 8. */
+    int rowsPerPage = (screenMode <= 6 ? 0x8000 : 0x10000) / (mode == 5 || mode == 6 ? 128 : 256);
+    int odPage = pair && od->page >= 0 ? od->page & ~1 : od->page;
+    heatBase = odPage >= 0 ? (odPage * rowsPerPage) % rows : picStart;
+    /* A picture is settled by the capture where its page first shows, so it goes over the
+    ** page whenever it is the one on screen in this snapshot. */
+    bool onScreen = running ? perfStrip.onScreenAt(od->number, frameStart) : perfStrip.isLatest(od->number);
+    /* The trace runs ahead of the snapshot: keep the heat of the picture still on screen. */
+    if (running && !onScreen && perfStrip.following() && heatHeld != 0 && heatPic.h == h && heatPic.w == pic.w && heatHeldBase == picStart &&
+        perfStrip.onScreenAt(heatHeld, frameStart)) {
+        heatBase = heatHeldBase;
+        heatNumber = heatHeld;
+        heatOnScreen = pageMode == 0;
+        heatShown = true;
+        heatHeldAt = frameStart;
+        return;
+    }
+    heatOnScreen = pageMode == 0 && onScreen && heatBase == picStart;
+    if (!heatOnScreen && holdLast()) return;
+    heatHeldAt = frameStart;
+    heatHeld = heatOnScreen ? od->number : 0;
+    heatHeldBase = heatBase;
+    heatNumber = od->number;
+    char key[64];
+    snprintf(key, sizeof(key), "h%u/%d/%d/%d/%d", od->number, heatBase, h, od->w, rows);
+    bool decoded = heatPic.needsDecodeAt(0, key);
+    if (decoded) {
+        heatPic.w = od->w;
+        heatPic.h = h;
+        heatPic.img.assign((size_t)od->w * h, 0);
+        for (int y = 0; y < h; y++) {
+            const UInt8* c = &od->count[(size_t)((heatBase + y) % rows) * od->w];
+            uint32_t* d = &heatPic.img[(size_t)y * od->w];
+            for (int x = 0; x < od->w; x++) d[x] = c[x] ? heatColours[std::min((int)c[x], 4) - 1] : 0;
+        }
+    }
+    heatPic.upload(decoded);
+    heatShown = true;
+}
+
+/* The legend row in overdraw: a swatch for each count; what the counts leave out is in a
+** tooltip on them. */
+ImVec2 Geo3DPanel::heatLegend()
+{
+    const UiTokens& t = uiTokens();
+    float lh = ImGui::GetTextLineHeight(), w = std::max(1.0f, floorf(ImGui::GetContentRegionAvail().x));
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    ImGui::Dummy(ImVec2(w, lh));
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    float sw = floorf(lh * 0.7f), in = floorf((lh - sw) / 2), x = p.x;
+    char text[64];
+    dl->PushClipRect(p, ImVec2(p.x + w, p.y + lh), true);
+    for (int k = 0; k < 4; k++) {
+        dl->AddRectFilled(ImVec2(x, p.y + in), ImVec2(x + sw, p.y + in + sw), ui::Over(heatColours[k], IM_COL32(20, 20, 20, 255)));
+        x += sw + ui::Px(4);
+        if (k == 0) textf(text, sizeof(text), "%s", ts(TS_G3D_HEAT_ONCE));
+        else if (k < 3) textf(text, sizeof(text), ts(TS_G3D_HEAT_TIMES), k + 1);
+        else textf(text, sizeof(text), "%s", ts(TS_G3D_HEAT_MORE));
+        dl->AddText(ImVec2(x, p.y), t.text, text);
+        x += ImGui::CalcTextSize(text).x + ui::Px(14);
+    }
+    dl->PopClipRect();
+    /* What the counts leave out, on hover over the swatches. */
+    if (ImGui::IsMouseHoveringRect(p, ImVec2(x, p.y + lh))) ui::ItemTip(ts(TS_G3D_HEAT_LEG_NOTE));
+    return ImVec2(x, p.y);
 }

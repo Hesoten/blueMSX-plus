@@ -131,6 +131,7 @@ struct Geo3DPerf {
     bool   cmdOpen, cmdOpenGeo;
     UInt64 cmdOpenT;
     UInt8  cmdOpenCm;
+    UInt32 cmdOpenArgs;
     UInt32 cmdOpenRun, cmdOpenIndex;
     UInt32 runOpenObj;
     Link   runObjs[256];        /* RUN number to object, as link to RUN: link = RUN, run = object */
@@ -408,6 +409,16 @@ static void settleOne(Geo3DPerf* p, const Pending& q)
     forgetSpans(p, q.t1);
 }
 
+/* A command's CM, LO, fill flag and ARG, as its CMD record's a packs them. */
+static void setArgs(Span* sp, UInt32 a)
+{
+    sp->cm = (UInt8)(a & 0xF);
+    sp->lo = (UInt8)((a >> 4) & 0xF);
+    sp->fill = (UInt8)((a >> 8) & 1);
+    sp->cmdArg = (UInt8)(a >> 16);
+    sp->cl = (UInt8)(a >> 24);
+}
+
 static UInt32 objOf(const Geo3DPerf* p, UInt32 run)
 {
     const Link& l = p->runObjs[run % 256];
@@ -424,7 +435,7 @@ static void settleFront(Geo3DPerf* p)
             Span* sp = addSpan(p, p->cmdOpenT, q.t1, p->cmdOpenGeo ? CAT_GEO : CAT_VDP);
             if (sp) {
                 sp->cut = 1;
-                sp->cm = p->cmdOpenCm;
+                setArgs(sp, p->cmdOpenArgs);
                 sp->run = p->cmdOpenRun;
                 sp->arg = p->cmdOpenIndex;
                 sp->obj = objOf(p, sp->run);
@@ -831,6 +842,7 @@ static void fold(Geo3DPerf* p, const DebugTraceRecord& r)
             p->cmdOpenGeo = r.link != 0;
             p->cmdOpenT = r.time;
             p->cmdOpenCm = (UInt8)(r.a & 0xF);
+            p->cmdOpenArgs = r.a;
             p->cmdOpenRun = known ? l.run : 0;
             p->cmdOpenIndex = known ? l.index : 0;
         }
@@ -839,7 +851,7 @@ static void fold(Geo3DPerf* p, const DebugTraceRecord& r)
             Span* sp = addSpan(p, r.time, r.time + (r.b + 7) / 8, r.link != 0 ? CAT_GEO : CAT_VDP);
             if (sp) {
                 const Link& l = p->links[r.link % LINKS];
-                sp->cm = (UInt8)(r.a & 0xF);
+                setArgs(sp, r.a);
                 sp->aborted = (r.a & 0x200) != 0;
                 if (r.link != 0 && l.link == r.link) {
                     sp->run = l.run;

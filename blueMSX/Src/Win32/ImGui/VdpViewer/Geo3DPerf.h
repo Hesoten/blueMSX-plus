@@ -61,6 +61,10 @@ struct Geo3DPerfSpan {
     UInt8  cm;
     UInt8  aborted;
     UInt8  cut;             /* ran across its picture's flip, or was open when it settled: it ends there */
+    UInt8  lo;              /* a command's logic operation, ARG, geo3d's one row fill flag and CL */
+    UInt8  cmdArg;
+    UInt8  fill;
+    UInt8  cl;
 };
 
 /* An object the RUNs of a picture drew, and the VDP time their commands took within it. */

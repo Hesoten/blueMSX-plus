@@ -195,6 +195,17 @@ private:
     struct WordFade { Int32 prev[32]; float heat[32]; unsigned version, step; bool primed; };
     WordFade        wordFade = {};
     Geo3DPerfStrip  perfStrip;
+    /* 0 the faces as drawn, 1 over them how many times each dot was painted in the picture. */
+    int             fillMode = 0;
+    ViewPicture     heatPic;
+    bool            heatShown = false, heatOnScreen = false;
+    UInt32          heatHeld = 0;       /* the picture whose heat went over the page last, 0 none */
+    int             heatHeldBase = 0;
+    UInt32          heatHeldAt = 0;         /* the snapshot frame start when it was last seen on screen */
+    int             heatBase = 0;           /* the engine row of the heat image's first row */
+    UInt32          heatNumber = 0;
+    void            buildHeat(int h, int screenMode, UInt32 frameStart);
+    ImVec2          heatLegend();
 };
 
 #endif

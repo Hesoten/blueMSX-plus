@@ -38,7 +38,7 @@ public:
     ~Geo3DPerfStrip();
     void loadUi(const VdpViewerProperties& p);
     void saveUi(VdpViewerProperties& p) const;
-    /* Each frame while s's VDP has a geo3d, on any tab: arms the trace while open and follows that VDP. */
+    /* Each frame while s's VDP has a geo3d, on any tab: arms the trace and follows that VDP. */
     void keep(const VdpDebugState* s);
     /* Each frame the tab is drawn: takes the pictures. */
     void update();
@@ -57,6 +57,27 @@ public:
     /* The RUN of the pinned object in the picture the cards show, whose faces the picture lights; else 0. */
     UInt32 litRun() const;
 
+    /* The command engine's space, w dots by rows rows at ppb dots a byte, that the writes are replayed in. */
+    void setSpace(int w, int rows, int ppb) { spaceW = w; spaceRows = rows; spacePpb = ppb > 0 ? ppb : 1; }
+    /* The writes of the picture the cards show replayed in start order: for each dot how many
+    ** wrote it and who wrote it last. Clears by the Z80 and fills in colour 0 with a
+    ** transparent logic op are not counted. NULL without that picture's detail. */
+    struct Overdraw {
+        /* A RUN's dots written, and of them those a later write covered, its own included. */
+        struct Run { UInt32 run, written, hidden; };
+        UInt32 number = 0;
+        int    w = 0, rows = 0, ppb = 1;
+        Int32  page = -1;           /* the page the picture showed on */
+        std::vector<UInt8>  count;
+        std::vector<UInt32> last;   /* 0 the Z80, 1 geo3d with its RUN not known, else 2 + a place in runs */
+        std::vector<Run>    runs;
+    };
+    const Overdraw* overdraw();
+    /* Whether picture number is the latest settled one. */
+    bool isLatest(UInt32 number) const { return view != NULL && view->count > 0 && view->pic[view->count - 1].number == number; }
+    /* Whether picture number is the one on screen at the end of the frame that began at frameStart. */
+    bool onScreenAt(UInt32 number, UInt32 frameStart) const;
+    bool following() const { return follow; }
     /* Picture number named by its machine frames, as the deck counts them, else just "screen update". */
     void picLabel(UInt32 number, char* out, size_t size) const;
 
@@ -78,6 +99,7 @@ private:
     void runsCard();
     void derive();
     void deriveFrom(const Geo3DPerfPicture& p);
+    void replay();
     /* Why the detail of picture i is not shown, or NULL when it is. */
     const char* detailNote(int i) const;
 
@@ -107,6 +129,8 @@ private:
     double         tickStep = 0;        /* the axis step in ms last chosen, 0 none */
     /* The lanes' held span while following, so the axis does not jump from picture to picture. */
     SpanHold       hold;
+    Overdraw       od;
+    int            spaceW = 0, spaceRows = 0, spacePpb = 1;
     UInt32         pinObj = 0;          /* the object pinned, followed from picture to picture */
     UInt32         pinRun = 0;          /* its RUN in the picture the cards show */
     /* The parts any kept picture had; kept until the pictures start again. */
