@@ -35,6 +35,9 @@
 ** that showed the most display lines of it, -1 for none; b = the bitmap display lines counted;
 ** link = the machine VDP's frame number then (vdpGetMachineFrame), on a cartridge VDP too. */
 #define VDPREG_TRACE_FRAME 2
+/* CPUVRAM, just before each FRAME at its time: the bytes the CPU wrote (a) and read (b)
+** through the data port since the FRAME before. */
+#define VDPREG_TRACE_CPUVRAM 3
 
 /* Times are VDP cycles: line = (t - frameStart) / 1368, cycle = the rest. A line interrupt
 ** is stamped with its own time but noted a little later, so a write a few cycles after it

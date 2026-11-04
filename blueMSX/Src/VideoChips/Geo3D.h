@@ -69,6 +69,8 @@ void   geo3dLoadState(Geo3D* geo3d, const UInt8* data, UInt32 size, int layout);
 ** record of RUN seq is still kept. */
 UInt32 geo3dDebugLastSeq(Geo3D* geo3d);
 int    geo3dDebugHasRun(Geo3D* geo3d, UInt32 seq);
+/* The index register: where the next data byte goes. */
+UInt8  geo3dDebugIndex(Geo3D* geo3d);
 /* From RUN seq's record: first | count << 16 (EFIRST/NEDGE or FFIRST/NFACE),
 ** vfirst | nvert << 16, and the transform end in engine clocks; 0 once gone. */
 int    geo3dDebugRunRange(Geo3D* geo3d, UInt32 seq, UInt32* items, UInt32* verts, UInt32* xfEndClock);

@@ -542,6 +542,10 @@ struct VDP {
     int    traceFrameLine;
     int    traceFrameClosed;   /* this frame's FRAME record is out: at its vint, or none was due */
     UInt32 traceFrameEpoch;
+    /* Bytes the CPU wrote and read through the data port this frame. */
+    UInt32 traceCpuWrites;
+    UInt32 traceCpuReads;
+    UInt32 traceCpuEpoch;
 
     BoardTimer* timerDisplay;
     BoardTimer* timerDrawAreaStart;
@@ -1057,8 +1061,39 @@ static void tracePageSpan(VDP* vdp, int line)
     }
 }
 
-/* Ends the frame's tally at frame line lineAt: FRAME goes out at time, with the page that
-** showed the most display lines, so a split for a status band is not taken for a flip.
+/* Counts a byte the CPU moved through the data port; a new epoch starts over. */
+static void traceCpuVram(VDP* vdp, int written)
+{
+    UInt32 epoch = debugTraceEpoch();
+
+    if (vdp->traceCpuEpoch != epoch) {
+        vdp->traceCpuEpoch  = epoch;
+        vdp->traceCpuWrites = 0;
+        vdp->traceCpuReads  = 0;
+    }
+    if (written) {
+        vdp->traceCpuWrites++;
+    }
+    else {
+        vdp->traceCpuReads++;
+    }
+}
+
+static void traceCpuVramFrame(VDP* vdp, UInt32 time)
+{
+    if (vdp->traceCpuEpoch != debugTraceEpoch()) {
+        vdp->traceCpuEpoch  = debugTraceEpoch();
+        vdp->traceCpuWrites = 0;
+        vdp->traceCpuReads  = 0;
+    }
+    debugTraceEmit(vdp->traceRegSource, VDPREG_TRACE_CPUVRAM, time, 0,
+                   vdp->traceCpuWrites, vdp->traceCpuReads);
+    vdp->traceCpuWrites = 0;
+    vdp->traceCpuReads  = 0;
+}
+
+/* Ends the frame's tally at frame line lineAt: CPUVRAM and FRAME go out at time, with the page
+** that showed the most display lines, so a split for a status band is not taken for a flip.
 ** Lines after it, in VBLANK, count for nothing. */
 static void traceFrameClose(VDP* vdp, UInt32 time, int lineAt)
 {
@@ -1074,6 +1109,7 @@ static void traceFrameClose(VDP* vdp, UInt32 time, int lineAt)
         }
     }
     memset(vdp->tracePageLines, 0, sizeof(vdp->tracePageLines));
+    traceCpuVramFrame(vdp, time);
     DEBUG_TRACE(DEBUG_TRACE_VDPREG, vdp->traceRegSource, VDPREG_TRACE_FRAME, time,
                 vdpGetMachineFrame(), best < 0 ? 0xffffffff : (UInt32)best, lines);
 }
@@ -1745,6 +1781,9 @@ static UInt8 read(VDP* vdp, UInt16 ioPort)
     if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A || vdp->vdpVersion == VDP_TMS9918A) {
         checkVramAccessTimeTms(vdp);
     }
+    if (DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_VDPREG))) {
+        traceCpuVram(vdp, 0);
+    }
 
     return readNoTimingCheck(vdp, ioPort);
 }
@@ -1820,12 +1859,18 @@ static const DebugTraceField traceFrameFields[] = {
     { "lines", DEBUG_TRACE_WORD_B, 0, 32, DEBUG_TRACE_DEC,    0, NULL, 0 },
 };
 
-static const DebugTraceKindDesc traceRegKinds[] = {
-    { VDPREG_TRACE_PAGE,  "page",  tracePageFields,  2 },
-    { VDPREG_TRACE_FRAME, "frame", traceFrameFields, 2 },
+static const DebugTraceField traceCpuVramFields[] = {
+    { "written", DEBUG_TRACE_WORD_A, 0, 32, DEBUG_TRACE_DEC, 0, NULL, 0 },
+    { "read",    DEBUG_TRACE_WORD_B, 0, 32, DEBUG_TRACE_DEC, 0, NULL, 0 },
 };
 
-static const DebugTraceClassDesc traceRegClass = { "vdpreg", traceRegKinds, 2 };
+static const DebugTraceKindDesc traceRegKinds[] = {
+    { VDPREG_TRACE_PAGE,    "page",     tracePageFields,    2 },
+    { VDPREG_TRACE_FRAME,   "frame",    traceFrameFields,   2 },
+    { VDPREG_TRACE_CPUVRAM, "cpu vram", traceCpuVramFields, 2 },
+};
+
+static const DebugTraceClassDesc traceRegClass = { "vdpreg", traceRegKinds, 3 };
 
 /* Edges of the CPU polling S#2 CE, from what the read already worked out. A
 ** transfer (LFMC, LMCM, LMMC, HMMC) keeps CE up while the CPU feeds it, so
@@ -1955,6 +2000,9 @@ static UInt8 peekVram(VDP* vdp, int address) {
 static void write(VDP* vdp, UInt16 ioPort, UInt8 value)
 {
     sync(vdp, boardSystemTime());
+    if (DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_VDPREG))) {
+        traceCpuVram(vdp, 1);
+    }
 
     if (vdp->vdpVersion == VDP_TMS9929A || vdp->vdpVersion == VDP_TMS99x8A || vdp->vdpVersion == VDP_TMS9918A) {
         checkVramAccessTimeTms(vdp);

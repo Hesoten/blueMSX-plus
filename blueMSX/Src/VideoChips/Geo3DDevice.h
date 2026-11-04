@@ -34,6 +34,9 @@
 #define GEO3D_TRACE_XFORM_END 2
 #define GEO3D_TRACE_ISSUE     3
 #define GEO3D_TRACE_WAIT      4
+/* FEED, just before each RUN BEGIN at its time: the bytes the CPU wrote to the data port
+** since the RUN before, a to the model RAMs (indices 50h-53h), b to the rest. */
+#define GEO3D_TRACE_FEED      5
 
 typedef struct Geo3DDevice Geo3DDevice;
 struct VDP;

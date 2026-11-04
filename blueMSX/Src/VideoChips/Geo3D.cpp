@@ -180,6 +180,11 @@ extern "C" int geo3dDebugHasRun(Geo3D* geo3d, UInt32 seq)
     return geo3d->core.debugRun(seq) != nullptr;
 }
 
+extern "C" UInt8 geo3dDebugIndex(Geo3D* geo3d)
+{
+    return geo3d->core.getIndex();
+}
+
 extern "C" int geo3dDebugRunRange(Geo3D* geo3d, UInt32 seq, UInt32* items, UInt32* verts,
                                   UInt32* xfEndClock)
 {

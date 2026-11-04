@@ -95,6 +95,10 @@ struct Geo3DDevice {
     int         traceWaiting;
     UInt32      traceBusyReads;
     UInt32      traceEpoch;
+    /* Trace only: the data bytes the CPU wrote since the last RUN, to the model RAMs and not. */
+    UInt32      traceFeedModel;
+    UInt32      traceFeedOther;
+    UInt32      traceFeedEpoch;
 };
 
 #if RUN_STAMPS > GEO3D_DEBUG_RUNS
@@ -133,14 +137,20 @@ static const DebugTraceField traceWaitFields[] = {
     { "run",   DEBUG_TRACE_WORD_B, 0, 32, DEBUG_TRACE_DEC, 0,      NULL, 0 },
 };
 
+static const DebugTraceField traceFeedFields[] = {
+    { "model", DEBUG_TRACE_WORD_A, 0, 32, DEBUG_TRACE_DEC, 0, NULL, 0 },
+    { "other", DEBUG_TRACE_WORD_B, 0, 32, DEBUG_TRACE_DEC, 0, NULL, 0 },
+};
+
 static const DebugTraceKindDesc traceKinds[] = {
     { GEO3D_TRACE_RUN,       "run",       traceRunFields,   7 },
     { GEO3D_TRACE_XFORM_END, "xform end", traceXformFields, 1 },
     { GEO3D_TRACE_ISSUE,     "issue",     traceIssueFields, 3 },
     { GEO3D_TRACE_WAIT,      "wait",      traceWaitFields,  2 },
+    { GEO3D_TRACE_FEED,      "feed",      traceFeedFields,  2 },
 };
 
-static const DebugTraceClassDesc traceClass = { "geo3d", traceKinds, 4 };
+static const DebugTraceClassDesc traceClass = { "geo3d", traceKinds, 5 };
 
 static UInt32 later(UInt32 a, UInt32 b)
 {
@@ -350,6 +360,18 @@ static void pump(Geo3DDevice* dev)
     }
 }
 
+/* Trace only: a new epoch counts the bytes fed from nothing again. */
+static void traceFeedEpoch(Geo3DDevice* dev)
+{
+    UInt32 epoch = debugTraceEpoch();
+
+    if (dev->traceFeedEpoch != epoch) {
+        dev->traceFeedEpoch = epoch;
+        dev->traceFeedModel = 0;
+        dev->traceFeedOther = 0;
+    }
+}
+
 static void startRun(Geo3DDevice* dev)
 {
     UInt32 seq = geo3dDebugLastSeq(dev->geo3d);
@@ -375,6 +397,10 @@ static void startRun(Geo3DDevice* dev)
         UInt32 verts = 0;
         UInt32 xfEnd;
         geo3dDebugRunRange(dev->geo3d, seq, &items, &verts, &xfEnd);
+        traceFeedEpoch(dev);
+        debugTraceEmit(dev->traceSource, GEO3D_TRACE_FEED, s->start, 0, dev->traceFeedModel, dev->traceFeedOther);
+        dev->traceFeedModel = 0;
+        dev->traceFeedOther = 0;
         debugTraceEmit(dev->traceSource, GEO3D_TRACE_RUN | DEBUG_TRACE_BEGIN, s->start, 0, seq, items >> 16);
         debugTraceEmit(dev->traceSource, GEO3D_TRACE_RUN | DEBUG_TRACE_CONT, s->start, 0, items, verts);
     }
@@ -569,6 +595,16 @@ static void write(Geo3DDevice* dev, UInt16 ioPort, UInt8 value)
         return;
     }
     wasRunning = geo3dIsRunning(dev->geo3d);
+    if (DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_GEO3D))) {
+        UInt8 index = geo3dDebugIndex(dev->geo3d);
+        traceFeedEpoch(dev);
+        if (index >= 0x50 && index <= 0x53) {
+            dev->traceFeedModel++;
+        }
+        else {
+            dev->traceFeedOther++;
+        }
+    }
     geo3dWriteData(dev->geo3d, value);
     if (!wasRunning && geo3dIsRunning(dev->geo3d)) {
         startRun(dev);
