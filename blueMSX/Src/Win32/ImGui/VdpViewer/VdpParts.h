@@ -32,9 +32,9 @@ namespace parts {
 
 /* An icon toggle of the command bar; label is shown without the icon font. */
 void barToggle(const char* id, const char* glyph, const char* label, const char* tip, bool* on);
-/* A command bar toggle drawn as the sprite ship with decor. */
-void barArtToggle(const char* id, ui::PixelDecor decor, const char* tip, bool* on);
-
+/* A command bar toggle drawn as art (the sprite ship) with decor. */
+void barArtToggle(const char* id, ui::PixelDecor decor, const char* tip, bool* on,
+                  const ui::PixelArt& art = ui::UI_ART_SHIP);
 /* A chip naming a part at a, where the part has room for it. */
 void partChip(ImDrawList* dl, ImVec2 a, ImVec2 b, const char* text);
 

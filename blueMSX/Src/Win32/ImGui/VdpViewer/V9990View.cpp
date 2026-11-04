@@ -26,6 +26,7 @@
 #include <algorithm>
 #include <vector>
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "ImGuiTheme.h"
 #include "ImGuiWidgets.h"
 #include "ChipView.h"
@@ -33,6 +34,7 @@
 #include "RegTables.h"
 #include "VdpParts.h"
 #include "V9990Decode.h"
+#include "V9990Sprite.h"
 #include "ToolText.h"
 extern "C" {
 #include "V9990.h"
@@ -47,8 +49,7 @@ namespace {
 
 using namespace parts;
 
-
-enum { C_OVERVIEW, C_TABLES, C_PALETTE, C_REGISTERS, C_COUNT };
+enum { C_OVERVIEW, C_TABLES, C_SPRITES, C_PALETTE, C_REGISTERS, C_COUNT };
 
 bool isBitmap(int mode)
 {
@@ -168,7 +169,7 @@ class V9990View : public ChipView {
 public:
     V9990View()
     {
-        vramCv.shared = bitmapCv.shared = outCv.shared = patCv.shared = &shell::zoom();
+        vramCv.shared = bitmapCv.shared = outCv.shared = patCv.shared = sprCv.shared = &shell::zoom();
         vramCv.frameless = bitmapCv.frameless = outCv.frameless = patCv.frameless = true;
         regFadeReset(regFade);
         regFadeReset(portFade);
@@ -185,12 +186,17 @@ public:
         if (!s->displayOn && at >= 0 && (size_t)at < size) textf(out + at, size - at, " \xC2\xB7 %s", ts(TS_FACTS_BLANKED));
     }
 
-    int views(ViewDesc* out, int max, const void*) const override
+    int views(ViewDesc* out, int max, const void* st) const override
     {
+        const V9990DebugState* s = (const V9990DebugState*)st;
+        /* The bitmap modes' cursors take the sprites' tab, so a title switching modes keeps it. */
+        bool cursors = s != NULL && isBitmap(s->mode);
         int n = 0;
         if (n < max) out[n++] = ViewDesc{ "screen", ts(TS_VIEW_SCREEN), UI_ICON_SCREEN };
         if (n < max) out[n++] = ViewDesc{ "patterns", ts(TS_VIEW_PATTERNS), UI_ICON_PATTERNS };
         if (n < max) out[n++] = ViewDesc{ "bitmap", ts(TS_VIEW_BITMAP), UI_ICON_BITMAP };
+        if (n < max) out[n++] = ViewDesc{ "sprites", ts(cursors ? TS_V9_VIEW_CURSORS : TS_VIEW_SPRITES), NULL,
+                                               cursors ? &ui::UI_ART_CURSOR : &ui::UI_ART_SHIP };
         if (n < max) out[n++] = ViewDesc{ "vram", "VRAM", UI_ICON_VRAM };
         return n;
     }
@@ -200,9 +206,9 @@ public:
         const V9990DebugState* s = (const V9990DebugState*)st;
         ViewDesc d[8];
         int n = views(d, 8, st);
-        /* A pattern pinned in P1 or P2 means nothing in a bitmap mode, and back. */
+        /* A pattern or sprite pinned in P1 or P2 means nothing in a bitmap mode, and back. */
         int family = isBitmap(s->mode) ? 1 : 0;
-        if (family != lastFamily && f.pinned && f.kind == FOCUS_CHAR) {
+        if (family != lastFamily && f.pinned && (f.kind == FOCUS_CHAR || f.kind == FOCUS_SPRITE)) {
             f.pinned = false;
             f.kind = FOCUS_NONE;
         }
@@ -222,6 +228,7 @@ public:
         ui::BeginTabCard("card");
         if (v >= 0 && v < n && strcmp(d[v].key, "bitmap") == 0) drawBitmap(s, f);
         else if (v >= 0 && v < n && strcmp(d[v].key, "patterns") == 0) drawPatterns(s, f);
+        else if (v >= 0 && v < n && strcmp(d[v].key, "sprites") == 0) drawSprites(s, f);
         else if (v >= 0 && v < n) drawVram(s, f);
         ui::EndTabCard();
     }
@@ -231,12 +238,13 @@ public:
         const V9990DebugState* s = (const V9990DebugState*)st;
         const CardDesc all[C_COUNT] = {
             { "ov", ts(TS_CARD_OVERVIEW), true, true }, { "tables", ts(TS_CARD_TABLES), true, true },
+            { "sprites", ts(TS_CARD_SPRITES), true, true },
             { "pal", ts(TS_CARD_PALETTE), true, true }, { "regs", ts(TS_CARD_REGISTERS), true, true },
         };
         int n = 0;
         for (int i = 0; i < C_COUNT && n < max; i++) {
             out[n] = all[i];
-            if (i == C_TABLES) out[n].shown = s->mode == V9990_MODE_P1 || s->mode == V9990_MODE_P2;
+            if (i == C_TABLES || i == C_SPRITES) out[n].shown = s->mode == V9990_MODE_P1 || s->mode == V9990_MODE_P2;
             n++;
         }
         return n;
@@ -248,6 +256,7 @@ public:
         switch (c) {
         case C_OVERVIEW:  cardOverview(s); break;
         case C_TABLES:    cardTables(s); break;
+        case C_SPRITES:   cardSprites(s); break;
         case C_PALETTE:   cardPalette(s); break;
         case C_REGISTERS: cardRegisters(s); break;
         }
@@ -329,6 +338,12 @@ public:
         return space == FOCUS_LOGICAL ? v9990MapAddress((V9990Mode)s->mode, a) : a;
     }
 
+    void escape(bool key) override
+    {
+        /* Only the key lets go of the line clicked on the placement. */
+        if (key) sprLineFixed = -1;
+    }
+
     void forget() override
     {
         outPic.forget();
@@ -340,6 +355,16 @@ public:
         patPic.forget();
         patDotsKey[0] = 0;
         patCol = patRow = -1;
+        sprPlacePic.forget();
+        sprAtlasPic.forget();
+        curPic.forget();
+        sprPatPic.forget();
+        sprVer = sprBitsVer = ~0u;
+        sprHot = sprHotNext = sprPatHot = sprPatHotNext = sprLine = sprLineNext = sprLineFixed = -1;
+        outHot = outHotNext = -1;
+        outLayer = SL_SHOWN;
+        outRowNone.clear();
+        outSprShot = outSprPicture = ~0u;
         regFadeReset(regFade);
         regFadeReset(portFade);
     }
@@ -352,6 +377,17 @@ private:
     ui::CanvasState      vramCv, bitmapCv, outCv;
     const V9990FrameShot* outShot = NULL;    /* for the overlay and the strip's shown area; NULL when none came */
     bool                 outDim = false;
+    enum { SL_SHOWN, SL_HIDDEN, SL_ONLY };
+    bool                 sprShown = true;    /* Output's sprites shown, or hidden */
+    bool                 sprOnly = false;    /* ...alone */
+    bool                 curShown = true, curOnly = false, curBoxes = false;  /* the same for the cursors, and their boxes */
+    int                  outLayer = SL_SHOWN;  /* what outPic was decoded with */
+    std::vector<uint8_t> outRowNone;         /* per row: not split, so hidden or alone shows it wrong */
+    const V9990DebugState* outState = NULL;  /* for the overlay */
+    bool                 outSprites = false, outCursors = false;  /* the overlay boxes the sprites, or the cursors */
+    int                  outPin = -1, outHot = -1, outHotNext = -1;  /* the pinned sprite, and the one under the mouse */
+    V9990SpriteFrame     outSpr = {};        /* the sprites of the frame Output shows */
+    unsigned             outSprShot = ~0u, outSprPicture = ~0u;
     bool                 ysClear = false;
     int                  vramOrder = 0;      /* the VRAM tab's bytes: 0 in CPU order, 1 physical */
     bool                 vramTint = true;    /* the bytes tinted by the VRAM map's lanes */
@@ -380,6 +416,23 @@ private:
     int                  patUses = 0;         /* cells showing the focused pattern */
     bool                 patNumbers = false, patSide = true;
     bool                 transparent0 = false;
+
+    /* The Sprites tab. Hovers are noted while drawing and shown from the next frame. */
+    V9990SpriteFrame     spr = {};
+    unsigned             sprVer = ~0u, sprBitsVer = ~0u;
+    int                  sprMode = -1;
+    uint16_t             rowBits[V9_SPRITES][16] = {};
+    ViewPicture          sprPlacePic, sprAtlasPic, sprPatPic;
+    ViewPicture          curPic;                 /* the Cursors tab's screen */
+    std::vector<UInt32>  curLines, curLinesDrawn;  /* bitmapLines for it, now and as drawn */
+    ui::CanvasState      sprCv;
+    bool                 sprDropped = true, sprBoxes = false;
+    int                  sprHot = -1, sprHotNext = -1;        /* the sprite under the mouse */
+    int                  sprPatHot = -1, sprPatHotNext = -1;  /* the pattern under the mouse */
+    int                  sprLine = -1, sprLineNext = -1;      /* the placement's line under the mouse */
+    int                  sprLineFixed = -1;                    /* a line clicked on the placement */
+    SteadyTip            sprTip, sprNotesTip;
+    char                 lineText[256] = "";
 
     static void pin(Focus& f, const Focus& hit, bool clicked)
     {
@@ -500,7 +553,24 @@ private:
         return m;
     }
 
-    void decodeOutput(const V9990FrameShot* o)
+    /* What Output does with the sprites, or in the bitmap modes the cursors: shown, hidden or alone. */
+    int sprLayer(bool cursors) const
+    {
+        bool only = cursors ? curOnly : sprOnly, shown = cursors ? curShown : sprShown;
+        return only ? SL_ONLY : shown ? SL_SHOWN : SL_HIDDEN;
+    }
+
+    /* Sample i of row y as layer shows it; false where it shows nothing (sprites only). */
+    static bool outSample(const V9990FrameShot* o, int y, int i, int layer, UInt16* c)
+    {
+        bool split = o->sprSplit && o->splitRow[y];
+        if (layer == SL_ONLY && (!split || o->hit[y][i] == 0xff)) return false;
+        *c = layer == SL_HIDDEN && split ? o->bg[y][i] : o->pix[y][i];
+        return true;
+    }
+
+    /* Rows the split did not record show as drawn when hidden and empty when alone, marked in outRowNone. */
+    void decodeOutput(const V9990FrameShot* o, int layer)
     {
         int maxShift = outMaxShift(o), w = 0;
         for (int y = 0; y < o->rows; y++) {
@@ -511,14 +581,44 @@ private:
         outPic.w = w;
         outPic.h = o->rows;
         outPic.img.assign((size_t)w * o->rows, 0);
+        outRowNone.assign(o->rows, 0);
         for (int y = 0; y < o->rows; y++) {
             int k = maxShift - o->shift[y], n = o->width[y] < V9990_SHOT_WIDTH ? o->width[y] : V9990_SHOT_WIDTH;
             uint32_t* dst = &outPic.img[(size_t)y * w];
+            outRowNone[y] = layer != SL_SHOWN && !(o->sprSplit && o->splitRow[y]);
             for (int x = 0; x < w; x++) {
                 int i = x >> k;
-                if (i < n) dst[x] = v9990Rgba(o->pix[y][i], ysClear);
+                UInt16 c;
+                if (i < n && outSample(o, y, i, layer, &c)) dst[x] = v9990Rgba(c, ysClear);
             }
         }
+    }
+
+    /* The image x on Output where display dot d starts in row y, or where it would. */
+    static float outDotX(const V9990FrameShot* o, int y, int d, int maxShift)
+    {
+        float x = ceilf((float)(d * o->dotUc[y] - o->dotOrg[y]) / o->sampleUc[y]);
+        return x * (float)(1 << (maxShift - o->shift[y]));
+    }
+
+    /* Row y if it has display dots, else the first that has, or -1. */
+    static int outDotRow(const V9990FrameShot* o, int y)
+    {
+        if (y >= 0 && y < o->rows && o->dotUc[y] != 0) return y;
+        for (int r = 0; r < o->rows; r++) {
+            if (o->dotUc[r] != 0) return r;
+        }
+        return -1;
+    }
+
+    /* A screen rectangle on Output for display dots [d0, d1) of rows [r0, r1), false without display dots. */
+    static bool outRect(const V9990FrameShot* o, const ui::CanvasXf& xf, int d0, int d1, int r0, int r1, ImVec2* a, ImVec2* b)
+    {
+        int g = outDotRow(o, r0), m = outMaxShift(o);
+        if (g < 0) return false;
+        *a = xf.toScreen(outDotX(o, g, d0, m), (float)r0);
+        *b = xf.toScreen(outDotX(o, g, d1, m), (float)r1);
+        return true;
     }
 
     static void outputOverlay(ImDrawList* dl, const ui::CanvasXf& xf, void* ref)
@@ -531,6 +631,15 @@ private:
         dl->PushClipRect(xf.clipMin, xf.clipMax, true);
         if (self->outDim) dl->AddRectFilled(top, end, ui::WithAlpha(t.layer, 150));
         if (o != NULL) {
+            for (int y = 0, n = (int)self->outRowNone.size(); y < n && y < self->outPic.h;) {
+                if (!self->outRowNone[y]) { y++; continue; }
+                int y1 = y;
+                while (y1 < n && self->outRowNone[y1]) y1++;
+                hatch(dl, xf.toScreen(0, (float)y), xf.toScreen(w, (float)y1), ui::WithAlpha(t.caution, 110));
+                y = y1;
+            }
+            if (self->outSprites) self->outputSpriteBoxes(dl, xf, o);
+            if (self->outCursors && self->curBoxes) self->outputCursorBoxes(dl, xf, o);
             /* Paused within a frame: from the row the V9990 has drawn to on, the frame before. */
             if (!o->ended && o->drawnRow < self->outPic.h) {
                 ImVec2 a = xf.toScreen(0, (float)o->drawnRow);
@@ -541,12 +650,87 @@ private:
         dl->PopClipRect();
     }
 
+    /* The sprite boxes, as on the Sprites tab, and the pinned and hovered sprites' boxes. */
+    void outputSpriteBoxes(ImDrawList* dl, const ui::CanvasXf& xf, const V9990FrameShot* o) const
+    {
+        const UiTokens& t = uiTokens();
+        float th = fmaxf(1.0f, ui::Px(1));
+        int row0 = o->displayStartLine - o->windowTopLine;
+        if (outDotRow(o, row0) < 0) return;
+        auto rect = [&](const V9990Sprite& sp, ImVec2* a, ImVec2* b) {
+            outRect(o, xf, sp.x, sp.x + 16, row0 + sp.line0, row0 + sp.line1 + 1, a, b);
+        };
+        if (sprBoxes) spriteBoxes(outSpr, dl, rect);
+        int lit[2] = { outPin, outHot };
+        for (int i = 0; i < 2; i++) {
+            const V9990Sprite* sp = lit[i] >= 0 && lit[i] < V9_SPRITES ? &outSpr.spr[lit[i]] : NULL;
+            if (sp == NULL || sp->line0 < 0) continue;
+            ImVec2 a, b;
+            rect(*sp, &a, &b);
+            float e = th * (i == 0 ? 2 : 1);
+            dl->AddRect(ImVec2(a.x - e, a.y - e), ImVec2(b.x + e, b.y + e), i == 0 ? t.accent : ui::WithAlpha(t.accent, 200), 0, e);
+        }
+    }
+
+    /* The two cursors' boxes, as on the Cursors tab: solid when shown, dashed when not. */
+    void outputCursorBoxes(ImDrawList* dl, const ui::CanvasXf& xf, const V9990FrameShot* o) const
+    {
+        const UiTokens& t = uiTokens();
+        float th = fmaxf(1.0f, ui::Px(1));
+        int row0 = o->displayStartLine - o->windowTopLine;
+        /* Woven fields hold every other line of the cursors. */
+        int half = o->interlace != 0 ? 1 : 0;
+        for (int c = 1; c >= 0; c--) {
+            Cursor k = cursorOf(outState, c, o->sprAttrValid == 2 ? o->sprAttr : NULL);
+            int top = (k.top - (half ? o->secondField : 0)) >> half;
+            for (int wx = 0; wx < 2; wx++) {
+                for (int wy = 0; wy < 2; wy++) {
+                    int r0 = row0 + top - wy * (512 >> half), x0 = k.x - wx * 1024;
+                    ImVec2 a, b;
+                    if (r0 + (32 >> half) <= 0 || r0 >= o->rows) continue;
+                    if (!outRect(o, xf, x0, x0 + 32, r0, r0 + (32 >> half), &a, &b)) return;
+                    ImU32 col = c == 0 ? t.accent : t.text;
+                    if (k.shown) dl->AddRect(a, b, col, 0, th * 2);
+                    else dashedRect(dl, a, b, col, th);
+                    char num[4];
+                    snprintf(num, sizeof(num), "%d", c);
+                    partChip(dl, ImVec2(a.x + th, a.y + th), ImVec2(a.x + ui::Px(40), a.y + ui::Px(40)), num);
+                }
+            }
+        }
+    }
+
+    /* [Show sprites] [Show sprites only] [Sprite boxes], or the same for the cursors. Show sprites
+    ** only shows them, so Show sprites is on and unavailable while it is. */
+    void spriteToggles(bool cursors)
+    {
+        const ui::PixelArt& art = cursors ? ui::UI_ART_CURSOR : ui::UI_ART_SHIP;
+        bool& shownSet = cursors ? curShown : sprShown;
+        bool& only = cursors ? curOnly : sprOnly;
+        bool shown = shownSet || only;
+        ImGui::BeginDisabled(only);
+        barArtToggle("##sprshow", ui::DECOR_NONE,
+                     ts(cursors ? (only ? TS_V9_CUR_SHOW_ONLY_TIP : TS_V9_CUR_SHOW_TIP) : (only ? TS_SPR_SHOW_ONLY_TIP : TS_SPR_SHOW_TIP)),
+                     &shown, art);
+        ImGui::EndDisabled();
+        if (!only) shownSet = shown;
+        barArtToggle("##spronly", ui::DECOR_CHECKER, ts(cursors ? TS_V9_CUR_LAYER_ONLY : TS_SPR_LAYER_ONLY), &only, art);
+        barArtToggle("##sprboxes", ui::DECOR_FRAME, ts(cursors ? TS_V9_CUR_BOXES_TIP : TS_V9_SPR_BOXES_TIP), cursors ? &curBoxes : &sprBoxes, art);
+    }
+
     void drawOutput(const V9990DebugState* s, Focus& f)
     {
         unsigned ver;
         const V9990FrameShot* o = (const V9990FrameShot*)shell::frameShot(&ver);
         if (o != NULL && !o->valid) o = NULL;
         shell::wantFrame();
+        /* Split while shown, so a pause, the toggles and the hover find the frame recorded. */
+        bool pattern = s->mode == V9990_MODE_P1 || s->mode == V9990_MODE_P2, cursors = isBitmap(s->mode);
+        int layer = pattern || cursors ? sprLayer(cursors) : SL_SHOWN;
+        if (pattern || cursors) shell::wantSpriteSplit();
+        if (pattern) ensureSprites(s);
+        outHot = outHotNext;
+        outHotNext = -1;
         if (o != NULL) {
             /* A sample is a dot of 8 >> shift UC; 240 rows are a TV field, more are 31 kHz lines. */
             int maxShift = outMaxShift(o);
@@ -557,20 +741,37 @@ private:
             outCv.lineRows = half ? 2 : 1;
         }
         ui::BeginCommandBar("bar");
+        if (pattern || cursors) spriteToggles(cursors);
         ui::GridToggle(outCv);
         zoomGroup(outCv, true);
         ui::EndCommandBar();
+        outCv.checker = outCv.checker || layer == SL_ONLY;
 
         /* Without a new picture the last one stays, dimmed. */
         if (o != NULL) {
             char key[32];
-            snprintf(key, sizeof(key), "o%d", ysClear);
+            snprintf(key, sizeof(key), "o%d/%d", ysClear, layer);
             bool decoded = outPic.needsDecodeAt(ver, key);
-            if (decoded) decodeOutput(o);
+            if (decoded) {
+                decodeOutput(o, layer);
+                outLayer = layer;
+            }
             outPic.upload(decoded);
         }
         outShot = o;
         outDim = o == NULL || o->stale;
+        outState = s;
+        /* Sprites read at capture time fit the picture only in the mode it was drawn in. */
+        outSprites = pattern && o != NULL && o->frameMode == s->mode;
+        outCursors = cursors && o != NULL && o->frameMode == s->mode;
+        outPin = outSprites ? sprPinned(f) : -1;
+        /* Laid out from the table the frame was drawn with, where the split recorded it. */
+        if (outSprites && (outSprShot != ver || outSprPicture != shell::pictureVersion())) {
+            outSprShot = ver;
+            outSprPicture = shell::pictureVersion();
+            v9990EvalSprites(s, &outSpr, o->sprAttrValid == 1 ? o->sprAttr : NULL);
+        }
+        if (!outSprites) outHot = -1;
 
         ui::CanvasHit hit = ui::Canvas("output", outPic.tex.id(), outPic.w, outPic.h, outCv, ImVec2(0, 0), outputOverlay, this);
         if (hit.clickedEmpty) shell::releaseSelection();
@@ -581,16 +782,24 @@ private:
         else {
             const char* paused = o->ended ? "" : ts(o->restMissing ? TS_OUT_PAUSED_UNKNOWN : TS_OUT_PAUSED);
             if (paused[0] || o->stale) ui::StatusText("%s%s", paused, o->stale ? ts(TS_V9_OUT_STALE) : "");
+            /* Without this the picture of sprites only is simply empty. */
+            if (layer == SL_ONLY && (s->regs[8] & 0x40)) ui::StatusText("%s", ts(cursors ? TS_V9_CUR_NOTE_SPD : TS_V9_SPR_NOTE_SPD));
         }
-        if (hit.valid && o != NULL && hit.y < o->rows) outputHover(o, hit);
+        if (hit.valid && o != NULL && hit.y < o->rows) outputHover(s, f, o, hit);
     }
 
-    /* The sample under the mouse. */
-    void outputHover(const V9990FrameShot* o, const ui::CanvasHit& hit)
+    /* A sprite under the mouse is pointed at as on the Sprites tab; elsewhere, the sample as shown. */
+    void outputHover(const V9990DebugState* s, Focus& f, const V9990FrameShot* o, const ui::CanvasHit& hit)
     {
-        int y = hit.y, i = hit.x >> (outMaxShift(o) - o->shift[y]);
-        if (i >= o->width[y]) return;
-        UInt16 c = o->pix[y][i];
+        int y = hit.y, i = hit.x >> (outMaxShift(o) - o->shift[y]), n = -1;
+        if (outSprites && outLayer != SL_HIDDEN && o->sprSplit && o->splitRow[y] && i < o->width[y] && o->hit[y][i] < V9_SPRITES) n = o->hit[y][i];
+        if (n >= 0) {
+            sprPoint(s, f, n, hit.clicked, &outSpr);
+            outHotNext = n;
+            return;
+        }
+        UInt16 c;
+        if (i >= o->width[y] || !outSample(o, y, i, outLayer, &c)) return;
         uint32_t rgb = v9990Rgba(c, false);
         ui::StatusText(ts(TS_V9_OUT_HOVER), y, o->windowTopLine + y, i, (int)o->width[y], rgb & 0xff, (rgb >> 8) & 0xff,
                        (rgb >> 16) & 0xff, (c & 0x8000) ? ts(TS_V9_OUT_YS) : "");
@@ -1270,6 +1479,1049 @@ private:
         /* The gap between the parts and the room beside them are as the well. */
         if (h.clickedEmpty || (h.clicked && !onPart)) shell::releaseSelection();
         if (status[0]) ui::StatusText("%s", status);
+    }
+
+    /* ---- Sprites: P1 and P2's 125 sprites ---- */
+
+    enum { SP_PLACE, SP_ATTRS, SP_MAG, SP_PATS, SP_COUNT };
+    /* The parts at a zoom: where each goes in the child, its size and screen px a dot. */
+    struct SprLayout { ImVec2 at[SP_COUNT], size[SP_COUNT]; float scale[SP_COUNT]; float width, height; int patCols; };
+
+    /* The sprites laid out again when VRAM, the registers or the chip changed. */
+    void ensureSprites(const V9990DebugState* s)
+    {
+        if (sprVer == shell::pictureVersion() && sprMode == s->mode) return;
+        sprVer = shell::pictureVersion();
+        sprMode = s->mode;
+        v9990EvalSprites(s, &spr);
+    }
+
+    /* Sprite n of the pinned focus, or -1. */
+    int sprPinned(const Focus& f) const
+    {
+        if (!f.pinned || f.kind != FOCUS_SPRITE || f.space != FOCUS_LOGICAL || f.a < 0 || f.a >= V9_SPRITES || !spr.valid) return -1;
+        return f.addr == spr.spr[f.a].attrAddr ? f.a : -1;
+    }
+
+    /* Hovered or clicked sprite n: the status line, and a click pins its attributes. from, unless
+    ** NULL, is the layout the sprite was found in (Output's, from the table the frame drew). */
+    void sprPoint(const V9990DebugState* s, Focus& f, int n, bool clicked, const V9990SpriteFrame* from = NULL)
+    {
+        const V9990Sprite& sp = (from != NULL ? *from : spr).spr[n];
+        Focus hit = { f.chipId, FOCUS_LOGICAL, sp.attrAddr, 4, FOCUS_SPRITE, n, sp.line0, false };
+        pin(f, hit, clicked);
+        sprHotNext = n;
+        ui::StatusText(ts(TS_V9_SPR_STATUS), n, sp.y, sp.x, sp.pattern, sp.sc, sp.sc * 16, sp.sc * 16 + 15,
+                       sp.pr0 ? "    PR0" : sp.pr1 ? "    PR1" : "", sp.attrAddr);
+    }
+
+    /* The tiles of the attribute table, 16 a row, and the sheet of patterns, 16 a row, as pictures. */
+    void sprRenderTiles(const V9990DebugState* s)
+    {
+        if (!sprAtlasPic.needsDecode("t")) {
+            sprAtlasPic.upload(false);
+            sprPatPic.upload(false);
+            return;
+        }
+        uint32_t pal[64];
+        v9990PaletteRgba(s, pal);
+        sprAtlasPic.w = 256;
+        sprAtlasPic.h = 128;
+        sprPatPic.w = 256;
+        sprPatPic.h = 256;
+        v9990RenderSpriteSheets(s, spr, pal, sprAtlasPic.img, sprPatPic.img);
+        sprAtlasPic.upload(true);
+        sprPatPic.upload(true);
+    }
+
+    /* The sprites alone as drawn, with the dropped ones' dots stippled red when asked. */
+    void sprRenderPlace(const V9990DebugState* s)
+    {
+        const UiTokens& t = uiTokens();
+        char key[32];
+        snprintf(key, sizeof(key), "p%d/%08X", (int)sprDropped, (unsigned)t.critical);
+        if (!sprPlacePic.needsDecode(key)) {
+            sprPlacePic.upload(false);
+            return;
+        }
+        uint32_t pal[64];
+        v9990PaletteRgba(s, pal);
+        sprPlacePic.w = spr.width;
+        sprPlacePic.h = V9_SPRITE_LINES;
+        uint32_t stipple = (t.critical & 0x00ffffffu) | 0xc8000000u;
+        v9990RenderSpritePlane(spr, pal, sprDropped ? stipple : 0, sprPlacePic.img);
+        sprPlacePic.upload(true);
+    }
+
+    /* A part's title in the strong font, then its subtitle. */
+    static void sprTitle(ImDrawList* dl, ImVec2 at, const char* title, const char* sub, float maxX)
+    {
+        const UiTokens& t = uiTokens();
+        ui::PushFont(UI_FONT_STRONG);
+        dl->AddText(at, t.text, title);
+        float tw = ImGui::CalcTextSize(title).x;
+        ui::PopFont();
+        if (sub && sub[0]) ui::TextFit(dl, ImVec2(at.x + tw + ui::Px(8), at.y), maxX, sub, t.textSecondary, false);
+    }
+
+    /* The band left of the placement: places taken on each line, PR0 ones darker; a tick at 16. */
+    static float sprBandW()
+    {
+        return ui::Px(24) + ui::Px(6);
+    }
+
+    /* The sprite drawn at dot x of line d, else a dropped one with a dot there (the stipple, while shown),
+    ** else one in range there with no dot, else -1. */
+    int sprAt(int d, int x) const
+    {
+        const V9990SpriteLine& ln = spr.line[d];
+        int any = -1, dropped = -1;
+        for (int k = 0; k < ln.count; k++) {
+            const V9990Sprite& sp = spr.spr[ln.id[k]];
+            if (sp.pr0 || x < sp.x || x >= sp.x + 16) continue;
+            int r = (d - sp.y - 1) & 0xff, j = x - sp.x;
+            bool dot = (rowBits[ln.id[k]][r] & (0x8000 >> j)) != 0;
+            if (k >= ln.places) {
+                if (dot && sprDropped && dropped < 0) dropped = ln.id[k];
+                continue;
+            }
+            if (any < 0) any = ln.id[k];
+            if (sp.row[r] == V9_ROW_SHOWN && dot) return ln.id[k];
+        }
+        return dropped >= 0 ? dropped : any;
+    }
+
+    /* Each sprite's rows as masks of their set dots, for hit tests. */
+    void sprRowBits(const V9990DebugState* s)
+    {
+        uint8_t dots[16];
+        for (int n = 0; n < V9_SPRITES; n++) {
+            for (int r = 0; r < 16; r++) rowBits[n][r] = v9990SpritePatternRow(s, spr, spr.spr[n].pattern, r, dots);
+        }
+    }
+
+    void sprDrawPlace(const V9990DebugState* s, Focus& f, ImVec2 at, float p, float partW)
+    {
+        const UiTokens& t = uiTokens();
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        float th = fmaxf(1.0f, ui::Px(1)), lh = ImGui::GetTextLineHeight();
+        sprTitle(dl, at, ts(TS_SPR_TAB_PLACE), ts(TS_V9_SPR_PLACE_SUB), at.x + partW);
+        float y0 = floorf(at.y + lh + ui::Px(6)), bandW = ui::Px(24);
+        /* P2's 512 dots fill the width of P1's 256, the lines as high: dots half as wide as tall. */
+        float q = p * spr.width / 256;
+        ImVec2 img(at.x + sprBandW(), y0), end(img.x + spr.width * p, y0 + V9_SPRITE_LINES * q);
+        sprRenderPlace(s);
+        drawCheckerRect(dl, img, end);
+        if (sprPlacePic.tex.id()) ui::ImageNearest(dl, sprPlacePic.tex.id(), img, end);
+        canvasGrid(sprCv, dl, img, end, p, q);
+        for (int d = 0; d < V9_SPRITE_LINES; d++) {
+            const V9990SpriteLine& ln = spr.line[d];
+            float ya = y0 + d * q, yb = fmaxf(y0 + (d + 1) * q, ya + 1);
+            float lenAll = ln.places * bandW / V9_SPRITE_PLACES, lenPr0 = ln.pr0 * bandW / V9_SPRITE_PLACES;
+            if (ln.places > 0) dl->AddRectFilled(ImVec2(at.x, ya), ImVec2(at.x + lenAll, yb), t.textSecondary);
+            if (ln.pr0 > 0) dl->AddRectFilled(ImVec2(at.x + lenAll - lenPr0, ya), ImVec2(at.x + lenAll, yb), t.textTertiary);
+            bool over = false;
+            for (int k = ln.places; k < ln.count; k++) over = over || !spr.spr[ln.id[k]].pr0;
+            if (over) dl->AddRectFilled(ImVec2(at.x + bandW + ui::Px(1), ya), ImVec2(at.x + bandW + ui::Px(4), yb), t.critical);
+        }
+        dl->AddLine(ImVec2(floorf(at.x + bandW), y0), ImVec2(floorf(at.x + bandW), end.y), t.textTertiary, th);
+
+        ImGui::SetCursorScreenPos(ImVec2(at.x, y0));
+        ImGui::InvisibleButton("##place", ImVec2(end.x - at.x, V9_SPRITE_LINES * q));
+        bool hovered = ImGui::IsItemHovered(), clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
+        ImVec2 m = ImGui::GetIO().MousePos;
+        int d = (int)floorf((m.y - y0) / q), dot = (int)floorf((m.x - img.x) / p);
+        if (hovered && d >= 0 && d < V9_SPRITE_LINES) {
+            sprLineNext = d;
+            int hit = m.x >= img.x && dot >= 0 && dot < spr.width ? sprAt(d, dot) : -1;
+            if (hit >= 0) sprPoint(s, f, hit, clicked);
+            else ui::StatusText(ts(TS_GUTTER_LINE), d, sprLineText(d));
+            if (clicked && hit < 0) {
+                shell::releaseSelection();
+                sprLineFixed = sprLineFixed == d ? -1 : d;
+            }
+        }
+        if (sprLineFixed >= 0) {
+            float fy = floorf(y0 + (sprLineFixed + 0.5f) * q);
+            dl->AddLine(ImVec2(at.x, fy), ImVec2(img.x, fy), t.accent, th * 2);
+        }
+        dl->PushClipRect(img, end, true);
+        if (sprBoxes) sprDrawBoxes(dl, img, p, q);
+        if (sprLine >= 0) dl->AddLine(ImVec2(img.x, y0 + (sprLine + 0.5f) * q), ImVec2(end.x, y0 + (sprLine + 0.5f) * q), ui::WithAlpha(t.accent, 160), th);
+        int lit[2] = { sprPinned(f), sprHot };
+        for (int i = 0; i < 2; i++) {
+            const V9990Sprite* sp = lit[i] >= 0 ? &spr.spr[lit[i]] : NULL;
+            if (sp == NULL || sp->line0 < 0) continue;
+            float e = th * (i == 0 ? 2 : 1);
+            ImVec2 a(img.x + sp->x * p, y0 + sp->line0 * q), b(img.x + (sp->x + 16) * p, y0 + (sp->line1 + 1) * q);
+            dl->AddRect(ImVec2(a.x - e, a.y - e), ImVec2(b.x + e, b.y + e), i == 0 ? t.accent : ui::WithAlpha(t.accent, 200), 0, e);
+        }
+        sprPatBoxes(dl, img, p, q);
+        dl->PopClipRect();
+    }
+
+    void sprDrawBoxes(ImDrawList* dl, ImVec2 img, float p, float q) const
+    {
+        spriteBoxes(spr, dl, [&](const V9990Sprite& sp, ImVec2* a, ImVec2* b) {
+            *a = ImVec2(img.x + sp.x * p, img.y + sp.line0 * q);
+            *b = ImVec2(img.x + (sp.x + 16) * p, img.y + (sp.line1 + 1) * q);
+        });
+    }
+
+    /* Every sprite of fr on the screen boxed where rect puts it: solid when it takes a place and
+    ** draws, dashed for PR0; where several share a corner, one box and their count. */
+    template <class Rect>
+    void spriteBoxes(const V9990SpriteFrame& fr, ImDrawList* dl, Rect rect) const
+    {
+        const UiTokens& t = uiTokens();
+        float th = fmaxf(1.0f, ui::Px(1));
+        bool done[V9_SPRITES] = {};
+        for (int n = 0; n < V9_SPRITES; n++) {
+            const V9990Sprite& sp = fr.spr[n];
+            if (done[n] || sp.line0 < 0 || sp.x >= fr.width) continue;
+            int same = 0;
+            for (int k = n; k < V9_SPRITES; k++) {
+                const V9990Sprite& o = fr.spr[k];
+                if (o.x == sp.x && o.y == sp.y && o.pr0 == sp.pr0 && o.line0 >= 0) { done[k] = true; same++; }
+            }
+            ImVec2 a, b;
+            rect(sp, &a, &b);
+            ImU32 col = sp.pr0 ? t.textSecondary : sp.state == V9_SPR_DROPPED ? t.critical : t.text;
+            if (sp.pr0) dashedRect(dl, a, b, col, th);
+            else dl->AddRect(a, b, col, 0, th);
+            if (same > 1) {
+                char text[16];
+                snprintf(text, sizeof(text), "\xC3\x97%d", same);
+                partChip(dl, ImVec2(b.x + th, a.y), ImVec2(b.x + ui::Px(80), b.y + ui::Px(20)), text);
+            }
+        }
+    }
+
+    /* The users of the hovered pattern boxed on the placement. */
+    void sprPatBoxes(ImDrawList* dl, ImVec2 img, float p, float q) const
+    {
+        if (sprPatHot < 0) return;
+        const UiTokens& t = uiTokens();
+        float th = fmaxf(1.0f, ui::Px(1));
+        for (int n = 0; n < V9_SPRITES; n++) {
+            const V9990Sprite& sp = spr.spr[n];
+            if (sp.pattern != sprPatHot || sp.line0 < 0) continue;
+            ImVec2 a(img.x + sp.x * p, img.y + sp.line0 * q), b(img.x + (sp.x + 16) * p, img.y + (sp.line1 + 1) * q);
+            dl->AddRect(ImVec2(a.x - th, a.y - th), ImVec2(b.x + th, b.y + th), ui::WithAlpha(t.accent, 200), 0, th);
+        }
+    }
+
+    /* Line d's sprites in a phrase, for the status line. */
+    const char* sprLineText(int d)
+    {
+        const V9990SpriteLine& ln = spr.line[d];
+        int dropped = 0;
+        for (int k = ln.places; k < ln.count; k++) dropped += !spr.spr[ln.id[k]].pr0;
+        if (ln.count == 0) return ts(TS_LINE_NO_SPRITES);
+        int at = textf(lineText, sizeof(lineText), ts(TS_V9_SPR_LINE_STATUS), ln.count, ln.places, ln.pr0);
+        if (dropped > 0 && at > 0 && (size_t)at < sizeof(lineText)) textf(lineText + at, sizeof(lineText) - at, ts(TS_V9_SPR_LINE_DROPPED), dropped);
+        return lineText;
+    }
+
+    /* What a sprite's tile says on hover: its state, PR1's hidden dots and its palette. */
+    void sprStateText(int n, char* out, size_t size) const
+    {
+        const V9990Sprite& sp = spr.spr[n];
+        int at = 0;
+        switch (sp.state) {
+        case V9_SPR_OFF_Y:   at = textf(out, size, "%s", ts(TS_V9_SPR_TIP_OFF_Y)); break;
+        case V9_SPR_PR0:
+            if (sp.place0 >= 0) at = textf(out, size, ts(TS_V9_SPR_TIP_PR0), sp.place0, sp.place1);
+            else at = textf(out, size, "%s", ts(TS_V9_SPR_TIP_PR0_PAST));
+            break;
+        case V9_SPR_DROPPED: at = textf(out, size, ts(TS_V9_SPR_TIP_DROPPED), sp.dropLine, sp.line0, sp.line1); break;
+        case V9_SPR_OFF_X:   at = textf(out, size, ts(TS_V9_SPR_TIP_OFF_X), sp.x, sp.line0, sp.line1); break;
+        default:             at = textf(out, size, ts(TS_V9_SPR_TIP_SHOWN), sp.line0, sp.line1); break;
+        }
+        int front = 0, under = 0;
+        for (int r = 0; r < 16; r++) {
+            for (int j = 0; j < 16; j++) {
+                front += (sp.frontMask[r] >> j) & 1;
+                under += (sp.spriteMask[r] >> j) & 1;
+            }
+        }
+        if (sp.pr1 && at > 0 && (size_t)at < size) at += textf(out + at, size - at, ts(TS_V9_SPR_TIP_PR1), front, sp.dots);
+        if (under > 0 && at > 0 && (size_t)at < size) at += textf(out + at, size - at, ts(TS_V9_SPR_TIP_UNDER), under);
+        if (at > 0 && (size_t)at < size) textf(out + at, size - at, ts(TS_V9_SPR_TIP_PALETTE), sp.sc * 16, sp.sc * 16 + 15, sp.sc);
+    }
+
+    /* A tile of sprite n at a..b, its state drawn over it. */
+    void sprTile(ImDrawList* dl, int n, ImVec2 a, ImVec2 b, float sc, bool words) const
+    {
+        const UiTokens& t = uiTokens();
+        const V9990Sprite& sp = spr.spr[n];
+        float th = fmaxf(1.0f, ui::Px(1));
+        drawCheckerRect(dl, a, b);
+        if (sprAtlasPic.tex.id()) {
+            ImVec2 uv0((float)(n % 16) / 16, (float)(n / 16) / 8), uv1((float)(n % 16 + 1) / 16, (float)(n / 16 + 1) / 8);
+            ui::ImageNearest(dl, sprAtlasPic.tex.id(), a, b, uv0, uv1);
+        }
+        canvasGrid(sprCv, dl, a, b, sc, sc);
+        for (int r = 0; r < 16; r++) {
+            ImVec2 ra(a.x, a.y + r * sc), rb(b.x, a.y + (r + 1) * sc);
+            if (sp.row[r] == V9_ROW_DROPPED) {
+                dl->AddRectFilled(ra, rb, ui::WithAlpha(t.critical, 70));
+                hatch(dl, ra, rb, ui::WithAlpha(t.critical, 200));
+            }
+            else if (sp.row[r] == V9_ROW_OFF || sp.row[r] == V9_ROW_PR0 || sp.row[r] == V9_ROW_PR0_PAST) {
+                /* A PR0 row that takes a place darker than one past the places or off screen. */
+                dl->AddRectFilled(ra, rb, ui::WithAlpha(t.layer, sp.row[r] == V9_ROW_PR0 ? 170 : 120));
+            }
+        }
+        if (sp.pr0) dashedRect(dl, a, b, t.textTertiary, th);
+        bool hidden = false;
+        for (int r = 0; r < 16 && !hidden; r++) hidden = sp.frontMask[r] != 0;
+        if (hidden) dl->AddRectFilled(a, ImVec2(a.x + ui::Px(2), b.y), t.textSecondary);
+        ui::PushFont(UI_FONT_BODY, 11);
+        float tagH = ImGui::GetTextLineHeight();
+        dl->PushClipRect(a, b, true);
+        if (words && b.y - a.y >= tagH * 2) {
+            if (sp.pr0) dl->AddText(ImVec2(a.x + ui::Px(2), b.y - tagH), t.textSecondary, "PR0");
+            else if (sp.pr1) dl->AddText(ImVec2(a.x + ui::Px(3), b.y - tagH), t.textSecondary, "PR1");
+            const char* arrow = sp.state == V9_SPR_OFF_Y ? "\xE2\x86\x93" : sp.state == V9_SPR_OFF_X ? "\xE2\x86\x92" : NULL;
+            if (arrow) dl->AddText(ImVec2(b.x - ImGui::CalcTextSize(arrow).x - ui::Px(1), a.y), t.textSecondary, arrow);
+        }
+        else if (sp.state == V9_SPR_OFF_Y || sp.state == V9_SPR_OFF_X) {
+            dl->AddRectFilled(ImVec2(b.x - ui::Px(2), a.y), b, t.textTertiary);
+        }
+        dl->PopClipRect();
+        ui::PopFont();
+    }
+
+    /* The 125 attributes as tiles, 16 a row; under them the chosen line's sprites. */
+    void sprDrawAttrs(const V9990DebugState* s, Focus& f, ImVec2 at, float sc, float partW)
+    {
+        const UiTokens& t = uiTokens();
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        float th = fmaxf(1.0f, ui::Px(1)), lh = ImGui::GetTextLineHeight(), tile = 16 * sc, cellW = tile + ui::Px(4);
+        sprTitle(dl, at, ts(TS_SPR_TAB_ATTRS), NULL, at.x + partW);
+        int pinN = sprPinned(f);
+        float y0 = floorf(at.y + lh + ui::Px(6)), rowH = floorf(lh + tile + ui::Px(6));
+        bool words = tile >= ImGui::CalcTextSize("PR0").x + ui::Px(6);
+        for (int n = 0; n < V9_SPRITES; n++) {
+            float x = at.x + (n % 16) * cellW, y = y0 + (n / 16) * rowH;
+            ImVec2 a(x, y + lh), b(x + tile, y + lh + tile);
+            bool lit = n == sprHot || n == pinN;
+            char num[8];
+            snprintf(num, sizeof(num), "%d", n);
+            dl->AddText(ImVec2(x, y), lit ? t.accent : t.textSecondary, num);
+            sprTile(dl, n, a, b, sc, words);
+            int w = n == pinN ? 2 : n == sprHot || (sprPatHot >= 0 && spr.spr[n].pattern == sprPatHot) ? 1 : 0;
+            if (w) dl->AddRect(ImVec2(a.x - th * w, a.y - th * w), ImVec2(b.x + th * w, b.y + th * w), t.accent, 0, th * w);
+            ImGui::SetCursorScreenPos(a);
+            ImGui::PushID(n);
+            ImGui::InvisibleButton("##tile", ImVec2(tile, tile));
+            ImGui::PopID();
+            if (ImGui::IsItemHovered()) {
+                char text[512];
+                sprStateText(n, text, sizeof(text));
+                steadyTooltip(sprTip, ImGui::GetItemID(), text);
+                sprPoint(s, f, n, ImGui::IsItemClicked(ImGuiMouseButton_Left));
+            }
+        }
+        sprDrawLineRow(s, f, ImVec2(at.x, floorf(y0 + 8 * rowH + ui::Px(10))), sc, partW);
+    }
+
+    /* The line under the mouse, else the one fixed by a click, else the pinned sprite's first
+    ** dropped or first line, else the busiest line over the limit, else the busiest; *why says which. */
+    int sprLinePick(const Focus& f, int* why) const
+    {
+        *why = 0;
+        if (sprLine >= 0) { *why = 1; return sprLine; }
+        if (sprLineFixed >= 0) { *why = 2; return sprLineFixed; }
+        int pinN = sprPinned(f);
+        if (pinN >= 0 && spr.spr[pinN].dropLine >= 0) { *why = 3; return spr.spr[pinN].dropLine; }
+        if (pinN >= 0 && spr.spr[pinN].line0 >= 0) { *why = 4; return spr.spr[pinN].line0; }
+        int best = -1, bestOver = -1;
+        for (int d = 0; d < V9_SPRITE_LINES; d++) {
+            const V9990SpriteLine& ln = spr.line[d];
+            bool over = false;
+            for (int k = ln.places; k < ln.count; k++) over = over || !spr.spr[ln.id[k]].pr0;
+            if (over && (bestOver < 0 || ln.count > spr.line[bestOver].count)) bestOver = d;
+            if (ln.count > 0 && (best < 0 || ln.count > spr.line[best].count)) best = d;
+        }
+        if (bestOver >= 0) { *why = 5; return bestOver; }
+        *why = best >= 0 ? 6 : 0;
+        return best;
+    }
+
+    /* The chosen line's sprites in range in the order the chip checks them; the fence after the 16 places. */
+    void sprDrawLineRow(const V9990DebugState* s, Focus& f, ImVec2 at, float sc, float partW)
+    {
+        const UiTokens& t = uiTokens();
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        float th = fmaxf(1.0f, ui::Px(1)), lh = ImGui::GetTextLineHeight();
+        int why, line = sprLinePick(f, &why);
+        if (line < 0) return;
+        const V9990SpriteLine& ln = spr.line[line];
+        static const ToolStringId whyText[] = { TS_SPR_TAB_WHY_HOVER, TS_SPR_TAB_WHY_FIXED, TS_SPR_TAB_WHY_PIN_DROP,
+                                                TS_SPR_TAB_WHY_PIN, TS_SPR_TAB_WHY_OVER, TS_SPR_TAB_WHY_BUSIEST };
+        char cap[256];
+        int at2 = textf(cap, sizeof(cap), ts(TS_SPR_TAB_LINE), line, (int)ln.count);
+        if (why > 0 && at2 > 0 && at2 < (int)sizeof(cap)) textf(cap + at2, sizeof(cap) - at2, "%s", ts(whyText[why - 1]));
+        bool overCap = ImGui::ItemAdd(ImRect(at, ImVec2(at.x + partW, at.y + lh)), 0) && ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip);
+        ui::TextFit(dl, at, at.x + partW, cap, t.textSecondary, overCap);
+        /* Tiles as large as fit the 16 places and the fence in the part, never below 1 px a dot. */
+        float fence = floorf(ui::Px(14)), tl = fmaxf(1.0f, floorf(sc * 0.75f));
+        while (tl > 1 && V9_SPRITE_PLACES * (16 * tl + ui::Px(4)) + fence > partW) tl -= 1;
+        float tile = 16 * tl, cellW = tile + ui::Px(4);
+        bool over = false;
+        for (int k = ln.places; k < ln.count; k++) over = over || !spr.spr[ln.id[k]].pr0;
+        float y = floorf(at.y + lh + ui::Px(4) + lh);
+        dl->PushClipRect(at, ImVec2(at.x + partW, y + tile + lh + ui::Px(2)), true);
+        float right = at.x + partW;
+        auto tileX = [&](int k) { return at.x + k * cellW + (k >= ln.places ? fence : 0); };
+        int shown = ln.count;
+        while (shown > 0 && tileX(shown - 1) + tile > right) shown--;
+        char more[16] = "";
+        if (shown < ln.count) {
+            for (;;) {
+                snprintf(more, sizeof(more), "+%d", ln.count - shown);
+                if (shown == 0 || tileX(shown - 1) + cellW + ImGui::CalcTextSize(more).x <= right) break;
+                shown--;
+            }
+        }
+        for (int k = 0; k < shown; k++) {
+            int n = ln.id[k], row = (line - spr.spr[n].y - 1) & 0xff;
+            bool past = k >= ln.places && !spr.spr[n].pr0;
+            float x = tileX(k);
+            ImVec2 a(x, y), b(x + tile, y + tile);
+            sprTile(dl, n, a, b, tl, false);
+            dl->AddLine(ImVec2(a.x, a.y + (row + 0.5f) * tl), ImVec2(b.x, a.y + (row + 0.5f) * tl), t.accent, th);
+            if (n == sprHot || n == sprPinned(f)) dl->AddRect(ImVec2(a.x - th, a.y - th), ImVec2(b.x + th, b.y + th), t.accent, 0, th);
+            if (past) {
+                dl->AddLine(a, b, t.critical, th * 1.5f);
+                dl->AddLine(ImVec2(a.x, b.y), ImVec2(b.x, a.y), t.critical, th * 1.5f);
+            }
+            char num[16];
+            snprintf(num, sizeof(num), "#%d", n);
+            ui::PushFont(UI_FONT_BODY, 11);
+            dl->PushClipRect(ImVec2(x, b.y), ImVec2(x + cellW, b.y + lh + ui::Px(2)), true);
+            dl->AddText(ImVec2(x, b.y + ui::Px(1)), past ? t.critical : spr.spr[n].pr0 ? t.textTertiary : t.textSecondary, num);
+            dl->PopClipRect();
+            ui::PopFont();
+            ImGui::SetCursorScreenPos(a);
+            ImGui::PushID(1000 + k);
+            ImGui::InvisibleButton("##ltile", ImVec2(tile, tile));
+            ImGui::PopID();
+            if (ImGui::IsItemHovered()) {
+                sprPoint(s, f, n, ImGui::IsItemClicked(ImGuiMouseButton_Left));
+                ui::StatusText(ts(TS_GUTTER_LINE), line, sprLineText(line));
+            }
+        }
+        if (more[0]) {
+            float mx = shown > 0 ? tileX(shown - 1) + cellW : at.x;
+            dl->AddText(ImVec2(mx, floorf(y + (tile - lh) / 2)), over ? t.critical : t.textSecondary, more);
+        }
+        if (ln.count > ln.places && ln.places < shown) {
+            float fx = at.x + ln.places * cellW + fence / 2 - ui::Px(2);
+            dl->AddLine(ImVec2(fx, y - lh), ImVec2(fx, y + tile), t.critical, th * 2);
+            char lim[64];
+            textf(lim, sizeof(lim), ts(TS_SPR_TAB_FENCE), V9_SPRITE_PLACES);
+            dl->AddText(ImVec2(fx + ui::Px(3), y - lh - ui::Px(2)), t.critical, lim);
+        }
+        dl->PopClipRect();
+    }
+
+    /* Why sprite n is or is not drawn, in a sentence or two. */
+    void sprWhy(int n, char* out, size_t size) const
+    {
+        const V9990Sprite& sp = spr.spr[n];
+        int at;
+        switch (sp.state) {
+        case V9_SPR_OFF_Y: at = textf(out, size, "%s", ts(TS_SPR_WHY_OFF_SCREEN)); break;
+        case V9_SPR_PR0:
+            if (sp.place0 >= 0) at = textf(out, size, ts(TS_V9_SPR_WHY_PR0), sp.place0, sp.place1);
+            else at = textf(out, size, "%s", ts(TS_V9_SPR_WHY_PR0_PAST));
+            break;
+        case V9_SPR_OFF_X: at = textf(out, size, ts(TS_V9_SPR_WHY_OFF_X), sp.x, sp.line0, sp.line1); break;
+        case V9_SPR_DROPPED: {
+            const V9990SpriteLine& ln = spr.line[sp.dropLine];
+            at = textf(out, size, ts(TS_V9_SPR_WHY_DROPPED), sp.dropLine, (int)ln.places, (int)ln.pr0);
+            break;
+        }
+        default: at = textf(out, size, "%s", sp.dots > 0 ? ts(TS_SPR_WHY_DRAWN) : ts(TS_SPR_WHY_EMPTY)); break;
+        }
+        int front = 0, under = 0;
+        for (int r = 0; r < 16; r++) {
+            for (int j = 0; j < 16; j++) {
+                front += (sp.frontMask[r] >> j) & 1;
+                under += (sp.spriteMask[r] >> j) & 1;
+            }
+        }
+        if (sp.pr1 && sp.dots > 0 && at > 0 && (size_t)at < size) at += textf(out + at, size - at, ts(TS_V9_SPR_WHY_FRONT), front, sp.dots);
+        if (under > 0 && at > 0 && (size_t)at < size) at += textf(out + at, size - at, ts(TS_V9_SPR_WHY_UNDER), under);
+        if (spr.off && at > 0 && (size_t)at < size) textf(out + at, size - at, "%s", ts(TS_V9_SPR_WHY_SPD));
+    }
+
+    /* The magnifier's sixteen colours of block sc, a dot under those row bits uses. */
+    void sprColourBlock(const V9990DebugState* s, ImVec2 at, int sc, unsigned used) const
+    {
+        const UiTokens& t = uiTokens();
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        uint32_t pal[64];
+        v9990PaletteRgba(s, pal);
+        float sw = ui::Px(12);
+        for (int i = 0; i < 16; i++) {
+            ImVec2 a(at.x + i * (sw + ui::Px(1)), at.y), b(a.x + sw, a.y + sw);
+            if (i == 0) drawCheckerRect(dl, a, b);
+            else dl->AddRectFilled(a, b, pal[sc * 16 + i]);
+            if ((used >> i) & 1) dl->AddCircleFilled(ImVec2((a.x + b.x) / 2, b.y + ui::Px(4)), ui::Px(2), t.text);
+        }
+    }
+
+    /* The hovered sprite or pattern, else the pinned sprite: its dots, each row's state and why. */
+    void sprDrawMag(const V9990DebugState* s, const Focus& f, ImVec2 at, float m, float partW)
+    {
+        const UiTokens& t = uiTokens();
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        float th = fmaxf(1.0f, ui::Px(1)), lh = ImGui::GetTextLineHeight();
+        int n = sprHot >= 0 ? sprHot : sprPatHot >= 0 ? -1 : sprPinned(f), p = n >= 0 ? spr.spr[n].pattern : sprPatHot;
+        if (p < 0) {
+            ImGui::SetCursorScreenPos(at);
+            ImGui::PushTextWrapPos(at.x + partW);
+            note(ts(TS_SPR_TAB_MAG_HINT));
+            ImGui::PopTextWrapPos();
+            return;
+        }
+        char head[256];
+        if (n < 0) textf(head, sizeof(head), ts(TS_V9_SPR_PAT_MAG), p, p, v9990SpritePatternAddr(spr, p, 0));
+        else if (spr.spr[n].line0 >= 0) textf(head, sizeof(head), ts(TS_SPR_TAB_MAG), n, p, spr.spr[n].x, spr.spr[n].line0, spr.spr[n].line1);
+        else textf(head, sizeof(head), ts(TS_SPR_TAB_MAG_OFF), n, p, spr.spr[n].x);
+        ui::PushFont(UI_FONT_STRONG);
+        dl->AddText(at, t.text, head);
+        ui::PopFont();
+        uint32_t pal[64];
+        v9990PaletteRgba(s, pal);
+        int sc = n >= 0 ? spr.spr[n].sc : 0;
+        for (int k = 0; n < 0 && k < V9_SPRITES; k++) {
+            if (spr.spr[k].pattern == p && spr.spr[k].state != V9_SPR_OFF_Y) { sc = spr.spr[k].sc; break; }
+        }
+        float y0 = floorf(at.y + lh + ui::Px(6)), gx = floorf(at.x + ui::Px(30));
+        ImVec2 ga(gx, y0), gb(gx + 16 * m, y0 + 16 * m);
+        unsigned used = 0;
+        int prev = -2;
+        uint8_t dots[16];
+        for (int r = 0; r < 16; r++) {
+            v9990SpritePatternRow(s, spr, p, r, dots);
+            float ry = y0 + r * m;
+            for (int j = 0; j < 16; j++) {
+                ImVec2 a(gx + j * m, ry), b(a.x + m, ry + m);
+                used |= 1u << dots[j];
+                if (dots[j]) dl->AddRectFilled(a, b, pal[sc * 16 + dots[j]]);
+                else dl->AddRectFilled(a, b, ((j + r) & 1) ? t.checkerA : t.checkerB);
+                if (n >= 0 && (((spr.spr[n].frontMask[r] | spr.spr[n].spriteMask[r]) << j) & 0x8000)) hatch(dl, a, b, ui::WithAlpha(t.textSecondary, 220));
+            }
+            if (n < 0) continue;
+            int st = spr.spr[n].row[r], d = spr.spr[n].rowLine[r];
+            if (st == V9_ROW_DROPPED) hatch(dl, ImVec2(gx, ry), ImVec2(gb.x, ry + m), ui::WithAlpha(t.critical, 200));
+            else if (st == V9_ROW_OFF || st == V9_ROW_PR0 || st == V9_ROW_PR0_PAST) dl->AddRectFilled(ImVec2(gx, ry), ImVec2(gb.x, ry + m), ui::WithAlpha(t.layer, st == V9_ROW_PR0 ? 170 : 120));
+            if (st != prev && d >= 0) {
+                char num[16];
+                snprintf(num, sizeof(num), "%d", d);
+                dl->AddText(ImVec2(at.x, ry + (m - lh) / 2), st == V9_ROW_DROPPED ? t.critical : t.textSecondary, num);
+            }
+            prev = st;
+        }
+        canvasGrid(sprCv, dl, ga, gb, m, m);
+        dl->AddRect(ga, gb, t.controlStrongStroke, 0, th);
+        float by = gb.y + ui::Px(8);
+        char palText[64];
+        textf(palText, sizeof(palText), ts(TS_V9_SPR_PALETTE), sc * 16, sc * 16 + 15, sc);
+        dl->AddText(ImVec2(gx, by), t.textSecondary, palText);
+        sprColourBlock(s, ImVec2(gx, by + lh + ui::Px(2)), sc, used & ~1u);
+        if (n < 0) return;
+        char why[512];
+        sprWhy(n, why, sizeof(why));
+        ImGui::SetCursorScreenPos(ImVec2(at.x, by + lh + ui::Px(24)));
+        ImGui::PushTextWrapPos(at.x + partW);
+        ImGui::TextUnformatted(why);
+        ImGui::PopTextWrapPos();
+    }
+
+    /* The 256 patterns at R#25, in the colours of the sprites using them; grey ones unused now. */
+    void sprDrawPats(ImVec2 at, float sc, float partW, int cols)
+    {
+        const UiTokens& t = uiTokens();
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        float th = fmaxf(1.0f, ui::Px(1)), lh = ImGui::GetTextLineHeight(), tile = 16 * sc;
+        char sub[256];
+        textf(sub, sizeof(sub), ts(TS_V9_SPR_PATS_SUB), 256, spr.patBase);
+        sprTitle(dl, at, ts(TS_SPR_TAB_PATS), sub, at.x + partW);
+        unsigned scs[256] = {};
+        int users[256] = {}, pr0Users[256] = {};
+        for (int n = 0; n < V9_SPRITES; n++) {
+            const V9990Sprite& sp = spr.spr[n];
+            if (sp.state == V9_SPR_OFF_Y) continue;
+            users[sp.pattern]++;
+            if (sp.pr0) pr0Users[sp.pattern]++;
+            else scs[sp.pattern] |= 1u << sp.sc;
+        }
+        uint32_t pal[64];
+        v9990PaletteRgba(ovState, pal);
+        float y0 = floorf(at.y + lh * 2 + ui::Px(6)), pitch = sprPatPitch(tile);
+        ui::PushFont(UI_FONT_BODY, 11);
+        float tagLh = ImGui::GetTextLineHeight();
+        ui::PopFont();
+        for (int p = 0; p < 256; p++) {
+            float x = at.x + (p % cols) * (tile + ui::Px(4)), y = y0 + (p / cols) * pitch;
+            ImVec2 a(x, y + lh), b(x + tile, y + lh + tile);
+            char num[8];
+            snprintf(num, sizeof(num), "%d", p);
+            dl->AddText(ImVec2(x, y), p == sprPatHot ? t.accent : t.textSecondary, num);
+            drawCheckerRect(dl, a, b);
+            if (sprPatPic.tex.id()) {
+                ImVec2 uv0((float)(p % 16) / 16, (float)(p / 16) / 16), uv1((float)(p % 16 + 1) / 16, (float)(p / 16 + 1) / 16);
+                ui::ImageNearest(dl, sprPatPic.tex.id(), a, b, uv0, uv1);
+            }
+            canvasGrid(sprCv, dl, a, b, sc, sc);
+            if (p == sprPatHot || (sprHot >= 0 && spr.spr[sprHot].pattern == p)) dl->AddRect(ImVec2(a.x - th, a.y - th), ImVec2(b.x + th, b.y + th), t.accent, 0, th);
+            float cx = a.x, cy = b.y + ui::Px(2);
+            for (int k = 0; k < 4; k++) {
+                if (!((scs[p] >> k) & 1)) continue;
+                dl->AddRectFilled(ImVec2(cx, cy), ImVec2(cx + ui::Px(7), cy + ui::Px(5)), pal[k * 16 + 15]);
+                dl->AddRect(ImVec2(cx, cy), ImVec2(cx + ui::Px(7), cy + ui::Px(5)), t.controlStroke, 0, th);
+                cx += ui::Px(9);
+            }
+            if (pr0Users[p] > 0 && pr0Users[p] == users[p] && tile >= ui::Px(24)) {
+                char tag[16];
+                snprintf(tag, sizeof(tag), "PR0\xC3\x97%d", pr0Users[p]);
+                ui::PushFont(UI_FONT_BODY, 11);
+                dl->PushClipRect(ImVec2(a.x, cy - ui::Px(2)), ImVec2(a.x + tile + ui::Px(4), cy + tagLh), true);
+                dl->AddText(ImVec2(cx, cy - ui::Px(3)), t.textTertiary, tag);
+                dl->PopClipRect();
+                ui::PopFont();
+            }
+            ImGui::SetCursorScreenPos(a);
+            ImGui::PushID(2000 + p);
+            ImGui::InvisibleButton("##pat", ImVec2(tile, tile));
+            ImGui::PopID();
+            if (ImGui::IsItemHovered()) {
+                sprPatHotNext = p;
+                char text[256];
+                int k = textf(text, sizeof(text), ts(TS_V9_SPR_PAT_MAG), p, p, v9990SpritePatternAddr(spr, p, 0));
+                if (k > 0 && (size_t)k < sizeof(text)) {
+                    if (users[p] == 0) textf(text + k, sizeof(text) - k, "    %s", ts(TS_V9_SPR_PAT_UNUSED));
+                    else textf(text + k, sizeof(text) - k, ts(TS_V9_SPR_PAT_USERS), users[p], pr0Users[p]);
+                }
+                ui::StatusText("%s", text);
+            }
+        }
+    }
+
+    /* Pattern cells a row in rowW px: 16, else fewer by halves. */
+    static int sprPatCols(float tile, float rowW)
+    {
+        int cols = 16;
+        while (cols > 1 && cols * (tile + ui::Px(4)) - ui::Px(4) > rowW) cols /= 2;
+        return cols;
+    }
+
+    /* A part's size at scale sc, its title included; the patterns wrap in rowW. */
+    ImVec2 sprPartSize(int part, float sc, float rowW) const
+    {
+        float lh = ImGui::GetTextLineHeight(), title = lh + ui::Px(6);
+        if (part == SP_PLACE) return ImVec2(sprBandW() + spr.width * sc, title + V9_SPRITE_LINES * sc * spr.width / 256);
+        if (part == SP_ATTRS) {
+            float tile = 16 * sc, tl = fmaxf(1.0f, floorf(sc * 0.75f));
+            return ImVec2(16 * (tile + ui::Px(4)) - ui::Px(4), title + 8 * floorf(lh + tile + ui::Px(6)) + ui::Px(10) + lh * 3 + ui::Px(4) + 16 * tl);
+        }
+        if (part == SP_MAG) return ImVec2(ui::Px(30) + 16 * sc + ui::Px(150), title + 16 * sc + ui::Px(8) + lh * 5 + ui::Px(24));
+        float tile = 16 * sc;
+        int cols = sprPatCols(tile, rowW);
+        return ImVec2(cols * (tile + ui::Px(4)) - ui::Px(4), lh * 2 + ui::Px(6) + ((256 + cols - 1) / cols) * sprPatPitch(tile));
+    }
+
+    /* The parts at zoom N: placement 256 * N px wide, attributes and patterns at N px a dot, the
+    ** magnifier at 8 N; all but the patterns on one row when they fit W, else in fewer a row. */
+    SprLayout sprLayoutAt(float W, int N) const
+    {
+        SprLayout L = {};
+        L.scale[SP_PLACE] = (float)N * 256 / spr.width;
+        L.scale[SP_ATTRS] = (float)N;
+        L.scale[SP_MAG] = fmaxf(6.0f, 8.0f * N);
+        L.scale[SP_PATS] = (float)N;
+        float gap = ui::Px(12);
+        for (int p = 0; p < SP_COUNT; p++) L.size[p] = sprPartSize(p, L.scale[p], W);
+        std::vector<std::vector<int>> rows;
+        float beside = W - L.size[SP_MAG].x - gap;
+        if (L.size[SP_PLACE].x + L.size[SP_ATTRS].x + L.size[SP_MAG].x + gap * 2 <= W) rows = { { SP_PLACE, SP_ATTRS, SP_MAG }, { SP_PATS } };
+        else if (L.size[SP_PLACE].x + L.size[SP_ATTRS].x + gap <= W && sprPatCols(16.0f * N, beside) >= 8) rows = { { SP_PLACE, SP_ATTRS }, { SP_MAG, SP_PATS } };
+        else if (L.size[SP_PLACE].x + L.size[SP_ATTRS].x + gap <= W) rows = { { SP_PLACE, SP_ATTRS }, { SP_MAG }, { SP_PATS } };
+        else rows = { { SP_PLACE }, { SP_ATTRS }, { SP_MAG }, { SP_PATS } };
+        float patW = rows.size() == 2 && rows[1].size() == 2 ? beside : W;
+        L.size[SP_PATS] = sprPartSize(SP_PATS, L.scale[SP_PATS], patW);
+        L.patCols = sprPatCols(16.0f * N, patW);
+        float y = 0;
+        for (const std::vector<int>& r : rows) {
+            float x = 0, h = 0;
+            for (int p : r) {
+                L.at[p] = ImVec2(x, y);
+                x += L.size[p].x + gap;
+                h = fmaxf(h, L.size[p].y);
+            }
+            y += h + gap;
+            L.width = fmaxf(L.width, x - gap);
+        }
+        L.height = y - gap;
+        return L;
+    }
+
+    /* Mode, size, the limit and the tables, then the notes on one line, the rest on hover. */
+    void sprHeader(const V9990DebugState* s)
+    {
+        const UiTokens& t = uiTokens();
+        char head[256];
+        textf(head, sizeof(head), ts(TS_V9_SPR_HEAD), modeName(s->mode), V9_SPRITE_PLACES, spr.patBase, spr.attrBase);
+        ImGui::PushStyleColor(ImGuiCol_Text, t.textSecondary);
+        ImGui::TextUnformatted(head);
+        ImGui::PopStyleColor();
+        char notes[3][256];
+        int n = 0;
+        if (spr.off) textf(notes[n++], sizeof(notes[0]), "%s", ts(TS_V9_SPR_NOTE_SPD));
+        if (spr.pr0Full0 >= 0) textf(notes[n++], sizeof(notes[0]), ts(TS_V9_SPR_NOTE_PR0_FULL), spr.pr0Full0, spr.pr0Full1);
+        char line[384] = "", all[1024] = "";
+        int k = n > 0 ? textf(line, sizeof(line), "%s", notes[0]) : 0;
+        if (n > 1 && k > 0) textf(line + k, sizeof(line) - k, ts(TS_SPR_TAB_MORE_NOTES), n - 1);
+        size_t at = 0;
+        for (int i = 0; i < n && at < sizeof(all); i++) at += (size_t)textf(all + at, sizeof(all) - at, "%s%s", i ? "\n" : "", notes[i]);
+        ImGui::PushStyleColor(ImGuiCol_Text, n > 0 ? t.caution : t.textSecondary);
+        ImGui::TextUnformatted(line);
+        ImGui::PopStyleColor();
+        if (n > 1 && ImGui::IsItemHovered()) steadyTooltip(sprNotesTip, ImGui::GetID("##notes"), all);
+    }
+
+    void drawSprites(const V9990DebugState* s, Focus& f)
+    {
+        sprHot = sprHotNext;
+        sprHotNext = -1;
+        sprPatHot = sprPatHotNext;
+        sprPatHotNext = -1;
+        sprLine = sprLineNext;
+        sprLineNext = -1;
+        if (isBitmap(s->mode)) {
+            drawCursors(s, f);
+            return;
+        }
+        if (s->mode != V9990_MODE_P1 && s->mode != V9990_MODE_P2) {
+            emptyView(ts(TS_V9_SPRITES_NONE));
+            return;
+        }
+        ovState = s;
+        ensureSprites(s);
+        if (sprBitsVer != sprVer) {
+            sprBitsVer = sprVer;
+            sprRowBits(s);
+        }
+        if (sprHot >= V9_SPRITES) sprHot = -1;
+        ui::BeginCommandBar("bar");
+        barToggle("##sprdrop", UI_ICON_DROPPED, ts(TS_SPR_DROPPED), ts(TS_SPR_DROPPED_TIP), &sprDropped);
+        barArtToggle("##sprboxes", ui::DECOR_FRAME, ts(TS_V9_SPR_BOXES_TIP), &sprBoxes);
+        ui::GridToggle(sprCv);
+        ui::CommandBarRight(ui::ZoomControlsWidth());
+        ui::ZoomControls("zoom", sprCv);
+        ui::EndCommandBar();
+        sprHeader(s);
+        sprRenderTiles(s);
+
+        ImVec2 avail = ImGui::GetContentRegionAvail(), childAt = ImGui::GetCursorScreenPos();
+        float W = avail.x - ImGui::GetStyle().ScrollbarSize - ui::Px(8);
+        ui::CanvasZoom& zs = sprCv.z();
+        zs.zoom = zs.zoom < 1 ? 1 : zs.zoom > 32 ? 32 : zs.zoom;
+        int z = ui::CanvasWheelZoom(sprCv);
+        if (z > 0) {
+            zs.zoom = z;
+            zs.fit = false;
+        }
+        int N = zs.zoom;
+        if (zs.fit) {
+            /* Fit: the largest zoom whose parts fit across, and whose first row fits down. */
+            N = 1;
+            for (int k = 16; k > 1; k--) {
+                SprLayout L = sprLayoutAt(W, k);
+                if (L.width <= W && L.at[SP_PATS].y <= avail.y) { N = k; break; }
+            }
+        }
+        SprLayout L = sprLayoutAt(W, N);
+        float bar = ImGui::GetStyle().ScrollbarSize;
+        bool over = L.height + ui::Px(8) > avail.y, overX = false;
+        for (int i = 0; i < 2; i++) {
+            overX = L.width > avail.x - (over ? bar : 0);
+            over = L.height + ui::Px(8) > avail.y - (overX ? bar : 0);
+        }
+        ImVec2 content(fmaxf(W, L.width), L.height + ui::Px(8));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+        ImGuiWindowFlags bars = (over ? ImGuiWindowFlags_AlwaysVerticalScrollbar : ImGuiWindowFlags_NoScrollbar) |
+                                (overX ? ImGuiWindowFlags_AlwaysHorizontalScrollbar : 0);
+        ImGui::BeginChild("spr", avail, ImGuiChildFlags_None, ImGuiWindowFlags_NoBackground | bars);
+        ImGui::PopStyleVar();
+        (void)childAt;
+        ImVec2 o = ImGui::GetCursorScreenPos();
+        o.y += ui::Px(4);
+        auto partAt = [&](int p) { return ImVec2(floorf(o.x + L.at[p].x), floorf(o.y + L.at[p].y)); };
+        sprDrawPlace(s, f, partAt(SP_PLACE), L.scale[SP_PLACE], L.size[SP_PLACE].x);
+        sprDrawAttrs(s, f, partAt(SP_ATTRS), L.scale[SP_ATTRS], L.size[SP_ATTRS].x);
+        sprDrawMag(s, f, partAt(SP_MAG), L.scale[SP_MAG], L.size[SP_MAG].x);
+        sprDrawPats(partAt(SP_PATS), L.scale[SP_PATS], L.size[SP_PATS].x, L.patCols);
+        ImGui::SetCursorScreenPos(ImVec2(o.x, o.y - ui::Px(4)));
+        ImGui::Dummy(content);
+        bool hovered = ImGui::IsWindowHovered();
+        ImGui::EndChild();
+        ui::CanvasShown(sprCv, (float)N, hovered);
+    }
+
+    /* ---- Cursors: the bitmap modes' two 32 x 32 cursors ---- */
+
+    /* Cursor c as the chip reads it: attributes at 7FE00 + 8c, pattern at 7FF00 + 80h c. */
+    struct Cursor { int x, y, cc, top; bool eor, pr0, shown; UInt32 bits[32]; };
+
+    /* attr, unless NULL, holds the 16 attribute bytes to read instead of VRAM's. */
+    Cursor cursorOf(const V9990DebugState* s, int c, const UInt8* attr = NULL) const
+    {
+        Cursor k = {};
+        UInt32 a = 0x7fe00 + 8 * c;
+        auto at = [&](int i) { return attr != NULL ? attr[8 * c + i] : s->vram[V9990_MAP_BX(a + i)]; };
+        UInt8 flags = at(6);
+        k.y = at(0) | ((at(2) & 1) << 8);
+        k.x = at(4) | ((flags & 3) << 8);
+        k.cc = flags >> 6;
+        k.eor = (flags & 0x20) != 0;
+        k.pr0 = (flags & 0x10) != 0;
+        k.shown = !k.pr0 && (flags & 0xe0) != 0 && !(s->regs[8] & 0x40);
+        /* Its first row is Y + 1 (Y + 2 in interlace) lines down; overscan modes count from 14 (PAL 41) lines lower. */
+        int fm = s->frameMode;
+        bool overscan = fm == V9990_MODE_B0 || fm == V9990_MODE_B2 || fm == V9990_MODE_B4;
+        k.top = (k.y + (s->interlace ? 2 : 1) + (overscan ? (s->isPal ? 41 : 14) : 0)) & 511;
+        for (int r = 0; r < 32; r++) {
+            UInt32 p = 0x7ff00 + 0x80 * c + 4 * r, v = 0;
+            for (int i = 0; i < 4; i++) v = (v << 8) | s->vram[V9990_MAP_BX(p + i)];
+            k.bits[r] = v;
+        }
+        return k;
+    }
+
+    /* The image column and row each line of the screen reads, woven lines in IL+EO: those
+    ** shot o recorded drawing it from, else the scroll registers'. */
+    void bitmapLines(const V9990DebugState* s, const V9990FrameShot* o, std::vector<UInt32>& xy) const
+    {
+        int lines = screenLines(s);
+        bool woven = fieldsWoven(s);
+        UInt32 sx, sy, mask;
+        scrollOf(s, &sx, &sy, &mask);
+        /* Paused mid-frame in IL+EO, the rows past the beam may be the other field's. */
+        if (o != NULL && (!o->valid || o->frameMode != s->mode || (woven && !o->ended && o->drawnRow > 0 && o->drawnRow < o->rows))) o = NULL;
+        int top = o != NULL ? o->displayStartLine - o->windowTopLine : 0, f = o != NULL && o->secondField ? 1 : 0;
+        xy.resize((size_t)2 * lines);
+        for (int d = 0; d < lines; d++) {
+            int r = top + (woven ? d >> 1 : d);
+            UInt32 x = sx, y = imageY(sy, mask, d);
+            if (o != NULL && r >= 0 && r < o->rows && o->rowY[r] != 0xffff) {
+                x = o->rowX[r];
+                y = o->rowY[r];
+                /* The other field's line is the next or previous image row within the roll. */
+                if (woven && (d & 1) != f) y = (y & ~mask) | ((y + (d & 1) - f) & mask);
+            }
+            xy[(size_t)2 * d] = x;
+            xy[(size_t)2 * d + 1] = y;
+        }
+    }
+
+    /* The screen as displayed, each line from where it was drawn, without the cursors. */
+    void curRenderScreen(const V9990DebugState* s, const V9990FrameShot* o)
+    {
+        int sw = screenWidth(s->mode), lines = screenLines(s);
+        bitmapLines(s, o, curLines);
+        char key[48];
+        snprintf(key, sizeof(key), "%d/%d/%d/%d/%d", s->mode, s->modeR6, s->regs[13], lines, (int)ysClear);
+        bool decoded = curPic.needsDecodeVram(key) || curLines != curLinesDrawn;
+        if (decoded) {
+            int rows = imageRows(s);
+            curLinesDrawn = curLines;
+            curPic.w = sw;
+            curPic.h = lines;
+            curPic.img.assign((size_t)sw * lines, 0xff000000u);
+            for (int d = 0; d < lines; d++) {
+                renderRow(s, &curPic.img[(size_t)d * sw], sw, curLines[(size_t)2 * d], curLines[(size_t)2 * d + 1] % (UInt32)rows, isHiRes(s->mode));
+            }
+        }
+        curPic.upload(decoded);
+    }
+
+    /* Cursor k's 32 x 32 dots at a, m px a dot: its colour, or the picture inverted (EOR) as a half black, half white dot. */
+    void curDrawPattern(const V9990DebugState* s, const Cursor& k, ImVec2 a, float m) const
+    {
+        const UiTokens& t = uiTokens();
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        int entry = ((s->regs[28] & 0x0f) << 2) | k.cc;
+        UInt16 c = v9990PaletteColor(s->palette, entry);
+        if (k.eor) c ^= 0x7fff;
+        ImU32 col = v9990Rgba(c, false);
+        for (int r = 0; r < 32; r++) {
+            for (int b = 0; b < 32; b++) {
+                ImVec2 p(a.x + b * m, a.y + r * m), q(p.x + m, p.y + m);
+                if (!((k.bits[r] << b) & 0x80000000u)) {
+                    dl->AddRectFilled(p, q, ((r + b) & 1) ? t.checkerA : t.checkerB);
+                }
+                else if (k.cc == 0 && k.eor) {
+                    dl->AddRectFilled(p, q, IM_COL32(0, 0, 0, 255));
+                    dl->AddTriangleFilled(ImVec2(q.x, p.y), q, ImVec2(p.x, q.y), IM_COL32(255, 255, 255, 255));
+                }
+                else {
+                    dl->AddRectFilled(p, q, col);
+                }
+            }
+        }
+        canvasGrid(sprCv, dl, a, ImVec2(a.x + 32 * m, a.y + 32 * m), m, m);
+        dl->AddRect(a, ImVec2(a.x + 32 * m, a.y + 32 * m), t.controlStrongStroke, 0, fmaxf(1.0f, ui::Px(1)));
+    }
+
+    void drawCursors(const V9990DebugState* s, Focus& f)
+    {
+        const UiTokens& t = uiTokens();
+        (void)f;
+        ui::BeginCommandBar("bar");
+        ui::GridToggle(sprCv);
+        ui::CommandBarRight(ui::ZoomControlsWidth());
+        ui::ZoomControls("zoom", sprCv);
+        ui::EndCommandBar();
+        unsigned ver;
+        const V9990FrameShot* shot = (const V9990FrameShot*)shell::frameShot(&ver);
+        shell::wantFrame();
+        char head[256];
+        textf(head, sizeof(head), ts(TS_V9_CUR_HEAD), modeName(s->mode), s->regs[28] & 0x0f);
+        ImGui::PushStyleColor(ImGuiCol_Text, t.textSecondary);
+        ImGui::TextUnformatted(head);
+        ImGui::PopStyleColor();
+        /* An empty line without the note, so the canvas stays put when SPD flips. */
+        ImGui::PushStyleColor(ImGuiCol_Text, t.caution);
+        ImGui::TextUnformatted((s->regs[8] & 0x40) ? ts(TS_V9_CUR_NOTE_SPD) : "");
+        ImGui::PopStyleColor();
+
+        Cursor k[2] = { cursorOf(s, 0), cursorOf(s, 1) };
+        int sw = screenWidth(s->mode), lines = screenLines(s), ax, ay;
+        dotAspect(s, &ax, &ay);
+        ui::CanvasZoom& zs = sprCv.z();
+        zs.zoom = zs.zoom < 1 ? 1 : zs.zoom > 32 ? 32 : zs.zoom;
+        int z = ui::CanvasWheelZoom(sprCv);
+        if (z > 0) {
+            zs.zoom = z;
+            zs.fit = false;
+        }
+        ImVec2 avail = ImGui::GetContentRegionAvail();
+        float lh = ImGui::GetTextLineHeight(), gap = ui::Px(12);
+        auto sizeAt = [&](int N, float* px, float* py, float* m, float* w, float* h) {
+            *px = (float)N * 256 / sw;
+            *py = *px * ay / ax;
+            *m = fmaxf(3.0f, 4.0f * N);
+            float cardW = 32 * *m + ui::Px(8);
+            *w = sw * *px + gap + 2 * cardW + gap;
+            *h = lh + ui::Px(6) + fmaxf(lines * *py, 32 * *m + lh * 6);
+        };
+        int N = zs.zoom;
+        float px, py, m, w, h;
+        if (zs.fit) {
+            N = 1;
+            for (int n = 16; n > 1; n--) {
+                sizeAt(n, &px, &py, &m, &w, &h);
+                if (w <= avail.x - ImGui::GetStyle().ScrollbarSize && h <= avail.y) { N = n; break; }
+            }
+        }
+        sizeAt(N, &px, &py, &m, &w, &h);
+        ImGui::BeginChild("cur", avail, ImGuiChildFlags_None, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_HorizontalScrollbar);
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        ImVec2 o = ImGui::GetCursorScreenPos();
+        o = ImVec2(floorf(o.x), floorf(o.y + ui::Px(4)));
+        float th = fmaxf(1.0f, ui::Px(1));
+        sprTitle(dl, o, ts(TS_SPR_TAB_PLACE), ts(TS_V9_CUR_PLACE_SUB), o.x + sw * px);
+        ImVec2 img(o.x, floorf(o.y + lh + ui::Px(6))), end(img.x + sw * px, img.y + lines * py);
+        curRenderScreen(s, shot);
+        if (curPic.tex.id()) ui::ImageNearest(dl, curPic.tex.id(), img, end);
+        canvasGrid(sprCv, dl, img, end, px, py);
+        dl->PushClipRect(img, end, true);
+        /* Cursor 1 first, as cursor 0 is on top; each in up to four pieces where it rolls at 1024 x 512. */
+        for (int c = 1; c >= 0; c--) {
+            for (int wx = 0; wx < 2; wx++) {
+                for (int wy = 0; wy < 2; wy++) {
+                    ImVec2 a(img.x + (k[c].x - wx * 1024) * px, img.y + (k[c].top - wy * 512) * py);
+                    ImVec2 b(a.x + 32 * px, a.y + 32 * py);
+                    if (b.x <= img.x || a.x >= end.x || b.y <= img.y || a.y >= end.y) continue;
+                    ImU32 col = c == 0 ? t.accent : t.text;
+                    if (k[c].shown) dl->AddRect(a, b, col, 0, th * 2);
+                    else dashedRect(dl, a, b, col, th);
+                    char num[4];
+                    snprintf(num, sizeof(num), "%d", c);
+                    partChip(dl, ImVec2(a.x + th, a.y + th), ImVec2(a.x + ui::Px(40), a.y + ui::Px(40)), num);
+                }
+            }
+        }
+        dl->PopClipRect();
+        ImGui::SetCursorScreenPos(img);
+        ImGui::InvisibleButton("##curplace", ImVec2(fmaxf(1.0f, end.x - img.x), fmaxf(1.0f, end.y - img.y)));
+        bool placeHovered = ImGui::IsItemHovered();
+        if (placeHovered) {
+            ImVec2 mp = ImGui::GetIO().MousePos;
+            ui::StatusText(ts(TS_V9_CUR_STATUS_DOT), (int)floorf((mp.x - img.x) / px), (int)floorf((mp.y - img.y) / py));
+        }
+        /* The two cursors side by side: the dots, then what the chip does with them. */
+        for (int c = 0; c < 2; c++) {
+            const Cursor& q = k[c];
+            ImVec2 at(floorf(end.x + gap + c * (32 * m + ui::Px(8) + gap)), o.y);
+            char text[256];
+            textf(text, sizeof(text), ts(TS_V9_CUR_TITLE), c);
+            sprTitle(dl, at, text, NULL, at.x + 32 * m);
+            ImVec2 pa(at.x, floorf(at.y + lh + ui::Px(6)));
+            curDrawPattern(s, q, pa, m);
+            ImGui::SetCursorScreenPos(ImVec2(at.x, pa.y + 32 * m + ui::Px(6)));
+            /* A group, so that each line starts under the dots rather than at the child's left. */
+            ImGui::BeginGroup();
+            ImGui::PushTextWrapPos(at.x + 32 * m + ui::Px(8));
+            textf(text, sizeof(text), ts(TS_V9_CUR_POS), q.x, q.y, q.top, (q.top + 31) & 511);
+            ImGui::TextUnformatted(text);
+            textf(text, sizeof(text), ts(TS_V9_CUR_FLAGS), q.cc, (int)q.eor, (int)q.pr0, 0x7fe00 + 8 * c);
+            note(text);
+            int entry = ((s->regs[28] & 0x0f) << 2) | q.cc;
+            if (!q.shown && (s->regs[8] & 0x40)) textf(text, sizeof(text), "%s", ts(TS_V9_CUR_HIDDEN_SPD));
+            else if (q.pr0) textf(text, sizeof(text), "%s", ts(TS_V9_CUR_HIDDEN_PR0));
+            else if (!q.shown) textf(text, sizeof(text), "%s", ts(TS_V9_CUR_HIDDEN_CC));
+            else if (q.cc == 0) textf(text, sizeof(text), "%s%s", ts(c == 0 ? TS_V9_CUR_ORDER0 : TS_V9_CUR_ORDER1), ts(TS_V9_CUR_EOR));
+            else if (q.eor) textf(text, sizeof(text), ts(c == 0 ? TS_V9_CUR_ORDER0_EOR_CC : TS_V9_CUR_ORDER1_EOR_CC), entry);
+            else textf(text, sizeof(text), ts(c == 0 ? TS_V9_CUR_ORDER0_CC : TS_V9_CUR_ORDER1_CC), entry);
+            ImGui::TextUnformatted(text);
+            ImGui::PopTextWrapPos();
+            ImGui::EndGroup();
+        }
+        ImGui::SetCursorScreenPos(o);
+        ImGui::Dummy(ImVec2(w, h + ui::Px(8)));
+        bool hovered = ImGui::IsWindowHovered();
+        ImGui::EndChild();
+        ui::CanvasShown(sprCv, (float)N, hovered);
+    }
+
+    void cardSprites(const V9990DebugState* s)
+    {
+        if (s->mode != V9990_MODE_P1 && s->mode != V9990_MODE_P2) {
+            ui::TextFitItem(ts(TS_V9_SPRITES_NONE), uiTokens().textSecondary);
+            return;
+        }
+        ensureSprites(s);
+        if (!ui::BeginKeyValue("spr")) return;
+        ui::KeyValue(ts(TS_KV_MODE), "%s \xC2\xB7 16x16", modeName(s->mode));
+        ui::KeyValue(ts(TS_V9_KV_SPRITES), "%s", ts(spr.off ? TS_V9_SPRITES_OFF : TS_V9_SPRITES_ON));
+        ui::KeyValue(ts(TS_KV_SHOWN), "%d", spr.shown);
+        ui::KeyValue(ts(TS_V9_KV_PR0), "%d", spr.pr0);
+        ui::KeyValue(ts(TS_KV_DROPPED), "%d", spr.dropped);
+        ui::KeyValue(ts(TS_SPR_OFF_SCREEN), ts(TS_V9_KV_OFF_VALUE), spr.offY + spr.offX, spr.offY, spr.offX);
+        ui::KeyValue(ts(TS_KV_OVER_LIMIT), ts(TS_KV_OVER_LIMIT_VALUE), spr.overLines, V9_SPRITE_PLACES);
+        if (spr.firstDropped >= 0) ui::KeyValue(ts(TS_KV_FIRST_DROPPED), ts(TS_KV_FIRST_DROPPED_VALUE), spr.firstDropped, spr.firstDropLine);
+        else ui::KeyValue(ts(TS_KV_FIRST_DROPPED), "%s", ts(TS_KV_NONE));
+        ui::KeyValueMono(ts(TS_KV_ATTRIBUTES), "%05X", spr.attrBase);
+        ui::KeyValueMono(ts(TS_KV_PATTERNS), "%05X (R#25 = %02X)", spr.patBase, s->regs[25]);
+        ui::EndKeyValue();
     }
 
     /* The bytes, 512 a row in CPU or physical order, tinted by the VRAM map's lanes. */

@@ -44,9 +44,10 @@ typedef struct {
     UInt8  r8, r13, r15, r25, r27;
 } V9990PatternLine;
 
-/* Draws count dots of a pattern-mode display line, from display dot dot. */
+/* Draws count dots of a pattern-mode display line, from display dot dot. Unless NULL,
+** bg gets the dots without sprites and hit the sprite shown on each dot (0xff none). */
 void v9990RenderPatternLine(UInt16* dst, int count, const UInt8* vram, const UInt8* palette,
-                            const V9990PatternLine* line, int dot);
+                            const V9990PatternLine* line, int dot, UInt16* bg, UInt8* hit);
 
 /* Reads count 4-bit dots of a P1 layer, from image dot x of image line y. */
 void v9990FetchP1Layer(UInt8* out, int count, const UInt8* vram,

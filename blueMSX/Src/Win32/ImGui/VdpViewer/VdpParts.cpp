@@ -40,10 +40,10 @@ void barToggle(const char* id, const char* glyph, const char* label, const char*
     if (ui::IconButton(id, glyph, label, tip, *on)) *on = !*on;
 }
 
-void barArtToggle(const char* id, ui::PixelDecor decor, const char* tip, bool* on)
+void barArtToggle(const char* id, ui::PixelDecor decor, const char* tip, bool* on, const ui::PixelArt& art)
 {
     ui::CommandBarItem(ui::Px(28), ui::Px(24));
-    if (ui::PixelIconButton(id, ui::UI_ART_SHIP, decor, tip, *on)) *on = !*on;
+    if (ui::PixelIconButton(id, art, decor, tip, *on)) *on = !*on;
 }
 
 void partChip(ImDrawList* dl, ImVec2 a, ImVec2 b, const char* text)

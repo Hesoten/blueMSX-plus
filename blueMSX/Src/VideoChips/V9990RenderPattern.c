@@ -23,6 +23,7 @@
 */
 #include "V9990Render.h"
 #include "V9990.h"
+#include <string.h>
 
 #define P1_WIDTH 256
 #define P2_WIDTH 512
@@ -85,8 +86,9 @@ void v9990FetchP2Layer(UInt8* out, int count, const UInt8* vram, UInt32 x, UInt3
     }
 }
 
+/* who, unless NULL, gets the sprite whose dot shows. */
 static void drawSprites(UInt8* index, UInt8* plane, int width, const UInt8* vram,
-                        const V9990PatternLine* line)
+                        const V9990PatternLine* line, UInt8* who)
 {
     int visible[SPRITES_PER_LINE];
     int limit = SPRITES_PER_LINE;
@@ -142,6 +144,9 @@ static void drawSprites(UInt8* index, UInt8* plane, int width, const UInt8* vram
             if (p != 0) {
                 if (plane[xx] < level) {
                     index[xx] = (UInt8)(offset + p);
+                    if (who != NULL) {
+                        who[xx] = (UInt8)visible[i];
+                    }
                 }
                 plane[xx] = PLANE_SPRITE;
             }
@@ -207,16 +212,23 @@ static void composeP2(UInt8* index, UInt8* plane, const UInt8* vram, const V9990
 }
 
 void v9990RenderPatternLine(UInt16* dst, int count, const UInt8* vram, const UInt8* palette,
-                            const V9990PatternLine* line, int dot)
+                            const V9990PatternLine* line, int dot, UInt16* bg, UInt8* hit)
 {
     UInt8 index[P2_WIDTH];
     UInt8 plane[P2_WIDTH];
+    UInt8 bgIndex[P2_WIDTH];
+    UInt8 who[P2_WIDTH];
     UInt16 pal[64];
     int width = line->p2 ? P2_WIDTH : P1_WIDTH;
+    int split = bg != NULL && hit != NULL;
     int i;
 
     if (dot < 0) {
         dst -= dot;
+        if (split) {
+            bg -= dot;
+            hit -= dot;
+        }
         count += dot;
         dot = 0;
     }
@@ -233,8 +245,12 @@ void v9990RenderPatternLine(UInt16* dst, int count, const UInt8* vram, const UIn
     else {
         composeP1(index, plane, vram, line);
     }
+    if (split) {
+        memcpy(bgIndex, index, width);
+        memset(who, 0xff, width);
+    }
     if (!(line->r8 & 0x40)) {
-        drawSprites(index, plane, width, vram, line);
+        drawSprites(index, plane, width, vram, line, split ? who : NULL);
     }
 
     for (i = 0; i < 64; i++) {
@@ -242,5 +258,11 @@ void v9990RenderPatternLine(UInt16* dst, int count, const UInt8* vram, const UIn
     }
     for (i = 0; i < count; i++) {
         dst[i] = pal[index[dot + i]];
+    }
+    if (split) {
+        for (i = 0; i < count; i++) {
+            bg[i]  = pal[bgIndex[dot + i]];
+            hit[i] = who[dot + i];
+        }
     }
 }

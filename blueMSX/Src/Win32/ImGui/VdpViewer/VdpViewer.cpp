@@ -113,6 +113,7 @@ PagesState&  pages()          { return pagesState; }
 static void armSplit(int family, int on)
 {
     if (family == CHIP_V99X8) vdpSprSplitArm(on);
+    else if (family == CHIP_V9990) v9990SprSplitArm(on);
 }
 
 static bool cardOpen[CHIP_FAMILY_COUNT][16];   /* the folding cards opened */

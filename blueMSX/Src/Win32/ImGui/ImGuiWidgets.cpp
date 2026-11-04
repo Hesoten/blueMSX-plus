@@ -819,6 +819,43 @@ static const char* const shipSmallRows[] = {
 static const PixelArt shipSmall = { 12, 8, shipSmallRows, NULL };
 const PixelArt UI_ART_SHIP = { 16, 11, shipRows, &shipSmall };
 
+/* A mouse pointer: an arrow pointing up and left, its tail slanting down to the right. */
+static const char* const cursorRows[] = {
+    "#.........",
+    "##........",
+    "#.#.......",
+    "#..#......",
+    "#...#.....",
+    "#....#....",
+    "#.....#...",
+    "#......#..",
+    "#.......#.",
+    "#........#",
+    "#.....####",
+    "#..#..#...",
+    "#.#.#..#..",
+    "##..#..#..",
+    ".....#..#.",
+    ".....####.",
+};
+/* The same pointer for 150 %, as the ship has one. */
+static const char* const cursorSmallRows[] = {
+    "#......",
+    "##.....",
+    "#.#....",
+    "#..#...",
+    "#...#..",
+    "#....#.",
+    "#.....#",
+    "#...###",
+    "#.#.#..",
+    "##.#.#.",
+    "...#.#.",
+    "...###.",
+};
+static const PixelArt cursorSmall = { 7, 12, cursorSmallRows, NULL };
+const PixelArt UI_ART_CURSOR = { 10, 16, cursorRows, &cursorSmall };
+
 /* A strip of film on end: perforated edges and frames one under the other. */
 static const char* const filmRows[] = {
     "############",

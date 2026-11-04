@@ -111,7 +111,7 @@ const void* frameShot(unsigned* version);
 /* Called each frame a picture is on show, so that the next ones are copied;
 ** pixels false when only what goes with the samples is read (V99x8 only). */
 void        wantFrame(bool pixels = true);
-/* Called each frame Output shows its sprites split off (V99x8 only). */
+/* Called each frame Output shows its sprites (the V9990's cursors in its bitmap modes) split off. */
 void        wantSpriteSplit();
 /* Called each frame a V99x8 view is drawn, so the tables and palettes each line used are recorded. */
 void        wantSpriteTables();

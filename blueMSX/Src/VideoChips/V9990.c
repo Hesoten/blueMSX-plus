@@ -590,10 +590,10 @@ static void expandDots(UInt16* line, int first, int end, int origin, int sampleW
     }
 }
 
-/* Draws the two 32x32 cursors (0 on top) over display dots [dot0, dot0 + n), nonzero if
-** one has dots here. X counts display dots and Y display lines (in non-overscan lines),
-** both rolling at 1024x512; Y + 1 is shown, Y + 2 in interlace. */
-static int drawCursors(V9990* v9990, UInt16* dots, int dot0, int n, int scanLine)
+/* Draws the two 32x32 cursors (0 on top) over display dots [dot0, dot0 + n), nonzero if one
+** has dots here. X counts display dots, Y non-overscan lines, both wrapping at 1024x512; Y + 1
+** is shown (Y + 2 in interlace). who, unless NULL, gets 0x80 + the cursor whose dot shows. */
+static int drawCursors(V9990* v9990, UInt16* dots, int dot0, int n, int scanLine, UInt8* who)
 {
     UInt32 pattern[2];
     UInt16 color[2];
@@ -656,6 +656,9 @@ static int drawCursors(V9990* v9990, UInt16* dots, int dot0, int n, int scanLine
 
             if (bit < 32 && (pattern[c] & (0x80000000u >> bit))) {
                 dots[i] = (flags[c] & 0xc0) ? color[c] : dots[i] ^ 0x7fff;
+                if (who != NULL) {
+                    who[i] = (UInt8)(0x80 | c);
+                }
                 break;
             }
         }
@@ -670,17 +673,72 @@ static UInt16 shotRowX[V9990_SHOT_ROWS];
 /* The same for each P1/P2 layer, 0xffff in y for rows not drawn from it. */
 static UInt16 shotLayerY[2][V9990_SHOT_ROWS];
 static UInt16 shotLayerX[2][V9990_SHOT_ROWS];
+/* Each row's display dot geometry, as in V9990FrameShot; dotUc 0 until a display span is drawn. */
+static Int16  shotDotOrg[V9990_SHOT_ROWS];
+static UInt8  shotDotUc[V9990_SHOT_ROWS];
+static UInt8  shotSampleUc[V9990_SHOT_ROWS];
+
+/* The sprite split of theV9990's rows, written on the emulator thread only; a row
+** belongs to the frame in progress while its stamp is splitEpoch. */
+static volatile int splitArmed;
+static int    splitArmCount;
+static UInt32 splitEpoch = 1;
+static UInt32 splitStamp[V9990_SHOT_ROWS];
+static UInt16 splitBg[V9990_SHOT_ROWS][V9990_SHOT_WIDTH];
+static UInt8  splitHit[V9990_SHOT_ROWS][V9990_SHOT_WIDTH];
+static UInt8  splitAttr[512];
+static int    splitAttrValid;   /* 0 none, 1 the sprite table, 2 the cursor attributes */
 
 /* Set while the tap runs at theV9990's last displayed line, which is drawn
 ** but renderLine not yet stepped past. */
 static int    atShown;
 
+typedef struct {
+    UInt16* bg;
+    UInt8*  hit;
+    int     filled;
+} V9990Split;
+
+/* The row as drawn so far, with no sprite or cursor on it. */
+static void splitFill(V9990Split* sp, const UInt16* line, int count)
+{
+    if (count > V9990_SHOT_WIDTH) {
+        count = V9990_SHOT_WIDTH;
+    }
+    memcpy(sp->bg, line, count * sizeof(UInt16));
+    memset(sp->hit, 0xff, count);
+    sp->filled = 1;
+}
+
+/* expandDots for who: a sample shows a cursor if either dot it covers does. */
+static void expandHits(UInt8* hit, int first, int end, int origin, int sampleW,
+                       int dotW, const UInt8* who, int dot0, int n)
+{
+    int x;
+
+    for (x = first; x < end; x++) {
+        int u = origin + x * sampleW;
+        int d = floorDiv(u, dotW);
+        int f = u - d * dotW;
+        UInt8 h;
+
+        d -= dot0;
+        h = d >= 0 && d < n ? who[d] : 0xff;
+        if (h == 0xff && f + sampleW > dotW && d + 1 >= 0 && d + 1 < n) {
+            h = who[d + 1];
+        }
+        hit[x] = h;
+    }
+}
+
 /* Draws the bitmap image over the samples of a line that the display
-** [0, displayW) covers, in the units of expandDots. */
+** [0, displayW) covers, in the units of expandDots; sp, unless NULL, gets the split. */
 static void drawBitmap(V9990* v9990, UInt16* line, int count, int origin, int sampleW,
-                       int dotW, int displayW, int scanLine)
+                       int dotW, int displayW, int scanLine, V9990Split* sp)
 {
     static UInt16 dots[FB_MAX_LINE_WIDTH + 2];
+    static UInt16 bgDots[FB_MAX_LINE_WIDTH + 2];
+    static UInt8  who[FB_MAX_LINE_WIDTH + 2];
     V9990Mode mode = v9990->mode;
     UInt32 scrollX = v9990->regs[R_SCROLL_AX_LO] | (v9990->regs[R_SCROLL_AX_HI] << 3);
     UInt32 scrollY = v9990->regs[R_SCROLL_AY_LO] | (v9990->latchScrollAYHi << 8);
@@ -693,6 +751,15 @@ static void drawBitmap(V9990* v9990, UInt16* line, int count, int origin, int sa
     int hiRes;
     int shotY;
 
+    if (sp != NULL) {
+        splitFill(sp, line, count);
+    }
+    shotY = scanLine - v9990->windowTopLine;
+    if (v9990 == theV9990 && shotY >= 0 && shotY < V9990_SHOT_ROWS) {
+        shotDotOrg[shotY]   = (Int16)origin;
+        shotDotUc[shotY]    = (UInt8)dotW;
+        shotSampleUc[shotY] = (UInt8)sampleW;
+    }
     if (first < 0) {
         first = 0;
     }
@@ -727,7 +794,6 @@ static void drawBitmap(V9990* v9990, UInt16* line, int count, int origin, int sa
         row = 2 * row + (v9990->secondField ? 1 : 0);
     }
     row = (scrollY & ~mask & 0x1fff) + ((row + scrollY) & mask);
-    shotY = scanLine - v9990->windowTopLine;
     /* As for the layers: a row of a mode the frame was not latched in is in another geometry. */
     if (v9990 == theV9990 && mode == v9990->frameMode && shotY >= 0 && shotY < V9990_SHOT_ROWS) {
         shotRowY[shotY] = (UInt16)row;
@@ -738,15 +804,32 @@ static void drawBitmap(V9990* v9990, UInt16* line, int count, int origin, int sa
             mode == V9990_MODE_B6 || mode == V9990_MODE_B7;
     v9990RenderBitmapLine(dots, dot1 - dot0, v9990->vram, v9990->palette,
                           v9990->modeR6, v9990->regs[R_PALETTE_CTRL], dot0 + scrollX, row, hiRes);
-    if (!drawCursors(v9990, dots, dot0, dot1 - dot0, scanLine)) {
+    if (sp != NULL) {
+        memcpy(bgDots, dots, (dot1 - dot0) * sizeof(UInt16));
+        memset(who, 0xff, dot1 - dot0);
+        if (!splitAttrValid) {
+            int i;
+            for (i = 0; i < 16; i++) {
+                splitAttr[i] = v9990->vram[V9990_MAP_BX(0x7fe00 + i)];
+            }
+            splitAttrValid = 2;
+        }
+    }
+    if (!drawCursors(v9990, dots, dot0, dot1 - dot0, scanLine, sp != NULL ? who : NULL)) {
         maskLine(dots, dot1 - dot0, v9990->ysMask);
     }
     expandDots(line, first, end, origin, sampleW, dotW, dots, dot0, dot1 - dot0);
+    if (sp != NULL) {
+        maskLine(bgDots, dot1 - dot0, v9990->ysMask);
+        expandDots(sp->bg, first, end, origin, sampleW, dotW, bgDots, dot0, dot1 - dot0);
+        expandHits(sp->hit, first, end, origin, sampleW, dotW, who, dot0, dot1 - dot0);
+    }
 }
 
-/* Draws a P1 or P2 line over its display samples. Layer B always rolls at 512 lines. */
+/* Draws a P1 or P2 line over its display samples. Layer B always rolls at 512 lines.
+** sp, unless NULL, gets the split. */
 static void drawPattern(V9990* v9990, UInt16* line, int count, int ucPerSample,
-                        int window, int left, int right, int scanLine)
+                        int window, int left, int right, int scanLine, V9990Split* sp)
 {
     V9990PatternLine p;
     UInt32 scrollAY = v9990->regs[R_SCROLL_AY_LO] | (v9990->latchScrollAYHi << 8);
@@ -757,6 +840,16 @@ static void drawPattern(V9990* v9990, UInt16* line, int count, int ucPerSample,
     int dot;
     int shotY;
 
+    if (sp != NULL) {
+        splitFill(sp, line, count);
+    }
+    /* A sample is one dot, the one under its centre. */
+    shotY = scanLine - v9990->windowTopLine;
+    if (v9990 == theV9990 && shotY >= 0 && shotY < V9990_SHOT_ROWS) {
+        shotDotOrg[shotY]   = (Int16)(window - left + ucPerSample / 2);
+        shotDotUc[shotY]    = (UInt8)ucPerSample;
+        shotSampleUc[shotY] = (UInt8)ucPerSample;
+    }
     if (!displaySpan(count, ucPerSample, window, left, right, &first, &end, &dot)) {
         return;
     }
@@ -774,7 +867,6 @@ static void drawPattern(V9990* v9990, UInt16* line, int count, int ucPerSample,
     p.r27 = v9990->regs[R_PRIORITY];
 
     /* A line drawn in a mode the frame was not latched in would be read in the wrong geometry. */
-    shotY = scanLine - v9990->windowTopLine;
     if (v9990 == theV9990 && v9990->mode == v9990->frameMode && shotY >= 0 && shotY < V9990_SHOT_ROWS) {
         shotLayerY[0][shotY] = (UInt16)p.ay;
         shotLayerX[0][shotY] = (UInt16)p.ax;
@@ -784,13 +876,21 @@ static void drawPattern(V9990* v9990, UInt16* line, int count, int ucPerSample,
         }
     }
 
-    v9990RenderPatternLine(line + first, end - first, v9990->vram, v9990->palette, &p, dot);
+    if (sp != NULL && !splitAttrValid) {
+        memcpy(splitAttr, v9990->vram + 0x3fe00, sizeof(splitAttr));
+        splitAttrValid = 1;
+    }
+    v9990RenderPatternLine(line + first, end - first, v9990->vram, v9990->palette, &p, dot,
+                           sp != NULL ? sp->bg + first : NULL, sp != NULL ? sp->hit + first : NULL);
     maskLine(line + first, end - first, v9990->ysMask);
+    if (sp != NULL) {
+        maskLine(sp->bg + first, end - first, v9990->ysMask);
+    }
 }
 
 /* Draws a B5/B6 scan line: the 640 dots fill the 1088 samples, moved by
 ** the set-adjust in 4-dot units, with blanking where they do not reach. */
-static void drawHighScanLine(V9990* v9990, UInt16* line, int count, int scanLine)
+static void drawHighScanLine(V9990* v9990, UInt16* line, int count, int scanLine, V9990Split* sp)
 {
     int shift = adjustOffset(v9990->latchAdjust & 0x0f) * 4;
     UInt16 backdrop = paletteColor(v9990, v9990->regs[R_BACKDROP]) & v9990->ysMask;
@@ -808,13 +908,13 @@ static void drawHighScanLine(V9990* v9990, UInt16* line, int count, int scanLine
         return;
     }
     drawBitmap(v9990, line, count, -shift * V9990_HS_DOT_W, V9990_HS_SAMPLE_W,
-               V9990_HS_DOT_W, V9990_HS_DOTS * V9990_HS_DOT_W, scanLine);
+               V9990_HS_DOT_W, V9990_HS_DOTS * V9990_HS_DOT_W, scanLine, sp);
 }
 
 /* Draws scan line scanLine (counted from lineZero) into frame buffer line y.
 ** Lines hold frameWidth << shift samples of 8 >> shift UC: B0 and B2 dots
-** are 3 samples wide, B4 dots 1.5. */
-static void drawLine(V9990* v9990, FrameBuffer* frame, int y, int scanLine)
+** are 3 samples wide, B4 dots 1.5. sp, unless NULL, gets the split of a display span. */
+static void drawLine(V9990* v9990, FrameBuffer* frame, int y, int scanLine, V9990Split* sp)
 {
     V9990Mode mode = v9990->mode;
     int dotW = dotUc(mode);
@@ -851,7 +951,7 @@ static void drawLine(V9990* v9990, FrameBuffer* frame, int y, int scanLine)
         return;
     }
     if (isHighScan(v9990->frameMode)) {
-        drawHighScanLine(v9990, line, count, scanLine);
+        drawHighScanLine(v9990, line, count, scanLine, sp);
         return;
     }
 
@@ -881,10 +981,10 @@ static void drawLine(V9990* v9990, FrameBuffer* frame, int y, int scanLine)
     }
 
     if (isBitmap(mode)) {
-        drawBitmap(v9990, line, count, window - left, ucPerSample, dotW, right - left, scanLine);
+        drawBitmap(v9990, line, count, window - left, ucPerSample, dotW, right - left, scanLine, sp);
     }
     else {
-        drawPattern(v9990, line, count, ucPerSample, window, left, right, scanLine);
+        drawPattern(v9990, line, count, ucPerSample, window, left, right, scanLine, sp);
     }
 }
 
@@ -919,12 +1019,24 @@ static void renderLines(V9990* v9990, int endLine)
 {
     FrameBuffer* frame;
     int lastShown = (v9990->displayEndLine < v9990->frameLines ? v9990->displayEndLine : v9990->frameLines) - 1;
+    int record;
 
     if (endLine > v9990->frameLines) {
         endLine = v9990->frameLines;
     }
     if (v9990->renderLine >= endLine) {
         return;
+    }
+
+    /* A reset or load draws on another thread while a capture may read the split. */
+    record = 0;
+    if (v9990 == theV9990) {
+        if (emulatorIsEmuThread()) {
+            record = splitArmed;
+        }
+        else {
+            splitEpoch++;
+        }
     }
 
     frame = frameBufferGetDrawFrameOf(v9990->frameBufferData);
@@ -934,7 +1046,19 @@ static void renderLines(V9990* v9990, int endLine)
 
         syncMode(v9990, v9990->frameStartTime + v9990->lineZero + scanLine * v9990->lineTicks);
         if (frame != NULL && y >= 0 && y < v9990->fbLines) {
-            drawLine(v9990, frame, y, scanLine);
+            V9990Split sp;
+            int split = record && y < V9990_SHOT_ROWS;
+
+            sp.bg     = splitBg[y < V9990_SHOT_ROWS ? y : 0];
+            sp.hit    = splitHit[y < V9990_SHOT_ROWS ? y : 0];
+            sp.filled = 0;
+            drawLine(v9990, frame, y, scanLine, split ? &sp : NULL);
+            if (split) {
+                if (!sp.filled) {
+                    splitFill(&sp, frameBufferGetLine(frame, y), frame->maxWidth << frameBufferGetLineShift(frame, y));
+                }
+                splitStamp[y] = splitEpoch;
+            }
         }
         if (scanLine == lastShown) {
             savePictureColours(v9990);
@@ -1126,6 +1250,9 @@ static void startPicture(V9990* v9990, FrameBuffer* frame)
     if (v9990 == theV9990) {
         memset(shotRowY, 0xff, sizeof(shotRowY));
         memset(shotLayerY, 0xff, sizeof(shotLayerY));
+        memset(shotDotUc, 0, sizeof(shotDotUc));
+        splitEpoch++;
+        splitAttrValid = 0;
     }
     if (frame == NULL) {
         return;
@@ -1786,6 +1913,19 @@ static void shotCopyRow(V9990FrameShot* out, int y, FrameBuffer* frame)
     memcpy(out->pix[y], frameBufferGetLine(frame, y), width * sizeof(UInt16));
 }
 
+/* The geometry and split of row y of the frame in progress, after shotCopyRow. */
+static void shotCopyLive(V9990FrameShot* out, int y)
+{
+    out->dotOrg[y]   = shotDotOrg[y];
+    out->dotUc[y]    = shotDotUc[y];
+    out->sampleUc[y] = shotSampleUc[y];
+    out->splitRow[y] = splitStamp[y] == splitEpoch;
+    if (out->splitRow[y]) {
+        memcpy(out->bg[y], splitBg[y], out->width[y] * sizeof(UInt16));
+        memcpy(out->hit[y], splitHit[y], out->width[y]);
+    }
+}
+
 static void shotSetLayout(V9990FrameShot* out, V9990* v9990, FrameBuffer* frame)
 {
     out->frameStart       = v9990->frameStartTime;
@@ -1839,8 +1979,12 @@ static void shotBeforeFlip(V9990* v9990)
     }
     shotBuf.valid = 0;
     shotSetLayout(&shotBuf, v9990, frame);
+    shotBuf.sprSplit = splitArmed != 0;
+    shotBuf.sprAttrValid = splitAttrValid;
+    memcpy(shotBuf.sprAttr, splitAttr, sizeof(splitAttr));
     for (y = 0; y < shotBuf.rows; y++) {
         shotCopyRow(&shotBuf, y, frame);
+        shotCopyLive(&shotBuf, y);
     }
     memcpy(shotBuf.rowY, shotRowY, sizeof(shotRowY));
     memcpy(shotBuf.rowX, shotRowX, sizeof(shotRowX));
@@ -1850,6 +1994,17 @@ static void shotBeforeFlip(V9990* v9990)
     shotOwner     = (UInt32)v9990->debugHandle + 1;
     shotRead      = 0;
     shotBuf.valid = 1;
+}
+
+void v9990SprSplitArm(int on)
+{
+    if (on) {
+        splitArmCount++;
+    }
+    else if (splitArmCount > 0) {
+        splitArmCount--;
+    }
+    splitArmed = splitArmCount > 0;
 }
 
 /* At the last displayed line, the frame shown; running, the last one copied.
@@ -1911,10 +2066,23 @@ int v9990DebugCaptureFrame(int index, V9990FrameShot* out)
     else {
         return 0;
     }
-    if (have || atShown) {
+    /* At the shown tap the copy is read only for the border rows below: a frame
+    ** that does not need them leaves the next copy to SHOT_EVERY. */
+    if (have && !atShown) {
         shotRead = 1;
     }
 
+    out->sprSplit = splitArmed != 0;
+    /* Paused, the table of the frame in progress once its first display line is drawn. */
+    out->sprAttrValid = 0;
+    if (out->drawnRow > 0 && splitAttrValid) {
+        out->sprAttrValid = splitAttrValid;
+        memcpy(out->sprAttr, splitAttr, sizeof(splitAttr));
+    }
+    else if (have && !atShown && shotBuf.sprAttrValid) {
+        out->sprAttrValid = shotBuf.sprAttrValid;
+        memcpy(out->sprAttr, shotBuf.sprAttr, sizeof(splitAttr));
+    }
     /* Where row 0 is displayed, the border below is the copy's, from a frame of this geometry. */
     fits = have && shotBuf.rows == out->rows && shotBuf.frameMode == out->frameMode &&
            shotBuf.frameLines == out->frameLines && shotBuf.windowTopLine == out->windowTopLine &&
@@ -1926,8 +2094,11 @@ int v9990DebugCaptureFrame(int index, V9990FrameShot* out)
             out->layerY[k][y] = 0xffff;
             out->layerX[k][y] = 0;
         }
+        out->dotUc[y]    = 0;
+        out->splitRow[y] = 0;
         if (y < out->drawnRow) {
             shotCopyRow(out, y, draw);
+            shotCopyLive(out, y);
             out->rowY[y] = shotRowY[y];
             out->rowX[y] = shotRowX[y];
             for (k = 0; k < 2; k++) {
@@ -1960,6 +2131,14 @@ int v9990DebugCaptureFrame(int index, V9990FrameShot* out)
                 }
             }
             memcpy(out->pix[y], shotBuf.pix[y], shotBuf.width[y] * sizeof(UInt16));
+            out->dotOrg[y]   = shotBuf.dotOrg[y];
+            out->dotUc[y]    = shotBuf.dotUc[y];
+            out->sampleUc[y] = shotBuf.sampleUc[y];
+            out->splitRow[y] = shotBuf.splitRow[y];
+            if (out->splitRow[y]) {
+                memcpy(out->bg[y], shotBuf.bg[y], shotBuf.width[y] * sizeof(UInt16));
+                memcpy(out->hit[y], shotBuf.hit[y], shotBuf.width[y]);
+            }
         }
         else if (prev != NULL && y < frameBufferGetLineCount(prev)) {
             shotCopyRow(out, y, prev);
@@ -2011,6 +2190,9 @@ V9990* v9990Create(void)
     /* Its first frame started before it became theV9990. */
     memset(shotRowY, 0xff, sizeof(shotRowY));
     memset(shotLayerY, 0xff, sizeof(shotLayerY));
+    memset(shotDotUc, 0, sizeof(shotDotUc));
+    splitEpoch++;
+    splitAttrValid = 0;
 
     return v9990;
 }

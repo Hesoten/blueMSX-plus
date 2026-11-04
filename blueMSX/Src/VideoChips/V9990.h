@@ -143,12 +143,30 @@ typedef struct {
     UInt16 layerY[2][V9990_SHOT_ROWS]; /* [0] P1's A or P2's layer, [1] P1's B: the image line drawn, 0xffff when not drawn from it */
     UInt16 layerX[2][V9990_SHOT_ROWS]; /* its image dot at the display's left */
     UInt16 pix[V9990_SHOT_ROWS][V9990_SHOT_WIDTH];
+    /* Sample x of a row shows display dot floor((dotOrg + x * sampleUc) / dotUc); dotUc 0: no display dot. */
+    Int16  dotOrg[V9990_SHOT_ROWS];
+    UInt8  dotUc[V9990_SHOT_ROWS];
+    UInt8  sampleUc[V9990_SHOT_ROWS];
+    /* While the sprite split is armed, rows with splitRow 1 also hold the row drawn without
+    ** sprites and cursors (bg) and per sample the sprite (0-124) or 0x80 + cursor shown there (hit, 0xff none). */
+    int    sprSplit;
+    UInt8  splitRow[V9990_SHOT_ROWS];
+    UInt16 bg[V9990_SHOT_ROWS][V9990_SHOT_WIDTH];
+    UInt8  hit[V9990_SHOT_ROWS][V9990_SHOT_WIDTH];
+    /* While armed, as the first display line split read them: 1, the P1/P2 sprite attribute
+    ** table (physical 3FE00); 2, the bitmap modes' 16 cursor attribute bytes from 7FE00; 0, none. */
+    int    sprAttrValid;
+    UInt8  sprAttr[512];
 } V9990FrameShot;
 
 /* Copies the picture of the chip on the same terms. Asking also has the chip
 ** copy each frame it completes from now on for a while, so the first answers
 ** after a pause in asking are stale or not valid. */
 int v9990DebugCaptureFrame(int index, V9990FrameShot* out);
+
+/* Starts (on) or stops recording the sprite split of the V9990's frames; calls
+** nest. UI thread only. Costs a copy of each line's dots while it lasts. */
+void v9990SprSplitArm(int on);
 
 #ifdef __cplusplus
 }
