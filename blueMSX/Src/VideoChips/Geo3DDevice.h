@@ -27,6 +27,14 @@
 #include "MsxTypes.h"
 #include "Geo3DDebug.h"
 
+/* Trace kinds of class GEO3D; a is the RUN number unless noted. RUN: BEGIN b = items,
+** its CONT a = first | count << 16, b = vfirst | nvert << 16; END b = commands. ISSUE, at
+** its due time: a = command index, b = RUN. WAIT, the CPU on RUN busy: END a = busy reads. */
+#define GEO3D_TRACE_RUN       1
+#define GEO3D_TRACE_XFORM_END 2
+#define GEO3D_TRACE_ISSUE     3
+#define GEO3D_TRACE_WAIT      4
+
 typedef struct Geo3DDevice Geo3DDevice;
 struct VDP;
 struct Geo3D;

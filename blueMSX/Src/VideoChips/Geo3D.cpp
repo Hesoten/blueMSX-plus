@@ -180,6 +180,20 @@ extern "C" int geo3dDebugHasRun(Geo3D* geo3d, UInt32 seq)
     return geo3d->core.debugRun(seq) != nullptr;
 }
 
+extern "C" int geo3dDebugRunRange(Geo3D* geo3d, UInt32 seq, UInt32* items, UInt32* verts,
+                                  UInt32* xfEndClock)
+{
+    const Geo3DCore::DebugRun* r = geo3d->core.debugRun(seq);
+
+    if (r == nullptr) {
+        return 0;
+    }
+    *items      = r->first | ((UInt32)r->count << 16);
+    *verts      = r->vfirst | ((UInt32)r->nvert << 16);
+    *xfEndClock = r->xfEndClk;
+    return 1;
+}
+
 extern "C" int geo3dDebugRunYpage(Geo3D* geo3d, UInt32 seq)
 {
     const Geo3DCore::DebugRun* r = geo3d->core.debugRun(seq);

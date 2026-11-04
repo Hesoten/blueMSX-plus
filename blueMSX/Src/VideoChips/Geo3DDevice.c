@@ -31,6 +31,8 @@
 #include "Geo3D.h"
 #include "VDP.h"
 #include "Emulator.h"
+#include "DebugTrace.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -88,6 +90,11 @@ struct Geo3DDevice {
     int         faces;      /* the RUN fills faces: its LINEs are fill rows */
     RunStamp    stamps[RUN_STAMPS];
     UInt32      epoch;      /* new at each reset and state load, unique across devices */
+    /* Trace only, never saved: the CPU's wait on RUN busy so far. */
+    UInt16      traceSource;
+    int         traceWaiting;
+    UInt32      traceBusyReads;
+    UInt32      traceEpoch;
 };
 
 #if RUN_STAMPS > GEO3D_DEBUG_RUNS
@@ -100,6 +107,40 @@ static Geo3DDevice* volatile debugGeo3ds[2];
 static volatile UInt64 debugSince[2];
 static UInt32 debugEpochs;
 static volatile Geo3DDebugRunSink debugRunSink;
+
+static const DebugTraceField traceRunFields[] = {
+    { "run",      DEBUG_TRACE_WORD_A,      0,  32, DEBUG_TRACE_DEC, 0,      NULL, 0 },
+    { "items",    DEBUG_TRACE_WORD_B,      0,  32, DEBUG_TRACE_DEC, 1 << 1, NULL, 0 },
+    { "commands", DEBUG_TRACE_WORD_B,      0,  32, DEBUG_TRACE_DEC, 1 << 2, NULL, 0 },
+    { "first",    DEBUG_TRACE_WORD_CONT_A, 0,  16, DEBUG_TRACE_DEC, 0,      NULL, 0 },
+    { "count",    DEBUG_TRACE_WORD_CONT_A, 16, 16, DEBUG_TRACE_DEC, 0,      NULL, 0 },
+    { "vfirst",   DEBUG_TRACE_WORD_CONT_B, 0,  16, DEBUG_TRACE_DEC, 0,      NULL, 0 },
+    { "nvert",    DEBUG_TRACE_WORD_CONT_B, 16, 16, DEBUG_TRACE_DEC, 0,      NULL, 0 },
+};
+
+static const DebugTraceField traceXformFields[] = {
+    { "run", DEBUG_TRACE_WORD_A, 0, 32, DEBUG_TRACE_DEC, 0, NULL, 0 },
+};
+
+static const DebugTraceField traceIssueFields[] = {
+    { "index", DEBUG_TRACE_WORD_A,    0, 32, DEBUG_TRACE_DEC, 0, NULL, 0 },
+    { "run",   DEBUG_TRACE_WORD_B,    0, 32, DEBUG_TRACE_DEC, 0, NULL, 0 },
+    { "link",  DEBUG_TRACE_WORD_LINK, 0, 32, DEBUG_TRACE_DEC, 0, NULL, 0 },
+};
+
+static const DebugTraceField traceWaitFields[] = {
+    { "reads", DEBUG_TRACE_WORD_A, 0, 32, DEBUG_TRACE_DEC, 1 << 2, NULL, 0 },
+    { "run",   DEBUG_TRACE_WORD_B, 0, 32, DEBUG_TRACE_DEC, 0,      NULL, 0 },
+};
+
+static const DebugTraceKindDesc traceKinds[] = {
+    { GEO3D_TRACE_RUN,       "run",       traceRunFields,   7 },
+    { GEO3D_TRACE_XFORM_END, "xform end", traceXformFields, 1 },
+    { GEO3D_TRACE_ISSUE,     "issue",     traceIssueFields, 3 },
+    { GEO3D_TRACE_WAIT,      "wait",      traceWaitFields,  2 },
+};
+
+static const DebugTraceClassDesc traceClass = { "geo3d", traceKinds, 4 };
 
 static UInt32 later(UInt32 a, UInt32 b)
 {
@@ -191,12 +232,23 @@ static void issue(Geo3DDevice* dev, UInt32 now)
     int count;
     int fill;
     int i;
+    UInt32 link = 0;
 
     geo3dPeekCommand(dev->geo3d, &readyEc);
     count = geo3dNextCommand(dev->geo3d, regs, values);
     fill = dev->faces && count == 11;
+    if (DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_GEO3D) | DEBUG_TRACE_BIT(DEBUG_TRACE_VDPCMD))) {
+        link = debugTraceNewLink();
+        vdpSetCommandTraceLink(dev->vdp, link);
+        DEBUG_TRACE(DEBUG_TRACE_GEO3D, dev->traceSource, GEO3D_TRACE_ISSUE,
+                    boardSystemTime() - (UInt32)(late / UNITS_PER_TICK), link, dev->issued,
+                    geo3dDebugLastSeq(dev->geo3d));
+    }
     for (i = 0; i < count; i++) {
         vdpWriteCommandRegister(dev->vdp, regs[i], values[i], fill && regs[i] == 46);
+    }
+    if (link != 0) {
+        vdpSetCommandTraceLink(dev->vdp, 0);
     }
     vdpAddCommandCredit(dev->vdp, late < MAX_CREDIT ? late : MAX_CREDIT);
 
@@ -205,6 +257,22 @@ static void issue(Geo3DDevice* dev, UInt32 now)
     dev->ready     = dev->nextReady;
     dev->issueEnd  = dev->nextEnd;
     dev->phase     = PH_WAIT_CE;
+}
+
+/* Both are past by the time the RUN is seen to end, so neither is dated ahead. */
+static void traceRunEnd(Geo3DDevice* dev, UInt32 seq, UInt32 time, UInt32 now)
+{
+    UInt32 items;
+    UInt32 verts;
+    UInt32 xfEnd;
+
+    if (geo3dDebugRunRange(dev->geo3d, seq, &items, &verts, &xfEnd)) {
+        xfEnd = dev->runTime + xfEnd * UNITS_PER_EC;
+        debugTraceEmit(dev->traceSource, GEO3D_TRACE_XFORM_END,
+                       time - (UInt32)((Int32)(now - xfEnd) / UNITS_PER_TICK), 0, seq, 0);
+    }
+    debugTraceEmit(dev->traceSource, GEO3D_TRACE_RUN | DEBUG_TRACE_END,
+                   time - (UInt32)((Int32)(now - dev->due) / UNITS_PER_TICK), 0, seq, (UInt32)dev->issued);
 }
 
 /* Plays the RUN up to now, then sets the timer for what comes next. */
@@ -250,6 +318,9 @@ static void pump(Geo3DDevice* dev)
                 if (seq != 0 && s->seq == seq) {
                     s->end   = boardSystemTime() - (UInt32)((Int32)(now - dev->due) / UNITS_PER_TICK);
                     s->ended = 1;
+                }
+                if (DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_GEO3D))) {
+                    traceRunEnd(dev, seq, time, now);
                 }
                 geo3dFinishRun(dev->geo3d);
                 dev->phase = PH_IDLE;
@@ -298,6 +369,14 @@ static void startRun(Geo3DDevice* dev)
         if (sink != NULL) {
             sink(dev->vdp != NULL, dev->epoch, seq, dev->geo3d, s->start);
         }
+    }
+    if (DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_GEO3D))) {
+        UInt32 items = 0;
+        UInt32 verts = 0;
+        UInt32 xfEnd;
+        geo3dDebugRunRange(dev->geo3d, seq, &items, &verts, &xfEnd);
+        debugTraceEmit(dev->traceSource, GEO3D_TRACE_RUN | DEBUG_TRACE_BEGIN, s->start, 0, seq, items >> 16);
+        debugTraceEmit(dev->traceSource, GEO3D_TRACE_RUN | DEBUG_TRACE_CONT, s->start, 0, items, verts);
     }
     pump(dev);
 }
@@ -399,6 +478,7 @@ static void destroy(Geo3DDevice* dev)
     }
     /* Removing the cartridge while paused runs this on the UI thread. */
     emulatorTapBarrier();
+    debugTraceSourceUnregister(dev->traceSource);
 
     deviceManagerUnregister(dev->deviceHandle);
     debugDeviceUnregister(dev->debugHandle);
@@ -421,12 +501,38 @@ static void reset(Geo3DDevice* dev)
     dev->epoch = ++debugEpochs;
 }
 
+/* Edges of the CPU polling RUN busy on the status port, from the status it is given. */
+static void traceWait(Geo3DDevice* dev, int busy)
+{
+    UInt32 epoch = debugTraceEpoch();
+
+    if (dev->traceEpoch != epoch) {
+        dev->traceEpoch   = epoch;
+        dev->traceWaiting = 0;
+    }
+    if (busy && dev->traceWaiting) {
+        dev->traceBusyReads++;
+    }
+    else if (busy) {
+        dev->traceWaiting   = 1;
+        dev->traceBusyReads = 1;
+        debugTraceEmit(dev->traceSource, GEO3D_TRACE_WAIT | DEBUG_TRACE_BEGIN, boardSystemTime(), 0, 0,
+                       geo3dDebugLastSeq(dev->geo3d));
+    }
+    else if (dev->traceWaiting) {
+        dev->traceWaiting = 0;
+        debugTraceEmit(dev->traceSource, GEO3D_TRACE_WAIT | DEBUG_TRACE_END, boardSystemTime(), 0,
+                       dev->traceBusyReads, geo3dDebugLastSeq(dev->geo3d));
+    }
+}
+
 /* 9Dh is the index when written and the status when read, 9Fh the data; 8Dh
 ** and 8Fh on the cartridge. */
 static UInt8 read(Geo3DDevice* dev, UInt16 ioPort)
 {
     UInt32 ec;
     UInt32 edgeEnd;
+    UInt8 status;
 
     if (geo3dIsRunning(dev->geo3d)) {
         pump(dev);
@@ -435,7 +541,11 @@ static UInt8 read(Geo3DDevice* dev, UInt16 ioPort)
     if (ioPort & 0x02) {
         return geo3dReadData(dev->geo3d, ec, edgeEnd);
     }
-    return geo3dReadStatus(dev->geo3d, ec, edgeEnd);
+    status = geo3dReadStatus(dev->geo3d, ec, edgeEnd);
+    if (DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_GEO3D))) {
+        traceWait(dev, status & 0x01);
+    }
+    return status;
 }
 
 static UInt8 peek(Geo3DDevice* dev, UInt16 ioPort)
@@ -481,6 +591,7 @@ static Geo3DDevice* create(int port, struct VDP* vdp, const char* stateName, con
     DeviceCallbacks callbacks = { destroy, reset, saveState, loadState };
     DebugCallbacks dbgCallbacks = { getDebugInfo, NULL, NULL, NULL };
     Geo3DDevice* dev = calloc(1, sizeof(Geo3DDevice));
+    char traceName[32];
 
     dev->port      = port;
     dev->vdp       = vdp;
@@ -493,6 +604,11 @@ static Geo3DDevice* create(int port, struct VDP* vdp, const char* stateName, con
 
     dev->geo3d = geo3dCreate();
     dev->timer = boardTimerCreate(onTimer, dev);
+
+    /* Its VDP's trace name and " geo3d", as "VDP geo3d", so a tool can pair them. */
+    _snprintf(traceName, sizeof(traceName) - 1, "%s geo3d", vdpGetTraceName(vdp));
+    traceName[sizeof(traceName) - 1] = 0;
+    dev->traceSource = debugTraceSourceRegister(DEBUG_TRACE_GEO3D, &traceClass, traceName);
 
     ioPortRegister(port,     read, write, dev);
     ioPortRegister(port + 2, read, write, dev);
