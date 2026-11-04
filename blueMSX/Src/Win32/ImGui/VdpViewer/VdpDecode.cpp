@@ -81,6 +81,14 @@ int vdpSpriteMode(int mode)
     return mode >= 4 && mode <= 12 ? 2 : 0;
 }
 
+const char* vdpCmdName(int cm, bool ext)
+{
+    static const char* names[16] = { "STOP", "-", "-", "-", "POINT", "PSET", "SRCH", "LINE",
+                                     "LMMV", "LMMM", "LMCM", "LMMC", "HMMV", "HMMM", "YMMM", "HMMC" };
+    static const char* extNames[4] = { "STOP", "LFMM", "LFMC", "LRMM" };
+    return ext && (cm & 15) < 4 ? extNames[cm & 15] : names[cm & 15];
+}
+
 const char* vdpModeName(int mode)
 {
     switch (mode) {

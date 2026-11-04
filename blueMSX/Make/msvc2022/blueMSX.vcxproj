@@ -737,6 +737,14 @@
       <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\Geo3DPerf.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\Geo3DPerfStrip.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
     <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\Geo3DRunLog.cpp">
       <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1236,6 +1244,8 @@
     <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\VdpCmd9968.h" />
     <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\Geo3DPanel.h" />
     <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\SpanHold.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\Geo3DPerf.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\Geo3DPerfStrip.h" />
     <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\Geo3DRunLog.h" />
     <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\VdpRaster.h" />
     <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\VdpParts.h" />

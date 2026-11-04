@@ -110,16 +110,6 @@ void sheetCell(int ch, int* x, int* y)
     *y = (third * 8 + c / 32) * 8;
 }
 
-const char* cmdName(const VdpDebugState* s, int cm)
-{
-    static const char* names[16] = { "STOP", "-", "-", "-", "POINT", "PSET", "SRCH", "LINE",
-                                     "LMMV", "LMMM", "LMCM", "LMMC", "HMMV", "HMMM", "YMMM", "HMMC" };
-    static const char* ext[4] = { "STOP", "LFMM", "LFMC", "LRMM" };
-    /* A V9968 with R#21 bit 0 V58 clear takes codes 1-3 as its own commands. */
-    bool v9968 = s->version == VDP_V9968 && !(s->regs[21] & 1);
-    return v9968 && (cm & 15) < 4 ? ext[cm & 15] : names[cm & 15];
-}
-
 const char* logOpName(int lo)
 {
     static const char* names[16] = { "IMP", "AND", "OR", "EOR", "NOT", "-", "-", "-",
@@ -274,11 +264,19 @@ public:
             drawBottom(s, f, paneH);
             return;
         }
+        if (strcmp(d[v].key, "geo3d") == 0) {
+            /* The drawing time card goes under the tab's card as the pages do, while it has a picture. */
+            float paneH = fmaxf(0.0f, g3d.bottomHeight(s, ImGui::GetContentRegionAvail().y - ui::Px(8) - shell::pagesChromeH(true)));
+            ui::BeginTabCard("card", g3d.hasBottom() ? -(ui::Px(8) + shell::pagesChromeH(g3d.bottomOpen()) + paneH) : 0);
+            g3d.drawTab(s, f, raster);
+            ui::EndTabCard();
+            g3d.drawBottom(paneH);
+            return;
+        }
         ui::BeginTabCard("card");
         if (strcmp(d[v].key, "patterns") == 0) drawPatterns(s, f);
         else if (strcmp(d[v].key, "bitmap") == 0) drawBitmap(s, f);
         else if (strcmp(d[v].key, "sprites") == 0) drawSprites(s, f);
-        else if (strcmp(d[v].key, "geo3d") == 0) g3d.drawTab(s, f, raster);
         else drawVram(s, f);
         ui::EndTabCard();
     }
@@ -6881,7 +6879,7 @@ private:
         if (ce) ui::ItemTip(ts(TS_CMD_NOTE));
         ImGui::SameLine();
         ImGui::AlignTextToFramePadding();
-        ImGui::Text("%s  %s", cmdName(s, cmr >> 4), logOpName(cmr & 15));
+        ImGui::Text("%s  %s", vdpCmdName(cmr >> 4, s->version == VDP_V9968 && !(s->regs[21] & 1)), logOpName(cmr & 15));
         if (!ui::BeginKeyValue("cmd")) return;
         cmdKeyValues(s);
         if (s->geo3d.valid) {

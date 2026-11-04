@@ -33,6 +33,7 @@
 #include "VdpDecode.h"
 #include "VdpRaster.h"
 #include "VdpParts.h"
+#include "Geo3DPerfStrip.h"
 #include "SpanHold.h"
 #include "Geo3DRunLog.h"
 
@@ -45,14 +46,14 @@ public:
     /* The tab's icon: a cube. */
     static const ui::PixelArt* tabArt();
     void forget();
-    /* The page choice, from and to the ini. */
+    /* The page choice and the drawing time strip, from and to the ini. */
     void loadUi(const VdpViewerProperties& p);
     void saveUi(VdpViewerProperties& p) const;
     /* Each frame the tab is not drawn: lets go of the hover. */
     void leave();
 
-    /* Each frame, on any tab: arms the RUN log while there is a geo3d, keeps the RUNs and
-    ** picks those of the page the screen shows. Lets go of a pinned face or edge once
+    /* Each frame, on any tab: arms the RUN log and the trace while there is a geo3d, keeps the
+    ** RUNs and picks those of the page the screen shows. Lets go of a pinned face or edge once
     ** something else is pinned or its RUN is no longer kept. */
     void track(const VdpDebugState* s, const Focus& f, const VdpRasterView& raster);
     bool pinned() const { return pinSeq != 0; }
@@ -70,6 +71,13 @@ public:
     const char* summary(const VdpDebugState* s);
     /* The picture of the rows geo3d draws into, the frame's RUNs over it, and them from above. */
     void drawTab(const VdpDebugState* s, Focus& f, const VdpRasterView& raster);
+    /* The drawing time card under the tab's card, there while the tab has a picture: its body's
+    ** height, 0 while folded or not there; room is the height of the tab's card and the body. */
+    float bottomHeight(const VdpDebugState* s, float room);
+    bool  hasBottom() const { return bottomOn; }
+    bool  bottomOpen() const { return perfStrip.open(); }
+    /* After the tab's card: the card, its body paneH high. */
+    void  drawBottom(float paneH) { if (bottomOn) perfStrip.bottomCard(paneH); }
     void card(const VdpDebugState* s);
     void registersCard(const VdpDebugState* s);
 
@@ -163,6 +171,7 @@ private:
     bool            topSide = true;
     int             topX = 0, topY = 0;
     int             topHotR = -1, topHotI = -1;   /* the item under the mouse in it, in set */
+    bool            bottomOn = false;       /* the drawing time card is under the tab's card */
     /* The item under the mouse, by RUN number and face or edge number, as items move between snapshots. */
     UInt32          hotSeq = 0, hotSeqNext = 0;
     int             hotIndex = -1, hotIndexNext = -1;
@@ -185,6 +194,7 @@ private:
     RegFade         regFade;
     struct WordFade { Int32 prev[32]; float heat[32]; unsigned version, step; bool primed; };
     WordFade        wordFade = {};
+    Geo3DPerfStrip  perfStrip;
 };
 
 #endif

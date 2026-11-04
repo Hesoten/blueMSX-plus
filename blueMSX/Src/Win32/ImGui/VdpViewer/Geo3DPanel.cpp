@@ -454,16 +454,19 @@ void Geo3DPanel::forget()
     runLog = NULL;
     logFailed = false;
     logView = Geo3DRunLogView();
+    perfStrip.forget();
 }
 
 void Geo3DPanel::loadUi(const VdpViewerProperties& p)
 {
     pageMode = p.v99x8.g3dPage == 1 ? 1 : 0;
+    perfStrip.loadUi(p);
 }
 
 void Geo3DPanel::saveUi(VdpViewerProperties& p) const
 {
     p.v99x8.g3dPage = pageMode;
+    perfStrip.saveUi(p);
 }
 
 void Geo3DPanel::clearCache()
@@ -491,6 +494,7 @@ void Geo3DPanel::track(const VdpDebugState* s, const Focus& f, const VdpRasterVi
     int k;
     if (!active(s)) {
         geo3dRunLogArm(runLog, false);
+        perfStrip.disarm();
         clearCache();
         unpin();
         return;
@@ -506,6 +510,7 @@ void Geo3DPanel::track(const VdpDebugState* s, const Focus& f, const VdpRasterVi
     geo3dRunLogConfig(runLog, g.cartridge, r, pair);
     /* On any tab, so a rewind made away from it comes whole. */
     geo3dRunLogArm(runLog, true);
+    perfStrip.keep(s);
     geo3dRunLogTake(runLog, &logView);
     bool logOk = geo3dRunLogArmed(runLog) && r > 0 && !logView.runs.empty() && logView.cartridge == g.cartridge &&
                  logView.epoch == g.epoch && logView.rows == r;
@@ -1030,6 +1035,14 @@ void Geo3DPanel::overlay(ImDrawList* dl, const ui::CanvasXf& xf, void* ref)
         }
         if (hot >= 0) lit(hotRun, hot, pin >= 0 ? t.accentHover : t.accent, pin >= 0 ? 70 : litFillAlpha);
     }
+    /* The faces of the RUN pinned on the drawing time strip, for the picture on screen. */
+    UInt32 perfRun = self->pageMode == 0 ? self->perfStrip.litRun() : 0;
+    for (int r = 0; perfRun != 0 && r < (int)set.size(); r++) {
+        if (set[r].run->seq != perfRun) continue;
+        for (int k = 0; k < set[r].run->itemCount; k++) {
+            if (set[r].item[k].outcome == GEO3D_ITEM_DRAWN && onPicture(*set[r].run, set[r].item[k])) lit(r, k, t.accent, 50);
+        }
+    }
     if (pin >= 0) lit(pinRun, pin, t.accent, litFillAlpha);
     dl->PopClipRect();
     float tx = (float)self->topX, ty = (float)self->topY;
@@ -1138,6 +1151,13 @@ ImVec2 Geo3DPanel::legend(bool faces, bool dim)
     return ImVec2(x, p.y);
 }
 
+float Geo3DPanel::bottomHeight(const VdpDebugState* s, float room)
+{
+    /* As drawTab: no picture while the command engine is in no bitmap mode. */
+    bottomOn = active(s) && mode >= 0;
+    return bottomOn ? perfStrip.bottomHeight(room) : 0;
+}
+
 void Geo3DPanel::drawTab(const VdpDebugState* s, Focus& f, const VdpRasterView& raster)
 {
     const Geo3DDebugState& g = s->geo3d;
@@ -1145,6 +1165,7 @@ void Geo3DPanel::drawTab(const VdpDebugState* s, Focus& f, const VdpRasterView& 
     hotIndex = hotIndexNext;
     hotSeqNext = 0;
     hotIndexNext = -1;
+    perfStrip.update();
     const char* pageNames[] = { ts(TS_G3D_PAGE_SHOWN), ts(TS_G3D_PAGE_DRAWN) };
     ui::BeginCommandBar("bar");
     ui::CommandBarItem(ui::SegmentedWidth(pageNames, 2), ui::SegmentedHeight());

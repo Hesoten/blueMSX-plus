@@ -598,15 +598,14 @@ float pagesChromeH(bool open)
     return ui::Px(32) + (open ? ui::Px(4) + ui::Px(8) : 0);
 }
 
-float pagesHeight(float room)
+float bottomCardHeight(bool open, float* height, float lo, float keep, float room)
 {
-    if (!pagesState.open) return 0;
-    return ui::SplitSize("##split", &pagesState.height, ui::Px(80), room - ui::Px(160));
+    if (!open) return 0;
+    return ui::SplitSize("##split", height, lo, room - keep);
 }
 
-bool pagesHeader(float paneH, bool* sizeChanged)
+bool bottomCardHeader(const char* id, const char* title, const char* summary, bool* open, float paneH, float trailW)
 {
-    *sizeChanged = false;
     /* The splitter in the 8 px under the card (EndTabCard left ItemSpacing below it), then the card. */
     ImVec2 p = ImGui::GetCursorScreenPos();
     float sp = ImGui::GetStyle().ItemSpacing.y;
@@ -615,20 +614,33 @@ bool pagesHeader(float paneH, bool* sizeChanged)
         ui::SplitBar("##split", ImGui::GetContentRegionAvail().x, ui::Px(8), paneH);
     }
     ImGui::SetCursorScreenPos(ImVec2(p.x, p.y + ui::Px(8) - sp));
-    const char* sizes[] = { ts(TS_STRIP_SMALL), ts(TS_STRIP_MEDIUM), ts(TS_STRIP_LARGE) };
     ui::ExpanderStyle es;
     es.headerH = 32;
     es.padLeft = 12;
     es.bodyTop = 4;
     es.bodyBottom = 8;
     es.divider = false;
-    es.trailW = ui::SegmentedWidth(sizes, 3);
-    bool open = ui::BeginExpander("pages", ts(TS_STRIP), NULL, &pagesState.open, es);
+    es.trailW = trailW;
+    bool shown = ui::BeginExpander(id, title, summary, open, es);
     /* Opened by a click this frame: the room is reserved from the next frame on. */
-    if (!open || paneH <= 0) {
+    if (!shown || paneH <= 0) {
         ui::EndExpander();
         return false;
     }
+    return true;
+}
+
+float pagesHeight(float room)
+{
+    return bottomCardHeight(pagesState.open, &pagesState.height, ui::Px(80), ui::Px(160), room);
+}
+
+bool pagesHeader(float paneH, bool* sizeChanged)
+{
+    *sizeChanged = false;
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    const char* sizes[] = { ts(TS_STRIP_SMALL), ts(TS_STRIP_MEDIUM), ts(TS_STRIP_LARGE) };
+    if (!bottomCardHeader("pages", ts(TS_STRIP), NULL, &pagesState.open, paneH, ui::SegmentedWidth(sizes, 3))) return false;
     ImVec2 body = ImGui::GetCursorScreenPos(), ta, tb;
     ui::ExpanderTrail(&ta, &tb);
     ui::PushFont(UI_FONT_STRONG);

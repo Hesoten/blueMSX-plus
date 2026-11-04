@@ -51,6 +51,8 @@ const char* vdpModeName(int mode);
 int  vdpSp3AttrBase(const UInt8* r);
 int  vdpSp3PatternBase(const UInt8* r);
 int  vdpSp3Alias(const UInt8* r, int n);
+/* A command's name; ext: a V9968 with R#21 V58 clear, which takes codes 1-3 as its own. */
+const char* vdpCmdName(int cm, bool ext);
 /* 1 in SCREEN 1-3, 2 in SCREEN 4-12, 0 where the mode has no sprites. */
 int  vdpSpriteMode(int mode);
 const char* vdpVersionName(int version);

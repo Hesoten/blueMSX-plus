@@ -525,6 +525,9 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->vdpViewer.v99x8.vramTint = 1;
     properties->vdpViewer.v99x8.vramGrid = 0;
     properties->vdpViewer.v99x8.g3dPage = 0;
+    properties->vdpViewer.v99x8.g3dPerf = 1;
+    properties->vdpViewer.v99x8.g3dPerfH = 320;
+    properties->vdpViewer.v99x8.g3dPerfWhyW = 330;
     properties->vdpViewer.v9990.sprShown = 1;
     properties->vdpViewer.v9990.sprOnly = 0;
     properties->vdpViewer.v9990.outGrid = 0;
@@ -965,6 +968,9 @@ static void propLoad(Properties* properties)
     GET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, vramTint, BoolPair);
     GET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, vramGrid, BoolPair);
     GET_INT_VALUE_3(propFile, vdpViewer, v99x8, g3dPage);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, g3dPerf, BoolPair);
+    GET_INT_VALUE_3(propFile, vdpViewer, v99x8, g3dPerfH);
+    GET_INT_VALUE_3(propFile, vdpViewer, v99x8, g3dPerfWhyW);
     GET_ENUM_VALUE_3(propFile, vdpViewer, v9990, sprShown, BoolPair);
     GET_ENUM_VALUE_3(propFile, vdpViewer, v9990, sprOnly, BoolPair);
     GET_ENUM_VALUE_3(propFile, vdpViewer, v9990, outGrid, BoolPair);
@@ -1381,6 +1387,9 @@ void propSave(Properties* properties)
     SET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, vramTint, YesNoPair);
     SET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, vramGrid, YesNoPair);
     SET_INT_VALUE_3(propFile, vdpViewer, v99x8, g3dPage);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, g3dPerf, YesNoPair);
+    SET_INT_VALUE_3(propFile, vdpViewer, v99x8, g3dPerfH);
+    SET_INT_VALUE_3(propFile, vdpViewer, v99x8, g3dPerfWhyW);
     SET_ENUM_VALUE_3(propFile, vdpViewer, v9990, sprShown, YesNoPair);
     SET_ENUM_VALUE_3(propFile, vdpViewer, v9990, sprOnly, YesNoPair);
     SET_ENUM_VALUE_3(propFile, vdpViewer, v9990, outGrid, YesNoPair);
