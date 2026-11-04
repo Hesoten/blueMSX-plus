@@ -47,9 +47,8 @@ static UInt32 patternNumber(const UInt8* vram, UInt32 nameAddress)
     return (vram[nameAddress] | (vram[nameAddress + 1] << 8)) & 0x3fff;
 }
 
-/* Reads count 4-bit dots of a P1 layer, from image dot x of image line y. */
-static void fetchP1Layer(UInt8* out, int count, const UInt8* vram,
-                         UInt32 nameTable, UInt32 patternTable, UInt32 x, UInt32 y)
+void v9990FetchP1Layer(UInt8* out, int count, const UInt8* vram,
+                       UInt32 nameTable, UInt32 patternTable, UInt32 x, UInt32 y)
 {
     UInt32 nameRow = nameTable + (y >> 3) * 128;
     UInt32 lineOffset = (y & 7) * 128;
@@ -68,7 +67,7 @@ static void fetchP1Layer(UInt8* out, int count, const UInt8* vram,
 }
 
 /* P2 has one layer twice as wide; its generator is interleaved over both banks. */
-static void fetchP2Layer(UInt8* out, int count, const UInt8* vram, UInt32 x, UInt32 y)
+void v9990FetchP2Layer(UInt8* out, int count, const UInt8* vram, UInt32 x, UInt32 y)
 {
     UInt32 nameRow = P2_NAME + (y >> 3) * 256;
     UInt32 lineOffset = (y & 7) * 256;
@@ -161,8 +160,8 @@ static void composeP1(UInt8* index, UInt8* plane, const UInt8* vram, const V9990
     int prioY = (line->r27 & 0x0c) ? (line->r27 & 0x0c) << 4 : P1_WIDTH;
     int x;
 
-    fetchP1Layer(a, P1_WIDTH, vram, P1_NAME_A, 0, line->ax, line->ay);
-    fetchP1Layer(b, P1_WIDTH, vram, P1_NAME_B, P1_PATTERN_B, line->bx, line->by);
+    v9990FetchP1Layer(a, P1_WIDTH, vram, P1_NAME_A, 0, line->ax, line->ay);
+    v9990FetchP1Layer(b, P1_WIDTH, vram, P1_NAME_B, P1_PATTERN_B, line->bx, line->by);
 
     /* Layer B is in front from dot PRX*64 and from line PRY*64 on. */
     if (line->displayY >= prioY) {
@@ -192,7 +191,7 @@ static void composeP2(UInt8* index, UInt8* plane, const UInt8* vram, const V9990
     int backdrop = line->r15 & 0x3f;
     int x;
 
-    fetchP2Layer(a, P2_WIDTH, vram, line->ax, line->ay);
+    v9990FetchP2Layer(a, P2_WIDTH, vram, line->ax, line->ay);
 
     /* Dots 2-3 and 6-7 of each pattern take the second palette offset. */
     for (x = 0; x < P2_WIDTH; x++) {

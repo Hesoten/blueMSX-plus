@@ -48,4 +48,10 @@ typedef struct {
 void v9990RenderPatternLine(UInt16* dst, int count, const UInt8* vram, const UInt8* palette,
                             const V9990PatternLine* line, int dot);
 
+/* Reads count 4-bit dots of a P1 layer, from image dot x of image line y. */
+void v9990FetchP1Layer(UInt8* out, int count, const UInt8* vram,
+                       UInt32 nameTable, UInt32 patternTable, UInt32 x, UInt32 y);
+/* The same for P2's one layer, 1024 dots wide. */
+void v9990FetchP2Layer(UInt8* out, int count, const UInt8* vram, UInt32 x, UInt32 y);
+
 #endif

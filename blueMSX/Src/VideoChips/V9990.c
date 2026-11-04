@@ -667,6 +667,9 @@ static int drawCursors(V9990* v9990, UInt16* dots, int dot0, int n, int scanLine
 ** progress, for the frame shot; 0xffff in y for rows not drawn from the bitmap. */
 static UInt16 shotRowY[V9990_SHOT_ROWS];
 static UInt16 shotRowX[V9990_SHOT_ROWS];
+/* The same for each P1/P2 layer, 0xffff in y for rows not drawn from it. */
+static UInt16 shotLayerY[2][V9990_SHOT_ROWS];
+static UInt16 shotLayerX[2][V9990_SHOT_ROWS];
 
 /* Set while the tap runs at theV9990's last displayed line, which is drawn
 ** but renderLine not yet stepped past. */
@@ -752,6 +755,7 @@ static void drawPattern(V9990* v9990, UInt16* line, int count, int ucPerSample,
     int first;
     int end;
     int dot;
+    int shotY;
 
     if (!displaySpan(count, ucPerSample, window, left, right, &first, &end, &dot)) {
         return;
@@ -768,6 +772,17 @@ static void drawPattern(V9990* v9990, UInt16* line, int count, int ucPerSample,
     p.r15 = v9990->regs[R_BACKDROP];
     p.r25 = v9990->regs[R_SPRITE_BASE];
     p.r27 = v9990->regs[R_PRIORITY];
+
+    /* A line drawn in a mode the frame was not latched in would be read in the wrong geometry. */
+    shotY = scanLine - v9990->windowTopLine;
+    if (v9990 == theV9990 && v9990->mode == v9990->frameMode && shotY >= 0 && shotY < V9990_SHOT_ROWS) {
+        shotLayerY[0][shotY] = (UInt16)p.ay;
+        shotLayerX[0][shotY] = (UInt16)p.ax;
+        if (!p.p2) {
+            shotLayerY[1][shotY] = (UInt16)p.by;
+            shotLayerX[1][shotY] = (UInt16)p.bx;
+        }
+    }
 
     v9990RenderPatternLine(line + first, end - first, v9990->vram, v9990->palette, &p, dot);
     maskLine(line + first, end - first, v9990->ysMask);
@@ -1110,6 +1125,7 @@ static void startPicture(V9990* v9990, FrameBuffer* frame)
     v9990->renderLine = 0;
     if (v9990 == theV9990) {
         memset(shotRowY, 0xff, sizeof(shotRowY));
+        memset(shotLayerY, 0xff, sizeof(shotLayerY));
     }
     if (frame == NULL) {
         return;
@@ -1828,6 +1844,8 @@ static void shotBeforeFlip(V9990* v9990)
     }
     memcpy(shotBuf.rowY, shotRowY, sizeof(shotRowY));
     memcpy(shotBuf.rowX, shotRowX, sizeof(shotRowX));
+    memcpy(shotBuf.layerY, shotLayerY, sizeof(shotLayerY));
+    memcpy(shotBuf.layerX, shotLayerX, sizeof(shotLayerX));
     shotBuf.seq   = shotFrames;
     shotOwner     = (UInt32)v9990->debugHandle + 1;
     shotRead      = 0;
@@ -1845,6 +1863,7 @@ int v9990DebugCaptureFrame(int index, V9990FrameShot* out)
     int have;
     int fits;
     int y;
+    int k;
 
     out->valid = 0;
     if (v9990 == NULL) {
@@ -1903,10 +1922,18 @@ int v9990DebugCaptureFrame(int index, V9990FrameShot* out)
     for (y = 0; y < out->rows; y++) {
         out->rowY[y] = 0xffff;
         out->rowX[y] = 0;
+        for (k = 0; k < 2; k++) {
+            out->layerY[k][y] = 0xffff;
+            out->layerX[k][y] = 0;
+        }
         if (y < out->drawnRow) {
             shotCopyRow(out, y, draw);
             out->rowY[y] = shotRowY[y];
             out->rowX[y] = shotRowX[y];
+            for (k = 0; k < 2; k++) {
+                out->layerY[k][y] = shotLayerY[k][y];
+                out->layerX[k][y] = shotLayerX[k][y];
+            }
         }
         else if (atShown && out->drawnRow > 0 && out->windowTopLine < out->displayStartLine) {
             /* Below the last displayed line there is only border, drawn as row 0 is. */
@@ -1925,6 +1952,13 @@ int v9990DebugCaptureFrame(int index, V9990FrameShot* out)
             out->width[y] = shotBuf.width[y];
             out->rowY[y]  = shotBuf.rowY[y];
             out->rowX[y]  = shotBuf.rowX[y];
+            /* A copy of a frame in another mode holds layer lines of another geometry. */
+            if (shotBuf.frameMode == out->frameMode) {
+                for (k = 0; k < 2; k++) {
+                    out->layerY[k][y] = shotBuf.layerY[k][y];
+                    out->layerX[k][y] = shotBuf.layerX[k][y];
+                }
+            }
             memcpy(out->pix[y], shotBuf.pix[y], shotBuf.width[y] * sizeof(UInt16));
         }
         else if (prev != NULL && y < frameBufferGetLineCount(prev)) {
@@ -1976,6 +2010,7 @@ V9990* v9990Create(void)
     theV9990 = v9990;
     /* Its first frame started before it became theV9990. */
     memset(shotRowY, 0xff, sizeof(shotRowY));
+    memset(shotLayerY, 0xff, sizeof(shotLayerY));
 
     return v9990;
 }

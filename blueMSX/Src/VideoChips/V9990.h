@@ -140,6 +140,8 @@ typedef struct {
     UInt16 width[V9990_SHOT_ROWS];   /* 272 or 288 (overscan) << shift */
     UInt16 rowY[V9990_SHOT_ROWS];    /* the bitmap row drawn, 0xffff when not drawn from the bitmap */
     UInt16 rowX[V9990_SHOT_ROWS];    /* the bitmap column the scroll put at the display's left */
+    UInt16 layerY[2][V9990_SHOT_ROWS]; /* [0] P1's A or P2's layer, [1] P1's B: the image line drawn, 0xffff when not drawn from it */
+    UInt16 layerX[2][V9990_SHOT_ROWS]; /* its image dot at the display's left */
     UInt16 pix[V9990_SHOT_ROWS][V9990_SHOT_WIDTH];
 } V9990FrameShot;
 

@@ -168,8 +168,8 @@ class V9990View : public ChipView {
 public:
     V9990View()
     {
-        vramCv.shared = bitmapCv.shared = outCv.shared = &shell::zoom();
-        vramCv.frameless = bitmapCv.frameless = outCv.frameless = true;
+        vramCv.shared = bitmapCv.shared = outCv.shared = patCv.shared = &shell::zoom();
+        vramCv.frameless = bitmapCv.frameless = outCv.frameless = patCv.frameless = true;
         regFadeReset(regFade);
         regFadeReset(portFade);
     }
@@ -189,6 +189,7 @@ public:
     {
         int n = 0;
         if (n < max) out[n++] = ViewDesc{ "screen", ts(TS_VIEW_SCREEN), UI_ICON_SCREEN };
+        if (n < max) out[n++] = ViewDesc{ "patterns", ts(TS_VIEW_PATTERNS), UI_ICON_PATTERNS };
         if (n < max) out[n++] = ViewDesc{ "bitmap", ts(TS_VIEW_BITMAP), UI_ICON_BITMAP };
         if (n < max) out[n++] = ViewDesc{ "vram", "VRAM", UI_ICON_VRAM };
         return n;
@@ -199,6 +200,13 @@ public:
         const V9990DebugState* s = (const V9990DebugState*)st;
         ViewDesc d[8];
         int n = views(d, 8, st);
+        /* A pattern pinned in P1 or P2 means nothing in a bitmap mode, and back. */
+        int family = isBitmap(s->mode) ? 1 : 0;
+        if (family != lastFamily && f.pinned && f.kind == FOCUS_CHAR) {
+            f.pinned = false;
+            f.kind = FOCUS_NONE;
+        }
+        lastFamily = family;
         if (v >= 0 && v < n && strcmp(d[v].key, "screen") == 0) {
             /* The pages go under the Screen's card as high as the splitter says; the card takes the rest.
             ** Their IDs are their own, as in drawPages, so the pane's scroll is not the V99x8's. */
@@ -213,6 +221,7 @@ public:
         }
         ui::BeginTabCard("card");
         if (v >= 0 && v < n && strcmp(d[v].key, "bitmap") == 0) drawBitmap(s, f);
+        else if (v >= 0 && v < n && strcmp(d[v].key, "patterns") == 0) drawPatterns(s, f);
         else if (v >= 0 && v < n) drawVram(s, f);
         ui::EndTabCard();
     }
@@ -326,12 +335,18 @@ public:
         vramPic.forget();
         bitmapPic.forget();
         stripPic.forget();
+        layerPic[0].forget();
+        layerPic[1].forget();
+        patPic.forget();
+        patDotsKey[0] = 0;
+        patCol = patRow = -1;
         regFadeReset(regFade);
         regFadeReset(portFade);
     }
 
 private:
-    ViewPicture          vramPic, bitmapPic, stripPic, outPic;
+    ViewPicture          vramPic, bitmapPic, stripPic, outPic, layerPic[2];
+    std::vector<uint8_t> layerDots;          /* the Pages' layer being decoded, apart from the Patterns tab's */
     shell::PagesScroll   pagesScroll;
     float                pagesTw = 0;        /* the pieces' width last drawn, for a new size to keep the left one */
     ui::CanvasState      vramCv, bitmapCv, outCv;
@@ -346,6 +361,25 @@ private:
     int                  invMode = -1;
     UInt32               invPhys = 0, invLogical = 0;
     mutable char         tableNames[4][48];
+
+    /* The Patterns tab: the name table at nx, ny and the sheet at sx, sy of one picture w x h. */
+    struct PatParts { int nx, ny, nw, nh, sx, sy, sw, sh, w, h; };
+    ViewPicture          patPic;
+    ui::CanvasState      patCv;
+    V9990Layer           patL = {};
+    PatParts             pat = {};
+    std::vector<uint8_t> patLayerDots, patSheetDots;
+    unsigned             patDotsVer = ~0u;
+    char                 patDotsKey[32] = "";
+    int                  patLayer = 0;        /* P1: 0 layer A, 1 layer B */
+    int                  lastFamily = -1;     /* 1 in a bitmap mode, 0 in the others */
+    int                  patShown = 0;        /* the layer drawn: patLayer, 0 in P2 */
+    std::vector<int>     patCount;            /* cells showing each pattern number */
+    int                  patHighest = 0, patRows = 8;
+    int                  patCol = -1, patRow = -1;   /* the cell the focus came from, or -1 */
+    int                  patUses = 0;         /* cells showing the focused pattern */
+    bool                 patNumbers = false, patSide = true;
+    bool                 transparent0 = false;
 
     static void pin(Focus& f, const Focus& hit, bool clicked)
     {
@@ -386,6 +420,8 @@ private:
     /* Image rows [y0, y1) shown from column x. */
     struct ShownRun { int y0, y1, x; };
     std::vector<ShownRun> bitmapRuns;    /* the Bitmap tab's shown area, for its overlay */
+    std::vector<ShownRun> patRuns;       /* the Patterns tab's screen frame on the name table */
+    bool                  patRunsTop = true;   /* its first run starts at the screen's top line */
 
     /* The runs of image rows the screen shows: those the V9990 recorded drawing
     ** the rows of shot o from, else one screen from the scroll registers. */
@@ -412,6 +448,29 @@ private:
             step = 1;
             for (int r = 0; r < screenLines(s); r++) add(r, (int)(imageY(sy, mask, r) % (UInt32)rows), (int)(sx % (UInt32)iw));
         }
+    }
+
+    /* The runs of layer l's image lines the screen shows, as shownRuns does for the bitmap.
+    ** True when the first run starts at the screen's top line. */
+    bool layerRuns(const V9990DebugState* s, const V9990FrameShot* o, const V9990Layer& l, int layer, std::vector<ShownRun>& out) const
+    {
+        int last = -2, top = -1;
+        out.clear();
+        if (o != NULL && o->frameMode != s->mode) o = NULL;
+        auto add = [&](int r, int y, int x) {
+            if (last == r - 1 && x == out.back().x && y == out.back().y1) out.back().y1 = y + 1;
+            else out.push_back(ShownRun{ y, y + 1, x });
+            last = r;
+        };
+        for (int r = 0; o != NULL && r < o->rows; r++) {
+            if (o->layerY[layer][r] == 0xffff) continue;
+            if (top < 0) top = r;
+            add(r, o->layerY[layer][r] % l.h, o->layerX[layer][r] % l.w);
+        }
+        if (!out.empty()) return top == o->displayStartLine - o->windowTopLine;
+        int base = l.sy & ~l.rollMask & 0x1ff;
+        for (int r = 0; r < 212; r++) add(r, base + ((l.sy + r) & l.rollMask), l.sx);
+        return true;
     }
 
     /* What the screen shows of image rows [r0, r1): each run's rows c0..c1, in two runs of
@@ -556,7 +615,7 @@ private:
         return first + STRIP_PIECES > pieces ? (pieces > STRIP_PIECES ? pieces - STRIP_PIECES : 0) : first;
     }
 
-    /* Under the Screen's card: the pieces of a bitmap, else a note. */
+    /* Under the Screen's card: the pieces of a bitmap, the layers of P1 and P2, else a note. */
     void drawPages(const V9990DebugState* s, Focus& f, float paneH)
     {
         bool sizeChanged;
@@ -565,15 +624,17 @@ private:
             ImGui::PopID();
             return;
         }
-        bool bitmap = isBitmap(s->mode);
+        bool bitmap = isBitmap(s->mode), pattern = s->mode == V9990_MODE_P1 || s->mode == V9990_MODE_P2;
         float tw = 0, th = 0, cw = 0, ch = 0, gap = ui::Px(8);
         if (bitmap) stripLayout(s, &tw, &th, &cw, &ch);
+        else if (pattern) layerLayout(s, &tw, &th, &cw, &ch);
         /* A new size keeps the piece at the left there. */
         if (sizeChanged && pagesTw > 0 && tw > 0) pagesScroll.to = floorf(pagesScroll.x * (tw + gap) / (pagesTw + gap));
         pagesTw = tw;
         shell::pagesBeginScroll(paneH, cw, ch, pagesScroll);
         char status[512] = "";
         if (bitmap) drawStrip(s, f, tw, th, status, sizeof(status));
+        else if (pattern) drawLayers(s, tw, th);
         else note(ts(TS_STRIP_EMPTY));
         shell::pagesEnd(pagesScroll);
         ImGui::PopID();
@@ -604,6 +665,20 @@ private:
         int first = stripFirstPiece(pieces, runs[0].y0 / pieceH), n = pieces - first < STRIP_PIECES ? pieces - first : STRIP_PIECES;
         float gap = ui::Px(8), more = ui::Px(40);
         *cw = (first > 0 ? more : 0) + n * (*tw + gap) - gap + (first + n < pieces ? gap + more : 0);
+        *ch = ui::Px(4) + *th + stripLabelH();
+    }
+
+    /* P1's two layers or P2's one, each whole and as tall as the screen is when its width is
+    ** as wide as a V99x8 page. */
+    void layerLayout(const V9990DebugState* s, float* tw, float* th, float* cw, float* ch) const
+    {
+        int ax, ay, layers = s->mode == V9990_MODE_P1 ? 2 : 1;
+        V9990Layer l;
+        if (!v9990LayerOf(s, 0, &l)) l.w = l.h = 512;
+        dotAspect(s, &ax, &ay);
+        *th = floorf(256 * shell::pagesStepScale(shell::pages().size) * 212.0f * ay / (screenWidth(s->mode) * ax));
+        *tw = floorf(*th * l.w * ax / ((float)l.h * ay));
+        *cw = layers * (*tw + ui::Px(8)) - ui::Px(8);
         *ch = ui::Px(4) + *th + stripLabelH();
     }
 
@@ -701,6 +776,53 @@ private:
         ui::PopFont();
         ImGui::SetCursorScreenPos(origin);
         ImGui::Dummy(ImVec2(1, th + labelH + ui::Px(4)));
+    }
+
+    /* P1 has layers A and B, P2 one: each layer's whole image space, framing what the screen shows. */
+    void drawLayers(const V9990DebugState* s, float tw, float th)
+    {
+        const UiTokens& t = uiTokens();
+        int layers = s->mode == V9990_MODE_P1 ? 2 : 1;
+        float gap = ui::Px(8), lw = fmaxf(1.0f, ui::Px(1));
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        ImVec2 origin = ImGui::GetCursorScreenPos();
+        float labelH = stripLabelH();
+        ui::PushFont(UI_FONT_BODY);
+        for (int i = 0; i < layers; i++) {
+            ImVec2 a(origin.x + i * (tw + gap), origin.y + ui::Px(4)), b(a.x + tw, a.y + th);
+            V9990Layer l;
+            if (!v9990LayerOf(s, i, &l)) continue;
+            /* Layer A's colour 0 lets layer B through, so it is clear; not the Patterns tab's choice. */
+            bool clear0 = layers == 2 && i == 0;
+            char key[32];
+            snprintf(key, sizeof(key), "%d/%d/%d/%d", s->mode, i, s->regs[13], s->regs[15]);
+            bool decoded = layerPic[i].needsDecodeVram(key);
+            if (decoded) {
+                int highest;
+                uint32_t lut[2][16];
+                v9990DecodeLayer(s, l, layerDots, &highest);
+                v9990LayerLut(s, i, clear0, lut);
+                layerPic[i].w = l.w;
+                layerPic[i].h = l.h;
+                layerPic[i].img.resize((size_t)l.w * l.h);
+                for (int y = 0; y < l.h; y++) v9990LayerRow(&layerDots[(size_t)y * l.w], &layerPic[i].img[(size_t)y * l.w], l.w, lut);
+            }
+            layerPic[i].upload(decoded);
+            if (clear0) dl->AddRectFilled(a, b, t.checkerA);
+            if (layerPic[i].tex.id()) dl->AddImage(ImTextureRef(layerPic[i].tex.id()), a, b);
+            std::vector<ShownRun> runs;
+            layerRuns(s, outShot, l, i, runs);
+            forShownAreas(runs, 0, l.h, l.w, l.screenW, [&](int y0, int y1, int x0, int x1) {
+                float xa = floorf(a.x + tw * x0 / l.w), xb = floorf(a.x + tw * x1 / l.w);
+                float ya = floorf(a.y + th * y0 / l.h), yb = floorf(a.y + th * y1 / l.h);
+                dl->AddRect(ImVec2(xa - lw, ya - lw), ImVec2(xb + lw, yb + lw), t.textSecondary, 0, lw);
+            });
+            char label[64];
+            textf(label, sizeof(label), ts(TS_V9_LAYER), i == 0 ? "A" : "B");
+            dl->AddText(ImVec2(a.x, b.y + ui::Px(2)), t.textSecondary, label);
+        }
+        ui::PopFont();
+        ImGui::Dummy(ImVec2(layers * (tw + gap), ui::Px(4) + th + labelH));
     }
 
     /* The CPU address of physical byte p in the mode. */
@@ -854,13 +976,300 @@ private:
         }
     }
 
-    /* A view no mode now can fill: one muted sentence where the picture goes. */
-    static void emptyView(const char* text)
+    /* ---- Patterns: a layer's name table and pattern generator ---- */
+
+    /* Colour 0 of layer A lets layer B through where A is in front; else it is the backdrop unless asked to be clear. */
+    bool patClear0(const V9990DebugState* s) const
     {
-        ImGui::Dummy(ImVec2(0, ui::Px(16)));
-        ImGui::Indent(ui::Px(16));
-        note(text);
-        ImGui::Unindent(ui::Px(16));
+        return transparent0 || (s->mode == V9990_MODE_P1 && patShown == 0);
+    }
+
+    /* The layer's dots and its generator's used rows, read again when VRAM or the layer changed. */
+    void patDecodeDots(const V9990DebugState* s)
+    {
+        char key[32];
+        snprintf(key, sizeof(key), "%d/%d", s->mode, patShown);
+        if (patDotsVer == shell::vramVersion() && strcmp(patDotsKey, key) == 0) return;
+        patDotsVer = shell::vramVersion();
+        snprintf(patDotsKey, sizeof(patDotsKey), "%s", key);
+        v9990DecodeLayer(s, patL, patLayerDots, &patHighest);
+        /* The generator up to the row of the highest number used, at least 8 rows. */
+        int rows = patHighest / patL.perRow + 1;
+        patRows = rows < 8 ? 8 : rows > patL.rows ? patL.rows : rows;
+        v9990DecodeSheet(s, patL, patRows, patSheetDots);
+        patCount.assign(0x4000, 0);
+        for (int row = 0; row < patL.h / 8; row++) {
+            for (int col = 0; col < patL.w / 8; col++) patCount[v9990NameAt(s, patL, col, row, NULL)]++;
+        }
+    }
+
+    /* The parts in one picture: side by side when that fits the well at this zoom (Fit: when it
+    ** shows larger), else one under the other; going back side by side needs 24 px to spare. */
+    void patCompose(const V9990DebugState* s)
+    {
+        patDecodeDots(s);
+        PatParts P = {};
+        P.nw = patL.w;
+        P.nh = patL.h;
+        P.sw = patL.perRow * 8;
+        P.sh = patRows * 8;
+        int gap = 8;
+        ImVec2 avail = ImGui::GetContentRegionAvail(), k = ui::CanvasScale(patCv, 1);
+        float wellW = avail.x - ImGui::GetStyle().ScrollbarSize, wellH = avail.y - ImGui::GetStyle().ScrollbarSize;
+        float wS = (float)(P.nw + gap + P.sw), hS = (float)(P.nh > P.sh ? P.nh : P.sh);
+        float wT = (float)(P.nw > P.sw ? P.nw : P.sw), hT = (float)(P.nh + gap + P.sh);
+        if (patCv.z().fit) {
+            patSide = fminf(wellW / (wS * k.x), wellH / (hS * k.y)) >= fminf(wellW / (wT * k.x), wellH / (hT * k.y));
+        }
+        else {
+            float u = (float)patCv.z().zoom;
+            patSide = wS * u * k.x <= wellW - (patSide ? 0 : ui::Px(24));
+        }
+        P.sx = patSide ? P.nw + gap : 0;
+        P.sy = patSide ? 0 : P.nh + gap;
+        P.w = patSide ? (int)wS : (int)wT;
+        P.h = patSide ? (int)hS : (int)hT;
+        bool clear0 = patClear0(s);
+        char key[64];
+        snprintf(key, sizeof(key), "%s/%d/%dx%d/%d/%d/%d", patDotsKey, (int)patSide, P.w, P.h, (int)clear0,
+                 s->regs[13], s->regs[15]);
+        bool composed = patPic.needsDecodeVram(key);
+        if (composed) {
+            uint32_t lut[2][16];
+            v9990LayerLut(s, patShown, clear0, lut);
+            patPic.w = P.w;
+            patPic.h = P.h;
+            patPic.img.assign((size_t)P.w * P.h, 0);
+            for (int y = 0; y < P.nh; y++) {
+                v9990LayerRow(&patLayerDots[(size_t)y * patL.w], &patPic.img[(size_t)(P.ny + y) * P.w + P.nx], P.nw, lut);
+            }
+            for (int y = 0; y < P.sh; y++) {
+                v9990LayerRow(&patSheetDots[(size_t)y * P.sw], &patPic.img[(size_t)(P.sy + y) * P.w + P.sx], P.sw, lut);
+            }
+        }
+        patPic.upload(composed);
+        pat = P;
+        patCv.partCount = 2;
+        patCv.parts[0] = { (float)P.nx, (float)P.ny, (float)(P.nx + P.nw), (float)(P.ny + P.nh), 1 };
+        patCv.parts[1] = { (float)P.sx, (float)P.sy, (float)(P.sx + P.sw), (float)(P.sy + P.sh), 1 };
+    }
+
+    /* The pattern a focus names on this layer's sheet, or -1. */
+    int patFocusPattern(const Focus& f) const
+    {
+        if (f.kind != FOCUS_CHAR || f.space != FOCUS_LOGICAL || f.a < 0 || f.b < 0) return -1;
+        int n = (f.b / 8) * patL.perRow + f.a / 8;
+        return n < patRows * patL.perRow && f.addr == v9990PatternRowAddr(patL, n, 0) ? n : -1;
+    }
+
+    /* How many cells of the name table show pattern n. */
+    int patUsers(int n) const
+    {
+        return n >= 0 && n < (int)patCount.size() ? patCount[n] : 0;
+    }
+
+    /* The screen's frame on the name table, with the scroll the screen's top line used on its corner. */
+    void patScreenFrame(ImDrawList* dl, const ui::CanvasXf& xf) const
+    {
+        const UiTokens& t = uiTokens();
+        const PatParts& P = pat;
+        float th = fmaxf(1.0f, ui::Px(1));
+        bool corner = patRunsTop;
+        forShownAreas(patRuns, 0, patL.h, patL.w, patL.screenW, [&](int y0, int y1, int x0, int x1) {
+            ImVec2 a = xf.toScreen((float)(P.nx + x0), (float)(P.ny + y0));
+            ImVec2 b = xf.toScreen((float)(P.nx + x1), (float)(P.ny + y1));
+            dl->AddRect(ImVec2(a.x - th, a.y - th), ImVec2(b.x + th, b.y + th), ui::WithAlpha(t.layer, 200), 0, th * 3);
+            dl->AddRect(ImVec2(a.x - th, a.y - th), ImVec2(b.x + th, b.y + th), t.text, 0, th);
+            /* At the frame's bottom left, clear of the name table's chip at the top; under a band too short for it. */
+            if (corner) {
+                char text[96];
+                textf(text, sizeof(text), ts(TS_V9_PAT_CHIP_SCREEN), patRuns[0].x, patRuns[0].y0);
+                ui::PushFont(UI_FONT_BODY, 11);
+                float ch = ImGui::GetTextLineHeight() + ui::Px(2);
+                ui::PopFont();
+                float clear = xf.toScreen(0, (float)P.ny).y + ch + th;
+                float y = b.y - ch - th >= fmaxf(a.y + th, clear) ? b.y - ch - th : fmaxf(b.y + th, clear);
+                partChip(dl, ImVec2(a.x + th, y), ImVec2(b.x, y + ch + th), text);
+                corner = false;
+            }
+        });
+    }
+
+    /* Each cell's pattern number in hex, on the cells in view wide enough for it. */
+    void patNumbersDraw(ImDrawList* dl, const ui::CanvasXf& xf) const
+    {
+        const UiTokens& t = uiTokens();
+        const PatParts& P = pat;
+        const V9990DebugState* s = ovState;
+        ui::PushFont(UI_FONT_MONO, 11);
+        ImVec2 two = ImGui::CalcTextSize("FF");
+        float cell = 8 * xf.scale.x;
+        auto label = [&](ImVec2 a, int v) {
+            char num[8];
+            snprintf(num, sizeof(num), v < 0x100 ? "%02X" : "%X", v);
+            float w = v < 0x100 ? two.x : ImGui::CalcTextSize(num).x;
+            if (cell < fmaxf(ui::Px(18), w + ui::Px(2)) || 8 * xf.scale.y < two.y) return;
+            dl->AddRectFilled(a, ImVec2(a.x + w + ui::Px(2), a.y + two.y), ui::WithAlpha(t.layer, 170));
+            dl->AddText(ImVec2(a.x + ui::Px(1), a.y), t.text, num);
+        };
+        if (cell < ui::Px(18)) {
+            ui::PopFont();
+            return;
+        }
+        /* Only the cells that reach the view. */
+        auto span = [&](int x0, int y0, int cols, int rows, int* c0, int* c1, int* r0, int* r1) {
+            *c0 = (int)floorf((xf.clipMin.x - xf.origin.x) / cell - x0 / 8.0f);
+            *c1 = (int)ceilf((xf.clipMax.x - xf.origin.x) / cell - x0 / 8.0f);
+            *r0 = (int)floorf((xf.clipMin.y - xf.origin.y) / (8 * xf.scale.y) - y0 / 8.0f);
+            *r1 = (int)ceilf((xf.clipMax.y - xf.origin.y) / (8 * xf.scale.y) - y0 / 8.0f);
+            *c0 = *c0 < 0 ? 0 : *c0;
+            *r0 = *r0 < 0 ? 0 : *r0;
+            *c1 = *c1 > cols - 1 ? cols - 1 : *c1;
+            *r1 = *r1 > rows - 1 ? rows - 1 : *r1;
+        };
+        int c0, c1, r0, r1;
+        span(P.nx, P.ny, P.nw / 8, P.nh / 8, &c0, &c1, &r0, &r1);
+        for (int r = r0; r <= r1; r++) {
+            for (int c = c0; c <= c1; c++) label(xf.toScreen((float)(P.nx + c * 8), (float)(P.ny + r * 8)), v9990NameAt(s, patL, c, r, NULL));
+        }
+        span(P.sx, P.sy, patL.perRow, patRows, &c0, &c1, &r0, &r1);
+        for (int r = r0; r <= r1; r++) {
+            for (int c = c0; c <= c1; c++) label(xf.toScreen((float)(P.sx + c * 8), (float)(P.sy + r * 8)), r * patL.perRow + c);
+        }
+        ui::PopFont();
+    }
+
+    /* The focused pattern on both parts: its sheet cell and the name cells showing it, these
+    ** only while they are few; the screen's frame, the numbers and the parts' chips. */
+    static void patOverlay(ImDrawList* dl, const ui::CanvasXf& xf, void* ref)
+    {
+        V9990View* self = (V9990View*)ref;
+        const UiTokens& t = uiTokens();
+        const PatParts& P = self->pat;
+        const V9990DebugState* s = self->ovState;
+        const V9990Layer& l = self->patL;
+        float th = fmaxf(1.0f, ui::Px(1));
+        dl->PushClipRect(xf.clipMin, xf.clipMax, true);
+        self->patScreenFrame(dl, xf);
+        int n = self->patFocusPattern(shell::shownFocus());
+        if (n >= 0) {
+            ImVec2 a = xf.toScreen((float)(P.sx + (n % l.perRow) * 8), (float)(P.sy + (n / l.perRow) * 8));
+            ImVec2 b = xf.toScreen((float)(P.sx + (n % l.perRow) * 8 + 8), (float)(P.sy + (n / l.perRow) * 8 + 8));
+            dl->AddRect(ImVec2(a.x - th, a.y - th), ImVec2(b.x + th, b.y + th), t.accent, 0, th * 2);
+        }
+        if (n >= 0) {
+            int cols = l.w / 8, rows = l.h / 8;
+            bool many = self->patUses * 4 > cols * rows;
+            for (int r = 0; r < rows; r++) {
+                ImVec2 ya = xf.toScreen(0, (float)(P.ny + r * 8)), yb = xf.toScreen(0, (float)(P.ny + r * 8 + 8));
+                if (yb.y < xf.clipMin.y || ya.y > xf.clipMax.y) continue;
+                for (int c = 0; c < cols; c++) {
+                    bool hot = c == self->patCol && r == self->patRow;
+                    if (many && !hot) continue;
+                    ImVec2 a = xf.toScreen((float)(P.nx + c * 8), (float)(P.ny + r * 8)), b =xf.toScreen((float)(P.nx + c * 8 + 8), (float)(P.ny + r * 8 + 8));
+                    if (b.x < xf.clipMin.x || a.x > xf.clipMax.x) continue;
+                    if (v9990NameAt(s, l, c, r, NULL) != n) continue;
+                    float w = hot ? th * 2 : th;
+                    dl->AddRect(ImVec2(a.x - w / 2, a.y - w / 2), ImVec2(b.x + w / 2, b.y + w / 2), hot ? t.accent : ui::WithAlpha(t.accent, 160), 0, w);
+                }
+            }
+        }
+        if (self->patNumbers) self->patNumbersDraw(dl, xf);
+        char chip[64];
+        const char* name = s->mode == V9990_MODE_P2 ? "" : self->patShown == 0 ? "A " : "B ";
+        textf(chip, sizeof(chip), ts(TS_V9_PAT_CHIP_NAMES), name, l.names);
+        partChip(dl, xf.toScreen((float)P.nx, (float)P.ny), xf.toScreen((float)(P.nx + P.nw), (float)(P.ny + P.nh)), chip);
+        textf(chip, sizeof(chip), ts(TS_V9_PAT_CHIP_PATTERNS), name, l.patterns);
+        partChip(dl, xf.toScreen((float)P.sx, (float)P.sy), xf.toScreen((float)(P.sx + P.sw), (float)(P.sy + P.sh)), chip);
+        dl->PopClipRect();
+    }
+
+    /* The palette entries a layer's dots take, as "16-31", or two runs in P2. */
+    void patPaletteText(const V9990DebugState* s, char* out, size_t size) const
+    {
+        int a = v9990LayerColour(s, patShown, 0, 0), b = v9990LayerColour(s, patShown, 2, 0);
+        if (a == b) textf(out, size, "%d-%d", a, a + 15);
+        else textf(out, size, "%d-%d, %d-%d", a, a + 15, b, b + 15);
+    }
+
+    void drawPatterns(const V9990DebugState* s, Focus& f)
+    {
+        /* P2's one layer is shown without forgetting the layer picked for P1. */
+        patShown = s->mode == V9990_MODE_P1 ? patLayer : 0;
+        if (!v9990LayerOf(s, patShown, &patL)) {
+            emptyView(ts(TS_V9_PATTERNS_NONE));
+            return;
+        }
+        patCv.aspectX = patCv.aspectY = 1;
+        patCv.lineRows = 1;
+        ui::BeginCommandBar("bar");
+        if (s->mode == V9990_MODE_P1) {
+            char a[32], b[32];
+            textf(a, sizeof(a), ts(TS_V9_LAYER), "A");
+            textf(b, sizeof(b), ts(TS_V9_LAYER), "B");
+            const char* names[2] = { a, b };
+            ui::CommandBarItem(ui::SegmentedWidth(names, 2), ui::SegmentedHeight());
+            int pick = patLayer;
+            if (ui::Segmented("layer", &pick, names, 2, 0, 0, NULL, 0, NULL, ts(TS_V9_LAYER_PICK_TIP)) && pick != patLayer) {
+                patLayer = patShown = pick;
+                patCol = patRow = -1;
+                v9990LayerOf(s, patLayer, &patL);
+            }
+            ui::CommandBarSeparator();
+        }
+        barToggle("##patnum", UI_ICON_NUMBERS, ts(TS_PAT_NUMBERS), ts(TS_V9_PAT_NUMBERS_TIP), &patNumbers);
+        ui::GridToggle(patCv);
+        ui::CommandBarRight(ui::ZoomControlsWidth());
+        ui::ZoomControls("zoom", patCv, &transparent0, ts(TS_COLOUR0_TRANSPARENT));
+        ui::EndCommandBar();
+        ovState = s;
+        unsigned ver;
+        const V9990FrameShot* o = (const V9990FrameShot*)shell::frameShot(&ver);
+        shell::wantFrame();
+        patRunsTop = layerRuns(s, o != NULL && o->valid ? o : NULL, patL, patShown, patRuns);
+        patCompose(s);
+        patCv.checker = patClear0(s);
+        int fn = patFocusPattern(shell::shownFocus());
+        patUses = fn >= 0 ? patUsers(fn) : 0;
+        const PatParts& P = pat;
+        ui::CanvasHit h = ui::Canvas("sheet", patPic.tex.id(), patPic.w, patPic.h, patCv, ImVec2(0, 0), patOverlay, this);
+        bool onPart = false;
+        char status[512] = "";
+        int n = -1;
+        if (h.valid && h.x >= P.nx && h.x < P.nx + P.nw && h.y >= P.ny && h.y < P.ny + P.nh) {
+            int col = (h.x - P.nx) / 8, row = (h.y - P.ny) / 8;
+            UInt32 nameAddr;
+            n = v9990NameAt(s, patL, col, row, &nameAddr);
+            onPart = true;
+            char pal[48];
+            patPaletteText(s, pal, sizeof(pal));
+            textf(status, sizeof(status), ts(TS_V9_PAT_STATUS_CELL), col, row, nameAddr, n, n, v9990PatternRowAddr(patL, n, 0), pal, patUsers(n));
+        }
+        else if (h.valid && h.x >= P.sx && h.x < P.sx + P.sw && h.y >= P.sy && h.y < P.sy + P.sh) {
+            n = ((h.y - P.sy) / 8) * patL.perRow + (h.x - P.sx) / 8;
+            onPart = true;
+            textf(status, sizeof(status), ts(TS_V9_PAT_STATUS_SHEET), n, n, v9990PatternRowAddr(patL, n, 0), patUsers(n));
+        }
+        if (n >= 0) {
+            size_t at = strlen(status);
+            if (n >= patL.rows * patL.perRow && at < sizeof(status)) textf(status + at, sizeof(status) - at, ts(TS_V9_PAT_PAST), patL.rows * patL.perRow - 1);
+            /* Past the generator a pattern has no cell on the sheet: it is only named. */
+            if (n < patRows * patL.perRow) {
+                Focus hit = { f.chipId, FOCUS_LOGICAL, v9990PatternRowAddr(patL, n, 0), 4, FOCUS_CHAR, (n % patL.perRow) * 8, (n / patL.perRow) * 8, false };
+                pin(f, hit, h.clicked);
+            }
+            else if (h.clicked) {
+                shell::releaseSelection();
+            }
+            bool cell = h.x >= P.nx && h.x < P.nx + P.nw && h.y >= P.ny && h.y < P.ny + P.nh;
+            if (!f.pinned || h.clicked) {
+                patCol = cell ? (h.x - P.nx) / 8 : -1;
+                patRow = cell ? (h.y - P.ny) / 8 : -1;
+            }
+        }
+        /* The gap between the parts and the room beside them are as the well. */
+        if (h.clickedEmpty || (h.clicked && !onPart)) shell::releaseSelection();
+        if (status[0]) ui::StatusText("%s", status);
     }
 
     /* The bytes, 512 a row in CPU or physical order, tinted by the VRAM map's lanes. */
