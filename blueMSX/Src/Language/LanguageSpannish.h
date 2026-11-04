@@ -291,6 +291,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->menuToolsShortcuts      = "Editor de Atajos";
     ls->menuToolsCtrlEditor     = "Editor de controladores/teclado";  
     ls->menuToolsMixer          = "Mezclador de Audio"; 
+    ls->menuToolsVdpViewer      = "Visor VDP";
     ls->menuToolsLoadMemory     = "Carga de Memoria";
     ls->menuToolsAgentControl   = "Control por Agente";
     ls->menuToolsAgentActivity  = "Actividad de Agentes...";

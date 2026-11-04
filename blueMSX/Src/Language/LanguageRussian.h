@@ -291,6 +291,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->menuToolsShortcuts      = "Настройка быстрого вызова";
     ls->menuToolsCtrlEditor     = "Настройка контроллеров / клавиатуры"; 
     ls->menuToolsMixer          = "Эквалайзер";
+    ls->menuToolsVdpViewer      = "Просмотр VDP";
     ls->menuToolsLoadMemory     = "Загрузить память";
     ls->menuToolsAgentControl   = "Управление агентом";
     ls->menuToolsAgentActivity  = "Действия агента...";

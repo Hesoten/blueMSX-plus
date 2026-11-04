@@ -291,6 +291,7 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->menuToolsShortcuts      = "快速鍵編輯器";
     ls->menuToolsCtrlEditor     = "控制器 / 鍵盤編輯器"; 
     ls->menuToolsMixer          = "混合器";
+    ls->menuToolsVdpViewer      = "VDP 檢視器";
     ls->menuToolsLoadMemory     = "載入記憶體";
     ls->menuToolsAgentControl   = "代理控制";
     ls->menuToolsAgentActivity  = "代理活動...";

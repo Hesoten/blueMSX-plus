@@ -315,6 +315,7 @@ char* langMenuToolsMachine();
 char* langMenuToolsShortcuts();
 char* langMenuToolsCtrlEditor();
 char* langMenuToolsMixer();
+char* langMenuToolsVdpViewer();
 char* langMenuToolsLoadMemory();
 char* langMenuToolsAgentControl();
 char* langMenuToolsAgentActivity();

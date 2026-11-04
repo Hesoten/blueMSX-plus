@@ -292,6 +292,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->menuToolsShortcuts      = "Pikanäppäinasetukset";
     ls->menuToolsCtrlEditor     = "Peliohjaimet / Näppäimistökartta"; 
     ls->menuToolsMixer          = "Mikseri";
+    ls->menuToolsVdpViewer      = "VDP-katselin";
     ls->menuToolsLoadMemory     = "Lataa muisti";
     ls->menuToolsAgentControl   = "Agenttiohjaus";
     ls->menuToolsAgentActivity  = "Agentin toiminta...";

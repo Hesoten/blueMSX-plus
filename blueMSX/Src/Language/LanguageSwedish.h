@@ -292,6 +292,7 @@ void langInitSwedish(LanguageStrings* ls)
     ls->menuToolsKeyboard       = "Tangentbordseditor";
     ls->menuToolsCtrlEditor     = "Kontrollers / Tangenbordseditor"; 
     ls->menuToolsMixer          = "Mixer";
+    ls->menuToolsVdpViewer      = "VDP-visare";
     ls->menuToolsLoadMemory     = "Ladda Minne";
     ls->menuToolsAgentControl   = "Agentstyrning";
     ls->menuToolsAgentActivity  = "Agentaktivitet...";

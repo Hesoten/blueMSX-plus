@@ -291,6 +291,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->menuToolsShortcuts      = "Editor de drecera";
     ls->menuToolsCtrlEditor     = "Controladors / editor de teclat"; 
     ls->menuToolsMixer          = "Mesclador";
+    ls->menuToolsVdpViewer      = "Visor VDP";
     ls->menuToolsLoadMemory     = "Carrega de memòria";
     ls->menuToolsAgentControl   = "Control per agent";
     ls->menuToolsAgentActivity  = "Activitat de l'agent...";

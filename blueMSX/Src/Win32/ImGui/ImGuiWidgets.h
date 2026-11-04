@@ -68,6 +68,9 @@ void HoldHeight(HeightHold& h, float y0);
 /* ---- icons ---- */
 
 /* Segoe Fluent Icons glyphs, as UTF-8. */
+#define UI_ICON_SCREEN        "\xEE\x9F\xB4"  /* U+E7F4 TVMonitor */
+#define UI_ICON_PATTERNS      "\xEF\x83\xA2"  /* U+F0E2 GridView */
+#define UI_ICON_VRAM          "\xEE\xA5\x90"  /* U+E950 Processing */
 #define UI_ICON_PINNED        "\xEE\xA1\x81"  /* U+E841 PinFill */
 #define UI_ICON_VIEW          "\xEE\xA2\x90"  /* U+E890 View */
 #define UI_ICON_EDIT          "\xEE\x9C\x8F"  /* U+E70F Edit */
@@ -76,9 +79,12 @@ void HoldHeight(HeightHold& h, float y0);
 #define UI_ICON_CHEVRON_UP    "\xEE\x9C\x8E"  /* U+E70E ChevronUp */
 #define UI_ICON_REMOVE        "\xEE\x9C\xB8"  /* U+E738 Remove */
 #define UI_ICON_ADD           "\xEE\x9C\x90"  /* U+E710 Add */
-
+#define UI_ICON_BORDERS       "\xEE\xA6\xA6"  /* U+E9A6 FitPage */
+#define UI_ICON_PIXEL         "\xEE\x9C\xB9"  /* U+E739 Checkbox */
+#define UI_ICON_BAND          "\xEE\xA3\xBD"  /* U+E8FD BulletedList */
 #define UI_ICON_FIT           "\xEE\x9D\x80"  /* U+E740 FullScreen */
 #define UI_ICON_GRID          "\xEE\xA0\x8A"  /* U+E80A, a 3x3 grid */
+#define UI_ICON_TABLES        "\xEE\xA3\xAC"  /* U+E8EC Tag */
 
 /* Whether the window has an icon font; without one icons are not drawn. */
 bool  HasIcons();

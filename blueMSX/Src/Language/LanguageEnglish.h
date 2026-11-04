@@ -291,6 +291,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->menuToolsShortcuts      = "Shortcuts Editor";
     ls->menuToolsCtrlEditor     = "Input Editor"; 
     ls->menuToolsMixer          = "Sound Mixer";
+    ls->menuToolsVdpViewer      = "VDP Viewer";
     ls->menuToolsLoadMemory     = "Load Memory";
     ls->menuToolsAgentControl   = "Agent Control";
     ls->menuToolsAgentActivity  = "Agent Activity...";

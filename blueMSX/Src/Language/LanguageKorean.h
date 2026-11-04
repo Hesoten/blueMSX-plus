@@ -299,6 +299,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->menuRun                 = "실행";
     ls->menuWindow              = "윈도우";
     ls->menuToolsMixer          = "믹서";
+    ls->menuToolsVdpViewer      = "VDP 뷰어";
     ls->menuToolsLoadMemory     = "메모리 불러오기";
     ls->menuToolsAgentControl   = "에이전트 제어";
     ls->menuToolsAgentActivity  = "에이전트 작업 기록...";

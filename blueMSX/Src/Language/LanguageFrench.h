@@ -291,6 +291,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->menuToolsShortcuts      = "Editeur de raccourcis";
     ls->menuToolsCtrlEditor     = "Editeur de contrôleurs/clavier";  
     ls->menuToolsMixer          = "Mélangeur audio";
+    ls->menuToolsVdpViewer      = "Visualiseur VDP";
     ls->menuToolsLoadMemory     = "Charger en mémoire";
     ls->menuToolsAgentControl   = "Contrôle par agent";
     ls->menuToolsAgentActivity  = "Activité des agents...";

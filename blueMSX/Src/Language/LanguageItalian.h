@@ -292,6 +292,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->menuToolsShortcuts              = "Gestione tasti rapidi...";
     ls->menuToolsCtrlEditor             = "Periferiche di ingresso...";               
     ls->menuToolsMixer                  = "Mixer audio...";
+    ls->menuToolsVdpViewer              = "Visualizzatore VDP...";
     ls->menuToolsLoadMemory             = "Carico di memoria";
     ls->menuToolsAgentControl   = "Controllo agente";
     ls->menuToolsAgentActivity  = "Attività agente...";

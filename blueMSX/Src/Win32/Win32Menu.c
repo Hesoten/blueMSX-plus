@@ -67,6 +67,7 @@
 extern int showLoadMemoryDlg(HWND hwnd);
 #include "IsFileExtension.h"
 #include "ziphelper.h"
+#include "ImGui/VdpViewer/VdpViewer.h"
 
 
 
@@ -132,6 +133,7 @@ extern int showLoadMemoryDlg(HWND hwnd);
 #define ID_TOOLS_SHORTCUTSEDITOR        40065
 #define ID_TOOLS_KEYBOARDEDITOR         40066
 #define ID_TOOLS_MIXER                  40061
+#define ID_TOOLS_VDP_VIEWER             40063
 #define ID_TOOLS_LOADMEMORY             40067
 /* Clear of 4006x (window sizes) and 41600-43099 (hard disk entries, multiplied
 ** out by ID_HARDDISK_OFFSET); the next block above is 50000. */
@@ -1387,6 +1389,9 @@ static HMENU menuCreateTools(Properties* pProperties, Shortcuts* shortcuts)
     if (appConfigGetInt("menu.tools.mixer", 1) != 0) {
         AppendMenuU(hMenu, MF_STRING, ID_TOOLS_MIXER, langMenuToolsMixer());
     }
+    if (appConfigGetInt("menu.tools.vdpviewer", 1) != 0) {
+        AppendMenuU(hMenu, MF_STRING, ID_TOOLS_VDP_VIEWER, langMenuToolsVdpViewer());
+    }
     if (appConfigGetInt("menu.tools.loadmemory", 1) != 0) {
         AppendMenuU(hMenu, MF_STRING, ID_TOOLS_LOADMEMORY, langMenuToolsLoadMemory());
     }
@@ -2505,6 +2510,7 @@ int menuCommand(Properties* pProperties, int command)
     case ID_TOOLS_SHORTCUTSEDITOR:          actionToolsShowShorcutEditor(); return 0;
     case ID_TOOLS_KEYBOARDEDITOR:           actionToolsShowKeyboardEditor();return 0;
     case ID_TOOLS_MIXER:                    actionToolsShowMixer();         return 0;
+    case ID_TOOLS_VDP_VIEWER:               vdpViewerShow();                return 0;
     case ID_TOOLS_LOADMEMORY:               showLoadMemoryDlg(getMainHwnd()); return 0;
     case ID_TOOLS_AGENT_OFF:
         setAgentControl(pProperties, CTRL_GATE_OFF);
