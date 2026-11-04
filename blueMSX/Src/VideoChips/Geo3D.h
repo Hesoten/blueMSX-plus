@@ -83,6 +83,8 @@ void   geo3dDebugCopy(Geo3D* geo3d, UInt32 ec, UInt32 edgeEnd,
 ** with room for itemRoom and cmdRoom; the device's fields stay 0. 0 once its record is gone. */
 int    geo3dDebugCopyRun(Geo3D* geo3d, UInt32 seq, Geo3DDebugRun* run,
                          Geo3DDebugItem* items, int itemRoom, Geo3DDebugCmd* cmds, int cmdRoom);
+/* Vertex v projected as a RUN would with the configuration words cfg (M00-H). */
+Geo3DDebugProj geo3dDebugProject(const Int32* cfg, const Int16* v);
 
 #ifdef __cplusplus
 }

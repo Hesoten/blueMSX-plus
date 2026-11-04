@@ -44,6 +44,7 @@ struct RegBank {
     const char*    prefix;     /* "R#", "S#", "P#" */
     const RegDesc* regs;
     int            count;
+    bool           hex;        /* indices as 30h, else as R#30 */
 };
 
 /* What a bank looked like at the last content, for the change highlight. */

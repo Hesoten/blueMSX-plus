@@ -635,6 +635,7 @@ typedef struct VdpViewerProperties {
         int sprGrid;
         int vramTint;
         int vramGrid;
+        int g3dPage;
     } v99x8;
     struct {
         int sprShown;

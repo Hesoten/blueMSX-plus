@@ -376,3 +376,13 @@ extern "C" int geo3dDebugCopyRun(Geo3D* geo3d, UInt32 seq, Geo3DDebugRun* run,
     debugCopyRun(geo3d->core, *r, run, items, itemRoom, &itemAt, cmds, cmdRoom, &cmdAt);
     return 1;
 }
+
+extern "C" Geo3DDebugProj geo3dDebugProject(const Int32* cfg, const Int16* v)
+{
+    std::array<int64_t, 18> c;
+    std::array<int64_t, 3> x = { v[0], v[1], v[2] };
+    for (int i = 0; i < 18; i++) {
+        c[i] = cfg[i];
+    }
+    return debugProj(Geo3DCore::project(c, x));
+}

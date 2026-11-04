@@ -41,4 +41,10 @@ void cmdKeyValues(const VdpDebugState* s);
 void cmdLrmmOverlay(ImDrawList* dl, const ui::CanvasXf& xf, const VdpDebugState* s, int readMode,
                     const CmdPageMap& g);
 
+/* The bitmap mode the command engine works in at the frame's end, or -1. */
+int cmdEngineMode(const VdpDebugState* s);
+
+/* Cuts a..b down to the box 0..w by 0..h; false when none of it is inside. */
+bool cmdClipToBox(ImVec2* a, ImVec2* b, float w, float h);
+
 #endif

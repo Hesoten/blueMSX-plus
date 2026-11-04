@@ -213,3 +213,13 @@ void cmdLrmmOverlay(ImDrawList* dl, const ui::CanvasXf& xf, const VdpDebugState*
     if (m.at(o, &at)) dl->AddCircleFilled(at, ui::Px(3), t.accent);
     m.tag(dl, o, t.accent, ts(nx > 0 ? TS_CMD_TAG_SOURCE : TS_CMD_TAG_SOURCE_NX0));
 }
+
+int cmdEngineMode(const VdpDebugState* s)
+{
+    return engineMode(s);
+}
+
+bool cmdClipToBox(ImVec2* a, ImVec2* b, float w, float h)
+{
+    return clipToBox(a, b, w, h);
+}

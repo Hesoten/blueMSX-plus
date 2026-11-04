@@ -108,7 +108,8 @@ static void tip(const RegBank& bank, const RegDesc& d, int value)
     const UiTokens& t = uiTokens();
     ImGui::BeginTooltip();
     ui::PushFont(UI_FONT_STRONG);
-    ImGui::Text("%s%d  %s", bank.prefix, d.index, d.name);
+    if (bank.hex) ImGui::Text("%s%02Xh  %s", bank.prefix, d.index, d.name);
+    else ImGui::Text("%s%d  %s", bank.prefix, d.index, d.name);
     ui::PopFont();
     /* The row's summary, which a narrow pane cuts. */
     char sum[96];
@@ -181,7 +182,8 @@ void drawRegBank(const RegBank& bank, const UInt8* values, RegFade& fade,
         float dy = floorf((bodyH - ImGui::GetTextLineHeight()) / 2);
         if (dy > 0) ImGui::SetCursorPosY(ImGui::GetCursorPosY() + dy);
         ImGui::PushStyleColor(ImGuiCol_Text, t.textSecondary);
-        ImGui::Text("%s%d", bank.prefix, d.index);
+        if (bank.hex) ImGui::Text("%s%02Xh", bank.prefix, d.index);
+        else ImGui::Text("%s%d", bank.prefix, d.index);
         ImGui::PopStyleColor();
         ImGui::TableNextColumn();
         if (dy > 0) ImGui::SetCursorPosY(ImGui::GetCursorPosY() + dy);

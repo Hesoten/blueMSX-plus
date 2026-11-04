@@ -37,6 +37,7 @@
 #include "VdpSprite.h"
 #include "VdpSprite3View.h"
 #include "VdpCmd9968.h"
+#include "Geo3DPanel.h"
 #include "VdpRaster.h"
 #include "VdpParts.h"
 #include "ToolText.h"
@@ -53,7 +54,8 @@ namespace {
 
 using namespace parts;
 
-enum { C_SELECTION, C_SPLITS, C_DISPLAY, C_TABLES, C_SPRITES, C_STATUS, C_COMMAND, C_PALETTE, C_REGISTERS, C_COUNT };
+enum { C_SELECTION, C_SPLITS, C_DISPLAY, C_TABLES, C_SPRITES, C_STATUS, C_COMMAND, C_GEO3D, C_PALETTE, C_REGISTERS,
+       C_GEO3D_REGS, C_COUNT };
 
 /* The Bitmap view's "Read as" choices. */
 const int bitmapModes[] = { 5, 6, 7, 8, 10, 12 };
@@ -190,6 +192,7 @@ public:
         add(" \xC2\xB7 %s", lines, 0);
         add(" \xC2\xB7 %s", s->isPal ? "PAL 50 Hz" : "NTSC 60 Hz", 0);
         if (!s->screenOn) add(" \xC2\xB7 %s", ts(TS_FACTS_BLANKED), 0);
+        if (Geo3DPanel::active(s) && at < size) g3d.facts(s, out + at, size - at);
     }
 
     int views(ViewDesc* out, int max, const void* st) const override
@@ -203,6 +206,7 @@ public:
         /* An MSX1 VDP has no bitmap mode to read its VRAM as. */
         if (n < max && fixed) out[n++] = ViewDesc{ "bitmap", ts(TS_VIEW_BITMAP), UI_ICON_BITMAP };
         if (n < max && (fixed || vdpSpriteMode(s->screenMode))) out[n++] = ViewDesc{ "sprites", ts(TS_VIEW_SPRITES), NULL, &ui::UI_ART_SHIP };
+        if (n < max && Geo3DPanel::active(s)) out[n++] = ViewDesc{ "geo3d", "geo3d", NULL, Geo3DPanel::tabArt() };
         if (n < max) out[n++] = ViewDesc{ "vram", "VRAM", UI_ICON_VRAM };
         return n;
     }
@@ -222,7 +226,19 @@ public:
             f.pinned = false;
             f.kind = FOCUS_NONE;
         }
+        /* One pin at a time: a face pinned on the geo3d tab takes it from the others, and they from it. */
+        if (g3d.takeNewPin()) {
+            sp3.unpin();
+            if (f.pinned) {
+                f.pinned = false;
+                f.kind = FOCUS_NONE;
+            }
+        }
+        else if (sp3.pinned()) {
+            g3d.unpin();
+        }
         sp3.track(s, f);
+        g3d.track(s, f, raster);
         refreshBandPin(s, f);
         /* Also while the card is folded away. */
         notePin(f);
@@ -239,6 +255,7 @@ public:
             sprHotNext.n = -1;
             sprPatHotNext.p = -1;
         }
+        if (v < 0 || v >= n || strcmp(d[v].key, "geo3d") != 0) g3d.leave();
         ensureScene(s);
         sprKeepPin(f);
         stripHold();
@@ -261,6 +278,7 @@ public:
         if (strcmp(d[v].key, "patterns") == 0) drawPatterns(s, f);
         else if (strcmp(d[v].key, "bitmap") == 0) drawBitmap(s, f);
         else if (strcmp(d[v].key, "sprites") == 0) drawSprites(s, f);
+        else if (strcmp(d[v].key, "geo3d") == 0) g3d.drawTab(s, f, raster);
         else drawVram(s, f);
         ui::EndTabCard();
     }
@@ -271,16 +289,19 @@ public:
         const CardDesc all[C_COUNT] = {
             { "sel", NULL, true }, { "splits", NULL, true }, { "disp", ts(TS_CARD_DISPLAY), true },
             { "tables", ts(TS_CARD_TABLES), true }, { "sprites", ts(TS_CARD_SPRITES), true }, { "status", ts(TS_CARD_STATUS), true },
-            { "cmd", ts(TS_CARD_COMMAND), true }, { "pal", ts(TS_CARD_PALETTE), true }, { "regs", ts(TS_CARD_REGISTERS), true },
+            { "cmd", ts(TS_CARD_COMMAND), true }, { "g3d", "geo3d", true }, { "pal", ts(TS_CARD_PALETTE), true },
+            { "regs", ts(TS_CARD_REGISTERS), true }, { "g3dregs", ts(TS_G3D_CARD_REGS), true },
         };
         int n = 0;
         for (int i = 0; i < C_COUNT && n < max; i++) {
             out[n] = all[i];
             if (i == C_COMMAND) out[n].shown = s->cmdRegCount > 0;
             if (i == C_SPRITES) out[n].shown = !vdpIsMsx1(s) || vdpSpriteMode(s->screenMode) != 0;
+            if (i == C_GEO3D || i == C_GEO3D_REGS) out[n].shown = Geo3DPanel::active(s);
             /* The pinned thing and the bands stay open; the frame's facts fold. */
             out[n].expander = i != C_SELECTION && i != C_SPLITS;
             out[n].summary = i == C_DISPLAY || i == C_TABLES || i == C_SPRITES ? cardSummary(s, i) : NULL;
+            if (i == C_GEO3D && Geo3DPanel::active(s)) out[n].summary = g3d.summary(s);
             out[n].noHold = i == C_SELECTION;
             n++;
         }
@@ -342,8 +363,10 @@ public:
             break;
         case C_STATUS:    cardStatus(s); break;
         case C_COMMAND:   cardCommand(s); break;
+        case C_GEO3D:     g3d.card(s); break;
         case C_PALETTE:   cardPalette(s); break;
         case C_REGISTERS: cardRegisters(s); break;
+        case C_GEO3D_REGS: g3d.registersCard(s); break;
         }
     }
 
@@ -475,6 +498,7 @@ public:
     {
         selectBand(-1);
         sp3.unpin();
+        g3d.unpin();
         /* A click beside the picture fixes the line row's line; only the key lets go of it. */
         if (key) {
             sprLineFixed = sprLineHeld = -1;
@@ -517,6 +541,7 @@ public:
         sprSelReset();
         lineRowReset();
         sp3.forget();
+        g3d.forget();
         sprRowSeq = 0;
         sprPinKeepAttr = -1;
         sprPinKeepVer = ~0u;
@@ -558,6 +583,7 @@ public:
         sprCv.grid = p.v99x8.sprGrid != 0;
         vramTint = p.v99x8.vramTint != 0;
         vramCv.grid = p.v99x8.vramGrid != 0;
+        g3d.loadUi(p);
     }
 
     void saveUi(VdpViewerProperties& p) const override
@@ -576,6 +602,7 @@ public:
         p.v99x8.sprGrid = sprCv.grid;
         p.v99x8.vramTint = vramTint;
         p.v99x8.vramGrid = vramCv.grid;
+        g3d.saveUi(p);
     }
 
 private:
@@ -636,6 +663,7 @@ private:
     bool            selWanted = false;    /* selKey stays picked while no band matches it */
     mutable char    summaries[3][256];    /* the folded Display, Tables and Sprites cards' lines */
     mutable Sp3Panel sp3;                 /* the Sprites tab and cards while a V9968 is in SP3 */
+    mutable Geo3DPanel g3d;               /* the geo3d tab and cards while a geo3d is beside the VDP */
     float           selLatch = 0;         /* the inspected card's height so far for... */
     float           selLatchKey[6] = {};  /* ...this pin (kind, a, b, address, space) or band, at this width */
     char            palHeldRuns[160] = "";  /* the Palette card's last note while running... */
@@ -1771,7 +1799,10 @@ private:
     {
         selBand = i;
         cardBand = i >= 0;
-        if (i >= 0) sp3.unpin();
+        if (i >= 0) {
+            sp3.unpin();
+            g3d.unpin();
+        }
         selWanted = i >= 0 && i < (int)raster.bands.size();
         if (selWanted) selKey = vdpBandKeyOf(raster.bands[i]);
     }
@@ -6187,9 +6218,13 @@ private:
     {
         bool pinned = f.pinned && f.kind != FOCUS_NONE;
         notePin(f);
-        /* Picking a band or pinning anything else lets go of the SP3 pin. */
+        /* Picking a band or pinning anything else lets go of the SP3 and geo3d pins. */
         if (sp3.pinned() && !pinned && Sp3Panel::active(s)) {
             sp3.selection(s, f);
+            return;
+        }
+        if (g3d.pinned() && !pinned && Geo3DPanel::active(s)) {
+            g3d.selection(s);
             return;
         }
         const float* pin = cardPin;
@@ -6849,6 +6884,10 @@ private:
         ImGui::Text("%s  %s", cmdName(s, cmr >> 4), logOpName(cmr & 15));
         if (!ui::BeginKeyValue("cmd")) return;
         cmdKeyValues(s);
+        if (s->geo3d.valid) {
+            const char* g = g3d.commandNote(s);
+            ui::KeyValueMono("geo3d", "%s", g ? g : "\xE2\x80\x94");
+        }
         ui::KeyValueMono("CLR", "%02X", c[12]);
         ui::KeyValueMono("ARG", "%02X%s%s%s", c[13], (c[13] & 8) ? " DIY" : "", (c[13] & 4) ? " DIX" : "",
                          (c[13] & 1) ? " MAJ" : "");
