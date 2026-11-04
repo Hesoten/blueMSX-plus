@@ -66,7 +66,7 @@ public:
     /* One line of facts for the command bar, e.g. SCREEN 5, 212 lines and NTSC 60 Hz, joined by middle dots. */
     virtual void   facts(const void* st, char* out, size_t size) = 0;
     virtual int    views(ViewDesc* out, int max, const void* st) const = 0;
-    /* Under the tabs: the view's card (ui::BeginTabCard). */
+    /* Under the tabs: the view's card (ui::BeginTabCard), and anything under it. */
     virtual void   drawView(int v, const void* st, Focus& f) = 0;
     virtual int    cards(CardDesc* out, int max, const void* st) const = 0;
     virtual void   drawCard(int c, const void* st, Focus& f) = 0;
@@ -115,6 +115,25 @@ void        wantSpriteTables();
 void        releaseSelection();
 /* The pictures' zoom, one for every tab, for the session. */
 ui::CanvasZoom& zoom();
+/* The Pages card under the Screen: open, its height in px at
+** 96 DPI, and the thumbnails' size, 0 small to 2 large. */
+struct PagesState { bool open = true; float height = 200; int size = 0; };
+PagesState& pages();
+/* A view's scroll across its pages, and where a new size puts it. */
+struct PagesScroll { float x = 0, to = -1; bool wheelOwned = false; };
+/* Screen px, not px at 96 DPI, per dot of a 256-dot page at each size: 0.5, 1 and 1.5. */
+float       pagesStepScale(int step);
+/* The card's height besides its pages: the header, and the body's padding while open. */
+float       pagesChromeH(bool open);
+/* The pages' height from the splitter, 0 while folded; room is the height of the
+** Screen's card and the pages. The pages keep 80 px, the card 160 first. */
+float       pagesHeight(float room);
+/* Under the Screen's card: the splitter, the header and its size switch. True while
+** the pages are drawn: lay them out, then pagesBeginScroll, draw them, pagesEnd. */
+bool        pagesHeader(float paneH, bool* sizeChanged);
+/* The pages' pane, cw x ch of content, scrolling across or down when it is larger. */
+void        pagesBeginScroll(float paneH, float cw, float ch, PagesScroll& sc);
+void        pagesEnd(PagesScroll& sc);
 /* The VRAM map's lanes this frame, *n of them; none outside the views' drawing. */
 const VramLane* mapLanes(int* n);
 /* "    Name - lines" at out for each of those lanes holding physical address a, as the map's hover says. */

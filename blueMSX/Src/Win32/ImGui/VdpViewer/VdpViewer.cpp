@@ -27,6 +27,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "ImGuiWindow.h"
 #include "ImGuiTheme.h"
 #include "ImGuiWidgets.h"
@@ -86,6 +87,7 @@ static int         viewFamily = -1;  /* the family of the view being drawn */
 static bool        tablesWanted;     /* a V99x8 view was drawn this frame */
 static bool        releaseWanted;    /* a view asked to let go of the selection */
 static ui::CanvasZoom viewerZoom;    /* kept when the window closes, as the views keep theirs */
+static shell::PagesState pagesState;
 
 namespace shell {
 unsigned     contentVersion() { return contentVer; }
@@ -101,6 +103,7 @@ void         wantSpriteSplit() { splitWanted = viewFamily; }
 void         wantSpriteTables() { tablesWanted = true; }
 void         releaseSelection() { releaseWanted = true; }
 ui::CanvasZoom& zoom()        { return viewerZoom; }
+PagesState&  pages()          { return pagesState; }
 }
 
 /* Arms (on) or disarms the sprite split of a chip family; -1 is none. */
@@ -474,6 +477,102 @@ static void drawVramMap(ChipView* v, const void* st, const MapPlan& m)
     }
 }
 
+/* ---- Pages: the card under the Screen, folding as the VRAM map does ---- */
+
+namespace shell {
+float pagesStepScale(int step)
+{
+    return step == 2 ? 1.5f : step == 1 ? 1.0f : 0.5f;
+}
+
+float pagesChromeH(bool open)
+{
+    return ui::Px(32) + (open ? ui::Px(4) + ui::Px(8) : 0);
+}
+
+float pagesHeight(float room)
+{
+    if (!pagesState.open) return 0;
+    return ui::SplitSize("##split", &pagesState.height, ui::Px(80), room - ui::Px(160));
+}
+
+bool pagesHeader(float paneH, bool* sizeChanged)
+{
+    *sizeChanged = false;
+    /* The splitter in the 8 px under the card (EndTabCard left ItemSpacing below it), then the card. */
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    float sp = ImGui::GetStyle().ItemSpacing.y;
+    if (paneH > 0) {
+        ImGui::SetCursorScreenPos(ImVec2(p.x, p.y - sp));
+        ui::SplitBar("##split", ImGui::GetContentRegionAvail().x, ui::Px(8), paneH);
+    }
+    ImGui::SetCursorScreenPos(ImVec2(p.x, p.y + ui::Px(8) - sp));
+    const char* sizes[] = { ts(TS_STRIP_SMALL), ts(TS_STRIP_MEDIUM), ts(TS_STRIP_LARGE) };
+    ui::ExpanderStyle es;
+    es.headerH = 32;
+    es.padLeft = 12;
+    es.bodyTop = 4;
+    es.bodyBottom = 8;
+    es.divider = false;
+    es.trailW = ui::SegmentedWidth(sizes, 3);
+    bool open = ui::BeginExpander("pages", ts(TS_STRIP), NULL, &pagesState.open, es);
+    /* Opened by a click this frame: the room is reserved from the next frame on. */
+    if (!open || paneH <= 0) {
+        ui::EndExpander();
+        return false;
+    }
+    ImVec2 body = ImGui::GetCursorScreenPos(), ta, tb;
+    ui::ExpanderTrail(&ta, &tb);
+    ui::PushFont(UI_FONT_STRONG);
+    float titleW = ImGui::CalcTextSize(ts(TS_STRIP)).x;
+    ui::PopFont();
+    /* The size, in the header while it fits beside the title. */
+    if (ta.x >= p.x + ui::Px(12) + titleW + ui::Px(16)) {
+        int was = pagesState.size;
+        ImGui::SetCursorScreenPos(ImVec2(ta.x, floorf((ta.y + tb.y - ui::SegmentedHeight()) / 2)));
+        *sizeChanged = ui::Segmented("size", &pagesState.size, sizes, 3) && pagesState.size != was;
+    }
+    ImGui::SetCursorScreenPos(body);
+    return true;
+}
+
+void pagesBeginScroll(float paneH, float cw, float ch, PagesScroll& sc)
+{
+    /* Across when wider than the pane and down when taller; ImGui is told the same, not left to last frame's bars. */
+    float w = ImGui::GetContentRegionAvail().x, sb = ImGui::GetStyle().ScrollbarSize;
+    bool overX = cw > w, overY = ch > paneH - (overX ? sb : 0);
+    overX = overX || (overY && cw > w - sb);
+    float toX = overX ? sc.to : 0;
+    if (toX >= 0 || !overY) ImGui::SetNextWindowScroll(ImVec2(toX, overY ? -1.0f : 0));
+    sc.to = -1;
+    ImGui::SetNextWindowContentSize(ImVec2(overX ? cw : fminf(cw, w - (overY ? sb : 0)), overY ? ch : fminf(ch, paneH - (overX ? sb : 0))));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    ImGuiWindowFlags scroll = (overX ? ImGuiWindowFlags_AlwaysHorizontalScrollbar : 0) | (overY ? ImGuiWindowFlags_AlwaysVerticalScrollbar : 0);
+    ImGui::BeginChild("pane", ImVec2(w, paneH), ImGuiChildFlags_None, ImGuiWindowFlags_NoBackground | (scroll ? scroll : ImGuiWindowFlags_NoScrollbar));
+    ImGui::PopStyleVar();
+}
+
+/* Over a row that scrolls only across, the wheel scrolls it across, taken from ImGui a frame
+** ahead as the pictures take theirs; Shift+wheel by ImGui's step across, a plain one by its step down. */
+void pagesEnd(PagesScroll& sc)
+{
+    ImGuiIO& io = ImGui::GetIO();
+    ImGuiWindow* cw = ImGui::GetCurrentWindow();
+    bool hovered = ImGui::IsWindowHovered();
+    if (sc.wheelOwned && hovered && !io.KeyCtrl && io.MouseWheel != 0) {
+        float step = ImTrunc(ImMin((io.KeyShift ? 2 : 5) * cw->FontRefSize, cw->InnerRect.GetWidth() * 0.67f));
+        ImGui::SetScrollX(ImGui::GetScrollX() - io.MouseWheel * step);
+    }
+    sc.x = ImGui::GetScrollX();
+    sc.wheelOwned = hovered && !io.KeyCtrl && ImGui::GetScrollMaxX() > 0 && ImGui::GetScrollMaxY() <= 0;
+    ImGuiID id = ImGui::GetID("##wheel");
+    if (sc.wheelOwned) ImGui::SetKeyOwner(ImGuiKey_MouseWheelY, id);
+    else if (ImGui::GetKeyOwner(ImGuiKey_MouseWheelY) == id) ImGui::SetKeyOwner(ImGuiKey_MouseWheelY, ImGuiKeyOwner_NoOwner);
+    ImGui::EndChild();
+    ui::EndExpander();
+}
+}
+
 /* ---- window ------------------------------------------------------------ */
 
 
@@ -657,7 +756,7 @@ static void draw(ImGuiToolWindow*, void*)
         ui::EndInspectorPane();
     }
     else {
-        /* Too narrow for a column: the cards go under the view. */
+        /* Too narrow for a column: the cards go under the view, which keeps room for its splitter. */
         ImGui::BeginChild("stack", ImVec2(0, avail.y));
         ImGui::BeginChild("left", ImVec2(0, fmaxf(ui::Px(480), avail.y * 0.6f)), ImGuiChildFlags_None,
                           ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);

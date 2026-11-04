@@ -110,9 +110,11 @@ void vdpRenderSpriteTile(const VdpDebugState* s, const VdpSpriteFrame& f, int n,
 void vdpRenderSpriteLines(const VdpDebugState* s, const VdpSpriteFrame& f, uint32_t* out, int width, int first, int last,
                           const UInt32* const* lineRgb = NULL, uint8_t* dropped = NULL);
 
-/* f's sprite pattern table as 256 x 64 (8x8 patterns in rows of 32, 16x16 in rows of 16): pattern p
-** drawn as sprite owner[p] draws it (rows coloured by ownerRgb[owner * 16 + row], as
-** vdpRenderSpriteTile), or in grey with no owner. */
+/* The sprite pattern table as 256 x 64: 8x8 patterns in rows of 32, or
+** 16x16 ones in rows of 16. */
+void vdpDecodeSpriteSheet(const VdpDebugState* s, const VdpLayout& l, int size, VdpImage& out, int* w, int* h);
+/* The same laid out as f's patterns: pattern p drawn as sprite owner[p] draws it (rows
+** coloured by ownerRgb[owner * 16 + row], as vdpRenderSpriteTile), or in grey with no owner. */
 void vdpDecodeSpriteSheetUsers(const VdpDebugState* s, const VdpSpriteFrame& f, const int owner[256], const UInt32* const* ownerRgb,
                                uint32_t grey, VdpImage& out, int* w, int* h);
 /* The pattern number at a sheet pixel, or -1. */

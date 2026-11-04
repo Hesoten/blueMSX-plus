@@ -471,3 +471,20 @@ void vdpSpriteSheetCell(int size, int pattern, int* x, int* y)
         *y = ((pattern & 0xff) >> 5) * 8;
     }
 }
+
+void vdpDecodeSpriteSheet(const VdpDebugState* s, const VdpLayout& l, int size, VdpImage& out, int* w, int* h)
+{
+    const uint32_t on = 0xffffffffu, off = 0xff2b2b2bu;
+    *w = 256;
+    *h = 64;
+    out.assign((size_t)256 * 64, off);
+    for (int p = 0; p < 256; p += size == 16 ? 4 : 1) {
+        int cx, cy, a = patternAddr(s, l.regs, l.mode, p);
+        vdpSpriteSheetCell(size, p, &cx, &cy);
+        for (int row = 0; row < size; row++) {
+            int bits = rowBits(s, l.mode, size, a + row);
+            uint32_t* dst = &out[(size_t)(cy + row) * 256 + cx];
+            for (int i = 0; i < size; i++) dst[i] = (bits & (0x8000 >> i)) ? on : off;
+        }
+    }
+}
