@@ -299,6 +299,49 @@ int vdpRasterBandAt(const VdpRasterView& v, int d)
     return d >= 0 && d < (int)v.bandOfLine.size() ? v.bandOfLine[d] : -1;
 }
 
+void vdpRasterBandRows(const VdpDebugState* s, const VdpBand& b, std::vector<int>& runs)
+{
+    /* R#2 bits 0-4 gate line bits 3-7 of a bitmap page, as the VDP's address mask. */
+    int mask = b.page >= 0 && vdpIsBitmapMode(b.mode) ? ((b.regs[2] & 0x1f) << 3) | 7 : 0xff;
+    int vs = vdpScreenScroll(s, vdpLayoutOf(b));
+    runs.clear();
+    for (int d = b.first; d <= b.last; d++) {
+        int row = ((d + vs) & 0xff) & mask;
+        if (!runs.empty() && runs.back() == row) runs.back() = row + 1;
+        else { runs.push_back(row); runs.push_back(row + 1); }
+    }
+}
+
+int vdpRasterBandCols(const VdpBand& b, int seg[6])
+{
+    if (b.page < 0 || !vdpIsBitmapMode(b.mode)) return 0;
+    const UInt8* r = b.regs;
+    bool sp2 = (r[25] & 1) && (r[2] & 0x20);
+    /* SP2 joins the even page and the odd one into a 512-dot line. On the even side
+    ** of EO or blink the VDP reads other pages; that is not followed. */
+    int wrap = sp2 ? 512 : 256;
+    int h = (((r[26] & 0x3f) << 3) - (r[27] & 7)) & (wrap - 1);
+    if (!sp2 && h == 0) {
+        seg[0] = b.evenSide ? b.page & ~1 : b.page;
+        seg[1] = 0;
+        seg[2] = 256;
+        return 1;
+    }
+    /* MSK blanks the first 8 dots; without it SCREEN 5 and 7 blank the first h & 7. */
+    int lead = (r[25] & 2) ? 8 : (b.mode == 5 || b.mode == 7) ? h & 7 : 0;
+    int pos = (h + lead) % wrap, left = 256 - lead, n = 0;
+    while (left > 0) {
+        int x = pos & 255, run = left < 256 - x ? left : 256 - x;
+        seg[n * 3] = sp2 ? (b.page & ~1) | (pos >> 8) : b.evenSide ? b.page & ~1 : b.page;
+        seg[n * 3 + 1] = x;
+        seg[n * 3 + 2] = x + run;
+        n++;
+        pos = (pos + run) % wrap;
+        left -= run;
+    }
+    return n;
+}
+
 VdpLayout vdpLayoutOf(const VdpBand& b)
 {
     VdpLayout l = { b.regs, b.mode, b.blink, NULL, b.textSplit };
@@ -386,6 +429,8 @@ void vdpRasterGroups(const VdpRasterView& v, std::vector<VdpBandGroup>& out)
             out.push_back(g);
         }
         VdpBandGroup& g = out[k];
+        int seg[6];
+        for (int n = vdpRasterBandCols(b, seg), q = 0; q < n; q++) g.shownPages |= 1u << seg[q * 3];
         addLines(g, b.first, b.last);
     }
     size_t kept = 0;

@@ -75,6 +75,13 @@ int  vdpRasterBandAt(const VdpRasterView& v, int d);
 /* Same mode, table bases, sprite size, TP, scroll and page; a band is found
 ** again after a rebuild by this. */
 bool vdpRasterSameKey(const VdpBand& a, const VdpBand& b);
+/* The 256-line rows a band reads, R#2 line masks of the bitmap modes applied;
+** runs of [from, to). vdpRasterBandCols gives the pages they are on. */
+void vdpRasterBandRows(const VdpDebugState* s, const VdpBand& b, std::vector<int>& runs);
+/* The pages and columns of those rows a bitmap band shows, in 256ths of a line: seg holds
+** (page, from, to) twice at most, split where the R#26/R#27 window wraps, with SP2 between
+** the even page and the odd one. Returns the count, 0 outside the bitmap modes. */
+int  vdpRasterBandCols(const VdpBand& b, int seg[6]);
 const char* vdpRegisterName(int reg);
 
 /* The layout a band's lines are drawn with. */
@@ -100,6 +107,7 @@ struct VdpBandGroup {
     int      blink;
     int      textSplit;    /* of its first band */
     char     lines[64];    /* "0-30, 113-211" */
+    unsigned shownPages;   /* bit p: a band of the group shows page p, as vdpRasterBandCols gives them */
     int      runFirst[8], runLast[8], runs, lineCount;
 };
 /* Groups in the order their first lines come; groups of one or two lines,

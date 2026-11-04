@@ -791,6 +791,41 @@ bool IconButton(const char* id, const char* glyph, const char* fallback, const c
     return pressed;
 }
 
+/* A strip of film on end: perforated edges and frames one under the other. */
+static const char* const filmRows[] = {
+    "############",
+    "#.#......#.#",
+    "#.#......#.#",
+    "###......###",
+    "#.#......#.#",
+    "#.########.#",
+    "###......###",
+    "#.#......#.#",
+    "#.#......#.#",
+    "###......###",
+    "#.########.#",
+    "#.#......#.#",
+    "###......###",
+    "#.#......#.#",
+    "#.#......#.#",
+    "############",
+};
+static const char* const filmSmallRows[] = {
+    "#########",
+    "#.#...#.#",
+    "###...###",
+    "#.#...#.#",
+    "###...###",
+    "#.#####.#",
+    "###...###",
+    "#.#...#.#",
+    "###...###",
+    "#.#...#.#",
+    "#########",
+};
+static const PixelArt filmSmall = { 9, 11, filmSmallRows, NULL };
+const PixelArt UI_ART_FILM = { 12, 16, filmRows, &filmSmall };
+
 static bool artOn(const PixelArt& a, int x, int y)
 {
     return x >= 0 && y >= 0 && x < a.w && y < a.h && a.rows[y][x] == '#';

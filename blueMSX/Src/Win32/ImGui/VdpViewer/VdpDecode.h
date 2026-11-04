@@ -97,8 +97,11 @@ struct VdpBitmapOptions {
 };
 
 int  vdpBitmapWidth(int mode);
+int  vdpBitmapPageCount(const VdpDebugState* s, int mode);
 /* What the layout shows; false when it is not in a bitmap mode. */
 bool vdpDisplayedBitmap(const VdpDebugState* s, const VdpLayout& l, VdpBitmapOptions* out);
+/* o.mode is the mode the VRAM is read as; l gives the registers. */
+void vdpDecodeBitmap(const VdpDebugState* s, const VdpLayout& l, const VdpBitmapOptions& o, VdpImage& out, int* w, int* h);
 
 struct VdpPixelInfo {
     int      logical;    /* VRAM address as the CPU sees it */

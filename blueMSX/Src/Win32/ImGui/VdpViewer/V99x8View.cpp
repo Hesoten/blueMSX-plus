@@ -50,6 +50,11 @@ using namespace parts;
 
 enum { C_SELECTION, C_SPLITS, C_DISPLAY, C_TABLES, C_STATUS, C_COMMAND, C_PALETTE, C_REGISTERS, C_COUNT };
 
+/* The Bitmap view's "Read as" choices. */
+const int bitmapModes[] = { 5, 6, 7, 8, 10, 12 };
+const char* const bitmapModeNames[] = { "SC5", "SC6", "SC7", "SC8", "SC10/11", "SC12" };
+#define BITMAP_MODES 6
+
 ImU32 rgbaToCol(uint32_t c)
 {
     return (ImU32)c;   /* both are 0xAABBGGRR */
@@ -112,12 +117,34 @@ const char* logOpName(int lo)
     return names[lo & 15];
 }
 
+/* The pages of a bitmap mode in a grid, a gap between them. */
+struct PageGrid {
+    int cols = 1, pages = 1, tileW = 256, tileH = 256, gap = 0;
+
+    int  width() const  { return cols * tileW + (cols - 1) * gap; }
+    int  height() const { int rows = (pages + cols - 1) / cols; return rows * tileH + (rows - 1) * gap; }
+    void origin(int page, int* x, int* y) const
+    {
+        *x = (page % cols) * (tileW + gap);
+        *y = (page / cols) * (tileH + gap);
+    }
+    bool at(int x, int y, int* page, int* px, int* py) const
+    {
+        if (x < 0 || y < 0) return false;
+        int c = x / (tileW + gap), r = y / (tileH + gap);
+        *px = x - c * (tileW + gap);
+        *py = y - r * (tileH + gap);
+        *page = r * cols + c;
+        return c < cols && *px < tileW && *py < tileH && *page < pages;
+    }
+};
+
 class V99x8View : public ChipView {
 public:
     V99x8View()
     {
-        outCv.shared = sheetCv.shared = vramCv.shared = &shell::zoom();
-        sheetCv.frameless = vramCv.frameless = outCv.frameless = true;
+        outCv.shared = sheetCv.shared = vramCv.shared = bitmapCv.shared = &shell::zoom();
+        sheetCv.frameless = vramCv.frameless = bitmapCv.frameless = outCv.frameless = true;
         regFadeReset(regFade);
         regFadeReset(statFade);
     }
@@ -154,10 +181,12 @@ public:
     {
         const VdpDebugState* s = (const VdpDebugState*)st;
         int n = 0;
-        /* A V9938/58 frame can mix modes, so this view stays; it says when no line uses a pattern mode. */
+        /* A V9938/58 frame can mix modes, so these views stay; they say when no line uses them. */
         bool fixed = !vdpIsMsx1(s);
         if (n < max) out[n++] = ViewDesc{ "screen", ts(TS_VIEW_SCREEN), UI_ICON_SCREEN };
         if (n < max && (fixed || vdpIsPatternMode(s->screenMode))) out[n++] = ViewDesc{ "patterns", ts(TS_VIEW_PATTERNS), UI_ICON_PATTERNS };
+        /* An MSX1 VDP has no bitmap mode to read its VRAM as. */
+        if (n < max && fixed) out[n++] = ViewDesc{ "bitmap", ts(TS_VIEW_BITMAP), UI_ICON_BITMAP };
         if (n < max) out[n++] = ViewDesc{ "vram", "VRAM", UI_ICON_VRAM };
         return n;
     }
@@ -183,6 +212,7 @@ public:
         if (!(f.pinned && f.kind != FOCUS_NONE) && selBand < 0) selLatch = 0;
         lastFamily = family;
         ensureLinePalettes(s);
+        noteBitmapMode(s);
         /* On every tab: the tables and palettes each line used; Output asks for the samples too. */
         shell::wantSpriteTables();
         shell::wantFrame(false);
@@ -190,6 +220,7 @@ public:
         ui::BeginTabCard("card");
         if (strcmp(d[v].key, "screen") == 0) drawOutput(s, f);
         else if (strcmp(d[v].key, "patterns") == 0) drawPatterns(s, f);
+        else if (strcmp(d[v].key, "bitmap") == 0) drawBitmap(s, f);
         else drawVram(s, f);
         ui::EndTabCard();
     }
@@ -396,8 +427,13 @@ public:
         patCol = patRow = -1;
         selSheetPic.forget();
         vramPic.forget();
+        bitmapPic.forget();
         regFadeReset(regFade);
         regFadeReset(statFade);
+        readAs = -1;
+        lastBitmapMode = 5;
+        bitmapSeen = false;
+        readGroupSet = false;
         patGroupSet = false;
         charPin.set = false;
         lastFamily = -1;
@@ -411,9 +447,9 @@ public:
     }
 
 private:
-    ViewPicture     sheetPic, vramPic;
+    ViewPicture     sheetPic, vramPic, bitmapPic;
     ViewPicture     selSheetPic;          /* the Selection's, for a band's or a cell's pin: never uploaded */
-    ui::CanvasState sheetCv, vramCv;
+    ui::CanvasState sheetCv, vramCv, bitmapCv;
     /* The Patterns tab: the screen the name table builds beside the pattern generator, one
     ** picture; parts in image px, sdx image px a sheet dot across (2 beside T80's names). */
     struct PatParts { int nx, ny, nw, nh, sx, sy, sw, sh, sdx, w, h; };
@@ -429,9 +465,18 @@ private:
     struct CharPin { bool set; int a, b; VdpBandKey key; };
     CharPin         charPin = {};
     bool            transparent0 = false;
+    int             readAs = -1;          /* index into bitmapModes; -1 follows the mode */
+    bool            readGroupSet = false; /* Read as follows the group readKey finds */
+    VdpBandKey      readKey = {};
+    int             lastBitmapMode = 5;   /* the last bitmap mode a frame showed, for Auto in pattern modes */
+    bool            bitmapSeen = false;   /* ...and whether one did */
+    int             ovReadGroup = -1;     /* the group the Bitmap view reads, or -1: the frame's end */
     int             lastFamily = -1;      /* 1 bitmap, 0 pattern mode */
+    int             layout = 0;           /* 0 tiles, 1 a column */
     bool            vramTint = true;      /* the bytes tinted by the VRAM map's lanes */
     RegFade         regFade, statFade;
+    PageGrid        grid;
+    VdpImage        column;               /* every page one under the other, for the tiles */
     std::vector<VdpBandGroup> groups;     /* of the bands, rebuilt with them */
     VdpRasterView   raster;
     unsigned        rasterVer = ~0u;
@@ -460,6 +505,7 @@ private:
 
     /* For the overlays, which run inside Canvas. */
     const VdpDebugState* ovState = NULL;
+    int                  ovReadMode = -1;
     VdpLayout            ovLayout = {};          /* the Patterns view's; rgb valid until the next ensureLinePalettes */
     int                  ovRows = 0, ovWidth = 256;  /* the Output picture's */
     int                  ovSplitWidth = 256;  /* dots a split is counted in */
@@ -716,7 +762,7 @@ private:
         return rgb != NULL ? fnvWords(rgb, 16) : 0u;
     }
 
-    /* The band the Patterns view takes as context: the one picked on the Splits card,
+    /* The band the views take as context: the one picked on the Splits card,
     ** else the band of a line pinned on the Output, or -1. */
     int ctxBand() const
     {
@@ -799,6 +845,27 @@ private:
         cardBand = i >= 0;
         selWanted = i >= 0 && i < (int)raster.bands.size();
         if (selWanted) selKey = vdpBandKeyOf(raster.bands[i]);
+    }
+
+    /* Frames a band's pieces on the Bitmap picture: rows from runs, pages and columns from seg. */
+    void bandFrames(ImDrawList* dl, const ui::CanvasXf& xf, const std::vector<int>& runs, const int* seg, int n,
+                    int bandIndex, float th)
+    {
+        const UiTokens& t = uiTokens();
+        for (int k = 0; k < n; k++) {
+            int p = seg[k * 3];
+            if (p < 0 || p >= grid.pages) continue;
+            int ox, oy;
+            grid.origin(p, &ox, &oy);
+            float x0 = ox + (float)grid.tileW * seg[k * 3 + 1] / 256, x1 = ox + (float)grid.tileW * seg[k * 3 + 2] / 256;
+            for (size_t q = 0; q + 1 < runs.size(); q += 2) {
+                ImVec2 a = xf.toScreen(x0, (float)(oy + runs[q])), c = xf.toScreen(x1, (float)(oy + runs[q + 1]));
+                if (bandIndex == selBand) dl->AddRectFilled(a, c, ui::WithAlpha(t.accent, 50));
+                /* Inset by the line width, but never inside out for a piece a few dots wide. */
+                float ix = fminf(th, (c.x - a.x) / 2), iy = fminf(th, (c.y - a.y) / 2);
+                dl->AddRect(ImVec2(a.x + ix, a.y + iy), ImVec2(c.x - ix, c.y - iy), bandColour(bandIndex), 0, th);
+            }
+        }
     }
 
     bool rasterMarks() const
@@ -1655,30 +1722,68 @@ private:
 
     /* ---- VRAM ---- */
 
-    /* Where a physical span lands on the VRAM picture: the one mapping
-    ** the focus and the map's hover share. */
-    bool vramRect(UInt32 phys, UInt32 len, float* x0, float* y0, float* x1, float* y1) const
+    /* Back to a CPU address in the mode the VRAM is read as. */
+    static UInt32 readAsAddress(const VdpDebugState* s, int rm, UInt32 phys)
     {
-        *x0 = (float)(phys & 255); *y0 = (float)(phys >> 8);
-        *x1 = len >= 256 ? 256.0f : *x0 + (float)len; *y1 = *y0 + 1;
-        if (len >= 256) *x0 = 0;
+        if (!interleaved(rm)) return phys;
+        return phys >= (UInt32)s->vram128 && s->vram128 ? ((phys - s->vram128) << 1) | 1 : phys << 1;
+    }
+
+    /* The pages, read as rm, holding page p of mode: from SCREEN 7 on a page is split
+    ** between the two 64K halves, so read as SCREEN 5/6 it is two pages. */
+    static unsigned pagesHolding(const VdpDebugState* s, int mode, int p, int rm)
+    {
+        int bytes = mode == 5 || mode == 6 ? 0x8000 : 0x10000, rmBytes = rm == 5 || rm == 6 ? 0x8000 : 0x10000;
+        unsigned m = 0;
+        for (int odd = 0; odd < 2; odd++) {
+            UInt32 page = readAsAddress(s, rm, (UInt32)vdpPhysicalAddress(s, mode, p * bytes + odd)) / (UInt32)rmBytes;
+            if (page < 32) m |= 1u << page;
+        }
+        return m;
+    }
+
+    /* Where a physical span lands on the VRAM picture read as rm: the one
+    ** mapping the focus, the map's hover and the page outlines share. */
+    bool vramRect(const VdpDebugState* s, int rm, UInt32 phys, UInt32 len, float* x0, float* y0, float* x1, float* y1) const
+    {
+        if (rm < 0) {
+            *x0 = (float)(phys & 255); *y0 = (float)(phys >> 8);
+            *x1 = len >= 256 ? 256.0f : *x0 + (float)len; *y1 = *y0 + 1;
+            if (len >= 256) *x0 = 0;
+            return true;
+        }
+        UInt32 logical = readAsAddress(s, rm, phys);
+        int pageBytes = rm == 5 || rm == 6 ? 0x8000 : 0x10000;
+        int bpl = rm == 5 || rm == 6 ? 128 : 256;
+        int ppb = rm == 5 || rm == 7 ? 2 : rm == 6 ? 4 : 1;
+        int page = (int)logical / pageBytes, within = (int)logical % pageBytes, ox, oy;
+        if (page >= grid.pages) return false;
+        grid.origin(page, &ox, &oy);
+        *y0 = (float)(oy + within / bpl); *y1 = *y0 + 1;
+        *x0 = (float)(ox + (within % bpl) * ppb); *x1 = *x0 + ppb;
+        if (len >= 256) {
+            /* 256 bytes are two lines in SCREEN 5/6; interleaved, every other byte of two lines. */
+            int lines = (int)(interleaved(rm) ? len * 2 : len) / bpl;
+            *x0 = (float)ox; *x1 = (float)(ox + grid.tileW);
+            *y1 = *y0 + (float)(lines > 1 ? lines : 1);
+        }
         return true;
     }
 
-    /* The block hovered on the map and the focus, over the VRAM picture. */
-    void focusMarks(ImDrawList* dl, const ui::CanvasXf& xf) const
+    /* The block hovered on the map and the focus, over the picture read as rm. */
+    void focusMarks(ImDrawList* dl, const ui::CanvasXf& xf, int rm) const
     {
         const UiTokens& t = uiTokens();
         const Focus& f = shell::shownFocus();
         float th = fmaxf(1.0f, ui::Px(1)), x0, y0, x1, y1;
         int block = shell::hoverBlock();
-        if (block >= 0 && vramRect((UInt32)block << 8, 256, &x0, &y0, &x1, &y1)) {
+        if (block >= 0 && vramRect(ovState, rm, (UInt32)block << 8, 256, &x0, &y0, &x1, &y1)) {
             ImVec2 a = xf.toScreen(x0, y0), b = xf.toScreen(x1, y1);
             dl->AddRectFilled(a, b, ui::WithAlpha(t.accent, 70));
         }
         if (f.kind == FOCUS_NONE || f.len == 0) return;
         UInt32 phys = toPhysical(ovState, f.space, f.addr);
-        if (!vramRect(phys, f.space == FOCUS_PHYS ? f.len : 1, &x0, &y0, &x1, &y1)) return;
+        if (!vramRect(ovState, rm, phys, f.space == FOCUS_PHYS ? f.len : 1, &x0, &y0, &x1, &y1)) return;
         ImVec2 a = xf.toScreen(x0, y0), b = xf.toScreen(x1, y1);
         dl->AddRect(ImVec2(a.x - th * 2, a.y - th * 2), ImVec2(b.x + th * 2, b.y + th * 2), t.accent, 0, th * 2);
     }
@@ -1700,7 +1805,296 @@ private:
             }
         }
         ui::CanvasAddressRuler(dl, xf, self->vramPic.h, 256);
-        self->focusMarks(dl, xf);
+        self->focusMarks(dl, xf, -1);
+    }
+
+    static void bitmapOverlay(ImDrawList* dl, const ui::CanvasXf& xf, void* ref)
+    {
+        V99x8View* self = (V99x8View*)ref;
+        const VdpDebugState* s = self->ovState;
+        const UiTokens& t = uiTokens();
+        float th = fmaxf(1.0f, ui::Px(1));
+        int rm = self->ovReadMode;
+
+        const VdpBandGroup* rg = self->ovReadGroup >= 0 ? &self->groups[self->ovReadGroup] : NULL;
+        if (rm >= 0 && rg) {
+            /* Page labels, and the pages the group's bands show with the pages they alternate with. */
+            int pageBytes = rm == 5 || rm == 6 ? 0x8000 : 0x10000;
+            int gBytes = rg->mode == 5 || rg->mode == 6 ? 0x8000 : 0x10000;
+            bool alternates = vdpIsBitmapMode(rg->mode) && ((rg->regs[9] & 0x04) || rg->regs[13] != 0);
+            unsigned shown = 0, pair = 0;
+            for (int p = 0; p < 32 && vdpIsBitmapMode(rg->mode); p++) {
+                if (!((rg->shownPages >> p) & 1)) continue;
+                shown |= pagesHolding(s, rg->mode, p, rm);
+                if (alternates) pair |= pagesHolding(s, rg->mode, p & ~1, rm);
+            }
+            pair &= ~shown;
+            for (int p = 0; p < self->grid.pages; p++) {
+                int ox, oy;
+                self->grid.origin(p, &ox, &oy);
+                ImVec2 a = xf.toScreen((float)ox, (float)oy), b = xf.toScreen((float)(ox + self->grid.tileW), (float)(oy + self->grid.tileH));
+                bool isShown = ((shown >> p) & 1) != 0, isPair = ((pair >> p) & 1) != 0;
+                if (isShown || isPair) {
+                    dl->AddRect(ImVec2(a.x - th * 2, a.y - th * 2), ImVec2(b.x + th * 2, b.y + th * 2),
+                                isShown ? t.accent : ui::WithAlpha(t.accent, 140), 0, th * 2);
+                }
+                char lab[256];
+                textf(lab, sizeof(lab), ts(isShown ? (gBytes == pageBytes ? TS_PAGE_LABEL_SHOWN : TS_PAGE_LABEL_HOLDS_SHOWN) :
+                                           isPair ? TS_PAGE_LABEL_PAIR : TS_PAGE_LABEL), p);
+                ImVec2 ts = ImGui::CalcTextSize(lab);
+                dl->AddRectFilled(ImVec2(a.x, a.y), ImVec2(a.x + ts.x + ui::Px(8), a.y + ts.y + ui::Px(4)), ui::WithAlpha(t.layer, 200));
+                dl->AddText(ImVec2(a.x + ui::Px(4), a.y + ui::Px(2)), t.text, lab);
+            }
+            /* The rows and columns of its pages the group's bands show. */
+            for (size_t i = 0; gBytes == pageBytes && i < self->raster.bands.size(); i++) {
+                const VdpBand& b = self->raster.bands[i];
+                int seg[6], n = vdpRasterBandCols(b, seg);
+                if (n == 0 || !vdpGroupHasBand(*rg, b)) continue;
+                std::vector<int> runs;
+                vdpRasterBandRows(s, b, runs);
+                self->bandFrames(dl, xf, runs, seg, n, (int)i, th);
+            }
+        }
+        else if (rm >= 0) {
+            /* Page labels, and the displayed page with the page it alternates with. */
+            const VdpBandGroup* one = self->soleBitmapGroup();
+            const UInt8* regs = one ? one->regs : s->regs;
+            int mode = one ? one->mode : s->screenMode;
+            VdpTables tb;
+            vdpDecodeTables(s, one ? vdpLayoutOf(*one) : vdpLayoutOf(s), &tb);
+            int pageBytes = rm == 5 || rm == 6 ? 0x8000 : 0x10000;
+            int liveBytes = mode == 5 || mode == 6 ? 0x8000 : 0x10000;
+            int livePage = vdpIsBitmapMode(mode) ? tb.name / liveBytes : -1;
+            bool alternates = livePage >= 0 && ((regs[9] & 0x04) || regs[13] != 0) && (livePage & 1);
+            unsigned shown = livePage >= 0 ? pagesHolding(s, mode, livePage, rm) : 0;
+            unsigned pair = alternates ? pagesHolding(s, mode, livePage & ~1, rm) & ~shown : 0;
+            for (int p = 0; p < self->grid.pages; p++) {
+                int ox, oy;
+                self->grid.origin(p, &ox, &oy);
+                ImVec2 a = xf.toScreen((float)ox, (float)oy), b = xf.toScreen((float)(ox + self->grid.tileW), (float)(oy + self->grid.tileH));
+                bool isShown = ((shown >> p) & 1) != 0, isPair = ((pair >> p) & 1) != 0;
+                if (isShown || isPair) {
+                    dl->AddRect(ImVec2(a.x - th * 2, a.y - th * 2), ImVec2(b.x + th * 2, b.y + th * 2),
+                                isShown ? t.accent : ui::WithAlpha(t.accent, 140), 0, th * 2);
+                }
+                char lab[256];
+                textf(lab, sizeof(lab), ts(isShown ? (liveBytes == pageBytes ? TS_PAGE_LABEL_SHOWN : TS_PAGE_LABEL_HOLDS_SHOWN) :
+                                           isPair ? TS_PAGE_LABEL_PAIR : TS_PAGE_LABEL), p);
+                ImVec2 ts = ImGui::CalcTextSize(lab);
+                dl->AddRectFilled(ImVec2(a.x, a.y), ImVec2(a.x + ts.x + ui::Px(8), a.y + ts.y + ui::Px(4)), ui::WithAlpha(t.layer, 200));
+                dl->AddText(ImVec2(a.x + ui::Px(4), a.y + ui::Px(2)), t.text, lab);
+            }
+        }
+        const VdpBandGroup* one = self->soleBitmapGroup();
+        int liveMode = one ? one->mode : s->screenMode;
+        int liveBytes2 = liveMode == 5 || liveMode == 6 ? 0x8000 : 0x10000;
+        int rmBytes = rm == 5 || rm == 6 ? 0x8000 : 0x10000;
+        if (rm >= 0 && !rg && vdpIsBitmapMode(liveMode) && liveBytes2 == rmBytes && self->raster.valid) {
+            /* The rows and columns of its pages each band shows. */
+            for (size_t i = 0; i < self->raster.bands.size(); i++) {
+                const VdpBand& b = self->raster.bands[i];
+                int seg[6], n = vdpRasterBandCols(b, seg);
+                if (n == 0) continue;
+                std::vector<int> runs;
+                vdpRasterBandRows(s, b, runs);
+                self->bandFrames(dl, xf, runs, seg, n, (int)i, th);
+            }
+        }
+        self->focusMarks(dl, xf, rm);
+    }
+
+    /* Columns of pages that give the largest picture in the space left. */
+    int bestColumns(int pages, int tileW, int gap, int ax, int ay) const
+    {
+        ImVec2 av = ImGui::GetContentRegionAvail();
+        float availY = av.y;
+        int best = 1;
+        float bestU = 0;
+        for (int c = 1; c <= pages; c++) {
+            int rows = (pages + c - 1) / c;
+            float w = (float)(c * tileW + (c - 1) * gap), h = (float)(rows * 256 + (rows - 1) * gap);
+            float u = fminf(av.x / (w * ax), availY / (h * ay));
+            if (u > bestU * 1.001f) {
+                bestU = u;
+                best = c;
+            }
+        }
+        return best;
+    }
+
+    /* The one group of a frame not split, when it is in a bitmap mode: the registers
+    ** the frame was drawn with, where the frame's end may hold the next one's. */
+    const VdpBandGroup* soleBitmapGroup() const
+    {
+        return raster.valid && groups.size() == 1 && vdpIsBitmapMode(groups[0].mode) ? &groups[0] : NULL;
+    }
+
+    /* The bitmap group of a split frame Auto reads: the band in context's, else the one
+    ** with the most lines; -1 when no band is in a bitmap mode. */
+    int bitmapAutoGroup() const
+    {
+        int g = groupOfBand(ctxBand());
+        if (g >= 0 && vdpIsBitmapMode(groups[g].mode)) return g;
+        g = -1;
+        for (int i = 0; i < (int)groups.size(); i++) {
+            if (vdpIsBitmapMode(groups[i].mode) && (g < 0 || groups[i].lineCount > groups[g].lineCount)) g = i;
+        }
+        return g;
+    }
+
+    /* The bitmap mode the frame shows, whatever the tab: Bitmap's Auto in a frame without one. */
+    void noteBitmapMode(const VdpDebugState* s)
+    {
+        if (vdpIsMsx1(s)) return;
+        ensureRaster(s);
+        int g = raster.valid && groups.size() >= 2 ? bitmapAutoGroup() : -1;
+        int mode = g >= 0 ? groups[g].mode : raster.valid && groups.size() >= 2 ? -1 : s->screenMode;
+        if (vdpIsBitmapMode(mode)) {
+            lastBitmapMode = mode;
+            bitmapSeen = true;
+        }
+    }
+
+    /* VRAM read as the pages of a bitmap mode, whatever mode the VDP is in. */
+    void drawBitmap(const VdpDebugState* s, Focus& f)
+    {
+        ensureRaster(s);
+        /* A split frame: Auto reads a bitmap group, as bitmapAutoGroup picks. */
+        bool split = raster.valid && groups.size() >= 2;
+        int autoG = split ? bitmapAutoGroup() : -1, chosenG = -1;
+        int bitmapGroups[8], ng = 0;
+        for (int g = 0; split && g < (int)groups.size() && ng < 8; g++) {
+            if (vdpIsBitmapMode(groups[g].mode)) bitmapGroups[ng++] = g;
+        }
+        if (split && readGroupSet && readAs < 0) {
+            chosenG = vdpFindGroup(groups, readKey);
+            if (chosenG >= 0 && !vdpIsBitmapMode(groups[chosenG].mode)) chosenG = -1;
+        }
+        int refG = chosenG >= 0 ? chosenG : autoG;
+        int refMode = refG >= 0 ? groups[refG].mode : s->screenMode;
+        /* No line in a bitmap mode: the last one shown, SCREEN 5 before any. */
+        bool none = !vdpIsBitmapMode(refMode);
+        int autoMode = none ? lastBitmapMode : refMode, autoSel = 0;
+        for (int i = 0; i < BITMAP_MODES; i++) {
+            if (bitmapModes[i] == autoMode) autoSel = i;
+        }
+        int sel = readAs < 0 ? autoSel : readAs;
+        int rm = bitmapModes[sel];
+        dotAspect(rm, &bitmapCv.aspectX, &bitmapCv.aspectY);
+
+        const char* const* names = bitmapModeNames;
+        ui::BeginCommandBar("bar");
+        char preview[256], groupText[8][160];
+        if (autoG >= 0) textf(preview, sizeof(preview), ts(TS_READ_AS_GROUP_AUTO), groups[autoG].lines, shortModeName(groups[autoG].mode));
+        else textf(preview, sizeof(preview), ts(TS_READ_AS_AUTO), names[autoSel]);
+        const char* previews[16] = { preview };
+        int chosenItem = -1;
+        for (int k = 0; k < ng; k++) {
+            const VdpBandGroup& g = groups[bitmapGroups[k]];
+            textf(groupText[k], sizeof(groupText[k]), ts(TS_STRIP_GROUP), g.lines, shortModeName(g.mode));
+            previews[1 + k] = groupText[k];
+            if (bitmapGroups[k] == chosenG) chosenItem = k;
+        }
+        for (int i = 0; i < BITMAP_MODES; i++) previews[1 + ng + i] = names[i];
+        float comboW = ui::ComboWidth(previews, 1 + ng + BITMAP_MODES, 120);
+        bool fixed = readAs >= 0 || readGroupSet;
+        barText(ts(TS_READ_AS));
+        ui::CommandBarItem(ui::Px(comboW));
+        const char* shown = readAs >= 0 ? names[sel] : chosenItem >= 0 ? groupText[chosenItem] : preview;
+        if (ui::BeginCombo("##readas", shown, comboW)) {
+            if (ui::ComboItem(IdLabel(preview, "auto"), !fixed)) { readAs = -1; readGroupSet = false; }
+            for (int k = 0; k < ng; k++) {
+                ImGui::PushID(100 + k);
+                if (ui::ComboItem(IdLabel(groupText[k], "group"), readAs < 0 && chosenItem == k)) {
+                    readAs = -1;
+                    readGroupSet = true;
+                    readKey = vdpGroupKeyOf(groups[bitmapGroups[k]]);
+                }
+                ImGui::PopID();
+            }
+            if (ng > 0) ImGui::Separator();
+            for (int i = 0; i < BITMAP_MODES; i++) {
+                ImGui::PushID(i);
+                if (ui::ComboItem(IdLabel(names[i], "mode"), readAs == i)) { readAs = i; readGroupSet = false; }
+                ImGui::PopID();
+            }
+            ui::EndCombo();
+        }
+        if (fixed) {
+            ui::CommandBarItem(ui::Px(14) + ImGui::CalcTextSize(ts(TS_STATE_FIXED)).x);
+            ui::StatusDot(ts(TS_STATE_FIXED), ui::TONE_CAUTION);
+            IdLabel follow(ts(TS_FOLLOW_MODE), "follow");
+            ui::CommandBarItem(ImGui::CalcTextSize(follow, NULL, true).x + ImGui::GetStyle().FramePadding.x * 2);
+            if (ui::SubtleButton(follow)) { readAs = -1; readGroupSet = false; }
+        }
+        /* Tiles | Column: one is always on. */
+        ui::CommandBarSeparator();
+        ui::CommandBarItem(ui::IconButtonWidth(UI_ICON_PAGES_GRID, ts(TS_LAYOUT_TILES)), ui::Px(24));
+        if (ui::IconButton("##pgrid", UI_ICON_PAGES_GRID, ts(TS_LAYOUT_TILES), ts(TS_LAYOUT_TILES_TIP), layout == 0)) layout = 0;
+        ui::CommandBarItem(ui::IconButtonWidth("", ts(TS_LAYOUT_COLUMN)), ui::Px(24));
+        if (ui::PixelIconButton("##pcol", ui::UI_ART_FILM, ui::DECOR_NONE, ts(TS_LAYOUT_COLUMN_TIP), layout == 1, ImVec2(28, 24), ts(TS_LAYOUT_COLUMN))) layout = 1;
+        ui::GridToggle(bitmapCv);
+        zoomGroup(bitmapCv, false);
+        ui::EndCommandBar();
+        ovReadGroup = refG;
+        bitmapCv.checker = false;
+        ovState = s;
+        ovReadMode = rm;
+
+        UInt32 size = vramSize(s);
+        /* Colour 0 as the emulator draws it, from the registers of the group read. */
+        const VdpBandGroup* vg = refG >= 0 ? &groups[refG] : soleBitmapGroup();
+        VdpLayout vl = vg ? withPal(vdpLayoutOf(*vg), palOfGroup(*vg)) : frameEndLayout(s);
+        VdpBitmapOptions o = { rm, -1, 256, 0, VDP_COLOR0_AUTO, false, false };
+        grid.pages = vdpBitmapPageCount(s, rm);
+        grid.tileW = vdpBitmapWidth(rm);
+        grid.tileH = 256;
+        grid.gap   = layout == 0 ? 8 : 0;
+        int ax, ay;
+        ui::CanvasAspect(bitmapCv, &ax, &ay);
+        grid.cols  = layout == 0 ? bestColumns(grid.pages, grid.tileW, 8, ax, ay) : 1;
+        char key[64];
+        snprintf(key, sizeof(key), "v%d/%u/%d/%d/%d/%02X%02X/%08X", rm, size, grid.cols, grid.gap, refG, vl.regs[7], vl.regs[8] & 0x20,
+                 palHash(vl.rgb));
+        bool decoded = bitmapPic.needsDecode(key);
+        if (decoded) {
+            if (grid.cols == 1 && grid.gap == 0) {
+                vdpDecodeBitmap(s, vl, o, bitmapPic.img, &bitmapPic.w, &bitmapPic.h);
+            }
+            else {
+                int cw, ch;
+                vdpDecodeBitmap(s, vl, o, column, &cw, &ch);
+                bitmapPic.w = grid.width();
+                bitmapPic.h = grid.height();
+                bitmapPic.img.assign((size_t)bitmapPic.w * bitmapPic.h, 0);
+                for (int p = 0; p < grid.pages; p++) {
+                    int ox, oy;
+                    grid.origin(p, &ox, &oy);
+                    for (int y = 0; y < 256; y++) {
+                        memcpy(&bitmapPic.img[(size_t)(oy + y) * bitmapPic.w + ox], &column[(size_t)(p * 256 + y) * cw],
+                               (size_t)cw * sizeof(uint32_t));
+                    }
+                }
+            }
+        }
+        bitmapPic.upload(decoded);
+        ui::CanvasHit h = ui::Canvas("bitmap", bitmapPic.tex.id(), bitmapPic.w, bitmapPic.h, bitmapCv, ImVec2(0, 0), bitmapOverlay, this);
+        if (h.clickedEmpty) shell::releaseSelection();
+        int page, px, py;
+        if (h.valid && grid.at(h.x, h.y, &page, &px, &py)) {
+            VdpPixelInfo pi;
+            if (vdpBitmapPixel(s, vl, o, px, page * 256 + py, &pi)) {
+                Focus hit = { f.chipId, FOCUS_PHYS, (UInt32)pi.physical, 1, FOCUS_VRAM, h.x, h.y, false };
+                pin(f, hit, h.clicked);
+                ui::StatusText(ts(TS_VRAM_PAGE_PIXEL), page, px, py, pi.logical, pi.physical, pi.value, pi.value);
+            }
+        }
+        else if (readAs >= 0 && rm != refMode) {
+            ui::StatusText(ts(TS_VRAM_READ_BY_HAND), names[readAs], shortModeName(refMode));
+        }
+        else if (none && !fixed) {
+            ui::StatusText(ts(bitmapSeen ? TS_BITMAP_AUTO_LAST : TS_BITMAP_AUTO_NONE), shortModeName(refMode), names[sel]);
+        }
     }
 
     /* The bytes themselves, 256 a row by physical address, tinted by the VRAM map's lanes. */

@@ -84,8 +84,9 @@ void HoldHeight(HeightHold& h, float y0);
 #define UI_ICON_BAND          "\xEE\xA3\xBD"  /* U+E8FD BulletedList */
 #define UI_ICON_FIT           "\xEE\x9D\x80"  /* U+E740 FullScreen */
 #define UI_ICON_GRID          "\xEE\xA0\x8A"  /* U+E80A, a 3x3 grid */
+#define UI_ICON_PAGES_GRID    "\xEE\xB2\xA5"  /* U+ECA5 Tiles */
 #define UI_ICON_TABLES        "\xEE\xA3\xAC"  /* U+E8EC Tag */
-
+#define UI_ICON_BITMAP        "\xEE\xA4\x9B"  /* U+E91B Photo */
 #define UI_ICON_NUMBERS       "\xEE\xA2\xAC"  /* U+E8AC Rename */
 
 /* Whether the window has an icon font; without one icons are not drawn. */
@@ -107,6 +108,7 @@ float IconButtonWidth(const char* glyph, const char* fallback, float w = 28);
 /* A tiny pixel-art icon: rows of '#' (drawn) and '.' (nothing), one string per row; smaller,
 ** if not NULL, a smaller drawing of the same thing for the scales whole cells miss. */
 struct PixelArt { int w, h; const char* const* rows; const PixelArt* smaller; };
+extern const PixelArt UI_ART_FILM;   /* frames one under the other */
 /* What a pixel-art icon draws around its art: nothing, a dashed frame round it, or a checker behind it. */
 enum PixelDecor { DECOR_NONE, DECOR_FRAME, DECOR_CHECKER };
 /* art centred on c in whole screen pixels per art pixel: of art and its smaller drawings, the one

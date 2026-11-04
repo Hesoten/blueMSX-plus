@@ -236,6 +236,13 @@ int vdpBitmapWidth(int mode)
     return mode == 6 || mode == 7 ? 512 : 256;
 }
 
+int vdpBitmapPageCount(const VdpDebugState* s, int mode)
+{
+    int size = s->vramSize < 0x20000 ? s->vramSize : 0x20000;
+    int n = size / (mode == 5 || mode == 6 ? 0x8000 : 0x10000);
+    return n < 1 ? 1 : n;
+}
+
 bool vdpDisplayedBitmap(const VdpDebugState* s, const VdpLayout& l, VdpBitmapOptions* o)
 {
     (void)s;
@@ -253,7 +260,7 @@ bool vdpDisplayedBitmap(const VdpDebugState* s, const VdpLayout& l, VdpBitmapOpt
 }
 
 /* The physical start of one line. Shown as displayed, R#2 masks the line
-** number as on the chip; otherwise the page is read whole. */
+** number as on the chip; a page picked by hand is read whole. */
 static int lineBase(const VdpDebugState* s, const UInt8* r, const VdpBitmapOptions& o, int page, int line)
 {
     int mask = o.displayed ? chrTabMask(s, r) : ((page << 15) | 0x7fff) & s->vramMask;
@@ -324,6 +331,31 @@ static VdpLayout readAs(const VdpLayout& l, int mode)
     VdpLayout r = l;
     r.mode = mode;
     return r;
+}
+
+void vdpDecodeBitmap(const VdpDebugState* s, const VdpLayout& l, const VdpBitmapOptions& o, VdpImage& out, int* w, int* h)
+{
+    uint32_t pal[16];
+    int pages = o.page < 0 ? vdpBitmapPageCount(s, o.mode) : 1;
+    int lines = o.page < 0 ? 256 : o.lines;
+    int width = vdpBitmapWidth(o.mode);
+    int x, y, k;
+
+    vdpPaletteRgba(s, readAs(l, o.mode), o.color0, pal);
+    *w = width;
+    *h = lines * pages;
+    out.resize((size_t)width * lines * pages);
+    for (k = 0; k < pages; k++) {
+        int page = o.page < 0 ? k : o.page;
+        for (y = 0; y < lines; y++) {
+            int base = lineBase(s, l.regs, o, page, y + (o.page < 0 ? 0 : o.vscroll));
+            uint32_t* row = &out[((size_t)k * lines + y) * width];
+            for (x = 0; x < width; x++) {
+                int v, p;
+                row[x] = bitmapPixel(s, l.regs, o, pal, base, x, &v, &p);
+            }
+        }
+    }
 }
 
 bool vdpBitmapPixel(const VdpDebugState* s, const VdpLayout& l, const VdpBitmapOptions& o, int x, int y, VdpPixelInfo* out)

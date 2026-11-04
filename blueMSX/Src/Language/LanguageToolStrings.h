@@ -52,7 +52,12 @@ TS(EMU_WAITING,               "Waiting for the emulator.", "エミュレータ�
 TS(NO_VDP_TO_SHOW,            "This machine has no TMS99xx or V99x8 to show.", "このマシンには表示できる" NB "TMS99xx・V99x8" NB "がありません。")
 
 /* TMS99xx and V99x8: toolbars and views */
+TS(LAYOUT_TILES,              "Tiles", "タイル")
+TS(LAYOUT_COLUMN,             "Column", "縦並び")
+TS(LAYOUT_TILES_TIP,          "Pages tiled in rows", "ページをタイル状に並べる")
+TS(LAYOUT_COLUMN_TIP,         "All pages in a single column", "全ページを縦一列に並べる")
 TS(VIEW_PATTERNS,             "Patterns", "パターン")
+TS(VIEW_BITMAP,               "Bitmap", "ビットマップ")
 TS(COLOUR0_TRANSPARENT,       "Colour 0 transparent", "カラー" NB "0" NB "を透明に")
 TS(READ_AS,                   "Read as", "表示形式")
 TS(READ_AS_AUTO,              "Auto (%s)", "自動" NB "(%s)")
@@ -116,7 +121,15 @@ TS(THIRD_ROWS_24,             ", rows 24-31", "、行" NB "24-31")
 TS(STATUS_CHAR_COLOUR,        "    has colour bytes", "   " NB "カラーバイトあり")
 
 /* VRAM view */
+TS(PAGE_LABEL_SHOWN,          "Page %d, shown", "ページ" NB "%d、表示中")
+TS(PAGE_LABEL_HOLDS_SHOWN,    "Page %d, holds shown", "ページ" NB "%d、表示中を含む")
+TS(PAGE_LABEL_PAIR,           "Page %d, pair", "ページ" NB "%d、ペア")
+TS(PAGE_LABEL,                "Page %d", "ページ" NB "%d")
 TS(VRAM_PHYS_VALUE,           "Physical %05X    value %d (&H%02X)", "物理" NB "%05X   " NB "値" NB "%d (&H%02X)")
+TS(VRAM_PAGE_PIXEL,           "Page %d  x %d  y %d    VRAM %05X (physical %05X)    value %d (&H%02X)", "ページ" NB "%d  x %d  y %d    VRAM %05X（物理" NB "%05X）" NB "  " NB "値" NB "%d (&H%02X)")
+TS(VRAM_READ_BY_HAND,         "Read as %s by hand; the VDP is in %s.", "手動で" NB "%s" NB "として表示中。VDP" NB "は" NB "%s" NB "です。")
+TS(BITMAP_AUTO_LAST,          "The VDP is in %s; read as %s, the last bitmap mode detected since the viewer was opened.", "VDP" NB "は" NB "%s" NB "です。ビューアを開いてから最後に検出したビットマップモード" NB "%s" NB "として表示。")
+TS(BITMAP_AUTO_NONE,          "The VDP is in %s, and no bitmap mode has been detected since the viewer was opened; read as %s.", "VDP" NB "は" NB "%s" NB "で、ビューアを開いてからビットマップモードは未検出。%s" NB "として表示。")
 TS(VRAM_TABLES_TIP,           "Tint the tables this frame uses", "このフレームが使うテーブルを色分け")
 
 /* Selection card */
