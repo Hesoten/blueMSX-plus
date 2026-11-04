@@ -378,6 +378,7 @@ void Geo3DCore::visitState(Geo3DCore& c, IO& io, U8 u8, I64 i64, int layout)
 		u8(io, cmd.size);
 		for (auto& x : cmd.bytes) u8(io, x);
 		if (layout >= 2) { int64_t r = cmd.ready; i64(io, r); cmd.ready = uint32_t(r); }
+		if (layout >= 5) { uint8_t f = cmd.fillSpan; u8(io, f); cmd.fillSpan = f != 0; }
 	}
 	if (layout >= 2) { int64_t e = c.endClk; i64(io, e); c.endClk = uint32_t(e); }
 	if (layout >= 3) { int64_t x = c.xfEndClk; i64(io, x); c.xfEndClk = uint32_t(x); }
@@ -717,6 +718,7 @@ void Geo3DCore::renderFaces(bool texOn)
 			if (!textured) {
 				int64_t nx = cr - cl;
 				c.size = 11;
+				c.fillSpan = true;
 				c.bytes = {uint8_t(cl & 0xFF), uint8_t((cl >> 8) & 1),
 				           uint8_t(dy & 0xFF), uint8_t(dy >> 8),
 				           uint8_t(nx & 0xFF), uint8_t((nx >> 8) & 7), 0, 0,

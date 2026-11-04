@@ -48,6 +48,17 @@ UInt8  geo3dPeekData(Geo3D* geo3d, UInt32 ec, UInt32 edgeEnd);
 int    geo3dIsRunning(Geo3D* geo3d);
 int    geo3dNextCommand(Geo3D* geo3d, UInt8* regs, UInt8* values);
 void   geo3dFinishRun(Geo3D* geo3d);
+/* 1 when the next command is a tagged untextured filled-face span, else 0. */
+int    geo3dPeekFillSpan(Geo3D* geo3d);
+/* The V9968_Cartridge v0.92 fill-span rewrite, on the register values of one
+** command as geo3dNextCommand hands them out (values[0..10] = R#36..R#46).
+** When the command is a tagged span and every condition the FPGA checks
+** holds -- LINE with LOP = IMP, ARG = 0, NY = 0, DX inside the 256-dot
+** screen, and the VDP in SCREEN 8 (screen8, from vdpIsV9968Screen8) -- the
+** values are rewritten in place as the one-row HMMV the FPGA runs instead:
+** NX + 1 (LINE counts its endpoint, HMMV counts pixels), NY = 1, CMD =
+** HMMV. Returns 1 when the values were rewritten, else 0. */
+int    geo3dConvertFillSpan(UInt8* values, int count, int fillSpan, int screen8);
 
 /* Engine clocks (2 per board tick) from the RUN: when the producer, never
 ** stalled, has the next command ready (returns its register count, 0 for
@@ -58,7 +69,7 @@ int    geo3dCommandsLeft(Geo3D* geo3d);
 
 /* The whole state as bytes, freed by the caller. */
 UInt8* geo3dSaveState(Geo3D* geo3d, UInt32* size);
-/* layout: 1 for a state without timing, 2 without the transform end, else 3. */
+/* layout: the device state version; 5 adds the commands' fill-span tags. */
 void   geo3dLoadState(Geo3D* geo3d, const UInt8* data, UInt32 size, int layout);
 
 #ifdef __cplusplus

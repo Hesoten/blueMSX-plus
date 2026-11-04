@@ -45,9 +45,10 @@
 ** a cap above the longest such step. */
 #define MAX_CREDIT (256 * UNITS_PER_TICK)
 
-/* 4: geo3d v2.0 (1024 entries, 10-bit counts). 3: the core carries the
-** transform end. 2: the engine timing. 1: no timing. */
-#define STATE_VERSION 4
+/* 5: the commands carry fill-span tags. 4: geo3d v2.0 (1024 entries,
+** 10-bit counts). 3: the core carries the transform end. 2: the engine
+** timing. 1: no timing. */
+#define STATE_VERSION 5
 
 /* Where a RUN stands: about to start, waiting for the VDP to finish a command,
 ** for the next command to land in R#46, or for RUN busy to clear. */
@@ -159,10 +160,17 @@ static void issue(Geo3DDevice* dev, UInt32 now)
     UInt32 readyEc = 0;
     int late = (Int32)(now - dev->due);
     int count;
+    int fillSpan;
     int i;
 
     geo3dPeekCommand(dev->geo3d, &readyEc);
+    fillSpan = geo3dPeekFillSpan(dev->geo3d);
     count = geo3dNextCommand(dev->geo3d, regs, values);
+    /* V9968_Cartridge v0.92: a tagged filled-face span in SCREEN 8 is run
+    ** by the VDP as a one-row HMMV instead of the LINE geo3d emitted (see
+    ** geo3dConvertFillSpan). The byte count is unchanged, so the landing
+    ** plan above (14 ec for an 11-byte command) stands as it is. */
+    geo3dConvertFillSpan(values, count, fillSpan, vdpIsV9968Screen8());
     for (i = 0; i < count; i++) {
         vdpWriteCommandRegister(regs[i], values[i]);
     }

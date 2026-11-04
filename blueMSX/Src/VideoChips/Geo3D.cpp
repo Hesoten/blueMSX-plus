@@ -92,6 +92,42 @@ extern "C" void geo3dFinishRun(Geo3D* geo3d)
     geo3d->core.finishRun();
 }
 
+extern "C" int geo3dPeekFillSpan(Geo3D* geo3d)
+{
+    if (!geo3d->core.hasCommand()) {
+        return 0;
+    }
+    return geo3d->core.peekCommand().fillSpan ? 1 : 0;
+}
+
+extern "C" int geo3dConvertFillSpan(UInt8* values, int count, int fillSpan, int screen8)
+{
+    unsigned nx;
+
+    if (!fillSpan || !screen8 || count != 11) {
+        return 0;
+    }
+    if (values[10] != 0x70) {          /* CMD: LINE with LOP = IMP */
+        return 0;
+    }
+    if (values[9] != 0x00) {           /* ARG: MAJ = DIX = DIY = 0, no MXD */
+        return 0;
+    }
+    if (values[6] != 0x00 || values[7] != 0x00) {   /* NY = 0 */
+        return 0;
+    }
+    if (values[1] & 0x01) {            /* DX = 256..511: starts off-screen */
+        return 0;
+    }
+    nx = (unsigned)(values[4] | ((values[5] & 0x07) << 8)) + 1;
+    values[4]  = (UInt8)(nx & 0xFF);
+    values[5]  = (UInt8)((nx >> 8) & 0x07);
+    values[6]  = 1;                    /* NY = 1: a single row */
+    values[7]  = 0;
+    values[10] = 0xC0;                 /* CMD: HMMV with LOP = IMP */
+    return 1;
+}
+
 extern "C" int geo3dPeekCommand(Geo3D* geo3d, UInt32* ready)
 {
     if (!geo3d->core.hasCommand()) {

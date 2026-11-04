@@ -1942,6 +1942,17 @@ int vdpGetCommandBusy()
     return vdpGetStatus(theVdp->cmdEngine) & 0x01;
 }
 
+/* geo3d's fill-span rewrite (V9968_Cartridge v0.92) runs only in SCREEN 8:
+** Graphic7 with YJK off. Here screenMode 8 is exactly that: it is chosen
+** only for the Graphic7 base mode, and the YJK screens are reported as
+** 10/12 instead (they share the Graphic7 layout bit, so the FPGA excludes
+** them by its YJK flag, and this test excludes them the same way). */
+int vdpIsV9968Screen8()
+{
+    return theVdp != NULL && theVdp->vdpVersion == VDP_V9968 &&
+           theVdp->screenMode == 8;
+}
+
 /* The same path as a register write from the Z80. */
 void vdpWriteCommandRegister(UInt8 reg, UInt8 value)
 {

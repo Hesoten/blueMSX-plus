@@ -54,6 +54,11 @@ public:
 		std::array<uint8_t, 19> bytes = {};
 		uint8_t size = 0;
 		uint32_t ready = 0;        // producer clock (ec) at E_BUILD / D_SPAN
+		// Untextured filled-face span (renderFaces only). The bytes stay a
+		// LINE, exactly as the RTL emits it; the tag is the emulator's form
+		// of the FPGA's cmd_fill_span signal (V9968_Cartridge v0.92), which
+		// lets the device rewrite the span as a one-row HMMV in SCREEN 8.
+		bool fillSpan = false;
 
 		[[nodiscard]] bool isLrmm() const { return size == 19; }
 		// VDP register number for byte k, in the order the RTL writes them.
@@ -93,8 +98,10 @@ public:
 	// Whole state as bytes (savestates / reverse), no openMSX dependency.
 	[[nodiscard]] std::vector<uint8_t> saveState() const;
 	// Layout 1 has no timing, 2 no transform end, 3 is geo3d v1.0.0's last
-	// one (256 entries, 8-bit counts and pointers), 4 is geo3d v2.0's.
-	static constexpr int STATE_LAYOUT = 4;
+	// one (256 entries, 8-bit counts and pointers), 4 is geo3d v2.0's,
+	// 5 adds the commands' fill-span tags (a state before 5 loads with the
+	// tags clear, so its in-flight spans keep the LINE path).
+	static constexpr int STATE_LAYOUT = 5;
 	static constexpr int STATE_V2 = 4;
 	void loadState(const std::vector<uint8_t>& data, int layout = STATE_LAYOUT);   // ignores bad data
 

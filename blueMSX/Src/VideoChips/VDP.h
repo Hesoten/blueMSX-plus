@@ -55,6 +55,7 @@ int  vdpGetDisplayEnable();
 void vdpForceSync();
 
 int  vdpGetCommandBusy();
+int  vdpIsV9968Screen8();
 void vdpWriteCommandRegister(UInt8 reg, UInt8 value);
 UInt32 vdpGetCommandEndTime();
 void vdpAddCommandCredit(int units);
