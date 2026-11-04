@@ -30,7 +30,9 @@
 #include "IoPort.h"
 #include "Geo3D.h"
 #include "VDP.h"
+#include "Emulator.h"
 #include <stdlib.h>
+#include <string.h>
 
 /* How often a busy command engine is checked while geo3d waits on it. Its end
 ** time is exact whenever it is seen, so this only bounds the host work. */
@@ -52,7 +54,17 @@
 
 /* Where a RUN stands: about to start, waiting for the VDP to finish a command,
 ** for the next command to land in R#46, or for RUN busy to clear. */
-enum { PH_IDLE, PH_WAIT_CE, PH_LAND, PH_DRAIN, PH_START };
+enum { PH_IDLE, PH_WAIT_CE = GEO3D_PHASE_WAIT_CE, PH_LAND, PH_DRAIN, PH_START };
+
+/* When the latest RUNs began and ended, for the tool windows; by RUN number. */
+#define RUN_STAMPS 32
+
+typedef struct {
+    UInt32 seq;
+    UInt32 start;           /* board ticks; compared as ages back from now */
+    UInt32 end;
+    int    ended;
+} RunStamp;
 
 struct Geo3DDevice {
     int         deviceHandle;
@@ -74,7 +86,20 @@ struct Geo3DDevice {
     UInt32      nextEnd;
     UInt32      due;        /* when it lands, or when RUN busy clears */
     int         faces;      /* the RUN fills faces: its LINEs are fill rows */
+    RunStamp    stamps[RUN_STAMPS];
+    UInt32      epoch;      /* new at each reset and state load, unique across devices */
 };
+
+#if RUN_STAMPS > GEO3D_DEBUG_RUNS
+#error "a capture copies every RUN that still has its stamp"
+#endif
+
+/* The machine's, then a cartridge's, for the tool windows; and what each tool
+** holds of its RUNs, epoch in the high half, written by geo3dDebugSince. */
+static Geo3DDevice* volatile debugGeo3ds[2];
+static volatile UInt64 debugSince[2];
+static UInt32 debugEpochs;
+static volatile Geo3DDebugRunSink debugRunSink;
 
 static UInt32 later(UInt32 a, UInt32 b)
 {
@@ -220,6 +245,12 @@ static void pump(Geo3DDevice* dev)
                 return;
             }
             if (dev->phase == PH_DRAIN) {
+                UInt32 seq = geo3dDebugLastSeq(dev->geo3d);
+                RunStamp* s = &dev->stamps[seq % RUN_STAMPS];
+                if (seq != 0 && s->seq == seq) {
+                    s->end   = boardSystemTime() - (UInt32)((Int32)(now - dev->due) / UNITS_PER_TICK);
+                    s->ended = 1;
+                }
                 geo3dFinishRun(dev->geo3d);
                 dev->phase = PH_IDLE;
                 boardTimerRemove(dev->timer);
@@ -250,10 +281,24 @@ static void pump(Geo3DDevice* dev)
 
 static void startRun(Geo3DDevice* dev)
 {
+    UInt32 seq = geo3dDebugLastSeq(dev->geo3d);
+    RunStamp* s = &dev->stamps[seq % RUN_STAMPS];
+
+    s->seq   = seq;
+    s->start = boardSystemTime();
+    s->end   = 0;
+    s->ended = 0;
+
     dev->runTime = boardSystemTime() * UNITS_PER_TICK;
     dev->issued  = 0;
     dev->faces   = geo3dFacesOn(dev->geo3d);
     dev->phase   = PH_START;
+    if (debugRunSink != NULL && (dev == debugGeo3ds[0] || dev == debugGeo3ds[1])) {
+        Geo3DDebugRunSink sink = debugRunSink;
+        if (sink != NULL) {
+            sink(dev->vdp != NULL, dev->epoch, seq, dev->geo3d, s->start);
+        }
+    }
     pump(dev);
 }
 
@@ -324,6 +369,9 @@ static void loadState(Geo3DDevice* dev)
 
     saveStateClose(state);
 
+    /* The core forgot its RUNs too. */
+    memset(dev->stamps, 0, sizeof(dev->stamps));
+    dev->epoch = ++debugEpochs;
     boardTimerRemove(dev->timer);
     if (!geo3dIsRunning(dev->geo3d)) {
         dev->phase = PH_IDLE;
@@ -342,6 +390,16 @@ static void loadState(Geo3DDevice* dev)
 
 static void destroy(Geo3DDevice* dev)
 {
+    int i;
+
+    for (i = 0; i < 2; i++) {
+        if (debugGeo3ds[i] == dev) {
+            debugGeo3ds[i] = NULL;
+        }
+    }
+    /* Removing the cartridge while paused runs this on the UI thread. */
+    emulatorTapBarrier();
+
     deviceManagerUnregister(dev->deviceHandle);
     debugDeviceUnregister(dev->debugHandle);
 
@@ -359,6 +417,8 @@ static void reset(Geo3DDevice* dev)
     boardTimerRemove(dev->timer);
     geo3dReset(dev->geo3d);
     dev->phase = PH_IDLE;
+    memset(dev->stamps, 0, sizeof(dev->stamps));
+    dev->epoch = ++debugEpochs;
 }
 
 /* 9Dh is the index when written and the status when read, 9Fh the data; 8Dh
@@ -438,6 +498,10 @@ static Geo3DDevice* create(int port, struct VDP* vdp, const char* stateName, con
     ioPortRegister(port + 2, read, write, dev);
 
     reset(dev);
+
+    if (debugGeo3ds[machine ? 0 : 1] == NULL) {
+        debugGeo3ds[machine ? 0 : 1] = dev;
+    }
     return dev;
 }
 
@@ -469,4 +533,142 @@ void geo3dDeviceSaveState(Geo3DDevice* dev)
 void geo3dDeviceLoadState(Geo3DDevice* dev)
 {
     loadState(dev);
+}
+
+/* RUN seq, last the latest, still has its stamp and its record in the core. */
+static int kept(Geo3DDevice* dev, UInt32 last, UInt32 seq)
+{
+    return seq != 0 && last - seq < RUN_STAMPS && dev->stamps[seq % RUN_STAMPS].seq == seq &&
+           geo3dDebugHasRun(dev->geo3d, seq);
+}
+
+int geo3dDebugCapture(struct VDP* vdp, Geo3DDebugState* out)
+{
+    Geo3DDevice* dev = NULL;
+    UInt32 seqs[GEO3D_DEBUG_RUNS];
+    UInt64 hint = 0;
+    UInt32 start;
+    UInt32 now;
+    UInt32 window;
+    UInt32 last;
+    UInt32 since;
+    UInt32 pageFrom = 0;
+    UInt32 lo;
+    UInt32 seq;
+    UInt32 ec;
+    UInt32 edgeEnd;
+    int frame = 0;
+    int count = 0;
+    int seen = 0;
+    int lost = 0;
+    int i;
+
+    for (i = 0; i < 2 && dev == NULL; i++) {
+        Geo3DDevice* d = debugGeo3ds[i];
+        if (d != NULL && d->vdp == vdp) {
+            dev = d;
+            hint = debugSince[i];
+        }
+    }
+    memset(out, 0, sizeof(*out));
+    if (dev == NULL) {
+        return 0;
+    }
+    now     = boardSystemTime();
+    start   = vdpGetFrameStartTime(dev->vdp);
+    window  = now - start;
+
+    /* RUNs follow one another: walk back from the latest to the first that
+    ** was over before the window. Ages back from now stay right for about
+    ** 200 s of board time; one no longer recorded counts as lost. */
+    last = geo3dDebugLastSeq(dev->geo3d);
+    for (seq = last; seq != 0; seq--) {
+        const RunStamp* s = &dev->stamps[seq % RUN_STAMPS];
+        if (!kept(dev, last, seq)) {
+            const RunStamp* after = &dev->stamps[(seq + 1) % RUN_STAMPS];
+            lost += seq != last && (UInt32)(now - after->start) < window;
+            break;
+        }
+        if (s->ended && (UInt32)(now - s->end) >= window) {
+            break;
+        }
+        frame++;
+    }
+
+    /* Also every RUN after the one the tool holds, if it is of this epoch and
+    ** not ahead; else, with none busy, the latest. Those it lacks, oldest
+    ** first, get the room first, so a tool that asks again for one cut comes to have it whole. */
+    since = last;
+    if ((UInt32)(hint >> 32) == dev->epoch && (UInt32)hint < last) {
+        since = (UInt32)hint;
+    }
+    /* Of another epoch, as after the state load of a reverse play step: from the start of the
+    ** RUNs on the page drawn before the latest one's, so a replay that drew the picture on
+    ** screen again hands it over whole before the one in progress. */
+    else if ((UInt32)(hint >> 32) != dev->epoch) {
+        int turns = 0, page = geo3dDebugRunYpage(dev->geo3d, last) >> 8;
+        for (since = last; since != 0 && turns < 2; since--) {
+            int at = geo3dDebugRunYpage(dev->geo3d, since - 1);
+            if (at < 0 || (at >> 8) != page) {
+                turns++;
+                page = at >> 8;
+                if (at < 0 || turns == 2) {
+                    pageFrom = at < 0 ? 0 : since;
+                    since--;
+                    break;
+                }
+            }
+        }
+    }
+    lo = last - frame + 1;
+    if (since + 1 < lo) {
+        lo = since + 1;
+    }
+    while (lo <= last && !kept(dev, last, lo)) {
+        lo++;
+    }
+    if (lo > last && kept(dev, last, last)) {
+        lo = last;
+    }
+    for (seq = lo; seq != 0 && seq <= last && count < GEO3D_DEBUG_RUNS; seq++) {
+        seqs[count++] = seq;
+    }
+    if (since >= lo && since < last) {
+        seen = (int)(since - lo + 1);
+    }
+
+    statusClock(dev, &ec, &edgeEnd);
+    geo3dDebugCopy(dev->geo3d, ec, edgeEnd, seqs, count, seen, out);
+    for (i = 0; i < out->runCount; i++) {
+        const RunStamp* s = &dev->stamps[out->run[i].seq % RUN_STAMPS];
+        if (out->run[i].seq != 0 && s->seq == out->run[i].seq) {
+            out->run[i].startTime = s->start;
+            out->run[i].endTime   = s->end;
+            out->run[i].ended     = s->ended;
+        }
+    }
+    out->valid       = 1;
+    out->cartridge   = dev->vdp != NULL;
+    out->port        = dev->port;
+    out->devPhase    = dev->phase;
+    out->epoch       = dev->epoch;
+    out->windowStart = start;
+    out->windowEnd   = now;
+    out->frameFirst  = out->runCount - (frame < out->runCount ? frame : out->runCount);
+    out->fallback    = frame == 0 && out->runCount > 0;
+    out->runsLost    = lost;
+    out->wholeSeq    = out->runCount > 0 ? seqs[seen] : 0;
+    out->pageFrom    = pageFrom;
+    return 1;
+}
+
+void geo3dDebugSince(int cartridge, UInt32 epoch, UInt32 seq)
+{
+    /* One aligned 64-bit store, so a capture never reads half of it. */
+    debugSince[cartridge ? 1 : 0] = ((UInt64)epoch << 32) | seq;
+}
+
+void geo3dDebugSetRunSink(Geo3DDebugRunSink sink)
+{
+    debugRunSink = sink;
 }

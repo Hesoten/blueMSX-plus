@@ -1395,6 +1395,7 @@
     <ClInclude Include="..\..\Src\VideoChips\FrameBuffer.h" />
     <ClInclude Include="..\..\Src\VideoChips\Geo3D.h" />
     <ClInclude Include="..\..\Src\VideoChips\Geo3DCore.h" />
+    <ClInclude Include="..\..\Src\VideoChips\Geo3DDebug.h" />
     <ClInclude Include="..\..\Src\VideoChips\Geo3DDevice.h" />
     <ClInclude Include="..\..\Src\VideoChips\SpriteLine.h" />
     <ClInclude Include="..\..\Src\VideoChips\V9938.h" />

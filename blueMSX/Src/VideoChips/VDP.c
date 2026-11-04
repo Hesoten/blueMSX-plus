@@ -40,6 +40,7 @@
 #include "ArchVideoIn.h"
 #include "Language.h"
 #include "VdpDebug.h"
+#include "Geo3DDevice.h"
 #include "Emulator.h"
 #include <string.h>
 #include <stdio.h>
@@ -2277,6 +2278,14 @@ void vdpAddCommandCredit(VDP* vdp, int units)
     }
 }
 
+UInt32 vdpGetFrameStartTime(VDP* vdp)
+{
+    if (vdp == NULL) {
+        vdp = theVdp;
+    }
+    return vdp != NULL ? vdp->frameStartTime : boardSystemTime();
+}
+
 /* The dot the mode 3 overlay may start at, or -1 where the ordinary sprite
 ** paths put nothing: text, and the line the unknown modes fall back to. A
 ** renderer that masks the left edge repaints it after compositing sprites. */
@@ -3316,6 +3325,8 @@ int vdpDebugCapture(int index, VdpDebugState* out)
     memcpy(out->vram, vdp->vram, vramBytes);
     memset(out->vram + vramBytes, 0, sizeof(out->vram) - vramBytes);
     rasterCapture(vdp, out);
+    out->frameStartTime = vdp->frameStartTime;
+    geo3dDebugCapture(vdp->secondary ? vdp : NULL, &out->geo3d);
     return 1;
 }
 

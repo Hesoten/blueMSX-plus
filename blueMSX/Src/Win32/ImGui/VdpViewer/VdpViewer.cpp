@@ -247,9 +247,11 @@ static bool pictureFieldsDiffer(int family, const void* a, const void* b)
     static const Span skip[] = {
         { offsetof(VdpDebugState, status), sizeof(((VdpDebugState*)0)->status) },
         { offsetof(VdpDebugState, raster), sizeof(((VdpDebugState*)0)->raster) },
+        { offsetof(VdpDebugState, frameStartTime),
+          offsetof(VdpDebugState, geo3d) + sizeof(Geo3DDebugState) - offsetof(VdpDebugState, frameStartTime) },
         { offsetof(VdpDebugState, vram), VDP_DEBUG_VRAM_SIZE },
     };
-    return differOutside(a, b, sizeof(VdpDebugState), skip, 3);
+    return differOutside(a, b, sizeof(VdpDebugState), skip, 4);
 }
 
 /* The raster logs changed; entries past count are stale and not compared. */

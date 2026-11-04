@@ -25,9 +25,11 @@
 #define GEO3D_DEVICE_H
 
 #include "MsxTypes.h"
+#include "Geo3DDebug.h"
 
 typedef struct Geo3DDevice Geo3DDevice;
 struct VDP;
+struct Geo3D;
 
 /* The one in the machine's V9968, on ports 9Dh and 9Fh. */
 void geo3dDeviceCreate();
@@ -39,5 +41,20 @@ void geo3dDeviceDestroy(Geo3DDevice* dev);
 void geo3dDeviceReset(Geo3DDevice* dev);
 void geo3dDeviceSaveState(Geo3DDevice* dev);
 void geo3dDeviceLoadState(Geo3DDevice* dev);
+
+/* Copies the geo3d beside vdp (NULL: the machine's) and the RUNs busy in the
+** VDP's frame so far (at that VDP's own frame tap, the frame just ended), else
+** the latest RUN, on the terms of vdpDebugCapture. 0 and all cleared for none. */
+int geo3dDebugCapture(struct VDP* vdp, Geo3DDebugState* out);
+
+/* From a tool, any thread: it holds RUN seq and those before it of epoch, so the
+** captures of that geo3d (cartridge as in its snapshot) add every RUN after seq. */
+void geo3dDebugSince(int cartridge, UInt32 epoch, UInt32 seq);
+
+/* Called on the emulation thread as a RUN of a geo3d the captures copy starts, its items
+** and commands made; cartridge as in its snapshot, startTime in board ticks. Must not wait. */
+typedef void (*Geo3DDebugRunSink)(int cartridge, UInt32 epoch, UInt32 seq, struct Geo3D* geo3d, UInt32 startTime);
+/* From a tool: NULL stops the calls. */
+void geo3dDebugSetRunSink(Geo3DDebugRunSink sink);
 
 #endif

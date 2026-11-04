@@ -24,6 +24,7 @@
 #define GEO3D_H
 
 #include "MsxTypes.h"
+#include "Geo3DDebug.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -63,6 +64,25 @@ int    geo3dCommandsLeft(Geo3D* geo3d);
 UInt8* geo3dSaveState(Geo3D* geo3d, UInt32* size);
 /* layout: the device state version the bytes were saved with, which picks their format. */
 void   geo3dLoadState(Geo3D* geo3d, const UInt8* data, UInt32 size, int layout);
+
+/* The latest RUN since reset or a state load (0 for none), and whether the
+** record of RUN seq is still kept. */
+UInt32 geo3dDebugLastSeq(Geo3D* geo3d);
+int    geo3dDebugHasRun(Geo3D* geo3d, UInt32 seq);
+/* RUN seq's YPAGE, or -1 once its record is gone. */
+int    geo3dDebugRunYpage(Geo3D* geo3d, UInt32 seq);
+/* Fills the core's part of out without changing anything: registers (ec and
+** edgeEnd as for the status), RAMs, and the RUNs in seqs, oldest first; seqs[seen]
+** and later get room first, then the earlier. Leaves the device's fields alone. */
+void   geo3dDebugCopy(Geo3D* geo3d, UInt32 ec, UInt32 edgeEnd,
+                      const UInt32* seqs, int count, int seen, Geo3DDebugState* out);
+/* The most items and commands the core keeps of its latest RUNs. */
+#define GEO3D_DEBUG_CORE_ITEMS 2048
+#define GEO3D_DEBUG_CORE_CMDS  4096
+/* RUN seq as geo3dDebugCopy has it, its items and commands numbered from 0 in items and cmds,
+** with room for itemRoom and cmdRoom; the device's fields stay 0. 0 once its record is gone. */
+int    geo3dDebugCopyRun(Geo3D* geo3d, UInt32 seq, Geo3DDebugRun* run,
+                         Geo3DDebugItem* items, int itemRoom, Geo3DDebugCmd* cmds, int cmdRoom);
 
 #ifdef __cplusplus
 }

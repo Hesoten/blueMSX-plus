@@ -24,6 +24,7 @@
 #define VDP_DEBUG_H
 
 #include "MsxTypes.h"
+#include "Geo3DDebug.h"
 
 #define VDP_DEBUG_VRAM_SIZE (256 * 1024)
 #define VDP_RASTER_MAX      4096
@@ -101,6 +102,10 @@ typedef struct {
     ** while paused; [1]: the one before it, if known. Entries of ev past
     ** count are stale, so compare snapshots outside raster. */
     VdpRasterFrame raster[2];
+    /* Board time this VDP's frame in progress began (at its own frame tap,
+    ** the one just ended), then the geo3d beside it, if any. Kept together. */
+    UInt32 frameStartTime;
+    Geo3DDebugState geo3d;
     UInt8  vram[VDP_DEBUG_VRAM_SIZE];  /* physical order; zero past what the VDP reaches */
 } VdpDebugState;
 
