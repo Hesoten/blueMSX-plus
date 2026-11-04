@@ -42,6 +42,7 @@
 #include "VdpDebug.h"
 #include "Geo3DDevice.h"
 #include "Emulator.h"
+#include "DebugTrace.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -528,6 +529,20 @@ struct VDP {
 
     UInt32 frameStartTime;
 
+    /* Trace only, never saved: the sources, and the CPU's wait on CE so far. */
+    const char* traceName;
+    UInt16 traceCmdSource;
+    UInt16 traceRegSource;
+    int    traceWaiting;
+    UInt32 tracePolls;
+    UInt32 traceWaitCm;
+    UInt32 traceWaitEpoch;
+    /* Display lines of this frame each bitmap page has shown, counted up to traceFrameLine. */
+    int    tracePageLines[16];
+    int    traceFrameLine;
+    int    traceFrameClosed;   /* this frame's FRAME record is out: at its vint, or none was due */
+    UInt32 traceFrameEpoch;
+
     BoardTimer* timerDisplay;
     BoardTimer* timerDrawAreaStart;
     BoardTimer* timerVStart;
@@ -913,11 +928,21 @@ static void showEarly(void* ref)
     vdpFlipDrawFrame(vdp);
 }
 
+static void traceFrameClose(VDP* vdp, UInt32 time, int lineAt);
+
 static void onVint(VDP* vdp, UInt32 time)
 {
     sync(vdp, time);
 
     vdp->timeVintEn = 0;
+
+    /* The frame's display is over: its record goes out now, where a frame step stops. */
+    if (!vdp->traceFrameClosed) {
+        vdp->traceFrameClosed = 1;
+        if (DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_VDPREG))) {
+            traceFrameClose(vdp, time, (int)((time - vdp->frameStartTime) / HPERIOD));
+        }
+    }
 
     if (!vdp->secondary) {
         framecounter++;
@@ -1004,12 +1029,69 @@ int getScreenCompletePercent()
     return 100 * (boardSystemTime() - frameStartTime) / timeDisplay;
 }
 
+/* Credits the display lines up to line to the page shown since the last call;
+** bitmap modes only. R#2 counts pages of each mode's own size from bit 5,
+** so the base's bit 15 starts the page number in all of them. */
+static void tracePageSpan(VDP* vdp, int line)
+{
+    UInt32 epoch = debugTraceEpoch();
+    int from = vdp->traceFrameLine;
+    int top = vdp->firstLine - 1;
+    int bottom = top + (vdpIsScanLines212(vdp->vdpRegs) ? 212 : 192);
+    int page;
+
+    if (vdp->traceFrameEpoch != epoch) {
+        vdp->traceFrameEpoch = epoch;
+        memset(vdp->tracePageLines, 0, sizeof(vdp->tracePageLines));
+        from = line;
+    }
+    vdp->traceFrameLine = line;
+    if (vdp->screenMode < 5 || vdp->screenMode > 12) {
+        return;
+    }
+    from = from > top ? from : top;
+    line = line < bottom ? line : bottom;
+    page = ((vdp->chrTabBase & vdp->vramMask) >> 15) & ((vdp->vramMask >> 15) >> (vdp->screenMode >= 7 ? 1 : 0));
+    if (line > from && page < 16) {
+        vdp->tracePageLines[page] += line - from;
+    }
+}
+
+/* Ends the frame's tally at frame line lineAt: FRAME goes out at time, with the page that
+** showed the most display lines, so a split for a status band is not taken for a flip.
+** Lines after it, in VBLANK, count for nothing. */
+static void traceFrameClose(VDP* vdp, UInt32 time, int lineAt)
+{
+    int best = -1;
+    UInt32 lines = 0;
+    int i;
+
+    tracePageSpan(vdp, lineAt);
+    for (i = 0; i < 16; i++) {
+        lines += vdp->tracePageLines[i];
+        if (vdp->tracePageLines[i] > 0 && (best < 0 || vdp->tracePageLines[i] > vdp->tracePageLines[best])) {
+            best = i;
+        }
+    }
+    memset(vdp->tracePageLines, 0, sizeof(vdp->tracePageLines));
+    DEBUG_TRACE(DEBUG_TRACE_VDPREG, vdp->traceRegSource, VDPREG_TRACE_FRAME, time,
+                vdpGetMachineFrame(), best < 0 ? 0xffffffff : (UInt32)best, lines);
+}
+
 static void onDisplay(VDP* vdp, UInt32 time)
 {
     int isPal = vdpIsVideoPal(vdp); 
     int early;
     
     sync(vdp, time);
+
+    /* A vint lost to a line count change: the frame's record goes out at its time. */
+    if (!vdp->traceFrameClosed && DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_VDPREG))) {
+        traceFrameClose(vdp, vdp->timeVint, (int)((vdp->timeVint - vdp->frameStartTime) / HPERIOD));
+    }
+    vdp->traceFrameClosed = 0;
+    vdp->traceFrameLine   = 0;
+    memset(vdp->tracePageLines, 0, sizeof(vdp->tracePageLines));
 
     vdp->timeDisplayEn = 0;
     early = vdp->flippedEarly;
@@ -1118,6 +1200,9 @@ static void onDisplay(VDP* vdp, UInt32 time)
     }
 
     vdp->frameStartTime = vdp->timeDisplay;
+    if (debugTraceArmed) {
+        debugTraceTick(vdp->frameStartTime);
+    }
     vdp->timeDisplay += HPERIOD * vdp->lastLine;
     vdp->timeDisplayEn = 1;
     boardTimerAdd(vdp->timerDisplay, vdp->timeDisplay);
@@ -1266,6 +1351,9 @@ static int cmdEngineScreenMode(VDP* vdp)
 
 static void updateTableBases(VDP* vdp)
 {
+    if (DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_VDPREG))) {
+        tracePageSpan(vdp, (int)((boardSystemTime() - vdp->frameStartTime) / HPERIOD));
+    }
     vdp->chrTabBase = ((((int)vdp->vdpRegs[2] << 10) & ~((int)(vdp->vdpRegs[25] & 1) << 15)) | ~(-1 << 10)) & vdp->vramMask;
     vdp->chrGenBase = (((int)vdp->vdpRegs[4] << 11) | ~(-1 << 11)) & vdp->vramMask;
     vdp->colTabBase = (((int)vdp->vdpRegs[10] << 14) | ((int)vdp->vdpRegs[3] << 6) | ~(-1 << 6)) & vdp->vramMask;
@@ -1292,6 +1380,9 @@ static void onScrModeChange(VDP* vdp, UInt32 time)
     
     vdp->timeScrModeEn = 0;
     
+    if (DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_VDPREG))) {
+        tracePageSpan(vdp, scanLine);
+    }
     vdp->screenMode = updateScreenMode(vdp);
     
     updateTableBases(vdp);
@@ -1447,6 +1538,11 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
         break;
 
     case 2: 
+        if (DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_VDPREG))) {
+            /* chrTabBase is still the old page's here. */
+            tracePageSpan(vdp, (int)((boardSystemTime() - vdp->frameStartTime) / HPERIOD));
+            debugTraceEmit(vdp->traceRegSource, VDPREG_TRACE_PAGE, boardSystemTime(), 0, value, value ^ change);
+        }
         vdp->chrTabBase = ((((int)vdp->vdpRegs[2] << 10) & ~((int)(vdp->vdpRegs[25] & 1) << 15)) | ~(-1 << 10)) & vdp->vramMask;
         break;
 
@@ -1714,6 +1810,58 @@ static UInt8 peekStatus(VDP* vdp, UInt16 ioPort)
     return vdpStatus;
 }
 
+static const DebugTraceField tracePageFields[] = {
+    { "r2",  DEBUG_TRACE_WORD_A, 0, 8, DEBUG_TRACE_HEX, 0, NULL, 0 },
+    { "old", DEBUG_TRACE_WORD_B, 0, 8, DEBUG_TRACE_HEX, 0, NULL, 0 },
+};
+
+static const DebugTraceField traceFrameFields[] = {
+    { "page",  DEBUG_TRACE_WORD_A, 0, 32, DEBUG_TRACE_SIGNED, 0, NULL, 0 },
+    { "lines", DEBUG_TRACE_WORD_B, 0, 32, DEBUG_TRACE_DEC,    0, NULL, 0 },
+};
+
+static const DebugTraceKindDesc traceRegKinds[] = {
+    { VDPREG_TRACE_PAGE,  "page",  tracePageFields,  2 },
+    { VDPREG_TRACE_FRAME, "frame", traceFrameFields, 2 },
+};
+
+static const DebugTraceClassDesc traceRegClass = { "vdpreg", traceRegKinds, 2 };
+
+/* Edges of the CPU polling S#2 CE, from what the read already worked out. A
+** transfer (LFMC, LMCM, LMMC, HMMC) keeps CE up while the CPU feeds it, so
+** that is no wait. */
+static void traceCeWait(VDP* vdp, int busy)
+{
+    UInt32 epoch = debugTraceEpoch();
+    UInt32 cm;
+
+    if (vdp->traceWaitEpoch != epoch) {
+        vdp->traceWaitEpoch = epoch;
+        vdp->traceWaiting   = 0;
+    }
+    if (!busy) {
+        if (vdp->traceWaiting) {
+            vdp->traceWaiting = 0;
+            debugTraceEmit(vdp->traceCmdSource, VDPCMD_TRACE_WAIT | DEBUG_TRACE_END, boardSystemTime(),
+                           0, vdp->tracePolls, vdp->traceWaitCm);
+        }
+        return;
+    }
+    if (vdp->traceWaiting) {
+        vdp->tracePolls++;
+        return;
+    }
+    cm = vdpCmdPeek(vdp->cmdEngine, 0x0e, 0) >> 4;
+    if (cm == 0x2 || cm == 0xa || cm == 0xb || cm == 0xf) {
+        return;
+    }
+    vdp->traceWaiting = 1;
+    vdp->tracePolls   = 1;
+    vdp->traceWaitCm  = cm;
+    debugTraceEmit(vdp->traceCmdSource, VDPCMD_TRACE_WAIT | DEBUG_TRACE_BEGIN, boardSystemTime(),
+                   0, 0, cm);
+}
+
 static UInt8 readStatus(VDP* vdp, UInt16 ioPort)
 {
     UInt8 vdpStatus;
@@ -1761,6 +1909,9 @@ static UInt8 readStatus(VDP* vdp, UInt16 ioPort)
             }
             if (frameTime % HPERIOD - vdp->leftBorder - 30 < (UInt32)vdp->displayArea + 30) {
                 vdpStatus &= ~0x20;
+            }
+            if (DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_VDPCMD))) {
+                traceCeWait(vdp, vdpStatus & 0x01);
             }
         }
         break;
@@ -2259,6 +2410,20 @@ void vdpWriteCommandRegister(VDP* vdp, UInt8 reg, UInt8 value, int fillSpan)
     }
 }
 
+/* Tags the command geo3d starts next with its trace link; 0 clears it. */
+void vdpSetCommandTraceLink(VDP* vdp, UInt32 link)
+{
+    vdp = geo3dVdp(vdp);
+    if (vdp != NULL) {
+        vdpCmdTagIssue(vdp->cmdEngine, link);
+    }
+}
+
+const char* vdpGetTraceName(VDP* vdp)
+{
+    return vdp != NULL ? vdp->traceName : "VDP";
+}
+
 /* When the last command ended, in 1/8 board ticks (wrapping). */
 UInt32 vdpGetCommandEndTime(VDP* vdp)
 {
@@ -2466,6 +2631,7 @@ static void loadState(VDP* vdp)
     vdp->timeHintEn          =      saveStateGet(state, "timeHintEn",          0);
     vdp->timeVint            =      saveStateGet(state, "timeVint",            systemTime);
     vdp->timeVintEn          =      saveStateGet(state, "timeVintEn",          0);
+    vdp->traceFrameClosed    = !vdp->timeVintEn;
     vdp->timeDrawAreaStart   =      saveStateGet(state, "timeDrawAreaStart",   systemTime);
     vdp->timeDrawAreaStartEn =      saveStateGet(state, "timeDrawAreaStartEn", 0);
     vdp->timeVStart          =      saveStateGet(state, "timeVStart",          systemTime);
@@ -2748,6 +2914,7 @@ static void loadState(VDP* vdp)
     vdp->timeHintEn = saveStateGet(state, "timeHintEn",          0);
     vdp->timeVint = saveStateGet(state, "timeVint",            0);
     vdp->timeVintEn = saveStateGet(state, "timeVintEn",          0);
+    vdp->traceFrameClosed = !vdp->timeVintEn;
     vdp->timeDrawAreaStart = saveStateGet(state, "timeDrawAreaStart",   0);
     vdp->timeDrawAreaStartEn = saveStateGet(state, "timeDrawAreaStartEn", 0);
     vdp->timeVStart = saveStateGet(state, "timeVStart",          0);
@@ -4227,6 +4394,7 @@ static void reset(VDP* vdp)
     vdp->timeScrModeEn       = 0;
     vdp->timeHintEn          = 0;
     vdp->timeVintEn          = 0;
+    vdp->traceFrameClosed    = 1;
     vdp->timeDrawAreaStartEn = 0;
     vdp->timeVStartEn        = 0;
     vdp->timeDisplayEn       = 0;
@@ -4315,6 +4483,8 @@ static void destroy(VDP* vdp)
     }
     /* Removing the cartridge while paused runs this on the UI thread. */
     emulatorTapBarrier();
+    debugTraceSourceUnregister(vdp->traceCmdSource);
+    debugTraceSourceUnregister(vdp->traceRegSource);
     if (theVdp == vdp) {
         theVdp = NULL;
     }
@@ -4499,6 +4669,11 @@ static VDP* create(VdpConnector connector, VdpVersion version, VdpSyncMode sync,
     if (secondary != NULL) {
         vdpCmdSetSecondary(vdp->cmdEngine, secondary->cmdStateName);
     }
+    /* Both classes take one instance name: "VDP", or the second VDP's own. */
+    vdp->traceName      = secondary != NULL ? secondary->name : "VDP";
+    vdp->traceCmdSource = debugTraceSourceRegister(DEBUG_TRACE_VDPCMD, vdpCmdTraceClass(), vdp->traceName);
+    vdp->traceRegSource = debugTraceSourceRegister(DEBUG_TRACE_VDPREG, &traceRegClass, vdp->traceName);
+    vdpCmdSetTraceSource(vdp->cmdEngine, vdp->traceCmdSource);
 
     spriteLineReset(vdp);
     reset(vdp);

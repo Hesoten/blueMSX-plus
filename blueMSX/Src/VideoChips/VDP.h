@@ -110,6 +110,9 @@ int  vdpGetCommandBusy(struct VDP* vdp);
 void vdpWriteCommandRegister(struct VDP* vdp, UInt8 reg, UInt8 value, int fillSpan);
 UInt32 vdpGetCommandEndTime(struct VDP* vdp);
 void vdpAddCommandCredit(struct VDP* vdp, int units);
+void vdpSetCommandTraceLink(struct VDP* vdp, UInt32 link);
+/* The trace instance name: "VDP" for the machine's or NULL, else the secondary VDP's own. */
+const char* vdpGetTraceName(struct VDP* vdp);
 /* Board time the VDP's current frame began (at its own frame tap, the one ending). */
 UInt32 vdpGetFrameStartTime(struct VDP* vdp);
 

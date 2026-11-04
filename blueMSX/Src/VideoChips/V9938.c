@@ -18,6 +18,7 @@
 #include "Board.h"
 #include "SaveState.h"
 #include "DebugDeviceManager.h"
+#include "DebugTrace.h"
 
 /*************************************************************
 ** Different compilers inline C functions differently.
@@ -253,6 +254,25 @@ struct VdpCmdState {
     const char* stateName;
     /* Off for an engine whose VRAM the debugger does not show. */
     int    watch;
+    /* Trace only, never saved: the command in flight as it started, valid in
+    ** traceEpoch, and the link the next one takes. */
+    UInt16 traceSource;
+    int    traceValid;
+    UInt32 traceEpoch;
+    UInt32 traceIssueLink;
+    UInt32 traceLink;
+    UInt32 traceArgs;
+    UInt32 traceSize;
+    UInt32 tracePos;
+    /* An end seen off the emulator thread, sent from it on the next step. */
+    int    tracePending;
+    UInt32 tracePendEpoch;
+    UInt32 tracePendStart;
+    UInt32 tracePendLink;
+    UInt32 tracePendArgs;
+    UInt32 tracePendUnits;
+    UInt32 tracePendSize;
+    UInt32 tracePendPos;
 };
 
 // The machine VDP's command engine, the first one created. It is only
@@ -1556,6 +1576,7 @@ VdpCmdState* vdpCmdCreate(int vramSize, UInt8* vramPtr, UInt32 systemTime)
     vdpCmd->cmdStartTime = systemTime * VDP_TIMING_SCALE;
     vdpCmd->vramBase = vramPtr;
     vdpCmd->vramSize = vramSize;
+    vdpCmd->traceSource = DEBUG_TRACE_NO_SOURCE;
 
     vdpCmd->vramOffset[0] = 0;
     vdpCmd->vramOffset[1] = vramSize > 0x20000 ? 0x20000 : 0;
@@ -1626,6 +1647,95 @@ static void vdpCmdSetEndTime(VdpCmdState* vdpCmd, UInt32 endTime)
     if ((Int32)(endTime - vdpCmd->cmdStartTime) < 0) endTime = vdpCmd->cmdStartTime;
     if ((Int32)(endTime - now) > 0) endTime = now;
     vdpCmd->cmdEndTime = endTime;
+}
+
+static const char* const traceCmdNames[16] = {
+    "STOP", "LFMM", "LFMC", "LRMM", "POINT", "PSET", "SRCH", "LINE",
+    "LMMV", "LMMM", "LMCM", "LMMC", "HMMV", "HMMM", "YMMM", "HMMC"
+};
+
+static const DebugTraceField traceCmdFields[] = {
+    { "cm",      DEBUG_TRACE_WORD_A,      0,  4, DEBUG_TRACE_ENUM, 0, traceCmdNames, 16 },
+    { "lo",      DEBUG_TRACE_WORD_A,      4,  4, DEBUG_TRACE_HEX,  0, NULL, 0 },
+    { "fill",    DEBUG_TRACE_WORD_A,      8,  1, DEBUG_TRACE_DEC,  0, NULL, 0 },
+    { "aborted", DEBUG_TRACE_WORD_A,      9,  1, DEBUG_TRACE_DEC,  0, NULL, 0 },
+    { "arg",     DEBUG_TRACE_WORD_A,      16, 8, DEBUG_TRACE_HEX,  0, NULL, 0 },
+    { "cl",      DEBUG_TRACE_WORD_A,      24, 8, DEBUG_TRACE_HEX,  0, NULL, 0 },
+    { "units",   DEBUG_TRACE_WORD_B,      0, 32, DEBUG_TRACE_DEC,  1 << 0, NULL, 0 },
+    { "link",    DEBUG_TRACE_WORD_LINK,   0, 32, DEBUG_TRACE_DEC,  0, NULL, 0 },
+    { "nx",      DEBUG_TRACE_WORD_CONT_A, 0, 16, DEBUG_TRACE_DEC,  0, NULL, 0 },
+    { "ny",      DEBUG_TRACE_WORD_CONT_A, 16, 16, DEBUG_TRACE_DEC, 0, NULL, 0 },
+    { "dx",      DEBUG_TRACE_WORD_CONT_B, 0, 16, DEBUG_TRACE_DEC,  0, NULL, 0 },
+    { "dy",      DEBUG_TRACE_WORD_CONT_B, 16, 16, DEBUG_TRACE_DEC, 0, NULL, 0 },
+};
+
+static const DebugTraceField traceWaitFields[] = {
+    { "polls", DEBUG_TRACE_WORD_A, 0, 32, DEBUG_TRACE_DEC,  1 << 2, NULL, 0 },
+    { "cm",    DEBUG_TRACE_WORD_B, 0,  4, DEBUG_TRACE_ENUM, (1 << 1) | (1 << 2), traceCmdNames, 16 },
+};
+
+static const DebugTraceKindDesc traceKinds[] = {
+    { VDPCMD_TRACE_CMD,  "cmd",  traceCmdFields,  sizeof(traceCmdFields) / sizeof(traceCmdFields[0]) },
+    { VDPCMD_TRACE_WAIT, "wait", traceWaitFields, sizeof(traceWaitFields) / sizeof(traceWaitFields[0]) },
+};
+
+static const DebugTraceClassDesc traceClass = { "vdpcmd", traceKinds, 2 };
+
+const DebugTraceClassDesc* vdpCmdTraceClass(void)
+{
+    return &traceClass;
+}
+
+void vdpCmdSetTraceSource(VdpCmdState* vdpCmd, UInt16 source)
+{
+    vdpCmd->traceSource = source;
+}
+
+void vdpCmdTagIssue(VdpCmdState* vdpCmd, UInt32 link)
+{
+    vdpCmd->traceIssueLink = link;
+}
+
+static void vdpCmdTraceFlush(VdpCmdState* vdpCmd)
+{
+    if (!vdpCmd->tracePending || !debugTraceIsWriter()) {
+        return;
+    }
+    vdpCmd->tracePending = 0;
+    /* Disarmed since it ended: the hooks stay silent. */
+    if (!DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_VDPCMD)) || vdpCmd->tracePendEpoch != debugTraceEpoch()) {
+        return;
+    }
+    debugTraceEmit(vdpCmd->traceSource, VDPCMD_TRACE_CMD, vdpCmd->tracePendStart, vdpCmd->tracePendLink,
+                   vdpCmd->tracePendArgs, vdpCmd->tracePendUnits);
+    debugTraceEmit(vdpCmd->traceSource, VDPCMD_TRACE_CMD | DEBUG_TRACE_CONT, vdpCmd->tracePendStart,
+                   vdpCmd->tracePendLink, vdpCmd->tracePendSize, vdpCmd->tracePendPos);
+}
+
+/* The command in flight, ended or cut off at endTime (budget units), dated
+** from its start, credit included. Reads the clock only. */
+static void vdpCmdTraceEnd(VdpCmdState* vdpCmd, UInt32 endTime, int aborted)
+{
+    UInt32 now = boardSystemTime();
+    UInt32 back = now * VDP_TIMING_SCALE - vdpCmd->cmdStartTime;
+
+    vdpCmdTraceFlush(vdpCmd);
+    if (!vdpCmd->traceValid || vdpCmd->traceEpoch != debugTraceEpoch()) {
+        return;
+    }
+    vdpCmd->traceValid = 0;
+    if ((Int32)back < 0) {
+        back = 0;
+    }
+    vdpCmd->tracePending   = 1;
+    vdpCmd->tracePendEpoch = vdpCmd->traceEpoch;
+    vdpCmd->tracePendStart = now - (back + VDP_TIMING_SCALE - 1) / VDP_TIMING_SCALE;
+    vdpCmd->tracePendLink  = vdpCmd->traceLink;
+    vdpCmd->tracePendArgs  = vdpCmd->traceArgs | (aborted << 9);
+    vdpCmd->tracePendUnits = endTime - vdpCmd->cmdStartTime;
+    vdpCmd->tracePendSize  = vdpCmd->traceSize;
+    vdpCmd->tracePendPos   = vdpCmd->tracePos;
+    vdpCmdTraceFlush(vdpCmd);
 }
 
 static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
@@ -1734,6 +1844,20 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
     ** either mode. With R#21 V58 set and no HS it keeps the V9958's. */
     vdpCmd->hsModel = vdpCmd->highSpeed || vdpCmd->extCommands;
     hsStart = vdpCmd->hsModel ? hsSetTiming(vdpCmd) : 0;
+
+    vdpCmdTraceFlush(vdpCmd);
+    vdpCmd->traceValid = DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_VDPCMD));
+    if (vdpCmd->traceValid) {
+        vdpCmd->traceEpoch = debugTraceEpoch();
+        vdpCmd->traceLink  = vdpCmd->traceIssueLink;
+        vdpCmd->traceArgs  = vdpCmd->CM | (vdpCmd->LO << 4) | ((vdpCmd->fillTag != 0) << 8) |
+                             ((UInt32)vdpCmd->ARG << 16) | ((UInt32)vdpCmd->CL << 24);
+        vdpCmd->traceSize  = (vdpCmd->kNX & 0xffff) | ((UInt32)vdpCmd->NY << 16);
+        vdpCmd->tracePos   = (vdpCmd->DX & 0xffff) | ((UInt32)vdpCmd->DY << 16);
+        /* geo3d's credit moves the start back after this; the end record has it right. */
+        debugTraceEmit(vdpCmd->traceSource, VDPCMD_TRACE_CMD | DEBUG_TRACE_BEGIN, systemTime,
+                       vdpCmd->traceLink, vdpCmd->traceArgs, 0);
+    }
 
     /* Command execution started */
     vdpCmd->status |= VDPSTATUS_CE;
@@ -1846,6 +1970,10 @@ void vdpCmdWrite(VdpCmdState* vdpCmd, UInt8 reg, UInt8 value, UInt32 systemTime)
 	case 0x19: vdpCmd->WEY = (vdpCmd->WEY & 0x700) | value;                 break;
 	case 0x1a: vdpCmd->WEY = (vdpCmd->WEY & 0x0ff) | ((value & 0x07) << 8); break;
 	case 0x0e:
+        /* A write while one runs cuts it off; its own CM is gone after this. */
+        if (vdpCmd->CM != 0 && DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_VDPCMD))) {
+            vdpCmdTraceEnd(vdpCmd, systemTime * VDP_TIMING_SCALE, 1);
+        }
 		vdpCmd->LO = value & 0x0F;
 		vdpCmd->CM = value >> 4;
         /* geo3d's one row face fill: the same bytes as LINE, written as HMMV. */
@@ -2065,6 +2193,9 @@ void vdpSetScreenMode(VdpCmdState* vdpCmd, int screenMode, int commandEnable) {
     vdpCmd->cmdEnable  = commandEnable;
     if (applyScreenMode(vdpCmd)) {
         if (vdpCmd->CM != 0) {
+            if (DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_VDPCMD))) {
+                vdpCmdTraceEnd(vdpCmd, boardSystemTime() * VDP_TIMING_SCALE, 1);
+            }
             vdpCmdSetEndTime(vdpCmd, boardSystemTime() * VDP_TIMING_SCALE);
         }
         vdpCmd->CM = 0;
@@ -2200,6 +2331,10 @@ void vdpCmdExecute(VdpCmdState* vdpCmd, UInt32 systemTime)
 {
     UInt8 running;
 
+    if (DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_VDPCMD)) && vdpCmd->tracePending) {
+        vdpCmdTraceFlush(vdpCmd);
+    }
+
     /* A transfer parked waiting on the CPU charges nothing for the wait, so
     ** trim what it has banked before the elapsed time below is added to it. */
     if (vdpCmd->VdpOpsCnt > MAX_OPS_CREDIT) {
@@ -2265,6 +2400,9 @@ void vdpCmdExecute(VdpCmdState* vdpCmd, UInt32 systemTime)
     if (running != 0 && vdpCmd->CM == 0) {
         vdpCmd->cmdEnd = 1;
         vdpCmdSetEndTime(vdpCmd, systemTime * VDP_TIMING_SCALE - (UInt32)vdpCmd->VdpOpsCnt);
+        if (DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_VDPCMD))) {
+            vdpCmdTraceEnd(vdpCmd, vdpCmd->cmdEndTime, 0);
+        }
     }
 
     /* Breaking here and not mid-loop leaves the counters written back, so a save

@@ -29,6 +29,13 @@
 #define VDP_DEBUG_VRAM_SIZE (256 * 1024)
 #define VDP_RASTER_MAX      4096
 
+/* Trace kinds of class VDPREG. PAGE: R#2 written, a = new, b = old. */
+#define VDPREG_TRACE_PAGE  1
+/* FRAME, time the end of a frame's active display (its vint): a = the bitmap page (32 or 64 kB)
+** that showed the most display lines of it, -1 for none; b = the bitmap display lines counted;
+** link = the machine VDP's frame number then (vdpGetMachineFrame), on a cartridge VDP too. */
+#define VDPREG_TRACE_FRAME 2
+
 /* Times are VDP cycles: line = (t - frameStart) / 1368, cycle = the rest. A line interrupt
 ** is stamped with its own time but noted a little later, so a write a few cycles after it
 ** may be listed before it. A write timed just past the frame's end is put on its last cycle. */
