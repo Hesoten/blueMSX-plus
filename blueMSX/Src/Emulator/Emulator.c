@@ -78,6 +78,20 @@ int emulatorIsEmuThread(void) {
     return emuOnThisThread;
 }
 
+void emulatorTap(EmuTapPoint point) {
+    EmuTapFn tap = emuTap;
+    if (tap) {
+        tap(point);
+    }
+}
+
+void emulatorTapBarrier(void) {
+    EmuTapFn tap = emuTap;
+    if (tap && !emuOnThisThread) {
+        tap(EMU_TAP_BARRIER);
+    }
+}
+
 /* Paused only: running, these waits sit mid-frame; suspended, the UI thread may be
 ** changing the machine. A debugger or agent may still write VRAM or VDP registers
 ** while paused, so a copy can be torn; the first after the writes stop is whole. */

@@ -67,6 +67,8 @@ static UInt64 hostTimeUs()
                     now.QuadPart % freq.QuadPart * 1000000 / freq.QuadPart);
 }
 
+static bool lockUi(int waitMs);
+
 static void tap(EmuTapPoint point)
 {
     LiveFeed* f;
@@ -84,6 +86,14 @@ static void tap(EmuTapPoint point)
         anyWanted = 0;
         return;
     }
+    if (point == EMU_TAP_BARRIER) {
+        /* Captures run under the lock, so taking it waits one out. Waits
+        ** without a limit: giving up would let the caller free a device
+        ** a capture is still reading. Not re-entrant. */
+        AcquireSRWLockExclusive(&lock);
+        ReleaseSRWLockExclusive(&lock);
+        return;
+    }
     if (!anyWanted || !emulatorIsEmuThread()) {
         return;
     }
@@ -91,11 +101,18 @@ static void tap(EmuTapPoint point)
         return;
     }
     UInt64 now = hostTimeUs();
+    bool   keep = false;
     for (f = feeds; f; f = f->next) {
         if (f->wanted) {
             Slot* s = &f->slot[f->back];
             int t;
-            s->info.valid      = f->capture(s->data, f->ref) != 0;
+            int rc = f->capture(s->data, f->ref, (int)point);
+            if (rc == LIVE_FEED_NOT_NOW) {
+                /* back is not swapped, so what was written to it stays unseen. */
+                keep = true;
+                continue;
+            }
+            s->info.valid      = rc != 0;
             s->info.point      = point;
             s->info.hostTimeUs = now;
             s->info.seq        = ++f->seq;
@@ -104,7 +121,7 @@ static void tap(EmuTapPoint point)
             f->wanted = false;
         }
     }
-    anyWanted = 0;
+    anyWanted = keep ? 1 : 0;
     ReleaseSRWLockExclusive(&lock);
 }
 
@@ -172,7 +189,7 @@ extern "C" void liveFeedClose(LiveFeed* feed)
     if (feed == NULL) {
         return;
     }
-    /* Waits without a limit: giving up would leave the tap capturing into freed memory. */
+    /* Waits as the barrier does: giving up would leave the tap capturing into freed memory. */
     (void)lockUi(-1);
     for (p = &feeds; *p; p = &(*p)->next) {
         if (*p == feed) {

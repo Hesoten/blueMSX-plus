@@ -83,6 +83,7 @@ public:
 };
 
 ChipView* createV99x8View();
+ChipView* createV9990View();
 
 /* Services of the shell for the views, valid while it draws. */
 namespace shell {
@@ -92,6 +93,9 @@ unsigned    contentVersion();
 unsigned    pictureVersion();
 /* Bumps when the VDP's raster logs changed. */
 unsigned    rasterVersion();
+/* Bumps only when VRAM or the V9990's palette changed; a picture keyed on it
+** puts the registers it reads in its key. */
+unsigned    vramVersion();
 /* Focus as it stood at the end of the previous frame, for highlights drawn
 ** before this frame's hover is known. */
 const Focus& shownFocus();
@@ -101,21 +105,21 @@ int         hoverSeries();
 int         hoverBlock();
 /* Asks the shell to show view key ("vram", ...) next frame. */
 void        requestView(const char* key);
-/* The picture the shown chip drew (a VdpFrameShot), or NULL;
+/* The picture the shown chip drew (VdpFrameShot or V9990FrameShot), or NULL;
 ** *version bumps with each new one. Asked for while wantFrame is called. */
 const void* frameShot(unsigned* version);
 /* Called each frame a picture is on show, so that the next ones are copied;
-** pixels false when only what goes with the samples is read. */
+** pixels false when only what goes with the samples is read (V99x8 only). */
 void        wantFrame(bool pixels = true);
-/* Called each frame Output shows its sprites split off. */
+/* Called each frame Output shows its sprites split off (V99x8 only). */
 void        wantSpriteSplit();
 /* Called each frame a V99x8 view is drawn, so the tables and palettes each line used are recorded. */
 void        wantSpriteTables();
 /* Lets go of the pin and of a picked band next frame, as Esc does. */
 void        releaseSelection();
-/* The pictures' zoom, one for every tab, for the session. */
+/* The pictures' zoom, one for every tab of both chips, for the session. */
 ui::CanvasZoom& zoom();
-/* The Pages card under the Screen: open, its height in px at
+/* The Pages card under the Screen, one for both chips: open, its height in px at
 ** 96 DPI, and the thumbnails' size, 0 small to 2 large. */
 struct PagesState { bool open = true; float height = 200; int size = 0; };
 PagesState& pages();

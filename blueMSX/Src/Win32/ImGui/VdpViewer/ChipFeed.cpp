@@ -20,11 +20,13 @@
 **
 ******************************************************************************
 */
-#include <stdlib.h>
 #include <string.h>
 #include "ChipFeed.h"
+#include "LiveFeed.h"
 extern "C" {
+#include "Emulator.h"
 #include "VdpDebug.h"
+#include "V9990.h"
 }
 
 struct ChipProvider {
@@ -33,7 +35,7 @@ struct ChipProvider {
     int         (*count)(void);
     int         (*capture)(int index, void* dst);
     UInt32      (*idOf)(const void* st);
-    const char* (*nameOf)(const void* st);
+    const char* (*name)(int index);
     size_t      shotSize;
     int         (*captureShot)(int index, void* dst, int pixels);
 };
@@ -41,11 +43,16 @@ struct ChipProvider {
 static int    vdpCapture(int i, void* d)      { return vdpDebugCapture(i, (VdpDebugState*)d); }
 static int    vdpShot(int i, void* d, int p)  { return vdpDebugCaptureFrame(i, (VdpFrameShot*)d, p); }
 static UInt32 vdpId(const void* s)            { return ((const VdpDebugState*)s)->id; }
-static const char* vdpName(const void* s)     { return ((const VdpDebugState*)s)->name; }
+static int    v9990Capture(int i, void* d)    { return v9990DebugCapture(i, (V9990DebugState*)d); }
+static int    v9990Shot(int i, void* d, int)  { return v9990DebugCaptureFrame(i, (V9990FrameShot*)d); }
+static UInt32 v9990Id(const void* s)          { return ((const V9990DebugState*)s)->id; }
+static const char* v9990Name(int)             { return "V9990"; }
 
 static const ChipProvider providers[CHIP_FAMILY_COUNT] = {
-    { CHIP_V99X8, sizeof(VdpDebugState),   vdpDebugCount,   vdpCapture,   vdpId,   vdpName,
+    { CHIP_V99X8, sizeof(VdpDebugState),   vdpDebugCount,   vdpCapture,   vdpId,   vdpDebugName,
       sizeof(VdpFrameShot), vdpShot },
+    { CHIP_V9990, sizeof(V9990DebugState), v9990DebugCount, v9990Capture, v9990Id, v9990Name,
+      sizeof(V9990FrameShot), v9990Shot },
 };
 
 static size_t headSize()
@@ -91,65 +98,70 @@ const void* chipFeedState(const ChipSnapshot* snap)
     return (const char*)snap + headSize();
 }
 
-bool chipFeedRefInit(ChipFeedRef* ref)
+void chipFeedRefReset(ChipFeedRef* ref)
 {
-    if (ref->scratch == NULL) {
-        ref->scratch = malloc(maxStateSize());
-    }
-    return ref->scratch != NULL;
+    InterlockedExchange(&ref->want, 0);
+    ref->shownV9990    = false;
+    ref->framesWaiting = 0;
 }
 
-static void remember(ChipFeedRef* r, int f, int i, const void* st)
-{
-    r->knownId[f][i] = providers[f].idOf(st);
-    strncpy(r->knownName[f][i], providers[f].nameOf(st), sizeof(r->knownName[f][i]) - 1);
-    r->knownName[f][i][sizeof(r->knownName[f][i]) - 1] = 0;
-}
+/* The V9990's points come at most two V9990 frames apart, less than three VDP frames; the
+** VDP's every frame unless a line count change loses its vint. */
+#define FRAMES_WAITED_MAX 4
 
-/* Only the selected chip is copied each time; the others are copied to the
-** scratch now and then to learn their ids, and when their count changes. */
-int chipFeedCapture(void* dst, void* refp)
+/* Only the selected chip is copied. */
+int chipFeedCapture(void* dst, void* refp, int point)
 {
     ChipFeedRef*  r = (ChipFeedRef*)refp;
     ChipSnapshot* snap = (ChipSnapshot*)dst;
     void*         state = (char*)dst + headSize();
     int           counts[CHIP_FAMILY_COUNT];
-    bool          changed = false;
-    bool          refresh;
+    bool          atV9990 = point == EMU_TAP_V9990_SHOWN;
+    bool          atVdp = point == EMU_TAP_VDP_SHOWN;
     int           f, i, n = 0;
 
     snap->shot = 0;
     for (f = 0; f < CHIP_FAMILY_COUNT; f++) {
         counts[f] = providers[f].count();
         if (counts[f] > CHIP_MAX) counts[f] = CHIP_MAX;
-        if (counts[f] != r->knownCount[f]) changed = true;
-    }
-    refresh = changed || r->refreshIn <= 1;
-    if (refresh) {
-        r->refreshIn = 60;
-        for (f = 0; f < CHIP_FAMILY_COUNT; f++) {
-            r->knownCount[f] = counts[f];
-            for (i = 0; i < counts[f]; i++) {
-                if (providers[f].capture(i, r->scratch)) {
-                    remember(r, f, i, r->scratch);
-                }
-            }
-        }
     }
 
-    int  sel = 0;
+    /* A V9990 coming onto the main screen is shown, as the main window switches to it. When
+    ** it leaves, the viewer goes back to the machine's VDP as the main window does, unless
+    ** the V9990 was picked by hand. */
+    int  superimposed;
+    bool shown = counts[CHIP_V9990] > 0 && v9990GetShownMode(&superimposed) != V9990_MODE_NONE;
+    if (shown && !r->shownV9990 && r->want != chipWant(CHIP_V9990, 0)) {
+        InterlockedExchange(&r->want, chipWant(CHIP_V9990, 0) | CHIP_WANT_AUTO);
+    }
+    else if (!shown && r->shownV9990) {
+        InterlockedCompareExchange(&r->want, 0, chipWant(CHIP_V9990, 0) | CHIP_WANT_AUTO);
+    }
+    r->shownV9990 = shown;
+
+    LONG want = r->want & ~CHIP_WANT_AUTO;
+    int  sel = -1;
     for (f = 0; f < CHIP_FAMILY_COUNT; f++) {
         for (i = 0; i < counts[f] && n < CHIP_MAX; i++, n++) {
-            ChipEntry* e = &snap->chip[n];
-            e->id     = r->knownId[f][i];
+            ChipEntry*  e = &snap->chip[n];
+            const char* name = providers[f].name(i);
+            e->id     = 0;
             e->family = f;
             e->index  = i;
-            strncpy(e->name, r->knownName[f][i], sizeof(e->name) - 1);
+            strncpy(e->name, name != NULL ? name : "", sizeof(e->name) - 1);
             e->name[sizeof(e->name) - 1] = 0;
+            if (sel < 0 && chipWant(f, i) == want) sel = n;
         }
     }
     snap->count = n;
-    if (!refresh) r->refreshIn--;
+    if (sel < 0) sel = 0;
+    /* A chip is copied at its own end of display. Should that point stop coming, the VDP
+    ** frame end copies it after FRAMES_WAITED_MAX frames, so the copies never stop. */
+    bool v9990 = n > 0 && snap->chip[sel].family == CHIP_V9990;
+    if (atV9990 || atVdp ? atV9990 != v9990 : point == EMU_TAP_FRAME && ++r->framesWaiting < FRAMES_WAITED_MAX) {
+        return LIVE_FEED_NOT_NOW;
+    }
+    r->framesWaiting = 0;
     if (n == 0) {
         snap->selected = -1;
         return 0;
@@ -159,8 +171,7 @@ int chipFeedCapture(void* dst, void* refp)
         snap->selected = -1;
         return 0;
     }
-    remember(r, e->family, e->index, state);
-    e->id = r->knownId[e->family][e->index];
+    e->id = providers[e->family].idOf(state);
     snap->selected = sel;
     if (r->wantFrame && providers[e->family].captureShot != NULL) {
         snap->shot = providers[e->family].captureShot(e->index, (char*)dst + shotOffset(), r->wantFrame >= 2) ? 1 : 0;

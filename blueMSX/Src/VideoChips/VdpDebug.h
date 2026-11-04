@@ -48,7 +48,7 @@ typedef struct {
 typedef struct {
     int    valid;           /* 0: not armed, no VDP, or no such frame known */
     int    complete;        /* 0: armed, reset or a state loaded in it; writes may be missing */
-    int    ended;           /* 1: the frame is over; 0: beamLine/beamCycle is where it is */
+    int    ended;           /* 1: the frame is over, or its active display is (VDP_SHOWN); 0: beamLine/beamCycle is where it is */
     int    foreign;         /* registers were written from another thread, e.g. the debugger */
     UInt32 frameStart;
     int    lastLine;        /* lines in the frame, 262 or 313 */
@@ -121,9 +121,9 @@ typedef struct {
     int    valid;           /* 0: no VDP, or no frame drawn yet */
     int    pixels;          /* 0: copied without the samples; pix is stale, shift holds */
     int    stale;           /* the VDP did not draw the newest frame: not the source drawn, minimised, or the frame count changed */
-    int    ended;           /* 1: all rows are the frame that just ended; 0: paused within a frame */
-    int    drawnRow;        /* paused: rows before it are the frame in progress, the rest the frame before */
-    int    drawnSamples;    /* paused: samples of row drawnRow from the frame in progress */
+    int    ended;           /* 1: all rows are the frame that just ended (at the VDP_SHOWN tap, up to drawnRow); 0: paused within a frame */
+    int    drawnRow;        /* paused or at VDP_SHOWN: rows before it are the frame in progress, the rest the frame before */
+    int    drawnSamples;    /* paused or at VDP_SHOWN: samples of row drawnRow from the frame in progress */
     int    restMissing;     /* the frame before is unknown: rows from drawnRow on hold 0x8000 */
     UInt32 frameStart;      /* the frame of the rows (paused: of the rows before drawnRow), as in raster[0] */
     UInt32 seq;             /* frame buffer flip that completed the frame before drawnRow (or of all rows) */
@@ -172,6 +172,9 @@ extern "C" {
 #endif
 
 int vdpDebugCount(void);
+
+/* The name vdpDebugCapture gives VDP number index, or NULL when there is none. */
+const char* vdpDebugName(int index);
 
 /* Copies VDP number index without syncing it or touching any latch, so call
 ** it only on the emulator thread at a frame boundary or while it waits.

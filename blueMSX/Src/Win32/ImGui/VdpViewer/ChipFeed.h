@@ -27,12 +27,12 @@
 #include <windows.h>
 #include "MsxTypes.h"
 
-enum ChipFamily { CHIP_V99X8, CHIP_FAMILY_COUNT };
+enum ChipFamily { CHIP_V99X8, CHIP_V9990, CHIP_FAMILY_COUNT };
 
 #define CHIP_MAX 8
 
 struct ChipEntry {
-    UInt32 id;          /* 0 until the chip has been seen once */
+    UInt32 id;          /* the selected entry's chip instance; 0 for the others */
     int    family;      /* ChipFamily */
     int    index;       /* within the family */
     char   name[48];
@@ -47,28 +47,37 @@ struct ChipSnapshot {
     int       shot;      /* 1: chipFeedShot() holds a picture capture */
 };
 
-/* Shared by the UI thread and the capture; only wantFrame is written by the
-** UI once the feed is open. */
+/* Shared by the UI thread and the capture; only want and wantFrame are
+** written by the UI once the feed is open. */
 struct ChipFeedRef {
+    /* The chip to show, as chipWant() gives it, with CHIP_WANT_AUTO when the capture followed it
+    ** onto the main screen; 0 for none. None or a missing one: the first. */
+    volatile LONG want;
     volatile LONG wantFrame; /* nonzero: also copy the picture the chip drew; 1 without its samples */
-    void*  scratch;         /* a state of every family fits; for names and ids */
-    UInt32 knownId[CHIP_FAMILY_COUNT][CHIP_MAX];
-    char   knownName[CHIP_FAMILY_COUNT][CHIP_MAX][32];
-    int    knownCount[CHIP_FAMILY_COUNT];
-    int    refreshIn;
+    bool   shownV9990;       /* a V9990 was on the main screen at the last capture; the capture's own */
+    int    framesWaiting;    /* VDP frames passed up for the chip's own point since it last came */
 };
+
+/* A chip by family and index: it stays the same chip across a reset or a state load. */
+inline LONG chipWant(int family, int index)
+{
+    return family * CHIP_MAX + index + 1;
+}
+#define CHIP_WANT_AUTO 0x10000
 
 size_t      chipFeedSize();
 /* The state of the selected chip, of the family chip[selected].family. */
 const void* chipFeedState(const ChipSnapshot* snap);
 size_t      chipFeedStateSize(int family);
-/* The selected chip's picture (a VdpFrameShot), or NULL
+/* The selected chip's picture (VdpFrameShot or V9990FrameShot), or NULL
 ** when wantFrame was 0 or there is no picture (valid 0) to show. */
 const void* chipFeedShot(const ChipSnapshot* snap);
-/* For liveFeedOpen; runs on the emulator thread. */
-int         chipFeedCapture(void* dst, void* ref);
+/* For liveFeedOpen; runs on the emulator thread. A V9990 is copied at its
+** last displayed line, a V99x8 at its end of active display; either also while paused. */
+int         chipFeedCapture(void* dst, void* ref, int point);
 
-/* Allocates the scratch once and keeps it for the process. */
-bool        chipFeedRefInit(ChipFeedRef* ref);
+/* Forgets the chip asked for, so the next capture takes a V9990 on the main screen,
+** else the first chip. UI thread, before the feed opens. */
+void        chipFeedRefReset(ChipFeedRef* ref);
 
 #endif

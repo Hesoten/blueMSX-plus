@@ -32,15 +32,16 @@ extern "C" {
 
 typedef struct LiveFeed LiveFeed;
 
-/* Runs on the emulator thread at a frame boundary or while paused. Only reads
-** device fields (a debugger write may tear one snapshot) and fills dst, the
-** size given to liveFeedOpen; returns 0 when there is nothing to show. */
-typedef int (*LiveFeedCaptureFn)(void* dst, void* ref);
+/* Runs on the emulator thread at the EmuTapPoint point, also inside a V9990
+** access: only reads device fields, never syncs. Fills dst (the size given to
+** liveFeedOpen); 0: nothing to show; LIVE_FEED_NOT_NOW: ask again next point. */
+typedef int (*LiveFeedCaptureFn)(void* dst, void* ref, int point);
+#define LIVE_FEED_NOT_NOW (-1)
 
 typedef struct {
     UInt32 seq;         /* bumps per snapshot; 0 before the first one */
     int    valid;       /* what the capture returned */
-    int    point;       /* EMU_TAP_FRAME or EMU_TAP_IDLE */
+    int    point;       /* the EmuTapPoint it was taken at */
     UInt64 hostTimeUs;  /* when it was taken */
 } LiveFeedInfo;
 

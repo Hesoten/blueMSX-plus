@@ -40,6 +40,7 @@
 #include "ArchVideoIn.h"
 #include "Language.h"
 #include "VdpDebug.h"
+#include "Emulator.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -605,6 +606,9 @@ static void onHint(VDP* vdp, UInt32 time)
 
 int framecounter = 0;
 
+/* Set while the tap runs at theVdp's end of active display. */
+static int vdpAtShown;
+
 static void onVint(VDP* vdp, UInt32 time)
 {
     sync(vdp, time);
@@ -624,6 +628,12 @@ static void onVint(VDP* vdp, UInt32 time)
 //    vdp->drawArea = 0;
     vdp->cmdDrawArea = 0;
     vdpSetTimingMode(vdp->cmdEngine, vdp->vdpRegs[8] & 2);
+
+    if (vdp == theVdp && emulatorIsEmuThread()) {
+        vdpAtShown = 1;
+        emulatorTap(EMU_TAP_VDP_SHOWN);
+        vdpAtShown = 0;
+    }
 }
 
 static void onDrawAreaEnd(VDP* vdp, UInt32 time)
@@ -2233,9 +2243,6 @@ static volatile int    rasterForeignSet[2];
 static int    rasterForeignNext;
 #define RASTER_HEAD (sizeof(VdpRasterFrame) - sizeof(rasterBuf[0].ev))
 
-/* From Emulator.h, which the VDP does not include otherwise. */
-int emulatorIsEmuThread(void);
-
 void vdpRasterArm(int on)
 {
     if (on) {
@@ -2426,14 +2433,16 @@ static void rasterSetLength(VdpRasterFrame* f, VDP* vdp, int lines)
     f->firstLine     = vdp->firstLine - vdp->displayOffest + f->displayOffset;
 }
 
-/* At a frame tap the frame that just ended goes to [0]; while paused the one
-** in progress does, with the beam. [1] is the frame before [0]. */
+/* At a frame tap the frame that just ended goes to [0]; while paused the one in progress
+** does, with the beam, but as ended at the end of active display. [1] is the frame
+** before [0]. */
 static void rasterCapture(VDP* vdp, VdpDebugState* out)
 {
     VdpRasterFrame* r = out->raster;
     UInt32 now = boardSystemTime();
     UInt32 start;
     int    ended;
+    int    moved;
     int    lines;
     int    i;
 
@@ -2442,8 +2451,9 @@ static void rasterCapture(VDP* vdp, VdpDebugState* out)
     if (!rasterObserve(vdp, -1, 0)) {
         return;
     }
-    ended = (Int32)(now - vdp->timeDisplay) >= 0;
-    lines = ended ? (int)((vdp->timeDisplay - vdp->frameStartTime) / HPERIOD) : vdp->lastLine;
+    moved = (Int32)(now - vdp->timeDisplay) >= 0;
+    ended = moved || vdpAtShown;
+    lines = moved ? (int)((vdp->timeDisplay - vdp->frameStartTime) / HPERIOD) : vdp->lastLine;
     if (lines <= 0) {
         return;
     }
@@ -2455,7 +2465,7 @@ static void rasterCapture(VDP* vdp, VdpDebugState* out)
         r[0].complete   = rasterIsComplete(vdp->frameStartTime);
         r[0].foreign    = rasterIsForeign(vdp->frameStartTime);
         r[0].frameStart = vdp->frameStartTime;
-        r[0].field      = ((vdp->vdpStatus[2] >> 1) & 1) ^ (ended ? 1 : 0);
+        r[0].field      = ((vdp->vdpStatus[2] >> 1) & 1) ^ (moved ? 1 : 0);
         r[0].blinkFlag  = vdp->blinkFlag;
         rasterSetLength(&r[0], vdp, lines);
         memcpy(r[0].startRegs, vdp->vdpRegs, sizeof(r[0].startRegs));
@@ -2495,6 +2505,12 @@ static void rasterCapture(VDP* vdp, VdpDebugState* out)
 int vdpDebugCount(void)
 {
     return theVdp != NULL ? 1 : 0;
+}
+
+const char* vdpDebugName(int index)
+{
+    VDP* vdp = index == 0 ? theVdp : NULL;
+    return vdp != NULL ? VdpNames[vdp->vdpVersion] : NULL;
 }
 
 int vdpDebugCapture(int index, VdpDebugState* out)
@@ -3101,9 +3117,9 @@ static void shotSprRow(VdpFrameShot* out, VDP* vdp, int y, FrameBuffer* fb, int 
     memcpy(out->sprBg[y], plane->bg[y], sizeof(out->sprBg[y]));
 }
 
-/* At a frame tap the frame just completed is intact, as the flip happens
-** right before the tap. While paused the rows the VDP has drawn so far come
-** from the frame in progress, the others from the one completed before. */
+/* Ended at a frame tap (flipped just before) and at the end of active display (the bottom
+** border from the frame before). Else paused: the rows the VDP has drawn so far are the
+** frame in progress, the others the one before. */
 int vdpDebugCaptureFrame(int index, VdpFrameShot* out, int pixels)
 {
     VDP* vdp = index == 0 ? theVdp : NULL;
@@ -3124,16 +3140,21 @@ int vdpDebugCaptureFrame(int index, VdpFrameShot* out, int pixels)
     drawing = vdp->videoEnabled && displayEnable && frameBufferGetActiveDraw() == vdp->frameBuffer;
 
     out->stale        = !drawing || out->seq != flips;
-    /* Ended only once the frame end has run; rasterCapture goes by the time
-    ** alone, so a pause right at the end can differ there. */
-    out->ended        = (Int32)(boardSystemTime() - vdp->timeDisplay) >= 0 &&
-                        vdp->curLine == 0 && vdp->lineOffset < 0;
+    /* Ended at a frame end only once it has run; rasterCapture goes by the
+    ** time alone, so a pause right at the end can differ there. */
+    out->ended        = vdpAtShown ||
+                        ((Int32)(boardSystemTime() - vdp->timeDisplay) >= 0 &&
+                         vdp->curLine == 0 && vdp->lineOffset < 0);
     out->drawnRow     = 0;
     out->drawnSamples = 0;
     out->frameStart   = vdp->frameStartTime;
     out->hAdjust      = vdp->HAdjust;
     out->hAdjustSc0   = vdp->hAdjustSc0;
-    if (out->ended) {
+    if (vdpAtShown) {
+        /* The frame the next flip completes. */
+        out->seq = flips + 1;
+    }
+    if (out->ended && !vdpAtShown) {
         /* The layout fields have moved on to the next frame already. */
         int lines = (int)((vdp->timeDisplay - vdp->frameStartTime) / HPERIOD);
         out->displayOffset = lines >= 313 ? 27 : 0;

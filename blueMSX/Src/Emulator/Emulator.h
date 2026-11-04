@@ -101,10 +101,20 @@ void emulatorRefreshFromSource();
 /* A hook for tools that copy emulator state. FRAME comes once per VDP frame,
 ** also on the UI thread (soft reset): check emulatorIsEmuThread(). IDLE comes
 ** every few ms while paused. STOPPED: emulatorStop has ended the thread. */
-typedef enum { EMU_TAP_FRAME, EMU_TAP_IDLE, EMU_TAP_STOPPED } EmuTapPoint;
+typedef enum { EMU_TAP_FRAME, EMU_TAP_IDLE, EMU_TAP_STOPPED, EMU_TAP_BARRIER, EMU_TAP_V9990_SHOWN,
+               EMU_TAP_VDP_SHOWN } EmuTapPoint;
 typedef void (*EmuTapFn)(EmuTapPoint point);
 void emulatorSetTap(EmuTapFn fn);
 int  emulatorIsEmuThread(void);
+/* Calls the hook. On the emulator thread, the V9990 calls it with V9990_SHOWN once it has
+** drawn a frame's last displayed line, and the machine VDP with VDP_SHOWN at the end of its
+** active display, inside their own access or timer: the hook must not sync them. */
+void emulatorTap(EmuTapPoint point);
+
+/* Waits for a capture running on the emulator thread to end. Call it after
+** unpublishing a chip and before freeing it, never while the tap's lock is
+** held by this thread. Does nothing on the emulator thread. */
+void emulatorTapBarrier(void);
 
 #endif
 

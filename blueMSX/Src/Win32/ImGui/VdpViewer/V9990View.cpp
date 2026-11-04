@@ -1,0 +1,1063 @@
+/*****************************************************************************
+**
+** The VDP Viewer's views and cards of a V9990.
+** Copyright (C) 2026 Hesoten
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
+** This program is free software; you can redistribute it and/or modify
+** it under the terms of the GNU General Public License as published by
+** the Free Software Foundation; either version 2 of the License, or
+** (at your option) any later version.
+**
+** This program is distributed in the hope that it will be useful,
+** but WITHOUT ANY WARRANTY; without even the implied warranty of
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+** GNU General Public License for more details.
+**
+** You should have received a copy of the GNU General Public License
+** along with this program; if not, write to the Free Software
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+**
+******************************************************************************
+*/
+#include <math.h>
+#include <stdio.h>
+#include <string.h>
+#include <algorithm>
+#include <vector>
+#include "imgui.h"
+#include "ImGuiTheme.h"
+#include "ImGuiWidgets.h"
+#include "ChipView.h"
+#include "ViewPicture.h"
+#include "RegTables.h"
+#include "VdpParts.h"
+#include "V9990Decode.h"
+#include "ToolText.h"
+extern "C" {
+#include "V9990.h"
+#include "V9990Render.h"
+}
+
+#ifndef BLUEMSX_IMGUI_CONFIG
+#error "Build ImGui files with IMGUI_USER_CONFIG set to imconfig_bluemsx.h"
+#endif
+
+namespace {
+
+using namespace parts;
+
+
+enum { C_OVERVIEW, C_TABLES, C_PALETTE, C_REGISTERS, C_COUNT };
+
+bool isBitmap(int mode)
+{
+    return mode >= V9990_MODE_B0 && mode <= V9990_MODE_B7;
+}
+
+/* B4-B7 read the dual palette, as the chip does. */
+bool isHiRes(int mode)
+{
+    return mode >= V9990_MODE_B4 && mode <= V9990_MODE_B7;
+}
+
+const char* modeName(int mode)
+{
+    static const char* names[] = { "P1", "P2", "B0", "B1", "B2", "B3", "B4", "B5", "B6", "B7" };
+    if (mode == V9990_MODE_STANDBY) return ts(TS_V9_STANDBY);
+    if (mode == V9990_MODE_NONE) return ts(TS_V9_NONE);
+    return mode >= 0 && mode < V9990_MODE_STANDBY ? names[mode] : "?";
+}
+
+int screenWidth(int mode)
+{
+    switch (mode) {
+    case V9990_MODE_B0: return 192;
+    case V9990_MODE_B1: return 256;
+    case V9990_MODE_B2: return 384;
+    case V9990_MODE_B3: return 512;
+    case V9990_MODE_B4: return 768;
+    case V9990_MODE_B5:
+    case V9990_MODE_B6: return 640;
+    case V9990_MODE_B7: return 1024;
+    case V9990_MODE_P1: return 256;
+    case V9990_MODE_P2: return 512;
+    }
+    return 0;
+}
+
+/* Both fields woven into one picture: EO counts only with IL, and only in Bx, as the renderer has it. */
+bool fieldsWoven(const V9990DebugState* s)
+{
+    return s->interlace && (s->regs[7] & 0x04) && isBitmap(s->mode);
+}
+
+int screenLines(const V9990DebugState* s)
+{
+    int lines;
+    switch (s->mode) {
+    case V9990_MODE_B0: case V9990_MODE_B2: case V9990_MODE_B4: lines = s->isPal ? 290 : 240; break;
+    case V9990_MODE_B5: lines = 400; break;
+    case V9990_MODE_B6: lines = 480; break;
+    default: lines = 212; break;
+    }
+    if (fieldsWoven(s)) lines *= 2;
+    return lines;
+}
+
+/* A dot's shape as on a TV, B1's being square; B5 and B6 are 31 kHz modes. */
+void dotAspect(const V9990DebugState* s, int* ax, int* ay)
+{
+    int x = 1, y = 1;
+    switch (s->mode) {
+    case V9990_MODE_B0: x = 3; y = 2; break;
+    case V9990_MODE_B2: x = 3; y = 4; break;
+    case V9990_MODE_B3: case V9990_MODE_P2: y = 2; break;
+    case V9990_MODE_B4: x = 3; y = 8; break;
+    case V9990_MODE_B7: y = 4; break;
+    }
+    /* Even and odd fields woven together: lines half as tall. */
+    if (fieldsWoven(s)) {
+        x *= 2;
+        if (y % 2 == 0) { x /= 2; y /= 2; }
+    }
+    *ax = x;
+    *ay = y;
+}
+
+/* Image rows per TV line: 2 for woven fields and for B5 and B6's 31 kHz lines. */
+int lineRows(const V9990DebugState* s)
+{
+    bool half = fieldsWoven(s) || s->mode == V9990_MODE_B5 || s->mode == V9990_MODE_B6;
+    return half ? 2 : 1;
+}
+
+int imageWidth(const V9990DebugState* s)
+{
+    return 256 << ((s->modeR6 >> 2) & 3);
+}
+
+int bitsPerDot(const V9990DebugState* s)
+{
+    static const int bpp[4] = { 2, 4, 8, 16 };
+    return bpp[s->modeR6 & 3];
+}
+
+int imageRows(const V9990DebugState* s)
+{
+    return (int)(0x80000LL * 8 / ((long long)imageWidth(s) * bitsPerDot(s)));
+}
+
+const char* colourType(const V9990DebugState* s)
+{
+    switch (s->modeR6 & 3) {
+    case 0: return ts(TS_V9_BP2);
+    case 1: return ts(TS_V9_BP4);
+    case 2:
+        switch (s->regs[13] >> 6) {
+        case 0: return ts(TS_V9_BP6);
+        case 1: return ts(TS_V9_BD8);
+        case 2: return "YJK";
+        }
+        return "YUV";
+    }
+    return ts(TS_V9_BD16);
+}
+
+class V9990View : public ChipView {
+public:
+    V9990View()
+    {
+        vramCv.shared = bitmapCv.shared = outCv.shared = &shell::zoom();
+        vramCv.frameless = bitmapCv.frameless = outCv.frameless = true;
+        regFadeReset(regFade);
+        regFadeReset(portFade);
+    }
+
+    void facts(const void* st, char* out, size_t size) override
+    {
+        const V9990DebugState* s = (const V9990DebugState*)st;
+        int at = textf(out, size, ts(TS_V9_FACTS_MODE), modeName(s->mode));
+        if (isBitmap(s->mode) && at >= 0 && (size_t)at < size) {
+            at += textf(out + at, size - at, " \xC2\xB7 %d\xC3\x97%d", screenWidth(s->mode), screenLines(s));
+        }
+        if (at >= 0 && (size_t)at < size) at += textf(out + at, size - at, " \xC2\xB7 %s", s->isPal ? "PAL 50 Hz" : "NTSC 60 Hz");
+        if (!s->displayOn && at >= 0 && (size_t)at < size) textf(out + at, size - at, " \xC2\xB7 %s", ts(TS_FACTS_BLANKED));
+    }
+
+    int views(ViewDesc* out, int max, const void*) const override
+    {
+        int n = 0;
+        if (n < max) out[n++] = ViewDesc{ "screen", ts(TS_VIEW_SCREEN), UI_ICON_SCREEN };
+        if (n < max) out[n++] = ViewDesc{ "bitmap", ts(TS_VIEW_BITMAP), UI_ICON_BITMAP };
+        if (n < max) out[n++] = ViewDesc{ "vram", "VRAM", UI_ICON_VRAM };
+        return n;
+    }
+
+    void drawView(int v, const void* st, Focus& f) override
+    {
+        const V9990DebugState* s = (const V9990DebugState*)st;
+        ViewDesc d[8];
+        int n = views(d, 8, st);
+        if (v >= 0 && v < n && strcmp(d[v].key, "screen") == 0) {
+            /* The pages go under the Screen's card as high as the splitter says; the card takes the rest.
+            ** Their IDs are their own, as in drawPages, so the pane's scroll is not the V99x8's. */
+            ImGui::PushID("v9990");
+            float paneH = fmaxf(0.0f, shell::pagesHeight(ImGui::GetContentRegionAvail().y - ui::Px(8) - shell::pagesChromeH(true)));
+            ImGui::PopID();
+            ui::BeginTabCard("card", -(ui::Px(8) + shell::pagesChromeH(shell::pages().open) + paneH));
+            drawOutput(s, f);
+            ui::EndTabCard();
+            drawPages(s, f, paneH);
+            return;
+        }
+        ui::BeginTabCard("card");
+        if (v >= 0 && v < n && strcmp(d[v].key, "bitmap") == 0) drawBitmap(s, f);
+        else if (v >= 0 && v < n) drawVram(s, f);
+        ui::EndTabCard();
+    }
+
+    int cards(CardDesc* out, int max, const void* st) const override
+    {
+        const V9990DebugState* s = (const V9990DebugState*)st;
+        const CardDesc all[C_COUNT] = {
+            { "ov", ts(TS_CARD_OVERVIEW), true, true }, { "tables", ts(TS_CARD_TABLES), true, true },
+            { "pal", ts(TS_CARD_PALETTE), true, true }, { "regs", ts(TS_CARD_REGISTERS), true, true },
+        };
+        int n = 0;
+        for (int i = 0; i < C_COUNT && n < max; i++) {
+            out[n] = all[i];
+            if (i == C_TABLES) out[n].shown = s->mode == V9990_MODE_P1 || s->mode == V9990_MODE_P2;
+            n++;
+        }
+        return n;
+    }
+
+    void drawCard(int c, const void* st, Focus&) override
+    {
+        const V9990DebugState* s = (const V9990DebugState*)st;
+        switch (c) {
+        case C_OVERVIEW:  cardOverview(s); break;
+        case C_TABLES:    cardTables(s); break;
+        case C_PALETTE:   cardPalette(s); break;
+        case C_REGISTERS: cardRegisters(s); break;
+        }
+    }
+
+    /* A table of P1 or P2 at CPU addresses; series picks its colour on the map. */
+    struct TableRow { int series; const char* name; UInt32 addr, len; };
+
+    /* The tables the pattern modes read; none in the bitmap modes. */
+    int tableRows(const V9990DebugState* s, TableRow* out) const
+    {
+        int n = 0;
+        if (s->mode == V9990_MODE_P1) {
+            textf(tableNames[0], sizeof(tableNames[0]), ts(TS_V9_TBL_PATTERNS), "A");
+            textf(tableNames[1], sizeof(tableNames[1]), ts(TS_V9_TBL_PATTERNS), "B");
+            textf(tableNames[2], sizeof(tableNames[2]), ts(TS_V9_TBL_NAMES), "A");
+            textf(tableNames[3], sizeof(tableNames[3]), ts(TS_V9_TBL_NAMES), "B");
+            out[n++] = TableRow{ 0, tableNames[0], 0x00000, 0x3fe00 };
+            out[n++] = TableRow{ 1, tableNames[1], 0x40000, 0x3c000 };
+            out[n++] = TableRow{ 2, tableNames[2], 0x7c000, 0x2000 };
+            out[n++] = TableRow{ 3, tableNames[3], 0x7e000, 0x2000 };
+            out[n++] = TableRow{ 4, ts(TS_RANGE_SPRITE_PATTERNS), (UInt32)(s->regs[25] & 0x0e) << 14, 0x8000 };
+            out[n++] = TableRow{ 5, ts(TS_RANGE_SPRITE_ATTRIBUTES), 0x3fe00, 0x200 };
+        }
+        else if (s->mode == V9990_MODE_P2) {
+            out[n++] = TableRow{ 0, ts(TS_RANGE_PATTERN_GENERATOR), 0x00000, 0x78000 };
+            out[n++] = TableRow{ 2, ts(TS_RANGE_NAME_TABLE), 0x7c000, 0x4000 };
+            out[n++] = TableRow{ 4, ts(TS_RANGE_SPRITE_PATTERNS), (UInt32)(s->regs[25] & 0x0f) << 15, 0x8000 };
+            out[n++] = TableRow{ 5, ts(TS_RANGE_SPRITE_ATTRIBUTES), 0x7be00, 0x200 };
+        }
+        return n;
+    }
+
+    int vramLanes(const void* st, VramLane* out, int max) const override
+    {
+        const V9990DebugState* s = (const V9990DebugState*)st;
+        if (!isBitmap(s->mode)) {
+            /* P2's interleaved tables are a lane in each half; its attributes sit at 3FE00. */
+            TableRow r[8];
+            int n = tableRows(s, r), k = 0;
+            for (int i = 0; i < n && k + 2 <= max; i++) {
+                /* The sprite patterns are read interleaved even at 78000 (R#25 = 0F). */
+                bool bx = s->mode == V9990_MODE_P2 && (r[i].addr < 0x78000 || r[i].series == 4);
+                UInt32 a = bx ? r[i].addr >> 1 : v9990MapAddress((V9990Mode)s->mode, r[i].addr);
+                out[k++] = VramLane{ a, bx ? r[i].len / 2 : r[i].len, r[i].series, r[i].name };
+                if (bx) out[k++] = VramLane{ 0x40000 + a, r[i].len / 2, r[i].series, r[i].name };
+            }
+            return k;
+        }
+        if (max < 2) return 0;
+        /* The rows the screen shows, overlapping runs merged; bitmap bytes
+        ** interleave over the two halves of VRAM. */
+        unsigned ver;
+        const V9990FrameShot* o = (const V9990FrameShot*)shell::frameShot(&ver);
+        std::vector<ShownRun> runs;
+        shownRuns(s, o != NULL && o->valid ? o : NULL, runs);
+        std::sort(runs.begin(), runs.end(), [](const ShownRun& a, const ShownRun& b) { return a.y0 < b.y0; });
+        UInt32 rowBytes = (UInt32)(imageWidth(s) * bitsPerDot(s) / 8);
+        int k = 0;
+        for (size_t i = 0; i < runs.size() && k + 2 <= max;) {
+            int y0 = runs[i].y0, y1 = runs[i].y1;
+            /* The last pair of lanes takes in the rest when they run out. */
+            for (i++; i < runs.size() && (runs[i].y0 <= y1 || k + 4 > max); i++) y1 = runs[i].y1 > y1 ? runs[i].y1 : y1;
+            UInt32 a = (UInt32)y0 * rowBytes, len = (UInt32)(y1 - y0) * rowBytes;
+            out[k++] = VramLane{ a >> 1, len / 2, 0, ts(TS_V9_DISPLAYED_AREA) };
+            out[k++] = VramLane{ 0x40000 + (a >> 1), len / 2, 0, ts(TS_V9_DISPLAYED_AREA) };
+        }
+        return k;
+    }
+
+    UInt32 vramSize(const void*) const override
+    {
+        return V9990_VRAM_SIZE;
+    }
+
+    UInt32 toPhysical(const void* st, int space, UInt32 a) const override
+    {
+        const V9990DebugState* s = (const V9990DebugState*)st;
+        return space == FOCUS_LOGICAL ? v9990MapAddress((V9990Mode)s->mode, a) : a;
+    }
+
+    void forget() override
+    {
+        outPic.forget();
+        vramPic.forget();
+        bitmapPic.forget();
+        stripPic.forget();
+        regFadeReset(regFade);
+        regFadeReset(portFade);
+    }
+
+private:
+    ViewPicture          vramPic, bitmapPic, stripPic, outPic;
+    shell::PagesScroll   pagesScroll;
+    float                pagesTw = 0;        /* the pieces' width last drawn, for a new size to keep the left one */
+    ui::CanvasState      vramCv, bitmapCv, outCv;
+    const V9990FrameShot* outShot = NULL;    /* for the overlay and the strip's shown area; NULL when none came */
+    bool                 outDim = false;
+    bool                 ysClear = false;
+    int                  vramOrder = 0;      /* the VRAM tab's bytes: 0 in CPU order, 1 physical */
+    bool                 vramTint = true;    /* the bytes tinted by the VRAM map's lanes */
+    RegFade              regFade, portFade;
+    std::vector<UInt16>  line;
+    const V9990DebugState* ovState = NULL;
+    int                  invMode = -1;
+    UInt32               invPhys = 0, invLogical = 0;
+    mutable char         tableNames[4][48];
+
+    static void pin(Focus& f, const Focus& hit, bool clicked)
+    {
+        if (clicked) {
+            bool same = f.pinned && f.kind == hit.kind && f.a == hit.a && f.b == hit.b;
+            f = hit;
+            f.pinned = !same;
+            if (same) f.kind = FOCUS_NONE;
+        }
+        else if (!f.pinned) {
+            f = hit;
+            f.pinned = false;
+        }
+    }
+
+    void renderRow(const V9990DebugState* s, uint32_t* dst, int count, UInt32 x, UInt32 y, bool hiRes)
+    {
+        if ((int)line.size() < count) line.resize(count);
+        v9990RenderBitmapLine(line.data(), count, s->vram, s->palette, (UInt8)s->modeR6, s->regs[13], x, y, hiRes);
+        for (int i = 0; i < count; i++) dst[i] = v9990Rgba(line[i], ysClear);
+    }
+
+    void scrollOf(const V9990DebugState* s, UInt32* sx, UInt32* sy, UInt32* mask) const
+    {
+        *sx = s->regs[19] | ((UInt32)s->regs[20] << 3);
+        /* B3 at 16 bpp scrolls in 2-dot units, as the renderer does. */
+        if (s->mode == V9990_MODE_B3 && (s->modeR6 & 3) == 3) *sx &= ~1u;
+        *sy = s->regs[17] | ((UInt32)s->scrollAYHi << 8);
+        int roll = s->scrollAYHi >> 6;
+        *mask = roll == 0 ? 0x1fff : roll == 2 ? 0x1ff : 0xff;
+    }
+
+    UInt32 imageY(UInt32 sy, UInt32 mask, int row) const
+    {
+        return (sy & ~mask & 0x1fff) + ((row + sy) & mask);
+    }
+
+    /* Image rows [y0, y1) shown from column x. */
+    struct ShownRun { int y0, y1, x; };
+    std::vector<ShownRun> bitmapRuns;    /* the Bitmap tab's shown area, for its overlay */
+
+    /* The runs of image rows the screen shows: those the V9990 recorded drawing
+    ** the rows of shot o from, else one screen from the scroll registers. */
+    void shownRuns(const V9990DebugState* s, const V9990FrameShot* o, std::vector<ShownRun>& out) const
+    {
+        int iw = imageWidth(s), rows = imageRows(s), last = -2;
+        out.clear();
+        /* Rows recorded in another mode are in another image geometry. */
+        if (o != NULL && o->frameMode != s->mode) o = NULL;
+        /* Woven fields draw every other image row. */
+        int step = o != NULL && o->interlace ? 2 : 1;
+        auto add = [&](int r, int y, int x) {
+            int y1 = y + step < rows ? y + step : rows;
+            if (last == r - 1 && x == out.back().x && y == out.back().y1) out.back().y1 = y1;
+            else out.push_back(ShownRun{ y, y1, x });
+            last = r;
+        };
+        for (int r = 0; o != NULL && r < o->rows; r++) {
+            if (o->rowY[r] != 0xffff) add(r, o->rowY[r] % rows, o->rowX[r] % iw);
+        }
+        if (out.empty()) {
+            UInt32 sx, sy, mask;
+            scrollOf(s, &sx, &sy, &mask);
+            step = 1;
+            for (int r = 0; r < screenLines(s); r++) add(r, (int)(imageY(sy, mask, r) % (UInt32)rows), (int)(sx % (UInt32)iw));
+        }
+    }
+
+    /* What the screen shows of image rows [r0, r1): each run's rows c0..c1, in two runs of
+    ** columns d0..d1 where it wraps past the image's width iw. */
+    template <class Area>
+    static void forShownAreas(const std::vector<ShownRun>& runs, int r0, int r1, int iw, int sw, Area area)
+    {
+        for (const ShownRun& run : runs) {
+            int c0 = run.y0 > r0 ? run.y0 : r0, c1 = run.y1 < r1 ? run.y1 : r1;
+            if (c0 >= c1) continue;
+            for (int m = 0; m < 2; m++) {
+                int d0 = m == 0 ? run.x : 0, d1 = m == 0 ? run.x + sw : run.x + sw - iw;
+                if (d1 > iw) d1 = iw;
+                if (d0 >= d1) continue;
+                area(c0, c1, d0, d1);
+            }
+        }
+    }
+
+    /* ---- Output: the picture the V9990 drew ---- */
+
+    /* The widest row's shift: narrower rows are widened to it. */
+    static int outMaxShift(const V9990FrameShot* o)
+    {
+        int m = 0;
+        for (int y = 0; y < o->rows; y++) m = o->shift[y] > m ? o->shift[y] : m;
+        return m;
+    }
+
+    void decodeOutput(const V9990FrameShot* o)
+    {
+        int maxShift = outMaxShift(o), w = 0;
+        for (int y = 0; y < o->rows; y++) {
+            int rw = o->width[y] << (maxShift - o->shift[y]);
+            w = rw > w ? rw : w;
+        }
+        w = w < V9990_SHOT_WIDTH ? w : V9990_SHOT_WIDTH;
+        outPic.w = w;
+        outPic.h = o->rows;
+        outPic.img.assign((size_t)w * o->rows, 0);
+        for (int y = 0; y < o->rows; y++) {
+            int k = maxShift - o->shift[y], n = o->width[y] < V9990_SHOT_WIDTH ? o->width[y] : V9990_SHOT_WIDTH;
+            uint32_t* dst = &outPic.img[(size_t)y * w];
+            for (int x = 0; x < w; x++) {
+                int i = x >> k;
+                if (i < n) dst[x] = v9990Rgba(o->pix[y][i], ysClear);
+            }
+        }
+    }
+
+    static void outputOverlay(ImDrawList* dl, const ui::CanvasXf& xf, void* ref)
+    {
+        V9990View* self = (V9990View*)ref;
+        const V9990FrameShot* o = self->outShot;
+        const UiTokens& t = uiTokens();
+        float th = fmaxf(1.0f, ui::Px(1)), w = (float)self->outPic.w;
+        ImVec2 top = xf.toScreen(0, 0), end = xf.toScreen(w, (float)self->outPic.h);
+        dl->PushClipRect(xf.clipMin, xf.clipMax, true);
+        if (self->outDim) dl->AddRectFilled(top, end, ui::WithAlpha(t.layer, 150));
+        if (o != NULL) {
+            /* Paused within a frame: from the row the V9990 has drawn to on, the frame before. */
+            if (!o->ended && o->drawnRow < self->outPic.h) {
+                ImVec2 a = xf.toScreen(0, (float)o->drawnRow);
+                hatch(dl, a, end, ui::WithAlpha(t.text, o->restMissing ? 90 : 50));
+                dl->AddLine(a, ImVec2(end.x, a.y), t.caution, th * 2);
+            }
+        }
+        dl->PopClipRect();
+    }
+
+    void drawOutput(const V9990DebugState* s, Focus& f)
+    {
+        unsigned ver;
+        const V9990FrameShot* o = (const V9990FrameShot*)shell::frameShot(&ver);
+        if (o != NULL && !o->valid) o = NULL;
+        shell::wantFrame();
+        if (o != NULL) {
+            /* A sample is a dot of 8 >> shift UC; 240 rows are a TV field, more are 31 kHz lines. */
+            int maxShift = outMaxShift(o);
+            /* Rows of half a TV line: two to a line, each sample twice as wide as tall. */
+            bool half = o->rows > 240;
+            outCv.aspectX = half && maxShift == 0 ? 2 : 1;
+            outCv.aspectY = half && maxShift > 0 ? 1 << (maxShift - 1) : 1 << maxShift;
+            outCv.lineRows = half ? 2 : 1;
+        }
+        ui::BeginCommandBar("bar");
+        ui::GridToggle(outCv);
+        zoomGroup(outCv, true);
+        ui::EndCommandBar();
+
+        /* Without a new picture the last one stays, dimmed. */
+        if (o != NULL) {
+            char key[32];
+            snprintf(key, sizeof(key), "o%d", ysClear);
+            bool decoded = outPic.needsDecodeAt(ver, key);
+            if (decoded) decodeOutput(o);
+            outPic.upload(decoded);
+        }
+        outShot = o;
+        outDim = o == NULL || o->stale;
+
+        ui::CanvasHit hit = ui::Canvas("output", outPic.tex.id(), outPic.w, outPic.h, outCv, ImVec2(0, 0), outputOverlay, this);
+        if (hit.clickedEmpty) shell::releaseSelection();
+        /* The status line says when the copy is missing, paused or stale. */
+        if (o == NULL) {
+            ui::StatusText("%s", ts(TS_OUT_NONE));
+        }
+        else {
+            const char* paused = o->ended ? "" : ts(o->restMissing ? TS_OUT_PAUSED_UNKNOWN : TS_OUT_PAUSED);
+            if (paused[0] || o->stale) ui::StatusText("%s%s", paused, o->stale ? ts(TS_V9_OUT_STALE) : "");
+        }
+        if (hit.valid && o != NULL && hit.y < o->rows) outputHover(o, hit);
+    }
+
+    /* The sample under the mouse. */
+    void outputHover(const V9990FrameShot* o, const ui::CanvasHit& hit)
+    {
+        int y = hit.y, i = hit.x >> (outMaxShift(o) - o->shift[y]);
+        if (i >= o->width[y]) return;
+        UInt16 c = o->pix[y][i];
+        uint32_t rgb = v9990Rgba(c, false);
+        ui::StatusText(ts(TS_V9_OUT_HOVER), y, o->windowTopLine + y, i, (int)o->width[y], rgb & 0xff, (rgb >> 8) & 0xff,
+                       (rgb >> 16) & 0xff, (c & 0x8000) ? ts(TS_V9_OUT_YS) : "");
+    }
+
+    /* The zoom at the bar's right end; with ys, YS dots transparent in its menu. */
+    void zoomGroup(ui::CanvasState& cv, bool ys)
+    {
+        ui::CommandBarRight(ui::ZoomControlsWidth());
+        ui::ZoomControls("zoom", cv, ys ? &ysClear : NULL, ts(TS_YS_TRANSPARENT));
+        cv.checker = ys && ysClear;
+    }
+
+    /* ---- Pieces: the image space cut into screen-high pieces ---- */
+
+    static const int STRIP_PIECES = 4;
+
+    /* The first piece shown, so that the one holding the top of the screen is among them. */
+    int stripFirstPiece(int pieces, int shownPiece) const
+    {
+        int first = shownPiece < STRIP_PIECES ? 0 : shownPiece - (STRIP_PIECES - 1);
+        return first + STRIP_PIECES > pieces ? (pieces > STRIP_PIECES ? pieces - STRIP_PIECES : 0) : first;
+    }
+
+    /* Under the Screen's card: the pieces of a bitmap, else a note. */
+    void drawPages(const V9990DebugState* s, Focus& f, float paneH)
+    {
+        bool sizeChanged;
+        ImGui::PushID("v9990");
+        if (!shell::pagesHeader(paneH, &sizeChanged)) {
+            ImGui::PopID();
+            return;
+        }
+        bool bitmap = isBitmap(s->mode);
+        float tw = 0, th = 0, cw = 0, ch = 0, gap = ui::Px(8);
+        if (bitmap) stripLayout(s, &tw, &th, &cw, &ch);
+        /* A new size keeps the piece at the left there. */
+        if (sizeChanged && pagesTw > 0 && tw > 0) pagesScroll.to = floorf(pagesScroll.x * (tw + gap) / (pagesTw + gap));
+        pagesTw = tw;
+        shell::pagesBeginScroll(paneH, cw, ch, pagesScroll);
+        char status[512] = "";
+        if (bitmap) drawStrip(s, f, tw, th, status, sizeof(status));
+        else note(ts(TS_STRIP_EMPTY));
+        shell::pagesEnd(pagesScroll);
+        ImGui::PopID();
+        if (status[0]) ui::StatusText("%s", status);
+    }
+
+    /* A caption's height: a line of the body font, which the strip's text uses. */
+    static float stripLabelH()
+    {
+        ui::PushFont(UI_FONT_BODY);
+        float h = ImGui::GetTextLineHeight() + ui::Px(2);
+        ui::PopFont();
+        return h;
+    }
+
+    /* Pieces at the size's step: the screen's width as wide as a V99x8 page, a wider image
+    ** wider, up to twice that, and as tall as on a TV; *cw x *ch the row with its "+N". */
+    void stripLayout(const V9990DebugState* s, float* tw, float* th, float* cw, float* ch) const
+    {
+        int pieceH = screenLines(s), pieces = (imageRows(s) + pieceH - 1) / pieceH, ax, ay;
+        dotAspect(s, &ax, &ay);
+        float unit = 256 * shell::pagesStepScale(shell::pages().size);
+        float tvW = (float)imageWidth(s) * ax, tvH = (float)pieceH * ay;
+        *tw = floorf(fminf(unit * imageWidth(s) / screenWidth(s->mode), unit * 2));
+        *th = floorf(*tw * tvH / tvW);
+        std::vector<ShownRun> runs;
+        shownRuns(s, outShot, runs);
+        int first = stripFirstPiece(pieces, runs[0].y0 / pieceH), n = pieces - first < STRIP_PIECES ? pieces - first : STRIP_PIECES;
+        float gap = ui::Px(8), more = ui::Px(40);
+        *cw = (first > 0 ? more : 0) + n * (*tw + gap) - gap + (first + n < pieces ? gap + more : 0);
+        *ch = ui::Px(4) + *th + stripLabelH();
+    }
+
+    void drawStrip(const V9990DebugState* s, Focus& f, float tw, float th, char* status, size_t size)
+    {
+        const UiTokens& t = uiTokens();
+        int iw = imageWidth(s), rows = imageRows(s), pieceH = screenLines(s), bpp = bitsPerDot(s), sw = screenWidth(s->mode);
+        int pieces = (rows + pieceH - 1) / pieceH;
+        std::vector<ShownRun> runs;
+        shownRuns(s, outShot, runs);
+        int first = stripFirstPiece(pieces, runs[0].y0 / pieceH), n = pieces - first < STRIP_PIECES ? pieces - first : STRIP_PIECES;
+        bool hiRes = isHiRes(s->mode);
+        char key[64];
+        snprintf(key, sizeof(key), "%d/%d/%d/%d/%d/%d", first, s->mode, s->modeR6, s->regs[13], ysClear, pieceH);
+        bool decoded = stripPic.needsDecodeVram(key);
+        if (decoded) {
+            int h = n * pieceH;
+            stripPic.w = iw;
+            stripPic.h = h;
+            stripPic.img.assign((size_t)iw * h, 0xff000000u);
+            for (int y = 0; y < h && first * pieceH + y < rows; y++) {
+                renderRow(s, &stripPic.img[(size_t)y * iw], iw, 0, (UInt32)(first * pieceH + y), hiRes);
+            }
+        }
+        stripPic.upload(decoded);
+
+        float gap = ui::Px(8), labelH = stripLabelH(), lw = fmaxf(1.0f, ui::Px(1)), more = pieces > n ? ui::Px(40) : 0;
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        ImVec2 origin = ImGui::GetCursorScreenPos();
+        float y = origin.y + ui::Px(4), x0 = origin.x + (first > 0 ? more : 0);
+        status[0] = 0;
+        ui::PushFont(UI_FONT_BODY);
+        if (first > 0) {
+            char text[16];
+            snprintf(text, sizeof(text), "+%d", first);
+            ImVec2 ts = ImGui::CalcTextSize(text);
+            dl->AddText(ImVec2(x0 - gap - ts.x, y + th / 2 - ts.y / 2), t.textSecondary, text);
+        }
+        for (int i = 0; i < n; i++) {
+            int p = first + i, r0 = p * pieceH, r1 = r0 + pieceH < rows ? r0 + pieceH : rows;
+            ImVec2 a(x0 + i * (tw + gap), y), b(a.x + tw, a.y + th);
+            if (ysClear) {
+                dl->AddRectFilled(a, b, t.checkerA);
+            }
+            if (stripPic.tex.id()) {
+                dl->AddImage(ImTextureRef(stripPic.tex.id()), a, b, ImVec2(0, (float)(i * pieceH) / stripPic.h),
+                             ImVec2(1, (float)((i + 1) * pieceH) / stripPic.h));
+            }
+            bool shown = false;
+            forShownAreas(runs, r0, r1, iw, sw, [&](int c0, int c1, int d0, int d1) {
+                shown = true;
+                float y0 = floorf(a.y + th * (c0 - r0) / pieceH), y1 = floorf(a.y + th * (c1 - r0) / pieceH);
+                float xa = floorf(a.x + tw * d0 / iw), xb = floorf(a.x + tw * d1 / iw);
+                dl->AddRect(ImVec2(xa - lw, y0 - lw), ImVec2(xb + lw, y1 + lw), t.textSecondary, 0, lw);
+            });
+            ImGui::SetCursorScreenPos(a);
+            ImGui::PushID(i);
+            ImGui::InvisibleButton("##piece", ImVec2(tw, th + labelH));
+            ImGui::PopID();
+            bool hovered = ImGui::IsItemHovered();
+            if (hovered) dl->AddRect(ImVec2(a.x - lw, a.y - lw), ImVec2(b.x + lw, b.y + lw), t.text, 0, lw);
+            char label[64];
+            textf(label, sizeof(label), ts(TS_V9_STRIP_ROWS), r0, r1 - 1);
+            float lx = a.x, cy = floorf(b.y + ui::Px(2) + ImGui::GetTextLineHeight() / 2), dot = ui::Px(3);
+            /* Cut at the piece's width so a long caption does not run into the next one. */
+            dl->PushClipRect(ImVec2(a.x, b.y), ImVec2(b.x, b.y + labelH), true);
+            if (shown) {
+                dl->AddCircleFilled(ImVec2(lx + dot, cy), dot, t.textSecondary);
+                lx += dot * 2 + ui::Px(4);
+            }
+            dl->AddText(ImVec2(lx, b.y + ui::Px(2)), t.textSecondary, label);
+            dl->PopClipRect();
+            if (hovered) {
+                UInt32 from = (UInt32)(((UInt64)r0 * iw) * bpp / 8), to = (UInt32)(((UInt64)r1 * iw) * bpp / 8) - 1;
+                char extra[256], click[128];
+                textf(click, sizeof(click), ts(TS_STRIP_CLICK_VIEW), ts(TS_VIEW_BITMAP));
+                textf(extra, sizeof(extra), "%s%s", shown ? ts(TS_STRIP_SHOWN) : "", click);
+                textf(status, size, ts(TS_STRIP_RANGE), label, from, to, extra);
+                Focus hit = { f.chipId, FOCUS_LOGICAL, from, to - from + 1, FOCUS_VRAM, 0, r0, false };
+                if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
+                    f = hit;
+                    f.pinned = true;
+                    shell::requestView("bitmap");
+                }
+                else if (!f.pinned) {
+                    f = hit;
+                }
+            }
+        }
+        if (first + n < pieces) {
+            char text[16];
+            snprintf(text, sizeof(text), "+%d", pieces - first - n);
+            dl->AddText(ImVec2(x0 + n * (tw + gap), y + th / 2 - ImGui::GetTextLineHeight() / 2), t.textSecondary, text);
+        }
+        ui::PopFont();
+        ImGui::SetCursorScreenPos(origin);
+        ImGui::Dummy(ImVec2(1, th + labelH + ui::Px(4)));
+    }
+
+    /* The CPU address of physical byte p in the mode. */
+    UInt32 toLogical(int mode, UInt32 p)
+    {
+        if (isBitmap(mode)) return ((p & 0x3ffff) << 1) | (p >> 18);
+        if (mode != V9990_MODE_P2) return p;
+        if (invMode != mode || invPhys != p) {
+            invMode = mode;
+            invPhys = p;
+            invLogical = p;
+            for (UInt32 a = 0; a < V9990_VRAM_SIZE; a++) {
+                if (v9990MapAddress(V9990_MODE_P2, a) == p) { invLogical = a; break; }
+            }
+        }
+        return invLogical;
+    }
+
+    /* Outlines units start..start+count of rows rowW long as one shape, so rows thinner than
+    ** a pixel do not fill it in; one row sits just outside so a dot shows when zoomed out. */
+    static void outlineSpan(ImDrawList* dl, const ui::CanvasXf& xf, UInt64 start, UInt64 count, UInt32 rowW)
+    {
+        float th = fmaxf(1.0f, ui::Px(1));
+        UInt64 end = start + (count ? count : 1), r0 = start / rowW, r1 = (end - 1) / rowW;
+        float c0 = (float)(start % rowW), c1 = (float)((end - 1) % rowW + 1), w = (float)rowW, y0 = (float)r0, y1 = (float)r1;
+        if (r0 == r1) {
+            ImVec2 p = xf.toScreen(c0, y0), q = xf.toScreen(c1, y0 + 1);
+            dl->AddRect(ImVec2(p.x - th * 2, p.y - th * 2), ImVec2(q.x + th * 2, q.y + th * 2), uiTokens().accent, 0, th * 2);
+            return;
+        }
+        ImVec2 corners[8] = { xf.toScreen(c0, y0), xf.toScreen(w, y0), xf.toScreen(w, y1), xf.toScreen(c1, y1),
+                              xf.toScreen(c1, y1 + 1), xf.toScreen(0, y1 + 1), xf.toScreen(0, y0 + 1), xf.toScreen(c0, y0 + 1) };
+        ImVec2 pts[8];
+        int n = 0;
+        for (int i = 0; i < 8; i++) {
+            if (n > 0 && corners[i].x == pts[n - 1].x && corners[i].y == pts[n - 1].y) continue;
+            pts[n++] = corners[i];
+        }
+        dl->AddPolyline(pts, n, uiTokens().accent, th * 2, ImDrawFlags_Closed);
+    }
+
+    /* The VRAM map's lanes over the bytes; in CPU order a bitmap lane's two halves are one run. */
+    void tintLanes(ImDrawList* dl, const ui::CanvasXf& xf) const
+    {
+        const UiTokens& t = uiTokens();
+        int n;
+        const VramLane* lanes = shell::mapLanes(&n);
+        for (int i = 0; i < n; i++) {
+            UInt32 a = lanes[i].addr, len = lanes[i].len;
+            bool seen = false;
+            if (vramOrder == 0 && isBitmap(ovState->mode)) {
+                a = (a & 0x3ffff) << 1;
+                len *= 2;
+                for (int j = 0; j < i && !seen; j++) seen = ((lanes[j].addr & 0x3ffff) << 1) == a && lanes[j].len * 2 == len;
+            }
+            if (seen) continue;
+            ImU32 col = t.series[lanes[i].series % 6];
+            char lab[192];
+            if (lanes[i].where) textf(lab, sizeof(lab), "%s \xC2\xB7 %s", lanes[i].name, lanes[i].where);
+            else textf(lab, sizeof(lab), "%s", lanes[i].name);
+            ImU32 fill = ui::WithAlpha(col, t.dark ? 70 : 90);
+            ui::CanvasSpan(dl, xf, a, len, 512, fill, col, lab);
+        }
+    }
+
+    static void vramOverlay(ImDrawList* dl, const ui::CanvasXf& xf, void* ref)
+    {
+        V9990View* self = (V9990View*)ref;
+        const V9990DebugState* s = self->ovState;
+        if (s != NULL && self->vramTint) self->tintLanes(dl, xf);
+        ui::CanvasAddressRuler(dl, xf, self->vramPic.h, 512);
+        const Focus& f = shell::shownFocus();
+        if (s == NULL || f.kind == FOCUS_NONE || f.len == 0) return;
+        UInt32 phys = self->toPhysical(s, f.space, f.addr);
+        UInt32 physLen = f.space == FOCUS_PHYS ? f.len : 1;
+        if (self->vramOrder == 1) {
+            outlineSpan(dl, xf, phys, physLen, 512);
+            return;
+        }
+        UInt32 logical, logicalLen;
+        self->focusLogical(s, f, &logical, &logicalLen);
+        outlineSpan(dl, xf, logical, logicalLen, 512);
+    }
+
+    /* The focus as CPU addresses: a physical run is every other CPU byte in the bitmap modes. */
+    void focusLogical(const V9990DebugState* s, const Focus& f, UInt32* logical, UInt32* len)
+    {
+        UInt32 phys = toPhysical(s, f.space, f.addr), physLen = f.space == FOCUS_PHYS ? f.len : 1;
+        *logical = f.space == FOCUS_LOGICAL ? f.addr : toLogical(s->mode, phys);
+        *len = f.space == FOCUS_LOGICAL ? f.len : isBitmap(s->mode) && physLen > 1 ? physLen * 2 : physLen;
+    }
+
+    static void bitmapOverlay(ImDrawList* dl, const ui::CanvasXf& xf, void* ref)
+    {
+        V9990View* self = (V9990View*)ref;
+        const V9990DebugState* s = self->ovState;
+        if (s == NULL) return;
+        float lw = fmaxf(1.0f, ui::Px(1));
+        forShownAreas(self->bitmapRuns, 0, imageRows(s), imageWidth(s), screenWidth(s->mode), [&](int c0, int c1, int d0, int d1) {
+            ImVec2 p = xf.toScreen((float)d0, (float)c0), q = xf.toScreen((float)d1, (float)c1);
+            dl->AddRect(ImVec2(floorf(p.x) - lw, floorf(p.y) - lw), ImVec2(floorf(q.x) + lw, floorf(q.y) + lw), uiTokens().textSecondary, 0, lw);
+        });
+        const Focus& f = shell::shownFocus();
+        if (f.kind == FOCUS_NONE || f.len == 0) return;
+        UInt32 logical, logicalLen;
+        self->focusLogical(s, f, &logical, &logicalLen);
+        int bpp = bitsPerDot(s);
+        outlineSpan(dl, xf, (UInt64)logical * 8 / bpp, (UInt64)logicalLen * 8 / bpp, (UInt32)imageWidth(s));
+    }
+
+    /* The image space of the current mode, its dots read from VRAM. */
+    void drawBitmap(const V9990DebugState* s, Focus& f)
+    {
+        if (!isBitmap(s->mode)) {
+            emptyView(ts(TS_V9_BITMAP_NONE));
+            return;
+        }
+        dotAspect(s, &bitmapCv.aspectX, &bitmapCv.aspectY);
+        bitmapCv.lineRows = lineRows(s);
+        ui::BeginCommandBar("bar");
+        ui::GridToggle(bitmapCv);
+        /* The image decodes YS too, so its option is here as well as on the Screen. */
+        zoomGroup(bitmapCv, true);
+        ui::EndCommandBar();
+        int iw = imageWidth(s), rows = imageRows(s), bpp = bitsPerDot(s);
+        ovState = s;
+        /* The shown area as on the Pages; the Screen tab's copy is not kept up to date here. */
+        unsigned ver;
+        const V9990FrameShot* o = (const V9990FrameShot*)shell::frameShot(&ver);
+        shell::wantFrame();
+        shownRuns(s, o != NULL && o->valid ? o : NULL, bitmapRuns);
+        char key[64];
+        snprintf(key, sizeof(key), "%d/%d/%d/%d", s->mode, s->modeR6, s->regs[13], ysClear);
+        bool decoded = bitmapPic.needsDecodeVram(key);
+        if (decoded) {
+            bitmapPic.w = iw;
+            bitmapPic.h = rows;
+            bitmapPic.img.resize((size_t)iw * rows);
+            bool hiRes = isHiRes(s->mode);
+            for (int y = 0; y < rows; y++) renderRow(s, &bitmapPic.img[(size_t)y * iw], iw, 0, (UInt32)y, hiRes);
+        }
+        bitmapPic.upload(decoded);
+        ui::CanvasHit hit = ui::Canvas("bitmap", bitmapPic.tex.id(), bitmapPic.w, bitmapPic.h, bitmapCv, ImVec2(0, 0), bitmapOverlay, this);
+        if (hit.clickedEmpty) shell::releaseSelection();
+        if (hit.valid) {
+            UInt32 logical = (UInt32)(((UInt64)hit.y * iw + hit.x) * bpp / 8) & V9990_VRAM_MASK;
+            UInt32 phys = v9990MapAddress((V9990Mode)s->mode, logical);
+            ui::StatusText(ts(TS_V9_STATUS_IMAGE), hit.x, hit.y, logical, phys, s->vram[phys]);
+            Focus fh = { f.chipId, FOCUS_LOGICAL, logical, 1, FOCUS_VRAM, hit.x, hit.y, false };
+            pin(f, fh, hit.clicked);
+        }
+    }
+
+    /* A view no mode now can fill: one muted sentence where the picture goes. */
+    static void emptyView(const char* text)
+    {
+        ImGui::Dummy(ImVec2(0, ui::Px(16)));
+        ImGui::Indent(ui::Px(16));
+        note(text);
+        ImGui::Unindent(ui::Px(16));
+    }
+
+    /* The bytes, 512 a row in CPU or physical order, tinted by the VRAM map's lanes. */
+    void drawVram(const V9990DebugState* s, Focus& f)
+    {
+        vramCv.aspectX = vramCv.aspectY = 1;
+        vramCv.lineRows = 1;
+        vramCv.gutter = 44;   /* the address ruler */
+        const char* orderNames[] = { ts(TS_V9_LOGICAL_BYTES), ts(TS_V9_PHYSICAL_BYTES) };
+        ui::BeginCommandBar("bar");
+        ui::CommandBarItem(ui::SegmentedWidth(orderNames, IM_ARRAYSIZE(orderNames)), ui::SegmentedHeight());
+        ui::Segmented("vorder", &vramOrder, orderNames, IM_ARRAYSIZE(orderNames));
+        ui::CommandBarItem(ui::IconButtonWidth(UI_ICON_TABLES, ts(TS_CARD_TABLES)), ui::Px(24));
+        if (ui::IconButton("##tint", UI_ICON_TABLES, ts(TS_CARD_TABLES), ts(TS_VRAM_TABLES_TIP), vramTint)) vramTint = !vramTint;
+        ui::GridToggle(vramCv);
+        zoomGroup(vramCv, false);
+        ui::EndCommandBar();
+        ovState = s;
+        char key[64];
+        snprintf(key, sizeof(key), "%d/%d", vramOrder, s->mode);
+        bool decoded = vramPic.needsDecodeVram(key);
+        if (decoded) {
+            vramPic.w = 512;
+            vramPic.h = V9990_VRAM_SIZE / 512;
+            vramPic.img.resize(V9990_VRAM_SIZE);
+            for (UInt32 i = 0; i < V9990_VRAM_SIZE; i++) {
+                uint32_t v = s->vram[vramOrder == 0 ? v9990MapAddress((V9990Mode)s->mode, i) : i];
+                vramPic.img[i] = 0xff000000u | (v << 16) | (v << 8) | v;
+            }
+        }
+        vramPic.upload(decoded);
+        ui::CanvasHit hit = ui::Canvas("vram", vramPic.tex.id(), vramPic.w, vramPic.h, vramCv, ImVec2(0, 0), vramOverlay, this);
+        if (hit.clickedEmpty) shell::releaseSelection();
+        if (hit.valid) {
+            UInt32 a = (UInt32)(hit.y * 512 + hit.x);
+            UInt32 phys = vramOrder == 0 ? v9990MapAddress((V9990Mode)s->mode, a) : a;
+            char text[256], in[768];
+            if (vramOrder == 0) textf(text, sizeof(text), ts(TS_V9_STATUS_LOGICAL), a, phys, s->vram[phys]);
+            else textf(text, sizeof(text), ts(TS_V9_STATUS_PHYSICAL), a, s->vram[a]);
+            shell::laneNames(phys, in, sizeof(in));
+            ui::StatusText("%s%s", text, in);
+            Focus fh = { f.chipId, vramOrder == 1 ? FOCUS_PHYS : FOCUS_LOGICAL, vramOrder == 1 ? phys : a, 1,
+                         FOCUS_VRAM, hit.x, hit.y, false };
+            pin(f, fh, hit.clicked);
+        }
+    }
+
+    void cardOverview(const V9990DebugState* s)
+    {
+        UInt32 sx, sy, mask;
+        scrollOf(s, &sx, &sy, &mask);
+        if (!ui::BeginKeyValue("ov")) return;
+        ui::KeyValue(ts(TS_KV_CHIP), "%s", s->name);
+        ui::KeyValue(ts(TS_KV_MODE), "%s%s", modeName(s->mode), s->frameMode != s->mode ? ts(TS_V9_FRAME_OTHER_MODE) : "");
+        if (isBitmap(s->mode)) ui::KeyValue(ts(TS_KV_SCREEN), "%d x %d", screenWidth(s->mode), screenLines(s));
+        ui::KeyValue(ts(TS_KV_IMAGE_SPACE), "%d x %d", imageWidth(s), imageRows(s));
+        ui::KeyValue(ts(TS_KV_COLOUR), "%s%s", colourType(s), (s->modeR6 & 3) == 2 && (s->regs[13] & 0x20) ? " + YAE" : "");
+        ui::KeyValue(ts(TS_KV_INTERLACE), "%s", ts(s->interlace ? (fieldsWoven(s) ? TS_INTERLACE_EO : TS_ON) : TS_OFF));
+        ui::KeyValue(ts(TS_KV_DISPLAY), "%s", ts(s->displayOn ? TS_ON : TS_OFF));
+        if (s->mode == V9990_MODE_P1 || s->mode == V9990_MODE_P2) {
+            V9990Layer a, b;
+            v9990LayerOf(s, 0, &a);
+            ui::KeyValueMono(ts(TS_KV_SCROLL_A), "%d, %d", a.sx, a.sy);
+            if (v9990LayerOf(s, 1, &b)) ui::KeyValueMono(ts(TS_KV_SCROLL_B), "%d, %d", b.sx, b.sy);
+            int pa = (s->regs[13] & 0x03) << 4, pb = (s->regs[13] & 0x0c) << 2;
+            ui::KeyValue(ts(TS_KV_PALETTE_OFFSET), ts(s->mode == V9990_MODE_P1 ? TS_V9_PALETTE_OFFSET_AB : TS_V9_PALETTE_OFFSET_P2),
+                         pa, pa + 15, pb, pb + 15);
+            /* B comes in front from dot PRX * 64, and on every dot from line PRY * 64. */
+            int prx = s->regs[27] & 0x03, pry = (s->regs[27] >> 2) & 0x03;
+            if (s->mode == V9990_MODE_P1 && prx == 0 && pry == 0) ui::KeyValue(ts(TS_KV_FRONT), "%s", ts(TS_V9_FRONT_A));
+            else if (s->mode == V9990_MODE_P1 && pry == 0) ui::KeyValue(ts(TS_KV_FRONT), ts(TS_V9_FRONT_SPLIT_X), prx * 64);
+            else if (s->mode == V9990_MODE_P1 && prx == 0) ui::KeyValue(ts(TS_KV_FRONT), ts(TS_V9_FRONT_SPLIT_Y), pry * 64);
+            else if (s->mode == V9990_MODE_P1) ui::KeyValue(ts(TS_KV_FRONT), ts(TS_V9_FRONT_SPLIT), prx * 64, pry * 64);
+        }
+        else {
+            ui::KeyValueMono(ts(TS_KV_SCROLL_A), "%u, %u", sx, sy & 0x1fff);
+        }
+        ui::KeyValue(ts(TS_KV_BACKDROP), "%d", s->regs[15] & 63);
+        ui::KeyValue(ts(TS_KV_MASTER_CLOCK), "%s", s->mcs ? "MCS 1" : "MCS 0");
+        ui::EndKeyValue();
+    }
+
+    /* The tables of P1 or P2 at their CPU addresses, in the VRAM map's colours. */
+    void cardTables(const V9990DebugState* s)
+    {
+        const UiTokens& t = uiTokens();
+        TableRow r[8];
+        int n = tableRows(s, r);
+        if (n == 0) {
+            ui::TextFitItem(ts(TS_NO_TABLES), uiTokens().textSecondary);
+            return;
+        }
+        char range[8][24];
+        const char* ranges[8];
+        for (int i = 0; i < n; i++) {
+            snprintf(range[i], sizeof(range[i]), "%05X-%05X", r[i].addr, r[i].addr + r[i].len - 1);
+            ranges[i] = range[i];
+        }
+        if (!ImGui::BeginTable("tbl", 2, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoSavedSettings)) return;
+        ImGui::TableSetupColumn("name", ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableSetupColumn("addr", ImGuiTableColumnFlags_WidthFixed, monoWidth(ranges, n));
+        int hover = shell::hoverSeries();
+        const char* addrTip = ts(TS_V9_TBL_ADDR_TIP);
+        for (int i = 0; i < n; i++) {
+            ImGui::TableNextRow();
+            if (hover == r[i].series) ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, t.subtleSelected);
+            ImGui::TableNextColumn();
+            float sz = ui::Px(10);
+            ImVec2 p = ImGui::GetCursorScreenPos();
+            float dy = floorf((ImGui::GetTextLineHeight() - sz) / 2);
+            ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(p.x, p.y + dy), ImVec2(p.x + sz, p.y + dy + sz), t.series[r[i].series % 6], ui::Px(2));
+            ImGui::Dummy(ImVec2(sz, ImGui::GetTextLineHeight()));
+            ImGui::SameLine(0, ui::Px(8));
+            /* P2 lays some tables out unlike their CPU addresses: how, on hover. */
+            const char* rowTip = NULL;
+            if (s->mode == V9990_MODE_P2) {
+                if (r[i].series == 5) rowTip = ts(TS_V9_TBL_ATTR_TIP_P2);
+                else if (r[i].addr < 0x78000 || r[i].series == 4) rowTip = ts(TS_V9_TBL_INTERLEAVED_TIP);
+            }
+            ui::TextFitItem(r[i].name, 0, true, rowTip);
+            ImGui::TableNextColumn();
+            char tip[256];
+            textf(tip, sizeof(tip), "%s%s%s", addrTip, rowTip != NULL ? "\n" : "", rowTip != NULL ? rowTip : "");
+            ui::PushFont(UI_FONT_MONO);
+            fitCell(range[i], tip);
+            ui::PopFont();
+        }
+        ImGui::EndTable();
+    }
+
+    void cardPalette(const V9990DebugState* s)
+    {
+        const UiTokens& t = uiTokens();
+        /* The first entry of each range the renderer reads by R#13: layers A and B (P2's even and
+        ** odd dots), BP2/BP4's offset and in B4-B7 the one 32 on, YAE's; none in the other bitmaps. */
+        int r13 = s->regs[13], cm = s->modeR6 & 3, at[2] = { -1, -1 };
+        bool hi = isHiRes(s->mode);
+        if (s->mode == V9990_MODE_P1 || s->mode == V9990_MODE_P2) {
+            at[0] = (r13 & 0x03) << 4;
+            at[1] = (r13 & 0x0c) << 2;
+        }
+        else if (isBitmap(s->mode) && cm < 2) {
+            at[0] = (r13 & (cm == 0 ? (hi ? 0x07 : 0x0f) : (hi ? 0x04 : 0x0c))) << 2;
+            if (hi) at[1] = at[0] + 32;
+        }
+        else if (isBitmap(s->mode) && cm == 2 && (r13 >> 6) >= 2 && (r13 & 0x20)) {
+            at[0] = (r13 & 0x0c) << 2;
+        }
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(ui::Px(2), ui::Px(4)));
+        for (int i = 0; i < 64; i++) {
+            char id[16], tip[256];
+            UInt16 c = v9990PaletteColor(s->palette, i);
+            uint32_t rgba = v9990Rgba(c, false);
+            bool ys = (c & 0x8000) != 0;
+            if (i % 16 == 0) {
+                ui::PushFont(UI_FONT_MONO);
+                ImGui::AlignTextToFramePadding();
+                ImGui::PushStyleColor(ImGuiCol_Text, t.textSecondary);
+                ImGui::Text("%2d", i);
+                ImGui::PopStyleColor();
+                ui::PopFont();
+                ImGui::SameLine(0, ui::Px(6));
+            }
+            else {
+                ImGui::SameLine();
+            }
+            snprintf(id, sizeof(id), "##p%d", i);
+            bool offset = i == at[0] || i == at[1];
+            int tl = textf(tip, sizeof(tip), ts(TS_V9_PAL_TIP), i, i / 16, s->palette[i * 4] & 31, s->palette[i * 4 + 1] & 31,
+                           s->palette[i * 4 + 2] & 31, ys ? ts(TS_V9_PAL_YS) : "");
+            if (offset && tl >= 0 && (size_t)tl < sizeof(tip)) textf(tip + tl, sizeof(tip) - tl, "%s", ts(TS_V9_PAL_TIP_OFFSET));
+            ui::ColorSwatch(id, (ImU32)rgba, 14, offset, tip);
+            if (ys) {
+                ImVec2 q = ImGui::GetItemRectMax(), p = ImGui::GetItemRectMin();
+                float m = floorf((q.x - p.x) / 2);
+                ImGui::GetWindowDrawList()->AddTriangleFilled(ImVec2(q.x - m, p.y), q.x > p.x ? ImVec2(q.x, p.y) : q, ImVec2(q.x, p.y + m), t.text);
+            }
+        }
+        ImGui::PopStyleVar();
+    }
+
+    void cardRegisters(const V9990DebugState* s)
+    {
+        /* The registers as they are now; pictures read R#13 as the last displayed line drew it. */
+        UInt8 regs[64];
+        memcpy(regs, s->regs, sizeof(regs));
+        regs[13] = s->liveR13;
+        drawRegBank(regBankV9990, regs, regFade);
+        ImGui::Spacing();
+        ui::SectionTitle(ts(TS_SECTION_PORTS));
+        drawRegBank(regBankV9990Ports, s->ports, portFade);
+    }
+};
+
+}
+
+ChipView* createV9990View()
+{
+    return new V9990View();
+}

@@ -741,7 +741,19 @@
       <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\RegTablesV9990.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
     <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\V99x8View.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\V9990Decode.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\V9990View.cpp">
       <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
@@ -1183,6 +1195,7 @@
     <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\VdpSprite.h" />
     <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\VdpRaster.h" />
     <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\VdpParts.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\V9990Decode.h" />
     <ClInclude Include="..\..\Src\Win32\Win32Cdrom.h" />
     <ClInclude Include="..\..\Src\Win32\Win32Common.h" />
     <ClInclude Include="..\..\Src\Win32\Win32Dir.h" />

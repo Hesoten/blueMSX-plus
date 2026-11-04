@@ -51,6 +51,11 @@ struct ViewPicture {
     {
         return needsDecodeAt(shell::pictureVersion(), k);
     }
+    /* The same, for a picture of VRAM and palette alone, its registers in the key. */
+    bool needsDecodeVram(const char* k)
+    {
+        return needsDecodeAt(shell::vramVersion(), k);
+    }
     /* The same, for content versioned apart from VRAM, e.g. the drawn picture. */
     bool needsDecodeAt(unsigned ver, const char* k)
     {

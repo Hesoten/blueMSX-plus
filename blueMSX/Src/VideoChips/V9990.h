@@ -25,6 +25,10 @@
 
 #include "MsxTypes.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define V9990_VRAM_SIZE 0x80000
 #define V9990_VRAM_MASK (V9990_VRAM_SIZE - 1)
 
@@ -79,5 +83,73 @@ void   v9990WritePort(V9990* v9990, UInt16 port, UInt8 value);
 /* Turns a logical VRAM address, as the CPU or a command sees it in the
 ** given display mode, into an index into the physical 512 KB array. */
 UInt32 v9990MapAddress(V9990Mode mode, UInt32 address);
+
+typedef struct {
+    int    valid;           /* 0: no V9990 at this index */
+    UInt32 id;              /* debug handle + 1; differs for every chip created */
+    char   name[32];
+    int    mode;            /* V9990Mode the lines are drawn in now */
+    int    frameMode;       /* V9990Mode latched at frame start */
+    int    modeR6;          /* R#6 as the lines are drawn now */
+    int    mcs;             /* P#7 MCS */
+    int    isPal;           /* latched at frame start, like the four below */
+    int    interlace;
+    int    secondField;
+    int    displayOn;
+    UInt8  scrollAYHi;      /* R#18, which latches at frame start */
+    UInt8  scrollBYHi;      /* R#22, which latches at frame start too */
+    UInt8  regs[64];        /* R#53/R#54 hold the command border X */
+    UInt8  liveR13;         /* R#13 now; regs[13] and palette are as the last displayed line drew them, when known */
+    UInt8  ports[16];       /* what P#0-P#F reads would return */
+    UInt8  palette[256];    /* 64 x R (bit 7 YS), G, B, unused */
+    UInt8  vram[V9990_VRAM_SIZE];  /* physical order */
+} V9990DebugState;
+
+int v9990DebugCount(void);
+
+/* Copies the chip without syncing it or touching any latch, so call it only
+** on the emulator thread; the EMU_TAP_V9990_SHOWN tap gets the frame as shown.
+** Returns 0 and clears valid when there is none. */
+int v9990DebugCapture(int index, V9990DebugState* out);
+
+#define V9990_SHOT_ROWS  480
+#define V9990_SHOT_WIDTH 1152
+
+/* The picture the V9990 drew into its own frame buffer, before compositing.
+** Row y is scan line windowTopLine + y and holds width[y] ARGB1555 samples
+** of 8 >> shift[y] UC (bit 15: key while superimposed); the rest is stale. */
+typedef struct {
+    int    valid;            /* 0: no V9990, or no frame copied yet */
+    int    stale;            /* no copy yet (paused: rows from the last frame buffer frame), or copying had stopped */
+    int    ended;            /* 1: all rows are of one frame, the newest completed or the one shown; 0: paused */
+    int    drawnRow;         /* rows before it are the frame in progress (paused) or shown */
+    int    restMissing;      /* paused, no copy and no frame buffer frame: rows from drawnRow on hold 0x8000 */
+    UInt32 frameStart;       /* the frame copied; paused: the frame in progress */
+    UInt32 seq;              /* frames the chip had completed when the copy was made, counting the one shown */
+    int    behind;           /* frames completed since the copy; 0: it is the newest */
+    int    rows;             /* 240; 400 or 480 in B5/B6 */
+    int    frameMode;        /* V9990Mode latched for the frame */
+    int    interlace;        /* InterlaceMode: 0 none, 1 odd, 2 even field */
+    int    interlaceRaster;  /* IL or B5/B6: no gaps between lines */
+    int    secondField;
+    int    frameLines;       /* scan lines in the frame */
+    int    windowTopLine;    /* scan line of row 0, counted from the frame's first line start */
+    int    displayStartLine; /* display lines are [displayStartLine, displayEndLine) */
+    int    displayEndLine;
+    UInt8  shift[V9990_SHOT_ROWS];
+    UInt16 width[V9990_SHOT_ROWS];   /* 272 or 288 (overscan) << shift */
+    UInt16 rowY[V9990_SHOT_ROWS];    /* the bitmap row drawn, 0xffff when not drawn from the bitmap */
+    UInt16 rowX[V9990_SHOT_ROWS];    /* the bitmap column the scroll put at the display's left */
+    UInt16 pix[V9990_SHOT_ROWS][V9990_SHOT_WIDTH];
+} V9990FrameShot;
+
+/* Copies the picture of the chip on the same terms. Asking also has the chip
+** copy each frame it completes from now on for a while, so the first answers
+** after a pause in asking are stale or not valid. */
+int v9990DebugCaptureFrame(int index, V9990FrameShot* out);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

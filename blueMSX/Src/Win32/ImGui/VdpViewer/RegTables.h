@@ -67,5 +67,7 @@ const RegDesc* regBankFind(const RegBank& bank, int index);
 
 extern const RegBank regBankV99x8;
 extern const RegBank regBankV99x8Status;
+extern const RegBank regBankV9990;
+extern const RegBank regBankV9990Ports;
 
 #endif

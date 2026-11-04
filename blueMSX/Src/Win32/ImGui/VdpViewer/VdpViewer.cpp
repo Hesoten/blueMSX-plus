@@ -40,6 +40,7 @@ extern "C" {
 #include "Emulator.h"
 #include "Language.h"
 #include "VdpDebug.h"
+#include "V9990.h"
 }
 
 #ifndef BLUEMSX_IMGUI_CONFIG
@@ -47,14 +48,14 @@ extern "C" {
 #endif
 
 #define BLOCK_SHIFT  8
-#define BLOCK_COUNT  (VDP_DEBUG_VRAM_SIZE >> BLOCK_SHIFT)
+#define BLOCK_COUNT  (V9990_VRAM_SIZE >> BLOCK_SHIFT)
 /* Seconds a written VRAM block takes to cool down on the map. */
 #define HEAT_SECONDS 1.5f
 
 /* ---- snapshot ---------------------------------------------------------- */
 
 static LiveFeed*   feed;
-static ChipFeedRef feedRef;      /* process lifetime: see chipFeedRefInit */
+static ChipFeedRef feedRef;
 static ChipView*   chipViews[CHIP_FAMILY_COUNT];
 
 static unsigned char* last;          /* the content the views draw */
@@ -65,6 +66,7 @@ static UInt32         lastSeq;
 static unsigned       contentVer = 1;
 static unsigned       pictureVer = 1;   /* only VRAM, registers and palette */
 static unsigned       rasterVer = 1;    /* only the raster logs' heads */
+static unsigned       vramVer = 1;      /* only VRAM, and the V9990's palette */
 static bool           rasterOn;         /* this window armed the raster log */
 static int            splitOn = -1;     /* the family whose sprite split this window armed, or -1 */
 static bool           tablesOn;         /* this window armed the sprite tables */
@@ -76,7 +78,7 @@ static int   mapRows = 1;                /* lane rows: grows with the bands, so 
 static bool  mapOpen = true;             /* the map's card, for the session */
 static bool  paneOpen = true;            /* the details pane, for the session */
 static float paneWidth = 358;            /* its width, px at 96 DPI, for the session */
-static char  viewKey[CHIP_FAMILY_COUNT][16] = { "screen" };
+static char  viewKey[CHIP_FAMILY_COUNT][16] = { "screen", "screen" };
 static char  wantViewKey[16];
 static const void* shotNow;          /* the shown snapshot's picture, or NULL */
 static unsigned    shotVer = 1;
@@ -93,6 +95,7 @@ namespace shell {
 unsigned     contentVersion() { return contentVer; }
 unsigned     pictureVersion() { return pictureVer; }
 unsigned     rasterVersion()  { return rasterVer; }
+unsigned     vramVersion()    { return vramVer; }
 const Focus& shownFocus()     { return focus.pinned ? focus : prevFocus; }
 int          hoverSeries()    { return hoverSeriesNow; }
 int          hoverBlock()     { return hoverBlockNow; }
@@ -119,19 +122,23 @@ static ChipView* viewOf(int family)
 {
     if (family < 0 || family >= CHIP_FAMILY_COUNT) return NULL;
     if (chipViews[family] == NULL) {
-        chipViews[family] = createV99x8View();
+        chipViews[family] = family == CHIP_V9990 ? createV9990View() : createV99x8View();
     }
     return chipViews[family];
 }
 
 static const UInt8* vramOf(int family, const void* st, size_t* size)
 {
+    if (family == CHIP_V9990) {
+        *size = V9990_VRAM_SIZE;
+        return ((const V9990DebugState*)st)->vram;
+    }
     *size = VDP_DEBUG_VRAM_SIZE;
     return ((const VdpDebugState*)st)->vram;
 }
 
-/* Fields that change with the beam on their own, e.g. P#5 VR/HR. Pictures
-** do not depend on them, so they are not decoded again for them. */
+/* Fields that change with the beam on their own, e.g. P#5 VR/HR, or that pictures
+** do not read (the V9990's live R#13), so they are not decoded again for them. */
 struct Span { size_t off, len; };
 
 static bool differOutside(const void* a, const void* b, size_t size, const Span* skip, int n)
@@ -147,6 +154,15 @@ static bool differOutside(const void* a, const void* b, size_t size, const Span*
 
 static bool pictureFieldsDiffer(int family, const void* a, const void* b)
 {
+    if (family == CHIP_V9990) {
+        static const Span skip[] = {
+            { offsetof(V9990DebugState, secondField), sizeof(int) },
+            { offsetof(V9990DebugState, liveR13), 1 },
+            { offsetof(V9990DebugState, ports), sizeof(((V9990DebugState*)0)->ports) },
+            { offsetof(V9990DebugState, vram), V9990_VRAM_SIZE },
+        };
+        return differOutside(a, b, sizeof(V9990DebugState), skip, 4);
+    }
     static const Span skip[] = {
         { offsetof(VdpDebugState, status), sizeof(((VdpDebugState*)0)->status) },
         { offsetof(VdpDebugState, raster), sizeof(((VdpDebugState*)0)->raster) },
@@ -169,8 +185,14 @@ static bool rasterDiffers(int family, const void* a, const void* b)
     return false;
 }
 
+/* The V9990's field flips every frame even without interlace; with it, P#5 EO
+** in ports carries the field. */
 static bool stateDiffers(int family, const void* a, const void* b, size_t size)
 {
+    if (family == CHIP_V9990) {
+        static const Span skip[] = { { offsetof(V9990DebugState, secondField), sizeof(int) } };
+        return differOutside(a, b, size, skip, 1);
+    }
     static const Span skip[] = { { offsetof(VdpDebugState, raster), sizeof(((VdpDebugState*)0)->raster) } };
     return differOutside(a, b, size, skip, 1) || rasterDiffers(family, a, b);
 }
@@ -204,6 +226,7 @@ static void noteSnapshot(const ChipEntry& e, const void* st, UInt32 seq)
         contentVer++;
         pictureVer++;
         rasterVer++;
+        vramVer++;
         return;
     }
     if (seq == lastSeq) return;
@@ -221,13 +244,15 @@ static void noteSnapshot(const ChipEntry& e, const void* st, UInt32 seq)
     }
     if (vramChanged || pictureFieldsDiffer(e.family, last, st)) pictureVer++;
     if (rasterDiffers(e.family, last, st)) rasterVer++;
+    bool palChanged = e.family == CHIP_V9990 && memcmp(((const V9990DebugState*)last)->palette, ((const V9990DebugState*)st)->palette, 256) != 0;
+    if (vramChanged || palChanged) vramVer++;
     memcpy(last, st, size);
     contentVer++;
 }
 
-static int capture(void* dst, void* ref)
+static int capture(void* dst, void* ref, int point)
 {
-    return chipFeedCapture(dst, ref);
+    return chipFeedCapture(dst, ref, point);
 }
 
 /* ---- VRAM map -------------------------------------------------------- */
@@ -579,7 +604,29 @@ void pagesEnd(PagesScroll& sc)
 static void commandBar(const ChipSnapshot* snap, const LiveFeedInfo& info, ChipView* v, const void* st)
 {
     EmuState es = emulatorGetState();
-    {
+    if (snap && snap->count > 1) {
+        const ChipEntry& cur = snap->chip[snap->selected >= 0 ? snap->selected : 0];
+        char preview[64];
+        snprintf(preview, sizeof(preview), "%s", cur.name);
+        const char* names[8];
+        int n = 0;
+        for (int i = 0; i < snap->count && n < 8; i++) names[n++] = snap->chip[i].name;
+        if (ui::BeginCombo("##chip", preview, ui::ComboWidth(names, n, 160))) {
+            for (int i = 0; i < snap->count; i++) {
+                char text[256], key[16];
+                textf(text, sizeof(text), ts(snap->chip[i].family == CHIP_V9990 ? TS_CHIP_CARTRIDGE : TS_CHIP_MACHINE),
+                      snap->chip[i].name);
+                snprintf(key, sizeof(key), "chip%d", i);
+                ImGui::PushID(i);
+                if (ui::ComboItem(IdLabel(text, key), i == snap->selected)) {
+                    InterlockedExchange(&feedRef.want, chipWant(snap->chip[i].family, snap->chip[i].index));
+                }
+                ImGui::PopID();
+            }
+            ui::EndCombo();
+        }
+    }
+    else {
         /* A step over the body text, on a row as high as the controls. */
         float h = ImGui::GetFrameHeight();
         ui::PushFont(UI_FONT_STRONG, 16);
@@ -820,14 +867,12 @@ static void closed(void* ref)
 
 static bool openFeed()
 {
-    if (!chipFeedRefInit(&feedRef)) {
-        return false;
-    }
+    chipFeedRefReset(&feedRef);
     feed = liveFeedOpen(chipFeedSize(), capture, &feedRef);
     if (feed == NULL) {
         return false;
     }
-    /* Logged while the window is open, whatever it shows. */
+    /* Logged while the window is open, whichever chip it shows; only the machine's VDP logs. */
     vdpRasterArm(1);
     rasterOn = true;
     return true;
