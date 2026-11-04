@@ -41,6 +41,7 @@ extern "C" {
 #include "Language.h"
 #include "VdpDebug.h"
 #include "V9990.h"
+#include "Properties.h"
 }
 
 #ifndef BLUEMSX_IMGUI_CONFIG
@@ -116,14 +117,88 @@ static void armSplit(int family, int on)
     else if (family == CHIP_V9990) v9990SprSplitArm(on);
 }
 
+/* ---- settings: the viewer as the user left it, in bluemsx.ini ---------- */
+
+static bool settingsRead;
 static bool cardOpen[CHIP_FAMILY_COUNT][16];   /* the folding cards opened */
 static ui::HeightHold cardHold[CHIP_FAMILY_COUNT][16];
+static bool cardsRead[CHIP_FAMILY_COUNT];      /* cardOpen holds the settings' list */
+
+static VdpViewerProperties& settings()
+{
+    return propGetGlobalProperties()->vdpViewer;
+}
+
+static char* viewSetting(VdpViewerProperties& p, int family)
+{
+    return family == CHIP_V9990 ? p.viewV9990 : p.viewV99x8;
+}
+
+static char* cardsSetting(VdpViewerProperties& p, int family)
+{
+    return family == CHIP_V9990 ? p.cardsV9990 : p.cardsV99x8;
+}
+
+static int clampInt(int v, int lo, int hi)
+{
+    return v < lo ? lo : v > hi ? hi : v;
+}
+
+/* key is one of the comma separated keys of list. */
+static bool keyListed(const char* list, const char* key)
+{
+    size_t n = strlen(key);
+    for (const char* s = list; *s;) {
+        const char* e = strchr(s, ',');
+        size_t len = e ? (size_t)(e - s) : strlen(s);
+        if (len == n && strncmp(s, key, n) == 0) return true;
+        if (e == NULL) break;
+        s = e + 1;
+    }
+    return false;
+}
+
+/* The shell's part, once a run; the views read theirs as they are made, the cards as first listed. */
+static void readSettings()
+{
+    if (settingsRead) return;
+    settingsRead = true;
+    VdpViewerProperties& p = settings();
+    mapOpen = p.mapOpen != 0;
+    paneOpen = p.paneOpen != 0;
+    paneWidth = (float)clampInt(p.paneWidth, 330, 4000);
+    viewerZoom.zoom = clampInt(p.pictureZoom, 1, 32);
+    viewerZoom.fit = p.pictureFit != 0;
+    pagesState.open = p.pagesOpen != 0;
+    pagesState.height = (float)clampInt(p.pagesHeight, 80, 4000);
+    pagesState.size = p.pagesSize >= 0 && p.pagesSize <= 2 ? p.pagesSize : 0;
+    for (int f = 0; f < CHIP_FAMILY_COUNT; f++) snprintf(viewKey[f], sizeof(viewKey[f]), "%s", viewSetting(p, f));
+}
+
+/* Every frame, so no way of closing or quitting loses it; views not made yet keep what was read. */
+static void writeSettings()
+{
+    VdpViewerProperties& p = settings();
+    p.mapOpen = mapOpen;
+    p.paneOpen = paneOpen;
+    p.paneWidth = (int)(paneWidth + 0.5f);
+    p.pictureZoom = viewerZoom.zoom;
+    p.pictureFit = viewerZoom.fit;
+    p.pagesOpen = pagesState.open;
+    p.pagesHeight = (int)(pagesState.height + 0.5f);
+    p.pagesSize = pagesState.size;
+    for (int f = 0; f < CHIP_FAMILY_COUNT; f++) {
+        snprintf(viewSetting(p, f), sizeof(p.viewV99x8), "%s", viewKey[f]);
+        if (chipViews[f]) chipViews[f]->saveUi(p);
+    }
+}
 
 static ChipView* viewOf(int family)
 {
     if (family < 0 || family >= CHIP_FAMILY_COUNT) return NULL;
     if (chipViews[family] == NULL) {
         chipViews[family] = family == CHIP_V9990 ? createV9990View() : createV99x8View();
+        chipViews[family]->loadUi(settings());
     }
     return chipViews[family];
 }
@@ -659,6 +734,13 @@ static void drawCards(ChipView* v, int family, const void* st)
 {
     CardDesc cards[16];
     int n = v->cards(cards, 16, st);
+    /* The settings name the cards by their keys, which the view gives only here. */
+    char* list = cardsSetting(settings(), family);
+    size_t size = sizeof(settings().cardsV99x8);
+    if (!cardsRead[family]) {
+        for (int i = 0; i < n; i++) cardOpen[family][i] = cards[i].expander && keyListed(list, cards[i].key);
+        cardsRead[family] = true;
+    }
     for (int i = 0; i < n; i++) {
         if (!cards[i].shown) continue;
         if (cards[i].expander) {
@@ -677,6 +759,14 @@ static void drawCards(ChipView* v, int family, const void* st)
         v->drawCard(i, st, focus);
         if (!cards[i].noHold) ui::HoldHeight(cardHold[family][i], y0);
         ui::EndCard();
+    }
+    /* Back to the settings, cards not shown now included. */
+    size_t at = 0;
+    list[0] = 0;
+    for (int i = 0; i < n && at + 1 < size; i++) {
+        if (!cards[i].expander || !cardOpen[family][i]) continue;
+        int k = snprintf(list + at, size - at, "%s%s", at ? "," : "", cards[i].key);
+        at = k < 0 ? size : at + (size_t)k;
     }
 }
 
@@ -827,6 +917,7 @@ static void draw(ImGuiToolWindow*, void*)
     ui::EndExpander();
     planNow = NULL;
     ui::StatusBar();
+    writeSettings();
 }
 
 /* A window destroyed inside a modal loop reports closing late, maybe after
@@ -882,6 +973,7 @@ static bool openFeed()
 extern "C" void vdpViewerShow(void)
 {
     ImGuiToolDesc desc = {};
+    readSettings();
     if (!imguiToolIsOpen("vdp")) {
         openCount++;
         if (feed == NULL && !openFeed()) {
@@ -895,6 +987,7 @@ extern "C" void vdpViewerShow(void)
     desc.draw   = draw;
     desc.closed = closed;
     desc.ref    = (void*)openCount;
+    desc.placement = &propGetGlobalProperties()->vdpViewer.window;
     if (imguiToolOpen(&desc) == NULL && !imguiToolIsOpen("vdp")) {
         liveFeedClose(feed);
         feed = NULL;

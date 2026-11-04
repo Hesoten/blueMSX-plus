@@ -42,6 +42,7 @@ extern "C" {
 #endif
 
 typedef struct ImGuiToolWindow ImGuiToolWindow;
+struct ToolWindowPlacement;
 
 /* Called once per frame, inside an ImGui window that fills the client area. */
 typedef void (*ImGuiToolDrawFn)(ImGuiToolWindow* w, void* ref);
@@ -62,6 +63,9 @@ typedef struct {
     ImGuiToolDrawFn   draw;
     ImGuiToolClosedFn closed;  /* may be NULL */
     void*             ref;
+    /* Where the window opens and its zoom, written back as they change; NULL
+    ** opens it over the main window at width x height. */
+    struct ToolWindowPlacement* placement;
 } ImGuiToolDesc;
 
 /* Opens a window, or brings the one with the same id to the front.

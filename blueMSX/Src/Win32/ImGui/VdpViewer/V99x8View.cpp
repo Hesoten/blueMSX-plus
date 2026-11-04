@@ -40,6 +40,7 @@
 #include "ToolText.h"
 extern "C" {
 #include "Emulator.h"
+#include "Properties.h"
 }
 
 #ifndef BLUEMSX_IMGUI_CONFIG
@@ -520,6 +521,42 @@ public:
         selWanted = false;
         selLatch = 0;
         palHeldAt = -1;
+    }
+
+    void loadUi(const VdpViewerProperties& p) override
+    {
+        outBorders = p.v99x8.outBorders != 0;
+        sprShown = p.v99x8.sprShown != 0;
+        sprOnly = p.v99x8.sprOnly != 0;
+        boxes = p.v99x8.boxes != 0;
+        outCv.grid = p.v99x8.outGrid != 0;
+        patNumbers = p.v99x8.patNumbers != 0;
+        sheetCv.grid = p.v99x8.patGrid != 0;
+        transparent0 = p.v99x8.transparent0 != 0;
+        layout = p.v99x8.layout == 1 ? 1 : 0;
+        bitmapCv.grid = p.v99x8.bitmapGrid != 0;
+        sprDropped = p.v99x8.sprDropped != 0;
+        sprCv.grid = p.v99x8.sprGrid != 0;
+        vramTint = p.v99x8.vramTint != 0;
+        vramCv.grid = p.v99x8.vramGrid != 0;
+    }
+
+    void saveUi(VdpViewerProperties& p) const override
+    {
+        p.v99x8.outBorders = outBorders;
+        p.v99x8.sprShown = sprShown;
+        p.v99x8.sprOnly = sprOnly;
+        p.v99x8.boxes = boxes;
+        p.v99x8.outGrid = outCv.grid;
+        p.v99x8.patNumbers = patNumbers;
+        p.v99x8.patGrid = sheetCv.grid;
+        p.v99x8.transparent0 = transparent0;
+        p.v99x8.layout = layout;
+        p.v99x8.bitmapGrid = bitmapCv.grid;
+        p.v99x8.sprDropped = sprDropped;
+        p.v99x8.sprGrid = sprCv.grid;
+        p.v99x8.vramTint = vramTint;
+        p.v99x8.vramGrid = vramCv.grid;
     }
 
 private:

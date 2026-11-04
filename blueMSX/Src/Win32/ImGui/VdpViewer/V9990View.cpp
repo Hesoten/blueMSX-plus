@@ -39,6 +39,7 @@
 extern "C" {
 #include "V9990.h"
 #include "V9990Render.h"
+#include "Properties.h"
 }
 
 #ifndef BLUEMSX_IMGUI_CONFIG
@@ -367,6 +368,50 @@ public:
         outSprShot = outSprPicture = ~0u;
         regFadeReset(regFade);
         regFadeReset(portFade);
+    }
+
+    void loadUi(const VdpViewerProperties& p) override
+    {
+        sprShown = p.v9990.sprShown != 0;
+        sprOnly = p.v9990.sprOnly != 0;
+        outCv.grid = p.v9990.outGrid != 0;
+        ysClear = p.v9990.ysClear != 0;
+        bitmapCv.grid = p.v9990.bitmapGrid != 0;
+        vramOrder = p.v9990.vramOrder == 1 ? 1 : 0;
+        vramTint = p.v9990.vramTint != 0;
+        vramCv.grid = p.v9990.vramGrid != 0;
+        patLayer = p.v9990.patLayer == 1 ? 1 : 0;
+        patNumbers = p.v9990.patNumbers != 0;
+        patCv.grid = p.v9990.patGrid != 0;
+        transparent0 = p.v9990.transparent0 != 0;
+        sprDropped = p.v9990.sprDropped != 0;
+        sprBoxes = p.v9990.sprBoxes != 0;
+        sprCv.grid = p.v9990.sprGrid != 0;
+        curShown = p.v9990.curShown != 0;
+        curOnly = p.v9990.curOnly != 0;
+        curBoxes = p.v9990.curBoxes != 0;
+    }
+
+    void saveUi(VdpViewerProperties& p) const override
+    {
+        p.v9990.sprShown = sprShown;
+        p.v9990.sprOnly = sprOnly;
+        p.v9990.outGrid = outCv.grid;
+        p.v9990.ysClear = ysClear;
+        p.v9990.bitmapGrid = bitmapCv.grid;
+        p.v9990.vramOrder = vramOrder;
+        p.v9990.vramTint = vramTint;
+        p.v9990.vramGrid = vramCv.grid;
+        p.v9990.patLayer = patLayer;
+        p.v9990.patNumbers = patNumbers;
+        p.v9990.patGrid = patCv.grid;
+        p.v9990.transparent0 = transparent0;
+        p.v9990.sprDropped = sprDropped;
+        p.v9990.sprBoxes = sprBoxes;
+        p.v9990.sprGrid = sprCv.grid;
+        p.v9990.curShown = curShown;
+        p.v9990.curOnly = curOnly;
+        p.v9990.curBoxes = curBoxes;
     }
 
 private:

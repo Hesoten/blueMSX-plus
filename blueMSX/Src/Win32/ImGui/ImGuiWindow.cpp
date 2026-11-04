@@ -49,6 +49,7 @@
 extern "C" {
 #include "../Win32Common.h"
 #include "ArchNotifications.h"
+#include "Properties.h"
 }
 
 #ifndef BLUEMSX_IMGUI_CONFIG
@@ -94,6 +95,7 @@ struct ImGuiToolWindow {
     float                   zoomWantW, zoomWantH;
     LONG                    zoomSetW, zoomSetH;
     bool                    wheelTaken, wheelTakenNext;  /* a view takes Ctrl+wheel where the mouse is */
+    bool                    placing;       /* opened: moves and sizes go to desc.placement */
     ULONGLONG               lastFrame;
     ImGuiToolWindow*        next;
 };
@@ -584,8 +586,42 @@ static void stepZoom(ImGuiToolWindow* w, int dir)
         if (kept) {
             *kept = w->zoom;
         }
+        if (w->desc.placement) {
+            w->desc.placement->zoomPct = (int)(w->zoom * 100 + 0.5f);
+        }
         resizeClientBy(w, w->zoom / old);
     }
+}
+
+/* The zoom step nearest pct percent; 100% when pct is out of the steps' range. */
+static float zoomFromPct(int pct)
+{
+    float z = pct / 100.0f, best = 1.0f;
+    int i;
+    if (pct < 50 || pct > 250) {
+        return 1.0f;
+    }
+    for (i = 0; i < ZOOM_STEPS; i++) {
+        if (fabsf(zoomSteps[i] - z) < fabsf(best - z)) best = zoomSteps[i];
+    }
+    return best;
+}
+
+/* The window's normal place, not while minimised or maximised: the frame's
+** top-left in screen px, and the client in px at its DPI. */
+static void notePlacement(ImGuiToolWindow* w)
+{
+    ToolWindowPlacement* p = w->desc.placement;
+    RECT outer, client;
+    if (p == NULL || !w->placing || w->hwnd == NULL || IsZoomed(w->hwnd) || IsIconic(w->hwnd) ||
+        !GetWindowRect(w->hwnd, &outer) || !GetClientRect(w->hwnd, &client)) {
+        return;
+    }
+    p->x = outer.left;
+    p->y = outer.top;
+    p->width = client.right;
+    p->height = client.bottom;
+    p->dpi = (int)(w->dpiScale * 96 + 0.5f);
 }
 
 /* Ctrl+wheel (but over a view that zooms with it), Ctrl+plus, Ctrl+minus and
@@ -862,12 +898,14 @@ static LRESULT CALLBACK wndProc(HWND wnd, UINT msg, WPARAM wParam, LPARAM lParam
     switch (msg) {
     case WM_MOVE:
         if (w->sizing) archPumpEmuDisplay();
+        notePlacement(w);
         break;
 
     case WM_SIZE:
         if (w->sizing) archPumpEmuDisplay();
+        notePlacement(w);
         if (w->swapChain && wParam != SIZE_MINIMIZED) {
-            /* Draw soon: until then the old frame shows stretched. */
+            /* Draw soon: until then the old frame shows at its own size. */
             w->resizePending = true;
             drawSoon(w);
         }
@@ -1108,7 +1146,11 @@ extern "C" ImGuiToolWindow* imguiToolOpen(const ImGuiToolDesc* desc)
     w->desc.id    = w->id;
     w->desc.title = w->title;
     w->dpiScale = w->zoom = w->appliedZoom = 1.0f;
-    if (zoomSlot(w->id)) {
+    if (desc->placement) {
+        w->zoom = zoomFromPct(desc->placement->zoomPct);
+        desc->placement->zoomPct = (int)(w->zoom * 100 + 0.5f);
+    }
+    else if (zoomSlot(w->id)) {
         w->zoom = *zoomSlot(w->id);
     }
     w->zoomSetW = w->zoomSetH = -1;
@@ -1146,6 +1188,44 @@ extern "C" ImGuiToolWindow* imguiToolOpen(const ImGuiToolDesc* desc)
     if (mainWnd && GetWindowRect(mainWnd, &mainRect)) {
         x = mainRect.left + (int)((40 + 32 * openCount) * scale);
         y = mainRect.top  + (int)((40 + 32 * openCount) * scale);
+    }
+    /* Where it was last, its size scaled to that monitor's DPI; the zoom is already in the size. */
+    const ToolWindowPlacement* kept = desc->placement;
+    int keptDpi = kept && kept->dpi >= 48 && kept->dpi <= 960 ? kept->dpi : 96;
+    if (kept && kept->width > 0 && kept->width <= 16384 && kept->height > 0 && kept->height <= 16384) {
+        /* A window shrunk below 320 x 240 keeps its place and comes back that large. */
+        int keptW = kept->width > 320 * keptDpi / 96 ? kept->width : 320 * keptDpi / 96;
+        int keptH = kept->height > 240 * keptDpi / 96 ? kept->height : 240 * keptDpi / 96;
+        int kx = kept->x < -100000 ? -100000 : kept->x > 100000 ? 100000 : kept->x;
+        int ky = kept->y < -100000 ? -100000 : kept->y > 100000 ? 100000 : kept->y;
+        RECT guess = { kx, ky, kx + keptW, ky + keptH };
+        HMONITOR mon = MonitorFromRect(&guess, MONITOR_DEFAULTTONEAREST);
+        float ms = ImGui_ImplWin32_GetDpiScaleForMonitor(mon), by = ms * 96 / keptDpi;
+        RECT k = { 0, 0, (LONG)(keptW * by + 0.5f), (LONG)(keptH * by + 0.5f) };
+        if (adjustForDpi) {
+            adjustForDpi(&k, WS_OVERLAPPEDWINDOW, FALSE, 0, (UINT)(ms * 96));
+        }
+        else {
+            AdjustWindowRectEx(&k, WS_OVERLAPPEDWINDOW, FALSE, 0);
+        }
+        int kw = k.right - k.left, kh = k.bottom - k.top;
+        RECT title = { kx, ky, kx + kw, ky + (LONG)(32 * ms) };
+        MONITORINFO mi;
+        mi.cbSize = sizeof(mi);
+        /* With its title bar on no monitor, it comes back inside the nearest one's work area. */
+        if (MonitorFromRect(&title, MONITOR_DEFAULTTONULL) == NULL && GetMonitorInfo(mon, &mi)) {
+            kw = kw < mi.rcWork.right - mi.rcWork.left ? kw : mi.rcWork.right - mi.rcWork.left;
+            kh = kh < mi.rcWork.bottom - mi.rcWork.top ? kh : mi.rcWork.bottom - mi.rcWork.top;
+            x = kx < mi.rcWork.left ? mi.rcWork.left : kx + kw > mi.rcWork.right ? mi.rcWork.right - kw : kx;
+            y = ky < mi.rcWork.top ? mi.rcWork.top : ky + kh > mi.rcWork.bottom ? mi.rcWork.bottom - kh : ky;
+        }
+        else {
+            x = kx;
+            y = ky;
+        }
+        r.left = r.top = 0;
+        r.right = kw;
+        r.bottom = kh;
     }
     /* Unowned like the themed tool windows, so the main window can come to
     ** the front; fullscreen gives it the main window as owner. */
@@ -1193,6 +1273,8 @@ extern "C" ImGuiToolWindow* imguiToolOpen(const ImGuiToolDesc* desc)
     ImGui_ImplDX11_Init(device, deviceContext);
     applyDpi(w, ImGui_ImplWin32_GetDpiScaleForHwnd(wnd));
     restoreContext(prev);
+    w->placing = true;
+    notePlacement(w);
 
     SetTimer(wnd, FRAME_TIMER_ID, USER_TIMER_MINIMUM, NULL);
     ShowWindow(wnd, SW_SHOW);

@@ -26,6 +26,7 @@
 #include "MsxTypes.h"
 
 namespace ui { struct CanvasZoom; struct PixelArt; }
+struct VdpViewerProperties;
 
 /* key e.g. "screen", "patterns", "vram"; art, if not NULL, is drawn in place of the glyph. */
 struct ViewDesc { const char* key; const char* label; const char* glyph; const ui::PixelArt* art = NULL; };
@@ -80,6 +81,9 @@ public:
     virtual void   escape(bool key) { (void)key; }
     /* The chip changed: drop pictures and anything kept per chip. */
     virtual void   forget() = 0;
+    /* The view's own toggles from the settings, once as it is made, and back to them. */
+    virtual void   loadUi(const VdpViewerProperties& p) = 0;
+    virtual void   saveUi(VdpViewerProperties& p) const = 0;
 };
 
 ChipView* createV99x8View();
