@@ -185,11 +185,14 @@ static VdpBand bandOf(const VdpDebugState* s, const Replay& rp, const UInt8* r, 
     b.first = b.last = d;
     b.page = -1;
     b.evenSide = false;
+    b.flat = false;
+    b.field = rp.field & 1;
     if (vdpIsBitmapMode(mode)) {
         b.page = vdpBitmapPage(s, r, mode);
+        b.flat = vdpIsFlatInterlace(s, r);
         /* The emulated VDP clears the page's low bit (A15, A16 under SP3) for EO on fields with
-        ** S#2 bit 1 clear, and in blink's off phase. */
-        b.evenSide = (b.page & 1) && (((r[9] & 0x04) && !(rp.field & 1)) || (r[13] != 0 && !rp.blinkFlag));
+        ** S#2 bit 1 clear, and in blink's off phase; FIL ignores both. */
+        b.evenSide = !b.flat && (b.page & 1) && (((r[9] & 0x04) && !(rp.field & 1)) || (r[13] != 0 && !rp.blinkFlag));
     }
     memcpy(b.regs, r, sizeof(b.regs));
     b.prev = prev;
@@ -208,6 +211,7 @@ bool vdpRasterSameKey(const VdpBand& a, const VdpBand& b)
     }
     if ((a.regs[1] ^ b.regs[1]) & 0x03) return false;
     if ((a.regs[8] ^ b.regs[8]) & 0x20) return false;
+    if (a.flat != b.flat || (a.flat && a.field != b.field)) return false;
     return a.mode == b.mode && a.page == b.page && a.evenSide == b.evenSide && a.textSplit == b.textSplit && a.prev == b.prev &&
            a.unknown == b.unknown;
 }
@@ -307,12 +311,24 @@ int vdpRasterBandAt(const VdpRasterView& v, int d)
     return d >= 0 && d < (int)v.bandOfLine.size() ? v.bandOfLine[d] : -1;
 }
 
-void vdpRasterBandRows(const VdpDebugState* s, const VdpBand& b, std::vector<int>& runs)
+void vdpRasterBandRows(const VdpDebugState* s, const VdpBand& b, int page, std::vector<int>& runs)
 {
     /* R#2 bits 0-4 gate line bits 3-7 of a bitmap page, as the VDP's address mask. */
     int mask = b.page >= 0 && vdpIsBitmapMode(b.mode) ? ((b.regs[2] & 0x1f) << 3) | 7 : 0xff;
     int vs = vdpScreenScroll(s, vdpLayoutOf(b));
     runs.clear();
+    if (b.flat) {
+        /* FIL: they gate row bits 2-6, the page's low bit row bit 7, which picks the page of the pair. */
+        mask = ((b.regs[2] & 0x1f) << 2) | 3 | ((b.page & 1) << 7);
+        for (int d = b.first; d <= b.last; d++) {
+            int row = ((d + vs) & 0xff) & mask;
+            if (((b.page & ~1) | (row >> 7)) != page) continue;
+            row = ((row & 0x7f) << 1) | b.field;
+            if (!runs.empty() && runs.back() == row) runs.back() = row + 1;
+            else { runs.push_back(row); runs.push_back(row + 1); }
+        }
+        return;
+    }
     for (int d = b.first; d <= b.last; d++) {
         int row = ((d + vs) & 0xff) & mask;
         if (!runs.empty() && runs.back() == row) runs.back() = row + 1;
@@ -320,7 +336,19 @@ void vdpRasterBandRows(const VdpDebugState* s, const VdpBand& b, std::vector<int
     }
 }
 
-int vdpRasterBandCols(const VdpBand& b, int seg[6])
+/* FIL weaves the odd page's rows with the even one's: the same columns on both. */
+static int flatPair(const VdpBand& b, bool sp2, int seg[12], int n)
+{
+    for (int k = 0, m = n; b.flat && !sp2 && (b.page & 1) && k < m; k++) {
+        seg[n * 3] = seg[k * 3] - 1;
+        seg[n * 3 + 1] = seg[k * 3 + 1];
+        seg[n * 3 + 2] = seg[k * 3 + 2];
+        n++;
+    }
+    return n;
+}
+
+int vdpRasterBandCols(const VdpBand& b, int seg[12])
 {
     if (b.page < 0 || !vdpIsBitmapMode(b.mode)) return 0;
     const UInt8* r = b.regs;
@@ -333,7 +361,7 @@ int vdpRasterBandCols(const VdpBand& b, int seg[6])
         seg[0] = b.evenSide ? b.page & ~1 : b.page;
         seg[1] = 0;
         seg[2] = 256;
-        return 1;
+        return flatPair(b, sp2, seg, 1);
     }
     /* MSK blanks the first 8 dots; without it SCREEN 5 and 7 blank the first h & 7. */
     int lead = (r[25] & 2) ? 8 : (b.mode == 5 || b.mode == 7) ? h & 7 : 0;
@@ -347,7 +375,7 @@ int vdpRasterBandCols(const VdpBand& b, int seg[6])
         pos = (pos + run) % wrap;
         left -= run;
     }
-    return n;
+    return flatPair(b, sp2, seg, n);
 }
 
 VdpLayout vdpLayoutOf(const VdpBand& b)
@@ -361,6 +389,7 @@ bool vdpBandBitmap(const VdpDebugState* s, const VdpBand& b, VdpBitmapOptions* o
     if (!vdpDisplayedBitmap(s, vdpLayoutOf(b), o)) return false;
     o->lines = 256;   /* y is a display line, wrapped only by R#23 as on the chip */
     o->evenPair = b.evenSide;
+    o->field = b.field;
     return true;
 }
 
@@ -437,7 +466,7 @@ void vdpRasterGroups(const VdpRasterView& v, std::vector<VdpBandGroup>& out)
             out.push_back(g);
         }
         VdpBandGroup& g = out[k];
-        int seg[6];
+        int seg[12];
         for (int n = vdpRasterBandCols(b, seg), q = 0; q < n; q++) g.shownPages |= 1u << seg[q * 3];
         addLines(g, b.first, b.last);
     }

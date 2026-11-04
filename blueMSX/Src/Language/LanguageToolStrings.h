@@ -385,6 +385,8 @@ TS(SUM_SPRITES,               "Mode %d · %s · %d shown", "モード" NB "%d ·
 TS(SUM_SPRITES_OFF,           "Mode %d · %s · not shown, %s", "モード" NB "%d · %s · 表示なし（%s）")
 TS(DISPLAY_OFF_BLANKED,       "off (blanked)", "オフ")
 TS(INTERLACE_EO_PAGES,        "on, even/odd pages", "オン、偶数/奇数ページ")
+TS(INTERLACE_FLAT,            "flat (R#20 FIL), fields on alternate VRAM lines", "フラット（R#20" NB "FIL）、フィールドは" NB "VRAM" NB "の" NB "1" NB "ラインおき")
+TS(INTERLACE_FLAT_RASTER,     "flat (R#20 FIL), only the raster shifts in this mode", "フラット（R#20" NB "FIL）、このモードではラスタのずれのみ")
 TS(KV_VSCROLL,                "V scroll", "縦スクロール")
 TS(KV_ADJUST,                 "Adjust", "表示位置調整")
 TS(KV_HSCROLL,                "H scroll", "横スクロール")

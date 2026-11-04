@@ -99,12 +99,17 @@ struct VdpBitmapOptions {
     int color0;    /* VdpColor0 */
     bool displayed; /* page and line masks from R#2, as the VDP shows it */
     bool evenPair;  /* displayed: the even page an odd one alternates with (R#9 EO, R#13 blink) */
+    int  field;     /* displayed under flat interlace: S#2 bit 1 of the frame shown */
 };
 
 int  vdpBitmapWidth(int mode);
 int  vdpBitmapPageCount(const VdpDebugState* s, int mode);
 /* The page R#2 shows: 32K pages up to SCREEN 6, 64K from 7 on. */
 int  vdpBitmapPage(const VdpDebugState* s, const UInt8* regs, int mode);
+/* A V9968's R#20 bit 5 FIL: in the bitmap modes a row takes page lines 2r and 2r+1, one per field. */
+bool vdpIsFlatInterlace(const VdpDebugState* s, const UInt8* regs);
+/* The pages R#2's page shows, as bits: under FIL rows 0-127 of an odd page come from its even pair. */
+unsigned vdpShownPageBits(bool flat, int page);
 /* What the layout shows; false when it is not in a bitmap mode. */
 bool vdpDisplayedBitmap(const VdpDebugState* s, const VdpLayout& l, VdpBitmapOptions* out);
 /* o.mode is the mode the VRAM is read as; l gives the registers. */

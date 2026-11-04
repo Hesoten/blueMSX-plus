@@ -1785,8 +1785,8 @@ private:
         return false;
     }
 
-    /* Frames a band's pieces on the Bitmap picture: rows from runs, pages and columns from seg. */
-    void bandFrames(ImDrawList* dl, const ui::CanvasXf& xf, const std::vector<int>& runs, const int* seg, int n,
+    /* Frames a band's pieces on the Bitmap picture: pages and columns from seg, rows by page. */
+    void bandFrames(ImDrawList* dl, const ui::CanvasXf& xf, const VdpDebugState* s, const VdpBand& b, const int* seg, int n,
                     int bandIndex, float th)
     {
         const UiTokens& t = uiTokens();
@@ -1795,6 +1795,8 @@ private:
             if (p < 0 || p >= grid.pages) continue;
             int ox, oy;
             grid.origin(p, &ox, &oy);
+            std::vector<int> runs;
+            vdpRasterBandRows(s, b, p, runs);
             float x0 = ox + (float)grid.tileW * seg[k * 3 + 1] / 256, x1 = ox + (float)grid.tileW * seg[k * 3 + 2] / 256;
             for (size_t q = 0; q + 1 < runs.size(); q += 2) {
                 ImVec2 a = xf.toScreen(x0, (float)(oy + runs[q])), c = xf.toScreen(x1, (float)(oy + runs[q + 1]));
@@ -2904,7 +2906,7 @@ private:
             g.lineCount = screenLines(s);
             g.age = 0;
             snprintf(g.lines, sizeof(g.lines), "0-%d", g.lineCount - 1);
-            g.shownPages = vdpDisplayedBitmap(s, vdpLayoutOf(s), &o) ? 1u << o.page : 0;
+            g.shownPages = vdpDisplayedBitmap(s, vdpLayoutOf(s), &o) ? vdpShownPageBits(vdpIsFlatInterlace(s, s->regs), o.page) : 0;
             snprintf(g.heldLines, sizeof(g.heldLines), "%s", g.lines);
             stripMixed = false;
             return;
@@ -3449,9 +3451,9 @@ private:
                     dl->AddLine(ImVec2(a.x, ly), ImVec2(b.x, ly), ui::WithAlpha(t.textTertiary, 140), th);
                     for (size_t i = 0; (stripMixed || raster.bands.size() > 1) && i < raster.bands.size(); i++) {
                         const VdpBand& bd = raster.bands[i];
-                        int seg[6], n = vdpRasterBandCols(bd, seg);
+                        int seg[12], n = vdpRasterBandCols(bd, seg);
                         if (!showsPage(seg, n, it.page) || !vdpGroupHasBand(*g, bd)) continue;
-                        vdpRasterBandRows(s, bd, stripRuns);
+                        vdpRasterBandRows(s, bd, it.page, stripRuns);
                         for (int k = 0; k < n; k++) {
                             if (seg[k * 3] != it.page) continue;
                             float x0 = floorf(a.x + iw * seg[k * 3 + 1] / 256), x1 = floorf(a.x + iw * seg[k * 3 + 2] / 256);
@@ -3492,7 +3494,7 @@ private:
                 size_t bl = 0;
                 for (size_t i = 0; it.kind == SI_PAGE && !stripMixed && raster.bands.size() > 1 && i < raster.bands.size(); i++) {
                     const VdpBand& bd = raster.bands[i];
-                    int seg[6], n = vdpRasterBandCols(bd, seg);
+                    int seg[12], n = vdpRasterBandCols(bd, seg);
                     if (!showsPage(seg, n, it.page)) continue;
                     dl->AddCircleFilled(ImVec2(lx + dot, cy), dot, bandColour((int)i));
                     lx += dot * 2 + ui::Px(3);
@@ -5794,11 +5796,9 @@ private:
             /* The rows and columns of its pages the group's bands show. */
             for (size_t i = 0; gBytes == pageBytes && i < self->raster.bands.size(); i++) {
                 const VdpBand& b = self->raster.bands[i];
-                int seg[6], n = vdpRasterBandCols(b, seg);
+                int seg[12], n = vdpRasterBandCols(b, seg);
                 if (n == 0 || !vdpGroupHasBand(*rg, b)) continue;
-                std::vector<int> runs;
-                vdpRasterBandRows(s, b, runs);
-                self->bandFrames(dl, xf, runs, seg, n, (int)i, th);
+                self->bandFrames(dl, xf, s, b, seg, n, (int)i, th);
             }
         }
         else if (rm >= 0) {
@@ -5811,8 +5811,9 @@ private:
             int pageBytes = rm == 5 || rm == 6 ? 0x8000 : 0x10000;
             int liveBytes = mode == 5 || mode == 6 ? 0x8000 : 0x10000;
             int livePage = vdpIsBitmapMode(mode) ? tb.name / liveBytes : -1;
-            bool alternates = livePage >= 0 && ((regs[9] & 0x04) || regs[13] != 0) && (livePage & 1);
-            unsigned shown = livePage >= 0 ? pagesHolding(s, mode, livePage, rm) : 0;
+            bool flat = livePage >= 0 && liveBytes == pageBytes && vdpIsFlatInterlace(s, regs);
+            bool alternates = livePage >= 0 && !flat && ((regs[9] & 0x04) || regs[13] != 0) && (livePage & 1);
+            unsigned shown = flat ? vdpShownPageBits(flat, livePage) : livePage >= 0 ? pagesHolding(s, mode, livePage, rm) : 0;
             unsigned pair = alternates ? pagesHolding(s, mode, livePage & ~1, rm) & ~shown : 0;
             for (int p = 0; p < self->grid.pages; p++) {
                 int ox, oy;
@@ -5839,11 +5840,9 @@ private:
             /* The rows and columns of its pages each band shows. */
             for (size_t i = 0; i < self->raster.bands.size(); i++) {
                 const VdpBand& b = self->raster.bands[i];
-                int seg[6], n = vdpRasterBandCols(b, seg);
+                int seg[12], n = vdpRasterBandCols(b, seg);
                 if (n == 0) continue;
-                std::vector<int> runs;
-                vdpRasterBandRows(s, b, runs);
-                self->bandFrames(dl, xf, runs, seg, n, (int)i, th);
+                self->bandFrames(dl, xf, s, b, seg, n, (int)i, th);
             }
         }
         if (rm >= 0) cmdLrmmOverlay(dl, xf, s, rm, CmdPageMap{ self->grid.pages, self->grid.cols, self->grid.tileW, self->grid.tileH, self->grid.gap });
@@ -6700,7 +6699,8 @@ private:
         ui::KeyValue("VRAM", "%d KB", s->vramSize / 1024);
         ui::KeyValue(ts(TS_KV_DISPLAY), "%s", ts(s->screenOn ? TS_ON : TS_DISPLAY_OFF_BLANKED));
         if (!msx1) {
-            ui::KeyValue(ts(TS_KV_INTERLACE), "%s", ts((s->regs[9] & 0x08) ? ((s->regs[9] & 0x04) ? TS_INTERLACE_EO_PAGES : TS_ON) : TS_OFF));
+            if (vdpIsFlatInterlace(s, s->regs)) ui::KeyValue(ts(TS_KV_INTERLACE), "%s", ts(vdpIsBitmapMode(s->screenMode) ? TS_INTERLACE_FLAT : TS_INTERLACE_FLAT_RASTER));
+            else ui::KeyValue(ts(TS_KV_INTERLACE), "%s", ts((s->regs[9] & 0x08) ? ((s->regs[9] & 0x04) ? TS_INTERLACE_EO_PAGES : TS_ON) : TS_OFF));
             ui::KeyValueMono(ts(TS_KV_VSCROLL), "%d", s->regs[23]);
             int adj = s->regs[18];
             /* As SET ADJUST moves the picture, with R#18's nibble beside it. */

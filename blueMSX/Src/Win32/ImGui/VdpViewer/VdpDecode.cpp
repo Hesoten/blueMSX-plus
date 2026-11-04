@@ -164,6 +164,16 @@ int vdpBitmapPage(const VdpDebugState* s, const UInt8* r, int mode)
     return (r[2] >> 5) & (s->vramA17 ? bits * 2 + 1 : bits);
 }
 
+bool vdpIsFlatInterlace(const VdpDebugState* s, const UInt8* r)
+{
+    return s->version == VDP_V9968 && (r[20] & 0x20);
+}
+
+unsigned vdpShownPageBits(bool flat, int page)
+{
+    return flat && (page & 1) ? 3u << (page - 1) : 1u << page;
+}
+
 /* ---- tables ---------------------------------------------------------- */
 
 static int chrTabMask(const VdpDebugState* s, const UInt8* r)
@@ -327,6 +337,9 @@ bool vdpDisplayedBitmap(const VdpDebugState* s, const VdpLayout& l, VdpBitmapOpt
     o->color0  = VDP_COLOR0_AUTO;
     o->displayed = true;
     o->evenPair  = false;
+    /* At a frame tap S#2 has flipped for the next frame already; the log keeps the one shown.
+    ** Without a log S#2 is a guess. */
+    o->field     = s->raster[0].valid ? s->raster[0].field : (s->status[2] >> 1) & 1;
     return true;
 }
 
@@ -345,6 +358,10 @@ static int lineBase(const VdpDebugState* s, const UInt8* r, const VdpBitmapOptio
         ** steps over the odd bytes into the second 128K; linear, all of it up one. */
         if (paired && s->version == VDP_V9968) mask = ((mask & 0xffff) | ((mask & 0x10000) << 1)) & s->vramMask;
         else if (linear) mask = (mask << 1) & s->vramMask;
+        if (vdpIsFlatInterlace(s, r)) {
+            /* The row moves up one past the field bit; the page bit becomes row bit 7's gate. */
+            return (mask & ((-1 << (shift + 9)) | ((line & 0xff) << (shift + 1)))) | ((o.field & 1) << shift);
+        }
         if (o.evenPair) mask &= ~(1 << (shift + 8));
     }
     else {
