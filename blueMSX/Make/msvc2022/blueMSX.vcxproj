@@ -1155,6 +1155,7 @@
     <ClCompile Include="..\..\Src\Control\ControlStep.c" />
     <ClCompile Include="..\..\Src\Debugger\Debugger.c" />
     <ClCompile Include="..\..\Src\Debugger\DebugBreakpoints.c" />
+    <ClCompile Include="..\..\Src\Debugger\DebugTrace.c" />
     <ClCompile Include="..\..\Src\Debugger\RaceTest.c" />
     <ClCompile Include="..\..\Src\Utils\blowfish.c" />
     <ClCompile Include="..\..\Src\Utils\IniFileParser.c" />
@@ -1616,6 +1617,7 @@
     <ClInclude Include="..\..\Src\Control\ControlMachine.h" />
     <ClInclude Include="..\..\Src\Control\ControlStep.h" />
     <ClInclude Include="..\..\Src\Debugger\Debugger.h" />
+    <ClInclude Include="..\..\Src\Debugger\DebugTrace.h" />
     <ClInclude Include="..\..\Src\Debugger\RaceTest.h" />
     <ClInclude Include="..\..\Src\Utils\authkey.h" />
     <ClInclude Include="..\..\Src\Utils\blowfish.h" />
