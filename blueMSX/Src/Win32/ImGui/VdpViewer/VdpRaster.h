@@ -65,6 +65,9 @@ struct VdpRasterView {
     std::vector<VdpRasterMark> marks;
     std::vector<VdpBand>       bands;
     std::vector<short>         bandOfLine;   /* per display line */
+    std::vector<UInt8>         spritesOff;   /* per display line: 1 when the VDP shows no sprites on it:
+                                             ** blanked or in a mode without them, blanked or SPD set
+                                             ** (not MSX1) a line up; empty without a log */
 };
 
 /* lines is 192 or 212. Without a log, valid is false and one band holds

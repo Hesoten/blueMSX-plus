@@ -65,6 +65,7 @@ static unsigned       contentVer = 1;
 static unsigned       pictureVer = 1;   /* only VRAM, registers and palette */
 static unsigned       rasterVer = 1;    /* only the raster logs' heads */
 static bool           rasterOn;         /* this window armed the raster log */
+static int            splitOn = -1;     /* the family whose sprite split this window armed, or -1 */
 static bool           tablesOn;         /* this window armed the sprite tables */
 static float          heat[BLOCK_COUNT];
 
@@ -80,6 +81,8 @@ static const void* shotNow;          /* the shown snapshot's picture, or NULL */
 static unsigned    shotVer = 1;
 static UInt32      shotSeq;
 static int         frameWanted;      /* a view showed a picture this frame: 2, or 1 needing no samples */
+static int         splitWanted = -1; /* the family of a view that showed Output's sprites split off this frame */
+static int         viewFamily = -1;  /* the family of the view being drawn */
 static bool        tablesWanted;     /* a V99x8 view was drawn this frame */
 static bool        releaseWanted;    /* a view asked to let go of the selection */
 static ui::CanvasZoom viewerZoom;    /* kept when the window closes, as the views keep theirs */
@@ -94,9 +97,16 @@ int          hoverBlock()     { return hoverBlockNow; }
 void         requestView(const char* key) { snprintf(wantViewKey, sizeof(wantViewKey), "%s", key); }
 const void*  frameShot(unsigned* version) { *version = shotVer; return shotNow; }
 void         wantFrame(bool pixels) { if (frameWanted < (pixels ? 2 : 1)) frameWanted = pixels ? 2 : 1; }
+void         wantSpriteSplit() { splitWanted = viewFamily; }
 void         wantSpriteTables() { tablesWanted = true; }
 void         releaseSelection() { releaseWanted = true; }
 ui::CanvasZoom& zoom()        { return viewerZoom; }
+}
+
+/* Arms (on) or disarms the sprite split of a chip family; -1 is none. */
+static void armSplit(int family, int on)
+{
+    if (family == CHIP_V99X8) vdpSprSplitArm(on);
 }
 
 static bool cardOpen[CHIP_FAMILY_COUNT][16];   /* the folding cards opened */
@@ -541,7 +551,7 @@ static void viewArea(ChipView* v, int family, const void* st)
     ViewDesc views[8];
     ui::TabItem tabs[8];
     int n, sel = selectView(v, family, st, views, &n);
-    for (int i = 0; i < n; i++) tabs[i] = ui::TabItem{ views[i].glyph, views[i].label };
+    for (int i = 0; i < n; i++) tabs[i] = ui::TabItem{ views[i].glyph, views[i].label, views[i].art };
     if (ui::TabView("views", &sel, tabs, n)) {
         snprintf(viewKey[family], sizeof(viewKey[family]), "%s", views[sel].key);
     }
@@ -557,11 +567,18 @@ static void draw(ImGuiToolWindow*, void*)
     const ChipEntry* e = ok ? &snap->chip[snap->selected] : NULL;
     ChipView* v = ok ? viewOf(e->family) : NULL;
 
+    viewFamily = ok ? e->family : -1;
     if (ok) noteSnapshot(*e, chipFeedState(snap), info.seq);
     const void* st = ok && last ? last : NULL;
     /* Copied only while a view shows it; asked for again from what this frame shows. */
     InterlockedExchange(&feedRef.wantFrame, frameWanted);
     frameWanted = 0;
+    if (splitWanted != splitOn) {
+        armSplit(splitOn, 0);
+        armSplit(splitWanted, 1);
+        splitOn = splitWanted;
+    }
+    splitWanted = -1;
     /* Not running, no frame is drawn: kept armed, as arming again would drop the tables of the frame shown. */
     if (tablesOn && emulatorGetState() != EMU_RUNNING) tablesWanted = true;
     if (tablesWanted != tablesOn) {
@@ -593,7 +610,7 @@ static void draw(ImGuiToolWindow*, void*)
             focus.pinned = false;
             focus.kind = FOCUS_NONE;
         }
-        if (v) v->escape();
+        if (v) v->escape(key);
     }
 
     commandBar(snap, info, v, st);
@@ -678,6 +695,9 @@ static void closed(void* ref)
     feed = NULL;
     if (rasterOn) vdpRasterArm(0);
     rasterOn = false;
+    armSplit(splitOn, 0);
+    splitOn = -1;
+    splitWanted = -1;
     if (tablesOn) vdpSprTableArm(0);
     tablesOn = false;
     tablesWanted = false;

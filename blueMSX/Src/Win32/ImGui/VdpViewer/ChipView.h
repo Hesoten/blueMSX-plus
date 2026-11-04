@@ -25,10 +25,10 @@
 
 #include "MsxTypes.h"
 
-namespace ui { struct CanvasZoom; }
+namespace ui { struct CanvasZoom; struct PixelArt; }
 
-/* key e.g. "screen", "patterns", "vram". */
-struct ViewDesc { const char* key; const char* label; const char* glyph; };
+/* key e.g. "screen", "patterns", "vram"; art, if not NULL, is drawn in place of the glyph. */
+struct ViewDesc { const char* key; const char* label; const char* glyph; const ui::PixelArt* art = NULL; };
 /* No title: the card draws its own header. An expander folds to its title and
 ** summary, and is folded until opened. noHold: the card keeps its own height. */
 struct CardDesc { const char* key; const char* title; bool shown; bool expander; const char* summary; bool noHold = false; };
@@ -45,7 +45,8 @@ enum FocusKind {
     FOCUS_VRAM,    /* a block picked on the VRAM map */
     FOCUS_TILE,    /* a name table cell: a = x, b = scroll line (0-255, past R#23) */
     FOCUS_CHAR,    /* a character of the pattern sheet: a = sheet x, b = sheet y */
-    FOCUS_PIXEL    /* a bitmap pixel: a = x, b = scroll line on a V99x8 */
+    FOCUS_PIXEL,   /* a bitmap pixel: a = x, b = scroll line on a V99x8 */
+    FOCUS_SPRITE   /* a = sprite number, b = scroll line; addr its attributes */
 };
 
 /* What the user points at or pinned; addr/len in `space` mark VRAM. */
@@ -74,8 +75,9 @@ public:
     virtual UInt32 toPhysical(const void* st, int space, UInt32 a) const = 0;
     /* True while the chip knows how the frame's lines split into bands. */
     virtual bool   bandsKnown(const void* st) const { (void)st; return false; }
-    /* Esc or a click beside a picture: let go of what the view keeps picked besides the focus. */
-    virtual void   escape() {}
+    /* Esc (key true) or a click beside a picture (false): let go of what the view keeps
+    ** picked besides the focus; some of it only on the key. */
+    virtual void   escape(bool key) { (void)key; }
     /* The chip changed: drop pictures and anything kept per chip. */
     virtual void   forget() = 0;
 };
@@ -105,6 +107,8 @@ const void* frameShot(unsigned* version);
 /* Called each frame a picture is on show, so that the next ones are copied;
 ** pixels false when only what goes with the samples is read. */
 void        wantFrame(bool pixels = true);
+/* Called each frame Output shows its sprites split off. */
+void        wantSpriteSplit();
 /* Called each frame a V99x8 view is drawn, so the tables and palettes each line used are recorded. */
 void        wantSpriteTables();
 /* Lets go of the pin and of a picked band next frame, as Esc does. */

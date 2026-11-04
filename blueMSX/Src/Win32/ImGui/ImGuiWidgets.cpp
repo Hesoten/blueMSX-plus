@@ -791,6 +791,34 @@ bool IconButton(const char* id, const char* glyph, const char* fallback, const c
     return pressed;
 }
 
+/* A side-scrolling fighter facing right: two swept wings, canopy on top. */
+static const char* const shipRows[] = {
+    "..###...........",
+    "..#..#..........",
+    "..#...#.........",
+    "..#....####.....",
+    "########...###..",
+    "#.............##",
+    "##############..",
+    "..#....#........",
+    "..#...#.........",
+    "..#..#..........",
+    "..###...........",
+};
+/* The same ship for 150 %, where the 16-wide one gets no whole cell near the glyphs' size. */
+static const char* const shipSmallRows[] = {
+    ".##.........",
+    ".#.#........",
+    ".#..####....",
+    "#####...##..",
+    "#.........##",
+    "##########..",
+    ".#.##.......",
+    ".##.........",
+};
+static const PixelArt shipSmall = { 12, 8, shipSmallRows, NULL };
+const PixelArt UI_ART_SHIP = { 16, 11, shipRows, &shipSmall };
+
 /* A strip of film on end: perforated edges and frames one under the other. */
 static const char* const filmRows[] = {
     "############",

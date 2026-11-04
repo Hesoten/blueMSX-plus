@@ -235,6 +235,7 @@ void vdpRasterBuild(const VdpDebugState* s, int lines, VdpRasterView* v)
     v->marks.clear();
     v->bands.clear();
     v->bandOfLine.assign(lines > 0 ? lines : 0, 0);
+    v->spritesOff.clear();
     if (!v->valid) {
         memcpy(r0.start, s->regs, 64);
         r0.field = (s->status[2] >> 1) & 1;
@@ -275,13 +276,19 @@ void vdpRasterBuild(const VdpDebugState* s, int lines, VdpRasterView* v)
     Walker w0, w1;
     w0.init(&r0, f0.firstLine);
     if (v->prevUsed) w1.init(&r1, f1.firstLine);
+    v->spritesOff.assign(lines > 0 ? lines : 0, 0);
     for (int d = 0; d < lines; d++) {
         int L = f0.firstLine + d;
         bool below = belowBeam(L);
         bool fromPrev = below && v->prevUsed;
         Walker& w = fromPrev ? w1 : w0;
         int wl = (fromPrev ? f1.firstLine : f0.firstLine) + d;
+        /* Sprites of a line are built on the line above; a blank line, or one in a mode
+        ** without sprites, shows none. */
+        w.to(wl - 1);
+        bool off = !(w.r[1] & 0x40) || (!vdpIsMsx1(s) && (w.r[8] & 0x02));
         w.to(wl);
+        v->spritesOff[d] = off || !(w.r[1] & 0x40) || vdpSpriteMode(modeOf(w.r, -1)) == 0;
         VdpBand b = bandOf(s, fromPrev ? r1 : r0, w.r, d, fromPrev, w.split);
         b.unknown = below && !fromPrev;
         if (!v->bands.empty() && vdpRasterSameKey(v->bands.back(), b)) v->bands.back().last = d;

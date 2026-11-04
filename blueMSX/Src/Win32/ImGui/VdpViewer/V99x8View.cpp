@@ -22,6 +22,8 @@
 */
 #include <math.h>
 #include <stddef.h>
+#include <algorithm>
+#include <memory>
 #include <stdio.h>
 #include <string.h>
 #include "imgui.h"
@@ -32,6 +34,7 @@
 #include "ViewPicture.h"
 #include "RegTables.h"
 #include "VdpDecode.h"
+#include "VdpSprite.h"
 #include "VdpRaster.h"
 #include "VdpParts.h"
 #include "ToolText.h"
@@ -47,8 +50,7 @@ namespace {
 
 using namespace parts;
 
-
-enum { C_SELECTION, C_SPLITS, C_DISPLAY, C_TABLES, C_STATUS, C_COMMAND, C_PALETTE, C_REGISTERS, C_COUNT };
+enum { C_SELECTION, C_SPLITS, C_DISPLAY, C_TABLES, C_SPRITES, C_STATUS, C_COMMAND, C_PALETTE, C_REGISTERS, C_COUNT };
 
 /* The Bitmap view's "Read as" choices. */
 const int bitmapModes[] = { 5, 6, 7, 8, 10, 12 };
@@ -141,9 +143,15 @@ struct PageGrid {
 
 class V99x8View : public ChipView {
 public:
+    ~V99x8View()
+    {
+        delete sprPinKeep;
+        delete sprSelKeep;
+    }
+
     V99x8View()
     {
-        outCv.shared = sheetCv.shared = vramCv.shared = bitmapCv.shared = &shell::zoom();
+        outCv.shared = sheetCv.shared = vramCv.shared = bitmapCv.shared = sprCv.shared = &shell::zoom();
         sheetCv.frameless = vramCv.frameless = bitmapCv.frameless = outCv.frameless = true;
         regFadeReset(regFade);
         regFadeReset(statFade);
@@ -187,6 +195,7 @@ public:
         if (n < max && (fixed || vdpIsPatternMode(s->screenMode))) out[n++] = ViewDesc{ "patterns", ts(TS_VIEW_PATTERNS), UI_ICON_PATTERNS };
         /* An MSX1 VDP has no bitmap mode to read its VRAM as. */
         if (n < max && fixed) out[n++] = ViewDesc{ "bitmap", ts(TS_VIEW_BITMAP), UI_ICON_BITMAP };
+        if (n < max && (fixed || vdpSpriteMode(s->screenMode))) out[n++] = ViewDesc{ "sprites", ts(TS_VIEW_SPRITES), NULL, &ui::UI_ART_SHIP };
         if (n < max) out[n++] = ViewDesc{ "vram", "VRAM", UI_ICON_VRAM };
         return n;
     }
@@ -202,7 +211,7 @@ public:
         ensureRaster(s);
         bool byGroup = f.kind == FOCUS_CHAR && charPin.set && f.a == charPin.a && f.b == charPin.b && raster.valid;
         if (f.pinned && (byGroup ? vdpFindGroup(groups, charPin.key) < 0 :
-                         family != lastFamily && f.kind != FOCUS_VRAM && !bandFocus(f))) {
+                         family != lastFamily && f.kind != FOCUS_VRAM && f.kind != FOCUS_SPRITE && !bandFocus(f))) {
             f.pinned = false;
             f.kind = FOCUS_NONE;
         }
@@ -210,8 +219,20 @@ public:
         /* Also while the card is folded away. */
         notePin(f);
         if (!(f.pinned && f.kind != FOCUS_NONE) && selBand < 0) selLatch = 0;
+        ensureSprites(s);
+        if (f.kind == FOCUS_SPRITE && sprites.mode == 0) {
+            f.pinned = false;
+            f.kind = FOCUS_NONE;
+        }
         lastFamily = family;
         ensureLinePalettes(s);
+        /* A hover is found again in a rebuilt scene only while the Sprites tab draws it. */
+        if (v < 0 || v >= n || strcmp(d[v].key, "sprites") != 0) {
+            sprHotNext.n = -1;
+            sprPatHotNext.p = -1;
+        }
+        ensureScene(s);
+        sprKeepPin(f);
         noteBitmapMode(s);
         /* On every tab: the tables and palettes each line used; Output asks for the samples too. */
         shell::wantSpriteTables();
@@ -221,6 +242,7 @@ public:
         if (strcmp(d[v].key, "screen") == 0) drawOutput(s, f);
         else if (strcmp(d[v].key, "patterns") == 0) drawPatterns(s, f);
         else if (strcmp(d[v].key, "bitmap") == 0) drawBitmap(s, f);
+        else if (strcmp(d[v].key, "sprites") == 0) drawSprites(s, f);
         else drawVram(s, f);
         ui::EndTabCard();
     }
@@ -230,16 +252,17 @@ public:
         const VdpDebugState* s = (const VdpDebugState*)st;
         const CardDesc all[C_COUNT] = {
             { "sel", NULL, true }, { "splits", NULL, true }, { "disp", ts(TS_CARD_DISPLAY), true },
-            { "tables", ts(TS_CARD_TABLES), true }, { "status", ts(TS_CARD_STATUS), true },
+            { "tables", ts(TS_CARD_TABLES), true }, { "sprites", ts(TS_CARD_SPRITES), true }, { "status", ts(TS_CARD_STATUS), true },
             { "cmd", ts(TS_CARD_COMMAND), true }, { "pal", ts(TS_CARD_PALETTE), true }, { "regs", ts(TS_CARD_REGISTERS), true },
         };
         int n = 0;
         for (int i = 0; i < C_COUNT && n < max; i++) {
             out[n] = all[i];
             if (i == C_COMMAND) out[n].shown = s->cmdRegCount > 0;
+            if (i == C_SPRITES) out[n].shown = !vdpIsMsx1(s) || vdpSpriteMode(s->screenMode) != 0;
             /* The pinned thing and the bands stay open; the frame's facts fold. */
             out[n].expander = i != C_SELECTION && i != C_SPLITS;
-            out[n].summary = i == C_DISPLAY || i == C_TABLES ? cardSummary(s, i) : NULL;
+            out[n].summary = i == C_DISPLAY || i == C_TABLES || i == C_SPRITES ? cardSummary(s, i) : NULL;
             out[n].noHold = i == C_SELECTION;
             n++;
         }
@@ -249,7 +272,7 @@ public:
     /* One line for a folded card. */
     const char* cardSummary(const VdpDebugState* s, int c) const
     {
-        char* out = summaries[c == C_DISPLAY ? 0 : 1];
+        char* out = summaries[c == C_DISPLAY ? 0 : c == C_TABLES ? 1 : 2];
         size_t size = sizeof(summaries[0]);
         out[0] = 0;
         if (c == C_DISPLAY) {
@@ -266,6 +289,19 @@ public:
                 at += (size_t)textf(out + at, size - at, "%s%s %05X", at ? " \xC2\xB7 " : "", r[i].name, r[i].addr);
             }
         }
+        else {
+            const_cast<V99x8View*>(this)->ensureScene(s);
+            SprView v = shownTable();
+            const VdpSpriteFrame& fr = v.fr != NULL ? *v.fr : sprites;
+            int shownCount = 0;
+            for (int i = 0; i < fr.stopIndex && i < 32; i++) {
+                shownCount += v.fr != NULL ? v.agg[i].drawn > 0 : fr.spr[i].drawnLines > 0;
+            }
+            const char* off = sprOffWhy(fr);
+            if (fr.mode == 0) textf(out, size, "%s", ts(TS_SPR_CARD_NONE));
+            else if (off != NULL) textf(out, size, ts(TS_SUM_SPRITES_OFF), fr.mode, fr.size == 16 ? "16\xC3\x97" "16" : "8\xC3\x97" "8", off);
+            else textf(out, size, ts(TS_SUM_SPRITES), fr.mode, fr.size == 16 ? "16\xC3\x97" "16" : "8\xC3\x97" "8", shownCount);
+        }
         return out;
     }
 
@@ -273,11 +309,13 @@ public:
     {
         const VdpDebugState* s = (const VdpDebugState*)st;
         ensureLinePalettes(s);
+        ensureScene(s);
         switch (c) {
         case C_SELECTION: cardSelection(s, f); break;
         case C_DISPLAY:   cardDisplay(s); break;
         case C_SPLITS:    splitsBody(s); break;
         case C_TABLES:    cardTables(s); break;
+        case C_SPRITES:   cardSprites(s); break;
         case C_STATUS:    cardStatus(s); break;
         case C_COMMAND:   cardCommand(s); break;
         case C_PALETTE:   cardPalette(s); break;
@@ -407,9 +445,11 @@ public:
         return space == FOCUS_LOGICAL ? (UInt32)vdpPhysicalAddress(s, s->screenMode, (int)a) : a;
     }
 
-    void escape() override
+    void escape(bool key) override
     {
         selectBand(-1);
+        /* A click beside the picture fixes the line row's line; only the key lets go of it. */
+        if (key) sprLineFixed = sprLineHeld = -1;
     }
 
     bool bandsKnown(const void* st) const override
@@ -437,9 +477,33 @@ public:
         patGroupSet = false;
         charPin.set = false;
         lastFamily = -1;
+        spriteVer = ~0u;
         rasterVer = ~0u;
         rasterBuilt = false;
         linePalShot = linePalRaster = ~0u;
+        memset(sceneKey, 0xff, sizeof(sceneKey));
+        sprPinLine = -1;
+        sprSelReset();
+        lineRowReset();
+        sprRowSeq = 0;
+        sprPinKeepAttr = -1;
+        sprPinKeepVer = ~0u;
+        sprPlacePic.forget();
+        sprAtlasPic.forget();
+        sprLinePic.forget();
+        sprPlaceHash = sprAtlasHash = sprLineHash = 0;
+        sprFitN = 0;
+        sprPrevPat.clear();
+        sprPatPic.forget();
+        sprPatHash = 0;
+        sprPatRingLen = sprPatRingPos = 0;
+        sprPatRingSeq = ~0u;
+        sprPatDrawnLen = sprPatDrawnPos = 0;
+        sprPatHot.p = sprPatHotNext.p = -1;
+        sprRingLen = sprRingPos = 0;
+        sprRingSeq = ~0u;
+        memset(sprOverSum, 0, sizeof(sprOverSum));
+        sprNoTables = 0;
         selBand = -1;
         selWanted = false;
         selLatch = 0;
@@ -472,11 +536,22 @@ private:
     bool            bitmapSeen = false;   /* ...and whether one did */
     int             ovReadGroup = -1;     /* the group the Bitmap view reads, or -1: the frame's end */
     int             lastFamily = -1;      /* 1 bitmap, 0 pattern mode */
+    enum { SL_SHOWN, SL_HIDDEN, SL_ONLY };
+    bool            sprShown = true;      /* Output's sprites shown, or hidden */
+    bool            sprOnly = false;      /* Output's sprites alone */
     int             layout = 0;           /* 0 tiles, 1 a column */
     bool            vramTint = true;      /* the bytes tinted by the VRAM map's lanes */
+    bool            boxes = false;        /* sprite boxes on the Screen and the Sprites tab */
     RegFade         regFade, statFade;
     PageGrid        grid;
     VdpImage        column;               /* every page one under the other, for the tiles */
+    VdpSpriteFrame  sprites;              /* from the group Auto reads, or the frame's end without a log */
+    unsigned        spriteVer = ~0u;
+    int             spriteLines = 0;
+    const char*     spriteText = NULL;
+    int             spriteGroup = -1;
+    UInt8           spriteRegs[32];
+    int             spriteMode = -1;
     std::vector<VdpBandGroup> groups;     /* of the bands, rebuilt with them */
     VdpRasterView   raster;
     unsigned        rasterVer = ~0u;
@@ -487,7 +562,7 @@ private:
     struct PinSeen { int kind, a, b, grid; };
     PinSeen         pinSeen = { -1, 0, 0, 0 };  /* a band's pin, and the grid it was last read on */
     bool            selWanted = false;    /* selKey stays picked while no band matches it */
-    mutable char    summaries[2][256];    /* the folded Display and Tables cards' lines */
+    mutable char    summaries[3][256];    /* the folded Display, Tables and Sprites cards' lines */
     float           selLatch = 0;         /* the inspected card's height so far for... */
     float           selLatchKey[6] = {};  /* ...this pin (kind, a, b, address, space) or band, at this width */
     char            palHeldRuns[160] = "";  /* the Palette card's last note while running... */
@@ -518,6 +593,16 @@ private:
     const VdpFrameShot*  outShot = NULL;    /* for the overlay; NULL when none came */
     int                  outLine0 = 0;      /* image row of display line 0 */
     bool                 outDim = false;
+    int                  outLayer = SL_SHOWN;      /* what outPic was decoded with */
+    std::vector<uint8_t> outRowApprox;     /* per image row: the sprite split is not exact */
+    /* sprPinAttr is the attribute address of a sprite pinned where its table is known,
+    ** which keeps it in that table; sprPinLine the display line it was pinned on. */
+    bool                 sprPinned = false;
+    int                  sprPinAttr = -1;
+    int                  sprPinLine = -1;
+    int                  outHoverAttr = -1;  /* the sprite under the mouse last frame */
+    bool                 outBoxes = false;   /* boxes on, in a frame with sprites */
+    bool                 outCounts = false;  /* the per-line counts beside it: sprites shown, in such a frame */
 
     /* The palettes the display lines were drawn with, from the shot, when it is of the
     ** frame the bands are; ver changes only when they do. */
@@ -532,6 +617,139 @@ private:
     LinePalettes         linePal;
     unsigned             linePalShot = ~0u, linePalRaster = ~0u;
     int                  linePalLines = -1;
+
+    /* The sprites of each display line, one source for Output's boxes, the cards and
+    ** the Sprites tab: from the table the line used when recorded, else (FALLBACK) from
+    ** its band's registers and VRAM at the frame's end. Frames count with the VDP's limit. */
+    enum { SS_NONE = VDP_SPR_ROW_NONE, SS_EXACT = VDP_SPR_ROW_EXACT, SS_APPROX = VDP_SPR_ROW_APPROX, SS_FALLBACK, SS_LOST };
+    /* The lines one table lays out, known by its attributes, patterns, sprite mode and size. */
+    struct SprSlot {
+        int  attr, patBase, mode, sizeKey;
+        int  rep;                       /* the frame laying out most of its lines, the earliest on a tie */
+        int  lines, first;
+        int  runFirst[4], runLast[4], runs;
+        bool versions;                  /* more than one frame: its bytes changed within the frame */
+    };
+    /* A table as a slot knows it: by these four, not by its attribute address alone. */
+    struct SprKey { int attr, patBase, mode, sizeKey; };
+    /* A sprite on the lines of its slot, with the VDP's limit. */
+    struct SprAgg { int drawn, dropped, hidden, firstDropped, lastDropped; bool collides; };
+    struct SprScene {
+        bool recorded = false;
+        int  lines = 0, drawLimit = 0, lost = 0, approx = 0;   /* drawLimit: the emulator's, 0 the VDP's */
+        std::vector<VdpSpriteFrame> frames;
+        std::vector<int16_t> lineFrame;  /* per display line: into frames, or -1 */
+        std::vector<uint8_t> lineState;  /* per display line: SS_* */
+        std::vector<uint8_t> lineOff;    /* per display line: the VDP shows no sprite there (SPD, blanked) */
+        std::vector<SprSlot> slots;      /* by first line */
+        std::vector<int8_t>  lineSlot;
+        std::vector<SprAgg>  agg;        /* slots x 32 */
+        int  collX = -1, collLine = -1, firstDropLine = -1, firstDropped = -1, overLines = 0;
+        unsigned ver = 0;
+    };
+    SprScene             scene;
+    unsigned             sceneKey[7] = { ~0u };
+    /* The table the Sprites tab shows, picked or the first by line, held while a double buffer swaps
+    ** tables: its frame, sprites, row states (sprRowState) and lines as last laid out, and the
+    ** picture (emulated frame count) it was last used in. */
+    enum { SPR_AWAY_SHOWN = 10, SPR_SEEN_KEEP = 120, SPR_KEPT = -2 };
+    bool                 sprSelSet = false, sprSelKept = false;
+    SprKey               sprSel = {};
+    VdpSpriteFrame*      sprSelKeep = NULL;
+    SprSlot              sprSelSlot = {};    /* its runs, for labels; rep is not used */
+    SprAgg               sprSelAgg[32] = {};
+    int8_t               sprSelRow[32][16] = {};
+    std::vector<uint8_t> sprSelLines;
+    UInt32               sprSelSeenSeq = 0;
+    /* The scene's picture count. */
+    UInt32               sprSceneSeq = 0;
+    /* The tables displayed lines used up to the scene's picture, as recorded with it: those that
+    ** show sprites by key, with the picture each was last used in. */
+    struct SprUse { SprKey key; UInt32 seq; };
+    SprUse               sprUse[VDP_SPR_USES] = {};
+    int                  sprUseN = 0;
+    UInt32               sprUseSince = 0;
+    bool                 sprUseValid = false;
+    /* A table as last laid out: as the shown table's copy above, so any listed table can be shown. */
+    struct SprKeep { VdpSpriteFrame fr; SprAgg agg[32]; int8_t row[32][16]; std::vector<uint8_t> lines; };
+    /* The tables of the last pictures for the selector, by key: the picture each was last laid out in. */
+    struct SprSeen { SprKey key; UInt32 seq; SprSlot slot; std::unique_ptr<SprKeep> keep; };
+    std::vector<SprSeen> sprSeen;
+    /* The selector's buttons: tables of sprSeen, each kept in its place until it drops out. */
+    SprKey               sprRow[4] = {};
+    int                  sprRowN = 0;
+    /* The pinned table as last laid out, shown while it is away (a double buffer). */
+    VdpSpriteFrame*      sprPinKeep = NULL;
+    int                  sprPinKeepAttr = -1;
+    UInt32               sprPinSeenSeq = 0;  /* the picture it was last used in */
+    SprAgg               sprPinKeepAgg = {};
+    unsigned             sprPinKeepVer = ~0u;
+
+    /* The Sprites tab. */
+    bool                 sprDropped = true;  /* dropped sprites in red stipple */
+    /* The tab's parts: where each is, at what scale (screen px per sprite dot), in which tier. */
+    enum { SPT_PLACE, SPT_ATTRS, SPT_MAG, SPT_PATS, SPT_COUNT };
+    struct SprLayout {
+        float  scale[SPT_COUNT];
+        ImVec2 at[SPT_COUNT], size[SPT_COUNT];
+        float  width, height;
+        float  fitH;              /* down to the patterns' first row */
+        int    tier, patCols;
+    };
+    ui::CanvasState      sprCv;              /* the shared zoom; the tab lays out its own parts */
+    SprLayout            sprLastL = {};      /* last frame's layout and content origin, for Ctrl+wheel */
+    ImVec2               sprLastO = ImVec2(0, 0);
+    float                sprFitKey[7] = {};  /* what Fit's zoom sprFitN was found for */
+    int                  sprFitN = 0;
+    ViewPicture          sprPlacePic;
+    unsigned             sprPlaceHash = 0;
+    std::vector<uint8_t> sprDropMask;
+    /* ver: the scene's when hovered; frame SPR_KEPT: the shown table's kept one; sel: of the shown table. */
+    struct SprHot { int slot, n, d, frame; unsigned ver; bool sel; };
+    SprHot               sprHot = { -1, -1, -1, -1 }, sprHotNext = { -1, -1, -1, -1 };  /* drawn one frame late */
+    int                  sprSlotSel = -1;    /* the shown table's slot in this picture, or -1 while away */
+    /* The shown table: this picture's slot, else its kept frame; fr NULL until it is first laid out. */
+    struct SprView { int slot; const VdpSpriteFrame* fr; const SprAgg* agg; };
+    SprView              sprView = {};       /* this frame's */
+    /* The line row's line: this frame's placement hover, the line the mouse last rested on,
+    ** and the automatic pick, held for a second. */
+    enum { ROW_NONE, ROW_HOVER, ROW_FIXED, ROW_HELD, ROW_PIN_DROP, ROW_PIN, ROW_OVER, ROW_BUSIEST };
+    int                  sprLineFixed = -1;  /* a click on the placement fixes a line until Esc or a click on it */
+    int                  sprPlaceLine = -1, sprLineHeld = -1, sprLineAuto = -1, sprDwellLine = -1;
+    double               sprLineAutoAt = 0, sprDwellAt = 0, sprLineAutoGone = -1;
+    bool                 sprLineAutoOver = false;
+    int                  sprRowPin = -1;     /* the pinned sprite's attribute address last frame */
+    UInt32               sprRowSeq = 0;      /* the picture count last frame; it goes back on a new machine or a loaded state */
+    int                  sprNoTables = 0;    /* pictures in a row without tables */
+    unsigned             sprNoTablesVer = ~0u;
+    /* Over the limit per display line in the last pictures, a bit per line. */
+    static const int     SPR_RING = 60;
+    uint8_t              sprOverRing[SPR_RING][30] = {};
+    uint8_t              sprOverSum[240] = {};
+    int                  sprRingLen = 0, sprRingPos = 0, sprRingLines = 0;
+    UInt32               sprRingSeq = 0, sprRingSeqFirst = 0, sprRingChip = 0;
+    ViewPicture          sprAtlasPic, sprLinePic;  /* the 32 attributes, the hovered line's sprites */
+    unsigned             sprAtlasHash = 0, sprLineHash = 0;
+    /* Pattern numbers of the last picture of each table, by attribute address. */
+    struct SprPrevPat { int attr; int pat[32]; };
+    std::vector<SprPrevPat> sprPrevPat;
+    /* Patterns the selected table used in the last pictures, a bit per pattern. */
+    ViewPicture          sprPatPic;
+    unsigned             sprPatHash = 0;
+    uint32_t             sprPatRing[SPR_RING][8] = {};
+    int                  sprPatRingLen = 0, sprPatRingPos = 0, sprPatRingBase = -1;
+    UInt32               sprPatRingSeq = 0;
+    /* Per pattern, a bit per colour code of the sprites drawn with it, in the last SPR_AWAY_SHOWN pictures. */
+    uint16_t             sprPatDrawn[SPR_AWAY_SHOWN][256] = {};
+    int                  sprPatDrawnLen = 0, sprPatDrawnPos = 0;
+    /* A pattern by its table's pattern base, number, size and sprite mode: it holds through table swaps.
+    ** Hovered (drawn one frame late); a pinned one is the Focus's, its table's part kept here. */
+    struct SprPatKey { int base, p, size, mode; };
+    SprPatKey            sprPatHot = { -1, -1, 0, 0 }, sprPatHotNext = { -1, -1, 0, 0 };
+    SprPatKey            sprPatPin = { -1, -1, 0, 0 };
+    uint32_t             sprPatChanged = 0;  /* sprites of the selected table whose pattern changed */
+    unsigned             sprPatVer = ~0u;
+    int                  sprPatSlotAttr = -1;
 
     int color0() const
     {
@@ -563,35 +781,40 @@ private:
         return !vdpIsMsx1(s) && (r[9] & 0x80) ? 212 : 192;
     }
 
-    /* The group Auto reads for the Patterns view, -1 when no line is in a pattern mode; *count
-    ** such groups. Of two or more, it takes a pinned character's, else the band in context's;
-    ** then the group with the most lines. */
-    int autoGroup(int* count) const
+    static bool viewFits(bool spr, int mode)
+    {
+        return spr ? vdpSpriteMode(mode) != 0 : vdpIsPatternMode(mode);
+    }
+
+    /* The group Auto reads for the Patterns (spr false) or Sprites view, -1 when no line is in
+    ** such a mode; *count such groups. Of two or more, Patterns takes a pinned character's,
+    ** else the band in context's; then the group with the most lines. */
+    int autoGroup(bool spr, int* count) const
     {
         int best = -1, n = 0;
         for (int i = 0; i < (int)groups.size(); i++) {
-            if (!vdpIsPatternMode(groups[i].mode)) continue;
+            if (!viewFits(spr, groups[i].mode)) continue;
             n++;
             if (best < 0 || groups[i].lineCount > groups[best].lineCount) best = i;
         }
         *count = n;
-        if (n < 2) return best;
+        if (n < 2 || spr) return best;
         const Focus& f = shell::shownFocus();
         int k = f.pinned && f.kind == FOCUS_CHAR && charPin.set && f.a == charPin.a && f.b == charPin.b ? vdpFindGroup(groups, charPin.key) : -1;
         if (k < 0) k = groupOfBand(ctxBand());
-        return k >= 0 && vdpIsPatternMode(groups[k].mode) ? k : best;
+        return k >= 0 && viewFits(spr, groups[k].mode) ? k : best;
     }
 
-    /* The registers the Patterns view reads: the group Auto or the tab picks, the frame's end
-    ** without a log; *group the group, -1 when the frame's end has its only one (*read is the
-    ** group read even then). False when no line of the frame is in a pattern mode. */
-    bool viewLayout(const VdpDebugState* s, VdpLayout* l, int* group, int* read = NULL)
+    /* The registers the Patterns or Sprites view reads: the group Auto or the Patterns tab picks,
+    ** the frame's end without a log; *group the group, -1 when the frame's end has its only one
+    ** (*read is the group read even then). False when no line of the frame is in such a mode. */
+    bool viewLayout(const VdpDebugState* s, bool spr, VdpLayout* l, int* group, int* read = NULL)
     {
         ensureRaster(s);
         *group = -1;
         if (read) *read = -1;
         /* A group picked on the Patterns tab, while the frame still has it. */
-        int k = patGroupSet && raster.valid ? vdpFindGroup(groups, patKey) : -1;
+        int k = !spr && patGroupSet && raster.valid ? vdpFindGroup(groups, patKey) : -1;
         if (k >= 0 && vdpIsPatternMode(groups[k].mode)) {
             *group = k;
             if (read) *read = k;
@@ -599,14 +822,14 @@ private:
             return true;
         }
         if (groups.empty()) {
-            if (!vdpIsPatternMode(s->screenMode)) return false;
+            if (!viewFits(spr, s->screenMode)) return false;
             *l = frameEndLayout(s);
             return true;
         }
-        int n, g = autoGroup(&n);
+        int n, g = autoGroup(spr, &n);
         if (g < 0) return false;
         /* The frame's end may be the next frame's tables, but names a lone group as before. */
-        *group = n == 1 && vdpIsPatternMode(s->screenMode) ? -1 : g;
+        *group = n == 1 && viewFits(spr, s->screenMode) ? -1 : g;
         if (read) *read = g;
         *l = withPal(vdpLayoutOf(groups[g]), palOfGroup(groups[g]));
         return true;
@@ -617,6 +840,27 @@ private:
     {
         out[0] = 0;
         if (k >= 0 && k < (int)groups.size()) textf(out, size, ts(TS_STRIP_GROUP), groups[k].lines, shortModeName(groups[k].mode));
+        return out;
+    }
+
+    /* "0-111, 180-211" for the lines a slot lays out. */
+    static const char* slotLines(const SprSlot& sl, char* out, size_t size)
+    {
+        size_t at = 0;
+        out[0] = 0;
+        for (int r = 0; r < sl.runs && at < size; r++) {
+            const char* sep = r ? ", " : "";
+            if (sl.runFirst[r] == sl.runLast[r]) at += (size_t)snprintf(out + at, size - at, "%s%d", sep, sl.runFirst[r]);
+            else at += (size_t)snprintf(out + at, size - at, "%s%d-%d", sep, sl.runFirst[r], sl.runLast[r]);
+        }
+        return out;
+    }
+
+    /* "Lines 0-111, SCREEN 5" for a slot. */
+    static const char* slotLabel(const SprSlot& sl, int mode, char* out, size_t size)
+    {
+        char lines[64];
+        textf(out, size, ts(TS_STRIP_GROUP), slotLines(sl, lines, sizeof(lines)), shortModeName(mode));
         return out;
     }
 
@@ -632,6 +876,25 @@ private:
         f->space = FOCUS_PHYS;
         f->addr = (UInt32)vdpPhysicalAddress(s, mode, logical);
         f->len = interleaved(mode) && len > 1 ? len / 2 : len;
+    }
+
+    void ensureSprites(const VdpDebugState* s)
+    {
+        VdpLayout l;
+        int g;
+        if (!viewLayout(s, true, &l, &g)) l = vdpLayoutOf(s);
+        int lines = layoutLines(s, l.regs);
+        /* The frame keeps why sprites are off as text: evaluated again in another language. */
+        const char* text = ts(TS_SPR_OFF_BLANKED);
+        if (spriteVer == shell::pictureVersion() && spriteLines == lines && spriteText == text && spriteGroup == g &&
+            spriteMode == l.mode && memcmp(spriteRegs, l.regs, sizeof(spriteRegs)) == 0) return;
+        spriteVer = shell::pictureVersion();
+        spriteLines = lines;
+        spriteText = text;
+        spriteGroup = g;
+        spriteMode = l.mode;
+        memcpy(spriteRegs, l.regs, sizeof(spriteRegs));
+        vdpEvalSprites(s, l, lines, &sprites);
     }
 
     void ensureRaster(const VdpDebugState* s)
@@ -760,6 +1023,581 @@ private:
     static unsigned palHash(const UInt32* rgb)
     {
         return rgb != NULL ? fnvWords(rgb, 16) : 0u;
+    }
+
+    /* The colours sprite n's pattern row r is drawn with: of the display line it is on,
+    ** else of the sprite's first displayed line; NULL: the snapshot's. */
+    const UInt32* spriteRowRgb(const VdpSpriteFrame& fr, int n, int r) const
+    {
+        if (!linePal.valid || fr.mode == 0 || fr.screenMode == 8) return NULL;
+        const VdpSprite& sp = fr.spr[n];
+        int d = vdpSpriteDisplayLine(fr, (sp.y + 1 + r * fr.mag) & 0xff);
+        for (int i = 0; d < 0 && i < fr.size * fr.mag; i++) d = vdpSpriteDisplayLine(fr, (sp.y + 1 + i) & 0xff);
+        return lineRgb(d);
+    }
+
+    /* ---- The sprite scene ---- */
+
+    void ensureScene(const VdpDebugState* s)
+    {
+        unsigned ver;
+        const VdpFrameShot* o = (const VdpFrameShot*)shell::frameShot(&ver);
+        if (o != NULL && !o->valid) o = NULL;
+        ensureRaster(s);
+        ensureSprites(s);
+        if (o != NULL) {
+            if (o->seq < sprRowSeq) {
+                lineRowReset();
+                sprSelReset();
+                sprPinKeepAttr = -1;
+            }
+            sprRowSeq = o->seq;
+        }
+        unsigned key[7] = { ver, shell::pictureVersion(), shell::rasterVersion(), (unsigned)(uintptr_t)ts(TS_SPR_OFF_BLANKED),
+                            o != NULL ? 1u + (unsigned)o->sprTabCount + (o->stale ? 0x100u : 0u) : 0u,
+                            (unsigned)vdpGetNoSpritesLimit() | ((unsigned)vdpGetSpritesEnable() << 1), (unsigned)raster.lines };
+        if (memcmp(key, sceneKey, sizeof(key)) == 0) return;
+        memcpy(sceneKey, key, sizeof(key));
+        if (o != NULL) sprSceneSeq = o->seq;
+        sprUseValid = o != NULL && o->sprUseCount > 0;
+        sprUseSince = sprUseValid ? o->sprUseSince : 0;
+        sprUseN = 0;
+        for (int i = 0; sprUseValid && i < o->sprUseCount && i < VDP_SPR_USES; i++) {
+            SprUse& u = sprUse[sprUseN];
+            if (!vdpSpriteUseKey(s, o->sprUse[i], &u.key.attr, &u.key.patBase, &u.key.mode, &u.key.sizeKey)) continue;
+            u.seq = o->sprUse[i].seq;
+            sprUseN++;
+        }
+        int hotAttr = sprHotAttr();
+        SprScene& sc = scene;
+        int lines = raster.lines;
+        sc.ver++;
+        if (lines != sc.lines) lineRowReset();
+        /* A stale shot holds the last drawn frame's tables while VRAM moves on. */
+        sc.recorded = o != NULL && o->sprTabCount > 0 && !o->stale;
+        sc.lines = lines;
+        sc.drawLimit = vdpGetNoSpritesLimit() ? 32 : 0;
+        sc.lost = sc.recorded ? o->sprTabLost : 0;
+        sc.frames.clear();
+        sc.lineFrame.assign(lines, -1);
+        sc.lineState.assign(lines, SS_FALLBACK);
+        if (sc.recorded) {
+            sc.frames.resize(o->sprTabCount);
+            for (int i = 0; i < o->sprTabCount; i++) vdpEvalSpritesFrom(s, o->sprTab[i], &sc.frames[i]);
+            int y0 = outFirstLine(s, o) - o->displayOffset, first = -1, last = -1;
+            for (int d = 0; d < lines; d++) {
+                int y = d + y0;
+                if (y < 0 || y >= o->rows || o->sprTabRow[y] >= o->sprTabCount) continue;
+                sc.lineFrame[d] = o->sprTabRow[y];
+                sc.lineState[d] = o->sprTabState[y];
+                if (first < 0) first = d;
+                last = d;
+            }
+            /* Arming came within the frame: the lines before or after it are not missing, only unknown. */
+            for (int d = first; d >= 0 && d < lines; d++) {
+                if (sc.lineFrame[d] < 0 && (d < last || sc.lost > 0)) sc.lineState[d] = sc.lost > 0 ? SS_LOST : SS_NONE;
+            }
+        }
+        sceneFallback(s);
+        sc.approx = 0;
+        sc.lineOff.assign(lines, 0);
+        for (int d = 0; d < lines; d++) {
+            const VdpSpriteFrame* fr = sc.lineFrame[d] >= 0 ? &sc.frames[sc.lineFrame[d]] : NULL;
+            sc.lineOff[d] = fr != NULL && (fr->off != NULL || fr->mode == 0 ||
+                                           (sc.lineState[d] == SS_FALLBACK && d < (int)raster.spritesOff.size() && raster.spritesOff[d]));
+            /* Lines that show no sprites do not count, but the first after sprites stopped may still have drawn them. */
+            bool prevShows = d > 0 && sc.lineFrame[d - 1] >= 0 && !sc.lineOff[d - 1] && sc.lineState[d - 1] != SS_NONE && sc.lineState[d - 1] != SS_LOST;
+            sc.approx += sc.lineState[d] == SS_APPROX && (!sc.lineOff[d] || prevShows);
+        }
+        sceneSlots(s);
+        sprKeepSel();
+        sprHotFind(hotAttr);
+    }
+
+    /* Frames for the lines no table was recorded for: the band's registers, VRAM at the frame's end. */
+    void sceneFallback(const VdpDebugState* s)
+    {
+        SprScene& sc = scene;
+        std::vector<int> keys;
+        for (int d = 0; d < sc.lines; d++) {
+            if (sc.lineState[d] != SS_FALLBACK) continue;
+            if (!raster.valid) {
+                if (sprites.mode == 0) continue;
+                if (keys.empty()) {
+                    sc.frames.push_back(sprites);
+                    keys.push_back(-1);
+                }
+                sc.lineFrame[d] = (int16_t)(sc.frames.size() - 1);
+                continue;
+            }
+            int kb = spriteBandOf(d), key[8];
+            const VdpBand& b = raster.bands[kb >= 0 ? kb : 0];
+            if (b.mode < 0 || vdpSpriteMode(b.mode) == 0) continue;
+            spriteKey(b, key);
+            size_t i = 0;
+            while (i < keys.size() / 8 && memcmp(&keys[i * 8], key, sizeof(key)) != 0) i++;
+            if (i == keys.size() / 8) {
+                VdpLayout l = { b.regs, b.mode, b.blink };
+                sc.frames.emplace_back();
+                vdpEvalSprites(s, l, sc.lines, &sc.frames.back());
+                keys.insert(keys.end(), key, key + 8);
+                sc.lineFrame[d] = (int16_t)(sc.frames.size() - 1);
+                continue;
+            }
+            /* The fallback frames follow the recorded ones in frames. */
+            sc.lineFrame[d] = (int16_t)(sc.frames.size() - keys.size() / 8 + i);
+        }
+    }
+
+    /* Slots, and each sprite's lines, drops and collisions on its slot's lines. */
+    void sceneSlots(const VdpDebugState* s)
+    {
+        SprScene& sc = scene;
+        sc.slots.clear();
+        sc.lineSlot.assign(sc.lines, -1);
+        sc.collX = sc.collLine = sc.firstDropLine = sc.firstDropped = -1;
+        sc.overLines = 0;
+        std::vector<int> perFrame;
+        for (int d = 0; d < sc.lines; d++) {
+            int fi = sc.lineFrame[d];
+            if (fi < 0 || sc.lineOff[d] || sc.lineState[d] == SS_NONE || sc.lineState[d] == SS_LOST) continue;
+            const VdpSpriteFrame& fr = sc.frames[fi];
+            SprSlot id = {};
+            id.attr = fr.spr[0].attrAddr;
+            id.patBase = vdpSpritePatternAddr(s, fr, 0);
+            id.mode = fr.mode;
+            id.sizeKey = fr.size * 2 + fr.mag;
+            size_t k = 0;
+            while (k < sc.slots.size() && !(sc.slots[k].attr == id.attr && sc.slots[k].patBase == id.patBase &&
+                                            sc.slots[k].mode == id.mode && sc.slots[k].sizeKey == id.sizeKey)) k++;
+            if (k == sc.slots.size() && k < 64) {
+                id.first = d;
+                id.rep = fi;
+                sc.slots.push_back(id);
+            }
+            if (k == sc.slots.size()) continue;
+            SprSlot& sl = sc.slots[k];
+            sc.lineSlot[d] = (int8_t)k;
+            sl.lines++;
+            if (sl.runs > 0 && sl.runLast[sl.runs - 1] == d - 1) sl.runLast[sl.runs - 1] = d;
+            else if (sl.runs < 4) { sl.runFirst[sl.runs] = sl.runLast[sl.runs] = d; sl.runs++; }
+            else sl.runLast[3] = d;
+            if (fi != sl.rep) sl.versions = true;
+        }
+        /* The representative: the frame laying out most of the slot's lines. */
+        perFrame.assign(sc.frames.size() * (sc.slots.size() + 1), 0);
+        for (int d = 0; d < sc.lines; d++) {
+            if (sc.lineSlot[d] >= 0) perFrame[(size_t)sc.lineSlot[d] * sc.frames.size() + sc.lineFrame[d]]++;
+        }
+        for (size_t k = 0; k < sc.slots.size(); k++) {
+            int best = sc.slots[k].rep;
+            for (size_t i = 0; i < sc.frames.size(); i++) {
+                if (perFrame[k * sc.frames.size() + i] > perFrame[k * sc.frames.size() + best]) best = (int)i;
+            }
+            sc.slots[k].rep = best;
+        }
+        sc.agg.assign(sc.slots.size() * 32, SprAgg{ 0, 0, 0, -1, -1, false });
+        for (int d = 0; d < sc.lines; d++) {
+            int k = sc.lineSlot[d];
+            if (k < 0) continue;
+            const VdpSpriteFrame& fr = sc.frames[sc.lineFrame[d]];
+            int L = (d + fr.vscroll) & 0xff;
+            const VdpSpriteLine& ln = fr.line[L];
+            for (int j = 0; j < ln.count; j++) {
+                SprAgg& a = sc.agg[(size_t)k * 32 + ln.id[j]];
+                int st = vdpSpriteState(fr, L, j);
+                if (st == VDP_SPRITE_DRAWN) a.drawn++;
+                else if (st == VDP_SPRITE_CC_HIDDEN) a.hidden++;
+                else {
+                    a.dropped++;
+                    if (a.firstDropped < 0) a.firstDropped = d;
+                    a.lastDropped = d;
+                }
+            }
+            if (ln.count > fr.limit) {
+                sc.overLines++;
+                if (sc.firstDropLine < 0) {
+                    sc.firstDropLine = d;
+                    sc.firstDropped = ln.id[fr.limit];
+                }
+            }
+            int x;
+            uint32_t colliders;
+            if (!vdpSpriteLineCollision(s, fr, d, &x, &colliders)) continue;
+            if (sc.collLine < 0) {
+                sc.collLine = d;
+                sc.collX = x;
+            }
+            for (int n = 0; n < 32; n++) {
+                if ((colliders >> n) & 1) sc.agg[(size_t)k * 32 + n].collides = true;
+            }
+        }
+    }
+
+    /* The frame of display line d, or NULL. */
+    const VdpSpriteFrame* sceneFrame(int d) const
+    {
+        if (d < 0 || d >= (int)scene.lineFrame.size() || scene.lineFrame[d] < 0) return NULL;
+        return &scene.frames[scene.lineFrame[d]];
+    }
+
+    /* The hovered sprite's table, while its slot and frame index still hold, or -1. */
+    int sprHotAttr() const
+    {
+        const SprHot& h = sprHotNext;
+        if (h.ver != scene.ver || h.n < 0) return -1;
+        if (h.frame == SPR_KEPT) return sprSel.attr;
+        if (h.frame < 0 || h.frame >= (int)scene.frames.size()) return -1;
+        return scene.frames[h.frame].spr[0].attrAddr;
+    }
+
+    /* The hover of the scene before in this one, as the picture changes while the mouse rests: the
+    ** same sprite of its table, on its line where that table lays it out, the shown table's kept frame
+    ** while it is away; none when the table is gone. */
+    void sprHotFind(int attr)
+    {
+        SprHot& h = sprHotNext;
+        if (attr < 0) return;
+        int sel = sprSelSet ? slotOfKey(sprSel) : -1;
+        h.ver = scene.ver;
+        h.slot = h.sel ? (sprSelSet && sprSel.attr == attr ? sel : -1) : slotOfAttr(attr, h.d);
+        if (h.slot >= 0) {
+            bool onLine = h.d >= 0 && h.d < (int)scene.lineSlot.size() && scene.lineSlot[h.d] == h.slot;
+            h.frame = onLine ? scene.lineFrame[h.d] : scene.slots[h.slot].rep;
+            h.sel = h.slot == sel;
+        }
+        else if (h.sel && sprSelKept && sprSel.attr == attr) h.frame = SPR_KEPT;
+        else {
+            h.n = h.frame = -1;
+            h.sel = false;
+        }
+    }
+
+    /* The slot whose table holds attribute address attr, laying out line d if it can, or -1. */
+    int slotOfAttr(int attr, int d) const
+    {
+        if (attr < 0) return -1;
+        if (d >= 0 && d < (int)scene.lineSlot.size() && scene.lineSlot[d] >= 0 && scene.slots[scene.lineSlot[d]].attr == (attr & ~0x7f)) {
+            return scene.lineSlot[d];
+        }
+        for (size_t k = 0; k < scene.slots.size(); k++) {
+            if (scene.slots[k].attr == (attr & ~0x7f)) return (int)k;
+        }
+        return -1;
+    }
+
+    static SprKey slotKey(const SprSlot& sl) { return SprKey{ sl.attr, sl.patBase, sl.mode, sl.sizeKey }; }
+    static bool sameKey(const SprKey& a, const SprKey& b)
+    {
+        return a.attr == b.attr && a.patBase == b.patBase && a.mode == b.mode && a.sizeKey == b.sizeKey;
+    }
+    static bool keyBefore(const SprKey& a, const SprKey& b)
+    {
+        if (a.attr != b.attr) return a.attr < b.attr;
+        if (a.patBase != b.patBase) return a.patBase < b.patBase;
+        return a.mode != b.mode ? a.mode < b.mode : a.sizeKey < b.sizeKey;
+    }
+    /* The key of the table frame fr lays out, as sceneSlots makes it. */
+    static SprKey frameKey(const VdpDebugState* s, const VdpSpriteFrame& fr)
+    {
+        return SprKey{ fr.spr[0].attrAddr, vdpSpritePatternAddr(s, fr, 0), fr.mode, fr.size * 2 + fr.mag };
+    }
+
+    /* The slot of table k in this picture, or -1. */
+    int slotOfKey(const SprKey& k) const
+    {
+        for (size_t i = 0; i < scene.slots.size(); i++) {
+            if (sameKey(slotKey(scene.slots[i]), k)) return (int)i;
+        }
+        return -1;
+    }
+
+    /* The first slot by line at k's address in k's mode, or -1. */
+    int slotAtAddr(const SprKey& k) const
+    {
+        for (size_t i = 0; i < scene.slots.size(); i++) {
+            if (scene.slots[i].attr == k.attr && scene.slots[i].mode == k.mode) return (int)i;
+        }
+        return -1;
+    }
+
+    int sprSeenOf(const SprKey& k) const
+    {
+        for (size_t i = 0; i < sprSeen.size(); i++) {
+            if (sameKey(sprSeen[i].key, k)) return (int)i;
+        }
+        return -1;
+    }
+
+    /* seq raised to the last picture the record has table key (key NULL: any table at attribute
+    ** address attr) used in; never past the scene's, as a frame in progress is stamped ahead. */
+    UInt32 sprRaiseSeq(const SprKey* key, int attr, UInt32 seq) const
+    {
+        for (int i = 0; i < sprUseN; i++) {
+            if (key != NULL ? !sameKey(sprUse[i].key, *key) : sprUse[i].key.attr != attr) continue;
+            UInt32 used = (Int32)(sprUse[i].seq - sprSceneSeq) > 0 ? sprSceneSeq : sprUse[i].seq;
+            if ((Int32)(used - seq) > 0) seq = used;
+        }
+        return seq;
+    }
+
+    /* Pictures since table i of sprSeen was last used; when a record holds no use of it and it
+    ** is not in this picture, at least those since the record began. */
+    UInt32 sprSeenAge(int i) const
+    {
+        UInt32 age = sprSceneSeq - sprSeen[i].seq;
+        if (!sprUseValid || age == 0) return age;
+        for (int k = 0; k < sprUseN; k++) {
+            if (sameKey(sprUse[k].key, sprSeen[i].key)) return age;
+        }
+        Int32 before = (Int32)(sprSceneSeq - sprUseSince);
+        return before >= 0 && (UInt32)before + 1 > age ? (UInt32)before + 1 : age;
+    }
+
+    /* The shown table's slot in this picture, or -1 while it is away or none is chosen. */
+    int selectedSlot(const Focus&) const
+    {
+        return sprSelSet ? slotOfKey(sprSel) : -1;
+    }
+
+    SprView shownTable() const
+    {
+        SprView v = { -1, NULL, NULL };
+        if (!sprSelSet) return v;
+        v.slot = slotOfKey(sprSel);
+        if (v.slot >= 0) {
+            v.fr = &scene.frames[scene.slots[v.slot].rep];
+            v.agg = &scene.agg[(size_t)v.slot * 32];
+        }
+        else {
+            v.fr = sprSelKept ? sprSelKeep : NULL;
+            v.agg = sprSelKept ? sprSelAgg : NULL;
+        }
+        return v;
+    }
+
+    /* Why the VDP shows no sprites in this picture, or NULL when a line shows some; fr's reason
+    ** without a scene. The Sprites card, its summary and the tab's head all say this. */
+    const char* sprOffWhy(const VdpSpriteFrame& fr) const
+    {
+        if (!scene.slots.empty()) return NULL;
+        for (const VdpSpriteFrame& sf : scene.frames) {
+            if (sf.off != NULL) return sf.off;
+        }
+        return !scene.frames.empty() ? ts(TS_SPR_OFF_BLANKED) : fr.off;
+    }
+
+    /* Whether the shown table lays out display line d, in this picture or when kept. */
+    bool shownLays(int d) const
+    {
+        if (d < 0) return false;
+        if (sprSlotSel >= 0) return d < (int)scene.lineSlot.size() && scene.lineSlot[d] == sprSlotSel;
+        return sprSelKept && d < (int)sprSelLines.size() && sprSelLines[d];
+    }
+
+    /* What line d does to pattern row r of sprite n of fr, slot fr's: VdpSpriteState, -1 out of
+    ** range, -3 off screen, -4 another table's line; from the kept states for the kept frame. */
+    int sprRowState(const VdpSpriteFrame& fr, int slot, int n, int r) const
+    {
+        if (slot < 0 && &fr == sprSelKeep && sprSelKept) return sprSelRow[n][r];
+        int d = sprRowLine(fr, n, r);
+        if (d < 0) return -3;
+        if (slot < 0 || d >= (int)scene.lineSlot.size() || scene.lineSlot[d] != slot) return -4;
+        return sprStateOn(d, n);
+    }
+
+    /* Slot k as last laid out. */
+    void sprKeepSlot(int k, SprKeep& kp) const
+    {
+        const VdpSpriteFrame& fr = scene.frames[scene.slots[k].rep];
+        for (int n = 0; n < 32; n++) {
+            for (int r = 0; r < 16; r++) kp.row[n][r] = (int8_t)(r < fr.size ? sprRowState(fr, k, n, r) : -3);
+        }
+        kp.fr = fr;
+        memcpy(kp.agg, &scene.agg[(size_t)k * 32], sizeof(kp.agg));
+        kp.lines.assign(scene.lines, 0);
+        for (int d = 0; d < scene.lines; d++) kp.lines[d] = scene.lineSlot[d] == k;
+    }
+
+    /* A table's last layout as the shown table's kept frame, sprites, row states and lines. */
+    void sprUseKeep(const SprKeep& kp, const SprSlot& sl)
+    {
+        if (sprSelKeep == NULL) sprSelKeep = new VdpSpriteFrame;
+        *sprSelKeep = kp.fr;
+        sprSelSlot = sl;
+        memcpy(sprSelAgg, kp.agg, sizeof(sprSelAgg));
+        memcpy(sprSelRow, kp.row, sizeof(sprSelRow));
+        sprSelLines = kp.lines;
+        sprSelKept = true;
+    }
+
+    /* Shows and holds table key from now on, counted as seen now; the line row starts afresh. */
+    void sprChoose(const SprKey& key)
+    {
+        sprSelSeenSeq = sprSceneSeq;
+        if (sprSelSet && sameKey(key, sprSel)) return;
+        int k = slotOfKey(key);
+        sprSel = key;
+        sprSelSet = true;
+        sprSelKept = false;
+        int i = sprSeenOf(sprSel);
+        if (i >= 0 && sprSeen[i].keep) {
+            sprUseKeep(*sprSeen[i].keep, sprSeen[i].slot);
+        }
+        else if (k >= 0) {
+            std::unique_ptr<SprKeep> kp(new SprKeep);
+            sprKeepSlot(k, *kp);
+            sprUseKeep(*kp, scene.slots[k]);
+        }
+        lineRowReset();
+        sprRowHoldSel();
+    }
+
+    /* Puts the shown table in the selector's row, in place of the one unseen longest. */
+    void sprRowHoldSel()
+    {
+        if (!sprSelSet || sprSeenOf(sprSel) < 0) return;
+        for (int r = 0; r < sprRowN; r++) {
+            if (sameKey(sprRow[r], sprSel)) return;
+        }
+        if (sprRowN < 4) {
+            sprRow[sprRowN++] = sprSel;
+            return;
+        }
+        int old = 0;
+        UInt32 oldAge = 0;
+        for (int r = 0; r < sprRowN; r++) {
+            int i = sprSeenOf(sprRow[r]);
+            UInt32 age = i >= 0 ? sprSeenAge(i) : ~0u;
+            if (r == 0 || age > oldAge) { old = r; oldAge = age; }
+        }
+        sprRow[old] = sprSel;
+    }
+
+    /* The selector's row: tables that dropped out leave, empty places take the latest seen, and
+    ** the shown table is in it; nothing else moves. */
+    void sprRowUpdate()
+    {
+        int n = 0;
+        for (int r = 0; r < sprRowN; r++) {
+            if (sprSeenOf(sprRow[r]) >= 0) sprRow[n++] = sprRow[r];
+        }
+        sprRowN = n;
+        std::vector<int> latest;
+        for (size_t i = 0; i < sprSeen.size(); i++) {
+            bool in = false;
+            for (int r = 0; r < sprRowN && !in; r++) in = sameKey(sprRow[r], sprSeen[i].key);
+            if (!in) latest.push_back((int)i);
+        }
+        std::stable_sort(latest.begin(), latest.end(), [this](int a, int b) { return sprSeenAge(a) < sprSeenAge(b); });
+        for (size_t i = 0; i < latest.size() && sprRowN < 4; i++) sprRow[sprRowN++] = sprSeen[latest[i]].key;
+        sprRowHoldSel();
+    }
+
+    /* The tables of this picture, each kept as laid out, and the shown table held: while it is
+    ** away its last layout is shown, until it has been unused SPR_AWAY_SHOWN frames (by the record
+    ** when there is one, which sees between pictures); then, as when none is held, the first by line. */
+    void sprKeepSel()
+    {
+        for (size_t k = 0; k < scene.slots.size(); k++) {
+            const SprSlot& sl = scene.slots[k];
+            int i = sprSeenOf(slotKey(sl));
+            if (i < 0) {
+                i = (int)sprSeen.size();
+                sprSeen.emplace_back();
+                sprSeen[i].key = slotKey(sl);
+                sprSeen[i].keep.reset(new SprKeep);
+            }
+            sprSeen[i].seq = sprSceneSeq;
+            sprSeen[i].slot = sl;
+            sprKeepSlot((int)k, *sprSeen[i].keep);
+        }
+        for (SprSeen& e : sprSeen) e.seq = sprRaiseSeq(&e.key, 0, e.seq);
+        if (sprSelSet) sprSelSeenSeq = sprRaiseSeq(&sprSel, 0, sprSelSeenSeq);
+        int k = sprSelSet ? slotOfKey(sprSel) : -1;
+        /* Gone a while, its address laid out in its mode: the game changed only R#6 or R#1, so the
+        ** table there is followed. */
+        if (k < 0 && sprSelSet && sprSceneSeq - sprSelSeenSeq >= (UInt32)SPR_AWAY_SHOWN) k = slotAtAddr(sprSel);
+        if (k >= 0) {
+            sprSel = slotKey(scene.slots[k]);
+            int i = sprSeenOf(sprSel);
+            sprUseKeep(*sprSeen[i].keep, sprSeen[i].slot);
+            sprSelSeenSeq = sprSceneSeq;
+        }
+        else if (sprSelSet && sprSceneSeq - sprSelSeenSeq > (UInt32)SPR_AWAY_SHOWN) {
+            sprSelSet = sprSelKept = false;
+            lineRowReset();
+        }
+        if (!sprSelSet && !scene.slots.empty()) sprChoose(slotKey(scene.slots[0]));
+        /* Tables unseen a while drop out, the oldest first past 64; never the chosen one. */
+        for (;;) {
+            int old = -1;
+            for (size_t i = 0; i < sprSeen.size(); i++) {
+                bool chosen = sprSelSet && sameKey(sprSeen[i].key, sprSel);
+                UInt32 age = sprSeenAge((int)i);
+                if (!chosen && (age > (UInt32)SPR_SEEN_KEEP || sprSeen.size() > 64) && (old < 0 || age > sprSeenAge(old))) old = (int)i;
+            }
+            if (old < 0) break;
+            sprSeen.erase(sprSeen.begin() + old);
+        }
+        std::sort(sprSeen.begin(), sprSeen.end(), [](const SprSeen& a, const SprSeen& b) { return keyBefore(a.key, b.key); });
+        sprRowUpdate();
+    }
+
+    /* No table chosen or seen: a new machine, chip or loaded state. */
+    void sprSelReset()
+    {
+        sprSelSet = sprSelKept = false;
+        sprSeen.clear();
+        sprRowN = 0;
+    }
+
+    /* The frame a pinned sprite is read from: the one laying it out on its line, else on
+    ** any line of its slot, else the slot's representative; NULL without a scene. */
+    const VdpSpriteFrame* pinFrame(const Focus& f, int* slot) const
+    {
+        *slot = slotOfAttr(pinnedSpriteAttr(f), sprPinLine);
+        /* Away for a few pictures (a double buffer): as last laid out, not another table's sprite. */
+        if (*slot < 0 && sprPinKeep != NULL && sprPinKeepAttr >= 0 && sprPinKeepAttr == pinnedSpriteAttr(f)) return sprPinKeep;
+        if (*slot < 0) *slot = selectedSlot(f);
+        if (*slot < 0) return NULL;
+        if (sprPinLine >= 0 && sprPinLine < (int)scene.lineSlot.size() && scene.lineSlot[sprPinLine] == *slot) return sceneFrame(sprPinLine);
+        return &scene.frames[scene.slots[*slot].rep];
+    }
+
+    /* Keeps the pinned table's frame while a line lays it out and the picture a table at its
+    ** address was last used in, by the record when there is one; forgets both on unpinning. */
+    void sprKeepPin(const Focus& f)
+    {
+        int attr = pinnedSpriteAttr(f);
+        if (attr < 0) {
+            sprPinKeepAttr = -1;
+            sprPinKeepVer = ~0u;
+            return;
+        }
+        if (sprPinKeepVer == scene.ver) return;
+        sprPinKeepVer = scene.ver;
+        int slot = slotOfAttr(attr, sprPinLine);
+        if (slot >= 0) {
+            if (sprPinKeep == NULL) sprPinKeep = new VdpSpriteFrame;
+            int d = sprPinLine >= 0 && sprPinLine < (int)scene.lineSlot.size() && scene.lineSlot[sprPinLine] == slot ? sprPinLine : scene.slots[slot].first;
+            *sprPinKeep = *sceneFrame(d);
+            sprPinKeepAttr = attr;
+            sprPinKeepAgg = scene.agg[(size_t)slot * 32 + ((attr & 0x7f) >> 2)];
+            sprPinSeenSeq = sprSceneSeq;
+        }
+        else if (sprPinKeepAttr == attr) {
+            sprPinSeenSeq = sprRaiseSeq(NULL, attr & ~0x7f, sprPinSeenSeq);
+        }
+        else {
+            sprPinKeepAttr = -1;
+        }
+    }
+
+    /* The limit the emulator draws with: the VDP's unless told to draw past it. */
+    int drawLimitOf(const VdpSpriteFrame& fr) const
+    {
+        return scene.drawLimit ? scene.drawLimit : fr.limit;
     }
 
     /* The band the views take as context: the one picked on the Splits card,
@@ -989,8 +1827,9 @@ private:
     static void pin(Focus& f, const Focus& hit, bool clicked)
     {
         if (clicked) {
-            /* VRAM views share a and b as picture spots, so a VRAM pin also needs the same bytes. */
-            bool same = f.pinned && f.kind == hit.kind && f.a == hit.a && f.b == hit.b;
+            /* A sprite is the same pin whichever line or view it was clicked on; VRAM views
+            ** share a and b as picture spots, so a VRAM pin also needs the same bytes. */
+            bool same = f.pinned && f.kind == hit.kind && f.a == hit.a && (hit.kind == FOCUS_SPRITE ? f.addr == hit.addr : f.b == hit.b);
             if (same && hit.kind == FOCUS_VRAM) same = f.addr == hit.addr && f.space == hit.space;
             f = hit;
             f.pinned = !same;
@@ -1014,6 +1853,45 @@ private:
         if (f.kind == FOCUS_TILE && vdpNameTableChar(s, l, f.a, f.b, 0, &ci)) return ci.ch;
         if (f.kind == FOCUS_CHAR && vdpSheetChar(s, l, f.a, f.b, &ci)) return ci.ch;
         return -1;
+    }
+
+    /* A sprite's pin follows its attribute address at the frame's end; one made where
+    ** its table is known keeps the address of that table. */
+    void refreshPin(const VdpDebugState* s, Focus& f)
+    {
+        bool sprite = f.pinned && f.kind == FOCUS_SPRITE && f.a >= 0 && f.a < 32;
+        if (!sprite || ((sprPinAttr & 0x7f) >> 2) != f.a) sprPinned = false;
+        if (sprite && !sprPinned && sprites.mode != 0) {
+            focusAddr(s, sprites.screenMode, sprites.spr[f.a].attrAddr, 4, &f);
+        }
+    }
+
+    /* The attribute address of the pinned sprite as outputBoxes matches it, or -1. */
+    int pinnedSpriteAttr(const Focus& f) const
+    {
+        if (!f.pinned || f.kind != FOCUS_SPRITE || f.a < 0 || f.a >= 32) return -1;
+        return sprPinned ? sprPinAttr : sprites.mode != 0 ? sprites.spr[f.a].attrAddr : -1;
+    }
+
+    /* What Output does with its sprites: shown, hidden or alone. */
+    int sprLayer() const
+    {
+        return sprOnly ? SL_ONLY : sprShown ? SL_SHOWN : SL_HIDDEN;
+    }
+
+    /* [Show sprites] [Show sprites only] [Sprite boxes]; none in a frame without sprites. Show
+    ** sprites only shows them, so Show sprites is on and unavailable while it is. */
+    void spriteToggles(const VdpDebugState* s)
+    {
+        int w, ax, ay;
+        if (!spriteLayerShape(s, &w, &ax, &ay)) return;
+        bool shown = sprShown || sprOnly;
+        ImGui::BeginDisabled(sprOnly);
+        barArtToggle("##sprshow", ui::DECOR_NONE, ts(sprOnly ? TS_SPR_SHOW_ONLY_TIP : TS_SPR_SHOW_TIP), &shown);
+        ImGui::EndDisabled();
+        if (!sprOnly) sprShown = shown;
+        barArtToggle("##spronly", ui::DECOR_CHECKER, ts(TS_SPR_LAYER_ONLY), &sprOnly);
+        barArtToggle("##boxes", ui::DECOR_FRAME, ts(TS_BOXES_TIP), &boxes);
     }
 
     /* Secondary text on the command bar. */
@@ -1092,23 +1970,51 @@ private:
         }
     }
 
-    void decodeOutput(const VdpDebugState* s, const VdpFrameShot* o)
+    /* Row y as shown, hidden (drawn again without sprites as the line ended)
+    ** or sprites only (clear where the sprites changed nothing); false when
+    ** that is not exact. */
+    static bool outRowLayer(const VdpFrameShot* o, int y, int layer, uint32_t* dst)
+    {
+        outRow(o, y, dst);
+        if (layer == SL_SHOWN) return true;
+        int st = o->sprSplit ? o->sprRow[y] : VDP_SPR_ROW_NONE;
+        if (st == VDP_SPR_ROW_NONE) {
+            if (layer == SL_ONLY) memset(dst, 0, VDP_SHOT_WIDTH * sizeof(uint32_t));
+            return false;
+        }
+        int shift = o->shift[y] ? 1 : 0;
+        int n = o->maxWidth << shift;
+        if (n > VDP_SHOT_WIDTH) n = VDP_SHOT_WIDTH;
+        for (int x = 0; x < VDP_SHOT_WIDTH; x++) {
+            int i = shift ? x : x >> 1;
+            if (i >= n) continue;
+            UInt16 bg = o->sprBg[y][i];
+            bool cand = st == VDP_SPR_ROW_EXACT || ((o->sprMask[y][i >> 3] >> (i & 7)) & 1);
+            if (layer == SL_HIDDEN) dst[x] = argb1555ToRgba(cand ? bg : o->pix[y][i]);
+            else if (o->pix[y][i] == bg || !cand) dst[x] = 0;
+        }
+        return st == VDP_SPR_ROW_EXACT;
+    }
+
+    void decodeOutput(const VdpDebugState* s, const VdpFrameShot* o, int layer)
     {
         if (outBorders) {
             outPic.w = VDP_SHOT_WIDTH;
             outPic.h = o->rows;
             outPic.img.assign((size_t)outPic.w * outPic.h, 0);
-            for (int y = 0; y < o->rows; y++) outRow(o, y, &outPic.img[(size_t)y * outPic.w]);
+            outRowApprox.assign(outPic.h, 0);
+            for (int y = 0; y < o->rows; y++) outRowApprox[y] = !outRowLayer(o, y, layer, &outPic.img[(size_t)y * outPic.w]);
             return;
         }
         std::vector<uint32_t> row(VDP_SHOT_WIDTH);
         outPic.w = 512;
         outPic.h = raster.lines;
         outPic.img.assign((size_t)outPic.w * outPic.h, 0);
+        outRowApprox.assign(outPic.h, 0);
         for (int d = 0; d < raster.lines; d++) {
             int y = d + outFirstLine(s, o) - o->displayOffset, x0 = outOrigin(s, o, d);
             if (y < 0 || y >= o->rows) continue;
-            outRow(o, y, row.data());
+            outRowApprox[d] = !outRowLayer(o, y, layer, row.data());
             for (int x = 0; x < 512; x++) {
                 int i = x0 + x;
                 outPic.img[(size_t)d * 512 + x] = i >= 0 && i < VDP_SHOT_WIDTH ? row[i] : 0;
@@ -1133,6 +2039,213 @@ private:
         }
     }
 
+    /* The sprites of display line d as the VDP laid them out: the frame of the table
+    ** recorded for its row, *state how sure that is; NULL when none was recorded. */
+    const VdpSpriteFrame* rowFrame(const VdpDebugState*, const VdpFrameShot* o, int d, int* state) const
+    {
+        if (o == NULL || d < 0 || d >= (int)scene.lineState.size()) return NULL;
+        int st = scene.lineState[d];
+        const VdpSpriteFrame* fr = sceneFrame(d);
+        if ((st != SS_EXACT && st != SS_APPROX) || fr == NULL || fr->mode == 0) return NULL;
+        *state = st;
+        return fr;
+    }
+
+    /* Display line d at image row y, or -1 for a border row. */
+    int displayLineOfRow(int y) const
+    {
+        int d = outPicBorders ? y - outLine0 : y;
+        return d >= 0 && d < raster.lines ? d : -1;
+    }
+
+    /* Image rows [y0, y1) of a box drawn alike: style 0 solid, 1 the rows draw no dot,
+    ** 2 the tables changed as drawn. */
+    struct BoxSeg { int y0, y1, state, style; };
+    /* A sprite's box over image rows [y0, y1): x0 and w in image dots, org the display's
+    ** left edge; no label when it goes on from a box of the same sprite right above. */
+    struct BoxRun { int attr, n, org, x0, w, y0, y1; bool live, label; std::vector<BoxSeg> seg; };
+
+    /* Each sprite where the VDP drew it, row by row from the table that row was laid out from, or only
+    ** the one at attribute address only. Style 1: colour 0 or a blank pattern row; none where SPD or a
+    ** blank screen hides sprites. tab: the Sprites tab's placement, one row a line, at the VDP's own limit. */
+    void boxRuns(int only, std::vector<BoxRun>& done, bool tab = false) const
+    {
+        const VdpDebugState* s = ovState;
+        const VdpFrameShot* o = outShot;
+        done.clear();
+        if (!tab && (o == NULL || o->sprTabCount == 0)) return;
+        typedef BoxRun Run;
+        std::vector<Run> open;
+        int lines = tab ? scene.lines : raster.lines;
+        for (int d = 0; d <= lines; d++) {
+            for (Run& r : open) r.live = false;
+            int rowState = 0, y = d < lines ? (tab ? d : rowOfDisplayLine(d)) : -1;
+            const VdpSpriteFrame* fr = y >= 0 ? (tab ? sceneShows(d) ? sceneFrame(d) : NULL : rowFrame(s, o, d, &rowState)) : NULL;
+            /* On the tab a line read from another frame (a fallback) is as unsure as an approximate one. */
+            if (tab && fr != NULL) rowState = scene.lineState[d] == SS_EXACT ? SS_EXACT : VDP_SPR_ROW_APPROX;
+            /* SPD or a blank screen on this row: the VDP draws no sprite. */
+            if (fr != NULL && fr->off == NULL) {
+                int L = (d + fr->vscroll) & 0xff, org = outPicBorders && !tab ? outOrigin(s, o, d) : 0;
+                const VdpSpriteLine& ln = fr->line[L];
+                for (int k = 0; k < ln.count; k++) {
+                    int n = ln.id[k], row = vdpSpriteRow(*fr, n, L);
+                    const VdpSprite& sp = fr->spr[n];
+                    if (row < 0 || (only >= 0 && sp.attrAddr != only)) continue;
+                    int c = sp.color[row], span, x0 = org + 2 * vdpSpriteSpan(*fr, n, row, &span), w = 2 * span;
+                    bool clear = vdpSpriteClear(s, *fr, c) || vdpSpriteRowBits(s, *fr, n, row) == 0;
+                    BoxSeg g = { y, y + 1, vdpSpriteStateAt(*fr, L, k, tab ? fr->limit : drawLimitOf(*fr)), rowState == VDP_SPR_ROW_APPROX ? 2 : clear ? 1 : 0 };
+                    size_t i = 0;
+                    while (i < open.size() && !(open[i].attr == sp.attrAddr && open[i].org == org && open[i].x0 == x0 && open[i].w == w &&
+                                                open[i].y1 == y)) i++;
+                    if (i == open.size()) {
+                        Run fresh = { sp.attrAddr, n, org, x0, w, y, y, true, true };
+                        open.push_back(fresh);
+                    }
+                    Run& r = open[i];
+                    r.y1 = y + 1;
+                    r.live = true;
+                    if (!r.seg.empty() && r.seg.back().state == g.state && r.seg.back().style == g.style) r.seg.back().y1 = y + 1;
+                    else r.seg.push_back(g);
+                }
+            }
+            for (size_t i = 0; i < open.size();) {
+                if (open[i].live) { i++; continue; }
+                /* Sprites show only over the display, not on the borders. */
+                Run r = open[i];
+                int x0 = r.x0 > r.org ? r.x0 : r.org, x1 = r.x0 + r.w < r.org + 512 ? r.x0 + r.w : r.org + 512;
+                r.x0 = x0;
+                r.w = x1 - x0;
+                if (r.w > 0) done.push_back(r);
+                open.erase(open.begin() + i);
+            }
+        }
+        /* One number a sprite: a box that moved sideways under another of it goes without. */
+        for (BoxRun& r : done) {
+            for (const BoxRun& q : done) r.label = r.label && !(&q != &r && q.attr == r.attr && q.y1 == r.y0);
+        }
+    }
+
+    /* One side of a box from a to b, across or down; dashed as dashedRect draws them. */
+    static void boxEdge(ImDrawList* dl, ImVec2 a, ImVec2 b, ImU32 col, float th, bool dashed)
+    {
+        if (!dashed) {
+            dl->AddLine(a, b, col, th);
+            return;
+        }
+        dashedSegment(dl, a, b, col, th, ui::Px(4));
+    }
+
+    /* The boxes of boxRuns, after the picture. */
+    void outputBoxes(ImDrawList* dl, const ui::CanvasXf& xf, int only) const
+    {
+        const Focus& f = shell::shownFocus();
+        std::vector<BoxRun> done;
+        boxRuns(only, done);
+        drawBoxRuns(dl, xf, done, f.pinned ? pinnedSpriteAttr(f) : outHoverAttr);
+    }
+
+    /* Boxes in the accent for the sprite at attribute address focused; a dark halo keeps them seen on any colour. */
+    void drawBoxRuns(ImDrawList* dl, const ui::CanvasXf& xf, const std::vector<BoxRun>& done, int focused) const
+    {
+        const UiTokens& t = uiTokens();
+        float th = fmaxf(1.0f, ui::Px(1));
+        dl->PushClipRect(xf.clipMin, xf.clipMax, true);
+        for (const BoxRun& r : done) {
+            ImVec2 a = xf.toScreen((float)r.x0, (float)r.y0), b = xf.toScreen((float)(r.x0 + r.w), (float)r.y1);
+            bool me = r.attr == focused;
+            float lw = me ? th * 2 : th;
+            ImU32 col = 0;
+            dl->AddRect(a, b, ui::WithAlpha(t.layer, 200), 0, lw + th * 2);
+            /* One outline; each part draws its sides, the first the top and the last the bottom. */
+            for (size_t i = 0; i < r.seg.size(); i++) {
+                const BoxSeg& g = r.seg[i];
+                ImU32 c = me ? t.accent : g.state == VDP_SPRITE_DROPPED ? t.critical : g.style == 2 ? t.caution :
+                          g.state == VDP_SPRITE_CC_HIDDEN || g.style == 1 ? t.textTertiary : ui::WithAlpha(t.text, 190);
+                ImVec2 p = xf.toScreen((float)r.x0, (float)g.y0), q = xf.toScreen((float)(r.x0 + r.w), (float)g.y1);
+                bool dashed = g.style != 0 && !me;
+                if (i == 0) col = c;
+                if (g.state == VDP_SPRITE_DROPPED) hatch(dl, p, q, ui::WithAlpha(t.critical, 150));
+                if (r.seg.size() == 1 && dashed) dashedRect(dl, p, q, c, lw);
+                else if (r.seg.size() == 1) dl->AddRect(p, q, c, 0, lw);
+                else {
+                    boxEdge(dl, p, ImVec2(p.x, q.y), c, lw, dashed);
+                    boxEdge(dl, ImVec2(q.x, p.y), q, c, lw, dashed);
+                    if (i == 0) boxEdge(dl, p, ImVec2(q.x, p.y), c, lw, dashed);
+                    if (i + 1 == r.seg.size()) boxEdge(dl, ImVec2(p.x, q.y), q, c, lw, dashed);
+                }
+            }
+            if (!r.label) continue;
+            char num[8];
+            snprintf(num, sizeof(num), "%d", r.n);
+            ImVec2 ts = ImGui::CalcTextSize(num);
+            if (b.x - a.x >= ts.x + ui::Px(4) && b.y - a.y >= ts.y) {
+                dl->AddRectFilled(ImVec2(a.x + th, a.y + th), ImVec2(a.x + th + ts.x + ui::Px(2), a.y + th + ts.y), ui::WithAlpha(t.layer, 170));
+                dl->AddText(ImVec2(a.x + th + ui::Px(1), a.y + th), col, num);
+            }
+        }
+        dl->PopClipRect();
+    }
+
+    /* The gutter: sprites in range per display line, the limit as a tick. */
+    void outputCountGutter(ImDrawList* dl, const ui::CanvasXf& xf) const
+    {
+        const UiTokens& t = uiTokens();
+        float th = fmaxf(1.0f, ui::Px(1)), gx0 = xf.gutterMin.x;
+        float gw = xf.gutterMax.x - xf.gutterMin.x - (rasterMarks() ? ui::Px(12) : 0);
+        int limit = vdpSpriteMode(ovState->screenMode) == 1 ? 4 : 8;
+        float per = gw / (limit * 2);
+        for (int d = 0; d < raster.lines; d++) {
+            int st, y = rowOfDisplayLine(d);
+            const VdpSpriteFrame* fr = y >= 0 ? rowFrame(ovState, outShot, d, &st) : NULL;
+            if (fr == NULL || fr->off != NULL) continue;
+            int c = fr->line[(d + fr->vscroll) & 0xff].count;
+            if (c == 0) continue;
+            ImVec2 a = xf.toScreen(0, (float)y), b = xf.toScreen(0, (float)(y + 1));
+            float len = (float)(c < limit * 2 ? c : limit * 2) * per;
+            /* Red past the VDP's limit, at the tick, also while the emulator draws them all. */
+            dl->AddRectFilled(ImVec2(gx0, a.y), ImVec2(gx0 + len, fmaxf(b.y, a.y + 1)), c > fr->limit ? t.critical : t.textSecondary);
+        }
+        float tx = floorf(gx0 + per * limit);
+        dl->AddLine(ImVec2(tx, xf.gutterMin.y), ImVec2(tx, xf.gutterMax.y), t.textTertiary, th);
+    }
+
+    /* The sprite drawn on top at image dot x of image row y, its frame and scroll line; -1 for none. */
+    int outputSpriteAt(int x, int y, const VdpSpriteFrame** frame, int* scrollLine) const
+    {
+        int d = displayLineOfRow(y), st;
+        const VdpSpriteFrame* fr = d >= 0 ? rowFrame(ovState, outShot, d, &st) : NULL;
+        if (fr == NULL || fr->off != NULL) return -1;
+        int L = (d + fr->vscroll) & 0xff, dot = (x - (outPicBorders ? outOrigin(ovState, outShot, d) : 0)) >> 1;
+        if (dot < 0 || dot >= 256) return -1;
+        int n = vdpSpriteAt(*fr, L, dot);
+        if (n >= 0) {
+            *frame = fr;
+            *scrollLine = L;
+        }
+        return n;
+    }
+
+    /* E.g. "sprites 0, 1, 2, 3, 4, 5 - 4 and 5 dropped". */
+    /* drawLimit: what the emulator draws, past the VDP's limit when told to. */
+    static void lineSummary(const VdpSpriteFrame& fr, int scrollLine, int drawLimit, char* out, size_t size)
+    {
+        const VdpSpriteLine& ln = fr.line[scrollLine & 0xff];
+        char all[160], dropped[160];
+        size_t a = 0, d = 0;
+        all[0] = dropped[0] = 0;
+        for (int k = 0; k < ln.count && a < sizeof(all); k++) {
+            a += (size_t)snprintf(all + a, sizeof(all) - a, "%s%d", k ? ", " : "", ln.id[k]);
+        }
+        for (int k = fr.limit; k < ln.count && d < sizeof(dropped); k++) {
+            const char* sep = k == fr.limit ? "" : k == ln.count - 1 ? ts(TS_LIST_LAST) : ", ";
+            d += (size_t)textf(dropped + d, sizeof(dropped) - d, "%s%d", sep, ln.id[k]);
+        }
+        if (ln.count == 0) textf(out, size, "%s", ts(TS_LINE_NO_SPRITES));
+        else if (ln.count > fr.limit && drawLimit > fr.limit) textf(out, size, ts(TS_LINE_SPRITES_PAST), all, dropped);
+        else if (ln.count > fr.limit) textf(out, size, ts(TS_LINE_SPRITES_DROPPED), all, dropped);
+        else textf(out, size, ts(TS_LINE_SPRITES), all);
+    }
+
     static void outputOverlay(ImDrawList* dl, const ui::CanvasXf& xf, void* ref)
     {
         V99x8View* self = (V99x8View*)ref;
@@ -1154,6 +2267,14 @@ private:
                 dl->AddLine(a, ImVec2(end.x, a.y), t.caution, th * 2);
             }
         }
+        /* Rows the sprite split has only roughly, or not at all. */
+        const std::vector<uint8_t>& rough = self->outRowApprox;
+        for (int y = 0, n = self->outLayer != SL_SHOWN ? (int)rough.size() : 0; y < n;) {
+            int e = y;
+            while (e < n && rough[e]) e++;
+            if (e > y) hatch(dl, xf.toScreen(0, (float)y), xf.toScreen(w, (float)e), ui::WithAlpha(t.caution, 110));
+            y = e > y ? e : y + 1;
+        }
         std::vector<int> runs;
         const Focus& f = shell::shownFocus();
         self->pinRows(f, runs);
@@ -1162,7 +2283,11 @@ private:
             dl->AddRect(ImVec2(a.x - th, a.y - th), ImVec2(b.x + th, b.y + th), t.accent, 0, th * 2);
         }
         dl->PopClipRect();
+        /* After the picture, so a box shows over any sprite; a pinned sprite alone without them. */
+        if (self->outBoxes) self->outputBoxes(dl, xf, -1);
+        else if (self->pinnedSpriteAttr(f) >= 0) self->outputBoxes(dl, xf, self->pinnedSpriteAttr(f));
         if (xf.gutterMax.x > xf.gutterMin.x) dl->AddRectFilled(xf.gutterMin, xf.gutterMax, t.controlFillPressed);
+        if (self->outCounts && xf.gutterMax.x > xf.gutterMin.x) self->outputCountGutter(dl, xf);
         self->drawRaster(dl, xf);
     }
 
@@ -1244,14 +2369,23 @@ private:
         const VdpFrameShot* o = (const VdpFrameShot*)shell::frameShot(&ver);
         if (o != NULL && !o->valid) o = NULL;
         shell::wantFrame();
+        /* A mode without sprites has no sprite toggles: the choice waits for one. */
+        int lw, lax, lay;
+        bool hasSprites = spriteLayerShape(s, &lw, &lax, &lay);
+        int layer = hasSprites ? sprLayer() : SL_SHOWN;
+        if (layer != SL_SHOWN) shell::wantSpriteSplit();
+        outBoxes = boxes && hasSprites;
+        outCounts = hasSprites && layer != SL_HIDDEN;
         ensureRaster(s);
+        if (vdpSpriteMode(s->screenMode)) ensureSprites(s);
         outCv.aspectX = 1;
         outCv.aspectY = 2;   /* 544 samples a row: 512-dot units */
-        outCv.gutter = rasterMarks() ? 16.0f : 0.0f;
-        outCv.checker = false;
+        outCv.gutter = outCounts ? 40.0f : rasterMarks() ? 16.0f : 0.0f;
+        outCv.checker = layer == SL_ONLY;
 
         ui::BeginCommandBar("bar");
         barToggle("##borders", UI_ICON_BORDERS, ts(TS_OUT_BORDERS), ts(TS_OUT_BORDERS_TIP), &outBorders);
+        spriteToggles(s);
         ui::GridToggle(outCv);
         if (o != NULL && o->interlace != 0) {
             /* Paused within a frame, the field is that of the rows drawn so far. */
@@ -1268,10 +2402,13 @@ private:
         if (o != NULL && o->pixels) {
             char key[64];
             /* The crop follows the bands' modes, which come with the raster log. */
-            snprintf(key, sizeof(key), "o%d/%d/%d/%u/%d", outBorders, raster.lines, s->screenMode, outBorders ? 0u : shell::rasterVersion(),
-                     outBorders ? 0 : outFirstLine(s, o));
+            snprintf(key, sizeof(key), "o%d/%d/%d/%u/%d/%d", outBorders, raster.lines, s->screenMode, outBorders ? 0u : shell::rasterVersion(),
+                     outBorders ? 0 : outFirstLine(s, o), layer);
             bool decoded = outPic.needsDecodeAt(ver, key);
-            if (decoded) decodeOutput(s, o);
+            if (decoded) {
+                decodeOutput(s, o, layer);
+                outLayer = layer;
+            }
             outPic.upload(decoded);
             outPicBorders = outBorders;
             outLine0 = outBorders ? outFirstLine(s, o) - o->displayOffset : 0;
@@ -1295,15 +2432,55 @@ private:
             const char* paused = o->ended ? "" : ts(o->restMissing ? TS_OUT_PAUSED_UNKNOWN : TS_OUT_PAUSED);
             if (paused[0] || o->stale) ui::StatusText("%s%s", paused, o->stale ? ts(TS_OUT_STALE) : "");
         }
+        refreshPin(s, f);
+        /* The notes name what is on: the boxes, the per-line counts or both. */
+        bool boxed = outBoxes || pinnedSpriteAttr(f) >= 0, boxing = boxed || outCounts;
+        if (boxing && (o == NULL || o->sprTabCount == 0))
+            ui::StatusText("%s", ts(!outCounts ? TS_OUT_BOXES_WAIT : boxed ? TS_OUT_BOXES_COUNTS_WAIT : TS_OUT_COUNTS_WAIT));
+        else if (boxing && o->sprTabLost > 0)
+            ui::StatusText("%s", ts(!outCounts ? TS_OUT_BOXES_LOST : boxed ? TS_OUT_BOXES_COUNTS_LOST : TS_OUT_COUNTS_LOST));
 
+        /* The marks own the gutter's right edge; the sprite counts the rest. */
         char mt[1024];
         bool onMarks = h.gutterY >= 0 && rasterMarks() && ImGui::GetIO().MousePos.x >= ovMarkX;
+        int d = h.gutterY >= 0 ? displayLineOfRow(h.gutterY) : -1, st;
+        const VdpSpriteFrame* gf = d >= 0 && outCounts ? rowFrame(s, o, d, &st) : NULL;
+        outHoverAttr = -1;
         if (onMarks && marksAtRow(h.gutterY, mt, sizeof(mt))) {
             ui::StatusText("%s", mt);
         }
-        else if (h.valid && o != NULL && outPic.w > 0) {
+        else if (gf != NULL) {
+            lineSummary(*gf, d + gf->vscroll, drawLimitOf(*gf), mt, sizeof(mt));
+            ui::StatusText(ts(TS_GUTTER_LINE), d, mt);
+        }
+        else if (h.valid && o != NULL && outPic.w > 0 && !(outBoxes && outputSpriteHover(s, f, h))) {
             outputHover(s, o, f, h);
         }
+    }
+
+    /* A sprite's box under the mouse: its attributes on the status line, a click pins it. */
+    bool outputSpriteHover(const VdpDebugState* s, Focus& f, const ui::CanvasHit& h)
+    {
+        const VdpSpriteFrame* fr;
+        int L, n = outputSpriteAt(h.x, h.y, &fr, &L);
+        if (n < 0) return false;
+        const VdpSprite& sp = fr->spr[n];
+        Focus hit = { f.chipId, FOCUS_LOGICAL, (UInt32)sp.attrAddr, 4, FOCUS_SPRITE, n, L, false };
+        focusAddr(s, fr->screenMode, sp.attrAddr, 4, &hit);
+        pin(f, hit, h.clicked);
+        if (h.clicked) {
+            sprPinned = f.pinned;
+            sprPinAttr = sp.attrAddr;
+            sprPinLine = displayLineOfRow(h.y);
+            if (f.pinned) sprChoose(frameKey(s, *fr));
+        }
+        outHoverAttr = sp.attrAddr;
+        int k = 0;
+        while (k < fr->line[L].count && fr->line[L].id[k] != n) k++;
+        int st = vdpSpriteStateAt(*fr, L, k, drawLimitOf(*fr));
+        ui::StatusText(ts(TS_STATUS_SPRITE), n, sp.y, sp.x, sp.pattern, vdpSpriteRow(*fr, n, L), sp.attrAddr,
+                       st == VDP_SPRITE_DROPPED ? ts(TS_STATUS_SPRITE_DROPPED) : st == VDP_SPRITE_CC_HIDDEN ? ts(TS_STATUS_SPRITE_CC_HIDDEN) : "");
+        return true;
     }
 
     /* ---- Bands ---- */
@@ -1339,6 +2516,47 @@ private:
             if (i == 0 || !sameAcrossBeam(raster.bands[i - 1], raster.bands[i])) n++;
         }
         return n;
+    }
+
+    /* Whether any band has sprites, and the layer's width: 512 when a band is in SCREEN 6 or 7. */
+    bool spriteLayerShape(const VdpDebugState* s, int* w, int* ax, int* ay) const
+    {
+        bool any = false;
+        int wide = 0;
+        auto note = [&](int mode) {
+            if (vdpSpriteMode(mode) == 0) return;
+            any = true;
+            if (mode == 6 || mode == 7) wide = mode;
+        };
+        if (raster.valid) {
+            for (const VdpBand& b : raster.bands) note(b.mode);
+        }
+        else {
+            note(s->screenMode);
+        }
+        *w = wide ? 512 : 256;
+        dotAspect(wide ? wide : 5, ax, ay);
+        return any;
+    }
+
+    /* The band whose registers lay out the sprites of display line d: the VDP builds them a line ahead. */
+    int spriteBandOf(int d) const
+    {
+        return vdpRasterBandAt(raster, d > 0 ? d - 1 : 0);
+    }
+
+    /* The registers sprites are laid out from: mode, size, tables, TP and R#23. Blanking
+    ** and SPD go line by line (spritesOff). */
+    static void spriteKey(const VdpBand& b, int out[8])
+    {
+        out[0] = b.mode;
+        out[1] = b.regs[1] & 0x03;
+        out[2] = b.regs[5];
+        out[3] = b.regs[6];
+        out[4] = b.regs[8] & 0x20;
+        out[5] = b.regs[11];
+        out[6] = b.regs[23];
+        out[7] = 0;
     }
 
     /* Bands a and b differ only in what lays out sprites: R#5, R#6, R#11 and R#1's size bits. */
@@ -1606,7 +2824,7 @@ private:
             groupTag(g);
             return false;
         }
-        int n = 0, autoG = raster.valid ? autoGroup(&n) : -1;
+        int n = 0, autoG = raster.valid ? autoGroup(false, &n) : -1;
         int autoMode = autoG >= 0 ? groups[autoG].mode : s->screenMode;
         if (autoG >= 0 && n == 1 && vdpIsPatternMode(s->screenMode)) autoG = -1;
         bool fixed = patGroupSet && g >= 0;
@@ -1659,7 +2877,7 @@ private:
     {
         VdpLayout l;
         int g, read;
-        if (!viewLayout(s, &l, &g, &read)) {
+        if (!viewLayout(s, false, &l, &g, &read)) {
             emptyView(ts(TS_PATTERNS_NONE));
             return;
         }
@@ -1718,6 +2936,1691 @@ private:
         /* The gap between the parts and the room beside them are as the well. */
         if (h.clickedEmpty || (h.clicked && !onPart)) shell::releaseSelection();
         if (status[0]) ui::StatusText("%s", status);
+    }
+
+    /* ---- The Sprites tab ---- */
+
+    /* Whether display line d draws sprites from a frame the tab can show. */
+    bool sceneShows(int d) const
+    {
+        if (d < 0 || d >= (int)scene.lineFrame.size() || scene.lineFrame[d] < 0 || scene.lineOff[d]) return false;
+        return scene.lineState[d] != SS_NONE && scene.lineState[d] != SS_LOST;
+    }
+
+    /* Any displayed line in SCREEN 6 or 7: the placement is 512 dots wide. */
+    bool sceneWide() const
+    {
+        for (const VdpSpriteFrame& fr : scene.frames) {
+            if (fr.screenMode == 6 || fr.screenMode == 7) return true;
+        }
+        return false;
+    }
+
+    /* Dots across a sprite of the shown table, unmagnified: from its key, so it holds while the table is away. */
+    int sprTileDots() const
+    {
+        return sprSelSet && sprSel.sizeKey < 32 ? 8 : 16;
+    }
+
+    /* The line row's tile scale for an attribute tile scale: whole, so every dot is as wide. */
+    static float sprLineScale(float t)
+    {
+        return fmaxf(floorf(ImGui::GetStyle().FontScaleDpi + 0.5f), floorf(t * 0.75f));
+    }
+
+    /* Pattern cells a row in rowW px, tile px across: a power of two up to the sheet's row, so rows start on round numbers. */
+    int sprPatCols(float tile, float rowW) const
+    {
+        int cols = sprTileDots() == 16 ? 16 : 32;
+        while (cols > 1 && cols * (tile + ui::Px(4)) - ui::Px(4) > rowW) cols /= 2;
+        return cols;
+    }
+
+    /* The patterns' two heading lines. */
+    static float sprPatTitleH()
+    {
+        return ImGui::GetTextLineHeight() * 2 + ui::Px(6);
+    }
+
+    /* A part's size at a scale, its title included; the patterns wrap in rowW. */
+    ImVec2 sprPartSize(int part, float sc, float rowW) const
+    {
+        float title = ImGui::GetTextLineHeight() + ui::Px(6);
+        float lh = ImGui::GetTextLineHeight();
+        if (part == SPT_PLACE) return ImVec2(sprBandsW() + 256 * sc, title + scene.lines * sc);
+        if (part == SPT_ATTRS) {
+            float tile = sprTileDots() * sc, tileL = sprTileDots() * sprLineScale(sc);
+            float grid = 4 * (lh + tile + ui::Px(6)), lineRow = ui::Px(10) + lh + ui::Px(4) + lh + tileL + lh;
+            return ImVec2(8 * (tile + ui::Px(4)), title + grid + lineRow);
+        }
+        if (part == SPT_MAG) {
+            float grid = sprTileDots() * sc;
+            return ImVec2(sprMagLabelW() + grid + ui::Px(8) + ui::Px(14) + ui::Px(44), title + grid + ui::Px(8) + lh * 3);
+        }
+        if (part == SPT_PATS) {
+            float tile = sprTileDots() * sc;
+            int cols = sprPatCols(tile, rowW), count = sprTileDots() == 16 ? 64 : 256, rows = (count + cols - 1) / cols;
+            return ImVec2(cols * (tile + ui::Px(4)) - ui::Px(4), sprPatTitleH() + rows * sprPatPitch(tile));
+        }
+        return ImVec2(0, 0);
+    }
+
+    /* The heat and count bands left of the placement. */
+    static float sprBandsW()
+    {
+        return ui::Px(6) + ui::Px(2) + ui::Px(24) + ui::Px(4);
+    }
+
+    /* The parts at zoom N: placement N px a dot, attributes as wide, patterns as large as the attributes
+    ** (wrapped in the width left), the magnifier half as wide; in the widest tier that fits W (all but the
+    ** patterns on one row; placement and attributes on one; each under the other, wider than W if need be). */
+    SprLayout sprLayoutAt(float W, int N) const
+    {
+        bool has[SPT_COUNT];
+        float sc[SPT_COUNT];
+        int size = sprTileDots();
+        for (int p = 0; p < SPT_COUNT; p++) has[p] = p == SPT_PLACE || sprSelSet;
+        sc[SPT_PLACE] = (float)N;
+        sc[SPT_ATTRS] = 32.0f * N / size;
+        sc[SPT_MAG]   = fmaxf(6.0f, 128.0f * N / size);
+        sc[SPT_PATS]  = sc[SPT_ATTRS];
+        float gap = ui::Px(12);
+        auto w = [&](int p) { return has[p] ? sprPartSize(p, sc[p], W).x : 0.0f; };
+        auto row = [&](int a, int b, int c) {
+            float x = 0;
+            int n = 0;
+            for (int p : { a, b, c }) {
+                if (p >= 0 && has[p]) { x += w(p); n++; }
+            }
+            return x + gap * (n > 1 ? n - 1 : 0);
+        };
+        SprLayout L = {};
+        if (row(SPT_PLACE, SPT_ATTRS, SPT_MAG) <= W) L.tier = 1;
+        else if (row(SPT_PLACE, SPT_ATTRS, -1) <= W && w(SPT_MAG) <= W) L.tier = 2;
+        else L.tier = 3;
+        for (int p = 0; p < SPT_COUNT; p++) {
+            L.scale[p] = has[p] ? sc[p] : 0;
+            L.size[p] = has[p] ? sprPartSize(p, L.scale[p], W) : ImVec2(0, 0);
+        }
+        /* Rows of parts, left to right; the patterns beside the magnifier when half a sheet row fits there. */
+        std::vector<std::vector<int>> rows;
+        float tile = size * sc[SPT_PATS], patW = W, beside = W - L.size[SPT_MAG].x - gap;
+        if (L.tier == 1) rows = { { SPT_PLACE, SPT_ATTRS, SPT_MAG }, { SPT_PATS } };
+        else if (L.tier == 2 && sprPatCols(tile, beside) >= (size == 16 ? 8 : 16)) {
+            rows = { { SPT_PLACE, SPT_ATTRS }, { SPT_MAG, SPT_PATS } };
+            patW = beside;
+        }
+        else if (L.tier == 2) rows = { { SPT_PLACE, SPT_ATTRS }, { SPT_MAG }, { SPT_PATS } };
+        else rows = { { SPT_PLACE }, { SPT_ATTRS }, { SPT_MAG }, { SPT_PATS } };
+        if (has[SPT_PATS]) {
+            L.size[SPT_PATS] = sprPartSize(SPT_PATS, sc[SPT_PATS], patW);
+            L.patCols = sprPatCols(tile, patW);
+        }
+        float y = 0;
+        for (const std::vector<int>& r : rows) {
+            float x = 0, h = 0;
+            for (int p : r) {
+                if (!has[p]) continue;
+                L.at[p] = ImVec2(x, y);
+                x += L.size[p].x + gap;
+                h = fmaxf(h, L.size[p].y);
+            }
+            if (h > 0) {
+                y += h + gap;
+                L.width = fmaxf(L.width, x - gap);
+            }
+        }
+        L.height = y > 0 ? y - gap : 0;
+        /* What Fit fits: every other part and the patterns' first row. */
+        for (int p = 0; p < SPT_COUNT; p++) {
+            if (has[p]) L.fitH = fmaxf(L.fitH, p == SPT_PATS ? L.at[p].y + sprPatTitleH() + sprPatPitch(tile) : L.at[p].y + L.size[p].y);
+        }
+        return L;
+    }
+
+    /* Fit: the largest whole zoom whose layout fits W, and H down to the patterns' first row; else the
+    ** largest that fits W; looked for again only when what the layouts depend on changed. */
+    int sprFitZoom(float W, float H)
+    {
+        float key[7] = { W, H, (float)scene.lines, (float)sprTileDots(), sprSelSet ? 1.0f : 0.0f, ImGui::GetTextLineHeight(), ui::Px(100) };
+        if (sprFitN > 0 && memcmp(key, sprFitKey, sizeof(key)) == 0) return sprFitN;
+        memcpy(sprFitKey, key, sizeof(key));
+        int n = 0;
+        for (int pass = 0; pass < 2 && n == 0; pass++) {
+            for (int N = 32; N > 1 && n == 0; N--) {
+                SprLayout L = sprLayoutAt(W, N);
+                if (L.width <= W && (pass == 1 || L.fitH + ui::Px(8) <= H)) n = N;
+            }
+        }
+        sprFitN = n > 0 ? n : 1;
+        return sprFitN;
+    }
+
+    /* Pictures over the limit per line: a picture is counted once, when it is new and whole. */
+    void sprNoteRing(const VdpDebugState* s)
+    {
+        unsigned ver;
+        const VdpFrameShot* o = (const VdpFrameShot*)shell::frameShot(&ver);
+        if (o == NULL || !o->valid || !o->ended || o->stale || o->seq == sprRingSeq) return;
+        if (s->id != sprRingChip || sprRingLines != scene.lines || (Int32)(o->seq - sprRingSeq) < 0 || o->seq - sprRingSeq > (UInt32)SPR_RING) {
+            sprRingLen = sprRingPos = 0;
+            memset(sprOverSum, 0, sizeof(sprOverSum));
+        }
+        sprRingChip = s->id;
+        sprRingLines = scene.lines;
+        sprRingSeq = o->seq;
+        uint8_t bits[30] = {};
+        for (int d = 0; d < scene.lines && d < 240; d++) {
+            const VdpSpriteFrame* fr = sceneShows(d) ? sceneFrame(d) : NULL;
+            if (fr != NULL && fr->line[(d + fr->vscroll) & 0xff].count > fr->limit) bits[d >> 3] |= (uint8_t)(1 << (d & 7));
+        }
+        if (sprRingLen == SPR_RING) {
+            for (int d = 0; d < 240; d++) sprOverSum[d] -= (sprOverRing[sprRingPos][d >> 3] >> (d & 7)) & 1;
+        }
+        else {
+            sprRingLen++;
+        }
+        if (sprRingLen == 1) sprRingSeqFirst = o->seq;
+        memcpy(sprOverRing[sprRingPos], bits, sizeof(bits));
+        for (int d = 0; d < 240; d++) sprOverSum[d] += (bits[d >> 3] >> (d & 7)) & 1;
+        sprRingPos = (sprRingPos + 1) % SPR_RING;
+        sprRingSeqFirst = sprRingLen == SPR_RING ? o->seq - SPR_RING + 1 : sprRingSeqFirst;
+    }
+
+    /* The placement picture: each line's sprites from its frame, dropped dots stippled, lines
+    ** the shown table does not lay out faint. Uploaded only when its bytes change. */
+    void sprRenderPlace(const VdpDebugState* s)
+    {
+        const UiTokens& t = uiTokens();
+        int lines = scene.lines, w = sceneWide() ? 512 : 256;
+        char key[64];
+        snprintf(key, sizeof(key), "s%u/%u/%05X/%d/%d/%08X/%d", scene.ver, linePal.ver, sprSel.attr, sprSlotSel, (int)sprDropped, (unsigned)t.critical, w);
+        if (!sprPlacePic.needsDecode(key)) {
+            sprPlacePic.upload(false);
+            return;
+        }
+        sprPlacePic.w = w;
+        sprPlacePic.h = lines;
+        sprPlacePic.img.assign((size_t)w * lines, 0);
+        sprDropMask.assign((size_t)256 * lines, 0);
+        std::vector<const UInt32*> rgb((size_t)lines);
+        for (int d = 0; d < lines; d++) rgb[d] = lineRgb(d);
+        for (int d = 0; d < lines;) {
+            int e = d;
+            while (e + 1 < lines && scene.lineFrame[e + 1] == scene.lineFrame[d] && sceneShows(e + 1) == sceneShows(d)) e++;
+            if (sceneShows(d)) {
+                vdpRenderSpriteLines(s, scene.frames[scene.lineFrame[d]], sprPlacePic.img.data(), w, d, e, rgb.data(), sprDropMask.data());
+            }
+            d = e + 1;
+        }
+        uint32_t stipple = (t.critical & 0x00ffffffu) | 0xc8000000u;
+        for (int d = 0; d < lines; d++) {
+            uint32_t* row = &sprPlacePic.img[(size_t)d * w];
+            bool faint = sprSelSet && !shownLays(d) && (sprSlotSel < 0 || scene.slots.size() > 1);
+            for (int x = 0; x < w; x++) {
+                int dot = w == 512 ? x >> 1 : x;
+                if (row[x] == 0 && sprDropped && sprDropMask[(size_t)d * 256 + dot] && ((dot + d) & 1) == 0) row[x] = stipple;
+                if (faint && row[x] != 0) row[x] = (row[x] & 0x00ffffffu) | ((uint32_t)((row[x] >> 24) * 45 / 100) << 24);
+            }
+        }
+        sprPlacePic.uploadChanged(&sprPlaceHash);
+    }
+
+    /* The boxes of sprite n of table attr on the placement, run by run. */
+    void sprBox(ImDrawList* dl, ImVec2 img, float p, int attr, int n, ImU32 col, float th) const
+    {
+        int runX = -1, runY = -1, runW = 0;
+        for (int d = 0; d <= scene.lines; d++) {
+            int x0 = -1, w = 0;
+            const VdpSpriteFrame* fr = d < scene.lines && sceneShows(d) ? sceneFrame(d) : NULL;
+            if (fr != NULL && n >= 0 && n < 32 && fr->spr[n].attrAddr == attr) {
+                int L = (d + fr->vscroll) & 0xff, row = vdpSpriteRow(*fr, n, L);
+                if (row >= 0) x0 = vdpSpriteSpan(*fr, n, row, &w);
+            }
+            if (runY >= 0 && (x0 != runX || w != runW)) {
+                ImVec2 a(img.x + fmaxf(0.0f, (float)runX) * p, img.y + runY * p), b(img.x + fminf(256.0f, (float)(runX + runW)) * p, img.y + d * p);
+                if (b.x > a.x) dl->AddRect(ImVec2(a.x - th, a.y - th), ImVec2(b.x + th, b.y + th), col, 0, th);
+                runY = -1;
+            }
+            if (x0 != -1 || w > 0) {
+                if (runY < 0) { runY = d; runX = x0; runW = w; }
+            }
+        }
+    }
+
+    /* The boxes of the hovered or pinned pattern's users, on each line from the table that line shows,
+    ** so both buffers of a double buffer light the same object. */
+    void sprPatBoxes(const VdpDebugState* s, const Focus& f, ImDrawList* dl, ImVec2 img, float p) const
+    {
+        const UiTokens& t = uiTokens();
+        SprPatKey k;
+        bool pin = pinnedPattern(f, &k);
+        if (sprPatHot.p < 0 && !pin) return;
+        float th = fmaxf(1.0f, ui::Px(1));
+        /* Per frame of the scene: the pinned and the hovered pattern, when they are of its table. */
+        std::vector<int> pp(scene.frames.size(), -1), hp(scene.frames.size(), -1);
+        for (size_t i = 0; i < scene.frames.size(); i++) {
+            if (pin && patOf(s, k, scene.frames[i])) pp[i] = k.p;
+            if (patOf(s, sprPatHot, scene.frames[i])) hp[i] = sprPatHot.p;
+        }
+        for (int n = 0; n < 32; n++) {
+            int runX = -1, runY = -1, runW = 0, runM = 0;
+            for (int d = 0; d <= scene.lines; d++) {
+                int x0 = -1, w = 0, mk = 0;
+                const VdpSpriteFrame* fr = d < scene.lines && sceneShows(d) ? sceneFrame(d) : NULL;
+                int fi = fr != NULL ? scene.lineFrame[d] : -1, pat = fr != NULL && n < fr->stopIndex ? fr->spr[n].pattern & 0xff : -1;
+                if (pat >= 0 && (mk = pat == pp[fi] ? 2 : pat == hp[fi] ? 1 : 0) > 0) {
+                    int row = vdpSpriteRow(*fr, n, (d + fr->vscroll) & 0xff);
+                    if (row >= 0) x0 = vdpSpriteSpan(*fr, n, row, &w);
+                }
+                if (w == 0) mk = 0;
+                if (runY >= 0 && (x0 != runX || w != runW || mk != runM)) {
+                    ImVec2 a(img.x + fmaxf(0.0f, (float)runX) * p, img.y + runY * p), b(img.x + fminf(256.0f, (float)(runX + runW)) * p, img.y + d * p);
+                    float e = th * runM;
+                    if (b.x > a.x) dl->AddRect(ImVec2(a.x - e, a.y - e), ImVec2(b.x + e, b.y + e), runM == 2 ? t.accent : ui::WithAlpha(t.accent, 200), 0, e);
+                    runY = -1;
+                }
+                if (w > 0 && runY < 0) { runY = d; runX = x0; runW = w; runM = mk; }
+            }
+        }
+    }
+
+    /* The heat and count bands and the placement, at a; hover and pins. */
+    void sprDrawPlace(const VdpDebugState* s, Focus& f, ImVec2 at, float p)
+    {
+        const UiTokens& t = uiTokens();
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        float th = fmaxf(1.0f, ui::Px(1)), lh = ImGui::GetTextLineHeight();
+        ui::PushFont(UI_FONT_STRONG);
+        dl->AddText(at, t.text, ts(TS_SPR_TAB_PLACE));
+        float tw = ImGui::CalcTextSize(ts(TS_SPR_TAB_PLACE)).x;
+        ui::PopFont();
+        dl->AddText(ImVec2(at.x + tw + ui::Px(8), at.y), t.textSecondary, ts(TS_SPR_TAB_PLACE_SUB));
+        float y0 = floorf(at.y + lh + ui::Px(6)), heatX = at.x, countX = heatX + ui::Px(6) + ui::Px(2), countW = ui::Px(24);
+        ImVec2 img(at.x + sprBandsW(), y0);
+        int lines = scene.lines;
+        sprRenderPlace(s);
+        ImVec2 end(img.x + 256 * p, y0 + lines * p);
+        drawCheckerRect(dl, img, end);
+        if (sprPlacePic.tex.id()) ui::ImageNearest(dl, sprPlacePic.tex.id(), img, end);
+        canvasGrid(sprCv, dl, img, end, p, p);
+        /* Heat: pictures over the limit; count: sprites on the line now, the tick at the limit. */
+        for (int d = 0; d < lines; d++) {
+            float ya = y0 + d * p, yb = fmaxf(y0 + (d + 1) * p, ya + 1);
+            if (d < 240 && sprRingLen > 0 && sprOverSum[d] > 0) {
+                dl->AddRectFilled(ImVec2(heatX, ya), ImVec2(heatX + ui::Px(6), yb), ui::WithAlpha(t.critical, 60 + 195 * sprOverSum[d] / sprRingLen));
+            }
+            const VdpSpriteFrame* fr = sceneFrame(d);
+            int st = d < (int)scene.lineState.size() ? scene.lineState[d] : SS_NONE;
+            if (sceneShows(d)) {
+                int c = fr->line[(d + fr->vscroll) & 0xff].count;
+                float len = (float)(c < fr->limit * 2 ? c : fr->limit * 2) * countW / (fr->limit * 2);
+                if (c > 0) dl->AddRectFilled(ImVec2(countX, ya), ImVec2(countX + len, yb), c > fr->limit ? t.critical : t.textSecondary);
+            }
+            /* How the line's table is known, at the band's right edge. */
+            ImU32 mark = st == SS_APPROX ? t.caution : st == SS_FALLBACK ? ui::WithAlpha(t.textTertiary, 140) : st == SS_LOST || st == SS_NONE ?
+                         ui::WithAlpha(t.caution, 120) : (d < (int)scene.lineOff.size() && scene.lineOff[d]) ? ui::WithAlpha(t.textTertiary, 90) : 0;
+            if (mark && (fr != NULL || st != SS_FALLBACK)) dl->AddRectFilled(ImVec2(countX + countW - ui::Px(2), ya), ImVec2(countX + countW, yb), mark);
+            if (linePal.valid && d < (int)linePal.lineState.size() && linePal.lineState[d] == VDP_SPR_ROW_APPROX) {
+                dl->AddRectFilled(ImVec2(countX + countW + ui::Px(1), ya), ImVec2(countX + countW + ui::Px(3), yb), t.caution);
+            }
+        }
+        float tick = floorf(countX + countW / 2);
+        dl->AddLine(ImVec2(tick, y0), ImVec2(tick, y0 + lines * p), t.textTertiary, th);
+
+        /* Hover: a sprite on the picture, a line on the bands. */
+        ImGui::SetCursorScreenPos(ImVec2(at.x, y0));
+        ImGui::InvisibleButton("##place", ImVec2(end.x - at.x, lines * p));
+        bool hovered = ImGui::IsItemHovered(), clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
+        ImVec2 m = ImGui::GetIO().MousePos;
+        int d = (int)floorf((m.y - y0) / p), dot = (int)floorf((m.x - img.x) / p);
+        bool onBands = m.x < img.x;
+        int hit = -1;
+        if (hovered && d >= 0 && d < lines) {
+            const VdpSpriteFrame* fr = sceneShows(d) ? sceneFrame(d) : NULL;
+            int L = fr != NULL ? (d + fr->vscroll) & 0xff : 0;
+            hit = fr != NULL && !onBands && dot >= 0 && dot < 256 ? vdpSpriteAt(*fr, L, dot) : -1;
+            sprHotNext.d = d;
+            sprPlaceLine = d;
+            if (hit >= 0) sprSpriteHover(s, f, *fr, hit, L, d, clicked);
+            else sprLineStatus(d);
+            if (clicked && hit < 0) {
+                shell::releaseSelection();
+                if (sprLineFixed == d) {
+                    /* Let go: no rest on this line holds it again until the mouse moves to another. */
+                    sprLineFixed = sprLineHeld = -1;
+                    sprDwellLine = d;
+                    sprDwellAt = DBL_MAX;
+                }
+                else {
+                    sprLineFixed = sprLineHeld = d;
+                }
+            }
+        }
+        /* The fixed line across the bands. */
+        if (sprLineFixed >= 0 && sprLineFixed < lines) {
+            float fy = floorf(y0 + (sprLineFixed + 0.5f) * p);
+            dl->AddLine(ImVec2(at.x, fy), ImVec2(img.x, fy), t.accent, th * 2);
+        }
+        /* Every sprite's box with Boxes on, as on the Screen tab, in 256-dot units so the edges stay on whole pixels. */
+        if (boxes) {
+            ovState = s;
+            std::vector<BoxRun> runs;
+            boxRuns(-1, runs, true);
+            for (BoxRun& r : runs) { r.x0 /= 2; r.w /= 2; }
+            ui::CanvasXf xf;
+            xf.origin = img;
+            xf.scale = ImVec2(p, p);
+            xf.clipMin = img;
+            xf.clipMax = end;
+            xf.gutterMin = xf.gutterMax = img;
+            drawBoxRuns(dl, xf, runs, -1);
+        }
+        /* The hovered line, the hovered and pinned sprites, the first collision. */
+        dl->PushClipRect(img, end, true);
+        if (sprHot.d >= 0 && sprHot.d < lines) {
+            dl->AddLine(ImVec2(img.x, y0 + (sprHot.d + 0.5f) * p), ImVec2(end.x, y0 + (sprHot.d + 0.5f) * p), ui::WithAlpha(t.accent, 160), th);
+        }
+        int pinAttr = pinnedSpriteAttr(f);
+        if (pinAttr >= 0) sprBox(dl, img, p, pinAttr, f.a, t.accent, th * 2);
+        if (sprHot.n >= 0 && sprHot.frame >= 0 && sprHot.frame < (int)scene.frames.size()) {
+            sprBox(dl, img, p, scene.frames[sprHot.frame].spr[sprHot.n].attrAddr, sprHot.n, ui::WithAlpha(t.accent, 200), th);
+        }
+        sprPatBoxes(s, f, dl, img, p);
+        dl->PopClipRect();
+        if (scene.collLine >= 0) {
+            ImVec2 c(img.x + (scene.collX + 0.5f) * p, y0 + (scene.collLine + 0.5f) * p);
+            dl->AddCircle(c, ui::Px(4), t.caution, 0, th * 1.5f);
+            if (hovered && fabsf(m.x - c.x) <= ui::Px(5) && fabsf(m.y - c.y) <= ui::Px(5)) {
+                ImGui::SetTooltip(ts(TS_KV_FIRST_COLLISION_VALUE), scene.collX, scene.collLine);
+            }
+        }
+    }
+
+    /* The status line for display line d of the tab: its sprites, and how often it went over the limit. */
+    void sprLineStatus(int d)
+    {
+        const VdpSpriteFrame* fr = sceneShows(d) ? sceneFrame(d) : NULL;
+        char text[512] = "", heat[160] = "";
+        if (fr != NULL) lineSummary(*fr, d + fr->vscroll, fr->limit, text, sizeof(text));
+        else if (d < (int)scene.lineState.size() && scene.lineState[d] == SS_FALLBACK) textf(text, sizeof(text), "%s", ts(TS_SPR_TAB_FALLBACK_LINE));
+        else textf(text, sizeof(text), "%s", ts(TS_LINE_NO_SPRITES));
+        if (d < 240 && sprRingLen > 0) {
+            textf(heat, sizeof(heat), ts(TS_SPR_HEAT), sprOverSum[d], sprRingLen, (int)(sprRingSeq - sprRingSeqFirst + 1));
+        }
+        size_t at = strlen(text);
+        if (heat[0] && at < sizeof(text)) at += (size_t)textf(text + at, sizeof(text) - at, " \xC2\xB7 %s", heat);
+        if (linePal.valid && d < (int)linePal.lineState.size() && linePal.lineState[d] == VDP_SPR_ROW_APPROX && at < sizeof(text)) {
+            textf(text + at, sizeof(text) - at, " \xC2\xB7 %s", ts(TS_SPR_TAB_PAL_APPROX));
+        }
+        ui::StatusText(ts(TS_GUTTER_LINE), d, text);
+    }
+
+    /* A sprite under the mouse on the tab: Output's status line; a click pins it in its table. */
+    void sprSpriteHover(const VdpDebugState* s, Focus& f, const VdpSpriteFrame& fr, int n, int L, int d, bool clicked)
+    {
+        const VdpSprite& sp = fr.spr[n];
+        Focus hit = { f.chipId, FOCUS_LOGICAL, (UInt32)sp.attrAddr, 4, FOCUS_SPRITE, n, L, false };
+        focusAddr(s, fr.screenMode, sp.attrAddr, 4, &hit);
+        pin(f, hit, clicked);
+        if (clicked) {
+            sprPinned = f.pinned;
+            sprPinAttr = sp.attrAddr;
+            sprPinLine = d;
+            if (f.pinned) sprChoose(frameKey(s, fr));
+        }
+        sprHotNext.slot = d >= 0 && d < (int)scene.lineSlot.size() ? scene.lineSlot[d] : -1;
+        sprHotNext.sel = sprHotNext.slot >= 0 && sprHotNext.slot == sprSlotSel;
+        sprHotNext.n = n;
+        sprHotNext.frame = (int)(&fr - scene.frames.data());
+        int k = 0;
+        while (k < fr.line[L].count && fr.line[L].id[k] != n) k++;
+        int st = vdpSpriteState(fr, L, k);
+        ui::StatusText(ts(TS_STATUS_SPRITE), n, sp.y, sp.x, sp.pattern, vdpSpriteRow(fr, n, L), sp.attrAddr,
+                       st == VDP_SPRITE_DROPPED ? ts(TS_STATUS_SPRITE_DROPPED) : st == VDP_SPRITE_CC_HIDDEN ? ts(TS_STATUS_SPRITE_CC_HIDDEN) : "");
+    }
+
+    /* Table i of sprSeen by attribute address, the same address told apart by a number. */
+    const char* sprTableName(int i, char* out, size_t size) const
+    {
+        int same = 0, nth = 0;
+        for (int j = 0; j < (int)sprSeen.size(); j++) {
+            if (sprSeen[j].key.attr != sprSeen[i].key.attr) continue;
+            same++;
+            if (j <= i) nth++;
+        }
+        if (same > 1) textf(out, size, "%05X \xC2\xB7 %d", sprSeen[i].key.attr, nth);
+        else textf(out, size, "%05X", sprSeen[i].key.attr);
+        return out;
+    }
+
+    /* The table selector first on the bar: the row's tables in key order, those away a while
+    ** dimmed, then "+N" for the other tables seen. False when no table has been seen. */
+    bool sprSelector()
+    {
+        int idx[4], n = 0;
+        for (int r = 0; r < sprRowN; r++) {
+            int i = sprSeenOf(sprRow[r]);
+            if (i >= 0) idx[n++] = i;
+        }
+        if (n == 0) return false;
+        std::sort(idx, idx + n);
+        char labels[4][24], lines[64], tip[1024];
+        const char* names[4];
+        int ids[4];
+        size_t at = 0;
+        unsigned away = 0;
+        int sel = -1;
+        tip[0] = 0;
+        for (int k = 0; k < n; k++) {
+            const SprSeen& e = sprSeen[idx[k]];
+            names[k] = sprTableName(idx[k], labels[k], sizeof(labels[k]));
+            /* By key, so a click lands on its table while the row changes under the mouse. */
+            ids[k] = (int)ImHashData(&e.key, sizeof(e.key));
+            if (sprSelSet && sameKey(e.key, sprSel)) sel = k;
+            bool old = sprSeenAge(idx[k]) > (UInt32)SPR_AWAY_SHOWN;
+            if (old) away |= 1u << k;
+            slotLines(e.slot, lines, sizeof(lines));
+            if (at > 0 && at < sizeof(tip)) at += (size_t)textf(tip + at, sizeof(tip) - at, "\n");
+            if (at >= sizeof(tip)) continue;
+            if (old) at += (size_t)textf(tip + at, sizeof(tip) - at, ts(TS_SPR_TAB_TABLE_AWAY_TIP), SPR_AWAY_SHOWN, lines, e.key.attr, e.key.patBase);
+            else at += (size_t)textf(tip + at, sizeof(tip) - at, ts(TS_SPR_TAB_TABLE_TIP), lines, e.key.attr, e.key.patBase);
+        }
+        int pick = sel;
+        float w = ui::SegmentedWidth(names, n);
+        ui::CommandBarItem(w, ui::SegmentedHeight());
+        if (ui::Segmented("tables", &pick, names, n, 0, 0, NULL, away, ids, tip) && pick >= 0 && pick < n) sprChoose(sprSeen[idx[pick]].key);
+        int more = (int)sprSeen.size() - n;
+        if (more > 0) {
+            char label[16], name[24];
+            textf(label, sizeof(label), "+%d", more);
+            ui::CommandBarItem(ui::DropDownButtonWidth(NULL, label, true));
+            if (ui::BeginDropDownButton("more", NULL, label, true)) {
+                int chosen = -1;
+                for (int i = 0, k = 0; i < (int)sprSeen.size(); i++) {
+                    if (k < n && idx[k] == i) { k++; continue; }
+                    if (ui::MenuRadio(sprTableName(i, name, sizeof(name)), sprSelSet && sameKey(sprSeen[i].key, sprSel))) chosen = i;
+                }
+                ui::EndDropDownButton();
+                if (chosen >= 0) sprChoose(sprSeen[chosen].key);
+            }
+        }
+        return true;
+    }
+
+    SteadyTip sprNotesTip, sprTileTip, sprPatHeld;
+
+    /* Mode, size, limit and patterns of the selected table, then the notes on one line. */
+    void sprHeader(const VdpDebugState* s)
+    {
+        const UiTokens& t = uiTokens();
+        const VdpSpriteFrame* fr = sprView.fr;
+        char head[256] = "";
+        if (scene.slots.empty()) {
+            /* No line shows sprites: say why. */
+            const char* off = sprOffWhy(sprites);
+            textf(head, sizeof(head), ts(TS_SPR_NONE_SHOWN), off != NULL ? off : ts(TS_SPR_OFF_BLANKED));
+        }
+        else if (fr != NULL) {
+            int at = textf(head, sizeof(head), ts(TS_SPR_TAB_HEAD), fr->mode, fr->size == 16 ? "16\xC3\x97" "16" : "8\xC3\x97" "8", fr->limit,
+                           sprSel.patBase);
+            if (at > 0 && fr->mag == 2) at += textf(head + at, sizeof(head) - at, "%s", ts(TS_SPR_MAGNIFIED));
+            if (at > 0 && !vdpIsMsx1(s) && (fr->regs[8] & 0x20)) at += textf(head + at, sizeof(head) - at, "%s", ts(TS_SPR_TAB_TP));
+            if (at > 0 && sceneWide()) textf(head + at, sizeof(head) - at, "%s", ts(TS_SPR_TAB_WIDE));
+        }
+        ImGui::PushStyleColor(ImGuiCol_Text, t.textSecondary);
+        ImGui::TextUnformatted(head[0] ? head : " ");
+        ImGui::PopStyleColor();
+        /* One line, kept even when empty so nothing below moves; the rest of the notes on hover. */
+        unsigned ver;
+        const VdpFrameShot* o = (const VdpFrameShot*)shell::frameShot(&ver);
+        if (ver != sprNoTablesVer) {
+            sprNoTablesVer = ver;
+            sprNoTables = scene.recorded ? 0 : sprNoTables + 1;
+        }
+        char notes[6][384];
+        int n = 0;
+        if (!scene.slots.empty() && sprSelSet && !sprSelKept && sprView.slot < 0) textf(notes[n++], sizeof(notes[0]), ts(TS_SPR_TAB_NOT_KEPT), sprSel.attr);
+        if (!scene.recorded && sprNoTables >= 2) textf(notes[n++], sizeof(notes[0]), "%s", ts(o != NULL && o->valid && !o->ended ? TS_SPR_TAB_NOW : TS_SPR_TAB_VBLANK));
+        if (scene.approx > 0) textf(notes[n++], sizeof(notes[0]), ts(TS_SPR_TAB_APPROX), scene.approx);
+        if (scene.lost > 0) textf(notes[n++], sizeof(notes[0]), ts(TS_SPR_TAB_LOST), scene.lost);
+        if (vdpGetNoSpritesLimit()) textf(notes[n++], sizeof(notes[0]), "%s", ts(TS_SPR_TAB_NO_LIMIT));
+        if (!vdpGetSpritesEnable()) textf(notes[n++], sizeof(notes[0]), "%s", ts(TS_SPR_NOTE_HIDDEN));
+        char line[512] = "", all[2048] = "";
+        size_t at = 0;
+        if (n > 0) {
+            int k = textf(line, sizeof(line), "%s", notes[0]);
+            if (n > 1 && k > 0) textf(line + k, sizeof(line) - k, ts(TS_SPR_TAB_MORE_NOTES), n - 1);
+        }
+        for (int i = 0; i < n && at < sizeof(all); i++) at += (size_t)textf(all + at, sizeof(all) - at, "%s%s", i ? "\n" : "", notes[i]);
+        ImGui::PushStyleColor(ImGuiCol_Text, t.caution);
+        ImGui::TextUnformatted(line[0] ? line : " ");
+        ImGui::PopStyleColor();
+        if (n > 1 && ImGui::IsItemHovered()) steadyTooltip(sprNotesTip, ImHashData(&sprSel.attr, sizeof(sprSel.attr), ImGui::GetID("##notes")), all);
+    }
+
+    /* The colours of sprite n's rows in frame fr, each from the line it is drawn on (P1). */
+    void sprRowRgb(const VdpSpriteFrame& fr, int n, const UInt32* out[16]) const
+    {
+        for (int r = 0; r < 16; r++) out[r] = r < fr.size ? spriteRowRgb(fr, n, r) : NULL;
+    }
+
+    /* Sprites of the selected table whose pattern number changed since the last picture of the same table. */
+    void sprNotePatterns()
+    {
+        if (sprView.fr == NULL || (sprPatVer == scene.ver && sprPatSlotAttr == sprSel.attr)) return;
+        sprPatVer = scene.ver;
+        sprPatSlotAttr = sprSel.attr;
+        const VdpSpriteFrame& fr = *sprView.fr;
+        size_t i = 0;
+        while (i < sprPrevPat.size() && sprPrevPat[i].attr != sprPatSlotAttr) i++;
+        sprPatChanged = 0;
+        if (i == sprPrevPat.size()) {
+            if (sprPrevPat.size() >= 32) sprPrevPat.erase(sprPrevPat.begin());
+            sprPrevPat.push_back(SprPrevPat{ sprPatSlotAttr, {} });
+            i = sprPrevPat.size() - 1;
+            for (int n = 0; n < 32; n++) sprPrevPat[i].pat[n] = fr.spr[n].pattern;
+        }
+        for (int n = 0; n < 32; n++) {
+            if (sprPrevPat[i].pat[n] != fr.spr[n].pattern && n < fr.stopIndex) sprPatChanged |= 1u << n;
+            sprPrevPat[i].pat[n] = fr.spr[n].pattern;
+        }
+    }
+
+    /* Tiles into pic, n of them side by side, each its rows coloured by its lines. */
+    void sprRenderTiles(const VdpDebugState* s, const VdpSpriteFrame& fr, const int* ids, int count, int cols, ViewPicture& pic, unsigned* hash)
+    {
+        int size = fr.size, rows = (count + cols - 1) / cols;
+        pic.w = cols * size;
+        pic.h = (rows > 0 ? rows : 1) * size;
+        pic.img.assign((size_t)pic.w * pic.h, 0);
+        for (int k = 0; k < count; k++) {
+            const UInt32* rgb[16];
+            sprRowRgb(fr, ids[k], rgb);
+            vdpRenderSpriteTile(s, fr, ids[k], rgb, &pic.img[(size_t)(k / cols) * size * pic.w + (k % cols) * size], pic.w);
+        }
+        pic.uploadChanged(hash);
+    }
+
+    /* The first display line pattern row r of sprite n of frame fr is drawn on, or -1. */
+    static int sprRowLine(const VdpSpriteFrame& fr, int n, int r)
+    {
+        return vdpSpriteDisplayLine(fr, (fr.spr[n].y + 1 + r * fr.mag) & 0xff);
+    }
+
+    /* What line d does to sprite n: VdpSpriteState, or -1 when the sprite is not in range there. */
+    int sprStateOn(int d, int n) const
+    {
+        const VdpSpriteFrame* fr = sceneShows(d) ? sceneFrame(d) : NULL;
+        if (fr == NULL) return -1;
+        int L = (d + fr->vscroll) & 0xff, k = 0;
+        const VdpSpriteLine& ln = fr->line[L];
+        while (k < ln.count && ln.id[k] != n) k++;
+        return k < ln.count ? vdpSpriteState(*fr, L, k) : -1;
+    }
+
+    /* Pins sprite n of table fr as clicked on the tab; d its line, -1 when it has none. */
+    void sprPinTile(const VdpDebugState* s, Focus& f, const VdpSpriteFrame& fr, int n, int d, bool clicked)
+    {
+        const VdpSprite& sp = fr.spr[n];
+        Focus hit = { f.chipId, FOCUS_LOGICAL, (UInt32)sp.attrAddr, 4, FOCUS_SPRITE, n, (sp.y + 1) & 0xff, false };
+        focusAddr(s, fr.screenMode, sp.attrAddr, 4, &hit);
+        pin(f, hit, clicked);
+        if (clicked) {
+            sprPinned = f.pinned;
+            sprPinAttr = sp.attrAddr;
+            sprPinLine = d;
+            if (f.pinned) sprChoose(frameKey(s, fr));
+        }
+    }
+
+    /* The 32 attributes of the selected table as pictures, what happens to each row drawn
+    ** over them; under them the hovered line's sprites in the order the VDP checks them. */
+    void sprDrawAttrs(const VdpDebugState* s, Focus& f, ImVec2 at, float t, float partW)
+    {
+        const UiTokens& t_ = uiTokens();
+        if (sprView.fr == NULL) return;
+        const VdpSpriteFrame& fr = *sprView.fr;
+        bool versions = sprSlotSel >= 0 ? scene.slots[sprSlotSel].versions : sprSelSlot.versions;
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        float th = fmaxf(1.0f, ui::Px(1)), lh = ImGui::GetTextLineHeight(), tile = fr.size * t, cellW = tile + ui::Px(4);
+        ui::PushFont(UI_FONT_STRONG);
+        dl->AddText(at, t_.text, ts(TS_SPR_TAB_ATTRS));
+        ui::PopFont();
+        int ids[32];
+        for (int n = 0; n < 32; n++) ids[n] = n;
+        sprNotePatterns();
+        sprRenderTiles(s, fr, ids, 32, 8, sprAtlasPic, &sprAtlasHash);
+        int pinAttr = pinnedSpriteAttr(f), pinN = pinAttr >= 0 ? f.a : -1;
+        bool pinHere = pinAttr >= 0 && (pinAttr & ~0x7f) == sprSel.attr;
+        float y0 = floorf(at.y + lh + ui::Px(6));
+        for (int n = 0; n < 32; n++) {
+            float x = at.x + (n % 8) * cellW, y = y0 + floorf((n / 8) * (lh + tile + ui::Px(6)));
+            ImVec2 a(x, y + lh), b(x + tile, y + lh + tile);
+            const VdpSprite& sp = fr.spr[n];
+            const SprAgg& ag = sprView.agg[n];
+            bool hot = sprHot.n == n && sprHot.sel, pinned = pinHere && pinN == n;
+            char num[24];
+            snprintf(num, sizeof(num), "%d", n);
+            dl->AddText(ImVec2(x, y), hot || pinned ? t_.accent : n > fr.stopIndex ? t_.textTertiary : t_.textSecondary, num);
+            if ((sprPatChanged >> n) & 1) dl->AddCircleFilled(ImVec2(x + ImGui::CalcTextSize(num).x + ui::Px(5), y + lh / 2), ui::Px(2), t_.accent);
+            if (n > fr.stopIndex) {
+                /* Past the terminator the VDP reads nothing: a small grey tag. */
+                float q = tile * 0.3f;
+                dl->AddRect(ImVec2(a.x + q, a.y + q), ImVec2(b.x - q, b.y - q), t_.textTertiary, 0, th);
+                continue;
+            }
+            drawCheckerRect(dl, a, b);
+            if (sprAtlasPic.tex.id() && n < fr.stopIndex) {
+                ImVec2 uv0((float)(n % 8) / 8, (float)(n / 8) / 4), uv1((float)(n % 8 + 1) / 8, (float)(n / 8 + 1) / 4);
+                ui::ImageNearest(dl, sprAtlasPic.tex.id(), a, b, uv0, uv1);
+            }
+            if (n < fr.stopIndex) canvasGrid(sprCv, dl, a, b, t, t);
+            if (n == fr.stopIndex) {
+                /* The terminator: a red bar, "End" and its Y. */
+                dl->AddRectFilled(ImVec2(b.x - ui::Px(3), a.y), b, t_.critical);
+                char yv[16];
+                snprintf(yv, sizeof(yv), "Y=%d", fr.stopY);
+                dl->PushClipRect(a, b, true);
+                dl->AddText(ImVec2(a.x + ui::Px(2), a.y), t_.critical, ts(TS_SPR_TAB_END));
+                dl->AddText(ImVec2(a.x + ui::Px(2), a.y + lh), t_.textTertiary, yv);
+                dl->PopClipRect();
+            }
+            else {
+                /* Each pattern row by the line it is drawn on. */
+                bool any = false, ec = false, cc = false, offScreen = true;
+                for (int r = 0; r < fr.size; r++) {
+                    int c = sp.color[r], st = sprRowState(fr, sprSlotSel, n, r);
+                    any = any || (vdpSpriteRowBits(s, fr, n, r) != 0 && !vdpSpriteClear(s, fr, c));
+                    ec = ec || (c & 0x80);
+                    cc = cc || (fr.mode == 2 && (c & 0x40));
+                    ImVec2 ra(a.x, a.y + r * t), rb(b.x, a.y + (r + 1) * t);
+                    if (st != -3) offScreen = false;
+                    if (st == -3 || st == -4) {
+                        dl->AddRectFilled(ra, rb, ui::WithAlpha(t_.layer, st == -3 ? 150 : 120));
+                        continue;
+                    }
+                    if (st == VDP_SPRITE_DROPPED) {
+                        dl->AddRectFilled(ra, rb, ui::WithAlpha(t_.critical, 70));
+                        hatch(dl, ra, rb, ui::WithAlpha(t_.critical, 200));
+                    }
+                    else if (st == VDP_SPRITE_CC_HIDDEN) {
+                        dl->AddRectFilled(ra, rb, ui::WithAlpha(t_.layer, 170));
+                    }
+                }
+                if (!any) {
+                    dashedRect(dl, a, b, t_.textTertiary, th);
+                    dl->PushClipRect(a, b, true);
+                    dl->AddText(ImVec2(a.x + ui::Px(2), a.y + (tile - lh) / 2), t_.textTertiary, ts(TS_SPR_TAB_COLOUR0));
+                    dl->PopClipRect();
+                }
+                /* Tags in words on a roomy tile; on a small one a bar each: EC left, CC and off screen below. */
+                ui::PushFont(UI_FONT_BODY, 11);
+                float tagH = ImGui::GetTextLineHeight();
+                bool words = tile >= ImGui::CalcTextSize("\xE2\x86\x90" "32 CC").x + ui::Px(4) && tile >= tagH * 2;
+                dl->PushClipRect(a, b, true);
+                if (words) {
+                    if (offScreen) dl->AddText(ImVec2(b.x - ImGui::CalcTextSize("\xE2\x86\x93").x - ui::Px(1), a.y), t_.textSecondary, "\xE2\x86\x93");
+                    if (ec) dl->AddText(ImVec2(a.x + ui::Px(1), b.y - tagH), t_.caution, "\xE2\x86\x90" "32");
+                    if (cc) dl->AddText(ImVec2(b.x - ImGui::CalcTextSize("CC").x - ui::Px(1), b.y - tagH), t_.textSecondary, "CC");
+                }
+                else {
+                    if (ec) dl->AddRectFilled(a, ImVec2(a.x + ui::Px(2), b.y), t_.caution);
+                    if (cc) dl->AddRectFilled(ImVec2(a.x, b.y - ui::Px(2)), ImVec2(b.x, b.y), t_.textSecondary);
+                    if (offScreen) dl->AddRectFilled(ImVec2(b.x - ui::Px(2), a.y), b, t_.textTertiary);
+                }
+                dl->PopClipRect();
+                ui::PopFont();
+                if (ag.collides) dl->AddCircleFilled(ImVec2(b.x - ui::Px(3), a.y + ui::Px(3)), ui::Px(2.5f), t_.caution);
+            }
+            /* The sprite pinned or hovered, else a user of the pattern pinned (thick) or hovered. */
+            int lit = pinned ? 2 : hot ? 1 : sprPatMark(s, f, fr, n);
+            if (lit) dl->AddRect(ImVec2(a.x - th * lit, a.y - th * lit), ImVec2(b.x + th * lit, b.y + th * lit), t_.accent, 0, th * lit);
+
+            ImGui::SetCursorScreenPos(a);
+            ImGui::PushID(n);
+            ImGui::InvisibleButton("##tile", ImVec2(tile, tile));
+            ImGui::PopID();
+            if (ImGui::IsItemHovered()) {
+                char text[512];
+                int at2 = 0;
+                spriteStateText(fr, &ag, n, text, sizeof(text));
+                at2 = (int)strlen(text);
+                if (((sprPatChanged >> n) & 1) && at2 < (int)sizeof(text)) at2 += textf(text + at2, sizeof(text) - at2, "%s", ts(TS_SPR_TAB_CHANGED));
+                if (versions && at2 < (int)sizeof(text)) textf(text + at2, sizeof(text) - at2, "%s", ts(TS_SPR_TAB_VERSIONS));
+                steadyTooltip(sprTileTip, ImHashData(&sprSel.attr, sizeof(sprSel.attr), ImGui::GetItemID()), text);
+                int d0 = -1;
+                for (int r = 0; r < fr.size * fr.mag && d0 < 0; r++) {
+                    int d = vdpSpriteDisplayLine(fr, (sp.y + 1 + r) & 0xff);
+                    if (shownLays(d)) d0 = d;
+                }
+                sprHotNext.slot = sprSlotSel;
+                sprHotNext.n = n;
+                sprHotNext.frame = sprSlotSel >= 0 ? scene.slots[sprSlotSel].rep : SPR_KEPT;
+                sprHotNext.sel = true;
+                sprPinTile(s, f, fr, n, d0, ImGui::IsItemClicked(ImGuiMouseButton_Left));
+                ui::StatusText(ts(TS_STATUS_SPRITE), n, sp.y, sp.x, sp.pattern, 0, sp.attrAddr, "");
+            }
+        }
+        sprDrawLineRow(s, f, ImVec2(at.x, floorf(y0 + 4 * (lh + tile + ui::Px(6)) + ui::Px(10))), sprLineScale(t), partW);
+    }
+
+    /* The line row forgets the lines it held: a table picked, the chip, machine, state or line count changed. */
+    void lineRowReset()
+    {
+        sprLineFixed = sprLineHeld = sprLineAuto = sprDwellLine = -1;
+        sprLineAutoAt = sprDwellAt = 0;
+        sprLineAutoGone = -1;
+    }
+
+    /* The shown table's frame for display line d: this picture's, else the kept one; NULL when it does not lay d out. */
+    const VdpSpriteFrame* rowFrame(int d) const
+    {
+        if (d < 0 || d >= scene.lines || !shownLays(d)) return NULL;
+        return sprSlotSel >= 0 ? (sceneShows(d) ? sceneFrame(d) : NULL) : sprSelKeep;
+    }
+
+    /* How many sprites display line d has in range, -1 when it shows none of the shown table's;
+    ** over, whether that is more than the limit. */
+    int lineRowCount(int d, bool* over = NULL) const
+    {
+        const VdpSpriteFrame* lf = rowFrame(d);
+        int c = lf != NULL ? lf->line[(d + lf->vscroll) & 0xff].count : -1;
+        if (over) *over = lf != NULL && c > lf->limit;
+        return c;
+    }
+
+    /* The line row's line and why: the placement line under the mouse, else the one a click fixed,
+    ** else the one it last rested on for a quarter second, else the pinned sprite's, else the
+    ** selected table's busiest line over the limit or else at all, picked again at most once a second. */
+    int lineRowPick(const Focus& f, int* why)
+    {
+        double now = ImGui::GetTime();
+        int pinAttr = pinnedSpriteAttr(f);
+        if (pinAttr != sprRowPin && pinAttr >= 0) sprLineFixed = sprLineHeld = -1;  /* a new pin shows its own line */
+        sprRowPin = pinAttr;
+        if (sprPlaceLine >= 0) {
+            if (sprPlaceLine != sprDwellLine) { sprDwellLine = sprPlaceLine; sprDwellAt = now; }
+            else if (now - sprDwellAt >= 0.25) sprLineHeld = sprPlaceLine;
+            *why = ROW_HOVER;
+            return sprPlaceLine;
+        }
+        sprDwellLine = -1;
+        if (sprLineFixed >= 0 && sceneShows(sprLineFixed)) { *why = ROW_FIXED; return sprLineFixed; }
+        if (sprLineHeld >= 0 && sceneShows(sprLineHeld)) { *why = ROW_HELD; return sprLineHeld; }
+        /* The pinned sprite's line, from the kept sprites while its table is the shown one away. */
+        int slot = slotOfAttr(pinAttr, sprPinLine);
+        const SprAgg* pag = slot >= 0 ? &scene.agg[(size_t)slot * 32 + f.a] : NULL;
+        if (pag == NULL && pinAttr >= 0 && sprSlotSel < 0 && sprSelKept && (pinAttr & ~0x7f) == sprSel.attr) pag = &sprSelAgg[f.a];
+        if (pag != NULL) {
+            *why = pag->firstDropped >= 0 ? ROW_PIN_DROP : ROW_PIN;
+            return pag->firstDropped >= 0 ? pag->firstDropped : sprPinLine;
+        }
+        *why = sprLineAutoOver ? ROW_OVER : ROW_BUSIEST;
+        if (sprView.fr == NULL) return -1;
+        /* The shown table away from the line for a quarter second: picked again at once. */
+        if (sprLineAuto >= 0 && sprLineAuto < scene.lines && now - sprLineAutoAt < 1.0) {
+            if (lineRowCount(sprLineAuto) >= 0) sprLineAutoGone = -1;
+            else if (sprLineAutoGone < 0) sprLineAutoGone = now;
+            if (sprLineAutoGone < 0 || now - sprLineAutoGone < 0.25) return sprLineAuto;
+        }
+        sprLineAutoGone = -1;
+        /* Ranked by (over the limit, count). */
+        int line = -1, most = -1;
+        bool mostOver = false, over;
+        for (int d = 0; d < scene.lines; d++) {
+            int c = lineRowCount(d, &over);
+            if ((over && !mostOver) || (over == mostOver && c > most)) { most = c; mostOver = over; line = d; }
+        }
+        if (most >= 0 && lineRowCount(sprLineAuto, &over) == most && over == mostOver) line = sprLineAuto;  /* a tie keeps the line */
+        sprLineAuto = line;
+        sprLineAutoOver = mostOver;
+        *why = mostOver ? ROW_OVER : ROW_BUSIEST;
+        sprLineAutoAt = now;
+        return line;
+    }
+
+    /* The sprites in range of the line lineRowPick gives, in the order the VDP checks them,
+    ** with why in the caption. A fence at the limit. */
+    void sprDrawLineRow(const VdpDebugState* s, Focus& f, ImVec2 at, float t, float partW)
+    {
+        const UiTokens& t_ = uiTokens();
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        float th = fmaxf(1.0f, ui::Px(1)), lh = ImGui::GetTextLineHeight();
+        int why = ROW_NONE, line = lineRowPick(f, &why);
+        /* The shown table's sprites where it lays the line out, also while away; else the picture's. */
+        const VdpSpriteFrame* fr = rowFrame(line);
+        bool other = fr == NULL;
+        if (fr == NULL) fr = sceneShows(line) ? sceneFrame(line) : NULL;
+        if (fr == NULL) return;
+        int L = (line + fr->vscroll) & 0xff, count = fr->line[L].count;
+        static const ToolStringId whyText[] = { TS_SPR_TAB_WHY_HOVER, TS_SPR_TAB_WHY_FIXED, TS_SPR_TAB_WHY_HELD, TS_SPR_TAB_WHY_PIN_DROP,
+                                                TS_SPR_TAB_WHY_PIN, TS_SPR_TAB_WHY_OVER, TS_SPR_TAB_WHY_BUSIEST };
+        char cap[256];
+        int at2 = textf(cap, sizeof(cap), ts(TS_SPR_TAB_LINE), line, count);
+        if (why > ROW_NONE && at2 > 0 && at2 < (int)sizeof(cap)) at2 += textf(cap + at2, sizeof(cap) - at2, "%s", ts(whyText[why - 1]));
+        if (other && at2 > 0 && at2 < (int)sizeof(cap)) textf(cap + at2, sizeof(cap) - at2, ts(TS_SPR_TAB_LINE_TABLE), fr->spr[0].attrAddr);
+        bool overCap = ImGui::ItemAdd(ImRect(at, ImVec2(at.x + partW, at.y + lh)), 0) && ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip);
+        ui::TextFit(dl, at, at.x + partW, cap, t_.textSecondary, overCap);
+        int ids[32];
+        for (int k = 0; k < count; k++) ids[k] = fr->line[L].id[k];
+        if (count > 0) sprRenderTiles(s, *fr, ids, count, count, sprLinePic, &sprLineHash);
+        float tile = fr->size * t, cellW = ceilf(fmaxf(tile, ImGui::CalcTextSize("#31").x)) + ui::Px(4), fence = floorf(ui::Px(14));
+        float y = floorf(at.y + lh + ui::Px(4) + lh);
+        dl->PushClipRect(ImVec2(at.x, at.y), ImVec2(at.x + partW, y + tile + lh + ui::Px(2)), true);
+        /* Only whole tiles, each hoverable; the rest are counted as "+N" at the end. */
+        float right = at.x + partW;
+        auto tileX = [&](int k) { return at.x + k * cellW + (k >= fr->limit ? fence : 0); };
+        int shown = count;
+        while (shown > 0 && tileX(shown - 1) + tile > right) shown--;
+        char more[16] = "";
+        if (shown < count) {
+            for (;;) {
+                snprintf(more, sizeof(more), "+%d", count - shown);
+                if (shown == 0 || tileX(shown - 1) + cellW + ImGui::CalcTextSize(more).x <= right) break;
+                shown--;
+            }
+        }
+        for (int k = 0; k < shown; k++) {
+            int n = ids[k], row = vdpSpriteRow(*fr, n, L);
+            float x = tileX(k);
+            ImVec2 a(x, y), b(x + tile, y + tile);
+            drawCheckerRect(dl, a, b);
+            if (sprLinePic.tex.id()) ui::ImageNearest(dl, sprLinePic.tex.id(), a, b, ImVec2((float)k / count, 0), ImVec2((float)(k + 1) / count, 1));
+            canvasGrid(sprCv, dl, a, b, t, t);
+            if (row >= 0) dl->AddLine(ImVec2(a.x, a.y + (row + 0.5f) * t), ImVec2(b.x, a.y + (row + 0.5f) * t), t_.accent, th);
+            if (sprPatMark(s, f, *fr, n)) dl->AddRect(ImVec2(a.x - th, a.y - th), ImVec2(b.x + th, b.y + th), t_.accent, 0, th);
+            if (k >= fr->limit) {
+                dl->AddLine(a, b, t_.critical, th * 1.5f);
+                dl->AddLine(ImVec2(a.x, b.y), ImVec2(b.x, a.y), t_.critical, th * 1.5f);
+            }
+            char num[16];
+            snprintf(num, sizeof(num), "#%d", n);
+            dl->AddText(ImVec2(x, b.y + ui::Px(1)), k >= fr->limit ? t_.critical : t_.textSecondary, num);
+            ImGui::SetCursorScreenPos(a);
+            ImGui::PushID(100 + k);
+            ImGui::InvisibleButton("##ltile", ImVec2(tile, tile));
+            ImGui::PopID();
+            if (ImGui::IsItemHovered()) {
+                sprHotNext.slot = other ? scene.lineSlot[line] : sprSlotSel;
+                sprHotNext.n = n;
+                sprHotNext.d = line;
+                sprHotNext.frame = fr == sprSelKeep ? SPR_KEPT : scene.lineFrame[line];
+                sprHotNext.sel = !other;
+                sprPinTile(s, f, *fr, n, line, ImGui::IsItemClicked(ImGuiMouseButton_Left));
+                lineSummary(*fr, L, fr->limit, cap, sizeof(cap));
+                ui::StatusText(ts(TS_GUTTER_LINE), line, cap);
+            }
+        }
+        if (more[0]) {
+            float mx = shown > 0 ? tileX(shown - 1) + cellW : at.x;
+            dl->AddText(ImVec2(mx, floorf(y + (tile - lh) / 2)), count > fr->limit ? t_.critical : t_.textSecondary, more);
+        }
+        if (count > fr->limit && fr->limit < shown) {
+            /* The fence: the VDP stops drawing here. */
+            float fx = at.x + fr->limit * cellW + fence / 2 - ui::Px(2);
+            dl->AddLine(ImVec2(fx, y - lh), ImVec2(fx, y + tile), t_.critical, th * 2);
+            char lim[64];
+            textf(lim, sizeof(lim), ts(TS_SPR_TAB_FENCE), fr->limit);
+            dl->AddText(ImVec2(fx + ui::Px(3), y - lh - ui::Px(2)), t_.critical, lim);
+        }
+        dl->PopClipRect();
+    }
+
+    /* The line labels' column left of the magnified sprite. */
+    static float sprMagLabelW()
+    {
+        return ui::Px(30);
+    }
+
+    /* Why sprite n of fr is or is not drawn, in one sentence; slot is fr's, -1 when it is away. */
+    void sprWhy(const VdpDebugState* s, const VdpSpriteFrame& fr, int n, int slot, char* out, size_t size) const
+    {
+        const VdpSprite& sp = fr.spr[n];
+        int onScreen = 0, own = 0, dropFrom = -1, dropTo = -1, dropD0 = -1, dropD1 = -1, cc = 0, any = 0, bits = 0;
+        for (int r = 0; r < fr.size; r++) {
+            int d = sprRowLine(fr, n, r), b = vdpSpriteRowBits(s, fr, n, r), st = sprRowState(fr, slot, n, r);
+            bits |= b;
+            any |= b != 0 && !vdpSpriteClear(s, fr, sp.color[r]);
+            if (st == -3) continue;
+            onScreen++;
+            if (st == -4) continue;
+            own++;
+            if (st == VDP_SPRITE_DROPPED) {
+                if (dropFrom < 0) { dropFrom = r; dropD0 = d; }
+                dropTo = r;
+                dropD1 = d;
+            }
+            if (st == VDP_SPRITE_CC_HIDDEN) cc++;
+        }
+        int at;
+        if (n == fr.stopIndex) at = textf(out, size, ts(TS_SPR_WHY_TERMINATOR), fr.stopY);
+        else if (sp.afterStop) at = textf(out, size, "%s", ts(TS_SPR_WHY_AFTER));
+        else if (fr.off) at = textf(out, size, ts(TS_SPR_WHY_OFF), fr.off);
+        else if (onScreen == 0) at = textf(out, size, "%s", ts(TS_SPR_WHY_OFF_SCREEN));
+        else if (own == 0) at = textf(out, size, "%s", ts(TS_SPR_WHY_OTHER_TABLE));
+        else if (dropFrom >= 0) at = textf(out, size, ts(TS_SPR_WHY_DROPPED), dropFrom, dropTo, dropD0, dropD1, fr.limit);
+        else if (cc > 0) at = textf(out, size, "%s", ts(TS_SPR_WHY_CC));
+        else if (bits == 0) at = textf(out, size, "%s", ts(TS_SPR_WHY_EMPTY));
+        else if (!any) at = textf(out, size, "%s", ts(TS_SPR_WHY_COLOUR0));
+        else at = textf(out, size, "%s", ts(TS_SPR_WHY_DRAWN));
+        bool coll = slot >= 0 ? scene.agg[(size_t)slot * 32 + n].collides : &fr == sprSelKeep && sprSelKept && sprSelAgg[n].collides;
+        if (coll && at > 0 && (size_t)at < size) textf(out + at, size - at, "%s", ts(TS_SPR_WHY_COLLIDES));
+    }
+
+    /* The hovered sprite or pattern, else the pinned one; a sprite row by row: the line at each change
+    ** of state, its dots, each row's colour and flags, and why it is or is not drawn. */
+    void sprDrawMag(const VdpDebugState* s, const Focus& f, ImVec2 at, float m, float partW)
+    {
+        const UiTokens& t = uiTokens();
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        float th = fmaxf(1.0f, ui::Px(1)), lh = ImGui::GetTextLineHeight();
+        const VdpSpriteFrame* fr = NULL;
+        int n = -1, slot = -1, pinAway = 0;
+        SprPatKey pk;
+        if (sprHot.n >= 0 && sprHot.frame >= 0 && sprHot.frame < (int)scene.frames.size()) {
+            fr = &scene.frames[sprHot.frame];
+            n = sprHot.n;
+            slot = sprHot.slot;
+        }
+        else if (sprHot.n >= 0 && sprHot.frame == SPR_KEPT && sprSelKept) {
+            fr = sprSelKeep;
+            n = sprHot.n;
+        }
+        else if (sprPatHot.p >= 0) {
+            sprDrawMagPattern(s, sprPatHot, at, m, partW);
+            return;
+        }
+        else if (pinnedPattern(f, &pk)) {
+            sprDrawMagPattern(s, pk, at, m, partW);
+            return;
+        }
+        else if (pinnedSpriteAttr(f) >= 0 && f.a >= 0 && f.a < 32) {
+            n = f.a;
+            slot = slotOfAttr(pinnedSpriteAttr(f), sprPinLine);
+            /* Away: the shown table's kept rows when it is the pin's, so the swaps do not show. */
+            if (slot >= 0) fr = pinFrame(f, &slot);
+            else if (sprSelKept && (pinnedSpriteAttr(f) & ~0x7f) == sprSel.attr) { fr = sprSelKeep; pinAway = (int)(sprSceneSeq - sprSelSeenSeq); }
+            else if (sprPinKeep != NULL && sprPinKeepAttr == pinnedSpriteAttr(f)) { fr = sprPinKeep; pinAway = (int)(sprSceneSeq - sprPinSeenSeq); }
+        }
+        if (fr == NULL || n < 0) {
+            ImGui::SetCursorScreenPos(at);
+            ImGui::PushTextWrapPos(at.x + partW);
+            note(ts(TS_SPR_TAB_MAG_HINT));
+            ImGui::PopTextWrapPos();
+            return;
+        }
+        const VdpSprite& sp = fr->spr[n];
+        int d0 = -1, d1 = -1;
+        for (int r = 0; r < fr->size * fr->mag; r++) {
+            int d = vdpSpriteDisplayLine(*fr, (sp.y + 1 + r) & 0xff);
+            if (d < 0) continue;
+            if (d0 < 0) d0 = d;
+            d1 = d;
+        }
+        char head[256];
+        int hl = d0 >= 0 ? textf(head, sizeof(head), ts(TS_SPR_TAB_MAG), n, sp.pattern, sp.x, d0, d1) : textf(head, sizeof(head), ts(TS_SPR_TAB_MAG_OFF), n, sp.pattern, sp.x);
+        if (slot >= 0 && slot != sprSlotSel && hl > 0) hl += textf(head + hl, sizeof(head) - hl, ts(TS_SPR_TAB_LINE_TABLE), fr->spr[0].attrAddr);
+        ui::PushFont(UI_FONT_STRONG);
+        dl->AddText(at, t.text, head);
+        ui::PopFont();
+        if (slot < 0 && pinAway > SPR_AWAY_SHOWN) {
+            char old[128];
+            textf(old, sizeof(old), ts(TS_SPR_PIN_OLD), SPR_AWAY_SHOWN);
+            dl->AddText(ImVec2(at.x, at.y + lh), t.caution, old);
+        }
+        float y0 = floorf(at.y + lh + ui::Px(6)), gx = floorf(at.x + sprMagLabelW()), size = (float)fr->size;
+        ImVec2 ga(gx, y0), gb(gx + size * m, y0 + size * m);
+        int prevSt = -2;
+        for (int r = 0; r < fr->size; r++) {
+            int d = sprRowLine(*fr, n, r), c = sp.color[r], bits = vdpSpriteRowBits(s, *fr, n, r);
+            int st = sprRowState(*fr, slot, n, r);
+            float ry = y0 + r * m;
+            ImU32 col = rgbaToCol(vdpSpriteRgbaFrom(s, spriteRowRgb(*fr, n, r), *fr, c));
+            bool clear = vdpSpriteClear(s, *fr, c);
+            for (int x = 0; x < fr->size; x++) {
+                ImVec2 a(gx + x * m, ry), b(a.x + m, ry + m);
+                if ((bits & (0x8000 >> x)) && !clear) dl->AddRectFilled(a, b, col);
+                else dl->AddRectFilled(a, b, ((x + r) & 1) ? t.checkerA : t.checkerB);
+            }
+            if (st == VDP_SPRITE_DROPPED) hatch(dl, ImVec2(gx, ry), ImVec2(gb.x, ry + m), ui::WithAlpha(t.critical, 200));
+            else if (st == VDP_SPRITE_CC_HIDDEN || st == -3 || st == -4) dl->AddRectFilled(ImVec2(gx, ry), ImVec2(gb.x, ry + m), ui::WithAlpha(t.layer, 150));
+            /* The line where the state changes, at the left. */
+            if (st != prevSt && d >= 0) {
+                char num[16];
+                snprintf(num, sizeof(num), "%d", d);
+                dl->AddText(ImVec2(at.x, ry + (m - lh) / 2), st == VDP_SPRITE_DROPPED ? t.critical : t.textSecondary, num);
+            }
+            prevSt = st;
+            /* The row's colour and its flags at the right. */
+            float sx = gb.x + ui::Px(8);
+            swatchRect(dl, ImVec2(sx, ry + 1), ImVec2(sx + ui::Px(14), ry + m - 1), s, *fr, c, spriteRowRgb(*fr, n, r));
+            char tag[24] = "";
+            size_t tl = 0;
+            if (c & 0x80) tl += (size_t)snprintf(tag + tl, sizeof(tag) - tl, "\xE2\x86\x90" "32 ");
+            if (fr->mode == 2 && (c & 0x40)) tl += (size_t)snprintf(tag + tl, sizeof(tag) - tl, "CC ");
+            if (st == VDP_SPRITE_DROPPED && tl < sizeof(tag)) snprintf(tag + tl, sizeof(tag) - tl, "\xC3\x97");
+            if (tag[0] && m >= lh * 0.8f) dl->AddText(ImVec2(sx + ui::Px(18), ry + (m - lh) / 2), st == VDP_SPRITE_DROPPED ? t.critical : t.textSecondary, tag);
+        }
+        canvasGrid(sprCv, dl, ga, gb, m, m);
+        dl->AddRect(ga, gb, t.controlStrongStroke, 0, th);
+        char why[512];
+        sprWhy(s, *fr, n, slot, why, sizeof(why));
+        ImGui::SetCursorScreenPos(ImVec2(at.x, gb.y + ui::Px(8)));
+        ImGui::PushTextWrapPos(at.x + partW);
+        ImGui::TextUnformatted(why);
+        ImGui::PopTextWrapPos();
+    }
+
+    /* Pattern k in the magnifier: its dots in its owner's colours, and a token per user with its colours
+    ** (hollow when that colour was not drawn lately); only a note when the shown table reads other patterns. */
+    void sprDrawMagPattern(const VdpDebugState* s, const SprPatKey& k, ImVec2 at, float m, float partW)
+    {
+        const UiTokens& t = uiTokens();
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        float th = fmaxf(1.0f, ui::Px(1)), lh = ImGui::GetTextLineHeight();
+        const VdpSpriteFrame* fr = sprView.fr;
+        bool here = fr != NULL && patOf(s, k, *fr);
+        SprPatUse u;
+        if (here) sprPatUse(s, *fr, u);
+        int users = here ? u.users[k.p] : 0;
+        char lab[16], head[256], who[64];
+        if (k.size == 16) snprintf(lab, sizeof(lab), "%d-%d", k.p, k.p + 3);
+        else snprintf(lab, sizeof(lab), "%d", k.p);
+        int hl = textf(head, sizeof(head), ts(TS_SPR_PAT_MAG), lab, k.p, k.base + k.p * 8);
+        if (here && hl > 0 && hl < (int)sizeof(head)) {
+            if (users == 1) textf(who, sizeof(who), "%s", ts(TS_SPR_PAT_ONE_SPRITE));
+            else textf(who, sizeof(who), ts(TS_SPR_PAT_SPRITES), users);
+            textf(head + hl, sizeof(head) - hl, " \xC2\xB7 %s", who);
+        }
+        ui::PushFont(UI_FONT_STRONG);
+        dl->AddText(at, t.text, head);
+        ui::PopFont();
+        if (!here) {
+            char why[256];
+            textf(why, sizeof(why), ts(TS_SPR_PAT_OTHER_BASE), sprSel.patBase);
+            dl->PushClipRect(at, ImVec2(at.x + partW, at.y + lh * 2), true);
+            dl->AddText(ImVec2(at.x, at.y + lh), t.caution, why);
+            dl->PopClipRect();
+            return;
+        }
+        int o = u.owner[k.p];
+        float y0 = floorf(at.y + lh + ui::Px(6)), gx = floorf(at.x + sprMagLabelW()), size = (float)k.size;
+        ImVec2 ga(gx, y0), gb(gx + size * m, y0 + size * m);
+        ImU32 grey = ui::WithAlpha(t.textTertiary, 0xa0);
+        for (int r = 0; r < k.size; r++) {
+            int bits = vdpSpritePatternRowBits(s, *fr, k.p, r), c = o >= 0 ? fr->spr[o].color[r] : 0;
+            ImU32 col = o >= 0 ? rgbaToCol(vdpSpriteRgbaFrom(s, spriteRowRgb(*fr, o, r), *fr, c)) : grey;
+            bool clear = o >= 0 && vdpSpriteClear(s, *fr, c);
+            for (int x = 0; x < k.size; x++) {
+                ImVec2 a(gx + x * m, y0 + r * m), b(a.x + m, a.y + m);
+                dl->AddRectFilled(a, b, ((x + r) & 1) ? t.checkerA : t.checkerB);
+                if ((bits & (0x8000 >> x)) && !clear) dl->AddRectFilled(a, b, col);
+            }
+        }
+        canvasGrid(sprCv, dl, ga, gb, m, m);
+        dl->AddRect(ga, gb, t.controlStrongStroke, 0, th);
+        /* The users, wrapped in three lines: a strip of each one's row colours and its number. */
+        unsigned drawn = sprPatDrawnCodes(k.p);
+        float sw = floorf(ui::Px(5)), x = at.x, y = gb.y + ui::Px(8);
+        int line = 0, left = users;
+        dl->PushClipRect(ImVec2(at.x, y), ImVec2(at.x + partW, y + lh * 3), true);
+        if (users == 0) dl->AddText(ImVec2(x, y), t.caution, ts(TS_SPR_PAT_UNUSED_NOW));
+        for (int n = 0; n < fr->stopIndex && line < 3; n++) {
+            if ((fr->spr[n].pattern & 0xff) != k.p) continue;
+            char num[8], more[16];
+            snprintf(num, sizeof(num), "#%d", n);
+            snprintf(more, sizeof(more), "+%d", left);
+            float w = sw + ui::Px(3) + ImGui::CalcTextSize(num).x + ui::Px(10);
+            /* The last line keeps room for "+n" while more follow. */
+            float room = at.x + partW - (line == 2 && left > 1 ? ImGui::CalcTextSize(more).x : 0);
+            if (x + w - ui::Px(10) > room && (x > at.x || line == 2)) {
+                if (++line == 3) break;
+                x = at.x;
+                y += lh;
+            }
+            bool filled = ((drawn >> u.code[n]) & 1) != 0;
+            for (int r = 0; r < fr->size; r++) {
+                int c = fr->spr[n].color[r];
+                ImVec2 a(x, floorf(y + lh * r / fr->size)), b(x + sw, floorf(y + lh * (r + 1) / fr->size));
+                if (!filled || vdpSpriteClear(s, *fr, c)) dl->AddRectFilled(a, b, t.checkerA);
+                else dl->AddRectFilled(a, b, rgbaToCol(vdpSpriteRgbaFrom(s, spriteRowRgb(*fr, n, r), *fr, c)));
+            }
+            if (!filled) {
+                int c = u.code[n];
+                ImU32 col = vdpSpriteClear(s, *fr, c) ? t.textTertiary : rgbaToCol(vdpSpriteRgbaFrom(s, spriteRowRgb(*fr, n, u.codeRow[n]), *fr, c));
+                dl->AddRect(ImVec2(x, y), ImVec2(x + sw, y + lh), col, 0, th);
+            }
+            dl->AddText(ImVec2(x + sw + ui::Px(3), y), t.textSecondary, num);
+            x += w;
+            left--;
+        }
+        if (left > 0) {
+            char more[16];
+            snprintf(more, sizeof(more), "+%d", left);
+            dl->AddText(ImVec2(fminf(x, at.x + partW - ImGui::CalcTextSize(more).x), y), t.textSecondary, more);
+        }
+        dl->PopClipRect();
+    }
+
+    /* The patterns the selected table's sprites used in recent pictures; reset when its pattern base moves. */
+    void sprNotePatternRing(const VdpDebugState* s)
+    {
+        unsigned ver;
+        const VdpFrameShot* o = (const VdpFrameShot*)shell::frameShot(&ver);
+        if (sprView.fr == NULL || o == NULL || !o->valid || !o->ended || o->stale || o->seq == sprPatRingSeq) return;
+        const VdpSpriteFrame& fr = *sprView.fr;
+        bool reset = sprSel.patBase != sprPatRingBase || (Int32)(o->seq - sprPatRingSeq) < 0;
+        if (reset || o->seq - sprPatRingSeq > (UInt32)SPR_RING) sprPatRingLen = sprPatRingPos = 0;
+        if (reset || o->seq - sprPatRingSeq > (UInt32)SPR_AWAY_SHOWN) sprPatDrawnLen = sprPatDrawnPos = 0;
+        sprPatRingBase = sprSel.patBase;
+        sprPatRingSeq = o->seq;
+        uint32_t* bits = sprPatRing[sprPatRingPos];
+        uint16_t* drawn = sprPatDrawn[sprPatDrawnPos];
+        memset(bits, 0, sizeof(sprPatRing[0]));
+        memset(drawn, 0, sizeof(sprPatDrawn[0]));
+        for (int n = 0; n < fr.stopIndex; n++) {
+            int p = fr.spr[n].pattern & 0xff, row;
+            if (sprView.agg[n].drawn + sprView.agg[n].dropped > 0) bits[p >> 5] |= 1u << (p & 31);
+            if (sprView.agg[n].drawn > 0) drawn[p] |= (uint16_t)(1u << sprUserCode(s, fr, n, &row));
+        }
+        sprPatRingPos = (sprPatRingPos + 1) % SPR_RING;
+        if (sprPatRingLen < SPR_RING) sprPatRingLen++;
+        sprPatDrawnPos = (sprPatDrawnPos + 1) % SPR_AWAY_SHOWN;
+        if (sprPatDrawnLen < SPR_AWAY_SHOWN) sprPatDrawnLen++;
+    }
+
+    /* The colour a sprite shows most, its row in *row: mode 1 its one colour; mode 2 the code covering
+    ** the most dots of its rows, the upper row's on a tie, row 0's without dots. */
+    static int sprUserCode(const VdpDebugState* s, const VdpSpriteFrame& fr, int n, int* row)
+    {
+        const VdpSprite& sp = fr.spr[n];
+        int dots[16] = {}, first[16], best = sp.color[0] & 15;
+        *row = 0;
+        if (fr.mode != 2) return best;
+        for (int c = 0; c < 16; c++) first[c] = -1;
+        for (int r = 0; r < fr.size; r++) {
+            int c = sp.color[r] & 15;
+            for (unsigned b = (unsigned)vdpSpriteRowBits(s, fr, n, r) & 0xffff; b; b &= b - 1) dots[c]++;
+            if (first[c] < 0) first[c] = r;
+        }
+        for (int r = 0; r < fr.size; r++) {
+            int c = sp.color[r] & 15;
+            if (dots[c] > dots[best]) best = c;
+        }
+        *row = first[best];
+        return best;
+    }
+
+    /* The pinned pattern: a Focus a pattern click made (b -1, a its number), with its table as clicked. */
+    bool pinnedPattern(const Focus& f, SprPatKey* k) const
+    {
+        if (!f.pinned || f.kind != FOCUS_VRAM || f.b != -1 || f.a < 0 || f.a > 255 || sprPatPin.base < 0) return false;
+        *k = sprPatPin;
+        k->p = f.a;
+        return true;
+    }
+
+    /* Whether k is a pattern of table fr. */
+    static bool patOf(const VdpDebugState* s, const SprPatKey& k, const VdpSpriteFrame& fr)
+    {
+        return k.p >= 0 && fr.mode == k.mode && fr.size == k.size && vdpSpritePatternAddr(s, fr, 0) == k.base;
+    }
+
+    /* Sprite n of table fr as a user: 2 of the pinned pattern, 1 of the hovered one, else 0. */
+    int sprPatMark(const VdpDebugState* s, const Focus& f, const VdpSpriteFrame& fr, int n) const
+    {
+        if (n < 0 || n >= fr.stopIndex) return 0;
+        int p = fr.spr[n].pattern & 0xff;
+        SprPatKey k;
+        if (pinnedPattern(f, &k) && k.p == p && patOf(s, k, fr)) return 2;
+        return sprPatHot.p == p && patOf(s, sprPatHot, fr) ? 1 : 0;
+    }
+
+    /* The users of each pattern in a table: how many, their codes, and the one whose colours draw it. */
+    struct SprPatUse { int owner[256], users[256], code[32], codeRow[32]; uint16_t codes[256]; };
+
+    /* Owner: of the users with a dot that shows, those of the colour most of them carry, the lower code
+    ** on a tie, and of these the lowest number; the first user when none shows a dot. */
+    void sprPatUse(const VdpDebugState* s, const VdpSpriteFrame& fr, SprPatUse& u) const
+    {
+        uint8_t votes[256][16];
+        memset(votes, 0, sizeof(votes));
+        memset(u.users, 0, sizeof(u.users));
+        memset(u.codes, 0, sizeof(u.codes));
+        for (int p = 0; p < 256; p++) u.owner[p] = -1;
+        uint32_t shows = 0;
+        for (int n = 0; n < fr.stopIndex; n++) {
+            int p = fr.spr[n].pattern & 0xff;
+            u.code[n] = sprUserCode(s, fr, n, &u.codeRow[n]);
+            u.codes[p] |= (uint16_t)(1u << u.code[n]);
+            if (u.users[p]++ == 0) u.owner[p] = n;
+            for (int r = 0; r < fr.size && !((shows >> n) & 1); r++) {
+                if (vdpSpriteRowBits(s, fr, n, r) != 0 && !vdpSpriteClear(s, fr, fr.spr[n].color[r])) shows |= 1u << n;
+            }
+            if ((shows >> n) & 1) votes[p][u.code[n]]++;
+        }
+        for (int p = 0; p < 256; p++) {
+            int best = -1;
+            for (int c = 0; c < 16; c++) {
+                if (votes[p][c] > (best < 0 ? 0 : votes[p][best])) best = c;
+            }
+            if (best < 0) continue;
+            for (int n = 0; n < fr.stopIndex; n++) {
+                if ((fr.spr[n].pattern & 0xff) == p && u.code[n] == best && ((shows >> n) & 1)) { u.owner[p] = n; break; }
+            }
+        }
+    }
+
+    /* The colour codes drawn with pattern p in the last pictures. */
+    unsigned sprPatDrawnCodes(int p) const
+    {
+        unsigned m = 0;
+        for (int i = 0; i < sprPatDrawnLen; i++) m |= sprPatDrawn[i][p & 0xff];
+        return m;
+    }
+
+    /* A chip of colour code c as row row of sprite n shows it: filled, else an outline over the checker. */
+    void sprChip(ImDrawList* dl, ImVec2 a, ImVec2 b, const VdpDebugState* s, const VdpSpriteFrame& fr, int c, int n, int row, bool filled) const
+    {
+        const UInt32* rgb = spriteRowRgb(fr, n, row);
+        chipRect(dl, a, b, filled, vdpSpriteClear(s, fr, c), rgbaToCol(vdpSpriteRgbaFrom(s, rgb, fr, c)));
+    }
+
+    /* A colour chip: filled in col, or a checker when the colour is clear; hollow, edged in col (grey when clear). */
+    static void chipRect(ImDrawList* dl, ImVec2 a, ImVec2 b, bool filled, bool clear, ImU32 col)
+    {
+        const UiTokens& t = uiTokens();
+        if (filled && !clear) {
+            dl->AddRectFilled(a, b, col);
+            return;
+        }
+        dl->AddRectFilled(a, b, t.checkerA);
+        if (filled) {
+            ImVec2 m((a.x + b.x) / 2, (a.y + b.y) / 2);
+            dl->AddRectFilled(a, m, t.checkerB);
+            dl->AddRectFilled(m, b, t.checkerB);
+            return;
+        }
+        dl->AddRect(a, b, clear ? t.textTertiary : col, 0, fmaxf(1.0f, floorf(ui::Px(1))));
+    }
+
+    /* Under pattern p's tile, w px from a: a chip per colour code of its users, by code, hollow when
+    ** none of that colour was drawn in the last pictures; "+n" for those without room. */
+    void sprPatBand(ImDrawList* dl, const VdpDebugState* s, const VdpSpriteFrame& fr, int p, ImVec2 a, float w, unsigned codes,
+                    const int* code, const int* codeRow) const
+    {
+        const UiTokens& t = uiTokens();
+        int nc = 0, shown;
+        for (unsigned m = codes; m; m &= m - 1) nc++;
+        float h = floorf(ui::Px(7)), g = fmaxf(1.0f, floorf(ui::Px(1))), cw = h;
+        while (nc * (cw + g) - g > w && cw > floorf(ui::Px(3))) cw -= 1;
+        ui::PushFont(UI_FONT_BODY, 11);
+        char more[16] = "";
+        for (shown = nc; shown > 0 && shown * (cw + g) - g > w; shown--) {}
+        while (shown < nc) {
+            snprintf(more, sizeof(more), "+%d", nc - shown);
+            if (shown == 0 || shown * (cw + g) + ImGui::CalcTextSize(more).x <= w) break;
+            shown--;
+        }
+        unsigned drawn = sprPatDrawnCodes(p);
+        for (int c = 0, i = 0; c < 16 && i < shown; c++) {
+            if (!((codes >> c) & 1)) continue;
+            int n = 0;
+            while (n < fr.stopIndex && ((fr.spr[n].pattern & 0xff) != p || code[n] != c)) n++;
+            if (n == fr.stopIndex) continue;
+            ImVec2 ca(a.x + i * (cw + g), a.y);
+            sprChip(dl, ca, ImVec2(ca.x + cw, ca.y + h), s, fr, c, n, codeRow[n], ((drawn >> c) & 1) != 0);
+            i++;
+        }
+        if (more[0]) dl->AddText(ImVec2(a.x + shown * (cw + g), floorf(a.y + (h - ImGui::GetTextLineHeight()) / 2)), t.textSecondary, more);
+        ui::PopFont();
+    }
+
+    /* What pattern p's tooltip shows, kept between its refreshes. */
+    struct SprPatShown {
+        struct Row { char line[160]; bool filled, clear; ImU32 col; };
+        char head[256] = "", more[160] = "", others[160] = "";
+        bool unused = false;
+        int  rows = 0;
+        Row  row[8];
+    };
+    SprPatShown sprPatShown;
+
+    /* Pattern p's users in a tooltip: a chip and the lines of each, at most 8; held still as a SteadyTip. */
+    void sprPatTip(const VdpDebugState* s, const VdpSpriteFrame& fr, int p, int users, unsigned codes, const int* code, const int* codeRow, int others)
+    {
+        SprPatShown& m = sprPatShown;
+        int base = vdpSpritePatternAddr(s, fr, 0);
+        int key[4] = { base, p, fr.size, fr.mode };
+        if (steadyTipBegin(sprPatHeld, ImHashData(key, sizeof(key), (ImGuiID)sprSel.attr))) {
+            char lab[16], a1[64], a2[64];
+            int nc = 0, listed = 0;
+            for (unsigned c = codes; c; c &= c - 1) nc++;
+            if (fr.size == 16) snprintf(lab, sizeof(lab), "%d-%d", p, p + 3);
+            else snprintf(lab, sizeof(lab), "%d", p);
+            int at = textf(m.head, sizeof(m.head), ts(TS_SPR_PAT_TIP_NAME), lab);
+            if (users > 0 && at > 0 && at < (int)sizeof(m.head)) {
+                if (users == 1) textf(a1, sizeof(a1), "%s", ts(TS_SPR_PAT_ONE_SPRITE));
+                else textf(a1, sizeof(a1), ts(TS_SPR_PAT_SPRITES), users);
+                if (nc == 1) textf(a2, sizeof(a2), "%s", ts(TS_SPR_PAT_ONE_COLOUR));
+                else textf(a2, sizeof(a2), ts(TS_SPR_PAT_COLOURS), nc);
+                textf(m.head + at, sizeof(m.head) - at, ts(TS_SPR_PAT_TIP_COUNTS), a1, a2);
+            }
+            m.unused = users == 0;
+            m.rows = 0;
+            unsigned drawn = sprPatDrawnCodes(p);
+            for (int n = 0; n < fr.stopIndex; n++) {
+                if ((fr.spr[n].pattern & 0xff) != p) continue;
+                if (listed++ == 8) break;
+                const VdpSprite& sp = fr.spr[n];
+                SprPatShown::Row& row = m.row[m.rows++];
+                int d0 = -1, d1 = -1;
+                bool cc = false;
+                for (int r = 0; r < fr.size * fr.mag; r++) {
+                    int d = vdpSpriteDisplayLine(fr, (sp.y + 1 + r) & 0xff);
+                    if (d < 0) continue;
+                    if (d0 < 0) d0 = d;
+                    d1 = d;
+                }
+                for (int r = 0; r < fr.size; r++) cc = cc || (fr.mode == 2 && (sp.color[r] & 0x40));
+                int k;
+                /* Whether it is drawn is left to the chip, held as the band's: per picture it blinks with multiplexing. */
+                if (d0 < 0) k = textf(row.line, sizeof(row.line), ts(TS_SPR_PAT_USER_OFF), n);
+                else k = textf(row.line, sizeof(row.line), ts(TS_SPR_PAT_USER_LINES), n, d0, d1);
+                if (cc && k > 0 && k < (int)sizeof(row.line)) textf(row.line + k, sizeof(row.line) - k, " \xC2\xB7 CC");
+                /* The chip's colour as of now, so a held row never reads a later picture's sprite n. */
+                row.filled = ((drawn >> code[n]) & 1) != 0;
+                row.clear = vdpSpriteClear(s, fr, code[n]);
+                row.col = rgbaToCol(vdpSpriteRgbaFrom(s, spriteRowRgb(fr, n, codeRow[n]), fr, code[n]));
+            }
+            m.more[0] = m.others[0] = 0;
+            if (listed > 8) textf(m.more, sizeof(m.more), ts(TS_SPR_PAT_MORE), users - 8);
+            if (others > 0) textf(m.others, sizeof(m.others), ts(TS_SPR_TAB_OTHER_USERS), others);
+        }
+        ImGui::TextUnformatted(m.head);
+        if (m.unused) {
+            ImGui::PushStyleColor(ImGuiCol_Text, uiTokens().textSecondary);
+            ImGui::TextUnformatted(ts(TS_SPR_PAT_UNUSED_NOW));
+            ImGui::PopStyleColor();
+        }
+        float lh = ImGui::GetTextLineHeight(), sw = floorf(ui::Px(10));
+        for (int i = 0; i < m.rows; i++) {
+            ImVec2 c = ImGui::GetCursorScreenPos();
+            float cy = floorf(c.y + (lh - sw) / 2);
+            chipRect(ImGui::GetWindowDrawList(), ImVec2(c.x, cy), ImVec2(c.x + sw, cy + sw), m.row[i].filled, m.row[i].clear, m.row[i].col);
+            ImGui::Dummy(ImVec2(sw, lh));
+            ImGui::SameLine();
+            ImGui::TextUnformatted(m.row[i].line);
+        }
+        if (m.more[0]) ImGui::TextUnformatted(m.more);
+        if (m.others[0]) ImGui::TextUnformatted(m.others);
+        steadyTipEnd(sprPatHeld);
+    }
+
+    /* The selected table's patterns, each as large as an attribute tile (q px a dot), cols a row, in the
+    ** colours most of its users show, all its users' colours under it; only the rows in view are drawn. */
+    void sprDrawPats(const VdpDebugState* s, Focus& f, ImVec2 at, float q, float partW, int cols)
+    {
+        const UiTokens& t = uiTokens();
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        float th = fmaxf(1.0f, ui::Px(1)), lh = ImGui::GetTextLineHeight();
+        if (sprView.fr == NULL) return;
+        const VdpSpriteFrame& fr = *sprView.fr;
+        ui::PushFont(UI_FONT_STRONG);
+        dl->AddText(at, t.text, ts(TS_SPR_TAB_PATS));
+        ui::PopFont();
+        dl->PushClipRect(at, ImVec2(at.x + partW, at.y + lh * 2 + ui::Px(6)), true);
+        dl->AddText(ImVec2(at.x, at.y + lh + ui::Px(2)), t.textSecondary, ts(TS_SPR_TAB_PATS_SUB));
+        dl->PopClipRect();
+        /* Users of the selected table and the one owning the colours. */
+        SprPatUse u;
+        sprPatUse(s, fr, u);
+        const int* owner = u.owner;
+        const int* users = u.users;
+        const int* code = u.code;
+        const int* codeRow = u.codeRow;
+        const uint16_t* codes = u.codes;
+        const UInt32* rgb[32 * 16];
+        for (int n = 0; n < fr.stopIndex; n++) sprRowRgb(fr, n, &rgb[n * 16]);
+        sprNotePatternRing(s);
+        vdpDecodeSpriteSheetUsers(s, fr, owner, rgb, (t.textTertiary & 0x00ffffffu) | 0xa0000000u, sprPatPic.img, &sprPatPic.w, &sprPatPic.h);
+        sprPatPic.uploadChanged(&sprPatHash);
+        int step = fr.size == 16 ? 4 : 1, count = 256 / step, rows = (count + cols - 1) / cols;
+        float y0 = floorf(at.y + sprPatTitleH()), tile = fr.size * q, cellW = tile + ui::Px(4), pitch = sprPatPitch(tile);
+        uint32_t recent[8] = {};
+        for (int i = 0; i < sprPatRingLen; i++) {
+            for (int w = 0; w < 8; w++) recent[w] |= sprPatRing[i][w];
+        }
+        int focusPat = -1;
+        if (sprHot.n >= 0 && sprHot.sel) focusPat = fr.spr[sprHot.n].pattern;
+        else if (pinnedSpriteAttr(f) >= 0 && (pinnedSpriteAttr(f) & ~0x7f) == sprSel.attr) focusPat = fr.spr[f.a].pattern;
+        SprPatKey pk;
+        bool pinHere = pinnedPattern(f, &pk) && patOf(s, pk, fr), hotHere = patOf(s, sprPatHot, fr);
+        /* The rows in view; the checkers, then every tile from the one sheet sampled nearest, then marks over them. */
+        int rowFirst = (int)floorf((dl->GetClipRectMin().y - y0) / pitch), rowLast = (int)floorf((dl->GetClipRectMax().y - y0) / pitch);
+        rowFirst = rowFirst < 0 ? 0 : rowFirst;
+        rowLast = rowLast >= rows ? rows - 1 : rowLast;
+        int kFirst = rowFirst * cols, kEnd = (rowLast + 1) * cols < count ? (rowLast + 1) * cols : count;
+        auto tileAt = [&](int k) { return ImVec2(at.x + (k % cols) * cellW, floorf(y0 + (k / cols) * pitch + lh)); };
+        for (int k = kFirst; k < kEnd; k++) {
+            ImVec2 a = tileAt(k);
+            drawCheckerRect(dl, a, ImVec2(a.x + tile, a.y + tile));
+        }
+        if (sprPatPic.tex.id() && kEnd > kFirst) {
+            ui::BeginNearest(dl);
+            for (int k = kFirst; k < kEnd; k++) {
+                int cx, cy;
+                vdpSpriteSheetCell(fr.size, k * step, &cx, &cy);
+                ImVec2 a = tileAt(k);
+                dl->AddImage(ImTextureRef(sprPatPic.tex.id()), a, ImVec2(a.x + tile, a.y + tile), ImVec2(cx / 256.0f, cy / 64.0f),
+                             ImVec2((cx + fr.size) / 256.0f, (cy + fr.size) / 64.0f));
+            }
+            ui::EndNearest(dl);
+        }
+        for (int k = kFirst; k < kEnd; k++) {
+            int p = k * step;
+            ImVec2 ca = tileAt(k), cb(ca.x + tile, ca.y + tile);
+            canvasGrid(sprCv, dl, ca, cb, q, q);
+            /* The number, and how many sprites use it at the right when that fits. */
+            char num[16], x[16] = "";
+            snprintf(num, sizeof(num), "%d", p);
+            if (users[p] > 1) snprintf(x, sizeof(x), "\xC3\x97%d", users[p]);
+            dl->AddText(ImVec2(ca.x, ca.y - lh), users[p] > 0 ? t.textSecondary : t.textTertiary, num);
+            float xw = ImGui::CalcTextSize(x).x;
+            if (x[0] && ImGui::CalcTextSize(num).x + ui::Px(4) + xw <= tile) dl->AddText(ImVec2(cb.x - xw, ca.y - lh), t.textSecondary, x);
+            ImVec2 band(ca.x, cb.y + ui::Px(2));
+            if (users[p] == 0 && ((recent[p >> 5] >> (p & 31)) & 1)) dl->AddCircleFilled(ImVec2(band.x + ui::Px(2), band.y + ui::Px(3.5f)), ui::Px(2), t.textSecondary);
+            if (users[p] > 0) sprPatBand(dl, s, fr, p, band, tile, codes[p], code, codeRow);
+            if (p == (focusPat & ~(step - 1))) dl->AddRect(ImVec2(ca.x - th, ca.y - th), ImVec2(cb.x + th, cb.y + th), t.accent, 0, th * 2);
+            int lit = pinHere && pk.p == p ? 2 : hotHere && sprPatHot.p == p ? 1 : 0;
+            if (lit) dl->AddRect(ImVec2(ca.x - th * lit, ca.y - th * lit), ImVec2(cb.x + th * lit, cb.y + th * lit), t.accent, 0, th * lit);
+        }
+        /* One item over the cells; the cell from the mouse, gaps counted with the cell. */
+        ImGui::SetCursorScreenPos(ImVec2(at.x, y0));
+        ImGui::InvisibleButton("##pats", ImVec2(cols * cellW - ui::Px(4), rows * pitch));
+        if (!ImGui::IsItemHovered()) return;
+        ImVec2 m = ImGui::GetIO().MousePos;
+        int hc = (int)floorf((m.x - at.x) / cellW), hk = (int)floorf((m.y - y0) / pitch) * cols + hc;
+        if (hc < 0 || hc >= cols || hk < 0 || hk >= count) return;
+        int p = hk * step;
+        int addr = vdpSpritePatternAddr(s, fr, p);
+        /* b = -1 marks a sprite pattern, a its number, so pin() tells two patterns apart. */
+        Focus hit = { f.chipId, FOCUS_LOGICAL, (UInt32)addr, (UInt32)(fr.size == 16 ? 32 : 8), FOCUS_VRAM, p, -1, false };
+        focusAddr(s, fr.screenMode, addr, fr.size == 16 ? 32 : 8, &hit);
+        bool clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
+        pin(f, hit, clicked);
+        SprPatKey key = { vdpSpritePatternAddr(s, fr, 0), p, fr.size, fr.mode };
+        sprPatHotNext = key;
+        if (clicked && f.pinned) sprPatPin = key;
+        char list[160] = "", text[384];
+        size_t at2 = 0;
+        for (int n = 0; n < fr.stopIndex && at2 < sizeof(list); n++) {
+            if ((fr.spr[n].pattern & 0xff) == p) at2 += (size_t)snprintf(list + at2, sizeof(list) - at2, "%s%d", at2 ? ", " : "", n);
+        }
+        int others = 0;
+        for (size_t k = 0; k < scene.slots.size(); k++) {
+            if ((int)k == sprSlotSel || scene.slots[k].patBase != sprSel.patBase) continue;
+            const VdpSpriteFrame& o = scene.frames[scene.slots[k].rep];
+            for (int n = 0; n < o.stopIndex; n++) others += (o.spr[n].pattern & 0xff) == p;
+        }
+        char users2[200] = "", more[64] = "";
+        if (list[0]) textf(users2, sizeof(users2), "%s%s", ts(TS_SPR_SHEET_USED_BY), list);
+        if (others) textf(more, sizeof(more), ts(TS_SPR_TAB_OTHER_USERS), others);
+        textf(text, sizeof(text), ts(TS_SPR_SHEET_PATTERN), p, p, addr, list[0] ? users2 : ts(TS_SPR_SHEET_UNUSED), more);
+        ui::StatusText("%s", text);
+        sprPatTip(s, fr, p, users[p], codes[p], code, codeRow, others);
+    }
+
+    void drawSprites(const VdpDebugState* s, Focus& f)
+    {
+        /* Its slot and frame index only hold in the scene it was hovered in; its display line in any. */
+        sprHot = sprHotNext.ver == scene.ver ? sprHotNext : SprHot{ -1, -1, sprHotNext.d, -1, 0, false };
+        sprHotNext = SprHot{ -1, -1, -1, -1, scene.ver, false };
+        sprPatHot = sprPatHotNext;
+        sprPatHotNext.p = -1;
+        sprPlaceLine = -1;
+        bool any = false;
+        for (int fi : scene.lineFrame) any = any || fi >= 0;
+        if (!any) {
+            emptyView(ts(TS_SPRITES_NONE));
+            return;
+        }
+        refreshPin(s, f);
+        sprNoteRing(s);
+        sprSlotSel = selectedSlot(f);
+        ui::BeginCommandBar("bar");
+        if (sprSelector()) ui::CommandBarSeparator();
+        sprSlotSel = selectedSlot(f);
+        sprView = shownTable();
+        barToggle("##sprdrop", UI_ICON_DROPPED, ts(TS_SPR_DROPPED), ts(TS_SPR_DROPPED_TIP), &sprDropped);
+        /* The Screen tab's Boxes: one setting, the two tabs are never seen together. */
+        barArtToggle("##sprboxes", ui::DECOR_FRAME, ts(TS_BOXES_TIP), &boxes);
+        ui::GridToggle(sprCv);
+        zoomGroup(sprCv, false);
+        ui::EndCommandBar();
+        sprHeader(s);
+        /* No line shows sprites: only the reason, under the same bar. */
+        if (scene.slots.empty()) return;
+
+        /* The vertical scrollbar's room is always kept; the layout, not last frame's scrollbars, says
+        ** whether they show, the sideways one first as it takes height. */
+        ImVec2 avail = ImGui::GetContentRegionAvail(), childAt = ImGui::GetCursorScreenPos();
+        float W = avail.x - ImGui::GetStyle().ScrollbarSize - ui::Px(8);
+        ui::CanvasZoom& zs = sprCv.z();
+        zs.zoom = zs.zoom < 1 ? 1 : zs.zoom > 32 ? 32 : zs.zoom;
+        /* Ctrl+wheel keeps the dot under the mouse where it is, or the part's corner in view when it moves. */
+        int z = ui::CanvasWheelZoom(sprCv), anchor = -1, cell = -1;
+        ImVec2 m = ImGui::GetIO().MousePos, dot(0, 0);
+        if (z > 0) {
+            for (int p = 0; p < SPT_COUNT && anchor < 0; p++) {
+                ImVec2 a(sprLastO.x + sprLastL.at[p].x, sprLastO.y + sprLastL.at[p].y);
+                if (sprLastL.scale[p] > 0 && m.x >= a.x && m.y >= a.y && m.x < a.x + sprLastL.size[p].x && m.y < a.y + sprLastL.size[p].y) {
+                    anchor = p;
+                    dot = ImVec2((m.x - a.x) / sprLastL.scale[p], (m.y - a.y) / sprLastL.scale[p]);
+                }
+            }
+            /* The patterns reflow with the zoom: the dot under the mouse is kept by its cell. */
+            if (anchor == SPT_PATS && sprLastL.patCols > 0) {
+                float sc = sprLastL.scale[SPT_PATS], tile = sprTileDots() * sc, pitch = sprPatPitch(tile);
+                float x = m.x - floorf(sprLastO.x + sprLastL.at[SPT_PATS].x);
+                float y = m.y - floorf(sprLastO.y + ui::Px(4) + sprLastL.at[SPT_PATS].y) - sprPatTitleH();
+                int c = (int)floorf(x / (tile + ui::Px(4))), r = (int)floorf(y / pitch);
+                if (y >= 0 && c >= 0 && c < sprLastL.patCols) {
+                    cell = r * sprLastL.patCols + c;
+                    dot = ImVec2((x - c * (tile + ui::Px(4))) / sc, (y - r * pitch - ImGui::GetTextLineHeight()) / sc);
+                }
+            }
+            zs.zoom = z;
+            zs.fit = false;
+        }
+        int N = zs.fit ? sprFitZoom(W, avail.y) : zs.zoom;
+        SprLayout L = sprLayoutAt(W, N);
+        /* A bar only for what does not fit the child; each bar takes room from the other way. */
+        float bar = ImGui::GetStyle().ScrollbarSize;
+        bool over = L.height + ui::Px(8) > avail.y, overX = false;
+        for (int i = 0; i < 2; i++) {
+            overX = L.width > avail.x - (over ? bar : 0);
+            over = L.height + ui::Px(8) > avail.y - (overX ? bar : 0);
+        }
+        ImVec2 content(fmaxf(W, L.width), L.height + ui::Px(8));
+        ImVec2 scroll(overX ? -1.0f : 0.0f, over ? -1.0f : 0.0f);
+        if (anchor >= 0) {
+            ImVec2 a(L.at[anchor].x, L.at[anchor].y + ui::Px(4));
+            bool moved = L.tier != sprLastL.tier && cell < 0;
+            if (cell >= 0 && L.patCols > 0) {
+                float tile = sprTileDots() * L.scale[SPT_PATS];
+                a.x += (cell % L.patCols) * (tile + ui::Px(4));
+                a.y += sprPatTitleH() + (cell / L.patCols) * sprPatPitch(tile) + ImGui::GetTextLineHeight();
+            }
+            ImVec2 tgt = moved ? a : ImVec2(a.x + dot.x * L.scale[anchor], a.y + dot.y * L.scale[anchor]);
+            ImVec2 off = moved ? ImVec2(0, 0) : ImVec2(m.x - childAt.x, m.y - childAt.y);
+            if (overX) scroll.x = fmaxf(0, tgt.x - off.x);
+            if (over) scroll.y = fmaxf(0, tgt.y - off.y);
+            ImGui::SetNextWindowContentSize(content);
+        }
+        if (scroll.x >= 0 || scroll.y >= 0) ImGui::SetNextWindowScroll(scroll);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+        ImGuiWindowFlags bars = (over ? ImGuiWindowFlags_AlwaysVerticalScrollbar : ImGuiWindowFlags_NoScrollbar) |
+                                (overX ? ImGuiWindowFlags_AlwaysHorizontalScrollbar : 0);
+        ImGui::BeginChild("spr", avail, ImGuiChildFlags_None, ImGuiWindowFlags_NoBackground | bars);
+        ImGui::PopStyleVar();
+        ImVec2 o = ImGui::GetCursorScreenPos();
+        o.y += ui::Px(4);
+        sprLastL = L;
+        sprLastO = ImVec2(o.x, o.y - ui::Px(4));
+        /* Each part from a whole pixel, so its dots come out even. */
+        auto partAt = [&](int p) { return ImVec2(floorf(o.x + L.at[p].x), floorf(o.y + L.at[p].y)); };
+        sprDrawPlace(s, f, partAt(SPT_PLACE), L.scale[SPT_PLACE]);
+        if (L.size[SPT_ATTRS].x > 0) {
+            sprDrawAttrs(s, f, partAt(SPT_ATTRS), L.scale[SPT_ATTRS], L.size[SPT_ATTRS].x);
+        }
+        if (L.size[SPT_MAG].x > 0) {
+            sprDrawMag(s, f, partAt(SPT_MAG), L.scale[SPT_MAG], L.size[SPT_MAG].x);
+        }
+        if (L.size[SPT_PATS].x > 0) {
+            sprDrawPats(s, f, partAt(SPT_PATS), L.scale[SPT_PATS], L.size[SPT_PATS].x, L.patCols);
+        }
+        ImGui::SetCursorScreenPos(ImVec2(o.x, o.y - ui::Px(4)));
+        ImGui::Dummy(content);
+        bool hovered = ImGui::IsWindowHovered();
+        ImGui::EndChild();
+        ui::CanvasShown(sprCv, (float)N, hovered);
+    }
+
+    /* ---- Sprites ---- */
+
+    static void swatchRect(ImDrawList* dl, ImVec2 a, ImVec2 b, const VdpDebugState* s, const VdpSpriteFrame& f, int code, const UInt32* rgb)
+    {
+        const UiTokens& t = uiTokens();
+        if (!vdpSpriteClear(s, f, code)) {
+            dl->AddRectFilled(a, b, rgbaToCol(vdpSpriteRgbaFrom(s, rgb, f, code)));
+            return;
+        }
+        ImVec2 m((a.x + b.x) / 2, (a.y + b.y) / 2);
+        dl->AddRectFilled(a, b, t.checkerA);
+        dl->AddRectFilled(a, m, t.checkerB);
+        dl->AddRectFilled(m, b, t.checkerB);
+    }
+
+    /* A sprite's flags and state in words, for its tooltip: counted on the lines of
+    ** its slot (ag), or over the whole frame without one. */
+    static void spriteStateText(const VdpSpriteFrame& fr, const SprAgg* ag, int n, char* out, size_t size)
+    {
+        const VdpSprite& sp = fr.spr[n];
+        SprAgg own = { sp.drawnLines, sp.droppedLines, sp.hiddenLines, sp.firstDropped, sp.lastDropped, sp.collides };
+        if (ag != NULL) own = *ag;
+        int any = 0, at = 0;
+        for (int r = 0; r < fr.size; r++) any |= sp.color[r];
+        if (n == fr.stopIndex) at = textf(out, size, ts(TS_SPR_TERMINATOR), fr.stopY);
+        else if (sp.afterStop) at = textf(out, size, "%s", ts(TS_SPR_AFTER_TERMINATOR));
+        else if (own.dropped) at = textf(out, size, ts(TS_SPR_DROPPED_LINES), own.firstDropped, own.lastDropped, own.collides ? ts(TS_SPR_COLLIDES) : "");
+        else if (own.drawn + own.hidden == 0) at = textf(out, size, "%s", ts(TS_SPR_OFF_SCREEN));
+        else at = textf(out, size, "%s%s", ts(own.hidden && !own.drawn ? TS_SPR_HIDDEN_CC : TS_SPR_SHOWN), own.collides ? ts(TS_SPR_COLLIDES) : "");
+        if (at >= 0 && (size_t)at < size && n < fr.stopIndex && (any & 0xe0)) {
+            textf(out + at, size - at, "\n%s%s%s", (any & 0x80) ? "EC " : "", fr.mode == 2 && (any & 0x40) ? "CC " : "",
+                  fr.mode == 2 && (any & 0x20) ? "IC" : "");
+        }
     }
 
     /* ---- VRAM ---- */
@@ -2140,6 +5043,79 @@ private:
 
     /* ---- cards ---- */
 
+    void spriteSelection(const VdpDebugState* s, const Focus& f)
+    {
+        const UiTokens& t = uiTokens();
+        ensureSprites(s);
+        /* The table that laid the pinned sprite out, counted on the lines that table laid out. */
+        int slot = -1, n = f.a;
+        const VdpSpriteFrame* pf = n >= 0 && n < 32 ? pinFrame(f, &slot) : NULL;
+        const VdpSpriteFrame& fr = pf != NULL ? *pf : sprites;
+        if (n < 0 || n >= 32 || fr.mode == 0) return;
+        const VdpSprite& sp = fr.spr[n];
+        SprAgg own = { sp.drawnLines, sp.droppedLines, sp.hiddenLines, sp.firstDropped, sp.lastDropped, sp.collides };
+        if (pf != NULL && slot >= 0) own = scene.agg[(size_t)slot * 32 + n];
+        else if (pf != NULL && pf == sprPinKeep) own = sprPinKeepAgg;
+        float cell = ui::Px(fr.size == 16 ? 6.0f : 10.0f);
+        ImVec2 p = ImGui::GetCursorScreenPos();
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        for (int r = 0; r < fr.size; r++) {
+            int bits = vdpSpriteRowBits(s, fr, n, r);
+            ImU32 col = rgbaToCol(vdpSpriteRgbaFrom(s, spriteRowRgb(fr, n, r), fr, sp.color[r]));
+            for (int x = 0; x < fr.size; x++) {
+                ImVec2 a(p.x + x * cell, p.y + r * cell), b(a.x + cell, a.y + cell);
+                if ((bits & (0x8000 >> x)) && !vdpSpriteClear(s, fr, sp.color[r])) dl->AddRectFilled(a, b, col);
+                else dl->AddRectFilled(a, b, ((x + r) & 1) ? t.checkerA : t.checkerB);
+            }
+        }
+        dl->AddRect(p, ImVec2(p.x + fr.size * cell, p.y + fr.size * cell), t.controlStrongStroke);
+        ImGui::Dummy(ImVec2(fr.size * cell, fr.size * cell));
+        ImGui::SameLine(0, ui::Px(12));
+        ImGui::BeginGroup();
+        if (ui::BeginKeyValue("sprkv")) {
+            ui::KeyValue(ts(TS_KV_SPRITE), "%d%s", n, n == fr.stopIndex ? ts(TS_KV_SPRITE_TERMINATOR) :
+                                                     sp.afterStop ? ts(TS_KV_SPRITE_AFTER) : "");
+            ui::KeyValueMono("Y, X", "%d, %d", sp.y, sp.x);
+            ui::KeyValueMono(ts(TS_KV_PATTERN), ts(TS_KV_PATTERN_AT), sp.pattern, sp.patternAddr);
+            ui::KeyValueMono(ts(TS_KV_ATTRIBUTES), "%05X", sp.attrAddr);
+            if (fr.mode == 2) ui::KeyValueMono(ts(TS_KV_COLOURS), "%05X", sp.colorAddr);
+            ui::KeyValue(ts(TS_KV_SHOWN), ts(TS_LINES_N), own.drawn);
+            if (own.dropped) ui::KeyValue(ts(TS_KV_DROPPED), ts(TS_KV_LINES_RANGE), own.firstDropped, own.lastDropped);
+            if (own.hidden) ui::KeyValue(ts(TS_KV_HIDDEN), ts(TS_KV_LINES_CC), own.hidden);
+            ui::KeyValue(ts(TS_KV_COLLIDES), "%s", ts(own.collides ? TS_YES : TS_NO));
+            /* The pinned line: the sprite's row on it, its place among those in range, its state. */
+            int row = vdpSpriteRow(fr, n, f.b), d = vdpSpriteDisplayLine(fr, f.b);
+            if (row >= 0 && !sp.afterStop) {
+                const VdpSpriteLine& ln = fr.line[f.b & 0xff];
+                int k = 0;
+                while (k < ln.count && ln.id[k] != n) k++;
+                int st = vdpSpriteState(fr, f.b, k);
+                ui::KeyValue(ts(d >= 0 ? TS_KV_LINE : TS_KV_SCROLL_LINE), ts(TS_SEL_LINE_ROW), d >= 0 ? d : f.b, row, k + 1, ln.count,
+                             ts(st == VDP_SPRITE_DROPPED ? TS_STATE_DROPPED : st == VDP_SPRITE_CC_HIDDEN ? TS_STATE_HIDDEN_CC : TS_STATE_DRAWN));
+            }
+            ui::EndKeyValue();
+        }
+        ImGui::EndGroup();
+        char line[96];
+        if (fr.mode == 2) {
+            /* One line per pattern row: colour address, byte and its flags. */
+            ui::PushFont(UI_FONT_MONO);
+            for (int r = 0; r < fr.size; r++) {
+                int c = sp.color[r];
+                textf(line, sizeof(line), "%2d %05X %02X  %2d %s%s%s", r, vdpSpriteColorAddr(s, fr, n, r), c, c & 15,
+                      (c & 0x80) ? "EC " : "", (c & 0x40) ? "CC " : "", (c & 0x20) ? "IC" : "");
+                ui::TextFitItem(line);
+            }
+            ui::PopFont();
+        }
+        else {
+            ui::PushFont(UI_FONT_MONO);
+            textf(line, sizeof(line), ts(TS_COLOUR_ADDR_EC), sp.colorAddr, sp.color[0], (sp.color[0] & 0x80) ? "  EC" : "");
+            ui::TextFitItem(line);
+            ui::PopFont();
+        }
+    }
+
     /* The pin as clicked, not as worked out again each frame: a VRAM byte or a pattern
     ** is its address. A new pin takes the card from a band picked before. */
     void notePin(const Focus& f)
@@ -2181,6 +5157,27 @@ private:
         else if (pad > 0) ImGui::Dummy(ImVec2(0, pad));
     }
 
+    /* "Lines 60-75 - band 32-211 - SCREEN 4": where sprite n is shown. */
+    void spriteCaption(const Focus& f, char* out, size_t size) const
+    {
+        int slot = -1, n = f.a;
+        const VdpSpriteFrame* pf = n >= 0 && n < 32 ? pinFrame(f, &slot) : NULL;
+        const VdpSpriteFrame& fr = pf != NULL ? *pf : sprites;
+        int d0 = -1, d1 = -1, h = fr.size * fr.mag;
+        for (int r = 0; n >= 0 && n < 32 && r < h; r++) {
+            int d = vdpSpriteDisplayLine(fr, (fr.spr[n].y + 1 + r) & 0xff);
+            /* With tables per line, only the lines its own table laid out. */
+            if (d < 0 || (pf != NULL && slot >= 0 && (d >= (int)scene.lineSlot.size() || scene.lineSlot[d] != slot))) continue;
+            if (d0 < 0 || d < d0) d0 = d;
+            if (d > d1) d1 = d;
+        }
+        int bi = d0 >= 0 && raster.valid && splitBands() > 1 ? vdpRasterBandAt(raster, d0) : -1;
+        if (d0 < 0) textf(out, size, "%s \xC2\xB7 %s", ts(TS_SPR_OFF_SCREEN), shortModeName(fr.screenMode));
+        else if (bi >= 0) textf(out, size, ts(TS_SEL_CAPTION_SPRITE_BAND), d0, d1, raster.bands[bi].first, raster.bands[bi].last,
+                                shortModeName(raster.bands[bi].mode));
+        else textf(out, size, ts(TS_SEL_CAPTION_SPRITE), d0, d1, shortModeName(fr.screenMode));
+    }
+
     /* The header names what is pinned, with its kind's icon and a pin that lets
     ** go of it; under it a caption says where it is: line, band and mode. */
     void selectionHeader(const VdpDebugState* s, Focus& f, bool band)
@@ -2188,6 +5185,7 @@ private:
         const UiTokens& t = uiTokens();
         char head[160] = "", caption[512] = "";
         const char* glyph = UI_ICON_PIXEL;
+        const ui::PixelArt* art = NULL;
         int bi = bandOfFocus(f);
         bool multi = raster.valid && splitBands() > 1;
         if (band) {
@@ -2195,6 +5193,12 @@ private:
             glyph = UI_ICON_BAND;
             textf(head, sizeof(head), ts(TS_SEL_HEAD_BAND), b.first, b.last, shortModeName(b.mode));
             bandText(s, selBand, caption, sizeof(caption));
+        }
+        else if (f.kind == FOCUS_SPRITE) {
+            art = &ui::UI_ART_SHIP;
+            ensureSprites(s);
+            textf(head, sizeof(head), ts(TS_SEL_HEAD_SPRITE), f.a);
+            spriteCaption(f, caption, sizeof(caption));
         }
         else if (f.kind == FOCUS_VRAM) {
             glyph = UI_ICON_VRAM;
@@ -2215,7 +5219,7 @@ private:
             /* A pixel or a tile, read by its line's band or with the frame's end. */
             VdpLayout L = frameEndLayout(s);
             int group = -1, lines = screenLines(s), d = bandFocus(f) ? f.b : (f.b - vdpScreenScroll(s, L)) & 0xff;
-            if (f.kind == FOCUS_CHAR) viewLayout(s, &L, &group);
+            if (f.kind == FOCUS_CHAR) viewLayout(s, false, &L, &group);
             if (f.kind == FOCUS_PIXEL) {
                 textf(head, sizeof(head), ts(TS_SEL_HEAD_PIXEL), f.a, d);
             }
@@ -2238,7 +5242,8 @@ private:
         float h = ui::Px(24), right = p.x + ImGui::GetContentRegionAvail().x, x = p.x, cy = floorf(p.y + h / 2);
         ImDrawList* dl = ImGui::GetWindowDrawList();
         if (ui::HasIcons()) {
-            ui::DrawIcon(dl, ImVec2(x + ui::Px(8), cy), glyph, 16, t.text);
+            if (art) ui::DrawPixelArt(dl, ImVec2(x + ui::Px(8), cy), *art, ui::DECOR_NONE, t.text);
+            else ui::DrawIcon(dl, ImVec2(x + ui::Px(8), cy), glyph, 16, t.text);
             x += ui::Px(24);
         }
         ui::PushFont(UI_FONT_STRONG);
@@ -2273,7 +5278,7 @@ private:
         VdpLayout L = frameEndLayout(s);
         int group = -1, firstLine = 0;    /* a tile's b is a scroll line */
         /* A character comes from the Patterns view, which may read a group of bands. */
-        if (f.kind == FOCUS_CHAR && !viewLayout(s, &L, &group)) return;
+        if (f.kind == FOCUS_CHAR && !viewLayout(s, false, &L, &group)) return;
         int bi = bandOfFocus(f);
         /* A band's pin kept while its line has no band of its kind to read: the caption says so. */
         if (bandFocus(f) && bi < 0) return;
@@ -2283,6 +5288,10 @@ private:
         }
         int mode = L.mode;
 
+        if (f.kind == FOCUS_SPRITE) {
+            spriteSelection(s, f);
+            return;
+        }
         if (f.kind == FOCUS_TILE || f.kind == FOCUS_CHAR) {
             VdpCharInfo ci;
             bool ok = f.kind == FOCUS_TILE ? vdpNameTableChar(s, L, f.a, f.b, firstLine, &ci) : vdpSheetChar(s, L, f.a, f.b, &ci);
@@ -2689,6 +5698,61 @@ private:
             ui::PopFont();
         }
         ImGui::EndTable();
+    }
+
+    void cardSprites(const VdpDebugState* s)
+    {
+        VdpTables tb;
+        ensureSprites(s);
+        /* The table shown is the Sprites tab's; the counts are of every line, each by its own table. */
+        SprView v = shownTable();
+        int slot = v.fr != NULL ? 0 : -1;
+        const VdpSpriteFrame& fr = v.fr != NULL ? *v.fr : sprites;
+        if (fr.mode == 0) {
+            if (ui::BeginKeyValue("spr")) {
+                ui::KeyValue(ts(TS_KV_SPRITE_MODE), "%s", ts(TS_KV_NONE));
+                ui::EndKeyValue();
+            }
+            return;
+        }
+        int overLines = slot >= 0 ? scene.overLines : fr.overLines, dropLine = slot >= 0 ? scene.firstDropLine : fr.firstDropLine;
+        int dropped = slot >= 0 ? scene.firstDropped : fr.firstDropped, collX = slot >= 0 ? scene.collX : fr.collX;
+        int collLine = slot >= 0 ? scene.collLine : fr.collLine;
+        vdpDecodeTables(s, vdpLayoutOf(fr), &tb);
+        char tag[128];
+        /* A shown table is always named, so the line does not come and go with the pictures. */
+        if (v.fr != NULL) ui::TextFitItem(slotLabel(v.slot >= 0 ? scene.slots[v.slot] : sprSelSlot, fr.screenMode, tag, sizeof(tag)), uiTokens().textSecondary);
+        else if (spriteGroup >= 0) ui::TextFitItem(groupLabel(spriteGroup, tag, sizeof(tag)), uiTokens().textSecondary);
+        if (ui::BeginKeyValue("spr")) {
+            /* What the emulator's video options change is said on the row it changes, the why on hover. */
+            bool hidden = !vdpGetSpritesEnable(), noLimit = vdpGetNoSpritesLimit() != 0;
+            const char* frameEnd = !scene.recorded && spriteGroup < 0 && groups.empty() ? ts(TS_SPR_NOTE_FRAME_END) : NULL;
+            char value[192];
+            ui::KeyValue(ts(TS_KV_SPRITE_MODE), "%d", fr.mode);
+            ui::KeyValue(ts(TS_KV_SIZE), "%s%s", fr.size == 16 ? "16x16" : "8x8", fr.mag == 2 ? ts(TS_KV_SIZE_MAGNIFIED) : "");
+            const char* off = sprOffWhy(fr);
+            if (off != NULL) textf(value, sizeof(value), ts(TS_KV_SHOWN_NO), off);
+            else textf(value, sizeof(value), "%s", ts(TS_YES));
+            ui::KeyValueTip(ts(TS_KV_SHOWN), hidden ? ts(TS_SPR_NOTE_HIDDEN) : NULL, "%s%s", value, hidden ? ts(TS_SPR_HIDDEN_SUFFIX) : "");
+            ui::KeyValue(ts(TS_KV_ACTIVE), ts(TS_KV_ACTIVE_VALUE), fr.stopIndex, fr.stopY);
+            /* These rows are drawn on every picture, so rows and columns stay put as sprites drop in and out. */
+            textf(value, sizeof(value), ts(TS_KV_OVER_LIMIT_VALUE), overLines, fr.limit);
+            ui::KeyValueTip(ts(TS_KV_OVER_LIMIT), noLimit ? ts(TS_SPR_NOTE_NO_LIMIT) : NULL, "%s%s", value, noLimit ? ts(TS_SPR_NO_LIMIT_SUFFIX) : "");
+            if (dropped >= 0) {
+                ui::KeyValue(ts(TS_KV_FIRST_DROPPED), ts(TS_KV_FIRST_DROPPED_VALUE), dropped, dropLine);
+                ui::KeyValueMonoTip(ts(TS_KV_S0_WOULD_READ), frameEnd, "&H%02X", 0x40 | dropped);
+            }
+            else {
+                ui::KeyValue(ts(TS_KV_FIRST_DROPPED), "%s", ts(TS_KV_NONE));
+                ui::KeyValueMonoTip(ts(TS_KV_S0_WOULD_READ), frameEnd, "\xE2\x80\x94");
+            }
+            if (collLine >= 0) ui::KeyValue(ts(TS_KV_FIRST_COLLISION), ts(TS_KV_FIRST_COLLISION_VALUE), collX, collLine);
+            else ui::KeyValue(ts(TS_KV_FIRST_COLLISION), "%s", ts(TS_KV_NONE));
+            if (tb.spriteAttr >= 0)    ui::KeyValueMono(ts(TS_KV_ATTRIBUTES), "%05X", tb.spriteAttr);
+            if (tb.spriteColor >= 0)   ui::KeyValueMono(ts(TS_KV_COLOURS), "%05X", tb.spriteColor);
+            if (tb.spritePattern >= 0) ui::KeyValueMono(ts(TS_KV_PATTERNS), "%05X", tb.spritePattern);
+            ui::EndKeyValue();
+        }
     }
 
     void cardStatus(const VdpDebugState* s)

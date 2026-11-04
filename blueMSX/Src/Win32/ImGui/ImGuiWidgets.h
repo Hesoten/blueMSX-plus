@@ -108,6 +108,7 @@ float IconButtonWidth(const char* glyph, const char* fallback, float w = 28);
 /* A tiny pixel-art icon: rows of '#' (drawn) and '.' (nothing), one string per row; smaller,
 ** if not NULL, a smaller drawing of the same thing for the scales whole cells miss. */
 struct PixelArt { int w, h; const char* const* rows; const PixelArt* smaller; };
+extern const PixelArt UI_ART_SHIP;
 extern const PixelArt UI_ART_FILM;   /* frames one under the other */
 /* What a pixel-art icon draws around its art: nothing, a dashed frame round it, or a checker behind it. */
 enum PixelDecor { DECOR_NONE, DECOR_FRAME, DECOR_CHECKER };

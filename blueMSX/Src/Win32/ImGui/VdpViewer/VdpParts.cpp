@@ -20,8 +20,11 @@
 **
 ******************************************************************************
 */
+#include <float.h>
 #include <math.h>
+#include <stdio.h>
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "ImGuiTheme.h"
 #include "VdpParts.h"
 
@@ -35,6 +38,12 @@ void barToggle(const char* id, const char* glyph, const char* label, const char*
 {
     ui::CommandBarItem(ui::IconButtonWidth(glyph, label), ui::Px(24));
     if (ui::IconButton(id, glyph, label, tip, *on)) *on = !*on;
+}
+
+void barArtToggle(const char* id, ui::PixelDecor decor, const char* tip, bool* on)
+{
+    ui::CommandBarItem(ui::Px(28), ui::Px(24));
+    if (ui::PixelIconButton(id, ui::UI_ART_SHIP, decor, tip, *on)) *on = !*on;
 }
 
 void partChip(ImDrawList* dl, ImVec2 a, ImVec2 b, const char* text)
@@ -78,6 +87,34 @@ void dashedSegment(ImDrawList* dl, ImVec2 a, ImVec2 b, ImU32 col, float th, floa
     }
 }
 
+void dashedRect(ImDrawList* dl, ImVec2 a, ImVec2 b, ImU32 col, float th)
+{
+    float dash = ui::Px(4);
+    dashedSegment(dl, a, ImVec2(b.x, a.y), col, th, dash);
+    dashedSegment(dl, ImVec2(a.x, b.y), b, col, th, dash);
+    dashedSegment(dl, a, ImVec2(a.x, b.y), col, th, dash);
+    dashedSegment(dl, ImVec2(b.x, a.y), b, col, th, dash);
+}
+
+void drawCheckerRect(ImDrawList* dl, ImVec2 a, ImVec2 b)
+{
+    const UiTokens& t = uiTokens();
+    float c = fmaxf(2.0f, ui::Px(6));
+    /* Only the squares inside the clip rect. */
+    ImVec2 ca = dl->GetClipRectMin(), cb = dl->GetClipRectMax();
+    ImVec2 va(fmaxf(a.x, ca.x), fmaxf(a.y, ca.y)), vb(fminf(b.x, cb.x), fminf(b.y, cb.y));
+    if (vb.x <= va.x || vb.y <= va.y) return;
+    dl->AddRectFilled(va, vb, t.checkerA);
+    dl->PushClipRect(va, vb, true);
+    int r0 = (int)floorf((va.y - a.y) / c), c0 = (int)floorf((va.x - a.x) / c);
+    for (int r = r0; a.y + r * c < vb.y; r++) {
+        for (int i = c0 - ((c0 ^ r) & 1); a.x + i * c < vb.x; i += 2) {
+            float x = a.x + i * c, y = a.y + r * c;
+            dl->AddRectFilled(ImVec2(x, y), ImVec2(x + c, y + c), t.checkerB);
+        }
+    }
+    dl->PopClipRect();
+}
 
 void fitCell(const char* text, const char* tip)
 {
@@ -87,6 +124,34 @@ void fitCell(const char* text, const char* tip)
     ImDrawList* dl = ImGui::GetWindowDrawList();
     float maxX = fminf(p.x + ts.x, dl->GetClipRectMax().x);
     ui::TextFit(dl, p, maxX, text, 0, ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip), tip);
+}
+
+bool steadyTipBegin(SteadyTip& t, ImGuiID id)
+{
+    int frame = ImGui::GetFrameCount();
+    double now = ImGui::GetTime();
+    bool item = id != t.id || t.frame != frame - 1, fresh = item || now - t.at >= 0.5;
+    if (item) t.w = 0;
+    if (fresh) t.at = now;
+    t.id = id;
+    t.frame = frame;
+    ImGui::SetNextWindowSizeConstraints(ImVec2(t.w, 0), ImVec2(FLT_MAX, FLT_MAX));
+    ImGui::BeginTooltipEx(ImGuiTooltipFlags_OverridePrevious, ImGuiWindowFlags_None);
+    return fresh;
+}
+
+void steadyTipEnd(SteadyTip& t)
+{
+    ImGuiWindow* w = ImGui::GetCurrentWindow();
+    t.w = fmaxf(t.w, fmaxf(w->DC.CursorMaxPos.x, w->DC.IdealMaxPos.x) - w->DC.CursorStartPos.x + w->WindowPadding.x * 2);
+    ImGui::EndTooltip();
+}
+
+void steadyTooltip(SteadyTip& t, ImGuiID id, const char* text)
+{
+    if (steadyTipBegin(t, id)) snprintf(t.text, sizeof(t.text), "%s", text);
+    ImGui::TextUnformatted(t.text);
+    steadyTipEnd(t);
 }
 
 float monoWidth(const char* const* texts, int n)
@@ -111,6 +176,20 @@ void emptyView(const char* text)
     ImGui::Indent(ui::Px(16));
     note(text);
     ImGui::Unindent(ui::Px(16));
+}
+
+float sprPatPitch(float tile)
+{
+    return ImGui::GetTextLineHeight() + tile + ui::Px(2) + ui::Px(7) + ui::Px(6);
+}
+
+void canvasGrid(const ui::CanvasState& cv, ImDrawList* dl, ImVec2 a, ImVec2 b, float scaleX, float scaleY)
+{
+    if (!cv.grid) return;
+    ui::CanvasXf xf = {};
+    xf.origin = a;
+    xf.scale = ImVec2(scaleX, scaleY);
+    ui::CanvasGrid(dl, xf, a, b);
 }
 
 }
