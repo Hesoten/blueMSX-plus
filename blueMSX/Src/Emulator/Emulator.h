@@ -46,6 +46,8 @@ void emulatorCreateLocks(void);
 UInt32 emulatorGetStateSeq(void);
 /* The seq of the last change of the run state made on the calling thread. */
 UInt32 emulatorOwnStateSeq(void);
+/* Goes up when a frame, screen-update, back or debugger step starts from a pause. */
+UInt32 emulatorGetStepSeq(void);
 
 void emuEnableSynchronousUpdate(int enable);
 
@@ -92,6 +94,19 @@ void emulatorSetState(EmuState state);
 ** notifies; a resume is refused while emulatorHoldSuspended holds. */
 int  emulatorPauseIfRunning(void);
 int  emulatorResumeIfPaused(void);
+/* Running, the machine pauses at the end of the current shown frame; paused, it runs one frame
+** and pauses there, with the sound kept off. Anything else does nothing. */
+void emulatorRequestFrameStop(void);
+/* Non-zero from a frame stop request until the stop; another pause, a stop or a rewind
+** clears it, a suspend does not. */
+int  emulatorFrameStopPending(void);
+/* Called by a source that paces the screen at the end of each frame it shows, after its
+** flip. A frame step ends there; calls off the emulation thread are ignored. */
+void emulatorShownFrameEnded(void);
+/* Called by a source at the end of its active display, on the emulation thread; shown:
+** it is the source on screen. With a frame step pending, calls show(ref) to complete and
+** flip the frame, presents it and ends the step there, returning 1; else returns 0. */
+int  emulatorShownDisplayEnded(int shown, void (*show)(void* ref), void* ref);
 UInt32 emulatorGetCpuSpeed();
 UInt32 emulatorGetCpuUsage();
 void emulatorResetMixer();

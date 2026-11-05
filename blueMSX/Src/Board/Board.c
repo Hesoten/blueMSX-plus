@@ -1098,6 +1098,11 @@ static void onSync(void* ref, UInt32 time)
     doSync(time, DBG_STOP_NONE);
 }
 
+void boardSyncSoon(void)
+{
+    boardTimerAdd(syncTimer, boardSystemTime() + 1);
+}
+
 void boardOnBreakpoint(int cause)
 {
     /* Parking here would never come back on the UI thread, which is where a

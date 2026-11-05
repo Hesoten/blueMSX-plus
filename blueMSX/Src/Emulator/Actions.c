@@ -1094,6 +1094,43 @@ void actionEmuStep() {
     }
 }
 
+/* True when refused; of the reasons, only a medium in a drive is told in a toast. */
+static int actionRefused(ActionRefusal why)
+{
+    if (why == ACTION_REFUSED_HOST_MEDIUM) {
+        archCaptureToastInfo(langInfoRewindNoMedium());
+    }
+    return why != ACTION_OK;
+}
+
+static int runningOrPaused(void)
+{
+    EmuState emuState = emulatorGetState();
+    return emuState == EMU_RUNNING || emuState == EMU_PAUSED;
+}
+
+ActionRefusal actionFrameAdvanceRefusal(void)
+{
+    if (dirGateActive || dirInsertActive) {
+        return ACTION_REFUSED_DIR_GATE;
+    }
+    if (emulatorGetPlayReverse()) {
+        return ACTION_REFUSED_REVERSE;
+    }
+    if (emulatorFrameStopPending()) {
+        return ACTION_REFUSED_WAITING;
+    }
+    return runningOrPaused() ? ACTION_OK : ACTION_REFUSED_STOPPED;
+}
+
+void actionEmuFrameAdvance(void) {
+    if (actionRefused(actionFrameAdvanceRefusal())) {
+        return;
+    }
+    emulatorRequestFrameStop();
+    archUpdateMenu(0);
+}
+
 static int rewindAvailable(void);
 
 void actionEmuStepBack() {
@@ -1170,7 +1207,13 @@ static int rewindAvailable(void)
 void actionStartPlayReverse()
 {
     if (rewindAvailable()) {
+        /* A frame step under way pauses here; tell those who show the state. */
+        int stepping = emulatorFrameStopPending();
         emulatorPlayReverse(1);
+        if (stepping && emulatorGetState() == EMU_PAUSED) {
+            debuggerNotifyEmulatorPause();
+            archUpdateMenu(0);
+        }
     }
 }
 
@@ -1862,6 +1905,10 @@ void actionVideoSetFilter(int value) {
 void actionEmuSpeedSet(int value) {
     state.properties->emulation.speed = value;
     emulatorSetFrequency(state.properties->emulation.speed, NULL);
+}
+
+void actionEmuSpeedPercent(int pct) {
+    actionEmuSpeedSet(emulatorPercentToLogFrequency(pct));
 }
 
 void actionVolumeSetMaster(int value) {

@@ -53,7 +53,11 @@ const RegDesc* regBankFind(const RegBank& bank, int index)
 static void noteValues(const RegBank& bank, const UInt8* values, RegFade& f)
 {
     unsigned v = shell::contentVersion();
-    float dt = ImGui::GetIO().DeltaTime / FADE_SECONDS;
+    float dt = shell::toolDecayDt() / FADE_SECONDS;
+    if (f.step != shell::stepVersion()) {
+        f.step = shell::stepVersion();
+        memset(f.heat, 0, sizeof(f.heat));
+    }
     for (int i = 0; i < bank.count; i++) {
         int k = bank.regs[i].index & 0xff;
         f.heat[k] = f.heat[k] > dt ? f.heat[k] - dt : 0;

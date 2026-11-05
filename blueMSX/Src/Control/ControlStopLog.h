@@ -33,6 +33,7 @@
 #define CTRL_STOP_WATCH      6  /* a watchpoint fired; watchType says where */
 #define CTRL_STOP_VRAM_TIMING 7 /* the VDP was accessed faster than it can be */
 #define CTRL_STOP_STEP_BACK  8  /* a step back reached its moment          */
+#define CTRL_STOP_FRAME      9  /* a frame step reached a shown frame's end */
 
 typedef struct {
     UInt32 seq;

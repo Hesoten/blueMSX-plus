@@ -1367,6 +1367,7 @@ static void onFrame(V9990* v9990, UInt32 time)
         (v9990->presenter >= 0 && videoManagerIsHandleActive(v9990->presenter)))
     {
         emulatorRefreshFromSource();
+        emulatorShownFrameEnded();
     }
 }
 

@@ -440,6 +440,10 @@ struct VDP {
     int debugHandle;
     int videoHandle;
     int videoEnabled;
+    /* flippedEarly: this frame was flipped at the end of active display, and onDisplay
+    ** has not run yet; lastFlipEarly: the latest flip was such a one. */
+    int flippedEarly;
+    int lastFlipEarly;
 
     FrameBufferData* frameBuffer;
 };
@@ -609,6 +613,41 @@ int framecounter = 0;
 /* Set while the tap runs at theVdp's end of active display. */
 static int vdpAtShown;
 
+static int shotDrawnSamples(VDP* vdp, FrameBuffer* draw, int y);
+
+/* Completes the frame at the end of active display and flips it. The rows still to come
+** are the last frame's, unless that was flipped early too: then the draw frame already
+** holds that frame's own bottom rows. */
+static void showEarly(void* ref)
+{
+    VDP* vdp = (VDP*)ref;
+    FrameBuffer* draw = frameBufferGetDrawFrameOf(vdp->frameBuffer);
+    FrameBuffer* last;
+    UInt32 seq, flips;
+
+    last = frameBufferGetLastDrawnOf(vdp->frameBuffer, &seq, &flips);
+    if (!vdp->lastFlipEarly && draw != NULL && last != NULL && last != draw) {
+        int row  = MAX(vdp->curLine - vdp->displayOffest, 0);
+        int rows = MIN(draw->lines, last->lines);
+        int y;
+        for (y = row; y < rows; y++) {
+            int shift = last->line[y].doubleWidth;
+            int width = last->maxWidth << shift;
+            int from  = y == row ? shotDrawnSamples(vdp, draw, y) : 0;
+            if (from > 0 && draw->line[y].doubleWidth != shift) {
+                continue;
+            }
+            if (width > from) {
+                memcpy(draw->line[y].buffer + from, last->line[y].buffer + from, (width - from) * sizeof(UInt16));
+            }
+            draw->line[y].doubleWidth = shift;
+        }
+    }
+    vdp->flippedEarly  = 1;
+    vdp->lastFlipEarly = 1;
+    frameBufferFlipDrawFrame();
+}
+
 static void onVint(VDP* vdp, UInt32 time)
 {
     sync(vdp, time);
@@ -629,10 +668,15 @@ static void onVint(VDP* vdp, UInt32 time)
     vdp->cmdDrawArea = 0;
     vdpSetTimingMode(vdp->cmdEngine, vdp->vdpRegs[8] & 2);
 
-    if (vdp == theVdp && emulatorIsEmuThread()) {
+    /* After an early flip, a second vint in the frame (LN changed) neither taps nor flips. */
+    if (vdp == theVdp && !vdp->flippedEarly && emulatorIsEmuThread()) {
         vdpAtShown = 1;
         emulatorTap(EMU_TAP_VDP_SHOWN);
         vdpAtShown = 0;
+        if (vdp->videoEnabled && canFlipFrameBuffer >= 2) {
+            emulatorShownDisplayEnded(!videoManagerActivePacesScreen() && frameBufferGetActiveDraw() == vdp->frameBuffer,
+                                      showEarly, vdp);
+        }
     }
 }
 
@@ -687,10 +731,14 @@ int getScreenCompletePercent()
 static void onDisplay(VDP* vdp, UInt32 time)
 {
     int isPal = vdpIsVideoPal(vdp); 
+    int early;
     
     sync(vdp, time);
 
     vdp->timeDisplayEn = 0;
+    early = vdp->flippedEarly;
+    vdp->flippedEarly  = 0;
+    vdp->lastFlipEarly = early;
 
     boardCheckVdpBoostKill((UInt32)vdp->vdpRegs[23]              |
                            ((UInt32)vdp->vdpRegs[26] <<  8)      |
@@ -698,7 +746,10 @@ static void onDisplay(VDP* vdp, UInt32 time)
 
     if (vdp->videoEnabled) {
         FrameBuffer* frameBuffer;
-        if (canFlipFrameBuffer >= 2) {
+        if (early) {
+            frameBuffer = frameBufferGetDrawFrame();
+        }
+        else if (canFlipFrameBuffer >= 2) {
             frameBuffer = frameBufferFlipDrawFrame();
         }
         else {
@@ -739,7 +790,9 @@ static void onDisplay(VDP* vdp, UInt32 time)
         boardClearInt(INT_IE1);
     }
     vdp->vdpStatus[2] ^= 0x02;
-    RefreshScreen(vdp->screenMode);
+    RefreshScreen(vdp->screenMode, early,
+                  vdp == theVdp && vdp->videoEnabled && canFlipFrameBuffer >= 2 &&
+                  frameBufferGetActiveDraw() == vdp->frameBuffer);
 
     /* Per-frame (VSYNC) blink clock. In line-blink mode the phase is derived
     ** per scan line instead; advance its base by one frame of lines so the
@@ -2130,6 +2183,8 @@ static void loadState(VDP* vdp)
     vdp->vramPtr = vdp->vram + vdp->vramOffsets[(vdp->vdpRegs[0x2d] >> 6) & 1];
 
     canFlipFrameBuffer = 0;
+    vdp->flippedEarly  = 0;
+    vdp->lastFlipEarly = 0;
 
     if (isOldFormat) {
         /* Reconstruct derived state from vdpRegs; old states only
@@ -2434,8 +2489,8 @@ static void rasterSetLength(VdpRasterFrame* f, VDP* vdp, int lines)
 }
 
 /* At a frame tap the frame that just ended goes to [0]; while paused the one in progress
-** does, with the beam, but as ended at the end of active display. [1] is the frame
-** before [0]. */
+** does, with the beam, but as ended at the end of active display or after the early flip
+** there. [1] is the frame before [0]. */
 static void rasterCapture(VDP* vdp, VdpDebugState* out)
 {
     VdpRasterFrame* r = out->raster;
@@ -2452,7 +2507,7 @@ static void rasterCapture(VDP* vdp, VdpDebugState* out)
         return;
     }
     moved = (Int32)(now - vdp->timeDisplay) >= 0;
-    ended = moved || vdpAtShown;
+    ended = moved || vdpAtShown || vdp->flippedEarly;
     lines = moved ? (int)((vdp->timeDisplay - vdp->frameStartTime) / HPERIOD) : vdp->lastLine;
     if (lines <= 0) {
         return;
@@ -3117,9 +3172,9 @@ static void shotSprRow(VdpFrameShot* out, VDP* vdp, int y, FrameBuffer* fb, int 
     memcpy(out->sprBg[y], plane->bg[y], sizeof(out->sprBg[y]));
 }
 
-/* Ended at a frame tap (flipped just before) and at the end of active display (the bottom
-** border from the frame before). Else paused: the rows the VDP has drawn so far are the
-** frame in progress, the others the one before. */
+/* Ended at a frame tap (flipped just before), at the end of active display (the bottom border
+** from the frame before) and after an early flip (all rows the flipped frame). Else paused:
+** the rows the VDP has drawn so far are the frame in progress, the others the one before. */
 int vdpDebugCaptureFrame(int index, VdpFrameShot* out, int pixels)
 {
     VDP* vdp = index == 0 ? theVdp : NULL;
@@ -3142,7 +3197,7 @@ int vdpDebugCaptureFrame(int index, VdpFrameShot* out, int pixels)
     out->stale        = !drawing || out->seq != flips;
     /* Ended at a frame end only once it has run; rasterCapture goes by the
     ** time alone, so a pause right at the end can differ there. */
-    out->ended        = vdpAtShown ||
+    out->ended        = vdpAtShown || vdp->flippedEarly ||
                         ((Int32)(boardSystemTime() - vdp->timeDisplay) >= 0 &&
                          vdp->curLine == 0 && vdp->lineOffset < 0);
     out->drawnRow     = 0;
@@ -3154,7 +3209,7 @@ int vdpDebugCaptureFrame(int index, VdpFrameShot* out, int pixels)
         /* The frame the next flip completes. */
         out->seq = flips + 1;
     }
-    if (out->ended && !vdpAtShown) {
+    if (out->ended && !vdpAtShown && !vdp->flippedEarly) {
         /* The layout fields have moved on to the next frame already. */
         int lines = (int)((vdp->timeDisplay - vdp->frameStartTime) / HPERIOD);
         out->displayOffset = lines >= 313 ? 27 : 0;
@@ -3163,7 +3218,7 @@ int vdpDebugCaptureFrame(int index, VdpFrameShot* out, int pixels)
     else {
         out->displayOffset = vdp->displayOffest;
         out->firstLine     = vdp->firstLine;
-        if (drawing && draw != NULL && vdp->curLine >= vdp->displayOffest) {
+        if (!vdp->flippedEarly && drawing && draw != NULL && vdp->curLine >= vdp->displayOffest) {
             out->drawnRow = MIN(vdp->curLine - vdp->displayOffest, VDP_SHOT_ROWS);
             if (out->drawnRow < VDP_SHOT_ROWS) {
                 out->drawnSamples = shotDrawnSamples(vdp, draw, out->drawnRow);

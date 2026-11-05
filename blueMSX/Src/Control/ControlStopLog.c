@@ -68,6 +68,7 @@ const char* ctrlStopReasonText(int reason)
     case CTRL_STOP_WATCH:      return "watchpoint";
     case CTRL_STOP_VRAM_TIMING: return "vram_timing";
     case CTRL_STOP_STEP_BACK:  return "step_back";
+    case CTRL_STOP_FRAME:      return "frame";
     default:                   return "unknown";
     }
 }
@@ -80,6 +81,7 @@ int ctrlStopReasonOf(int cause)
     case DBG_STOP_WATCH:       return CTRL_STOP_WATCH;
     case DBG_STOP_VRAM_TIMING: return CTRL_STOP_VRAM_TIMING;
     case DBG_STOP_STEP_BACK:   return CTRL_STOP_STEP_BACK;
+    case DBG_STOP_FRAME:       return CTRL_STOP_FRAME;
     default:                   return CTRL_STOP_USER;
     }
 }

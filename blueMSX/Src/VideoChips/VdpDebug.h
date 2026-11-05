@@ -48,7 +48,7 @@ typedef struct {
 typedef struct {
     int    valid;           /* 0: not armed, no VDP, or no such frame known */
     int    complete;        /* 0: armed, reset or a state loaded in it; writes may be missing */
-    int    ended;           /* 1: the frame is over, or its active display is (VDP_SHOWN); 0: beamLine/beamCycle is where it is */
+    int    ended;           /* 1: the frame is over, or its active display is (VDP_SHOWN, early flip); 0: beamLine/beamCycle is where it is */
     int    foreign;         /* registers were written from another thread, e.g. the debugger */
     UInt32 frameStart;
     int    lastLine;        /* lines in the frame, 262 or 313 */

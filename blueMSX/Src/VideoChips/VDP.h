@@ -90,7 +90,7 @@ int vdpRegisterDaConverter(VdpDaCallbacks* callbacks, void* ref, VideoMode video
 void vdpUnregisterDaConverter(int vdpDaHandle);
 
 /* The following methods needs target dependent implementation */
-extern void RefreshScreen(int);
+extern void RefreshScreen(int screenMode, int presented, int vintShows);
 
 #endif
 

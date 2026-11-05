@@ -51,6 +51,7 @@ struct RegFade {
     UInt8    prev[256];
     float    heat[256];
     unsigned version;
+    unsigned step;     /* the step whose changes are lit */
     bool     primed;
 };
 

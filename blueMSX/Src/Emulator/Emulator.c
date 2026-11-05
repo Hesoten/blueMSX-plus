@@ -135,10 +135,19 @@ static volatile int      emuSingleStep = 0;
 static void*             emuStateLock;
 /* Goes up on every write of emuState, never to 0, so one transition is told from a later one. */
 static volatile UInt32   emuStateSeq = 1;
+/* Goes up when a step leaves a pause, so a view can light only what the step changed. */
+static volatile UInt32   emuStepSeq = 1;
 /* The seq of the last transition this thread made, for the notify that follows it. */
 static ARCH_THREAD_LOCAL UInt32 emuOwnStateSeq;
 /* Set while a question about the media is open: nothing may resume the machine meanwhile. */
 static int               emuHoldSuspended;
+/* A stop asked for at the next frame end, and that frame ended; both written under
+** emuStateLock and cleared by a pause or a stop, not by a suspend. */
+static volatile int      frameStopReq;
+static volatile int      frameStopNow;
+/* Machine VDP frames since the request while a pacing source is shown, under
+** emuStateLock; after a few the step ends anyway. */
+static int               frameStopWait;
 static Properties* properties;
 static Mixer* mixer;
 static BoardDeviceInfo deviceInfo;
@@ -317,9 +326,20 @@ void emulatorCreateLocks(void)
 ** debugger's state follows in the same step. */
 static void writeHeld(EmuState state, int setsDebugger)
 {
+    /* Before the state: the woken thread must not draw a step's frame under the old count. */
+    if (emuState == EMU_PAUSED && state == EMU_RUNNING && (frameStopReq || emuSingleStep)) {
+        emuStepSeq++;
+    }
     emuState = state;
     emuStateSeq = emuStateSeq + 1 != 0 ? emuStateSeq + 1 : 1;
     emuOwnStateSeq = emuStateSeq;
+    /* A suspend (menu, window move, mode switch) keeps a frame stop: the machine
+    ** runs on to it after the resume rather than running free. */
+    if (state != EMU_RUNNING && state != EMU_SUSPENDED) {
+        frameStopReq = 0;
+        frameStopNow = 0;
+        frameStopWait = 0;
+    }
     if (setsDebugger) {
         dbgSetRunState(state == EMU_PAUSED ? DBG_PAUSED : DBG_RUNNING);
     }
@@ -349,6 +369,21 @@ static int switchState(EmuState from, EmuState to, int setsDebugger)
     return switched;
 }
 
+/* Pauses for a frame stop that is still due, checked and made in one locked step so
+** a pause and resume in between cannot leave a stale stop behind. */
+static int takeFrameStop(void)
+{
+    int taken;
+
+    archSemaphoreWait(emuStateLock, -1);
+    taken = frameStopNow && emuState == EMU_RUNNING;
+    if (taken) {
+        writeHeld(EMU_PAUSED, 1);
+    }
+    archSemaphoreSignal(emuStateLock);
+    return taken;
+}
+
 int emulatorPauseIfRunning(void)
 {
     if (!switchState(EMU_RUNNING, EMU_PAUSED, 1)) {
@@ -371,9 +406,43 @@ int emulatorResumeIfPaused(void)
     return 1;
 }
 
+void emulatorRequestFrameStop(void)
+{
+    int resumed = 0;
+
+    dbgChangeBegin();
+    archSemaphoreWait(emuStateLock, -1);
+    if (emuState == EMU_RUNNING) {
+        frameStopReq = 1;
+        frameStopWait = 0;
+    }
+    else if (emuState == EMU_PAUSED && !emuHoldSuspended) {
+        frameStopReq = 1;
+        frameStopWait = 0;
+        writeHeld(EMU_RUNNING, 1);
+        resumed = 1;
+    }
+    archSemaphoreSignal(emuStateLock);
+
+    /* Sound stays off: one frame at a time would only stutter. */
+    if (resumed) {
+        debuggerNotifyEmulatorResume();
+    }
+}
+
+int emulatorFrameStopPending(void)
+{
+    return frameStopReq || frameStopNow;
+}
+
 UInt32 emulatorGetStateSeq(void)
 {
     return emuStateSeq;
+}
+
+UInt32 emulatorGetStepSeq(void)
+{
+    return emuStepSeq;
 }
 
 UInt32 emulatorOwnStateSeq(void)
@@ -410,6 +479,10 @@ void emulatorSetState(EmuState state) {
         ** knows how to leave: emuState would never reach EMU_PAUSED again. */
         EmuState oldState = emuState;
         state = EMU_RUNNING;
+        /* A step too, counted before the restore so a view never sees it under the old count. */
+        if (oldState == EMU_PAUSED) {
+            emuStepSeq++;
+        }
         if (!boardRewindOne()) {
             state = oldState;
         }
@@ -922,13 +995,31 @@ int  emulatorGetMaxSpeed() {
 
 void emulatorPlayReverse(int enable)
 {
-    if (enable) {   
+    if (enable) {
         archSoundSuspend();
     }
-    else {
+    else if (emuState == EMU_RUNNING) {
+        /* A rewind while paused leaves the machine paused, and silent. */
         archSoundResume();
     }
     emuPlayReverse = enable;
+    /* A rewind does not reach the sync that takes a frame stop, so a pending one
+    ** pauses here instead: a step must never end up running free. */
+    if (enable) {
+        int pending;
+        archSemaphoreWait(emuStateLock, -1);
+        /* Suspended, it is kept for after the resume and the rewind. */
+        pending = (frameStopReq || frameStopNow) && emuState != EMU_SUSPENDED;
+        if (pending) {
+            frameStopReq = 0;
+            frameStopNow = 0;
+            frameStopWait = 0;
+        }
+        archSemaphoreSignal(emuStateLock);
+        if (pending) {
+            emulatorPauseIfRunning();
+        }
+    }
 }
 
 int  emulatorGetPlayReverse()
@@ -983,9 +1074,33 @@ void emulatorRefreshFromSource() {
     }
 }
 
-/* Called by the VDP every frame. A shown source that paces the screen itself
-** calls emulatorRefreshFromSource instead; the screen mode still follows the VDP. */
-void RefreshScreen(int screenMode) {
+/* Ends a frame step at the end of a frame of the shown picture, or at the end of a
+** machine VDP frame (shown 0) once the shown source has not reported for a few. The
+** stop itself waits for the sync, brought forward, as the caller is mid-update. */
+static void frameStepAtFrameEnd(int shown)
+{
+    int ended = 0;
+
+    if (!frameStopReq || !emulatorIsEmuThread()) {
+        return;
+    }
+    archSemaphoreWait(emuStateLock, -1);
+    if (frameStopReq && (shown || ++frameStopWait >= 3)) {
+        frameStopReq  = 0;
+        frameStopNow  = 1;
+        frameStopWait = 0;
+        ended = 1;
+    }
+    archSemaphoreSignal(emuStateLock);
+    if (ended) {
+        boardSyncSoon();
+    }
+}
+
+/* Called by the VDP every frame; presented: emulatorShownDisplayEnded showed it already;
+** vintShows: it will show the next one at its end of active display. A shown source that
+** paces the screen calls emulatorRefreshFromSource instead; the mode still follows the VDP. */
+void RefreshScreen(int screenMode, int presented, int vintShows) {
     EmuTapFn tap = emuTap;
 
     if (tap) {
@@ -998,9 +1113,30 @@ void RefreshScreen(int screenMode) {
     }
     lastScreenMode = screenMode;
 
-    if (!videoManagerActivePacesScreen()) {
+    if (!videoManagerActivePacesScreen() && !presented) {
         emulatorRefreshFromSource();
+        /* A step asked for after the end of active display runs on to the next one. */
+        frameStepAtFrameEnd(!vintShows);
     }
+    else {
+        frameStepAtFrameEnd(0);
+    }
+}
+
+void emulatorShownFrameEnded(void)
+{
+    frameStepAtFrameEnd(1);
+}
+
+int emulatorShownDisplayEnded(int shown, void (*show)(void* ref), void* ref)
+{
+    if (!frameStopReq || !shown || !emulatorIsEmuThread()) {
+        return 0;
+    }
+    show(ref);
+    emulatorRefreshFromSource();
+    frameStepAtFrameEnd(1);
+    return 1;
 }
 
 #ifndef NO_TIMERS
@@ -1106,6 +1242,12 @@ static int WaitForSync(int maxSpeed, int stopCause) {
         archSoundSuspend();
         archMidiEnable(0);
         debuggerNotifyEmulatorPauseFor(stopCause);
+    }
+    /* A frame stop only from running: during a suspend it waits for the resume. */
+    else if (frameStopNow && takeFrameStop()) {
+        archSoundSuspend();
+        archMidiEnable(0);
+        debuggerNotifyEmulatorPauseFor(DBG_STOP_FRAME);
     }
 
     if (emuState != EMU_RUNNING) {

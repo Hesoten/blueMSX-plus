@@ -276,6 +276,7 @@ void debuggerNotifyEmulatorStop();
 #define DBG_STOP_WATCH       4  /* debugDeviceLastWatchHit says which        */
 #define DBG_STOP_VRAM_TIMING 5  /* the VDP was accessed faster than it takes */
 #define DBG_STOP_STEP_BACK   6  /* a step back reached its moment            */
+#define DBG_STOP_FRAME       7  /* a frame step reached a shown frame's end  */
 
 void debuggerNotifyEmulatorPause();
 void debuggerNotifyEmulatorPauseFor(int cause);

@@ -72,6 +72,9 @@ static bool           rasterOn;         /* this window armed the raster log */
 static int            splitOn = -1;     /* the family whose sprite split this window armed, or -1 */
 static bool           tablesOn;         /* this window armed the sprite tables */
 static float          heat[BLOCK_COUNT];
+static UInt32         seenStep;         /* the emulator's step count this window last saw */
+static unsigned       stepVer = 1;      /* bumps when a step starts: the highlights start afresh */
+static float          decayDt;          /* this frame's fade time, 0 while paused or stepping */
 
 static Focus focus, prevFocus;
 static int   hoverSeriesNow = -1, hoverBlockNow = -1;
@@ -97,6 +100,8 @@ unsigned     contentVersion() { return contentVer; }
 unsigned     pictureVersion() { return pictureVer; }
 unsigned     rasterVersion()  { return rasterVer; }
 unsigned     vramVersion()    { return vramVer; }
+unsigned     stepVersion()    { return stepVer; }
+float        toolDecayDt()    { return decayDt; }
 const Focus& shownFocus()     { return focus.pinned ? focus : prevFocus; }
 int          hoverSeries()    { return hoverSeriesNow; }
 int          hoverBlock()     { return hoverBlockNow; }
@@ -798,8 +803,18 @@ static void viewArea(ChipView* v, int family, const void* st)
 static void draw(ImGuiToolWindow*, void*)
 {
     const UiTokens& t = uiTokens();
+    /* Stopped, or on the way to a stop: what changed stays lit until the next step. */
+    bool stopped = emulatorGetState() == EMU_PAUSED || emulatorFrameStopPending() || emulatorIsSingleStepping();
+    decayDt = stopped ? 0.0f : ImGui::GetIO().DeltaTime;
     LiveFeedInfo info;
     const ChipSnapshot* snap = (const ChipSnapshot*)liveFeedLatest(feed, &info);
+    /* After the snapshot: a step's count goes up before its data, so data in hand is never cleared. */
+    UInt32 step = emulatorGetStepSeq();
+    if (step != seenStep) {
+        seenStep = step;
+        memset(heat, 0, sizeof(heat));
+        stepVer++;
+    }
     bool ok = snap != NULL && info.valid && snap->selected >= 0;
     const ChipEntry* e = ok ? &snap->chip[snap->selected] : NULL;
     ChipView* v = ok ? viewOf(e->family) : NULL;
@@ -829,7 +844,7 @@ static void draw(ImGuiToolWindow*, void*)
         shotVer++;
     }
 
-    float dt = ImGui::GetIO().DeltaTime / HEAT_SECONDS;
+    float dt = decayDt / HEAT_SECONDS;
     for (int k = 0; k < BLOCK_COUNT; k++) heat[k] = heat[k] > dt ? heat[k] - dt : 0;
 
     prevFocus = focus;

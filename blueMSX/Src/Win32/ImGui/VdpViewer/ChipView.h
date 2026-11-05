@@ -93,6 +93,10 @@ ChipView* createV9990View();
 namespace shell {
 /* Bumps whenever the shown snapshot's content changed. */
 unsigned    contentVersion();
+/* Bumps when a step starts from a pause; change highlights clear on it. */
+unsigned    stepVersion();
+/* The frame's time for fading highlights: 0 while stopped or on the way to a stop. */
+float       toolDecayDt();
 /* Bumps only when VRAM, registers or palette changed, not status alone. */
 unsigned    pictureVersion();
 /* Bumps when the VDP's raster logs changed. */

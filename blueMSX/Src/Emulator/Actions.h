@@ -85,6 +85,18 @@ void actionEmuTogglePause();
 int  actionDirGateOpen(void);
 void actionEmuStep();
 void actionEmuStepBack();
+/* Why an action would do nothing now, for those who show it; no side effect. */
+typedef enum {
+    ACTION_OK,
+    ACTION_REFUSED_DIR_GATE,
+    ACTION_REFUSED_STOPPED,
+    ACTION_REFUSED_REVERSE,
+    ACTION_REFUSED_WAITING,
+    ACTION_REFUSED_HOST_MEDIUM,
+} ActionRefusal;
+ActionRefusal actionFrameAdvanceRefusal(void);
+/* Runs to the end of the current frame and pauses there; from a pause, runs one frame. */
+void actionEmuFrameAdvance(void);
 void actionEmuStop();
 void actionDiskInsertA();
 void actionDiskInsertB();
@@ -284,6 +296,8 @@ void actionPanSetCassette(int value);
 
 void actionRenshaSetLevel(int value);
 void actionEmuSpeedSet(int value);
+/* pct is percent of the stock clock, 10 to 1000. */
+void actionEmuSpeedPercent(int pct);
 
 void actionKeyPress(int keyCode, int pressed);
 

@@ -693,7 +693,8 @@ in a new session the stop the machine is paused at, is reported once, saying
 "this stop happened before the call". The stop reasons are `breakpoint`,
 `watchpoint`, `step`, `user` (a pause), `step_back` (the emulator's step back
 reached its moment), `vram_timing` (the debugger's VRAM access check, MSX1
-VDP only) and `machine` (stopped, reset or replaced).
+VDP only), `frame` (the emulator's frame step reached the end of a frame of
+the picture on screen) and `machine` (stopped, reset or replaced).
 
 Each step waits for the emulator's next frame when it syncs to the display,
 so a long step count is slower than a breakpoint with `run_until`. After a

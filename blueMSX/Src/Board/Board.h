@@ -236,6 +236,8 @@ UInt32 boardCalcRelativeTimeout(UInt32 timerFrequency, UInt32 nextTimeout);
 
 /* Stops the machine where it is, for cause (a DBG_STOP_ value), which the pause tells on. */
 void   boardOnBreakpoint(int cause);
+/* Brings the next sync with the real clock forward to the next tick. Emulation thread only. */
+void   boardSyncSoon(void);
 
 int boardInsertExternalDevices();
 int boardRemoveExternalDevices();
