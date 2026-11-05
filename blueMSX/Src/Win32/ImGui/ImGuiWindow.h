@@ -51,13 +51,22 @@ typedef void (*ImGuiToolClosedFn)(void* ref);
 
 enum {
     /* Keep ImGui's own dark style whatever the Windows theme is. */
-    IMGUI_TOOL_ALWAYS_DARK = 1 << 0
+    IMGUI_TOOL_ALWAYS_DARK = 1 << 0,
+    /* Never takes activation or focus: clicks reach it while the main window
+    ** keeps the keyboard. No minimise box, as it has no taskbar button. */
+    IMGUI_TOOL_NO_ACTIVATE = 1 << 1,
+    /* The client follows what draw submits, at any zoom; the user cannot
+    ** size it. Draw must not size items from the space available. */
+    IMGUI_TOOL_FIT_CONTENT = 1 << 2,
+    /* Tooltips open below their item in a window of their own, for a client
+    ** too small to hold them beside the other items. */
+    IMGUI_TOOL_TIPS_OUTSIDE = 1 << 3
 };
 
 typedef struct {
     const char*       id;      /* one window per id */
     const char*       title;   /* UTF-8 */
-    int               width;   /* client size at 96 DPI */
+    int               width;   /* client size at 96 DPI; a first guess with FIT_CONTENT */
     int               height;
     int               flags;   /* IMGUI_TOOL_* */
     ImGuiToolDrawFn   draw;
@@ -68,7 +77,8 @@ typedef struct {
     struct ToolWindowPlacement* placement;
 } ImGuiToolDesc;
 
-/* Opens a window, or brings the one with the same id to the front.
+/* Opens a window, or brings the one with the same id to the front (without
+** activating it under IMGUI_TOOL_NO_ACTIVATE).
 ** Returns NULL on failure. */
 ImGuiToolWindow* imguiToolOpen(const ImGuiToolDesc* desc);
 /* Safe inside the window's own draw: it closes when the frame ends. */
@@ -77,6 +87,11 @@ void  imguiToolCloseAll(void);
 int   imguiToolIsOpen(const char* id);
 /* DPI scale times the user's zoom. */
 float imguiToolScale(ImGuiToolWindow* w);
+/* Inside a TIPS_OUTSIDE window's draw: shows text as the last item's tooltip,
+** outside the window, and returns 1. Anywhere else returns 0 and does nothing. */
+int   imguiToolTipOutside(const char* text);
+/* Inside draw, before a modal loop such as a popup menu: hides that tooltip. */
+void  imguiToolHideTip(void);
 
 #ifdef __cplusplus
 }

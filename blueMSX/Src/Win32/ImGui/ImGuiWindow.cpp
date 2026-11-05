@@ -65,6 +65,15 @@ extern "C" {
 #define FRAME_MIN_MS    14
 #define SIZING_MIN_MS   50
 
+/* All that decides how a tooltip outside the window looks. */
+struct TipLook {
+    char    text[512];
+    ImFont* font;
+    float   size, scale;
+    ImU32   bg, fg;
+    bool    dark;
+};
+
 /* Each window has its own ImGui context, font atlas and swap chain; the
 ** Win32 and DX11 backends keep their state per context. */
 struct ImGuiToolWindow {
@@ -96,9 +105,32 @@ struct ImGuiToolWindow {
     LONG                    zoomSetW, zoomSetH;
     bool                    wheelTaken, wheelTakenNext;  /* a view takes Ctrl+wheel where the mouse is */
     bool                    placing;       /* opened: moves and sizes go to desc.placement */
+    int                     fitW, fitH;    /* FIT_CONTENT: client size the last frame asked for */
     ULONGLONG               lastFrame;
+    /* TIPS_OUTSIDE: the tooltip window, what this frame asked it to show, what the copy
+    ** read back from the GPU holds and what is on screen. */
+    HWND                    tipHwnd;
+    bool                    tipActive;
+    bool                    tipWanted;
+    TipLook                 tipWant, tipPend, tipShown;
+    ImVec2                  tipMin, tipMax;
+    ImDrawList*             tipList;       /* this frame's bubble, rendered and freed in the frame */
+    bool                    tipPending;    /* tipStaging holds tipPend, not read yet */
+    int                     tipW, tipH;    /* bitmap, bubble and shadow */
+    ImVec2                  tipBubbleMin, tipBubbleSize;
+    ID3D11Texture2D*        tipTex;
+    ID3D11RenderTargetView* tipTarget;
+    ID3D11Texture2D*        tipStaging;
+    int                     tipTexW, tipTexH;
+    HDC                     tipDC;
+    HBITMAP                 tipBmp, tipOldBmp;
+    void*                   tipBits;
+    int                     tipBmpW, tipBmpH;
     ImGuiToolWindow*        next;
 };
+
+/* The window whose draw is running, for widgets that ask the host. */
+static ImGuiToolWindow*     drawing;
 
 static ImGuiToolWindow*     windows;
 /* Structs alive, destroyed or not: they all may still use the device. */
@@ -589,7 +621,10 @@ static void stepZoom(ImGuiToolWindow* w, int dir)
         if (w->desc.placement) {
             w->desc.placement->zoomPct = (int)(w->zoom * 100 + 0.5f);
         }
-        resizeClientBy(w, w->zoom / old);
+        /* A fitted window is sized by its next frame instead. */
+        if (!(w->desc.flags & IMGUI_TOOL_FIT_CONTENT)) {
+            resizeClientBy(w, w->zoom / old);
+        }
     }
 }
 
@@ -642,6 +677,45 @@ static bool zoomMessage(ImGuiToolWindow* w, UINT msg, WPARAM wParam)
     return false;
 }
 
+static DWORD windowStyle(int flags)
+{
+    DWORD style = WS_OVERLAPPEDWINDOW;
+    if (flags & IMGUI_TOOL_FIT_CONTENT) style &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
+    if (flags & IMGUI_TOOL_NO_ACTIVATE) style &= ~WS_MINIMIZEBOX;
+    return style;
+}
+
+static DWORD windowExStyle(int flags)
+{
+    return (flags & IMGUI_TOOL_NO_ACTIVATE) ? WS_EX_NOACTIVATE : 0;
+}
+
+/* The content the host window got this frame, measured as ImGui measures
+** an auto-fitting window but without clamping it to the current client. */
+static void measureContent(ImGuiToolWindow* w)
+{
+    ImGuiWindow* host = ImGui::GetCurrentWindow();
+    ImVec2 start = host->DC.CursorStartPos;
+    float cw = ImMax(host->DC.CursorMaxPos.x, host->DC.IdealMaxPos.x) - start.x;
+    float ch = ImMax(host->DC.CursorMaxPos.y, host->DC.IdealMaxPos.y) - start.y;
+    w->fitW = (int)ceilf(cw + host->WindowPadding.x * 2);
+    w->fitH = (int)ceilf(ch + host->WindowPadding.y * 2);
+}
+
+/* Outside the frame: the WM_SIZE it sends marks the buffers, and the next timer tick draws. */
+static void fitClient(ImGuiToolWindow* w)
+{
+    RECT outer, client;
+    if (w->fitW <= 0 || w->fitH <= 0 || w->destroyed || IsIconic(w->hwnd) ||
+        !GetWindowRect(w->hwnd, &outer) || !GetClientRect(w->hwnd, &client) ||
+        (client.right == w->fitW && client.bottom == w->fitH)) {
+        return;
+    }
+    SetWindowPos(w->hwnd, NULL, 0, 0,
+                 w->fitW + (outer.right - outer.left) - client.right,
+                 w->fitH + (outer.bottom - outer.top) - client.bottom,
+                 SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
 
 static bool deviceLost(HRESULT hr)
 {
@@ -653,6 +727,8 @@ static bool hasDevice(ImGuiToolWindow* w)
 {
     return device != NULL && w->generation == deviceGeneration;
 }
+
+static void releaseTip(ImGuiToolWindow* w);
 
 /* Frees the struct of a window whose HWND is gone. Not while it is in a frame. */
 static void destroyInstance(ImGuiToolWindow* w)
@@ -669,6 +745,7 @@ static void destroyInstance(ImGuiToolWindow* w)
             restoreContext(prev);
         }
     }
+    releaseTip(w);
     releaseSwapChain(w);
     for (p = &windows; *p; p = &(*p)->next) {
         if (*p == w) {
@@ -707,6 +784,364 @@ static void onDeviceLost()
     }
 }
 
+static bool sameLook(const TipLook& a, const TipLook& b)
+{
+    return a.font == b.font && a.size == b.size && a.scale == b.scale && a.bg == b.bg && a.fg == b.fg && a.dark == b.dark &&
+           strcmp(a.text, b.text) == 0;
+}
+
+/* Also drops a copy still on its way back from the GPU, so it cannot show after this. */
+static void hideTip(ImGuiToolWindow* w)
+{
+    w->tipPending = false;
+    w->tipShown.text[0] = '\0';
+    if (w->tipActive) {
+        ShowWindow(w->tipHwnd, SW_HIDE);
+        w->tipActive = false;
+    }
+}
+
+static void releaseTip(ImGuiToolWindow* w)
+{
+    if (w->tipTarget)  { w->tipTarget->Release();  w->tipTarget = NULL; }
+    if (w->tipTex)     { w->tipTex->Release();     w->tipTex = NULL; }
+    if (w->tipStaging) { w->tipStaging->Release(); w->tipStaging = NULL; }
+    if (w->tipDC) {
+        if (w->tipOldBmp) SelectObject(w->tipDC, w->tipOldBmp);
+        DeleteDC(w->tipDC);
+        w->tipDC = NULL;
+    }
+    if (w->tipBmp) { DeleteObject(w->tipBmp); w->tipBmp = NULL; }
+    w->tipOldBmp = NULL;
+    w->tipBits = NULL;
+    w->tipBmpW = w->tipBmpH = w->tipTexW = w->tipTexH = 0;
+}
+
+static LRESULT CALLBACK tipProc(HWND wnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    if (msg == WM_NCHITTEST) {
+        return HTTRANSPARENT;
+    }
+    if (msg == WM_MOUSEACTIVATE) {
+        return MA_NOACTIVATE;
+    }
+    return DefWindowProcW(wnd, msg, wParam, lParam);
+}
+
+static HWND createTipWindow(HWND owner)
+{
+    static bool registered = false;
+    if (!registered) {
+        WNDCLASSEXW wc = {};
+        wc.cbSize        = sizeof(wc);
+        wc.lpfnWndProc   = tipProc;
+        wc.hInstance     = GetModuleHandleW(NULL);
+        wc.hCursor       = LoadCursor(NULL, IDC_ARROW);
+        wc.lpszClassName = L"blueMSXImGuiTip";
+        registered = RegisterClassExW(&wc) != 0;
+        if (!registered) {
+            return NULL;
+        }
+    }
+    return CreateWindowExW(WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TOPMOST,
+                           L"blueMSXImGuiTip", NULL, WS_POPUP, 0, 0, 0, 0, owner, NULL, GetModuleHandleW(NULL), NULL);
+}
+
+/* Screen y just below the visible part of the mouse pointer, or LONG_MIN when none shows. */
+static LONG cursorBottom()
+{
+    CURSORINFO ci = {};
+    ICONINFO   ii = {};
+    BITMAP     bm = {};
+    LONG       bottom = LONG_MIN;
+    ci.cbSize = sizeof(ci);
+    if (!GetCursorInfo(&ci) || !(ci.flags & CURSOR_SHOWING) || ci.hCursor == NULL || !GetIconInfo(ci.hCursor, &ii)) {
+        return LONG_MIN;
+    }
+    HBITMAP src = ii.hbmColor ? ii.hbmColor : ii.hbmMask;
+    if (src && GetObject(src, sizeof(bm), &bm) && bm.bmWidth > 0 && bm.bmHeight > 0 && bm.bmWidth <= 256 && bm.bmHeight <= 512) {
+        /* A colour pointer shows where its alpha is set, or where its mask is black when it has
+        ** no alpha; a monochrome one keeps the mask over the inverting half, twice as tall. */
+        int w = bm.bmWidth, h = ii.hbmColor ? bm.bmHeight : bm.bmHeight / 2;
+        unsigned* mask = (unsigned*)malloc((size_t)w * h * 2 * 4);
+        unsigned* color = ii.hbmColor ? (unsigned*)malloc((size_t)w * h * 4) : NULL;
+        HDC dc = GetDC(NULL);
+        BITMAPINFO bi = {};
+        bi.bmiHeader.biSize = sizeof(bi.bmiHeader);
+        bi.bmiHeader.biWidth = w;
+        bi.bmiHeader.biPlanes = 1;
+        bi.bmiHeader.biBitCount = 32;
+        bi.bmiHeader.biCompression = BI_RGB;
+        bool ok = mask != NULL && (ii.hbmColor == NULL || color != NULL);
+        if (ok) {
+            bi.bmiHeader.biHeight = -(ii.hbmColor ? h : h * 2);
+            ok = GetDIBits(dc, ii.hbmMask, 0, ii.hbmColor ? h : h * 2, mask, &bi, DIB_RGB_COLORS) > 0;
+        }
+        bool alpha = false;
+        if (ok && color) {
+            bi.bmiHeader.biHeight = -h;
+            ok = GetDIBits(dc, ii.hbmColor, 0, h, color, &bi, DIB_RGB_COLORS) > 0;
+            for (int i = 0; ok && i < w * h && !alpha; i++) alpha = (color[i] >> 24) != 0;
+        }
+        ReleaseDC(NULL, dc);
+        for (int y = h - 1; ok && y >= 0 && bottom == LONG_MIN; y--) {
+            for (int x = 0; x < w; x++) {
+                int  i = y * w + x;
+                bool seen = alpha ? (color[i] >> 24) != 0
+                                  : (mask[i] & 0xffffff) == 0 || (!color && (mask[i + w * h] & 0xffffff) != 0);
+                if (seen) {
+                    bottom = ci.ptScreenPos.y - (LONG)ii.yHotspot + y + 1;
+                    break;
+                }
+            }
+        }
+        free(mask);
+        free(color);
+    }
+    if (ii.hbmMask)  DeleteObject(ii.hbmMask);
+    if (ii.hbmColor) DeleteObject(ii.hbmColor);
+    return bottom;
+}
+
+/* Below the item and the pointer, or above the window where the screen ends; it stays
+** there until the text changes or it hides. */
+static POINT placeTip(ImGuiToolWindow* w, float scale)
+{
+    RECT  wr = {};
+    POINT pt = { (LONG)w->tipMin.x, (LONG)w->tipMax.y };
+    LONG  gap = (LONG)(4 * scale), bw = (LONG)w->tipBubbleSize.x, bh = (LONG)w->tipBubbleSize.y;
+    ClientToScreen(w->hwnd, &pt);
+    GetWindowRect(w->hwnd, &wr);
+    LONG below = cursorBottom();
+    pt.y = (below != LONG_MIN && below > pt.y ? below : pt.y) + gap;
+    MONITORINFO mi = {};
+    mi.cbSize = sizeof(mi);
+    if (GetMonitorInfoW(MonitorFromWindow(w->hwnd, MONITOR_DEFAULTTONEAREST), &mi)) {
+        if (pt.x + bw > mi.rcWork.right) pt.x = mi.rcWork.right - bw;
+        if (pt.x < mi.rcWork.left) pt.x = mi.rcWork.left;
+        if (pt.y + bh > mi.rcWork.bottom) pt.y = wr.top - gap - bh;
+    }
+    pt.x -= (LONG)w->tipBubbleMin.x;
+    pt.y -= (LONG)w->tipBubbleMin.y;
+    return pt;
+}
+
+/* Inside the frame, before Render: lays out what draw asked for, the way ImGui lays out
+** its own tooltip, into a list rendered once the window's frame is drawn. Hidden once the
+** mouse is off the window or no item asked this frame. */
+static void updateTip(ImGuiToolWindow* w)
+{
+    POINT cur;
+    /* Another window over this one under the mouse hides it too. */
+    if (!w->tipWanted || w->hwnd == NULL || !GetCursorPos(&cur) || WindowFromPoint(cur) != w->hwnd) {
+        hideTip(w);
+        return;
+    }
+    const ImGuiStyle& style = ImGui::GetStyle();
+    TipLook& want = w->tipWant;
+    want.scale = w->dpiScale * w->appliedZoom;
+    want.bg = ImGui::ColorConvertFloat4ToU32(style.Colors[ImGuiCol_PopupBg]);
+    want.fg = ImGui::ColorConvertFloat4ToU32(style.Colors[ImGuiCol_Text]);
+    want.dark = w->dark;
+    if ((w->tipActive && sameLook(want, w->tipShown)) || (w->tipPending && sameLook(want, w->tipPend))) {
+        return;
+    }
+    if (w->tipHwnd == NULL) {
+        w->tipHwnd = createTipWindow(w->hwnd);
+        if (w->tipHwnd == NULL) {
+            return;
+        }
+    }
+    float depth = 0, drop = 0;
+    bool  framed = !(w->desc.flags & IMGUI_TOOL_ALWAYS_DARK);
+    if (framed) {
+        imguiThemePopupShadow(want.scale, &depth, &drop);
+    }
+    MONITORINFO mi = {};
+    mi.cbSize = sizeof(mi);
+    float room = GetMonitorInfoW(MonitorFromWindow(w->hwnd, MONITOR_DEFAULTTONEAREST), &mi)
+                     ? (float)(mi.rcWork.right - mi.rcWork.left) - style.WindowPadding.x * 2 - depth * 2 : FLT_MAX;
+    ImVec2 text = want.font->CalcTextSizeA(want.size, FLT_MAX, 0.0f, want.text);
+    float  wrap = text.x > room && room > want.size ? room : 0.0f;
+    if (wrap > 0) text = want.font->CalcTextSizeA(want.size, FLT_MAX, wrap, want.text);
+    ImVec2 size(ceilf(text.x) + style.WindowPadding.x * 2, ceilf(text.y) + style.WindowPadding.y * 2);
+    float least = fmaxf(4.0f, style.WindowRounding - 1);  /* an auto-sized window's least size */
+    size = ImVec2(fmaxf(size.x, least), fmaxf(size.y, least));
+    w->tipBubbleMin  = ImVec2(depth + 1, fmaxf(depth - drop, 0) + 1);
+    w->tipBubbleSize = ImVec2(floorf(size.x), floorf(size.y));
+    w->tipW = (int)(w->tipBubbleMin.x + w->tipBubbleSize.x + depth + 1);
+    w->tipH = (int)(w->tipBubbleMin.y + w->tipBubbleSize.y + depth + drop + 1);
+
+    ImVec2 a = w->tipBubbleMin, b(a.x + w->tipBubbleSize.x, a.y + w->tipBubbleSize.y);
+    ImDrawList* dl = IM_NEW(ImDrawList)(ImGui::GetDrawListSharedData());
+    dl->_ResetForNewFrame();
+    dl->_SetPixelDensity(1.0f);
+    dl->PushTexture(ImGui::GetIO().Fonts->TexRef);
+    dl->PushClipRect(ImVec2(0, 0), ImVec2((float)w->tipW, (float)w->tipH), false);
+    dl->AddRectFilled(a, b, want.bg, style.WindowRounding);
+    dl->AddText(want.font, want.size, ImVec2(floorf(a.x + style.WindowPadding.x), floorf(a.y + style.WindowPadding.y)), want.fg, want.text, NULL, wrap);
+    if (framed) {
+        imguiThemeDrawPopupFrame(dl, a, b, style.WindowRounding, w->dark, want.scale);
+    }
+    w->tipList = dl;
+    w->tipPend = want;
+    w->tipPending = false;
+}
+
+static bool makeTipTarget(ImGuiToolWindow* w)
+{
+    if (w->tipTex && w->tipTexW == w->tipW && w->tipTexH == w->tipH) {
+        return true;
+    }
+    if (w->tipTarget)  { w->tipTarget->Release();  w->tipTarget = NULL; }
+    if (w->tipTex)     { w->tipTex->Release();     w->tipTex = NULL; }
+    if (w->tipStaging) { w->tipStaging->Release(); w->tipStaging = NULL; }
+    D3D11_TEXTURE2D_DESC td = {};
+    td.Width = (UINT)w->tipW;
+    td.Height = (UINT)w->tipH;
+    td.MipLevels = 1;
+    td.ArraySize = 1;
+    td.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    td.SampleDesc.Count = 1;
+    td.Usage = D3D11_USAGE_DEFAULT;
+    td.BindFlags = D3D11_BIND_RENDER_TARGET;
+    if (FAILED(device->CreateTexture2D(&td, NULL, &w->tipTex)) ||
+        FAILED(device->CreateRenderTargetView(w->tipTex, NULL, &w->tipTarget))) {
+        return false;
+    }
+    td.Usage = D3D11_USAGE_STAGING;
+    td.BindFlags = 0;
+    td.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+    if (FAILED(device->CreateTexture2D(&td, NULL, &w->tipStaging))) {
+        return false;
+    }
+    w->tipTexW = w->tipW;
+    w->tipTexH = w->tipH;
+    return true;
+}
+
+/* After the window's own draw data, with its context current: the bubble goes to a
+** texture cleared to nothing, which comes out with premultiplied alpha. */
+static void renderTip(ImGuiToolWindow* w)
+{
+    if (!makeTipTarget(w)) {
+        w->tipTexW = w->tipTexH = 0;
+        hideTip(w);
+        return;
+    }
+    const float clear[4] = { 0, 0, 0, 0 };
+    deviceContext->OMSetRenderTargets(1, &w->tipTarget, NULL);
+    deviceContext->ClearRenderTargetView(w->tipTarget, clear);
+    ImDrawData data;
+    data.Valid = true;
+    data.DisplayPos = ImVec2(0, 0);
+    data.DisplaySize = ImVec2((float)w->tipW, (float)w->tipH);
+    data.FramebufferScale = ImVec2(1, 1);
+    data.AddDrawList(w->tipList);
+    ImGui_ImplDX11_RenderDrawData(&data);
+    deviceContext->OMSetRenderTargets(0, NULL, NULL);
+    deviceContext->CopyResource(w->tipStaging, w->tipTex);
+    w->tipPending = true;
+}
+
+static bool makeTipBitmap(ImGuiToolWindow* w)
+{
+    if (w->tipBits && w->tipBmpW == w->tipW && w->tipBmpH == w->tipH) {
+        return true;
+    }
+    if (w->tipDC == NULL && (w->tipDC = CreateCompatibleDC(NULL)) == NULL) {
+        return false;
+    }
+    if (w->tipOldBmp) SelectObject(w->tipDC, w->tipOldBmp);
+    if (w->tipBmp) DeleteObject(w->tipBmp);
+    w->tipOldBmp = NULL;
+    w->tipBits = NULL;
+    BITMAPINFO bi = {};
+    bi.bmiHeader.biSize = sizeof(bi.bmiHeader);
+    bi.bmiHeader.biWidth = w->tipW;
+    bi.bmiHeader.biHeight = -w->tipH;
+    bi.bmiHeader.biPlanes = 1;
+    bi.bmiHeader.biBitCount = 32;
+    bi.bmiHeader.biCompression = BI_RGB;
+    w->tipBmp = CreateDIBSection(w->tipDC, &bi, DIB_RGB_COLORS, &w->tipBits, NULL, 0);
+    if (w->tipBmp == NULL) {
+        w->tipBits = NULL;
+        return false;
+    }
+    w->tipOldBmp = (HBITMAP)SelectObject(w->tipDC, w->tipBmp);
+    w->tipBmpW = w->tipW;
+    w->tipBmpH = w->tipH;
+    return true;
+}
+
+/* After Present, which sent the copy on its way. Never waits: a copy not back yet is
+** tried again at the next frame. The new picture and place replace the old at once. */
+static void showTip(ImGuiToolWindow* w)
+{
+    D3D11_MAPPED_SUBRESOURCE m;
+    HRESULT hr = deviceContext->Map(w->tipStaging, 0, D3D11_MAP_READ, D3D11_MAP_FLAG_DO_NOT_WAIT, &m);
+    if (hr == DXGI_ERROR_WAS_STILL_DRAWING) {
+        return;
+    }
+    w->tipPending = false;
+    if (FAILED(hr)) {
+        hideTip(w);
+        return;
+    }
+    bool ok = makeTipBitmap(w);
+    for (int y = 0; ok && y < w->tipH; y++) {
+        const unsigned* s = (const unsigned*)((const char*)m.pData + (size_t)y * m.RowPitch);
+        unsigned*       d = (unsigned*)w->tipBits + (size_t)y * w->tipW;
+        for (int x = 0; x < w->tipW; x++) {
+            unsigned c = s[x];
+            d[x] = (c & 0xff00ff00) | ((c & 0xff) << 16) | ((c >> 16) & 0xff);
+        }
+    }
+    deviceContext->Unmap(w->tipStaging, 0);
+    if (!ok) {
+        hideTip(w);
+        return;
+    }
+    if (!w->tipWanted || !sameLook(w->tipPend, w->tipWant)) {
+        return;
+    }
+    POINT pos = placeTip(w, w->tipPend.scale), src = { 0, 0 };
+    SIZE  size = { w->tipW, w->tipH };
+    BLENDFUNCTION blend = { AC_SRC_OVER, 0, 255, AC_SRC_ALPHA };
+    if (!UpdateLayeredWindow(w->tipHwnd, NULL, &pos, &size, w->tipDC, &src, 0, &blend, ULW_ALPHA)) {
+        hideTip(w);
+        return;
+    }
+    if (!w->tipActive) {
+        SetWindowPos(w->tipHwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+        w->tipActive = true;
+    }
+    w->tipShown = w->tipPend;
+}
+
+extern "C" void imguiToolHideTip(void)
+{
+    if (drawing != NULL) {
+        hideTip(drawing);
+    }
+}
+
+extern "C" int imguiToolTipOutside(const char* text)
+{
+    ImGuiToolWindow* w = drawing;
+    if (w == NULL || !(w->desc.flags & IMGUI_TOOL_TIPS_OUTSIDE) || text == NULL || !*text) {
+        return 0;
+    }
+    /* The font of the item, as ImGui's own tooltip would take it. */
+    w->tipWanted = true;
+    snprintf(w->tipWant.text, sizeof(w->tipWant.text), "%s", text);
+    w->tipWant.font = ImGui::GetFont();
+    w->tipWant.size = ImGui::GetFontSize();
+    w->tipMin = ImGui::GetItemRectMin();
+    w->tipMax = ImGui::GetItemRectMax();
+    return 1;
+}
+
 static bool mouseHeld(ImGuiToolWindow* w)
 {
     for (bool down : w->ctx->IO.MouseDown) {
@@ -719,6 +1154,10 @@ static void renderFrame(ImGuiToolWindow* w)
 {
     if (w->inFrame || w->destroyed || w->swapChain == NULL || !hasDevice(w) ||
         IsIconic(w->hwnd) || !IsWindowVisible(w->hwnd)) {
+        /* No frame means no item asks for the tooltip; inside one it stays. */
+        if (!w->inFrame) {
+            hideTip(w);
+        }
         return;
     }
     /* The buffers follow the client size once, at the next frame, rather
@@ -730,8 +1169,11 @@ static void renderFrame(ImGuiToolWindow* w)
         if (bw != w->bufferW || bh != w->bufferH) {
             deviceContext->OMSetRenderTargets(0, NULL, NULL);
             if (w->targetView) { w->targetView->Release(); w->targetView = NULL; }
-            if (FAILED(w->swapChain->ResizeBuffers(0, bw, bh, DXGI_FORMAT_UNKNOWN, 0))) {
-                closeWindow(w);
+            HRESULT hr = w->swapChain->ResizeBuffers(0, bw, bh, DXGI_FORMAT_UNKNOWN, 0);
+            if (FAILED(hr)) {
+                hideTip(w);
+                if (deviceLost(hr)) onDeviceLost();
+                else closeWindow(w);
                 return;
             }
             w->bufferW = bw;
@@ -741,24 +1183,28 @@ static void renderFrame(ImGuiToolWindow* w)
                 /* Try again next frame rather than freeze until a resize. */
                 w->bufferW = w->bufferH = 0;
                 w->resizePending = true;
+                hideTip(w);
                 return;
             }
         }
     }
     if (w->targetView == NULL) {
+        hideTip(w);
         return;
     }
     w->lastFrame = GetTickCount64();
     /* A covered window still costs a frame; ask first and skip it. */
     HRESULT hr = w->swapChain->Present(0, DXGI_PRESENT_TEST);
     if (deviceLost(hr)) {
+        hideTip(w);
         onDeviceLost();
         return;
     }
     /* A button held when it was covered is let go only by a frame: the release waits in the queue. */
     bool occluded = hr == DXGI_STATUS_OCCLUDED;
-    if (occluded && !mouseHeld(w)) {
-        return;
+    if (occluded) {
+        hideTip(w);
+        if (!mouseHeld(w)) return;
     }
 
     /* A modal loop inside another window's draw may have brought us here. */
@@ -784,9 +1230,13 @@ static void renderFrame(ImGuiToolWindow* w)
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
                  ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus);
     w->wheelTakenNext = false;
+    w->tipWanted = false;
+    ImGuiToolWindow* prevDrawing = drawing;
+    drawing = w;
     if (w->desc.draw) {
         w->desc.draw(w, w->desc.ref);
     }
+    drawing = prevDrawing;
     w->wheelTaken = w->wheelTakenNext;
     if (w->destroyed) {
         /* The HWND went inside a modal loop in draw, e.g. with its
@@ -801,6 +1251,10 @@ static void renderFrame(ImGuiToolWindow* w)
     }
     /* Another window's frame inside a modal loop may have switched contexts. */
     ImGui::SetCurrentContext(w->ctx);
+    updateTip(w);
+    if (w->desc.flags & IMGUI_TOOL_FIT_CONTENT) {
+        measureContent(w);
+    }
     ImGui::End();
     ImGui::Render();
 
@@ -811,9 +1265,21 @@ static void renderFrame(ImGuiToolWindow* w)
         deviceContext->OMSetRenderTargets(1, &w->targetView, NULL);
         deviceContext->ClearRenderTargetView(w->targetView, clear);
         ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+        if (w->tipList) {
+            renderTip(w);
+        }
         /* Never block: this thread also presents the emulator's window.
         ** A frame refused because presenting would block is redrawn next tick. */
         lost = deviceLost(w->swapChain->Present(0, DXGI_PRESENT_DO_NOT_WAIT));
+        /* The tip is a topmost window of its own: it would show over what covers this one. */
+        if (!lost && w->tipPending && !occluded) {
+            showTip(w);
+        }
+    }
+    /* Its texture references hold for this frame only. */
+    if (w->tipList) {
+        IM_DELETE(w->tipList);
+        w->tipList = NULL;
     }
     w->inFrame = false;
     restoreContext(prev);
@@ -822,6 +1288,9 @@ static void renderFrame(ImGuiToolWindow* w)
     }
     else if (w->closePending) {
         closeWindow(w);
+    }
+    else if (w->desc.flags & IMGUI_TOOL_FIT_CONTENT) {
+        fitClient(w);
     }
 }
 
@@ -857,6 +1326,10 @@ static void onDestroy(ImGuiToolWindow* w)
         exitDialogShow();
     }
     KillTimer(w->hwnd, FRAME_TIMER_ID);
+    /* Owned by this window, the tooltip goes with it. */
+    w->tipHwnd = NULL;
+    w->tipActive = false;
+    w->tipPending = false;
     SetWindowLongPtrW(w->hwnd, GWLP_USERDATA, 0);
     releaseSwapChain(w);
     w->hwnd = NULL;
@@ -958,6 +1431,12 @@ static LRESULT CALLBACK wndProc(HWND wnd, UINT msg, WPARAM wParam, LPARAM lParam
 
     case WM_ERASEBKGND:
         return 1;
+
+    case WM_MOUSEACTIVATE:
+        if (w->desc.flags & IMGUI_TOOL_NO_ACTIVATE) {
+            return MA_NOACTIVATE;
+        }
+        break;
 
     /* The main window may see this after us, so drop the cached theme here too. */
     case WM_SETTINGCHANGE:
@@ -1125,6 +1604,11 @@ extern "C" ImGuiToolWindow* imguiToolOpen(const ImGuiToolDesc* desc)
     }
     w = findOpen(desc->id);
     if (w) {
+        if (w->desc.flags & IMGUI_TOOL_NO_ACTIVATE) {
+            if (IsIconic(w->hwnd)) ShowWindow(w->hwnd, SW_SHOWNOACTIVATE);
+            SetWindowPos(w->hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            return w;
+        }
         if (IsIconic(w->hwnd)) ShowWindow(w->hwnd, SW_RESTORE);
         SetForegroundWindow(w->hwnd);
         return w;
@@ -1175,13 +1659,14 @@ extern "C" ImGuiToolWindow* imguiToolOpen(const ImGuiToolDesc* desc)
     static AdjustForDpiFn adjustForDpi = (AdjustForDpiFn)
         GetProcAddress(GetModuleHandleW(L"user32.dll"), "AdjustWindowRectExForDpi");
     HWND mainWnd = getMainHwnd();
+    DWORD style = windowStyle(desc->flags), exStyle = windowExStyle(desc->flags);
     float scale = ImGui_ImplWin32_GetDpiScaleForHwnd(mainWnd);
     RECT r = { 0, 0, (LONG)(desc->width * scale * w->zoom), (LONG)(desc->height * scale * w->zoom) };
     if (adjustForDpi) {
-        adjustForDpi(&r, WS_OVERLAPPEDWINDOW, FALSE, 0, (UINT)(scale * 96));
+        adjustForDpi(&r, style, FALSE, exStyle, (UINT)(scale * 96));
     }
     else {
-        AdjustWindowRectEx(&r, WS_OVERLAPPEDWINDOW, FALSE, 0);
+        AdjustWindowRectEx(&r, style, FALSE, exStyle);
     }
     RECT mainRect = { 0, 0, 0, 0 };
     int x = CW_USEDEFAULT, y = CW_USEDEFAULT;
@@ -1193,9 +1678,12 @@ extern "C" ImGuiToolWindow* imguiToolOpen(const ImGuiToolDesc* desc)
     const ToolWindowPlacement* kept = desc->placement;
     int keptDpi = kept && kept->dpi >= 48 && kept->dpi <= 960 ? kept->dpi : 96;
     if (kept && kept->width > 0 && kept->width <= 16384 && kept->height > 0 && kept->height <= 16384) {
-        /* A window shrunk below 320 x 240 keeps its place and comes back that large. */
-        int keptW = kept->width > 320 * keptDpi / 96 ? kept->width : 320 * keptDpi / 96;
-        int keptH = kept->height > 240 * keptDpi / 96 ? kept->height : 240 * keptDpi / 96;
+        /* A window shrunk below 320 x 240 keeps its place and comes back that
+        ** large; a fitted one was sized by its content, not shrunk. */
+        int minW = (desc->flags & IMGUI_TOOL_FIT_CONTENT) ? 1 : 320 * keptDpi / 96;
+        int minH = (desc->flags & IMGUI_TOOL_FIT_CONTENT) ? 1 : 240 * keptDpi / 96;
+        int keptW = kept->width > minW ? kept->width : minW;
+        int keptH = kept->height > minH ? kept->height : minH;
         int kx = kept->x < -100000 ? -100000 : kept->x > 100000 ? 100000 : kept->x;
         int ky = kept->y < -100000 ? -100000 : kept->y > 100000 ? 100000 : kept->y;
         RECT guess = { kx, ky, kx + keptW, ky + keptH };
@@ -1203,10 +1691,10 @@ extern "C" ImGuiToolWindow* imguiToolOpen(const ImGuiToolDesc* desc)
         float ms = ImGui_ImplWin32_GetDpiScaleForMonitor(mon), by = ms * 96 / keptDpi;
         RECT k = { 0, 0, (LONG)(keptW * by + 0.5f), (LONG)(keptH * by + 0.5f) };
         if (adjustForDpi) {
-            adjustForDpi(&k, WS_OVERLAPPEDWINDOW, FALSE, 0, (UINT)(ms * 96));
+            adjustForDpi(&k, style, FALSE, exStyle, (UINT)(ms * 96));
         }
         else {
-            AdjustWindowRectEx(&k, WS_OVERLAPPEDWINDOW, FALSE, 0);
+            AdjustWindowRectEx(&k, style, FALSE, exStyle);
         }
         int kw = k.right - k.left, kh = k.bottom - k.top;
         RECT title = { kx, ky, kx + kw, ky + (LONG)(32 * ms) };
@@ -1227,9 +1715,9 @@ extern "C" ImGuiToolWindow* imguiToolOpen(const ImGuiToolDesc* desc)
         r.right = kw;
         r.bottom = kh;
     }
-    /* Unowned like the themed tool windows, so the main window can come to
-    ** the front; fullscreen gives it the main window as owner. */
-    HWND wnd = CreateWindowExW(0, L"blueMSXImGuiWindow", wtitle, WS_OVERLAPPEDWINDOW,
+    /* Unowned, so the main window can come to the front; fullscreen gives
+    ** it the main window as owner. */
+    HWND wnd = CreateWindowExW(exStyle, L"blueMSXImGuiWindow", wtitle, style,
                                x, y, r.right - r.left, r.bottom - r.top,
                                NULL, NULL, GetModuleHandleW(NULL), w);
     if (wnd == NULL) {
@@ -1277,7 +1765,7 @@ extern "C" ImGuiToolWindow* imguiToolOpen(const ImGuiToolDesc* desc)
     notePlacement(w);
 
     SetTimer(wnd, FRAME_TIMER_ID, USER_TIMER_MINIMUM, NULL);
-    ShowWindow(wnd, SW_SHOW);
+    ShowWindow(wnd, (desc->flags & IMGUI_TOOL_NO_ACTIVATE) ? SW_SHOWNA : SW_SHOW);
     renderFrame(w);
     return findOpen(desc->id);
 }

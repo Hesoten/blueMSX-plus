@@ -42,6 +42,7 @@
 #include "imgui_internal.h"
 #include "ImGuiWidgets.h"
 #include "ImGuiTheme.h"
+#include "ImGuiWindow.h"
 #include "ToolText.h"
 
 #ifndef BLUEMSX_IMGUI_CONFIG
@@ -749,7 +750,8 @@ static void toggleColours(const UiTokens& t, bool hovered, bool held, bool on, I
 
 void ItemTooltip(const char* tip)
 {
-    if (tip && *tip && ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip | ImGuiHoveredFlags_AllowWhenDisabled)) {
+    if (tip && *tip && ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip | ImGuiHoveredFlags_AllowWhenDisabled) &&
+        !imguiToolTipOutside(tip)) {
         ImGui::SetTooltip("%s", tip);
     }
 }

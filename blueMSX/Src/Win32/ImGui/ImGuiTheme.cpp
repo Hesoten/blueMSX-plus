@@ -321,10 +321,22 @@ static void shadowRing(ImDrawList* dl, ImVec2 a, ImVec2 b, float r, float depth,
     }
 }
 
+void imguiThemePopupShadow(float scale, float* depth, float* drop)
+{
+    *depth = floorf(16 * scale);
+    *drop  = floorf(4 * scale);
+}
+
+void imguiThemeDrawPopupFrame(ImDrawList* dl, ImVec2 a, ImVec2 b, float rounding, bool dark, float scale)
+{
+    float depth, drop;
+    imguiThemePopupShadow(scale, &depth, &drop);
+    shadowRing(dl, a, b, rounding, depth, drop, dark ? 0.70f : 0.20f);
+    dl->AddRect(a, b, dark ? IM_COL32(255, 255, 255, 31) : IM_COL32(0, 0, 0, 31), rounding, 1.0f);
+}
+
 void imguiThemeDecoratePopups(ImGuiContext* ctx, bool dark, float scale)
 {
-    ImU32 edge = dark ? IM_COL32(255, 255, 255, 31) : IM_COL32(0, 0, 0, 31);
-    float peak = dark ? 0.70f : 0.20f;
     for (ImGuiWindow* w : ctx->Windows) {
         if (!w->Active || w->Hidden) continue;
         ImGuiWindowFlags f = w->Flags;
@@ -336,8 +348,7 @@ void imguiThemeDecoratePopups(ImGuiContext* ctx, bool dark, float scale)
         ImRect vp = w->Viewport->GetMainRect();
         dl->PushClipRect(vp.Min, vp.Max, false);
         ImVec2 a = w->Pos, b(w->Pos.x + w->Size.x, w->Pos.y + w->Size.y);
-        shadowRing(dl, a, b, w->WindowRounding, floorf(16 * scale), floorf(4 * scale), peak);
-        dl->AddRect(a, b, edge, w->WindowRounding, 1.0f);
+        imguiThemeDrawPopupFrame(dl, a, b, w->WindowRounding, dark, scale);
         dl->PopClipRect();
     }
 }

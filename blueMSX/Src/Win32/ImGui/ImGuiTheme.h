@@ -94,5 +94,9 @@ const UiTokens& uiTokens();
 /* A shadow and an edge round each tooltip, menu and drop-down of ctx, which ImGui
 ** itself draws flat; call between EndFrame and the building of the draw data. */
 void imguiThemeDecoratePopups(ImGuiContext* ctx, bool dark, float scale);
+/* That shadow and edge round the box a-b of dl. The shadow reaches depth past each side,
+** and drop further down and less far up. */
+void imguiThemeDrawPopupFrame(ImDrawList* dl, ImVec2 a, ImVec2 b, float rounding, bool dark, float scale);
+void imguiThemePopupShadow(float scale, float* depth, float* drop);
 
 #endif
