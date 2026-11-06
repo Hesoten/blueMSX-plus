@@ -87,6 +87,14 @@ void emulatorSetMaxSpeed(int enable);
 int  emulatorGetMaxSpeed();
 void emulatorPlayReverse(int enable);
 int  emulatorGetPlayReverse();
+/* The first max speed (reverse 0) or reverse play hold begins: from a pause, or a frame step
+** under way, the machine runs in that mode while held. Neither stopped nor suspended. */
+void emulatorHoldBegin(int reverse);
+/* The last hold ends and clears its mode; begun from a pause, max speed pauses at the next end
+** of active display, reverse play at the frame it shows. */
+void emulatorHoldEnd(int reverse);
+/* Non-zero while a hold begun from a pause runs, or its rewind runs on to the frame to pause at. */
+int  emulatorHoldFromPause(void);
 /* Non-zero on the emulation thread while reverse play runs a snapshot on to a frame: the
 ** frames it passes are not flipped, counted or tapped. */
 int  emulatorRewindReplaying(void);

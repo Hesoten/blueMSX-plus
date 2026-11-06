@@ -68,6 +68,17 @@ void enterDialogShow();
 void enterModalLoop();
 void exitDialogShow();
 
+/* An action that lasts while any of its holders keeps it pressed.  Each
+** holder owns bits of the mask; bits 0 to SHORTCUT_MAX_BINDINGS-1 are the
+** shortcut key slots.  The action ends when the last bit is released. */
+typedef enum {
+    HELD_ACTION_MAX_SPEED,
+    HELD_ACTION_REVERSE
+} HeldAction;
+
+void heldActionPress(HeldAction action, unsigned bits);
+void heldActionRelease(HeldAction action, unsigned bits);
+
 /* Show / update / hide a tracking tooltip showing a slider's value next to
 ** the cursor.  *phwndTip caches the tooltip HWND (one per parent window),
 ** created lazily on first show.  text is UTF-8; pass NULL to hide. */

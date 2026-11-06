@@ -1798,51 +1798,59 @@ static unsigned joyHotkeyCode(int slot, int button)
 static unsigned maxSpeedHeld = 0;
 static unsigned reverseHeld  = 0;
 
-static void checkKeyDown(Shortcuts* s, ShotcutHotkey key) {
-    unsigned m;
+void heldActionPress(HeldAction action, unsigned bits)
+{
+    /* Only the first hold of either may run the machine from a pause. */
+    int first = maxSpeedHeld == 0 && reverseHeld == 0;
 
-    m = hotkeySetSlotMask(key, &s->emuSpeedFull, 0);
-    if (m != 0) {
-        /* Re-asserted per repeat: max speed can be switched off elsewhere. */
+    if (bits == 0) return;
+
+    if (action == HELD_ACTION_MAX_SPEED) {
+        /* Re-asserted per press: max speed can be switched off elsewhere. */
         actionMaxSpeedSet();
-        maxSpeedHeld |= m;
+        maxSpeedHeld |= bits;
+        if (first) actionHoldBegin(0);
     }
-    m = hotkeySetSlotMask(key, &s->emuPlayReverse, 0);
-    if (m != 0) {
+    else {
         /* Starting reverse play suspends the sound device, which is not
         ** re-entrant. */
-        if (reverseHeld == 0) actionStartPlayReverse();
-        reverseHeld |= m;
+        if (first)                 actionHoldBegin(1);
+        else if (reverseHeld == 0) actionStartPlayReverse();
+        reverseHeld |= bits;
     }
+}
+
+void heldActionRelease(HeldAction action, unsigned bits)
+{
+    unsigned* held = action == HELD_ACTION_MAX_SPEED ? &maxSpeedHeld : &reverseHeld;
+
+    if (bits == 0 || *held == 0) return;
+
+    *held &= ~bits;
+    if (*held != 0) return;
+
+    if (maxSpeedHeld == 0 && reverseHeld == 0) {
+        actionHoldEnd(action == HELD_ACTION_REVERSE);
+    }
+    else if (action == HELD_ACTION_MAX_SPEED) actionMaxSpeedRelease();
+    else                                      actionStopPlayReverse();
+}
+
+static void checkKeyDown(Shortcuts* s, ShotcutHotkey key) {
+    heldActionPress(HELD_ACTION_MAX_SPEED, hotkeySetSlotMask(key, &s->emuSpeedFull, 0));
+    heldActionPress(HELD_ACTION_REVERSE,   hotkeySetSlotMask(key, &s->emuPlayReverse, 0));
 }
 
 static void shortcutsReleaseHeldActions(void)
 {
-    if (maxSpeedHeld != 0) {
-        actionMaxSpeedRelease();
-        maxSpeedHeld = 0;
-    }
-
-    if (reverseHeld != 0) {
-        actionStopPlayReverse();
-        reverseHeld = 0;
-    }
+    heldActionRelease(HELD_ACTION_MAX_SPEED, ~0u);
+    heldActionRelease(HELD_ACTION_REVERSE,   ~0u);
 }
 
 static void checkKeyUp(Shortcuts* s, ShotcutHotkey key)
 {
-    unsigned m;
-
-    m = hotkeySetSlotMask(key, &s->emuSpeedFull, 1);
-    if (m != 0 && maxSpeedHeld != 0) {
-        maxSpeedHeld &= ~m;
-        if (maxSpeedHeld == 0) actionMaxSpeedRelease();
-    }
-    m = hotkeySetSlotMask(key, &s->emuPlayReverse, 1);
-    if (m != 0 && reverseHeld != 0) {
-        reverseHeld &= ~m;
-        if (reverseHeld == 0) actionStopPlayReverse();
-    }
+    heldActionRelease(HELD_ACTION_MAX_SPEED, hotkeySetSlotMask(key, &s->emuSpeedFull, 1));
+    heldActionRelease(HELD_ACTION_REVERSE,   hotkeySetSlotMask(key, &s->emuPlayReverse, 1));
 
     if (hotkeyEq(key, s->spritesEnable))                actionToggleSpriteEnable();
     if (hotkeyEq(key, s->fdcTiming))                    actionToggleFdcTiming();

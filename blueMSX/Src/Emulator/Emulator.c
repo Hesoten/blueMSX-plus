@@ -174,6 +174,10 @@ static int               frameStopWait;
 static volatile int      frameStopChange;
 static int               changeFrames;
 static volatile int      changeGaveUp;
+/* A max speed or reverse play hold began from a pause, and its end asks reverse play to
+** pause at the frame it shows; under emuStateLock, cleared by a pause or a stop. */
+static volatile int      holdFromPause;
+static volatile int      rwPauseReq;
 static Properties* properties;
 static Mixer* mixer;
 static BoardDeviceInfo deviceInfo;
@@ -375,6 +379,8 @@ static void writeHeld(EmuState state, int setsDebugger)
         frameStopNow = 0;
         frameStopWait = 0;
         disarmChange();
+        holdFromPause = 0;
+        rwPauseReq = 0;
     }
     else if (state == EMU_RUNNING) {
         changeGaveUp = 0;
@@ -515,6 +521,11 @@ void emulatorRequestChangeStop(void)
 int emulatorFrameStopPending(void)
 {
     return frameStopReq || frameStopNow;
+}
+
+int emulatorHoldFromPause(void)
+{
+    return holdFromPause || rwPauseReq;
 }
 
 int emulatorChangeStepArmed(void)
@@ -1141,6 +1152,72 @@ int  emulatorGetPlayReverse()
     return emuPlayReverse;
 }
 
+void emulatorHoldBegin(int reverse)
+{
+    int resumed = 0;
+
+    dbgChangeBegin();
+    if (reverse) {
+        archSoundSuspend();
+        archMidiEnable(0);
+        emuPlayReverse = 1;
+    }
+    archSemaphoreWait(emuStateLock, -1);
+    if (emuState == EMU_RUNNING && (frameStopReq || frameStopNow)) {
+        /* A frame step under way is taken over, and ends as a hold from a pause does. */
+        frameStopReq = 0;
+        frameStopNow = 0;
+        frameStopWait = 0;
+        disarmChange();
+        holdFromPause = 1;
+        resumed = !reverse;
+    }
+    else if (emuState == EMU_PAUSED && !emuHoldSuspended) {
+        writeHeld(EMU_RUNNING, 1);
+        holdFromPause = 1;
+        resumed = 2;
+    }
+    archSemaphoreSignal(emuStateLock);
+
+    /* Max speed is heard as when running; reverse play stays silent. */
+    if (resumed && !reverse) {
+        archSoundResume();
+        archMidiEnable(1);
+    }
+    if (resumed == 2) {
+        debuggerNotifyEmulatorResume();
+    }
+}
+
+void emulatorHoldEnd(int reverse)
+{
+    int fromPause;
+
+    archSemaphoreWait(emuStateLock, -1);
+    /* A suspend keeps the stop for after the resume, as it keeps a frame stop. */
+    fromPause = holdFromPause && (emuState == EMU_RUNNING || emuState == EMU_SUSPENDED);
+    holdFromPause = 0;
+    if (fromPause && reverse) {
+        rwPauseReq = 1;
+    }
+    else if (fromPause) {
+        frameStopReq = 1;
+        frameStopWait = 0;
+    }
+    archSemaphoreSignal(emuStateLock);
+
+    if (!reverse) {
+        emulatorSetMaxSpeed(0);
+    }
+    else if (!fromPause) {
+        emulatorPlayReverse(0);
+    }
+    else {
+        /* Set after the request, so the run never goes on past the frame shown. */
+        emuPlayReverse = 0;
+    }
+}
+
 void emulatorResetMixer() {
     // Reset active indicators in mixer
     mixerIsChannelTypeActive(mixer, MIXER_CHANNEL_MOONSOUND, 1);
@@ -1350,9 +1427,18 @@ static int WaitForSync(int maxSpeed, int breakpointHit)
 static int rwTicksToMs(UInt32 ticks)
 {
     UInt64 freq = (UInt64)emuFrequency * (boardFrequency() / 3579545);
-    int ms = (int)(((UInt64)ticks * 1000 + freq - 1) / freq);
-    /* -99 would end the emulation. */
-    return ms == 99 ? 100 : ms;
+    return (int)(((UInt64)ticks * 1000 + freq - 1) / freq);
+}
+
+/* A reverse play hold that began from a pause pauses at the sync after it ends. */
+static void takeReversePause(void)
+{
+    archSemaphoreWait(emuStateLock, -1);
+    if (rwPauseReq && emuState == EMU_RUNNING) {
+        rwPauseReq = 0;
+        frameStopNow = 1;
+    }
+    archSemaphoreSignal(emuStateLock);
 }
 
 /* One step of reverse play a frame back, at the refresh rate: loads a snapshot from before
@@ -1430,9 +1516,16 @@ static int WaitReverse(void)
     if (fallback ? !boardRewind() : !boardRewindTo(rwShownVint - period * 5 / 2)) {
         /* No snapshot left to restore. Granting emulated time here is what
         ** used to run the guest forward, muted, for as long as the key was
-        ** held. Leave a paused emulator alone: it must not regain sound. */
+        ** held. Begun from a pause, it pauses there until the key is let go. */
+        int paused = 0;
+        archSemaphoreWait(emuStateLock, -1);
+        if (holdFromPause && emuState == EMU_RUNNING) {
+            frameStopNow = 1;
+            paused = 1;
+        }
+        archSemaphoreSignal(emuStateLock);
 #if EMU_REVERSE_STOP_AT_RING_END
-        if (emuState == EMU_RUNNING) {
+        if (!paused) {
             emulatorPlayReverse(0);
         }
 #endif
@@ -1466,6 +1559,9 @@ static int WaitForSync(int maxSpeed, int stopCause) {
         }
         /* Breakpoints and watches hit on the way back are passed over, as ever. */
         stopCause = DBG_STOP_NONE;
+    }
+    if (rwPauseReq) {
+        takeReversePause();
     }
 
     /* Never a snapshot of a replay under way, nor of a frame reverse play shows. */

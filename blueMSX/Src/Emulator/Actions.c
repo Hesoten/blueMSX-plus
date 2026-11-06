@@ -1094,6 +1094,15 @@ void actionEmuStep() {
     }
 }
 
+/* A medium in a drive that a rewind cannot take back with the MSX. */
+static ActionRefusal mediumRefusal(void)
+{
+    if (emulatorGetState() != EMU_STOPPED && diskHasHostMedium()) {
+        return ACTION_REFUSED_HOST_MEDIUM;
+    }
+    return ACTION_OK;
+}
+
 /* True when refused; of the reasons, only a medium in a drive is told in a toast. */
 static int actionRefused(ActionRefusal why)
 {
@@ -1133,6 +1142,24 @@ ActionRefusal actionAdvanceToChangeRefusal(void)
         return ACTION_REFUSED_REVERSE;
     }
     return runningOrPaused() ? ACTION_OK : ACTION_REFUSED_STOPPED;
+}
+
+/* A held rewind key must not run the machine forward when rewind cannot run. */
+ActionRefusal actionHoldRefusal(int reverse)
+{
+    if (dirGateActive || dirInsertActive) {
+        return ACTION_REFUSED_DIR_GATE;
+    }
+    if (emulatorGetState() == EMU_STOPPED) {
+        return ACTION_REFUSED_STOPPED;
+    }
+    if (!reverse) {
+        return ACTION_OK;
+    }
+    if (!state.properties->emulation.reverseEnable) {
+        return ACTION_REFUSED_REWIND_OFF;
+    }
+    return mediumRefusal();
 }
 
 void actionEmuFrameAdvance(void) {
@@ -1217,16 +1244,13 @@ void actionMaxSpeedRelease() {
 /* Says why when a medium that cannot be taken back with the MSX is in a drive. */
 static int rewindAvailable(void)
 {
-    if (emulatorGetState() == EMU_STOPPED || !diskHasHostMedium()) {
-        return 1;
-    }
-    archCaptureToastInfo(langInfoRewindNoMedium());
-    return 0;
+    return !actionRefused(mediumRefusal());
 }
 
 void actionStartPlayReverse()
 {
-    if (rewindAvailable()) {
+    /* Refused as a held rewind key is; never a silent run forward. */
+    if (!actionRefused(actionHoldRefusal(1))) {
         /* A frame step under way pauses here; tell those who show the state. */
         int stepping = emulatorFrameStopPending();
         emulatorPlayReverse(1);
@@ -1240,6 +1264,21 @@ void actionStartPlayReverse()
 void actionStopPlayReverse()
 {
     emulatorPlayReverse(0);
+}
+
+void actionHoldBegin(int reverse)
+{
+    if (actionRefused(actionHoldRefusal(reverse))) {
+        return;
+    }
+    emulatorHoldBegin(reverse);
+    archUpdateMenu(0);
+}
+
+void actionHoldEnd(int reverse)
+{
+    emulatorHoldEnd(reverse);
+    archUpdateMenu(0);
 }
 
 void actionDiskQuickChange() {

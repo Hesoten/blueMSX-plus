@@ -92,10 +92,12 @@ typedef enum {
     ACTION_REFUSED_STOPPED,
     ACTION_REFUSED_REVERSE,
     ACTION_REFUSED_WAITING,
+    ACTION_REFUSED_REWIND_OFF,
     ACTION_REFUSED_HOST_MEDIUM,
 } ActionRefusal;
 ActionRefusal actionFrameAdvanceRefusal(void);
 ActionRefusal actionAdvanceToChangeRefusal(void);
+ActionRefusal actionHoldRefusal(int reverse);
 /* Runs to the end of the current frame and pauses there; from a pause, runs one frame. */
 void actionEmuFrameAdvance(void);
 void actionEmuAdvanceToChange(void);
@@ -108,6 +110,9 @@ void actionMaxSpeedSet();
 void actionMaxSpeedRelease();
 void actionStartPlayReverse();
 void actionStopPlayReverse();
+/* The first and the last of the max speed and reverse play holds; see emulatorHoldBegin. */
+void actionHoldBegin(int reverse);
+void actionHoldEnd(int reverse);
 void actionDiskQuickChange();
 void actionWindowSize1x();
 void actionWindowSize2x();
