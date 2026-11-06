@@ -939,6 +939,11 @@ int emulatorPercentToLogFrequency(int percent) {
 }
 
 void emulatorSetFrequency(int logFrequency, int* frequency) {
+    /* Max speed counts from 100%: a slower speed set while it lasts waits for its end. */
+    int normal = emulatorPercentToLogFrequency(100);
+    if (emuMaxSpeed && logFrequency < normal) {
+        logFrequency = normal;
+    }
     emuFrequency = emulatorLogFrequencyToHz(logFrequency);
 
     if (frequency != NULL) {
@@ -1064,7 +1069,13 @@ int emulatorGetCpuOverflow() {
 }
 
 void emulatorSetMaxSpeed(int enable) {
+    int was = emuMaxSpeed;
+
     emuMaxSpeed = enable;
+    /* The speed setting applies again, with or without the floor max speed sets on it. */
+    if (!was != !enable) {
+        emulatorSetFrequency(properties->emulation.speed, NULL);
+    }
 }
 
 int  emulatorGetMaxSpeed() {
