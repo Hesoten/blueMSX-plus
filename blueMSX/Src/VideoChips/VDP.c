@@ -627,7 +627,8 @@ static void showEarly(void* ref)
     UInt32 seq, flips;
 
     last = frameBufferGetLastDrawnOf(vdp->frameBuffer, &seq, &flips);
-    if (!vdp->lastFlipEarly && draw != NULL && last != NULL && last != draw) {
+    /* A replay draws every frame over one draw frame, which holds the last one's rows. */
+    if (!vdp->lastFlipEarly && !emulatorRewindReplaying() && draw != NULL && last != NULL && last != draw) {
         int row  = MAX(vdp->curLine - vdp->displayOffest, 0);
         int rows = MIN(draw->lines, last->lines);
         int y;
@@ -674,10 +675,9 @@ static void onVint(VDP* vdp, UInt32 time)
         vdpAtShown = 1;
         emulatorTap(EMU_TAP_VDP_SHOWN);
         vdpAtShown = 0;
-        if (vdp->videoEnabled && canFlipFrameBuffer >= 2) {
-            emulatorShownDisplayEnded(!videoManagerActivePacesScreen() && frameBufferGetActiveDraw() == vdp->frameBuffer,
-                                      showEarly, vdp);
-        }
+        emulatorShownDisplayEnded(vdp->videoEnabled && canFlipFrameBuffer >= 2,
+                                  !videoManagerActivePacesScreen() && frameBufferGetActiveDraw() == vdp->frameBuffer,
+                                  showEarly, vdp);
     }
 }
 
@@ -753,6 +753,11 @@ static void onDisplay(VDP* vdp, UInt32 time)
         FrameBuffer* frameBuffer;
         if (early) {
             frameBuffer = frameBufferGetDrawFrame();
+        }
+        else if (emulatorRewindReplaying()) {
+            /* Shown only at its end of active display; a frame begun after the load is whole. */
+            frameBuffer = frameBufferGetDrawFrame();
+            canFlipFrameBuffer = 2;
         }
         else if (canFlipFrameBuffer >= 2) {
             frameBuffer = frameBufferFlipDrawFrame();

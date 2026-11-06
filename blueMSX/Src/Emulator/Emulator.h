@@ -61,7 +61,8 @@ void emulatorRestartSound();
 ** or the machine is no longer paused. */
 int  emulatorWaitParked(int timeoutMs);
 
-/* Machine VDP frames run since the program started, never going back. */
+/* Machine VDP frames run since the program started, never going back; frames a rewind
+** replays are not counted. */
 UInt32 emulatorGetFramesRun(void);
 /* The machine frame number: VDP frames since power-on, part of the machine state, so it
 ** goes back with a rewind or a state load. Any thread; current as of the last frame start. */
@@ -86,6 +87,9 @@ void emulatorSetMaxSpeed(int enable);
 int  emulatorGetMaxSpeed();
 void emulatorPlayReverse(int enable);
 int  emulatorGetPlayReverse();
+/* Non-zero on the emulation thread while reverse play runs a snapshot on to a frame: the
+** frames it passes are not flipped, counted or tapped. */
+int  emulatorRewindReplaying(void);
 int emulatorGetCpuOverflow();
 int emulatorGetSyncPeriod();
 EmuState emulatorGetState();
@@ -115,10 +119,10 @@ int  emulatorChangeStepLimit(void);
 /* Called by a source that paces the screen at the end of each frame it shows, after its
 ** flip. A frame step ends there; calls off the emulation thread are ignored. */
 void emulatorShownFrameEnded(void);
-/* Called by a source at the end of its active display, on the emulation thread; shown:
-** it is the source on screen. With a frame step pending, calls show(ref) to complete and
-** flip the frame, presents it and ends the step there, returning 1; else returns 0. */
-int  emulatorShownDisplayEnded(int shown, void (*show)(void* ref), void* ref);
+/* Called by a VDP at each of its ends of active display; ready: show(ref) can complete and
+** flip the frame, shown: it is on screen. Ending a frame step or a reverse play step there,
+** it shows and presents the frame and returns 1; else returns 0. */
+int  emulatorShownDisplayEnded(int ready, int shown, void (*show)(void* ref), void* ref);
 UInt32 emulatorGetCpuSpeed();
 UInt32 emulatorGetCpuUsage();
 void emulatorResetMixer();
@@ -126,8 +130,8 @@ int emulatorGetCurrentScreenMode();
 void emulatorRefreshFromSource();
 
 /* A hook for tools that copy emulator state. FRAME comes once per VDP frame,
-** also on the UI thread (soft reset): check emulatorIsEmuThread(). IDLE comes
-** every few ms while paused. STOPPED: emulatorStop has ended the thread. */
+** also on the UI thread (soft reset): check emulatorIsEmuThread(). IDLE comes every few
+** ms while paused, and once per reverse play step. STOPPED: emulatorStop ended the thread. */
 typedef enum { EMU_TAP_FRAME, EMU_TAP_IDLE, EMU_TAP_STOPPED, EMU_TAP_BARRIER, EMU_TAP_V9990_SHOWN,
                EMU_TAP_VDP_SHOWN } EmuTapPoint;
 typedef void (*EmuTapFn)(EmuTapPoint point);

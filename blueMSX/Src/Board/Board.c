@@ -1224,6 +1224,28 @@ int boardRewind()
     return boardRewindLoad(1);
 }
 
+int boardRewindTo(UInt32 before)
+{
+    int skip;
+    if (stateFrequency <= 0 || diskHasHostMedium()) {
+        return 0;
+    }
+    for (skip = 0; skip < ramStateCount; skip++) {
+        int slot = (ramStateCur + ramMaxStates - skip) % ramMaxStates;
+        if ((Int32)(ramStateTime[slot] - before) <= 0) {
+            break;
+        }
+    }
+    if (skip >= ramStateCount) {
+        return 0;
+    }
+    while (skip-- > 0) {
+        boardRewindDrop();
+    }
+    /* Kept: the next step back may land on it again. */
+    return boardRewindLoad(0);
+}
+
 static int boardRewindLoad(int drop)
 {
     char stateFile[16];
