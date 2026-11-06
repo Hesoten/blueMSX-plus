@@ -444,6 +444,7 @@ struct VDP {
     ** has not run yet; lastFlipEarly: the latest flip was such a one. */
     int flippedEarly;
     int lastFlipEarly;
+    UInt32 machineFrame;   /* machine VDP frames begun since power-on; saved with the state */
 
     FrameBufferData* frameBuffer;
 };
@@ -739,6 +740,10 @@ static void onDisplay(VDP* vdp, UInt32 time)
     early = vdp->flippedEarly;
     vdp->flippedEarly  = 0;
     vdp->lastFlipEarly = early;
+    /* A soft reset runs this on the UI thread; that is no frame begun. */
+    if (vdp == theVdp && emulatorIsEmuThread()) {
+        vdp->machineFrame++;
+    }
 
     boardCheckVdpBoostKill((UInt32)vdp->vdpRegs[23]              |
                            ((UInt32)vdp->vdpRegs[26] <<  8)      |
@@ -1740,6 +1745,11 @@ int vdpDebugColorsMatch(int first, int second)
     return theVdp != NULL && theVdp->palette[first & 0x0f] == theVdp->palette[second & 0x0f];
 }
 
+UInt32 vdpGetMachineFrame(void)
+{
+    return theVdp != NULL ? theVdp->machineFrame : 0;
+}
+
 static void sync(VDP* vdp, UInt32 systemTime)
 {
     int frameTime = systemTime - vdp->frameStartTime;
@@ -2034,6 +2044,7 @@ static void saveState(VDP* vdp)
     saveStateSet(state, "vramAddress",         vdp->vramAddress);
 
     saveStateSet(state, "frameStartTime",         vdp->frameStartTime);
+    saveStateSet(state, "machineFrame",           vdp->machineFrame);
 
     saveStateSet(state, "timeScrMode",         vdp->timeScrMode);
     saveStateSet(state, "timeScrModeEn",       vdp->timeScrModeEn);
@@ -2134,6 +2145,7 @@ static void loadState(VDP* vdp)
     vdp->vramAddress = saveStateGet(state, "vramAddress",         0);
 
     vdp->frameStartTime = saveStateGet(state, "frameStartTime",         0);
+    vdp->machineFrame   = saveStateGet(state, "machineFrame",           0);
 
     vdp->timeScrMode = saveStateGet(state, "timeScrMode",         0);
     vdp->timeScrModeEn = saveStateGet(state, "timeScrModeEn",       0);

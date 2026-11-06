@@ -1139,6 +1139,11 @@ UInt32 emulatorGetFramesRun(void)
     return emuFramesRun;
 }
 
+UInt32 emulatorGetMachineFrame(void)
+{
+    return vdpGetMachineFrame();
+}
+
 UInt32 emulatorGetFramesDrawnSinceMinimized(void)
 {
     return emuLastFrameNotDrawn != 0 ? emuFramesRun - emuLastFrameNotDrawn : 0xFFFFFFFF;

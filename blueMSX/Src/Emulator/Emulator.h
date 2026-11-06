@@ -61,8 +61,11 @@ void emulatorRestartSound();
 ** or the machine is no longer paused. */
 int  emulatorWaitParked(int timeoutMs);
 
-/* Emulated frames run since the machine started. */
+/* Machine VDP frames run since the program started, never going back. */
 UInt32 emulatorGetFramesRun(void);
+/* The machine frame number: VDP frames since power-on, part of the machine state, so it
+** goes back with a rewind or a state load. Any thread; current as of the last frame start. */
+UInt32 emulatorGetMachineFrame(void);
 /* Frames drawn since the last one skipped while minimized; 0xFFFFFFFF if none was. */
 UInt32 emulatorGetFramesDrawnSinceMinimized(void);
 
