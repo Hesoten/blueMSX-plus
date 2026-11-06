@@ -1117,8 +1117,20 @@ ActionRefusal actionFrameAdvanceRefusal(void)
     if (emulatorGetPlayReverse()) {
         return ACTION_REFUSED_REVERSE;
     }
-    if (emulatorFrameStopPending()) {
+    /* A step waiting for a change is turned into this one. */
+    if (emulatorFrameStopPending() && !emulatorChangeStepArmed()) {
         return ACTION_REFUSED_WAITING;
+    }
+    return runningOrPaused() ? ACTION_OK : ACTION_REFUSED_STOPPED;
+}
+
+ActionRefusal actionAdvanceToChangeRefusal(void)
+{
+    if (dirGateActive || dirInsertActive) {
+        return ACTION_REFUSED_DIR_GATE;
+    }
+    if (emulatorGetPlayReverse()) {
+        return ACTION_REFUSED_REVERSE;
     }
     return runningOrPaused() ? ACTION_OK : ACTION_REFUSED_STOPPED;
 }
@@ -1128,6 +1140,14 @@ void actionEmuFrameAdvance(void) {
         return;
     }
     emulatorRequestFrameStop();
+    archUpdateMenu(0);
+}
+
+void actionEmuAdvanceToChange(void) {
+    if (actionRefused(actionAdvanceToChangeRefusal())) {
+        return;
+    }
+    emulatorRequestChangeStop();
     archUpdateMenu(0);
 }
 

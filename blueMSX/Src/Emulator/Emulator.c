@@ -52,6 +52,7 @@
 #include "ArchNotifications.h"
 #include "YM2413.h"
 #include "VideoManager.h"
+#include "FrameBuffer.h"
 #include "VDP.h"
 #include "RaceTest.h"
 #include <math.h>
@@ -148,6 +149,12 @@ static volatile int      frameStopNow;
 /* Machine VDP frames since the request while a pacing source is shown, under
 ** emuStateLock; after a few the step ends anyway. */
 static int               frameStopWait;
+/* Set while a step runs on to the first shown frame that differs; machine VDP frames it
+** has run, and whether the last such step gave up. All under emuStateLock. */
+#define CHANGE_STEP_FRAMES 300
+static volatile int      frameStopChange;
+static int               changeFrames;
+static volatile int      changeGaveUp;
 static Properties* properties;
 static Mixer* mixer;
 static BoardDeviceInfo deviceInfo;
@@ -322,6 +329,15 @@ void emulatorCreateLocks(void)
     }
 }
 
+/* With emuStateLock held: a step waiting for a change becomes a plain frame step. */
+static void disarmChange(void)
+{
+    if (frameStopChange) {
+        frameStopChange = 0;
+        frameBufferWatchShown(0, 0);
+    }
+}
+
 /* The one place emuState is written, with emuStateLock held; with setsDebugger the
 ** debugger's state follows in the same step. */
 static void writeHeld(EmuState state, int setsDebugger)
@@ -339,6 +355,10 @@ static void writeHeld(EmuState state, int setsDebugger)
         frameStopReq = 0;
         frameStopNow = 0;
         frameStopWait = 0;
+        disarmChange();
+    }
+    else if (state == EMU_RUNNING) {
+        changeGaveUp = 0;
     }
     if (setsDebugger) {
         dbgSetRunState(state == EMU_PAUSED ? DBG_PAUSED : DBG_RUNNING);
@@ -412,7 +432,10 @@ void emulatorRequestFrameStop(void)
 
     dbgChangeBegin();
     archSemaphoreWait(emuStateLock, -1);
-    if (emuState == EMU_RUNNING) {
+    if (frameStopChange) {
+        disarmChange();
+    }
+    else if (emuState == EMU_RUNNING) {
         frameStopReq = 1;
         frameStopWait = 0;
     }
@@ -430,9 +453,64 @@ void emulatorRequestFrameStop(void)
     }
 }
 
+void emulatorRequestChangeStop(void)
+{
+    int resumed = 0;
+    int fromShown = -1;
+
+    dbgChangeBegin();
+    archSemaphoreWait(emuStateLock, -1);
+    if (frameStopChange) {
+        disarmChange();
+    }
+    else if (frameStopReq || frameStopNow) {
+        /* A plain frame step is under way; it ends as it is. */
+    }
+    else if (emuState == EMU_RUNNING) {
+        fromShown = 0;
+    }
+    else if (emuState == EMU_PAUSED && !emuHoldSuspended) {
+        /* Parked, the picture on screen is still and is the reference; paused a moment ago,
+        ** the thread may still draw, so it takes the next frame it completes, as when running. */
+        fromShown = emuSuspendFlag ? 1 : 0;
+    }
+    if (fromShown >= 0) {
+        frameStopChange = 1;
+        changeFrames = 0;
+        changeGaveUp = 0;
+        frameBufferWatchShown(1, fromShown);
+        frameStopReq = 1;
+        frameStopWait = 0;
+        if (emuState == EMU_PAUSED) {
+            writeHeld(EMU_RUNNING, 1);
+            resumed = 1;
+        }
+    }
+    archSemaphoreSignal(emuStateLock);
+
+    if (resumed) {
+        debuggerNotifyEmulatorResume();
+    }
+}
+
 int emulatorFrameStopPending(void)
 {
     return frameStopReq || frameStopNow;
+}
+
+int emulatorChangeStepArmed(void)
+{
+    return frameStopChange;
+}
+
+int emulatorChangeStepGaveUp(void)
+{
+    return changeGaveUp;
+}
+
+int emulatorChangeStepLimit(void)
+{
+    return CHANGE_STEP_FRAMES;
 }
 
 UInt32 emulatorGetStateSeq(void)
@@ -1014,6 +1092,7 @@ void emulatorPlayReverse(int enable)
             frameStopReq = 0;
             frameStopNow = 0;
             frameStopWait = 0;
+            disarmChange();
         }
         archSemaphoreSignal(emuStateLock);
         if (pending) {
@@ -1074,10 +1153,10 @@ void emulatorRefreshFromSource() {
     }
 }
 
-/* Ends a frame step at the end of a frame of the shown picture, or at the end of a
-** machine VDP frame (shown 0) once the shown source has not reported for a few. The
-** stop itself waits for the sync, brought forward, as the caller is mid-update. */
-static void frameStepAtFrameEnd(int shown)
+/* At a shown frame end, or a machine VDP frame end (machineFrame; shown when it presents
+** the frame): a step ends at a shown one, unchanged ones pass while waiting for a
+** change, and a few machine ones without a shown one end it. The sync is brought forward. */
+static void frameStepAtFrameEnd(int shown, int machineFrame)
 {
     int ended = 0;
 
@@ -1085,11 +1164,23 @@ static void frameStepAtFrameEnd(int shown)
         return;
     }
     archSemaphoreWait(emuStateLock, -1);
-    if (frameStopReq && (shown || ++frameStopWait >= 3)) {
-        frameStopReq  = 0;
-        frameStopNow  = 1;
-        frameStopWait = 0;
-        ended = 1;
+    if (frameStopReq) {
+        /* Waiting for a change that does not come ends as a plain frame step. */
+        if (frameStopChange && machineFrame && ++changeFrames >= CHANGE_STEP_FRAMES &&
+            !(shown && frameBufferShownChanged())) {
+            disarmChange();
+            changeGaveUp = 1;
+        }
+        if (shown && frameStopChange && !frameBufferShownChanged()) {
+            frameStopWait = 0;
+        }
+        else if (shown || ++frameStopWait >= 3) {
+            frameStopReq  = 0;
+            frameStopNow  = 1;
+            frameStopWait = 0;
+            disarmChange();
+            ended = 1;
+        }
     }
     archSemaphoreSignal(emuStateLock);
     if (ended) {
@@ -1116,16 +1207,16 @@ void RefreshScreen(int screenMode, int presented, int vintShows) {
     if (!videoManagerActivePacesScreen() && !presented) {
         emulatorRefreshFromSource();
         /* A step asked for after the end of active display runs on to the next one. */
-        frameStepAtFrameEnd(!vintShows);
+        frameStepAtFrameEnd(!vintShows, 1);
     }
     else {
-        frameStepAtFrameEnd(0);
+        frameStepAtFrameEnd(0, 1);
     }
 }
 
 void emulatorShownFrameEnded(void)
 {
-    frameStepAtFrameEnd(1);
+    frameStepAtFrameEnd(1, 0);
 }
 
 int emulatorShownDisplayEnded(int shown, void (*show)(void* ref), void* ref)
@@ -1135,7 +1226,7 @@ int emulatorShownDisplayEnded(int shown, void (*show)(void* ref), void* ref)
     }
     show(ref);
     emulatorRefreshFromSource();
-    frameStepAtFrameEnd(1);
+    frameStepAtFrameEnd(1, 0);
     return 1;
 }
 

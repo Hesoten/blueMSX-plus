@@ -100,6 +100,15 @@ void emulatorRequestFrameStop(void);
 /* Non-zero from a frame stop request until the stop; another pause, a stop or a rewind
 ** clears it, a suspend does not. */
 int  emulatorFrameStopPending(void);
+/* As emulatorRequestFrameStop, but on to the first shown frame that differs
+** from the picture shown, giving up after a few seconds; again while it waits, or a frame stop
+** request, stops it at the next frame end. */
+void emulatorRequestChangeStop(void);
+int  emulatorChangeStepArmed(void);
+/* Non-zero when the last step waiting for a change stopped without seeing one, until
+** the machine runs again; the limit is in machine VDP frames. */
+int  emulatorChangeStepGaveUp(void);
+int  emulatorChangeStepLimit(void);
 /* Called by a source that paces the screen at the end of each frame it shows, after its
 ** flip. A frame step ends there; calls off the emulation thread are ignored. */
 void emulatorShownFrameEnded(void);

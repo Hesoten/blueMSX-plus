@@ -31,6 +31,7 @@
 #include "FrameBuffer.h"
 #include "ArchEvent.h"
 #include "ArchVideoIn.h"
+#include "Emulator.h"
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
@@ -134,6 +135,96 @@ static FrameBufferData* drawBuffer = NULL;
 static FrameBufferMixMode mixMode = MIXMODE_INTERNAL;
 static FrameBufferMixMode mixMask = MIXMODE_INTERNAL;
 static int frameBufferCount = MAX_FRAMES_PER_FRAMEBUFFER;
+
+/* The shown frame last completed, and the watch for a change of the shown picture:
+** one reference per field, as interlaced pages alternate by field. */
+static FrameBuffer* lastShown = NULL;
+static volatile int watchOn = 0;
+static volatile int watchChanged = 0;
+static volatile UInt32 watchSeq = 0;
+static UInt32 watchSeen = 0;
+static UInt64 watchRef[2];
+static int watchRefValid[2];
+
+/* The picture as shown: its layout and every sample of every line, key bit aside. */
+static UInt64 shownDigest(FrameBuffer* frameBuffer)
+{
+    UInt64 h = 14695981039346656037ULL;
+    int y;
+
+#define DIGEST_MIX(v) (h = (h ^ (UInt64)(v)) * 1099511628211ULL)
+    DIGEST_MIX(frameBuffer->lines);
+    DIGEST_MIX(frameBuffer->maxWidth);
+    DIGEST_MIX(frameBuffer->interlace);
+    DIGEST_MIX(frameBuffer->interlaceRaster);
+    for (y = 0; y < frameBuffer->lines && y < FB_MAX_LINES; y++) {
+        const UInt16* p = frameBuffer->line[y].buffer;
+        int width = lineWidth(frameBuffer, y);
+        int x;
+        DIGEST_MIX(frameBuffer->line[y].doubleWidth);
+        for (x = 0; x < width; x++) {
+            DIGEST_MIX(p[x] & 0x7fff);
+        }
+    }
+#undef DIGEST_MIX
+    return h;
+}
+
+static int shownField(FrameBuffer* frameBuffer)
+{
+    return frameBuffer->interlace == INTERLACE_EVEN ? 1 : 0;
+}
+
+void frameBufferWatchShown(int on, int fromShown)
+{
+    if (!on) {
+        watchOn = 0;
+        return;
+    }
+    watchChanged = 0;
+    if (fromShown && lastShown != NULL) {
+        int field = shownField(lastShown);
+        watchRef[field] = shownDigest(lastShown);
+        watchRefValid[field] = 1;
+        watchRefValid[field ^ 1] = 0;
+        watchSeen = watchSeq;
+    }
+    else {
+        watchSeq++;
+    }
+    watchOn = 1;
+}
+
+int frameBufferShownChanged(void)
+{
+    return watchChanged;
+}
+
+/* A shown frame just completed: compared with the reference of its field, or
+** taken as that reference when there is none yet. */
+static void watchShownFlip(FrameBuffer* completed)
+{
+    UInt64 digest;
+    int field;
+
+    lastShown = completed;
+    if (!watchOn || !emulatorIsEmuThread()) {
+        return;
+    }
+    if (watchSeen != watchSeq) {
+        watchSeen = watchSeq;
+        watchRefValid[0] = watchRefValid[1] = 0;
+    }
+    field  = shownField(completed);
+    digest = shownDigest(completed);
+    if (!watchRefValid[field]) {
+        watchRef[field] = digest;
+        watchRefValid[field] = 1;
+    }
+    else if (watchRef[field] != digest) {
+        watchChanged = 1;
+    }
+}
 
 
 static FrameBuffer* frameBufferFlipViewFrame1(int mixFrames)
@@ -486,6 +577,9 @@ FrameBuffer* frameBufferFlipDrawFrameOf(FrameBufferData* fb)
         if (resets == fb->resetsSeen) {
             fb->lastDrawn    = drawn;
             fb->lastDrawnSeq = fb->flips;
+            if (fb == currentBuffer) {
+                watchShownFlip(completed);
+            }
         }
         if (fb->flipHook != NULL) {
             fb->flipHook(fb->flipRef, completed, drawn);
@@ -595,6 +689,7 @@ void frameBufferDataDestroy(FrameBufferData* frameData)
     waitSem();
     if (frameData == currentBuffer) {
         currentBuffer = NULL;
+        lastShown = NULL;
     }
     if (frameData == drawBuffer) {
         drawBuffer = currentBuffer;
@@ -617,6 +712,9 @@ void frameBufferSetActiveDraw(FrameBufferData* frameData, FrameBufferData* drawD
     }
     if (drawData != NULL) {
         resetStaleIndices(drawData);
+    }
+    if (currentBuffer != frameData) {
+        lastShown = NULL;
     }
     currentBuffer = frameData;
     drawBuffer    = drawData;

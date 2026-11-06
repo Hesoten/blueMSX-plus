@@ -95,8 +95,10 @@ typedef enum {
     ACTION_REFUSED_HOST_MEDIUM,
 } ActionRefusal;
 ActionRefusal actionFrameAdvanceRefusal(void);
+ActionRefusal actionAdvanceToChangeRefusal(void);
 /* Runs to the end of the current frame and pauses there; from a pause, runs one frame. */
 void actionEmuFrameAdvance(void);
+void actionEmuAdvanceToChange(void);
 void actionEmuStop();
 void actionDiskInsertA();
 void actionDiskInsertB();
