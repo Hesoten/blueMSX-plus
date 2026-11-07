@@ -82,6 +82,7 @@
 #include "Win32Help.h"
 #include "Win32Menu.h"
 #include "ImGui/ImGuiWindow.h"
+#include "ImGui/ControlDeck/ControlDeck.h"
 #include "Win32FileDialog.h"
 #include "Win32TextUtf8.h"
 #include "ArchMenu.h"
@@ -1841,10 +1842,18 @@ static void checkKeyDown(Shortcuts* s, ShotcutHotkey key) {
     heldActionPress(HELD_ACTION_REVERSE,   hotkeySetSlotMask(key, &s->emuPlayReverse, 0));
 }
 
+/* Only the key slots' bits: the deck's hold goes with its own mouse button. */
 static void shortcutsReleaseHeldActions(void)
 {
-    heldActionRelease(HELD_ACTION_MAX_SPEED, ~0u);
-    heldActionRelease(HELD_ACTION_REVERSE,   ~0u);
+    heldActionRelease(HELD_ACTION_MAX_SPEED, (1u << SHORTCUT_MAX_BINDINGS) - 1);
+    heldActionRelease(HELD_ACTION_REVERSE,   (1u << SHORTCUT_MAX_BINDINGS) - 1);
+}
+
+/* Every holder, before a modal loop suspends the machine. */
+static void releaseAllHeldActions(void)
+{
+    shortcutsReleaseHeldActions();
+    controlDeckDropHolds();
 }
 
 static void checkKeyUp(Shortcuts* s, ShotcutHotkey key)
@@ -3654,7 +3663,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         break;
 
     case WM_ENTERSIZEMOVE:
-        shortcutsReleaseHeldActions();
+        releaseAllHeldActions();
         emulatorSuspend();
         mouseEmuActivate(0);
         st.showDialog++;
@@ -3669,7 +3678,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
     case WM_ENTERMENULOOP:
         /* The loop swallows the key-up, and stopping reverse play resumes
         ** the sound device, which must happen before the suspend below. */
-        shortcutsReleaseHeldActions();
+        releaseAllHeldActions();
         emulatorSuspend();
         st.trackMenu = 1;
         SetTimer(st.hwnd, TIMER_MENUUPDATE, 250, NULL);
@@ -3786,14 +3795,23 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 
     case WM_SIZE:
         InvalidateRect(hwnd, NULL, TRUE);
+        if (wParam == SIZE_MINIMIZED) {
+            /* The deck hides and draws no frame, so it would never see its button let go. */
+            controlDeckDropHolds();
+            imguiToolMainMinimized(1);
+        }
+        else if (wParam == SIZE_RESTORED || wParam == SIZE_MAXIMIZED) {
+            imguiToolMainMinimized(0);
+        }
         break;
         
     case WM_ACTIVATE:
         if (LOWORD(wParam) == WA_INACTIVE) {
             inputReset(hwnd);
             mouseEmuActivate(0);
-            /* The key-up that would end these is going to another window. */
-            shortcutsReleaseHeldActions();
+            /* The key-up that would end these is going to another window, and a covered
+            ** deck draws no frame to see its button let go. */
+            releaseAllHeldActions();
         }
         else {
             mouseEmuActivate(1);
@@ -4159,6 +4177,8 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             return 0;
         }
         emulatorStop();
+        /* Before the destroy: in fullscreen it takes the deck, owned by this window, first. */
+        controlDeckAppExit();
         DestroyWindow(hwnd);
         return 0;
 
@@ -5574,6 +5594,10 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     if (!st.hidden) {
         ShowWindow(st.hwnd, SW_NORMAL);
         UpdateWindow(st.hwnd);
+        /* Open at the last exit; a hidden run has no one to use it. */
+        if (pProperties->controlDeck.open) {
+            controlDeckShow();
+        }
     }
 
     /* The debugger attaches to the main window, so this runs after it exists. */

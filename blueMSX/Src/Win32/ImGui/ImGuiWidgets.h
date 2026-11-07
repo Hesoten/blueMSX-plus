@@ -121,6 +121,11 @@ void DrawPixelArt(ImDrawList* dl, ImVec2 c, const PixelArt& art, PixelDecor deco
 bool PixelIconButton(const char* id, const PixelArt& art, PixelDecor decor, const char* tip,
                      bool checked = false, ImVec2 size = ImVec2(28, 24), const char* fallback = NULL);
 
+/* IconButton drawn by draw(dl, centre, em px on screen, colour) in place of a glyph. */
+typedef void (*IconDrawFn)(ImDrawList* dl, ImVec2 c, float em, ImU32 col);
+bool DrawnIconButton(const char* id, IconDrawFn draw, const char* tip, bool checked = false,
+                     ImVec2 size = ImVec2(28, 24), float em = 16);
+
 /* A tool's state: a dot of tone and a word. */
 void StatusDot(const char* word, int tone);
 

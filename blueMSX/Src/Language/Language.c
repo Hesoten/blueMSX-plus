@@ -508,6 +508,7 @@ char* langMenuToolsShortcuts() { return ls->menuToolsShortcuts; }
 char* langMenuToolsCtrlEditor() { return ls->menuToolsCtrlEditor; }
 char* langMenuToolsMixer() { return ls->menuToolsMixer; }
 char* langMenuToolsVdpViewer() { return ls->menuToolsVdpViewer; }
+char* langMenuToolsControlDeck() { return ls->menuToolsControlDeck; }
 char* langMenuToolsLoadMemory() { return ls->menuToolsLoadMemory; }
 char* langMenuToolsAgentControl() { return ls->menuToolsAgentControl; }
 char* langMenuToolsAgentActivity() { return ls->menuToolsAgentActivity; }

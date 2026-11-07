@@ -765,6 +765,10 @@
       <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\ControlDeck\ControlDeck.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
     <ClCompile Include="..\..\Src\Win32\Win32Bitmap.c" />
     <ClCompile Include="..\..\Src\Win32\Win32Cdrom.c" />
     <ClCompile Include="..\..\Src\Win32\Win32D3D12.cpp" />
@@ -1189,6 +1193,7 @@
     <ClInclude Include="..\..\Src\Win32\ImGui\LiveFeed.h" />
     <ClInclude Include="..\..\Src\Win32\ImGui\ImGuiWidgets.h" />
     <ClInclude Include="..\..\Src\Win32\ImGui\ToolText.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\ControlDeck\ControlDeck.h" />
     <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\ChipFeed.h" />
     <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\ChipView.h" />
     <ClInclude Include="..\..\Src\Win32\ImGui\ImGuiTexture.h" />

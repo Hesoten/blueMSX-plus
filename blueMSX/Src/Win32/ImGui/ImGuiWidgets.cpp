@@ -1027,6 +1027,33 @@ bool PixelIconButton(const char* id, const PixelArt& art, PixelDecor decor, cons
     return pressed;
 }
 
+bool DrawnIconButton(const char* id, IconDrawFn draw, const char* tip, bool checked, ImVec2 size, float em)
+{
+    const UiTokens& t = uiTokens();
+    ImVec2 sz(Px(size.x), Px(size.y));
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    bool pressed = ImGui::InvisibleButton(id, sz, ImGuiButtonFlags_EnableNav);
+    bool hovered = ImGui::IsItemHovered(), held = ImGui::IsItemActive();
+    ImVec2 q = ImGui::GetItemRectMax();
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    ImU32 fill, col;
+    bool opaque;
+    toggleColours(t, hovered, held, checked, &fill, &col, &opaque);
+    if (opaque) ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 1.0f);
+    if (visible(fill)) {
+        dl->AddRectFilled(p, q, C(fill), Px(4));
+    }
+    /* The em the icon font is drawn at, so the art matches glyphs beside it. */
+    PushFont(UI_FONT_ICON, em);
+    float iconEm = ImGui::GetFontSize();
+    PopFont();
+    draw(dl, ImVec2(floorf((p.x + q.x) / 2), floorf((p.y + q.y) / 2)), iconEm, C(col));
+    if (opaque) ImGui::PopStyleVar();
+    ImGui::RenderNavCursor(ImRect(p, q), ImGui::GetItemID());
+    ItemTooltip(tip);
+    return pressed;
+}
+
 void StatusDot(const char* word, int tone)
 {
     const UiTokens& t = uiTokens();

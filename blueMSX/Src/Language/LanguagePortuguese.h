@@ -292,6 +292,7 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->menuToolsCtrlEditor     = "Configuração de Controladores/Teclado";  
     ls->menuToolsMixer          = "Mixer de Audio"; 
     ls->menuToolsVdpViewer      = "Visualizador VDP";
+    ls->menuToolsControlDeck    = "Controles de emulação";
     ls->menuToolsLoadMemory     = "Memória de carga";
     ls->menuToolsAgentControl   = "Controle por agente";
     ls->menuToolsAgentActivity  = "Atividade do agente...";

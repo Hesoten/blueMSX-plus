@@ -292,6 +292,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->menuToolsKeyboard       = "Edytor klawiatury";
     ls->menuToolsMixer          = "Mikser";
     ls->menuToolsVdpViewer      = "Podgląd VDP";
+    ls->menuToolsControlDeck    = "Sterowanie emulacją";
     ls->menuToolsLoadMemory     = "Wczytaj do pamięci";
     ls->menuToolsAgentControl   = "Sterowanie przez agenta";
     ls->menuToolsAgentActivity  = "Aktywność agenta...";

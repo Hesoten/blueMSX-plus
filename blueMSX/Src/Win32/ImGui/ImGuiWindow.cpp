@@ -98,6 +98,7 @@ struct ImGuiToolWindow {
     bool                    closePending;  /* closing inside draw waits for the frame to end */
     bool                    closing;       /* DestroyWindow has been asked for */
     bool                    destroyed;     /* the HWND is gone; the struct waits for the frame */
+    bool                    lostDevice;    /* closed by a lost device, not by the user */
     float                   dpiScale;
     float                   zoom;
     float                   appliedZoom;
@@ -106,6 +107,7 @@ struct ImGuiToolWindow {
     bool                    wheelTaken, wheelTakenNext;  /* a view takes Ctrl+wheel where the mouse is */
     bool                    placing;       /* opened: moves and sizes go to desc.placement */
     int                     fitW, fitH;    /* FIT_CONTENT: client size the last frame asked for */
+    bool                    hiddenWithMain; /* NO_ACTIVATE: hidden while the main window is minimised */
     ULONGLONG               lastFrame;
     /* TIPS_OUTSIDE: the tooltip window, what this frame asked it to show, what the copy
     ** read back from the GPU holds and what is on screen. */
@@ -717,6 +719,18 @@ static void fitClient(ImGuiToolWindow* w)
                  SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
+/* The mouse-up of a button held when capture went elsewhere never comes. */
+static void releaseHeldButtons(ImGuiToolWindow* w)
+{
+    if (w->ctx == NULL) {
+        return;
+    }
+    ImGuiIO& io = ImGui::GetIO();
+    for (int b = 0; b < ImGuiMouseButton_COUNT; b++) {
+        io.AddMouseButtonEvent(b, false);
+    }
+}
+
 static bool deviceLost(HRESULT hr)
 {
     return hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET;
@@ -780,6 +794,7 @@ static void onDeviceLost()
         if (w == NULL) {
             break;
         }
+        w->lostDevice = true;
         closeWindow(w);
     }
 }
@@ -1317,6 +1332,50 @@ static void closeWindow(ImGuiToolWindow* w)
     DestroyWindow(w->hwnd);
 }
 
+/* A NO_ACTIVATE window is never activated by a click, so it comes up whenever one of
+** this program's own windows does: not over dialogs or owned popups. */
+static HWINEVENTHOOK raiseHook;
+
+static void CALLBACK onForeground(HWINEVENTHOOK, DWORD event, HWND hwnd, LONG idObject, LONG, DWORD, DWORD)
+{
+    wchar_t cls[16];
+    HWND mainWnd = getMainHwnd();
+    ImGuiToolWindow* w;
+    /* The event comes late: by then another program may be in front, and must stay so. */
+    if (event != EVENT_SYSTEM_FOREGROUND || idObject != OBJID_WINDOW || hwnd == NULL || !IsWindow(hwnd) ||
+        GetForegroundWindow() != hwnd || mainWnd == NULL || !IsWindowEnabled(mainWnd)) {
+        return;
+    }
+    if (GetWindow(hwnd, GW_OWNER) != NULL || (GetClassNameW(hwnd, cls, 16) > 0 && lstrcmpW(cls, L"#32770") == 0)) {
+        return;
+    }
+    for (w = windows; w; w = w->next) {
+        if ((w->desc.flags & IMGUI_TOOL_NO_ACTIVATE) && !w->destroyed && !w->closing && !w->hiddenWithMain &&
+            w->hwnd != hwnd && IsWindow(w->hwnd) && IsWindowVisible(w->hwnd)) {
+            /* HWND_TOP keeps a topmost window topmost, as it is under a fullscreen owner. */
+            SetWindowPos(w->hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE);
+        }
+    }
+}
+
+/* Hooked while any NO_ACTIVATE window is open. */
+static void updateRaiseHook()
+{
+    ImGuiToolWindow* w;
+    bool wanted = false;
+    for (w = windows; w; w = w->next) {
+        wanted |= (w->desc.flags & IMGUI_TOOL_NO_ACTIVATE) && !w->destroyed && !w->closing && w->hwnd != NULL;
+    }
+    if (wanted && raiseHook == NULL) {
+        raiseHook = SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, NULL, onForeground,
+                                    GetCurrentProcessId(), 0, WINEVENT_OUTOFCONTEXT);
+    }
+    else if (!wanted && raiseHook != NULL) {
+        UnhookWinEvent(raiseHook);
+        raiseHook = NULL;
+    }
+}
+
 /* The HWND is going: free what belongs to it, and the rest unless a frame
 ** of this window is still running further up the stack. */
 static void onDestroy(ImGuiToolWindow* w)
@@ -1334,6 +1393,7 @@ static void onDestroy(ImGuiToolWindow* w)
     releaseSwapChain(w);
     w->hwnd = NULL;
     w->destroyed = true;
+    updateRaiseHook();
     if (!w->inFrame) {
         destroyInstance(w);
     }
@@ -1434,7 +1494,26 @@ static LRESULT CALLBACK wndProc(HWND wnd, UINT msg, WPARAM wParam, LPARAM lParam
 
     case WM_MOUSEACTIVATE:
         if (w->desc.flags & IMGUI_TOOL_NO_ACTIVATE) {
+            HWND fg = GetForegroundWindow();
+            HWND mainWnd = getMainHwnd();
+            DWORD pid = 0;
+            if (fg != NULL) {
+                GetWindowThreadProcessId(fg, &pid);
+            }
+            /* Another program in front: a click here brings the main window forward, as its
+            ** taskbar button would, and this window over it at once, not when the hook runs. */
+            if (pid != GetCurrentProcessId() && mainWnd != NULL && IsWindowEnabled(mainWnd) &&
+                IsWindowVisible(mainWnd) && !IsIconic(mainWnd)) {
+                SetForegroundWindow(mainWnd);
+                SetWindowPos(wnd, HWND_TOP, 0, 0, 0, 0, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE);
+            }
             return MA_NOACTIVATE;
+        }
+        break;
+
+    case WM_CAPTURECHANGED:
+        if ((HWND)lParam != wnd) {
+            releaseHeldButtons(w);
         }
         break;
 
@@ -1501,6 +1580,31 @@ extern "C" void imguiToolCloseAll(void)
         }
         closeWindow(w);
     }
+}
+
+extern "C" void imguiToolMainMinimized(int minimized)
+{
+    ImGuiToolWindow* w;
+    for (w = windows; w; w = w->next) {
+        if (w->destroyed || w->closing || !(w->desc.flags & IMGUI_TOOL_NO_ACTIVATE)) {
+            continue;
+        }
+        if (minimized && IsWindowVisible(w->hwnd)) {
+            w->hiddenWithMain = true;
+            hideTip(w);
+            ShowWindow(w->hwnd, SW_HIDE);
+        }
+        else if (!minimized && w->hiddenWithMain) {
+            w->hiddenWithMain = false;
+            ShowWindow(w->hwnd, SW_SHOWNA);
+            SetWindowPos(w->hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        }
+    }
+}
+
+extern "C" int imguiToolLostDevice(ImGuiToolWindow* w)
+{
+    return w != NULL && w->lostDevice;
 }
 
 extern "C" float imguiToolScale(ImGuiToolWindow* w)
@@ -1700,8 +1804,10 @@ extern "C" ImGuiToolWindow* imguiToolOpen(const ImGuiToolDesc* desc)
         RECT title = { kx, ky, kx + kw, ky + (LONG)(32 * ms) };
         MONITORINFO mi;
         mi.cbSize = sizeof(mi);
-        /* With its title bar on no monitor, it comes back inside the nearest one's work area. */
-        if (MonitorFromRect(&title, MONITOR_DEFAULTTONULL) == NULL && GetMonitorInfo(mon, &mi)) {
+        /* With its title bar on no monitor, it comes back inside the nearest one's work area;
+        ** a fitted window always does, as nobody can size it back into view. */
+        if (((desc->flags & IMGUI_TOOL_FIT_CONTENT) || MonitorFromRect(&title, MONITOR_DEFAULTTONULL) == NULL) &&
+            GetMonitorInfo(mon, &mi)) {
             kw = kw < mi.rcWork.right - mi.rcWork.left ? kw : mi.rcWork.right - mi.rcWork.left;
             kh = kh < mi.rcWork.bottom - mi.rcWork.top ? kh : mi.rcWork.bottom - mi.rcWork.top;
             x = kx < mi.rcWork.left ? mi.rcWork.left : kx + kw > mi.rcWork.right ? mi.rcWork.right - kw : kx;
@@ -1764,8 +1870,17 @@ extern "C" ImGuiToolWindow* imguiToolOpen(const ImGuiToolDesc* desc)
     w->placing = true;
     notePlacement(w);
 
+    updateRaiseHook();
     SetTimer(wnd, FRAME_TIMER_ID, USER_TIMER_MINIMUM, NULL);
-    ShowWindow(wnd, (desc->flags & IMGUI_TOOL_NO_ACTIVATE) ? SW_SHOWNA : SW_SHOW);
+    if (!(desc->flags & IMGUI_TOOL_NO_ACTIVATE)) {
+        ShowWindow(wnd, SW_SHOW);
+    }
+    else if (mainWnd && IsIconic(mainWnd)) {
+        w->hiddenWithMain = true;
+    }
+    else {
+        ShowWindow(wnd, SW_SHOWNA);
+    }
     renderFrame(w);
     return findOpen(desc->id);
 }

@@ -657,6 +657,12 @@ typedef struct VdpViewerProperties {
     } v9990;
 } VdpViewerProperties;
 
+/* The Control Deck: where it was, and whether it was open when the program quit. */
+typedef struct ControlDeckProperties {
+    ToolWindowPlacement window;
+    int  open;
+} ControlDeckProperties;
+
 typedef struct Properties {
     EmulationProperties emulation;
     VideoProperties     video;
@@ -677,6 +683,7 @@ typedef struct Properties {
     CaptureProperties   capture;
     NoWindProperties    nowind;
     VdpViewerProperties vdpViewer;
+    ControlDeckProperties controlDeck;
 } Properties;
 
 Properties* propCreate(int useDefault, 

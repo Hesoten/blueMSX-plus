@@ -543,6 +543,14 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->vdpViewer.v9990.curOnly = 0;
     properties->vdpViewer.v9990.curBoxes = 0;
 
+    properties->controlDeck.window.dpi = 96;
+    properties->controlDeck.window.x = 0;
+    properties->controlDeck.window.y = 0;
+    properties->controlDeck.window.width = 0;
+    properties->controlDeck.window.height = 0;
+    properties->controlDeck.window.zoomPct = 100;
+    properties->controlDeck.open = 0;
+
     for (i = 0; i < PROP_MAX_CARTS; i++) {
         properties->media.carts[i].fileName[0] = 0;
         properties->media.carts[i].fileNameInZip[0] = 0;
@@ -974,6 +982,14 @@ static void propLoad(Properties* properties)
     GET_ENUM_VALUE_3(propFile, vdpViewer, v9990, curOnly, BoolPair);
     GET_ENUM_VALUE_3(propFile, vdpViewer, v9990, curBoxes, BoolPair);
 
+    GET_INT_VALUE_3(propFile, controlDeck, window, dpi);
+    GET_INT_VALUE_3(propFile, controlDeck, window, x);
+    GET_INT_VALUE_3(propFile, controlDeck, window, y);
+    GET_INT_VALUE_3(propFile, controlDeck, window, width);
+    GET_INT_VALUE_3(propFile, controlDeck, window, height);
+    GET_INT_VALUE_3(propFile, controlDeck, window, zoomPct);
+    GET_ENUM_VALUE_2(propFile, controlDeck, open, BoolPair);
+
     GET_STR_VALUE_2(propFile,  capture, audioDir);
     GET_STR_VALUE_2(propFile,  capture, videoDir);
     GET_STR_VALUE_2(propFile,  capture, screenshotDir);
@@ -1380,6 +1396,14 @@ void propSave(Properties* properties)
     SET_ENUM_VALUE_3(propFile, vdpViewer, v9990, curShown, YesNoPair);
     SET_ENUM_VALUE_3(propFile, vdpViewer, v9990, curOnly, YesNoPair);
     SET_ENUM_VALUE_3(propFile, vdpViewer, v9990, curBoxes, YesNoPair);
+
+    SET_INT_VALUE_3(propFile, controlDeck, window, dpi);
+    SET_INT_VALUE_3(propFile, controlDeck, window, x);
+    SET_INT_VALUE_3(propFile, controlDeck, window, y);
+    SET_INT_VALUE_3(propFile, controlDeck, window, width);
+    SET_INT_VALUE_3(propFile, controlDeck, window, height);
+    SET_INT_VALUE_3(propFile, controlDeck, window, zoomPct);
+    SET_ENUM_VALUE_2(propFile, controlDeck, open, YesNoPair);
 
     SET_STR_VALUE_2(propFile,  capture, audioDir);
     SET_STR_VALUE_2(propFile,  capture, videoDir);

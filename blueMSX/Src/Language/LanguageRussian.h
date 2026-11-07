@@ -292,6 +292,7 @@ void langInitRussian(LanguageStrings* ls)
     ls->menuToolsCtrlEditor     = "Настройка контроллеров / клавиатуры"; 
     ls->menuToolsMixer          = "Эквалайзер";
     ls->menuToolsVdpViewer      = "Просмотр VDP";
+    ls->menuToolsControlDeck    = "Управление эмуляцией";
     ls->menuToolsLoadMemory     = "Загрузить память";
     ls->menuToolsAgentControl   = "Управление агентом";
     ls->menuToolsAgentActivity  = "Действия агента...";

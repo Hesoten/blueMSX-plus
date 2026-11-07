@@ -292,6 +292,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->menuToolsCtrlEditor     = "Besturing";
     ls->menuToolsMixer          = "Geluidsmixer";
     ls->menuToolsVdpViewer      = "VDP-viewer";
+    ls->menuToolsControlDeck    = "Emulatiebediening";
     ls->menuToolsLoadMemory     = "Laden Geheugen";
     ls->menuToolsAgentControl   = "Agentbesturing";
     ls->menuToolsAgentActivity  = "Agentactiviteit...";

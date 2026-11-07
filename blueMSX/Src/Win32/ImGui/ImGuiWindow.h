@@ -85,6 +85,12 @@ ImGuiToolWindow* imguiToolOpen(const ImGuiToolDesc* desc);
 void  imguiToolClose(ImGuiToolWindow* w);
 void  imguiToolCloseAll(void);
 int   imguiToolIsOpen(const char* id);
+/* Call as the main window is minimised (1) or restored (0). NO_ACTIVATE windows
+** have no taskbar button of their own, so they hide and come back with it. */
+void  imguiToolMainMinimized(int minimized);
+/* In its closed callback: 1 when the window went with a lost device rather than
+** by the user's choice. */
+int   imguiToolLostDevice(ImGuiToolWindow* w);
 /* DPI scale times the user's zoom. */
 float imguiToolScale(ImGuiToolWindow* w);
 /* Inside a TIPS_OUTSIDE window's draw: shows text as the last item's tooltip,

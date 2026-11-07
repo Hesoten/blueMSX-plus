@@ -291,6 +291,7 @@ typedef struct {
     char* menuToolsCtrlEditor;
     char* menuToolsMixer;
     char* menuToolsVdpViewer;
+    char* menuToolsControlDeck;
     char* menuToolsLoadMemory;
     char* menuToolsAgentControl;
     char* menuToolsAgentActivity;
