@@ -1255,10 +1255,17 @@ int boardRewindTo(UInt32 loadAt, UInt32 dropAfter)
     }
     /* An older one, loaded without dropping those after it, which later steps still use. */
     sprintf(stateFile, "mem%d", (ramStateCur + ramMaxStates - back) % ramMaxStates);
-    if (diskHasHostMedium()) {
+    return boardLoadStateInPlace(stateFile);
+}
+
+int boardRewindReaches(UInt32 at)
+{
+    int oldest;
+    if (stateFrequency <= 0 || diskHasHostMedium() || ramStateCount < 1) {
         return 0;
     }
-    return boardLoadStateInPlace(stateFile);
+    oldest = (ramStateCur + ramMaxStates - (ramStateCount - 1)) % ramMaxStates;
+    return (Int32)(ramStateTime[oldest] - at) <= 0 && (Int32)(at - boardSystemTime()) <= 0;
 }
 
 void boardRewindForget(UInt32 after)

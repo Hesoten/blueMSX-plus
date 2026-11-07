@@ -104,6 +104,9 @@ int boardRewindOne();
 /* Drops the snapshots taken after dropAfter and loads the newest one left taken at or before
 ** loadAt (else the oldest), keeping those after it; 0 when none is at or before dropAfter. */
 int boardRewindTo(UInt32 loadAt, UInt32 dropAfter);
+/* Non-zero when the board time given is not ahead of now and the oldest snapshot was taken
+** at or before it. */
+int boardRewindReaches(UInt32 at);
 /* Drops the snapshots taken after the board time given, keeping at least one. */
 void boardRewindForget(UInt32 after);
 void boardEnableSnapshots(int enable);
