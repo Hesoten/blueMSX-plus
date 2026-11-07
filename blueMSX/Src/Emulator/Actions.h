@@ -81,6 +81,8 @@ void actionQuickSaveStateUndo();
 void actionCartInsert1();
 void actionCartInsert2();
 void actionEmuTogglePause();
+/* Run/pause as the user asks it, by key, menu or button. */
+void actionEmuRunPause(void);
 /* Non-zero while a folder disk is being chosen or asked about: nothing may pause or run. */
 int  actionDirGateOpen(void);
 void actionEmuStep();
@@ -91,16 +93,22 @@ typedef enum {
     ACTION_REFUSED_DIR_GATE,
     ACTION_REFUSED_STOPPED,
     ACTION_REFUSED_REVERSE,
+    ACTION_REFUSED_STEPPING_BACK,
     ACTION_REFUSED_WAITING,
     ACTION_REFUSED_REWIND_OFF,
     ACTION_REFUSED_HOST_MEDIUM,
+    ACTION_REFUSED_PACED
 } ActionRefusal;
 ActionRefusal actionFrameAdvanceRefusal(void);
 ActionRefusal actionAdvanceToChangeRefusal(void);
+/* For both steps back, by a frame and to a change. */
+ActionRefusal actionBackStepRefusal(void);
 ActionRefusal actionHoldRefusal(int reverse);
 /* Runs to the end of the current frame and pauses there; from a pause, runs one frame. */
 void actionEmuFrameAdvance(void);
 void actionEmuAdvanceToChange(void);
+void actionEmuBackFrame(void);
+void actionEmuBackToChange(void);
 void actionEmuStop();
 void actionDiskInsertA();
 void actionDiskInsertB();

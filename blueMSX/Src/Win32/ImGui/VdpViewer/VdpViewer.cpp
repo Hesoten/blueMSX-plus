@@ -804,7 +804,7 @@ static void draw(ImGuiToolWindow*, void*)
 {
     const UiTokens& t = uiTokens();
     /* Stopped, or on the way to a stop: what changed stays lit until the next step. */
-    bool stopped = emulatorGetState() == EMU_PAUSED || emulatorFrameStopPending() || emulatorIsSingleStepping();
+    bool stopped = emulatorGetState() == EMU_PAUSED || emulatorFrameStopPending() || emulatorIsSingleStepping() || emulatorBackStepPending();
     decayDt = stopped ? 0.0f : ImGui::GetIO().DeltaTime;
     LiveFeedInfo info;
     const ChipSnapshot* snap = (const ChipSnapshot*)liveFeedLatest(feed, &info);

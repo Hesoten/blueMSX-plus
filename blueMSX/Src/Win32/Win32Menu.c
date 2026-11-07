@@ -2489,7 +2489,7 @@ int menuCommand(Properties* pProperties, int command)
     case ID_SIZE_X8:                        actionWindowSize8x();           return 0;
     case ID_SIZE_MINIMIZED:                 actionWindowSizeMinimized();    return 0;
     case ID_SIZE_FULLSCREEN:                actionWindowSizeFullscreen();   return 0;
-    case ID_RUN_RUN:                        actionEmuTogglePause();         return 0;
+    case ID_RUN_RUN:                        actionEmuRunPause();            return 0;
     case ID_RUN_STOP:                       actionEmuStop();                return 0;
     case ID_RUN_RESET:                      actionEmuResetHard();           return 0;
     case ID_RUN_SOFTRESET:                  actionEmuResetSoft();           return 0;

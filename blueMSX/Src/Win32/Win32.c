@@ -1912,7 +1912,7 @@ static void checkKeyUp(Shortcuts* s, ShotcutHotkey key)
 
     if (hotkeyEq(key, s->prnFormFeed))                  actionPrinterForceFormFeed();
     if (hotkeyEq(key, s->mouseLockToggle))              actionToggleMouseCapture();
-    if (hotkeyEq(key, s->emulationRunPause))            actionEmuTogglePause();
+    if (hotkeyEq(key, s->emulationRunPause))            actionEmuRunPause();
     if (hotkeyEq(key, s->emulationStop))                actionEmuStop();
     if (hotkeyEq(key, s->emuSpeedNormal))               actionEmuSpeedNormal();
     if (hotkeyEq(key, s->emuSpeedInc))                  actionEmuSpeedIncrease();

@@ -80,6 +80,9 @@ static UInt32 emuLastVint;
 static UInt32 rwLo;
 static UInt32 rwBudgetEnd;
 static UInt32 rwDue;          /* host time the next step is due, in ms times the refresh rate */
+/* A replay was cut short, so the screen still shows the frame at rwCutVint, until one is shown. */
+static int    rwCut;
+static UInt32 rwCutVint;
 
 void emulatorSetTap(EmuTapFn fn) {
     emuTap = fn;
@@ -178,6 +181,14 @@ static volatile int      changeGaveUp;
 ** pause at the frame it shows; under emuStateLock, cleared by a pause or a stop. */
 static volatile int      holdFromPause;
 static volatile int      rwPauseReq;
+/* A step back from a pause: 1 one frame, 2 on to another picture; the frames it went back,
+** why the last one gave up (1 nothing older to stop at, 2 no other picture within the limit),
+** that a replay of it arrived, and that it starts from a replay cut short. */
+static volatile int      backStep;
+static int               backFrames;
+static volatile int      backGaveUp;
+static int               backArrived;
+static int               backFromCut;
 static Properties* properties;
 static Mixer* mixer;
 static BoardDeviceInfo deviceInfo;
@@ -361,12 +372,21 @@ static void disarmChange(void)
     }
 }
 
+/* With emuStateLock held: a step back ends, with its watch for another picture. */
+static void endBackStep(void)
+{
+    if (backStep == 2) {
+        frameBufferWatchShown(0, 0);
+    }
+    backStep = 0;
+}
+
 /* The one place emuState is written, with emuStateLock held; with setsDebugger the
 ** debugger's state follows in the same step. */
 static void writeHeld(EmuState state, int setsDebugger)
 {
     /* Before the state: the woken thread must not draw a step's frame under the old count. */
-    if (emuState == EMU_PAUSED && state == EMU_RUNNING && (frameStopReq || emuSingleStep)) {
+    if (emuState == EMU_PAUSED && state == EMU_RUNNING && (frameStopReq || emuSingleStep || backStep)) {
         emuStepSeq++;
     }
     emuState = state;
@@ -381,9 +401,11 @@ static void writeHeld(EmuState state, int setsDebugger)
         disarmChange();
         holdFromPause = 0;
         rwPauseReq = 0;
+        endBackStep();
     }
     else if (state == EMU_RUNNING) {
         changeGaveUp = 0;
+        backGaveUp = 0;
     }
     if (setsDebugger) {
         dbgSetRunState(state == EMU_PAUSED ? DBG_PAUSED : DBG_RUNNING);
@@ -429,6 +451,20 @@ static int takeFrameStop(void)
     return taken;
 }
 
+int emulatorBackStepStopSoon(void)
+{
+    int taken;
+
+    archSemaphoreWait(emuStateLock, -1);
+    taken = backStep && (emuState == EMU_RUNNING || emuState == EMU_SUSPENDED);
+    if (taken && backStep == 2) {
+        endBackStep();
+        backStep = 1;
+    }
+    archSemaphoreSignal(emuStateLock);
+    return taken;
+}
+
 int emulatorPauseIfRunning(void)
 {
     if (!switchState(EMU_RUNNING, EMU_PAUSED, 1)) {
@@ -457,7 +493,10 @@ void emulatorRequestFrameStop(void)
 
     dbgChangeBegin();
     archSemaphoreWait(emuStateLock, -1);
-    if (frameStopChange) {
+    if (backStep) {
+        /* A step back under way ends as it is. */
+    }
+    else if (frameStopChange) {
         disarmChange();
     }
     else if (emuState == EMU_RUNNING) {
@@ -488,8 +527,8 @@ void emulatorRequestChangeStop(void)
     if (frameStopChange) {
         disarmChange();
     }
-    else if (frameStopReq || frameStopNow) {
-        /* A plain frame step is under way; it ends as it is. */
+    else if (frameStopReq || frameStopNow || backStep) {
+        /* A plain frame step or a step back is under way; it ends as it is. */
     }
     else if (emuState == EMU_RUNNING) {
         fromShown = 0;
@@ -516,6 +555,50 @@ void emulatorRequestChangeStop(void)
     if (resumed) {
         debuggerNotifyEmulatorResume();
     }
+}
+
+void emulatorRequestBackStep(int picture)
+{
+    int resumed = 0;
+
+    dbgChangeBegin();
+    archSemaphoreWait(emuStateLock, -1);
+    if (backStep) {
+        /* Again while it runs: it stops at the next frame it shows. */
+        endBackStep();
+        backStep = 1;
+    }
+    else if (emuState == EMU_PAUSED && !emuHoldSuspended && !emuPlayReverse &&
+             properties->emulation.reverseEnable) {
+        if (picture) {
+            /* Paused, the picture on screen is still and is the reference. */
+            frameBufferWatchShown(1, 1);
+        }
+        backFromCut = rwCut;
+        backArrived = 0;
+        backFrames = 0;
+        backGaveUp = 0;
+        /* Set before the state, so the thread woken never runs on forward. */
+        backStep = picture ? 2 : 1;
+        writeHeld(EMU_RUNNING, 1);
+        resumed = 1;
+    }
+    archSemaphoreSignal(emuStateLock);
+
+    /* Sound stays off: frames replayed would only be heard again. */
+    if (resumed) {
+        debuggerNotifyEmulatorResume();
+    }
+}
+
+int emulatorBackStepPending(void)
+{
+    return backStep;
+}
+
+int emulatorBackStepGaveUp(void)
+{
+    return backGaveUp;
 }
 
 int emulatorFrameStopPending(void)
@@ -845,6 +928,7 @@ void emulatorStart(const char* stateName) {
 
     /* The emulation thread is not running: a reverse play step of the last machine ends. */
     rwPhase = 0;
+    rwCut = 0;
     writeState(EMU_PAUSED, 0);
     emulationStartFailure = 0;
 
@@ -1064,8 +1148,12 @@ void emulatorResume() {
     }
     /* Locked: only a suspend ends here, not a state another thread set since. */
     if (switchState(EMU_SUSPENDED, EMU_RUNNING, 0)) {
-        archSoundResume();
-        archMidiEnable(1);
+        /* A step or reverse play stays silent as it began; a step begun while running ends in a
+        ** pause soon anyway. */
+        if (!backStep && !frameStopReq && !frameStopNow && !rwPauseReq && !emuPlayReverse) {
+            archSoundResume();
+            archMidiEnable(1);
+        }
         archUpdateEmuDisplay(0);
     }
 }
@@ -1133,12 +1221,13 @@ void emulatorPlayReverse(int enable)
         int pending;
         archSemaphoreWait(emuStateLock, -1);
         /* Suspended, it is kept for after the resume and the rewind. */
-        pending = (frameStopReq || frameStopNow) && emuState != EMU_SUSPENDED;
+        pending = (frameStopReq || frameStopNow || backStep) && emuState != EMU_SUSPENDED;
         if (pending) {
             frameStopReq = 0;
             frameStopNow = 0;
             frameStopWait = 0;
             disarmChange();
+            endBackStep();
         }
         archSemaphoreSignal(emuStateLock);
         if (pending) {
@@ -1163,12 +1252,13 @@ void emulatorHoldBegin(int reverse)
         emuPlayReverse = 1;
     }
     archSemaphoreWait(emuStateLock, -1);
-    if (emuState == EMU_RUNNING && (frameStopReq || frameStopNow)) {
+    if (emuState == EMU_RUNNING && (frameStopReq || frameStopNow || backStep)) {
         /* A frame step under way is taken over, and ends as a hold from a pause does. */
         frameStopReq = 0;
         frameStopNow = 0;
         frameStopWait = 0;
         disarmChange();
+        endBackStep();
         holdFromPause = 1;
         resumed = !reverse;
     }
@@ -1327,6 +1417,7 @@ void RefreshScreen(int screenMode, int presented, int vintShows) {
     if (!presented && vintShows && emuOnThisThread) {
         /* Just flipped: the frame on screen is the one that ended its active display last. */
         rwShownVint = emuLastVint;
+        rwCut = 0;
     }
 
     if (!videoManagerActivePacesScreen() && !presented) {
@@ -1367,7 +1458,9 @@ int emulatorShownDisplayEnded(int ready, int shown, void (*show)(void* ref), voi
             archUpdateEmuDisplay(0);
         }
         rwShownVint = emuLastVint;
+        rwCut = 0;
         rwPhase = 2;
+        backArrived = backStep != 0;
         boardSyncSoon();
         return 1;
     }
@@ -1377,6 +1470,7 @@ int emulatorShownDisplayEnded(int ready, int shown, void (*show)(void* ref), voi
     show(ref);
     emulatorRefreshFromSource();
     rwShownVint = emuLastVint;
+    rwCut = 0;
     frameStepAtFrameEnd(1, 0);
     return 1;
 }
@@ -1441,6 +1535,44 @@ static void takeReversePause(void)
     archSemaphoreSignal(emuStateLock);
 }
 
+/* A step back that cannot go on pauses at the sync, on the frame shown. */
+static void backStepGivesUp(void)
+{
+    archSemaphoreWait(emuStateLock, -1);
+    if (backStep && emuState == EMU_RUNNING) {
+        backGaveUp = 1;
+        frameStopNow = 1;
+        endBackStep();
+    }
+    archSemaphoreSignal(emuStateLock);
+}
+
+/* A step back went a frame further, to one it showed or, ranOut, to one it could not reach.
+** Non-zero when it ends there, pausing at the sync. */
+static int backStepEnds(int ranOut)
+{
+    int changed, ends = 0;
+
+    archSemaphoreWait(emuStateLock, -1);
+    if (backStep && emuState == EMU_RUNNING) {
+        backFrames++;
+        changed = backStep == 2 && !ranOut && frameBufferShownChanged();
+        ends = backStep == 1 || changed || backFrames >= CHANGE_STEP_FRAMES;
+        if (ends && !changed && backStep == 2 && backFrames >= CHANGE_STEP_FRAMES) {
+            backGaveUp = 2;
+        }
+        else if (ends && !changed && ranOut) {
+            backGaveUp = 1;
+        }
+        if (ends) {
+            frameStopNow = 1;
+            endBackStep();
+        }
+    }
+    archSemaphoreSignal(emuStateLock);
+    return ends;
+}
+
 /* One step of reverse play a frame back, at the refresh rate: loads a snapshot from before
 ** the frame on screen and runs it on to the end of active display of the frame before it,
 ** where emulatorShownDisplayEnded shows it. */
@@ -1449,13 +1581,17 @@ static int WaitReverse(void)
     UInt32 period, now, step, due;
     int rate;
     int fallback;
+    int ranOut = 0;
 
     boardEnableSnapshots(0);
     if (emuState != EMU_RUNNING || emuExitFlag) {
-        /* Stopped mid-replay: the next step starts from here, never runs past the target. */
-        if (rwPhase == 1) {
+        /* Stopped mid-replay: the next step starts from here, never runs past the target.
+        ** A step back suspended goes on with its replay after the resume. */
+        if (rwPhase == 1 && !(emuState == EMU_SUSPENDED && backStep && !emuExitFlag)) {
             rwPhase = 2;
             rwShownVint = rwLo;
+            rwCut = 1;
+            rwCutVint = rwBudgetEnd;
         }
         return RW_RUN_ON;
     }
@@ -1477,25 +1613,33 @@ static int WaitReverse(void)
         /* Ran out before the frame: never on into the future, but a frame back from here. */
         rwShownVint = rwLo;
         rwPhase = 2;
+        ranOut = 1;
     }
+    if (backStep && (backArrived || ranOut) && backStepEnds(ranOut)) {
+        rwPhase = 0;
+        return RW_RUN_ON;
+    }
+    backArrived = 0;
 
     /* Real time in ms times the rate, so a frame is 1000; the speed setting has no say. */
     step = 1000;
-    now = archGetSystemUpTime(1000) * rate;
-    /* More than a frame late, or a time left from an earlier rewind: from now. */
-    if ((Int32)(now - rwDue) > (Int32)step || (Int32)(rwDue - now) > 50 * rate) {
-        rwDue = now;
-    }
-    while ((Int32)(rwDue - now) > 0 && emuPlayReverse) {
-        archEventWait(emuSyncEvent, -1);
-        if (emuState != EMU_RUNNING || emuExitFlag) {
-            return RW_RUN_ON;
-        }
+    if (!backStep) {
         now = archGetSystemUpTime(1000) * rate;
+        /* More than a frame late, or a time left from an earlier rewind: from now. */
+        if ((Int32)(now - rwDue) > (Int32)step || (Int32)(rwDue - now) > 50 * rate) {
+            rwDue = now;
+        }
+        while ((Int32)(rwDue - now) > 0 && emuPlayReverse) {
+            archEventWait(emuSyncEvent, -1);
+            if (emuState != EMU_RUNNING || emuExitFlag) {
+                return RW_RUN_ON;
+            }
+            now = archGetSystemUpTime(1000) * rate;
+        }
     }
     emuSysTime = archGetSystemUpTime(1000);
 
-    if (!emuPlayReverse) {
+    if (!emuPlayReverse && !backStep) {
         rwPhase = 0;
         return RW_RUN_ON;
     }
@@ -1504,13 +1648,30 @@ static int WaitReverse(void)
     ** as a V9990 does not): 50 ms steps, of which its own frames come out as they may. */
     now = boardSystemTime();
     fallback = (Int32)(now - emuLastVint) < 0 || now - emuLastVint > 2 * period;
-    rwDue += fallback ? 50 * rate : step;
+    if (backStep) {
+        /* A step back needs a frame to stop at. */
+        if (fallback) {
+            backStepGivesUp();
+            rwPhase = 0;
+            return RW_RUN_ON;
+        }
+    }
+    else {
+        rwDue += fallback ? 50 * rate : step;
+    }
 
-    if ((Int32)(now - rwShownVint) < 0 || now - rwShownVint > 2 * period) {
+    if (backStep && backFromCut) {
+        /* The cut replay stopped short of the frame on screen, which may lie ahead of the board
+        ** time; taken once, so a step that runs out goes on back from rwLo. */
+        rwShownVint = rwCutVint;
+        rwCut = 0;
+    }
+    else if ((Int32)(now - rwShownVint) < 0 || now - rwShownVint > 2 * period) {
         rwShownVint = (Int32)(now - emuLastVint) >= 0 && now - emuLastVint <= 2 * period ? emuLastVint : now;
     }
     rwLo = rwShownVint - period * 3 / 2;
     rwPhase = 0;
+    backFromCut = 0;
 
     /* From before the start of the frame to stop at, so it is drawn whole. */
     if (fallback ? !boardRewind() : !boardRewindTo(rwShownVint - period * 5 / 2)) {
@@ -1518,6 +1679,10 @@ static int WaitReverse(void)
         ** used to run the guest forward, muted, for as long as the key was
         ** held. Begun from a pause, it pauses there until the key is let go. */
         int paused = 0;
+        if (backStep) {
+            backStepGivesUp();
+            return RW_RUN_ON;
+        }
         archSemaphoreWait(emuStateLock, -1);
         if (holdFromPause && emuState == EMU_RUNNING) {
             frameStopNow = 1;
@@ -1552,7 +1717,7 @@ static int WaitForSync(int maxSpeed, int stopCause) {
     static int overflowCount = 0;
     static UInt32 kbdPollCnt = 0;
 
-    if ((emuPlayReverse && properties->emulation.reverseEnable) || rwPhase != 0) {
+    if ((emuPlayReverse && properties->emulation.reverseEnable) || rwPhase != 0 || backStep) {
         int reverseTime = WaitReverse();
         if (reverseTime != RW_RUN_ON) {
             return reverseTime;
@@ -1565,7 +1730,7 @@ static int WaitForSync(int maxSpeed, int stopCause) {
     }
 
     /* Never a snapshot of a replay under way, nor of a frame reverse play shows. */
-    if (!(emuPlayReverse && properties->emulation.reverseEnable) && rwPhase == 0) {
+    if (!(emuPlayReverse && properties->emulation.reverseEnable) && rwPhase == 0 && !backStep) {
         boardEnableSnapshots(1);
     }
 

@@ -691,10 +691,13 @@ only be cleared with `clear_all`.
 not yet shown (one met while a `resume` was being answered, for example), or
 in a new session the stop the machine is paused at, is reported once, saying
 "this stop happened before the call". The stop reasons are `breakpoint`,
-`watchpoint`, `step`, `user` (a pause), `step_back` (the emulator's step back
-reached its moment), `vram_timing` (the debugger's VRAM access check, MSX1
-VDP only), `frame` (the emulator's frame step reached the end of a frame of
-the picture on screen) and `machine` (stopped, reset or replaced).
+`watchpoint`, `step`, `user` (a pause), `step_back` (the debugger's step back
+to the previous instruction ended), `vram_timing` (the debugger's VRAM access
+check, MSX1 VDP only), `frame` (the emulator paused itself on a frame of the
+picture on screen: a frame step ended, a step back a frame or to a screen
+update arrived or could go back no further, a rewind or max speed hold begun
+from a pause was let go, or that rewind reached the oldest moment it keeps)
+and `machine` (stopped, reset or replaced).
 
 Each step waits for the emulator's next frame when it syncs to the display,
 so a long step count is slower than a breakpoint with `run_until`. After a

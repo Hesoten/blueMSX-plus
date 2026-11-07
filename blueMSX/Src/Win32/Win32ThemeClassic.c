@@ -318,10 +318,10 @@ static ThemePage* themeCreateZoom(int z)
                                           (ButtonEvent)actionMenuReset, SC(8), SCY(47), 0),
                            THEME_TRIGGER_NONE, THEME_TRIGGER_NONE, THEME_TRIGGER_NONE);
     themePageAddButton(theme, activeButtonCreate(SC(52), SCY(22), 4, 0, BMP(PLAY, 4),
-                                          (ButtonEvent)actionEmuTogglePause, 0, 0),
+                                          (ButtonEvent)actionEmuRunPause, 0, 0),
                        THEME_TRIGGER_NONE, THEME_TRIGGER_IMG_NOT_RUNNING, THEME_TRIGGER_NONE);
     themePageAddButton(theme, activeButtonCreate(SC(78), SCY(22), 4, 0, BMP(PAUSE, 4),
-                                          (ButtonEvent)actionEmuTogglePause, 0, 0),
+                                          (ButtonEvent)actionEmuRunPause, 0, 0),
                        THEME_TRIGGER_NONE, THEME_TRIGGER_IMG_RUNNING, THEME_TRIGGER_NONE);
     themePageAddButton(theme, activeButtonCreate(SC(104), SCY(22), 4, 0, BMP(STOP, 4),
                                           (ButtonEvent)actionEmuStop, 0, 0),
