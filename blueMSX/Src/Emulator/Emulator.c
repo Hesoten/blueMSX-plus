@@ -211,6 +211,8 @@ static volatile int      backGaveUp;
 static int               backArrived;
 static int               backFromCut;
 static UInt32            backTarget;
+/* A step back to another picture found its frame and replays it again from where the lead asks. */
+static volatile int      backRedo;
 static Properties* properties;
 static Mixer* mixer;
 static BoardDeviceInfo deviceInfo;
@@ -400,6 +402,7 @@ static void endBackStep(void)
     if (backStep == 2) {
         frameBufferWatchShown(0, 0);
     }
+    backRedo = 0;
     backStep = 0;
 }
 
@@ -656,7 +659,7 @@ int emulatorRewindToVint(UInt32 vintTime)
 
 int emulatorBackStepPending(void)
 {
-    return backStep;
+    return backRedo ? 2 : backStep;
 }
 
 int emulatorBackStepGaveUp(void)
@@ -1603,7 +1606,10 @@ static void backStepGivesUp(void)
 {
     archSemaphoreWait(emuStateLock, -1);
     if (backStep && emuState == EMU_RUNNING) {
-        backGaveUp = 1;
+        /* A redo that cannot go on leaves the frame found on screen. */
+        if (!backRedo) {
+            backGaveUp = 1;
+        }
         frameStopNow = 1;
         endBackStep();
     }
@@ -1611,7 +1617,8 @@ static void backStepGivesUp(void)
 }
 
 /* A step back went a frame further, to one it showed or, ranOut, to one it could not reach.
-** Non-zero when it ends there, pausing at the sync. */
+** Non-zero when it ends there, pausing at the sync; zero also when it goes on to replay the frame
+** found for the lead. */
 static int backStepEnds(int ranOut)
 {
     int changed, ends = 0;
@@ -1624,8 +1631,17 @@ static int backStepEnds(int ranOut)
         if (ends && !changed && backStep == 2 && backFrames >= CHANGE_STEP_FRAMES) {
             backGaveUp = 2;
         }
-        else if (ends && !changed && ranOut) {
+        else if (ends && !changed && ranOut && !backRedo) {
             backGaveUp = 1;
+        }
+        /* Found, with a lead hook: the frame is replayed once more as a step to a set frame,
+        ** decided here so a press or a suspend in between cannot carry the search on. */
+        if (changed && emuRewindLead != NULL && !backRedo) {
+            frameBufferWatchShown(0, 0);
+            backRedo = 1;
+            backTarget = rwShownVint;
+            backStep = 3;
+            ends = 0;
         }
         if (ends) {
             frameStopNow = 1;
@@ -1675,7 +1691,7 @@ static int rwSlice(UInt32 ticks)
 ** to a set frame, where emulatorShownDisplayEnded shows it. */
 static int WaitReverse(void)
 {
-    UInt32 period, now, step, due, usual;
+    UInt32 period, now, step, due, usual, loadAt;
     int rate;
     int fallback;
     int ranOut = 0;
@@ -1776,8 +1792,9 @@ static int WaitReverse(void)
     rwPhase = 0;
     backFromCut = 0;
 
-    /* From before the start of the frame to stop at, so it is drawn whole. Shift+F3 runs
-    ** many steps, so only the others may ask to start earlier. */
+    /* From before the start of the frame to stop at, so it is drawn whole. A search back to a
+    ** screen update runs many steps, so they never ask to start earlier; its replay of the frame
+    ** found does. */
     usual = rwShownVint - period * 5 / 2;
     backKind = backStep;
     if (backKind == 3) {
@@ -1785,8 +1802,18 @@ static int WaitReverse(void)
         rwLo = backTarget - period / 2;
         usual = backTarget - period * 3 / 2;
     }
-    if (fallback ? !boardRewind() :
-        !boardRewindTo(backKind != 2 ? rewindLoadAt(rwLo, usual) : usual, usual)) {
+    loadAt = fallback || backKind == 2 ? usual : rewindLoadAt(rwLo, usual);
+    if (backRedo && loadAt == usual) {
+        /* The lead needs nothing earlier: the frame found stays as it is. */
+        archSemaphoreWait(emuStateLock, -1);
+        if (backStep && emuState == EMU_RUNNING) {
+            frameStopNow = 1;
+            endBackStep();
+        }
+        archSemaphoreSignal(emuStateLock);
+        return RW_RUN_ON;
+    }
+    if (fallback ? !boardRewind() : !boardRewindTo(loadAt, usual)) {
         /* No snapshot left to restore. Granting emulated time here is what
         ** used to run the guest forward, muted, for as long as the key was
         ** held. Begun from a pause, it pauses there until the key is let go. */

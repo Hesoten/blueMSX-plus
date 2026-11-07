@@ -124,17 +124,16 @@ int  emulatorChangeStepArmed(void);
 ** the machine runs again; the limit is in machine VDP frames. */
 int  emulatorChangeStepGaveUp(void);
 int  emulatorChangeStepLimit(void);
-/* Paused, with rewind on: replays the frame before the one shown and pauses there (picture 0),
-** or goes on back to the last frame of the picture before it, giving up at the same limit.
-** Again while a step back runs, it stops at the next frame it shows, except a step started by
-** emulatorRewindToVint, which goes on. Anything else does nothing. */
+/* Paused, rewind on, once parked (picture 0: or no replay under way): replays the frame before
+** the one shown (picture 0) or the last of the picture before it, within the change step limit.
+** Again while one runs it stops at the next frame shown, except a lead replay or rewind to a frame. */
 void emulatorRequestBackStep(int picture);
 /* UI thread, paused: replays one snapshot to the display end at vintTime (board time, low 32 bits),
 ** shows it and pauses, as a step back does. 0, changing nothing, when not before the frame shown,
 ** not within the snapshots, or another chip paces the screen; 1 when started. */
 int  emulatorRewindToVint(UInt32 vintTime);
-/* 1 while a step back one frame runs, 2 while one back to another picture runs, 3 while
-** emulatorRewindToVint runs, else 0. */
+/* 1 while a step back one frame runs, 2 while one back to another picture runs (its replay for
+** the lead too), 3 while emulatorRewindToVint runs, else 0. */
 int  emulatorBackStepPending(void);
 /* Why the last step back gave up, until the machine runs again: 1 nothing older to stop at,
 ** 2 no other picture within emulatorChangeStepLimit frames; 0 when it did not. */
