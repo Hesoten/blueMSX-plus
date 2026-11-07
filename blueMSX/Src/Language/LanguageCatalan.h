@@ -862,6 +862,10 @@ void langInitCatalan(LanguageStrings* ls)
     ls->shortcutToggleMouseLock = "Connecta/desconnecta ratolí PC a l'MSX";
     ls->shortcutEmuSpeedMax     = "Velocitat d'emulació màxima";
     ls->shortcutEmuPlayReverse  = "Rebobina l'emulació";                     // New in 2.8.3
+    ls->shortcutEmuFrameAdvance = "Avança un fotograma";
+    ls->shortcutEmuAdvanceToChange = "Avança fins a la següent actualització de pantalla";
+    ls->shortcutEmuBackFrame    = "Retrocedeix un fotograma";
+    ls->shortcutEmuBackToChange = "Retrocedeix fins a l'anterior actualització de pantalla";
     ls->shortcutEmuSpeedToggle  = "Commuta la velocitat d'emulació màxima";
     ls->shortcutEmuSpeedNormal  = "Velocitat d'emulació normal";
     ls->shortcutEmuSpeedInc     = "Augmenta la velocitat d'emulació";

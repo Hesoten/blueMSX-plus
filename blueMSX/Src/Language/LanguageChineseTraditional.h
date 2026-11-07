@@ -862,6 +862,10 @@ void langInitChineseTraditional(LanguageStrings* ls)
     ls->shortcutToggleMouseLock = "連接/中斷 PC 滑鼠與 MSX";
     ls->shortcutEmuSpeedMax     = "最高模擬速度";
     ls->shortcutEmuPlayReverse  = "回退模擬";                     // New in 2.8.3
+    ls->shortcutEmuFrameAdvance = "前進一幀";
+    ls->shortcutEmuAdvanceToChange = "前進到下一次畫面更新";
+    ls->shortcutEmuBackFrame    = "後退一幀";
+    ls->shortcutEmuBackToChange = "後退到上一次畫面更新";
     ls->shortcutEmuSpeedToggle  = "切換最高模擬速度";
     ls->shortcutEmuSpeedNormal  = "標準模擬速度";
     ls->shortcutEmuSpeedInc     = "增加模擬速度";

@@ -861,6 +861,10 @@ typedef struct {
     char* propControlsMouseSens;
     char* shortcutEmuSpeedMax;
     char* shortcutEmuPlayReverse;
+    char* shortcutEmuFrameAdvance;
+    char* shortcutEmuAdvanceToChange;
+    char* shortcutEmuBackFrame;
+    char* shortcutEmuBackToChange;
     char* shortcutEmuSpeedToggle;
     char* shortcutEmuSpeedNormal;
     char* shortcutEmuSpeedInc;

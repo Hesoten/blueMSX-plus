@@ -113,6 +113,10 @@ typedef struct {
     ShotcutHotkeySet emulationStop;
     ShotcutHotkeySet emuSpeedFull;
     ShotcutHotkeySet emuPlayReverse;
+    ShotcutHotkeySet emuFrameAdvance;
+    ShotcutHotkeySet emuBackFrame;
+    ShotcutHotkeySet emuAdvanceToChange;
+    ShotcutHotkeySet emuBackToChange;
     ShotcutHotkeySet emuSpeedNormal;
     ShotcutHotkeySet emuSpeedInc;
     ShotcutHotkeySet emuSpeedDec;
@@ -157,6 +161,8 @@ typedef struct {
 
 Shortcuts* shortcutsCreateProfile(char* profileName);
 void shortcutsDestroyProfile(Shortcuts* shortcuts);
+/* The profile in use, or NULL while there is none. */
+const Shortcuts* shortcutsLive(void);
 int shortcutsShowDialog(HWND hwnd, Properties* pProperties);
 char* shortcutsToString(ShotcutHotkey hotkey);
 char* shortcutsSetToString(const ShotcutHotkeySet* set);

@@ -545,6 +545,7 @@ TS(DECK_CHANGE_NONE,          "No screen update in %d frames", "%d" NB "フレ�
 TS(DECK_NO_CHANGE,            "No update", "更新なし")
 TS(DECK_STOP_TIP,             "Stop", "停止")
 TS(DECK_RESET_TIP,            "Hard reset", "ハードリセット")
+TS(DECK_KEY_HINT,             " (%s)", " (%s)")
 TS(DECK_RESET_MORE_TIP,       "Choose a reset", "リセットの種類を選択")
 TS(DECK_SPEED_TIP,            "%d%% speed", "%d%%" NB "の速度")
 TS(DECK_UNAVAILABLE,          "%s: not available while %s", "%s: %s")

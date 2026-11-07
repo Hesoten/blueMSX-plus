@@ -1837,9 +1837,17 @@ void heldActionRelease(HeldAction action, unsigned bits)
     else                                      actionStopPlayReverse();
 }
 
-static void checkKeyDown(Shortcuts* s, ShotcutHotkey key) {
+/* repeat: an auto-repeat of a key held down, which steps on at the repeat rate. It must
+** not stop a step back under way or a run to a change, and a run to a change either way
+** starts once. */
+static void checkKeyDown(Shortcuts* s, ShotcutHotkey key, int repeat) {
     heldActionPress(HELD_ACTION_MAX_SPEED, hotkeySetSlotMask(key, &s->emuSpeedFull, 0));
     heldActionPress(HELD_ACTION_REVERSE,   hotkeySetSlotMask(key, &s->emuPlayReverse, 0));
+
+    if (hotkeyEq(key, s->emuFrameAdvance) && (!repeat || !emulatorChangeStepArmed())) actionEmuFrameAdvance();
+    if (hotkeyEq(key, s->emuAdvanceToChange) && !repeat)                              actionEmuAdvanceToChange();
+    if (hotkeyEq(key, s->emuBackFrame) && (!repeat || !emulatorBackStepPending()))    actionEmuBackFrame();
+    if (hotkeyEq(key, s->emuBackToChange) && !repeat)                                 actionEmuBackToChange();
 }
 
 /* Only the key slots' bits: the deck's hold goes with its own mouse button. */
@@ -3605,7 +3613,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             key.type = HOTKEY_TYPE_KEYBOARD;
             key.mods = keyboardGetModifiers();
             key.key  = wParam & 0xff;
-            checkKeyDown(st.shortcuts, key);
+            checkKeyDown(st.shortcuts, key, (lParam & (1 << 30)) != 0);
         }
         return 0;
 
@@ -4025,7 +4033,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
                                 key.type = HOTKEY_TYPE_JOYSTICK;
                                 key.mods = 0;
                                 key.key  = joyHotkeyCode(slot, i);
-                                checkKeyDown(st.shortcuts, key);
+                                checkKeyDown(st.shortcuts, key, 0);
                             }
                         }
                         for (i = 1; up != 0; i++, up >>= 1) {

@@ -862,6 +862,10 @@ void langInitPolish(LanguageStrings* ls)
     ls->shortcutToggleMouseLock = "Podłącz/odłącz mysz PC do MSX";
     ls->shortcutEmuSpeedMax     = "Maksymalna prędkość emulacji";
     ls->shortcutEmuPlayReverse  = "Przewiń emulację wstecz";               // New in 2.8.3
+    ls->shortcutEmuFrameAdvance = "Jedna klatka do przodu";
+    ls->shortcutEmuAdvanceToChange = "Do przodu do następnej zmiany ekranu";
+    ls->shortcutEmuBackFrame    = "Jedna klatka wstecz";
+    ls->shortcutEmuBackToChange = "Wstecz do poprzedniej zmiany ekranu";
     ls->shortcutEmuSpeedToggle  = "Przełącz maksymalną prędkość emulacji";
     ls->shortcutEmuSpeedNormal  = "Normalna prędkość emulacji";
     ls->shortcutEmuSpeedInc     = "Zwiększ prędkość emulacji";

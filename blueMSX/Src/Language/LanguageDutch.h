@@ -862,6 +862,10 @@ void langInitDutch(LanguageStrings* ls)
     ls->shortcutToggleMouseLock = "PC-muis met MSX verbinden/loskoppelen";
     ls->shortcutEmuSpeedMax     = "Maximale emulatie snelheid";
     ls->shortcutEmuPlayReverse  = "Emulatie terugspoelen";                     // New in 2.8.3
+    ls->shortcutEmuFrameAdvance = "Eén frame vooruit";
+    ls->shortcutEmuAdvanceToChange = "Vooruit tot de volgende schermupdate";
+    ls->shortcutEmuBackFrame    = "Eén frame terug";
+    ls->shortcutEmuBackToChange = "Terug tot de vorige schermupdate";
     ls->shortcutEmuSpeedToggle  = "Maximum snelheid van de emulatie aan/uit";
     ls->shortcutEmuSpeedNormal  = "Normale emulatie snelheid";
     ls->shortcutEmuSpeedInc     = "Verhoog emulatie snelheid";

@@ -32,6 +32,8 @@
 extern "C" {
 #include "../../Win32Common.h"
 #include "../../Win32Menu.h"
+#include "../../Win32ShortcutsConfig.h"
+#include "Utf8Conv.h"
 #include "ArchMenu.h"
 #include "Actions.h"
 #include "Emulator.h"
@@ -90,6 +92,24 @@ static const char* refusalText(ActionRefusal why)
     case ACTION_REFUSED_WAITING:
     default:                           return NULL;
     }
+}
+
+/* what, with the keys of its shortcut while they would do it too. */
+static const char* withKey(char* buf, size_t size, const char* what, ShotcutHotkeySet Shortcuts::* keys,
+                           const char* whyNot)
+{
+    const Shortcuts* live = shortcutsLive();
+    char hint[256], name[192];
+    if (whyNot != NULL || live == NULL) {
+        return what;
+    }
+    AnyToUtf8(shortcutsSetToString(&(live->*keys)), name, sizeof(name));
+    if (name[0] == 0) {
+        return what;
+    }
+    textf(hint, sizeof(hint), ts(TS_DECK_KEY_HINT), name);
+    textf(buf, size, "%s%s", what, hint);
+    return buf;
 }
 
 /* Two frame-advance triangles, the left one in front, then the bar: run on to a new picture;
@@ -259,9 +279,12 @@ static void draw(ImGuiToolWindow*, void*)
     float gap = ui::Px(2), group = ui::Px(12);
 
     bool running = !stopped && !paused;
-    char none[128], backNone[256];
+    char runWhat[256], frameWhat[256], changeWhat[256], none[128];
+    char backWhat[256], backChangeWhat[256], backNone[256];
     if (deckButton("##run", running ? ICON_PAUSE : ICON_PLAY, running ? "||" : ">",
-                   ts(running ? TS_DECK_PAUSE_TIP : TS_DECK_RUN_TIP), gate)) {
+                   withKey(runWhat, sizeof(runWhat), ts(running ? TS_DECK_PAUSE_TIP : TS_DECK_RUN_TIP),
+                           &Shortcuts::emulationRunPause, gate),
+                   gate)) {
         menuPostRunCommand(MENU_RUN_TOGGLE_PAUSE);
     }
     ImGui::SameLine(0, gap);
@@ -285,17 +308,24 @@ static void draw(ImGuiToolWindow*, void*)
     }
 
     /* Each step back beside the step forward it mirrors. */
-    if (deckButton("##backFrame", ICON_PREV, "|<", backTip, backNot, backing == 1)) {
+    if (deckButton("##backFrame", ICON_PREV, "|<",
+                   withKey(backWhat, sizeof(backWhat), backTip, &Shortcuts::emuBackFrame, backNot), backNot,
+                   backing == 1)) {
         actionEmuBackFrame();
     }
     ImGui::SameLine(0, gap);
-    if (deckButton("##frame", ICON_NEXT, ">|", ts(waiting ? TS_DECK_FRAME_WAITING_TIP : TS_DECK_FRAME_TIP),
+    if (deckButton("##frame", ICON_NEXT, ">|",
+                   withKey(frameWhat, sizeof(frameWhat), ts(waiting ? TS_DECK_FRAME_WAITING_TIP : TS_DECK_FRAME_TIP),
+                           &Shortcuts::emuFrameAdvance, frameNot),
                    frameNot, waiting)) {
         actionEmuFrameAdvance();
     }
     ImGui::SameLine(0, gap);
 
-    if (deckDrawnButton("##backChange", drawBackChangeIcon, backChangeTip, backNot, backing == 2)) {
+    if (deckDrawnButton("##backChange", drawBackChangeIcon,
+                        withKey(backChangeWhat, sizeof(backChangeWhat), backChangeTip, &Shortcuts::emuBackToChange,
+                                backNot),
+                        backNot, backing == 2)) {
         actionEmuBackToChange();
     }
     ImGui::SameLine(0, gap);
@@ -308,7 +338,10 @@ static void draw(ImGuiToolWindow*, void*)
         textf(none, sizeof(none), ts(TS_DECK_CHANGE_NONE), emulatorChangeStepLimit());
         changeTip = none;
     }
-    if (deckDrawnButton("##change", drawChangeIcon, changeTip, changeNot, changing)) {
+    if (deckDrawnButton("##change", drawChangeIcon,
+                        withKey(changeWhat, sizeof(changeWhat), changeTip, &Shortcuts::emuAdvanceToChange,
+                                changeNot),
+                        changeNot, changing)) {
         actionEmuAdvanceToChange();
     }
     ImGui::SameLine(0, gap);

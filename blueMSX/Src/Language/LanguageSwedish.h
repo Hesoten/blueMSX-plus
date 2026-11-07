@@ -863,6 +863,10 @@ void langInitSwedish(LanguageStrings* ls)
     ls->shortcutToggleMouseLock = "Anslut/koppla från PC-mus till MSX";
     ls->shortcutEmuSpeedMax     = "Maximal Emuleringshastighet";
     ls->shortcutEmuPlayReverse  = "Spola tillbaka";                     // New in 2.8.3
+    ls->shortcutEmuFrameAdvance = "En bildruta framåt";
+    ls->shortcutEmuAdvanceToChange = "Framåt till nästa skärmuppdatering";
+    ls->shortcutEmuBackFrame    = "En bildruta bakåt";
+    ls->shortcutEmuBackToChange = "Bakåt till föregående skärmuppdatering";
     ls->shortcutEmuSpeedToggle  = "Växla Mellan Normal och Max Emuleringshastighet";
     ls->shortcutEmuSpeedNormal  = "Minska Emuleringhastigheten";
     ls->shortcutEmuSpeedInc     = "Öka Emuleringhastigheten";

@@ -862,6 +862,10 @@ void langInitKorean(LanguageStrings* ls)
     ls->shortcutToggleMouseLock = "PC 마우스를 MSX에 연결/해제";
     ls->shortcutEmuSpeedMax     = "최대 에뮬레이션 속도";
     ls->shortcutEmuPlayReverse  = "에뮬레이션 되감기";                     // New in 2.8.3
+    ls->shortcutEmuFrameAdvance = "한 프레임 앞으로";
+    ls->shortcutEmuAdvanceToChange = "다음 화면 갱신까지 앞으로";
+    ls->shortcutEmuBackFrame    = "한 프레임 뒤로";
+    ls->shortcutEmuBackToChange = "이전 화면 갱신까지 뒤로";
     ls->shortcutEmuSpeedToggle  = "에뮬레이션 속도 최대화 변환";
     ls->shortcutEmuSpeedNormal  = "보통 에뮬레이션 속도";
     ls->shortcutEmuSpeedInc     = "에뮬레이션 속도 증가";

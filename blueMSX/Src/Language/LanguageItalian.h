@@ -865,6 +865,10 @@ void langInitItalian(LanguageStrings* ls)
     ls->shortcutEmuSpeedToggle          = "Esegui alla massima velocità di emulazione";
     ls->shortcutEmuSpeedNormal          = "Ripristina la normale velocità di emulazione";
     ls->shortcutEmuPlayReverse          = "Emulazione a ritroso";                     // New in 2.8.3
+    ls->shortcutEmuFrameAdvance         = "Avanza di un fotogramma";
+    ls->shortcutEmuAdvanceToChange      = "Avanza fino al prossimo aggiornamento dello schermo";
+    ls->shortcutEmuBackFrame            = "Indietro di un fotogramma";
+    ls->shortcutEmuBackToChange         = "Indietro fino al precedente aggiornamento dello schermo";
     ls->shortcutEmuSpeedInc             = "Aumenta la velocità di emulazione";
     ls->shortcutEmuSpeedDec             = "Diminuisci la velocità di emulazione";
     ls->shortcutThemeSwitch             = "Cambia il tema corrente";

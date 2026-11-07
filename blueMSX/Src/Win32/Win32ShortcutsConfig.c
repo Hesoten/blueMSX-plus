@@ -1357,6 +1357,10 @@ static Shortcuts* loadShortcuts(char* profileName)
     LOAD_SHORTCUT(shortcutFile, emulationStop);
     LOAD_SHORTCUT(shortcutFile, emuSpeedFull);
     LOAD_SHORTCUT(shortcutFile, emuPlayReverse);
+    LOAD_SHORTCUT(shortcutFile, emuFrameAdvance);
+    LOAD_SHORTCUT(shortcutFile, emuBackFrame);
+    LOAD_SHORTCUT(shortcutFile, emuAdvanceToChange);
+    LOAD_SHORTCUT(shortcutFile, emuBackToChange);
     LOAD_SHORTCUT(shortcutFile, emuSpeedToggle);
     LOAD_SHORTCUT(shortcutFile, emuSpeedNormal);
     LOAD_SHORTCUT(shortcutFile, emuSpeedInc);
@@ -1488,6 +1492,10 @@ static int saveShortcuts(char* profileName, Shortcuts* shortcuts)
     SAVE_SHORTCUT(shortcutFile, emulationStop);
     SAVE_SHORTCUT(shortcutFile, emuSpeedFull);
     SAVE_SHORTCUT(shortcutFile, emuPlayReverse);
+    SAVE_SHORTCUT(shortcutFile, emuFrameAdvance);
+    SAVE_SHORTCUT(shortcutFile, emuBackFrame);
+    SAVE_SHORTCUT(shortcutFile, emuAdvanceToChange);
+    SAVE_SHORTCUT(shortcutFile, emuBackToChange);
     SAVE_SHORTCUT(shortcutFile, emuSpeedToggle);
     SAVE_SHORTCUT(shortcutFile, emuSpeedNormal);
     SAVE_SHORTCUT(shortcutFile, emuSpeedInc);
@@ -1702,6 +1710,10 @@ static void shortcutsForEachAction(Shortcuts* s, ShortcutActionVisitor visit, vo
     ADD_SHORTCUTSEPARATOR();
     
     ADD_SHORTCUT(emuPlayReverse, langShortcutEmuPlayReverse());
+    ADD_SHORTCUT(emuFrameAdvance, langShortcutEmuFrameAdvance());
+    ADD_SHORTCUT(emuBackFrame, langShortcutEmuBackFrame());
+    ADD_SHORTCUT(emuAdvanceToChange, langShortcutEmuAdvanceToChange());
+    ADD_SHORTCUT(emuBackToChange, langShortcutEmuBackToChange());
     
     ADD_SHORTCUTSEPARATOR();
 
@@ -2468,6 +2480,11 @@ Shortcuts* shortcutsCreateProfile(char* profileName)
     inputSetShortcutDikCounter(shortcutsCountActionsUsingDik);
     inputSetShortcutDikDescriber(shortcutsDescribeActionsUsingDik);
     inputSetShortcutDeviceArrival(shortcutsAdoptArrivedDevices);
+    return liveShortcuts;
+}
+
+const Shortcuts* shortcutsLive(void)
+{
     return liveShortcuts;
 }
 

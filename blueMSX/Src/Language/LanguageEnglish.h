@@ -884,6 +884,10 @@ void langInitEnglish(LanguageStrings* ls)
     ls->shortcutToggleMouseLock = "Connect/disconnect PC mouse to MSX";
     ls->shortcutEmuSpeedMax     = "Max emulation speed";
     ls->shortcutEmuPlayReverse  = "Rewind emulation";                     // New in 2.8.3
+    ls->shortcutEmuFrameAdvance = "Advance one frame";
+    ls->shortcutEmuAdvanceToChange = "Advance to the next screen update";
+    ls->shortcutEmuBackFrame    = "Back one frame";
+    ls->shortcutEmuBackToChange = "Back to the previous screen update";
     ls->shortcutEmuSpeedToggle  = "Toggle max emulation speed";
     ls->shortcutEmuSpeedNormal  = "Normal emulation speed";
     ls->shortcutEmuSpeedInc     = "Increase emulation speed";

@@ -1074,6 +1074,10 @@ char* langShortcutSwitchPause() { return ls->shortcutSwitchPause; }
 char* langShortcutToggleMouseLock() { return ls->shortcutToggleMouseLock; }
 char* langShortcutEmuSpeedMax() { return ls->shortcutEmuSpeedMax; }
 char* langShortcutEmuPlayReverse() { return ls->shortcutEmuPlayReverse; }
+char* langShortcutEmuFrameAdvance() { return ls->shortcutEmuFrameAdvance; }
+char* langShortcutEmuAdvanceToChange() { return ls->shortcutEmuAdvanceToChange; }
+char* langShortcutEmuBackFrame() { return ls->shortcutEmuBackFrame; }
+char* langShortcutEmuBackToChange() { return ls->shortcutEmuBackToChange; }
 char* langShortcutEmuSpeedMaxToggle() { return ls->shortcutEmuSpeedToggle; }
 char* langShortcutEmuSpeedNormal() { return ls->shortcutEmuSpeedNormal; }
 char* langShortcutEmuSpeedInc() { return ls->shortcutEmuSpeedInc; }
