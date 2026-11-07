@@ -79,6 +79,7 @@ struct Pending {
     UInt64 vsync;           /* the first frame display end (vint) at or after t0 */
     UInt32 frames;
     UInt32 frameLo;
+    UInt64 firstVint;
     UInt64 shownVint;
     Int32  page;
     UInt32 flags;
@@ -158,6 +159,7 @@ struct Geo3DPerf {
     UInt64 openT, openVsync;
     UInt32 openFrames, openFlags;
     UInt32 openFrameLo;
+    UInt64 openFirstVint;       /* the display end of its first frame counted, 0 none yet */
     UInt32 nextFlags;           /* for the next picture to open */
     int    perFrame;
     UInt32 period;
@@ -324,6 +326,7 @@ static void settleOne(Geo3DPerf* p, const Pending& q)
     pic.t1     = q.t1;
     pic.frames = q.frames;
     pic.frameLo = q.frameLo;
+    pic.firstVint = q.firstVint;
     pic.shownVint = q.shownVint;
     pic.period = p->period;
     pic.page   = q.page;
@@ -504,6 +507,7 @@ static void closePicture(Geo3DPerf* p, UInt64 t0, UInt64 t1, UInt32 frames, UInt
     q.vsync = p->openVsync;
     q.frames = frames;
     q.frameLo = p->openFrameLo;
+    q.firstVint = p->openFirstVint;
     q.shownVint = shown;
     q.page = page == NO_PAGE ? -1 : (Int32)page;
     q.flags = flags;
@@ -519,6 +523,7 @@ static void openPicture(Geo3DPerf* p, UInt64 t, UInt64 vsync, UInt32 frames, UIn
     p->openVsync = vsync;
     p->openFrames = frames;
     p->openFrameLo = link != 0 ? link + (frames == 0 ? 1 : 0) : 0;
+    p->openFirstVint = 0;
     p->openFlags = p->nextFlags;
     p->nextFlags = 0;
 }
@@ -585,14 +590,17 @@ static void onFrame(Geo3DPerf* p, UInt64 time, UInt32 page, UInt32 link)
         ** one just ended, the first to show the new page, as the one before went to the
         ** picture closed. */
         openPicture(p, cut, cut <= p->prevT ? p->prevT : time, 1, link);
+        p->openFirstVint = time;
         p->prevPage = page;
     }
     else if (p->perFrame) {
+        if (p->openFirstVint == 0) p->openFirstVint = time;
         closePicture(p, p->openT, time, 1, p->prevPage, p->openFlags | G3P_NO_FLIP, 0);
         openPicture(p, time, time, 0, link);
     }
     else {
         p->openFrames++;
+        if (p->openFirstVint == 0) p->openFirstVint = time;
         UInt32 limit = p->period ? (UInt32)((2ull * boardFrequency() + p->period - 1) / p->period) : 0;
         if (limit > 0 && p->openFrames >= limit) {
             closePicture(p, p->openT, time, p->openFrames, p->prevPage, p->openFlags | G3P_NO_FLIP | G3P_CUT, 0);
@@ -628,6 +636,7 @@ static void rewindTo(Geo3DPerf* p, UInt64 oldT, UInt64 newT)
     for (int i = 0; i < n; i++) {
         v.pic[i].t0 += delta;
         v.pic[i].t1 += delta;
+        if (v.pic[i].firstVint != 0) v.pic[i].firstVint += delta;
         if (v.pic[i].shownVint != 0) v.pic[i].shownVint += delta;
     }
     if (n > 0) {
@@ -728,11 +737,14 @@ static void rewindTo(Geo3DPerf* p, UInt64 oldT, UInt64 newT)
     p->open = true;
     p->openT = start;
     p->openVsync = vint;
-    /* A picture opened at a display end counts from the frame after it, as openPicture does. */
-    UInt64 first = vint == start ? vint + period : vint;
+    /* Its first frame: after k's last, or k's own when across; without them, a picture opened at
+    ** a display end counts from the frame after it, as openPicture does. */
+    UInt64 first = k.firstVint != 0 ? (across ? k.firstVint : k.firstVint + (UInt64)k.frames * period) :
+                   vint == start ? vint + period : vint;
     p->openFrames = newT >= first ? (UInt32)((newT - first) / period) + 1 : 0;
     /* The one after k starts at the frame after k's last. */
     p->openFrameLo = k.frameLo == 0 ? 0 : across ? k.frameLo : k.frameLo + k.frames;
+    p->openFirstVint = p->openFrames > 0 ? first : 0;
     p->openFlags = across ? 0 : openFlags;
     p->nextFlags = 0;
 }

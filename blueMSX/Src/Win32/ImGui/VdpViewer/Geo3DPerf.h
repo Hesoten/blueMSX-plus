@@ -77,6 +77,7 @@ struct Geo3DPerfPicture {
     UInt32 number;          /* from 1 since the fold began */
     UInt32 frames;          /* whole frames from t0 to t1 */
     UInt32 frameLo;         /* the machine frame number of the first of them, as the deck counts; 0 unknown */
+    UInt64 firstVint;       /* board ticks: the display end (vint) of the first of them; 0 unknown */
     UInt64 shownVint;       /* board ticks: the display end of the first frame showing its page; 0 no flip */
     UInt32 period;          /* board ticks a frame, as measured then */
     Int32  page;            /* the page shown from t1, or -1 */

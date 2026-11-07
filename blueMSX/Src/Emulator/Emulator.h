@@ -132,6 +132,9 @@ void emulatorRequestBackStep(int picture);
 ** shows it and pauses, as a step back does. 0, changing nothing, when not before the frame shown,
 ** not within the snapshots, or another chip paces the screen; 1 when started. */
 int  emulatorRewindToVint(UInt32 vintTime);
+/* While paused: emulatorRewindToVint(vintTime) would start now, by the same checks but
+** without waiting for the thread to park; 0 until it has. */
+int  emulatorCanRewindToVint(UInt32 vintTime);
 /* 1 while a step back one frame runs, 2 while one back to another picture runs (its replay for
 ** the lead too), 3 while emulatorRewindToVint runs, else 0. */
 int  emulatorBackStepPending(void);

@@ -83,6 +83,7 @@ public:
 
 private:
     int  selectedIndex() const;
+    UInt64 backVint(int i) const;
     void draw(float h);
     void barsCard(float h);
     void chart(float h);

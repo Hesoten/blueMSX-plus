@@ -552,6 +552,7 @@ TS(G3D_PERF_TIP_CMDS,         "VDP commands: %u for geo3d, %u for the CPU \xC2\x
 TS(G3D_PERF_TIP_CUT,          "The record breaks off or work spans a flip, so the values are not exact.", "記録の途切れなどのため、値は正確ではありません。")
 TS(G3D_PERF_TIP_DROPPED,      "Some trace records were lost: the times may be short.", "記録の一部が失われました。時間が実際より短く表示される場合があります。")
 TS(G3D_PERF_TIP_NO_FLIP,      "No page flip in it.", "ページの切り替えがありません。")
+TS(G3D_PERF_TIP_BACK,         "Double-click: go back to this screen update", "ダブルクリック:" NB "この画面更新まで戻る")
 TS(G3D_PERF_WHY_AVG,          "%.1f ms (average %.1f)", "%.1f" NB "ms（平均" NB "%.1f）")
 TS(G3D_PERF_WHY_SLOW,         "%.1f ms (average %.1f) \xC2\xB7 %s +%.1f ms", "%.1f" NB "ms（平均" NB "%.1f）\xC2\xB7 %s" NB "+%.1f" NB "ms")
 TS(G3D_PERF_WHY_NOBASE,       "No earlier whole screen update to compare it with yet.", "比較できる前の画面更新がまだありません。")

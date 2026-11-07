@@ -35,6 +35,7 @@
 #include "VdpDecode.h"
 #include "ToolText.h"
 extern "C" {
+#include "Actions.h"
 #include "Board.h"
 #include "Emulator.h"
 #include "DebugTrace.h"
@@ -471,7 +472,22 @@ void Geo3DPerfStrip::chart(float h)
             selNumber = view->pic[hot].number;
             pinObj = pinRun = 0;
         }
+        UInt64 back = hovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) ? backVint(hot) : 0;
+        if (back != 0) emulatorRewindToVint((UInt32)back);
     }
+}
+
+/* Paused, with a step back allowed, the display end where picture i first showed whole: the
+** first frame of the one after it, or its own without a flip; 0 when there is none, it is on
+** screen now, or the rewind would not reach it. */
+UInt64 Geo3DPerfStrip::backVint(int i) const
+{
+    if (emulatorGetState() != EMU_PAUSED || actionBackStepRefusal() != ACTION_OK) return 0;
+    if (i < 0 || i + 1 >= view->count) return 0;
+    UInt64 v = view->pic[i].firstVint;
+    /* After a gap the next one's first frame may not follow this one. */
+    if (!(view->pic[i].flags & G3P_NO_FLIP)) v = (view->pic[i + 1].flags & G3P_GAP) ? 0 : view->pic[i + 1].firstVint;
+    return v != 0 && emulatorCanRewindToVint((UInt32)v) ? v : 0;
 }
 
 bool Geo3DPerfStrip::onScreenAt(UInt32 number, UInt32 frameStart) const
@@ -530,6 +546,7 @@ void Geo3DPerfStrip::tooltip(int i)
     if (p.flags & G3P_CUT) ImGui::TextWrapped("%s", ts(TS_G3D_PERF_TIP_CUT));
     if (p.flags & G3P_DROPPED) ImGui::TextWrapped("%s", ts(TS_G3D_PERF_TIP_DROPPED));
     if (p.flags & G3P_NO_FLIP) ImGui::TextWrapped("%s", ts(TS_G3D_PERF_TIP_NO_FLIP));
+    if (backVint(i) != 0) ImGui::TextWrapped("%s", ts(TS_G3D_PERF_TIP_BACK));
     ImGui::PopTextWrapPos();
     ImGui::PopStyleColor();
     ImGui::EndTooltip();
