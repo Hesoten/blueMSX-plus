@@ -94,6 +94,10 @@ static void tap(EmuTapPoint point)
         ReleaseSRWLockExclusive(&lock);
         return;
     }
+    /* Mid-replay: no feed copies a state that is not on screen. */
+    if (point == EMU_TAP_REPLAY) {
+        return;
+    }
     if (!anyWanted || !emulatorIsEmuThread()) {
         return;
     }

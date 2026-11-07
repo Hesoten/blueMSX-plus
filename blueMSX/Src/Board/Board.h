@@ -101,9 +101,11 @@ int boardRun(Machine* machine,
 
 int boardRewind();
 int boardRewindOne();
-/* Loads the newest snapshot taken at or before the board time given, dropping the newer
-** ones; 0 when there is none. */
-int boardRewindTo(UInt32 before);
+/* Drops the snapshots taken after dropAfter and loads the newest one left taken at or before
+** loadAt (else the oldest), keeping those after it; 0 when none is at or before dropAfter. */
+int boardRewindTo(UInt32 loadAt, UInt32 dropAfter);
+/* Drops the snapshots taken after the board time given, keeping at least one. */
+void boardRewindForget(UInt32 after);
 void boardEnableSnapshots(int enable);
 
 BoardType boardGetType();

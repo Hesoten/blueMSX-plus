@@ -70,6 +70,7 @@ static int WaitForSync(int maxSpeed, int stopCause);
 
 static EMU_THREAD_LOCAL int emuOnThisThread;
 static volatile EmuTapFn emuTap;
+static volatile EmuRewindLeadFn emuRewindLead;
 
 /* Reverse play, on the emulation thread: 0 idle, 1 running a snapshot on to the frame
 ** before the one shown, 2 arrived. Board times: rwShownVint the end of active display of
@@ -86,6 +87,10 @@ static UInt32 rwCutVint;
 
 void emulatorSetTap(EmuTapFn fn) {
     emuTap = fn;
+}
+
+void emulatorSetRewindLead(EmuRewindLeadFn fn) {
+    emuRewindLead = fn;
 }
 
 int emulatorIsEmuThread(void) {
@@ -1573,31 +1578,69 @@ static int backStepEnds(int ranOut)
     return ends;
 }
 
+/* The board time a step stopping at stopAt loads at or before: usual, or earlier when the
+** lead hook asks, by at most a second. */
+static UInt32 rewindLoadAt(UInt32 stopAt, UInt32 usual)
+{
+    EmuRewindLeadFn fn = emuRewindLead;
+    UInt32 r, lead;
+
+    if (fn == NULL) {
+        return usual;
+    }
+    r = fn(stopAt);
+    if ((Int32)(r - stopAt) >= 0) {
+        return usual;
+    }
+    lead = r - boardFrequency() / 1000;
+    if ((Int32)(lead - usual) > 0) {
+        return usual;
+    }
+    /* Measured as a distance, so a lead from long ago cannot wrap past the limit. */
+    if ((UInt32)(usual - lead) > boardFrequency()) {
+        lead = usual - boardFrequency();
+    }
+    return lead;
+}
+
+/* A replay runs in slices of at most this many ms, so the sync can take a suspend between. */
+#define RW_SLICE_MS 20
+
+static int rwSlice(UInt32 ticks)
+{
+    int ms = rwTicksToMs(ticks);
+    return ms > RW_SLICE_MS ? -RW_SLICE_MS : -ms;
+}
+
 /* One step of reverse play a frame back, at the refresh rate: loads a snapshot from before
 ** the frame on screen and runs it on to the end of active display of the frame before it,
 ** where emulatorShownDisplayEnded shows it. */
 static int WaitReverse(void)
 {
-    UInt32 period, now, step, due;
+    UInt32 period, now, step, due, usual;
     int rate;
     int fallback;
     int ranOut = 0;
+    int backKind;
 
     boardEnableSnapshots(0);
     if (emuState != EMU_RUNNING || emuExitFlag) {
         /* Stopped mid-replay: the next step starts from here, never runs past the target.
-        ** A step back suspended goes on with its replay after the resume. */
-        if (rwPhase == 1 && !(emuState == EMU_SUSPENDED && backStep && !emuExitFlag)) {
+        ** Suspended (a menu, a window move), the replay goes on after the resume. */
+        if (rwPhase == 1 && !(emuState == EMU_SUSPENDED && !emuExitFlag)) {
             rwPhase = 2;
             rwShownVint = rwLo;
             rwCut = 1;
             rwCutVint = rwBudgetEnd;
+            /* An early load keeps snapshots that may now lie ahead of the machine. */
+            boardRewindForget(boardSystemTime());
         }
         return RW_RUN_ON;
     }
     /* A breakpoint or another sync before the replay ends: run on to the frame. */
     if (rwPhase == 1 && (Int32)(rwBudgetEnd - boardSystemTime()) > 0) {
-        return -rwTicksToMs(rwBudgetEnd - boardSystemTime());
+        emulatorTap(EMU_TAP_REPLAY);
+        return rwSlice(rwBudgetEnd - boardSystemTime());
     }
     /* Arrived: the machine is at the frame on screen, so tools copy it as they do when paused. */
     if (rwPhase == 2) {
@@ -1673,8 +1716,12 @@ static int WaitReverse(void)
     rwPhase = 0;
     backFromCut = 0;
 
-    /* From before the start of the frame to stop at, so it is drawn whole. */
-    if (fallback ? !boardRewind() : !boardRewindTo(rwShownVint - period * 5 / 2)) {
+    /* From before the start of the frame to stop at, so it is drawn whole. Shift+F3 runs
+    ** many steps, so only the others may ask to start earlier. */
+    usual = rwShownVint - period * 5 / 2;
+    backKind = backStep;
+    if (fallback ? !boardRewind() :
+        !boardRewindTo(backKind != 2 ? rewindLoadAt(rwLo, usual) : usual, usual)) {
         /* No snapshot left to restore. Granting emulated time here is what
         ** used to run the guest forward, muted, for as long as the key was
         ** held. Begun from a pause, it pauses there until the key is let go. */
@@ -1703,7 +1750,9 @@ static int WaitReverse(void)
     due = rwShownVint;
     rwBudgetEnd = due;
     rwPhase = 1;
-    return -rwTicksToMs(due - boardSystemTime());
+    /* Tools drain what the load logged before a long replay can fill their logs. */
+    emulatorTap(EMU_TAP_REPLAY);
+    return rwSlice(due - boardSystemTime());
 }
 
 static int WaitForSync(int maxSpeed, int stopCause) {

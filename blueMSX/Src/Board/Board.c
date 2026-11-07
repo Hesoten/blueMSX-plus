@@ -1224,15 +1224,16 @@ int boardRewind()
     return boardRewindLoad(1);
 }
 
-int boardRewindTo(UInt32 before)
+int boardRewindTo(UInt32 loadAt, UInt32 dropAfter)
 {
-    int skip;
+    int skip, back;
+    char stateFile[16];
     if (stateFrequency <= 0 || diskHasHostMedium()) {
         return 0;
     }
     for (skip = 0; skip < ramStateCount; skip++) {
         int slot = (ramStateCur + ramMaxStates - skip) % ramMaxStates;
-        if ((Int32)(ramStateTime[slot] - before) <= 0) {
+        if ((Int32)(ramStateTime[slot] - dropAfter) <= 0) {
             break;
         }
     }
@@ -1242,8 +1243,29 @@ int boardRewindTo(UInt32 before)
     while (skip-- > 0) {
         boardRewindDrop();
     }
+    for (back = 0; back < ramStateCount - 1; back++) {
+        int slot = (ramStateCur + ramMaxStates - back) % ramMaxStates;
+        if ((Int32)(ramStateTime[slot] - loadAt) <= 0) {
+            break;
+        }
+    }
     /* Kept: the next step back may land on it again. */
-    return boardRewindLoad(0);
+    if (back == 0) {
+        return boardRewindLoad(0);
+    }
+    /* An older one, loaded without dropping those after it, which later steps still use. */
+    sprintf(stateFile, "mem%d", (ramStateCur + ramMaxStates - back) % ramMaxStates);
+    if (diskHasHostMedium()) {
+        return 0;
+    }
+    return boardLoadStateInPlace(stateFile);
+}
+
+void boardRewindForget(UInt32 after)
+{
+    while (ramStateCount > 1 && (Int32)(ramStateTime[ramStateCur] - after) > 0) {
+        boardRewindDrop();
+    }
 }
 
 static int boardRewindLoad(int drop)

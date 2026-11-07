@@ -153,9 +153,16 @@ void emulatorRefreshFromSource();
 ** also on the UI thread (soft reset): check emulatorIsEmuThread(). IDLE comes every few
 ** ms while paused, and once per reverse play step. STOPPED: emulatorStop ended the thread. */
 typedef enum { EMU_TAP_FRAME, EMU_TAP_IDLE, EMU_TAP_STOPPED, EMU_TAP_BARRIER, EMU_TAP_V9990_SHOWN,
-               EMU_TAP_VDP_SHOWN } EmuTapPoint;
+               EMU_TAP_VDP_SHOWN,
+               EMU_TAP_REPLAY /* between slices of a reverse play replay: drain logs, copy nothing */
+             } EmuTapPoint;
 typedef void (*EmuTapFn)(EmuTapPoint point);
 void emulatorSetTap(EmuTapFn fn);
+/* Asked on the emu thread, outside the suspend barrier, before a reverse play step to the display
+** end at or after stopAt (board time, low 32 bits) loads: when to start, stopAt or later for none.
+** Never hold a lock the hook takes while waiting for the emulation thread. */
+typedef UInt32 (*EmuRewindLeadFn)(UInt32 stopAt);
+void emulatorSetRewindLead(EmuRewindLeadFn fn);
 int  emulatorIsEmuThread(void);
 /* Calls the hook. On the emulator thread, the V9990 calls it with V9990_SHOWN once it has
 ** drawn a frame's last displayed line, and the machine VDP with VDP_SHOWN at the end of its
