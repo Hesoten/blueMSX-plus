@@ -1766,8 +1766,8 @@ void setTapePosition(HWND parent, Properties* pProperties) {
 
 ///////////////////////////////////////////////////////////////////////////
 
-/* ignoreMods: mods on a release come from the input poll, so they can
-** differ from the press. */
+/* ignoreMods: for a release, whose press may have gone to another window with
+** other modifiers. */
 static unsigned hotkeySetSlotMask(ShotcutHotkey key, const ShotcutHotkeySet* set, int ignoreMods)
 {
     unsigned mask = 0;
@@ -1789,6 +1789,32 @@ static int hotkeySetMatches(ShotcutHotkey key, const ShotcutHotkeySet* set)
 }
 
 #define hotkeyEq(hotkey1, hotkey2Set) hotkeySetMatches((hotkey1), &(hotkey2Set))
+
+/* The modifiers of each key's press, plus 0x100, while it is down; 0 when its press was
+** not seen here. */
+static unsigned short pressMods[256];
+
+/* A key message as a hotkey. A release and the repeats take the modifiers of the press,
+** so letting go of a modifier before the key still makes the combination. */
+static ShotcutHotkey hotkeyOfKeyMessage(UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    ShotcutHotkey key;
+    int vk = (int)(wParam & 0xff);
+
+    key.type = HOTKEY_TYPE_KEYBOARD;
+    key.key  = vk;
+    if (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN) {
+        if ((lParam & (1 << 30)) == 0 || pressMods[vk] == 0) {
+            pressMods[vk] = (unsigned short)(0x100 | keyboardMessageModifiers());
+        }
+        key.mods = pressMods[vk] & 0xff;
+    }
+    else {
+        key.mods = pressMods[vk] != 0 ? (pressMods[vk] & 0xff) : keyboardMessageModifiers();
+        pressMods[vk] = 0;
+    }
+    return key;
+}
 
 /* A shortcut bound to joy N button M fires on slot N-1's button M. */
 static unsigned joyHotkeyCode(int slot, int button)
@@ -3608,23 +3634,15 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
     case WM_SYSKEYDOWN:
     case WM_KEYDOWN:
         {
-            ShotcutHotkey key;
             keyboardKeyDownMessage(wParam, lParam);
-            key.type = HOTKEY_TYPE_KEYBOARD;
-            key.mods = keyboardGetModifiers();
-            key.key  = wParam & 0xff;
-            checkKeyDown(st.shortcuts, key, (lParam & (1 << 30)) != 0);
+            checkKeyDown(st.shortcuts, hotkeyOfKeyMessage(iMsg, wParam, lParam), (lParam & (1 << 30)) != 0);
         }
         return 0;
 
     case WM_SYSKEYUP:
     case WM_KEYUP:
         {
-            ShotcutHotkey key;
-            key.type = HOTKEY_TYPE_KEYBOARD;
-            key.mods = keyboardGetModifiers();
-            key.key  = wParam & 0xff;
-            checkKeyUp(st.shortcuts, key);
+            checkKeyUp(st.shortcuts, hotkeyOfKeyMessage(iMsg, wParam, lParam));
         }
         return 0;
 

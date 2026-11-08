@@ -110,6 +110,9 @@ void keyboardKeyDownMessage(WPARAM wParam, LPARAM lParam);
 int keyboardIsImeLatchKey(int scan, int vk);
 
 int keyboardGetModifiers();
+/* KBD_* bits as they stood when the key message being handled was sent, which the
+** input poll may not have read yet. UI thread only. */
+int keyboardMessageModifiers(void);
 
 void joystickUpdate();
 void joystickSetPolling(int enable);

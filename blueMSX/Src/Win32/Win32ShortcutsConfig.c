@@ -999,7 +999,7 @@ static LRESULT CALLBACK hotkeyCtrlProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPAR
         ** releases undo. */
         if (!(lParam & (1 << 30))) keycount++;
         keyboardUpdate();
-        modifiers = keyboardGetModifiers();
+        modifiers = keyboardMessageModifiers();
         virtKey = wParam & 0xff;
         if (!virtualKeys[virtKey][0]) {
             virtKey = 0;
@@ -1027,7 +1027,7 @@ static LRESULT CALLBACK hotkeyCtrlProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPAR
         }
         if (virtKey == 0) {
             keyboardUpdate();
-            modifiers = keyboardGetModifiers();
+            modifiers = keyboardMessageModifiers();
         }
         if (keycount == 0 && virtKey != 0) {
             ShotcutHotkey h;
