@@ -1424,6 +1424,9 @@ static LRESULT CALLBACK wndProc(HWND wnd, UINT msg, WPARAM wParam, LPARAM lParam
         return 0;
     }
     ContextScope scope(w->ctx);
+    if (shortcutKeyFromToolWindow(msg, wParam, lParam, w->ctx && ImGui::GetIO().WantTextInput)) {
+        return 0;
+    }
     if (w->ctx && ImGui_ImplWin32_WndProcHandler(wnd, msg, wParam, lParam)) {
         return 1;
     }

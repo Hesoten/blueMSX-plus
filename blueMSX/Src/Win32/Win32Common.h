@@ -79,6 +79,11 @@ typedef enum {
 void heldActionPress(HeldAction action, unsigned bits);
 void heldActionRelease(HeldAction action, unsigned bits);
 
+/* A message to a tool window, for the shortcuts; textInput while a text field takes the keys.
+** Non-zero when it is used up: a press bound to a shortcut, which the main window then runs
+** once this message is done, or its character. UI thread only. */
+int shortcutKeyFromToolWindow(UINT msg, WPARAM wParam, LPARAM lParam, int textInput);
+
 /* Show / update / hide a tracking tooltip showing a slider's value next to
 ** the cursor.  *phwndTip caches the tooltip HWND (one per parent window),
 ** created lazily on first show.  text is UTF-8; pass NULL to hide. */

@@ -2008,6 +2008,9 @@ static void checkKeyUp(Shortcuts* s, ShotcutHotkey key)
 #define WM_UPDATE            (WM_USER + 1245)
 #define WM_LAUNCHFILE        (WM_USER + 1249)
 #define WM_FLASHPROBLEM      (WM_USER + 1250)
+/* A shortcut key from a tool window: wParam the hotkey, lParam 0 for a release, 1 for a
+** press and 2 for a repeat. */
+#define WM_TOOLSHORTCUT      (WM_USER + 1252)
 #ifdef BMSX_RACE_TEST
 /* Arms a race test point: wParam the point, lParam the milliseconds; point 0 dumps the activity log
 ** and RACE_HOLD_CHANGE holds a change open as a menu does, for lParam ms. */
@@ -2357,6 +2360,69 @@ HWND getMainHwnd()
 HWND getEmuHwnd()
 {
     return st.emuHwnd;
+}
+
+/* Posted, not run here: an action that opens a dialog would let the tool window be
+** closed under its own message. A release goes only after a press that went, as a text
+** field may have taken the press. */
+int shortcutKeyFromToolWindow(UINT msg, WPARAM wParam, LPARAM lParam, int textInput)
+{
+    static BYTE forwarded[256];
+    static int dropChar;
+    int vk = (int)(wParam & 0xff);
+    ShotcutHotkey key;
+    DWORD packed;
+    LPARAM kind;
+
+    if (msg == WM_CHAR || msg == WM_SYSCHAR) {
+        /* The character of a press used up here: after Alt it would only beep. */
+        int used = dropChar;
+        dropChar = 0;
+        return used;
+    }
+    if (msg == WM_KILLFOCUS) {
+        /* The releases go elsewhere now: let go of what the keys hold. */
+        memset(forwarded, 0, sizeof(forwarded));
+        dropChar = 0;
+        shortcutsReleaseHeldActions();
+        return 0;
+    }
+    if (msg == WM_KEYUP || msg == WM_SYSKEYUP) {
+        dropChar = 0;
+        if (!forwarded[vk]) {
+            pressMods[vk] = 0;
+            return 0;
+        }
+        forwarded[vk] = 0;
+        kind = 0;
+    }
+    else if (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN) {
+        dropChar = 0;
+        kind = (lParam & (1 << 30)) != 0 ? 2 : 1;
+        if (kind == 1) {
+            forwarded[vk] = 0;
+        }
+        if (textInput) {
+            return 0;
+        }
+    }
+    else {
+        return 0;
+    }
+    if (st.shortcuts == NULL) {
+        return 0;
+    }
+    key = hotkeyOfKeyMessage(msg, wParam, lParam);
+    if (kind != 0) {
+        if (!shortcutsHasHotkey(st.shortcuts, key)) {
+            return 0;
+        }
+        forwarded[vk] = 1;
+        dropChar = 1;
+    }
+    memcpy(&packed, &key, sizeof(packed));
+    PostMessage(st.hwnd, WM_TOOLSHORTCUT, (WPARAM)packed, kind);
+    return kind != 0;
 }
 
 void archShowPropertiesDialog(PropPage  startPane) {
@@ -3572,6 +3638,27 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         }
         return 0;
 #endif
+
+    case WM_TOOLSHORTCUT:
+        {
+            ShotcutHotkey key;
+            DWORD packed = (DWORD)wParam;
+            memcpy(&key, &packed, sizeof(key));
+            if (st.shortcuts == NULL) {
+                return 0;
+            }
+            /* Nothing may run behind a modal dialog, but a release still lets go of a hold. */
+            if (!IsWindowEnabled(hwnd)) {
+                if (lParam == 0) shortcutsReleaseHeldActions();
+            }
+            else if (lParam == 0) {
+                checkKeyUp(st.shortcuts, key);
+            }
+            else {
+                checkKeyDown(st.shortcuts, key, lParam == 2);
+            }
+        }
+        return 0;
 
     case WM_FLASHPROBLEM:
         if (lParam != 0 && st.hidden) {

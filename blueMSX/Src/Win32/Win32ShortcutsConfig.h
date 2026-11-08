@@ -167,6 +167,8 @@ int shortcutsShowDialog(HWND hwnd, Properties* pProperties);
 char* shortcutsToString(ShotcutHotkey hotkey);
 char* shortcutsSetToString(const ShotcutHotkeySet* set);
 int shortcutSetHasHotkey(const ShotcutHotkeySet* set, ShotcutHotkey hotkey);
+/* Whether any shortcut of the profile is bound to hotkey, modifiers and all. */
+int shortcutsHasHotkey(const Shortcuts* shortcuts, ShotcutHotkey hotkey);
 
 /* Both read the dialog's working copy while it is open, else the live
 ** profile. */

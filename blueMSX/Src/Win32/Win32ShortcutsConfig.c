@@ -516,6 +516,17 @@ int shortcutSetHasHotkey(const ShotcutHotkeySet* set, ShotcutHotkey hotkey)
     return 0;
 }
 
+int shortcutsHasHotkey(const Shortcuts* shortcuts, ShotcutHotkey hotkey)
+{
+    const ShotcutHotkeySet* sets = (const ShotcutHotkeySet*)shortcuts;
+    int n = (int)(sizeof(Shortcuts) / sizeof(ShotcutHotkeySet));
+    int i;
+    for (i = 0; shortcuts != NULL && i < n; i++) {
+        if (shortcutSetHasHotkey(&sets[i], hotkey)) return 1;
+    }
+    return 0;
+}
+
 char* shortcutsSetToString(const ShotcutHotkeySet* set)
 {
     static char buf[192];
