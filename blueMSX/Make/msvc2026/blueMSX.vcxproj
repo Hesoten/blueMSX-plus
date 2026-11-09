@@ -665,6 +665,110 @@
     <ClCompile Include="..\..\Src\Win32\Win32.c" />
     <ClCompile Include="..\..\Src\Win32\Win32MediaFoundation.cpp" />
     <ClCompile Include="..\..\Src\Win32\Win32Recorder.cpp" />
+    <ClCompile Include="..\..\Src\ThirdParty\imgui\imgui.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\ThirdParty\imgui\imgui_draw.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\ThirdParty\imgui\imgui_tables.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\ThirdParty\imgui\imgui_widgets.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\ThirdParty\imgui\backends\imgui_impl_dx11.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\ThirdParty\imgui\backends\imgui_impl_win32.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\ImGuiWindow.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\ImGuiTheme.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\LiveFeed.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\ImGuiTexture.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\ImGuiWidgets.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\VdpDecode.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\VdpRaster.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\VdpSprite.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\VdpParts.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\VdpViewer.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\ChipFeed.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\RegTables.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\RegTablesV99x8.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\RegTablesV9990.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\V99x8View.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\V9990Decode.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\V9990Sprite.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\V9990View.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\ToolText.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\ControlDeck\ControlDeck.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
     <ClCompile Include="..\..\Src\Win32\Win32Bitmap.c" />
     <ClCompile Include="..\..\Src\Win32\Win32Cdrom.c" />
     <ClCompile Include="..\..\Src\Win32\Win32D3D12.cpp" />
@@ -1074,6 +1178,34 @@
     <ClInclude Include="..\..\Src\Win32\BlueMSXToolInterface.h" />
     <ClInclude Include="..\..\Src\Win32\Win32MediaFoundation.h" />
     <ClInclude Include="..\..\Src\Win32\Win32Recorder.h" />
+    <ClInclude Include="..\..\Src\ThirdParty\imgui\imconfig.h" />
+    <ClInclude Include="..\..\Src\ThirdParty\imgui\imgui.h" />
+    <ClInclude Include="..\..\Src\ThirdParty\imgui\imgui_internal.h" />
+    <ClInclude Include="..\..\Src\ThirdParty\imgui\imstb_rectpack.h" />
+    <ClInclude Include="..\..\Src\ThirdParty\imgui\imstb_textedit.h" />
+    <ClInclude Include="..\..\Src\ThirdParty\imgui\imstb_truetype.h" />
+    <ClInclude Include="..\..\Src\ThirdParty\imgui\backends\imgui_impl_dx11.h" />
+    <ClInclude Include="..\..\Src\ThirdParty\imgui\backends\imgui_impl_win32.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\imconfig_bluemsx.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\ImGuiWindow.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\ImGuiHost.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\ImGuiTheme.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\LiveFeed.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\ImGuiWidgets.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\ToolText.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\ControlDeck\ControlDeck.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\ChipFeed.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\ChipView.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\ImGuiTexture.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\RegTables.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\VdpDecode.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\VdpViewer.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\ViewPicture.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\VdpSprite.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\VdpRaster.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\VdpParts.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\V9990Decode.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\V9990Sprite.h" />
     <ClInclude Include="..\..\Src\Win32\Win32Cdrom.h" />
     <ClInclude Include="..\..\Src\Win32\Win32Common.h" />
     <ClInclude Include="..\..\Src\Win32\Win32Dir.h" />
@@ -1243,6 +1375,7 @@
     <ClInclude Include="..\..\Src\VideoChips\V9990Cmd.h" />
     <ClInclude Include="..\..\Src\VideoChips\V9990Render.h" />
     <ClInclude Include="..\..\Src\VideoChips\VDP.h" />
+    <ClInclude Include="..\..\Src\VideoChips\VdpDebug.h" />
     <ClInclude Include="..\..\Src\VideoChips\Video9000.h" />
     <ClInclude Include="..\..\Src\VideoChips\VideoManager.h" />
     <ClInclude Include="..\..\Src\VideoRender\hq2x.h" />
@@ -1318,6 +1451,8 @@
     <ClInclude Include="..\..\Src\Language\LanguageSpannish.h" />
     <ClInclude Include="..\..\Src\Language\LanguageStrings.h" />
     <ClInclude Include="..\..\Src\Language\LanguageSwedish.h" />
+    <ClInclude Include="..\..\Src\Language\LanguageToolIds.h" />
+    <ClInclude Include="..\..\Src\Language\LanguageToolStrings.h" />
     <ClInclude Include="..\..\Src\BuildInfo\build_number.h" />
     <ClInclude Include="..\..\Src\Resources\Resource.h" />
     <ClInclude Include="..\..\Src\BuildInfo\version.h" />

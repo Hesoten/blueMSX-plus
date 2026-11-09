@@ -114,6 +114,11 @@ static void onEmulatorSetBp(ToolInfo* toolInfo, UInt16 slot, UInt16 page, UInt16
 }
 
 Snapshot* __stdcall toolSnapshotCreate() {
+    /* A pause would end a step or a hold begun from a pause, and the resume run the machine
+    ** free: busy, as running. */
+    if (emulatorFrameStopPending() || emulatorHoldFromPause() || emulatorBackStepPending()) {
+        return NULL;
+    }
     if (dbgGetState() == DBG_RUNNING) {
         Snapshot* snapshot;
         isUpdating = 1;

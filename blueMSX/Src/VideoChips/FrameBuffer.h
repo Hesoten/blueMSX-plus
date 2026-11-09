@@ -88,6 +88,17 @@ FrameBuffer* frameBufferFlipDrawFrame();
 FrameBuffer* frameBufferFlipDrawFrameOf(FrameBufferData* frameData);
 FrameBuffer* frameBufferGetLastCompletedOf(FrameBufferData* frameData);
 void frameBufferSetFlipHook(FrameBufferData* frameData, FrameBufferFlipHook hook, void* ref);
+/* The frame a flip last completed, as drawn before blending, or NULL; *seq
+** gets the flip that recorded it and *flips the flips so far. They differ
+** when the frame count changed while a later frame was drawn. Emulator thread. */
+FrameBuffer* frameBufferGetLastDrawnOf(FrameBufferData* frameData, UInt32* seq, UInt32* flips);
+
+/* While on, each shown frame completed on the emulation thread is compared with the
+** reference of its field: the picture shown now when fromShown and the machine is
+** paused, else the first shown frame of that field after this call. */
+void frameBufferWatchShown(int on, int fromShown);
+/* Non-zero once a shown frame differed from its reference since the watch began. */
+int frameBufferShownChanged(void);
 
 void frameBufferSetScanline(int scanline);
 int frameBufferGetScanline();

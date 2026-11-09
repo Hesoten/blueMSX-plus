@@ -31,6 +31,7 @@
 #include "FrameBuffer.h"
 #include "ArchEvent.h"
 #include "ArchVideoIn.h"
+#include "Emulator.h"
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
@@ -58,6 +59,12 @@ struct FrameBufferData {
     int noBlend;
     FrameBufferFlipHook flipHook;
     void* flipRef;
+    UInt32 flips;
+    UInt32 lastDrawnSeq;
+    /* Bumped when the frame indices are reset; seen at the last flip. */
+    volatile UInt32 resets;
+    UInt32 resetsSeen;
+    FrameBuffer* lastDrawn;
 };
 
 #ifdef WII
@@ -128,6 +135,96 @@ static FrameBufferData* drawBuffer = NULL;
 static FrameBufferMixMode mixMode = MIXMODE_INTERNAL;
 static FrameBufferMixMode mixMask = MIXMODE_INTERNAL;
 static int frameBufferCount = MAX_FRAMES_PER_FRAMEBUFFER;
+
+/* The shown frame last completed, and the watch for a change of the shown picture:
+** one reference per field, as interlaced pages alternate by field. */
+static FrameBuffer* lastShown = NULL;
+static volatile int watchOn = 0;
+static volatile int watchChanged = 0;
+static volatile UInt32 watchSeq = 0;
+static UInt32 watchSeen = 0;
+static UInt64 watchRef[2];
+static int watchRefValid[2];
+
+/* The picture as shown: its layout and every sample of every line, key bit aside. */
+static UInt64 shownDigest(FrameBuffer* frameBuffer)
+{
+    UInt64 h = 14695981039346656037ULL;
+    int y;
+
+#define DIGEST_MIX(v) (h = (h ^ (UInt64)(v)) * 1099511628211ULL)
+    DIGEST_MIX(frameBuffer->lines);
+    DIGEST_MIX(frameBuffer->maxWidth);
+    DIGEST_MIX(frameBuffer->interlace);
+    DIGEST_MIX(frameBuffer->interlaceRaster);
+    for (y = 0; y < frameBuffer->lines && y < FB_MAX_LINES; y++) {
+        const UInt16* p = frameBuffer->line[y].buffer;
+        int width = lineWidth(frameBuffer, y);
+        int x;
+        DIGEST_MIX(frameBuffer->line[y].doubleWidth);
+        for (x = 0; x < width; x++) {
+            DIGEST_MIX(p[x] & 0x7fff);
+        }
+    }
+#undef DIGEST_MIX
+    return h;
+}
+
+static int shownField(FrameBuffer* frameBuffer)
+{
+    return frameBuffer->interlace == INTERLACE_EVEN ? 1 : 0;
+}
+
+void frameBufferWatchShown(int on, int fromShown)
+{
+    if (!on) {
+        watchOn = 0;
+        return;
+    }
+    watchChanged = 0;
+    if (fromShown && lastShown != NULL) {
+        int field = shownField(lastShown);
+        watchRef[field] = shownDigest(lastShown);
+        watchRefValid[field] = 1;
+        watchRefValid[field ^ 1] = 0;
+        watchSeen = watchSeq;
+    }
+    else {
+        watchSeq++;
+    }
+    watchOn = 1;
+}
+
+int frameBufferShownChanged(void)
+{
+    return watchChanged;
+}
+
+/* A shown frame just completed: compared with the reference of its field, or
+** taken as that reference when there is none yet. */
+static void watchShownFlip(FrameBuffer* completed)
+{
+    UInt64 digest;
+    int field;
+
+    lastShown = completed;
+    if (!watchOn || !emulatorIsEmuThread()) {
+        return;
+    }
+    if (watchSeen != watchSeq) {
+        watchSeen = watchSeq;
+        watchRefValid[0] = watchRefValid[1] = 0;
+    }
+    field  = shownField(completed);
+    digest = shownDigest(completed);
+    if (!watchRefValid[field]) {
+        watchRef[field] = digest;
+        watchRefValid[field] = 1;
+    }
+    else if (watchRef[field] != digest) {
+        watchChanged = 1;
+    }
+}
 
 
 static FrameBuffer* frameBufferFlipViewFrame1(int mixFrames)
@@ -218,6 +315,7 @@ static void resetStaleIndices(FrameBufferData* fb)
         int i;
         fb->viewFrame = 0;
         fb->drawFrame = frameBufferCount > 1 ? 1 : 0;
+        fb->resets++;
         for (i = 0; i < MAX_FRAMES_PER_FRAMEBUFFER; i++) {
             fb->frame[i].age = 0;
         }
@@ -346,6 +444,7 @@ void frameBufferSetFrameCount(int frameCount)
         int i;
         currentBuffer->viewFrame = 0;
         currentBuffer->drawFrame = 0;
+        currentBuffer->resets++;
 
         for (i = 0; i < MAX_FRAMES_PER_FRAMEBUFFER; i++) {
             currentBuffer->frame[i].age = 0;
@@ -355,6 +454,7 @@ void frameBufferSetFrameCount(int frameCount)
         int i;
         drawBuffer->viewFrame = 0;
         drawBuffer->drawFrame = 0;
+        drawBuffer->resets++;
 
         for (i = 0; i < MAX_FRAMES_PER_FRAMEBUFFER; i++) {
             drawBuffer->frame[i].age = 0;
@@ -395,6 +495,7 @@ FrameBuffer* frameBufferFlipDrawFrameOf(FrameBufferData* fb)
     FrameBuffer* drawn;
     int drawFrame;
     int blend;
+    UInt32 resets;
 
 #ifdef WII
     archThreadSleep(0); // wait one frame
@@ -402,6 +503,7 @@ FrameBuffer* frameBufferFlipDrawFrameOf(FrameBufferData* fb)
     if (fb == NULL) {
         return NULL;
     }
+    fb->flips++;
     drawFrame = fb->drawFrame;
     if (fb != currentBuffer) {
         waitSem();
@@ -469,9 +571,21 @@ FrameBuffer* frameBufferFlipDrawFrameOf(FrameBufferData* fb)
 #endif
     /* A buffer neither shown nor drawing gets its indices reset here after a
     ** frame count change: the frame completed is then not the one drawn. */
-    if (fb->flipHook != NULL && completed == fb->frame + drawFrame) {
-        fb->flipHook(fb->flipRef, completed, drawn);
+    resets = fb->resets;
+    if (completed == fb->frame + drawFrame) {
+        /* A frame drawn across a frame count change may be torn. */
+        if (resets == fb->resetsSeen) {
+            fb->lastDrawn    = drawn;
+            fb->lastDrawnSeq = fb->flips;
+            if (fb == currentBuffer) {
+                watchShownFlip(completed);
+            }
+        }
+        if (fb->flipHook != NULL) {
+            fb->flipHook(fb->flipRef, completed, drawn);
+        }
     }
+    fb->resetsSeen = resets;
     return frameBuffer;
 }
 
@@ -501,6 +615,17 @@ FrameBuffer* frameBufferGetLastCompletedOf(FrameBufferData* fb)
         }
     }
     return best < 0 ? NULL : fb->frame + best;
+}
+
+FrameBuffer* frameBufferGetLastDrawnOf(FrameBufferData* fb, UInt32* seq, UInt32* flips)
+{
+    if (fb == NULL) {
+        *seq = *flips = 0;
+        return NULL;
+    }
+    *seq   = fb->lastDrawnSeq;
+    *flips = fb->flips;
+    return fb->lastDrawn;
 }
 
 void frameBufferSetFlipHook(FrameBufferData* fb, FrameBufferFlipHook hook, void* ref)
@@ -564,6 +689,7 @@ void frameBufferDataDestroy(FrameBufferData* frameData)
     waitSem();
     if (frameData == currentBuffer) {
         currentBuffer = NULL;
+        lastShown = NULL;
     }
     if (frameData == drawBuffer) {
         drawBuffer = currentBuffer;
@@ -586,6 +712,9 @@ void frameBufferSetActiveDraw(FrameBufferData* frameData, FrameBufferData* drawD
     }
     if (drawData != NULL) {
         resetStaleIndices(drawData);
+    }
+    if (currentBuffer != frameData) {
+        lastShown = NULL;
     }
     currentBuffer = frameData;
     drawBuffer    = drawData;

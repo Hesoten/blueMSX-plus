@@ -75,6 +75,10 @@ int vdpVramSameLayout(int mode, int other);
 /* 1 when the two colour indices are drawn in exactly the same colour now (palette, backdrop for 0). */
 int vdpDebugColorsMatch(int first, int second);
 
+/* The machine VDP frames begun since power-on, the one in progress included: it goes back
+** with a state load or a rewind, as it is part of the state. 0 without a VDP. */
+UInt32 vdpGetMachineFrame(void);
+
 // Video DA Interface
 
 #define VDP_VIDEODA_WIDTH  544
@@ -90,7 +94,7 @@ int vdpRegisterDaConverter(VdpDaCallbacks* callbacks, void* ref, VideoMode video
 void vdpUnregisterDaConverter(int vdpDaHandle);
 
 /* The following methods needs target dependent implementation */
-extern void RefreshScreen(int);
+extern void RefreshScreen(int screenMode, int presented, int vintShows);
 
 #endif
 

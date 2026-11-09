@@ -291,6 +291,8 @@ void langInitSpanish(LanguageStrings* ls)
     ls->menuToolsShortcuts      = "Editor de Atajos";
     ls->menuToolsCtrlEditor     = "Editor de controladores/teclado";  
     ls->menuToolsMixer          = "Mezclador de Audio"; 
+    ls->menuToolsVdpViewer      = "Visor VDP";
+    ls->menuToolsControlDeck    = "Controles de emulación";
     ls->menuToolsLoadMemory     = "Carga de Memoria";
     ls->menuToolsAgentControl   = "Control por Agente";
     ls->menuToolsAgentActivity  = "Actividad de Agentes...";
@@ -860,6 +862,10 @@ void langInitSpanish(LanguageStrings* ls)
     ls->shortcutToggleMouseLock = "Conectar/desconectar el ratón PC al MSX";
     ls->shortcutEmuSpeedMax     = "Velocidad máxima de la emulación";
     ls->shortcutEmuPlayReverse  = "Rebobinar emulación";                     // New in 2.8.3
+    ls->shortcutEmuFrameAdvance = "Avanzar un fotograma";
+    ls->shortcutEmuAdvanceToChange = "Avanzar hasta la siguiente actualización de pantalla";
+    ls->shortcutEmuBackFrame    = "Retroceder un fotograma";
+    ls->shortcutEmuBackToChange = "Retroceder hasta la anterior actualización de pantalla";
     ls->shortcutEmuSpeedToggle  = "Balanza velocitad máxima de la emulación"; 
     ls->shortcutEmuSpeedNormal  = "Velocidad normal de la emulación";
     ls->shortcutEmuSpeedInc     = "Aumentar la velocidad de la emulación";

@@ -32,7 +32,8 @@
 #define CTRL_STOP_MACHINE    4  /* the machine stopped or was replaced     */
 #define CTRL_STOP_WATCH      6  /* a watchpoint fired; watchType says where */
 #define CTRL_STOP_VRAM_TIMING 7 /* the VDP was accessed faster than it can be */
-#define CTRL_STOP_STEP_BACK  8  /* a step back reached its moment          */
+#define CTRL_STOP_STEP_BACK  8  /* the debugger's step back to the previous instruction ended */
+#define CTRL_STOP_FRAME      9  /* paused itself on a shown frame: a frame step or step back ended, or a hold from a pause was let go */
 
 typedef struct {
     UInt32 seq;

@@ -292,6 +292,8 @@ void langInitFinnish(LanguageStrings* ls)
     ls->menuToolsShortcuts      = "Pikanäppäinasetukset";
     ls->menuToolsCtrlEditor     = "Peliohjaimet / Näppäimistökartta"; 
     ls->menuToolsMixer          = "Mikseri";
+    ls->menuToolsVdpViewer      = "VDP-katselin";
+    ls->menuToolsControlDeck    = "Emuloinnin ohjaimet";
     ls->menuToolsLoadMemory     = "Lataa muisti";
     ls->menuToolsAgentControl   = "Agenttiohjaus";
     ls->menuToolsAgentActivity  = "Agentin toiminta...";
@@ -861,6 +863,10 @@ void langInitFinnish(LanguageStrings* ls)
     ls->shortcutToggleMouseLock = "Yhdistä/katkaise PC-hiiri MSX:ään";
     ls->shortcutEmuSpeedMax     = "Maksimi emulointinopeus";
     ls->shortcutEmuPlayReverse  = "Taaksepäin suoritus";                     // New in 2.8.3
+    ls->shortcutEmuFrameAdvance = "Yksi kuva eteenpäin";
+    ls->shortcutEmuAdvanceToChange = "Eteenpäin seuraavaan näytön päivitykseen";
+    ls->shortcutEmuBackFrame    = "Yksi kuva taaksepäin";
+    ls->shortcutEmuBackToChange = "Taaksepäin edelliseen näytön päivitykseen";
     ls->shortcutEmuSpeedToggle  = "Vaihda maksimi emulointinopeus";
     ls->shortcutEmuSpeedNormal  = "Normaali emulointinopeus";
     ls->shortcutEmuSpeedInc     = "Nopeuta emulointia";

@@ -67,6 +67,8 @@
 extern int showLoadMemoryDlg(HWND hwnd);
 #include "IsFileExtension.h"
 #include "ziphelper.h"
+#include "ImGui/VdpViewer/VdpViewer.h"
+#include "ImGui/ControlDeck/ControlDeck.h"
 
 
 
@@ -132,6 +134,8 @@ extern int showLoadMemoryDlg(HWND hwnd);
 #define ID_TOOLS_SHORTCUTSEDITOR        40065
 #define ID_TOOLS_KEYBOARDEDITOR         40066
 #define ID_TOOLS_MIXER                  40061
+#define ID_TOOLS_CONTROL_DECK           40070
+#define ID_TOOLS_VDP_VIEWER             40063
 #define ID_TOOLS_LOADMEMORY             40067
 /* Clear of 4006x (window sizes) and 41600-43099 (hard disk entries, multiplied
 ** out by ID_HARDDISK_OFFSET); the next block above is 50000. */
@@ -1387,6 +1391,13 @@ static HMENU menuCreateTools(Properties* pProperties, Shortcuts* shortcuts)
     if (appConfigGetInt("menu.tools.mixer", 1) != 0) {
         AppendMenuU(hMenu, MF_STRING, ID_TOOLS_MIXER, langMenuToolsMixer());
     }
+    if (appConfigGetInt("menu.tools.vdpviewer", 1) != 0) {
+        AppendMenuU(hMenu, MF_STRING, ID_TOOLS_VDP_VIEWER, langMenuToolsVdpViewer());
+    }
+    if (appConfigGetInt("menu.tools.controldeck", 1) != 0) {
+        AppendMenuU(hMenu, MF_STRING | (controlDeckIsOpen() ? MF_CHECKED : 0),
+                    ID_TOOLS_CONTROL_DECK, langMenuToolsControlDeck());
+    }
     if (appConfigGetInt("menu.tools.loadmemory", 1) != 0) {
         AppendMenuU(hMenu, MF_STRING, ID_TOOLS_LOADMEMORY, langMenuToolsLoadMemory());
     }
@@ -1988,6 +1999,39 @@ void archShowMenuReset(int x, int y) {
     showPopupMenu(hMenuReset, x, y);
 }
 
+void menuShowResetChoices(int x, int y)
+{
+    HWND mainWnd = getMainHwnd();
+    HMENU hMenu = CreatePopupMenu();
+    int command;
+
+    if (hMenu == NULL) {
+        return;
+    }
+    AppendMenuU(hMenu, MF_STRING, ID_RUN_RESET, langMenuRunHardReset());
+    AppendMenuU(hMenu, MF_STRING, ID_RUN_SOFTRESET, langMenuRunSoftReset());
+    AppendMenuU(hMenu, MF_STRING, ID_RUN_CLEANRESET, langMenuRunCleanReset());
+
+    /* A popup closes on a click elsewhere only while its owner is in front;
+    ** the WM_NULL after it is the documented fix for the next one. */
+    SetForegroundWindow(mainWnd);
+    enterDialogShow();
+    command = TrackPopupMenu(hMenu, TPM_RETURNCMD | TPM_LEFTALIGN | TPM_TOPALIGN, x, y, 0, mainWnd, NULL);
+    exitDialogShow();
+    PostMessage(mainWnd, WM_NULL, 0, 0);
+    DestroyMenu(hMenu);
+
+    if (command == ID_RUN_RESET) {
+        menuPostRunCommand(MENU_RUN_RESET_HARD);
+    }
+    else if (command == ID_RUN_SOFTRESET) {
+        menuPostRunCommand(MENU_RUN_RESET_SOFT);
+    }
+    else if (command == ID_RUN_CLEANRESET) {
+        menuPostRunCommand(MENU_RUN_RESET_CLEAN);
+    }
+}
+
 void archShowMenuHelp(int x, int y) {
     showPopupMenu(hMenuHelp, x, y);
 }
@@ -2484,7 +2528,7 @@ int menuCommand(Properties* pProperties, int command)
     case ID_SIZE_X8:                        actionWindowSize8x();           return 0;
     case ID_SIZE_MINIMIZED:                 actionWindowSizeMinimized();    return 0;
     case ID_SIZE_FULLSCREEN:                actionWindowSizeFullscreen();   return 0;
-    case ID_RUN_RUN:                        actionEmuTogglePause();         return 0;
+    case ID_RUN_RUN:                        actionEmuRunPause();            return 0;
     case ID_RUN_STOP:                       actionEmuStop();                return 0;
     case ID_RUN_RESET:                      actionEmuResetHard();           return 0;
     case ID_RUN_SOFTRESET:                  actionEmuResetSoft();           return 0;
@@ -2505,6 +2549,11 @@ int menuCommand(Properties* pProperties, int command)
     case ID_TOOLS_SHORTCUTSEDITOR:          actionToolsShowShorcutEditor(); return 0;
     case ID_TOOLS_KEYBOARDEDITOR:           actionToolsShowKeyboardEditor();return 0;
     case ID_TOOLS_MIXER:                    actionToolsShowMixer();         return 0;
+    case ID_TOOLS_VDP_VIEWER:               vdpViewerShow();                return 0;
+    case ID_TOOLS_CONTROL_DECK:
+        if (controlDeckIsOpen()) controlDeckClose();
+        else                     controlDeckShow();
+        return 0;
     case ID_TOOLS_LOADMEMORY:               showLoadMemoryDlg(getMainHwnd()); return 0;
     case ID_TOOLS_AGENT_OFF:
         setAgentControl(pProperties, CTRL_GATE_OFF);
@@ -2522,4 +2571,12 @@ int menuCommand(Properties* pProperties, int command)
     case ID_HELP_ABOUT:                     actionHelpShowAbout();          return 0;
     }
     return 0;
+}
+
+void menuPostRunCommand(MenuRunCommand command)
+{
+    static const int ids[] = { ID_RUN_RUN, ID_RUN_STOP, ID_RUN_RESET, ID_RUN_SOFTRESET, ID_RUN_CLEANRESET };
+    if ((unsigned)command < sizeof(ids) / sizeof(ids[0])) {
+        PostMessage(getMainHwnd(), WM_COMMAND, MAKEWPARAM(ids[command], 0), 0);
+    }
 }

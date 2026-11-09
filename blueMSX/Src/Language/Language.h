@@ -315,6 +315,8 @@ char* langMenuToolsMachine();
 char* langMenuToolsShortcuts();
 char* langMenuToolsCtrlEditor();
 char* langMenuToolsMixer();
+char* langMenuToolsVdpViewer();
+char* langMenuToolsControlDeck();
 char* langMenuToolsLoadMemory();
 char* langMenuToolsAgentControl();
 char* langMenuToolsAgentActivity();
@@ -880,6 +882,10 @@ char* langShortcutSwitchPause();
 char* langShortcutToggleMouseLock();
 char* langShortcutEmuSpeedMax();
 char* langShortcutEmuPlayReverse();
+char* langShortcutEmuFrameAdvance();
+char* langShortcutEmuAdvanceToChange();
+char* langShortcutEmuBackFrame();
+char* langShortcutEmuBackToChange();
 char* langShortcutEmuSpeedMaxToggle();
 char* langShortcutEmuSpeedNormal();
 char* langShortcutEmuSpeedInc();
@@ -1139,6 +1145,13 @@ char* langDbgDevTrPause();
 char* langDbgDevAy8910();
 char* langDbgDevScc();
 
+
+//----------------------
+// Tool windows
+//----------------------
+
+/* The text of a ToolStringId, never NULL. */
+char* langToolStr(int id);
 
 //----------------------
 // Debug type lines

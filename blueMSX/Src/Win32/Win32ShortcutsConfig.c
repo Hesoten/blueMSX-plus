@@ -516,6 +516,17 @@ int shortcutSetHasHotkey(const ShotcutHotkeySet* set, ShotcutHotkey hotkey)
     return 0;
 }
 
+int shortcutsHasHotkey(const Shortcuts* shortcuts, ShotcutHotkey hotkey)
+{
+    const ShotcutHotkeySet* sets = (const ShotcutHotkeySet*)shortcuts;
+    int n = (int)(sizeof(Shortcuts) / sizeof(ShotcutHotkeySet));
+    int i;
+    for (i = 0; shortcuts != NULL && i < n; i++) {
+        if (shortcutSetHasHotkey(&sets[i], hotkey)) return 1;
+    }
+    return 0;
+}
+
 char* shortcutsSetToString(const ShotcutHotkeySet* set)
 {
     static char buf[192];
@@ -999,7 +1010,7 @@ static LRESULT CALLBACK hotkeyCtrlProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPAR
         ** releases undo. */
         if (!(lParam & (1 << 30))) keycount++;
         keyboardUpdate();
-        modifiers = keyboardGetModifiers();
+        modifiers = keyboardMessageModifiers();
         virtKey = wParam & 0xff;
         if (!virtualKeys[virtKey][0]) {
             virtKey = 0;
@@ -1027,7 +1038,7 @@ static LRESULT CALLBACK hotkeyCtrlProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPAR
         }
         if (virtKey == 0) {
             keyboardUpdate();
-            modifiers = keyboardGetModifiers();
+            modifiers = keyboardMessageModifiers();
         }
         if (keycount == 0 && virtKey != 0) {
             ShotcutHotkey h;
@@ -1357,6 +1368,10 @@ static Shortcuts* loadShortcuts(char* profileName)
     LOAD_SHORTCUT(shortcutFile, emulationStop);
     LOAD_SHORTCUT(shortcutFile, emuSpeedFull);
     LOAD_SHORTCUT(shortcutFile, emuPlayReverse);
+    LOAD_SHORTCUT(shortcutFile, emuFrameAdvance);
+    LOAD_SHORTCUT(shortcutFile, emuBackFrame);
+    LOAD_SHORTCUT(shortcutFile, emuAdvanceToChange);
+    LOAD_SHORTCUT(shortcutFile, emuBackToChange);
     LOAD_SHORTCUT(shortcutFile, emuSpeedToggle);
     LOAD_SHORTCUT(shortcutFile, emuSpeedNormal);
     LOAD_SHORTCUT(shortcutFile, emuSpeedInc);
@@ -1488,6 +1503,10 @@ static int saveShortcuts(char* profileName, Shortcuts* shortcuts)
     SAVE_SHORTCUT(shortcutFile, emulationStop);
     SAVE_SHORTCUT(shortcutFile, emuSpeedFull);
     SAVE_SHORTCUT(shortcutFile, emuPlayReverse);
+    SAVE_SHORTCUT(shortcutFile, emuFrameAdvance);
+    SAVE_SHORTCUT(shortcutFile, emuBackFrame);
+    SAVE_SHORTCUT(shortcutFile, emuAdvanceToChange);
+    SAVE_SHORTCUT(shortcutFile, emuBackToChange);
     SAVE_SHORTCUT(shortcutFile, emuSpeedToggle);
     SAVE_SHORTCUT(shortcutFile, emuSpeedNormal);
     SAVE_SHORTCUT(shortcutFile, emuSpeedInc);
@@ -1702,6 +1721,10 @@ static void shortcutsForEachAction(Shortcuts* s, ShortcutActionVisitor visit, vo
     ADD_SHORTCUTSEPARATOR();
     
     ADD_SHORTCUT(emuPlayReverse, langShortcutEmuPlayReverse());
+    ADD_SHORTCUT(emuFrameAdvance, langShortcutEmuFrameAdvance());
+    ADD_SHORTCUT(emuBackFrame, langShortcutEmuBackFrame());
+    ADD_SHORTCUT(emuAdvanceToChange, langShortcutEmuAdvanceToChange());
+    ADD_SHORTCUT(emuBackToChange, langShortcutEmuBackToChange());
     
     ADD_SHORTCUTSEPARATOR();
 
@@ -2468,6 +2491,11 @@ Shortcuts* shortcutsCreateProfile(char* profileName)
     inputSetShortcutDikCounter(shortcutsCountActionsUsingDik);
     inputSetShortcutDikDescriber(shortcutsDescribeActionsUsingDik);
     inputSetShortcutDeviceArrival(shortcutsAdoptArrivedDevices);
+    return liveShortcuts;
+}
+
+const Shortcuts* shortcutsLive(void)
+{
     return liveShortcuts;
 }
 

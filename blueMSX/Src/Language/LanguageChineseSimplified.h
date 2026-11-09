@@ -291,6 +291,8 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->menuToolsShortcuts      = "快捷键编辑工具";
     ls->menuToolsCtrlEditor     = "控制器 / 键盘编辑器"; 
     ls->menuToolsMixer          = "混音器";
+    ls->menuToolsVdpViewer      = "VDP 查看器";
+    ls->menuToolsControlDeck    = "模拟控制栏";
     ls->menuToolsLoadMemory     = "加载内存";
     ls->menuToolsAgentControl   = "代理控制";
     ls->menuToolsAgentActivity  = "代理活动...";
@@ -860,6 +862,10 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->shortcutToggleMouseLock = "连接/断开 PC 鼠标与 MSX";
     ls->shortcutEmuSpeedMax     = "最高速模拟";
     ls->shortcutEmuPlayReverse  = "回退模拟";                     // New in 2.8.3
+    ls->shortcutEmuFrameAdvance = "前进一帧";
+    ls->shortcutEmuAdvanceToChange = "前进到下一次画面更新";
+    ls->shortcutEmuBackFrame    = "后退一帧";
+    ls->shortcutEmuBackToChange = "后退到上一次画面更新";
     ls->shortcutEmuSpeedToggle  = "锁定最高速模拟";
     ls->shortcutEmuSpeedNormal  = "正常模拟速度";
     ls->shortcutEmuSpeedInc     = "加快模拟速度";

@@ -507,6 +507,8 @@ char* langMenuToolsMachine() { return ls->menuToolsMachine; }
 char* langMenuToolsShortcuts() { return ls->menuToolsShortcuts; }
 char* langMenuToolsCtrlEditor() { return ls->menuToolsCtrlEditor; }
 char* langMenuToolsMixer() { return ls->menuToolsMixer; }
+char* langMenuToolsVdpViewer() { return ls->menuToolsVdpViewer; }
+char* langMenuToolsControlDeck() { return ls->menuToolsControlDeck; }
 char* langMenuToolsLoadMemory() { return ls->menuToolsLoadMemory; }
 char* langMenuToolsAgentControl() { return ls->menuToolsAgentControl; }
 char* langMenuToolsAgentActivity() { return ls->menuToolsAgentActivity; }
@@ -1072,6 +1074,10 @@ char* langShortcutSwitchPause() { return ls->shortcutSwitchPause; }
 char* langShortcutToggleMouseLock() { return ls->shortcutToggleMouseLock; }
 char* langShortcutEmuSpeedMax() { return ls->shortcutEmuSpeedMax; }
 char* langShortcutEmuPlayReverse() { return ls->shortcutEmuPlayReverse; }
+char* langShortcutEmuFrameAdvance() { return ls->shortcutEmuFrameAdvance; }
+char* langShortcutEmuAdvanceToChange() { return ls->shortcutEmuAdvanceToChange; }
+char* langShortcutEmuBackFrame() { return ls->shortcutEmuBackFrame; }
+char* langShortcutEmuBackToChange() { return ls->shortcutEmuBackToChange; }
 char* langShortcutEmuSpeedMaxToggle() { return ls->shortcutEmuSpeedToggle; }
 char* langShortcutEmuSpeedNormal() { return ls->shortcutEmuSpeedNormal; }
 char* langShortcutEmuSpeedInc() { return ls->shortcutEmuSpeedInc; }
@@ -1328,6 +1334,12 @@ char* langDbgDevTrPause() { return ls->dbgDevTrPause; }
 char* langDbgDevAy8910() { return "AY8910 PSG"; }
 char* langDbgDevScc() { return "SCC"; }
 
+
+//----------------------
+// Tool windows
+//----------------------
+
+char* langToolStr(int id) { return id >= 0 && id < TS_COUNT ? ls->tool[id] : ""; }
 
 //----------------------
 // Debug type lines

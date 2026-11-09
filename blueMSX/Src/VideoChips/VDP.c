@@ -39,6 +39,8 @@
 #include "FrameBuffer.h"
 #include "ArchVideoIn.h"
 #include "Language.h"
+#include "VdpDebug.h"
+#include "Emulator.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -56,12 +58,16 @@ static int displayEnable = 1;
 static int refreshRate   = 0;
 static int canFlipFrameBuffer = 0;
 
+/* The setting; spritesEnable drops to 0 while the sprite split redraws a line. */
+static int spritesSetting = 1;
+
 void vdpSetSpritesEnable(int enable) {
-    spritesEnable = enable ? 1 : 0;
+    spritesSetting = enable ? 1 : 0;
+    spritesEnable = spritesSetting;
 }
 
 int vdpGetSpritesEnable() {
-    return spritesEnable;
+    return spritesSetting;
 }
 
 void vdpSetNoSpriteLimits(int enable) {
@@ -305,6 +311,8 @@ static UInt16 defaultPaletteRegs[16] = {
 typedef struct VDP VDP;
 
 static VDP* theVdp = NULL;
+static void sprSplitLineDone(VDP*, int);
+static void sprPaletteDisplayStart(VDP*);
 
 static void RefreshLineTx80(VDP*, int, int, int);
 static void RefreshLine0(VDP*, int, int, int);
@@ -432,6 +440,11 @@ struct VDP {
     int debugHandle;
     int videoHandle;
     int videoEnabled;
+    /* flippedEarly: this frame was flipped at the end of active display, and onDisplay
+    ** has not run yet; lastFlipEarly: the latest flip was such a one. */
+    int flippedEarly;
+    int lastFlipEarly;
+    UInt32 machineFrame;   /* machine VDP frames begun since power-on; saved with the state */
 
     FrameBufferData* frameBuffer;
 };
@@ -589,6 +602,7 @@ static void onHint(VDP* vdp, UInt32 time)
     sync(vdp, time);
 
     vdp->timeHintEn = 0;
+    if (vdpRasterArmed) vdpRasterNoteLineInt(vdp);
 
     if (vdp->vdpRegs[0] & 0x10) {
         boardSetInt(INT_IE1);
@@ -596,6 +610,45 @@ static void onHint(VDP* vdp, UInt32 time)
 }
 
 int framecounter = 0;
+
+/* Set while the tap runs at theVdp's end of active display. */
+static int vdpAtShown;
+
+static int shotDrawnSamples(VDP* vdp, FrameBuffer* draw, int y);
+
+/* Completes the frame at the end of active display and flips it. The rows still to come
+** are the last frame's, unless that was flipped early too: then the draw frame already
+** holds that frame's own bottom rows. */
+static void showEarly(void* ref)
+{
+    VDP* vdp = (VDP*)ref;
+    FrameBuffer* draw = frameBufferGetDrawFrameOf(vdp->frameBuffer);
+    FrameBuffer* last;
+    UInt32 seq, flips;
+
+    last = frameBufferGetLastDrawnOf(vdp->frameBuffer, &seq, &flips);
+    /* A replay draws every frame over one draw frame, which holds the last one's rows. */
+    if (!vdp->lastFlipEarly && !emulatorRewindReplaying() && draw != NULL && last != NULL && last != draw) {
+        int row  = MAX(vdp->curLine - vdp->displayOffest, 0);
+        int rows = MIN(draw->lines, last->lines);
+        int y;
+        for (y = row; y < rows; y++) {
+            int shift = last->line[y].doubleWidth;
+            int width = last->maxWidth << shift;
+            int from  = y == row ? shotDrawnSamples(vdp, draw, y) : 0;
+            if (from > 0 && draw->line[y].doubleWidth != shift) {
+                continue;
+            }
+            if (width > from) {
+                memcpy(draw->line[y].buffer + from, last->line[y].buffer + from, (width - from) * sizeof(UInt16));
+            }
+            draw->line[y].doubleWidth = shift;
+        }
+    }
+    vdp->flippedEarly  = 1;
+    vdp->lastFlipEarly = 1;
+    frameBufferFlipDrawFrame();
+}
 
 static void onVint(VDP* vdp, UInt32 time)
 {
@@ -616,6 +669,16 @@ static void onVint(VDP* vdp, UInt32 time)
 //    vdp->drawArea = 0;
     vdp->cmdDrawArea = 0;
     vdpSetTimingMode(vdp->cmdEngine, vdp->vdpRegs[8] & 2);
+
+    /* After an early flip, a second vint in the frame (LN changed) neither taps nor flips. */
+    if (vdp == theVdp && !vdp->flippedEarly && emulatorIsEmuThread()) {
+        vdpAtShown = 1;
+        emulatorTap(EMU_TAP_VDP_SHOWN);
+        vdpAtShown = 0;
+        emulatorShownDisplayEnded(vdp->videoEnabled && canFlipFrameBuffer >= 2,
+                                  !videoManagerActivePacesScreen() && frameBufferGetActiveDraw() == vdp->frameBuffer,
+                                  showEarly, vdp);
+    }
 }
 
 static void onDrawAreaEnd(VDP* vdp, UInt32 time)
@@ -669,10 +732,18 @@ int getScreenCompletePercent()
 static void onDisplay(VDP* vdp, UInt32 time)
 {
     int isPal = vdpIsVideoPal(vdp); 
+    int early;
     
     sync(vdp, time);
 
     vdp->timeDisplayEn = 0;
+    early = vdp->flippedEarly;
+    vdp->flippedEarly  = 0;
+    vdp->lastFlipEarly = early;
+    /* A soft reset runs this on the UI thread; that is no frame begun. */
+    if (vdp == theVdp && emulatorIsEmuThread()) {
+        vdp->machineFrame++;
+    }
 
     boardCheckVdpBoostKill((UInt32)vdp->vdpRegs[23]              |
                            ((UInt32)vdp->vdpRegs[26] <<  8)      |
@@ -680,7 +751,15 @@ static void onDisplay(VDP* vdp, UInt32 time)
 
     if (vdp->videoEnabled) {
         FrameBuffer* frameBuffer;
-        if (canFlipFrameBuffer >= 2) {
+        if (early) {
+            frameBuffer = frameBufferGetDrawFrame();
+        }
+        else if (emulatorRewindReplaying()) {
+            /* Shown only at its end of active display; a frame begun after the load is whole. */
+            frameBuffer = frameBufferGetDrawFrame();
+            canFlipFrameBuffer = 2;
+        }
+        else if (canFlipFrameBuffer >= 2) {
             frameBuffer = frameBufferFlipDrawFrame();
         }
         else {
@@ -721,7 +800,9 @@ static void onDisplay(VDP* vdp, UInt32 time)
         boardClearInt(INT_IE1);
     }
     vdp->vdpStatus[2] ^= 0x02;
-    RefreshScreen(vdp->screenMode);
+    RefreshScreen(vdp->screenMode, early,
+                  vdp == theVdp && vdp->videoEnabled && canFlipFrameBuffer >= 2 &&
+                  frameBufferGetActiveDraw() == vdp->frameBuffer);
 
     /* Per-frame (VSYNC) blink clock. In line-blink mode the phase is derived
     ** per scan line instead; advance its base by one frame of lines so the
@@ -990,6 +1071,7 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
 
     change = vdp->vdpRegs[reg] ^ value;
     vdp->vdpRegs[reg] = value;
+    if (vdpRasterArmed) vdpRasterNoteReg(vdp, reg, value ^ change, value);
 
     if (reg >= 0x20) {
         if (reg == 0x2d && (change & 0x40)) {
@@ -1668,6 +1750,11 @@ int vdpDebugColorsMatch(int first, int second)
     return theVdp != NULL && theVdp->palette[first & 0x0f] == theVdp->palette[second & 0x0f];
 }
 
+UInt32 vdpGetMachineFrame(void)
+{
+    return theVdp != NULL ? theVdp->machineFrame : 0;
+}
+
 static void sync(VDP* vdp, UInt32 systemTime)
 {
     int frameTime = systemTime - vdp->frameStartTime;
@@ -1690,6 +1777,7 @@ static void sync(VDP* vdp, UInt32 systemTime)
                 vdp->RefreshLine(vdp, vdp->curLine, vdp->lineOffset, 33);
             }
         }
+        if (vdpSprSplitArmed && vdp->lineOffset <= 32) sprSplitLineDone(vdp, vdp->lineOffset);
         vdp->lineOffset = -1;
         vdp->curLine++;
         while (vdp->curLine < scanLine) {
@@ -1697,6 +1785,7 @@ static void sync(VDP* vdp, UInt32 systemTime)
                 if (vdp->vdpRegs[1] & 0x04) vdpLineBlink(vdp);
                 vdp->RefreshLine(vdp, vdp->curLine, -1, 33);
             }
+            if (vdpSprSplitArmed) sprSplitLineDone(vdp, -1);
             vdp->curLine++;
         }
     }
@@ -1715,6 +1804,8 @@ static void sync(VDP* vdp, UInt32 systemTime)
             if (vdp->vdpRegs[1] & 0x04) vdpLineBlink(vdp);
             vdp->RefreshLine(vdp, vdp->curLine, vdp->lineOffset, curLineOffset);
         }
+        if (vdpSprSplitArmed && curLineOffset == 33) sprSplitLineDone(vdp, vdp->lineOffset);
+        if (vdpSprSplitArmed && vdp->lineOffset <= 0 && curLineOffset > 0) sprPaletteDisplayStart(vdp);
         vdp->lineOffset = curLineOffset;
     }
 }
@@ -1958,6 +2049,7 @@ static void saveState(VDP* vdp)
     saveStateSet(state, "vramAddress",         vdp->vramAddress);
 
     saveStateSet(state, "frameStartTime",         vdp->frameStartTime);
+    saveStateSet(state, "machineFrame",           vdp->machineFrame);
 
     saveStateSet(state, "timeScrMode",         vdp->timeScrMode);
     saveStateSet(state, "timeScrModeEn",       vdp->timeScrModeEn);
@@ -2058,6 +2150,7 @@ static void loadState(VDP* vdp)
     vdp->vramAddress = saveStateGet(state, "vramAddress",         0);
 
     vdp->frameStartTime = saveStateGet(state, "frameStartTime",         0);
+    vdp->machineFrame   = saveStateGet(state, "machineFrame",           0);
 
     vdp->timeScrMode = saveStateGet(state, "timeScrMode",         0);
     vdp->timeScrModeEn = saveStateGet(state, "timeScrModeEn",       0);
@@ -2107,6 +2200,8 @@ static void loadState(VDP* vdp)
     vdp->vramPtr = vdp->vram + vdp->vramOffsets[(vdp->vdpRegs[0x2d] >> 6) & 1];
 
     canFlipFrameBuffer = 0;
+    vdp->flippedEarly  = 0;
+    vdp->lastFlipEarly = 0;
 
     if (isOldFormat) {
         /* Reconstruct derived state from vdpRegs; old states only
@@ -2195,6 +2290,1016 @@ static void dbgRegisterLayout(VDP* vdp, int* regCount, int* cmdRegCount,
         *paletteCount   = 0;
         *statusRegCount = 1;
     }
+}
+
+/* Raster log of theVdp: two frames in static buffers, filled on the emulator
+** thread only. A note from a new frame reuses the older buffer. */
+volatile int vdpRasterArmed;
+static int    rasterArmCount;
+static int    rasterGeneration;
+static VdpRasterFrame rasterBuf[2];
+static int    rasterCur;
+static int    rasterSeenGen;
+static UInt32 rasterSeenOwner;
+static UInt32 rasterArmEnd;     /* frames from here on are logged whole */
+static int    rasterSettled;    /* every frame from now on is logged whole */
+static UInt8  rasterRegs[32];   /* the registers as the log has them */
+static UInt32 rasterObsStart;   /* the newest frame seen, and where it ends */
+static UInt32 rasterObsEnd;
+static int    rasterPrevValid;  /* the frame seen before it ended where it began */
+static UInt32 rasterPrevStart;
+static UInt32 rasterPrevEnd;
+/* Frames whose registers another thread wrote; kept across rearming. */
+static volatile UInt32 rasterForeignStart[2];
+static volatile int    rasterForeignSet[2];
+static int    rasterForeignNext;
+#define RASTER_HEAD (sizeof(VdpRasterFrame) - sizeof(rasterBuf[0].ev))
+
+void vdpRasterArm(int on)
+{
+    if (on) {
+        if (rasterArmCount++ == 0) {
+            /* Wrapped by hand: a generation is never 0, which means not armed. */
+            rasterGeneration = rasterGeneration >= 0x7fffffff ? 1 : rasterGeneration + 1;
+            vdpRasterArmed = rasterGeneration;
+        }
+    }
+    else if (rasterArmCount > 0 && --rasterArmCount == 0) {
+        vdpRasterArmed = 0;
+    }
+}
+
+static int rasterIsForeign(UInt32 frameStart)
+{
+    return (rasterForeignSet[0] && rasterForeignStart[0] == frameStart) ||
+           (rasterForeignSet[1] && rasterForeignStart[1] == frameStart);
+}
+
+/* The registers now, R#reg still at old, as the log keeps them. */
+static void rasterCurrentRegs(VDP* vdp, int reg, UInt8 old, UInt8* regs)
+{
+    memcpy(regs, vdp->vdpRegs, 32);
+    if (reg >= 0 && reg < 32) {
+        regs[reg] = old;
+    }
+    memset(regs + 14, 0, 4);
+}
+
+/* Something changed the registers or the frame timing outside the log, such
+** as a reset or a loaded state: only frames after this one are whole. */
+static void rasterBreak(VDP* vdp)
+{
+    rasterBuf[0].complete = 0;
+    rasterBuf[1].complete = 0;
+    rasterArmEnd  = vdp->timeDisplay;
+    rasterSettled = 0;
+}
+
+/* Emulator thread. Forgets the buffers when armed anew or the VDP changed. */
+static int rasterObserve(VDP* vdp, int reg, UInt8 old)
+{
+    int    gen   = vdpRasterArmed;
+    UInt32 owner = (UInt32)vdp->debugHandle + 1;
+    UInt8  regs[32];
+
+    if (gen == 0 || vdp != theVdp) {
+        return 0;
+    }
+    rasterCurrentRegs(vdp, reg, old, regs);
+    if (gen != rasterSeenGen || owner != rasterSeenOwner) {
+        rasterBuf[0].valid = 0;
+        rasterBuf[1].valid = 0;
+        rasterSeenGen   = gen;
+        rasterSeenOwner = owner;
+        rasterPrevValid = 0;
+        rasterObsStart  = vdp->frameStartTime;
+        rasterObsEnd    = vdp->timeDisplay;
+        memcpy(rasterRegs, regs, sizeof(rasterRegs));
+        rasterBreak(vdp);
+        return 1;
+    }
+    if (vdp->frameStartTime != rasterObsStart) {
+        rasterPrevValid = rasterObsEnd == vdp->frameStartTime;
+        rasterPrevStart = rasterObsStart;
+        rasterPrevEnd   = rasterObsEnd;
+        if ((Int32)(vdp->frameStartTime - rasterObsEnd) < 0) {
+            rasterBreak(vdp);
+        }
+        rasterObsStart = vdp->frameStartTime;
+        rasterObsEnd   = vdp->timeDisplay;
+    }
+    if (memcmp(rasterRegs, regs, sizeof(rasterRegs)) != 0) {
+        memcpy(rasterRegs, regs, sizeof(rasterRegs));
+        rasterBreak(vdp);
+    }
+    if (!rasterSettled && (Int32)(vdp->frameStartTime - rasterArmEnd) > 0) {
+        rasterSettled = 1;
+    }
+    return 1;
+}
+
+static int rasterIsComplete(UInt32 frameStart)
+{
+    return rasterSettled || (Int32)(frameStart - rasterArmEnd) >= 0;
+}
+
+static void rasterAdd(VDP* vdp, UInt32 time, int kind, int reg, UInt8 old, UInt8 value)
+{
+    VdpRasterFrame* f = &rasterBuf[rasterCur];
+    VdpRasterEvent* e;
+    Int32 t;
+
+    if (kind == VDP_RASTER_REG) {
+        rasterRegs[reg] = value;
+    }
+    if (!f->valid || f->frameStart != vdp->frameStartTime) {
+        rasterCur ^= 1;
+        f = &rasterBuf[rasterCur];
+        f->valid         = 1;
+        f->complete      = rasterIsComplete(vdp->frameStartTime);
+        f->ended         = 0;
+        f->foreign       = 0;
+        f->frameStart    = vdp->frameStartTime;
+        f->lastLine      = vdp->lastLine;
+        f->firstLine     = vdp->firstLine;
+        f->displayOffset = vdp->displayOffest;
+        f->field         = (vdp->vdpStatus[2] >> 1) & 1;
+        f->blinkFlag     = vdp->blinkFlag;
+        f->beamLine      = 0;
+        f->beamCycle     = 0;
+        memcpy(f->startRegs, vdp->vdpRegs, sizeof(f->startRegs));
+        if (kind == VDP_RASTER_REG) {
+            f->startRegs[reg] = old;
+        }
+        f->count   = 0;
+        f->dropped = 0;
+    }
+    if (f->count >= VDP_RASTER_MAX) {
+        f->dropped++;
+        return;
+    }
+    e = &f->ev[f->count++];
+    t = (Int32)(time - vdp->frameStartTime);
+    if (t < 0) {
+        t = 0;
+    }
+    if (f->lastLine > 0 && t / HPERIOD >= f->lastLine) {
+        t = f->lastLine * HPERIOD - 1;
+    }
+    e->line  = (UInt16)MIN(t / HPERIOD, 0xffff);
+    e->cycle = (UInt16)(t % HPERIOD);
+    e->kind  = (UInt8)kind;
+    e->reg   = (UInt8)reg;
+    e->value = value;
+    e->aux   = old;
+}
+
+void vdpRasterNoteReg(VDP* vdp, int reg, UInt8 old, UInt8 value)
+{
+    if (reg >= 32 || (reg >= 14 && reg <= 17) || old == value || vdp != theVdp) {
+        return;
+    }
+    if (!emulatorIsEmuThread()) {
+        if (!rasterIsForeign(vdp->frameStartTime)) {
+            rasterForeignSet[rasterForeignNext]   = 0;
+            rasterForeignStart[rasterForeignNext] = vdp->frameStartTime;
+            rasterForeignSet[rasterForeignNext]   = 1;
+            rasterForeignNext ^= 1;
+        }
+        return;
+    }
+    if (rasterObserve(vdp, reg, old)) {
+        rasterAdd(vdp, boardSystemTime(), VDP_RASTER_REG, reg, old, value);
+    }
+}
+
+void vdpRasterNoteLineInt(VDP* vdp)
+{
+    if (vdp == theVdp && emulatorIsEmuThread() && rasterObserve(vdp, -1, 0)) {
+        rasterAdd(vdp, vdp->timeHint, VDP_RASTER_LINEINT, 19,
+                  (UInt8)((vdp->vdpRegs[0] >> 4) & 1), vdp->vdpRegs[19]);
+    }
+}
+
+/* Copies the logged frame starting at frameStart; 0 when there is none. */
+static int rasterCopyFrame(VdpRasterFrame* out, UInt32 frameStart)
+{
+    int i;
+
+    for (i = 0; i < 2; i++) {
+        if (rasterBuf[i].valid && rasterBuf[i].frameStart == frameStart) {
+            memcpy(out, &rasterBuf[i], RASTER_HEAD);
+            memcpy(out->ev, rasterBuf[i].ev, rasterBuf[i].count * sizeof(VdpRasterEvent));
+            out->foreign |= rasterIsForeign(frameStart);
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* Sets the layout of a frame of the given length from the VDP's current one. */
+static void rasterSetLength(VdpRasterFrame* f, VDP* vdp, int lines)
+{
+    f->lastLine      = lines;
+    f->displayOffset = lines >= 313 ? 27 : 0;
+    f->firstLine     = vdp->firstLine - vdp->displayOffest + f->displayOffset;
+}
+
+/* At a frame tap the frame that just ended goes to [0]; while paused the one in progress
+** does, with the beam, but as ended at the end of active display or after the early flip
+** there. [1] is the frame before [0]. */
+static void rasterCapture(VDP* vdp, VdpDebugState* out)
+{
+    VdpRasterFrame* r = out->raster;
+    UInt32 now = boardSystemTime();
+    UInt32 start;
+    int    ended;
+    int    moved;
+    int    lines;
+    int    i;
+
+    memset(&r[0], 0, RASTER_HEAD);
+    memset(&r[1], 0, RASTER_HEAD);
+    if (!rasterObserve(vdp, -1, 0)) {
+        return;
+    }
+    moved = (Int32)(now - vdp->timeDisplay) >= 0;
+    ended = moved || vdpAtShown || vdp->flippedEarly;
+    lines = moved ? (int)((vdp->timeDisplay - vdp->frameStartTime) / HPERIOD) : vdp->lastLine;
+    if (lines <= 0) {
+        return;
+    }
+
+    /* Nothing logged in it: the registers have not changed since it began.
+    ** The layout fields have already moved on to the next frame at a tap. */
+    if (!rasterCopyFrame(&r[0], vdp->frameStartTime)) {
+        r[0].valid      = 1;
+        r[0].complete   = rasterIsComplete(vdp->frameStartTime);
+        r[0].foreign    = rasterIsForeign(vdp->frameStartTime);
+        r[0].frameStart = vdp->frameStartTime;
+        r[0].field      = ((vdp->vdpStatus[2] >> 1) & 1) ^ (moved ? 1 : 0);
+        r[0].blinkFlag  = vdp->blinkFlag;
+        rasterSetLength(&r[0], vdp, lines);
+        memcpy(r[0].startRegs, vdp->vdpRegs, sizeof(r[0].startRegs));
+    }
+    r[0].ended     = ended;
+    r[0].beamLine  = ended ? r[0].lastLine : (int)((now - vdp->frameStartTime) / HPERIOD);
+    r[0].beamCycle = ended ? 0 : (int)((now - vdp->frameStartTime) % HPERIOD);
+
+    /* The frame before is known only if logged, or seen ending where [0]
+    ** began; with nothing logged it kept the registers [0] began with. */
+    for (i = 0; i < 2; i++) {
+        start = rasterBuf[i].frameStart;
+        if (rasterBuf[i].valid && start != r[0].frameStart &&
+            start + HPERIOD * rasterBuf[i].lastLine == r[0].frameStart) {
+            rasterCopyFrame(&r[1], start);
+            break;
+        }
+    }
+    if (i == 2 && rasterPrevValid && rasterObsStart == r[0].frameStart &&
+        rasterPrevEnd == r[0].frameStart && rasterPrevEnd != rasterPrevStart) {
+        memcpy(&r[1], &r[0], RASTER_HEAD);
+        r[1].complete   = rasterIsComplete(rasterPrevStart);
+        r[1].foreign    = rasterIsForeign(rasterPrevStart);
+        r[1].frameStart = rasterPrevStart;
+        r[1].field     ^= 1;
+        r[1].count      = 0;
+        r[1].dropped    = 0;
+        rasterSetLength(&r[1], vdp, (int)((rasterPrevEnd - rasterPrevStart) / HPERIOD));
+    }
+    if (r[1].valid) {
+        r[1].ended     = 1;
+        r[1].beamLine  = r[1].lastLine;
+        r[1].beamCycle = 0;
+    }
+}
+
+int vdpDebugCount(void)
+{
+    return theVdp != NULL ? 1 : 0;
+}
+
+const char* vdpDebugName(int index)
+{
+    VDP* vdp = index == 0 ? theVdp : NULL;
+    return vdp != NULL ? VdpNames[vdp->vdpVersion] : NULL;
+}
+
+int vdpDebugCapture(int index, VdpDebugState* out)
+{
+    VDP* vdp = index == 0 ? theVdp : NULL;
+    int regCount, cmdRegCount, paletteCount, statusRegCount;
+    int vramBytes;
+    int i;
+
+    if (vdp == NULL) {
+        out->valid = 0;
+        return 0;
+    }
+    dbgRegisterLayout(vdp, &regCount, &cmdRegCount, &paletteCount, &statusRegCount);
+
+    out->valid       = 1;
+    out->id          = (UInt32)vdp->debugHandle + 1;
+    strncpy(out->name, VdpNames[vdp->vdpVersion], sizeof(out->name) - 1);
+    out->name[sizeof(out->name) - 1] = 0;
+    out->version     = vdp->vdpVersion;
+    out->vramSize    = vdp->vramSize;
+    out->vramMask    = vdp->vramMask;
+    out->vram128     = vdp->vram128;
+    out->screenMode  = vdp->screenMode;
+    out->isPal       = vdpIsVideoPal(vdp) != 0;
+    out->screenOn    = vdp->screenOn;
+    out->blinkFlag   = vdp->blinkFlag;
+    out->regCount    = regCount;
+    out->statusCount = statusRegCount > 1 ? 10 : 1;
+    out->cmdRegCount = cmdRegCount;
+
+    memcpy(out->regs, vdp->vdpRegs, sizeof(out->regs));
+    memcpy(out->status, vdp->vdpStatus, sizeof(out->status));
+    memset(out->cmdRegs, 0, sizeof(out->cmdRegs));
+    if (statusRegCount > 1 && vdp->cmdEngine != NULL) {
+        /* Stored flags plus the command engine's, from fields only:
+        ** peekStatus syncs and vdpGetColor clears TR. */
+        out->status[2] |= vdpGetStatus(vdp->cmdEngine);
+        out->status[7]  = vdpCmdPeek(vdp->cmdEngine, 0x0c, 0);
+        out->status[8]  = (UInt8)vdpGetBorderX(vdp->cmdEngine);
+        out->status[9]  = (UInt8)(vdpGetBorderX(vdp->cmdEngine) >> 8);
+        for (i = 0; i < cmdRegCount && i < (int)sizeof(out->cmdRegs); i++) {
+            out->cmdRegs[i] = vdpCmdPeek(vdp->cmdEngine, (UInt8)i, 0);
+        }
+    }
+
+    memcpy(out->paletteReg, vdp->paletteReg, sizeof(out->paletteReg));
+    for (i = 0; i < 16; i++) {
+        int r, g, b;
+        if (vdp->vdpVersion == VDP_TMS9918A) {
+            r = msx1Palette_9918a[i].r; g = msx1Palette_9918a[i].g; b = msx1Palette_9918a[i].b;
+        }
+        else if (vdpIsMsx1Vdp(vdp)) {
+            r = msx1Palette[i].r; g = msx1Palette[i].g; b = msx1Palette[i].b;
+        }
+        else {
+            r = ((vdp->paletteReg[i] >> 4) & 7) * 255 / 7;
+            g = ((vdp->paletteReg[i] >> 8) & 7) * 255 / 7;
+            b = (vdp->paletteReg[i] & 7) * 255 / 7;
+        }
+        out->paletteRgb[i] = ((UInt32)r << 16) | ((UInt32)g << 8) | (UInt32)b;
+    }
+
+    /* A 16K VDP is created with 64K the renderer and engine can reach, so
+    ** copy up to vramMask too; nothing past that is ever written. */
+    vramBytes = MAX(vdp->vramSize, vdp->vramMask + 1);
+    vramBytes = MIN(vramBytes, (int)MIN(sizeof(out->vram), sizeof(vdp->vram)));
+    memcpy(out->vram, vdp->vram, vramBytes);
+    memset(out->vram + vramBytes, 0, sizeof(out->vram) - vramBytes);
+    rasterCapture(vdp, out);
+    return 1;
+}
+
+/* The VDP's frame buffer rows fit; a wider one would be cut. */
+typedef char VdpShotFits[((8 + 256 + 8) << 1) <= VDP_SHOT_WIDTH ? 1 : -1];
+
+/* Copies samples [from, to) of row y of src, up to the row's width. */
+static void shotCopy(VdpFrameShot* out, int y, FrameBuffer* src, int from, int to)
+{
+    int shift = src->line[y].doubleWidth;
+    int width = MIN(src->maxWidth << shift, VDP_SHOT_WIDTH);
+
+    out->shift[y] = (UInt8)shift;
+    to = MIN(to, width);
+    if (to > from && out->pixels) {
+        memcpy(out->pix[y] + from, src->line[y].buffer + from, (to - from) * sizeof(UInt16));
+    }
+}
+
+static void shotKey(VdpFrameShot* out, int y, int shift)
+{
+    int width = MIN(out->maxWidth << shift, VDP_SHOT_WIDTH);
+    int x;
+
+    out->shift[y] = (UInt8)shift;
+    for (x = 0; out->pixels && x < width; x++) {
+        out->pix[y][x] = 0x8000;
+    }
+}
+
+/* Samples of row y, the row of curLine, that the VDP has drawn this frame. */
+static int shotDrawnSamples(VDP* vdp, FrameBuffer* draw, int y)
+{
+    const UInt16* line = draw->line[y].buffer;
+    const UInt16* start;
+
+    if (vdp->lineOffset < 0) {
+        return 0;
+    }
+    if (vdp->lineOffset > 32) {
+        return VDP_SHOT_WIDTH;
+    }
+    start = (const UInt16*)RefreshLineStart(vdp->curLine);
+    if (start == NULL || start < line || start > line + VDP_SHOT_WIDTH) {
+        return 0;
+    }
+    return MIN((int)(start - line) + RefreshLineDrawn(vdp), VDP_SHOT_WIDTH);
+}
+
+/* Sprite split and sprite tables of theVdp: per frame of its frame buffer, each row
+** drawn again without sprites as its line ended, and the tables its sprites were
+** laid out from. Emulator thread only. */
+volatile int vdpSprSplitArmed;
+static int      sprSplitArmCount, sprTabArmCount;
+static unsigned sprSplitGeneration, sprTabGeneration;
+
+#define SPR_SPLIT_GEN ((int)((unsigned)vdpSprSplitArmed & 0xffff))
+#define SPR_TAB_GEN   ((int)(((unsigned)vdpSprSplitArmed >> 16) & 0xffff))
+/* The renderers' sprite break column: SCREEN 5 and up lay a line's sprites out
+** here; sprite mode 1 and SCREEN 4 at the line's right border. */
+#define SPR_EVAL_COLUMN 24
+/* Sprite tables a frame of the frame buffer keeps; rows past them get none and
+** are marked SPR_TAB_LOST. */
+#define SPR_TAB_PER_FRAME 32
+#define SPR_TAB_LOST      0xfe
+
+typedef struct {
+    int    gen;             /* SPR_SPLIT_GEN when recorded; 0: never */
+    UInt32 owner;
+    UInt32 frameStart;
+    UInt8  state;           /* VDP_SPR_ROW_* */
+    UInt8  tabIndex;        /* into the plane's tables; 0xff none, SPR_TAB_LOST */
+    UInt8  tabState;
+    int    tabGen;          /* SPR_TAB_GEN when recorded; 0: never */
+    UInt32 tabOwner;
+    UInt32 tabFrame;
+    UInt8  palState;
+    int    palGen;          /* SPR_TAB_GEN when the palette was recorded; 0: never */
+    UInt32 palOwner;
+    UInt32 palFrame;
+} SprSplitRow;
+
+typedef struct {
+    FrameBuffer* key;
+    UInt32       used;
+    SprSplitRow  row[VDP_SHOT_ROWS];
+    UInt8        mask[VDP_SHOT_ROWS][VDP_SHOT_WIDTH / 8];
+    UInt16       bg[VDP_SHOT_ROWS][VDP_SHOT_WIDTH];
+    UInt32       tabFrame;  /* the frame the tables are of */
+    int          tabCount;
+    VdpSprTable  tab[SPR_TAB_PER_FRAME];
+    UInt16       pal[VDP_SHOT_ROWS][16];
+} SprSplitPlane;
+
+/* The frame buffer's four frames and its two blend frames. */
+#define SPR_SPLIT_PLANES 6
+static SprSplitPlane sprPlanes[SPR_SPLIT_PLANES];
+static UInt32        sprPlaneClock;
+
+/* The tables displayed lines used, for the generation and VDP that recorded
+** them since sprUseSince, and the last one noted in the frame being drawn. */
+static VdpSprUse sprUses[VDP_SPR_USES];
+static int       sprUseCount, sprUseGen;
+static UInt32    sprUseOwner, sprUseSince;
+static VdpSprUse sprUseLast;
+static int       sprUseLastSet;
+
+static int sprUseSame(const VdpSprUse* a, const VdpSprUse* b)
+{
+    return a->screenMode == b->screenMode && a->r1 == b->r1 && a->r5 == b->r5 && a->r6 == b->r6 &&
+           a->r8 == b->r8 && a->r11 == b->r11;
+}
+
+/* Table u is used in the frame being drawn: stamped with the seq the frame
+** will have once it completes, in place of the least recent when full. */
+static void sprUseNote(VDP* vdp, const VdpSprUse* u)
+{
+    UInt32 owner = (UInt32)vdp->debugHandle + 1;
+    UInt32 seq, flips;
+    int i, k;
+
+    frameBufferGetLastDrawnOf(vdp->frameBuffer, &seq, &flips);
+    seq = flips + 1;
+    if (sprUseGen != SPR_TAB_GEN || sprUseOwner != owner) {
+        sprUseGen   = SPR_TAB_GEN;
+        sprUseOwner = owner;
+        sprUseSince = seq;
+        sprUseCount = 0;
+    }
+    for (i = 0; i < sprUseCount && !sprUseSame(&sprUses[i], u); i++) {
+    }
+    if (i == sprUseCount && i < VDP_SPR_USES) {
+        sprUseCount++;
+    }
+    else if (i == sprUseCount) {
+        for (i = 0, k = 1; k < sprUseCount; k++) {
+            if ((Int32)(sprUses[k].seq - sprUses[i].seq) < 0) {
+                i = k;
+            }
+        }
+        /* Every table used since then is still held. */
+        if ((Int32)(sprUses[i].seq + 1 - sprUseSince) > 0) {
+            sprUseSince = sprUses[i].seq + 1;
+        }
+    }
+    sprUses[i] = *u;
+    sprUses[i].seq = seq;
+}
+
+/* Both generations in the hooks' one word, published in one store. */
+static void sprArmPublish(void)
+{
+    vdpSprSplitArmed = (int)((sprSplitArmCount > 0 ? sprSplitGeneration : 0u) | (sprTabArmCount > 0 ? sprTabGeneration << 16 : 0u));
+}
+
+static void sprArm(int on, int* count, unsigned* generation)
+{
+    if (on) {
+        if ((*count)++ == 0 && ++*generation > 0xffff) {
+            *generation = 1;
+        }
+    }
+    else if (*count > 0) {
+        --*count;
+    }
+    sprArmPublish();
+}
+
+void vdpSprSplitArm(int on)
+{
+    sprArm(on, &sprSplitArmCount, &sprSplitGeneration);
+}
+
+void vdpSprTableArm(int on)
+{
+    sprArm(on, &sprTabArmCount, &sprTabGeneration);
+}
+
+static SprSplitPlane* sprPlaneOf(FrameBuffer* fb)
+{
+    int i;
+
+    for (i = 0; fb != NULL && i < SPR_SPLIT_PLANES; i++) {
+        if (sprPlanes[i].key == fb) {
+            return &sprPlanes[i];
+        }
+    }
+    return NULL;
+}
+
+/* len bytes of sprite table from logical address a, read as the sprite line builder
+** reads them in sprite mode sprMode: the only place the tables are read from VRAM. */
+static void sprTabRead(VDP* vdp, int sprMode, int a, UInt8* dst, int len)
+{
+    int i;
+
+    if (sprMode == 1) {
+        memcpy(dst, vdp->vram + a, len);
+    }
+    else if (vdp->screenMode < 7 || vdp->screenMode > 12) {
+        memcpy(dst, vdp->vramPtr + (a & vdp->vramAccMask), len);
+    }
+    else {
+        for (i = 0; i < len; i++) {
+            dst[i] = *MAP_VRAM(vdp, a + i);
+        }
+    }
+}
+
+/* The tables as they are now into t; false when the mode draws no sprites. */
+static int sprTabGather(VDP* vdp, VdpSprTable* t)
+{
+    int mode = vdp->screenMode;
+    int sprMode = mode >= 1 && mode <= 3 ? 1 : mode >= 4 && mode <= 12 ? 2 : 0;
+    int attr;
+
+    /* An unknown mode is kept as 1 but draws nothing. */
+    if (sprMode == 0 || vdp->RefreshLine == RefreshLineBlank) {
+        return 0;
+    }
+    t->base = vdp->sprTabBase & ~0x3ff;
+    /* Built from the block, so a wider base cannot point the attributes out of it. */
+    attr = sprMode == 1 ? vdp->sprTabBase & ~0x7f : t->base | (vdp->sprTabBase & 0x200);
+    if (attr - t->base < 0 || attr - t->base > (int)sizeof(t->bytes) - 128) {
+        return 0;
+    }
+    memcpy(t->regs, vdp->vdpRegs, sizeof(t->regs));
+    t->screenMode = mode;
+    memset(t->bytes, 0, sizeof(t->bytes));
+    if (sprMode == 2) {
+        sprTabRead(vdp, 2, t->base, t->bytes, 0x200);
+    }
+    sprTabRead(vdp, sprMode, attr, t->bytes + (attr - t->base), 128);
+    return 1;
+}
+
+/* The same layout: the bytes and the registers sprites are laid out with. */
+static int sprTabSame(const VdpSprTable* a, const VdpSprTable* b)
+{
+    static const int regs[] = { 0, 1, 5, 6, 8, 9, 11, 23 };
+    int attr = (a->regs[5] << 7) & (a->screenMode <= 3 ? 0x380 : 0x200);
+    int i;
+
+    /* The attributes first: they are what a game rewrites while lines are drawn. */
+    if (memcmp(a->bytes + attr, b->bytes + attr, 128) != 0) {
+        return 0;
+    }
+    for (i = 0; i < (int)(sizeof(regs) / sizeof(regs[0])); i++) {
+        if (a->regs[regs[i]] != b->regs[regs[i]]) {
+            return 0;
+        }
+    }
+    return a->screenMode == b->screenMode && a->base == b->base && memcmp(a->bytes, b->bytes, sizeof(a->bytes)) == 0;
+}
+
+/* Row r's sprites are laid out while line r - 1 is drawn, from the tables as they
+** are at its end when no access came after the layout. One sync() call has no
+** access in it, so the lines it ends share one read. */
+static void sprRecordTable(VDP* vdp, SprSplitPlane* plane, int r, int from)
+{
+    static VdpSprTable now;
+    static SprSplitPlane* nowPlane;
+    static UInt32 nowTime, nowFrame;
+    static int nowIndex = -1;
+    SprSplitRow* row = &plane->row[r];
+    SprSplitRow* prev = r > 0 ? &plane->row[r - 1] : NULL;
+    UInt32 time = boardSystemTime();
+    int gen = SPR_TAB_GEN;
+    int i;
+
+    /* A plane just taken for another frame buffer has tabCount -1. */
+    if (plane->tabFrame != vdp->frameStartTime || plane->tabCount < 0) {
+        plane->tabFrame = vdp->frameStartTime;
+        plane->tabCount = 0;
+        nowPlane = NULL;
+        sprUseLastSet = 0;
+    }
+    if (nowPlane != plane || nowTime != time || nowFrame != vdp->frameStartTime) {
+        nowPlane = plane;
+        nowTime = time;
+        nowFrame = vdp->frameStartTime;
+        nowIndex = -1;
+        if (sprTabGather(vdp, &now)) {
+            /* Tables in a plane are unique, so a match with the previous row's table is the match. */
+            if (prev != NULL && prev->tabIndex < plane->tabCount && sprTabSame(&plane->tab[prev->tabIndex], &now)) {
+                i = prev->tabIndex;
+            }
+            else {
+                for (i = 0; i < plane->tabCount && !sprTabSame(&plane->tab[i], &now); i++) {
+                }
+            }
+            if (i == plane->tabCount && i < SPR_TAB_PER_FRAME) {
+                plane->tab[plane->tabCount++] = now;
+            }
+            nowIndex = i < plane->tabCount ? i : SPR_TAB_LOST;
+        }
+    }
+    row->tabGen   = gen;
+    row->tabOwner = (UInt32)vdp->debugHandle + 1;
+    row->tabFrame = vdp->frameStartTime;
+    row->tabIndex = nowIndex < 0 ? 0xff : (UInt8)nowIndex;
+    row->tabState = VDP_SPR_ROW_NONE;
+    /* A displayed line's table, lost or not, unless the last one noted this frame. */
+    if (nowIndex >= 0 && vdp->curLine + 1 - vdp->firstLine >= 0 &&
+        vdp->curLine + 1 - vdp->firstLine < (vdpIsScanLines212(vdp->vdpRegs) ? 212 : 192)) {
+        VdpSprUse u;
+        u.screenMode = (UInt8)now.screenMode;
+        u.r1  = now.regs[1] & 0x43;
+        u.r5  = now.regs[5];
+        u.r6  = now.regs[6];
+        u.r8  = now.regs[8] & 0x02;
+        u.r11 = now.regs[11];
+        u.seq = 0;
+        if (!sprUseLastSet || !sprUseSame(&u, &sprUseLast) || sprUseGen != gen || sprUseOwner != row->tabOwner) {
+            sprUseNote(vdp, &u);
+            sprUseLast = u;
+            sprUseLastSet = 1;
+        }
+    }
+    if (nowIndex < 0 || nowIndex == SPR_TAB_LOST) {
+        return;
+    }
+    /* Exact when laid out after the line's last access: at its right border (sprite
+    ** mode 1, SCREEN 4) or inside its last piece; or when the tables stayed. */
+    row->tabState = VDP_SPR_ROW_APPROX;
+    if (from < 0 || now.screenMode <= 4 || from < SPR_EVAL_COLUMN ||
+        (prev != NULL && prev->tabGen == gen && prev->tabFrame == row->tabFrame && prev->tabIndex == row->tabIndex)) {
+        row->tabState = VDP_SPR_ROW_EXACT;
+    }
+}
+
+/* The palette as the line being drawn showed its first display dot. */
+static UInt16 sprPalStart[16];
+static UInt32 sprPalStartFrame;
+static int    sprPalStartLine = -1;
+
+static void sprPaletteDisplayStart(VDP* vdp)
+{
+    memcpy(sprPalStart, vdp->paletteReg, sizeof(sprPalStart));
+    sprPalStartFrame = vdp->frameStartTime;
+    sprPalStartLine  = vdp->curLine;
+}
+
+/* Row y's palette as its line ended. Exact when every display dot was drawn in
+** the last piece or the palette is the one the first display dot was drawn with. */
+static void sprRecordPalette(VDP* vdp, SprSplitPlane* plane, int y, int from)
+{
+    SprSplitRow* row = &plane->row[y];
+
+    memcpy(plane->pal[y], vdp->paletteReg, sizeof(plane->pal[y]));
+    row->palGen   = SPR_TAB_GEN;
+    row->palOwner = (UInt32)vdp->debugHandle + 1;
+    row->palFrame = vdp->frameStartTime;
+    row->palState = VDP_SPR_ROW_APPROX;
+    if (from <= 0 || (sprPalStartLine == vdp->curLine && sprPalStartFrame == vdp->frameStartTime &&
+                      memcmp(sprPalStart, vdp->paletteReg, sizeof(sprPalStart)) == 0)) {
+        row->palState = VDP_SPR_ROW_EXACT;
+    }
+}
+
+/* Line curLine has ended; its last piece was drawn from lineOffset from. Draws
+** it again without sprites and without evaluating any, as rescrollLine does,
+** keeps that, and puts the line back as it was. */
+static void sprSplitLineDone(VDP* vdp, int from)
+{
+    UInt16 saved[FB_MAX_LINE_WIDTH];
+    int y = vdp->curLine - vdp->displayOffest;
+    FrameBuffer* fb;
+    SprSplitPlane* plane;
+    SprSplitRow* row;
+    UInt16* line;
+    UInt16* start;
+    UInt8* sprites;
+    int savedShift, savedScanline, savedReScroll;
+    int shift, width, state, noSprites, x, i;
+
+    /* Line -1 lays out row 0's sprites. */
+    if (vdp != theVdp || y < -1 || y >= SCREEN_HEIGHT || y >= VDP_SHOT_ROWS) {
+        return;
+    }
+    fb = frameBufferGetDrawFrame();
+    if (fb == NULL || frameBufferGetActiveDraw() != vdp->frameBuffer) {
+        return;
+    }
+    plane = sprPlaneOf(fb);
+    /* spritesEnable is global: the UI thread's sync must not hide sprites, so
+    ** a row it finishes is left unrecorded. */
+    if (!emulatorIsEmuThread()) {
+        if (plane != NULL && y >= 0) {
+            plane->row[y].gen = 0;
+            plane->row[y].palGen = 0;
+        }
+        if (plane != NULL && y + 1 < VDP_SHOT_ROWS) {
+            plane->row[y + 1].tabGen = 0;
+        }
+        return;
+    }
+    if (plane == NULL) {
+        plane = &sprPlanes[0];
+        for (i = 1; i < SPR_SPLIT_PLANES; i++) {
+            if (sprPlanes[i].used < plane->used) {
+                plane = &sprPlanes[i];
+            }
+        }
+        plane->key = fb;
+        plane->tabCount = -1;
+        memset(plane->row, 0, sizeof(plane->row));
+    }
+    plane->used = ++sprPlaneClock;
+    if (SPR_TAB_GEN != 0 && y + 1 < VDP_SHOT_ROWS) {
+        sprRecordTable(vdp, plane, y + 1, from);
+    }
+    if (SPR_TAB_GEN != 0 && y >= 0) {
+        sprRecordPalette(vdp, plane, y, from);
+    }
+    if (y < 0 || SPR_SPLIT_GEN == 0) {
+        return;
+    }
+
+    line = fb->line[y].buffer;
+    memcpy(saved, line, sizeof(saved));
+    savedShift    = fb->line[y].doubleWidth;
+    savedScanline = frameBufferGetScanline();
+    savedReScroll = vdp->reScroll;
+
+    /* reScroll and X2 = 32 skip every sprite evaluation, so no status changes. */
+    spritesEnable = 0;
+    vdp->reScroll = 1;
+    vdp->RefreshLine(vdp, vdp->curLine, -1, 32);
+    vdp->reScroll = savedReScroll;
+    spritesEnable = spritesSetting;
+
+    shift = fb->line[y].doubleWidth;
+    width = MIN(fb->maxWidth << shift, VDP_SHOT_WIDTH);
+    memcpy(plane->bg[y], line, sizeof(plane->bg[y]));
+    start = (UInt16*)RefreshLineStart(vdp->curLine);
+
+    memcpy(line, saved, sizeof(saved));
+    fb->line[y].doubleWidth = savedShift;
+    frameBufferSetScanline(savedScanline);
+
+    memset(plane->mask[y], 0, sizeof(plane->mask[y]));
+    /* Text and blank lines evaluate no sprites; the line buffer is older. */
+    sprites = getSpritesLine(vdp, vdp->curLine);
+    noSprites = vdp->RefreshLine == RefreshLineBlank || vdp->RefreshLine == RefreshLine0 || vdp->RefreshLine == RefreshLine0Plus ||
+                vdp->RefreshLine == RefreshLine0Mix || vdp->RefreshLine == RefreshLineTx80;
+    if (noSprites) {
+        start = NULL;
+    }
+    /* No sprite shows on a border, and the redraw stops before the right one:
+    ** there, and on a whole line of a mode without sprites, bg is the line as drawn. */
+    if (start != NULL && start >= line && start < line + VDP_SHOT_WIDTH) {
+        int x0 = (int)(start - line);
+        int x1 = MIN(x0 + (256 << shift), VDP_SHOT_WIDTH);
+        for (i = 0; i < 256; i++) {
+            for (x = x0 + (i << shift); sprites[i] && x < x0 + ((i + 1) << shift) && x < VDP_SHOT_WIDTH; x++) {
+                plane->mask[y][x >> 3] |= 1 << (x & 7);
+            }
+        }
+        if (shift == savedShift) {
+            memcpy(plane->bg[y], saved, x0 * sizeof(UInt16));
+            memcpy(plane->bg[y] + x1, saved + x1, (VDP_SHOT_WIDTH - x1) * sizeof(UInt16));
+        }
+    }
+    else if (noSprites && shift == savedShift) {
+        memcpy(plane->bg[y], saved, sizeof(plane->bg[y]));
+    }
+
+    /* Drawn in one piece, the line had the registers and VRAM it has now. */
+    state = VDP_SPR_ROW_EXACT;
+    if (shift != savedShift) {
+        state = VDP_SPR_ROW_NONE;
+    }
+    else if (from >= 0) {
+        for (x = 0; x < width; x++) {
+            if (saved[x] != plane->bg[y][x] && !(plane->mask[y][x >> 3] & (1 << (x & 7)))) {
+                state = VDP_SPR_ROW_APPROX;
+                break;
+            }
+        }
+    }
+    row = &plane->row[y];
+    row->gen        = SPR_SPLIT_GEN;
+    row->owner      = (UInt32)vdp->debugHandle + 1;
+    row->frameStart = vdp->frameStartTime;
+    row->state      = (UInt8)state;
+}
+
+/* Row y of the shot's sprite split, from frame fb when recorded there while
+** armed now; a row of the frame in progress must be of this frame. */
+static void shotSprRow(VdpFrameShot* out, VDP* vdp, int y, FrameBuffer* fb, int inProgress)
+{
+    /* The plane's table each shot table came from, for this capture. */
+    static const VdpSprTable* from[VDP_SPR_TABS];
+    SprSplitPlane* plane = sprPlaneOf(fb);
+    SprSplitRow* row = plane != NULL ? &plane->row[y] : NULL;
+    int tabOk = row != NULL && SPR_TAB_GEN != 0 && row->tabGen == SPR_TAB_GEN && row->tabOwner == (UInt32)vdp->debugHandle + 1 &&
+                row->tabFrame == plane->tabFrame && (!inProgress || row->tabFrame == vdp->frameStartTime);
+    int i;
+
+    out->sprTabRow[y] = 0xff;
+    out->sprTabState[y] = VDP_SPR_ROW_NONE;
+    if (tabOk && row->tabIndex == SPR_TAB_LOST) {
+        out->sprTabLost++;
+    }
+    if (tabOk && row->tabIndex < plane->tabCount) {
+        const VdpSprTable* t = &plane->tab[row->tabIndex];
+        for (i = 0; i < out->sprTabCount && from[i] != t; i++) {
+        }
+        if (i == out->sprTabCount && i < VDP_SPR_TABS) {
+            from[i] = t;
+            out->sprTab[out->sprTabCount++] = *t;
+        }
+        if (i < out->sprTabCount) {
+            out->sprTabRow[y] = (UInt8)i;
+            out->sprTabState[y] = row->tabState;
+        }
+    }
+
+    out->linePalState[y] = VDP_SPR_ROW_NONE;
+    if (row != NULL && SPR_TAB_GEN != 0 && row->palGen == SPR_TAB_GEN && row->palOwner == (UInt32)vdp->debugHandle + 1 &&
+        row->palFrame == plane->tabFrame && (!inProgress || row->palFrame == vdp->frameStartTime)) {
+        out->linePalState[y] = row->palState;
+        memcpy(out->linePal[y], plane->pal[y], sizeof(out->linePal[y]));
+    }
+
+    out->sprRow[y] = VDP_SPR_ROW_NONE;
+    if (row == NULL || SPR_SPLIT_GEN == 0 || row->gen != SPR_SPLIT_GEN || row->owner != (UInt32)vdp->debugHandle + 1 ||
+        (inProgress && row->frameStart != vdp->frameStartTime)) {
+        return;
+    }
+    out->sprRow[y] = row->state;
+    memcpy(out->sprMask[y], plane->mask[y], sizeof(out->sprMask[y]));
+    memcpy(out->sprBg[y], plane->bg[y], sizeof(out->sprBg[y]));
+}
+
+/* Ended at a frame tap (flipped just before), at the end of active display (the bottom border
+** from the frame before) and after an early flip (all rows the flipped frame). Else paused:
+** the rows the VDP has drawn so far are the frame in progress, the others the one before. */
+int vdpDebugCaptureFrame(int index, VdpFrameShot* out, int pixels)
+{
+    VDP* vdp = index == 0 ? theVdp : NULL;
+    FrameBuffer* last;
+    FrameBuffer* draw;
+    FrameBuffer* head;
+    UInt32 flips;
+    int drawing;
+    int y;
+
+    out->valid = 0;
+    out->pixels = pixels;
+    if (vdp == NULL) {
+        return 0;
+    }
+    last = frameBufferGetLastDrawnOf(vdp->frameBuffer, &out->seq, &flips);
+    draw = frameBufferGetDrawFrameOf(vdp->frameBuffer);
+    drawing = vdp->videoEnabled && displayEnable && frameBufferGetActiveDraw() == vdp->frameBuffer;
+
+    out->stale        = !drawing || out->seq != flips;
+    /* Ended at a frame end only once it has run; rasterCapture goes by the
+    ** time alone, so a pause right at the end can differ there. */
+    out->ended        = vdpAtShown || vdp->flippedEarly ||
+                        ((Int32)(boardSystemTime() - vdp->timeDisplay) >= 0 &&
+                         vdp->curLine == 0 && vdp->lineOffset < 0);
+    out->drawnRow     = 0;
+    out->drawnSamples = 0;
+    out->frameStart   = vdp->frameStartTime;
+    out->hAdjust      = vdp->HAdjust;
+    out->hAdjustSc0   = vdp->hAdjustSc0;
+    if (vdpAtShown) {
+        /* The frame the next flip completes. */
+        out->seq = flips + 1;
+    }
+    if (out->ended && !vdpAtShown && !vdp->flippedEarly) {
+        /* The layout fields have moved on to the next frame already. */
+        int lines = (int)((vdp->timeDisplay - vdp->frameStartTime) / HPERIOD);
+        out->displayOffset = lines >= 313 ? 27 : 0;
+        out->firstLine     = vdp->firstLine - vdp->displayOffest + out->displayOffset;
+    }
+    else {
+        out->displayOffset = vdp->displayOffest;
+        out->firstLine     = vdp->firstLine;
+        if (!vdp->flippedEarly && drawing && draw != NULL && vdp->curLine >= vdp->displayOffest) {
+            out->drawnRow = MIN(vdp->curLine - vdp->displayOffest, VDP_SHOT_ROWS);
+            if (out->drawnRow < VDP_SHOT_ROWS) {
+                out->drawnSamples = shotDrawnSamples(vdp, draw, out->drawnRow);
+            }
+        }
+    }
+
+    head = out->drawnRow > 0 || out->drawnSamples > 0 ? draw : last;
+    if (head == NULL) {
+        return 0;
+    }
+    out->restMissing     = last == NULL;
+    out->rows            = MIN(head->lines, VDP_SHOT_ROWS);
+    out->maxWidth        = head->maxWidth;
+    out->interlace       = head->interlace;
+    out->interlaceRaster = head->interlaceRaster;
+
+    for (y = 0; y < out->rows; y++) {
+        if (y < out->drawnRow) {
+            shotCopy(out, y, draw, 0, VDP_SHOT_WIDTH);
+        }
+        else if (y == out->drawnRow && out->drawnSamples > 0) {
+            int shift = draw->line[y].doubleWidth;
+            if (last != NULL && last->line[y].doubleWidth == shift) {
+                shotCopy(out, y, last, out->drawnSamples, VDP_SHOT_WIDTH);
+            }
+            else {
+                shotKey(out, y, shift);
+            }
+            shotCopy(out, y, draw, 0, out->drawnSamples);
+        }
+        else if (last != NULL) {
+            shotCopy(out, y, last, 0, VDP_SHOT_WIDTH);
+        }
+        else {
+            shotKey(out, y, 0);
+        }
+    }
+    out->sprSplit = SPR_SPLIT_GEN != 0;
+    out->sprTabCount = 0;
+    out->sprTabLost = 0;
+    out->sprUseCount = 0;
+    out->sprUseSince = 0;
+    if (SPR_TAB_GEN != 0 && sprUseGen == SPR_TAB_GEN && sprUseOwner == (UInt32)vdp->debugHandle + 1) {
+        out->sprUseCount = sprUseCount;
+        out->sprUseSince = sprUseSince;
+        memcpy(out->sprUse, sprUses, sizeof(sprUses));
+    }
+    out->linePalValid = SPR_TAB_GEN != 0;
+    for (y = 0; vdpSprSplitArmed && y < out->rows; y++) {
+        if (y < out->drawnRow || (y == out->drawnRow && out->drawnSamples >= VDP_SHOT_WIDTH)) {
+            shotSprRow(out, vdp, y, draw, 1);
+        }
+        else if (y == out->drawnRow && out->drawnSamples > 0) {
+            out->sprRow[y] = VDP_SPR_ROW_NONE;
+            out->sprTabRow[y] = 0xff;
+            out->linePalState[y] = VDP_SPR_ROW_NONE;
+        }
+        else {
+            shotSprRow(out, vdp, y, last, 0);
+        }
+    }
+    out->valid = 1;
+    return 1;
 }
 
 static void getDebugInfo(VDP* vdp, DbgDevice* dbgDevice)

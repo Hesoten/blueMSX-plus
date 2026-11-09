@@ -3414,6 +3414,10 @@ int showProperties(Properties* pProperties, HWND hwndOwner, PropPage desiredStar
 
     PropertySheetW(&psh);
 
+    /* The tool windows keep drawing while the dialog is up: what they changed meanwhile
+    ** is neither a change made here nor undone by Cancel. */
+    oldProp.vdpViewer = pProperties->vdpViewer;
+    oldProp.controlDeck = pProperties->controlDeck;
     if (propModified) {
         /* The sheet is always centered on the main window, so its saved
         ** position follows the window size and is not a change made here. */

@@ -291,6 +291,8 @@ void langInitRussian(LanguageStrings* ls)
     ls->menuToolsShortcuts      = "Настройка быстрого вызова";
     ls->menuToolsCtrlEditor     = "Настройка контроллеров / клавиатуры"; 
     ls->menuToolsMixer          = "Эквалайзер";
+    ls->menuToolsVdpViewer      = "Просмотр VDP";
+    ls->menuToolsControlDeck    = "Управление эмуляцией";
     ls->menuToolsLoadMemory     = "Загрузить память";
     ls->menuToolsAgentControl   = "Управление агентом";
     ls->menuToolsAgentActivity  = "Действия агента...";
@@ -860,6 +862,10 @@ void langInitRussian(LanguageStrings* ls)
     ls->shortcutToggleMouseLock = "Подключить/отключить ПК мышь к MSX";
     ls->shortcutEmuSpeedMax     = "Максимальная скорость эмуляции";
     ls->shortcutEmuPlayReverse  = "Перемотать эмуляцию";                     // New in 2.8.3
+    ls->shortcutEmuFrameAdvance = "Вперёд на один кадр";
+    ls->shortcutEmuAdvanceToChange = "Вперёд до следующего обновления экрана";
+    ls->shortcutEmuBackFrame    = "Назад на один кадр";
+    ls->shortcutEmuBackToChange = "Назад до предыдущего обновления экрана";
     ls->shortcutEmuSpeedToggle  = "Включить максимальную скорость эмуляции";
     ls->shortcutEmuSpeedNormal  = "Обыная скорость эмуляции";
     ls->shortcutEmuSpeedInc     = "Увеличить скорость эмуляции";

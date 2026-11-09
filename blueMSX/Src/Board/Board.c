@@ -1098,6 +1098,11 @@ static void onSync(void* ref, UInt32 time)
     doSync(time, DBG_STOP_NONE);
 }
 
+void boardSyncSoon(void)
+{
+    boardTimerAdd(syncTimer, boardSystemTime() + 1);
+}
+
 void boardOnBreakpoint(int cause)
 {
     /* Parking here would never come back on the UI thread, which is where a
@@ -1217,6 +1222,57 @@ int boardRewindOne() {
 int boardRewind()
 {
     return boardRewindLoad(1);
+}
+
+int boardRewindTo(UInt32 loadAt, UInt32 dropAfter)
+{
+    int skip, back;
+    char stateFile[16];
+    if (stateFrequency <= 0 || diskHasHostMedium()) {
+        return 0;
+    }
+    for (skip = 0; skip < ramStateCount; skip++) {
+        int slot = (ramStateCur + ramMaxStates - skip) % ramMaxStates;
+        if ((Int32)(ramStateTime[slot] - dropAfter) <= 0) {
+            break;
+        }
+    }
+    if (skip >= ramStateCount) {
+        return 0;
+    }
+    while (skip-- > 0) {
+        boardRewindDrop();
+    }
+    for (back = 0; back < ramStateCount - 1; back++) {
+        int slot = (ramStateCur + ramMaxStates - back) % ramMaxStates;
+        if ((Int32)(ramStateTime[slot] - loadAt) <= 0) {
+            break;
+        }
+    }
+    /* Kept: the next step back may land on it again. */
+    if (back == 0) {
+        return boardRewindLoad(0);
+    }
+    /* An older one, loaded without dropping those after it, which later steps still use. */
+    sprintf(stateFile, "mem%d", (ramStateCur + ramMaxStates - back) % ramMaxStates);
+    return boardLoadStateInPlace(stateFile);
+}
+
+int boardRewindReaches(UInt32 at)
+{
+    int oldest;
+    if (stateFrequency <= 0 || diskHasHostMedium() || ramStateCount < 1) {
+        return 0;
+    }
+    oldest = (ramStateCur + ramMaxStates - (ramStateCount - 1)) % ramMaxStates;
+    return (Int32)(ramStateTime[oldest] - at) <= 0 && (Int32)(at - boardSystemTime()) <= 0;
+}
+
+void boardRewindForget(UInt32 after)
+{
+    while (ramStateCount > 1 && (Int32)(ramStateTime[ramStateCur] - after) > 0) {
+        boardRewindDrop();
+    }
 }
 
 static int boardRewindLoad(int drop)

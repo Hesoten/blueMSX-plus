@@ -81,6 +81,8 @@
 #include "Win32file.h"
 #include "Win32Help.h"
 #include "Win32Menu.h"
+#include "ImGui/ImGuiWindow.h"
+#include "ImGui/ControlDeck/ControlDeck.h"
 #include "Win32FileDialog.h"
 #include "Win32TextUtf8.h"
 #include "ArchMenu.h"
@@ -272,6 +274,7 @@ BOOL win32CommonIsDarkMode(void) { return win32IsDarkMode(); }
 COLORREF win32CommonDarkBg(void) { return DARK_BG; }
 COLORREF win32CommonDarkFg(void) { return DARK_FG; }
 HBRUSH   win32CommonDarkBgBrush(void) { return win32GetDarkBkBrush(); }
+void     win32CommonApplyDarkTitle(HWND hwnd) { win32ApplyDarkTitle(hwnd); }
 
 /* Forward declared so this wrapper can sit alongside the other public dark
 ** helpers; the actual win32ApplyDarkToDialog body is later in this file. */
@@ -1763,8 +1766,8 @@ void setTapePosition(HWND parent, Properties* pProperties) {
 
 ///////////////////////////////////////////////////////////////////////////
 
-/* ignoreMods: mods on a release come from the input poll, so they can
-** differ from the press. */
+/* ignoreMods: for a release, whose press may have gone to another window with
+** other modifiers. */
 static unsigned hotkeySetSlotMask(ShotcutHotkey key, const ShotcutHotkeySet* set, int ignoreMods)
 {
     unsigned mask = 0;
@@ -1787,6 +1790,32 @@ static int hotkeySetMatches(ShotcutHotkey key, const ShotcutHotkeySet* set)
 
 #define hotkeyEq(hotkey1, hotkey2Set) hotkeySetMatches((hotkey1), &(hotkey2Set))
 
+/* The modifiers of each key's press, plus 0x100, while it is down; 0 when its press was
+** not seen here. */
+static unsigned short pressMods[256];
+
+/* A key message as a hotkey. A release and the repeats take the modifiers of the press,
+** so letting go of a modifier before the key still makes the combination. */
+static ShotcutHotkey hotkeyOfKeyMessage(UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    ShotcutHotkey key;
+    int vk = (int)(wParam & 0xff);
+
+    key.type = HOTKEY_TYPE_KEYBOARD;
+    key.key  = vk;
+    if (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN) {
+        if ((lParam & (1 << 30)) == 0 || pressMods[vk] == 0) {
+            pressMods[vk] = (unsigned short)(0x100 | keyboardMessageModifiers());
+        }
+        key.mods = pressMods[vk] & 0xff;
+    }
+    else {
+        key.mods = pressMods[vk] != 0 ? (pressMods[vk] & 0xff) : keyboardMessageModifiers();
+        pressMods[vk] = 0;
+    }
+    return key;
+}
+
 /* A shortcut bound to joy N button M fires on slot N-1's button M. */
 static unsigned joyHotkeyCode(int slot, int button)
 {
@@ -1796,51 +1825,75 @@ static unsigned joyHotkeyCode(int slot, int button)
 static unsigned maxSpeedHeld = 0;
 static unsigned reverseHeld  = 0;
 
-static void checkKeyDown(Shortcuts* s, ShotcutHotkey key) {
-    unsigned m;
+void heldActionPress(HeldAction action, unsigned bits)
+{
+    /* Only the first hold of either may run the machine from a pause. */
+    int first = maxSpeedHeld == 0 && reverseHeld == 0;
 
-    m = hotkeySetSlotMask(key, &s->emuSpeedFull, 0);
-    if (m != 0) {
-        /* Re-asserted per repeat: max speed can be switched off elsewhere. */
+    if (bits == 0) return;
+
+    if (action == HELD_ACTION_MAX_SPEED) {
+        /* Re-asserted per press: max speed can be switched off elsewhere. */
         actionMaxSpeedSet();
-        maxSpeedHeld |= m;
+        maxSpeedHeld |= bits;
+        if (first) actionHoldBegin(0);
     }
-    m = hotkeySetSlotMask(key, &s->emuPlayReverse, 0);
-    if (m != 0) {
+    else {
         /* Starting reverse play suspends the sound device, which is not
         ** re-entrant. */
-        if (reverseHeld == 0) actionStartPlayReverse();
-        reverseHeld |= m;
+        if (first)                 actionHoldBegin(1);
+        else if (reverseHeld == 0) actionStartPlayReverse();
+        reverseHeld |= bits;
     }
 }
 
+void heldActionRelease(HeldAction action, unsigned bits)
+{
+    unsigned* held = action == HELD_ACTION_MAX_SPEED ? &maxSpeedHeld : &reverseHeld;
+
+    if (bits == 0 || *held == 0) return;
+
+    *held &= ~bits;
+    if (*held != 0) return;
+
+    if (maxSpeedHeld == 0 && reverseHeld == 0) {
+        actionHoldEnd(action == HELD_ACTION_REVERSE);
+    }
+    else if (action == HELD_ACTION_MAX_SPEED) actionMaxSpeedRelease();
+    else                                      actionStopPlayReverse();
+}
+
+/* repeat: an auto-repeat of a key held down, which steps on at the repeat rate. It must
+** not stop a step back under way or a run to a change, and a run to a change either way
+** starts once. */
+static void checkKeyDown(Shortcuts* s, ShotcutHotkey key, int repeat) {
+    heldActionPress(HELD_ACTION_MAX_SPEED, hotkeySetSlotMask(key, &s->emuSpeedFull, 0));
+    heldActionPress(HELD_ACTION_REVERSE,   hotkeySetSlotMask(key, &s->emuPlayReverse, 0));
+
+    if (hotkeyEq(key, s->emuFrameAdvance) && (!repeat || !emulatorChangeStepArmed())) actionEmuFrameAdvance();
+    if (hotkeyEq(key, s->emuAdvanceToChange) && !repeat)                              actionEmuAdvanceToChange();
+    if (hotkeyEq(key, s->emuBackFrame) && (!repeat || !emulatorBackStepPending()))    actionEmuBackFrame();
+    if (hotkeyEq(key, s->emuBackToChange) && !repeat)                                 actionEmuBackToChange();
+}
+
+/* Only the key slots' bits: the deck's hold goes with its own mouse button. */
 static void shortcutsReleaseHeldActions(void)
 {
-    if (maxSpeedHeld != 0) {
-        actionMaxSpeedRelease();
-        maxSpeedHeld = 0;
-    }
+    heldActionRelease(HELD_ACTION_MAX_SPEED, (1u << SHORTCUT_MAX_BINDINGS) - 1);
+    heldActionRelease(HELD_ACTION_REVERSE,   (1u << SHORTCUT_MAX_BINDINGS) - 1);
+}
 
-    if (reverseHeld != 0) {
-        actionStopPlayReverse();
-        reverseHeld = 0;
-    }
+/* Every holder, before a modal loop suspends the machine. */
+static void releaseAllHeldActions(void)
+{
+    shortcutsReleaseHeldActions();
+    controlDeckDropHolds();
 }
 
 static void checkKeyUp(Shortcuts* s, ShotcutHotkey key)
 {
-    unsigned m;
-
-    m = hotkeySetSlotMask(key, &s->emuSpeedFull, 1);
-    if (m != 0 && maxSpeedHeld != 0) {
-        maxSpeedHeld &= ~m;
-        if (maxSpeedHeld == 0) actionMaxSpeedRelease();
-    }
-    m = hotkeySetSlotMask(key, &s->emuPlayReverse, 1);
-    if (m != 0 && reverseHeld != 0) {
-        reverseHeld &= ~m;
-        if (reverseHeld == 0) actionStopPlayReverse();
-    }
+    heldActionRelease(HELD_ACTION_MAX_SPEED, hotkeySetSlotMask(key, &s->emuSpeedFull, 1));
+    heldActionRelease(HELD_ACTION_REVERSE,   hotkeySetSlotMask(key, &s->emuPlayReverse, 1));
 
     if (hotkeyEq(key, s->spritesEnable))                actionToggleSpriteEnable();
     if (hotkeyEq(key, s->fdcTiming))                    actionToggleFdcTiming();
@@ -1902,7 +1955,7 @@ static void checkKeyUp(Shortcuts* s, ShotcutHotkey key)
 
     if (hotkeyEq(key, s->prnFormFeed))                  actionPrinterForceFormFeed();
     if (hotkeyEq(key, s->mouseLockToggle))              actionToggleMouseCapture();
-    if (hotkeyEq(key, s->emulationRunPause))            actionEmuTogglePause();
+    if (hotkeyEq(key, s->emulationRunPause))            actionEmuRunPause();
     if (hotkeyEq(key, s->emulationStop))                actionEmuStop();
     if (hotkeyEq(key, s->emuSpeedNormal))               actionEmuSpeedNormal();
     if (hotkeyEq(key, s->emuSpeedInc))                  actionEmuSpeedIncrease();
@@ -1955,6 +2008,9 @@ static void checkKeyUp(Shortcuts* s, ShotcutHotkey key)
 #define WM_UPDATE            (WM_USER + 1245)
 #define WM_LAUNCHFILE        (WM_USER + 1249)
 #define WM_FLASHPROBLEM      (WM_USER + 1250)
+/* A shortcut key from a tool window: wParam the hotkey, lParam 0 for a release, 1 for a
+** press and 2 for a repeat. */
+#define WM_TOOLSHORTCUT      (WM_USER + 1252)
 #ifdef BMSX_RACE_TEST
 /* Arms a race test point: wParam the point, lParam the milliseconds; point 0 dumps the activity log
 ** and RACE_HOLD_CHANGE holds a change open as a menu does, for lParam ms. */
@@ -2306,6 +2362,69 @@ HWND getEmuHwnd()
     return st.emuHwnd;
 }
 
+/* Posted, not run here: an action that opens a dialog would let the tool window be
+** closed under its own message. A release goes only after a press that went, as a text
+** field may have taken the press. */
+int shortcutKeyFromToolWindow(UINT msg, WPARAM wParam, LPARAM lParam, int textInput)
+{
+    static BYTE forwarded[256];
+    static int dropChar;
+    int vk = (int)(wParam & 0xff);
+    ShotcutHotkey key;
+    DWORD packed;
+    LPARAM kind;
+
+    if (msg == WM_CHAR || msg == WM_SYSCHAR) {
+        /* The character of a press used up here: after Alt it would only beep. */
+        int used = dropChar;
+        dropChar = 0;
+        return used;
+    }
+    if (msg == WM_KILLFOCUS) {
+        /* The releases go elsewhere now: let go of what the keys hold. */
+        memset(forwarded, 0, sizeof(forwarded));
+        dropChar = 0;
+        shortcutsReleaseHeldActions();
+        return 0;
+    }
+    if (msg == WM_KEYUP || msg == WM_SYSKEYUP) {
+        dropChar = 0;
+        if (!forwarded[vk]) {
+            pressMods[vk] = 0;
+            return 0;
+        }
+        forwarded[vk] = 0;
+        kind = 0;
+    }
+    else if (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN) {
+        dropChar = 0;
+        kind = (lParam & (1 << 30)) != 0 ? 2 : 1;
+        if (kind == 1) {
+            forwarded[vk] = 0;
+        }
+        if (textInput) {
+            return 0;
+        }
+    }
+    else {
+        return 0;
+    }
+    if (st.shortcuts == NULL) {
+        return 0;
+    }
+    key = hotkeyOfKeyMessage(msg, wParam, lParam);
+    if (kind != 0) {
+        if (!shortcutsHasHotkey(st.shortcuts, key)) {
+            return 0;
+        }
+        forwarded[vk] = 1;
+        dropChar = 1;
+    }
+    memcpy(&packed, &key, sizeof(packed));
+    PostMessage(st.hwnd, WM_TOOLSHORTCUT, (WPARAM)packed, kind);
+    return kind != 0;
+}
+
 void archShowPropertiesDialog(PropPage  startPane) {
     Properties oldProp = *pProperties;
     int changed;
@@ -2485,6 +2604,12 @@ void enterDialogShow() {
             DirectXSetGDISurface();
         }
     }
+    enterModalLoop();
+}
+
+/* The part of enterDialogShow a window's own move or size loop needs: the
+** emulator stops waiting for frames this thread cannot ack meanwhile. */
+void enterModalLoop() {
     st.showDialog++;
     if (st.showDialog == 1) {
         emuEnableSynchronousUpdate(0);
@@ -3514,6 +3639,27 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         return 0;
 #endif
 
+    case WM_TOOLSHORTCUT:
+        {
+            ShotcutHotkey key;
+            DWORD packed = (DWORD)wParam;
+            memcpy(&key, &packed, sizeof(key));
+            if (st.shortcuts == NULL) {
+                return 0;
+            }
+            /* Nothing may run behind a modal dialog, but a release still lets go of a hold. */
+            if (!IsWindowEnabled(hwnd)) {
+                if (lParam == 0) shortcutsReleaseHeldActions();
+            }
+            else if (lParam == 0) {
+                checkKeyUp(st.shortcuts, key);
+            }
+            else {
+                checkKeyDown(st.shortcuts, key, lParam == 2);
+            }
+        }
+        return 0;
+
     case WM_FLASHPROBLEM:
         if (lParam != 0 && st.hidden) {
             free((char*)lParam);
@@ -3575,23 +3721,15 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
     case WM_SYSKEYDOWN:
     case WM_KEYDOWN:
         {
-            ShotcutHotkey key;
             keyboardKeyDownMessage(wParam, lParam);
-            key.type = HOTKEY_TYPE_KEYBOARD;
-            key.mods = keyboardGetModifiers();
-            key.key  = wParam & 0xff;
-            checkKeyDown(st.shortcuts, key);
+            checkKeyDown(st.shortcuts, hotkeyOfKeyMessage(iMsg, wParam, lParam), (lParam & (1 << 30)) != 0);
         }
         return 0;
 
     case WM_SYSKEYUP:
     case WM_KEYUP:
         {
-            ShotcutHotkey key;
-            key.type = HOTKEY_TYPE_KEYBOARD;
-            key.mods = keyboardGetModifiers();
-            key.key  = wParam & 0xff;
-            checkKeyUp(st.shortcuts, key);
+            checkKeyUp(st.shortcuts, hotkeyOfKeyMessage(iMsg, wParam, lParam));
         }
         return 0;
 
@@ -3638,7 +3776,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         break;
 
     case WM_ENTERSIZEMOVE:
-        shortcutsReleaseHeldActions();
+        releaseAllHeldActions();
         emulatorSuspend();
         mouseEmuActivate(0);
         st.showDialog++;
@@ -3653,7 +3791,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
     case WM_ENTERMENULOOP:
         /* The loop swallows the key-up, and stopping reverse play resumes
         ** the sound device, which must happen before the suspend below. */
-        shortcutsReleaseHeldActions();
+        releaseAllHeldActions();
         emulatorSuspend();
         st.trackMenu = 1;
         SetTimer(st.hwnd, TIMER_MENUUPDATE, 250, NULL);
@@ -3770,14 +3908,23 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 
     case WM_SIZE:
         InvalidateRect(hwnd, NULL, TRUE);
+        if (wParam == SIZE_MINIMIZED) {
+            /* The deck hides and draws no frame, so it would never see its button let go. */
+            controlDeckDropHolds();
+            imguiToolMainMinimized(1);
+        }
+        else if (wParam == SIZE_RESTORED || wParam == SIZE_MAXIMIZED) {
+            imguiToolMainMinimized(0);
+        }
         break;
         
     case WM_ACTIVATE:
         if (LOWORD(wParam) == WA_INACTIVE) {
             inputReset(hwnd);
             mouseEmuActivate(0);
-            /* The key-up that would end these is going to another window. */
-            shortcutsReleaseHeldActions();
+            /* The key-up that would end these is going to another window, and a covered
+            ** deck draws no frame to see its button let go. */
+            releaseAllHeldActions();
         }
         else {
             mouseEmuActivate(1);
@@ -3991,7 +4138,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
                                 key.type = HOTKEY_TYPE_JOYSTICK;
                                 key.mods = 0;
                                 key.key  = joyHotkeyCode(slot, i);
-                                checkKeyDown(st.shortcuts, key);
+                                checkKeyDown(st.shortcuts, key, 0);
                             }
                         }
                         for (i = 1; up != 0; i++, up >>= 1) {
@@ -4143,6 +4290,8 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             return 0;
         }
         emulatorStop();
+        /* Before the destroy: in fullscreen it takes the deck, owned by this window, first. */
+        controlDeckAppExit();
         DestroyWindow(hwnd);
         return 0;
 
@@ -4171,6 +4320,8 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         	actionHarddiskRemoveAll();
         }
         
+        /* Not owned by the main window, so they would outlive it until exit. */
+        imguiToolCloseAll();
         emulatorStop();
         physicalDiskEjectAll();
         toolUnLoadAll();
@@ -5556,6 +5707,10 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     if (!st.hidden) {
         ShowWindow(st.hwnd, SW_NORMAL);
         UpdateWindow(st.hwnd);
+        /* Open at the last exit; a hidden run has no one to use it. */
+        if (pProperties->controlDeck.open) {
+            controlDeckShow();
+        }
     }
 
     /* The debugger attaches to the main window, so this runs after it exists. */
@@ -7712,9 +7867,8 @@ void archReplayMissing(const char* fileName) {
 }
 
 void archPumpEmuDisplay(void) {
-    /* Called from the recorder status dialog's WM_TIMER (main thread) to drain
-    ** st.ddrawEvent, which the dialog's own message loop does not wait on; without
-    ** this the recorded MP4 stays stuck on the frame captured at emu stop. */
+    /* Draws a pending emulator frame and acks it, for a nested loop on the main
+    ** thread that the main loop's wait on st.ddrawEvent does not see. */
     if (st.ddrawEvent && WaitForSingleObject(st.ddrawEvent, 0) == WAIT_OBJECT_0) {
         if (!st.minimized) {
             emuWindowDraw(st.diplayUpdateOnVblank);

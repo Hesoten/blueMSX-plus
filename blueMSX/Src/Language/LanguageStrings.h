@@ -31,6 +31,8 @@
 #ifndef LANGUAGE_STRINGS_H
 #define LANGUAGE_STRINGS_H
 
+#include "LanguageToolIds.h"
+
 typedef struct {
     //----------------------
     // Language lines
@@ -288,6 +290,8 @@ typedef struct {
     char* menuToolsKeyboard;
     char* menuToolsCtrlEditor;
     char* menuToolsMixer;
+    char* menuToolsVdpViewer;
+    char* menuToolsControlDeck;
     char* menuToolsLoadMemory;
     char* menuToolsAgentControl;
     char* menuToolsAgentActivity;
@@ -857,6 +861,10 @@ typedef struct {
     char* propControlsMouseSens;
     char* shortcutEmuSpeedMax;
     char* shortcutEmuPlayReverse;
+    char* shortcutEmuFrameAdvance;
+    char* shortcutEmuAdvanceToChange;
+    char* shortcutEmuBackFrame;
+    char* shortcutEmuBackToChange;
     char* shortcutEmuSpeedToggle;
     char* shortcutEmuSpeedNormal;
     char* shortcutEmuSpeedInc;
@@ -1005,6 +1013,13 @@ typedef struct {
 
     char* dbgDevRtc;
     char* dbgDevTrPause;
+
+
+    //----------------------
+    // Tool windows
+    //----------------------
+
+    char* tool[TS_COUNT];
 
 
     //----------------------

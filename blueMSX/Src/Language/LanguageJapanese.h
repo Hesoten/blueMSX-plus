@@ -293,6 +293,8 @@ void langInitJapanese(LanguageStrings* ls)
     ls->menuToolsShortcuts      = "ショートカット構成編集";
     ls->menuToolsCtrlEditor     = "コントローラー / キーボード構成編集"; 
     ls->menuToolsMixer          = "ミキサー";
+    ls->menuToolsVdpViewer      = "VDP ビューア";
+    ls->menuToolsControlDeck    = "コントロールデッキ";
     ls->menuToolsDebugger       = "デバッガー";
     ls->menuToolsTrainer        = "トレーナー";
     ls->menuToolsTraceLogger    = "トレースロガー";
@@ -884,6 +886,10 @@ void langInitJapanese(LanguageStrings* ls)
     ls->shortcutToggleMouseLock = "PC のマウスを MSX に接続/解除";
     ls->shortcutEmuSpeedMax     = "エミュレーション実行速度を最速化";
     ls->shortcutEmuPlayReverse  = "巻き戻し再生";
+    ls->shortcutEmuFrameAdvance = "1 フレーム進める";
+    ls->shortcutEmuAdvanceToChange = "次の画面更新まで進める";
+    ls->shortcutEmuBackFrame    = "1 フレーム戻す";
+    ls->shortcutEmuBackToChange = "前の画面更新まで戻す";
     ls->shortcutEmuSpeedToggle  = "最速動作の有無";
     ls->shortcutEmuSpeedNormal  = "エミュレーション実行速度を標準化";
     ls->shortcutEmuSpeedInc     = "エミュレーション速度を加速";
@@ -1020,6 +1026,15 @@ void langInitJapanese(LanguageStrings* ls)
     ls->dbgDevSvi80Col          = "SVI 80 Column";
     ls->dbgDevRtc               = "RTC";
     ls->dbgDevTrPause           = "TR Pause";
+
+
+    //----------------------
+    // Tool windows
+    //----------------------
+
+#define TS(id, en, ja) if (*ja) ls->tool[TS_##id] = ja;
+#include "LanguageToolStrings.h"
+#undef TS
 
 
     //----------------------

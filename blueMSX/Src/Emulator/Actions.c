@@ -1094,7 +1094,164 @@ void actionEmuStep() {
     }
 }
 
+/* A medium in a drive that a rewind cannot take back with the MSX. */
+static ActionRefusal mediumRefusal(void)
+{
+    if (emulatorGetState() != EMU_STOPPED && diskHasHostMedium()) {
+        return ACTION_REFUSED_HOST_MEDIUM;
+    }
+    return ACTION_OK;
+}
+
+/* True when refused; of the reasons, only a medium in a drive is told in a toast. */
+static int actionRefused(ActionRefusal why)
+{
+    if (why == ACTION_REFUSED_HOST_MEDIUM) {
+        archCaptureToastInfo(langInfoRewindNoMedium());
+    }
+    return why != ACTION_OK;
+}
+
+static int runningOrPaused(void)
+{
+    EmuState emuState = emulatorGetState();
+    return emuState == EMU_RUNNING || emuState == EMU_PAUSED;
+}
+
+ActionRefusal actionFrameAdvanceRefusal(void)
+{
+    if (dirGateActive || dirInsertActive) {
+        return ACTION_REFUSED_DIR_GATE;
+    }
+    if (emulatorGetPlayReverse()) {
+        return ACTION_REFUSED_REVERSE;
+    }
+    if (emulatorBackStepPending()) {
+        return ACTION_REFUSED_STEPPING_BACK;
+    }
+    /* A step waiting for a change is turned into this one. */
+    if (emulatorFrameStopPending() && !emulatorChangeStepArmed()) {
+        return ACTION_REFUSED_WAITING;
+    }
+    return runningOrPaused() ? ACTION_OK : ACTION_REFUSED_STOPPED;
+}
+
+ActionRefusal actionAdvanceToChangeRefusal(void)
+{
+    if (dirGateActive || dirInsertActive) {
+        return ACTION_REFUSED_DIR_GATE;
+    }
+    if (emulatorGetPlayReverse()) {
+        return ACTION_REFUSED_REVERSE;
+    }
+    if (emulatorBackStepPending()) {
+        return ACTION_REFUSED_STEPPING_BACK;
+    }
+    return runningOrPaused() ? ACTION_OK : ACTION_REFUSED_STOPPED;
+}
+
+/* Paused or running, or again while a step back runs to stop it; a rewind to a chosen frame
+** does not stop. A source that paces the screen has no frame end to stop at. pending is
+** read once by the caller, which acts on the same value. */
+static ActionRefusal backStepRefusal(int pending)
+{
+    if (dirGateActive || dirInsertActive) {
+        return ACTION_REFUSED_DIR_GATE;
+    }
+    if (!pending && !runningOrPaused()) {
+        return ACTION_REFUSED_STOPPED;
+    }
+    if (!state.properties->emulation.reverseEnable) {
+        return ACTION_REFUSED_REWIND_OFF;
+    }
+    if (pending) {
+        return pending == 3 ? ACTION_REFUSED_STEPPING_BACK : ACTION_OK;
+    }
+    if (emulatorGetPlayReverse()) {
+        return ACTION_REFUSED_REVERSE;
+    }
+    if (videoManagerActivePacesScreen()) {
+        return ACTION_REFUSED_PACED;
+    }
+    return mediumRefusal();
+}
+
+ActionRefusal actionBackStepRefusal(void)
+{
+    return backStepRefusal(emulatorBackStepPending());
+}
+
+/* A held rewind key must not run the machine forward when rewind cannot run. */
+ActionRefusal actionHoldRefusal(int reverse)
+{
+    if (dirGateActive || dirInsertActive) {
+        return ACTION_REFUSED_DIR_GATE;
+    }
+    if (emulatorGetState() == EMU_STOPPED) {
+        return ACTION_REFUSED_STOPPED;
+    }
+    if (!reverse) {
+        return ACTION_OK;
+    }
+    if (!state.properties->emulation.reverseEnable) {
+        return ACTION_REFUSED_REWIND_OFF;
+    }
+    return mediumRefusal();
+}
+
+void actionEmuFrameAdvance(void) {
+    if (actionRefused(actionFrameAdvanceRefusal())) {
+        return;
+    }
+    emulatorRequestFrameStop();
+    archUpdateMenu(0);
+}
+
+void actionEmuAdvanceToChange(void) {
+    if (actionRefused(actionAdvanceToChangeRefusal())) {
+        return;
+    }
+    /* Paused a moment ago, the thread may still draw: once it stops, the picture on screen
+    ** can be the reference. */
+    if (emulatorGetState() == EMU_PAUSED) {
+        emulatorWaitParked(100);
+    }
+    emulatorRequestChangeStop();
+    archUpdateMenu(0);
+}
+
 static int rewindAvailable(void);
+
+static void emuBackStep(int picture)
+{
+    int pending = emulatorBackStepPending();
+    if (actionRefused(backStepRefusal(pending))) {
+        return;
+    }
+    if (!pending) {
+        EmuState emuState = emulatorGetState();
+        /* Running: paused first, and the picture to go back from is the one left on screen. A
+        ** step refused above leaves the machine running; one refused after the pause, the thread
+        ** not stopping in time, leaves it paused. */
+        if (emuState == EMU_RUNNING && !dbgPause() && emulatorGetState() != EMU_PAUSED) {
+            return;
+        }
+        /* Paused here or a moment ago, the thread may still be replaying or drawing. */
+        if (!emulatorWaitParked(100) && picture) {
+            return;
+        }
+    }
+    emulatorRequestBackStep(picture);
+    archUpdateMenu(0);
+}
+
+void actionEmuBackFrame(void) {
+    emuBackStep(0);
+}
+
+void actionEmuBackToChange(void) {
+    emuBackStep(1);
+}
 
 void actionEmuStepBack() {
     if (!dirGateActive && !dirInsertActive && emulatorGetState() == EMU_PAUSED && rewindAvailable()) {
@@ -1116,9 +1273,20 @@ void actionEmuTogglePause() {
     }
     else {  
         emulatorSetState(EMU_PAUSED);
-        debuggerNotifyEmulatorPause();
+        if (emulatorGetState() == EMU_PAUSED) {
+            debuggerNotifyEmulatorPause();
+        }
     }
     archUpdateMenu(0);
+}
+
+void actionEmuRunPause(void) {
+    /* A step back stops at its next frame, which notifies the pause itself. */
+    if (!dirGateActive && !dirInsertActive && emulatorBackStepStopSoon()) {
+        archUpdateMenu(0);
+        return;
+    }
+    actionEmuTogglePause();
 }
 
 void actionEmuStop() {
@@ -1160,23 +1328,41 @@ void actionMaxSpeedRelease() {
 /* Says why when a medium that cannot be taken back with the MSX is in a drive. */
 static int rewindAvailable(void)
 {
-    if (emulatorGetState() == EMU_STOPPED || !diskHasHostMedium()) {
-        return 1;
-    }
-    archCaptureToastInfo(langInfoRewindNoMedium());
-    return 0;
+    return !actionRefused(mediumRefusal());
 }
 
 void actionStartPlayReverse()
 {
-    if (rewindAvailable()) {
+    /* Refused as a held rewind key is; never a silent run forward. */
+    if (!actionRefused(actionHoldRefusal(1))) {
+        /* A frame step under way pauses here; tell those who show the state. */
+        int stepping = emulatorFrameStopPending() || emulatorBackStepPending();
         emulatorPlayReverse(1);
+        if (stepping && emulatorGetState() == EMU_PAUSED) {
+            debuggerNotifyEmulatorPause();
+            archUpdateMenu(0);
+        }
     }
 }
 
 void actionStopPlayReverse()
 {
     emulatorPlayReverse(0);
+}
+
+void actionHoldBegin(int reverse)
+{
+    if (actionRefused(actionHoldRefusal(reverse))) {
+        return;
+    }
+    emulatorHoldBegin(reverse);
+    archUpdateMenu(0);
+}
+
+void actionHoldEnd(int reverse)
+{
+    emulatorHoldEnd(reverse);
+    archUpdateMenu(0);
 }
 
 void actionDiskQuickChange() {
@@ -1862,6 +2048,10 @@ void actionVideoSetFilter(int value) {
 void actionEmuSpeedSet(int value) {
     state.properties->emulation.speed = value;
     emulatorSetFrequency(state.properties->emulation.speed, NULL);
+}
+
+void actionEmuSpeedPercent(int pct) {
+    actionEmuSpeedSet(emulatorPercentToLogFrequency(pct));
 }
 
 void actionVolumeSetMaster(int value) {

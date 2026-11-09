@@ -591,6 +591,78 @@ typedef struct {
     int  videoResolution;
 } CaptureProperties;
 
+/* A tool window's place: the frame's top-left in screen px, the client in px at
+** dpi with the zoom in it (width 0 until kept), and the zoom in percent. */
+typedef struct ToolWindowPlacement {
+    int x;
+    int y;
+    int width;
+    int height;
+    int dpi;
+    int zoomPct;
+} ToolWindowPlacement;
+
+/* The VDP Viewer as the user left it. Sizes are px at 96 DPI; cards lists the keys
+** of the folding cards left open, comma separated. Each chip's group holds its
+** views' toggles, one field each. */
+typedef struct VdpViewerProperties {
+    ToolWindowPlacement window;
+    int  mapOpen;
+    int  paneOpen;
+    int  paneWidth;
+    int  pictureZoom;
+    int  pictureFit;
+    int  pagesOpen;
+    int  pagesHeight;
+    int  pagesSize;
+    char viewV99x8[16];
+    char viewV9990[16];
+    char cardsV99x8[128];
+    char cardsV9990[128];
+    struct {
+        int outBorders;
+        int sprShown;
+        int sprOnly;
+        int boxes;
+        int outGrid;
+        int patNumbers;
+        int patGrid;
+        int transparent0;
+        int layout;
+        int bitmapGrid;
+        int sprDropped;
+        int sprGrid;
+        int vramTint;
+        int vramGrid;
+    } v99x8;
+    struct {
+        int sprShown;
+        int sprOnly;
+        int outGrid;
+        int ysClear;
+        int bitmapGrid;
+        int vramOrder;
+        int vramTint;
+        int vramGrid;
+        int patLayer;
+        int patNumbers;
+        int patGrid;
+        int transparent0;
+        int sprDropped;
+        int sprBoxes;
+        int sprGrid;
+        int curShown;
+        int curOnly;
+        int curBoxes;
+    } v9990;
+} VdpViewerProperties;
+
+/* The Control Deck: where it was, and whether it was open when the program quit. */
+typedef struct ControlDeckProperties {
+    ToolWindowPlacement window;
+    int  open;
+} ControlDeckProperties;
+
 typedef struct Properties {
     EmulationProperties emulation;
     VideoProperties     video;
@@ -610,6 +682,8 @@ typedef struct Properties {
     Settings            settings;
     CaptureProperties   capture;
     NoWindProperties    nowind;
+    VdpViewerProperties vdpViewer;
+    ControlDeckProperties controlDeck;
 } Properties;
 
 Properties* propCreate(int useDefault, 
