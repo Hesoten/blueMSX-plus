@@ -558,7 +558,6 @@ public:
         sprRingLen = sprRingPos = 0;
         sprRingSeq = ~0u;
         memset(sprOverSum, 0, sizeof(sprOverSum));
-        sprNoTables = 0;
         selBand = -1;
         selWanted = false;
         selLatch = 0;
@@ -831,8 +830,6 @@ private:
     bool                 sprLineAutoOver = false;
     int                  sprRowPin = -1;     /* the pinned sprite's attribute address last frame */
     UInt32               sprRowSeq = 0;      /* the picture count last frame; it goes back on a new machine or a loaded state */
-    int                  sprNoTables = 0;    /* pictures in a row without tables */
-    unsigned             sprNoTablesVer = ~0u;
     /* Over the limit per display line in the last pictures, a bit per line. */
     static const int     SPR_RING = 60;
     uint8_t              sprOverRing[SPR_RING][30] = {};
@@ -4543,16 +4540,9 @@ private:
         ImGui::TextUnformatted(head[0] ? head : " ");
         ImGui::PopStyleColor();
         /* One line, kept even when empty so nothing below moves; the rest of the notes on hover. */
-        unsigned ver;
-        const VdpFrameShot* o = (const VdpFrameShot*)shell::frameShot(&ver);
-        if (ver != sprNoTablesVer) {
-            sprNoTablesVer = ver;
-            sprNoTables = scene.recorded ? 0 : sprNoTables + 1;
-        }
         char notes[6][384];
         int n = 0;
         if (!scene.slots.empty() && sprSelSet && !sprSelKept && sprView.slot < 0) textf(notes[n++], sizeof(notes[0]), ts(TS_SPR_TAB_NOT_KEPT), sprSel.attr);
-        if (!scene.recorded && sprNoTables >= 2) textf(notes[n++], sizeof(notes[0]), "%s", ts(o != NULL && o->valid && !o->ended ? TS_SPR_TAB_NOW : TS_SPR_TAB_VBLANK));
         if (scene.approx > 0) textf(notes[n++], sizeof(notes[0]), ts(TS_SPR_TAB_APPROX), scene.approx);
         if (scene.lost > 0) textf(notes[n++], sizeof(notes[0]), ts(TS_SPR_TAB_LOST), scene.lost);
         if (vdpGetNoSpritesLimit()) textf(notes[n++], sizeof(notes[0]), "%s", ts(TS_SPR_TAB_NO_LIMIT));

@@ -201,8 +201,6 @@ TS(SPR_TAB_NOT_KEPT,          "Table %05X not laid out yet; nothing to show", "�
 TS(SPR_TAB_HEAD,              "Sprite mode %d · %s · %d per line · patterns %05X", "モード" NB "%d · %s · 1" NB "ラインに" NB "%d" NB "個まで · パターン" NB "%05X")
 TS(SPR_TAB_TP,                " · TP", " · TP")
 TS(SPR_TAB_WIDE,              " · 1 sprite dot = 2 screen dots", " · スプライトの" NB "1" NB "ドット" NB "=" NB "画面の" NB "2" NB "ドット")
-TS(SPR_TAB_VBLANK,            "From VRAM at the frame's end (VBlank). Per-line tables are recorded from the next frame the VDP draws.", "フレーム終了時（VBlank）の" NB "VRAM" NB "から算出しています。ラインごとのテーブルは、VDP" NB "が次に描画するフレームから記録します。")
-TS(SPR_TAB_NOW,               "From the current VRAM. Per-line tables are recorded from the next frame the VDP draws.", "現在の" NB "VRAM" NB "から算出しています。ラインごとのテーブルは、VDP" NB "が次に描画するフレームから記録します。")
 TS(SPR_TAB_APPROX,            "%d lines changed their tables while drawn.", "%d" NB "ラインは描画中にテーブルが変わりました。")
 TS(SPR_TAB_NO_LIMIT,          "The emulator draws sprites past the limit; this tab shows what the VDP drops.", "エミュレータは上限を超えたスプライトも描画します。このタブは" NB "VDP" NB "で欠落するスプライトを示します。")
 TS(SPR_TAB_LOST,              "This frame used more than 32 sprite tables; %d lines laid out from the rest are not shown here.", "このフレームはスプライトのテーブルを" NB "32" NB "個より多く使用しています。残りのテーブルで配置した" NB "%d" NB "ラインはここには表示しません。")
