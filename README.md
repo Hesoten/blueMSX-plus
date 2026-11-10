@@ -1,5 +1,11 @@
 # blueMSX+
 
+## Experimental MCP debugger bridge
+
+An optional local MCP bridge lets ChatGPT desktop/Codex or Claude Desktop
+inspect the paused debugger, control execution, and compare RAM snapshots.
+Build and installation instructions are in [mcp_server/README.md](mcp_server/README.md).
+
 blueMSX+ is an unofficial fork of the MSX emulator [blueMSX](https://msxblue.com/bluemsx/).  
 Modernization focuses on the UI and audio paths, targeting Windows 11.
 
