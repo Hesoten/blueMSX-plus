@@ -3753,13 +3753,9 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             }
             return 0;
         case SC_MINIMIZE:
-            st.minimized = 1;
-            updateMinimizedDrawing();
 //            emulatorSuspend();
             break;
         case SC_RESTORE:
-            vdpSetDisplayEnable(1);
-            st.minimized = 0;
 //            emulatorResume();
             break;
         }
@@ -3908,6 +3904,15 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 
     case WM_SIZE:
         InvalidateRect(hwnd, NULL, TRUE);
+        /* Every way in and out of the icon passes here; a restore by another
+        ** program sends no SC_RESTORE. */
+        {
+            int m = IsIconic(hwnd) != 0;
+            if (m != st.minimized) {
+                st.minimized = m;
+                updateMinimizedDrawing();
+            }
+        }
         if (wParam == SIZE_MINIMIZED) {
             /* The deck hides and draws no frame, so it would never see its button let go. */
             controlDeckDropHolds();
@@ -7927,7 +7932,8 @@ void archMinimizeWindow() {
     }
 }
 
-/* A minimized window stops drawing to save CPU, unless an agent may ask for the screen. */
+/* A minimized window stops drawing to save CPU, unless an agent may ask for the screen.
+** The window's state comes from WM_SIZE. */
 void updateMinimizedDrawing(void)
 {
     vdpSetDisplayEnable(!st.minimized || ctrlGateLevel() != CTRL_GATE_OFF);
