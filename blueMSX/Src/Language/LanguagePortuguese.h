@@ -85,6 +85,7 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->errorCreateTapeImage    = "Não foi possível criar o arquivo de imagem de fita.";
     ls->errorNoCasInZip         = "Nao foi localizado arquivo .CAS dentro do arquivo zip.";
     ls->errorUnknownFileType    = "Não foi possível abrir o arquivo: tipo de arquivo desconhecido.";
+    ls->errorCartV9968WithV9990 = "O cartucho V9968 não pode ser inserido junto com um GFX9000 ou Video9000, pois ambos assumem a tela. Remova primeiro o outro cartucho.";
     ls->errorDirDiskTooLarge    = "%d arquivo(s) não couberam no disco e foram omitidos.";
     ls->errorDirDiskOnline      = "%d arquivo(s) disponíveis somente online foram omitidos. Torne-os disponíveis neste dispositivo para incluí-los.";
     ls->errorDirDiskSubdirs     = "%d diretório(s) foram omitidos porque o formato escolhido não os comporta.";

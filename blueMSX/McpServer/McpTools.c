@@ -64,7 +64,7 @@ const McpTool mcpTools[] = {
     "every VDP register with the screen mode they add up to. The VDP registers "
     "are write only to the Z80, so this is the only way to see what the program "
     "set them to -- start here when the screen is wrong. It also says whether a V9990 "
-    "picture (GFX9000, Video9000) is shown.",
+    "picture (GFX9000, Video9000) or a V9968 cartridge picture is shown.",
     SCHEMA("\"properties\":{}"),
     READ_ONLY,
     "status",
@@ -299,8 +299,8 @@ const McpTool mcpTools[] = {
     "shapes drawn, with a note for cleared patterns, invisible text colour and a "
     "display that is off. In a graphics mode it is written as a PNG and the path "
     "comes back. The text is read only from a paused machine; while it runs, auto "
-    "gives the PNG. While a V9990 picture (GFX9000, Video9000) is shown, auto gives the "
-    "PNG and text is labelled as the VDP's.",
+    "gives the PNG. While a V9990 picture (GFX9000, Video9000) or a V9968 cartridge "
+    "picture is shown, auto gives the PNG and text is labelled as the VDP's.",
     SCHEMA("\"properties\":{"
            "\"as\":{\"type\":\"string\",\"enum\":[\"auto\",\"text\",\"png\"],"
            "\"default\":\"" CTRL_SCREEN_AS_DEFAULT "\"},"

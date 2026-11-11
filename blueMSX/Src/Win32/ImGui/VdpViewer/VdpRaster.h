@@ -50,6 +50,8 @@ struct VdpBand {
     bool unknown;       /* below the beam while paused, with no previous frame logged */
     int  blink;         /* the frame's TEXT2 blink phase, as the snapshot's blinkFlag */
     int  textSplit;     /* TEXT1/2: display lines down to the last mode change above, in 8s */
+    bool flat;          /* bitmap modes: a V9968's R#20 FIL, rows woven with the other field's */
+    int  field;         /* the frame's S#2 bit 1 */
 };
 
 struct VdpRasterView {
@@ -78,13 +80,13 @@ int  vdpRasterBandAt(const VdpRasterView& v, int d);
 /* Same mode, table bases, sprite size, TP, scroll and page; a band is found
 ** again after a rebuild by this. */
 bool vdpRasterSameKey(const VdpBand& a, const VdpBand& b);
-/* The 256-line rows a band reads, R#2 line masks of the bitmap modes applied;
-** runs of [from, to). vdpRasterBandCols gives the pages they are on. */
-void vdpRasterBandRows(const VdpDebugState* s, const VdpBand& b, std::vector<int>& runs);
+/* The 256-line rows of page a band reads, R#2 line masks of the bitmap modes applied;
+** runs of [from, to). Only FIL looks at page: it weaves the pair's rows. */
+void vdpRasterBandRows(const VdpDebugState* s, const VdpBand& b, int page, std::vector<int>& runs);
 /* The pages and columns of those rows a bitmap band shows, in 256ths of a line: seg holds
-** (page, from, to) twice at most, split where the R#26/R#27 window wraps, with SP2 between
-** the even page and the odd one. Returns the count, 0 outside the bitmap modes. */
-int  vdpRasterBandCols(const VdpBand& b, int seg[6]);
+** (page, from, to) up to four times, split where the R#26/R#27 window wraps, with SP2 between
+** the even page and the odd one, under FIL on both of the pair. Returns the count. */
+int  vdpRasterBandCols(const VdpBand& b, int seg[12]);
 const char* vdpRegisterName(int reg);
 
 /* The layout a band's lines are drawn with. */

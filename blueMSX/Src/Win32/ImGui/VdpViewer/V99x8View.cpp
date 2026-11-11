@@ -35,6 +35,9 @@
 #include "RegTables.h"
 #include "VdpDecode.h"
 #include "VdpSprite.h"
+#include "VdpSprite3View.h"
+#include "VdpCmd9968.h"
+#include "Geo3DPanel.h"
 #include "VdpRaster.h"
 #include "VdpParts.h"
 #include "ToolText.h"
@@ -51,7 +54,8 @@ namespace {
 
 using namespace parts;
 
-enum { C_SELECTION, C_SPLITS, C_DISPLAY, C_TABLES, C_SPRITES, C_STATUS, C_COMMAND, C_PALETTE, C_REGISTERS, C_COUNT };
+enum { C_SELECTION, C_SPLITS, C_DISPLAY, C_TABLES, C_SPRITES, C_STATUS, C_COMMAND, C_GEO3D, C_PALETTE, C_REGISTERS,
+       C_GEO3D_REGS, C_COUNT };
 
 /* The Bitmap view's "Read as" choices. */
 const int bitmapModes[] = { 5, 6, 7, 8, 10, 12 };
@@ -85,9 +89,9 @@ int cellWidth(int mode)
     return mode == 0 || mode == 13 ? 6 : 8;
 }
 
-bool interleaved(int mode)
+bool interleaved(const VdpDebugState* s, int mode)
 {
-    return mode == 7 || mode == 8 || mode == 10 || mode == 12;
+    return vdpInterleavedIn(s, mode);
 }
 
 /* A pixel's shape as on a TV, 256 dots wide being square: the 512- and
@@ -104,13 +108,6 @@ void sheetCell(int ch, int* x, int* y)
     int third = ch >> 8, c = ch & 0xff;
     *x = (c & 31) * 8;
     *y = (third * 8 + c / 32) * 8;
-}
-
-const char* cmdName(int cm)
-{
-    static const char* names[16] = { "STOP", "-", "-", "-", "POINT", "PSET", "SRCH", "LINE",
-                                     "LMMV", "LMMM", "LMCM", "LMMC", "HMMV", "HMMM", "YMMM", "HMMC" };
-    return names[cm & 15];
 }
 
 const char* logOpName(int lo)
@@ -185,6 +182,7 @@ public:
         add(" \xC2\xB7 %s", lines, 0);
         add(" \xC2\xB7 %s", s->isPal ? "PAL 50 Hz" : "NTSC 60 Hz", 0);
         if (!s->screenOn) add(" \xC2\xB7 %s", ts(TS_FACTS_BLANKED), 0);
+        if (Geo3DPanel::active(s) && at < size) g3d.facts(s, out + at, size - at);
     }
 
     int views(ViewDesc* out, int max, const void* st) const override
@@ -198,6 +196,7 @@ public:
         /* An MSX1 VDP has no bitmap mode to read its VRAM as. */
         if (n < max && fixed) out[n++] = ViewDesc{ "bitmap", ts(TS_VIEW_BITMAP), UI_ICON_BITMAP };
         if (n < max && (fixed || vdpSpriteMode(s->screenMode))) out[n++] = ViewDesc{ "sprites", ts(TS_VIEW_SPRITES), NULL, &ui::UI_ART_SHIP };
+        if (n < max && Geo3DPanel::active(s)) out[n++] = ViewDesc{ "geo3d", "geo3d", NULL, Geo3DPanel::tabArt() };
         if (n < max) out[n++] = ViewDesc{ "vram", "VRAM", UI_ICON_VRAM };
         return n;
     }
@@ -217,6 +216,19 @@ public:
             f.pinned = false;
             f.kind = FOCUS_NONE;
         }
+        /* One pin at a time: a face pinned on the geo3d tab takes it from the others, and they from it. */
+        if (g3d.takeNewPin()) {
+            sp3.unpin();
+            if (f.pinned) {
+                f.pinned = false;
+                f.kind = FOCUS_NONE;
+            }
+        }
+        else if (sp3.pinned()) {
+            g3d.unpin();
+        }
+        sp3.track(s, f);
+        g3d.track(s, f, raster);
         refreshBandPin(s, f);
         /* Also while the card is folded away. */
         notePin(f);
@@ -233,6 +245,7 @@ public:
             sprHotNext.n = -1;
             sprPatHotNext.p = -1;
         }
+        if (v < 0 || v >= n || strcmp(d[v].key, "geo3d") != 0) g3d.leave();
         ensureScene(s);
         sprKeepPin(f);
         stripHold();
@@ -251,6 +264,15 @@ public:
             drawBottom(s, f, paneH);
             return;
         }
+        if (strcmp(d[v].key, "geo3d") == 0) {
+            /* The drawing time card goes under the tab's card as the pages do, while it has a picture. */
+            float paneH = fmaxf(0.0f, g3d.bottomHeight(s, ImGui::GetContentRegionAvail().y - ui::Px(8) - shell::pagesChromeH(true)));
+            ui::BeginTabCard("card", g3d.hasBottom() ? -(ui::Px(8) + shell::pagesChromeH(g3d.bottomOpen()) + paneH) : 0);
+            g3d.drawTab(s, f, raster);
+            ui::EndTabCard();
+            g3d.drawBottom(paneH);
+            return;
+        }
         ui::BeginTabCard("card");
         if (strcmp(d[v].key, "patterns") == 0) drawPatterns(s, f);
         else if (strcmp(d[v].key, "bitmap") == 0) drawBitmap(s, f);
@@ -265,16 +287,19 @@ public:
         const CardDesc all[C_COUNT] = {
             { "sel", NULL, true }, { "splits", NULL, true }, { "disp", ts(TS_CARD_DISPLAY), true },
             { "tables", ts(TS_CARD_TABLES), true }, { "sprites", ts(TS_CARD_SPRITES), true }, { "status", ts(TS_CARD_STATUS), true },
-            { "cmd", ts(TS_CARD_COMMAND), true }, { "pal", ts(TS_CARD_PALETTE), true }, { "regs", ts(TS_CARD_REGISTERS), true },
+            { "cmd", ts(TS_CARD_COMMAND), true }, { "g3d", "geo3d", true }, { "pal", ts(TS_CARD_PALETTE), true },
+            { "regs", ts(TS_CARD_REGISTERS), true }, { "g3dregs", ts(TS_G3D_CARD_REGS), true },
         };
         int n = 0;
         for (int i = 0; i < C_COUNT && n < max; i++) {
             out[n] = all[i];
             if (i == C_COMMAND) out[n].shown = s->cmdRegCount > 0;
             if (i == C_SPRITES) out[n].shown = !vdpIsMsx1(s) || vdpSpriteMode(s->screenMode) != 0;
+            if (i == C_GEO3D || i == C_GEO3D_REGS) out[n].shown = Geo3DPanel::active(s);
             /* The pinned thing and the bands stay open; the frame's facts fold. */
             out[n].expander = i != C_SELECTION && i != C_SPLITS;
             out[n].summary = i == C_DISPLAY || i == C_TABLES || i == C_SPRITES ? cardSummary(s, i) : NULL;
+            if (i == C_GEO3D && Geo3DPanel::active(s)) out[n].summary = g3d.summary(s);
             out[n].noHold = i == C_SELECTION;
             n++;
         }
@@ -300,6 +325,9 @@ public:
             for (int i = 0; i < n && at < size; i++) {
                 at += (size_t)textf(out + at, size - at, "%s%s %05X", at ? " \xC2\xB7 " : "", r[i].name, r[i].addr);
             }
+        }
+        else if (Sp3Panel::active(s)) {
+            sp3.summary(s, out, size);
         }
         else {
             const_cast<V99x8View*>(this)->ensureScene(s);
@@ -327,11 +355,16 @@ public:
         case C_DISPLAY:   cardDisplay(s); break;
         case C_SPLITS:    splitsBody(s); break;
         case C_TABLES:    cardTables(s); break;
-        case C_SPRITES:   cardSprites(s); break;
+        case C_SPRITES:
+            if (Sp3Panel::active(s)) sp3.card(s, f);
+            else cardSprites(s);
+            break;
         case C_STATUS:    cardStatus(s); break;
         case C_COMMAND:   cardCommand(s); break;
+        case C_GEO3D:     g3d.card(s); break;
         case C_PALETTE:   cardPalette(s); break;
         case C_REGISTERS: cardRegisters(s); break;
+        case C_GEO3D_REGS: g3d.registersCard(s); break;
         }
     }
 
@@ -341,11 +374,13 @@ public:
         VdpRange r[8];
         int n = vdpTableRanges(s, l, r), k = 0;
         for (int i = 0; i < n; i++) {
-            if (interleaved(l.mode)) {
-                /* Even bytes in the low 64K, odd ones from vram128. */
-                UInt32 a = (UInt32)(r[i].addr & 0x1ffff) >> 1, len = (UInt32)r[i].len / 2;
-                if (k < max) out[k++] = VramLane{ a, len, r[i].kind, r[i].name, NULL, band + 1, (UInt32)r[i].cap / 2 };
-                if (k < max) out[k++] = VramLane{ a + (UInt32)s->vram128, len, r[i].kind, r[i].name, NULL, band + 1, (UInt32)r[i].cap / 2 };
+            if (interleaved(s, l.mode)) {
+                /* Even bytes in the low 64K, odd ones from vram128, within each 128K on a 256K V9968. */
+                UInt32 len = (UInt32)r[i].len / 2, cap = (UInt32)r[i].cap / 2;
+                UInt32 a = (UInt32)vdpPhysicalAddress(s, l.mode, r[i].addr & ~1);
+                UInt32 b = (UInt32)vdpPhysicalAddress(s, l.mode, r[i].addr | 1);
+                if (k < max) out[k++] = VramLane{ a, len, r[i].kind, r[i].name, NULL, band + 1, cap };
+                if (k < max) out[k++] = VramLane{ b, len, r[i].kind, r[i].name, NULL, band + 1, cap };
             }
             else if (k < max) {
                 out[k++] = VramLane{ (UInt32)r[i].addr, (UInt32)r[i].len, r[i].kind, r[i].name, NULL, band + 1, (UInt32)r[i].cap };
@@ -460,8 +495,13 @@ public:
     void escape(bool key) override
     {
         selectBand(-1);
+        sp3.unpin();
+        g3d.unpin();
         /* A click beside the picture fixes the line row's line; only the key lets go of it. */
-        if (key) sprLineFixed = sprLineHeld = -1;
+        if (key) {
+            sprLineFixed = sprLineHeld = -1;
+            sp3.escape();
+        }
     }
 
     bool bandsKnown(const void* st) const override
@@ -498,6 +538,8 @@ public:
         sprPinLine = -1;
         sprSelReset();
         lineRowReset();
+        sp3.forget();
+        g3d.forget();
         sprRowSeq = 0;
         sprPinKeepAttr = -1;
         sprPinKeepVer = ~0u;
@@ -516,7 +558,6 @@ public:
         sprRingLen = sprRingPos = 0;
         sprRingSeq = ~0u;
         memset(sprOverSum, 0, sizeof(sprOverSum));
-        sprNoTables = 0;
         selBand = -1;
         selWanted = false;
         selLatch = 0;
@@ -539,6 +580,7 @@ public:
         sprCv.grid = p.v99x8.sprGrid != 0;
         vramTint = p.v99x8.vramTint != 0;
         vramCv.grid = p.v99x8.vramGrid != 0;
+        g3d.loadUi(p);
     }
 
     void saveUi(VdpViewerProperties& p) const override
@@ -557,6 +599,7 @@ public:
         p.v99x8.sprGrid = sprCv.grid;
         p.v99x8.vramTint = vramTint;
         p.v99x8.vramGrid = vramCv.grid;
+        g3d.saveUi(p);
     }
 
 private:
@@ -616,6 +659,8 @@ private:
     PinSeen         pinSeen = { -1, 0, 0, 0 };  /* a band's pin, and the grid it was last read on */
     bool            selWanted = false;    /* selKey stays picked while no band matches it */
     mutable char    summaries[3][256];    /* the folded Display, Tables and Sprites cards' lines */
+    mutable Sp3Panel sp3;                 /* the Sprites tab and cards while a V9968 is in SP3 */
+    mutable Geo3DPanel g3d;               /* the geo3d tab and cards while a geo3d is beside the VDP */
     float           selLatch = 0;         /* the inspected card's height so far for... */
     float           selLatchKey[6] = {};  /* ...this pin (kind, a, b, address, space) or band, at this width */
     char            palHeldRuns[160] = "";  /* the Palette card's last note while running... */
@@ -785,8 +830,6 @@ private:
     bool                 sprLineAutoOver = false;
     int                  sprRowPin = -1;     /* the pinned sprite's attribute address last frame */
     UInt32               sprRowSeq = 0;      /* the picture count last frame; it goes back on a new machine or a loaded state */
-    int                  sprNoTables = 0;    /* pictures in a row without tables */
-    unsigned             sprNoTablesVer = ~0u;
     /* Over the limit per display line in the last pictures, a bit per line. */
     static const int     SPR_RING = 60;
     uint8_t              sprOverRing[SPR_RING][30] = {};
@@ -935,7 +978,7 @@ private:
     /* A focus on a logical address read in mode; physical when the frame's end maps it otherwise. */
     void focusAddr(const VdpDebugState* s, int mode, int logical, UInt32 len, Focus* f) const
     {
-        if (mode == s->screenMode || interleaved(mode) == interleaved(s->screenMode)) {
+        if (mode == s->screenMode || interleaved(s, mode) == interleaved(s, s->screenMode)) {
             f->space = FOCUS_LOGICAL;
             f->addr = (UInt32)logical;
             f->len = len;
@@ -943,7 +986,7 @@ private:
         }
         f->space = FOCUS_PHYS;
         f->addr = (UInt32)vdpPhysicalAddress(s, mode, logical);
-        f->len = interleaved(mode) && len > 1 ? len / 2 : len;
+        f->len = interleaved(s, mode) && len > 1 ? len / 2 : len;
     }
 
     void ensureSprites(const VdpDebugState* s)
@@ -992,7 +1035,8 @@ private:
         linePalRaster = shell::rasterVersion();
         linePalLines = raster.lines;
         LinePalettes n;
-        bool ok = o != NULL && o->valid && o->linePalValid && !o->stale && !vdpIsMsx1(s) && raster.valid &&
+        /* An extended palette keeps entries 0-15 outside the 3-bit registers recorded here. */
+        bool ok = o != NULL && o->valid && o->linePalValid && !o->stale && !vdpIsMsx1(s) && s->paletteExtCount == 0 && raster.valid &&
                   o->frameStart == s->raster[0].frameStart;
         if (ok) {
             int y0 = outFirstLine(s, o) - o->displayOffset;
@@ -1750,6 +1794,10 @@ private:
     {
         selBand = i;
         cardBand = i >= 0;
+        if (i >= 0) {
+            sp3.unpin();
+            g3d.unpin();
+        }
         selWanted = i >= 0 && i < (int)raster.bands.size();
         if (selWanted) selKey = vdpBandKeyOf(raster.bands[i]);
     }
@@ -1763,8 +1811,8 @@ private:
         return false;
     }
 
-    /* Frames a band's pieces on the Bitmap picture: rows from runs, pages and columns from seg. */
-    void bandFrames(ImDrawList* dl, const ui::CanvasXf& xf, const std::vector<int>& runs, const int* seg, int n,
+    /* Frames a band's pieces on the Bitmap picture: pages and columns from seg, rows by page. */
+    void bandFrames(ImDrawList* dl, const ui::CanvasXf& xf, const VdpDebugState* s, const VdpBand& b, const int* seg, int n,
                     int bandIndex, float th)
     {
         const UiTokens& t = uiTokens();
@@ -1773,6 +1821,8 @@ private:
             if (p < 0 || p >= grid.pages) continue;
             int ox, oy;
             grid.origin(p, &ox, &oy);
+            std::vector<int> runs;
+            vdpRasterBandRows(s, b, p, runs);
             float x0 = ox + (float)grid.tileW * seg[k * 3 + 1] / 256, x1 = ox + (float)grid.tileW * seg[k * 3 + 2] / 256;
             for (size_t q = 0; q + 1 < runs.size(); q += 2) {
                 ImVec2 a = xf.toScreen(x0, (float)(oy + runs[q])), c = xf.toScreen(x1, (float)(oy + runs[q + 1]));
@@ -2407,6 +2457,7 @@ private:
         else if (self->pinnedSpriteAttr(f) >= 0) self->outputBoxes(dl, xf, self->pinnedSpriteAttr(f));
         if (xf.gutterMax.x > xf.gutterMin.x) dl->AddRectFilled(xf.gutterMin, xf.gutterMax, t.controlFillPressed);
         if (self->outCounts && xf.gutterMax.x > xf.gutterMin.x) self->outputCountGutter(dl, xf);
+        if (Sp3Panel::active(self->ovState)) self->sp3.screenOverlay(dl, xf, self->rasterMarks() ? ui::Px(12) : 0);
         self->drawRaster(dl, xf);
     }
 
@@ -2493,13 +2544,15 @@ private:
         bool hasSprites = spriteLayerShape(s, &lw, &lax, &lay);
         int layer = hasSprites ? sprLayer() : SL_SHOWN;
         if (layer != SL_SHOWN) shell::wantSpriteSplit();
-        outBoxes = boxes && hasSprites;
-        outCounts = hasSprites && layer != SL_HIDDEN;
+        /* SP3 sprites have boxes and counts of their own, from the frame end. */
+        bool sp3On = Sp3Panel::active(s), sp3Counts = sp3On && hasSprites && layer != SL_HIDDEN;
+        outBoxes = boxes && hasSprites && !sp3On;
+        outCounts = hasSprites && layer != SL_HIDDEN && !sp3On;
         ensureRaster(s);
         if (vdpSpriteMode(s->screenMode)) ensureSprites(s);
         outCv.aspectX = 1;
         outCv.aspectY = 2;   /* 544 samples a row: 512-dot units */
-        outCv.gutter = outCounts ? 40.0f : rasterMarks() ? 16.0f : 0.0f;
+        outCv.gutter = outCounts || sp3Counts ? 40.0f : rasterMarks() ? 16.0f : 0.0f;
         outCv.checker = layer == SL_ONLY;
 
         ui::BeginCommandBar("bar");
@@ -2540,6 +2593,7 @@ private:
         int ax, ay;
         dotAspect(s->screenMode, &ax, &ay);
         ovSplitWidth = ay == 2 ? 512 : 256;
+        if (sp3On) sp3Lines(s, o, sp3Counts);
 
         ui::CanvasHit h = ui::Canvas("output", outPic.tex.id(), outPic.w, outPic.h, outCv, ImVec2(0, 0), outputOverlay, this);
         if (h.clickedEmpty) shell::releaseSelection();
@@ -2572,8 +2626,21 @@ private:
             lineSummary(*gf, d + gf->vscroll, drawLimitOf(*gf), mt, sizeof(mt));
             ui::StatusText(ts(TS_GUTTER_LINE), d, mt);
         }
-        else if (h.valid && o != NULL && outPic.w > 0 && !(outBoxes && outputSpriteHover(s, f, h))) {
+        else if (!(sp3On && sp3.screenHover(s, f, h)) && h.valid && o != NULL && outPic.w > 0 && !(outBoxes && outputSpriteHover(s, f, h))) {
             outputHover(s, o, f, h);
+        }
+    }
+
+    /* Each display line's image row, left edge and band for the SP3 boxes; no band where
+    ** the picture is not of the snapshot's frame, or is the frame before below the beam. */
+    void sp3Lines(const VdpDebugState* s, const VdpFrameShot* o, bool counts)
+    {
+        sp3.screenBegin(s, boxes, counts);
+        bool same = o != NULL && !o->stale && (!raster.valid || o->frameStart == s->raster[0].frameStart);
+        for (int d = 0; same && d < raster.lines; d++) {
+            int bi = vdpRasterBandAt(raster, d), shot = d + outFirstLine(s, o) - o->displayOffset;
+            bool drawn = bi >= 0 && (o->ended || shot < o->drawnRow);
+            sp3.screenLine(d, rowOfDisplayLine(d), outPicBorders ? outOrigin(s, o, d) : 0, drawn ? &raster.bands[bi] : NULL);
         }
     }
 
@@ -2656,6 +2723,7 @@ private:
         int    mode, color0, blink, blocks;
         UInt8  regs[32];         /* only those the picture reads, the rest 0 */
         UInt32 palette[16];
+        UInt32 extHash;          /* EPAL's 256 colours, hashed, while a bitmap reads them */
     };
     enum { SP_FIRST, SP_PATTERNS, SP_SPRITES, SP_COUNT };  /* a group's pictures: pages or names first */
 
@@ -2864,7 +2932,7 @@ private:
             g.lineCount = screenLines(s);
             g.age = 0;
             snprintf(g.lines, sizeof(g.lines), "0-%d", g.lineCount - 1);
-            g.shownPages = vdpDisplayedBitmap(s, vdpLayoutOf(s), &o) ? 1u << o.page : 0;
+            g.shownPages = vdpDisplayedBitmap(s, vdpLayoutOf(s), &o) ? vdpShownPageBits(vdpIsFlatInterlace(s, s->regs), o.page) : 0;
             snprintf(g.heldLines, sizeof(g.heldLines), "%s", g.lines);
             stripMixed = false;
             return;
@@ -2920,7 +2988,7 @@ private:
     bool rangeChanged(const VdpDebugState* s, int mode, int addr, int len) const
     {
         if (!stripPrevValid) return true;
-        if (interleaved(mode)) {
+        if (interleaved(s, mode)) {
             int half = (len + 1) / 2;
             return bytesChanged(s, vdpPhysicalAddress(s, mode, addr & ~1), half) ||
                    bytesChanged(s, vdpPhysicalAddress(s, mode, addr | 1), half);
@@ -2946,6 +3014,10 @@ private:
         if (bitmap) {
             for (int reg : pages) k->regs[reg] = l.regs[reg];
             k->regs[1] = l.regs[1] & 0x03;
+            k->regs[20] = l.regs[20] & 0x18;   /* a V9968's SP3 lays the pages out in order; EPAL */
+            if (l.mode == 8 || l.mode == 10) {
+                k->extHash = fnvWords(s->paletteExt, (size_t)s->paletteExtCount);
+            }
         }
         else if (p == SP_FIRST) {
             for (int reg : names) k->regs[reg] = l.regs[reg];
@@ -3092,6 +3164,12 @@ private:
             any = true;
             if (mode == 6 || mode == 7) wide = mode;
         };
+        /* SP3 places its sprites in 256 dots whatever the mode. */
+        if (Sp3Panel::active(s)) {
+            *w = 256;
+            dotAspect(5, ax, ay);
+            return true;
+        }
         if (raster.valid) {
             for (const VdpBand& b : raster.bands) note(b.mode);
         }
@@ -3143,11 +3221,13 @@ private:
         int w, ax, ay;
         if (!spriteLayerShape(s, &w, &ax, &ay)) return false;
         ensureRaster(s);
+        bool sp3On = Sp3Panel::active(s);
         if (vdpSpriteMode(s->screenMode)) ensureSprites(s);
-        char key[64];
+        char key[96];
         ensureScene(s);
-        snprintf(key, sizeof(key), "L%u/%d/%d/%d/%d/%u/%u", shell::rasterVersion(), w, screenLines(s), vdpGetSpritesEnable(),
-                 vdpGetNoSpritesLimit(), linePal.ver, scene.recorded ? scene.ver : 0u);
+        /* SP3 reads VRAM at the frame end, which a write while paused changes. */
+        snprintf(key, sizeof(key), "L%u/%d/%d/%d/%d/%u/%u/%u", shell::rasterVersion(), w, screenLines(s), vdpGetSpritesEnable(),
+                 vdpGetNoSpritesLimit(), linePal.ver, scene.recorded ? scene.ver : 0u, sp3On ? shell::pictureVersion() : 0u);
         bool render = spriteLayer.needsDecode(key);
         if (render) renderSpriteBands(s, spriteLayer);
         spriteLayer.upload(render);
@@ -3168,6 +3248,24 @@ private:
             return;
         }
         int limit = vdpGetNoSpritesLimit() ? 32 : 0;
+        if (Sp3Panel::active(s)) {
+            /* SP3 lays them out from its own tables as the Screen tab does; a line whose own
+            ** band has SP3 off is cleared, so one that had sprites shows if the frame ends off. */
+            const char* offAtEnd = NULL;
+            if (!sp3.layer(s, lines, limit != 0, pic.img.data(), &offAtEnd)) {
+                std::fill(pic.img.begin(), pic.img.end(), 0u);
+                return;
+            }
+            for (int d = 0; d < lines; d++) {
+                int bi = raster.valid ? vdpRasterBandAt(raster, d) : -1;
+                const VdpBand* b = bi >= 0 ? &raster.bands[bi] : NULL;
+                bool off = raster.valid ? b == NULL || b->prev || b->unknown ||
+                                              sp3LineState(s->regs, b->mode, b->regs) == SP3_LINE_OFF
+                                        : offAtEnd != NULL;
+                if (off) memset(&pic.img[(size_t)d * w], 0, (size_t)w * sizeof(uint32_t));
+            }
+            return;
+        }
         std::vector<const UInt32*> rgb((size_t)lines);
         for (int d = 0; d < lines; d++) rgb[d] = lineRgb(d);
         if (scene.recorded && scene.lines == lines) {
@@ -3379,9 +3477,9 @@ private:
                     dl->AddLine(ImVec2(a.x, ly), ImVec2(b.x, ly), ui::WithAlpha(t.textTertiary, 140), th);
                     for (size_t i = 0; (stripMixed || raster.bands.size() > 1) && i < raster.bands.size(); i++) {
                         const VdpBand& bd = raster.bands[i];
-                        int seg[6], n = vdpRasterBandCols(bd, seg);
+                        int seg[12], n = vdpRasterBandCols(bd, seg);
                         if (!showsPage(seg, n, it.page) || !vdpGroupHasBand(*g, bd)) continue;
-                        vdpRasterBandRows(s, bd, stripRuns);
+                        vdpRasterBandRows(s, bd, it.page, stripRuns);
                         for (int k = 0; k < n; k++) {
                             if (seg[k * 3] != it.page) continue;
                             float x0 = floorf(a.x + iw * seg[k * 3 + 1] / 256), x1 = floorf(a.x + iw * seg[k * 3 + 2] / 256);
@@ -3422,7 +3520,7 @@ private:
                 size_t bl = 0;
                 for (size_t i = 0; it.kind == SI_PAGE && !stripMixed && raster.bands.size() > 1 && i < raster.bands.size(); i++) {
                     const VdpBand& bd = raster.bands[i];
-                    int seg[6], n = vdpRasterBandCols(bd, seg);
+                    int seg[12], n = vdpRasterBandCols(bd, seg);
                     if (!showsPage(seg, n, it.page)) continue;
                     dl->AddCircleFilled(ImVec2(lx + dot, cy), dot, bandColour((int)i));
                     lx += dot * 2 + ui::Px(3);
@@ -3454,8 +3552,10 @@ private:
     {
         if (it.kind == SI_SPRITES) {
             if (!vdpGetSpritesEnable()) textf(status, size, "%s", ts(TS_STRIP_SPRITES_OPTION_OFF));
-            else if (!raster.valid && sprites.off) textf(status, size, ts(TS_SPR_NONE_SHOWN), sprites.off);
-            else textf(status, size, ts(TS_STRIP_SPRITES), screenLines(s), perBand ? ts(TS_STRIP_SPRITES_BANDS) : "",
+            else if (const char* off = !raster.valid ? (Sp3Panel::active(s) ? sp3.offReason(s) : sprites.off) : NULL) {
+                textf(status, size, ts(TS_SPR_NONE_SHOWN), off);
+            }
+            else textf(status, size, ts(TS_STRIP_SPRITES), screenLines(s), perBand && !Sp3Panel::active(s) ? ts(TS_STRIP_SPRITES_BANDS) : "",
                        vdpGetNoSpritesLimit() ? ts(TS_STRIP_SPRITES_NO_LIMIT) : "");
             if (clicked) shell::requestView("sprites");
             return;
@@ -3478,7 +3578,7 @@ private:
         /* The map lights the lanes the hovered table or page overlaps. */
         int mode = stripGroups[it.group].mode;
         UInt32 phys = (UInt32)vdpPhysicalAddress(s, mode, it.addr);
-        Focus hit = { f.chipId, FOCUS_PHYS, phys, (UInt32)(interleaved(mode) ? it.len / 2 : it.len), FOCUS_VRAM, 0, 0, false };
+        Focus hit = { f.chipId, FOCUS_PHYS, phys, (UInt32)(interleaved(s, mode) ? it.len / 2 : it.len), FOCUS_VRAM, 0, 0, false };
         if (clicked && (it.kind == SI_NAME || it.kind == SI_PATGEN)) {
             /* A shared table opens its heading's slot, not whichever twin this picture has. */
             const StripGroup& pg = stripGroups[it.group];
@@ -4440,16 +4540,9 @@ private:
         ImGui::TextUnformatted(head[0] ? head : " ");
         ImGui::PopStyleColor();
         /* One line, kept even when empty so nothing below moves; the rest of the notes on hover. */
-        unsigned ver;
-        const VdpFrameShot* o = (const VdpFrameShot*)shell::frameShot(&ver);
-        if (ver != sprNoTablesVer) {
-            sprNoTablesVer = ver;
-            sprNoTables = scene.recorded ? 0 : sprNoTables + 1;
-        }
         char notes[6][384];
         int n = 0;
         if (!scene.slots.empty() && sprSelSet && !sprSelKept && sprView.slot < 0) textf(notes[n++], sizeof(notes[0]), ts(TS_SPR_TAB_NOT_KEPT), sprSel.attr);
-        if (!scene.recorded && sprNoTables >= 2) textf(notes[n++], sizeof(notes[0]), "%s", ts(o != NULL && o->valid && !o->ended ? TS_SPR_TAB_NOW : TS_SPR_TAB_VBLANK));
         if (scene.approx > 0) textf(notes[n++], sizeof(notes[0]), ts(TS_SPR_TAB_APPROX), scene.approx);
         if (scene.lost > 0) textf(notes[n++], sizeof(notes[0]), ts(TS_SPR_TAB_LOST), scene.lost);
         if (vdpGetNoSpritesLimit()) textf(notes[n++], sizeof(notes[0]), "%s", ts(TS_SPR_TAB_NO_LIMIT));
@@ -4871,9 +4964,12 @@ private:
         else if (cc > 0) at = textf(out, size, "%s", ts(TS_SPR_WHY_CC));
         else if (bits == 0) at = textf(out, size, "%s", ts(TS_SPR_WHY_EMPTY));
         else if (!any) at = textf(out, size, "%s", ts(TS_SPR_WHY_COLOUR0));
-        else at = textf(out, size, "%s", ts(TS_SPR_WHY_DRAWN));
+        else {
+            if (size > 0) out[0] = 0;
+            at = 0;
+        }
         bool coll = slot >= 0 ? scene.agg[(size_t)slot * 32 + n].collides : &fr == sprSelKeep && sprSelKept && sprSelAgg[n].collides;
-        if (coll && at > 0 && (size_t)at < size) textf(out + at, size - at, "%s", ts(TS_SPR_WHY_COLLIDES));
+        if (coll && at >= 0 && (size_t)at < size) textf(out + at, size - at, "%s", ts(TS_SPR_WHY_COLLIDES));
     }
 
     /* The hovered sprite or pattern, else the pinned one; a sprite row by row: the line at each change
@@ -4974,9 +5070,11 @@ private:
         dl->AddRect(ga, gb, t.controlStrongStroke, 0, th);
         char why[512];
         sprWhy(s, *fr, n, slot, why, sizeof(why));
+        const char* w = why + strspn(why, " ");
+        if (*w == 0) return;
         ImGui::SetCursorScreenPos(ImVec2(at.x, gb.y + ui::Px(8)));
         ImGui::PushTextWrapPos(at.x + partW);
-        ImGui::TextUnformatted(why);
+        ImGui::TextUnformatted(w);
         ImGui::PopTextWrapPos();
     }
 
@@ -5448,6 +5546,10 @@ private:
         sprPatHot = sprPatHotNext;
         sprPatHotNext.p = -1;
         sprPlaceLine = -1;
+        if (Sp3Panel::active(s)) {
+            sp3.drawTab(s, f);
+            return;
+        }
         bool any = false;
         for (int fi : scene.lineFrame) any = any || fi >= 0;
         if (!any) {
@@ -5596,8 +5698,7 @@ private:
     /* Back to a CPU address in the mode the VRAM is read as. */
     static UInt32 readAsAddress(const VdpDebugState* s, int rm, UInt32 phys)
     {
-        if (!interleaved(rm)) return phys;
-        return phys >= (UInt32)s->vram128 && s->vram128 ? ((phys - s->vram128) << 1) | 1 : phys << 1;
+        return (UInt32)vdpLogicalAddress(s, rm, (int)phys);
     }
 
     /* The pages, read as rm, holding page p of mode: from SCREEN 7 on a page is split
@@ -5634,7 +5735,7 @@ private:
         *x0 = (float)(ox + (within % bpl) * ppb); *x1 = *x0 + ppb;
         if (len >= 256) {
             /* 256 bytes are two lines in SCREEN 5/6; interleaved, every other byte of two lines. */
-            int lines = (int)(interleaved(rm) ? len * 2 : len) / bpl;
+            int lines = (int)(interleaved(s, rm) ? len * 2 : len) / bpl;
             *x0 = (float)ox; *x1 = (float)(ox + grid.tileW);
             *y1 = *y0 + (float)(lines > 1 ? lines : 1);
         }
@@ -5719,11 +5820,9 @@ private:
             /* The rows and columns of its pages the group's bands show. */
             for (size_t i = 0; gBytes == pageBytes && i < self->raster.bands.size(); i++) {
                 const VdpBand& b = self->raster.bands[i];
-                int seg[6], n = vdpRasterBandCols(b, seg);
+                int seg[12], n = vdpRasterBandCols(b, seg);
                 if (n == 0 || !vdpGroupHasBand(*rg, b)) continue;
-                std::vector<int> runs;
-                vdpRasterBandRows(s, b, runs);
-                self->bandFrames(dl, xf, runs, seg, n, (int)i, th);
+                self->bandFrames(dl, xf, s, b, seg, n, (int)i, th);
             }
         }
         else if (rm >= 0) {
@@ -5736,8 +5835,9 @@ private:
             int pageBytes = rm == 5 || rm == 6 ? 0x8000 : 0x10000;
             int liveBytes = mode == 5 || mode == 6 ? 0x8000 : 0x10000;
             int livePage = vdpIsBitmapMode(mode) ? tb.name / liveBytes : -1;
-            bool alternates = livePage >= 0 && ((regs[9] & 0x04) || regs[13] != 0) && (livePage & 1);
-            unsigned shown = livePage >= 0 ? pagesHolding(s, mode, livePage, rm) : 0;
+            bool flat = livePage >= 0 && liveBytes == pageBytes && vdpIsFlatInterlace(s, regs);
+            bool alternates = livePage >= 0 && !flat && ((regs[9] & 0x04) || regs[13] != 0) && (livePage & 1);
+            unsigned shown = flat ? vdpShownPageBits(flat, livePage) : livePage >= 0 ? pagesHolding(s, mode, livePage, rm) : 0;
             unsigned pair = alternates ? pagesHolding(s, mode, livePage & ~1, rm) & ~shown : 0;
             for (int p = 0; p < self->grid.pages; p++) {
                 int ox, oy;
@@ -5764,13 +5864,12 @@ private:
             /* The rows and columns of its pages each band shows. */
             for (size_t i = 0; i < self->raster.bands.size(); i++) {
                 const VdpBand& b = self->raster.bands[i];
-                int seg[6], n = vdpRasterBandCols(b, seg);
+                int seg[12], n = vdpRasterBandCols(b, seg);
                 if (n == 0) continue;
-                std::vector<int> runs;
-                vdpRasterBandRows(s, b, runs);
-                self->bandFrames(dl, xf, runs, seg, n, (int)i, th);
+                self->bandFrames(dl, xf, s, b, seg, n, (int)i, th);
             }
         }
+        if (rm >= 0) cmdLrmmOverlay(dl, xf, s, rm, CmdPageMap{ self->grid.pages, self->grid.cols, self->grid.tileW, self->grid.tileH, self->grid.gap });
         self->focusMarks(dl, xf, rm);
     }
 
@@ -6112,6 +6211,15 @@ private:
     {
         bool pinned = f.pinned && f.kind != FOCUS_NONE;
         notePin(f);
+        /* Picking a band or pinning anything else lets go of the SP3 and geo3d pins. */
+        if (sp3.pinned() && !pinned && Sp3Panel::active(s)) {
+            sp3.selection(s, f);
+            return;
+        }
+        if (g3d.pinned() && !pinned && Geo3DPanel::active(s)) {
+            g3d.selection(s);
+            return;
+        }
         const float* pin = cardPin;
         bool band = selBand >= 0 && selBand < (int)raster.bands.size() && (!pinned || cardBand);
         pinned = pinned && !band;
@@ -6619,13 +6727,14 @@ private:
         ui::KeyValue("VRAM", "%d KB", s->vramSize / 1024);
         ui::KeyValue(ts(TS_KV_DISPLAY), "%s", ts(s->screenOn ? TS_ON : TS_DISPLAY_OFF_BLANKED));
         if (!msx1) {
-            ui::KeyValue(ts(TS_KV_INTERLACE), "%s", ts((s->regs[9] & 0x08) ? ((s->regs[9] & 0x04) ? TS_INTERLACE_EO_PAGES : TS_ON) : TS_OFF));
+            if (vdpIsFlatInterlace(s, s->regs)) ui::KeyValue(ts(TS_KV_INTERLACE), "%s", ts(vdpIsBitmapMode(s->screenMode) ? TS_INTERLACE_FLAT : TS_INTERLACE_FLAT_RASTER));
+            else ui::KeyValue(ts(TS_KV_INTERLACE), "%s", ts((s->regs[9] & 0x08) ? ((s->regs[9] & 0x04) ? TS_INTERLACE_EO_PAGES : TS_ON) : TS_OFF));
             ui::KeyValueMono(ts(TS_KV_VSCROLL), "%d", s->regs[23]);
             int adj = s->regs[18];
             /* As SET ADJUST moves the picture, with R#18's nibble beside it. */
             ui::KeyValueMono(ts(TS_KV_ADJUST), "H %d (%X)  V %d (%X)", vdpSetAdjust(adj, false), adj & 15,
                              vdpSetAdjust(adj, true), (adj >> 4) & 15);
-            if (s->version == VDP_V9958) {
+            if (s->version == VDP_V9958 || s->version == VDP_V9968) {
                 ui::KeyValueMono(ts(TS_KV_HSCROLL), "%d", ((s->regs[26] & 0x3f) << 3) - (s->regs[27] & 7));
             }
             ui::KeyValue(ts(TS_KV_BACKDROP), "%d", s->regs[7] & 15);
@@ -6765,19 +6874,43 @@ private:
         if (ce) ui::ItemTip(ts(TS_CMD_NOTE));
         ImGui::SameLine();
         ImGui::AlignTextToFramePadding();
-        ImGui::Text("%s  %s", cmdName(cmr >> 4), logOpName(cmr & 15));
+        ImGui::Text("%s  %s", vdpCmdName(cmr >> 4, s->version == VDP_V9968 && !(s->regs[21] & 1)), logOpName(cmr & 15));
         if (!ui::BeginKeyValue("cmd")) return;
-        ui::KeyValueMono("SX, SY", "%d, %d", c[0] | ((c[1] & 1) << 8), c[2] | ((c[3] & 3) << 8));
-        ui::KeyValueMono("DX, DY", "%d, %d", c[4] | ((c[5] & 1) << 8), c[6] | ((c[7] & 3) << 8));
-        ui::KeyValueMono("NX, NY", "%d, %d", c[8] | ((c[9] & 1) << 8), c[10] | ((c[11] & 3) << 8));
+        cmdKeyValues(s);
+        if (s->geo3d.valid) {
+            const char* g = g3d.commandNote(s);
+            ui::KeyValueMono("geo3d", "%s", g ? g : "\xE2\x80\x94");
+        }
         ui::KeyValueMono("CLR", "%02X", c[12]);
         ui::KeyValueMono("ARG", "%02X%s%s%s", c[13], (c[13] & 8) ? " DIY" : "", (c[13] & 4) ? " DIX" : "",
                          (c[13] & 1) ? " MAJ" : "");
         ui::EndKeyValue();
     }
 
+    /* A V9968's EPAL: 256 colours of 5 bit R G B, 16 to a row; R#7 is a whole byte. */
+    void extPalette(const VdpDebugState* s)
+    {
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(ui::Px(2), ui::Px(2)));
+        for (int i = 0; i < 256; i++) {
+            char id[16], tip[256];
+            int v = s->paletteExtReg[i];
+            uint32_t rgb = s->paletteExt[i];
+            snprintf(id, sizeof(id), "##epal%d", i);
+            int tl = textf(tip, sizeof(tip), ts(TS_PAL_TIP_EPAL), i, (v >> 10) & 31, (v >> 5) & 31, v & 31, rgb);
+            if (s->regs[7] == i && tl >= 0 && (size_t)tl < sizeof(tip)) textf(tip + tl, sizeof(tip) - tl, "%s", ts(TS_PAL_TIP_BORDER));
+            if (i % 16) ImGui::SameLine();
+            ui::ColorSwatch(id, IM_COL32((rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff, 255), 15,
+                            s->regs[7] == i, tip);
+        }
+        ImGui::PopStyleVar();
+    }
+
     void cardPalette(const VdpDebugState* s)
     {
+        if (s->paletteExtCount == 256) {
+            extPalette(s);
+            return;
+        }
         bool msx1 = vdpIsMsx1(s);
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(ui::Px(6), ui::Px(6)));
         for (int i = 0; i < 16; i++) {
@@ -6856,8 +6989,8 @@ private:
         UInt8 vals[64];
         memcpy(vals, s->regs, 32);
         memset(vals + 32, 0, 32);
-        memcpy(vals + 32, s->cmdRegs, 16);
-        drawRegBank(regBankV99x8, vals, regFade, regShown, s);
+        memcpy(vals + 32, s->cmdRegs, 32);
+        drawRegBank(s->version == VDP_V9968 ? regBankV9968() : regBankV99x8, vals, regFade, regShown, s);
         ImGui::Spacing();
         ui::SectionTitle(ts(TS_SECTION_STATUS));
         drawRegBank(regBankV99x8Status, s->status, statFade, statusShown, s);

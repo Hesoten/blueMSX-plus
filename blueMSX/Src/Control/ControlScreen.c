@@ -26,6 +26,7 @@
 #include "ControlPath.h"
 #include "VDP.h"
 #include "V9990.h"
+#include "romMapperV9968Cart.h"
 #include "FrameBuffer.h"
 #include "Emulator.h"
 #include "ArchNotifications.h"
@@ -58,6 +59,11 @@ int ctrlScreenIsTextMode(void)
 int ctrlScreenV9990Shown(int* superimposed)
 {
     return v9990GetShownMode(superimposed) != V9990_MODE_NONE;
+}
+
+int ctrlScreenV9968CartShown(void)
+{
+    return romMapperV9968CartGetShownScreenMode() >= 0;
 }
 
 /* Where a text screen's tables are in video memory, as the VDP registers say. */
@@ -323,6 +329,10 @@ int ctrlScreenText(CtrlView* view, CtrlText* out, char* err, int errLen)
                     : "a V9990 picture is shown instead of this VDP text; ask for \"png\" to "
                       "see the screen\n");
     }
+    else if (ctrlScreenV9968CartShown()) {
+        ctrlTextAdd(out, "a V9968 cartridge picture is shown instead of this VDP text; ask for "
+                    "\"png\" to see the screen\n");
+    }
     screenTextNotes(out, &screen);
     screenTextRows(out, &screen, seen, other);
     listUnprintable(out, other);
@@ -365,9 +375,9 @@ int ctrlScreenPng(const char* wantedPath, char* pathOut, int pathOutLen,
         int superimposed;
         /* Only a view reads the VDP's mode; a running machine is not read. */
         int textMode   = dbgAccessHeld() == DBG_ACCESS_VIEW && ctrlScreenIsTextMode() &&
-                         !ctrlScreenV9990Shown(&superimposed);
+                         !ctrlScreenV9990Shown(&superimposed) && !ctrlScreenV9968CartShown();
         /* Presence, not the picture shown, as this may run under a hold. */
-        const char* readable = v9990IsPresent() ? " or memory)."
+        const char* readable = v9990IsPresent() || romMapperV9968CartIsPresent() ? " or memory)."
                                                 : ", memory, or the screen as text).";
 
         snprintf(err, (size_t)errLen,

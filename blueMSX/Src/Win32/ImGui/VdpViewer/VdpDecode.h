@@ -46,6 +46,13 @@ bool vdpIsBitmapMode(int mode);
 bool vdpIsPatternMode(int mode);
 bool vdpIsMsx1(const VdpDebugState* s);
 const char* vdpModeName(int mode);
+/* A V9968's sprite mode 3 from registers r: the attribute table, the pattern pages' base,
+** and the plane whose attributes plane n reads after the R#5 fold. */
+int  vdpSp3AttrBase(const UInt8* r);
+int  vdpSp3PatternBase(const UInt8* r);
+int  vdpSp3Alias(const UInt8* r, int n);
+/* A command's name; ext: a V9968 with R#21 V58 clear, which takes codes 1-3 as its own. */
+const char* vdpCmdName(int cm, bool ext);
 /* 1 in SCREEN 1-3, 2 in SCREEN 4-12, 0 where the mode has no sprites. */
 int  vdpSpriteMode(int mode);
 const char* vdpVersionName(int version);
@@ -94,10 +101,17 @@ struct VdpBitmapOptions {
     int color0;    /* VdpColor0 */
     bool displayed; /* page and line masks from R#2, as the VDP shows it */
     bool evenPair;  /* displayed: the even page an odd one alternates with (R#9 EO, R#13 blink) */
+    int  field;     /* displayed under flat interlace: S#2 bit 1 of the frame shown */
 };
 
 int  vdpBitmapWidth(int mode);
 int  vdpBitmapPageCount(const VdpDebugState* s, int mode);
+/* The page R#2 shows: 32K pages up to SCREEN 6, 64K from 7 on. */
+int  vdpBitmapPage(const VdpDebugState* s, const UInt8* regs, int mode);
+/* A V9968's R#20 bit 5 FIL: in the bitmap modes a row takes page lines 2r and 2r+1, one per field. */
+bool vdpIsFlatInterlace(const VdpDebugState* s, const UInt8* regs);
+/* The pages R#2's page shows, as bits: under FIL rows 0-127 of an odd page come from its even pair. */
+unsigned vdpShownPageBits(bool flat, int page);
 /* What the layout shows; false when it is not in a bitmap mode. */
 bool vdpDisplayedBitmap(const VdpDebugState* s, const VdpLayout& l, VdpBitmapOptions* out);
 /* o.mode is the mode the VRAM is read as; l gives the registers. */
@@ -148,8 +162,12 @@ struct VdpRange {
 };
 /* The tables the mode reads, as address ranges; returns how many. */
 int vdpTableRanges(const VdpDebugState* s, const VdpLayout& l, VdpRange out[8]);
-/* The index into the snapshot's vram for a CPU address in the mode. */
+/* Whether the mode interleaves the two 64K banks: SCREEN 7-12, unless a V9968's
+** sprite mode 3 lays them out in address order, as it is at the frame's end. */
+bool vdpInterleavedIn(const VdpDebugState* s, int mode);
+/* The index into the snapshot's vram for a CPU address in the mode, and back. */
 int vdpPhysicalAddress(const VdpDebugState* s, int mode, int logical);
+int vdpLogicalAddress(const VdpDebugState* s, int mode, int physical);
 /* Name table cells of lines from firstLine that show character ch (from VdpCharInfo). */
 int vdpCharUseCount(const VdpDebugState* s, const VdpLayout& l, int lines, int firstLine, int ch);
 

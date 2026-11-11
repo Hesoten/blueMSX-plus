@@ -7396,6 +7396,9 @@ char* archFilenameGetOpenRom(Properties* properties, int cartSlot, RomType* romT
     fileName = openRomFile(getMainHwnd(), title, extensionList, defaultDir, 1, defautExtension, selectedExtension, romType);
     exitDialogShow();
     SetCurrentDirectoryU(st.pCurDir);
+    if (fileName != NULL && menuCartClashRefused(properties, cartSlot, *romType)) {
+        return NULL;
+    }
 
     return fileName;
 }

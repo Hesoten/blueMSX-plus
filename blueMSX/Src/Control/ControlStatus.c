@@ -31,6 +31,7 @@
 #include "Emulator.h"
 #include "VDP.h"
 #include "V9990.h"
+#include "romMapperV9968Cart.h"
 #include <stdio.h>
 
 static void describeRegisters(CtrlText* text, const DbgRegisterBank* regs,
@@ -205,6 +206,20 @@ static void describeV9990(CtrlText* text)
                              : " instead of the VDP picture");
 }
 
+/* Whether a V9968 cartridge's picture is on the screen. */
+static void describeV9968Cart(CtrlText* text)
+{
+    int mode = romMapperV9968CartGetShownScreenMode();
+
+    if (mode < 0) {
+        ctrlTextAdd(text, "v9968:   the cartridge picture is not shown; the vdp lines below are the "
+                    "VDP's, not the cartridge's\n");
+        return;
+    }
+    ctrlTextAdd(text, "v9968:   the cartridge picture is shown in mode %d: %s instead of the VDP "
+                "picture; the vdp lines below are the VDP's, not the cartridge's\n", mode, ctrlVramModeName(mode));
+}
+
 void ctrlStatusDescribeVdp(CtrlText* text)
 {
     DbgSnapshot* snapshot = ctrlViewDevices();
@@ -215,6 +230,9 @@ void ctrlStatusDescribeVdp(CtrlText* text)
     }
     if (v9990IsPresent()) {
         describeV9990(text);
+    }
+    if (romMapperV9968CartIsPresent()) {
+        describeV9968Cart(text);
     }
     vdp = dbgSnapshotFindDeviceWithRegisters(snapshot, DBGTYPE_VIDEO);
     if (vdp != NULL) {

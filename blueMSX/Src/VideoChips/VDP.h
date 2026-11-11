@@ -34,11 +34,12 @@
 #include "MsxTypes.h"
 #include "VideoManager.h"
 
-typedef enum { VDP_V9938, VDP_V9958, VDP_TMS9929A, VDP_TMS99x8A, VDP_TMS9918A } VdpVersion;
-typedef enum { VDP_SYNC_AUTO, VDP_SYNC_50HZ, VDP_SYNC_60HZ } VdpSyncMode; 
+/* Append new versions; the value is stored as a plain integer in configs. */
+typedef enum { VDP_V9938, VDP_V9958, VDP_TMS9929A, VDP_TMS99x8A, VDP_TMS9918A, VDP_V9968 } VdpVersion;
+typedef enum { VDP_SYNC_AUTO, VDP_SYNC_50HZ, VDP_SYNC_60HZ } VdpSyncMode;
 typedef enum { VDP_MSX, VDP_SVI, VDP_COLECO, VDP_SG1000 } VdpConnector;
 
-static const char* VdpNames[] = { "V9938", "V9958", "TMS9929A", "TMS99x8A", "TMS9918A" };
+static const char* VdpNames[] = { "V9938", "V9958", "TMS9929A", "TMS99x8A", "TMS9918A", "V9968" };
 
 void vdpCreate(VdpConnector connector, VdpVersion version, VdpSyncMode sync, int vramPages);
 
@@ -78,6 +79,42 @@ int vdpDebugColorsMatch(int first, int second);
 /* The machine VDP frames begun since power-on, the one in progress included: it goes back
 ** with a state load or a rewind, as it is part of the state. 0 without a VDP. */
 UInt32 vdpGetMachineFrame(void);
+
+struct VDP;
+
+/* A V9968 beside the machine's VDP, as on a cartridge: ports portBase to portBase + 4,
+** interrupts intBase, << 1 and << 2. Its owner resets, saves, loads and destroys it;
+** frameDone runs as each frame starts, early when a frame step showed its display end. */
+typedef struct {
+    int portBase;
+    int intBase;
+    const char* name;
+    const char* stateName;
+    const char* cmdStateName;
+    void (*frameDone)(void* ref, struct VDP* vdp, int isPal, int early);
+    void* ref;
+} VdpSecondaryConfig;
+
+struct VDP* vdpCreateSecondary(const VdpSecondaryConfig* config);
+void vdpDestroySecondary(struct VDP* vdp);
+void vdpResetSecondary(struct VDP* vdp);
+void vdpSaveStateSecondary(struct VDP* vdp);
+void vdpLoadStateSecondary(struct VDP* vdp);
+int  vdpGetVideoHandle(struct VDP* vdp);
+int  vdpGetScreenMode(struct VDP* vdp);
+/* R#1 BL. */
+int  vdpIsDisplayOn(struct VDP* vdp);
+
+/* geo3d drives the command engine through these; NULL is the machine VDP. */
+int  vdpGetCommandBusy(struct VDP* vdp);
+void vdpWriteCommandRegister(struct VDP* vdp, UInt8 reg, UInt8 value, int fillSpan);
+UInt32 vdpGetCommandEndTime(struct VDP* vdp);
+void vdpAddCommandCredit(struct VDP* vdp, int units);
+void vdpSetCommandTraceLink(struct VDP* vdp, UInt32 link);
+/* The trace instance name: "VDP" for the machine's or NULL, else the secondary VDP's own. */
+const char* vdpGetTraceName(struct VDP* vdp);
+/* Board time the VDP's current frame began (at its own frame tap, the one ending). */
+UInt32 vdpGetFrameStartTime(struct VDP* vdp);
 
 // Video DA Interface
 

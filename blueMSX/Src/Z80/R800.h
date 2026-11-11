@@ -305,6 +305,12 @@ typedef struct
     UInt32        timeTraceIndex;
     UInt16        lastPC;
 #endif
+
+    /* Trace only, never saved: the source, and the HALT and interrupt open. */
+    UInt16        traceSource;
+    UInt8         traceHalted;
+    UInt8         traceInIrq;
+    UInt32        traceEpoch;
 } R800;
 
 
@@ -525,5 +531,15 @@ SystemTime r800GetTimeTrace(R800* r800, int offset);
 *************************************************************************
 */
 SystemTime r800GetSystemTime(R800* r800);
+
+/* Trace kinds of class CPU. HALT: BEGIN when the CPU halts, a = the HALT's
+** address; END when it resumes. IRQ: BEGIN when it takes a maskable interrupt,
+** a = the address left, b = IM; END at the first EI after, a = its address. */
+#define CPU_TRACE_HALT 1
+#define CPU_TRACE_IRQ  2
+
+struct DebugTraceClassDesc;
+const struct DebugTraceClassDesc* r800TraceClass(void);
+void r800SetTraceSource(R800* r800, UInt16 source);
 
 #endif /* Z80_H */

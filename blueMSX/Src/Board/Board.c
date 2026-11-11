@@ -44,6 +44,7 @@
 #include "ArchNotifications.h"
 #include "VideoManager.h"
 #include "DebugDeviceManager.h"
+#include "DebugTrace.h"
 #include "V9938.h"
 #include "MegaromCartridge.h"
 #include "Disk.h"
@@ -1162,7 +1163,7 @@ static void onBreakpointSync(void* ref, UInt32 time) {
 }
 
 static int boardRewindLoad(int drop);
-static int boardLoadStateInPlace(const char* stateFile);
+static int boardLoadStateInPlace(const char* stateFile, int traceReason);
 
 /* Discard the newest snapshot without restoring it. */
 static int boardRewindDrop()
@@ -1255,7 +1256,7 @@ int boardRewindTo(UInt32 loadAt, UInt32 dropAfter)
     }
     /* An older one, loaded without dropping those after it, which later steps still use. */
     sprintf(stateFile, "mem%d", (ramStateCur + ramMaxStates - back) % ramMaxStates);
-    return boardLoadStateInPlace(stateFile);
+    return boardLoadStateInPlace(stateFile, DEBUG_TRACE_REWIND);
 }
 
 int boardRewindReaches(UInt32 at)
@@ -1286,7 +1287,7 @@ static int boardRewindLoad(int drop)
     if (drop ? !boardRewindDrop() : ramStateCount < 1) {
         return 0;
     }
-    return boardLoadStateInPlace(stateFile);
+    return boardLoadStateInPlace(stateFile, DEBUG_TRACE_REWIND);
 }
 
 int boardSnapshotTake(void)
@@ -1309,16 +1310,18 @@ int boardSnapshotRestore(void)
     if (diskHasHostMedium()) {
         return BOARD_SNAPSHOT_HOST_MEDIUM;
     }
-    boardLoadStateInPlace(SNAPSHOT_STATE);
+    boardLoadStateInPlace(SNAPSHOT_STATE, DEBUG_TRACE_LOAD);
     /* The ring holds moments after the snapshot, so a step back would jump forward. */
     ramStateCount = 0;
     return BOARD_SNAPSHOT_OK;
 }
 
 /* Loads a state of this same machine over the running one without building it
-** again, so no device is destroyed and no SRAM is written to its file. */
-static int boardLoadStateInPlace(const char* stateFile)
+** again, so no device is destroyed and no SRAM is written to its file. traceReason tells the
+** trace a rewind step from any other load. */
+static int boardLoadStateInPlace(const char* stateFile, int traceReason)
 {
+    debugTraceBreak(traceReason);
     boardTimerCleanup();
     /* The cleanup drops fdcTimer without ever running onFdcDone, so the boost
     ** would stay engaged with no timer to release it. */
@@ -1368,6 +1371,7 @@ static int boardLoadStateInPlace(const char* stateFile)
     keyMatrixInputBoardRearm();
     /* A hunt or a write journal kept by an agent was about the machine before this. */
     dbgNotifyMachineChanged();
+    debugTraceResume(traceReason, boardSystemTime(), 0);
     return 1;
 }
 
@@ -1532,6 +1536,9 @@ int boardRun(Machine* machine,
         saveStateDestroy();
     }
 
+    /* This is the emulator thread, the only one whose trace records are kept. */
+    debugTraceResume(loadState ? DEBUG_TRACE_LOAD : DEBUG_TRACE_START, boardSystemTime(), 1);
+
     if (success) {
         /* fdcActive is module-static and survives across boardRun cycles
         ** (hard reset = stop + start). If a previous run left it engaged
@@ -1616,6 +1623,7 @@ int boardRun(Machine* machine,
         boardCaptureStop();
     }
 
+    debugTraceBreak(DEBUG_TRACE_STOP);
     boardRunning = 0;
 
     return success;
@@ -1684,7 +1692,9 @@ void boardSetMachine(Machine* machine)
 void boardReset()
 {
     if (boardRunning) {
+        debugTraceBreak(DEBUG_TRACE_RESET);
         boardInfo.softReset();
+        debugTraceResume(DEBUG_TRACE_RESET, boardSystemTime(), 0);
     }
 }
 

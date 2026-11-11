@@ -120,7 +120,8 @@ int emulatorRewindReplaying(void) {
 void emulatorTap(EmuTapPoint point) {
     EmuTapFn tap = emuTap;
     /* Of a replay only the frame it stops at is copied. */
-    if ((point == EMU_TAP_VDP_SHOWN || point == EMU_TAP_V9990_SHOWN) && emulatorRewindReplaying() &&
+    if ((point == EMU_TAP_VDP_SHOWN || point == EMU_TAP_V9990_SHOWN || point == EMU_TAP_VDP_SECONDARY_SHOWN) &&
+        emulatorRewindReplaying() &&
         (Int32)(boardSystemTime() - rwLo) < 0) {
         return;
     }
@@ -620,9 +621,35 @@ void emulatorRequestBackStep(int picture)
     }
 }
 
-int emulatorRewindToVint(UInt32 vintTime)
+/* Under emuStateLock: a rewind to vintTime can start now. */
+static int rewindToVintAllowed(UInt32 vintTime, int pace)
 {
     UInt32 period, shown;
+
+    /* The flag with a pause, under the lock, proves the thread is parked, not just was;
+    ** only then is the board read. */
+    if (backStep || emuState != EMU_PAUSED || !emuSuspendFlag || emuHoldSuspended || emuPlayReverse ||
+        !properties->emulation.reverseEnable || pace) {
+        return 0;
+    }
+    period = boardFrequency() / rwRate();
+    shown = rwCut ? rwCutVint : rwShownSane(boardSystemTime(), period);
+    return (UInt32)(boardSystemTime() - emuLastVint) <= 2 * period &&
+           (Int32)(shown - vintTime) > 0 && boardRewindReaches(vintTime - period * 3 / 2);
+}
+
+int emulatorCanRewindToVint(UInt32 vintTime)
+{
+    int pace = videoManagerActivePacesScreen(), ok;
+
+    archSemaphoreWait(emuStateLock, -1);
+    ok = rewindToVintAllowed(vintTime, pace);
+    archSemaphoreSignal(emuStateLock);
+    return ok;
+}
+
+int emulatorRewindToVint(UInt32 vintTime)
+{
     int pace, started = 0;
 
     dbgChangeBegin();
@@ -631,14 +658,8 @@ int emulatorRewindToVint(UInt32 vintTime)
         return 0;
     }
     pace = videoManagerActivePacesScreen();
-    period = boardFrequency() / rwRate();
     archSemaphoreWait(emuStateLock, -1);
-    shown = rwCut ? rwCutVint : rwShownSane(boardSystemTime(), period);
-    /* The flag with a pause, under the lock, proves the thread is parked, not just was. */
-    if (!backStep && emuState == EMU_PAUSED && emuSuspendFlag && !emuHoldSuspended && !emuPlayReverse &&
-        properties->emulation.reverseEnable && !pace &&
-        (UInt32)(boardSystemTime() - emuLastVint) <= 2 * period &&
-        (Int32)(shown - vintTime) > 0 && boardRewindReaches(vintTime - period * 3 / 2)) {
+    if (rewindToVintAllowed(vintTime, pace)) {
         backTarget = vintTime;
         backFromCut = rwCut;
         backArrived = 0;

@@ -247,9 +247,11 @@ static bool pictureFieldsDiffer(int family, const void* a, const void* b)
     static const Span skip[] = {
         { offsetof(VdpDebugState, status), sizeof(((VdpDebugState*)0)->status) },
         { offsetof(VdpDebugState, raster), sizeof(((VdpDebugState*)0)->raster) },
+        { offsetof(VdpDebugState, frameStartTime),
+          offsetof(VdpDebugState, geo3d) + sizeof(Geo3DDebugState) - offsetof(VdpDebugState, frameStartTime) },
         { offsetof(VdpDebugState, vram), VDP_DEBUG_VRAM_SIZE },
     };
-    return differOutside(a, b, sizeof(VdpDebugState), skip, 3);
+    return differOutside(a, b, sizeof(VdpDebugState), skip, 4);
 }
 
 /* The raster logs changed; entries past count are stale and not compared. */
@@ -596,15 +598,14 @@ float pagesChromeH(bool open)
     return ui::Px(32) + (open ? ui::Px(4) + ui::Px(8) : 0);
 }
 
-float pagesHeight(float room)
+float bottomCardHeight(bool open, float* height, float lo, float keep, float room)
 {
-    if (!pagesState.open) return 0;
-    return ui::SplitSize("##split", &pagesState.height, ui::Px(80), room - ui::Px(160));
+    if (!open) return 0;
+    return ui::SplitSize("##split", height, lo, room - keep);
 }
 
-bool pagesHeader(float paneH, bool* sizeChanged)
+bool bottomCardHeader(const char* id, const char* title, const char* summary, bool* open, float paneH, float trailW)
 {
-    *sizeChanged = false;
     /* The splitter in the 8 px under the card (EndTabCard left ItemSpacing below it), then the card. */
     ImVec2 p = ImGui::GetCursorScreenPos();
     float sp = ImGui::GetStyle().ItemSpacing.y;
@@ -613,20 +614,33 @@ bool pagesHeader(float paneH, bool* sizeChanged)
         ui::SplitBar("##split", ImGui::GetContentRegionAvail().x, ui::Px(8), paneH);
     }
     ImGui::SetCursorScreenPos(ImVec2(p.x, p.y + ui::Px(8) - sp));
-    const char* sizes[] = { ts(TS_STRIP_SMALL), ts(TS_STRIP_MEDIUM), ts(TS_STRIP_LARGE) };
     ui::ExpanderStyle es;
     es.headerH = 32;
     es.padLeft = 12;
     es.bodyTop = 4;
     es.bodyBottom = 8;
     es.divider = false;
-    es.trailW = ui::SegmentedWidth(sizes, 3);
-    bool open = ui::BeginExpander("pages", ts(TS_STRIP), NULL, &pagesState.open, es);
+    es.trailW = trailW;
+    bool shown = ui::BeginExpander(id, title, summary, open, es);
     /* Opened by a click this frame: the room is reserved from the next frame on. */
-    if (!open || paneH <= 0) {
+    if (!shown || paneH <= 0) {
         ui::EndExpander();
         return false;
     }
+    return true;
+}
+
+float pagesHeight(float room)
+{
+    return bottomCardHeight(pagesState.open, &pagesState.height, ui::Px(80), ui::Px(160), room);
+}
+
+bool pagesHeader(float paneH, bool* sizeChanged)
+{
+    *sizeChanged = false;
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    const char* sizes[] = { ts(TS_STRIP_SMALL), ts(TS_STRIP_MEDIUM), ts(TS_STRIP_LARGE) };
+    if (!bottomCardHeader("pages", ts(TS_STRIP), NULL, &pagesState.open, paneH, ui::SegmentedWidth(sizes, 3))) return false;
     ImVec2 body = ImGui::GetCursorScreenPos(), ta, tb;
     ui::ExpanderTrail(&ta, &tb);
     ui::PushFont(UI_FONT_STRONG);
@@ -687,15 +701,22 @@ static void commandBar(const ChipSnapshot* snap, const LiveFeedInfo& info, ChipV
     EmuState es = emulatorGetState();
     if (snap && snap->count > 1) {
         const ChipEntry& cur = snap->chip[snap->selected >= 0 ? snap->selected : 0];
-        char preview[64];
-        snprintf(preview, sizeof(preview), "%s", cur.name);
-        const char* names[8];
+        char preview[256];
+        bool twin = false;
+        for (int i = 0; i < snap->count; i++) {
+            if (&snap->chip[i] != &cur && strcmp(snap->chip[i].name, cur.name) == 0) twin = true;
+        }
+        /* Two chips of one name, such as a V9968 in the machine and one on a cartridge. */
+        if (twin) textf(preview, sizeof(preview), ts(cur.cartridge ? TS_CHIP_CARTRIDGE : TS_CHIP_MACHINE), cur.name);
+        else      snprintf(preview, sizeof(preview), "%s", cur.name);
+        const char* names[9];
         int n = 0;
         for (int i = 0; i < snap->count && n < 8; i++) names[n++] = snap->chip[i].name;
+        names[n++] = preview;
         if (ui::BeginCombo("##chip", preview, ui::ComboWidth(names, n, 160))) {
             for (int i = 0; i < snap->count; i++) {
                 char text[256], key[16];
-                textf(text, sizeof(text), ts(snap->chip[i].family == CHIP_V9990 ? TS_CHIP_CARTRIDGE : TS_CHIP_MACHINE),
+                textf(text, sizeof(text), ts(snap->chip[i].cartridge ? TS_CHIP_CARTRIDGE : TS_CHIP_MACHINE),
                       snap->chip[i].name);
                 snprintf(key, sizeof(key), "chip%d", i);
                 ImGui::PushID(i);

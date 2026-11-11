@@ -721,6 +721,34 @@
       <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\VdpSprite3.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\VdpSprite3View.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\VdpCmd9968.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\Geo3DPanel.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\Geo3DPerf.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\Geo3DPerfStrip.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\Geo3DRunLog.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
     <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\VdpParts.cpp">
       <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -931,6 +959,7 @@
     <ClCompile Include="..\..\Src\Memory\romMapperTC8566AF.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperTurboRPcm.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperTurboRTimer.c" />
+    <ClCompile Include="..\..\Src\Memory\romMapperV9968Cart.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperYamanooto.c" />
     <ClCompile Include="..\..\Src\Memory\SlotManager.c" />
     <ClCompile Include="..\..\Src\Memory\sramLoader.c" />
@@ -940,6 +969,13 @@
     <ClCompile Include="..\..\Src\Memory\sramMapperS1985.c" />
     <ClCompile Include="..\..\Src\VideoChips\CRTC6845.c" />
     <ClCompile Include="..\..\Src\VideoChips\FrameBuffer.c" />
+    <ClCompile Include="..\..\Src\VideoChips\Geo3D.cpp">
+      <LanguageStandard>stdcpp20</LanguageStandard>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\VideoChips\Geo3DCore.cpp">
+      <LanguageStandard>stdcpp20</LanguageStandard>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\VideoChips\Geo3DDevice.c" />
     <ClCompile Include="..\..\Src\VideoChips\V9938.c" />
     <ClCompile Include="..\..\Src\VideoChips\V9990.c" />
     <ClCompile Include="..\..\Src\VideoChips\V9990Cmd.c" />
@@ -1127,6 +1163,7 @@
     <ClCompile Include="..\..\Src\Control\ControlStep.c" />
     <ClCompile Include="..\..\Src\Debugger\Debugger.c" />
     <ClCompile Include="..\..\Src\Debugger\DebugBreakpoints.c" />
+    <ClCompile Include="..\..\Src\Debugger\DebugTrace.c" />
     <ClCompile Include="..\..\Src\Debugger\RaceTest.c" />
     <ClCompile Include="..\..\Src\Utils\blowfish.c" />
     <ClCompile Include="..\..\Src\Utils\IniFileParser.c" />
@@ -1202,6 +1239,14 @@
     <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\VdpViewer.h" />
     <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\ViewPicture.h" />
     <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\VdpSprite.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\VdpSprite3.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\VdpSprite3View.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\VdpCmd9968.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\Geo3DPanel.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\SpanHold.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\Geo3DPerf.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\Geo3DPerfStrip.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\Geo3DRunLog.h" />
     <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\VdpRaster.h" />
     <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\VdpParts.h" />
     <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\V9990Decode.h" />
@@ -1359,6 +1404,7 @@
     <ClInclude Include="..\..\Src\Memory\romMapperTC8566AF.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperTurboRPcm.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperTurboRTimer.h" />
+    <ClInclude Include="..\..\Src\Memory\romMapperV9968Cart.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperYamanooto.h" />
     <ClInclude Include="..\..\Src\Memory\SlotManager.h" />
     <ClInclude Include="..\..\Src\Memory\sramLoader.h" />
@@ -1369,6 +1415,10 @@
     <ClInclude Include="..\..\Src\VideoChips\Common.h" />
     <ClInclude Include="..\..\Src\VideoChips\CRTC6845.h" />
     <ClInclude Include="..\..\Src\VideoChips\FrameBuffer.h" />
+    <ClInclude Include="..\..\Src\VideoChips\Geo3D.h" />
+    <ClInclude Include="..\..\Src\VideoChips\Geo3DCore.h" />
+    <ClInclude Include="..\..\Src\VideoChips\Geo3DDebug.h" />
+    <ClInclude Include="..\..\Src\VideoChips\Geo3DDevice.h" />
     <ClInclude Include="..\..\Src\VideoChips\SpriteLine.h" />
     <ClInclude Include="..\..\Src\VideoChips\V9938.h" />
     <ClInclude Include="..\..\Src\VideoChips\V9990.h" />
@@ -1577,6 +1627,7 @@
     <ClInclude Include="..\..\Src\Control\ControlMachine.h" />
     <ClInclude Include="..\..\Src\Control\ControlStep.h" />
     <ClInclude Include="..\..\Src\Debugger\Debugger.h" />
+    <ClInclude Include="..\..\Src\Debugger\DebugTrace.h" />
     <ClInclude Include="..\..\Src\Debugger\RaceTest.h" />
     <ClInclude Include="..\..\Src\Utils\authkey.h" />
     <ClInclude Include="..\..\Src\Utils\blowfish.h" />

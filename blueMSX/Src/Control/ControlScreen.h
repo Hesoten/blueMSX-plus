@@ -31,6 +31,8 @@ int ctrlScreenIsTextMode(void);
 /* Needs a view. Nonzero while a V9990 picture is on the screen; superimposed is set
 ** if the VDP picture shows under it. */
 int ctrlScreenV9990Shown(int* superimposed);
+/* Nonzero while a V9968 cartridge's picture is on the screen instead of the VDP's. */
+int ctrlScreenV9968CartShown(void);
 
 /* Needs a held view. Fails with err in a graphics mode rather than returning pixels. */
 int ctrlScreenText(CtrlView* view, CtrlText* out, char* err, int errLen);

@@ -36,6 +36,8 @@ struct ChipProvider {
     int         (*capture)(int index, void* dst);
     UInt32      (*idOf)(const void* st);
     const char* (*name)(int index);
+    int         (*cartridge)(int index);
+    int         ownPoint;   /* where a cartridge chip of the family is copied */
     size_t      shotSize;
     int         (*captureShot)(int index, void* dst, int pixels);
 };
@@ -47,12 +49,13 @@ static int    v9990Capture(int i, void* d)    { return v9990DebugCapture(i, (V99
 static int    v9990Shot(int i, void* d, int)  { return v9990DebugCaptureFrame(i, (V9990FrameShot*)d); }
 static UInt32 v9990Id(const void* s)          { return ((const V9990DebugState*)s)->id; }
 static const char* v9990Name(int)             { return "V9990"; }
+static int    v9990Cart(int)                  { return 1; }
 
 static const ChipProvider providers[CHIP_FAMILY_COUNT] = {
     { CHIP_V99X8, sizeof(VdpDebugState),   vdpDebugCount,   vdpCapture,   vdpId,   vdpDebugName,
-      sizeof(VdpFrameShot), vdpShot },
+      vdpDebugIsCartridge, EMU_TAP_VDP_SECONDARY_SHOWN, sizeof(VdpFrameShot), vdpShot },
     { CHIP_V9990, sizeof(V9990DebugState), v9990DebugCount, v9990Capture, v9990Id, v9990Name,
-      sizeof(V9990FrameShot), v9990Shot },
+      v9990Cart, EMU_TAP_V9990_SHOWN, sizeof(V9990FrameShot), v9990Shot },
 };
 
 static size_t headSize()
@@ -101,12 +104,12 @@ const void* chipFeedState(const ChipSnapshot* snap)
 void chipFeedRefReset(ChipFeedRef* ref)
 {
     InterlockedExchange(&ref->want, 0);
-    ref->shownV9990    = false;
+    ref->shownChip     = 0;
     ref->framesWaiting = 0;
 }
 
-/* The V9990's points come at most two V9990 frames apart, less than three VDP frames; the
-** VDP's every frame unless a line count change loses its vint. */
+/* A V9990's points come at most two V9990 frames apart, less than three VDP frames; a VDP's,
+** the machine's or a cartridge's, every frame unless a line count change loses its vint. */
 #define FRAMES_WAITED_MAX 4
 
 /* Only the selected chip is copied. */
@@ -116,8 +119,8 @@ int chipFeedCapture(void* dst, void* refp, int point)
     ChipSnapshot* snap = (ChipSnapshot*)dst;
     void*         state = (char*)dst + headSize();
     int           counts[CHIP_FAMILY_COUNT];
-    bool          atV9990 = point == EMU_TAP_V9990_SHOWN;
-    bool          atVdp = point == EMU_TAP_VDP_SHOWN;
+    bool          atChip = point == EMU_TAP_V9990_SHOWN || point == EMU_TAP_VDP_SHOWN ||
+                           point == EMU_TAP_VDP_SECONDARY_SHOWN;
     int           f, i, n = 0;
 
     snap->shot = 0;
@@ -126,18 +129,25 @@ int chipFeedCapture(void* dst, void* refp, int point)
         if (counts[f] > CHIP_MAX) counts[f] = CHIP_MAX;
     }
 
-    /* A V9990 coming onto the main screen is shown, as the main window switches to it. When
-    ** it leaves, the viewer goes back to the machine's VDP as the main window does, unless
-    ** the V9990 was picked by hand. */
+    /* A cartridge chip coming onto the main screen is shown, as the main window switches to it,
+    ** unless picked by hand; then it holds. One followed gives way to the machine's VDP when
+    ** it leaves the main screen, as the main window does. */
     int  superimposed;
-    bool shown = counts[CHIP_V9990] > 0 && v9990GetShownMode(&superimposed) != V9990_MODE_NONE;
-    if (shown && !r->shownV9990 && r->want != chipWant(CHIP_V9990, 0)) {
-        InterlockedExchange(&r->want, chipWant(CHIP_V9990, 0) | CHIP_WANT_AUTO);
+    int  shownVdp = vdpDebugShownIndex();
+    LONG shown = 0;
+    if (counts[CHIP_V9990] > 0 && v9990GetShownMode(&superimposed) != V9990_MODE_NONE) {
+        shown = chipWant(CHIP_V9990, 0);
     }
-    else if (!shown && r->shownV9990) {
-        InterlockedCompareExchange(&r->want, 0, chipWant(CHIP_V9990, 0) | CHIP_WANT_AUTO);
+    else if (shownVdp > 0 && shownVdp < counts[CHIP_V99X8] && vdpDebugIsCartridge(shownVdp)) {
+        shown = chipWant(CHIP_V99X8, shownVdp);
     }
-    r->shownV9990 = shown;
+    if (shown != 0 && shown != r->shownChip && r->want != shown) {
+        InterlockedExchange(&r->want, shown | CHIP_WANT_AUTO);
+    }
+    else if (shown == 0 && r->shownChip != 0) {
+        InterlockedCompareExchange(&r->want, 0, r->shownChip | CHIP_WANT_AUTO);
+    }
+    r->shownChip = shown;
 
     LONG want = r->want & ~CHIP_WANT_AUTO;
     int  sel = -1;
@@ -148,6 +158,7 @@ int chipFeedCapture(void* dst, void* refp, int point)
             e->id     = 0;
             e->family = f;
             e->index  = i;
+            e->cartridge = providers[f].cartridge(i);
             strncpy(e->name, name != NULL ? name : "", sizeof(e->name) - 1);
             e->name[sizeof(e->name) - 1] = 0;
             if (sel < 0 && chipWant(f, i) == want) sel = n;
@@ -157,8 +168,9 @@ int chipFeedCapture(void* dst, void* refp, int point)
     if (sel < 0) sel = 0;
     /* A chip is copied at its own end of display. Should that point stop coming, the VDP
     ** frame end copies it after FRAMES_WAITED_MAX frames, so the copies never stop. */
-    bool v9990 = n > 0 && snap->chip[sel].family == CHIP_V9990;
-    if (atV9990 || atVdp ? atV9990 != v9990 : point == EMU_TAP_FRAME && ++r->framesWaiting < FRAMES_WAITED_MAX) {
+    bool cart = n > 0 && snap->chip[sel].cartridge;
+    int  own  = cart ? providers[snap->chip[sel].family].ownPoint : EMU_TAP_VDP_SHOWN;
+    if (atChip ? point != own : point == EMU_TAP_FRAME && ++r->framesWaiting < FRAMES_WAITED_MAX) {
         return LIVE_FEED_NOT_NOW;
     }
     r->framesWaiting = 0;

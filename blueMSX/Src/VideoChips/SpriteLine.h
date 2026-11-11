@@ -58,20 +58,25 @@ static UInt8 lineBufferNull[512];
 
 #define nullSpritesLine() lineBufferNull
 
-static UInt8 lineBuffer[2][384];
-static UInt8* lineBufs[2] = { nullSpritesLine(), nullSpritesLine() };
-static UInt8* lineBuf = nullSpritesLine();
-static int nonVisibleLine = -1;
+static void spriteLineReset(VDP* vdp)
+{
+    vdp->render.lineBufs[0]    = nullSpritesLine();
+    vdp->render.lineBufs[1]    = nullSpritesLine();
+    vdp->render.lineBuf        = nullSpritesLine();
+    vdp->render.nonVisibleLine = -1;
+}
 
 
 UInt8* spritesLine(VDP* vdp, int line) {
     int bufIndex;
     UInt8 collisionBuf[384];
     UInt8* attrib;
+    UInt8* attribBase;
     UInt8* attribTable[32];
     int spriteLine[33];
     UInt8 patternMask;
     int idx;
+    int step;
     int size;
     int scale;
     int visibleCnt;
@@ -89,16 +94,16 @@ UInt8* spritesLine(VDP* vdp, int line) {
 //    vdp->vdpStatus[0] &= 0xbf;
 
     if (idx == 0) {
-        lineBufs[bufIndex] = nullSpritesLine();
+        vdp->render.lineBufs[bufIndex] = nullSpritesLine();
         return nullSpritesLine();
     }
 
-    if (!vdp->screenOn || (vdp->vdpStatus[2] & 0x40) ||vdpIsSpritesOff(vdp->vdpRegs)) {
-        lineBufs[bufIndex] = nullSpritesLine();
-        return lineBufs[bufIndex ^ 1];
+    if (!vdp->screenOn || (vdp->vdpStatus[2] & 0x40) || vdpIsSpritesOff(vdp->vdpRegs) || vdp->sprMode3) {
+        vdp->render.lineBufs[bufIndex] = nullSpritesLine();
+        return vdp->render.lineBufs[bufIndex ^ 1];
     }
 
-    attrib = &vdp->vram[vdp->sprTabBase & (-1 << 7)];
+    attribBase = &vdp->vram[vdp->sprTabBase & (-1 << 7)];
     size   = vdpIsSprites16x16(vdp->vdpRegs) ? 16 : 8;
     scale  = vdpIsSpritesBig(vdp->vdpRegs) ? 2 : 1;
     solidColor = vdpIsColor0Solid(vdp->vdpRegs) ? 1 : 0;
@@ -106,17 +111,19 @@ UInt8* spritesLine(VDP* vdp, int line) {
     color0Collides = vdpIsMsx1Vdp(vdp);
     /* The line built here is the one shown next. */
     dispLine = line + 1;
-    line   = (line + vdpVScroll(vdp)) & 0xff;
+    line   = (line + vdpSpriteVScroll(vdp)) & 0xff;
     
 	patternMask = vdpIsSprites16x16(vdp->vdpRegs) ? 0xfc : 0xff;
     visibleCnt = 0;
     collision = 0;
     /* Find visible sprites on current line */
-    for (idx = 0; idx < 32; idx++, attrib += 4) {
-        if (attrib[0] == 208) {
+    for (step = 0; step < 32; step++) {
+        idx    = vdpSpritePlane(vdp, step, 31);
+        attrib = attribBase + 4 * idx;
+        if (attrib[0] == 208 && !vdpIsSpriteShuffle(vdp)) {
             break;
         }
-       
+
         spriteLine[visibleCnt] = ((line - attrib[0]) & 0xff) / scale;
 		if (spriteLine[visibleCnt] >= size) {
 #if 1
@@ -147,7 +154,7 @@ UInt8* spritesLine(VDP* vdp, int line) {
 #endif
         }
         
-        if (visibleCnt == 4) {
+        if (visibleCnt == vdpSpritesPerLine(vdp, 4)) {
 			if ((vdp->vdpStatus[0] & 0xc0) == 0) {
 				vdp->vdpStatus[0] = (vdp->vdpStatus[0] & 0xe0) | 0x40 | idx;
 			}
@@ -159,16 +166,16 @@ UInt8* spritesLine(VDP* vdp, int line) {
     }
 
     if (visibleCnt == 0) {
-        lineBufs[bufIndex] = nullSpritesLine();
-        return lineBufs[bufIndex ^ 1];
+        vdp->render.lineBufs[bufIndex] = nullSpritesLine();
+        return vdp->render.lineBufs[bufIndex ^ 1];
     }
 
 	if ((vdp->vdpStatus[0] & 0xc0) == 0) {
 		vdp->vdpStatus[0] = (vdp->vdpStatus[0] & 0xe0) | (idx < 32 ? idx : 31);
 	}
     
-    lineBuf = lineBuffer[bufIndex];
-    memset(lineBuf, 0, 384);
+    vdp->render.lineBuf = vdp->render.lineBuffer[bufIndex];
+    memset(vdp->render.lineBuf, 0, 384);
     memset(collisionBuf, 0, 384);
 
     collision = 0;
@@ -188,7 +195,7 @@ UInt8* spritesLine(VDP* vdp, int line) {
         colOffset = ((int)attrib[1] + 32 - ((attrib[3] >> 2) & 0x20));
         colPtr     = collisionBuf + colOffset;
         colChck    = colChckBuf   + colOffset;
-        linePtr    = lineBuf      + colOffset;
+        linePtr    = vdp->render.lineBuf + colOffset;
         rawColor   = attrib[3] & 0x0f;
         /* Bit 0 marks the dot as painted so color 0 stays distinct from an empty line buffer. */
         color      = (rawColor << 1) | solidColor;
@@ -326,18 +333,18 @@ UInt8* spritesLine(VDP* vdp, int line) {
         vdp->vdpStatus[6] = (UInt8)((dispLine + 8) >> 8);
     }
 
-    lineBufs[bufIndex] = lineBuf + 32;
+    vdp->render.lineBufs[bufIndex] = vdp->render.lineBuf + 32;
 
     if (!spritesEnable) {
         return nullSpritesLine();
     }
 
-    return lineBufs[bufIndex ^ 1];
+    return vdp->render.lineBufs[bufIndex ^ 1];
 }
 
 
 void spriteLineInvalidate(VDP* vdp, int line) {
-    nonVisibleLine = line - vdp->firstLine;
+    vdp->render.nonVisibleLine = line - vdp->firstLine;
 }
 
 UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
@@ -346,8 +353,10 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
     UInt8 collisionBuf[384];
     SpriteAttribute attribTable[32];
     UInt8 patternMask;
+    int   attribBase;
     int   attribOffset;
     int   sprite;
+    int   step;
     int   size;
     int   scale;
     int   visibleCnt;
@@ -365,22 +374,21 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
 //    vdp->vdpStatus[0] &= 0x80;
 
     if (line == 0xffffffff) {
-        nonVisibleLine = -1000;
+        vdp->render.nonVisibleLine = -1000;
     }
 
-    if (idx == 0 || nonVisibleLine == line) {
-        lineBufs[bufIndex] = nullSpritesLine();
+    if (idx == 0 || vdp->render.nonVisibleLine == line) {
+        vdp->render.lineBufs[bufIndex] = nullSpritesLine();
         return nullSpritesLine();
     }
 
-    if (!vdp->screenOn || (vdp->vdpStatus[2] & 0x40) ||vdpIsSpritesOff(vdp->vdpRegs)) {
-//    if (!vdp->screenOn ||vdpIsSpritesOff(vdp->vdpRegs)) {
-        lineBufs[bufIndex] = nullSpritesLine();
-        return lineBufs[bufIndex ^ 1];
+    if (!vdp->screenOn || (vdp->vdpStatus[2] & 0x40) || vdpIsSpritesOff(vdp->vdpRegs) || vdp->sprMode3) {
+        vdp->render.lineBufs[bufIndex] = nullSpritesLine();
+        return vdp->render.lineBufs[bufIndex ^ 1];
     }
 
     solidColor   = vdpIsColor0Solid(vdp->vdpRegs) ? 1 : 0;
-    attribOffset = vdp->sprTabBase & 0x1fe00;
+    attribBase   = vdp->sprTabBase & 0x3fe00;
     size         = vdpIsSprites16x16(vdp->vdpRegs) ? 16 : 8;
     scale        = vdpIsSpritesBig(vdp->vdpRegs) ? 2 : 1;
 	patternMask  = vdpIsSprites16x16(vdp->vdpRegs) ? 0xfc : 0xff;
@@ -388,16 +396,19 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
     collision    = 0;
     /* The line built here is the one shown next. */
     dispLine     = line + 1;
-    line         = (line + vdpVScroll(vdp)) & 0xff;
+    line         = (line + vdpSpriteVScroll(vdp)) & 0xff;
 
     /* Find visible sprites on current line */
-    for (sprite = 0; sprite < 32; sprite++, attribOffset += 4) {
+    for (step = 0; step < 32; step++) {
         int spriteLine;
         int offset;
         int color;
 
-        spriteLine = *MAP_VRAM(vdp, attribOffset);
-        if (spriteLine == 216) {
+        sprite       = vdpSpritePlane(vdp, step, 31);
+        attribOffset = attribBase + 4 * sprite;
+
+        spriteLine = *vdpSpriteVram(vdp, attribOffset);
+        if (spriteLine == 216 && !vdpIsSpriteShuffle(vdp)) {
             break;
         }
        
@@ -406,7 +417,7 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
             continue;
         }
 
-        if (visibleCnt == 8) {
+        if (visibleCnt == vdpSpritesPerLine(vdp, 8)) {
 //            printf("%d\t%d\t%d\t####\n", idx, line, boardSystemTime());
 			if ((vdp->vdpStatus[0] & 0xc0) == 0) {
 				vdp->vdpStatus[0] = (vdp->vdpStatus[0] & 0xe0) | 0x40 | sprite;
@@ -415,30 +426,30 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
 				break;
         }
 
-        offset = (vdp->sprGenBase & 0x1f800) + ((int)(*MAP_VRAM(vdp, attribOffset + 2) & patternMask) << 3) + spriteLine;
-        color  = *MAP_VRAM(vdp, vdp->sprTabBase & ((-1 << 10) | (sprite * 16 + spriteLine)));
+        offset = (vdp->sprGenBase & 0x3f800) + ((int)(*vdpSpriteVram(vdp, attribOffset + 2) & patternMask) << 3) + spriteLine;
+        color  = *vdpSpriteVram(vdp, vdp->sprTabBase & ((-1 << 10) | (sprite * 16 + spriteLine)));
 
         attribTable[visibleCnt].color         = color;
-        attribTable[visibleCnt].horizontalPos = (int)*MAP_VRAM(vdp, attribOffset + 1) + 24 - ((attribTable[visibleCnt].color >> 2) & 0x20);
-        attribTable[visibleCnt].pattern       = *MAP_VRAM(vdp, offset);
+        attribTable[visibleCnt].horizontalPos = (int)*vdpSpriteVram(vdp, attribOffset + 1) + 24 - ((attribTable[visibleCnt].color >> 2) & 0x20);
+        attribTable[visibleCnt].pattern       = *vdpSpriteVram(vdp, offset);
         if (vdpIsSprites16x16(vdp->vdpRegs)) {
-            attribTable[visibleCnt].pattern = (attribTable[visibleCnt].pattern << 8) | *MAP_VRAM(vdp, offset + 16);
+            attribTable[visibleCnt].pattern = (attribTable[visibleCnt].pattern << 8) | *vdpSpriteVram(vdp, offset + 16);
             attribTable[visibleCnt].horizontalPos += 8;
         }
         visibleCnt++;
     }
 
     if (visibleCnt == 0) {
-        lineBufs[bufIndex] = nullSpritesLine();
-        return lineBufs[bufIndex ^ 1];
+        vdp->render.lineBufs[bufIndex] = nullSpritesLine();
+        return vdp->render.lineBufs[bufIndex ^ 1];
     }
 
 	if ((vdp->vdpStatus[0] & 0xc0) == 0) {
 		vdp->vdpStatus[0] = (vdp->vdpStatus[0] & 0xe0) | (sprite < 32 ? sprite : 31);
 	}
     
-    lineBuf = lineBuffer[bufIndex];
-    memset(lineBuf, 0, 384);
+    vdp->render.lineBuf = vdp->render.lineBuffer[bufIndex];
+    memset(vdp->render.lineBuf, 0, 384);
     memset(collisionBuf, 0, 384);
 
     /* A CC sprite is shown only from the first CC=0 sprite of the line onwards. */
@@ -471,7 +482,7 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
         colPtr  = collisionBuf + attrib->horizontalPos;
         colChck = colChckBuf   + attrib->horizontalPos;
 
-        linePtr = lineBuf + attrib->horizontalPos;
+        linePtr = vdp->render.lineBuf + attrib->horizontalPos;
         pattern = attrib->pattern;
         offset  = scale * (size - 1) + (16 - size);
 
@@ -546,7 +557,7 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
             else {
                 color = ((attrib->color & 0x0f) << 1) | solidColor;
             }
-            linePtr = lineBuf + attrib->horizontalPos;
+            linePtr = vdp->render.lineBuf + attrib->horizontalPos;
             pattern = attrib->pattern;
             offset  = scale * (size - 1) + (16 - size);
             
@@ -583,13 +594,229 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
         vdp->vdpStatus[6] = (UInt8)((dispLine + 8) >> 8);
     }
 
-    lineBufs[bufIndex] = lineBuf + 32;
+    vdp->render.lineBufs[bufIndex] = vdp->render.lineBuf + 32;
 
     if (!spritesEnable) {
         return nullSpritesLine();
     }
 
-    return lineBufs[bufIndex ^ 1];
+    return vdp->render.lineBufs[bufIndex ^ 1];
+}
+
+
+/* Sixty four planes of eight bytes, sixteen to a line. A plane can be
+** translucent, so a dot cannot be a palette index: this leaves a colour and a
+** weight for the caller to blend over the finished scanline. */
+#define SPRITE_M3_WIDTH 256
+
+/* Resizing divides by a normalised reciprocal, not exactly: the magnification
+** is shifted until its top bit is bit 7, multiplied by 65536 / (128 + index),
+** then shifted back. The difference from exact division is part of the picture. */
+static int spriteM3Sample(int offset, int magnify, int sizeShift)
+{
+    int limit = (16 << sizeShift) - 1;
+    int exp = 0;
+    int value;
+
+    if (magnify == 0) {
+        value = ((offset << 3) << sizeShift) >> 7;
+    }
+    else {
+        while ((magnify >> (exp + 1)) != 0) {
+            exp++;
+        }
+        value = 65536 / (128 + ((magnify << (7 - exp)) & 0x7f));
+        value = (((value * offset) >> 5) << sizeShift) >> exp;
+    }
+
+    return value > limit ? limit : value;
+}
+
+/* Patterns are laid out as a SCREEN 5 bitmap, so a pattern is the 16 wide tile
+** at ((n & 15) * 16, (n >> 4) * 16) of a 32kB page. */
+static int spriteM3PatternByte(VDP* vdp, int page, int pattern, int row, int column)
+{
+    int addr = (vdp->sprGenBase & 0x3f800) + (page << 15) + ((pattern >> 4) << 11) + (row << 7) +
+               ((pattern & 0x0f) << 3) + (column >> 1);
+
+    return *vdpSpriteVram(vdp, addr);
+}
+
+int spritesLineMode3(VDP* vdp, int Y)
+{
+    /* A sprite is scanned one line before the one it appears on, so an
+    ** attribute Y reaches the screen a line below it. */
+    int row  = Y - vdp->firstLine;
+    int line = row - 1;
+    int base = (((int)vdp->vdpRegs[11] & 0x07) << 15) | ((int)vdp->vdpRegs[5] << 7);
+    int planeMaskHigh = (base >> 7) & 0x03;
+    int visible = 0;
+    int collisionX = -1;
+    int step;
+    int i;
+
+    for (i = 0; i < SPRITE_M3_WIDTH; i++) {
+        vdp->render.sprM3Weight[i] = 0;
+    }
+
+    if (!vdp->screenOn || (vdp->vdpStatus[2] & 0x40) || vdpIsSpritesOff(vdp->vdpRegs) || row < 0) {
+        return 0;
+    }
+
+    /* The R#23 offset is added in eight bits, so the scan position wraps. */
+    line = vdpIsSpriteVScrollOff(vdp) ? (line & 0x3ff)
+                                      : ((line + vdpSpriteVScroll(vdp)) & 0xff);
+
+    for (step = 0; step < 64; step++) {
+        int plane  = vdpSpritePlane(vdp, step, 63);
+        int attrib = (base & ~0x1ff) | ((planeMaskHigh & (plane >> 4)) << 7) | ((plane & 0x0f) << 3);
+        int y    = *vdpSpriteVram(vdp, attrib);
+        int b1   = *vdpSpriteVram(vdp, attrib + 1);
+        int mgy  = *vdpSpriteVram(vdp, attrib + 2);
+        int mode = *vdpSpriteVram(vdp, attrib + 3);
+        int x    = *vdpSpriteVram(vdp, attrib + 4);
+        int b5   = *vdpSpriteVram(vdp, attrib + 5);
+        int mgx  = *vdpSpriteVram(vdp, attrib + 6);
+        int pattern = *vdpSpriteVram(vdp, attrib + 7);
+        int rows, dy, srcY, weight, set, page, dx;
+
+        /* The whole ten bit Y ends the table, so a sprite parked below the
+        ** screen is not mistaken for the marker by its low byte alone. */
+        y |= (b1 & 0x03) << 8;
+        if (y == 216 && !vdpIsSpriteShuffle(vdp)) {
+            break;
+        }
+
+        x |= (b5 & 0x03) << 8;
+        rows = 16 << (b1 >> 6);
+
+        dy = (line - y) & 0x3ff;
+        if (dy >= (mgy ? mgy : 256)) {
+            continue;
+        }
+
+        if (visible == 16) {
+            if ((vdp->vdpStatus[0] & 0xc0) == 0) {
+                /* Planes 32 to 63 do not fit the five bits of S#0 and report 31. */
+                vdp->vdpStatus[0] = (vdp->vdpStatus[0] & 0xe0) | 0x40 | (plane < 32 ? plane : 31);
+            }
+            if (!noSpriteLimits) {
+                break;
+            }
+        }
+        visible++;
+
+        srcY = spriteM3Sample(dy, mgy, b1 >> 6);
+        if (mode & 0x20) {
+            srcY = rows - 1 - srcY;
+        }
+
+        weight = 4 - (mode >> 6);
+        set    = mode & 0x0f;
+        page   = (b5 >> 4) & 0x07;
+
+        /* An MGX of zero is no dots at all, not 256 the way an MGY of zero is. */
+        for (dx = 0; dx < mgx; dx++) {
+            int screenX = (x + dx) & 0x3ff;
+            int srcX;
+            int colour;
+
+            /* An occluded dot still has to be looked at while it could be the
+            ** leftmost collision, and can be skipped once it cannot. */
+            if (screenX >= SPRITE_M3_WIDTH ||
+                (vdp->render.sprM3Weight[screenX] && collisionX >= 0 && screenX >= collisionX)) {
+                continue;
+            }
+
+            srcX = spriteM3Sample(dx, mgx, 0);
+            if (mode & 0x10) {
+                srcX = 15 - srcX;
+            }
+
+            colour = spriteM3PatternByte(vdp, page, pattern, srcY, srcX);
+            colour = (srcX & 1) ? (colour & 0x0f) : (colour >> 4);
+            if (colour == 0) {
+                continue;
+            }
+
+            if (vdp->render.sprM3Weight[screenX]) {
+                if (collisionX < 0 || screenX < collisionX) {
+                    collisionX = screenX;
+                }
+                continue;
+            }
+
+            vdp->render.sprM3Pixel[screenX]  = vdp->paletteExt[(set << 4) | colour];
+            vdp->render.sprM3Weight[screenX] = (UInt8)weight;
+        }
+    }
+
+    if (collisionX >= 0 && (vdp->vdpStatus[0] & 0x20) == 0) {
+        vdp->vdpStatus[0] |= 0x20;
+        vdp->vdpStatus[3] = (UInt8)(collisionX + 12);
+        vdp->vdpStatus[4] = (UInt8)((collisionX + 12) >> 8);
+        vdp->vdpStatus[5] = (UInt8)(row + 8);
+        vdp->vdpStatus[6] = (UInt8)((row + 8) >> 8);
+    }
+
+    return 1;
+}
+
+#if defined(WII)
+#define SPR_M3_R(p) (((p) >> 11) & 0x1f)
+#define SPR_M3_G(p) (((p) >>  6) & 0x1f)
+#define SPR_M3_B(p) ( (p)        & 0x1f)
+#define SPR_M3_MAKE(r, g, b) (Pixel)(((r) << 11) | ((g) << 6) | (b))
+#elif defined(VIDEO_COLOR_TYPE_RGB565)
+#define SPR_M3_R(p) (((p) >> 11) & 0x1f)
+#define SPR_M3_G(p) (((p) >>  5) & 0x3f)
+#define SPR_M3_B(p) ( (p)        & 0x1f)
+#define SPR_M3_MAKE(r, g, b) (Pixel)(((r) << 11) | ((g) << 5) | (b))
+#elif defined(VIDEO_COLOR_TYPE_RGBA5551)
+#define SPR_M3_R(p) (((p) >> 11) & 0x1f)
+#define SPR_M3_G(p) (((p) >>  6) & 0x1f)
+#define SPR_M3_B(p) (((p) >>  1) & 0x1f)
+#define SPR_M3_MAKE(r, g, b) (Pixel)(((r) << 11) | ((g) << 6) | ((b) << 1))
+#else
+#define SPR_M3_R(p) (((p) >> 10) & 0x1f)
+#define SPR_M3_G(p) (((p) >>  5) & 0x1f)
+#define SPR_M3_B(p) ( (p)        & 0x1f)
+#define SPR_M3_MAKE(r, g, b) (Pixel)(((r) << 10) | ((g) << 5) | (b))
+#endif
+
+#define SPR_M3_MIX(s, d, w) (((s) * (w) + (d) * (4 - (w))) >> 2)
+
+/* A sprite dot always spans one MSX dot, which is one or two Pixels of the
+** line depending on what the renderer laid down, and startDot is where the
+** left edge mask the renderer already applied ends. */
+void spritesOverlayMode3(VDP* vdp, int Y, Pixel* origin, int dotStep, int startDot)
+{
+    int x;
+
+    for (x = startDot; x < SPRITE_M3_WIDTH; x++) {
+        Pixel* dst = origin + x * dotStep;
+        int w = vdp->render.sprM3Weight[x];
+        Pixel s, d;
+
+        if (w == 0) {
+            continue;
+        }
+
+        s = vdp->render.sprM3Pixel[x];
+        /* A superimpose key holds no colour to blend against, so the dot takes
+        ** the sprite whole rather than a share of black. */
+        if (w != 4 && !(dst[0] & BKMODE_TRANSPARENT)) {
+            d = dst[0];
+            s = SPR_M3_MAKE(SPR_M3_MIX(SPR_M3_R(s), SPR_M3_R(d), w),
+                            SPR_M3_MIX(SPR_M3_G(s), SPR_M3_G(d), w),
+                            SPR_M3_MIX(SPR_M3_B(s), SPR_M3_B(d), w));
+        }
+
+        dst[0] = s;
+        if (dotStep == 2) {
+            dst[1] = s;
+        }
+    }
 }
 
 UInt8* getSpritesLine(VDP* vdp, int line) {
@@ -597,7 +824,7 @@ UInt8* getSpritesLine(VDP* vdp, int line) {
         return nullSpritesLine();
     }
 
-    return lineBufs[(line & 1) ^ 1];
+    return vdp->render.lineBufs[(line & 1) ^ 1];
 }
 
 #endif

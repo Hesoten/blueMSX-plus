@@ -25,7 +25,8 @@
 #include "ToolText.h"
 
 /* Follows the renderer's sprite line builder; every address outside a recorded
-** table goes through vdpPhysicalAddress, so SCREEN 7-12 read the interleaved halves. */
+** table goes through vdpPhysicalAddress, so SCREEN 7-12 read the interleaved halves
+** (in address order under a V9968's SP3). */
 
 /* While vdpEvalSpritesFrom runs: the bytes the VDP read of a recorded table,
 ** logical [from[i], to[i]) at bytes + (from[i] - base). */

@@ -814,7 +814,7 @@ private:
         if (outSprites && (outSprShot != ver || outSprPicture != shell::pictureVersion())) {
             outSprShot = ver;
             outSprPicture = shell::pictureVersion();
-            v9990EvalSprites(s, &outSpr, o->sprAttrValid == 1 ? o->sprAttr : NULL);
+            v9990EvalSprites(s, &outSpr, o->sprAttrValid == 1 ? o->sprAttr : NULL, true);
         }
         if (!outSprites) outHot = -1;
 
@@ -1553,7 +1553,7 @@ private:
     void sprPoint(const V9990DebugState* s, Focus& f, int n, bool clicked, const V9990SpriteFrame* from = NULL)
     {
         const V9990Sprite& sp = (from != NULL ? *from : spr).spr[n];
-        Focus hit = { f.chipId, FOCUS_LOGICAL, sp.attrAddr, 4, FOCUS_SPRITE, n, sp.line0, false };
+        Focus hit = { f.chipId, FOCUS_LOGICAL, sp.attrAddr, 4, FOCUS_SPRITE, n, v9990SpriteLines(sp), false };
         pin(f, hit, clicked);
         sprHotNext = n;
         ui::StatusText(ts(TS_V9_SPR_STATUS), n, sp.y, sp.x, sp.pattern, sp.sc, sp.sc * 16, sp.sc * 16 + 15,
@@ -1768,12 +1768,14 @@ private:
         return lineText;
     }
 
-    /* What a sprite's tile says on hover: its state, PR1's hidden dots and its palette. */
+    /* What a sprite's tile says on hover: its state, PR1's hidden dots and its palette;
+    ** only R#8 SPD and the palette while SPD hides every sprite. */
     void sprStateText(int n, char* out, size_t size) const
     {
         const V9990Sprite& sp = spr.spr[n];
         int at = 0;
-        switch (sp.state) {
+        if (spr.off) at = textf(out, size, "%s", ts(TS_V9_SPR_NOTE_SPD));
+        else switch (sp.state) {
         case V9_SPR_OFF_Y:   at = textf(out, size, "%s", ts(TS_V9_SPR_TIP_OFF_Y)); break;
         case V9_SPR_PR0:
             if (sp.place0 >= 0) at = textf(out, size, ts(TS_V9_SPR_TIP_PR0), sp.place0, sp.place1);
@@ -1790,7 +1792,7 @@ private:
                 under += (sp.spriteMask[r] >> j) & 1;
             }
         }
-        if (sp.pr1 && at > 0 && (size_t)at < size) at += textf(out + at, size - at, ts(TS_V9_SPR_TIP_PR1), front, sp.dots);
+        if (sp.pr1 && !spr.off && at > 0 && (size_t)at < size) at += textf(out + at, size - at, ts(TS_V9_SPR_TIP_PR1), front, sp.dots);
         if (under > 0 && at > 0 && (size_t)at < size) at += textf(out + at, size - at, ts(TS_V9_SPR_TIP_UNDER), under);
         if (at > 0 && (size_t)at < size) textf(out + at, size - at, ts(TS_V9_SPR_TIP_PALETTE), sp.sc * 16, sp.sc * 16 + 15, sp.sc);
     }
@@ -1977,6 +1979,10 @@ private:
     void sprWhy(int n, char* out, size_t size) const
     {
         const V9990Sprite& sp = spr.spr[n];
+        if (spr.off) {
+            textf(out, size, "%s", ts(TS_V9_SPR_WHY_SPD));
+            return;
+        }
         int at;
         switch (sp.state) {
         case V9_SPR_OFF_Y: at = textf(out, size, "%s", ts(TS_SPR_WHY_OFF_SCREEN)); break;
@@ -1990,7 +1996,7 @@ private:
             at = textf(out, size, ts(TS_V9_SPR_WHY_DROPPED), sp.dropLine, (int)ln.places, (int)ln.pr0);
             break;
         }
-        default: at = textf(out, size, "%s", sp.dots > 0 ? ts(TS_SPR_WHY_DRAWN) : ts(TS_SPR_WHY_EMPTY)); break;
+        default: at = textf(out, size, "%s", sp.dots > 0 ? "" : ts(TS_SPR_WHY_EMPTY)); break;
         }
         int front = 0, under = 0;
         for (int r = 0; r < 16; r++) {
@@ -1999,9 +2005,8 @@ private:
                 under += (sp.spriteMask[r] >> j) & 1;
             }
         }
-        if (sp.pr1 && sp.dots > 0 && at > 0 && (size_t)at < size) at += textf(out + at, size - at, ts(TS_V9_SPR_WHY_FRONT), front, sp.dots);
-        if (under > 0 && at > 0 && (size_t)at < size) at += textf(out + at, size - at, ts(TS_V9_SPR_WHY_UNDER), under);
-        if (spr.off && at > 0 && (size_t)at < size) textf(out + at, size - at, "%s", ts(TS_V9_SPR_WHY_SPD));
+        if (sp.pr1 && sp.dots > 0 && at >= 0 && (size_t)at < size) at += textf(out + at, size - at, ts(TS_V9_SPR_WHY_FRONT), front, sp.dots);
+        if (under > 0 && at >= 0 && (size_t)at < size) at += textf(out + at, size - at, ts(TS_V9_SPR_WHY_UNDER), under);
     }
 
     /* The magnifier's sixteen colours of block sc, a dot under those row bits uses. */
@@ -2035,8 +2040,9 @@ private:
             return;
         }
         char head[256];
+        int d1 = -1, d0 = n >= 0 ? v9990SpriteLines(spr.spr[n], &d1) : -1;
         if (n < 0) textf(head, sizeof(head), ts(TS_V9_SPR_PAT_MAG), p, p, v9990SpritePatternAddr(spr, p, 0));
-        else if (spr.spr[n].line0 >= 0) textf(head, sizeof(head), ts(TS_SPR_TAB_MAG), n, p, spr.spr[n].x, spr.spr[n].line0, spr.spr[n].line1);
+        else if (d0 >= 0) textf(head, sizeof(head), ts(TS_SPR_TAB_MAG), n, p, spr.spr[n].x, d0, d1);
         else textf(head, sizeof(head), ts(TS_SPR_TAB_MAG_OFF), n, p, spr.spr[n].x);
         ui::PushFont(UI_FONT_STRONG);
         dl->AddText(at, t.text, head);
@@ -2083,9 +2089,11 @@ private:
         if (n < 0) return;
         char why[512];
         sprWhy(n, why, sizeof(why));
+        const char* w = why + strspn(why, " ");
+        if (*w == 0) return;
         ImGui::SetCursorScreenPos(ImVec2(at.x, by + lh + ui::Px(24)));
         ImGui::PushTextWrapPos(at.x + partW);
-        ImGui::TextUnformatted(why);
+        ImGui::TextUnformatted(w);
         ImGui::PopTextWrapPos();
     }
 

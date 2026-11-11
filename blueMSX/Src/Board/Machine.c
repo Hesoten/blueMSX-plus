@@ -279,6 +279,7 @@ static int readMachine(Machine* machine, const char* machineName, const char* fi
     else if (0 == strcmp(buffer, "TMS9929A")) machine->video.vdpVersion = VDP_TMS9929A;
     else if (0 == strcmp(buffer, "TMS99x8A")) machine->video.vdpVersion = VDP_TMS99x8A;
     else if (0 == strcmp(buffer, "TMS9918A")) machine->video.vdpVersion = VDP_TMS9918A;
+    else if (0 == strcmp(buffer, "V9968"))    machine->video.vdpVersion = VDP_V9968;
     else { iniFileClose(configIni); return 0; }
 
     iniFileGetString(configIni, "Video", "vram size", "none", buffer, 10000);
@@ -286,6 +287,7 @@ static int readMachine(Machine* machine, const char* machineName, const char* fi
     else if (0 == strcmp(buffer, "64kB")) machine->video.vramSize = 64 * 1024;
     else if (0 == strcmp(buffer, "128kB")) machine->video.vramSize = 128 * 1024;
     else if (0 == strcmp(buffer, "192kB")) machine->video.vramSize = 192 * 1024;
+    else if (0 == strcmp(buffer, "256kB")) machine->video.vramSize = 256 * 1024;
     else { iniFileClose(configIni); return 0; }
 
     // Read CMOS info
@@ -543,6 +545,7 @@ void machineSave(Machine* machine)
     case VDP_TMS9929A:  iniFileWriteString(configIni, "Video", "version", "TMS9929A"); break;
     case VDP_TMS99x8A:  iniFileWriteString(configIni, "Video", "version", "TMS99x8A"); break;
     case VDP_TMS9918A:  iniFileWriteString(configIni, "Video", "version", "TMS9918A"); break;
+    case VDP_V9968:     iniFileWriteString(configIni, "Video", "version", "V9968"); break;
     }
 
     sprintf(buffer, "%dkB", machine->video.vramSize / 0x400);
@@ -896,6 +899,10 @@ void machineUpdate(Machine* machine)
         else {
             machine->video.vramSize = 16 * 1024;
         }
+    }
+    else if (machine->video.vdpVersion == VDP_V9968) {
+        /* The part carries its 256kB on the die. */
+        machine->video.vramSize = 256 * 1024;
     }
     else if (machine->video.vdpVersion == VDP_V9958) {
         if (machine->video.vramSize >= 192 * 1024) {

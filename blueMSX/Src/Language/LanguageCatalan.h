@@ -85,6 +85,7 @@ void langInitCatalan(LanguageStrings* ls)
     ls->errorCreateTapeImage    = "No s'ha pogut crear el fitxer d'imatge de cinta.";
     ls->errorNoCasInZip         = "No s'ha pogut trobar un fitxer .cas dins de l'arxiu zip.";
     ls->errorUnknownFileType    = "No es pot obrir el fitxer: el tipus de fitxer és desconegut.";
+    ls->errorCartV9968WithV9990 = "El cartutx V9968 no es pot inserir alhora que un GFX9000 o un Video9000, ja que tots dos prenen el control de la pantalla. Traieu primer l'altre cartutx.";
     ls->errorDirDiskTooLarge    = "%d fitxer(s) no han cabut al disc i s'han omès.";
     ls->errorDirDiskOnline      = "S'han omès %d fitxer(s) disponibles només en línia. Feu-los disponibles en aquest dispositiu per incloure'ls.";
     ls->errorDirDiskSubdirs     = "S'han omès %d directoris perquè el format triat no els admet.";

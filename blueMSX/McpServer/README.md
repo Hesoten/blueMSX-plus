@@ -420,8 +420,9 @@ screen mode change, and says so. On a 64 kB VDP in SCREEN 7 or 8 an odd
 (`out_of_range`). Expansion video memory (vram:0x20000-0x2FFFF, the V9938 MXC
 expansion) is numbered as the chips are, in every screen mode.
 
-`vram:` is always the VDP's video memory. A V9990 (GFX9000, Video9000) has
-its own, which the tools cannot read, write, watch or search.
+`vram:` is always the VDP's video memory. A V9990 (GFX9000, Video9000) and a
+V9968 cartridge have their own, which the tools cannot read, write, watch or
+search.
 
 When the bytes the CPU reads at an address differ from what the segment
 stores (SCC registers, flash status and the like), a read says so and gives
@@ -431,7 +432,7 @@ the segment address of the stored bytes.
 
 | Tool | More |
 |---|---|
-| `bmsx_status` | The segment in each Z80 page shows both 8 kB halves on an 8 kB mapper, as `seg3,seg5`. While paused also whether the CPU is the Z80 or the R800 (turbo R), and the screen mode, named as BASIC does (`SCREEN 1`, `SCREEN 0 WIDTH 80`), or that the mode bits are mixed or undefined. With a V9990 (GFX9000, Video9000), while paused, it also says whether the V9990's picture is shown, in which mode, and whether it is superimposed on the VDP's; the vdp lines still describe the VDP (V9938, V9958 or TMS99x8), not the V9990. While running, the machine's name and the frames run instead. |
+| `bmsx_status` | The segment in each Z80 page shows both 8 kB halves on an 8 kB mapper, as `seg3,seg5`. While paused also whether the CPU is the Z80 or the R800 (turbo R), and the screen mode, named as BASIC does (`SCREEN 1`, `SCREEN 0 WIDTH 80`), or that the mode bits are mixed or undefined. With a V9990 (GFX9000, Video9000), while paused, it also says whether the V9990's picture is shown, in which mode, and whether it is superimposed on the VDP's (with a V9968 cartridge, whether its picture is shown and in which mode); the vdp lines still describe the VDP (V9938, V9958 or TMS99x8), not the V9990. While running, the machine's name and the frames run instead. |
 | `bmsx_mem_resolve` | In SCREEN 7, 8 and 10-12, while paused, it also gives the chips' byte number for a `vram:` address, which is where the debugger window's VRAM view shows the byte. |
 | `bmsx_stack` | A frame is marked when no CALL, RST or HALT ends just before it in the segment paged in now, since its label may then be wrong. |
 | `bmsx_dasm` | From a Z80 address it reads on as the Z80 sees memory and says where another slot or segment starts, up to 0xFFFF; from a segment address it stops at the end of that segment. |
@@ -773,10 +774,11 @@ and background colours are drawn the same (in SCREEN 1, for each letter by
 its colour table entry), the display is off, the screen is scrolled, or the
 mode is mixed; check the PNG then.
 
-While a V9990 picture (GFX9000, Video9000) is shown, `as=auto` gives the
-PNG, since the V9990's screen has no text to read. `as=text` still returns
-the VDP's text, with a first line saying that a V9990 picture is shown over
-it or instead of it. `bmsx_status` says which picture is shown.
+While a V9990 picture (GFX9000, Video9000) or a V9968 cartridge picture is
+shown, `as=auto` gives the PNG, since that screen has no text to read.
+`as=text` still returns the VDP's text, with a first line saying that the
+other picture is shown over it or instead of it. `bmsx_status` says which
+picture is shown.
 
 With Agent Control on, a minimized emulator keeps drawing, and `--hidden`
 draws too, so a PNG is current. For a window minimized while Agent Control

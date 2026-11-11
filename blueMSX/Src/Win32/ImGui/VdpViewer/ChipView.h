@@ -137,6 +137,12 @@ struct PagesScroll { float x = 0, to = -1; bool wheelOwned = false; };
 float       pagesStepScale(int step);
 /* The card's height besides its pages: the header, and the body's padding while open. */
 float       pagesChromeH(bool open);
+/* A card under a tab's card that folds as the Pages do: its body's height from the splitter, 0
+** while folded; *height px at 96 DPI, lo its least, keep what the card above keeps first. */
+float       bottomCardHeight(bool open, float* height, float lo, float keep, float room);
+/* Its splitter and header, trailW px kept for controls; true while the body is drawn, at the
+** cursor, then call ui::EndExpander. */
+bool        bottomCardHeader(const char* id, const char* title, const char* summary, bool* open, float paneH, float trailW);
 /* The pages' height from the splitter, 0 while folded; room is the height of the
 ** Screen's card and the pages. The pages keep 80 px, the card 160 first. */
 float       pagesHeight(float room);

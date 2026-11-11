@@ -86,6 +86,7 @@
 #define CARTNAME_ROOKIEDRIVE "RookieDriveNX"
 #define CARTNAME_GFX9000     "GFX9000"
 #define CARTNAME_VIDEO9000   "Video9000"
+#define CARTNAME_V9968CART   "V9968Cartridge"
 #define CARTNAME_ASCII16X "ASCII16X"
 #define CARTNAME_YAMANOOTO "Yamanooto"
 #define CARTNAME_FLASHROMSCC "FlashRomScc"
@@ -634,6 +635,11 @@ typedef struct VdpViewerProperties {
         int sprGrid;
         int vramTint;
         int vramGrid;
+        int g3dPage;
+        int g3dPerf;
+        int g3dPerfH;
+        int g3dPerfWhyW;
+        int g3dHeat;
     } v99x8;
     struct {
         int sprShown;

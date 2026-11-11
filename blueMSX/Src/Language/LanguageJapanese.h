@@ -87,6 +87,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->errorCreateTapeImage    = "テープイメージファイルを作成できませんでした。";
     ls->errorNoCasInZip         = "zipファイルの中に.casファイルが見つかりません。";
     ls->errorUnknownFileType    = "ファイルを開けません。ファイルの種類が不明です。";
+    ls->errorCartV9968WithV9990 = "V9968 カートリッジと GFX9000・Video9000 は、どちらも画面を切り換えるため同時には挿せません。先にもう一方のカートリッジを取り出してください。";
     ls->errorDirDiskTooLarge    = "%d 個のファイルがディスクに収まらず除外されました。";
     ls->errorDirDiskOnline      = "%d 個のオンラインのみのファイルが除外されました。含めるには、このデバイス上で利用できるようにしてください。";
     ls->errorDirDiskSubdirs     = "%d 個のサブディレクトリが、選択した形式では扱えないため除外されました。";
@@ -986,6 +987,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->romTypeColecoCart       = "Coleco Cartridge";
     ls->romTypeSg1000Cart       = "SG-1000 Cartridge";
     ls->romTypeSc3000Cart       = "SC-3000 Cartridge";
+    ls->romTypeV9968Cart        = "V9968 カートリッジ";
     ls->romTypeMsxPrinter       = "MSX Printer";
     ls->romTypeTurborPcm        = "Turbo-R PCM Chip";
     ls->romTypeNms8280Digitiz   = "Philips NMS-8280 Digitizer";

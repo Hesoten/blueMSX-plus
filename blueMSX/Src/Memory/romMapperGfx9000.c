@@ -21,6 +21,7 @@
 ******************************************************************************
 */
 #include "romMapperGfx9000.h"
+#include "romMapperV9968Cart.h"
 #include "V9990.h"
 #include "Video9000.h"
 #include "VideoManager.h"
@@ -114,6 +115,10 @@ static int create(int slot, int sslot, int romType)
         if (ioPortGetRef(PORT_BASE + i) != NULL) {
             return 0;
         }
+    }
+    /* A V9968 cartridge takes over the screen too. */
+    if (romMapperV9968CartIsPresent()) {
+        return 0;
     }
     /* The Video9000 shows the machine's VDP, the first video source. */
     if (romType == ROM_VIDEO9000 && videoManagerGetCount() == 0) {

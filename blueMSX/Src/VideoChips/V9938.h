@@ -16,6 +16,13 @@
 
 #include "MsxTypes.h"
 
+struct DebugTraceClassDesc;
+
+/* VDPCMD kinds. CMD at its end, time its start: a = CM | LO<<4 | fill<<8 | aborted<<9 | ARG<<16 | CL<<24,
+** b = 1/8 ticks run; CONT a = NX | NY<<16, b = DX | DY<<16; BEGIN at start, a the same. PSET and
+** POINT finish at once and give none. WAIT, the CPU polling CE: END a = polls, b = CM. */
+#define VDPCMD_TRACE_CMD  1
+#define VDPCMD_TRACE_WAIT 2
 
 typedef struct VdpCmdState VdpCmdState;
 
@@ -31,6 +38,7 @@ typedef struct VdpCmdState VdpCmdState;
 VdpCmdState* vdpCmdCreate(int vramSize, UInt8* vramPtr, UInt32 systemTime);
 
 void vdpCmdDestroy(VdpCmdState* state);
+void vdpCmdSetSecondary(VdpCmdState* state, const char* stateName);
 
 /*************************************************************
 ** vdpCmdWrite
@@ -49,6 +57,27 @@ void  vdpCmdWrite(VdpCmdState* state, UInt8 reg, UInt8 value, UInt32 systemTime)
 **************************************************************
 */
 UInt8 vdpCmdPeek(VdpCmdState* vdpCmd, UInt8 reg, UInt32 systemTime);
+
+void vdpCmdSetVram256(VdpCmdState* state, int enable);
+void vdpCmdSetInterleave(VdpCmdState* state, int enable);
+void vdpCmdSetExpansionWindow(VdpCmdState* state, int enable);
+void vdpCmdSetV9968(VdpCmdState* state, int enable);
+void vdpCmdSetExtCommands(VdpCmdState* state, int enable);
+void vdpCmdResetExtRegs(VdpCmdState* state);
+void vdpCmdSetTextBackColor(VdpCmdState* state, int color);
+
+int  vdpCmdGetEndFlag(VdpCmdState* state);
+void vdpCmdClearEndFlag(VdpCmdState* state);
+UInt32 vdpCmdGetEndTime(VdpCmdState* state);
+void vdpCmdAddCredit(VdpCmdState* state, int units);
+void vdpCmdTagFillSpan(VdpCmdState* state, int tag);
+/* The trace link the command started next takes; 0 for the CPU's. */
+void vdpCmdTagIssue(VdpCmdState* state, UInt32 link);
+void vdpCmdSetTraceSource(VdpCmdState* state, UInt16 source);
+const struct DebugTraceClassDesc* vdpCmdTraceClass(void);
+void vdpCmdSetHighSpeed(VdpCmdState* state, int enable);
+/* 0 display off, 1 sprites off, 2 sprite mode 1 or 2, 3 sprite mode 3. */
+void vdpCmdSetSlotLoad(VdpCmdState* state, int load);
 
 void vdpSetScreenMode(VdpCmdState* state, int screenMode, int commandEnable);
 void vdpSetTimingMode(VdpCmdState* state, UInt8 timingMode);

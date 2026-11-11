@@ -84,6 +84,7 @@ typedef struct {
     char* errorCreateTapeImage;
     char* errorNoCasInZip;
     char* errorUnknownFileType;
+    char* errorCartV9968WithV9990;
     char* errorDirDiskTooLarge;
     char* errorDirDiskOnline;
     char* errorDirDiskSubdirs;
@@ -969,6 +970,7 @@ typedef struct {
     char* romTypeColecoCart;
     char* romTypeSg1000Cart;
     char* romTypeSc3000Cart;
+    char* romTypeV9968Cart;
 
     char* romTypeMsxPrinter;
     char* romTypeTurborPcm;

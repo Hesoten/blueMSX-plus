@@ -132,6 +132,9 @@ void emulatorRequestBackStep(int picture);
 ** shows it and pauses, as a step back does. 0, changing nothing, when not before the frame shown,
 ** not within the snapshots, or another chip paces the screen; 1 when started. */
 int  emulatorRewindToVint(UInt32 vintTime);
+/* While paused: emulatorRewindToVint(vintTime) would start now, by the same checks but
+** without waiting for the thread to park; 0 until it has. */
+int  emulatorCanRewindToVint(UInt32 vintTime);
 /* 1 while a step back one frame runs, 2 while one back to another picture runs (its replay for
 ** the lead too), 3 while emulatorRewindToVint runs, else 0. */
 int  emulatorBackStepPending(void);
@@ -159,7 +162,8 @@ void emulatorRefreshFromSource();
 ** ms while paused, and once per reverse play step. STOPPED: emulatorStop ended the thread. */
 typedef enum { EMU_TAP_FRAME, EMU_TAP_IDLE, EMU_TAP_STOPPED, EMU_TAP_BARRIER, EMU_TAP_V9990_SHOWN,
                EMU_TAP_VDP_SHOWN,
-               EMU_TAP_REPLAY /* between slices of a reverse play replay: drain logs, copy nothing */
+               EMU_TAP_REPLAY, /* between slices of a reverse play replay: drain logs, copy nothing */
+               EMU_TAP_VDP_SECONDARY_SHOWN
              } EmuTapPoint;
 typedef void (*EmuTapFn)(EmuTapPoint point);
 void emulatorSetTap(EmuTapFn fn);
@@ -169,9 +173,9 @@ void emulatorSetTap(EmuTapFn fn);
 typedef UInt32 (*EmuRewindLeadFn)(UInt32 stopAt);
 void emulatorSetRewindLead(EmuRewindLeadFn fn);
 int  emulatorIsEmuThread(void);
-/* Calls the hook. On the emulator thread, the V9990 calls it with V9990_SHOWN once it has
-** drawn a frame's last displayed line, and the machine VDP with VDP_SHOWN at the end of its
-** active display, inside their own access or timer: the hook must not sync them. */
+/* Calls the hook. On the emulator thread, the V9990 calls it with V9990_SHOWN once it has drawn
+** a frame's last displayed line, a VDP with VDP_SHOWN (on a cartridge VDP_SECONDARY_SHOWN) at
+** the end of its active display, inside their own access or timer: the hook must not sync them. */
 void emulatorTap(EmuTapPoint point);
 
 /* Waits for a capture running on the emulator thread to end. Call it after

@@ -33,7 +33,7 @@ extern "C" {
 typedef struct LiveFeed LiveFeed;
 
 /* Runs on the emulator thread at the EmuTapPoint point, also inside a V9990
-** access: only reads device fields, never syncs. Fills dst (the size given to
+** access or a cartridge VDP's timer: only reads device fields, never syncs. Fills dst (the size given to
 ** liveFeedOpen); 0: nothing to show; LIVE_FEED_NOT_NOW: ask again next point. */
 typedef int (*LiveFeedCaptureFn)(void* dst, void* ref, int point);
 #define LIVE_FEED_NOT_NOW (-1)
@@ -51,6 +51,14 @@ void        liveFeedClose(LiveFeed* feed);
 /* The newest snapshot, valid until the next call, and a request for the
 ** next one: call once per drawn frame. NULL before the first snapshot. */
 const void* liveFeedLatest(LiveFeed* feed, LiveFeedInfo* info);
+
+/* Runs on the emulator thread at EMU_TAP_FRAME, IDLE, REPLAY, VDP_SHOWN and VDP_SECONDARY_SHOWN (before
+** that tap's copies), wanted or not, under a lock of its own; with EMU_TAP_STOPPED on the UI thread
+** once the emulator thread is gone. Must not wait for anything. */
+typedef void (*LiveFeedDrainFn)(void* ref, int point);
+/* UI thread. Add returns 0 when there is no room; remove waits for a run of it to end. */
+int         liveFeedAddDrain(LiveFeedDrainFn drain, void* ref);
+void        liveFeedRemoveDrain(LiveFeedDrainFn drain, void* ref);
 
 #ifdef __cplusplus
 }
