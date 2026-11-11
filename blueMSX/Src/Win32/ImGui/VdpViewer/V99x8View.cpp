@@ -4964,9 +4964,12 @@ private:
         else if (cc > 0) at = textf(out, size, "%s", ts(TS_SPR_WHY_CC));
         else if (bits == 0) at = textf(out, size, "%s", ts(TS_SPR_WHY_EMPTY));
         else if (!any) at = textf(out, size, "%s", ts(TS_SPR_WHY_COLOUR0));
-        else at = textf(out, size, "%s", ts(TS_SPR_WHY_DRAWN));
+        else {
+            if (size > 0) out[0] = 0;
+            at = 0;
+        }
         bool coll = slot >= 0 ? scene.agg[(size_t)slot * 32 + n].collides : &fr == sprSelKeep && sprSelKept && sprSelAgg[n].collides;
-        if (coll && at > 0 && (size_t)at < size) textf(out + at, size - at, "%s", ts(TS_SPR_WHY_COLLIDES));
+        if (coll && at >= 0 && (size_t)at < size) textf(out + at, size - at, "%s", ts(TS_SPR_WHY_COLLIDES));
     }
 
     /* The hovered sprite or pattern, else the pinned one; a sprite row by row: the line at each change
@@ -5067,9 +5070,11 @@ private:
         dl->AddRect(ga, gb, t.controlStrongStroke, 0, th);
         char why[512];
         sprWhy(s, *fr, n, slot, why, sizeof(why));
+        const char* w = why + strspn(why, " ");
+        if (*w == 0) return;
         ImGui::SetCursorScreenPos(ImVec2(at.x, gb.y + ui::Px(8)));
         ImGui::PushTextWrapPos(at.x + partW);
-        ImGui::TextUnformatted(why);
+        ImGui::TextUnformatted(w);
         ImGui::PopTextWrapPos();
     }
 

@@ -1990,7 +1990,7 @@ private:
             at = textf(out, size, ts(TS_V9_SPR_WHY_DROPPED), sp.dropLine, (int)ln.places, (int)ln.pr0);
             break;
         }
-        default: at = textf(out, size, "%s", sp.dots > 0 ? ts(TS_SPR_WHY_DRAWN) : ts(TS_SPR_WHY_EMPTY)); break;
+        default: at = textf(out, size, "%s", sp.dots > 0 ? "" : ts(TS_SPR_WHY_EMPTY)); break;
         }
         int front = 0, under = 0;
         for (int r = 0; r < 16; r++) {
@@ -1999,9 +1999,9 @@ private:
                 under += (sp.spriteMask[r] >> j) & 1;
             }
         }
-        if (sp.pr1 && sp.dots > 0 && at > 0 && (size_t)at < size) at += textf(out + at, size - at, ts(TS_V9_SPR_WHY_FRONT), front, sp.dots);
-        if (under > 0 && at > 0 && (size_t)at < size) at += textf(out + at, size - at, ts(TS_V9_SPR_WHY_UNDER), under);
-        if (spr.off && at > 0 && (size_t)at < size) textf(out + at, size - at, "%s", ts(TS_V9_SPR_WHY_SPD));
+        if (sp.pr1 && sp.dots > 0 && at >= 0 && (size_t)at < size) at += textf(out + at, size - at, ts(TS_V9_SPR_WHY_FRONT), front, sp.dots);
+        if (under > 0 && at >= 0 && (size_t)at < size) at += textf(out + at, size - at, ts(TS_V9_SPR_WHY_UNDER), under);
+        if (spr.off && at >= 0 && (size_t)at < size) textf(out + at, size - at, "%s", ts(TS_V9_SPR_WHY_SPD));
     }
 
     /* The magnifier's sixteen colours of block sc, a dot under those row bits uses. */
@@ -2083,9 +2083,11 @@ private:
         if (n < 0) return;
         char why[512];
         sprWhy(n, why, sizeof(why));
+        const char* w = why + strspn(why, " ");
+        if (*w == 0) return;
         ImGui::SetCursorScreenPos(ImVec2(at.x, by + lh + ui::Px(24)));
         ImGui::PushTextWrapPos(at.x + partW);
-        ImGui::TextUnformatted(why);
+        ImGui::TextUnformatted(w);
         ImGui::PopTextWrapPos();
     }
 
