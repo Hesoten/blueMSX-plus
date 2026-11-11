@@ -78,7 +78,19 @@ static void frontPlane(const V9990DebugState* s, int d, int width, uint8_t* plan
     for (int x = 0; x < 256; x++) plane[x] = (x >= prioX ? b[x] : a[x]) ? PLANE_FRONT : PLANE_REAR;
 }
 
-void v9990EvalSprites(const V9990DebugState* s, V9990SpriteFrame* out, const UInt8* attr)
+int v9990SpriteLines(const V9990Sprite& sp, int* last)
+{
+    int d0 = -1, d1 = -1;
+    for (int r = 0; r < 16; r++) {
+        int d = sp.rowLine[r];
+        if (d >= 0 && (d0 < 0 || d < d0)) d0 = d;
+        if (d > d1) d1 = d;
+    }
+    if (last != NULL) *last = d1;
+    return d0;
+}
+
+void v9990EvalSprites(const V9990DebugState* s, V9990SpriteFrame* out, const UInt8* attr, bool keepWhenOff)
 {
     V9990SpriteFrame& f = *out;
     f.valid = s->mode == V9990_MODE_P1 || s->mode == V9990_MODE_P2;
@@ -119,6 +131,7 @@ void v9990EvalSprites(const V9990DebugState* s, V9990SpriteFrame* out, const UIn
         int limit = V9_SPRITE_PLACES, found = 0, visible[V9_SPRITE_PLACES];
         bool stopped = false;
         ln.count = ln.places = ln.pr0 = 0;
+        if (f.off && !keepWhenOff) continue;
         for (int i = 0; i < V9_SPRITES; i++) {
             V9990Sprite& sp = f.spr[i];
             int r = (d - sp.y - 1) & 0xff;
@@ -181,6 +194,11 @@ void v9990EvalSprites(const V9990DebugState* s, V9990SpriteFrame* out, const UIn
     }
     for (int i = 0; i < V9_SPRITES; i++) {
         V9990Sprite& sp = f.spr[i];
+        if (f.off && !keepWhenOff) {
+            sp.state = v9990SpriteLines(sp) >= 0 ? V9_SPR_SPD : V9_SPR_OFF_Y;
+            f.offY += sp.state == V9_SPR_OFF_Y;
+            continue;
+        }
         if (sp.line0 < 0) sp.state = V9_SPR_OFF_Y;
         else if (sp.pr0) sp.state = V9_SPR_PR0;
         else if (sp.dropLine >= 0) sp.state = V9_SPR_DROPPED;

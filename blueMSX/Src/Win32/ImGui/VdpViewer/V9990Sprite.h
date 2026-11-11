@@ -33,9 +33,10 @@ extern "C" {
 #define V9_SPRITE_PLACES  16    /* a line's places; a PR0 sprite takes one too */
 #define V9_SPRITE_LINES   212
 
-/* A sprite as a whole: the first that holds of these. */
+/* A sprite as a whole: the first that holds of these (SPD only where no line is laid out). */
 enum V9990SpriteState {
     V9_SPR_OFF_Y,      /* no row of it is on a displayed line */
+    V9_SPR_SPD,        /* R#8 SPD set: the chip draws no sprite */
     V9_SPR_PR0,        /* PR0 set: not drawn, but takes a place on its lines */
     V9_SPR_DROPPED,    /* some row is past the 16 places of its line */
     V9_SPR_OFF_X,      /* drawn past the right edge: takes places, shows nothing */
@@ -51,7 +52,7 @@ struct V9990Sprite {
     bool     pr0, pr1;
     UInt32   attrAddr;           /* CPU address of its 4 bytes */
     int      state;              /* V9990SpriteState */
-    int      line0, line1;       /* its first and last displayed line, -1 when none */
+    int      line0, line1;       /* first and last line it was laid out on, -1 when none */
     int8_t   row[16];            /* V9990SpriteRow of pattern row r */
     int16_t  rowLine[16];        /* the line row r is on, -1 off screen */
     uint16_t frontMask[16];      /* dots of a drawn row under a front layer dot (PR1) */
@@ -84,8 +85,12 @@ struct V9990SpriteFrame {
 };
 
 /* Lays out the sprites from the snapshot's VRAM and registers, as the renderer does;
-** attr, unless NULL, is the 512-byte attribute table to read instead. */
-void   v9990EvalSprites(const V9990DebugState* s, V9990SpriteFrame* out, const UInt8* attr = NULL);
+** attr, unless NULL, is the 512-byte attribute table to read instead. With R#8 SPD set
+** no line is laid out unless keepWhenOff, for a picture drawn before SPD was set. */
+void   v9990EvalSprites(const V9990DebugState* s, V9990SpriteFrame* out, const UInt8* attr = NULL, bool keepWhenOff = false);
+/* The first displayed line a row of sp is on, -1 for none, and the last in *last: from
+** its Y alone, so also while R#8 SPD lays out no line. */
+int    v9990SpriteLines(const V9990Sprite& sp, int* last = NULL);
 /* The CPU address of row r (0-15) of sprite pattern p: 8 bytes, 16 dots of 4 bits. */
 UInt32 v9990SpritePatternAddr(const V9990SpriteFrame& f, int p, int r);
 /* The 16 dot values of row r of sprite pattern p, as a mask of those set. */

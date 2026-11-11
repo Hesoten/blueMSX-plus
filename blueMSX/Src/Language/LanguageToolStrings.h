@@ -695,7 +695,7 @@ TS(V9_SPR_WHY_DROPPED,        "Line %d has reached the limit of %d (%d of them P
 TS(V9_SPR_WHY_OFF_X,          "Its X %d is past the screen's right edge: not shown, but within the 16 on lines %d-%d.", "X" NB "%d" NB "は画面右端の外側のため表示なし。ライン" NB "%d-%d" NB "では上限" NB "16" NB "個に含まれる。")
 TS(V9_SPR_WHY_FRONT,          " PR1 puts it behind the front layer: %d of its %d dots are under that layer's dots.", " PR1" NB "のため前面レイヤの背後に表示され、%d / %d" NB "ドットが前面レイヤのドット（色" NB "0" NB "以外）に隠れる。")
 TS(V9_SPR_WHY_UNDER,          " %d of its dots are under lower-numbered sprites.", " %d" NB "ドットは番号の小さいスプライトに隠れる。")
-TS(V9_SPR_WHY_SPD,            " R#8 SPD is set; no sprite is drawn.", " R#8 SPD = 1" NB "のため、スプライトは描画されない。")
+TS(V9_SPR_WHY_SPD,            "R#8 SPD is set; no sprite is drawn.", "R#8 SPD = 1" NB "のため、スプライトは描画されない。")
 TS(V9_SPR_PATS_SUB,           "the %d at %05X (R#25), in the colours of the sprites using them; grey: currently unused", "%d" NB "個（%05X、R#25）。使用中のスプライトの色で表示、灰色は現在未使用")
 TS(V9_SPR_PAT_MAG,            "Pattern %d (&H%02X) · %05X", "パターン" NB "%d (&H%02X) · %05X")
 TS(V9_SPR_PAT_UNUSED,         "no sprite on the screen uses it", "画面上のスプライトでは未使用")
