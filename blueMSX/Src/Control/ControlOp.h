@@ -84,6 +84,11 @@ int ctrlOpScreen(CtrlCall* call);
 /* ControlOpVdp.c */
 int ctrlOpVdp(CtrlCall* call);
 
+/* ControlOpTrace.c */
+int ctrlOpTraceArm(CtrlCall* call);
+int ctrlOpTraceDisarm(CtrlCall* call);
+int ctrlOpTraceRead(CtrlCall* call);
+
 /* ControlOpMachine.c */
 int ctrlOpReset(CtrlCall* call);
 int ctrlOpSnapshotTake(CtrlCall* call);

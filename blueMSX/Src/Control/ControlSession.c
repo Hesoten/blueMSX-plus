@@ -23,6 +23,7 @@
 #include "ControlSession.h"
 #include "ControlBreak.h"
 #include "ControlStopLog.h"
+#include "DebugTrace.h"
 #include "Emulator.h"
 #include <string.h>
 
@@ -73,6 +74,9 @@ void ctrlSessionClose(CtrlClient client)
         if (sessions[i].client == client) {
             if (sessions[i].hunt != NULL) {
                 ctrlHuntAbandon(sessions[i].hunt);
+            }
+            if (sessions[i].traceMask != 0) {
+                debugTraceArm(sessions[i].traceMask, 0);
             }
             memset(&sessions[i], 0, sizeof(CtrlSession));
             return;

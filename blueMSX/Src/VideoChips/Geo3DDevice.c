@@ -116,10 +116,10 @@ static const DebugTraceField traceRunFields[] = {
     { "run",      DEBUG_TRACE_WORD_A,      0,  32, DEBUG_TRACE_DEC, 0,      NULL, 0 },
     { "items",    DEBUG_TRACE_WORD_B,      0,  32, DEBUG_TRACE_DEC, 1 << 1, NULL, 0 },
     { "commands", DEBUG_TRACE_WORD_B,      0,  32, DEBUG_TRACE_DEC, 1 << 2, NULL, 0 },
-    { "first",    DEBUG_TRACE_WORD_CONT_A, 0,  16, DEBUG_TRACE_DEC, 0,      NULL, 0 },
-    { "count",    DEBUG_TRACE_WORD_CONT_A, 16, 16, DEBUG_TRACE_DEC, 0,      NULL, 0 },
-    { "vfirst",   DEBUG_TRACE_WORD_CONT_B, 0,  16, DEBUG_TRACE_DEC, 0,      NULL, 0 },
-    { "nvert",    DEBUG_TRACE_WORD_CONT_B, 16, 16, DEBUG_TRACE_DEC, 0,      NULL, 0 },
+    { "first",    DEBUG_TRACE_WORD_CONT_A, 0,  16, DEBUG_TRACE_DEC, (1 << 1) | (1 << 3), NULL, 0 },
+    { "count",    DEBUG_TRACE_WORD_CONT_A, 16, 16, DEBUG_TRACE_DEC, (1 << 1) | (1 << 3), NULL, 0 },
+    { "vfirst",   DEBUG_TRACE_WORD_CONT_B, 0,  16, DEBUG_TRACE_DEC, (1 << 1) | (1 << 3), NULL, 0 },
+    { "nvert",    DEBUG_TRACE_WORD_CONT_B, 16, 16, DEBUG_TRACE_DEC, (1 << 1) | (1 << 3), NULL, 0 },
 };
 
 static const DebugTraceField traceXformFields[] = {

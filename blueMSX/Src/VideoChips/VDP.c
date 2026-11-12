@@ -1874,6 +1874,7 @@ static const DebugTraceField tracePageFields[] = {
 static const DebugTraceField traceFrameFields[] = {
     { "page",  DEBUG_TRACE_WORD_A, 0, 32, DEBUG_TRACE_SIGNED, 0, NULL, 0 },
     { "lines", DEBUG_TRACE_WORD_B, 0, 32, DEBUG_TRACE_DEC,    0, NULL, 0 },
+    { "frame", DEBUG_TRACE_WORD_LINK, 0, 32, DEBUG_TRACE_DEC, 0, NULL, 0 },
 };
 
 static const DebugTraceField traceCpuVramFields[] = {
@@ -1883,7 +1884,7 @@ static const DebugTraceField traceCpuVramFields[] = {
 
 static const DebugTraceKindDesc traceRegKinds[] = {
     { VDPREG_TRACE_PAGE,    "page",     tracePageFields,    2 },
-    { VDPREG_TRACE_FRAME,   "frame",    traceFrameFields,   2 },
+    { VDPREG_TRACE_FRAME,   "frame",    traceFrameFields,   3 },
     { VDPREG_TRACE_CPUVRAM, "cpu vram", traceCpuVramFields, 2 },
 };
 

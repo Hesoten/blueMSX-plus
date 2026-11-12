@@ -152,4 +152,11 @@ UInt32 debugTraceSeq(void);
 UInt32 debugTraceEpoch(void);
 int    debugTraceRead(UInt32 afterSeq, DebugTraceRecord* out, int max, UInt32* firstSeq, UInt32* dropped);
 
+/* "<class> <kind>[ begin|end|cont] name=value ..." from the source's tables; cont is the
+** CONT record of rec, or NULL to leave its fields out. Returns the length written. */
+int    debugTraceFormat(const DebugTraceSource* src, const DebugTraceRecord* rec,
+                        const DebugTraceRecord* cont, char* out, int size);
+/* Non-zero when the tables give rec's kind CONT fields in rec's phase. */
+int    debugTraceHasCont(const DebugTraceSource* src, const DebugTraceRecord* rec);
+
 #endif

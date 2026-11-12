@@ -136,6 +136,12 @@ static const CtrlArg vdpArgs[] = {
     { "item", CTRL_ARG_TEXT, 15 }, { "at", CTRL_ARG_TEXT, 15 }, { "count", CTRL_ARG_INT, 0 },
     { NULL }
 };
+static const CtrlArg traceArmArgs[] = {
+    { "class", CTRL_ARG_TEXT, 63 }, { NULL }
+};
+static const CtrlArg traceReadArgs[] = {
+    { "class", CTRL_ARG_TEXT, 63 }, { "after", CTRL_ARG_INT, 0 }, { "count", CTRL_ARG_INT, 0 }, { NULL }
+};
 
 /* An op's args in its row; an array longer than CTRL_OP_ARGS_MAX and its { NULL } fails to compile. */
 #define OP_ARGS(a) ((a) + 0 * sizeof(char[sizeof(a) / sizeof((a)[0]) <= CTRL_OP_ARGS_MAX + 1 ? 1 : -1]))
@@ -265,6 +271,15 @@ static const CtrlOp opTable[] = {
       "  vdp          show = registers|palette|geo3d|vram,\n"
       "               chip = machine|cartridge|v9990, run, item (geo3d only),\n"
       "               at, count (vram only)\n" },
+    { "trace.arm",         CTRL_OP_LOOKS,   CTRL_OP_SELF, ctrlOpTraceArm, OP_ARGS(traceArmArgs),
+      CTRL_ACT_DENIED,
+      "  trace.arm    class = geo3d,vdpcmd,vdpreg (held by this connection)\n" },
+    { "trace.disarm",      CTRL_OP_LOOKS,   CTRL_OP_SELF, ctrlOpTraceDisarm, OP_ARGS(traceArmArgs),
+      CTRL_ACT_DENIED,
+      "  trace.disarm class         (default: every class this connection holds)\n" },
+    { "trace.read",        CTRL_OP_LOOKS,   CTRL_OP_SELF, ctrlOpTraceRead, OP_ARGS(traceReadArgs),
+      CTRL_ACT_DENIED,
+      "  trace.read   class, after, count\n" },
 };
 
 static const CtrlOp* findOp(const char* name)

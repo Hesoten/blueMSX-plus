@@ -104,10 +104,15 @@
 #define CTRL_TYPE_GAP_DEFAULT             4
 #define CTRL_TYPE_GAP_MIN                 4
 #define CTRL_TYPE_GAP_MAX                 60
+#define CTRL_TRACE_AFTER_MIN              0
+#define CTRL_TRACE_COUNT_DEFAULT          200
+#define CTRL_TRACE_COUNT_MIN              1
+#define CTRL_TRACE_COUNT_MAX              2000
 
 /* The defaults of the text arguments that have one. */
 #define CTRL_WP_CONDITION_DEFAULT         "any"
 #define CTRL_HUNT_START_WIDTH_DEFAULT     "u8"
+#define CTRL_TRACE_CLASS_DEFAULT          "geo3d,vdpcmd,vdpreg"
 #define CTRL_KEY_HOW_DEFAULT              "tap"
 #define CTRL_SCREEN_AS_DEFAULT            "auto"
 #define CTRL_VDP_SHOW_DEFAULT             "registers"

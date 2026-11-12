@@ -354,6 +354,36 @@ const McpTool mcpTools[] = {
     NULL
 },
 {
+    "bmsx_trace",
+    "Record what the video chips do, event by event, and read it back: arm the classes, "
+    "let the machine run or step it, then read. geo3d is the 3D engine beside a V9968 (its "
+    "RUN numbers are those of bmsx_vdp show=geo3d), vdpcmd the VDP commands (a command a "
+    "geo3d ISSUE sent carries that ISSUE's link), vdpreg the R#2 page writes and per-frame "
+    "tallies (the page shown longest, CPU accesses to video memory), not every register "
+    "write. Times are board ticks (VDP cycles, 1368 per line). Core lines, where the "
+    "record breaks (start, stop, load, reset, arm, rewind), are always shown. The ring, shared "
+    "with the Geo3D Perf window, keeps about 57000 recent records readable, so pause or "
+    "step frames (bmsx_run how=frame) between reads, else older records are dropped (the "
+    "reply says how many). "
+    "Pass next back as after to go on. The arm belongs to the connection, like a hunt: a "
+    "cancelled call reconnects without it, so arm again.",
+    SCHEMA("\"properties\":{"
+           "\"op\":{\"type\":\"string\",\"enum\":[\"arm\",\"disarm\",\"read\"]},"
+           "\"class\":{\"type\":\"string\",\"default\":\"" CTRL_TRACE_CLASS_DEFAULT "\","
+           "\"description\":\"geo3d, vdpcmd and vdpreg, joined with commas; disarm without it "
+           "drops every class this connection holds\"},"
+           "\"after\":{\"type\":\"integer\",\"minimum\":" CTRL_STR(CTRL_TRACE_AFTER_MIN) ","
+           "\"description\":\"for read: the seq to read after, the next of the last read; "
+           "without it, from where this connection armed\"},"
+           "\"count\":{\"type\":\"integer\",\"default\":" CTRL_STR(CTRL_TRACE_COUNT_DEFAULT)
+           ",\"minimum\":" CTRL_STR(CTRL_TRACE_COUNT_MIN) ",\"maximum\":"
+           CTRL_STR(CTRL_TRACE_COUNT_MAX) ",\"description\":\"for read: most lines\"}},"
+           "\"required\":[\"op\"]"),
+    READ_ONLY,
+    "trace.",
+    buildByOp
+},
+{
     "bmsx_key",
     "Press, release or tap a key or a joystick button. Names are the ones the "
     "emulator's shortcut editor uses: return, space, ctrl, stop, f1, "
