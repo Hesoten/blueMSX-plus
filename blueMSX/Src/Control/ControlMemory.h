@@ -55,7 +55,7 @@ int ctrlMemPeek(CtrlView* view, const CtrlAddr* addr, UInt8* dst, UInt32 size);
 int ctrlMemWrite(CtrlView* view, const CtrlAddr* addr, const UInt8* src, UInt32 size);
 
 /* Takes back the most recent journalled write, restoring its bytes only, and reports it in
-** *undone and *size, with the screen mode its vram: address was written in. Only writes into
+** *undone and *size, with the VRAM layout its vram: address was written in. Only writes into
 ** writable RAM storage are journalled. CTRL_MEM_STALE when the machine has changed since. */
 int ctrlMemUndo(CtrlView* view, CtrlAddr* undone, UInt32* size, int* vramMode);
 

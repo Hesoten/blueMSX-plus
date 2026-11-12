@@ -148,7 +148,7 @@ void vdpUnregisterDaConverter(int vdpDaHandle)
 
 static int vramAddr;
 /* A17 sits outside the odd/even rotation and picks a 128kB half. */
-#define VDP_ILV(vdp, a) ((vdp)->vramA17 ? (((a) & 0x20000) | VDP_VRAM_INDEX((a) & 0x1ffff)) : VDP_VRAM_INDEX(a))
+#define VDP_ILV(vdp, a) VDP_VRAM_INDEX_A17((vdp)->vramA17, a)
 #define vdpIsPairedBitmap(vdp) (VDP_VRAM_INTERLEAVED((vdp)->screenMode))
 #define vdpIsInterleaved(vdp)  (vdpIsPairedBitmap(vdp) && !(vdp)->sprMode3)
 #define vdpIsBitmapLinear(vdp) (vdpIsPairedBitmap(vdp) && (vdp)->sprMode3)
@@ -2417,14 +2417,34 @@ int vdpDebugGetRegisters(UInt8* registers, int max)
     return count;
 }
 
-int vdpVramInterleaved(int mode)
+int vdpDebugGetVramLayout(void)
 {
-    return VDP_VRAM_INTERLEAVED(mode);
+    int layout;
+
+    if (theVdp == NULL) {
+        return -1;
+    }
+    layout = theVdp->screenMode;
+    if (vdpIsBitmapLinear(theVdp)) {
+        layout |= VDP_LAYOUT_LINEAR;
+    }
+    /* The part's size, not V58: the viewer numbers the upper half the same way. */
+    if (vdpIsInterleaved(theVdp) && vdpIsV9968(theVdp) && theVdp->vram256) {
+        layout |= VDP_LAYOUT_A17;
+    }
+    return layout;
 }
 
-int vdpVramSameLayout(int mode, int other)
+int vdpVramInterleaved(int layout)
 {
-    return VDP_VRAM_INTERLEAVED(mode) == VDP_VRAM_INTERLEAVED(other);
+    return layout >= 0 && VDP_VRAM_INTERLEAVED(VDP_LAYOUT_MODE(layout)) &&
+           !(layout & VDP_LAYOUT_LINEAR);
+}
+
+int vdpVramSameLayout(int layout, int other)
+{
+    return vdpVramInterleaved(layout) == vdpVramInterleaved(other) &&
+           (layout >= 0 && (layout & VDP_LAYOUT_A17)) == (other >= 0 && (other & VDP_LAYOUT_A17));
 }
 
 int vdpDebugGetScreenMode(void)

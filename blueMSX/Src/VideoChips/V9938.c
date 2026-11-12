@@ -178,7 +178,7 @@ struct VdpCmdState {
     int    breakPending;
     int    breakPendingAddr;
     int    breakPendingKind;   /* the DBG_WATCH_ kind of watchpoint that matched */
-    int    breakPendingMode;   /* the screen mode the matched write was made in */
+    int    breakPendingMode;   /* the VRAM layout the matched write was made in */
     int    extCommands;
     int    fillTag;
     int    xhr;
@@ -691,7 +691,7 @@ INLINE void vramWatch(VdpCmdState* vdpCmd, UInt8* P)
             if (!vdpCmd->breakPending) {
                 vdpCmd->breakPendingAddr = (int)(P - vdpCmd->vramBase);
                 vdpCmd->breakPendingKind = kind;
-                vdpCmd->breakPendingMode = vdpDebugGetScreenMode();
+                vdpCmd->breakPendingMode = vdpDebugGetVramLayout();
                 vdpCmd->breakPending = 1;
             }
         }

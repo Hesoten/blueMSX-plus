@@ -50,7 +50,7 @@ int ctrlOpWpList(CtrlCall* call)
 }
 
 /* What a watch request names: the engine's device and address, and how the list prints it.
-** A VRAM watch is at the address the program uses, read in the screen mode vramMode, or
+** A VRAM watch is at the address the program uses, read in the VRAM layout vramMode, or
 ** -1 when set on a running machine. */
 typedef struct {
     CtrlAddr      addr;
@@ -111,7 +111,7 @@ static int watchAddress(CtrlCall* call, int setting, WatchTarget* target)
         target->where     = (int)target->addr.offset;
         target->byProgram = 1;
         /* One read, under a view: a running VDP can change mode, so then none is kept. */
-        target->vramMode  = call->view.held == DBG_ACCESS_VIEW ? vdpDebugGetScreenMode() : -1;
+        target->vramMode  = call->view.held == DBG_ACCESS_VIEW ? vdpDebugGetVramLayout() : -1;
     }
     else {
         /* Paged out of a running machine is no answer: a moment later it can be paged in. */

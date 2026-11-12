@@ -153,10 +153,10 @@ static void describeHuntLayout(CtrlText* text, const CtrlHunt* hunt)
                     began, (unsigned)(size / 1024));
         return;
     }
-    if (vdpVramSameLayout(mode, vdpDebugGetScreenMode())) {
+    if (vdpVramSameLayout(mode, vdpDebugGetVramLayout())) {
         return;
     }
-    ctrlVramModeShortName(now, sizeof(now), vdpDebugGetScreenMode());
+    ctrlVramModeShortName(now, sizeof(now), vdpDebugGetVramLayout());
     ctrlTextAdd(text, "the hunt began in the %s layout of video memory and the VDP is now in %s, "
                 "which lays it out differently; the vram: addresses below are as %s numbers "
                 "them\n", began, now, began);

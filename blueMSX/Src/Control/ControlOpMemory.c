@@ -92,7 +92,7 @@ static int answerFollowsPaging(const CtrlAddr* addr)
            !ctrlAddrPastEnd(&info);
 }
 
-/* In a screen mode that interleaves video memory, the line that says which byte of the chips
+/* In a VRAM layout that interleaves video memory, the line that says which byte of the chips
 ** a vram: address inside video memory is, as the debugger window shows them. */
 static void describeVramByte(CtrlText* text, UInt32 address, int mode)
 {
@@ -133,7 +133,7 @@ int ctrlOpMemResolve(CtrlCall* call)
     if (addr.space == CTRL_SPACE_VRAM && call->view.held == DBG_ACCESS_VIEW &&
         ctrlAddrResolve(&addr, &info) && info.readable)
     {
-        describeVramByte(&call->text, addr.offset, vdpDebugGetScreenMode());
+        describeVramByte(&call->text, addr.offset, vdpDebugGetVramLayout());
     }
     return ctrlReplyDone(call);
 }
@@ -184,11 +184,11 @@ static int refuseLayoutUnsettled(CtrlCall* call, int result, int byPaging)
 }
 
 /* A read that failed, or would: why, with how many bytes are left past the end. That count
-** is left out where every other byte of video memory may be missing; the screen mode that
+** is left out where every other byte of video memory may be missing; the VRAM layout that
 ** says so is read only under a view. */
 static int refuseUnread(CtrlCall* call, int result, const CtrlAddr* addr)
 {
-    int    mode = call->view.held == DBG_ACCESS_VIEW ? vdpDebugGetScreenMode() : -1;
+    int    mode = call->view.held == DBG_ACCESS_VIEW ? vdpDebugGetVramLayout() : -1;
     UInt32 left;
 
     if (result == CTRL_MEM_PASTEND &&
@@ -290,7 +290,7 @@ int ctrlOpMemRead(CtrlCall* call)
     }
     result = ctrlMemRead(&call->view, &addr, dataBuffer, (UInt32)count);
     if (result == CTRL_MEM_NOVRAM) {
-        return ctrlAddrArgRefuseNoVram(call, addr.offset, (UInt32)count, vdpDebugGetScreenMode());
+        return ctrlAddrArgRefuseNoVram(call, addr.offset, (UInt32)count, vdpDebugGetVramLayout());
     }
     if (result != CTRL_MEM_OK) {
         return refuseUnread(call, result, &addr);
@@ -389,7 +389,7 @@ int ctrlOpMemWrite(CtrlCall* call)
     wentToStorage = ctrlAddrResolve(&addr, &info) && info.writable;
 
     if (result == CTRL_MEM_NOVRAM) {
-        return ctrlAddrArgRefuseNoVram(call, addr.offset, count, vdpDebugGetScreenMode());
+        return ctrlAddrArgRefuseNoVram(call, addr.offset, count, vdpDebugGetVramLayout());
     }
     if (result != CTRL_MEM_OK) {
         return ctrlReplyError(call,
@@ -434,12 +434,12 @@ static int refuseNothingUndone(CtrlCall* call, int result, const CtrlAddr* undon
                           ctrlMemErrorText(result));
 }
 
-/* Where an undo put video memory back, when the screen mode now lays it out otherwise. */
+/* Where an undo put video memory back, when the VRAM layout now puts it otherwise. */
 static void tellUndoLayout(CtrlCall* call, const CtrlAddr* undone, int vramMode)
 {
     char screen[32];
 
-    if (undone->space != CTRL_SPACE_VRAM || vdpVramSameLayout(vramMode, vdpDebugGetScreenMode())) {
+    if (undone->space != CTRL_SPACE_VRAM || vdpVramSameLayout(vramMode, vdpDebugGetVramLayout())) {
         return;
     }
     ctrlVramModeShortName(screen, sizeof(screen), vramMode);
