@@ -320,19 +320,22 @@ const McpTool mcpTools[] = {
 },
 {
     "bmsx_vdp",
-    "Registers, palette or geo3d of a video chip, read from a paused machine: the machine's "
+    "Registers, palette, video memory or geo3d of a video chip, read from a paused machine: the machine's "
     "VDP, a V9968 cartridge's VDP or a V9990 (GFX9000, Video9000). A cartridge demo "
     "draws only on its own chip, whose registers bmsx_status does not show. A VDP's "
     "registers include the status registers and the command engine's own (R#32 on), "
     "whose counters move while a command runs; a V9990 is read as of its last access. "
-    "palette gives the register values and the colours drawn. geo3d reads the 3D engine "
+    "palette gives the register values and the colours drawn. vram dumps count bytes from "
+    "at, as the program addresses that chip's video memory (the V9990's in the mode a CPU "
+    "access uses now); for the machine's VDP, bmsx_mem_read with vram: does the same and "
+    "more. geo3d reads the 3D engine "
     "beside a V9968: the RUNs it keeps (the last 32), one RUN with run, and a face or "
     "edge with item, to tell why it was not drawn: DRAWN; NEAR, a vertex behind ZNEAR or "
     "saturated; BACK, a face turned away; OFFSCREEN, an edge wholly off one side; UNCUT, "
     "an edge that misses the screen. RUN numbers start again after a reset or a state "
     "load: compare the epoch in each reply.",
     SCHEMA("\"properties\":{"
-           "\"show\":{\"type\":\"string\",\"enum\":[\"registers\",\"palette\",\"geo3d\"],"
+           "\"show\":{\"type\":\"string\",\"enum\":[\"registers\",\"palette\",\"geo3d\",\"vram\"],"
            "\"default\":\"" CTRL_VDP_SHOW_DEFAULT "\"},"
            "\"chip\":{\"type\":\"string\",\"enum\":[\"machine\",\"cartridge\",\"v9990\"],"
            "\"default\":\"" CTRL_VDP_CHIP_DEFAULT "\"},"
@@ -340,7 +343,12 @@ const McpTool mcpTools[] = {
            "list; the latest when item is given without it\"},"
            "\"item\":{\"type\":\"string\",\"description\":\"geo3d, as a string: a face or edge "
            "number for its vertices, rows and VDP commands, or a range such as \\\"0-63\\\" to "
-           "list\"}}"),
+           "list\"},"
+           "\"at\":{\"type\":\"string\",\"description\":\"vram: the first address, written as "
+           "in an address: \\\"0x1B00\\\", \\\"1B00h\\\" or decimal\"},"
+           "\"count\":{\"type\":\"integer\",\"default\":" CTRL_STR(CTRL_MEM_READ_COUNT_DEFAULT)
+           ",\"minimum\":" CTRL_STR(CTRL_MEM_READ_COUNT_MIN) ",\"maximum\":"
+           CTRL_STR(CTRL_MEM_READ_COUNT_MAX) ",\"description\":\"vram: bytes to dump\"}}"),
     READ_ONLY,
     "vdp",
     NULL

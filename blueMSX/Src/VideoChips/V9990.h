@@ -89,6 +89,8 @@ typedef struct {
     UInt32 id;              /* debug handle + 1; differs for every chip created */
     char   name[32];
     int    mode;            /* V9990Mode the lines are drawn in now */
+    int    cpuMode;         /* V9990Mode a CPU access maps VRAM in now (v9990MapAddress) */
+    int    commandActive;   /* a command runs: VRAM it writes may be behind */
     int    frameMode;       /* V9990Mode latched at frame start */
     int    modeR6;          /* R#6 as the lines are drawn now */
     int    mcs;             /* P#7 MCS */

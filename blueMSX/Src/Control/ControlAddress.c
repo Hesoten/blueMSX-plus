@@ -122,6 +122,13 @@ static const char* readNumber(const char* s, UInt32* value)
     return scan;
 }
 
+int ctrlAddrReadNumber(const char* text, UInt32* value)
+{
+    const char* end = readNumber(text, value);
+
+    return end != NULL && *end == 0;
+}
+
 static const char* skipSpace(const char* s)
 {
     while (*s == ' ' || *s == '\t') {

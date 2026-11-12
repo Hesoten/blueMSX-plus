@@ -466,9 +466,15 @@ static Int32 floorDiv(Int32 n, Int32 d)
     return n >= 0 ? n / d : -((-n + d - 1) / d);
 }
 
+/* Non-zero when a mode change written to R#6/R#7/P#7 applies by time. */
+static int modeDue(V9990* v9990, UInt32 time)
+{
+    return v9990->modePending && (Int32)(time - v9990->modeApplyTime) >= 0;
+}
+
 static void syncMode(V9990* v9990, UInt32 time)
 {
-    if (v9990->modePending && (Int32)(time - v9990->modeApplyTime) >= 0) {
+    if (modeDue(v9990, time)) {
         v9990->modePending = 0;
         v9990->mode    = calcMode(v9990);
         v9990->modeR6  = v9990->regs[R_SCREEN_MODE0];
@@ -1859,6 +1865,9 @@ int v9990DebugCapture(int index, V9990DebugState* out)
     out->id          = (UInt32)v9990->debugHandle + 1;
     strcpy(out->name, "V9990");
     out->mode        = v9990->mode;
+    /* A CPU access syncs first, so a mode change due by now is the one it maps with. */
+    out->cpuMode     = modeDue(v9990, boardSystemTime()) ? calcMode(v9990) : v9990->mode;
+    out->commandActive = v9990CmdIsActive(v9990->cmd);
     out->frameMode   = v9990->frameMode;
     out->modeR6      = v9990->modeR6;
     out->mcs         = v9990->mcs;

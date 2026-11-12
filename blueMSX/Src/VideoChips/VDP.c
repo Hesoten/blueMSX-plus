@@ -2417,22 +2417,23 @@ int vdpDebugGetRegisters(UInt8* registers, int max)
     return count;
 }
 
-int vdpDebugGetVramLayout(void)
+static int vramLayoutOf(VDP* vdp)
 {
-    int layout;
+    int layout = vdp->screenMode;
 
-    if (theVdp == NULL) {
-        return -1;
-    }
-    layout = theVdp->screenMode;
-    if (vdpIsBitmapLinear(theVdp)) {
+    if (vdpIsBitmapLinear(vdp)) {
         layout |= VDP_LAYOUT_LINEAR;
     }
     /* The part's size, not V58: the viewer numbers the upper half the same way. */
-    if (vdpIsInterleaved(theVdp) && vdpIsV9968(theVdp) && theVdp->vram256) {
+    if (vdpIsInterleaved(vdp) && vdpIsV9968(vdp) && vdp->vram256) {
         layout |= VDP_LAYOUT_A17;
     }
     return layout;
+}
+
+int vdpDebugGetVramLayout(void)
+{
+    return theVdp != NULL ? vramLayoutOf(theVdp) : -1;
 }
 
 int vdpVramInterleaved(int layout)
@@ -3585,6 +3586,7 @@ int vdpDebugCapture(int index, VdpDebugState* out)
     out->interleaved  = vdpIsInterleaved(vdp) != 0;
     out->bitmapLinear = vdpIsBitmapLinear(vdp) != 0;
     out->vramA17      = vdpIsV9968(vdp) && vdp->vram256 ? 0x20000 : 0;
+    out->vramLayout   = vramLayoutOf(vdp);
     out->sprPlaneStart = vdp->sprPlaneStartShown;
     for (i = 0; i < 64; i++) {
         out->sprPlaneOrder[i] = (UInt8)vdpSpritePlaneFrom(vdp, vdp->sprPlaneStartShown, i, 63);

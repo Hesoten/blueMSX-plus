@@ -203,60 +203,11 @@ static int refuseUnread(CtrlCall* call, int result, const CtrlAddr* addr)
                           ctrlMemErrorText(result));
 }
 
-static char printable(UInt8 byte)
-{
-    return (byte >= 0x20 && byte < 0x7f) ? (char)byte : '.';
-}
-
-/* 16 bytes to a line, hex and ASCII; runs of one repeated byte collapse to one line. */
 static void describeHexDump(CtrlText* text, const CtrlAddr* addr,
                             const UInt8* data, UInt32 size)
 {
-    UInt32 at = 0;
-
     ctrlAddrDescribe(text, addr);
-    ctrlTextAdd(text, "%u byte%s\n", (unsigned)size, size == 1 ? "" : "s");
-
-    while (at < size && !ctrlTextIsFull(text)) {
-        UInt32 lineBytes = size - at < 16 ? size - at : 16;
-        UInt32 i;
-
-        /* A run of one byte value three lines or longer becomes one line. */
-        if (lineBytes == 16) {
-            UInt32 run = 0;
-            UInt8  value = data[at];
-
-            while (at + run < size && data[at + run] == value) {
-                run++;
-            }
-            if (run >= 48) {
-                UInt32 whole = run - (run % 16);
-                ctrlTextAdd(text, "%04X  all %02X  (%u bytes)\n",
-                            (unsigned)(addr->offset + at), value, (unsigned)whole);
-                at += whole;
-                continue;
-            }
-        }
-
-        ctrlTextAdd(text, "%04X ", (unsigned)(addr->offset + at));
-        for (i = 0; i < 16; i++) {
-            if (i == 8) {
-                ctrlTextAdd(text, " ");
-            }
-            if (i < lineBytes) {
-                ctrlTextAdd(text, " %02X", data[at + i]);
-            }
-            else {
-                ctrlTextAdd(text, "   ");
-            }
-        }
-        ctrlTextAdd(text, "  ");
-        for (i = 0; i < lineBytes; i++) {
-            ctrlTextAdd(text, "%c", printable(data[at + i]));
-        }
-        ctrlTextAdd(text, "\n");
-        at += lineBytes;
-    }
+    ctrlTextHexDump(text, addr->offset, data, size);
 }
 
 int ctrlOpMemRead(CtrlCall* call)

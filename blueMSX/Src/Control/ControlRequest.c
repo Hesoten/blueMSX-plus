@@ -133,7 +133,8 @@ static const CtrlArg screenArgs[] = {
 };
 static const CtrlArg vdpArgs[] = {
     { "show", CTRL_ARG_TEXT, 11 }, { "chip", CTRL_ARG_TEXT, 11 }, { "run", CTRL_ARG_INT, 0 },
-    { "item", CTRL_ARG_TEXT, 15 }, { NULL }
+    { "item", CTRL_ARG_TEXT, 15 }, { "at", CTRL_ARG_TEXT, 15 }, { "count", CTRL_ARG_INT, 0 },
+    { NULL }
 };
 
 /* An op's args in its row; an array longer than CTRL_OP_ARGS_MAX and its { NULL } fails to compile. */
@@ -261,8 +262,9 @@ static const CtrlOp opTable[] = {
       "  screen       as = auto|text|png, path\n" },
     { "vdp",               CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpVdp, OP_ARGS(vdpArgs),
       CTRL_ACT_DENIED,
-      "  vdp          show = registers|palette|geo3d, chip = machine|cartridge|v9990,\n"
-      "               run, item (geo3d only)\n" },
+      "  vdp          show = registers|palette|geo3d|vram,\n"
+      "               chip = machine|cartridge|v9990, run, item (geo3d only),\n"
+      "               at, count (vram only)\n" },
 };
 
 static const CtrlOp* findOp(const char* name)

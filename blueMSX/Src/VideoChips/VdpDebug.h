@@ -104,6 +104,7 @@ typedef struct {
     int    interleaved;     /* odd bytes come from the other 64K bank */
     int    bitmapLinear;    /* V9968 SP3: laid out in address order instead */
     int    vramA17;         /* 0x20000 on a 256K V9968, else 0 */
+    int    vramLayout;      /* as vdpDebugGetVramLayout gives it, for debugDeviceVramIndex */
     /* The sprite scan of the frame that just ended (paused: the one in
     ** progress is taken to start the same way): plane at each step. */
     int    sprPlaneStart;

@@ -21,6 +21,7 @@
 ******************************************************************************
 */
 #include "ControlOp.h"
+#include "ControlAddress.h"
 #include "ControlGeo3d.h"
 #include "ControlJson.h"
 #include "ControlProtocol.h"
@@ -29,6 +30,7 @@
 #include "ControlVram.h"
 #include "ControlView.h"
 #include "Debugger.h"
+#include "DebugDeviceManager.h"
 #include "VDP.h"
 #include "VdpDebug.h"
 #include "V9990.h"
@@ -202,6 +204,44 @@ static void v9990Palette(CtrlText* text, const V9990DebugState* s)
     }
 }
 
+/* The bytes a VRAM dump shows, in the program's order. */
+static UInt8 dumpBytes[CTRL_MEM_READ_COUNT_MAX];
+
+static void vdpVram(CtrlText* text, const VdpDebugState* s, UInt32 at, UInt32 count)
+{
+    char   layout[32];
+    UInt32 i;
+
+    ctrlVramModeShortName(layout, sizeof(layout), s->vramLayout);
+    ctrlTextAdd(text, "vram:    0x%X-0x%X as the program addresses it, in the %s layout%s\n",
+                (unsigned)at, (unsigned)(at + count - 1), layout,
+                vdpVramInterleaved(s->vramLayout) ? ", which interleaves the chips' bytes" : "");
+    for (i = 0; i < count; i++) {
+        UInt32 index = (UInt32)debugDeviceVramIndex(s->vramLayout, (int)(at + i));
+
+        dumpBytes[i] = index < sizeof(s->vram) ? s->vram[index] : 0;
+    }
+    ctrlTextHexDump(text, at, dumpBytes, count);
+}
+
+static void v9990Vram(CtrlText* text, const V9990DebugState* s, UInt32 at, UInt32 count)
+{
+    UInt32 i;
+
+    ctrlTextAdd(text, "vram:    0x%X-0x%X as the CPU addresses it in mode %s (the first is "
+                "physical byte 0x%05X)\n", (unsigned)at, (unsigned)(at + count - 1),
+                ctrlStatusV9990ModeName(s->cpuMode),
+                (unsigned)v9990MapAddress((V9990Mode)s->cpuMode, at));
+    if (s->commandActive) {
+        ctrlTextAdd(text, "as of the V9990's last access: the command it runs may have written "
+                    "further\n");
+    }
+    for (i = 0; i < count; i++) {
+        dumpBytes[i] = s->vram[v9990MapAddress((V9990Mode)s->cpuMode, at + i) & V9990_VRAM_MASK];
+    }
+    ctrlTextHexDump(text, at, dumpBytes, count);
+}
+
 /* The chips the machine has, as a refusal lists them. */
 static int refuseNoChip(CtrlCall* call, const char* wanted)
 {
@@ -279,12 +319,69 @@ static int replyGeo3d(CtrlCall* call, int chip, const char* chipName)
     return ctrlReplyDone(call);
 }
 
+/* show=vram: at, a number written as in an address, and count, as bmsx_mem_read takes them. */
+static int readVramRange(CtrlCall* call, UInt32* at, Int32* count)
+{
+    const char* given = ctrlCallText(call, "at");
+
+    if (given == NULL) {
+        return ctrlReplyError(call, "bad_arg", "show=vram needs \"at\", the address as the "
+                              "program uses it, such as \"0x1B00\"");
+    }
+    if (!ctrlAddrReadNumber(given, at)) {
+        return ctrlReplyError(call, "bad_arg", "\"at\" must be an address such as \"0x1B00\", "
+                              "\"1B00h\" or \"6912\" (unmarked digits are decimal)");
+    }
+    *count = ctrlCallInt(call, "count", CTRL_MEM_READ_COUNT_DEFAULT);
+    if (*count < CTRL_MEM_READ_COUNT_MIN || *count > CTRL_MEM_READ_COUNT_MAX) {
+        return ctrlReplyErrorf(call, "out_of_range", "count must be between %d and %d",
+                               CTRL_MEM_READ_COUNT_MIN, CTRL_MEM_READ_COUNT_MAX);
+    }
+    return 0;
+}
+
+/* An address of the range with no byte behind it: a VDP with less than 128 kB in a layout
+** that puts odd addresses in a second bank. Returns the refusal, or 0. */
+static int refuseUnbacked(CtrlCall* call, const VdpDebugState* s, UInt32 at, Int32 count)
+{
+    char   layout[32];
+    UInt32 i;
+
+    for (i = 0; i < (UInt32)count; i++) {
+        if ((UInt32)debugDeviceVramIndex(s->vramLayout, (int)(at + i)) >= (UInt32)s->vramSize) {
+            ctrlVramModeShortName(layout, sizeof(layout), s->vramLayout);
+            return ctrlReplyErrorf(call, "out_of_range", "0x%X has no video memory behind it: "
+                                   "%s puts odd addresses in a second 64 kB bank, and this VDP "
+                                   "has %d kB", (unsigned)(at + i), layout, s->vramSize / 1024);
+        }
+    }
+    return 0;
+}
+
+static int refusePastEnd(CtrlCall* call, UInt32 at, Int32 count, UInt32 size)
+{
+    if (at >= size) {
+        return ctrlReplyErrorf(call, "out_of_range", "this chip's video memory is %u kB, "
+                               "0x0000-0x%X", (unsigned)(size / 1024), (unsigned)(size - 1));
+    }
+    if (at + (UInt32)count > size) {
+        return ctrlReplyErrorf(call, "out_of_range", "only %u byte%s left from 0x%X in this "
+                               "chip's %u kB of video memory", (unsigned)(size - at),
+                               size - at == 1 ? " is" : "s are", (unsigned)at,
+                               (unsigned)(size / 1024));
+    }
+    return 0;
+}
+
 int ctrlOpVdp(CtrlCall* call)
 {
     const char* show     = ctrlCallText(call, "show");
     const char* chipName = ctrlCallText(call, "chip");
     DbgSnapshot* snapshot;
+    UInt32 at = 0;
+    Int32  count = 0;
     int palette;
+    int vram;
     int chip;
     int refused;
 
@@ -295,10 +392,11 @@ int ctrlOpVdp(CtrlCall* call)
         chipName = CTRL_VDP_CHIP_DEFAULT;
     }
     if (strcmp(show, "registers") != 0 && strcmp(show, "palette") != 0 &&
-        strcmp(show, "geo3d") != 0) {
-        return ctrlReplyError(call, "bad_show", "\"show\" must be registers, palette or geo3d");
+        strcmp(show, "geo3d") != 0 && strcmp(show, "vram") != 0) {
+        return ctrlReplyError(call, "bad_show", "\"show\" must be registers, palette, geo3d or vram");
     }
     palette = strcmp(show, "palette") == 0;
+    vram    = strcmp(show, "vram") == 0;
     if (strcmp(chipName, "machine") == 0) {
         chip = CHIP_MACHINE;
     }
@@ -317,6 +415,12 @@ int ctrlOpVdp(CtrlCall* call)
     if (ctrlCallGiven(call, "run") || ctrlCallGiven(call, "item")) {
         return ctrlReplyError(call, "bad_arg", "run and item go with show=geo3d");
     }
+    if (!vram && (ctrlCallGiven(call, "at") || ctrlCallGiven(call, "count"))) {
+        return ctrlReplyError(call, "bad_arg", "at and count go with show=vram");
+    }
+    if (vram && (refused = readVramRange(call, &at, &count)) != 0) {
+        return refused;
+    }
     if ((refused = ctrlRefuseUnlessViewed(call)) != 0) {
         return refused;
     }
@@ -331,8 +435,14 @@ int ctrlOpVdp(CtrlCall* call)
         if (v9990DebugCount() <= 0 || !v9990DebugCapture(0, &captured.v9990)) {
             return refuseNoChip(call, chipName);
         }
+        if (vram && (refused = refusePastEnd(call, at, count, V9990_VRAM_SIZE)) != 0) {
+            return refused;
+        }
         describeChip(&call->text, chip, captured.v9990.name);
-        if (palette) {
+        if (vram) {
+            v9990Vram(&call->text, &captured.v9990, at, (UInt32)count);
+        }
+        else if (palette) {
             v9990Palette(&call->text, &captured.v9990);
         }
         else {
@@ -345,8 +455,15 @@ int ctrlOpVdp(CtrlCall* call)
         if (index < 0 || !vdpDebugCapture(index, &captured.vdp)) {
             return refuseNoChip(call, chipName);
         }
+        if (vram && ((refused = refusePastEnd(call, at, count, (UInt32)captured.vdp.vramSize)) != 0 ||
+                     (refused = refuseUnbacked(call, &captured.vdp, at, count)) != 0)) {
+            return refused;
+        }
         describeChip(&call->text, chip, captured.vdp.name);
-        if (palette) {
+        if (vram) {
+            vdpVram(&call->text, &captured.vdp, at, (UInt32)count);
+        }
+        else if (palette) {
             vdpPalette(&call->text, &captured.vdp);
         }
         else {

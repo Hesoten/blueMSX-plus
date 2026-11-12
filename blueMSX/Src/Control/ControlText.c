@@ -90,3 +90,56 @@ void ctrlTextCut(CtrlText* text, CtrlTextMark mark)
     text->data[mark.length] = 0;
     text->full              = mark.full;
 }
+
+static char printable(UInt8 byte)
+{
+    return (byte >= 0x20 && byte < 0x7f) ? (char)byte : '.';
+}
+
+void ctrlTextHexDump(CtrlText* text, UInt32 first, const UInt8* data, UInt32 size)
+{
+    UInt32 at = 0;
+
+    ctrlTextAdd(text, "%u byte%s\n", (unsigned)size, size == 1 ? "" : "s");
+
+    while (at < size && !ctrlTextIsFull(text)) {
+        UInt32 lineBytes = size - at < 16 ? size - at : 16;
+        UInt32 i;
+
+        /* A run of one byte value three lines or longer becomes one line. */
+        if (lineBytes == 16) {
+            UInt32 run = 0;
+            UInt8  value = data[at];
+
+            while (at + run < size && data[at + run] == value) {
+                run++;
+            }
+            if (run >= 48) {
+                UInt32 whole = run - (run % 16);
+                ctrlTextAdd(text, "%04X  all %02X  (%u bytes)\n",
+                            (unsigned)(first + at), value, (unsigned)whole);
+                at += whole;
+                continue;
+            }
+        }
+
+        ctrlTextAdd(text, "%04X ", (unsigned)(first + at));
+        for (i = 0; i < 16; i++) {
+            if (i == 8) {
+                ctrlTextAdd(text, " ");
+            }
+            if (i < lineBytes) {
+                ctrlTextAdd(text, " %02X", data[at + i]);
+            }
+            else {
+                ctrlTextAdd(text, "   ");
+            }
+        }
+        ctrlTextAdd(text, "  ");
+        for (i = 0; i < lineBytes; i++) {
+            ctrlTextAdd(text, "%c", printable(data[at + i]));
+        }
+        ctrlTextAdd(text, "\n");
+        at += lineBytes;
+    }
+}
