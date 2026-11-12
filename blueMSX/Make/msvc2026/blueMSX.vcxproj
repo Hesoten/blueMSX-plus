@@ -1183,6 +1183,7 @@
     <ClCompile Include="..\..\Src\Control\ControlOpInput.c" />
     <ClCompile Include="..\..\Src\Control\ControlOpScreen.c" />
     <ClCompile Include="..\..\Src\Control\ControlOpVdp.c" />
+    <ClCompile Include="..\..\Src\Control\ControlGeo3d.c" />
     <ClCompile Include="..\..\Src\Control\ControlOpMachine.c" />
     <ClCompile Include="..\..\Src\Control\ControlView.c" />
     <ClCompile Include="..\..\Src\Control\ControlHello.c" />

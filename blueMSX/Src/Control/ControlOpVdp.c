@@ -21,6 +21,7 @@
 ******************************************************************************
 */
 #include "ControlOp.h"
+#include "ControlGeo3d.h"
 #include "ControlJson.h"
 #include "ControlProtocol.h"
 #include "ControlScreen.h"
@@ -215,6 +216,69 @@ static int refuseNoChip(CtrlCall* call, const char* wanted)
                            wanted, chips);
 }
 
+/* show=geo3d: the RUNs of the chip's geo3d, one RUN (run) or its faces or edges (item, a
+** number or a range a-b). Arguments are checked before the machine has to be paused. */
+static int replyGeo3d(CtrlCall* call, int chip, const char* chipName)
+{
+    const char* item = ctrlCallText(call, "item");
+    char  err[200];
+    Int64 run = 0;
+    int   first = 0;
+    int   last = -1;
+    int   single = 0;
+    int   refused;
+    int   result;
+
+    if (chip == CHIP_V9990) {
+        return ctrlReplyError(call, "no_such_chip", "a V9990 has no geo3d; it is beside a V9968 "
+                              "(chip=machine or chip=cartridge)");
+    }
+    if (ctrlCallInt64(call, "run", &run) && (run < 1 || run > 0xFFFFFFFF)) {
+        return ctrlReplyError(call, "out_of_range", "\"run\" must be a RUN number, 1 or more");
+    }
+    if (item != NULL) {
+        int used = 0;
+        int ok   = 0;
+
+        /* A number or two joined by '-', and nothing else; 9 characters cannot overflow. */
+        if (strlen(item) <= 9 && item[0] >= '0' && item[0] <= '9') {
+            if (sscanf(item, "%d-%d%n", &first, &last, &used) == 2 && item[used] == 0) {
+                ok = 1;
+            }
+            else if (sscanf(item, "%d%n", &first, &used) == 1 && item[used] == 0) {
+                ok     = 1;
+                single = 1;
+                last   = first;
+            }
+        }
+        if (!ok || last < first || last > 1023) {
+            return ctrlReplyError(call, "bad_arg", "\"item\" must be a face or edge number "
+                                  "0-1023, or a range such as 0-63");
+        }
+    }
+    if ((refused = ctrlRefuseUnlessViewed(call)) != 0) {
+        return refused;
+    }
+    if (run == 0 && item == NULL) {
+        result = ctrlGeo3dSummary(&call->text, chip == CHIP_CARTRIDGE, err, sizeof(err));
+    }
+    else if (single) {
+        result = ctrlGeo3dItem(&call->text, chip == CHIP_CARTRIDGE, (UInt32)run, first,
+                               err, sizeof(err));
+    }
+    else {
+        result = ctrlGeo3dRun(&call->text, chip == CHIP_CARTRIDGE, (UInt32)run, first,
+                              item != NULL ? last : -1, err, sizeof(err));
+    }
+    switch (result) {
+    case CTRL_GEO3D_NONE:     return ctrlReplyError(call, "no_such_chip", err);
+    case CTRL_GEO3D_NO_RUN:   return ctrlReplyError(call, "out_of_range", err);
+    case CTRL_GEO3D_NOT_KEPT: return ctrlReplyError(call, "not_kept", err);
+    }
+    jsonOutString(&call->out, "chip", chipName);
+    return ctrlReplyDone(call);
+}
+
 int ctrlOpVdp(CtrlCall* call)
 {
     const char* show     = ctrlCallText(call, "show");
@@ -230,8 +294,9 @@ int ctrlOpVdp(CtrlCall* call)
     if (chipName == NULL) {
         chipName = CTRL_VDP_CHIP_DEFAULT;
     }
-    if (strcmp(show, "registers") != 0 && strcmp(show, "palette") != 0) {
-        return ctrlReplyError(call, "bad_show", "\"show\" must be registers or palette");
+    if (strcmp(show, "registers") != 0 && strcmp(show, "palette") != 0 &&
+        strcmp(show, "geo3d") != 0) {
+        return ctrlReplyError(call, "bad_show", "\"show\" must be registers, palette or geo3d");
     }
     palette = strcmp(show, "palette") == 0;
     if (strcmp(chipName, "machine") == 0) {
@@ -245,6 +310,12 @@ int ctrlOpVdp(CtrlCall* call)
     }
     else {
         return ctrlReplyError(call, "bad_chip", "\"chip\" must be machine, cartridge or v9990");
+    }
+    if (strcmp(show, "geo3d") == 0) {
+        return replyGeo3d(call, chip, chipName);
+    }
+    if (ctrlCallGiven(call, "run") || ctrlCallGiven(call, "item")) {
+        return ctrlReplyError(call, "bad_arg", "run and item go with show=geo3d");
     }
     if ((refused = ctrlRefuseUnlessViewed(call)) != 0) {
         return refused;

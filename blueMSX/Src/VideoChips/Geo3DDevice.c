@@ -694,11 +694,10 @@ static int kept(Geo3DDevice* dev, UInt32 last, UInt32 seq)
            geo3dDebugHasRun(dev->geo3d, seq);
 }
 
-int geo3dDebugCapture(struct VDP* vdp, Geo3DDebugState* out)
+/* A capture of dev; hint holds the epoch (high half) and the RUN (low half) a tool holds. */
+static int capture(Geo3DDevice* dev, UInt64 hint, Geo3DDebugState* out)
 {
-    Geo3DDevice* dev = NULL;
     UInt32 seqs[GEO3D_DEBUG_RUNS];
-    UInt64 hint = 0;
     UInt32 start;
     UInt32 now;
     UInt32 window;
@@ -715,17 +714,7 @@ int geo3dDebugCapture(struct VDP* vdp, Geo3DDebugState* out)
     int lost = 0;
     int i;
 
-    for (i = 0; i < 2 && dev == NULL; i++) {
-        Geo3DDevice* d = debugGeo3ds[i];
-        if (d != NULL && d->vdp == vdp) {
-            dev = d;
-            hint = debugSince[i];
-        }
-    }
     memset(out, 0, sizeof(*out));
-    if (dev == NULL) {
-        return 0;
-    }
     now     = boardSystemTime();
     start   = vdpGetFrameStartTime(dev->vdp);
     window  = now - start;
@@ -811,6 +800,50 @@ int geo3dDebugCapture(struct VDP* vdp, Geo3DDebugState* out)
     out->runsLost    = lost;
     out->wholeSeq    = out->runCount > 0 ? seqs[seen] : 0;
     out->pageFrom    = pageFrom;
+    return 1;
+}
+
+int geo3dDebugCapture(struct VDP* vdp, Geo3DDebugState* out)
+{
+    int i;
+
+    for (i = 0; i < 2; i++) {
+        Geo3DDevice* d = debugGeo3ds[i];
+        if (d != NULL && d->vdp == vdp) {
+            return capture(d, debugSince[i], out);
+        }
+    }
+    memset(out, 0, sizeof(*out));
+    return 0;
+}
+
+int geo3dDebugCaptureAll(int cartridge, Geo3DDebugState* out)
+{
+    Geo3DDevice* dev = debugGeo3ds[cartridge ? 1 : 0];
+
+    if (dev == NULL) {
+        memset(out, 0, sizeof(*out));
+        return 0;
+    }
+    /* Holding RUN 0 of this epoch makes every kept RUN one to add. */
+    return capture(dev, (UInt64)dev->epoch << 32, out);
+}
+
+int geo3dDebugCaptureRun(int cartridge, UInt32 seq, Geo3DDebugRun* run,
+                         Geo3DDebugItem* items, int itemRoom, Geo3DDebugCmd* cmds, int cmdRoom)
+{
+    Geo3DDevice* dev = debugGeo3ds[cartridge ? 1 : 0];
+    const RunStamp* s;
+
+    if (dev == NULL || !kept(dev, geo3dDebugLastSeq(dev->geo3d), seq) ||
+        !geo3dDebugCopyRun(dev->geo3d, seq, run, items, itemRoom, cmds, cmdRoom)) {
+        memset(run, 0, sizeof(*run));
+        return 0;
+    }
+    s = &dev->stamps[seq % RUN_STAMPS];
+    run->startTime = s->start;
+    run->endTime   = s->end;
+    run->ended     = s->ended;
     return 1;
 }
 
