@@ -72,6 +72,8 @@
 #define CTRL_RUN_COUNT_DEFAULT            1
 #define CTRL_RUN_COUNT_MIN                1
 #define CTRL_RUN_COUNT_MAX                100000
+/* how=frame: each posts a stop, and the stop log holds 256. */
+#define CTRL_RUN_FRAME_COUNT_MAX          100
 #define CTRL_RUN_UNTIL_TIMEOUT_MS_DEFAULT 5000
 #define CTRL_RUN_UNTIL_TIMEOUT_MS_MIN     1
 #define CTRL_RUN_UNTIL_TIMEOUT_MS_MAX     600000

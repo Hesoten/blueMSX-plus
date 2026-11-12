@@ -127,14 +127,21 @@ const McpTool mcpTools[] = {
     "default); step_over runs a call to completion instead of going into it; step_out "
     "runs until the current subroutine returns. Those two wait 2 seconds: if the call has "
     "not returned by then the reply says timeout and the machine is still running, so "
-    "wait with bmsx_run_until or pause it.",
+    "wait with bmsx_run_until or pause it. frame runs to the end of the frame on the "
+    "screen and pauses there (the rest of the frame in progress, which after a frame stop is "
+    "one whole frame; count frames, up to "
+    CTRL_STR(CTRL_RUN_FRAME_COUNT_MAX) "), unlike pause, which stops wherever the CPU is; "
+    "change runs on to the first frame whose picture differs, giving up after 300 frames "
+    "(5 to 6 seconds at normal speed). A breakpoint or watch met on the way ends either and "
+    "is reported; one at PC stops them at once.",
     SCHEMA("\"properties\":{"
            "\"how\":{\"type\":\"string\",\"enum\":[\"pause\",\"resume\",\"step\","
-           "\"step_over\",\"step_out\"]},"
+           "\"step_over\",\"step_out\",\"frame\",\"change\"]},"
            "\"count\":{\"type\":\"integer\",\"default\":" CTRL_STR(CTRL_RUN_COUNT_DEFAULT)
            ",\"minimum\":" CTRL_STR(CTRL_RUN_COUNT_MIN) ","
            "\"maximum\":" CTRL_STR(CTRL_RUN_COUNT_MAX)
-           ",\"description\":\"instructions, for step\"}},"
+           ",\"description\":\"instructions for step, frames for frame (up to "
+           CTRL_STR(CTRL_RUN_FRAME_COUNT_MAX) "); change takes 1\"}},"
            "\"required\":[\"how\"]"),
     CHANGES,
     "run",

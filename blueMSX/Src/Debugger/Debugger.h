@@ -191,6 +191,10 @@ int  dbgChangePending(void);
 /* Steps a paused machine one instruction; a DBG_RESUME_ result. On an agent's thread it is
 ** refused (busy) while the window has a change under way, as dbgResume is. */
 int  dbgStep(void);
+/* Runs to the end of the shown frame (from a pause, one frame), or with change on to the
+** first frame whose picture differs; a DBG_RESUME_ result, busy while the window or another
+** step, step back or hold has the machine. Never ends or toggles a step the user began. */
+int  dbgFrameStep(int change);
 void dbgStepBack();
 
 void dbgSetBreakpoint(UInt16 address);

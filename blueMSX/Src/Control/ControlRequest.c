@@ -176,7 +176,7 @@ static const CtrlOp opTable[] = {
       "  undo         count        (puts back what mem.write overwrote)\n" },
     { "run",               CTRL_OP_CHANGES, CTRL_OP_SELF, ctrlOpRun, OP_ARGS(runArgs),
       CTRL_ACT_DENIED,
-      "  run          how = pause|resume|step|step_over|step_out, count\n" },
+      "  run          how = pause|resume|step|step_over|step_out|frame|change, count\n" },
     { "stack",             CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpStack, OP_ARGS(stackArgs),
       CTRL_ACT_DENIED,
       "  stack        count\n" },
@@ -343,7 +343,8 @@ static int opVerb(const char* op, const char* request)
     if (strcmp(op, "run") == 0) {
         return strcmp(how, "pause") == 0     ? CTRL_ACT_PAUSE :
                strcmp(how, "resume") == 0    ? CTRL_ACT_RUN :
-               strcmp(how, "step") == 0      ? CTRL_ACT_STEP :
+               strcmp(how, "step") == 0 || strcmp(how, "frame") == 0 ||
+               strcmp(how, "change") == 0    ? CTRL_ACT_STEP :
                strcmp(how, "step_over") == 0 ? CTRL_ACT_STEP_OVER :
                strcmp(how, "step_out") == 0  ? CTRL_ACT_STEP_OUT : CTRL_ACT_DENIED;
     }
