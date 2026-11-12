@@ -3596,7 +3596,14 @@ int vdpDebugCapture(int index, VdpDebugState* out)
     vramBytes = MIN(vramBytes, (int)MIN(sizeof(out->vram), sizeof(vdp->vram)));
     memcpy(out->vram, vdp->vram, vramBytes);
     memset(out->vram + vramBytes, 0, sizeof(out->vram) - vramBytes);
-    rasterCapture(vdp, out);
+    /* The raster log keeps its state on the emulator thread; other readers get none. */
+    if (emulatorIsEmuThread()) {
+        rasterCapture(vdp, out);
+    }
+    else {
+        memset(&out->raster[0], 0, RASTER_HEAD);
+        memset(&out->raster[1], 0, RASTER_HEAD);
+    }
     out->frameStartTime = vdp->frameStartTime;
     geo3dDebugCapture(vdp->secondary ? vdp : NULL, &out->geo3d);
     return 1;

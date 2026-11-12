@@ -312,6 +312,23 @@ const McpTool mcpTools[] = {
     NULL
 },
 {
+    "bmsx_vdp",
+    "Registers or palette of a video chip, read from a paused machine: the machine's "
+    "VDP, a V9968 cartridge's VDP or a V9990 (GFX9000, Video9000). A cartridge demo "
+    "draws only on its own chip, whose registers bmsx_status does not show. A VDP's "
+    "registers include the status registers and the command engine's own (R#32 on), "
+    "whose counters move while a command runs; a V9990 is read as of its last access. "
+    "palette gives the register values and the colours drawn.",
+    SCHEMA("\"properties\":{"
+           "\"show\":{\"type\":\"string\",\"enum\":[\"registers\",\"palette\"],"
+           "\"default\":\"" CTRL_VDP_SHOW_DEFAULT "\"},"
+           "\"chip\":{\"type\":\"string\",\"enum\":[\"machine\",\"cartridge\",\"v9990\"],"
+           "\"default\":\"" CTRL_VDP_CHIP_DEFAULT "\"}}"),
+    READ_ONLY,
+    "vdp",
+    NULL
+},
+{
     "bmsx_key",
     "Press, release or tap a key or a joystick button. Names are the ones the "
     "emulator's shortcut editor uses: return, space, ctrl, stop, f1, "

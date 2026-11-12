@@ -186,12 +186,18 @@ void ctrlStatusDescribe(CtrlText* text, int stopReason, int stateAsFound)
     ctrlViewRelease(&own);
 }
 
-/* Whether a V9990 picture is on the screen; needs a view. */
-static void describeV9990(CtrlText* text)
+const char* ctrlStatusV9990ModeName(int mode)
 {
     static const char* modeNames[V9990_MODE_NONE] = {
         "P1", "P2", "B0", "B1", "B2", "B3", "B4", "B5", "B6", "B7", "STANDBY (black)"
     };
+
+    return mode >= 0 && mode < V9990_MODE_NONE ? modeNames[mode] : "none";
+}
+
+/* Whether a V9990 picture is on the screen; needs a view. */
+static void describeV9990(CtrlText* text)
+{
     int       superimposed;
     V9990Mode mode = v9990GetShownMode(&superimposed);
 
@@ -201,7 +207,7 @@ static void describeV9990(CtrlText* text)
         return;
     }
     ctrlTextAdd(text, "v9990:   its picture is shown in mode %s%s; the vdp lines below are "
-                "the VDP's, not the V9990's\n", modeNames[mode],
+                "the VDP's, not the V9990's\n", ctrlStatusV9990ModeName(mode),
                 superimposed ? ", superimposed over the VDP picture"
                              : " instead of the VDP picture");
 }
@@ -218,6 +224,20 @@ static void describeV9968Cart(CtrlText* text)
     }
     ctrlTextAdd(text, "v9968:   the cartridge picture is shown in mode %d: %s instead of the VDP "
                 "picture; the vdp lines below are the VDP's, not the cartridge's\n", mode, ctrlVramModeName(mode));
+}
+
+int ctrlStatusUndefinedModeBits(const UInt8* regs)
+{
+    int raw = ((regs[0] & 0x0e) >> 1) | (regs[1] & 0x18);
+
+    /* updateScreenMode names only these; it draws other mixes blank or from other tables. */
+    switch (raw) {
+    case 0x00: case 0x01: case 0x02: case 0x03: case 0x04:
+    case 0x05: case 0x07: case 0x08: case 0x10: case 0x12:
+        return -1;
+    default:
+        return raw;
+    }
 }
 
 void ctrlStatusDescribeVdp(CtrlText* text)
@@ -241,19 +261,15 @@ void ctrlStatusDescribeVdp(CtrlText* text)
         int   raw;
 
         vdpDebugGetRegisters(registers, 2);
-        raw = ((registers[0] & 0x0e) >> 1) | (registers[1] & 0x18);
-        /* updateScreenMode names only these; it draws other mixes blank or from other tables. */
-        switch (raw) {
-        case 0x00: case 0x01: case 0x02: case 0x03: case 0x04:
-        case 0x05: case 0x07: case 0x08: case 0x10: case 0x12:
+        raw = ctrlStatusUndefinedModeBits(registers);
+        if (raw < 0) {
             ctrlTextAdd(text, "vdp:     %s, mode %d: %s\n", vdp->name, mode,
                         ctrlVramModeName(mode));
-            break;
-        default:
+        }
+        else {
             ctrlTextAdd(text, "vdp:     %s, mode bits 0x%02X (R#0/R#1) are mixed or "
                         "undefined: the VDP draws them blank or from other tables, so "
                         "check the PNG\n", vdp->name, raw);
-            break;
         }
         describeRegisters(text, vdp->registerBank[0], "");
     }

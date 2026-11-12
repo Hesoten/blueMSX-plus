@@ -107,8 +107,8 @@ typedef struct {
 
 int v9990DebugCount(void);
 
-/* Copies the chip without syncing it or touching any latch, so call it only
-** on the emulator thread; the EMU_TAP_V9990_SHOWN tap gets the frame as shown.
+/* Copies the chip without syncing it or touching any latch, on the emulator thread or under
+** a debugger view, which parks it; the EMU_TAP_V9990_SHOWN tap gets the frame as shown.
 ** Returns 0 and clears valid when there is none. */
 int v9990DebugCapture(int index, V9990DebugState* out);
 

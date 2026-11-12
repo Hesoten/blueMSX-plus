@@ -108,6 +108,8 @@
 #define CTRL_HUNT_START_WIDTH_DEFAULT     "u8"
 #define CTRL_KEY_HOW_DEFAULT              "tap"
 #define CTRL_SCREEN_AS_DEFAULT            "auto"
+#define CTRL_VDP_SHOW_DEFAULT             "registers"
+#define CTRL_VDP_CHIP_DEFAULT             "machine"
 
 /* What an argument of each kind must be, after "\"name\" must be ". */
 #define CTRL_TEXT_WANT_INT            "a whole number, as in 16 or \"0x10\""

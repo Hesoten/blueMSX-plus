@@ -212,9 +212,9 @@ int vdpDebugIsCartridge(int index);
 /* The name vdpDebugCapture gives VDP number index, or NULL when there is none. */
 const char* vdpDebugName(int index);
 
-/* Copies VDP number index without syncing it or touching any latch, so call
-** it only on the emulator thread at a frame boundary or while it waits.
-** Returns 0 and clears valid when there is no such VDP. */
+/* Copies VDP number index without syncing it or touching any latch: on the emulator thread
+** at a frame boundary or while it waits, or under a debugger view, which parks it (raster
+** then empty). Returns 0 and clears valid when there is no such VDP. */
 int vdpDebugCapture(int index, VdpDebugState* out);
 
 /* Copies the picture of VDP number index, on the same terms; with pixels 0

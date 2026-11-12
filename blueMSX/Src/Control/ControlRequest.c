@@ -131,6 +131,9 @@ static const CtrlArg typeArgs[] = {
 static const CtrlArg screenArgs[] = {
     { "as", CTRL_ARG_TEXT, 11 }, { "path", CTRL_ARG_TEXT, CTRL_PATH_MAX - 1 }, { NULL }
 };
+static const CtrlArg vdpArgs[] = {
+    { "show", CTRL_ARG_TEXT, 11 }, { "chip", CTRL_ARG_TEXT, 11 }, { NULL }
+};
 
 /* An op's args in its row; an array longer than CTRL_OP_ARGS_MAX and its { NULL } fails to compile. */
 #define OP_ARGS(a) ((a) + 0 * sizeof(char[sizeof(a) / sizeof((a)[0]) <= CTRL_OP_ARGS_MAX + 1 ? 1 : -1]))
@@ -255,6 +258,9 @@ static const CtrlOp opTable[] = {
     { "screen",            CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpScreen, OP_ARGS(screenArgs),
       CTRL_ACT_DENIED,
       "  screen       as = auto|text|png, path\n" },
+    { "vdp",               CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpVdp, OP_ARGS(vdpArgs),
+      CTRL_ACT_DENIED,
+      "  vdp          show = registers|palette, chip = machine|cartridge|v9990\n" },
 };
 
 static const CtrlOp* findOp(const char* name)
