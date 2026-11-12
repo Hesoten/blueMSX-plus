@@ -114,6 +114,7 @@ void mixerStopLog(Mixer* mixer);
 void mixerReset(Mixer* mixer);
 void mixerSync(Mixer* mixer);
 
+/* Returns 0 when every channel is taken; 0 is never a handle, and unregistering it does nothing. */
 Int32 mixerRegisterChannel(Mixer* mixer, Int32 audioType, Int32 stereo, 
                            MixerUpdateCallback callback, MixerSetSampleRateCallback rateCallback,
                            void*param);

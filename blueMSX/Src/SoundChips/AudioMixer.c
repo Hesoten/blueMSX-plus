@@ -629,7 +629,7 @@ Int32 mixerRegisterChannel(Mixer* mixer, Int32 audioType, Int32 stereo, MixerUpd
     MixerChannel*  channel = mixer->channels + mixer->channelCount;
     AudioTypeInfo* type    = mixer->audioTypeInfo + audioType;
 
-    if (mixer->channelCount == MAX_CHANNELS - 1) {
+    if (mixer->channelCount >= MAX_CHANNELS) {
         return 0;
     }
 
