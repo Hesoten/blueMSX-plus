@@ -43,6 +43,7 @@ enum { CHIP_MACHINE, CHIP_CARTRIDGE, CHIP_V9990 };
 static union {
     VdpDebugState   vdp;
     V9990DebugState v9990;
+    VdpRasterFrame  raster[2];
 } captured;
 
 /* The debug index of the machine's VDP (cartridge 0) or a cartridge's (1), or -1. */
@@ -256,6 +257,136 @@ static int refuseNoChip(CtrlCall* call, const char* wanted)
                            wanted, chips);
 }
 
+/* Room for a raster row, and for the note that the reply was cut after it. */
+#define RASTER_ROW_ROOM 512
+
+/* The events of a frame by line and cycle, rows of one line each; ties keep the order noted.
+** Returns 0 when the reply ran out of room first. */
+static int rasterEvents(CtrlText* text, const VdpRasterFrame* f)
+{
+    static VdpRasterEvent sorted[VDP_RASTER_MAX];
+    int count = f->count < VDP_RASTER_MAX ? f->count : VDP_RASTER_MAX;
+    int i;
+    int j;
+
+    for (i = 0; i < count; i++) {
+        VdpRasterEvent e = f->ev[i];
+
+        for (j = i; j > 0 && (sorted[j - 1].line > e.line ||
+                              (sorted[j - 1].line == e.line && sorted[j - 1].cycle > e.cycle)); j--) {
+            sorted[j] = sorted[j - 1];
+        }
+        sorted[j] = e;
+    }
+    for (i = 0; i < count; i++) {
+        if (text->capacity - text->length < RASTER_ROW_ROOM) {
+            return 0;
+        }
+        if (i == 0 || sorted[i].line != sorted[i - 1].line) {
+            ctrlTextAdd(text, "%sL%u", i == 0 ? "" : "\n", (unsigned)sorted[i].line);
+        }
+        if (sorted[i].kind == VDP_RASTER_LINEINT) {
+            ctrlTextAdd(text, " @%u R#19=%02X IRQ %s", (unsigned)sorted[i].cycle,
+                        sorted[i].value, sorted[i].aux ? "yes" : "no");
+        }
+        else {
+            ctrlTextAdd(text, " @%u R#%u %02X>%02X", (unsigned)sorted[i].cycle,
+                        (unsigned)sorted[i].reg, sorted[i].aux, sorted[i].value);
+        }
+    }
+    if (count > 0) {
+        ctrlTextAdd(text, "\n");
+    }
+    return 1;
+}
+
+/* One frame, numbered unless it came before frame 0; 0 when the reply has no room for it. */
+static int rasterFrame(CtrlText* text, const VdpRasterFrame* f, UInt32 frame, int numbered,
+                       const char* which, int displayOver)
+{
+    if (text->capacity - text->length < RASTER_ROW_ROOM * 6) {
+        return 0;
+    }
+    ctrlTextAdd(text, "\n%s frame", which);
+    if (numbered) {
+        ctrlTextAdd(text, " %u", (unsigned)frame);
+    }
+    ctrlTextAdd(text, ": complete=%d foreign=%d ", f->complete, f->foreign);
+    if (f->ended) {
+        ctrlTextAdd(text, "ended");
+    }
+    else {
+        ctrlTextAdd(text, "in progress, beam at line %d cycle %d", f->beamLine, f->beamCycle);
+        if (displayOver) {
+            ctrlTextAdd(text, " (display over: lines %d-%d still to run and may add events)",
+                        f->beamLine, f->lastLine - 1);
+        }
+    }
+    ctrlTextAdd(text, "; %d lines, display line 0 is frame line %d; %d events, %d dropped\n",
+                f->lastLine, f->firstLine, f->count, f->dropped);
+    ctrlTextAdd(text, "registers as it began:\n");
+    listBytes(text, "R#", 0, f->startRegs, 32);
+    return rasterEvents(text, f);
+}
+
+/* show=raster: the raster log of the machine's VDP, armed by a session's first call. */
+static int replyRaster(CtrlCall* call, int chip, const char* chipName)
+{
+    UInt32 frame = vdpGetMachineFrame();
+    int    index = vdpIndexOf(0);
+    int    displayOver;
+    int    whole = 1;
+    int    refused;
+
+    if (chip != CHIP_MACHINE) {
+        return ctrlReplyError(call, "no_such_chip", "only the machine's VDP keeps a raster log");
+    }
+    if ((refused = ctrlRefuseUnlessViewed(call)) != 0) {
+        return refused;
+    }
+    if (index < 0) {
+        return refuseNoChip(call, chipName);
+    }
+    describeChip(&call->text, chip, vdpDebugName(index));
+    if (!call->session->rasterHeld) {
+        int wasArmed = vdpRasterArm(1) > 0;
+
+        call->session->rasterHeld = 1;
+        if (!wasArmed) {
+            /* A capture now marks where the log starts, so the next frame reads as whole. */
+            vdpDebugCaptureRaster(captured.raster, &displayOver);
+            ctrlTextAdd(&call->text, "armed the raster log now: run or step a frame (bmsx_run "
+                        "how=frame), then read again\n");
+            jsonOutString(&call->out, "chip", chipName);
+            return ctrlReplyDone(call);
+        }
+        ctrlTextAdd(&call->text, "the raster log was already being kept (by the VDP Viewer or "
+                    "another connection); this connection holds it too\n");
+    }
+    ctrlTextAdd(&call->text,
+                "Lines are frame lines; a write takes effect on its line or the next. R#14-17, "
+                "R#32 on and writes of the value already there are not logged. complete=0: the "
+                "log was armed, the machine reset or a state loaded during the frame, so earlier "
+                "writes may be missing. foreign=1: something other than the program wrote the "
+                "registers during it.\n");
+    vdpDebugCaptureRaster(captured.raster, &displayOver);
+    if (!captured.raster[0].valid) {
+        ctrlTextAdd(&call->text, "nothing logged yet: run or step a frame (bmsx_run how=frame)\n");
+    }
+    else {
+        whole = rasterFrame(&call->text, &captured.raster[0], frame, 1, "current", displayOver);
+        if (whole && captured.raster[1].valid) {
+            whole = rasterFrame(&call->text, &captured.raster[1], frame - 1, frame != 0,
+                                "previous", 0);
+        }
+    }
+    if (!whole) {
+        ctrlTextAdd(&call->text, "\n... the reply was cut here: it holds no more\n");
+    }
+    jsonOutString(&call->out, "chip", chipName);
+    return ctrlReplyDone(call);
+}
+
 /* show=geo3d: the RUNs of the chip's geo3d, one RUN (run) or its faces or edges (item, a
 ** number or a range a-b). Arguments are checked before the machine has to be paused. */
 static int replyGeo3d(CtrlCall* call, int chip, const char* chipName)
@@ -392,8 +523,9 @@ int ctrlOpVdp(CtrlCall* call)
         chipName = CTRL_VDP_CHIP_DEFAULT;
     }
     if (strcmp(show, "registers") != 0 && strcmp(show, "palette") != 0 &&
-        strcmp(show, "geo3d") != 0 && strcmp(show, "vram") != 0) {
-        return ctrlReplyError(call, "bad_show", "\"show\" must be registers, palette, geo3d or vram");
+        strcmp(show, "geo3d") != 0 && strcmp(show, "vram") != 0 && strcmp(show, "raster") != 0) {
+        return ctrlReplyError(call, "bad_show",
+                              "\"show\" must be registers, palette, geo3d, vram or raster");
     }
     palette = strcmp(show, "palette") == 0;
     vram    = strcmp(show, "vram") == 0;
@@ -420,6 +552,9 @@ int ctrlOpVdp(CtrlCall* call)
     }
     if (vram && (refused = readVramRange(call, &at, &count)) != 0) {
         return refused;
+    }
+    if (strcmp(show, "raster") == 0) {
+        return replyRaster(call, chip, chipName);
     }
     if ((refused = ctrlRefuseUnlessViewed(call)) != 0) {
         return refused;

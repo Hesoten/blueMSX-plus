@@ -54,6 +54,7 @@
 #include "VideoManager.h"
 #include "FrameBuffer.h"
 #include "VDP.h"
+#include "VdpDebug.h"
 #include "RaceTest.h"
 #include <math.h>
 #include <string.h>
@@ -386,6 +387,7 @@ void emulatorCreateLocks(void)
     if (emuStateLock == NULL) {
         emuStateLock = archSemaphoreCreate(1);
     }
+    vdpRasterCreateLock();
 }
 
 /* With emuStateLock held: a step waiting for a change becomes a plain frame step. */

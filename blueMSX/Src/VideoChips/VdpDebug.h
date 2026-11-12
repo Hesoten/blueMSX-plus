@@ -67,7 +67,7 @@ typedef struct {
     int    displayOffset;   /* line of framebuffer row 0 */
     int    field;           /* S#2 bit 1 during the frame */
     int    blinkFlag;       /* at the frame's first event; R#13 and line blink change it within */
-    int    beamLine;        /* lastLine and 0 once ended */
+    int    beamLine;        /* lastLine and 0 once ended (vdpDebugCaptureRaster: the beam's) */
     int    beamCycle;
     UInt8  startRegs[64];   /* R#0-31 as the frame began; ev turns it into the end, bar R#14-17 */
     int    count;           /* entries of ev that are filled, in the order noted */
@@ -218,13 +218,20 @@ const char* vdpDebugName(int index);
 ** then empty). Returns 0 and clears valid when there is no such VDP. */
 int vdpDebugCapture(int index, VdpDebugState* out);
 
+/* The raster log of the machine's VDP under a debugger view, raster then being empty in
+** vdpDebugCapture. ended and the beam of [0] are the beam's, not the viewer's, which
+** *displayOver gets. Returns 0, with both not valid, when there is no machine VDP. */
+int vdpDebugCaptureRaster(VdpRasterFrame out[2], int* displayOver);
+
 /* Copies the picture of VDP number index, on the same terms; with pixels 0
 ** all but the samples. Returns 0 and clears valid when there is none. */
 int vdpDebugCaptureFrame(int index, VdpFrameShot* out, int pixels);
 
-/* Starts (on) or stops logging raster events of the machine's VDP; calls
-** nest. UI thread only. Each new start forgets what was logged before. */
-void vdpRasterArm(int on);
+/* Starts (on) or stops logging raster events of the machine's VDP; calls nest, and it
+** returns how many were armed before. Any thread. Each new start forgets what was logged. */
+int  vdpRasterArm(int on);
+/* Once, with the emulator's other locks, before any thread arms or captures the log. */
+void vdpRasterCreateLock(void);
 
 /* Nonzero while armed: the generation of the current start. */
 extern volatile int vdpRasterArmed;

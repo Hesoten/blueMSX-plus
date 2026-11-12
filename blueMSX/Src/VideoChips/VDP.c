@@ -38,6 +38,7 @@
 #include "DebugDeviceManager.h"
 #include "FrameBuffer.h"
 #include "ArchVideoIn.h"
+#include "ArchEvent.h"
 #include "Language.h"
 #include "VdpDebug.h"
 #include "Geo3DDevice.h"
@@ -3182,8 +3183,8 @@ static void dbgRegisterLayout(VDP* vdp, int* regCount, int* cmdRegCount,
     }
 }
 
-/* Raster log of theVdp: two frames in static buffers, filled on the emulator
-** thread only. A note from a new frame reuses the older buffer. */
+/* Raster log of theVdp: two frames in static buffers, filled by notes on the emulator
+** thread while it runs. A note from a new frame reuses the older buffer. */
 volatile int vdpRasterArmed;
 static int    rasterArmCount;
 static int    rasterGeneration;
@@ -3205,8 +3206,37 @@ static volatile int    rasterForeignSet[2];
 static int    rasterForeignNext;
 #define RASTER_HEAD (sizeof(VdpRasterFrame) - sizeof(rasterBuf[0].ev))
 
-void vdpRasterArm(int on)
+/* Between arms and captures on any thread. The notes take no lock: they run only while the
+** emulator thread runs, and captures, on it or under a view that parks it, take the lock. */
+static void* rasterLock;
+
+void vdpRasterCreateLock(void)
 {
+    if (rasterLock == NULL) {
+        rasterLock = archSemaphoreCreate(1);
+    }
+}
+
+static void rasterLockTake(void)
+{
+    if (rasterLock != NULL) {
+        archSemaphoreWait(rasterLock, -1);
+    }
+}
+
+static void rasterLockGive(void)
+{
+    if (rasterLock != NULL) {
+        archSemaphoreSignal(rasterLock);
+    }
+}
+
+int vdpRasterArm(int on)
+{
+    int before;
+
+    rasterLockTake();
+    before = rasterArmCount;
     if (on) {
         if (rasterArmCount++ == 0) {
             /* Wrapped by hand: a generation is never 0, which means not armed. */
@@ -3217,6 +3247,8 @@ void vdpRasterArm(int on)
     else if (rasterArmCount > 0 && --rasterArmCount == 0) {
         vdpRasterArmed = 0;
     }
+    rasterLockGive();
+    return before;
 }
 
 static int rasterIsForeign(UInt32 frameStart)
@@ -3245,7 +3277,7 @@ static void rasterBreak(VDP* vdp)
     rasterSettled = 0;
 }
 
-/* Emulator thread. Forgets the buffers when armed anew or the VDP changed. */
+/* From a note or a capture. Forgets the buffers when armed anew or the VDP changed. */
 static int rasterObserve(VDP* vdp, int reg, UInt8 old)
 {
     int    gen   = vdpRasterArmed;
@@ -3398,9 +3430,8 @@ static void rasterSetLength(VdpRasterFrame* f, VDP* vdp, int lines)
 /* At a frame tap the frame that just ended goes to [0]; while paused the one in progress
 ** does, with the beam, but as ended at the end of active display or after the early flip
 ** there. [1] is the frame before [0]. */
-static void rasterCapture(VDP* vdp, VdpDebugState* out)
+static void rasterCaptureHeld(VDP* vdp, VdpRasterFrame* r)
 {
-    VdpRasterFrame* r = out->raster;
     UInt32 now = boardSystemTime();
     UInt32 start;
     int    ended;
@@ -3462,6 +3493,13 @@ static void rasterCapture(VDP* vdp, VdpDebugState* out)
         r[1].beamLine  = r[1].lastLine;
         r[1].beamCycle = 0;
     }
+}
+
+static void rasterCapture(VDP* vdp, VdpRasterFrame* r)
+{
+    rasterLockTake();
+    rasterCaptureHeld(vdp, r);
+    rasterLockGive();
 }
 
 /* The index'th of the listed VDPs; each slot is read once. */
@@ -3599,9 +3637,9 @@ int vdpDebugCapture(int index, VdpDebugState* out)
     vramBytes = MIN(vramBytes, (int)MIN(sizeof(out->vram), sizeof(vdp->vram)));
     memcpy(out->vram, vdp->vram, vramBytes);
     memset(out->vram + vramBytes, 0, sizeof(out->vram) - vramBytes);
-    /* The raster log keeps its state on the emulator thread; other readers get none. */
+    /* Other threads read the raster log with vdpDebugCaptureRaster, under a view. */
     if (emulatorIsEmuThread()) {
-        rasterCapture(vdp, out);
+        rasterCapture(vdp, out->raster);
     }
     else {
         memset(&out->raster[0], 0, RASTER_HEAD);
@@ -3609,6 +3647,26 @@ int vdpDebugCapture(int index, VdpDebugState* out)
     }
     out->frameStartTime = vdp->frameStartTime;
     geo3dDebugCapture(vdp->secondary ? vdp : NULL, &out->geo3d);
+    return 1;
+}
+
+int vdpDebugCaptureRaster(VdpRasterFrame out[2], int* displayOver)
+{
+    memset(&out[0], 0, RASTER_HEAD);
+    memset(&out[1], 0, RASTER_HEAD);
+    *displayOver = 0;
+    if (theVdp == NULL) {
+        return 0;
+    }
+    rasterCapture(theVdp, out);
+    if (out[0].valid) {
+        UInt32 t = boardSystemTime() - out[0].frameStart;
+
+        *displayOver     = out[0].ended;
+        out[0].beamLine  = (int)(t / HPERIOD);
+        out[0].beamCycle = (int)(t % HPERIOD);
+        out[0].ended     = out[0].beamLine >= out[0].lastLine;
+    }
     return 1;
 }
 

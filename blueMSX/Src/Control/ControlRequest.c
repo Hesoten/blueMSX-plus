@@ -268,9 +268,10 @@ static const CtrlOp opTable[] = {
       "  screen       as = auto|text|png, path\n" },
     { "vdp",               CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpVdp, OP_ARGS(vdpArgs),
       CTRL_ACT_DENIED,
-      "  vdp          show = registers|palette|geo3d|vram,\n"
+      "  vdp          show = registers|palette|geo3d|vram|raster,\n"
       "               chip = machine|cartridge|v9990, run, item (geo3d only),\n"
-      "               at, count (vram only)\n" },
+      "               at, count (vram only); raster: machine only, the first\n"
+      "               call arms the log\n" },
     { "trace.arm",         CTRL_OP_LOOKS,   CTRL_OP_SELF, ctrlOpTraceArm, OP_ARGS(traceArmArgs),
       CTRL_ACT_DENIED,
       "  trace.arm    class = geo3d,vdpcmd,vdpreg (held by this connection)\n" },
