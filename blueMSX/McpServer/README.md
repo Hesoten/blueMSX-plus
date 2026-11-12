@@ -291,15 +291,14 @@ What the agent cannot do, and what it does instead:
 | Save a state to a file, or load one | A snapshot keeps one state in memory. To start from a state file, use `--state` when starting the emulator. |
 | Change the emulation speed | `--speed` when starting the emulator. |
 | Record and replay a session | Not possible. |
-| Run for a number of frames | It waits a given time for a stop, or steps a number of instructions. |
 | Breakpoints with a condition or a hit count | A watch can stop only when a value is written that compares as asked. |
 | Stop when memory, video memory or a port is read | Watches stop on writes and on OUT only. |
 | Watch a bank that is not switched in | A breakpoint on that bank. |
 | Write to an I/O port | Not possible. |
-| Decode what was written to the VDP, the palette or the sprites | It reads the VDP registers and a screenshot. |
+| Decode the sprites or what else was written to the VDP | It reads each video chip's registers, palette and video memory, the machine VDP's raster log, and a screenshot. |
 | List a BASIC program, break on a BASIC line, read BASIC variables | It types `LIST` and reads the screen, and reads memory (on a machine with BASIC). |
 | Use an assembler listing (`.lst`) for labels | Give it the symbol file (`.sld`, `.sym`, `.noi`, `.map`). |
-| Trace, profile, measure code coverage, assemble into memory, act as a DAP debugger, or show graphical viewers | Not possible. |
+| Trace the CPU, profile, measure code coverage, assemble into memory, act as a DAP debugger, or show graphical viewers | Not possible. |
 
 ## If something goes wrong
 
@@ -336,16 +335,19 @@ session, with no note.
 ## Paused and running: what works when
 
 The machine is inspected only while it is paused. Reading memory, registers,
-the stack, disassembly, the bank list, a hunt and the text screen needs a
-paused machine, and so do memory and register writes, undo, bank switches and
-snapshots. On a running machine those calls are refused with `not_paused`.
+the stack, disassembly, the bank list, a hunt, the text screen and the video
+chips needs a paused machine, and so do memory and register writes, undo,
+bank switches and snapshots. On a running machine those calls are
+refused with `not_paused`.
 Nothing pauses the machine behind your back. Mistakes in the arguments are
 reported before `not_paused`.
 
 To get a paused machine:
 
 - `bmsx_run how=pause`. This also works in Read Only, where the user
-  resumes the machine: Read Only cannot resume, step or `run_until`.
+  resumes the machine: Read Only cannot resume, step (`how=frame` and
+  `how=change` included) or `run_until`.
+- `bmsx_run how=frame`, which runs to the end of the frame and pauses there.
 - `bmsx_run_until` until a breakpoint or a watch stops it.
 - `bmsx_run_until timeout_ms=N pause_at_timeout=true`: a wait that times out
   pauses the machine. To look at a running program now and then, read, then
@@ -357,8 +359,9 @@ or VDP), `bmsx_slots` (without the `*` marks of switched banks),
 `bmsx_mem_resolve` of a `vram:` address or of a segment past the end,
 breakpoints and watches (set, clear, list), `bmsx_hunt op=end`, `bmsx_key`
 and `bmsx_type`, `bmsx_screen as=png` (`as=auto` gives the PNG),
-`bmsx_symbols`, `bmsx_reset`, `bmsx_run how=pause` and `how=resume`, and
-`bmsx_run_until`. Stepping is refused with `not_paused`.
+`bmsx_symbols`, `bmsx_trace`, `bmsx_reset`, `bmsx_run how=pause`,
+`how=resume`, `how=frame` and `how=change`, and `bmsx_run_until`.
+`how=step`, `step_over` and `step_out` are refused with `not_paused`.
 
 What the paging of a running machine would decide is not answered while it
 runs, as it can be another answer a moment later. `bmsx_mem_resolve` of a
@@ -382,7 +385,7 @@ Every tool that takes an address accepts these forms:
 | `slot1.0:seg5+0x100` | Offset 0x100 in segment 5 of slot 1, subslot 0, whether or not it is paged in. |
 | `slot0.0+0x0100` | Z80 address 0x0100 in a slot that reports no segments; readable only while that slot is paged into that Z80 page. |
 | `ram:seg12+0x1A30` | Offset 0x1A30 in segment 12 of the memory mapper in the slot page 3 (0xC000-0xFFFF) shows. If page 3 shows another slot, the machine's built-in mapper; machines without a memory mapper (most MSX1) cannot use it. The reply says which slot it took. |
-| `vram:0x1B00` | Video memory, at the address the program uses through the VDP (R#14 and ports 0x98/0x99, or a VDP command). In SCREEN 7, 8 and 10-12 the VDP interleaves its two 64 kB banks, so vram:0x8001 is not the 0x8001st byte of the chips; the tools still mean the program's address. |
+| `vram:0x1B00` | Video memory, at the address the program uses through the VDP (R#14 and ports 0x98/0x99, or a VDP command). In SCREEN 7, 8 and 10-12 the VDP interleaves its two 64 kB banks, so vram:0x8001 is not the 0x8001st byte of the chips; the tools still mean the program's address. A V9968 does not interleave them in SP3, and with 256 kB interleaves each 128 kB half on its own. |
 
 A segment is what the user part calls a bank. Every address the tools print
 is in one of these forms and can be passed back unchanged. A Z80 address is
@@ -413,16 +416,19 @@ there are, by slot; on a machine with none, use `0xC000` or
 `slotX.Y+0xC000`. A `bmsx_reg_write` value given as `ram:...` gets the same
 line.
 
-`bmsx_mem_read`, `bmsx_mem_write` and `bmsx_undo` take the same `vram:`
-address: an undo puts the bytes back where the write went, even after a
-screen mode change, and says so. On a 64 kB VDP in SCREEN 7 or 8 an odd
-`vram:` address has no video memory behind it and is refused
+`bmsx_mem_read`, `bmsx_mem_write` and `bmsx_undo` take the same `vram:` address:
+an undo puts the bytes back where the write went, even after a screen mode
+change (the V9968's SP3 included), and says so. On a 64 kB VDP in SCREEN 7 or 8
+an odd `vram:` address has no video memory behind it and is refused
 (`out_of_range`). Expansion video memory (vram:0x20000-0x2FFFF, the V9938 MXC
-expansion) is numbered as the chips are, in every screen mode.
+expansion) is numbered as the chips are, in every screen mode. A 256 kB V9968
+instead takes `vram:` up to 0x3FFFF, and its upper 128 kB follows the same rule
+as the lower, numbered the same even while V58 in R#21 keeps the program out of
+it.
 
 `vram:` is always the VDP's video memory. A V9990 (GFX9000, Video9000) and a
-V9968 cartridge have their own, which the tools cannot read, write, watch or
-search.
+V9968 cartridge have their own: `bmsx_vdp show=vram` reads it, but the tools
+cannot write, watch or search it.
 
 When the bytes the CPU reads at an address differ from what the segment
 stores (SCC registers, flash status and the like), a read says so and gives
@@ -433,15 +439,17 @@ the segment address of the stored bytes.
 | Tool | More |
 |---|---|
 | `bmsx_status` | The segment in each Z80 page shows both 8 kB halves on an 8 kB mapper, as `seg3,seg5`. While paused also whether the CPU is the Z80 or the R800 (turbo R), and the screen mode, named as BASIC does (`SCREEN 1`, `SCREEN 0 WIDTH 80`), or that the mode bits are mixed or undefined. With a V9990 (GFX9000, Video9000), while paused, it also says whether the V9990's picture is shown, in which mode, and whether it is superimposed on the VDP's (with a V9968 cartridge, whether its picture is shown and in which mode); the vdp lines still describe the VDP (V9938, V9958 or TMS99x8), not the V9990. While running, the machine's name and the frames run instead. |
-| `bmsx_mem_resolve` | In SCREEN 7, 8 and 10-12, while paused, it also gives the chips' byte number for a `vram:` address, which is where the debugger window's VRAM view shows the byte. |
+| `bmsx_mem_resolve` | In SCREEN 7, 8 and 10-12 (not in the V9968's SP3), while paused, it also gives the chips' byte number for a `vram:` address, which is where the debugger window's VRAM view shows the byte. |
 | `bmsx_stack` | A frame is marked when no CALL, RST or HALT ends just before it in the segment paged in now, since its label may then be wrong. |
 | `bmsx_dasm` | From a Z80 address it reads on as the Z80 sees memory and says where another slot or segment starts, up to 0xFFFF; from a segment address it stops at the end of that segment. |
+| `bmsx_vdp` | `chip` picks the machine's VDP (the default), a V9968 cartridge's or a V9990's. `show=raster` (the machine's VDP only) only starts the log on its first call, so run or step a frame and read again. |
+| `bmsx_trace` | Recording is held per connection: `op=arm` starts it and the end of the connection drops it. About 57000 recent records stay readable, so pause or step frames between reads. |
 
 Read Only allows the reading tools (`bmsx_status`, `bmsx_slots`, the bank
 list, `bmsx_mem_read`, `bmsx_mem_resolve`, `bmsx_stack`, `bmsx_dasm`,
-`bmsx_symbols`, `bmsx_hunt`, `bmsx_screen` without a path, and the
-breakpoint and watch lists) and `bmsx_run how=pause`; everything else needs
-Full.
+`bmsx_symbols`, `bmsx_hunt`, `bmsx_screen` without a path, `bmsx_vdp`,
+`bmsx_trace`, and the breakpoint and watch lists) and `bmsx_run how=pause`;
+everything else needs Full.
 
 Errors name the argument at fault. An argument the tool does not take, a
 required one left out, a value of the wrong type, or a word not in the
@@ -461,14 +469,15 @@ The other errors about the machine and the emulator:
   open or the window is being moved or resized.
 - `read_only`: Agent Control is Read Only. `revoked`: it was set to Off.
 
-With no machine these still work: `bmsx_status`, the breakpoint and watch
-lists, symbol lookups, `clear_all`, and clearing a watch by the address
-`op=list` printed. A single breakpoint cannot be cleared then: the
-breakpoints set here stay and are armed again when the machine starts, so
-clear them then, or use `clear_all`.
+With no machine these still work: `bmsx_status`, the breakpoint and watch lists,
+symbol lookups, `clear_all`, `bmsx_trace`, and clearing a watch by the address
+`op=list` printed. A single breakpoint cannot be cleared then: the breakpoints
+set here stay and are armed again when the machine starts, so clear them then,
+or use `clear_all`.
 
-A request the client cancels, or whose connection closes, ends there and gets
-no reply.
+A request the client cancels, or whose connection closes, ends there and gets no
+reply. A connection's hunt, `bmsx_trace` arms and `show=raster` log end with it;
+a cancelled call reconnects, so start them again.
 
 ## Writing memory and undo
 
@@ -649,17 +658,17 @@ condition that compares. At most 64 watches can be set through the socket.
 Watches stay until cleared.
 
 A video memory watch watches the address as the VDP lays memory out at each
-write. If the program changes screen mode between the SCREEN 0-6 layout and
-the SCREEN 7/8/10-12 one, the same `vram:` address is another byte; a stop
-then says the watch was set in the other layout. In SCREEN 7, 8 and 10-12 a
-stop also gives the chips' byte number, as the debugger window shows it.
-Plugin and debugger-window watches keep using the chips' own byte numbers. A
-VDP command that started before a screen mode change goes on with the layout
-it started in, and its writes are reported in the layout the VDP has now. On
-a VDP with 64 kB, a watch on an odd address in SCREEN 7 or 8 is refused:
-there is no video memory behind it. There, a VDP command can also write at
-vram:0x10000 and above, which the tools refuse as past the end: such writes
-can be neither read nor watched.
+write. If the program changes between a linear layout (SCREEN 0-6, or any screen
+mode under the V9968's SP3) and the interleaved one of SCREEN 7/8/10-12, the
+same `vram:` address is another byte; a stop then says the watch was set in the
+other layout. In SCREEN 7, 8 and 10-12 (not in the V9968's SP3) a stop also
+gives the chips' byte number, as the debugger window shows it. Plugin and
+debugger-window watches keep using the chips' own byte numbers. A VDP command
+that started before a screen mode change goes on with the layout it started in,
+and its writes are reported in the layout the VDP has now. On a VDP with 64 kB,
+a watch on an odd address in SCREEN 7 or 8 is refused: there is no video memory
+behind it. There, a VDP command can also write at vram:0x10000 and above, which
+the tools refuse as past the end: such writes can be neither read nor watched.
 
 ## Breakpoints in other banks, code not paged in, and when they are dropped
 
@@ -707,6 +716,17 @@ says so. `step_out` refuses when the stack holds no return address the CPU
 recorded, for example at the top of a main loop; `step_over` and `step_out`
 report their finish as a step. Read Only applies to new requests, and a step
 loop in progress ends at once.
+
+`how=frame` runs to the end of the frame on the screen and pauses there, as the
+emulator's own frame step does: the rest of the frame in progress, which after a
+frame stop is one whole frame; `count` repeats it, up to 100 times. `how=change`
+(with `count` 1) runs on to the first frame whose picture differs from the one
+on the screen, and gives up after 300 frames, saying so. Both report the stop as
+`frame`, with the machine frame number; a breakpoint or a watch met on the way
+ends them and is reported instead, and one at PC stops them at once. They are
+refused with `busy` while the emulator's own frame step, a step back (a frame or
+to the previous screen update), reverse play or a hold begun from a pause is
+under way, and leave it alone.
 
 ## Resetting, snapshots and flash
 
