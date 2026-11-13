@@ -19,6 +19,8 @@ extern "C" {
 
 const int EG_SH = 16;	// 16.16 fixed point (EG timing)
 const unsigned int EG_TIMER_OVERFLOW = 1 << EG_SH;
+static const unsigned LOAD_DELAY = 6341;
+static const unsigned BUSY_DELAY = 56;	// longest BUSY delay, also armed by the MoonSound glue
 
 // envelope output entries
 const int ENV_BITS      = 10;
@@ -580,7 +582,7 @@ void YMF278::writeRegOPL4(byte reg, byte data, const EmuTime &time)
 {
 	// busy-until time in board clock ticks (21.48 MHz); the memory
 	// access registers 3-6 respond faster (values measured on hardware)
-	BUSY_Time = time + ((reg >= 3 && reg <= 6) ? 18 : 56);
+	BUSY_Time = time + ((reg >= 3 && reg <= 6) ? 18 : BUSY_DELAY);
 
 	// Handle slot registers specifically
 	if (reg >= 0x08 && reg <= 0xF7) {
@@ -589,7 +591,7 @@ void YMF278::writeRegOPL4(byte reg, byte data, const EmuTime &time)
 		switch ((reg - 8) / 24) {
 		case 0: {
 			// instrument load takes about 300us
-			LD_Time = time + 6341;
+			LD_Time = time + LOAD_DELAY;
 			slot.wave = (slot.wave & 0x100) | data;
 			int base = (slot.wave < 384 || !wavetblhdr) ?
 			           (slot.wave * 12) :
@@ -814,12 +816,12 @@ byte YMF278::readRegOPL4(byte reg, const EmuTime &time)
 
 byte YMF278::peekStatus(const EmuTime &time)
 {
-	// BUSY_Time and LD_Time hold busy-until timestamps
+	// a deadline further away than the longest delay armed on it has wrapped
 	byte result = 0;
-	if ((int)(BUSY_Time - time) > 0) {
+	if ((unsigned)(BUSY_Time - time) - 1 < BUSY_DELAY) {
 		result |= 0x01;
 	}
-	if ((int)(LD_Time - time) > 0) {
+	if ((unsigned)(LD_Time - time) - 1 < LOAD_DELAY) {
 		result |= 0x02;
 	}
 	return result;
