@@ -38,8 +38,6 @@
 #include <intrin.h>
 #endif
 
-#define V9990_INT       0x1000
-
 #define IRQ_VI          0x01
 #define IRQ_HI          0x02
 #define IRQ_CE          0x04
@@ -327,10 +325,10 @@ static int adjustOffset(int nibble)
 static void updateIrq(V9990* v9990)
 {
     if (v9990->pending & v9990->regs[R_INT_ENABLE] & 0x07) {
-        boardSetInt(V9990_INT);
+        boardSetInt(BOARD_INT_V9990);
     }
     else {
-        boardClearInt(V9990_INT);
+        boardClearInt(BOARD_INT_V9990);
     }
 }
 
@@ -2258,7 +2256,7 @@ void v9990Destroy(V9990* v9990)
     boardTimerDestroy(v9990->timerHi);
     boardTimerDestroy(v9990->timerCe);
 
-    boardClearInt(V9990_INT);
+    boardClearInt(BOARD_INT_V9990);
 
     videoManagerUnregister(v9990->videoHandle);
     frameBufferDataDestroy(v9990->frameBufferData);

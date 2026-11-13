@@ -194,7 +194,7 @@ void y8950Write(Y8950* y8950, UInt16 ioPort, UInt8 value)
         case 0x04:
             if (value & 0x80) {
                 /* IRQ flag clear: enable / mask bits unaffected. */
-                boardClearInt(0x10);
+                boardClearInt(BOARD_INT_Y8950);
             }
             else {
                 if (value & 0x01) {
@@ -314,7 +314,7 @@ void y8950LoadState(Y8950* y8950)
     y8950CancelTimer(y8950, 1);
     y8950->timerEnabled1 = 0;
     y8950->timerEnabled2 = 0;
-    boardClearInt(0x10);
+    boardClearInt(BOARD_INT_Y8950);
 
     y8950->address       = (UInt8)saveStateGet(state, "address",       0);
     y8950->timerValue1   =        saveStateGet(state, "timerValue1",   0);
@@ -385,7 +385,7 @@ void y8950Reset(Y8950* y8950)
     y8950->timerEnabled2 = 0;
     y8950CancelTimer(y8950, 0);
     y8950CancelTimer(y8950, 1);
-    boardClearInt(0x10);
+    boardClearInt(BOARD_INT_Y8950);
     if (y8950->backend) y8950->backend->reset();
 }
 

@@ -36,8 +36,6 @@
 
 #define VDP_PORT   0x88
 #define GEO3D_PORT 0x8d
-/* Free board interrupt bits; the next two above it go to IE1 and CEIE. */
-#define INT_BASE   0x2000
 
 typedef struct {
     int deviceHandle;
@@ -146,7 +144,7 @@ int romMapperV9968CartCreate(int slot, int sslot)
 {
     DeviceCallbacks callbacks = { destroy, reset, saveState, loadState };
     VdpSecondaryConfig config = {
-        VDP_PORT, INT_BASE, "V9968 Cartridge", "vdpCart", "vdpCartCommandEngine", frameDone, NULL
+        VDP_PORT, BOARD_INT_V9968_CART_IE0, "V9968 Cartridge", "vdpCart", "vdpCartCommandEngine", frameDone, NULL
     };
     RomMapperV9968Cart* rm;
     int i;

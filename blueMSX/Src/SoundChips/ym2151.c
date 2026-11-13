@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -87,7 +90,7 @@ void ym2151SetIrq(void* ptr, int timer)
     YM2151* ym2151 = (YM2151*)ptr;
     if (ym2151->irqState == 0) {
         boardSetDataBus(ym2151->irqVector, 0, 0);
-		boardSetInt(0x40);
+		boardSetInt(BOARD_INT_YM2151);
     }
     ym2151->irqState |= timer;
 }
@@ -97,7 +100,7 @@ void ym2151ClearIrq(void* ptr, int timer)
     YM2151* ym2151 = (YM2151*)ptr;
     ym2151->irqState &= ~timer;
     if (ym2151->irqState == 0) {
-		boardClearInt(0x40);
+		boardClearInt(BOARD_INT_YM2151);
     }
 }
 

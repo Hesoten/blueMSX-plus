@@ -60,9 +60,6 @@ typedef struct {
 	int rxrdyIRQenabled;
 } MSXMidi;
 
-#define INT_TMR   0x100
-#define INT_RXRDY 0x200
-
 
 static UInt8 readIo(MSXMidi* msxMidi, UInt16 ioPort);
 static void writeIo(MSXMidi* msxMidi, UInt16 ioPort, UInt8 value);
@@ -129,8 +126,8 @@ static void destroy(MSXMidi* msxMidi)
 
 static void reset(MSXMidi* msxMidi) 
 {
-    boardClearInt(INT_TMR);
-    boardClearInt(INT_RXRDY);
+    boardClearInt(BOARD_INT_MSX_MIDI_TMR);
+    boardClearInt(BOARD_INT_MSX_MIDI_RXRDY);
 
 	msxMidi->timerIRQlatch   = 0;
 	msxMidi->timerIRQenabled = 0;
@@ -152,10 +149,10 @@ static void setTimerIRQ(MSXMidi* msxMidi, int status)
 		msxMidi->timerIRQlatch = status;
 		if (msxMidi->timerIRQenabled) {
 			if (msxMidi->timerIRQlatch) {
-                boardSetInt(INT_TMR);
+                boardSetInt(BOARD_INT_MSX_MIDI_TMR);
 			} 
             else {
-                boardClearInt(INT_TMR);
+                boardClearInt(BOARD_INT_MSX_MIDI_TMR);
 			}
 		}
 
@@ -169,10 +166,10 @@ static void enableTimerIRQ(MSXMidi* msxMidi, int enabled)
 		msxMidi->timerIRQenabled = enabled;
 		if (msxMidi->timerIRQlatch) {
 			if (msxMidi->timerIRQenabled) {
-                boardSetInt(INT_TMR);
+                boardSetInt(BOARD_INT_MSX_MIDI_TMR);
 			} 
             else {
-                boardClearInt(INT_TMR);
+                boardClearInt(BOARD_INT_MSX_MIDI_TMR);
 			}
 		}
         i8254SetGate(msxMidi->i8254, 2, msxMidi->timerIRQenabled && !msxMidi->timerIRQlatch);
@@ -185,10 +182,10 @@ static void setRxRDYIRQ(MSXMidi* msxMidi, int status)
 		msxMidi->rxrdyIRQlatch = status;
 		if (msxMidi->rxrdyIRQenabled) {
 			if (msxMidi->rxrdyIRQlatch) {
-                boardSetInt(INT_RXRDY);
+                boardSetInt(BOARD_INT_MSX_MIDI_RXRDY);
 			}
             else {
-                boardClearInt(INT_RXRDY);
+                boardClearInt(BOARD_INT_MSX_MIDI_RXRDY);
 			}
 		}
 	}
@@ -199,7 +196,7 @@ static void enableRxRDYIRQ(MSXMidi* msxMidi, int enabled)
 	if (msxMidi->rxrdyIRQenabled != enabled) {
 		msxMidi->rxrdyIRQenabled = enabled;
 		if (!msxMidi->rxrdyIRQenabled && msxMidi->rxrdyIRQlatch) {
-            boardClearInt(INT_RXRDY);
+            boardClearInt(BOARD_INT_MSX_MIDI_RXRDY);
 		}
 	}
 }
@@ -248,7 +245,7 @@ static void setRts(MSXMidi* msxMidi, int status)
 
 static int getDtr(MSXMidi* msxMidi)
 {
-    return boardGetInt(INT_TMR) ? 1 : 0;
+    return boardGetInt(BOARD_INT_MSX_MIDI_TMR) ? 1 : 0;
 }
 
 static int getRts(MSXMidi* msxMidi)

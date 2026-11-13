@@ -60,10 +60,10 @@ class IRQHelper
 public:
     IRQHelper() {}
     static void set() {
-        boardSetInt(0x8);
+        boardSetInt(BOARD_INT_YMF262);
     }
     static void reset() {
-        boardClearInt(0x8);
+        boardClearInt(BOARD_INT_YMF262);
     }
 };
 

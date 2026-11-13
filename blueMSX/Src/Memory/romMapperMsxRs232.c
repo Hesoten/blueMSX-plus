@@ -69,9 +69,6 @@
 #define CMD_RESET  0x40
 #define CMD_HUNT   0x80
 
-/* The VDP owns board interrupt bit 0x01; this mapper must not share it. */
-#define MSX_RS232_INT 0x80
-
 typedef struct {
     int deviceHandle;
     int debugHandle;
@@ -124,10 +121,10 @@ static void loadState(MSXRs232* msxRs232)
     i8254LoadState(msxRs232->i8254);
 
     if (msxRs232->rxrdyIRQlatch && msxRs232->rxrdyIRQenabled) {
-        boardSetInt(MSX_RS232_INT);
+        boardSetInt(BOARD_INT_MSX_RS232);
     }
     else {
-        boardClearInt(MSX_RS232_INT);
+        boardClearInt(BOARD_INT_MSX_RS232);
     }
 }
 
@@ -141,7 +138,7 @@ static void destroy(MSXRs232* msxRs232)
     ioPortUnregister(0x86, msxRs232);
     ioPortUnregister(0x87, msxRs232);
        
-    boardClearInt(MSX_RS232_INT);
+    boardClearInt(BOARD_INT_MSX_RS232);
 
     i8251Destroy(msxRs232->i8251);
     i8254Destroy(msxRs232->i8254);
@@ -162,7 +159,7 @@ static void reset(MSXRs232* msxRs232)
     msxRs232->intmask = 0;
     msxRs232->rxrdyIRQlatch   = 0;
     msxRs232->rxrdyIRQenabled = 0;
-    boardClearInt(MSX_RS232_INT);
+    boardClearInt(BOARD_INT_MSX_RS232);
 }
 
 /*****************************************
@@ -240,7 +237,7 @@ static void enableRxRDYIRQ(MSXRs232* msxRs232, int enabled)
     if (msxRs232->rxrdyIRQenabled != enabled) {
         msxRs232->rxrdyIRQenabled = enabled;
         if (!msxRs232->rxrdyIRQenabled && msxRs232->rxrdyIRQlatch) {
-            boardClearInt(MSX_RS232_INT);
+            boardClearInt(BOARD_INT_MSX_RS232);
         }
     }
 }
@@ -296,10 +293,10 @@ static void setRxReady(MSXRs232* msxRs232, int status)
         msxRs232->rxrdyIRQlatch = status;
         if (msxRs232->rxrdyIRQenabled) {
             if (msxRs232->rxrdyIRQlatch) {
-                boardSetInt(MSX_RS232_INT);
+                boardSetInt(BOARD_INT_MSX_RS232);
             }
             else {
-                boardClearInt(MSX_RS232_INT);
+                boardClearInt(BOARD_INT_MSX_RS232);
             }
         }
     }

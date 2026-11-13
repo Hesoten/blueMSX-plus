@@ -44,10 +44,6 @@
 ** here when the user has put it there, and the rhythm is silent otherwise. */
 #define MAKOTO_RHYTHM_ROM    "Machines/Shared Roms/ym2608_rhythm.rom"
 
-/* /IRQ is wired to the MSX /INT. The board keeps one bit per interrupt
-** source, and no other device raises this one. */
-#define MAKOTO_IRQ_MASK      0x20
-
 typedef struct {
     YM2608* ym2608;
     int     deviceHandle;
@@ -134,7 +130,7 @@ int romMapperMakotoCreate(int slot, int sslot)
 
     rhythmRom = romLoad(MAKOTO_RHYTHM_ROM, NULL, &rhythmRomSize);
     rm->ym2608 = ym2608Create(boardGetMixer(), MAKOTO_CLOCK, MAKOTO_ADPCM_RAM,
-                              rhythmRom, rhythmRomSize, MAKOTO_IRQ_MASK);
+                              rhythmRom, rhythmRomSize, BOARD_INT_MAKOTO);
     free(rhythmRom);
 
     for (i = 0; i < 4; i++) {

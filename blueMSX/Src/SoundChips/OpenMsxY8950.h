@@ -46,10 +46,10 @@ class MsxAudioIRQHelper
 public:
     MsxAudioIRQHelper() {}
     static void set() {
-        boardSetInt(0x10);
+        boardSetInt(BOARD_INT_Y8950);
     }
     static void reset() {
-        boardClearInt(0x10);
+        boardClearInt(BOARD_INT_Y8950);
     }
 };
 
