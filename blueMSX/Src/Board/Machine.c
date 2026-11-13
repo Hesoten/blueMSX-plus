@@ -1368,7 +1368,7 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
         }
 
         if (machine->slotInfo[i].romType == ROM_MAKOTO) {
-            success &= romMapperMakotoCreate();
+            success &= romMapperMakotoCreate(-1, 0);
             continue;
         }
 

@@ -266,7 +266,7 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
         break;
 
     case ROM_MAKOTO:
-        success &= romMapperMakotoCreate();
+        success &= romMapperMakotoCreate(slot, sslot);
         break;
 
     case ROM_GIDE:
