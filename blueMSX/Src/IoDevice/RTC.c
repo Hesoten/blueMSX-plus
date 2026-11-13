@@ -272,6 +272,7 @@ static void rtcWriteData(RTC* rtc, UInt16 ioPort, UInt8 value)
         return;
 
     case 0x0f:
+        rtcUpdateRegs(rtc);
         rtc->resetReg = value;
 
         if (value & RESET_ALARM) {
