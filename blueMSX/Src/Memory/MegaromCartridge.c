@@ -110,6 +110,7 @@
 #include "romMapperMegaFlashRomSccPlusSD.h"
 #include "romMapperRookieDrive.h"
 #include "romMapperGfx9000.h"
+#include "romMapperV9968Cart.h"
 #include "romMapperASCII16X.h"
 #include "romMapperNeo8.h"
 #include "romMapperNeo16.h"
@@ -161,12 +162,34 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
 
     // Delete old cartridge
     slotRemove(slot, sslot);
+    slotClearContents(slot, sslot);
 
     if (cart == NULL) {
         return 0;
     }
 
     mixerBeginDevice(boardGetMixer(), slot, sslot, slotGetRegistrationCount(slot, sslot));
+    /* Named here because no mapper keeps the file it was built from. */
+    {
+        const char* leaf = strrchr(romName, '\\');
+        const char* slash = strrchr(romName, '/');
+        char text[96];
+
+        /* A path can mix the two, as in C:\blueMSX\Machines/Shared Roms/X.rom. */
+        if (leaf == NULL || (slash != NULL && slash > leaf)) {
+            leaf = slash;
+        }
+        leaf = leaf != NULL ? leaf + 1 : romName;
+
+        /* An SRAM cartridge such as PAC has no file, so only its type names it. */
+        if (leaf[0] == 0) {
+            sprintf(text, "%.40s", romTypeToString(romType));
+        }
+        else {
+            sprintf(text, "%.48s (%.40s)", leaf, romTypeToString(romType));
+        }
+        slotAddContents(slot, sslot, text);
+    }
 
     switch (romType) {
     case ROM_EXTRAM16KB:
@@ -237,6 +260,10 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
 
     case ROM_VIDEO9000:
         success &= romMapperVideo9000Create(slot, sslot);
+        break;
+
+    case ROM_V9968CART:
+        success &= romMapperV9968CartCreate(slot, sslot);
         break;
 
     case ROM_GIDE:

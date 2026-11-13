@@ -40,4 +40,14 @@ typedef struct R800Debug R800Debug;
 void r800DebugCreate(R800* r800);
 void r800DebugDestroy();
 
+/* Whether the running CPU is in R800 mode. Only while a machine exists. */
+int r800DebugIsR800(void);
+
+/* Whether the CPU waits in a HALT, where a breakpoint fires only on arriving. */
+int r800DebugWaitsInHalt(void);
+
+/* Whether the CPU is parked in a breakpoint stop (a step over or out ends in one too),
+** between two instructions with the breakpoint at PC already tested. */
+int r800DebugStoppedBeforeInstruction(void);
+
 #endif

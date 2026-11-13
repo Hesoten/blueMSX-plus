@@ -1,6 +1,6 @@
 # Assemble a blueMSX+ distribution zip from MSBuild outputs.
 # Ships the main executable plus the TraceWindow / Trainer / SimpleDebugger
-# plugins. DeviceViewer is intentionally excluded.
+# plugins and the bluemsx-mcp.exe MCP server with its guide. DeviceViewer is intentionally excluded.
 #
 # The entire blueMSX/ReleaseFiles/ tree is included so the zip is
 # self-contained: end users no longer need to install upstream blueMSX
@@ -17,9 +17,9 @@ $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
 $msvc = Join-Path $repo 'blueMSX/Make/msvc2022'
 
-# The solution maps Final to Release for the plugin projects.
+# The solution maps Final to Release for the plugin and MCP server projects.
 $plugCfg = if ($Config -eq 'Final') { 'Release' } else { $Config }
-$plugins = @('TraceWindow.dll', 'Trainer.dll', 'SimpleDebugger.dll')
+$plugins = @('TraceWindow.dll', 'Trainer.dll', 'SimpleDebugger.dll', 'bluemsx-mcp.exe')
 
 $exeName = 'blueMSX+.exe'
 if ($Platform -eq 'x64') {
@@ -58,6 +58,13 @@ try {
         $src = Join-Path $pluginDir $p
         if (Test-Path $src) { Copy-Item $src $tools }
         else { Write-Warning "Plugin missing (not packaged): $src" }
+    }
+
+    # The MCP server guide sits next to bluemsx-mcp.exe; its language links follow the new names.
+    foreach ($lang in @('', '.ja')) {
+        $text = Get-Content -Raw -Encoding UTF8 (Join-Path $repo "blueMSX/McpServer/README$lang.md")
+        $text = $text.Replace('(README.ja.md)', '(bluemsx-mcp.ja.md)').Replace('(README.md)', '(bluemsx-mcp.md)')
+        [IO.File]::WriteAllText((Join-Path $tools "bluemsx-mcp$lang.md"), $text)
     }
 
     $outDir = Split-Path -Parent $OutZip

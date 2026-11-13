@@ -1,5 +1,6 @@
 EXPORTS
 Create12
+Create13
 Destroy
 Show
 NotifyEmulatorStart

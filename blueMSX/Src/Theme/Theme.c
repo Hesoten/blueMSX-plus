@@ -726,6 +726,21 @@ void themePageActivate(ThemePage* themePage, void* window)
     }
 }
 
+int themePageHasMeter(ThemePage* themePage)
+{
+    ThemeItem* item;
+
+    if (themePage == NULL) {
+        return 0;
+    }
+    for (item = themePage->itemList; item != NULL; item = item->next) {
+        if (item->type == ITEM_METER) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 void themePageUpdate(ThemePage* themePage, void* dc)
 {
     ThemeItem* item;

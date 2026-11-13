@@ -302,6 +302,7 @@ char* langErrorCreateDiskImage() { return ls->errorCreateDiskImage; }
 char* langErrorCreateTapeImage() { return ls->errorCreateTapeImage; }
 char* langErrorNoCasInZip() { return ls->errorNoCasInZip; }
 char* langErrorUnknownFileType() { return ls->errorUnknownFileType; }
+char* langErrorCartV9968WithV9990() { return ls->errorCartV9968WithV9990; }
 char* langErrorDirDiskTooLarge() { return ls->errorDirDiskTooLarge; }
 char* langErrorDirDiskOnline() { return ls->errorDirDiskOnline; }
 char* langErrorDirDiskSubdirs() { return ls->errorDirDiskSubdirs; }
@@ -323,6 +324,12 @@ char* langErrorStartEmuMachinesDirMissing() { return ls->errorStartEmuMachinesDi
 char* langErrorStartEmuMachineNotFound()    { return ls->errorStartEmuMachineNotFound; }
 char* langErrorStartEmuConfigInvalid()      { return ls->errorStartEmuConfigInvalid; }
 char* langErrorMissingFiles() { return ls->errorMissingFiles; }
+char* langErrorFlashInvalid()      { return ls->errorFlashInvalid; }
+char* langErrorFlashSramSize()     { return ls->errorFlashSramSize; }
+char* langErrorFlashUnreadable()   { return ls->errorFlashUnreadable; }
+char* langErrorFlashNotKept()      { return ls->errorFlashNotKept; }
+char* langErrorFlashFixFile()      { return ls->errorFlashFixFile; }
+char* langErrorFlashFixInUse()     { return ls->errorFlashFixInUse; }
 char* langErrorPortableReadonly()  {return ls->errorPortableReadonly; }
 char* langErrorMidiOpenFailed()    { return ls->errorMidiOpenFailed; }
 char* langInfoColorDepth()                 { return ls->infoColorDepth; }
@@ -510,7 +517,81 @@ char* langMixerDevicesPan() { return ls->mixerDevicesPan; }
 char* langMixerDevicesLevel() { return ls->mixerDevicesLevel; }
 char* langMixerDevicesSlot() { return ls->mixerDevicesSlot; }
 char* langMixerDevicesBoard() { return ls->mixerDevicesBoard; }
+char* langMenuToolsVdpViewer() { return ls->menuToolsVdpViewer; }
+char* langMenuToolsControlDeck() { return ls->menuToolsControlDeck; }
 char* langMenuToolsLoadMemory() { return ls->menuToolsLoadMemory; }
+char* langMenuToolsAgentControl() { return ls->menuToolsAgentControl; }
+char* langMenuToolsAgentActivity() { return ls->menuToolsAgentActivity; }
+char* langMenuAgentOff() { return ls->menuAgentOff; }
+char* langMenuAgentReadOnly() { return ls->menuAgentReadOnly; }
+char* langMenuAgentFull() { return ls->menuAgentFull; }
+char* langActivityTitle() { return ls->activityTitle; }
+char* langActivityListening() { return ls->activityListening; }
+char* langActivityNotListening() { return ls->activityNotListening; }
+char* langActivityStillClosing() { return ls->activityStillClosing; }
+char* langActivityNoTool() { return ls->activityNoTool; }
+char* langActivityRevokedTag() { return ls->activityRevokedTag; }
+char* langActivityConnected() { return ls->activityConnected; }
+char* langActivityColTime() { return ls->activityColTime; }
+char* langActivityColClient() { return ls->activityColClient; }
+char* langActivityColOperation() { return ls->activityColOperation; }
+char* langActivityColTarget() { return ls->activityColTarget; }
+char* langActivityColResult() { return ls->activityColResult; }
+char* langActivityFailed() { return ls->activityFailed; }
+char* langActivityFailedWhy() { return ls->activityFailedWhy; }
+char* langActivityWhyNoMachine() { return ls->activityWhyNoMachine; }
+char* langActivityWhyNotPaused() { return ls->activityWhyNotPaused; }
+char* langActivityWhyBusy() { return ls->activityWhyBusy; }
+char* langActivityWhyBadAddress() { return ls->activityWhyBadAddress; }
+char* langActivityWhyOutOfRange() { return ls->activityWhyOutOfRange; }
+char* langActivityNotKeptSame() { return ls->activityNotKeptSame; }
+char* langActivityNotKeptRom() { return ls->activityNotKeptRom; }
+char* langActivityNotKeptChange() { return ls->activityNotKeptChange; }
+char* langActivityWhyReadOnly() { return ls->activityWhyReadOnly; }
+char* langActivityWhyCutOff() { return ls->activityWhyCutOff; }
+char* langActivityWasNow() { return ls->activityWasNow; }
+char* langActivityNow() { return ls->activityNow; }
+char* langActivityWas() { return ls->activityWas; }
+char* langActivityRefused() { return ls->activityRefused; }
+char* langActivityTimedOut() { return ls->activityTimedOut; }
+char* langActivityInstructions() { return ls->activityInstructions; }
+char* langActivityCandidates() { return ls->activityCandidates; }
+char* langActivityLeft() { return ls->activityLeft; }
+char* langActivityDropped() { return ls->activityDropped; }
+char* langActivityVerbRead() { return ls->activityVerbRead; }
+char* langActivityVerbWrite() { return ls->activityVerbWrite; }
+char* langActivityVerbRun() { return ls->activityVerbRun; }
+char* langActivityVerbPause() { return ls->activityVerbPause; }
+char* langActivityVerbStep() { return ls->activityVerbStep; }
+char* langActivityVerbReset() { return ls->activityVerbReset; }
+char* langActivityVerbBreakSet() { return ls->activityVerbBreakSet; }
+char* langActivityVerbBreakClear() { return ls->activityVerbBreakClear; }
+char* langActivityVerbWatchSet() { return ls->activityVerbWatchSet; }
+char* langActivityVerbWatchClear() { return ls->activityVerbWatchClear; }
+char* langActivityVerbHuntStart() { return ls->activityVerbHuntStart; }
+char* langActivityVerbHuntRefine() { return ls->activityVerbHuntRefine; }
+char* langActivityVerbHuntList() { return ls->activityVerbHuntList; }
+char* langActivityVerbHuntEnd() { return ls->activityVerbHuntEnd; }
+char* langActivityVerbConnect() { return ls->activityVerbConnect; }
+char* langActivityVerbDisconnect() { return ls->activityVerbDisconnect; }
+char* langActivityVerbRevoked() { return ls->activityVerbRevoked; }
+char* langActivityVerbKeyTap() { return ls->activityVerbKeyTap; }
+char* langActivityVerbLoadSymbols() { return ls->activityVerbLoadSymbols; }
+char* langActivityVerbUndo() { return ls->activityVerbUndo; }
+char* langActivityVerbSnapshot() { return ls->activityVerbSnapshot; }
+char* langActivityVerbRegWrite() { return ls->activityVerbRegWrite; }
+char* langActivityVerbBankSwitch() { return ls->activityVerbBankSwitch; }
+char* langActivityVerbScreenSave() { return ls->activityVerbScreenSave; }
+char* langActivityVerbType() { return ls->activityVerbType; }
+char* langActivityVerbResetSoft() { return ls->activityVerbResetSoft; }
+char* langActivityVerbKeyPress() { return ls->activityVerbKeyPress; }
+char* langActivityVerbKeyRelease() { return ls->activityVerbKeyRelease; }
+char* langActivityVerbSnapshotRestore() { return ls->activityVerbSnapshotRestore; }
+char* langActivityVerbStepOver() { return ls->activityVerbStepOver; }
+char* langActivityVerbStepOut() { return ls->activityVerbStepOut; }
+char* langActivityVerbRunUntilStop() { return ls->activityVerbRunUntilStop; }
+char* langActivityVerbBreakClearAll() { return ls->activityVerbBreakClearAll; }
+char* langActivityVerbScreenText() { return ls->activityVerbScreenText; }
 char* langMenuToolsDebugger() { return ls->menuToolsDebugger; }
 char* langMenuToolsTrainer() { return ls->menuToolsTrainer; }
 char* langMenuToolsTraceLogger() { return ls->menuToolsTraceLogger; }
@@ -1003,6 +1084,10 @@ char* langShortcutSwitchPause() { return ls->shortcutSwitchPause; }
 char* langShortcutToggleMouseLock() { return ls->shortcutToggleMouseLock; }
 char* langShortcutEmuSpeedMax() { return ls->shortcutEmuSpeedMax; }
 char* langShortcutEmuPlayReverse() { return ls->shortcutEmuPlayReverse; }
+char* langShortcutEmuFrameAdvance() { return ls->shortcutEmuFrameAdvance; }
+char* langShortcutEmuAdvanceToChange() { return ls->shortcutEmuAdvanceToChange; }
+char* langShortcutEmuBackFrame() { return ls->shortcutEmuBackFrame; }
+char* langShortcutEmuBackToChange() { return ls->shortcutEmuBackToChange; }
 char* langShortcutEmuSpeedMaxToggle() { return ls->shortcutEmuSpeedToggle; }
 char* langShortcutEmuSpeedNormal() { return ls->shortcutEmuSpeedNormal; }
 char* langShortcutEmuSpeedInc() { return ls->shortcutEmuSpeedInc; }
@@ -1156,6 +1241,7 @@ char* langRomTypeSvi727col80() { return ls->romTypeSvi727col80; }
 char* langRomTypeColecoCart() { return ls->romTypeColecoCart; }
 char* langRomTypeSg1000Cart() { return ls->romTypeSg1000Cart; }
 char* langRomTypeSc3000Cart() { return ls->romTypeSc3000Cart; }
+char* langRomTypeV9968Cart() { return ls->romTypeV9968Cart; }
 char* langRomTypeTheCastle() { return "SG-1000 The Castle"; }
 char* langRomTypeSonyHbi55() { return "Sony HBI-55"; }
 char* langRomTypeMsxPrinter() { return ls->romTypeMsxPrinter; }
@@ -1252,6 +1338,7 @@ char* langDbgDevTms99x8A() { return "TMS99x8A"; }
 char* langDbgDevTms9918A() { return "TMS9918A"; }
 char* langDbgDevV9938() { return "V9938"; }
 char* langDbgDevV9958() { return "V9958"; }
+char* langDbgDevV9968() { return "V9968"; }
 char* langDbgDevZ80() { return "Z80"; }
 char* langDbgDevMsxMidi() { return "MSX MIDI"; }
 char* langDbgDevPpi() { return "PPI"; }
@@ -1260,6 +1347,12 @@ char* langDbgDevTrPause() { return ls->dbgDevTrPause; }
 char* langDbgDevAy8910() { return "AY8910 PSG"; }
 char* langDbgDevScc() { return "SCC"; }
 
+
+//----------------------
+// Tool windows
+//----------------------
+
+char* langToolStr(int id) { return id >= 0 && id < TS_COUNT ? ls->tool[id] : ""; }
 
 //----------------------
 // Debug type lines

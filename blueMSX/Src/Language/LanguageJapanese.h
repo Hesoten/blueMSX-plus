@@ -87,6 +87,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->errorCreateTapeImage    = "テープイメージファイルを作成できませんでした。";
     ls->errorNoCasInZip         = "zipファイルの中に.casファイルが見つかりません。";
     ls->errorUnknownFileType    = "ファイルを開けません。ファイルの種類が不明です。";
+    ls->errorCartV9968WithV9990 = "V9968 カートリッジと GFX9000・Video9000 は、どちらも画面を切り換えるため同時には挿せません。先にもう一方のカートリッジを取り出してください。";
     ls->errorDirDiskTooLarge    = "%d 個のファイルがディスクに収まらず除外されました。";
     ls->errorDirDiskOnline      = "%d 個のオンラインのみのファイルが除外されました。含めるには、このデバイス上で利用できるようにしてください。";
     ls->errorDirDiskSubdirs     = "%d 個のサブディレクトリが、選択した形式では扱えないため除外されました。";
@@ -108,6 +109,12 @@ void langInitJapanese(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "選択されたマシン構成 '%s' が見つかりません。";
     ls->errorStartEmuConfigInvalid       = "マシン構成 '%s' の config.ini を読み込めませんでした。ファイルが破損しているか、非互換のバージョンの可能性があります。";
     ls->errorMissingFiles       = "以下のファイルが読み込めませんでした:";
+    ls->errorFlashInvalid       = "「%s」のセーブデータが壊れているため、読み込めませんでした。";
+    ls->errorFlashSramSize      = "「%s」のセーブデータのサイズが合わないため、読み込めませんでした。";
+    ls->errorFlashUnreadable    = "「%s」のセーブデータを開けませんでした。ほかのプログラムが使用中の可能性があります。";
+    ls->errorFlashNotKept       = "このまま起動はできますが、セーブしても保存されません。";
+    ls->errorFlashFixFile       = "解決するには、以下のファイルを削除または退避してから、起動しなおしてください。";
+    ls->errorFlashFixInUse      = "解決するには、以下のファイルを使っているプログラムを閉じてから、起動しなおしてください。";
     ls->errorPortableReadonly   = "ポータブルデバイスは読込専用です。";
     ls->errorMidiOpenFailed     = "MIDI デバイス '%s' の open に失敗しました。他のアプリケーションが使用中の可能性があります。";
     ls->infoTitle                  = "blueMSX+ 情報";
@@ -296,10 +303,84 @@ void langInitJapanese(LanguageStrings* ls)
     ls->mixerDevicesLevel       = "レベル";
     ls->mixerDevicesSlot        = "スロット";
     ls->mixerDevicesBoard       = "本体";
+    ls->menuToolsVdpViewer      = "VDP ビューア";
+    ls->menuToolsControlDeck    = "コントロールデッキ";
     ls->menuToolsDebugger       = "デバッガー";
     ls->menuToolsTrainer        = "トレーナー";
     ls->menuToolsTraceLogger    = "トレースロガー";
     ls->menuToolsLoadMemory     = "メモリ読み込み";
+    ls->menuToolsAgentControl   = "エージェント制御";
+    ls->menuToolsAgentActivity  = "エージェントの操作履歴...";
+    ls->menuAgentOff            = "許可しない";
+    ls->menuAgentReadOnly       = "読み取りのみ";
+    ls->menuAgentFull           = "書き込みも許可";
+    ls->activityTitle        = "blueMSX+ エージェントの操作履歴";
+    ls->activityListening    = "127.0.0.1:%d で待ち受け中     権限: %s";
+    ls->activityNotListening = "待ち受けていません。ツール → エージェント制御 で「読み取りのみ」か「書き込みも許可」を選んでください。";
+    ls->activityStillClosing = "まだ待ち受けていません。エージェント制御をオフにする前のリクエストがまだ終わっていません。少し待ってから「読み取りのみ」か「書き込みも許可」を選び直してください。";
+    ls->activityNoTool       = "接続しているツールはありません。";
+    ls->activityRevokedTag   = "遮断中";
+    ls->activityConnected    = "接続中: %s";
+    ls->activityColTime      = "時刻";
+    ls->activityColClient    = "クライアント";
+    ls->activityColOperation = "操作";
+    ls->activityColTarget    = "対象";
+    ls->activityColResult    = "結果";
+    ls->activityFailed       = "失敗";
+    ls->activityFailedWhy    = "失敗 (%s)";
+    ls->activityWhyNoMachine = "エミュレーター停止中";
+    ls->activityWhyNotPaused = "一時停止していない";
+    ls->activityWhyBusy      = "エミュレーター側で操作中";
+    ls->activityWhyBadAddress = "アドレスが不正";
+    ls->activityWhyOutOfRange = "値が範囲外";
+    ls->activityNotKeptSame  = "反映されず (%s のまま)";
+    ls->activityNotKeptRom   = "ROM のため反映されず (%s のまま)";
+    ls->activityNotKeptChange = "反映されず (%s)";
+    ls->activityWhyReadOnly  = "権限が「読み取りのみ」";
+    ls->activityWhyCutOff    = "接続を遮断中";
+    ls->activityWasNow       = "変更前 %s 変更後 %s";
+    ls->activityNow          = "変更後 %s";
+    ls->activityWas          = "変更前 %s";
+    ls->activityRefused      = "拒否 (%s)";
+    ls->activityTimedOut     = "待ち時間切れ";
+    ls->activityInstructions = "%u 命令";
+    ls->activityCandidates   = "候補 %u 個";
+    ls->activityLeft         = "残り %u 個";
+    ls->activityDropped      = "破棄した古い行: %u";
+    ls->activityVerbRead       = "読み取り";
+    ls->activityVerbWrite      = "書き込み";
+    ls->activityVerbRun        = "実行再開";
+    ls->activityVerbPause      = "一時停止";
+    ls->activityVerbStep       = "ステップ実行";
+    ls->activityVerbReset      = "ハードリセット";
+    ls->activityVerbBreakSet   = "ブレーク設定";
+    ls->activityVerbBreakClear = "ブレーク解除";
+    ls->activityVerbWatchSet   = "ウォッチ設定";
+    ls->activityVerbWatchClear = "ウォッチ解除";
+    ls->activityVerbHuntStart  = "値の検索開始";
+    ls->activityVerbHuntRefine = "値の絞り込み";
+    ls->activityVerbHuntList   = "候補の表示";
+    ls->activityVerbHuntEnd    = "値の検索終了";
+    ls->activityVerbConnect    = "接続";
+    ls->activityVerbDisconnect = "切断";
+    ls->activityVerbRevoked    = "権限変更で遮断";
+    ls->activityVerbKeyTap     = "キーを押して離す";
+    ls->activityVerbLoadSymbols = "シンボル読み込み";
+    ls->activityVerbUndo       = "書き込みの取り消し";
+    ls->activityVerbSnapshot   = "スナップショットを取る";
+    ls->activityVerbRegWrite   = "レジスタ変更";
+    ls->activityVerbBankSwitch = "バンク切り替え";
+    ls->activityVerbScreenSave = "スクリーンショット保存";
+    ls->activityVerbType       = "文字列入力";
+    ls->activityVerbResetSoft  = "ソフトリセット";
+    ls->activityVerbKeyPress   = "キーを押す";
+    ls->activityVerbKeyRelease = "キーを離す";
+    ls->activityVerbSnapshotRestore = "スナップショットに戻す";
+    ls->activityVerbStepOver   = "ステップオーバー";
+    ls->activityVerbStepOut    = "ステップアウト";
+    ls->activityVerbRunUntilStop = "停止まで実行";
+    ls->activityVerbBreakClearAll = "ブレークをすべて解除";
+    ls->activityVerbScreenText = "画面の文字を読む";
 
     ls->menuFile                = "ファイル";
     ls->menuRun                 = "実行";
@@ -815,6 +896,10 @@ void langInitJapanese(LanguageStrings* ls)
     ls->shortcutToggleMouseLock = "PC のマウスを MSX に接続/解除";
     ls->shortcutEmuSpeedMax     = "エミュレーション実行速度を最速化";
     ls->shortcutEmuPlayReverse  = "巻き戻し再生";
+    ls->shortcutEmuFrameAdvance = "1 フレーム進める";
+    ls->shortcutEmuAdvanceToChange = "次の画面更新まで進める";
+    ls->shortcutEmuBackFrame    = "1 フレーム戻す";
+    ls->shortcutEmuBackToChange = "前の画面更新まで戻す";
     ls->shortcutEmuSpeedToggle  = "最速動作の有無";
     ls->shortcutEmuSpeedNormal  = "エミュレーション実行速度を標準化";
     ls->shortcutEmuSpeedInc     = "エミュレーション速度を加速";
@@ -912,6 +997,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->romTypeColecoCart       = "Coleco Cartridge";
     ls->romTypeSg1000Cart       = "SG-1000 Cartridge";
     ls->romTypeSc3000Cart       = "SC-3000 Cartridge";
+    ls->romTypeV9968Cart        = "V9968 カートリッジ";
     ls->romTypeMsxPrinter       = "MSX Printer";
     ls->romTypeTurborPcm        = "Turbo-R PCM Chip";
     ls->romTypeNms8280Digitiz   = "Philips NMS-8280 Digitizer";
@@ -952,6 +1038,15 @@ void langInitJapanese(LanguageStrings* ls)
     ls->dbgDevSvi80Col          = "SVI 80 Column";
     ls->dbgDevRtc               = "RTC";
     ls->dbgDevTrPause           = "TR Pause";
+
+
+    //----------------------
+    // Tool windows
+    //----------------------
+
+#define TS(id, en, ja) if (*ja) ls->tool[TS_##id] = ja;
+#include "LanguageToolStrings.h"
+#undef TS
 
 
     //----------------------

@@ -31,6 +31,8 @@
 #ifndef LANGUAGE_STRINGS_H
 #define LANGUAGE_STRINGS_H
 
+#include "LanguageToolIds.h"
+
 typedef struct {
     //----------------------
     // Language lines
@@ -82,6 +84,7 @@ typedef struct {
     char* errorCreateTapeImage;
     char* errorNoCasInZip;
     char* errorUnknownFileType;
+    char* errorCartV9968WithV9990;
     char* errorDirDiskTooLarge;
     char* errorDirDiskOnline;
     char* errorDirDiskSubdirs;
@@ -104,6 +107,13 @@ typedef struct {
     char* errorStartEmuMachineNotFound;   /* %s = machine name */
     char* errorStartEmuConfigInvalid;     /* %s = machine name */
     char* errorMissingFiles;
+    /* A flash save file left unused: the cause, then NotKept, a Fix line and the path. */
+    char* errorFlashInvalid;              /* %s = software name */
+    char* errorFlashSramSize;             /* %s = software name */
+    char* errorFlashUnreadable;           /* %s = software name */
+    char* errorFlashNotKept;
+    char* errorFlashFixFile;              /* after Invalid or SramSize */
+    char* errorFlashFixInUse;             /* after Unreadable */
     char* errorPortableReadonly;
     char* errorMidiOpenFailed;            /* %s = device name */
     char* infoColorDepth;
@@ -290,7 +300,81 @@ typedef struct {
     char* mixerDevicesLevel;
     char* mixerDevicesSlot;
     char* mixerDevicesBoard;
+    char* menuToolsVdpViewer;
+    char* menuToolsControlDeck;
     char* menuToolsLoadMemory;
+    char* menuToolsAgentControl;
+    char* menuToolsAgentActivity;
+    char* menuAgentOff;
+    char* menuAgentReadOnly;
+    char* menuAgentFull;
+    char* activityTitle;
+    char* activityListening;
+    char* activityNotListening;
+    char* activityStillClosing;
+    char* activityNoTool;
+    char* activityRevokedTag;
+    char* activityConnected;
+    char* activityColTime;
+    char* activityColClient;
+    char* activityColOperation;
+    char* activityColTarget;
+    char* activityColResult;
+    char* activityFailed;
+    char* activityFailedWhy;
+    char* activityWhyNoMachine;
+    char* activityWhyNotPaused;
+    char* activityWhyBusy;
+    char* activityWhyBadAddress;
+    char* activityWhyOutOfRange;
+    char* activityNotKeptSame;
+    char* activityNotKeptRom;
+    char* activityNotKeptChange;
+    char* activityWhyReadOnly;
+    char* activityWhyCutOff;
+    char* activityWasNow;
+    char* activityNow;
+    char* activityWas;
+    char* activityRefused;
+    char* activityTimedOut;
+    char* activityInstructions;
+    char* activityCandidates;
+    char* activityLeft;
+    char* activityDropped;
+    char* activityVerbRead;
+    char* activityVerbWrite;
+    char* activityVerbRun;
+    char* activityVerbPause;
+    char* activityVerbStep;
+    char* activityVerbReset;
+    char* activityVerbBreakSet;
+    char* activityVerbBreakClear;
+    char* activityVerbWatchSet;
+    char* activityVerbWatchClear;
+    char* activityVerbHuntStart;
+    char* activityVerbHuntRefine;
+    char* activityVerbHuntList;
+    char* activityVerbHuntEnd;
+    char* activityVerbConnect;
+    char* activityVerbDisconnect;
+    char* activityVerbRevoked;
+    char* activityVerbKeyTap;
+    char* activityVerbLoadSymbols;
+    char* activityVerbUndo;
+    char* activityVerbSnapshot;
+    char* activityVerbRegWrite;
+    char* activityVerbBankSwitch;
+    char* activityVerbScreenSave;
+    char* activityVerbType;
+    char* activityVerbResetSoft;
+    char* activityVerbKeyPress;
+    char* activityVerbKeyRelease;
+    char* activityVerbSnapshotRestore;
+    char* activityVerbStepOver;
+    char* activityVerbStepOut;
+    char* activityVerbRunUntilStop;
+    char* activityVerbBreakClearAll;
+    char* activityVerbScreenText;
     char* menuToolsDebugger;
     char* menuToolsTrainer;
     char* menuToolsTraceLogger;
@@ -787,6 +871,10 @@ typedef struct {
     char* propControlsMouseSens;
     char* shortcutEmuSpeedMax;
     char* shortcutEmuPlayReverse;
+    char* shortcutEmuFrameAdvance;
+    char* shortcutEmuAdvanceToChange;
+    char* shortcutEmuBackFrame;
+    char* shortcutEmuBackToChange;
     char* shortcutEmuSpeedToggle;
     char* shortcutEmuSpeedNormal;
     char* shortcutEmuSpeedInc;
@@ -892,6 +980,7 @@ typedef struct {
     char* romTypeColecoCart;
     char* romTypeSg1000Cart;
     char* romTypeSc3000Cart;
+    char* romTypeV9968Cart;
 
     char* romTypeMsxPrinter;
     char* romTypeTurborPcm;
@@ -936,6 +1025,13 @@ typedef struct {
 
     char* dbgDevRtc;
     char* dbgDevTrPause;
+
+
+    //----------------------
+    // Tool windows
+    //----------------------
+
+    char* tool[TS_COUNT];
 
 
     //----------------------

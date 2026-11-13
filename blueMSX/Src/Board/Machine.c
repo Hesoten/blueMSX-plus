@@ -35,9 +35,11 @@
 #include "ArchGlob.h"
 #include <string.h>
 #include <ctype.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include "ArchFile.h"
 #include "MediaDb.h"
+#include "SlotManager.h"
 #include "TokenExtract.h"
 #include "Disk.h"
 #include "unzip.h"
@@ -278,6 +280,7 @@ static int readMachine(Machine* machine, const char* machineName, const char* fi
     else if (0 == strcmp(buffer, "TMS9929A")) machine->video.vdpVersion = VDP_TMS9929A;
     else if (0 == strcmp(buffer, "TMS99x8A")) machine->video.vdpVersion = VDP_TMS99x8A;
     else if (0 == strcmp(buffer, "TMS9918A")) machine->video.vdpVersion = VDP_TMS9918A;
+    else if (0 == strcmp(buffer, "V9968"))    machine->video.vdpVersion = VDP_V9968;
     else { iniFileClose(configIni); return 0; }
 
     iniFileGetString(configIni, "Video", "vram size", "none", buffer, 10000);
@@ -285,6 +288,7 @@ static int readMachine(Machine* machine, const char* machineName, const char* fi
     else if (0 == strcmp(buffer, "64kB")) machine->video.vramSize = 64 * 1024;
     else if (0 == strcmp(buffer, "128kB")) machine->video.vramSize = 128 * 1024;
     else if (0 == strcmp(buffer, "192kB")) machine->video.vramSize = 192 * 1024;
+    else if (0 == strcmp(buffer, "256kB")) machine->video.vramSize = 256 * 1024;
     else { iniFileClose(configIni); return 0; }
 
     // Read CMOS info
@@ -542,6 +546,7 @@ void machineSave(Machine* machine)
     case VDP_TMS9929A:  iniFileWriteString(configIni, "Video", "version", "TMS9929A"); break;
     case VDP_TMS99x8A:  iniFileWriteString(configIni, "Video", "version", "TMS99x8A"); break;
     case VDP_TMS9918A:  iniFileWriteString(configIni, "Video", "version", "TMS9918A"); break;
+    case VDP_V9968:     iniFileWriteString(configIni, "Video", "version", "V9968"); break;
     }
 
     sprintf(buffer, "%dkB", machine->video.vramSize / 0x400);
@@ -896,6 +901,10 @@ void machineUpdate(Machine* machine)
             machine->video.vramSize = 16 * 1024;
         }
     }
+    else if (machine->video.vdpVersion == VDP_V9968) {
+        /* The part carries its 256kB on the die. */
+        machine->video.vramSize = 256 * 1024;
+    }
     else if (machine->video.vdpVersion == VDP_V9958) {
         if (machine->video.vramSize >= 192 * 1024) {
             machine->video.vramSize = 192 * 1024;
@@ -1059,6 +1068,45 @@ void machineSaveState(Machine* machine)
     saveStateClose(state);
 }
 
+/* Names match the machine editor's, so the debugger and the editor agree. */
+static void recordSlotContents(const SlotInfo* slotInfo, const char* romName, int size)
+{
+    const char* leaf;
+    const char* slash;
+    char text[96];
+
+    /* I/O only devices take no memory here; leave the name to the ROM that does. */
+    if (slotInfo->pageCount == 0) {
+        return;
+    }
+
+    if (slotInfo->romType == RAM_MAPPER) {
+        sprintf(text, "Memory mapper %d kB", size / 1024);
+    }
+    else if (slotInfo->romType == RAM_NORMAL) {
+        sprintf(text, "RAM %d kB", size / 1024);
+    }
+    else {
+        leaf  = strrchr(romName, '\\');
+        slash = strrchr(romName, '/');
+        /* A path can mix the two, as in C:\blueMSX\Machines/Shared Roms/X.rom. */
+        if (leaf == NULL || (slash != NULL && slash > leaf)) {
+            leaf = slash;
+        }
+        leaf = leaf != NULL ? leaf + 1 : romName;
+
+        /* An SRAM device such as PAC has no file, so only its type names it. */
+        if (leaf[0] == 0) {
+            sprintf(text, "%.40s", romTypeToString(slotInfo->romType));
+        }
+        else {
+            sprintf(text, "%.48s (%.40s)", leaf, romTypeToString(slotInfo->romType));
+        }
+    }
+
+    slotAddContents(slotInfo->slot, slotInfo->subslot, text);
+}
+
 int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UInt32* mainRamStart)
 {
     UInt8* ram       = NULL;
@@ -1126,6 +1174,9 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
         subslot   = machine->slotInfo[i].subslot;
         startPage = machine->slotInfo[i].startPage;
         size      = 0x2000 * machine->slotInfo[i].pageCount;
+
+        /* Must be here: once the mappers are up, nothing ties a slot to its file. */
+        recordSlotContents(&machine->slotInfo[i], romName, size);
 
         if (machine->slotInfo[i].romType == RAM_NORMAL) {
             if (ram == NULL && startPage == 0) {

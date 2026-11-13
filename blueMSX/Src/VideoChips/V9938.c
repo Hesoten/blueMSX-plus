@@ -18,6 +18,7 @@
 #include "Board.h"
 #include "SaveState.h"
 #include "DebugDeviceManager.h"
+#include "DebugTrace.h"
 
 /*************************************************************
 ** Different compilers inline C functions differently.
@@ -55,24 +56,32 @@
 */
 static UInt8 scratch[1];
 static int tmp;
-#define VDP_VRMP5R(s, X, Y) ((s)->vramRead + (((Y & 1023) << 7) + (((X & 255) >> 1)) & (s)->maskRead))
-#define VDP_VRMP6R(s, X, Y) ((s)->vramRead + (((Y & 1023) << 7) + (((X & 511) >> 2)) & (s)->maskRead))
-#define VDP_VRMP7R(s, X, Y) ((s)->vramRead + (((Y &  511) << 7) + ((((X & 511) >> 2) + ((X & 2) << 15))) & (s)->maskRead))
-#define VDP_VRMP8R(s, X, Y) ((s)->vramRead + (((Y &  511) << 7) + ((((X & 255) >> 1) + ((X & 1) << 16))) & (s)->maskRead))
+/* Interleaving rotates a line address so bit 0 lands at bit 16, putting the odd
+** bytes in the upper 64kB of the 128kB half A17 picks. The screen decides it,
+** so a forced Graphic4 address is rotated too. */
+#define VDP_ILVA(s, a) ((s)->interleave ? (((a) & 0x20000) | (((a) & 1) << 16) | (((a) >> 1) & 0xffff)) : (a))
+#define VDP_LINE5(s, X, Y) (((Y & (s)->yMask) << 7) + ((X & 255) >> 1))
+#define VDP_LINE7(s, X, Y) (((Y & ((s)->yMask | (s)->yHigh)) << 8) + ((X & 511) >> 1))
+#define VDP_LINE8(s, X, Y) (((Y & ((s)->yMask | (s)->yHigh)) << 8) + (X & 255))
+
+#define VDP_VRMP5R(s, X, Y) ((s)->vramRead + (VDP_ILVA(s, VDP_LINE5(s, X, Y)) & (s)->maskRead))
+#define VDP_VRMP6R(s, X, Y) ((s)->vramRead + (((Y & (s)->yMask) << 7) + (((X & 511) >> 2)) & (s)->maskRead))
+#define VDP_VRMP7R(s, X, Y) ((s)->vramRead + (VDP_ILVA(s, VDP_LINE7(s, X, Y)) & (s)->maskRead))
+#define VDP_VRMP8R(s, X, Y) ((s)->vramRead + (VDP_ILVA(s, VDP_LINE8(s, X, Y)) & (s)->maskRead))
 /* Address the VDP as a linear 1-byte/pixel plane instead of the planar
 ** bitmap modes (SM=0..3). */
-#define VDP_VRMP_NB_R(s, X, Y) ((s)->vramRead + (((Y &  511) << 8) + (X & 255) & (s)->maskRead))
+#define VDP_VRMP_NB_R(s, X, Y) ((s)->vramRead + (((Y & (s)->yMask) << 8) + (X & 255) & (s)->maskRead))
 
-#define VDP_VRMP5W(s, X, Y) (tmp = ((Y & 1023) << 7) + (((X & 255) >> 1)), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
-#define VDP_VRMP6W(s, X, Y) (tmp = ((Y & 1023) << 7) + (((X & 511) >> 2)), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
-#define VDP_VRMP7W(s, X, Y) (tmp = ((Y &  511) << 7) + ((((X & 511) >> 2) + ((X & 2) << 15))), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
-#define VDP_VRMP8W(s, X, Y) (tmp = ((Y &  511) << 7) + ((((X & 255) >> 1) + ((X & 1) << 16))), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
-#define VDP_VRMP_NB_W(s, X, Y) (tmp = ((Y &  511) << 8) + (X & 255), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
+#define VDP_VRMP5W(s, X, Y) (tmp = VDP_ILVA(s, VDP_LINE5(s, X, Y)), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
+#define VDP_VRMP6W(s, X, Y) (tmp = ((Y & (s)->yMask) << 7) + (((X & 511) >> 2)), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
+#define VDP_VRMP7W(s, X, Y) (tmp = VDP_ILVA(s, VDP_LINE7(s, X, Y)), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
+#define VDP_VRMP8W(s, X, Y) (tmp = VDP_ILVA(s, VDP_LINE8(s, X, Y)), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
+#define VDP_VRMP_NB_W(s, X, Y) (tmp = ((Y & (s)->yMask) << 8) + (X & 255), (tmp & ~(s)->maskRead) ? scratch : ((s)->vramWrite + (tmp & (s)->maskWrite)))
 
 #define CM_ABRT  0x0
-#define CM_NOOP1 0x1
-#define CM_NOOP2 0x2
-#define CM_NOOP3 0x3
+#define CM_LFMM 0x1
+#define CM_LFMC 0x2
+#define CM_LRMM 0x3
 #define CM_POINT 0x4
 #define CM_PSET  0x5
 #define CM_SRCH  0x6
@@ -104,7 +113,7 @@ static int tmp;
 		if (--ANX == 0 || (ADX & MX)) { \
             DY += TY; \
             ADX = DX; ANX = NX; \
-            if ((--NY & 1023) == 0 || DY == -1) {\
+            if ((--NY & vdpCmd->nyMask) == 0 || DY == -1) {\
                 break; \
 		    } \
             cnt-=wrap; \
@@ -117,7 +126,7 @@ static int tmp;
         if (ADX & MX) { \
 			SY += TY; DY += TY; \
 			ADX = DX; \
-			if ((--NY & 1023) == 0 || SY == -1 || DY == -1) { \
+			if ((--NY & vdpCmd->nyMask) == 0 || SY == -1 || DY == -1) { \
 				break; \
 			} \
             cnt-=wrap; \
@@ -130,7 +139,7 @@ static int tmp;
 		if (--ANX == 0 || ((ASX | ADX) & MX)) { \
 			SY += TY; DY += TY; \
 			ASX = SX; ADX = DX; ANX = NX; \
-			if ((--NY & 1023) == 0 || SY == -1 || DY == -1) { \
+			if ((--NY & vdpCmd->nyMask) == 0 || SY == -1 || DY == -1) { \
 				break; \
 			} \
             cnt-=wrap; \
@@ -147,7 +156,7 @@ static int tmp;
 		if (--vdpCmd->ANX == 0 || ((vdpCmd->ASX | vdpCmd->ADX) & MX)) { \
 			vdpCmd->SY += vdpCmd->TY; vdpCmd->DY += vdpCmd->TY; \
 			vdpCmd->ASX = vdpCmd->SX; vdpCmd->ADX = vdpCmd->DX; vdpCmd->ANX = vdpCmd->NX; \
-			if ((--vdpCmd->NY & 1023) == 0 || vdpCmd->SY == -1 || vdpCmd->DY == -1) { \
+			if ((--vdpCmd->NY & vdpCmd->nyMask) == 0 || vdpCmd->SY == -1 || vdpCmd->DY == -1) { \
 				break; \
 			} \
             vdpCmd->VdpOpsCnt -= wrap; \
@@ -168,6 +177,52 @@ struct VdpCmdState {
     int    vramSize;
     int    breakPending;
     int    breakPendingAddr;
+    int    breakPendingKind;   /* the DBG_WATCH_ kind of watchpoint that matched */
+    int    breakPendingMode;   /* the screen mode the matched write was made in */
+    int    extCommands;
+    int    fillTag;
+    int    xhr;
+    int    VX;
+    int    VY;
+    int    WSX;
+    int    WSY;
+    int    WEX;
+    int    WEY;
+    int    lrmmSX;
+    int    lrmmSY;
+    int    lrmmRowSX;
+    int    lrmmRowSY;
+    /* The 32-bit source word the last LRMM dot read, -1 for none yet. */
+    int    lrmmSrcWord;
+    int    textBackColor;
+    int    fontAddress;
+    int    fontColor;
+    int    cmdEnd;
+    /* When the last command ended, in budget units (VDP_TIMING_SCALE per
+    ** board tick) and wrapping: the budget left over is time it did not use. */
+    UInt32 cmdEndTime;
+    /* When the command in flight started, in the same units. */
+    UInt32 cmdStartTime;
+    int    highSpeed;
+    /* Taken at the start of a command: whether it runs on the V9968's own
+    ** timing, and what each of its steps costs there. */
+    int    hsModel;
+    int    hsStep;
+    /* hsSlotLoad's index for what the display and the sprites take of the VRAM
+    ** slots. The VDP keeps it up to date, so it is not saved. */
+    int    slotLoad;
+    int    forceGraphic4;
+    int    rawScrMode;
+    int    cmdEnable;
+    int    yMask;
+    int    yHigh;
+    int    nyMask;
+    int    newInterleave;
+    int    interleave;
+    int    vram256;
+    int    expWindow;
+    /* Separate from extCommands, which R#21 turns off while the part stays a V9968. */
+    int    isV9968;
     int    vramOffset[2];
     int    vramMask[2];
     int   SX;
@@ -196,11 +251,32 @@ struct VdpCmdState {
     int    screenMode;
     int    newScrMode;
     int    timingMode;
+    const char* stateName;
+    /* Off for an engine whose VRAM the debugger does not show. */
+    int    watch;
+    /* Trace only, never saved: the command in flight as it started, valid in
+    ** traceEpoch, and the link the next one takes. */
+    UInt16 traceSource;
+    int    traceValid;
+    UInt32 traceEpoch;
+    UInt32 traceIssueLink;
+    UInt32 traceLink;
+    UInt32 traceArgs;
+    UInt32 traceSize;
+    UInt32 tracePos;
+    /* An end seen off the emulator thread, sent from it on the next step. */
+    int    tracePending;
+    UInt32 tracePendEpoch;
+    UInt32 tracePendStart;
+    UInt32 tracePendLink;
+    UInt32 tracePendArgs;
+    UInt32 tracePendUnits;
+    UInt32 tracePendSize;
+    UInt32 tracePendPos;
 };
 
-// Pointer to initialized command engine. This should be a list
-// but since there are only one instance at the time its not
-// a big deal. It is also only used in vdpCmdFlushAll()
+// The machine VDP's command engine, the first one created. It is only
+// used in vdpCmdFlushAll().
 static VdpCmdState* vdpCmdGlobal = NULL;
 
 
@@ -209,6 +285,8 @@ static VdpCmdState* vdpCmdGlobal = NULL;
 **************************************************************
 */
 static UInt8 *getVramPointerW(VdpCmdState* vdpCmd, UInt8 M, int X, int Y);
+
+static void vdpCmdApplyForceGraphic4(VdpCmdState* vdpCmd);
 
 static UInt8 getPixel(VdpCmdState* vdpCmd, UInt8 SM, int SX, int SY);
 static UInt8 getPixel5(VdpCmdState* vdpCmd, int SX, int SY);
@@ -229,6 +307,8 @@ static void setPixelLow(VdpCmdState* vdpCmd, UInt8 *P, UInt8 CL, UInt8 M, UInt8 
 static void SrchEngine(VdpCmdState* vdpCmd);
 static void LineEngine(VdpCmdState* vdpCmd);
 static void LmmvEngine(VdpCmdState* vdpCmd);
+static void LfmmEngine(VdpCmdState* vdpCmd);
+static void LrmmEngine(VdpCmdState* vdpCmd);
 static void LmmmEngine(VdpCmdState* vdpCmd);
 static void LmcmEngine(VdpCmdState* vdpCmd);
 static void LmmcEngine(VdpCmdState* vdpCmd);
@@ -315,6 +395,132 @@ static int copy_start[8];
 static int lmmm_start[8];
 
 static int vdpCmdWaitPct = 100;
+
+/* A V9968 step that waits on the CPU for its byte: eight of the engine's own
+** clocks, four to a board cycle. */
+static const int fast_timing_base = 2 * VDP_TIMING_SCALE;
+
+static int cmdDelta(const VdpCmdState* vdpCmd, int delta)
+{
+    return vdpCmd->hsModel ? vdpCmd->hsStep : delta;
+}
+
+static int hsScale(int units, int floor)
+{
+    int v = (units * vdpCmdWaitPct) / 100;
+    return v < floor ? floor : v;
+}
+
+/* Costs in eighths of a unit, fitted to HRA's RTL on an FPGA: the work of a
+** dot or byte, and of a 32-bit word it moves on to, which evicts a dirty one,
+** or which is read in clean as a source. */
+#define HS_COPY_DOT      139
+#define HS_LINE_DOT      116
+#define HS_FILL_BYTE     64
+#define HS_FILL_BYTE_ILV 83
+#define HS_COPY_BYTE     167
+#define HS_COPY_BYTE_ILV 182
+#define HS_EVICT         456
+#define HS_LINE_WORD     404
+#define HS_SRC_MISS      307
+
+/* LRMM's VRAM accesses in thousandths of the above, which came with sprite mode
+** 2 on, for the display off, the sprites off, mode 1 or 2 and SP3. The RTL loses
+** slots to the sprites by mode, not by how many are shown (SPRBENCH). */
+static const int hsSlotLoad[4] = { 951, 974, 1000, 1027 };
+
+/* A VRAM access plus the wait after it without R#20 HS, in units. */
+#define HS_COMPAT_ACCESS 336
+
+/* The 32-bit words a row of n dots from x touches. */
+static int hsRowWords(int x, int n, int ppw, int tx)
+{
+    int lead = tx > 0 ? (x & (ppw - 1)) : (ppw - 1 - (x & (ppw - 1)));
+    return (lead + n + ppw - 1) / ppw;
+}
+
+/* Sets the V9968's cost of a step and returns what the command pays before its
+** first: 4 to start, the step, and the fractions of a unit the steps cannot
+** carry. There is no wait between rows, nor a write back of its own. */
+static int hsSetTiming(VdpCmdState* vdpCmd)
+{
+    int sm   = vdpCmd->screenMode;
+    int ppw  = 4 * PPB[sm];
+    int ppb  = (vdpCmd->CM & 0x0c) == 0x0c ? PPB[sm] : 1;
+    /* A count of 0 runs to the edge, and to the last row. */
+    int edge = vdpCmd->TX > 0 ? (vdpCmd->MX - vdpCmd->DX + ppb - 1) / ppb : vdpCmd->DX / ppb + 1;
+    int nx   = vdpCmd->NX ? vdpCmd->NX : (edge < 1 ? 1 : edge);
+    int ny   = vdpCmd->NY ? vdpCmd->NY : vdpCmd->nyMask + 1;
+    int row  = 0;
+    int rest = 0;
+    int step = fast_timing_base;
+
+    vdpCmd->lrmmSrcWord = -1;
+
+    /* Without R#20 HS the RTL waits the same after every VRAM read and write,
+    ** whatever the mode and the display. The extended commands never wait. */
+    if (!vdpCmd->highSpeed && vdpCmd->CM != CM_LRMM && vdpCmd->CM != CM_LFMM && vdpCmd->CM != CM_LFMC) {
+        int access;
+
+        switch (vdpCmd->CM) {
+        case CM_HMMV:
+        case CM_HMMC:
+        case CM_SRCH:
+        case CM_LMCM: access = 1; break;
+        case CM_LMMM: access = 3; break;
+        default:      access = 2; break;
+        }
+        vdpCmd->hsStep = hsScale(HS_COMPAT_ACCESS * access, VDP_TIMING_SCALE);
+        return hsScale(4 + HS_COMPAT_ACCESS * access, 0);
+    }
+
+    switch (vdpCmd->CM) {
+    case CM_LINE:
+        /* A Y-major line enters a new word on every dot, an X-major one on every
+        ** word it crosses and every row it steps down. */
+        nx  = vdpCmd->NX + 1;
+        ny  = 1;
+        row = nx * HS_LINE_DOT + HS_LINE_WORD *
+              ((vdpCmd->ARG & 0x01) ? nx : (vdpCmd->NX + ppw) / ppw + vdpCmd->NY);
+        break;
+    /* A font byte puts its eight dots on a row of their own. */
+    case CM_LFMM: step = 8 * 18 + 10 + 36 * ((8 + ppw - 1) / ppw) + 36 / 4; break;
+    case CM_SRCH: step = 14 + 36 / ppw; break;
+    /* The RTL fills a rectangle row the way it draws a line. */
+    case CM_LMMV:
+        row = nx * HS_LINE_DOT + HS_LINE_WORD * hsRowWords(vdpCmd->DX, nx, ppw, vdpCmd->TX);
+        break;
+    case CM_LMMM:
+    case CM_LRMM:
+        row = HS_EVICT * hsRowWords(vdpCmd->DX, nx, ppw, vdpCmd->TX);
+        if (vdpCmd->CM == CM_LMMM) {
+            row += HS_SRC_MISS * hsRowWords(vdpCmd->SX, nx, ppw, vdpCmd->TX);
+        }
+        else {
+            row = row * hsSlotLoad[vdpCmd->slotLoad] / 1000;
+        }
+        row += nx * HS_COPY_DOT;
+        break;
+    /* With SCREEN 7 and 8 interleaved, as they are unless sprite mode 3 is on,
+    ** consecutive bytes sit in different words and evictions come back to back. */
+    case CM_HMMV: row = nx * (vdpCmd->interleave ? HS_FILL_BYTE_ILV : HS_FILL_BYTE); break;
+    /* YMMM runs to the edge whatever NX says. */
+    case CM_YMMM:
+        nx = edge < 1 ? 1 : edge;
+        /* fall through */
+    case CM_HMMM: row = nx * (vdpCmd->interleave ? HS_COPY_BYTE_ILV : HS_COPY_BYTE); break;
+    /* LMMC, LMCM, HMMC and LFMC wait on the CPU for every step. */
+    default: break;
+    }
+    /* The fraction of a unit a row's steps cannot carry is paid up front. */
+    if (row != 0) {
+        step = row / (8 * nx);
+        rest = (row / 8 - step * nx) * ny;
+    }
+
+    vdpCmd->hsStep = hsScale(step, VDP_TIMING_SCALE);
+    return hsScale(4 + step + rest, 0);
+}
 
 static void recomputeVdpCmdTimings(void) {
     const int floor = VDP_TIMING_SCALE;     /* one whole cycle per step */
@@ -477,12 +683,15 @@ static UInt8 peekVramCmd(void* ref, int address)
 ** only noted and vdpCmdExecute breaks once the counters are written back. */
 INLINE void vramWatch(VdpCmdState* vdpCmd, UInt8* P)
 {
-    if (debugWatchpointCount[DBGTYPE_VIDEO] != 0 && P != scratch) {
-        if (checkWatchpoint(DBGTYPE_VIDEO, (int)(P - vdpCmd->vramBase), *P, vdpCmd, peekVramCmd)) {
+    if (debugWatchpointCount[DBGTYPE_VIDEO] != 0 && vdpCmd->watch && P != scratch) {
+        int kind = checkWatchpoint(DBGTYPE_VIDEO, (int)(P - vdpCmd->vramBase), *P, vdpCmd, peekVramCmd);
+        if (kind != DBG_WATCH_NONE) {
             /* The first hit of the run is the one reported, and its address is
             ** kept so it can be re-qualified against the list when it lands. */
             if (!vdpCmd->breakPending) {
                 vdpCmd->breakPendingAddr = (int)(P - vdpCmd->vramBase);
+                vdpCmd->breakPendingKind = kind;
+                vdpCmd->breakPendingMode = vdpDebugGetScreenMode();
                 vdpCmd->breakPending = 1;
             }
         }
@@ -638,7 +847,7 @@ static void SrchEngine(VdpCmdState* vdpCmd)
     int TX=vdpCmd->TX;
     int ANX=vdpCmd->ANX;
     UInt8 CL=vdpCmd->CL & Mask[vdpCmd->screenMode];
-    int delta = srch_timing[vdpCmd->timingMode];
+    int delta = cmdDelta(vdpCmd, srch_timing[vdpCmd->timingMode]);
     int cnt;
 
     cnt = vdpCmd->VdpOpsCnt;
@@ -707,7 +916,7 @@ static void LineEngine(VdpCmdState* vdpCmd)
     int ADX=vdpCmd->ADX;
     UInt8 CL=vdpCmd->CL & Mask[vdpCmd->screenMode];
     UInt8 LO=vdpCmd->LO;
-    int delta = line_timing[vdpCmd->timingMode];
+    int delta = cmdDelta(vdpCmd, line_timing[vdpCmd->timingMode]);
     int cnt;
 
     cnt = vdpCmd->VdpOpsCnt;
@@ -790,6 +999,149 @@ static void LineEngine(VdpCmdState* vdpCmd)
     }
 }
 
+/* Zero is not one row: the row compare never matches, so the strip runs on to
+** the counter limit instead. */
+static int lfmmStripRows(VdpCmdState* vdpCmd)
+{
+    return vdpCmd->NY ? vdpCmd->NY : vdpCmd->nyMask;
+}
+
+/*************************************************************
+** LfmmEngine
+**
+** Description:
+**      Vram font -> Vram, one bit per dot
+**************************************************************
+*/
+static void LfmmEngine(VdpCmdState* vdpCmd)
+{
+    int NY = lfmmStripRows(vdpCmd);
+    int NX = vdpCmd->NX;
+    int TX = vdpCmd->TX;
+    int TY = vdpCmd->TY;
+    int ADX = vdpCmd->ADX;
+    int ANX = vdpCmd->ANX;
+    UInt8 CL = vdpCmd->fontColor & Mask[vdpCmd->screenMode];
+    UInt8 BG = vdpCmd->textBackColor & Mask[vdpCmd->screenMode];
+    int delta = vdpCmd->hsStep;
+    int cnt = vdpCmd->VdpOpsCnt;
+
+    while (cnt > 0) {
+        UInt8 bits = *(vdpCmd->vramRead + (vdpCmd->fontAddress & vdpCmd->maskRead));
+        int row = vdpCmd->DY + TY * (NY - ANX);
+        int i;
+
+        vdpCmd->fontAddress = (vdpCmd->fontAddress + 1) & 0x3ffff;
+
+        for (i = 0; i < 8; i++) {
+            setPixel(vdpCmd, vdpCmd->screenMode, ADX + TX * i, row, (bits & (0x80 >> i)) ? CL : BG, vdpCmd->LO);
+        }
+
+        if (--ANX <= 0) {
+            ANX = NY;
+            ADX += TX * 8;
+            if (--NX <= 0) {
+                break;
+            }
+        }
+        cnt -= delta * 8;
+    }
+
+    if ((vdpCmd->VdpOpsCnt = cnt) > 0) {
+        vdpCmd->status &= ~VDPSTATUS_CE;
+        vdpCmd->CM = 0;
+        vdpCmd->NX = 0;
+    }
+    else {
+        vdpCmd->NX  = NX;
+        vdpCmd->ANX = ANX;
+        vdpCmd->ADX = ADX;
+    }
+}
+
+/*************************************************************
+** LrmmEngine
+**
+** Description:
+**      Vram -> Vram, rotated and scaled
+**************************************************************
+*/
+static void LrmmEngine(VdpCmdState* vdpCmd)
+{
+    int DX = vdpCmd->DX;
+    int TX = vdpCmd->TX;
+    int TY = vdpCmd->TY;
+    int NX = vdpCmd->NX;
+    int DY = vdpCmd->DY;
+    int NY = vdpCmd->NY;
+    int ADX = vdpCmd->ADX;
+    int ANX = vdpCmd->ANX;
+    UInt8 CL = vdpCmd->CL & Mask[vdpCmd->screenMode];
+    UInt8 LO = vdpCmd->LO;
+    /* XHR counts a source line in halves, so the row vector covers two of them
+    ** and the row being sampled sits one bit further up. */
+    int step = vdpCmd->xhr ? 2 : 1;
+    int delta = vdpCmd->hsStep;
+    int miss = hsScale((HS_SRC_MISS / 8 * 8 * hsSlotLoad[vdpCmd->slotLoad] / 1000 + 4) / 8, 0);
+    int owed = 0;
+    int ppw = 4 * PPB[vdpCmd->screenMode];
+    int cnt = vdpCmd->VdpOpsCnt;
+
+    while (cnt > 0) {
+        int sx = vdpCmd->lrmmSX >> 8;
+        int sy = vdpCmd->lrmmSY >> (vdpCmd->xhr ? 9 : 8);
+        int word = ((sy & 0x1fff) << 10) | (((sx & 0xfff) / ppw) & 0x3ff);
+        UInt8 colour;
+
+        /* A dot that reads another source word than the last one pays for
+        ** reading it in, with the step, so the last dot cannot pass for a
+        ** command that ran out of budget. The RTL reads outside the window too. */
+        if (word != vdpCmd->lrmmSrcWord) {
+            vdpCmd->lrmmSrcWord = word;
+            owed += miss;
+        }
+        if (sx < vdpCmd->WSX || sx > vdpCmd->WEX || sy < vdpCmd->WSY || sy > vdpCmd->WEY) {
+            colour = CL;
+        }
+        else {
+            colour = getPixel(vdpCmd, vdpCmd->screenMode, sx, sy);
+        }
+        setPixel(vdpCmd, vdpCmd->screenMode, ADX, DY, colour & Mask[vdpCmd->screenMode], LO);
+
+        vdpCmd->lrmmSX += vdpCmd->VX;
+        vdpCmd->lrmmSY += vdpCmd->VY;
+
+        ADX += TX;
+        if (--ANX == 0) {
+            vdpCmd->lrmmRowSX -= vdpCmd->VY * step;
+            vdpCmd->lrmmRowSY += vdpCmd->VX * step;
+            vdpCmd->lrmmSX = vdpCmd->lrmmRowSX;
+            vdpCmd->lrmmSY = vdpCmd->lrmmRowSY;
+            DY += TY;
+            ADX = DX;
+            ANX = NX;
+            if ((--NY & vdpCmd->nyMask) == 0 || DY == -1) {
+                break;
+            }
+        }
+        cnt -= delta + owed;
+        owed = 0;
+    }
+
+    if ((vdpCmd->VdpOpsCnt = cnt) > 0) {
+        vdpCmd->status &= ~VDPSTATUS_CE;
+        vdpCmd->CM = 0;
+        vdpCmd->DY = DY & 0x03ff;
+        vdpCmd->NY = NY & 0x03ff;
+    }
+    else {
+        vdpCmd->DY  = DY;
+        vdpCmd->NY  = NY;
+        vdpCmd->ANX = ANX;
+        vdpCmd->ADX = ADX;
+    }
+}
+
 /*************************************************************
 ** LmmvEngine
 **
@@ -809,8 +1161,8 @@ static void LmmvEngine(VdpCmdState* vdpCmd)
     int ANX=vdpCmd->ANX;
     UInt8 CL=vdpCmd->CL & Mask[vdpCmd->screenMode];
     UInt8 LO=vdpCmd->LO;
-    int delta = lmmv_timing[vdpCmd->timingMode];
-    int wrap  = lmmv_wrap[vdpCmd->timingMode];
+    int delta = cmdDelta(vdpCmd, lmmv_timing[vdpCmd->timingMode]);
+    int wrap  = vdpCmd->hsModel ? 0 : lmmv_wrap[vdpCmd->timingMode];
     int cnt;
 
     cnt = vdpCmd->VdpOpsCnt;
@@ -869,8 +1221,8 @@ static void LmmmEngine(VdpCmdState* vdpCmd)
     int ADX=vdpCmd->ADX;
     int ANX=vdpCmd->ANX;
     UInt8 LO=vdpCmd->LO;
-    int delta = lmmm_timing[vdpCmd->timingMode];
-    int wrap  = lmmm_wrap[vdpCmd->timingMode];
+    int delta = cmdDelta(vdpCmd, lmmm_timing[vdpCmd->timingMode]);
+    int wrap  = vdpCmd->hsModel ? 0 : lmmm_wrap[vdpCmd->timingMode];
     int cnt;
 
     cnt = vdpCmd->VdpOpsCnt;
@@ -922,12 +1274,12 @@ static void LmcmEngine(VdpCmdState* vdpCmd)
 {
     if (!(vdpCmd->status & VDPSTATUS_TR)) {
         vdpCmd->CL = getPixel(vdpCmd, vdpCmd->screenMode, vdpCmd->ASX, vdpCmd->SY);
-        vdpCmd->VdpOpsCnt -= lmcm_timing[vdpCmd->timingMode];
+        vdpCmd->VdpOpsCnt -= cmdDelta(vdpCmd, lmcm_timing[vdpCmd->timingMode]);
         vdpCmd->status |= VDPSTATUS_TR;
 
         if (!--vdpCmd->ANX || ((vdpCmd->ASX+=vdpCmd->TX)&vdpCmd->MX)) {
             vdpCmd->SY+=vdpCmd->TY;
-            if (!(--vdpCmd->NY & 1023) || vdpCmd->SY==-1) {
+            if (!(--vdpCmd->NY & vdpCmd->nyMask) || vdpCmd->SY==-1) {
                 vdpCmd->status &= ~VDPSTATUS_CE;
                 vdpCmd->CM = 0;
             }
@@ -953,7 +1305,7 @@ static void LmmcEngine(VdpCmdState* vdpCmd)
 
         UInt8 CL=vdpCmd->CL & Mask[SM];
         setPixel(vdpCmd, SM, vdpCmd->ADX, vdpCmd->DY, CL, vdpCmd->LO);
-        vdpCmd->VdpOpsCnt -= lmmc_timing[vdpCmd->timingMode];
+        vdpCmd->VdpOpsCnt -= cmdDelta(vdpCmd, lmmc_timing[vdpCmd->timingMode]);
         vdpCmd->status |= VDPSTATUS_TR;
 
         if (!--vdpCmd->ANX || ((vdpCmd->ADX+=vdpCmd->TX)&vdpCmd->MX)) {
@@ -966,6 +1318,51 @@ static void LmmcEngine(VdpCmdState* vdpCmd)
                 vdpCmd->ADX=vdpCmd->DX;
                 vdpCmd->ANX=vdpCmd->NX;
             }
+        }
+    }
+}
+
+/*************************************************************
+** LfmcEngine
+**
+** Description:
+**      CPU font byte -> Vram, one bit per dot
+**************************************************************
+*/
+static void LfmcEngine(VdpCmdState* vdpCmd)
+{
+    UInt8 SM = vdpCmd->screenMode;
+    UInt8 CL = vdpCmd->fontColor & Mask[SM];
+    UInt8 BG = vdpCmd->textBackColor & Mask[SM];
+
+    /* A byte has to be drawn whole: only the dot counters survive between
+    ** calls, so a bit part way through one could not be picked up again. */
+    while (!(vdpCmd->status & VDPSTATUS_TR) && vdpCmd->VdpOpsCnt > 0) {
+        UInt8 bits = vdpCmd->CL;
+        int i;
+
+        for (i = 0; i < 8; i++) {
+            setPixel(vdpCmd, SM, vdpCmd->ADX, vdpCmd->DY, (bits & (0x80 >> i)) ? CL : BG, vdpCmd->LO);
+            vdpCmd->VdpOpsCnt -= vdpCmd->hsStep;
+
+            if (!--vdpCmd->ANX || ((vdpCmd->ADX += vdpCmd->TX) & vdpCmd->MX)) {
+                vdpCmd->DY += vdpCmd->TY;
+                if (!(--vdpCmd->NY & vdpCmd->nyMask) || vdpCmd->DY == -1) {
+                    vdpCmd->status &= ~VDPSTATUS_CE;
+                    vdpCmd->CM = 0;
+                    vdpCmd->status |= VDPSTATUS_TR;
+                    return;
+                }
+                vdpCmd->ADX = vdpCmd->DX;
+                vdpCmd->ANX = vdpCmd->NX;
+                break;
+            }
+        }
+
+        /* Another byte is only asked for once all eight bits have gone, so a
+        ** row that ends part way through one restarts it on the next row. */
+        if (i >= 7) {
+            vdpCmd->status |= VDPSTATUS_TR;
         }
     }
 }
@@ -988,8 +1385,8 @@ static void HmmvEngine(VdpCmdState* vdpCmd)
     int ADX=vdpCmd->ADX;
     int ANX=vdpCmd->ANX;
     UInt8 CL=vdpCmd->CL;
-    int delta = hmmv_timing[vdpCmd->timingMode];
-    int wrap  = hmmv_wrap[vdpCmd->timingMode];
+    int delta = cmdDelta(vdpCmd, hmmv_timing[vdpCmd->timingMode]);
+    int wrap  = vdpCmd->hsModel ? 0 : hmmv_wrap[vdpCmd->timingMode];
     int cnt;
 
     cnt = vdpCmd->VdpOpsCnt;
@@ -1036,8 +1433,8 @@ static void HmmvEngine(VdpCmdState* vdpCmd)
 */
 static void HmmmEngine(VdpCmdState* vdpCmd)
 {
-    int delta = hmmm_timing[vdpCmd->timingMode];
-    int wrap  = hmmm_wrap[vdpCmd->timingMode];
+    int delta = cmdDelta(vdpCmd, hmmm_timing[vdpCmd->timingMode]);
+    int wrap  = vdpCmd->hsModel ? 0 : hmmm_wrap[vdpCmd->timingMode];
 
     switch (vdpCmd->screenMode) {
     case 0: 
@@ -1080,8 +1477,8 @@ static void YmmmEngine(VdpCmdState* vdpCmd)
     int TY=vdpCmd->TY;
     int NY=vdpCmd->NY;
     int ADX=vdpCmd->ADX;
-    int delta = ymmm_timing[vdpCmd->timingMode];
-    int wrap  = ymmm_wrap[vdpCmd->timingMode];
+    int delta = cmdDelta(vdpCmd, ymmm_timing[vdpCmd->timingMode]);
+    int wrap  = vdpCmd->hsModel ? 0 : ymmm_wrap[vdpCmd->timingMode];
     int cnt;
 
     cnt = vdpCmd->VdpOpsCnt;
@@ -1131,7 +1528,7 @@ static void HmmcEngine(VdpCmdState* vdpCmd)
 {
     if (!(vdpCmd->status & VDPSTATUS_TR)) {
         vramPoke(vdpCmd, getVramPointerW(vdpCmd, vdpCmd->screenMode, vdpCmd->ADX, vdpCmd->DY), vdpCmd->CL);
-        vdpCmd->VdpOpsCnt-=hmmv_timing[vdpCmd->timingMode];
+        vdpCmd->VdpOpsCnt-=cmdDelta(vdpCmd, hmmv_timing[vdpCmd->timingMode]);
         vdpCmd->status |= VDPSTATUS_TR;
 
         if (!--vdpCmd->ANX || ((vdpCmd->ADX+=vdpCmd->TX)&vdpCmd->MX)) {
@@ -1156,24 +1553,51 @@ static void HmmcEngine(VdpCmdState* vdpCmd)
 **      Initializes the command engine.
 **************************************************************
 */
+static void vdpCmdUpdateAddressing(VdpCmdState* vdpCmd);
+static void vdpCmdApplyVram256(VdpCmdState* vdpCmd);
+
+/* R#47-58 come back at reset as no rotation at all and a window nothing falls
+** outside, so a command left over from before a reset copies plainly. */
+void vdpCmdResetExtRegs(VdpCmdState* vdpCmd)
+{
+    vdpCmd->VX  = 0;
+    vdpCmd->VY  = 0;
+    vdpCmd->WSX = 0;
+    vdpCmd->WSY = 0;
+    vdpCmd->WEX = 0x1ff;
+    vdpCmd->WEY = 0x7ff;
+}
+
 VdpCmdState* vdpCmdCreate(int vramSize, UInt8* vramPtr, UInt32 systemTime)
 {
     VdpCmdState* vdpCmd = calloc(1, sizeof(VdpCmdState));
     vdpCmd->systemTime = systemTime;
+    vdpCmd->cmdEndTime = systemTime * VDP_TIMING_SCALE;
+    vdpCmd->cmdStartTime = systemTime * VDP_TIMING_SCALE;
     vdpCmd->vramBase = vramPtr;
     vdpCmd->vramSize = vramSize;
+    vdpCmd->traceSource = DEBUG_TRACE_NO_SOURCE;
 
     vdpCmd->vramOffset[0] = 0;
     vdpCmd->vramOffset[1] = vramSize > 0x20000 ? 0x20000 : 0;
     vdpCmd->vramMask[0]   = vramSize > 0x20000 ? 0x1ffff : vramSize - 1;
     vdpCmd->vramMask[1]   = vramSize > 0x20000 ? 0xffff  : vramSize - 1;
+    vdpCmd->expWindow     = 1;
+    vdpCmd->slotLoad      = 2;
+    vdpCmdResetExtRegs(vdpCmd);
 
     vdpCmd->vramRead  = vdpCmd->vramBase + vdpCmd->vramOffset[0];
     vdpCmd->vramWrite = vdpCmd->vramBase + vdpCmd->vramOffset[0];
     vdpCmd->maskRead  = vdpCmd->vramMask[0];
     vdpCmd->maskWrite = vdpCmd->vramMask[0];
+    vdpCmdUpdateAddressing(vdpCmd);
 
-    vdpCmdGlobal = vdpCmd; // Ugly fix to make the cmd engine flushable
+    vdpCmd->stateName = "vdpCommandEngine";
+    vdpCmd->watch     = 1;
+
+    if (vdpCmdGlobal == NULL) {
+        vdpCmdGlobal = vdpCmd;
+    }
 
     /* The tables are still empty here, and a per-step wait of zero would spin an
     ** engine that never finishes its command. */
@@ -1192,8 +1616,18 @@ VdpCmdState* vdpCmdCreate(int vramSize, UInt8* vramPtr, UInt32 systemTime)
 */
 void vdpCmdDestroy(VdpCmdState* vdpCmd)
 {
+    if (vdpCmdGlobal == vdpCmd) {
+        vdpCmdGlobal = NULL;
+    }
     free(vdpCmd);
-    vdpCmdGlobal = 0l;
+}
+
+/* For a second VDP: its own save state section, and no watchpoints, which
+** stand for the machine VDP's VRAM. */
+void vdpCmdSetSecondary(VdpCmdState* vdpCmd, const char* stateName)
+{
+    vdpCmd->stateName = stateName;
+    vdpCmd->watch     = 0;
 }
 
 
@@ -1204,11 +1638,118 @@ void vdpCmdDestroy(VdpCmdState* vdpCmd)
 **      Set VDP command to ececute
 **************************************************************
 */
+/* A transfer banks idle budget and a flush runs ahead of the board, so the
+** end the budget implies is kept between the start and the real time. */
+static void vdpCmdSetEndTime(VdpCmdState* vdpCmd, UInt32 endTime)
+{
+    UInt32 now = boardSystemTime() * VDP_TIMING_SCALE;
+
+    if ((Int32)(endTime - vdpCmd->cmdStartTime) < 0) endTime = vdpCmd->cmdStartTime;
+    if ((Int32)(endTime - now) > 0) endTime = now;
+    vdpCmd->cmdEndTime = endTime;
+}
+
+static const char* const traceCmdNames[16] = {
+    "STOP", "LFMM", "LFMC", "LRMM", "POINT", "PSET", "SRCH", "LINE",
+    "LMMV", "LMMM", "LMCM", "LMMC", "HMMV", "HMMM", "YMMM", "HMMC"
+};
+
+static const DebugTraceField traceCmdFields[] = {
+    { "cm",      DEBUG_TRACE_WORD_A,      0,  4, DEBUG_TRACE_ENUM, 0, traceCmdNames, 16 },
+    { "lo",      DEBUG_TRACE_WORD_A,      4,  4, DEBUG_TRACE_HEX,  0, NULL, 0 },
+    { "fill",    DEBUG_TRACE_WORD_A,      8,  1, DEBUG_TRACE_DEC,  0, NULL, 0 },
+    { "aborted", DEBUG_TRACE_WORD_A,      9,  1, DEBUG_TRACE_DEC,  0, NULL, 0 },
+    { "arg",     DEBUG_TRACE_WORD_A,      16, 8, DEBUG_TRACE_HEX,  0, NULL, 0 },
+    { "cl",      DEBUG_TRACE_WORD_A,      24, 8, DEBUG_TRACE_HEX,  0, NULL, 0 },
+    { "units",   DEBUG_TRACE_WORD_B,      0, 32, DEBUG_TRACE_DEC,  1 << 0, NULL, 0 },
+    { "link",    DEBUG_TRACE_WORD_LINK,   0, 32, DEBUG_TRACE_DEC,  0, NULL, 0 },
+    { "nx",      DEBUG_TRACE_WORD_CONT_A, 0, 16, DEBUG_TRACE_DEC,  0, NULL, 0 },
+    { "ny",      DEBUG_TRACE_WORD_CONT_A, 16, 16, DEBUG_TRACE_DEC, 0, NULL, 0 },
+    { "dx",      DEBUG_TRACE_WORD_CONT_B, 0, 16, DEBUG_TRACE_DEC,  0, NULL, 0 },
+    { "dy",      DEBUG_TRACE_WORD_CONT_B, 16, 16, DEBUG_TRACE_DEC, 0, NULL, 0 },
+};
+
+static const DebugTraceField traceWaitFields[] = {
+    { "polls", DEBUG_TRACE_WORD_A, 0, 32, DEBUG_TRACE_DEC,  1 << 2, NULL, 0 },
+    { "cm",    DEBUG_TRACE_WORD_B, 0,  4, DEBUG_TRACE_ENUM, (1 << 1) | (1 << 2), traceCmdNames, 16 },
+};
+
+static const DebugTraceKindDesc traceKinds[] = {
+    { VDPCMD_TRACE_CMD,  "cmd",  traceCmdFields,  sizeof(traceCmdFields) / sizeof(traceCmdFields[0]) },
+    { VDPCMD_TRACE_WAIT, "wait", traceWaitFields, sizeof(traceWaitFields) / sizeof(traceWaitFields[0]) },
+};
+
+static const DebugTraceClassDesc traceClass = { "vdpcmd", traceKinds, 2 };
+
+const DebugTraceClassDesc* vdpCmdTraceClass(void)
+{
+    return &traceClass;
+}
+
+void vdpCmdSetTraceSource(VdpCmdState* vdpCmd, UInt16 source)
+{
+    vdpCmd->traceSource = source;
+}
+
+void vdpCmdTagIssue(VdpCmdState* vdpCmd, UInt32 link)
+{
+    vdpCmd->traceIssueLink = link;
+}
+
+static void vdpCmdTraceFlush(VdpCmdState* vdpCmd)
+{
+    if (!vdpCmd->tracePending || !debugTraceIsWriter()) {
+        return;
+    }
+    vdpCmd->tracePending = 0;
+    /* Disarmed since it ended: the hooks stay silent. */
+    if (!DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_VDPCMD)) || vdpCmd->tracePendEpoch != debugTraceEpoch()) {
+        return;
+    }
+    debugTraceEmit(vdpCmd->traceSource, VDPCMD_TRACE_CMD, vdpCmd->tracePendStart, vdpCmd->tracePendLink,
+                   vdpCmd->tracePendArgs, vdpCmd->tracePendUnits);
+    debugTraceEmit(vdpCmd->traceSource, VDPCMD_TRACE_CMD | DEBUG_TRACE_CONT, vdpCmd->tracePendStart,
+                   vdpCmd->tracePendLink, vdpCmd->tracePendSize, vdpCmd->tracePendPos);
+}
+
+/* The command in flight, ended or cut off at endTime (budget units), dated
+** from its start, credit included. Reads the clock only. */
+static void vdpCmdTraceEnd(VdpCmdState* vdpCmd, UInt32 endTime, int aborted)
+{
+    UInt32 now = boardSystemTime();
+    UInt32 back = now * VDP_TIMING_SCALE - vdpCmd->cmdStartTime;
+
+    vdpCmdTraceFlush(vdpCmd);
+    if (!vdpCmd->traceValid || vdpCmd->traceEpoch != debugTraceEpoch()) {
+        return;
+    }
+    vdpCmd->traceValid = 0;
+    if ((Int32)back < 0) {
+        back = 0;
+    }
+    vdpCmd->tracePending   = 1;
+    vdpCmd->tracePendEpoch = vdpCmd->traceEpoch;
+    vdpCmd->tracePendStart = now - (back + VDP_TIMING_SCALE - 1) / VDP_TIMING_SCALE;
+    vdpCmd->tracePendLink  = vdpCmd->traceLink;
+    vdpCmd->tracePendArgs  = vdpCmd->traceArgs | (aborted << 9);
+    vdpCmd->tracePendUnits = endTime - vdpCmd->cmdStartTime;
+    vdpCmd->tracePendSize  = vdpCmd->traceSize;
+    vdpCmd->tracePendPos   = vdpCmd->tracePos;
+    vdpCmdTraceFlush(vdpCmd);
+}
+
 static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
 {
     const int* start;
+    int hsStart;
 
+    vdpCmd->cmdStartTime = systemTime * VDP_TIMING_SCALE;
+
+    /* Taken with the screen mode it belongs to, so a mode change part way
+    ** through cannot leave the two describing different layouts. */
     vdpCmd->screenMode = vdpCmd->newScrMode;
+    vdpCmd->interleave = vdpCmd->newInterleave;
+    vdpCmdUpdateAddressing(vdpCmd);
 
     if (vdpCmd->screenMode < 0) {
         vdpCmd->CM = 0;
@@ -1216,12 +1757,15 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
         return;
     }
     
-    vdpCmd->SX &= 0x1ff;
-    vdpCmd->SY &= 0x3ff;
-    vdpCmd->DX &= 0x1ff;
-    vdpCmd->DY &= 0x3ff;
-    vdpCmd->NX &= 0x3ff;
-    vdpCmd->NY &= 0x3ff;
+    {
+        int yClamp = vdpCmd->vram256 ? 0x7ff : 0x3ff;
+        vdpCmd->SX &= (vdpCmd->CM == CM_LRMM) ? 0xfff : 0x1ff;
+        vdpCmd->SY &= (vdpCmd->CM == CM_LRMM) ? 0x1fff : yClamp;
+        vdpCmd->DX &= 0x1ff;
+        vdpCmd->DY &= yClamp;
+        vdpCmd->NX &= 0x3ff;
+        vdpCmd->NY &= yClamp;
+    }
 
     switch (vdpCmd->CM) {
     case CM_ABRT:
@@ -1229,13 +1773,29 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
         vdpCmd->status &= ~VDPSTATUS_CE;
         return;
 
-    /* An undefined code stops the command, so the executing flag falls with it. */
-    case CM_NOOP1:
-    case CM_NOOP2:
-    case CM_NOOP3:
-        vdpCmd->CM = 0;
-        vdpCmd->status &= ~VDPSTATUS_CE;
-        return;
+    case CM_LFMM:
+        if (!vdpCmd->extCommands) {
+            vdpCmd->CM = 0;
+            vdpCmd->status &= ~VDPSTATUS_CE;
+            return;
+        }
+        break;
+
+    case CM_LRMM:
+        if (!vdpCmd->extCommands) {
+            vdpCmd->CM = 0;
+            vdpCmd->status &= ~VDPSTATUS_CE;
+            return;
+        }
+        break;
+
+    case CM_LFMC:
+        if (!vdpCmd->extCommands) {
+            vdpCmd->CM = 0;
+            vdpCmd->status &= ~VDPSTATUS_CE;
+            return;
+        }
+        break;
 
     case CM_POINT:
         vdpCmd->CM = 0;
@@ -1256,7 +1816,8 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
     /* Argument depends on UInt8 or dot operation */
     if ((vdpCmd->CM & 0x0C) == 0x0C) {
         vdpCmd->TX = vdpCmd->ARG & 0x04 ? -PPB[vdpCmd->screenMode] : PPB[vdpCmd->screenMode];
-        vdpCmd->NX = vdpCmd->kNX/PPB[vdpCmd->screenMode];
+        /* A LINE run as HMMV takes its end dot too. */
+        vdpCmd->NX = (vdpCmd->kNX + vdpCmd->fillTag)/PPB[vdpCmd->screenMode];
     }
     else {
         vdpCmd->NX = vdpCmd->kNX;
@@ -1279,6 +1840,25 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
     else
         vdpCmd->ANX = vdpCmd->NX;
 
+    /* A V9968 runs on its own timing in its native mode, and with R#20 HS in
+    ** either mode. With R#21 V58 set and no HS it keeps the V9958's. */
+    vdpCmd->hsModel = vdpCmd->highSpeed || vdpCmd->extCommands;
+    hsStart = vdpCmd->hsModel ? hsSetTiming(vdpCmd) : 0;
+
+    vdpCmdTraceFlush(vdpCmd);
+    vdpCmd->traceValid = DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_VDPCMD));
+    if (vdpCmd->traceValid) {
+        vdpCmd->traceEpoch = debugTraceEpoch();
+        vdpCmd->traceLink  = vdpCmd->traceIssueLink;
+        vdpCmd->traceArgs  = vdpCmd->CM | (vdpCmd->LO << 4) | ((vdpCmd->fillTag != 0) << 8) |
+                             ((UInt32)vdpCmd->ARG << 16) | ((UInt32)vdpCmd->CL << 24);
+        vdpCmd->traceSize  = (vdpCmd->kNX & 0xffff) | ((UInt32)vdpCmd->NY << 16);
+        vdpCmd->tracePos   = (vdpCmd->DX & 0xffff) | ((UInt32)vdpCmd->DY << 16);
+        /* geo3d's credit moves the start back after this; the end record has it right. */
+        debugTraceEmit(vdpCmd->traceSource, VDPCMD_TRACE_CMD | DEBUG_TRACE_BEGIN, systemTime,
+                       vdpCmd->traceLink, vdpCmd->traceArgs, 0);
+    }
+
     /* Command execution started */
     vdpCmd->status |= VDPSTATUS_CE;
 
@@ -1293,13 +1873,35 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
     case CM_LMMC:
     case CM_LMCM:
     case CM_HMMC: start = 0;           break;
+    case CM_LFMM:
+        vdpCmd->ANX = lfmmStripRows(vdpCmd);
+        vdpCmd->fontColor = vdpCmd->CL;
+        start = lmmm_start;
+        break;
+    /* R#44 holds the colour when the command starts and the font bytes after,
+    ** so the first byte has to come from the CPU. */
+    case CM_LFMC:
+        vdpCmd->fontColor = vdpCmd->CL;
+        vdpCmd->status |= VDPSTATUS_TR;
+        start = 0;
+        break;
+    case CM_LRMM:
+    {
+        /* Both are signed, and XHR holds SY doubled so its top bit is lost. */
+        int sy = vdpCmd->xhr ? (vdpCmd->SY << 1) : vdpCmd->SY;
+
+        vdpCmd->lrmmRowSX = vdpCmd->lrmmSX = ((vdpCmd->SX ^ 0x800) - 0x800) << 8;
+        vdpCmd->lrmmRowSY = vdpCmd->lrmmSY = (((sy & 0x1fff) ^ 0x1000) - 0x1000) << 8;
+        start = lmmm_start;
+        break;
+    }
     default:      start = cmd_start;   break;
     }
 
     /* Skipped once the engine is too far in arrears for the budget to stay in
     ** range, which costs less than letting a stall compound without bound. */
     if (start != 0 && vdpCmd->VdpOpsCnt > -MAX_CMD_START_DEBT) {
-        vdpCmd->VdpOpsCnt -= start[vdpCmd->timingMode];
+        vdpCmd->VdpOpsCnt -= vdpCmd->hsModel ? hsStart : start[vdpCmd->timingMode];
     }
 
     vdpCmd->systemTime = systemTime;
@@ -1315,18 +1917,31 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
 void vdpCmdWrite(VdpCmdState* vdpCmd, UInt8 reg, UInt8 value, UInt32 systemTime)
 {
     switch (reg & 0x1f) {
-	case 0x00: vdpCmd->SX = (vdpCmd->SX & 0xff00) | value;                   break;
-	case 0x01: vdpCmd->SX = (vdpCmd->SX & 0x00ff) | ((value & 0x01) << 8);   break;
-	case 0x02: vdpCmd->SY = (vdpCmd->SY & 0xff00) | value;                   break;
-	case 0x03: vdpCmd->SY = (vdpCmd->SY & 0x00ff) | ((value & 0x03) << 8);   break;
+    /* Font pointer: R#33 contributes all eight bits, and it keeps counting between commands. */
+	case 0x00:
+        vdpCmd->SX = (vdpCmd->SX & 0xff00) | value;
+        vdpCmd->fontAddress = (vdpCmd->fontAddress & 0x3ff00) | value;
+        break;
+	case 0x01:
+        /* LRMM takes a signed twelve bit SX, so the older parts keep one bit. */
+        vdpCmd->SX = (vdpCmd->SX & 0x00ff) | ((value & (vdpCmd->isV9968 ? 0x0f : 0x01)) << 8);
+        vdpCmd->fontAddress = (vdpCmd->fontAddress & 0x300ff) | (value << 8);
+        break;
+	case 0x02:
+        vdpCmd->SY = (vdpCmd->SY & 0xff00) | value;
+        vdpCmd->fontAddress = (vdpCmd->fontAddress & 0x0ffff) | ((value & 0x03) << 16);
+        break;
+    /* LRMM takes a signed thirteen bit SY, and every other command narrows it
+    ** again when it starts, so all five bits are kept here. */
+	case 0x03: vdpCmd->SY = (vdpCmd->SY & 0x00ff) | ((value & (vdpCmd->isV9968 ? 0x1f : 0x03)) << 8); break;
 	case 0x04: vdpCmd->DX = (vdpCmd->DX & 0xff00) | value;                   break;
 	case 0x05: vdpCmd->DX = (vdpCmd->DX & 0x00ff) | ((value & 0x01) << 8);   break;
 	case 0x06: vdpCmd->DY = (vdpCmd->DY & 0xff00) | value;                   break;
-	case 0x07: vdpCmd->DY = (vdpCmd->DY & 0x00ff) | ((value & 0x03) << 8);   break;
+	case 0x07: vdpCmd->DY = (vdpCmd->DY & 0x00ff) | ((value & (vdpCmd->vram256 ? 0x07 : 0x03)) << 8); break;
 	case 0x08: vdpCmd->kNX = (vdpCmd->kNX & 0xff00) | value;                 break;
 	case 0x09: vdpCmd->kNX = (vdpCmd->kNX & 0x00ff) | ((value & 0x03) << 8); break;
 	case 0x0a: vdpCmd->NY = (vdpCmd->NY & 0xff00) | value;                   break;
-	case 0x0b: vdpCmd->NY = (vdpCmd->NY & 0x00ff) | ((value & 0x03) << 8);   break;
+	case 0x0b: vdpCmd->NY = (vdpCmd->NY & 0x00ff) | ((value & (vdpCmd->vram256 ? 0x07 : 0x03)) << 8); break;
 	case 0x0c: 
         vdpCmd->CL = value;
         vdpCmd->status &= ~VDPSTATUS_TR;
@@ -1338,12 +1953,43 @@ void vdpCmdWrite(VdpCmdState* vdpCmd, UInt8 reg, UInt8 value, UInt32 systemTime)
             vdpCmd->maskRead  = vdpCmd->vramMask[(value >> 4) & 1];
             vdpCmd->maskWrite = vdpCmd->vramMask[(value >> 5) & 1];
         }
-        vdpCmd->ARG = value; 
+        vdpCmd->xhr = vdpCmd->extCommands ? ((value >> 6) & 1) : 0;
+        vdpCmd->ARG = value;
+        vdpCmdApplyForceGraphic4(vdpCmd);
         break;
-	case 0x0e: 
+	case 0x0f: vdpCmd->VX  = (vdpCmd->VX  & ~0xff) | value;                 break;
+	case 0x10: vdpCmd->VX  = (Int16)((vdpCmd->VX & 0xff) | (value << 8));   break;
+	case 0x11: vdpCmd->VY  = (vdpCmd->VY  & ~0xff) | value;                 break;
+	case 0x12: vdpCmd->VY  = (Int16)((vdpCmd->VY & 0xff) | (value << 8));   break;
+	case 0x13: vdpCmd->WSX = (vdpCmd->WSX & 0x100) | value;                 break;
+	case 0x14: vdpCmd->WSX = (vdpCmd->WSX & 0x0ff) | ((value & 0x01) << 8); break;
+	case 0x15: vdpCmd->WSY = (vdpCmd->WSY & 0x700) | value;                 break;
+	case 0x16: vdpCmd->WSY = (vdpCmd->WSY & 0x0ff) | ((value & 0x07) << 8); break;
+	case 0x17: vdpCmd->WEX = (vdpCmd->WEX & 0x100) | value;                 break;
+	case 0x18: vdpCmd->WEX = (vdpCmd->WEX & 0x0ff) | ((value & 0x01) << 8); break;
+	case 0x19: vdpCmd->WEY = (vdpCmd->WEY & 0x700) | value;                 break;
+	case 0x1a: vdpCmd->WEY = (vdpCmd->WEY & 0x0ff) | ((value & 0x07) << 8); break;
+	case 0x0e:
+        /* A write while one runs cuts it off; its own CM is gone after this. */
+        if (vdpCmd->CM != 0 && DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_VDPCMD))) {
+            vdpCmdTraceEnd(vdpCmd, systemTime * VDP_TIMING_SCALE, 1);
+        }
 		vdpCmd->LO = value & 0x0F;
 		vdpCmd->CM = value >> 4;
+        /* geo3d's one row face fill: the same bytes as LINE, written as HMMV. */
+        vdpCmd->fillTag = vdpCmd->fillTag && value == 0x70 && vdpCmd->rawScrMode == 8 && !vdpCmd->forceGraphic4 &&
+                          vdpCmd->DX < 256 && !(vdpCmd->ARG & 0x0d) && vdpCmd->NY == 0;
+        if (vdpCmd->fillTag) {
+            vdpCmd->CM = CM_HMMV;
+            vdpCmd->NY = 1;
+        }
 		vdpCmdSetCommand(vdpCmd, systemTime);
+        vdpCmd->fillTag = 0;
+        /* One that never starts still counts as one that ended. */
+        if (vdpCmd->CM == 0) {
+            vdpCmd->cmdEnd = 1;
+            vdpCmdSetEndTime(vdpCmd, systemTime * VDP_TIMING_SCALE);
+        }
 		break;
     }
 }
@@ -1373,6 +2019,18 @@ UInt8 vdpCmdPeek(VdpCmdState* vdpCmd, UInt8 reg, UInt32 systemTime)
     case 0x0c: return vdpCmd->CL;
     case 0x0d: return vdpCmd->ARG;
     case 0x0e: return vdpCmd->LO | (vdpCmd->CM << 4);
+    case 0x0f: return vdpCmd->VX & 0xff;
+    case 0x10: return (vdpCmd->VX >> 8) & 0xff;
+    case 0x11: return vdpCmd->VY & 0xff;
+    case 0x12: return (vdpCmd->VY >> 8) & 0xff;
+    case 0x13: return vdpCmd->WSX & 0xff;
+    case 0x14: return vdpCmd->WSX >> 8;
+    case 0x15: return vdpCmd->WSY & 0xff;
+    case 0x16: return vdpCmd->WSY >> 8;
+    case 0x17: return vdpCmd->WEX & 0xff;
+    case 0x18: return vdpCmd->WEX >> 8;
+    case 0x19: return vdpCmd->WEY & 0xff;
+    case 0x1a: return vdpCmd->WEY >> 8;
     }
     return 0xff;
 }
@@ -1384,12 +2042,134 @@ UInt8 vdpCmdPeek(VdpCmdState* vdpCmd, UInt8 reg, UInt32 systemTime)
 **      Sets the current screen mode
 **************************************************************
 */
-void vdpSetScreenMode(VdpCmdState* vdpCmd, int screenMode, int commandEnable) {
-    if (screenMode > 8 && screenMode <= 12) {
+static void vdpCmdUpdateAddressing(VdpCmdState* vdpCmd)
+{
+    int rows128 = vdpCmd->screenMode == 0 || vdpCmd->screenMode == 1;
+
+    vdpCmd->yMask  = rows128 ? 1023 : 511;
+    vdpCmd->yHigh  = 0;
+    vdpCmd->nyMask = 1023;
+    if (vdpCmd->vram256) {
+        vdpCmd->nyMask = 2047;
+        if (rows128) {
+            vdpCmd->yMask = 2047;
+        }
+        else if (vdpCmd->screenMode == 4) {
+            vdpCmd->yMask = 1023;
+        }
+        else {
+            vdpCmd->yHigh = 512;
+        }
+    }
+}
+
+/* A flat 256kB has no expansion window, so MXS and MXD stop selecting one. */
+static void vdpCmdApplyVram256(VdpCmdState* vdpCmd)
+{
+    int big = vdpCmd->expWindow && vdpCmd->vramSize > 0x20000;
+
+    vdpCmd->vramOffset[1] = vdpCmd->vram256 ? 0 : (big ? 0x20000 : 0);
+    vdpCmd->vramMask[0]   = vdpCmd->vram256 ? 0x3ffff : (big ? 0x1ffff : (vdpCmd->vramSize > 0x20000 ? 0x1ffff : vdpCmd->vramSize - 1));
+    vdpCmd->vramMask[1]   = vdpCmd->vram256 ? 0x3ffff : (big ? 0xffff  : (vdpCmd->vramSize > 0x20000 ? 0x1ffff : vdpCmd->vramSize - 1));
+    vdpCmd->vramRead      = vdpCmd->vramBase + vdpCmd->vramOffset[(vdpCmd->ARG >> 4) & 1];
+    vdpCmd->vramWrite     = vdpCmd->vramBase + vdpCmd->vramOffset[(vdpCmd->ARG >> 5) & 1];
+    vdpCmd->maskRead      = vdpCmd->vramMask[(vdpCmd->ARG >> 4) & 1];
+    vdpCmd->maskWrite     = vdpCmd->vramMask[(vdpCmd->ARG >> 5) & 1];
+    vdpCmdUpdateAddressing(vdpCmd);
+}
+
+void vdpCmdSetExtCommands(VdpCmdState* vdpCmd, int enable)
+{
+    vdpCmd->extCommands = enable;
+    vdpCmd->xhr = enable ? ((vdpCmd->ARG >> 6) & 1) : 0;
+    vdpCmdApplyForceGraphic4(vdpCmd);
+}
+
+void vdpCmdSetTextBackColor(VdpCmdState* vdpCmd, int color)
+{
+    vdpCmd->textBackColor = color;
+}
+
+/* Sticky until acknowledged, and set whether or not anyone is listening. */
+int vdpCmdGetEndFlag(VdpCmdState* vdpCmd)
+{
+    return vdpCmd->cmdEnd;
+}
+
+void vdpCmdClearEndFlag(VdpCmdState* vdpCmd)
+{
+    vdpCmd->cmdEnd = 0;
+}
+
+UInt32 vdpCmdGetEndTime(VdpCmdState* vdpCmd)
+{
+    return vdpCmd->cmdEndTime;
+}
+
+/* Lets a command written late run as if it had started up to that much
+** earlier. Only while one runs: an idle engine drops its budget anyway. */
+void vdpCmdAddCredit(VdpCmdState* vdpCmd, int units)
+{
+    if (vdpCmd->CM != 0 && units > 0) {
+        vdpCmd->VdpOpsCnt += units;
+        vdpCmd->cmdStartTime -= units;
+    }
+}
+
+void vdpCmdTagFillSpan(VdpCmdState* vdpCmd, int tag)
+{
+    vdpCmd->fillTag = tag;
+}
+
+void vdpCmdSetHighSpeed(VdpCmdState* vdpCmd, int enable)
+{
+    vdpCmd->highSpeed = enable;
+}
+
+void vdpCmdSetSlotLoad(VdpCmdState* vdpCmd, int load)
+{
+    vdpCmd->slotLoad = load & 3;
+}
+
+void vdpCmdSetExpansionWindow(VdpCmdState* vdpCmd, int enable)
+{
+    vdpCmd->expWindow = enable;
+    vdpCmdApplyVram256(vdpCmd);
+}
+
+void vdpCmdSetV9968(VdpCmdState* vdpCmd, int enable)
+{
+    vdpCmd->isV9968 = enable;
+}
+
+void vdpCmdSetInterleave(VdpCmdState* vdpCmd, int enable)
+{
+    vdpCmd->newInterleave = enable;
+}
+
+void vdpCmdSetVram256(VdpCmdState* vdpCmd, int enable)
+{
+    if (vdpCmd->vram256 != enable) {
+        vdpCmd->vram256 = enable;
+        vdpCmdApplyVram256(vdpCmd);
+    }
+}
+
+/* R#45 bit7 FG4 runs every command as SCREEN 5 whatever is on screen, which is
+** how a sprite mode 3 pattern gets worked on with the drawing commands.
+** Answers whether the engine has just lost the screen it was drawing on. */
+static int applyScreenMode(VdpCmdState* vdpCmd)
+{
+    int screenMode = vdpCmd->rawScrMode;
+
+    if (vdpCmd->forceGraphic4) {
+        screenMode = 0;
+    }
+    else if (screenMode > 8 && screenMode <= 12) {
         screenMode = 3;
     }
     else if (screenMode < 5 || screenMode > 12) {
-        if (commandEnable) {
+        if (vdpCmd->cmdEnable) {
             /* R#25 bit 6 (CMD) with a non-bitmap screen selects the */
             /* linear (SM=4) addressing path.                        */
             screenMode = 4;
@@ -1403,11 +2183,32 @@ void vdpSetScreenMode(VdpCmdState* vdpCmd, int screenMode, int commandEnable) {
     }
     if (vdpCmd->newScrMode != screenMode) {
         vdpCmd->newScrMode = screenMode;
-        if (screenMode == -1) {
-            vdpCmd->CM = 0;
-            vdpCmd->status &= ~VDPSTATUS_CE;
-        }
+        return screenMode == -1;
     }
+    return 0;
+}
+
+void vdpSetScreenMode(VdpCmdState* vdpCmd, int screenMode, int commandEnable) {
+    vdpCmd->rawScrMode = screenMode;
+    vdpCmd->cmdEnable  = commandEnable;
+    if (applyScreenMode(vdpCmd)) {
+        if (vdpCmd->CM != 0) {
+            if (DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_VDPCMD))) {
+                vdpCmdTraceEnd(vdpCmd, boardSystemTime() * VDP_TIMING_SCALE, 1);
+            }
+            vdpCmdSetEndTime(vdpCmd, boardSystemTime() * VDP_TIMING_SCALE);
+        }
+        vdpCmd->CM = 0;
+        vdpCmd->status &= ~VDPSTATUS_CE;
+    }
+}
+
+/* A command in flight keeps its own copy of the mode, so taking the bit away
+** again redirects the next command rather than abandoning this one. */
+static void vdpCmdApplyForceGraphic4(VdpCmdState* vdpCmd)
+{
+    vdpCmd->forceGraphic4 = vdpCmd->extCommands ? ((vdpCmd->ARG >> 7) & 1) : 0;
+    applyScreenMode(vdpCmd);
 }
 
 /*************************************************************
@@ -1528,6 +2329,12 @@ void vdpCmdFlushAll()
 */
 void vdpCmdExecute(VdpCmdState* vdpCmd, UInt32 systemTime)
 {
+    UInt8 running;
+
+    if (DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_VDPCMD)) && vdpCmd->tracePending) {
+        vdpCmdTraceFlush(vdpCmd);
+    }
+
     /* A transfer parked waiting on the CPU charges nothing for the wait, so
     ** trim what it has banked before the elapsed time below is added to it. */
     if (vdpCmd->VdpOpsCnt > MAX_OPS_CREDIT) {
@@ -1543,6 +2350,8 @@ void vdpCmdExecute(VdpCmdState* vdpCmd, UInt32 systemTime)
     if (vdpCmd->VdpOpsCnt <= 0) {
         return;
     }
+
+    running = vdpCmd->CM;
 
     switch (vdpCmd->CM) {
     case CM_SRCH:
@@ -1575,19 +2384,40 @@ void vdpCmdExecute(VdpCmdState* vdpCmd, UInt32 systemTime)
     case CM_HMMC:
         HmmcEngine(vdpCmd);  
         break;
+    case CM_LFMM:
+        LfmmEngine(vdpCmd);
+        break;
+    case CM_LFMC:
+        LfmcEngine(vdpCmd);
+        break;
+    case CM_LRMM:
+        LrmmEngine(vdpCmd);
+        break;
     default:
         vdpCmd->VdpOpsCnt = 0;
+    }
+
+    if (running != 0 && vdpCmd->CM == 0) {
+        vdpCmd->cmdEnd = 1;
+        vdpCmdSetEndTime(vdpCmd, systemTime * VDP_TIMING_SCALE - (UInt32)vdpCmd->VdpOpsCnt);
+        if (DEBUG_TRACE_ON(DEBUG_TRACE_BIT(DEBUG_TRACE_VDPCMD))) {
+            vdpCmdTraceEnd(vdpCmd, vdpCmd->cmdEndTime, 0);
+        }
     }
 
     /* Breaking here and not mid-loop leaves the counters written back, so a save
     ** sees the VRAM the guest really has. Reading the VDP for the debugger runs
     ** the engine on the UI thread, which cannot park, so the hit waits. */
     if (vdpCmd->breakPending && !debugDeviceIsInspecting()) {
-        vdpCmd->breakPending = 0;
         /* The watchpoint that matched can have been removed while the hit was
         ** waiting, so the address is re-qualified rather than merely counted. */
-        if (watchpointCovers(DBGTYPE_VIDEO, vdpCmd->breakPendingAddr)) {
-            boardOnBreakpoint(0);
+        int kind = watchpointCovers(DBGTYPE_VIDEO, vdpCmd->breakPendingAddr,
+                                    vdpCmd->breakPendingMode, vdpCmd->breakPendingKind);
+        vdpCmd->breakPending = 0;
+        if (kind != DBG_WATCH_NONE) {
+            debugDeviceNoteWatchHit(DBGTYPE_VIDEO, (UInt32)vdpCmd->breakPendingAddr,
+                                    vdpCmd->breakPendingMode, kind);
+            boardOnBreakpoint(DBG_STOP_WATCH);
         }
     }
 }
@@ -1601,7 +2431,7 @@ void vdpCmdExecute(VdpCmdState* vdpCmd, UInt32 systemTime)
 */
 void vdpCmdLoadState(VdpCmdState* vdpCmd)
 {
-    SaveState* state = saveStateOpenForRead("vdpCommandEngine");
+    SaveState* state = saveStateOpenForRead(vdpCmd->stateName);
     int opsCnt;
 
     vdpCmd->SX            =         saveStateGet(state, "SX",         0);
@@ -1632,6 +2462,43 @@ void vdpCmdLoadState(VdpCmdState* vdpCmd)
     vdpCmd->systemTime    =         saveStateGet(state, "systemTime", boardSystemTime());
     vdpCmd->newScrMode    =         saveStateGet(state, "newScrMode", 0);
     vdpCmd->screenMode    =         saveStateGet(state, "screenMode", 0);
+    /* A state without this was taken where only a paired bitmap was ever split,
+    ** so the screen mode still gives the answer. */
+    vdpCmd->interleave    =         saveStateGet(state, "interleave",
+                                                 vdpCmd->screenMode == 2 || vdpCmd->screenMode == 3);
+    /* What the screen mode is worked out from, so a later R#45 write can work it
+    ** out again. A state carrying only the answer is read back the other way:
+    ** 0-3 bitmap, 4 a non-bitmap one the command bit opened, -1 one it did not. */
+    vdpCmd->rawScrMode    =         saveStateGet(state, "rawScrMode",
+                                                 vdpCmd->newScrMode >= 0 && vdpCmd->newScrMode < 4
+                                                 ? vdpCmd->newScrMode + 5 : 0);
+    vdpCmd->cmdEnable     =         saveStateGet(state, "cmdEnable", vdpCmd->newScrMode == 4);
+    /* A state without these was taken where there was no rotation, so the window
+    ** has to come back open rather than shut. */
+    vdpCmd->VX            =  (Int16)saveStateGet(state, "VX",  0);
+    vdpCmd->VY            =  (Int16)saveStateGet(state, "VY",  0);
+    vdpCmd->WSX           =         saveStateGet(state, "WSX", 0);
+    vdpCmd->WSY           =         saveStateGet(state, "WSY", 0);
+    vdpCmd->WEX           =         saveStateGet(state, "WEX", 0x1ff);
+    vdpCmd->WEY           =         saveStateGet(state, "WEY", 0x7ff);
+    vdpCmd->lrmmSX        =         saveStateGet(state, "lrmmSX",    0);
+    vdpCmd->lrmmSY        =         saveStateGet(state, "lrmmSY",    0);
+    vdpCmd->lrmmRowSX     =         saveStateGet(state, "lrmmRowSX", 0);
+    vdpCmd->lrmmRowSY     =         saveStateGet(state, "lrmmRowSY", 0);
+    vdpCmd->vram256       =         saveStateGet(state, "vram256", 0) && vdpCmd->vramSize > 0x20000;
+    vdpCmd->fontAddress   =         saveStateGet(state, "fontAddress", 0);
+    /* A state without the latch carries the colour in CL. */
+    vdpCmd->fontColor     =         saveStateGet(state, "fontColor", vdpCmd->CL);
+    vdpCmd->cmdEnd        =         saveStateGet(state, "cmdEnd", 0);
+    vdpCmd->cmdEndTime    =         saveStateGet(state, "cmdEndTime",
+                                                 vdpCmd->systemTime * VDP_TIMING_SCALE);
+    vdpCmd->cmdStartTime  =         saveStateGet(state, "cmdStartTime",
+                                                 vdpCmd->systemTime * VDP_TIMING_SCALE);
+    vdpCmd->hsModel       =         saveStateGet(state, "hsModel", 0);
+    /* A step that costs nothing would spin an engine for ever. */
+    vdpCmd->hsStep        =         saveStateGet(state, "hsStep", fast_timing_base);
+    vdpCmd->lrmmSrcWord   = -1;
+    if (vdpCmd->hsStep < VDP_TIMING_SCALE) vdpCmd->hsStep = VDP_TIMING_SCALE;
     /* Both index the pixel tables, so a damaged state must not reach past them.
     ** An engine left with no mode to run in has nothing to go on with either. */
     if (vdpCmd->newScrMode < -1 || vdpCmd->newScrMode > 4) vdpCmd->newScrMode = -1;
@@ -1647,10 +2514,7 @@ void vdpCmdLoadState(VdpCmdState* vdpCmd)
     /* Never saved: a hit noted before the load belongs to the run being dropped. */
     vdpCmd->breakPending = 0;
 
-    vdpCmd->vramRead  = vdpCmd->vramBase + vdpCmd->vramOffset[(vdpCmd->ARG >> 4) & 1];
-    vdpCmd->vramWrite = vdpCmd->vramBase + vdpCmd->vramOffset[(vdpCmd->ARG >> 5) & 1];
-    vdpCmd->maskRead  = vdpCmd->vramMask[(vdpCmd->ARG >> 4) & 1];
-    vdpCmd->maskWrite = vdpCmd->vramMask[(vdpCmd->ARG >> 5) & 1];
+    vdpCmdApplyVram256(vdpCmd);
 }
 
 
@@ -1663,7 +2527,7 @@ void vdpCmdLoadState(VdpCmdState* vdpCmd)
 */
 void vdpCmdSaveState(VdpCmdState* vdpCmd)
 {
-    SaveState* state = saveStateOpenForWrite("vdpCommandEngine");
+    SaveState* state = saveStateOpenForWrite(vdpCmd->stateName);
 
     saveStateSet(state, "SX",         vdpCmd->SX);
     saveStateSet(state, "SY",         vdpCmd->SY);
@@ -1688,6 +2552,27 @@ void vdpCmdSaveState(VdpCmdState* vdpCmd)
     saveStateSet(state, "systemTime", vdpCmd->systemTime);
     saveStateSet(state, "newScrMode", vdpCmd->newScrMode);
     saveStateSet(state, "screenMode", vdpCmd->screenMode);
+    saveStateSet(state, "interleave", vdpCmd->interleave);
+    saveStateSet(state, "rawScrMode", vdpCmd->rawScrMode);
+    saveStateSet(state, "cmdEnable",  vdpCmd->cmdEnable);
+    saveStateSet(state, "VX",         vdpCmd->VX);
+    saveStateSet(state, "VY",         vdpCmd->VY);
+    saveStateSet(state, "WSX",        vdpCmd->WSX);
+    saveStateSet(state, "WSY",        vdpCmd->WSY);
+    saveStateSet(state, "WEX",        vdpCmd->WEX);
+    saveStateSet(state, "WEY",        vdpCmd->WEY);
+    saveStateSet(state, "lrmmSX",     vdpCmd->lrmmSX);
+    saveStateSet(state, "lrmmSY",     vdpCmd->lrmmSY);
+    saveStateSet(state, "lrmmRowSX",  vdpCmd->lrmmRowSX);
+    saveStateSet(state, "lrmmRowSY",  vdpCmd->lrmmRowSY);
+    saveStateSet(state, "vram256",    vdpCmd->vram256);
+    saveStateSet(state, "fontAddress", vdpCmd->fontAddress);
+    saveStateSet(state, "fontColor", vdpCmd->fontColor);
+    saveStateSet(state, "cmdEnd", vdpCmd->cmdEnd);
+    saveStateSet(state, "cmdEndTime", vdpCmd->cmdEndTime);
+    saveStateSet(state, "cmdStartTime", vdpCmd->cmdStartTime);
+    saveStateSet(state, "hsModel", vdpCmd->hsModel);
+    saveStateSet(state, "hsStep", vdpCmd->hsStep);
     saveStateSet(state, "timingMode", vdpCmd->timingMode);
     
     saveStateClose(state);

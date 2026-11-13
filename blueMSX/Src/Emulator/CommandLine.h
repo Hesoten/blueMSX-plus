@@ -52,6 +52,13 @@ void emuCommandLineRestoreOverrides(void);
 /* Forgets them all, for when the user saves the settings themselves. */
 void emuCommandLineDropOverrides(void);
 
+/* The value an int setting had before the command line replaced it.
+** Returns 0 when the line left it alone. */
+int  emuCommandLineSavedInt(const int* field, int* saved);
+
+/* Like emuCommandLineDropOverrides, but keeps the overrides of keep. */
+void emuCommandLineDropOverridesExcept(const int* keep);
+
 /* Why the last call refused the line, or "" when it did not refuse one. */
 const char* emuCommandLineGetError(void);
 

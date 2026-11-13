@@ -33,6 +33,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <errno.h>
+#include "Utf8Conv.h"
 
 /* After stdio.h: pkg_fopen overrides fopen for UTF-8 paths. */
 #include "PacketFileSystem.h"
@@ -114,5 +116,117 @@ void sramSave(const char* filename, UInt8* sram, int length, void* header, int h
         fwrite(sram, 1, length, file);
         fclose(file);
     }
+}
+
+int sramFileStatus(const char* filename, int* size)
+{
+#ifdef _WIN32
+    WIN32_FILE_ATTRIBUTE_DATA data;
+    wchar_t wName[1024];
+    DWORD error;
+
+    *size = 0;
+    if (!PathToWide(filename, wName, 1024)) {
+        return SRAM_FILE_ERROR;
+    }
+    if (!GetFileAttributesExW(wName, GetFileExInfoStandard, &data)) {
+        error = GetLastError();
+        return error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND ?
+               SRAM_FILE_MISSING : SRAM_FILE_ERROR;
+    }
+    if ((data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) || data.nFileSizeHigh != 0 ||
+        data.nFileSizeLow > 0x7fffffff) {
+        return SRAM_FILE_ERROR;
+    }
+    *size = (int)data.nFileSizeLow;
+    return SRAM_FILE_PRESENT;
+#else
+    FILE* file = fopen(filename, "rb");
+    long length;
+
+    *size = 0;
+    if (file == NULL) {
+        return errno == ENOENT ? SRAM_FILE_MISSING : SRAM_FILE_ERROR;
+    }
+    fseek(file, 0, SEEK_END);
+    length = ftell(file);
+    fclose(file);
+    if (length < 0) {
+        return SRAM_FILE_ERROR;
+    }
+    *size = (int)length;
+    return SRAM_FILE_PRESENT;
+#endif
+}
+
+UInt8* sramLoadFile(const char* filename, int* length)
+{
+    FILE* file = fopen(filename, "rb");
+    UInt8* data;
+    long size;
+
+    if (file == NULL) {
+        return NULL;
+    }
+    fseek(file, 0, SEEK_END);
+    size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+    if (size < 0 || size > 64 * 1024 * 1024) {
+        fclose(file);
+        return NULL;
+    }
+    data = (UInt8*)malloc(size > 0 ? size : 1);
+    if (data != NULL && (long)fread(data, 1, size, file) != size) {
+        free(data);
+        data = NULL;
+    }
+    fclose(file);
+    *length = (int)size;
+    return data;
+}
+
+int sramSaveReplace(const char* filename, const UInt8* data, int length)
+{
+    char tmpName[600];
+    FILE* file;
+    int ok;
+
+    if (strlen(filename) + 5 > sizeof(tmpName)) {
+        return 0;
+    }
+    sprintf(tmpName, "%s.tmp", filename);
+
+    file = fopen(tmpName, "wb");
+    if (file == NULL) {
+        return 0;
+    }
+    ok = (int)fwrite(data, 1, length, file) == length;
+    ok = fclose(file) == 0 && ok;
+
+#ifdef _WIN32
+    {
+        wchar_t wTmp[1024];
+        wchar_t wName[1024];
+
+        if (!PathToWide(tmpName, wTmp, 1024)) {
+            return 0;
+        }
+        if (ok) {
+            ok = PathToWide(filename, wName, 1024) &&
+                 MoveFileExW(wTmp, wName, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH);
+        }
+        if (!ok) {
+            DeleteFileW(wTmp);
+        }
+    }
+#else
+    if (ok) {
+        ok = rename(tmpName, filename) == 0;
+    }
+    if (!ok) {
+        remove(tmpName);
+    }
+#endif
+    return ok;
 }
 

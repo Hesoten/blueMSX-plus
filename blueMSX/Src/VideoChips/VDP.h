@@ -34,11 +34,12 @@
 #include "MsxTypes.h"
 #include "VideoManager.h"
 
-typedef enum { VDP_V9938, VDP_V9958, VDP_TMS9929A, VDP_TMS99x8A, VDP_TMS9918A } VdpVersion;
-typedef enum { VDP_SYNC_AUTO, VDP_SYNC_50HZ, VDP_SYNC_60HZ } VdpSyncMode; 
+/* Append new versions; the value is stored as a plain integer in configs. */
+typedef enum { VDP_V9938, VDP_V9958, VDP_TMS9929A, VDP_TMS99x8A, VDP_TMS9918A, VDP_V9968 } VdpVersion;
+typedef enum { VDP_SYNC_AUTO, VDP_SYNC_50HZ, VDP_SYNC_60HZ } VdpSyncMode;
 typedef enum { VDP_MSX, VDP_SVI, VDP_COLECO, VDP_SG1000 } VdpConnector;
 
-static const char* VdpNames[] = { "V9938", "V9958", "TMS9929A", "TMS99x8A", "TMS9918A" };
+static const char* VdpNames[] = { "V9938", "V9958", "TMS9929A", "TMS99x8A", "TMS9918A", "V9968" };
 
 void vdpCreate(VdpConnector connector, VdpVersion version, VdpSyncMode sync, int vramPages);
 
@@ -52,6 +53,68 @@ void vdpSetDisplayEnable(int enable);
 int  vdpGetDisplayEnable();
 
 void vdpForceSync();
+
+/* Live VRAM, current only up to the last vdpForceSync(). NULL when there is no VDP. */
+UInt8* vdpDebugGetVram(UInt32* size);
+
+/* Copies up to max control registers; returns how many, or 0 when there is no
+** VDP. The screen mode is -1 when there is no VDP. */
+int vdpDebugGetRegisters(UInt8* registers, int max);
+int vdpDebugGetScreenMode(void);
+
+/* SCREEN 7, 8 and 10-12 interleave the two 64 kB banks: below 0x20000, program address a
+** is the chips' byte VDP_VRAM_INDEX(a), and byte i is address VDP_VRAM_ADDRESS(i). */
+#define VDP_VRAM_INTERLEAVED(mode) ((mode) >= 7 && (mode) <= 12)
+#define VDP_VRAM_INDEX(a)          (((a) >> 1) | (((a) & 1) << 16))
+#define VDP_VRAM_ADDRESS(i)        ((((i) & 0xffff) << 1) | ((i) >> 16))
+
+/* 1 when that screen mode interleaves the two 64 kB banks of VRAM. */
+int vdpVramInterleaved(int mode);
+/* 1 when the two screen modes lay VRAM out the same way. */
+int vdpVramSameLayout(int mode, int other);
+
+/* 1 when the two colour indices are drawn in exactly the same colour now (palette, backdrop for 0). */
+int vdpDebugColorsMatch(int first, int second);
+
+/* The machine VDP frames begun since power-on, the one in progress included: it goes back
+** with a state load or a rewind, as it is part of the state. 0 without a VDP. */
+UInt32 vdpGetMachineFrame(void);
+
+struct VDP;
+
+/* A V9968 beside the machine's VDP, as on a cartridge: ports portBase to portBase + 4,
+** interrupts intBase, << 1 and << 2. Its owner resets, saves, loads and destroys it;
+** frameDone runs as each frame starts, early when a frame step showed its display end. */
+typedef struct {
+    int portBase;
+    int intBase;
+    const char* name;
+    const char* stateName;
+    const char* cmdStateName;
+    void (*frameDone)(void* ref, struct VDP* vdp, int isPal, int early);
+    void* ref;
+} VdpSecondaryConfig;
+
+struct VDP* vdpCreateSecondary(const VdpSecondaryConfig* config);
+void vdpDestroySecondary(struct VDP* vdp);
+void vdpResetSecondary(struct VDP* vdp);
+void vdpSaveStateSecondary(struct VDP* vdp);
+void vdpLoadStateSecondary(struct VDP* vdp);
+int  vdpGetVideoHandle(struct VDP* vdp);
+int  vdpGetScreenMode(struct VDP* vdp);
+/* R#1 BL. */
+int  vdpIsDisplayOn(struct VDP* vdp);
+
+/* geo3d drives the command engine through these; NULL is the machine VDP. */
+int  vdpGetCommandBusy(struct VDP* vdp);
+void vdpWriteCommandRegister(struct VDP* vdp, UInt8 reg, UInt8 value, int fillSpan);
+UInt32 vdpGetCommandEndTime(struct VDP* vdp);
+void vdpAddCommandCredit(struct VDP* vdp, int units);
+void vdpSetCommandTraceLink(struct VDP* vdp, UInt32 link);
+/* The trace instance name: "VDP" for the machine's or NULL, else the secondary VDP's own. */
+const char* vdpGetTraceName(struct VDP* vdp);
+/* Board time the VDP's current frame began (at its own frame tap, the one ending). */
+UInt32 vdpGetFrameStartTime(struct VDP* vdp);
 
 // Video DA Interface
 
@@ -68,7 +131,7 @@ int vdpRegisterDaConverter(VdpDaCallbacks* callbacks, void* ref, VideoMode video
 void vdpUnregisterDaConverter(int vdpDaHandle);
 
 /* The following methods needs target dependent implementation */
-extern void RefreshScreen(int);
+extern void RefreshScreen(int screenMode, int presented, int vintShows);
 
 #endif
 

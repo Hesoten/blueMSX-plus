@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -34,5 +37,17 @@ const char* sramCreateFilename(const char* romFilename);
 const char* sramCreateFilenameWithSuffix(const char* romFilename, char* suffix, char* ext);
 void sramLoad(const char* filename, UInt8* sram, int length, void* header, int headerLength);
 void sramSave(const char* filename, UInt8* sram, int length, void* header, int headerLength);
+
+#define SRAM_FILE_MISSING  0
+#define SRAM_FILE_PRESENT  1
+#define SRAM_FILE_ERROR   -1
+
+/* Only a file that does not exist is missing; one that cannot be opened or
+** examined is an error, so a locked save is never taken for an absent one. */
+int sramFileStatus(const char* filename, int* size);
+/* The whole file in a malloc'd buffer, or NULL. */
+UInt8* sramLoadFile(const char* filename, int* length);
+/* Writes a temporary file first, so a failed write leaves the old one. */
+int sramSaveReplace(const char* filename, const UInt8* data, int length);
 
 #endif

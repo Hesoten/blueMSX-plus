@@ -55,6 +55,12 @@
 #include "ArchDialog.h"
 #include "Emulator.h"
 #include "AppConfig.h"
+#include "ControlClient.h"
+#include "ControlSocket.h"
+#include "ControlInstance.h"
+#include "V9990.h"
+#include "romMapperV9968Cart.h"
+#include "Win32ActivityPanel.h"
 
 /* showLoadMemoryDlg is the IDD_LOAD_MEMORY entry point, defined
    alongside the rest of the Win32 dialog handlers in Win32.c.
@@ -63,6 +69,8 @@
 extern int showLoadMemoryDlg(HWND hwnd);
 #include "IsFileExtension.h"
 #include "ziphelper.h"
+#include "ImGui/VdpViewer/VdpViewer.h"
+#include "ImGui/ControlDeck/ControlDeck.h"
 
 
 
@@ -129,7 +137,15 @@ extern int showLoadMemoryDlg(HWND hwnd);
 #define ID_TOOLS_KEYBOARDEDITOR         40066
 #define ID_TOOLS_MIXER                  40061
 #define ID_TOOLS_MIXERDEVICES           40062
+#define ID_TOOLS_CONTROL_DECK           40070
+#define ID_TOOLS_VDP_VIEWER             40063
 #define ID_TOOLS_LOADMEMORY             40067
+/* Clear of 4006x (window sizes) and 41600-43099 (hard disk entries, multiplied
+** out by ID_HARDDISK_OFFSET); the next block above is 50000. */
+#define ID_TOOLS_AGENT_OFF              43200
+#define ID_TOOLS_AGENT_READONLY         43201
+#define ID_TOOLS_AGENT_FULL             43202
+#define ID_TOOLS_AGENT_ACTIVITY         43203
 
 #define ID_NOWIND_ENABLEDOS2            40100
 #define ID_NOWIND_ENABLEPHANTOMDRIVES   40101
@@ -189,6 +205,7 @@ extern int showLoadMemoryDlg(HWND hwnd);
 #define ID_FILE_CART_ROOKIEDRIVE        41122
 #define ID_FILE_CART_GFX9000            41123
 #define ID_FILE_CART_VIDEO9000          41124
+#define ID_FILE_CART_V9968CART          41125
 #define ID_FILE_CART_JOYREXPSG          41110
 #define ID_FILE_CART_EXTRAM16KB         41111
 #define ID_FILE_CART_EXTRAM32KB         41112
@@ -346,6 +363,7 @@ static const char* getCleanFileName(const char* fileName)
     if (strcmp(fileName, CARTNAME_ROOKIEDRIVE) == 0)    return "Rookie Drive NX";
     if (strcmp(fileName, CARTNAME_GFX9000) == 0)        return "GFX9000";
     if (strcmp(fileName, CARTNAME_VIDEO9000) == 0)      return "Video9000";
+    if (strcmp(fileName, CARTNAME_V9968CART) == 0)      return langRomTypeV9968Cart();
     if (strcmp(fileName, CARTNAME_ESERAM256) == 0)      return langRomTypeEseRam256();
     if (strcmp(fileName, CARTNAME_ESERAM512) == 0)      return langRomTypeEseRam512();
     if (strcmp(fileName, CARTNAME_ESERAM1MB) == 0)      return langRomTypeEseRam1mb();
@@ -652,6 +670,7 @@ static HMENU menuCreateCartSpecial(int cartNo, Properties* pProperties, Shortcut
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_GFX9000, "GFX9000");
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_VIDEO9000, "Video9000");
+    AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_V9968CART, langRomTypeV9968Cart());
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
     AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuExtRam, langMenuCartExternalRam());
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
@@ -1334,6 +1353,31 @@ static HMENU menuCreateHelp(Properties* pProperties, Shortcuts* shortcuts)
     return hMenu;
 }
 
+/* Takes effect at once: turning it off disconnects any client. */
+static void setAgentControl(Properties* pProperties, int level)
+{
+    /* The same level again starts a socket a still closing one held off. */
+    if (level == ctrlGateLevel() && (level == CTRL_GATE_OFF || ctrlSocketIsListening())) {
+        return;
+    }
+    pProperties->emulation.agentControl = level;
+    ctrlGateSetLevel(level);
+    /* Before the socket starts, so no client finds a minimized window not drawing. */
+    updateMinimizedDrawing();
+
+    if (level == CTRL_GATE_OFF) {
+        ctrlClientBlockAll(1);
+        ctrlSocketStop(0);
+    }
+    else {
+        ctrlClientBlockAll(0);
+        ctrlSocketStart();
+        /* Rewrites the instance file with the new level. */
+        ctrlInstanceSetMachine(NULL);
+    }
+    activityPanelStatusChanged();
+}
+
 static HMENU menuCreateTools(Properties* pProperties, Shortcuts* shortcuts)
 {
     HMENU hMenu = CreatePopupMenu();
@@ -1354,8 +1398,33 @@ static HMENU menuCreateTools(Properties* pProperties, Shortcuts* shortcuts)
         AppendMenuU(hMenu, MF_STRING, ID_TOOLS_MIXER, langMenuToolsMixer());
         AppendMenuU(hMenu, MF_STRING, ID_TOOLS_MIXERDEVICES, langMenuToolsMixerDevices());
     }
+    if (appConfigGetInt("menu.tools.vdpviewer", 1) != 0) {
+        AppendMenuU(hMenu, MF_STRING, ID_TOOLS_VDP_VIEWER, langMenuToolsVdpViewer());
+    }
+    if (appConfigGetInt("menu.tools.controldeck", 1) != 0) {
+        AppendMenuU(hMenu, MF_STRING | (controlDeckIsOpen() ? MF_CHECKED : 0),
+                    ID_TOOLS_CONTROL_DECK, langMenuToolsControlDeck());
+    }
     if (appConfigGetInt("menu.tools.loadmemory", 1) != 0) {
         AppendMenuU(hMenu, MF_STRING, ID_TOOLS_LOADMEMORY, langMenuToolsLoadMemory());
+    }
+
+    {
+        HMENU hAgent = CreatePopupMenu();
+        int   level = ctrlGateLevel();
+
+        setMenuColor(hAgent);
+        AppendMenuU(hAgent, MF_STRING | (level == CTRL_GATE_OFF ? MF_CHECKED : 0),
+                    ID_TOOLS_AGENT_OFF, langMenuAgentOff());
+        AppendMenuU(hAgent, MF_STRING | (level == CTRL_GATE_READONLY ? MF_CHECKED : 0),
+                    ID_TOOLS_AGENT_READONLY, langMenuAgentReadOnly());
+        AppendMenuU(hAgent, MF_STRING | (level == CTRL_GATE_FULL ? MF_CHECKED : 0),
+                    ID_TOOLS_AGENT_FULL, langMenuAgentFull());
+        AppendMenuU(hAgent, MF_SEPARATOR, 0, NULL);
+        AppendMenuU(hAgent, MF_STRING, ID_TOOLS_AGENT_ACTIVITY,
+                    langMenuToolsAgentActivity());
+
+        AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hAgent, langMenuToolsAgentControl());
     }
 
     count = toolGetCount();
@@ -1937,6 +2006,39 @@ void archShowMenuReset(int x, int y) {
     showPopupMenu(hMenuReset, x, y);
 }
 
+void menuShowResetChoices(int x, int y)
+{
+    HWND mainWnd = getMainHwnd();
+    HMENU hMenu = CreatePopupMenu();
+    int command;
+
+    if (hMenu == NULL) {
+        return;
+    }
+    AppendMenuU(hMenu, MF_STRING, ID_RUN_RESET, langMenuRunHardReset());
+    AppendMenuU(hMenu, MF_STRING, ID_RUN_SOFTRESET, langMenuRunSoftReset());
+    AppendMenuU(hMenu, MF_STRING, ID_RUN_CLEANRESET, langMenuRunCleanReset());
+
+    /* A popup closes on a click elsewhere only while its owner is in front;
+    ** the WM_NULL after it is the documented fix for the next one. */
+    SetForegroundWindow(mainWnd);
+    enterDialogShow();
+    command = TrackPopupMenu(hMenu, TPM_RETURNCMD | TPM_LEFTALIGN | TPM_TOPALIGN, x, y, 0, mainWnd, NULL);
+    exitDialogShow();
+    PostMessage(mainWnd, WM_NULL, 0, 0);
+    DestroyMenu(hMenu);
+
+    if (command == ID_RUN_RESET) {
+        menuPostRunCommand(MENU_RUN_RESET_HARD);
+    }
+    else if (command == ID_RUN_SOFTRESET) {
+        menuPostRunCommand(MENU_RUN_RESET_SOFT);
+    }
+    else if (command == ID_RUN_CLEANRESET) {
+        menuPostRunCommand(MENU_RUN_RESET_CLEAN);
+    }
+}
+
 void archShowMenuHelp(int x, int y) {
     showPopupMenu(hMenuHelp, x, y);
 }
@@ -2001,6 +2103,19 @@ void archShowMenuTools(int x, int y) {
     showPopupMenu(hMenuTools, x, y);
 }
 
+int menuCartClashRefused(Properties* pProperties, int cartNo, int romType)
+{
+    /* Stopped, the properties are what the next start builds; running, the device must be in. */
+    int other = pProperties->media.carts[cartNo ^ 1].type, stopped = emulatorGetState() == EMU_STOPPED;
+    int clash = romType == ROM_V9968CART ? (other == ROM_GFX9000 || other == ROM_VIDEO9000) && (stopped || v9990IsPresent()) :
+                (romType == ROM_GFX9000 || romType == ROM_VIDEO9000) && other == ROM_V9968CART &&
+                (stopped || romMapperV9968CartIsPresent());
+    if (clash) {
+        MessageBoxU(getMainHwnd(), langErrorCartV9968WithV9990(), langErrorTitle(), MB_OK | MB_ICONERROR);
+    }
+    return clash;
+}
+
 int menuCommand(Properties* pProperties, int command) 
 {
     int i;
@@ -2014,7 +2129,9 @@ int menuCommand(Properties* pProperties, int command)
         if (appConfigGetInt("filehistory", 1) != 0) {
             h = cmd - ID_FILE_CART_HISTORY;
             if (h >= 0 && h < MAX_HISTORY) {
-                insertCartridge(pProperties, i, pProperties->filehistory.cartridge[i][h], NULL, pProperties->filehistory.cartridgeType[i][h], 0);
+                if (!menuCartClashRefused(pProperties, i, pProperties->filehistory.cartridgeType[i][h])) {
+                    insertCartridge(pProperties, i, pProperties->filehistory.cartridge[i][h], NULL, pProperties->filehistory.cartridgeType[i][h], 0);
+                }
                 return 1;
             }
         }
@@ -2167,10 +2284,19 @@ int menuCommand(Properties* pProperties, int command)
             insertCartridge(pProperties, i, CARTNAME_ROOKIEDRIVE, NULL, ROM_ROOKIEDRIVE, 0);
             return 1;
         case ID_FILE_CART_GFX9000:
-            insertCartridge(pProperties, i, CARTNAME_GFX9000, NULL, ROM_GFX9000, 0);
+            if (!menuCartClashRefused(pProperties, i, ROM_GFX9000)) {
+                insertCartridge(pProperties, i, CARTNAME_GFX9000, NULL, ROM_GFX9000, 0);
+            }
             return 1;
         case ID_FILE_CART_VIDEO9000:
-            insertCartridge(pProperties, i, CARTNAME_VIDEO9000, NULL, ROM_VIDEO9000, 0);
+            if (!menuCartClashRefused(pProperties, i, ROM_VIDEO9000)) {
+                insertCartridge(pProperties, i, CARTNAME_VIDEO9000, NULL, ROM_VIDEO9000, 0);
+            }
+            return 1;
+        case ID_FILE_CART_V9968CART:
+            if (!menuCartClashRefused(pProperties, i, ROM_V9968CART)) {
+                insertCartridge(pProperties, i, CARTNAME_V9968CART, NULL, ROM_V9968CART, 0);
+            }
             return 1;
         case ID_FILE_CART_ASCII16X:
             insertCartridge(pProperties, i, CARTNAME_ASCII16X, NULL, ROM_ASCII16X, 0);
@@ -2433,7 +2559,7 @@ int menuCommand(Properties* pProperties, int command)
     case ID_SIZE_X8:                        actionWindowSize8x();           return 0;
     case ID_SIZE_MINIMIZED:                 actionWindowSizeMinimized();    return 0;
     case ID_SIZE_FULLSCREEN:                actionWindowSizeFullscreen();   return 0;
-    case ID_RUN_RUN:                        actionEmuTogglePause();         return 0;
+    case ID_RUN_RUN:                        actionEmuRunPause();            return 0;
     case ID_RUN_STOP:                       actionEmuStop();                return 0;
     case ID_RUN_RESET:                      actionEmuResetHard();           return 0;
     case ID_RUN_SOFTRESET:                  actionEmuResetSoft();           return 0;
@@ -2455,9 +2581,34 @@ int menuCommand(Properties* pProperties, int command)
     case ID_TOOLS_KEYBOARDEDITOR:           actionToolsShowKeyboardEditor();return 0;
     case ID_TOOLS_MIXER:                    actionToolsShowMixer();         return 0;
     case ID_TOOLS_MIXERDEVICES:             actionToolsShowMixerDevices();  return 0;
+    case ID_TOOLS_VDP_VIEWER:               vdpViewerShow();                return 0;
+    case ID_TOOLS_CONTROL_DECK:
+        if (controlDeckIsOpen()) controlDeckClose();
+        else                     controlDeckShow();
+        return 0;
     case ID_TOOLS_LOADMEMORY:               showLoadMemoryDlg(getMainHwnd()); return 0;
+    case ID_TOOLS_AGENT_OFF:
+        setAgentControl(pProperties, CTRL_GATE_OFF);
+        return 1;
+    case ID_TOOLS_AGENT_READONLY:
+        setAgentControl(pProperties, CTRL_GATE_READONLY);
+        return 1;
+    case ID_TOOLS_AGENT_FULL:
+        setAgentControl(pProperties, CTRL_GATE_FULL);
+        return 1;
+    case ID_TOOLS_AGENT_ACTIVITY:
+        activityPanelShow();
+        return 0;
     case ID_HELP_HELP:                      actionHelpShowHelp();           return 0;
     case ID_HELP_ABOUT:                     actionHelpShowAbout();          return 0;
     }
     return 0;
+}
+
+void menuPostRunCommand(MenuRunCommand command)
+{
+    static const int ids[] = { ID_RUN_RUN, ID_RUN_STOP, ID_RUN_RESET, ID_RUN_SOFTRESET, ID_RUN_CLEANRESET };
+    if ((unsigned)command < sizeof(ids) / sizeof(ids[0])) {
+        PostMessage(getMainHwnd(), WM_COMMAND, MAKEWPARAM(ids[command], 0), 0);
+    }
 }

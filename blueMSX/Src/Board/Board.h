@@ -101,6 +101,14 @@ int boardRun(Machine* machine,
 
 int boardRewind();
 int boardRewindOne();
+/* Drops the snapshots taken after dropAfter and loads the newest one left taken at or before
+** loadAt (else the oldest), keeping those after it; 0 when none is at or before dropAfter. */
+int boardRewindTo(UInt32 loadAt, UInt32 dropAfter);
+/* Non-zero when the board time given is not ahead of now and the oldest snapshot was taken
+** at or before it. */
+int boardRewindReaches(UInt32 at);
+/* Drops the snapshots taken after the board time given, keeping at least one. */
+void boardRewindForget(UInt32 after);
 void boardEnableSnapshots(int enable);
 
 BoardType boardGetType();
@@ -140,7 +148,22 @@ void        boardReportMissingFile(const char* file, const char* inZip);
 
 UInt8 boardCaptureUInt8(UInt8 logId, UInt8 value);
 
-void boardSaveState(const char* stateFile, int screenshot);
+/* Zero when the state could not be stored whole, as when a part did not fit. */
+int boardSaveState(const char* stateFile, int screenshot);
+
+#define BOARD_SNAPSHOT_OK          0
+#define BOARD_SNAPSHOT_NONE        1  /* none since the machine was built or a cartridge changed */
+#define BOARD_SNAPSHOT_HOST_MEDIUM 2  /* a host folder or drive in a disk drive cannot go back  */
+#define BOARD_SNAPSHOT_FAILED      3  /* not stored whole; an earlier one is gone too            */
+
+/* One machine state kept in memory. Only while the emulation thread is parked, on
+** the window's thread, which is where step back loads its states too. */
+int boardSnapshotTake(void);
+int boardSnapshotRestore(void);
+
+/* Non-zero while parked by a breakpoint or a watchpoint stop. A breakpoint stop has
+** tested its address already; a watchpoint stop is in the middle of an instruction. */
+int boardIsParkedInBreakpointStop(void);
 
 void boardSetFrequency(int frequency);
 int  boardGetRefreshRate();
@@ -219,7 +242,10 @@ void boardTimerRemove(BoardTimer* timer);
 void boardTimerCheckTimeout(void* dummy);
 UInt32 boardCalcRelativeTimeout(UInt32 timerFrequency, UInt32 nextTimeout);
 
-void   boardOnBreakpoint(UInt16 pc);
+/* Stops the machine where it is, for cause (a DBG_STOP_ value), which the pause tells on. */
+void   boardOnBreakpoint(int cause);
+/* Brings the next sync with the real clock forward to the next tick. Emulation thread only. */
+void   boardSyncSoon(void);
 
 int boardInsertExternalDevices();
 int boardRemoveExternalDevices();

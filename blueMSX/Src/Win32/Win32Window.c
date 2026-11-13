@@ -187,7 +187,13 @@ typedef struct WindowInfo {
     int      rgnEnable;
 
     HWND     hwndSliderTip;   /* lazily created on first slider hover */
+    UINT     updateInterval;  /* ms between theme updates */
 } WindowInfo;
+
+/* Level meters follow the sound, so refresh pages that show them at about
+** the display rate; other pages keep the slower status update. */
+#define UPDATE_INTERVAL_METER   16
+#define UPDATE_INTERVAL_DEFAULT 100
 
 /* A button entry stores its notify id in place of a pointer. */
 static WindowInfo* windowInfoGet(HWND hwnd)
@@ -596,7 +602,7 @@ static LRESULT CALLBACK keyboardDlgProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
         keyboardStartConfig();
         objectUpdate(hwnd, WM_DROPDOWN_KEYBOARDCONFIG, (LPARAM)keyboardGetCurrentConfig());
         SetTimer(hwnd, TIMER_POLL_INPUT, 500, NULL);
-        /* Theme framework paints via GetDC(hwnd)+themePageUpdate every 100ms
+        /* Theme framework paints via GetDC(hwnd)+themePageUpdate periodically
         ** (TIMER_STATUSBAR_UPDATE), which clobbers our child controls unless
         ** WS_CLIPCHILDREN excludes their rects from parent drawing. */
         SetWindowLongPtr(hwnd, GWL_STYLE,
@@ -728,7 +734,8 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
 
             ShowWindow(hwnd, TRUE); 
             
-            SetTimer(hwnd, TIMER_STATUSBAR_UPDATE, 100, NULL);
+            wi->updateInterval = UPDATE_INTERVAL_DEFAULT;
+            SetTimer(hwnd, TIMER_STATUSBAR_UPDATE, wi->updateInterval, NULL);
         }
         break;
 
@@ -768,9 +775,16 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
         if (wi != NULL) {
             switch(wParam) {
             case TIMER_STATUSBAR_UPDATE: {
+                ThemePage* page = themeGetCurrentPage(wi->theme);
+                UINT interval = themePageHasMeter(page) ? UPDATE_INTERVAL_METER
+                                                        : UPDATE_INTERVAL_DEFAULT;
                 HDC hdc = GetDC(hwnd);
-                themePageUpdate(themeGetCurrentPage(wi->theme), hdc);
+                themePageUpdate(page, hdc);
                 ReleaseDC(hwnd, hdc);
+                if (interval != wi->updateInterval) {
+                    wi->updateInterval = interval;
+                    SetTimer(hwnd, TIMER_STATUSBAR_UPDATE, interval, NULL);
+                }
                 break;
             }
             case TIMER_CLIP_REGION:
@@ -1059,8 +1073,10 @@ void archWindowApplyOwnership(void* p)
             ShowWindow(hwnd, SW_HIDE);
         }
         SetWindowLongPtr(hwnd, GWLP_HWNDPARENT, (LONG_PTR)newOwner);
+        /* SW_SHOWNA, unlike SW_SHOWNOACTIVATE, keeps a minimised or
+        ** maximised window that way. */
         if (wasVisible) {
-            ShowWindow(hwnd, SW_SHOWNOACTIVATE);
+            ShowWindow(hwnd, SW_SHOWNA);
         }
     }
 
@@ -1070,11 +1086,16 @@ void archWindowApplyOwnership(void* p)
 static BOOL CALLBACK reownEnumProc(HWND hwnd, LPARAM lParam)
 {
     wchar_t className[64];
+    DWORD pid = 0;
     (void)lParam;
-    /* All aux theme windows share the "blueMSX Popup" class; the class
-    ** filter is what makes a desktop-wide EnumWindows walk safe. */
-    if (GetClassNameW(hwnd, className, _countof(className)) > 0 &&
-        wcscmp(className, L"blueMSX Popup") == 0) {
+    /* Aux theme windows share the "blueMSX Popup" class and the ImGui tool
+    ** windows are "blueMSXImGuiWindow". The walk covers the whole desktop, so
+    ** skip the windows of other running instances. */
+    GetWindowThreadProcessId(hwnd, &pid);
+    if (pid == GetCurrentProcessId() &&
+        GetClassNameW(hwnd, className, _countof(className)) > 0 &&
+        (wcscmp(className, L"blueMSX Popup") == 0 ||
+         wcscmp(className, L"blueMSXImGuiWindow") == 0)) {
         archWindowApplyOwnership(hwnd);
     }
     return TRUE;

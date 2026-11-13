@@ -254,7 +254,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>..\..\Src\Bios;..\..\Src\Board;..\..\Src\Theme;..\..\Src\Utils;..\..\Src\Emulator;..\..\Src\BuildInfo;..\..\Src\Common;..\..\Src\IoDevice;..\..\Src\Resources;..\..\Src\SoundChips;..\..\Src\Unzip;..\..\Src\VideoChips;..\..\Src\VideoRender;..\..\Src\Z80;..\..\Src\Language;..\..\Src\Memory;..\..\Src\TinyXML;..\..\Src\Arch;..\..\Src\Media;..\..\Src\Debugger;..\..\Src\Input;..\..\Src\ThirdParty\DirectShowSamples;..\..\Src\ThirdParty\WinPCap;c:\Program Files\Microsoft SDKs\Windows\v6.1\Include;C:\Program Files\Microsoft SDKs\Windows\v6.0\Include;C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)\Include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\Src\Bios;..\..\Src\Board;..\..\Src\Theme;..\..\Src\Utils;..\..\Src\Emulator;..\..\Src\BuildInfo;..\..\Src\Common;..\..\Src\IoDevice;..\..\Src\Resources;..\..\Src\SoundChips;..\..\Src\Unzip;..\..\Src\VideoChips;..\..\Src\VideoRender;..\..\Src\Z80;..\..\Src\Language;..\..\Src\Memory;..\..\Src\TinyXML;..\..\Src\Arch;..\..\Src\Media;..\..\Src\Debugger;..\..\Src\Control;..\..\Src\Input;..\..\Src\ThirdParty\DirectShowSamples;..\..\Src\ThirdParty\WinPCap;c:\Program Files\Microsoft SDKs\Windows\v6.1\Include;C:\Program Files\Microsoft SDKs\Windows\v6.0\Include;C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)\Include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>OLD_Y8950;WIN32;_DEBUG;WINDOWS;NARROW;SOUND;DISK;NOCRYPT;NOUNCRYPT;PROPERTIES_LOCAL_INI_FILE;USE_PACKET_FS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -298,7 +298,7 @@
       <DebugInformationFormat>
       </DebugInformationFormat>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalIncludeDirectories>..\..\Src\Bios;..\..\Src\Board;..\..\Src\Theme;..\..\Src\Utils;..\..\Src\Emulator;..\..\Src\BuildInfo;..\..\Src\Common;..\..\Src\IoDevice;..\..\Src\Resources;..\..\Src\SoundChips;..\..\Src\Unzip;..\..\Src\VideoChips;..\..\Src\VideoRender;..\..\Src\Z80;..\..\Src\Language;..\..\Src\Memory;..\..\Src\TinyXML;..\..\Src\Arch;..\..\Src\Media;..\..\Src\Debugger;..\..\Src\Input;..\..\Src\ThirdParty\WinPCap</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\Src\Bios;..\..\Src\Board;..\..\Src\Theme;..\..\Src\Utils;..\..\Src\Emulator;..\..\Src\BuildInfo;..\..\Src\Common;..\..\Src\IoDevice;..\..\Src\Resources;..\..\Src\SoundChips;..\..\Src\Unzip;..\..\Src\VideoChips;..\..\Src\VideoRender;..\..\Src\Z80;..\..\Src\Language;..\..\Src\Memory;..\..\Src\TinyXML;..\..\Src\Arch;..\..\Src\Media;..\..\Src\Debugger;..\..\Src\Control;..\..\Src\Input;..\..\Src\ThirdParty\WinPCap</AdditionalIncludeDirectories>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\..\Src\BuildInfo;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -320,7 +320,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Final|Win32'">
     <ClCompile>
-      <AdditionalIncludeDirectories>..\..\Src\Bios;..\..\Src\Board;..\..\Src\Theme;..\..\Src\Utils;..\..\Src\Emulator;..\..\Src\BuildInfo;..\..\Src\Common;..\..\Src\IoDevice;..\..\Src\Resources;..\..\Src\SoundChips;..\..\Src\Unzip;..\..\Src\VideoChips;..\..\Src\VideoRender;..\..\Src\Z80;..\..\Src\Language;..\..\Src\Memory;..\..\Src\TinyXML;..\..\Src\Arch;..\..\Src\Media;..\..\Src\Debugger;..\..\Src\Input;..\..\Src\ThirdParty\DirectShowSamples;..\..\Src\ThirdParty\WinPCap;c:\Program Files\Microsoft SDKs\Windows\v6.1\Include;C:\Program Files\Microsoft SDKs\Windows\v6.0\Include;C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)\Include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\Src\Bios;..\..\Src\Board;..\..\Src\Theme;..\..\Src\Utils;..\..\Src\Emulator;..\..\Src\BuildInfo;..\..\Src\Common;..\..\Src\IoDevice;..\..\Src\Resources;..\..\Src\SoundChips;..\..\Src\Unzip;..\..\Src\VideoChips;..\..\Src\VideoRender;..\..\Src\Z80;..\..\Src\Language;..\..\Src\Memory;..\..\Src\TinyXML;..\..\Src\Arch;..\..\Src\Media;..\..\Src\Debugger;..\..\Src\Control;..\..\Src\Input;..\..\Src\ThirdParty\DirectShowSamples;..\..\Src\ThirdParty\WinPCap;c:\Program Files\Microsoft SDKs\Windows\v6.1\Include;C:\Program Files\Microsoft SDKs\Windows\v6.0\Include;C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)\Include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>OLD_Y8950;NOCRYPT;NOUNCRYPT;_MBCS;__WINCRYPT_H__;WIN32;_WINDOWS;WINDOWS;NDEBUG;NARROW;SOUND;DISK;PROPERTIES_LOCAL_INI_FILE;_CRT_SECURE_NO_WARNINGS;USE_PACKET_FS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <PrecompiledHeader>
@@ -358,7 +358,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>..\..\Src\Bios;..\..\Src\Board;..\..\Src\Theme;..\..\Src\Utils;..\..\Src\Emulator;..\..\Src\BuildInfo;..\..\Src\Common;..\..\Src\IoDevice;..\..\Src\Resources;..\..\Src\SoundChips;..\..\Src\Unzip;..\..\Src\VideoChips;..\..\Src\VideoRender;..\..\Src\Z80;..\..\Src\Language;..\..\Src\Memory;..\..\Src\TinyXML;..\..\Src\Arch;..\..\Src\Media;..\..\Src\Debugger;..\..\Src\Input;..\..\Src\ThirdParty\DirectShowSamples;..\..\Src\ThirdParty\WinPCap;c:\Program Files\Microsoft SDKs\Windows\v6.1\Include;C:\Program Files\Microsoft SDKs\Windows\v6.0\Include;C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)\Include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\Src\Bios;..\..\Src\Board;..\..\Src\Theme;..\..\Src\Utils;..\..\Src\Emulator;..\..\Src\BuildInfo;..\..\Src\Common;..\..\Src\IoDevice;..\..\Src\Resources;..\..\Src\SoundChips;..\..\Src\Unzip;..\..\Src\VideoChips;..\..\Src\VideoRender;..\..\Src\Z80;..\..\Src\Language;..\..\Src\Memory;..\..\Src\TinyXML;..\..\Src\Arch;..\..\Src\Media;..\..\Src\Debugger;..\..\Src\Control;..\..\Src\Input;..\..\Src\ThirdParty\DirectShowSamples;..\..\Src\ThirdParty\WinPCap;c:\Program Files\Microsoft SDKs\Windows\v6.1\Include;C:\Program Files\Microsoft SDKs\Windows\v6.0\Include;C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)\Include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>OLD_Y8950;_MBCS;__WINCRYPT_H__;WIN32;_CONSOLE;WINDOWS;NDEBUG;NARROW;SOUND;DISK;NOCRYPT;NOUNCRYPT;PROPERTIES_LOCAL_INI_FILE;USE_PACKET_FS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
@@ -394,7 +394,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>..\..\Src\Bios;..\..\Src\Board;..\..\Src\Theme;..\..\Src\Utils;..\..\Src\Emulator;..\..\Src\BuildInfo;..\..\Src\Common;..\..\Src\IoDevice;..\..\Src\Resources;..\..\Src\SoundChips;..\..\Src\Unzip;..\..\Src\VideoChips;..\..\Src\VideoRender;..\..\Src\Z80;..\..\Src\Language;..\..\Src\Memory;..\..\Src\TinyXML;..\..\Src\Arch;..\..\Src\Media;..\..\Src\Debugger;..\..\Src\Input;..\..\Src\ThirdParty\DirectShowSamples;..\..\Src\ThirdParty\WinPCap;c:\Program Files\Microsoft SDKs\Windows\v6.1\Include;C:\Program Files\Microsoft SDKs\Windows\v6.0\Include;C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)\Include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\Src\Bios;..\..\Src\Board;..\..\Src\Theme;..\..\Src\Utils;..\..\Src\Emulator;..\..\Src\BuildInfo;..\..\Src\Common;..\..\Src\IoDevice;..\..\Src\Resources;..\..\Src\SoundChips;..\..\Src\Unzip;..\..\Src\VideoChips;..\..\Src\VideoRender;..\..\Src\Z80;..\..\Src\Language;..\..\Src\Memory;..\..\Src\TinyXML;..\..\Src\Arch;..\..\Src\Media;..\..\Src\Debugger;..\..\Src\Control;..\..\Src\Input;..\..\Src\ThirdParty\DirectShowSamples;..\..\Src\ThirdParty\WinPCap;c:\Program Files\Microsoft SDKs\Windows\v6.1\Include;C:\Program Files\Microsoft SDKs\Windows\v6.0\Include;C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)\Include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>OLD_Y8950;_MBCS;__WINCRYPT_H__;WIN32;_WINDOWS;WINDOWS;NDEBUG;NARROW;SOUND;DISK;NOCRYPT;NOUNCRYPT;PROPERTIES_LOCAL_INI_FILE;SINGLE_THEME="Canned";SINGLE_MACHINE="Canned";NO_DEFAULT_THEME;NO_FILE_HISTORY;NO_TOOL_SUPPORT;_CRT_SECURE_NO_WARNINGS;USE_PACKET_FS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
@@ -428,7 +428,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug Canned|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>..\..\Src\Bios;..\..\Src\Board;..\..\Src\Theme;..\..\Src\Utils;..\..\Src\Emulator;..\..\Src\BuildInfo;..\..\Src\Common;..\..\Src\IoDevice;..\..\Src\Resources;..\..\Src\SoundChips;..\..\Src\Unzip;..\..\Src\VideoChips;..\..\Src\VideoRender;..\..\Src\Z80;..\..\Src\Language;..\..\Src\Memory;..\..\Src\TinyXML;..\..\Src\Arch;..\..\Src\Media;..\..\Src\Debugger;..\..\Src\Input;..\..\Src\ThirdParty\DirectShowSamples;..\..\Src\ThirdParty\WinPCap;c:\Program Files\Microsoft SDKs\Windows\v6.1\Include;C:\Program Files\Microsoft SDKs\Windows\v6.0\Include;C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)\Include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\Src\Bios;..\..\Src\Board;..\..\Src\Theme;..\..\Src\Utils;..\..\Src\Emulator;..\..\Src\BuildInfo;..\..\Src\Common;..\..\Src\IoDevice;..\..\Src\Resources;..\..\Src\SoundChips;..\..\Src\Unzip;..\..\Src\VideoChips;..\..\Src\VideoRender;..\..\Src\Z80;..\..\Src\Language;..\..\Src\Memory;..\..\Src\TinyXML;..\..\Src\Arch;..\..\Src\Media;..\..\Src\Debugger;..\..\Src\Control;..\..\Src\Input;..\..\Src\ThirdParty\DirectShowSamples;..\..\Src\ThirdParty\WinPCap;c:\Program Files\Microsoft SDKs\Windows\v6.1\Include;C:\Program Files\Microsoft SDKs\Windows\v6.0\Include;C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)\Include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>OLD_Y8950;WIN32;_DEBUG;_CONSOLE;WINDOWS;NARROW;SOUND;DISK;NOCRYPT;NOUNCRYPT;PROPERTIES_LOCAL_INI_FILE;SINGLE_THEME="Canned";SINGLE_MACHINE="Canned";NO_DEFAULT_THEME;NO_FILE_HISTORY;_CRT_SECURE_NO_WARNINGS;USE_PACKET_FS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -460,7 +460,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>..\..\Src\Bios;..\..\Src\Board;..\..\Src\Theme;..\..\Src\Utils;..\..\Src\Emulator;..\..\Src\BuildInfo;..\..\Src\Common;..\..\Src\IoDevice;..\..\Src\Resources;..\..\Src\SoundChips;..\..\Src\Unzip;..\..\Src\VideoChips;..\..\Src\VideoRender;..\..\Src\Z80;..\..\Src\Language;..\..\Src\Memory;..\..\Src\TinyXML;..\..\Src\Arch;..\..\Src\Media;..\..\Src\Debugger;..\..\Src\Input;..\..\Src\ThirdParty\DirectShowSamples;..\..\Src\ThirdParty\WinPCap;c:\Program Files\Microsoft SDKs\Windows\v6.1\Include;C:\Program Files\Microsoft SDKs\Windows\v6.0\Include;C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)\Include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\Src\Bios;..\..\Src\Board;..\..\Src\Theme;..\..\Src\Utils;..\..\Src\Emulator;..\..\Src\BuildInfo;..\..\Src\Common;..\..\Src\IoDevice;..\..\Src\Resources;..\..\Src\SoundChips;..\..\Src\Unzip;..\..\Src\VideoChips;..\..\Src\VideoRender;..\..\Src\Z80;..\..\Src\Language;..\..\Src\Memory;..\..\Src\TinyXML;..\..\Src\Arch;..\..\Src\Media;..\..\Src\Debugger;..\..\Src\Control;..\..\Src\Input;..\..\Src\ThirdParty\DirectShowSamples;..\..\Src\ThirdParty\WinPCap;c:\Program Files\Microsoft SDKs\Windows\v6.1\Include;C:\Program Files\Microsoft SDKs\Windows\v6.0\Include;C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)\Include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>OLD_Y8950;WIN32;_WIN64;NO_ASM;_DEBUG;WINDOWS;NARROW;SOUND;DISK;NOCRYPT;NOUNCRYPT;PROPERTIES_LOCAL_INI_FILE;USE_PACKET_FS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -499,7 +499,7 @@
       <DebugInformationFormat>
       </DebugInformationFormat>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalIncludeDirectories>..\..\Src\Bios;..\..\Src\Board;..\..\Src\Theme;..\..\Src\Utils;..\..\Src\Emulator;..\..\Src\BuildInfo;..\..\Src\Common;..\..\Src\IoDevice;..\..\Src\Resources;..\..\Src\SoundChips;..\..\Src\Unzip;..\..\Src\VideoChips;..\..\Src\VideoRender;..\..\Src\Z80;..\..\Src\Language;..\..\Src\Memory;..\..\Src\TinyXML;..\..\Src\Arch;..\..\Src\Media;..\..\Src\Debugger;..\..\Src\Input;..\..\Src\ThirdParty\WinPCap</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\Src\Bios;..\..\Src\Board;..\..\Src\Theme;..\..\Src\Utils;..\..\Src\Emulator;..\..\Src\BuildInfo;..\..\Src\Common;..\..\Src\IoDevice;..\..\Src\Resources;..\..\Src\SoundChips;..\..\Src\Unzip;..\..\Src\VideoChips;..\..\Src\VideoRender;..\..\Src\Z80;..\..\Src\Language;..\..\Src\Memory;..\..\Src\TinyXML;..\..\Src\Arch;..\..\Src\Media;..\..\Src\Debugger;..\..\Src\Control;..\..\Src\Input;..\..\Src\ThirdParty\WinPCap</AdditionalIncludeDirectories>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\..\Src\BuildInfo;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -518,7 +518,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Final|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>..\..\Src\Bios;..\..\Src\Board;..\..\Src\Theme;..\..\Src\Utils;..\..\Src\Emulator;..\..\Src\BuildInfo;..\..\Src\Common;..\..\Src\IoDevice;..\..\Src\Resources;..\..\Src\SoundChips;..\..\Src\Unzip;..\..\Src\VideoChips;..\..\Src\VideoRender;..\..\Src\Z80;..\..\Src\Language;..\..\Src\Memory;..\..\Src\TinyXML;..\..\Src\Arch;..\..\Src\Media;..\..\Src\Debugger;..\..\Src\Input;..\..\Src\ThirdParty\DirectShowSamples;..\..\Src\ThirdParty\WinPCap;c:\Program Files\Microsoft SDKs\Windows\v6.1\Include;C:\Program Files\Microsoft SDKs\Windows\v6.0\Include;C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)\Include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\Src\Bios;..\..\Src\Board;..\..\Src\Theme;..\..\Src\Utils;..\..\Src\Emulator;..\..\Src\BuildInfo;..\..\Src\Common;..\..\Src\IoDevice;..\..\Src\Resources;..\..\Src\SoundChips;..\..\Src\Unzip;..\..\Src\VideoChips;..\..\Src\VideoRender;..\..\Src\Z80;..\..\Src\Language;..\..\Src\Memory;..\..\Src\TinyXML;..\..\Src\Arch;..\..\Src\Media;..\..\Src\Debugger;..\..\Src\Control;..\..\Src\Input;..\..\Src\ThirdParty\DirectShowSamples;..\..\Src\ThirdParty\WinPCap;c:\Program Files\Microsoft SDKs\Windows\v6.1\Include;C:\Program Files\Microsoft SDKs\Windows\v6.0\Include;C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)\Include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>OLD_Y8950;NOCRYPT;NOUNCRYPT;_MBCS;__WINCRYPT_H__;WIN32;_WIN64;NO_ASM;_WINDOWS;WINDOWS;NDEBUG;NARROW;SOUND;DISK;PROPERTIES_LOCAL_INI_FILE;_CRT_SECURE_NO_WARNINGS;USE_PACKET_FS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <PrecompiledHeader>
@@ -549,7 +549,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug Canned|x64'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>..\..\Src\Bios;..\..\Src\Board;..\..\Src\Theme;..\..\Src\Utils;..\..\Src\Emulator;..\..\Src\BuildInfo;..\..\Src\Common;..\..\Src\IoDevice;..\..\Src\Resources;..\..\Src\SoundChips;..\..\Src\Unzip;..\..\Src\VideoChips;..\..\Src\VideoRender;..\..\Src\Z80;..\..\Src\Language;..\..\Src\Memory;..\..\Src\TinyXML;..\..\Src\Arch;..\..\Src\Media;..\..\Src\Debugger;..\..\Src\Input;..\..\Src\ThirdParty\DirectShowSamples;..\..\Src\ThirdParty\WinPCap;c:\Program Files\Microsoft SDKs\Windows\v6.1\Include;C:\Program Files\Microsoft SDKs\Windows\v6.0\Include;C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)\Include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\Src\Bios;..\..\Src\Board;..\..\Src\Theme;..\..\Src\Utils;..\..\Src\Emulator;..\..\Src\BuildInfo;..\..\Src\Common;..\..\Src\IoDevice;..\..\Src\Resources;..\..\Src\SoundChips;..\..\Src\Unzip;..\..\Src\VideoChips;..\..\Src\VideoRender;..\..\Src\Z80;..\..\Src\Language;..\..\Src\Memory;..\..\Src\TinyXML;..\..\Src\Arch;..\..\Src\Media;..\..\Src\Debugger;..\..\Src\Control;..\..\Src\Input;..\..\Src\ThirdParty\DirectShowSamples;..\..\Src\ThirdParty\WinPCap;c:\Program Files\Microsoft SDKs\Windows\v6.1\Include;C:\Program Files\Microsoft SDKs\Windows\v6.0\Include;C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)\Include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>OLD_Y8950;WIN32;_WIN64;NO_ASM;_DEBUG;_CONSOLE;WINDOWS;NARROW;SOUND;DISK;NOCRYPT;NOUNCRYPT;PROPERTIES_LOCAL_INI_FILE;SINGLE_THEME="Canned";SINGLE_MACHINE="Canned";NO_DEFAULT_THEME;NO_FILE_HISTORY;_CRT_SECURE_NO_WARNINGS;USE_PACKET_FS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -583,7 +583,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>..\..\Src\Bios;..\..\Src\Board;..\..\Src\Theme;..\..\Src\Utils;..\..\Src\Emulator;..\..\Src\BuildInfo;..\..\Src\Common;..\..\Src\IoDevice;..\..\Src\Resources;..\..\Src\SoundChips;..\..\Src\Unzip;..\..\Src\VideoChips;..\..\Src\VideoRender;..\..\Src\Z80;..\..\Src\Language;..\..\Src\Memory;..\..\Src\TinyXML;..\..\Src\Arch;..\..\Src\Media;..\..\Src\Debugger;..\..\Src\Input;..\..\Src\ThirdParty\DirectShowSamples;..\..\Src\ThirdParty\WinPCap;c:\Program Files\Microsoft SDKs\Windows\v6.1\Include;C:\Program Files\Microsoft SDKs\Windows\v6.0\Include;C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)\Include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\Src\Bios;..\..\Src\Board;..\..\Src\Theme;..\..\Src\Utils;..\..\Src\Emulator;..\..\Src\BuildInfo;..\..\Src\Common;..\..\Src\IoDevice;..\..\Src\Resources;..\..\Src\SoundChips;..\..\Src\Unzip;..\..\Src\VideoChips;..\..\Src\VideoRender;..\..\Src\Z80;..\..\Src\Language;..\..\Src\Memory;..\..\Src\TinyXML;..\..\Src\Arch;..\..\Src\Media;..\..\Src\Debugger;..\..\Src\Control;..\..\Src\Input;..\..\Src\ThirdParty\DirectShowSamples;..\..\Src\ThirdParty\WinPCap;c:\Program Files\Microsoft SDKs\Windows\v6.1\Include;C:\Program Files\Microsoft SDKs\Windows\v6.0\Include;C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)\Include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>OLD_Y8950;_MBCS;__WINCRYPT_H__;WIN32;_WIN64;NO_ASM;_WINDOWS;WINDOWS;NDEBUG;NARROW;SOUND;DISK;NOCRYPT;NOUNCRYPT;PROPERTIES_LOCAL_INI_FILE;SINGLE_THEME="Canned";SINGLE_MACHINE="Canned";NO_DEFAULT_THEME;NO_FILE_HISTORY;NO_TOOL_SUPPORT;_CRT_SECURE_NO_WARNINGS;USE_PACKET_FS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
@@ -618,7 +618,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>..\..\Src\Bios;..\..\Src\Board;..\..\Src\Theme;..\..\Src\Utils;..\..\Src\Emulator;..\..\Src\BuildInfo;..\..\Src\Common;..\..\Src\IoDevice;..\..\Src\Resources;..\..\Src\SoundChips;..\..\Src\Unzip;..\..\Src\VideoChips;..\..\Src\VideoRender;..\..\Src\Z80;..\..\Src\Language;..\..\Src\Memory;..\..\Src\TinyXML;..\..\Src\Arch;..\..\Src\Media;..\..\Src\Debugger;..\..\Src\Input;..\..\Src\ThirdParty\DirectShowSamples;..\..\Src\ThirdParty\WinPCap;c:\Program Files\Microsoft SDKs\Windows\v6.1\Include;C:\Program Files\Microsoft SDKs\Windows\v6.0\Include;C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)\Include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\Src\Bios;..\..\Src\Board;..\..\Src\Theme;..\..\Src\Utils;..\..\Src\Emulator;..\..\Src\BuildInfo;..\..\Src\Common;..\..\Src\IoDevice;..\..\Src\Resources;..\..\Src\SoundChips;..\..\Src\Unzip;..\..\Src\VideoChips;..\..\Src\VideoRender;..\..\Src\Z80;..\..\Src\Language;..\..\Src\Memory;..\..\Src\TinyXML;..\..\Src\Arch;..\..\Src\Media;..\..\Src\Debugger;..\..\Src\Control;..\..\Src\Input;..\..\Src\ThirdParty\DirectShowSamples;..\..\Src\ThirdParty\WinPCap;c:\Program Files\Microsoft SDKs\Windows\v6.1\Include;C:\Program Files\Microsoft SDKs\Windows\v6.0\Include;C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)\Include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>OLD_Y8950;_MBCS;__WINCRYPT_H__;WIN32;_WIN64;NO_ASM;_CONSOLE;WINDOWS;NDEBUG;NARROW;SOUND;DISK;NOCRYPT;NOUNCRYPT;PROPERTIES_LOCAL_INI_FILE;USE_PACKET_FS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
@@ -665,6 +665,138 @@
     <ClCompile Include="..\..\Src\Win32\Win32.c" />
     <ClCompile Include="..\..\Src\Win32\Win32MediaFoundation.cpp" />
     <ClCompile Include="..\..\Src\Win32\Win32Recorder.cpp" />
+    <ClCompile Include="..\..\Src\ThirdParty\imgui\imgui.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\ThirdParty\imgui\imgui_draw.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\ThirdParty\imgui\imgui_tables.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\ThirdParty\imgui\imgui_widgets.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\ThirdParty\imgui\backends\imgui_impl_dx11.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\ThirdParty\imgui\backends\imgui_impl_win32.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\ImGuiWindow.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\ImGuiTheme.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\LiveFeed.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\ImGuiTexture.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\ImGuiWidgets.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\VdpDecode.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\VdpRaster.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\VdpSprite.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\VdpSprite3.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\VdpSprite3View.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\VdpCmd9968.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\Geo3DPanel.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\Geo3DPerf.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\Geo3DPerfStrip.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\Geo3DRunLog.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\VdpParts.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\VdpViewer.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\ChipFeed.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\RegTables.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\RegTablesV99x8.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\RegTablesV9990.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\V99x8View.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\V9990Decode.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\V9990Sprite.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\VdpViewer\V9990View.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\ToolText.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\Win32\ImGui\ControlDeck\ControlDeck.cpp">
+      <AdditionalIncludeDirectories>..\..\Src\ThirdParty\imgui;..\..\Src\Win32\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>IMGUI_USER_CONFIG=&quot;imconfig_bluemsx.h&quot;;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
     <ClCompile Include="..\..\Src\Win32\Win32Bitmap.c" />
     <ClCompile Include="..\..\Src\Win32\Win32Cdrom.c" />
     <ClCompile Include="..\..\Src\Win32\Win32D3D12.cpp" />
@@ -694,6 +826,9 @@
     <ClCompile Include="..\..\Src\Win32\Win32Thread.c" />
     <ClCompile Include="..\..\Src\Win32\Win32Timer.c" />
     <ClCompile Include="..\..\Src\Win32\Win32Toast.cpp" />
+    <ClCompile Include="..\..\Src\Win32\Win32ActivityPanel.c" />
+    <ClCompile Include="..\..\Src\Win32\Win32ControlWindowThread.c" />
+    <ClCompile Include="..\..\Src\Win32\Win32ControlSocket.c" />
     <ClCompile Include="..\..\Src\Win32\Win32ToolLoader.c" />
     <ClCompile Include="..\..\Src\Win32\Win32Uart.c" />
     <ClCompile Include="..\..\Src\Win32\Win32VideoIn.cpp" />
@@ -734,6 +869,7 @@
     <ClCompile Include="..\..\Src\Memory\romMapperASCII16sram.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperASCII16X.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperASCII8.c" />
+    <ClCompile Include="..\..\Src\Memory\MapperDebugBanks.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperASCII8sram.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperBasic.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperBeerIDE.c" />
@@ -824,6 +960,7 @@
     <ClCompile Include="..\..\Src\Memory\romMapperTC8566AF.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperTurboRPcm.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperTurboRTimer.c" />
+    <ClCompile Include="..\..\Src\Memory\romMapperV9968Cart.c" />
     <ClCompile Include="..\..\Src\Memory\romMapperYamanooto.c" />
     <ClCompile Include="..\..\Src\Memory\SlotManager.c" />
     <ClCompile Include="..\..\Src\Memory\sramLoader.c" />
@@ -833,6 +970,13 @@
     <ClCompile Include="..\..\Src\Memory\sramMapperS1985.c" />
     <ClCompile Include="..\..\Src\VideoChips\CRTC6845.c" />
     <ClCompile Include="..\..\Src\VideoChips\FrameBuffer.c" />
+    <ClCompile Include="..\..\Src\VideoChips\Geo3D.cpp">
+      <LanguageStandard>stdcpp20</LanguageStandard>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\VideoChips\Geo3DCore.cpp">
+      <LanguageStandard>stdcpp20</LanguageStandard>
+    </ClCompile>
+    <ClCompile Include="..\..\Src\VideoChips\Geo3DDevice.c" />
     <ClCompile Include="..\..\Src\VideoChips\V9938.c" />
     <ClCompile Include="..\..\Src\VideoChips\V9990.c" />
     <ClCompile Include="..\..\Src\VideoChips\V9990Cmd.c" />
@@ -977,7 +1121,51 @@
     <ClCompile Include="..\..\Src\Media\MediaDb.cpp" />
     <ClCompile Include="..\..\Src\Media\Sha1.cpp" />
     <ClCompile Include="..\..\Src\Debugger\DebugDeviceManager.c" />
+    <ClCompile Include="..\..\Src\Control\ControlClient.c" />
+    <ClCompile Include="..\..\Src\Control\ControlAddress.c" />
+    <ClCompile Include="..\..\Src\Control\ControlCpu.c" />
+    <ClCompile Include="..\..\Src\Control\ControlStopLog.c" />
+    <ClCompile Include="..\..\Src\Control\ControlSlots.c" />
+    <ClCompile Include="..\..\Src\Control\ControlStatus.c" />
+    <ClCompile Include="..\..\Src\Control\ControlHunt.c" />
+    <ClCompile Include="..\..\Src\Control\ControlWatch.c" />
+    <ClCompile Include="..\..\Src\Control\ControlInput.c" />
+    <ClCompile Include="..\..\Src\Control\ControlJson.c" />
+    <ClCompile Include="..\..\Src\Control\ControlDebuggerListener.c" />
+    <ClCompile Include="..\..\Src\Control\ControlScreen.c" />
+    <ClCompile Include="..\..\Src\Control\ControlRequest.c" />
+    <ClCompile Include="..\..\Src\Control\ControlMemory.c" />
+    <ClCompile Include="..\..\Src\Control\ControlSymbol.c" />
+    <ClCompile Include="..\..\Src\Control\ControlText.c" />
+    <ClCompile Include="..\..\Src\Control\ControlPath.c" />
+    <ClCompile Include="..\..\Src\Control\ControlSymbolParse.c" />
+    <ClCompile Include="..\..\Src\Control\ControlDasm.c" />
+    <ClCompile Include="..\..\Src\Control\ControlSession.c" />
+    <ClCompile Include="..\..\Src\Control\ControlCall.c" />
+    <ClCompile Include="..\..\Src\Control\ControlOpSlots.c" />
+    <ClCompile Include="..\..\Src\Control\ControlOpMemory.c" />
+    <ClCompile Include="..\..\Src\Control\ControlOpRun.c" />
+    <ClCompile Include="..\..\Src\Control\ControlOpCpu.c" />
+    <ClCompile Include="..\..\Src\Control\ControlOpBreak.c" />
+    <ClCompile Include="..\..\Src\Control\ControlOpWatch.c" />
+    <ClCompile Include="..\..\Src\Control\ControlOpHunt.c" />
+    <ClCompile Include="..\..\Src\Control\ControlOpSymbol.c" />
+    <ClCompile Include="..\..\Src\Control\ControlOpInput.c" />
+    <ClCompile Include="..\..\Src\Control\ControlOpScreen.c" />
+    <ClCompile Include="..\..\Src\Control\ControlOpMachine.c" />
+    <ClCompile Include="..\..\Src\Control\ControlView.c" />
+    <ClCompile Include="..\..\Src\Control\ControlHello.c" />
+    <ClCompile Include="..\..\Src\Control\ControlBreak.c" />
+    <ClCompile Include="..\..\Src\Win32\Win32ControlInstance.c" />
+    <ClCompile Include="..\..\Src\Win32\Win32ControlPeer.c" />
+    <ClCompile Include="..\..\Src\Control\ControlAddressArg.c" />
+    <ClCompile Include="..\..\Src\Control\ControlVram.c" />
+    <ClCompile Include="..\..\Src\Control\ControlMachine.c" />
+    <ClCompile Include="..\..\Src\Control\ControlStep.c" />
     <ClCompile Include="..\..\Src\Debugger\Debugger.c" />
+    <ClCompile Include="..\..\Src\Debugger\DebugBreakpoints.c" />
+    <ClCompile Include="..\..\Src\Debugger\DebugTrace.c" />
+    <ClCompile Include="..\..\Src\Debugger\RaceTest.c" />
     <ClCompile Include="..\..\Src\Utils\blowfish.c" />
     <ClCompile Include="..\..\Src\Utils\IniFileParser.c" />
     <ClCompile Include="..\..\Src\Utils\IsFileExtension.c" />
@@ -1028,6 +1216,42 @@
     <ClInclude Include="..\..\Src\Win32\BlueMSXToolInterface.h" />
     <ClInclude Include="..\..\Src\Win32\Win32MediaFoundation.h" />
     <ClInclude Include="..\..\Src\Win32\Win32Recorder.h" />
+    <ClInclude Include="..\..\Src\ThirdParty\imgui\imconfig.h" />
+    <ClInclude Include="..\..\Src\ThirdParty\imgui\imgui.h" />
+    <ClInclude Include="..\..\Src\ThirdParty\imgui\imgui_internal.h" />
+    <ClInclude Include="..\..\Src\ThirdParty\imgui\imstb_rectpack.h" />
+    <ClInclude Include="..\..\Src\ThirdParty\imgui\imstb_textedit.h" />
+    <ClInclude Include="..\..\Src\ThirdParty\imgui\imstb_truetype.h" />
+    <ClInclude Include="..\..\Src\ThirdParty\imgui\backends\imgui_impl_dx11.h" />
+    <ClInclude Include="..\..\Src\ThirdParty\imgui\backends\imgui_impl_win32.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\imconfig_bluemsx.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\ImGuiWindow.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\ImGuiHost.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\ImGuiTheme.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\LiveFeed.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\ImGuiWidgets.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\ToolText.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\ControlDeck\ControlDeck.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\ChipFeed.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\ChipView.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\ImGuiTexture.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\RegTables.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\VdpDecode.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\VdpViewer.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\ViewPicture.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\VdpSprite.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\VdpSprite3.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\VdpSprite3View.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\VdpCmd9968.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\Geo3DPanel.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\SpanHold.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\Geo3DPerf.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\Geo3DPerfStrip.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\Geo3DRunLog.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\VdpRaster.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\VdpParts.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\V9990Decode.h" />
+    <ClInclude Include="..\..\Src\Win32\ImGui\VdpViewer\V9990Sprite.h" />
     <ClInclude Include="..\..\Src\Win32\Win32Cdrom.h" />
     <ClInclude Include="..\..\Src\Win32\Win32Common.h" />
     <ClInclude Include="..\..\Src\Win32\Win32Dir.h" />
@@ -1103,6 +1327,7 @@
     <ClInclude Include="..\..\Src\Memory\romMapperASCII16sram.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperASCII16X.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperASCII8.h" />
+    <ClInclude Include="..\..\Src\Memory\MapperDebugBanks.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperASCII8sram.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperBasic.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperBeerIDE.h" />
@@ -1181,6 +1406,7 @@
     <ClInclude Include="..\..\Src\Memory\romMapperTC8566AF.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperTurboRPcm.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperTurboRTimer.h" />
+    <ClInclude Include="..\..\Src\Memory\romMapperV9968Cart.h" />
     <ClInclude Include="..\..\Src\Memory\romMapperYamanooto.h" />
     <ClInclude Include="..\..\Src\Memory\SlotManager.h" />
     <ClInclude Include="..\..\Src\Memory\sramLoader.h" />
@@ -1191,12 +1417,17 @@
     <ClInclude Include="..\..\Src\VideoChips\Common.h" />
     <ClInclude Include="..\..\Src\VideoChips\CRTC6845.h" />
     <ClInclude Include="..\..\Src\VideoChips\FrameBuffer.h" />
+    <ClInclude Include="..\..\Src\VideoChips\Geo3D.h" />
+    <ClInclude Include="..\..\Src\VideoChips\Geo3DCore.h" />
+    <ClInclude Include="..\..\Src\VideoChips\Geo3DDebug.h" />
+    <ClInclude Include="..\..\Src\VideoChips\Geo3DDevice.h" />
     <ClInclude Include="..\..\Src\VideoChips\SpriteLine.h" />
     <ClInclude Include="..\..\Src\VideoChips\V9938.h" />
     <ClInclude Include="..\..\Src\VideoChips\V9990.h" />
     <ClInclude Include="..\..\Src\VideoChips\V9990Cmd.h" />
     <ClInclude Include="..\..\Src\VideoChips\V9990Render.h" />
     <ClInclude Include="..\..\Src\VideoChips\VDP.h" />
+    <ClInclude Include="..\..\Src\VideoChips\VdpDebug.h" />
     <ClInclude Include="..\..\Src\VideoChips\Video9000.h" />
     <ClInclude Include="..\..\Src\VideoChips\VideoManager.h" />
     <ClInclude Include="..\..\Src\VideoRender\hq2x.h" />
@@ -1272,6 +1503,8 @@
     <ClInclude Include="..\..\Src\Language\LanguageSpannish.h" />
     <ClInclude Include="..\..\Src\Language\LanguageStrings.h" />
     <ClInclude Include="..\..\Src\Language\LanguageSwedish.h" />
+    <ClInclude Include="..\..\Src\Language\LanguageToolIds.h" />
+    <ClInclude Include="..\..\Src\Language\LanguageToolStrings.h" />
     <ClInclude Include="..\..\Src\BuildInfo\build_number.h" />
     <ClInclude Include="..\..\Src\Resources\Resource.h" />
     <ClInclude Include="..\..\Src\BuildInfo\version.h" />
@@ -1359,7 +1592,45 @@
     <ClInclude Include="..\..\Src\Media\MediaDb.h" />
     <ClInclude Include="..\..\Src\Media\Sha1.h" />
     <ClInclude Include="..\..\Src\Debugger\DebugDeviceManager.h" />
+    <ClInclude Include="..\..\Src\Control\ControlClient.h" />
+    <ClInclude Include="..\..\Src\Control\ControlAddress.h" />
+    <ClInclude Include="..\..\Src\Control\ControlCpu.h" />
+    <ClInclude Include="..\..\Src\Control\ControlStopLog.h" />
+    <ClInclude Include="..\..\Src\Control\ControlSlots.h" />
+    <ClInclude Include="..\..\Src\Control\ControlStatus.h" />
+    <ClInclude Include="..\..\Src\Control\ControlWindowThread.h" />
+    <ClInclude Include="..\..\Src\Control\ControlHunt.h" />
+    <ClInclude Include="..\..\Src\Control\ControlWatch.h" />
+    <ClInclude Include="..\..\Src\Control\ControlInput.h" />
+    <ClInclude Include="..\..\Src\Control\ControlJson.h" />
+    <ClInclude Include="..\..\Src\Control\ControlDebuggerListener.h" />
+    <ClInclude Include="..\..\Src\Control\ControlProtocol.h" />
+    <ClInclude Include="..\..\Src\Control\ControlScreen.h" />
+    <ClInclude Include="..\..\Src\Control\ControlRequest.h" />
+    <ClInclude Include="..\..\Src\Control\ControlSocket.h" />
+    <ClInclude Include="..\..\Src\Win32\Win32ActivityPanel.h" />
+    <ClInclude Include="..\..\Src\Control\ControlMemory.h" />
+    <ClInclude Include="..\..\Src\Control\ControlSymbol.h" />
+    <ClInclude Include="..\..\Src\Control\ControlText.h" />
+    <ClInclude Include="..\..\Src\Control\ControlPath.h" />
+    <ClInclude Include="..\..\Src\Control\ControlSymbolParse.h" />
+    <ClInclude Include="..\..\Src\Control\ControlDasm.h" />
+    <ClInclude Include="..\..\Src\Control\ControlSession.h" />
+    <ClInclude Include="..\..\Src\Control\ControlCall.h" />
+    <ClInclude Include="..\..\Src\Control\ControlOp.h" />
+    <ClInclude Include="..\..\Src\Control\ControlView.h" />
+    <ClInclude Include="..\..\Src\Control\ControlHello.h" />
+    <ClInclude Include="..\..\Src\Control\ControlBreak.h" />
+    <ClInclude Include="..\..\Src\Control\ControlInstance.h" />
+    <ClInclude Include="..\..\Src\Control\ControlPeer.h" />
+    <ClInclude Include="..\..\Src\Control\ControlAddressArg.h" />
+    <ClInclude Include="..\..\Src\Control\ControlVram.h" />
+    <ClInclude Include="..\..\Src\Control\ControlAddressType.h" />
+    <ClInclude Include="..\..\Src\Control\ControlMachine.h" />
+    <ClInclude Include="..\..\Src\Control\ControlStep.h" />
     <ClInclude Include="..\..\Src\Debugger\Debugger.h" />
+    <ClInclude Include="..\..\Src\Debugger\DebugTrace.h" />
+    <ClInclude Include="..\..\Src\Debugger\RaceTest.h" />
     <ClInclude Include="..\..\Src\Utils\authkey.h" />
     <ClInclude Include="..\..\Src\Utils\blowfish.h" />
     <ClInclude Include="..\..\Src\Utils\IniFileParser.h" />

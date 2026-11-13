@@ -213,7 +213,8 @@ enum  {
     ROM_ROOKIEDRIVE = 180,           /* Rookie Drive NX */
     ROM_GFX9000     = 181,           /* GFX9000 (V9990) */
     ROM_VIDEO9000   = 182,           /* Video9000 (V9990 with superimpose) */
-    ROM_MAXROMID    = 182
+    ROM_V9968CART   = 183,           /* V9968 cartridge with geo3d */
+    ROM_MAXROMID    = 183
 };
 
 typedef struct MediaType MediaType;

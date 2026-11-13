@@ -29,6 +29,7 @@
 #include "MediaDb.h"
 #include "SlotManager.h"
 #include "DeviceManager.h"
+#include "MapperDebugBanks.h"
 #include "SaveState.h"
 #include <stdlib.h>
 #include <string.h>
@@ -46,7 +47,50 @@ typedef struct {
     int startPage;
     UInt32 romMask;
     int romMapper[4];
+    MapperBanks banks;
 } RomMapperASCII16nf;
+
+/* Both 8kB banks of a 16kB segment report the same segment number. */
+static void mapBank(RomMapperASCII16nf* rm, int bank)
+{
+    UInt8* bankData = rm->romData + (rm->romMapper[bank] << 14);
+
+    slotMapPage(rm->slot, rm->sslot, rm->startPage + bank,     bankData, 1, 0);
+    slotMapPage(rm->slot, rm->sslot, rm->startPage + bank + 1, bankData + 0x2000, 1, 0);
+    slotSetBankSegment(rm->slot, rm->sslot, rm->startPage + bank,     rm->romMapper[bank]);
+    slotSetBankSegment(rm->slot, rm->sslot, rm->startPage + bank + 1, rm->romMapper[bank]);
+}
+
+static int getBank(void* ref, int reg)
+{
+    return ((RomMapperASCII16nf*)ref)->romMapper[2 * reg];
+}
+
+static void setBank(void* ref, int reg, int segment)
+{
+    RomMapperASCII16nf* rm = (RomMapperASCII16nf*)ref;
+
+    rm->romMapper[2 * reg] = segment;
+    mapBank(rm, 2 * reg);
+}
+
+/* A ROM whose size is no power of two leaves bits out of the mask: segments it never selects. */
+static const char* neverSelected(void* ref, int segment)
+{
+    static char why[96];
+    RomMapperASCII16nf* rm = (RomMapperASCII16nf*)ref;
+
+    if ((segment & ~rm->romMask) == 0) {
+        return NULL;
+    }
+    snprintf(why, sizeof(why), "the mapper keeps only the bits 0x%02X of a bank number",
+             (unsigned)rm->romMask);
+    return why;
+}
+
+static const MapperBanksType bankType = {
+    2, 2, 256, 0, getBank, setBank, NULL, NULL, neverSelected
+};
 
 static void saveState(RomMapperASCII16nf* rm)
 {
@@ -76,10 +120,9 @@ static void loadState(RomMapperASCII16nf* rm)
     saveStateClose(state);
 
     for (i = 0; i < 4; i += 2) {
-        UInt8* bankData = rm->romData + (rm->romMapper[i] << 14);
-        slotMapPage(rm->slot, rm->sslot, rm->startPage + i,     bankData, 1, 0);
-        slotMapPage(rm->slot, rm->sslot, rm->startPage + i + 1, bankData + 0x2000, 1, 0);
+        mapBank(rm, i);
     }
+    mapperBanksSync(&rm->banks);
 }
 
 static void destroy(RomMapperASCII16nf* rm)
@@ -106,13 +149,10 @@ static void write(RomMapperASCII16nf* rm, UInt16 address, UInt8 value)
     value &= rm->romMask;
 
     if (rm->romMapper[bank] != value) {
-        UInt8* bankData = rm->romData + ((int)value << 14);
-        
         rm->romMapper[bank] = value;
-
-        slotMapPage(rm->slot, rm->sslot, rm->startPage + bank,     bankData, 1, 0);
-        slotMapPage(rm->slot, rm->sslot, rm->startPage + bank + 1, bankData + 0x2000, 1, 0);
+        mapBank(rm, bank);
     }
+    mapperBanksProgramWrote(&rm->banks, bank / 2);
 }
 
 int romMapperASCII16nfCreate(const char* filename, UInt8* romData, 
@@ -125,6 +165,7 @@ int romMapperASCII16nfCreate(const char* filename, UInt8* romData,
     rm = malloc(sizeof(RomMapperASCII16nf));
 
     rm->deviceHandle = deviceManagerRegister(ROM_ASCII16NF, &callbacks, rm);
+    slotSetSegmentSize(slot, sslot, 0x4000);
     slotRegister(slot, sslot, startPage, 4, NULL, NULL, write, destroy, rm);
 
     size = (size + 0x3fff) & ~0x3fff;
@@ -135,14 +176,15 @@ int romMapperASCII16nfCreate(const char* filename, UInt8* romData,
     rm->slot  = slot;
     rm->sslot = sslot;
     rm->startPage  = startPage;
+    slotSetStorage(slot, sslot, rm->romData, size, 0, SLOT_STORAGE_ROM);
 
     rm->romMapper[0] = 0;
     rm->romMapper[2] = 0;
 
-    for (i = 0; i < 4; i += 2) {   
-        slotMapPage(rm->slot, rm->sslot, rm->startPage + i,     rm->romData + rm->romMapper[i] * 0x2000, 1, 0);
-        slotMapPage(rm->slot, rm->sslot, rm->startPage + i + 1, rm->romData + rm->romMapper[i] * 0x2000 + 0x2000, 1, 0);
+    for (i = 0; i < 4; i += 2) {
+        mapBank(rm, i);
     }
+    mapperBanksInit(&rm->banks, &bankType, rm, slot, sslot, startPage);
 
     return 1;
 }

@@ -34,8 +34,8 @@
 #include "ArchMidi.h"
 #include "ArchEvent.h"
 #include <stdlib.h>
-#include <string.h>
 #include <stdio.h>
+#include <string.h>
 #include <math.h>
 
 /* After stdio.h: pkg_fopen overrides fopen for UTF-8 paths. */
@@ -47,6 +47,28 @@
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
+
+#define METER_BLOCK     128     /* frames per meter block (~3 ms) */
+#define METER_RING      512     /* blocks in flight, a power of two (~1.5 s) */
+#define METER_HEARD     64      /* blocks the UI keeps (~190 ms) */
+#define METER_WINDOW    2048    /* RMS window, centred on "now" (~46 ms) */
+#define METER_HOLD_MS   200     /* a taken block stops counting after this; */
+                                /* longer than the main window's 100 ms poll */
+#define METER_MIDI_MS   100     /* MIDI has no samples: light it per note-on */
+#define METER_FLOOR     0.001   /* -60 dBFS and below reads as silence */
+#define METER_CURVE     0.45    /* scale curve: amplitude^0.45 */
+
+/* The meter ring is written by the emulator thread and read by the UI;
+** x86/x64 keep stores and loads in order, so only the compiler needs
+** fencing there. */
+#if defined(_MSC_VER)
+#include <intrin.h>
+#define METER_BARRIER() _ReadWriteBarrier()
+#elif defined(__GNUC__)
+#define METER_BARRIER() __sync_synchronize()
+#else
+#define METER_BARRIER()
+#endif
 
 
 static int mixerCPUFrequency;
@@ -107,11 +129,16 @@ typedef struct {
     // Internal config
     Int32 volumeLeft;
     Int32 volumeRight;
-    // Intermediate volume info
-    Int32 volIntLeft;
-    Int32 volIntRight;
-    Int32 volCntLeft;
-    Int32 volCntRight;
+    // The same before the master mute, so the meters still move while muted
+    Int32 unmutedLeft;
+    Int32 unmutedRight;
+    // Level meter: gain without the master volume, raw energy in this block
+    Int32 meterGainLeft;
+    Int32 meterGainRight;
+    UInt64 meterEnergy[2];
+    Int64  meterSum[2];     /* to take out a constant offset */
+    DoubleT meterDc[2];     /* that offset, followed slowly */
+    Int32  meterDcSet[2];   /* blocks seen: the first may be partial */
     UInt32 active;
     // Instance
     Int32 instEnable;
@@ -125,7 +152,28 @@ typedef struct {
     Int32 ordinal;
     char  name[MIXER_CHANNEL_NAME_LENGTH];
     char  id[MIXER_CHANNEL_ID_LENGTH];
+    // Per-instance meter for the device window. The RMS blocks above are
+    // summed by type and keep no per-channel history, so the window still
+    // takes this older peak-average form.
+    Int32 volIntLeft;
+    Int32 volIntRight;
+    Int32 volCntLeft;
+    Int32 volCntRight;
 } MixerChannel;
+
+/* One meter block as the emulator thread produced it: mean square in
+** output units (32767 = 0 dBFS). Channel levels leave out the master. */
+typedef struct {
+    UInt32 endFrame;
+    float  master[2];
+    float  type[MIXER_CHANNEL_TYPE_COUNT][2];
+} MeterBlock;
+
+/* A block the UI has taken from the ring, and when it did. */
+typedef struct {
+    MeterBlock block;
+    UInt32     takenAt;
+} MeterHeard;
 
 struct Mixer
 { 
@@ -152,7 +200,7 @@ struct Mixer
     Int32** chBuff;
     Int32   channelCapacity;
     void*   lock;
-    MixerChannel midi; // This channel is only used for meter output
+    UInt32  channelMeterTick;
     Int32   channelCount;
     UInt32  generation;
     Int32   deviceOpen;
@@ -163,23 +211,39 @@ struct Mixer
     MixerChannelSettingsCallback settingsCallback;
     void*   settingsRef;
     Int32   handleCount;
-    UInt32  oldTick;
     Int32   logging;
     Int32   stereo;
     UInt32  rate;
     DoubleT  masterVolume;
     Int32   masterEnable;
-    Int32   volIntLeft;
-    Int32   volIntRight;
-    Int32   volCntLeft;
-    Int32   volCntRight;
     FILE*   file;
     int     enable;
+
+    /* Level meter, emulator thread side */
+    UInt32  meterFrames;
+    UInt32  meterBlockFill;
+    UInt64  meterEnergy[2];
+    Int64   meterSum[2];
+    DoubleT meterDc[2];
+    Int32   meterDcSet[2];
+    MeterBlock meterRing[METER_RING];
+    volatile UInt32 meterSeq;
+    volatile UInt32 meterDelivered;
+
+    /* Level meter, UI thread side */
+    MixerDelayCallback delayCallback;
+    void*   delayRef;
+    UInt32  meterReadSeq;
+    UInt32  meterTick;
+    UInt32  meterHeardFrame;
+    MeterHeard meterHeard[METER_HEARD];
+    UInt32  meterHeardPos;
+    UInt32  meterMidiAt;
+    int     meterMidiLit;
 };
 
 
 static void recalculateChannelVolume(Mixer* mixer, MixerChannel* channel);
-static void updateVolumes(Mixer* mixer);
 
 /* Public functions that touch the channel array take the lock; the static
 ** helpers below them do not, so a public function never calls another
@@ -204,12 +268,18 @@ static void mixerRecalculateType(Mixer* mixer, int audioType)
     int i;
 
     if (audioType == MIXER_CHANNEL_MIDI) {
-        MixerChannel* channel = &mixer->midi;
-        channel->enable         = type->enable;
-        channel->volume         = type->volume;
-        channel->pan            = type->pan;
-        recalculateChannelVolume(mixer, channel);
-        archMidiUpdateVolume(channel->volumeLeft, channel->volumeRight);
+        /* MIDI goes to an external synth and has no channel of its own. */
+        MixerChannel channel;
+        memset(&channel, 0, sizeof(channel));
+        channel.enable = type->enable;
+        channel.volume = type->volume;
+        channel.pan    = type->pan;
+        /* No instance either: recalculateChannelVolume multiplies these in. */
+        channel.instEnable = 1;
+        channel.instVolume = 100;
+        channel.instPan    = 50;
+        recalculateChannelVolume(mixer, &channel);
+        archMidiUpdateVolume(channel.volumeLeft, channel.volumeRight);
     }
 
     for (i = 0; i < mixer->channelCount; i++) {
@@ -294,43 +364,12 @@ void mixerEnableChannelType(Mixer* mixer, Int32 type, Int32 enable)
     mixerUnlock(mixer);
 }
 
-Int32 mixerGetChannelTypeVolume(Mixer* mixer, Int32 type, int leftRight)
-{
-    int i;
-    Int32 volume = 0;
-
-    mixerLock(mixer);
-    updateVolumes(mixer);
-
-    if (type == MIXER_CHANNEL_MIDI) {
-        volume = leftRight ? mixer->midi.volIntRight : mixer->midi.volIntLeft;
-        mixerUnlock(mixer);
-        return volume;
-    }
-
-    for (i = 0; i < mixer->channelCount; i++) {
-        if (mixer->channels[i].type == type) {
-            Int32 channelVol = leftRight ?
-                               mixer->channels[i].volIntRight :
-                               mixer->channels[i].volIntLeft;
-            if (channelVol > volume) {
-                volume = channelVol;
-            }
-        }
-    }
-    mixerUnlock(mixer);
-
-    return volume;
-}
-
 Int32 mixerIsChannelTypeActive(Mixer* mixer, Int32 type, Int32 reset)
 {
     int i;
     Int32 active = 0;
 
     mixerLock(mixer);
-    updateVolumes(mixer);
-
     for (i = 0; i < mixer->channelCount; i++) {
         if (mixer->channels[i].type == type) {
             if (mixer->channels[i].active) {
@@ -363,56 +402,246 @@ static void recalculateChannelVolume(Mixer* mixer, MixerChannel* channel)
     DoubleT panLeft       = pow(10.0, (MIN(100 - pan, 50) - 50) / 30.0) - pow(10.0, -50 / 30.0);
     DoubleT panRight      = pow(10.0, (MIN(pan, 50) - 50) / 30.0) - pow(10.0, -50 / 30.0);
 
-    channel->volumeLeft  = enable * mixer->masterEnable * (Int32)(1024 * mixer->masterVolume * volume * panLeft);
-    channel->volumeRight = enable * mixer->masterEnable * (Int32)(1024 * mixer->masterVolume * volume * panRight);
+    channel->unmutedLeft    = enable * (Int32)(1024 * mixer->masterVolume * volume * panLeft);
+    channel->unmutedRight   = enable * (Int32)(1024 * mixer->masterVolume * volume * panRight);
+    channel->meterGainLeft  = enable * (Int32)(1024 * volume * panLeft);
+    channel->meterGainRight = enable * (Int32)(1024 * volume * panRight);
 
     if (!mixer->stereo) {
-        Int32 tmp = (channel->volumeLeft + channel->volumeRight) / 2;
-        channel->volumeLeft  = tmp;
-        channel->volumeRight = tmp;
+        Int32 tmp = (channel->unmutedLeft + channel->unmutedRight) / 2;
+        channel->unmutedLeft  = tmp;
+        channel->unmutedRight = tmp;
+        tmp = (channel->meterGainLeft + channel->meterGainRight) / 2;
+        channel->meterGainLeft  = tmp;
+        channel->meterGainRight = tmp;
+    }
+    channel->volumeLeft  = mixer->masterEnable * channel->unmutedLeft;
+    channel->volumeRight = mixer->masterEnable * channel->unmutedRight;
+}
+
+///////////////////////////////////////////////////////
+// Level meter
+
+/* Mean square of a block around the signal's slowly followed average: a
+** chip whose silence sits at a constant offset (the Nuked OPLL's DAC does)
+** reads as silent, as it sounds. ~0.2 s keeps bass notes whole. */
+static DoubleT acPower(UInt64 energy, Int64 sum, DoubleT* dc, Int32* seen)
+{
+    DoubleT mean = (DoubleT)sum / METER_BLOCK;
+    DoubleT power;
+
+    /* A chip registered mid-block has a partial first block, which would
+    ** understate the offset; the first whole block sets it. */
+    if (*seen < 2) {
+        *dc = mean;
+        if (++*seen == 1) {
+            return 0;
+        }
+    }
+    else {
+        *dc += (mean - *dc) / 64;
+    }
+    power = (DoubleT)energy / METER_BLOCK - 2 * *dc * mean + *dc * *dc;
+    return power > 0 ? power : 0;
+}
+
+/* Emulator thread: close the current block and publish it. */
+static void meterPushBlock(Mixer* mixer)
+{
+    UInt32 seq = mixer->meterSeq;
+    MeterBlock* block = mixer->meterRing + (seq & (METER_RING - 1));
+    int i;
+
+    memset(block->type, 0, sizeof(block->type));
+    /* No chip runs while the turboR PCM mutes the mixer: show silence and
+    ** take the offsets afresh once it is back, dropping the block across. */
+    if (!mixer->enable) {
+        for (i = 0; i < mixer->channelCount; i++) {
+            MixerChannel* channel = mixer->channels + i;
+            channel->meterDcSet[0]  = 0;
+            channel->meterDcSet[1]  = 0;
+            channel->meterEnergy[0] = 0;
+            channel->meterEnergy[1] = 0;
+            channel->meterSum[0]    = 0;
+            channel->meterSum[1]    = 0;
+        }
+        mixer->meterDcSet[0] = 0;
+        mixer->meterDcSet[1] = 0;
+    }
+    for (i = 0; mixer->enable && i < mixer->channelCount; i++) {
+        MixerChannel* channel = mixer->channels + i;
+        DoubleT powerLeft  = acPower(channel->meterEnergy[0], channel->meterSum[0], channel->meterDc + 0, channel->meterDcSet + 0);
+        DoubleT powerRight = channel->stereo ?
+                             acPower(channel->meterEnergy[1], channel->meterSum[1], channel->meterDc + 1, channel->meterDcSet + 1) :
+                             powerLeft;
+        DoubleT gainLeft  = channel->meterGainLeft  / 4096.0;
+        DoubleT gainRight = channel->meterGainRight / 4096.0;
+
+        /* Chips of one type add up like the mixer adds them: in power. */
+        block->type[channel->type][0] += (float)(powerLeft * gainLeft * gainLeft);
+        block->type[channel->type][1] += (float)(powerRight * gainRight * gainRight);
+        channel->meterEnergy[0] = 0;
+        channel->meterEnergy[1] = 0;
+        channel->meterSum[0]    = 0;
+        channel->meterSum[1]    = 0;
+    }
+    block->master[0] = !mixer->enable ? 0 :
+                       (float)acPower(mixer->meterEnergy[0], mixer->meterSum[0], mixer->meterDc + 0, mixer->meterDcSet + 0);
+    block->master[1] = !mixer->enable ? 0 :
+                       (float)acPower(mixer->meterEnergy[1], mixer->meterSum[1], mixer->meterDc + 1, mixer->meterDcSet + 1);
+    block->endFrame  = mixer->meterFrames;
+    mixer->meterEnergy[0] = 0;
+    mixer->meterEnergy[1] = 0;
+    mixer->meterSum[0]    = 0;
+    mixer->meterSum[1]    = 0;
+    mixer->meterBlockFill = 0;
+
+    METER_BARRIER();
+    mixer->meterSeq = seq + 1;
+}
+
+/* Emulator thread: count one mixed frame. The delivered count moves only
+** after the driver has queued a fragment, so the UI can err only late. */
+static void meterCountFrame(Mixer* mixer)
+{
+    mixer->meterFrames++;
+    if (++mixer->meterBlockFill == METER_BLOCK) {
+        meterPushBlock(mixer);
     }
 }
 
-static void updateVolumes(Mixer* mixer) 
+/* UI thread: take the blocks up to half a window past the frame playing
+** now, so the RMS window sits centred on it and adds no lag. */
+static void meterAdvance(Mixer* mixer)
 {
-    int i;
-    int diff = archGetSystemUpTime(50) - mixer->oldTick;
+    UInt32 now = archGetSystemUpTime(1000);
+    UInt32 delivered;
+    UInt32 delay;
+    UInt32 until;
+    UInt32 seq;
 
-    if (diff) {
-        int newVol = mixer->volIntLeft - diff;
-        if (newVol < 0) newVol = 0;
-        mixer->volIntLeft = newVol;
-
-        newVol = mixer->volIntRight - diff;
-        if (newVol < 0) newVol = 0;
-        mixer->volIntRight = newVol;
-
-        for (i = 0; i < mixer->channelCount; i++) {
-            int newVol = mixer->channels[i].volIntLeft - diff;
-            if (newVol < 0) newVol = 0;
-            mixer->channels[i].volIntLeft = newVol;
-
-            newVol = mixer->channels[i].volIntRight - diff;
-            if (newVol < 0) newVol = 0;
-            mixer->channels[i].volIntRight = newVol;
-        }
-        
-        if (archMidiGetNoteOn()) {
-            mixer->midi.volIntLeft  = MIN(100, mixer->midi.volumeLeft / 7);
-            mixer->midi.volIntRight = MIN(100, mixer->midi.volumeRight/ 7);
-        }
-        {
-            int newVol = mixer->midi.volIntLeft - diff;
-            if (newVol < 0) newVol = 0;
-            mixer->midi.volIntLeft = newVol;
-
-            newVol = mixer->midi.volIntRight - diff;
-            if (newVol < 0) newVol = 0;
-            mixer->midi.volIntRight = newVol;
-        }
-
-        mixer->oldTick += diff;
+    if (now == mixer->meterTick) {
+        return;
     }
+    mixer->meterTick = now;
+
+    /* Delivered first: a fragment queued between the two reads then shows
+    ** in the delay only, which errs late rather than early. */
+    delivered = mixer->meterDelivered;
+    METER_BARRIER();
+    delay = mixer->delayCallback != NULL ? mixer->delayCallback(mixer->delayRef) : 0;
+    mixer->meterHeardFrame = delivered - delay;
+    until = mixer->meterHeardFrame + METER_WINDOW / 2;
+
+    seq = mixer->meterSeq;
+    METER_BARRIER();
+    if (seq - mixer->meterReadSeq > METER_RING / 2) {
+        mixer->meterReadSeq = seq - METER_RING / 2;
+    }
+
+    while (mixer->meterReadSeq != seq) {
+        UInt32 s = mixer->meterReadSeq;
+        MeterBlock block = mixer->meterRing[s & (METER_RING - 1)];
+
+        METER_BARRIER();
+        if (mixer->meterSeq - s >= METER_RING) {
+            /* Overwritten while copying: the writer lapped us. */
+            mixer->meterReadSeq = mixer->meterSeq - METER_RING / 2;
+            seq = mixer->meterSeq;
+            continue;
+        }
+        if ((Int32)(block.endFrame - until) > 0) {
+            break;
+        }
+        mixer->meterHeard[mixer->meterHeardPos & (METER_HEARD - 1)].block   = block;
+        mixer->meterHeard[mixer->meterHeardPos & (METER_HEARD - 1)].takenAt = now;
+        mixer->meterHeardPos++;
+        mixer->meterReadSeq = s + 1;
+    }
+
+    if (archMidiGetNoteOn()) {
+        mixer->meterMidiAt  = now;
+        mixer->meterMidiLit = 1;
+    }
+}
+
+/* RMS over the window centred on the frame playing now, in output units.
+** Blocks stop counting a while after they were taken, so a paused or
+** stopped emulator reads as silence. type < 0 asks for the master. */
+static DoubleT meterLevel(Mixer* mixer, Int32 type, int side)
+{
+    UInt32 from = mixer->meterHeardFrame - METER_WINDOW / 2;
+    DoubleT energy = 0;
+    int count = 0;
+    int i;
+
+    for (i = 0; i < METER_HEARD; i++) {
+        MeterHeard* heard = mixer->meterHeard + i;
+
+        if (mixer->meterTick - heard->takenAt >= METER_HOLD_MS ||
+            (Int32)(heard->block.endFrame - from) <= 0) {
+            continue;
+        }
+        energy += type < 0 ? heard->block.master[side] : heard->block.type[type][side];
+        count++;
+    }
+    return count > 0 ? sqrt(energy / count) : 0;
+}
+
+/* Map an RMS level to the 0..100 a theme meter takes. A power curve keeps
+** 0 dBFS at the top; 0.45 was set by ear so -12..-20 dBFS sits mid-scale. */
+static Int32 meterPercent(DoubleT level)
+{
+    DoubleT amplitude = level / 32767.0;
+    Int32 percent;
+
+    if (amplitude <= METER_FLOOR) {
+        return 0;
+    }
+    percent = (Int32)ceil(100.0 * pow(amplitude, METER_CURVE));
+    return MAX(1, MIN(100, percent));
+}
+
+/* MIDI goes to an external synth, so light it from its own fader. */
+static DoubleT meterMidiLevel(Mixer* mixer, int side)
+{
+    AudioTypeInfo* type = mixer->audioTypeInfo + MIXER_CHANNEL_MIDI;
+    MixerChannel channel;
+
+    if (!mixer->meterMidiLit || mixer->meterTick - mixer->meterMidiAt >= METER_MIDI_MS) {
+        mixer->meterMidiLit = 0;
+        return 0;
+    }
+    memset(&channel, 0, sizeof(channel));
+    channel.enable = type->enable;
+    channel.volume = type->volume;
+    channel.pan    = type->pan;
+    channel.instEnable = 1;
+    channel.instVolume = 100;
+    channel.instPan    = 50;
+    recalculateChannelVolume(mixer, &channel);
+    return 32767.0 * (side ? channel.meterGainRight : channel.meterGainLeft) / 1024.0;
+}
+
+void mixerSetDelayCallback(Mixer* mixer, MixerDelayCallback callback, void* ref)
+{
+    mixer->delayCallback = callback;
+    mixer->delayRef      = ref;
+}
+
+Int32 mixerMeterGetTypePercent(Mixer* mixer, Int32 type, int leftRight)
+{
+    meterAdvance(mixer);
+    if (type == MIXER_CHANNEL_MIDI) {
+        return meterPercent(meterMidiLevel(mixer, leftRight ? 1 : 0));
+    }
+    return meterPercent(meterLevel(mixer, type, leftRight ? 1 : 0));
+}
+
+Int32 mixerMeterGetMasterPercent(Mixer* mixer, int leftRight)
+{
+    meterAdvance(mixer);
+    return meterPercent(meterLevel(mixer, -1, leftRight ? 1 : 0));
 }
 
 static Mixer* globalMixer = NULL;
@@ -430,9 +659,6 @@ Mixer* mixerCreate()
     mixer->enable = 1;
     mixer->rate = AUDIO_SAMPLERATE;
     mixer->lock = archSemaphoreCreate(1);
-    mixer->midi.instEnable = 1;
-    mixer->midi.instVolume = 100;
-    mixer->midi.instPan    = 50;
 
     if (globalMixer == NULL) globalMixer = mixer;
 
@@ -681,12 +907,29 @@ void mixerEnableChannel(Mixer* mixer, Int32 handle, Int32 enable)
     mixerUnlock(mixer);
 }
 
+/* The per-instance peaks fall by one step per 20 ms since last read. */
+static void decayChannelMeters(Mixer* mixer)
+{
+    int i;
+    int diff = archGetSystemUpTime(50) - mixer->channelMeterTick;
+
+    if (diff == 0) {
+        return;
+    }
+    for (i = 0; i < mixer->channelCount; i++) {
+        MixerChannel* channel = mixer->channels + i;
+        channel->volIntLeft  = MAX(0, channel->volIntLeft  - diff);
+        channel->volIntRight = MAX(0, channel->volIntRight - diff);
+    }
+    mixer->channelMeterTick += diff;
+}
+
 Int32 mixerGetChannelVolume(Mixer* mixer, Int32 handle, int leftRight)
 {
     MixerChannel* channel;
     Int32 volume = 0;
     mixerLock(mixer);
-    updateVolumes(mixer);
+    decayChannelMeters(mixer);
     channel = findChannel(mixer, handle);
     if (channel != NULL) {
         volume = leftRight ? channel->volIntRight : channel->volIntLeft;
@@ -784,18 +1027,6 @@ void mixerUnregisterChannel(Mixer* mixer, Int32 handle)
     mixerUnlock(mixer);
 }
 
-Int32 mixerGetMasterVolume(Mixer* mixer, int leftRight)
-{
-    Int32 volume;
-
-    mixerLock(mixer);
-    updateVolumes(mixer);
-    volume = leftRight ? mixer->volIntRight : mixer->volIntLeft;
-    mixerUnlock(mixer);
-
-    return volume;
-}
-
 void mixerReset(Mixer* mixer)
 {
     mixer->refTime = boardSystemTime();
@@ -810,6 +1041,7 @@ void mixerSync(Mixer* mixer)
     Int32* mix;
     UInt32 count;
     UInt32 frames;
+    UInt32 frameNo;
     UInt64 elapsed;
     int i;
 
@@ -825,14 +1057,25 @@ void mixerSync(Mixer* mixer)
     /* Output is always interleaved stereo; mono is dual-mono via
     ** recalculateChannelVolume, so no driver tear-down on toggle. */
     if (!mixer->enable) {
+        /* Counting a frame can close a meter block, which walks the channels. */
+        frameNo = mixer->meterFrames;
+        frames  = count;
+        mixerLock(mixer);
+        while (frames--) {
+            meterCountFrame(mixer);
+        }
+        mixerUnlock(mixer);
+
         while (count--) {
             buffer[mixer->index++] = 0;
             buffer[mixer->index++] = 0;
 
+            frameNo++;
             if (mixer->index == mixer->fragmentSize) {
                 if (mixer->writeCallback != NULL) {
                     mixer->writeCallback(mixer->writeRef, buffer, mixer->fragmentSize);
                 }
+                mixer->meterDelivered = frameNo;
                 if (mixer->tapCallback != NULL) {
                     mixer->tapCallback(mixer->tapRef, buffer, mixer->fragmentSize);
                 }
@@ -849,9 +1092,10 @@ void mixerSync(Mixer* mixer)
     ** driver without it: the driver may block, and the UI thread would wait
     ** on the lock for as long. */
     mixerLock(mixer);
-    chBuff = mixer->chBuff;
-    frames = count;
-    mix    = mixer->mixBuffer;
+    chBuff  = mixer->chBuff;
+    frames  = count;
+    frameNo = mixer->meterFrames;
+    mix     = mixer->mixBuffer;
 
     for (i = 0; i < mixer->channelCount; i++) {
         if (mixer->channels[i].updateCallback != NULL) {
@@ -869,23 +1113,37 @@ void mixerSync(Mixer* mixer)
         for (i = 0; i < mixer->channelCount; i++) {
             Int32 chanLeft;
             Int32 chanRight;
+            Int32 instLeft;
+            Int32 instRight;
 
             if (chBuff[i] == NULL) {
                 continue;
             }
 
             if (mixer->channels[i].stereo) {
-                chanLeft = mixer->channels[i].volumeLeft * *chBuff[i]++;
-                chanRight = mixer->channels[i].volumeRight * *chBuff[i]++;
+                Int32 rawLeft  = *chBuff[i]++;
+                Int32 rawRight = *chBuff[i]++;
+                chanLeft = mixer->channels[i].unmutedLeft * rawLeft;
+                chanRight = mixer->channels[i].unmutedRight * rawRight;
+                instLeft  = mixer->channels[i].meterGainLeft  * rawLeft;
+                instRight = mixer->channels[i].meterGainRight * rawRight;
+                mixer->channels[i].meterEnergy[0] += (UInt64)((Int64)rawLeft  * rawLeft);
+                mixer->channels[i].meterEnergy[1] += (UInt64)((Int64)rawRight * rawRight);
+                mixer->channels[i].meterSum[0]    += rawLeft;
+                mixer->channels[i].meterSum[1]    += rawRight;
             }
             else {
                 Int32 tmp = *chBuff[i]++;
-                chanLeft = mixer->channels[i].volumeLeft * tmp;
-                chanRight = mixer->channels[i].volumeRight * tmp;
+                chanLeft = mixer->channels[i].unmutedLeft * tmp;
+                chanRight = mixer->channels[i].unmutedRight * tmp;
+                instLeft  = mixer->channels[i].meterGainLeft  * tmp;
+                instRight = mixer->channels[i].meterGainRight * tmp;
+                mixer->channels[i].meterEnergy[0] += (UInt64)((Int64)tmp * tmp);
+                mixer->channels[i].meterSum[0]    += tmp;
             }
 
-            mixer->channels[i].volCntLeft  += (chanLeft  > 0 ? chanLeft  : -chanLeft)  / 2048;
-            mixer->channels[i].volCntRight += (chanRight > 0 ? chanRight : -chanRight) / 2048;
+            mixer->channels[i].volCntLeft  += (instLeft  > 0 ? instLeft  : -instLeft)  / 2048;
+            mixer->channels[i].volCntRight += (instRight > 0 ? instRight : -instRight) / 2048;
 
             left  += chanLeft;
             right += chanRight;
@@ -894,9 +1152,15 @@ void mixerSync(Mixer* mixer)
         left  /= 4096;
         right /= 4096;
 
-        mixer->volCntLeft  += left  > 0 ? left  : -left;
-        mixer->volCntRight += right > 0 ? right : -right;
+        mixer->meterEnergy[0] += (UInt64)((Int64)left  * left);
+        mixer->meterEnergy[1] += (UInt64)((Int64)right * right);
+        mixer->meterSum[0]    += left;
+        mixer->meterSum[1]    += right;
 
+        if (!mixer->masterEnable) {
+            left  = 0;
+            right = 0;
+        }
         if (left  >  32767) { left  = 32767; }
         if (left  < -32767) { left  = -32767; }
         if (right >  32767) { right = 32767; }
@@ -905,50 +1169,20 @@ void mixerSync(Mixer* mixer)
         *mix++ = left;
         *mix++ = right;
 
+        meterCountFrame(mixer);
         mixer->volIndex++;
     }
 
     if (mixer->volIndex >= 441) {
-        Int32 newVolumeLeft  = mixer->volCntLeft  / mixer->volIndex / 164;
-        Int32 newVolumeRight = mixer->volCntRight / mixer->volIndex / 164;
-    
-        if (newVolumeLeft > 100) {
-            newVolumeLeft = 100;
-        }
-        if (newVolumeLeft > mixer->volIntLeft) {
-            mixer->volIntLeft  = newVolumeLeft;
-        }
-
-        if (newVolumeRight > 100) {
-            newVolumeRight = 100;
-        }
-        if (newVolumeRight > mixer->volIntRight) {
-            mixer->volIntRight  = newVolumeRight;
-        }
-
-        mixer->volCntLeft  = 0;
-        mixer->volCntRight = 0;
-
         for (i = 0; i < mixer->channelCount; i++) {
-            Int32 newVolumeLeft  = (Int32)(mixer->channels[i].volCntLeft  / mixer->masterVolume / mixer->volIndex / 328);
-            Int32 newVolumeRight = (Int32)(mixer->channels[i].volCntRight / mixer->masterVolume / mixer->volIndex / 328);
+            MixerChannel* channel = mixer->channels + i;
+            Int32 newVolumeLeft  = MIN(100, channel->volCntLeft  / (Int32)mixer->volIndex / 328);
+            Int32 newVolumeRight = MIN(100, channel->volCntRight / (Int32)mixer->volIndex / 328);
 
-            if (newVolumeLeft > 100) {
-                newVolumeLeft = 100;
-            }
-            if (newVolumeLeft > mixer->channels[i].volIntLeft) {
-                mixer->channels[i].volIntLeft  = newVolumeLeft;
-            }
-
-            if (newVolumeRight > 100) {
-                newVolumeRight = 100;
-            }
-            if (newVolumeRight > mixer->channels[i].volIntRight) {
-                mixer->channels[i].volIntRight  = newVolumeRight;
-            }
-
-            mixer->channels[i].volCntLeft  = 0;
-            mixer->channels[i].volCntRight = 0;
+            channel->volIntLeft  = MAX(channel->volIntLeft,  newVolumeLeft);
+            channel->volIntRight = MAX(channel->volIntRight, newVolumeRight);
+            channel->volCntLeft  = 0;
+            channel->volCntRight = 0;
 
             if (chBuff[i] && chBuff[i][0]) {
                 mixer->channels[i].active++;
@@ -964,10 +1198,14 @@ void mixerSync(Mixer* mixer)
         buffer[mixer->index++] = (Int16)*mix++;
         buffer[mixer->index++] = (Int16)*mix++;
 
+        frameNo++;
         if (mixer->index == mixer->fragmentSize) {
             if (mixer->writeCallback != NULL) {
                 mixer->writeCallback(mixer->writeRef, buffer, mixer->fragmentSize);
             }
+            /* meterFrames already counts the whole batch mixed above; only
+            ** the frames handed over so far are delivered. */
+            mixer->meterDelivered = frameNo;
             if (mixer->tapCallback != NULL) {
                 mixer->tapCallback(mixer->tapRef, buffer, mixer->fragmentSize);
             }

@@ -82,6 +82,7 @@ static DWORD lockFadeNextTime;
 #define FADE_STEPS           12  /* 11 visible alpha frames + ShowCursor(FALSE) */
 #define FADE_STEP_MS         50  /* ~600 ms total fade */
 static DWORD lastMouseActivity;
+static POINT lastCursorPos;
 static int   autoHideArmed;
 static int   fadeStep;            /* 0 visible .. FADE_STEPS hidden */
 static DWORD fadeNextStepTime;
@@ -479,6 +480,7 @@ int mouseEmuSetCursor()
 
 void mouseEmuOnUserMouseActivity(void)
 {
+    GetCursorPos(&lastCursorPos);
     lastMouseActivity = GetTickCount();
     autoHideArmed = 1;
     if (fadeStep != 0) {
@@ -490,6 +492,16 @@ void mouseEmuOnUserMouseActivity(void)
         ** which reads as invisible until something else re-sets it. */
         SetCursor(LoadCursor(NULL, IDC_ARROW));
     }
+}
+
+int mouseEmuCursorMoved(void)
+{
+    POINT p;
+
+    if (!GetCursorPos(&p)) {
+        return 1;
+    }
+    return p.x != lastCursorPos.x || p.y != lastCursorPos.y;
 }
 
 /* Rebuild fade-frame cursors each time fade starts so they track the

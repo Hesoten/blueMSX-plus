@@ -77,3 +77,8 @@ void archThreadSleep(int milliseconds)
 {
     Sleep(milliseconds);
 }
+
+void archMemoryBarrier(void)
+{
+    MemoryBarrier();
+}

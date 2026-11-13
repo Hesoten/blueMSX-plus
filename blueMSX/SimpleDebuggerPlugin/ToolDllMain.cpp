@@ -44,6 +44,16 @@ static ToolGetDarkBrush                toolGetDarkBgBrush;
 static ToolShellOpenFile               toolShellOpenFileDialog;
 static ToolShellSaveFile               toolShellSaveFileDialog;
 static ToolMessageBox                  toolMessageBox;
+static ToolSlotGetPageMapping          toolSlotGetPageMapping;
+static ToolSlotGetSubslotSelect        toolSlotGetSubslotSelect;
+static ToolSlotGetSubslotted           toolSlotGetSubslotted;
+static ToolSlotGetBankState            toolSlotGetBankState;
+static ToolSlotGetContents             toolSlotGetContents;
+static ToolSlotGetBankSegment          toolSlotGetBankSegment;
+static ToolSlotGetSegmentSize          toolSlotGetSegmentSize;
+static ToolSetSegmentBreakpoint        toolSetSegmentBreakpoint;
+static ToolClearSegmentBreakpoint      toolClearSegmentBreakpoint;
+static ToolPauseSync                   toolPauseSync;
 
 static HINSTANCE hInstance;
 
@@ -225,10 +235,67 @@ int ShowMessageBox(HWND owner, const char* text, const char* caption, UInt32 typ
     return MessageBoxU(owner, text, caption, type);
 }
 
-extern "C" __declspec(dllexport) int __stdcall Create12(Interface* toolInterface, char* name, int length)
+bool SlotGetPageMapping(int page, int* primarySlot, int* subSlot, int* subslotted) {
+    if (toolSlotGetPageMapping == NULL) {
+        return false;
+    }
+    return toolSlotGetPageMapping(page, primarySlot, subSlot, subslotted) != 0;
+}
+
+int SlotGetSubslotSelect(int primarySlot) {
+    return toolSlotGetSubslotSelect != NULL ? toolSlotGetSubslotSelect(primarySlot) : 0;
+}
+
+int SlotGetSubslotted(int primarySlot) {
+    return toolSlotGetSubslotted != NULL ? toolSlotGetSubslotted(primarySlot) : 0;
+}
+
+int SlotGetBankState(int primarySlot, int subSlot, int bank) {
+    return toolSlotGetBankState != NULL ? toolSlotGetBankState(primarySlot, subSlot, bank) : 0;
+}
+
+const char* SlotGetContents(int primarySlot, int subSlot) {
+    return toolSlotGetContents != NULL ? toolSlotGetContents(primarySlot, subSlot) : "";
+}
+
+int SlotGetBankSegment(int primarySlot, int subSlot, int bank) {
+    return toolSlotGetBankSegment != NULL ? toolSlotGetBankSegment(primarySlot, subSlot, bank) : -1;
+}
+
+int SlotGetSegmentSize(int primarySlot, int subSlot) {
+    return toolSlotGetSegmentSize != NULL ? toolSlotGetSegmentSize(primarySlot, subSlot) : 0;
+}
+
+bool SetSegmentBreakpoint(int primarySlot, int subSlot, int segment, int offset) {
+    return toolSetSegmentBreakpoint != NULL &&
+           toolSetSegmentBreakpoint(primarySlot, subSlot, segment, offset) != 0;
+}
+
+bool ClearSegmentBreakpoint(int primarySlot, int subSlot, int segment, int offset) {
+    return toolClearSegmentBreakpoint != NULL &&
+           toolClearSegmentBreakpoint(primarySlot, subSlot, segment, offset) != 0;
+}
+
+bool PauseSync(int timeoutMs) {
+    if (toolPauseSync != NULL) {
+        return toolPauseSync(timeoutMs) != 0;
+    }
+    /* An older host cannot say when it has parked. */
+    EmulatorPause();
+    return GetEmulatorState() == EMULATOR_PAUSED;
+}
+
+bool SegmentBreakpointsAvailable() {
+    return toolSetSegmentBreakpoint != NULL;
+}
+
+bool SlotMapAvailable() {
+    return toolSlotGetPageMapping != NULL && toolSlotGetBankState != NULL;
+}
+
+/* Up to and including messageBox: all a Create12 host's Interface has. */
+static void takeCore(Interface* toolInterface)
 {
-    strcpy(name, OnGetName());
-    
     toolSnapshotCreate              = toolInterface->create;
     toolSnapshotDestroy             = toolInterface->destroy;
     toolGetState                    = toolInterface->getState;
@@ -265,9 +332,39 @@ extern "C" __declspec(dllexport) int __stdcall Create12(Interface* toolInterface
     toolShellOpenFileDialog         = toolInterface->shellOpenFileDialog;
     toolShellSaveFileDialog         = toolInterface->shellSaveFileDialog;
     toolMessageBox                  = toolInterface->messageBox;
+}
 
+/* Only valid when the host called Create13. */
+static void takeSlotMap(Interface* toolInterface)
+{
+    toolSlotGetPageMapping          = toolInterface->slotGetPageMapping;
+    toolSlotGetSubslotSelect        = toolInterface->slotGetSubslotSelect;
+    toolSlotGetSubslotted           = toolInterface->slotGetSubslotted;
+    toolSlotGetBankState            = toolInterface->slotGetBankState;
+    toolSlotGetContents             = toolInterface->slotGetContents;
+    toolSlotGetBankSegment          = toolInterface->slotGetBankSegment;
+    toolSlotGetSegmentSize          = toolInterface->slotGetSegmentSize;
+    toolSetSegmentBreakpoint        = toolInterface->setSegmentBreakpoint;
+    toolClearSegmentBreakpoint      = toolInterface->clearSegmentBreakpoint;
+    toolPauseSync                   = toolInterface->pauseSync;
+}
+
+/* An older host: the slot map entries stay NULL. */
+extern "C" __declspec(dllexport) int __stdcall Create12(Interface* toolInterface, char* name, int length)
+{
+    strcpy(name, OnGetName());
+    takeCore(toolInterface);
     OnCreateTool();
+    return 1;
+}
 
+/* A host that also has the slot map and segment breakpoints. */
+extern "C" __declspec(dllexport) int __stdcall Create13(Interface* toolInterface, char* name, int length)
+{
+    strcpy(name, OnGetName());
+    takeCore(toolInterface);
+    takeSlotMap(toolInterface);
+    OnCreateTool();
     return 1;
 }
 

@@ -1,0 +1,33 @@
+/*****************************************************************************
+**
+** Agent connection handshake.
+** Copyright (C) 2026 Hesoten
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
+** This program is free software; you can redistribute it and/or modify
+** it under the terms of the GNU General Public License as published by
+** the Free Software Foundation; either version 2 of the License, or
+** (at your option) any later version.
+**
+** This program is distributed in the hope that it will be useful,
+** but WITHOUT ANY WARRANTY; without even the implied warranty of
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+** GNU General Public License for more details.
+**
+** You should have received a copy of the GNU General Public License
+** along with this program; if not, write to the Free Software
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+**
+******************************************************************************
+*/
+#ifndef CONTROL_HELLO_H
+#define CONTROL_HELLO_H
+
+#include "ControlClient.h"
+
+/* The first line of a connection: a hello with the right token opens the client and its
+** session. reply gets the line to send, without the newline, either way. CTRL_CLIENT_NONE when
+** the connection is to end once it is sent. */
+CtrlClient ctrlHelloAnswer(const char* line, const char* token, char* reply, int replyLen);
+
+#endif

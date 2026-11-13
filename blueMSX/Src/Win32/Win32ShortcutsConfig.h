@@ -113,6 +113,10 @@ typedef struct {
     ShotcutHotkeySet emulationStop;
     ShotcutHotkeySet emuSpeedFull;
     ShotcutHotkeySet emuPlayReverse;
+    ShotcutHotkeySet emuFrameAdvance;
+    ShotcutHotkeySet emuBackFrame;
+    ShotcutHotkeySet emuAdvanceToChange;
+    ShotcutHotkeySet emuBackToChange;
     ShotcutHotkeySet emuSpeedNormal;
     ShotcutHotkeySet emuSpeedInc;
     ShotcutHotkeySet emuSpeedDec;
@@ -158,10 +162,14 @@ typedef struct {
 
 Shortcuts* shortcutsCreateProfile(char* profileName);
 void shortcutsDestroyProfile(Shortcuts* shortcuts);
+/* The profile in use, or NULL while there is none. */
+const Shortcuts* shortcutsLive(void);
 int shortcutsShowDialog(HWND hwnd, Properties* pProperties);
 char* shortcutsToString(ShotcutHotkey hotkey);
 char* shortcutsSetToString(const ShotcutHotkeySet* set);
 int shortcutSetHasHotkey(const ShotcutHotkeySet* set, ShotcutHotkey hotkey);
+/* Whether any shortcut of the profile is bound to hotkey, modifiers and all. */
+int shortcutsHasHotkey(const Shortcuts* shortcuts, ShotcutHotkey hotkey);
 
 /* Both read the dialog's working copy while it is open, else the live
 ** profile. */

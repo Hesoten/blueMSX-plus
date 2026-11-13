@@ -46,6 +46,8 @@ struct SaveState {
 };
 
 static char stateFile[512];
+/* Set when a part of the state being written could not be stored. */
+static int  writeFailed;
 
 static UInt32 tagFromName(const char* tagName)
 {
@@ -116,6 +118,7 @@ void saveStateCreateForRead(const char* fileName)
 void saveStateCreateForWrite(const char* fileName)
 {
     tableCount = 0;
+    writeFailed = 0;
     strcpy(stateFile, fileName);
 }
 
@@ -151,13 +154,20 @@ SaveState* saveStateOpenForWrite(const char* fileName) {
     return state;
 }
 
+int saveStateWriteFailed(void)
+{
+    return writeFailed;
+}
+
 int saveStateIsEmpty(SaveState* state) {
     return state == NULL || state->size == 0;
 }
 
 void saveStateClose(SaveState* state) {
-    if (state->fileName[0]) {
-        zipSaveFile(stateFile, state->fileName, 1, state->buffer, state->offset * sizeof(UInt32));
+    if (state->fileName[0] &&
+        !zipSaveFile(stateFile, state->fileName, 1, state->buffer, state->offset * sizeof(UInt32)))
+    {
+        writeFailed = 1;
     }
     if (state->buffer != NULL) {
         free(state->buffer);

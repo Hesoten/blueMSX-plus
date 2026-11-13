@@ -24,6 +24,7 @@
 #include "InputEvent.h"
 #include "MsxPPI.h"
 #include "Board.h"
+#include "VDP.h"
 #include "ArchEvent.h"
 #include <string.h>
 
@@ -32,13 +33,19 @@
 #define MAX_WAIT_MS     60000
 #define IDLE_POLL_MS    10
 
-typedef enum { CMD_DOWN, CMD_UP, CMD_WAIT } CommandType;
+typedef enum {
+    CMD_DOWN, CMD_UP, CMD_WAIT,
+    /* row is unused; value holds an event code, or a count of frames. */
+    CMD_CODE_DOWN, CMD_CODE_UP, CMD_WAIT_FRAMES
+} CommandType;
 
 typedef struct {
     UInt8  type;
     UInt8  row;
-    UInt16 value;       /* the mask, or the wait in milliseconds */
+    UInt16 value;       /* the mask, the wait, or an event code */
 } Command;
+
+#define CODES_MAX 256
 
 /* Keys are held in the injected events rather than set like the host
 ** keyboard's: the keyboard layer resets its events on every poll while the
@@ -57,6 +64,7 @@ static int         head;
 static int         count;
 static int         waiting;
 static UInt8       held[MATRIX_ROWS];
+static UInt8       heldCode[CODES_MAX];
 static BoardTimer* timer;
 
 static void takeLock(void)
@@ -212,6 +220,91 @@ int keyMatrixInputRemaining(void)
     return n;
 }
 
+int keyMatrixInputSubmitEvents(const KeyMatrixEvent* events, int eventCount)
+{
+    int i;
+
+    if (events == NULL || eventCount <= 0) {
+        return 0;
+    }
+
+    /* All or none: half a key press delivered is a key left down. */
+    for (i = 0; i < eventCount; i++) {
+        if (events[i].kind == KM_WAIT_FRAMES) {
+            continue;
+        }
+        if ((events[i].kind != KM_DOWN && events[i].kind != KM_UP) ||
+            events[i].code == 0 || events[i].code >= CODES_MAX)
+        {
+            return 0;
+        }
+    }
+
+    takeLock();
+    if (count + eventCount > QUEUE_SIZE) {
+        dropLock();
+        return 0;
+    }
+
+    for (i = 0; i < eventCount; i++) {
+        Command* command = &queue[(head + count) % QUEUE_SIZE];
+
+        command->type  = (UInt8)(events[i].kind == KM_DOWN ? CMD_CODE_DOWN :
+                                 events[i].kind == KM_UP   ? CMD_CODE_UP
+                                                           : CMD_WAIT_FRAMES);
+        command->row   = 0;
+        command->value = events[i].code;
+        count++;
+    }
+    dropLock();
+
+    return 1;
+}
+
+/* Only event-code commands are dropped; the text commands of keyMatrixInputSubmit stay.
+** The releases are queued, so the emulation thread still does every key change. */
+void keyMatrixInputCancel(void)
+{
+    static Command kept[QUEUE_SIZE];
+    UInt8 release[CODES_MAX];
+    int   i;
+    int   n = 0;
+
+    takeLock();
+    /* A key is let go only if a dropped command would have let it go, so a how=press hold stays. */
+    memset(release, 0, sizeof(release));
+    for (i = 0; i < count; i++) {
+        const Command* c = &queue[(head + i) % QUEUE_SIZE];
+        if (c->type == CMD_CODE_UP) {
+            release[c->value] = heldCode[c->value];
+        }
+    }
+    /* A text wait under way stays first, as onTimer ends the wait at the head. */
+    if (waiting && queue[head].type == CMD_WAIT) {
+        kept[n++] = queue[head];
+    }
+    else {
+        waiting = 0;
+    }
+    for (i = 1; i < CODES_MAX; i++) {
+        if (release[i]) {
+            kept[n].type    = CMD_CODE_UP;
+            kept[n].row     = 0;
+            kept[n++].value = (UInt16)i;
+        }
+    }
+    for (i = waiting; i < count; i++) {
+        const Command* c = &queue[(head + i) % QUEUE_SIZE];
+        if (c->type == CMD_DOWN || c->type == CMD_UP || c->type == CMD_WAIT) {
+            kept[n++] = *c;
+        }
+    }
+    memcpy(queue, kept, n * sizeof(Command));
+    head = 0;
+    count = n;
+    dropLock();
+}
+
 static void press(int row, int mask, int down)
 {
     int bit;
@@ -248,7 +341,24 @@ static void onTimer(void* ref, UInt32 time)
             next = time + boardFrequency() / 1000 * c->value;
             break;
         }
-        press(c->row, c->value, c->type == CMD_DOWN);
+        if (c->type == CMD_WAIT_FRAMES) {
+            int refresh = vdpGetRefreshRate();
+            if (refresh <= 0) {
+                refresh = 60;
+            }
+            waiting = 1;
+            /* Converted here, not when queued, so a 50/60 Hz switch mid string is honoured. */
+            next = time + boardFrequency() / (UInt32)refresh * c->value;
+            break;
+        }
+        if (c->type == CMD_CODE_DOWN || c->type == CMD_CODE_UP) {
+            int down = c->type == CMD_CODE_DOWN;
+            inputEventInject(c->value, down);
+            heldCode[c->value] = (UInt8)down;
+        }
+        else {
+            press(c->row, c->value, c->type == CMD_DOWN);
+        }
         head = (head + 1) % QUEUE_SIZE;
         count--;
     }
@@ -271,6 +381,14 @@ void keyMatrixInputBoardStart(void)
     boardTimerAdd(timer, boardSystemTime() + 1);
 }
 
+/* The timer is not part of a state, so a load leaves it unarmed and the queue stuck. */
+void keyMatrixInputBoardRearm(void)
+{
+    if (timer != NULL) {
+        boardTimerAdd(timer, boardSystemTime() + 1);
+    }
+}
+
 /* Whatever was still queued belonged to the run that ended. Keys pressed here
 ** are let go, so none stays down into the next run. */
 void keyMatrixInputBoardStop(void)
@@ -286,6 +404,12 @@ void keyMatrixInputBoardStop(void)
     for (row = 0; row < MATRIX_ROWS; row++) {
         if (held[row]) {
             press(row, held[row], 0);
+        }
+    }
+    for (row = 0; row < CODES_MAX; row++) {
+        if (heldCode[row]) {
+            inputEventInject(row, 0);
+            heldCode[row] = 0;
         }
     }
     head = 0;

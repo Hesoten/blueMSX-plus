@@ -155,6 +155,12 @@ When multiple backends are enabled, **emulation runs in all enabled backends sim
 4. From the `File` → `Hard Disk / SD Card` menu, either create a blank image or pick an existing image file to insert as the USB drive
 
 
+## Debugging with an AI agent (MCP)
+
+blueMSX+ comes with an MCP server, `Tools\bluemsx-mcp.exe`. With it, an AI agent such as Claude Code can look inside the emulated MSX and operate it: read memory, set breakpoints, press keys and read the screen.  
+How to set it up and use it is in [`blueMSX/McpServer/README.md`](blueMSX/McpServer/README.md), which the release archive also ships as `Tools\bluemsx-mcp.md`.
+
+
 ## Building from source
 
 - Open the matching solution file (`Make/msvc2022/blueMSX.sln` or `Make/msvc2026/blueMSX.sln`) in **Visual Studio 2022** or **Visual Studio 2026** and build.

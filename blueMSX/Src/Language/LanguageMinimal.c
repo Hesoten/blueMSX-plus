@@ -169,6 +169,7 @@ char* langRomTypeSvi727col80()      { return "SVI-727 80 Column Card"; }
 char* langRomTypeColecoCart()       { return "Coleco Cartridge"; }
 char* langRomTypeSg1000Cart()       { return "SG-1000 Cartridge"; }
 char* langRomTypeSc3000Cart()       { return "SC-3000 Cartridge"; }
+char* langRomTypeV9968Cart()        { return "V9968 Cartridge"; }
 char* langRomTypeTheCastle()        { return "The Castle"; }
 char* langRomTypeSonyHbi55()        { return "Sony HBI-55"; }
 char* langRomTypeMsxPrinter()       { return "MSX Printer"; }
@@ -270,6 +271,7 @@ char* langDbgDevTms99x8A()          { return "TMS99x8A"; }
 char* langDbgDevTms9918A()          { return "TMS9918A"; }
 char* langDbgDevV9938()             { return "V9938"; }
 char* langDbgDevV9958()             { return "V9958"; }
+char* langDbgDevV9968()             { return "V9968"; }
 char* langDbgDevZ80()               { return "Z80"; }
 char* langDbgDevMsxMidi()           { return "MSX MIDI"; }
 char* langDbgDevPpi()               { return "PPI"; }

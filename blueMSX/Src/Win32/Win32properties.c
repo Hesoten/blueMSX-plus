@@ -296,10 +296,6 @@ static BOOL_DLG_RET CALLBACK emulationDlgProc(HWND hDlg, UINT iMsg, WPARAM wPara
 
         pProperties = (Properties*)((PROPSHEETPAGE*)lParam)->lParam;
        
-        SetDlgItemTextU(hDlg, IDC_OVERSAMPLETEXT1, langPropSndOversampleText());
-        SetDlgItemTextU(hDlg, IDC_OVERSAMPLETEXT2, langPropSndOversampleText());
-        SetDlgItemTextU(hDlg, IDC_OVERSAMPLETEXT3, langPropSndOversampleText());
-
         SetDlgItemTextU(hDlg, IDC_EMUGENERALGROUPBOX, langPropEmuGeneralGB());
         SetDlgItemTextU(hDlg, IDC_EMUFAMILYTEXT, langPropEmuFamilyText());
         SetDlgItemTextU(hDlg, IDC_VDPFREQTEXT, langPropVideoFreqText());
@@ -435,7 +431,6 @@ static BOOL_DLG_RET CALLBACK emulationDlgProc(HWND hDlg, UINT iMsg, WPARAM wPara
         }
 
         {
-            int index = 0;
             char buffer[64];
             ArrayList *machineList;
 			ArrayListIterator *iterator;
@@ -443,14 +438,6 @@ static BOOL_DLG_RET CALLBACK emulationDlgProc(HWND hDlg, UINT iMsg, WPARAM wPara
 			machineList = arrayListCreate();
             machineFillAvailable(machineList, 1);
 
-            index = (int)SendDlgItemMessage(hDlg, IDC_OVERSAMPLEMSXMUSIC, CB_GETCURSEL, 0, 0);
-            pProperties->sound.chip.ym2413Oversampling = 1 << index;
-            index = (int)SendDlgItemMessage(hDlg, IDC_OVERSAMPLEMSXAUDIO, CB_GETCURSEL, 0, 0);
-            pProperties->sound.chip.y8950Oversampling = 1 << index;
-            index = (int)SendDlgItemMessage(hDlg, IDC_OVERSAMPLEMOONSOUND, CB_GETCURSEL, 0, 0);
-            pProperties->sound.chip.moonsoundOversampling = 1 << index;
-
-            index = 0;
             pProperties->emulation.enableFdcTiming = !getButtonCheck(hDlg, IDC_EMUFDCTIMING);
             pProperties->emulation.enableHddSdBoost = getButtonCheck(hDlg, IDC_EMUHDDSDBOOST);
         pProperties->emulation.enableCasBoost = getButtonCheck(hDlg, IDC_EMUCASBOOST);
@@ -1780,27 +1767,23 @@ static void getMidiList(HWND hDlg, int id, Properties* pProperties) {
     int rv = (int)SendDlgItemMessage(hDlg, id, CB_GETLBTEXT, idx, (LPARAM)buffer);
     int*  midiType;
     char* drvName;
-    char* drvDesc;
     int   noSupportFile;
 
     switch (id) {
     default:
-    case IDC_MIDIOUT: 
+    case IDC_MIDIOUT:
         midiType = &pProperties->sound.MidiOut.type;
         drvName  = pProperties->sound.MidiOut.name;
-        drvDesc  = pProperties->sound.MidiOut.desc;
         noSupportFile = 1;
         break;
-    case IDC_MIDIIN: 
+    case IDC_MIDIIN:
         midiType = &pProperties->sound.MidiIn.type;
         drvName  = pProperties->sound.MidiIn.name;
-        drvDesc  = pProperties->sound.MidiIn.desc;
         noSupportFile = 1;
         break;
-    case IDC_YKIN: 
+    case IDC_YKIN:
         midiType = &pProperties->sound.YkIn.type;
         drvName  = pProperties->sound.YkIn.name;
-        drvDesc  = pProperties->sound.YkIn.desc;
         noSupportFile = 1;
         break;
     }
@@ -1815,14 +1798,13 @@ static void getMidiList(HWND hDlg, int id, Properties* pProperties) {
             name++;
         }
         
+        /* Copy only the id: copying the whole line left the description in the
+        ** bytes after it, and the description is neither read nor saved, so
+        ** either made an unchanged OK look like a change. */
+        if (name > buffer) name[-1] = 0;
         strcpy(drvName, buffer);
-        drvName[name - buffer - 1] = 0;
-
-        if (*name) name++;
-        if (*name) name++;
 
         *midiType = P_COM_HOST;
-        strcpy(drvDesc, name);
     }
 }
 
@@ -2298,8 +2280,9 @@ static BOOL_DLG_RET CALLBACK soundDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
                 GetDlgItem(hDlg, IDC_SNDCHIPS_Y8950_ACTIVE),
                 pProperties->sound.chip.y8950BackendActive);
 
-            /* Persist the OPLL analog filter mode + slider position one
-            ** last time so a Cancel does not lose hot-applied changes. */
+            /* Persist the OPLL analog filter mode one last time so a Cancel
+            ** does not lose hot-applied changes. Only Custom takes the slider
+            ** position; a preset already stored its own Hz on selection. */
             {
                 int sel = (int)SendDlgItemMessage(hDlg, IDC_SNDCHIPS_OPLL_ANALOG_MODE, CB_GETCURSEL, 0, 0);
                 int lpf = (int)SendDlgItemMessage(hDlg, IDC_SNDCHIPS_OPLL_ANALOG_LPFSLIDE, TBM_GETPOS, 0, 0);
@@ -2307,7 +2290,9 @@ static BOOL_DLG_RET CALLBACK soundDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, L
                 if (lpf < 0)     lpf = 0;
                 if (lpf > 15000) lpf = 15000;
                 pProperties->sound.chip.ym2413AnalogFilterMode  = sel;
-                pProperties->sound.chip.ym2413AnalogFilterLpfHz = lpf;
+                if (sel == PROP_OPLL_FILTER_CUSTOM) {
+                    pProperties->sound.chip.ym2413AnalogFilterLpfHz = lpf;
+                }
                 /* HPF stays at whatever the preset resolved to (set on
                 ** preset change above) -- the UI does not expose it. */
             }
@@ -3429,7 +3414,14 @@ int showProperties(Properties* pProperties, HWND hwndOwner, PropPage desiredStar
 
     PropertySheetW(&psh);
 
+    /* The tool windows keep drawing while the dialog is up: what they changed meanwhile
+    ** is neither a change made here nor undone by Cancel. */
+    oldProp.vdpViewer = pProperties->vdpViewer;
+    oldProp.controlDeck = pProperties->controlDeck;
     if (propModified) {
+        /* The sheet is always centered on the main window, so its saved
+        ** position follows the window size and is not a change made here. */
+        oldProp.settings.windowPos[DLG_ID_PROPERTIES] = pProperties->settings.windowPos[DLG_ID_PROPERTIES];
         propModified = memcmp(&oldProp, pProperties, sizeof(Properties));
     }
 

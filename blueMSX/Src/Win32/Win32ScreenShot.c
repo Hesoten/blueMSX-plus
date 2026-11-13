@@ -502,25 +502,30 @@ void ScreenShot3(Properties* properties, void* src, int srcPitch, int width, int
     ScreenShot3Ex(properties, src, srcPitch, width, height, png, NULL);
 }
 
-void ScreenShot3Ex(Properties* properties, void* src, int srcPitch, int width, int height, int png, const char* overrideFilename)
+int ScreenShot3Ex(Properties* properties, void* src, int srcPitch, int width, int height, int png, const char* overrideFilename)
 {
     int bitmapSize;
     FILE* file;
     const char* path;
+    size_t written = 0;
 
     void* bitmap = ScreenShot2(src, srcPitch, width, height, &bitmapSize, png);
     if (bitmap == NULL || bitmapSize <= 0) {
-        return;
+        return 0;
     }
     path = (overrideFilename && overrideFilename[0])
            ? overrideFilename
            : generateSaveFilename(properties, baseDir, basePrefix, (png ? ".png" : ".bmp"), 4);
     file = fopen(path, "wb");
     if (file != NULL) {
-    	fwrite(bitmap, 1, bitmapSize, file);
-        fclose(file);
+    	written = fwrite(bitmap, 1, bitmapSize, file);
+        if (fclose(file) != 0) {
+            written = 0;
+        }
     }
     free(bitmap);
+
+    return written == (size_t)bitmapSize;
 }
 
 void screenshotSetDirectory(char* directory, char* prefix)

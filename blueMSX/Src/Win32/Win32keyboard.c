@@ -1913,6 +1913,14 @@ int keyboardGetModifiers()
     return kbdModifiers;
 }
 
+int keyboardMessageModifiers(void)
+{
+    return (GetKeyState(VK_LSHIFT)   < 0 ? KBD_LSHIFT : 0) | (GetKeyState(VK_RSHIFT)   < 0 ? KBD_RSHIFT : 0) |
+           (GetKeyState(VK_LCONTROL) < 0 ? KBD_LCTRL  : 0) | (GetKeyState(VK_RCONTROL) < 0 ? KBD_RCTRL  : 0) |
+           (GetKeyState(VK_LMENU)    < 0 ? KBD_LALT   : 0) | (GetKeyState(VK_RMENU)    < 0 ? KBD_RALT   : 0) |
+           (GetKeyState(VK_LWIN)     < 0 ? KBD_LWIN   : 0) | (GetKeyState(VK_RWIN)     < 0 ? KBD_RWIN   : 0);
+}
+
 void keyboardUpdate() 
 { 
     if (!hasFocus) {
@@ -2300,8 +2308,8 @@ static int keyboardWriteConfig(char* configName, int reportFailure)
         sprintf(profString, "Keymapping-%d", n);
         for (i = 0; i < EC_KEYCOUNT; i++) {
             const char* keyCode = inputEventCodeToString(i);
-            /* IniFileParser's readLine has no bound and writes into a
-            ** 512-byte caller buffer, so "key =<value>" must fit. */
+            /* The loader reads the value into 512 bytes, so a longer one
+            ** would come back cut and be saved that way. */
             char dikNames[448];
             char key[32] = { 0 };
             /* The reader skips the same rows, so a value in a section its

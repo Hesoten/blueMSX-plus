@@ -302,6 +302,8 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->emulation.reverseMaxTime    = 15;
     properties->emulation.vdpCmdSpeed       = 100;
     properties->emulation.mouseSensitivity  = 5;
+    properties->emulation.agentControl      = 0;
+    properties->emulation.activityFontSize  = 10;
 
     properties->video.monitorColor          = P_VIDEO_COLOR;
     properties->video.monitorType           = P_VIDEO_PALNONE;
@@ -491,6 +493,70 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->nowind.enablePhantomDrives = 1;
     properties->nowind.partitionNumber = 0xff;
     properties->nowind.ignoreBootFlag = 0;
+
+    properties->vdpViewer.window.dpi = 96;
+    properties->vdpViewer.window.x = 0;
+    properties->vdpViewer.window.y = 0;
+    properties->vdpViewer.window.width = 0;
+    properties->vdpViewer.window.height = 0;
+    properties->vdpViewer.window.zoomPct = 100;
+    properties->vdpViewer.mapOpen = 1;
+    properties->vdpViewer.paneOpen = 1;
+    properties->vdpViewer.paneWidth = 358;
+    properties->vdpViewer.pictureZoom = 2;
+    properties->vdpViewer.pictureFit = 0;
+    properties->vdpViewer.pagesOpen = 1;
+    properties->vdpViewer.pagesHeight = 200;
+    properties->vdpViewer.pagesSize = 0;
+    strcpy(properties->vdpViewer.viewV99x8, "screen");
+    strcpy(properties->vdpViewer.viewV9990, "screen");
+    properties->vdpViewer.cardsV99x8[0] = 0;
+    properties->vdpViewer.cardsV9990[0] = 0;
+    properties->vdpViewer.v99x8.outBorders = 1;
+    properties->vdpViewer.v99x8.sprShown = 1;
+    properties->vdpViewer.v99x8.sprOnly = 0;
+    properties->vdpViewer.v99x8.boxes = 0;
+    properties->vdpViewer.v99x8.outGrid = 0;
+    properties->vdpViewer.v99x8.patNumbers = 0;
+    properties->vdpViewer.v99x8.patGrid = 0;
+    properties->vdpViewer.v99x8.transparent0 = 0;
+    properties->vdpViewer.v99x8.layout = 0;
+    properties->vdpViewer.v99x8.bitmapGrid = 0;
+    properties->vdpViewer.v99x8.sprDropped = 1;
+    properties->vdpViewer.v99x8.sprGrid = 0;
+    properties->vdpViewer.v99x8.vramTint = 1;
+    properties->vdpViewer.v99x8.vramGrid = 0;
+    properties->vdpViewer.v99x8.g3dPage = 0;
+    properties->vdpViewer.v99x8.g3dPerf = 1;
+    properties->vdpViewer.v99x8.g3dPerfH = 320;
+    properties->vdpViewer.v99x8.g3dPerfWhyW = 330;
+    properties->vdpViewer.v99x8.g3dHeat = 0;
+    properties->vdpViewer.v9990.sprShown = 1;
+    properties->vdpViewer.v9990.sprOnly = 0;
+    properties->vdpViewer.v9990.outGrid = 0;
+    properties->vdpViewer.v9990.ysClear = 0;
+    properties->vdpViewer.v9990.bitmapGrid = 0;
+    properties->vdpViewer.v9990.vramOrder = 0;
+    properties->vdpViewer.v9990.vramTint = 1;
+    properties->vdpViewer.v9990.vramGrid = 0;
+    properties->vdpViewer.v9990.patLayer = 0;
+    properties->vdpViewer.v9990.patNumbers = 0;
+    properties->vdpViewer.v9990.patGrid = 0;
+    properties->vdpViewer.v9990.transparent0 = 0;
+    properties->vdpViewer.v9990.sprDropped = 1;
+    properties->vdpViewer.v9990.sprBoxes = 0;
+    properties->vdpViewer.v9990.sprGrid = 0;
+    properties->vdpViewer.v9990.curShown = 1;
+    properties->vdpViewer.v9990.curOnly = 0;
+    properties->vdpViewer.v9990.curBoxes = 0;
+
+    properties->controlDeck.window.dpi = 96;
+    properties->controlDeck.window.x = 0;
+    properties->controlDeck.window.y = 0;
+    properties->controlDeck.window.width = 0;
+    properties->controlDeck.window.height = 0;
+    properties->controlDeck.window.zoomPct = 100;
+    properties->controlDeck.open = 0;
 
     for (i = 0; i < PROP_MAX_CARTS; i++) {
         properties->media.carts[i].fileName[0] = 0;
@@ -844,6 +910,8 @@ static void propLoad(Properties* properties)
     GET_INT_VALUE_2(propFile, emulation, reverseMaxTime);
     GET_INT_VALUE_2(propFile, emulation, vdpCmdSpeed);
     GET_INT_VALUE_2(propFile, emulation, mouseSensitivity);
+    GET_INT_VALUE_2(propFile, emulation, agentControl);
+    GET_INT_VALUE_2(propFile, emulation, activityFontSize);
 
     GET_ENUM_VALUE_2(propFile, video, monitorColor, MonitorColorPair);
     GET_ENUM_VALUE_2(propFile, video, monitorType, MonitorTypePair);
@@ -1038,6 +1106,70 @@ static void propLoad(Properties* properties)
     GET_ENUM_VALUE_2(propFile, nowind, ignoreBootFlag, BoolPair);   
     GET_INT_VALUE_2(propFile, nowind,  partitionNumber);
 
+    GET_INT_VALUE_3(propFile, vdpViewer, window, dpi);
+    GET_INT_VALUE_3(propFile, vdpViewer, window, x);
+    GET_INT_VALUE_3(propFile, vdpViewer, window, y);
+    GET_INT_VALUE_3(propFile, vdpViewer, window, width);
+    GET_INT_VALUE_3(propFile, vdpViewer, window, height);
+    GET_INT_VALUE_3(propFile, vdpViewer, window, zoomPct);
+    GET_ENUM_VALUE_2(propFile, vdpViewer, mapOpen, BoolPair);
+    GET_ENUM_VALUE_2(propFile, vdpViewer, paneOpen, BoolPair);
+    GET_INT_VALUE_2(propFile, vdpViewer, paneWidth);
+    GET_INT_VALUE_2(propFile, vdpViewer, pictureZoom);
+    GET_ENUM_VALUE_2(propFile, vdpViewer, pictureFit, BoolPair);
+    GET_ENUM_VALUE_2(propFile, vdpViewer, pagesOpen, BoolPair);
+    GET_INT_VALUE_2(propFile, vdpViewer, pagesHeight);
+    GET_INT_VALUE_2(propFile, vdpViewer, pagesSize);
+    GET_STR_VALUE_2(propFile, vdpViewer, viewV99x8);
+    GET_STR_VALUE_2(propFile, vdpViewer, viewV9990);
+    GET_STR_VALUE_2(propFile, vdpViewer, cardsV99x8);
+    GET_STR_VALUE_2(propFile, vdpViewer, cardsV9990);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, outBorders, BoolPair);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, sprShown, BoolPair);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, sprOnly, BoolPair);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, boxes, BoolPair);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, outGrid, BoolPair);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, patNumbers, BoolPair);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, patGrid, BoolPair);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, transparent0, BoolPair);
+    GET_INT_VALUE_3(propFile, vdpViewer, v99x8, layout);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, bitmapGrid, BoolPair);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, sprDropped, BoolPair);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, sprGrid, BoolPair);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, vramTint, BoolPair);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, vramGrid, BoolPair);
+    GET_INT_VALUE_3(propFile, vdpViewer, v99x8, g3dPage);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, g3dPerf, BoolPair);
+    GET_INT_VALUE_3(propFile, vdpViewer, v99x8, g3dPerfH);
+    GET_INT_VALUE_3(propFile, vdpViewer, v99x8, g3dPerfWhyW);
+    GET_INT_VALUE_3(propFile, vdpViewer, v99x8, g3dHeat);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v9990, sprShown, BoolPair);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v9990, sprOnly, BoolPair);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v9990, outGrid, BoolPair);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v9990, ysClear, BoolPair);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v9990, bitmapGrid, BoolPair);
+    GET_INT_VALUE_3(propFile, vdpViewer, v9990, vramOrder);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v9990, vramTint, BoolPair);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v9990, vramGrid, BoolPair);
+    GET_INT_VALUE_3(propFile, vdpViewer, v9990, patLayer);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v9990, patNumbers, BoolPair);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v9990, patGrid, BoolPair);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v9990, transparent0, BoolPair);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v9990, sprDropped, BoolPair);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v9990, sprBoxes, BoolPair);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v9990, sprGrid, BoolPair);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v9990, curShown, BoolPair);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v9990, curOnly, BoolPair);
+    GET_ENUM_VALUE_3(propFile, vdpViewer, v9990, curBoxes, BoolPair);
+
+    GET_INT_VALUE_3(propFile, controlDeck, window, dpi);
+    GET_INT_VALUE_3(propFile, controlDeck, window, x);
+    GET_INT_VALUE_3(propFile, controlDeck, window, y);
+    GET_INT_VALUE_3(propFile, controlDeck, window, width);
+    GET_INT_VALUE_3(propFile, controlDeck, window, height);
+    GET_INT_VALUE_3(propFile, controlDeck, window, zoomPct);
+    GET_ENUM_VALUE_2(propFile, controlDeck, open, BoolPair);
+
     GET_STR_VALUE_2(propFile,  capture, audioDir);
     GET_STR_VALUE_2(propFile,  capture, videoDir);
     GET_STR_VALUE_2(propFile,  capture, screenshotDir);
@@ -1207,6 +1339,8 @@ void propSave(Properties* properties)
     SET_INT_VALUE_2(propFile, emulation, reverseMaxTime);
     SET_INT_VALUE_2(propFile, emulation, vdpCmdSpeed);
     SET_INT_VALUE_2(propFile, emulation, mouseSensitivity);
+    SET_INT_VALUE_2(propFile, emulation, agentControl);
+    SET_INT_VALUE_2(propFile, emulation, activityFontSize);
 
     SET_ENUM_VALUE_2(propFile, video, monitorColor, MonitorColorPair);
     SET_ENUM_VALUE_2(propFile, video, monitorType, MonitorTypePair);
@@ -1392,6 +1526,70 @@ void propSave(Properties* properties)
     SET_ENUM_VALUE_2(propFile, nowind, enablePhantomDrives, BoolPair);    
     SET_ENUM_VALUE_2(propFile, nowind, ignoreBootFlag, BoolPair);   
     SET_INT_VALUE_2(propFile, nowind,  partitionNumber);
+
+    SET_INT_VALUE_3(propFile, vdpViewer, window, dpi);
+    SET_INT_VALUE_3(propFile, vdpViewer, window, x);
+    SET_INT_VALUE_3(propFile, vdpViewer, window, y);
+    SET_INT_VALUE_3(propFile, vdpViewer, window, width);
+    SET_INT_VALUE_3(propFile, vdpViewer, window, height);
+    SET_INT_VALUE_3(propFile, vdpViewer, window, zoomPct);
+    SET_ENUM_VALUE_2(propFile, vdpViewer, mapOpen, YesNoPair);
+    SET_ENUM_VALUE_2(propFile, vdpViewer, paneOpen, YesNoPair);
+    SET_INT_VALUE_2(propFile, vdpViewer, paneWidth);
+    SET_INT_VALUE_2(propFile, vdpViewer, pictureZoom);
+    SET_ENUM_VALUE_2(propFile, vdpViewer, pictureFit, YesNoPair);
+    SET_ENUM_VALUE_2(propFile, vdpViewer, pagesOpen, YesNoPair);
+    SET_INT_VALUE_2(propFile, vdpViewer, pagesHeight);
+    SET_INT_VALUE_2(propFile, vdpViewer, pagesSize);
+    SET_STR_VALUE_2(propFile, vdpViewer, viewV99x8);
+    SET_STR_VALUE_2(propFile, vdpViewer, viewV9990);
+    SET_STR_VALUE_2(propFile, vdpViewer, cardsV99x8);
+    SET_STR_VALUE_2(propFile, vdpViewer, cardsV9990);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, outBorders, YesNoPair);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, sprShown, YesNoPair);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, sprOnly, YesNoPair);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, boxes, YesNoPair);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, outGrid, YesNoPair);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, patNumbers, YesNoPair);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, patGrid, YesNoPair);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, transparent0, YesNoPair);
+    SET_INT_VALUE_3(propFile, vdpViewer, v99x8, layout);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, bitmapGrid, YesNoPair);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, sprDropped, YesNoPair);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, sprGrid, YesNoPair);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, vramTint, YesNoPair);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, vramGrid, YesNoPair);
+    SET_INT_VALUE_3(propFile, vdpViewer, v99x8, g3dPage);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v99x8, g3dPerf, YesNoPair);
+    SET_INT_VALUE_3(propFile, vdpViewer, v99x8, g3dPerfH);
+    SET_INT_VALUE_3(propFile, vdpViewer, v99x8, g3dPerfWhyW);
+    SET_INT_VALUE_3(propFile, vdpViewer, v99x8, g3dHeat);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v9990, sprShown, YesNoPair);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v9990, sprOnly, YesNoPair);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v9990, outGrid, YesNoPair);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v9990, ysClear, YesNoPair);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v9990, bitmapGrid, YesNoPair);
+    SET_INT_VALUE_3(propFile, vdpViewer, v9990, vramOrder);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v9990, vramTint, YesNoPair);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v9990, vramGrid, YesNoPair);
+    SET_INT_VALUE_3(propFile, vdpViewer, v9990, patLayer);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v9990, patNumbers, YesNoPair);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v9990, patGrid, YesNoPair);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v9990, transparent0, YesNoPair);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v9990, sprDropped, YesNoPair);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v9990, sprBoxes, YesNoPair);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v9990, sprGrid, YesNoPair);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v9990, curShown, YesNoPair);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v9990, curOnly, YesNoPair);
+    SET_ENUM_VALUE_3(propFile, vdpViewer, v9990, curBoxes, YesNoPair);
+
+    SET_INT_VALUE_3(propFile, controlDeck, window, dpi);
+    SET_INT_VALUE_3(propFile, controlDeck, window, x);
+    SET_INT_VALUE_3(propFile, controlDeck, window, y);
+    SET_INT_VALUE_3(propFile, controlDeck, window, width);
+    SET_INT_VALUE_3(propFile, controlDeck, window, height);
+    SET_INT_VALUE_3(propFile, controlDeck, window, zoomPct);
+    SET_ENUM_VALUE_2(propFile, controlDeck, open, YesNoPair);
 
     SET_STR_VALUE_2(propFile,  capture, audioDir);
     SET_STR_VALUE_2(propFile,  capture, videoDir);
@@ -1596,6 +1794,7 @@ int propertiesIsSpecialCartName(const char* name)
         CARTNAME_MEGAFLSHSCC, CARTNAME_MEGAFLSHSCCPLUS,
         CARTNAME_MEGAFLSHSCCPLUS_SD,
         CARTNAME_ROOKIEDRIVE, CARTNAME_GFX9000,     CARTNAME_VIDEO9000,
+        CARTNAME_V9968CART,
         CARTNAME_ASCII16X,    CARTNAME_YAMANOOTO,   CARTNAME_FLASHROMSCC,
         CARTNAME_WAVESCSI128, CARTNAME_WAVESCSI256, CARTNAME_WAVESCSI512,
         CARTNAME_WAVESCSI1MB,

@@ -57,10 +57,32 @@ void saveDialogPos(HWND hwnd, int dialogID);
 
 HWND getMainHwnd();
 HWND getEmuHwnd();
+/* Call after the window is minimized or Agent Control changes level. */
+void updateMinimizedDrawing(void);
+
+/* Posted by the control socket's thread for work it hands to the window's thread. */
+#define WM_CTRLGUICOMMAND (WM_USER + 1251)
 
 
 void enterDialogShow();
+void enterModalLoop();
 void exitDialogShow();
+
+/* An action that lasts while any of its holders keeps it pressed.  Each
+** holder owns bits of the mask; bits 0 to SHORTCUT_MAX_BINDINGS-1 are the
+** shortcut key slots.  The action ends when the last bit is released. */
+typedef enum {
+    HELD_ACTION_MAX_SPEED,
+    HELD_ACTION_REVERSE
+} HeldAction;
+
+void heldActionPress(HeldAction action, unsigned bits);
+void heldActionRelease(HeldAction action, unsigned bits);
+
+/* A message to a tool window, for the shortcuts; textInput while a text field takes the keys.
+** Non-zero when it is used up: a press bound to a shortcut, which the main window then runs
+** once this message is done, or its character. UI thread only. */
+int shortcutKeyFromToolWindow(UINT msg, WPARAM wParam, LPARAM lParam, int textInput);
 
 /* Show / update / hide a tracking tooltip showing a slider's value next to
 ** the cursor.  *phwndTip caches the tooltip HWND (one per parent window),
@@ -72,6 +94,12 @@ BOOL win32CommonIsDarkMode(void);
 COLORREF win32CommonDarkBg(void);
 COLORREF win32CommonDarkFg(void);
 HBRUSH   win32CommonDarkBgBrush(void);
+/* Rereads the theme on the next query; call on WM_SETTINGCHANGE "ImmersiveColorSet". */
+void     win32InvalidateDarkModeCache(void);
+
+/* Dark or light caption for a top-level window, following the system theme.
+** On WM_SETTINGCHANGE "ImmersiveColorSet", invalidate the cache first. */
+void win32CommonApplyDarkTitle(HWND hwnd);
 
 /* Per-DLGPROC opt-in: apply dark titlebar / SetWindowTheme / WM_CTLCOLOR*
 ** subclass.  Call from WM_INITDIALOG.  Safe in light mode (no-op). */

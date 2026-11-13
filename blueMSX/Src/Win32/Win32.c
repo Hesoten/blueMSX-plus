@@ -81,6 +81,8 @@
 #include "Win32file.h"
 #include "Win32Help.h"
 #include "Win32Menu.h"
+#include "ImGui/ImGuiWindow.h"
+#include "ImGui/ControlDeck/ControlDeck.h"
 #include "Win32FileDialog.h"
 #include "Win32TextUtf8.h"
 #include "Win32MixerDevices.h"
@@ -97,8 +99,17 @@
 #include "Win32PhysicalDisk.h"
 #include "Actions.h"
 #include "LaunchFile.h"
+#include "AmdFlash.h"
 #include "TokenExtract.h"
 #include "Emulator.h"
+#include "Debugger.h"
+#include "ControlDebuggerListener.h"
+#include "ControlStopLog.h"
+#include "ControlClient.h"
+#include "ControlSocket.h"
+#include "ControlWindowThread.h"
+#include "Win32ActivityPanel.h"
+#include "RaceTest.h"
 #include "JoystickPort.h"
 #include "Theme.h"
 #include "VideoRender.h"
@@ -264,11 +275,26 @@ BOOL win32CommonIsDarkMode(void) { return win32IsDarkMode(); }
 COLORREF win32CommonDarkBg(void) { return DARK_BG; }
 COLORREF win32CommonDarkFg(void) { return DARK_FG; }
 HBRUSH   win32CommonDarkBgBrush(void) { return win32GetDarkBkBrush(); }
+void     win32CommonApplyDarkTitle(HWND hwnd) { win32ApplyDarkTitle(hwnd); }
 
 /* Forward declared so this wrapper can sit alongside the other public dark
 ** helpers; the actual win32ApplyDarkToDialog body is later in this file. */
 static void win32ApplyDarkToDialog(HWND hwnd);
 void win32CommonApplyDark(HWND hDlg) { win32ApplyDarkToDialog(hDlg); }
+
+/* Move a w x h window at (*x, *y) inside the monitor's work area. Right and
+** bottom go first so a window larger than the area keeps its title bar on
+** screen. */
+static void keepOnWorkArea(HMONITOR mon, int* x, int* y, int w, int h)
+{
+    MONITORINFO mi;
+    mi.cbSize = sizeof(mi);
+    if (!GetMonitorInfoW(mon, &mi)) return;
+    if (*x + w > mi.rcWork.right)  *x = mi.rcWork.right  - w;
+    if (*y + h > mi.rcWork.bottom) *y = mi.rcWork.bottom - h;
+    if (*x < mi.rcWork.left)       *x = mi.rcWork.left;
+    if (*y < mi.rcWork.top)        *y = mi.rcWork.top;
+}
 
 void win32CommonCenterOnOwner(HWND hDlg)
 {
@@ -291,15 +317,8 @@ void win32CommonCenterOnOwner(HWND hDlg)
     /* Clamp into the work area of the monitor containing the owner so the
     ** dialog can't slip off-screen when the main window is partially off
     ** an edge. */
-    HMONITOR mon = MonitorFromWindow(owner, MONITOR_DEFAULTTONEAREST);
-    MONITORINFO mi;
-    mi.cbSize = sizeof(mi);
-    if (GetMonitorInfoW(mon, &mi)) {
-        if (x + dlgW > mi.rcWork.right)  x = mi.rcWork.right  - dlgW;
-        if (y + dlgH > mi.rcWork.bottom) y = mi.rcWork.bottom - dlgH;
-        if (x < mi.rcWork.left)          x = mi.rcWork.left;
-        if (y < mi.rcWork.top)           y = mi.rcWork.top;
-    }
+    keepOnWorkArea(MonitorFromWindow(owner, MONITOR_DEFAULTTONEAREST),
+                   &x, &y, dlgW, dlgH);
     SetWindowPos(hDlg, NULL, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
 }
 
@@ -1036,10 +1055,13 @@ void centerDialog(HWND hwnd, int noActivate) {
 void updateDialogPos(HWND hwnd, int dialogID, int noMove, int noSize) 
 {
     Properties* pProperties = propGetGlobalProperties();
-
-    int screenWidth  = GetSystemMetrics(SM_CXSCREEN);
-    int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+    HWND parent = GetParent(hwnd);
 	RECT r1;
+    RECT r2;
+    RECT rc;
+    HMONITOR mon;
+    int left;
+    int top;
     int x;
     int y;
     int w;
@@ -1050,41 +1072,38 @@ void updateDialogPos(HWND hwnd, int dialogID, int noMove, int noSize)
         noSize = 1;
     }
 
-    GetWindowRect(GetParent(hwnd), &r1);
+    GetWindowRect(parent, &r1);
+    GetWindowRect(hwnd, &r2);
 
-	x = r1.left + pProperties->settings.windowPos[dialogID].left; 
-    y = r1.top  + pProperties->settings.windowPos[dialogID].top; 
-    w =           pProperties->settings.windowPos[dialogID].width; 
-    h =           pProperties->settings.windowPos[dialogID].height; 
+    /* The ini can be hand-edited, so bound the offsets before adding them. */
+    left = min(max(pProperties->settings.windowPos[dialogID].left, -100000), 100000);
+    top  = min(max(pProperties->settings.windowPos[dialogID].top,  -100000), 100000);
 
-    if (noMove || 
-	   (pProperties->settings.windowPos[dialogID].left == 0 && 
+	x = r1.left + left;
+    y = r1.top  + top;
+    w =           pProperties->settings.windowPos[dialogID].width;
+    h =           pProperties->settings.windowPos[dialogID].height;
+
+    if (noMove ||
+	   (pProperties->settings.windowPos[dialogID].left == 0 &&
 	    pProperties->settings.windowPos[dialogID].top == 0)) {
-        RECT r2;
-        GetWindowRect(hwnd, &r2);
         x = r1.left + (r1.right - r1.left - r2.right + r2.left) / 2;
         y  = r1.top  + (r1.bottom - r1.top - r2.bottom + r2.top) / 2;
     }
-    
-    if (w == 0 || h == 0) {
-        RECT r2;
-        GetWindowRect(hwnd, &r2);
+
+    if (noSize || w == 0 || h == 0) {
         w = r2.right - r2.left;
         h = r2.bottom - r2.top;
     }
-    /* Laurent Halter : Removed because window might be on a secondary display*/
-    /*
-    if (x + w > screenWidth) {
-        x = screenWidth - w;
-    }
 
-    if (y + h > screenHeight) {
-        y = screenHeight - h;
+    /* Keep the whole dialog on the monitor it lands on, or on the parent's
+    ** monitor when the saved place is on none. */
+    SetRect(&rc, x, y, x + w, y + h);
+    mon = MonitorFromRect(&rc, MONITOR_DEFAULTTONULL);
+    if (mon == NULL) {
+        mon = MonitorFromWindow(parent, MONITOR_DEFAULTTONEAREST);
     }
-
-    if (y < 0) {
-        y = 0;
-    }*/
+    keepOnWorkArea(mon, &x, &y, w, h);
 
     SetWindowPos(hwnd, NULL, x, y, w, h, SWP_NOZORDER | (noSize ? SWP_NOSIZE : 0));
 }
@@ -1748,8 +1767,8 @@ void setTapePosition(HWND parent, Properties* pProperties) {
 
 ///////////////////////////////////////////////////////////////////////////
 
-/* ignoreMods: mods on a release come from the input poll, so they can
-** differ from the press. */
+/* ignoreMods: for a release, whose press may have gone to another window with
+** other modifiers. */
 static unsigned hotkeySetSlotMask(ShotcutHotkey key, const ShotcutHotkeySet* set, int ignoreMods)
 {
     unsigned mask = 0;
@@ -1772,6 +1791,32 @@ static int hotkeySetMatches(ShotcutHotkey key, const ShotcutHotkeySet* set)
 
 #define hotkeyEq(hotkey1, hotkey2Set) hotkeySetMatches((hotkey1), &(hotkey2Set))
 
+/* The modifiers of each key's press, plus 0x100, while it is down; 0 when its press was
+** not seen here. */
+static unsigned short pressMods[256];
+
+/* A key message as a hotkey. A release and the repeats take the modifiers of the press,
+** so letting go of a modifier before the key still makes the combination. */
+static ShotcutHotkey hotkeyOfKeyMessage(UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    ShotcutHotkey key;
+    int vk = (int)(wParam & 0xff);
+
+    key.type = HOTKEY_TYPE_KEYBOARD;
+    key.key  = vk;
+    if (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN) {
+        if ((lParam & (1 << 30)) == 0 || pressMods[vk] == 0) {
+            pressMods[vk] = (unsigned short)(0x100 | keyboardMessageModifiers());
+        }
+        key.mods = pressMods[vk] & 0xff;
+    }
+    else {
+        key.mods = pressMods[vk] != 0 ? (pressMods[vk] & 0xff) : keyboardMessageModifiers();
+        pressMods[vk] = 0;
+    }
+    return key;
+}
+
 /* A shortcut bound to joy N button M fires on slot N-1's button M. */
 static unsigned joyHotkeyCode(int slot, int button)
 {
@@ -1781,51 +1826,75 @@ static unsigned joyHotkeyCode(int slot, int button)
 static unsigned maxSpeedHeld = 0;
 static unsigned reverseHeld  = 0;
 
-static void checkKeyDown(Shortcuts* s, ShotcutHotkey key) {
-    unsigned m;
+void heldActionPress(HeldAction action, unsigned bits)
+{
+    /* Only the first hold of either may run the machine from a pause. */
+    int first = maxSpeedHeld == 0 && reverseHeld == 0;
 
-    m = hotkeySetSlotMask(key, &s->emuSpeedFull, 0);
-    if (m != 0) {
-        /* Re-asserted per repeat: max speed can be switched off elsewhere. */
+    if (bits == 0) return;
+
+    if (action == HELD_ACTION_MAX_SPEED) {
+        /* Re-asserted per press: max speed can be switched off elsewhere. */
         actionMaxSpeedSet();
-        maxSpeedHeld |= m;
+        maxSpeedHeld |= bits;
+        if (first) actionHoldBegin(0);
     }
-    m = hotkeySetSlotMask(key, &s->emuPlayReverse, 0);
-    if (m != 0) {
+    else {
         /* Starting reverse play suspends the sound device, which is not
         ** re-entrant. */
-        if (reverseHeld == 0) actionStartPlayReverse();
-        reverseHeld |= m;
+        if (first)                 actionHoldBegin(1);
+        else if (reverseHeld == 0) actionStartPlayReverse();
+        reverseHeld |= bits;
     }
 }
 
+void heldActionRelease(HeldAction action, unsigned bits)
+{
+    unsigned* held = action == HELD_ACTION_MAX_SPEED ? &maxSpeedHeld : &reverseHeld;
+
+    if (bits == 0 || *held == 0) return;
+
+    *held &= ~bits;
+    if (*held != 0) return;
+
+    if (maxSpeedHeld == 0 && reverseHeld == 0) {
+        actionHoldEnd(action == HELD_ACTION_REVERSE);
+    }
+    else if (action == HELD_ACTION_MAX_SPEED) actionMaxSpeedRelease();
+    else                                      actionStopPlayReverse();
+}
+
+/* repeat: an auto-repeat of a key held down, which steps on at the repeat rate. It must
+** not stop a step back under way or a run to a change, and a run to a change either way
+** starts once. */
+static void checkKeyDown(Shortcuts* s, ShotcutHotkey key, int repeat) {
+    heldActionPress(HELD_ACTION_MAX_SPEED, hotkeySetSlotMask(key, &s->emuSpeedFull, 0));
+    heldActionPress(HELD_ACTION_REVERSE,   hotkeySetSlotMask(key, &s->emuPlayReverse, 0));
+
+    if (hotkeyEq(key, s->emuFrameAdvance) && (!repeat || !emulatorChangeStepArmed())) actionEmuFrameAdvance();
+    if (hotkeyEq(key, s->emuAdvanceToChange) && !repeat)                              actionEmuAdvanceToChange();
+    if (hotkeyEq(key, s->emuBackFrame) && (!repeat || !emulatorBackStepPending()))    actionEmuBackFrame();
+    if (hotkeyEq(key, s->emuBackToChange) && !repeat)                                 actionEmuBackToChange();
+}
+
+/* Only the key slots' bits: the deck's hold goes with its own mouse button. */
 static void shortcutsReleaseHeldActions(void)
 {
-    if (maxSpeedHeld != 0) {
-        actionMaxSpeedRelease();
-        maxSpeedHeld = 0;
-    }
+    heldActionRelease(HELD_ACTION_MAX_SPEED, (1u << SHORTCUT_MAX_BINDINGS) - 1);
+    heldActionRelease(HELD_ACTION_REVERSE,   (1u << SHORTCUT_MAX_BINDINGS) - 1);
+}
 
-    if (reverseHeld != 0) {
-        actionStopPlayReverse();
-        reverseHeld = 0;
-    }
+/* Every holder, before a modal loop suspends the machine. */
+static void releaseAllHeldActions(void)
+{
+    shortcutsReleaseHeldActions();
+    controlDeckDropHolds();
 }
 
 static void checkKeyUp(Shortcuts* s, ShotcutHotkey key)
 {
-    unsigned m;
-
-    m = hotkeySetSlotMask(key, &s->emuSpeedFull, 1);
-    if (m != 0 && maxSpeedHeld != 0) {
-        maxSpeedHeld &= ~m;
-        if (maxSpeedHeld == 0) actionMaxSpeedRelease();
-    }
-    m = hotkeySetSlotMask(key, &s->emuPlayReverse, 1);
-    if (m != 0 && reverseHeld != 0) {
-        reverseHeld &= ~m;
-        if (reverseHeld == 0) actionStopPlayReverse();
-    }
+    heldActionRelease(HELD_ACTION_MAX_SPEED, hotkeySetSlotMask(key, &s->emuSpeedFull, 1));
+    heldActionRelease(HELD_ACTION_REVERSE,   hotkeySetSlotMask(key, &s->emuPlayReverse, 1));
 
     if (hotkeyEq(key, s->spritesEnable))                actionToggleSpriteEnable();
     if (hotkeyEq(key, s->fdcTiming))                    actionToggleFdcTiming();
@@ -1887,7 +1956,7 @@ static void checkKeyUp(Shortcuts* s, ShotcutHotkey key)
 
     if (hotkeyEq(key, s->prnFormFeed))                  actionPrinterForceFormFeed();
     if (hotkeyEq(key, s->mouseLockToggle))              actionToggleMouseCapture();
-    if (hotkeyEq(key, s->emulationRunPause))            actionEmuTogglePause();
+    if (hotkeyEq(key, s->emulationRunPause))            actionEmuRunPause();
     if (hotkeyEq(key, s->emulationStop))                actionEmuStop();
     if (hotkeyEq(key, s->emuSpeedNormal))               actionEmuSpeedNormal();
     if (hotkeyEq(key, s->emuSpeedInc))                  actionEmuSpeedIncrease();
@@ -1940,6 +2009,133 @@ static void checkKeyUp(Shortcuts* s, ShotcutHotkey key)
 
 #define WM_UPDATE            (WM_USER + 1245)
 #define WM_LAUNCHFILE        (WM_USER + 1249)
+#define WM_FLASHPROBLEM      (WM_USER + 1250)
+/* A shortcut key from a tool window: wParam the hotkey, lParam 0 for a release, 1 for a
+** press and 2 for a repeat. */
+#define WM_TOOLSHORTCUT      (WM_USER + 1252)
+#ifdef BMSX_RACE_TEST
+/* Arms a race test point: wParam the point, lParam the milliseconds; point 0 dumps the activity log
+** and RACE_HOLD_CHANGE holds a change open as a menu does, for lParam ms. */
+#define WM_RACETEST          (WM_USER + 1260)
+#define RACE_HOLD_CHANGE     100
+
+/* A suspend and a nested message loop, as an open menu has, so the change stays pending. */
+static void raceTestHoldChange(int ms)
+{
+    DWORD start = GetTickCount();
+    MSG   msg;
+
+    emulatorSuspend();
+    raceTestLog("change held");
+    while ((int)(GetTickCount() - start) < ms) {
+        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
+        Sleep(5);
+    }
+    raceTestLog("change ends");
+    emulatorResume();
+}
+
+static void raceTestDumpActivity(void)
+{
+    CtrlActivityEntry entry;
+    char   line[128];
+    UInt32 first;
+    UInt32 last;
+    UInt32 seq;
+    int    i = 0;
+
+    raceTestLog("activity dump");
+    if (!ctrlActivitySeqRange(&first, &last)) {
+        return;
+    }
+    for (seq = first; seq <= last; seq++, i++) {
+        if (!ctrlActivityEntryBySeq(seq, &entry)) {
+            _snprintf(line, sizeof(line), "activity %d missing", i);
+        }
+        else {
+            _snprintf(line, sizeof(line), "activity %d seq %lu actor %ld verb %d count %lu %s", i,
+                      (unsigned long)entry.seq, (long)entry.client, entry.verb,
+                      (unsigned long)entry.count, entry.detail);
+        }
+        raceTestLog(line);
+    }
+}
+#endif
+
+/* Runs on the emulator thread while a cartridge is created, so the dialog is
+** left to the window: a modal box here would stall the thread being waited on. */
+static void flashProblemPost(int problem, const char* fileName)
+{
+    char* copy = (char*)malloc(strlen(fileName) + 1);
+
+    if (copy == NULL) {
+        return;
+    }
+    strcpy(copy, fileName);
+    if (getMainHwnd() == NULL || !PostMessage(getMainHwnd(), WM_FLASHPROBLEM, problem, (LPARAM)copy)) {
+        free(copy);
+    }
+}
+
+/* Once per file: loading a state or resetting creates the cartridge again. */
+static void flashProblemShow(int problem, char* fileName)
+{
+    static char* shown[32];
+    static int shownCount = 0;
+    const char* text;
+    const char* fix;
+    const char* base;
+    char game[256];
+    char cause[768];
+    char body[2048];
+    char* dot;
+    int kept = 0;
+    int i;
+
+    for (i = 0; i < shownCount; i++) {
+        if (_stricmp(shown[i], fileName) == 0) {
+            free(fileName);
+            return;
+        }
+    }
+    if (shownCount < 32) {
+        shown[shownCount++] = fileName;
+        kept = 1;
+    }
+
+    text = problem == AMDFLASH_PROBLEM_SRAM_SIZE   ? langErrorFlashSramSize() :
+           problem == AMDFLASH_PROBLEM_FLASH_INVALID ? langErrorFlashInvalid() :
+                                                       langErrorFlashUnreadable();
+    fix  = problem == AMDFLASH_PROBLEM_UNREADABLE ? langErrorFlashFixInUse() : langErrorFlashFixFile();
+    /* The save file is named after the ROM, so its name stands for the game. */
+    base = fileName;
+    for (i = 0; fileName[i]; i++) {
+        if (fileName[i] == '\\' || fileName[i] == '/') {
+            base = fileName + i + 1;
+        }
+    }
+    strncpy(game, base, sizeof(game) - 1);
+    game[sizeof(game) - 1] = 0;
+    dot = strrchr(game, '.');
+    if (dot != NULL) {
+        *dot = 0;
+    }
+    _snprintf(cause, sizeof(cause) - 1, text, game);
+    cause[sizeof(cause) - 1] = 0;
+    _snprintf(body, sizeof(body) - 1, "%s\n\n%s\n%s\n\n%s",
+              cause, langErrorFlashNotKept(), fix, fileName);
+    body[sizeof(body) - 1] = 0;
+    enterDialogShow();
+    MessageBoxU(getMainHwnd(), body, langErrorTitle(), MB_OK | MB_ICONERROR);
+    exitDialogShow();
+
+    if (!kept) {
+        free(fileName);
+    }
+}
 
 #define TIMER_STATUSBAR_UPDATE              10
 #define TIMER_POLL_INPUT                    11
@@ -1989,6 +2185,11 @@ typedef struct {
     int minimized;
     /* Started with /hidden: never shown, silent, and no dialogs. */
     int hidden;
+    /* The start the command line asked for is over; later ones may fail and be retried. */
+    int firstStartDone;
+    /* /exitafter and /screenshot. Zero frames means run until told to stop. */
+    int exitAfterFrames;
+    char exitScreenshot[MAX_PATH];
     Mixer* mixer;
     int enteringFullscreen;
     Shortcuts* shortcuts;
@@ -2163,6 +2364,69 @@ HWND getEmuHwnd()
     return st.emuHwnd;
 }
 
+/* Posted, not run here: an action that opens a dialog would let the tool window be
+** closed under its own message. A release goes only after a press that went, as a text
+** field may have taken the press. */
+int shortcutKeyFromToolWindow(UINT msg, WPARAM wParam, LPARAM lParam, int textInput)
+{
+    static BYTE forwarded[256];
+    static int dropChar;
+    int vk = (int)(wParam & 0xff);
+    ShotcutHotkey key;
+    DWORD packed;
+    LPARAM kind;
+
+    if (msg == WM_CHAR || msg == WM_SYSCHAR) {
+        /* The character of a press used up here: after Alt it would only beep. */
+        int used = dropChar;
+        dropChar = 0;
+        return used;
+    }
+    if (msg == WM_KILLFOCUS) {
+        /* The releases go elsewhere now: let go of what the keys hold. */
+        memset(forwarded, 0, sizeof(forwarded));
+        dropChar = 0;
+        shortcutsReleaseHeldActions();
+        return 0;
+    }
+    if (msg == WM_KEYUP || msg == WM_SYSKEYUP) {
+        dropChar = 0;
+        if (!forwarded[vk]) {
+            pressMods[vk] = 0;
+            return 0;
+        }
+        forwarded[vk] = 0;
+        kind = 0;
+    }
+    else if (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN) {
+        dropChar = 0;
+        kind = (lParam & (1 << 30)) != 0 ? 2 : 1;
+        if (kind == 1) {
+            forwarded[vk] = 0;
+        }
+        if (textInput) {
+            return 0;
+        }
+    }
+    else {
+        return 0;
+    }
+    if (st.shortcuts == NULL) {
+        return 0;
+    }
+    key = hotkeyOfKeyMessage(msg, wParam, lParam);
+    if (kind != 0) {
+        if (!shortcutsHasHotkey(st.shortcuts, key)) {
+            return 0;
+        }
+        forwarded[vk] = 1;
+        dropChar = 1;
+    }
+    memcpy(&packed, &key, sizeof(packed));
+    PostMessage(st.hwnd, WM_TOOLSHORTCUT, (WPARAM)packed, kind);
+    return kind != 0;
+}
+
 void archShowPropertiesDialog(PropPage  startPane) {
     Properties oldProp = *pProperties;
     int changed;
@@ -2173,14 +2437,28 @@ void archShowPropertiesDialog(PropPage  startPane) {
     changed = showProperties(pProperties, st.hwnd, startPane, st.mixer, st.pVideo);
     exitDialogShow();
     emulatorSetFrequency(pProperties->emulation.speed, NULL);
+    /* A Cancel restores the old properties; the panel writes its own text size back. */
+    activityPanelSettingsChanged();
     if (!changed) {
         return;
     }
 
     /* An explicit save makes the command line values permanent, so the
-    ** overrides are dropped. */
-    propSave(pProperties);
-    emuCommandLineDropOverrides();
+    ** overrides are dropped. A mute still as /mute left it is the exception:
+    ** it silences this run only. One the user turned off is theirs to keep. */
+    {
+        int* mute = &pProperties->sound.masterEnable;
+        int  now  = *mute;
+        int  before;
+        int  muted = !now && emuCommandLineSavedInt(mute, &before);
+
+        if (muted) {
+            *mute = before;
+        }
+        propSave(pProperties);
+        *mute = now;
+        emuCommandLineDropOverridesExcept(muted ? mute : NULL);
+    }
 
     /* Always update video render */
     
@@ -2328,6 +2606,12 @@ void enterDialogShow() {
             DirectXSetGDISurface();
         }
     }
+    enterModalLoop();
+}
+
+/* The part of enterDialogShow a window's own move or size loop needs: the
+** emulator stops waiting for frames this thread cannot ack meanwhile. */
+void enterModalLoop() {
     st.showDialog++;
     if (st.showDialog == 1) {
         emuEnableSynchronousUpdate(0);
@@ -3017,7 +3301,17 @@ static void emuWindowDraw(int onlyOnVblank)
     archSemaphoreSignal(lock);
 }
 
+static void* createScreenShotWritten(int large, int* bitmapSize, int png,
+                                     const char* overrideFilename, int* wroteFile);
+
 void* createScreenShotEx(int large, int* bitmapSize, int png, const char* overrideFilename)
+{
+    return createScreenShotWritten(large, bitmapSize, png, overrideFilename, NULL);
+}
+
+/* wroteFile says whether the file was written; the returned pointer cannot. */
+static void* createScreenShotWritten(int large, int* bitmapSize, int png,
+                                     const char* overrideFilename, int* wroteFile)
 {
     void* bitmap = NULL;
 
@@ -3030,7 +3324,11 @@ void* createScreenShotEx(int large, int* bitmapSize, int png, const char* overri
     
     FrameBuffer* frameBuffer = frameBufferGetViewFrame();
 
+    if (wroteFile != NULL) {
+        *wroteFile = 0;
+    }
     if (frameBuffer == NULL || frameBuffer->maxWidth <= 0 || frameBuffer->lines <= 0) {
+        free(bmBitsDst);
         return NULL;
     }
 
@@ -3056,7 +3354,12 @@ void* createScreenShotEx(int large, int* bitmapSize, int png, const char* overri
         bitmap = ScreenShot2(bmBitsDst, 320 * zoom, frameBuffer->maxWidth * zoom, 240 * zoom, bitmapSize, png);
     }
     else {
-        ScreenShot3Ex(pProperties, bmBitsDst, 320 * zoom, frameBuffer->maxWidth * zoom, 240 * zoom, png, overrideFilename);
+        int wrote = ScreenShot3Ex(pProperties, bmBitsDst, 320 * zoom,
+                                  frameBuffer->maxWidth * zoom, 240 * zoom, png,
+                                  overrideFilename);
+        if (wroteFile != NULL) {
+            *wroteFile = wrote;
+        }
     }
 
     free(bmBitsDst);
@@ -3067,6 +3370,18 @@ void* createScreenShotEx(int large, int* bitmapSize, int png, const char* overri
 void* createScreenShot(int large, int* bitmapSize, int png)
 {
     return createScreenShotEx(large, bitmapSize, png, NULL);
+}
+
+/* Reads the last finished frame, so the emulation need not be stopped. */
+int archScreenCaptureToFile(ScreenCaptureType type, const char* fname)
+{
+    int wrote = 0;
+
+    if (fname == NULL || fname[0] == 0) {
+        return 0;
+    }
+    createScreenShotWritten(type == SC_LARGE, NULL, 1, fname, &wrote);
+    return wrote;
 }
 
 static LRESULT CALLBACK emuWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam) 
@@ -3081,7 +3396,12 @@ static LRESULT CALLBACK emuWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
         break;
 
     case WM_SETCURSOR:
-        return mouseEmuSetCursor();
+        if (mouseEmuSetCursor()) {
+            return TRUE;
+        }
+        /* Let the class arrow replace whatever cursor the window the mouse
+        ** came from left behind, such as a resize arrow. */
+        break;
 
     case WM_INPUT: {
         RAWINPUT ri;
@@ -3102,6 +3422,9 @@ static LRESULT CALLBACK emuWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
         return SendMessage(GetParent(hwnd), iMsg, wParam, lParam);
 
     case WM_MOUSEMOVE:
+        if (mouseEmuCursorMoved()) mouseEmuOnUserMouseActivity();
+        return SendMessage(GetParent(hwnd), iMsg, wParam, lParam);
+
     case WM_LBUTTONUP:
     case WM_MBUTTONDOWN:
     case WM_MBUTTONUP:
@@ -3299,6 +3622,55 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         }
         return TRUE;
 
+    case WM_CTRLGUICOMMAND:
+        /* Only a nested loop (a menu, a dialog, a box) gets here; the work must not run inside it. */
+        ctrlWindowThreadRunPosted(0);
+        return 0;
+
+#ifdef BMSX_RACE_TEST
+    case WM_RACETEST:
+        if (wParam == RACE_HOLD_CHANGE) {
+            raceTestHoldChange((int)lParam);
+        }
+        else if (wParam == 0) {
+            raceTestDumpActivity();
+        }
+        else {
+            raceTestArm((int)wParam, (int)lParam);
+        }
+        return 0;
+#endif
+
+    case WM_TOOLSHORTCUT:
+        {
+            ShotcutHotkey key;
+            DWORD packed = (DWORD)wParam;
+            memcpy(&key, &packed, sizeof(key));
+            if (st.shortcuts == NULL) {
+                return 0;
+            }
+            /* Nothing may run behind a modal dialog, but a release still lets go of a hold. */
+            if (!IsWindowEnabled(hwnd)) {
+                if (lParam == 0) shortcutsReleaseHeldActions();
+            }
+            else if (lParam == 0) {
+                checkKeyUp(st.shortcuts, key);
+            }
+            else {
+                checkKeyDown(st.shortcuts, key, lParam == 2);
+            }
+        }
+        return 0;
+
+    case WM_FLASHPROBLEM:
+        if (lParam != 0 && st.hidden) {
+            free((char*)lParam);
+        }
+        else if (lParam != 0) {
+            flashProblemShow((int)wParam, (char*)lParam);
+        }
+        return 0;
+
     case WM_LAUNCHFILE:
         {
             char* fileName = (char*)lParam;
@@ -3351,23 +3723,15 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
     case WM_SYSKEYDOWN:
     case WM_KEYDOWN:
         {
-            ShotcutHotkey key;
             keyboardKeyDownMessage(wParam, lParam);
-            key.type = HOTKEY_TYPE_KEYBOARD;
-            key.mods = keyboardGetModifiers();
-            key.key  = wParam & 0xff;
-            checkKeyDown(st.shortcuts, key);
+            checkKeyDown(st.shortcuts, hotkeyOfKeyMessage(iMsg, wParam, lParam), (lParam & (1 << 30)) != 0);
         }
         return 0;
 
     case WM_SYSKEYUP:
     case WM_KEYUP:
         {
-            ShotcutHotkey key;
-            key.type = HOTKEY_TYPE_KEYBOARD;
-            key.mods = keyboardGetModifiers();
-            key.key  = wParam & 0xff;
-            checkKeyUp(st.shortcuts, key);
+            checkKeyUp(st.shortcuts, hotkeyOfKeyMessage(iMsg, wParam, lParam));
         }
         return 0;
 
@@ -3391,13 +3755,9 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             }
             return 0;
         case SC_MINIMIZE:
-            vdpSetDisplayEnable(0);
-            st.minimized = 1;
 //            emulatorSuspend();
             break;
         case SC_RESTORE:
-            vdpSetDisplayEnable(1);
-            st.minimized = 0;
 //            emulatorResume();
             break;
         }
@@ -3414,7 +3774,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         break;
 
     case WM_ENTERSIZEMOVE:
-        shortcutsReleaseHeldActions();
+        releaseAllHeldActions();
         emulatorSuspend();
         mouseEmuActivate(0);
         st.showDialog++;
@@ -3429,7 +3789,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
     case WM_ENTERMENULOOP:
         /* The loop swallows the key-up, and stopping reverse play resumes
         ** the sound device, which must happen before the suspend below. */
-        shortcutsReleaseHeldActions();
+        releaseAllHeldActions();
         emulatorSuspend();
         st.trackMenu = 1;
         SetTimer(st.hwnd, TIMER_MENUUPDATE, 250, NULL);
@@ -3546,14 +3906,32 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
 
     case WM_SIZE:
         InvalidateRect(hwnd, NULL, TRUE);
+        /* Every way in and out of the icon passes here; a restore by another
+        ** program sends no SC_RESTORE. */
+        {
+            int m = IsIconic(hwnd) != 0;
+            if (m != st.minimized) {
+                st.minimized = m;
+                updateMinimizedDrawing();
+            }
+        }
+        if (wParam == SIZE_MINIMIZED) {
+            /* The deck hides and draws no frame, so it would never see its button let go. */
+            controlDeckDropHolds();
+            imguiToolMainMinimized(1);
+        }
+        else if (wParam == SIZE_RESTORED || wParam == SIZE_MAXIMIZED) {
+            imguiToolMainMinimized(0);
+        }
         break;
         
     case WM_ACTIVATE:
         if (LOWORD(wParam) == WA_INACTIVE) {
             inputReset(hwnd);
             mouseEmuActivate(0);
-            /* The key-up that would end these is going to another window. */
-            shortcutsReleaseHeldActions();
+            /* The key-up that would end these is going to another window, and a covered
+            ** deck draws no frame to see its button let go. */
+            releaseAllHeldActions();
         }
         else {
             mouseEmuActivate(1);
@@ -3573,7 +3951,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         break;
 
     case WM_MOUSEMOVE:
-        mouseEmuOnUserMouseActivity();
+        if (mouseEmuCursorMoved()) mouseEmuOnUserMouseActivity();
         if (st.themePageActive) {
             HDC hdc = GetDC(hwnd);
             POINT pt;
@@ -3767,7 +4145,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
                                 key.type = HOTKEY_TYPE_JOYSTICK;
                                 key.mods = 0;
                                 key.key  = joyHotkeyCode(slot, i);
-                                checkKeyDown(st.shortcuts, key);
+                                checkKeyDown(st.shortcuts, key, 0);
                             }
                         }
                         for (i = 1; up != 0; i++, up >>= 1) {
@@ -3919,6 +4297,8 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
             return 0;
         }
         emulatorStop();
+        /* Before the destroy: in fullscreen it takes the deck, owned by this window, first. */
+        controlDeckAppExit();
         DestroyWindow(hwnd);
         return 0;
 
@@ -3935,7 +4315,11 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         return TRUE;
 
     case WM_DESTROY:
-        
+        /* Before the stop: a thread killed there may hold the activity lock the panel takes. */
+        activityPanelDestroy();
+        /* First, so no client request runs against what follows; only here is it killed. */
+        ctrlSocketStop(1);
+
         if (pProperties->emulation.ejectMediaOnExit) {
         	actionCartRemove1(); actionCartRemove2();
         	actionDiskRemoveA(); actionDiskRemoveB();
@@ -3943,6 +4327,8 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         	actionHarddiskRemoveAll();
         }
         
+        /* Not owned by the main window, so they would outlive it until exit. */
+        imguiToolCloseAll();
         emulatorStop();
         physicalDiskEjectAll();
         toolUnLoadAll();
@@ -4528,12 +4914,15 @@ static void commandLineReport(const char* message)
     }
 }
 
-/* A hidden run has no one to click a dialog away, so a failure to start ends
-** the process with its own exit code instead. */
+/* A hidden run has no one to click a dialog away. The first start ends the process
+** with exit code 2; a later failure is only reported, since the session (symbols,
+** breakpoints) must survive. */
 static void hiddenStartFail(const char* message)
 {
     commandLineReport(message);
-    exit(2);
+    if (!st.firstStartDone) {
+        exit(2);
+    }
 }
 
 static void commandLineFail(const char* message)
@@ -5018,6 +5407,14 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     createDataDirectories();
     seedShortcutProfiles();
 
+    /* Before any plugin, which may pause or run the machine as it loads. */
+    emulatorCreateLocks();
+    debuggerCreateLocks();
+    dbgMarkGuiThread();
+    ctrlStopLogCreate();
+    ctrlClientCreate();
+    ctrlDebuggerListenerCreate();
+
     // Load tools
     sprintf(buffer, "%s\\Tools", st.pCurDir);
     toolLoadAll(buffer, pProperties->language);
@@ -5074,7 +5471,12 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     st.mixer  = mixerCreate();
 
     emulatorInit(pProperties, st.mixer);
+    amdFlashSetProblemHandler(flashProblemPost);
     actionInit(st.pVideo, pProperties, st.mixer);
+    ctrlGateSetLevel(pProperties->emulation.agentControl);
+    if (ctrlGateLevel() != CTRL_GATE_OFF) {
+        ctrlSocketStart();
+    }
     tapeSetReadOnly(pProperties->cassette.readOnly);
     tapeSignalSetSaveMonitor(pProperties->cassette.saveMonitor);
     
@@ -5293,6 +5695,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     if (emuTryStartWithArguments(pProperties, szLine, NULL) < 0) {
         commandLineFail(emuCommandLineGetError());
     }
+    st.firstStartDone = 1;
 
     {
         char* themeArg = emuCheckValueArgument(szLine, "theme");
@@ -5311,6 +5714,10 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
     if (!st.hidden) {
         ShowWindow(st.hwnd, SW_NORMAL);
         UpdateWindow(st.hwnd);
+        /* Open at the last exit; a hidden run has no one to use it. */
+        if (pProperties->controlDeck.open) {
+            controlDeckShow();
+        }
     }
 
     /* The debugger attaches to the main window, so this runs after it exists. */
@@ -5318,14 +5725,51 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
         actionToolsShowDebugger();
     }
 
+    if (emuCheckFlagArgument(szLine, "paused")) {
+        dbgPause();
+    }
+    {
+        /* Use each value before asking for the next: they share one static buffer. */
+        char* argument = emuCheckValueArgument(szLine, "exitafter");
+
+        if (argument != NULL) {
+            st.exitAfterFrames = strtol(argument, NULL, 10);
+        }
+        argument = emuCheckValueArgument(szLine, "screenshot");
+        if (argument != NULL) {
+            strncpy(st.exitScreenshot, argument, sizeof(st.exitScreenshot) - 1);
+            st.exitScreenshot[sizeof(st.exitScreenshot) - 1] = 0;
+        }
+    }
+
     archApplyGameSchedulerPolicy(pProperties->emulation.priorityBoost);
 
     while (!doExit) {
-        DWORD rv = MsgWaitForMultipleObjects(1, &st.ddrawEvent, FALSE, INFINITE, QS_ALLINPUT);    
+        DWORD rv;
+
+        /* Closes the way the window's X does, so the machine stops and media are
+        ** written back; the emulation thread must not tear the machine down itself. */
+        if (st.exitAfterFrames > 0 &&
+            emulatorGetFramesRun() >= (UInt32)st.exitAfterFrames)
+        {
+            if (st.exitScreenshot[0] != 0) {
+                archScreenCaptureToFile(SC_LARGE, st.exitScreenshot);
+                st.exitScreenshot[0] = 0;
+            }
+            st.exitAfterFrames = 0;
+            archQuit();
+        }
+
+        rv = MsgWaitForMultipleObjects(1, &st.ddrawEvent, FALSE, INFINITE, QS_ALLINPUT);
         while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
             if (msg.message == WM_QUIT) {
                 doExit = 1;
                 break;
+            }
+            /* Taken only here: a nested loop (a menu, a box) dispatches it to wndProc instead. */
+            if (msg.message == WM_CTRLGUICOMMAND && msg.hwnd == st.hwnd) {
+                ctrlWindowThreadRunPosted(IsWindowEnabled(st.hwnd) && st.showDialog == 0);
+                continue;
             }
             /* Reaches the keys a focused child control would otherwise eat. */
             if (msg.message == WM_KEYDOWN || msg.message == WM_SYSKEYDOWN) {
@@ -5334,6 +5778,9 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
+        /* Not inside any handler, menu or dialog: what they changed is done. */
+        dbgChangesDone();
+        ctrlSocketPoll();
         if (rv == WAIT_OBJECT_0) {
             /* The drivers flip the view frame as they draw. A hidden run draws
             ** nothing, so it flips here, which is what a screenshot reads. */
@@ -5436,13 +5883,13 @@ void archShowNoRomInZipDialog() {
 void archShowNoDiskInZipDialog() {
     enterDialogShow();
     MessageBoxU(NULL, langErrorNoDskInZip(), langErrorTitle(), MB_OK);
-    enterDialogShow();
+    exitDialogShow();
 }
 
 void archShowNoCasInZipDialog() {
     enterDialogShow();
     MessageBoxU(NULL, langErrorNoCasInZip(), langErrorTitle(), MB_OK);
-    enterDialogShow();
+    exitDialogShow();
 }
 
 void archShowUnknownFileTypeDialog(const char* fileName) {
@@ -5608,10 +6055,11 @@ static INT_PTR CALLBACK largeMsgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM 
         fullText[_countof(fullText) - 1] = 0;
         SetDlgItemTextW(hDlg, IDC_LARGEMSG_TEXT, fullText);
 
-        /* SS_NOPREFIX: paths with '&' must not become accelerator hints. */
+        /* SS_NOPREFIX: paths with '&' must not become accelerator hints.
+        ** SS_EDITCONTROL breaks a path too long for a line, as measured below. */
         HWND hStatic = GetDlgItem(hDlg, IDC_LARGEMSG_TEXT);
         SetWindowLong(hStatic, GWL_STYLE,
-                      GetWindowLong(hStatic, GWL_STYLE) | SS_NOPREFIX);
+                      GetWindowLong(hStatic, GWL_STYLE) | SS_NOPREFIX | SS_EDITCONTROL);
 
         /* Localize Cancel/Yes/No; OK stays universal. */
         SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), langDlgCancel());
@@ -5687,9 +6135,11 @@ static INT_PTR CALLBACK largeMsgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM 
         int textH    = rawH;
         if (textW > maxTextW) {
             textW = maxTextW;
+            /* Without DT_EDITCONTROL a long path widens the measure, so the other
+            ** lines wrap at its width, the height comes out short and the end is cut off. */
             RECT wrapRect = { 0, 0, maxTextW, 10000 };
             DrawTextW(hdc, fullText, -1, &wrapRect,
-                      DT_CALCRECT | DT_LEFT | DT_NOPREFIX | DT_WORDBREAK);
+                      DT_CALCRECT | DT_LEFT | DT_NOPREFIX | DT_WORDBREAK | DT_EDITCONTROL);
             textH = wrapRect.bottom - wrapRect.top;
         }
         if (textW < minTextW) textW = minTextW;
@@ -6014,6 +6464,7 @@ static void showStartEmuFailDialogShared(void)
         }
         text[sizeof(text) - 1] = 0;
         hiddenStartFail(text);
+        return;
     }
 
     if (n > 0) {
@@ -6072,6 +6523,7 @@ void archShowStartEmuFailDialog(const char* machineName)
 
     if (st.hidden) {
         hiddenStartFail(body);
+        return;
     }
 
     MessageBoxLargeU(NULL, langErrorStartEmu(), body, langErrorTitle(),
@@ -6113,6 +6565,7 @@ void archShowLanguageDialog()
     for (i = 0; i < toolGetCount(); i++) {
         toolInfoSetLanguage(toolInfoGet(i), pProperties->language);
     }
+    activityPanelSettingsChanged();
 
     updateMenu(0);
 }
@@ -6955,6 +7408,9 @@ char* archFilenameGetOpenRom(Properties* properties, int cartSlot, RomType* romT
     fileName = openRomFile(getMainHwnd(), title, extensionList, defaultDir, 1, defautExtension, selectedExtension, romType);
     exitDialogShow();
     SetCurrentDirectoryU(st.pCurDir);
+    if (fileName != NULL && menuCartClashRefused(properties, cartSlot, *romType)) {
+        return NULL;
+    }
 
     return fileName;
 }
@@ -7290,7 +7746,7 @@ void archEmuSuspendSignal(void) {
 }
 
 /* Suspend-cooperative wait for the emu-thread ack event: raw
-** WaitForSingleObject(ack, 500) would burn the full timeout when the
+** WaitForSingleObject(ack, timeout) would burn the full timeout when the
 ** main thread is parked in a modal loop, so a suspend signal here
 ** short-circuits the wait and defers to emuWaitForResume. */
 int archWaitForAckOrSuspend(void* ackEvent, int timeoutMs) {
@@ -7317,6 +7773,32 @@ int archWaitForAckOrSuspend(void* ackEvent, int timeoutMs) {
     }
 }
 
+/* Emu thread only. A draw that misses the ack timeout is left pending and the
+** emulator runs on its own timer until the ack arrives, so a stalled present
+** freezes the screen but not the emulation or the sound. */
+#define DRAW_ACK_TIMEOUT_MS     50      /* below the 100 ms Emulator.c discards */
+#define DRAW_ACK_GIVE_UP_MS     5000    /* lost-ack safety net */
+
+static int      ackPending;
+static ULONGLONG ackPendingSince;
+
+static int requestDrawAndWait(void) {
+    if (ackPending) {
+        if (WaitForSingleObject(st.ddrawAckEvent, 0) != WAIT_OBJECT_0 &&
+            GetTickCount64() - ackPendingSince < DRAW_ACK_GIVE_UP_MS) {
+            return 0;
+        }
+        ackPending = 0;
+    }
+    SetEvent(st.ddrawEvent);
+    if (archWaitForAckOrSuspend(st.ddrawAckEvent, DRAW_ACK_TIMEOUT_MS) == ARCH_WAIT_TIMEOUT) {
+        ackPending = 1;
+        ackPendingSince = GetTickCount64();
+        return 0;
+    }
+    return st.diplayUpdated;
+}
+
 int archUpdateEmuDisplay(int syncMode) {
     st.diplayUpdateOnVblank = syncMode == 4;
     if (st.minimized) {
@@ -7334,18 +7816,15 @@ int archUpdateEmuDisplay(int syncMode) {
     else if (syncMode == 3) { // VBlank sync -- route Present through main thread
         /* Drive presents from the main thread and block on the ack so
         ** this call still returns synchronously. archWaitForAckOrSuspend
-        ** avoids the ~500 ms freeze at every modal-loop entry. */
+        ** avoids a timeout-long freeze at every modal-loop entry. */
         st.diplayUpdateOnVblank = 1;
-        SetEvent(st.ddrawEvent);
-        archWaitForAckOrSuspend(st.ddrawAckEvent, 500);
-        return st.diplayUpdated;
+        return requestDrawAndWait();
+    }
+    else if (syncMode > 1) {
+        return requestDrawAndWait();
     }
     else {
         SetEvent(st.ddrawEvent);
-        if (syncMode > 1) {
-            archWaitForAckOrSuspend(st.ddrawAckEvent, 500);
-            return st.diplayUpdated;
-        }
     }
     return 0;
 }
@@ -7403,9 +7882,8 @@ void archReplayMissing(const char* fileName) {
 }
 
 void archPumpEmuDisplay(void) {
-    /* Called from the recorder status dialog's WM_TIMER (main thread) to drain
-    ** st.ddrawEvent, which the dialog's own message loop does not wait on; without
-    ** this the recorded MP4 stays stuck on the frame captured at emu stop. */
+    /* Draws a pending emulator frame and acks it, for a nested loop on the main
+    ** thread that the main loop's wait on st.ddrawEvent does not see. */
     if (st.ddrawEvent && WaitForSingleObject(st.ddrawEvent, 0) == WAIT_OBJECT_0) {
         if (!st.minimized) {
             emuWindowDraw(st.diplayUpdateOnVblank);
@@ -7459,6 +7937,13 @@ void archMinimizeWindow() {
 //        ShowWindow(st.currentHwnd, SW_MINIMIZE);
         SendMessage(st.currentHwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
     }
+}
+
+/* A minimized window stops drawing to save CPU, unless an agent may ask for the screen.
+** The window's state comes from WM_SIZE. */
+void updateMinimizedDrawing(void)
+{
+    vdpSetDisplayEnable(!st.minimized || ctrlGateLevel() != CTRL_GATE_OFF);
 }
 
 void archCloseWindow() {

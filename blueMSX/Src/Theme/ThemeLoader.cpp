@@ -232,7 +232,7 @@ static ButtonEvent getAction(TiXmlElement* el, const char* actionTag,
     if (0 == strcmp(action, "emu-resetsoft"))           return (ButtonEvent)actionEmuResetSoft;
     if (0 == strcmp(action, "emu-resethard"))           return (ButtonEvent)actionEmuResetHard;
     if (0 == strcmp(action, "emu-resetclean"))          return (ButtonEvent)actionEmuResetClean;
-    if (0 == strcmp(action, "emu-togglepause"))         return (ButtonEvent)actionEmuTogglePause;
+    if (0 == strcmp(action, "emu-togglepause"))         return (ButtonEvent)actionEmuRunPause;
     if (0 == strcmp(action, "emu-stop"))                return (ButtonEvent)actionEmuStop;
     if (0 == strcmp(action, "emu-togglemousecapture"))  return (ButtonEvent)actionToggleMouseCapture;
     

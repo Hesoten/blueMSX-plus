@@ -47,6 +47,21 @@ void menuUpdate(Properties* pProperties,
                 int enableSpecial);
 
 int menuCommand(Properties* pProperties, int command);
+/* A V9968 cartridge and a V9990 cartridge in the other slot: says so and returns 1. */
+int menuCartClashRefused(Properties* pProperties, int cartNo, int romType);
+
+typedef enum {
+    MENU_RUN_TOGGLE_PAUSE,
+    MENU_RUN_STOP,
+    MENU_RUN_RESET_HARD,
+    MENU_RUN_RESET_SOFT,
+    MENU_RUN_RESET_CLEAN
+} MenuRunCommand;
+
+/* Runs it as the Run menu does, once the message being handled is done. */
+void menuPostRunCommand(MenuRunCommand command);
+/* Hard, soft and clean reset in a popup at x, y on the screen, owned by the main window. */
+void menuShowResetChoices(int x, int y);
 
 void menuSetInfo(COLORREF color, COLORREF focusColor, COLORREF textColor, int x, int y, int width, int height);
 

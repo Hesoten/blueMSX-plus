@@ -40,7 +40,8 @@ const char* screenshotGetDirectory(void);
 int  ScreenShot(Properties* properties, HWND hwnd, int width, int height, int xOffset, int yOffset, int png);
 void* ScreenShot2(void* src, int srcPitch, int width, int height, int* bitmapSize, int png);
 void ScreenShot3(Properties* properties, void* src, int srcPitch, int width, int height, int png);
-void ScreenShot3Ex(Properties* properties, void* src, int srcPitch, int width, int height, int png, const char* overrideFilename);
+/* Non-zero when the file was written. */
+int ScreenShot3Ex(Properties* properties, void* src, int srcPitch, int width, int height, int png, const char* overrideFilename);
 HBITMAP BitmapFromData(void* bmp);
 
 #endif //WIN32_SCREENSHOT_H
