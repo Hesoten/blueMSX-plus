@@ -2511,6 +2511,8 @@ static void RefreshLine8(VDP* vdp, int Y, int X, int X2)
     int    pairStep   = st->pairStep;
     int*   ofs        = st->ofs;
     Pixel* pal256 = vdpIsExtPalette(vdp) ? vdp->paletteExt : vdp->paletteFixed;
+    /* EPAL takes sprite colours from palette RAM instead of the fixed table. */
+    Pixel* palSpr = vdpIsExtPalette(vdp) ? vdp->paletteExt : vdp->paletteSprite8;
     int col;
     int rightBorder;
 
@@ -2605,39 +2607,39 @@ static void RefreshLine8(VDP* vdp, int Y, int X, int X2)
 
         while (X < X2) {
             if (scroll & 1) {
-                col = sprLine[0]; linePtr8[0] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[0]; linePtr8[0] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[1]]]; UPDATE_TABLE_8();
-                col = sprLine[1]; linePtr8[1] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[1]; linePtr8[1] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[2]]]; UPDATE_TABLE_8();
-                col = sprLine[2]; linePtr8[2] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[2]; linePtr8[2] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[3]]]; UPDATE_TABLE_8();
-                col = sprLine[3]; linePtr8[3] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[3]; linePtr8[3] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[4]]]; UPDATE_TABLE_8();
-                col = sprLine[4]; linePtr8[4] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[4]; linePtr8[4] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[5]]]; UPDATE_TABLE_8();
-                col = sprLine[5]; linePtr8[5] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[5]; linePtr8[5] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[6]]]; UPDATE_TABLE_8();
-                col = sprLine[6]; linePtr8[6] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[6]; linePtr8[6] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[7]]]; UPDATE_TABLE_8();
-                col = sprLine[7]; linePtr8[7] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[7]; linePtr8[7] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[8]]]; UPDATE_TABLE_8();
             }
             else {
-                col = sprLine[0]; linePtr8[0] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[0]; linePtr8[0] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[0]]]; UPDATE_TABLE_8();
-                col = sprLine[1]; linePtr8[1] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[1]; linePtr8[1] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[1]]]; UPDATE_TABLE_8();
-                col = sprLine[2]; linePtr8[2] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[2]; linePtr8[2] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[2]]]; UPDATE_TABLE_8();
-                col = sprLine[3]; linePtr8[3] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[3]; linePtr8[3] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[3]]]; UPDATE_TABLE_8();
-                col = sprLine[4]; linePtr8[4] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[4]; linePtr8[4] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[4]]]; UPDATE_TABLE_8();
-                col = sprLine[5]; linePtr8[5] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[5]; linePtr8[5] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[5]]]; UPDATE_TABLE_8();
-                col = sprLine[6]; linePtr8[6] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[6]; linePtr8[6] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[6]]]; UPDATE_TABLE_8();
-                col = sprLine[7]; linePtr8[7] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[7]; linePtr8[7] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[7]]]; UPDATE_TABLE_8();
             }
             sprLine += 8; 
