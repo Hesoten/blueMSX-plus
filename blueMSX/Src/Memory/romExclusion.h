@@ -31,7 +31,7 @@
 #include "MsxTypes.h"
 
 #ifdef EXCLUDE_SPECIAL_GAME_CARTS
-#define romMapperSonyHBI55Create() 0
+#define romMapperSonyHBI55Create(a, b) 0
 #define romMapperMatraINKCreate(a, b, c, d, e, f) 0
 #define romMapperNettouYakyuuCreate(a, b, c, d, e, f) 0
 #define romMapperFmDasCreate(a, b, c, d, e, f) 0

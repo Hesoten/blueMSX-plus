@@ -419,7 +419,7 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
                 break;
 
             case ROM_SONYHBI55:
-                success &= romMapperSonyHBI55Create();
+                success &= romMapperSonyHBI55Create(slot, sslot);
                 break;
 
             case ROM_MEGAFLSHSCC:

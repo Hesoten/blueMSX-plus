@@ -1358,7 +1358,7 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
         }
 
         if (machine->slotInfo[i].romType == ROM_SONYHBI55) {
-            success &= romMapperSonyHBI55Create();
+            success &= romMapperSonyHBI55Create(-1, 0);
             continue;
         }
 
