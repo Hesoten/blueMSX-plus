@@ -31,7 +31,7 @@
 #include "MsxTypes.h"
 
 #ifdef EXCLUDE_SPECIAL_GAME_CARTS
-#define romMapperSonyHBI55Create() 0
+#define romMapperSonyHBI55Create(a, b) 0
 #define romMapperMatraINKCreate(a, b, c, d, e, f) 0
 #define romMapperNettouYakyuuCreate(a, b, c, d, e, f) 0
 #define romMapperFmDasCreate(a, b, c, d, e, f) 0
@@ -58,10 +58,10 @@
 #define romMapperNms8280VideoDaCreate() 0
 #endif
 #ifdef EXCLUDE_JOYREXPSG
-#define romMapperJoyrexPsgCreate() 0
+#define romMapperJoyrexPsgCreate(a, b) 0
 #endif
 #ifdef EXCLUDE_MAKOTO
-#define romMapperMakotoCreate() 0
+#define romMapperMakotoCreate(a, b) 0
 #endif
 #ifdef EXCLUDE_OPCODE_DEVICES
 #define romMapperOpcodePsgCreate() 0
@@ -95,7 +95,7 @@
 #define romMapperDumasCreate(a, b, c, d, e, f, g, h) 0
 #endif
 #ifdef EXCLUDE_MOONSOUND
-#define romMapperMoonsoundCreate(a, b, c, d) 0
+#define romMapperMoonsoundCreate(a, b, c, d, e, f) 0
 #endif
 #ifdef EXCLUDE_PANASONIC_DEVICES
 #define romMapperA1FMCreate(a, b, c, d, e, f, g) 0

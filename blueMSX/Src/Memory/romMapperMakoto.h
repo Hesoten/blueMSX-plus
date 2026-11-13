@@ -3,6 +3,9 @@
 ** Makoto: a YM2608 (OPNA) sound cartridge on I/O ports 14h-17h.
 ** Copyright (C) 2026 madscient
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -24,6 +27,7 @@
 
 #include "MsxTypes.h"
 
-int romMapperMakotoCreate();
+/* slot -1: built into the machine, so no cartridge removal frees it. */
+int romMapperMakotoCreate(int slot, int sslot);
 
 #endif

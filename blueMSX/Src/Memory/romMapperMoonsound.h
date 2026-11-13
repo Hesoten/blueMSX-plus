@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -30,6 +33,8 @@
 
 #include "MsxTypes.h"
 
-int romMapperMoonsoundCreate(const char* filename, UInt8* romData, int size, int sramSize);
+/* slot -1: built into the machine, so no cartridge removal frees it. */
+int romMapperMoonsoundCreate(const char* filename, UInt8* romData, int size, int sramSize,
+                             int slot, int sslot);
 
 #endif

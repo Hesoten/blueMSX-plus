@@ -250,7 +250,7 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
 #endif
 
     case ROM_JOYREXPSG:
-        success &= romMapperJoyrexPsgCreate();
+        success &= romMapperJoyrexPsgCreate(slot, sslot);
         break;
 
     case ROM_GFX9000:
@@ -266,11 +266,11 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
         break;
 
     case ROM_MAKOTO:
-        success &= romMapperMakotoCreate();
+        success &= romMapperMakotoCreate(slot, sslot);
         break;
 
     case ROM_GIDE:
-        success &= romMapperGIdeCreate(cartNo);
+        success &= romMapperGIdeCreate(cartNo, slot, sslot);
         break;
 
     case ROM_NMS1210:
@@ -419,7 +419,7 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
                 break;
 
             case ROM_SONYHBI55:
-                success &= romMapperSonyHBI55Create();
+                success &= romMapperSonyHBI55Create(slot, sslot);
                 break;
 
             case ROM_MEGAFLSHSCC:
@@ -611,7 +611,7 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
             break;
 
         case ROM_MOONSOUND:
-            success &= romMapperMoonsoundCreate(romName, buf, size, 640);
+            success &= romMapperMoonsoundCreate(romName, buf, size, 640, slot, sslot);
             buf = NULL; // Buffer ownership is transferred to YMF278
             break;
             
@@ -817,7 +817,7 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
             break;
 
         case ROM_KANJI:
-            success &= romMapperKanjiCreate(buf, size);
+            success &= romMapperKanjiCreate(buf, size, slot, sslot);
             break;
 
         case ROM_KANJI12:

@@ -3,6 +3,9 @@
 ** Makoto: a YM2608 (OPNA) sound cartridge on I/O ports 14h-17h.
 ** Copyright (C) 2026 madscient
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -25,6 +28,7 @@
 #include "DebugDeviceManager.h"
 #include "RomLoader.h"
 #include "IoPort.h"
+#include "SlotManager.h"
 #include "YM2608.h"
 #include "Board.h"
 #include <stdlib.h>
@@ -48,6 +52,8 @@ typedef struct {
     YM2608* ym2608;
     int     deviceHandle;
     int     debugHandle;
+    int     slot;
+    int     sslot;
 } RomMapperMakoto;
 
 static void saveState(RomMapperMakoto* rm)
@@ -64,6 +70,9 @@ static void destroy(RomMapperMakoto* rm)
 {
     int i;
 
+    if (rm->slot >= 0) {
+        slotUnregister(rm->slot, rm->sslot, 0);
+    }
     for (i = 0; i < 4; i++) {
         ioPortUnregister(MAKOTO_PORT_BASE + i, rm);
     }
@@ -108,7 +117,7 @@ static void getDebugInfo(RomMapperMakoto* rm, DbgDevice* dbgDevice)
     }
 }
 
-int romMapperMakotoCreate()
+int romMapperMakotoCreate(int slot, int sslot)
 {
     DeviceCallbacks callbacks = { destroy, reset, saveState, loadState };
     DebugCallbacks dbgCallbacks = { getDebugInfo, NULL, NULL, NULL };
@@ -116,6 +125,9 @@ int romMapperMakotoCreate()
     UInt8* rhythmRom;
     int rhythmRomSize = 0;
     int i;
+
+    rm->slot  = slot;
+    rm->sslot = sslot;
 
     rm->deviceHandle = deviceManagerRegister(ROM_MAKOTO, &callbacks, rm);
     rm->debugHandle = debugDeviceRegister(DBGTYPE_AUDIO, "Makoto", &dbgCallbacks, rm);
@@ -130,6 +142,10 @@ int romMapperMakotoCreate()
     }
 
     reset(rm);
+
+    if (slot >= 0) {
+        slotRegister(slot, sslot, 0, 8, NULL, NULL, NULL, destroy, rm);
+    }
 
     return 1;
 }

@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -42,10 +45,15 @@ typedef struct {
     int      deviceHandle;
     int      debugHandle;
     Moonsound* moonsound;
+    int      slot;
+    int      sslot;
 } RomMapperMoonsound;
 
 static void destroy(RomMapperMoonsound* rm)
 {
+    if (rm->slot >= 0) {
+        slotUnregister(rm->slot, rm->sslot, 0);
+    }
     ioPortUnregister(0x7e, rm);
     ioPortUnregister(0x7f, rm);
     ioPortUnregister(0xc4, rm);
@@ -126,11 +134,15 @@ static void getDebugInfo(RomMapperMoonsound* rm, DbgDevice* dbgDevice)
     dbgIoPortsAddPort(ioPorts, 5, 0xc7, DBG_IO_READWRITE, peek(rm, 0xc7));
 }
 
-int romMapperMoonsoundCreate(const char* filename, UInt8* romData, int size, int sramSize)
+int romMapperMoonsoundCreate(const char* filename, UInt8* romData, int size, int sramSize,
+                             int slot, int sslot)
 {
     DeviceCallbacks callbacks = { destroy, reset, saveState, loadState };
     DebugCallbacks dbgCallbacks = { getDebugInfo, NULL, NULL, NULL };
     RomMapperMoonsound* rm = malloc(sizeof(RomMapperMoonsound));
+
+    rm->slot  = slot;
+    rm->sslot = sslot;
 
     rm->deviceHandle = deviceManagerRegister(ROM_MOONSOUND, &callbacks, rm);
     rm->debugHandle = debugDeviceRegister(DBGTYPE_AUDIO, langDbgDevMoonsound(), &dbgCallbacks, rm);
@@ -153,6 +165,10 @@ int romMapperMoonsoundCreate(const char* filename, UInt8* romData, int size, int
     }
 
     reset(rm);
+
+    if (slot >= 0) {
+        slotRegister(slot, sslot, 0, 8, NULL, NULL, NULL, destroy, rm);
+    }
 
     return 1;
 }

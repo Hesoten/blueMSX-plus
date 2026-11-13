@@ -1353,12 +1353,12 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
         }
 
         if (machine->slotInfo[i].romType == ROM_GIDE) {
-            success &= romMapperGIdeCreate(hdId++);
+            success &= romMapperGIdeCreate(hdId++, -1, 0);
             continue;
         }
 
         if (machine->slotInfo[i].romType == ROM_SONYHBI55) {
-            success &= romMapperSonyHBI55Create();
+            success &= romMapperSonyHBI55Create(-1, 0);
             continue;
         }
 
@@ -1368,12 +1368,12 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
         }
 
         if (machine->slotInfo[i].romType == ROM_MAKOTO) {
-            success &= romMapperMakotoCreate();
+            success &= romMapperMakotoCreate(-1, 0);
             continue;
         }
 
         if (machine->slotInfo[i].romType == ROM_JOYREXPSG) {
-            success &= romMapperJoyrexPsgCreate();
+            success &= romMapperJoyrexPsgCreate(-1, 0);
             continue;
         }
 
@@ -1616,7 +1616,7 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
             break;
 
         case ROM_MOONSOUND:
-            success &= romMapperMoonsoundCreate(romName, buf, size, 640);
+            success &= romMapperMoonsoundCreate(romName, buf, size, 640, -1, 0);
             buf = NULL; // Ownership transferred to emulation of moonsound
             break;
 
@@ -1865,7 +1865,7 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
             break;
 
         case ROM_KANJI:
-            success &= romMapperKanjiCreate(buf, size);
+            success &= romMapperKanjiCreate(buf, size, -1, 0);
             break;
 
         case ROM_KANJI12:

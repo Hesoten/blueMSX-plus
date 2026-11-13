@@ -35,6 +35,7 @@
 #include "DebugDeviceManager.h"
 #include "SaveState.h"
 #include "IoPort.h"
+#include "SlotManager.h"
 #include "Board.h"
 #include "Disk.h"
 #include "Language.h"
@@ -50,6 +51,8 @@ typedef struct {
     UInt8 intEnable;
     UInt8 drvSelect;
     UInt8 altStatus;
+    int slot;
+    int sslot;
 } RomMapperGIde;
 
 static void saveState(RomMapperGIde* rm)
@@ -81,6 +84,10 @@ static void loadState(RomMapperGIde* rm)
 static void destroy(RomMapperGIde* rm)
 {
     int portBase;
+
+    if (rm->slot >= 0) {
+        slotUnregister(rm->slot, rm->sslot, 0);
+    }
 
     portBase = (boardGetType() == BOARD_SVI) ? 0x40:0x60;
 
@@ -290,7 +297,7 @@ static void getDebugInfo(RomMapperGIde* rm, DbgDevice* dbgDevice)
     }
 }
 
-int romMapperGIdeCreate(int hdId) 
+int romMapperGIdeCreate(int hdId, int slot, int sslot)
 {
     DeviceCallbacks callbacks = { destroy, reset, saveState, loadState };
     DebugCallbacks dbgCallbacks = { getDebugInfo, NULL, NULL, NULL };
@@ -305,6 +312,9 @@ int romMapperGIdeCreate(int hdId)
     }
 
     rm = malloc(sizeof(RomMapperGIde));
+
+    rm->slot  = slot;
+    rm->sslot = sslot;
 
     rm->deviceHandle = deviceManagerRegister(ROM_GIDE, &callbacks, rm);
     rm->debugHandle = debugDeviceRegister(DBGTYPE_PORT, langDbgDevIdeGide(), &dbgCallbacks, rm);
@@ -325,6 +335,10 @@ int romMapperGIdeCreate(int hdId)
     rm->hdide = harddiskIdeCreate(diskGetHdDriveId(hdId, 0));
 
     reset(rm);
+
+    if (slot >= 0) {
+        slotRegister(slot, sslot, 0, 8, NULL, NULL, NULL, destroy, rm);
+    }
 
     return 1;
 }
