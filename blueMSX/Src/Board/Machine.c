@@ -1353,7 +1353,7 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
         }
 
         if (machine->slotInfo[i].romType == ROM_GIDE) {
-            success &= romMapperGIdeCreate(hdId++);
+            success &= romMapperGIdeCreate(hdId++, -1, 0);
             continue;
         }
 
