@@ -2828,11 +2828,11 @@ rightBorder = X2 == 33;
 
             if (X == 31) {
                 switch (hscroll & 3) {
-                case 1:
+                case 3:
                     y = t2 >> 3; col = sprLine[6]; linePtr10[6] = col ? vdp->palette[col >> 1] : y & 1 ? yaePal[t2 >> yaeShift] : vdp->yjkColor[y][J][K];
                 case 2:
                     y = t1 >> 3; col = sprLine[5]; linePtr10[5] = col ? vdp->palette[col >> 1] : y & 1 ? yaePal[t1 >> yaeShift] : vdp->yjkColor[y][J][K];
-                case 3:
+                case 1:
                     y = t0 >> 3; col = sprLine[4]; linePtr10[4] = col ? vdp->palette[col >> 1] : y & 1 ? yaePal[t0 >> yaeShift] : vdp->yjkColor[y][J][K];
                 }
             }
@@ -3027,11 +3027,11 @@ static void RefreshLine12(VDP* vdp, int Y, int X, int X2)
 
             if (X == 31) {
                 switch (hscroll & 3) {
-                case 1:
+                case 3:
                     col = sprLine[6]; linePtr12[6] = col ? vdp->palette[col >> 1] : vdp->yjkColor[t2 >> 3][J][K];
                 case 2:
                     col = sprLine[5]; linePtr12[5] = col ? vdp->palette[col >> 1] : vdp->yjkColor[t1 >> 3][J][K];
-                case 3:
+                case 1:
                     col = sprLine[4]; linePtr12[4] = col ? vdp->palette[col >> 1] : vdp->yjkColor[t0 >> 3][J][K];
                 }
             }
