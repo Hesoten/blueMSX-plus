@@ -3,6 +3,9 @@
 ** YM2608 (OPNA) sound chip on top of ymfm.
 ** Copyright (C) 2026 madscient
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** The chip itself is ymfm (BSD-3-Clause, Aaron Giles), kept unmodified
 ** under ymfm/. This file only connects it to the board and the mixer.
 **
@@ -387,9 +390,17 @@ void Ym2608Host::ymfm_set_busy_end(uint32_t clocks)
     owner->busyEnd = boardSystemTime() + clocksToBoardTime(owner, clocks);
 }
 
+/* ymfm stays busy for at most 32 clocks at prescaler 6; a longer remainder
+** is a deadline that has wrapped, so it has already passed. */
+static UInt32 busyLeft(YM2608* ym2608, UInt32 now)
+{
+    UInt32 left = ym2608->busyEnd - now;
+    return left - 1 < clocksToBoardTime(ym2608, 32 * 6) ? left : 0;
+}
+
 bool Ym2608Host::ymfm_is_busy()
 {
-    return (Int32)(owner->busyEnd - boardSystemTime()) > 0;
+    return busyLeft(owner, boardSystemTime()) != 0;
 }
 
 void Ym2608Host::ymfm_update_irq(bool asserted)
@@ -669,7 +680,7 @@ void ym2608SaveState(YM2608* ym2608)
     saveStateSet(state, "timerTimeoutA", ym2608->timerTimeout[0]);
     saveStateSet(state, "timerActiveB",  ym2608->timerActive[1]);
     saveStateSet(state, "timerTimeoutB", ym2608->timerTimeout[1]);
-    saveStateSet(state, "busyLeft",      (Int32)(ym2608->busyEnd - now) > 0 ? ym2608->busyEnd - now : 0);
+    saveStateSet(state, "busyLeft",      busyLeft(ym2608, now));
     saveStateSet(state, "irqAsserted",   ym2608->irqAsserted);
     saveStateSet(state, "mixerRate",     ym2608->sampleRate);
     saveStateSet(state, "fmAcc",         ym2608->fmAcc);
