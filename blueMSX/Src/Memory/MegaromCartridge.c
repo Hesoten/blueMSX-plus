@@ -817,7 +817,7 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
             break;
 
         case ROM_KANJI:
-            success &= romMapperKanjiCreate(buf, size);
+            success &= romMapperKanjiCreate(buf, size, slot, sslot);
             break;
 
         case ROM_KANJI12:

@@ -1865,7 +1865,7 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
             break;
 
         case ROM_KANJI:
-            success &= romMapperKanjiCreate(buf, size);
+            success &= romMapperKanjiCreate(buf, size, -1, 0);
             break;
 
         case ROM_KANJI12:

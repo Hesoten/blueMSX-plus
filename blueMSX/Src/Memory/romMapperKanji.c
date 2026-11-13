@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -31,6 +34,7 @@
 #include "DebugDeviceManager.h"
 #include "SaveState.h"
 #include "IoPort.h"
+#include "SlotManager.h"
 #include "Language.h"
 #include <stdlib.h>
 #include <string.h>
@@ -43,6 +47,8 @@ typedef struct {
     int debugHandle;
     int size;
     UInt32 address[2];
+    int slot;
+    int sslot;
 } RomMapperKanji;
 
 static void saveState(RomMapperKanji* rm)
@@ -67,6 +73,9 @@ static void loadState(RomMapperKanji* rm)
 
 static void destroy(RomMapperKanji* rm)
 {
+    if (rm->slot >= 0) {
+        slotUnregister(rm->slot, rm->sslot, 0);
+    }
     deviceManagerUnregister(rm->deviceHandle);
     debugDeviceUnregister(rm->debugHandle);
 
@@ -138,7 +147,7 @@ static void getDebugInfo(RomMapperKanji* rm, DbgDevice* dbgDevice)
     dbgIoPortsAddPort(ioPorts, 3, 0xdb, DBG_IO_READWRITE, peek(rm, 0xdb));
 }
 
-int romMapperKanjiCreate(UInt8* romData, int size) 
+int romMapperKanjiCreate(UInt8* romData, int size, int slot, int sslot)
 {
     DeviceCallbacks callbacks = { destroy, NULL, saveState, loadState };
     DebugCallbacks dbgCallbacks = { getDebugInfo, NULL, NULL, NULL };
@@ -153,6 +162,8 @@ int romMapperKanjiCreate(UInt8* romData, int size)
     rm->size = size;
     rm->address[0] = 0;
     rm->address[1] = 0x20000;
+    rm->slot  = slot;
+    rm->sslot = sslot;
 
     rm->deviceHandle = deviceManagerRegister(ROM_KANJI, &callbacks, rm);
     rm->debugHandle = debugDeviceRegister(DBGTYPE_BIOS, langDbgDevKanji(), &dbgCallbacks, rm);
@@ -164,6 +175,10 @@ int romMapperKanjiCreate(UInt8* romData, int size)
     ioPortRegister(0xd9, read, write, rm);
     ioPortRegister(0xda, NULL, write, rm);
     ioPortRegister(0xdb, read, write, rm);
+
+    if (slot >= 0) {
+        slotRegister(slot, sslot, 0, 8, NULL, NULL, NULL, destroy, rm);
+    }
 
     return 1;
 }
