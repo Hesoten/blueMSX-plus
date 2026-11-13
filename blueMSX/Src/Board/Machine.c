@@ -1616,7 +1616,7 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
             break;
 
         case ROM_MOONSOUND:
-            success &= romMapperMoonsoundCreate(romName, buf, size, 640);
+            success &= romMapperMoonsoundCreate(romName, buf, size, 640, -1, 0);
             buf = NULL; // Ownership transferred to emulation of moonsound
             break;
 

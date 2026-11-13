@@ -611,7 +611,7 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
             break;
 
         case ROM_MOONSOUND:
-            success &= romMapperMoonsoundCreate(romName, buf, size, 640);
+            success &= romMapperMoonsoundCreate(romName, buf, size, 640, slot, sslot);
             buf = NULL; // Buffer ownership is transferred to YMF278
             break;
             

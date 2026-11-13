@@ -95,7 +95,7 @@
 #define romMapperDumasCreate(a, b, c, d, e, f, g, h) 0
 #endif
 #ifdef EXCLUDE_MOONSOUND
-#define romMapperMoonsoundCreate(a, b, c, d) 0
+#define romMapperMoonsoundCreate(a, b, c, d, e, f) 0
 #endif
 #ifdef EXCLUDE_PANASONIC_DEVICES
 #define romMapperA1FMCreate(a, b, c, d, e, f, g) 0
