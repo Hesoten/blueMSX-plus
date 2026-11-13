@@ -101,7 +101,7 @@ static void onRecv(PhilipsMidi* midi, UInt32 time)
         archSemaphoreSignal(midi->semaphore);
         midi->status |= STAT_RXRDY;
         if (midi->command & CMD_RDINT) {
-            boardSetInt(0x400);
+            boardSetInt(BOARD_INT_MSX_AUDIO_MIDI);
             midi->status |= ST_INT;
         }
     }
@@ -124,7 +124,7 @@ static void onTrans(PhilipsMidi* midi, UInt32 time)
 
         midi->status |= STAT_TXEMPTY;
         if (midi->command & CMD_WRINT) {
-            boardSetInt(0x400);
+            boardSetInt(BOARD_INT_MSX_AUDIO_MIDI);
             midi->status |= ST_INT;
         }
     }
@@ -172,7 +172,7 @@ UInt8 philipsMidiReadStatus(PhilipsMidi* midi)
 {
     UInt8 val = midi->status;
 
-    boardClearInt(0x400);
+    boardClearInt(BOARD_INT_MSX_AUDIO_MIDI);
     midi->status &= ~ST_INT;
 
     return val;

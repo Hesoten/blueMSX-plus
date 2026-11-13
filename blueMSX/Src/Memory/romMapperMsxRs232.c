@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik, Tomas Karlsson, Johan van Leur
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -78,6 +81,8 @@ typedef struct {
     I8254* i8254;
     UInt8 status;   // Status for CTS, PIT Timer/Counter 2, RI and CD
     UInt8 intmask;  // Interrupt mask
+    int rxrdyIRQlatch;
+    int rxrdyIRQenabled;
 } MSXRs232;
 
 static MSXRs232* msxRs232;
@@ -92,6 +97,8 @@ static void saveState(MSXRs232* msxRs232)
 
     saveStateSet(state, "status",  msxRs232->status);
     saveStateSet(state, "intmask",  msxRs232->intmask);
+    saveStateSet(state, "rxrdyIRQlatch",   msxRs232->rxrdyIRQlatch);
+    saveStateSet(state, "rxrdyIRQenabled", msxRs232->rxrdyIRQenabled);
 
     saveStateClose(state);
 
@@ -105,11 +112,20 @@ static void loadState(MSXRs232* msxRs232)
 
     msxRs232->status  = (UInt8)saveStateGet(state, "status",  0);
     msxRs232->intmask  = (UInt8)saveStateGet(state, "intmask",  0);
+    msxRs232->rxrdyIRQlatch   = saveStateGet(state, "rxrdyIRQlatch",   0);
+    msxRs232->rxrdyIRQenabled = saveStateGet(state, "rxrdyIRQenabled", 0);
 
     saveStateClose(state);
     
     i8251LoadState(msxRs232->i8251);
     i8254LoadState(msxRs232->i8254);
+
+    if (msxRs232->rxrdyIRQlatch && msxRs232->rxrdyIRQenabled) {
+        boardSetInt(BOARD_INT_MSX_RS232);
+    }
+    else {
+        boardClearInt(BOARD_INT_MSX_RS232);
+    }
 }
 
 static void destroy(MSXRs232* msxRs232)
@@ -122,6 +138,8 @@ static void destroy(MSXRs232* msxRs232)
     ioPortUnregister(0x86, msxRs232);
     ioPortUnregister(0x87, msxRs232);
        
+    boardClearInt(BOARD_INT_MSX_RS232);
+
     i8251Destroy(msxRs232->i8251);
     i8254Destroy(msxRs232->i8254);
 
@@ -139,6 +157,9 @@ static void reset(MSXRs232* msxRs232)
     i8254Reset(msxRs232->i8254);
     msxRs232->status = 0;
     msxRs232->intmask = 0;
+    msxRs232->rxrdyIRQlatch   = 0;
+    msxRs232->rxrdyIRQenabled = 0;
+    boardClearInt(BOARD_INT_MSX_RS232);
 }
 
 /*****************************************
@@ -211,6 +232,16 @@ static UInt8 readIo(MSXRs232* msxRs232, UInt16 ioPort)
     return value;
 }
 
+static void enableRxRDYIRQ(MSXRs232* msxRs232, int enabled)
+{
+    if (msxRs232->rxrdyIRQenabled != enabled) {
+        msxRs232->rxrdyIRQenabled = enabled;
+        if (!msxRs232->rxrdyIRQenabled && msxRs232->rxrdyIRQlatch) {
+            boardClearInt(BOARD_INT_MSX_RS232);
+        }
+    }
+}
+
 static void writeIo(MSXRs232* msxRs232, UInt16 ioPort, UInt8 value) 
 {
     UInt16 baseAdr;
@@ -223,6 +254,7 @@ static void writeIo(MSXRs232* msxRs232, UInt16 ioPort, UInt8 value)
         break;
     case 0x82:
         msxRs232->intmask = value & 0x0f;
+        enableRxRDYIRQ(msxRs232, !(value & INTMASK_RXREADY));
         break;
     case 0x84:
     case 0x85:
@@ -257,11 +289,16 @@ static void setParity(MSXRs232* msxRs232, int value) {
 
 static void setRxReady(MSXRs232* msxRs232, int status)
 {
-    if (~msxRs232->intmask & INTMASK_RXREADY) {
-        if (status)
-            boardSetInt(1);
-        else
-            boardClearInt(1);
+    if (msxRs232->rxrdyIRQlatch != status) {
+        msxRs232->rxrdyIRQlatch = status;
+        if (msxRs232->rxrdyIRQenabled) {
+            if (msxRs232->rxrdyIRQlatch) {
+                boardSetInt(BOARD_INT_MSX_RS232);
+            }
+            else {
+                boardClearInt(BOARD_INT_MSX_RS232);
+            }
+        }
     }
 }
 

@@ -1903,6 +1903,15 @@ int boardGetRefreshRate()
     return 0;
 }
 
+/* Fails the build when a BOARD_INT_* name is 0 or two of them overlap (their sum
+** then exceeds their OR). Every name in the table in Board.h belongs in this list. */
+#define BOARD_INT_ALL(op) (BOARD_INT_VDP_IE0 op BOARD_INT_VDP_IE1 op BOARD_INT_VDP_IE2 op \
+    BOARD_INT_YMF262 op BOARD_INT_Y8950 op BOARD_INT_MAKOTO op BOARD_INT_YM2151 op \
+    BOARD_INT_MSX_RS232 op BOARD_INT_MSX_MIDI_TMR op BOARD_INT_MSX_MIDI_RXRDY op \
+    BOARD_INT_MSX_AUDIO_MIDI op BOARD_INT_YM2148 op BOARD_INT_V9990 op \
+    BOARD_INT_V9968_CART_IE0 op BOARD_INT_V9968_CART_IE1 op BOARD_INT_V9968_CART_IE2)
+typedef char boardIntBitsMustNotOverlap[BOARD_INT_ALL(&&) && BOARD_INT_ALL(+) == BOARD_INT_ALL(|) ? 1 : -1];
+
 void  boardSetInt(UInt32 irq)
 {
     pendingInt |= irq;

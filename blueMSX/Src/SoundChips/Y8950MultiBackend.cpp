@@ -102,8 +102,8 @@ extern "C" int y8950BackendCycle(void)
 extern "C" void y8950BackendIrq(int idx, int on)
 {
     if (idx != effectiveActive()) return;
-    if (on) boardSetInt(0x10);
-    else    boardClearInt(0x10);
+    if (on) boardSetInt(BOARD_INT_Y8950);
+    else    boardClearInt(BOARD_INT_Y8950);
 }
 
 extern "C" const char* y8950BackendName(int idx)
@@ -182,8 +182,8 @@ void Y8950MultiBackend::resyncIrqLine(bool force)
     if (!force && gen == seenGen) return;
     seenGen = gen;
     Y8950BackendBase* b = backends[effectiveActive()];
-    if (b && b->irqPending()) boardSetInt(0x10);
-    else                      boardClearInt(0x10);
+    if (b && b->irqPending()) boardSetInt(BOARD_INT_Y8950);
+    else                      boardClearInt(BOARD_INT_Y8950);
 }
 
 Int32* Y8950MultiBackend::updateBuffer(UInt32 count)
@@ -360,7 +360,7 @@ void Y8950MultiBackend::loadState()
 ** (0x07/0x0F).  reg 0x04 replayed separately with side bits stripped. */
 void Y8950MultiBackend::replayRegistersTo(Y8950BackendBase* b)
 {
-    UInt32 irqBefore = boardGetInt(0x10);
+    UInt32 irqBefore = boardGetInt(BOARD_INT_Y8950);
 
     for (int r = 0; r < 256; r++) {
         if (r == 0x02 || r == 0x03 || r == 0x04 ||
@@ -377,9 +377,9 @@ void Y8950MultiBackend::replayRegistersTo(Y8950BackendBase* b)
 
     /* Preserve sibling-asserted IRQ across openmsx writeReg(0x04)
     ** side effects (irq.set / irq.reset via changeStatusMask). */
-    UInt32 irqAfter = boardGetInt(0x10);
-    if (irqBefore && !irqAfter)       boardSetInt(0x10);
-    else if (!irqBefore && irqAfter)  boardClearInt(0x10);
+    UInt32 irqAfter = boardGetInt(BOARD_INT_Y8950);
+    if (irqBefore && !irqAfter)       boardSetInt(BOARD_INT_Y8950);
+    else if (!irqBefore && irqAfter)  boardClearInt(BOARD_INT_Y8950);
 }
 
 const UInt8* Y8950MultiBackend::getAdpcmRam(UInt32* size_out)

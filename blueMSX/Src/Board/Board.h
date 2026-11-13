@@ -171,6 +171,25 @@ int  boardGetRefreshRate();
 void boardSetBreakpoint(UInt16 address);
 void boardClearBreakpoint(UInt16 address);
 
+/* One bit per kind of /INT source; two sources on one bit drop each other's
+** request. A new bit goes here and into the overlap check in Board.c. */
+#define BOARD_INT_VDP_IE0           0x00000001
+#define BOARD_INT_VDP_IE1           0x00000002
+#define BOARD_INT_VDP_IE2           0x00000004
+#define BOARD_INT_YMF262            0x00000008
+#define BOARD_INT_Y8950             0x00000010
+#define BOARD_INT_MAKOTO            0x00000020
+#define BOARD_INT_YM2151            0x00000040
+#define BOARD_INT_MSX_RS232         0x00000080
+#define BOARD_INT_MSX_MIDI_TMR      0x00000100
+#define BOARD_INT_MSX_MIDI_RXRDY    0x00000200
+#define BOARD_INT_MSX_AUDIO_MIDI    0x00000400
+#define BOARD_INT_YM2148            0x00000800
+#define BOARD_INT_V9990             0x00001000
+#define BOARD_INT_V9968_CART_IE0    0x00002000
+#define BOARD_INT_V9968_CART_IE1    (BOARD_INT_V9968_CART_IE0 << 1)
+#define BOARD_INT_V9968_CART_IE2    (BOARD_INT_V9968_CART_IE0 << 2)
+
 void   boardSetInt(UInt32 irq);
 void   boardClearInt(UInt32 irq);
 UInt32 boardGetInt(UInt32 irq);

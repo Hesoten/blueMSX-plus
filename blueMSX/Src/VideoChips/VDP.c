@@ -142,11 +142,6 @@ void vdpUnregisterDaConverter(int vdpDaHandle)
 
 #define HPERIOD      1368
 
-/* The machine VDP's interrupt bits; a secondary one brings its own. */
-#define INT_IE0     0x01
-#define INT_IE1     0x02
-#define INT_IE2     0x04
-
 #define VRAM_SIZE (256 * 1024)
 /* What a state holds of every VDP but the V9968, as before the V9968. */
 #define VRAM_STATE_SIZE (192 * 1024)
@@ -4623,9 +4618,9 @@ static VDP* create(VdpConnector connector, VdpVersion version, VdpSyncMode sync,
     if (secondary == NULL) {
         theVdp = vdp;
         vdp->portBase  = 0x98;
-        vdp->intIE0    = INT_IE0;
-        vdp->intIE1    = INT_IE1;
-        vdp->intIE2    = INT_IE2;
+        vdp->intIE0    = BOARD_INT_VDP_IE0;
+        vdp->intIE1    = BOARD_INT_VDP_IE1;
+        vdp->intIE2    = BOARD_INT_VDP_IE2;
         vdp->stateName = "vdp";
     }
     else {

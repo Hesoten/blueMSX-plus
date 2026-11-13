@@ -121,7 +121,7 @@ static void onRecv(YM2148* midi, UInt32 time)
             midi->status |= STAT_RXRBSY;
             if (midi->command & CMD_RXINT) {
                 boardSetDataBus(midi->vector, 0, 0);
-                boardSetInt(0x800);
+                boardSetInt(BOARD_INT_YM2148);
                 midi->status |= ST_INT;
             }
         }
@@ -140,7 +140,7 @@ static void onTrans(YM2148* midi, UInt32 time)
 		midi->status |= STAT_TXEMPTY;
         if (midi->command & CMD_TXINT) {
             boardSetDataBus(midi->vector, 0, 0);
-            boardSetInt(0x800);
+            boardSetInt(BOARD_INT_YM2148);
             midi->status |= ST_INT;
         }
 	}
@@ -195,7 +195,7 @@ static UInt8 ym2148ReadStatus(YM2148* midi)
 {
     UInt8 val = midi->status;
 
-    boardClearInt(0x800);
+    boardClearInt(BOARD_INT_YM2148);
     midi->status &= ~ST_INT;
 
     return val;
@@ -241,7 +241,7 @@ static void ym2148WriteCommand(YM2148* midi, UInt8 value)
         if ((midi->status & STAT_TXEMPTY) && (value & CMD_TXEN)) {
                 if (midi->command & CMD_TXINT) {
                 boardSetDataBus(midi->vector, 0, 0);
-                boardSetInt(0x800);
+                boardSetInt(BOARD_INT_YM2148);
                 midi->status |= ST_INT;
             }
         }
