@@ -205,6 +205,7 @@ extern int showLoadMemoryDlg(HWND hwnd);
 #define ID_FILE_CART_GFX9000            41123
 #define ID_FILE_CART_VIDEO9000          41124
 #define ID_FILE_CART_V9968CART          41125
+#define ID_FILE_CART_MAKOTO             41126
 #define ID_FILE_CART_JOYREXPSG          41110
 #define ID_FILE_CART_EXTRAM16KB         41111
 #define ID_FILE_CART_EXTRAM32KB         41112
@@ -326,6 +327,7 @@ static const char* getCleanFileName(const char* fileName)
     if (strcmp(fileName, CARTNAME_SCC) == 0)            return langMenuCartSCC();
     if (strcmp(fileName, CARTNAME_SCCPLUS) == 0)        return langMenuCartSCCPlus();
     if (strcmp(fileName, CARTNAME_JOYREXPSG) == 0)      return langMenuCartJoyrexPsg();
+    if (strcmp(fileName, CARTNAME_MAKOTO) == 0)         return "Makoto";
     if (strcmp(fileName, CARTNAME_FMPAC) == 0)          return langMenuCartFMPac();
     if (strcmp(fileName, CARTNAME_PAC) == 0)            return langMenuCartPac();
     if (strcmp(fileName, CARTNAME_SONYHBI55) == 0)      return langMenuCartHBI55();
@@ -651,6 +653,7 @@ static HMENU menuCreateCartSpecial(int cartNo, Properties* pProperties, Shortcut
         AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
     }
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_JOYREXPSG, langMenuCartJoyrexPsg());
+    AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_MAKOTO, "Makoto");
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_SCC, langMenuCartSCC());
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_SCCPLUS, langMenuCartSCCPlus());
     AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuEseSCC, langMenuCartEseSCC());
@@ -2229,6 +2232,9 @@ int menuCommand(Properties* pProperties, int command)
             return 1;
         case ID_FILE_CART_JOYREXPSG:
             insertCartridge(pProperties, i, CARTNAME_JOYREXPSG, NULL, ROM_JOYREXPSG, 0);
+            return 1;
+        case ID_FILE_CART_MAKOTO:
+            insertCartridge(pProperties, i, CARTNAME_MAKOTO, NULL, ROM_MAKOTO, 0);
             return 1;
         case ID_FILE_CART_FMPAC:
             insertCartridge(pProperties, i, CARTNAME_FMPAC, NULL, ROM_FMPAC, 0);
