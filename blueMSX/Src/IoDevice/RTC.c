@@ -57,6 +57,7 @@ static const int daysInMonth[4][12] = {
 };
 
 #define MAX_SCALED_TIME  (((UInt64)1) << (32 + 14))
+#define RTC_FOLD_PERIOD  boardFrequency()
 
 #define MODE_BLOCKSELECT 0x03
 #define MODE_ALARMENABLE 0x04
@@ -74,6 +75,7 @@ static const int daysInMonth[4][12] = {
 
 struct RTC {
     int debugHandle;
+    BoardTimer* timer;
 
     char cmosName[512];
     UInt8 modeReg;
@@ -113,6 +115,8 @@ void rtcLoadState(RTC* rtc)
     rtc->latch    = (UInt8) saveStateGet(state, "latch",    0);
 
     saveStateClose(state);
+
+    boardTimerAdd(rtc->timer, boardSystemTime() + RTC_FOLD_PERIOD);
 }
 
 void rtcSaveState(RTC* rtc)
@@ -216,6 +220,16 @@ static void rtcUpdateRegs(RTC* rtc)
     rtcSetRegisters(rtc);
 }
 
+/* Folds the elapsed time in before the 32-bit board time wraps (every 200 s).
+   Re-armed from now: boardTimerAdd drops a deadline already in the past. */
+static void rtcOnTimer(void* ref, UInt32 time)
+{
+    RTC* rtc = (RTC*)ref;
+
+    rtcUpdateRegs(rtc);
+    boardTimerAdd(rtc->timer, boardSystemTime() + RTC_FOLD_PERIOD);
+}
+
 static UInt8 rtcReadData(RTC* rtc, UInt16 ioPort)
 {
     int block;
@@ -272,6 +286,7 @@ static void rtcWriteData(RTC* rtc, UInt16 ioPort, UInt8 value)
         return;
 
     case 0x0f:
+        rtcUpdateRegs(rtc);
         rtc->resetReg = value;
 
         if (value & RESET_ALARM) {
@@ -358,11 +373,15 @@ RTC* rtcCreate(int enable, char* cmosName)
 
     rtcUpdateRegs(rtc);
 
+    rtc->timer = boardTimerCreate(rtcOnTimer, rtc);
+    boardTimerAdd(rtc->timer, boardSystemTime() + RTC_FOLD_PERIOD);
+
     return rtc;
 }
 
 void rtcDestroy(RTC* rtc)
 {
+    boardTimerDestroy(rtc->timer);
     debugDeviceUnregister(rtc->debugHandle);
 
     ioPortUnregister(0xb4, rtc);
