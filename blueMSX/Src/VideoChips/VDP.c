@@ -458,7 +458,7 @@ struct VDP {
     const UInt8* registerValueMask;
     UInt8  registerMask;
 
-    /* P#4 bit7. While set, writes to R#20 and R#21 are discarded. */
+    /* P#4 bit7. While set, writes to R#20 and R#21 are discarded, and R#25 keeps SPS. */
     int    extRegsLocked;
 
     /* Which byte of a palette entry comes next: two per entry, three with EPAL.
@@ -1509,6 +1509,10 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
     if (vdpIsV9968(vdp) && vdp->extRegsLocked && (reg == 20 || reg == 21)) {
         return;
     }
+    /* SPS only loads while V58 is clear and P#4 is unlocked; the other R#25 bits always do. */
+    if (reg == 25 && vdpIsV9968(vdp) && (vdp->extRegsLocked || !vdpIsV9968Native(vdp))) {
+        value = (value & 0x7f) | (vdp->vdpRegs[25] & 0x80);
+    }
     if (reg < 12 && vdpIsV9968(vdp) && !vdpIsV9968Native(vdp)) {
         value &= ~tableBaseA17[reg];
     }
@@ -2318,7 +2322,7 @@ static void writeRegister(VDP* vdp, UInt16 ioPort, UInt8 value)
     }
 }
 
-/* P#4: bit0 F, bit1 FH, bit2 command end, bit7 the R#20/R#21 lock. Bits 0-2
+/* P#4: bit0 F, bit1 FH, bit2 command end, bit7 the R#20/R#21/SPS lock. Bits 0-2
 ** are write-one-to-clear, bit7 is a plain load, and reading clears nothing. */
 static UInt8 readInterruptStatus(VDP* vdp, UInt16 ioPort)
 {
