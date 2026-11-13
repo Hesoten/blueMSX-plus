@@ -58,7 +58,7 @@
 #define romMapperNms8280VideoDaCreate() 0
 #endif
 #ifdef EXCLUDE_JOYREXPSG
-#define romMapperJoyrexPsgCreate() 0
+#define romMapperJoyrexPsgCreate(a, b) 0
 #endif
 #ifdef EXCLUDE_MAKOTO
 #define romMapperMakotoCreate(a, b) 0

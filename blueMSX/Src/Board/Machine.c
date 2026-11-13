@@ -1373,7 +1373,7 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
         }
 
         if (machine->slotInfo[i].romType == ROM_JOYREXPSG) {
-            success &= romMapperJoyrexPsgCreate();
+            success &= romMapperJoyrexPsgCreate(-1, 0);
             continue;
         }
 

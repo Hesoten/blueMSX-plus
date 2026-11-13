@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -33,6 +36,7 @@
 #include "SN76489.h"
 #include "Board.h"
 #include "IoPort.h"
+#include "SlotManager.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -41,6 +45,8 @@ typedef struct {
     SN76489* sn76489;
     int    deviceHandle;
     int    debugHandle;
+    int    slot;
+    int    sslot;
 } RomMapperJoyrexPsg;
 
 static void saveState(RomMapperJoyrexPsg* rm)
@@ -55,6 +61,9 @@ static void loadState(RomMapperJoyrexPsg* rm)
 
 static void destroy(RomMapperJoyrexPsg* rm)
 {
+    if (rm->slot >= 0) {
+        slotUnregister(rm->slot, rm->sslot, 0);
+    }
     deviceManagerUnregister(rm->deviceHandle);
     debugDeviceUnregister(rm->debugHandle);
     sn76489Destroy(rm->sn76489);
@@ -88,11 +97,14 @@ static void getDebugInfo(RomMapperJoyrexPsg* rm, DbgDevice* dbgDevice)
     dbgIoPortsAddPort(ioPorts, 0, 0xf0, DBG_IO_READWRITE, peek(rm, 0xf0));
 }
 
-int romMapperJoyrexPsgCreate() 
+int romMapperJoyrexPsgCreate(int slot, int sslot)
 {
     DeviceCallbacks callbacks = { destroy, reset, saveState, loadState };
     DebugCallbacks dbgCallbacks = { getDebugInfo, NULL, NULL, NULL };
     RomMapperJoyrexPsg* rm = malloc(sizeof(RomMapperJoyrexPsg));
+
+    rm->slot  = slot;
+    rm->sslot = sslot;
 
     rm->deviceHandle = deviceManagerRegister(ROM_JOYREXPSG, &callbacks, rm);
     rm->debugHandle = debugDeviceRegister(DBGTYPE_AUDIO, "SN76489", &dbgCallbacks, rm);
@@ -102,6 +114,10 @@ int romMapperJoyrexPsgCreate()
     ioPortRegister(0xf0, NULL, write, rm);
 
     reset(rm);
+
+    if (slot >= 0) {
+        slotRegister(slot, sslot, 0, 8, NULL, NULL, NULL, destroy, rm);
+    }
 
     return 1;
 }

@@ -250,7 +250,7 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
 #endif
 
     case ROM_JOYREXPSG:
-        success &= romMapperJoyrexPsgCreate();
+        success &= romMapperJoyrexPsgCreate(slot, sslot);
         break;
 
     case ROM_GFX9000:
