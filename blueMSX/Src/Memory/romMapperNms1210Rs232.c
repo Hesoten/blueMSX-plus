@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik, Tomas Karlsson, Johan van Leur
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -243,16 +246,6 @@ static void setStopBits(NMS1210Rs232* nms1210Rs232, int value) {
 }
 
 static void setParity(NMS1210Rs232* nms1210Rs232, int value) {
-}
-
-static void setRxReady(NMS1210Rs232* nms1210Rs232, int status)
-{
-    if (~nms1210Rs232->intmask & INTMASK_RXREADY) {
-        if (status)
-            boardSetInt(1);
-        else
-            boardClearInt(1);
-    }
 }
 
 static void setDtr(NMS1210Rs232* nms1210Rs232, int status) {
