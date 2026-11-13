@@ -92,6 +92,8 @@ void vdpPaletteRgba(const VdpDebugState* s, const VdpLayout& l, int color0, uint
 /* SCREEN 8's fixed colours. */
 uint32_t vdpScreen8Rgba(int value);
 uint32_t vdpRgbToRgba(uint32_t rgb);
+/* Extended palette entry i: pal[i] (RGBA) for the first 16, which mirror the 16 colours. */
+uint32_t vdpExtRgba(const VdpDebugState* s, const uint32_t pal[16], int i);
 
 struct VdpBitmapOptions {
     int mode;      /* 5, 6, 7, 8, 10 or 12 */

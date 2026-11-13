@@ -5040,7 +5040,7 @@ private:
             int d = sprRowLine(*fr, n, r), c = sp.color[r], bits = vdpSpriteRowBits(s, *fr, n, r);
             int st = sprRowState(*fr, slot, n, r);
             float ry = y0 + r * m;
-            ImU32 col = rgbaToCol(vdpSpriteRgbaFrom(s, spriteRowRgb(*fr, n, r), *fr, c));
+            ImU32 col = rgbaToCol(vdpSpriteSetRgbaFrom(s, spriteRowRgb(*fr, n, r), *fr, sp.set, c));
             bool clear = vdpSpriteClear(s, *fr, c);
             for (int x = 0; x < fr->size; x++) {
                 ImVec2 a(gx + x * m, ry), b(a.x + m, ry + m);
@@ -5058,7 +5058,7 @@ private:
             prevSt = st;
             /* The row's colour and its flags at the right. */
             float sx = gb.x + ui::Px(8);
-            swatchRect(dl, ImVec2(sx, ry + 1), ImVec2(sx + ui::Px(14), ry + m - 1), s, *fr, c, spriteRowRgb(*fr, n, r));
+            swatchRect(dl, ImVec2(sx, ry + 1), ImVec2(sx + ui::Px(14), ry + m - 1), s, *fr, sp.set, c, spriteRowRgb(*fr, n, r));
             char tag[24] = "";
             size_t tl = 0;
             if (c & 0x80) tl += (size_t)snprintf(tag + tl, sizeof(tag) - tl, "\xE2\x86\x90" "32 ");
@@ -5116,7 +5116,7 @@ private:
         ImU32 grey = ui::WithAlpha(t.textTertiary, 0xa0);
         for (int r = 0; r < k.size; r++) {
             int bits = vdpSpritePatternRowBits(s, *fr, k.p, r), c = o >= 0 ? fr->spr[o].color[r] : 0;
-            ImU32 col = o >= 0 ? rgbaToCol(vdpSpriteRgbaFrom(s, spriteRowRgb(*fr, o, r), *fr, c)) : grey;
+            ImU32 col = o >= 0 ? rgbaToCol(vdpSpriteSetRgbaFrom(s, spriteRowRgb(*fr, o, r), *fr, fr->spr[o].set, c)) : grey;
             bool clear = o >= 0 && vdpSpriteClear(s, *fr, c);
             for (int x = 0; x < k.size; x++) {
                 ImVec2 a(gx + x * m, y0 + r * m), b(a.x + m, a.y + m);
@@ -5150,11 +5150,11 @@ private:
                 int c = fr->spr[n].color[r];
                 ImVec2 a(x, floorf(y + lh * r / fr->size)), b(x + sw, floorf(y + lh * (r + 1) / fr->size));
                 if (!filled || vdpSpriteClear(s, *fr, c)) dl->AddRectFilled(a, b, t.checkerA);
-                else dl->AddRectFilled(a, b, rgbaToCol(vdpSpriteRgbaFrom(s, spriteRowRgb(*fr, n, r), *fr, c)));
+                else dl->AddRectFilled(a, b, rgbaToCol(vdpSpriteSetRgbaFrom(s, spriteRowRgb(*fr, n, r), *fr, fr->spr[n].set, c)));
             }
             if (!filled) {
                 int c = u.code[n];
-                ImU32 col = vdpSpriteClear(s, *fr, c) ? t.textTertiary : rgbaToCol(vdpSpriteRgbaFrom(s, spriteRowRgb(*fr, n, u.codeRow[n]), *fr, c));
+                ImU32 col = vdpSpriteClear(s, *fr, c) ? t.textTertiary : rgbaToCol(vdpSpriteSetRgbaFrom(s, spriteRowRgb(*fr, n, u.codeRow[n]), *fr, fr->spr[n].set, c));
                 dl->AddRect(ImVec2(x, y), ImVec2(x + sw, y + lh), col, 0, th);
             }
             dl->AddText(ImVec2(x + sw + ui::Px(3), y), t.textSecondary, num);
@@ -5290,7 +5290,7 @@ private:
     void sprChip(ImDrawList* dl, ImVec2 a, ImVec2 b, const VdpDebugState* s, const VdpSpriteFrame& fr, int c, int n, int row, bool filled) const
     {
         const UInt32* rgb = spriteRowRgb(fr, n, row);
-        chipRect(dl, a, b, filled, vdpSpriteClear(s, fr, c), rgbaToCol(vdpSpriteRgbaFrom(s, rgb, fr, c)));
+        chipRect(dl, a, b, filled, vdpSpriteClear(s, fr, c), rgbaToCol(vdpSpriteSetRgbaFrom(s, rgb, fr, fr.spr[n].set, c)));
     }
 
     /* A colour chip: filled in col, or a checker when the colour is clear; hollow, edged in col (grey when clear). */
@@ -5398,7 +5398,7 @@ private:
                 /* The chip's colour as of now, so a held row never reads a later picture's sprite n. */
                 row.filled = ((drawn >> code[n]) & 1) != 0;
                 row.clear = vdpSpriteClear(s, fr, code[n]);
-                row.col = rgbaToCol(vdpSpriteRgbaFrom(s, spriteRowRgb(fr, n, codeRow[n]), fr, code[n]));
+                row.col = rgbaToCol(vdpSpriteSetRgbaFrom(s, spriteRowRgb(fr, n, codeRow[n]), fr, fr.spr[n].set, code[n]));
             }
             m.more[0] = m.others[0] = 0;
             if (listed > 8) textf(m.more, sizeof(m.more), ts(TS_SPR_PAT_MORE), users - 8);
@@ -5660,11 +5660,11 @@ private:
 
     /* ---- Sprites ---- */
 
-    static void swatchRect(ImDrawList* dl, ImVec2 a, ImVec2 b, const VdpDebugState* s, const VdpSpriteFrame& f, int code, const UInt32* rgb)
+    static void swatchRect(ImDrawList* dl, ImVec2 a, ImVec2 b, const VdpDebugState* s, const VdpSpriteFrame& f, int set, int code, const UInt32* rgb)
     {
         const UiTokens& t = uiTokens();
         if (!vdpSpriteClear(s, f, code)) {
-            dl->AddRectFilled(a, b, rgbaToCol(vdpSpriteRgbaFrom(s, rgb, f, code)));
+            dl->AddRectFilled(a, b, rgbaToCol(vdpSpriteSetRgbaFrom(s, rgb, f, set, code)));
             return;
         }
         ImVec2 m((a.x + b.x) / 2, (a.y + b.y) / 2);
@@ -6138,7 +6138,7 @@ private:
         ImDrawList* dl = ImGui::GetWindowDrawList();
         for (int r = 0; r < fr.size; r++) {
             int bits = vdpSpriteRowBits(s, fr, n, r);
-            ImU32 col = rgbaToCol(vdpSpriteRgbaFrom(s, spriteRowRgb(fr, n, r), fr, sp.color[r]));
+            ImU32 col = rgbaToCol(vdpSpriteSetRgbaFrom(s, spriteRowRgb(fr, n, r), fr, sp.set, sp.color[r]));
             for (int x = 0; x < fr.size; x++) {
                 ImVec2 a(p.x + x * cell, p.y + r * cell), b(a.x + cell, a.y + cell);
                 if ((bits & (0x8000 >> x)) && !vdpSpriteClear(s, fr, sp.color[r])) dl->AddRectFilled(a, b, col);

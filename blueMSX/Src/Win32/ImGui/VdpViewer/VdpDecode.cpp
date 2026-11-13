@@ -390,7 +390,7 @@ static int lineByte(const VdpDebugState* s, const UInt8* r, int mode, int base, 
 
 /* A V9968's EPAL makes the 256 colour modes index the extended palette,
 ** whose first 16 entries are the 16 colour palette. */
-static uint32_t extRgba(const VdpDebugState* s, const uint32_t pal[16], int i)
+uint32_t vdpExtRgba(const VdpDebugState* s, const uint32_t pal[16], int i)
 {
     return i < 16 ? pal[i] : vdpRgbToRgba(s->paletteExt[i]);
 }
@@ -423,7 +423,7 @@ static uint32_t bitmapPixel(const VdpDebugState* s, const UInt8* r, const VdpBit
         *value = b; *phys = p;
         if (b == 0 && o.color0 == VDP_COLOR0_TRANSPARENT) return 0;
         if (s->paletteExtCount) {
-            return extRgba(s, pal, b == 0 && o.color0 == VDP_COLOR0_BACKDROP ? r[7] : b);
+            return vdpExtRgba(s, pal, b == 0 && o.color0 == VDP_COLOR0_BACKDROP ? r[7] : b);
         }
         if (b == 0 && o.color0 == VDP_COLOR0_BACKDROP) return vdpScreen8Rgba(r[7]);
         return vdpScreen8Rgba(b);
@@ -440,7 +440,7 @@ static uint32_t bitmapPixel(const VdpDebugState* s, const UInt8* r, const VdpBit
         *value = b; *phys = p;
         if (o.mode == 10 && ((b >> 3) & 1)) {
             /* With EPAL a colour dot takes the whole byte as its index. */
-            return s->paletteExtCount ? extRgba(s, pal, b) : pal[b >> 4];
+            return s->paletteExtCount ? vdpExtRgba(s, pal, b) : pal[b >> 4];
         }
         return yjkRgba(b >> 3, J, K);
     }

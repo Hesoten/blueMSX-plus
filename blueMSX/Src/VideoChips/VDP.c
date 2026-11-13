@@ -3816,7 +3816,7 @@ static int sprTabGather(VDP* vdp, VdpSprTable* t)
 /* The same layout: the bytes and the registers sprites are laid out with. */
 static int sprTabSame(const VdpSprTable* a, const VdpSprTable* b)
 {
-    static const int regs[] = { 0, 1, 5, 6, 8, 9, 11, 23 };
+    static const int regs[] = { 0, 1, 5, 6, 8, 9, 11, 20, 23 };
     int attr = (a->regs[5] << 7) & (a->screenMode <= 3 ? 0x380 : 0x200);
     int i;
 
