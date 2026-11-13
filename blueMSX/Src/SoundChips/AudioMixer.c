@@ -152,13 +152,10 @@ typedef struct {
     Int32 ordinal;
     char  name[MIXER_CHANNEL_NAME_LENGTH];
     char  id[MIXER_CHANNEL_ID_LENGTH];
-    // Per-instance meter for the device window. The RMS blocks above are
-    // summed by type and keep no per-channel history, so the window still
-    // takes this older peak-average form.
-    Int32 volIntLeft;
-    Int32 volIntRight;
-    Int32 volCntLeft;
-    Int32 volCntRight;
+    // This channel's part of each meter block, by block sequence like the
+    // ring of MeterBlock, which sums by type. Kept in the channel so it moves
+    // with it when the array grows or a channel is removed.
+    float meterRing[METER_RING][2];
 } MixerChannel;
 
 /* One meter block as the emulator thread produced it: mean square in
@@ -173,6 +170,7 @@ typedef struct {
 typedef struct {
     MeterBlock block;
     UInt32     takenAt;
+    UInt32     seq;
 } MeterHeard;
 
 struct Mixer
@@ -200,7 +198,6 @@ struct Mixer
     Int32** chBuff;
     Int32   channelCapacity;
     void*   lock;
-    UInt32  channelMeterTick;
     Int32   channelCount;
     UInt32  generation;
     Int32   deviceOpen;
@@ -458,6 +455,8 @@ static void meterPushBlock(Mixer* mixer)
     if (!mixer->enable) {
         for (i = 0; i < mixer->channelCount; i++) {
             MixerChannel* channel = mixer->channels + i;
+            channel->meterRing[seq & (METER_RING - 1)][0] = 0;
+            channel->meterRing[seq & (METER_RING - 1)][1] = 0;
             channel->meterDcSet[0]  = 0;
             channel->meterDcSet[1]  = 0;
             channel->meterEnergy[0] = 0;
@@ -476,10 +475,14 @@ static void meterPushBlock(Mixer* mixer)
                              powerLeft;
         DoubleT gainLeft  = channel->meterGainLeft  / 4096.0;
         DoubleT gainRight = channel->meterGainRight / 4096.0;
+        float   left      = (float)(powerLeft * gainLeft * gainLeft);
+        float   right     = (float)(powerRight * gainRight * gainRight);
 
+        channel->meterRing[seq & (METER_RING - 1)][0] = left;
+        channel->meterRing[seq & (METER_RING - 1)][1] = right;
         /* Chips of one type add up like the mixer adds them: in power. */
-        block->type[channel->type][0] += (float)(powerLeft * gainLeft * gainLeft);
-        block->type[channel->type][1] += (float)(powerRight * gainRight * gainRight);
+        block->type[channel->type][0] += left;
+        block->type[channel->type][1] += right;
         channel->meterEnergy[0] = 0;
         channel->meterEnergy[1] = 0;
         channel->meterSum[0]    = 0;
@@ -555,6 +558,7 @@ static void meterAdvance(Mixer* mixer)
         }
         mixer->meterHeard[mixer->meterHeardPos & (METER_HEARD - 1)].block   = block;
         mixer->meterHeard[mixer->meterHeardPos & (METER_HEARD - 1)].takenAt = now;
+        mixer->meterHeard[mixer->meterHeardPos & (METER_HEARD - 1)].seq     = s;
         mixer->meterHeardPos++;
         mixer->meterReadSeq = s + 1;
     }
@@ -567,8 +571,10 @@ static void meterAdvance(Mixer* mixer)
 
 /* RMS over the window centred on the frame playing now, in output units.
 ** Blocks stop counting a while after they were taken, so a paused or
-** stopped emulator reads as silence. type < 0 asks for the master. */
-static DoubleT meterLevel(Mixer* mixer, Int32 type, int side)
+** stopped emulator reads as silence. type < 0 asks for the master. A
+** channel, if given, is read from its own ring instead, with the lock
+** held so the emulator thread neither moves the array nor pushes. */
+static DoubleT meterLevel(Mixer* mixer, Int32 type, const MixerChannel* channel, int side)
 {
     UInt32 from = mixer->meterHeardFrame - METER_WINDOW / 2;
     DoubleT energy = 0;
@@ -582,7 +588,17 @@ static DoubleT meterLevel(Mixer* mixer, Int32 type, int side)
             (Int32)(heard->block.endFrame - from) <= 0) {
             continue;
         }
-        energy += type < 0 ? heard->block.master[side] : heard->block.type[type][side];
+        if (channel != NULL) {
+            /* The ring copy is gone once the writer has lapped it, which
+            ** only an emulator running far ahead of the sound does. */
+            if (mixer->meterSeq - heard->seq > METER_RING) {
+                continue;
+            }
+            energy += channel->meterRing[heard->seq & (METER_RING - 1)][side];
+        }
+        else {
+            energy += type < 0 ? heard->block.master[side] : heard->block.type[type][side];
+        }
         count++;
     }
     return count > 0 ? sqrt(energy / count) : 0;
@@ -635,13 +651,13 @@ Int32 mixerMeterGetTypePercent(Mixer* mixer, Int32 type, int leftRight)
     if (type == MIXER_CHANNEL_MIDI) {
         return meterPercent(meterMidiLevel(mixer, leftRight ? 1 : 0));
     }
-    return meterPercent(meterLevel(mixer, type, leftRight ? 1 : 0));
+    return meterPercent(meterLevel(mixer, type, NULL, leftRight ? 1 : 0));
 }
 
 Int32 mixerMeterGetMasterPercent(Mixer* mixer, int leftRight)
 {
     meterAdvance(mixer);
-    return meterPercent(meterLevel(mixer, -1, leftRight ? 1 : 0));
+    return meterPercent(meterLevel(mixer, -1, NULL, leftRight ? 1 : 0));
 }
 
 static Mixer* globalMixer = NULL;
@@ -907,35 +923,19 @@ void mixerEnableChannel(Mixer* mixer, Int32 handle, Int32 enable)
     mixerUnlock(mixer);
 }
 
-/* The per-instance peaks fall by one step per 20 ms since last read. */
-static void decayChannelMeters(Mixer* mixer)
-{
-    int i;
-    int diff = archGetSystemUpTime(50) - mixer->channelMeterTick;
-
-    if (diff == 0) {
-        return;
-    }
-    for (i = 0; i < mixer->channelCount; i++) {
-        MixerChannel* channel = mixer->channels + i;
-        channel->volIntLeft  = MAX(0, channel->volIntLeft  - diff);
-        channel->volIntRight = MAX(0, channel->volIntRight - diff);
-    }
-    mixer->channelMeterTick += diff;
-}
-
-Int32 mixerGetChannelVolume(Mixer* mixer, Int32 handle, int leftRight)
+Int32 mixerMeterGetChannelPercent(Mixer* mixer, Int32 handle, int leftRight)
 {
     MixerChannel* channel;
-    Int32 volume = 0;
+    Int32 percent = 0;
+
     mixerLock(mixer);
-    decayChannelMeters(mixer);
+    meterAdvance(mixer);
     channel = findChannel(mixer, handle);
     if (channel != NULL) {
-        volume = leftRight ? channel->volIntRight : channel->volIntLeft;
+        percent = meterPercent(meterLevel(mixer, 0, channel, leftRight ? 1 : 0));
     }
     mixerUnlock(mixer);
-    return volume;
+    return percent;
 }
 
 Int32 mixerRegisterChannel(Mixer* mixer, Int32 audioType, Int32 stereo, MixerUpdateCallback callback, MixerSetSampleRateCallback rateCallback, void* ref)
@@ -1113,8 +1113,6 @@ void mixerSync(Mixer* mixer)
         for (i = 0; i < mixer->channelCount; i++) {
             Int32 chanLeft;
             Int32 chanRight;
-            Int32 instLeft;
-            Int32 instRight;
 
             if (chBuff[i] == NULL) {
                 continue;
@@ -1125,8 +1123,6 @@ void mixerSync(Mixer* mixer)
                 Int32 rawRight = *chBuff[i]++;
                 chanLeft = mixer->channels[i].unmutedLeft * rawLeft;
                 chanRight = mixer->channels[i].unmutedRight * rawRight;
-                instLeft  = mixer->channels[i].meterGainLeft  * rawLeft;
-                instRight = mixer->channels[i].meterGainRight * rawRight;
                 mixer->channels[i].meterEnergy[0] += (UInt64)((Int64)rawLeft  * rawLeft);
                 mixer->channels[i].meterEnergy[1] += (UInt64)((Int64)rawRight * rawRight);
                 mixer->channels[i].meterSum[0]    += rawLeft;
@@ -1136,14 +1132,9 @@ void mixerSync(Mixer* mixer)
                 Int32 tmp = *chBuff[i]++;
                 chanLeft = mixer->channels[i].unmutedLeft * tmp;
                 chanRight = mixer->channels[i].unmutedRight * tmp;
-                instLeft  = mixer->channels[i].meterGainLeft  * tmp;
-                instRight = mixer->channels[i].meterGainRight * tmp;
                 mixer->channels[i].meterEnergy[0] += (UInt64)((Int64)tmp * tmp);
                 mixer->channels[i].meterSum[0]    += tmp;
             }
-
-            mixer->channels[i].volCntLeft  += (instLeft  > 0 ? instLeft  : -instLeft)  / 2048;
-            mixer->channels[i].volCntRight += (instRight > 0 ? instRight : -instRight) / 2048;
 
             left  += chanLeft;
             right += chanRight;
@@ -1175,15 +1166,6 @@ void mixerSync(Mixer* mixer)
 
     if (mixer->volIndex >= 441) {
         for (i = 0; i < mixer->channelCount; i++) {
-            MixerChannel* channel = mixer->channels + i;
-            Int32 newVolumeLeft  = MIN(100, channel->volCntLeft  / (Int32)mixer->volIndex / 328);
-            Int32 newVolumeRight = MIN(100, channel->volCntRight / (Int32)mixer->volIndex / 328);
-
-            channel->volIntLeft  = MAX(channel->volIntLeft,  newVolumeLeft);
-            channel->volIntRight = MAX(channel->volIntRight, newVolumeRight);
-            channel->volCntLeft  = 0;
-            channel->volCntRight = 0;
-
             if (chBuff[i] && chBuff[i][0]) {
                 mixer->channels[i].active++;
             }

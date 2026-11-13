@@ -351,8 +351,8 @@ static void refreshMeters(void)
         return;
     }
     for (i = 0; i < rowCount; i++) {
-        int left  = mixerGetChannelVolume(mixer, rows[i].handle, MIXER_CHANNEL_LEFT);
-        int right = mixerGetChannelVolume(mixer, rows[i].handle, MIXER_CHANNEL_RIGHT);
+        int left  = mixerMeterGetChannelPercent(mixer, rows[i].handle, MIXER_CHANNEL_LEFT);
+        int right = mixerMeterGetChannelPercent(mixer, rows[i].handle, MIXER_CHANNEL_RIGHT);
         if (left != rows[i].levelLeft || right != rows[i].levelRight) {
             rows[i].levelLeft  = left;
             rows[i].levelRight = right;

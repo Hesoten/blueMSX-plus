@@ -187,7 +187,10 @@ UInt32 mixerGetChannelGeneration(Mixer* mixer);
 void  mixerSetChannelVolume(Mixer* mixer, Int32 handle, Int32 volume);
 void  mixerSetChannelPan(Mixer* mixer, Int32 handle, Int32 pan);
 void  mixerEnableChannel(Mixer* mixer, Int32 handle, Int32 enable);
-Int32 mixerGetChannelVolume(Mixer* mixer, Int32 handle, int leftRight);
+/* One channel's level meter, read like the type meters above: the same
+** scale and window, before the master volume and mute. The only playing
+** channel of its type reads as the type. UI thread. */
+Int32 mixerMeterGetChannelPercent(Mixer* mixer, Int32 handle, int leftRight);
 
 /* Asked for an instance's saved settings when its id is first known. The
 ** values come in at their defaults (enabled, 100, 50) and are kept as the
