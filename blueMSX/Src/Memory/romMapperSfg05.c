@@ -187,8 +187,11 @@ static YM2148* ym2148Create()
 
 static void ym2148Destroy(YM2148* midi)
 {
+    boardTimerDestroy(midi->timerRecv);
+    boardTimerDestroy(midi->timerTrans);
     midiIoDestroy(midi->midiIo);
     archSemaphoreDestroy(midi->semaphore);
+    free(midi);
 }
 
 static UInt8 ym2148ReadStatus(YM2148* midi)
