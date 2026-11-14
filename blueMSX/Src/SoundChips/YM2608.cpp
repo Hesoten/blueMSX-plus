@@ -106,24 +106,46 @@ public:
         m_fm.set_irq_mask(m_irq_enable & ~m_flag_control & 0x1f);
     }
 
+    /* ym2608's STATUS_ADPCM_B_* are private; these are their values. */
+    static const uint8_t ADPCM_B_EOS     = 0x04;
+    static const uint8_t ADPCM_B_BRDY    = 0x08;
+    static const uint8_t ADPCM_B_PLAYING = 0x20;
+    static const uint8_t ADPCM_B_FLAGS   = ADPCM_B_EOS | ADPCM_B_BRDY | ADPCM_B_PLAYING;
+
+    /* The ADPCM-B flags, at the bits the upper status shows them in. */
+    uint8_t adpcmBFlags() const
+    {
+        uint8_t adpcm = m_adpcm_b.status();
+        uint8_t flags = 0;
+
+        if (adpcm & ymfm::adpcm_b_channel::STATUS_EOS)     flags |= ADPCM_B_EOS;
+        if (adpcm & ymfm::adpcm_b_channel::STATUS_BRDY)    flags |= ADPCM_B_BRDY;
+        if (adpcm & ymfm::adpcm_b_channel::STATUS_PLAYING) flags |= ADPCM_B_PLAYING;
+        return flags;
+    }
+
     /* ymfm brings the ADPCM-B flags into the status, and so to the IRQ
     ** line, only when the upper status is read; the chip raises the line
     ** when the flag comes up. This does the same as that read, for the
     ** ADPCM-B bits alone, so the timer flags stay as they were. */
     void updateAdpcmBStatus()
     {
-        /* ym2608's STATUS_ADPCM_B_* are private; these are their values. */
-        const uint8_t EOS     = 0x04;
-        const uint8_t BRDY    = 0x08;
-        const uint8_t PLAYING = 0x20;
-        uint8_t adpcm = m_adpcm_b.status();
-        uint8_t set = 0;
+        uint8_t set = adpcmBFlags() & ~(m_flag_control & 0x1f);
 
-        if (adpcm & ymfm::adpcm_b_channel::STATUS_EOS)     set |= EOS;
-        if (adpcm & ymfm::adpcm_b_channel::STATUS_BRDY)    set |= BRDY;
-        if (adpcm & ymfm::adpcm_b_channel::STATUS_PLAYING) set |= PLAYING;
-        set &= ~(m_flag_control & 0x1f);
-        m_fm.set_reset_status(set, (EOS | BRDY | PLAYING) & ~set);
+        m_fm.set_reset_status(set, ADPCM_B_FLAGS & ~set);
+    }
+
+    /* What reading the upper status returns, without writing the flags
+    ** back into the chip as that read does. */
+    uint8_t peekStatusHi() const
+    {
+        uint8_t status = (m_fm.status() & ~ADPCM_B_FLAGS) | adpcmBFlags();
+
+        status &= ~(m_flag_control & 0x1f);
+        if (m_fm.intf().ymfm_is_busy()) {
+            status |= fm_engine::STATUS_BUSY;
+        }
+        return status;
     }
 
     bool csmMode() { return m_fm.regs().csm() != 0; }
@@ -648,15 +670,22 @@ UInt8 ym2608Read(YM2608* ym2608, int offset)
     return value;
 }
 
-/* Only the lower status is free of side effects: reading the upper status
-** writes flags back into the chip, and reading the upper data advances the
-** ADPCM-B memory pointer. */
+/* The upper data is left out: reading it advances the ADPCM-B memory
+** pointer. */
 UInt8 ym2608Peek(YM2608* ym2608, int offset)
 {
-    if ((offset & 3) == 0) {
-        return ym2608->host->chip.read_status();
+    Ym2608Chip& chip = ym2608->host->chip;
+
+    switch (offset & 3) {
+    case 0:
+        return chip.read_status();
+    case 1:
+        return chip.read_data();
+    case 2:
+        return chip.peekStatusHi();
+    default:
+        return 0xff;
     }
-    return 0xff;
 }
 
 void ym2608Write(YM2608* ym2608, int offset, UInt8 value)
