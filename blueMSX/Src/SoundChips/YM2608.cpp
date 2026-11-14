@@ -85,6 +85,17 @@ public:
 
     UInt32 prescale() const { return m_fm.clock_prescale(); }
 
+    /* The chip selects only 2, 3 or 6, but a damaged state can hold any
+    ** value; 0 would leave the FM stream no clocks per sample. */
+    void keepPrescaleValid()
+    {
+        UInt32 p = m_fm.clock_prescale();
+
+        if (p != 2 && p != 3 && p != 6) {
+            update_prescale(6);
+        }
+    }
+
     /* reset() puts the IRQ enable and flag control registers back but
     ** leaves the IRQ mask made from them, and the prescaler, as the program
     ** last set them. */
@@ -745,6 +756,7 @@ void ym2608LoadState(YM2608* ym2608)
         saveStateGetBuffer(state, "chipState", chipState.data(), (UInt32)chipState.size());
         ymfm::ymfm_saved_state loader(chipState, false);
         ym2608->host->chip.save_restore(loader);
+        ym2608->host->chip.keepPrescaleValid();
 
         /* The ADPCM-B channel is the one part whose values changed their
         ** meaning between the layouts, at the same size. Read as they are
