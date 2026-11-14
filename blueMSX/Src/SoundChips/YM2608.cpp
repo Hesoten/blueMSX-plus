@@ -128,6 +128,11 @@ public:
 
     bool csmMode() { return m_fm.regs().csm() != 0; }
 
+    /* One address latch serves both halves: data for the half it does not
+    ** point into is dropped, and the rest goes to the register it holds. */
+    bool upperAddress() const { return (m_address & 0x100) != 0; }
+    uint8_t addressInHalf() const { return (uint8_t)m_address; }
+
     /* ymfm takes the CSM key-on back only when it next prepares the
     ** channels, which without a register write is up to 4096 samples
     ** later. Asking for that after the sample the key-on went into makes
@@ -661,7 +666,9 @@ void ym2608Write(YM2608* ym2608, int offset, UInt8 value)
     mixerSync(ym2608->mixer);
 
     if (offset & 1) {
-        ym2608->regs[hi][ym2608->address[hi]] = value;
+        if (ym2608->host->chip.upperAddress() == (hi != 0)) {
+            ym2608->regs[hi][ym2608->host->chip.addressInHalf()] = value;
+        }
     }
     else {
         ym2608->address[hi] = value;
