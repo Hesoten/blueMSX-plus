@@ -189,6 +189,12 @@ void boardClearBreakpoint(UInt16 address);
 #define BOARD_INT_V9968_CART_IE0    0x00002000
 #define BOARD_INT_V9968_CART_IE1    (BOARD_INT_V9968_CART_IE0 << 1)
 #define BOARD_INT_V9968_CART_IE2    (BOARD_INT_V9968_CART_IE0 << 2)
+/* The Y8960 cartridge's blocks take bits from the top down, so that new bits
+** can keep going up from the bottom without meeting them. Bit 31 is left
+** alone: pendingInt is a signed int. */
+#define BOARD_INT_Y8960_TIMER       0x40000000
+#define BOARD_INT_Y8960_OPL2EX      0x20000000
+#define BOARD_INT_Y8960_OPM         0x10000000
 
 void   boardSetInt(UInt32 irq);
 void   boardClearInt(UInt32 irq);

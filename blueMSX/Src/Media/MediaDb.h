@@ -218,7 +218,11 @@ enum  {
     ** gave it, since their machine configurations, cartridge history and
     ** save states already store 188. */
     ROM_MAKOTO      = 188,           /* Makoto YM2608 (OPNA) cartridge */
-    ROM_MAXROMID    = 188
+    /* The Y8960 cartridge keeps the number that builds released outside
+    ** this repository gave it, since their cartridge history and save
+    ** states already store 207. */
+    ROM_Y8960       = 207,           /* Y8960 cartridge */
+    ROM_MAXROMID    = 207
 };
 
 typedef struct MediaType MediaType;

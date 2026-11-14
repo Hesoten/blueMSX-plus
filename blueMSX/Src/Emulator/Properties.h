@@ -98,6 +98,7 @@
 #define CARTNAME_ESESCC128   "128kB Ese-SCC"
 #define CARTNAME_ESESCC256   "256kB Ese-SCC"
 #define CARTNAME_ESESCC512   "512kB Ese-SCC"
+#define CARTNAME_Y8960       "Y8960 Cartridge"
 
 typedef enum { 
     PROP_EMULATION = 0, 

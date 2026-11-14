@@ -1,0 +1,99 @@
+# Preset voices of the Y8960 cartridge's OPLLEX
+#
+# make-y8960-opll-voices.py builds
+# blueMSX/ReleaseFiles/Machines/Shared Roms/y8960_opll_voices.bin from this
+# file.
+#
+# Four banks, in the order the OPLLEX's bank registers number them. Each bank
+# lists voices 1-15 and then the three rhythm entries. A line is one voice:
+# the eight bytes registers 00h-07h take for the user voice. Voice 0, the user
+# voice, has no preset and is not listed.
+#
+# The melodic voices are from "Copyright free OPLL(x) ROM patches" by David
+# Viens and Hubert Lamontagne, licensed CC BY-SA (no version is given):
+#   https://github.com/plgDavid/misc/wiki/Copyright-free-OPLL(x)-ROM-patches
+# They were guessed by ear and are not the chips' ROM contents. This file is
+# under that license, not under the GPL that covers the rest of blueMSX+.
+#
+# The rhythm entries are not on that page. They are the values in ymfm's
+# YM2413 table, the same in all four banks, and equal NukedOPLL's.
+
+# Bank 0: YM2413 (OPLL). April 2015 David Viens, tweaked May 19-21 2015 Hubert Lamontagne
+71 61 1E 17 EF 7F 00 17  # 1: Violin
+13 41 1A 0D F8 F7 23 13  # 2: Guitar
+13 01 99 00 F2 C4 11 23  # 3: Piano
+31 61 0E 07 98 64 70 27  # 4: Flute
+22 21 1E 06 BF 76 00 28  # 5: Clarinet
+31 22 16 05 E0 71 0F 18  # 6: Oboe
+21 61 1D 07 82 8F 10 07  # 7: Trumpet
+23 21 2D 14 FF 7F 00 07  # 8: Organ
+41 61 1B 06 64 65 10 17  # 9: Horn
+61 61 0B 18 85 FF 81 07  # A: Synthesizer
+13 01 83 11 FA E4 10 04  # B: Harpsichord
+17 81 23 07 F8 F8 22 12  # C: Vibraphone
+61 50 0C 05 F2 F5 29 42  # D: Synthesizer Bass
+01 01 54 03 C3 92 03 02  # E: Acoustic Bass
+41 41 89 03 F1 E5 11 13  # F: Electric Guitar
+01 01 18 0F DF F8 6A 6D  # R: Bass Drum
+01 01 00 00 C8 D8 A7 48  # R: High-Hat(M) / Snare Drum(C)
+05 01 00 00 F8 AA 59 55  # R: Tom-tom(M) / Top Cymbal(C)
+
+# Bank 1: YM2423 (OPLL-X). May 4-6 2016 Hubert Lamontagne
+61 61 1B 07 94 5F 10 06  # 1: Strings
+93 B1 51 04 F3 F2 70 FB  # 2: Guitar
+41 21 11 85 F2 F2 70 75  # 3: Electric Guitar
+93 B2 28 07 F3 F2 70 B4  # 4: Electric Piano 2
+72 31 97 05 51 6F 60 09  # 5: Flute
+13 30 18 06 F7 F4 50 85  # 6: Marimba
+51 31 1C 07 51 71 20 26  # 7: Trumpet
+41 F4 1B 07 74 34 00 06  # 8: Harmonica
+50 30 4D 03 42 65 20 06  # 9: Tuba
+40 20 10 85 F3 F5 20 04  # A: Synth Brass 2
+61 61 1B 07 C5 96 F3 F6  # B: Short Saw
+F9 F1 DC 00 F5 F3 77 F2  # C: Vibraphone
+60 A2 91 03 94 C1 F7 F7  # D: Electric Guitar 2
+30 30 17 06 F3 F1 B7 FC  # E: Synth Bass 2
+31 36 0D 05 F2 F4 27 9C  # F: Sitar
+01 01 18 0F DF F8 6A 6D  # R: Bass Drum
+01 01 00 00 C8 D8 A7 48  # R: High-Hat(M) / Snare Drum(C)
+05 01 00 00 F8 AA 59 55  # R: Tom-tom(M) / Top Cymbal(C)
+
+# Bank 2: YMF281 (OPLL-P). May 14 2015 Hubert Lamontagne
+72 21 1A 07 F6 64 01 16  # 1: Clarinet / Electric String
+00 10 45 00 F6 83 73 63  # 2: Synth Bass / Bow wow
+13 01 96 00 F1 F4 31 23  # 3: Piano / Electric Guitar
+71 21 0B 0F F9 64 70 17  # 4: Flute / Organ
+02 21 1E 06 F9 76 00 28  # 5: Square Wave / Clarinet
+00 61 82 0E F9 61 20 27  # 6: Space Oboe / Saxophone
+21 61 1B 07 84 8F 10 07  # 7: Trumpet
+37 32 CA 02 66 64 47 29  # 8: Wow Bell / Street Organ
+41 41 07 03 F5 70 51 F5  # 9: Electric Guitar / Synth Brass
+36 01 5E 07 F2 F3 F7 F7  # A: Vibes / Electric Piano
+00 00 18 06 C5 F3 20 F2  # B: Bass
+17 81 25 07 F7 F3 21 F7  # C: Vibraphone
+35 64 00 00 FF F3 77 F5  # D: Vibrato Bell / Chime
+11 31 00 07 DD F3 FF FB  # E: Click Sine / Tom Tom II
+3A 21 00 07 95 84 0F F5  # F: Noise and Tone
+01 01 18 0F DF F8 6A 6D  # R: Bass Drum
+01 01 00 00 C8 D8 A7 48  # R: High-Hat(M) / Snare Drum(C)
+05 01 00 00 F8 AA 59 55  # R: Tom-tom(M) / Top Cymbal(C)
+
+# Bank 3: VRC7 (DS1001). May 15 2015 Hubert Lamontagne & David Viens
+03 21 05 06 C8 81 42 27  # 1: Buzzy Bell
+13 41 14 0D F8 F7 23 12  # 2: Guitar
+31 11 08 08 FA C2 28 22  # 3: Wurly
+31 61 0C 07 F8 64 60 27  # 4: Flute
+22 21 1E 06 FF 76 00 28  # 5: Clarinet
+02 01 05 00 AC F2 03 02  # 6: Synth
+21 61 1D 07 82 8F 10 07  # 7: Trumpet
+23 21 22 17 FF 73 00 17  # 8: Organ
+15 11 25 00 41 71 00 F1  # 9: Bells
+95 01 10 0F B8 AA 50 02  # A: Vibes
+17 C1 5E 07 FA F8 22 12  # B: Vibraphone
+71 23 11 06 65 74 10 16  # C: Tutti
+01 02 D3 05 F3 92 83 F2  # D: Fretless
+61 63 0C 00 A4 FF 30 06  # E: Synth Bass
+21 62 0D 00 A1 FF 50 08  # F: Sweep
+01 01 18 0F DF F8 6A 6D  # R: Bass Drum
+01 01 00 00 C8 D8 A7 48  # R: High-Hat(M) / Snare Drum(C)
+05 01 00 00 F8 AA 59 55  # R: Tom-tom(M) / Top Cymbal(C)
