@@ -455,9 +455,7 @@ private:
         int calc_slot_car(int lfo_pm, int lfo_am, int fm);
         int calc_slot_mod(int lfo_pm, int lfo_am);
         int calc_slot_tom(int lfo_pm, int lfo_am);
-        int calc_slot_snare(int lfo_pm, int lfo_am, int whiteNoise);
-        int calc_slot_cym(int lfo_am, int a, int b);
-        int calc_slot_hat(int lfo_am, int a, int b, int whiteNoise);
+        int calc_slot_rhythm(int lfo_am, unsigned pgout);
 
         void updateAll(unsigned freq);
         void updatePG(unsigned freq);
@@ -516,11 +514,7 @@ private:
     unsigned pm_phase;
     unsigned am_phase;
 
-    int      noise_seed;
-    unsigned noiseA_phase;
-    unsigned noiseB_phase;
-    unsigned noiseA_dPhase;
-    unsigned noiseB_dPhase;
+    unsigned noisePoly;
 
     uint8_t status;
     uint8_t statusMask;

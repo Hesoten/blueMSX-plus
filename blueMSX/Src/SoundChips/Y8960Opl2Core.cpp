@@ -31,7 +31,9 @@
 **
 ** The cartridge's OPL2EX is a YM3812 with ADPCM-B bolted on, and its register
 ** map is the Y8950's, so this is the Y8950 port with four changes: the four
-** waveforms a YM3812 has and a Y8950 does not, the MSX-AUDIO parts the
+** waveforms a YM3812 has and a Y8950 does not, on every slot including the
+** rhythm sounds (HH, SD and CYM are built on the phases the hardware gives
+** them, which the port did not have), the MSX-AUDIO parts the
 ** cartridge does not carry (keyboard connector, 13 bit DAC, periphery), a
 ** sample RAM that lives outside the circuit, where the block owns it, and a
 ** pan per channel (F6h-FEh) and for the ADPCM (FFh).
@@ -129,14 +131,6 @@ static constexpr std::array<int8_t, LFO_AM_TAB_ELEMENTS> lfo_am_table = {
     10,10,10,10, 9,9,9,9, 8,8,8,8, 7,7,7,7, 6,6,6,6, 5,5,5,5,
     4,4,4,4, 3,3,3,3, 2,2,2,2, 1,1,1,1
 };
-
-static constexpr unsigned DB_POS(int x) {
-    int result = int(x / DB_STEP);
-    return unsigned(result);
-}
-static constexpr unsigned DB_NEG(int x) {
-    return 2 * DB_MUTE + DB_POS(x);
-}
 
 /* Tables that need runtime math (std::log/pow/sin/exp2/log10) cannot be
 ** constexpr until C++26 -- materialise them once at static-init time. */
@@ -410,9 +404,7 @@ Y8950::Y8950(const std::string& name_, const DeviceConfig& config,
     , timer2(EmuTimer::createOPL3_2(motherBoard.getScheduler(), *this))
     , irq(irqMask)
     , pm_phase(0), am_phase(0)
-    , noise_seed(0xffff)
-    , noiseA_phase(0), noiseB_phase(0)
-    , noiseA_dPhase(0), noiseB_dPhase(0)
+    , noisePoly(1)
     , status(0), statusMask(0)
     , rythm_mode(false), am_mode(false), pm_mode(false)
     , enabled(true)
@@ -440,11 +432,7 @@ void Y8950::reset(EmuTime time)
     pm_mode = false;
     pm_phase = 0;
     am_phase = 0;
-    noise_seed = 0xffff;
-    noiseA_phase = 0;
-    noiseB_phase = 0;
-    noiseA_dPhase = 0;
-    noiseB_dPhase = 0;
+    noisePoly = 1;
 
     updateStream(time);
     std::fill(reg.begin(), reg.end(), uint8_t(0));
@@ -615,29 +603,32 @@ int Y8950::Slot::calc_slot_tom(int lfo_pm, int lfo_am)
 {
     unsigned egOut = calc_envelope(lfo_am);
     unsigned pgout = calc_phase(lfo_pm);
-    return dB2LinTab[sinTable[pgout & PG_MASK] + egOut];
+    return dB2LinTab[waveTables[wave][pgout & PG_MASK] + egOut];
 }
 
-int Y8950::Slot::calc_slot_snare(int lfo_pm, int lfo_am, int whiteNoise)
+/* HH, SD and CYM: the phase is not the slot's own but one built in
+** generateChannels(); the slot's waveform is read at it like at any other. */
+int Y8950::Slot::calc_slot_rhythm(int lfo_am, unsigned pgout)
 {
     unsigned egOut = calc_envelope(lfo_am);
-    unsigned pgout = calc_phase(lfo_pm);
-    unsigned tmp = (pgout & (1 << (PG_BITS - 1))) ? 0 : 2 * DB_MUTE;
-    return (dB2LinTab[tmp + egOut] + dB2LinTab[egOut + unsigned(whiteNoise)]) >> 1;
+    return dB2LinTab[waveTables[wave][pgout & PG_MASK] + egOut];
 }
 
-int Y8950::Slot::calc_slot_cym(int lfo_am, int a, int b)
+/* The noise register of the Y8960's RTL (jtopl_noise.v): 23 bits, shifted
+** once per slot. */
+static constexpr unsigned NOISE_MASK = (1u << 23) - 1;
+
+static constexpr unsigned noiseBit(unsigned p)
 {
-    unsigned egOut = calc_envelope(lfo_am);
-    return (dB2LinTab[egOut + unsigned(a)] + dB2LinTab[egOut + unsigned(b)]) >> 1;
+    return ((p >> 22) ^ (p >> 9) ^ (p >> 8) ^ p) & 1;
 }
 
-int Y8950::Slot::calc_slot_hat(int lfo_am, int a, int b, int whiteNoise)
+static constexpr unsigned noiseStep(unsigned p, int n)
 {
-    unsigned egOut = calc_envelope(lfo_am);
-    return (dB2LinTab[egOut + unsigned(whiteNoise)] +
-            dB2LinTab[egOut + unsigned(a)] +
-            dB2LinTab[egOut + unsigned(b)]) >> 2;
+    for (int i = 0; i < n; ++i) {
+        p = p ? (((p << 1) | noiseBit(p)) & NOISE_MASK) : 1;
+    }
+    return p;
 }
 
 float Y8950::getAmplificationFactorImpl() const
@@ -688,20 +679,13 @@ void Y8950::generateChannels(std::span<float*> bufs, unsigned num)
         pm_phase = (pm_phase + PM_DPHASE) & (PM_DP_WIDTH - 1);
         int lfo_pm = pmTable[pm_mode ? 1 : 0][pm_phase >> (PM_DP_BITS - PM_PG_BITS)];
 
-        if (noise_seed & 1) {
-            noise_seed ^= 0x24000;
-        }
-        noise_seed >>= 1;
-        int whiteNoise = noise_seed & 1 ? int(DB_POS(6)) : int(DB_NEG(6));
-
-        noiseA_phase += noiseA_dPhase;
-        noiseA_phase &= (0x40 << 11) - 1;
-        if ((noiseA_phase >> 11) == 0x3f) noiseA_phase = 0;
-        int noiseA = noiseA_phase & (0x03 << 11) ? int(DB_POS(6)) : int(DB_NEG(6));
-
-        noiseB_phase += noiseB_dPhase;
-        noiseB_phase &= (0x10 << 11) - 1;
-        int noiseB = noiseB_phase & (0x0A << 11) ? int(DB_POS(6)) : int(DB_NEG(6));
+        /* 18 slots a sample. HH reads the noise in slot cycle 14 and SD in 17,
+        ** the cycles jtopl_pg.v gives them. */
+        noisePoly = noiseStep(noisePoly, 14);
+        unsigned hhNoise = noiseBit(noisePoly);
+        noisePoly = noiseStep(noisePoly, 3);
+        unsigned sdNoise = noiseBit(noisePoly);
+        noisePoly = noiseStep(noisePoly, 1);
 
         int upper = rythm_mode ? 6 : 9;
         for (int i = 0; i < upper; ++i) {
@@ -714,8 +698,19 @@ void Y8950::generateChannels(std::span<float*> bufs, unsigned num)
             }
         }
         if (rythm_mode) {
-            (void)ch[7].slot[MOD].calc_phase(lfo_pm);
-            (void)ch[8].slot[CAR].calc_phase(lfo_pm);
+            /* HH, SD and CYM play phases built from bits of the HH and CYM
+            ** phase generators and the noise, as in jtopl_pg.v and
+            ** jtopl_pg_rhy.v (Nuked-OPL3 builds the same). The RTL latches the
+            ** generators' bits a slot or a sample apart; here all are taken
+            ** from this sample. */
+            unsigned hh = ch[7].slot[MOD].calc_phase(lfo_pm);
+            unsigned tc = ch[8].slot[CAR].calc_phase(lfo_pm);
+            auto bit = [](unsigned v, int n) { return (v >> n) & 1; };
+            unsigned rmXor = (bit(hh, 2) ^ bit(hh, 7)) | (bit(hh, 3) ^ bit(tc, 5)) |
+                             (bit(tc, 3) ^ bit(tc, 5));
+            unsigned hhPhase = (rmXor << 9) | ((rmXor ^ hhNoise) ? 0xD0 : 0x34);
+            unsigned sdPhase = (bit(hh, 8) << 9) | ((bit(hh, 8) ^ sdNoise) << 8);
+            unsigned tcPhase = (rmXor << 9) | 0x80;
 
             /* The rhythm sounds are twice the melody, as in the Y8950 this was
             ** ported from, the other OPL emulators and the JTOPL core of the
@@ -725,13 +720,13 @@ void Y8950::generateChannels(std::span<float*> bufs, unsigned num)
                         ch[6].slot[MOD].calc_slot_mod(lfo_pm, lfo_am)))
                 : 0.0f;
             bufs[10][sample] += (ch[7].slot[CAR].isActive())
-                ? float(2 * ch[7].slot[CAR].calc_slot_snare(lfo_pm, lfo_am, whiteNoise))
+                ? float(2 * ch[7].slot[CAR].calc_slot_rhythm(lfo_am, sdPhase))
                 : 0.0f;
             bufs[11][sample] += (ch[8].slot[CAR].isActive())
-                ? float(2 * ch[8].slot[CAR].calc_slot_cym(lfo_am, noiseA, noiseB))
+                ? float(2 * ch[8].slot[CAR].calc_slot_rhythm(lfo_am, tcPhase))
                 : 0.0f;
             bufs[12][sample] += (ch[7].slot[MOD].isActive())
-                ? float(2 * ch[7].slot[MOD].calc_slot_hat(lfo_am, noiseA, noiseB, whiteNoise))
+                ? float(2 * ch[7].slot[MOD].calc_slot_rhythm(lfo_am, hhPhase))
                 : 0.0f;
             bufs[13][sample] += (ch[8].slot[MOD].isActive())
                 ? float(2 * ch[8].slot[MOD].calc_slot_tom(lfo_pm, lfo_am))
@@ -946,12 +941,6 @@ void Y8950::writeReg(uint8_t rg, uint8_t data, EmuTime time)
             freq = reg[rg - 0x10] | ((data & 0x1F) << 8);
         }
         ch[c].setFreq(freq);
-        unsigned fNum  = freq % 1024;
-        unsigned block = freq / 1024;
-        switch (c) {
-        case 7: noiseA_dPhase = fNum << block; break;
-        case 8: noiseB_dPhase = fNum << block; break;
-        }
         ch[c].slot[CAR].updateAll(freq);
         ch[c].slot[MOD].updateAll(freq);
         reg[rg] = data;
@@ -1098,11 +1087,7 @@ void Y8950::blueMsxSaveStateImpl(SaveState* s)
     BMSAVE_BUF(s, "reg", reg.data(), reg.size());
     BMSAVE_INT(s, "pm_phase",     pm_phase);
     BMSAVE_INT(s, "am_phase",     am_phase);
-    BMSAVE_INT(s, "noise_seed",   noise_seed);
-    BMSAVE_INT(s, "noiseA_phase", noiseA_phase);
-    BMSAVE_INT(s, "noiseB_phase", noiseB_phase);
-    BMSAVE_INT(s, "noiseA_dPhase", noiseA_dPhase);
-    BMSAVE_INT(s, "noiseB_dPhase", noiseB_dPhase);
+    BMSAVE_INT(s, "noisePoly",    noisePoly);
     BMSAVE_INT(s, "status",       status);
     BMSAVE_INT(s, "statusMask",   statusMask);
     BMSAVE_INT(s, "rythm_mode",   rythm_mode);
@@ -1142,11 +1127,8 @@ bool Y8950::blueMsxLoadStateImpl(SaveState* s)
     updatePanGains();
     pm_phase     =        BMLOAD_INT(s, "pm_phase",      pm_phase);
     am_phase     =        BMLOAD_INT(s, "am_phase",      am_phase);
-    noise_seed   = (int)  BMLOAD_INT(s, "noise_seed",    noise_seed);
-    noiseA_phase =        BMLOAD_INT(s, "noiseA_phase",  noiseA_phase);
-    noiseB_phase =        BMLOAD_INT(s, "noiseB_phase",  noiseB_phase);
-    noiseA_dPhase =       BMLOAD_INT(s, "noiseA_dPhase", noiseA_dPhase);
-    noiseB_dPhase =       BMLOAD_INT(s, "noiseB_dPhase", noiseB_dPhase);
+    noisePoly    =        BMLOAD_INT(s, "noisePoly",     noisePoly) & NOISE_MASK;
+    if (noisePoly == 0) noisePoly = 1;
     status       = (uint8_t)BMLOAD_INT(s, "status",       status);
     statusMask   = (uint8_t)BMLOAD_INT(s, "statusMask",   statusMask);
     rythm_mode   = (bool) BMLOAD_INT(s, "rythm_mode",    rythm_mode);
