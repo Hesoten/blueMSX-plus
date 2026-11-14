@@ -608,6 +608,7 @@ void ym2608Reset(YM2608* ym2608)
 
     for (i = 0; i < 2; i++) {
         ym2608->timerActive[i] = 0;
+        ym2608->timerTimeout[i] = 0;
         boardTimerRemove(ym2608->timer[i]);
     }
     ym2608->busyEnd     = boardSystemTime();
