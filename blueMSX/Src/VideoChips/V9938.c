@@ -861,7 +861,7 @@ static void SrchEngine(VdpCmdState* vdpCmd)
         break; \
     } \
     if ((SX+=TX) & MX) { \
-        vdpCmd->status&=~VDPSTATUS_BO; /* Border not detected */ \
+        /* BD is left as it was; only a S#9 read clears it. */ \
         break; \
     } \
     cnt-=delta; \
