@@ -6,8 +6,8 @@
 ** Modified 2026 by Hesoten for blueMSX+ fork.
 ** See https://github.com/Hesoten/blueMSX-plus for change history.
 **
-** The chip itself is ymfm (BSD-3-Clause, Aaron Giles), kept unmodified
-** under ymfm/. This file only connects it to the board and the mixer.
+** The chip itself is ymfm (BSD-3-Clause, Aaron Giles), at the version its
+** ymfm/README.md names. This file only connects it to the board and mixer.
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
