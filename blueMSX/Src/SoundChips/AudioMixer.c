@@ -376,8 +376,8 @@ static void meterPushBlock(Mixer* mixer)
     int i;
 
     memset(block->type, 0, sizeof(block->type));
-    /* No chip runs while the turboR PCM mutes the mixer: show silence and
-    ** take the offsets afresh once it is back, dropping the block across. */
+    /* The turboR PCM mute silences the machine: show silence and take the
+    ** offsets afresh once it is back, dropping the block across. */
     if (!mixer->enable) {
         for (i = 0; i < mixer->channelCount; i++) {
             MixerChannel* channel = mixer->channels + i;
@@ -707,29 +707,6 @@ void mixerSync(Mixer* mixer)
 
     /* Output is always interleaved stereo; mono is dual-mono via
     ** recalculateChannelVolume, so no driver tear-down on toggle. */
-    if (!mixer->enable) {
-        while (count--) {
-            buffer[mixer->index++] = 0;
-            buffer[mixer->index++] = 0;
-
-            meterCountFrame(mixer);
-            if (mixer->index == mixer->fragmentSize) {
-                if (mixer->writeCallback != NULL) {
-                    mixer->writeCallback(mixer->writeRef, buffer, mixer->fragmentSize);
-                }
-                mixer->meterDelivered = mixer->meterFrames;
-                if (mixer->tapCallback != NULL) {
-                    mixer->tapCallback(mixer->tapRef, buffer, mixer->fragmentSize);
-                }
-                if (mixer->logging) {
-                    fwrite(buffer, 2 * mixer->fragmentSize, 1, mixer->file);
-                }
-                mixer->index = 0;
-            }
-        }
-        return;
-    }
-    
     for (i = 0; i < mixer->channelCount; i++) {
         if (mixer->channels[i].updateCallback != NULL) {
             chBuff[i] = mixer->channels[i].updateCallback(mixer->channels[i].ref, count);
@@ -781,7 +758,8 @@ void mixerSync(Mixer* mixer)
         mixer->meterSum[0]    += left;
         mixer->meterSum[1]    += right;
 
-        if (!mixer->masterEnable) {
+        /* The turboR PCM mute silences the output; the chips run on. */
+        if (!mixer->masterEnable || !mixer->enable) {
             left  = 0;
             right = 0;
         }

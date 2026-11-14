@@ -94,7 +94,7 @@ void FmoplBackend::onEosTimer(void* ref, UInt32 /*time*/)
     mixerSync(boardGetMixer());
     if (self->deliverEos()) return;
     if (!d->flag) return;
-    /* No progress means the audio is not being rendered (mixer off):
+    /* No progress means nothing was rendered since the timer was set:
     ** look again a mixer period later instead of every chip step. */
     if (d->now_addr != self->eosAddr || d->now_step != self->eosStep) {
         self->armEos();
