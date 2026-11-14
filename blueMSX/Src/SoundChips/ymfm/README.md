@@ -28,15 +28,22 @@ compiled but not used. To update, copy the same files from a newer commit
 and change the commit above; once the pull request is part of that commit,
 the note about it goes.
 
-The blueMSX side is `../YM2608.cpp`. Three things there depend on ymfm's
+The blueMSX side is `../YM2608.cpp`. Four things there depend on ymfm's
 insides:
 
 - It clocks the FM and the SSG part of the chip separately, makes up for
   the behaviour listed below, and shows the registers to the debugger,
-  through protected members of `ym2608` (`clock_fm_and_adpcm`,
-  `update_prescale`, `m_address`, `m_last_fm`, `m_ssg`, `m_fm`, `m_adpcm_b`,
-  `m_irq_enable`, `m_flag_control`), so an update that hides them stops the
-  build there.
+  through protected members of `ym2608` (`update_prescale`, `m_address`,
+  `m_last_fm`, `m_ssg`, `m_fm`, `m_adpcm_a`, `m_adpcm_b`, `m_irq_enable`,
+  `m_flag_control`), so an update that hides them stops the build there.
+- The ADPCM-B the CPU sees, `m_adpcm_b`, runs on board time. What is heard
+  comes from a second `adpcm_b_engine` that `Ym2608Chip::clockFm` clocks in
+  a copy of `clock_fm_and_adpcm`, and that `Ym2608Chip::writeHeard` gives
+  the writes `write_data_hi` passes to `m_adpcm_b`. An update that changes
+  either function has to be carried over there. The data bytes reach that
+  copy on the rule that, inside `clock()`, BRDY rises from 0 to 1 only when
+  CPU-driven playback consumes a data byte; an update that changes this
+  changes the sound without stopping the build.
 - It makes up for four things this ymfm does otherwise than the chip, in
   `Ym2608Chip`: `reset()` leaves the prescaler and the IRQ mask as they
   were; ADPCM-B flags reach the IRQ line only when the upper status is
