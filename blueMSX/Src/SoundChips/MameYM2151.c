@@ -67,6 +67,8 @@ typedef struct
 struct MameYm2151
 {
     void* ref;
+    YM2151Callbacks cb;
+    const char* stateSection;
 
 	YM2151Operator	oper[32];			/* the 32 operators */
 
@@ -136,12 +138,6 @@ struct MameYm2151
     signed int m2,c1,c2; /* Phase Modulation input for operators 2,3,4 */
     signed int mem;		/* one sample delay memory */
 };
-
-extern void	ym2151TimerSet(void* ref, int timer, int count);
-extern void	ym2151TimerStart(void* ref, int timer, int start);
-extern void	ym2151ClearIrq(void* ref, int irq);
-extern void	ym2151SetIrq(void* ref, int irq);
-extern void ym2151WritePortCallback(void* ref, UInt32 port, UInt8 value);
 
 #define FREQ_SH			16  /* 16.16 fixed point (frequency calculations) */
 #define EG_SH			16  /* 16.16 fixed point (envelope generator timing) */
@@ -677,7 +673,7 @@ void YM2151TimerCallback(MameYm2151 *chip, int timer)
     if (timer == 0) {
         if (chip->irq_enable & 0x04)
 	    {
-            if ((chip->status & 3) == 0) ym2151SetIrq(chip->ref, 1);
+            if ((chip->status & 3) == 0) chip->cb.setIrq(chip->ref, 1);
 		    chip->status |= 1;
 	    }
 	    if (chip->irq_enable & 0x80)
@@ -686,7 +682,7 @@ void YM2151TimerCallback(MameYm2151 *chip, int timer)
     if (timer == 1) {
 	    if (chip->irq_enable & 0x08)
 	    {
-            if ((chip->status & 3) == 0) ym2151SetIrq(chip->ref, 2);
+            if ((chip->status & 3) == 0) chip->cb.setIrq(chip->ref, 2);
 		    chip->status |= 2;
 	    }
     }
@@ -905,17 +901,17 @@ void YM2151WriteReg(MameYm2151 *chip, int r, int v)
         case 0x10:
             chip->timer_A_val &= 0x03;
             chip->timer_A_val |= v << 2;
-			ym2151TimerSet(chip->ref, 0, 1 * (1024 - chip->timer_A_val));
+			chip->cb.timerSet(chip->ref, 0, 1 * (1024 - chip->timer_A_val));
             break;
 
         case 0x11:
             chip->timer_A_val &= 0x03fc;
             chip->timer_A_val |= v & 3;
-			ym2151TimerSet(chip->ref, 0, 1 * (1024 - chip->timer_A_val));
+			chip->cb.timerSet(chip->ref, 0, 1 * (1024 - chip->timer_A_val));
             break;
 
         case 0x12:
-			ym2151TimerSet(chip->ref, 1, 16 * (256 - v));
+			chip->cb.timerSet(chip->ref, 1, 16 * (256 - v));
             break;
 
         case 0x14:	/* CSM, irq flag reset, irq enable, timer start/stop */
@@ -925,17 +921,17 @@ void YM2151WriteReg(MameYm2151 *chip, int r, int v)
 			if (v&0x10)	/* reset timer A irq flag */
 			{
 				chip->status &= ~1;
-                if ((chip->status & 3) == 0) ym2151ClearIrq(chip->ref, 1);
+                if ((chip->status & 3) == 0) chip->cb.clearIrq(chip->ref, 1);
 			}
 
 			if (v&0x20)	/* reset timer B irq flag */
 			{
 				chip->status &= ~2;
-                if ((chip->status & 3) == 0) ym2151ClearIrq(chip->ref, 2);
+                if ((chip->status & 3) == 0) chip->cb.clearIrq(chip->ref, 2);
 			}
 
-			ym2151TimerStart(chip->ref, 1, v & 2);
-			ym2151TimerStart(chip->ref, 0, v & 1);
+			chip->cb.timerStart(chip->ref, 1, v & 2);
+			chip->cb.timerStart(chip->ref, 0, v & 1);
 			break;
 
 		case 0x18:	/* LFO frequency */
@@ -956,7 +952,7 @@ void YM2151WriteReg(MameYm2151 *chip, int r, int v)
 			chip->ct = v >> 6;
 			chip->lfo_wsel = v & 3;
 
-            ym2151WritePortCallback(chip->ref, 0 , chip->ct);
+            chip->cb.writePort(chip->ref, 0 , chip->ct);
 			break;
 
 		default:
@@ -1134,11 +1130,15 @@ static void ym2151_state_save_register( MameYm2151 *chip )
 {
 }
 
-MameYm2151* YM2151Create(void* ref, int clock, int rate)
+MameYm2151* YM2151Create(void* ref, const YM2151Callbacks* callbacks,
+                         const char* stateSection, int clock, int rate)
 {
     MameYm2151 *chip = (MameYm2151 *)calloc(1, sizeof(MameYm2151));
 
     chip->ref = ref;
+    /* Set before YM2151ResetChip below, which already calls timerStart. */
+    chip->cb = *callbacks;
+    chip->stateSection = stateSection;
 
 	init_tables();
 
@@ -1191,8 +1191,8 @@ void YM2151ResetChip(MameYm2151 *chip)
 	chip->test= 0;
 
 	chip->irq_enable = 0;
-	ym2151TimerStart(chip->ref, 0, 0);
-	ym2151TimerStart(chip->ref, 1, 0);
+	chip->cb.timerStart(chip->ref, 0, 0);
+	chip->cb.timerStart(chip->ref, 1, 0);
 
 	chip->noise     = 0;
 	chip->noise_rng = 0;
@@ -1902,7 +1902,7 @@ void YM2151UpdateOne(MameYm2151* chip, Int16* bufL, Int16* bufR, int length)
 
 void YM2151LoadState(MameYm2151* chip)
 {
-    SaveState* state = saveStateOpenForRead("ym2151_core");
+    SaveState* state = saveStateOpenForRead(chip->stateSection);
     char tag[32];
     int i;
     
@@ -2066,7 +2066,7 @@ void YM2151LoadState(MameYm2151* chip)
 
 void YM2151SaveState(MameYm2151* chip)
 {
-    SaveState* state = saveStateOpenForWrite("ym2151_core");
+    SaveState* state = saveStateOpenForWrite(chip->stateSection);
     char tag[32];
     int i;
 
