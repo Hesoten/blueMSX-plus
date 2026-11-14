@@ -446,6 +446,10 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->sound.mixerChannel[MIXER_CHANNEL_OPNA_SSG].pan = 50;
     properties->sound.mixerChannel[MIXER_CHANNEL_OPNA_SSG].volume = 95;
 
+    properties->sound.mixerChannel[MIXER_CHANNEL_Y8960].enable = 1;
+    properties->sound.mixerChannel[MIXER_CHANNEL_Y8960].pan = 50;
+    properties->sound.mixerChannel[MIXER_CHANNEL_Y8960].volume = 90;
+
     properties->sound.mixerChannel[MIXER_CHANNEL_KEYBOARD].enable = 1;
     properties->sound.mixerChannel[MIXER_CHANNEL_KEYBOARD].pan = 55;
     properties->sound.mixerChannel[MIXER_CHANNEL_KEYBOARD].volume = 65;
@@ -904,6 +908,9 @@ static void propLoad(Properties* properties)
     GET_ENUM_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_OPNA_SSG, enable, BoolPair);
     GET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_OPNA_SSG, pan);
     GET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_OPNA_SSG, volume);
+    GET_ENUM_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_Y8960, enable, BoolPair);
+    GET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_Y8960, pan);
+    GET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_Y8960, volume);
     
     GET_ENUM_VALUE_2(propFile, joystick, disablePOV0Dpad, BoolPair);
     
@@ -1331,6 +1338,9 @@ void propSave(Properties* properties)
     SET_ENUM_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_OPNA_SSG, enable, YesNoPair);
     SET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_OPNA_SSG, pan);
     SET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_OPNA_SSG, volume);
+    SET_ENUM_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_Y8960, enable, YesNoPair);
+    SET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_Y8960, pan);
+    SET_INT_VALUE_2s1(propFile, sound, mixerChannel, MIXER_CHANNEL_Y8960, volume);
     
     SET_ENUM_VALUE_2(propFile, joystick, disablePOV0Dpad, YesNoPair);
     
