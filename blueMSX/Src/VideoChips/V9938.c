@@ -1032,7 +1032,8 @@ static void LfmmEngine(VdpCmdState* vdpCmd)
     int cnt = vdpCmd->VdpOpsCnt;
 
     while (cnt > 0) {
-        UInt8 bits = *(vdpCmd->vramRead + (vdpCmd->fontAddress & vdpCmd->maskRead));
+        /* The font pointer is a CPU-view address, so it is interleaved like the CPU's. */
+        UInt8 bits = *(vdpCmd->vramRead + (VDP_ILVA(vdpCmd, vdpCmd->fontAddress) & vdpCmd->maskRead));
         int row = vdpCmd->DY + TY * (NY - ANX);
         int i;
 
