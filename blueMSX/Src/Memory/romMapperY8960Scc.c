@@ -5,6 +5,9 @@
 **
 ** Copyright (C) 2026 madscient
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -484,8 +487,16 @@ static void ejectCart(RomMapperY8960Scc* rm)
 int romMapperY8960CartCreate(const char* filename, UInt8* romData,
                              int size, int slot, int sslot)
 {
-    int success = sccCreate(filename, romData, size, slot, sslot,
-                            Y8960_START_PAGE, ejectCart);
+    int success;
+
+    /* Every block is a single instance on fixed ports, so a second card is
+    ** refused. */
+    if (theY8960Scc != NULL) {
+        return 0;
+    }
+
+    success = sccCreate(filename, romData, size, slot, sslot,
+                        Y8960_START_PAGE, ejectCart);
 
     success &= romMapperY8960OpllexCreate();
     success &= romMapperY8960Opl2exCreate();

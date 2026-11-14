@@ -2113,10 +2113,13 @@ int menuCartClashRefused(Properties* pProperties, int cartNo, int romType)
     int clash = romType == ROM_V9968CART ? (other == ROM_GFX9000 || other == ROM_VIDEO9000) && (stopped || v9990IsPresent()) :
                 (romType == ROM_GFX9000 || romType == ROM_VIDEO9000) && other == ROM_V9968CART &&
                 (stopped || romMapperV9968CartIsPresent());
-    if (clash) {
-        MessageBoxU(getMainHwnd(), langErrorCartV9968WithV9990(), langErrorTitle(), MB_OK | MB_ICONERROR);
+    /* A second Y8960 is refused by name alone: left in its slot, it could
+    ** take the device from the first one when the machine is rebuilt. */
+    int twin = romType == ROM_Y8960 && other == ROM_Y8960;
+    if (clash || twin) {
+        MessageBoxU(getMainHwnd(), twin ? langErrorCartY8960Twice() : langErrorCartV9968WithV9990(), langErrorTitle(), MB_OK | MB_ICONERROR);
     }
-    return clash;
+    return clash || twin;
 }
 
 int menuCommand(Properties* pProperties, int command) 
@@ -2233,7 +2236,9 @@ int menuCommand(Properties* pProperties, int command)
             insertCartridge(pProperties, i, CARTNAME_SCCPLUS, NULL, ROM_SCCPLUS, 0);
             return 1;
         case ID_FILE_CART_Y8960:
-            insertCartridge(pProperties, i, CARTNAME_Y8960, NULL, ROM_Y8960, 0);
+            if (!menuCartClashRefused(pProperties, i, ROM_Y8960)) {
+                insertCartridge(pProperties, i, CARTNAME_Y8960, NULL, ROM_Y8960, 0);
+            }
             return 1;
         case ID_FILE_CART_JOYREXPSG:
             insertCartridge(pProperties, i, CARTNAME_JOYREXPSG, NULL, ROM_JOYREXPSG, 0);

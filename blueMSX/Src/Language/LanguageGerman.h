@@ -86,6 +86,7 @@ void langInitGerman(LanguageStrings* ls)
     ls->errorNoCasInZip          = "Konnte kein .cas-File im Zip-Archiv finden.";
     ls->errorUnknownFileType     = "Die Datei kann nicht geöffnet werden: unbekannter Dateityp.";
     ls->errorCartV9968WithV9990 = "Die V9968-Cartridge kann nicht zusammen mit einer GFX9000 oder Video9000 eingesteckt werden, da beide die Bildausgabe übernehmen. Entfernen Sie zuerst die andere Cartridge.";
+    ls->errorCartY8960Twice     = "Die Y8960-Cartridge kann nicht in beide Steckplätze gleichzeitig eingesteckt werden, da beide dieselben I/O-Ports belegen würden. Entfernen Sie zuerst die andere Cartridge.";
     ls->errorDirDiskTooLarge    = "%d Datei(en) passten nicht auf die Disk und wurden ausgelassen.";
     ls->errorDirDiskOnline      = "%d nur online verfügbare Datei(en) wurden ausgelassen. Machen Sie sie auf diesem Gerät verfügbar, um sie einzubeziehen.";
     ls->errorDirDiskSubdirs     = "%d Directorys wurden ausgelassen, weil das gewählte Format sie nicht aufnehmen kann.";

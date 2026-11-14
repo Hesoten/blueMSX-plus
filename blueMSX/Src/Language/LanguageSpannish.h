@@ -86,6 +86,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->errorNoCasInZip         = "No hay archivo .cas en el archivo zip.";
     ls->errorUnknownFileType    = "No se puede abrir el archivo: tipo de archivo desconocido.";
     ls->errorCartV9968WithV9990 = "El cartucho V9968 no se puede insertar junto con un GFX9000 o un Video9000, ya que ambos toman el control de la pantalla. Retire primero el otro cartucho.";
+    ls->errorCartY8960Twice     = "El cartucho Y8960 no se puede insertar en ambas ranuras a la vez, ya que ambos usarían los mismos puertos de E/S. Retire primero el otro cartucho.";
     ls->errorDirDiskTooLarge    = "%d archivo(s) no cabían en el disco y se han omitido.";
     ls->errorDirDiskOnline      = "Se han omitido %d archivo(s) disponibles solo en línea. Haga que estén disponibles en este dispositivo para incluirlos.";
     ls->errorDirDiskSubdirs     = "Se han omitido %d directorio(s) porque el formato elegido no los admite.";

@@ -87,6 +87,7 @@ Windows 11 向けに UI や音声周りを中心にモダン化しています�
   - Nextor: C-BIOS FDD 版マシン構成フォルダの `LICENSE-Nextor.md`
   - TC8566AF FDC ドライバ: C-BIOS FDD 版マシン構成フォルダの `LICENSE-TC8566AF.txt`
 - 「漢字ROM image file for msx emulaters」のライセンスは `Machines/Shared Roms/LICENSE-KANJI.txt` を参照してください。
+- Y8960 カートリッジのプリセット音色 (`y8960_opll_voices.bin`) のライセンスは `Machines/Shared Roms/LICENSE-y8960_opll_voices.txt` を参照してください。
 
 
 ## インストール方法
