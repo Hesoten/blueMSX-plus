@@ -1402,6 +1402,7 @@ int boardRun(Machine* machine,
     /* Stash boardSysTime64 across msxCreate / boardInfo.loadState since
     ** boardInit clobbers it; reapply after all init runs. */
     UInt64 stashedSysTime64 = 0;
+    UInt32 stashedInt = 0;
 
     syncToRealClock = syncCallback;
     snapshotTaken   = 0;
@@ -1434,6 +1435,7 @@ int boardRun(Machine* machine,
 
                 boardType = boardLoadState();
                 stashedSysTime64 = boardSysTime64;
+                stashedInt = (UInt32)pendingInt;
 
                 machineLoadState(boardMachine);
             }
@@ -1531,6 +1533,13 @@ int boardRun(Machine* machine,
     boardCaptureInit();
 
     if (success && loadState) {
+        /* The CPU line comes back as saved, so the mask has to match it. Units take
+        ** their bits again in their loads, and a chip switched off now could never lower
+        ** its bit (MSX-AUDIO off also leaves its MIDI status port unmapped). */
+        stashedInt &= ~BOARD_INT_UNIT_BITS;
+        if (!boardGetY8950Enable())     stashedInt &= ~(BOARD_INT_Y8950 | BOARD_INT_MSX_AUDIO_MIDI);
+        if (!boardGetMoonsoundEnable()) stashedInt &= ~BOARD_INT_YMF262;
+        pendingInt = (int)stashedInt;
         boardInfo.loadState();
         videoManagerApplyLoadedState();
         /* Re-apply the stashed boardSysTime64 (boardInit clobbered it). The
