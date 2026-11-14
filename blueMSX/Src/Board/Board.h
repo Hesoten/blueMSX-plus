@@ -196,7 +196,7 @@ UInt32 boardGetInt(UInt32 irq);
 
 /* Bits of device kinds that can exist more than once: each unit holds its own
 ** request and the bit stays set while any unit holds it. Plain set/clear never take these. */
-#define BOARD_INT_UNIT_BITS (BOARD_INT_YM2151)
+#define BOARD_INT_UNIT_BITS (BOARD_INT_YM2151 | BOARD_INT_YM2148)
 void   boardSetIntUnit(UInt32 irq, const void* unit);
 void   boardClearIntUnit(UInt32 irq, const void* unit);
 
