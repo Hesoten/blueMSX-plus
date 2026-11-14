@@ -27,6 +27,8 @@
 #include "ControlSlots.h"
 #include "ControlStopLog.h"
 #include "ControlSymbol.h"
+#include "Board.h"
+#include "R800Debug.h"
 #include "Debugger.h"
 #include "Emulator.h"
 #include "VDP.h"
@@ -110,6 +112,39 @@ static void statusPcSymbol(CtrlText* text, Int32 pc)
     }
 }
 
+/* The CPU's interrupt lines and the board's pending requests, side by side; needs a view. */
+static void statusInt(CtrlText* text)
+{
+    UInt32 pending = boardGetInt(~(UInt32)0);
+    const char* separator = "; board requests: ";
+    const char* name;
+    UInt32 bit;
+    int units;
+
+    ctrlTextAdd(text, "%-8s /INT %s", "int:", r800DebugIntLow() ? "low" : "high");
+    if (r800DebugNmiLow()) {
+        ctrlTextAdd(text, ", /NMI low");
+    }
+    for (bit = 1; bit != 0; bit <<= 1) {
+        if (!(pending & bit)) {
+            continue;
+        }
+        name = boardIntName(bit);
+        if (name != NULL) {
+            ctrlTextAdd(text, "%s%s", separator, name);
+        }
+        else {
+            ctrlTextAdd(text, "%sbit 0x%08X", separator, (unsigned)bit);
+        }
+        units = boardGetIntUnitCount(bit);
+        if (units > 1) {
+            ctrlTextAdd(text, " (%d units)", units);
+        }
+        separator = ", ";
+    }
+    ctrlTextAdd(text, "\n");
+}
+
 /* What the status reads under when the request holds nothing: a view of a paused machine, waited
 ** for when the request found it paused (it may not have parked yet), else a hold of its layout.
 ** Returns DBG_ACCESS_OK with a view, else why there is none. */
@@ -161,6 +196,7 @@ void ctrlStatusDescribe(CtrlText* text, int stopReason, int stateAsFound)
     if (snapshot != NULL) {
         pc = ctrlCpuPcIn(snapshot);
         ctrlStatusListRegisters(text, ctrlCpuRegisterBankIn(snapshot), "regs:");
+        statusInt(text);
         dbgSnapshotDestroy(snapshot);
     }
     else {

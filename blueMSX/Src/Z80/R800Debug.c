@@ -263,6 +263,16 @@ int r800DebugWaitsInHalt(void)
     return cpuWaitsInHalt();
 }
 
+int r800DebugIntLow(void)
+{
+    return dbg != NULL && r800IntIsLow(dbg->r800);
+}
+
+int r800DebugNmiLow(void)
+{
+    return dbg != NULL && r800NmiIsLow(dbg->r800);
+}
+
 int r800DebugStoppedBeforeInstruction(void)
 {
     return stoppedBeforeInstruction;

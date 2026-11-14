@@ -172,7 +172,8 @@ void boardSetBreakpoint(UInt16 address);
 void boardClearBreakpoint(UInt16 address);
 
 /* One bit per kind of /INT source; two sources on one bit drop each other's
-** request. A new bit goes here and into the overlap check in Board.c. */
+** request. A new bit goes here and gets one row, with its name, in
+** BOARD_INT_EACH in Board.c. */
 #define BOARD_INT_VDP_IE0           0x00000001
 #define BOARD_INT_VDP_IE1           0x00000002
 #define BOARD_INT_VDP_IE2           0x00000004
@@ -199,12 +200,16 @@ void boardClearBreakpoint(UInt16 address);
 void   boardSetInt(UInt32 irq);
 void   boardClearInt(UInt32 irq);
 UInt32 boardGetInt(UInt32 irq);
+/* What the status calls one BOARD_INT_* bit; NULL for a bit without a name. */
+const char* boardIntName(UInt32 bit);
 
 /* Bits of device kinds that can exist more than once: each unit holds its own
 ** request and the bit stays set while any unit holds it. Plain set/clear never take these. */
 #define BOARD_INT_UNIT_BITS (BOARD_INT_YM2151 | BOARD_INT_YM2148)
 void   boardSetIntUnit(UInt32 irq, const void* unit);
 void   boardClearIntUnit(UInt32 irq, const void* unit);
+/* How many units hold one unit bit; 0 after a state load, which forgets the holders. */
+int    boardGetIntUnitCount(UInt32 irq);
 
 UInt8* boardGetRamPage(int page);
 UInt32 boardGetRamSize();

@@ -1953,15 +1953,46 @@ int boardGetRefreshRate()
     return 0;
 }
 
+/* Every BOARD_INT_* name with what the status calls it. */
+#define BOARD_INT_EACH(X) \
+    X(BOARD_INT_VDP_IE0,        "VDP IE0") \
+    X(BOARD_INT_VDP_IE1,        "VDP IE1") \
+    X(BOARD_INT_VDP_IE2,        "VDP IE2") \
+    X(BOARD_INT_YMF262,         "MoonSound") \
+    X(BOARD_INT_Y8950,          "MSX-AUDIO") \
+    X(BOARD_INT_MAKOTO,         "Makoto") \
+    X(BOARD_INT_YM2151,         "YM2151") \
+    X(BOARD_INT_MSX_RS232,      "RS-232C") \
+    X(BOARD_INT_MSX_MIDI_TMR,   "MSX-MIDI timer") \
+    X(BOARD_INT_MSX_MIDI_RXRDY, "MSX-MIDI RxRDY") \
+    X(BOARD_INT_MSX_AUDIO_MIDI, "MSX-AUDIO MIDI") \
+    X(BOARD_INT_YM2148,         "YM2148") \
+    X(BOARD_INT_V9990,          "V9990") \
+    X(BOARD_INT_V9968_CART_IE0, "V9968 cartridge IE0") \
+    X(BOARD_INT_V9968_CART_IE1, "V9968 cartridge IE1") \
+    X(BOARD_INT_V9968_CART_IE2, "V9968 cartridge IE2") \
+    X(BOARD_INT_Y8960_TIMER,    "Y8960 timer") \
+    X(BOARD_INT_Y8960_OPL2EX,   "Y8960 OPL2EX") \
+    X(BOARD_INT_Y8960_OPM,      "Y8960 OPM")
+
 /* Fails the build when a BOARD_INT_* name is 0 or two of them overlap (their sum
-** then exceeds their OR). Every name in the table in Board.h belongs in this list. */
-#define BOARD_INT_ALL(op) (BOARD_INT_VDP_IE0 op BOARD_INT_VDP_IE1 op BOARD_INT_VDP_IE2 op \
-    BOARD_INT_YMF262 op BOARD_INT_Y8950 op BOARD_INT_MAKOTO op BOARD_INT_YM2151 op \
-    BOARD_INT_MSX_RS232 op BOARD_INT_MSX_MIDI_TMR op BOARD_INT_MSX_MIDI_RXRDY op \
-    BOARD_INT_MSX_AUDIO_MIDI op BOARD_INT_YM2148 op BOARD_INT_V9990 op \
-    BOARD_INT_V9968_CART_IE0 op BOARD_INT_V9968_CART_IE1 op BOARD_INT_V9968_CART_IE2 op \
-    BOARD_INT_Y8960_TIMER op BOARD_INT_Y8960_OPL2EX op BOARD_INT_Y8960_OPM)
-typedef char boardIntBitsMustNotOverlap[BOARD_INT_ALL(&&) && BOARD_INT_ALL(+) == BOARD_INT_ALL(|) ? 1 : -1];
+** then exceeds their OR). */
+#define BOARD_INT_AND(bit, name) (bit) &&
+#define BOARD_INT_SUM(bit, name) (bit) +
+#define BOARD_INT_OR(bit, name)  (bit) |
+typedef char boardIntBitsMustNotOverlap[(BOARD_INT_EACH(BOARD_INT_AND) 1) &&
+    (BOARD_INT_EACH(BOARD_INT_SUM) 0) == (BOARD_INT_EACH(BOARD_INT_OR) 0) ? 1 : -1];
+#undef BOARD_INT_AND
+#undef BOARD_INT_SUM
+#undef BOARD_INT_OR
+
+const char* boardIntName(UInt32 bit)
+{
+#define BOARD_INT_NAME(b, name) if (bit == (b)) return name;
+    BOARD_INT_EACH(BOARD_INT_NAME)
+#undef BOARD_INT_NAME
+    return NULL;
+}
 
 static void setIntBits(UInt32 irq)
 {
@@ -2036,6 +2067,17 @@ void boardClearIntUnit(UInt32 irq, const void* unit)
 UInt32 boardGetInt(UInt32 irq)
 {
     return pendingInt & irq;
+}
+
+int boardGetIntUnitCount(UInt32 irq)
+{
+    int count = 0;
+    int i;
+
+    for (i = 0; i < intUnitCount; i++) {
+        count += intUnits[i].irq == irq;
+    }
+    return count;
 }
 
 UInt8* boardGetRamPage(int page)
