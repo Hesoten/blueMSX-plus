@@ -72,6 +72,7 @@ static void AnyToUtf8(const char* src, char* dst, int dstCap) {
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <assert.h>
 /* Route fopen() through pkg_fopen so UTF-8 .cap paths (e.g. ROM names with
 ** Japanese characters) reach _wfopen instead of being mangled by the runtime
 ** ACP. Must come after <stdio.h>. */
@@ -82,6 +83,11 @@ extern void PatchReset(BoardType boardType);
 static int skipSync;
 static int parkedInBreakpointStop;
 static int pendingInt;
+/* Who holds each BOARD_INT_UNIT_BITS bit; emptied when a new machine is built
+** and when an in-place load replaces pendingInt. */
+#define INT_UNITS_MAX 16
+static struct { UInt32 irq; const void* unit; } intUnits[INT_UNITS_MAX];
+static int intUnitCount;
 static int boardType;
 static Mixer* boardMixer = NULL;
 static int (*syncToRealClock)(int, int) = NULL;
@@ -1344,6 +1350,7 @@ static int boardLoadStateInPlace(const char* stateFile, int traceReason)
         saveStateClose(bs);
         /* boardLoadState is not called here, so this field is taken by hand. */
         pendingInt = (int)snapInt;
+        intUnitCount = 0;
         boardInfo.loadState();
         videoManagerLoadState();
         videoManagerApplyLoadedState();
@@ -1487,6 +1494,7 @@ int boardRun(Machine* machine,
 #endif
 
     pendingInt = 0;
+    intUnitCount = 0;
 
     boardSetFrequency(frequency);
 
@@ -1912,17 +1920,73 @@ int boardGetRefreshRate()
     BOARD_INT_V9968_CART_IE0 op BOARD_INT_V9968_CART_IE1 op BOARD_INT_V9968_CART_IE2)
 typedef char boardIntBitsMustNotOverlap[BOARD_INT_ALL(&&) && BOARD_INT_ALL(+) == BOARD_INT_ALL(|) ? 1 : -1];
 
-void  boardSetInt(UInt32 irq)
+static void setIntBits(UInt32 irq)
 {
     pendingInt |= irq;
     boardInfo.setInt(boardInfo.cpuRef);
 }
 
-void   boardClearInt(UInt32 irq)
+static void clearIntBits(UInt32 irq)
 {
     pendingInt &= ~irq;
     if (pendingInt == 0) {
         boardInfo.clearInt(boardInfo.cpuRef);
+    }
+}
+
+void  boardSetInt(UInt32 irq)
+{
+    assert(!(irq & BOARD_INT_UNIT_BITS));
+    setIntBits(irq);
+}
+
+void   boardClearInt(UInt32 irq)
+{
+    assert(!(irq & BOARD_INT_UNIT_BITS));
+    clearIntBits(irq);
+}
+
+void boardSetIntUnit(UInt32 irq, const void* unit)
+{
+    int i;
+
+    assert(irq != 0 && (irq & (irq - 1)) == 0 && !(irq & ~BOARD_INT_UNIT_BITS));
+    for (i = 0; i < intUnitCount; i++) {
+        if (intUnits[i].irq == irq && intUnits[i].unit == unit) {
+            break;
+        }
+    }
+    if (i == intUnitCount) {
+        /* With the table full the request goes unrecorded and falls back
+        ** to the plain shared bit. */
+        assert(intUnitCount < INT_UNITS_MAX);
+        if (intUnitCount < INT_UNITS_MAX) {
+            intUnits[intUnitCount].irq  = irq;
+            intUnits[intUnitCount].unit = unit;
+            intUnitCount++;
+        }
+    }
+    setIntBits(irq);
+}
+
+void boardClearIntUnit(UInt32 irq, const void* unit)
+{
+    int held = 0;
+    int i = 0;
+
+    assert(irq != 0 && (irq & (irq - 1)) == 0 && !(irq & ~BOARD_INT_UNIT_BITS));
+    while (i < intUnitCount) {
+        if (intUnits[i].irq == irq && intUnits[i].unit == unit) {
+            intUnits[i] = intUnits[--intUnitCount];
+            continue;
+        }
+        if (intUnits[i].irq == irq) {
+            held = 1;
+        }
+        i++;
+    }
+    if (!held) {
+        clearIntBits(irq);
     }
 }
 

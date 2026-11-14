@@ -90,7 +90,7 @@ void ym2151SetIrq(void* ptr, int timer)
     YM2151* ym2151 = (YM2151*)ptr;
     if (ym2151->irqState == 0) {
         boardSetDataBus(ym2151->irqVector, 0, 0);
-		boardSetInt(BOARD_INT_YM2151);
+		boardSetIntUnit(BOARD_INT_YM2151, ym2151);
     }
     ym2151->irqState |= timer;
 }
@@ -100,7 +100,7 @@ void ym2151ClearIrq(void* ptr, int timer)
     YM2151* ym2151 = (YM2151*)ptr;
     ym2151->irqState &= ~timer;
     if (ym2151->irqState == 0) {
-		boardClearInt(BOARD_INT_YM2151);
+		boardClearIntUnit(BOARD_INT_YM2151, ym2151);
     }
 }
 
@@ -272,13 +272,20 @@ void ym2151LoadState(YM2151* ym2151)
     if (ym2151->timerRunning2) {
         boardTimerAdd(ym2151->timer2, ym2151->timeout2);
     }
+
+    /* The board does not save which unit holds the bit.
+    ** The data bus came back with the CPU. */
+    if (ym2151->irqState) {
+        boardSetIntUnit(BOARD_INT_YM2151, ym2151);
+    }
+    else {
+        boardClearIntUnit(BOARD_INT_YM2151, ym2151);
+    }
 }
 
 void ym2151Destroy(YM2151* ym2151) 
 {
-    if (ym2151->irqState) {
-        boardClearInt(BOARD_INT_YM2151);
-    }
+    boardClearIntUnit(BOARD_INT_YM2151, ym2151);
     mixerUnregisterChannel(ym2151->mixer, ym2151->handle);
     boardTimerDestroy(ym2151->timer1);
     boardTimerDestroy(ym2151->timer2);
@@ -304,9 +311,7 @@ void ym2151Reset(YM2151* ym2151)
     ym2151->s1r = 0;
     ym2151->s2r = 0;
     ym2151->latch = 0;
-    if (ym2151->irqState) {
-        boardClearInt(BOARD_INT_YM2151);
-    }
+    boardClearIntUnit(BOARD_INT_YM2151, ym2151);
     ym2151->irqState = 0;
 }
 
