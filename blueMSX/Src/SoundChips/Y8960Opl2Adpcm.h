@@ -122,6 +122,10 @@ private:
     uint8_t reg7;
     uint8_t reg15;
     bool romBank;
+
+    /* The bytes the CPU fed, as the emu side took them, by memPtr / 2. */
+    static constexpr unsigned FED_BYTES = 64;
+    uint8_t fedBytes[FED_BYTES];
 };
 
 } // namespace y8960opl2
