@@ -226,6 +226,10 @@ void boardCheckFdcBoostKill(UInt16 port, UInt8 value);
 ** doesn't see it).  address is the SCC register offset. */
 void boardCheckSccBoostKill(UInt8 address, UInt8 value);
 
+/* The same for the Makoto (YM2608) FM, SSG, rhythm and ADPCM-B; offset is
+** the port number within 14h-17h. */
+void boardCheckOpnaBoostKill(UInt8 offset, UInt8 value);
+
 /* Drop the boost once the picture starts moving; called once per frame with
 ** the scroll registers packed into origin. */
 void boardCheckVdpBoostKill(UInt32 origin);

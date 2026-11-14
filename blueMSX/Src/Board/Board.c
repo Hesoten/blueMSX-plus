@@ -839,6 +839,29 @@ static int psgChannelAudibleViaMixer(UInt8 r7, int ch) {
     return !(r7 & (1 << ch)) || !(r7 & (1 << (ch + 3)));
 }
 
+/* Whether this write makes a channel of a PSG-compatible generator audible.
+** A fixed level on a channel muted in R7 is not sound; an R7 write that
+** un-mutes a channel with a level is. */
+static int psgWriteAudible(UInt8 reg, UInt8 value, UInt8* reg7, UInt8* vol) {
+    int ch;
+    if (reg >= 8 && reg <= 10) {
+        ch = reg - 8;
+        vol[ch] = value;
+        return (value & 0x10) ||
+               ((value & 0x0f) && psgChannelAudibleViaMixer(*reg7, ch));
+    }
+    if (reg == 7) {
+        *reg7 = value;
+        for (ch = 0; ch < 3; ch++) {
+            if (psgChannelAudibleViaMixer(value, ch) &&
+                (vol[ch] & 0x0f) && !(vol[ch] & 0x10)) {
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
 /* Drop the FDC boost on melodic sound-chip writes that cause the
 ** audible "BGM at double speed" tail. Excluded: VDP VRAM (sector
 ** streaming), PPI (VBLANK keyboard scan), PSG R15. Included: VDP
@@ -855,6 +878,7 @@ void boardCheckFdcBoostKill(UInt16 port, UInt8 value) {
     static UInt8  pcmStatus        = 0;     /* Turbo-R PCM status (port 0xA5), low 5 bits */
     static UInt32 ymf278KeyOn      = 0;     /* wave key-on bits, ch 0-23 */
     UInt8 p = (UInt8)(port & 0xff);
+    int psgAudible = 0;
 
     /* Address latches: keep in sync regardless of boost state. */
     if (p == 0x7c) { ym2413LatchedReg = value;           return; }
@@ -867,10 +891,7 @@ void boardCheckFdcBoostKill(UInt16 port, UInt8 value) {
     /* PSG data-register value latches: track the mixer (R7) and per-channel
     ** volumes (R8-R10) regardless of boost state so the audibility test below
     ** stays in sync with the chip across boost on/off transitions. */
-    if (p == 0xa1) {
-        if (psgLatchedReg == 7)                             psgReg7 = value;
-        else if (psgLatchedReg >= 8 && psgLatchedReg <= 10) psgVol[psgLatchedReg - 8] = value;
-    }
+    if (p == 0xa1) psgAudible = psgWriteAudible(psgLatchedReg, value, &psgReg7, psgVol);
     /* Turbo-R PCM status (port 0xA5): low 5 bits matter (see romMapperTurboRPcm
     ** write handler). Tracked regardless of boost state so the 0xA4 sample
     ** audibility test stays correct across boost on/off transitions. */
@@ -963,34 +984,37 @@ void boardCheckFdcBoostKill(UInt16 port, UInt8 value) {
         return;
     }
     if (p == 0xa1) {                                    /* PSG data */
-        /* Volume registers 8-10. Fixed level (bit 4 clear) is audible only
-        ** when the channel's tone or noise is enabled in mixer R7 -- a level
-        ** written to a fully-disabled channel just sets a DC offset (common
-        ** false positive: drivers poke levels on silenced channels).
-        ** Envelope mode (bit 4) plays through even with tone+noise off, so
-        ** it always counts. R11-15 (env period/shape, keyboard scan) and
-        ** R0-6 (tone / noise period, audible only after volume) are skipped. */
-        if (psgLatchedReg >= 8 && psgLatchedReg <= 10) {
-            int ch = psgLatchedReg - 8;
-            if ((value & 0x10) ||
-                ((value & 0x0f) && psgChannelAudibleViaMixer(psgReg7, ch))) {
-                fdcKillBoost();
-            }
-        }
-        /* R7 (mixer) write: catch the "set level first, enable channel later"
-        ** ordering. If un-muting a channel now makes a fixed-level channel
-        ** audible, drop the boost; envelope-mode was caught at volume write. */
-        else if (psgLatchedReg == 7) {
-            int ch;
-            for (ch = 0; ch < 3; ch++) {
-                if (psgChannelAudibleViaMixer(value, ch) &&
-                    (psgVol[ch] & 0x0f) && !(psgVol[ch] & 0x10)) {
-                    fdcKillBoost();
-                    break;
-                }
-            }
+        if (psgAudible) {
+            fdcKillBoost();
         }
         return;
+    }
+}
+
+/* Makoto (YM2608) on ports 14h-17h, called from its own write handler because
+** the SVI-328 RS-IDE shares these ports. One address latch serves both halves;
+** the chip ignores data written to the half that was not addressed. */
+void boardCheckOpnaBoostKill(UInt8 offset, UInt8 value) {
+    static UInt16 latchedReg = 0;           /* low byte = reg, 0x100 = upper half */
+    static UInt8  ssgReg7    = 0xff;
+    static UInt8  ssgVol[3]  = { 0, 0, 0 };
+    int bank1 = (offset & 2) != 0;
+    int ssgAudible = 0;
+    UInt8 reg;
+
+    if (!(offset & 1)) { latchedReg = value | (bank1 ? 0x100 : 0); return; }
+    if (bank1 != ((latchedReg & 0x100) != 0)) return;
+    reg = (UInt8)(latchedReg & 0xff);
+    if (!bank1 && reg < 0x10) ssgAudible = psgWriteAudible(reg, value, &ssgReg7, ssgVol);
+
+    if (!fdcActive && !casActive) return;
+
+    if (ssgAudible ||
+        (!bank1 && reg == 0x28 && (value & 0xf0)) ||                     /* FM key on */
+        (reg >= 0x40 && reg <= 0x4f && (value & 0x7f) != 0x7f) ||        /* FM TL */
+        (!bank1 && reg == 0x10 && !(value & 0x80) && (value & 0x3f)) ||  /* rhythm key on */
+        (bank1 && reg == 0x00 && (value & 0x80) && !(value & 0x40))) {   /* ADPCM-B start */
+        fdcKillBoost();
     }
 }
 
