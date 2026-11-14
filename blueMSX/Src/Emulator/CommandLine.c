@@ -1230,7 +1230,9 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
             argument = extractToken(cmdLine, ++i);
             if (argument == NULL) return argError(option, "needs a mapper name", NULL);
             romType1 = romNameToType(argument);
-            if (romType1 == ROM_UNKNOWN) return argError(option, "unknown mapper:", argument);
+            /* A cartridge name or an unused number resolves too, so the type
+            ** has to be a mapper that reads the image. */
+            if (romTypeListMapperCategory(romType1) == ROMCAT_NONE) return argError(option, "unknown mapper:", argument);
             romTypeGiven1 = 1;
             startEmu = 1;
             continue;
@@ -1255,7 +1257,7 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
             argument = extractToken(cmdLine, ++i);
             if (argument == NULL) return argError(option, "needs a mapper name", NULL);
             romType2 = romNameToType(argument);
-            if (romType2 == ROM_UNKNOWN) return argError(option, "unknown mapper:", argument);
+            if (romTypeListMapperCategory(romType2) == ROMCAT_NONE) return argError(option, "unknown mapper:", argument);
             romTypeGiven2 = 1;
             startEmu = 1;
             continue;

@@ -53,7 +53,8 @@ typedef enum {
 const char* romTypeListGroupName(int category);
 const char* romTypeListCartGroupName(int category);
 
-/* The mapper at index in display order, or ROM_UNKNOWN past the end. */
+/* The listed mapper at index in display order, or ROM_UNKNOWN past the end.
+** A hidden one is skipped here, but still has a category. */
 RomType         romTypeListMapperAt(int index);
 RomTypeCategory romTypeListMapperCategory(RomType romType);
 
