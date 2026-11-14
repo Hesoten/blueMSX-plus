@@ -112,7 +112,7 @@ char* langErrorCreateTapeImage();
 char* langErrorNoCasInZip();
 char* langErrorUnknownFileType();
 char* langErrorCartV9968WithV9990();
-char* langErrorCartY8960Twice();
+char* langErrorCartTwice();
 char* langErrorDirDiskTooLarge();
 char* langErrorDirDiskOnline();
 char* langErrorDirDiskSubdirs();

@@ -85,7 +85,7 @@ typedef struct {
     char* errorNoCasInZip;
     char* errorUnknownFileType;
     char* errorCartV9968WithV9990;
-    char* errorCartY8960Twice;
+    char* errorCartTwice;
     char* errorDirDiskTooLarge;
     char* errorDirDiskOnline;
     char* errorDirDiskSubdirs;
