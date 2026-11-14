@@ -23,6 +23,7 @@ Some examples of requests, and what the agent does to answer them.
 | "The game hangs when the boss appears. Where is it stuck?" | Pauses the machine, reads the registers and the stack, disassembles the code around the program counter. |
 | "Find the variable that holds the number of lives." | Searches all of memory for a value, then narrows it down each time you lose a life. |
 | "Something overwrites my sprite table. What is it?" | Sets a watch on that part of video memory, stops when it is written, and reports where the program was and what called it. |
+| "The sound effect does not play. What is in the sound chip?" | Pauses the machine, finds that chip in the device list and reads its registers and I/O ports. |
 | "Show me the code of DRAW_ENEMY in bank 5." | Disassembles that bank even if it is not switched in at the moment, with your labels. |
 | "Stop when the routine at bank 3, 0x6000 runs." | Sets a breakpoint that only fires when bank 3 is the one switched in. |
 | "Run bank 7's version of this routine once." | Switches bank 7 in where the CPU sees it, steps it, and tells you which bank the program had chosen, so it can be put back. |
@@ -295,6 +296,7 @@ What the agent cannot do, and what it does instead:
 | Stop when memory, video memory or a port is read | Watches stop on writes and on OUT only. |
 | Watch a bank that is not switched in | A breakpoint on that bank. |
 | Write to an I/O port | Not possible. |
+| Read a device's own memory, such as a sound chip's sample RAM | Not possible. Video memory can be read. |
 | Decode the sprites or what else was written to the VDP | It reads each video chip's registers, palette and video memory, the machine VDP's raster log, and a screenshot. |
 | List a BASIC program, break on a BASIC line, read BASIC variables | It types `LIST` and reads the screen, and reads memory (on a machine with BASIC). |
 | Use an assembler listing (`.lst`) for labels | Give it the symbol file (`.sld`, `.sym`, `.noi`, `.map`). |
@@ -335,9 +337,9 @@ session, with no note.
 ## Paused and running: what works when
 
 The machine is inspected only while it is paused. Reading memory, registers,
-the stack, disassembly, the bank list, a hunt, the text screen and the video
-chips needs a paused machine, and so do memory and register writes, undo,
-bank switches and snapshots. On a running machine those calls are
+the stack, disassembly, the bank list, a hunt, the text screen, the video
+chips and the devices needs a paused machine, and so do memory and register
+writes, undo, bank switches and snapshots. On a running machine those calls are
 refused with `not_paused`.
 Nothing pauses the machine behind your back. Mistakes in the arguments are
 reported before `not_paused`.
@@ -438,17 +440,18 @@ the segment address of the stored bytes.
 
 | Tool | More |
 |---|---|
-| `bmsx_status` | The segment in each Z80 page shows both 8 kB halves on an 8 kB mapper, as `seg3,seg5`. While paused also whether the CPU is the Z80 or the R800 (turbo R), and the screen mode, named as BASIC does (`SCREEN 1`, `SCREEN 0 WIDTH 80`), or that the mode bits are mixed or undefined. With a V9990 (GFX9000, Video9000), while paused, it also says whether the V9990's picture is shown, in which mode, and whether it is superimposed on the VDP's (with a V9968 cartridge, whether its picture is shown and in which mode); the vdp lines still describe the VDP (V9938, V9958 or TMS99x8), not the V9990. While running, the machine's name and the frames run instead. |
+| `bmsx_status` | The segment in each Z80 page shows both 8 kB halves on an 8 kB mapper, as `seg3,seg5`. While paused also whether the CPU is the Z80 or the R800 (turbo R), and the screen mode, named as BASIC does (`SCREEN 1`, `SCREEN 0 WIDTH 80`), or that the mode bits are mixed or undefined. While paused an `int:` line also gives the CPU's /INT and the devices requesting an interrupt. With a V9990 (GFX9000, Video9000), while paused, it also says whether the V9990's picture is shown, in which mode, and whether it is superimposed on the VDP's (with a V9968 cartridge, whether its picture is shown and in which mode); the vdp lines still describe the VDP (V9938, V9958 or TMS99x8), not the V9990. While running, the machine's name and the frames run instead. |
 | `bmsx_mem_resolve` | In SCREEN 7, 8 and 10-12 (not in the V9968's SP3), while paused, it also gives the chips' byte number for a `vram:` address, which is where the debugger window's VRAM view shows the byte. |
 | `bmsx_stack` | A frame is marked when no CALL, RST or HALT ends just before it in the segment paged in now, since its label may then be wrong. |
 | `bmsx_dasm` | From a Z80 address it reads on as the Z80 sees memory and says where another slot or segment starts, up to 0xFFFF; from a segment address it stops at the end of that segment. |
 | `bmsx_vdp` | `chip` picks the machine's VDP (the default), a V9968 cartridge's or a V9990's. `show=raster` (the machine's VDP only) only starts the log on its first call, so run or step a frame and read again. |
+| `bmsx_devices` | An index holds only until a reset, a cartridge change or a state load. Memory blocks are listed, not dumped. |
 | `bmsx_trace` | Recording is held per connection: `op=arm` starts it and the end of the connection drops it. About 57000 recent records stay readable, so pause or step frames between reads. |
 
 Read Only allows the reading tools (`bmsx_status`, `bmsx_slots`, the bank
 list, `bmsx_mem_read`, `bmsx_mem_resolve`, `bmsx_stack`, `bmsx_dasm`,
 `bmsx_symbols`, `bmsx_hunt`, `bmsx_screen` without a path, `bmsx_vdp`,
-`bmsx_trace`, and the breakpoint and watch lists) and `bmsx_run how=pause`;
+`bmsx_devices`, `bmsx_trace`, and the breakpoint and watch lists) and `bmsx_run how=pause`;
 everything else needs Full.
 
 Errors name the argument at fault. An argument the tool does not take, a
