@@ -305,12 +305,12 @@ public:
 
     void timerExpired(int tnum) { m_engine->engine_timer_expired(tnum); }
 
-    virtual void ymfm_set_timer(uint32_t tnum, int32_t duration_in_clocks);
-    virtual void ymfm_set_busy_end(uint32_t clocks);
-    virtual bool ymfm_is_busy();
-    virtual void ymfm_update_irq(bool asserted);
-    virtual uint8_t ymfm_external_read(ymfm::access_class type, uint32_t address);
-    virtual void ymfm_external_write(ymfm::access_class type, uint32_t address, uint8_t data);
+    void ymfm_set_timer(uint32_t tnum, int32_t duration_in_clocks) override;
+    void ymfm_set_busy_end(uint32_t clocks) override;
+    bool ymfm_is_busy() override;
+    void ymfm_update_irq(bool asserted) override;
+    uint8_t ymfm_external_read(ymfm::access_class type, uint32_t address) override;
+    void ymfm_external_write(ymfm::access_class type, uint32_t address, uint8_t data) override;
 
     YM2608* owner;
     Ym2608Chip chip;
