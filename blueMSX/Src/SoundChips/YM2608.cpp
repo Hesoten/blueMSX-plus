@@ -732,16 +732,17 @@ void ym2608LoadState(YM2608* ym2608)
     /* A state saved with a different RAM size keeps only what fits. */
     size = saveStateGet(state, "adpcmRamSize", 0);
     if (size > 0) {
-        std::vector<uint8_t> ram(size);
-        saveStateGetBuffer(state, "adpcmRam", ram.data(), size);
         memset(ym2608->adpcmRam, 0xff, ym2608->adpcmRamSize);
-        memcpy(ym2608->adpcmRam, ram.data(), size < ym2608->adpcmRamSize ? size : ym2608->adpcmRamSize);
+        saveStateGetBuffer(state, "adpcmRam", ym2608->adpcmRam, ym2608->adpcmRamSize);
     }
 
     size = saveStateGet(state, "chipStateSize", 0);
     if (size > 0) {
-        chipState.resize(size);
-        saveStateGetBuffer(state, "chipState", chipState.data(), size);
+        /* Sized as this build saves the chip; a shorter state leaves the
+        ** rest as it is. */
+        ymfm::ymfm_saved_state saver(chipState, true);
+        ym2608->host->chip.save_restore(saver);
+        saveStateGetBuffer(state, "chipState", chipState.data(), (UInt32)chipState.size());
         ymfm::ymfm_saved_state loader(chipState, false);
         ym2608->host->chip.save_restore(loader);
 
