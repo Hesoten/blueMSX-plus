@@ -4,6 +4,9 @@
 **
 ** Copyright (C) 2026 madscient
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -239,29 +242,37 @@ void y8960OpllexLoadState(Y8960OpllexChip* chip)
     p->short_noise     = (uint8_t)saveStateGet(state, "short_noise",     p->short_noise);
     saveStateGetBuffer(state, "patch_number", p->patch_number, sizeof(p->patch_number));
     saveStateGetBuffer(state, "patch_bank",   p->patch_bank,   sizeof(p->patch_bank));
-    saveStateGetBuffer(state, "user_patch",   p->user_patch,   sizeof(p->user_patch));
+    /* A bank write re-points the voice from patch_number, so it must stay a voice. */
+    for (i = 0; i < 9; i++) {
+        if (p->patch_number[i] < 0 || p->patch_number[i] >= 19) p->patch_number[i] = 0;
+    }
+    /* The user voice is rebuilt from its registers rather than read back. */
+    Y8960OPLL_dumpToPatch(p->reg, p->user_patch);
 
+    /* Values that index tables, count shifts or pick the paired slot are
+    ** cut to what the core can produce: type is the slot parity or 3. */
     for (i = 0; i < 18; i++) {
         Y8960OPLL_SLOT* sl = &p->slot[i];
         sprintf(t, "s%02d_number",  i); sl->number          = (uint8_t) saveStateGet(state, t, sl->number);
         sprintf(t, "s%02d_type",    i); sl->type            = (uint8_t) saveStateGet(state, t, sl->type);
+        if (sl->type != 3) sl->type = (uint8_t)(i & 1);
         sprintf(t, "s%02d_out0",    i); sl->output[0]       = (int32_t) saveStateGet(state, t, (UInt32)sl->output[0]);
         sprintf(t, "s%02d_out1",    i); sl->output[1]       = (int32_t) saveStateGet(state, t, (UInt32)sl->output[1]);
         sprintf(t, "s%02d_pgph",    i); sl->pg_phase        =           saveStateGet(state, t, sl->pg_phase);
         sprintf(t, "s%02d_pgout",   i); sl->pg_out          =           saveStateGet(state, t, sl->pg_out);
         sprintf(t, "s%02d_pgkeep",  i); sl->pg_keep         = (uint8_t) saveStateGet(state, t, sl->pg_keep);
-        sprintf(t, "s%02d_blkfnum", i); sl->blk_fnum        = (uint16_t)saveStateGet(state, t, sl->blk_fnum);
+        sprintf(t, "s%02d_blkfnum", i); sl->blk_fnum        = (uint16_t)(saveStateGet(state, t, sl->blk_fnum) & 0xfff);
         sprintf(t, "s%02d_fnum",    i); sl->fnum            = (uint16_t)saveStateGet(state, t, sl->fnum);
-        sprintf(t, "s%02d_blk",     i); sl->blk             = (uint8_t) saveStateGet(state, t, sl->blk);
+        sprintf(t, "s%02d_blk",     i); sl->blk             = (uint8_t) (saveStateGet(state, t, sl->blk) & 7);
         sprintf(t, "s%02d_egst",    i); sl->eg_state        = (uint8_t) saveStateGet(state, t, sl->eg_state);
-        sprintf(t, "s%02d_vol",     i); sl->volume          = (int32_t) saveStateGet(state, t, (UInt32)sl->volume);
+        sprintf(t, "s%02d_vol",     i); sl->volume          = (int32_t) (saveStateGet(state, t, (UInt32)sl->volume) & 63);
         sprintf(t, "s%02d_key",     i); sl->key_flag        = (uint8_t) saveStateGet(state, t, sl->key_flag);
         sprintf(t, "s%02d_sus",     i); sl->sus_flag        = (uint8_t) saveStateGet(state, t, sl->sus_flag);
         sprintf(t, "s%02d_tll",     i); sl->tll             = (uint16_t)saveStateGet(state, t, sl->tll);
         sprintf(t, "s%02d_rks",     i); sl->rks             = (uint8_t) saveStateGet(state, t, sl->rks);
         sprintf(t, "s%02d_egrh",    i); sl->eg_rate_h       = (uint8_t) saveStateGet(state, t, sl->eg_rate_h);
-        sprintf(t, "s%02d_egrl",    i); sl->eg_rate_l       = (uint8_t) saveStateGet(state, t, sl->eg_rate_l);
-        sprintf(t, "s%02d_egsh",    i); sl->eg_shift        =           saveStateGet(state, t, sl->eg_shift);
+        sprintf(t, "s%02d_egrl",    i); sl->eg_rate_l       = (uint8_t) (saveStateGet(state, t, sl->eg_rate_l) & 3);
+        sprintf(t, "s%02d_egsh",    i); sl->eg_shift        =           saveStateGet(state, t, sl->eg_shift) & 15;
         sprintf(t, "s%02d_egout",   i); sl->eg_out          =           saveStateGet(state, t, sl->eg_out);
         sprintf(t, "s%02d_upd",     i); sl->update_requests =           saveStateGet(state, t, sl->update_requests);
     }
