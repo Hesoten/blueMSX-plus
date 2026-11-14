@@ -157,6 +157,12 @@ static void onTrans(YM2148* midi, UInt32 time)
     }
 }
 
+static void ym2148ArmRecvTimer(YM2148* midi)
+{
+    midi->timeRecv = boardSystemTime() + midi->charTime;
+    boardTimerAdd(midi->timerRecv, midi->timeRecv);
+}
+
 static void ym2148Reset(YM2148* midi)
 {
     midi->status = STAT_TXEMPTY;
@@ -170,8 +176,7 @@ static void ym2148Reset(YM2148* midi)
     boardTimerRemove(midi->timerRecv);
     boardTimerRemove(midi->timerTrans);
     
-    midi->timeRecv = boardSystemTime() + midi->charTime;
-    boardTimerAdd(midi->timerRecv, midi->timeRecv);
+    ym2148ArmRecvTimer(midi);
 }
 
 static YM2148* ym2148Create()
@@ -281,6 +286,11 @@ static void ym2148LoadState(YM2148* midi)
     midi->vector  = (UInt8)saveStateGet(state, "vector", 0);
 
     saveStateClose(state);
+
+    /* Nothing of the transmitter is saved, so it resumes idle. */
+    midi->txPending = 0;
+    midi->status |= STAT_TXEMPTY;
+    ym2148ArmRecvTimer(midi);
 }
 
 
