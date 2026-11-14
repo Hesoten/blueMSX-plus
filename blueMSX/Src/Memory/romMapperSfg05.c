@@ -121,7 +121,7 @@ static void onRecv(YM2148* midi, UInt32 time)
             midi->status |= STAT_RXRBSY;
             if (midi->command & CMD_RXINT) {
                 boardSetDataBus(midi->vector, 0, 0);
-                boardSetInt(BOARD_INT_YM2148);
+                boardSetIntUnit(BOARD_INT_YM2148, midi);
                 midi->status |= ST_INT;
             }
         }
@@ -140,7 +140,7 @@ static void onTrans(YM2148* midi, UInt32 time)
 		midi->status |= STAT_TXEMPTY;
         if (midi->command & CMD_TXINT) {
             boardSetDataBus(midi->vector, 0, 0);
-            boardSetInt(BOARD_INT_YM2148);
+            boardSetIntUnit(BOARD_INT_YM2148, midi);
             midi->status |= ST_INT;
         }
 	}
@@ -154,8 +154,15 @@ static void onTrans(YM2148* midi, UInt32 time)
 	}
 }
 
+static void ym2148ArmRecvTimer(YM2148* midi)
+{
+    midi->timeRecv = boardSystemTime() + midi->charTime;
+    boardTimerAdd(midi->timerRecv, midi->timeRecv);
+}
+
 static void ym2148Reset(YM2148* midi)
 {
+    boardClearIntUnit(BOARD_INT_YM2148, midi);
     midi->status = STAT_TXEMPTY;
     midi->txPending = 0;
     midi->rxPending = 0;
@@ -167,8 +174,7 @@ static void ym2148Reset(YM2148* midi)
     boardTimerRemove(midi->timerRecv);
     boardTimerRemove(midi->timerTrans);
     
-    midi->timeRecv = boardSystemTime() + midi->charTime;
-    boardTimerAdd(midi->timerRecv, midi->timeRecv);
+    ym2148ArmRecvTimer(midi);
 }
 
 static YM2148* ym2148Create()
@@ -187,15 +193,19 @@ static YM2148* ym2148Create()
 
 static void ym2148Destroy(YM2148* midi)
 {
+    boardClearIntUnit(BOARD_INT_YM2148, midi);
+    boardTimerDestroy(midi->timerRecv);
+    boardTimerDestroy(midi->timerTrans);
     midiIoDestroy(midi->midiIo);
     archSemaphoreDestroy(midi->semaphore);
+    free(midi);
 }
 
 static UInt8 ym2148ReadStatus(YM2148* midi)
 {
     UInt8 val = midi->status;
 
-    boardClearInt(BOARD_INT_YM2148);
+    boardClearIntUnit(BOARD_INT_YM2148, midi);
     midi->status &= ~ST_INT;
 
     return val;
@@ -241,7 +251,7 @@ static void ym2148WriteCommand(YM2148* midi, UInt8 value)
         if ((midi->status & STAT_TXEMPTY) && (value & CMD_TXEN)) {
                 if (midi->command & CMD_TXINT) {
                 boardSetDataBus(midi->vector, 0, 0);
-                boardSetInt(BOARD_INT_YM2148);
+                boardSetIntUnit(BOARD_INT_YM2148, midi);
                 midi->status |= ST_INT;
             }
         }
@@ -301,6 +311,21 @@ static void ym2148LoadState(YM2148* midi)
     midi->vector = saveStateGet(state, "vector", 0);
 
     saveStateClose(state);
+
+    ym2148ArmRecvTimer(midi);
+    if (!(midi->status & STAT_TXEMPTY)) {
+        midi->timeTrans = boardSystemTime() + midi->charTime;
+        boardTimerAdd(midi->timerTrans, midi->timeTrans);
+    }
+
+    /* The board does not save which unit holds the bit.
+    ** The data bus came back with the CPU. */
+    if (midi->status & ST_INT) {
+        boardSetIntUnit(BOARD_INT_YM2148, midi);
+    }
+    else {
+        boardClearIntUnit(BOARD_INT_YM2148, midi);
+    }
 }
 
 

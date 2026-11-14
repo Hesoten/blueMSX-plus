@@ -1905,7 +1905,6 @@ void YM2151LoadState(MameYm2151* chip)
     SaveState* state = saveStateOpenForRead("ym2151_core");
     char tag[32];
     int i;
-    int tmp;
     
     chip->eg_cnt            = saveStateGet(state, "eg_cnt",            0);
     chip->eg_timer          = saveStateGet(state, "eg_timer",          0);
@@ -2052,23 +2051,14 @@ void YM2151LoadState(MameYm2151* chip)
         sprintf(tag, "rr%d", i);
         chip->oper[i].rr = saveStateGet(state, tag, 0);
         
-        sprintf(tag, "connect%d", i);
-        tmp = saveStateGet(state, tag, -1);
-        if (tmp < 0) {
-            chip->oper[i].connect = NULL;
-        }
-        else {
-            chip->oper[i].connect = (int*)chip + tmp;
-        }
+        chip->oper[i].connect = NULL;
+        chip->oper[i].mem_connect = NULL;
+    }
 
-        sprintf(tag, "mem_connect%d", i);
-        tmp = saveStateGet(state, tag, -1);
-        if (tmp < 0) {
-            chip->oper[i].mem_connect = NULL;
-        }
-        else {
-            chip->oper[i].mem_connect = (int*)chip + tmp;
-        }
+    /* The saved operator routing shares the channels' "connect%d" tags and cannot
+    ** be read back, so rebuild it from each channel's algorithm. */
+    for (i = 0; i < sizeof(chip->connect) / sizeof(chip->connect[0]); i++) {
+        set_connect(chip, &chip->oper[i * 4], i, chip->connect[i]);
     }
 
     saveStateClose(state);
