@@ -165,6 +165,8 @@ static void ym2148ArmRecvTimer(YM2148* midi)
 
 static void ym2148Reset(YM2148* midi)
 {
+    /* status is 8 bits wide and never keeps ST_INT, so the request is dropped unconditionally. */
+    boardClearInt(BOARD_INT_YM2148);
     midi->status = STAT_TXEMPTY;
     midi->txPending = 0;
     midi->rxPending = 0;
@@ -196,6 +198,7 @@ static YM2148* ym2148Create()
 
 static void ym2148Destroy(YM2148* midi)
 {
+    boardClearInt(BOARD_INT_YM2148);
     boardTimerDestroy(midi->timerRecv);
     boardTimerDestroy(midi->timerTrans);
     midiIoDestroy(midi->midiIo);

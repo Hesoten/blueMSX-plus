@@ -276,6 +276,9 @@ void ym2151LoadState(YM2151* ym2151)
 
 void ym2151Destroy(YM2151* ym2151) 
 {
+    if (ym2151->irqState) {
+        boardClearInt(BOARD_INT_YM2151);
+    }
     mixerUnregisterChannel(ym2151->mixer, ym2151->handle);
     boardTimerDestroy(ym2151->timer1);
     boardTimerDestroy(ym2151->timer2);
@@ -301,6 +304,9 @@ void ym2151Reset(YM2151* ym2151)
     ym2151->s1r = 0;
     ym2151->s2r = 0;
     ym2151->latch = 0;
+    if (ym2151->irqState) {
+        boardClearInt(BOARD_INT_YM2151);
+    }
     ym2151->irqState = 0;
 }
 
