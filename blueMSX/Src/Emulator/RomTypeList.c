@@ -116,6 +116,7 @@ static const RomTypeMapper mapperList[] = {
     { ROM_MUPACK,                ROMCAT_SOUND         },
     { ROM_YAMAHASFG01,           ROMCAT_SOUND         },
     { ROM_YAMAHASFG05,           ROMCAT_SOUND         },
+    { ROM_Y8960,                 ROMCAT_SOUND         },
 
     { ROM_BEERIDE,               ROMCAT_STORAGE       },
     { ROM_GOUDASCSI,             ROMCAT_STORAGE       },
@@ -211,6 +212,7 @@ static const RomTypeCart cartList[] = {
     { ROM_SCCMIRRORED,           CARTNAME_SCCMIRRORED,        ROMCAT_SOUND,      0 },
     { ROM_SDSNATCHER,            CARTNAME_SDSNATCHER,         ROMCAT_SOUND,      0 },
     { ROM_SNATCHER,              CARTNAME_SNATCHER,           ROMCAT_SOUND,      0 },
+    { ROM_Y8960,                 CARTNAME_Y8960,              ROMCAT_SOUND,      0 },
 
     { ROM_BEERIDE,               CARTNAME_BEERIDE,            ROMCAT_STORAGE,    0 },
     { ROM_GIDE,                  CARTNAME_GIDE,               ROMCAT_STORAGE,    0 },

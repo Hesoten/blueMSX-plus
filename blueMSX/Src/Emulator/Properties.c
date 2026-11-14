@@ -1659,6 +1659,7 @@ int propertiesIsSpecialCartName(const char* name)
         CARTNAME_WAVESCSI128, CARTNAME_WAVESCSI256, CARTNAME_WAVESCSI512,
         CARTNAME_WAVESCSI1MB,
         CARTNAME_ESESCC128,   CARTNAME_ESESCC256,   CARTNAME_ESESCC512,
+        CARTNAME_Y8960,
     };
     size_t i;
     if (!name || !*name) return 0;
