@@ -37,6 +37,7 @@ typedef struct {
     int horizontalPos;
     int color;
     UInt16 pattern;
+    UInt8 set;
 } SpriteAttribute;
 
 static UInt8 colChckBuf[384] = {
@@ -63,6 +64,8 @@ static void spriteLineReset(VDP* vdp)
     vdp->render.lineBufs[0]    = nullSpritesLine();
     vdp->render.lineBufs[1]    = nullSpritesLine();
     vdp->render.lineBuf        = nullSpritesLine();
+    vdp->render.lineSetUsed[0] = 0;
+    vdp->render.lineSetUsed[1] = 0;
     vdp->render.nonVisibleLine = -1;
 }
 
@@ -88,6 +91,8 @@ UInt8* spritesLine(VDP* vdp, int line) {
     idx = line;
 
     bufIndex = line & 1;
+    /* Mode 1 has no palette sets; a mode 2 line may have left the flag set. */
+    vdp->render.lineSetUsed[bufIndex] = 0;
 
     line -= vdp->firstLine;
 
@@ -347,6 +352,19 @@ void spriteLineInvalidate(VDP* vdp, int line) {
     vdp->render.nonVisibleLine = line - vdp->firstLine;
 }
 
+/* Marks a sprite's dots with its palette set, at the offsets its pattern is drawn to. */
+static void spriteSetDots(UInt8* setPtr, UInt16 pattern, int offset, int scale, UInt8 set)
+{
+    while (pattern) {
+        if (pattern & 1) {
+            setPtr[offset] = set;
+            setPtr[offset + scale - 1] = set;
+        }
+        offset -= scale;
+        pattern >>= 1;
+    }
+}
+
 UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
     int solidColor;
     int bufIndex;
@@ -364,10 +382,14 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
     int   idx;
     int   dispLine;
     int   first;
+    int   anySet;
+    UInt8* setLine;
 
     idx = line;
 
     bufIndex = line & 1;
+    /* Set again only once the line is built, so no early return leaves it stale. */
+    vdp->render.lineSetUsed[bufIndex] = 0;
 
     line -= vdp->firstLine;
 
@@ -394,6 +416,7 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
 	patternMask  = vdpIsSprites16x16(vdp->vdpRegs) ? 0xfc : 0xff;
     visibleCnt   = 0;
     collision    = 0;
+    anySet       = 0;
     /* The line built here is the one shown next. */
     dispLine     = line + 1;
     line         = (line + vdpSpriteVScroll(vdp)) & 0xff;
@@ -436,6 +459,9 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
             attribTable[visibleCnt].pattern = (attribTable[visibleCnt].pattern << 8) | *vdpSpriteVram(vdp, offset + 16);
             attribTable[visibleCnt].horizontalPos += 8;
         }
+        /* Under EPAL the otherwise unused fourth attribute byte picks a palette set. */
+        attribTable[visibleCnt].set = vdpIsExtPalette(vdp) ? (*vdpSpriteVram(vdp, attribOffset + 3) & 0x0f) : 0;
+        anySet |= attribTable[visibleCnt].set;
         visibleCnt++;
     }
 
@@ -451,6 +477,7 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
     vdp->render.lineBuf = vdp->render.lineBuffer[bufIndex];
     memset(vdp->render.lineBuf, 0, 384);
     memset(collisionBuf, 0, 384);
+    setLine = anySet ? vdp->render.lineSet[bufIndex] : NULL;
 
     /* A CC sprite is shown only from the first CC=0 sprite of the line onwards. */
     for (first = 0; first < visibleCnt && (attribTable[first].color & 0x40); first++);
@@ -535,6 +562,12 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
             }
         }
 
+        /* CC sprites below OR in the colour alone, so a dot keeps this set. */
+        if (setLine != NULL) {
+            spriteSetDots(setLine + attrib->horizontalPos, attrib->pattern,
+                          scale * (size - 1) + (16 - size), scale, attrib->set);
+        }
+
 #if 0
         /* Skip CC sprites for now */
         if (attrib->color & 0x40) {
@@ -595,6 +628,7 @@ UInt8* colorSpritesLine(VDP* vdp, int line, int scr6) {
     }
 
     vdp->render.lineBufs[bufIndex] = vdp->render.lineBuf + 32;
+    vdp->render.lineSetUsed[bufIndex] = setLine != NULL;
 
     if (!spritesEnable) {
         return nullSpritesLine();
@@ -815,6 +849,42 @@ void spritesOverlayMode3(VDP* vdp, int Y, Pixel* origin, int dotStep, int startD
         dst[0] = s;
         if (dotStep == 2) {
             dst[1] = s;
+        }
+    }
+}
+
+/* Repaints the mode 2 sprite dots of a palette set other than 0 on the line the
+** renderer just drew from the buffer it read. Sprite byte x + shift is on dot x;
+** a SCREEN 6 byte holds the two half dots' colours in bits 5-4 and 2-1. */
+void spritesOverlaySet(VDP* vdp, int Y, Pixel* origin, int dotStep, int startDot, int endDot, int shift, int scr6)
+{
+    int bufIndex = (Y & 1) ^ 1;
+    UInt8* sprLine = vdp->render.lineBufs[bufIndex];
+    UInt8* setLine = vdp->render.lineSet[bufIndex] + 32;
+    int x;
+
+    if (!vdp->render.lineSetUsed[bufIndex] || sprLine == nullSpritesLine()) {
+        return;
+    }
+
+    for (x = startDot; x < endDot; x++) {
+        Pixel* dst = origin + x * dotStep;
+        int col = sprLine[x + shift];
+        int set = setLine[x + shift] << 4;
+
+        if (col == 0 || set == 0) {
+            continue;
+        }
+
+        if (scr6) {
+            dst[0] = vdp->paletteExt[set | ((col >> 4) & 3)];
+            dst[1] = vdp->paletteExt[set | ((col >> 1) & 3)];
+        }
+        else {
+            dst[0] = vdp->paletteExt[set | (col >> 1)];
+            if (dotStep == 2) {
+                dst[1] = dst[0];
+            }
         }
     }
 }

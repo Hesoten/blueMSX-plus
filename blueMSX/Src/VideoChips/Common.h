@@ -125,6 +125,9 @@ Pixel *RefreshBorder(VDP* vdp, int Y, Pixel bgColor, int line512, int borderExtr
 
     vdp->render.displayOrigin  = linePtr;
     vdp->render.displayDotStep = lineSize;
+    vdp->render.sprFirstDot    = 0;
+    vdp->render.sprEndDot      = 0;
+    vdp->render.sprShift       = 0;
 
     return vdp->render.linePtrStart = linePtr;
 }
@@ -165,6 +168,11 @@ Pixel *RefreshBorder6(VDP* vdp, int Y, Pixel bgColor1, Pixel bgColor2, int line5
 
     vdp->render.displayOrigin  = linePtr;
     vdp->render.displayDotStep = lineSize;
+    /* No sprite dots until a renderer draws them from dot 0 with the screen on;
+    ** a screen still off at the line end skips the set overlay as a whole. */
+    vdp->render.sprFirstDot    = 0;
+    vdp->render.sprEndDot      = 0;
+    vdp->render.sprShift       = 0;
 
     return vdp->render.linePtrStart = linePtr;
 }
@@ -1307,6 +1315,7 @@ static void RefreshLine4(VDP* vdp, int Y, int X, int X2)
             X++;
             sprLine += sprLine != NULL ? 8 : 0;
             linePtr4 += 8;
+            vdp->render.sprFirstDot = 8;
         }
 
         index       = base | ((int)*charTable * 8);
@@ -1329,6 +1338,7 @@ static void RefreshLine4(VDP* vdp, int Y, int X, int X2)
             }
         }
         else {
+            vdp->render.sprEndDot = 256;
             switch (hScroll & 7) {
             case 1: col = *sprLine++; *linePtr4++ = col ? vdp->palette[col >> 1] : color[(charPattern >> 6) & 1]; 
             case 2: col = *sprLine++; *linePtr4++ = col ? vdp->palette[col >> 1] : color[(charPattern >> 5) & 1]; 
@@ -1642,6 +1652,9 @@ static void RefreshLine5(VDP* vdp, int Y, int X, int X2)
         }
     }
     else {
+        if (X == 0) {
+            vdp->render.sprEndDot = 256;
+        }
         // Update vscroll if needed
         if (vscroll != vdpVScroll(vdp) || chrTabO != vdp->chrTabBase) {
             jump       = jumpTable + hScroll512 * 2;
@@ -1675,6 +1688,7 @@ static void RefreshLine5(VDP* vdp, int Y, int X, int X2)
             linePtr5 += 8;
             charTable += 4;
             X++;
+            vdp->render.sprFirstDot = 8;
         }
 
         if (X == 0 && vdp->screenOn && vdp->drawArea) {
@@ -1682,6 +1696,8 @@ static void RefreshLine5(VDP* vdp, int Y, int X, int X2)
             int i = hScroll & 7;
             int j;
 
+            /* The inserted dots show the backdrop, even under sprites. */
+            vdp->render.sprFirstDot = i;
             for (j = 0; j < i; j++) {
                 linePtr5[0] = bgColor;
                 if ((hScroll ^ j) & 1) {
@@ -2155,6 +2171,9 @@ static void RefreshLine6(VDP* vdp, int Y, int X, int X2)
         }
     }
     else {
+        if (X == 0) {
+            vdp->render.sprEndDot = 256;
+        }
         if (X == 0 && vdpIsEdgeMasked(vdp->vdpRegs)) {
             Pixel bgColor = vdp->palette[vdp->BGColor & 0x03];
             linePtr6[0]  = linePtr6[1]  = bgColor; 
@@ -2171,6 +2190,7 @@ static void RefreshLine6(VDP* vdp, int Y, int X, int X2)
             linePtr6 += 16; 
             charTable += 4;
             X++;
+            vdp->render.sprFirstDot = 8;
         }
 
         linePtr6[ 0] = vdp->palette[(col = sprLine[0] >> 3) ? (col >> 1) & 3 : (charTable[0] >> 2) & 3];
@@ -2312,6 +2332,9 @@ static void RefreshLine7(VDP* vdp, int Y, int X, int X2)
         }
     }
     else {
+        if (X == 0) {
+            vdp->render.sprEndDot = 256;
+        }
         // Update vscroll if needed
         if (vscroll != vdpVScroll(vdp) || chrTabO != vdp->chrTabBase) {
             scroll  = vdpHScroll(vdp) + X * 8;
@@ -2346,6 +2369,7 @@ static void RefreshLine7(VDP* vdp, int Y, int X, int X2)
             linePtr7 += 16;
             charTable += ofs[8];
             X++;
+            vdp->render.sprFirstDot = 8;
         }
 
         if (X == 0 && vdp->screenOn && vdp->drawArea) {
@@ -2511,6 +2535,8 @@ static void RefreshLine8(VDP* vdp, int Y, int X, int X2)
     int    pairStep   = st->pairStep;
     int*   ofs        = st->ofs;
     Pixel* pal256 = vdpIsExtPalette(vdp) ? vdp->paletteExt : vdp->paletteFixed;
+    /* EPAL takes sprite colours from palette RAM instead of the fixed table. */
+    Pixel* palSpr = vdpIsExtPalette(vdp) ? vdp->paletteExt : vdp->paletteSprite8;
     int col;
     int rightBorder;
 
@@ -2568,6 +2594,9 @@ static void RefreshLine8(VDP* vdp, int Y, int X, int X2)
         }
     }
     else {
+        if (X == 0) {
+            vdp->render.sprEndDot = 256;
+        }
         // Update vscroll if needed
         if (vscroll != vdpVScroll(vdp) || chrTabO != vdp->chrTabBase) {
             scroll = vdpHScroll(vdp) + X * 8;
@@ -2601,43 +2630,44 @@ static void RefreshLine8(VDP* vdp, int Y, int X, int X2)
             charTable += ofs[8];
             linePtr8 += 8; 
             X++; 
+            vdp->render.sprFirstDot = 8;
         }
 
         while (X < X2) {
             if (scroll & 1) {
-                col = sprLine[0]; linePtr8[0] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[0]; linePtr8[0] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[1]]]; UPDATE_TABLE_8();
-                col = sprLine[1]; linePtr8[1] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[1]; linePtr8[1] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[2]]]; UPDATE_TABLE_8();
-                col = sprLine[2]; linePtr8[2] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[2]; linePtr8[2] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[3]]]; UPDATE_TABLE_8();
-                col = sprLine[3]; linePtr8[3] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[3]; linePtr8[3] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[4]]]; UPDATE_TABLE_8();
-                col = sprLine[4]; linePtr8[4] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[4]; linePtr8[4] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[5]]]; UPDATE_TABLE_8();
-                col = sprLine[5]; linePtr8[5] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[5]; linePtr8[5] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[6]]]; UPDATE_TABLE_8();
-                col = sprLine[6]; linePtr8[6] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[6]; linePtr8[6] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[7]]]; UPDATE_TABLE_8();
-                col = sprLine[7]; linePtr8[7] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[7]; linePtr8[7] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[8]]]; UPDATE_TABLE_8();
             }
             else {
-                col = sprLine[0]; linePtr8[0] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[0]; linePtr8[0] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[0]]]; UPDATE_TABLE_8();
-                col = sprLine[1]; linePtr8[1] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[1]; linePtr8[1] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[1]]]; UPDATE_TABLE_8();
-                col = sprLine[2]; linePtr8[2] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[2]; linePtr8[2] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[2]]]; UPDATE_TABLE_8();
-                col = sprLine[3]; linePtr8[3] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[3]; linePtr8[3] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[3]]]; UPDATE_TABLE_8();
-                col = sprLine[4]; linePtr8[4] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[4]; linePtr8[4] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[4]]]; UPDATE_TABLE_8();
-                col = sprLine[5]; linePtr8[5] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[5]; linePtr8[5] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[5]]]; UPDATE_TABLE_8();
-                col = sprLine[6]; linePtr8[6] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[6]; linePtr8[6] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[6]]]; UPDATE_TABLE_8();
-                col = sprLine[7]; linePtr8[7] = col ? vdp->paletteSprite8[col >> 1] : 
+                col = sprLine[7]; linePtr8[7] = col ? palSpr[col >> 1] :
                 pal256[charTable[ofs[7]]]; UPDATE_TABLE_8();
             }
             sprLine += 8; 
@@ -2778,6 +2808,7 @@ rightBorder = X2 == 33;
                 charTable += ofs[8]; 
                 linePtr10 += 8;
                 X++; 
+                vdp->render.sprFirstDot = 8;
             }
 
             t0 = charTable[ofs[0]];              UPDATE_TABLE_10();
@@ -2790,6 +2821,8 @@ rightBorder = X2 == 33;
             J=(t2 & 0x07) | ((t3 & 0x07) << 3);
 
             if (vdp->screenOn && vdp->drawArea) {
+                vdp->render.sprShift = hscroll & 3;
+                vdp->render.sprEndDot = 256;
                 switch (hscroll & 3) {
                 case 0:
                     col = sprLine[0]; y = t0 >> 3; *linePtr10++ = col ? vdp->palette[col >> 1] : y & 1 ? yaePal[t0 >> yaeShift] : vdp->yjkColor[y][J][K];
@@ -2977,6 +3010,7 @@ static void RefreshLine12(VDP* vdp, int Y, int X, int X2)
                 charTable += ofs[8]; 
                 linePtr12 += 8;
                 X++; 
+                vdp->render.sprFirstDot = 8;
             }
 
             t0 = charTable[ofs[0]];              UPDATE_TABLE_12();
@@ -2988,6 +3022,8 @@ static void RefreshLine12(VDP* vdp, int Y, int X, int X2)
             J=(t2 & 0x07) | ((t3 & 0x07) << 3);
 
             if (vdp->screenOn && vdp->drawArea) {
+                vdp->render.sprShift = hscroll & 3;
+                vdp->render.sprEndDot = 256;
                 switch (hscroll & 3) {
                 case 0:
                     col = sprLine[0]; *linePtr12++ = col ? vdp->palette[col >> 1] : vdp->yjkColor[t0 >> 3][J][K];

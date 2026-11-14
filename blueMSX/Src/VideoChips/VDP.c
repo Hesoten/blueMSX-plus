@@ -434,11 +434,19 @@ typedef struct {
     ** costs there, so a compositor running after the renderer need not guess. */
     Pixel* displayOrigin;
     int    displayDotStep;
+    /* Where a mode 2 renderer showed sprite bytes on that line: dots
+    ** sprFirstDot to sprEndDot - 1, dot x holding byte x + sprShift. */
+    int    sprFirstDot;
+    int    sprEndDot;
+    int    sprShift;
 
     /* Sprite lines are worked out one line ahead, into alternate buffers. */
     UInt8  lineBuffer[2][384];
     UInt8* lineBufs[2];
     UInt8* lineBuf;
+    /* EPAL's palette set of each sprite dot, kept only while the flag is set. */
+    UInt8  lineSet[2][384];
+    int    lineSetUsed[2];
     int    nonVisibleLine;
     Pixel  sprM3Pixel[256];
     UInt8  sprM3Weight[256];
@@ -1465,6 +1473,7 @@ static void rescrollLine(VDP* vdp)
     Pixel  saved[FB_MAX_LINE_WIDTH];
     Pixel* start;
     int drawn;
+    int sprFirstDot, sprEndDot, sprShift;
 
     if (vdp->lineOffset < 0 || vdp->lineOffset > 32) {
         return;
@@ -1484,6 +1493,9 @@ static void rescrollLine(VDP* vdp)
     if (drawn > 0) {
         memcpy(saved, start, drawn * sizeof(Pixel));
     }
+    sprFirstDot = vdp->render.sprFirstDot;
+    sprEndDot   = vdp->render.sprEndDot;
+    sprShift    = vdp->render.sprShift;
 
     vdp->reScroll = 1;
     vdp->RefreshLine(vdp, vdp->curLine, -1, vdp->lineOffset);
@@ -1492,6 +1504,11 @@ static void rescrollLine(VDP* vdp)
     if (drawn > 0) {
         memcpy(start, saved, drawn * sizeof(Pixel));
     }
+    /* The sprite dots already drawn keep the old layout. A changed YJK shift
+    ** leaves no single layout, so the line keeps its set 0 colours. */
+    vdp->render.sprFirstDot = sprFirstDot;
+    vdp->render.sprEndDot   = vdp->render.sprShift == sprShift ? sprEndDot : 0;
+    vdp->render.sprShift    = sprShift;
 }
 
 static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
@@ -2518,18 +2535,37 @@ static int spritesMode3StartDot(VDP* vdp)
     return -1;
 }
 
+/* EPAL palette sets over the line a mode 2 renderer just drew, on the dots it
+** reported; the right border covers whatever it drew past dot 255. */
+static void spritesOverlaySetLine(VDP* vdp, int line)
+{
+    VdpRender* r = &vdp->render;
+    void (*fn)(VDP*, int, int, int) = vdp->RefreshLine;
+
+    if (fn == RefreshLine4 || fn == RefreshLine5 || fn == RefreshLine6 || fn == RefreshLine7 ||
+        fn == RefreshLine8 || fn == RefreshLine10 || fn == RefreshLine12) {
+        spritesOverlaySet(vdp, line, r->displayOrigin, r->displayDotStep, r->sprFirstDot,
+                          r->sprEndDot < 256 ? r->sprEndDot : 256, r->sprShift, fn == RefreshLine6);
+    }
+}
+
 static void refreshLine(VDP* vdp, int line, int x, int x2)
 {
     vdp->RefreshLine(vdp, line, x, x2);
 
-    if (vdp->sprMode3 && x2 == 33 && spritesLineMode3(vdp, line)) {
-        int startDot = spritesMode3StartDot(vdp);
+    if (vdp->sprMode3) {
+        if (x2 == 33 && spritesLineMode3(vdp, line)) {
+            int startDot = spritesMode3StartDot(vdp);
 
-        /* The scan reports the fifth sprite and the collision either way, so the
-        ** view toggle and the border gate hold back only the drawing. */
-        if (spritesEnable && startDot >= 0 && vdp->drawArea && vdp->render.displayOrigin != NULL) {
-            spritesOverlayMode3(vdp, line, vdp->render.displayOrigin, vdp->render.displayDotStep, startDot);
+            /* The scan reports the fifth sprite and the collision either way, so the
+            ** view toggle and the border gate hold back only the drawing. */
+            if (spritesEnable && startDot >= 0 && vdp->drawArea && vdp->render.displayOrigin != NULL) {
+                spritesOverlayMode3(vdp, line, vdp->render.displayOrigin, vdp->render.displayDotStep, startDot);
+            }
         }
+    }
+    else if (x2 == 33 && spritesEnable && vdp->screenOn && vdp->drawArea && vdp->render.displayOrigin != NULL) {
+        spritesOverlaySetLine(vdp, line);
     }
 }
 
@@ -3780,7 +3816,7 @@ static int sprTabGather(VDP* vdp, VdpSprTable* t)
 /* The same layout: the bytes and the registers sprites are laid out with. */
 static int sprTabSame(const VdpSprTable* a, const VdpSprTable* b)
 {
-    static const int regs[] = { 0, 1, 5, 6, 8, 9, 11, 23 };
+    static const int regs[] = { 0, 1, 5, 6, 8, 9, 11, 20, 23 };
     int attr = (a->regs[5] << 7) & (a->screenMode <= 3 ? 0x380 : 0x200);
     int i;
 

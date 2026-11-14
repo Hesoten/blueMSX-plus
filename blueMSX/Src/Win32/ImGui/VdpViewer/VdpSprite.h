@@ -38,6 +38,7 @@ struct VdpSprite {
     int     colorAddr;       /* row 0's colour in sprite mode 2; the 4th attribute byte in mode 1 */
     int     patternAddr;
     uint8_t color[16];       /* per pattern row: EC 0x80, CC 0x40, IC 0x20, colour in bits 0-3 */
+    int     set;             /* palette set: the 4th attribute byte's bits 0-3 under EPAL in mode 2, else 0 */
     int     drawnLines, droppedLines, hiddenLines;   /* over the displayed lines */
     int     firstDropped, lastDropped;               /* displayed lines, or -1 */
     bool    afterStop;       /* at or past the terminator, so the VDP never looks at it */
@@ -97,9 +98,10 @@ int  vdpSpriteSpan(const VdpSpriteFrame& f, int n, int row, int* w);
 bool vdpSpriteClear(const VdpDebugState* s, const VdpSpriteFrame& f, int code);
 /* The sprite drawn on top at a dot of a scroll line, those past the limit too; -1 for none. */
 int  vdpSpriteAt(const VdpSpriteFrame& f, int scrollLine, int dot);
-/* A sprite colour code as drawn with the 16 colours rgb (0x00RRGGBB) of its line, NULL:
-** the snapshot's. SCREEN 8 has fixed colours, SCREEN 6 the even dot's. */
-uint32_t vdpSpriteRgbaFrom(const VdpDebugState* s, const UInt32* rgb, const VdpSpriteFrame& f, int code);
+/* A sprite colour code of palette set `set` (VdpSprite::set) as drawn with the 16 colours rgb
+** (0x00RRGGBB) of its line, NULL: the snapshot's; a set other than 0 takes the extended palette's
+** entry set * 16 + colour. SCREEN 8 has fixed colours unless EPAL, SCREEN 6 the even dot's. */
+uint32_t vdpSpriteSetRgbaFrom(const VdpDebugState* s, const UInt32* rgb, const VdpSpriteFrame& f, int set, int code);
 /* Sprite n alone, unmagnified, f.size dots square at dst (pitch dots a row): each
 ** row in its colour from rowRgb[row] (NULL entries or rowRgb NULL: the snapshot's),
 ** colour 0 clear unless R#8 TP. */

@@ -176,19 +176,28 @@ int vdpSpriteAt(const VdpSpriteFrame& f, int scrollLine, int dot)
     return -1;
 }
 
-uint32_t vdpSpriteRgbaFrom(const VdpDebugState* s, const UInt32* rgb, const VdpSpriteFrame& f, int code)
+/* A V9968's R#20 EPAL, from the frame's registers rather than paletteExtCount:
+** a table recorded mid-frame carries the R#20 its line was drawn with. */
+static bool extPaletteIn(const VdpDebugState* s, const UInt8* r)
 {
-    /* SCREEN 8 sprites use their own fixed colours, R G B in sevenths. */
+    return s->version == VDP_V9968 && (r[20] & 0x10);
+}
+
+uint32_t vdpSpriteSetRgbaFrom(const VdpDebugState* s, const UInt32* rgb, const VdpSpriteFrame& f, int set, int code)
+{
+    /* SCREEN 8 sprites use their own fixed colours, R G B in sevenths, until EPAL
+    ** sends them through the palette. */
     static const unsigned char screen8[16][3] = {
         { 0, 0, 0 }, { 0, 0, 2 }, { 3, 0, 0 }, { 3, 0, 2 }, { 0, 3, 0 }, { 0, 3, 2 }, { 3, 3, 0 }, { 3, 3, 2 },
         { 7, 4, 2 }, { 0, 0, 7 }, { 7, 0, 0 }, { 7, 0, 7 }, { 0, 7, 0 }, { 0, 7, 7 }, { 7, 7, 0 }, { 7, 7, 7 },
     };
     code &= 15;
-    if (f.screenMode == 8) {
+    if (f.screenMode == 8 && !extPaletteIn(s, f.regs)) {
         const unsigned char* c = screen8[code];
         return vdpRgbToRgba(((uint32_t)(c[0] * 255 / 7) << 16) | ((uint32_t)(c[1] * 255 / 7) << 8) | (uint32_t)(c[2] * 255 / 7));
     }
     if (f.screenMode == 6) code = (code >> 2) & 3;
+    if (set != 0) return vdpExtRgba(s, NULL, (set << 4) | code);
     return vdpRgbToRgba((rgb ? rgb : s->paletteRgb)[code]);
 }
 
@@ -196,7 +205,7 @@ void vdpRenderSpriteTile(const VdpDebugState* s, const VdpSpriteFrame& f, int n,
 {
     for (int r = 0; r < f.size; r++) {
         int c = f.spr[n].color[r], bits = vdpSpriteRowBits(s, f, n, r);
-        uint32_t col = vdpSpriteClear(s, f, c) ? 0 : vdpSpriteRgbaFrom(s, rowRgb != NULL ? rowRgb[r] : NULL, f, c);
+        uint32_t col = vdpSpriteClear(s, f, c) ? 0 : vdpSpriteSetRgbaFrom(s, rowRgb != NULL ? rowRgb[r] : NULL, f, f.spr[n].set, c);
         for (int i = 0; i < f.size; i++) dst[(size_t)r * pitch + i] = (bits & (0x8000 >> i)) ? col : 0;
     }
 }
@@ -205,7 +214,7 @@ void vdpRenderSpriteLines(const VdpDebugState* s, const VdpSpriteFrame& f, uint3
                           const UInt32* const* lineRgb, uint8_t* dropped)
 {
     int wide = width / 256;
-    int code[256], group[256];
+    int code[256], group[256], set[256];
     for (int d = first; d <= last; d++) {
         uint32_t* dst = &out[(size_t)d * width];
         memset(dst, 0, (size_t)width * sizeof(uint32_t));
@@ -235,8 +244,10 @@ void vdpRenderSpriteLines(const VdpDebugState* s, const VdpSpriteFrame& f, uint3
                 if (code[x] < 0) {
                     code[x] = c & 15;
                     group[x] = lead;
+                    set[x] = sp.set;
                 }
                 else if (f.mode == 2 && group[x] == lead) {
+                    /* CC ORs the colour alone; the dot keeps its palette set. */
                     code[x] |= c & 15;
                 }
             }
@@ -259,12 +270,12 @@ void vdpRenderSpriteLines(const VdpDebugState* s, const VdpSpriteFrame& f, uint3
         for (i = 0; i < 256; i++) {
             if (code[i] < 0) continue;
             if (wide == 1) {
-                dst[i] = vdpSpriteRgbaFrom(s, rgb, f, code[i]);
+                dst[i] = vdpSpriteSetRgbaFrom(s, rgb, f, set[i], code[i]);
             }
             else {
                 /* SCREEN 6 shows bits 3-2 on the left dot and 1-0 on the right one. */
-                dst[i * 2] = vdpSpriteRgbaFrom(s, rgb, f, code[i]);
-                dst[i * 2 + 1] = f.screenMode == 6 ? vdpRgbToRgba(rgb[code[i] & 3]) : dst[i * 2];
+                dst[i * 2] = vdpSpriteSetRgbaFrom(s, rgb, f, set[i], code[i]);
+                dst[i * 2 + 1] = f.screenMode == 6 ? vdpSpriteSetRgbaFrom(s, rgb, f, set[i], (code[i] & 3) << 2) : dst[i * 2];
             }
         }
     }
@@ -374,6 +385,7 @@ void vdpEvalSprites(const VdpDebugState* s, const VdpLayout& l, int lines, VdpSp
         else {
             sp.colorAddr = vdpSpriteColorAddr(s, *f, n, 0);
             for (k = 0; k < 16; k++) sp.color[k] = (uint8_t)rdl(s, l.mode, vdpSpriteColorAddr(s, *f, n, k));
+            sp.set = extPaletteIn(s, r) ? rdl(s, l.mode, a + 3) & 0x0f : 0;
         }
         sp.firstDropped = sp.lastDropped = -1;
         if (f->stopIndex == 32 && sp.y == f->stopY) f->stopIndex = n;
