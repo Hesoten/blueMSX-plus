@@ -38,10 +38,11 @@ extern "C" {
 
 #define RHYTHM_ROM_SIZE 0x2000
 
-/* The mixer divides by 4096 after a channel volume of at most 1024, and
-** ymfm clamps FM to 16 bits; this keeps a full-scale OPNA at about half
-** of the mixer's range. */
-#define OUTPUT_GAIN     2
+/* What each stream is multiplied by before the mixer, which divides by 4096
+** after a channel volume of at most 1024 and clamps the sum to 16 bits:
+** FM with ADPCM-A and ADPCM-B, and the three SSG voices. */
+#define FM_GAIN         16
+#define SSG_GAIN        6
 
 /* The windowed sinc of the rate conversion: how many zero crossings it
 ** reaches to each side, counted at the lower of the two rates, and into how
@@ -780,8 +781,8 @@ static Int32* ym2608FmSync(void* ref, UInt32 count)
         }
         ym2608->fm.get(ym2608->fmAcc, period, fm);
 
-        ym2608->fmBuffer[2 * i + 0] = OUTPUT_GAIN * fm[0];
-        ym2608->fmBuffer[2 * i + 1] = OUTPUT_GAIN * fm[1];
+        ym2608->fmBuffer[2 * i + 0] = FM_GAIN * fm[0];
+        ym2608->fmBuffer[2 * i + 1] = FM_GAIN * fm[1];
     }
 
     return ym2608->fmBuffer;
@@ -806,7 +807,7 @@ static Int32* ym2608SsgSync(void* ref, UInt32 count)
         }
         ym2608->ssg.get(ym2608->ssgAcc, period, &ssg);
 
-        ym2608->ssgBuffer[i] = OUTPUT_GAIN * ssg;
+        ym2608->ssgBuffer[i] = SSG_GAIN * ssg;
     }
 
     return ym2608->ssgBuffer;
