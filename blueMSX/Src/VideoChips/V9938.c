@@ -994,7 +994,7 @@ static void LineEngine(VdpCmdState* vdpCmd)
         /* Command execution done */
         vdpCmd->status &= ~VDPSTATUS_CE;
         vdpCmd->CM=0;
-        vdpCmd->DY=DY & 0x03ff;
+        vdpCmd->DY=DY & vdpCmd->nyMask;
     }
     else {
         vdpCmd->DX=DX;
@@ -1137,8 +1137,8 @@ static void LrmmEngine(VdpCmdState* vdpCmd)
     if ((vdpCmd->VdpOpsCnt = cnt) > 0) {
         vdpCmd->status &= ~VDPSTATUS_CE;
         vdpCmd->CM = 0;
-        vdpCmd->DY = DY & 0x03ff;
-        vdpCmd->NY = NY & 0x03ff;
+        vdpCmd->DY = DY & vdpCmd->nyMask;
+        vdpCmd->NY = NY & vdpCmd->nyMask;
     }
     else {
         vdpCmd->DY  = DY;
@@ -1195,8 +1195,8 @@ static void LmmvEngine(VdpCmdState* vdpCmd)
         /* Command execution done */
         vdpCmd->status &= ~VDPSTATUS_CE;
         vdpCmd->CM=0;
-        vdpCmd->DY=DY & 0x03ff;
-        vdpCmd->NY=NY & 0x03ff;
+        vdpCmd->DY=DY & vdpCmd->nyMask;
+        vdpCmd->NY=NY & vdpCmd->nyMask;
     }
     else {
         vdpCmd->DY=DY;
@@ -1255,9 +1255,9 @@ static void LmmmEngine(VdpCmdState* vdpCmd)
         /* Command execution done */
         vdpCmd->status &= ~VDPSTATUS_CE;
         vdpCmd->CM=0;
-        vdpCmd->DY=DY & 0x03ff;
-        vdpCmd->SY=SY & 0x03ff;
-        vdpCmd->NY=NY & 0x03ff;
+        vdpCmd->DY=DY & vdpCmd->nyMask;
+        vdpCmd->SY=SY & vdpCmd->nyMask;
+        vdpCmd->NY=NY & vdpCmd->nyMask;
     }
     else {
         vdpCmd->SY=SY;
@@ -1316,7 +1316,7 @@ static void LmmcEngine(VdpCmdState* vdpCmd)
 
         if (!--vdpCmd->ANX || ((vdpCmd->ADX+=vdpCmd->TX)&vdpCmd->MX)) {
             vdpCmd->DY+=vdpCmd->TY;
-            if (!(--vdpCmd->NY&1023) || vdpCmd->DY==-1) {
+            if (!(--vdpCmd->NY & vdpCmd->nyMask) || vdpCmd->DY==-1) {
                 vdpCmd->status &= ~VDPSTATUS_CE;
                 vdpCmd->CM = 0;
             }
@@ -1419,8 +1419,8 @@ static void HmmvEngine(VdpCmdState* vdpCmd)
         /* Command execution done */
         vdpCmd->status &= ~VDPSTATUS_CE;
         vdpCmd->CM = 0;
-        vdpCmd->DY=DY & 0x03ff;
-        vdpCmd->NY=NY & 0x03ff;
+        vdpCmd->DY=DY & vdpCmd->nyMask;
+        vdpCmd->NY=NY & vdpCmd->nyMask;
     }
     else {
         vdpCmd->DY=DY;
@@ -1511,9 +1511,9 @@ static void YmmmEngine(VdpCmdState* vdpCmd)
         /* Command execution done */
         vdpCmd->status &=~VDPSTATUS_CE;
         vdpCmd->CM = 0;
-        vdpCmd->DY=DY & 0x03ff;
-        vdpCmd->SY=SY & 0x03ff;
-        vdpCmd->NY=NY & 0x03ff;
+        vdpCmd->DY=DY & vdpCmd->nyMask;
+        vdpCmd->SY=SY & vdpCmd->nyMask;
+        vdpCmd->NY=NY & vdpCmd->nyMask;
     }
     else {
         vdpCmd->SY=SY;
@@ -1539,7 +1539,7 @@ static void HmmcEngine(VdpCmdState* vdpCmd)
 
         if (!--vdpCmd->ANX || ((vdpCmd->ADX+=vdpCmd->TX)&vdpCmd->MX)) {
             vdpCmd->DY += vdpCmd->TY;
-            if (!(--vdpCmd->NY&1023) || vdpCmd->DY==-1) {
+            if (!(--vdpCmd->NY & vdpCmd->nyMask) || vdpCmd->DY==-1) {
                 vdpCmd->status &= ~VDPSTATUS_CE;
                 vdpCmd->CM = 0;
             }
