@@ -97,6 +97,7 @@ static UInt8 peek(RomMapperMakoto* rm, UInt16 ioPort)
 
 static void write(RomMapperMakoto* rm, UInt16 ioPort, UInt8 value)
 {
+    boardCheckOpnaBoostKill(ioPort & 3, value);
     ym2608Write(rm->ym2608, ioPort & 3, value);
 }
 
