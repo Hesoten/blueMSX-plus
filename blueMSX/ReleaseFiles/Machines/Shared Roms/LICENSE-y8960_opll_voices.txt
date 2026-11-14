@@ -1,0 +1,30 @@
+y8960_opll_voices.bin - preset voices of the Y8960 cartridge's OPLLEX
+=====================================================================
+
+y8960_opll_voices.bin holds the voices of the four preset banks the
+Y8960 cartridge's OPLLEX picks from (YM2413, YM2423, YMF281 and VRC7).
+Without the file, the OPLLEX plays emu2413's presets instead, the
+YM2413 ones standing in for the YM2423.
+
+The melodic voices (voices 1-15 of each bank) are from "Copyright free
+OPLL(x) ROM patches" by David Viens and Hubert Lamontagne:
+
+  https://github.com/plgDavid/misc/wiki/Copyright-free-OPLL(x)-ROM-patches
+
+  YM2413: April 2015 David Viens, tweaked May 19-21 2015 Hubert Lamontagne
+  YM2423: May 4-6 2016 Hubert Lamontagne
+  YMF281: May 14 2015 Hubert Lamontagne
+  VRC7:   May 15 2015 Hubert Lamontagne & David Viens
+
+The voices were guessed by ear and are not the contents of the chips'
+ROMs. They are licensed under Creative Commons Attribution-ShareAlike
+(CC BY-SA), as that page declares; the page gives no version. The
+license covers the voice data only. blueMSX+ itself is distributed
+under the GNU General Public License.
+
+The three rhythm entries of each bank are not on that page. They are
+the values in ymfm's YM2413 table, and equal NukedOPLL's rhythm
+entries.
+
+The file is built from scripts/y8960-opll-voices.txt in the blueMSX+
+source by scripts/make-y8960-opll-voices.py.

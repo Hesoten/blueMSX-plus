@@ -258,6 +258,17 @@ void Y8960OPLL_dumpToPatch(const uint8_t *dump, Y8960OPLL_PATCH *patch);
 void Y8960OPLL_patchToDump(const Y8960OPLL_PATCH *patch, uint8_t *dump);
 void Y8960OPLL_getDefaultPatch(int32_t type, int32_t num, Y8960OPLL_PATCH *);
 
+/* Each bank of preset voices holds voices 1-15 and then the three rhythm
+** entries, eight register bytes apiece in the order of registers 00h-07h. */
+#define Y8960OPLL_ROM_VOICES_PER_BANK 18
+#define Y8960OPLL_ROM_VOICES_SIZE (Y8960OPLL_BANK_COUNT * Y8960OPLL_ROM_VOICES_PER_BANK * 8)
+
+/**
+ * Set the preset voices of the four banks, in BANK register order, for every
+ * chip created afterwards. Until this is called the presets are silent.
+ */
+void Y8960OPLL_setRomVoices(const uint8_t *voices);
+
 /**
  *  Set channel mask
  *  @param mask mask flag: Y8960OPLL_MASK_* can be used.

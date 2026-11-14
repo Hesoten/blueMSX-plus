@@ -28,8 +28,11 @@
 
 typedef struct Y8960OpllexChip Y8960OpllexChip;
 
-/* name distinguishes the two circuits in the debugger. */
-Y8960OpllexChip* y8960OpllexCreate(Mixer* mixer, const char* name);
+/* name distinguishes the two circuits in the debugger. romVoices is the
+** preset voice file's contents, or NULL when there is none; a file of the wrong
+** size counts as none. */
+Y8960OpllexChip* y8960OpllexCreate(Mixer* mixer, const char* name,
+                                   const UInt8* romVoices, int romVoicesSize);
 void y8960OpllexDestroy(Y8960OpllexChip* chip);
 
 void y8960OpllexReset(Y8960OpllexChip* chip);

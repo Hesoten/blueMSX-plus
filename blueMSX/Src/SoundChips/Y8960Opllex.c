@@ -22,6 +22,7 @@
 */
 #include "Y8960Opllex.h"
 #include "Y8960OpllCore.h"
+#include "Emu2413/emu2413.h"
 #include "Y8960Pan.h"
 #include "romMapperY8960.h"
 #include "SaveState.h"
@@ -320,12 +321,39 @@ static void getDebugInfo(Y8960OpllexChip* chip, DbgDevice* dbgDevice)
     }
 }
 
-Y8960OpllexChip* y8960OpllexCreate(Mixer* mixer, const char* name)
+/* Without the voice file, emu2413's presets stand in. emu2413 has no YM2423,
+** so its YM2413 voices take that bank too. */
+static void setRomVoices(const UInt8* romVoices, int romVoicesSize)
+{
+    static const int emuTone[Y8960OPLL_BANK_COUNT] = {
+        OPLL_2413_TONE, OPLL_2413_TONE, OPLL_281B_TONE, OPLL_VRC7_TONE
+    };
+    UInt8 voices[Y8960OPLL_ROM_VOICES_SIZE];
+    int bank;
+    int i;
+
+    if (romVoices != NULL && romVoicesSize == Y8960OPLL_ROM_VOICES_SIZE) {
+        Y8960OPLL_setRomVoices(romVoices);
+        return;
+    }
+    for (bank = 0; bank < Y8960OPLL_BANK_COUNT; bank++) {
+        for (i = 0; i < Y8960OPLL_ROM_VOICES_PER_BANK; i++) {
+            OPLL_PATCH patch[2];
+            OPLL_getDefaultPatch(emuTone[bank], i + 1, patch);
+            OPLL_patchToDump(patch, voices + (bank * Y8960OPLL_ROM_VOICES_PER_BANK + i) * 8);
+        }
+    }
+    Y8960OPLL_setRomVoices(voices);
+}
+
+Y8960OpllexChip* y8960OpllexCreate(Mixer* mixer, const char* name,
+                                   const UInt8* romVoices, int romVoicesSize)
 {
     DebugCallbacks dbgCallbacks = { getDebugInfo, NULL, NULL, NULL };
     Y8960OpllexChip* chip = (Y8960OpllexChip*)calloc(1, sizeof(Y8960OpllexChip));
 
     chip->mixer = mixer;
+    setRomVoices(romVoices, romVoicesSize);
     chip->opll  = Y8960OPLL_new(Y8960_OPLLEX_CLOCK, mixerGetSampleRate(mixer));
 
     chip->handle      = mixerRegisterChannel(mixer, MIXER_CHANNEL_Y8960, 1,
