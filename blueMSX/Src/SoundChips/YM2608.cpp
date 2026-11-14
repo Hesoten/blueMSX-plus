@@ -158,14 +158,17 @@ public:
     static const uint8_t ADPCM_B_FLAGS   = ADPCM_B_EOS | ADPCM_B_BRDY | ADPCM_B_PLAYING;
 
     /* The ADPCM-B flags, at the bits the upper status shows them in. */
-    uint8_t adpcmBFlags() const
+    uint8_t adpcmBFlags()
     {
         uint8_t adpcm = m_adpcm_b.status();
         uint8_t flags = 0;
 
         if (adpcm & ymfm::adpcm_b_channel::STATUS_EOS)     flags |= ADPCM_B_EOS;
         if (adpcm & ymfm::adpcm_b_channel::STATUS_BRDY)    flags |= ADPCM_B_BRDY;
-        if (adpcm & ymfm::adpcm_b_channel::STATUS_PLAYING) flags |= ADPCM_B_PLAYING;
+        /* The busy flag is the START bit of register 00h as last written;
+        ** neither the end of the sample, the reset bit nor a flag reset
+        ** clears it, where ymfm's playing flag stays up after 00h=01h. */
+        if (m_adpcm_b.regs().execute())                    flags |= ADPCM_B_PLAYING;
         return flags;
     }
 
@@ -182,7 +185,7 @@ public:
 
     /* What reading the upper status returns, without writing the flags
     ** back into the chip as that read does. */
-    uint8_t peekStatusHi() const
+    uint8_t peekStatusHi()
     {
         uint8_t status = (m_fm.status() & ~ADPCM_B_FLAGS) | adpcmBFlags();
 
@@ -910,6 +913,10 @@ UInt8 ym2608Read(YM2608* ym2608, int offset)
     adpcmBAdvance(ym2608, boardSystemTime());
     value = ym2608->host->chip.read(offset & 3);
     ym2608->host->chip.updateAdpcmBStatus();
+    /* ymfm's read shows its own playing flag in place of the busy flag. */
+    if ((offset & 3) == 2) {
+        value = ym2608->host->chip.peekStatusHi();
+    }
     return value;
 }
 

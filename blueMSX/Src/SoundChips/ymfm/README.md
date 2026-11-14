@@ -44,10 +44,12 @@ insides:
   copy on the rule that, inside `clock()`, BRDY rises from 0 to 1 only when
   CPU-driven playback consumes a data byte; an update that changes this
   changes the sound without stopping the build.
-- It makes up for four things this ymfm does otherwise than the chip, in
+- It makes up for five things this ymfm does otherwise than the chip, in
   `Ym2608Chip`: `reset()` leaves the prescaler and the IRQ mask as they
   were; ADPCM-B flags reach the IRQ line only when the upper status is
-  read; a CSM key-on lasts until the channels are next prepared; and an
+  read; the ADPCM-B busy flag is taken from the START bit of register 00h
+  (`execute()`), not from ymfm's playing flag; a CSM key-on lasts until
+  the channels are next prepared; and an
   ADPCM-B access does not say whether the ROM or the RAM is addressed
   (ymfm issue #76). An update that fixes one of them makes that part of
   `Ym2608Chip` redundant, and for #76 the glue should use what ymfm then
