@@ -85,6 +85,7 @@ private:
         int nextLeveling;
         int sampleStep;
         uint8_t adpcm_data;
+        bool startPending;
     };
 
     void executeUntil(EmuTime time) override;
