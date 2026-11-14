@@ -921,6 +921,7 @@ static void LineEngine(VdpCmdState* vdpCmd)
 
     cnt = vdpCmd->VdpOpsCnt;
 
+/* Stepping up past the top line ends the command; stepping down wraps. */
 #define post_linexmaj(MX) \
     DX+=TX; \
     if (ADX++==NX || (DX&MX)) \
@@ -928,12 +929,16 @@ static void LineEngine(VdpCmdState* vdpCmd)
     if ((ASX-=NY)<0) { \
     ASX+=NX; \
     DY+=TY; \
+    if (TY<0 && DY<0) \
+    break; \
     } \
     ASX&=1023; /* Mask to 10 bits range */ \
         cnt-=delta; \
 }
 #define post_lineymaj(MX) \
     DY+=TY; \
+    if (TY<0 && DY<0) \
+    break; \
     if ((ASX-=NY)<0) { \
     ASX+=NX; \
     DX+=TX; \
