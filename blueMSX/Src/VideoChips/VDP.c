@@ -1858,7 +1858,7 @@ static UInt8 peekStatus(VDP* vdp, UInt16 ioPort)
         break;
 
     case 9: 
-        vdpStatus = (UInt8)(vdpGetBorderX(vdp->cmdEngine) >> 8);
+        vdpStatus = (UInt8)(vdpGetBorderX(vdp->cmdEngine) >> 8) | 0xfe;
         break;
     }
 
@@ -2002,7 +2002,8 @@ static UInt8 readStatus(VDP* vdp, UInt16 ioPort)
         break;
 
     case 9: 
-        vdpStatus = (UInt8)(vdpGetBorderX(vdp->cmdEngine) >> 8);
+        vdpStatus = (UInt8)(vdpGetBorderX(vdp->cmdEngine) >> 8) | 0xfe;
+        vdpClearBorderDetect(vdp->cmdEngine);
         break;
     }
 
@@ -3524,7 +3525,7 @@ int vdpDebugCapture(int index, VdpDebugState* out)
         out->status[2] |= vdpGetStatus(vdp->cmdEngine);
         out->status[7]  = vdpCmdPeek(vdp->cmdEngine, 0x0c, 0);
         out->status[8]  = (UInt8)vdpGetBorderX(vdp->cmdEngine);
-        out->status[9]  = (UInt8)(vdpGetBorderX(vdp->cmdEngine) >> 8);
+        out->status[9]  = (UInt8)(vdpGetBorderX(vdp->cmdEngine) >> 8) | 0xfe;
         for (i = 0; i < cmdRegCount && i < (int)sizeof(out->cmdRegs); i++) {
             out->cmdRegs[i] = vdpCmdPeek(vdp->cmdEngine, (UInt8)i, 0);
         }

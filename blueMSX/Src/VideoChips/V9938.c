@@ -2272,6 +2272,11 @@ UInt16 vdpGetBorderX(VdpCmdState* vdpCmd) {
     return vdpCmd->borderX;
 }
 
+/* A CPU read of S#9 clears BD; peeks must not call this. */
+void vdpClearBorderDetect(VdpCmdState* vdpCmd) {
+    vdpCmd->status &= ~VDPSTATUS_BO;
+}
+
 /*************************************************************
 ** vdpGetColor
 **
