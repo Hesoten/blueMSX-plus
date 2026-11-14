@@ -303,7 +303,7 @@ char* langErrorCreateTapeImage() { return ls->errorCreateTapeImage; }
 char* langErrorNoCasInZip() { return ls->errorNoCasInZip; }
 char* langErrorUnknownFileType() { return ls->errorUnknownFileType; }
 char* langErrorCartV9968WithV9990() { return ls->errorCartV9968WithV9990; }
-char* langErrorCartY8960Twice() { return ls->errorCartY8960Twice; }
+char* langErrorCartTwice() { return ls->errorCartTwice; }
 char* langErrorDirDiskTooLarge() { return ls->errorDirDiskTooLarge; }
 char* langErrorDirDiskOnline() { return ls->errorDirDiskOnline; }
 char* langErrorDirDiskSubdirs() { return ls->errorDirDiskSubdirs; }

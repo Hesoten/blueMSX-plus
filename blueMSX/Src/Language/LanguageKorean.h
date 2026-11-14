@@ -86,7 +86,7 @@ void langInitKorean(LanguageStrings* ls)
     ls->errorNoCasInZip         = "zip파일 내부의 cas를 찾을 수 없습니다.";
     ls->errorUnknownFileType    = "파일을 열 수 없습니다: 알 수 없는 파일 형식입니다.";
     ls->errorCartV9968WithV9990 = "V9968 카트리지는 GFX9000 또는 Video9000과 함께 꽂을 수 없습니다. 둘 다 화면을 전환하기 때문입니다. 먼저 다른 카트리지를 빼세요.";
-    ls->errorCartY8960Twice     = "Y8960 카트리지는 두 슬롯에 동시에 꽂을 수 없습니다. 둘 다 같은 I/O 포트를 사용하기 때문입니다. 먼저 다른 카트리지를 빼세요.";
+    ls->errorCartTwice          = "%s 카트리지는 두 슬롯에 동시에 꽂을 수 없습니다. 둘 다 같은 I/O 포트를 사용하기 때문입니다. 먼저 다른 카트리지를 빼세요.";
     ls->errorDirDiskTooLarge    = "%d개의 파일이 디스크에 들어가지 않아 제외되었습니다.";
     ls->errorDirDiskOnline      = "온라인 전용 파일 %d개가 제외되었습니다. 포함하려면 이 장치에서 사용할 수 있게 하십시오.";
     ls->errorDirDiskSubdirs     = "선택한 형식에서는 다룰 수 없어 %d개의 디렉토리가 제외되었습니다.";

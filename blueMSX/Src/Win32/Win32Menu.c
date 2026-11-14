@@ -2113,11 +2113,15 @@ int menuCartClashRefused(Properties* pProperties, int cartNo, int romType)
     int clash = romType == ROM_V9968CART ? (other == ROM_GFX9000 || other == ROM_VIDEO9000) && (stopped || v9990IsPresent()) :
                 (romType == ROM_GFX9000 || romType == ROM_VIDEO9000) && other == ROM_V9968CART &&
                 (stopped || romMapperV9968CartIsPresent());
-    /* A second Y8960 is refused by name alone: left in its slot, it could
-    ** take the device from the first one when the machine is rebuilt. */
-    int twin = romType == ROM_Y8960 && other == ROM_Y8960;
+    /* A second Y8960 or V9990 is refused by name alone: left in its slot, it
+    ** could take the device from the first one when the machine is rebuilt. */
+    int v9990 = (romType == ROM_GFX9000 || romType == ROM_VIDEO9000) && (other == ROM_GFX9000 || other == ROM_VIDEO9000);
+    int twin = (romType == ROM_Y8960 && other == ROM_Y8960) || v9990;
     if (clash || twin) {
-        MessageBoxU(getMainHwnd(), twin ? langErrorCartY8960Twice() : langErrorCartV9968WithV9990(), langErrorTitle(), MB_OK | MB_ICONERROR);
+        char text[1024];
+        _snprintf(text, sizeof(text) - 1, langErrorCartTwice(), v9990 ? "GFX9000/Video9000" : "Y8960");
+        text[sizeof(text) - 1] = '\0';
+        MessageBoxU(getMainHwnd(), twin ? text : langErrorCartV9968WithV9990(), langErrorTitle(), MB_OK | MB_ICONERROR);
     }
     return clash || twin;
 }
