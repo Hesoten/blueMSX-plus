@@ -55,6 +55,7 @@ Makefile   text eol=lf
 *.exe    binary
 *.pdb    binary
 *.rom    binary
+*.bin    binary
 *.ri     binary
 *.sram   binary
 *.dsk    binary

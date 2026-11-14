@@ -89,6 +89,7 @@ See [`blueMSX/changes.txt`](blueMSX/changes.txt) for the full change history.
   - Nextor: `LICENSE-Nextor.md` in each C-BIOS FDD machine folder
   - TC8566AF FDC driver: `LICENSE-TC8566AF.txt` in each C-BIOS FDD machine folder
 - For the license of "Kanji ROM image file for msx emulaters", see `Machines/Shared Roms/LICENSE-KANJI.txt`.
+- For the license of the Y8960 cartridge's preset voices (`y8960_opll_voices.bin`), see `Machines/Shared Roms/LICENSE-y8960_opll_voices.txt`.
 
 
 ## Installation
