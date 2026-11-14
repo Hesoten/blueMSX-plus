@@ -58,6 +58,9 @@ typedef enum {
     ** own level here. */
     MIXER_CHANNEL_OPNA_FM,
     MIXER_CHANNEL_OPNA_SSG,
+    /* Every Y8960 block shares this one type, so the cartridge can be
+    ** balanced against the machine with a single control. */
+    MIXER_CHANNEL_Y8960,
     MIXER_CHANNEL_TYPE_COUNT
 } MixerAudioType;
 

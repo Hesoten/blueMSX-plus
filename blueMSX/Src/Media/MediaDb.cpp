@@ -134,6 +134,7 @@ RomType mediaDbStringToType(const char* romName)
     if (iequals(name, "RookieDriveNX"))    return ROM_ROOKIEDRIVE;
     if (iequals(name, "GFX9000"))          return ROM_GFX9000;
     if (iequals(name, "Video9000"))        return ROM_VIDEO9000;
+    if (iequals(name, "Y8960"))            return ROM_Y8960;
     if (iequals(name, "V9968Cartridge"))   return ROM_V9968CART;
     if (iequals(name, "FlashRomScc"))      return ROM_FLASHROMSCC;
     if (iequals(name, "FlashRomSccDev"))   return ROM_FLASHROMSCC;
@@ -689,6 +690,7 @@ extern "C" const char* romTypeToString(RomType romType)
     case ROM_ROOKIEDRIVE: return "Rookie Drive NX";
     case ROM_GFX9000:     return "GFX9000";
     case ROM_VIDEO9000:   return "Video9000";
+    case ROM_Y8960:       return "Y8960 Cartridge";
     case ROM_V9968CART:   return langRomTypeV9968Cart();
     case ROM_FLASHROMSCC: return "Flash-ROM SCC";
     case ROM_MEGAFLSHSCCPLUS_SD: return "Mega Flash Rom SCC+ SD";
@@ -879,6 +881,7 @@ extern "C" const char* romTypeToShortString(RomType romType)
     case ROM_ROOKIEDRIVE: return "ROOKIEDRIVE";
     case ROM_GFX9000:     return "GFX9000";
     case ROM_VIDEO9000:   return "VIDEO9000";
+    case ROM_Y8960:       return "Y8960";
     case ROM_V9968CART:   return "V9968CART";
     case ROM_FLASHROMSCC: return "FLASHROMSCC";
     case ROM_OBSONET:     return "OBSONET";
@@ -1113,6 +1116,7 @@ int romTypeIsMegaRom(RomType romType) {
     case ROM_NEO16:       return 1;
     case ROM_YAMANOOTO:   return 1;
     case ROM_ROOKIEDRIVE: return 1;
+    case ROM_Y8960:       return 1;
     case ROM_FLASHROMSCC: return 1;
     case ROM_OBSONET:     return 1;
     case ROM_DUMAS:       return 1;

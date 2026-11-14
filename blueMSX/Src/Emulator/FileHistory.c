@@ -184,7 +184,8 @@ void verifyFileHistory(char* history, RomType* historyType) {
             strcmp(fname, CARTNAME_WAVESCSI1MB) &&
             strcmp(fname, CARTNAME_ESESCC128)   &&
             strcmp(fname, CARTNAME_ESESCC256)   &&
-            strcmp(fname, CARTNAME_ESESCC512))
+            strcmp(fname, CARTNAME_ESESCC512)   &&
+            strcmp(fname, CARTNAME_Y8960))
         {
             struct stat s;
             int rv = archFileExists(fname);
@@ -466,6 +467,7 @@ int createSaveFileBaseName(char* fileBase,Properties* properties, int useExtende
                 strcmp(properties->media.carts[i].fileName, CARTNAME_ESESCC128)    &&
                 strcmp(properties->media.carts[i].fileName, CARTNAME_ESESCC256)    &&
                 strcmp(properties->media.carts[i].fileName, CARTNAME_ESESCC512)    &&
+                strcmp(properties->media.carts[i].fileName, CARTNAME_Y8960)        &&
                 properties->media.carts[i].type != ROM_FMPAC               &&
                 properties->media.carts[i].type != ROM_PAC                 &&
                 properties->media.carts[i].type != ROM_GAMEREADER          &&
