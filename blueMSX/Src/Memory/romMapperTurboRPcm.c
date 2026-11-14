@@ -98,6 +98,9 @@ static void destroy(RomMapperTurboRPcm* rm)
     ioPortUnregister(0xa4, rm);
     ioPortUnregister(0xa5, rm);
 
+    /* The next machine must not inherit the mute. */
+    mixerSetEnable(rm->mixer, 1);
+
     free(rm);
 }
 

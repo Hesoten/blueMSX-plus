@@ -104,7 +104,7 @@ void Emu8950Backend::onEosTimer(void* ref, UInt32 /*time*/)
         self->eosArmed = false;
         return;
     }
-    /* No progress means the audio is not being rendered (mixer off):
+    /* No progress means nothing was rendered since the timer was set:
     ** look again a mixer period later instead of every chip step. */
     if (a->play_addr != self->eosAddr || a->delta_addr != self->eosStep) {
         self->armEos();
