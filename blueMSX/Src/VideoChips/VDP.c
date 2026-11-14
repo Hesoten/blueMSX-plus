@@ -1850,7 +1850,8 @@ static UInt8 peekStatus(VDP* vdp, UInt16 ioPort)
         break;
 
     case 7: 
-        vdpStatus = vdpGetColor(vdp->cmdEngine);
+        /* Only a CPU read clears TR. */
+        vdpStatus = vdpCmdPeek(vdp->cmdEngine, 0x0c, 0);
         break;
 
     case 8: 
