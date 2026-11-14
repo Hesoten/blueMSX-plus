@@ -90,15 +90,19 @@ static UInt32 modCount(const Y8960TimerCore* t, UInt32 value)
     return value & ((1u << resoShift(t)) - 1);
 }
 
+/* The end is judged on the whole count, not the eight bits B3h reads: the RTL
+** (msx_timer_core.v) adds a ninth bit that is set whenever anything above the
+** eight is, so a count left above 255 by a lower resolution has passed every
+** terminal value and ends at the next step. */
 static int endReached(const Y8960TimerCore* t, UInt32 value)
 {
-    return (divCount(t, value) & 0xFF) >= t->count &&
+    return divCount(t, value) >= t->count &&
            modCount(t, value) == modCount(t, 0xFFFFFFFFu);
 }
 
 static UInt64 nextPoint(const Y8960TimerCore* t, UInt32 value)
 {
-    UInt32 counter = divCount(t, value) & 0xFF;
+    UInt32 counter = divCount(t, value);
 
     return mulCount(t, (counter >= t->count) ? (counter + 1) : ((UInt32)t->count + 1));
 }
