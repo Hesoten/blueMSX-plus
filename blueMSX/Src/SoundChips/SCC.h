@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -33,6 +36,7 @@
 #include "MsxTypes.h"
 #include "AudioMixer.h"
 #include "DebugDeviceManager.h"
+#include "SaveState.h"
 
 /* Type definitions */
 typedef struct SCC SCC;
@@ -41,6 +45,9 @@ typedef enum { SCC_NONE = 0, SCC_REAL, SCC_COMPATIBLE, SCC_PLUS } SccMode;
 
 /* Constructor and destructor */
 SCC* sccCreate(Mixer* mixer);
+/* A pan per channel and a left/right output; the owner registers it with the
+** mixer and renders it with sccSyncStereo. Every pan gain starts at 0. */
+SCC* sccCreateStereo(Mixer* mixer);
 void sccDestroy(SCC* scc);
 void sccReset(SCC* scc);
 void sccSetMode(SCC* scc, SccMode newMode);
@@ -50,10 +57,18 @@ UInt8 sccRead(SCC* scc, UInt8 address);
 UInt8 sccPeek(SCC* scc, UInt8 address);
 void sccWrite(SCC* scc, UInt8 address, UInt8 value);
 
+/* Channel 0-4's gain on each side of a stereo SCC; 4096 is unity. */
+void sccSetPanGain(SCC* scc, int channel, Int32 left, Int32 right);
+/* count left/right pairs from a stereo SCC. */
+Int32* sccSyncStereo(SCC* scc, UInt32 count);
+
 void sccGetDebugInfo(SCC* scc, DbgDevice* dbgDevice);
 
 void sccLoadState(SCC* scc);
 void sccSaveState(SCC* scc);
+/* The same, inside a section the caller has opened. */
+void sccLoadStateFrom(SCC* scc, SaveState* state);
+void sccSaveStateTo(SCC* scc, SaveState* state);
 
 #endif
 
