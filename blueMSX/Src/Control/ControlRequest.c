@@ -136,6 +136,9 @@ static const CtrlArg vdpArgs[] = {
     { "item", CTRL_ARG_TEXT, 15 }, { "at", CTRL_ARG_TEXT, 15 }, { "count", CTRL_ARG_INT, 0 },
     { NULL }
 };
+static const CtrlArg devicesArgs[] = {
+    { "device", CTRL_ARG_INT, 0 }, { NULL }
+};
 static const CtrlArg traceArmArgs[] = {
     { "class", CTRL_ARG_TEXT, 63 }, { NULL }
 };
@@ -272,6 +275,9 @@ static const CtrlOp opTable[] = {
       "               chip = machine|cartridge|v9990, run, item (geo3d only),\n"
       "               at, count (vram only); raster: machine only, the first\n"
       "               call arms the log\n" },
+    { "devices",           CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpDevices, OP_ARGS(devicesArgs),
+      CTRL_ACT_DENIED,
+      "  devices      device       (without it, the list; an index holds for one generation)\n" },
     { "trace.arm",         CTRL_OP_LOOKS,   CTRL_OP_SELF, ctrlOpTraceArm, OP_ARGS(traceArmArgs),
       CTRL_ACT_DENIED,
       "  trace.arm    class = geo3d,vdpcmd,vdpreg (held by this connection)\n" },

@@ -24,6 +24,7 @@
 #define CONTROL_STATUS_H
 
 #include "ControlText.h"
+#include "Debugger.h"
 #include "MsxTypes.h"
 
 /* The status lines: run state and stop reason, registers, PC symbol, pages, switched banks.
@@ -32,6 +33,9 @@
 #define CTRL_STATUS_STATE_UNSAID (-1)
 
 void ctrlStatusDescribe(CtrlText* text, int stopReason, int stateAsFound);
+
+/* The named entries of a register bank as NAME=value, 10 to a line, after label padded to 8. */
+void ctrlStatusListRegisters(CtrlText* text, const DbgRegisterBank* regs, const char* label);
 
 /* All VDP registers and the screen mode they select, and whether a V9990 picture is shown. */
 void ctrlStatusDescribeVdp(CtrlText* text);

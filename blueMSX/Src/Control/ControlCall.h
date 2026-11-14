@@ -37,6 +37,8 @@
 /* Why the machine was not resumed or stepped; what was not done follows. */
 #define CTRL_TEXT_FOLDER_DISK_BUSY "the emulator window has a question about a folder disk " \
                                    "open, or is changing the machine"
+/* Ends a reply cut short because it holds no more. */
+#define CTRL_TEXT_CUT "\n... the reply was cut here: it holds no more\n"
 /* After an answer read from the layout of a running machine, as ram: is. */
 #define CTRL_TEXT_RUNNING_LAYOUT "The segment paged in there was read while the machine runs, so " \
                                  "a moment later it can be another one; pause first to pin a fixed one."

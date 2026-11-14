@@ -84,6 +84,9 @@ int ctrlOpScreen(CtrlCall* call);
 /* ControlOpVdp.c */
 int ctrlOpVdp(CtrlCall* call);
 
+/* ControlOpDevices.c */
+int ctrlOpDevices(CtrlCall* call);
+
 /* ControlOpTrace.c */
 int ctrlOpTraceArm(CtrlCall* call);
 int ctrlOpTraceDisarm(CtrlCall* call);

@@ -34,8 +34,7 @@
 #include "romMapperV9968Cart.h"
 #include <stdio.h>
 
-static void describeRegisters(CtrlText* text, const DbgRegisterBank* regs,
-                              const char* label)
+void ctrlStatusListRegisters(CtrlText* text, const DbgRegisterBank* regs, const char* label)
 {
     UInt32 i;
     int onLine = 0;
@@ -161,7 +160,7 @@ void ctrlStatusDescribe(CtrlText* text, int stopReason, int stateAsFound)
     snapshot = ctrlViewDevices();
     if (snapshot != NULL) {
         pc = ctrlCpuPcIn(snapshot);
-        describeRegisters(text, ctrlCpuRegisterBankIn(snapshot), "regs:");
+        ctrlStatusListRegisters(text, ctrlCpuRegisterBankIn(snapshot), "regs:");
         dbgSnapshotDestroy(snapshot);
     }
     else {
@@ -271,7 +270,7 @@ void ctrlStatusDescribeVdp(CtrlText* text)
                         "undefined: the VDP draws them blank or from other tables, so "
                         "check the PNG\n", vdp->name, raw);
         }
-        describeRegisters(text, vdp->registerBank[0], "");
+        ctrlStatusListRegisters(text, vdp->registerBank[0], "");
     }
     dbgSnapshotDestroy(snapshot);
 }

@@ -362,6 +362,23 @@ const McpTool mcpTools[] = {
     NULL
 },
 {
+    "bmsx_devices",
+    "The devices the emulator's debugger sees (CPU, memory, video, sound, I/O), read from a "
+    "paused machine. Without device it lists each one by index with its kind, name, "
+    "register banks, I/O port views and memory blocks; with device it gives that one's "
+    "registers and I/O ports with their values (a write-only port has none) and its "
+    "memory blocks' names and sizes. Two devices of one kind, such as two sound chips, "
+    "are told apart by index. An index holds only while the generation in the reply "
+    "stays the same: a reset, a cartridge change or a state load changes it. A sound "
+    "chip's status bits are as of its last update, not of this moment.",
+    SCHEMA("\"properties\":{"
+           "\"device\":{\"type\":\"integer\",\"minimum\":0,\"description\":\"the index from "
+           "the list, for that device's registers and ports\"}}"),
+    READ_ONLY,
+    "devices",
+    NULL
+},
+{
     "bmsx_trace",
     "Record what the video chips do, event by event, and read it back: arm the classes, "
     "let the machine run or step it, then read. geo3d is the 3D engine beside a V9968 (its "

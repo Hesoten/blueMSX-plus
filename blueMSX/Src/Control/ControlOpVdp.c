@@ -381,7 +381,7 @@ static int replyRaster(CtrlCall* call, int chip, const char* chipName)
         }
     }
     if (!whole) {
-        ctrlTextAdd(&call->text, "\n... the reply was cut here: it holds no more\n");
+        ctrlTextAdd(&call->text, CTRL_TEXT_CUT);
     }
     jsonOutString(&call->out, "chip", chipName);
     return ctrlReplyDone(call);
