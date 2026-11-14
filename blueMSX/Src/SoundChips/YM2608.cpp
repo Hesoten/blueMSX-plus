@@ -6,8 +6,8 @@
 ** Modified 2026 by Hesoten for blueMSX+ fork.
 ** See https://github.com/Hesoten/blueMSX-plus for change history.
 **
-** The chip itself is ymfm (BSD-3-Clause, Aaron Giles), kept unmodified
-** under ymfm/. This file only connects it to the board and the mixer.
+** The chip itself is ymfm (BSD-3-Clause, Aaron Giles), at the version its
+** ymfm/README.md names. This file only connects it to the board and mixer.
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -85,6 +85,17 @@ public:
 
     UInt32 prescale() const { return m_fm.clock_prescale(); }
 
+    /* The chip selects only 2, 3 or 6, but a damaged state can hold any
+    ** value; 0 would leave the FM stream no clocks per sample. */
+    void keepPrescaleValid()
+    {
+        UInt32 p = m_fm.clock_prescale();
+
+        if (p != 2 && p != 3 && p != 6) {
+            update_prescale(6);
+        }
+    }
+
     /* reset() puts the IRQ enable and flag control registers back but
     ** leaves the IRQ mask made from them, and the prescaler, as the program
     ** last set them. */
@@ -95,27 +106,54 @@ public:
         m_fm.set_irq_mask(m_irq_enable & ~m_flag_control & 0x1f);
     }
 
+    /* ym2608's STATUS_ADPCM_B_* are private; these are their values. */
+    static const uint8_t ADPCM_B_EOS     = 0x04;
+    static const uint8_t ADPCM_B_BRDY    = 0x08;
+    static const uint8_t ADPCM_B_PLAYING = 0x20;
+    static const uint8_t ADPCM_B_FLAGS   = ADPCM_B_EOS | ADPCM_B_BRDY | ADPCM_B_PLAYING;
+
+    /* The ADPCM-B flags, at the bits the upper status shows them in. */
+    uint8_t adpcmBFlags() const
+    {
+        uint8_t adpcm = m_adpcm_b.status();
+        uint8_t flags = 0;
+
+        if (adpcm & ymfm::adpcm_b_channel::STATUS_EOS)     flags |= ADPCM_B_EOS;
+        if (adpcm & ymfm::adpcm_b_channel::STATUS_BRDY)    flags |= ADPCM_B_BRDY;
+        if (adpcm & ymfm::adpcm_b_channel::STATUS_PLAYING) flags |= ADPCM_B_PLAYING;
+        return flags;
+    }
+
     /* ymfm brings the ADPCM-B flags into the status, and so to the IRQ
     ** line, only when the upper status is read; the chip raises the line
     ** when the flag comes up. This does the same as that read, for the
     ** ADPCM-B bits alone, so the timer flags stay as they were. */
     void updateAdpcmBStatus()
     {
-        /* ym2608's STATUS_ADPCM_B_* are private; these are their values. */
-        const uint8_t EOS     = 0x04;
-        const uint8_t BRDY    = 0x08;
-        const uint8_t PLAYING = 0x20;
-        uint8_t adpcm = m_adpcm_b.status();
-        uint8_t set = 0;
+        uint8_t set = adpcmBFlags() & ~(m_flag_control & 0x1f);
 
-        if (adpcm & ymfm::adpcm_b_channel::STATUS_EOS)     set |= EOS;
-        if (adpcm & ymfm::adpcm_b_channel::STATUS_BRDY)    set |= BRDY;
-        if (adpcm & ymfm::adpcm_b_channel::STATUS_PLAYING) set |= PLAYING;
-        set &= ~(m_flag_control & 0x1f);
-        m_fm.set_reset_status(set, (EOS | BRDY | PLAYING) & ~set);
+        m_fm.set_reset_status(set, ADPCM_B_FLAGS & ~set);
+    }
+
+    /* What reading the upper status returns, without writing the flags
+    ** back into the chip as that read does. */
+    uint8_t peekStatusHi() const
+    {
+        uint8_t status = (m_fm.status() & ~ADPCM_B_FLAGS) | adpcmBFlags();
+
+        status &= ~(m_flag_control & 0x1f);
+        if (m_fm.intf().ymfm_is_busy()) {
+            status |= fm_engine::STATUS_BUSY;
+        }
+        return status;
     }
 
     bool csmMode() { return m_fm.regs().csm() != 0; }
+
+    /* One address latch serves both halves: data for the half it does not
+    ** point into is dropped, and the rest goes to the register it holds. */
+    bool upperAddress() const { return (m_address & 0x100) != 0; }
+    uint8_t addressInHalf() const { return (uint8_t)m_address; }
 
     /* ymfm takes the CSM key-on back only when it next prepares the
     ** channels, which without a register write is up to 4096 samples
@@ -305,12 +343,12 @@ public:
 
     void timerExpired(int tnum) { m_engine->engine_timer_expired(tnum); }
 
-    virtual void ymfm_set_timer(uint32_t tnum, int32_t duration_in_clocks);
-    virtual void ymfm_set_busy_end(uint32_t clocks);
-    virtual bool ymfm_is_busy();
-    virtual void ymfm_update_irq(bool asserted);
-    virtual uint8_t ymfm_external_read(ymfm::access_class type, uint32_t address);
-    virtual void ymfm_external_write(ymfm::access_class type, uint32_t address, uint8_t data);
+    void ymfm_set_timer(uint32_t tnum, int32_t duration_in_clocks) override;
+    void ymfm_set_busy_end(uint32_t clocks) override;
+    bool ymfm_is_busy() override;
+    void ymfm_update_irq(bool asserted) override;
+    uint8_t ymfm_external_read(ymfm::access_class type, uint32_t address) override;
+    void ymfm_external_write(ymfm::access_class type, uint32_t address, uint8_t data) override;
 
     YM2608* owner;
     Ym2608Chip chip;
@@ -608,6 +646,7 @@ void ym2608Reset(YM2608* ym2608)
 
     for (i = 0; i < 2; i++) {
         ym2608->timerActive[i] = 0;
+        ym2608->timerTimeout[i] = 0;
         boardTimerRemove(ym2608->timer[i]);
     }
     ym2608->busyEnd     = boardSystemTime();
@@ -631,15 +670,22 @@ UInt8 ym2608Read(YM2608* ym2608, int offset)
     return value;
 }
 
-/* Only the lower status is free of side effects: reading the upper status
-** writes flags back into the chip, and reading the upper data advances the
-** ADPCM-B memory pointer. */
+/* The upper data is left out: reading it advances the ADPCM-B memory
+** pointer. */
 UInt8 ym2608Peek(YM2608* ym2608, int offset)
 {
-    if ((offset & 3) == 0) {
-        return ym2608->host->chip.read_status();
+    Ym2608Chip& chip = ym2608->host->chip;
+
+    switch (offset & 3) {
+    case 0:
+        return chip.read_status();
+    case 1:
+        return chip.read_data();
+    case 2:
+        return chip.peekStatusHi();
+    default:
+        return 0xff;
     }
-    return 0xff;
 }
 
 void ym2608Write(YM2608* ym2608, int offset, UInt8 value)
@@ -649,7 +695,9 @@ void ym2608Write(YM2608* ym2608, int offset, UInt8 value)
     mixerSync(ym2608->mixer);
 
     if (offset & 1) {
-        ym2608->regs[hi][ym2608->address[hi]] = value;
+        if (ym2608->host->chip.upperAddress() == (hi != 0)) {
+            ym2608->regs[hi][ym2608->host->chip.addressInHalf()] = value;
+        }
     }
     else {
         ym2608->address[hi] = value;
@@ -731,18 +779,20 @@ void ym2608LoadState(YM2608* ym2608)
     /* A state saved with a different RAM size keeps only what fits. */
     size = saveStateGet(state, "adpcmRamSize", 0);
     if (size > 0) {
-        std::vector<uint8_t> ram(size);
-        saveStateGetBuffer(state, "adpcmRam", ram.data(), size);
         memset(ym2608->adpcmRam, 0xff, ym2608->adpcmRamSize);
-        memcpy(ym2608->adpcmRam, ram.data(), size < ym2608->adpcmRamSize ? size : ym2608->adpcmRamSize);
+        saveStateGetBuffer(state, "adpcmRam", ym2608->adpcmRam, ym2608->adpcmRamSize);
     }
 
     size = saveStateGet(state, "chipStateSize", 0);
     if (size > 0) {
-        chipState.resize(size);
-        saveStateGetBuffer(state, "chipState", chipState.data(), size);
+        /* Sized as this build saves the chip; a shorter state leaves the
+        ** rest as it is. */
+        ymfm::ymfm_saved_state saver(chipState, true);
+        ym2608->host->chip.save_restore(saver);
+        saveStateGetBuffer(state, "chipState", chipState.data(), (UInt32)chipState.size());
         ymfm::ymfm_saved_state loader(chipState, false);
         ym2608->host->chip.save_restore(loader);
+        ym2608->host->chip.keepPrescaleValid();
 
         /* The ADPCM-B channel is the one part whose values changed their
         ** meaning between the layouts, at the same size. Read as they are

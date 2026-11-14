@@ -31,11 +31,12 @@ the note about it goes.
 The blueMSX side is `../YM2608.cpp`. Three things there depend on ymfm's
 insides:
 
-- It clocks the FM and the SSG part of the chip separately, and makes up
-  for the behaviour listed below, through protected members of `ym2608`
-  (`clock_fm_and_adpcm`, `update_prescale`, `m_last_fm`, `m_ssg`, `m_fm`,
-  `m_adpcm_b`, `m_irq_enable`, `m_flag_control`), so an update that hides
-  them stops the build there.
+- It clocks the FM and the SSG part of the chip separately, makes up for
+  the behaviour listed below, and shows the registers to the debugger,
+  through protected members of `ym2608` (`clock_fm_and_adpcm`,
+  `update_prescale`, `m_address`, `m_last_fm`, `m_ssg`, `m_fm`, `m_adpcm_b`,
+  `m_irq_enable`, `m_flag_control`), so an update that hides them stops the
+  build there.
 - It makes up for four things this ymfm does otherwise than the chip, in
   `Ym2608Chip`: `reset()` leaves the prescaler and the IRQ mask as they
   were; ADPCM-B flags reach the IRQ line only when the upper status is
