@@ -199,6 +199,7 @@ void ym2151Write(YM2151* ym2151, UInt16 ioPort, UInt8 value)
 
 void ym2151GetDebugInfo(YM2151* ym2151, DbgDevice* dbgDevice)
 {
+    YM2151GetDebugInfo(ym2151->opl, dbgDevice);
 }
     
 static Int32* ym2151Sync(void* ref, UInt32 count) 

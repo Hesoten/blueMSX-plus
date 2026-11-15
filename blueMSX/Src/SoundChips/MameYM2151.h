@@ -34,6 +34,7 @@
 
 #include "MsxTypes.h"
 #include "AudioMixer.h"
+#include "DebugDeviceManager.h"
 
 typedef struct MameYm2151 MameYm2151;
 
@@ -62,4 +63,6 @@ int  YM2151ReadStatus(MameYm2151* chip);
 void YM2151TimerCallback(MameYm2151* chip, int timer);
 void YM2151LoadState(MameYm2151* chip);
 void YM2151SaveState(MameYm2151* chip);
+/* Adds the register bank: the last values written, 19h as AMD and PMD. */
+void YM2151GetDebugInfo(MameYm2151* chip, DbgDevice* dbgDevice);
 #endif /*_H_YM2151_*/

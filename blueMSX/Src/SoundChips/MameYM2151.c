@@ -11,6 +11,7 @@
 
 #include "MameYM2151.h"
 #include "SaveState.h"
+#include "Language.h"
 
 
 /* struct describing a single operator */
@@ -106,6 +107,8 @@ struct MameYm2151
 	UInt8		connect[8];				/* channels connections */
 
     UInt16      timer_A_val;
+
+    UInt8       regs[256];          /* last value written to each register, for the debugger */
 
 	/*	Frequency-deltas to get the closest frequency possible.
 	*	There are 11 octaves because of DT2 (max 950 cents over base frequency)
@@ -884,6 +887,8 @@ void YM2151WriteReg(MameYm2151 *chip, int r, int v)
 	r &= 0xff;
 	v &= 0xff;
 
+	chip->regs[r] = (UInt8)v;
+
 	switch(r & 0xe0){
 	case 0x00:
 		switch(r){
@@ -1206,6 +1211,7 @@ void YM2151ResetChip(MameYm2151 *chip)
 	chip->csm_req	= 0;
 	chip->status    = 0;
 
+	memset(chip->regs, 0, sizeof(chip->regs));
 	YM2151WriteReg(chip, 0x1b, 0);	/* only because of CT1, CT2 output pins */
 	YM2151WriteReg(chip, 0x18, 0);	/* set LFO frequency */
 	for (i=0x20; i<0x100; i++)		/* set the operators */
@@ -2086,6 +2092,9 @@ void YM2151LoadState(MameYm2151* chip)
         set_connect(chip, &chip->oper[i * 4], i, chip->connect[i]);
     }
 
+    memset(chip->regs, 0, sizeof(chip->regs));
+    saveStateGetBuffer(state, "regs", chip->regs, sizeof(chip->regs));
+
     saveStateClose(state);
 }
 
@@ -2257,7 +2266,36 @@ void YM2151SaveState(MameYm2151* chip)
         }
     }
 
+    saveStateSetBuffer(state, "regs", chip->regs, sizeof(chip->regs));
+
     saveStateClose(state);
+}
+
+void YM2151GetDebugInfo(MameYm2151* chip, DbgDevice* dbgDevice)
+{
+    /* 19h is shown as the AMD and PMD it holds; 20h-FFh all exist. */
+    static const UInt8 lowRegs[] = { 0x01, 0x08, 0x0f, 0x10, 0x11, 0x12, 0x14, 0x18, 0x19, 0x1b };
+    DbgRegisterBank* regBank;
+    char name[8];
+    int count = 0;
+    int i;
+
+    regBank = dbgDeviceAddRegisterBank(dbgDevice, langDbgRegs(), sizeof(lowRegs) + 1 + 0xe0);
+
+    for (i = 0; i < (int)sizeof(lowRegs); i++) {
+        if (lowRegs[i] == 0x19) {
+            dbgRegisterBankAddRegister(regBank, count++, "AMD", 8, chip->amd);
+            dbgRegisterBankAddRegister(regBank, count++, "PMD", 8, (UInt8)chip->pmd);
+        }
+        else {
+            sprintf(name, "R%.2x", lowRegs[i]);
+            dbgRegisterBankAddRegister(regBank, count++, name, 8, chip->regs[lowRegs[i]]);
+        }
+    }
+    for (i = 0x20; i < 0x100; i++) {
+        sprintf(name, "R%.2x", i);
+        dbgRegisterBankAddRegister(regBank, count++, name, 8, chip->regs[i]);
+    }
 }
 
 MixerVoices* YM2151AttachVoices(MameYm2151* chip, Mixer* mixer, Int32 handle, float scale)
