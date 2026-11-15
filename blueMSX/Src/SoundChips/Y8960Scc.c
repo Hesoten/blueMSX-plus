@@ -48,6 +48,7 @@ struct Y8960SccChip
     Mixer* mixer;
     Int32  handle;
     SCC*   scc;
+    MixerVoices* voices;
     UInt8  pan[5];
 };
 
@@ -65,8 +66,13 @@ static Int32* y8960SccSync(void* ref, UInt32 count)
     Y8960SccChip* chip = (Y8960SccChip*)ref;
     /* The mixer block's volume for this block. */
     Int32  blockGain = y8960MixerGain(Y8960_VOL_SCC);
-    Int32* buffer = sccSyncStereo(chip->scc, count);
+    Int32* buffer;
     UInt32 i;
+
+    if (chip->voices != NULL) {
+        chip->voices->scale = (float)blockGain / Y8960_GAIN_ONE;
+    }
+    buffer = sccSyncStereo(chip->scc, count);
 
     for (i = 0; i < 2 * count; i++) {
         buffer[i] = (Int32)((Int64)buffer[i] * blockGain / Y8960_GAIN_ONE);
@@ -82,6 +88,7 @@ Y8960SccChip* y8960SccCreate(Mixer* mixer)
     chip->mixer  = mixer;
     chip->scc    = sccCreateStereo(mixer);
     chip->handle = mixerRegisterChannel(mixer, MIXER_CHANNEL_Y8960, 1, y8960SccSync, NULL, chip);
+    chip->voices = sccAttachVoices(chip->scc, chip->handle, 1.0f);
 
     y8960SccReset(chip);
 

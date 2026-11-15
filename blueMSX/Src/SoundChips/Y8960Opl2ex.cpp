@@ -5,6 +5,9 @@
 **
 ** Copyright (C) 2026 madscient
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -49,6 +52,10 @@ extern "C" {
 ** is set on top of it, in the mixer block's gain (romMapperY8960Mixer.c). */
 #define Y8960_OPL2EX_GAIN_SHIFT 1
 
+static const char* const voiceNames[15] = {
+    "1", "2", "3", "4", "5", "6", "7", "8", "9", "BD", "HH", "SD", "TOM", "CYM", "ADPCM"
+};
+
 struct Y8960Opl2ex {
     Mixer*                          mixer;
     y8960opl2::MSXMotherBoard       mb;
@@ -58,6 +65,7 @@ struct Y8960Opl2ex {
     std::vector<int32_t>            chipSamples;
     Int32                           handle;
     Int32                           debugHandle;
+    MixerVoices*                    voices;
     UInt32                          mixerRate;
     Int32                           off, o1[2], o2[2];
     UInt8                           latchedAddr;
@@ -67,7 +75,7 @@ struct Y8960Opl2ex {
     Y8960Opl2ex(Mixer* mixer_, const std::string& name, y8960opl2::EmuTime time)
         : mixer(mixer_), cfg(mb), ram(Y8960_OPL2EX_SAMPLE_RAM)
         , chip(name, cfg, ram, BOARD_INT_Y8960_OPL2EX, time)
-        , handle(0), debugHandle(0), mixerRate(SAMPLERATE)
+        , handle(0), debugHandle(0), voices(NULL), mixerRate(SAMPLERATE)
         , off(0), o1{0, 0}, o2{0, 0}, latchedAddr(0)
     {
         memset(regCache, 0, sizeof(regCache));
@@ -109,7 +117,11 @@ static Int32* sync(void* ref, UInt32 count)
     }
 
     if ((int)c.chipSamples.size() < 2 * chipNeed) c.chipSamples.resize((size_t)(2 * chipNeed));
-    c.chip.generateStereo(c.chipSamples.data(), (unsigned)chipNeed);
+    if (c.voices != NULL) {
+        c.voices->scale = (float)(gain << Y8960_OPL2EX_GAIN_SHIFT) / Y8960_GAIN_ONE;
+    }
+    c.chip.generateStereo(c.chipSamples.data(), (unsigned)chipNeed,
+                          mixerVoicesWanted(c.voices) ? c.voices : NULL);
 
     int32_t* chipBuf = c.chipSamples.data();
     int chipPos = 0;
@@ -261,6 +273,8 @@ Y8960Opl2ex* y8960Opl2exCreate(Mixer* mixer)
 
     c->mixerRate   = mixerGetSampleRate(mixer);
     c->handle      = mixerRegisterChannel(mixer, MIXER_CHANNEL_Y8960, 1, sync, setRate, c);
+    /* The chip scales each channel before the pans; sync keeps scale on the block's gain. */
+    c->voices      = mixerAttachVoices(mixer, c->handle, 15, voiceNames, 1 << Y8960_OPL2EX_GAIN_SHIFT);
     c->debugHandle = debugDeviceRegister(DBGTYPE_AUDIO, name, &dbgCallbacks, c);
 
     y8960Opl2exReset(c);

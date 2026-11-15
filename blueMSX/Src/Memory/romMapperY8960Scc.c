@@ -495,14 +495,20 @@ int romMapperY8960CartCreate(const char* filename, UInt8* romData,
         return 0;
     }
 
+    mixerSetCreateName(boardGetMixer(), "SCC");
     success = sccBlockCreate(filename, romData, size, slot, sslot,
                              Y8960_START_PAGE, ejectCart);
 
+    mixerSetCreateName(boardGetMixer(), "OPLL");
     success &= romMapperY8960OpllexCreate();
+    mixerSetCreateName(boardGetMixer(), "OPL2");
     success &= romMapperY8960Opl2exCreate();
+    mixerSetCreateName(boardGetMixer(), "SSG");
     success &= romMapperY8960SsgsCreate();
+    mixerSetCreateName(boardGetMixer(), "OPM");
     success &= romMapperY8960TimerCreate();
     success &= romMapperY8960OpmCreate();
+    mixerSetCreateName(boardGetMixer(), NULL);
     success &= romMapperY8960MixerCreate();
     success &= romMapperY8960SysCtrlCreate();
 

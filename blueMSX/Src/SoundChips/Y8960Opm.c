@@ -72,6 +72,7 @@ struct Y8960OpmChip {
     Int32  s2l;
     Int32  s1r;
     Int32  s2r;
+    MixerVoices* voices;
     Int32  buffer[AUDIO_STEREO_BUFFER_SIZE];
 };
 
@@ -199,6 +200,10 @@ static Int32* y8960OpmSync(void* ref, UInt32 count)
     Int64 gain = (Int64)y8960MixerGain(Y8960_VOL_OPM) * Y8960_OPM_VOLUME;
     UInt32 i;
 
+    YM2151SyncVoices(chip->opm);
+    if (chip->voices != NULL) {
+        chip->voices->scale = (float)gain / Y8960_GAIN_ONE;
+    }
     for (i = 0; i < count; i++) {
         Int16 sl, sr;
         Int32 l, r;
@@ -308,6 +313,8 @@ Y8960OpmChip* y8960OpmCreate(Mixer* mixer)
 
     chip->opm  = YM2151Create(chip, &y8960OpmCallbacks, "y8960opm_core", FREQUENCY, SAMPLERATE);
     chip->rate = mixerGetSampleRate(mixer);
+    /* The core scales each channel before the pan; the sync keeps scale on the block's gain. */
+    chip->voices = YM2151AttachVoices(chip->opm, mixer, chip->handle, Y8960_OPM_VOLUME);
 
     y8960OpmReset(chip);
 

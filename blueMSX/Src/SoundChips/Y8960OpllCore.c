@@ -1027,13 +1027,23 @@ INLINE static void mix_output(Y8960OPLL *opll) {
 
 INLINE static void mix_output_stereo(Y8960OPLL *opll) {
   int16_t *out = opll->mix_out;
+  int16_t *ch = opll->ch_out;
+  int16_t voices[14];
   int i;
+  if (opll->voice_hook) {
+    /* blueMSX addition: let the hook scale a copy; ch_out stays as is. */
+    for (i = 0; i < 14; i++) {
+      voices[i] = opll->ch_out[i];
+    }
+    opll->voice_hook(opll->voice_hook_ref, voices, 14);
+    ch = voices;
+  }
   out[0] = out[1] = 0;
   for (i = 0; i < 14; i++) {
     if (opll->pan[i] & 2)
-      out[0] += (int16_t)(opll->ch_out[i] * opll->pan_fine[i][0] / 4096);
+      out[0] += (int16_t)(ch[i] * opll->pan_fine[i][0] / 4096);
     if (opll->pan[i] & 1)
-      out[1] += (int16_t)(opll->ch_out[i] * opll->pan_fine[i][1] / 4096);
+      out[1] += (int16_t)(ch[i] * opll->pan_fine[i][1] / 4096);
   }
   if (opll->conv) {
     Y8960OPLL_RateConv_putData(opll->conv, 0, out[0]);
@@ -1584,4 +1594,11 @@ void Y8960OPLL_relinkAfterRestore(Y8960OPLL *opll) {
     uint32_t ws = opll->slot[i].patch ? (opll->slot[i].patch->WS & 1) : 0;
     opll->slot[i].wave_table = wave_table_map[ws];
   }
+}
+
+/* blueMSX addition: see header comment. */
+void Y8960OPLL_setVoiceHook(Y8960OPLL *opll, void (*hook)(void *, int16_t *, int), void *ref) {
+  if (opll == NULL) return;
+  opll->voice_hook_ref = ref;
+  opll->voice_hook = hook;
 }
