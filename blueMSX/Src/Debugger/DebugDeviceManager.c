@@ -172,8 +172,9 @@ void debugDeviceGetSnapshot(DbgDevice** dbgDeviceList, int* count)
             dbgDeviceList[index]->type = devManager.di[i].type;
             dbgDeviceList[index]->deviceHandle = devManager.di[i].handle;
             if (devManager.di[i].callbacks.getDebugInfo != NULL) {
-                devManager.di[i].callbacks.getDebugInfo(devManager.di[i].ref, dbgDeviceList[index++]);
+                devManager.di[i].callbacks.getDebugInfo(devManager.di[i].ref, dbgDeviceList[index]);
             }
+            index++;
         }
     }
     inspecting--;
