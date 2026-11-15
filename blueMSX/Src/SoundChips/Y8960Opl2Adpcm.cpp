@@ -93,6 +93,7 @@ Y8950Adpcm::Y8950Adpcm(Y8950& y8950_, const DeviceConfig& config,
     , startAddr(0), stopAddr(7), addrMask((1 << 18) - 1)
     , volumeWStep(0), readDelay(0), delta(0)
     , reg7(0), reg15(0), romBank(false)
+    , fedBytes{}
 {
     clearRam();
 }
@@ -144,6 +145,7 @@ void Y8950Adpcm::restart(PlayData& pd) const
     pd.nextLeveling = 0;
     pd.sampleStep = 0;
     pd.adpcm_data = 0;
+    pd.startPending = false;
 }
 
 void Y8950Adpcm::sync(EmuTime time)
@@ -194,7 +196,8 @@ void Y8950Adpcm::writeReg(uint8_t rg, uint8_t data, EmuTime time)
 {
     sync(time);
     switch (rg) {
-    case 0x07:
+    case 0x07: {
+        bool wasPlaying = isPlaying();
         reg7 = data;
         /* RESET goes first, so 81h leaves PCM_BSY clear as the Y8960 does.
         ** A Y8950 takes PCM_BSY from the written value and keeps it set. */
@@ -209,6 +212,11 @@ void Y8950Adpcm::writeReg(uint8_t rg, uint8_t data, EmuTime time)
         if (reg7 & R07_START) {
             restart(emu);
             restart(aud);
+            /* Only a CPU-fed start from a stop waits for the channel to turn on. */
+            if ((reg7 & R07_MODE) == R07_START && !wasPlaying) {
+                emu.startPending = aud.startPending = true;
+                emu.nowStep = aud.nowStep = 0;
+            }
         }
         if (reg7 & R07_MEMORY_DATA) {
             emu.memPtr = startAddr;
@@ -224,6 +232,7 @@ void Y8950Adpcm::writeReg(uint8_t rg, uint8_t data, EmuTime time)
         removeSyncPoint();
         if (isPlaying()) schedule();
         break;
+    }
 
     case 0x08:
         /* There is no sample ROM behind the Y8960's ADPCM, but the bit still
@@ -406,6 +415,12 @@ int Y8950Adpcm::calcSample(bool doEmu)
     };
 
     PlayData& pd = doEmu ? emu : aud;
+    /* The first tick after the start turns the channel on and takes no step,
+    ** so the first byte is taken at the first carry after it. */
+    if (pd.startPending) {
+        pd.startPending = false;
+        return pd.output >> 12;
+    }
     pd.nowStep += delta;
     if (pd.nowStep & ~STEP_MASK) {
         pd.nowStep &= STEP_MASK;
@@ -413,9 +428,21 @@ int Y8950Adpcm::calcSample(bool doEmu)
         if (!(pd.memPtr & 1)) {
             if (reg7 & R07_MEMORY_DATA) {
                 pd.adpcm_data = readMemory(pd.memPtr);
-            } else {
+            } else if (doEmu) {
                 pd.adpcm_data = reg15;
-                if (doEmu) y8950.setStatus(Y8950::STATUS_BUF_RDY);
+                fedBytes[(pd.memPtr / 2) % FED_BYTES] = reg15;
+                y8950.setStatus(Y8950::STATUS_BUF_RDY);
+            } else {
+                /* The audio side lags, and the CPU may have fed the next byte
+                ** by now. Further behind than the bytes kept, as above 100 %
+                ** speed or with the sound off, it skips ahead to the emu side. */
+                unsigned taken = (emu.memPtr + 1) / 2;
+                unsigned next = pd.memPtr / 2;
+                if (next < taken && taken - next > FED_BYTES) {
+                    aud = emu;
+                    return aud.output >> 12;
+                }
+                pd.adpcm_data = (next < taken) ? fedBytes[next % FED_BYTES] : reg15;
             }
             val = uint8_t(pd.adpcm_data >> 4);
         } else {
@@ -473,6 +500,7 @@ void Y8950Adpcm::blueMsxSaveStateImpl(SaveState* s)
     saveStateSet(s, "adpcm_emu_nextLeveling", (UInt32)emu.nextLeveling);
     saveStateSet(s, "adpcm_emu_sampleStep",   (UInt32)emu.sampleStep);
     saveStateSet(s, "adpcm_emu_adpcm_data",   (UInt32)emu.adpcm_data);
+    saveStateSet(s, "adpcm_emu_startPending", (UInt32)emu.startPending);
 }
 
 void Y8950Adpcm::blueMsxLoadStateImpl(SaveState* s)
@@ -497,6 +525,8 @@ void Y8950Adpcm::blueMsxLoadStateImpl(SaveState* s)
     emu.nextLeveling = (int)saveStateGet(s, "adpcm_emu_nextLeveling", emu.nextLeveling);
     emu.sampleStep   = (int)saveStateGet(s, "adpcm_emu_sampleStep",   emu.sampleStep);
     emu.adpcm_data   = (uint8_t)saveStateGet(s, "adpcm_emu_adpcm_data", emu.adpcm_data);
+    /* Missing from older states, whose starts never waited. */
+    emu.startPending = saveStateGet(s, "adpcm_emu_startPending", 0) != 0;
 
     /* Audio-side PlayData is a 1:1 mirror of the emu side at load. */
     aud = emu;

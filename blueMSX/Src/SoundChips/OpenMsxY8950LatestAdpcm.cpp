@@ -74,6 +74,7 @@ Y8950Adpcm::Y8950Adpcm(Y8950& y8950_, const DeviceConfig& config,
     , startAddr(0), stopAddr(7), addrMask((1 << 18) - 1)
     , volumeWStep(0), readDelay(0), delta(0)
     , reg7(0), reg15(0), romBank(false)
+    , fedBytes{}
 {
     clearRam();
 }
@@ -390,9 +391,21 @@ int Y8950Adpcm::calcSample(bool doEmu)
         if (!(pd.memPtr & 1)) {
             if (reg7 & R07_MEMORY_DATA) {
                 pd.adpcm_data = readMemory(pd.memPtr);
-            } else {
+            } else if (doEmu) {
                 pd.adpcm_data = reg15;
-                if (doEmu) y8950.setStatus(Y8950::STATUS_BUF_RDY);
+                fedBytes[(pd.memPtr / 2) % FED_BYTES] = reg15;
+                y8950.setStatus(Y8950::STATUS_BUF_RDY);
+            } else {
+                /* The audio side lags, and the CPU may have fed the next byte
+                ** by now. Further behind than the bytes kept, as above 100 %
+                ** speed or with the sound off, it skips ahead to the emu side. */
+                unsigned taken = (emu.memPtr + 1) / 2;
+                unsigned next = pd.memPtr / 2;
+                if (next < taken && taken - next > FED_BYTES) {
+                    aud = emu;
+                    return aud.output >> 12;
+                }
+                pd.adpcm_data = (next < taken) ? fedBytes[next % FED_BYTES] : reg15;
             }
             val = uint8_t(pd.adpcm_data >> 4);
         } else {
