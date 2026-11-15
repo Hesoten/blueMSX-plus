@@ -117,12 +117,17 @@ class YMF278 : public SoundDevice
 		virtual void setInternalVolume(short newVolume);
 		virtual int* updateBuffer(int length);
 
+		// Detailed mixer: the 24 wave slots are voices base .. base+23;
+		// NULL leaves them alone.
+		void setVoices(MixerVoices* v, int base) { voices = v; voiceBase = base; }
+
         void loadState();
         void saveState();
-	
+
 	private:
 		void setupMemoryPointers();
 		void generateSample(int* outLeft, int* outRight);
+		void meterSlots();
 		byte readMem(unsigned int address);
 		void writeMem(unsigned int address, byte value);
 		short getSample(YMF278Slot &op, unsigned int pos);
@@ -167,6 +172,12 @@ class YMF278 : public SoundDevice
 		unsigned int resamplePos;	// 16.16 phase
 		int lastL, lastR;
 		int curL, curR;
+
+		MixerVoices* voices;
+		int voiceBase;
+		bool voicesActive;	// gains to apply, read once per update
+		bool voicesMetered;	// levels to sum, likewise
+		int slotOut[24];	// each slot's last sample before panning, in output units
 
 		byte regs[256];
 

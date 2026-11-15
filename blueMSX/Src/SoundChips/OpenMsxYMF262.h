@@ -204,6 +204,10 @@ class YMF262 : public SoundDevice, public TimerCallback
 		// bits 3-5 = right attenuation, 3 dB per step, 7 = mute.
 		void setMixLevel(byte x);
 
+		// Detailed mixer: voices 0-17 the FM channels (a 4-op pair is its
+		// first channel), 18-22 BD, HH, SD, TOM, CYM; NULL leaves them alone.
+		void setVoices(MixerVoices* v) { voices = v; }
+
 		void callback(byte flag);
 
         void loadState();
@@ -218,6 +222,7 @@ class YMF262 : public SoundDevice, public TimerCallback
 		void advance_lfo();
 		void advance();
 		void chan_calc_rhythm(bool noise);
+		void applyVoices(bool rhythmOn, bool active, int* acc);
 		void set_mul(byte sl, byte v);
 		void set_ksl_tl(byte sl, byte v);
 		void set_ar_dr(byte sl, byte v);
@@ -274,6 +279,9 @@ class YMF262 : public SoundDevice, public TimerCallback
 		short maxVolume;
 		int mixL;				// OPL4 reg F8h FM mix level, 8.8 fixed point
 		int mixR;				// (256 = 0 dB)
+
+		MixerVoices* voices;
+		int rhythmOut[5];		// last rhythm sample per instrument: BD HH SD TOM CYM
 };
 
 #endif

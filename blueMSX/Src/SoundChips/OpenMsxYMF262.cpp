@@ -732,6 +732,7 @@ void YMF262::chan_calc_rhythm(bool noise)
 	//  - output sample always is multiplied by 2
 
 	chanOut[PHASE_MOD1] = 0;
+	memset(rhythmOut, 0, sizeof(rhythmOut));
 
 	// SLOT 1 
 	int env = SLOT6_1.volume_calc(LFO_AM);
@@ -755,7 +756,8 @@ void YMF262::chan_calc_rhythm(bool noise)
 	// SLOT 2 
 	env = SLOT6_2.volume_calc(LFO_AM);
 	if (env < ENV_QUIET) {
-		chanout[6] += op_calc(SLOT6_2.Cnt, env, chanOut[PHASE_MOD1], SLOT6_2.wavetable) * 2;
+		rhythmOut[0] = op_calc(SLOT6_2.Cnt, env, chanOut[PHASE_MOD1], SLOT6_2.wavetable) * 2;
+		chanout[6] += rhythmOut[0];
 	}
 
 	// Phase generation is based on: 
@@ -812,7 +814,8 @@ void YMF262::chan_calc_rhythm(bool noise)
 				phase = 0xd0>>2;
 			}
 		}
-		chanout[7] += op_calc(phase<<FREQ_SH, env, 0, SLOT7_1.wavetable) * 2;
+		rhythmOut[1] = op_calc(phase<<FREQ_SH, env, 0, SLOT7_1.wavetable) * 2;
+		chanout[7] += rhythmOut[1];
 	}
 
 	// Snare Drum (verified on real YM3812) 
@@ -831,13 +834,15 @@ void YMF262::chan_calc_rhythm(bool noise)
 		if (noise) {
 			phase ^= 0x100;
 		}
-		chanout[7] += op_calc(phase<<FREQ_SH, env, 0, SLOT7_2.wavetable) * 2;
+		rhythmOut[2] = op_calc(phase<<FREQ_SH, env, 0, SLOT7_2.wavetable) * 2;
+		chanout[7] += rhythmOut[2];
 	}
 
 	// Tom Tom (verified on real YM3812) 
 	env = SLOT8_1.volume_calc(LFO_AM);
 	if (env < ENV_QUIET) {
-		chanout[8] += op_calc(SLOT8_1.Cnt, env, 0, SLOT8_1.wavetable) * 2;
+		rhythmOut[3] = op_calc(SLOT8_1.Cnt, env, 0, SLOT8_1.wavetable) * 2;
+		chanout[8] += rhythmOut[3];
 	}
 
 	// Top Cymbal (verified on real YM3812) 
@@ -861,7 +866,8 @@ void YMF262::chan_calc_rhythm(bool noise)
 		if (res2) {
 			phase = 0x300;
 		}
-		chanout[8] += op_calc(phase<<FREQ_SH, env, 0, SLOT8_2.wavetable) * 2;
+		rhythmOut[4] = op_calc(phase<<FREQ_SH, env, 0, SLOT8_2.wavetable) * 2;
+		chanout[8] += rhythmOut[4];
 	}
 }
 
@@ -1838,9 +1844,10 @@ void YMF262::reset(const EmuTime &time)
 }
 
 YMF262::YMF262(short volume, const EmuTime &time, void* ref)
-	: timer1(this, ref), timer2(this, ref)
+	: timer1(this, ref), timer2(this, ref), voices(NULL)
 {
     chanOut = chanout;
+    memset(rhythmOut, 0, sizeof(rhythmOut));
 
 	LFO_AM = LFO_PM = 0;
 	lfo_am_depth = lfo_pm_depth_range = lfo_am_cnt = lfo_pm_cnt = 0;
@@ -1900,13 +1907,53 @@ bool YMF262::checkMuteHelper()
 	return true;
 }
 
+// Scale each voice's part of chanout by its gain when active, and add the
+// result to acc[voice]. Unity gain leaves chanout as it was.
+void YMF262::applyVoices(bool rhythmOn, bool active, int* acc)
+{
+	for (int i = 0; i < 18; i++) {
+		if (rhythmOn && i >= 6 && i <= 8) {
+			continue;
+		}
+		int n = i % 9;
+		int voice = (n >= 3 && n < 6 && channels[i - 3].extended) ? i - 3 : i;
+		if (active) {
+			chanout[i] = (int)(((Int64)chanout[i] * voices->gain[voice]) >> 12);
+		}
+		acc[voice] += chanout[i];
+	}
+	if (rhythmOn) {
+		int r[5];
+		for (int k = 0; k < 5; k++) {
+			r[k] = active ? (int)(((Int64)rhythmOut[k] * voices->gain[18 + k]) >> 12)
+			              : rhythmOut[k];
+			acc[18 + k] += r[k];
+		}
+		chanout[6] = r[0];
+		chanout[7] = r[1] + r[2];
+		chanout[8] = r[3] + r[4];
+	}
+}
+
 int* YMF262::updateBuffer(int length)
 {
 	if (isInternalMuted()) {
 		return NULL;
 	}
-	
+
 	bool rhythmEnabled = (rhythm & 0x20) != 0;
+	bool voicesActive = voices != NULL && voices->active;
+	bool voicesMetered = voices != NULL && voices->metering;
+	if (voices != NULL) {
+		/* Rhythm mode takes FM 7-9, and the second channel of a 4-op pair
+		** is heard through the first. */
+		static const int pairs[6] = { 0, 1, 2, 9, 10, 11 };
+		UInt32 idle = rhythmEnabled ? 0x1C0u : (0x1Fu << 18);
+		for (int k = 0; k < 6; k++) {
+			if (channels[pairs[k]].extended) idle |= 1u << (pairs[k] + 3);
+		}
+		voices->idle = idle;
+	}
 
 	int* buf = buffer;
 	while (length--) {
@@ -1914,6 +1961,7 @@ int* YMF262::updateBuffer(int length)
 		int b = 0;
 		int c = 0;
 		int d = 0;
+		int acc[23] = { 0 };
         int count = oplOversampling;
         while (count--) {
 		    advance_lfo();
@@ -1988,6 +2036,9 @@ int* YMF262::updateBuffer(int length)
 		    channels[16].chan_calc(LFO_AM);
 		    channels[17].chan_calc(LFO_AM);
 
+		    if (voicesActive || voicesMetered) {
+			    applyVoices(rhythmEnabled, voicesActive, acc);
+		    }
 		    for (int i = 0; i < 18; i++) {
 			    a += chanout[i] & pan[4 * i + 0];
 			    b += chanout[i] & pan[4 * i + 1];
@@ -2002,6 +2053,13 @@ int* YMF262::updateBuffer(int length)
 		// left the FM about 8.4 dB too low relative to the wave output.
 		*(buf++) = (((a * 21) / oplOversampling) * mixL) >> 8;
 		*(buf++) = (((b * 21) / oplOversampling) * mixR) >> 8;
+		if (voicesMetered) {
+			// Metered before panning, in output units; the caller counts samples.
+			int mix = (mixL + mixR) / 2;
+			for (int k = 0; k < 23; k++) {
+				mixerMeterVoice(voices, k, ((Int64)((acc[k] * 21) / oplOversampling) * mix) >> 8);
+			}
+		}
 	}
 
 	checkMute();

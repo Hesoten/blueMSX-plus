@@ -39,15 +39,25 @@ extern "C" {
 }
 
 #define FREQUENCY        3579545
+
+// FM channels (a 4-op pair is its first channel), FM rhythm, then the wave slots.
+static const char* const moonsoundVoiceNames[47] = {
+    "1", "2", "3", "4", "5", "6", "7", "8", "9",
+    "10", "11", "12", "13", "14", "15", "16", "17", "18",
+    "BD", "HH", "SD", "TOM", "CYM",
+    "W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8", "W9", "W10", "W11", "W12",
+    "W13", "W14", "W15", "W16", "W17", "W18", "W19", "W20", "W21", "W22", "W23", "W24"
+};
  
 struct Moonsound {
-    Moonsound() : opl3latch(0), opl4latch(0),
+    Moonsound() : voices(NULL), opl3latch(0), opl4latch(0),
         timerValue1(0), timerValue2(0), timerRef1(0xff), timerRef2(0xff) {
         memset(defaultBuffer, 0, sizeof(defaultBuffer));
     }
 
     Mixer* mixer;
     Int32 handle;
+    MixerVoices* voices;
 
     YMF278* ymf278;
     YMF262* ymf262;
@@ -318,6 +328,9 @@ static Int32* moonsoundSync(void* ref, UInt32 count)
     for (i = 0; i < 2 * count; i++) {
         moonsound->buffer[i] = genBuf1[i] + genBuf2[i];
     }
+    if (moonsound->voices != NULL && moonsound->voices->metering) {
+        moonsound->voices->samples += count;
+    }
 
     return moonsound->buffer;
 }
@@ -458,6 +471,11 @@ Moonsound* moonsoundCreate(Mixer* mixer, void* romData, int romSize, int sramSiz
     moonsound->ymf278 = new YMF278(0, sramSize, romData, romSize, systemTime);
     moonsound->ymf278->setSampleRate(mixerGetSampleRate(mixer), boardGetMoonsoundOversampling());
     moonsound->ymf278->setVolume(32767 * 9 / 10);
+
+    // Both chips meter in output units; the voice levels add up to the mix.
+    moonsound->voices = mixerAttachVoices(mixer, moonsound->handle, 47, moonsoundVoiceNames, 1.0f);
+    moonsound->ymf262->setVoices(moonsound->voices);
+    moonsound->ymf278->setVoices(moonsound->voices, 23);
 
     return moonsound;
 }
