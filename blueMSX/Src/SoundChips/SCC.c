@@ -76,10 +76,15 @@ struct SCC
     Int32 inHp[3];
     Int32 outHp[3];
 
-    Int32  buffer[AUDIO_MONO_BUFFER_SIZE];
+    int   stereo;
+    Int32 panGain[5][2];
+    Int32 inR[95];         /* filter4's history for the right side; in[] is the left */
+
+    Int32  buffer[AUDIO_STEREO_BUFFER_SIZE];
 };
 
 #define SCC_TICK (boardFrequency() / 3579545)
+#define SCC_PAN_ONE 4096
 
 static UInt32 sccEffectivePeriod(UInt32 period, UInt8 deformReg)
 {
@@ -122,6 +127,14 @@ static void sccRestartDeformTicks(SCC* scc)
 void sccLoadState(SCC* scc)
 {
     SaveState* state = saveStateOpenForRead("scc");
+
+    sccLoadStateFrom(scc, state);
+
+    saveStateClose(state);
+}
+
+void sccLoadStateFrom(SCC* scc, SaveState* state)
+{
     char tag[32];
     UInt32 curWave;
     int i;
@@ -170,13 +183,19 @@ void sccLoadState(SCC* scc)
 
     scc->deformRef   = saveStateGet(state, "deformRef", boardSystemTime());
     scc->deformTicks = saveStateGet(state, "deformTicks", 0);
-
-    saveStateClose(state);
 }
 
 void sccSaveState(SCC* scc)
 {
     SaveState* state = saveStateOpenForWrite("scc");
+
+    sccSaveStateTo(scc, state);
+
+    saveStateClose(state);
+}
+
+void sccSaveStateTo(SCC* scc, SaveState* state)
+{
     char tag[32];
     int i;
 
@@ -225,8 +244,6 @@ void sccSaveState(SCC* scc)
 
     saveStateSet(state, "deformRef",   scc->deformRef);
     saveStateSet(state, "deformTicks", scc->deformTicks);
-
-    saveStateClose(state);
 }
 
 static UInt8 sccGetWave(SCC* scc, UInt8 channel, UInt8 address)
@@ -395,13 +412,14 @@ static void getDebugInfo(SCC* scc, DbgDevice* dbgDevice)
     dbgDeviceAddMemoryBlock(dbgDevice, langDbgMemScc(), 1, 0, 0x100, ram);
 }
 
-SCC* sccCreate(Mixer* mixer)
+static SCC* sccCreateAs(Mixer* mixer, int stereo)
 {
     DebugCallbacks dbgCallbacks = { getDebugInfo, NULL, NULL, NULL };
     SCC* scc = (SCC*)calloc(1, sizeof(SCC));
     int channel;
 
-    scc->mixer = mixer;
+    scc->mixer  = mixer;
+    scc->stereo = stereo;
 
     /* Chip power-on contents: waveforms FFh, full volume, channels off. */
     memset(scc->wave, 0xff, sizeof(scc->wave));
@@ -414,7 +432,9 @@ SCC* sccCreate(Mixer* mixer)
 
 //    scc->debugHandle = debugDeviceRegister(DBGTYPE_AUDIO, langDbgDevScc(), &dbgCallbacks, scc);
 
-    scc->handle = mixerRegisterChannel(mixer, MIXER_CHANNEL_SCC, 0, sccSync, NULL, scc);
+    if (!stereo) {
+        scc->handle = mixerRegisterChannel(mixer, MIXER_CHANNEL_SCC, 0, sccSync, NULL, scc);
+    }
 
     sccRestartDeformTicks(scc);
     sccReset(scc);
@@ -422,11 +442,29 @@ SCC* sccCreate(Mixer* mixer)
     return scc;
 }
 
+SCC* sccCreate(Mixer* mixer)
+{
+    return sccCreateAs(mixer, 0);
+}
+
+SCC* sccCreateStereo(Mixer* mixer)
+{
+    return sccCreateAs(mixer, 1);
+}
+
 void sccDestroy(SCC* scc)
 {
 //    debugDeviceUnregister(scc->debugHandle);
-    mixerUnregisterChannel(scc->mixer, scc->handle);
+    if (!scc->stereo) {
+        mixerUnregisterChannel(scc->mixer, scc->handle);
+    }
     free(scc);
+}
+
+void sccSetPanGain(SCC* scc, int channel, Int32 left, Int32 right)
+{
+    scc->panGain[channel][0] = left;
+    scc->panGain[channel][1] = right;
 }
 
 UInt8 sccRead(SCC* scc, UInt8 address)
@@ -631,72 +669,73 @@ static Int32 filter(SCC* scc, Int32 input) {
 // Transition band: 250.0 Hz
 // Stopband attenuation: 50.0 dB
 //
-static Int32 filter4(SCC* scc, Int32 in1, Int32 in2, Int32 in3, Int32 in4)
+static Int32 filter4(Int32* in, Int32 in1, Int32 in2, Int32 in3, Int32 in4)
 {
     int i;
     DoubleT res;
 
     for (i = 0; i < 91; ++i) {
-        scc->in[i] = scc->in[i + 4];
+        in[i] = in[i + 4];
     }
-    scc->in[91] = in1;
-    scc->in[92] = in2;
-    scc->in[93] = in3;
-    scc->in[94] = in4;
+    in[91] = in1;
+    in[92] = in2;
+    in[93] = in3;
+    in[94] = in4;
 
-    res =  2.8536195E-4 * (scc->in[ 0] + scc->in[94]) +
-           9.052306E-5  * (scc->in[ 1] + scc->in[93]) +
-          -2.6902245E-4 * (scc->in[ 2] + scc->in[92]) +
-          -6.375284E-4  * (scc->in[ 3] + scc->in[91]) +
-          -7.87536E-4   * (scc->in[ 4] + scc->in[90]) +
-          -5.3910224E-4 * (scc->in[ 5] + scc->in[89]) +
-           1.1107049E-4 * (scc->in[ 6] + scc->in[88]) +
-           9.2801993E-4 * (scc->in[ 7] + scc->in[87]) +
-           0.0015018889 * (scc->in[ 8] + scc->in[86]) +
-           0.0014338732 * (scc->in[ 9] + scc->in[85]) +
-           5.688559E-4  * (scc->in[10] + scc->in[84]) +
-          -8.479743E-4  * (scc->in[11] + scc->in[83]) +
-          -0.0021999443 * (scc->in[12] + scc->in[82]) +
-          -0.0027432537 * (scc->in[13] + scc->in[81]) +
-          -0.0019824558 * (scc->in[14] + scc->in[80]) +
-           2.018935E-9  * (scc->in[15] + scc->in[79]) +
-           0.0024515253 * (scc->in[16] + scc->in[78]) +
-           0.00419754   * (scc->in[17] + scc->in[77]) +
-           0.0041703423 * (scc->in[18] + scc->in[76]) +
-           0.0019952168 * (scc->in[19] + scc->in[75]) +
-          -0.0016656333 * (scc->in[20] + scc->in[74]) +
-          -0.005242034  * (scc->in[21] + scc->in[73]) +
-          -0.0068841926 * (scc->in[22] + scc->in[72]) +
-          -0.005360789  * (scc->in[23] + scc->in[71]) +
-          -8.1365916E-4 * (scc->in[24] + scc->in[70]) +
-           0.0050464263 * (scc->in[25] + scc->in[69]) +
-           0.00950725   * (scc->in[26] + scc->in[68]) +
-           0.010038091  * (scc->in[27] + scc->in[67]) +
-           0.005602208  * (scc->in[28] + scc->in[66]) +
-          -0.00253724   * (scc->in[29] + scc->in[65]) +
-          -0.011011368  * (scc->in[30] + scc->in[64]) +
-          -0.015622435  * (scc->in[31] + scc->in[63]) +
-          -0.013267951  * (scc->in[32] + scc->in[62]) +
-          -0.0036876823 * (scc->in[33] + scc->in[61]) +
-           0.009843254  * (scc->in[34] + scc->in[60]) +
-           0.021394625  * (scc->in[35] + scc->in[59]) +
-           0.02469893   * (scc->in[36] + scc->in[58]) +
-           0.01608393   * (scc->in[37] + scc->in[57]) +
-          -0.0032088074 * (scc->in[38] + scc->in[56]) +
-          -0.026453404  * (scc->in[39] + scc->in[55]) +
-          -0.043139543  * (scc->in[40] + scc->in[54]) +
-          -0.042553578  * (scc->in[41] + scc->in[53]) +
-          -0.018007802  * (scc->in[42] + scc->in[52]) +
-           0.029919287  * (scc->in[43] + scc->in[51]) +
-           0.09252273   * (scc->in[44] + scc->in[50]) +
-           0.15504532   * (scc->in[45] + scc->in[49]) +
-           0.20112106   * (scc->in[46] + scc->in[48]) +
-           0.2180678    *  scc->in[47];
+    res =  2.8536195E-4 * (in[ 0] + in[94]) +
+           9.052306E-5  * (in[ 1] + in[93]) +
+          -2.6902245E-4 * (in[ 2] + in[92]) +
+          -6.375284E-4  * (in[ 3] + in[91]) +
+          -7.87536E-4   * (in[ 4] + in[90]) +
+          -5.3910224E-4 * (in[ 5] + in[89]) +
+           1.1107049E-4 * (in[ 6] + in[88]) +
+           9.2801993E-4 * (in[ 7] + in[87]) +
+           0.0015018889 * (in[ 8] + in[86]) +
+           0.0014338732 * (in[ 9] + in[85]) +
+           5.688559E-4  * (in[10] + in[84]) +
+          -8.479743E-4  * (in[11] + in[83]) +
+          -0.0021999443 * (in[12] + in[82]) +
+          -0.0027432537 * (in[13] + in[81]) +
+          -0.0019824558 * (in[14] + in[80]) +
+           2.018935E-9  * (in[15] + in[79]) +
+           0.0024515253 * (in[16] + in[78]) +
+           0.00419754   * (in[17] + in[77]) +
+           0.0041703423 * (in[18] + in[76]) +
+           0.0019952168 * (in[19] + in[75]) +
+          -0.0016656333 * (in[20] + in[74]) +
+          -0.005242034  * (in[21] + in[73]) +
+          -0.0068841926 * (in[22] + in[72]) +
+          -0.005360789  * (in[23] + in[71]) +
+          -8.1365916E-4 * (in[24] + in[70]) +
+           0.0050464263 * (in[25] + in[69]) +
+           0.00950725   * (in[26] + in[68]) +
+           0.010038091  * (in[27] + in[67]) +
+           0.005602208  * (in[28] + in[66]) +
+          -0.00253724   * (in[29] + in[65]) +
+          -0.011011368  * (in[30] + in[64]) +
+          -0.015622435  * (in[31] + in[63]) +
+          -0.013267951  * (in[32] + in[62]) +
+          -0.0036876823 * (in[33] + in[61]) +
+           0.009843254  * (in[34] + in[60]) +
+           0.021394625  * (in[35] + in[59]) +
+           0.02469893   * (in[36] + in[58]) +
+           0.01608393   * (in[37] + in[57]) +
+          -0.0032088074 * (in[38] + in[56]) +
+          -0.026453404  * (in[39] + in[55]) +
+          -0.043139543  * (in[40] + in[54]) +
+          -0.042553578  * (in[41] + in[53]) +
+          -0.018007802  * (in[42] + in[52]) +
+           0.029919287  * (in[43] + in[51]) +
+           0.09252273   * (in[44] + in[50]) +
+           0.15504532   * (in[45] + in[49]) +
+           0.20112106   * (in[46] + in[48]) +
+           0.2180678    *  in[47];
 
     return (Int32)res;
 }
 
-static Int32* sccSync(SCC* scc, UInt32 count)
+/* stereo is a constant at each caller, so the compiler drops the branch from each. */
+static Int32* sccRender(SCC* scc, UInt32 count, int stereo)
 {
     Int32* buffer  = scc->buffer;
     Int32  channel;
@@ -704,11 +743,13 @@ static Int32* sccSync(SCC* scc, UInt32 count)
 
     for (index = 0; index < count; index++) {
         Int32 masterVolume[4] = {0, 0, 0, 0};
+        Int32 masterVolumeR[4] = {0, 0, 0, 0};
         int i;
         for (i = 0; i < 4; i++) {
             for (channel = 0; channel < 5; channel++) {
                 Int32 phase;
                 Int32 sample;
+                Int32 term;
 
                 phase = scc->phase[channel] + scc->phaseStep[channel];
                 phase &= 0xfffffff;
@@ -739,15 +780,38 @@ static Int32* sccSync(SCC* scc, UInt32 count)
 
                 /* The chip drops the low 4 bits of each product before the sum;
                 ** 400 = 25 * 16 keeps the output level the mixer is balanced for. */
-                masterVolume[i] += 400 * ((scc->curWave[channel] * scc->volume[channel]) >> 4);
+                term = 400 * ((scc->curWave[channel] * scc->volume[channel]) >> 4);
+                if (stereo) {
+                    masterVolume[i]  += term * scc->panGain[channel][0] / SCC_PAN_ONE;
+                    masterVolumeR[i] += term * scc->panGain[channel][1] / SCC_PAN_ONE;
+                }
+                else {
+                    masterVolume[i] += term;
+                }
             }
         }
-        buffer[index] = filter4(scc, masterVolume[0], masterVolume[1], masterVolume[2], masterVolume[3]);
+        if (stereo) {
+            buffer[2 * index + 0] = filter4(scc->in, masterVolume[0], masterVolume[1], masterVolume[2], masterVolume[3]);
+            buffer[2 * index + 1] = filter4(scc->inR, masterVolumeR[0], masterVolumeR[1], masterVolumeR[2], masterVolumeR[3]);
+        }
+        else {
+            buffer[index] = filter4(scc->in, masterVolume[0], masterVolume[1], masterVolume[2], masterVolume[3]);
+        }
         scc->bus = 0xFFFF;
 
 //        buffer[index] = (masterVolume[0] + masterVolume[1] + masterVolume[2] + masterVolume[3]);
     }
 
     return scc->buffer;
+}
+
+static Int32* sccSync(SCC* scc, UInt32 count)
+{
+    return sccRender(scc, count, 0);
+}
+
+Int32* sccSyncStereo(SCC* scc, UInt32 count)
+{
+    return sccRender(scc, count, 1);
 }
 

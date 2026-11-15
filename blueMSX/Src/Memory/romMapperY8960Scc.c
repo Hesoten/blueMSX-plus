@@ -427,8 +427,8 @@ static void write(RomMapperY8960Scc* rm, UInt16 address, UInt8 value)
     }
 }
 
-static int sccCreate(const char* filename, UInt8* romData, int size,
-                     int slot, int sslot, int startPage, SlotEject eject)
+static int sccBlockCreate(const char* filename, UInt8* romData, int size,
+                          int slot, int sslot, int startPage, SlotEject eject)
 {
     DeviceCallbacks callbacks = { destroy, reset, saveState, loadState };
     RomMapperY8960Scc* rm = (RomMapperY8960Scc*)calloc(1, sizeof(RomMapperY8960Scc));
@@ -449,7 +449,7 @@ static int sccCreate(const char* filename, UInt8* romData, int size,
     rm->sslot     = sslot;
     rm->startPage = startPage;
 
-    y8960SccSetMode(rm->scc, Y8960_SCC_REAL);
+    y8960SccSetMode(rm->scc, SCC_REAL);
 
     if (romData != NULL && size > 0) {
         int romSize = size;
@@ -495,8 +495,8 @@ int romMapperY8960CartCreate(const char* filename, UInt8* romData,
         return 0;
     }
 
-    success = sccCreate(filename, romData, size, slot, sslot,
-                        Y8960_START_PAGE, ejectCart);
+    success = sccBlockCreate(filename, romData, size, slot, sslot,
+                             Y8960_START_PAGE, ejectCart);
 
     success &= romMapperY8960OpllexCreate();
     success &= romMapperY8960Opl2exCreate();

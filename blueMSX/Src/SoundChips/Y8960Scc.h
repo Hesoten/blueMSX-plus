@@ -9,11 +9,12 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** Forked for the Y8960 cartridge, 2026 by madscient.
 ** The cartridge carries an SCC-equivalent circuit (IKASCC in the hardware),
-** not a Konami SCC, so it is emulated as its own chip rather than sharing
-** the machine's. Divergence in behaviour is expected as the hardware is
-** finished; keeping them separate is what makes that possible.
+** run on the machine's SCC core with a pan per channel and its own volume.
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -34,22 +35,18 @@
 #ifndef Y8960_SCC_H
 #define Y8960_SCC_H
 
-#include <stdio.h>
-
 #include "MsxTypes.h"
 #include "AudioMixer.h"
-#include "DebugDeviceManager.h"
+#include "SCC.h"
 
 /* Type definitions */
 typedef struct Y8960SccChip Y8960SccChip;
-
-typedef enum { Y8960_SCC_NONE = 0, Y8960_SCC_REAL, Y8960_SCC_COMPATIBLE, Y8960_SCC_PLUS } Y8960SccMode;
 
 /* Constructor and destructor */
 Y8960SccChip* y8960SccCreate(Mixer* mixer);
 void y8960SccDestroy(Y8960SccChip* scc);
 void y8960SccReset(Y8960SccChip* scc);
-void y8960SccSetMode(Y8960SccChip* scc, Y8960SccMode newMode);
+void y8960SccSetMode(Y8960SccChip* scc, SccMode newMode);
 
 /* Register read/write methods */
 UInt8 y8960SccRead(Y8960SccChip* scc, UInt8 address);
@@ -60,8 +57,6 @@ void y8960SccWrite(Y8960SccChip* scc, UInt8 address, UInt8 value);
 ** registers lie outside the 256 bytes the SCC decodes, so the mapper takes
 ** them and hands them in here. The law is y8960PanGain(). */
 void y8960SccWritePan(Y8960SccChip* scc, UInt8 channel, UInt8 value);
-
-void y8960SccGetDebugInfo(Y8960SccChip* scc, DbgDevice* dbgDevice);
 
 void y8960SccLoadState(Y8960SccChip* scc);
 void y8960SccSaveState(Y8960SccChip* scc);
