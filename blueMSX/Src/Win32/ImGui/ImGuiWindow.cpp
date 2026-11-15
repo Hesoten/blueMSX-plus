@@ -1701,6 +1701,15 @@ static void abandonOpen(ImGuiToolWindow* w, HWND wnd)
     destroyInstance(w);
 }
 
+/* Shrinks a frame to fit the work area, then moves it inside. */
+static void fitInWorkArea(const RECT& work, int& x, int& y, int& w, int& h)
+{
+    w = w < work.right - work.left ? w : work.right - work.left;
+    h = h < work.bottom - work.top ? h : work.bottom - work.top;
+    x = x < work.left ? work.left : x + w > work.right ? work.right - w : x;
+    y = y < work.top ? work.top : y + h > work.bottom ? work.bottom - h : y;
+}
+
 extern "C" ImGuiToolWindow* imguiToolOpen(const ImGuiToolDesc* desc)
 {
     ImGuiToolWindow* w;
@@ -1760,8 +1769,8 @@ extern "C" ImGuiToolWindow* imguiToolOpen(const ImGuiToolDesc* desc)
         wtitle[0] = 0;
     }
 
-    /* Open over the main window so the size matches its monitor's DPI;
-    ** WM_DPICHANGED follows later moves. Further windows step down and right. */
+    /* Open over the main window, inside its monitor's work area, at that monitor's
+    ** DPI; WM_DPICHANGED follows later moves. Further windows step down and right. */
     typedef BOOL (WINAPI *AdjustForDpiFn)(LPRECT, DWORD, BOOL, DWORD, UINT);
     static AdjustForDpiFn adjustForDpi = (AdjustForDpiFn)
         GetProcAddress(GetModuleHandleW(L"user32.dll"), "AdjustWindowRectExForDpi");
@@ -1777,9 +1786,18 @@ extern "C" ImGuiToolWindow* imguiToolOpen(const ImGuiToolDesc* desc)
     }
     RECT mainRect = { 0, 0, 0, 0 };
     int x = CW_USEDEFAULT, y = CW_USEDEFAULT;
+    MONITORINFO mi;
+    mi.cbSize = sizeof(mi);
     if (mainWnd && GetWindowRect(mainWnd, &mainRect)) {
         x = mainRect.left + (int)((40 + 32 * openCount) * scale);
         y = mainRect.top  + (int)((40 + 32 * openCount) * scale);
+        if (GetMonitorInfo(MonitorFromWindow(mainWnd, MONITOR_DEFAULTTONEAREST), &mi)) {
+            int dw = r.right - r.left, dh = r.bottom - r.top;
+            fitInWorkArea(mi.rcWork, x, y, dw, dh);
+            r.left = r.top = 0;
+            r.right = dw;
+            r.bottom = dh;
+        }
     }
     /* Where it was last, its size scaled to that monitor's DPI; the zoom is already in the size. */
     const ToolWindowPlacement* kept = desc->placement;
@@ -1805,20 +1823,13 @@ extern "C" ImGuiToolWindow* imguiToolOpen(const ImGuiToolDesc* desc)
         }
         int kw = k.right - k.left, kh = k.bottom - k.top;
         RECT title = { kx, ky, kx + kw, ky + (LONG)(32 * ms) };
-        MONITORINFO mi;
-        mi.cbSize = sizeof(mi);
+        x = kx;
+        y = ky;
         /* With its title bar on no monitor, it comes back inside the nearest one's work area;
         ** a fitted window always does, as nobody can size it back into view. */
         if (((desc->flags & IMGUI_TOOL_FIT_CONTENT) || MonitorFromRect(&title, MONITOR_DEFAULTTONULL) == NULL) &&
             GetMonitorInfo(mon, &mi)) {
-            kw = kw < mi.rcWork.right - mi.rcWork.left ? kw : mi.rcWork.right - mi.rcWork.left;
-            kh = kh < mi.rcWork.bottom - mi.rcWork.top ? kh : mi.rcWork.bottom - mi.rcWork.top;
-            x = kx < mi.rcWork.left ? mi.rcWork.left : kx + kw > mi.rcWork.right ? mi.rcWork.right - kw : kx;
-            y = ky < mi.rcWork.top ? mi.rcWork.top : ky + kh > mi.rcWork.bottom ? mi.rcWork.bottom - kh : ky;
-        }
-        else {
-            x = kx;
-            y = ky;
+            fitInWorkArea(mi.rcWork, x, y, kw, kh);
         }
         r.left = r.top = 0;
         r.right = kw;
