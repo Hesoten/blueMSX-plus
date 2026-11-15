@@ -732,7 +732,9 @@ void Y8950::generateChannels(std::span<float*> bufs, unsigned num)
                 ? float(2 * ch[8].slot[MOD].calc_slot_tom(lfo_pm, lfo_am))
                 : 0.0f;
         }
-        bufs[14][sample] += float(adpcm->calcSample());
+        /* The cartridge's logic adds the ADPCM at a quarter of its 16 bits, so
+        ** at full scale it is twice one FM channel rather than equal to it. */
+        bufs[14][sample] += float(2 * adpcm->calcSample());
     }
 }
 
