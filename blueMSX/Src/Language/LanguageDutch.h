@@ -293,6 +293,7 @@ void langInitDutch(LanguageStrings* ls)
     ls->menuToolsShortcuts      = "Snelkoppelingen";
     ls->menuToolsCtrlEditor     = "Besturing";
     ls->menuToolsMixer          = "Geluidsmixer";
+    ls->menuToolsMixerDetailed  = "Gedetailleerde geluidsmixer";
     ls->menuToolsVdpViewer      = "VDP-viewer";
     ls->menuToolsControlDeck    = "Emulatiebediening";
     ls->menuToolsLoadMemory     = "Laden Geheugen";

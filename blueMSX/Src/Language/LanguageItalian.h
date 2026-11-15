@@ -294,6 +294,7 @@ void langInitItalian(LanguageStrings* ls)
     ls->menuToolsShortcuts              = "Gestione tasti rapidi...";
     ls->menuToolsCtrlEditor             = "Periferiche di ingresso...";               
     ls->menuToolsMixer                  = "Mixer audio...";
+    ls->menuToolsMixerDetailed          = "Mixer dettagliato";
     ls->menuToolsVdpViewer              = "Visualizzatore VDP...";
     ls->menuToolsControlDeck            = "Comandi di emulazione";
     ls->menuToolsLoadMemory             = "Carico di memoria";

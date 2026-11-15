@@ -784,6 +784,8 @@ void themePageUpdate(ThemePage* themePage, void* dc)
         case ITEM_BUTTON:
             redraw |= activeButtonShow(item->object, visible);
             if (pressed != -1) redraw |= activeButtonForcePushed(item->object, pressed);
+            /* The Sound Mixer's mute lamps swap two buttons on enable-*. */
+            redraw |= activeButtonSetMark(item->object, visible == 1 && themeTriggerAudioPartlyMuted(item->visible));
             break;
         case ITEM_DUALBUTTON:
             redraw |= activeDualButtonShow(item->object, visible);

@@ -174,6 +174,7 @@ struct ActiveButton {
     int state;
     int pushed;
     int active;
+    int mark;
     int x;
     int y;
     UInt32 width;
@@ -195,6 +196,7 @@ ActiveButton* activeButtonCreate(int x, int y, int cols, int activeNotify, ArchB
     activeButton->state   = AB_NORMAL;
     activeButton->pushed  = 0;
     activeButton->active  = 0;
+    activeButton->mark    = 0;
     activeButton->event   = event;
     activeButton->arg1    = arg1;
     activeButton->arg2    = arg2;
@@ -213,6 +215,12 @@ void activeButtonDestroy(ActiveButton* activeButton)
 void activeButtonDraw(ActiveButton* activeButton, void* dc, ActiveRect* rect)
 {
     activeImageDraw(activeButton->bitmap, dc, rect);
+    if (activeButton->mark && activeButton->bitmap->show) {
+        int w = activeButton->width;
+        int h = activeButton->height;
+        archBitmapDrawMark(dc, activeButton->x + w / 4, activeButton->y + h / 4, w - 2 * (w / 4), h - 2 * (h / 4),
+                           rect->x, rect->y, rect->width, rect->height);
+    }
 }
 
 static int activeButtonSetImage(ActiveButton* activeButton)
@@ -250,6 +258,13 @@ int activeButtonForcePushed(ActiveButton* activeButton, int pushed)
 int activeButtonShow(ActiveButton* activeButton, int show)
 {
     return activeImageShow(activeButton->bitmap, show);
+}
+
+int activeButtonSetMark(ActiveButton* activeButton, int mark)
+{
+    int rv = activeButton->mark != mark;
+    activeButton->mark = mark;
+    return rv;
 }
 
 int activeButtonMouseMove(ActiveButton* activeButton, int x, int y)

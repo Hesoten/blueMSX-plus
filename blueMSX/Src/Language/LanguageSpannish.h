@@ -293,6 +293,7 @@ void langInitSpanish(LanguageStrings* ls)
     ls->menuToolsShortcuts      = "Editor de Atajos";
     ls->menuToolsCtrlEditor     = "Editor de controladores/teclado";  
     ls->menuToolsMixer          = "Mezclador de Audio"; 
+    ls->menuToolsMixerDetailed  = "Mezclador detallado";
     ls->menuToolsVdpViewer      = "Visor VDP";
     ls->menuToolsControlDeck    = "Controles de emulación";
     ls->menuToolsLoadMemory     = "Carga de Memoria";

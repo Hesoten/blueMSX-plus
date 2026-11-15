@@ -293,6 +293,7 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->menuToolsShortcuts      = "快捷键编辑工具";
     ls->menuToolsCtrlEditor     = "控制器 / 键盘编辑器"; 
     ls->menuToolsMixer          = "混音器";
+    ls->menuToolsMixerDetailed  = "详细混音器";
     ls->menuToolsVdpViewer      = "VDP 查看器";
     ls->menuToolsControlDeck    = "模拟控制栏";
     ls->menuToolsLoadMemory     = "加载内存";

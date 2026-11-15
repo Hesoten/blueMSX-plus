@@ -295,6 +295,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->menuToolsShortcuts      = "ショートカット構成編集";
     ls->menuToolsCtrlEditor     = "コントローラー / キーボード構成編集"; 
     ls->menuToolsMixer          = "ミキサー";
+    ls->menuToolsMixerDetailed  = "詳細ミキサー";
     ls->menuToolsVdpViewer      = "VDP ビューア";
     ls->menuToolsControlDeck    = "コントロールデッキ";
     ls->menuToolsDebugger       = "デバッガー";

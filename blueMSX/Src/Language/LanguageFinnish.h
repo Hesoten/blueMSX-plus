@@ -294,6 +294,7 @@ void langInitFinnish(LanguageStrings* ls)
     ls->menuToolsShortcuts      = "Pikanäppäinasetukset";
     ls->menuToolsCtrlEditor     = "Peliohjaimet / Näppäimistökartta"; 
     ls->menuToolsMixer          = "Mikseri";
+    ls->menuToolsMixerDetailed  = "Yksityiskohtainen mikseri";
     ls->menuToolsVdpViewer      = "VDP-katselin";
     ls->menuToolsControlDeck    = "Emuloinnin ohjaimet";
     ls->menuToolsLoadMemory     = "Lataa muisti";

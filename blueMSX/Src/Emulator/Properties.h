@@ -671,6 +671,11 @@ typedef struct ControlDeckProperties {
     int  open;
 } ControlDeckProperties;
 
+/* The Detailed Mixer: only where it was; its sound settings are not kept. */
+typedef struct DetailedMixerProperties {
+    ToolWindowPlacement window;
+} DetailedMixerProperties;
+
 typedef struct Properties {
     EmulationProperties emulation;
     VideoProperties     video;
@@ -692,6 +697,7 @@ typedef struct Properties {
     NoWindProperties    nowind;
     VdpViewerProperties vdpViewer;
     ControlDeckProperties controlDeck;
+    DetailedMixerProperties detailedMixer;
 } Properties;
 
 Properties* propCreate(int useDefault, 

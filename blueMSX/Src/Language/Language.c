@@ -509,6 +509,7 @@ char* langMenuToolsMachine() { return ls->menuToolsMachine; }
 char* langMenuToolsShortcuts() { return ls->menuToolsShortcuts; }
 char* langMenuToolsCtrlEditor() { return ls->menuToolsCtrlEditor; }
 char* langMenuToolsMixer() { return ls->menuToolsMixer; }
+char* langMenuToolsMixerDetailed() { return ls->menuToolsMixerDetailed; }
 char* langMenuToolsVdpViewer() { return ls->menuToolsVdpViewer; }
 char* langMenuToolsControlDeck() { return ls->menuToolsControlDeck; }
 char* langMenuToolsLoadMemory() { return ls->menuToolsLoadMemory; }
