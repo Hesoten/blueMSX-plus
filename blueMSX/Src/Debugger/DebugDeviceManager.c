@@ -61,8 +61,9 @@ void debugDeviceManagerReset()
 
 int debugDeviceRegister(DbgDeviceType type, const char* name, DebugCallbacks* callbacks, void* ref)
 {
+    /* 0 is the first device's handle, so a full table must not return it. */
     if (devManager.count >= MAX_DEVICES) {
-        return 0;
+        return -1;
     }
 
     devManager.di[devManager.count].handle    = ++devManager.lastHandle;
