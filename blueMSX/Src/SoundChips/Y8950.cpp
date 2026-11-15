@@ -76,6 +76,11 @@ extern Int32 ams;
 extern Int32 vib;
 extern Int32 feedback2;
 
+/* The voices in emu8950's ch_out order: 9 FM, the rhythm, then ADPCM. */
+static const char* const y8950VoiceNames[15] = {
+    "1", "2", "3", "4", "5", "6", "7", "8", "9", "BD", "HH", "SD", "TOM", "CYM", "ADPCM"
+};
+
 static void y8950ScheduleTimer(Y8950* y8950, int timer);
 static void y8950CancelTimer  (Y8950* y8950, int timer);
 
@@ -408,6 +413,8 @@ Y8950* y8950Create(Mixer* mixer)
     y8950->timer2 = boardTimerCreate(onTimeout2, y8950);
 
     y8950->backend = new Y8950MultiBackend(y8950);
+    /* Only the backend that is heard feeds the voices; it also sets scale. */
+    y8950->backend->setVoices(mixerAttachVoices(mixer, y8950->handle, 15, y8950VoiceNames, 1.0f), true);
     y8950->rate    = mixerGetSampleRate(mixer);
     y8950->backend->setSampleRate(y8950->rate);
 

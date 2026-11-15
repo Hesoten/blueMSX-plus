@@ -26,6 +26,7 @@
 #include "OpenMsxY8950Backend.h"
 extern "C" {
 #include "SaveState.h"
+#include "AudioMixer.h"
 }
 #include <atomic>
 #include <cstddef>
@@ -117,7 +118,7 @@ extern "C" const char* y8950BackendName(int idx)
 }
 
 Y8950MultiBackend::Y8950MultiBackend(void* hostRef)
-    : latchedAddr(0), seenGen(0)
+    : voices(NULL), latchedAddr(0), seenGen(0)
 {
     for (int i = 0; i < Y8950_BACKEND_COUNT; i++) backends[i] = NULL;
     for (int i = 0; i < (int)sizeof(regCache); i++) regCache[i] = 0;
@@ -195,12 +196,25 @@ Int32* Y8950MultiBackend::updateBuffer(UInt32 count)
     ** glitch-free.  Only forward the active backend's samples to the
     ** Mixer. */
     Int32* result = NULL;
+    int    active = s_active;   /* the UI may switch it meanwhile */
+    Int32 live = 0;   /* stored once, so the UI never sees a passing 0 */
     for (int i = 0; i < Y8950_BACKEND_COUNT; i++) {
         if (!backends[i]) continue;
+        if (voices != NULL) {
+            bool feeds = backends[i]->setVoices(voices, i == active && mixerVoicesWanted(voices));
+            if (i == active) live = feeds ? 1 : 0;
+        }
         Int32* b = backends[i]->updateBuffer(count);
-        if (i == s_active) result = b;
+        if (i == active) result = b;
     }
+    if (voices != NULL) voices->live = live;
     return result;
+}
+
+bool Y8950MultiBackend::setVoices(struct MixerVoices* v, bool /*active*/)
+{
+    voices = v;
+    return true;
 }
 
 void Y8950MultiBackend::writeIo(int port, UInt8 value)

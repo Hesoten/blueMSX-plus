@@ -59,6 +59,8 @@ public:
     virtual void   onTimerOverflow(int timer_idx);
     virtual bool   irqPending();
 
+    virtual bool   setVoices(struct MixerVoices* voices, bool active);
+
 private:
     void        armEos();
     bool        deliverEos();

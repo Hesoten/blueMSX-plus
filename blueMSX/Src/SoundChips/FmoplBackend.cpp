@@ -117,8 +117,22 @@ void FmoplBackend::setSampleRate(UInt32 newRate)
     rate = newRate;
 }
 
+bool FmoplBackend::setVoices(struct MixerVoices* v, bool active)
+{
+    opl->voices = active ? v : NULL;
+    if (opl->voices != NULL) {
+        /* Levels are summed as outd / 1024; the output is that * 9 / 10. */
+        opl->voices->scale = 0.9f;
+    }
+    return true;
+}
+
 Int32* FmoplBackend::updateBuffer(UInt32 count)
 {
+    if (opl->voices != NULL) {
+        /* Rhythm mode takes FM 7-9; without it the rhythm voices are idle. */
+        opl->voices->idle = (opl->rythm & 0x20) ? 0x1C0u : 0x3E00u;
+    }
     for (UInt32 i = 0; i < count; i++) {
         if (SAMPLERATE > rate) {
             off -= SAMPLERATE - (Int32)rate;

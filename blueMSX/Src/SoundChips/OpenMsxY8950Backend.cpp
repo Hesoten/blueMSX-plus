@@ -50,7 +50,7 @@ struct OpenMsxY8950InstState {
 };
 
 OpenMsxY8950Backend::OpenMsxY8950Backend()
-    : inst(NULL), mixerRate(SAMPLERATE), off(0), o1(0), o2(0), latchedAddr(0)
+    : inst(NULL), voices(NULL), mixerRate(SAMPLERATE), off(0), o1(0), o2(0), latchedAddr(0)
 {
     memset(buffer, 0, sizeof(buffer));
     memset(regCache, 0, sizeof(regCache));
@@ -81,6 +81,12 @@ void OpenMsxY8950Backend::setSampleRate(UInt32 rate)
     ** mixer rate here in updateBuffer. */
 }
 
+bool OpenMsxY8950Backend::setVoices(struct MixerVoices* v, bool active)
+{
+    voices = active ? v : NULL;
+    return true;
+}
+
 Int32* OpenMsxY8950Backend::updateBuffer(UInt32 count)
 {
     /* Pre-simulate the linear-resampler off-counter loop so we can ask
@@ -104,7 +110,10 @@ Int32* OpenMsxY8950Backend::updateBuffer(UInt32 count)
     }
 
     if ((int)inst->chipSamples.size() < chipNeed) inst->chipSamples.resize((size_t)chipNeed);
-    inst->chip.generateMono(inst->chipSamples.data(), (unsigned)chipNeed);
+    if (voices != NULL) {
+        voices->scale = 2.0f;       /* chip samples go out << 1 below */
+    }
+    inst->chip.generateMono(inst->chipSamples.data(), (unsigned)chipNeed, voices);
     int32_t* chipBuf = inst->chipSamples.data();
     int chipPos = 0;
 

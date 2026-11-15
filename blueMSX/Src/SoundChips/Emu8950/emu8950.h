@@ -148,6 +148,9 @@ typedef struct __OPL {
   void (*timer2_func)(void *user);
   uint8_t status;
 
+  /* blueMSX addition: see OPL_setVoiceHook. */
+  void (*voice_hook)(void *ref, int16_t *ch_out, int count);
+  void *voice_hook_ref;
 } OPL;
 
 OPL *OPL_new(uint32_t clk, uint32_t rate);
@@ -159,6 +162,10 @@ void OPL_reset(OPL *);
 ** wave_table -> &wave_table_map[__patch.WS & 3][0]) after a save-state
 ** restore that bulk-copied the OPL struct. */
 void OPL_relinkAfterRestore(OPL *opl);
+
+/* blueMSX addition: before the channels are summed (mono output only), hand
+** a copy of them to hook, which may scale them; NULL restores the plain sum. */
+void OPL_setVoiceHook(OPL *opl, void (*hook)(void *, int16_t *, int), void *ref);
 
 /** 
  * Set output wave sampling rate. 

@@ -46,6 +46,10 @@ public:
     virtual void   saveState() = 0;
     virtual void   loadState() = 0;
 
+    /* Detailed mixer: per-voice gain and levels, taken only by the engine
+    ** that is heard (active). Returns false if this engine cannot. */
+    virtual bool   setVoices(struct MixerVoices*, bool) { return false; }
+
     /* True iff loadState() found this backend's own chip-dump section. */
     bool lastLoadHadOwnState() const { return loadHadOwnState_; }
 

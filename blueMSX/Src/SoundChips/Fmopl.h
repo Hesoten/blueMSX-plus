@@ -134,6 +134,8 @@ typedef struct fm_opl_f {
     int reg16;
     int reg17;
 
+    /* Detailed mixer: per-voice gain and levels; NULL leaves them alone */
+    struct MixerVoices* voices;
 } FM_OPL;
 
 /* ---------- Generic interface section ---------- */

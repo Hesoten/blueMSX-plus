@@ -22,6 +22,7 @@
 #include "SaveState.h"
 #include "Board.h"
 #include "Properties.h"
+#include "AudioMixer.h"
 #include "Y8950.h"
 
 #ifndef	PI
@@ -207,6 +208,12 @@ INT32  *vib_table;
 INT32 amsIncr;
 INT32 vibIncr;
 INT32 outd;
+
+/* Detailed mixer: while set, OPL_CALC_RH adds each rhythm instrument here
+** (BD, SD, TOM, CYM, HH) instead of into outd. */
+static INT32* rh_parts;
+#define RH_OUT(part, value) \
+	do { if (rh_parts) rh_parts[part] += (value); else outd += (value); } while (0)
 INT32 ams;
 INT32 vib;
 INT32 feedback2;		/* connect for SLOT	2 */
@@ -502,7 +509,7 @@ void OPL_CALC_RH( OPL_CH *CH )
 		if(SLOT->vib) SLOT->Cnt	+= (SLOT->Incr*vib/VIB_RATE);
 		else		  SLOT->Cnt	+= SLOT->Incr;
 		/* connectoion */
-		outd +=	OP_OUT(SLOT,env_out, feedback2)*2;
+		RH_OUT(0, OP_OUT(SLOT,env_out, feedback2)*2);
 	}
 
 	/* SD  (17)	= mul14[fnum7] + white noise */
@@ -528,16 +535,16 @@ void OPL_CALC_RH( OPL_CH *CH )
 
 	/* SD */
 	if(	env_sd < EG_ENT-1 )
-		outd +=	OP_OUT(SLOT7_1,env_sd, 0)*8;
+		RH_OUT(1, OP_OUT(SLOT7_1,env_sd, 0)*8);
 	/* TAM */
 	if(	env_tam	< EG_ENT-1 )
-		outd +=	OP_OUT(SLOT8_1,env_tam,	0)*2;
+		RH_OUT(2, OP_OUT(SLOT8_1,env_tam,	0)*2);
 	/* TOP-CY */
 	if(	env_top	< EG_ENT-1 )
-		outd +=	OP_OUT(SLOT7_2,env_top,tone8)*2;
+		RH_OUT(3, OP_OUT(SLOT7_2,env_top,tone8)*2);
 	/* HH */
 	if(	env_hh	< EG_ENT-1 )
-		outd +=	OP_OUT(SLOT7_2,env_hh,tone8)*2;
+		RH_OUT(4, OP_OUT(SLOT7_2,env_hh,tone8)*2);
 }
 
 /* ----------- initialize time tabls ----------- */
@@ -990,6 +997,9 @@ int	Y8950UpdateOne(FM_OPL *OPL)
 	UINT8 rythm	= OPL->rythm&0x20;
 	OPL_CH *CH,*R_CH;
 	YM_DELTAT *DELTAT =	OPL->deltat;
+	struct MixerVoices* voices = OPL->voices;
+	int voicesActive = voices != NULL && voices->active;
+	INT32 voiceSum[15];
 
 	/* setup DELTA-T unit */
 	YM_DELTAT_DECODE_PRESET(DELTAT);
@@ -1019,6 +1029,44 @@ int	Y8950UpdateOne(FM_OPL *OPL)
 	/* FM part */
 	outd = 0;
     count = OPL->rate / OPL->baseRate;
+    if (voices != NULL) {
+        /* Same calls in the same order; each voice's share is what it adds
+        ** to outd, scaled by its gain when any gain is set. */
+        memset(voiceSum, 0, sizeof(voiceSum));
+        while (count--) {
+	        for(CH=S_CH	; CH < R_CH	; CH++) {
+	            INT32 before = outd;
+	            INT32 share;
+		        OPL_CALC_CH(CH);
+		        share = outd - before;
+		        if (voicesActive) {
+		            share = (INT32)(((Int64)share * voices->gain[CH - S_CH]) >> 12);
+		            outd = before + share;
+		        }
+		        voiceSum[CH - S_CH] += share;
+	        }
+	        if(rythm) {
+	            static const int rhVoice[5] = { 9, 11, 12, 13, 10 };   /* BD SD TOM CYM HH */
+	            INT32 parts[5] = { 0, 0, 0, 0, 0 };
+	            int p;
+	            rh_parts = parts;
+		        OPL_CALC_RH(S_CH);
+		        rh_parts = NULL;
+		        for (p = 0; p < 5; p++) {
+		            INT32 share = parts[p];
+		            if (voicesActive) {
+		                share = (INT32)(((Int64)share * voices->gain[rhVoice[p]]) >> 12);
+		            }
+		            outd += share;
+		            voiceSum[rhVoice[p]] += share;
+		        }
+	        }
+        }
+        for (count = 0; count < 14; count++) {
+            voiceSum[count] /= OPL->rate / OPL->baseRate;
+        }
+    }
+    else
     while (count--) {
 	    for(CH=S_CH	; CH < R_CH	; CH++)
 		    OPL_CALC_CH(CH);
@@ -1035,6 +1083,24 @@ int	Y8950UpdateOne(FM_OPL *OPL)
     outd += OPL->dacDaVolume << 14;
 
 	/* deltaT ADPCM	*/
+	if (voices != NULL) {
+	    INT32 before = outd;
+	    if(	DELTAT->flag )
+		    YM_DELTAT_ADPCM_CALC(DELTAT);
+	    voiceSum[14] = outd - before;
+	    if (voicesActive) {
+	        voiceSum[14] = (INT32)(((Int64)voiceSum[14] * voices->gain[14]) >> 12);
+	        outd = before + voiceSum[14];
+	    }
+	    /* Metered in output units so sumSq cannot overflow (SD reaches 2^29). */
+	    if (voices->metering) {
+	        for (count = 0; count < 15; count++) {
+	            mixerMeterVoice(voices, count, voiceSum[count] >> (OPL_OUTSB - 3));
+	        }
+	        voices->samples++;
+	    }
+	}
+	else
 	if(	DELTAT->flag )
 		YM_DELTAT_ADPCM_CALC(DELTAT);
 	/* limit check */

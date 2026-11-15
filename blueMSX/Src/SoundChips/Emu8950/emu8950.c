@@ -969,6 +969,17 @@ static void update_output(OPL *opl) {
 INLINE static void mix_output(OPL *opl) {
   int16_t out = 0;
   int i;
+  if (opl->voice_hook) {
+    /* blueMSX addition: let the hook scale a copy; ch_out stays as is. */
+    int16_t voices[15];
+    for (i = 0; i < 15; i++) {
+      voices[i] = opl->ch_out[i];
+    }
+    opl->voice_hook(opl->voice_hook_ref, voices, 15);
+    for (i = 0; i < 15; i++) {
+      out += voices[i];
+    }
+  } else
   for (i = 0; i < 15; i++) {
     out += opl->ch_out[i];
   }
@@ -1371,4 +1382,11 @@ void OPL_relinkAfterRestore(OPL *opl) {
     opl->slot[i].patch = &opl->slot[i].__patch;
     opl->slot[i].wave_table = wave_table_map[opl->slot[i].__patch.WS & 3];
   }
+}
+
+/* blueMSX addition: see header comment. */
+void OPL_setVoiceHook(OPL *opl, void (*hook)(void *, int16_t *, int), void *ref) {
+  if (opl == NULL) return;
+  opl->voice_hook_ref = ref;
+  opl->voice_hook = hook;
 }
