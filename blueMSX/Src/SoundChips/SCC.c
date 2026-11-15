@@ -80,8 +80,12 @@ struct SCC
     Int32 panGain[5][2];
     Int32 inR[95];         /* filter4's history for the right side; in[] is the left */
 
+    MixerVoices* voices;        /* lent by the mixer; NULL leaves 1-5 alone */
+
     Int32  buffer[AUDIO_STEREO_BUFFER_SIZE];
 };
+
+static const char* const sccVoiceNames[5] = { "1", "2", "3", "4", "5" };
 
 #define SCC_TICK (boardFrequency() / 3579545)
 #define SCC_PAN_ONE 4096
@@ -434,6 +438,8 @@ static SCC* sccCreateAs(Mixer* mixer, int stereo)
 
     if (!stereo) {
         scc->handle = mixerRegisterChannel(mixer, MIXER_CHANNEL_SCC, 0, sccSync, NULL, scc);
+        /* The FIR after the sum passes the level through unchanged. */
+        sccAttachVoices(scc, scc->handle, 1.0f);
     }
 
     sccRestartDeformTicks(scc);
@@ -450,6 +456,12 @@ SCC* sccCreate(Mixer* mixer)
 SCC* sccCreateStereo(Mixer* mixer)
 {
     return sccCreateAs(mixer, 1);
+}
+
+MixerVoices* sccAttachVoices(SCC* scc, Int32 handle, float scale)
+{
+    scc->voices = mixerAttachVoices(scc->mixer, handle, 5, sccVoiceNames, scale);
+    return scc->voices;
 }
 
 void sccDestroy(SCC* scc)
@@ -738,6 +750,9 @@ static Int32 filter4(Int32* in, Int32 in1, Int32 in2, Int32 in3, Int32 in4)
 static Int32* sccRender(SCC* scc, UInt32 count, int stereo)
 {
     Int32* buffer  = scc->buffer;
+    MixerVoices* voices = scc->voices;
+    Int32  voicesActive = voices != NULL && voices->active;
+    Int32  voicesMetered = voices != NULL && voices->metering;
     Int32  channel;
     UInt32 index;
 
@@ -781,6 +796,12 @@ static Int32* sccRender(SCC* scc, UInt32 count, int stereo)
                 /* The chip drops the low 4 bits of each product before the sum;
                 ** 400 = 25 * 16 keeps the output level the mixer is balanced for. */
                 term = 400 * ((scc->curWave[channel] * scc->volume[channel]) >> 4);
+                if (voicesActive) {
+                    term = (Int32)(((Int64)term * voices->gain[channel]) >> 12);
+                }
+                if (voicesMetered) {
+                    mixerMeterVoice(voices, channel, term);
+                }
                 if (stereo) {
                     masterVolume[i]  += term * scc->panGain[channel][0] / SCC_PAN_ONE;
                     masterVolumeR[i] += term * scc->panGain[channel][1] / SCC_PAN_ONE;
@@ -788,6 +809,9 @@ static Int32* sccRender(SCC* scc, UInt32 count, int stereo)
                 else {
                     masterVolume[i] += term;
                 }
+            }
+            if (voicesMetered) {
+                voices->samples++;
             }
         }
         if (stereo) {

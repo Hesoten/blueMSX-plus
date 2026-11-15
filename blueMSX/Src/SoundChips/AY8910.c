@@ -89,8 +89,12 @@ struct AY8910 {
     /* Per instance: the step count depends on the chip type. */
     Int16  voltEnvTable[32];
 
+    MixerVoices* voices;        /* lent by the mixer; NULL leaves A/B/C alone */
+
     Int32  buffer[AUDIO_STEREO_BUFFER_SIZE];
 };
+
+static const char* const ay8910VoiceNames[3] = { "A", "B", "C" };
 
 static void ay8910LoadStateImpl(AY8910* ay8910, const char* chunkTag)
 {
@@ -290,6 +294,8 @@ AY8910* ay8910Create(Mixer* mixer, Ay8910Connector connector, PsgType type, Int3
     ay8910->pan[2] = pan?pan[2]:0;
 
     ay8910->handle = mixerRegisterChannel(mixer, MIXER_CHANNEL_PSG, stereo, ay8910Sync, NULL, ay8910);
+    /* A voice sample reaches the mixer roughly 9 times larger. */
+    ay8910->voices = mixerAttachVoices(mixer, ay8910->handle, 3, ay8910VoiceNames, 9.0f);
 
     ay8910Reset(ay8910);
     for (i = 0; i < 16; i++) {
@@ -514,6 +520,9 @@ void ay8910WriteData(AY8910* ay8910, UInt16 ioPort, UInt8 data)
 static Int32* ay8910Sync(void* ref, UInt32 count)
 {
     AY8910* ay8910 = (AY8910*)ref;
+    MixerVoices* voices = ay8910->voices;
+    Int32   voicesActive = voices != NULL && voices->active;
+    Int32   voicesMetered = voices != NULL && voices->metering;
     Int32   channel;
     UInt32  index;
 
@@ -571,6 +580,18 @@ static Int32* ay8910Sync(void* ref, UInt32 count)
             else {
                 sampleVolume[channel] += (Int16)tone * voltTable[ay8910->ampVolume[channel]] / 16;
             }
+        }
+
+        if (voicesActive) {
+            for (channel = 0; channel < 3; channel++) {
+                sampleVolume[channel] = (Int32)(((Int64)sampleVolume[channel] * voices->gain[channel]) >> 12);
+            }
+        }
+        if (voicesMetered) {
+            for (channel = 0; channel < 3; channel++) {
+                mixerMeterVoice(voices, channel, sampleVolume[channel]);
+            }
+            voices->samples++;
         }
 
         if (ay8910->stereo) {

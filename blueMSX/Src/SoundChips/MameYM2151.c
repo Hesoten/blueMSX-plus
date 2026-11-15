@@ -137,6 +137,10 @@ struct MameYm2151
     signed int chanout[8];
     signed int m2,c1,c2; /* Phase Modulation input for operators 2,3,4 */
     signed int mem;		/* one sample delay memory */
+
+    /* Detailed mixer: lent by the mixer; NULL leaves chanout alone. */
+    MixerVoices* voices;
+    int voicesWanted, voicesActive, voicesMetered;  /* read once per update */
 };
 
 #define FREQ_SH			16  /* 16.16 fixed point (frequency calculations) */
@@ -1844,6 +1848,9 @@ void YM2151UpdateOne(MameYm2151* chip, Int16* bufL, Int16* bufR, int length)
 {
 	int i;
 	signed int outl,outr;
+	signed int* ch;
+	signed int scaled[8];
+	int v;
 
 	PSG = chip;
 
@@ -1869,22 +1876,40 @@ void YM2151UpdateOne(MameYm2151* chip, Int16* bufL, Int16* bufR, int length)
 		chan_calc(chip, 6);
 		chan7_calc(chip);
 
-		outl = chip->chanout[0] & PSG->pan[0];
-		outr = chip->chanout[0] & PSG->pan[1];
-		outl += (chip->chanout[1] & PSG->pan[2]);
-		outr += (chip->chanout[1] & PSG->pan[3]);
-		outl += (chip->chanout[2] & PSG->pan[4]);
-		outr += (chip->chanout[2] & PSG->pan[5]);
-		outl += (chip->chanout[3] & PSG->pan[6]);
-		outr += (chip->chanout[3] & PSG->pan[7]);
-		outl += (chip->chanout[4] & PSG->pan[8]);
-		outr += (chip->chanout[4] & PSG->pan[9]);
-		outl += (chip->chanout[5] & PSG->pan[10]);
-		outr += (chip->chanout[5] & PSG->pan[11]);
-		outl += (chip->chanout[6] & PSG->pan[12]);
-		outr += (chip->chanout[6] & PSG->pan[13]);
-		outl += (chip->chanout[7] & PSG->pan[14]);
-		outr += (chip->chanout[7] & PSG->pan[15]);
+		/* The voices scale a copy; chanout itself stays as the chip left it. */
+		ch = chip->chanout;
+		if (chip->voicesWanted) {
+			for (v = 0; v < 8; v++) {
+				scaled[v] = chip->chanout[v];
+				if (chip->voicesActive) {
+					scaled[v] = (signed int)(((Int64)scaled[v] * chip->voices->gain[v]) >> 12);
+				}
+				if (chip->voicesMetered) {
+					mixerMeterVoice(chip->voices, v, scaled[v]);
+				}
+			}
+			if (chip->voicesMetered) {
+				chip->voices->samples++;
+			}
+			ch = scaled;
+		}
+
+		outl = ch[0] & PSG->pan[0];
+		outr = ch[0] & PSG->pan[1];
+		outl += (ch[1] & PSG->pan[2]);
+		outr += (ch[1] & PSG->pan[3]);
+		outl += (ch[2] & PSG->pan[4]);
+		outr += (ch[2] & PSG->pan[5]);
+		outl += (ch[3] & PSG->pan[6]);
+		outr += (ch[3] & PSG->pan[7]);
+		outl += (ch[4] & PSG->pan[8]);
+		outr += (ch[4] & PSG->pan[9]);
+		outl += (ch[5] & PSG->pan[10]);
+		outr += (ch[5] & PSG->pan[11]);
+		outl += (ch[6] & PSG->pan[12]);
+		outr += (ch[6] & PSG->pan[13]);
+		outl += (ch[7] & PSG->pan[14]);
+		outr += (ch[7] & PSG->pan[15]);
 
 		outl >>= FINAL_SH;
 		outr >>= FINAL_SH;
@@ -2233,4 +2258,19 @@ void YM2151SaveState(MameYm2151* chip)
     }
 
     saveStateClose(state);
+}
+
+MixerVoices* YM2151AttachVoices(MameYm2151* chip, Mixer* mixer, Int32 handle, float scale)
+{
+    static const char* const names[8] = { "1", "2", "3", "4", "5", "6", "7", "8" };
+
+    chip->voices = mixerAttachVoices(mixer, handle, 8, names, scale);
+    return chip->voices;
+}
+
+void YM2151SyncVoices(MameYm2151* chip)
+{
+    chip->voicesWanted  = mixerVoicesWanted(chip->voices);
+    chip->voicesActive  = chip->voicesWanted && chip->voices->active;
+    chip->voicesMetered = chip->voicesWanted && chip->voices->metering;
 }

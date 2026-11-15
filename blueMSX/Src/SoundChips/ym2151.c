@@ -206,6 +206,7 @@ static Int32* ym2151Sync(void* ref, UInt32 count)
     YM2151* ym2151 = (YM2151*)ref;
     UInt32 i;
 
+    YM2151SyncVoices(ym2151->opl);
     for (i = 0; i < count; i++) {
         Int16 sl, sr;
         ym2151->off -= SAMPLERATE - ym2151->rate;
@@ -339,7 +340,10 @@ YM2151* ym2151Create(Mixer* mixer)
     ym2151->handle = mixerRegisterChannel(mixer, MIXER_CHANNEL_YAMAHA_SFG, 1, ym2151Sync, ym2151SetSampleRate, ym2151);
 
     ym2151->opl = YM2151Create(ym2151, &ym2151Callbacks, "ym2151_core", FREQUENCY, SAMPLERATE);
-    
+
+    /* A channel sample reaches the mixer 11 times larger. */
+    YM2151AttachVoices(ym2151->opl, mixer, ym2151->handle, 11.0f);
+
     ym2151->rate = mixerGetSampleRate(mixer);
 
     ym2151Reset(ym2151);

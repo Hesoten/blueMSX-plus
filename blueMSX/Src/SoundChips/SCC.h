@@ -61,6 +61,9 @@ void sccWrite(SCC* scc, UInt8 address, UInt8 value);
 void sccSetPanGain(SCC* scc, int channel, Int32 left, Int32 right);
 /* count left/right pairs from a stereo SCC. */
 Int32* sccSyncStereo(SCC* scc, UInt32 count);
+/* Owner of a stereo SCC, after registering it: lend channels 1-5 to the
+** mixer channel handle; returns NULL when none is left. */
+MixerVoices* sccAttachVoices(SCC* scc, Int32 handle, float scale);
 
 void sccGetDebugInfo(SCC* scc, DbgDevice* dbgDevice);
 

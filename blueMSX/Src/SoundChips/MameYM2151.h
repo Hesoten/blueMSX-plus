@@ -33,6 +33,7 @@
 #define _H_YM2151_
 
 #include "MsxTypes.h"
+#include "AudioMixer.h"
 
 typedef struct MameYm2151 MameYm2151;
 
@@ -51,6 +52,11 @@ MameYm2151* YM2151Create(void* ref, const YM2151Callbacks* callbacks,
 void YM2151Destroy(MameYm2151* chip);
 void YM2151ResetChip(MameYm2151* chip);
 void YM2151UpdateOne(MameYm2151* chip,Int16* bufL, Int16* bufR, int length);
+/* Detailed mixer: lend the eight channels to the mixer channel handle, named
+** 1-8; returns NULL when none is left. */
+MixerVoices* YM2151AttachVoices(MameYm2151* chip, Mixer* mixer, Int32 handle, float scale);
+/* Once per update, before the samples: read whether gains or levels are wanted. */
+void YM2151SyncVoices(MameYm2151* chip);
 void YM2151WriteReg(MameYm2151* chip, int r, int v);
 int  YM2151ReadStatus(MameYm2151* chip);
 void YM2151TimerCallback(MameYm2151* chip, int timer);

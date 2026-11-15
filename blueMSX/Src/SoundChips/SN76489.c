@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -91,9 +94,14 @@ struct SN76489 {
     Int32  oldSampleVolume;
     Int32  daVolume;
 
+    /* Lent by the mixer; NULL leaves the voices alone */
+    MixerVoices* voices;
+
     /* Audio buffer */
     Int32  buffer[AUDIO_MONO_BUFFER_SIZE];
 };
+
+static const char* const sn76489VoiceNames[4] = { "1", "2", "3", "Noise" };
 
 
 static Int32* sn76489Sync(void* ref, UInt32 count);
@@ -224,6 +232,8 @@ SN76489* sn76489Create(Mixer* mixer)
     sn76489->mixer = mixer;
 
     sn76489->handle = mixerRegisterChannel(mixer, MIXER_CHANNEL_PSG, 0, sn76489Sync, NULL, sn76489);
+    /* A voice sample reaches the mixer roughly 4 times larger. */
+    sn76489->voices = mixerAttachVoices(mixer, sn76489->handle, 4, sn76489VoiceNames, 4.0f);
     sn76489->debugHandle = debugDeviceRegister(DBGTYPE_AUDIO, "SN76489 PSG", &dbgCallbacks, sn76489);
 
 
@@ -277,23 +287,42 @@ void sn76489WriteData(SN76489* sn76489, UInt16 ioPort, UInt8 data)
 static Int32* sn76489Sync(void* ref, UInt32 count)
 {
     SN76489* p = (SN76489*)ref;
+    MixerVoices* voices = p->voices;
+    Int32 voicesActive = voices != NULL && voices->active;
+    Int32 voicesMetered = voices != NULL && voices->metering;
     int clocksPerSample;
     UInt32 j;
     int i;
 
     for(j = 0; j < count; j++) {
         Int32 sampleVolume = 0;
+        Int32 voice[4];
 
         for (i = 0; i < 3; i++) {
             if (p->toneInterpol[i] > FLT_MIN) {
-                sampleVolume += (int)(VoltTables[p->voltTableIdx][p->regs[2 * i + 1]] * p->toneInterpol[i]);
+                voice[i] = (int)(VoltTables[p->voltTableIdx][p->regs[2 * i + 1]] * p->toneInterpol[i]);
             }
             else {
-                sampleVolume += VoltTables[p->voltTableIdx][p->regs[2 * i + 1]] * p->toneFlipFlop[i];
+                voice[i] = VoltTables[p->voltTableIdx][p->regs[2 * i + 1]] * p->toneFlipFlop[i];
             }
         }
 
-        sampleVolume += VoltTables[p->voltTableIdx][p->regs[7]] * ( p->shiftReg & 0x1 ) * 2;
+        voice[3] = VoltTables[p->voltTableIdx][p->regs[7]] * ( p->shiftReg & 0x1 ) * 2;
+
+        if (voicesActive) {
+            for (i = 0; i < 4; i++) {
+                voice[i] = (Int32)(((Int64)voice[i] * voices->gain[i]) >> 12);
+            }
+        }
+        if (voicesMetered) {
+            for (i = 0; i < 4; i++) {
+                mixerMeterVoice(voices, i, voice[i]);
+            }
+            voices->samples++;
+        }
+        for (i = 0; i < 4; i++) {
+            sampleVolume += voice[i];
+        }
 
         /* Perform DC offset filtering */
         p->ctrlVolume = sampleVolume - p->oldSampleVolume + 0x3fe7 * p->ctrlVolume / 0x4000;
