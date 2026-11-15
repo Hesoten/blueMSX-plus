@@ -88,13 +88,37 @@ static UInt8            emptyRAM[0x2000];
 static Int32            initialized;
 static UInt8            waitClass[4][4][8];
 static UInt8            pageWait[8];
+static int              pageSource[8];  /* slot * 4 + sslot each page shows, or -1 */
+static SlotPageMappedCb pageMappedCb;
+
+/* Whether the CPU sees that slot and subslot in the 8kB page now. */
+static int slotShown(int slot, int sslot, int page)
+{
+    return pslot[page >> 1].state == slot &&
+           (!pslot[slot].subslotted || pslot[page >> 1].substate == sslot);
+}
+
+void slotSetPageMappedCb(SlotPageMappedCb cb)
+{
+    pageMappedCb = cb;
+}
 
 void slotMapRamPage(int slot, int sslot, int page)
 {
-    ramslot[page].readEnable  = slotTable[slot][sslot][page].readEnable;
-    ramslot[page].writeEnable = slotTable[slot][sslot][page].writeEnable;
-    ramslot[page].pageData    = slotTable[slot][sslot][page].pageData;
+    const Slot* from = &slotTable[slot][sslot][page];
+    int changed = pageSource[page] != slot * 4 + sslot ||
+                  ramslot[page].readEnable != from->readEnable ||
+                  (from->readEnable && ramslot[page].pageData != from->pageData);
+
+    ramslot[page].readEnable  = from->readEnable;
+    ramslot[page].writeEnable = from->writeEnable;
+    ramslot[page].pageData    = from->pageData;
     pageWait[page]            = waitClass[slot][sslot][page];
+    pageSource[page]          = slot * 4 + sslot;
+
+    if (changed && pageMappedCb != NULL) {
+        pageMappedCb(page);
+    }
 }
 
 void slotSetWaitClass(int slot, int sslot, int page, UInt8 waitCls)
@@ -231,6 +255,12 @@ void slotSetBankSegment(int slot, int sslot, int bank, int segment)
 {
     if (slot < 0 || slot > 3 || sslot < 0 || sslot > 3 || bank < 0 || bank > 7) {
         return;
+    }
+    /* A mapper read through callbacks changes no page pointer when it switches. */
+    if (slotBankSegment[slot][sslot][bank] != segment && pageMappedCb != NULL &&
+        initialized && slotShown(slot, sslot, bank))
+    {
+        pageMappedCb(bank);
     }
     slotBankSegment[slot][sslot][bank] = segment;
 }
@@ -425,9 +455,7 @@ void slotMapPage(int slot, int sslot, int page, UInt8* pageData,
         slotMapRamPage(slot, sslot, page);
     }
 #else
-    if (pslot[page >> 1].state == slot && 
-        (!pslot[slot].subslotted || pslot[page >> 1].substate == sslot)) 
-    {
+    if (slotShown(slot, sslot, page)) {
         slotMapRamPage(slot, sslot, page);
     }
 #endif
@@ -460,9 +488,7 @@ void slotUnmapPage(int slot, int sslot, int page)
     slotTable[slot][sslot][page].writeEnable = 1;
     slotTable[slot][sslot][page].pageData = emptyRAM;
 
-    if (pslot[page >> 1].state == slot && 
-        (!pslot[slot].subslotted || pslot[page >> 1].substate == sslot))  
-    {
+    if (slotShown(slot, sslot, page)) {
         slotMapRamPage(slot, sslot, page);
     }
 }
@@ -631,6 +657,7 @@ void slotManagerCreate()
     memset(&slotAddr0, 0, sizeof(slotAddr0));
     memset(waitClass, 0, sizeof(waitClass));
     memset(pageWait, 0, sizeof(pageWait));
+    memset(pageSource, 0xff, sizeof(pageSource));
 
     for (slot = 0; slot < 4; slot++) {
         for (sslot = 0; sslot < 4; sslot++) {

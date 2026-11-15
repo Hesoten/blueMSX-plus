@@ -54,6 +54,7 @@ struct R800Debug {
 static R800Debug* dbg;
 /* Set while a breakpoint stop parks here, before the instruction at PC runs. */
 static int stoppedBeforeInstruction;
+static int pagesTracked;
 
 
 static void getDebugInfo(R800Debug* dbg, DbgDevice* dbgDevice)
@@ -152,7 +153,17 @@ static int dbgWriteRegister(R800Debug* dbg, char* name, int regIndex, UInt32 val
     case  9: dbg->r800->regs.IY.W = (UInt16)value; break;
     case 10: dbg->r800->regs.SP.W = (UInt16)value; break;
     /* A new PC leaves the HALT, so a breakpoint at the new PC can fire. */
-    case 11: dbg->r800->regs.PC.W = (UInt16)value; dbg->r800->regs.halt = 0; break;
+    case 11:
+        dbg->r800->regs.PC.W = (UInt16)value;
+        dbg->r800->regs.halt = 0;
+#if TIME_TRACE_SIZE > 0
+        /* The flag is stored only at stops between instructions. */
+        if (!dbg->r800->pcTraceParked) {
+            dbg->r800->pcTraceFresh = 0;
+        }
+#endif
+        r800TraceSetPc(dbg->r800);
+        break;
     case 12: dbg->r800->regs.I = (UInt8)value; break;
     case 13: dbg->r800->regs.R = (UInt8)value; break;
     case 14: dbg->r800->regs.im = value > 2 ? 2 : (UInt8)value; break;
@@ -248,6 +259,8 @@ void r800DebugCreate(R800* r800)
 
 void r800DebugDestroy()
 {
+    slotSetPageMappedCb(NULL);
+    pagesTracked = 0;
     debugDeviceUnregister(dbg->debugHandle);
     free(dbg);
     dbg = NULL;
@@ -278,3 +291,47 @@ int r800DebugStoppedBeforeInstruction(void)
     return stoppedBeforeInstruction;
 }
 
+int r800DebugHistoryGet(R800DebugHistory* out)
+{
+#if TIME_TRACE_SIZE > 0
+    if (dbg == NULL) {
+        return 0;
+    }
+    out->pc     = dbg->r800->pcTraceBuffer;
+    out->newest = dbg->r800->timeTraceIndex;
+    out->oldest = dbg->r800->pcTraceFirst;
+    if (out->newest - out->oldest + 1 > PC_TRACE_SIZE) {
+        out->oldest = out->newest - (PC_TRACE_SIZE - 1);
+    }
+    out->pagesTracked = pagesTracked;
+    memcpy(out->changedAt, dbg->r800->pageChangedAt, sizeof(out->changedAt));
+    return 1;
+#else
+    return 0;
+#endif
+}
+
+static void pageMapped(int page)
+{
+#if TIME_TRACE_SIZE > 0
+    if (dbg != NULL && page >= 0 && page < 8) {
+        dbg->r800->pageChangedAt[page] = dbg->r800->timeTraceIndex;
+    }
+#endif
+}
+
+void r800DebugTrackPages(int on)
+{
+    slotSetPageMappedCb(on ? pageMapped : NULL);
+    pagesTracked = on;
+}
+
+int r800DebugInsideInstruction(void)
+{
+#if TIME_TRACE_SIZE > 0
+    /* A device stop inside timerCb, such as a VDP command's, is between instructions too. */
+    return dbg != NULL && boardIsParkedInBreakpointStop() && !dbg->r800->pcTraceParked;
+#else
+    return boardIsParkedInBreakpointStop() && !stoppedBeforeInstruction;
+#endif
+}

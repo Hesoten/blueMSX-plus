@@ -97,6 +97,9 @@
 #define TIME_TRACE_SIZE 1024
 #endif
 
+/* The PCs run, a power of two; recorded with the time trace, so only when it is on. */
+#define PC_TRACE_SIZE 4096
+
 /*****************************************************
 ** CpuMode
 **
@@ -304,6 +307,12 @@ typedef struct
     SystemTime    timeTraceBuffer[TIME_TRACE_SIZE];
     UInt32        timeTraceIndex;
     UInt16        lastPC;
+    /* Entry timeTraceIndex is the newest; pcTraceFirst the first written, maybe overwritten. */
+    UInt16        pcTraceBuffer[PC_TRACE_SIZE];
+    UInt32        pcTraceFirst;
+    UInt32        pageChangedAt[8]; /* entry during which each 8kB page last showed other memory */
+    UInt8         pcTraceFresh;     /* newest entry unrun, kept from the last boundary stop */
+    UInt8         pcTraceParked;    /* in timerCb or breakpointCb: between two instructions */
 #endif
 
     /* Trace only, never saved: the source, and the HALT and interrupt open. */
@@ -521,6 +530,10 @@ void r800SetBreakpoint(R800* r800, UInt16 address);
 void r800ClearBreakpoint(R800* r800, UInt16 address);
 
 SystemTime r800GetTimeTrace(R800* r800, int offset);
+
+/* Records a PC set from outside the CPU: it replaces the newest trace entry if that has
+** not started to run, else it follows it (after a HALT or a block repeat that did). */
+void r800TraceSetPc(R800* r800);
 
 /************************************************************************
 ** r800GetSystemTime

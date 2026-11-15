@@ -54,4 +54,26 @@ int r800DebugNmiLow(void);
 ** between two instructions with the breakpoint at PC already tested. */
 int r800DebugStoppedBeforeInstruction(void);
 
+/* The PCs the CPU ran, for a reader while the CPU is stopped. Entry i is
+** pc[i & (PC_TRACE_SIZE - 1)], from oldest to newest; newest is the one running or next.
+** changedAt[p] is the entry during which 8kB page p last showed other memory. */
+typedef struct {
+    const UInt16* pc;
+    UInt32        oldest;
+    UInt32        newest;
+    int           pagesTracked;     /* 0: changedAt is not kept on this machine */
+    UInt32        changedAt[8];
+} R800DebugHistory;
+
+/* Non-zero with out filled while a machine exists and records the PC trace. */
+int r800DebugHistoryGet(R800DebugHistory* out);
+
+/* Keeps changedAt while on; for a machine whose memory goes through the slot manager.
+** Off during a state load, whose mapping comes with the changedAt saved with it. */
+void r800DebugTrackPages(int on);
+
+/* Whether the CPU is parked inside an instruction (at a watchpoint or a VRAM access check
+** it made) rather than between two, as at a breakpoint or a device stop in a timer. */
+int r800DebugInsideInstruction(void);
+
 #endif

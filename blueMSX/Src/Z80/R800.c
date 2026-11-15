@@ -6133,6 +6133,11 @@ R800* r800Create(UInt32 cpuFlags,
 
     r800->instCnt         = 0;
     r800->traceSource     = DEBUG_TRACE_NO_SOURCE;
+#if TIME_TRACE_SIZE > 0
+    r800->pcTraceFirst    = r800->timeTraceIndex + 1;
+    /* Unlike the start PC 0, so the first instruction is recorded. */
+    r800->lastPC          = 0xffff;
+#endif
 
     r800SetPageWaits(r800, NULL);
     r800Reset(r800, 0);
@@ -6146,6 +6151,45 @@ void r800Destroy(R800* r800) {
 
 UInt32 r800GetSystemTime(R800* r800) {
     return r800->systemTime;
+}
+
+#if TIME_TRACE_SIZE > 0
+/* Entry k of the time and PC traces is the same instruction. */
+static void traceNewPc(R800* r800)
+{
+    r800->lastPC = r800->regs.PC.W;
+    r800->timeTraceBuffer[++r800->timeTraceIndex % TIME_TRACE_SIZE] = r800->systemTime;
+    r800->pcTraceBuffer[r800->timeTraceIndex & (PC_TRACE_SIZE - 1)] = r800->lastPC;
+}
+
+/* Caps the ages of the first entry and of each page's change, so they never wrap. */
+static void traceAgePages(R800* r800)
+{
+    int page;
+
+    if (r800->timeTraceIndex + 1 - r800->pcTraceFirst > 0x40000000) {
+        r800->pcTraceFirst = r800->timeTraceIndex + 1 - 0x40000000;
+    }
+    for (page = 0; page < 8; page++) {
+        if (r800->timeTraceIndex - r800->pageChangedAt[page] > 0x40000000) {
+            r800->pageChangedAt[page] = r800->timeTraceIndex - 0x40000000;
+        }
+    }
+}
+#endif
+
+void r800TraceSetPc(R800* r800)
+{
+#if TIME_TRACE_SIZE > 0
+    if (!r800->pcTraceFresh) {
+        traceNewPc(r800);
+    }
+    else {
+        r800->lastPC = r800->regs.PC.W;
+        r800->pcTraceBuffer[r800->timeTraceIndex & (PC_TRACE_SIZE - 1)] = r800->lastPC;
+    }
+    r800->pcTraceFresh = 1;
+#endif
 }
 
 void r800Reset(R800 *r800, UInt32 cpuTime) {
@@ -6314,20 +6358,38 @@ SystemTime r800GetTimeTrace(R800* r800, int offset) {
 }
 
 void r800Execute(R800* r800) {
+#if TIME_TRACE_SIZE > 0
+    /* Whether the newest entry has not started to run; stored only where the CPU parks. */
+    int fresh;
+#endif
+
     while (!r800->terminate) {
         UInt16 address;
         int iff1 = 0;
 
 #if TIME_TRACE_SIZE > 0
-        if (r800->regs.PC.W != r800->lastPC) {
-            r800->lastPC = r800->regs.PC.W;
-            r800->timeTraceBuffer[++r800->timeTraceIndex % TIME_TRACE_SIZE] = r800->systemTime;
+        fresh = r800->regs.PC.W != r800->lastPC;
+        if (fresh) {
+            traceNewPc(r800);
         }
 #endif
         if ((Int32)(r800->timeout - r800->systemTime) <= 0) {
+#if TIME_TRACE_SIZE > 0
+            traceAgePages(r800);
+            r800->pcTraceFresh  = (UInt8)fresh;
+            r800->pcTraceParked = 1;
+#endif
             if (r800->timerCb != NULL) {
                 r800->timerCb(r800->ref);
             }
+#if TIME_TRACE_SIZE > 0
+            r800->pcTraceParked = 0;
+            /* A reset, PC write or state load while parked here may have moved PC. */
+            if (r800->regs.PC.W != r800->lastPC) {
+                r800TraceSetPc(r800);
+            }
+            fresh = r800->pcTraceFresh;
+#endif
         }
 
         if (r800->oldCpuMode != CPU_UNKNOWN) {
@@ -6349,7 +6411,18 @@ void r800Execute(R800* r800) {
         if (r800->breakpointCount > 0) {
             if (r800->breakpoints[r800->regs.PC.W]) {
                 if (r800->breakpointCb != NULL) {
+#if TIME_TRACE_SIZE > 0
+                    r800->pcTraceFresh  = (UInt8)fresh;
+                    r800->pcTraceParked = 1;
+#endif
                     r800->breakpointCb(r800->ref, r800->regs.PC.W);
+#if TIME_TRACE_SIZE > 0
+                    r800->pcTraceParked = 0;
+                    if (r800->regs.PC.W != r800->lastPC) {
+                        r800TraceSetPc(r800);
+                    }
+                    fresh = r800->pcTraceFresh;
+#endif
                     if (r800->terminate) {
                         break;
                     }

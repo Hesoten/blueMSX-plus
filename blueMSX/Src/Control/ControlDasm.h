@@ -32,4 +32,8 @@
 ** Needs a held view. */
 void ctrlDasmList(CtrlText* text, CtrlView* view, const CtrlAddr* at, int count, Int32 pc);
 
+/* One listing row for the instruction at a Z80 address as it reads now, led by mark and
+** named by the nearest symbol. Its length, or 0 when it was not read whole. Needs a view. */
+int ctrlDasmLine(CtrlText* text, CtrlView* view, UInt16 z80, char mark);
+
 #endif

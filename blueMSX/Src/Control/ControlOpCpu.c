@@ -23,12 +23,15 @@
 #include "ControlOp.h"
 #include "ControlAddress.h"
 #include "ControlCpu.h"
+#include "ControlDasm.h"
 #include "ControlSlots.h"
 #include "ControlAddressArg.h"
 #include "ControlStatus.h"
 #include "ControlStopLog.h"
 #include "ControlSymbol.h"
 #include "SlotManager.h"
+#include "R800Dasm.h"
+#include "R800Debug.h"
 #include <ctype.h>
 #include <stdio.h>
 
@@ -226,19 +229,192 @@ static void describeCallstack(CtrlText* text, int max)
                 "necessarily the one that was when the call was made\n");
 }
 
+/* The longest loop body the history folds, in instructions. */
+#define HISTORY_FOLD_MAX 16
+
+/* A run of the history listing: k entries from start, repeated r times back from there. */
+typedef struct {
+    int start;
+    int k;
+    int r;
+} HistoryRun;
+
+static UInt16 historyPc(const R800DebugHistory* history, UInt32 index)
+{
+    return history->pc[index & (PC_TRACE_SIZE - 1)];
+}
+
+/* Whether the memory an entry's length bytes ran from was switched while or after it ran:
+** one that switches its own page was fetched before. */
+static int historySwitchedSince(const R800DebugHistory* history, UInt32 index, int length)
+{
+    UInt16 pc    = historyPc(history, index);
+    UInt32 age   = history->newest - index;
+    int    first = pc >> 13;
+    int    last  = ((pc + length - 1) & 0xffff) >> 13;
+
+    /* By age back from the newest entry; the CPU keeps a page's age short of wrapping. */
+    return history->pagesTracked &&
+           (history->newest - history->changedAt[first] <= age ||
+            history->newest - history->changedAt[last] <= age);
+}
+
+/* How many times the k entries before end repeat back to back, back to the first shown. */
+static int historyRepeats(const R800DebugHistory* history, UInt32 base, int end, int k)
+{
+    int repeats = 1;
+    int i;
+
+    while (end - k * (repeats + 1) >= 0) {
+        int from = end - k * (repeats + 1);
+
+        for (i = 0; i < k; i++) {
+            if (historyPc(history, base + (UInt32)(from + i)) !=
+                historyPc(history, base + (UInt32)(end - k + i)))
+            {
+                return repeats;
+            }
+        }
+        repeats++;
+    }
+    return repeats;
+}
+
+/* Splits the shown entries before end into runs, newest first: a loop that covers the most
+** entries, or else one entry. Returns how many runs. */
+static int historyRuns(const R800DebugHistory* history, UInt32 base, int end, HistoryRun* runs)
+{
+    int count = 0;
+
+    while (end > 0) {
+        int bestK = 1;
+        int bestR = 1;
+        int k;
+
+        for (k = 2; k <= HISTORY_FOLD_MAX && 2 * k <= end; k++) {
+            int repeats = historyRepeats(history, base, end, k);
+
+            if (repeats >= 2 && k * repeats > bestK * bestR) {
+                bestK = k;
+                bestR = repeats;
+            }
+        }
+        runs[count].start = end - bestK;
+        runs[count].k     = bestK;
+        runs[count].r     = bestR;
+        count++;
+        end -= bestK * bestR;
+    }
+    return count;
+}
+
+/* The last instructions the CPU ran, oldest first, each read and disassembled as memory is
+** now. The caller must hold a view. */
+static void describeHistory(CtrlText* text, CtrlView* view, int max)
+{
+    HistoryRun runs[CTRL_STACK_HISTORY_MAX];
+    R800DebugHistory history;
+    UInt32 recorded;
+    UInt32 base;
+    int    shown;
+    int    runCount;
+    int    uncertain = 0;
+    int    folded    = 0;
+    int    inside    = r800DebugInsideInstruction();
+    int    newestLength;
+    int    i;
+    int    m;
+
+    if (!r800DebugHistoryGet(&history)) {
+        ctrlTextAdd(text, "\nhistory: this machine records no instruction history\n");
+        return;
+    }
+    recorded = history.newest - history.oldest + 1;
+    if (recorded == 0) {
+        ctrlTextAdd(text, "\nhistory: nothing recorded yet (since the machine started, or "
+                    "since a state saved by an older build was loaded)\n");
+        return;
+    }
+    shown = (UInt32)max < recorded ? max : (int)recorded;
+    base  = history.newest - (UInt32)(shown - 1);
+    ctrlTextAdd(text, "\nhistory: last %d of %u recorded instructions, oldest first\n",
+                shown, (unsigned)recorded);
+
+    /* The newest stays out of the runs so it is always its own '>' line. */
+    runCount = historyRuns(&history, base, shown - 1, runs);
+    for (i = runCount - 1; i >= 0 && !ctrlTextIsFull(text); i--) {
+        int oldestCopy = runs[i].start - runs[i].k * (runs[i].r - 1);
+
+        for (m = 0; m < runs[i].k; m++) {
+            CtrlTextMark row = ctrlTextMark(text);
+            int length = ctrlDasmLine(text, view,
+                                      historyPc(&history, base + (UInt32)(runs[i].start + m)),
+                                      ' ');
+
+            /* Not read whole: every byte an instruction can have. */
+            if (historySwitchedSince(&history, base + (UInt32)(oldestCopy + m),
+                                     length > 0 ? length : R800_DASM_MAX_LEN))
+            {
+                ctrlTextSetAt(text, row, '?');
+                uncertain = 1;
+            }
+        }
+        if (runs[i].r > 1) {
+            ctrlTextAdd(text, " x%d the %d lines above\n", runs[i].r, runs[i].k);
+            folded = 1;
+        }
+    }
+    newestLength = ctrlDasmLine(text, view, historyPc(&history, history.newest), '>');
+    /* Only an instruction in progress can have switched its own memory. */
+    if (inside && historySwitchedSince(&history, history.newest,
+                                       newestLength > 0 ? newestLength : R800_DASM_MAX_LEN))
+    {
+        ctrlTextAdd(text, "? the > instruction switched the memory it runs from, so it is "
+                    "shown as that memory reads now, which may not be what runs\n");
+    }
+
+    if (inside) {
+        ctrlTextAdd(text, "> = the instruction in progress: the machine stopped inside it\n");
+    }
+    else {
+        ctrlTextAdd(text, "> = the instruction the CPU runs next\n");
+    }
+    if (folded) {
+        ctrlTextAdd(text, "xN = the lines above it ran N times in a row, shown once\n");
+    }
+    if (uncertain) {
+        ctrlTextAdd(text, "? = the memory there was switched while or after the instruction "
+                    "ran, so the slot, bytes and instruction shown (read now) may not be what ran\n");
+    }
+    if (!history.pagesTracked) {
+        ctrlTextAdd(text, "memory switches are not tracked on this machine: every line is read "
+                    "through the memory paged in now, which may not be what ran\n");
+    }
+}
+
 int ctrlOpStack(CtrlCall* call)
 {
     int refused;
-    Int32 count = CTRL_STACK_COUNT_DEFAULT;
+    Int32 count   = CTRL_STACK_COUNT_DEFAULT;
+    Int32 history = CTRL_STACK_HISTORY_DEFAULT;
 
     count = ctrlCallInt(call, "count", count);
     if (count < CTRL_STACK_COUNT_MIN || count > CTRL_STACK_COUNT_MAX) {
         return ctrlReplyErrorf(call, "out_of_range", "count must be between %d and %d frames",
                                CTRL_STACK_COUNT_MIN, CTRL_STACK_COUNT_MAX);
     }
+    history = ctrlCallInt(call, "history", history);
+    if (history < CTRL_STACK_HISTORY_MIN || history > CTRL_STACK_HISTORY_MAX) {
+        return ctrlReplyErrorf(call, "out_of_range",
+                               "history must be between %d and %d instructions",
+                               CTRL_STACK_HISTORY_MIN, CTRL_STACK_HISTORY_MAX);
+    }
     if ((refused = ctrlRefuseUnlessViewed(call)) != 0) {
         return refused;
     }
     describeCallstack(&call->text, (int)count);
+    if (history > 0) {
+        describeHistory(&call->text, &call->view, (int)history);
+    }
     return ctrlReplyDone(call);
 }

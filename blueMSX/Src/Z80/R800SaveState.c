@@ -35,6 +35,7 @@
 #include "R800SaveState.h"
 #include "SaveState.h"
 #include <stdio.h>
+#include <string.h>
 
 
 #define r800LoadRegisterState(state, regs, index) {             \
@@ -117,6 +118,22 @@ void r800LoadState(R800* r800)
     saveStateGetBuffer(state, "timeTraceBuffer", r800->timeTraceBuffer, TIME_TRACE_SIZE * sizeof(SystemTime));
     r800->timeTraceIndex = saveStateGet(state, "timeTraceIndex", 0);
     r800->lastPC = (UInt16)saveStateGet(state, "lastPC", 0);
+    memset(r800->pcTraceBuffer, 0, sizeof(r800->pcTraceBuffer));
+    saveStateGetBuffer(state, "pcTraceBuffer", r800->pcTraceBuffer, sizeof(r800->pcTraceBuffer));
+    /* index + 2 is never saved: the first entry is at most one past the newest. */
+    r800->pcTraceFirst = saveStateGet(state, "pcTraceFirst", r800->timeTraceIndex + 2);
+    r800->pcTraceFresh = (UInt8)saveStateGet(state, "pcTraceFresh", 0);
+    if (r800->pcTraceFirst == r800->timeTraceIndex + 2) {
+        /* An older state: the history starts with the instruction it stopped before. */
+        r800->pcTraceFirst = r800->timeTraceIndex;
+        r800->pcTraceBuffer[r800->timeTraceIndex & (PC_TRACE_SIZE - 1)] = r800->lastPC;
+        r800->pcTraceFresh = 1;
+    }
+    /* Without them, every page counts as changed at the newest entry. */
+    for (i = 0; i < 8; i++) {
+        sprintf(tag, "pageChangedAt%d", i);
+        r800->pageChangedAt[i] = saveStateGet(state, tag, r800->timeTraceIndex);
+    }
 #endif
 
     saveStateClose(state);
@@ -152,6 +169,13 @@ void r800SaveState(R800* r800)
     saveStateSetBuffer(state, "timeTraceBuffer", r800->timeTraceBuffer, TIME_TRACE_SIZE * sizeof(SystemTime));
     saveStateSet(state, "timeTraceIndex", r800->timeTraceIndex);
     saveStateSet(state, "lastPC", r800->lastPC);
+    saveStateSetBuffer(state, "pcTraceBuffer", r800->pcTraceBuffer, sizeof(r800->pcTraceBuffer));
+    saveStateSet(state, "pcTraceFirst", r800->pcTraceFirst);
+    saveStateSet(state, "pcTraceFresh", r800->pcTraceFresh);
+    for (i = 0; i < 8; i++) {
+        sprintf(tag, "pageChangedAt%d", i);
+        saveStateSet(state, tag, r800->pageChangedAt[i]);
+    }
 #endif
 
     saveStateClose(state);
