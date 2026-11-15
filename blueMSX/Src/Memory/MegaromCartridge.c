@@ -32,6 +32,7 @@
 #include "MediaDb.h"
 #include "RomLoader.h"
 #include "SlotManager.h"
+#include "Board.h"
 
 #include "ramMapper.h"
 #include "ramNormal.h"
@@ -189,6 +190,14 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
             sprintf(text, "%.48s (%.40s)", leaf, romTypeToString(romType));
         }
         slotAddContents(slot, sslot, text);
+    }
+
+    /* I/O-port devices plugged as a cartridge do not occupy the slot. */
+    if (romType == ROM_JOYREXPSG || romType == ROM_MOONSOUND) {
+        mixerSetCreateSlot(boardGetMixer(), -1, -1);
+    }
+    else {
+        mixerSetCreateSlot(boardGetMixer(), slot, sslot);
     }
 
     switch (romType) {
@@ -910,6 +919,7 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
         free(buf);
     }
 
+    mixerSetCreateSlot(boardGetMixer(), -1, -1);
     return success;
 }
 

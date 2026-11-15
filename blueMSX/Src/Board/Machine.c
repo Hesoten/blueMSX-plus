@@ -1239,7 +1239,24 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
         subslot   = machine->slotInfo[i].subslot;
         startPage = machine->slotInfo[i].startPage;
         size      = 0x2000 * machine->slotInfo[i].pageCount;
-        
+
+        /* I/O-port devices list a slot they do not occupy. */
+        switch (machine->slotInfo[i].romType) {
+        case ROM_MSXAUDIODEV:
+        case ROM_JOYREXPSG:
+        case ROM_OPCODEPSG:
+        case ROM_TURBORPCM:
+        case ROM_MOONSOUND:
+        case ROM_MSXPRN:
+        case ROM_SVI328PRN:
+        case ROM_SVI328FDC:
+            mixerSetCreateSlot(boardGetMixer(), -1, -1);
+            break;
+        default:
+            mixerSetCreateSlot(boardGetMixer(), slot, subslot);
+            break;
+        }
+
         if (machine->slotInfo[i].romType == RAM_1KB_MIRRORED) {
             continue;
         }
@@ -1933,6 +1950,7 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
             free(buf);
         }
     }
+    mixerSetCreateSlot(boardGetMixer(), -1, -1);
 
     if (jisyoRom != NULL) {
         free(jisyoRom);
