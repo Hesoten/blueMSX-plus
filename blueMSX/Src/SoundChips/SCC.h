@@ -47,7 +47,7 @@ typedef enum { SCC_NONE = 0, SCC_REAL, SCC_COMPATIBLE, SCC_PLUS } SccMode;
 SCC* sccCreate(Mixer* mixer);
 /* A pan per channel and a left/right output; the owner registers it with the
 ** mixer and renders it with sccSyncStereo. Every pan gain starts at 0. */
-SCC* sccCreateStereo(Mixer* mixer);
+SCC* sccCreateStereo(Mixer* mixer, const char* name);
 void sccDestroy(SCC* scc);
 void sccReset(SCC* scc);
 void sccSetMode(SCC* scc, SccMode newMode);
@@ -64,8 +64,6 @@ Int32* sccSyncStereo(SCC* scc, UInt32 count);
 /* Owner of a stereo SCC, after registering it: lend channels 1-5 to the
 ** mixer channel handle; returns NULL when none is left. */
 MixerVoices* sccAttachVoices(SCC* scc, Int32 handle, float scale);
-
-void sccGetDebugInfo(SCC* scc, DbgDevice* dbgDevice);
 
 void sccLoadState(SCC* scc);
 void sccSaveState(SCC* scc);

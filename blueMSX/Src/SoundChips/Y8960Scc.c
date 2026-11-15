@@ -86,7 +86,7 @@ Y8960SccChip* y8960SccCreate(Mixer* mixer)
     Y8960SccChip* chip = (Y8960SccChip*)calloc(1, sizeof(Y8960SccChip));
 
     chip->mixer  = mixer;
-    chip->scc    = sccCreateStereo(mixer);
+    chip->scc    = sccCreateStereo(mixer, "Y8960 SCC");
     chip->handle = mixerRegisterChannel(mixer, MIXER_CHANNEL_Y8960, 1, y8960SccSync, NULL, chip);
     chip->voices = sccAttachVoices(chip->scc, chip->handle, 1.0f);
 

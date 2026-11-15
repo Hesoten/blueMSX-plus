@@ -36,6 +36,7 @@
 #include "romMapperY8960.h"
 #include "Board.h"
 #include "SaveState.h"
+#include "DebugDeviceManager.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -53,6 +54,7 @@
 struct Y8960OpmChip {
     Mixer* mixer;
     Int32  handle;
+    Int32  debugHandle;
     UInt32 rate;
 
     MameYm2151* opm;
@@ -299,8 +301,14 @@ void y8960OpmReset(Y8960OpmChip* chip)
     boardClearInt(BOARD_INT_Y8960_OPM);
 }
 
+static void getDebugInfo(Y8960OpmChip* chip, DbgDevice* dbgDevice)
+{
+    YM2151GetDebugInfo(chip->opm, dbgDevice);
+}
+
 Y8960OpmChip* y8960OpmCreate(Mixer* mixer)
 {
+    DebugCallbacks dbgCallbacks = { getDebugInfo, NULL, NULL, NULL };
     Y8960OpmChip* chip = (Y8960OpmChip*)calloc(1, sizeof(Y8960OpmChip));
 
     chip->mixer = mixer;
@@ -315,6 +323,7 @@ Y8960OpmChip* y8960OpmCreate(Mixer* mixer)
     chip->rate = mixerGetSampleRate(mixer);
     /* The core scales each channel before the pan; the sync keeps scale on the block's gain. */
     chip->voices = YM2151AttachVoices(chip->opm, mixer, chip->handle, Y8960_OPM_VOLUME);
+    chip->debugHandle = debugDeviceRegister(DBGTYPE_AUDIO, "Y8960 OPM", &dbgCallbacks, chip);
 
     y8960OpmReset(chip);
 
@@ -323,6 +332,7 @@ Y8960OpmChip* y8960OpmCreate(Mixer* mixer)
 
 void y8960OpmDestroy(Y8960OpmChip* chip)
 {
+    debugDeviceUnregister(chip->debugHandle);
     boardClearInt(BOARD_INT_Y8960_OPM);
     mixerUnregisterChannel(chip->mixer, chip->handle);
     boardTimerDestroy(chip->timer1);

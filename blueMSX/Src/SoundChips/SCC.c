@@ -406,17 +406,24 @@ void sccSetMode(SCC* scc, SccMode newMode)
 
 static void getDebugInfo(SCC* scc, DbgDevice* dbgDevice)
 {
-    static UInt8 ram[0x100];
+    DbgRegisterBank* regBank;
+    char name[7];
     int i;
 
-    for (i = 0; i < 0x100; i++) {
-        sccPeek(scc, i);
-    }
+    dbgDeviceAddMemoryBlock(dbgDevice, "Wave", 1, 0, sizeof(scc->wave), (UInt8*)scc->wave);
 
-    dbgDeviceAddMemoryBlock(dbgDevice, langDbgMemScc(), 1, 0, 0x100, ram);
+    regBank = dbgDeviceAddRegisterBank(dbgDevice, langDbgRegs(), 12);
+    for (i = 0; i < 5; i++) {
+        sprintf(name, "FRQ%d", i + 1);
+        dbgRegisterBankAddRegister(regBank, i, name, 16, scc->period[i]);
+        sprintf(name, "VOL%d", i + 1);
+        dbgRegisterBankAddRegister(regBank, 5 + i, name, 8, scc->nextVolume[i]);
+    }
+    dbgRegisterBankAddRegister(regBank, 10, "ENABLE", 8, scc->enable);
+    dbgRegisterBankAddRegister(regBank, 11, "DEFORM", 8, scc->deformReg);
 }
 
-static SCC* sccCreateAs(Mixer* mixer, int stereo)
+static SCC* sccCreateAs(Mixer* mixer, int stereo, const char* name)
 {
     DebugCallbacks dbgCallbacks = { getDebugInfo, NULL, NULL, NULL };
     SCC* scc = (SCC*)calloc(1, sizeof(SCC));
@@ -434,7 +441,7 @@ static SCC* sccCreateAs(Mixer* mixer, int stereo)
     }
     scc->bus = 0xFFFF;
 
-//    scc->debugHandle = debugDeviceRegister(DBGTYPE_AUDIO, langDbgDevScc(), &dbgCallbacks, scc);
+    scc->debugHandle = debugDeviceRegister(DBGTYPE_AUDIO, name, &dbgCallbacks, scc);
 
     if (!stereo) {
         scc->handle = mixerRegisterChannel(mixer, MIXER_CHANNEL_SCC, 0, sccSync, NULL, scc);
@@ -450,12 +457,12 @@ static SCC* sccCreateAs(Mixer* mixer, int stereo)
 
 SCC* sccCreate(Mixer* mixer)
 {
-    return sccCreateAs(mixer, 0);
+    return sccCreateAs(mixer, 0, langDbgDevScc());
 }
 
-SCC* sccCreateStereo(Mixer* mixer)
+SCC* sccCreateStereo(Mixer* mixer, const char* name)
 {
-    return sccCreateAs(mixer, 1);
+    return sccCreateAs(mixer, 1, name);
 }
 
 MixerVoices* sccAttachVoices(SCC* scc, Int32 handle, float scale)
@@ -466,7 +473,7 @@ MixerVoices* sccAttachVoices(SCC* scc, Int32 handle, float scale)
 
 void sccDestroy(SCC* scc)
 {
-//    debugDeviceUnregister(scc->debugHandle);
+    debugDeviceUnregister(scc->debugHandle);
     if (!scc->stereo) {
         mixerUnregisterChannel(scc->mixer, scc->handle);
     }
@@ -651,10 +658,6 @@ void sccWrite(SCC* scc, UInt8 address, UInt8 value)
 
         return;
     }
-}
-
-void sccGetDebugInfo(SCC* scc, DbgDevice* dbgDevice)
-{
 }
 
 static Int32 filter(SCC* scc, Int32 input) {
