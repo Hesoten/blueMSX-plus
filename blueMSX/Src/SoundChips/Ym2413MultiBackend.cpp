@@ -28,6 +28,7 @@
 #include "NukedOpllBackend.h"
 extern "C" {
 #include "Properties.h"
+#include "AudioMixer.h"
 }
 #include <cstring>
 
@@ -118,6 +119,7 @@ extern "C" const char* ym2413BackendName(int idx)
 Ym2413MultiBackend::Ym2413MultiBackend(short volume)
 {
     for (int i = 0; i < YM2413_BACKEND_COUNT; i++) backends[i] = NULL;
+    voices = NULL;
 
 #ifdef YM2413_BUILD_OPENMSX_INITIAL
     if (backendEnabledFromProperties(PROP_YM2413_BACKEND_OPENMSX)) {
@@ -194,12 +196,25 @@ int* Ym2413MultiBackend::updateBuffer(int length)
     ** Mixer.  An empty updateBuffer return propagates as silence rather
     ** than a sibling's output, matching standalone behaviour. */
     int* result = NULL;
+    int  active = g_ym2413Active;   /* the UI may switch it meanwhile */
+    Int32 live = 0;   /* stored once, so the UI never sees a passing 0 */
     for (int i = 0; i < YM2413_BACKEND_COUNT; i++) {
         if (!backends[i]) continue;
+        if (voices != NULL) {
+            bool feeds = backends[i]->setVoices(voices, i == active && mixerVoicesWanted(voices));
+            if (i == active) live = feeds ? 1 : 0;
+        }
         int* b = backends[i]->updateBuffer(length);
-        if (i == g_ym2413Active) result = b;
+        if (i == active) result = b;
     }
+    if (voices != NULL) voices->live = live;
     return result;
+}
+
+bool Ym2413MultiBackend::setVoices(struct MixerVoices* v, bool /*active*/)
+{
+    voices = v;
+    return true;
 }
 
 void Ym2413MultiBackend::setSampleRate(int sampleRate, int oversampling)

@@ -25,6 +25,7 @@ extern "C" {
 #include "NukedOPLL/opll.h"
 #include "Emu2413/emu2413.h"  /* borrowing OPLL_RateConv */
 #include "../Utils/SaveState.h"
+#include "AudioMixer.h"
 }
 #include <cstring>
 #include <cstdlib>
@@ -42,10 +43,12 @@ extern "C" {
 
 NukedOpllBackend::NukedOpllBackend(const std::string& /*name*/, short volume,
                                    const EmuTime& /*time*/)
-    : chipMem(NULL), convMem(NULL), maxVolume(volume), sampleRate(44100),
+    : voices(NULL), voicesActive(false), voicesMetered(false),
+      chipMem(NULL), convMem(NULL), maxVolume(volume), sampleRate(44100),
       f_inp((double)MSX_OPLL_FRAME_RATE), f_out(44100.0), outTime(0.0),
       cyclesInFrame(0), frameSumM(0), frameSumR(0)
 {
+    std::memset(voiceFrame, 0, sizeof(voiceFrame));
     chipMem = std::malloc(sizeof(opll_t));
     std::memset(chipMem, 0, sizeof(opll_t));
     std::memset(regCache, 0, sizeof(regCache));
@@ -76,6 +79,28 @@ void NukedOpllBackend::reset(const EmuTime& /*time*/)
     cyclesInFrame = 0;
     frameSumM = 0;
     frameSumR = 0;
+    std::memset(voiceFrame, 0, sizeof(voiceFrame));
+}
+
+/* Which voice each of the 18 cycles (chip->cycles before the clock) puts
+** on the melody and the rhythm output, measured by keying one voice on at
+** a time. Voices 0-8 FM, 9 BD, 10 HH, 11 SD, 12 TOM, 13 CYM; -1 none. */
+static const int slotMelody[18] = { -1, 6, 7, 8, -1, -1, -1, 0, 1, 2, -1, -1, -1, 3, 4, 5, -1, -1 };
+static const int slotRhythm[18] = { 12, 9, 11, 13, 10, 12, 9, -1, -1, -1, 11, 13, -1, -1, -1, -1, -1, 10 };
+/* Without rhythm mode the rhythm output still carries part of FM 7-9, from
+** the operators the rhythm voices would borrow: BD 7, HH and SD 8, TOM and
+** CYM 9. */
+static const int rhythmToMelody[5] = { 6, 7, 7, 8, 8 };
+
+bool NukedOpllBackend::setVoices(struct MixerVoices* v, bool active)
+{
+    struct MixerVoices* next = active ? v : NULL;
+    /* Called every update: drop a half-summed frame only when we stop. */
+    if (voices != NULL && next == NULL) {
+        std::memset(voiceFrame, 0, sizeof(voiceFrame));
+    }
+    voices = next;
+    return true;
 }
 
 /* Run one chip cycle and on every 18th push the frame sample.
@@ -83,10 +108,33 @@ void NukedOpllBackend::reset(const EmuTime& /*time*/)
 void NukedOpllBackend::clockAndFeed()
 {
     int32_t buf[2];
+    int slot = ((opll_t*)chipMem)->cycles;
     OPLL_Clock((opll_t*)chipMem, buf);
+    if (voices != NULL) {
+        int vm = slotMelody[slot];
+        int vr = slotRhythm[slot];
+        if (vr >= 9 && !(((opll_t*)chipMem)->rhythm & 0x20)) {
+            vr = rhythmToMelody[vr - 9];
+        }
+        if (vm >= 0) {
+            if (voicesActive) buf[0] = (int32_t)(((Int64)buf[0] * voices->gain[vm]) >> 12);
+            if (voicesMetered) voiceFrame[vm] += buf[0];
+        }
+        if (vr >= 0) {
+            if (voicesActive) buf[1] = (int32_t)(((Int64)buf[1] * voices->gain[vr]) >> 12);
+            if (voicesMetered) voiceFrame[vr] += buf[1];
+        }
+    }
     frameSumM += buf[0];
     frameSumR += buf[1];
     if (++cyclesInFrame >= CYCLES_PER_FRAME) {
+        if (voices != NULL && voicesMetered) {
+            for (int v = 0; v < 14; v++) {
+                mixerMeterVoice(voices, v, voiceFrame[v]);
+                voiceFrame[v] = 0;
+            }
+            voices->samples++;
+        }
         int32_t mix = frameSumM + frameSumR;
         if (mix >  32767) mix =  32767;
         if (mix < -32768) mix = -32768;
@@ -128,6 +176,13 @@ int* NukedOpllBackend::updateBuffer(int length)
     ** f_out.  Divisor 128 mirrors OpenYM2413_2's mix scale. */
     OPLL_RateConv* conv = (OPLL_RateConv*)convMem;
     int* dst = buffer;
+    if (voices != NULL) {
+        voicesActive  = voices->active != 0;
+        voicesMetered = voices->metering != 0;
+        voices->scale = (float)maxVolume / 128;
+        /* Rhythm mode takes FM 7-9; without it the rhythm voices are idle. */
+        voices->idle  = (((opll_t*)chipMem)->rhythm & 0x20) ? 0x1C0u : 0x3E00u;
+    }
     for (int n = 0; n < length; n++) {
         while (outTime < f_inp) {
             clockAndFeed();
@@ -151,6 +206,7 @@ void NukedOpllBackend::setSampleRate(int sr, int /*oversampling*/)
     cyclesInFrame = 0;
     frameSumM = 0;
     frameSumR = 0;
+    std::memset(voiceFrame, 0, sizeof(voiceFrame));
 }
 
 /* Field-by-field. Skips patchrom (re-derived from current chipMem).
@@ -305,6 +361,8 @@ void NukedOpllBackend::saveState()
 void NukedOpllBackend::loadState()
 {
     SaveState* sBack = saveStateOpenForRead("nukedopll");
+
+    std::memset(voiceFrame, 0, sizeof(voiceFrame));  /* meter only, not saved */
 
     if (saveStateGet(sBack, "hasChip", 0)) {
         opll_t* p = (opll_t*)chipMem;

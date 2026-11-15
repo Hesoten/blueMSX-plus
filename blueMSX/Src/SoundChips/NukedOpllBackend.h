@@ -42,10 +42,17 @@ public:
     virtual void loadState();
     virtual void saveState();
 
+    virtual bool setVoices(struct MixerVoices* voices, bool active);
+
 private:
     /* Clock the chip once, mix its DAC sample, and feed RateConv every
     ** 18 cycles.  Shared by writeReg and updateBuffer. */
     void clockAndFeed();
+
+    struct MixerVoices* voices;   /* set while this engine is the one heard */
+    bool    voicesActive;         /* gains to apply, read once per update */
+    bool    voicesMetered;        /* levels to sum, likewise */
+    int32_t voiceFrame[14];       /* each voice's share of the frame being summed */
 
     void*   chipMem;       /* opll_t* */
     void*   convMem;       /* OPLL_RateConv* borrowed from EMU2413 */

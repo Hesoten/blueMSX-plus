@@ -1053,6 +1053,17 @@ static void update_output(OPLL *opll) {
 INLINE static void mix_output(OPLL *opll) {
   int16_t out = 0;
   int i;
+  if (opll->voice_hook) {
+    /* blueMSX addition: let the hook scale a copy; ch_out stays as is. */
+    int16_t voices[14];
+    for (i = 0; i < 14; i++) {
+      voices[i] = opll->ch_out[i];
+    }
+    opll->voice_hook(opll->voice_hook_ref, voices, 14);
+    for (i = 0; i < 14; i++) {
+      out += voices[i];
+    }
+  } else
   for (i = 0; i < 14; i++) {
     out += opll->ch_out[i];
   }
@@ -1525,4 +1536,11 @@ void OPLL_relinkAfterRestore(OPLL *opll) {
     uint32_t ws = opll->slot[i].patch ? (opll->slot[i].patch->WS & 1) : 0;
     opll->slot[i].wave_table = wave_table_map[ws];
   }
+}
+
+/* blueMSX addition: see header comment. */
+void OPLL_setVoiceHook(OPLL *opll, void (*hook)(void *, int16_t *, int), void *ref) {
+  if (opll == NULL) return;
+  opll->voice_hook_ref = ref;
+  opll->voice_hook = hook;
 }
