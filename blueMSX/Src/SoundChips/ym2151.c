@@ -70,10 +70,10 @@ struct YM2151 {
     Int32  buffer[AUDIO_STEREO_BUFFER_SIZE];
 };
 
-void ym2151TimerStart(void* ptr, int timer, int start);
+static void ym2151TimerStart(void* ptr, int timer, int start);
 
 
-void ym2151TimerSet(void* ref, int timer, int count)
+static void ym2151TimerSet(void* ref, int timer, int count)
 {
     YM2151* ym2151 = (YM2151*)ref;
 
@@ -85,7 +85,7 @@ void ym2151TimerSet(void* ref, int timer, int count)
     }
 }
 
-void ym2151SetIrq(void* ptr, int timer)
+static void ym2151SetIrq(void* ptr, int timer)
 {
     YM2151* ym2151 = (YM2151*)ptr;
     if (ym2151->irqState == 0) {
@@ -95,7 +95,7 @@ void ym2151SetIrq(void* ptr, int timer)
     ym2151->irqState |= timer;
 }
 
-void ym2151ClearIrq(void* ptr, int timer)
+static void ym2151ClearIrq(void* ptr, int timer)
 {
     YM2151* ym2151 = (YM2151*)ptr;
     ym2151->irqState &= ~timer;
@@ -104,7 +104,7 @@ void ym2151ClearIrq(void* ptr, int timer)
     }
 }
 
-void ym2151WritePortCallback(void* ref, UInt32 port, UInt8 value)
+static void ym2151WritePortCallback(void* ref, UInt32 port, UInt8 value)
 {
 }
 
@@ -124,7 +124,7 @@ static void onTimeout2(void* ptr, UInt32 time)
     ym2151TimerStart(ptr, 1, 1);
 }
 
-void ym2151TimerStart(void* ptr, int timer, int start)
+static void ym2151TimerStart(void* ptr, int timer, int start)
 {
     YM2151* ym2151 = (YM2151*)ptr;
 
@@ -163,6 +163,10 @@ void ym2151TimerStart(void* ptr, int timer, int start)
         }
     }
 }
+
+static const YM2151Callbacks ym2151Callbacks = {
+    ym2151TimerSet, ym2151TimerStart, ym2151SetIrq, ym2151ClearIrq, ym2151WritePortCallback
+};
 
 void ym2151SetIrqVector(YM2151* ym2151, UInt8 irqVector)
 {
@@ -334,7 +338,7 @@ YM2151* ym2151Create(Mixer* mixer)
 
     ym2151->handle = mixerRegisterChannel(mixer, MIXER_CHANNEL_YAMAHA_SFG, 1, ym2151Sync, ym2151SetSampleRate, ym2151);
 
-    ym2151->opl = YM2151Create(ym2151, FREQUENCY, SAMPLERATE);
+    ym2151->opl = YM2151Create(ym2151, &ym2151Callbacks, "ym2151_core", FREQUENCY, SAMPLERATE);
     
     ym2151->rate = mixerGetSampleRate(mixer);
 

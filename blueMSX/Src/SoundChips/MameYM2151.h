@@ -36,7 +36,18 @@
 
 typedef struct MameYm2151 MameYm2151;
 
-MameYm2151* YM2151Create(void* ref, int clock, int rate);
+/* How the core reaches the unit it sits in; each call gets back Create's ref. */
+typedef struct {
+    void (*timerSet)(void* ref, int timer, int count);
+    void (*timerStart)(void* ref, int timer, int start);
+    void (*setIrq)(void* ref, int irq);
+    void (*clearIrq)(void* ref, int irq);
+    void (*writePort)(void* ref, UInt32 port, UInt8 value);
+} YM2151Callbacks;
+
+/* stateSection names the core's save state section; it must outlive the chip. */
+MameYm2151* YM2151Create(void* ref, const YM2151Callbacks* callbacks,
+                         const char* stateSection, int clock, int rate);
 void YM2151Destroy(MameYm2151* chip);
 void YM2151ResetChip(MameYm2151* chip);
 void YM2151UpdateOne(MameYm2151* chip,Int16* bufL, Int16* bufR, int length);
