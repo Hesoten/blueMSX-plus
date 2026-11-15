@@ -458,6 +458,12 @@ static int sccBlockCreate(const char* filename, UInt8* romData, int size,
         }
         memcpy(rm->memory, romData, romSize);
     }
+    else {
+        /* Workaround: programs locate the cartridge by its ROM header, so a
+        ** card without an image gets one; init 0 leaves the BIOS idle. */
+        rm->memory[0] = 'A';
+        rm->memory[1] = 'B';
+    }
 
     theY8960Scc = rm;
 
