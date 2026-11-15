@@ -1,3 +1,9 @@
+# Fixes taken from later upstream releases
+This copy is upstream v1.1.4 with only the following upstream fixes from later releases applied.
+- [v1.2.2] Fixed ADPCM keeping the last decoded value as a DC offset after playback has stopped. (Issue[#7](https://github.com/digital-sound-antiques/emu8950/issues/7))
+- [v1.2.2] Fixed ADPCM playback not stopping when the START bit is cleared. (Issue[#8](https://github.com/digital-sound-antiques/emu8950/issues/8))
+- [v1.2.4] Fixed PCM BSY (status bit 0) to follow the START bit of $07, as on a real Y8950. It no longer drops at the end of a sample and is now cleared when START is cleared. (Issue[#16](https://github.com/digital-sound-antiques/emu8950/issues/16))
+
 # v1.1.3 (2024 06-15)
 - Fixed the issue where key-on could fail when the attack envelope rate is around 14. (Issue[#3](https://github.com/digital-sound-antiques/emu8950/issues/3)).
 
