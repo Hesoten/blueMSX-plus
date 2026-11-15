@@ -265,6 +265,32 @@ int themeTriggerAudioCassette() {
     return propGetGlobalProperties()->sound.mixerChannel[MIXER_CHANNEL_CASSETTE].enable ? 1 : 0;
 }
 
+int themeTriggerAudioPartlyMuted(ThemeTrigger trigger) {
+    Mixer* mixer = mixerGetGlobalMixer();
+    int type;
+
+    if ((trigger & THEME_TRIGGER_NOT) || mixer == NULL) {
+        return 0;
+    }
+    switch (trigger & THEME_TRIGGER_MASK) {
+    case THEME_TRIGGER_IMG_KBD:      type = MIXER_CHANNEL_KEYBOARD;   break;
+    case THEME_TRIGGER_IMG_MOON:     type = MIXER_CHANNEL_MOONSOUND;  break;
+    case THEME_TRIGGER_IMG_SFG:      type = MIXER_CHANNEL_YAMAHA_SFG; break;
+    case THEME_TRIGGER_IMG_MSXA:     type = MIXER_CHANNEL_MSXAUDIO;   break;
+    case THEME_TRIGGER_IMG_MSXM:     type = MIXER_CHANNEL_MSXMUSIC;   break;
+    case THEME_TRIGGER_IMG_PSG:      type = MIXER_CHANNEL_PSG;        break;
+    case THEME_TRIGGER_IMG_SCC:      type = MIXER_CHANNEL_SCC;        break;
+    case THEME_TRIGGER_IMG_PCM:      type = MIXER_CHANNEL_PCM;        break;
+    case THEME_TRIGGER_IMG_IO:       type = MIXER_CHANNEL_IO;         break;
+    case THEME_TRIGGER_IMG_MIDI:     type = MIXER_CHANNEL_MIDI;       break;
+    case THEME_TRIGGER_IMG_CASSETTE: type = MIXER_CHANNEL_CASSETTE;   break;
+    default:
+        return 0;
+    }
+    return propGetGlobalProperties()->sound.mixerChannel[type].enable &&
+           ((mixerGetPartlyMutedTypes(mixer) >> type) & 1);
+}
+
 int themeTriggerVolKbdLeft() {
     return mixerMeterGetTypePercent(mixerGetGlobalMixer(), MIXER_CHANNEL_KEYBOARD, MIXER_CHANNEL_LEFT);
 }

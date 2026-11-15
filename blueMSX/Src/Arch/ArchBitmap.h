@@ -49,6 +49,9 @@ void archBitmapDraw(ArchBitmap* bm, void* dcDest, int xDest, int yDest,
                     int xSrc, int ySrc, int width, int height);
 void archBitmapCopy(ArchBitmap* dst, int xDest, int yDest, 
                     ArchBitmap* src, int xSrc, int ySrc, int width, int height);
+/* An orange rounded mark in the box, drawn only inside the clip box. */
+void archBitmapDrawMark(void* dcDest, int x, int y, int width, int height,
+                        int clipX, int clipY, int clipWidth, int clipHeight);
 
 int archRGB(int r, int g, int b);
 

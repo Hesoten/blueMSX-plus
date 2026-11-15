@@ -254,6 +254,10 @@ Int32 mixerMeterGetVoicePercent(Mixer* mixer, Int32 handle, Int32 voice);
 ** instance, 100 and off when nothing is; voice < 0 reads the chip itself. */
 void mixerGetInstanceSetting(Mixer* mixer, Int32 type, Int32 slot, Int32 sslot, Int32 index,
                              Int32 voice, Int32* volume, Int32* mute, Int32* solo);
+/* UI thread: types the Sound Mixer shows as partly muted - a type with a muted
+** chip or voice, and while any solo is on, every type except one that is
+** present and whose chips are all wholly soloed. */
+UInt32 mixerGetPartlyMutedTypes(Mixer* mixer);
 
 void mixerSetBoardFrequency(int CPUFrequency);
 void mixerSetBoardFrequencyFixed(int CPUFrequency);

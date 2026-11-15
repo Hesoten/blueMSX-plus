@@ -1500,6 +1500,42 @@ void mixerGetInstanceSetting(Mixer* mixer, Int32 type, Int32 slot, Int32 sslot, 
     }
 }
 
+/* Read without the layout lock, as mixerGetInstanceSetting is: the Sound
+** Mixer polls this many times a second. */
+UInt32 mixerGetPartlyMutedTypes(Mixer* mixer)
+{
+    UInt32 types = 0;
+    UInt32 present = 0;
+    UInt32 cut = 0;
+    int i;
+
+    for (i = 0; i < mixer->channelCount; i++) {
+        MixerChannel* channel = mixer->channels + i;
+        InstanceSetting* s;
+        UInt64 voices = 0;
+
+        if (channel->index < 1 || channel->type < 0 || channel->type >= 32) {
+            continue;
+        }
+        s = findInstance(mixer, channel->type, channel->slot, channel->sslot, channel->index);
+        if (channel->voices >= 0) {
+            Int32 count = mixer->voicePool[channel->voices].count;
+            voices = count >= 64 ? ~(UInt64)0 : ((UInt64)1 << count) - 1;
+        }
+        present |= 1u << channel->type;
+        if (s == NULL || (!s->solo && (voices == 0 || (s->voiceSolo & voices) != voices))) {
+            cut |= 1u << channel->type;
+        }
+        if (s != NULL && (s->mute || (s->voiceMute & voices))) {
+            types |= 1u << channel->type;
+        }
+    }
+    if (mixer->soloCount > 0) {
+        types |= ((1u << MIXER_CHANNEL_TYPE_COUNT) - 1) & ~(present & ~cut);
+    }
+    return types;
+}
+
 int mixerSetVoice(Mixer* mixer, Int32 type, Int32 slot, Int32 sslot, Int32 index,
                   Int32 voice, Int32 volume, Int32 mute, Int32 solo)
 {

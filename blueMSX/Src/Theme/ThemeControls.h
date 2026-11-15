@@ -72,6 +72,8 @@ int activeButtonShow(ActiveButton* activeButton, int show);
 void activeButtonDraw(ActiveButton* activeButton, void* dc, ActiveRect* rect);
 int activeButtonForcePushed(ActiveButton* activeButton, int pushed);
 int activeButtonActivate(ActiveButton* activeButton, int active);
+/* An orange mark over the button's centre; returns 1 when it changed. */
+int activeButtonSetMark(ActiveButton* activeButton, int mark);
 
 
 typedef struct ActiveToggleButton ActiveToggleButton;

@@ -263,6 +263,31 @@ void archBitmapDraw(ArchBitmap* bm, void* dcDest, int xDest, int yDest, int xSrc
     BitBlt(dcDest, xDest, yDest, width, height, bm->hMemDC, xSrc, ySrc, SRCCOPY);
 }
 
+void archBitmapDrawMark(void* dcDest, int x, int y, int width, int height,
+                        int clipX, int clipY, int clipWidth, int clipHeight)
+{
+    HDC hdc = (HDC)dcDest;
+    HBRUSH brush;
+    HPEN pen;
+    HGDIOBJ oldBrush, oldPen;
+    int saved;
+    int r = (width < height ? width : height) / 2;
+
+    if (hdc == NULL || width <= 0 || height <= 0) return;
+    saved    = SaveDC(hdc);
+    IntersectClipRect(hdc, clipX, clipY, clipX + clipWidth, clipY + clipHeight);
+    brush    = CreateSolidBrush(RGB(255, 140, 26));
+    pen      = CreatePen(PS_SOLID, 1, RGB(150, 70, 0));
+    oldBrush = SelectObject(hdc, brush);
+    oldPen   = SelectObject(hdc, pen);
+    RoundRect(hdc, x, y, x + width, y + height, r, r);
+    SelectObject(hdc, oldPen);
+    SelectObject(hdc, oldBrush);
+    DeleteObject(pen);
+    DeleteObject(brush);
+    RestoreDC(hdc, saved);
+}
+
 void archBitmapCopy(ArchBitmap* dst, int xDest, int yDest, ArchBitmap* src, int xSrc, int ySrc, int width, int height)
 {
     if (dst == NULL || src == NULL) return;

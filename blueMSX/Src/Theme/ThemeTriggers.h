@@ -282,6 +282,9 @@ int themeTriggerAudioPcm();
 int themeTriggerAudioIo();
 int themeTriggerAudioMidi();
 int themeTriggerAudioCassette();
+/* 1 when the type an enable-* trigger names is on but a chip or voice of it
+** is muted in the detailed mixer; 0 for any other trigger. */
+int themeTriggerAudioPartlyMuted(ThemeTrigger trigger);
 
 int themeTriggerMachineMoonsound();
 int themeTriggerMachineYamahaCfg();
