@@ -568,6 +568,13 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->controlDeck.window.zoomPct = 100;
     properties->controlDeck.open = 0;
 
+    properties->detailedMixer.window.dpi = 96;
+    properties->detailedMixer.window.x = 0;
+    properties->detailedMixer.window.y = 0;
+    properties->detailedMixer.window.width = 0;
+    properties->detailedMixer.window.height = 0;
+    properties->detailedMixer.window.zoomPct = 100;
+
     for (i = 0; i < PROP_MAX_CARTS; i++) {
         properties->media.carts[i].fileName[0] = 0;
         properties->media.carts[i].fileNameInZip[0] = 0;
@@ -1021,6 +1028,13 @@ static void propLoad(Properties* properties)
     GET_INT_VALUE_3(propFile, controlDeck, window, zoomPct);
     GET_ENUM_VALUE_2(propFile, controlDeck, open, BoolPair);
 
+    GET_INT_VALUE_3(propFile, detailedMixer, window, dpi);
+    GET_INT_VALUE_3(propFile, detailedMixer, window, x);
+    GET_INT_VALUE_3(propFile, detailedMixer, window, y);
+    GET_INT_VALUE_3(propFile, detailedMixer, window, width);
+    GET_INT_VALUE_3(propFile, detailedMixer, window, height);
+    GET_INT_VALUE_3(propFile, detailedMixer, window, zoomPct);
+
     GET_STR_VALUE_2(propFile,  capture, audioDir);
     GET_STR_VALUE_2(propFile,  capture, videoDir);
     GET_STR_VALUE_2(propFile,  capture, screenshotDir);
@@ -1449,6 +1463,13 @@ void propSave(Properties* properties)
     SET_INT_VALUE_3(propFile, controlDeck, window, height);
     SET_INT_VALUE_3(propFile, controlDeck, window, zoomPct);
     SET_ENUM_VALUE_2(propFile, controlDeck, open, YesNoPair);
+
+    SET_INT_VALUE_3(propFile, detailedMixer, window, dpi);
+    SET_INT_VALUE_3(propFile, detailedMixer, window, x);
+    SET_INT_VALUE_3(propFile, detailedMixer, window, y);
+    SET_INT_VALUE_3(propFile, detailedMixer, window, width);
+    SET_INT_VALUE_3(propFile, detailedMixer, window, height);
+    SET_INT_VALUE_3(propFile, detailedMixer, window, zoomPct);
 
     SET_STR_VALUE_2(propFile,  capture, audioDir);
     SET_STR_VALUE_2(propFile,  capture, videoDir);

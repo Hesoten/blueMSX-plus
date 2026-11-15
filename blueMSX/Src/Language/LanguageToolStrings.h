@@ -778,3 +778,15 @@ TS(DECK_WHILE_REVERSE_OFF,    "reverse play is off in the settings", "巻き戻�
 TS(DECK_WHILE_HOST_MEDIUM,    "a physical drive is inserted or directory changes are unsaved", "物理ドライブ・未反映のディレクトリがあると使えません")
 TS(DECK_RUNNING,              "Running", "実行中")
 TS(DECK_FRAME_N,              "Frame %u", "フレーム" NB "%u")
+
+/* The Detailed Mixer */
+TS(MIXER_CLEAR_SOLO,          "Clear Solo", "ソロを解除")
+TS(MIXER_EXPAND_ALL,          "Expand All", "すべて開く")
+TS(MIXER_COLLAPSE_ALL,        "Collapse All", "すべて畳む")
+TS(MIXER_SOLO_COUNT,          "Solo: %d", "ソロ" NB "%d" NB "件")
+TS(MIXER_CONTINUED,           " (cont.)", "（続き）")
+TS(MIXER_COLLAPSE_TIP,        "Collapse the channels", "チャンネルを畳む")
+TS(MIXER_EXPAND_TIP,          "Expand the %d channels", "%d" NB "チャンネルを開く")
+TS(MIXER_VOICE_IDLE_TIP,      "Not used in the chip's current mode", "音源の現在のモードでは使われていません")
+TS(MIXER_NO_VOICE_OUTPUT_TIP, "This engine has no per-channel output", "このエンジンはチャンネルごとの出力に対応していません")
+TS(MIXER_SOLO_OVERRIDDEN_TIP, "The whole chip is soloed, so this channel's solo has no effect", "音源全体がソロなので、このチャンネルのソロは効いていません")

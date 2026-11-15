@@ -293,6 +293,7 @@ void langInitFrench(LanguageStrings* ls)
     ls->menuToolsShortcuts      = "Editeur de raccourcis";
     ls->menuToolsCtrlEditor     = "Editeur de contrôleurs/clavier";  
     ls->menuToolsMixer          = "Mélangeur audio";
+    ls->menuToolsMixerDetailed  = "Mélangeur audio détaillé";
     ls->menuToolsVdpViewer      = "Visualiseur VDP";
     ls->menuToolsControlDeck    = "Commandes d'émulation";
     ls->menuToolsLoadMemory     = "Charger en mémoire";

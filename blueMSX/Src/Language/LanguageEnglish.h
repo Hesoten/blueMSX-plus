@@ -293,6 +293,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->menuToolsShortcuts      = "Shortcuts Editor";
     ls->menuToolsCtrlEditor     = "Input Editor"; 
     ls->menuToolsMixer          = "Sound Mixer";
+    ls->menuToolsMixerDetailed  = "Detailed Mixer";
     ls->menuToolsVdpViewer      = "VDP Viewer";
     ls->menuToolsControlDeck    = "Control Deck";
     ls->menuToolsLoadMemory     = "Load Memory";

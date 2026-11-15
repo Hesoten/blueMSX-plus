@@ -293,6 +293,7 @@ void langInitPolish(LanguageStrings* ls)
     ls->menuToolsCtrlEditor     = "Controllers / Keyboard Editor"; // New in 2.6
     ls->menuToolsKeyboard       = "Edytor klawiatury";
     ls->menuToolsMixer          = "Mikser";
+    ls->menuToolsMixerDetailed  = "Mikser szczegółowy";
     ls->menuToolsVdpViewer      = "Podgląd VDP";
     ls->menuToolsControlDeck    = "Sterowanie emulacją";
     ls->menuToolsLoadMemory     = "Wczytaj do pamięci";
