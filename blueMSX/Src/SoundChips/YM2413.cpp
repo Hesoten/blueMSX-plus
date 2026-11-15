@@ -55,6 +55,11 @@ static int      g_ym2413AnalogHpfHz = 0;
 ** filter changes in place (assumes a single OPLL is active at a time). */
 static YM_2413* g_ym2413Instance    = NULL;
 
+/* The OPLL's voices in emu2413's ch_out order: 9 FM, then the rhythm. */
+static const char* const ym2413VoiceNames[14] = {
+    "1", "2", "3", "4", "5", "6", "7", "8", "9", "BD", "HH", "SD", "TOM", "CYM"
+};
+
 struct YM_2413 {
     YM_2413() : address(0) {
         /* Active backend selection persists across sessions via
@@ -218,6 +223,8 @@ YM_2413* ym2413Create(Mixer* mixer)
     ym2413->mixer = mixer;
 
     ym2413->handle = mixerRegisterChannel(mixer, MIXER_CHANNEL_MSXMUSIC, 0, ym2413Sync, ym2413SetSampleRate, ym2413);
+    /* Only the backend that is heard feeds the voices; it also sets scale. */
+    ym2413->ym2413->setVoices(mixerAttachVoices(mixer, ym2413->handle, 14, ym2413VoiceNames, 1.0f), true);
 
     UInt32 rate = mixerGetSampleRate(mixer);
     ym2413->ym2413->setSampleRate(rate, boardGetYm2413Oversampling());

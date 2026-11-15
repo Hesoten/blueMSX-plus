@@ -47,8 +47,15 @@ public:
     virtual void loadState();
     virtual void saveState();
 
+    virtual bool setVoices(struct MixerVoices* voices, bool active);
+
 private:
+    static void voiceHook(void* ref, short* chOut, int count);
+
     struct __OPLL* opll;
+    struct MixerVoices* voices;
+    bool  voicesActive;     /* gains to apply, read once per update */
+    bool  voicesMetered;    /* levels to sum, likewise */
     short maxVolume;
     int   buffer[AUDIO_MONO_BUFFER_SIZE];
     byte  regCache[64];

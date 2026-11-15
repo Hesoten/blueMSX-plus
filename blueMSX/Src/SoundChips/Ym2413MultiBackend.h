@@ -54,8 +54,12 @@ public:
     virtual void loadState();
     virtual void saveState();
 
+    /* Hands the voices to the backend that is heard, every update. */
+    virtual bool setVoices(struct MixerVoices* voices, bool active);
+
 private:
     OpenYM2413Base* backends[YM2413_BACKEND_COUNT];
+    struct MixerVoices* voices;
 };
 
 extern "C" {

@@ -55,12 +55,18 @@ public:
     virtual void   onTimerOverflow(int timer_idx);
     virtual bool   irqPending();
 
+    virtual bool   setVoices(struct MixerVoices* voices, bool active);
+
 private:
     void          armEos();
     bool          deliverEos();
     static void   onEosTimer(void* ref, UInt32 time);
+    static void   voiceHook(void* ref, short* chOut, int count);
 
     struct __OPL* opl;
+    struct MixerVoices* voices;
+    bool          voicesActive;       /* gains to apply, read once per update */
+    bool          voicesMetered;      /* levels to sum, likewise */
     UInt32        mixerRate;
     Int32         off, e1, e2;
     Int32         buffer[AUDIO_MONO_BUFFER_SIZE];

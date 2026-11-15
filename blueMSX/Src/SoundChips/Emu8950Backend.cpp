@@ -28,6 +28,7 @@ extern "C" {
 #include "Board.h"
 #include "Properties.h"
 #include "Y8950.h"
+#include "AudioMixer.h"
 }
 #include <cstdio>
 #include <cstring>
@@ -36,8 +37,8 @@ extern "C" {
 #define SAMPLERATE (FREQUENCY / 72)
 
 Emu8950Backend::Emu8950Backend()
-    : opl(NULL), mixerRate(SAMPLERATE), off(0), e1(0), e2(0),
-      eosTimer(NULL), eosAddr(0), eosStep(0), eosArmed(false)
+    : opl(NULL), voices(NULL), voicesActive(false), voicesMetered(false), mixerRate(SAMPLERATE),
+      off(0), e1(0), e2(0), eosTimer(NULL), eosAddr(0), eosStep(0), eosArmed(false)
 {
     memset(buffer, 0, sizeof(buffer));
     opl = (struct __OPL*)OPL_new((uint32_t)FREQUENCY, (uint32_t)SAMPLERATE);
@@ -132,8 +133,42 @@ void Emu8950Backend::setSampleRate(UInt32 rate)
     OPL_setRate((OPL*)opl, (uint32_t)SAMPLERATE);
 }
 
+bool Emu8950Backend::setVoices(struct MixerVoices* v, bool active)
+{
+    voices = active ? v : NULL;
+    OPL_setVoiceHook((OPL*)opl, voices != NULL ? voiceHook : NULL, this);
+    return true;
+}
+
+/* Called for every chip sample with a copy of the 15 channel outputs. */
+void Emu8950Backend::voiceHook(void* ref, short* chOut, int count)
+{
+    Emu8950Backend* self = (Emu8950Backend*)ref;
+    MixerVoices* voices = self->voices;
+    int i;
+
+    for (i = 0; i < count && i < voices->count; i++) {
+        if (self->voicesActive) {
+            chOut[i] = (short)(((Int64)chOut[i] * voices->gain[i]) >> 12);
+        }
+        if (self->voicesMetered) {
+            mixerMeterVoice(voices, i, chOut[i]);
+        }
+    }
+    if (self->voicesMetered) {
+        voices->samples++;
+    }
+}
+
 Int32* Emu8950Backend::updateBuffer(UInt32 count)
 {
+    if (voices != NULL) {
+        voicesActive  = voices->active != 0;
+        voicesMetered = voices->metering != 0;
+        voices->scale = 32.0f;          /* OPL_calc() * 32 below */
+        /* Rhythm mode takes FM 7-9; without it the rhythm voices are idle. */
+        voices->idle  = ((OPL*)opl)->rhythm_mode ? 0x1C0u : 0x3E00u;
+    }
     for (UInt32 i = 0; i < count; i++) {
         if (SAMPLERATE > mixerRate) {
             off -= SAMPLERATE - (Int32)mixerRate;

@@ -466,6 +466,7 @@ void YMF278::generateSample(int* outLeft, int* outRight)
 	{
 		int left = 0;
 		int right = 0;
+		int acc[24] = { 0 };
         int cnt = oplOversampling;
         while (cnt--) {
 		    for (int i = 0; i < 24; i++) {
@@ -483,6 +484,12 @@ void YMF278::generateSample(int* outLeft, int* outRight)
 			    // TL and envelope are applied separately; each clips to
 			    // silence below -60 dB (verified on hardware)
 			    int smplOut = vol_factor(vol_factor(sample, env), sl.TL << 2);
+			    if (voicesActive) {
+				    smplOut = (int)(((Int64)smplOut * voices->gain[voiceBase + i]) >> 12);
+			    }
+			    if (voicesMetered) {
+				    acc[i] += smplOut;
+			    }
 
 			    // panning: -6 dB steps are shifts, in between x0.75
 			    int volLeft  = pan_left [(int)sl.pan];
@@ -515,15 +522,32 @@ void YMF278::generateSample(int* outLeft, int* outRight)
 		// F9h wave mix level and master volume, both 8.8 fixed point
 		*outLeft  = ((((left  / oplOversampling) * vl) >> 8) * masterVol) >> 8;
 		*outRight = ((((right / oplOversampling) * vr) >> 8) * masterVol) >> 8;
+		if (voicesMetered) {
+			int v = (vl + vr) / 2;
+			for (int i = 0; i < 24; i++) {
+				slotOut[i] = ((((acc[i] / oplOversampling) * v) >> 8) * masterVol) >> 8;
+			}
+		}
+	}
+}
+
+// Adds each slot's latest sample to the voice levels, once per output sample.
+void YMF278::meterSlots()
+{
+	for (int i = 0; i < 24; i++) {
+		mixerMeterVoice(voices, voiceBase + i, slotOut[i]);
 	}
 }
 
 int* YMF278::updateBuffer(int length)
 {
 	if (isInternalMuted()) {
+		memset(slotOut, 0, sizeof(slotOut));
 		return NULL;
 	}
 
+	voicesActive  = voices != NULL && voices->active;
+	voicesMetered = voices != NULL && voices->metering;
 	int *buf = buffer;
 	if (outRate == 44100) {
 		while (length--) {
@@ -531,6 +555,9 @@ int* YMF278::updateBuffer(int length)
 			generateSample(&l, &r);
 			*buf++ = l;
 			*buf++ = r;
+			if (voicesMetered) {
+				meterSlots();
+			}
 		}
 	} else {
 		// the chip runs at its native 44100 Hz rate; resample the
@@ -548,6 +575,9 @@ int* YMF278::updateBuffer(int length)
 			// exceed 32 bits at full scale
 			*buf++ = lastL + (int)(((Int64)(curL - lastL) * (int)resamplePos) >> 16);
 			*buf++ = lastR + (int)(((Int64)(curR - lastR) * (int)resamplePos) >> 16);
+			if (voicesMetered) {
+				meterSlots();
+			}
 		}
 	}
 	return buffer;
@@ -837,6 +867,11 @@ YMF278::YMF278(short volume, int ramSize, void* romData, int romSize,
 {
     LD_Time = 0;
     BUSY_Time = 0;
+    voices = NULL;
+    voiceBase = 0;
+    voicesActive = false;
+    voicesMetered = false;
+    memset(slotOut, 0, sizeof(slotOut));
 	memadr = 0;	// avoid UMR
 	endRom = romSize;
 	ramSize *= 1024;	// in kb

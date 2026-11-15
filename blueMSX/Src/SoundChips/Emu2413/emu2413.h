@@ -133,6 +133,10 @@ typedef struct __OPLL {
   int16_t mix_out[2];
 
   OPLL_RateConv *conv;
+
+  /* blueMSX addition: see OPLL_setVoiceHook. */
+  void (*voice_hook)(void *ref, int16_t *ch_out, int count);
+  void *voice_hook_ref;
 } OPLL;
 
 OPLL *OPLL_new(uint32_t clk, uint32_t rate);
@@ -144,6 +148,10 @@ void OPLL_resetPatch(OPLL *, uint8_t);
 /* blueMSX addition: re-link OPLL_SLOT pointers after a bulk OPLL memcpy
 ** (save-state restore) leaves them dangling. */
 void OPLL_relinkAfterRestore(OPLL *opll);
+
+/* blueMSX addition: before the channels are summed, hand a copy of them to
+** hook, which may scale them; NULL restores the plain sum. */
+void OPLL_setVoiceHook(OPLL *opll, void (*hook)(void *, int16_t *, int), void *ref);
 
 /**
  * Set output wave sampling rate.

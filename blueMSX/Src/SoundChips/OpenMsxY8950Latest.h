@@ -369,8 +369,9 @@ public:
     void resetStatus(uint8_t flags);
     uint8_t peekRawStatus() const;
 
-    /* Produce `num` chip-rate signed-32-bit mono samples into `out`. */
-    void generateMono(int32_t* out, unsigned num);
+    /* Produce `num` chip-rate signed-32-bit mono samples into `out`; with
+    ** voices, apply their gains and meter each channel as well. */
+    void generateMono(int32_t* out, unsigned num, struct MixerVoices* voices = NULL);
 
     using ResampledSoundDevice::setVolume;
     using ResampledSoundDevice::getName;

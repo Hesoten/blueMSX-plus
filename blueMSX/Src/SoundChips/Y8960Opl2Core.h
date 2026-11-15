@@ -373,8 +373,9 @@ public:
     void generateMono(int32_t* out, unsigned num);
 
     /* Produce `num` chip-rate stereo samples, interleaved, each channel placed
-    ** by its pan register (F6h-FEh, FFh for the ADPCM). */
-    void generateStereo(int32_t* out, unsigned num);
+    ** by its pan register (F6h-FEh, FFh for the ADPCM); with voices, apply
+    ** their gains before the pans and meter each channel as well. */
+    void generateStereo(int32_t* out, unsigned num, struct MixerVoices* voices = NULL);
 
     using ResampledSoundDevice::setVolume;
     using ResampledSoundDevice::getName;

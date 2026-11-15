@@ -61,6 +61,10 @@ public:
 
     virtual void loadState() = 0;
     virtual void saveState() = 0;
+
+    /* Detailed mixer: per-voice gain and levels, taken only by the engine
+    ** that is heard (active). Returns false if this engine cannot. */
+    virtual bool setVoices(struct MixerVoices*, bool) { return false; }
 };
 
 #endif

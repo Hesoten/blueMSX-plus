@@ -112,6 +112,11 @@ void mixerSetDelayCallback(Mixer* mixer, MixerDelayCallback callback, void* ref)
 ** Channel types leave out the master volume. */
 Int32 mixerMeterGetTypePercent(Mixer* mixer, Int32 channelType, int leftRight);
 Int32 mixerMeterGetMasterPercent(Mixer* mixer, int leftRight);
+/* The same for one chip, by the handle mixerGetInstances reports. */
+Int32 mixerMeterGetInstancePercent(Mixer* mixer, Int32 handle, int leftRight);
+/* UI thread: measure each chip and voice only while enabled, as these meters
+** cost every chip time and memory; they read 0 while disabled. */
+void mixerEnableDetailMeters(Mixer* mixer, Int32 enable);
 
 /* File logging methods */
 void mixerStartLog(Mixer* mixer, char* fileName);
@@ -128,6 +133,127 @@ Int32 mixerRegisterChannel(Mixer* mixer, Int32 audioType, Int32 stereo,
                            void*param);
 void mixerSetEnable(Mixer* mixer, int enable);
 void mixerUnregisterChannel(Mixer* mixer, Int32 handle);
+
+/* Slot of the device whose chips are about to register, so instances of
+** one chip type can be told apart. slot < 0: a device without a slot.
+** Chips registered until the next call with a slot form one device. */
+void mixerSetCreateSlot(Mixer* mixer, int slot, int sslot);
+/* Name of the chip about to register, for a device with several chips;
+** NULL or mixerSetCreateSlot drops it. */
+void mixerSetCreateName(Mixer* mixer, const char* name);
+
+typedef struct {
+    Int32 handle;
+    Int32 type;
+    Int32 stereo;
+    Int32 slot;     /* -1: built in or on I/O ports only */
+    Int32 sslot;
+    Int32 index;    /* 1 for the first of its type at that slot, then 2... */
+    char  name[16]; /* "" unless mixerSetCreateName gave one */
+    Int32 device;   /* equal for the chips of one device; 0 without a slot */
+} MixerInstanceInfo;
+
+/* UI thread: copy up to max registered instances into out and return how
+** many there are; *generation changes whenever the list changes. */
+int mixerGetInstances(Mixer* mixer, MixerInstanceInfo* out, int max, UInt32* generation);
+
+/* UI thread: detailed mixer settings of one instance, kept across machine
+** changes. volume 0..100 on the type mixer's curve, 100 = unchanged; mute
+** wins over solo, and while any solo is on only soloed instances play. */
+int  mixerSetInstance(Mixer* mixer, Int32 type, Int32 slot, Int32 sslot, Int32 index,
+                      Int32 volume, Int32 mute, Int32 solo);   /* 0: table full */
+/* UI thread, with the emulator thread gone: replace the lock that guards
+** the channel layout, in case that thread was killed while holding it. */
+void  mixerResetLayoutLock(Mixer* mixer);
+
+/* Once a start or a cartridge change has put the chips in place: a chip that
+** did not come back keeps its own volume and mute, not its voices' or solos. */
+void mixerForgetRemovedInstances(Mixer* mixer);
+
+/* Voices of one chip, for per-voice gain and metering. The mixer owns the
+** table and lends it to the chip, so the UI can write gains without the
+** chip's lifetime; the chip must drop it when it unregisters. */
+#define MIXER_MAX_VOICES 48
+
+typedef struct MixerVoices {
+    Int32  count;
+    Int32  live;                        /* the chip feeds these voices now */
+    /* Bit n: voice n is silent in the chip's current mode, such as FM 7-9
+    ** in rhythm mode. Written whole by the chip; voices past 31 never are. */
+    volatile UInt32 idle;
+    float  scale;                       /* voice sample to chip output units */
+    Int32  active;                      /* any gain is not unity: apply it */
+    Int32  metering;                    /* the levels are wanted: sum them */
+    Int32  gain[MIXER_MAX_VOICES];      /* 4096 = unity */
+    float  gainF[MIXER_MAX_VOICES];
+    /* While metering, the chip adds each voice's sample after the gain,
+    ** once per sample; the mixer takes them every few milliseconds. */
+    Int64  sum[MIXER_MAX_VOICES];
+    UInt64 sumSq[MIXER_MAX_VOICES];
+    UInt32 samples;
+} MixerVoices;
+
+/* Chip, once per update: whether gains or levels need the voices apart. */
+#define mixerVoicesWanted(v) ((v) != NULL && ((v)->active || (v)->metering))
+
+static __inline void mixerMeterVoice(MixerVoices* voices, int voice, Int64 sample)
+{
+    voices->sum[voice]   += sample;
+    voices->sumSq[voice] += (UInt64)(sample * sample);
+}
+
+/* A float voice sample with its gain while active, metered times amp while metering. */
+static __inline float mixerVoiceSampleF(MixerVoices* voices, int voice, float v,
+                                        int active, int metered, float amp)
+{
+    if (active) {
+        v *= voices->gainF[voice];
+    }
+    if (metered) {
+        mixerMeterVoice(voices, voice, (Int64)(v * amp));
+    }
+    return v;
+}
+
+/* Chip, right after registering: borrow a voice table, live and with the
+** given scale; a chip with several engines may change both later. Returns
+** NULL when none is left; then the chip runs as before. */
+MixerVoices* mixerAttachVoices(Mixer* mixer, Int32 handle, Int32 count,
+                               const char* const* names, float scale);
+
+/* What part of a chip a voice belongs to, for a UI that groups them. */
+enum {
+    MIXER_VOICE_TONE,
+    MIXER_VOICE_WAVETABLE,
+    MIXER_VOICE_FM,
+    MIXER_VOICE_RHYTHM,
+    MIXER_VOICE_WAVE,
+    MIXER_VOICE_ADPCM
+};
+
+/* Chip, after mixerAttachVoices: one MIXER_VOICE_* per voice, kept by
+** reference like the names. */
+void mixerSetVoiceGroups(Mixer* mixer, Int32 handle, const UInt8* groups);
+
+typedef struct {
+    char  name[16];
+    Int32 live;     /* 0: the chip's current engine has no per-voice output */
+    Int32 idle;     /* 1: unused in the chip's current mode */
+    Int32 group;    /* MIXER_VOICE_*, -1 when the chip gave none */
+} MixerVoiceInfo;
+
+/* UI thread: the voice names of the chip with that handle; returns the
+** count, 0 for a chip without voices. */
+int  mixerGetVoices(Mixer* mixer, Int32 handle, MixerVoiceInfo* out, int max);
+/* UI thread: like mixerSetInstance for one voice. A soloed voice also
+** lets its own chip play while other chips are silenced. */
+int  mixerSetVoice(Mixer* mixer, Int32 type, Int32 slot, Int32 sslot, Int32 index,
+                   Int32 voice, Int32 volume, Int32 mute, Int32 solo);
+Int32 mixerMeterGetVoicePercent(Mixer* mixer, Int32 handle, Int32 voice);
+/* UI thread: what mixerSetInstance and mixerSetVoice stored for that
+** instance, 100 and off when nothing is; voice < 0 reads the chip itself. */
+void mixerGetInstanceSetting(Mixer* mixer, Int32 type, Int32 slot, Int32 sslot, Int32 index,
+                             Int32 voice, Int32* volume, Int32* mute, Int32* solo);
 
 void mixerSetBoardFrequency(int CPUFrequency);
 void mixerSetBoardFrequencyFixed(int CPUFrequency);

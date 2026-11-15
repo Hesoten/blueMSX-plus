@@ -56,7 +56,11 @@ public:
 
     virtual void   onTimerOverflow(int timer_idx);
 
+    /* Hands the voices to the backend that is heard, every update. */
+    virtual bool   setVoices(struct MixerVoices* voices, bool active);
+
 private:
+    struct MixerVoices* voices;
     Y8950BackendBase* pickRamSourceBackend() const;
     void resyncIrqLine(bool force);
     void              replayRegistersTo(Y8950BackendBase* b);

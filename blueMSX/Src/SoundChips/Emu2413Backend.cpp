@@ -24,6 +24,7 @@
 extern "C" {
 #include "Emu2413/emu2413.h"
 #include "../Utils/SaveState.h"
+#include "AudioMixer.h"
 }
 #include <cstring>
 
@@ -31,7 +32,7 @@ extern "C" {
 
 Emu2413Backend::Emu2413Backend(const std::string& /*name*/, short volume,
                                const EmuTime& /*time*/)
-    : opll(NULL), maxVolume(volume)
+    : opll(NULL), voices(NULL), voicesActive(false), voicesMetered(false), maxVolume(volume)
 {
     memset(regCache, 0, sizeof(regCache));
     memset(buffer,   0, sizeof(buffer));
@@ -78,9 +79,43 @@ void Emu2413Backend::setInternalVolume(short newVolume)
 ** switches don't rebalance the mixer. */
 #define EMU2413_OUTPUT_RMS_MATCH_DIV 1024
 
+bool Emu2413Backend::setVoices(struct MixerVoices* v, bool active)
+{
+    voices = active ? v : NULL;
+    OPLL_setVoiceHook(opll, voices != NULL ? voiceHook : NULL, this);
+    return true;
+}
+
+/* Called for every chip sample with a copy of the 14 channel outputs. */
+void Emu2413Backend::voiceHook(void* ref, short* chOut, int count)
+{
+    Emu2413Backend* self = (Emu2413Backend*)ref;
+    MixerVoices* voices = self->voices;
+    int i;
+
+    for (i = 0; i < count && i < voices->count; i++) {
+        if (self->voicesActive) {
+            chOut[i] = (short)(((Int64)chOut[i] * voices->gain[i]) >> 12);
+        }
+        if (self->voicesMetered) {
+            mixerMeterVoice(voices, i, chOut[i]);
+        }
+    }
+    if (self->voicesMetered) {
+        voices->samples++;
+    }
+}
+
 int* Emu2413Backend::updateBuffer(int length)
 {
     int* dst = buffer;
+    if (voices != NULL) {
+        voicesActive  = voices->active != 0;
+        voicesMetered = voices->metering != 0;
+        voices->scale = (float)maxVolume / EMU2413_OUTPUT_RMS_MATCH_DIV;
+        /* Rhythm mode takes FM 7-9; without it the rhythm voices are idle. */
+        voices->idle  = opll->rhythm_mode ? 0x1C0u : 0x3E00u;
+    }
     for (int i = 0; i < length; i++) {
         int s = (int)OPLL_calc(opll);
         *(dst++) = s * (int)maxVolume / EMU2413_OUTPUT_RMS_MATCH_DIV;

@@ -113,6 +113,9 @@ static BoardInfo boardInfo;
 static UInt32 boardRamSize;
 static UInt32 boardVramSize;
 static int boardRunning = 0;
+/* Set while the machine is created: the cartridges go in one at a time, so
+** removed chips are forgotten once boardRun has built everything. */
+static int boardBuilding = 0;
 
 static HdType hdType[MAX_HD_COUNT];
   
@@ -1527,6 +1530,7 @@ int boardRun(Machine* machine,
     memset(&boardInfo, 0, sizeof(boardInfo));
 
     boardRunning = 1;
+    boardBuilding = 1;
     switch (boardType) {
     case BOARD_MSX:
     case BOARD_MSX_S3527:
@@ -1553,7 +1557,8 @@ int boardRun(Machine* machine,
     default:
         success = 0;
     }
-    
+    boardBuilding = 0;
+
     boardCaptureInit();
 
     if (success && loadState) {
@@ -1571,6 +1576,10 @@ int boardRun(Machine* machine,
         if (stashedSysTime64 != 0) boardSysTime64 = stashedSysTime64;
         tapeSignalReset();
         boardCaptureLoadState();
+    }
+
+    if (success) {
+        mixerForgetRemovedInstances(mixer);
     }
 
     if (stateFile != NULL) {
@@ -2144,6 +2153,9 @@ void boardChangeCartridge(int cartNo, RomType romType, char* cart, char* cartZip
         int inserted = cartridgeInsert(cartNo, romType, cart, cartZip);
         if (boardInfo.changeCartridge != NULL) {
             boardInfo.changeCartridge(boardInfo.cpuRef, cartNo, inserted);
+        }
+        if (!boardBuilding) {
+            mixerForgetRemovedInstances(boardMixer);
         }
         dbgBreakpointsOnCartridgeChanged();
         snapshotTaken = 0;

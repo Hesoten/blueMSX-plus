@@ -62,6 +62,10 @@ public:
 
     virtual void loadState() = 0;
     virtual void saveState() = 0;
+
+    /* Detailed mixer: per-voice gain and levels, taken only by the engine
+    ** that is heard (active). Returns false if this engine cannot. */
+    virtual bool setVoices(struct MixerVoices*, bool) { return false; }
 };
 
 #endif
@@ -243,6 +247,8 @@ public:
     virtual void loadState();
     virtual void saveState();
 
+    virtual bool setVoices(struct MixerVoices* voices, bool active);
+
 private:
 	inline int calcSample();
 
@@ -352,6 +358,11 @@ private:
     static unsigned int dphaseTable[512][8][16];
 
 	const std::string name;
+
+    // Detailed mixer: set while this engine is the one heard
+    struct MixerVoices* voices;
+    bool voicesActive;      // gains to apply, read once per update
+    bool voicesMetered;     // levels to sum, likewise
 
     int buffer[AUDIO_MONO_BUFFER_SIZE];
 };

@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** Forked for the Y8960 cartridge, 2026 by madscient.
 ** The cartridge carries an SSGS: two YM2149 equivalents, each channel with
 ** its own volume and pan, not a pair of AY-3-8910s. It is emulated as its own
@@ -82,6 +85,9 @@
 static Int16 voltTable[16];
 static Int16 voltEnvTable[32];
 
+/* The mixing channels as voices: core 0's A, B, C, then core 1's. */
+static const char* const voiceNames[Y8960_SSGS_MIX_CHANNELS] = { "A1", "B1", "C1", "A2", "B2", "C2" };
+
 static const UInt8 regMask[14] = {
     0xff, 0x0f, 0xff, 0x0f, 0xff, 0x0f, 0x1f, 0x3f,
     0x1f, 0x1f, 0x1f, 0xff, 0xff, 0x0f
@@ -134,6 +140,8 @@ struct Y8960SsgsChip {
     UInt8  volume[Y8960_SSGS_MIX_CHANNELS];
     UInt8  pan[Y8960_SSGS_MIX_CHANNELS];
     Int32  gain[Y8960_SSGS_MIX_CHANNELS][2];   /* derived from volume and pan, Y8960_GAIN_ONE units */
+
+    MixerVoices* voices;                       /* lent by the mixer; NULL leaves the channels alone */
 
     /* One filter pair for the mixed output, not one per core: the two cores
     ** share the cartridge's analog stage. */
@@ -553,6 +561,8 @@ Y8960SsgsChip* y8960SsgsCreate(Mixer* mixer, const char* name)
     /* Six channels out of one stereo device: the pan pots place each of them,
     ** so the mixer cannot be left to do it. */
     chip->handle      = mixerRegisterChannel(mixer, MIXER_CHANNEL_Y8960, 1, y8960SsgsSync, NULL, chip);
+    /* The voices take their gain before the pans; sync keeps scale on the block's gain. */
+    chip->voices      = mixerAttachVoices(mixer, chip->handle, Y8960_SSGS_MIX_CHANNELS, voiceNames, 9.0f);
     chip->debugHandle = debugDeviceRegister(DBGTYPE_AUDIO, name, &dbgCallbacks, chip);
 
     y8960SsgsReset(chip);
@@ -576,7 +586,13 @@ static Int32* y8960SsgsSync(void* ref, UInt32 count)
     /* The mixer block's volume for this block, applied before the filters,
     ** which are linear, so that the sum stays within 32 bits. */
     Int32 blockGain = y8960MixerGain(Y8960_VOL_SSGS);
+    MixerVoices* voices = chip->voices;
+    Int32 voicesActive = voices != NULL && voices->active;
+    Int32 voicesMetered = voices != NULL && voices->metering;
 
+    if (voices != NULL) {
+        voices->scale = 9.0f * blockGain / Y8960_GAIN_ONE;
+    }
     for (index = 0; index < count; index++) {
         Int32 sampleVolumeL = 0;
         Int32 sampleVolumeR = 0;
@@ -634,11 +650,20 @@ static Int32* y8960SsgsSync(void* ref, UInt32 count)
                     sampleVolume = (Int16)tone * voltTable[c->ampVolume[channel]] / 16;
                 }
 
+                if (voicesActive) {
+                    sampleVolume = (Int32)(((Int64)sampleVolume * voices->gain[core * Y8960_SSGS_CHANNELS + channel]) >> 12);
+                }
+                if (voicesMetered) {
+                    mixerMeterVoice(voices, core * Y8960_SSGS_CHANNELS + channel, sampleVolume);
+                }
                 sampleVolumeL += sampleVolume * gain[0] / Y8960_GAIN_ONE;
                 sampleVolumeR += sampleVolume * gain[1] / Y8960_GAIN_ONE;
             }
         }
 
+        if (voicesMetered) {
+            voices->samples++;
+        }
         sampleVolumeL = sampleVolumeL * blockGain / Y8960_GAIN_ONE;
         sampleVolumeR = sampleVolumeR * blockGain / Y8960_GAIN_ONE;
 

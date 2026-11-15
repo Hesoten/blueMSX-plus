@@ -691,7 +691,7 @@ void Y8950::generateChannels(std::span<float*> bufs, unsigned num)
 
 /* Wrapper-facing entry point: pull `num` chip-rate samples and mix to
 ** signed 32-bit mono. */
-void Y8950::generateMono(int32_t* out, unsigned num)
+void Y8950::generateMono(int32_t* out, unsigned num, struct MixerVoices* voices)
 {
     constexpr unsigned NCH = 9 + 5 + 1;
     /* Stack-friendly small allocations: mixer chunk is bounded by the
@@ -703,11 +703,32 @@ void Y8950::generateMono(int32_t* out, unsigned num)
     generateChannels(std::span<float*>(bufs.data(), NCH), num);
 
     float amp = getAmplificationFactorImpl() * float(maxVolume);
+    if (voices == NULL) {
+        for (unsigned s = 0; s < num; ++s) {
+            float sum = 0.0f;
+            for (unsigned i = 0; i < NCH; ++i) {
+                if (bufs[i]) sum += bufs[i][s];
+            }
+            out[s] = int32_t(sum * amp);
+        }
+        return;
+    }
+
+    /* Detailed mixer: the same sum with each channel's gain, metering each
+    ** channel in output units. Voice numbers follow emu8950's ch_out order
+    ** (9 BD, 10 HH, 11 SD, 12 TOM, 13 CYM, 14 ADPCM). */
+    static const int voiceOf[NCH] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 13, 10, 12, 14 };
+    bool active = voices->active != 0;
+    bool metered = voices->metering != 0;
+    /* Rhythm mode takes FM 7-9; without it the rhythm voices are idle. */
+    voices->idle = rythm_mode ? 0x1C0u : 0x3E00u;
     for (unsigned s = 0; s < num; ++s) {
         float sum = 0.0f;
         for (unsigned i = 0; i < NCH; ++i) {
-            if (bufs[i]) sum += bufs[i][s];
+            float v = mixerVoiceSampleF(voices, voiceOf[i], bufs[i] ? bufs[i][s] : 0.0f, active, metered, amp);
+            if (bufs[i]) sum += v;
         }
+        if (metered) voices->samples++;
         out[s] = int32_t(sum * amp);
     }
 }

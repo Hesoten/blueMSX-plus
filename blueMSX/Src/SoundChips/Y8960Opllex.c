@@ -57,8 +57,36 @@ struct Y8960OpllexChip {
 
     Y8960OPLL*    opll;
     UInt8         address;
+    MixerVoices*  voices;           /* lent by the mixer; NULL leaves the channels alone */
+    Int32         voicesActive;     /* gains to apply, read once per update */
+    Int32         voicesMetered;    /* levels to sum, likewise */
     Int32         buffer[AUDIO_STEREO_BUFFER_SIZE];
 };
+
+/* The chip's channels in its ch_out order: 9 FM, then the rhythm. */
+static const char* const voiceNames[14] = {
+    "1", "2", "3", "4", "5", "6", "7", "8", "9", "BD", "HH", "SD", "TOM", "CYM"
+};
+
+/* Called for every chip sample with a copy of the 14 channel outputs. */
+static void voiceHook(void* ref, int16_t* chOut, int count)
+{
+    Y8960OpllexChip* chip = (Y8960OpllexChip*)ref;
+    MixerVoices* voices = chip->voices;
+    int i;
+
+    for (i = 0; i < count; i++) {
+        if (chip->voicesActive) {
+            chOut[i] = (int16_t)(((Int64)chOut[i] * voices->gain[i]) >> 12);
+        }
+        if (chip->voicesMetered) {
+            mixerMeterVoice(voices, i, chOut[i]);
+        }
+    }
+    if (chip->voicesMetered) {
+        voices->samples++;
+    }
+}
 
 /* Stereo, because the pan registers place each channel; the mixer's own pan
 ** could only move the block as a whole. */
@@ -68,6 +96,14 @@ static Int32* y8960OpllexSync(void* ref, UInt32 count)
     Int64 gain = (Int64)y8960MixerGain(Y8960_VOL_OPLL) * Y8960_OPLLEX_VOLUME;
     UInt32 i;
 
+    if (chip->voices != NULL) {
+        chip->voicesActive  = chip->voices->active;
+        chip->voicesMetered = chip->voices->metering;
+        chip->voices->scale = (float)gain / (Y8960_OPLLEX_VOLUME_DIV * Y8960_GAIN_ONE);
+        /* Rhythm mode takes FM 7-9; without it the rhythm voices are idle. */
+        chip->voices->idle  = chip->opll->rhythm_mode ? 0x1C0u : 0x3E00u;
+    }
+    Y8960OPLL_setVoiceHook(chip->opll, mixerVoicesWanted(chip->voices) ? voiceHook : NULL, chip);
     for (i = 0; i < count; i++) {
         int32_t out[2];
         Y8960OPLL_calcStereo(chip->opll, out);
@@ -369,6 +405,7 @@ Y8960OpllexChip* y8960OpllexCreate(Mixer* mixer, const char* name,
 
     chip->handle      = mixerRegisterChannel(mixer, MIXER_CHANNEL_Y8960, 1,
                                              y8960OpllexSync, y8960OpllexSetSampleRate, chip);
+    chip->voices      = mixerAttachVoices(mixer, chip->handle, 14, voiceNames, 1.0f);
     chip->debugHandle = debugDeviceRegister(DBGTYPE_AUDIO, name, &dbgCallbacks, chip);
 
     y8960OpllexReset(chip);

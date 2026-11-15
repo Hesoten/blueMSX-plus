@@ -10,6 +10,7 @@
 
 extern "C" {
 #include "SaveState.h"
+#include "AudioMixer.h"
 }
 
 #ifdef assert
@@ -576,7 +577,7 @@ static byte inst_data[16 + 3][8] = {
 };
 
 OpenYM2413_2::OpenYM2413_2(const string& name_, short volume, const EmuTime& time)
-	: name(name_)
+	: name(name_), voices(NULL), voicesActive(false), voicesMetered(false)
 {
 	for (int i = 0; i < 16 + 3; ++i) {
 		patches[2 * i + 0] = Patch(0, inst_data[i]);
@@ -985,37 +986,57 @@ inline int OpenYM2413_2::calcSample()
 		}
 	}
 
-	int mix = 0;
+	// Each voice's share of the mix, rhythm already doubled and signed as
+	// the sum takes it (0-8 FM, 9 BD, 10 HH, 11 SD, 12 TOM, 13 CYM). The
+	// calls stay in their order: they advance the chip.
+	int v[14] = { 0 };
 	if (ch[6].patch_number & 0x10) {
 		if (channelMask & (1 << 6)) {
-			mix += ch[6].car.calc_slot_car(ch[6].mod.calc_slot_mod());
+			v[9] = 2 * ch[6].car.calc_slot_car(ch[6].mod.calc_slot_mod());
 			channelMask &= ~(1 << 6);
 		}
 	}
 	if (ch[7].patch_number & 0x10) {
 		if (ch[7].mod.eg_mode != FINISH) {
-			mix += ch[7].mod.calc_slot_hat(ch[8].car.pgout, noise_seed & 1);
+			v[10] = 2 * ch[7].mod.calc_slot_hat(ch[8].car.pgout, noise_seed & 1);
 		}
 		if (channelMask & (1 << 7)) {
-			mix -= ch[7].car.calc_slot_snare(noise_seed & 1);
+			v[11] = -2 * ch[7].car.calc_slot_snare(noise_seed & 1);
 			channelMask &= ~(1 << 7);
 		}
 	}
 	if (ch[8].patch_number & 0x10) {
 		if (ch[8].mod.eg_mode != FINISH) {
-			mix += ch[8].mod.calc_slot_tom();
+			v[12] = 2 * ch[8].mod.calc_slot_tom();
 		}
 		if (channelMask & (1 << 8)) {
-			mix -= ch[8].car.calc_slot_cym(ch[7].mod.pgout);
+			v[13] = -2 * ch[8].car.calc_slot_cym(ch[7].mod.pgout);
 			channelMask &= ~(1 << 8);
 		}
 	}
-	mix *= 2;
 
-	for (Channel* cp = ch; channelMask; channelMask >>= 1, ++cp) {
+	int i = 0;
+	for (Channel* cp = ch; channelMask; channelMask >>= 1, ++cp, ++i) {
 		if (channelMask & 1) {
-			mix += cp->car.calc_slot_car(cp->mod.calc_slot_mod());
+			v[i] = cp->car.calc_slot_car(cp->mod.calc_slot_mod());
 		}
+	}
+
+	if (voicesActive) {
+		for (i = 0; i < 14; ++i) {
+			v[i] = (int)(((Int64)v[i] * voices->gain[i]) >> 12);
+		}
+	}
+	if (voicesMetered) {
+		for (i = 0; i < 14; ++i) {
+			mixerMeterVoice(voices, i, v[i]);
+		}
+		voices->samples++;
+	}
+
+	int mix = 0;
+	for (i = 0; i < 14; ++i) {
+		mix += v[i];
 	}
 	return filter((maxVolume * mix) >> (DB2LIN_AMP_BITS - 1)); 
 }
@@ -1043,9 +1064,23 @@ bool OpenYM2413_2::checkMuteHelper()
 	return true;	// nothing is playing, then mute
 }
 
+bool OpenYM2413_2::setVoices(struct MixerVoices* v, bool active)
+{
+    voices = active ? v : NULL;
+    return true;
+}
+
 int* OpenYM2413_2::updateBuffer(int length)
 {
     int* buf = buffer;
+
+    voicesActive  = voices != NULL && voices->active;
+    voicesMetered = voices != NULL && voices->metering;
+    if (voices != NULL) {
+        voices->scale = (float)maxVolume / (1 << (DB2LIN_AMP_BITS - 1));
+        /* Rhythm mode takes FM 7-9; without it the rhythm voices are idle. */
+        voices->idle  = (reg[0x0e] & 0x20) ? 0x1C0u : 0x3E00u;
+    }
 
 	while (length--) {
 		*(buf++) = calcSample();

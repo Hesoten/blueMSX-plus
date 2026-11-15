@@ -1098,6 +1098,8 @@ void emulatorStop() {
     archMidiEnable(0);
     machineDestroy(machine);
     archThreadDestroy(emuThread);
+    /* A thread killed after the join timed out may have held it. */
+    mixerResetLayoutLock(mixer);
     {
         EmuTapFn tap = emuTap;
         if (tap) {

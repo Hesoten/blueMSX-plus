@@ -178,6 +178,10 @@ typedef struct __Y8960OPLL {
   int16_t mix_out[2];
 
   Y8960OPLL_RateConv *conv;
+
+  /* blueMSX addition: see Y8960OPLL_setVoiceHook. */
+  void (*voice_hook)(void *ref, int16_t *ch_out, int count);
+  void *voice_hook_ref;
 } Y8960OPLL;
 
 Y8960OPLL *Y8960OPLL_new(uint32_t clk, uint32_t rate);
@@ -190,6 +194,10 @@ void Y8960OPLL_resetPatch(Y8960OPLL *);
 /* blueMSX addition: re-link Y8960OPLL_SLOT pointers after a bulk Y8960OPLL memcpy
 ** (save-state restore) leaves them dangling. */
 void Y8960OPLL_relinkAfterRestore(Y8960OPLL *opll);
+
+/* blueMSX addition: before the channels are panned and summed, hand a copy
+** of them to hook, which may scale them; NULL restores the plain sum. */
+void Y8960OPLL_setVoiceHook(Y8960OPLL *opll, void (*hook)(void *, int16_t *, int), void *ref);
 
 /**
  * Set output wave sampling rate.

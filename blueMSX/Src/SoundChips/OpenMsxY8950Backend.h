@@ -54,8 +54,11 @@ public:
     virtual void   onTimerOverflow(int timer_idx);
     virtual bool   irqPending();
 
+    virtual bool   setVoices(struct MixerVoices* voices, bool active);
+
 private:
     OpenMsxY8950InstState* inst;
+    struct MixerVoices* voices;     /* set while this engine is the one heard */
     UInt32 mixerRate;
     Int32  off, o1, o2;
     Int32  buffer[AUDIO_MONO_BUFFER_SIZE];
