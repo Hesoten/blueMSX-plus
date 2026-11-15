@@ -44,6 +44,18 @@ extern "C" {
 #define FM_GAIN         16
 #define SSG_GAIN        6
 
+/* FM 1-6, ADPCM-A's six rhythm sounds, ADPCM-B; then the SSG's three. */
+static const char* const fmVoiceNames[13] = {
+    "1", "2", "3", "4", "5", "6", "BD", "SD", "TOP", "HH", "TOM", "RIM", "ADPCM"
+};
+static const UInt8 fmVoiceGroups[13] = {
+    MIXER_VOICE_FM, MIXER_VOICE_FM, MIXER_VOICE_FM, MIXER_VOICE_FM, MIXER_VOICE_FM, MIXER_VOICE_FM,
+    MIXER_VOICE_RHYTHM, MIXER_VOICE_RHYTHM, MIXER_VOICE_RHYTHM,
+    MIXER_VOICE_RHYTHM, MIXER_VOICE_RHYTHM, MIXER_VOICE_RHYTHM, MIXER_VOICE_ADPCM
+};
+static const char* const ssgVoiceNames[3] = { "A", "B", "C" };
+static const UInt8 ssgVoiceGroups[3] = { MIXER_VOICE_TONE, MIXER_VOICE_TONE, MIXER_VOICE_TONE };
+
 /* The windowed sinc of the rate conversion: how many zero crossings it
 ** reaches to each side, counted at the lower of the two rates, and into how
 ** many steps a mixer sample period is divided to tell where a mixer sample
@@ -86,8 +98,8 @@ public:
 
     /* clock_fm_and_adpcm() with the heard ADPCM-B in place of m_adpcm_b,
     ** which the CPU sees and which runs on board time instead. Keep the
-    ** two in step when ymfm changes. */
-    void clockFm(Int16* sample)
+    ** two in step when ymfm changes. voices: NULL, or the 13 to sum apart. */
+    void clockFm(Int16* sample, MixerVoices* voices, bool active, bool metered)
     {
         uint32_t fmmask = ymfm::bitfield(m_irq_enable, 7) ? 0x3f : 0x07;
         uint8_t ended = heard.status() & ymfm::adpcm_b_channel::STATUS_EOS;
@@ -99,9 +111,14 @@ public:
             m_adpcm_a.clock(ymfm::bitfield(envCounter, 2) ? 0x0f : 0x3f);
         }
         heard.clock();
-        m_fm.output(m_last_fm.clear(), 1, 32767, fmmask);
-        m_adpcm_a.output(m_last_fm, 0x3f);
-        heard.output(m_last_fm, 1);
+        if (voices == NULL) {
+            m_fm.output(m_last_fm.clear(), 1, 32767, fmmask);
+            m_adpcm_a.output(m_last_fm, 0x3f);
+            heard.output(m_last_fm, 1);
+        }
+        else {
+            sumVoices(fmmask, voices, active, metered);
+        }
         m_last_fm.clamp16();
 
         sample[0] = (Int16)m_last_fm.data[0];
@@ -115,14 +132,65 @@ public:
         }
     }
 
+    /* The same sum one voice at a time, each with its gain: FM 1-6, ADPCM-A
+    ** 1-6, ADPCM-B. Every part only adds into the output and a channel
+    ** clamps only itself, so at unity gain the total is unchanged. */
+    void sumVoices(uint32_t fmmask, MixerVoices* voices, bool active, bool metered)
+    {
+        int v;
+
+        m_last_fm.clear();
+        for (v = 0; v < 13; v++) {
+            fm_engine::output_data part;
+
+            part.clear();
+            if (v < 6) {
+                m_fm.output(part, 1, 32767, fmmask & (1u << v));
+            }
+            else if (v < 12) {
+                m_adpcm_a.output(part, 1u << (v - 6));
+            }
+            else {
+                heard.output(part, 1);
+            }
+            if (active) {
+                part.data[0] = (int32_t)(((Int64)part.data[0] * voices->gain[v]) >> 12);
+                part.data[1] = (int32_t)(((Int64)part.data[1] * voices->gain[v]) >> 12);
+            }
+            if (metered) {
+                /* A voice goes out at one level to each side it is panned to. */
+                mixerMeterVoice(voices, v, part.data[0] != 0 ? part.data[0] : part.data[1]);
+            }
+            m_last_fm.data[0] += part.data[0];
+            m_last_fm.data[1] += part.data[1];
+        }
+        if (metered) {
+            voices->samples++;
+        }
+    }
+
+    bool sixFmChannels() const { return ymfm::bitfield(m_irq_enable, 7) != 0; }
+
     /* The three voices mixed into one as generate() mixes them, which
-    ** also keeps their sum within 16 bits. */
-    Int16 clockSsg()
+    ** also keeps their sum within 16 bits. voices: NULL, or A, B and C. */
+    Int16 clockSsg(MixerVoices* voices, bool active, bool metered)
     {
         ymfm::ssg_engine::output_data out;
+        int v;
 
         m_ssg.clock();
         m_ssg.output(out);
+        for (v = 0; voices != NULL && v < 3; v++) {
+            if (active) {
+                out.data[v] = (int32_t)(((Int64)out.data[v] * voices->gain[v]) >> 12);
+            }
+            if (metered) {
+                mixerMeterVoice(voices, v, out.data[v]);
+            }
+        }
+        if (metered) {
+            voices->samples++;
+        }
         return (Int16)((out.data[0] + out.data[1] + out.data[2]) * 2 / 3);
     }
 
@@ -533,11 +601,13 @@ public:
 };
 
 struct YM2608 {
-    YM2608() : fm(2), ssg(1) {}
+    YM2608() : fmVoices(NULL), ssgVoices(NULL), fm(2), ssg(1) {}
 
     Mixer*      mixer;
     Int32       fmHandle;
     Int32       ssgHandle;
+    MixerVoices* fmVoices;      /* lent by the mixer; NULL leaves them alone */
+    MixerVoices* ssgVoices;
     UInt32      clock;
     UInt32      irqMask;
     UInt32      sampleRate;
@@ -766,8 +836,14 @@ static Int32* ym2608FmSync(void* ref, UInt32 count)
     YM2608* ym2608 = (YM2608*)ref;
     Ym2608Chip& chip = ym2608->host->chip;
     UInt32 period = ym2608->sampleRate * ym2608->fmClocks;
+    MixerVoices* voices = mixerVoicesWanted(ym2608->fmVoices) ? ym2608->fmVoices : NULL;
+    bool active  = voices != NULL && voices->active;
+    bool metered = voices != NULL && voices->metering;
     UInt32 i;
 
+    if (voices != NULL) {
+        voices->idle = chip.sixFmChannels() ? 0 : 0x38;     /* FM 4-6 */
+    }
     for (i = 0; i < count; i++) {
         Int16 sample[2];
         Int32 fm[2];
@@ -775,7 +851,7 @@ static Int32* ym2608FmSync(void* ref, UInt32 count)
         ym2608->fmAcc += ym2608->clock;
         while (ym2608->fmAcc >= period) {
             ym2608->fmAcc -= period;
-            chip.clockFm(sample);
+            chip.clockFm(sample, voices, active, metered);
             ym2608->fm.put(sample);
             if (ym2608->csmPending) {
                 ym2608->csmPending = 0;
@@ -796,6 +872,9 @@ static Int32* ym2608SsgSync(void* ref, UInt32 count)
     YM2608* ym2608 = (YM2608*)ref;
     Ym2608Chip& chip = ym2608->host->chip;
     UInt32 period = ym2608->sampleRate * ym2608->ssgClocks;
+    MixerVoices* voices = mixerVoicesWanted(ym2608->ssgVoices) ? ym2608->ssgVoices : NULL;
+    bool active  = voices != NULL && voices->active;
+    bool metered = voices != NULL && voices->metering;
     UInt32 i;
 
     for (i = 0; i < count; i++) {
@@ -805,7 +884,7 @@ static Int32* ym2608SsgSync(void* ref, UInt32 count)
         ym2608->ssgAcc += ym2608->clock;
         while (ym2608->ssgAcc >= period) {
             ym2608->ssgAcc -= period;
-            sample = chip.clockSsg();
+            sample = chip.clockSsg(voices, active, metered);
             ym2608->ssg.put(&sample);
         }
         ym2608->ssg.get(ym2608->ssgAcc, period, &ssg);
@@ -855,10 +934,18 @@ YM2608* ym2608Create(Mixer* mixer, UInt32 clock, UInt32 adpcmRamSize,
     ym2608->sampleRate = mixerGetSampleRate(mixer);
     setRates(ym2608);
     /* The rate callback of the FM channel sets the rates of both streams. */
+    mixerSetCreateName(mixer, "FM");
     ym2608->fmHandle  = mixerRegisterChannel(mixer, MIXER_CHANNEL_OPNA_FM, 1,
                                              ym2608FmSync, ym2608SetSampleRate, ym2608);
+    mixerSetCreateName(mixer, "SSG");
     ym2608->ssgHandle = mixerRegisterChannel(mixer, MIXER_CHANNEL_OPNA_SSG, 0,
                                              ym2608SsgSync, NULL, ym2608);
+    mixerSetCreateName(mixer, NULL);
+    /* A voice sample reaches the mixer FM_GAIN and SSG_GAIN * 2 / 3 times larger. */
+    ym2608->fmVoices  = mixerAttachVoices(mixer, ym2608->fmHandle, 13, fmVoiceNames, (float)FM_GAIN);
+    ym2608->ssgVoices = mixerAttachVoices(mixer, ym2608->ssgHandle, 3, ssgVoiceNames, SSG_GAIN * 2 / 3.0f);
+    mixerSetVoiceGroups(mixer, ym2608->fmHandle, fmVoiceGroups);
+    mixerSetVoiceGroups(mixer, ym2608->ssgHandle, ssgVoiceGroups);
 
     ym2608Reset(ym2608);
 

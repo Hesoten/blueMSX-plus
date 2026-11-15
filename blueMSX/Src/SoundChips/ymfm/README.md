@@ -44,6 +44,12 @@ insides:
   copy on the rule that, inside `clock()`, BRDY rises from 0 to 1 only when
   CPU-driven playback consumes a data byte; an update that changes this
   changes the sound without stopping the build.
+- For the Detailed Mixer, `Ym2608Chip::sumVoices` makes the sum of
+  `clock_fm_and_adpcm` one channel at a time, through the public `output()`
+  of the FM, ADPCM-A and ADPCM-B engines with a mask of one channel. That
+  gives the same total only while those calls add into the output and
+  nothing but a channel's own result is clamped before `clamp16()`; an
+  update that changes this changes the sound with the mixer in use.
 - It makes up for five things this ymfm does otherwise than the chip, in
   `Ym2608Chip`: `reset()` leaves the prescaler and the IRQ mask as they
   were; ADPCM-B flags reach the IRQ line only when the upper status is
