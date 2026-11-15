@@ -26,13 +26,18 @@
 #include "ControlClient.h"
 #include "ControlHunt.h"
 
-/* One per connection; its hunt is freed when the connection ends. */
+/* One per connection; its hunt is freed and its trace classes and raster log disarmed when
+** the connection ends. */
 typedef struct {
     CtrlClient client;
     CtrlHunt*  hunt;
     /* The last stop this client was told of: status and the run ops (ControlOpRun.c) move it
     ** on; reset, restore and a new session set it. */
     UInt32     stopCursor;
+    UInt32     traceMask;      /* DEBUG_TRACE_BIT of each class this client holds armed */
+    UInt32     traceArmSeq;    /* the trace seq when it went from holding none to some */
+    int        traceEverArmed;
+    int        rasterHeld;     /* show=raster armed the machine VDP's raster log */
 } CtrlSession;
 
 /* The session of a client, made on first use; NULL when every one is taken. */

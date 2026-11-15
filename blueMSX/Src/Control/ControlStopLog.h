@@ -41,7 +41,7 @@ typedef struct {
     UInt32 runGeneration;
     UInt8  watchType;   /* a DbgDeviceType, for CTRL_STOP_WATCH only */
     UInt32 watchAddress;
-    Int8   watchMode;   /* the screen mode at a VIDEO hit, whose layout watchAddress indexes */
+    int    watchMode;   /* the VRAM layout at a VIDEO hit, which watchAddress indexes */
     UInt8  watchKind;   /* the DBG_WATCH_ kind of watchpoint that matched */
 } CtrlStop;
 

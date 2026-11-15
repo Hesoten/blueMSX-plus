@@ -1,0 +1,394 @@
+/*****************************************************************************
+**
+** Debug trace op handlers.
+** Copyright (C) 2026 Hesoten
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
+** This program is free software; you can redistribute it and/or modify
+** it under the terms of the GNU General Public License as published by
+** the Free Software Foundation; either version 2 of the License, or
+** (at your option) any later version.
+**
+** This program is distributed in the hope that it will be useful,
+** but WITHOUT ANY WARRANTY; without even the implied warranty of
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+** GNU General Public License for more details.
+**
+** You should have received a copy of the GNU General Public License
+** along with this program; if not, write to the Free Software
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+**
+******************************************************************************
+*/
+#include "ControlOp.h"
+#include "ControlProtocol.h"
+#include "DebugTrace.h"
+#include <string.h>
+
+#define READ_CHUNK 4096
+/* A record waits here for its CONT, which can come after records of other sources. */
+#define QUEUE_MAX  16
+/* The most one line takes, and what the header and footer take. */
+#define LINE_ROOM  512
+#define TEXT_ROOM  1024
+
+static const struct { const char* name; int classId; int agent; } classTable[] = {
+    { "geo3d",  DEBUG_TRACE_GEO3D,  1 },
+    { "vdpcmd", DEBUG_TRACE_VDPCMD, 1 },
+    { "vdpreg", DEBUG_TRACE_VDPREG, 1 },
+    { "cpu",    DEBUG_TRACE_CPU,    0 },
+};
+
+#define CLASS_COUNT ((int)(sizeof(classTable) / sizeof(classTable[0])))
+
+/* The mask "class" names, all an agent may arm when it is left out. */
+static int readClasses(CtrlCall* call, UInt32* mask)
+{
+    const char* list = ctrlCallText(call, "class");
+    const char* at;
+    int i = 0;
+
+    if (list == NULL) {
+        list = CTRL_TRACE_CLASS_DEFAULT;
+    }
+    *mask = 0;
+    for (at = list; i < CLASS_COUNT; at++) {
+        const char* end;
+        int length;
+
+        while (*at == ' ') {
+            at++;
+        }
+        for (end = at; *end != 0 && *end != ',' && *end != ' '; end++) {
+        }
+        length = (int)(end - at);
+        for (i = 0; i < CLASS_COUNT; i++) {
+            if (classTable[i].agent && (int)strlen(classTable[i].name) == length &&
+                strncmp(classTable[i].name, at, (size_t)length) == 0)
+            {
+                *mask |= DEBUG_TRACE_BIT(classTable[i].classId);
+                break;
+            }
+        }
+        for (at = end; *at == ' '; at++) {
+        }
+        if (*at != ',') {
+            break;
+        }
+    }
+    if (i == CLASS_COUNT || *at != 0) {
+        return ctrlReplyError(call, "bad_arg",
+                              "\"class\" takes geo3d, vdpcmd and vdpreg, joined with commas");
+    }
+    return 0;
+}
+
+static void addClassNames(CtrlText* text, UInt32 mask)
+{
+    int any = 0;
+    int i;
+
+    for (i = 0; i < CLASS_COUNT; i++) {
+        if (mask & DEBUG_TRACE_BIT(classTable[i].classId)) {
+            ctrlTextAdd(text, "%s%s", any ? "," : "", classTable[i].name);
+            any = 1;
+        }
+    }
+    if (!any) {
+        ctrlTextAdd(text, "none");
+    }
+}
+
+static void describeArms(CtrlText* text, const CtrlSession* session)
+{
+    ctrlTextAdd(text, "this connection holds: ");
+    addClassNames(text, session->traceMask);
+    ctrlTextAdd(text, "\narmed by anyone: ");
+    addClassNames(text, debugTraceArmed);
+    ctrlTextAdd(text, "\n");
+}
+
+int ctrlOpTraceArm(CtrlCall* call)
+{
+    CtrlSession* session = call->session;
+    UInt32 mask;
+    UInt32 add;
+    UInt32 seq;
+    int    refused;
+
+    if ((refused = readClasses(call, &mask)) != 0) {
+        return refused;
+    }
+    add = mask & ~session->traceMask;
+    if (add != 0) {
+        seq = debugTraceSeq();
+        debugTraceArm(add, 1);
+        /* The ring is made by the first arm; without it nothing is armed. */
+        if ((debugTraceArmed & add) != add) {
+            debugTraceArm(add, 0);
+            return ctrlReplyError(call, "no_memory",
+                                  "the trace ring could not be allocated, so nothing was armed");
+        }
+        if (session->traceMask == 0) {
+            session->traceArmSeq    = seq;
+            session->traceEverArmed = 1;
+        }
+        session->traceMask |= add;
+    }
+    describeArms(&call->text, session);
+    ctrlTextAdd(&call->text, "read starts after seq %u unless after is given\n",
+                (unsigned)session->traceArmSeq);
+    return ctrlReplyDone(call);
+}
+
+int ctrlOpTraceDisarm(CtrlCall* call)
+{
+    CtrlSession* session = call->session;
+    UInt32 mask = session->traceMask;
+    int    refused;
+
+    if (ctrlCallGiven(call, "class") && (refused = readClasses(call, &mask)) != 0) {
+        return refused;
+    }
+    mask &= session->traceMask;
+    if (mask != 0) {
+        debugTraceArm(mask, 0);
+        session->traceMask &= ~mask;
+    }
+    ctrlTextAdd(&call->text, "disarmed: ");
+    addClassNames(&call->text, mask);
+    ctrlTextAdd(&call->text, "\n");
+    describeArms(&call->text, session);
+    return ctrlReplyDone(call);
+}
+
+typedef struct {
+    DebugTraceRecord rec;
+    DebugTraceRecord cont;
+    UInt32 seq;
+    int    hasCont;
+    int    closed;
+} Pending;
+
+typedef struct {
+    CtrlText*        text;
+    UInt32           mask;
+    int              count;
+    int              lines;
+    Pending          queue[QUEUE_MAX];
+    int              queued;
+    DebugTraceSource sources[DEBUG_TRACE_SOURCES];
+    UInt8            known[DEBUG_TRACE_SOURCES];
+} TraceReader;
+
+static const DebugTraceSource* sourceOf(TraceReader* r, UInt16 source)
+{
+    if (source >= DEBUG_TRACE_SOURCES) {
+        return NULL;
+    }
+    if (r->known[source] == 0) {
+        r->known[source] = debugTraceSourceGet(source, &r->sources[source]) ? 1 : 2;
+    }
+    return r->known[source] == 1 ? &r->sources[source] : NULL;
+}
+
+static int shown(TraceReader* r, const DebugTraceRecord* rec)
+{
+    const DebugTraceSource* src = sourceOf(r, rec->source);
+
+    return src != NULL &&
+           (src->classId == DEBUG_TRACE_CORE || (r->mask & DEBUG_TRACE_BIT(src->classId)) != 0);
+}
+
+static void emit(TraceReader* r, const Pending* p)
+{
+    const DebugTraceSource* src = sourceOf(r, p->rec.source);
+    char line[LINE_ROOM - 96];
+
+    debugTraceFormat(src, &p->rec, p->hasCont ? &p->cont : NULL, line, sizeof(line));
+    /* The core source is named as its class, which the line already starts with. */
+    ctrlTextAdd(r->text, "%u t=%llu %s%s%s\n", (unsigned)p->seq, (unsigned long long)p->rec.time,
+                p->rec.source != 0 ? src->name : "", p->rec.source != 0 ? ": " : "", line);
+    r->lines++;
+}
+
+/* Prints the closed records at the front, in seq order; force closes them all. */
+static void drain(TraceReader* r, int force)
+{
+    int n = 0;
+
+    while (n < r->queued && (force || r->queue[n].closed)) {
+        emit(r, &r->queue[n]);
+        n++;
+    }
+    memmove(r->queue, r->queue + n, (size_t)(r->queued - n) * sizeof(Pending));
+    r->queued -= n;
+}
+
+/* Takes one record; 0 when it would print more than count lines, or more than the text
+** holds, so it is left for the next read. */
+static int take(TraceReader* r, const DebugTraceRecord* rec, UInt32 seq)
+{
+    int i;
+
+    if ((rec->kind & DEBUG_TRACE_PHASE_MASK) == DEBUG_TRACE_CONT) {
+        for (i = r->queued - 1; i >= 0 && r->queue[i].rec.source != rec->source; i--) {
+        }
+        /* Joined only to the source's last record while it is open: a later record of the
+        ** source, a gap or the queue's end closes it. Any other CONT is left out. */
+        if (i >= 0 && !r->queue[i].closed) {
+            r->queue[i].cont    = *rec;
+            r->queue[i].hasCont = 1;
+            r->queue[i].closed  = 1;
+            drain(r, 0);
+        }
+        return 1;
+    }
+    if (!shown(r, rec)) {
+        return 1;
+    }
+    if (r->lines + r->queued + 1 > r->count ||
+        r->text->capacity - r->text->length < (r->queued + 1) * LINE_ROOM + TEXT_ROOM)
+    {
+        return 0;
+    }
+    for (i = 0; i < r->queued; i++) {
+        if (r->queue[i].rec.source == rec->source) {
+            r->queue[i].closed = 1;
+        }
+    }
+    if (r->queued == QUEUE_MAX) {
+        r->queue[0].closed = 1;
+    }
+    drain(r, 0);
+    r->queue[r->queued].rec     = *rec;
+    r->queue[r->queued].seq     = seq;
+    r->queue[r->queued].hasCont = 0;
+    r->queue[r->queued].closed  = !debugTraceHasCont(sourceOf(r, rec->source), rec);
+    r->queued++;
+    drain(r, 0);
+    return 1;
+}
+
+int ctrlOpTraceRead(CtrlCall* call)
+{
+    static DebugTraceRecord buf[READ_CHUNK];
+    static char lineBuffer[CTRL_REPLY_MAX / 2];
+    static TraceReader reader;
+    CtrlSession* session = call->session;
+    CtrlText lineText;
+    Int64  after64 = 0;
+    UInt32 after;
+    UInt32 head = debugTraceSeq();
+    UInt32 cursor;
+    UInt32 firstRead = 0;
+    UInt32 droppedTotal = 0;
+    int    more = 0;
+    int    count = ctrlCallInt(call, "count", CTRL_TRACE_COUNT_DEFAULT);
+    int    refused;
+
+    if ((refused = readClasses(call, &reader.mask)) != 0) {
+        return refused;
+    }
+    if (count < CTRL_TRACE_COUNT_MIN || count > CTRL_TRACE_COUNT_MAX) {
+        return ctrlReplyErrorf(call, "out_of_range", "count must be %d to %d",
+                               CTRL_TRACE_COUNT_MIN, CTRL_TRACE_COUNT_MAX);
+    }
+    if (ctrlCallInt64(call, "after", &after64)) {
+        if (after64 < CTRL_TRACE_AFTER_MIN || after64 > 0xFFFFFFFF) {
+            return ctrlReplyError(call, "out_of_range",
+                                  "after must be a seq, 0 to 0xFFFFFFFF");
+        }
+        after = (UInt32)after64;
+        if ((Int32)(head - after) < 0) {
+            return ctrlReplyErrorf(call, "out_of_range", "after %u is past the newest record %u; "
+                                   "if blueMSX+ restarted since, arm again and read without after",
+                                   (unsigned)after, (unsigned)head);
+        }
+    }
+    else if (session->traceEverArmed) {
+        after = session->traceArmSeq;
+    }
+    else {
+        return ctrlReplyError(call, "not_armed",
+                              "this connection has armed nothing to read from: arm first "
+                              "(op=arm), or give after, the next of an earlier read");
+    }
+
+    ctrlTextInit(&lineText, lineBuffer, call->text.capacity < (int)sizeof(lineBuffer) ?
+                                        call->text.capacity : (int)sizeof(lineBuffer));
+    reader.text   = &lineText;
+    reader.count  = count;
+    reader.lines  = 0;
+    reader.queued = 0;
+    memset(reader.known, 0, sizeof(reader.known));
+
+    /* One pass up to the head as it was at the start, so a running machine cannot keep it
+    ** going. */
+    cursor = after;
+    while ((Int32)(head - cursor) > 0 && !more) {
+        UInt32 first;
+        UInt32 dropped;
+        int    n = debugTraceRead(cursor, buf, READ_CHUNK, &first, &dropped);
+        int    i;
+
+        droppedTotal += dropped;
+        /* Nothing before a gap can take a CONT from after it. */
+        if (dropped != 0) {
+            drain(&reader, 1);
+        }
+        if (n == 0) {
+            break;
+        }
+        if (cursor == after) {
+            firstRead = first;
+        }
+        for (i = 0; i < n && (Int32)(head - (first + i)) >= 0; i++) {
+            if (!take(&reader, &buf[i], first + (UInt32)i)) {
+                more = 1;
+                break;
+            }
+            cursor = first + (UInt32)i;
+        }
+        if (i < n) {
+            break;
+        }
+    }
+    /* Stopped at count or room, or at the head with a CONT still to come: what waits for
+    ** its CONT is read again whole next time. Only a read that printed nothing prints it
+    ** without, so every read moves on. */
+    if (reader.queued > 0 && reader.lines > 0) {
+        cursor = reader.queue[0].seq - 1;
+        reader.queued = 0;
+        more = 1;
+    }
+    drain(&reader, 1);
+
+    ctrlTextAdd(&call->text, "trace of ");
+    addClassNames(&call->text, reader.mask);
+    if ((Int32)(cursor - after) > 0) {
+        ctrlTextAdd(&call->text, " (core lines always): seq %u to %u read (newest %u), %u dropped\n",
+                    (unsigned)firstRead, (unsigned)cursor, (unsigned)head, (unsigned)droppedTotal);
+    }
+    else {
+        ctrlTextAdd(&call->text, ": nothing after seq %u (newest %u), %u dropped\n",
+                    (unsigned)after, (unsigned)head, (unsigned)droppedTotal);
+    }
+    if ((debugTraceArmed & reader.mask) == 0) {
+        ctrlTextAdd(&call->text, "none of these classes is armed now (op=arm)\n");
+    }
+    if (droppedTotal != 0) {
+        ctrlTextAdd(&call->text, "the ring moved past %u records before they were read: pause, "
+                    "or step frames with bmsx_run how=frame, between reads\n",
+                    (unsigned)droppedTotal);
+    }
+    ctrlTextAdd(&call->text, "%s", lineBuffer);
+    if (more) {
+        ctrlTextAdd(&call->text, "more: read again with after=%u\n", (unsigned)cursor);
+    }
+    jsonOutUInt(&call->out, "next", cursor);
+    jsonOutUInt(&call->out, "head", head);
+    jsonOutUInt(&call->out, "dropped", droppedTotal);
+    jsonOutBool(&call->out, "more", more);
+    return ctrlReplyDone(call);
+}

@@ -53,10 +53,19 @@ void geo3dDeviceReset(Geo3DDevice* dev);
 void geo3dDeviceSaveState(Geo3DDevice* dev);
 void geo3dDeviceLoadState(Geo3DDevice* dev);
 
-/* Copies the geo3d beside vdp (NULL: the machine's) and the RUNs busy in the
-** VDP's frame so far (at that VDP's own frame tap, the frame just ended), else
-** the latest RUN, on the terms of vdpDebugCapture. 0 and all cleared for none. */
+/* Copies the geo3d beside vdp (NULL: the machine's), the RUNs busy in the VDP's frame
+** so far (at that VDP's own frame tap, the frame just ended) and those after geo3dDebugSince,
+** on the terms of vdpDebugCapture. 0 and all cleared for none. */
 int geo3dDebugCapture(struct VDP* vdp, Geo3DDebugState* out);
+
+/* The same for the geo3d of cartridge (as in its snapshot) with every kept RUN, oldest
+** first, whatever geo3dDebugSince holds. */
+int geo3dDebugCaptureAll(int cartridge, Geo3DDebugState* out);
+/* RUN seq of that geo3d whole, up to the rooms, with its board times, as geo3dDebugCopyRun
+** has it; on the terms of vdpDebugCapture. 0 and run cleared with no geo3d there or once
+** the RUN is no longer kept. */
+int geo3dDebugCaptureRun(int cartridge, UInt32 seq, Geo3DDebugRun* run,
+                         Geo3DDebugItem* items, int itemRoom, Geo3DDebugCmd* cmds, int cmdRoom);
 
 /* From a tool, any thread: it holds RUN seq and those before it of epoch, so the
 ** captures of that geo3d (cartridge as in its snapshot) add every RUN after seq. */

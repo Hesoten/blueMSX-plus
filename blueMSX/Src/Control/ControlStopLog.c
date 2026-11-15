@@ -104,7 +104,7 @@ void ctrlStopPost(int reason, UInt32 runGeneration, int watchType, UInt32 watchA
     slot->runGeneration = runGeneration;
     slot->watchType     = (UInt8)watchType;
     slot->watchAddress  = watchAddress;
-    slot->watchMode     = (Int8)watchMode;
+    slot->watchMode     = watchMode;
     slot->watchKind     = (UInt8)watchKind;
 
     nextSeq = seq + 1;

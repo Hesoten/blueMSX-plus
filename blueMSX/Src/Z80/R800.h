@@ -416,6 +416,10 @@ void r800SetMode(R800* r800, CpuMode mode);
 */
 CpuMode r800GetMode(R800* r800);
 
+/* Whether the /INT and the /NMI line are held low. */
+int r800IntIsLow(R800* r800);
+int r800NmiIsLow(R800* r800);
+
 /************************************************************************
 ** r800SetInt
 **

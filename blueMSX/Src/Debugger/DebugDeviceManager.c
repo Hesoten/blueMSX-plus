@@ -117,36 +117,40 @@ static UInt32 lastWatchAddress;
 static int    lastWatchMode;
 static int    lastWatchKind;
 
-void debugDeviceNoteWatchHit(int devType, UInt32 address, int screenMode, int kind)
+void debugDeviceNoteWatchHit(int devType, UInt32 address, int layout, int kind)
 {
     lastWatchType    = devType;
     lastWatchAddress = address;
-    lastWatchMode    = screenMode;
+    lastWatchMode    = layout;
     lastWatchKind    = kind;
 }
 
-void debugDeviceLastWatchHit(int* devType, UInt32* address, int* screenMode, int* kind)
+void debugDeviceLastWatchHit(int* devType, UInt32* address, int* layout, int* kind)
 {
     *devType    = lastWatchType;
     *address    = lastWatchAddress;
-    *screenMode = lastWatchMode;
+    *layout     = lastWatchMode;
     *kind       = lastWatchKind;
 }
 
-int debugDeviceVramIndex(int screenMode, int address)
+int debugDeviceVramIndex(int layout, int address)
 {
-    if (!VDP_VRAM_INTERLEAVED(screenMode) || address < 0 || address >= 0x20000) {
+    int a17 = layout >= 0 && (layout & VDP_LAYOUT_A17) ? 0x20000 : 0;
+
+    if (!vdpVramInterleaved(layout) || address < 0 || address >= 0x20000 + a17) {
         return address;
     }
-    return VDP_VRAM_INDEX(address);
+    return VDP_VRAM_INDEX_A17(a17, address);
 }
 
-int debugDeviceVramAddress(int screenMode, int index)
+int debugDeviceVramAddress(int layout, int index)
 {
-    if (!VDP_VRAM_INTERLEAVED(screenMode) || index < 0 || index >= 0x20000) {
+    int a17 = layout >= 0 && (layout & VDP_LAYOUT_A17) ? 0x20000 : 0;
+
+    if (!vdpVramInterleaved(layout) || index < 0 || index >= 0x20000 + a17) {
         return index;
     }
-    return VDP_VRAM_ADDRESS(index);
+    return VDP_VRAM_ADDRESS_A17(a17, index);
 }
 
 void debugDeviceInspectBegin(void)
@@ -466,21 +470,21 @@ int debugDeviceHasMemoryWatchpointEx(DbgDeviceType devType, int address, int byP
     return 0;
 }
 
-/* The screen mode a write is being made in, read only when a watchpoint needs it. */
+/* The VRAM layout a write is being made in, read only when a watchpoint needs it. */
 #define MODE_OF_WRITE (-2)
 
-/* Whether the watchpoint covers the byte written at index in screenMode. One set by program
+/* Whether the watchpoint covers the byte written at index in layout. One set by program
 ** address compares the program's address of that byte, which *program keeps once found (-1 before). */
-static int nodeCovers(const Watchpoint* watchpoint, int index, int screenMode, int* program)
+static int nodeCovers(const Watchpoint* watchpoint, int index, int layout, int* program)
 {
     int at = index;
 
     if (watchpoint->byProgram) {
         if (*program < 0) {
-            if (screenMode == MODE_OF_WRITE) {
-                screenMode = vdpDebugGetScreenMode();
+            if (layout == MODE_OF_WRITE) {
+                layout = vdpDebugGetVramLayout();
             }
-            *program = debugDeviceVramAddress(screenMode, index);
+            *program = debugDeviceVramAddress(layout, index);
         }
         at = *program;
     }
@@ -499,7 +503,7 @@ static UInt32 watchedValue(const Watchpoint* watchpoint, int index, UInt8 value,
     for (i = 0; i < watchpoint->size; i++) {
         int byteIndex = watchpoint->address + i;
         if (watchpoint->byProgram) {
-            byteIndex = debugDeviceVramIndex(vdpDebugGetScreenMode(), byteIndex);
+            byteIndex = debugDeviceVramIndex(vdpDebugGetVramLayout(), byteIndex);
         }
         checkValue <<= 8;
         if (callback) {
@@ -545,13 +549,13 @@ int checkWatchpoint(DbgDeviceType devType, int address, UInt8 value, void* ref, 
     return DBG_WATCH_NONE;
 }
 
-int watchpointCovers(DbgDeviceType devType, int address, int screenMode, int kind)
+int watchpointCovers(DbgDeviceType devType, int address, int layout, int kind)
 {
     Watchpoint* watchpoint = watchpoints[devType];
     int program = -1;
     int found = DBG_WATCH_NONE;
     while (watchpoint != NULL) {
-        if (nodeCovers(watchpoint, address, screenMode, &program)) {
+        if (nodeCovers(watchpoint, address, layout, &program)) {
             found = watchpoint->byProgram ? DBG_WATCH_PROGRAM : DBG_WATCH_PHYSICAL;
             if (found == kind) {
                 return found;
@@ -570,7 +574,7 @@ void tryWatchpoint(DbgDeviceType devType, int address, UInt8 value, void* ref, W
 
     if (kind != DBG_WATCH_NONE && !debugDeviceIsInspecting()) {
         debugDeviceNoteWatchHit(devType, (UInt32)address,
-                                devType == DBGTYPE_VIDEO ? vdpDebugGetScreenMode() : -1, kind);
+                                devType == DBGTYPE_VIDEO ? vdpDebugGetVramLayout() : -1, kind);
         boardOnBreakpoint(DBG_STOP_WATCH);
     }
 }

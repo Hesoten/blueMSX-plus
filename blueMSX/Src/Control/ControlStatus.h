@@ -24,6 +24,8 @@
 #define CONTROL_STATUS_H
 
 #include "ControlText.h"
+#include "Debugger.h"
+#include "MsxTypes.h"
 
 /* The status lines: run state and stop reason, registers, PC symbol, pages, switched banks.
 ** stateAsFound is the run state seen before the caller stopped the machine, or
@@ -32,7 +34,17 @@
 
 void ctrlStatusDescribe(CtrlText* text, int stopReason, int stateAsFound);
 
+/* The named entries of a register bank as NAME=value, 10 to a line, after label padded to 8. */
+void ctrlStatusListRegisters(CtrlText* text, const DbgRegisterBank* regs, const char* label);
+
 /* All VDP registers and the screen mode they select, and whether a V9990 picture is shown. */
 void ctrlStatusDescribeVdp(CtrlText* text);
+
+/* The mode bits of R#0/R#1 (regs[0] and regs[1]) when they are mixed or undefined, so no
+** screen mode names what the VDP draws; -1 when they select a named mode. */
+int ctrlStatusUndefinedModeBits(const UInt8* regs);
+
+/* "B3": the name of a V9990Mode, "none" outside them. */
+const char* ctrlStatusV9990ModeName(int mode);
 
 #endif

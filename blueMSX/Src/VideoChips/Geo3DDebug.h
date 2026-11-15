@@ -127,8 +127,8 @@ typedef struct {
     int    devPhase;        /* GEO3D_PHASE_WAIT_CE: an issued command is the VDP's to finish */
     UInt8  regs[0x70];      /* as the data port reads them; 0xff where it cannot */
     UInt32 epoch;           /* changes whenever the RUN numbers start again */
-    /* run[]: the RUNs after the tool's geo3dDebugSince and those busy in
-    ** [windowStart, windowEnd] (board ticks), oldest first, up to the latest;
+    /* run[]: the RUNs after the tool's geo3dDebugSince (all kept: geo3dDebugCaptureAll) and
+    ** those busy in [windowStart, windowEnd] (board ticks), oldest first, up to the latest;
     ** run[frameFirst..] were busy; fallback: none was, frameFirst = runCount. */
     UInt32 windowStart, windowEnd;
     int    frameFirst;

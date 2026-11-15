@@ -31,6 +31,10 @@
 ** hl+2 once ctrlAddrSubstituteRegister has rewritten it. Returns 0 and fills err otherwise. */
 int ctrlAddrParse(const char* text, CtrlAddr* addr, char* err, int errLen);
 
+/* A whole text that is one number as an address writes it: 0x1A30, $1A30, #1A30, 1A30h or
+** 6704 (unmarked digits are decimal). Non-zero with *value when it is. */
+int ctrlAddrReadNumber(const char* text, UInt32* value);
+
 /* Rewrites a leading register name ("pc", "hl+2") as its value. Returns 1 when it did, or
 ** when text names no register; 0 when a register was named and could not be read; -1 when
 ** the result is too long. */

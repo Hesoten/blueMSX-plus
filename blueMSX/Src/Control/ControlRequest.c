@@ -131,6 +131,20 @@ static const CtrlArg typeArgs[] = {
 static const CtrlArg screenArgs[] = {
     { "as", CTRL_ARG_TEXT, 11 }, { "path", CTRL_ARG_TEXT, CTRL_PATH_MAX - 1 }, { NULL }
 };
+static const CtrlArg vdpArgs[] = {
+    { "show", CTRL_ARG_TEXT, 11 }, { "chip", CTRL_ARG_TEXT, 11 }, { "run", CTRL_ARG_INT, 0 },
+    { "item", CTRL_ARG_TEXT, 15 }, { "at", CTRL_ARG_TEXT, 15 }, { "count", CTRL_ARG_INT, 0 },
+    { NULL }
+};
+static const CtrlArg devicesArgs[] = {
+    { "device", CTRL_ARG_INT, 0 }, { NULL }
+};
+static const CtrlArg traceArmArgs[] = {
+    { "class", CTRL_ARG_TEXT, 63 }, { NULL }
+};
+static const CtrlArg traceReadArgs[] = {
+    { "class", CTRL_ARG_TEXT, 63 }, { "after", CTRL_ARG_INT, 0 }, { "count", CTRL_ARG_INT, 0 }, { NULL }
+};
 
 /* An op's args in its row; an array longer than CTRL_OP_ARGS_MAX and its { NULL } fails to compile. */
 #define OP_ARGS(a) ((a) + 0 * sizeof(char[sizeof(a) / sizeof((a)[0]) <= CTRL_OP_ARGS_MAX + 1 ? 1 : -1]))
@@ -172,7 +186,7 @@ static const CtrlOp opTable[] = {
       "  undo         count        (puts back what mem.write overwrote)\n" },
     { "run",               CTRL_OP_CHANGES, CTRL_OP_SELF, ctrlOpRun, OP_ARGS(runArgs),
       CTRL_ACT_DENIED,
-      "  run          how = pause|resume|step|step_over|step_out, count\n" },
+      "  run          how = pause|resume|step|step_over|step_out|frame|change, count\n" },
     { "stack",             CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpStack, OP_ARGS(stackArgs),
       CTRL_ACT_DENIED,
       "  stack        count\n" },
@@ -255,6 +269,24 @@ static const CtrlOp opTable[] = {
     { "screen",            CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpScreen, OP_ARGS(screenArgs),
       CTRL_ACT_DENIED,
       "  screen       as = auto|text|png, path\n" },
+    { "vdp",               CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpVdp, OP_ARGS(vdpArgs),
+      CTRL_ACT_DENIED,
+      "  vdp          show = registers|palette|geo3d|vram|raster,\n"
+      "               chip = machine|cartridge|v9990, run, item (geo3d only),\n"
+      "               at, count (vram only); raster: machine only, the first\n"
+      "               call arms the log\n" },
+    { "devices",           CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpDevices, OP_ARGS(devicesArgs),
+      CTRL_ACT_DENIED,
+      "  devices      device       (without it, the list; an index holds for one generation)\n" },
+    { "trace.arm",         CTRL_OP_LOOKS,   CTRL_OP_SELF, ctrlOpTraceArm, OP_ARGS(traceArmArgs),
+      CTRL_ACT_DENIED,
+      "  trace.arm    class = geo3d,vdpcmd,vdpreg (held by this connection)\n" },
+    { "trace.disarm",      CTRL_OP_LOOKS,   CTRL_OP_SELF, ctrlOpTraceDisarm, OP_ARGS(traceArmArgs),
+      CTRL_ACT_DENIED,
+      "  trace.disarm class         (default: every class this connection holds)\n" },
+    { "trace.read",        CTRL_OP_LOOKS,   CTRL_OP_SELF, ctrlOpTraceRead, OP_ARGS(traceReadArgs),
+      CTRL_ACT_DENIED,
+      "  trace.read   class, after, count\n" },
 };
 
 static const CtrlOp* findOp(const char* name)
@@ -335,7 +367,8 @@ static int opVerb(const char* op, const char* request)
     if (strcmp(op, "run") == 0) {
         return strcmp(how, "pause") == 0     ? CTRL_ACT_PAUSE :
                strcmp(how, "resume") == 0    ? CTRL_ACT_RUN :
-               strcmp(how, "step") == 0      ? CTRL_ACT_STEP :
+               strcmp(how, "step") == 0 || strcmp(how, "frame") == 0 ||
+               strcmp(how, "change") == 0    ? CTRL_ACT_STEP :
                strcmp(how, "step_over") == 0 ? CTRL_ACT_STEP_OVER :
                strcmp(how, "step_out") == 0  ? CTRL_ACT_STEP_OUT : CTRL_ACT_DENIED;
     }

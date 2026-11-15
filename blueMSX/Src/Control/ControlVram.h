@@ -29,20 +29,21 @@
 /* The BASIC SCREEN a VDP mode number shows, as "SCREEN 0 WIDTH 80, 80 column text" for 13. */
 const char* ctrlVramModeName(int mode);
 
-/* "SCREEN 8": how a message names a screen mode, and so the layout of video memory in it. */
-void ctrlVramModeShortName(char* out, int len, int mode);
+/* "SCREEN 8", or "SCREEN 8 (SP3, linear)": how a message names a VRAM layout
+** (vdpDebugGetVramLayout). Fits in 32 bytes. */
+void ctrlVramModeShortName(char* out, int len, int layout);
 
 /* The first of size vram: addresses from address on with no video memory behind it in
-** that screen mode, or -1 when every one has. */
+** that VRAM layout, or -1 when every one has. */
 Int32 ctrlVramUnbacked(UInt32 address, UInt32 size, int vramMode);
 
-/* Non-zero when that screen mode interleaves video memory with a second 64 kB bank this
-** VDP does not have, so every other vram: address in it has no memory behind it. A mode
+/* Non-zero when that VRAM layout interleaves video memory with a second 64 kB bank this
+** VDP does not have, so every other vram: address in it has no memory behind it. A layout
 ** of -1, one not read, counts as one that interleaves. */
 int ctrlVramLacksBank(int vramMode);
 
 /* "vram:0x8001 has no video memory behind it: ...", for an address ctrlVramUnbacked found
-** in that screen mode; no newline. */
+** in that VRAM layout; no newline. */
 void ctrlVramDescribeUnbacked(CtrlText* text, UInt32 address, int mode);
 
 #endif

@@ -27,6 +27,8 @@
 #include "ControlSlots.h"
 #include "ControlStopLog.h"
 #include "ControlSymbol.h"
+#include "Board.h"
+#include "R800Debug.h"
 #include "Debugger.h"
 #include "Emulator.h"
 #include "VDP.h"
@@ -34,8 +36,7 @@
 #include "romMapperV9968Cart.h"
 #include <stdio.h>
 
-static void describeRegisters(CtrlText* text, const DbgRegisterBank* regs,
-                              const char* label)
+void ctrlStatusListRegisters(CtrlText* text, const DbgRegisterBank* regs, const char* label)
 {
     UInt32 i;
     int onLine = 0;
@@ -111,6 +112,39 @@ static void statusPcSymbol(CtrlText* text, Int32 pc)
     }
 }
 
+/* The CPU's interrupt lines and the board's pending requests, side by side; needs a view. */
+static void statusInt(CtrlText* text)
+{
+    UInt32 pending = boardGetInt(~(UInt32)0);
+    const char* separator = "; board requests: ";
+    const char* name;
+    UInt32 bit;
+    int units;
+
+    ctrlTextAdd(text, "%-8s /INT %s", "int:", r800DebugIntLow() ? "low" : "high");
+    if (r800DebugNmiLow()) {
+        ctrlTextAdd(text, ", /NMI low");
+    }
+    for (bit = 1; bit != 0; bit <<= 1) {
+        if (!(pending & bit)) {
+            continue;
+        }
+        name = boardIntName(bit);
+        if (name != NULL) {
+            ctrlTextAdd(text, "%s%s", separator, name);
+        }
+        else {
+            ctrlTextAdd(text, "%sbit 0x%08X", separator, (unsigned)bit);
+        }
+        units = boardGetIntUnitCount(bit);
+        if (units > 1) {
+            ctrlTextAdd(text, " (%d units)", units);
+        }
+        separator = ", ";
+    }
+    ctrlTextAdd(text, "\n");
+}
+
 /* What the status reads under when the request holds nothing: a view of a paused machine, waited
 ** for when the request found it paused (it may not have parked yet), else a hold of its layout.
 ** Returns DBG_ACCESS_OK with a view, else why there is none. */
@@ -161,7 +195,8 @@ void ctrlStatusDescribe(CtrlText* text, int stopReason, int stateAsFound)
     snapshot = ctrlViewDevices();
     if (snapshot != NULL) {
         pc = ctrlCpuPcIn(snapshot);
-        describeRegisters(text, ctrlCpuRegisterBankIn(snapshot), "regs:");
+        ctrlStatusListRegisters(text, ctrlCpuRegisterBankIn(snapshot), "regs:");
+        statusInt(text);
         dbgSnapshotDestroy(snapshot);
     }
     else {
@@ -186,12 +221,18 @@ void ctrlStatusDescribe(CtrlText* text, int stopReason, int stateAsFound)
     ctrlViewRelease(&own);
 }
 
-/* Whether a V9990 picture is on the screen; needs a view. */
-static void describeV9990(CtrlText* text)
+const char* ctrlStatusV9990ModeName(int mode)
 {
     static const char* modeNames[V9990_MODE_NONE] = {
         "P1", "P2", "B0", "B1", "B2", "B3", "B4", "B5", "B6", "B7", "STANDBY (black)"
     };
+
+    return mode >= 0 && mode < V9990_MODE_NONE ? modeNames[mode] : "none";
+}
+
+/* Whether a V9990 picture is on the screen; needs a view. */
+static void describeV9990(CtrlText* text)
+{
     int       superimposed;
     V9990Mode mode = v9990GetShownMode(&superimposed);
 
@@ -201,7 +242,7 @@ static void describeV9990(CtrlText* text)
         return;
     }
     ctrlTextAdd(text, "v9990:   its picture is shown in mode %s%s; the vdp lines below are "
-                "the VDP's, not the V9990's\n", modeNames[mode],
+                "the VDP's, not the V9990's\n", ctrlStatusV9990ModeName(mode),
                 superimposed ? ", superimposed over the VDP picture"
                              : " instead of the VDP picture");
 }
@@ -218,6 +259,20 @@ static void describeV9968Cart(CtrlText* text)
     }
     ctrlTextAdd(text, "v9968:   the cartridge picture is shown in mode %d: %s instead of the VDP "
                 "picture; the vdp lines below are the VDP's, not the cartridge's\n", mode, ctrlVramModeName(mode));
+}
+
+int ctrlStatusUndefinedModeBits(const UInt8* regs)
+{
+    int raw = ((regs[0] & 0x0e) >> 1) | (regs[1] & 0x18);
+
+    /* updateScreenMode names only these; it draws other mixes blank or from other tables. */
+    switch (raw) {
+    case 0x00: case 0x01: case 0x02: case 0x03: case 0x04:
+    case 0x05: case 0x07: case 0x08: case 0x10: case 0x12:
+        return -1;
+    default:
+        return raw;
+    }
 }
 
 void ctrlStatusDescribeVdp(CtrlText* text)
@@ -241,21 +296,17 @@ void ctrlStatusDescribeVdp(CtrlText* text)
         int   raw;
 
         vdpDebugGetRegisters(registers, 2);
-        raw = ((registers[0] & 0x0e) >> 1) | (registers[1] & 0x18);
-        /* updateScreenMode names only these; it draws other mixes blank or from other tables. */
-        switch (raw) {
-        case 0x00: case 0x01: case 0x02: case 0x03: case 0x04:
-        case 0x05: case 0x07: case 0x08: case 0x10: case 0x12:
+        raw = ctrlStatusUndefinedModeBits(registers);
+        if (raw < 0) {
             ctrlTextAdd(text, "vdp:     %s, mode %d: %s\n", vdp->name, mode,
                         ctrlVramModeName(mode));
-            break;
-        default:
+        }
+        else {
             ctrlTextAdd(text, "vdp:     %s, mode bits 0x%02X (R#0/R#1) are mixed or "
                         "undefined: the VDP draws them blank or from other tables, so "
                         "check the PNG\n", vdp->name, raw);
-            break;
         }
-        describeRegisters(text, vdp->registerBank[0], "");
+        ctrlStatusListRegisters(text, vdp->registerBank[0], "");
     }
     dbgSnapshotDestroy(snapshot);
 }

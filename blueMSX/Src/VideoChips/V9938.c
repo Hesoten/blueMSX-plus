@@ -178,7 +178,7 @@ struct VdpCmdState {
     int    breakPending;
     int    breakPendingAddr;
     int    breakPendingKind;   /* the DBG_WATCH_ kind of watchpoint that matched */
-    int    breakPendingMode;   /* the screen mode the matched write was made in */
+    int    breakPendingMode;   /* the VRAM layout the matched write was made in */
     int    extCommands;
     int    fillTag;
     int    xhr;
@@ -691,7 +691,7 @@ INLINE void vramWatch(VdpCmdState* vdpCmd, UInt8* P)
             if (!vdpCmd->breakPending) {
                 vdpCmd->breakPendingAddr = (int)(P - vdpCmd->vramBase);
                 vdpCmd->breakPendingKind = kind;
-                vdpCmd->breakPendingMode = vdpDebugGetScreenMode();
+                vdpCmd->breakPendingMode = vdpDebugGetVramLayout();
                 vdpCmd->breakPending = 1;
             }
         }
@@ -1678,10 +1678,10 @@ static const DebugTraceField traceCmdFields[] = {
     { "cl",      DEBUG_TRACE_WORD_A,      24, 8, DEBUG_TRACE_HEX,  0, NULL, 0 },
     { "units",   DEBUG_TRACE_WORD_B,      0, 32, DEBUG_TRACE_DEC,  1 << 0, NULL, 0 },
     { "link",    DEBUG_TRACE_WORD_LINK,   0, 32, DEBUG_TRACE_DEC,  0, NULL, 0 },
-    { "nx",      DEBUG_TRACE_WORD_CONT_A, 0, 16, DEBUG_TRACE_DEC,  0, NULL, 0 },
-    { "ny",      DEBUG_TRACE_WORD_CONT_A, 16, 16, DEBUG_TRACE_DEC, 0, NULL, 0 },
-    { "dx",      DEBUG_TRACE_WORD_CONT_B, 0, 16, DEBUG_TRACE_DEC,  0, NULL, 0 },
-    { "dy",      DEBUG_TRACE_WORD_CONT_B, 16, 16, DEBUG_TRACE_DEC, 0, NULL, 0 },
+    { "nx",      DEBUG_TRACE_WORD_CONT_A, 0, 16, DEBUG_TRACE_DEC,  (1 << 0) | (1 << 3), NULL, 0 },
+    { "ny",      DEBUG_TRACE_WORD_CONT_A, 16, 16, DEBUG_TRACE_DEC, (1 << 0) | (1 << 3), NULL, 0 },
+    { "dx",      DEBUG_TRACE_WORD_CONT_B, 0, 16, DEBUG_TRACE_DEC,  (1 << 0) | (1 << 3), NULL, 0 },
+    { "dy",      DEBUG_TRACE_WORD_CONT_B, 16, 16, DEBUG_TRACE_DEC, (1 << 0) | (1 << 3), NULL, 0 },
 };
 
 static const DebugTraceField traceWaitFields[] = {

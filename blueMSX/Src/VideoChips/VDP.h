@@ -67,11 +67,22 @@ int vdpDebugGetScreenMode(void);
 #define VDP_VRAM_INTERLEAVED(mode) ((mode) >= 7 && (mode) <= 12)
 #define VDP_VRAM_INDEX(a)          (((a) >> 1) | (((a) & 1) << 16))
 #define VDP_VRAM_ADDRESS(i)        ((((i) & 0xffff) << 1) | ((i) >> 16))
+/* With a17 0x20000 (a 256 kB V9968), bit 17 stays out of the interleave and picks a half. */
+#define VDP_VRAM_INDEX_A17(a17, a)   ((a17) ? (((a) & 0x20000) | VDP_VRAM_INDEX((a) & 0x1ffff)) : VDP_VRAM_INDEX(a))
+#define VDP_VRAM_ADDRESS_A17(a17, i) ((a17) ? (((i) & 0x20000) | VDP_VRAM_ADDRESS((i) & 0x1ffff)) : VDP_VRAM_ADDRESS(i))
 
-/* 1 when that screen mode interleaves the two 64 kB banks of VRAM. */
-int vdpVramInterleaved(int mode);
-/* 1 when the two screen modes lay VRAM out the same way. */
-int vdpVramSameLayout(int mode, int other);
+/* A VRAM layout: the screen mode, LINEAR for SCREEN 7-12 in V9968 SP3 order, and A17
+** when the interleave also covers 0x20000-0x3FFFF. -1 without a VDP; equals the mode on
+** every VDP but the V9968. */
+#define VDP_LAYOUT_LINEAR  0x100
+#define VDP_LAYOUT_A17     0x200
+#define VDP_LAYOUT_MODE(l) ((l) < 0 ? (l) : (l) & 0xff)
+int vdpDebugGetVramLayout(void);
+
+/* 1 when that layout interleaves the two 64 kB banks of VRAM. */
+int vdpVramInterleaved(int layout);
+/* 1 when the two layouts put VRAM bytes at the same addresses. */
+int vdpVramSameLayout(int layout, int other);
 
 /* 1 when the two colour indices are drawn in exactly the same colour now (palette, backdrop for 0). */
 int vdpDebugColorsMatch(int first, int second);

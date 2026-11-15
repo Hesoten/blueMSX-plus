@@ -54,6 +54,7 @@
 #include "VideoManager.h"
 #include "FrameBuffer.h"
 #include "VDP.h"
+#include "VdpDebug.h"
 #include "RaceTest.h"
 #include <math.h>
 #include <string.h>
@@ -386,6 +387,7 @@ void emulatorCreateLocks(void)
     if (emuStateLock == NULL) {
         emuStateLock = archSemaphoreCreate(1);
     }
+    vdpRasterCreateLock();
 }
 
 /* With emuStateLock held: a step waiting for a change becomes a plain frame step. */
@@ -513,6 +515,25 @@ int emulatorResumeIfPaused(void)
     return 1;
 }
 
+/* Under the state lock, running or paused: arms a frame stop, or with change one on to the
+** first frame that differs from the picture (fromShown as frameBufferWatchShown takes it).
+** Leaving a pause sets *resumed. */
+static void armFrameStop(int change, int fromShown, int* resumed)
+{
+    if (change) {
+        frameStopChange = 1;
+        changeFrames = 0;
+        changeGaveUp = 0;
+        frameBufferWatchShown(1, fromShown);
+    }
+    frameStopReq = 1;
+    frameStopWait = 0;
+    if (emuState == EMU_PAUSED) {
+        writeHeld(EMU_RUNNING, 1);
+        *resumed = 1;
+    }
+}
+
 void emulatorRequestFrameStop(void)
 {
     int resumed = 0;
@@ -525,15 +546,8 @@ void emulatorRequestFrameStop(void)
     else if (frameStopChange) {
         disarmChange();
     }
-    else if (emuState == EMU_RUNNING) {
-        frameStopReq = 1;
-        frameStopWait = 0;
-    }
-    else if (emuState == EMU_PAUSED && !emuHoldSuspended) {
-        frameStopReq = 1;
-        frameStopWait = 0;
-        writeHeld(EMU_RUNNING, 1);
-        resumed = 1;
+    else if (emuState == EMU_RUNNING || (emuState == EMU_PAUSED && !emuHoldSuspended)) {
+        armFrameStop(0, 0, &resumed);
     }
     archSemaphoreSignal(emuStateLock);
 
@@ -565,22 +579,45 @@ void emulatorRequestChangeStop(void)
         fromShown = emuSuspendFlag ? 1 : 0;
     }
     if (fromShown >= 0) {
-        frameStopChange = 1;
-        changeFrames = 0;
-        changeGaveUp = 0;
-        frameBufferWatchShown(1, fromShown);
-        frameStopReq = 1;
-        frameStopWait = 0;
-        if (emuState == EMU_PAUSED) {
-            writeHeld(EMU_RUNNING, 1);
-            resumed = 1;
-        }
+        armFrameStop(1, fromShown, &resumed);
     }
     archSemaphoreSignal(emuStateLock);
 
     if (resumed) {
         debuggerNotifyEmulatorResume();
     }
+}
+
+int emulatorStartFrameStop(int change)
+{
+    int resumed = 0;
+    int fromShown = -1;
+
+    /* Paused a moment ago, the thread may still draw: once it stops, the picture on screen
+    ** can be the reference. */
+    if (change && emulatorGetState() == EMU_PAUSED) {
+        emulatorWaitParked(100);
+    }
+    dbgChangeBegin();
+    archSemaphoreWait(emuStateLock, -1);
+    if (backStep || frameStopReq || frameStopNow || holdFromPause || rwPauseReq) {
+        /* Another step or hold is under way: a request would end or toggle it. */
+    }
+    else if (emuState == EMU_RUNNING) {
+        fromShown = 0;
+    }
+    else if (emuState == EMU_PAUSED && !emuHoldSuspended) {
+        fromShown = emuSuspendFlag ? 1 : 0;
+    }
+    if (fromShown >= 0) {
+        armFrameStop(change, fromShown, &resumed);
+    }
+    archSemaphoreSignal(emuStateLock);
+
+    if (resumed) {
+        debuggerNotifyEmulatorResume();
+    }
+    return fromShown >= 0;
 }
 
 void emulatorRequestBackStep(int picture)

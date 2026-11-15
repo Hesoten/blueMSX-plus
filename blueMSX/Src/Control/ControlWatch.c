@@ -35,7 +35,7 @@ typedef struct {
     char   condition[4];
     Int64  value;
     char   printed[64];
-    int    vramMode;   /* the screen mode a VRAM watch was set in, -1 when not read */
+    int    vramMode;   /* the VRAM layout a VRAM watch was set in, -1 when not read */
 } KeptWatch;
 
 /* What this socket set, for listing: the engine's own list is freed from other threads
@@ -113,7 +113,7 @@ int ctrlWatchDescribeList(CtrlText* text)
     return listed;
 }
 
-/* For a stop at a VRAM watch set over this socket, the screen mode the first one covering
+/* For a stop at a VRAM watch set over this socket, the VRAM layout the first one covering
 ** the address hit was set in; else -1. */
 static int watchModeAtStop(const CtrlStop* stop)
 {
@@ -137,8 +137,8 @@ static int watchModeAtStop(const CtrlStop* stop)
     return -1;
 }
 
-/* A VRAM hit at the program's address in the mode of the write, with the chips' byte in an
-** interleaving mode, and a word when the agent's watch was set in the other layout. */
+/* A VRAM hit at the program's address in the VRAM layout of the write, with the chips' byte
+** in an interleaving layout, and a word when the agent's watch was set in the other layout. */
 static void describeVramWatchStop(CtrlText* text, const CtrlStop* stop, int setMode)
 {
     UInt32 address = (UInt32)debugDeviceVramAddress(stop->watchMode, (int)stop->watchAddress);

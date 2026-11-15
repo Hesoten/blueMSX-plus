@@ -88,7 +88,7 @@ void ctrlHuntAbandon(CtrlHunt* hunt);
 /* Bytes the hunt scans. */
 UInt32 ctrlHuntScannableSize(const CtrlHunt* hunt);
 
-/* The screen mode at the start, whose layout of video memory the hunt reads and names. */
+/* The VRAM layout at the start (vdpDebugGetVramLayout), which the hunt reads and names. */
 int ctrlHuntVramMode(const CtrlHunt* hunt);
 
 /* Non-zero when video memory was left out: that mode interleaves more than the VDP has. */

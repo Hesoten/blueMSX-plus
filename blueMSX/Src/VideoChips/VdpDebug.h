@@ -67,7 +67,7 @@ typedef struct {
     int    displayOffset;   /* line of framebuffer row 0 */
     int    field;           /* S#2 bit 1 during the frame */
     int    blinkFlag;       /* at the frame's first event; R#13 and line blink change it within */
-    int    beamLine;        /* lastLine and 0 once ended */
+    int    beamLine;        /* lastLine and 0 once ended (vdpDebugCaptureRaster: the beam's) */
     int    beamCycle;
     UInt8  startRegs[64];   /* R#0-31 as the frame began; ev turns it into the end, bar R#14-17 */
     int    count;           /* entries of ev that are filled, in the order noted */
@@ -96,7 +96,7 @@ typedef struct {
     UInt8  cmdRegs[32];     /* the engine's own, R#32 onwards: counters move as a command runs */
     UInt16 paletteReg[16];  /* G in bits 8-10, R in 4-6, B in 0-2 */
     UInt32 paletteRgb[16];  /* 0x00RRGGBB; the fixed colours on a TMS VDP; 5 bit ones EPAL wrote */
-    int    paletteExtCount; /* 256 while a V9968's EPAL makes the 256 colour modes read paletteExt, else 0 */
+    int    paletteExtCount; /* 256 while a V9968's EPAL (R#20 bit 4) is on, else 0 */
     UInt32 paletteExt[256]; /* 0x00RRGGBB on a V9968 (SP3 sprites read it either way), else 0 */
     UInt16 paletteExtReg[256]; /* EPAL's 5 bit R in bits 10-14, G in 5-9, B in 0-4 */
     /* How the display reads SCREEN 7-12 now. Interleaved on a 256K V9968,
@@ -104,6 +104,7 @@ typedef struct {
     int    interleaved;     /* odd bytes come from the other 64K bank */
     int    bitmapLinear;    /* V9968 SP3: laid out in address order instead */
     int    vramA17;         /* 0x20000 on a 256K V9968, else 0 */
+    int    vramLayout;      /* as vdpDebugGetVramLayout gives it, for debugDeviceVramIndex */
     /* The sprite scan of the frame that just ended (paused: the one in
     ** progress is taken to start the same way): plane at each step. */
     int    sprPlaneStart;
@@ -212,18 +213,25 @@ int vdpDebugIsCartridge(int index);
 /* The name vdpDebugCapture gives VDP number index, or NULL when there is none. */
 const char* vdpDebugName(int index);
 
-/* Copies VDP number index without syncing it or touching any latch, so call
-** it only on the emulator thread at a frame boundary or while it waits.
-** Returns 0 and clears valid when there is no such VDP. */
+/* Copies VDP number index without syncing it or touching any latch: on the emulator thread
+** at a frame boundary or while it waits, or under a debugger view, which parks it (raster
+** then empty). Returns 0 and clears valid when there is no such VDP. */
 int vdpDebugCapture(int index, VdpDebugState* out);
+
+/* The raster log of the machine's VDP under a debugger view, raster then being empty in
+** vdpDebugCapture. ended and the beam of [0] are the beam's, not the viewer's, which
+** *displayOver gets. Returns 0, with both not valid, when there is no machine VDP. */
+int vdpDebugCaptureRaster(VdpRasterFrame out[2], int* displayOver);
 
 /* Copies the picture of VDP number index, on the same terms; with pixels 0
 ** all but the samples. Returns 0 and clears valid when there is none. */
 int vdpDebugCaptureFrame(int index, VdpFrameShot* out, int pixels);
 
-/* Starts (on) or stops logging raster events of the machine's VDP; calls
-** nest. UI thread only. Each new start forgets what was logged before. */
-void vdpRasterArm(int on);
+/* Starts (on) or stops logging raster events of the machine's VDP; calls nest, and it
+** returns how many were armed before. Any thread. Each new start forgets what was logged. */
+int  vdpRasterArm(int on);
+/* Once, with the emulator's other locks, before any thread arms or captures the log. */
+void vdpRasterCreateLock(void);
 
 /* Nonzero while armed: the generation of the current start. */
 extern volatile int vdpRasterArmed;

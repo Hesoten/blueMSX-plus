@@ -47,11 +47,12 @@ const char* ctrlVramModeName(int mode)
     }
 }
 
-void ctrlVramModeShortName(char* out, int len, int mode)
+void ctrlVramModeShortName(char* out, int len, int layout)
 {
-    const char* name = ctrlVramModeName(mode);
+    const char* name = ctrlVramModeName(VDP_LAYOUT_MODE(layout));
 
-    snprintf(out, (size_t)len, "%.*s", (int)strcspn(name, ","), name);
+    snprintf(out, (size_t)len, "%.*s%s", (int)strcspn(name, ","), name,
+             layout >= 0 && (layout & VDP_LAYOUT_LINEAR) ? " (SP3, linear)" : "");
 }
 
 Int32 ctrlVramUnbacked(UInt32 address, UInt32 size, int vramMode)

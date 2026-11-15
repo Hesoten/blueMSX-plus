@@ -125,7 +125,7 @@ static void busCopy(UInt32 z80, UInt8* bytes, UInt32 size, int isWrite)
     }
 }
 
-/* Video memory from the vram: address at on, byte by byte as that screen mode lays it out. */
+/* Video memory from the vram: address at on, byte by byte as that VRAM layout puts it. */
 static void vramCopy(UInt8* vram, UInt32 at, UInt8* bytes, UInt32 size, int isWrite, int vramMode)
 {
     UInt32 i;
@@ -160,7 +160,7 @@ typedef struct {
 
 /* Where size bytes at addr are, from the layout alone. A write to read only is refused before
 ** its range; a slot paged out with no storage says nothing answers a read, paged out a write.
-** Video memory is checked in the screen mode vramMode, unless that is ANY_MODE. */
+** Video memory is checked in the VRAM layout vramMode, unless that is ANY_MODE. */
 static int locate(const CtrlAddr* addr, UInt32 size, int isWrite, int vramMode, Place* place)
 {
     CtrlAddrInfo info;
@@ -296,7 +296,7 @@ static int readMemory(CtrlView* view, const CtrlAddr* addr, UInt8* dst, UInt32 s
         return CTRL_MEM_DENIED;
     }
 
-    result = transfer(view, addr, dst, size, 0, vdpDebugGetScreenMode());
+    result = transfer(view, addr, dst, size, 0, vdpDebugGetVramLayout());
     if (result == CTRL_MEM_OK && logged) {
         placeForLog(addr, &where);
         ctrlActivityNoteAt(CTRL_ACT_READ, &where, size, NULL, CTRL_ACT_DONE);
@@ -322,7 +322,7 @@ typedef struct {
     CtrlAddr addr;         /* canonical: the storage, not the window onto it */
     UInt32   size;
     UInt32   generation;
-    int      vramMode;     /* the screen mode a vram: address was written in */
+    int      vramMode;     /* the VRAM layout a vram: address was written in */
     UInt8    bytes[JOURNAL_SPAN];
 } JournalEntry;
 
@@ -519,8 +519,8 @@ int ctrlMemWrite(CtrlView* view, const CtrlAddr* addr, const UInt8* src, UInt32 
     int      keeping;
     int      placed;
     int      peek = (int)(size < CTRL_ACT_PEEK ? size : CTRL_ACT_PEEK);
-    /* One mode for all three transfers, so the undo puts back the bytes this write replaces. */
-    int      vramMode = vdpDebugGetScreenMode();
+    /* One layout for all three transfers, so the undo puts back the bytes this write replaces. */
+    int      vramMode = vdpDebugGetVramLayout();
     int      result;
 
     /* Clear before any early return, or a refused write reports the last one's reason. */

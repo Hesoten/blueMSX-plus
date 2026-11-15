@@ -635,6 +635,20 @@ int dbgStep(void)
     return DBG_RESUME_OK;
 }
 
+int dbgFrameStep(int change)
+{
+    ActionRefusal refusal;
+
+    if (emulatorGetState() == EMU_STOPPED) {
+        return DBG_RESUME_NO_MACHINE;
+    }
+    refusal = change ? actionAdvanceToChangeRefusal() : actionFrameAdvanceRefusal();
+    if (refusal != ACTION_OK || (isAgentThread && dbgChangePending())) {
+        return DBG_RESUME_BUSY;
+    }
+    return emulatorStartFrameStop(change) ? DBG_RESUME_OK : DBG_RESUME_BUSY;
+}
+
 void dbgStepBack()
 {
     if (emulatorGetState() == EMU_PAUSED) {

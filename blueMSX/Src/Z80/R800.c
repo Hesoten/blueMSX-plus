@@ -6241,6 +6241,14 @@ void r800ClearNmi(R800* r800) {
     r800->nmiState = INT_HIGH;
 }
 
+int r800IntIsLow(R800* r800) {
+    return r800->intState == INT_LOW;
+}
+
+int r800NmiIsLow(R800* r800) {
+    return r800->nmiState == INT_LOW;
+}
+
 CpuMode r800GetMode(R800* r800) {
 	return r800->cpuMode;
 }

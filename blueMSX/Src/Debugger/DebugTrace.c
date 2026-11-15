@@ -24,6 +24,8 @@
 #include "ArchThread.h"
 #include <windows.h>
 #include <intrin.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -61,10 +63,11 @@ static const char* const reasonNames[] = { "start", "load", "reset", "stop", "ar
 static const DebugTraceField discontinuityFields[] = {
     { "reason", DEBUG_TRACE_WORD_A, 0, 32, DEBUG_TRACE_ENUM, 0, reasonNames, 6 },
     { "epoch",  DEBUG_TRACE_WORD_B, 0, 32, DEBUG_TRACE_DEC,  0, NULL, 0 },
+    { "resume", DEBUG_TRACE_WORD_LINK, 0, 1, DEBUG_TRACE_DEC, 0, NULL, 0 },
 };
 
 static const DebugTraceKindDesc coreKinds[] = {
-    { DEBUG_TRACE_KIND_DISCONTINUITY, "discontinuity", discontinuityFields, 2 },
+    { DEBUG_TRACE_KIND_DISCONTINUITY, "discontinuity", discontinuityFields, 3 },
 };
 
 static const DebugTraceClassDesc coreClass = { "core", coreKinds, 1 };
@@ -322,4 +325,116 @@ int debugTraceRead(UInt32 afterSeq, DebugTraceRecord* out, int max, UInt32* firs
     }
     *dropped = lost;
     return n;
+}
+
+/* Appends as _snprintf does, keeping out terminated and *length within size. */
+static void append(char* out, int size, int* length, const char* format, ...)
+{
+    va_list args;
+    int     written;
+
+    if (*length >= size - 1) {
+        return;
+    }
+    va_start(args, format);
+    written = _vsnprintf(out + *length, (size_t)(size - 1 - *length), format, args);
+    va_end(args);
+    *length = written < 0 ? size - 1 : *length + written;
+    out[*length] = 0;
+}
+
+static void formatField(const DebugTraceField* f, const DebugTraceRecord* rec,
+                        const DebugTraceRecord* cont, char* out, int size, int* length)
+{
+    UInt32 word;
+    UInt32 v;
+
+    switch (f->word) {
+    case DEBUG_TRACE_WORD_A:      word = rec->a;    break;
+    case DEBUG_TRACE_WORD_B:      word = rec->b;    break;
+    case DEBUG_TRACE_WORD_LINK:   word = rec->link; break;
+    case DEBUG_TRACE_WORD_CONT_A: word = cont->a;   break;
+    default:                      word = cont->b;   break;
+    }
+    if (f->shift >= 32 || f->width == 0) {
+        append(out, size, length, " %s=?", f->name);
+        return;
+    }
+    v = f->width >= 32 ? word >> f->shift : (word >> f->shift) & ((1u << f->width) - 1);
+    if (f->format == DEBUG_TRACE_HEX) {
+        append(out, size, length, " %s=0x%X", f->name, v);
+    }
+    else if (f->format == DEBUG_TRACE_SIGNED) {
+        UInt32 sign = 1u << (f->width >= 32 ? 31 : f->width - 1);
+
+        append(out, size, length, " %s=%d", f->name, (Int32)((v ^ sign) - sign));
+    }
+    else if (f->format == DEBUG_TRACE_ENUM && f->enumNames != NULL && v < (UInt32)f->enumCount) {
+        append(out, size, length, " %s=%s", f->name, f->enumNames[v]);
+    }
+    else {
+        append(out, size, length, " %s=%u", f->name, v);
+    }
+}
+
+static const DebugTraceKindDesc* kindOf(const DebugTraceClassDesc* desc, const DebugTraceRecord* rec)
+{
+    int i;
+
+    for (i = 0; desc != NULL && i < desc->kindCount; i++) {
+        if (desc->kinds[i].kind == (rec->kind & DEBUG_TRACE_KIND_MASK)) {
+            return &desc->kinds[i];
+        }
+    }
+    return NULL;
+}
+
+static int fieldInPhase(const DebugTraceField* f, const DebugTraceRecord* rec)
+{
+    return f->phases == 0 || (f->phases & (1 << ((rec->kind & DEBUG_TRACE_PHASE_MASK) >> 14))) != 0;
+}
+
+int debugTraceHasCont(const DebugTraceSource* src, const DebugTraceRecord* rec)
+{
+    const DebugTraceKindDesc* kind = kindOf(src->desc, rec);
+    int i;
+
+    for (i = 0; kind != NULL && i < kind->fieldCount; i++) {
+        if (kind->fields[i].word >= DEBUG_TRACE_WORD_CONT_A && fieldInPhase(&kind->fields[i], rec)) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int debugTraceFormat(const DebugTraceSource* src, const DebugTraceRecord* rec,
+                     const DebugTraceRecord* cont, char* out, int size)
+{
+    static const char* const phaseNames[] = { "", " begin", " end", " cont" };
+    const DebugTraceClassDesc* desc = src->desc;
+    const DebugTraceKindDesc*  kind = kindOf(desc, rec);
+    UInt16 phase = (UInt16)(rec->kind & DEBUG_TRACE_PHASE_MASK);
+    int    length = 0;
+    int    i;
+
+    if (size <= 0) {
+        return 0;
+    }
+    out[0] = 0;
+    if (kind == NULL) {
+        append(out, size, &length, "%s kind%u%s a=0x%X b=0x%X link=%u",
+               desc != NULL ? desc->name : "?", (unsigned)(rec->kind & DEBUG_TRACE_KIND_MASK),
+               phaseNames[phase >> 14], rec->a, rec->b, rec->link);
+        return length;
+    }
+    append(out, size, &length, "%s %s%s", desc->name, kind->name, phaseNames[phase >> 14]);
+    for (i = 0; i < kind->fieldCount; i++) {
+        const DebugTraceField* f = &kind->fields[i];
+
+        if (!fieldInPhase(f, rec) || (cont == NULL && f->word >= DEBUG_TRACE_WORD_CONT_A)) {
+            continue;
+        }
+        formatField(f, rec, cont, out, size, &length);
+    }
+    return length;
 }

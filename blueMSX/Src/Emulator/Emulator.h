@@ -120,6 +120,9 @@ int  emulatorFrameStopPending(void);
 ** request, stops it at the next frame end. */
 void emulatorRequestChangeStop(void);
 int  emulatorChangeStepArmed(void);
+/* For a tool: emulatorRequestFrameStop, or with change emulatorRequestChangeStop, but only
+** when no frame step, step back or hold is under way, which it leaves alone; 1 when started. */
+int  emulatorStartFrameStop(int change);
 /* Non-zero when the last step waiting for a change stopped without seeing one, until
 ** the machine runs again; the limit is in machine VDP frames. */
 int  emulatorChangeStepGaveUp(void);
