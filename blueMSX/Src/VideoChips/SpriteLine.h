@@ -686,6 +686,7 @@ int spritesLineMode3(VDP* vdp, int Y)
     int planeMaskHigh = (base >> 7) & 0x03;
     int visible = 0;
     int collisionX = -1;
+    int ring;
     int step;
     int i;
 
@@ -698,8 +699,8 @@ int spritesLineMode3(VDP* vdp, int Y)
     }
 
     /* The R#23 offset is added in eight bits, so the scan position wraps. */
-    line = vdpIsSpriteVScrollOff(vdp) ? (line & 0x3ff)
-                                      : ((line + vdpSpriteVScroll(vdp)) & 0xff);
+    ring = !vdpIsSpriteVScrollOff(vdp);
+    line = ring ? ((line + vdpSpriteVScroll(vdp)) & 0xff) : (line & 0x3ff);
 
     for (step = 0; step < 64; step++) {
         int plane  = vdpSpritePlane(vdp, step, 63);
@@ -724,7 +725,11 @@ int spritesLineMode3(VDP* vdp, int Y)
         x |= (b5 & 0x03) << 8;
         rows = 16 << (b1 >> 6);
 
-        dy = (line - y) & 0x3ff;
+        /* On the 256 line ring Y runs from -256 to 255; 256 to 767 is never shown. */
+        if (ring && (y >> 9) != ((y >> 8) & 1)) {
+            continue;
+        }
+        dy = (line - y) & (ring ? 0xff : 0x3ff);
         if (dy >= (mgy ? mgy : 256)) {
             continue;
         }

@@ -62,7 +62,10 @@ int sp3ScanLine(const Sp3Frame& f, int d)
 
 static int dyOf(const Sp3Frame& f, const Sp3Plane& p, int d)
 {
-    return (sp3ScanLine(f, d) - p.y) & 0x3ff;
+    if (f.svns) return (sp3ScanLine(f, d) - p.y) & 0x3ff;
+    /* On the 256 line ring Y runs from -256 to 255; 256 to 767 is never shown. */
+    if ((p.y >> 9) != ((p.y >> 8) & 1)) return 0x400;
+    return (sp3ScanLine(f, d) - p.y) & 0xff;
 }
 
 int sp3SourceRow(const Sp3Frame& f, int n, int d)
