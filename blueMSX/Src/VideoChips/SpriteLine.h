@@ -686,6 +686,8 @@ int spritesLineMode3(VDP* vdp, int Y)
     int planeMaskHigh = (base >> 7) & 0x03;
     int visible = 0;
     int collisionX = -1;
+    /* SCREEN 8 without EPAL keeps the fixed sixteen colours and ignores the palette set. */
+    Pixel* fixed = vdp->screenMode == 8 && !vdpIsExtPalette(vdp) ? vdp->paletteSprite8 : NULL;
     int ring;
     int step;
     int i;
@@ -785,7 +787,7 @@ int spritesLineMode3(VDP* vdp, int Y)
                 continue;
             }
 
-            vdp->render.sprM3Pixel[screenX]  = vdp->paletteExt[(set << 4) | colour];
+            vdp->render.sprM3Pixel[screenX]  = fixed ? fixed[colour] : vdp->paletteExt[(set << 4) | colour];
             vdp->render.sprM3Weight[screenX] = (UInt8)weight;
         }
     }

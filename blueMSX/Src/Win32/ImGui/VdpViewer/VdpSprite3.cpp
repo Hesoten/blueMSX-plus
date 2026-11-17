@@ -23,6 +23,7 @@
 #include <string.h>
 #include "VdpSprite3.h"
 #include "ToolText.h"
+#include "VdpSprite.h"
 
 /* Follows the renderer's mode 3 line scan. The display fetches sprites from
 ** VRAM in address order, never interleaved and never narrowed to 128K. */
@@ -52,6 +53,17 @@ int sp3LineState(const UInt8* frameRegs, int mode, const UInt8* lineRegs)
         (!(e[20] & 0x02) && r[23] != e[23]) ||
         ((r[25] ^ e[25]) & 0x80)) return SP3_LINE_DIFFERS;
     return SP3_LINE_SAME;
+}
+
+bool sp3FixedColours(const VdpDebugState* s)
+{
+    return s->screenMode == 8 && !(s->regs[20] & 0x10);
+}
+
+uint32_t sp3Rgba(const VdpDebugState* s, int ps, int c)
+{
+    if (sp3FixedColours(s)) return vdpScreen8SpriteRgba(c);
+    return vdpRgbToRgba(s->paletteExt[(ps << 4) | c]);
 }
 
 int sp3ScanLine(const Sp3Frame& f, int d)
@@ -248,7 +260,7 @@ void sp3RenderPlacement(const VdpDebugState* s, const Sp3Frame& f, uint32_t drop
                     if (((x ^ d) & 1) == 0 && dst[x] == 0) dst[x] = dropRgba;
                     continue;
                 }
-                uint32_t rgba = vdpRgbToRgba(s->paletteExt[(p.ps << 4) | c]);
+                uint32_t rgba = sp3Rgba(s, p.ps, c);
                 dst[x] = (rgba & 0x00ffffffu) | ((uint32_t)alpha[p.weight] << 24);
                 weight[x] = (uint8_t)p.weight;
             }
@@ -264,7 +276,7 @@ bool sp3RenderTile(const VdpDebugState* s, const Sp3Frame& f, int n, uint32_t* o
         int row = p.rvy ? p.rows - 1 - r : r;
         for (int x = 0; x < 16; x++) {
             int c = sp3PatternDot(s, f, p.page, p.pattern, row, p.rvx ? 15 - x : x);
-            out[(size_t)r * pitch + x] = c ? vdpRgbToRgba(s->paletteExt[(p.ps << 4) | c]) : 0;
+            out[(size_t)r * pitch + x] = c ? sp3Rgba(s, p.ps, c) : 0;
             any = any || c != 0;
         }
     }
@@ -278,7 +290,7 @@ void sp3RenderPage(const VdpDebugState* s, const Sp3Frame& f, int page, int ps, 
         int v = rd(s, base + i);
         for (int h = 0; h < 2; h++) {
             int c = h ? v & 15 : v >> 4;
-            out[i * 2 + h] = c ? vdpRgbToRgba(s->paletteExt[((ps & 15) << 4) | c]) : 0;
+            out[i * 2 + h] = c ? sp3Rgba(s, ps & 15, c) : 0;
         }
     }
 }

@@ -98,6 +98,8 @@ int  vdpSpriteSpan(const VdpSpriteFrame& f, int n, int row, int* w);
 bool vdpSpriteClear(const VdpDebugState* s, const VdpSpriteFrame& f, int code);
 /* The sprite drawn on top at a dot of a scroll line, those past the limit too; -1 for none. */
 int  vdpSpriteAt(const VdpSpriteFrame& f, int scrollLine, int dot);
+/* The fixed colour a SCREEN 8 sprite colour code takes without EPAL. */
+uint32_t vdpScreen8SpriteRgba(int code);
 /* A sprite colour code of palette set `set` (VdpSprite::set) as drawn with the 16 colours rgb
 ** (0x00RRGGBB) of its line, NULL: the snapshot's; a set other than 0 takes the extended palette's
 ** entry set * 16 + colour. SCREEN 8 has fixed colours unless EPAL, SCREEN 6 the even dot's. */
