@@ -173,6 +173,9 @@ static int vramAddr;
 #define vdpIsV9968Native(vdp)        (vdpIsV9968(vdp) && !((vdp)->vdpRegs[21] & 0x01))
 // R#28 bits 3-0: the bank the CPU port reaches, as an offset into vram.
 #define vdpCpuBank(vdp)              (vdpIsV9968(vdp) ? (((vdp)->vdpRegs[28] & 0x0f) << VRAM_BANK_SHIFT) : 0)
+// R#29 bits 3-0 and 7-4: the background and the sprite banks.
+#define vdpDispBank(vdp)             (vdpIsV9968(vdp) ? (((vdp)->vdpRegs[29] & 0x0f) << VRAM_BANK_SHIFT) : 0)
+#define vdpSprBank(vdp)              (vdpIsV9968(vdp) ? (((vdp)->vdpRegs[29] >> 4) << VRAM_BANK_SHIFT) : 0)
 // R#30 bits 3-0 and 7-4: the command source and destination banks.
 #define vdpCmdSrcBank(vdp)           (vdpIsV9968(vdp) ? (((vdp)->vdpRegs[30] & 0x0f) << VRAM_BANK_SHIFT) : 0)
 #define vdpCmdDstBank(vdp)           (vdpIsV9968(vdp) ? (((vdp)->vdpRegs[30] >> 4) << VRAM_BANK_SHIFT) : 0)
@@ -602,6 +605,9 @@ struct VDP {
     /* The renderers read on from a line start that can be the last page. */
     UInt8* vram;
     int    vramBanks;
+    /* Where R#29 puts the background and the sprites; vram off the V9968. */
+    UInt8* vramDisp;
+    UInt8* vramSpr;
 
     int deviceHandle;
     int debugHandle;
@@ -703,7 +709,7 @@ static UInt8* vdpSpriteVram(VDP* vdp, int addr)
     if (!vdpIsV9968(vdp)) {
         return MAP_VRAM(vdp, addr);
     }
-    return vdp->vram + ((vdpIsInterleaved(vdp) ? VDP_ILV(vdp, addr) : addr) & vdp->vramMask);
+    return vdp->vramSpr + ((vdpIsInterleaved(vdp) ? VDP_ILV(vdp, addr) : addr) & vdp->vramMask);
 }
 
 /* Where the n'th byte of a bitmap line sits and, returned, what one pair of
@@ -718,6 +724,10 @@ static int vdpBitmapBytes(VDP* vdp, int* ofs)
     }
     return pairStep;
 }
+
+/* A line set up again part way along keeps its column inside the line on the
+** V9968, so no read runs on into the next bank. */
+#define vdpScrollInLine(vdp, s, mask) (vdpIsV9968(vdp) ? (s) & (mask) : (s))
 
 #include "SpriteLine.h"
 #include "Common.h"
@@ -748,6 +758,8 @@ static void vdpUpdateVramMode(VDP* vdp)
     else if (vdpIsV9968(vdp)) {
         vdp->vramPtr    = vdp->vram + vdp->vramOffsets[(vdp->vdpRegs[0x2d] >> 6) & 1];
     }
+    vdp->vramDisp = vdp->vram + vdpDispBank(vdp);
+    vdp->vramSpr  = vdp->vram + vdpSprBank(vdp);
     vdpCmdSetVram256(vdp->cmdEngine, wide);
     vdpCmdSetBanks(vdp->cmdEngine, vdpCmdSrcBank(vdp), vdpCmdDstBank(vdp));
     vdpCmdSetExtCommands(vdp->cmdEngine, vdpIsV9968Native(vdp));
@@ -1775,6 +1787,14 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
         }
         break;
 
+    /* Not latched; the sprites take it from the next line they lay out. */
+    case 29:
+        if (vdpIsV9968(vdp)) {
+            vdp->vramDisp = vdp->vram + vdpDispBank(vdp);
+            vdp->vramSpr  = vdp->vram + vdpSprBank(vdp);
+        }
+        break;
+
     /* Not latched, so a command running moves to the new banks from now on. */
     case 30:
         if (vdpIsV9968(vdp)) {
@@ -2200,7 +2220,7 @@ static void digitize(VDP* vdp)
 #define videoDaGet(sm, x, y, pal, cnt) vdpDaDevice.callbacks.daRead(vdpDaDevice.ref, sm, x, y, pal, cnt)
 
     for (y = 0; y < 212; y++) {
-        UInt8* charTable = vdp->vram + (vdpBitmapBase(vdp) & (~vdpIsOddPage(vdp) << shift)
+        UInt8* charTable = vdp->vramDisp + (vdpBitmapBase(vdp) & (~vdpIsOddPage(vdp) << shift)
                                       & ((-1 << (shift + 8)) | ((y + vdpVScroll(vdp)) << shift)));
 
         switch (vdp->screenMode) {
@@ -3930,7 +3950,12 @@ static void sprTabRead(VDP* vdp, int sprMode, int a, UInt8* dst, int len)
     int i;
 
     if (sprMode == 1) {
-        memcpy(dst, vdp->vram + a, len);
+        memcpy(dst, vdp->vramSpr + a, len);
+    }
+    else if (vdpIsV9968(vdp)) {
+        for (i = 0; i < len; i++) {
+            dst[i] = *vdpSpriteVram(vdp, a + i);
+        }
     }
     else if (vdp->screenMode < 7 || vdp->screenMode > 12) {
         memcpy(dst, vdp->vramPtr + (a & vdp->vramAccMask), len);
@@ -4810,6 +4835,8 @@ static VDP* create(VdpConnector connector, VdpVersion version, VdpSyncMode sync,
 
     vdp->vramBanks = version == VDP_V9968 ? VRAM_BANKS_V9968 : 1;
     vdp->vram      = (UInt8*)calloc((size_t)VRAM_SIZE * vdp->vramBanks + 1024, 1);
+    vdp->vramDisp  = vdp->vram;
+    vdp->vramSpr   = vdp->vram;
 
     if (secondary == NULL) {
         theVdp = vdp;

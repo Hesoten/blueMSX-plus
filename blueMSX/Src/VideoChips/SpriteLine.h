@@ -108,7 +108,7 @@ UInt8* spritesLine(VDP* vdp, int line) {
         return vdp->render.lineBufs[bufIndex ^ 1];
     }
 
-    attribBase = &vdp->vram[vdp->sprTabBase & (-1 << 7)];
+    attribBase = &vdp->vramSpr[vdp->sprTabBase & (-1 << 7)];
     size   = vdpIsSprites16x16(vdp->vdpRegs) ? 16 : 8;
     scale  = vdpIsSpritesBig(vdp->vdpRegs) ? 2 : 1;
     solidColor = vdpIsColor0Solid(vdp->vdpRegs) ? 1 : 0;
@@ -204,7 +204,7 @@ UInt8* spritesLine(VDP* vdp, int line) {
         rawColor   = attrib[3] & 0x0f;
         /* Bit 0 marks the dot as painted so color 0 stays distinct from an empty line buffer. */
         color      = (rawColor << 1) | solidColor;
-        patternPtr = &vdp->vram[(vdp->sprGenBase & (-1 << 11)) + ((int)(attrib[2] & patternMask) << 3) + spriteLine[visibleCnt]];
+        patternPtr = &vdp->vramSpr[(vdp->sprGenBase & (-1 << 11)) + ((int)(attrib[2] & patternMask) << 3) + spriteLine[visibleCnt]];
 
         if (!solidColor && rawColor == 0) {
             if (!color0Collides) {
