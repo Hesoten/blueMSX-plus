@@ -2600,6 +2600,7 @@ static void RefreshLine8(VDP* vdp, int Y, int X, int X2)
         // Update vscroll if needed
         if (vscroll != vdpVScroll(vdp) || chrTabO != vdp->chrTabBase) {
             scroll = vdpHScroll(vdp) + X * 8;
+            page   = (vdp->chrTabBase / 0x8000) & 1;
             jump   = jumpTable + hScroll512 * 2;
             vscroll = vdpVScroll(vdp);
             chrTabO = vdp->chrTabBase;
@@ -2776,6 +2777,7 @@ rightBorder = X2 == 33;
         if (vscroll != vdpVScroll(vdp) || chrTabO != vdp->chrTabBase) {
             hscroll = vdpHScroll(vdp);
             scroll = (hscroll & ~3) + X * 8;
+            page   = (vdp->chrTabBase / 0x8000) & 1;
             jump   = jumpTable + hScroll512 * 2;
             vscroll = vdpVScroll(vdp);
             chrTabO  = vdp->chrTabBase;
@@ -2978,6 +2980,7 @@ static void RefreshLine12(VDP* vdp, int Y, int X, int X2)
         if (vscroll != vdpVScroll(vdp) || chrTabO != vdp->chrTabBase) {
             hscroll = vdpHScroll(vdp);
             scroll = (hscroll & ~3) + X * 8;
+            page   = (vdp->chrTabBase / 0x8000) & 1;
             jump   = jumpTable + hScroll512 * 2;
             vscroll = vdpVScroll(vdp);
             chrTabO  = vdp->chrTabBase;
