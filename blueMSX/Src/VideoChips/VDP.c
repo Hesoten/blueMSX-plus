@@ -144,6 +144,9 @@ void vdpUnregisterDaConverter(int vdpDaHandle)
 #define HPERIOD      1368
 
 #define VRAM_SIZE (256 * 1024)
+/* The V9968 repeats its 256kB sixteen times; a bank number sits above A17. */
+#define VRAM_BANKS_V9968 16
+#define VRAM_BANK_SHIFT  18
 /* What a state holds of every VDP but the V9968, as before the V9968. */
 #define VRAM_STATE_SIZE (192 * 1024)
 
@@ -592,7 +595,8 @@ struct VDP {
     int vramOffsets[2];
     int vramMasks[4];
     /* The renderers read on from a line start that can be the last page. */
-    UInt8  vram[VRAM_SIZE + 1024];
+    UInt8* vram;
+    int    vramBanks;
 
     int deviceHandle;
     int debugHandle;
@@ -2848,6 +2852,19 @@ static void loadState(VDP* vdp)
 #else
 
 
+static int vramBankUsed(VDP* vdp, int bank)
+{
+    const UInt32* p = (const UInt32*)(vdp->vram + ((size_t)bank << VRAM_BANK_SHIFT));
+    int i;
+
+    for (i = 0; i < VRAM_SIZE / 4; i++) {
+        if (p[i] != 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 static void saveState(VDP* vdp)
 {
     SaveState* state = saveStateOpenForWrite(vdp->stateName);
@@ -2940,6 +2957,13 @@ static void saveState(VDP* vdp)
     saveStateSetBuffer(state, "paletteExtReg", vdp->paletteExtReg, sizeof(vdp->paletteExtReg));
 
     saveStateSetBuffer(state, "vram", vdp->vram, vdpIsV9968(vdp) ? VRAM_SIZE : VRAM_STATE_SIZE);
+    /* Bank 0 keeps the old tag; a bank holding only zeros is left out. */
+    for (i = 1; i < vdp->vramBanks; i++) {
+        if (vramBankUsed(vdp, i)) {
+            sprintf(tag, "vramBank%d", i);
+            saveStateSetBuffer(state, tag, vdp->vram + ((size_t)i << VRAM_BANK_SHIFT), VRAM_SIZE);
+        }
+    }
 
     saveStateClose(state);
 
@@ -3076,6 +3100,11 @@ static void loadState(VDP* vdp)
     }
 
     saveStateGetBuffer(state, "vram", vdp->vram, vdpIsV9968(vdp) ? VRAM_SIZE : VRAM_STATE_SIZE);
+    for (i = 1; i < vdp->vramBanks; i++) {
+        memset(vdp->vram + ((size_t)i << VRAM_BANK_SHIFT), 0, VRAM_SIZE);
+        sprintf(tag, "vramBank%d", i);
+        saveStateGetBuffer(state, tag, vdp->vram + ((size_t)i << VRAM_BANK_SHIFT), VRAM_SIZE);
+    }
 
     saveStateClose(state);
 
@@ -3634,7 +3663,7 @@ int vdpDebugCapture(int index, VdpDebugState* out)
     /* A 16K VDP is created with 64K the renderer and engine can reach, so
     ** copy up to vramMask too; nothing past that is ever written. */
     vramBytes = MAX(vdp->vramSize, vdp->vramMask + 1);
-    vramBytes = MIN(vramBytes, (int)MIN(sizeof(out->vram), sizeof(vdp->vram)));
+    vramBytes = MIN(vramBytes, (int)MIN(sizeof(out->vram), VRAM_SIZE));
     memcpy(out->vram, vdp->vram, vramBytes);
     memset(out->vram + vramBytes, 0, sizeof(out->vram) - vramBytes);
     /* Other threads read the raster log with vdpDebugCaptureRaster, under a view. */
@@ -4364,7 +4393,7 @@ static void getDebugInfo(VDP* vdp, DbgDevice* dbgDevice)
 
     sync(vdp, boardSystemTime());
 
-    dbgDeviceAddMemoryBlock(dbgDevice, langDbgMemVram(), 0, 0, vdp->vramSize, vdp->vram);
+    dbgDeviceAddMemoryBlock(dbgDevice, langDbgMemVram(), 0, 0, vdp->vramSize * vdp->vramBanks, vdp->vram);
 
     dbgRegisterLayout(vdp, &regCount, &cmdRegCount, &paletteCount, &statusRegCount);
 
@@ -4455,7 +4484,7 @@ static void getDebugInfo(VDP* vdp, DbgDevice* dbgDevice)
 
 static int dbgWriteMemory(VDP* vdp, char* name, void* data, int start, int size)
 {
-    if (strcmp(name, "VRAM") || start + size > vdp->vramSize) {
+    if (strcmp(name, "VRAM") || start + size > vdp->vramSize * vdp->vramBanks) {
         return 0;
     }
 
@@ -4713,6 +4742,7 @@ static void destroy(VDP* vdp)
 
     frameBufferDataDestroy(vdp->frameBuffer);
 
+    free(vdp->vram);
     free(vdp);
 }
 
@@ -4740,6 +4770,9 @@ static VDP* create(VdpConnector connector, VdpVersion version, VdpSyncMode sync,
     int i;
 
     VDP* vdp = (VDP*)calloc(1, sizeof(VDP));
+
+    vdp->vramBanks = version == VDP_V9968 ? VRAM_BANKS_V9968 : 1;
+    vdp->vram      = (UInt8*)calloc((size_t)VRAM_SIZE * vdp->vramBanks + 1024, 1);
 
     if (secondary == NULL) {
         theVdp = vdp;
@@ -4835,8 +4868,7 @@ static VDP* create(VdpConnector connector, VdpVersion version, VdpSyncMode sync,
         vdp->palValue = 0x00;
     }
 
-    memset(vdp->vram, 0, sizeof(vdp->vram));
-    vdp->cmdEngine = vdpCmdCreate(vramSize, vdp->vram, boardSystemTime());
+    vdp->cmdEngine = vdpCmdCreate(vramSize * vdp->vramBanks, vdp->vram, boardSystemTime());
     vdpCmdSetExpansionWindow(vdp->cmdEngine, version != VDP_V9968);
     vdpCmdSetV9968(vdp->cmdEngine, version == VDP_V9968);
     if (secondary != NULL) {
