@@ -256,6 +256,8 @@ public:
         shell::wantSpriteTables();
         shell::wantFrame(false);
         if (v < 0 || v >= n) return;
+        int tab = bankTab(d[v].key);
+        if (tab >= 0 && s->banks > 1) shell::wantBank(bankPin[tab] >= 0 ? bankPin[tab] : bankSelector(tab));
         if (strcmp(d[v].key, "screen") == 0) {
             /* The pages go under the Screen's card as high as the splitter
             ** says, whatever they hold; the card takes the rest. */
@@ -370,22 +372,32 @@ public:
         }
     }
 
+    /* The bank R#29 puts a table of kind (VdpRangeKind) in: the sprites' in its high nibble. */
+    static int tableBank(const VdpDebugState* s, const UInt8* regs, int kind)
+    {
+        if (s->banks <= 1) return 0;
+        bool spr = kind == VDP_RANGE_SPRITE_ATTR || kind == VDP_RANGE_SPRITE_PATTERN || kind == VDP_RANGE_SPRITE_COLOR;
+        return spr ? regs[29] >> 4 : regs[29] & 0x0f;
+    }
+
     /* The tables a layout reads, as lanes of physical addresses. */
+
     static int laneRanges(const VdpDebugState* s, const VdpLayout& l, VramLane* out, int max, int band)
     {
         VdpRange r[8];
         int n = vdpTableRanges(s, l, r), k = 0;
         for (int i = 0; i < n; i++) {
+            int bank = tableBank(s, l.regs, r[i].kind);
             if (interleaved(s, l.mode)) {
                 /* Even bytes in the low 64K, odd ones from vram128, within each 128K on a 256K V9968. */
                 UInt32 len = (UInt32)r[i].len / 2, cap = (UInt32)r[i].cap / 2;
                 UInt32 a = (UInt32)vdpPhysicalAddress(s, l.mode, r[i].addr & ~1);
                 UInt32 b = (UInt32)vdpPhysicalAddress(s, l.mode, r[i].addr | 1);
-                if (k < max) out[k++] = VramLane{ a, len, r[i].kind, r[i].name, NULL, band + 1, cap };
-                if (k < max) out[k++] = VramLane{ b, len, r[i].kind, r[i].name, NULL, band + 1, cap };
+                if (k < max) out[k++] = VramLane{ a, len, r[i].kind, r[i].name, NULL, band + 1, cap, bank };
+                if (k < max) out[k++] = VramLane{ b, len, r[i].kind, r[i].name, NULL, band + 1, cap, bank };
             }
             else if (k < max) {
-                out[k++] = VramLane{ (UInt32)r[i].addr, (UInt32)r[i].len, r[i].kind, r[i].name, NULL, band + 1, (UInt32)r[i].cap };
+                out[k++] = VramLane{ (UInt32)r[i].addr, (UInt32)r[i].len, r[i].kind, r[i].name, NULL, band + 1, (UInt32)r[i].cap, bank };
             }
         }
         return k;
@@ -458,7 +470,7 @@ public:
                 for (int i = 0; i < n; i++) {
                     int j = 0;
                     while (j < k && !(out[j].addr == mine[i].addr && out[j].series == mine[i].series &&
-                                      out[j].name == mine[i].name && out[j].cap == mine[i].cap)) j++;
+                                      out[j].name == mine[i].name && out[j].cap == mine[i].cap && out[j].bank == mine[i].bank)) j++;
                     if (j < k && out[j].len < mine[i].len) out[j].len = mine[i].len;
                     if (j == k) {
                         if (k == max) continue;
@@ -479,6 +491,35 @@ public:
             else if (out[i].addr + out[i].len > size) out[i].len = size - out[i].addr;
         }
         return k;
+    }
+
+    int mapBankRows(const void* st, MapBankRow* out, int max) const override
+    {
+        const VdpDebugState* s = (const VdpDebugState*)st;
+        if (s->banks <= 1) return 0;
+        int n = 0;
+        for (int b = 0; b < s->banks && b < VdpBankStore::BANKS && n < max; b++) {
+            bool empty = banks.empty(b) && b != s->vramBank;
+            if (empty && n > 0 && out[n - 1].empty && out[n - 1].last == b - 1) out[n - 1].last = b;
+            else out[n++] = MapBankRow{ b, b, empty };
+        }
+        return n;
+    }
+
+    int shownBank(const void* st) const override
+    {
+        return ((const VdpDebugState*)st)->vramBank;
+    }
+
+    const float* bankHeat(int bank) const override
+    {
+        return bank >= 0 && bank < VdpBankStore::BANKS && banks.known(bank) ? banks.heat(bank) : NULL;
+    }
+
+    void mapPickBank(const void* st, int bank) override
+    {
+        const VdpDebugState* s = (const VdpDebugState*)st;
+        bankPin[TAB_VRAM] = bank == bankFollowed(s, TAB_VRAM) ? -1 : bank;
     }
 
     UInt32 vramSize(const void* st) const override
@@ -521,6 +562,7 @@ public:
     {
         banks.forget();
         bankThumbs.forget();
+        for (int& p : bankPin) p = -1;
         outPic.forget();
         sheetPic.forget();
         namePic.forget();
@@ -617,6 +659,37 @@ private:
     ui::CanvasState sheetCv, vramCv, bitmapCv;
     VdpBankStore    banks;
     VdpBankThumbs   bankThumbs;
+    /* Tabs that show one VRAM bank, each following a register or pinned to a bank (-1 follows). */
+    enum { TAB_PATTERNS, TAB_BITMAP, TAB_SPRITES, TAB_GEO3D, TAB_VRAM, BANK_TABS };
+    int             bankPin[BANK_TABS] = { -1, -1, -1, -1, -1 };
+
+    /* The tab a view key shows a bank in, or -1 for the Screen, which shows the background bank. */
+    static int bankTab(const char* key)
+    {
+        static const char* const keys[BANK_TABS] = { "patterns", "bitmap", "sprites", "geo3d", "vram" };
+        for (int i = 0; i < BANK_TABS; i++) {
+            if (strcmp(key, keys[i]) == 0) return i;
+        }
+        return -1;
+    }
+
+    /* What a tab follows: the background bank, the sprites', the command's destination, or the CPU's. */
+    static int bankSelector(int tab)
+    {
+        return tab == TAB_SPRITES ? VDP_BANK_SPR : tab == TAB_GEO3D ? VDP_BANK_DST : tab == TAB_VRAM ? VDP_BANK_CPU : VDP_BANK_BG;
+    }
+
+    /* The bank a tab's register points at now. */
+    static int bankFollowed(const VdpDebugState* s, int tab)
+    {
+        const UInt8* r = s->regs;
+        switch (bankSelector(tab)) {
+        case VDP_BANK_SPR: return r[29] >> 4;
+        case VDP_BANK_DST: return r[30] >> 4;
+        case VDP_BANK_CPU: return r[28] & 0x0f;
+        }
+        return r[29] & 0x0f;
+    }
 
     /* The Patterns tab: the screen the name table builds beside the pattern generator, one
     ** picture; parts in image px, sdx image px a sheet dot across (2 beside T80's names). */
@@ -5781,6 +5854,7 @@ private:
             int n;
             const VramLane* lanes = shell::mapLanes(&n);
             for (int i = 0; i < n; i++) {
+                if (lanes[i].bank != self->ovState->vramBank) continue;
                 ImU32 col = t.series[lanes[i].series % 6];
                 char lab[192];
                 if (lanes[i].where) textf(lab, sizeof(lab), "%s \xC2\xB7 %s", lanes[i].name, lanes[i].where);
@@ -6307,7 +6381,7 @@ private:
             /* Of the tables holding it, the narrowest: a fourth pattern block runs over the name table,
             ** and a bitmap page holds the sprite tables. */
             for (int i = 0; i < n; i++) {
-                if (phys < lanes[i].addr || phys >= lanes[i].addr + lanes[i].len) continue;
+                if (phys < lanes[i].addr || phys >= lanes[i].addr + lanes[i].len || lanes[i].bank != s->vramBank) continue;
                 if (at < 0 || lanes[i].len < lanes[at].len) at = i;
             }
             if (at >= 0 && lanes[at].where) textf(caption, sizeof(caption), "%s \xC2\xB7 %s", lanes[at].name, lanes[at].where);

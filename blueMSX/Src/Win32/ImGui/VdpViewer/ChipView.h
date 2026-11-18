@@ -35,8 +35,10 @@ struct ViewDesc { const char* key; const char* label; const char* glyph; const u
 struct CardDesc { const char* key; const char* title; bool shown; bool expander; const char* summary; bool noHold = false; };
 /* A table or area of VRAM, in physical addresses; series picks its colour, cap the most len gets
 ** in its mode. where names the lines that read it when bands differ; band is 1 + the first of
-** them, or 0 when the frame has one layout. */
-struct VramLane { UInt32 addr, len; int series; const char* name; const char* where; int band; UInt32 cap; };
+** them, or 0 when the frame has one layout. bank: the VRAM bank it is in, where there are banks. */
+struct VramLane { UInt32 addr, len; int series; const char* name; const char* where; int band; UInt32 cap; int bank; };
+/* A row of the VRAM map of a chip whose VRAM is in banks: bank first, or a run of empty ones to last. */
+struct MapBankRow { int first, last; bool empty; };
 
 enum FocusSpace { FOCUS_PHYS, FOCUS_LOGICAL };
 /* On a V99x8, a tile or pixel in FOCUS_PHYS is picked by its line's band:
@@ -74,6 +76,14 @@ public:
     virtual int    vramLanes(const void* st, VramLane* out, int max) const = 0;
     virtual UInt32 vramSize(const void* st) const = 0;
     virtual UInt32 toPhysical(const void* st, int space, UInt32 a) const = 0;
+    /* The map's rows while the VRAM is in banks; 0 for one row of lanes over the whole VRAM. */
+    virtual int    mapBankRows(const void* st, MapBankRow* out, int max) const { (void)st; (void)out; (void)max; return 0; }
+    /* The bank vram holds, which the views draw from. */
+    virtual int    shownBank(const void* st) const { (void)st; return 0; }
+    /* How lately each 256 byte block of the bank was written, 1 just now; NULL: not known. */
+    virtual const float* bankHeat(int bank) const { (void)bank; return NULL; }
+    /* A click on the bank's row: the VRAM tab shows that bank. */
+    virtual void   mapPickBank(const void* st, int bank) { (void)st; (void)bank; }
     /* True while the chip knows how the frame's lines split into bands. */
     virtual bool   bandsKnown(const void* st) const { (void)st; return false; }
     /* Esc (key true) or a click beside a picture (false): let go of what the view keeps
