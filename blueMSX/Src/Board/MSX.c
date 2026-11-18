@@ -241,12 +241,14 @@ static void loadState()
 
     saveStateClose(state);
 
+    r800DebugTrackPages(0);
     r800LoadState(r800);
     boardInit(&r800->systemTime);
 
     deviceManagerLoadState();
     slotLoadState();
     rtcLoadState(rtc);
+    r800DebugTrackPages(1);
 }
 
 static UInt8 testPort(void* dummy, UInt16 ioPort)
@@ -309,6 +311,7 @@ int msxCreate(Machine* machine,
     slotManagerCreate();
 
     r800DebugCreate(r800);
+    r800DebugTrackPages(1);
     
 	ioPortRegister(0x2e, testPort, NULL, NULL);
 

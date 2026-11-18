@@ -122,10 +122,12 @@ static void dasmHeader(CtrlText* text, const CtrlAddr* at, const CtrlAddrInfo* i
     ctrlTextAdd(text, "\n address          z80     bytes        instruction\n");
 }
 
-/* One listing row for the instruction at cursor; its length, or 0 when the bytes in
-** window end before it does (the row then shows those bytes only). */
+/* One listing row for the instruction at cursor, led by mark; its length, or 0 when the
+** bytes in window end before it does (the row then shows those bytes only). nearest names
+** an unlabelled row by the symbol before it. */
 static int dasmRow(CtrlText* text, const CtrlAddr* cursor, int segmentSize, Int32 z80,
-                   const UInt8* window, int readable, DasmSymbols* context, Int32 pc)
+                   const UInt8* window, int readable, DasmSymbols* context, char mark,
+                   int nearest)
 {
     char   printed[48];
     char   mnemonic[R800_DASM_TEXT_MAX];
@@ -143,7 +145,7 @@ static int dasmRow(CtrlText* text, const CtrlAddr* cursor, int segmentSize, Int3
     length = r800DasmBuf(window, readable, context->origin,
                          dasmSymbol, context, mnemonic, sizeof(mnemonic));
 
-    ctrlTextAdd(text, "%c%-16s ", pc >= 0 && z80 == pc ? '>' : ' ', printed);
+    ctrlTextAdd(text, "%c%-16s ", mark, printed);
     if (z80 >= 0) {
         ctrlTextAdd(text, "0x%04X  ", z80);
     }
@@ -189,6 +191,16 @@ static int dasmRow(CtrlText* text, const CtrlAddr* cursor, int segmentSize, Int3
         }
         else if (also != NULL) {
             ctrlTextAdd(text, "  (also %s)", also);
+        }
+    }
+    else if (nearest && z80 >= 0) {
+        CtrlSymNear near;
+
+        if (ctrlSymNearest(&context->home, (UInt16)z80, &near)) {
+            ctrlTextAdd(text, "  ; %s", near.name);
+            if (near.offset > 0) {
+                ctrlTextAdd(text, "+0x%X", near.offset);
+            }
         }
     }
     ctrlTextAdd(text, "\n");
@@ -313,7 +325,8 @@ static void dasmSlotListing(CtrlText* text, CtrlView* view, CtrlAddr cursor,
             break;
         }
 
-        length = dasmRow(text, &cursor, here.segmentSize, z80, window, readable, context, pc);
+        length = dasmRow(text, &cursor, here.segmentSize, z80, window, readable, context,
+                         pc >= 0 && z80 == pc ? '>' : ' ', 0);
         if (length == 0) {
             dasmSegmentEndNote(text, &cursor, info);
             break;
@@ -349,6 +362,25 @@ static int readAsZ80(CtrlView* view, UInt32 z80, UInt8* out, int size)
     return 1;
 }
 
+/* One row at a Z80 address through whatever the Z80 sees there now: its length, 0 when it
+** runs past 0xFFFF, or -1 when it could not be read (said in the row). */
+static int dasmZ80Row(CtrlText* text, CtrlView* view, UInt32 z80, const CtrlAddrInfo* here,
+                      DasmSymbols* context, char mark, int nearest)
+{
+    UInt8 window[R800_DASM_MAX_LEN];
+    char  printed[48];
+    int   readable = 0x10000 - z80 < R800_DASM_MAX_LEN ? (int)(0x10000 - z80)
+                                                       : R800_DASM_MAX_LEN;
+
+    if (!readAsZ80(view, z80, window, readable)) {
+        printShort(&here->canonical, printed, sizeof(printed));
+        ctrlTextAdd(text, "%c-- %s could not be read\n", mark, printed);
+        return -1;
+    }
+    return dasmRow(text, &here->canonical, here->segmentSize, (Int32)z80, window, readable,
+                   context, mark, nearest);
+}
+
 /* A listing by Z80 address reads on through whatever the Z80 sees at the next one. */
 static void dasmZ80Listing(CtrlText* text, CtrlView* view, UInt32 z80, int count, Int32 pc,
                            DasmSymbols* context)
@@ -358,9 +390,7 @@ static void dasmZ80Listing(CtrlText* text, CtrlView* view, UInt32 z80, int count
     for (i = 0; i < count && !ctrlTextIsFull(text); i++) {
         CtrlAddr     at;
         CtrlAddrInfo here;
-        UInt8        window[R800_DASM_MAX_LEN];
         char         printed[48];
-        int          readable;
         int          length;
 
         if (z80 > 0xffff) {
@@ -386,14 +416,11 @@ static void dasmZ80Listing(CtrlText* text, CtrlView* view, UInt32 z80, int count
             context->home.segment = here.canonical.segment;
         }
 
-        readable = 0x10000 - z80 < R800_DASM_MAX_LEN ? (int)(0x10000 - z80) : R800_DASM_MAX_LEN;
-        if (!readAsZ80(view, z80, window, readable)) {
-            ctrlTextAdd(text, " -- %s could not be read\n", printed);
+        length = dasmZ80Row(text, view, z80, &here, context,
+                            pc >= 0 && (Int32)z80 == pc ? '>' : ' ', 0);
+        if (length < 0) {
             break;
         }
-
-        length = dasmRow(text, &here.canonical, here.segmentSize, (Int32)z80, window, readable,
-                         context, pc);
         if (length == 0) {
             ctrlTextAdd(text, " -- the instruction at 0x%04X runs past 0xFFFF\n", (unsigned)z80);
             break;
@@ -424,4 +451,25 @@ void ctrlDasmList(CtrlText* text, CtrlView* view, const CtrlAddr* at, int count,
     else {
         dasmSlotListing(text, view, info.canonical, &info, count, pc, &context);
     }
+}
+
+int ctrlDasmLine(CtrlText* text, CtrlView* view, UInt16 z80, char mark)
+{
+    CtrlAddr     at;
+    CtrlAddrInfo here;
+    DasmSymbols  context;
+    int          length;
+
+    memset(&at, 0, sizeof(at));
+    at.space  = CTRL_SPACE_CPU;
+    at.offset = z80;
+    if (!ctrlAddrResolve(&at, &here)) {
+        ctrlTextAdd(text, "%c-- 0x%04X is not an address on this machine\n", mark, z80);
+        return 0;
+    }
+    context.home.slot    = here.canonical.slot;
+    context.home.subSlot = here.canonical.subSlot;
+    context.home.segment = here.canonical.segment;
+    length = dasmZ80Row(text, view, z80, &here, &context, mark, 1);
+    return length > 0 ? length : 0;
 }

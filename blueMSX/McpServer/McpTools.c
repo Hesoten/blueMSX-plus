@@ -155,11 +155,17 @@ const McpTool mcpTools[] = {
     "stack memory above SP, innermost first, each with where it sits, the slot and "
     "segment paged in there and the nearest symbol. A return address on its own "
     "means little on a bank switched program, where 0x4140 is in thirty-two "
-    "places at once.",
+    "places at once. With history, also the last instructions the CPU ran, oldest "
+    "first, disassembled as memory reads now, with loops folded; '?' marks a line "
+    "whose memory was switched while or after it ran.",
     SCHEMA("\"properties\":{"
            "\"count\":{\"type\":\"integer\",\"default\":" CTRL_STR(CTRL_STACK_COUNT_DEFAULT)
            ",\"minimum\":" CTRL_STR(CTRL_STACK_COUNT_MIN) ","
-           "\"maximum\":" CTRL_STR(CTRL_STACK_COUNT_MAX) "}}"),
+           "\"maximum\":" CTRL_STR(CTRL_STACK_COUNT_MAX) "},"
+           "\"history\":{\"type\":\"integer\",\"default\":"
+           CTRL_STR(CTRL_STACK_HISTORY_DEFAULT) ",\"minimum\":"
+           CTRL_STR(CTRL_STACK_HISTORY_MIN) ",\"maximum\":" CTRL_STR(CTRL_STACK_HISTORY_MAX) ","
+           "\"description\":\"how many of the last instructions run to list; 0 lists none\"}}"),
     READ_ONLY,
     "stack",
     NULL

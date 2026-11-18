@@ -66,6 +66,9 @@
 #define CTRL_STACK_COUNT_DEFAULT          16
 #define CTRL_STACK_COUNT_MIN              1
 #define CTRL_STACK_COUNT_MAX              64
+#define CTRL_STACK_HISTORY_DEFAULT        0
+#define CTRL_STACK_HISTORY_MIN            0
+#define CTRL_STACK_HISTORY_MAX            256
 #define CTRL_UNDO_COUNT_DEFAULT           1
 #define CTRL_UNDO_COUNT_MIN               1
 #define CTRL_UNDO_COUNT_MAX               32

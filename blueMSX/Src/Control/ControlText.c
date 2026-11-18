@@ -84,6 +84,13 @@ CtrlTextMark ctrlTextMark(const CtrlText* text)
     return mark;
 }
 
+void ctrlTextSetAt(CtrlText* text, CtrlTextMark mark, char c)
+{
+    if (mark.length < text->length) {
+        text->data[mark.length] = c;
+    }
+}
+
 void ctrlTextCut(CtrlText* text, CtrlTextMark mark)
 {
     text->length            = mark.length;

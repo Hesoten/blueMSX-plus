@@ -45,6 +45,8 @@ typedef struct {
 CtrlTextMark ctrlTextMark(const CtrlText* text);
 /* Drops what came after the mark, leaving the text as it was there, full or not. */
 void ctrlTextCut(CtrlText* text, CtrlTextMark mark);
+/* Replaces the first character added after the mark, if one was. */
+void ctrlTextSetAt(CtrlText* text, CtrlTextMark mark, char c);
 
 /* The value of a hex digit, 0-15, or -1 when c is none. */
 int  ctrlTextHexDigit(int c);

@@ -64,6 +64,11 @@ void slotSetRamSlot(int slot, int psl);
 int slotGetRamSlot(int page);
 void slotMapRamPage(int slot, int sslot, int page);
 
+/* Called when what the CPU reads in an 8kB page (0..7) changes: another slot, other
+** memory, or a reported segment switch. NULL to stop. */
+typedef void (*SlotPageMappedCb)(int page);
+void slotSetPageMappedCb(SlotPageMappedCb cb);
+
 /* Memory wait class of an 8kB page of a slot, in the R800's terms. The
  * array holds the classes of the 8 pages the CPU currently sees. */
 void slotSetWaitClass(int slot, int sslot, int page, UInt8 waitCls);

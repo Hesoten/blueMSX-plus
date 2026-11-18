@@ -78,7 +78,7 @@ static const CtrlArg runArgs[] = {
     { "how", CTRL_ARG_TEXT, 15 }, { "count", CTRL_ARG_INT, 0 }, { NULL }
 };
 static const CtrlArg stackArgs[] = {
-    { "count", CTRL_ARG_INT, 0 }, { NULL }
+    { "count", CTRL_ARG_INT, 0 }, { "history", CTRL_ARG_INT, 0 }, { NULL }
 };
 static const CtrlArg runUntilArgs[] = {
     { "timeout_ms", CTRL_ARG_INT, 0 }, { "pause_at_timeout", CTRL_ARG_BOOL, 0 }, { NULL }
@@ -189,7 +189,7 @@ static const CtrlOp opTable[] = {
       "  run          how = pause|resume|step|step_over|step_out|frame|change, count\n" },
     { "stack",             CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpStack, OP_ARGS(stackArgs),
       CTRL_ACT_DENIED,
-      "  stack        count\n" },
+      "  stack        count, history  (history: the last N instructions run)\n" },
     { "run.until",         CTRL_OP_CHANGES, CTRL_OP_SELF, ctrlOpRunUntil, OP_ARGS(runUntilArgs),
       CTRL_ACT_RUN_UNTIL_STOP,
       "  run.until    timeout_ms, pause_at_timeout\n" },
