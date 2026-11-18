@@ -144,7 +144,7 @@ void vdpUnregisterDaConverter(int vdpDaHandle)
 #define HPERIOD      1368
 
 #define VRAM_SIZE (256 * 1024)
-/* The V9968 repeats its 256kB sixteen times; a bank number sits above A17. */
+/* The V9968 has sixteen 256kB banks; a bank number sits above A17. */
 #define VRAM_BANKS_V9968 16
 #define VRAM_BANK_SHIFT  18
 /* What a state holds of every VDP but the V9968, as before the V9968. */
@@ -602,7 +602,6 @@ struct VDP {
     int    vramAccMask;
     int vramOffsets[2];
     int vramMasks[4];
-    /* The renderers read on from a line start that can be the last page. */
     UInt8* vram;
     int    vramBanks;
     /* Banks that may hold a nonzero byte; the debugger marks its own word. */
@@ -3026,7 +3025,7 @@ static void saveState(VDP* vdp)
     saveStateSetBuffer(state, "paletteExtReg", vdp->paletteExtReg, sizeof(vdp->paletteExtReg));
 
     saveStateSetBuffer(state, "vram", vdp->vram, vdpIsV9968(vdp) ? VRAM_SIZE : VRAM_STATE_SIZE);
-    /* Bank 0 keeps the old tag; a bank holding only zeros is left out. */
+    /* Bank 0 keeps the tag every VDP uses; a bank holding only zeros is left out. */
     for (i = 1; i < vdp->vramBanks; i++) {
         if (((vdp->vramBanksUsed | vdp->vramBanksDbg) >> i & 1) && vramBankUsed(vdp, i)) {
             sprintf(tag, "vramBank%d", i);
@@ -4859,6 +4858,7 @@ static VDP* create(VdpConnector connector, VdpVersion version, VdpSyncMode sync,
     VDP* vdp = (VDP*)calloc(1, sizeof(VDP));
 
     vdp->vramBanks = version == VDP_V9968 ? VRAM_BANKS_V9968 : 1;
+    /* Spare bytes: the renderers read on from a line start that can be the last page. */
     vdp->vram      = (UInt8*)calloc((size_t)VRAM_SIZE * vdp->vramBanks + 1024, 1);
     vdp->vramDisp  = vdp->vram;
     vdp->vramSpr   = vdp->vram;
