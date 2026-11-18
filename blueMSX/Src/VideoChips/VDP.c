@@ -144,7 +144,7 @@ void vdpUnregisterDaConverter(int vdpDaHandle)
 #define HPERIOD      1368
 
 #define VRAM_SIZE (256 * 1024)
-/* The V9968 repeats its 256kB sixteen times; a bank number sits above A17. */
+/* The V9968 has sixteen 256kB banks; a bank number sits above A17. */
 #define VRAM_BANKS_V9968 16
 #define VRAM_BANK_SHIFT  18
 /* What a state holds of every VDP but the V9968, as before the V9968. */
@@ -602,9 +602,11 @@ struct VDP {
     int    vramAccMask;
     int vramOffsets[2];
     int vramMasks[4];
-    /* The renderers read on from a line start that can be the last page. */
     UInt8* vram;
     int    vramBanks;
+    /* Banks that may hold a nonzero byte; the debugger marks its own word. */
+    UInt32 vramBanksUsed;
+    UInt32 vramBanksDbg;
     /* Where R#29 puts the background and the sprites; vram off the V9968. */
     UInt8* vramDisp;
     UInt8* vramSpr;
@@ -742,6 +744,14 @@ int vdpDebugSpriteM3Sample(int offset, int magnify, int sizeShift)
 static void digitize(VDP* vdp);
 static void updateOutputMode(VDP* vdp);
 
+/* The engine writes only to its destination bank, so marking it here covers
+** every command. */
+static void vdpUpdateCmdBanks(VDP* vdp)
+{
+    vdp->vramBanksUsed |= 1u << (vdpCmdDstBank(vdp) >> VRAM_BANK_SHIFT);
+    vdpCmdSetBanks(vdp->cmdEngine, vdpCmdSrcBank(vdp), vdpCmdDstBank(vdp));
+}
+
 /* R#21 bit0 clear is what opens the second 128kB to the CPU port and the
 ** command engine. */
 static void vdpUpdateVramMode(VDP* vdp)
@@ -761,7 +771,7 @@ static void vdpUpdateVramMode(VDP* vdp)
     vdp->vramDisp = vdp->vram + vdpDispBank(vdp);
     vdp->vramSpr  = vdp->vram + vdpSprBank(vdp);
     vdpCmdSetVram256(vdp->cmdEngine, wide);
-    vdpCmdSetBanks(vdp->cmdEngine, vdpCmdSrcBank(vdp), vdpCmdDstBank(vdp));
+    vdpUpdateCmdBanks(vdp);
     vdpCmdSetExtCommands(vdp->cmdEngine, vdpIsV9968Native(vdp));
     vdpCmdSetInterleave(vdp->cmdEngine, vdpIsInterleaved(vdp));
     vdpCmdSetSlotLoad(vdp->cmdEngine, vdpCmdSlotLoad(vdp));
@@ -1799,7 +1809,7 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
     case 30:
         if (vdpIsV9968(vdp)) {
             vdpCmdExecute(vdp->cmdEngine, boardSystemTime());
-            vdpCmdSetBanks(vdp->cmdEngine, vdpCmdSrcBank(vdp), vdpCmdDstBank(vdp));
+            vdpUpdateCmdBanks(vdp);
         }
         break;
 
@@ -2096,6 +2106,7 @@ static void write(VDP* vdp, UInt16 ioPort, UInt8 value)
         if (!(index & ~vdp->vramAccMask)) {
             index += vdpCpuBank(vdp);
             vdp->vram[index] = value;
+            vdp->vramBanksUsed |= 1u << (index >> VRAM_BANK_SHIFT);
 
             if (!vdp->secondary) {
                 tryWatchpoint(DBGTYPE_VIDEO, index, value, vdp, peekVram);
@@ -3014,9 +3025,9 @@ static void saveState(VDP* vdp)
     saveStateSetBuffer(state, "paletteExtReg", vdp->paletteExtReg, sizeof(vdp->paletteExtReg));
 
     saveStateSetBuffer(state, "vram", vdp->vram, vdpIsV9968(vdp) ? VRAM_SIZE : VRAM_STATE_SIZE);
-    /* Bank 0 keeps the old tag; a bank holding only zeros is left out. */
+    /* Bank 0 keeps the tag every VDP uses; a bank holding only zeros is left out. */
     for (i = 1; i < vdp->vramBanks; i++) {
-        if (vramBankUsed(vdp, i)) {
+        if (((vdp->vramBanksUsed | vdp->vramBanksDbg) >> i & 1) && vramBankUsed(vdp, i)) {
             sprintf(tag, "vramBank%d", i);
             saveStateSetBuffer(state, tag, vdp->vram + ((size_t)i << VRAM_BANK_SHIFT), VRAM_SIZE);
         }
@@ -3161,6 +3172,14 @@ static void loadState(VDP* vdp)
         memset(vdp->vram + ((size_t)i << VRAM_BANK_SHIFT), 0, VRAM_SIZE);
         sprintf(tag, "vramBank%d", i);
         saveStateGetBuffer(state, tag, vdp->vram + ((size_t)i << VRAM_BANK_SHIFT), VRAM_SIZE);
+    }
+    /* Before vdpUpdateVramMode, which marks the command bank again. */
+    vdp->vramBanksUsed = 1;
+    vdp->vramBanksDbg  = 0;
+    for (i = 1; i < vdp->vramBanks; i++) {
+        if (vramBankUsed(vdp, i)) {
+            vdp->vramBanksUsed |= 1u << i;
+        }
     }
 
     saveStateClose(state);
@@ -4546,10 +4565,15 @@ static void getDebugInfo(VDP* vdp, DbgDevice* dbgDevice)
 
 static int dbgWriteMemory(VDP* vdp, char* name, void* data, int start, int size)
 {
-    if (strcmp(name, "VRAM") || start + size > vdp->vramSize * vdp->vramBanks) {
+    int bank;
+
+    if (strcmp(name, "VRAM") || start < 0 || size < 0 || size > vdp->vramSize * vdp->vramBanks - start) {
         return 0;
     }
 
+    for (bank = start >> VRAM_BANK_SHIFT; bank < (start + size + VRAM_SIZE - 1) >> VRAM_BANK_SHIFT; bank++) {
+        vdp->vramBanksDbg |= 1u << bank;
+    }
     memcpy(vdp->vram + start, data, size);
 
     return 1;
@@ -4834,6 +4858,7 @@ static VDP* create(VdpConnector connector, VdpVersion version, VdpSyncMode sync,
     VDP* vdp = (VDP*)calloc(1, sizeof(VDP));
 
     vdp->vramBanks = version == VDP_V9968 ? VRAM_BANKS_V9968 : 1;
+    /* Spare bytes: the renderers read on from a line start that can be the last page. */
     vdp->vram      = (UInt8*)calloc((size_t)VRAM_SIZE * vdp->vramBanks + 1024, 1);
     vdp->vramDisp  = vdp->vram;
     vdp->vramSpr   = vdp->vram;
