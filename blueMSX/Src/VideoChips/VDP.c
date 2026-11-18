@@ -173,6 +173,9 @@ static int vramAddr;
 #define vdpIsV9968Native(vdp)        (vdpIsV9968(vdp) && !((vdp)->vdpRegs[21] & 0x01))
 // R#28 bits 3-0: the bank the CPU port reaches, as an offset into vram.
 #define vdpCpuBank(vdp)              (vdpIsV9968(vdp) ? (((vdp)->vdpRegs[28] & 0x0f) << VRAM_BANK_SHIFT) : 0)
+// R#30 bits 3-0 and 7-4: the command source and destination banks.
+#define vdpCmdSrcBank(vdp)           (vdpIsV9968(vdp) ? (((vdp)->vdpRegs[30] & 0x0f) << VRAM_BANK_SHIFT) : 0)
+#define vdpCmdDstBank(vdp)           (vdpIsV9968(vdp) ? (((vdp)->vdpRegs[30] >> 4) << VRAM_BANK_SHIFT) : 0)
 // R#20 bit1 SVNS and bit2 ILNS take the sprites and the line interrupt off
 // the R#23 vertical offset; bit7 S16 raises the sprites per line to sixteen.
 #define vdpIsSpriteVScrollOff(vdp)   (((vdp)->vdpRegs[20] & 0x02) && vdpIsV9968(vdp))
@@ -746,6 +749,7 @@ static void vdpUpdateVramMode(VDP* vdp)
         vdp->vramPtr    = vdp->vram + vdp->vramOffsets[(vdp->vdpRegs[0x2d] >> 6) & 1];
     }
     vdpCmdSetVram256(vdp->cmdEngine, wide);
+    vdpCmdSetBanks(vdp->cmdEngine, vdpCmdSrcBank(vdp), vdpCmdDstBank(vdp));
     vdpCmdSetExtCommands(vdp->cmdEngine, vdpIsV9968Native(vdp));
     vdpCmdSetInterleave(vdp->cmdEngine, vdpIsInterleaved(vdp));
     vdpCmdSetSlotLoad(vdp->cmdEngine, vdpCmdSlotLoad(vdp));
@@ -1745,6 +1749,10 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
         break;
 
     case 21:
+        /* A command running reaches here on its old banks before they clear. */
+        if ((value & 0x01) && vdpIsV9968(vdp) && vdp->vdpRegs[30] != 0) {
+            vdpCmdExecute(vdp->cmdEngine, boardSystemTime());
+        }
         /* S#1 bits 5-1 are the id, bit0 is FH and must survive. */
         if ((change & 0x01) && vdpIsV9968(vdp)) {
             vdp->vdpStatus[1] = (vdp->vdpStatus[1] & ~0x3e) | (vdpIsV9968Native(vdp) ? 0x06 : 0x04);
@@ -1764,6 +1772,14 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
     case 28:
         if (vdpIsV9968(vdp)) {
             vdpUpdateVramMode(vdp);
+        }
+        break;
+
+    /* Not latched, so a command running moves to the new banks from now on. */
+    case 30:
+        if (vdpIsV9968(vdp)) {
+            vdpCmdExecute(vdp->cmdEngine, boardSystemTime());
+            vdpCmdSetBanks(vdp->cmdEngine, vdpCmdSrcBank(vdp), vdpCmdDstBank(vdp));
         }
         break;
 
