@@ -97,7 +97,7 @@ See [`blueMSX/changes.txt`](blueMSX/changes.txt) for the full change history.
 1. Download the release archive from [Releases](https://github.com/Hesoten/blueMSX-plus/releases)
    - Normally take the 64-bit archive (`x64`); download the `Win32` archive if you need the 32-bit build
 2. Extract the archive anywhere you like
-3. (Optional) If you own real MSX hardware and want to run its BIOS, place the BIOS ROM file(s) into the matching machine's folder under `Machines/` (use the filenames listed in that machine's `config.ini`)
+3. (Optional) If you own real MSX hardware and want to run its BIOS, place the BIOS ROM file(s) into the matching machine's folder under `Machines/` (see the next section for details)
 4. Launch `blueMSX+.exe` from inside the extracted folder
 
 
@@ -106,6 +106,19 @@ See [`blueMSX/changes.txt`](blueMSX/changes.txt) for the full change history.
 If you already have a blueMSX or older blueMSX+ folder whose settings you want to keep, copy the release archive contents over that folder **preserving the directory layout** and launch `blueMSX+.exe`.
 
 Note: launching `blueMSX+.exe` upgrades the existing blueMSX configuration files (`*.ini`) to the blueMSX+ format. The original `blueMSX.exe` in the same folder may no longer start or operate correctly afterwards.
+
+
+## Dumping BIOS ROMs from real hardware
+
+To use blueMSX+ with a machine-accurate BIOS set, you need to dump the machine-specific ROMs (main BIOS, SUB ROM, kanji ROM, DISK ROM, built-in firmware, etc.) from real hardware. Here is the general workflow.
+
+1. **Prepare a file-transfer path between the PC and the MSX**: a floppy disk (a 3-mode FDD on the PC), an SD card (a cartridge such as [MegaFlashROM SCC+ SD](https://www.msxcartridgeshop.com)) or Wi-Fi (a cartridge such as [ESERAMair](https://github.com/t-bucchi/ESERAMair)).
+2. **Dump the ROMs listed in the `[Slots]` section of `Machines/<target machine>/config.ini`.** For example:
+   - **BIOSDUMP**: in `Tools/BIOSDUMP/` of the release archive. See `README.txt` in the same folder for how to use it.
+   - **[Tinyslotchecker](https://tiny-yarou.com/slotchecker.html)** (by tiny-yarou): save each slot's ROM one at a time, following the slot numbers in `config.ini`.
+3. **Rename the ROMs to match `config.ini`, put them in `Machines/<target machine>/`, and pick that machine from `Options` → `Properties` → `Machine`.**
+
+> **Legal note**: BIOS ROMs are copyrighted works of the respective manufacturers. **Only dump ROMs from hardware you personally own, and only for your own personal use.** Do not distribute, share, or upload the dumped ROM files.
 
 
 ## Recommended settings

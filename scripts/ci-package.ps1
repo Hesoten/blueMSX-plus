@@ -1,6 +1,7 @@
 # Assemble a blueMSX+ distribution zip from MSBuild outputs.
 # Ships the main executable plus the TraceWindow / Trainer / SimpleDebugger
-# plugins and the bluemsx-mcp.exe MCP server with its guide. DeviceViewer is intentionally excluded.
+# plugins, the bluemsx-mcp.exe MCP server with its guide and the BIOSDUMP.COM
+# BIOS dumper. DeviceViewer is intentionally excluded.
 #
 # The entire blueMSX/ReleaseFiles/ tree is included so the zip is
 # self-contained: end users no longer need to install upstream blueMSX
@@ -65,6 +66,13 @@ try {
         $text = Get-Content -Raw -Encoding UTF8 (Join-Path $repo "blueMSX/McpServer/README$lang.md")
         $text = $text.Replace('(README.ja.md)', '(bluemsx-mcp.ja.md)').Replace('(README.md)', '(bluemsx-mcp.md)')
         [IO.File]::WriteAllText((Join-Path $tools "bluemsx-mcp$lang.md"), $text)
+    }
+
+    # The MSX-side BIOS dumper; named one by one so stray test files never ship.
+    $dumper = Join-Path $tools 'BIOSDUMP'
+    New-Item -ItemType Directory -Force -Path $dumper | Out-Null
+    foreach ($f in @('BIOSDUMP.COM', 'BIOSDUMP.ASM', 'README.txt', 'README.ja.txt', 'build.ps1', 'join.ps1', 'join.bat')) {
+        Copy-Item (Join-Path $repo "scripts/BIOSDUMP/$f") $dumper
     }
 
     $outDir = Split-Path -Parent $OutZip

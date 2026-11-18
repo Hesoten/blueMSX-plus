@@ -1,0 +1,7 @@
+# Built MSX-DOS program - keep the bytes exactly as assembled
+*.COM binary
+
+# Windows scripts and the Japanese README - keep CRLF
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+*.txt text eol=crlf
