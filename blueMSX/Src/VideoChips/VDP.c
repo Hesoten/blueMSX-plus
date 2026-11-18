@@ -144,6 +144,9 @@ void vdpUnregisterDaConverter(int vdpDaHandle)
 #define HPERIOD      1368
 
 #define VRAM_SIZE (256 * 1024)
+/* The V9968 repeats its 256kB sixteen times; a bank number sits above A17. */
+#define VRAM_BANKS_V9968 16
+#define VRAM_BANK_SHIFT  18
 /* What a state holds of every VDP but the V9968, as before the V9968. */
 #define VRAM_STATE_SIZE (192 * 1024)
 
@@ -168,6 +171,14 @@ static int vramAddr;
 #define vdpIsV9968(vdp)              ((vdp)->vdpVersion == VDP_V9968)
 // R#21 bit0 V58: set means behave as a V9958, clear means as a V9968.
 #define vdpIsV9968Native(vdp)        (vdpIsV9968(vdp) && !((vdp)->vdpRegs[21] & 0x01))
+// R#28 bits 3-0: the bank the CPU port reaches, as an offset into vram.
+#define vdpCpuBank(vdp)              (vdpIsV9968(vdp) ? (((vdp)->vdpRegs[28] & 0x0f) << VRAM_BANK_SHIFT) : 0)
+// R#29 bits 3-0 and 7-4: the background and the sprite banks.
+#define vdpDispBank(vdp)             (vdpIsV9968(vdp) ? (((vdp)->vdpRegs[29] & 0x0f) << VRAM_BANK_SHIFT) : 0)
+#define vdpSprBank(vdp)              (vdpIsV9968(vdp) ? (((vdp)->vdpRegs[29] >> 4) << VRAM_BANK_SHIFT) : 0)
+// R#30 bits 3-0 and 7-4: the command source and destination banks.
+#define vdpCmdSrcBank(vdp)           (vdpIsV9968(vdp) ? (((vdp)->vdpRegs[30] & 0x0f) << VRAM_BANK_SHIFT) : 0)
+#define vdpCmdDstBank(vdp)           (vdpIsV9968(vdp) ? (((vdp)->vdpRegs[30] >> 4) << VRAM_BANK_SHIFT) : 0)
 // R#20 bit1 SVNS and bit2 ILNS take the sprites and the line interrupt off
 // the R#23 vertical offset; bit7 S16 raises the sprites per line to sixteen.
 #define vdpIsSpriteVScrollOff(vdp)   (((vdp)->vdpRegs[20] & 0x02) && vdpIsV9968(vdp))
@@ -229,13 +240,13 @@ static const UInt8 registerValueMaskMSX2p[64] = {
 };
 
 /* The V9958 mask, widened for the 8 bit R#16 index, the R#20 mode bits, the
-** R#25 sprite shuffle and the A17 the table bases gain: R#2 bit7, R#4 and R#6
-** bit6, R#10 bit3, R#11 bit2. */
+** R#25 sprite shuffle, the R#28-R#30 VRAM banks and the A17 the table bases
+** gain: R#2 bit7, R#4 and R#6 bit6, R#10 bit3, R#11 bit2. */
 static const UInt8 registerValueMaskV9968[64] = {
 	0x7e, 0x7f, 0xff, 0xff, 0x7f, 0xff, 0x7f, 0xff,
 	0xfb, 0xbf, 0x0f, 0x07, 0xff, 0xff, 0x0f, 0x0f,
 	0xff, 0xbf, 0xff, 0xff, 0xff, 0x3f, 0x3f, 0xff,
-    0x00, 0xff, 0x3f, 0x07, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0xff, 0x3f, 0x07, 0x0f, 0xff, 0xff, 0x00,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -592,7 +603,11 @@ struct VDP {
     int vramOffsets[2];
     int vramMasks[4];
     /* The renderers read on from a line start that can be the last page. */
-    UInt8  vram[VRAM_SIZE + 1024];
+    UInt8* vram;
+    int    vramBanks;
+    /* Where R#29 puts the background and the sprites; vram off the V9968. */
+    UInt8* vramDisp;
+    UInt8* vramSpr;
 
     int deviceHandle;
     int debugHandle;
@@ -694,7 +709,7 @@ static UInt8* vdpSpriteVram(VDP* vdp, int addr)
     if (!vdpIsV9968(vdp)) {
         return MAP_VRAM(vdp, addr);
     }
-    return vdp->vram + ((vdpIsInterleaved(vdp) ? VDP_ILV(vdp, addr) : addr) & vdp->vramMask);
+    return vdp->vramSpr + ((vdpIsInterleaved(vdp) ? VDP_ILV(vdp, addr) : addr) & vdp->vramMask);
 }
 
 /* Where the n'th byte of a bitmap line sits and, returned, what one pair of
@@ -709,6 +724,10 @@ static int vdpBitmapBytes(VDP* vdp, int* ofs)
     }
     return pairStep;
 }
+
+/* A line set up again part way along keeps its column inside the line on the
+** V9968, so no read runs on into the next bank. */
+#define vdpScrollInLine(vdp, s, mask) (vdpIsV9968(vdp) ? (s) & (mask) : (s))
 
 #include "SpriteLine.h"
 #include "Common.h"
@@ -733,10 +752,16 @@ static void vdpUpdateVramMode(VDP* vdp)
     vdp->vramAccMask = wide ? vdp->vramMask
                             : vdp->vramMasks[((vdp->vdpRegs[8] & 0x08) >> 2) | ((vdp->vdpRegs[0x2d] >> 6) & 1)];
     if (wide) {
-        vdp->vramPtr    = vdp->vram;
+        vdp->vramPtr    = vdp->vram + vdpCpuBank(vdp);
         vdp->vramEnable = 1;
     }
+    else if (vdpIsV9968(vdp)) {
+        vdp->vramPtr    = vdp->vram + vdp->vramOffsets[(vdp->vdpRegs[0x2d] >> 6) & 1];
+    }
+    vdp->vramDisp = vdp->vram + vdpDispBank(vdp);
+    vdp->vramSpr  = vdp->vram + vdpSprBank(vdp);
     vdpCmdSetVram256(vdp->cmdEngine, wide);
+    vdpCmdSetBanks(vdp->cmdEngine, vdpCmdSrcBank(vdp), vdpCmdDstBank(vdp));
     vdpCmdSetExtCommands(vdp->cmdEngine, vdpIsV9968Native(vdp));
     vdpCmdSetInterleave(vdp->cmdEngine, vdpIsInterleaved(vdp));
     vdpCmdSetSlotLoad(vdp->cmdEngine, vdpCmdSlotLoad(vdp));
@@ -1522,6 +1547,10 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
     if (vdpIsV9968(vdp) && vdp->extRegsLocked && (reg == 20 || reg == 21)) {
         return;
     }
+    /* The bank registers load only while V58 is clear and P#4 is unlocked. */
+    if (vdpIsV9968(vdp) && reg >= 28 && reg <= 30 && (vdp->extRegsLocked || !vdpIsV9968Native(vdp))) {
+        return;
+    }
     /* SPS only loads while V58 is clear and P#4 is unlocked; the other R#25 bits always do. */
     if (reg == 25 && vdpIsV9968(vdp) && (vdp->extRegsLocked || !vdpIsV9968Native(vdp))) {
         value = (value & 0x7f) | (vdp->vdpRegs[25] & 0x80);
@@ -1732,6 +1761,10 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
         break;
 
     case 21:
+        /* A command running reaches here on its old banks before they clear. */
+        if ((value & 0x01) && vdpIsV9968(vdp) && vdp->vdpRegs[30] != 0) {
+            vdpCmdExecute(vdp->cmdEngine, boardSystemTime());
+        }
         /* S#1 bits 5-1 are the id, bit0 is FH and must survive. */
         if ((change & 0x01) && vdpIsV9968(vdp)) {
             vdp->vdpStatus[1] = (vdp->vdpStatus[1] & ~0x3e) | (vdpIsV9968Native(vdp) ? 0x06 : 0x04);
@@ -1740,6 +1773,33 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
         /* Every write of V58 = 1 does this, not only the change to it. */
         if ((value & 0x01) && vdpIsV9968(vdp)) {
             clearTableBaseA17(vdp);
+            vdp->vdpRegs[28] = 0;
+            vdp->vdpRegs[29] = 0;
+            vdp->vdpRegs[30] = 0;
+            vdpUpdateVramMode(vdp);
+        }
+        break;
+
+    /* A byte already fetched ahead is not fetched again from the new bank. */
+    case 28:
+        if (vdpIsV9968(vdp)) {
+            vdpUpdateVramMode(vdp);
+        }
+        break;
+
+    /* Not latched; the sprites take it from the next line they lay out. */
+    case 29:
+        if (vdpIsV9968(vdp)) {
+            vdp->vramDisp = vdp->vram + vdpDispBank(vdp);
+            vdp->vramSpr  = vdp->vram + vdpSprBank(vdp);
+        }
+        break;
+
+    /* Not latched, so a command running moves to the new banks from now on. */
+    case 30:
+        if (vdpIsV9968(vdp)) {
+            vdpCmdExecute(vdp->cmdEngine, boardSystemTime());
+            vdpCmdSetBanks(vdp->cmdEngine, vdpCmdSrcBank(vdp), vdpCmdDstBank(vdp));
         }
         break;
 
@@ -2034,6 +2094,7 @@ static void write(VDP* vdp, UInt16 ioPort, UInt8 value)
     if (vdp->vramEnable) {
         int index = MAP_VRAMINDEX(vdp, (vdp->vdpRegs[14] << 14) | vdp->vramAddress);
         if (!(index & ~vdp->vramAccMask)) {
+            index += vdpCpuBank(vdp);
             vdp->vram[index] = value;
 
             if (!vdp->secondary) {
@@ -2159,7 +2220,7 @@ static void digitize(VDP* vdp)
 #define videoDaGet(sm, x, y, pal, cnt) vdpDaDevice.callbacks.daRead(vdpDaDevice.ref, sm, x, y, pal, cnt)
 
     for (y = 0; y < 212; y++) {
-        UInt8* charTable = vdp->vram + (vdpBitmapBase(vdp) & (~vdpIsOddPage(vdp) << shift)
+        UInt8* charTable = vdp->vramDisp + (vdpBitmapBase(vdp) & (~vdpIsOddPage(vdp) << shift)
                                       & ((-1 << (shift + 8)) | ((y + vdpVScroll(vdp)) << shift)));
 
         switch (vdp->screenMode) {
@@ -2848,6 +2909,19 @@ static void loadState(VDP* vdp)
 #else
 
 
+static int vramBankUsed(VDP* vdp, int bank)
+{
+    const UInt32* p = (const UInt32*)(vdp->vram + ((size_t)bank << VRAM_BANK_SHIFT));
+    int i;
+
+    for (i = 0; i < VRAM_SIZE / 4; i++) {
+        if (p[i] != 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 static void saveState(VDP* vdp)
 {
     SaveState* state = saveStateOpenForWrite(vdp->stateName);
@@ -2940,6 +3014,13 @@ static void saveState(VDP* vdp)
     saveStateSetBuffer(state, "paletteExtReg", vdp->paletteExtReg, sizeof(vdp->paletteExtReg));
 
     saveStateSetBuffer(state, "vram", vdp->vram, vdpIsV9968(vdp) ? VRAM_SIZE : VRAM_STATE_SIZE);
+    /* Bank 0 keeps the old tag; a bank holding only zeros is left out. */
+    for (i = 1; i < vdp->vramBanks; i++) {
+        if (vramBankUsed(vdp, i)) {
+            sprintf(tag, "vramBank%d", i);
+            saveStateSetBuffer(state, tag, vdp->vram + ((size_t)i << VRAM_BANK_SHIFT), VRAM_SIZE);
+        }
+    }
 
     saveStateClose(state);
 
@@ -3076,6 +3157,11 @@ static void loadState(VDP* vdp)
     }
 
     saveStateGetBuffer(state, "vram", vdp->vram, vdpIsV9968(vdp) ? VRAM_SIZE : VRAM_STATE_SIZE);
+    for (i = 1; i < vdp->vramBanks; i++) {
+        memset(vdp->vram + ((size_t)i << VRAM_BANK_SHIFT), 0, VRAM_SIZE);
+        sprintf(tag, "vramBank%d", i);
+        saveStateGetBuffer(state, tag, vdp->vram + ((size_t)i << VRAM_BANK_SHIFT), VRAM_SIZE);
+    }
 
     saveStateClose(state);
 
@@ -3634,7 +3720,7 @@ int vdpDebugCapture(int index, VdpDebugState* out)
     /* A 16K VDP is created with 64K the renderer and engine can reach, so
     ** copy up to vramMask too; nothing past that is ever written. */
     vramBytes = MAX(vdp->vramSize, vdp->vramMask + 1);
-    vramBytes = MIN(vramBytes, (int)MIN(sizeof(out->vram), sizeof(vdp->vram)));
+    vramBytes = MIN(vramBytes, (int)MIN(sizeof(out->vram), VRAM_SIZE));
     memcpy(out->vram, vdp->vram, vramBytes);
     memset(out->vram + vramBytes, 0, sizeof(out->vram) - vramBytes);
     /* Other threads read the raster log with vdpDebugCaptureRaster, under a view. */
@@ -3864,7 +3950,12 @@ static void sprTabRead(VDP* vdp, int sprMode, int a, UInt8* dst, int len)
     int i;
 
     if (sprMode == 1) {
-        memcpy(dst, vdp->vram + a, len);
+        memcpy(dst, vdp->vramSpr + a, len);
+    }
+    else if (vdpIsV9968(vdp)) {
+        for (i = 0; i < len; i++) {
+            dst[i] = *vdpSpriteVram(vdp, a + i);
+        }
     }
     else if (vdp->screenMode < 7 || vdp->screenMode > 12) {
         memcpy(dst, vdp->vramPtr + (a & vdp->vramAccMask), len);
@@ -4364,7 +4455,7 @@ static void getDebugInfo(VDP* vdp, DbgDevice* dbgDevice)
 
     sync(vdp, boardSystemTime());
 
-    dbgDeviceAddMemoryBlock(dbgDevice, langDbgMemVram(), 0, 0, vdp->vramSize, vdp->vram);
+    dbgDeviceAddMemoryBlock(dbgDevice, langDbgMemVram(), 0, 0, vdp->vramSize * vdp->vramBanks, vdp->vram);
 
     dbgRegisterLayout(vdp, &regCount, &cmdRegCount, &paletteCount, &statusRegCount);
 
@@ -4455,7 +4546,7 @@ static void getDebugInfo(VDP* vdp, DbgDevice* dbgDevice)
 
 static int dbgWriteMemory(VDP* vdp, char* name, void* data, int start, int size)
 {
-    if (strcmp(name, "VRAM") || start + size > vdp->vramSize) {
+    if (strcmp(name, "VRAM") || start + size > vdp->vramSize * vdp->vramBanks) {
         return 0;
     }
 
@@ -4713,6 +4804,7 @@ static void destroy(VDP* vdp)
 
     frameBufferDataDestroy(vdp->frameBuffer);
 
+    free(vdp->vram);
     free(vdp);
 }
 
@@ -4740,6 +4832,11 @@ static VDP* create(VdpConnector connector, VdpVersion version, VdpSyncMode sync,
     int i;
 
     VDP* vdp = (VDP*)calloc(1, sizeof(VDP));
+
+    vdp->vramBanks = version == VDP_V9968 ? VRAM_BANKS_V9968 : 1;
+    vdp->vram      = (UInt8*)calloc((size_t)VRAM_SIZE * vdp->vramBanks + 1024, 1);
+    vdp->vramDisp  = vdp->vram;
+    vdp->vramSpr   = vdp->vram;
 
     if (secondary == NULL) {
         theVdp = vdp;
@@ -4835,8 +4932,7 @@ static VDP* create(VdpConnector connector, VdpVersion version, VdpSyncMode sync,
         vdp->palValue = 0x00;
     }
 
-    memset(vdp->vram, 0, sizeof(vdp->vram));
-    vdp->cmdEngine = vdpCmdCreate(vramSize, vdp->vram, boardSystemTime());
+    vdp->cmdEngine = vdpCmdCreate(vramSize * vdp->vramBanks, vdp->vram, boardSystemTime());
     vdpCmdSetExpansionWindow(vdp->cmdEngine, version != VDP_V9968);
     vdpCmdSetV9968(vdp->cmdEngine, version == VDP_V9968);
     if (secondary != NULL) {

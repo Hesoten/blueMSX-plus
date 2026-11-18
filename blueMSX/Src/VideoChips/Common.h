@@ -345,8 +345,8 @@ static void RefreshLine0(VDP* vdp, int Y, int X, int X2)
                 for (j = 0; j < 4; j++) {
                     if (shift <= 2) { 
                         int charIdx = 0xc00 + 40 * (y / 8) + x++;
-                        UInt8* charTable = vdp->vram + (vdp->chrTabBase & ((-1 << 12) | charIdx));
-                        pattern = vdp->vram[patternBase | ((int)*charTable * 8)];
+                        UInt8* charTable = vdp->vramDisp + (vdp->chrTabBase & ((-1 << 12) | charIdx));
+                        pattern = vdp->vramDisp[patternBase | ((int)*charTable * 8)];
                         shift = 8; 
                     }
 
@@ -453,8 +453,8 @@ static void RefreshLine0Plus(VDP* vdp, int Y, int X, int X2)
                 for (j = 0; j < 4; j++) {
                     if (shift <= 2) { 
                         int charIdx = 0xc00 + 40 * (y / 8) + x++;
-                        UInt8* charTable = vdp->vram + (vdp->chrTabBase & ((-1 << 12) | charIdx));
-                        pattern = vdp->vram[vdp->chrGenBase & (patternBase | ((int)*charTable * 8))];
+                        UInt8* charTable = vdp->vramDisp + (vdp->chrTabBase & ((-1 << 12) | charIdx));
+                        pattern = vdp->vramDisp[vdp->chrGenBase & (patternBase | ((int)*charTable * 8))];
                         shift = 8; 
                     }
 
@@ -676,12 +676,12 @@ static void RefreshLineTx80(VDP* vdp, int Y, int X, int X2)
                 for (j = 0; j < 8; j++) {
                     if (shift <= 2) { 
                         int charIdx = 80 * (y / 8) + x;
-                        UInt8*  charTable   = vdp->vram + (vdp->chrTabBase & ((-1 << 12) | charIdx));
-                        pattern = vdp->vram[patternBase | ((int)*charTable * 8)];
+                        UInt8*  charTable   = vdp->vramDisp + (vdp->chrTabBase & ((-1 << 12) | charIdx));
+                        pattern = vdp->vramDisp[patternBase | ((int)*charTable * 8)];
                         shift = 8; 
 
                         if ((x & 0x07) == 0) {
-                            colPattern = vdp->vram[vdp->colTabBase & ((-1 << 9) | (charIdx / 8))];
+                            colPattern = vdp->vramDisp[vdp->colTabBase & ((-1 << 9) | (charIdx / 8))];
                         }
                         if (colPattern & 0x80) {
                             tx80BlinkColors(vdp, color);
@@ -794,12 +794,12 @@ static void RefreshLineTx80(VDP* vdp, int Y, int X, int X2)
                 for (j = 0; j < 8; j++) {
                     if (shift <= 2) { 
                         int charIdx = 80 * (y / 8) + x;
-                        UInt8*  charTable   = vdp->vram + (vdp->chrTabBase & ((-1 << 12) | charIdx));
-                        pattern = vdp->vram[patternBase | ((int)*charTable * 8)];
+                        UInt8*  charTable   = vdp->vramDisp + (vdp->chrTabBase & ((-1 << 12) | charIdx));
+                        pattern = vdp->vramDisp[patternBase | ((int)*charTable * 8)];
                         shift = 8; 
 
                         if ((x & 0x07) == 0) {
-                            colPattern = vdp->vram[vdp->colTabBase & ((-1 << 9) | (charIdx / 8))];
+                            colPattern = vdp->vramDisp[vdp->colTabBase & ((-1 << 9) | (charIdx / 8))];
                         }
                         if (colPattern & 0x80) {
                             tx80BlinkColors(vdp, color);
@@ -869,7 +869,7 @@ static void RefreshLine1(VDP* vdp, int Y, int X, int X2)
         scroll     = hScroll >> 3;
 
         y = Y - vdp->firstLine + vdpVScroll(vdp);
-        charTable   = vdp->vram + (vdp->chrTabBase & ((-1 << 10) | (32 * (y / 8)))) + scroll;
+        charTable   = vdp->vramDisp + (vdp->chrTabBase & ((-1 << 10) | (32 * (y / 8)))) + scroll;
         patternBase = vdp->chrGenBase & ((-1 << 11) | (y & 7));
 
         if (hScroll512) {
@@ -907,10 +907,10 @@ static void RefreshLine1(VDP* vdp, int Y, int X, int X2)
         }
         else {
             if (vdpIsEdgeMasked(vdp->vdpRegs)) {
-                colPattern = vdp->vram[vdp->colTabBase & ((*charTable / 8) | (-1 << 6))];
+                colPattern = vdp->vramDisp[vdp->colTabBase & ((*charTable / 8) | (-1 << 6))];
                 color[0] = vdp->palette[colPattern & 0x0f];
                 color[1] = vdp->palette[colPattern >> 4];
-                charPattern = vdp->vram[patternBase | ((int)*charTable * 8)];
+                charPattern = vdp->vramDisp[patternBase | ((int)*charTable * 8)];
 
                 switch (hScroll & 7) {
                 case 1: col = *sprLine++; *linePtr1++ = col ? vdp->palette[col >> 1] : color[(charPattern >> 6) & 1]; 
@@ -964,10 +964,10 @@ static void RefreshLine1(VDP* vdp, int Y, int X, int X2)
     }
     else {
         while (X < X2) {
-            colPattern = vdp->vram[vdp->colTabBase & ((*charTable / 8) | (-1 << 6))];
+            colPattern = vdp->vramDisp[vdp->colTabBase & ((*charTable / 8) | (-1 << 6))];
             color[0] = vdp->palette[colPattern & 0x0f];
             color[1] = vdp->palette[colPattern >> 4];
-            charPattern = vdp->vram[patternBase | ((int)*charTable * 8)];
+            charPattern = vdp->vramDisp[patternBase | ((int)*charTable * 8)];
 
             col = sprLine[0]; linePtr1[0] = col ? vdp->palette[col >> 1] : color[(charPattern >> 7) & 1]; 
             col = sprLine[1]; linePtr1[1] = col ? vdp->palette[col >> 1] : color[(charPattern >> 6) & 1];
@@ -1038,7 +1038,7 @@ static void RefreshLine2(VDP* vdp, int Y, int X, int X2)
 
         y = Y - vdp->firstLine + vdpVScroll(vdp);
 
-        charTable   = vdp->vram + (vdp->chrTabBase & ((-1 << 10) | (32 * (y / 8)))) + scroll;
+        charTable   = vdp->vramDisp + (vdp->chrTabBase & ((-1 << 10) | (32 * (y / 8)))) + scroll;
         base        = (-1 << 13) | ((y & 0xc0) << 5) | (y & 7);
 
         if (hScroll512) {
@@ -1064,10 +1064,10 @@ static void RefreshLine2(VDP* vdp, int Y, int X, int X2)
         }
 
         index       = base | ((int)*charTable * 8);
-        colPattern = vdp->vram[vdp->colTabBase & index];
+        colPattern = vdp->vramDisp[vdp->colTabBase & index];
         color[0]   = vdp->palette[colPattern & 0x0f];
         color[1]   = vdp->palette[colPattern >> 4];
-        charPattern = vdp->vram[vdp->chrGenBase & index];
+        charPattern = vdp->vramDisp[vdp->chrGenBase & index];
 
         if (!vdp->screenOn || !vdp->drawArea) {
             Pixel bgColor = vdp->palette[vdp->BGColor];
@@ -1137,10 +1137,10 @@ static void RefreshLine2(VDP* vdp, int Y, int X, int X2)
     else {
         while (X < X2) {
             index       = base | ((int)*charTable * 8);
-            colPattern = vdp->vram[vdp->colTabBase & index];
+            colPattern = vdp->vramDisp[vdp->colTabBase & index];
             color[0]   = vdp->palette[colPattern & 0x0f];
             color[1]   = vdp->palette[colPattern >> 4];
-            charPattern = vdp->vram[vdp->chrGenBase & index];
+            charPattern = vdp->vramDisp[vdp->chrGenBase & index];
 
             linePtr2[0] = (col = sprLine[0]) ? vdp->palette[col >> 1] : color[(charPattern >> 7) & 1]; 
             linePtr2[1] = (col = sprLine[1]) ? vdp->palette[col >> 1] : color[(charPattern >> 6) & 1];
@@ -1220,11 +1220,11 @@ static void RefreshLine3(VDP* vdp, int Y, int X, int X2)
     }
     else {
         int    y = Y - vdp->firstLine + vdpVScroll(vdp);
-        UInt8* charTable   = vdp->vram + (vdp->chrTabBase & ((-1 << 10) | (32 * (y / 8)))) + X;
+        UInt8* charTable   = vdp->vramDisp + (vdp->chrTabBase & ((-1 << 10) | (32 * (y / 8)))) + X;
         int    patternBase = vdp->chrGenBase & ((-1 << 11) | ((y >> 2) & 7));
 
         while (X < X2) {
-            UInt8  colPattern = vdp->vram[patternBase | ((int)*charTable * 8)];
+            UInt8  colPattern = vdp->vramDisp[patternBase | ((int)*charTable * 8)];
             Pixel fc = vdp->palette[colPattern >> 4];
             Pixel bc = vdp->palette[colPattern & 0x0f];
             UInt8 col;
@@ -1292,7 +1292,7 @@ static void RefreshLine4(VDP* vdp, int Y, int X, int X2)
         scroll     = hScroll >> 3;
 
         y = Y - vdp->firstLine + vdpVScroll(vdp);
-        charTable   = vdp->vram + (vdp->chrTabBase & ((-1 << 10) | (32 * (y / 8)))) + scroll;
+        charTable   = vdp->vramDisp + (vdp->chrTabBase & ((-1 << 10) | (32 * (y / 8)))) + scroll;
         base        = (-1 << 13) | ((y & 0xc0) << 5) | (y & 7);
 
         if (hScroll512) {
@@ -1319,10 +1319,10 @@ static void RefreshLine4(VDP* vdp, int Y, int X, int X2)
         }
 
         index       = base | ((int)*charTable * 8);
-        colPattern = vdp->vram[vdp->colTabBase & index];
+        colPattern = vdp->vramDisp[vdp->colTabBase & index];
         color[0]   = vdp->palette[colPattern & 0x0f];
         color[1]   = vdp->palette[colPattern >> 4];
-        charPattern = vdp->vram[vdp->chrGenBase & index];
+        charPattern = vdp->vramDisp[vdp->chrGenBase & index];
 
         if (!vdp->screenOn || !vdp->drawArea) {
             Pixel bgColor = vdp->palette[vdp->BGColor];
@@ -1378,10 +1378,10 @@ static void RefreshLine4(VDP* vdp, int Y, int X, int X2)
     else {
         while (X < X2) {
             index       = base | ((int)*charTable * 8);
-            colPattern = vdp->vram[vdp->colTabBase & index];
+            colPattern = vdp->vramDisp[vdp->colTabBase & index];
             color[0]   = vdp->palette[colPattern & 0x0f];
             color[1]   = vdp->palette[colPattern >> 4];
-            charPattern = vdp->vram[vdp->chrGenBase & index];
+            charPattern = vdp->vramDisp[vdp->chrGenBase & index];
 
             linePtr4[0] = (col = sprLine[0]) ? vdp->palette[col >> 1] : color[(charPattern >> 7) & 1]; 
             linePtr4[1] = (col = sprLine[1]) ? vdp->palette[col >> 1] : color[(charPattern >> 6) & 1];
@@ -1453,7 +1453,7 @@ static void RefreshLine4(VDP* vdp, int Y, int X, int X2)
         scroll     = hScroll >> 3;
 
         y = Y - vdp->firstLine + vdpVScroll(vdp);
-        charTable   = vdp->vram + (vdp->chrTabBase & ((-1 << 10) | (32 * (y / 8)))) + scroll;
+        charTable   = vdp->vramDisp + (vdp->chrTabBase & ((-1 << 10) | (32 * (y / 8)))) + scroll;
         base        = (-1 << 13) | ((y & 0xc0) << 5) | (y & 7);
 
         if (hScroll512) {
@@ -1462,10 +1462,10 @@ static void RefreshLine4(VDP* vdp, int Y, int X, int X2)
         }
 
         index       = base | ((int)*charTable * 8);
-        colPattern = vdp->vram[vdp->colTabBase & index];
+        colPattern = vdp->vramDisp[vdp->colTabBase & index];
         color[0]   = vdp->palette[colPattern & 0x0f];
         color[1]   = vdp->palette[colPattern >> 4];
-        charPattern = vdp->vram[vdp->chrGenBase & index];
+        charPattern = vdp->vramDisp[vdp->chrGenBase & index];
     }
 
     if (linePtr4 == NULL || X2 <= 0) {
@@ -1555,10 +1555,10 @@ static void RefreshLine4(VDP* vdp, int Y, int X, int X2)
 
         while (X < X2) {
             index       = base | ((int)*charTable * 8);
-            colPattern = vdp->vram[vdp->colTabBase & index];
+            colPattern = vdp->vramDisp[vdp->colTabBase & index];
             color[0]   = vdp->palette[colPattern & 0x0f];
             color[1]   = vdp->palette[colPattern >> 4];
-            charPattern = vdp->vram[vdp->chrGenBase & index];
+            charPattern = vdp->vramDisp[vdp->chrGenBase & index];
 
             linePtr4[0] = (col = sprLine[0]) ? vdp->palette[col >> 1] : color[(charPattern >> 7) & 1]; 
             linePtr4[1] = (col = sprLine[1]) ? vdp->palette[col >> 1] : color[(charPattern >> 6) & 1];
@@ -1616,7 +1616,7 @@ static void RefreshLine5(VDP* vdp, int Y, int X, int X2)
         chrTabO    = vdp->chrTabBase;
         scroll     = hScroll / 2;
 
-        charTable = vdp->vram + vdpBitmapLine(vdp, Y) + scroll;
+        charTable = vdp->vramDisp + vdpBitmapLine(vdp, Y) + scroll;
 
         if (hScroll512) {
             if (scroll & 0x80) charTable += jump[page ^= 1];
@@ -1660,11 +1660,11 @@ static void RefreshLine5(VDP* vdp, int Y, int X, int X2)
             jump       = jumpTable + hScroll512 * 2;
             page       = (vdp->chrTabBase / 0x8000) & 1;
             hScroll    = vdpHScroll(vdp) + X * 8;
-            scroll     = hScroll / 2;
+            scroll     = vdpScrollInLine(vdp, hScroll / 2, hScroll512 ? 0xff : 0x7f);
             vscroll    = vdpVScroll(vdp);
             chrTabO    = vdp->chrTabBase;
 
-            charTable = vdp->vram + vdpBitmapLine(vdp, Y) + scroll;
+            charTable = vdp->vramDisp + vdpBitmapLine(vdp, Y) + scroll;
 
             if (hScroll512) {
                 if (scroll & 0x80) charTable += jump[page ^= 1];
@@ -1794,7 +1794,7 @@ static void RefreshLine6(VDP* vdp, int Y, int X, int X2)
         jump       = jumpTable + hScroll512 * 2;
         page    = (vdp->chrTabBase / 0x8000) & 1;
 
-        charTable = vdp->vram + vdpBitmapLine(vdp, Y) + scroll / 2;
+        charTable = vdp->vramDisp + vdpBitmapLine(vdp, Y) + scroll / 2;
 
         if (hScroll512) {
             if (scroll & 0x100) charTable += jump[page ^= 1];
@@ -1945,7 +1945,7 @@ static void RefreshLine7(VDP* vdp, int Y, int X, int X2)
         chrTabO    = vdp->chrTabBase;
         pairStep   = vdpBitmapBytes(vdp, ofs);
 
-        charTable = vdp->vram + vdpBitmapLine(vdp, Y) + scroll / 2 * pairStep;
+        charTable = vdp->vramDisp + vdpBitmapLine(vdp, Y) + scroll / 2 * pairStep;
 
 
         if (hScroll512) {
@@ -1999,7 +1999,7 @@ static void RefreshLine7(VDP* vdp, int Y, int X, int X2)
     else {
         // Update vscroll if needed
         if (vscroll != vdpVScroll(vdp) || chrTabO != vdp->chrTabBase) {
-            scroll  = vdpHScroll(vdp) + X * 8;
+            scroll  = vdpScrollInLine(vdp, vdpHScroll(vdp) + X * 8, hScroll512 ? 0x1ff : 0xff);
             page = (vdp->chrTabBase / 0x8000) & 1;
             jump    = jumpTable + hScroll512 * 2;
             vscroll = vdpVScroll(vdp);
@@ -2007,7 +2007,7 @@ static void RefreshLine7(VDP* vdp, int Y, int X, int X2)
 
             pairStep = vdpBitmapBytes(vdp, ofs);
 
-            charTable = vdp->vram + vdpBitmapLine(vdp, Y) + scroll / 2 * pairStep;
+            charTable = vdp->vramDisp + vdpBitmapLine(vdp, Y) + scroll / 2 * pairStep;
 
             if (hScroll512) {
                 if (scroll & 0x100) charTable += jump[page ^= 1] * pairStep;
@@ -2126,7 +2126,7 @@ static void RefreshLine6(VDP* vdp, int Y, int X, int X2)
         jump       = jumpTable + hScroll512 * 2;
         page    = (vdp->chrTabBase / 0x8000) & 1;
 
-        charTable = vdp->vram + vdpBitmapLine(vdp, Y) + scroll / 2;
+        charTable = vdp->vramDisp + vdpBitmapLine(vdp, Y) + scroll / 2;
 
         if (hScroll512) {
             if (scroll & 0x100) charTable += jump[page ^= 1];
@@ -2287,7 +2287,7 @@ static void RefreshLine7(VDP* vdp, int Y, int X, int X2)
         chrTabO    = vdp->chrTabBase;
         pairStep   = vdpBitmapBytes(vdp, ofs);
 
-        charTable = vdp->vram + vdpBitmapLine(vdp, Y) + scroll / 2 * pairStep;
+        charTable = vdp->vramDisp + vdpBitmapLine(vdp, Y) + scroll / 2 * pairStep;
 
 
         if (hScroll512) {
@@ -2337,7 +2337,7 @@ static void RefreshLine7(VDP* vdp, int Y, int X, int X2)
         }
         // Update vscroll if needed
         if (vscroll != vdpVScroll(vdp) || chrTabO != vdp->chrTabBase) {
-            scroll  = vdpHScroll(vdp) + X * 8;
+            scroll  = vdpScrollInLine(vdp, vdpHScroll(vdp) + X * 8, hScroll512 ? 0x1ff : 0xff);
             page = (vdp->chrTabBase / 0x8000) & 1;
             jump    = jumpTable + hScroll512 * 2;
             vscroll = vdpVScroll(vdp);
@@ -2345,7 +2345,7 @@ static void RefreshLine7(VDP* vdp, int Y, int X, int X2)
 
             pairStep = vdpBitmapBytes(vdp, ofs);
 
-            charTable = vdp->vram + vdpBitmapLine(vdp, Y) + scroll / 2 * pairStep;
+            charTable = vdp->vramDisp + vdpBitmapLine(vdp, Y) + scroll / 2 * pairStep;
 
             if (hScroll512) {
                 if (scroll & 0x100) charTable += jump[page ^= 1] * pairStep;
@@ -2558,7 +2558,7 @@ static void RefreshLine8(VDP* vdp, int Y, int X, int X2)
         chrTabO    = vdp->chrTabBase;
         pairStep   = vdpBitmapBytes(vdp, ofs);
 
-        charTable = vdp->vram + vdpBitmapLine(vdp, Y) + scroll / 2 * pairStep;
+        charTable = vdp->vramDisp + vdpBitmapLine(vdp, Y) + scroll / 2 * pairStep;
 
         if (hScroll512) {
             if (scroll & 0x100) charTable += jump[page ^= 1] * pairStep;
@@ -2599,14 +2599,15 @@ static void RefreshLine8(VDP* vdp, int Y, int X, int X2)
         }
         // Update vscroll if needed
         if (vscroll != vdpVScroll(vdp) || chrTabO != vdp->chrTabBase) {
-            scroll = vdpHScroll(vdp) + X * 8;
+            scroll = vdpScrollInLine(vdp, vdpHScroll(vdp) + X * 8, hScroll512 ? 0x1ff : 0xff);
+            page   = (vdp->chrTabBase / 0x8000) & 1;
             jump   = jumpTable + hScroll512 * 2;
             vscroll = vdpVScroll(vdp);
             chrTabO = vdp->chrTabBase;
 
             pairStep = vdpBitmapBytes(vdp, ofs);
 
-            charTable = vdp->vram + vdpBitmapLine(vdp, Y) + scroll / 2 * pairStep;
+            charTable = vdp->vramDisp + vdpBitmapLine(vdp, Y) + scroll / 2 * pairStep;
 
             if (hScroll512) {
                 if (scroll & 0x100) charTable += jump[page ^= 1] * pairStep;
@@ -2736,7 +2737,7 @@ static void RefreshLine10(VDP* vdp, int Y, int X, int X2)
         chrTabO    = vdp->chrTabBase;
         pairStep   = vdpBitmapBytes(vdp, ofs);
 
-        charTable = vdp->vram + vdpBitmapLine(vdp, Y) + scroll / 2 * pairStep;
+        charTable = vdp->vramDisp + vdpBitmapLine(vdp, Y) + scroll / 2 * pairStep;
 
         if (hScroll512) {
             if (scroll & 0x100) charTable += jump[page ^= 1] * pairStep;
@@ -2776,14 +2777,21 @@ rightBorder = X2 == 33;
         if (vscroll != vdpVScroll(vdp) || chrTabO != vdp->chrTabBase) {
             hscroll = vdpHScroll(vdp);
             scroll = (hscroll & ~3) + X * 8;
+            page   = (vdp->chrTabBase / 0x8000) & 1;
             jump   = jumpTable + hScroll512 * 2;
+            /* Past X = 0 the column includes the four dots read at X = 0. */
+            if (vdpIsV9968(vdp)) {
+                scroll = (scroll + (X ? 4 : 0)) & (hScroll512 ? 0x1ff : 0xff);
+            }
             vscroll = vdpVScroll(vdp);
             chrTabO  = vdp->chrTabBase;
 
             pairStep = vdpBitmapBytes(vdp, ofs);
 
-            charTable = vdp->vram + vdpBitmapLine(vdp, Y) + scroll / 2 * pairStep;
-            charTable += ofs[4]; 
+            charTable = vdp->vramDisp + vdpBitmapLine(vdp, Y) + scroll / 2 * pairStep;
+            if (!vdpIsV9968(vdp)) {
+                charTable += ofs[4];
+            }
 
             if (hScroll512) {
                 if (scroll & 0x100) charTable += jump[page ^= 1] * pairStep;
@@ -2938,7 +2946,7 @@ static void RefreshLine12(VDP* vdp, int Y, int X, int X2)
         chrTabO    = vdp->chrTabBase;
         pairStep   = vdpBitmapBytes(vdp, ofs);
 
-        charTable = vdp->vram + vdpBitmapLine(vdp, Y) + scroll / 2 * pairStep;
+        charTable = vdp->vramDisp + vdpBitmapLine(vdp, Y) + scroll / 2 * pairStep;
 
         if (hScroll512) {
             if (scroll & 0x100) charTable += jump[page ^= 1] * pairStep;
@@ -2978,14 +2986,21 @@ static void RefreshLine12(VDP* vdp, int Y, int X, int X2)
         if (vscroll != vdpVScroll(vdp) || chrTabO != vdp->chrTabBase) {
             hscroll = vdpHScroll(vdp);
             scroll = (hscroll & ~3) + X * 8;
+            page   = (vdp->chrTabBase / 0x8000) & 1;
             jump   = jumpTable + hScroll512 * 2;
+            /* Past X = 0 the column includes the four dots read at X = 0. */
+            if (vdpIsV9968(vdp)) {
+                scroll = (scroll + (X ? 4 : 0)) & (hScroll512 ? 0x1ff : 0xff);
+            }
             vscroll = vdpVScroll(vdp);
             chrTabO  = vdp->chrTabBase;
 
             pairStep = vdpBitmapBytes(vdp, ofs);
 
-            charTable = vdp->vram + vdpBitmapLine(vdp, Y) + scroll / 2 * pairStep;
-            charTable += ofs[4]; 
+            charTable = vdp->vramDisp + vdpBitmapLine(vdp, Y) + scroll / 2 * pairStep;
+            if (!vdpIsV9968(vdp)) {
+                charTable += ofs[4];
+            }
 
             if (hScroll512) {
                 if (scroll & 0x100) charTable += jump[page ^= 1] * pairStep;
