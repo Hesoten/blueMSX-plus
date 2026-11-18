@@ -147,6 +147,7 @@ public:
         delete bandFrame;
         delete sprPinKeep;
         delete sprSelKeep;
+        free(sprScratch);
     }
 
     V99x8View()
@@ -243,6 +244,7 @@ public:
     }
 
     bool stripOpen = true;       /* the bank strip, or its row of numbers */
+    bool sprBanksOnly = false;   /* the Sprites tab lists only the banks R#29 pointed the sprites at */
     int  stripDue = -1;          /* the tab whose strip goes under the next command bar */
     const VdpDebugState* stripState = NULL;
 
@@ -254,19 +256,21 @@ public:
         if (tab >= 0 && v->stripState != NULL) v->bankStrip(v->stripState, tab);
     }
 
+    bool sprFilter(int tab) const { return tab == TAB_SPRITES && sprBanksOnly; }
     /* geo3d follows the destination bank; its strip only shows the banks. */
     static bool stripPicks(int tab) { return tab != TAB_GEO3D; }
 
-    /* The bank the tab's content shows. */
-    int tabShownBank(const VdpDebugState* s, int) const
+    /* The bank the tab's content shows: the Sprites tab's own source (SP3 reads the snapshot), else the snapshot's. */
+    int tabShownBank(const VdpDebugState* s, int tab) const
     {
-        return s->vramBank;
+        return tab == TAB_SPRITES && !Sp3Panel::active(s) ? sprSrcBank : s->vramBank;
     }
 
     /* Listed: the banks not empty in a copy since the copies began, so a stale copy drops none, and the
-    ** ones shown, pinned and followed while pinned. Until all are known, no others. */
+    ** ones shown, pinned and followed while pinned; or the sprite banks. Until all are known, no others. */
     bool stripListed(const VdpDebugState* s, int tab, int b) const
     {
+        if (sprFilter(tab)) return banks.spriteBank(b);
         int pin = bankPin[tab];
         return b == tabShownBank(s, tab) || b == pin || (pin >= 0 && b == bankFollowed(s, tab)) ||
                (banks.allKnown() && banks.used(b));
@@ -279,6 +283,30 @@ public:
             if (stripListed(s, tab, b)) out[n++] = b;
         }
         return n;
+    }
+
+    /* "S" ending at the top right corner at, on a bank R#29 pointed the sprites at: filled for the one it points at now. */
+    void sprBadge(ImDrawList* dl, const VdpDebugState* s, int b, ImVec2 at)
+    {
+        if (!banks.spriteBank(b)) return;
+        ImU32 c = pathColour(PATH_SPR);
+        float w = sprBadgeW();
+        ui::PushFont(UI_FONT_STRONG, 10);
+        ImVec2 ts = ImGui::CalcTextSize("S");
+        ImVec2 a(at.x - w, at.y), q(at.x, a.y + ts.y);
+        bool now = b == (s->regs[29] >> 4);
+        dl->AddRectFilled(a, q, now ? c : uiTokens().cardFill, ui::Px(3));
+        if (!now) dl->AddRect(a, q, c, ui::Px(3));
+        dl->AddText(ImVec2(a.x + ui::Px(3), a.y), now ? IM_COL32(255, 255, 255, 255) : c, "S");
+        ui::PopFont();
+    }
+
+    static float sprBadgeW()
+    {
+        ui::PushFont(UI_FONT_STRONG, 10);
+        float w = ImGui::CalcTextSize("S").x + ui::Px(6);
+        ui::PopFont();
+        return w;
     }
 
     /* The bank's roles, each a swatch of its colour with its register, then what a click does. */
@@ -398,6 +426,7 @@ public:
         dl->AddRect(p, q, t.controlStroke, r);
         bankNumber(dl, b, ImVec2(p.x + ui::Px(2), p.y + ui::Px(2)), b == shown);
         pathBar(dl, s, b, p.x, q.x, q.y + ui::Px(2), ui::Px(4));
+        if (tab == TAB_SPRITES) sprBadge(dl, s, b, ImVec2(q.x - ui::Px(2), q.y - ui::Px(15)));
         float th = ui::Px(2), o = ui::Px(2);
         int pin = bankPin[tab], followed = bankFollowed(s, tab);
         /* Pinned: the pin sits in the top right corner and the write dot moves left of it. */
@@ -428,12 +457,14 @@ public:
         if (!shown) dl->AddRect(p, q, dim ? ui::WithAlpha(t.controlStroke, 110) : t.controlStroke, r);
         char num[8];
         snprintf(num, sizeof(num), "%X", b);
+        float badge = tab == TAB_SPRITES ? sprBadgeW() + ui::Px(2) : 0;
         ui::PushFont(shown ? UI_FONT_STRONG : UI_FONT_MONO, 12);
         ImVec2 ns = ImGui::CalcTextSize(num);
-        dl->AddText(ImVec2(floorf(p.x + (w - ns.x) / 2), floorf(p.y + (h - ui::Px(3) - ns.y) / 2)),
+        dl->AddText(ImVec2(floorf(p.x + (w - badge - ns.x) / 2), floorf(p.y + (h - ui::Px(3) - ns.y) / 2)),
                     shown ? t.textOnAccent : dim ? t.textSecondary : t.text, num);
         ui::PopFont();
         pathBar(dl, s, b, p.x + ui::Px(2), q.x - ui::Px(2), q.y - ui::Px(4), ui::Px(3));
+        if (tab == TAB_SPRITES) sprBadge(dl, s, b, ImVec2(q.x - ui::Px(2), p.y + ui::Px(2)));
         if (banks.writing(b)) dl->AddCircleFilled(ImVec2(p.x + ui::Px(4), p.y + ui::Px(4)), ui::Px(2.5f), shown ? t.textOnAccent : t.accent);
         float th = ui::Px(2), o = ui::Px(1);
         int pin = bankPin[tab];
@@ -453,12 +484,12 @@ public:
         }
     }
 
-    static float bankChipW()
+    static float bankChipW(int tab)
     {
         ui::PushFont(UI_FONT_STRONG, 12);
         float w = ImGui::CalcTextSize("F").x;
         ui::PopFont();
-        return ui::Px(10) + w + ui::Px(10);
+        return ui::Px(10) + w + ui::Px(10) + (tab == TAB_SPRITES ? sprBadgeW() + ui::Px(2) : 0);
     }
 
     /* Under a tab's command bar on a V9968 whose VRAM is in banks; the tab's content shows tabShownBank. */
@@ -507,7 +538,15 @@ public:
         ui::FoldChevron(dl, ca, cb, stripOpen, ImGui::IsItemHovered(), ImGui::IsItemActive());
         float right = ca.x - ui::Px(8);
 
-        if (hidden > 0) {
+        if (tab == TAB_SPRITES) {
+            const char* filters[2] = { ts(TS_BANKS_SPRITE), ts(TS_BANKS_ALL) };
+            int pick = sprBanksOnly ? 0 : 1;
+            right -= ui::SegmentedWidth(filters, 2);
+            ImGui::SetCursorScreenPos(ImVec2(right, floorf(midY - ui::SegmentedHeight() / 2)));
+            if (ui::Segmented("bankfilter", &pick, filters, 2)) sprBanksOnly = pick == 0;
+            right -= ui::Px(8);
+        }
+        if (hidden > 0 && !sprFilter(tab)) {
             char more[32];
             textf(more, sizeof(more), ts(TS_BANKS_UNUSED), hidden);
             ImVec2 ms = ImGui::CalcTextSize(more);
@@ -516,7 +555,7 @@ public:
             right -= ui::Px(16);
         }
 
-        float gap = stripOpen ? ui::Px(8) : ui::Px(4), itemW = stripOpen ? stripThumbSize() : bankChipW();
+        float gap = stripOpen ? ui::Px(8) : ui::Px(4), itemW = stripOpen ? stripThumbSize() : bankChipW(tab);
         float cwAll = n > 0 ? n * itemW + (n - 1) * gap : 0;
         /* The roles of the banks in the row, as the VRAM map's legend: beside the controls while
         ** every bank still fits there, else on a line of its own under the banks. */
@@ -584,6 +623,7 @@ public:
         int family = vdpIsBitmapMode(s->screenMode) ? 1 : 0;
         ensureRaster(s);
         banks.fade();
+        curTab = v >= 0 && v < n ? bankTab(d[v].key) : -1;
         bool byGroup = f.kind == FOCUS_CHAR && charPin.set && f.a == charPin.a && f.b == charPin.b && raster.valid;
         if (f.pinned && (byGroup ? vdpFindGroup(groups, charPin.key) < 0 :
                          family != lastFamily && f.kind != FOCUS_VRAM && f.kind != FOCUS_SPRITE && !bandFocus(f))) {
@@ -972,6 +1012,10 @@ public:
         rasterBuilt = false;
         linePalShot = linePalRaster = ~0u;
         memset(sceneKey, 0xff, sizeof(sceneKey));
+        spriteSrcKey = ~0u;
+        memset(sprScratchKey, 0xff, sizeof(sprScratchKey));
+        sprSrc = NULL;
+        sprSrcBank = 0;
         sprPinLine = -1;
         sprSelReset();
         lineRowReset();
@@ -1229,7 +1273,7 @@ private:
         unsigned ver = 0;
     };
     SprScene             scene;
-    unsigned             sceneKey[7] = { ~0u };
+    unsigned             sceneKey[9] = { ~0u };
     /* The table the Sprites tab shows, picked or the first by line, held while a double buffer swaps
     ** tables: its frame, sprites, row states (sprRowState) and lines as last laid out, and the
     ** picture (emulated frame count) it was last used in. */
@@ -1465,18 +1509,69 @@ private:
         VdpLayout l;
         int g;
         if (!viewLayout(s, true, &l, &g)) l = vdpLayoutOf(s);
-        int lines = layoutLines(s, l.regs);
+        int lines = layoutLines(s, l.regs), srcBank;
+        const VdpDebugState* src = sprSource(s, &srcBank);
+        unsigned srcKey = (unsigned)srcBank | (src != s ? banks.version(srcBank) << 8 : 0u);
         /* The frame keeps why sprites are off as text: evaluated again in another language. */
         const char* text = ts(TS_SPR_OFF_BLANKED);
         if (spriteVer == shell::pictureVersion() && spriteLines == lines && spriteText == text && spriteGroup == g &&
-            spriteMode == l.mode && memcmp(spriteRegs, l.regs, sizeof(spriteRegs)) == 0) return;
+            spriteMode == l.mode && spriteSrcKey == srcKey && memcmp(spriteRegs, l.regs, sizeof(spriteRegs)) == 0) return;
+        spriteSrcKey = srcKey;
         spriteVer = shell::pictureVersion();
         spriteLines = lines;
         spriteText = text;
         spriteGroup = g;
         spriteMode = l.mode;
         memcpy(spriteRegs, l.regs, sizeof(spriteRegs));
-        vdpEvalSprites(s, l, lines, &sprites);
+        vdpEvalSprites(src, l, lines, &sprites);
+    }
+
+    unsigned        spriteSrcKey = ~0u;
+    int             curTab = -1;          /* the bank tab drawn last; -1 the Screen */
+    /* What the scene was built from, for every read of sprite patterns: s, or sprScratch. */
+    const VdpDebugState* sprSrc = NULL;
+    int             sprSrcBank = 0;
+
+    const VdpDebugState* spr(const VdpDebugState* s) const { return sprSrc != NULL ? sprSrc : s; }
+    unsigned sprSrcKey() const { return (unsigned)sprSrcBank | (sprSrc == sprScratch && sprSrc != NULL ? banks.version(sprSrcBank) << 8 : 0u); }
+    VdpDebugState*  sprScratch = NULL;    /* the snapshot over the sprite bank's last copy */
+    unsigned        sprScratchKey[3] = { ~0u, ~0u, ~0u };
+
+    /* The bank the sprites are read from: R#29's, or the one the Sprites tab is pinned to. */
+    int sprBankOf(const VdpDebugState* s) const
+    {
+        if (s->banks <= 1) return s->vramBank;
+        if (curTab == TAB_SPRITES && bankPin[TAB_SPRITES] >= 0) return s->vramBank;
+        return s->regs[29] >> 4;
+    }
+
+    /* The recorded tables came from R#29's bank; not used for another bank. */
+    bool sprTablesUsable(const VdpDebugState* s) const
+    {
+        return s->banks <= 1 || sprBankOf(s) == (s->regs[29] >> 4);
+    }
+
+    /* s, or a copy of it holding the sprite bank from the bank store when s holds another one. */
+    const VdpDebugState* sprSource(const VdpDebugState* s, int* bank)
+    {
+        int b = *bank = sprBankOf(s);
+        if (b == s->vramBank || !banks.known(b)) {
+            *bank = s->vramBank;
+            return s;
+        }
+        if (sprScratch == NULL && (sprScratch = (VdpDebugState*)malloc(sizeof(VdpDebugState))) == NULL) {
+            *bank = s->vramBank;
+            return s;
+        }
+        unsigned key[3] = { shell::contentVersion(), (unsigned)b, banks.version(b) };
+        if (memcmp(key, sprScratchKey, sizeof(key)) != 0) {
+            memcpy(sprScratch, s, offsetof(VdpDebugState, vram));
+            memcpy(sprScratch->vram, banks.bytes(b), VDP_DEBUG_VRAM_SIZE);
+            sprScratch->vramBank = b;
+            sprScratch->auxBank = -1;
+            memcpy(sprScratchKey, key, sizeof(key));
+        }
+        return sprScratch;
     }
 
     void ensureRaster(const VdpDebugState* s)
@@ -1637,9 +1732,14 @@ private:
             }
             sprRowSeq = o->seq;
         }
-        unsigned key[7] = { ver, shell::pictureVersion(), shell::rasterVersion(), (unsigned)(uintptr_t)ts(TS_SPR_OFF_BLANKED),
+        int srcBank;
+        const VdpDebugState* src = sprSource(s, &srcBank);
+        sprSrc = src;
+        sprSrcBank = srcBank;
+        unsigned key[9] = { ver, shell::pictureVersion(), shell::rasterVersion(), (unsigned)(uintptr_t)ts(TS_SPR_OFF_BLANKED),
                             o != NULL ? 1u + (unsigned)o->sprTabCount + (o->stale ? 0x100u : 0u) : 0u,
-                            (unsigned)vdpGetNoSpritesLimit() | ((unsigned)vdpGetSpritesEnable() << 1), (unsigned)raster.lines };
+                            (unsigned)vdpGetNoSpritesLimit() | ((unsigned)vdpGetSpritesEnable() << 1), (unsigned)raster.lines,
+                            (unsigned)srcBank | (sprTablesUsable(s) ? 0x100u : 0u), src != s ? banks.version(srcBank) : 0u };
         if (memcmp(key, sceneKey, sizeof(key)) == 0) return;
         memcpy(sceneKey, key, sizeof(key));
         if (o != NULL) sprSceneSeq = o->seq;
@@ -1658,7 +1758,7 @@ private:
         sc.ver++;
         if (lines != sc.lines) lineRowReset();
         /* A stale shot holds the last drawn frame's tables while VRAM moves on. */
-        sc.recorded = o != NULL && o->sprTabCount > 0 && !o->stale;
+        sc.recorded = o != NULL && o->sprTabCount > 0 && !o->stale && sprTablesUsable(s);
         sc.lines = lines;
         sc.drawLimit = vdpGetNoSpritesLimit() ? 32 : 0;
         sc.lost = sc.recorded ? o->sprTabLost : 0;
@@ -1667,11 +1767,17 @@ private:
         sc.lineState.assign(lines, SS_FALLBACK);
         if (sc.recorded) {
             sc.frames.resize(o->sprTabCount);
-            for (int i = 0; i < o->sprTabCount; i++) vdpEvalSpritesFrom(s, o->sprTab[i], &sc.frames[i]);
+            for (int i = 0; i < o->sprTabCount; i++) vdpEvalSpritesFrom(src, o->sprTab[i], &sc.frames[i]);
             int y0 = outFirstLine(s, o) - o->displayOffset, first = -1, last = -1;
+            std::vector<bool> otherBank(lines, false);
             for (int d = 0; d < lines; d++) {
                 int y = d + y0;
                 if (y < 0 || y >= o->rows || o->sprTabRow[y] >= o->sprTabCount) continue;
+                /* A table read from another sprite bank than the one in hand: its patterns are not known. */
+                if (s->banks > 1 && (o->sprTab[o->sprTabRow[y]].regs[29] >> 4) != srcBank) {
+                    otherBank[d] = true;
+                    continue;
+                }
                 sc.lineFrame[d] = o->sprTabRow[y];
                 sc.lineState[d] = o->sprTabState[y];
                 if (first < 0) first = d;
@@ -1679,10 +1785,10 @@ private:
             }
             /* Arming came within the frame: the lines before or after it are not missing, only unknown. */
             for (int d = first; d >= 0 && d < lines; d++) {
-                if (sc.lineFrame[d] < 0 && (d < last || sc.lost > 0)) sc.lineState[d] = sc.lost > 0 ? SS_LOST : SS_NONE;
+                if (sc.lineFrame[d] < 0 && !otherBank[d] && (d < last || sc.lost > 0)) sc.lineState[d] = sc.lost > 0 ? SS_LOST : SS_NONE;
             }
         }
-        sceneFallback(s);
+        sceneFallback(src, srcBank, !sprTablesUsable(s));
         sc.approx = 0;
         sc.lineOff.assign(lines, 0);
         for (int d = 0; d < lines; d++) {
@@ -1693,13 +1799,14 @@ private:
             bool prevShows = d > 0 && sc.lineFrame[d - 1] >= 0 && !sc.lineOff[d - 1] && sc.lineState[d - 1] != SS_NONE && sc.lineState[d - 1] != SS_LOST;
             sc.approx += sc.lineState[d] == SS_APPROX && (!sc.lineOff[d] || prevShows);
         }
-        sceneSlots(s);
+        sceneSlots(src);
         sprKeepSel();
         sprHotFind(hotAttr);
     }
 
-    /* Frames for the lines no table was recorded for: the band's registers, VRAM at the frame's end. */
-    void sceneFallback(const VdpDebugState* s)
+    /* Frames for the lines no table was recorded for: the band's registers, VRAM at the frame's end; with
+    ** banks, of the bank s holds, any band's when pinned, else only the bands whose R#29 points there. */
+    void sceneFallback(const VdpDebugState* s, int bank, bool anyBand)
     {
         SprScene& sc = scene;
         std::vector<int> keys;
@@ -1717,6 +1824,7 @@ private:
             int kb = spriteBandOf(d), key[8];
             const VdpBand& b = raster.bands[kb >= 0 ? kb : 0];
             if (b.mode < 0 || vdpSpriteMode(b.mode) == 0) continue;
+            if (s->banks > 1 && !anyBand && (b.regs[29] >> 4) != bank) continue;
             spriteKey(b, key);
             size_t i = 0;
             while (i < keys.size() / 8 && memcmp(&keys[i * 8], key, sizeof(key)) != 0) i++;
@@ -2732,7 +2840,7 @@ private:
                     const VdpSprite& sp = fr->spr[n];
                     if (row < 0 || (only >= 0 && sp.attrAddr != only)) continue;
                     int c = sp.color[row], span, x0 = org + 2 * vdpSpriteSpan(*fr, n, row, &span), w = 2 * span;
-                    bool clear = vdpSpriteClear(s, *fr, c) || vdpSpriteRowBits(s, *fr, n, row) == 0;
+                    bool clear = vdpSpriteClear(s, *fr, c) || vdpSpriteRowBits(spr(s), *fr, n, row) == 0;
                     BoxSeg g = { y, y + 1, vdpSpriteStateAt(*fr, L, k, tab ? fr->limit : drawLimitOf(*fr)), rowState == VDP_SPR_ROW_APPROX ? 2 : clear ? 1 : 0 };
                     size_t i = 0;
                     while (i < open.size() && !(open[i].attr == sp.attrAddr && open[i].org == org && open[i].x0 == x0 && open[i].w == w &&
@@ -3593,7 +3701,7 @@ private:
             int lines = layoutLines(s, g.regs), w = vdpNameTableWidth(mode), size = (g.regs[1] & 2) ? 16 : 8;
             if (dec[SP_FIRST] && changed[SP_FIRST]) vdpDecodeNameTable(s, gl, lines, -1, c0, g.name.img, &g.name.w, &g.name.h);
             if (dec[SP_PATTERNS] && changed[SP_PATTERNS]) vdpDecodePatternSheet(s, gl, c0, g.sheet.img, &g.sheet.w, &g.sheet.h);
-            if (dec[SP_SPRITES] && changed[SP_SPRITES]) vdpDecodeSpriteSheet(s, gl, size, g.sprSheet.img, &g.sprSheet.w, &g.sprSheet.h);
+            if (dec[SP_SPRITES] && changed[SP_SPRITES]) vdpDecodeSpriteSheet(spr(s), gl, size, g.sprSheet.img, &g.sprSheet.w, &g.sprSheet.h);
             ViewPicture* pics[SP_COUNT] = { &g.name, &g.sheet, &g.sprSheet };
             for (int p = 0; p < parts; p++) {
                 if (!dec[p]) continue;
@@ -3669,7 +3777,7 @@ private:
         out[4] = b.regs[8] & 0x20;
         out[5] = b.regs[11];
         out[6] = b.regs[23];
-        out[7] = 0;
+        out[7] = b.regs[29] >> 4;
     }
 
     /* Bands that lay sprites out from different registers. */
@@ -3697,8 +3805,8 @@ private:
         char key[96];
         ensureScene(s);
         /* SP3 reads VRAM at the frame end, which a write while paused changes. */
-        snprintf(key, sizeof(key), "L%u/%d/%d/%d/%d/%u/%u/%u", shell::rasterVersion(), w, screenLines(s), vdpGetSpritesEnable(),
-                 vdpGetNoSpritesLimit(), linePal.ver, scene.recorded ? scene.ver : 0u, sp3On ? shell::pictureVersion() : 0u);
+        snprintf(key, sizeof(key), "L%u/%d/%d/%d/%d/%u/%u/%u/%u", shell::rasterVersion(), w, screenLines(s), vdpGetSpritesEnable(),
+                 vdpGetNoSpritesLimit(), linePal.ver, scene.recorded ? scene.ver : 0u, sp3On ? shell::pictureVersion() : 0u, sprSrcKey());
         bool render = spriteLayer.needsDecode(key);
         if (render) renderSpriteBands(s, spriteLayer);
         spriteLayer.upload(render);
@@ -3752,7 +3860,7 @@ private:
                 else {
                     *bandFrame = scene.frames[fi];
                     if (limit) bandFrame->limit = limit;
-                    vdpRenderSpriteLines(s, *bandFrame, pic.img.data(), w, d, e, rgb.data());
+                    vdpRenderSpriteLines(spr(s), *bandFrame, pic.img.data(), w, d, e, rgb.data());
                 }
                 d = e + 1;
             }
@@ -3761,7 +3869,7 @@ private:
         if (!raster.valid) {
             *bandFrame = sprites;
             if (limit) bandFrame->limit = limit;
-            vdpRenderSpriteLines(s, *bandFrame, pic.img.data(), w, 0, lines - 1, rgb.data());
+            vdpRenderSpriteLines(spr(s), *bandFrame, pic.img.data(), w, 0, lines - 1, rgb.data());
             return;
         }
         int prev[8] = { -2 }, key[8];
@@ -3769,7 +3877,8 @@ private:
             int kb = spriteBandOf(d), e = d;
             while (e + 1 < lines && spriteBandOf(e + 1) == kb) e++;
             const VdpBand& b = raster.bands[kb >= 0 ? kb : 0];
-            if (b.mode < 0 || vdpSpriteMode(b.mode) == 0) {
+            /* Bands without sprites, and those reading another sprite bank than the one in hand, are left out. */
+            if (b.mode < 0 || vdpSpriteMode(b.mode) == 0 || (s->banks > 1 && (b.regs[29] >> 4) != sprSrcBank)) {
                 memset(&pic.img[(size_t)d * w], 0, (size_t)(e - d + 1) * w * sizeof(uint32_t));
                 d = e + 1;
                 continue;
@@ -3782,11 +3891,11 @@ private:
                 regs[1] |= 0x40;
                 regs[8] &= ~0x02;
                 VdpLayout l = { regs, b.mode, b.blink };
-                vdpEvalSprites(s, l, lines, bandFrame);
+                vdpEvalSprites(spr(s), l, lines, bandFrame);
                 if (limit) bandFrame->limit = limit;
                 memcpy(prev, key, sizeof(key));
             }
-            vdpRenderSpriteLines(s, *bandFrame, pic.img.data(), w, d, e, rgb.data());
+            vdpRenderSpriteLines(spr(s), *bandFrame, pic.img.data(), w, d, e, rgb.data());
             for (int k = d; k <= e && k < (int)raster.spritesOff.size(); k++) {
                 if (raster.spritesOff[k]) memset(&pic.img[(size_t)k * w], 0, (size_t)w * sizeof(uint32_t));
             }
@@ -4689,7 +4798,7 @@ private:
             int e = d;
             while (e + 1 < lines && scene.lineFrame[e + 1] == scene.lineFrame[d] && sceneShows(e + 1) == sceneShows(d)) e++;
             if (sceneShows(d)) {
-                vdpRenderSpriteLines(s, scene.frames[scene.lineFrame[d]], sprPlacePic.img.data(), w, d, e, rgb.data(), sprDropMask.data());
+                vdpRenderSpriteLines(spr(s), scene.frames[scene.lineFrame[d]], sprPlacePic.img.data(), w, d, e, rgb.data(), sprDropMask.data());
             }
             d = e + 1;
         }
@@ -5164,7 +5273,7 @@ private:
                 bool any = false, ec = false, cc = false, offScreen = true;
                 for (int r = 0; r < fr.size; r++) {
                     int c = sp.color[r], st = sprRowState(fr, sprSlotSel, n, r);
-                    any = any || (vdpSpriteRowBits(s, fr, n, r) != 0 && !vdpSpriteClear(s, fr, c));
+                    any = any || (vdpSpriteRowBits(spr(s), fr, n, r) != 0 && !vdpSpriteClear(s, fr, c));
                     ec = ec || (c & 0x80);
                     cc = cc || (fr.mode == 2 && (c & 0x40));
                     ImVec2 ra(a.x, a.y + r * t), rb(b.x, a.y + (r + 1) * t);
@@ -5412,7 +5521,7 @@ private:
         const VdpSprite& sp = fr.spr[n];
         int onScreen = 0, own = 0, dropFrom = -1, dropTo = -1, dropD0 = -1, dropD1 = -1, cc = 0, any = 0, bits = 0;
         for (int r = 0; r < fr.size; r++) {
-            int d = sprRowLine(fr, n, r), b = vdpSpriteRowBits(s, fr, n, r), st = sprRowState(fr, slot, n, r);
+            int d = sprRowLine(fr, n, r), b = vdpSpriteRowBits(spr(s), fr, n, r), st = sprRowState(fr, slot, n, r);
             bits |= b;
             any |= b != 0 && !vdpSpriteClear(s, fr, sp.color[r]);
             if (st == -3) continue;
@@ -5509,7 +5618,7 @@ private:
         ImVec2 ga(gx, y0), gb(gx + size * m, y0 + size * m);
         int prevSt = -2;
         for (int r = 0; r < fr->size; r++) {
-            int d = sprRowLine(*fr, n, r), c = sp.color[r], bits = vdpSpriteRowBits(s, *fr, n, r);
+            int d = sprRowLine(*fr, n, r), c = sp.color[r], bits = vdpSpriteRowBits(spr(s), *fr, n, r);
             int st = sprRowState(*fr, slot, n, r);
             float ry = y0 + r * m;
             ImU32 col = rgbaToCol(vdpSpriteSetRgbaFrom(s, spriteRowRgb(*fr, n, r), *fr, sp.set, c));
@@ -5587,7 +5696,7 @@ private:
         ImVec2 ga(gx, y0), gb(gx + size * m, y0 + size * m);
         ImU32 grey = ui::WithAlpha(t.textTertiary, 0xa0);
         for (int r = 0; r < k.size; r++) {
-            int bits = vdpSpritePatternRowBits(s, *fr, k.p, r), c = o >= 0 ? fr->spr[o].color[r] : 0;
+            int bits = vdpSpritePatternRowBits(spr(s), *fr, k.p, r), c = o >= 0 ? fr->spr[o].color[r] : 0;
             ImU32 col = o >= 0 ? rgbaToCol(vdpSpriteSetRgbaFrom(s, spriteRowRgb(*fr, o, r), *fr, fr->spr[o].set, c)) : grey;
             bool clear = o >= 0 && vdpSpriteClear(s, *fr, c);
             for (int x = 0; x < k.size; x++) {
@@ -5660,7 +5769,7 @@ private:
         for (int n = 0; n < fr.stopIndex; n++) {
             int p = fr.spr[n].pattern & 0xff, row;
             if (sprView.agg[n].drawn + sprView.agg[n].dropped > 0) bits[p >> 5] |= 1u << (p & 31);
-            if (sprView.agg[n].drawn > 0) drawn[p] |= (uint16_t)(1u << sprUserCode(s, fr, n, &row));
+            if (sprView.agg[n].drawn > 0) drawn[p] |= (uint16_t)(1u << sprUserCode(spr(s), fr, n, &row));
         }
         sprPatRingPos = (sprPatRingPos + 1) % SPR_RING;
         if (sprPatRingLen < SPR_RING) sprPatRingLen++;
@@ -5730,11 +5839,11 @@ private:
         uint32_t shows = 0;
         for (int n = 0; n < fr.stopIndex; n++) {
             int p = fr.spr[n].pattern & 0xff;
-            u.code[n] = sprUserCode(s, fr, n, &u.codeRow[n]);
+            u.code[n] = sprUserCode(spr(s), fr, n, &u.codeRow[n]);
             u.codes[p] |= (uint16_t)(1u << u.code[n]);
             if (u.users[p]++ == 0) u.owner[p] = n;
             for (int r = 0; r < fr.size && !((shows >> n) & 1); r++) {
-                if (vdpSpriteRowBits(s, fr, n, r) != 0 && !vdpSpriteClear(s, fr, fr.spr[n].color[r])) shows |= 1u << n;
+                if (vdpSpriteRowBits(spr(s), fr, n, r) != 0 && !vdpSpriteClear(s, fr, fr.spr[n].color[r])) shows |= 1u << n;
             }
             if ((shows >> n) & 1) votes[p][u.code[n]]++;
         }
@@ -5922,7 +6031,7 @@ private:
         const UInt32* rgb[32 * 16];
         for (int n = 0; n < fr.stopIndex; n++) sprRowRgb(fr, n, &rgb[n * 16]);
         sprNotePatternRing(s);
-        vdpDecodeSpriteSheetUsers(s, fr, owner, rgb, (t.textTertiary & 0x00ffffffu) | 0xa0000000u, sprPatPic.img, &sprPatPic.w, &sprPatPic.h);
+        vdpDecodeSpriteSheetUsers(spr(s), fr, owner, rgb, (t.textTertiary & 0x00ffffffu) | 0xa0000000u, sprPatPic.img, &sprPatPic.w, &sprPatPic.h);
         sprPatPic.uploadChanged(&sprPatHash);
         int step = fr.size == 16 ? 4 : 1, count = 256 / step, rows = (count + cols - 1) / cols;
         float y0 = floorf(at.y + sprPatTitleH()), tile = fr.size * q, cellW = tile + ui::Px(4), pitch = sprPatPitch(tile);
@@ -6627,7 +6736,7 @@ private:
         ImVec2 p = ImGui::GetCursorScreenPos();
         ImDrawList* dl = ImGui::GetWindowDrawList();
         for (int r = 0; r < fr.size; r++) {
-            int bits = vdpSpriteRowBits(s, fr, n, r);
+            int bits = vdpSpriteRowBits(spr(s), fr, n, r);
             ImU32 col = rgbaToCol(vdpSpriteSetRgbaFrom(s, spriteRowRgb(fr, n, r), fr, sp.set, sp.color[r]));
             for (int x = 0; x < fr.size; x++) {
                 ImVec2 a(p.x + x * cell, p.y + r * cell), b(a.x + cell, a.y + cell);
