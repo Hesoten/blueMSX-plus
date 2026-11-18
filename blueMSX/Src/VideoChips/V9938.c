@@ -1013,11 +1013,10 @@ static void LineEngine(VdpCmdState* vdpCmd)
     }
 }
 
-/* Zero is not one row: the row compare never matches, so the strip runs on to
-** the counter limit instead. */
+/* A count of zero runs the row counter round once. */
 static int lfmmStripRows(VdpCmdState* vdpCmd)
 {
-    return vdpCmd->NY ? vdpCmd->NY : vdpCmd->nyMask;
+    return vdpCmd->NY ? vdpCmd->NY : vdpCmd->nyMask + 1;
 }
 
 /*************************************************************
@@ -1033,6 +1032,7 @@ static void LfmmEngine(VdpCmdState* vdpCmd)
     int NX = vdpCmd->NX;
     int TX = vdpCmd->TX;
     int TY = vdpCmd->TY;
+    int MX = vdpCmd->MX;
     int ADX = vdpCmd->ADX;
     int ANX = vdpCmd->ANX;
     UInt8 CL = vdpCmd->fontColor & Mask[vdpCmd->screenMode];
@@ -1044,28 +1044,43 @@ static void LfmmEngine(VdpCmdState* vdpCmd)
         /* The font pointer is a CPU-view address, so it is interleaved like the CPU's. */
         UInt8 bits = *(vdpCmd->vramRead + (VDP_ILVA(vdpCmd, vdpCmd->fontAddress) & vdpCmd->maskRead));
         int row = vdpCmd->DY + TY * (NY - ANX);
+        int edge = 0;
         int i;
 
         vdpCmd->fontAddress = (vdpCmd->fontAddress + 1) & 0x3ffff;
 
-        for (i = 0; i < 8; i++) {
-            setPixel(vdpCmd, vdpCmd->screenMode, ADX + TX * i, row, (bits & (0x80 >> i)) ? CL : BG, vdpCmd->LO);
+        /* A dot whose next one would leave the screen on either side ends the row. */
+        for (i = 0; i < 8 && !edge; i++) {
+            int x = ADX + TX * i;
+            setPixel(vdpCmd, vdpCmd->screenMode, x, row, (bits & (0x80 >> i)) ? CL : BG, vdpCmd->LO);
+            edge = ((x + TX) & ~(MX - 1)) != 0;
         }
 
-        if (--ANX <= 0) {
+        /* A character is cut at line 0 going up, its hidden rows skipped in the
+        ** font; cut by the edge on its last row, it ends the command. */
+        if (ANX == 1 || (TY < 0 && row == 0)) {
+            vdpCmd->fontAddress = (vdpCmd->fontAddress + ANX - 1) & 0x3ffff;
             ANX = NY;
-            ADX += TX * 8;
-            if (--NX <= 0) {
+            if (i == 8) {
+                ADX += TX * 8;
+            }
+            if (edge || --NX <= 0) {
                 break;
             }
         }
-        cnt -= delta * 8;
+        else {
+            ANX--;
+        }
+        cnt -= delta * i;
     }
 
     if ((vdpCmd->VdpOpsCnt = cnt) > 0) {
         vdpCmd->status &= ~VDPSTATUS_CE;
         vdpCmd->CM = 0;
         vdpCmd->NX = 0;
+        /* DX passes the last character only if its last row reached bit 0; NY is left at one. */
+        vdpCmd->DX = ADX & 0x1ff;
+        vdpCmd->NY = 1;
     }
     else {
         vdpCmd->NX  = NX;
@@ -1889,6 +1904,8 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
     case CM_LMCM:
     case CM_HMMC: start = 0;           break;
     case CM_LFMM:
+        /* NX counts characters on nine bits, and zero runs on to the edge. */
+        vdpCmd->NX  = (vdpCmd->kNX & 0x1ff) ? (vdpCmd->kNX & 0x1ff) : 0x800;
         vdpCmd->ANX = lfmmStripRows(vdpCmd);
         vdpCmd->fontColor = vdpCmd->CL;
         start = lmmm_start;
