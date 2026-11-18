@@ -171,6 +171,8 @@ static int vramAddr;
 #define vdpIsV9968(vdp)              ((vdp)->vdpVersion == VDP_V9968)
 // R#21 bit0 V58: set means behave as a V9958, clear means as a V9968.
 #define vdpIsV9968Native(vdp)        (vdpIsV9968(vdp) && !((vdp)->vdpRegs[21] & 0x01))
+// R#28 bits 3-0: the bank the CPU port reaches, as an offset into vram.
+#define vdpCpuBank(vdp)              (vdpIsV9968(vdp) ? (((vdp)->vdpRegs[28] & 0x0f) << VRAM_BANK_SHIFT) : 0)
 // R#20 bit1 SVNS and bit2 ILNS take the sprites and the line interrupt off
 // the R#23 vertical offset; bit7 S16 raises the sprites per line to sixteen.
 #define vdpIsSpriteVScrollOff(vdp)   (((vdp)->vdpRegs[20] & 0x02) && vdpIsV9968(vdp))
@@ -232,13 +234,13 @@ static const UInt8 registerValueMaskMSX2p[64] = {
 };
 
 /* The V9958 mask, widened for the 8 bit R#16 index, the R#20 mode bits, the
-** R#25 sprite shuffle and the A17 the table bases gain: R#2 bit7, R#4 and R#6
-** bit6, R#10 bit3, R#11 bit2. */
+** R#25 sprite shuffle, the R#28-R#30 VRAM banks and the A17 the table bases
+** gain: R#2 bit7, R#4 and R#6 bit6, R#10 bit3, R#11 bit2. */
 static const UInt8 registerValueMaskV9968[64] = {
 	0x7e, 0x7f, 0xff, 0xff, 0x7f, 0xff, 0x7f, 0xff,
 	0xfb, 0xbf, 0x0f, 0x07, 0xff, 0xff, 0x0f, 0x0f,
 	0xff, 0xbf, 0xff, 0xff, 0xff, 0x3f, 0x3f, 0xff,
-    0x00, 0xff, 0x3f, 0x07, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0xff, 0x3f, 0x07, 0x0f, 0xff, 0xff, 0x00,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -737,8 +739,11 @@ static void vdpUpdateVramMode(VDP* vdp)
     vdp->vramAccMask = wide ? vdp->vramMask
                             : vdp->vramMasks[((vdp->vdpRegs[8] & 0x08) >> 2) | ((vdp->vdpRegs[0x2d] >> 6) & 1)];
     if (wide) {
-        vdp->vramPtr    = vdp->vram;
+        vdp->vramPtr    = vdp->vram + vdpCpuBank(vdp);
         vdp->vramEnable = 1;
+    }
+    else if (vdpIsV9968(vdp)) {
+        vdp->vramPtr    = vdp->vram + vdp->vramOffsets[(vdp->vdpRegs[0x2d] >> 6) & 1];
     }
     vdpCmdSetVram256(vdp->cmdEngine, wide);
     vdpCmdSetExtCommands(vdp->cmdEngine, vdpIsV9968Native(vdp));
@@ -1526,6 +1531,10 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
     if (vdpIsV9968(vdp) && vdp->extRegsLocked && (reg == 20 || reg == 21)) {
         return;
     }
+    /* The bank registers load only while V58 is clear and P#4 is unlocked. */
+    if (vdpIsV9968(vdp) && reg >= 28 && reg <= 30 && (vdp->extRegsLocked || !vdpIsV9968Native(vdp))) {
+        return;
+    }
     /* SPS only loads while V58 is clear and P#4 is unlocked; the other R#25 bits always do. */
     if (reg == 25 && vdpIsV9968(vdp) && (vdp->extRegsLocked || !vdpIsV9968Native(vdp))) {
         value = (value & 0x7f) | (vdp->vdpRegs[25] & 0x80);
@@ -1744,6 +1753,17 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
         /* Every write of V58 = 1 does this, not only the change to it. */
         if ((value & 0x01) && vdpIsV9968(vdp)) {
             clearTableBaseA17(vdp);
+            vdp->vdpRegs[28] = 0;
+            vdp->vdpRegs[29] = 0;
+            vdp->vdpRegs[30] = 0;
+            vdpUpdateVramMode(vdp);
+        }
+        break;
+
+    /* A byte already fetched ahead is not fetched again from the new bank. */
+    case 28:
+        if (vdpIsV9968(vdp)) {
+            vdpUpdateVramMode(vdp);
         }
         break;
 
@@ -2038,6 +2058,7 @@ static void write(VDP* vdp, UInt16 ioPort, UInt8 value)
     if (vdp->vramEnable) {
         int index = MAP_VRAMINDEX(vdp, (vdp->vdpRegs[14] << 14) | vdp->vramAddress);
         if (!(index & ~vdp->vramAccMask)) {
+            index += vdpCpuBank(vdp);
             vdp->vram[index] = value;
 
             if (!vdp->secondary) {
