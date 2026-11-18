@@ -1678,7 +1678,7 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
         break;
 
     case 12:
-        vdpCmdSetTextBackColor(vdp->cmdEngine, value & 0x0f);
+        vdpCmdSetTextBackColor(vdp->cmdEngine, value);
         break;
 
     case 14:
@@ -3085,7 +3085,7 @@ static void loadState(VDP* vdp)
     vdpUpdateVramMode(vdp);
     /* The engine holds its own copies of R#12 and of the R#20 speed bit, and a
     ** command using either can be part way through. */
-    vdpCmdSetTextBackColor(vdp->cmdEngine, vdp->vdpRegs[12] & 0x0f);
+    vdpCmdSetTextBackColor(vdp->cmdEngine, vdp->vdpRegs[12]);
     vdpCmdSetHighSpeed(vdp->cmdEngine, vdpIsV9968(vdp) && (vdp->vdpRegs[20] & 0x01));
 
     vdp->canFlipFrameBuffer = 0;
