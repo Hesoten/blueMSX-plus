@@ -40,6 +40,7 @@
 #include "Geo3DPanel.h"
 #include "VdpRaster.h"
 #include "VdpParts.h"
+#include "VdpBanks.h"
 #include "ToolText.h"
 extern "C" {
 #include "Emulator.h"
@@ -210,6 +211,7 @@ public:
         ** band, and a character's the group it was read from, letting go once the frame has no such group. */
         int family = vdpIsBitmapMode(s->screenMode) ? 1 : 0;
         ensureRaster(s);
+        banks.fade();
         bool byGroup = f.kind == FOCUS_CHAR && charPin.set && f.a == charPin.a && f.b == charPin.b && raster.valid;
         if (f.pinned && (byGroup ? vdpFindGroup(groups, charPin.key) < 0 :
                          family != lastFamily && f.kind != FOCUS_VRAM && f.kind != FOCUS_SPRITE && !bandFocus(f))) {
@@ -510,8 +512,15 @@ public:
         return raster.valid;
     }
 
+    void noteCopy(const void* st) override
+    {
+        banks.note((const VdpDebugState*)st);
+    }
+
     void forget() override
     {
+        banks.forget();
+        bankThumbs.forget();
         outPic.forget();
         sheetPic.forget();
         namePic.forget();
@@ -606,6 +615,9 @@ private:
     ViewPicture     sheetPic, vramPic, bitmapPic;
     ViewPicture     selSheetPic;          /* the Selection's, for a band's or a cell's pin: never uploaded */
     ui::CanvasState sheetCv, vramCv, bitmapCv;
+    VdpBankStore    banks;
+    VdpBankThumbs   bankThumbs;
+
     /* The Patterns tab: the screen the name table builds beside the pattern generator, one
     ** picture; parts in image px, sdx image px a sheet dot across (2 beside T80's names). */
     struct PatParts { int nx, ny, nw, nh, sx, sy, sw, sh, sdx, w, h; };
