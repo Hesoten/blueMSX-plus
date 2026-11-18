@@ -61,12 +61,14 @@ static void tellBareDecimal(CtrlText* out, const char* typed)
         if (end - scan >= 4 && !isxdigit((unsigned char)*end) &&
             (*end == 0 || strchr("hHxX", *end) == NULL))
         {
-            /* Video memory holds 192 kB, 256 kB on a V9968, and every other space 64 kB. */
+            /* Video memory holds 192 kB, or on a V9968 256 kB (4 MB across its banks), and every
+            ** other space 64 kB. */
             UInt32 vramSize = 0;
             unsigned long most = 0xFFFF;
 
             if (_strnicmp(typed, "vram:", 5) == 0) {
                 vdpDebugGetVram(&vramSize);
+                vramSize = ctrlVramSpan(vdpDebugGetVramBanks(), vramSize);
                 most = vramSize > 0x30000 ? vramSize - 1 : 0x2FFFF;
             }
 

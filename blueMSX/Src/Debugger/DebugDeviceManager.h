@@ -109,7 +109,7 @@ void debugDeviceInspectEnd(void);
 
 /* A VRAM address as the program uses it in that layout (vdpDebugGetVramLayout), to the index of
 ** its byte in the chips, and back. Only an interleaving layout numbers them otherwise: below
-** 0x20000, or below 0x40000 with VDP_LAYOUT_A17. */
+** 0x20000, or below 0x40000 with VDP_LAYOUT_A17, alike in each 256 kB V9968 bank. */
 int debugDeviceVramIndex(int layout, int address);
 int debugDeviceVramAddress(int layout, int index);
 

@@ -122,6 +122,7 @@ typedef struct {
     UInt32 frameStartTime;
     Geo3DDebugState geo3d;
     int    banks;           /* VRAM banks the registers switch: 16 on a V9968 with V58 clear, else 1 */
+    int    vramBanks;       /* VRAM banks the chip holds: 16 on a V9968, else 1 */
     int    vramBank;        /* the bank vram holds */
     UInt8  vram[VDP_DEBUG_VRAM_SIZE];  /* physical order; zero past what the VDP reaches */
     /* Times R#29 pointed the sprites at each bank since the VDP was made; only counts up. */
@@ -230,6 +231,8 @@ int vdpDebugCapture(int index, VdpDebugState* out);
 /* The same with bank (0-15 or VDP_BANK_*) in vram and bank aux (the next one when the same,
 ** -1 none) in vramAux; with one bank, bank 0 in vram and vramAux is left alone. */
 int vdpDebugCaptureBanks(int index, VdpDebugState* out, int bank, int aux);
+/* The same, picking bank and aux among vramBanks, so any bank also while V58 is set. */
+int vdpDebugCaptureAnyBanks(int index, VdpDebugState* out, int bank, int aux);
 
 /* The raster log of the machine's VDP under a debugger view, raster then being empty in
 ** vdpDebugCapture. ended and the beam of [0] are the beam's, not the viewer's, which

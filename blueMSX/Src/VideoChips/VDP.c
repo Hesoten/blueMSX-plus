@@ -2485,6 +2485,24 @@ UInt8* vdpDebugGetVram(UInt32* size)
     return theVdp->vram;
 }
 
+int vdpDebugGetVramBanks(void)
+{
+    return theVdp != NULL && vdpIsV9968(theVdp) ? theVdp->vramBanks : 1;
+}
+
+void vdpDebugNoteVramWrite(UInt32 address, UInt32 size)
+{
+    UInt32 bank;
+
+    if (theVdp == NULL || size == 0) {
+        return;
+    }
+    for (bank = address >> VRAM_BANK_SHIFT;
+         bank <= (address + size - 1) >> VRAM_BANK_SHIFT && bank < (UInt32)theVdp->vramBanks; bank++) {
+        theVdp->vramBanksDbg |= 1u << bank;
+    }
+}
+
 int vdpDebugGetRegisters(UInt8* registers, int max)
 {
     int count = (int)sizeof(theVdp->vdpRegs);
@@ -3672,16 +3690,30 @@ static int debugBankOf(VDP* vdp, int bank, int banks)
     return bank >= 0 && bank < banks ? bank : 0;
 }
 
+static int captureBanks(int index, VdpDebugState* out, int bank, int aux, int anyBank);
+
 int vdpDebugCapture(int index, VdpDebugState* out)
 {
-    return vdpDebugCaptureBanks(index, out, 0, -1);
+    return captureBanks(index, out, 0, -1, 0);
 }
 
 int vdpDebugCaptureBanks(int index, VdpDebugState* out, int bank, int aux)
 {
+    return captureBanks(index, out, bank, aux, 0);
+}
+
+int vdpDebugCaptureAnyBanks(int index, VdpDebugState* out, int bank, int aux)
+{
+    return captureBanks(index, out, bank, aux, 1);
+}
+
+/* anyBank picks among the banks the VRAM holds, not only the ones the registers switch. */
+static int captureBanks(int index, VdpDebugState* out, int bank, int aux, int anyBank)
+{
     VDP* vdp = debugVdpAt(index);
     int regCount, cmdRegCount, paletteCount, statusRegCount;
     int vramBytes;
+    int pick;
     int i;
 
     if (vdp == NULL) {
@@ -3769,12 +3801,14 @@ int vdpDebugCaptureBanks(int index, VdpDebugState* out, int bank, int aux)
     ** copy up to vramMask too; nothing past that is ever written. */
     vramBytes = MAX(vdp->vramSize, vdp->vramMask + 1);
     vramBytes = MIN(vramBytes, (int)MIN(sizeof(out->vram), VRAM_SIZE));
-    out->banks    = vdpIsV9968Native(vdp) ? vdp->vramBanks : 1;
-    out->vramBank = debugBankOf(vdp, bank, out->banks);
+    out->banks     = vdpIsV9968Native(vdp) ? vdp->vramBanks : 1;
+    out->vramBanks = vdpIsV9968(vdp) ? vdp->vramBanks : 1;
+    pick           = anyBank ? out->vramBanks : out->banks;
+    out->vramBank  = debugBankOf(vdp, bank, pick);
     if (aux == out->vramBank) {
-        aux = (aux + 1) % out->banks;
+        aux = (aux + 1) % pick;
     }
-    out->auxBank  = out->banks > 1 && aux >= 0 && aux < out->banks ? aux : -1;
+    out->auxBank   = pick > 1 && aux >= 0 && aux < pick ? aux : -1;
     memset(out->sprBankHits, 0, sizeof(out->sprBankHits));
     if (vdpIsV9968(vdp)) {
         memcpy(out->sprBankHits, vdp->sprBankHits, sizeof(out->sprBankHits));

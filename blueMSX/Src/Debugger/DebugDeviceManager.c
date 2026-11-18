@@ -137,21 +137,23 @@ void debugDeviceLastWatchHit(int* devType, UInt32* address, int* layout, int* ki
 int debugDeviceVramIndex(int layout, int address)
 {
     int a17 = layout >= 0 && (layout & VDP_LAYOUT_A17) ? 0x20000 : 0;
+    int low = address & 0x3ffff;
 
-    if (!vdpVramInterleaved(layout) || address < 0 || address >= 0x20000 + a17) {
+    if (address < 0 || !vdpVramInterleaved(layout) || low >= 0x20000 + a17) {
         return address;
     }
-    return VDP_VRAM_INDEX_A17(a17, address);
+    return (address & ~0x3ffff) | VDP_VRAM_INDEX_A17(a17, low);
 }
 
 int debugDeviceVramAddress(int layout, int index)
 {
     int a17 = layout >= 0 && (layout & VDP_LAYOUT_A17) ? 0x20000 : 0;
+    int low = index & 0x3ffff;
 
-    if (!vdpVramInterleaved(layout) || index < 0 || index >= 0x20000 + a17) {
+    if (index < 0 || !vdpVramInterleaved(layout) || low >= 0x20000 + a17) {
         return index;
     }
-    return VDP_VRAM_ADDRESS_A17(a17, index);
+    return (index & ~0x3ffff) | VDP_VRAM_ADDRESS_A17(a17, low);
 }
 
 void debugDeviceInspectBegin(void)
