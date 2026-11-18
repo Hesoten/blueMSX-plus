@@ -79,6 +79,8 @@ public:
     /* Esc (key true) or a click beside a picture (false): let go of what the view keeps
     ** picked besides the focus; some of it only on the key. */
     virtual void   escape(bool key) { (void)key; }
+    /* Every copy the feed brings, also those the shell finds unchanged, before the views draw. */
+    virtual void   noteCopy(const void* st) { (void)st; }
     /* The chip changed: drop pictures and anything kept per chip. */
     virtual void   forget() = 0;
     /* The view's own toggles from the settings, once as it is made, and back to them. */
@@ -97,6 +99,8 @@ unsigned    contentVersion();
 unsigned    stepVersion();
 /* The frame's time for fading highlights: 0 while stopped or on the way to a stop. */
 float       toolDecayDt();
+/* How much a written block's mark on the VRAM map fades this frame, 0 to 1. */
+float       heatFade();
 /* Bumps only when VRAM, registers or palette changed, not status alone. */
 unsigned    pictureVersion();
 /* Bumps when the VDP's raster logs changed. */
@@ -121,6 +125,8 @@ const void* frameShot(unsigned* version);
 void        wantFrame(bool pixels = true);
 /* Called each frame Output shows its sprites (the V9990's cursors in its bitmap modes) split off. */
 void        wantSpriteSplit();
+/* The VRAM bank a V99x8 view shows this frame, 0-15 or VDP_BANK_*; copied from the next capture on. */
+void        wantBank(int bank);
 /* Called each frame a V99x8 view is drawn, so the tables and palettes each line used are recorded. */
 void        wantSpriteTables();
 /* Lets go of the pin and of a picked band next frame, as Esc does. */

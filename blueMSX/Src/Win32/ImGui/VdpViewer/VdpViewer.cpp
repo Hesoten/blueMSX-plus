@@ -91,6 +91,7 @@ static int         frameWanted;      /* a view showed a picture this frame: 2, o
 static int         splitWanted = -1; /* the family of a view that showed Output's sprites split off this frame */
 static int         viewFamily = -1;  /* the family of the view being drawn */
 static bool        tablesWanted;     /* a V99x8 view was drawn this frame */
+static int         bankWanted = VDP_BANK_BG;  /* the bank a V99x8 view showed this frame */
 static bool        releaseWanted;    /* a view asked to let go of the selection */
 static ui::CanvasZoom viewerZoom;    /* kept when the window closes, as the views keep theirs */
 static shell::PagesState pagesState;
@@ -102,6 +103,7 @@ unsigned     rasterVersion()  { return rasterVer; }
 unsigned     vramVersion()    { return vramVer; }
 unsigned     stepVersion()    { return stepVer; }
 float        toolDecayDt()    { return decayDt; }
+float        heatFade()       { return decayDt / HEAT_SECONDS; }
 const Focus& shownFocus()     { return focus.pinned ? focus : prevFocus; }
 int          hoverSeries()    { return hoverSeriesNow; }
 int          hoverBlock()     { return hoverBlockNow; }
@@ -110,6 +112,7 @@ const void*  frameShot(unsigned* version) { *version = shotVer; return shotNow; 
 void         wantFrame(bool pixels) { if (frameWanted < (pixels ? 2 : 1)) frameWanted = pixels ? 2 : 1; }
 void         wantSpriteSplit() { splitWanted = viewFamily; }
 void         wantSpriteTables() { tablesWanted = true; }
+void         wantBank(int bank) { bankWanted = bank; }
 void         releaseSelection() { releaseWanted = true; }
 ui::CanvasZoom& zoom()        { return viewerZoom; }
 PagesState&  pages()          { return pagesState; }
@@ -247,9 +250,8 @@ static bool pictureFieldsDiffer(int family, const void* a, const void* b)
     static const Span skip[] = {
         { offsetof(VdpDebugState, status), sizeof(((VdpDebugState*)0)->status) },
         { offsetof(VdpDebugState, raster), sizeof(((VdpDebugState*)0)->raster) },
-        { offsetof(VdpDebugState, frameStartTime),
-          offsetof(VdpDebugState, geo3d) + sizeof(Geo3DDebugState) - offsetof(VdpDebugState, frameStartTime) },
-        { offsetof(VdpDebugState, vram), VDP_DEBUG_VRAM_SIZE },
+        { offsetof(VdpDebugState, frameStartTime), offsetof(VdpDebugState, vram) - offsetof(VdpDebugState, frameStartTime) },
+        { offsetof(VdpDebugState, vram), sizeof(VdpDebugState) - offsetof(VdpDebugState, vram) },
     };
     return differOutside(a, b, sizeof(VdpDebugState), skip, 4);
 }
@@ -276,8 +278,12 @@ static bool stateDiffers(int family, const void* a, const void* b, size_t size)
         static const Span skip[] = { { offsetof(V9990DebugState, secondField), sizeof(int) } };
         return differOutside(a, b, size, skip, 1);
     }
-    static const Span skip[] = { { offsetof(VdpDebugState, raster), sizeof(((VdpDebugState*)0)->raster) } };
-    return differOutside(a, b, size, skip, 1) || rasterDiffers(family, a, b);
+    /* The other banks come one per copy for the views' noteCopy; they draw from vram. */
+    static const Span skip[] = {
+        { offsetof(VdpDebugState, raster), sizeof(((VdpDebugState*)0)->raster) },
+        { offsetof(VdpDebugState, sprBankHits), sizeof(VdpDebugState) - offsetof(VdpDebugState, sprBankHits) },
+    };
+    return differOutside(a, b, size, skip, 2) || rasterDiffers(family, a, b);
 }
 
 /* Bumps contentVer only when the content changed, and marks the VRAM blocks
@@ -310,16 +316,21 @@ static void noteSnapshot(const ChipEntry& e, const void* st, UInt32 seq)
         pictureVer++;
         rasterVer++;
         vramVer++;
+        if (chipViews[e.family]) chipViews[e.family]->noteCopy(st);
         return;
     }
     if (seq == lastSeq) return;
     lastSeq = seq;
+    if (chipViews[e.family]) chipViews[e.family]->noteCopy(st);
     if (!stateDiffers(e.family, last, st, size)) return;
     size_t vsize;
     const UInt8* a = vramOf(e.family, last, &vsize);
     const UInt8* b = vramOf(e.family, st, &vsize);
-    bool vramChanged = false;
-    for (size_t k = 0; k < vsize >> BLOCK_SHIFT && k < BLOCK_COUNT; k++) {
+    /* Another bank of a V9968 is not a write. */
+    bool otherBank = e.family == CHIP_V99X8 && ((const VdpDebugState*)last)->vramBank != ((const VdpDebugState*)st)->vramBank;
+    bool vramChanged = otherBank;
+    if (otherBank) memset(heat, 0, sizeof(heat));
+    for (size_t k = 0; !otherBank && k < vsize >> BLOCK_SHIFT && k < BLOCK_COUNT; k++) {
         if (memcmp(a + (k << BLOCK_SHIFT), b + (k << BLOCK_SHIFT), 1 << BLOCK_SHIFT) != 0) {
             heat[k] = 1;
             vramChanged = true;
@@ -846,6 +857,8 @@ static void draw(ImGuiToolWindow*, void*)
     /* Copied only while a view shows it; asked for again from what this frame shows. */
     InterlockedExchange(&feedRef.wantFrame, frameWanted);
     frameWanted = 0;
+    InterlockedExchange(&feedRef.wantBank, bankWanted);
+    bankWanted = VDP_BANK_BG;
     if (splitWanted != splitOn) {
         armSplit(splitOn, 0);
         armSplit(splitWanted, 1);
@@ -865,7 +878,7 @@ static void draw(ImGuiToolWindow*, void*)
         shotVer++;
     }
 
-    float dt = decayDt / HEAT_SECONDS;
+    float dt = shell::heatFade();
     for (int k = 0; k < BLOCK_COUNT; k++) heat[k] = heat[k] > dt ? heat[k] - dt : 0;
 
     prevFocus = focus;

@@ -33,7 +33,7 @@ struct ChipProvider {
     int         family;
     size_t      stateSize;
     int         (*count)(void);
-    int         (*capture)(int index, void* dst);
+    int         (*capture)(int index, void* dst, ChipFeedRef* r);
     UInt32      (*idOf)(const void* st);
     const char* (*name)(int index);
     int         (*cartridge)(int index);
@@ -42,10 +42,22 @@ struct ChipProvider {
     int         (*captureShot)(int index, void* dst, int pixels);
 };
 
-static int    vdpCapture(int i, void* d)      { return vdpDebugCapture(i, (VdpDebugState*)d); }
+/* The wanted bank in vram; vramAux holds the others in turn, every other copy the sprite bank while another is shown. */
+static int vdpCapture(int i, void* d, ChipFeedRef* r)
+{
+    VdpDebugState* s = (VdpDebugState*)d;
+    int aux = r->auxSprite >= 0 ? r->auxSprite : r->auxNext;
+    if (!vdpDebugCaptureBanks(i, s, r->wantBank, aux)) return 0;
+    if (s->banks <= 1) return 1;
+    int spr = s->regs[29] >> 4;
+    if (r->auxSprite < 0) r->auxNext = (s->auxBank + 1) % s->banks;
+    r->auxSprite = r->auxSprite < 0 && spr != s->vramBank ? spr : -1;
+    return 1;
+}
+
 static int    vdpShot(int i, void* d, int p)  { return vdpDebugCaptureFrame(i, (VdpFrameShot*)d, p); }
 static UInt32 vdpId(const void* s)            { return ((const VdpDebugState*)s)->id; }
-static int    v9990Capture(int i, void* d)    { return v9990DebugCapture(i, (V9990DebugState*)d); }
+static int    v9990Capture(int i, void* d, ChipFeedRef*) { return v9990DebugCapture(i, (V9990DebugState*)d); }
 static int    v9990Shot(int i, void* d, int)  { return v9990DebugCaptureFrame(i, (V9990FrameShot*)d); }
 static UInt32 v9990Id(const void* s)          { return ((const V9990DebugState*)s)->id; }
 static const char* v9990Name(int)             { return "V9990"; }
@@ -104,6 +116,9 @@ const void* chipFeedState(const ChipSnapshot* snap)
 void chipFeedRefReset(ChipFeedRef* ref)
 {
     InterlockedExchange(&ref->want, 0);
+    InterlockedExchange(&ref->wantBank, VDP_BANK_BG);
+    ref->auxNext       = 0;
+    ref->auxSprite     = -1;
     ref->shownChip     = 0;
     ref->framesWaiting = 0;
 }
@@ -179,7 +194,7 @@ int chipFeedCapture(void* dst, void* refp, int point)
         return 0;
     }
     ChipEntry* e = &snap->chip[sel];
-    if (!providers[e->family].capture(e->index, state)) {
+    if (!providers[e->family].capture(e->index, state, r)) {
         snap->selected = -1;
         return 0;
     }

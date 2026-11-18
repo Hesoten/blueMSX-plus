@@ -145,7 +145,7 @@ void vdpUnregisterDaConverter(int vdpDaHandle)
 
 #define VRAM_SIZE (256 * 1024)
 /* The V9968 has sixteen 256kB banks; a bank number sits above A17. */
-#define VRAM_BANKS_V9968 16
+#define VRAM_BANKS_V9968 VDP_DEBUG_BANKS
 #define VRAM_BANK_SHIFT  18
 /* What a state holds of every VDP but the V9968, as before the V9968. */
 #define VRAM_STATE_SIZE (192 * 1024)
@@ -610,6 +610,8 @@ struct VDP {
     /* Where R#29 puts the background and the sprites; vram off the V9968. */
     UInt8* vramDisp;
     UInt8* vramSpr;
+    /* For the debugger, not saved; a debugger write racing the emulator may lose a count. */
+    UInt32 sprBankHits[VRAM_BANKS_V9968];
 
     int deviceHandle;
     int debugHandle;
@@ -1783,6 +1785,9 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
         /* Every write of V58 = 1 does this, not only the change to it. */
         if ((value & 0x01) && vdpIsV9968(vdp)) {
             clearTableBaseA17(vdp);
+            if (vdp->vdpRegs[29] >> 4) {
+                vdp->sprBankHits[0]++;
+            }
             vdp->vdpRegs[28] = 0;
             vdp->vdpRegs[29] = 0;
             vdp->vdpRegs[30] = 0;
@@ -1802,6 +1807,9 @@ static void vdpUpdateRegisters(VDP* vdp, UInt8 reg, UInt8 value)
         if (vdpIsV9968(vdp)) {
             vdp->vramDisp = vdp->vram + vdpDispBank(vdp);
             vdp->vramSpr  = vdp->vram + vdpSprBank(vdp);
+            if (change & 0xf0) {
+                vdp->sprBankHits[value >> 4]++;
+            }
         }
         break;
 
@@ -3648,7 +3656,28 @@ const char* vdpDebugName(int index)
     return vdp != NULL ? VdpNames[vdp->vdpVersion] : NULL;
 }
 
+/* The bank a vdpDebugCaptureBanks request names, 0 when there is one bank. */
+static int debugBankOf(VDP* vdp, int bank, int banks)
+{
+    if (banks <= 1) {
+        return 0;
+    }
+    switch (bank) {
+    case VDP_BANK_CPU: return vdpCpuBank(vdp) >> VRAM_BANK_SHIFT;
+    case VDP_BANK_BG:  return vdpDispBank(vdp) >> VRAM_BANK_SHIFT;
+    case VDP_BANK_SPR: return vdpSprBank(vdp) >> VRAM_BANK_SHIFT;
+    case VDP_BANK_SRC: return vdpCmdSrcBank(vdp) >> VRAM_BANK_SHIFT;
+    case VDP_BANK_DST: return vdpCmdDstBank(vdp) >> VRAM_BANK_SHIFT;
+    }
+    return bank >= 0 && bank < banks ? bank : 0;
+}
+
 int vdpDebugCapture(int index, VdpDebugState* out)
+{
+    return vdpDebugCaptureBanks(index, out, 0, -1);
+}
+
+int vdpDebugCaptureBanks(int index, VdpDebugState* out, int bank, int aux)
 {
     VDP* vdp = debugVdpAt(index);
     int regCount, cmdRegCount, paletteCount, statusRegCount;
@@ -3740,8 +3769,21 @@ int vdpDebugCapture(int index, VdpDebugState* out)
     ** copy up to vramMask too; nothing past that is ever written. */
     vramBytes = MAX(vdp->vramSize, vdp->vramMask + 1);
     vramBytes = MIN(vramBytes, (int)MIN(sizeof(out->vram), VRAM_SIZE));
-    memcpy(out->vram, vdp->vram, vramBytes);
+    out->banks    = vdpIsV9968Native(vdp) ? vdp->vramBanks : 1;
+    out->vramBank = debugBankOf(vdp, bank, out->banks);
+    if (aux == out->vramBank) {
+        aux = (aux + 1) % out->banks;
+    }
+    out->auxBank  = out->banks > 1 && aux >= 0 && aux < out->banks ? aux : -1;
+    memset(out->sprBankHits, 0, sizeof(out->sprBankHits));
+    if (vdpIsV9968(vdp)) {
+        memcpy(out->sprBankHits, vdp->sprBankHits, sizeof(out->sprBankHits));
+    }
+    memcpy(out->vram, vdp->vram + ((size_t)out->vramBank << VRAM_BANK_SHIFT), vramBytes);
     memset(out->vram + vramBytes, 0, sizeof(out->vram) - vramBytes);
+    if (out->auxBank >= 0) {
+        memcpy(out->vramAux, vdp->vram + ((size_t)out->auxBank << VRAM_BANK_SHIFT), VRAM_SIZE);
+    }
     /* Other threads read the raster log with vdpDebugCaptureRaster, under a view. */
     if (emulatorIsEmuThread()) {
         rasterCapture(vdp, out->raster);
@@ -4016,7 +4058,7 @@ static int sprTabGather(VDP* vdp, VdpSprTable* t)
 /* The same layout: the bytes and the registers sprites are laid out with. */
 static int sprTabSame(const VdpSprTable* a, const VdpSprTable* b)
 {
-    static const int regs[] = { 0, 1, 5, 6, 8, 9, 11, 20, 23 };
+    static const int regs[] = { 0, 1, 5, 6, 8, 9, 11, 20, 23, 29 };
     int attr = (a->regs[5] << 7) & (a->screenMode <= 3 ? 0x380 : 0x200);
     int i;
 
