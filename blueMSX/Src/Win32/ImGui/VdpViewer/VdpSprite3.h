@@ -91,6 +91,10 @@ int  sp3LineState(const UInt8* frameRegs, int mode, const UInt8* lineRegs);
 /* Evaluates every displayed line from the snapshot's registers and VRAM; scanAll scans
 ** them even when the frame end has the sprites off (off still says why). */
 void sp3Eval(const VdpDebugState* s, Sp3Frame* out, bool scanAll = false);
+/* SCREEN 8 without EPAL keeps the fixed sixteen colours and ignores the palette set. */
+bool sp3FixedColours(const VdpDebugState* s);
+/* Colour code c (1-15) of palette set ps as RGBA. */
+uint32_t sp3Rgba(const VdpDebugState* s, int ps, int c);
 /* The scan line the renderer looks at for displayed line d. */
 int  sp3ScanLine(const Sp3Frame& f, int d);
 /* The pattern row plane n shows on displayed line d, or -1 when out of range. */

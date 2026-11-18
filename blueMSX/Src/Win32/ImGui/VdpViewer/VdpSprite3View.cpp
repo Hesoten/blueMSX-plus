@@ -388,7 +388,8 @@ void Sp3Panel::ensureAtlas(const VdpDebugState* s)
     const Sp3Frame& fm = *fr;
     unsigned pal = fnvWords(s->paletteExt, 256);
     char key[64];
-    snprintf(key, sizeof(key), "%X/%X/%X/%X/%08X", fm.attrBase, fm.patBase, fm.aliasMask, (unsigned)s->vramMask, pal);
+    snprintf(key, sizeof(key), "%X/%X/%X/%X/%08X/%d", fm.attrBase, fm.patBase, fm.aliasMask, (unsigned)s->vramMask, pal,
+             sp3FixedColours(s));
     bool decoded = atlasPic.needsDecodeVram(key);
     if (decoded) {
         atlasPic.w = 16 * 16;
@@ -412,7 +413,7 @@ void Sp3Panel::atlasImage(ImDrawList* dl, int n, ImVec2 a, float px) const
     ui::ImageNearest(dl, atlasPic.tex.id(), a, b, ImVec2(u, v), ImVec2(u + 16.0f / 256, v + rows / 512.0f));
 }
 
-/* The 16 colours of palette set ps from a, colour 0 clear. */
+/* The 16 colours of palette set ps from a as SP3 sprites show them, colour 0 clear. */
 void Sp3Panel::swatchRow(ImDrawList* dl, const VdpDebugState* s, int ps, ImVec2 a) const
 {
     const UiTokens& t = uiTokens();
@@ -420,7 +421,7 @@ void Sp3Panel::swatchRow(ImDrawList* dl, const VdpDebugState* s, int ps, ImVec2 
     for (int c = 0; c < 16; c++) {
         ImVec2 c0(a.x + c * (sw + ui::Px(2)), a.y), c1(c0.x + sw, c0.y + sw);
         if (c == 0) parts::drawCheckerRect(dl, c0, c1);
-        else dl->AddRectFilled(c0, c1, (ImU32)vdpRgbToRgba(s->paletteExt[((ps & 15) << 4) | c]));
+        else dl->AddRectFilled(c0, c1, (ImU32)sp3Rgba(s, ps & 15, c));
         dl->AddRect(c0, c1, t.controlStroke);
     }
 }
@@ -995,10 +996,11 @@ void Sp3Panel::drawTab(const VdpDebugState* s, Focus& f)
     choosePages();
     header(s);
     ensureAtlas(s);
-    /* The sheets read VRAM, R#6 and the palette set alone, so they wait for those to change. */
+    /* The sheets read VRAM, R#6, the palette set and the fixed colours alone, so they wait for those to change. */
     unsigned pal = fnvWords(s->paletteExt + (sheetPs << 4), 16);
     char key[64];
-    size_t k = (size_t)snprintf(key, sizeof(key), "%X/%X/%08X/", fm.patBase & s->vramMask, s->vramMask, pal);
+    size_t k = (size_t)snprintf(key, sizeof(key), "%X/%X/%08X/%d/", fm.patBase & s->vramMask, s->vramMask, pal,
+                               sp3FixedColours(s));
     for (int i = 0; i < pageCount && k < sizeof(key); i++) k += (size_t)snprintf(key + k, sizeof(key) - k, "%d", pages[i]);
     bool decoded = pageCount > 0 && sheetPic.needsDecodeVram(key);
     if (decoded) {
@@ -1395,7 +1397,7 @@ void Sp3Panel::selectionBody(const VdpDebugState* s, Focus&)
         ui::EndKeyValue();
     }
     ImGui::EndGroup();
-    /* The 16 colours of its palette set, colour 0 clear. */
+    /* The 16 colours of its palette set as SP3 sprites show them, colour 0 clear. */
     swatchRow(dl, s, q.ps, ImGui::GetCursorScreenPos());
     ImGui::Dummy(ImVec2(16 * (ui::Px(12) + ui::Px(2)), ui::Px(12)));
 }

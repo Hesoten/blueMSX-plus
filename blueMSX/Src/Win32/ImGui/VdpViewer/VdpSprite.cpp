@@ -183,18 +183,23 @@ static bool extPaletteIn(const VdpDebugState* s, const UInt8* r)
     return s->version == VDP_V9968 && (r[20] & 0x10);
 }
 
-uint32_t vdpSpriteSetRgbaFrom(const VdpDebugState* s, const UInt32* rgb, const VdpSpriteFrame& f, int set, int code)
+uint32_t vdpScreen8SpriteRgba(int code)
 {
-    /* SCREEN 8 sprites use their own fixed colours, R G B in sevenths, until EPAL
-    ** sends them through the palette. */
+    /* R G B in sevenths. */
     static const unsigned char screen8[16][3] = {
         { 0, 0, 0 }, { 0, 0, 2 }, { 3, 0, 0 }, { 3, 0, 2 }, { 0, 3, 0 }, { 0, 3, 2 }, { 3, 3, 0 }, { 3, 3, 2 },
         { 7, 4, 2 }, { 0, 0, 7 }, { 7, 0, 0 }, { 7, 0, 7 }, { 0, 7, 0 }, { 0, 7, 7 }, { 7, 7, 0 }, { 7, 7, 7 },
     };
+    const unsigned char* c = screen8[code & 15];
+    return vdpRgbToRgba(((uint32_t)(c[0] * 255 / 7) << 16) | ((uint32_t)(c[1] * 255 / 7) << 8) | (uint32_t)(c[2] * 255 / 7));
+}
+
+uint32_t vdpSpriteSetRgbaFrom(const VdpDebugState* s, const UInt32* rgb, const VdpSpriteFrame& f, int set, int code)
+{
+    /* SCREEN 8 sprites use their own fixed colours until EPAL sends them through the palette. */
     code &= 15;
     if (f.screenMode == 8 && !extPaletteIn(s, f.regs)) {
-        const unsigned char* c = screen8[code];
-        return vdpRgbToRgba(((uint32_t)(c[0] * 255 / 7) << 16) | ((uint32_t)(c[1] * 255 / 7) << 8) | (uint32_t)(c[2] * 255 / 7));
+        return vdpScreen8SpriteRgba(code);
     }
     if (f.screenMode == 6) code = (code >> 2) & 3;
     if (set != 0) return vdpExtRgba(s, NULL, (set << 4) | code);
