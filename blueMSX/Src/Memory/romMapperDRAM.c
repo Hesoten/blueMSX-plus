@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -99,22 +102,21 @@ static void setDram(RomMapperDram* rm, int enable)
         if (rm->slot == 0 && rm->sslot == 0) {
             int endPage = MIN(4, rm->startPage + rm->pages);
             int page;
-            for (page = rm->startPage; page < 4; page++) {
+            for (page = rm->startPage; page < endPage; page++) {
                 slotMapPage(rm->slot, rm->sslot, page, boardGetRamPage(page - 8), 1, 0);
             }
         }
         else if (rm->slot == 3 && rm->sslot == 1) {
             int endPage = MIN(4, rm->startPage + rm->pages);
             int page;
-            for (page = rm->startPage; page < 4; page++) {
+            for (page = rm->startPage; page < endPage; page++) {
                 slotMapPage(rm->slot, rm->sslot, page, boardGetRamPage(page - 4), 1, 0);
             }
         }
     }
     else {
-        int endPage = MIN(4, rm->startPage + rm->pages);
         int page;
-        for (page = rm->startPage; page < 4; page++) {
+        for (page = rm->startPage; page < rm->startPage + rm->pages; page++) {
             slotMapPage(rm->slot, rm->sslot, page, rm->romData + 0x2000 * (page - rm->startPage), 1, 0);
         }
     }
