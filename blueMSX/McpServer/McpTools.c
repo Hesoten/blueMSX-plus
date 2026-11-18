@@ -39,7 +39,8 @@
     "\"Where. One of: 0xC000 (what the Z80 sees now), slot1.0:seg5+0x100 (a " \
     "segment of a slot, whether or not it is paged in), ram:seg12+0x1A30 (the " \
     "memory mapper in page 3), vram:0x1B00 (as the program addresses video memory " \
-    "through the VDP). Addresses printed by these tools can be " \
+    "through the VDP; a V9968 has bank n from vram:n*0x40000). " \
+    "Addresses printed by these tools can be " \
     "sent straight back.\"}"
 
 #define READ_ONLY "\"readOnlyHint\":true,\"destructiveHint\":false," \

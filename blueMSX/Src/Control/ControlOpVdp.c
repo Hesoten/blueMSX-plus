@@ -123,6 +123,11 @@ static void vdpRegisters(CtrlText* text, const VdpDebugState* s)
                     "or from other tables; display %s, %s\n", raw, s->screenOn ? "on" : "off",
                     s->isPal ? "50 Hz" : "60 Hz");
     }
+    if (s->vramBanks > 1) {
+        ctrlTextAdd(text, "banks:   %d of %d kB (R#28-R#30), bank n from vram:n*0x40000%s\n",
+                    s->vramBanks, s->vramSize / 1024,
+                    s->regs[21] & 0x01 ? "; R#28-R#30 stay 0 while V58 is set" : "");
+    }
     ctrlTextAdd(text, "vram:    %d kB, %s\n", s->vramSize / 1024,
                 s->bitmapLinear ? "SCREEN 7-12 in address order (SP3)" :
                 !s->interleaved ? "in address order" :
@@ -219,8 +224,10 @@ static void vdpVram(CtrlText* text, const VdpDebugState* s, UInt32 at, UInt32 co
                 vdpVramInterleaved(s->vramLayout) ? ", which interleaves the chips' bytes" : "");
     for (i = 0; i < count; i++) {
         UInt32 index = (UInt32)debugDeviceVramIndex(s->vramLayout, (int)(at + i));
+        int    bank  = (int)(index >> 18);
+        const UInt8* from = bank == s->vramBank ? s->vram : bank == s->auxBank ? s->vramAux : NULL;
 
-        dumpBytes[i] = index < sizeof(s->vram) ? s->vram[index] : 0;
+        dumpBytes[i] = from != NULL ? from[index & 0x3ffff] : 0;
     }
     ctrlTextHexDump(text, at, dumpBytes, count);
 }
@@ -479,7 +486,8 @@ static int refuseUnbacked(CtrlCall* call, const VdpDebugState* s, UInt32 at, Int
     UInt32 i;
 
     for (i = 0; i < (UInt32)count; i++) {
-        if ((UInt32)debugDeviceVramIndex(s->vramLayout, (int)(at + i)) >= (UInt32)s->vramSize) {
+        if ((UInt32)debugDeviceVramIndex(s->vramLayout, (int)(at + i)) >=
+            ctrlVramSpan(s->vramBanks, (UInt32)s->vramSize)) {
             ctrlVramModeShortName(layout, sizeof(layout), s->vramLayout);
             return ctrlReplyErrorf(call, "out_of_range", "0x%X has no video memory behind it: "
                                    "%s puts odd addresses in a second 64 kB bank, and this VDP "
@@ -586,11 +594,14 @@ int ctrlOpVdp(CtrlCall* call)
     }
     else {
         int index = vdpIndexOf(chip == CHIP_CARTRIDGE);
+        int bank  = vram && (at >> 18) < VDP_DEBUG_BANKS ? (int)(at >> 18) : 0;
+        int aux   = vram && ((at + (UInt32)count - 1) >> 18) != (UInt32)bank ? bank + 1 : -1;
 
-        if (index < 0 || !vdpDebugCapture(index, &captured.vdp)) {
+        if (index < 0 || !vdpDebugCaptureAnyBanks(index, &captured.vdp, bank, aux)) {
             return refuseNoChip(call, chipName);
         }
-        if (vram && ((refused = refusePastEnd(call, at, count, (UInt32)captured.vdp.vramSize)) != 0 ||
+        if (vram && ((refused = refusePastEnd(call, at, count,
+                                              ctrlVramSpan(captured.vdp.vramBanks, (UInt32)captured.vdp.vramSize))) != 0 ||
                      (refused = refuseUnbacked(call, &captured.vdp, at, count)) != 0)) {
             return refused;
         }

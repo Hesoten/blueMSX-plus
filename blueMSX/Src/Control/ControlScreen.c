@@ -122,6 +122,15 @@ static int screenTables(TextScreen* screen, char* err, int errLen)
         screen->patterns &= screen->vramSize - 1;
         screen->colours &= screen->vramSize - 1;
     }
+    /* A V9968 draws the background from the bank in R#29 bits 3-0. */
+    if (vdpDebugGetVramBanks() > 1) {
+        UInt32 bank = (UInt32)(registers[29] & 0x0f) << 18;
+
+        screen->base     |= bank;
+        screen->patterns |= bank;
+        screen->colours  |= bank;
+        screen->vramSize  = ctrlVramSpan(vdpDebugGetVramBanks(), screen->vramSize);
+    }
     /* 212 lines give 26.5 rows. A TMS99x8 only takes R#0-7 (VDP.c), so R#9 bit 7 is never set. */
     screen->rows = 24;
     if (registers[9] & 0x80) {

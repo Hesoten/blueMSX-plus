@@ -306,6 +306,16 @@ void ctrlStatusDescribeVdp(CtrlText* text)
                         "undefined: the VDP draws them blank or from other tables, so "
                         "check the PNG\n", vdp->name, raw);
         }
+        if (vdpDebugGetVramBanks() > 1) {
+            UInt8 regs[31];
+
+            if (vdpDebugGetRegisters(regs, (int)sizeof(regs)) == (int)sizeof(regs)) {
+                ctrlTextAdd(text, "banks:   cpu %d (R#28), background %d, sprites %d (R#29), "
+                            "command source %d, destination %d (R#30); vram: has bank n from "
+                            "n*0x40000\n", regs[28] & 0x0f, regs[29] & 0x0f, regs[29] >> 4,
+                            regs[30] & 0x0f, regs[30] >> 4);
+            }
+        }
         ctrlStatusListRegisters(text, vdp->registerBank[0], "");
     }
     dbgSnapshotDestroy(snapshot);
