@@ -202,6 +202,378 @@ public:
         return n;
     }
 
+    /* ---- the bank strip: the banks a tab can show, under its command bar ---- */
+
+    enum { PATH_CPU, PATH_BG, PATH_SPR, PATH_SRC, PATH_DST, PATHS };
+
+    static int pathBank(const VdpDebugState* s, int path)
+    {
+        const UInt8* r = s->regs;
+        switch (path) {
+        case PATH_CPU: return r[28] & 0x0f;
+        case PATH_BG:  return r[29] & 0x0f;
+        case PATH_SPR: return r[29] >> 4;
+        case PATH_SRC: return r[30] & 0x0f;
+        }
+        return r[30] >> 4;
+    }
+
+    static int pathReg(int path)
+    {
+        return path == PATH_CPU ? 28 : path == PATH_BG || path == PATH_SPR ? 29 : 30;
+    }
+
+    static int tabPath(int tab)
+    {
+        return tab == TAB_SPRITES ? PATH_SPR : tab == TAB_GEO3D ? PATH_DST : tab == TAB_VRAM ? PATH_CPU : PATH_BG;
+    }
+
+    /* The CPU in the accent, the others in the colours of the map's lanes they read. */
+    static ImU32 pathColour(int path)
+    {
+        const UiTokens& t = uiTokens();
+        static const int series[PATHS] = { -1, 0, 3, 2, 5 };
+        return path == PATH_CPU ? t.accent : t.series[series[path]];
+    }
+
+    static const char* pathName(int path)
+    {
+        static const ToolStringId names[PATHS] = { TS_BANK_PATH_CPU, TS_BANK_PATH_BG, TS_BANK_PATH_SPR, TS_BANK_PATH_SRC, TS_BANK_PATH_DST };
+        return ts(names[path]);
+    }
+
+    bool stripOpen = true;       /* the bank strip, or its row of numbers */
+    int  stripDue = -1;          /* the tab whose strip goes under the next command bar */
+    const VdpDebugState* stripState = NULL;
+
+    static void stripTail(void* ref)
+    {
+        V99x8View* v = (V99x8View*)ref;
+        int tab = v->stripDue;
+        v->stripDue = -1;
+        if (tab >= 0 && v->stripState != NULL) v->bankStrip(v->stripState, tab);
+    }
+
+    /* geo3d follows the destination bank; its strip only shows the banks. */
+    static bool stripPicks(int tab) { return tab != TAB_GEO3D; }
+
+    /* The bank the tab's content shows. */
+    int tabShownBank(const VdpDebugState* s, int) const
+    {
+        return s->vramBank;
+    }
+
+    /* Listed: the banks not empty in a copy since the copies began, so a stale copy drops none, and the
+    ** ones shown, pinned and followed while pinned. Until all are known, no others. */
+    bool stripListed(const VdpDebugState* s, int tab, int b) const
+    {
+        int pin = bankPin[tab];
+        return b == tabShownBank(s, tab) || b == pin || (pin >= 0 && b == bankFollowed(s, tab)) ||
+               (banks.allKnown() && banks.used(b));
+    }
+
+    int stripBanks(const VdpDebugState* s, int tab, int* out) const
+    {
+        int n = 0;
+        for (int b = 0; b < s->banks && b < VdpBankStore::BANKS; b++) {
+            if (stripListed(s, tab, b)) out[n++] = b;
+        }
+        return n;
+    }
+
+    /* The bank's roles, each a swatch of its colour with its register, then what a click does. */
+    void bankTip(const VdpDebugState* s, int tab, int b)
+    {
+        int paths[PATHS], n = bankPaths(s, b, paths);
+        int pin = bankPin[tab];
+        char hint[192] = "";
+        if (stripPicks(tab)) {
+            if (pin == b) textf(hint, sizeof(hint), ts(TS_BANK_UNPIN_TIP), pathName(tabPath(tab)), bankFollowed(s, tab));
+            else textf(hint, sizeof(hint), ts(TS_BANK_PIN_TIP), b);
+        }
+        if (n == 0 && !hint[0]) return;
+        ImGui::BeginTooltip();
+        float lh = ImGui::GetTextLineHeight();
+        for (int i = 0; i < n; i++) {
+            ImVec2 c = ImGui::GetCursorScreenPos();
+            float sw = floorf(lh * 0.7f), in = floorf((lh - sw) / 2);
+            ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(c.x, c.y + in), ImVec2(c.x + sw, c.y + in + sw), pathColour(paths[i]));
+            ImGui::Dummy(ImVec2(sw, lh));
+            ImGui::SameLine();
+            ImGui::Text("%s (R#%d)", pathName(paths[i]), pathReg(paths[i]));
+        }
+        if (hint[0]) {
+            ImGui::PushStyleColor(ImGuiCol_Text, uiTokens().textSecondary);
+            ImGui::TextUnformatted(hint);
+            ImGui::PopStyleColor();
+        }
+        ImGui::EndTooltip();
+    }
+
+    /* A click pins the bank, or lets go of the pin on it; the right button offers both. */
+    void bankClick(const VdpDebugState* s, int tab, int b, bool clicked)
+    {
+        int& pin = bankPin[tab];
+        if (clicked && stripPicks(tab)) pin = pin == b ? -1 : b;
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip) && !ImGui::IsPopupOpen(bankMenuId, ImGuiPopupFlags_None)) bankTip(s, tab, b);
+        if (stripPicks(tab) && ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
+            bankMenuFor = b;
+            ImGui::OpenPopup(bankMenuId);
+        }
+    }
+
+    int     bankMenuFor = -1;
+    ImGuiID bankMenuId = 0;   /* the strip's menu, outside the banks' ids */
+
+    void bankMenu(int tab)
+    {
+        if (!ImGui::BeginPopupEx(bankMenuId, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings)) return;
+        int& pin = bankPin[tab];
+        if (ui::MenuRadio(ts(TS_BANK_PIN), pin >= 0 && pin == bankMenuFor, bankMenuFor >= 0 && pin != bankMenuFor)) pin = bankMenuFor;
+        if (ui::MenuRadio(ts(TS_BANK_FOLLOW), pin < 0, pin >= 0)) pin = -1;
+        ImGui::EndPopup();
+    }
+
+    static int bankPaths(const VdpDebugState* s, int b, int* out)
+    {
+        int n = 0;
+        for (int p = 0; p < PATHS; p++) {
+            if (pathBank(s, p) == b) out[n++] = p;
+        }
+        return n;
+    }
+
+    /* The colours of the bank's paths side by side over x0..x1. */
+    static void pathBar(ImDrawList* dl, const VdpDebugState* s, int b, float x0, float x1, float y, float h)
+    {
+        int paths[PATHS], n = bankPaths(s, b, paths);
+        float bw = n > 0 ? (x1 - x0 - (n - 1)) / n : 0;
+        for (int i = 0; i < n; i++) {
+            float a = floorf(x0 + i * (bw + 1));
+            dl->AddRectFilled(ImVec2(a, y), ImVec2(floorf(a + bw), y + h), pathColour(paths[i]), ui::Px(1));
+        }
+    }
+
+    static float stripThumbSize() { return ui::Px(48); }
+
+    /* The bank's number at p: on the accent for the bank shown, else outlined. */
+    static void bankNumber(ImDrawList* dl, int b, ImVec2 p, bool shown)
+    {
+        char num[8];
+        snprintf(num, sizeof(num), "%X", b);
+        if (shown) {
+            ui::PushFont(UI_FONT_STRONG, 12);
+            ImVec2 ns = ImGui::CalcTextSize(num);
+            dl->AddRectFilled(p, ImVec2(p.x + ns.x + ui::Px(8), p.y + ns.y + ui::Px(2)), uiTokens().accent, ui::Px(3));
+            dl->AddText(ImVec2(p.x + ui::Px(4), p.y + ui::Px(1)), uiTokens().textOnAccent, num);
+            ui::PopFont();
+            return;
+        }
+        ui::PushFont(UI_FONT_MONO, 12);
+        ImVec2 np(p.x + ui::Px(3), p.y + ui::Px(1));
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                if (dx || dy) dl->AddText(ImVec2(np.x + dx, np.y + dy), IM_COL32(0, 0, 0, 255), num);
+            }
+        }
+        dl->AddText(np, IM_COL32(255, 255, 255, 255), num);
+        ui::PopFont();
+    }
+
+    /* One bank's picture: its number, the bar of paths, a dot while written, the frames and the pin. */
+    void drawBankThumb(ImDrawList* dl, const VdpDebugState* s, int tab, int b, ImVec2 p, bool hovered)
+    {
+        const UiTokens& t = uiTokens();
+        float w = stripThumbSize(), h = w, r = ui::Px(3);
+        ImVec2 q(p.x + w, p.y + h);
+        int shown = tabShownBank(s, tab);
+        dl->AddRectFilled(p, q, IM_COL32(0, 0, 0, 255), r);
+        const ViewPicture* pic = bankThumbs.picture(b);
+        if (pic != NULL && pic->tex.id() != 0) {
+            float k = fminf(w / pic->w, h / pic->h), pw = floorf(pic->w * k), ph = floorf(pic->h * k);
+            ImVec2 a(floorf(p.x + (w - pw) / 2), floorf(p.y + (h - ph) / 2));
+            ui::ImageNearest(dl, pic->tex.id(), a, ImVec2(a.x + pw, a.y + ph));
+        }
+        if (hovered && stripPicks(tab)) dl->AddRectFilled(p, q, ui::WithAlpha(t.text, 40), r);
+        dl->AddRect(p, q, t.controlStroke, r);
+        bankNumber(dl, b, ImVec2(p.x + ui::Px(2), p.y + ui::Px(2)), b == shown);
+        pathBar(dl, s, b, p.x, q.x, q.y + ui::Px(2), ui::Px(4));
+        float th = ui::Px(2), o = ui::Px(2);
+        int pin = bankPin[tab], followed = bankFollowed(s, tab);
+        /* Pinned: the pin sits in the top right corner and the write dot moves left of it. */
+        if (banks.writing(b)) {
+            ImVec2 c(q.x - ui::Px(b == pin ? 23.0f : 6.0f), p.y + ui::Px(6));
+            dl->AddCircleFilled(c, ui::Px(5), ui::WithAlpha(t.accent, 90));
+            dl->AddCircleFilled(c, ui::Px(3.5f), t.accent);
+        }
+        if (b == shown) dl->AddRect(ImVec2(p.x - o - 1, p.y - o - 1), ImVec2(q.x + o + 1, q.y + o + 1), t.accent, r + o, th + 2);
+        else if (pin >= 0 && b == followed) dashedRect(dl, ImVec2(p.x - o, p.y - o), ImVec2(q.x + o, q.y + o), pathColour(tabPath(tab)), th);
+        if (b == pin) {
+            ImVec2 c(q.x - ui::Px(9), p.y + ui::Px(8));
+            dl->AddCircleFilled(c, ui::Px(7), t.cardFill);
+            ui::DrawIcon(dl, c, UI_ICON_PINNED, 11, t.accent);
+        }
+    }
+
+    /* Folded: each bank in a slot of its own, the number over a bar of its paths' colours;
+    ** the ones the open strip leaves out dimmed, the one shown on the accent. */
+    void drawBankChip(ImDrawList* dl, const VdpDebugState* s, int tab, int b, ImVec2 p, float w, float h, bool hovered, bool dim)
+    {
+        const UiTokens& t = uiTokens();
+        ImVec2 q(p.x + w, p.y + h);
+        float r = ui::Px(3);
+        bool shown = b == tabShownBank(s, tab);
+        ImU32 fill = shown ? t.accent : hovered && stripPicks(tab) ? t.subtleHover : dim ? 0 : t.controlFill;
+        if (fill) dl->AddRectFilled(p, q, fill, r);
+        if (!shown) dl->AddRect(p, q, dim ? ui::WithAlpha(t.controlStroke, 110) : t.controlStroke, r);
+        char num[8];
+        snprintf(num, sizeof(num), "%X", b);
+        ui::PushFont(shown ? UI_FONT_STRONG : UI_FONT_MONO, 12);
+        ImVec2 ns = ImGui::CalcTextSize(num);
+        dl->AddText(ImVec2(floorf(p.x + (w - ns.x) / 2), floorf(p.y + (h - ui::Px(3) - ns.y) / 2)),
+                    shown ? t.textOnAccent : dim ? t.textSecondary : t.text, num);
+        ui::PopFont();
+        pathBar(dl, s, b, p.x + ui::Px(2), q.x - ui::Px(2), q.y - ui::Px(4), ui::Px(3));
+        if (banks.writing(b)) dl->AddCircleFilled(ImVec2(p.x + ui::Px(4), p.y + ui::Px(4)), ui::Px(2.5f), shown ? t.textOnAccent : t.accent);
+        float th = ui::Px(2), o = ui::Px(1);
+        int pin = bankPin[tab];
+        if (b == pin) dl->AddRect(ImVec2(p.x - o, p.y - o), ImVec2(q.x + o, q.y + o), t.accent, r + o, th);
+        else if (pin >= 0 && b == bankFollowed(s, tab)) dashedRect(dl, ImVec2(p.x - o, p.y - o), ImVec2(q.x + o, q.y + o), pathColour(tabPath(tab)), th);
+    }
+
+    /* The roles' legend from x on the line through cy, in the font pushed. */
+    static void legendRow(ImDrawList* dl, unsigned roles, float x, float cy)
+    {
+        for (int p = 0; p < PATHS; p++) {
+            if (!((roles >> p) & 1)) continue;
+            x += ui::LegendBar(dl, x, cy, pathColour(p));
+            ImVec2 ls = ImGui::CalcTextSize(pathName(p));
+            dl->AddText(ImVec2(x, floorf(cy - ls.y / 2)), uiTokens().textSecondary, pathName(p));
+            x += ls.x + ui::Px(12);
+        }
+    }
+
+    static float bankChipW()
+    {
+        ui::PushFont(UI_FONT_STRONG, 12);
+        float w = ImGui::CalcTextSize("F").x;
+        ui::PopFont();
+        return ui::Px(10) + w + ui::Px(10);
+    }
+
+    /* Under a tab's command bar on a V9968 whose VRAM is in banks; the tab's content shows tabShownBank. */
+    void bankStrip(const VdpDebugState* s, int tab)
+    {
+        if (s->banks <= 1) return;
+        const UiTokens& t = uiTokens();
+        int list[VdpBankStore::BANKS], n = 0;
+        bool dim[VdpBankStore::BANKS] = {};
+        if (stripOpen) {
+            BitmapRead br = bitmapRead(s);
+            bankThumbs.update(s, banks, br.vl, br.rm, (int)stripThumbSize(), 2);
+            n = stripBanks(s, tab, list);
+        }
+        else {
+            for (int b = 0; b < s->banks && b < VdpBankStore::BANKS; b++) {
+                dim[n] = !stripListed(s, tab, b);
+                list[n++] = b;
+            }
+        }
+        int listedEmpty = 0;
+        unsigned roles = 0;
+        for (int i = 0; i < n; i++) {
+            listedEmpty += !dim[i] && banks.empty(list[i]);
+            for (int p = 0; p < PATHS; p++) {
+                if (pathBank(s, p) == list[i]) roles |= 1u << p;
+            }
+        }
+        int hidden = stripOpen ? banks.emptyCount() - listedEmpty : 0;
+
+        float rowH = stripOpen ? stripThumbSize() + ui::Px(6) + ui::Px(12) : ui::Px(30);
+        ImVec2 top = ImGui::GetCursorScreenPos();
+        float avail = ImGui::GetContentRegionAvail().x;
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+
+        /* The title at the left; at the right the chevron that folds the strip, as an expander's. */
+        const char* title = ts(TS_BANKS);
+        ImVec2 tsz = ImGui::CalcTextSize(title);
+        float titleW = ui::Px(8) + tsz.x + ui::Px(8);
+        dl->AddText(ImVec2(top.x + ui::Px(8), floorf(top.y + (rowH - tsz.y) / 2)), t.textSecondary, title);
+        float midY = floorf(top.y + rowH / 2);
+        float cw = ui::Px(32), ch = fminf(ui::Px(32), rowH - ui::Px(4));
+        ImVec2 ca(top.x + avail - cw, floorf(midY - ch / 2)), cb(ca.x + cw, ca.y + ch);
+        ImGui::SetCursorScreenPos(ca);
+        if (ImGui::InvisibleButton("##bankfold", ImVec2(cw, ch))) stripOpen = !stripOpen;
+        ui::FoldChevron(dl, ca, cb, stripOpen, ImGui::IsItemHovered(), ImGui::IsItemActive());
+        float right = ca.x - ui::Px(8);
+
+        if (hidden > 0) {
+            char more[32];
+            textf(more, sizeof(more), ts(TS_BANKS_UNUSED), hidden);
+            ImVec2 ms = ImGui::CalcTextSize(more);
+            right -= ms.x;
+            dl->AddText(ImVec2(right, floorf(midY - ms.y / 2)), t.textSecondary, more);
+            right -= ui::Px(16);
+        }
+
+        float gap = stripOpen ? ui::Px(8) : ui::Px(4), itemW = stripOpen ? stripThumbSize() : bankChipW();
+        float cwAll = n > 0 ? n * itemW + (n - 1) * gap : 0;
+        /* The roles of the banks in the row, as the VRAM map's legend: beside the controls while
+        ** every bank still fits there, else on a line of its own under the banks. */
+        ui::PushFont(UI_FONT_BODY, 12);
+        float legendW = 0;
+        for (int p = 0; p < PATHS; p++) {
+            if ((roles >> p) & 1) legendW += (legendW > 0 ? ui::Px(12) : 0) + ui::Px(16) + ImGui::CalcTextSize(pathName(p)).x;
+        }
+        float inlineRight = right - legendW - ui::Px(8);
+        bool below = legendW > 0 && inlineRight - top.x - titleW < cwAll + ui::Px(8);
+        if (legendW > 0 && !below) {
+            legendRow(dl, roles, right - legendW, midY);
+            right = inlineRight;
+        }
+        ui::PopFont();
+        float x0 = top.x + titleW, x1 = right;
+
+        float paneW = fmaxf(ui::Px(40), x1 - x0);
+        bool over = cwAll + ui::Px(8) > paneW;
+        float sb = over ? ImGui::GetStyle().ScrollbarSize : 0;
+        ImGui::SetCursorScreenPos(ImVec2(x0, top.y));
+        ImGui::SetNextWindowContentSize(ImVec2(cwAll + ui::Px(8), 0));
+        ImGui::BeginChild("##bankstrip", ImVec2(paneW, rowH + sb), ImGuiChildFlags_None,
+                          ImGuiWindowFlags_NoBackground | (over ? ImGuiWindowFlags_HorizontalScrollbar : ImGuiWindowFlags_NoScrollbar));
+        ImDrawList* sdl = ImGui::GetWindowDrawList();
+        ImVec2 o = ImGui::GetCursorScreenPos();
+        float x = o.x + ui::Px(4);
+        bankMenuId = ImGui::GetID("##bankmenu");
+        for (int i = 0; i < n; i++) {
+            int b = list[i];
+            float h = stripOpen ? stripThumbSize() : ui::Px(22);
+            ImVec2 p(x, stripOpen ? o.y + ui::Px(6) : floorf(o.y + (rowH - h) / 2));
+            ImGui::SetCursorScreenPos(p);
+            ImGui::PushID(b);
+            bool clicked = ImGui::InvisibleButton("##bank", ImVec2(itemW, stripOpen ? h + ui::Px(6) : h));
+            bool hovered = ImGui::IsItemHovered();
+            bankClick(s, tab, b, clicked);
+            ImGui::PopID();
+            if (stripOpen) drawBankThumb(sdl, s, tab, b, p, hovered);
+            else drawBankChip(sdl, s, tab, b, p, itemW, h, hovered, dim[i]);
+            x += itemW + gap;
+        }
+        bankMenu(tab);
+        ImGui::EndChild();
+
+        float lineH = below ? ui::Px(20) : 0;
+        if (below) {
+            ui::PushFont(UI_FONT_BODY, 12);
+            legendRow(dl, roles, x0 + ui::Px(4), floorf(top.y + rowH + sb + lineH / 2));
+            ui::PopFont();
+        }
+        float end = top.y + rowH + sb + lineH;
+        dl->AddLine(ImVec2(top.x, end), ImVec2(top.x + avail, end), t.divider);
+        ImGui::SetCursorScreenPos(ImVec2(top.x, end + ui::Px(1)));
+        ImGui::Dummy(ImVec2(avail, 0));
+    }
+
     void drawView(int v, const void* st, Focus& f) override
     {
         const VdpDebugState* s = (const VdpDebugState*)st;
@@ -272,17 +644,31 @@ public:
             /* The drawing time card goes under the tab's card as the pages do, while it has a picture. */
             float paneH = fmaxf(0.0f, g3d.bottomHeight(s, ImGui::GetContentRegionAvail().y - ui::Px(8) - shell::pagesChromeH(true)));
             ui::BeginTabCard("card", g3d.hasBottom() ? -(ui::Px(8) + shell::pagesChromeH(g3d.bottomOpen()) + paneH) : 0);
+            stripUnderBar(s, tab);
             g3d.drawTab(s, f, raster);
+            stripUnderBar(NULL, -1);
             ui::EndTabCard();
             g3d.drawBottom(paneH);
             return;
         }
         ui::BeginTabCard("card");
+        stripUnderBar(s, tab);
         if (strcmp(d[v].key, "patterns") == 0) drawPatterns(s, f);
         else if (strcmp(d[v].key, "bitmap") == 0) drawBitmap(s, f);
         else if (strcmp(d[v].key, "sprites") == 0) drawSprites(s, f);
         else drawVram(s, f);
+        stripUnderBar(NULL, -1);
         ui::EndTabCard();
+    }
+
+    /* The strip goes under the tab's first command bar, before anything below it sets up a window;
+    ** a tab with nothing to show runs it with RunCommandBarTail. NULL lets go of it. */
+    void stripUnderBar(const VdpDebugState* s, int tab)
+    {
+        bool on = s != NULL && tab >= 0 && s->banks > 1;
+        stripDue = on ? tab : -1;
+        stripState = on ? s : NULL;
+        ui::SetCommandBarTail(on ? stripTail : NULL, this);
     }
 
     int cards(CardDesc* out, int max, const void* st) const override
@@ -4022,6 +4408,7 @@ private:
         VdpLayout l;
         int g, read;
         if (!viewLayout(s, false, &l, &g, &read)) {
+            ui::RunCommandBarTail();
             emptyView(ts(TS_PATTERNS_NONE));
             return;
         }
@@ -5638,6 +6025,7 @@ private:
         bool any = false;
         for (int fi : scene.lineFrame) any = any || fi >= 0;
         if (!any) {
+            ui::RunCommandBarTail();
             emptyView(ts(TS_SPRITES_NONE));
             return;
         }
@@ -6011,31 +6399,49 @@ private:
         }
     }
 
+    /* How the Bitmap tab reads VRAM: the group it reads (-1 the frame's end), the mode and the registers. */
+    struct BitmapRead { int autoG, chosenG, refG, refMode, autoSel, sel, rm; bool split, none; VdpLayout vl; };
+
+    BitmapRead bitmapRead(const VdpDebugState* s)
+    {
+        ensureRaster(s);
+        BitmapRead r;
+        /* A split frame: Auto reads a bitmap group, as bitmapAutoGroup picks. */
+        r.split = raster.valid && groups.size() >= 2;
+        r.autoG = r.split ? bitmapAutoGroup() : -1;
+        r.chosenG = -1;
+        if (r.split && readGroupSet && readAs < 0) {
+            r.chosenG = vdpFindGroup(groups, readKey);
+            if (r.chosenG >= 0 && !vdpIsBitmapMode(groups[r.chosenG].mode)) r.chosenG = -1;
+        }
+        r.refG = r.chosenG >= 0 ? r.chosenG : r.autoG;
+        r.refMode = r.refG >= 0 ? groups[r.refG].mode : s->screenMode;
+        /* No line in a bitmap mode: the last one shown, SCREEN 5 before any. */
+        r.none = !vdpIsBitmapMode(r.refMode);
+        int autoMode = r.none ? lastBitmapMode : r.refMode;
+        r.autoSel = 0;
+        for (int i = 0; i < BITMAP_MODES; i++) {
+            if (bitmapModes[i] == autoMode) r.autoSel = i;
+        }
+        r.sel = readAs < 0 ? r.autoSel : readAs;
+        r.rm = bitmapModes[r.sel];
+        /* Colour 0 as the emulator draws it, from the registers of the group read. */
+        const VdpBandGroup* vg = r.refG >= 0 ? &groups[r.refG] : soleBitmapGroup();
+        r.vl = vg ? withPal(vdpLayoutOf(*vg), palOfGroup(*vg)) : frameEndLayout(s);
+        return r;
+    }
+
     /* VRAM read as the pages of a bitmap mode, whatever mode the VDP is in. */
     void drawBitmap(const VdpDebugState* s, Focus& f)
     {
-        ensureRaster(s);
-        /* A split frame: Auto reads a bitmap group, as bitmapAutoGroup picks. */
-        bool split = raster.valid && groups.size() >= 2;
-        int autoG = split ? bitmapAutoGroup() : -1, chosenG = -1;
+        BitmapRead br = bitmapRead(s);
+        bool split = br.split, none = br.none;
+        int autoG = br.autoG, chosenG = br.chosenG, refG = br.refG, refMode = br.refMode, autoSel = br.autoSel;
+        int sel = br.sel, rm = br.rm;
         int bitmapGroups[8], ng = 0;
         for (int g = 0; split && g < (int)groups.size() && ng < 8; g++) {
             if (vdpIsBitmapMode(groups[g].mode)) bitmapGroups[ng++] = g;
         }
-        if (split && readGroupSet && readAs < 0) {
-            chosenG = vdpFindGroup(groups, readKey);
-            if (chosenG >= 0 && !vdpIsBitmapMode(groups[chosenG].mode)) chosenG = -1;
-        }
-        int refG = chosenG >= 0 ? chosenG : autoG;
-        int refMode = refG >= 0 ? groups[refG].mode : s->screenMode;
-        /* No line in a bitmap mode: the last one shown, SCREEN 5 before any. */
-        bool none = !vdpIsBitmapMode(refMode);
-        int autoMode = none ? lastBitmapMode : refMode, autoSel = 0;
-        for (int i = 0; i < BITMAP_MODES; i++) {
-            if (bitmapModes[i] == autoMode) autoSel = i;
-        }
-        int sel = readAs < 0 ? autoSel : readAs;
-        int rm = bitmapModes[sel];
         dotAspect(rm, &bitmapCv.aspectX, &bitmapCv.aspectY);
 
         const char* const* names = bitmapModeNames;
@@ -6098,9 +6504,7 @@ private:
         ovReadMode = rm;
 
         UInt32 size = vramSize(s);
-        /* Colour 0 as the emulator draws it, from the registers of the group read. */
-        const VdpBandGroup* vg = refG >= 0 ? &groups[refG] : soleBitmapGroup();
-        VdpLayout vl = vg ? withPal(vdpLayoutOf(*vg), palOfGroup(*vg)) : frameEndLayout(s);
+        const VdpLayout& vl = br.vl;
         VdpBitmapOptions o = { rm, -1, 256, 0, VDP_COLOR0_AUTO, false, false };
         grid.pages = vdpBitmapPageCount(s, rm);
         grid.tileW = vdpBitmapWidth(rm);
