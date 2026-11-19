@@ -39,6 +39,8 @@ public:
 
     void forget();
     void note(const VdpDebugState* s);
+    /* A band of the picture showed bank b as background, which the copy's R#29 may not. */
+    void noteBackground(int b) { if (banked && b >= 0 && b < BANKS) bgSeen |= 1u << b; }
     /* Once a drawn frame: fades the writes, and forgets them when a step starts. */
     void fade();
 
@@ -55,6 +57,8 @@ public:
     unsigned     version(int b) const { return ver[b]; }
     /* R#29 pointed the sprites at it since the store started, or does now. */
     bool         spriteBank(int b) const { return (sprSeen >> b) & 1; }
+    /* R#29 pointed the background at it since the store started, or does now. */
+    bool         backgroundBank(int b) const { return (bgSeen >> b) & 1; }
     /* A copy of it was not empty since the store started; it stays so when emptied. */
     bool         used(int b) const { return (usedSeen >> b) & 1; }
     bool         allKnown() const;
@@ -70,6 +74,7 @@ private:
     bool     hitsSet = false;
     bool     banked = false;      /* the last copy had banks */
     unsigned sprSeen = 0;
+    unsigned bgSeen = 0;
     unsigned usedSeen = 0;
     unsigned step = 0;
     void take(int b, const UInt8* src);

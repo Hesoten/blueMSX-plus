@@ -148,6 +148,7 @@ public:
         delete sprPinKeep;
         delete sprSelKeep;
         free(sprScratch);
+        free(pageScratch);
     }
 
     V99x8View()
@@ -1014,6 +1015,7 @@ public:
         memset(sceneKey, 0xff, sizeof(sceneKey));
         spriteSrcKey = ~0u;
         memset(sprScratchKey, 0xff, sizeof(sprScratchKey));
+        memset(pageScratchKey, 0xff, sizeof(pageScratchKey));
         sprSrc = NULL;
         sprSrcBank = 0;
         sprPinLine = -1;
@@ -1536,6 +1538,8 @@ private:
     unsigned sprSrcKey() const { return (unsigned)sprSrcBank | (sprSrc == sprScratch && sprSrc != NULL ? banks.version(sprSrcBank) << 8 : 0u); }
     VdpDebugState*  sprScratch = NULL;    /* the snapshot over the sprite bank's last copy */
     unsigned        sprScratchKey[3] = { ~0u, ~0u, ~0u };
+    VdpDebugState*  pageScratch = NULL;   /* the same for the Screen's pages of another background bank */
+    unsigned        pageScratchKey[3] = { ~0u, ~0u, ~0u };
 
     /* The bank the sprites are read from: R#29's, or the one the Sprites tab is pinned to. */
     int sprBankOf(const VdpDebugState* s) const
@@ -1559,19 +1563,24 @@ private:
             *bank = s->vramBank;
             return s;
         }
-        if (sprScratch == NULL && (sprScratch = (VdpDebugState*)malloc(sizeof(VdpDebugState))) == NULL) {
-            *bank = s->vramBank;
-            return s;
+        const VdpDebugState* c = bankCopy(s, b, sprScratch, sprScratchKey);
+        if (c == NULL) *bank = s->vramBank;
+        return c != NULL ? c : s;
+    }
+
+    /* scratch made s with known bank b's bytes from the store, again when s, b or its bytes changed; NULL without memory. */
+    const VdpDebugState* bankCopy(const VdpDebugState* s, int b, VdpDebugState*& scratch, unsigned key[3]) const
+    {
+        if (scratch == NULL && (scratch = (VdpDebugState*)malloc(sizeof(VdpDebugState))) == NULL) return NULL;
+        unsigned now[3] = { shell::contentVersion(), (unsigned)b, banks.version(b) };
+        if (memcmp(now, key, sizeof(now)) != 0) {
+            memcpy(scratch, s, offsetof(VdpDebugState, vram));
+            memcpy(scratch->vram, banks.bytes(b), VDP_DEBUG_VRAM_SIZE);
+            scratch->vramBank = b;
+            scratch->auxBank = -1;
+            memcpy(key, now, sizeof(now));
         }
-        unsigned key[3] = { shell::contentVersion(), (unsigned)b, banks.version(b) };
-        if (memcmp(key, sprScratchKey, sizeof(key)) != 0) {
-            memcpy(sprScratch, s, offsetof(VdpDebugState, vram));
-            memcpy(sprScratch->vram, banks.bytes(b), VDP_DEBUG_VRAM_SIZE);
-            sprScratch->vramBank = b;
-            sprScratch->auxBank = -1;
-            memcpy(sprScratchKey, key, sizeof(key));
-        }
-        return sprScratch;
+        return scratch;
     }
 
     void ensureRaster(const VdpDebugState* s)
@@ -2580,20 +2589,21 @@ private:
         bool sizeChanged;
         if (!shell::pagesHeader(paneH, &sizeChanged)) return;
         int size = shell::pages().size;
-        float gap = ui::Px(8), cw = 0;
+        float gap = ui::Px(8), cw = 0, availW = ImGui::GetContentRegionAvail().x;
+        /* Decoded before the layout, which orders what it holds. */
+        if (!stripItems.empty()) stripItemsFor(s, true);
         if (sizeChanged && !stripItems.empty()) {
             /* A new size keeps the thumbnail at the left there; the pane keeps the splitter's height. */
             float oldTw = stripTw;
-            stripLayout(&stripTw, &cw, stripRows, size);
+            stripTw = floorf(256 * shell::pagesStepScale(size));
             if (oldTw > 0) pagesScroll.to = floorf(pagesScroll.x * (stripTw + gap) / (oldTw + gap));
         }
-        /* One row of the size's thumbnails; drawStrip starts 4 px down and ends without the last gap. */
-        float ch = stripLayout(&stripTw, &cw, stripRows, size);
+        /* drawStrip starts 4 px down and ends without the last gap. */
+        float ch = stripLayout(&stripTw, &cw, stripRows, size, availW, paneH);
         ch = ch > 0 ? ch + ui::Px(4) - gap : 0;
         shell::pagesBeginScroll(paneH, cw, ch, pagesScroll);
         char status[512] = "";
         if (!stripItems.empty()) {
-            stripItemsFor(s, true);
             drawStrip(s, f, stripTw, stripRows, status, sizeof(status));
         }
         else {
@@ -3295,6 +3305,7 @@ private:
         int          w, h, ax, ay;
         int          addr, len;   /* logical; len 0 for the sprite layer */
         unsigned     also;        /* bit k: slot k shows the same table, drawn here once */
+        int          bank = -1;   /* the background bank a page was read from, with banks */
     };
 
     /* What one of a group's pictures was decoded from, VRAM aside. */
@@ -3313,6 +3324,10 @@ private:
         StripKey       decoded[SP_COUNT], key[SP_COUNT];
         bool           hasDecoded[SP_COUNT] = {};
         ViewPicture    pages, name, sheet, sprSheet;
+        ViewPicture    bankPages[VdpBankStore::BANKS];   /* pages, one picture a background bank */
+        StripKey       bankKey[VdpBankStore::BANKS];
+        std::vector<UInt8> bankPrev[VdpBankStore::BANKS];   /* the bytes each was decoded from */
+        unsigned       bankVer[VdpBankStore::BANKS] = {}, bankDone = 0;
         bool           used = false, sprKeySet = false;
         int            age = 0, order = 0, ringLen = 0, ringPos = 0;
         int            seen = 0;              /* the pictures it was in, counted up to STRIP_BRIEF + 1 */
@@ -3321,7 +3336,7 @@ private:
         SprKey         sprKey = {};
     };
 
-    struct StripRow { int first, count; float h; };
+    struct StripRow { int first, count; float h; bool head; };   /* positions in stripPos; head: a group starts in it */
 
     /* A slot that left; its group back within SPR_SEEN_KEEP frames takes its old place, held for good. */
     struct StripGone { VdpBandGroup g; UInt32 seq; int order; bool used = false; };
@@ -3331,6 +3346,8 @@ private:
     VdpSpriteFrame*        bandFrame = NULL;
     std::vector<StripItem> stripItems;
     std::vector<StripRow>  stripRows;
+    std::vector<int>       stripPos;               /* the thumbnails in the order the rows show them */
+    std::vector<char>      stripStart;             /* by position: the first of its group */
     std::vector<int>       stripRuns;
     VdpImage               stripPage;
     std::vector<UInt8>     stripPrev;              /* the VRAM the pictures were decoded from */
@@ -3345,12 +3362,16 @@ private:
             g.name.forget();
             g.sheet.forget();
             g.sprSheet.forget();
+            for (ViewPicture& p : g.bankPages) p.forget();
+            for (std::vector<UInt8>& v : g.bankPrev) std::vector<UInt8>().swap(v);
             memset(g.hasDecoded, 0, sizeof(g.hasDecoded));
+            g.bankDone = 0;
             g.used = false;
         }
         for (StripGone& e : stripGone) e.used = false;
         spriteLayer.forget();
         stripHoldGen = ~0u;
+        stripParts = 0;
         stripPrevValid = false;
         stripDecodedVer = stripDecodedRaster = ~0u;
     }
@@ -3421,6 +3442,7 @@ private:
             stripRememberGone(g, seq);
             g.used = false;
             memset(g.hasDecoded, 0, sizeof(g.hasDecoded));
+            g.bankDone = 0;
         }
         for (int i = 0; i < nf; i++) {
             if (at[i] >= 0) continue;
@@ -3440,6 +3462,7 @@ private:
             if (g.used) stripRememberGone(g, seq);
             g.used = true;
             memset(g.hasDecoded, 0, sizeof(g.hasDecoded));
+            g.bankDone = 0;
             g.sprKeySet = false;
             g.order = stripOrderNext++;
             g.seen = 1;
@@ -3556,23 +3579,27 @@ private:
         return count;
     }
 
-    bool bytesChanged(const VdpDebugState* s, int phys, int len) const
+    static bool bytesChanged(const UInt8* prev, const VdpDebugState* s, int phys, int len)
     {
         if (phys < 0 || phys >= VDP_DEBUG_VRAM_SIZE || len <= 0) return false;
         if (phys + len > VDP_DEBUG_VRAM_SIZE) len = VDP_DEBUG_VRAM_SIZE - phys;
-        return memcmp(&stripPrev[phys], &s->vram[phys], (size_t)len) != 0;
+        return memcmp(&prev[phys], &s->vram[phys], (size_t)len) != 0;
     }
 
-    /* A logical range differs from the VRAM the pictures were decoded from. */
-    bool rangeChanged(const VdpDebugState* s, int mode, int addr, int len) const
+    /* A logical range of s differs from prev, a copy of the VRAM a picture was decoded from. */
+    static bool rangeChanged(const UInt8* prev, const VdpDebugState* s, int mode, int addr, int len)
     {
-        if (!stripPrevValid) return true;
         if (interleaved(s, mode)) {
             int half = (len + 1) / 2;
-            return bytesChanged(s, vdpPhysicalAddress(s, mode, addr & ~1), half) ||
-                   bytesChanged(s, vdpPhysicalAddress(s, mode, addr | 1), half);
+            return bytesChanged(prev, s, vdpPhysicalAddress(s, mode, addr & ~1), half) ||
+                   bytesChanged(prev, s, vdpPhysicalAddress(s, mode, addr | 1), half);
         }
-        return bytesChanged(s, vdpPhysicalAddress(s, mode, addr), len);
+        return bytesChanged(prev, s, vdpPhysicalAddress(s, mode, addr), len);
+    }
+
+    bool rangeChanged(const VdpDebugState* s, int mode, int addr, int len) const
+    {
+        return !stripPrevValid || rangeChanged(stripPrev.data(), s, mode, addr, len);
     }
 
     /* What picture p of a group reads besides VRAM: pages, the registers they always did; names, their
@@ -3625,6 +3652,59 @@ private:
         return any;
     }
 
+    /* A bank the Screen lists pages of: one R#29 showed as background, and whose bytes are in hand. */
+    bool stripBankListed(const VdpDebugState* s, int b) const
+    {
+        bool bg = banks.backgroundBank(b) || b == (s->regs[29] & 0x0f);
+        return bg && (b == s->vramBank || banks.known(b));
+    }
+
+    /* A group's pages of bank b: the ones whose bytes changed decoded again, all when the registers did. */
+    void stripDecodeBank(const VdpDebugState* s, StripGroup& g, const VdpLayout& gl, int b, int pages, int w, int bytes, int c0)
+    {
+        ViewPicture& pic = g.bankPages[b];
+        unsigned ver = banks.known(b) ? banks.version(b) : ~shell::pictureVersion();
+        bool full = !((g.bankDone >> b) & 1) || pic.w != w || pic.h != pages * 256 ||
+                    memcmp(&g.bankKey[b], &g.key[SP_FIRST], sizeof(StripKey)) != 0;
+        if (!full && g.bankVer[b] == ver) return;
+        const VdpDebugState* src = b == s->vramBank ? s : bankCopy(s, b, pageScratch, pageScratchKey);
+        if (src == NULL) return;
+        if (full) {
+            pic.w = w;
+            pic.h = pages * 256;
+            pic.img.resize((size_t)w * pages * 256);
+        }
+        bool any = false;
+        for (int p = 0; p < pages; p++) {
+            if (!full && !rangeChanged(g.bankPrev[b].data(), src, g.mode, p * bytes, bytes)) continue;
+            VdpBitmapOptions o = { g.mode, p, 256, 0, c0, false, false };
+            int pw, ph;
+            vdpDecodeBitmap(src, gl, o, stripPage, &pw, &ph);
+            memcpy(&pic.img[(size_t)p * 256 * w], stripPage.data(), (size_t)w * 256 * sizeof(uint32_t));
+            any = true;
+        }
+        pic.upload(any);
+        g.bankPrev[b].assign(src->vram, src->vram + VDP_DEBUG_VRAM_SIZE);
+        g.bankKey[b] = g.key[SP_FIRST];
+        g.bankVer[b] = ver;
+        g.bankDone |= 1u << b;
+    }
+
+    /* The pages a thumbnail's group shows of its bank: with banks, only on the bands R#29 showed that bank on. */
+    unsigned stripShownPages(const VdpDebugState* s, const StripItem& it) const
+    {
+        const StripGroup& g = stripGroups[it.group];
+        if (it.bank < 0) return g.shownPages;
+        if (!raster.valid) return it.bank == (s->regs[29] & 0x0f) ? g.shownPages : 0;
+        unsigned m = 0;
+        for (const VdpBand& b : raster.bands) {
+            if (b.mode < 0 || (b.regs[29] & 0x0f) != it.bank || !vdpGroupHasBand(g, b)) continue;
+            int seg[12];
+            for (int n = vdpRasterBandCols(b, seg), q = 0; q < n; q++) m |= 1u << seg[q * 3];
+        }
+        return m;
+    }
+
     /* The thumbnails, a table that slots share drawn once under the first; when shown, the pictures
     ** not decoded yet, or whose VRAM or registers changed, are decoded again. */
     void stripItemsFor(const VdpDebugState* s, bool decode)
@@ -3648,6 +3728,21 @@ private:
                 /* One slot a bitmap mode, so its pages are never on the strip twice. */
                 int pages = vdpBitmapPageCount(s, mode), w = vdpBitmapWidth(mode);
                 int bytes = mode == 5 || mode == 6 ? 0x8000 : 0x10000;
+                if (s->banks > 1) {
+                    /* Each bank R#29 showed as background, its pages read from that bank. */
+                    for (size_t i = 0; raster.valid && i < raster.bands.size(); i++) {
+                        if (raster.bands[i].mode >= 0) banks.noteBackground(raster.bands[i].regs[29] & 0x0f);
+                    }
+                    for (int b = 0; b < s->banks && b < VdpBankStore::BANKS; b++) {
+                        if (!stripBankListed(s, b)) continue;
+                        if (shown) stripDecodeBank(s, g, gl, b, pages, w, bytes, c0);
+                        for (int p = 0; p < pages; p++) {
+                            stripItems.push_back(StripItem{ SI_PAGE, k, p, &g.bankPages[b], p * 256, p * 256 + 256, w, 256, ax, ay, p * bytes, bytes, 0u, b });
+                        }
+                    }
+                    g.hasDecoded[SP_FIRST] = false;
+                    continue;
+                }
                 if (shown && (fresh || !g.hasDecoded[SP_FIRST])) {
                     bool any = false;
                     bool full = !g.hasDecoded[SP_FIRST] || memcmp(&g.key[SP_FIRST], &g.decoded[SP_FIRST], sizeof(StripKey)) != 0;
@@ -3723,6 +3818,10 @@ private:
             if (shown) ensureSpriteLayer(s);
             stripItems.push_back(StripItem{ SI_SPRITES, STRIP_GROUPS, -1, &spriteLayer, 0, lines, layerW, lines, ax, ay, 0, 0 });
         }
+        /* Banks' pages in bank order, then the groups read from no bank. */
+        std::stable_sort(stripItems.begin(), stripItems.end(), [](const StripItem& a, const StripItem& b) {
+            return (unsigned)a.bank < (unsigned)b.bank;
+        });
         if (fresh) {
             stripDecodedVer = shell::pictureVersion();
             stripDecodedRaster = shell::rasterVersion();
@@ -3918,18 +4017,131 @@ private:
         return j * (tw + ui::Px(8));
     }
 
-    /* One row of thumbnails tw wide, a 256-dot page at the step's size, and as tall whatever they
-    ** show, under a heading row; returns its height with a gap below, and its width in *width. */
-    float stripLayout(float* tw, float* width, std::vector<StripRow>& rows, int step) const
+    /* Rows into stripPos with every bank split in parts rows alike, so a page keeps its column (without
+    ** banks, all in parts rows); the groups read from no bank beside the first row's pages or in a row over
+    ** the banks. Returns their height, and the widest in *width. */
+    float stripBuild(int parts, bool beside, float tw, float* width, std::vector<StripRow>& rows)
     {
         float gap = ui::Px(8), lineH = stripLineH(), labelH = lineH + ui::Px(2), groupH = lineH + ui::Px(4);
         int n = (int)stripItems.size();
         rows.clear();
-        *tw = floorf(256 * shell::pagesStepScale(step));
-        *width = n > 0 ? stripItemX(n - 1, *tw) + *tw : 0;
+        stripPos.clear();
+        *width = 0;
         if (n == 0) return 0;
-        rows.push_back(StripRow{ 0, n, *tw });
-        return groupH + *tw + labelH + gap;
+        auto push = [&](int first, int count) {
+            if (count > 0) rows.push_back(StripRow{ first, count, tw, false });
+        };
+        int inBanks = 0, longest = 0;
+        while (inBanks < n && stripItems[inBanks].bank >= 0) inBanks++;
+        for (int a = 0, e; a < inBanks; a = e) {
+            for (e = a + 1; e < inBanks && stripItems[e].bank == stripItems[a].bank; e++) {}
+            if (e - a > longest) longest = e - a;
+        }
+        if (inBanks == 0) {
+            for (int q = 0, at = 0; q < parts; q++) {
+                int size = n / parts + (q < n % parts ? 1 : 0);
+                for (int j = 0; j < size; j++) stripPos.push_back(at + j);
+                push((int)stripPos.size() - size, size);
+                at += size;
+            }
+        }
+        else {
+            if (!beside) {
+                for (int j = inBanks; j < n; j++) stripPos.push_back(j);
+                push(0, n - inBanks);
+            }
+            for (int a = 0, e; a < inBanks; a = e) {
+                for (e = a + 1; e < inBanks && stripItems[e].bank == stripItems[a].bank; e++) {}
+                for (int q = 0, at = a; q < parts && at < e; q++) {
+                    int size = longest / parts + (q < longest % parts ? 1 : 0), start = (int)stripPos.size();
+                    if (size > e - at) size = e - at;
+                    for (int j = 0; j < size; j++) stripPos.push_back(at + j);
+                    if (a == 0 && q == 0 && beside) {
+                        for (int j = inBanks; j < n; j++) stripPos.push_back(j);
+                    }
+                    push(start, (int)stripPos.size() - start);
+                    at += size;
+                }
+            }
+        }
+        /* A group's thumbnails are together in stripItems: one starts it after another group's. */
+        stripStart.assign(n, 0);
+        for (int j = 0; j < n; j++) {
+            int i = stripPos[j];
+            stripStart[j] = i == 0 || stripItems[i - 1].group != stripItems[i].group || stripItems[i - 1].bank != stripItems[i].bank;
+        }
+        float h = 0;
+        for (StripRow& r : rows) {
+            for (int j = r.first; j < r.first + r.count && !r.head; j++) r.head = stripStart[j] != 0;
+            *width = fmaxf(*width, stripItemX(r.count - 1, tw) + tw);
+            h += (r.head ? groupH : 0) + tw + labelH + gap;
+        }
+        return h;
+    }
+
+    int  stripParts = 0;       /* the rows a bank the strip was last split in, kept through small changes */
+    bool stripBeside = true;
+
+    /* Rows of thumbnails tw wide, a 256-dot page at the step's size, in an availW x paneH pane: the split
+    ** that fits both ways with the fewest rows, else the one overflowing least either way. Returns their
+    ** height and the widest in *width. */
+    float stripLayout(float* tw, float* width, std::vector<StripRow>& rows, int step, float availW, float paneH)
+    {
+        *tw = floorf(256 * shell::pagesStepScale(step));
+        int n = (int)stripItems.size(), inBanks = 0, longest = 0;
+        if (n == 0) return stripBuild(1, true, *tw, width, rows);
+        while (inBanks < n && stripItems[inBanks].bank >= 0) inBanks++;
+        for (int a = 0, e; a < inBanks; a = e) {
+            for (e = a + 1; e < inBanks && stripItems[e].bank == stripItems[a].bank; e++) {}
+            if (e - a > longest) longest = e - a;
+        }
+        int most = inBanks ? longest : n;
+        float sb = ImGui::GetStyle().ScrollbarSize, extra = ui::Px(4) - ui::Px(8);
+        float aw = fmaxf(availW, 1.0f), ah = fmaxf(paneH, 1.0f);
+        /* How far it runs past the pane either way, the scroll bars it needs taken off. */
+        auto measure = [&](int parts, bool beside, bool* fits) {
+            float w, h = stripBuild(parts, beside, *tw, &w, rows) + extra;
+            bool overX = w > aw, overY = h > ah - (overX ? sb : 0);
+            overX = overX || (overY && w > aw - sb);
+            float rw = w / fmaxf(aw - (overY ? sb : 0), 1.0f), rh = h / fmaxf(ah - (overX ? sb : 0), 1.0f);
+            *fits = rw <= 1 && rh <= 1;
+            return fmaxf(rw, rh);
+        };
+        int bestParts = 1;
+        bool bestBeside = true, bestFits = false;
+        float best = 0;
+        for (int parts = 1; parts <= most; parts++) {
+            if (parts > 1 && (most + parts - 1) / parts == (most + parts - 2) / (parts - 1)) continue;
+            for (int b = 0; b < (inBanks && inBanks < n ? 2 : 1); b++) {
+                bool fits, beside = b == 0;
+                float r = measure(parts, beside, &fits);
+                if (parts == 1 && b == 0) { best = r; bestFits = fits; continue; }
+                if ((fits && !bestFits) || (!bestFits && r < best)) {
+                    best = r;
+                    bestFits = fits;
+                    bestParts = parts;
+                    bestBeside = beside;
+                }
+            }
+        }
+        /* The last split, as the fewest rows of its width, stays while it fits and the new one only just does,
+        ** or both overflow about alike. */
+        int last = 0;
+        if (stripParts >= 1 && stripParts <= most) {
+            int cols = (most + stripParts - 1) / stripParts;
+            last = (most + cols - 1) / cols;
+        }
+        if (last > 0 && (last != bestParts || stripBeside != bestBeside)) {
+            bool fits;
+            float r = measure(last, stripBeside, &fits);
+            if (bestFits ? fits && best > 0.97f : !fits && r <= best * 1.03f) {
+                bestParts = last;
+                bestBeside = stripBeside;
+            }
+        }
+        stripParts = bestParts;
+        stripBeside = bestBeside;
+        return stripBuild(bestParts, bestBeside, *tw, width, rows);
     }
 
     /* Bands a and b differ only in what lays out sprites: R#5, R#6, R#11 and R#1's size bits. */
@@ -3968,8 +4180,9 @@ private:
         return out;
     }
 
-    /* A group's heading: its lines of the last pictures, mode and name table, shorter when it does not fit in w. */
-    void groupHeading(const VdpDebugState* s, int k, float w, char* out, size_t size) const
+    /* A group's heading: the bank its pages were read from, its lines of the last pictures, mode and name
+    ** table, shorter when it does not fit in w. */
+    void groupHeading(const VdpDebugState* s, int k, int bank, float w, char* out, size_t size) const
     {
         if (k >= STRIP_GROUPS) {
             textf(out, size, "%s", ts(TS_STRIP_WHOLE_FRAME));
@@ -3988,15 +4201,27 @@ private:
             textf(nameAt, sizeof(nameAt), ts(TS_STRIP_NAME_AT), name);
             snprintf(hex, sizeof(hex), " \xC2\xB7 %05X", name);
         }
-        int at = textf(out, size, ts(TS_STRIP_GROUP), g.heldLines, shortModeName(g.mode));
+        char pre[48];
+        bankPrefix(bank, pre, sizeof(pre));
+        int at = snprintf(out, size, "%s", pre);
+        if (at >= 0 && (size_t)at < size) at += textf(out + at, size - at, ts(TS_STRIP_GROUP), g.heldLines, shortModeName(g.mode));
         if (at > 0 && (size_t)at < size) textf(out + at, size - at, "%s", nameAt);
         if (ImGui::CalcTextSize(out).x <= w) return;
-        snprintf(out, size, "%s \xC2\xB7 %s%s", g.heldLines, shortModeName(g.mode), nameAt);
+        snprintf(out, size, "%s%s \xC2\xB7 %s%s", pre, g.heldLines, shortModeName(g.mode), nameAt);
         if (ImGui::CalcTextSize(out).x <= w || g.mode < 0) return;
         int sc = g.mode == 13 ? 0 : g.mode == 10 ? 10 : g.mode;
-        snprintf(out, size, "%s \xC2\xB7 SC%d%s", g.heldLines, sc, hex);
+        snprintf(out, size, "%s%s \xC2\xB7 SC%d%s", pre, g.heldLines, sc, hex);
         if (ImGui::CalcTextSize(out).x <= w || name < 0) return;
-        snprintf(out, size, "SC%d%s", sc, hex);
+        snprintf(out, size, "%sSC%d%s", pre, sc, hex);
+    }
+
+    /* The bank and a separator, to go before the text of a page read from a bank; else nothing. */
+    static void bankPrefix(int bank, char* out, size_t size)
+    {
+        out[0] = 0;
+        if (bank < 0) return;
+        int n = textf(out, size, ts(TS_MAP_BANK), bank);
+        if (n > 0 && (size_t)n < size) snprintf(out + n, size - n, " \xC2\xB7 ");
     }
 
     /* The slot in a picture last of those that show a thumbnail: its own, or one sharing the table. */
@@ -4007,6 +4232,12 @@ private:
             if (((it.also >> j) & 1) && stripGroups[j].age < stripGroups[k].age) k = j;
         }
         return k;
+    }
+
+    /* Whether band bd shows the bank a thumbnail was read from: always without banks. */
+    static bool bandReads(const VdpBand& bd, const StripItem& it)
+    {
+        return it.bank < 0 || (bd.regs[29] & 0x0f) == it.bank;
     }
 
     /* Draws the strip at the cursor; status gets the hovered thumbnail's line. */
@@ -4023,23 +4254,23 @@ private:
         float clipL = dl->GetClipRectMin().x, clipR = dl->GetClipRectMax().x;
         for (const StripRow& r : rows) {
             /* Each group's lines and mode over its thumbnails, kept at the left edge while it scrolls by. */
-            for (int j = r.first; j < r.first + r.count; j++) {
-                int k = stripItems[j].group, end = j;
-                if (j > r.first && stripItems[j - 1].group == k) continue;
-                while (end + 1 < r.first + r.count && stripItems[end + 1].group == k) end++;
+            for (int j = r.first; r.head && j < r.first + r.count; j++) {
+                int k = stripItems[stripPos[j]].group, bank = stripItems[stripPos[j]].bank, end = j;
+                if (!stripStart[j]) continue;
+                while (end + 1 < r.first + r.count && stripItems[stripPos[end + 1]].group == k && stripItems[stripPos[end + 1]].bank == bank) end++;
                 float x0 = origin.x + stripItemX(j - r.first, tw), x1 = origin.x + stripItemX(end - r.first, tw) + tw;
                 if (x1 <= clipL || x0 >= clipR) continue;
                 x0 = fmaxf(x0, floorf(clipL));
                 char head[256];
-                groupHeading(s, k, x1 - x0, head, sizeof(head));
+                groupHeading(s, k, bank, x1 - x0, head, sizeof(head));
                 dl->AddLine(ImVec2(x0, y + lineH), ImVec2(x1, y + lineH), t.divider, th);
                 dl->PushClipRect(ImVec2(x0, y), ImVec2(x1, y + lineH + ui::Px(2)), true);
                 dl->AddText(ImVec2(x0, y), t.textSecondary, head);
                 dl->PopClipRect();
             }
-            y += lineH + ui::Px(4);
+            if (r.head) y += lineH + ui::Px(4);
             for (int j = r.first; j < r.first + r.count; j++) {
-                const StripItem& it = stripItems[j];
+                const StripItem& it = stripItems[stripPos[j]];
                 float x = origin.x + stripItemX(j - r.first, tw);
                 if (x + tw <= clipL || x >= clipR) continue;
                 const StripGroup* g = it.group < STRIP_GROUPS ? &stripGroups[it.group] : NULL;
@@ -4058,7 +4289,7 @@ private:
                     for (size_t i = 0; (stripMixed || raster.bands.size() > 1) && i < raster.bands.size(); i++) {
                         const VdpBand& bd = raster.bands[i];
                         int seg[12], n = vdpRasterBandCols(bd, seg);
-                        if (!showsPage(seg, n, it.page) || !vdpGroupHasBand(*g, bd)) continue;
+                        if (!showsPage(seg, n, it.page) || !vdpGroupHasBand(*g, bd) || !bandReads(bd, it)) continue;
                         vdpRasterBandRows(s, bd, it.page, stripRuns);
                         for (int k = 0; k < n; k++) {
                             if (seg[k * 3] != it.page) continue;
@@ -4078,9 +4309,10 @@ private:
                     }
                 }
                 /* An odd page shown with EO or blink alternates with its even pair. */
-                bool shown = it.kind == SI_PAGE && ((g->shownPages >> it.page) & 1) != 0;
+                unsigned shownPages = it.kind == SI_PAGE ? stripShownPages(s, it) : 0;
+                bool shown = it.kind == SI_PAGE && ((shownPages >> it.page) & 1) != 0;
                 bool alternates = g && ((g->regs[9] & 0x04) || g->regs[13] != 0);
-                bool pair = it.kind == SI_PAGE && alternates && !(it.page & 1) && ((g->shownPages >> (it.page | 1)) & 1) != 0;
+                bool pair = it.kind == SI_PAGE && alternates && !(it.page & 1) && ((shownPages >> (it.page | 1)) & 1) != 0;
                 ImVec2 oa(a.x - th, a.y - th), ob(b.x + th, b.y + th);
                 if (shown) dl->AddRect(oa, ob, t.textSecondary, 0, th);
                 if (pair && !shown) dashedRect(dl, oa, ob, t.textSecondary, th);
@@ -4101,7 +4333,7 @@ private:
                 for (size_t i = 0; it.kind == SI_PAGE && !stripMixed && raster.bands.size() > 1 && i < raster.bands.size(); i++) {
                     const VdpBand& bd = raster.bands[i];
                     int seg[12], n = vdpRasterBandCols(bd, seg);
-                    if (!showsPage(seg, n, it.page)) continue;
+                    if (!showsPage(seg, n, it.page) || !bandReads(bd, it)) continue;
                     dl->AddCircleFilled(ImVec2(lx + dot, cy), dot, bandColour((int)i));
                     lx += dot * 2 + ui::Px(3);
                     if (bl < sizeof(bandLines)) {
@@ -4153,7 +4385,11 @@ private:
         ** (reading the thumbnail's group), sprite patterns to Sprites. */
         const char* view = it.kind == SI_SPRPAT ? ts(TS_VIEW_SPRITES) : it.kind == SI_PAGE ? ts(TS_VIEW_BITMAP) : ts(TS_VIEW_PATTERNS);
         if (at < sizeof(extra)) textf(extra + at, sizeof(extra) - at, ts(TS_STRIP_CLICK_VIEW), view);
-        textf(status, size, ts(TS_STRIP_RANGE), name, it.addr, it.addr + it.len - 1, extra);
+        char pre[48];
+        bankPrefix(it.bank, pre, sizeof(pre));
+        size_t pl = strlen(pre) < size ? strlen(pre) : 0;
+        memcpy(status, pre, pl);
+        textf(status + pl, size - pl, ts(TS_STRIP_RANGE), name, it.addr, it.addr + it.len - 1, extra);
 
         /* The map lights the lanes the hovered table or page overlaps. */
         int mode = stripGroups[it.group].mode;
@@ -4178,11 +4414,12 @@ private:
             f = hit;
             f.len = 256;
             f.pinned = true;
+            if (it.bank >= 0) bankPin[TAB_BITMAP] = it.bank == bankFollowed(s, TAB_BITMAP) ? -1 : it.bank;
             stripVramPage = it.page;
             stripVramFrames = 3;
             shell::requestView("bitmap");
         }
-        else if (!f.pinned) {
+        else if (!f.pinned && (it.bank < 0 || it.bank == s->vramBank)) {
             f = hit;
         }
     }

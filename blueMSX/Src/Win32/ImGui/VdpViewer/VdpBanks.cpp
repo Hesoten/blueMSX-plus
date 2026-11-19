@@ -36,6 +36,7 @@ void VdpBankStore::forget()
     memset(blockHeat, 0, sizeof(blockHeat));
     hitsSet = false;
     sprSeen = 0;
+    bgSeen = 0;
     usedSeen = 0;
     banked = false;
 }
@@ -74,6 +75,7 @@ void VdpBankStore::note(const VdpDebugState* s)
         memset(hot, 0, sizeof(hot));
         hitsSet = false;
         sprSeen = 0;
+        bgSeen = 0;
         usedSeen = 0;
         banked = true;
     }
@@ -82,6 +84,7 @@ void VdpBankStore::note(const VdpDebugState* s)
         hitsSet = true;
     }
     sprSeen |= 1u << (s->regs[29] >> 4);
+    bgSeen |= 1u << (s->regs[29] & 0x0f);
     for (int b = 0; b < BANKS; b++) {
         if (s->sprBankHits[b] != hitsBase[b]) sprSeen |= 1u << b;
     }
