@@ -310,26 +310,33 @@ public:
         return w;
     }
 
-    /* The bank's roles, each a swatch of its colour with its register, then what a click does. */
+    /* The bank's roles, each a swatch of its colour with its register, then what a click does. A role
+    ** stays listed while the tip is up, and those R#29 gave the bank before; the swatch is filled while it holds. */
     void bankTip(const VdpDebugState* s, int tab, int b)
     {
         int paths[PATHS], n = bankPaths(s, b, paths);
+        unsigned live = 0;
+        for (int i = 0; i < n; i++) live |= 1u << paths[i];
+        tipRoles |= live | (banks.backgroundBank(b) ? 1u << PATH_BG : 0) | (banks.spriteBank(b) ? 1u << PATH_SPR : 0);
         int pin = bankPin[tab];
         char hint[192] = "";
         if (stripPicks(tab)) {
-            if (pin == b) textf(hint, sizeof(hint), ts(TS_BANK_UNPIN_TIP), pathName(tabPath(tab)), bankFollowed(s, tab));
+            if (pin == b) textf(hint, sizeof(hint), ts(TS_BANK_UNPIN_TIP), pathName(tabPath(tab)));
             else textf(hint, sizeof(hint), ts(TS_BANK_PIN_TIP), b);
         }
-        if (n == 0 && !hint[0]) return;
+        if (tipRoles == 0 && !hint[0]) return;
         ImGui::BeginTooltip();
         float lh = ImGui::GetTextLineHeight();
-        for (int i = 0; i < n; i++) {
+        for (int p = 0; p < PATHS; p++) {
+            if (!((tipRoles >> p) & 1)) continue;
             ImVec2 c = ImGui::GetCursorScreenPos();
             float sw = floorf(lh * 0.7f), in = floorf((lh - sw) / 2);
-            ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(c.x, c.y + in), ImVec2(c.x + sw, c.y + in + sw), pathColour(paths[i]));
+            ImVec2 a(c.x, c.y + in), q(c.x + sw, c.y + in + sw);
+            if ((live >> p) & 1) ImGui::GetWindowDrawList()->AddRectFilled(a, q, pathColour(p));
+            else ImGui::GetWindowDrawList()->AddRect(a, q, pathColour(p), 0, fmaxf(1.0f, ui::Px(1)));
             ImGui::Dummy(ImVec2(sw, lh));
             ImGui::SameLine();
-            ImGui::Text("%s (R#%d)", pathName(paths[i]), pathReg(paths[i]));
+            ImGui::Text("%s (R#%d)", pathName(p), pathReg(p));
         }
         if (hint[0]) {
             ImGui::PushStyleColor(ImGuiCol_Text, uiTokens().textSecondary);
@@ -344,15 +351,24 @@ public:
     {
         int& pin = bankPin[tab];
         if (clicked && stripPicks(tab)) pin = pin == b ? -1 : b;
-        if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip) && !ImGui::IsPopupOpen(bankMenuId, ImGuiPopupFlags_None)) bankTip(s, tab, b);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip) && !ImGui::IsPopupOpen(bankMenuId, ImGuiPopupFlags_None)) {
+            int frame = ImGui::GetFrameCount();
+            if (tipBank != b || tipTab != tab || tipFrame != frame - 1) tipRoles = 0;
+            tipBank = b;
+            tipTab = tab;
+            tipFrame = frame;
+            bankTip(s, tab, b);
+        }
         if (stripPicks(tab) && ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
             bankMenuFor = b;
             ImGui::OpenPopup(bankMenuId);
         }
     }
 
-    int     bankMenuFor = -1;
-    ImGuiID bankMenuId = 0;   /* the strip's menu, outside the banks' ids */
+    int      bankMenuFor = -1;
+    ImGuiID  bankMenuId = 0;   /* the strip's menu, outside the banks' ids */
+    int      tipBank = -1, tipTab = -1, tipFrame = -1;   /* the bank whose tip was up, and its last frame */
+    unsigned tipRoles = 0;     /* bit per path: the roles listed in it */
 
     void bankMenu(int tab)
     {
@@ -3690,15 +3706,14 @@ private:
         g.bankDone |= 1u << b;
     }
 
-    /* The pages a thumbnail's group shows of its bank: with banks, only on the bands R#29 showed that bank on. */
-    unsigned stripShownPages(const VdpDebugState* s, const StripItem& it) const
+    /* The pages group g shows on the bands whose R#29 shows bank; all its pages for -1. */
+    unsigned groupShownPages(const VdpDebugState* s, const VdpBandGroup& g, int bank) const
     {
-        const StripGroup& g = stripGroups[it.group];
-        if (it.bank < 0) return g.shownPages;
-        if (!raster.valid) return it.bank == (s->regs[29] & 0x0f) ? g.shownPages : 0;
+        if (bank < 0) return g.shownPages;
+        if (!raster.valid) return bank == (s->regs[29] & 0x0f) ? g.shownPages : 0;
         unsigned m = 0;
         for (const VdpBand& b : raster.bands) {
-            if (b.mode < 0 || (b.regs[29] & 0x0f) != it.bank || !vdpGroupHasBand(g, b)) continue;
+            if (b.mode < 0 || !bandShowsBank(b, bank) || !vdpGroupHasBand(g, b)) continue;
             int seg[12];
             for (int n = vdpRasterBandCols(b, seg), q = 0; q < n; q++) m |= 1u << seg[q * 3];
         }
@@ -4230,10 +4245,10 @@ private:
         return k;
     }
 
-    /* Whether band bd shows the bank a thumbnail was read from: always without banks. */
-    static bool bandReads(const VdpBand& bd, const StripItem& it)
+    /* Whether band bd shows background bank bank: always for -1, without banks. */
+    static bool bandShowsBank(const VdpBand& bd, int bank)
     {
-        return it.bank < 0 || (bd.regs[29] & 0x0f) == it.bank;
+        return bank < 0 || (bd.regs[29] & 0x0f) == bank;
     }
 
     /* Draws the strip at the cursor; status gets the hovered thumbnail's line. */
@@ -4285,7 +4300,7 @@ private:
                     for (size_t i = 0; (stripMixed || raster.bands.size() > 1) && i < raster.bands.size(); i++) {
                         const VdpBand& bd = raster.bands[i];
                         int seg[12], n = vdpRasterBandCols(bd, seg);
-                        if (!showsPage(seg, n, it.page) || !vdpGroupHasBand(*g, bd) || !bandReads(bd, it)) continue;
+                        if (!showsPage(seg, n, it.page) || !vdpGroupHasBand(*g, bd) || !bandShowsBank(bd, it.bank)) continue;
                         vdpRasterBandRows(s, bd, it.page, stripRuns);
                         for (int k = 0; k < n; k++) {
                             if (seg[k * 3] != it.page) continue;
@@ -4305,7 +4320,7 @@ private:
                     }
                 }
                 /* An odd page shown with EO or blink alternates with its even pair. */
-                unsigned shownPages = it.kind == SI_PAGE ? stripShownPages(s, it) : 0;
+                unsigned shownPages = it.kind == SI_PAGE ? groupShownPages(s, stripGroups[it.group], it.bank) : 0;
                 bool shown = it.kind == SI_PAGE && ((shownPages >> it.page) & 1) != 0;
                 bool alternates = g && ((g->regs[9] & 0x04) || g->regs[13] != 0);
                 bool pair = it.kind == SI_PAGE && alternates && !(it.page & 1) && ((shownPages >> (it.page | 1)) & 1) != 0;
@@ -4329,7 +4344,7 @@ private:
                 for (size_t i = 0; it.kind == SI_PAGE && !stripMixed && raster.bands.size() > 1 && i < raster.bands.size(); i++) {
                     const VdpBand& bd = raster.bands[i];
                     int seg[12], n = vdpRasterBandCols(bd, seg);
-                    if (!showsPage(seg, n, it.page) || !bandReads(bd, it)) continue;
+                    if (!showsPage(seg, n, it.page) || !bandShowsBank(bd, it.bank)) continue;
                     dl->AddCircleFilled(ImVec2(lx + dot, cy), dot, bandColour((int)i));
                     lx += dot * 2 + ui::Px(3);
                     if (bl < sizeof(bandLines)) {
@@ -6603,6 +6618,7 @@ private:
         const UiTokens& t = uiTokens();
         float th = fmaxf(1.0f, ui::Px(1));
         int rm = self->ovReadMode;
+        int bank = s->banks > 1 ? self->tabShownBank(s, TAB_BITMAP) : -1;
 
         const VdpBandGroup* rg = self->ovReadGroup >= 0 ? &self->groups[self->ovReadGroup] : NULL;
         if (rm >= 0 && rg) {
@@ -6610,9 +6626,9 @@ private:
             int pageBytes = rm == 5 || rm == 6 ? 0x8000 : 0x10000;
             int gBytes = rg->mode == 5 || rg->mode == 6 ? 0x8000 : 0x10000;
             bool alternates = vdpIsBitmapMode(rg->mode) && ((rg->regs[9] & 0x04) || rg->regs[13] != 0);
-            unsigned shown = 0, pair = 0;
+            unsigned shown = 0, pair = 0, gPages = self->groupShownPages(s, *rg, bank);
             for (int p = 0; p < 32 && vdpIsBitmapMode(rg->mode); p++) {
-                if (!((rg->shownPages >> p) & 1)) continue;
+                if (!((gPages >> p) & 1)) continue;
                 shown |= pagesHolding(s, rg->mode, p, rm);
                 if (alternates) pair |= pagesHolding(s, rg->mode, p & ~1, rm);
             }
@@ -6637,7 +6653,7 @@ private:
             for (size_t i = 0; gBytes == pageBytes && i < self->raster.bands.size(); i++) {
                 const VdpBand& b = self->raster.bands[i];
                 int seg[12], n = vdpRasterBandCols(b, seg);
-                if (n == 0 || !vdpGroupHasBand(*rg, b)) continue;
+                if (n == 0 || !vdpGroupHasBand(*rg, b) || !bandShowsBank(b, bank)) continue;
                 self->bandFrames(dl, xf, s, b, seg, n, (int)i, th);
             }
         }
@@ -6646,11 +6662,21 @@ private:
             const VdpBandGroup* one = self->soleBitmapGroup();
             const UInt8* regs = one ? one->regs : s->regs;
             int mode = one ? one->mode : s->screenMode;
+            VdpLayout ll = one ? vdpLayoutOf(*one) : vdpLayoutOf(s);
+            /* With banks, the registers of the group's first band that showed the tab's bank; no shown page if none did. */
+            bool inBank = bank < 0 || (!one && (regs[29] & 0x0f) == bank);
+            for (size_t i = 0; one && !inBank && i < self->raster.bands.size(); i++) {
+                const VdpBand& b = self->raster.bands[i];
+                if (b.mode < 0 || !bandShowsBank(b, bank) || !vdpGroupHasBand(*one, b)) continue;
+                regs = b.regs;
+                ll = vdpLayoutOf(b);
+                inBank = true;
+            }
             VdpTables tb;
-            vdpDecodeTables(s, one ? vdpLayoutOf(*one) : vdpLayoutOf(s), &tb);
+            vdpDecodeTables(s, ll, &tb);
             int pageBytes = rm == 5 || rm == 6 ? 0x8000 : 0x10000;
             int liveBytes = mode == 5 || mode == 6 ? 0x8000 : 0x10000;
-            int livePage = vdpIsBitmapMode(mode) ? tb.name / liveBytes : -1;
+            int livePage = inBank && vdpIsBitmapMode(mode) ? tb.name / liveBytes : -1;
             bool flat = livePage >= 0 && liveBytes == pageBytes && vdpIsFlatInterlace(s, regs);
             bool alternates = livePage >= 0 && !flat && ((regs[9] & 0x04) || regs[13] != 0) && (livePage & 1);
             unsigned shown = flat ? vdpShownPageBits(flat, livePage) : livePage >= 0 ? pagesHolding(s, mode, livePage, rm) : 0;
@@ -6681,11 +6707,14 @@ private:
             for (size_t i = 0; i < self->raster.bands.size(); i++) {
                 const VdpBand& b = self->raster.bands[i];
                 int seg[12], n = vdpRasterBandCols(b, seg);
-                if (n == 0) continue;
+                if (n == 0 || !bandShowsBank(b, bank)) continue;
                 self->bandFrames(dl, xf, s, b, seg, n, (int)i, th);
             }
         }
-        if (rm >= 0) cmdLrmmOverlay(dl, xf, s, rm, CmdPageMap{ self->grid.pages, self->grid.cols, self->grid.tileW, self->grid.tileH, self->grid.gap });
+        if (rm >= 0) {
+            CmdPageMap g = { self->grid.pages, self->grid.cols, self->grid.tileW, self->grid.tileH, self->grid.gap };
+            cmdLrmmOverlay(dl, xf, s, rm, g, bank < 0 || pathBank(s, PATH_SRC) == bank, bank < 0 || pathBank(s, PATH_DST) == bank);
+        }
         self->focusMarks(dl, xf, rm);
     }
 

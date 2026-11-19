@@ -36,10 +36,10 @@ struct CmdPageMap {
 ** own widths, signed in LRMM, then VX, VY and the LRMM read window. */
 void cmdKeyValues(const VdpDebugState* s);
 
-/* On the Bitmap tab read as readMode: where the LRMM last started reads, its read
-** window and where it writes, while the command engine works in that mode. */
+/* On the Bitmap tab read as readMode: where the LRMM last started reads and its read window
+** if reads is set, where it writes if writes is set, while the engine works in that mode. */
 void cmdLrmmOverlay(ImDrawList* dl, const ui::CanvasXf& xf, const VdpDebugState* s, int readMode,
-                    const CmdPageMap& g);
+                    const CmdPageMap& g, bool reads, bool writes);
 
 /* The bitmap mode the command engine works in at the frame's end, or -1. */
 int cmdEngineMode(const VdpDebugState* s);
