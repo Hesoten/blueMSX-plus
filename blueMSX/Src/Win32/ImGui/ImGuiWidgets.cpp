@@ -1314,6 +1314,9 @@ void CommandBarSeparator()
     ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(x, p.y), ImVec2(x + 1, p.y + Px(20)), C(uiTokens().divider));
 }
 
+static void (*barTail)(void*);
+static void* barTailRef;
+
 void EndCommandBar()
 {
     float bottom = bar.o.y + bar.rows * Px(40);
@@ -1323,6 +1326,20 @@ void EndCommandBar()
     ImGui::Dummy(ImVec2(bar.w, bottom + 1 - bar.o.y));
     ImGui::SetCursorScreenPos(ImVec2(bar.o.x, bottom + 1));
     ImGui::PopID();
+    RunCommandBarTail();
+}
+
+void SetCommandBarTail(void (*fn)(void*), void* ref)
+{
+    barTail = fn;
+    barTailRef = ref;
+}
+
+void RunCommandBarTail()
+{
+    void (*fn)(void*) = barTail;
+    barTail = NULL;
+    if (fn) fn(barTailRef);
 }
 
 float AppBarToggleWidth(const char* glyph, const char* label)
@@ -1520,6 +1537,22 @@ static void drawChevronUp(ImDrawList* dl, ImVec2 c, ImU32 col)
 
 static ImVec2 expanderTrail[2];
 
+void FoldChevron(ImDrawList* dl, ImVec2 a, ImVec2 b, bool open, bool hovered, bool held)
+{
+    const UiTokens& t = uiTokens();
+    if (hovered || held) dl->AddRectFilled(a, b, C(held ? t.subtlePressed : t.subtleHover), Px(4));
+    ImVec2 cc(floorf((a.x + b.x) / 2), floorf((a.y + b.y) / 2));
+    if (HasIcons()) DrawIcon(dl, cc, open ? UI_ICON_CHEVRON_UP : UI_ICON_CHEVRON_DOWN, 12, t.text);
+    else if (open) drawChevronUp(dl, cc, t.text);
+    else drawChevron(dl, cc, t.text);
+}
+
+float LegendBar(ImDrawList* dl, float x, float cy, ImU32 col)
+{
+    dl->AddRectFilled(ImVec2(x, cy - 1), ImVec2(x + Px(12), cy - 1 + Px(3)), C(col));
+    return Px(16);
+}
+
 bool BeginExpander(const char* id, const char* title, const char* summary, bool* open, const ExpanderStyle& es)
 {
     const UiTokens& t = uiTokens();
@@ -1550,10 +1583,7 @@ bool BeginExpander(const char* id, const char* title, const char* summary, bool*
     float trailX = ba.x - (es.trailW > 0 ? Px(8) + es.trailW : 0);
     expanderTrail[0] = ImVec2(trailX, s.y);
     expanderTrail[1] = ImVec2(es.trailW > 0 ? ba.x - Px(8) : trailX, s.y + hh);
-    if (es.legend) {
-        dl->AddRectFilled(ImVec2(x, cy - 1), ImVec2(x + Px(12), cy - 1 + Px(3)), C(es.legend));
-        x += Px(16);
-    }
+    if (es.legend) x += LegendBar(dl, x, cy, es.legend);
     if (summary && *summary) {
         PushFont(UI_FONT_BODY, 12);
         ImVec2 ss = ImGui::CalcTextSize(summary);
@@ -1561,13 +1591,7 @@ bool BeginExpander(const char* id, const char* title, const char* summary, bool*
                 ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip));
         PopFont();
     }
-    if (hovered || held) {
-        dl->AddRectFilled(ba, bb, C(held ? t.subtlePressed : t.subtleHover), Px(4));
-    }
-    ImVec2 cc(floorf((ba.x + bb.x) / 2), floorf((ba.y + bb.y) / 2));
-    if (HasIcons()) DrawIcon(dl, cc, *open ? UI_ICON_CHEVRON_UP : UI_ICON_CHEVRON_DOWN, 12, t.text);
-    else if (*open) drawChevronUp(dl, cc, t.text);
-    else drawChevron(dl, cc, t.text);
+    FoldChevron(dl, ba, bb, *open, hovered, held);
     ImGui::RenderNavCursor(ImRect(s, ImVec2(s.x + w, s.y + hh)), ImGui::GetItemID());
     if (*open) {
         if (es.divider) dl->AddRectFilled(ImVec2(s.x + 1, s.y + hh), ImVec2(s.x + w - 1, s.y + hh + 1), C(t.divider));

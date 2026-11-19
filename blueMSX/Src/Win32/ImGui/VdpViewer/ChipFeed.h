@@ -48,13 +48,16 @@ struct ChipSnapshot {
     int       shot;      /* 1: chipFeedShot() holds a picture capture */
 };
 
-/* Shared by the UI thread and the capture; only want and wantFrame are
-** written by the UI once the feed is open. */
+/* Shared by the UI thread and the capture; only want, wantFrame and wantBank
+** are written by the UI once the feed is open. */
 struct ChipFeedRef {
     /* The chip to show, as chipWant() gives it, with CHIP_WANT_AUTO when the capture followed it
     ** onto the main screen; 0 for none. None or a missing one: the first. */
     volatile LONG want;
     volatile LONG wantFrame; /* nonzero: also copy the picture the chip drew; 1 without its samples */
+    volatile LONG wantBank;  /* a V99x8's VRAM bank to copy: 0-15 or VDP_BANK_* */
+    int    auxNext;          /* the bank copied beside it next, in turn; the capture's own */
+    int    auxSprite;        /* else the sprite bank, -1 none; the capture's own */
     LONG   shownChip;        /* chipWant of the cartridge chip on the main screen at the last capture, 0 none; the capture's own */
     int    framesWaiting;    /* VDP frames passed up for the chip's own point since it last came */
 };

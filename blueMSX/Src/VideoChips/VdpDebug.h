@@ -27,6 +27,10 @@
 #include "Geo3DDebug.h"
 
 #define VDP_DEBUG_VRAM_SIZE (256 * 1024)
+#define VDP_DEBUG_BANKS     16
+
+/* Banks vdpDebugCaptureBanks copies besides 0-15: the one a register picks at the capture. */
+enum { VDP_BANK_CPU = 16, VDP_BANK_BG, VDP_BANK_SPR, VDP_BANK_SRC, VDP_BANK_DST };
 #define VDP_RASTER_MAX      4096
 
 /* Trace kinds of class VDPREG. PAGE: R#2 written, a = new, b = old. */
@@ -117,7 +121,13 @@ typedef struct {
     ** the one just ended), then the geo3d beside it, if any. Kept together. */
     UInt32 frameStartTime;
     Geo3DDebugState geo3d;
+    int    banks;           /* VRAM banks the registers switch: 16 on a V9968 with V58 clear, else 1 */
+    int    vramBank;        /* the bank vram holds */
     UInt8  vram[VDP_DEBUG_VRAM_SIZE];  /* physical order; zero past what the VDP reaches */
+    /* Times R#29 pointed the sprites at each bank since the VDP was made; only counts up. */
+    UInt32 sprBankHits[VDP_DEBUG_BANKS];
+    int    auxBank;         /* the bank vramAux holds, -1 none and vramAux stale */
+    UInt8  vramAux[VDP_DEBUG_VRAM_SIZE];
 } VdpDebugState;
 
 #define VDP_SHOT_ROWS  240
@@ -217,6 +227,9 @@ const char* vdpDebugName(int index);
 ** at a frame boundary or while it waits, or under a debugger view, which parks it (raster
 ** then empty). Returns 0 and clears valid when there is no such VDP. */
 int vdpDebugCapture(int index, VdpDebugState* out);
+/* The same with bank (0-15 or VDP_BANK_*) in vram and bank aux (the next one when the same,
+** -1 none) in vramAux; with one bank, bank 0 in vram and vramAux is left alone. */
+int vdpDebugCaptureBanks(int index, VdpDebugState* out, int bank, int aux);
 
 /* The raster log of the machine's VDP under a debugger view, raster then being empty in
 ** vdpDebugCapture. ended and the beam of [0] are the beam's, not the viewer's, which

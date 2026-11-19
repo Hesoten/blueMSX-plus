@@ -79,6 +79,8 @@ static float          decayDt;          /* this frame's fade time, 0 while pause
 static Focus focus, prevFocus;
 static int   hoverSeriesNow = -1, hoverBlockNow = -1;
 static int   mapRows = 1;                /* lane rows: grows with the bands, so the map does not jump */
+static int   bankMapShown = -1;          /* the bank the bank map showed last frame */
+static bool  bankMapInView = true;       /* and whether that row was in view */
 static bool  mapOpen = true;             /* the map's card, for the session */
 static bool  paneOpen = true;            /* the details pane, for the session */
 static float paneWidth = 358;            /* its width, px at 96 DPI, for the session */
@@ -91,6 +93,7 @@ static int         frameWanted;      /* a view showed a picture this frame: 2, o
 static int         splitWanted = -1; /* the family of a view that showed Output's sprites split off this frame */
 static int         viewFamily = -1;  /* the family of the view being drawn */
 static bool        tablesWanted;     /* a V99x8 view was drawn this frame */
+static int         bankWanted = VDP_BANK_BG;  /* the bank a V99x8 view showed this frame */
 static bool        releaseWanted;    /* a view asked to let go of the selection */
 static ui::CanvasZoom viewerZoom;    /* kept when the window closes, as the views keep theirs */
 static shell::PagesState pagesState;
@@ -102,6 +105,7 @@ unsigned     rasterVersion()  { return rasterVer; }
 unsigned     vramVersion()    { return vramVer; }
 unsigned     stepVersion()    { return stepVer; }
 float        toolDecayDt()    { return decayDt; }
+float        heatFade()       { return decayDt / HEAT_SECONDS; }
 const Focus& shownFocus()     { return focus.pinned ? focus : prevFocus; }
 int          hoverSeries()    { return hoverSeriesNow; }
 int          hoverBlock()     { return hoverBlockNow; }
@@ -110,6 +114,7 @@ const void*  frameShot(unsigned* version) { *version = shotVer; return shotNow; 
 void         wantFrame(bool pixels) { if (frameWanted < (pixels ? 2 : 1)) frameWanted = pixels ? 2 : 1; }
 void         wantSpriteSplit() { splitWanted = viewFamily; }
 void         wantSpriteTables() { tablesWanted = true; }
+void         wantBank(int bank) { bankWanted = bank; }
 void         releaseSelection() { releaseWanted = true; }
 ui::CanvasZoom& zoom()        { return viewerZoom; }
 PagesState&  pages()          { return pagesState; }
@@ -247,9 +252,8 @@ static bool pictureFieldsDiffer(int family, const void* a, const void* b)
     static const Span skip[] = {
         { offsetof(VdpDebugState, status), sizeof(((VdpDebugState*)0)->status) },
         { offsetof(VdpDebugState, raster), sizeof(((VdpDebugState*)0)->raster) },
-        { offsetof(VdpDebugState, frameStartTime),
-          offsetof(VdpDebugState, geo3d) + sizeof(Geo3DDebugState) - offsetof(VdpDebugState, frameStartTime) },
-        { offsetof(VdpDebugState, vram), VDP_DEBUG_VRAM_SIZE },
+        { offsetof(VdpDebugState, frameStartTime), offsetof(VdpDebugState, vram) - offsetof(VdpDebugState, frameStartTime) },
+        { offsetof(VdpDebugState, vram), sizeof(VdpDebugState) - offsetof(VdpDebugState, vram) },
     };
     return differOutside(a, b, sizeof(VdpDebugState), skip, 4);
 }
@@ -276,8 +280,12 @@ static bool stateDiffers(int family, const void* a, const void* b, size_t size)
         static const Span skip[] = { { offsetof(V9990DebugState, secondField), sizeof(int) } };
         return differOutside(a, b, size, skip, 1);
     }
-    static const Span skip[] = { { offsetof(VdpDebugState, raster), sizeof(((VdpDebugState*)0)->raster) } };
-    return differOutside(a, b, size, skip, 1) || rasterDiffers(family, a, b);
+    /* The other banks come one per copy for the views' noteCopy; they draw from vram. */
+    static const Span skip[] = {
+        { offsetof(VdpDebugState, raster), sizeof(((VdpDebugState*)0)->raster) },
+        { offsetof(VdpDebugState, sprBankHits), sizeof(VdpDebugState) - offsetof(VdpDebugState, sprBankHits) },
+    };
+    return differOutside(a, b, size, skip, 2) || rasterDiffers(family, a, b);
 }
 
 /* Bumps contentVer only when the content changed, and marks the VRAM blocks
@@ -302,6 +310,8 @@ static void noteSnapshot(const ChipEntry& e, const void* st, UInt32 seq)
         lastSeq = seq;
         memset(heat, 0, sizeof(heat));
         mapRows = 1;
+        bankMapShown = -1;
+        bankMapInView = true;
         memset(&focus, 0, sizeof(focus));
         memset(&prevFocus, 0, sizeof(prevFocus));
         hoverSeriesNow = hoverBlockNow = -1;
@@ -310,16 +320,21 @@ static void noteSnapshot(const ChipEntry& e, const void* st, UInt32 seq)
         pictureVer++;
         rasterVer++;
         vramVer++;
+        if (chipViews[e.family]) chipViews[e.family]->noteCopy(st);
         return;
     }
     if (seq == lastSeq) return;
     lastSeq = seq;
+    if (chipViews[e.family]) chipViews[e.family]->noteCopy(st);
     if (!stateDiffers(e.family, last, st, size)) return;
     size_t vsize;
     const UInt8* a = vramOf(e.family, last, &vsize);
     const UInt8* b = vramOf(e.family, st, &vsize);
-    bool vramChanged = false;
-    for (size_t k = 0; k < vsize >> BLOCK_SHIFT && k < BLOCK_COUNT; k++) {
+    /* Another bank of a V9968 is not a write. */
+    bool otherBank = e.family == CHIP_V99X8 && ((const VdpDebugState*)last)->vramBank != ((const VdpDebugState*)st)->vramBank;
+    bool vramChanged = otherBank;
+    if (otherBank) memset(heat, 0, sizeof(heat));
+    for (size_t k = 0; !otherBank && k < vsize >> BLOCK_SHIFT && k < BLOCK_COUNT; k++) {
         if (memcmp(a + (k << BLOCK_SHIFT), b + (k << BLOCK_SHIFT), 1 << BLOCK_SHIFT) != 0) {
             heat[k] = 1;
             vramChanged = true;
@@ -373,18 +388,22 @@ struct MapPlan {
     int      n, row[64];
     bool     perBand;
     UInt32   size;
+    /* With banks: a row each, the bank vram holds, and the rows' height before scrolling. */
+    MapBankRow bankRow[VDP_DEBUG_BANKS];
+    int      bankRows, shownBank;
+    float    bankH;
 };
 
 static const MapPlan* planNow;   /* this frame's, while the views draw */
 
-/* "    Name - lines" for each lane of m holding physical address a; size > 0. */
-static void lanesAt(const MapPlan& m, UInt32 a, char* out, size_t size)
+/* "    Name - lines" for each lane of m holding physical address a of bank; size > 0. */
+static void lanesAt(const MapPlan& m, int bank, UInt32 a, char* out, size_t size)
 {
     size_t at = 0;
     out[0] = 0;
     for (int i = 0; i < m.n && at + 1 < size; i++) {
         const VramLane& l = m.lanes[i];
-        if (a < l.addr || a >= l.addr + l.len) continue;
+        if (a < l.addr || a >= l.addr + l.len || (m.bankRows > 0 && l.bank != bank)) continue;
         int k = l.where ? textf(out + at, size - at, "    %s \xC2\xB7 %s", l.name, l.where) : textf(out + at, size - at, "    %s", l.name);
         at = k < 0 ? size : at + (size_t)k;
     }
@@ -401,7 +420,7 @@ void laneNames(UInt32 a, char* out, size_t size)
 {
     if (size == 0) return;
     out[0] = 0;
-    if (planNow) lanesAt(*planNow, a, out, size);
+    if (planNow) lanesAt(*planNow, planNow->shownBank, a, out, size);
 }
 }
 
@@ -421,15 +440,21 @@ static float mapTickH()
     return h;
 }
 
-/* The lane rows, the activity strip and the ticks. */
-static float mapBodyH()
+/* With banks: a bank's row, a run of empty ones, the label column and the most the rows show unscrolled. */
+static float mapBankRowH(const MapBankRow& r) { return ui::Px(r.empty ? 12.0f : 16.0f); }
+static float mapBankLabelW() { return ui::Px(54); }
+static float mapBankMaxH()   { return ui::Px(100); }
+
+/* The lane rows, the activity strip and the ticks; with banks, the rows and the ticks. */
+static float mapBodyH(const MapPlan& m)
 {
+    if (m.bankRows > 0) return fminf(m.bankH, mapBankMaxH()) + mapGap() + mapTickH();
     return mapLaneH() * mapRows + mapGap() * mapRows + mapActH() + mapGap() + mapTickH();
 }
 
-static float mapCardH(bool open)
+static float mapCardH(bool open, const MapPlan& m)
 {
-    return open ? mapHeaderH() + ui::Px(MAP_BODY_TOP) + mapBodyH() + ui::Px(MAP_BODY_BOTTOM) : mapHeaderH();
+    return open ? mapHeaderH() + ui::Px(MAP_BODY_TOP) + mapBodyH(m) + ui::Px(MAP_BODY_BOTTOM) : mapHeaderH();
 }
 
 static void planVramMap(ChipView* v, const void* st, float w, MapPlan& m)
@@ -438,6 +463,16 @@ static void planVramMap(ChipView* v, const void* st, float w, MapPlan& m)
     int* row = m.row;
     int n = m.n = v->vramLanes(st, lanes, 64);
     UInt32 size = m.size = v->vramSize(st);
+    m.bankRows = v->mapBankRows(st, m.bankRow, VDP_DEBUG_BANKS);
+    m.shownBank = v->shownBank(st);
+    m.bankH = 0;
+    for (int i = 0; i < m.bankRows; i++) m.bankH += mapBankRowH(m.bankRow[i]);
+    /* With banks each row lays its own lanes over one another. */
+    if (m.bankRows > 0) {
+        for (int i = 0; i < n; i++) row[i] = 0;
+        m.perBand = false;
+        return;
+    }
 
     /* Lanes that overlap go to the next row while bands split the frame. */
     int needed = 1;
@@ -464,6 +499,52 @@ static void planVramMap(ChipView* v, const void* st, float w, MapPlan& m)
     }
     if (needed > mapRows || !v->bandsKnown(st)) mapRows = needed;
     m.perBand = perBand;
+}
+
+/* A lane over x0..x1 at y, filled the stronger when lit, named where the name fits. */
+static void drawMapLane(ImDrawList* dl, const VramLane& l, float x0, float x1, float y, float h, bool lit)
+{
+    const UiTokens& t = uiTokens();
+    float r = ui::Px(3);
+    ImU32 c = t.series[l.series % 6];
+    dl->AddRectFilled(ImVec2(x0, y), ImVec2(x1, y + h), alphaOf(c, lit ? 0.60f : 0.30f), x1 - x0 > r * 2 ? r : 0);
+    ui::PushFont(UI_FONT_BODY, 12);
+    char label[192];
+    const char* text = laneLabel(l, x1 - x0 - ui::Px(12), label, sizeof(label));
+    if (text) {
+        ImVec2 ts = ImGui::CalcTextSize(text);
+        dl->AddText(ImVec2(x0 + ui::Px(6), floorf(y + (h - ts.y) / 2)), t.text, text);
+    }
+    ui::PopFont();
+}
+
+/* Blocks written lately along x..x + w, brighter the more recent. */
+static void drawMapActivity(ImDrawList* dl, float x, float y, float w, float h, const float* blockHeat, int blocks)
+{
+    const UiTokens& t = uiTokens();
+    float bw = w / (blocks > 0 ? blocks : 1);
+    for (int k = 0; k < blocks; k++) {
+        if (blockHeat[k] <= 0.02f) continue;
+        float x0 = floorf(x + k * bw);
+        dl->AddRectFilled(ImVec2(x0, y), ImVec2(fmaxf(x0 + 1, floorf(x + (k + 1) * bw)), y + h), alphaOf(t.accent, blockHeat[k]));
+    }
+}
+
+/* Addresses every eighth of size along x..x + w; every other one when they would touch. */
+static void drawMapTicks(ImDrawList* dl, float x, float y, float w, UInt32 size)
+{
+    ui::PushFont(UI_FONT_MONO, 12);
+    int step = w / 8 < ImGui::CalcTextSize("00000").x * 2 ? 2 : 1;
+    for (int i = 0; i <= 8; i += step) {
+        char lab[16];
+        UInt32 a = (UInt32)((UInt64)size * i / 8);
+        float tx0 = floorf(x + w * i / 8);
+        snprintf(lab, sizeof(lab), "%05X", a);
+        ImVec2 ts = ImGui::CalcTextSize(lab);
+        float tx = i == 0 ? tx0 : i == 8 ? tx0 - ts.x : tx0 - ts.x / 2;
+        dl->AddText(ImVec2(tx, y), uiTokens().textSecondary, lab);
+    }
+    ui::PopFont();
 }
 
 /* Drawn after the views, which read its hover a frame late; it shows this frame's focus. */
@@ -502,39 +583,22 @@ static void drawVramMap(ChipView* v, const void* st, const MapPlan& m)
         if (hoverLane >= 0) hoverSeriesNow = lanes[hoverLane].series;
     }
 
-    float r = ui::Px(3);
     for (int i = 0; i < n; i++) {
         if (lanes[i].len == 0) continue;
         float x0 = floorf(p.x + (float)lanes[i].addr / size * w);
         float x1 = floorf(p.x + (float)(lanes[i].addr + lanes[i].len) / size * w);
-        float ly = p.y + pitch * row[i];
         if (x1 < x0 + 2) x1 = x0 + 2;
         /* The hovered lane, and lanes of its kind that serve the same bands. */
         bool lit = hoverLane == i || (hoverLane >= 0 && hoverSeriesNow == lanes[i].series && lanes[hoverLane].band == lanes[i].band) ||
                    focusOverlaps(v, st, shown, lanes[i].addr, lanes[i].len);
-        ImU32 c = t.series[lanes[i].series % 6];
-        dl->AddRectFilled(ImVec2(x0, ly), ImVec2(x1, ly + laneH), alphaOf(c, lit ? 0.60f : 0.30f), x1 - x0 > r * 2 ? r : 0);
-        ui::PushFont(UI_FONT_BODY, 12);
-        char label[192];
-        const char* text = laneLabel(lanes[i], x1 - x0 - ui::Px(12), label, sizeof(label));
-        if (text) {
-            ImVec2 ts = ImGui::CalcTextSize(text);
-            dl->AddText(ImVec2(x0 + ui::Px(6), floorf(ly + (laneH - ts.y) / 2)), t.text, text);
-        }
-        ui::PopFont();
+        drawMapLane(dl, lanes[i], x0, x1, p.y + pitch * row[i], laneH, lit);
     }
 
     /* Activity: blocks written lately, brighter the more recent. */
     float ay = p.y + lanesH + gap;
     dl->AddRectFilled(ImVec2(p.x, ay), ImVec2(p.x + w, ay + actH), t.controlFill, ui::Px(2));
     int blocks = (int)(size >> BLOCK_SHIFT);
-    float bw = w / (blocks > 0 ? blocks : 1);
-    for (int k = 0; k < blocks && k < BLOCK_COUNT; k++) {
-        if (heat[k] <= 0.02f) continue;
-        float x0 = floorf(p.x + k * bw);
-        dl->AddRectFilled(ImVec2(x0, ay), ImVec2(fmaxf(x0 + 1, floorf(p.x + (k + 1) * bw)), ay + actH),
-                          alphaOf(t.accent, heat[k]));
-    }
+    drawMapActivity(dl, p.x, ay, w, actH, heat, blocks < BLOCK_COUNT ? blocks : BLOCK_COUNT);
 
     /* The focused address. */
     if (shown.kind != FOCUS_NONE && shown.len > 0) {
@@ -550,27 +614,14 @@ static void drawVramMap(ChipView* v, const void* st, const MapPlan& m)
     }
 
     /* Ticks every eighth. */
-    float ty = p.y + barH + gap;
-    ui::PushFont(UI_FONT_MONO, 12);
-    /* Every other one when they would touch. */
-    int step = w / 8 < ImGui::CalcTextSize("00000").x * 2 ? 2 : 1;
-    for (int i = 0; i <= 8; i += step) {
-        char lab[16];
-        UInt32 a = (UInt32)((UInt64)size * i / 8);
-        float x = floorf(p.x + w * i / 8);
-        snprintf(lab, sizeof(lab), "%05X", a);
-        ImVec2 ts = ImGui::CalcTextSize(lab);
-        float tx = i == 0 ? x : i == 8 ? x - ts.x : x - ts.x / 2;
-        dl->AddText(ImVec2(tx, ty), t.textSecondary, lab);
-    }
-    ui::PopFont();
+    drawMapTicks(dl, p.x, p.y + barH + gap, w, size);
 
     /* What is under the mouse goes to the status bar; the map is drawn last, so it wins. */
     if (hovered) {
         char text[1024];
         size_t at = (size_t)textf(text, sizeof(text), ts(TS_MAP_PHYSICAL), hoverAddr);
         if (at + 1 < sizeof(text)) {
-            lanesAt(m, hoverAddr, text + at, sizeof(text) - at);
+            lanesAt(m, m.shownBank, hoverAddr, text + at, sizeof(text) - at);
             at += strlen(text + at);
         }
         if (at + 1 < sizeof(text) && hoverBlockNow >= 0 && hoverBlockNow < BLOCK_COUNT && heat[hoverBlockNow] > 0.02f) {
@@ -583,6 +634,155 @@ static void drawVramMap(ChipView* v, const void* st, const MapPlan& m)
             shell::requestView("vram");
         }
     }
+}
+
+/* "3-4", or "6" for a run of one bank. */
+static void bankRunText(const MapBankRow& r, char* out, size_t size)
+{
+    if (r.last > r.first) snprintf(out, size, "%X\xE2\x80\x93%X", r.first, r.last);
+    else snprintf(out, size, "%X", r.first);
+}
+
+/* A row's label: the bank, or the run of unused ones. */
+static void bankRowLabel(const MapBankRow& r, char* run, size_t runSize, char* lab, size_t labSize)
+{
+    bankRunText(r, run, runSize);
+    if (r.empty) textf(lab, labSize, ts(TS_MAP_BANKS_EMPTY), run);
+    else snprintf(lab, labSize, "%s", run);
+}
+
+/* With banks: a row a bank, runs of empty ones folded, the bank vram holds lit; the rows scroll past 100 px. */
+static void drawBankMap(ChipView* v, const void* st, const MapPlan& m)
+{
+    const UiTokens& t = uiTokens();
+    const Focus& shown = focus;
+    UInt32 size = m.size;
+    float w = ImGui::GetContentRegionAvail().x, labW = mapBankLabelW(), gap = mapGap();
+    float viewH = fminf(m.bankH, mapBankMaxH());
+    /* The label column as wide as its widest label. */
+    for (int i = 0; i < m.bankRows; i++) {
+        char lab[32], run[16];
+        bankRowLabel(m.bankRow[i], run, sizeof(run), lab, sizeof(lab));
+        ui::PushFont(m.bankRow[i].empty ? UI_FONT_BODY : UI_FONT_MONO, m.bankRow[i].empty ? 10.0f : 12.0f);
+        labW = fmaxf(labW, ImGui::CalcTextSize(lab).x + ui::Px(8));
+        ui::PopFont();
+    }
+    ImVec2 top = ImGui::GetCursorScreenPos();
+    float mx = ImGui::GetIO().MousePos.x;
+    int blocks = (int)(size >> BLOCK_SHIFT);
+    if (blocks > BLOCK_COUNT) blocks = BLOCK_COUNT;
+    hoverSeriesNow = hoverBlockNow = -1;
+    bool shownInView = true;
+
+    /* Rows exactly bankH high, so they scroll only when they overflow. */
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    ImGui::BeginChild("##bankrows", ImVec2(w, viewH), ImGuiChildFlags_None,
+                      m.bankH > viewH + 0.5f ? ImGuiWindowFlags_AlwaysVerticalScrollbar : ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    ImGui::PopStyleVar();
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(ImGui::GetStyle().ItemSpacing.x, 0));
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    float cw = ImGui::GetContentRegionAvail().x, bw = fmaxf(1.0f, cw - labW);
+    for (int i = 0; i < m.bankRows; i++) {
+        const MapBankRow& r = m.bankRow[i];
+        float h = mapBankRowH(r);
+        ImVec2 p = ImGui::GetCursorScreenPos();
+        ImGui::PushID(i);
+        ImGui::InvisibleButton("##row", ImVec2(cw, h));
+        bool hovered = ImGui::IsItemHovered() && mx >= p.x + labW;
+        bool clicked = hovered && ImGui::IsItemClicked(ImGuiMouseButton_Left);
+        ImGui::PopID();
+        bool sel = !r.empty && r.first == m.shownBank;
+        float x = p.x + labW;
+        /* Another bank in hand brings its row into view, unless a scroll by hand had left the last one out of it. */
+        if (sel) {
+            float wy = ImGui::GetWindowPos().y;
+            bool out = p.y < wy - 0.5f || p.y + h > wy + viewH + 0.5f;
+            if (out && m.shownBank != bankMapShown && (bankMapShown < 0 || bankMapInView)) {
+                ImGui::SetScrollFromPosY(p.y - wy + h / 2, 0.5f);
+                out = false;
+            }
+            shownInView = !out;
+        }
+        if (sel) {
+            dl->AddRectFilled(p, ImVec2(x, p.y + h), alphaOf(t.accent, 0.16f));
+            dl->AddRectFilled(ImVec2(x, p.y), ImVec2(p.x + cw, p.y + h), alphaOf(t.accent, 0.08f));
+        }
+        dl->AddLine(p, ImVec2(p.x + cw, p.y), t.divider);
+        char lab[32], run[16];
+        bankRowLabel(r, run, sizeof(run), lab, sizeof(lab));
+        ui::PushFont(r.empty ? UI_FONT_BODY : UI_FONT_MONO, r.empty ? 10.0f : 12.0f);
+        ImVec2 ls = ImGui::CalcTextSize(lab);
+        dl->AddText(ImVec2(p.x + ui::Px(4), floorf(p.y + (h - ls.y) / 2)), r.empty ? t.textSecondary : t.text, lab);
+        ui::PopFont();
+        if (r.empty) {
+            for (float sx = x; sx < p.x + cw; sx += ui::Px(10)) {
+                dl->AddRectFilled(ImVec2(sx, p.y + ui::Px(2)), ImVec2(fminf(sx + ui::Px(6), p.x + cw), p.y + h - ui::Px(2)), t.controlFill);
+            }
+            /* Its first bank, on the VRAM tab. */
+            if (hovered) dl->AddRectFilled(ImVec2(x, p.y), ImVec2(p.x + cw, p.y + h), alphaOf(t.text, 0.08f));
+            if (clicked) {
+                v->mapPickBank(st, r.first);
+                shell::requestView("vram");
+            }
+            continue;
+        }
+
+        UInt32 hoverAddr = hovered ? (UInt32)(fminf(fmaxf((mx - x) / bw, 0.0f), 0.9999f) * size) : 0;
+        int hoverLane = -1;
+        for (int j = 0; hovered && j < m.n; j++) {
+            const VramLane& l = m.lanes[j];
+            if (l.bank == r.first && hoverAddr >= l.addr && hoverAddr < l.addr + l.len) hoverLane = j;
+        }
+        if (hovered && sel) {
+            hoverBlockNow = (int)(hoverAddr >> BLOCK_SHIFT);
+            if (hoverLane >= 0) hoverSeriesNow = m.lanes[hoverLane].series;
+        }
+        for (int j = 0; j < m.n; j++) {
+            const VramLane& l = m.lanes[j];
+            if (l.bank != r.first || l.len == 0) continue;
+            float x0 = floorf(x + (float)l.addr / size * bw), x1 = floorf(x + (float)(l.addr + l.len) / size * bw);
+            if (x1 < x0 + 2) x1 = x0 + 2;
+            drawMapLane(dl, l, x0, x1, p.y + ui::Px(1), h - ui::Px(4), hoverLane == j || (sel && focusOverlaps(v, st, shown, l.addr, l.len)));
+        }
+        const float* bh = v->bankHeat(r.first);
+        if (bh == NULL && sel) bh = heat;
+        if (bh != NULL) drawMapActivity(dl, x, p.y + h - ui::Px(2), bw, ui::Px(2), bh, blocks);
+        if (sel && shown.kind != FOCUS_NONE && shown.len > 0) {
+            UInt32 a = v->toPhysical(st, shown.space, shown.addr);
+            if (a < size) {
+                float fx = floorf(x + (float)a / size * bw);
+                dl->AddRectFilled(ImVec2(fx, p.y), ImVec2(fx + (shown.pinned ? ui::Px(2) : fmaxf(1.0f, ui::Px(1))), p.y + h), t.text);
+            }
+        }
+        if (!hovered) continue;
+        dl->AddLine(ImVec2(floorf(mx), p.y), ImVec2(floorf(mx), p.y + h), alphaOf(t.text, 0.6f));
+        char text[1024];
+        size_t at = (size_t)textf(text, sizeof(text), ts(TS_MAP_BANK), r.first);
+        if (at + 1 < sizeof(text)) at += (size_t)textf(text + at, sizeof(text) - at, " \xC2\xB7 ");
+        if (at + 1 < sizeof(text)) at += (size_t)textf(text + at, sizeof(text) - at, ts(TS_MAP_PHYSICAL), hoverAddr);
+        if (at + 1 < sizeof(text)) {
+            lanesAt(m, r.first, hoverAddr, text + at, sizeof(text) - at);
+            at += strlen(text + at);
+        }
+        int hb = (int)(hoverAddr >> BLOCK_SHIFT);
+        if (at + 1 < sizeof(text) && bh != NULL && hb < blocks && bh[hb] > 0.02f) textf(text + at, sizeof(text) - at, "    %s", ts(TS_MAP_WRITTEN));
+        ui::StatusText("%s", text);
+        if (clicked) {
+            v->mapPickBank(st, r.first);
+            /* A focus has no bank: one is pinned only where the bank in hand is the one clicked. */
+            if (sel) {
+                Focus f = { focus.chipId, FOCUS_PHYS, hoverAddr & ~255u, 256, FOCUS_VRAM, 0, 0, true };
+                focus = f;
+            }
+            shell::requestView("vram");
+        }
+    }
+    bankMapShown = m.shownBank;
+    bankMapInView = shownInView;
+    ImGui::PopStyleVar();
+    ImGui::EndChild();
+    drawMapTicks(ImGui::GetWindowDrawList(), top.x + labW, top.y + viewH + gap, bw, size);
+    ImGui::Dummy(ImVec2(w, gap + mapTickH()));
 }
 
 /* ---- Pages: the card under the Screen, folding as the VRAM map does ---- */
@@ -846,6 +1046,8 @@ static void draw(ImGuiToolWindow*, void*)
     /* Copied only while a view shows it; asked for again from what this frame shows. */
     InterlockedExchange(&feedRef.wantFrame, frameWanted);
     frameWanted = 0;
+    InterlockedExchange(&feedRef.wantBank, bankWanted);
+    bankWanted = VDP_BANK_BG;
     if (splitWanted != splitOn) {
         armSplit(splitOn, 0);
         armSplit(splitWanted, 1);
@@ -865,7 +1067,7 @@ static void draw(ImGuiToolWindow*, void*)
         shotVer++;
     }
 
-    float dt = decayDt / HEAT_SECONDS;
+    float dt = shell::heatFade();
     for (int k = 0; k < BLOCK_COUNT; k++) heat[k] = heat[k] > dt ? heat[k] - dt : 0;
 
     prevFocus = focus;
@@ -902,7 +1104,7 @@ static void draw(ImGuiToolWindow*, void*)
     MapPlan plan;
     planVramMap(v, st, avail.x - ui::Px(24), plan);
     planNow = &plan;
-    float mapH = mapCardH(mapOpen);
+    float mapH = mapCardH(mapOpen, plan);
     float bottom = ImGui::GetWindowPos().y + ImGui::GetWindowSize().y - ui::StatusBarHeight() - ui::Px(8) - mapH - ui::Px(8);
     avail.y = fmaxf(bottom - top.y, ui::Px(120));
     /* The details pane at the right, or its rail when folded; the view takes the rest. */
@@ -948,7 +1150,10 @@ static void draw(ImGuiToolWindow*, void*)
     es.bodyBottom = MAP_BODY_BOTTOM;
     es.legend = t.accent;
     es.divider = false;
-    if (ui::BeginExpander("map", ts(TS_MAP_TITLE), ts(TS_MAP_WRITES), &mapOpen, es)) drawVramMap(v, st, plan);
+    if (ui::BeginExpander("map", ts(TS_MAP_TITLE), ts(TS_MAP_WRITES), &mapOpen, es)) {
+        if (plan.bankRows > 0) drawBankMap(v, st, plan);
+        else drawVramMap(v, st, plan);
+    }
     else hoverSeriesNow = hoverBlockNow = -1;
     ui::EndExpander();
     planNow = NULL;

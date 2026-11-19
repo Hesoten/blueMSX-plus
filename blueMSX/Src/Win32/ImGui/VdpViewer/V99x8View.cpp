@@ -40,6 +40,7 @@
 #include "Geo3DPanel.h"
 #include "VdpRaster.h"
 #include "VdpParts.h"
+#include "VdpBanks.h"
 #include "ToolText.h"
 extern "C" {
 #include "Emulator.h"
@@ -146,6 +147,8 @@ public:
         delete bandFrame;
         delete sprPinKeep;
         delete sprSelKeep;
+        free(sprScratch);
+        free(pageScratch);
     }
 
     V99x8View()
@@ -201,6 +204,416 @@ public:
         return n;
     }
 
+    /* ---- the bank strip: the banks a tab can show, under its command bar ---- */
+
+    enum { PATH_CPU, PATH_BG, PATH_SPR, PATH_SRC, PATH_DST, PATHS };
+
+    static int pathBank(const VdpDebugState* s, int path)
+    {
+        const UInt8* r = s->regs;
+        switch (path) {
+        case PATH_CPU: return r[28] & 0x0f;
+        case PATH_BG:  return r[29] & 0x0f;
+        case PATH_SPR: return r[29] >> 4;
+        case PATH_SRC: return r[30] & 0x0f;
+        }
+        return r[30] >> 4;
+    }
+
+    static int pathReg(int path)
+    {
+        return path == PATH_CPU ? 28 : path == PATH_BG || path == PATH_SPR ? 29 : 30;
+    }
+
+    static int tabPath(int tab)
+    {
+        return tab == TAB_SPRITES ? PATH_SPR : tab == TAB_GEO3D ? PATH_DST : tab == TAB_VRAM ? PATH_CPU : PATH_BG;
+    }
+
+    /* The CPU in the accent, the others in the colours of the map's lanes they read. */
+    static ImU32 pathColour(int path)
+    {
+        const UiTokens& t = uiTokens();
+        static const int series[PATHS] = { -1, 0, 3, 2, 5 };
+        return path == PATH_CPU ? t.accent : t.series[series[path]];
+    }
+
+    static const char* pathName(int path)
+    {
+        static const ToolStringId names[PATHS] = { TS_BANK_PATH_CPU, TS_BANK_PATH_BG, TS_BANK_PATH_SPR, TS_BANK_PATH_SRC, TS_BANK_PATH_DST };
+        return ts(names[path]);
+    }
+
+    bool stripOpen = true;       /* the bank strip, or its row of numbers */
+    bool sprBanksOnly = false;   /* the Sprites tab lists only the banks R#29 pointed the sprites at */
+    int  stripDue = -1;          /* the tab whose strip goes under the next command bar */
+    const VdpDebugState* stripState = NULL;
+
+    static void stripTail(void* ref)
+    {
+        V99x8View* v = (V99x8View*)ref;
+        int tab = v->stripDue;
+        v->stripDue = -1;
+        if (tab >= 0 && v->stripState != NULL) v->bankStrip(v->stripState, tab);
+    }
+
+    bool sprFilter(int tab) const { return tab == TAB_SPRITES && sprBanksOnly; }
+    /* geo3d follows the destination bank; its strip only shows the banks. */
+    static bool stripPicks(int tab) { return tab != TAB_GEO3D; }
+
+    /* The bank the tab's content shows: the Sprites tab's own source (SP3 reads the snapshot), else the snapshot's. */
+    int tabShownBank(const VdpDebugState* s, int tab) const
+    {
+        return tab == TAB_SPRITES && !Sp3Panel::active(s) ? sprSrcBank : s->vramBank;
+    }
+
+    /* Listed: the banks not empty in a copy since the copies began, so a stale copy drops none, and the
+    ** ones shown, pinned and followed while pinned; or the sprite banks. Until all are known, no others. */
+    bool stripListed(const VdpDebugState* s, int tab, int b) const
+    {
+        if (sprFilter(tab)) return banks.spriteBank(b);
+        int pin = bankPin[tab];
+        return b == tabShownBank(s, tab) || b == pin || (pin >= 0 && b == bankFollowed(s, tab)) ||
+               (banks.allKnown() && banks.used(b));
+    }
+
+    int stripBanks(const VdpDebugState* s, int tab, int* out) const
+    {
+        int n = 0;
+        for (int b = 0; b < s->banks && b < VdpBankStore::BANKS; b++) {
+            if (stripListed(s, tab, b)) out[n++] = b;
+        }
+        return n;
+    }
+
+    /* "S" ending at the top right corner at, on a bank R#29 pointed the sprites at: filled for the one it points at now. */
+    void sprBadge(ImDrawList* dl, const VdpDebugState* s, int b, ImVec2 at)
+    {
+        if (!banks.spriteBank(b)) return;
+        ImU32 c = pathColour(PATH_SPR);
+        float w = sprBadgeW();
+        ui::PushFont(UI_FONT_STRONG, 10);
+        ImVec2 ts = ImGui::CalcTextSize("S");
+        ImVec2 a(at.x - w, at.y), q(at.x, a.y + ts.y);
+        bool now = b == (s->regs[29] >> 4);
+        dl->AddRectFilled(a, q, now ? c : uiTokens().cardFill, ui::Px(3));
+        if (!now) dl->AddRect(a, q, c, ui::Px(3));
+        dl->AddText(ImVec2(a.x + ui::Px(3), a.y), now ? IM_COL32(255, 255, 255, 255) : c, "S");
+        ui::PopFont();
+    }
+
+    static float sprBadgeW()
+    {
+        ui::PushFont(UI_FONT_STRONG, 10);
+        float w = ImGui::CalcTextSize("S").x + ui::Px(6);
+        ui::PopFont();
+        return w;
+    }
+
+    /* The bank's roles, each a swatch of its colour with its register, then what a click does. */
+    void bankTip(const VdpDebugState* s, int tab, int b)
+    {
+        int paths[PATHS], n = bankPaths(s, b, paths);
+        int pin = bankPin[tab];
+        char hint[192] = "";
+        if (stripPicks(tab)) {
+            if (pin == b) textf(hint, sizeof(hint), ts(TS_BANK_UNPIN_TIP), pathName(tabPath(tab)), bankFollowed(s, tab));
+            else textf(hint, sizeof(hint), ts(TS_BANK_PIN_TIP), b);
+        }
+        if (n == 0 && !hint[0]) return;
+        ImGui::BeginTooltip();
+        float lh = ImGui::GetTextLineHeight();
+        for (int i = 0; i < n; i++) {
+            ImVec2 c = ImGui::GetCursorScreenPos();
+            float sw = floorf(lh * 0.7f), in = floorf((lh - sw) / 2);
+            ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(c.x, c.y + in), ImVec2(c.x + sw, c.y + in + sw), pathColour(paths[i]));
+            ImGui::Dummy(ImVec2(sw, lh));
+            ImGui::SameLine();
+            ImGui::Text("%s (R#%d)", pathName(paths[i]), pathReg(paths[i]));
+        }
+        if (hint[0]) {
+            ImGui::PushStyleColor(ImGuiCol_Text, uiTokens().textSecondary);
+            ImGui::TextUnformatted(hint);
+            ImGui::PopStyleColor();
+        }
+        ImGui::EndTooltip();
+    }
+
+    /* A click pins the bank, or lets go of the pin on it; the right button offers both. */
+    void bankClick(const VdpDebugState* s, int tab, int b, bool clicked)
+    {
+        int& pin = bankPin[tab];
+        if (clicked && stripPicks(tab)) pin = pin == b ? -1 : b;
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip) && !ImGui::IsPopupOpen(bankMenuId, ImGuiPopupFlags_None)) bankTip(s, tab, b);
+        if (stripPicks(tab) && ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
+            bankMenuFor = b;
+            ImGui::OpenPopup(bankMenuId);
+        }
+    }
+
+    int     bankMenuFor = -1;
+    ImGuiID bankMenuId = 0;   /* the strip's menu, outside the banks' ids */
+
+    void bankMenu(int tab)
+    {
+        if (!ImGui::BeginPopupEx(bankMenuId, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings)) return;
+        int& pin = bankPin[tab];
+        if (ui::MenuRadio(ts(TS_BANK_PIN), pin >= 0 && pin == bankMenuFor, bankMenuFor >= 0 && pin != bankMenuFor)) pin = bankMenuFor;
+        if (ui::MenuRadio(ts(TS_BANK_FOLLOW), pin < 0, pin >= 0)) pin = -1;
+        ImGui::EndPopup();
+    }
+
+    static int bankPaths(const VdpDebugState* s, int b, int* out)
+    {
+        int n = 0;
+        for (int p = 0; p < PATHS; p++) {
+            if (pathBank(s, p) == b) out[n++] = p;
+        }
+        return n;
+    }
+
+    /* The colours of the bank's paths side by side over x0..x1. */
+    static void pathBar(ImDrawList* dl, const VdpDebugState* s, int b, float x0, float x1, float y, float h)
+    {
+        int paths[PATHS], n = bankPaths(s, b, paths);
+        float bw = n > 0 ? (x1 - x0 - (n - 1)) / n : 0;
+        for (int i = 0; i < n; i++) {
+            float a = floorf(x0 + i * (bw + 1));
+            dl->AddRectFilled(ImVec2(a, y), ImVec2(floorf(a + bw), y + h), pathColour(paths[i]), ui::Px(1));
+        }
+    }
+
+    static float stripThumbSize() { return ui::Px(48); }
+
+    /* The bank's number at p: on the accent for the bank shown, else outlined. */
+    static void bankNumber(ImDrawList* dl, int b, ImVec2 p, bool shown)
+    {
+        char num[8];
+        snprintf(num, sizeof(num), "%X", b);
+        if (shown) {
+            ui::PushFont(UI_FONT_STRONG, 12);
+            ImVec2 ns = ImGui::CalcTextSize(num);
+            dl->AddRectFilled(p, ImVec2(p.x + ns.x + ui::Px(8), p.y + ns.y + ui::Px(2)), uiTokens().accent, ui::Px(3));
+            dl->AddText(ImVec2(p.x + ui::Px(4), p.y + ui::Px(1)), uiTokens().textOnAccent, num);
+            ui::PopFont();
+            return;
+        }
+        ui::PushFont(UI_FONT_MONO, 12);
+        ImVec2 np(p.x + ui::Px(3), p.y + ui::Px(1));
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                if (dx || dy) dl->AddText(ImVec2(np.x + dx, np.y + dy), IM_COL32(0, 0, 0, 255), num);
+            }
+        }
+        dl->AddText(np, IM_COL32(255, 255, 255, 255), num);
+        ui::PopFont();
+    }
+
+    /* One bank's picture: its number, the bar of paths, a dot while written, the frames and the pin. */
+    void drawBankThumb(ImDrawList* dl, const VdpDebugState* s, int tab, int b, ImVec2 p, bool hovered)
+    {
+        const UiTokens& t = uiTokens();
+        float w = stripThumbSize(), h = w, r = ui::Px(3);
+        ImVec2 q(p.x + w, p.y + h);
+        int shown = tabShownBank(s, tab);
+        dl->AddRectFilled(p, q, IM_COL32(0, 0, 0, 255), r);
+        const ViewPicture* pic = bankThumbs.picture(b);
+        if (pic != NULL && pic->tex.id() != 0) {
+            float k = fminf(w / pic->w, h / pic->h), pw = floorf(pic->w * k), ph = floorf(pic->h * k);
+            ImVec2 a(floorf(p.x + (w - pw) / 2), floorf(p.y + (h - ph) / 2));
+            ui::ImageNearest(dl, pic->tex.id(), a, ImVec2(a.x + pw, a.y + ph));
+        }
+        if (hovered && stripPicks(tab)) dl->AddRectFilled(p, q, ui::WithAlpha(t.text, 40), r);
+        dl->AddRect(p, q, t.controlStroke, r);
+        bankNumber(dl, b, ImVec2(p.x + ui::Px(2), p.y + ui::Px(2)), b == shown);
+        pathBar(dl, s, b, p.x, q.x, q.y + ui::Px(2), ui::Px(4));
+        if (tab == TAB_SPRITES) sprBadge(dl, s, b, ImVec2(q.x - ui::Px(2), q.y - ui::Px(15)));
+        float th = ui::Px(2), o = ui::Px(2);
+        int pin = bankPin[tab], followed = bankFollowed(s, tab);
+        /* Pinned: the pin sits in the top right corner and the write dot moves left of it. */
+        if (banks.writing(b)) {
+            ImVec2 c(q.x - ui::Px(b == pin ? 23.0f : 6.0f), p.y + ui::Px(6));
+            dl->AddCircleFilled(c, ui::Px(5), ui::WithAlpha(t.accent, 90));
+            dl->AddCircleFilled(c, ui::Px(3.5f), t.accent);
+        }
+        if (b == shown) dl->AddRect(ImVec2(p.x - o - 1, p.y - o - 1), ImVec2(q.x + o + 1, q.y + o + 1), t.accent, r + o, th + 2);
+        else if (pin >= 0 && b == followed) dashedRect(dl, ImVec2(p.x - o, p.y - o), ImVec2(q.x + o, q.y + o), pathColour(tabPath(tab)), th);
+        if (b == pin) {
+            ImVec2 c(q.x - ui::Px(9), p.y + ui::Px(8));
+            dl->AddCircleFilled(c, ui::Px(7), t.cardFill);
+            ui::DrawIcon(dl, c, UI_ICON_PINNED, 11, t.accent);
+        }
+    }
+
+    /* Folded: each bank in a slot of its own, the number over a bar of its paths' colours;
+    ** the ones the open strip leaves out dimmed, the one shown on the accent. */
+    void drawBankChip(ImDrawList* dl, const VdpDebugState* s, int tab, int b, ImVec2 p, float w, float h, bool hovered, bool dim)
+    {
+        const UiTokens& t = uiTokens();
+        ImVec2 q(p.x + w, p.y + h);
+        float r = ui::Px(3);
+        bool shown = b == tabShownBank(s, tab);
+        ImU32 fill = shown ? t.accent : hovered && stripPicks(tab) ? t.subtleHover : dim ? 0 : t.controlFill;
+        if (fill) dl->AddRectFilled(p, q, fill, r);
+        if (!shown) dl->AddRect(p, q, dim ? ui::WithAlpha(t.controlStroke, 110) : t.controlStroke, r);
+        char num[8];
+        snprintf(num, sizeof(num), "%X", b);
+        float badge = tab == TAB_SPRITES ? sprBadgeW() + ui::Px(2) : 0;
+        ui::PushFont(shown ? UI_FONT_STRONG : UI_FONT_MONO, 12);
+        ImVec2 ns = ImGui::CalcTextSize(num);
+        dl->AddText(ImVec2(floorf(p.x + (w - badge - ns.x) / 2), floorf(p.y + (h - ui::Px(3) - ns.y) / 2)),
+                    shown ? t.textOnAccent : dim ? t.textSecondary : t.text, num);
+        ui::PopFont();
+        pathBar(dl, s, b, p.x + ui::Px(2), q.x - ui::Px(2), q.y - ui::Px(4), ui::Px(3));
+        if (tab == TAB_SPRITES) sprBadge(dl, s, b, ImVec2(q.x - ui::Px(2), p.y + ui::Px(2)));
+        if (banks.writing(b)) dl->AddCircleFilled(ImVec2(p.x + ui::Px(4), p.y + ui::Px(4)), ui::Px(2.5f), shown ? t.textOnAccent : t.accent);
+        float th = ui::Px(2), o = ui::Px(1);
+        int pin = bankPin[tab];
+        if (b == pin) dl->AddRect(ImVec2(p.x - o, p.y - o), ImVec2(q.x + o, q.y + o), t.accent, r + o, th);
+        else if (pin >= 0 && b == bankFollowed(s, tab)) dashedRect(dl, ImVec2(p.x - o, p.y - o), ImVec2(q.x + o, q.y + o), pathColour(tabPath(tab)), th);
+    }
+
+    /* The roles' legend from x on the line through cy, in the font pushed. */
+    static void legendRow(ImDrawList* dl, unsigned roles, float x, float cy)
+    {
+        for (int p = 0; p < PATHS; p++) {
+            if (!((roles >> p) & 1)) continue;
+            x += ui::LegendBar(dl, x, cy, pathColour(p));
+            ImVec2 ls = ImGui::CalcTextSize(pathName(p));
+            dl->AddText(ImVec2(x, floorf(cy - ls.y / 2)), uiTokens().textSecondary, pathName(p));
+            x += ls.x + ui::Px(12);
+        }
+    }
+
+    static float bankChipW(int tab)
+    {
+        ui::PushFont(UI_FONT_STRONG, 12);
+        float w = ImGui::CalcTextSize("F").x;
+        ui::PopFont();
+        return ui::Px(10) + w + ui::Px(10) + (tab == TAB_SPRITES ? sprBadgeW() + ui::Px(2) : 0);
+    }
+
+    /* Under a tab's command bar on a V9968 whose VRAM is in banks; the tab's content shows tabShownBank. */
+    void bankStrip(const VdpDebugState* s, int tab)
+    {
+        if (s->banks <= 1) return;
+        const UiTokens& t = uiTokens();
+        int list[VdpBankStore::BANKS], n = 0;
+        bool dim[VdpBankStore::BANKS] = {};
+        if (stripOpen) {
+            BitmapRead br = bitmapRead(s);
+            bankThumbs.update(s, banks, br.vl, br.rm, (int)stripThumbSize(), 2);
+            n = stripBanks(s, tab, list);
+        }
+        else {
+            for (int b = 0; b < s->banks && b < VdpBankStore::BANKS; b++) {
+                dim[n] = !stripListed(s, tab, b);
+                list[n++] = b;
+            }
+        }
+        int listedEmpty = 0;
+        unsigned roles = 0;
+        for (int i = 0; i < n; i++) {
+            listedEmpty += !dim[i] && banks.empty(list[i]);
+            for (int p = 0; p < PATHS; p++) {
+                if (pathBank(s, p) == list[i]) roles |= 1u << p;
+            }
+        }
+        int hidden = stripOpen ? banks.emptyCount() - listedEmpty : 0;
+
+        float rowH = stripOpen ? stripThumbSize() + ui::Px(6) + ui::Px(12) : ui::Px(30);
+        ImVec2 top = ImGui::GetCursorScreenPos();
+        float avail = ImGui::GetContentRegionAvail().x;
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+
+        /* The title at the left; at the right the chevron that folds the strip, as an expander's. */
+        const char* title = ts(TS_BANKS);
+        ImVec2 tsz = ImGui::CalcTextSize(title);
+        float titleW = ui::Px(8) + tsz.x + ui::Px(8);
+        dl->AddText(ImVec2(top.x + ui::Px(8), floorf(top.y + (rowH - tsz.y) / 2)), t.textSecondary, title);
+        float midY = floorf(top.y + rowH / 2);
+        float cw = ui::Px(32), ch = fminf(ui::Px(32), rowH - ui::Px(4));
+        ImVec2 ca(top.x + avail - cw, floorf(midY - ch / 2)), cb(ca.x + cw, ca.y + ch);
+        ImGui::SetCursorScreenPos(ca);
+        if (ImGui::InvisibleButton("##bankfold", ImVec2(cw, ch))) stripOpen = !stripOpen;
+        ui::FoldChevron(dl, ca, cb, stripOpen, ImGui::IsItemHovered(), ImGui::IsItemActive());
+        float right = ca.x - ui::Px(8);
+
+        if (tab == TAB_SPRITES) {
+            const char* filters[2] = { ts(TS_BANKS_SPRITE), ts(TS_BANKS_ALL) };
+            int pick = sprBanksOnly ? 0 : 1;
+            right -= ui::SegmentedWidth(filters, 2);
+            ImGui::SetCursorScreenPos(ImVec2(right, floorf(midY - ui::SegmentedHeight() / 2)));
+            if (ui::Segmented("bankfilter", &pick, filters, 2)) sprBanksOnly = pick == 0;
+            right -= ui::Px(8);
+        }
+        if (hidden > 0 && !sprFilter(tab)) {
+            char more[32];
+            textf(more, sizeof(more), ts(TS_BANKS_UNUSED), hidden);
+            ImVec2 ms = ImGui::CalcTextSize(more);
+            right -= ms.x;
+            dl->AddText(ImVec2(right, floorf(midY - ms.y / 2)), t.textSecondary, more);
+            right -= ui::Px(16);
+        }
+
+        float gap = stripOpen ? ui::Px(8) : ui::Px(4), itemW = stripOpen ? stripThumbSize() : bankChipW(tab);
+        float cwAll = n > 0 ? n * itemW + (n - 1) * gap : 0;
+        /* The roles of the banks in the row, as the VRAM map's legend: beside the controls while
+        ** every bank still fits there, else on a line of its own under the banks. */
+        ui::PushFont(UI_FONT_BODY, 12);
+        float legendW = 0;
+        for (int p = 0; p < PATHS; p++) {
+            if ((roles >> p) & 1) legendW += (legendW > 0 ? ui::Px(12) : 0) + ui::Px(16) + ImGui::CalcTextSize(pathName(p)).x;
+        }
+        float inlineRight = right - legendW - ui::Px(8);
+        bool below = legendW > 0 && inlineRight - top.x - titleW < cwAll + ui::Px(8);
+        if (legendW > 0 && !below) {
+            legendRow(dl, roles, right - legendW, midY);
+            right = inlineRight;
+        }
+        ui::PopFont();
+        float x0 = top.x + titleW, x1 = right;
+
+        float paneW = fmaxf(ui::Px(40), x1 - x0);
+        bool over = cwAll + ui::Px(8) > paneW;
+        float sb = over ? ImGui::GetStyle().ScrollbarSize : 0;
+        ImGui::SetCursorScreenPos(ImVec2(x0, top.y));
+        ImGui::SetNextWindowContentSize(ImVec2(cwAll + ui::Px(8), 0));
+        ImGui::BeginChild("##bankstrip", ImVec2(paneW, rowH + sb), ImGuiChildFlags_None,
+                          ImGuiWindowFlags_NoBackground | (over ? ImGuiWindowFlags_HorizontalScrollbar : ImGuiWindowFlags_NoScrollbar));
+        ImDrawList* sdl = ImGui::GetWindowDrawList();
+        ImVec2 o = ImGui::GetCursorScreenPos();
+        float x = o.x + ui::Px(4);
+        bankMenuId = ImGui::GetID("##bankmenu");
+        for (int i = 0; i < n; i++) {
+            int b = list[i];
+            float h = stripOpen ? stripThumbSize() : ui::Px(22);
+            ImVec2 p(x, stripOpen ? o.y + ui::Px(6) : floorf(o.y + (rowH - h) / 2));
+            ImGui::SetCursorScreenPos(p);
+            ImGui::PushID(b);
+            bool clicked = ImGui::InvisibleButton("##bank", ImVec2(itemW, stripOpen ? h + ui::Px(6) : h));
+            bool hovered = ImGui::IsItemHovered();
+            bankClick(s, tab, b, clicked);
+            ImGui::PopID();
+            if (stripOpen) drawBankThumb(sdl, s, tab, b, p, hovered);
+            else drawBankChip(sdl, s, tab, b, p, itemW, h, hovered, dim[i]);
+            x += itemW + gap;
+        }
+        bankMenu(tab);
+        ImGui::EndChild();
+
+        float lineH = below ? ui::Px(20) : 0;
+        if (below) {
+            ui::PushFont(UI_FONT_BODY, 12);
+            legendRow(dl, roles, x0 + ui::Px(4), floorf(top.y + rowH + sb + lineH / 2));
+            ui::PopFont();
+        }
+        float end = top.y + rowH + sb + lineH;
+        dl->AddLine(ImVec2(top.x, end), ImVec2(top.x + avail, end), t.divider);
+        ImGui::SetCursorScreenPos(ImVec2(top.x, end + ui::Px(1)));
+        ImGui::Dummy(ImVec2(avail, 0));
+    }
+
     void drawView(int v, const void* st, Focus& f) override
     {
         const VdpDebugState* s = (const VdpDebugState*)st;
@@ -210,6 +623,8 @@ public:
         ** band, and a character's the group it was read from, letting go once the frame has no such group. */
         int family = vdpIsBitmapMode(s->screenMode) ? 1 : 0;
         ensureRaster(s);
+        banks.fade();
+        curTab = v >= 0 && v < n ? bankTab(d[v].key) : -1;
         bool byGroup = f.kind == FOCUS_CHAR && charPin.set && f.a == charPin.a && f.b == charPin.b && raster.valid;
         if (f.pinned && (byGroup ? vdpFindGroup(groups, charPin.key) < 0 :
                          family != lastFamily && f.kind != FOCUS_VRAM && f.kind != FOCUS_SPRITE && !bandFocus(f))) {
@@ -254,6 +669,8 @@ public:
         shell::wantSpriteTables();
         shell::wantFrame(false);
         if (v < 0 || v >= n) return;
+        int tab = bankTab(d[v].key);
+        if (tab >= 0 && s->banks > 1) shell::wantBank(bankPin[tab] >= 0 ? bankPin[tab] : bankSelector(tab));
         if (strcmp(d[v].key, "screen") == 0) {
             /* The pages go under the Screen's card as high as the splitter
             ** says, whatever they hold; the card takes the rest. */
@@ -268,17 +685,31 @@ public:
             /* The drawing time card goes under the tab's card as the pages do, while it has a picture. */
             float paneH = fmaxf(0.0f, g3d.bottomHeight(s, ImGui::GetContentRegionAvail().y - ui::Px(8) - shell::pagesChromeH(true)));
             ui::BeginTabCard("card", g3d.hasBottom() ? -(ui::Px(8) + shell::pagesChromeH(g3d.bottomOpen()) + paneH) : 0);
+            stripUnderBar(s, tab);
             g3d.drawTab(s, f, raster);
+            stripUnderBar(NULL, -1);
             ui::EndTabCard();
             g3d.drawBottom(paneH);
             return;
         }
         ui::BeginTabCard("card");
+        stripUnderBar(s, tab);
         if (strcmp(d[v].key, "patterns") == 0) drawPatterns(s, f);
         else if (strcmp(d[v].key, "bitmap") == 0) drawBitmap(s, f);
         else if (strcmp(d[v].key, "sprites") == 0) drawSprites(s, f);
         else drawVram(s, f);
+        stripUnderBar(NULL, -1);
         ui::EndTabCard();
+    }
+
+    /* The strip goes under the tab's first command bar, before anything below it sets up a window;
+    ** a tab with nothing to show runs it with RunCommandBarTail. NULL lets go of it. */
+    void stripUnderBar(const VdpDebugState* s, int tab)
+    {
+        bool on = s != NULL && tab >= 0 && s->banks > 1;
+        stripDue = on ? tab : -1;
+        stripState = on ? s : NULL;
+        ui::SetCommandBarTail(on ? stripTail : NULL, this);
     }
 
     int cards(CardDesc* out, int max, const void* st) const override
@@ -368,22 +799,32 @@ public:
         }
     }
 
+    /* The bank R#29 puts a table of kind (VdpRangeKind) in: the sprites' in its high nibble. */
+    static int tableBank(const VdpDebugState* s, const UInt8* regs, int kind)
+    {
+        if (s->banks <= 1) return 0;
+        bool spr = kind == VDP_RANGE_SPRITE_ATTR || kind == VDP_RANGE_SPRITE_PATTERN || kind == VDP_RANGE_SPRITE_COLOR;
+        return spr ? regs[29] >> 4 : regs[29] & 0x0f;
+    }
+
     /* The tables a layout reads, as lanes of physical addresses. */
+
     static int laneRanges(const VdpDebugState* s, const VdpLayout& l, VramLane* out, int max, int band)
     {
         VdpRange r[8];
         int n = vdpTableRanges(s, l, r), k = 0;
         for (int i = 0; i < n; i++) {
+            int bank = tableBank(s, l.regs, r[i].kind);
             if (interleaved(s, l.mode)) {
                 /* Even bytes in the low 64K, odd ones from vram128, within each 128K on a 256K V9968. */
                 UInt32 len = (UInt32)r[i].len / 2, cap = (UInt32)r[i].cap / 2;
                 UInt32 a = (UInt32)vdpPhysicalAddress(s, l.mode, r[i].addr & ~1);
                 UInt32 b = (UInt32)vdpPhysicalAddress(s, l.mode, r[i].addr | 1);
-                if (k < max) out[k++] = VramLane{ a, len, r[i].kind, r[i].name, NULL, band + 1, cap };
-                if (k < max) out[k++] = VramLane{ b, len, r[i].kind, r[i].name, NULL, band + 1, cap };
+                if (k < max) out[k++] = VramLane{ a, len, r[i].kind, r[i].name, NULL, band + 1, cap, bank };
+                if (k < max) out[k++] = VramLane{ b, len, r[i].kind, r[i].name, NULL, band + 1, cap, bank };
             }
             else if (k < max) {
-                out[k++] = VramLane{ (UInt32)r[i].addr, (UInt32)r[i].len, r[i].kind, r[i].name, NULL, band + 1, (UInt32)r[i].cap };
+                out[k++] = VramLane{ (UInt32)r[i].addr, (UInt32)r[i].len, r[i].kind, r[i].name, NULL, band + 1, (UInt32)r[i].cap, bank };
             }
         }
         return k;
@@ -456,7 +897,7 @@ public:
                 for (int i = 0; i < n; i++) {
                     int j = 0;
                     while (j < k && !(out[j].addr == mine[i].addr && out[j].series == mine[i].series &&
-                                      out[j].name == mine[i].name && out[j].cap == mine[i].cap)) j++;
+                                      out[j].name == mine[i].name && out[j].cap == mine[i].cap && out[j].bank == mine[i].bank)) j++;
                     if (j < k && out[j].len < mine[i].len) out[j].len = mine[i].len;
                     if (j == k) {
                         if (k == max) continue;
@@ -477,6 +918,35 @@ public:
             else if (out[i].addr + out[i].len > size) out[i].len = size - out[i].addr;
         }
         return k;
+    }
+
+    int mapBankRows(const void* st, MapBankRow* out, int max) const override
+    {
+        const VdpDebugState* s = (const VdpDebugState*)st;
+        if (s->banks <= 1) return 0;
+        int n = 0;
+        for (int b = 0; b < s->banks && b < VdpBankStore::BANKS && n < max; b++) {
+            bool empty = banks.empty(b) && b != s->vramBank;
+            if (empty && n > 0 && out[n - 1].empty && out[n - 1].last == b - 1) out[n - 1].last = b;
+            else out[n++] = MapBankRow{ b, b, empty };
+        }
+        return n;
+    }
+
+    int shownBank(const void* st) const override
+    {
+        return ((const VdpDebugState*)st)->vramBank;
+    }
+
+    const float* bankHeat(int bank) const override
+    {
+        return bank >= 0 && bank < VdpBankStore::BANKS && banks.known(bank) ? banks.heat(bank) : NULL;
+    }
+
+    void mapPickBank(const void* st, int bank) override
+    {
+        const VdpDebugState* s = (const VdpDebugState*)st;
+        bankPin[TAB_VRAM] = bank == bankFollowed(s, TAB_VRAM) ? -1 : bank;
     }
 
     UInt32 vramSize(const void* st) const override
@@ -510,8 +980,16 @@ public:
         return raster.valid;
     }
 
+    void noteCopy(const void* st) override
+    {
+        banks.note((const VdpDebugState*)st);
+    }
+
     void forget() override
     {
+        banks.forget();
+        bankThumbs.forget();
+        for (int& p : bankPin) p = -1;
         outPic.forget();
         sheetPic.forget();
         namePic.forget();
@@ -535,6 +1013,11 @@ public:
         rasterBuilt = false;
         linePalShot = linePalRaster = ~0u;
         memset(sceneKey, 0xff, sizeof(sceneKey));
+        spriteSrcKey = ~0u;
+        memset(sprScratchKey, 0xff, sizeof(sprScratchKey));
+        memset(pageScratchKey, 0xff, sizeof(pageScratchKey));
+        sprSrc = NULL;
+        sprSrcBank = 0;
         sprPinLine = -1;
         sprSelReset();
         lineRowReset();
@@ -606,6 +1089,40 @@ private:
     ViewPicture     sheetPic, vramPic, bitmapPic;
     ViewPicture     selSheetPic;          /* the Selection's, for a band's or a cell's pin: never uploaded */
     ui::CanvasState sheetCv, vramCv, bitmapCv;
+    VdpBankStore    banks;
+    VdpBankThumbs   bankThumbs;
+    /* Tabs that show one VRAM bank, each following a register or pinned to a bank (-1 follows). */
+    enum { TAB_PATTERNS, TAB_BITMAP, TAB_SPRITES, TAB_GEO3D, TAB_VRAM, BANK_TABS };
+    int             bankPin[BANK_TABS] = { -1, -1, -1, -1, -1 };
+
+    /* The tab a view key shows a bank in, or -1 for the Screen, which shows the background bank. */
+    static int bankTab(const char* key)
+    {
+        static const char* const keys[BANK_TABS] = { "patterns", "bitmap", "sprites", "geo3d", "vram" };
+        for (int i = 0; i < BANK_TABS; i++) {
+            if (strcmp(key, keys[i]) == 0) return i;
+        }
+        return -1;
+    }
+
+    /* What a tab follows: the background bank, the sprites', the command's destination, or the CPU's. */
+    static int bankSelector(int tab)
+    {
+        return tab == TAB_SPRITES ? VDP_BANK_SPR : tab == TAB_GEO3D ? VDP_BANK_DST : tab == TAB_VRAM ? VDP_BANK_CPU : VDP_BANK_BG;
+    }
+
+    /* The bank a tab's register points at now. */
+    static int bankFollowed(const VdpDebugState* s, int tab)
+    {
+        const UInt8* r = s->regs;
+        switch (bankSelector(tab)) {
+        case VDP_BANK_SPR: return r[29] >> 4;
+        case VDP_BANK_DST: return r[30] >> 4;
+        case VDP_BANK_CPU: return r[28] & 0x0f;
+        }
+        return r[29] & 0x0f;
+    }
+
     /* The Patterns tab: the screen the name table builds beside the pattern generator, one
     ** picture; parts in image px, sdx image px a sheet dot across (2 beside T80's names). */
     struct PatParts { int nx, ny, nw, nh, sx, sy, sw, sh, sdx, w, h; };
@@ -758,7 +1275,7 @@ private:
         unsigned ver = 0;
     };
     SprScene             scene;
-    unsigned             sceneKey[7] = { ~0u };
+    unsigned             sceneKey[9] = { ~0u };
     /* The table the Sprites tab shows, picked or the first by line, held while a double buffer swaps
     ** tables: its frame, sprites, row states (sprRowState) and lines as last laid out, and the
     ** picture (emulated frame count) it was last used in. */
@@ -994,18 +1511,76 @@ private:
         VdpLayout l;
         int g;
         if (!viewLayout(s, true, &l, &g)) l = vdpLayoutOf(s);
-        int lines = layoutLines(s, l.regs);
+        int lines = layoutLines(s, l.regs), srcBank;
+        const VdpDebugState* src = sprSource(s, &srcBank);
+        unsigned srcKey = (unsigned)srcBank | (src != s ? banks.version(srcBank) << 8 : 0u);
         /* The frame keeps why sprites are off as text: evaluated again in another language. */
         const char* text = ts(TS_SPR_OFF_BLANKED);
         if (spriteVer == shell::pictureVersion() && spriteLines == lines && spriteText == text && spriteGroup == g &&
-            spriteMode == l.mode && memcmp(spriteRegs, l.regs, sizeof(spriteRegs)) == 0) return;
+            spriteMode == l.mode && spriteSrcKey == srcKey && memcmp(spriteRegs, l.regs, sizeof(spriteRegs)) == 0) return;
+        spriteSrcKey = srcKey;
         spriteVer = shell::pictureVersion();
         spriteLines = lines;
         spriteText = text;
         spriteGroup = g;
         spriteMode = l.mode;
         memcpy(spriteRegs, l.regs, sizeof(spriteRegs));
-        vdpEvalSprites(s, l, lines, &sprites);
+        vdpEvalSprites(src, l, lines, &sprites);
+    }
+
+    unsigned        spriteSrcKey = ~0u;
+    int             curTab = -1;          /* the bank tab drawn last; -1 the Screen */
+    /* What the scene was built from, for every read of sprite patterns: s, or sprScratch. */
+    const VdpDebugState* sprSrc = NULL;
+    int             sprSrcBank = 0;
+
+    const VdpDebugState* spr(const VdpDebugState* s) const { return sprSrc != NULL ? sprSrc : s; }
+    unsigned sprSrcKey() const { return (unsigned)sprSrcBank | (sprSrc == sprScratch && sprSrc != NULL ? banks.version(sprSrcBank) << 8 : 0u); }
+    VdpDebugState*  sprScratch = NULL;    /* the snapshot over the sprite bank's last copy */
+    unsigned        sprScratchKey[3] = { ~0u, ~0u, ~0u };
+    VdpDebugState*  pageScratch = NULL;   /* the same for the Screen's pages of another background bank */
+    unsigned        pageScratchKey[3] = { ~0u, ~0u, ~0u };
+
+    /* The bank the sprites are read from: R#29's, or the one the Sprites tab is pinned to. */
+    int sprBankOf(const VdpDebugState* s) const
+    {
+        if (s->banks <= 1) return s->vramBank;
+        if (curTab == TAB_SPRITES && bankPin[TAB_SPRITES] >= 0) return s->vramBank;
+        return s->regs[29] >> 4;
+    }
+
+    /* The recorded tables came from R#29's bank; not used for another bank. */
+    bool sprTablesUsable(const VdpDebugState* s) const
+    {
+        return s->banks <= 1 || sprBankOf(s) == (s->regs[29] >> 4);
+    }
+
+    /* s, or a copy of it holding the sprite bank from the bank store when s holds another one. */
+    const VdpDebugState* sprSource(const VdpDebugState* s, int* bank)
+    {
+        int b = *bank = sprBankOf(s);
+        if (b == s->vramBank || !banks.known(b)) {
+            *bank = s->vramBank;
+            return s;
+        }
+        const VdpDebugState* c = bankCopy(s, b, sprScratch, sprScratchKey);
+        if (c == NULL) *bank = s->vramBank;
+        return c != NULL ? c : s;
+    }
+
+    /* scratch made s with known bank b's bytes from the store, again when s, b or its bytes changed; NULL without memory. */
+    const VdpDebugState* bankCopy(const VdpDebugState* s, int b, VdpDebugState*& scratch, unsigned key[3]) const
+    {
+        if (scratch == NULL && (scratch = (VdpDebugState*)malloc(sizeof(VdpDebugState))) == NULL) return NULL;
+        unsigned now[3] = { shell::contentVersion(), (unsigned)b, banks.version(b) };
+        if (memcmp(now, key, sizeof(now)) != 0) {
+            memcpy(scratch, s, offsetof(VdpDebugState, vram));
+            memcpy(scratch->vram, banks.bytes(b), VDP_DEBUG_VRAM_SIZE);
+            scratch->vramBank = b;
+            scratch->auxBank = -1;
+            memcpy(key, now, sizeof(now));
+        }
+        return scratch;
     }
 
     void ensureRaster(const VdpDebugState* s)
@@ -1166,9 +1741,14 @@ private:
             }
             sprRowSeq = o->seq;
         }
-        unsigned key[7] = { ver, shell::pictureVersion(), shell::rasterVersion(), (unsigned)(uintptr_t)ts(TS_SPR_OFF_BLANKED),
+        int srcBank;
+        const VdpDebugState* src = sprSource(s, &srcBank);
+        sprSrc = src;
+        sprSrcBank = srcBank;
+        unsigned key[9] = { ver, shell::pictureVersion(), shell::rasterVersion(), (unsigned)(uintptr_t)ts(TS_SPR_OFF_BLANKED),
                             o != NULL ? 1u + (unsigned)o->sprTabCount + (o->stale ? 0x100u : 0u) : 0u,
-                            (unsigned)vdpGetNoSpritesLimit() | ((unsigned)vdpGetSpritesEnable() << 1), (unsigned)raster.lines };
+                            (unsigned)vdpGetNoSpritesLimit() | ((unsigned)vdpGetSpritesEnable() << 1), (unsigned)raster.lines,
+                            (unsigned)srcBank | (sprTablesUsable(s) ? 0x100u : 0u), src != s ? banks.version(srcBank) : 0u };
         if (memcmp(key, sceneKey, sizeof(key)) == 0) return;
         memcpy(sceneKey, key, sizeof(key));
         if (o != NULL) sprSceneSeq = o->seq;
@@ -1187,7 +1767,7 @@ private:
         sc.ver++;
         if (lines != sc.lines) lineRowReset();
         /* A stale shot holds the last drawn frame's tables while VRAM moves on. */
-        sc.recorded = o != NULL && o->sprTabCount > 0 && !o->stale;
+        sc.recorded = o != NULL && o->sprTabCount > 0 && !o->stale && sprTablesUsable(s);
         sc.lines = lines;
         sc.drawLimit = vdpGetNoSpritesLimit() ? 32 : 0;
         sc.lost = sc.recorded ? o->sprTabLost : 0;
@@ -1196,11 +1776,17 @@ private:
         sc.lineState.assign(lines, SS_FALLBACK);
         if (sc.recorded) {
             sc.frames.resize(o->sprTabCount);
-            for (int i = 0; i < o->sprTabCount; i++) vdpEvalSpritesFrom(s, o->sprTab[i], &sc.frames[i]);
+            for (int i = 0; i < o->sprTabCount; i++) vdpEvalSpritesFrom(src, o->sprTab[i], &sc.frames[i]);
             int y0 = outFirstLine(s, o) - o->displayOffset, first = -1, last = -1;
+            std::vector<bool> otherBank(lines, false);
             for (int d = 0; d < lines; d++) {
                 int y = d + y0;
                 if (y < 0 || y >= o->rows || o->sprTabRow[y] >= o->sprTabCount) continue;
+                /* A table read from another sprite bank than the one in hand: its patterns are not known. */
+                if (s->banks > 1 && (o->sprTab[o->sprTabRow[y]].regs[29] >> 4) != srcBank) {
+                    otherBank[d] = true;
+                    continue;
+                }
                 sc.lineFrame[d] = o->sprTabRow[y];
                 sc.lineState[d] = o->sprTabState[y];
                 if (first < 0) first = d;
@@ -1208,10 +1794,10 @@ private:
             }
             /* Arming came within the frame: the lines before or after it are not missing, only unknown. */
             for (int d = first; d >= 0 && d < lines; d++) {
-                if (sc.lineFrame[d] < 0 && (d < last || sc.lost > 0)) sc.lineState[d] = sc.lost > 0 ? SS_LOST : SS_NONE;
+                if (sc.lineFrame[d] < 0 && !otherBank[d] && (d < last || sc.lost > 0)) sc.lineState[d] = sc.lost > 0 ? SS_LOST : SS_NONE;
             }
         }
-        sceneFallback(s);
+        sceneFallback(src, srcBank, !sprTablesUsable(s));
         sc.approx = 0;
         sc.lineOff.assign(lines, 0);
         for (int d = 0; d < lines; d++) {
@@ -1222,13 +1808,14 @@ private:
             bool prevShows = d > 0 && sc.lineFrame[d - 1] >= 0 && !sc.lineOff[d - 1] && sc.lineState[d - 1] != SS_NONE && sc.lineState[d - 1] != SS_LOST;
             sc.approx += sc.lineState[d] == SS_APPROX && (!sc.lineOff[d] || prevShows);
         }
-        sceneSlots(s);
+        sceneSlots(src);
         sprKeepSel();
         sprHotFind(hotAttr);
     }
 
-    /* Frames for the lines no table was recorded for: the band's registers, VRAM at the frame's end. */
-    void sceneFallback(const VdpDebugState* s)
+    /* Frames for the lines no table was recorded for: the band's registers, VRAM at the frame's end; with
+    ** banks, of the bank s holds, any band's when pinned, else only the bands whose R#29 points there. */
+    void sceneFallback(const VdpDebugState* s, int bank, bool anyBand)
     {
         SprScene& sc = scene;
         std::vector<int> keys;
@@ -1246,6 +1833,7 @@ private:
             int kb = spriteBandOf(d), key[8];
             const VdpBand& b = raster.bands[kb >= 0 ? kb : 0];
             if (b.mode < 0 || vdpSpriteMode(b.mode) == 0) continue;
+            if (s->banks > 1 && !anyBand && (b.regs[29] >> 4) != bank) continue;
             spriteKey(b, key);
             size_t i = 0;
             while (i < keys.size() / 8 && memcmp(&keys[i * 8], key, sizeof(key)) != 0) i++;
@@ -2001,20 +2589,21 @@ private:
         bool sizeChanged;
         if (!shell::pagesHeader(paneH, &sizeChanged)) return;
         int size = shell::pages().size;
-        float gap = ui::Px(8), cw = 0;
+        float gap = ui::Px(8), cw = 0, availW = ImGui::GetContentRegionAvail().x;
+        /* Decoded before the layout, which orders what it holds. */
+        if (!stripItems.empty()) stripItemsFor(s, true);
         if (sizeChanged && !stripItems.empty()) {
             /* A new size keeps the thumbnail at the left there; the pane keeps the splitter's height. */
             float oldTw = stripTw;
-            stripLayout(&stripTw, &cw, stripRows, size);
+            stripTw = floorf(256 * shell::pagesStepScale(size));
             if (oldTw > 0) pagesScroll.to = floorf(pagesScroll.x * (stripTw + gap) / (oldTw + gap));
         }
-        /* One row of the size's thumbnails; drawStrip starts 4 px down and ends without the last gap. */
-        float ch = stripLayout(&stripTw, &cw, stripRows, size);
+        /* drawStrip starts 4 px down and ends without the last gap. */
+        float ch = stripLayout(&stripTw, &cw, stripRows, size, availW, paneH);
         ch = ch > 0 ? ch + ui::Px(4) - gap : 0;
         shell::pagesBeginScroll(paneH, cw, ch, pagesScroll);
         char status[512] = "";
         if (!stripItems.empty()) {
-            stripItemsFor(s, true);
             drawStrip(s, f, stripTw, stripRows, status, sizeof(status));
         }
         else {
@@ -2261,7 +2850,7 @@ private:
                     const VdpSprite& sp = fr->spr[n];
                     if (row < 0 || (only >= 0 && sp.attrAddr != only)) continue;
                     int c = sp.color[row], span, x0 = org + 2 * vdpSpriteSpan(*fr, n, row, &span), w = 2 * span;
-                    bool clear = vdpSpriteClear(s, *fr, c) || vdpSpriteRowBits(s, *fr, n, row) == 0;
+                    bool clear = vdpSpriteClear(s, *fr, c) || vdpSpriteRowBits(spr(s), *fr, n, row) == 0;
                     BoxSeg g = { y, y + 1, vdpSpriteStateAt(*fr, L, k, tab ? fr->limit : drawLimitOf(*fr)), rowState == VDP_SPR_ROW_APPROX ? 2 : clear ? 1 : 0 };
                     size_t i = 0;
                     while (i < open.size() && !(open[i].attr == sp.attrAddr && open[i].org == org && open[i].x0 == x0 && open[i].w == w &&
@@ -2716,6 +3305,7 @@ private:
         int          w, h, ax, ay;
         int          addr, len;   /* logical; len 0 for the sprite layer */
         unsigned     also;        /* bit k: slot k shows the same table, drawn here once */
+        int          bank = -1;   /* the background bank a page was read from, with banks */
     };
 
     /* What one of a group's pictures was decoded from, VRAM aside. */
@@ -2734,6 +3324,10 @@ private:
         StripKey       decoded[SP_COUNT], key[SP_COUNT];
         bool           hasDecoded[SP_COUNT] = {};
         ViewPicture    pages, name, sheet, sprSheet;
+        ViewPicture    bankPages[VdpBankStore::BANKS];   /* pages, one picture a background bank */
+        StripKey       bankKey[VdpBankStore::BANKS];
+        std::vector<UInt8> bankPrev[VdpBankStore::BANKS];   /* the bytes each was decoded from */
+        unsigned       bankVer[VdpBankStore::BANKS] = {}, bankDone = 0;
         bool           used = false, sprKeySet = false;
         int            age = 0, order = 0, ringLen = 0, ringPos = 0;
         int            seen = 0;              /* the pictures it was in, counted up to STRIP_BRIEF + 1 */
@@ -2742,7 +3336,7 @@ private:
         SprKey         sprKey = {};
     };
 
-    struct StripRow { int first, count; float h; };
+    struct StripRow { int first, count; float h; bool head; };   /* positions in stripPos; head: a group starts in it */
 
     /* A slot that left; its group back within SPR_SEEN_KEEP frames takes its old place, held for good. */
     struct StripGone { VdpBandGroup g; UInt32 seq; int order; bool used = false; };
@@ -2752,6 +3346,8 @@ private:
     VdpSpriteFrame*        bandFrame = NULL;
     std::vector<StripItem> stripItems;
     std::vector<StripRow>  stripRows;
+    std::vector<int>       stripPos;               /* the thumbnails in the order the rows show them */
+    std::vector<char>      stripStart;             /* by position: the first of its group */
     std::vector<int>       stripRuns;
     VdpImage               stripPage;
     std::vector<UInt8>     stripPrev;              /* the VRAM the pictures were decoded from */
@@ -2766,12 +3362,16 @@ private:
             g.name.forget();
             g.sheet.forget();
             g.sprSheet.forget();
+            for (ViewPicture& p : g.bankPages) p.forget();
+            for (std::vector<UInt8>& v : g.bankPrev) std::vector<UInt8>().swap(v);
             memset(g.hasDecoded, 0, sizeof(g.hasDecoded));
+            g.bankDone = 0;
             g.used = false;
         }
         for (StripGone& e : stripGone) e.used = false;
         spriteLayer.forget();
         stripHoldGen = ~0u;
+        stripParts = 0;
         stripPrevValid = false;
         stripDecodedVer = stripDecodedRaster = ~0u;
     }
@@ -2842,6 +3442,7 @@ private:
             stripRememberGone(g, seq);
             g.used = false;
             memset(g.hasDecoded, 0, sizeof(g.hasDecoded));
+            g.bankDone = 0;
         }
         for (int i = 0; i < nf; i++) {
             if (at[i] >= 0) continue;
@@ -2861,6 +3462,7 @@ private:
             if (g.used) stripRememberGone(g, seq);
             g.used = true;
             memset(g.hasDecoded, 0, sizeof(g.hasDecoded));
+            g.bankDone = 0;
             g.sprKeySet = false;
             g.order = stripOrderNext++;
             g.seen = 1;
@@ -2977,23 +3579,27 @@ private:
         return count;
     }
 
-    bool bytesChanged(const VdpDebugState* s, int phys, int len) const
+    static bool bytesChanged(const UInt8* prev, const VdpDebugState* s, int phys, int len)
     {
         if (phys < 0 || phys >= VDP_DEBUG_VRAM_SIZE || len <= 0) return false;
         if (phys + len > VDP_DEBUG_VRAM_SIZE) len = VDP_DEBUG_VRAM_SIZE - phys;
-        return memcmp(&stripPrev[phys], &s->vram[phys], (size_t)len) != 0;
+        return memcmp(&prev[phys], &s->vram[phys], (size_t)len) != 0;
     }
 
-    /* A logical range differs from the VRAM the pictures were decoded from. */
-    bool rangeChanged(const VdpDebugState* s, int mode, int addr, int len) const
+    /* A logical range of s differs from prev, a copy of the VRAM a picture was decoded from. */
+    static bool rangeChanged(const UInt8* prev, const VdpDebugState* s, int mode, int addr, int len)
     {
-        if (!stripPrevValid) return true;
         if (interleaved(s, mode)) {
             int half = (len + 1) / 2;
-            return bytesChanged(s, vdpPhysicalAddress(s, mode, addr & ~1), half) ||
-                   bytesChanged(s, vdpPhysicalAddress(s, mode, addr | 1), half);
+            return bytesChanged(prev, s, vdpPhysicalAddress(s, mode, addr & ~1), half) ||
+                   bytesChanged(prev, s, vdpPhysicalAddress(s, mode, addr | 1), half);
         }
-        return bytesChanged(s, vdpPhysicalAddress(s, mode, addr), len);
+        return bytesChanged(prev, s, vdpPhysicalAddress(s, mode, addr), len);
+    }
+
+    bool rangeChanged(const VdpDebugState* s, int mode, int addr, int len) const
+    {
+        return !stripPrevValid || rangeChanged(stripPrev.data(), s, mode, addr, len);
     }
 
     /* What picture p of a group reads besides VRAM: pages, the registers they always did; names, their
@@ -3046,6 +3652,59 @@ private:
         return any;
     }
 
+    /* A bank the Screen lists pages of: one R#29 showed as background, and whose bytes are in hand. */
+    bool stripBankListed(const VdpDebugState* s, int b) const
+    {
+        bool bg = banks.backgroundBank(b) || b == (s->regs[29] & 0x0f);
+        return bg && (b == s->vramBank || banks.known(b));
+    }
+
+    /* A group's pages of bank b: the ones whose bytes changed decoded again, all when the registers did. */
+    void stripDecodeBank(const VdpDebugState* s, StripGroup& g, const VdpLayout& gl, int b, int pages, int w, int bytes, int c0)
+    {
+        ViewPicture& pic = g.bankPages[b];
+        unsigned ver = banks.known(b) ? banks.version(b) : ~shell::pictureVersion();
+        bool full = !((g.bankDone >> b) & 1) || pic.w != w || pic.h != pages * 256 ||
+                    memcmp(&g.bankKey[b], &g.key[SP_FIRST], sizeof(StripKey)) != 0;
+        if (!full && g.bankVer[b] == ver) return;
+        const VdpDebugState* src = b == s->vramBank ? s : bankCopy(s, b, pageScratch, pageScratchKey);
+        if (src == NULL) return;
+        if (full) {
+            pic.w = w;
+            pic.h = pages * 256;
+            pic.img.resize((size_t)w * pages * 256);
+        }
+        bool any = false;
+        for (int p = 0; p < pages; p++) {
+            if (!full && !rangeChanged(g.bankPrev[b].data(), src, g.mode, p * bytes, bytes)) continue;
+            VdpBitmapOptions o = { g.mode, p, 256, 0, c0, false, false };
+            int pw, ph;
+            vdpDecodeBitmap(src, gl, o, stripPage, &pw, &ph);
+            memcpy(&pic.img[(size_t)p * 256 * w], stripPage.data(), (size_t)w * 256 * sizeof(uint32_t));
+            any = true;
+        }
+        pic.upload(any);
+        g.bankPrev[b].assign(src->vram, src->vram + VDP_DEBUG_VRAM_SIZE);
+        g.bankKey[b] = g.key[SP_FIRST];
+        g.bankVer[b] = ver;
+        g.bankDone |= 1u << b;
+    }
+
+    /* The pages a thumbnail's group shows of its bank: with banks, only on the bands R#29 showed that bank on. */
+    unsigned stripShownPages(const VdpDebugState* s, const StripItem& it) const
+    {
+        const StripGroup& g = stripGroups[it.group];
+        if (it.bank < 0) return g.shownPages;
+        if (!raster.valid) return it.bank == (s->regs[29] & 0x0f) ? g.shownPages : 0;
+        unsigned m = 0;
+        for (const VdpBand& b : raster.bands) {
+            if (b.mode < 0 || (b.regs[29] & 0x0f) != it.bank || !vdpGroupHasBand(g, b)) continue;
+            int seg[12];
+            for (int n = vdpRasterBandCols(b, seg), q = 0; q < n; q++) m |= 1u << seg[q * 3];
+        }
+        return m;
+    }
+
     /* The thumbnails, a table that slots share drawn once under the first; when shown, the pictures
     ** not decoded yet, or whose VRAM or registers changed, are decoded again. */
     void stripItemsFor(const VdpDebugState* s, bool decode)
@@ -3069,6 +3728,21 @@ private:
                 /* One slot a bitmap mode, so its pages are never on the strip twice. */
                 int pages = vdpBitmapPageCount(s, mode), w = vdpBitmapWidth(mode);
                 int bytes = mode == 5 || mode == 6 ? 0x8000 : 0x10000;
+                if (s->banks > 1) {
+                    /* Each bank R#29 showed as background, its pages read from that bank. */
+                    for (size_t i = 0; raster.valid && i < raster.bands.size(); i++) {
+                        if (raster.bands[i].mode >= 0) banks.noteBackground(raster.bands[i].regs[29] & 0x0f);
+                    }
+                    for (int b = 0; b < s->banks && b < VdpBankStore::BANKS; b++) {
+                        if (!stripBankListed(s, b)) continue;
+                        if (shown) stripDecodeBank(s, g, gl, b, pages, w, bytes, c0);
+                        for (int p = 0; p < pages; p++) {
+                            stripItems.push_back(StripItem{ SI_PAGE, k, p, &g.bankPages[b], p * 256, p * 256 + 256, w, 256, ax, ay, p * bytes, bytes, 0u, b });
+                        }
+                    }
+                    g.hasDecoded[SP_FIRST] = false;
+                    continue;
+                }
                 if (shown && (fresh || !g.hasDecoded[SP_FIRST])) {
                     bool any = false;
                     bool full = !g.hasDecoded[SP_FIRST] || memcmp(&g.key[SP_FIRST], &g.decoded[SP_FIRST], sizeof(StripKey)) != 0;
@@ -3122,7 +3796,7 @@ private:
             int lines = layoutLines(s, g.regs), w = vdpNameTableWidth(mode), size = (g.regs[1] & 2) ? 16 : 8;
             if (dec[SP_FIRST] && changed[SP_FIRST]) vdpDecodeNameTable(s, gl, lines, -1, c0, g.name.img, &g.name.w, &g.name.h);
             if (dec[SP_PATTERNS] && changed[SP_PATTERNS]) vdpDecodePatternSheet(s, gl, c0, g.sheet.img, &g.sheet.w, &g.sheet.h);
-            if (dec[SP_SPRITES] && changed[SP_SPRITES]) vdpDecodeSpriteSheet(s, gl, size, g.sprSheet.img, &g.sprSheet.w, &g.sprSheet.h);
+            if (dec[SP_SPRITES] && changed[SP_SPRITES]) vdpDecodeSpriteSheet(spr(s), gl, size, g.sprSheet.img, &g.sprSheet.w, &g.sprSheet.h);
             ViewPicture* pics[SP_COUNT] = { &g.name, &g.sheet, &g.sprSheet };
             for (int p = 0; p < parts; p++) {
                 if (!dec[p]) continue;
@@ -3144,6 +3818,10 @@ private:
             if (shown) ensureSpriteLayer(s);
             stripItems.push_back(StripItem{ SI_SPRITES, STRIP_GROUPS, -1, &spriteLayer, 0, lines, layerW, lines, ax, ay, 0, 0 });
         }
+        /* Banks' pages in bank order, then the groups read from no bank. */
+        std::stable_sort(stripItems.begin(), stripItems.end(), [](const StripItem& a, const StripItem& b) {
+            return (unsigned)a.bank < (unsigned)b.bank;
+        });
         if (fresh) {
             stripDecodedVer = shell::pictureVersion();
             stripDecodedRaster = shell::rasterVersion();
@@ -3198,7 +3876,7 @@ private:
         out[4] = b.regs[8] & 0x20;
         out[5] = b.regs[11];
         out[6] = b.regs[23];
-        out[7] = 0;
+        out[7] = b.regs[29] >> 4;
     }
 
     /* Bands that lay sprites out from different registers. */
@@ -3226,8 +3904,8 @@ private:
         char key[96];
         ensureScene(s);
         /* SP3 reads VRAM at the frame end, which a write while paused changes. */
-        snprintf(key, sizeof(key), "L%u/%d/%d/%d/%d/%u/%u/%u", shell::rasterVersion(), w, screenLines(s), vdpGetSpritesEnable(),
-                 vdpGetNoSpritesLimit(), linePal.ver, scene.recorded ? scene.ver : 0u, sp3On ? shell::pictureVersion() : 0u);
+        snprintf(key, sizeof(key), "L%u/%d/%d/%d/%d/%u/%u/%u/%u", shell::rasterVersion(), w, screenLines(s), vdpGetSpritesEnable(),
+                 vdpGetNoSpritesLimit(), linePal.ver, scene.recorded ? scene.ver : 0u, sp3On ? shell::pictureVersion() : 0u, sprSrcKey());
         bool render = spriteLayer.needsDecode(key);
         if (render) renderSpriteBands(s, spriteLayer);
         spriteLayer.upload(render);
@@ -3281,7 +3959,7 @@ private:
                 else {
                     *bandFrame = scene.frames[fi];
                     if (limit) bandFrame->limit = limit;
-                    vdpRenderSpriteLines(s, *bandFrame, pic.img.data(), w, d, e, rgb.data());
+                    vdpRenderSpriteLines(spr(s), *bandFrame, pic.img.data(), w, d, e, rgb.data());
                 }
                 d = e + 1;
             }
@@ -3290,7 +3968,7 @@ private:
         if (!raster.valid) {
             *bandFrame = sprites;
             if (limit) bandFrame->limit = limit;
-            vdpRenderSpriteLines(s, *bandFrame, pic.img.data(), w, 0, lines - 1, rgb.data());
+            vdpRenderSpriteLines(spr(s), *bandFrame, pic.img.data(), w, 0, lines - 1, rgb.data());
             return;
         }
         int prev[8] = { -2 }, key[8];
@@ -3298,7 +3976,8 @@ private:
             int kb = spriteBandOf(d), e = d;
             while (e + 1 < lines && spriteBandOf(e + 1) == kb) e++;
             const VdpBand& b = raster.bands[kb >= 0 ? kb : 0];
-            if (b.mode < 0 || vdpSpriteMode(b.mode) == 0) {
+            /* Bands without sprites, and those reading another sprite bank than the one in hand, are left out. */
+            if (b.mode < 0 || vdpSpriteMode(b.mode) == 0 || (s->banks > 1 && (b.regs[29] >> 4) != sprSrcBank)) {
                 memset(&pic.img[(size_t)d * w], 0, (size_t)(e - d + 1) * w * sizeof(uint32_t));
                 d = e + 1;
                 continue;
@@ -3311,11 +3990,11 @@ private:
                 regs[1] |= 0x40;
                 regs[8] &= ~0x02;
                 VdpLayout l = { regs, b.mode, b.blink };
-                vdpEvalSprites(s, l, lines, bandFrame);
+                vdpEvalSprites(spr(s), l, lines, bandFrame);
                 if (limit) bandFrame->limit = limit;
                 memcpy(prev, key, sizeof(key));
             }
-            vdpRenderSpriteLines(s, *bandFrame, pic.img.data(), w, d, e, rgb.data());
+            vdpRenderSpriteLines(spr(s), *bandFrame, pic.img.data(), w, d, e, rgb.data());
             for (int k = d; k <= e && k < (int)raster.spritesOff.size(); k++) {
                 if (raster.spritesOff[k]) memset(&pic.img[(size_t)k * w], 0, (size_t)w * sizeof(uint32_t));
             }
@@ -3338,18 +4017,131 @@ private:
         return j * (tw + ui::Px(8));
     }
 
-    /* One row of thumbnails tw wide, a 256-dot page at the step's size, and as tall whatever they
-    ** show, under a heading row; returns its height with a gap below, and its width in *width. */
-    float stripLayout(float* tw, float* width, std::vector<StripRow>& rows, int step) const
+    /* Rows into stripPos with every bank split in parts rows alike, so a page keeps its column (without
+    ** banks, all in parts rows); the groups read from no bank beside the first row's pages or in a row over
+    ** the banks. Returns their height, and the widest in *width. */
+    float stripBuild(int parts, bool beside, float tw, float* width, std::vector<StripRow>& rows)
     {
         float gap = ui::Px(8), lineH = stripLineH(), labelH = lineH + ui::Px(2), groupH = lineH + ui::Px(4);
         int n = (int)stripItems.size();
         rows.clear();
-        *tw = floorf(256 * shell::pagesStepScale(step));
-        *width = n > 0 ? stripItemX(n - 1, *tw) + *tw : 0;
+        stripPos.clear();
+        *width = 0;
         if (n == 0) return 0;
-        rows.push_back(StripRow{ 0, n, *tw });
-        return groupH + *tw + labelH + gap;
+        auto push = [&](int first, int count) {
+            if (count > 0) rows.push_back(StripRow{ first, count, tw, false });
+        };
+        int inBanks = 0, longest = 0;
+        while (inBanks < n && stripItems[inBanks].bank >= 0) inBanks++;
+        for (int a = 0, e; a < inBanks; a = e) {
+            for (e = a + 1; e < inBanks && stripItems[e].bank == stripItems[a].bank; e++) {}
+            if (e - a > longest) longest = e - a;
+        }
+        if (inBanks == 0) {
+            for (int q = 0, at = 0; q < parts; q++) {
+                int size = n / parts + (q < n % parts ? 1 : 0);
+                for (int j = 0; j < size; j++) stripPos.push_back(at + j);
+                push((int)stripPos.size() - size, size);
+                at += size;
+            }
+        }
+        else {
+            if (!beside) {
+                for (int j = inBanks; j < n; j++) stripPos.push_back(j);
+                push(0, n - inBanks);
+            }
+            for (int a = 0, e; a < inBanks; a = e) {
+                for (e = a + 1; e < inBanks && stripItems[e].bank == stripItems[a].bank; e++) {}
+                for (int q = 0, at = a; q < parts && at < e; q++) {
+                    int size = longest / parts + (q < longest % parts ? 1 : 0), start = (int)stripPos.size();
+                    if (size > e - at) size = e - at;
+                    for (int j = 0; j < size; j++) stripPos.push_back(at + j);
+                    if (a == 0 && q == 0 && beside) {
+                        for (int j = inBanks; j < n; j++) stripPos.push_back(j);
+                    }
+                    push(start, (int)stripPos.size() - start);
+                    at += size;
+                }
+            }
+        }
+        /* A group's thumbnails are together in stripItems: one starts it after another group's. */
+        stripStart.assign(n, 0);
+        for (int j = 0; j < n; j++) {
+            int i = stripPos[j];
+            stripStart[j] = i == 0 || stripItems[i - 1].group != stripItems[i].group || stripItems[i - 1].bank != stripItems[i].bank;
+        }
+        float h = 0;
+        for (StripRow& r : rows) {
+            for (int j = r.first; j < r.first + r.count && !r.head; j++) r.head = stripStart[j] && stripItems[stripPos[j]].group < STRIP_GROUPS;
+            *width = fmaxf(*width, stripItemX(r.count - 1, tw) + tw);
+            h += (r.head ? groupH : 0) + tw + labelH + gap;
+        }
+        return h;
+    }
+
+    int  stripParts = 0;       /* the rows a bank the strip was last split in, kept through small changes */
+    bool stripBeside = true;
+
+    /* Rows of thumbnails tw wide, a 256-dot page at the step's size, in an availW x paneH pane: the split
+    ** that fits both ways with the fewest rows, else the one overflowing least either way. Returns their
+    ** height and the widest in *width. */
+    float stripLayout(float* tw, float* width, std::vector<StripRow>& rows, int step, float availW, float paneH)
+    {
+        *tw = floorf(256 * shell::pagesStepScale(step));
+        int n = (int)stripItems.size(), inBanks = 0, longest = 0;
+        if (n == 0) return stripBuild(1, true, *tw, width, rows);
+        while (inBanks < n && stripItems[inBanks].bank >= 0) inBanks++;
+        for (int a = 0, e; a < inBanks; a = e) {
+            for (e = a + 1; e < inBanks && stripItems[e].bank == stripItems[a].bank; e++) {}
+            if (e - a > longest) longest = e - a;
+        }
+        int most = inBanks ? longest : n;
+        float sb = ImGui::GetStyle().ScrollbarSize, extra = ui::Px(4) - ui::Px(8);
+        float aw = fmaxf(availW, 1.0f), ah = fmaxf(paneH, 1.0f);
+        /* How far it runs past the pane either way, the scroll bars it needs taken off. */
+        auto measure = [&](int parts, bool beside, bool* fits) {
+            float w, h = stripBuild(parts, beside, *tw, &w, rows) + extra;
+            bool overX = w > aw, overY = h > ah - (overX ? sb : 0);
+            overX = overX || (overY && w > aw - sb);
+            float rw = w / fmaxf(aw - (overY ? sb : 0), 1.0f), rh = h / fmaxf(ah - (overX ? sb : 0), 1.0f);
+            *fits = rw <= 1 && rh <= 1;
+            return fmaxf(rw, rh);
+        };
+        int bestParts = 1;
+        bool bestBeside = true, bestFits = false;
+        float best = 0;
+        for (int parts = 1; parts <= most; parts++) {
+            if (parts > 1 && (most + parts - 1) / parts == (most + parts - 2) / (parts - 1)) continue;
+            for (int b = 0; b < (inBanks && inBanks < n ? 2 : 1); b++) {
+                bool fits, beside = b == 0;
+                float r = measure(parts, beside, &fits);
+                if (parts == 1 && b == 0) { best = r; bestFits = fits; continue; }
+                if ((fits && !bestFits) || (!bestFits && r < best)) {
+                    best = r;
+                    bestFits = fits;
+                    bestParts = parts;
+                    bestBeside = beside;
+                }
+            }
+        }
+        /* The last split, as the fewest rows of its width, stays while it fits and the new one only just does,
+        ** or both overflow about alike. */
+        int last = 0;
+        if (stripParts >= 1 && stripParts <= most) {
+            int cols = (most + stripParts - 1) / stripParts;
+            last = (most + cols - 1) / cols;
+        }
+        if (last > 0 && (last != bestParts || stripBeside != bestBeside)) {
+            bool fits;
+            float r = measure(last, stripBeside, &fits);
+            if (bestFits ? fits && best > 0.97f : !fits && r <= best * 1.03f) {
+                bestParts = last;
+                bestBeside = stripBeside;
+            }
+        }
+        stripParts = bestParts;
+        stripBeside = bestBeside;
+        return stripBuild(bestParts, bestBeside, *tw, width, rows);
     }
 
     /* Bands a and b differ only in what lays out sprites: R#5, R#6, R#11 and R#1's size bits. */
@@ -3388,13 +4180,10 @@ private:
         return out;
     }
 
-    /* A group's heading: its lines of the last pictures, mode and name table, shorter when it does not fit in w. */
-    void groupHeading(const VdpDebugState* s, int k, float w, char* out, size_t size) const
+    /* A group's heading: the bank its pages were read from, its lines of the last pictures, mode and name
+    ** table, shorter when it does not fit in w. */
+    void groupHeading(const VdpDebugState* s, int k, int bank, float w, char* out, size_t size) const
     {
-        if (k >= STRIP_GROUPS) {
-            textf(out, size, "%s", ts(TS_STRIP_WHOLE_FRAME));
-            return;
-        }
         const StripGroup& g = stripGroups[k];
         /* A held pattern slot's R#2 is fixed by its grouping, so its name table does not change; without a log the regs are live. */
         int name = -1;
@@ -3408,15 +4197,27 @@ private:
             textf(nameAt, sizeof(nameAt), ts(TS_STRIP_NAME_AT), name);
             snprintf(hex, sizeof(hex), " \xC2\xB7 %05X", name);
         }
-        int at = textf(out, size, ts(TS_STRIP_GROUP), g.heldLines, shortModeName(g.mode));
+        char pre[48];
+        bankPrefix(bank, pre, sizeof(pre));
+        int at = snprintf(out, size, "%s", pre);
+        if (at >= 0 && (size_t)at < size) at += textf(out + at, size - at, ts(TS_STRIP_GROUP), g.heldLines, shortModeName(g.mode));
         if (at > 0 && (size_t)at < size) textf(out + at, size - at, "%s", nameAt);
         if (ImGui::CalcTextSize(out).x <= w) return;
-        snprintf(out, size, "%s \xC2\xB7 %s%s", g.heldLines, shortModeName(g.mode), nameAt);
+        snprintf(out, size, "%s%s \xC2\xB7 %s%s", pre, g.heldLines, shortModeName(g.mode), nameAt);
         if (ImGui::CalcTextSize(out).x <= w || g.mode < 0) return;
         int sc = g.mode == 13 ? 0 : g.mode == 10 ? 10 : g.mode;
-        snprintf(out, size, "%s \xC2\xB7 SC%d%s", g.heldLines, sc, hex);
+        snprintf(out, size, "%s%s \xC2\xB7 SC%d%s", pre, g.heldLines, sc, hex);
         if (ImGui::CalcTextSize(out).x <= w || name < 0) return;
-        snprintf(out, size, "SC%d%s", sc, hex);
+        snprintf(out, size, "%sSC%d%s", pre, sc, hex);
+    }
+
+    /* The bank and a separator, to go before the text of a page read from a bank; else nothing. */
+    static void bankPrefix(int bank, char* out, size_t size)
+    {
+        out[0] = 0;
+        if (bank < 0) return;
+        int n = textf(out, size, ts(TS_MAP_BANK), bank);
+        if (n > 0 && (size_t)n < size) snprintf(out + n, size - n, " \xC2\xB7 ");
     }
 
     /* The slot in a picture last of those that show a thumbnail: its own, or one sharing the table. */
@@ -3427,6 +4228,12 @@ private:
             if (((it.also >> j) & 1) && stripGroups[j].age < stripGroups[k].age) k = j;
         }
         return k;
+    }
+
+    /* Whether band bd shows the bank a thumbnail was read from: always without banks. */
+    static bool bandReads(const VdpBand& bd, const StripItem& it)
+    {
+        return it.bank < 0 || (bd.regs[29] & 0x0f) == it.bank;
     }
 
     /* Draws the strip at the cursor; status gets the hovered thumbnail's line. */
@@ -3443,23 +4250,23 @@ private:
         float clipL = dl->GetClipRectMin().x, clipR = dl->GetClipRectMax().x;
         for (const StripRow& r : rows) {
             /* Each group's lines and mode over its thumbnails, kept at the left edge while it scrolls by. */
-            for (int j = r.first; j < r.first + r.count; j++) {
-                int k = stripItems[j].group, end = j;
-                if (j > r.first && stripItems[j - 1].group == k) continue;
-                while (end + 1 < r.first + r.count && stripItems[end + 1].group == k) end++;
+            for (int j = r.first; r.head && j < r.first + r.count; j++) {
+                int k = stripItems[stripPos[j]].group, bank = stripItems[stripPos[j]].bank, end = j;
+                if (!stripStart[j] || k >= STRIP_GROUPS) continue;   /* the sprites have none */
+                while (end + 1 < r.first + r.count && stripItems[stripPos[end + 1]].group == k && stripItems[stripPos[end + 1]].bank == bank) end++;
                 float x0 = origin.x + stripItemX(j - r.first, tw), x1 = origin.x + stripItemX(end - r.first, tw) + tw;
                 if (x1 <= clipL || x0 >= clipR) continue;
                 x0 = fmaxf(x0, floorf(clipL));
                 char head[256];
-                groupHeading(s, k, x1 - x0, head, sizeof(head));
+                groupHeading(s, k, bank, x1 - x0, head, sizeof(head));
                 dl->AddLine(ImVec2(x0, y + lineH), ImVec2(x1, y + lineH), t.divider, th);
                 dl->PushClipRect(ImVec2(x0, y), ImVec2(x1, y + lineH + ui::Px(2)), true);
                 dl->AddText(ImVec2(x0, y), t.textSecondary, head);
                 dl->PopClipRect();
             }
-            y += lineH + ui::Px(4);
+            if (r.head) y += lineH + ui::Px(4);
             for (int j = r.first; j < r.first + r.count; j++) {
-                const StripItem& it = stripItems[j];
+                const StripItem& it = stripItems[stripPos[j]];
                 float x = origin.x + stripItemX(j - r.first, tw);
                 if (x + tw <= clipL || x >= clipR) continue;
                 const StripGroup* g = it.group < STRIP_GROUPS ? &stripGroups[it.group] : NULL;
@@ -3478,7 +4285,7 @@ private:
                     for (size_t i = 0; (stripMixed || raster.bands.size() > 1) && i < raster.bands.size(); i++) {
                         const VdpBand& bd = raster.bands[i];
                         int seg[12], n = vdpRasterBandCols(bd, seg);
-                        if (!showsPage(seg, n, it.page) || !vdpGroupHasBand(*g, bd)) continue;
+                        if (!showsPage(seg, n, it.page) || !vdpGroupHasBand(*g, bd) || !bandReads(bd, it)) continue;
                         vdpRasterBandRows(s, bd, it.page, stripRuns);
                         for (int k = 0; k < n; k++) {
                             if (seg[k * 3] != it.page) continue;
@@ -3498,9 +4305,10 @@ private:
                     }
                 }
                 /* An odd page shown with EO or blink alternates with its even pair. */
-                bool shown = it.kind == SI_PAGE && ((g->shownPages >> it.page) & 1) != 0;
+                unsigned shownPages = it.kind == SI_PAGE ? stripShownPages(s, it) : 0;
+                bool shown = it.kind == SI_PAGE && ((shownPages >> it.page) & 1) != 0;
                 bool alternates = g && ((g->regs[9] & 0x04) || g->regs[13] != 0);
-                bool pair = it.kind == SI_PAGE && alternates && !(it.page & 1) && ((g->shownPages >> (it.page | 1)) & 1) != 0;
+                bool pair = it.kind == SI_PAGE && alternates && !(it.page & 1) && ((shownPages >> (it.page | 1)) & 1) != 0;
                 ImVec2 oa(a.x - th, a.y - th), ob(b.x + th, b.y + th);
                 if (shown) dl->AddRect(oa, ob, t.textSecondary, 0, th);
                 if (pair && !shown) dashedRect(dl, oa, ob, t.textSecondary, th);
@@ -3521,7 +4329,7 @@ private:
                 for (size_t i = 0; it.kind == SI_PAGE && !stripMixed && raster.bands.size() > 1 && i < raster.bands.size(); i++) {
                     const VdpBand& bd = raster.bands[i];
                     int seg[12], n = vdpRasterBandCols(bd, seg);
-                    if (!showsPage(seg, n, it.page)) continue;
+                    if (!showsPage(seg, n, it.page) || !bandReads(bd, it)) continue;
                     dl->AddCircleFilled(ImVec2(lx + dot, cy), dot, bandColour((int)i));
                     lx += dot * 2 + ui::Px(3);
                     if (bl < sizeof(bandLines)) {
@@ -3573,7 +4381,11 @@ private:
         ** (reading the thumbnail's group), sprite patterns to Sprites. */
         const char* view = it.kind == SI_SPRPAT ? ts(TS_VIEW_SPRITES) : it.kind == SI_PAGE ? ts(TS_VIEW_BITMAP) : ts(TS_VIEW_PATTERNS);
         if (at < sizeof(extra)) textf(extra + at, sizeof(extra) - at, ts(TS_STRIP_CLICK_VIEW), view);
-        textf(status, size, ts(TS_STRIP_RANGE), name, it.addr, it.addr + it.len - 1, extra);
+        char pre[48];
+        bankPrefix(it.bank, pre, sizeof(pre));
+        size_t pl = strlen(pre) < size ? strlen(pre) : 0;
+        memcpy(status, pre, pl);
+        textf(status + pl, size - pl, ts(TS_STRIP_RANGE), name, it.addr, it.addr + it.len - 1, extra);
 
         /* The map lights the lanes the hovered table or page overlaps. */
         int mode = stripGroups[it.group].mode;
@@ -3598,11 +4410,12 @@ private:
             f = hit;
             f.len = 256;
             f.pinned = true;
+            if (it.bank >= 0) bankPin[TAB_BITMAP] = it.bank == bankFollowed(s, TAB_BITMAP) ? -1 : it.bank;
             stripVramPage = it.page;
             stripVramFrames = 3;
             shell::requestView("bitmap");
         }
-        else if (!f.pinned) {
+        else if (!f.pinned && (it.bank < 0 || it.bank == s->vramBank)) {
             f = hit;
         }
     }
@@ -3937,6 +4750,7 @@ private:
         VdpLayout l;
         int g, read;
         if (!viewLayout(s, false, &l, &g, &read)) {
+            ui::RunCommandBarTail();
             emptyView(ts(TS_PATTERNS_NONE));
             return;
         }
@@ -4217,7 +5031,7 @@ private:
             int e = d;
             while (e + 1 < lines && scene.lineFrame[e + 1] == scene.lineFrame[d] && sceneShows(e + 1) == sceneShows(d)) e++;
             if (sceneShows(d)) {
-                vdpRenderSpriteLines(s, scene.frames[scene.lineFrame[d]], sprPlacePic.img.data(), w, d, e, rgb.data(), sprDropMask.data());
+                vdpRenderSpriteLines(spr(s), scene.frames[scene.lineFrame[d]], sprPlacePic.img.data(), w, d, e, rgb.data(), sprDropMask.data());
             }
             d = e + 1;
         }
@@ -4692,7 +5506,7 @@ private:
                 bool any = false, ec = false, cc = false, offScreen = true;
                 for (int r = 0; r < fr.size; r++) {
                     int c = sp.color[r], st = sprRowState(fr, sprSlotSel, n, r);
-                    any = any || (vdpSpriteRowBits(s, fr, n, r) != 0 && !vdpSpriteClear(s, fr, c));
+                    any = any || (vdpSpriteRowBits(spr(s), fr, n, r) != 0 && !vdpSpriteClear(s, fr, c));
                     ec = ec || (c & 0x80);
                     cc = cc || (fr.mode == 2 && (c & 0x40));
                     ImVec2 ra(a.x, a.y + r * t), rb(b.x, a.y + (r + 1) * t);
@@ -4940,7 +5754,7 @@ private:
         const VdpSprite& sp = fr.spr[n];
         int onScreen = 0, own = 0, dropFrom = -1, dropTo = -1, dropD0 = -1, dropD1 = -1, cc = 0, any = 0, bits = 0;
         for (int r = 0; r < fr.size; r++) {
-            int d = sprRowLine(fr, n, r), b = vdpSpriteRowBits(s, fr, n, r), st = sprRowState(fr, slot, n, r);
+            int d = sprRowLine(fr, n, r), b = vdpSpriteRowBits(spr(s), fr, n, r), st = sprRowState(fr, slot, n, r);
             bits |= b;
             any |= b != 0 && !vdpSpriteClear(s, fr, sp.color[r]);
             if (st == -3) continue;
@@ -5037,7 +5851,7 @@ private:
         ImVec2 ga(gx, y0), gb(gx + size * m, y0 + size * m);
         int prevSt = -2;
         for (int r = 0; r < fr->size; r++) {
-            int d = sprRowLine(*fr, n, r), c = sp.color[r], bits = vdpSpriteRowBits(s, *fr, n, r);
+            int d = sprRowLine(*fr, n, r), c = sp.color[r], bits = vdpSpriteRowBits(spr(s), *fr, n, r);
             int st = sprRowState(*fr, slot, n, r);
             float ry = y0 + r * m;
             ImU32 col = rgbaToCol(vdpSpriteSetRgbaFrom(s, spriteRowRgb(*fr, n, r), *fr, sp.set, c));
@@ -5115,7 +5929,7 @@ private:
         ImVec2 ga(gx, y0), gb(gx + size * m, y0 + size * m);
         ImU32 grey = ui::WithAlpha(t.textTertiary, 0xa0);
         for (int r = 0; r < k.size; r++) {
-            int bits = vdpSpritePatternRowBits(s, *fr, k.p, r), c = o >= 0 ? fr->spr[o].color[r] : 0;
+            int bits = vdpSpritePatternRowBits(spr(s), *fr, k.p, r), c = o >= 0 ? fr->spr[o].color[r] : 0;
             ImU32 col = o >= 0 ? rgbaToCol(vdpSpriteSetRgbaFrom(s, spriteRowRgb(*fr, o, r), *fr, fr->spr[o].set, c)) : grey;
             bool clear = o >= 0 && vdpSpriteClear(s, *fr, c);
             for (int x = 0; x < k.size; x++) {
@@ -5188,7 +6002,7 @@ private:
         for (int n = 0; n < fr.stopIndex; n++) {
             int p = fr.spr[n].pattern & 0xff, row;
             if (sprView.agg[n].drawn + sprView.agg[n].dropped > 0) bits[p >> 5] |= 1u << (p & 31);
-            if (sprView.agg[n].drawn > 0) drawn[p] |= (uint16_t)(1u << sprUserCode(s, fr, n, &row));
+            if (sprView.agg[n].drawn > 0) drawn[p] |= (uint16_t)(1u << sprUserCode(spr(s), fr, n, &row));
         }
         sprPatRingPos = (sprPatRingPos + 1) % SPR_RING;
         if (sprPatRingLen < SPR_RING) sprPatRingLen++;
@@ -5258,11 +6072,11 @@ private:
         uint32_t shows = 0;
         for (int n = 0; n < fr.stopIndex; n++) {
             int p = fr.spr[n].pattern & 0xff;
-            u.code[n] = sprUserCode(s, fr, n, &u.codeRow[n]);
+            u.code[n] = sprUserCode(spr(s), fr, n, &u.codeRow[n]);
             u.codes[p] |= (uint16_t)(1u << u.code[n]);
             if (u.users[p]++ == 0) u.owner[p] = n;
             for (int r = 0; r < fr.size && !((shows >> n) & 1); r++) {
-                if (vdpSpriteRowBits(s, fr, n, r) != 0 && !vdpSpriteClear(s, fr, fr.spr[n].color[r])) shows |= 1u << n;
+                if (vdpSpriteRowBits(spr(s), fr, n, r) != 0 && !vdpSpriteClear(s, fr, fr.spr[n].color[r])) shows |= 1u << n;
             }
             if ((shows >> n) & 1) votes[p][u.code[n]]++;
         }
@@ -5450,7 +6264,7 @@ private:
         const UInt32* rgb[32 * 16];
         for (int n = 0; n < fr.stopIndex; n++) sprRowRgb(fr, n, &rgb[n * 16]);
         sprNotePatternRing(s);
-        vdpDecodeSpriteSheetUsers(s, fr, owner, rgb, (t.textTertiary & 0x00ffffffu) | 0xa0000000u, sprPatPic.img, &sprPatPic.w, &sprPatPic.h);
+        vdpDecodeSpriteSheetUsers(spr(s), fr, owner, rgb, (t.textTertiary & 0x00ffffffu) | 0xa0000000u, sprPatPic.img, &sprPatPic.w, &sprPatPic.h);
         sprPatPic.uploadChanged(&sprPatHash);
         int step = fr.size == 16 ? 4 : 1, count = 256 / step, rows = (count + cols - 1) / cols;
         float y0 = floorf(at.y + sprPatTitleH()), tile = fr.size * q, cellW = tile + ui::Px(4), pitch = sprPatPitch(tile);
@@ -5553,6 +6367,7 @@ private:
         bool any = false;
         for (int fi : scene.lineFrame) any = any || fi >= 0;
         if (!any) {
+            ui::RunCommandBarTail();
             emptyView(ts(TS_SPRITES_NONE));
             return;
         }
@@ -5769,6 +6584,7 @@ private:
             int n;
             const VramLane* lanes = shell::mapLanes(&n);
             for (int i = 0; i < n; i++) {
+                if (lanes[i].bank != self->ovState->vramBank) continue;
                 ImU32 col = t.series[lanes[i].series % 6];
                 char lab[192];
                 if (lanes[i].where) textf(lab, sizeof(lab), "%s \xC2\xB7 %s", lanes[i].name, lanes[i].where);
@@ -5925,31 +6741,49 @@ private:
         }
     }
 
+    /* How the Bitmap tab reads VRAM: the group it reads (-1 the frame's end), the mode and the registers. */
+    struct BitmapRead { int autoG, chosenG, refG, refMode, autoSel, sel, rm; bool split, none; VdpLayout vl; };
+
+    BitmapRead bitmapRead(const VdpDebugState* s)
+    {
+        ensureRaster(s);
+        BitmapRead r;
+        /* A split frame: Auto reads a bitmap group, as bitmapAutoGroup picks. */
+        r.split = raster.valid && groups.size() >= 2;
+        r.autoG = r.split ? bitmapAutoGroup() : -1;
+        r.chosenG = -1;
+        if (r.split && readGroupSet && readAs < 0) {
+            r.chosenG = vdpFindGroup(groups, readKey);
+            if (r.chosenG >= 0 && !vdpIsBitmapMode(groups[r.chosenG].mode)) r.chosenG = -1;
+        }
+        r.refG = r.chosenG >= 0 ? r.chosenG : r.autoG;
+        r.refMode = r.refG >= 0 ? groups[r.refG].mode : s->screenMode;
+        /* No line in a bitmap mode: the last one shown, SCREEN 5 before any. */
+        r.none = !vdpIsBitmapMode(r.refMode);
+        int autoMode = r.none ? lastBitmapMode : r.refMode;
+        r.autoSel = 0;
+        for (int i = 0; i < BITMAP_MODES; i++) {
+            if (bitmapModes[i] == autoMode) r.autoSel = i;
+        }
+        r.sel = readAs < 0 ? r.autoSel : readAs;
+        r.rm = bitmapModes[r.sel];
+        /* Colour 0 as the emulator draws it, from the registers of the group read. */
+        const VdpBandGroup* vg = r.refG >= 0 ? &groups[r.refG] : soleBitmapGroup();
+        r.vl = vg ? withPal(vdpLayoutOf(*vg), palOfGroup(*vg)) : frameEndLayout(s);
+        return r;
+    }
+
     /* VRAM read as the pages of a bitmap mode, whatever mode the VDP is in. */
     void drawBitmap(const VdpDebugState* s, Focus& f)
     {
-        ensureRaster(s);
-        /* A split frame: Auto reads a bitmap group, as bitmapAutoGroup picks. */
-        bool split = raster.valid && groups.size() >= 2;
-        int autoG = split ? bitmapAutoGroup() : -1, chosenG = -1;
+        BitmapRead br = bitmapRead(s);
+        bool split = br.split, none = br.none;
+        int autoG = br.autoG, chosenG = br.chosenG, refG = br.refG, refMode = br.refMode, autoSel = br.autoSel;
+        int sel = br.sel, rm = br.rm;
         int bitmapGroups[8], ng = 0;
         for (int g = 0; split && g < (int)groups.size() && ng < 8; g++) {
             if (vdpIsBitmapMode(groups[g].mode)) bitmapGroups[ng++] = g;
         }
-        if (split && readGroupSet && readAs < 0) {
-            chosenG = vdpFindGroup(groups, readKey);
-            if (chosenG >= 0 && !vdpIsBitmapMode(groups[chosenG].mode)) chosenG = -1;
-        }
-        int refG = chosenG >= 0 ? chosenG : autoG;
-        int refMode = refG >= 0 ? groups[refG].mode : s->screenMode;
-        /* No line in a bitmap mode: the last one shown, SCREEN 5 before any. */
-        bool none = !vdpIsBitmapMode(refMode);
-        int autoMode = none ? lastBitmapMode : refMode, autoSel = 0;
-        for (int i = 0; i < BITMAP_MODES; i++) {
-            if (bitmapModes[i] == autoMode) autoSel = i;
-        }
-        int sel = readAs < 0 ? autoSel : readAs;
-        int rm = bitmapModes[sel];
         dotAspect(rm, &bitmapCv.aspectX, &bitmapCv.aspectY);
 
         const char* const* names = bitmapModeNames;
@@ -6012,9 +6846,7 @@ private:
         ovReadMode = rm;
 
         UInt32 size = vramSize(s);
-        /* Colour 0 as the emulator draws it, from the registers of the group read. */
-        const VdpBandGroup* vg = refG >= 0 ? &groups[refG] : soleBitmapGroup();
-        VdpLayout vl = vg ? withPal(vdpLayoutOf(*vg), palOfGroup(*vg)) : frameEndLayout(s);
+        const VdpLayout& vl = br.vl;
         VdpBitmapOptions o = { rm, -1, 256, 0, VDP_COLOR0_AUTO, false, false };
         grid.pages = vdpBitmapPageCount(s, rm);
         grid.tileW = vdpBitmapWidth(rm);
@@ -6137,7 +6969,7 @@ private:
         ImVec2 p = ImGui::GetCursorScreenPos();
         ImDrawList* dl = ImGui::GetWindowDrawList();
         for (int r = 0; r < fr.size; r++) {
-            int bits = vdpSpriteRowBits(s, fr, n, r);
+            int bits = vdpSpriteRowBits(spr(s), fr, n, r);
             ImU32 col = rgbaToCol(vdpSpriteSetRgbaFrom(s, spriteRowRgb(fr, n, r), fr, sp.set, sp.color[r]));
             for (int x = 0; x < fr.size; x++) {
                 ImVec2 a(p.x + x * cell, p.y + r * cell), b(a.x + cell, a.y + cell);
@@ -6295,7 +7127,7 @@ private:
             /* Of the tables holding it, the narrowest: a fourth pattern block runs over the name table,
             ** and a bitmap page holds the sprite tables. */
             for (int i = 0; i < n; i++) {
-                if (phys < lanes[i].addr || phys >= lanes[i].addr + lanes[i].len) continue;
+                if (phys < lanes[i].addr || phys >= lanes[i].addr + lanes[i].len || lanes[i].bank != s->vramBank) continue;
                 if (at < 0 || lanes[i].len < lanes[at].len) at = i;
             }
             if (at >= 0 && lanes[at].where) textf(caption, sizeof(caption), "%s \xC2\xB7 %s", lanes[at].name, lanes[at].where);

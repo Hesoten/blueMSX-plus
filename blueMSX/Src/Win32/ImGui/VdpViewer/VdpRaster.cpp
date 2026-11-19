@@ -204,8 +204,8 @@ static VdpBand bandOf(const VdpDebugState* s, const Replay& rp, const UInt8* r, 
 
 bool vdpRasterSameKey(const VdpBand& a, const VdpBand& b)
 {
-    /* Table bases, scroll and adjust in full; R#1 sprite size and magnification, R#8 TP. */
-    static const int whole[] = { 2, 3, 4, 5, 6, 10, 11, 18, 23, 25, 26, 27 };
+    /* Table bases, scroll, adjust and the VRAM banks in full; R#1 sprite size and magnification, R#8 TP. */
+    static const int whole[] = { 2, 3, 4, 5, 6, 10, 11, 18, 23, 25, 26, 27, 29 };
     for (int reg : whole) {
         if (a.regs[reg] != b.regs[reg]) return false;
     }

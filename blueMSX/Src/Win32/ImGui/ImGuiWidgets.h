@@ -165,6 +165,10 @@ void  CommandBarItem(float w, float h = 0);
 void  CommandBarRight(float w);
 void  CommandBarSeparator();
 void  EndCommandBar();
+/* fn(ref) once, right after the next EndCommandBar (a row under the bar); NULL clears it. */
+void  SetCommandBarTail(void (*fn)(void*), void* ref);
+/* Runs now a tail no bar has taken. */
+void  RunCommandBarTail();
 
 /* A subtle toggle with an icon and a label; on, it is filled with the accent. */
 float AppBarToggleWidth(const char* glyph, const char* label);
@@ -193,6 +197,10 @@ bool BeginExpander(const char* id, const char* title, const char* summary, bool*
 void EndExpander();
 /* The last BeginExpander's trail: the rect a..b left of the chevron, trailW wide. */
 void ExpanderTrail(ImVec2* a, ImVec2* b);
+/* The expander's chevron in the box a..b, up while open, on the hover fill while hovered or held. */
+void FoldChevron(ImDrawList* dl, ImVec2 a, ImVec2 b, bool open, bool hovered, bool held);
+/* The legend's short bar of col at x on the line through cy; returns how far its text starts. */
+float LegendBar(ImDrawList* dl, float x, float cy, ImU32 col);
 
 /* A pane of cards that folds to a narrow rail at the right; true while open
 ** (draw its contents then). Call EndInspectorPane either way. */

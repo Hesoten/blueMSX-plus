@@ -35,8 +35,10 @@ struct ViewDesc { const char* key; const char* label; const char* glyph; const u
 struct CardDesc { const char* key; const char* title; bool shown; bool expander; const char* summary; bool noHold = false; };
 /* A table or area of VRAM, in physical addresses; series picks its colour, cap the most len gets
 ** in its mode. where names the lines that read it when bands differ; band is 1 + the first of
-** them, or 0 when the frame has one layout. */
-struct VramLane { UInt32 addr, len; int series; const char* name; const char* where; int band; UInt32 cap; };
+** them, or 0 when the frame has one layout. bank: the VRAM bank it is in, where there are banks. */
+struct VramLane { UInt32 addr, len; int series; const char* name; const char* where; int band; UInt32 cap; int bank; };
+/* A row of the VRAM map of a chip whose VRAM is in banks: bank first, or a run of empty ones to last. */
+struct MapBankRow { int first, last; bool empty; };
 
 enum FocusSpace { FOCUS_PHYS, FOCUS_LOGICAL };
 /* On a V99x8, a tile or pixel in FOCUS_PHYS is picked by its line's band:
@@ -74,11 +76,21 @@ public:
     virtual int    vramLanes(const void* st, VramLane* out, int max) const = 0;
     virtual UInt32 vramSize(const void* st) const = 0;
     virtual UInt32 toPhysical(const void* st, int space, UInt32 a) const = 0;
+    /* The map's rows while the VRAM is in banks; 0 for one row of lanes over the whole VRAM. */
+    virtual int    mapBankRows(const void* st, MapBankRow* out, int max) const { (void)st; (void)out; (void)max; return 0; }
+    /* The bank vram holds, which the views draw from. */
+    virtual int    shownBank(const void* st) const { (void)st; return 0; }
+    /* How lately each 256 byte block of the bank was written, 1 just now; NULL: not known. */
+    virtual const float* bankHeat(int bank) const { (void)bank; return NULL; }
+    /* A click on the bank's row: the VRAM tab shows that bank. */
+    virtual void   mapPickBank(const void* st, int bank) { (void)st; (void)bank; }
     /* True while the chip knows how the frame's lines split into bands. */
     virtual bool   bandsKnown(const void* st) const { (void)st; return false; }
     /* Esc (key true) or a click beside a picture (false): let go of what the view keeps
     ** picked besides the focus; some of it only on the key. */
     virtual void   escape(bool key) { (void)key; }
+    /* Every copy the feed brings, also those the shell finds unchanged, before the views draw. */
+    virtual void   noteCopy(const void* st) { (void)st; }
     /* The chip changed: drop pictures and anything kept per chip. */
     virtual void   forget() = 0;
     /* The view's own toggles from the settings, once as it is made, and back to them. */
@@ -97,6 +109,8 @@ unsigned    contentVersion();
 unsigned    stepVersion();
 /* The frame's time for fading highlights: 0 while stopped or on the way to a stop. */
 float       toolDecayDt();
+/* How much a written block's mark on the VRAM map fades this frame, 0 to 1. */
+float       heatFade();
 /* Bumps only when VRAM, registers or palette changed, not status alone. */
 unsigned    pictureVersion();
 /* Bumps when the VDP's raster logs changed. */
@@ -121,6 +135,8 @@ const void* frameShot(unsigned* version);
 void        wantFrame(bool pixels = true);
 /* Called each frame Output shows its sprites (the V9990's cursors in its bitmap modes) split off. */
 void        wantSpriteSplit();
+/* The VRAM bank a V99x8 view shows this frame, 0-15 or VDP_BANK_*; copied from the next capture on. */
+void        wantBank(int bank);
 /* Called each frame a V99x8 view is drawn, so the tables and palettes each line used are recorded. */
 void        wantSpriteTables();
 /* Lets go of the pin and of a picked band next frame, as Esc does. */
