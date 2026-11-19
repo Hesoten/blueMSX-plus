@@ -103,7 +103,9 @@ static int watchAddress(CtrlCall* call, int setting, WatchTarget* target)
     }
 
     if (target->addr.space == CTRL_SPACE_VRAM) {
-        if (!info->readable) {
+        /* A watch on a V9968 bank stays clearable after the machine stops. */
+        if (!info->readable &&
+            (setting || !debugDeviceHasMemoryWatchpointEx(DBGTYPE_VIDEO, (int)target->addr.offset, 1))) {
             return ctrlReplyErrorf(call, "out_of_range", "video memory is %u kB on this machine",
                                    (unsigned)(info->spaceSize / 1024));
         }

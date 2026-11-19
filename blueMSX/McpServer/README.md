@@ -426,7 +426,9 @@ an odd `vram:` address has no video memory behind it and is refused
 expansion) is numbered as the chips are, in every screen mode. A 256 kB V9968
 instead takes `vram:` up to 0x3FFFF, and its upper 128 kB follows the same rule
 as the lower, numbered the same even while V58 in R#21 keeps the program out of
-it.
+it. Its 16 VRAM banks (R#28-R#30) are reached through `vram:` too: bank n
+starts at vram:n*0x40000 (for example bank 9 at vram:0x240000), whatever V58
+is, each laid out like bank 0.
 
 `vram:` is always the VDP's video memory. A V9990 (GFX9000, Video9000) and a
 V9968 cartridge have their own: `bmsx_vdp show=vram` reads it, but the tools

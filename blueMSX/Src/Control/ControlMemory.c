@@ -185,6 +185,7 @@ static int locate(const CtrlAddr* addr, UInt32 size, int isWrite, int vramMode, 
         if (place->storage == NULL) {
             return CTRL_MEM_NOTPRESENT;
         }
+        storageSize = ctrlVramSpan(vdpDebugGetVramBanks(), storageSize);
         /* Before the end: a range that runs past it there has bytes with no memory first. */
         if (vramMode != ANY_MODE && addr->offset < storageSize && ctrlVramLacksBank(vramMode) &&
             ctrlVramUnbacked(addr->offset, size, vramMode) >= 0)
@@ -261,6 +262,9 @@ static int transfer(CtrlView* view, const CtrlAddr* addr, UInt8* bytes, UInt32 s
     result = locate(addr, size, isWrite, vramMode, &place);
     if (result != CTRL_MEM_OK) {
         return result;
+    }
+    if (isWrite && addr->space == CTRL_SPACE_VRAM) {
+        vdpDebugNoteVramWrite(place.at, size);
     }
     if (place.storage == NULL) {
         busCopy(place.at, bytes, size, isWrite);

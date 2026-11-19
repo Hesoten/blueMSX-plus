@@ -56,6 +56,10 @@ void vdpForceSync();
 
 /* Live VRAM, current only up to the last vdpForceSync(). NULL when there is no VDP. */
 UInt8* vdpDebugGetVram(UInt32* size);
+/* 16 on a V9968, whose VRAM holds bank b at b << 18 (size is one bank), whatever V58 is; else 1. */
+int vdpDebugGetVramBanks(void);
+/* Before a debugger writes size bytes at a vram: address: keeps the banks reached in save states. */
+void vdpDebugNoteVramWrite(UInt32 address, UInt32 size);
 
 /* Copies up to max control registers; returns how many, or 0 when there is no
 ** VDP. The screen mode is -1 when there is no VDP. */

@@ -104,7 +104,7 @@ static void describeVramByte(CtrlText* text, UInt32 address, int mode)
         return;
     }
     vdpDebugGetVram(&size);
-    if (index >= size) {
+    if (index >= ctrlVramSpan(vdpDebugGetVramBanks(), size)) {
         ctrlTextAdd(text, "  ");
         ctrlVramDescribeUnbacked(text, address, mode);
         ctrlTextAdd(text, "\n");

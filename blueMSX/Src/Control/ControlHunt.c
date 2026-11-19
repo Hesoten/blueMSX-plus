@@ -139,6 +139,7 @@ static int collectSpaces(HuntSpace* out, int max, UInt32* totalSize, int vramMod
     }
 
     vram = vdpDebugGetVram(&vramSize);
+    vramSize = ctrlVramSpan(vdpDebugGetVramBanks(), vramSize);
     *vramLeftOut = ctrlVramLacksBank(vramMode);
     if (vram != NULL && vramSize > 0 && count < max && !*vramLeftOut) {
         out[count].space       = CTRL_SPACE_VRAM;

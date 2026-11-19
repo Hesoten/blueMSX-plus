@@ -114,13 +114,22 @@ static int screenTables(TextScreen* screen, char* err, int errLen)
 
     /* TEXT2 holds bits 0-1 of R#2 at 1 and aligns to 4 kB; the VDP ignores the
     ** address bits past its video memory, as VDP.c does with vramMask. */
-    screen->base = (UInt32)(registers[2] & (screen->mode == 13 ? 0x7c : 0x7f)) << 10;
-    screen->patterns = (UInt32)(registers[4] & 0x3f) << 11;
+    screen->base = (UInt32)(registers[2] & (screen->mode == 13 ? 0xfc : 0xff)) << 10;
+    screen->patterns = (UInt32)(registers[4] & 0x7f) << 11;
     screen->colours = ((UInt32)registers[10] << 14) | ((UInt32)registers[3] << 6);
     if ((screen->vramSize & (screen->vramSize - 1)) == 0) {
         screen->base &= screen->vramSize - 1;
         screen->patterns &= screen->vramSize - 1;
         screen->colours &= screen->vramSize - 1;
+    }
+    /* A V9968 draws the background from the bank in R#29 bits 3-0. */
+    if (vdpDebugGetVramBanks() > 1) {
+        UInt32 bank = (UInt32)(registers[29] & 0x0f) << 18;
+
+        screen->base     |= bank;
+        screen->patterns |= bank;
+        screen->colours  |= bank;
+        screen->vramSize  = ctrlVramSpan(vdpDebugGetVramBanks(), screen->vramSize);
     }
     /* 212 lines give 26.5 rows. A TMS99x8 only takes R#0-7 (VDP.c), so R#9 bit 7 is never set. */
     screen->rows = 24;

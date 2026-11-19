@@ -25,6 +25,8 @@
 #include "ControlSymbol.h"
 #include "ControlText.h"
 #include "ControlCpu.h"
+#include "ControlVram.h"
+#include "VDP.h"
 #include "SlotManager.h"
 #include "Board.h"
 #include <stdio.h>
@@ -868,7 +870,7 @@ int ctrlAddrResolve(const CtrlAddr* addr, CtrlAddrInfo* info)
 
     if (addr->space == CTRL_SPACE_VRAM) {
         info->canonical  = work;
-        info->spaceSize  = boardGetVramSize();
+        info->spaceSize  = ctrlVramSpan(vdpDebugGetVramBanks(), boardGetVramSize());
         info->readable   = info->spaceSize > 0 && work.offset < info->spaceSize;
         info->writable   = info->readable;
         strcpy(info->contents, "VRAM");
@@ -922,7 +924,7 @@ int ctrlAddrAdvance(CtrlAddr* addr, UInt32 count)
         return 1;
 
     case CTRL_SPACE_VRAM:
-        if (addr->offset + count > boardGetVramSize()) {
+        if (addr->offset + count > ctrlVramSpan(vdpDebugGetVramBanks(), boardGetVramSize())) {
             return 0;
         }
         addr->offset += count;

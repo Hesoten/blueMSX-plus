@@ -33,6 +33,10 @@ const char* ctrlVramModeName(int mode);
 ** (vdpDebugGetVramLayout). Fits in 32 bytes. */
 void ctrlVramModeShortName(char* out, int len, int layout);
 
+/* The bytes vram: addresses reach: banks of 256 kB, bank b from vram:b<<18, when there are
+** more than one, else the chip's size. */
+UInt32 ctrlVramSpan(int banks, UInt32 chipSize);
+
 /* The first of size vram: addresses from address on with no video memory behind it in
 ** that VRAM layout, or -1 when every one has. */
 Int32 ctrlVramUnbacked(UInt32 address, UInt32 size, int vramMode);
