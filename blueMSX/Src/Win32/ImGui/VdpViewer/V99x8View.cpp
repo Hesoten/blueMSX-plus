@@ -310,26 +310,33 @@ public:
         return w;
     }
 
-    /* The bank's roles, each a swatch of its colour with its register, then what a click does. */
+    /* The bank's roles, each a swatch of its colour with its register, then what a click does. A role
+    ** stays listed while the tip is up, and those R#29 gave the bank before; the swatch is filled while it holds. */
     void bankTip(const VdpDebugState* s, int tab, int b)
     {
         int paths[PATHS], n = bankPaths(s, b, paths);
+        unsigned live = 0;
+        for (int i = 0; i < n; i++) live |= 1u << paths[i];
+        tipRoles |= live | (banks.backgroundBank(b) ? 1u << PATH_BG : 0) | (banks.spriteBank(b) ? 1u << PATH_SPR : 0);
         int pin = bankPin[tab];
         char hint[192] = "";
         if (stripPicks(tab)) {
-            if (pin == b) textf(hint, sizeof(hint), ts(TS_BANK_UNPIN_TIP), pathName(tabPath(tab)), bankFollowed(s, tab));
+            if (pin == b) textf(hint, sizeof(hint), ts(TS_BANK_UNPIN_TIP), pathName(tabPath(tab)));
             else textf(hint, sizeof(hint), ts(TS_BANK_PIN_TIP), b);
         }
-        if (n == 0 && !hint[0]) return;
+        if (tipRoles == 0 && !hint[0]) return;
         ImGui::BeginTooltip();
         float lh = ImGui::GetTextLineHeight();
-        for (int i = 0; i < n; i++) {
+        for (int p = 0; p < PATHS; p++) {
+            if (!((tipRoles >> p) & 1)) continue;
             ImVec2 c = ImGui::GetCursorScreenPos();
             float sw = floorf(lh * 0.7f), in = floorf((lh - sw) / 2);
-            ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(c.x, c.y + in), ImVec2(c.x + sw, c.y + in + sw), pathColour(paths[i]));
+            ImVec2 a(c.x, c.y + in), q(c.x + sw, c.y + in + sw);
+            if ((live >> p) & 1) ImGui::GetWindowDrawList()->AddRectFilled(a, q, pathColour(p));
+            else ImGui::GetWindowDrawList()->AddRect(a, q, pathColour(p), 0, fmaxf(1.0f, ui::Px(1)));
             ImGui::Dummy(ImVec2(sw, lh));
             ImGui::SameLine();
-            ImGui::Text("%s (R#%d)", pathName(paths[i]), pathReg(paths[i]));
+            ImGui::Text("%s (R#%d)", pathName(p), pathReg(p));
         }
         if (hint[0]) {
             ImGui::PushStyleColor(ImGuiCol_Text, uiTokens().textSecondary);
@@ -344,15 +351,24 @@ public:
     {
         int& pin = bankPin[tab];
         if (clicked && stripPicks(tab)) pin = pin == b ? -1 : b;
-        if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip) && !ImGui::IsPopupOpen(bankMenuId, ImGuiPopupFlags_None)) bankTip(s, tab, b);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip) && !ImGui::IsPopupOpen(bankMenuId, ImGuiPopupFlags_None)) {
+            int frame = ImGui::GetFrameCount();
+            if (tipBank != b || tipTab != tab || tipFrame != frame - 1) tipRoles = 0;
+            tipBank = b;
+            tipTab = tab;
+            tipFrame = frame;
+            bankTip(s, tab, b);
+        }
         if (stripPicks(tab) && ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
             bankMenuFor = b;
             ImGui::OpenPopup(bankMenuId);
         }
     }
 
-    int     bankMenuFor = -1;
-    ImGuiID bankMenuId = 0;   /* the strip's menu, outside the banks' ids */
+    int      bankMenuFor = -1;
+    ImGuiID  bankMenuId = 0;   /* the strip's menu, outside the banks' ids */
+    int      tipBank = -1, tipTab = -1, tipFrame = -1;   /* the bank whose tip was up, and its last frame */
+    unsigned tipRoles = 0;     /* bit per path: the roles listed in it */
 
     void bankMenu(int tab)
     {
