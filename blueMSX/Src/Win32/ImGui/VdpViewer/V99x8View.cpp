@@ -4072,7 +4072,7 @@ private:
         }
         float h = 0;
         for (StripRow& r : rows) {
-            for (int j = r.first; j < r.first + r.count && !r.head; j++) r.head = stripStart[j] != 0;
+            for (int j = r.first; j < r.first + r.count && !r.head; j++) r.head = stripStart[j] && stripItems[stripPos[j]].group < STRIP_GROUPS;
             *width = fmaxf(*width, stripItemX(r.count - 1, tw) + tw);
             h += (r.head ? groupH : 0) + tw + labelH + gap;
         }
@@ -4184,10 +4184,6 @@ private:
     ** table, shorter when it does not fit in w. */
     void groupHeading(const VdpDebugState* s, int k, int bank, float w, char* out, size_t size) const
     {
-        if (k >= STRIP_GROUPS) {
-            textf(out, size, "%s", ts(TS_STRIP_WHOLE_FRAME));
-            return;
-        }
         const StripGroup& g = stripGroups[k];
         /* A held pattern slot's R#2 is fixed by its grouping, so its name table does not change; without a log the regs are live. */
         int name = -1;
@@ -4256,7 +4252,7 @@ private:
             /* Each group's lines and mode over its thumbnails, kept at the left edge while it scrolls by. */
             for (int j = r.first; r.head && j < r.first + r.count; j++) {
                 int k = stripItems[stripPos[j]].group, bank = stripItems[stripPos[j]].bank, end = j;
-                if (!stripStart[j]) continue;
+                if (!stripStart[j] || k >= STRIP_GROUPS) continue;   /* the sprites have none */
                 while (end + 1 < r.first + r.count && stripItems[stripPos[end + 1]].group == k && stripItems[stripPos[end + 1]].bank == bank) end++;
                 float x0 = origin.x + stripItemX(j - r.first, tw), x1 = origin.x + stripItemX(end - r.first, tw) + tw;
                 if (x1 <= clipL || x0 >= clipR) continue;

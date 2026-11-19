@@ -162,7 +162,6 @@ TS(STRIP_SPRITES,             "Sprites only, on the %d displayed lines%s%s · cl
 TS(STRIP_SPRITES_BANDS,       ", each line laid out with the registers of the band the VDP built it in", "（各ラインを、VDP" NB "がそのラインを組み立てた帯のレジスタで配置）")
 TS(STRIP_SPRITES_NO_LIMIT,    ", sprite limit disabled in the emulator's options", "、エミュレータの設定でスプライト数制限を解除中")
 TS(STRIP_SPRITES_OPTION_OFF,  "Sprites are switched off in the emulator's options.", "エミュレータの設定でスプライトが非表示になっています。")
-TS(STRIP_WHOLE_FRAME,         "Whole frame", "フレーム全体")
 TS(STRIP_SHORT_NAMES,         "Names", "ネーム")
 TS(STRIP_SHORT_PATTERNS,      "Pat.", "パターン")
 TS(STRIP_SHORT_SPRPAT,        "Spr. pat.", "SP" NB "パターン")
