@@ -165,12 +165,12 @@ void cmdKeyValues(const VdpDebugState* s)
 }
 
 void cmdLrmmOverlay(ImDrawList* dl, const ui::CanvasXf& xf, const VdpDebugState* s, int readMode,
-                    const CmdPageMap& g)
+                    const CmdPageMap& g, bool reads, bool writes)
 {
     const UInt8* c = s->cmdRegs;
     int rm = readMode == 10 || readMode == 12 ? 8 : readMode;
     /* The command written last, as the CPU wrote it: the engine clears CM once done. */
-    if (!native(s) || (s->regs[46] >> 4) != 3 || engineMode(s) != rm || g.pages <= 0) return;
+    if (!native(s) || (s->regs[46] >> 4) != 3 || engineMode(s) != rm || g.pages <= 0 || !(reads || writes)) return;
     const UiTokens& t = uiTokens();
     PageMapper m = { &xf, g };
     float th = fmaxf(1.0f, ui::Px(1)), th2 = fmaxf(2.0f, ui::Px(2));
@@ -179,7 +179,7 @@ void cmdLrmmOverlay(ImDrawList* dl, const ui::CanvasXf& xf, const VdpDebugState*
 
     /* The read window, unless it takes in every page. */
     int wsx = word(c, 19), wsy = word(c, 21), wex = word(c, 23), wey = word(c, 25);
-    if (wsx > 0 || wsy > 0 || wex < g.tileW - 1 || wey < lines - 1) {
+    if (reads && (wsx > 0 || wsy > 0 || wex < g.tileW - 1 || wey < lines - 1)) {
         ImVec2 w[4] = { ImVec2((float)wsx, (float)wsy), ImVec2((float)wex + 1, (float)wsy),
                         ImVec2((float)wex + 1, (float)wey + 1), ImVec2((float)wsx, (float)wey + 1) };
         m.quad(dl, w, t.caution, th, false);
@@ -192,13 +192,14 @@ void cmdLrmmOverlay(ImDrawList* dl, const ui::CanvasXf& xf, const VdpDebugState*
     int ny = (s->regs[42] | (s->regs[43] << 8)) & (wide ? 0x7ff : 0x3ff);
     if (ny == 0) ny = wide ? 2048 : 1024;
     int arg = s->regs[45];
-    if (nx > 0) {
+    if (writes && nx > 0) {
         float x0 = (arg & 4) ? dx - nx + 1.0f : (float)dx, y0 = (arg & 8) ? dy - ny + 1.0f : (float)dy;
         ImVec2 d[4] = { ImVec2(x0, y0), ImVec2(x0 + nx, y0), ImVec2(x0 + nx, y0 + ny), ImVec2(x0, y0 + ny) };
         m.quad(dl, d, t.accent, th2, false);
         m.tag(dl, d[0], t.accent, ts(TS_CMD_TAG_DEST));
     }
 
+    if (!reads) return;
     /* Where it reads: per dot (VX, VY / step), per row (-VY * step, VX), in 1/256 dots. */
     float step = (arg & 0x40) ? 2.0f : 1.0f;
     float vx = (Int16)word(c, 15) / 256.0f, vy = (Int16)word(c, 17) / 256.0f;

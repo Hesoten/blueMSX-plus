@@ -6695,7 +6695,10 @@ private:
                 self->bandFrames(dl, xf, s, b, seg, n, (int)i, th);
             }
         }
-        if (rm >= 0) cmdLrmmOverlay(dl, xf, s, rm, CmdPageMap{ self->grid.pages, self->grid.cols, self->grid.tileW, self->grid.tileH, self->grid.gap });
+        if (rm >= 0) {
+            CmdPageMap g = { self->grid.pages, self->grid.cols, self->grid.tileW, self->grid.tileH, self->grid.gap };
+            cmdLrmmOverlay(dl, xf, s, rm, g, bank < 0 || pathBank(s, PATH_SRC) == bank, bank < 0 || pathBank(s, PATH_DST) == bank);
+        }
         self->focusMarks(dl, xf, rm);
     }
 
