@@ -52,7 +52,9 @@ int ctrlCpuSetRegister(const char* name, UInt32 value, Int32* previous, int* bit
 ** the first one kept. Returns how many were written, or -1 without a view. */
 int ctrlCpuCallstack(UInt16* out, UInt16* where, int max, int* notFound, int* innerNotFound);
 
-/* A breakpoint at pc: a plain one, or a segment one for the segment paged in there now. */
+/* A breakpoint at pc that would stop the next arrival: a plain one, or a segment one for
+** the segment paged in there now, whose condition and skip let it stop. Under a view only,
+** as a condition reads the registers and memory. */
 int ctrlCpuBreakpointAt(Int32 pc);
 
 /* The CPU tests a breakpoint before the instruction at it runs, but not again in a HALT

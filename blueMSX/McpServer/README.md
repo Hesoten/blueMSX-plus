@@ -292,7 +292,6 @@ What the agent cannot do, and what it does instead:
 | Save a state to a file, or load one | A snapshot keeps one state in memory. To start from a state file, use `--state` when starting the emulator. |
 | Change the emulation speed | `--speed` when starting the emulator. |
 | Record and replay a session | Not possible. |
-| Breakpoints with a condition or a hit count | A watch can stop only when a value is written that compares as asked. |
 | Stop when memory, video memory or a port is read | Watches stop on writes and on OUT only. |
 | Watch a bank that is not switched in | A breakpoint on that bank. |
 | Write to an I/O port | Not possible. |
@@ -446,6 +445,7 @@ the segment address of the stored bytes.
 | `bmsx_mem_resolve` | In SCREEN 7, 8 and 10-12 (not in the V9968's SP3), while paused, it also gives the chips' byte number for a `vram:` address, which is where the debugger window's VRAM view shows the byte. |
 | `bmsx_stack` | A frame is marked when no CALL, RST or HALT ends just before it in the segment paged in now, since its label may then be wrong. `history=N` adds the last N instructions the CPU ran (up to 256 of the last 4096 kept), oldest first. |
 | `bmsx_dasm` | From a Z80 address it reads on as the Z80 sees memory and says where another slot or segment starts, up to 0xFFFF; from a segment address it stops at the end of that segment. |
+| `bmsx_break` | `when` stops only while an expression holds (registers, `[addr]`, `@label`), and `skip` passes over the first N times it holds. The stop reply and the list give how often it was reached and how often the expression held. |
 | `bmsx_vdp` | `chip` picks the machine's VDP (the default), a V9968 cartridge's or a V9990's. `show=raster` (the machine's VDP only) only starts the log on its first call, so run or step a frame and read again. |
 | `bmsx_devices` | An index holds only until a reset, a cartridge change or a state load. Memory blocks are listed, not dumped. |
 | `bmsx_trace` | Recording is held per connection: `op=arm` starts it and the end of the connection drops it. About 57000 recent records stay readable, so pause or step frames between reads. |

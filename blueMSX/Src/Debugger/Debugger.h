@@ -197,10 +197,71 @@ int  dbgStep(void);
 int  dbgFrameStep(int change);
 void dbgStepBack();
 
+/* A breakpoint condition as postfix code: each op pushes, or pops its operands and pushes
+** the result, in 32-bit integers. Ends with one value; no ops is always true. */
+#define DBG_COND_MAX_OPS   64
+#define DBG_COND_MAX_STACK 16
+/* How many kept plain breakpoints can have a condition or skip at once. */
+#define DBG_COND_PLAIN_MAX 64
+
+typedef enum {
+    DBG_COND_CONST,     /* value                                  */
+    DBG_COND_REG,       /* value is a DBG_REG_                    */
+    DBG_COND_BYTE,      /* pops an address, pushes the byte there */
+    DBG_COND_WORD,      /* the same, a little endian word         */
+    DBG_COND_NOT, DBG_COND_CPL, DBG_COND_NEG,
+    DBG_COND_ADD, DBG_COND_SUB, DBG_COND_SHL, DBG_COND_SHR,
+    DBG_COND_AND, DBG_COND_XOR, DBG_COND_OR,
+    DBG_COND_EQ, DBG_COND_NE, DBG_COND_LT, DBG_COND_LE, DBG_COND_GT, DBG_COND_GE,
+    DBG_COND_LAND, DBG_COND_LOR
+} DbgCondOpCode;
+
+typedef enum {
+    DBG_REG_A, DBG_REG_F, DBG_REG_B, DBG_REG_C, DBG_REG_D, DBG_REG_E, DBG_REG_H, DBG_REG_L,
+    DBG_REG_AF, DBG_REG_BC, DBG_REG_DE, DBG_REG_HL, DBG_REG_IX, DBG_REG_IY, DBG_REG_SP,
+    DBG_REG_PC, DBG_REG_ZF, DBG_REG_CF
+} DbgCondRegister;
+
+typedef struct {
+    UInt8 op;           /* a DbgCondOpCode */
+    Int32 value;
+} DbgCondOp;
+
+/* Stops once the condition has held more than skip times. */
+typedef struct {
+    int       opCount;
+    DbgCondOp ops[DBG_COND_MAX_OPS];
+    UInt32    skip;
+} DbgBreakCondition;
+
+/* How often a breakpoint with a condition or skip was reached and found its condition true. */
+typedef struct {
+    UInt32 hits;
+    UInt32 matched;
+    UInt32 skip;
+    UInt32 stamp;       /* which set of the condition these count */
+} DbgBreakCounts;
+
+/* The breakpoint stop last decided: counted is non-zero when one with a condition or skip
+** stopped (segment -1 for a plain one at address), byUser when not only a step's stop did. */
+typedef struct {
+    int    counted;
+    int    byUser;
+    UInt16 address;
+    int    slot;
+    int    subSlot;
+    int    segment;
+    int    offset;
+    UInt32 hits;
+    UInt32 matched;
+    UInt32 stamp;       /* as in DbgBreakCounts, to tell a later set apart */
+} DbgBreakHit;
+
 void dbgSetBreakpoint(UInt16 address);
 /* A plain breakpoint that stays when the machine starts again and is armed on the
-** new CPU, as segment ones are. For the control socket; dbgClearKeptBreakpoint removes it. */
-void dbgSetKeptBreakpoint(UInt16 address);
+** new CPU, as segment ones are. For the control socket; dbgClearKeptBreakpoint removes it.
+** cond NULL stops every time; 0 when there is no room for another with a condition. */
+int  dbgSetKeptBreakpoint(UInt16 address, const DbgBreakCondition* cond);
 /* Non-zero when a kept one was set there. The CPU keeps an address dbgSetBreakpoint or a
 ** segment one also set, as in dbgClearKeptBreakpoints, which drops all kept ones. */
 int  dbgClearKeptBreakpoint(UInt16 address);
@@ -214,6 +275,16 @@ void dbgClearBreakpoint(UInt16 address);
 ** segment is paged in. Non-zero once watching; refuses when the table is full or
 ** the offset does not fit a segment. */
 int  dbgSetSegmentBreakpoint(int slot, int subSlot, int segment, int offset);
+/* The same for the control socket, with its condition replaced (NULL for none) and its
+** counts zeroed. One dbgSetSegmentBreakpoint also set there still stops every time. */
+int  dbgSetSegmentBreakpointIf(int slot, int subSlot, int segment, int offset,
+                               const DbgBreakCondition* cond);
+/* Whether dbgSetSegmentBreakpoint set that one, which stops every time. */
+int  dbgSegmentBreakpointAlwaysStops(int slot, int subSlot, int segment, int offset);
+/* Whether a plain one dbgSetBreakpoint set, or such a segment one paged in, is at address. */
+int  dbgOtherBreakpointAt(UInt16 address);
+/* The segment table index of that one, or -1. */
+int  dbgFindSegmentBreakpoint(int slot, int subSlot, int segment, int offset);
 /* Non-zero when one was set there. */
 int  dbgClearSegmentBreakpoint(int slot, int subSlot, int segment, int offset);
 void dbgClearAllSegmentBreakpoints();
@@ -224,6 +295,13 @@ int  dbgGetSegmentBreakpoint(int index, int* slot, int* subSlot, int* segment, i
 int  dbgSegmentBreakpointCapacity(void);
 int  dbgListBreakpoints(UInt16* out, int max);
 int  dbgListKeptBreakpoints(UInt16* out, int max);
+/* The counts of a kept plain one or a segment table entry; 0 when it has no condition or skip. */
+int  dbgGetKeptBreakpointCounts(UInt16 address, DbgBreakCounts* out);
+int  dbgGetSegmentBreakpointCounts(int index, DbgBreakCounts* out);
+
+/* A stop for a step over or out, apart from the user's breakpoints: always stops. */
+void dbgSetStepStop(UInt16 address);
+void dbgClearStepStop(UInt16 address);
 
 /* Once at startup, with debuggerCreateLocks: the lock every writer of the tables takes. */
 void dbgBreakpointsCreateLock(void);
@@ -237,9 +315,11 @@ void dbgBreakpointsOnEmulatorStart();
 ** a machine starts; it takes the writers' lock, as an agent's request does. */
 void dbgBreakpointsOnCartridgeChanged();
 
-/* Whether a hit at this address is one the user asked for. Runs on the
-** emulation thread mid instruction, so it must not block. */
-int dbgBreakpointAllows(UInt16 address);
+/* Whether a hit at this address stops. With count, on the emulation thread mid instruction
+** (so it must not block), it counts the hit and notes it for dbgBreakpointLastHit; without,
+** it predicts the next hit and changes nothing. */
+int  dbgBreakpointDecide(UInt16 address, int count);
+void dbgBreakpointLastHit(DbgBreakHit* out);
 
 void dbgSetWatchpoint(DbgDeviceType devType, int address, DbgWatchpointCondition condition, UInt32 referenceValue, int size);
 void dbgClearWatchpoint(DbgDeviceType devType, int address);

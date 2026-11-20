@@ -102,6 +102,8 @@ void ctrlReplyBegin(CtrlCall* call);
 int  ctrlReplyDone(CtrlCall* call);
 /* Writes an error reply in place of any reply begun; returns its length. */
 int  ctrlReplyError(CtrlCall* call, const char* code, const char* message);
+/* The same with "pos", the byte of an argument the error is about. */
+int  ctrlReplyErrorAt(CtrlCall* call, const char* code, const char* message, int pos);
 /* An error whose message is the text built so far. */
 int  ctrlReplyTextAsError(CtrlCall* call, const char* code);
 /* An error with a formatted message, cut to CTRL_ERRORF_MAX. */

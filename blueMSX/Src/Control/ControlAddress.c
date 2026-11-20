@@ -58,7 +58,7 @@ static int prefixIs(const char* s, const char* prefix)
 }
 
 /* Left in *value when readNumber refuses a number for its size. */
-#define TOO_LARGE 0xFFFFFFFF
+#define TOO_LARGE CTRL_ADDR_TOO_LARGE
 
 /* 0x1A30, $1A30, #1A30, 1A30h, 6704; unmarked digits are decimal. Returns the
 ** first unused character, or NULL when there is no number. */
@@ -108,7 +108,7 @@ static const char* readNumber(const char* s, UInt32* value)
     else {
         scan = start;
         while (isdigit((unsigned char)*scan)) {
-            if (result > 0x07FFFFFF) {
+            if (result > (0x7FFFFFFF - (UInt32)(*scan - '0')) / 10) {
                 *value = TOO_LARGE;
                 return NULL;
             }
@@ -122,6 +122,11 @@ static const char* readNumber(const char* s, UInt32* value)
 
     *value = result;
     return scan;
+}
+
+const char* ctrlAddrScanNumber(const char* text, UInt32* value)
+{
+    return readNumber(text, value);
 }
 
 int ctrlAddrReadNumber(const char* text, UInt32* value)

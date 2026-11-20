@@ -329,8 +329,7 @@ int ctrlCpuCallstack(UInt16* out, UInt16* where, int max, int* notFound, int* in
 
 int ctrlCpuBreakpointAt(Int32 pc)
 {
-    return pc >= 0 && (dbgHasBreakpoint((UInt16)pc) ||
-                       (dbgSegmentBreakpointCount() > 0 && dbgBreakpointAllows((UInt16)pc)));
+    return pc >= 0 && dbgBreakpointDecide((UInt16)pc, 0);
 }
 
 int ctrlCpuStopsAtOnce(Int32 pc)

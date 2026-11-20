@@ -87,7 +87,7 @@ int ctrlStopReasonOf(int cause)
 }
 
 void ctrlStopPost(int reason, UInt32 runGeneration, int watchType, UInt32 watchAddress,
-                  int watchMode, int watchKind)
+                  int watchMode, int watchKind, const DbgBreakHit* breakHit)
 {
     UInt32 seq;
     CtrlStop* slot;
@@ -106,6 +106,12 @@ void ctrlStopPost(int reason, UInt32 runGeneration, int watchType, UInt32 watchA
     slot->watchAddress  = watchAddress;
     slot->watchMode     = watchMode;
     slot->watchKind     = (UInt8)watchKind;
+    if (breakHit != NULL) {
+        slot->breakHit = *breakHit;
+    }
+    else {
+        memset(&slot->breakHit, 0, sizeof(slot->breakHit));
+    }
 
     nextSeq = seq + 1;
     unlock();

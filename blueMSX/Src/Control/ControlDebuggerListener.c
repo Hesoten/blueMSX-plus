@@ -38,7 +38,7 @@ static void onStart(void* ref)
 /* The stop transition was made on this thread just before. */
 static void onStop(void* ref)
 {
-    ctrlStopPost(CTRL_STOP_MACHINE, emulatorOwnStateSeq(), 0, 0, -1, DBG_WATCH_NONE);
+    ctrlStopPost(CTRL_STOP_MACHINE, emulatorOwnStateSeq(), 0, 0, -1, DBG_WATCH_NONE, NULL);
 }
 
 static void onPause(void* ref, int cause, UInt32 runGeneration)
@@ -47,12 +47,16 @@ static void onPause(void* ref, int cause, UInt32 runGeneration)
     UInt32 watchAddress = 0;
     int    watchMode = -1;
     int    watchKind = DBG_WATCH_NONE;
+    DbgBreakHit breakHit;
 
     if (cause == DBG_STOP_WATCH) {
         debugDeviceLastWatchHit(&watchType, &watchAddress, &watchMode, &watchKind);
     }
+    if (cause == DBG_STOP_BREAKPOINT) {
+        dbgBreakpointLastHit(&breakHit);
+    }
     ctrlStopPost(ctrlStopReasonOf(cause), runGeneration, watchType, watchAddress, watchMode,
-                 watchKind);
+                 watchKind, cause == DBG_STOP_BREAKPOINT ? &breakHit : NULL);
 }
 
 void ctrlDebuggerListenerCreate(void)

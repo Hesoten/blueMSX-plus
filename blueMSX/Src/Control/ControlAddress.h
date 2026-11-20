@@ -34,6 +34,10 @@ int ctrlAddrParse(const char* text, CtrlAddr* addr, char* err, int errLen);
 /* A whole text that is one number as an address writes it: 0x1A30, $1A30, #1A30, 1A30h or
 ** 6704 (unmarked digits are decimal). Non-zero with *value when it is. */
 int ctrlAddrReadNumber(const char* text, UInt32* value);
+/* The same for a number at the start of text: past it, or NULL when there is none, with
+** *value CTRL_ADDR_TOO_LARGE when it was a number above 0x7FFFFFFF. */
+#define CTRL_ADDR_TOO_LARGE 0xFFFFFFFF
+const char* ctrlAddrScanNumber(const char* text, UInt32* value);
 
 /* Rewrites a leading register name ("pc", "hl+2") as its value. Returns 1 when it did, or
 ** when text names no register; 0 when a register was named and could not be read; -1 when
