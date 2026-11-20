@@ -254,7 +254,7 @@ typedef struct
     SystemTime    lastRefreshTime;  /* R800 DRAM-refresh phase (saved)  */
     UInt16        cachePage;        /* Current page in cache           */
     CpuRegs       regs;             /* Active register bank            */
-    UInt32        delay[40];        /* Instruction timing table        */
+    UInt32        delay[41];        /* Instruction timing table        */
     UInt8         callPenalty;      /* Last instruction was CALL/RST   */
     UInt8         retTaken;         /* This instruction returned       */
     const UInt8*  pageWait;         /* Wait class of each 8kB page     */
