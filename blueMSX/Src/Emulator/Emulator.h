@@ -98,6 +98,9 @@ int  emulatorHoldFromPause(void);
 /* Non-zero on the emulation thread while reverse play runs a snapshot on to a frame: the
 ** frames it passes are not flipped, counted or tapped. */
 int  emulatorRewindReplaying(void);
+/* Non-zero while reverse play, a rewind or a step back runs, whose breakpoint and watch
+** stops are passed over; for the emulation thread. */
+int  emulatorDropsStops(void);
 int emulatorGetCpuOverflow();
 int emulatorGetSyncPeriod();
 EmuState emulatorGetState();

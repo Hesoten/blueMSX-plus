@@ -81,26 +81,21 @@ int ctrlStepOverStops(CtrlView* view, UInt16* stopAt, int* stops)
     return 0;
 }
 
-/* A temporary breakpoint at each stop that has none yet; hadBreakpoint says which had. */
-void ctrlStepSetStops(const UInt16* stopAt, int stops, int* hadBreakpoint)
+/* A step's own stop at each, which stops whatever a breakpoint there decides. */
+void ctrlStepSetStops(const UInt16* stopAt, int stops)
 {
     int i;
 
     for (i = 0; i < stops; i++) {
-        hadBreakpoint[i] = dbgHasBreakpoint(stopAt[i]);
-        if (!hadBreakpoint[i]) {
-            dbgSetKeptBreakpoint(stopAt[i]);
-        }
+        dbgSetStepStop(stopAt[i]);
     }
 }
 
-void ctrlStepClearStops(const UInt16* stopAt, int stops, const int* hadBreakpoint)
+void ctrlStepClearStops(const UInt16* stopAt, int stops)
 {
     int i;
 
     for (i = 0; i < stops; i++) {
-        if (!hadBreakpoint[i]) {
-            dbgClearKeptBreakpoint(stopAt[i]);
-        }
+        dbgClearStepStop(stopAt[i]);
     }
 }

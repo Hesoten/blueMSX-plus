@@ -1194,6 +1194,8 @@
     <ClCompile Include="..\..\Src\Control\ControlView.c" />
     <ClCompile Include="..\..\Src\Control\ControlHello.c" />
     <ClCompile Include="..\..\Src\Control\ControlBreak.c" />
+    <ClCompile Include="..\..\Src\Control\ControlBreakCond.c" />
+    <ClCompile Include="..\..\Src\Control\ControlExpr.c" />
     <ClCompile Include="..\..\Src\Win32\Win32ControlInstance.c" />
     <ClCompile Include="..\..\Src\Win32\Win32ControlPeer.c" />
     <ClCompile Include="..\..\Src\Control\ControlAddressArg.c" />
@@ -1678,6 +1680,8 @@
     <ClInclude Include="..\..\Src\Control\ControlView.h" />
     <ClInclude Include="..\..\Src\Control\ControlHello.h" />
     <ClInclude Include="..\..\Src\Control\ControlBreak.h" />
+    <ClInclude Include="..\..\Src\Control\ControlBreakCond.h" />
+    <ClInclude Include="..\..\Src\Control\ControlExpr.h" />
     <ClInclude Include="..\..\Src\Control\ControlInstance.h" />
     <ClInclude Include="..\..\Src\Control\ControlPeer.h" />
     <ClInclude Include="..\..\Src\Control\ControlAddressArg.h" />

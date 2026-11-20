@@ -156,7 +156,8 @@ int ctrlCallGiven(CtrlCall* call, const char* key)
     return value != NULL && value->given;
 }
 
-int ctrlReplyError(CtrlCall* call, const char* code, const char* message)
+/* pos is left out when below 0. */
+static int replyError(CtrlCall* call, const char* code, const char* message, int pos)
 {
     static char undeclared[128];
     JsonOut out;
@@ -172,6 +173,7 @@ int ctrlReplyError(CtrlCall* call, const char* code, const char* message)
                  call->undeclared);
         code    = "internal";
         message = undeclared;
+        pos     = -1;
     }
 
     jsonOutInit(&out, call->reply, call->replyLen);
@@ -180,6 +182,9 @@ int ctrlReplyError(CtrlCall* call, const char* code, const char* message)
     jsonOutBool(&out, "ok", 0);
     jsonOutString(&out, "error", code);
     jsonOutString(&out, "message", message);
+    if (pos >= 0) {
+        jsonOutInt(&out, "pos", pos);
+    }
     jsonOutEndObject(&out);
 
     if (jsonOutOverflowed(&out)) {
@@ -189,6 +194,16 @@ int ctrlReplyError(CtrlCall* call, const char* code, const char* message)
     }
     call->errorCode = code;
     return (int)strlen(call->reply);
+}
+
+int ctrlReplyError(CtrlCall* call, const char* code, const char* message)
+{
+    return replyError(call, code, message, -1);
+}
+
+int ctrlReplyErrorAt(CtrlCall* call, const char* code, const char* message, int pos)
+{
+    return replyError(call, code, message, pos);
 }
 
 void ctrlReplyBegin(CtrlCall* call)

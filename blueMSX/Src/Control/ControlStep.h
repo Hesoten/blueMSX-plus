@@ -30,9 +30,8 @@
 ** routine skips inline bytes). Else 1: a plain step does it, once the view is let go. */
 int  ctrlStepOverStops(CtrlView* view, UInt16* stopAt, int* stops);
 
-/* A temporary breakpoint at each stop that has none yet; hadBreakpoint says which had. */
-void ctrlStepSetStops(const UInt16* stopAt, int stops, int* hadBreakpoint);
-/* Clears the temporary ones ctrlStepSetStops set. */
-void ctrlStepClearStops(const UInt16* stopAt, int stops, const int* hadBreakpoint);
+/* A step's own stop at each, which a condition on a breakpoint there does not hold back. */
+void ctrlStepSetStops(const UInt16* stopAt, int stops);
+void ctrlStepClearStops(const UInt16* stopAt, int stops);
 
 #endif

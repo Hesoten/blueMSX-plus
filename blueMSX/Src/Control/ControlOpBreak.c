@@ -25,57 +25,116 @@
 #include "ControlAddressArg.h"
 #include "ControlClient.h"
 #include "ControlBreak.h"
+#include "ControlBreakCond.h"
+#include "ControlExpr.h"
 #include "ControlProtocol.h"
 #include "Debugger.h"
 #include "Emulator.h"
 #include <stdio.h>
 #include <string.h>
 
-/* Sets or clears the breakpoint the resolved address names: a segment one, or a plain
-** one at its Z80 address. Returns 0, or the refusal. */
-static int applyBreak(CtrlCall* call, const CtrlAddrInfo* info, int setting)
+/* What the resolved address names: a segment one, or a plain one at its Z80 address. */
+static void breakAtOf(const CtrlAddrInfo* info, CtrlBreakCondAt* at)
 {
-    if (info->canonical.segment >= 0) {
-        /* Stops only while that segment is paged in. */
-        if (setting) {
-            if (!dbgSetSegmentBreakpoint(info->canonical.slot, info->canonical.subSlot,
-                                         info->canonical.segment,
-                                         (int)info->canonical.offset))
-            {
-                return ctrlReplyError(call, "breakpoint_limit",
-                                      "no room for another segment breakpoint");
-            }
-        }
-        else if (!dbgClearSegmentBreakpoint(info->canonical.slot, info->canonical.subSlot,
-                                            info->canonical.segment,
-                                            (int)info->canonical.offset))
-        {
-            return ctrlReplyError(call, "not_set",
-                                  "no segment breakpoint is set there, so nothing was "
-                                  "cleared; listing the breakpoints shows what is set");
-        }
+    at->slot    = info->canonical.slot;
+    at->subSlot = info->canonical.subSlot;
+    at->segment = info->canonical.segment >= 0 ? (int)info->canonical.segment : -1;
+    at->at      = info->canonical.segment >= 0 ? info->canonical.offset
+                                               : (UInt32)info->z80Address;
+}
+
+/* Sets, with cond, or clears the breakpoint the resolved address names. Returns 0, or the
+** refusal. */
+static int applyBreak(CtrlCall* call, const CtrlAddrInfo* info, int setting,
+                      const DbgBreakCondition* cond, const char* when)
+{
+    CtrlBreakCondAt at;
+
+    if (info->canonical.segment < 0 && info->z80Address < 0) {
+        return ctrlReplyErrorf(call, "paged_out",
+                               "no segment is known for that address and the slot is not "
+                               "paged in there, so there is no address to put a breakpoint "
+                               "at%s", !setting && emulatorGetState() == EMU_RUNNING
+                               ? ". " CTRL_TEXT_RUNNING_LAYOUT : "");
     }
-    else {
-        if (info->z80Address < 0) {
-            return ctrlReplyErrorf(call, "paged_out",
-                                   "no segment is known for that address and the slot is not "
-                                   "paged in there, so there is no address to put a breakpoint "
-                                   "at%s", !setting && emulatorGetState() == EMU_RUNNING
-                                   ? ". " CTRL_TEXT_RUNNING_LAYOUT : "");
-        }
-        if (setting) {
-            dbgSetKeptBreakpoint((UInt16)info->z80Address);
-        }
-        else if (!dbgClearKeptBreakpoint((UInt16)info->z80Address)) {
-            return ctrlReplyError(call, "not_set",
-                                  dbgHasBreakpoint((UInt16)info->z80Address)
-                                  ? "the plain breakpoint there is the debugger window's own, "
-                                    "so nothing was cleared; it is cleared in that window"
-                                  : "no plain breakpoint is set there, so nothing was "
-                                    "cleared; listing the breakpoints shows what is set");
-        }
+    breakAtOf(info, &at);
+    /* A segment one stops only while that segment is paged in. */
+    if (setting && !ctrlBreakCondSet(&at, cond, when)) {
+        return ctrlReplyErrorf(call, "breakpoint_limit", at.segment >= 0
+                               ? "no room for another segment breakpoint"
+                               : "no room for another plain breakpoint with a condition or "
+                                 "skip; %d can have one", DBG_COND_PLAIN_MAX);
+    }
+    if (!setting && !ctrlBreakCondClear(&at)) {
+        return ctrlReplyError(call, "not_set",
+                              at.segment >= 0
+                              ? "no segment breakpoint is set there, so nothing was "
+                                "cleared; listing the breakpoints shows what is set"
+                              : dbgHasBreakpoint((UInt16)at.at)
+                              ? "the plain breakpoint there is the debugger window's own, "
+                                "so nothing was cleared; it is cleared in that window"
+                              : "no plain breakpoint is set there, so nothing was "
+                                "cleared; listing the breakpoints shows what is set");
     }
     return 0;
+}
+
+/* Reads when and skip into cond; *given is 0 when neither asks for anything. Returns 0, or
+** the refusal. */
+static int readCondition(CtrlCall* call, DbgBreakCondition* cond, int* given)
+{
+    char          message[CTRL_BREAK_WHEN_MAX * 2 + 256];
+    char          caret[CTRL_BREAK_WHEN_MAX + 2];
+    int           i;
+    const char*   when = ctrlCallText(call, "when");
+    Int64         skip = 0;
+    CtrlExprError error;
+
+    cond->opCount = 0;
+    if (ctrlCallInt64(call, "skip", &skip) &&
+        (skip < CTRL_BREAK_SKIP_MIN || skip > CTRL_BREAK_SKIP_MAX))
+    {
+        return ctrlReplyErrorf(call, "out_of_range", "skip must be between %d and %d",
+                               CTRL_BREAK_SKIP_MIN, CTRL_BREAK_SKIP_MAX);
+    }
+    cond->skip = (UInt32)skip;
+    if (when != NULL && !ctrlExprCompile(when, cond, &error)) {
+        /* The caret under the byte, with the tabs before it kept so that it lines up. */
+        for (i = 0; i < error.pos && i < (int)sizeof(caret) - 2; i++) {
+            caret[i] = when[i] == '\t' ? '\t' : ' ';
+        }
+        caret[i] = '^';
+        caret[i + 1] = 0;
+        snprintf(message, sizeof(message), "%s at %d\n  %s\n  %s", error.message, error.pos,
+                 when, caret);
+        return ctrlReplyErrorAt(call, "bad_when", message, error.pos);
+    }
+    *given = when != NULL || skip > 0;
+    return 0;
+}
+
+/* Says how the condition and skip decide a stop, and that another's there does not care. */
+static void reportCondition(CtrlCall* call, const CtrlAddrInfo* info,
+                            const DbgBreakCondition* cond, const char* when)
+{
+    CtrlBreakCondAt at;
+
+    if (when != NULL) {
+        ctrlTextAdd(&call->text, "It stops only where %s is true (not 0)", when);
+    }
+    else {
+        ctrlTextAdd(&call->text, "It stops on every arrival");
+    }
+    if (cond->skip > 0) {
+        ctrlTextAdd(&call->text, ", passing over the first %u time%s that is so",
+                    (unsigned)cond->skip, cond->skip == 1 ? "" : "s");
+    }
+    ctrlTextAdd(&call->text, ". Its hits and matches count from 0 now; list shows them.\n");
+    breakAtOf(info, &at);
+    if (ctrlBreakCondOthersStop(&at)) {
+        ctrlTextAdd(&call->text, "The debugger window's or a plugin's own breakpoint there "
+                    "still stops on every arrival.\n");
+    }
 }
 
 static void reportSegmentBreak(CtrlCall* call, const CtrlAddr* addr, const CtrlAddrInfo* info,
@@ -142,8 +201,10 @@ static void reportPlainBreak(CtrlCall* call, const CtrlAddr* addr, const CtrlAdd
 static int breakOp(CtrlCall* call, int setting)
 {
     int refused;
+    int conditional = 0;
     CtrlAddr     addr;
     CtrlAddrInfo info;
+    DbgBreakCondition cond;
 
     /* The next start arms the ones set here again. */
     if (!setting &&
@@ -167,8 +228,12 @@ static int breakOp(CtrlCall* call, int setting)
     if (setting && (refused = ctrlAddrArgRefusePastEnd(call, &addr)) != 0) {
         return refused;
     }
+    if (setting && (refused = readCondition(call, &cond, &conditional)) != 0) {
+        return refused;
+    }
 
-    refused = applyBreak(call, &info, setting);
+    refused = applyBreak(call, &info, setting, conditional ? &cond : NULL,
+                         setting ? ctrlCallText(call, "when") : NULL);
     ctrlActivityNoteAt(setting ? CTRL_ACT_BREAK_SET : CTRL_ACT_BREAK_CLEAR, &info, 0, NULL,
                        refused != 0 ? CTRL_ACT_FAILED : CTRL_ACT_DONE);
     if (refused != 0) {
@@ -181,6 +246,9 @@ static int breakOp(CtrlCall* call, int setting)
     }
     else {
         reportPlainBreak(call, &addr, &info, setting);
+    }
+    if (conditional) {
+        reportCondition(call, &info, &cond, ctrlCallText(call, "when"));
     }
     return ctrlReplyDone(call);
 }
@@ -202,8 +270,7 @@ int ctrlOpBpClearAll(CtrlCall* call)
     int cleared = dbgSegmentBreakpointCount();
     int plainCleared = dbgListKeptBreakpoints(kept, CTRL_PLAIN_LIST_MAX + 1);
 
-    dbgClearAllSegmentBreakpoints();
-    dbgClearKeptBreakpoints();
+    ctrlBreakCondClearAll();
     ctrlActivityNoteOn(CTRL_ACT_BREAK_CLEAR_ALL, NULL, NULL, CTRL_ACT_DONE);
     ctrlTextAdd(&call->text, "cleared %d segment breakpoint%s and ", cleared, cleared == 1 ? "" : "s");
     if (plainCleared > CTRL_PLAIN_LIST_MAX) {
@@ -231,6 +298,8 @@ int ctrlOpBpList(CtrlCall* call)
     for (i = 0; i < dbgSegmentBreakpointCapacity(); i++) {
         CtrlAddr     at;
         CtrlAddrInfo info;
+        CtrlBreakCondAt  breakAt;
+        DbgBreakCounts counts;
         int slot, subSlot, segment, offset;
         char printed[64];
 
@@ -245,16 +314,36 @@ int ctrlOpBpList(CtrlCall* call)
         at.offset  = (UInt32)offset;
         ctrlAddrPrint(&at, printed, sizeof(printed));
         if (ctrlAddrResolve(&at, &info) && info.z80Address >= 0) {
-            ctrlTextAdd(&call->text, "segment  %s  (paged in at z80 0x%04X now)\n",
+            ctrlTextAdd(&call->text, "segment  %s  (paged in at z80 0x%04X now)",
                         printed, (unsigned)info.z80Address);
         }
         else {
-            ctrlTextAdd(&call->text, "segment  %s  (not paged in now)\n", printed);
+            ctrlTextAdd(&call->text, "segment  %s  (not paged in now)", printed);
         }
+        if (dbgGetSegmentBreakpointCounts(i, &counts)) {
+            breakAt.slot    = slot;
+            breakAt.subSlot = subSlot;
+            breakAt.segment = segment;
+            breakAt.at      = (UInt32)offset;
+            ctrlBreakCondDescribeCounts(&call->text, &breakAt, &counts);
+        }
+        ctrlTextAdd(&call->text, "\n");
         segmentCount++;
     }
     for (i = 0; i < plainCount && i < CTRL_PLAIN_LIST_MAX; i++) {
-        ctrlTextAdd(&call->text, "plain    z80 0x%04X  (whatever is paged in)\n", plain[i]);
+        DbgBreakCounts counts;
+
+        ctrlTextAdd(&call->text, "plain    z80 0x%04X  (whatever is paged in)", plain[i]);
+        if (dbgGetKeptBreakpointCounts(plain[i], &counts)) {
+            CtrlBreakCondAt breakAt;
+
+            breakAt.slot    = 0;
+            breakAt.subSlot = 0;
+            breakAt.segment = -1;
+            breakAt.at      = plain[i];
+            ctrlBreakCondDescribeCounts(&call->text, &breakAt, &counts);
+        }
+        ctrlTextAdd(&call->text, "\n");
     }
     if (plainCount > CTRL_PLAIN_LIST_MAX) {
         ctrlTextAdd(&call->text, "(more than %d plain breakpoints are set; only the first %d "

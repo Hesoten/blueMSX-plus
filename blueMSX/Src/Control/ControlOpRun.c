@@ -22,6 +22,7 @@
 */
 #include "ControlOp.h"
 #include "ControlStep.h"
+#include "ControlBreakCond.h"
 #include "ControlWatch.h"
 #include "ControlClient.h"
 #include "ControlCpu.h"
@@ -361,6 +362,7 @@ static int runFrames(CtrlCall* call, int change, Int32 count)
     ctrlStatusDescribe(&call->text, stop.reason,
                        stop.reason == CTRL_STOP_MACHINE ? machineStopState(&stop) : EMU_PAUSED);
     ctrlWatchDescribeStop(&call->text, &stop);
+    ctrlBreakCondDescribeStop(&call->text, &call->out, &stop);
     return ctrlReplyDone(call);
 }
 
@@ -392,7 +394,7 @@ static int stepOutTarget(CtrlCall* call, UInt16* stopAt, Int32* expectSp)
 }
 
 /* No stop within the wait: says where the step was headed, and that it runs on. */
-static int reportStepTimeout(CtrlCall* call, const UInt16* stopAt, int stops, int temporary)
+static int reportStepTimeout(CtrlCall* call, const UInt16* stopAt, int stops)
 {
     if (ctrlClientAllBlocked()) {
         return ctrlReplyError(call, "revoked",
@@ -410,9 +412,7 @@ static int reportStepTimeout(CtrlCall* call, const UInt16* stopAt, int stops, in
     else {
         ctrlTextAdd(&call->text, "still running after 2000 ms; ");
     }
-    ctrlTextAdd(&call->text, temporary == 0
-                ? "the machine is left running\n"
-                : temporary == 1
+    ctrlTextAdd(&call->text, stops == 1
                 ? "the temporary breakpoint is removed and the machine is left "
                   "running\n"
                 : "the temporary breakpoints are removed and the machine is left "
@@ -423,7 +423,7 @@ static int reportStepTimeout(CtrlCall* call, const UInt16* stopAt, int stops, in
 /* The stop a step over or out came to: one of its stops, at the SP a return leaves, or
 ** something else on the way. */
 static int reportStepStop(CtrlCall* call, CtrlStop* stop, const UInt16* stopAt,
-                          int stops, const int* hadBreakpoint, Int32 expectSp, int over)
+                          int stops, const int* hadPlain, Int32 expectSp, int over)
 {
     int   reached = -1;
     int   pc = -1;
@@ -460,8 +460,8 @@ static int reportStepStop(CtrlCall* call, CtrlStop* stop, const UInt16* stopAt,
         ctrlTextAdd(&call->text, "%s to 0x%04X\n", over ? "stepped over" : "stepped out",
                     stopAt[reached]);
         jsonOutUInt(&call->out, "stopped_at", stopAt[reached]);
-        /* It was our temporary breakpoint, so this is the step finishing. */
-        if (!hadBreakpoint[reached]) {
+        /* The step finishing: no plain breakpoint was there, or none of them stopped. */
+        if (!hadPlain[reached] || !stop->breakHit.byUser) {
             ctrlStopRelabel(stop->seq, CTRL_STOP_STEP);
             stop->reason = CTRL_STOP_STEP;
         }
@@ -471,33 +471,35 @@ static int reportStepStop(CtrlCall* call, CtrlStop* stop, const UInt16* stopAt,
                        stop->reason == CTRL_STOP_MACHINE ? machineStopState(stop)
                                                          : EMU_PAUSED);
     ctrlWatchDescribeStop(&call->text, stop);
+    ctrlBreakCondDescribeStop(&call->text, &call->out, stop);
     return ctrlReplyDone(call);
 }
 
-/* Runs to the step's stops, each with a temporary breakpoint where none is set yet. */
+/* Runs to the step's stops, each a temporary stop of the step's own. */
 static int waitAtStepStops(CtrlCall* call, const UInt16* stopAt, int stops, Int32 expectSp,
                            int over)
 {
     CtrlStop stop;
-    int hadBreakpoint[2] = { 0, 0 };
-    int temporary;
+    int hadPlain[2] = { 0, 0 };
     int refused;
+    int i;
 
     call->session->stopCursor = ctrlStopSeq();
-    /* Kept, as the agent's own: the debugger window setting it meanwhile keeps its own. */
-    ctrlStepSetStops(stopAt, stops, hadBreakpoint);
-    temporary = stops - hadBreakpoint[0] - hadBreakpoint[1];
+    for (i = 0; i < stops; i++) {
+        hadPlain[i] = dbgHasBreakpoint(stopAt[i]);
+    }
+    ctrlStepSetStops(stopAt, stops);
     if ((refused = refuseResume(call, dbgResume())) != 0) {
-        ctrlStepClearStops(stopAt, stops, hadBreakpoint);
+        ctrlStepClearStops(stopAt, stops);
         return refused;
     }
     /* Bounded so a call that never returns does not hang the client. */
     if (!ctrlStopWait(call->session->stopCursor, 2000, &stop)) {
-        ctrlStepClearStops(stopAt, stops, hadBreakpoint);
-        return reportStepTimeout(call, stopAt, stops, temporary);
+        ctrlStepClearStops(stopAt, stops);
+        return reportStepTimeout(call, stopAt, stops);
     }
-    ctrlStepClearStops(stopAt, stops, hadBreakpoint);
-    return reportStepStop(call, &stop, stopAt, stops, hadBreakpoint, expectSp, over);
+    ctrlStepClearStops(stopAt, stops);
+    return reportStepStop(call, &stop, stopAt, stops, hadPlain, expectSp, over);
 }
 
 /* how=step_over or step_out. Returns 0 when it stepped once and the run state is to be
@@ -642,6 +644,7 @@ static int reportUnreadStop(CtrlCall* call)
                 "call again to run on\n");
     ctrlStatusDescribe(&call->text, stop.reason, EMU_PAUSED);
     ctrlWatchDescribeStop(&call->text, &stop);
+    ctrlBreakCondDescribeStop(&call->text, &call->out, &stop);
     return ctrlReplyDone(call);
 }
 
@@ -719,6 +722,7 @@ int ctrlOpRunUntil(CtrlCall* call)
                            stop.reason == CTRL_STOP_MACHINE ? machineStopState(&stop)
                                                             : EMU_PAUSED);
         ctrlWatchDescribeStop(&call->text, &stop);
+        ctrlBreakCondDescribeStop(&call->text, &call->out, &stop);
     }
     else if ((replied = reportNoStop(call, timeout)) != 0) {
         return replied;
@@ -766,6 +770,10 @@ int ctrlOpStatus(CtrlCall* call)
     }
     if (reason == CTRL_STOP_WATCH) {
         ctrlWatchDescribeStop(&call->text, &stop);
+    }
+    /* Seen here, the stop is read, so its counts are told here too. */
+    if (reason != CTRL_STOP_UNKNOWN) {
+        ctrlBreakCondDescribeStop(&call->text, &call->out, &stop);
     }
     jsonOutUInt(&call->out, "stop_seq", ctrlStopSeq());
     jsonOutUInt(&call->out, "machine_generation", dbgMachineGeneration());

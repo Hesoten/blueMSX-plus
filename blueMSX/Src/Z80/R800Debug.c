@@ -192,8 +192,8 @@ static void breakpointCb(R800Debug* dbg, UInt16 pc)
         return;
     }
 
-    /* Segment breakpoints arm every address the segment could land at. */
-    if (!dbgBreakpointAllows(pc)) {
+    /* Segment breakpoints arm every address the segment could land at; a condition may hold off. */
+    if (!dbgBreakpointDecide(pc, 1)) {
         return;
     }
 
@@ -274,6 +274,11 @@ int r800DebugIsR800(void)
 int r800DebugWaitsInHalt(void)
 {
     return cpuWaitsInHalt();
+}
+
+const CpuRegs* r800DebugRegisters(void)
+{
+    return dbg != NULL ? &dbg->r800->regs : NULL;
 }
 
 int r800DebugIntLow(void)

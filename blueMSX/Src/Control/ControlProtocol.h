@@ -49,6 +49,9 @@
 /* The longest "at", in bytes: a long @name with an offset fits. */
 #define CTRL_AT_MAX 255
 
+/* The longest "when" of bp.set, in bytes. */
+#define CTRL_BREAK_WHEN_MAX 255
+
 /* A path in a request, in UTF-8 bytes: MAX_PATH characters at 3 bytes each, and the NUL. */
 #define CTRL_PATH_MAX 1024
 
@@ -80,6 +83,8 @@
 #define CTRL_RUN_UNTIL_TIMEOUT_MS_DEFAULT 5000
 #define CTRL_RUN_UNTIL_TIMEOUT_MS_MIN     1
 #define CTRL_RUN_UNTIL_TIMEOUT_MS_MAX     600000
+#define CTRL_BREAK_SKIP_MIN               0
+#define CTRL_BREAK_SKIP_MAX               2147483647
 #define CTRL_WP_PORT_MIN                  0
 #define CTRL_WP_PORT_MAX                  255
 #define CTRL_WP_SIZE_DEFAULT              1

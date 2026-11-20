@@ -203,11 +203,27 @@ const McpTool mcpTools[] = {
     "5 s after a killed server or a lost connection unless the same server "
     "reconnects; a cancelled call reconnects at once and keeps them. "
     "Segment ones stay until cleared. list shows both "
-    "kinds that are set, the debugger window's plain ones too.",
+    "kinds that are set, the debugger window's plain ones too. "
+    "With when or skip, every arrival is a hit (not a HALT running again, nor the "
+    "instruction a step starts at), and it stops only after the condition has been "
+    "true more than skip times; setting it again replaces both and zeroes the "
+    "counts, which list and the stop reply give (hits, matched); rewinds and snapshot "
+    "restores do not wind them back. A breakpoint the debugger window or a plugin set "
+    "at the same place still stops every time.",
     SCHEMA("\"properties\":{"
            "\"op\":{\"type\":\"string\",\"enum\":[\"set\",\"clear\",\"clear_all\",\"list\"],"
            "\"default\":\"set\"},"
-           AT_PROPERTY "}"),
+           AT_PROPERTY ","
+           "\"when\":{\"type\":\"string\","
+           "\"description\":\"for set: stop only where this is not 0, before the instruction "
+           "runs. Signed 32-bit integers with ( ) ! ~ unary - + - << >> & ^ | == != < <= > "
+           ">= && || at C precedence; registers a f b c d e h l af bc de hl ix iy sp pc, "
+           "flags zf cf, [addr] a byte and {addr} a word as the CPU sees them now (addr "
+           "wraps to 16 bits), @label its address, numbers as in at up to 0x7FFFFFFF. "
+           "Example: [0xC010]==1 && b<3\"},"
+           "\"skip\":{\"type\":\"integer\",\"default\":0,\"minimum\":"
+           CTRL_STR(CTRL_BREAK_SKIP_MIN) ",\"maximum\":" CTRL_STR(CTRL_BREAK_SKIP_MAX) ","
+           "\"description\":\"for set: how many times when holds before one stops\"}}"),
     CHANGES,
     "bp.",
     buildByOp

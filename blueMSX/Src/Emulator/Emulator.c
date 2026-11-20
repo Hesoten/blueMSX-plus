@@ -1367,6 +1367,11 @@ int  emulatorGetPlayReverse()
     return emuPlayReverse;
 }
 
+int emulatorDropsStops(void)
+{
+    return (emuPlayReverse && properties->emulation.reverseEnable) || rwPhase != 0 || backStep;
+}
+
 void emulatorHoldBegin(int reverse)
 {
     int resumed = 0;
@@ -1918,7 +1923,7 @@ static int WaitForSync(int maxSpeed, int stopCause) {
     static int overflowCount = 0;
     static UInt32 kbdPollCnt = 0;
 
-    if ((emuPlayReverse && properties->emulation.reverseEnable) || rwPhase != 0 || backStep) {
+    if (emulatorDropsStops()) {
         int reverseTime = WaitReverse();
         if (reverseTime != RW_RUN_ON) {
             return reverseTime;
@@ -1931,7 +1936,7 @@ static int WaitForSync(int maxSpeed, int stopCause) {
     }
 
     /* Never a snapshot of a replay under way, nor of a frame reverse play shows. */
-    if (!(emuPlayReverse && properties->emulation.reverseEnable) && rwPhase == 0 && !backStep) {
+    if (!emulatorDropsStops()) {
         boardEnableSnapshots(1);
     }
 

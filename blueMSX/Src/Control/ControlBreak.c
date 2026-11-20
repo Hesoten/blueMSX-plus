@@ -21,6 +21,7 @@
 ******************************************************************************
 */
 #include "ControlBreak.h"
+#include "ControlBreakCond.h"
 #include "ControlProtocol.h"
 #include "Debugger.h"
 
@@ -54,7 +55,7 @@ static void dropDeparted(void)
     if (count == 0) {
         return;
     }
-    dbgClearKeptBreakpoints();
+    ctrlBreakCondClearPlain();
     /* One owner's count at a time: an earlier owner's that was not yet told is lost. */
     if (droppedOwner != lastOwner) {
         droppedAfterLeaving = 0;
@@ -86,7 +87,7 @@ void ctrlBreakDropDeparted(void)
 
 void ctrlBreakDropPlain(void)
 {
-    dbgClearKeptBreakpoints();
+    ctrlBreakCondClearPlain();
 }
 
 int ctrlBreakOpen(int owner)

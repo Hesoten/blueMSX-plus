@@ -46,6 +46,10 @@ int r800DebugIsR800(void);
 /* Whether the CPU waits in a HALT, where a breakpoint fires only on arriving. */
 int r800DebugWaitsInHalt(void);
 
+/* The live registers, for a reader on the emulation thread or of a paused machine; NULL
+** with no machine. */
+const CpuRegs* r800DebugRegisters(void);
+
 /* Whether the CPU's /INT or /NMI line is held low. Only while a machine exists. */
 int r800DebugIntLow(void);
 int r800DebugNmiLow(void);
