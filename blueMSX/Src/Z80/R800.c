@@ -98,6 +98,7 @@ static void fd_cb(R800* r800);
 #define DLY_JP        37
 #define DLY_DIIM      38
 #define DLY_CALLPEN   39
+#define DLY_RETI      40
 
 #define delayMem(r800)      { r800->systemTime += r800->delay[DLY_MEM];      }
 #define delayMemOp(r800)    { r800->systemTime += r800->delay[DLY_MEMOP];    }
@@ -140,6 +141,7 @@ static void fd_cb(R800* r800);
 
 #define delayJp(r800)       { r800->systemTime += r800->delay[DLY_JP]; r800->cachePage = 0xffff; }
 #define delayDiIm(r800)     { r800->systemTime += r800->delay[DLY_DIIM];     }
+#define delayReti(r800)     { r800->systemTime += r800->delay[DLY_RETI];     }
 
 /*
 #define delayVdpIO(r800, port) do {                                          \
@@ -4968,11 +4970,13 @@ static void ret_po(R800* r800) {
 static void reti(R800* r800) {
     r800->regs.iff1 = r800->regs.iff2;
     RET(r800);
+    delayReti(r800);
 }
 
 static void retn(R800* r800) {
     r800->regs.iff1 = r800->regs.iff2;
     RET(r800); 
+    delayReti(r800);
 }
 
 static void ex_xsp_hl(R800* r800) { 
@@ -6007,6 +6011,7 @@ void r800UpdateDelays(R800* r800) {
         r800->delay[DLY_JP]        = freqAdjust * 0;
         r800->delay[DLY_DIIM]      = freqAdjust * 0;
         r800->delay[DLY_CALLPEN]   = freqAdjust * 0;
+        r800->delay[DLY_RETI]      = freqAdjust * 0;
         break;
 
     case CPU_R800:
@@ -6059,6 +6064,8 @@ void r800UpdateDelays(R800* r800) {
         r800->delay[DLY_JP]        = freqAdjust * 1;
         r800->delay[DLY_DIIM]      = freqAdjust * 1;
         r800->delay[DLY_CALLPEN]   = freqAdjust * 1;
+        /* RETI/RETN take a cycle more than the ED fetch plus RET (openMSX docs). */
+        r800->delay[DLY_RETI]      = freqAdjust * 1;
         break;
     }
 }
