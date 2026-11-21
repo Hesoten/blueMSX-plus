@@ -1866,7 +1866,10 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
             break;
 
         case ROM_SVI707FDC:
-            success &= romMapperSvi707FdcCreate(romName, buf, size, slot, subslot, startPage);
+            if (!romMapperSvi707FdcCreate(romName, buf, size, slot, subslot, startPage)) {
+                boardDeviceFilesFatal(ROM_SVI707FDC);
+                success = 0;
+            }
             break;
 
         case ROM_SVI738FDC:
