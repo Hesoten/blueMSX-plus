@@ -952,6 +952,11 @@ YM2608* ym2608Create(Mixer* mixer, UInt32 clock, UInt32 adpcmRamSize,
     return ym2608;
 }
 
+int ym2608HasRhythmRom(YM2608* ym2608)
+{
+    return ym2608->hasRhythmRom;
+}
+
 void ym2608Destroy(YM2608* ym2608)
 {
     mixerUnregisterChannel(ym2608->mixer, ym2608->fmHandle);

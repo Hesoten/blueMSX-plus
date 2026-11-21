@@ -4,6 +4,9 @@
 **
 ** Copyright (C) 2026 madscient
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -38,7 +41,7 @@
 
 /* The preset voices the hardware carries are licensed CC BY-SA and so are not
 ** in the source. Without this file the chip plays emu2413's presets. */
-#define Y8960_OPLL_VOICES  "Machines/Shared Roms/y8960_opll_voices.bin"
+#define Y8960_OPLL_VOICES  "y8960_opll_voices.bin"
 
 typedef struct {
     int              deviceHandle;
@@ -125,7 +128,7 @@ int romMapperY8960OpllexCreate(void)
     theOpllex = rm;
 
     voicesSize = 0;
-    voices = romLoad(Y8960_OPLL_VOICES, NULL, &voicesSize);
+    voices = romLoadShared(ROM_UNKNOWN, Y8960_OPLL_VOICES, &voicesSize);
     rm->chip = y8960OpllexCreate(boardGetMixer(), "Y8960 OPLLEX", voices, voicesSize);
     free(voices);
 

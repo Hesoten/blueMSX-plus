@@ -1925,7 +1925,10 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
                 strcat(charName, "_char.rom");
                     
                 charData = romLoad(charName, NULL, &charSize);
-                success &= romMapperMicrosolVmx80Create(romName, buf, size, 
+                if (charData == NULL) {
+                    boardReportDeviceFile(ROM_MICROSOL80, charName, DEVICE_FILE_MISSING);
+                }
+                success &= romMapperMicrosolVmx80Create(romName, buf, size,
                                                         slot, subslot, startPage,
                                                         charData, charSize);
                 if (charData != NULL) {

@@ -713,7 +713,7 @@ int romMapperMegaFlashRomSccPlusSDCreate(int cartNo, int slot, int sslot, int st
 
     /* Persistent 8 MB flash: backing file is SRAM/megaflashromsccplussd.sram
     ** (lowercase filename mirrors openMSX so the dump is shareable).  When
-    ** the .sram is missing, accept Machines/Shared Roms/mfrsd.rom as the
+    ** the .sram is missing, accept Shared Roms/mfrsd.rom as the
     ** factory seed iff its SHA-1 matches.  If neither is present the flash
     ** boots blank and the sram filename is withheld so the next session
     ** can retry the seed search instead of persisting our blank state. */
@@ -740,8 +740,7 @@ int romMapperMegaFlashRomSccPlusSDCreate(int cartNo, int slot, int sslot, int st
             ** absent, so the SHA-1 covers the file's actual size (same as
             ** openMSX).  amdFlashCreate clamps to FLASH_SIZE and pads the
             ** rest with 0xFF. */
-            buf = romLoad("Machines" DIR_SEPARATOR "Shared Roms"
-                          DIR_SEPARATOR "mfrsd.rom", NULL, &seedFileSize);
+            buf = romLoadShared(ROM_MEGAFLSHSCCPLUS_SD, "mfrsd.rom", &seedFileSize);
             if (buf != NULL) {
                 if (seedFileSize > 0) {
                     char hex[41];
@@ -751,6 +750,9 @@ int romMapperMegaFlashRomSccPlusSDCreate(int cartNo, int slot, int sslot, int st
                         seedSize = seedFileSize;
                         buf = NULL;
                     }
+                }
+                if (seedData == NULL) {
+                    romRejectShared(ROM_MEGAFLSHSCCPLUS_SD, "mfrsd.rom");
                 }
                 free(buf);
             }
