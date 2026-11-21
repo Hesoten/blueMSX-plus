@@ -87,6 +87,8 @@ void langInitCatalan(LanguageStrings* ls)
     ls->errorUnknownFileType    = "No es pot obrir el fitxer: el tipus de fitxer és desconegut.";
     ls->errorCartV9968WithV9990 = "El cartutx V9968 no es pot inserir alhora que un GFX9000 o un Video9000, ja que tots dos prenen el control de la pantalla. Traieu primer l'altre cartutx.";
     ls->errorCartTwice          = "El cartutx %s no es pot inserir a les dues ranures alhora, ja que tots dos farien servir els mateixos ports d'E/S. Traieu primer l'altre cartutx.";
+    ls->errorCartBuiltIn        = "Aquesta màquina té %s integrat; no es pot inserir com a cartutx.";
+    ls->errorCartBuiltInRemoved = "Aquesta màquina té %s integrat; s'ha tret el cartutx.";
     ls->errorDirDiskTooLarge    = "%d fitxer(s) no han cabut al disc i s'han omès.";
     ls->errorDirDiskOnline      = "S'han omès %d fitxer(s) disponibles només en línia. Feu-los disponibles en aquest dispositiu per incloure'ls.";
     ls->errorDirDiskSubdirs     = "S'han omès %d directoris perquè el format triat no els admet.";

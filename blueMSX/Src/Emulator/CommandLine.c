@@ -47,6 +47,7 @@
 #include "SaveState.h"
 #include "GameReader.h"
 #include "DiskFormat.h"
+#include "Language.h"
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
@@ -1512,6 +1513,20 @@ static int emuStartWithArguments(Properties* properties, char* commandLine, char
         if (romTypeGiven2) return argError("/special2", "cannot be used with /romtype2", NULL);
         if (strlen(rom2))  return argError("/special2", "slot 2 already holds", rom2);
         romType2 = specialType2;
+    }
+
+    {
+        const char* machine = strlen(machineName) ? machineName : properties->emulation.machineName;
+        CartTwin twin1 = romTypeListCartTwin(romType1, specialType1 != ROM_UNKNOWN, romType2, machine);
+        CartTwin twin2 = romTypeListCartTwin(romType2, specialType2 != ROM_UNKNOWN, romType1, machine);
+        if (twin1 != CART_TWIN_NONE || twin2 != CART_TWIN_NONE) {
+            CartTwin twin = twin1 != CART_TWIN_NONE ? twin1 : twin2;
+            char text[1024];
+            snprintf(text, sizeof(text), twin == CART_TWIN_BUILT_IN ? langErrorCartBuiltIn() : langErrorCartTwice(),
+                     romTypeToString(twin1 != CART_TWIN_NONE ? romType1 : romType2));
+            return argError(twin1 != CART_TWIN_NONE ? (specialType1 != ROM_UNKNOWN ? "/special1" : "/romtype1")
+                                                    : (specialType2 != ROM_UNKNOWN ? "/special2" : "/romtype2"), text, NULL);
+        }
     }
 
     if (romTypeGiven1 && !strlen(rom1)) {

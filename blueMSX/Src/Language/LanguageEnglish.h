@@ -87,6 +87,8 @@ void langInitEnglish(LanguageStrings* ls)
     ls->errorUnknownFileType    = "Cannot open the file: its type is unknown.";
     ls->errorCartV9968WithV9990 = "The V9968 cartridge cannot be inserted together with a GFX9000 or a Video9000, as both take over the screen. Remove the other cartridge first.";
     ls->errorCartTwice          = "The %s cartridge cannot be inserted in both slots, as both would use the same I/O ports. Remove the other cartridge first.";
+    ls->errorCartBuiltIn        = "This machine has %s built in, so it cannot be inserted as a cartridge.";
+    ls->errorCartBuiltInRemoved = "This machine has %s built in, so the cartridge was removed.";
     ls->errorDirDiskTooLarge    = "%d file(s) did not fit on the disk and were left out.";
     ls->errorDirDiskOnline      = "%d online-only file(s) were left out. Make them available on this device to include them.";
     ls->errorDirDiskSubdirs     = "Subdirectories left out because the chosen format cannot hold them: %d.";

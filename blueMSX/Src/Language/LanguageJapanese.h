@@ -89,6 +89,8 @@ void langInitJapanese(LanguageStrings* ls)
     ls->errorUnknownFileType    = "ファイルを開けません。ファイルの種類が不明です。";
     ls->errorCartV9968WithV9990 = "V9968 カートリッジと GFX9000・Video9000 は、どちらも画面を切り換えるため同時には挿せません。先にもう一方のカートリッジを取り出してください。";
     ls->errorCartTwice          = "%s カートリッジは、どちらも同じ I/O ポートを使うため 2 本同時には挿せません。先にもう一方のカートリッジを取り出してください。";
+    ls->errorCartBuiltIn        = "この機種は %s を内蔵しているため、カートリッジとしては挿入できません。";
+    ls->errorCartBuiltInRemoved = "この機種は %s を内蔵しているため、カートリッジを取り外しました。";
     ls->errorDirDiskTooLarge    = "%d 個のファイルがディスクに収まらず除外されました。";
     ls->errorDirDiskOnline      = "%d 個のオンラインのみのファイルが除外されました。含めるには、このデバイス上で利用できるようにしてください。";
     ls->errorDirDiskSubdirs     = "%d 個のサブディレクトリが、選択した形式では扱えないため除外されました。";

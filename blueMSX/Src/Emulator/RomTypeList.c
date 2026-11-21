@@ -22,6 +22,7 @@
 */
 #include "RomTypeList.h"
 #include "Properties.h"
+#include "Machine.h"
 
 #include <string.h>
 
@@ -204,6 +205,7 @@ static const RomTypeCart cartList[] = {
     { ROM_FMPAC,                 CARTNAME_FMPAC,              ROMCAT_SOUND,      0 },
     { ROM_JOYREXPSG,             CARTNAME_JOYREXPSG,          ROMCAT_SOUND,      0 },
     { ROM_MAKOTO,                CARTNAME_MAKOTO,             ROMCAT_SOUND,      0 },
+    { ROM_MOONSOUND,             CARTNAME_MOONSOUND,          ROMCAT_SOUND,      0 },
     { ROM_PAC,                   CARTNAME_PAC,                ROMCAT_SOUND,      0 },
     { ROM_SCC,                   CARTNAME_SCC,                ROMCAT_SOUND,      0 },
     { ROM_SCCPLUS,               CARTNAME_SCCPLUS,            ROMCAT_SOUND,      0 },
@@ -348,4 +350,15 @@ RomType romTypeListCartFromName(const char* cartName)
     }
 
     return ROM_UNKNOWN;
+}
+
+CartTwin romTypeListCartTwin(RomType romType, int withoutFile, RomType otherCart, const char* machineName)
+{
+    if (romType != ROM_MOONSOUND || !withoutFile) {
+        return CART_TWIN_NONE;
+    }
+    if (machineHasRomType(machineName, ROM_MOONSOUND)) {
+        return CART_TWIN_BUILT_IN;
+    }
+    return otherCart == ROM_MOONSOUND ? CART_TWIN_OTHER_SLOT : CART_TWIN_NONE;
 }

@@ -113,6 +113,8 @@ char* langErrorNoCasInZip();
 char* langErrorUnknownFileType();
 char* langErrorCartV9968WithV9990();
 char* langErrorCartTwice();
+char* langErrorCartBuiltIn();
+char* langErrorCartBuiltInRemoved();
 char* langErrorDirDiskTooLarge();
 char* langErrorDirDiskOnline();
 char* langErrorDirDiskSubdirs();

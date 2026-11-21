@@ -1009,8 +1009,12 @@ void YMF278::loadState()
     pcm_l             = saveStateGet(state, "pcm_l",             0);
     pcm_r             = saveStateGet(state, "pcm_r",             0);
 
+    int heldRom       = endRom;
     endRom            = saveStateGet(state, "endRom",            0);
     endRam            = saveStateGet(state, "endRam",            0);
+    /* The state may come from a larger ROM, or one that is absent now. */
+    endRam           += heldRom - endRom;
+    endRom            = heldRom;
 
     LD_Time           = saveStateGet(state, "LD_Time",           0);
     BUSY_Time         = saveStateGet(state, "BUSY_Time",         0);

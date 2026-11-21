@@ -87,6 +87,8 @@ void langInitPolish(LanguageStrings* ls)
     ls->errorUnknownFileType    = "Nie można otworzyć pliku: nieznany typ pliku.";
     ls->errorCartV9968WithV9990 = "Kartridża V9968 nie można włożyć razem z GFX9000 ani Video9000, ponieważ oba przejmują obraz. Najpierw wyjmij drugi kartridż.";
     ls->errorCartTwice          = "Kartridża %s nie można włożyć do obu gniazd jednocześnie, ponieważ oba używałyby tych samych portów I/O. Najpierw wyjmij drugi kartridż.";
+    ls->errorCartBuiltIn        = "Ta maszyna ma wbudowany %s; nie można go włożyć jako kartridża.";
+    ls->errorCartBuiltInRemoved = "Ta maszyna ma wbudowany %s; kartridż został wyjęty.";
     ls->errorDirDiskTooLarge    = "Liczba plików, które nie zmieściły się na dysku i zostały pominięte: %d.";
     ls->errorDirDiskOnline      = "Liczba pominiętych plików dostępnych tylko online: %d. Udostępnij je na tym urządzeniu, aby je uwzględnić.";
     ls->errorDirDiskSubdirs     = "Liczba folderów pominiętych, ponieważ wybrany format ich nie obsługuje: %d.";

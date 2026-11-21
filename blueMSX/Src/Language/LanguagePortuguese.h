@@ -87,6 +87,8 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->errorUnknownFileType    = "Não foi possível abrir o arquivo: tipo de arquivo desconhecido.";
     ls->errorCartV9968WithV9990 = "O cartucho V9968 não pode ser inserido junto com um GFX9000 ou Video9000, pois ambos assumem a tela. Remova primeiro o outro cartucho.";
     ls->errorCartTwice          = "O cartucho %s não pode ser inserido nos dois slots ao mesmo tempo, pois ambos usariam as mesmas portas de E/S. Remova primeiro o outro cartucho.";
+    ls->errorCartBuiltIn        = "Esta máquina tem %s embutido; não pode ser inserido como cartucho.";
+    ls->errorCartBuiltInRemoved = "Esta máquina tem %s embutido; o cartucho foi removido.";
     ls->errorDirDiskTooLarge    = "%d arquivo(s) não couberam no disco e foram omitidos.";
     ls->errorDirDiskOnline      = "%d arquivo(s) disponíveis somente online foram omitidos. Torne-os disponíveis neste dispositivo para incluí-los.";
     ls->errorDirDiskSubdirs     = "%d diretório(s) foram omitidos porque o formato escolhido não os comporta.";

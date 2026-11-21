@@ -88,6 +88,8 @@ void langInitItalian(LanguageStrings* ls)
     ls->errorUnknownFileType            = "Impossibile aprire il file: tipo di file sconosciuto.";
     ls->errorCartV9968WithV9990 = "La cartuccia V9968 non può essere inserita insieme a una GFX9000 o a una Video9000, perché entrambe prendono il controllo dello schermo. Rimuovi prima l'altra cartuccia.";
     ls->errorCartTwice          = "La cartuccia %s non può essere inserita in entrambi gli slot, perché entrambe userebbero le stesse porte di I/O. Rimuovi prima l'altra cartuccia.";
+    ls->errorCartBuiltIn        = "Questa macchina ha %s integrato; non può essere inserito come cartuccia.";
+    ls->errorCartBuiltInRemoved = "Questa macchina ha %s integrato; la cartuccia è stata rimossa.";
     ls->errorDirDiskTooLarge    = "%d file non entravano nel disco e sono stati esclusi.";
     ls->errorDirDiskOnline      = "%d file disponibili solo online sono stati esclusi. Rendili disponibili su questo dispositivo per includerli.";
     ls->errorDirDiskSubdirs     = "%d cartelle sono state escluse perché il formato scelto non può contenerle.";

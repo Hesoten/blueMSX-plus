@@ -87,6 +87,8 @@ void langInitDutch(LanguageStrings* ls)
     ls->errorUnknownFileType    = "Kan het bestand niet openen: onbekend bestandstype.";
     ls->errorCartV9968WithV9990 = "De V9968-cartridge kan niet samen met een GFX9000 of Video9000 worden ingevoerd, omdat beide het beeld overnemen. Verwijder eerst de andere cartridge.";
     ls->errorCartTwice          = "De %s-cartridge kan niet in beide slots tegelijk worden ingevoerd, omdat beide dezelfde I/O-poorten zouden gebruiken. Verwijder eerst de andere cartridge.";
+    ls->errorCartBuiltIn        = "Deze machine heeft %s ingebouwd; het kan niet als cartridge worden geplaatst.";
+    ls->errorCartBuiltInRemoved = "Deze machine heeft %s ingebouwd; de cartridge is verwijderd.";
     ls->errorDirDiskTooLarge    = "%d bestand(en) pasten niet op de schijf en zijn weggelaten.";
     ls->errorDirDiskOnline      = "%d bestand(en) die alleen online beschikbaar zijn, zijn weggelaten. Maak ze beschikbaar op dit apparaat om ze op te nemen.";
     ls->errorDirDiskSubdirs     = "%d map(pen) zijn weggelaten omdat het gekozen formaat ze niet kan bevatten.";

@@ -402,6 +402,9 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
         else if (strcmp(cart, "Nowind MSXDOS2") == 0) {
             buf = romLoadShared(ROM_NOWIND, "nowindDos2.rom", &size);
         }
+        else if (strcmp(cart, "MoonSound") == 0) {
+            buf = romLoadShared(ROM_MOONSOUND, "MOONSOUND.rom", &size);
+        }
         else {
             buf = romLoad(cart, cartZip, &size);
         }
@@ -465,6 +468,13 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
 
             case ROM_Y8960:
                 success &= romMapperY8960CartCreate(romName, NULL, 0, slot, sslot);
+                break;
+
+            case ROM_MOONSOUND:
+                /* The FM part and the sample RAM still work without the wave ROM. */
+                if (strcmp(cart, "MoonSound") == 0) {
+                    success &= romMapperMoonsoundCreate(romName, NULL, 0, 640, slot, sslot);
+                }
                 break;
             }
             break;

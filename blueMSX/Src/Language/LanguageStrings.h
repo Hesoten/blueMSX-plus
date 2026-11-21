@@ -86,6 +86,8 @@ typedef struct {
     char* errorUnknownFileType;
     char* errorCartV9968WithV9990;
     char* errorCartTwice;
+    char* errorCartBuiltIn;               /* %s = chip name */
+    char* errorCartBuiltInRemoved;        /* %s = chip name */
     char* errorDirDiskTooLarge;
     char* errorDirDiskOnline;
     char* errorDirDiskSubdirs;

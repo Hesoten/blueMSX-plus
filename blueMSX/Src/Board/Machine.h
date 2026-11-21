@@ -124,6 +124,8 @@ void machineSetDirectory(const char* dir);
 const char* machineGetDirectory(void);
 /* Rewrites a path starting with Machines/ in place to the machines directory in use. */
 void machineExpandPath(char* path, int size);
+/* Whether the configuration of machineName has a slot of romType. */
+int machineHasRomType(const char* machineName, RomType romType);
 
 /* Why machineCreate() would fail for machineName, without actually loading.
 ** Used by the Win32 "failed to start" dialog to explain the specific cause. */

@@ -1988,6 +1988,22 @@ void machineExpandPath(char* path, int size)
     }
 }
 
+int machineHasRomType(const char* machineName, RomType romType)
+{
+    Machine* machine = machineCreate(machineName);
+    int found = 0;
+    int i;
+
+    if (machine == NULL) {
+        return 0;
+    }
+    for (i = 0; i < machine->slotInfoCount; i++) {
+        found |= machine->slotInfo[i].romType == romType;
+    }
+    machineDestroy(machine);
+    return found;
+}
+
 MachineLoadReason machineDiagnose(const char* machineName)
 {
     char path[PROP_MAXPATH + 64];

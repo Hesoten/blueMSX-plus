@@ -87,6 +87,8 @@ void langInitFrench(LanguageStrings* ls)
     ls->errorUnknownFileType    = "Impossible d'ouvrir le fichier : type de fichier inconnu.";
     ls->errorCartV9968WithV9990 = "La cartouche V9968 ne peut pas être insérée en même temps qu'une GFX9000 ou une Video9000, car toutes deux prennent le contrôle de l'écran. Retirez d'abord l'autre cartouche.";
     ls->errorCartTwice          = "La cartouche %s ne peut pas être insérée dans les deux emplacements en même temps, car toutes deux utiliseraient les mêmes ports d'E/S. Retirez d'abord l'autre cartouche.";
+    ls->errorCartBuiltIn        = "Cette machine intègre %s ; il ne peut pas être inséré comme cartouche.";
+    ls->errorCartBuiltInRemoved = "Cette machine intègre %s ; la cartouche a été retirée.";
     ls->errorDirDiskTooLarge    = "%d fichier(s) ne tenaient pas sur le disque et ont été omis.";
     ls->errorDirDiskOnline      = "%d fichier(s) disponibles uniquement en ligne ont été omis. Rendez-les disponibles sur cet appareil pour les inclure.";
     ls->errorDirDiskSubdirs     = "%d répertoire(s) ont été omis car le format choisi ne peut pas les contenir.";
