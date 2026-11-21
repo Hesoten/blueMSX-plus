@@ -993,6 +993,7 @@ void langInitEnglish(LanguageStrings* ls)
     ls->romTypeSg1000Cart       = "SG-1000 Cartridge";
     ls->romTypeSc3000Cart       = "SC-3000 Cartridge";
     ls->romTypeV9968Cart        = "V9968 Cartridge";
+    ls->romTypeY8960Cart        = "Y8960 Cartridge";
     ls->romTypeMsxPrinter       = "MSX Printer";
     ls->romTypeTurborPcm        = "Turbo-R PCM Chip";
     ls->romTypeNms8280Digitiz   = "Philips NMS-8280 Digitizer";

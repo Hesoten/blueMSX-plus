@@ -690,7 +690,7 @@ extern "C" const char* romTypeToString(RomType romType)
     case ROM_ROOKIEDRIVE: return "Rookie Drive NX";
     case ROM_GFX9000:     return "GFX9000";
     case ROM_VIDEO9000:   return "Video9000";
-    case ROM_Y8960:       return "Y8960 Cartridge";
+    case ROM_Y8960:       return langRomTypeY8960Cart();
     case ROM_V9968CART:   return langRomTypeV9968Cart();
     case ROM_FLASHROMSCC: return "Flash-ROM SCC";
     case ROM_MEGAFLSHSCCPLUS_SD: return "Mega Flash Rom SCC+ SD";

@@ -373,6 +373,7 @@ static const char* getCleanFileName(const char* fileName)
     if (strcmp(fileName, CARTNAME_GFX9000) == 0)        return "GFX9000";
     if (strcmp(fileName, CARTNAME_VIDEO9000) == 0)      return "Video9000";
     if (strcmp(fileName, CARTNAME_V9968CART) == 0)      return langRomTypeV9968Cart();
+    if (strcmp(fileName, CARTNAME_Y8960) == 0)          return langRomTypeY8960Cart();
     if (strcmp(fileName, CARTNAME_ESERAM256) == 0)      return langRomTypeEseRam256();
     if (strcmp(fileName, CARTNAME_ESERAM512) == 0)      return langRomTypeEseRam512();
     if (strcmp(fileName, CARTNAME_ESERAM1MB) == 0)      return langRomTypeEseRam1mb();
@@ -671,7 +672,7 @@ static HMENU menuCreateCartSpecial(int cartNo, Properties* pProperties, Shortcut
     AppendMenuU(hMenuSound, MF_STRING, idOffset + ID_FILE_CART_MSXAUDIO, romTypeToString(ROM_MSXAUDIO));
     AppendMenuU(hMenuSound, MF_STRING, idOffset + ID_FILE_CART_MOONSOUND, romTypeToString(ROM_MOONSOUND));
     AppendMenuU(hMenuSound, MF_STRING, idOffset + ID_FILE_CART_MAKOTO, "Makoto");
-    AppendMenuU(hMenuSound, MF_STRING, idOffset + ID_FILE_CART_Y8960, "Y8960 Cartridge");
+    AppendMenuU(hMenuSound, MF_STRING, idOffset + ID_FILE_CART_Y8960, langRomTypeY8960Cart());
 
     AppendMenuU(hMenuVdp, MF_STRING, idOffset + ID_FILE_CART_GFX9000, "GFX9000");
     AppendMenuU(hMenuVdp, MF_STRING, idOffset + ID_FILE_CART_VIDEO9000, "Video9000");
