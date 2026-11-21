@@ -661,12 +661,12 @@ static HMENU menuCreateCartSpecial(int cartNo, Properties* pProperties, Shortcut
         AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
     }
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_JOYREXPSG, langMenuCartJoyrexPsg());
-    AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_MSXAUDIO, romTypeToString(ROM_MSXAUDIO));
-    AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_MOONSOUND, romTypeToString(ROM_MOONSOUND));
-    AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_MAKOTO, "Makoto");
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_SCC, langMenuCartSCC());
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_SCCPLUS, langMenuCartSCCPlus());
     AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuEseSCC, langMenuCartEseSCC());
+    AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_MSXAUDIO, romTypeToString(ROM_MSXAUDIO));
+    AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_MOONSOUND, romTypeToString(ROM_MOONSOUND));
+    AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_MAKOTO, "Makoto");
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_Y8960, "Y8960 Cartridge");
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
     AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuIde, langMenuCartIde());
