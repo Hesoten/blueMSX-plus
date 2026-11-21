@@ -62,9 +62,12 @@ static void toLower(char* str) {
 
 #if 1
 
+/* As long as the names SaveState makes for the parts of a state. */
+#define MEM_FILENAME_SIZE 64
+
 typedef struct 
 {
-    char  filename[32];
+    char  filename[MEM_FILENAME_SIZE];
     int   size;
     char* buffer;
 } MemFile;
@@ -204,6 +207,12 @@ int memFileSave(const char* zipName, const char* filename, int append, void* buf
 {
     MemZipFile* memZipFile = memZipFileFind(zipName);
     MemFile* memFile;
+
+    /* A name cut short could match another part's, so the save fails instead. */
+    if (strlen(filename) >= MEM_FILENAME_SIZE)
+    {
+        return 0;
+    }
 
     if (!append)
     {
