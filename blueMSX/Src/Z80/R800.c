@@ -494,9 +494,26 @@ static void RRC(R800* r800, UInt8* reg) {
     *reg = regVal;
 }
 
+/* The Z80 takes X and Y from xy; the R800 keeps S, V, C, X and Y, sets H
+** and computes only Z (openMSX). */
+static void bitFlags(R800* r800, UInt8 bit, UInt8 val, UInt8 xy) {
+    if (r800->cpuMode == CPU_R800) {
+        r800->regs.AF.B.l = (r800->regs.AF.B.l &
+            (S_FLAG | V_FLAG | C_FLAG | X_FLAG | Y_FLAG)) | H_FLAG |
+            ((val & (1 << bit)) ? 0 : Z_FLAG);
+    } else {
+        r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) |
+            (xy & (X_FLAG | Y_FLAG)) | ZSPHTable[val & (1 << bit)];
+    }
+}
+
 static void BIT(R800* r800, UInt8 bit, UInt8 reg) {
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) |
-        (reg & (X_FLAG | Y_FLAG)) | ZSPHTable[reg & (1 << bit)];
+    bitFlags(r800, bit, reg, reg);
+}
+
+/* BIT n,(HL) and BIT n,(IX+d): the Z80 takes X and Y from MEMPTR. */
+static void BITM(R800* r800, UInt8 bit, UInt8 val) {
+    bitFlags(r800, bit, val, r800->regs.SH.B.h);
 }
 
 static void RES(R800* r800, UInt8 bit, UInt8* reg) {
@@ -3157,17 +3174,13 @@ static void bit_0_l(R800* r800) {
 
 static void bit_0_xhl(R800* r800) {
     delayBit(r800);
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) | 
-        ZSPHTable[readMem(r800, r800->regs.HL.W) & (1 << 0)];
+    BITM(r800, 0, readMem(r800, r800->regs.HL.W));
 }
 
 static void bit_0_xnn(R800* r800, UInt16 addr) { 
     delayBitIx(r800);           // white cat append
     r800->regs.SH.W   = addr;
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) |
-        ZSPHTable[readMem(r800, addr) & (1 << 0)];
+    BITM(r800, 0, readMem(r800, addr));
 }
 
 static void bit_1_a(R800* r800) {
@@ -3200,17 +3213,13 @@ static void bit_1_l(R800* r800) {
 
 static void bit_1_xhl(R800* r800) {
     delayBit(r800);
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) | 
-        ZSPHTable[readMem(r800, r800->regs.HL.W) & (1 << 1)];
+    BITM(r800, 1, readMem(r800, r800->regs.HL.W));
 }
 
 static void bit_1_xnn(R800* r800, UInt16 addr) { 
     delayBitIx(r800);           // white cat append
     r800->regs.SH.W   = addr;
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) |
-        ZSPHTable[readMem(r800, addr) & (1 << 1)];
+    BITM(r800, 1, readMem(r800, addr));
 }
 
 static void bit_2_a(R800* r800) {
@@ -3243,17 +3252,13 @@ static void bit_2_l(R800* r800) {
 
 static void bit_2_xhl(R800* r800) {
     delayBit(r800);
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) | 
-        ZSPHTable[readMem(r800, r800->regs.HL.W) & (1 << 2)];
+    BITM(r800, 2, readMem(r800, r800->regs.HL.W));
 }
 
 static void bit_2_xnn(R800* r800, UInt16 addr) { 
     delayBitIx(r800);           // white cat append
     r800->regs.SH.W   = addr;
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) |
-        ZSPHTable[readMem(r800, addr) & (1 << 2)];
+    BITM(r800, 2, readMem(r800, addr));
 }
 
 static void bit_3_a(R800* r800) {
@@ -3286,17 +3291,13 @@ static void bit_3_l(R800* r800) {
 
 static void bit_3_xhl(R800* r800) {
     delayBit(r800);
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) | 
-        ZSPHTable[readMem(r800, r800->regs.HL.W) & (1 << 3)];
+    BITM(r800, 3, readMem(r800, r800->regs.HL.W));
 }
 
 static void bit_3_xnn(R800* r800, UInt16 addr) { 
     delayBitIx(r800);           // white cat append
     r800->regs.SH.W   = addr;
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) |
-        ZSPHTable[readMem(r800, addr) & (1 << 3)];
+    BITM(r800, 3, readMem(r800, addr));
 }
 
 static void bit_4_a(R800* r800) {
@@ -3329,17 +3330,13 @@ static void bit_4_l(R800* r800) {
 
 static void bit_4_xhl(R800* r800) {
     delayBit(r800);
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) | 
-        ZSPHTable[readMem(r800, r800->regs.HL.W) & (1 << 4)];
+    BITM(r800, 4, readMem(r800, r800->regs.HL.W));
 }
 
 static void bit_4_xnn(R800* r800, UInt16 addr) { 
     delayBitIx(r800);           // white cat append
     r800->regs.SH.W   = addr;
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) |
-        ZSPHTable[readMem(r800, addr) & (1 << 4)];
+    BITM(r800, 4, readMem(r800, addr));
 }
 
 static void bit_5_a(R800* r800) {
@@ -3372,17 +3369,13 @@ static void bit_5_l(R800* r800) {
 
 static void bit_5_xhl(R800* r800) {
     delayBit(r800);
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) | 
-        ZSPHTable[readMem(r800, r800->regs.HL.W) & (1 << 5)];
+    BITM(r800, 5, readMem(r800, r800->regs.HL.W));
 }
 
 static void bit_5_xnn(R800* r800, UInt16 addr) { 
     delayBitIx(r800);           // white cat append
     r800->regs.SH.W   = addr;
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) |
-        ZSPHTable[readMem(r800, addr) & (1 << 5)];
+    BITM(r800, 5, readMem(r800, addr));
 }
 
 static void bit_6_a(R800* r800) { 
@@ -3415,17 +3408,13 @@ static void bit_6_l(R800* r800) {
 
 static void bit_6_xhl(R800* r800) {
     delayBit(r800);
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) | 
-        ZSPHTable[readMem(r800, r800->regs.HL.W) & (1 << 6)];
+    BITM(r800, 6, readMem(r800, r800->regs.HL.W));
 }
 
 static void bit_6_xnn(R800* r800, UInt16 addr) { 
     delayBitIx(r800);           // white cat append
     r800->regs.SH.W   = addr;
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) |
-        ZSPHTable[readMem(r800, addr) & (1 << 6)];
+    BITM(r800, 6, readMem(r800, addr));
 }
 
 static void bit_7_a(R800* r800) { 
@@ -3458,17 +3447,13 @@ static void bit_7_l(R800* r800) {
 
 static void bit_7_xhl(R800* r800) {
     delayBit(r800);
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) | 
-        ZSPHTable[readMem(r800, r800->regs.HL.W) & (1 << 7)];
+    BITM(r800, 7, readMem(r800, r800->regs.HL.W));
 }
 
 static void bit_7_xnn(R800* r800, UInt16 addr) { 
     delayBitIx(r800);           // white cat append
     r800->regs.SH.W   = addr;
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) |
-        ZSPHTable[readMem(r800, addr) & (1 << 7)];
+    BITM(r800, 7, readMem(r800, addr));
 }
 
 static void res_0_a(R800* r800) {
