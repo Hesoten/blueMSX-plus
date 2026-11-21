@@ -65,11 +65,23 @@ static void toLower(char* str) {
 /* As long as the names SaveState makes for the parts of a state. */
 #define MEM_FILENAME_SIZE 64
 
+/* Rewind snapshots taken one after another hold mostly the same bytes, so a part
+** is kept in chunks and a chunk equal to the one at the same place in the
+** snapshot before is shared, not copied. */
+#define MEM_CHUNK_SIZE 1024
+
 typedef struct 
 {
-    char  filename[MEM_FILENAME_SIZE];
-    int   size;
-    char* buffer;
+    int           refs;
+    unsigned char data[MEM_CHUNK_SIZE];
+} MemChunk;
+
+typedef struct
+{
+    char       filename[MEM_FILENAME_SIZE];
+    int        size;
+    int        chunkCount;
+    MemChunk** chunks;      /* NULL is a chunk of zeros */
 } MemFile;
 
 typedef struct 
@@ -82,6 +94,96 @@ typedef struct
 
 static MemZipFile** memZipFiles = NULL;
 static int memZipFileCount = 0;
+
+/* The zip saved or loaded last is the nearest to what the machine holds, so a
+** save compares with the one that was last when it began. */
+static MemZipFile* memLastZip;
+static MemZipFile* memPrevZip;
+static MemZipFile* memSaveZip;
+
+static int memChunkLen(int size, int index)
+{
+    int len = size - index * MEM_CHUNK_SIZE;
+    return len < MEM_CHUNK_SIZE ? len : MEM_CHUNK_SIZE;
+}
+
+static void memFileDestroy(MemFile* memFile)
+{
+    int i;
+
+    for (i = 0; i < memFile->chunkCount; i++)
+    {
+        MemChunk* chunk = memFile->chunks[i];
+        if (chunk != NULL && --chunk->refs == 0)
+        {
+            free(chunk);
+        }
+    }
+    free(memFile->chunks);
+    free(memFile);
+}
+
+static int memChunkIsZero(const unsigned char* data, int len)
+{
+    static const unsigned char zeros[MEM_CHUNK_SIZE];
+
+    return memcmp(data, zeros, len) == 0;
+}
+
+static MemFile* memFileCreate(const char* filename, const unsigned char* data, int size, const MemFile* prev)
+{
+    MemFile* memFile = malloc(sizeof(MemFile));
+    int i;
+
+    if (memFile == NULL)
+    {
+        return NULL;
+    }
+    strcpy(memFile->filename, filename);
+    memFile->size       = size;
+    memFile->chunkCount = (size + MEM_CHUNK_SIZE - 1) / MEM_CHUNK_SIZE;
+    memFile->chunks     = calloc(memFile->chunkCount > 0 ? memFile->chunkCount : 1, sizeof(MemChunk*));
+    if (memFile->chunks == NULL)
+    {
+        free(memFile);
+        return NULL;
+    }
+
+    for (i = 0; i < memFile->chunkCount; i++)
+    {
+        const unsigned char* src = data + i * MEM_CHUNK_SIZE;
+        int len = memChunkLen(size, i);
+        MemChunk* chunk = NULL;
+
+        /* Only the first len bytes of a chunk are ever read. Past the end of the
+        ** part before, its chunk holds bytes never written. */
+        if (prev != NULL && i < prev->chunkCount && memChunkLen(prev->size, i) >= len)
+        {
+            chunk = prev->chunks[i];
+        }
+        if (chunk != NULL && memcmp(chunk->data, src, len) == 0)
+        {
+            chunk->refs++;
+        }
+        else if (memChunkIsZero(src, len))
+        {
+            chunk = NULL;
+        }
+        else
+        {
+            chunk = malloc(sizeof(MemChunk));
+            if (chunk == NULL)
+            {
+                memFileDestroy(memFile);
+                return NULL;
+            }
+            chunk->refs = 1;
+            memcpy(chunk->data, src, len);
+        }
+        memFile->chunks[i] = chunk;
+    }
+    return memFile;
+}
 
 void memZipFileDestroy(MemZipFile* memZipFile)
 {
@@ -100,15 +202,14 @@ void memZipFileDestroy(MemZipFile* memZipFile)
             memZipFiles[i] = NULL;
         }
     }
+    if (memLastZip == memZipFile) memLastZip = NULL;
+    if (memPrevZip == memZipFile) memPrevZip = NULL;
+    if (memSaveZip == memZipFile) memSaveZip = NULL;
 
     // Delete file contents
     for (i = 0; i < memZipFile->count; i++)
     {
-        if (memZipFile->memFiles[i]->buffer != NULL)
-        {
-            free(memZipFile->memFiles[i]->buffer);
-        }
-        free(memZipFile->memFiles[i]);
+        memFileDestroy(memZipFile->memFiles[i]);
     }
     free(memZipFile->memFiles);
     free(memZipFile);
@@ -118,6 +219,9 @@ void memZipFileSystemCreate(int maxFiles)
 {
     memZipFileCount = maxFiles;
     memZipFiles = (MemZipFile**) calloc(memZipFileCount, sizeof(MemZipFile*));
+    memLastZip = NULL;
+    memPrevZip = NULL;
+    memSaveZip = NULL;
 }
 
 void memZipFileSystemDestroy()
@@ -134,6 +238,7 @@ void memZipFileSystemDestroy()
         memZipFileDestroy(memZipFiles[i]);
     }
     free(memZipFiles);
+    memZipFiles = NULL;
 
     memZipFileCount = 0;
 }
@@ -194,15 +299,48 @@ MemFile* memFileFindInZip(MemZipFile* memZipFile, const char* filename)
     return NULL;
 }
 
+/* Every save writes its parts in the same order, so the one at the same index
+** is nearly always the one asked for. */
+static MemFile* memFileFindPrev(int index, const char* filename)
+{
+    if (memPrevZip != NULL && index < memPrevZip->count &&
+        strcmp(memPrevZip->memFiles[index]->filename, filename) == 0)
+    {
+        return memPrevZip->memFiles[index];
+    }
+    return memFileFindInZip(memPrevZip, filename);
+}
+
 void* memFileLoad(const char* zipName, const char* filename, int* size)
 {
-    MemFile* memFile = memFileFindInZip(memZipFileFind(zipName), filename);
+    MemZipFile* memZipFile = memZipFileFind(zipName);
+    MemFile* memFile = memFileFindInZip(memZipFile, filename);
+
+    if (memZipFile != NULL)
+    {
+        memLastZip = memZipFile;
+    }
     if (memFile != NULL && memFile->size > 0)
     {
-        void* buffer = malloc(memFile->size);
-        memcpy(buffer, memFile->buffer, memFile->size);
-        *size = memFile->size;
-        return buffer;
+        unsigned char* buffer = malloc(memFile->size);
+        if (buffer != NULL)
+        {
+            int i;
+            for (i = 0; i < memFile->chunkCount; i++)
+            {
+                int len = memChunkLen(memFile->size, i);
+                if (memFile->chunks[i] != NULL)
+                {
+                    memcpy(buffer + i * MEM_CHUNK_SIZE, memFile->chunks[i]->data, len);
+                }
+                else
+                {
+                    memset(buffer + i * MEM_CHUNK_SIZE, 0, len);
+                }
+            }
+            *size = memFile->size;
+            return buffer;
+        }
     }
     *size = 0;
     return NULL;
@@ -210,7 +348,8 @@ void* memFileLoad(const char* zipName, const char* filename, int* size)
 
 int memFileSave(const char* zipName, const char* filename, int append, void* buffer, int size)
 {
-    MemZipFile* memZipFile = memZipFileFind(zipName);
+    MemZipFile* memZipFile;
+    MemFile* prev;
     MemFile* memFile;
 
     /* A name cut short could match another part's, so the save fails instead. */
@@ -219,15 +358,23 @@ int memFileSave(const char* zipName, const char* filename, int append, void* buf
         return 0;
     }
 
+    /* Destroyed first, so a zip saved over its own name compares with nothing. */
     if (!append)
     {
-        memZipFileDestroy(memZipFile);
-        memZipFile = NULL;
+        memZipFileDestroy(memZipFileFind(zipName));
+        memPrevZip = memLastZip;
+        memSaveZip = memZipFileCreate(zipName);
+        memLastZip = memSaveZip;
     }
 
-    if (memZipFile == NULL)
+    memZipFile = memSaveZip;
+    if (memZipFile == NULL || strcmp(memZipFile->zipName, zipName) != 0)
     {
-        memZipFile = memZipFileCreate(zipName);
+        memZipFile = memZipFileFind(zipName);
+        if (memZipFile == NULL)
+        {
+            memZipFile = memZipFileCreate(zipName);
+        }
     }
 
     if (memZipFile == NULL)
@@ -247,20 +394,13 @@ int memFileSave(const char* zipName, const char* filename, int append, void* buf
         memZipFile->capacity = capacity;
     }
 
-    memFile = malloc(sizeof(MemFile));
+    prev = memFileFindPrev(memZipFile->count, filename);
+
+    memFile = memFileCreate(filename, (const unsigned char*)buffer, size, prev);
     if (memFile == NULL)
     {
         return 0;
     }
-    memFile->buffer = malloc(size > 0 ? size : 1);
-    if (memFile->buffer == NULL)
-    {
-        free(memFile);
-        return 0;
-    }
-    memcpy(memFile->buffer, buffer, size);
-    memFile->size = size;
-    strcpy(memFile->filename, filename);
 
     memZipFile->memFiles[memZipFile->count++] = memFile;
 
