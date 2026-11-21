@@ -42,6 +42,7 @@
 #include <string.h>
 #include "Board.h"
 #include "Emulator.h"
+#include "ArchEvent.h"
 
 
 extern void debuggerTrace(const char* str);
@@ -55,6 +56,8 @@ struct R800Debug {
     R800WriteCb writeIoPort;    /* the CPU's own OUT, which the io trace wraps */
     const UInt8* memBits;       /* the READ watch bits, which the memory wrapper tests */
     UInt16 ioSource;
+    int ioReadHooks;            /* HOOK_TRACE | HOOK_WATCH: who wants the CPU's IN wrapped */
+    void* ioReadLock;           /* a leaf around ioReadHooks and readIoPort; it calls nothing */
 };
 
 static R800Debug* dbg;
@@ -250,25 +253,7 @@ static UInt8 readMemoryWatched(void* ref, UInt16 address)
     return value;
 }
 
-static UInt8 readIoPortWatched(void* ref, UInt16 port)
-{
-    UInt8 value = dbg->readIoPort(ref, port);
-
-    tryReadWatchpoint(DBGTYPE_PORT, port & 0xff, value, ref, NULL, readerPc());
-    return value;
-}
-
-/* A plain pointer store: what each wrapper reads is set at create, and the CPU takes one
-** read or the other, so a running CPU may pick the change up at any access. */
-static void armReadWatch(int memory, int ports)
-{
-    dbg->r800->readMemory = memory ? readMemoryWatched : dbg->readMemory;
-    dbg->r800->readIoPort = ports ? readIoPortWatched : dbg->readIoPort;
-}
-
-#define IO_TRACE_OUT 1
-
-static const DebugTraceField ioTraceOutFields[] = {
+static const DebugTraceField ioTraceFields[] = {
     { "port",  DEBUG_TRACE_WORD_A, 0,  8,  DEBUG_TRACE_HEX, 0, NULL, 0 },
     { "value", DEBUG_TRACE_WORD_A, 8,  8,  DEBUG_TRACE_HEX, 0, NULL, 0 },
     { "hi",    DEBUG_TRACE_WORD_A, 16, 8,  DEBUG_TRACE_HEX, 0, NULL, 0 },
@@ -276,28 +261,82 @@ static const DebugTraceField ioTraceOutFields[] = {
 };
 
 static const DebugTraceKindDesc ioTraceKinds[] = {
-    { IO_TRACE_OUT, "out", ioTraceOutFields, 4 },
+    { DEBUG_TRACE_IO_OUT, "out", ioTraceFields, 4 },
+    { DEBUG_TRACE_IO_IN,  "in",  ioTraceFields, 4 },
 };
 
-static const DebugTraceClassDesc ioTraceClass = { "io", ioTraceKinds, 1 };
+static const DebugTraceClassDesc ioTraceClass = { "io", ioTraceKinds, 2 };
+
+static void emitIo(UInt16 kind, UInt32 time, UInt16 port, UInt8 value)
+{
+    debugTraceEmit(dbg->ioSource, kind, time, 0,
+                   (port & 0xff) | (UInt32)value << 8 | (UInt32)(port & 0xff00) << 8,
+                   (UInt32)readerPc());
+}
+
+#define HOOK_TRACE 1
+#define HOOK_WATCH 2
+
+/* Installed as the CPU's IN while class io is armed or a port read watch exists. The in
+** record goes after the read, which gives the value, so it follows what the device records. */
+static UInt8 readIoPortHooked(void* ref, UInt16 port)
+{
+    UInt32 time  = dbg->r800->systemTime;
+    UInt8  value = dbg->readIoPort(ref, port);
+
+    if ((dbg->ioReadHooks & HOOK_TRACE) &&
+        DEBUG_TRACE_PORT_HELD(debugTracePorts, DEBUG_TRACE_PORT_IN | (port & 0xff)))
+    {
+        emitIo(DEBUG_TRACE_IO_IN, time, port, value);
+    }
+    /* Last: nothing after it may touch dbg, which a machine change while parked frees. */
+    if (dbg->ioReadHooks & HOOK_WATCH) {
+        tryReadWatchpoint(DBGTYPE_PORT, port & 0xff, value, ref, NULL, readerPc());
+    }
+    return value;
+}
+
+/* The one owner of readIoPort, called under the trace's lock or readWatchLock, and by
+** destroy. A plain pointer store, as the writeIoPort swap in armIoTrace, under a leaf lock
+** (skipped if it could not be made) so the two callers cannot interleave. */
+static void hookIoRead(int bit, int on)
+{
+    if (dbg->ioReadLock != NULL) {
+        archSemaphoreWait(dbg->ioReadLock, -1);
+    }
+    dbg->ioReadHooks = on ? dbg->ioReadHooks | bit : dbg->ioReadHooks & ~bit;
+    dbg->r800->readIoPort = dbg->ioReadHooks ? readIoPortHooked : dbg->readIoPort;
+    if (dbg->ioReadLock != NULL) {
+        archSemaphoreSignal(dbg->ioReadLock);
+    }
+}
+
+/* The readMemory store is plain (readIoPort goes through hookIoRead): what each wrapper
+** reads is set at create, and a running CPU may pick the change up at any access. */
+static void armReadWatch(int memory, int ports)
+{
+    dbg->r800->readMemory = memory ? readMemoryWatched : dbg->readMemory;
+    hookIoRead(HOOK_WATCH, ports);
+}
 
 /* Installed as the CPU's OUT while class io is armed. The record goes first, so it comes
 ** before what the device records at the same tick. */
 static void writeIoPortTraced(void* ref, UInt16 port, UInt8 value)
 {
-    if (debugTracePorts[(port & 0xff) >> 3] >> (port & 7) & 1) {
-        debugTraceEmit(dbg->ioSource, IO_TRACE_OUT, dbg->r800->systemTime, 0,
-                       (port & 0xff) | (UInt32)value << 8 | (UInt32)(port & 0xff00) << 8,
-                       (UInt32)readerPc());
+    if (DEBUG_TRACE_PORT_HELD(debugTracePorts, port & 0xff)) {
+        emitIo(DEBUG_TRACE_IO_OUT, dbg->r800->systemTime, port, value);
     }
     dbg->writeIoPort(ref, port, value);
 }
 
-/* Under the trace's lock: a plain pointer store, as armReadWatch. */
+/* Under the trace's lock. Both wrappers go in while io is armed at all, even for OUTs only:
+** the cost of one test per IN while armed buys not tracking each direction's holders here. */
 static void armIoTrace(UInt32 armed)
 {
-    dbg->r800->writeIoPort = armed & DEBUG_TRACE_BIT(DEBUG_TRACE_IO) ? writeIoPortTraced
-                                                                     : dbg->writeIoPort;
+    int io = (armed & DEBUG_TRACE_BIT(DEBUG_TRACE_IO)) != 0;
+
+    dbg->r800->writeIoPort = io ? writeIoPortTraced : dbg->writeIoPort;
+    hookIoRead(HOOK_TRACE, io);
 }
 
 static void debugCb(R800Debug* dbg, int command, const char* data) 
@@ -331,6 +370,7 @@ void r800DebugCreate(R800* r800)
     created->readIoPort  = r800->readIoPort;
     created->writeIoPort = r800->writeIoPort;
     created->memBits     = debugDeviceCpuReadBits();
+    created->ioReadLock  = archSemaphoreCreate(1);
     dbg = created;
     dbg->debugHandle = debugDeviceRegister(DBGTYPE_CPU, langDbgDevZ80(), &dbgCallbacks, dbg);
 
@@ -355,8 +395,11 @@ void r800DebugDestroy()
     debugDeviceUnregister(dbg->debugHandle);
     /* The wrappers read through dbg, which goes now. */
     dbg->r800->readMemory  = dbg->readMemory;
-    dbg->r800->readIoPort  = dbg->readIoPort;
     dbg->r800->writeIoPort = dbg->writeIoPort;
+    hookIoRead(HOOK_TRACE | HOOK_WATCH, 0);
+    if (dbg->ioReadLock != NULL) {
+        archSemaphoreDestroy(dbg->ioReadLock);
+    }
     debugTraceSourceUnregister(dbg->ioSource);
     debugTraceSourceUnregister(dbg->r800->traceSource);
     free(dbg);

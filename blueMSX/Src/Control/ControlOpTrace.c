@@ -98,8 +98,22 @@ static const char* skipSpaces(const char* at)
     return at;
 }
 
-/* "ports", such as 0x98,0xA0-0xA2, as bits. */
-static int readPorts(CtrlCall* call, UInt8* bits)
+#define DIR_OUT 1
+#define DIR_IN  2
+
+/* "dir", out, in or both, as DIR_ bits; OUT when it is left out. */
+static int readDir(CtrlCall* call, int* dir)
+{
+    const char* text = ctrlCallText(call, "dir");
+
+    *dir = text == NULL || strcmp(text, "out") == 0 ? DIR_OUT :
+           strcmp(text, "in") == 0                  ? DIR_IN :
+           strcmp(text, "both") == 0                ? DIR_OUT | DIR_IN : 0;
+    return *dir != 0 ? 0 : ctrlReplyError(call, "bad_arg", "\"dir\" takes out, in or both");
+}
+
+/* "ports", such as 0x98,0xA0-0xA2, as bits, in the halves of the directions dir names. */
+static int readPorts(CtrlCall* call, UInt8* bits, int dir)
 {
     const char* at = ctrlCallText(call, "ports");
 
@@ -125,7 +139,12 @@ static int readPorts(CtrlCall* call, UInt8* bits)
                                   "a port by the low address byte only");
         }
         for (port = first; port <= last; port++) {
-            bits[port >> 3] |= (UInt8)(1 << (port & 7));
+            if (dir & DIR_OUT) {
+                bits[port >> 3] |= (UInt8)(1 << (port & 7));
+            }
+            if (dir & DIR_IN) {
+                bits[(port | DEBUG_TRACE_PORT_IN) >> 3] |= (UInt8)(1 << (port & 7));
+            }
         }
         if (*at == 0) {
             return 0;
@@ -136,12 +155,9 @@ static int readPorts(CtrlCall* call, UInt8* bits)
                           "with commas, such as 0x98,0xA0-0xA2");
 }
 
-static int portIn(const UInt8* bits, int port)
-{
-    return bits[port >> 3] >> (port & 7) & 1;
-}
-
-static void addPortNames(CtrlText* text, const UInt8* bits)
+/* The ports of one half after sep and the half's direction; nothing when it is empty.
+** Returns whether it added any. */
+static int addPortNames(CtrlText* text, const UInt8* bits, int half, const char* sep)
 {
     int any = 0;
     int port;
@@ -149,19 +165,20 @@ static void addPortNames(CtrlText* text, const UInt8* bits)
     for (port = 0; port < 256; port++) {
         int last = port;
 
-        if (!portIn(bits, port)) {
+        if (!DEBUG_TRACE_PORT_HELD(bits, half | port)) {
             continue;
         }
-        while (last < 255 && portIn(bits, last + 1)) {
+        while (last < 255 && DEBUG_TRACE_PORT_HELD(bits, half | (last + 1))) {
             last++;
+        }
+        if (!any) {
+            ctrlTextAdd(text, "%s%s ", sep, half ? "in" : "out");
         }
         ctrlTextAdd(text, last > port ? "%s0x%02X-0x%02X" : "%s0x%02X", any ? "," : "", port, last);
         any  = 1;
         port = last;
     }
-    if (!any) {
-        ctrlTextAdd(text, "none");
-    }
+    return any;
 }
 
 static void addClassNames(CtrlText* text, UInt32 mask)
@@ -185,8 +202,11 @@ static void describeArms(CtrlText* text, const CtrlSession* session)
     ctrlTextAdd(text, "this connection holds: ");
     addClassNames(text, session->traceMask);
     if (session->traceMask & IO_BIT) {
-        ctrlTextAdd(text, " (io ports ");
-        addPortNames(text, session->tracePorts);
+        int out;
+
+        ctrlTextAdd(text, " (io ");
+        out = addPortNames(text, session->tracePorts, 0, "");
+        addPortNames(text, session->tracePorts, DEBUG_TRACE_PORT_IN, out ? "; " : "");
         ctrlTextAdd(text, ")");
     }
     ctrlTextAdd(text, "\narmed by anyone: ");
@@ -201,6 +221,7 @@ int ctrlOpTraceArm(CtrlCall* call)
     UInt32 mask;
     UInt32 add;
     UInt32 seq;
+    int    dir;
     int    refused;
 
     if ((refused = readClasses(call, &mask)) != 0) {
@@ -208,13 +229,16 @@ int ctrlOpTraceArm(CtrlCall* call)
     }
     if (!ctrlCallGiven(call, "ports") != !(mask & IO_BIT)) {
         return ctrlReplyError(call, "bad_arg", (mask & IO_BIT) ?
-                              "class io needs \"ports\", the I/O ports whose OUTs to record, "
-                              "such as 0x98,0xA0-0xA2" : "\"ports\" goes with class io");
+                              "class io needs \"ports\", the I/O ports whose OUTs or INs to "
+                              "record, such as 0x98,0xA0-0xA2" : "\"ports\" goes with class io");
     }
-    if ((refused = readPorts(call, ports)) != 0) {
+    if (ctrlCallGiven(call, "dir") && !(mask & IO_BIT)) {
+        return ctrlReplyError(call, "bad_arg", "\"dir\" goes with class io");
+    }
+    if ((refused = readDir(call, &dir)) != 0 || (refused = readPorts(call, ports, dir)) != 0) {
         return refused;
     }
-    /* The ports go in before the class, so its first OUTs are not missed. */
+    /* The ports go in before the class, so its first OUTs and INs are not missed. */
     if (mask & IO_BIT) {
         debugTracePortsHold(session->tracePorts, ports);
     }
@@ -238,11 +262,23 @@ int ctrlOpTraceArm(CtrlCall* call)
     describeArms(&call->text, session);
     ctrlTextAdd(&call->text, "read starts after seq %u unless after is given\n",
                 (unsigned)session->traceArmSeq);
-    if ((mask & IO_BIT) && portIn(ports, 0x98)) {
-        ctrlTextAdd(&call->text, "0x98 takes an OUT for every VRAM byte the CPU writes, which can "
-                    "flood the ring (shared with the Geo3D Perf window) and drop records; for how "
-                    "much the CPU moves to VRAM, the vdpreg class's cpu vram lines count it once "
-                    "a frame\n");
+    if (mask & IO_BIT) {
+        int out = DEBUG_TRACE_PORT_HELD(ports, 0x98);
+        int in  = DEBUG_TRACE_PORT_HELD(ports, 0x98 | DEBUG_TRACE_PORT_IN);
+
+        if (out || in) {
+            ctrlTextAdd(&call->text, "0x98 takes %s for every VRAM byte the CPU %s, which can flood "
+                        "the ring (shared with the Geo3D Perf window) and drop records; for how "
+                        "much the CPU moves to and from VRAM, the vdpreg class's cpu vram lines "
+                        "count it once a frame\n",
+                        out && in ? "an OUT or an IN" : out ? "an OUT" : "an IN",
+                        out && in ? "writes or reads" : out ? "writes" : "reads");
+        }
+    }
+    if ((mask & IO_BIT) && DEBUG_TRACE_PORT_HELD(ports, 0x99 | DEBUG_TRACE_PORT_IN)) {
+        ctrlTextAdd(&call->text, "IN 0x99 reads the VDP status, which a program may poll in a "
+                    "tight loop and flood the ring; the vdpcmd class's wait lines already count "
+                    "the polling of a command's CE\n");
     }
     return ctrlReplyDone(call);
 }
@@ -253,9 +289,9 @@ int ctrlOpTraceDisarm(CtrlCall* call)
     UInt32 mask = session->traceMask;
     int    refused;
 
-    if (ctrlCallGiven(call, "ports")) {
-        return ctrlReplyError(call, "bad_arg", "disarm gives back all of io's ports; arm io again "
-                              "with the ones to keep");
+    if (ctrlCallGiven(call, "ports") || ctrlCallGiven(call, "dir")) {
+        return ctrlReplyError(call, "bad_arg", "disarm gives back all of io's ports, both ways; "
+                              "arm io again with the ones to keep");
     }
     if (ctrlCallGiven(call, "class") && (refused = readClasses(call, &mask)) != 0) {
         return refused;
@@ -309,7 +345,10 @@ static int shown(TraceReader* r, const DebugTraceRecord* rec)
         return 0;
     }
     /* The ring holds the ports of other connections too. */
-    return src->classId != DEBUG_TRACE_IO || portIn(r->ports, rec->a & 0xFF);
+    return src->classId != DEBUG_TRACE_IO ||
+           DEBUG_TRACE_PORT_HELD(r->ports, (rec->a & 0xFF) |
+                                 ((rec->kind & ~DEBUG_TRACE_PHASE_MASK) == DEBUG_TRACE_IO_IN ?
+                                  DEBUG_TRACE_PORT_IN : 0));
 }
 
 static void emit(TraceReader* r, const Pending* p)
@@ -409,7 +448,10 @@ int ctrlOpTraceRead(CtrlCall* call)
     if (ctrlCallGiven(call, "ports") && !(reader.mask & IO_BIT)) {
         return ctrlReplyError(call, "bad_arg", "\"ports\" goes with class io");
     }
-    if ((refused = readPorts(call, reader.ports)) != 0) {
+    if (ctrlCallGiven(call, "dir")) {
+        return ctrlReplyError(call, "bad_arg", "\"dir\" goes with arm");
+    }
+    if ((refused = readPorts(call, reader.ports, DIR_OUT | DIR_IN)) != 0) {
         return refused;
     }
     if (!ctrlCallGiven(call, "ports")) {

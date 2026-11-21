@@ -147,9 +147,14 @@ void   debugTraceArm(UInt32 classMask, int on);
 typedef void (*DebugTraceArmCb)(UInt32 armed);
 void   debugTraceSetArmCb(DebugTraceArmCb cb);
 
-/* Class IO records the CPU's OUTs to the ports set here, the union of what each reader
-** holds. Hold adds the ports of want to held; release drops all of held and clears it. */
-#define DEBUG_TRACE_PORT_BYTES 32
+/* Class IO records the CPU's OUTs and INs to the ports set here, the union of what each
+** reader holds, at bit port for an OUT and port | DEBUG_TRACE_PORT_IN for an IN. Hold adds
+** the bits of want to held; release drops all of held and clears it. */
+#define DEBUG_TRACE_IO_OUT     1
+#define DEBUG_TRACE_IO_IN      2
+#define DEBUG_TRACE_PORT_IN    0x100
+#define DEBUG_TRACE_PORT_BYTES 64
+#define DEBUG_TRACE_PORT_HELD(bits, index) ((bits)[(index) >> 3] >> ((index) & 7) & 1)
 extern volatile UInt8 debugTracePorts[DEBUG_TRACE_PORT_BYTES];
 void   debugTracePortsHold(UInt8* held, const UInt8* want);
 void   debugTracePortsRelease(UInt8* held);
