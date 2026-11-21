@@ -5461,8 +5461,10 @@ static void ini(R800* r800) {
     UInt8  val;
     UInt16 tmp;
     delayInOut(r800);
-    r800->regs.BC.B.h--;
+    /* INI reads before decrementing B; OUTI decrements B before the
+    ** write (Z80 manual, MAME, real hardware). */
     val = readPort(r800, r800->regs.BC.W);
+    r800->regs.BC.B.h--;
     writeMem(r800, r800->regs.HL.W++, val);
     if (r800->cpuMode == CPU_R800) {
         /* R800: only Z and N update; Z80 mode keeps the undocumented
@@ -5493,8 +5495,9 @@ static void ind(R800* r800) {
     UInt8 val;
     UInt16 tmp;
     delayInOut(r800);
-    r800->regs.BC.B.h--;
     val = readPort(r800, r800->regs.BC.W);
+    r800->regs.SH.W = r800->regs.BC.W - 1;
+    r800->regs.BC.B.h--;
     writeMem(r800, r800->regs.HL.W--, val);
     if (r800->cpuMode == CPU_R800) {
         r800->regs.AF.B.l = (r800->regs.AF.B.l & ~Z_FLAG) |
@@ -5522,8 +5525,8 @@ static void outi(R800* r800) {
     UInt16 tmp;
     delayInOut(r800);
     val = readMem(r800, r800->regs.HL.W++);
-    writePort(r800, r800->regs.BC.W, val);
     r800->regs.BC.B.h--;
+    writePort(r800, r800->regs.BC.W, val);
     if (r800->cpuMode == CPU_R800) {
         r800->regs.AF.B.l = (r800->regs.AF.B.l & ~Z_FLAG) |
             (r800->regs.BC.B.h ? 0 : Z_FLAG) | N_FLAG;
@@ -5550,8 +5553,9 @@ static void outd(R800* r800) {
     UInt16 tmp;
     delayInOut(r800);
     val = readMem(r800, r800->regs.HL.W--);
-    writePort(r800, r800->regs.BC.W, val);
     r800->regs.BC.B.h--;
+    writePort(r800, r800->regs.BC.W, val);
+    r800->regs.SH.W = r800->regs.BC.W - 1;
     if (r800->cpuMode == CPU_R800) {
         r800->regs.AF.B.l = (r800->regs.AF.B.l & ~Z_FLAG) |
             (r800->regs.BC.B.h ? 0 : Z_FLAG) | N_FLAG;
