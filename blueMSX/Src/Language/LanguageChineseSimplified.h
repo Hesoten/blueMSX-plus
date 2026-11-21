@@ -208,6 +208,8 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->menuCartEseSCC          = "Ese-SCC";             // New in 2.7
     ls->menuCartMegaFlashRom    = "Mega Flash ROM";      // New in 2.7
     ls->menuCartFlashCart       = "闪存卡带";
+    ls->menuCartSound           = "音源卡带";
+    ls->menuCartVdp             = "VDP 卡带";
 
     ls->menuDiskInsertNew       = "插入新的软盘映像";              
     ls->menuDiskInsertPhysical  = "插入物理驱动器";

@@ -208,6 +208,8 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->menuCartEseSCC          = "Ese-SCC";             // New in 2.7
     ls->menuCartMegaFlashRom    = "Mega Flash ROM";      // New in 2.7
     ls->menuCartFlashCart       = "Cartuchos Flash";
+    ls->menuCartSound           = "Cartuchos de som";
+    ls->menuCartVdp             = "Cartuchos VDP";
 
     ls->menuDiskInsertNew       = "Inserir novo disco";              
     ls->menuDiskInsertPhysical  = "Inserir unidade física";

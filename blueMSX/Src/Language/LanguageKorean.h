@@ -208,6 +208,8 @@ void langInitKorean(LanguageStrings* ls)
     ls->menuCartEseSCC          = "Ese-SCC";             // New in 2.7
     ls->menuCartMegaFlashRom    = "Mega Flash ROM";      // New in 2.7
     ls->menuCartFlashCart       = "플래시 카트리지";
+    ls->menuCartSound           = "사운드 카트리지";
+    ls->menuCartVdp             = "VDP 카트리지";
 
     ls->menuDiskInsertNew       = "새로운 디스크 이미지 삽입";              
     ls->menuDiskInsertPhysical  = "물리 드라이브 삽입";

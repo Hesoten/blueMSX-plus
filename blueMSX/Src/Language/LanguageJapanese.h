@@ -210,6 +210,8 @@ void langInitJapanese(LanguageStrings* ls)
     ls->menuCartEseSCC          = "似非SCC カートリッジ";       // New in 2.7
     ls->menuCartMegaFlashRom    = "Mega Flash ROM";             // New in 2.7
     ls->menuCartFlashCart       = "Flash カートリッジ";
+    ls->menuCartSound           = "音源カートリッジ";
+    ls->menuCartVdp             = "VDP カートリッジ";
 
     ls->menuDiskInsertNew       = "新規ディスクイメージを挿入";
     ls->menuDiskInsertPhysical  = "物理ドライブを挿入";

@@ -208,6 +208,8 @@ void langInitFrench(LanguageStrings* ls)
     ls->menuCartEseSCC          = "Ese-SCC";             // New in 2.7
     ls->menuCartMegaFlashRom    = "Mega Flash ROM";      // New in 2.7
     ls->menuCartFlashCart       = "Cartouches Flash";
+    ls->menuCartSound           = "Cartouches son";
+    ls->menuCartVdp             = "Cartouches VDP";
 
     ls->menuDiskInsertNew       = "Insérer un nouveau disque";              
     ls->menuDiskInsertPhysical  = "Insérer un lecteur physique";

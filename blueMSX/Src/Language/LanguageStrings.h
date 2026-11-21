@@ -207,6 +207,8 @@ typedef struct {
     char* menuCartEseSCC;
     char* menuCartMegaFlashRom;
     char* menuCartFlashCart;
+    char* menuCartSound;
+    char* menuCartVdp;
 
     char* menuDiskInsertNew;
     char* menuDiskInsertPhysical;

@@ -425,6 +425,8 @@ char* langMenuCartEseRam() { return ls->menuCartEseRam; }
 char* langMenuCartEseSCC() { return ls->menuCartEseSCC; }
 char* langMenuCartMegaFlashRom() { return ls->menuCartMegaFlashRom; }
 char* langMenuCartFlashCart() { return ls->menuCartFlashCart; }
+char* langMenuCartSound() { return ls->menuCartSound; }
+char* langMenuCartVdp() { return ls->menuCartVdp; }
 
 char* langMenuDiskInsertNew() { return ls->menuDiskInsertNew; }
 char* langMenuDiskInsertPhysical() { return ls->menuDiskInsertPhysical; }

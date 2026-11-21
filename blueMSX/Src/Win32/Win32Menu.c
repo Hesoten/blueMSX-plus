@@ -589,6 +589,8 @@ static HMENU menuCreateCartSpecial(int cartNo, Properties* pProperties, Shortcut
 
     HMENU hMenuIde = CreatePopupMenu();
     HMENU hMenuScsi = CreatePopupMenu();
+    HMENU hMenuSound = CreatePopupMenu();
+    HMENU hMenuVdp = CreatePopupMenu();
 
     setMenuColor(hMenu);
     setMenuColor(hMenuExtRam);
@@ -602,6 +604,8 @@ static HMENU menuCreateCartSpecial(int cartNo, Properties* pProperties, Shortcut
     setMenuColor(hMenuEseSCC);
     setMenuColor(hMenuIde);
     setMenuColor(hMenuScsi);
+    setMenuColor(hMenuSound);
+    setMenuColor(hMenuVdp);
 
     AppendMenuU(hMenuExtRam, MF_STRING, idOffset + ID_FILE_CART_EXTRAM16KB, "16 kB");
     AppendMenuU(hMenuExtRam, MF_STRING, idOffset + ID_FILE_CART_EXTRAM32KB, "32 kB");
@@ -660,36 +664,39 @@ static HMENU menuCreateCartSpecial(int cartNo, Properties* pProperties, Shortcut
         AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_GAMEREADER, langMenuCartGameReader());
         AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
     }
-    AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_JOYREXPSG, langMenuCartJoyrexPsg());
-    AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_SCC, langMenuCartSCC());
-    AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_SCCPLUS, langMenuCartSCCPlus());
-    AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuEseSCC, langMenuCartEseSCC());
-    AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_MSXAUDIO, romTypeToString(ROM_MSXAUDIO));
-    AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_MOONSOUND, romTypeToString(ROM_MOONSOUND));
-    AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_MAKOTO, "Makoto");
-    AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_Y8960, "Y8960 Cartridge");
+    AppendMenuU(hMenuSound, MF_STRING, idOffset + ID_FILE_CART_JOYREXPSG, langMenuCartJoyrexPsg());
+    AppendMenuU(hMenuSound, MF_STRING, idOffset + ID_FILE_CART_SCC, langMenuCartSCC());
+    AppendMenuU(hMenuSound, MF_STRING, idOffset + ID_FILE_CART_SCCPLUS, langMenuCartSCCPlus());
+    AppendMenuU(hMenuSound, MF_STRING, idOffset + ID_FILE_CART_FMPAC, langMenuCartFMPac());
+    AppendMenuU(hMenuSound, MF_STRING, idOffset + ID_FILE_CART_MSXAUDIO, romTypeToString(ROM_MSXAUDIO));
+    AppendMenuU(hMenuSound, MF_STRING, idOffset + ID_FILE_CART_MOONSOUND, romTypeToString(ROM_MOONSOUND));
+    AppendMenuU(hMenuSound, MF_STRING, idOffset + ID_FILE_CART_MAKOTO, "Makoto");
+    AppendMenuU(hMenuSound, MF_STRING, idOffset + ID_FILE_CART_Y8960, "Y8960 Cartridge");
+
+    AppendMenuU(hMenuVdp, MF_STRING, idOffset + ID_FILE_CART_GFX9000, "GFX9000");
+    AppendMenuU(hMenuVdp, MF_STRING, idOffset + ID_FILE_CART_VIDEO9000, "Video9000");
+    AppendMenuU(hMenuVdp, MF_STRING, idOffset + ID_FILE_CART_V9968CART, langRomTypeV9968Cart());
+
+    AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuSound, langMenuCartSound());
+    AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuVdp, langMenuCartVdp());
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
     AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuIde, langMenuCartIde());
     AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuScsi, langMenuCartScsi());
     AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuNowind, "Nowind USB Disk Controller");
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_ROOKIEDRIVE, "Rookie Drive NX");
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
-    AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_FMPAC, langMenuCartFMPac());
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_PAC, langMenuCartPac());
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_SONYHBI55, langMenuCartHBI55());
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_NMS1210, "Philips NMS1210 Serial Interface");
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
-    AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_GFX9000, "GFX9000");
-    AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_VIDEO9000, "Video9000");
-    AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_V9968CART, langRomTypeV9968Cart());
-    AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
     AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuExtRam, langMenuCartExternalRam());
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
     AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuMegaRam, langMenuCartMegaRam());
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
     AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuEseRam, langMenuCartEseRam());
+    AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuEseSCC, langMenuCartEseSCC());
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
     AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuFlashRom, langMenuCartMegaFlashRom());
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
