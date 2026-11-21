@@ -44,6 +44,8 @@ typedef struct {
     UInt32 watchAddress;
     int    watchMode;   /* the VRAM layout at a VIDEO hit, which watchAddress indexes */
     UInt8  watchKind;   /* the DBG_WATCH_ kind of watchpoint that matched */
+    UInt8  watchAccess; /* what it stops on, a DBG_WATCH_ON_ value */
+    int    watchPc;     /* for a read, the start of the instruction that read; -1 if not known */
     DbgBreakHit breakHit;   /* for a breakpoint stop, kept if relabelled a step; else zero */
 } CtrlStop;
 
@@ -55,7 +57,8 @@ int ctrlStopReasonOf(int cause);
 /* Logs a stop of the run generation it ended; the watch fields for a watch only, and
 ** breakHit, or NULL, for a breakpoint only. */
 void ctrlStopPost(int reason, UInt32 runGeneration, int watchType, UInt32 watchAddress,
-                  int watchMode, int watchKind, const DbgBreakHit* breakHit);
+                  int watchMode, int watchKind, int watchAccess, int watchPc,
+                  const DbgBreakHit* breakHit);
 
 /* The highest sequence number written so far. */
 UInt32 ctrlStopSeq(void);

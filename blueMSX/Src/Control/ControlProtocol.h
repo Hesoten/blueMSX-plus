@@ -119,6 +119,7 @@
 
 /* The defaults of the text arguments that have one. */
 #define CTRL_WP_CONDITION_DEFAULT         "any"
+#define CTRL_WP_ON_DEFAULT                "write"
 #define CTRL_HUNT_START_WIDTH_DEFAULT     "u8"
 #define CTRL_TRACE_CLASS_DEFAULT          "geo3d,vdpcmd,vdpreg"
 #define CTRL_KEY_HOW_DEFAULT              "tap"

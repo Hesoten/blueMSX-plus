@@ -245,21 +245,21 @@ static UInt8 readMem(R800* r800, UInt16 address) {
 static UInt8 readOpcode(R800* r800, UInt16 address) {
     if (isExtAccess(r800, address)) {
         delayExtAccess(r800);
-        return r800->readMemory(r800->ref, address);
+        return r800->fetchMemory(r800->ref, address);
     }
     if (r800->pageWait[address >> 13] == R800_WAIT_ROM && r800->delay[DLY_ROMWAIT] != 0) {
         /* Internal ROM has no page mode: each fetch is a page break plus a wait. */
         r800->systemTime += r800->delay[DLY_MEMOP] + r800->delay[DLY_MEMPAGE] +
                             r800->delay[DLY_ROMWAIT];
         r800->cachePage = 0xffff;
-        return r800->readMemory(r800->ref, address);
+        return r800->fetchMemory(r800->ref, address);
     }
     delayMemOp(r800);
     if ((address >> 8) ^ r800->cachePage) {
         r800->cachePage = address >> 8;
         delayMemPage(r800);
     }
-    return r800->readMemory(r800->ref, address);
+    return r800->fetchMemory(r800->ref, address);
 }
 
 static void writeMem(R800* r800, UInt16 address, UInt8 value) {
@@ -1010,30 +1010,30 @@ static void ld_b_b(R800* r800) {
     UInt16 page = 0xffff;
     UInt16 slot = 0xffff;
 
-    if (r800->readMemory(r800->ref, addr) != 24) {
+    if (r800->fetchMemory(r800->ref, addr) != 24) {
         return;
     }
     addr++;
 
-    size = r800->readMemory(r800->ref, addr++);
+    size = r800->fetchMemory(r800->ref, addr++);
     switch (size) {
     case 0:
         bpAddr = addr;
         break;
     case 2:
-        bpAddr = r800->readMemory(r800->ref, addr++);
-        bpAddr |= r800->readMemory(r800->ref, addr++) << 8;
+        bpAddr = r800->fetchMemory(r800->ref, addr++);
+        bpAddr |= r800->fetchMemory(r800->ref, addr++) << 8;
         break;
     case 3:
-        slot = r800->readMemory(r800->ref, addr++);
-        bpAddr = r800->readMemory(r800->ref, addr++);
-        bpAddr |= r800->readMemory(r800->ref, addr++) << 8;
+        slot = r800->fetchMemory(r800->ref, addr++);
+        bpAddr = r800->fetchMemory(r800->ref, addr++);
+        bpAddr |= r800->fetchMemory(r800->ref, addr++) << 8;
         break;
     case 4:
-        slot = r800->readMemory(r800->ref, addr++);
-        page = r800->readMemory(r800->ref, addr++);
-        bpAddr = r800->readMemory(r800->ref, addr++);
-        bpAddr |= r800->readMemory(r800->ref, addr++) << 8;
+        slot = r800->fetchMemory(r800->ref, addr++);
+        page = r800->fetchMemory(r800->ref, addr++);
+        bpAddr = r800->fetchMemory(r800->ref, addr++);
+        bpAddr |= r800->fetchMemory(r800->ref, addr++) << 8;
         break;
     default:
         return;
@@ -1125,12 +1125,12 @@ static void ld_c_c(R800* r800) {
     UInt16 addr = r800->regs.PC.W;
     UInt8  value;
 
-    if (r800->readMemory(r800->ref, addr) != 24) {
+    if (r800->fetchMemory(r800->ref, addr) != 24) {
         return;
     }
     addr++;
 
-    value = r800->readMemory(r800->ref, addr++);
+    value = r800->fetchMemory(r800->ref, addr++);
     
     r800->trapCb(r800->ref, value);
 #endif
@@ -1219,27 +1219,27 @@ static void ld_d_d(R800* r800) {
     UInt16 end;
     char* ptr = debugString;
 
-    if (r800->readMemory(r800->ref, addr) != 24) {
+    if (r800->fetchMemory(r800->ref, addr) != 24) {
         return;
     }
     addr++;
-    end = addr + 1 + (Int8)r800->readMemory(r800->ref, addr);
+    end = addr + 1 + (Int8)r800->fetchMemory(r800->ref, addr);
     addr++;
 
     if (end - addr > 127) {
         return;
     }
     else if (end - addr > 4 &&
-             r800->readMemory(r800->ref, addr + 0) == 100 && 
-             r800->readMemory(r800->ref, addr + 1) == 100 && 
-             r800->readMemory(r800->ref, addr + 2) == 0   &&
-             r800->readMemory(r800->ref, addr + 3) == 0) 
+             r800->fetchMemory(r800->ref, addr + 0) == 100 && 
+             r800->fetchMemory(r800->ref, addr + 1) == 100 && 
+             r800->fetchMemory(r800->ref, addr + 2) == 0   &&
+             r800->fetchMemory(r800->ref, addr + 3) == 0) 
     {
         addr += 4;
     }
     
     while (addr < end) {
-        *ptr++ = (char)r800->readMemory(r800->ref, addr++);
+        *ptr++ = (char)r800->fetchMemory(r800->ref, addr++);
     }
 
     if (ptr > debugString && ptr[-1] != 'n') {
@@ -6107,6 +6107,7 @@ R800* r800Create(UInt32 cpuFlags,
     r800->cpuFlags    = cpuFlags;
 
     r800->readMemory  = readMemory  ? readMemory  : readMemoryDummy;
+    r800->fetchMemory = r800->readMemory;
     r800->writeMemory = writeMemory ? writeMemory : writeMemoryDummy;
     r800->readIoPort  = readIoPort  ? readIoPort  : readIoPortDummy;
     r800->writeIoPort = writeIoPort ? writeIoPort : writeIoPortDummy;
@@ -6491,8 +6492,8 @@ void r800Execute(R800* r800) {
 #endif
 	        r800->writeMemory(r800->ref, --r800->regs.SP.W, r800->regs.PC.B.h);
 	        r800->writeMemory(r800->ref, --r800->regs.SP.W, r800->regs.PC.B.l);
-            r800->regs.PC.B.l = r800->readMemory(r800->ref, address++);
-            r800->regs.PC.B.h = r800->readMemory(r800->ref, address);
+            r800->regs.PC.B.l = r800->fetchMemory(r800->ref, address++);
+            r800->regs.PC.B.h = r800->fetchMemory(r800->ref, address);
             M1_nodelay(r800);
             delayIm2(r800);
             break;
@@ -6589,8 +6590,8 @@ void r800ExecuteUntil(R800* r800, UInt32 endTime) {
 	        r800->writeMemory(r800->ref, --r800->regs.SP.W, r800->regs.PC.B.h);
 	        r800->writeMemory(r800->ref, --r800->regs.SP.W, r800->regs.PC.B.l);
 
-            r800->regs.PC.B.l = r800->readMemory(r800->ref, address++);
-            r800->regs.PC.B.h = r800->readMemory(r800->ref, address);
+            r800->regs.PC.B.l = r800->fetchMemory(r800->ref, address++);
+            r800->regs.PC.B.h = r800->fetchMemory(r800->ref, address);
             M1_nodelay(r800);
             delayIm2(r800);
             break;
@@ -6682,8 +6683,8 @@ void r800ExecuteInstruction(R800* r800) {
 	    r800->writeMemory(r800->ref, --r800->regs.SP.W, r800->regs.PC.B.h);
 	    r800->writeMemory(r800->ref, --r800->regs.SP.W, r800->regs.PC.B.l);
 
-        r800->regs.PC.B.l = r800->readMemory(r800->ref, address++);
-        r800->regs.PC.B.h = r800->readMemory(r800->ref, address);
+        r800->regs.PC.B.l = r800->fetchMemory(r800->ref, address++);
+        r800->regs.PC.B.h = r800->fetchMemory(r800->ref, address);
         M1_nodelay(r800);
         delayIm2(r800);
         break;

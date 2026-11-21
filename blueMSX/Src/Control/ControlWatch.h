@@ -29,12 +29,12 @@
 /* The most places this socket's watch list keeps; a watch at one more is refused. */
 #define CTRL_WATCH_LIST_MAX 64
 
-/* Zero when the list is full. */
-int ctrlWatchRemember(int devType, int where, int size, const char* condition,
+/* Zero when the list is full. A watch is kept by where and access, a DBG_WATCH_ON_ value. */
+int ctrlWatchRemember(int devType, int where, int access, int size, const char* condition,
                       Int64 value, const char* printed, int vramMode);
 
 /* Non-zero when it was listed. */
-int ctrlWatchForget(int devType, int where);
+int ctrlWatchForget(int devType, int where, int access);
 /* One line for each watch set over this socket, as it was set; returns how many. */
 int ctrlWatchDescribeList(CtrlText* text);
 
