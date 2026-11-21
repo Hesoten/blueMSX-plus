@@ -364,7 +364,7 @@ static void destroy(RomMapperMsxAudio* rm)
         y8950Destroy(rm->y8950);
     }
 
-    if (rm->sizeMask != -1) {
+    if (rm->slot >= 0) {
         slotUnregister(rm->slot, rm->sslot, rm->startPage);
     }
 
@@ -498,14 +498,21 @@ int romMapperMsxAudioCreate(const char* filename, UInt8* romData,
     RomMapperMsxAudio* rm;
     int i;
 
-    rm = malloc(sizeof(RomMapperMsxAudio));
+    rm = calloc(1, sizeof(RomMapperMsxAudio));
 
     rm->deviceHandle = deviceManagerRegister(ROM_MSXAUDIO, &callbacks, rm);
     rm->debugHandle = debugDeviceRegister(DBGTYPE_AUDIO, langDbgDevMsxAudio(), &dbgCallbacks, rm);
 
     rm->ioBase = 0xc0 + deviceCount++ * 2;
 
-    rm->romData = NULL;
+    rm->slot  = slot;
+    rm->sslot = sslot;
+    rm->startPage = startPage;
+
+    /* A cartridge without a ROM still has to leave with its slot. */
+    if (size == 0 && slot >= 0) {
+        slotRegister(slot, sslot, startPage, 8, NULL, NULL, NULL, destroy, rm);
+    }
 
     if (size > 0) {
         int pages=8;
@@ -521,10 +528,6 @@ int romMapperMsxAudioCreate(const char* filename, UInt8* romData,
         memset(rm->ram, 0, 0x1000);
         rm->bankSelect = 0;
         rm->sizeMask = size - 1;
-        rm->slot  = slot;
-        rm->sslot = sslot;
-        rm->startPage  = startPage;
-        rm->midi = NULL;
 
         if (!switchGetAudio()) {
             // FS-CA1 BIOS hack, ret z -> nop

@@ -1372,7 +1372,7 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
         }
 
         if (machine->slotInfo[i].romType == ROM_MSXAUDIODEV) {
-            success &= romMapperMsxAudioCreate(NULL, NULL, 0, 0, 0, 0);
+            success &= romMapperMsxAudioCreate(NULL, NULL, 0, -1, 0, 0);
             continue;
         }
 

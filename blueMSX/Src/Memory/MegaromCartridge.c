@@ -476,6 +476,12 @@ int cartridgeInsert(int cartNo, RomType romType, const char* cart, const char* c
                     success &= romMapperMoonsoundCreate(romName, NULL, 0, 640, slot, sslot);
                 }
                 break;
+
+            case ROM_MSXAUDIO:
+                if (strcmp(cart, "MSX-AUDIO") == 0) {
+                    success &= romMapperMsxAudioCreate(romName, NULL, 0, slot, sslot, 0);
+                }
+                break;
             }
             break;
         }

@@ -140,6 +140,7 @@ void verifyFileHistory(char* history, RomType* historyType) {
             strcmp(fname, CARTNAME_V9968CART)   &&
             strcmp(fname, CARTNAME_MAKOTO)      &&
             strcmp(fname, CARTNAME_MOONSOUND)   &&
+            strcmp(fname, CARTNAME_MSXAUDIO)    &&
             strcmp(fname, CARTNAME_FMPAC)       &&
             strcmp(fname, CARTNAME_PAC)         &&
             strcmp(fname, CARTNAME_GAMEREADER)  &&

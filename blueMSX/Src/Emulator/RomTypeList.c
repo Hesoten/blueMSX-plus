@@ -206,6 +206,7 @@ static const RomTypeCart cartList[] = {
     { ROM_JOYREXPSG,             CARTNAME_JOYREXPSG,          ROMCAT_SOUND,      0 },
     { ROM_MAKOTO,                CARTNAME_MAKOTO,             ROMCAT_SOUND,      0 },
     { ROM_MOONSOUND,             CARTNAME_MOONSOUND,          ROMCAT_SOUND,      0 },
+    { ROM_MSXAUDIO,              CARTNAME_MSXAUDIO,           ROMCAT_SOUND,      0 },
     { ROM_PAC,                   CARTNAME_PAC,                ROMCAT_SOUND,      0 },
     { ROM_SCC,                   CARTNAME_SCC,                ROMCAT_SOUND,      0 },
     { ROM_SCCPLUS,               CARTNAME_SCCPLUS,            ROMCAT_SOUND,      0 },
@@ -354,11 +355,19 @@ RomType romTypeListCartFromName(const char* cartName)
 
 CartTwin romTypeListCartTwin(RomType romType, int withoutFile, RomType otherCart, const char* machineName)
 {
-    if (romType != ROM_MOONSOUND || !withoutFile) {
+    int builtIn;
+
+    if (romType == ROM_MOONSOUND && withoutFile) {
+        builtIn = machineHasRomType(machineName, ROM_MOONSOUND);
+    }
+    else if (romType == ROM_MSXAUDIO) {
+        builtIn = machineHasRomType(machineName, ROM_MSXAUDIODEV) || machineHasRomType(machineName, ROM_MSXAUDIO);
+    }
+    else {
         return CART_TWIN_NONE;
     }
-    if (machineHasRomType(machineName, ROM_MOONSOUND)) {
+    if (builtIn) {
         return CART_TWIN_BUILT_IN;
     }
-    return otherCart == ROM_MOONSOUND ? CART_TWIN_OTHER_SLOT : CART_TWIN_NONE;
+    return otherCart == romType ? CART_TWIN_OTHER_SLOT : CART_TWIN_NONE;
 }

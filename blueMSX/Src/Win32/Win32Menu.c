@@ -211,6 +211,7 @@ extern int showLoadMemoryDlg(HWND hwnd);
 #define ID_FILE_CART_MAKOTO             41126
 #define ID_FILE_CART_Y8960              41127
 #define ID_FILE_CART_MOONSOUND          41128
+#define ID_FILE_CART_MSXAUDIO           41129
 #define ID_FILE_CART_JOYREXPSG          41110
 #define ID_FILE_CART_EXTRAM16KB         41111
 #define ID_FILE_CART_EXTRAM32KB         41112
@@ -334,6 +335,7 @@ static const char* getCleanFileName(const char* fileName)
     if (strcmp(fileName, CARTNAME_JOYREXPSG) == 0)      return langMenuCartJoyrexPsg();
     if (strcmp(fileName, CARTNAME_MAKOTO) == 0)         return "Makoto";
     if (strcmp(fileName, CARTNAME_MOONSOUND) == 0)      return romTypeToString(ROM_MOONSOUND);
+    if (strcmp(fileName, CARTNAME_MSXAUDIO) == 0)       return romTypeToString(ROM_MSXAUDIO);
     if (strcmp(fileName, CARTNAME_FMPAC) == 0)          return langMenuCartFMPac();
     if (strcmp(fileName, CARTNAME_PAC) == 0)            return langMenuCartPac();
     if (strcmp(fileName, CARTNAME_SONYHBI55) == 0)      return langMenuCartHBI55();
@@ -659,6 +661,7 @@ static HMENU menuCreateCartSpecial(int cartNo, Properties* pProperties, Shortcut
         AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
     }
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_JOYREXPSG, langMenuCartJoyrexPsg());
+    AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_MSXAUDIO, romTypeToString(ROM_MSXAUDIO));
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_MOONSOUND, romTypeToString(ROM_MOONSOUND));
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_MAKOTO, "Makoto");
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_SCC, langMenuCartSCC());
@@ -2264,6 +2267,11 @@ int menuCommand(Properties* pProperties, int command)
         case ID_FILE_CART_MOONSOUND:
             if (!menuCartClashRefused(pProperties, i, ROM_MOONSOUND, CARTNAME_MOONSOUND)) {
                 insertCartridge(pProperties, i, CARTNAME_MOONSOUND, NULL, ROM_MOONSOUND, 0);
+            }
+            return 1;
+        case ID_FILE_CART_MSXAUDIO:
+            if (!menuCartClashRefused(pProperties, i, ROM_MSXAUDIO, CARTNAME_MSXAUDIO)) {
+                insertCartridge(pProperties, i, CARTNAME_MSXAUDIO, NULL, ROM_MSXAUDIO, 0);
             }
             return 1;
         case ID_FILE_CART_FMPAC:
