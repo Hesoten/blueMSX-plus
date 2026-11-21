@@ -425,6 +425,8 @@ char* langMenuCartEseRam() { return ls->menuCartEseRam; }
 char* langMenuCartEseSCC() { return ls->menuCartEseSCC; }
 char* langMenuCartMegaFlashRom() { return ls->menuCartMegaFlashRom; }
 char* langMenuCartFlashCart() { return ls->menuCartFlashCart; }
+char* langMenuCartSound() { return ls->menuCartSound; }
+char* langMenuCartVdp() { return ls->menuCartVdp; }
 
 char* langMenuDiskInsertNew() { return ls->menuDiskInsertNew; }
 char* langMenuDiskInsertPhysical() { return ls->menuDiskInsertPhysical; }
@@ -1238,6 +1240,7 @@ char* langRomTypeColecoCart() { return ls->romTypeColecoCart; }
 char* langRomTypeSg1000Cart() { return ls->romTypeSg1000Cart; }
 char* langRomTypeSc3000Cart() { return ls->romTypeSc3000Cart; }
 char* langRomTypeV9968Cart() { return ls->romTypeV9968Cart; }
+char* langRomTypeY8960Cart() { return ls->romTypeY8960Cart; }
 char* langRomTypeTheCastle() { return "SG-1000 The Castle"; }
 char* langRomTypeSonyHbi55() { return "Sony HBI-55"; }
 char* langRomTypeMsxPrinter() { return ls->romTypeMsxPrinter; }

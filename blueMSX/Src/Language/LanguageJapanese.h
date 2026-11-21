@@ -210,6 +210,8 @@ void langInitJapanese(LanguageStrings* ls)
     ls->menuCartEseSCC          = "似非SCC カートリッジ";       // New in 2.7
     ls->menuCartMegaFlashRom    = "Mega Flash ROM";             // New in 2.7
     ls->menuCartFlashCart       = "Flash カートリッジ";
+    ls->menuCartSound           = "音源カートリッジ";
+    ls->menuCartVdp             = "VDP カートリッジ";
 
     ls->menuDiskInsertNew       = "新規ディスクイメージを挿入";
     ls->menuDiskInsertPhysical  = "物理ドライブを挿入";
@@ -994,6 +996,7 @@ void langInitJapanese(LanguageStrings* ls)
     ls->romTypeSg1000Cart       = "SG-1000 Cartridge";
     ls->romTypeSc3000Cart       = "SC-3000 Cartridge";
     ls->romTypeV9968Cart        = "V9968 カートリッジ";
+    ls->romTypeY8960Cart        = "Y8960 カートリッジ";
     ls->romTypeMsxPrinter       = "MSX Printer";
     ls->romTypeTurborPcm        = "Turbo-R PCM Chip";
     ls->romTypeNms8280Digitiz   = "Philips NMS-8280 Digitizer";

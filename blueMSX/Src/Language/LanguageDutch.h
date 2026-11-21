@@ -208,6 +208,8 @@ void langInitDutch(LanguageStrings* ls)
     ls->menuCartEseSCC          = "Ese-SCC";
     ls->menuCartMegaFlashRom    = "Mega Flash ROM";
     ls->menuCartFlashCart       = "Flash-cartridges";
+    ls->menuCartSound           = "Geluidscartridges";
+    ls->menuCartVdp             = "VDP-cartridges";
 
     ls->menuDiskInsertNew       = "Voer Nieuw Diskettebestand in";
     ls->menuDiskInsertPhysical  = "Voer Fysiek Station in";

@@ -208,6 +208,8 @@ void langInitSwedish(LanguageStrings* ls)
     ls->menuCartEseSCC          = "Ese-SCC";             // New in 2.7
     ls->menuCartMegaFlashRom    = "Mega Flash ROM";      // New in 2.7
     ls->menuCartFlashCart       = "Flash-kassetter";
+    ls->menuCartSound           = "Ljudkassetter";
+    ls->menuCartVdp             = "VDP-kassetter";
 
     ls->menuDiskInsertNew       = "Sätt in ny diskett fil";
     ls->menuDiskInsertPhysical  = "Sätt in fysisk enhet";

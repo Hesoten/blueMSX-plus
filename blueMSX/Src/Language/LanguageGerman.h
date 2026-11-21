@@ -208,6 +208,8 @@ void langInitGerman(LanguageStrings* ls)
     ls->menuCartEseSCC           = "Ese-SCC";             // New in 2.7
     ls->menuCartMegaFlashRom     = "Mega Flash-ROM";      // New in 2.7
     ls->menuCartFlashCart        = "Flash-Module";
+    ls->menuCartSound            = "Sound-Module";
+    ls->menuCartVdp              = "VDP-Module";
 
     ls->menuCasInsertNew         = "Neues Cassetten-Image einfügen";
     ls->menuCasRewindAfterInsert = "Zurück nach Einfügen";

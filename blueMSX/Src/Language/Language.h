@@ -233,6 +233,8 @@ char* langMenuCartEseRam();
 char* langMenuCartEseSCC();
 char* langMenuCartMegaFlashRom();
 char* langMenuCartFlashCart();
+char* langMenuCartSound();
+char* langMenuCartVdp();
 
 char* langMenuDiskDirInsert();
 char* langMenuDiskDirInsertCdrom();
@@ -1046,6 +1048,7 @@ char* langRomTypeColecoCart();
 char* langRomTypeSg1000Cart();
 char* langRomTypeSc3000Cart();
 char* langRomTypeV9968Cart();
+char* langRomTypeY8960Cart();
 char* langRomTypeTheCastle();
 char* langRomTypeSegaBasic();
 char* langRomTypeSonyHbi55();

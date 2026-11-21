@@ -207,6 +207,8 @@ typedef struct {
     char* menuCartEseSCC;
     char* menuCartMegaFlashRom;
     char* menuCartFlashCart;
+    char* menuCartSound;
+    char* menuCartVdp;
 
     char* menuDiskInsertNew;
     char* menuDiskInsertPhysical;
@@ -977,6 +979,7 @@ typedef struct {
     char* romTypeSg1000Cart;
     char* romTypeSc3000Cart;
     char* romTypeV9968Cart;
+    char* romTypeY8960Cart;
 
     char* romTypeMsxPrinter;
     char* romTypeTurborPcm;
