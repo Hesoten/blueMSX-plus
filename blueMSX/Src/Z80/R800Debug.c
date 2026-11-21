@@ -35,6 +35,7 @@
 #include "R800Debug.h"
 #include "SlotManager.h"
 #include "DebugDeviceManager.h"
+#include "DebugTrace.h"
 #include "Language.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -51,7 +52,9 @@ struct R800Debug {
     R800* r800;
     R800ReadCb readMemory;      /* the CPU's own reads, which a read watch wraps */
     R800ReadCb readIoPort;
+    R800WriteCb writeIoPort;    /* the CPU's own OUT, which the io trace wraps */
     const UInt8* memBits;       /* the READ watch bits, which the memory wrapper tests */
+    UInt16 ioSource;
 };
 
 static R800Debug* dbg;
@@ -263,6 +266,40 @@ static void armReadWatch(int memory, int ports)
     dbg->r800->readIoPort = ports ? readIoPortWatched : dbg->readIoPort;
 }
 
+#define IO_TRACE_OUT 1
+
+static const DebugTraceField ioTraceOutFields[] = {
+    { "port",  DEBUG_TRACE_WORD_A, 0,  8,  DEBUG_TRACE_HEX, 0, NULL, 0 },
+    { "value", DEBUG_TRACE_WORD_A, 8,  8,  DEBUG_TRACE_HEX, 0, NULL, 0 },
+    { "hi",    DEBUG_TRACE_WORD_A, 16, 8,  DEBUG_TRACE_HEX, 0, NULL, 0 },
+    { "pc",    DEBUG_TRACE_WORD_B, 0,  16, DEBUG_TRACE_HEX, 0, NULL, 0 },
+};
+
+static const DebugTraceKindDesc ioTraceKinds[] = {
+    { IO_TRACE_OUT, "out", ioTraceOutFields, 4 },
+};
+
+static const DebugTraceClassDesc ioTraceClass = { "io", ioTraceKinds, 1 };
+
+/* Installed as the CPU's OUT while class io is armed. The record goes first, so it comes
+** before what the device records at the same tick. */
+static void writeIoPortTraced(void* ref, UInt16 port, UInt8 value)
+{
+    if (debugTracePorts[(port & 0xff) >> 3] >> (port & 7) & 1) {
+        debugTraceEmit(dbg->ioSource, IO_TRACE_OUT, dbg->r800->systemTime, 0,
+                       (port & 0xff) | (UInt32)value << 8 | (UInt32)(port & 0xff00) << 8,
+                       (UInt32)readerPc());
+    }
+    dbg->writeIoPort(ref, port, value);
+}
+
+/* Under the trace's lock: a plain pointer store, as armReadWatch. */
+static void armIoTrace(UInt32 armed)
+{
+    dbg->r800->writeIoPort = armed & DEBUG_TRACE_BIT(DEBUG_TRACE_IO) ? writeIoPortTraced
+                                                                     : dbg->writeIoPort;
+}
+
 static void debugCb(R800Debug* dbg, int command, const char* data) 
 {
     int slot, page, addr, rv;
@@ -289,10 +326,11 @@ void r800DebugCreate(R800* r800)
     DebugCallbacks dbgCallbacks = { getDebugInfo, dbgWriteMemory, dbgWriteRegister, NULL };
     R800Debug* created = (R800Debug*)calloc(1, sizeof(R800Debug));
 
-    created->r800       = r800;
-    created->readMemory = r800->readMemory;
-    created->readIoPort = r800->readIoPort;
-    created->memBits    = debugDeviceCpuReadBits();
+    created->r800        = r800;
+    created->readMemory  = r800->readMemory;
+    created->readIoPort  = r800->readIoPort;
+    created->writeIoPort = r800->writeIoPort;
+    created->memBits     = debugDeviceCpuReadBits();
     dbg = created;
     dbg->debugHandle = debugDeviceRegister(DBGTYPE_CPU, langDbgDevZ80(), &dbgCallbacks, dbg);
 
@@ -303,17 +341,24 @@ void r800DebugCreate(R800* r800)
     r800->watchpointIoCb    = watchpointIoCb;
     /* Watchpoints outlive a machine, so the new CPU takes over the read ones. */
     debugDeviceSetReadWatchCb(armReadWatch);
+    r800SetTraceSource(r800, debugTraceSourceRegister(DEBUG_TRACE_CPU, r800TraceClass(), "CPU"));
+    dbg->ioSource = debugTraceSourceRegister(DEBUG_TRACE_IO, &ioTraceClass, "CPU");
+    debugTraceSetArmCb(armIoTrace);
 }
 
 void r800DebugDestroy()
 {
     slotSetPageMappedCb(NULL);
     debugDeviceSetReadWatchCb(NULL);
+    debugTraceSetArmCb(NULL);
     pagesTracked = 0;
     debugDeviceUnregister(dbg->debugHandle);
     /* The wrappers read through dbg, which goes now. */
-    dbg->r800->readMemory = dbg->readMemory;
-    dbg->r800->readIoPort = dbg->readIoPort;
+    dbg->r800->readMemory  = dbg->readMemory;
+    dbg->r800->readIoPort  = dbg->readIoPort;
+    dbg->r800->writeIoPort = dbg->writeIoPort;
+    debugTraceSourceUnregister(dbg->ioSource);
+    debugTraceSourceUnregister(dbg->r800->traceSource);
     free(dbg);
     dbg = NULL;
 }

@@ -45,6 +45,7 @@ typedef struct {
 #endif
 
 volatile UInt32 debugTraceArmed;
+volatile UInt8  debugTracePorts[DEBUG_TRACE_PORT_BYTES];
 
 static SRWLOCK lock = SRWLOCK_INIT;
 static Slot* ring;
@@ -54,6 +55,8 @@ static volatile LONG linkCount;
 static volatile DWORD writer;
 static volatile int rearm;
 static int armCount[DEBUG_TRACE_CLASSES];
+static int portHolds[DEBUG_TRACE_PORT_BYTES * 8];
+static DebugTraceArmCb armCb;
 static UInt64 anchor;
 static DebugTraceSource sources[DEBUG_TRACE_SOURCES];
 static int sourceCount = 1;
@@ -203,6 +206,7 @@ int debugTraceSourceGet(UInt16 source, DebugTraceSource* out)
 void debugTraceArm(UInt32 classMask, int on)
 {
     UInt32 mask = 0;
+    UInt32 was;
     int i;
 
     AcquireSRWLockExclusive(&lock);
@@ -222,7 +226,55 @@ void debugTraceArm(UInt32 classMask, int on)
         rearm = 1;
     }
     archMemoryBarrier();
+    was = debugTraceArmed;
     debugTraceArmed = mask;
+    if (armCb != NULL && mask != was) {
+        armCb(mask);
+    }
+    ReleaseSRWLockExclusive(&lock);
+}
+
+void debugTraceSetArmCb(DebugTraceArmCb cb)
+{
+    AcquireSRWLockExclusive(&lock);
+    armCb = cb;
+    if (cb != NULL) {
+        cb(debugTraceArmed);
+    }
+    ReleaseSRWLockExclusive(&lock);
+}
+
+void debugTracePortsHold(UInt8* held, const UInt8* want)
+{
+    int port;
+
+    AcquireSRWLockExclusive(&lock);
+    for (port = 0; port < DEBUG_TRACE_PORT_BYTES * 8; port++) {
+        UInt8 bit = (UInt8)(1 << (port & 7));
+
+        if ((want[port >> 3] & bit) && !(held[port >> 3] & bit)) {
+            held[port >> 3] |= bit;
+            if (portHolds[port]++ == 0) {
+                debugTracePorts[port >> 3] |= bit;
+            }
+        }
+    }
+    ReleaseSRWLockExclusive(&lock);
+}
+
+void debugTracePortsRelease(UInt8* held)
+{
+    int port;
+
+    AcquireSRWLockExclusive(&lock);
+    for (port = 0; port < DEBUG_TRACE_PORT_BYTES * 8; port++) {
+        UInt8 bit = (UInt8)(1 << (port & 7));
+
+        if ((held[port >> 3] & bit) && --portHolds[port] == 0) {
+            debugTracePorts[port >> 3] &= (UInt8)~bit;
+        }
+    }
+    memset(held, 0, DEBUG_TRACE_PORT_BYTES);
     ReleaseSRWLockExclusive(&lock);
 }
 
