@@ -43,7 +43,7 @@
 extern "C" {
 #endif
 
-/* Show a text message in the non-activating topmost toast (fades out
+/* Show a text message in the non-activating toast above its owner (fades out
 ** after ~7s, dismisses on click).
 ** Calling again replaces the message and restarts the timer.
 **   ownerHwnd : top-level window that owns the toast for z-order /
@@ -58,7 +58,7 @@ void toastShowMessage(HWND ownerHwnd, HWND anchorHwnd, const char* msg);
 void toastShowSaved(HWND ownerHwnd, HWND anchorHwnd, const char* savedPath);
 
 /* Hide the toast (if any) immediately. Call before opening another modal
-** dialog so the toast's WS_EX_TOPMOST overlay and 50ms timer do not race
+** dialog so the toast's overlay and 50ms timer do not race
 ** the dialog's modal message pump. Idempotent. */
 void toastHide(void);
 
