@@ -299,7 +299,7 @@ What the agent cannot do, and what it does instead:
 | Decode the sprites or what else was written to the VDP | It reads each video chip's registers, palette and video memory, the machine VDP's raster log, and a screenshot. |
 | List a BASIC program, break on a BASIC line, read BASIC variables | It types `LIST` and reads the screen, and reads memory (on a machine with BASIC). |
 | Use an assembler listing (`.lst`) for labels | Give it the symbol file (`.sld`, `.sym`, `.noi`, `.map`). |
-| Trace the CPU, profile, measure code coverage, assemble into memory, act as a DAP debugger, or show graphical viewers | Not possible. |
+| Trace every instruction the CPU runs, profile, measure code coverage, assemble into memory, act as a DAP debugger, or show graphical viewers | Not possible. The trace records only the CPU's HALTs, its interrupts and its OUTs to the ports you choose; `bmsx_stack` with `history=N` lists the last instructions run. |
 
 ## If something goes wrong
 
@@ -448,7 +448,7 @@ the segment address of the stored bytes.
 | `bmsx_break` | `when` stops only while an expression holds (registers, `[addr]`, `@label`), and `skip` passes over the first N times it holds. The stop reply and the list give how often it was reached and how often the expression held. |
 | `bmsx_vdp` | `chip` picks the machine's VDP (the default), a V9968 cartridge's or a V9990's. `show=raster` (the machine's VDP only) only starts the log on its first call, so run or step a frame and read again. |
 | `bmsx_devices` | An index holds only until a reset, a cartridge change or a state load. Memory blocks are listed, not dumped. |
-| `bmsx_trace` | Recording is held per connection: `op=arm` starts it and the end of the connection drops it. About 57000 recent records stay readable, so pause or step frames between reads. |
+| `bmsx_trace` | Recording is held per connection: `op=arm` starts it and the end of the connection drops it. `cpu` records HALTs and interrupts up to the handler's first EI; `io` records OUTs to the `ports` given, which it needs. About 57000 recent records stay readable, so pause or step frames between reads. |
 
 Read Only allows the reading tools (`bmsx_status`, `bmsx_slots`, the bank
 list, `bmsx_mem_read`, `bmsx_mem_resolve`, `bmsx_stack`, `bmsx_dasm`,
