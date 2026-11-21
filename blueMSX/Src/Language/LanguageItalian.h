@@ -109,6 +109,8 @@ void langInitItalian(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound    = "La configurazione di macchina selezionata '%s' non è stata trovata.";
     ls->errorStartEmuConfigInvalid      = "Impossibile leggere config.ini della configurazione di macchina '%s'. Il file potrebbe essere danneggiato o provenire da una versione incompatibile.";
     ls->errorMissingFiles               = "Non è stato possibile caricare i seguenti file:";
+    ls->errorSharedRomsFailed           = "Impossibile caricare da Shared Roms:";
+    ls->errorFileUnusable               = " (contenuto non corrispondente)";
     ls->errorFlashInvalid               = "Il salvataggio di %s è danneggiato e non è stato possibile caricarlo.";
     ls->errorFlashSramSize              = "Il salvataggio di %s ha una dimensione errata e non è stato possibile caricarlo.";
     ls->errorFlashUnreadable            = "Non è stato possibile aprire il salvataggio di %s. Forse è in uso da un altro programma.";

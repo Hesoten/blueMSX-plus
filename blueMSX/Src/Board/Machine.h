@@ -122,6 +122,8 @@ void machineSaveState(Machine* machine);
 
 void machineSetDirectory(const char* dir);
 const char* machineGetDirectory(void);
+/* Rewrites a path starting with Machines/ in place to the machines directory in use. */
+void machineExpandPath(char* path, int size);
 
 /* Why machineCreate() would fail for machineName, without actually loading.
 ** Used by the Win32 "failed to start" dialog to explain the specific cause. */

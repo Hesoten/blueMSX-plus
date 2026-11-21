@@ -108,6 +108,8 @@ void langInitPolish(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "Nie znaleziono wybranej konfiguracji maszyny '%s'.";
     ls->errorStartEmuConfigInvalid       = "Nie udało się odczytać pliku config.ini konfiguracji maszyny '%s'. Plik może być uszkodzony lub pochodzić z niekompatybilnej wersji.";
     ls->errorMissingFiles       = "Nie można wczytać następujących plików:";
+    ls->errorSharedRomsFailed   = "Nie można wczytać z Shared Roms:";
+    ls->errorFileUnusable       = " (niezgodna zawartość)";
     ls->errorFlashInvalid       = "Zapis dla %s jest uszkodzony i nie udało się go wczytać.";
     ls->errorFlashSramSize      = "Zapis dla %s ma nieprawidłowy rozmiar i nie udało się go wczytać.";
     ls->errorFlashUnreadable    = "Nie udało się otworzyć zapisu dla %s. Być może używa go inny program.";

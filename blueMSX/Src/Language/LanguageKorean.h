@@ -108,6 +108,8 @@ void langInitKorean(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "선택한 머신 구성 '%s'을(를) 찾을 수 없습니다.";
     ls->errorStartEmuConfigInvalid       = "머신 구성 '%s'의 config.ini를 읽을 수 없습니다. 파일이 손상되었거나 호환되지 않는 버전에서 온 것일 수 있습니다.";
     ls->errorMissingFiles       = "다음 파일을 로드할 수 없습니다:";
+    ls->errorSharedRomsFailed   = "Shared Roms에서 로드할 수 없습니다:";
+    ls->errorFileUnusable       = " (내용 불일치)";
     ls->errorFlashInvalid       = "'%s'의 세이브 데이터가 손상되어 불러오지 못했습니다.";
     ls->errorFlashSramSize      = "'%s'의 세이브 데이터 크기가 맞지 않아 불러오지 못했습니다.";
     ls->errorFlashUnreadable    = "'%s'의 세이브 데이터를 열지 못했습니다. 다른 프로그램이 사용 중일 수 있습니다.";

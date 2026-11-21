@@ -134,6 +134,8 @@ char* langErrorStartEmuMachinesDirMissing();
 char* langErrorStartEmuMachineNotFound();
 char* langErrorStartEmuConfigInvalid();
 char* langErrorMissingFiles();
+char* langErrorSharedRomsFailed();
+char* langErrorFileUnusable();
 char* langErrorFlashInvalid();
 char* langErrorFlashSramSize();
 char* langErrorFlashUnreadable();

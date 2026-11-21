@@ -108,6 +108,8 @@ void langInitDutch(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "De geselecteerde machineconfiguratie '%s' is niet gevonden.";
     ls->errorStartEmuConfigInvalid       = "Kon config.ini van machineconfiguratie '%s' niet lezen. Het bestand is mogelijk beschadigd of afkomstig uit een niet-compatibele versie.";
     ls->errorMissingFiles       = "De volgende bestanden konden niet worden geladen:";
+    ls->errorSharedRomsFailed   = "Kon niet laden uit Shared Roms:";
+    ls->errorFileUnusable       = " (inhoudsafwijking)";
     ls->errorFlashInvalid       = "De opgeslagen gegevens van %s zijn beschadigd en konden niet worden geladen.";
     ls->errorFlashSramSize      = "De opgeslagen gegevens van %s hebben de verkeerde grootte en konden niet worden geladen.";
     ls->errorFlashUnreadable    = "De opgeslagen gegevens van %s konden niet worden geopend. Misschien gebruikt een ander programma ze.";

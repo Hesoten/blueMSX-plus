@@ -108,6 +108,8 @@ void langInitEnglish(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "The selected machine configuration '%s' could not be found.";
     ls->errorStartEmuConfigInvalid       = "Could not read config.ini for machine configuration '%s'. The file may be corrupted or from an incompatible version.";
     ls->errorMissingFiles       = "The following files could not be loaded:";
+    ls->errorSharedRomsFailed   = "Could not load from Shared Roms:";
+    ls->errorFileUnusable       = " (content mismatch)";
     ls->errorFlashInvalid       = "The save data for %s is damaged and could not be loaded.";
     ls->errorFlashSramSize      = "The save data for %s is the wrong size and could not be loaded.";
     ls->errorFlashUnreadable    = "The save data for %s could not be opened. Another program may be using it.";

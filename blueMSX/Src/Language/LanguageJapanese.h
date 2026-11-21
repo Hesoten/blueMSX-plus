@@ -110,6 +110,8 @@ void langInitJapanese(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "選択されたマシン構成 '%s' が見つかりません。";
     ls->errorStartEmuConfigInvalid       = "マシン構成 '%s' の config.ini を読み込めませんでした。ファイルが破損しているか、非互換のバージョンの可能性があります。";
     ls->errorMissingFiles       = "以下のファイルが読み込めませんでした:";
+    ls->errorSharedRomsFailed   = "Shared Roms から読み込めませんでした:";
+    ls->errorFileUnusable       = "（内容不一致）";
     ls->errorFlashInvalid       = "「%s」のセーブデータが壊れているため、読み込めませんでした。";
     ls->errorFlashSramSize      = "「%s」のセーブデータのサイズが合わないため、読み込めませんでした。";
     ls->errorFlashUnreadable    = "「%s」のセーブデータを開けませんでした。ほかのプログラムが使用中の可能性があります。";

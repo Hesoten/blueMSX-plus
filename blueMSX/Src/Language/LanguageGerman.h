@@ -108,6 +108,8 @@ void langInitGerman(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "Die ausgewählte Maschinenkonfiguration '%s' wurde nicht gefunden.";
     ls->errorStartEmuConfigInvalid       = "Die config.ini der Maschinenkonfiguration '%s' konnte nicht gelesen werden. Die Datei ist möglicherweise beschädigt oder stammt aus einer inkompatiblen Version.";
     ls->errorMissingFiles        = "Folgende Dateien konnten nicht geladen werden:";
+    ls->errorSharedRomsFailed    = "Konnte nicht aus Shared Roms geladen werden:";
+    ls->errorFileUnusable        = " (Inhaltsabweichung)";
     ls->errorFlashInvalid        = "Die Speicherdaten von %s sind beschädigt und konnten nicht geladen werden.";
     ls->errorFlashSramSize       = "Die Speicherdaten von %s haben die falsche Größe und konnten nicht geladen werden.";
     ls->errorFlashUnreadable     = "Die Speicherdaten von %s konnten nicht geöffnet werden. Vielleicht verwendet sie ein anderes Programm.";

@@ -108,6 +108,8 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "找不到所选的机器配置 '%s'。";
     ls->errorStartEmuConfigInvalid       = "无法读取机器配置 '%s' 的 config.ini。该文件可能已损坏，或来自不兼容的版本。";
     ls->errorMissingFiles       = "无法加载以下文件：";
+    ls->errorSharedRomsFailed   = "无法从 Shared Roms 加载：";
+    ls->errorFileUnusable       = "（内容不符）";
     ls->errorFlashInvalid       = "“%s”的存档已损坏，无法载入。";
     ls->errorFlashSramSize      = "“%s”的存档大小不符，无法载入。";
     ls->errorFlashUnreadable    = "无法打开“%s”的存档，可能有其他程序正在使用。";

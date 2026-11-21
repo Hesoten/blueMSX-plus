@@ -325,6 +325,8 @@ char* langErrorStartEmuMachinesDirMissing() { return ls->errorStartEmuMachinesDi
 char* langErrorStartEmuMachineNotFound()    { return ls->errorStartEmuMachineNotFound; }
 char* langErrorStartEmuConfigInvalid()      { return ls->errorStartEmuConfigInvalid; }
 char* langErrorMissingFiles() { return ls->errorMissingFiles; }
+char* langErrorSharedRomsFailed() { return ls->errorSharedRomsFailed; }
+char* langErrorFileUnusable() { return ls->errorFileUnusable; }
 char* langErrorFlashInvalid()      { return ls->errorFlashInvalid; }
 char* langErrorFlashSramSize()     { return ls->errorFlashSramSize; }
 char* langErrorFlashUnreadable()   { return ls->errorFlashUnreadable; }

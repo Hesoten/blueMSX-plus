@@ -108,6 +108,8 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "Não foi possível encontrar a configuração de máquina selecionada '%s'.";
     ls->errorStartEmuConfigInvalid       = "Não foi possível ler config.ini da configuração de máquina '%s'. O arquivo pode estar corrompido ou pertencer a uma versão incompatível.";
     ls->errorMissingFiles       = "Não foi possível carregar os seguintes arquivos:";
+    ls->errorSharedRomsFailed   = "Não foi possível carregar de Shared Roms:";
+    ls->errorFileUnusable       = " (conteúdo divergente)";
     ls->errorFlashInvalid       = "Os dados salvos de %s estão danificados e não puderam ser carregados.";
     ls->errorFlashSramSize      = "Os dados salvos de %s têm o tamanho errado e não puderam ser carregados.";
     ls->errorFlashUnreadable    = "Não foi possível abrir os dados salvos de %s. Talvez outro programa os esteja usando.";

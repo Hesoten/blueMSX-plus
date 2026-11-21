@@ -108,6 +108,8 @@ void langInitRussian(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "Выбранная конфигурация машины '%s' не найдена.";
     ls->errorStartEmuConfigInvalid       = "Не удалось прочитать config.ini конфигурации машины '%s'. Возможно, файл повреждён или относится к несовместимой версии.";
     ls->errorMissingFiles       = "Не удалось загрузить следующие файлы:";
+    ls->errorSharedRomsFailed   = "Не удалось загрузить из Shared Roms:";
+    ls->errorFileUnusable       = " (несоответствие содержимого)";
     ls->errorFlashInvalid       = "Сохранение %s повреждено и не может быть загружено.";
     ls->errorFlashSramSize      = "Сохранение %s имеет неверный размер и не может быть загружено.";
     ls->errorFlashUnreadable    = "Не удалось открыть сохранение %s. Возможно, его использует другая программа.";

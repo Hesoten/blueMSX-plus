@@ -108,6 +108,8 @@ void langInitCatalan(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "No s'ha pogut trobar la configuració de màquina seleccionada '%s'.";
     ls->errorStartEmuConfigInvalid       = "No s'ha pogut llegir config.ini de la configuració de màquina '%s'. El fitxer pot estar malmès o provenir d'una versió incompatible.";
     ls->errorMissingFiles       = "No s'han pogut carregar els següents fitxers:";
+    ls->errorSharedRomsFailed   = "No s'ha pogut carregar des de Shared Roms:";
+    ls->errorFileUnusable       = " (contingut no coincident)";
     ls->errorFlashInvalid       = "Les dades desades de %s estan malmeses i no s'han pogut carregar.";
     ls->errorFlashSramSize      = "Les dades desades de %s no tenen la mida correcta i no s'han pogut carregar.";
     ls->errorFlashUnreadable    = "No s'han pogut obrir les dades desades de %s. Potser un altre programa les fa servir.";

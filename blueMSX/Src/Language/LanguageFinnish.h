@@ -110,6 +110,8 @@ void langInitFinnish(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "Valittua koneen kokoonpanoa '%s' ei löytynyt.";
     ls->errorStartEmuConfigInvalid       = "Koneen kokoonpanon '%s' config.ini-tiedostoa ei voitu lukea. Tiedosto voi olla vioittunut tai peräisin epäyhteensopivasta versiosta.";
     ls->errorMissingFiles       = "Seuraavia tiedostoja ei voitu ladata:";
+    ls->errorSharedRomsFailed   = "Ei voitu ladata kansiosta Shared Roms:";
+    ls->errorFileUnusable       = " (sisältöristiriita)";
     ls->errorFlashInvalid       = "Ohjelman %s tallennetut tiedot ovat vioittuneet, eikä niitä voitu ladata.";
     ls->errorFlashSramSize      = "Ohjelman %s tallennetut tiedot ovat väärän kokoiset, eikä niitä voitu ladata.";
     ls->errorFlashUnreadable    = "Ohjelman %s tallennettuja tietoja ei voitu avata. Jokin toinen ohjelma saattaa käyttää niitä.";
