@@ -282,7 +282,9 @@ typedef struct
     R800WriteCb   writeMemory;      /* and writing memory and IO ports */
     R800ReadCb    readIoPort;
     R800WriteCb   writeIoPort;
-    R800PatchCb   patch;
+    /* The same read as readMemory, for instruction fetches and other reads no read
+    ** watchpoint sees; the debugger may route readMemory through a watching wrapper. */
+    R800ReadCb    fetchMemory;      /* in patch's old slot, so the hot fields keep their offsets */
     R800TimerCb   timerCb;
     R800BreakptCb breakpointCb;
     R800DebugCb   debugCb;
@@ -320,6 +322,8 @@ typedef struct
     UInt8         traceHalted;
     UInt8         traceInIrq;
     UInt32        traceEpoch;
+
+    R800PatchCb   patch;            /* rarely called, so kept out of the way */
 } R800;
 
 

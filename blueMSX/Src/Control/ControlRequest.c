@@ -95,10 +95,12 @@ static const CtrlArg bpClearArgs[] = {
 };
 static const CtrlArg wpSetArgs[] = {
     { "at", CTRL_ARG_TEXT, CTRL_AT_MAX }, { "port", CTRL_ARG_INT, 0 },
-    { "condition", CTRL_ARG_TEXT, 15 }, { "value", CTRL_ARG_INT, 0 }, { "size", CTRL_ARG_INT, 0 }, { NULL }
+    { "condition", CTRL_ARG_TEXT, 15 }, { "value", CTRL_ARG_INT, 0 }, { "size", CTRL_ARG_INT, 0 },
+    { "on", CTRL_ARG_TEXT, 15 }, { NULL }
 };
 static const CtrlArg wpClearArgs[] = {
-    { "at", CTRL_ARG_TEXT, CTRL_AT_MAX }, { "port", CTRL_ARG_INT, 0 }, { NULL }
+    { "at", CTRL_ARG_TEXT, CTRL_AT_MAX }, { "port", CTRL_ARG_INT, 0 }, { "on", CTRL_ARG_TEXT, 15 },
+    { NULL }
 };
 static const CtrlArg huntStartArgs[] = {
     { "width", CTRL_ARG_TEXT, 7 }, { "stride", CTRL_ARG_INT, 0 }, { NULL }
@@ -227,10 +229,10 @@ static const CtrlOp opTable[] = {
       "  bp.list\n" },
     { "wp.set",            CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpWpSet, OP_ARGS(wpSetArgs),
       CTRL_ACT_WATCH_SET,
-      "  wp.set       at | port, condition, value, size\n" },
+      "  wp.set       at | port, condition, value, size, on = write|read\n" },
     { "wp.clear",          CTRL_OP_CHANGES, CTRL_OP_HELD, ctrlOpWpClear, OP_ARGS(wpClearArgs),
       CTRL_ACT_WATCH_CLEAR,
-      "  wp.clear     at | port\n" },
+      "  wp.clear     at | port, on = write|read\n" },
     { "wp.list",           CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpWpList, NULL,
       CTRL_ACT_DENIED,
       "  wp.list\n" },

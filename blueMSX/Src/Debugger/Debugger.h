@@ -54,6 +54,10 @@ typedef enum {
     DBGWP_GREATER_THAN
 } DbgWatchpointCondition;
 
+/* What a watchpoint stops on; only CPU and PORT ones can be READ. */
+#define DBG_WATCH_ON_WRITE 0
+#define DBG_WATCH_ON_READ  1
+
 
 typedef void (*DebuggerEvent)(void*);
 /* A pause told with its cause (a DBG_STOP_ value) and the run generation it began. */
@@ -323,9 +327,10 @@ void dbgBreakpointLastHit(DbgBreakHit* out);
 
 void dbgSetWatchpoint(DbgDeviceType devType, int address, DbgWatchpointCondition condition, UInt32 referenceValue, int size);
 void dbgClearWatchpoint(DbgDeviceType devType, int address);
-/* The same for a VIDEO watchpoint at the address the program uses when byProgram is non-zero. */
-void dbgSetWatchpointEx(DbgDeviceType devType, int address, DbgWatchpointCondition condition, UInt32 referenceValue, int size, int byProgram);
-void dbgClearWatchpointEx(DbgDeviceType devType, int address, int byProgram);
+/* The same for a VIDEO watchpoint at the address the program uses when byProgram is non-zero,
+** and for one stopping on access, a DBG_WATCH_ON_ value. */
+void dbgSetWatchpointEx(DbgDeviceType devType, int address, DbgWatchpointCondition condition, UInt32 referenceValue, int size, int byProgram, int access);
+void dbgClearWatchpointEx(DbgDeviceType devType, int address, int byProgram, int access);
 
 int debuggerCheckVramAccess(void);
 

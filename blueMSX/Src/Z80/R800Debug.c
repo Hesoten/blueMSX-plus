@@ -49,6 +49,9 @@ extern void archTrap(UInt8 value);
 struct R800Debug {
     int debugHandle;
     R800* r800;
+    R800ReadCb readMemory;      /* the CPU's own reads, which a read watch wraps */
+    R800ReadCb readIoPort;
+    const UInt8* memBits;       /* the READ watch bits, which the memory wrapper tests */
 };
 
 static R800Debug* dbg;
@@ -221,6 +224,45 @@ static void watchpointIoCb(R800Debug* dbg, UInt16 port, UInt8 value)
     tryWatchpoint(DBGTYPE_PORT, port & 0xff, value, dbg, NULL);
 }
 
+/* The start of the instruction running, which only r800Execute keeps in lastPC (the
+** ExecuteUntil and ExecuteInstruction loops do not, and only the unused r800ExecuteTrace
+** calls them); -1 if untraced. */
+static int readerPc(void)
+{
+#if TIME_TRACE_SIZE > 0
+    return dbg->r800->lastPC;
+#else
+    return -1;
+#endif
+}
+
+/* Installed as the CPU's data read while a read watch is armed; fetches do not come here. */
+static UInt8 readMemoryWatched(void* ref, UInt16 address)
+{
+    UInt8 value = dbg->readMemory(ref, address);
+
+    if (dbg->memBits[address >> 3] >> (address & 7) & 1) {
+        tryReadWatchpoint(DBGTYPE_CPU, address, value, ref, readMem, readerPc());
+    }
+    return value;
+}
+
+static UInt8 readIoPortWatched(void* ref, UInt16 port)
+{
+    UInt8 value = dbg->readIoPort(ref, port);
+
+    tryReadWatchpoint(DBGTYPE_PORT, port & 0xff, value, ref, NULL, readerPc());
+    return value;
+}
+
+/* A plain pointer store: what each wrapper reads is set at create, and the CPU takes one
+** read or the other, so a running CPU may pick the change up at any access. */
+static void armReadWatch(int memory, int ports)
+{
+    dbg->r800->readMemory = memory ? readMemoryWatched : dbg->readMemory;
+    dbg->r800->readIoPort = ports ? readIoPortWatched : dbg->readIoPort;
+}
+
 static void debugCb(R800Debug* dbg, int command, const char* data) 
 {
     int slot, page, addr, rv;
@@ -245,9 +287,13 @@ void trapCb(R800* r800, UInt8 value)
 void r800DebugCreate(R800* r800)
 {
     DebugCallbacks dbgCallbacks = { getDebugInfo, dbgWriteMemory, dbgWriteRegister, NULL };
-    
-    dbg = (R800Debug*)malloc(sizeof(R800Debug));
-    dbg->r800 = r800;
+    R800Debug* created = (R800Debug*)calloc(1, sizeof(R800Debug));
+
+    created->r800       = r800;
+    created->readMemory = r800->readMemory;
+    created->readIoPort = r800->readIoPort;
+    created->memBits    = debugDeviceCpuReadBits();
+    dbg = created;
     dbg->debugHandle = debugDeviceRegister(DBGTYPE_CPU, langDbgDevZ80(), &dbgCallbacks, dbg);
 
     r800->debugCb           = debugCb;
@@ -255,13 +301,19 @@ void r800DebugCreate(R800* r800)
     r800->trapCb            = trapCb;
     r800->watchpointMemCb   = watchpointMemCb;
     r800->watchpointIoCb    = watchpointIoCb;
+    /* Watchpoints outlive a machine, so the new CPU takes over the read ones. */
+    debugDeviceSetReadWatchCb(armReadWatch);
 }
 
 void r800DebugDestroy()
 {
     slotSetPageMappedCb(NULL);
+    debugDeviceSetReadWatchCb(NULL);
     pagesTracked = 0;
     debugDeviceUnregister(dbg->debugHandle);
+    /* The wrappers read through dbg, which goes now. */
+    dbg->r800->readMemory = dbg->readMemory;
+    dbg->r800->readIoPort = dbg->readIoPort;
     free(dbg);
     dbg = NULL;
 }

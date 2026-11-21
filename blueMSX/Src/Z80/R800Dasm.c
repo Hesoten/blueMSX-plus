@@ -372,7 +372,7 @@ static int dasmDecode(DasmFetch* fetch, UInt16 PC,
 static UInt8 cpuByte(void* ref, UInt16 at)
 {
     R800* r800 = (R800*)ref;
-    return r800->readMemory(r800->ref, at);
+    return r800->fetchMemory(r800->ref, at);
 }
 
 int r800Dasm(R800* r800, UInt16 PC, char* dest)

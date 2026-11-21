@@ -31,6 +31,7 @@
 #include "DebugDeviceManager.h"
 #include "Board.h"
 #include "ArchThread.h"
+#include "ArchEvent.h"
 #include "VDP.h"
 #include <stdlib.h>
 #include <string.h>
@@ -117,21 +118,33 @@ static int    lastWatchType;
 static UInt32 lastWatchAddress;
 static int    lastWatchMode;
 static int    lastWatchKind;
+static int    lastWatchAccess;
+static int    lastWatchPc;
 
-void debugDeviceNoteWatchHit(int devType, UInt32 address, int layout, int kind)
+static void noteWatchHit(int devType, UInt32 address, int layout, int kind, int access, int pc)
 {
     lastWatchType    = devType;
     lastWatchAddress = address;
     lastWatchMode    = layout;
     lastWatchKind    = kind;
+    lastWatchAccess  = access;
+    lastWatchPc      = pc;
 }
 
-void debugDeviceLastWatchHit(int* devType, UInt32* address, int* layout, int* kind)
+void debugDeviceNoteWatchHit(int devType, UInt32 address, int layout, int kind)
+{
+    noteWatchHit(devType, address, layout, kind, DBG_WATCH_ON_WRITE, -1);
+}
+
+void debugDeviceLastWatchHit(int* devType, UInt32* address, int* layout, int* kind, int* access,
+                             int* pc)
 {
     *devType    = lastWatchType;
     *address    = lastWatchAddress;
     *layout     = lastWatchMode;
     *kind       = lastWatchKind;
+    *access     = lastWatchAccess;
+    *pc         = lastWatchPc;
 }
 
 int debugDeviceVramIndex(int layout, int address)
@@ -395,10 +408,88 @@ typedef struct Watchpoint {
     UInt32 refValue;
     int size;
     int byProgram;   /* a VIDEO one at the address the program uses, not the index */
+    int access;      /* DBG_WATCH_ON_ */
 } Watchpoint;
 
 Watchpoint* watchpoints[MAX_DEVICES];
 int debugWatchpointCount[MAX_DEVICES];
+
+/* A bit for each CPU address a READ watchpoint covers, tested on every read the CPU makes. */
+static UInt8 cpuReadBits[0x10000 / 8];
+static DebugDeviceReadWatchCb readWatchCb;
+/* Innermost lock around the arming callback, a set's lookup and link, and a clear's unlink,
+** free and rebuild; nothing waits under it. Never taken on a hit. */
+static void* readWatchLock;
+
+void debugDeviceCreateLock(void)
+{
+    if (readWatchLock == NULL) {
+        readWatchLock = archSemaphoreCreate(1);
+    }
+}
+
+static void readWatchLockTake(void)
+{
+    if (readWatchLock != NULL) {
+        archSemaphoreWait(readWatchLock, -1);
+    }
+}
+
+static void readWatchLockGive(void)
+{
+    if (readWatchLock != NULL) {
+        archSemaphoreSignal(readWatchLock);
+    }
+}
+
+static int isWatchpointAt(const Watchpoint* watchpoint, int address, int byProgram, int access)
+{
+    return watchpoint->address == address && watchpoint->byProgram == byProgram &&
+           watchpoint->access == access;
+}
+
+static int anyReadWatchpoint(DbgDeviceType devType)
+{
+    const Watchpoint* watchpoint;
+
+    for (watchpoint = watchpoints[devType]; watchpoint != NULL; watchpoint = watchpoint->next) {
+        if (watchpoint->access == DBG_WATCH_ON_READ) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static void markReadBits(UInt8* bits, const Watchpoint* watchpoint)
+{
+    int address;
+
+    for (address = watchpoint->address;
+         address < watchpoint->address + watchpoint->size && address < 0x10000; address++) {
+        bits[address >> 3] |= (UInt8)(1 << (address & 7));
+    }
+}
+
+/* Under readWatchLock. */
+static void armReadWatchesLocked(void)
+{
+    if (readWatchCb != NULL) {
+        readWatchCb(anyReadWatchpoint(DBGTYPE_CPU), anyReadWatchpoint(DBGTYPE_PORT));
+    }
+}
+
+const UInt8* debugDeviceCpuReadBits(void)
+{
+    return cpuReadBits;
+}
+
+void debugDeviceSetReadWatchCb(DebugDeviceReadWatchCb cb)
+{
+    readWatchLockTake();
+    readWatchCb = cb;
+    armReadWatchesLocked();
+    readWatchLockGive();
+}
 
 void debugDeviceSetMemoryWatchpoint(DbgDeviceType devType, int address, DbgWatchpointCondition condition, UInt32 refValue, int size)
 {
@@ -412,11 +503,29 @@ void debugDeviceClearMemoryWatchpoint(DbgDeviceType devType, int address)
 
 void debugDeviceSetMemoryWatchpointEx(DbgDeviceType devType, int address, DbgWatchpointCondition condition, UInt32 refValue, int size, int byProgram)
 {
-    Watchpoint* watchpoint = watchpoints[devType];
+    debugDeviceSetMemoryWatchpointOn(devType, address, condition, refValue, size, byProgram,
+                                     DBG_WATCH_ON_WRITE);
+}
+
+void debugDeviceClearMemoryWatchpointEx(DbgDeviceType devType, int address, int byProgram)
+{
+    debugDeviceClearMemoryWatchpointOn(devType, address, byProgram, DBG_WATCH_ON_WRITE);
+}
+
+int debugDeviceHasMemoryWatchpointEx(DbgDeviceType devType, int address, int byProgram)
+{
+    return debugDeviceHasMemoryWatchpointOn(devType, address, byProgram, DBG_WATCH_ON_WRITE);
+}
+
+void debugDeviceSetMemoryWatchpointOn(DbgDeviceType devType, int address, DbgWatchpointCondition condition, UInt32 refValue, int size, int byProgram, int access)
+{
+    Watchpoint* watchpoint;
     int isNew = 0;
 
+    readWatchLockTake();
+    watchpoint = watchpoints[devType];
     while (watchpoint != NULL) {
-        if (watchpoint->address == address && watchpoint->byProgram == byProgram) {
+        if (isWatchpointAt(watchpoint, address, byProgram, access)) {
             break;
         }
         watchpoint = watchpoint->next;
@@ -424,6 +533,7 @@ void debugDeviceSetMemoryWatchpointEx(DbgDeviceType devType, int address, DbgWat
     if (watchpoint == NULL) {
         watchpoint = (Watchpoint*)calloc(1, sizeof(Watchpoint));
         watchpoint->byProgram = byProgram;
+        watchpoint->access = access;
         isNew = 1;
     }
 
@@ -439,14 +549,26 @@ void debugDeviceSetMemoryWatchpointEx(DbgDeviceType devType, int address, DbgWat
         watchpoints[devType] = watchpoint;
         debugWatchpointCount[devType]++;
     }
+    if (access == DBG_WATCH_ON_READ) {
+        /* Bits a smaller size left go at the next clear; a stray one only costs a list walk. */
+        if (devType == DBGTYPE_CPU) {
+            markReadBits(cpuReadBits, watchpoint);
+        }
+        armReadWatchesLocked();
+    }
+    readWatchLockGive();
 }
 
-void debugDeviceClearMemoryWatchpointEx(DbgDeviceType devType, int address, int byProgram)
+void debugDeviceClearMemoryWatchpointOn(DbgDeviceType devType, int address, int byProgram, int access)
 {
-    Watchpoint* watchpoint = watchpoints[devType];
+    Watchpoint* watchpoint;
     Watchpoint* prevWatchpoint = NULL;
+
+    /* The arming walks the list on another thread; the CPU's own walk is parked by the caller. */
+    readWatchLockTake();
+    watchpoint = watchpoints[devType];
     while (watchpoint != NULL) {
-        if (watchpoint->address == address && watchpoint->byProgram == byProgram) {
+        if (isWatchpointAt(watchpoint, address, byProgram, access)) {
             if (prevWatchpoint == NULL) {
                 watchpoints[devType] = watchpoint->next;
             }
@@ -460,13 +582,29 @@ void debugDeviceClearMemoryWatchpointEx(DbgDeviceType devType, int address, int 
         prevWatchpoint = watchpoint;
         watchpoint = watchpoint->next;
     }
+    /* Rebuilt aside and copied over, so a bit another watch still needs is never clear. */
+    if (access == DBG_WATCH_ON_READ && devType == DBGTYPE_CPU) {
+        UInt8 bits[sizeof(cpuReadBits)];
+
+        memset(bits, 0, sizeof(bits));
+        for (watchpoint = watchpoints[devType]; watchpoint != NULL; watchpoint = watchpoint->next) {
+            if (watchpoint->access == DBG_WATCH_ON_READ) {
+                markReadBits(bits, watchpoint);
+            }
+        }
+        memcpy(cpuReadBits, bits, sizeof(cpuReadBits));
+    }
+    if (access == DBG_WATCH_ON_READ) {
+        armReadWatchesLocked();
+    }
+    readWatchLockGive();
 }
 
-int debugDeviceHasMemoryWatchpointEx(DbgDeviceType devType, int address, int byProgram)
+int debugDeviceHasMemoryWatchpointOn(DbgDeviceType devType, int address, int byProgram, int access)
 {
     Watchpoint* watchpoint = watchpoints[devType];
     while (watchpoint != NULL) {
-        if (watchpoint->address == address && watchpoint->byProgram == byProgram) {
+        if (isWatchpointAt(watchpoint, address, byProgram, access)) {
             return 1;
         }
         watchpoint = watchpoint->next;
@@ -474,10 +612,10 @@ int debugDeviceHasMemoryWatchpointEx(DbgDeviceType devType, int address, int byP
     return 0;
 }
 
-/* The VRAM layout a write is being made in, read only when a watchpoint needs it. */
-#define MODE_OF_WRITE (-2)
+/* The VRAM layout an access is being made in, read only when a watchpoint needs it. */
+#define MODE_OF_ACCESS (-2)
 
-/* Whether the watchpoint covers the byte written at index in layout. One set by program
+/* Whether the watchpoint covers the byte accessed at index in layout. One set by program
 ** address compares the program's address of that byte, which *program keeps once found (-1 before). */
 static int nodeCovers(const Watchpoint* watchpoint, int index, int layout, int* program)
 {
@@ -485,7 +623,7 @@ static int nodeCovers(const Watchpoint* watchpoint, int index, int layout, int* 
 
     if (watchpoint->byProgram) {
         if (*program < 0) {
-            if (layout == MODE_OF_WRITE) {
+            if (layout == MODE_OF_ACCESS) {
                 layout = vdpDebugGetVramLayout();
             }
             *program = debugDeviceVramAddress(layout, index);
@@ -510,21 +648,22 @@ static UInt32 watchedValue(const Watchpoint* watchpoint, int index, UInt8 value,
             byteIndex = debugDeviceVramIndex(vdpDebugGetVramLayout(), byteIndex);
         }
         checkValue <<= 8;
-        if (callback) {
-            checkValue |= callback(ref, byteIndex);
-        }
-        else if (byteIndex == index) {
+        /* A read takes the byte the CPU got, which a peek of a device may not give again. */
+        if (byteIndex == index && (callback == NULL || watchpoint->access == DBG_WATCH_ON_READ)) {
             checkValue |= value;
+        }
+        else if (callback) {
+            checkValue |= callback(ref, byteIndex);
         }
     }
     return checkValue;
 }
 
-int checkWatchpoint(DbgDeviceType devType, int address, UInt8 value, void* ref, WatchpointReadMemCallback callback) {
+static int matchWatchpoint(DbgDeviceType devType, int access, int address, UInt8 value, void* ref, WatchpointReadMemCallback callback) {
     Watchpoint* watchpoint = watchpoints[devType];
     int program = -1;
     while (watchpoint != NULL) {
-        if (nodeCovers(watchpoint, address, MODE_OF_WRITE, &program)) {
+        if (watchpoint->access == access && nodeCovers(watchpoint, address, MODE_OF_ACCESS, &program)) {
             UInt32 checkValue = watchedValue(watchpoint, address, value, ref, callback);
             int breakpointHit = 0;
             switch (watchpoint->condition) {
@@ -553,13 +692,18 @@ int checkWatchpoint(DbgDeviceType devType, int address, UInt8 value, void* ref, 
     return DBG_WATCH_NONE;
 }
 
+int checkWatchpoint(DbgDeviceType devType, int address, UInt8 value, void* ref, WatchpointReadMemCallback callback) {
+    return matchWatchpoint(devType, DBG_WATCH_ON_WRITE, address, value, ref, callback);
+}
+
 int watchpointCovers(DbgDeviceType devType, int address, int layout, int kind)
 {
     Watchpoint* watchpoint = watchpoints[devType];
     int program = -1;
     int found = DBG_WATCH_NONE;
     while (watchpoint != NULL) {
-        if (nodeCovers(watchpoint, address, layout, &program)) {
+        if (watchpoint->access == DBG_WATCH_ON_WRITE &&
+            nodeCovers(watchpoint, address, layout, &program)) {
             found = watchpoint->byProgram ? DBG_WATCH_PROGRAM : DBG_WATCH_PHYSICAL;
             if (found == kind) {
                 return found;
@@ -570,15 +714,23 @@ int watchpointCovers(DbgDeviceType devType, int address, int layout, int kind)
     return found;
 }
 
-void tryWatchpoint(DbgDeviceType devType, int address, UInt8 value, void* ref, WatchpointReadMemCallback callback) {
-    /* Tested second because this runs on every write the CPU makes and the
-    ** match is what is rare. No device routes a debugger write back through
-    ** here today, but one that did would hang the UI thread. */
-    int kind = checkWatchpoint(devType, address, value, ref, callback);
+static void tryAccess(DbgDeviceType devType, int access, int address, UInt8 value, void* ref, WatchpointReadMemCallback callback, int pc) {
+    /* Tested second: this runs on every CPU write, every read of a watched byte and, while a
+    ** port read watch is armed, every IN; a match is rare. No device routes a debugger access
+    ** back through here today, but one that did would hang the UI thread. */
+    int kind = matchWatchpoint(devType, access, address, value, ref, callback);
 
     if (kind != DBG_WATCH_NONE && !debugDeviceIsInspecting()) {
-        debugDeviceNoteWatchHit(devType, (UInt32)address,
-                                devType == DBGTYPE_VIDEO ? vdpDebugGetVramLayout() : -1, kind);
+        noteWatchHit(devType, (UInt32)address,
+                     devType == DBGTYPE_VIDEO ? vdpDebugGetVramLayout() : -1, kind, access, pc);
         boardOnBreakpoint(DBG_STOP_WATCH);
     }
+}
+
+void tryWatchpoint(DbgDeviceType devType, int address, UInt8 value, void* ref, WatchpointReadMemCallback callback) {
+    tryAccess(devType, DBG_WATCH_ON_WRITE, address, value, ref, callback, -1);
+}
+
+void tryReadWatchpoint(DbgDeviceType devType, int address, UInt8 value, void* ref, WatchpointReadMemCallback callback, int pc) {
+    tryAccess(devType, DBG_WATCH_ON_READ, address, value, ref, callback, pc);
 }

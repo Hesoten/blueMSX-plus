@@ -59,6 +59,7 @@ typedef struct {
     int           where;
     int           byProgram;
     int           vramMode;
+    int           access;   /* DBG_WATCH_ON_, from "on" */
     char          printed[64];
 } WatchTarget;
 
@@ -147,14 +148,48 @@ static int watchAddress(CtrlCall* call, int setting, WatchTarget* target)
     return 0;
 }
 
-/* What is watched: an I/O port in "port", else the address in "at". */
+/* Whether "on" asks for a watch on writes or on reads; refuses a read of video memory. */
+static int watchAccess(CtrlCall* call, int setting, WatchTarget* target)
+{
+    const char* on = ctrlCallText(call, "on");
+
+    if (on == NULL) {
+        on = CTRL_WP_ON_DEFAULT;
+    }
+    if (strcmp(on, "write") == 0) {
+        target->access = DBG_WATCH_ON_WRITE;
+    }
+    else if (strcmp(on, "read") == 0) {
+        target->access = DBG_WATCH_ON_READ;
+    }
+    else {
+        return ctrlReplyError(call, "bad_arg", "\"on\" must be write or read");
+    }
+    if (target->access == DBG_WATCH_ON_READ && target->devType == DBGTYPE_VIDEO && !setting) {
+        return ctrlReplyErrorf(call, "not_set", "no on=read watch starts at %s, so nothing was "
+                               "cleared; video memory is never watched for reads",
+                               target->printed);
+    }
+    if (target->access == DBG_WATCH_ON_READ && target->devType == DBGTYPE_VIDEO) {
+        return ctrlReplyError(call, "bad_arg",
+                              "a vram watch stops on writes only: the VDP reads video "
+                              "memory ahead into a latch, so which read a byte belongs to "
+                              "is not known. Watch I/O port 0x98 with on=read to stop when "
+                              "the CPU reads video memory");
+    }
+    return 0;
+}
+
+/* What is watched: an I/O port in "port", else the address in "at"; and on what access. */
 static int watchTarget(CtrlCall* call, int setting, WatchTarget* target)
 {
     Int32 port = ctrlCallInt(call, "port", -1);
+    int   refused;
 
     memset(target, 0, sizeof(WatchTarget));
     if (!ctrlCallGiven(call, "port")) {
-        return watchAddress(call, setting, target);
+        refused = watchAddress(call, setting, target);
+        return refused != 0 ? refused : watchAccess(call, setting, target);
     }
     /* Picking one of the two would watch something the caller did not mean. */
     if (ctrlCallGiven(call, "at")) {
@@ -168,7 +203,7 @@ static int watchTarget(CtrlCall* call, int setting, WatchTarget* target)
     target->devType = DBGTYPE_PORT;
     target->where   = (int)port;
     snprintf(target->printed, sizeof(target->printed), "I/O port 0x%02X", (unsigned)port);
-    return 0;
+    return watchAccess(call, setting, target);
 }
 
 /* A condition compares at most 4 bytes, and only a value the watched bytes can hold. */
@@ -254,12 +289,38 @@ static int checkWatchArgs(CtrlCall* call, const WatchTarget* target, WatchArgs* 
     return args->condition != DBGWP_ANY ? checkWatchCondition(call, target, args) : 0;
 }
 
+static void reportReadWatchSet(CtrlCall* call, const WatchTarget* target, const WatchArgs* args)
+{
+    if (target->devType == DBGTYPE_PORT) {
+        ctrlTextAdd(&call->text, "stops on an IN from it; OUT does not stop it\n");
+    }
+    else {
+        ctrlTextAdd(&call->text, "stops when the CPU reads it as data (not when it fetches "
+                    "an instruction or its operands), whatever segment is paged in; writes "
+                    "do not stop it\n");
+    }
+    if (args->condition != DBGWP_ANY && args->size > 1) {
+        ctrlTextAdd(&call->text, "only on a read of one of those bytes while the %d byte "
+                    "little endian value there, with the byte just read, is %s %lld (0x%X)\n",
+                    (int)args->size,
+                    args->conditionName, (long long)args->value, (unsigned)(UInt32)args->value);
+    }
+    else if (args->condition != DBGWP_ANY) {
+        ctrlTextAdd(&call->text, "only on a read of a value %s %lld (0x%X)\n",
+                    args->conditionName, (long long)args->value, (unsigned)(UInt32)args->value);
+    }
+}
+
 static void reportWatchSet(CtrlCall* call, const WatchTarget* target, const WatchArgs* args)
 {
     Int32 size = args->size;
 
     ctrlTextAdd(&call->text, "watching %d byte%s at %s\n", (int)size,
                 size == 1 ? "" : "s", target->printed);
+    if (target->access == DBG_WATCH_ON_READ) {
+        reportReadWatchSet(call, target, args);
+        return;
+    }
     if (target->devType == DBGTYPE_PORT) {
         ctrlTextAdd(&call->text, "stops on an OUT to it; IN does not stop it\n");
     }
@@ -298,14 +359,16 @@ static void noteWatch(int verb, const WatchTarget* target, const WatchArgs* args
 {
     char   detail[CTRL_ACT_DETAIL];
     UInt32 size = args != NULL ? (UInt32)args->size : 0;
+    const char* on = target->access == DBG_WATCH_ON_READ ? "read" : "";
 
-    detail[0] = 0;
+    strcpy(detail, on);
     if (args != NULL && args->condition != DBGWP_ANY) {
         const char* test = args->condition == DBGWP_EQUALS     ? "==" :
                            args->condition == DBGWP_NOT_EQUALS ? "!=" :
                            args->condition == DBGWP_LESS_THAN  ? "<"  : ">";
 
-        snprintf(detail, sizeof(detail), "%s 0x%0*llX", test, 2 * (int)args->size,
+        snprintf(detail, sizeof(detail), "%s%s%s 0x%0*llX", on, on[0] != 0 ? " " : "", test,
+                 2 * (int)args->size,
                  (unsigned long long)args->value & (args->size >= 8 ? ~0ULL
                                                     : (1ULL << (8 * args->size)) - 1));
     }
@@ -324,7 +387,7 @@ static int setWatch(CtrlCall* call, const WatchTarget* target, const WatchArgs* 
     int    n;
 
     /* Refused rather than set unlisted, so the list stays complete. */
-    if (!ctrlWatchRemember(target->devType, target->where, (int)args->size,
+    if (!ctrlWatchRemember(target->devType, target->where, target->access, (int)args->size,
                            args->condition == DBGWP_ANY ? "" : args->conditionName, args->value,
                            target->printed, target->vramMode))
     {
@@ -337,19 +400,32 @@ static int setWatch(CtrlCall* call, const WatchTarget* target, const WatchArgs* 
     }
     dbgSetWatchpointEx(target->devType, target->where, (DbgWatchpointCondition)args->condition,
                        args->condition == DBGWP_ANY ? (UInt32)args->value : reference,
-                       (int)args->size, target->byProgram);
+                       (int)args->size, target->byProgram, target->access);
     reportWatchSet(call, target, args);
     return ctrlReplyDone(call);
 }
 
 static int clearWatch(CtrlCall* call, const WatchTarget* target)
 {
-    if (!debugDeviceHasMemoryWatchpointEx(target->devType, target->where, target->byProgram)) {
-        /* Listed but gone: the debugger window shares a CPU or port node and can remove it. */
-        if (ctrlWatchForget(target->devType, target->where)) {
+    int         otherAccess = target->access == DBG_WATCH_ON_READ ? DBG_WATCH_ON_WRITE
+                                                                  : DBG_WATCH_ON_READ;
+    const char* on    = target->access == DBG_WATCH_ON_READ ? "read" : "write";
+    const char* other = target->access == DBG_WATCH_ON_READ ? "write" : "read";
+
+    if (!debugDeviceHasMemoryWatchpointOn(target->devType, target->where, target->byProgram,
+                                          target->access)) {
+        /* Listed but gone: the debugger window shares a CPU or port write node and can remove
+        ** it; it never sets or clears a read one. */
+        if (ctrlWatchForget(target->devType, target->where, target->access)) {
             return ctrlReplyErrorf(call, "not_set", "no watch starts at %s any more; it was "
                                    "removed elsewhere, perhaps in the debugger window, so "
                                    "nothing was cleared", target->printed);
+        }
+        if (debugDeviceHasMemoryWatchpointOn(target->devType, target->where, target->byProgram,
+                                             otherAccess)) {
+            return ctrlReplyErrorf(call, "not_set", "no on=%s watch starts at %s, so nothing "
+                                   "was cleared; the one there is on=%s", on, target->printed,
+                                   other);
         }
         return ctrlReplyErrorf(call, "not_set", "no watch starts at %s, so nothing was "
                                "cleared; listing the watches shows what is set",
@@ -358,9 +434,10 @@ static int clearWatch(CtrlCall* call, const WatchTarget* target)
     noteWatch(CTRL_ACT_WATCH_CLEAR, target, NULL);
     /* The clear suspends a running machine, which no request may do while it holds a view. */
     ctrlCallReleaseView(call);
-    dbgClearWatchpointEx(target->devType, target->where, target->byProgram);
-    ctrlWatchForget(target->devType, target->where);
-    ctrlTextAdd(&call->text, "stopped watching %s\n", target->printed);
+    dbgClearWatchpointEx(target->devType, target->where, target->byProgram, target->access);
+    ctrlWatchForget(target->devType, target->where, target->access);
+    ctrlTextAdd(&call->text, "stopped watching %s%s\n", target->printed,
+                target->access == DBG_WATCH_ON_READ ? " for reads" : "");
     return ctrlReplyDone(call);
 }
 

@@ -490,6 +490,7 @@ void debuggerCreateLocks(void)
         changeLock = archSemaphoreCreate(1);
     }
     dbgBreakpointsCreateLock();
+    debugDeviceCreateLock();
 }
 
 void dbgMarkGuiThread(void)
@@ -668,25 +669,26 @@ void dbgEnableVramAccessCheck(int enable)
 
 void dbgSetWatchpoint(DbgDeviceType devType, int address, DbgWatchpointCondition condition, UInt32 referenceValue, int size)
 {
-    dbgSetWatchpointEx(devType, address, condition, referenceValue, size, 0);
+    dbgSetWatchpointEx(devType, address, condition, referenceValue, size, 0, DBG_WATCH_ON_WRITE);
 }
 
-/* No parking needed: this only fills a node in, or prepends one that is
-** already complete, so a walking emulation thread always sees a valid list. */
-void dbgSetWatchpointEx(DbgDeviceType devType, int address, DbgWatchpointCondition condition, UInt32 referenceValue, int size, int byProgram)
+/* No parking needed: this fills a node in or prepends a complete one, then for a READ one ORs
+** its bits in and swaps in the CPU's watching read, each step valid for a running CPU. The
+** device manager's lock orders the swap against a CPU being created or destroyed. */
+void dbgSetWatchpointEx(DbgDeviceType devType, int address, DbgWatchpointCondition condition, UInt32 referenceValue, int size, int byProgram, int access)
 {
-    debugDeviceSetMemoryWatchpointEx(devType, address, condition, referenceValue, size, byProgram);
+    debugDeviceSetMemoryWatchpointOn(devType, address, condition, referenceValue, size, byProgram, access);
 }
 
 void dbgClearWatchpoint(DbgDeviceType devType, int address)
 {
-    dbgClearWatchpointEx(devType, address, 0);
+    dbgClearWatchpointEx(devType, address, 0, DBG_WATCH_ON_WRITE);
 }
 
-/* Frees a node the emulation thread walks on every write it checks, so park it
+/* Frees a node the emulation thread walks on every access it checks, so park it
 ** first. Only from EMU_RUNNING: every other state has that thread stopped or
 ** about to stop, and leaving one of those is someone else's call to make. */
-void dbgClearWatchpointEx(DbgDeviceType devType, int address, int byProgram)
+void dbgClearWatchpointEx(DbgDeviceType devType, int address, int byProgram, int access)
 {
     int wasRunning = emulatorGetState() == EMU_RUNNING;
     if (wasRunning) {
@@ -696,7 +698,7 @@ void dbgClearWatchpointEx(DbgDeviceType devType, int address, int byProgram)
         /* A paused machine is parked, but an agent may be reading through that node. */
         dbgChangeBegin();
     }
-    debugDeviceClearMemoryWatchpointEx(devType, address, byProgram);
+    debugDeviceClearMemoryWatchpointOn(devType, address, byProgram, access);
     if (wasRunning) {
         emulatorResume();
     }

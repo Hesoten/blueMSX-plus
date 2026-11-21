@@ -147,10 +147,10 @@ static int replyLostStep(CtrlCall* call)
     return ctrlReplyDone(call);
 }
 
-/* The first step after a watchpoint stop, which stopped inside the writing instruction, may
+/* The first step after a watchpoint stop, which stopped inside the instruction, may
 ** only finish it: then the counter did not go up (an LDIR repeat takes one off). Returns how
 ** many steps that counts as, 0 or 1. */
-static Int32 stepPastWatch(CtrlCall* call, int* finishedWrite, int* lost, int* refused)
+static Int32 stepPastWatch(CtrlCall* call, int* finishedInside, int* lost, int* refused)
 {
     CtrlStop latest;
     Int32 before;
@@ -169,7 +169,7 @@ static Int32 stepPastWatch(CtrlCall* call, int* finishedWrite, int* lost, int* r
     after = registerNow("CNT");
     moved = (after - before) & 0xFFFF;
     if (before >= 0 && after >= 0 && (moved == 0 || moved == 0xFFFF)) {
-        *finishedWrite = 1;
+        *finishedInside = 1;
         return 0;
     }
     return 1;
@@ -200,7 +200,7 @@ static int refuseCutSteps(CtrlCall* call, Int32 done, Int32 count, const char* u
 ** reported, else the reply. */
 static int runStep(CtrlCall* call, Int32 count)
 {
-    int   finishedWrite = 0;
+    int   finishedInside = 0;
     int   lost = 0;
     int   refused = 0;
     int   stepped;
@@ -214,7 +214,7 @@ static int runStep(CtrlCall* call, Int32 count)
         return refused;
     }
     ctrlActivityNoteAmount(CTRL_ACT_STEP, NULL, (UInt32)count);
-    i = stepPastWatch(call, &finishedWrite, &lost, &refused);
+    i = stepPastWatch(call, &finishedInside, &lost, &refused);
     for (; i < count && !lost && !refused && !ctrlClientAllBlocked() &&
            ctrlGateLevel() == CTRL_GATE_FULL && !ctrlPeerGone(); i++) {
         if ((stepped = stepAndWait(call, i, &refused)) != 1) {
@@ -225,7 +225,7 @@ static int runStep(CtrlCall* call, Int32 count)
     if (refused != 0 || (refused = refuseCutSteps(call, i, count, "steps")) != 0) {
         return refused;
     }
-    if (finishedWrite) {
+    if (finishedInside) {
         ctrlTextAdd(&call->text, "first finished the instruction the watch stopped inside; "
                     "that is not counted as a step\n");
     }
