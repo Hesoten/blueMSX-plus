@@ -292,7 +292,7 @@ What the agent cannot do, and what it does instead:
 | Save a state to a file, or load one | A snapshot keeps one state in memory. To start from a state file, use `--state` when starting the emulator. |
 | Change the emulation speed | `--speed` when starting the emulator. |
 | Record and replay a session | Not possible. |
-| Stop when memory, video memory or a port is read | Watches stop on writes and on OUT only. |
+| Stop when video memory is read | A watch with `on=read` stops on reads of memory and on IN from a port; on port 0x98 it stops on the CPU's reads of video memory. |
 | Watch a bank that is not switched in | A breakpoint on that bank. |
 | Write to an I/O port | Not possible. |
 | Read a device's own memory, such as a sound chip's sample RAM | Not possible. Video memory can be read. |
@@ -643,7 +643,7 @@ Video memory is searched in the layout the VDP had when the hunt started; if
 the screen mode changes the layout during the hunt, the list says so. On a
 64 kB VDP in SCREEN 7 or 8 video memory is left out of the hunt.
 
-## Watches (watchpoints): catching what changed a byte
+## Watches (watchpoints): catching what changed or read a byte
 
 ```
 bmsx_watch      at="@lives"
@@ -657,10 +657,23 @@ past the writing instruction. The address must be visible to the CPU; for a
 segment that is not paged in, use `bmsx_break` on a segment address. A watch
 on memory watches the Z80 address: given as a segment address that is paged
 in, it is set on the Z80 address where that segment shows now, and fires on
-any write there, whatever segment is paged in later. One watch covers one
-address: setting another there replaces it, and `value` is used only with a
-condition that compares. At most 64 watches can be set through the socket.
-Watches stay until cleared.
+any write there (with `on=read`, any read), whatever segment is paged in later.
+One watch covers one address: setting another there with the same `on`
+replaces it, and `value` is used only with a condition that compares. At most
+64 watches can be set through the socket. Watches stay until cleared.
+
+With `on=read` a watch stops instead when the CPU reads the byte as data (stack
+reads by POP, RET and EX (SP),HL included), or on an IN from the port; fetching
+an instruction or its operands does not count, nor does an OUT or the vector
+read of an IM 2 interrupt. Reads made by the emulator's disk and tape BIOS
+patches do not count either. The stop comes during the read and names the
+instruction that read it. That instruction has not
+finished, so its registers may be partly updated; a step finishes it and the
+instruction after it. A condition compares the value read; over more than 1
+byte, the little endian value at the watch with the byte just read. A read
+watch and a write watch at the same address are two watches, and `op=clear`
+takes the same `on`. Video memory cannot be watched for reads; a read watch on
+port 0x98 stops on the CPU's reads of it.
 
 A video memory watch watches the address as the VDP lays memory out at each
 write. If the program changes between a linear layout (SCREEN 0-6, or any screen
