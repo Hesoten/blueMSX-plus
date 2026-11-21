@@ -152,6 +152,11 @@ MemZipFile* memZipFileFind(const char* zipName)
     return NULL;
 }
 
+void memZipFileDelete(const char* zipName)
+{
+    memZipFileDestroy(memZipFileFind(zipName));
+}
+
 MemZipFile* memZipFileCreate(const char* zipName)
 {
     int i;
