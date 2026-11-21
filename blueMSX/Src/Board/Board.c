@@ -687,16 +687,17 @@ static void boardCaptureSaveState()
         saveStateSet(state, "endTime64Lo", (UInt32)cap.endTime64);
         saveStateSet(state, "startTime64Hi", (UInt32)(cap.startTime64 >> 32));
         saveStateSet(state, "startTime64Lo", (UInt32)cap.startTime64);
-        saveStateSet(state, "inputCnt", cap.inputCnt);
-        if (cap.inputCnt > 0) {
-            saveStateSetBuffer(state, "inputs", cap.inputs, cap.inputCnt * sizeof(RleData));
-        }
+        /* The log that grows goes last, so what stays the same while recording
+        ** keeps its place and a rewind snapshot shares it with the one before. */
         saveStateSet(state, "initStateSize", cap.initStateSize);
         if (cap.initStateSize > 0) {
             saveStateSetBuffer(state, "initState", cap.initState, cap.initStateSize);
         }
-        
         saveStateSetBuffer(state, "rleCache", rleCache, sizeof(rleCache));
+        saveStateSet(state, "inputCnt", cap.inputCnt);
+        if (cap.inputCnt > 0) {
+            saveStateSetBuffer(state, "inputs", cap.inputs, cap.inputCnt * sizeof(RleData));
+        }
 
         saveStateClose(state);
     }
