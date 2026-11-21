@@ -62,8 +62,6 @@ static void toLower(char* str) {
 
 #if 1
 
-#define MAX_FILES_IN_ZIP 64
-
 typedef struct 
 {
     char  filename[32];
@@ -73,9 +71,10 @@ typedef struct
 
 typedef struct 
 {
-    char    zipName[32];
-    MemFile* memFiles[MAX_FILES_IN_ZIP];
-    int     count;
+    char      zipName[32];
+    MemFile** memFiles;
+    int       count;
+    int       capacity;
 } MemZipFile;
 
 static MemZipFile** memZipFiles = NULL;
@@ -108,6 +107,7 @@ void memZipFileDestroy(MemZipFile* memZipFile)
         }
         free(memZipFile->memFiles[i]);
     }
+    free(memZipFile->memFiles);
     free(memZipFile);
 }
 
@@ -158,8 +158,12 @@ MemZipFile* memZipFileCreate(const char* zipName)
         if (memZipFiles[i] == NULL)
         {
             memZipFiles[i] = malloc(sizeof(MemZipFile));
-            strcpy(memZipFiles[i]->zipName, zipName);
-            memZipFiles[i]->count = 0;
+            if (memZipFiles[i] != NULL) {
+                strcpy(memZipFiles[i]->zipName, zipName);
+                memZipFiles[i]->memFiles = NULL;
+                memZipFiles[i]->count    = 0;
+                memZipFiles[i]->capacity = 0;
+            }
             return memZipFiles[i];
         }
     }
@@ -212,13 +216,34 @@ int memFileSave(const char* zipName, const char* filename, int append, void* buf
         memZipFile = memZipFileCreate(zipName);
     }
 
-    if (memZipFile == NULL || memZipFile->count == MAX_FILES_IN_ZIP)
+    if (memZipFile == NULL)
     {
         return 0;
     }
     
+    if (memZipFile->count == memZipFile->capacity)
+    {
+        int capacity = memZipFile->capacity > 0 ? memZipFile->capacity * 2 : 64;
+        MemFile** memFiles = realloc(memZipFile->memFiles, capacity * sizeof(MemFile*));
+        if (memFiles == NULL)
+        {
+            return 0;
+        }
+        memZipFile->memFiles = memFiles;
+        memZipFile->capacity = capacity;
+    }
+
     memFile = malloc(sizeof(MemFile));
-    memFile->buffer = malloc(size);
+    if (memFile == NULL)
+    {
+        return 0;
+    }
+    memFile->buffer = malloc(size > 0 ? size : 1);
+    if (memFile->buffer == NULL)
+    {
+        free(memFile);
+        return 0;
+    }
     memcpy(memFile->buffer, buffer, size);
     memFile->size = size;
     strcpy(memFile->filename, filename);
