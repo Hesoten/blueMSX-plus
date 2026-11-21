@@ -32,8 +32,8 @@
 **
 ******************************************************************************
 */
-/* Layered + topmost + WS_EX_NOACTIVATE so it does not steal focus
-** from the running emulator. */
+/* Layered + WS_EX_NOACTIVATE so it does not steal focus from the running
+** emulator; owned by the main window, it stays with it in the z-order. */
 #include "Win32Toast.h"
 
 #include <windows.h>
@@ -326,7 +326,7 @@ extern "C" void toastShowMessage(HWND ownerHwnd, HWND anchorHwnd, const char* ms
 
     if (!g_toast.hwnd) {
         g_toast.hwnd = CreateWindowExW(
-            WS_EX_LAYERED | WS_EX_TOPMOST | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW,
+            WS_EX_LAYERED | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW,
             kClassName, L"",
             WS_POPUP,
             0, 0, 400, 60,
@@ -365,8 +365,23 @@ extern "C" void toastShowMessage(HWND ownerHwnd, HWND anchorHwnd, const char* ms
     /* Avoid going under the desktop's right/bottom edge in fullscreen. */
     (void)ownerW; (void)ownerH;
 
-    SetWindowPos(g_toast.hwnd, HWND_TOPMOST, x, y, sz.cx, sz.cy,
-                 SWP_NOACTIVATE | SWP_SHOWWINDOW);
+    /* Right above the owner, so other apps can cover both. A topmost owner
+    ** (fullscreen) needs a topmost toast, or the toast sinks below it. */
+    HWND insertAfter = HWND_TOPMOST;
+    UINT keepOrder = 0;
+    if (!(GetWindowLongPtrW(ownerHwnd, GWL_EXSTYLE) & WS_EX_TOPMOST)) {
+        HWND prev;
+        if (GetWindowLongPtrW(g_toast.hwnd, GWL_EXSTYLE) & WS_EX_TOPMOST) {
+            SetWindowPos(g_toast.hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        }
+        prev = GetWindow(ownerHwnd, GW_HWNDPREV);
+        if (prev == g_toast.hwnd) {
+            keepOrder = SWP_NOZORDER;
+        }
+        insertAfter = prev == NULL || (GetWindowLongPtrW(prev, GWL_EXSTYLE) & WS_EX_TOPMOST) ? HWND_TOP : prev;
+    }
+    SetWindowPos(g_toast.hwnd, insertAfter, x, y, sz.cx, sz.cy,
+                 SWP_NOACTIVATE | SWP_SHOWWINDOW | keepOrder);
     SetLayeredWindowAttributes(g_toast.hwnd, 0, kPeakAlpha, LWA_ALPHA);
     InvalidateRect(g_toast.hwnd, nullptr, TRUE);
 

@@ -262,6 +262,8 @@ int insertCartridge(Properties* properties, int drive, const char* fname, const 
 #endif
     }
 
+    boardNoteUserCartridge(drive);
+
     if (autostart && !noautostart) {
         emulatorStop();
         emulatorStart(NULL);

@@ -87,6 +87,8 @@ void langInitDutch(LanguageStrings* ls)
     ls->errorUnknownFileType    = "Kan het bestand niet openen: onbekend bestandstype.";
     ls->errorCartV9968WithV9990 = "De V9968-cartridge kan niet samen met een GFX9000 of Video9000 worden ingevoerd, omdat beide het beeld overnemen. Verwijder eerst de andere cartridge.";
     ls->errorCartTwice          = "De %s-cartridge kan niet in beide slots tegelijk worden ingevoerd, omdat beide dezelfde I/O-poorten zouden gebruiken. Verwijder eerst de andere cartridge.";
+    ls->errorCartBuiltIn        = "Deze machine heeft %s ingebouwd; het kan niet als cartridge worden geplaatst.";
+    ls->errorCartBuiltInRemoved = "Deze machine heeft %s ingebouwd; de cartridge is verwijderd.";
     ls->errorDirDiskTooLarge    = "%d bestand(en) pasten niet op de schijf en zijn weggelaten.";
     ls->errorDirDiskOnline      = "%d bestand(en) die alleen online beschikbaar zijn, zijn weggelaten. Maak ze beschikbaar op dit apparaat om ze op te nemen.";
     ls->errorDirDiskSubdirs     = "%d map(pen) zijn weggelaten omdat het gekozen formaat ze niet kan bevatten.";
@@ -108,6 +110,8 @@ void langInitDutch(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "De geselecteerde machineconfiguratie '%s' is niet gevonden.";
     ls->errorStartEmuConfigInvalid       = "Kon config.ini van machineconfiguratie '%s' niet lezen. Het bestand is mogelijk beschadigd of afkomstig uit een niet-compatibele versie.";
     ls->errorMissingFiles       = "De volgende bestanden konden niet worden geladen:";
+    ls->errorSharedRomsFailed   = "Kon niet laden uit Shared Roms:";
+    ls->errorFileUnusable       = " (inhoudsafwijking)";
     ls->errorFlashInvalid       = "De opgeslagen gegevens van %s zijn beschadigd en konden niet worden geladen.";
     ls->errorFlashSramSize      = "De opgeslagen gegevens van %s hebben de verkeerde grootte en konden niet worden geladen.";
     ls->errorFlashUnreadable    = "De opgeslagen gegevens van %s konden niet worden geopend. Misschien gebruikt een ander programma ze.";

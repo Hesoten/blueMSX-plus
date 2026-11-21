@@ -89,6 +89,8 @@ void langInitJapanese(LanguageStrings* ls)
     ls->errorUnknownFileType    = "ファイルを開けません。ファイルの種類が不明です。";
     ls->errorCartV9968WithV9990 = "V9968 カートリッジと GFX9000・Video9000 は、どちらも画面を切り換えるため同時には挿せません。先にもう一方のカートリッジを取り出してください。";
     ls->errorCartTwice          = "%s カートリッジは、どちらも同じ I/O ポートを使うため 2 本同時には挿せません。先にもう一方のカートリッジを取り出してください。";
+    ls->errorCartBuiltIn        = "この機種は %s を内蔵しているため、カートリッジとしては挿入できません。";
+    ls->errorCartBuiltInRemoved = "この機種は %s を内蔵しているため、カートリッジを取り外しました。";
     ls->errorDirDiskTooLarge    = "%d 個のファイルがディスクに収まらず除外されました。";
     ls->errorDirDiskOnline      = "%d 個のオンラインのみのファイルが除外されました。含めるには、このデバイス上で利用できるようにしてください。";
     ls->errorDirDiskSubdirs     = "%d 個のサブディレクトリが、選択した形式では扱えないため除外されました。";
@@ -110,6 +112,8 @@ void langInitJapanese(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "選択されたマシン構成 '%s' が見つかりません。";
     ls->errorStartEmuConfigInvalid       = "マシン構成 '%s' の config.ini を読み込めませんでした。ファイルが破損しているか、非互換のバージョンの可能性があります。";
     ls->errorMissingFiles       = "以下のファイルが読み込めませんでした:";
+    ls->errorSharedRomsFailed   = "Shared Roms から読み込めませんでした:";
+    ls->errorFileUnusable       = "（内容不一致）";
     ls->errorFlashInvalid       = "「%s」のセーブデータが壊れているため、読み込めませんでした。";
     ls->errorFlashSramSize      = "「%s」のセーブデータのサイズが合わないため、読み込めませんでした。";
     ls->errorFlashUnreadable    = "「%s」のセーブデータを開けませんでした。ほかのプログラムが使用中の可能性があります。";

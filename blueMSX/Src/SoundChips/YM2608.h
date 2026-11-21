@@ -3,6 +3,9 @@
 ** YM2608 (OPNA) sound chip on top of ymfm.
 ** Copyright (C) 2026 madscient
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -38,6 +41,8 @@ YM2608* ym2608Create(Mixer* mixer, UInt32 clock, UInt32 adpcmRamSize,
                      const UInt8* rhythmRom, int rhythmRomSize, UInt32 irqMask);
 void ym2608Destroy(YM2608* ym2608);
 void ym2608Reset(YM2608* ym2608);
+/* Whether the rhythm ROM given to ym2608Create was large enough to be used. */
+int  ym2608HasRhythmRom(YM2608* ym2608);
 
 /* offset is the chip's A1:A0 (0: address/status, 1: data,
 ** 2: address/status of the upper half, 3: data of the upper half) */

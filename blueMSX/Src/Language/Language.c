@@ -304,6 +304,8 @@ char* langErrorNoCasInZip() { return ls->errorNoCasInZip; }
 char* langErrorUnknownFileType() { return ls->errorUnknownFileType; }
 char* langErrorCartV9968WithV9990() { return ls->errorCartV9968WithV9990; }
 char* langErrorCartTwice() { return ls->errorCartTwice; }
+char* langErrorCartBuiltIn() { return ls->errorCartBuiltIn; }
+char* langErrorCartBuiltInRemoved() { return ls->errorCartBuiltInRemoved; }
 char* langErrorDirDiskTooLarge() { return ls->errorDirDiskTooLarge; }
 char* langErrorDirDiskOnline() { return ls->errorDirDiskOnline; }
 char* langErrorDirDiskSubdirs() { return ls->errorDirDiskSubdirs; }
@@ -325,6 +327,8 @@ char* langErrorStartEmuMachinesDirMissing() { return ls->errorStartEmuMachinesDi
 char* langErrorStartEmuMachineNotFound()    { return ls->errorStartEmuMachineNotFound; }
 char* langErrorStartEmuConfigInvalid()      { return ls->errorStartEmuConfigInvalid; }
 char* langErrorMissingFiles() { return ls->errorMissingFiles; }
+char* langErrorSharedRomsFailed() { return ls->errorSharedRomsFailed; }
+char* langErrorFileUnusable() { return ls->errorFileUnusable; }
 char* langErrorFlashInvalid()      { return ls->errorFlashInvalid; }
 char* langErrorFlashSramSize()     { return ls->errorFlashSramSize; }
 char* langErrorFlashUnreadable()   { return ls->errorFlashUnreadable; }

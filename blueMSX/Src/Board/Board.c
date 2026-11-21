@@ -184,6 +184,63 @@ void boardReportMissingFile(const char* file, const char* inZip) {
     missingFileCount++;
 }
 
+static BoardDeviceFile         deviceFiles[MISSING_FILES_MAX];
+static int                     deviceFileCount;
+static BoardDeviceFilesHandler deviceFilesHandler;
+static int                     deviceFilesUserInsert;
+static int                     cartUserInsert[2];
+
+void boardSetDeviceFilesHandler(BoardDeviceFilesHandler handler) {
+    deviceFilesHandler = handler;
+}
+
+void boardReportDeviceFile(RomType device, const char* path, DeviceFileProblem problem) {
+    BoardDeviceFile* entry;
+    int i;
+
+    if (deviceFileCount >= MISSING_FILES_MAX) return;
+    entry = &deviceFiles[deviceFileCount];
+    AnyToUtf8(path, entry->path, sizeof(entry->path));
+    for (i = 0; i < deviceFileCount; i++) {
+        if (0 == strcmp(deviceFiles[i].path, entry->path)) {
+            deviceFiles[i].userInsert |= deviceFilesUserInsert;
+            return;
+        }
+    }
+    entry->device     = device;
+    entry->problem    = problem;
+    entry->userInsert = deviceFilesUserInsert;
+    deviceFileCount++;
+}
+
+void boardDeviceFilesFatal(RomType device) {
+    int i, kept = 0;
+
+    for (i = 0; i < deviceFileCount; i++) {
+        if (deviceFiles[i].device == device) {
+            boardReportMissingFile(deviceFiles[i].path, NULL);
+        }
+        else {
+            deviceFiles[kept++] = deviceFiles[i];
+        }
+    }
+    deviceFileCount = kept;
+}
+
+void boardNoteUserCartridge(int cartNo) {
+    if (cartNo >= 0 && cartNo < 2) {
+        cartUserInsert[cartNo] = 1;
+    }
+}
+
+/* Called on the thread that built the devices; the handler copies what it needs. */
+static void boardFlushDeviceFiles(void) {
+    if (deviceFileCount > 0 && deviceFilesHandler != NULL) {
+        deviceFilesHandler(deviceFiles, deviceFileCount);
+    }
+    deviceFileCount = 0;
+}
+
 static void boardProbeMissingFile(const char* file, const char* inZip) {
     if (!file || *file == 0) return;
     /* fileExist(memberName, zipPath) for zip case, else plain path. */
@@ -1445,6 +1502,12 @@ int boardRun(Machine* machine,
 
     /* Shared list: state pre-validation and machineInitialize both feed it. */
     boardClearMissingFiles();
+    deviceFileCount = 0;
+    /* A state brings its own cartridges, not the one the user inserted. */
+    if (stateFile != NULL) {
+        cartUserInsert[0] = 0;
+        cartUserInsert[1] = 0;
+    }
 
     if (stateFile != NULL) {
         int   size;
@@ -1558,6 +1621,15 @@ int boardRun(Machine* machine,
         success = 0;
     }
     boardBuilding = 0;
+
+    /* A failed start has its own dialog, which names what it needs. */
+    if (success) {
+        boardFlushDeviceFiles();
+    }
+    deviceFileCount = 0;
+    /* An insert this build could not use must not mark a later one. */
+    cartUserInsert[0] = 0;
+    cartUserInsert[1] = 0;
 
     boardCaptureInit();
 
@@ -2191,13 +2263,22 @@ void boardChangeCartridge(int cartNo, RomType romType, char* cart, char* cartZip
         if (currentRomType[cartNo] == ROM_ROOKIEDRIVE)  hdType[cartNo] = HD_ROOKIEDRIVE;
     }
 
+    if (cart == NULL) {
+        cartUserInsert[cartNo] = 0;
+    }
+
     if (boardRunning && cartNo < boardInfo.cartridgeCount) {
-        int inserted = cartridgeInsert(cartNo, romType, cart, cartZip);
+        int inserted;
+        deviceFilesUserInsert = cartUserInsert[cartNo];
+        cartUserInsert[cartNo] = 0;
+        inserted = cartridgeInsert(cartNo, romType, cart, cartZip);
+        deviceFilesUserInsert = 0;
         if (boardInfo.changeCartridge != NULL) {
             boardInfo.changeCartridge(boardInfo.cpuRef, cartNo, inserted);
         }
         if (!boardBuilding) {
             mixerForgetRemovedInstances(boardMixer);
+            boardFlushDeviceFiles();
         }
         dbgBreakpointsOnCartridgeChanged();
         snapshotTaken = 0;

@@ -87,6 +87,8 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->errorUnknownFileType    = "Não foi possível abrir o arquivo: tipo de arquivo desconhecido.";
     ls->errorCartV9968WithV9990 = "O cartucho V9968 não pode ser inserido junto com um GFX9000 ou Video9000, pois ambos assumem a tela. Remova primeiro o outro cartucho.";
     ls->errorCartTwice          = "O cartucho %s não pode ser inserido nos dois slots ao mesmo tempo, pois ambos usariam as mesmas portas de E/S. Remova primeiro o outro cartucho.";
+    ls->errorCartBuiltIn        = "Esta máquina tem %s embutido; não pode ser inserido como cartucho.";
+    ls->errorCartBuiltInRemoved = "Esta máquina tem %s embutido; o cartucho foi removido.";
     ls->errorDirDiskTooLarge    = "%d arquivo(s) não couberam no disco e foram omitidos.";
     ls->errorDirDiskOnline      = "%d arquivo(s) disponíveis somente online foram omitidos. Torne-os disponíveis neste dispositivo para incluí-los.";
     ls->errorDirDiskSubdirs     = "%d diretório(s) foram omitidos porque o formato escolhido não os comporta.";
@@ -108,6 +110,8 @@ void langInitPortuguese(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "Não foi possível encontrar a configuração de máquina selecionada '%s'.";
     ls->errorStartEmuConfigInvalid       = "Não foi possível ler config.ini da configuração de máquina '%s'. O arquivo pode estar corrompido ou pertencer a uma versão incompatível.";
     ls->errorMissingFiles       = "Não foi possível carregar os seguintes arquivos:";
+    ls->errorSharedRomsFailed   = "Não foi possível carregar de Shared Roms:";
+    ls->errorFileUnusable       = " (conteúdo divergente)";
     ls->errorFlashInvalid       = "Os dados salvos de %s estão danificados e não puderam ser carregados.";
     ls->errorFlashSramSize      = "Os dados salvos de %s têm o tamanho errado e não puderam ser carregados.";
     ls->errorFlashUnreadable    = "Não foi possível abrir os dados salvos de %s. Talvez outro programa os esteja usando.";

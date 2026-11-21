@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik, Tomas Karlsson
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -201,11 +204,12 @@ int romMapperSvi707FdcCreate(const char* filename, UInt8* romData,
         return 0;
     }
 
-    bufMsx = romLoad("Machines/Shared Roms/svi707msx.rom", NULL, &sizeMsx);
+    bufMsx = romLoadShared(ROM_SVI707FDC, "svi707msx.rom", &sizeMsx);
     if (bufMsx == NULL) {
         return 0;
     }
     if (sizeMsx != 0x4000) {
+        romRejectShared(ROM_SVI707FDC, "svi707msx.rom");
         free(bufMsx);
         return 0;
     }

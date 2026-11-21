@@ -39,6 +39,8 @@
 #include "Machine.h"
 #include "InputEvent.h"
 #include "Actions.h"
+#include "RomTypeList.h"
+#include "Language.h"
 
 #include "ArchThread.h"
 #include "ArchEvent.h"
@@ -987,6 +989,27 @@ static void emulatorThread() {
 }
 //extern int xxxx;
 
+/* A cartridge chip the machine now has built in would be a second one; it is taken out. */
+static void ejectBuiltInTwins(Properties* properties)
+{
+    int i;
+
+    for (i = 0; i < PROP_MAX_CARTS; i++) {
+        RomType type = properties->media.carts[i].type;
+        char* name = properties->media.carts[i].fileName;
+        if (name[0] != 0 && romTypeListCartTwin(type, romTypeListCartFromName(name) == type, ROM_UNKNOWN,
+                                                properties->emulation.machineName) == CART_TWIN_BUILT_IN) {
+            char text[512];
+            snprintf(text, sizeof(text), langErrorCartBuiltInRemoved(), romTypeToString(type));
+            name[0] = 0;
+            properties->media.carts[i].fileNameInZip[0] = 0;
+            properties->media.carts[i].type = ROM_UNKNOWN;
+            updateExtendedRomName(i, properties->media.carts[i].fileName, properties->media.carts[i].fileNameInZip);
+            archCaptureToastInfo(text);
+        }
+    }
+}
+
 void emulatorStart(const char* stateName) {
     /* A start builds the machine an agent's hold would read. */
     dbgChangeBegin();
@@ -1032,6 +1055,9 @@ void emulatorStart(const char* stateName) {
     }
 
     boardSetMachine(machine);
+    if (stateName == NULL) {
+        ejectBuiltInTwins(properties);
+    }
 
 #ifndef NO_TIMERS
 #ifndef WII

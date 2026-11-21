@@ -30,6 +30,9 @@
 */
 #include "RomLoader.h"
 #include "ziphelper.h"
+#include "Board.h"
+#include "Machine.h"
+#include "ArchFile.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -76,5 +79,50 @@ UInt8* romLoad(const char *fileName, const char *fileInZipFile, int* size)
     fclose(file);
 
     return buf;
+}
+
+/* Fills path with the place fileName is read from, or with the first place
+** looked at when neither has it. */
+static int sharedRomFind(const char* fileName, char* path)
+{
+    char oldPath[512];
+    FILE* file;
+
+    snprintf(oldPath, sizeof(oldPath), "Machines/Shared Roms/%s", fileName);
+    strcpy(path, oldPath);
+    machineExpandPath(path, 512);
+    file = fopen(path, "rb");
+    if (file == NULL) {
+        file = fopen(oldPath, "rb");
+        if (file != NULL) {
+            snprintf(path, 512, "%s/%s", archGetCurrentDirectory(), oldPath);
+        }
+    }
+    if (file != NULL) {
+        fclose(file);
+    }
+    return file != NULL;
+}
+
+UInt8* romLoadShared(RomType device, const char* fileName, int* size)
+{
+    char path[512];
+    UInt8* buf = NULL;
+
+    if (sharedRomFind(fileName, path)) {
+        buf = romLoad(path, NULL, size);
+    }
+    if (buf == NULL && device != ROM_UNKNOWN) {
+        boardReportDeviceFile(device, path, DEVICE_FILE_MISSING);
+    }
+    return buf;
+}
+
+void romRejectShared(RomType device, const char* fileName)
+{
+    char path[512];
+
+    sharedRomFind(fileName, path);
+    boardReportDeviceFile(device, path, DEVICE_FILE_UNUSABLE);
 }
 

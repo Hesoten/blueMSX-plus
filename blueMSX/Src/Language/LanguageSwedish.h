@@ -87,6 +87,8 @@ void langInitSwedish(LanguageStrings* ls)
     ls->errorUnknownFileType    = "Kan inte öppna filen: okänd filtyp.";
     ls->errorCartV9968WithV9990 = "V9968-kassetten kan inte sättas i samtidigt som en GFX9000 eller Video9000, eftersom båda tar över bilden. Ta först ur den andra kassetten.";
     ls->errorCartTwice          = "%s-kassetten kan inte sättas i båda platserna samtidigt, eftersom båda skulle använda samma I/O-portar. Ta först ur den andra kassetten.";
+    ls->errorCartBuiltIn        = "Den här maskinen har %s inbyggd; den kan inte sättas in som kassett.";
+    ls->errorCartBuiltInRemoved = "Den här maskinen har %s inbyggd; kassetten togs bort.";
     ls->errorDirDiskTooLarge    = "%d fil(er) fick inte plats på disken och utelämnades.";
     ls->errorDirDiskOnline      = "%d fil(er) som bara finns online utelämnades. Gör dem tillgängliga på den här enheten för att ta med dem.";
     ls->errorDirDiskSubdirs     = "%d mapp(ar) utelämnades eftersom det valda formatet inte kan innehålla dem.";
@@ -108,6 +110,8 @@ void langInitSwedish(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "Den valda maskinkonfigurationen '%s' hittades inte.";
     ls->errorStartEmuConfigInvalid       = "Det gick inte att läsa config.ini för maskinkonfigurationen '%s'. Filen kan vara skadad eller från en inkompatibel version.";
     ls->errorMissingFiles       = "Följande filer kunde inte laddas:";
+    ls->errorSharedRomsFailed   = "Kunde inte laddas från Shared Roms:";
+    ls->errorFileUnusable       = " (innehållsavvikelse)";
     ls->errorFlashInvalid       = "Sparade data för %s är skadade och kunde inte läsas in.";
     ls->errorFlashSramSize      = "Sparade data för %s har fel storlek och kunde inte läsas in.";
     ls->errorFlashUnreadable    = "Sparade data för %s kunde inte öppnas. Kanske använder ett annat program dem.";

@@ -87,6 +87,8 @@ void langInitFrench(LanguageStrings* ls)
     ls->errorUnknownFileType    = "Impossible d'ouvrir le fichier : type de fichier inconnu.";
     ls->errorCartV9968WithV9990 = "La cartouche V9968 ne peut pas être insérée en même temps qu'une GFX9000 ou une Video9000, car toutes deux prennent le contrôle de l'écran. Retirez d'abord l'autre cartouche.";
     ls->errorCartTwice          = "La cartouche %s ne peut pas être insérée dans les deux emplacements en même temps, car toutes deux utiliseraient les mêmes ports d'E/S. Retirez d'abord l'autre cartouche.";
+    ls->errorCartBuiltIn        = "Cette machine intègre %s ; il ne peut pas être inséré comme cartouche.";
+    ls->errorCartBuiltInRemoved = "Cette machine intègre %s ; la cartouche a été retirée.";
     ls->errorDirDiskTooLarge    = "%d fichier(s) ne tenaient pas sur le disque et ont été omis.";
     ls->errorDirDiskOnline      = "%d fichier(s) disponibles uniquement en ligne ont été omis. Rendez-les disponibles sur cet appareil pour les inclure.";
     ls->errorDirDiskSubdirs     = "%d répertoire(s) ont été omis car le format choisi ne peut pas les contenir.";
@@ -108,6 +110,8 @@ void langInitFrench(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "La configuration de machine sélectionnée '%s' est introuvable.";
     ls->errorStartEmuConfigInvalid       = "Impossible de lire config.ini de la configuration de machine '%s'. Le fichier est peut-être corrompu ou provient d'une version incompatible.";
     ls->errorMissingFiles       = "Les fichiers suivants n'ont pas pu être chargés :";
+    ls->errorSharedRomsFailed   = "Impossible de charger depuis Shared Roms :";
+    ls->errorFileUnusable       = " (contenu non conforme)";
     ls->errorFlashInvalid       = "La sauvegarde de %s est endommagée et n'a pas pu être chargée.";
     ls->errorFlashSramSize      = "La sauvegarde de %s n'a pas la bonne taille et n'a pas pu être chargée.";
     ls->errorFlashUnreadable    = "La sauvegarde de %s n'a pas pu être ouverte. Un autre programme l'utilise peut-être.";

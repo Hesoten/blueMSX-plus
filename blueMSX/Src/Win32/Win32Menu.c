@@ -36,6 +36,7 @@
 #include "Win32ToolLoader.h"
 #include "FileHistory.h"
 #include "LaunchFile.h"
+#include "RomTypeList.h"
 #include "Resource.h"
 #include "Language.h"
 #include "Board.h"
@@ -209,6 +210,8 @@ extern int showLoadMemoryDlg(HWND hwnd);
 #define ID_FILE_CART_V9968CART          41125
 #define ID_FILE_CART_MAKOTO             41126
 #define ID_FILE_CART_Y8960              41127
+#define ID_FILE_CART_MOONSOUND          41128
+#define ID_FILE_CART_MSXAUDIO           41129
 #define ID_FILE_CART_JOYREXPSG          41110
 #define ID_FILE_CART_EXTRAM16KB         41111
 #define ID_FILE_CART_EXTRAM32KB         41112
@@ -331,6 +334,8 @@ static const char* getCleanFileName(const char* fileName)
     if (strcmp(fileName, CARTNAME_SCCPLUS) == 0)        return langMenuCartSCCPlus();
     if (strcmp(fileName, CARTNAME_JOYREXPSG) == 0)      return langMenuCartJoyrexPsg();
     if (strcmp(fileName, CARTNAME_MAKOTO) == 0)         return "Makoto";
+    if (strcmp(fileName, CARTNAME_MOONSOUND) == 0)      return romTypeToString(ROM_MOONSOUND);
+    if (strcmp(fileName, CARTNAME_MSXAUDIO) == 0)       return romTypeToString(ROM_MSXAUDIO);
     if (strcmp(fileName, CARTNAME_FMPAC) == 0)          return langMenuCartFMPac();
     if (strcmp(fileName, CARTNAME_PAC) == 0)            return langMenuCartPac();
     if (strcmp(fileName, CARTNAME_SONYHBI55) == 0)      return langMenuCartHBI55();
@@ -656,10 +661,12 @@ static HMENU menuCreateCartSpecial(int cartNo, Properties* pProperties, Shortcut
         AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
     }
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_JOYREXPSG, langMenuCartJoyrexPsg());
-    AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_MAKOTO, "Makoto");
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_SCC, langMenuCartSCC());
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_SCCPLUS, langMenuCartSCCPlus());
     AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuEseSCC, langMenuCartEseSCC());
+    AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_MSXAUDIO, romTypeToString(ROM_MSXAUDIO));
+    AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_MOONSOUND, romTypeToString(ROM_MOONSOUND));
+    AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_MAKOTO, "Makoto");
     AppendMenuU(hMenu, MF_STRING, idOffset + ID_FILE_CART_Y8960, "Y8960 Cartridge");
     AppendMenuU(hMenu, MF_SEPARATOR, 0, NULL);
     AppendMenuU(hMenu, MF_POPUP, (UINT_PTR)hMenuIde, langMenuCartIde());
@@ -2109,7 +2116,7 @@ void archShowMenuTools(int x, int y) {
     showPopupMenu(hMenuTools, x, y);
 }
 
-int menuCartClashRefused(Properties* pProperties, int cartNo, int romType)
+int menuCartClashRefused(Properties* pProperties, int cartNo, int romType, const char* cartName)
 {
     /* Stopped, the properties are what the next start builds; running, the device must be in. */
     int other = pProperties->media.carts[cartNo ^ 1].type, stopped = emulatorGetState() == EMU_STOPPED;
@@ -2119,10 +2126,13 @@ int menuCartClashRefused(Properties* pProperties, int cartNo, int romType)
     /* A second Y8960 or V9990 is refused by name alone: left in its slot, it
     ** could take the device from the first one when the machine is rebuilt. */
     int v9990 = (romType == ROM_GFX9000 || romType == ROM_VIDEO9000) && (other == ROM_GFX9000 || other == ROM_VIDEO9000);
-    int twin = (romType == ROM_Y8960 && other == ROM_Y8960) || v9990;
+    CartTwin chip = romTypeListCartTwin(romType, romTypeListCartFromName(cartName) == romType, other,
+                                        pProperties->emulation.machineName);
+    int twin = (romType == ROM_Y8960 && other == ROM_Y8960) || v9990 || chip != CART_TWIN_NONE;
     if (clash || twin) {
         char text[1024];
-        _snprintf(text, sizeof(text) - 1, langErrorCartTwice(), v9990 ? "GFX9000/Video9000" : "Y8960");
+        _snprintf(text, sizeof(text) - 1, chip == CART_TWIN_BUILT_IN ? langErrorCartBuiltIn() : langErrorCartTwice(),
+                  v9990 ? "GFX9000/Video9000" : chip != CART_TWIN_NONE ? romTypeToString(romType) : "Y8960");
         text[sizeof(text) - 1] = '\0';
         MessageBoxU(getMainHwnd(), twin ? text : langErrorCartV9968WithV9990(), langErrorTitle(), MB_OK | MB_ICONERROR);
     }
@@ -2142,7 +2152,8 @@ int menuCommand(Properties* pProperties, int command)
         if (appConfigGetInt("filehistory", 1) != 0) {
             h = cmd - ID_FILE_CART_HISTORY;
             if (h >= 0 && h < MAX_HISTORY) {
-                if (!menuCartClashRefused(pProperties, i, pProperties->filehistory.cartridgeType[i][h])) {
+                if (!menuCartClashRefused(pProperties, i, pProperties->filehistory.cartridgeType[i][h],
+                                          pProperties->filehistory.cartridge[i][h])) {
                     insertCartridge(pProperties, i, pProperties->filehistory.cartridge[i][h], NULL, pProperties->filehistory.cartridgeType[i][h], 0);
                 }
                 return 1;
@@ -2243,7 +2254,7 @@ int menuCommand(Properties* pProperties, int command)
             insertCartridge(pProperties, i, CARTNAME_SCCPLUS, NULL, ROM_SCCPLUS, 0);
             return 1;
         case ID_FILE_CART_Y8960:
-            if (!menuCartClashRefused(pProperties, i, ROM_Y8960)) {
+            if (!menuCartClashRefused(pProperties, i, ROM_Y8960, CARTNAME_Y8960)) {
                 insertCartridge(pProperties, i, CARTNAME_Y8960, NULL, ROM_Y8960, 0);
             }
             return 1;
@@ -2252,6 +2263,16 @@ int menuCommand(Properties* pProperties, int command)
             return 1;
         case ID_FILE_CART_MAKOTO:
             insertCartridge(pProperties, i, CARTNAME_MAKOTO, NULL, ROM_MAKOTO, 0);
+            return 1;
+        case ID_FILE_CART_MOONSOUND:
+            if (!menuCartClashRefused(pProperties, i, ROM_MOONSOUND, CARTNAME_MOONSOUND)) {
+                insertCartridge(pProperties, i, CARTNAME_MOONSOUND, NULL, ROM_MOONSOUND, 0);
+            }
+            return 1;
+        case ID_FILE_CART_MSXAUDIO:
+            if (!menuCartClashRefused(pProperties, i, ROM_MSXAUDIO, CARTNAME_MSXAUDIO)) {
+                insertCartridge(pProperties, i, CARTNAME_MSXAUDIO, NULL, ROM_MSXAUDIO, 0);
+            }
             return 1;
         case ID_FILE_CART_FMPAC:
             insertCartridge(pProperties, i, CARTNAME_FMPAC, NULL, ROM_FMPAC, 0);
@@ -2305,17 +2326,17 @@ int menuCommand(Properties* pProperties, int command)
             insertCartridge(pProperties, i, CARTNAME_ROOKIEDRIVE, NULL, ROM_ROOKIEDRIVE, 0);
             return 1;
         case ID_FILE_CART_GFX9000:
-            if (!menuCartClashRefused(pProperties, i, ROM_GFX9000)) {
+            if (!menuCartClashRefused(pProperties, i, ROM_GFX9000, CARTNAME_GFX9000)) {
                 insertCartridge(pProperties, i, CARTNAME_GFX9000, NULL, ROM_GFX9000, 0);
             }
             return 1;
         case ID_FILE_CART_VIDEO9000:
-            if (!menuCartClashRefused(pProperties, i, ROM_VIDEO9000)) {
+            if (!menuCartClashRefused(pProperties, i, ROM_VIDEO9000, CARTNAME_VIDEO9000)) {
                 insertCartridge(pProperties, i, CARTNAME_VIDEO9000, NULL, ROM_VIDEO9000, 0);
             }
             return 1;
         case ID_FILE_CART_V9968CART:
-            if (!menuCartClashRefused(pProperties, i, ROM_V9968CART)) {
+            if (!menuCartClashRefused(pProperties, i, ROM_V9968CART, CARTNAME_V9968CART)) {
                 insertCartridge(pProperties, i, CARTNAME_V9968CART, NULL, ROM_V9968CART, 0);
             }
             return 1;

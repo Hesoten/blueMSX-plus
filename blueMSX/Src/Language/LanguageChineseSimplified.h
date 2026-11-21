@@ -87,6 +87,8 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->errorUnknownFileType    = "无法打开文件：文件类型未知。";
     ls->errorCartV9968WithV9990 = "V9968 卡带无法与 GFX9000 或 Video9000 同时插入，因为两者都会接管画面。请先取出另一个卡带。";
     ls->errorCartTwice          = "%s 卡带无法同时插入两个插槽，因为两者会使用相同的 I/O 端口。请先取出另一个卡带。";
+    ls->errorCartBuiltIn        = "此机型已内置 %s，因此无法作为卡带插入。";
+    ls->errorCartBuiltInRemoved = "此机型已内置 %s，因此已移除该卡带。";
     ls->errorDirDiskTooLarge    = "%d 个文件无法放入磁盘，已被排除。";
     ls->errorDirDiskOnline      = "已排除 %d 个仅联机文件。若要包含它们，请使其在此设备上可用。";
     ls->errorDirDiskSubdirs     = "所选格式无法容纳，已排除 %d 个目录。";
@@ -108,6 +110,8 @@ void langInitChineseSimplified(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "找不到所选的机器配置 '%s'。";
     ls->errorStartEmuConfigInvalid       = "无法读取机器配置 '%s' 的 config.ini。该文件可能已损坏，或来自不兼容的版本。";
     ls->errorMissingFiles       = "无法加载以下文件：";
+    ls->errorSharedRomsFailed   = "无法从 Shared Roms 加载：";
+    ls->errorFileUnusable       = "（内容不符）";
     ls->errorFlashInvalid       = "“%s”的存档已损坏，无法载入。";
     ls->errorFlashSramSize      = "“%s”的存档大小不符，无法载入。";
     ls->errorFlashUnreadable    = "无法打开“%s”的存档，可能有其他程序正在使用。";

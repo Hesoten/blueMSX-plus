@@ -47,8 +47,9 @@ void menuUpdate(Properties* pProperties,
                 int enableSpecial);
 
 int menuCommand(Properties* pProperties, int command);
-/* A V9968 cartridge and a V9990 cartridge in the other slot: says so and returns 1. */
-int menuCartClashRefused(Properties* pProperties, int cartNo, int romType);
+/* A V9968 cartridge and a V9990 cartridge in the other slot: says so and returns 1.
+** cartName is what goes in the slot, a file or the name of a cartridge without one. */
+int menuCartClashRefused(Properties* pProperties, int cartNo, int romType, const char* cartName);
 
 typedef enum {
     MENU_RUN_TOGGLE_PAUSE,

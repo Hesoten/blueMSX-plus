@@ -87,6 +87,8 @@ void langInitKorean(LanguageStrings* ls)
     ls->errorUnknownFileType    = "파일을 열 수 없습니다: 알 수 없는 파일 형식입니다.";
     ls->errorCartV9968WithV9990 = "V9968 카트리지는 GFX9000 또는 Video9000과 함께 꽂을 수 없습니다. 둘 다 화면을 전환하기 때문입니다. 먼저 다른 카트리지를 빼세요.";
     ls->errorCartTwice          = "%s 카트리지는 두 슬롯에 동시에 꽂을 수 없습니다. 둘 다 같은 I/O 포트를 사용하기 때문입니다. 먼저 다른 카트리지를 빼세요.";
+    ls->errorCartBuiltIn        = "이 기종에는 %s이(가) 내장되어 있어 카트리지로 삽입할 수 없습니다.";
+    ls->errorCartBuiltInRemoved = "이 기종에는 %s이(가) 내장되어 있어 카트리지를 제거했습니다.";
     ls->errorDirDiskTooLarge    = "%d개의 파일이 디스크에 들어가지 않아 제외되었습니다.";
     ls->errorDirDiskOnline      = "온라인 전용 파일 %d개가 제외되었습니다. 포함하려면 이 장치에서 사용할 수 있게 하십시오.";
     ls->errorDirDiskSubdirs     = "선택한 형식에서는 다룰 수 없어 %d개의 디렉토리가 제외되었습니다.";
@@ -108,6 +110,8 @@ void langInitKorean(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "선택한 머신 구성 '%s'을(를) 찾을 수 없습니다.";
     ls->errorStartEmuConfigInvalid       = "머신 구성 '%s'의 config.ini를 읽을 수 없습니다. 파일이 손상되었거나 호환되지 않는 버전에서 온 것일 수 있습니다.";
     ls->errorMissingFiles       = "다음 파일을 로드할 수 없습니다:";
+    ls->errorSharedRomsFailed   = "Shared Roms에서 로드할 수 없습니다:";
+    ls->errorFileUnusable       = " (내용 불일치)";
     ls->errorFlashInvalid       = "'%s'의 세이브 데이터가 손상되어 불러오지 못했습니다.";
     ls->errorFlashSramSize      = "'%s'의 세이브 데이터 크기가 맞지 않아 불러오지 못했습니다.";
     ls->errorFlashUnreadable    = "'%s'의 세이브 데이터를 열지 못했습니다. 다른 프로그램이 사용 중일 수 있습니다.";

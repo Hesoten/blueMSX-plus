@@ -199,9 +199,12 @@ static AmdFlash* createFlash(void)
         fclose(file);
     }
     else {
-        seed = romLoad("Machines" DIR_SEPARATOR "Shared Roms" DIR_SEPARATOR "RDFIRMWA.ROM", NULL, &seedSize);
+        seed = romLoadShared(ROM_ROOKIEDRIVE, "RDFIRMWA.ROM", &seedSize);
         hasContents = seed != NULL && seedSize >= 0x4000 && seedSize <= FLASH_SIZE &&
                       (seedSize & 0x3fff) == 0 && seed[0] == 'A' && seed[1] == 'B';
+        if (seed != NULL && !hasContents) {
+            romRejectShared(ROM_ROOKIEDRIVE, "RDFIRMWA.ROM");
+        }
     }
     flash = amdFlashCreate(AMD_TYPE_2, FLASH_SIZE, SECTOR_SIZE, 0, seed, hasContents ? seedSize : 0,
                            hasContents ? sramPath : NULL, 0);

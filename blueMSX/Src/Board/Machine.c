@@ -433,15 +433,7 @@ static int readMachine(Machine* machine, const char* machineName, const char* fi
         
         if (!machine->isZipped)
         {
-            // Convert the relative path into absolute
-			
-            if (strcasestr(machine->slotInfo[i].name, "Machines/") == machine->slotInfo[i].name ||
-                strcasestr(machine->slotInfo[i].name, "Machines\\") == machine->slotInfo[i].name)
-            {
-                char expandedPath[1024];
-                sprintf(expandedPath, "%s/%s", machinesDir, machine->slotInfo[i].name + 9);
-                strcpy(machine->slotInfo[i].name, expandedPath);
-            }
+            machineExpandPath(machine->slotInfo[i].name, (int)sizeof(machine->slotInfo[i].name));
         }
         else if (*machine->slotInfo[i].name)
         {
@@ -1380,7 +1372,7 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
         }
 
         if (machine->slotInfo[i].romType == ROM_MSXAUDIODEV) {
-            success &= romMapperMsxAudioCreate(NULL, NULL, 0, 0, 0, 0);
+            success &= romMapperMsxAudioCreate(NULL, NULL, 0, -1, 0, 0);
             continue;
         }
 
@@ -1874,7 +1866,10 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
             break;
 
         case ROM_SVI707FDC:
-            success &= romMapperSvi707FdcCreate(romName, buf, size, slot, subslot, startPage);
+            if (!romMapperSvi707FdcCreate(romName, buf, size, slot, subslot, startPage)) {
+                boardDeviceFilesFatal(ROM_SVI707FDC);
+                success = 0;
+            }
             break;
 
         case ROM_SVI738FDC:
@@ -1933,7 +1928,10 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
                 strcat(charName, "_char.rom");
                     
                 charData = romLoad(charName, NULL, &charSize);
-                success &= romMapperMicrosolVmx80Create(romName, buf, size, 
+                if (charData == NULL) {
+                    boardReportDeviceFile(ROM_MICROSOL80, charName, DEVICE_FILE_MISSING);
+                }
+                success &= romMapperMicrosolVmx80Create(romName, buf, size,
                                                         slot, subslot, startPage,
                                                         charData, charSize);
                 if (charData != NULL) {
@@ -1979,6 +1977,31 @@ void machineSetDirectory(const char* dir)
 const char* machineGetDirectory(void)
 {
     return machinesDir;
+}
+
+void machineExpandPath(char* path, int size)
+{
+    if (strcasestr(path, "Machines/") == path || strcasestr(path, "Machines\\") == path) {
+        char expandedPath[1024];
+        snprintf(expandedPath, sizeof(expandedPath), "%s/%s", machinesDir, path + 9);
+        snprintf(path, size, "%s", expandedPath);
+    }
+}
+
+int machineHasRomType(const char* machineName, RomType romType)
+{
+    Machine* machine = machineCreate(machineName);
+    int found = 0;
+    int i;
+
+    if (machine == NULL) {
+        return 0;
+    }
+    for (i = 0; i < machine->slotInfoCount; i++) {
+        found |= machine->slotInfo[i].romType == romType;
+    }
+    machineDestroy(machine);
+    return found;
 }
 
 MachineLoadReason machineDiagnose(const char* machineName)

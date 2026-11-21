@@ -68,6 +68,11 @@ int             romTypeListCartIsHiddenAt(int index);
 const char* romTypeListCartName(RomType romType);
 RomType     romTypeListCartFromName(const char* cartName);
 
+/* Whether a cartridge of romType (withoutFile: inserted by name) would be a second
+** one of a chip that the other slot or machineName already has. */
+typedef enum { CART_TWIN_NONE, CART_TWIN_OTHER_SLOT, CART_TWIN_BUILT_IN } CartTwin;
+CartTwin romTypeListCartTwin(RomType romType, int withoutFile, RomType otherCart, const char* machineName);
+
 #ifdef __cplusplus
 }
 #endif

@@ -87,6 +87,8 @@ void langInitGerman(LanguageStrings* ls)
     ls->errorUnknownFileType     = "Die Datei kann nicht geöffnet werden: unbekannter Dateityp.";
     ls->errorCartV9968WithV9990 = "Die V9968-Cartridge kann nicht zusammen mit einer GFX9000 oder Video9000 eingesteckt werden, da beide die Bildausgabe übernehmen. Entfernen Sie zuerst die andere Cartridge.";
     ls->errorCartTwice          = "Die %s-Cartridge kann nicht in beide Steckplätze gleichzeitig eingesteckt werden, da beide dieselben I/O-Ports belegen würden. Entfernen Sie zuerst die andere Cartridge.";
+    ls->errorCartBuiltIn        = "Dieses Gerät hat %s eingebaut; es kann nicht als Cartridge eingesteckt werden.";
+    ls->errorCartBuiltInRemoved = "Dieses Gerät hat %s eingebaut; die Cartridge wurde entfernt.";
     ls->errorDirDiskTooLarge    = "%d Datei(en) passten nicht auf die Disk und wurden ausgelassen.";
     ls->errorDirDiskOnline      = "%d nur online verfügbare Datei(en) wurden ausgelassen. Machen Sie sie auf diesem Gerät verfügbar, um sie einzubeziehen.";
     ls->errorDirDiskSubdirs     = "%d Directorys wurden ausgelassen, weil das gewählte Format sie nicht aufnehmen kann.";
@@ -108,6 +110,8 @@ void langInitGerman(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "Die ausgewählte Maschinenkonfiguration '%s' wurde nicht gefunden.";
     ls->errorStartEmuConfigInvalid       = "Die config.ini der Maschinenkonfiguration '%s' konnte nicht gelesen werden. Die Datei ist möglicherweise beschädigt oder stammt aus einer inkompatiblen Version.";
     ls->errorMissingFiles        = "Folgende Dateien konnten nicht geladen werden:";
+    ls->errorSharedRomsFailed    = "Konnte nicht aus Shared Roms geladen werden:";
+    ls->errorFileUnusable        = " (Inhaltsabweichung)";
     ls->errorFlashInvalid        = "Die Speicherdaten von %s sind beschädigt und konnten nicht geladen werden.";
     ls->errorFlashSramSize       = "Die Speicherdaten von %s haben die falsche Größe und konnten nicht geladen werden.";
     ls->errorFlashUnreadable     = "Die Speicherdaten von %s konnten nicht geöffnet werden. Vielleicht verwendet sie ein anderes Programm.";

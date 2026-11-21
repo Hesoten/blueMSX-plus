@@ -2008,6 +2008,8 @@ static void checkKeyUp(Shortcuts* s, ShotcutHotkey key)
 #define WM_UPDATE            (WM_USER + 1245)
 #define WM_LAUNCHFILE        (WM_USER + 1249)
 #define WM_FLASHPROBLEM      (WM_USER + 1250)
+/* Files the devices read on their own: wParam the count, lParam a malloc'd BoardDeviceFile array. */
+#define WM_DEVICEFILES       (WM_USER + 1253)
 /* A shortcut key from a tool window: wParam the hotkey, lParam 0 for a release, 1 for a
 ** press and 2 for a repeat. */
 #define WM_TOOLSHORTCUT      (WM_USER + 1252)
@@ -2623,6 +2625,122 @@ void exitDialogShow() {
         emuEnableSynchronousUpdate(1);
         KillTimer(st.hwnd, TIMER_SCREENUPDATE);
         SetEvent(st.ddrawAckEvent);
+    }
+}
+
+static void commandLineReport(const char* message);
+
+static BoardDeviceFile deviceFilesPending[16];
+static int             deviceFilesPendingCount;
+static BoardDeviceFile deviceFilesShown[256];
+static int             deviceFilesShownCount;
+
+/* Runs on the thread that built the devices, so the window gets a copy. */
+static void deviceFilesPost(const BoardDeviceFile* files, int count)
+{
+    BoardDeviceFile* copy = (BoardDeviceFile*)malloc(count * sizeof(BoardDeviceFile));
+
+    if (copy == NULL) {
+        return;
+    }
+    memcpy(copy, files, count * sizeof(BoardDeviceFile));
+    if (getMainHwnd() == NULL || !PostMessage(getMainHwnd(), WM_DEVICEFILES, count, (LPARAM)copy)) {
+        free(copy);
+    }
+}
+
+static int deviceFileShown(const BoardDeviceFile* file)
+{
+    int i;
+
+    for (i = 0; i < deviceFilesShownCount; i++) {
+        if (deviceFilesShown[i].problem == file->problem && _stricmp(deviceFilesShown[i].path, file->path) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* Once per file in a session: a state load or a reset builds the devices again.
+** A cartridge the user inserts again is told again. */
+static void deviceFilesTake(BoardDeviceFile* files, int count)
+{
+    int i, j;
+
+    for (i = 0; i < count; i++) {
+        if (deviceFileShown(&files[i]) && !files[i].userInsert) {
+            continue;
+        }
+        for (j = 0; j < deviceFilesPendingCount && _stricmp(deviceFilesPending[j].path, files[i].path); j++);
+        if (j < deviceFilesPendingCount || deviceFilesPendingCount == 16) {
+            continue;
+        }
+        deviceFilesPending[deviceFilesPendingCount++] = files[i];
+    }
+    free(files);
+}
+
+/* Shown when no dialog is up, as one opening would hide the toast, and only
+** while blueMSX+ is in front: a toast behind another application is not seen. */
+static void deviceFilesFlush(void)
+{
+    char text[12000] = "";
+    int off = 0;
+    int shared, i;
+    DWORD front = 0;
+
+    GetWindowThreadProcessId(GetForegroundWindow(), &front);
+    if (deviceFilesPendingCount == 0 || st.showDialog > 0 || (!st.hidden && front != GetCurrentProcessId())) {
+        return;
+    }
+    /* The toast names the folder once and each file by name; /hidden gives full paths. */
+    for (shared = 1; shared >= 0; shared--) {
+        const char* heading = shared ? langErrorSharedRomsFailed() : langErrorMissingFiles();
+        int any = 0;
+        for (i = 0; i < deviceFilesPendingCount; i++) {
+            char* path = deviceFilesPending[i].path;
+            char* name;
+            char* slash;
+            char line[700];
+            while ((slash = strchr(path, '/')) != NULL) {
+                *slash = '\\';
+            }
+            name = strrchr(path, '\\');
+            name = name != NULL ? name + 1 : path;
+            if (shared != (name - path > 12 && name[-13] == '\\' && _strnicmp(name - 12, "Shared Roms\\", 12) == 0)) {
+                continue;
+            }
+            _snprintf(line, sizeof(line) - 1, "%s%s%s: %s%s", any ? "" : heading, any ? "" : "\n",
+                      romTypeToString(deviceFilesPending[i].device), st.hidden ? path : name,
+                      deviceFilesPending[i].problem == DEVICE_FILE_UNUSABLE ? langErrorFileUnusable() : "");
+            line[sizeof(line) - 1] = 0;
+            if (st.hidden) {
+                commandLineReport(line);
+            }
+            else if (off < (int)sizeof(text) - 1) {
+                int n = _snprintf(text + off, sizeof(text) - 1 - off, "%s%s", off == 0 ? "" : any ? "\n" : "\n\n", line);
+                off = n < 0 ? (int)sizeof(text) - 1 : off + n;
+            }
+            any = 1;
+        }
+    }
+    for (i = 0; i < deviceFilesPendingCount; i++) {
+        if (!deviceFileShown(&deviceFilesPending[i]) && deviceFilesShownCount < 256) {
+            deviceFilesShown[deviceFilesShownCount++] = deviceFilesPending[i];
+        }
+    }
+    deviceFilesPendingCount = 0;
+    if (!st.hidden) {
+        text[sizeof(text) - 1] = 0;
+        /* The toast takes up to 2000 bytes; it is cut after a whole line. */
+        if (strlen(text) >= 2000) {
+            char* cut = text + 1999;
+            while (cut > text && *cut != '\n') {
+                cut--;
+            }
+            *cut = 0;
+        }
+        archCaptureToastInfo(text);
     }
 }
 
@@ -3669,6 +3787,13 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         }
         return 0;
 
+    case WM_DEVICEFILES:
+        if (lParam != 0) {
+            deviceFilesTake((BoardDeviceFile*)lParam, (int)wParam);
+            deviceFilesFlush();
+        }
+        return 0;
+
     case WM_LAUNCHFILE:
         {
             char* fileName = (char*)lParam;
@@ -3933,6 +4058,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
         }
         else {
             mouseEmuActivate(1);
+            deviceFilesFlush();
         }
         if (st.themePageActive) {
             HDC hdc = GetDC(hwnd);
@@ -5470,6 +5596,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
 
     emulatorInit(pProperties, st.mixer);
     amdFlashSetProblemHandler(flashProblemPost);
+    boardSetDeviceFilesHandler(deviceFilesPost);
     actionInit(st.pVideo, pProperties, st.mixer);
     ctrlGateSetLevel(pProperties->emulation.agentControl);
     if (ctrlGateLevel() != CTRL_GATE_OFF) {
@@ -5797,6 +5924,7 @@ WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PSTR szLine, int iShow)
         if (!st.hidden) {
             actionDirMemoryNotice();
         }
+        deviceFilesFlush();
     }
 
     emulatorExit();
@@ -7401,7 +7529,7 @@ char* archFilenameGetOpenRom(Properties* properties, int cartSlot, RomType* romT
     fileName = openRomFile(getMainHwnd(), title, extensionList, defaultDir, 1, defautExtension, selectedExtension, romType);
     exitDialogShow();
     SetCurrentDirectoryU(st.pCurDir);
-    if (fileName != NULL && menuCartClashRefused(properties, cartSlot, *romType)) {
+    if (fileName != NULL && menuCartClashRefused(properties, cartSlot, *romType, fileName)) {
         return NULL;
     }
 

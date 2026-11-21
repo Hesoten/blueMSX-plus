@@ -146,6 +146,24 @@ int         boardGetMissingFileCount(void);
 const char* boardGetMissingFile(int idx);
 void        boardReportMissingFile(const char* file, const char* inZip);
 
+/* Files a device reads on its own. Unlike the list above they only warn, once a
+** build or a cartridge change has succeeded. */
+typedef enum { DEVICE_FILE_MISSING, DEVICE_FILE_UNUSABLE } DeviceFileProblem;
+typedef struct {
+    RomType device;
+    int     problem;
+    int     userInsert;   /* from a cartridge the user has just inserted */
+    char    path[512];
+} BoardDeviceFile;
+typedef void (*BoardDeviceFilesHandler)(const BoardDeviceFile* files, int count);
+
+void boardSetDeviceFilesHandler(BoardDeviceFilesHandler handler);
+void boardReportDeviceFile(RomType device, const char* path, DeviceFileProblem problem);
+/* Moves what device reported into the missing-file list, for a machine it cannot be built without. */
+void boardDeviceFilesFatal(RomType device);
+/* The next build of cartNo comes from the user, so its files are told again. */
+void boardNoteUserCartridge(int cartNo);
+
 UInt8 boardCaptureUInt8(UInt8 logId, UInt8 value);
 
 /* Zero when the state could not be stored whole, as when a part did not fit. */

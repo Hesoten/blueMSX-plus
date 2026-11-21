@@ -87,6 +87,8 @@ void langInitEnglish(LanguageStrings* ls)
     ls->errorUnknownFileType    = "Cannot open the file: its type is unknown.";
     ls->errorCartV9968WithV9990 = "The V9968 cartridge cannot be inserted together with a GFX9000 or a Video9000, as both take over the screen. Remove the other cartridge first.";
     ls->errorCartTwice          = "The %s cartridge cannot be inserted in both slots, as both would use the same I/O ports. Remove the other cartridge first.";
+    ls->errorCartBuiltIn        = "This machine has %s built in, so it cannot be inserted as a cartridge.";
+    ls->errorCartBuiltInRemoved = "This machine has %s built in, so the cartridge was removed.";
     ls->errorDirDiskTooLarge    = "%d file(s) did not fit on the disk and were left out.";
     ls->errorDirDiskOnline      = "%d online-only file(s) were left out. Make them available on this device to include them.";
     ls->errorDirDiskSubdirs     = "Subdirectories left out because the chosen format cannot hold them: %d.";
@@ -108,6 +110,8 @@ void langInitEnglish(LanguageStrings* ls)
     ls->errorStartEmuMachineNotFound     = "The selected machine configuration '%s' could not be found.";
     ls->errorStartEmuConfigInvalid       = "Could not read config.ini for machine configuration '%s'. The file may be corrupted or from an incompatible version.";
     ls->errorMissingFiles       = "The following files could not be loaded:";
+    ls->errorSharedRomsFailed   = "Could not load from Shared Roms:";
+    ls->errorFileUnusable       = " (content mismatch)";
     ls->errorFlashInvalid       = "The save data for %s is damaged and could not be loaded.";
     ls->errorFlashSramSize      = "The save data for %s is the wrong size and could not be loaded.";
     ls->errorFlashUnreadable    = "The save data for %s could not be opened. Another program may be using it.";
