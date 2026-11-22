@@ -21,6 +21,7 @@
 ******************************************************************************
 */
 #include "ControlOp.h"
+#include "ControlAddress.h"
 #include "ControlProtocol.h"
 #include "DebugTrace.h"
 #include <string.h>
@@ -32,16 +33,20 @@
 #define LINE_ROOM  512
 #define TEXT_ROOM  1024
 
-static const struct { const char* name; int classId; int agent; } classTable[] = {
-    { "geo3d",  DEBUG_TRACE_GEO3D,  1 },
-    { "vdpcmd", DEBUG_TRACE_VDPCMD, 1 },
-    { "vdpreg", DEBUG_TRACE_VDPREG, 1 },
-    { "cpu",    DEBUG_TRACE_CPU,    0 },
+static const struct { const char* name; int classId; } classTable[] = {
+    { "geo3d",  DEBUG_TRACE_GEO3D  },
+    { "vdpcmd", DEBUG_TRACE_VDPCMD },
+    { "vdpreg", DEBUG_TRACE_VDPREG },
+    { "cpu",    DEBUG_TRACE_CPU    },
+    { "io",     DEBUG_TRACE_IO     },
 };
 
 #define CLASS_COUNT ((int)(sizeof(classTable) / sizeof(classTable[0])))
+#define IO_BIT      DEBUG_TRACE_BIT(DEBUG_TRACE_IO)
 
-/* The mask "class" names, all an agent may arm when it is left out. */
+static void addClassNames(CtrlText* text, UInt32 mask);
+
+/* The mask "class" names, CTRL_TRACE_CLASS_DEFAULT when it is left out. */
 static int readClasses(CtrlCall* call, UInt32* mask)
 {
     const char* list = ctrlCallText(call, "class");
@@ -63,7 +68,7 @@ static int readClasses(CtrlCall* call, UInt32* mask)
         }
         length = (int)(end - at);
         for (i = 0; i < CLASS_COUNT; i++) {
-            if (classTable[i].agent && (int)strlen(classTable[i].name) == length &&
+            if ((int)strlen(classTable[i].name) == length &&
                 strncmp(classTable[i].name, at, (size_t)length) == 0)
             {
                 *mask |= DEBUG_TRACE_BIT(classTable[i].classId);
@@ -77,10 +82,86 @@ static int readClasses(CtrlCall* call, UInt32* mask)
         }
     }
     if (i == CLASS_COUNT || *at != 0) {
-        return ctrlReplyError(call, "bad_arg",
-                              "\"class\" takes geo3d, vdpcmd and vdpreg, joined with commas");
+        ctrlTextAdd(&call->text, "\"class\" takes ");
+        addClassNames(&call->text, 0xFFFFFFFF);
+        ctrlTextAdd(&call->text, ", any of them joined with commas");
+        return ctrlReplyTextAsError(call, "bad_arg");
     }
     return 0;
+}
+
+static const char* skipSpaces(const char* at)
+{
+    while (at != NULL && *at == ' ') {
+        at++;
+    }
+    return at;
+}
+
+/* "ports", such as 0x98,0xA0-0xA2, as bits. */
+static int readPorts(CtrlCall* call, UInt8* bits)
+{
+    const char* at = ctrlCallText(call, "ports");
+
+    memset(bits, 0, DEBUG_TRACE_PORT_BYTES);
+    if (at == NULL) {
+        return 0;
+    }
+    for (;;) {
+        UInt32 first;
+        UInt32 last;
+        UInt32 port;
+
+        at = skipSpaces(ctrlAddrScanNumber(skipSpaces(at), &first));
+        last = first;
+        if (at != NULL && *at == '-') {
+            at = skipSpaces(ctrlAddrScanNumber(skipSpaces(at + 1), &last));
+        }
+        if (at == NULL || (*at != 0 && *at != ',') || first > last) {
+            break;
+        }
+        if (last > 0xFF) {
+            return ctrlReplyError(call, "bad_arg", "\"ports\" are 0x00 to 0xFF: the CPU selects "
+                                  "a port by the low address byte only");
+        }
+        for (port = first; port <= last; port++) {
+            bits[port >> 3] |= (UInt8)(1 << (port & 7));
+        }
+        if (*at == 0) {
+            return 0;
+        }
+        at++;
+    }
+    return ctrlReplyError(call, "bad_arg", "\"ports\" takes I/O ports and rising ranges joined "
+                          "with commas, such as 0x98,0xA0-0xA2");
+}
+
+static int portIn(const UInt8* bits, int port)
+{
+    return bits[port >> 3] >> (port & 7) & 1;
+}
+
+static void addPortNames(CtrlText* text, const UInt8* bits)
+{
+    int any = 0;
+    int port;
+
+    for (port = 0; port < 256; port++) {
+        int last = port;
+
+        if (!portIn(bits, port)) {
+            continue;
+        }
+        while (last < 255 && portIn(bits, last + 1)) {
+            last++;
+        }
+        ctrlTextAdd(text, last > port ? "%s0x%02X-0x%02X" : "%s0x%02X", any ? "," : "", port, last);
+        any  = 1;
+        port = last;
+    }
+    if (!any) {
+        ctrlTextAdd(text, "none");
+    }
 }
 
 static void addClassNames(CtrlText* text, UInt32 mask)
@@ -103,6 +184,11 @@ static void describeArms(CtrlText* text, const CtrlSession* session)
 {
     ctrlTextAdd(text, "this connection holds: ");
     addClassNames(text, session->traceMask);
+    if (session->traceMask & IO_BIT) {
+        ctrlTextAdd(text, " (io ports ");
+        addPortNames(text, session->tracePorts);
+        ctrlTextAdd(text, ")");
+    }
     ctrlTextAdd(text, "\narmed by anyone: ");
     addClassNames(text, debugTraceArmed);
     ctrlTextAdd(text, "\n");
@@ -111,6 +197,7 @@ static void describeArms(CtrlText* text, const CtrlSession* session)
 int ctrlOpTraceArm(CtrlCall* call)
 {
     CtrlSession* session = call->session;
+    UInt8  ports[DEBUG_TRACE_PORT_BYTES];
     UInt32 mask;
     UInt32 add;
     UInt32 seq;
@@ -119,6 +206,18 @@ int ctrlOpTraceArm(CtrlCall* call)
     if ((refused = readClasses(call, &mask)) != 0) {
         return refused;
     }
+    if (!ctrlCallGiven(call, "ports") != !(mask & IO_BIT)) {
+        return ctrlReplyError(call, "bad_arg", (mask & IO_BIT) ?
+                              "class io needs \"ports\", the I/O ports whose OUTs to record, "
+                              "such as 0x98,0xA0-0xA2" : "\"ports\" goes with class io");
+    }
+    if ((refused = readPorts(call, ports)) != 0) {
+        return refused;
+    }
+    /* The ports go in before the class, so its first OUTs are not missed. */
+    if (mask & IO_BIT) {
+        debugTracePortsHold(session->tracePorts, ports);
+    }
     add = mask & ~session->traceMask;
     if (add != 0) {
         seq = debugTraceSeq();
@@ -126,6 +225,7 @@ int ctrlOpTraceArm(CtrlCall* call)
         /* The ring is made by the first arm; without it nothing is armed. */
         if ((debugTraceArmed & add) != add) {
             debugTraceArm(add, 0);
+            ctrlSessionTraceDrop(session, 0);
             return ctrlReplyError(call, "no_memory",
                                   "the trace ring could not be allocated, so nothing was armed");
         }
@@ -138,6 +238,12 @@ int ctrlOpTraceArm(CtrlCall* call)
     describeArms(&call->text, session);
     ctrlTextAdd(&call->text, "read starts after seq %u unless after is given\n",
                 (unsigned)session->traceArmSeq);
+    if ((mask & IO_BIT) && portIn(ports, 0x98)) {
+        ctrlTextAdd(&call->text, "0x98 takes an OUT for every VRAM byte the CPU writes, which can "
+                    "flood the ring (shared with the Geo3D Perf window) and drop records; for how "
+                    "much the CPU moves to VRAM, the vdpreg class's cpu vram lines count it once "
+                    "a frame\n");
+    }
     return ctrlReplyDone(call);
 }
 
@@ -147,14 +253,14 @@ int ctrlOpTraceDisarm(CtrlCall* call)
     UInt32 mask = session->traceMask;
     int    refused;
 
+    if (ctrlCallGiven(call, "ports")) {
+        return ctrlReplyError(call, "bad_arg", "disarm gives back all of io's ports; arm io again "
+                              "with the ones to keep");
+    }
     if (ctrlCallGiven(call, "class") && (refused = readClasses(call, &mask)) != 0) {
         return refused;
     }
-    mask &= session->traceMask;
-    if (mask != 0) {
-        debugTraceArm(mask, 0);
-        session->traceMask &= ~mask;
-    }
+    mask = ctrlSessionTraceDrop(session, mask);
     ctrlTextAdd(&call->text, "disarmed: ");
     addClassNames(&call->text, mask);
     ctrlTextAdd(&call->text, "\n");
@@ -179,6 +285,7 @@ typedef struct {
     int              queued;
     DebugTraceSource sources[DEBUG_TRACE_SOURCES];
     UInt8            known[DEBUG_TRACE_SOURCES];
+    UInt8            ports[DEBUG_TRACE_PORT_BYTES];
 } TraceReader;
 
 static const DebugTraceSource* sourceOf(TraceReader* r, UInt16 source)
@@ -196,8 +303,13 @@ static int shown(TraceReader* r, const DebugTraceRecord* rec)
 {
     const DebugTraceSource* src = sourceOf(r, rec->source);
 
-    return src != NULL &&
-           (src->classId == DEBUG_TRACE_CORE || (r->mask & DEBUG_TRACE_BIT(src->classId)) != 0);
+    if (src == NULL ||
+        (src->classId != DEBUG_TRACE_CORE && (r->mask & DEBUG_TRACE_BIT(src->classId)) == 0))
+    {
+        return 0;
+    }
+    /* The ring holds the ports of other connections too. */
+    return src->classId != DEBUG_TRACE_IO || portIn(r->ports, rec->a & 0xFF);
 }
 
 static void emit(TraceReader* r, const Pending* p)
@@ -287,8 +399,25 @@ int ctrlOpTraceRead(CtrlCall* call)
     int    count = ctrlCallInt(call, "count", CTRL_TRACE_COUNT_DEFAULT);
     int    refused;
 
-    if ((refused = readClasses(call, &reader.mask)) != 0) {
+    /* Left out, the classes this connection holds, so a plain read shows what it armed. */
+    if (!ctrlCallGiven(call, "class") && session->traceMask != 0) {
+        reader.mask = session->traceMask;
+    }
+    else if ((refused = readClasses(call, &reader.mask)) != 0) {
         return refused;
+    }
+    if (ctrlCallGiven(call, "ports") && !(reader.mask & IO_BIT)) {
+        return ctrlReplyError(call, "bad_arg", "\"ports\" goes with class io");
+    }
+    if ((refused = readPorts(call, reader.ports)) != 0) {
+        return refused;
+    }
+    if (!ctrlCallGiven(call, "ports")) {
+        memcpy(reader.ports, session->tracePorts, sizeof(reader.ports));
+        if ((reader.mask & IO_BIT) && (session->traceMask & IO_BIT) == 0) {
+            return ctrlReplyError(call, "bad_arg", "class io needs \"ports\" on read while this "
+                                  "connection holds no io ports (disarm gives them back)");
+        }
     }
     if (count < CTRL_TRACE_COUNT_MIN || count > CTRL_TRACE_COUNT_MAX) {
         return ctrlReplyErrorf(call, "out_of_range", "count must be %d to %d",

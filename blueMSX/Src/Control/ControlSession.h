@@ -25,6 +25,7 @@
 
 #include "ControlClient.h"
 #include "ControlHunt.h"
+#include "DebugTrace.h"
 
 /* One per connection; its hunt is freed and its trace classes and raster log disarmed when
 ** the connection ends. */
@@ -37,6 +38,7 @@ typedef struct {
     UInt32     traceMask;      /* DEBUG_TRACE_BIT of each class this client holds armed */
     UInt32     traceArmSeq;    /* the trace seq when it went from holding none to some */
     int        traceEverArmed;
+    UInt8      tracePorts[DEBUG_TRACE_PORT_BYTES]; /* the ports its class io holds */
     int        rasterHeld;     /* show=raster armed the machine VDP's raster log */
 } CtrlSession;
 
@@ -47,5 +49,9 @@ CtrlSession* ctrlSessionFor(CtrlClient client);
 ** Returns what ctrlBreakOpen does. */
 int  ctrlSessionOpen(CtrlClient client, int owner);
 void ctrlSessionClose(CtrlClient client);
+
+/* Disarms the classes of mask this session holds, and gives its ports back once it holds
+** no io. Returns the classes disarmed. */
+UInt32 ctrlSessionTraceDrop(CtrlSession* session, UInt32 mask);
 
 #endif

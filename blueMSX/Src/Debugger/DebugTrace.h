@@ -56,7 +56,8 @@ typedef struct {
 #define DEBUG_TRACE_VDPCMD  2
 #define DEBUG_TRACE_VDPREG  3
 #define DEBUG_TRACE_CPU     4
-#define DEBUG_TRACE_CLASSES 5
+#define DEBUG_TRACE_IO      5
+#define DEBUG_TRACE_CLASSES 6
 #define DEBUG_TRACE_BIT(cls) (1u << (cls))
 
 /* Class CORE, source 0: a = reason, b = the new epoch, link 1 at a resume, else 0. */
@@ -139,6 +140,19 @@ int    debugTraceSourceGet(UInt16 source, DebugTraceSource* out);
 
 /* Nested per class; the first arm makes the ring, which is never freed. */
 void   debugTraceArm(UInt32 classMask, int on);
+
+/* One listener: a second call replaces the first. Given the armed mask under the trace's
+** lock at once and at every change, so it must not call back into the trace. Once replaced
+** or NULL, it is not called again. */
+typedef void (*DebugTraceArmCb)(UInt32 armed);
+void   debugTraceSetArmCb(DebugTraceArmCb cb);
+
+/* Class IO records the CPU's OUTs to the ports set here, the union of what each reader
+** holds. Hold adds the ports of want to held; release drops all of held and clears it. */
+#define DEBUG_TRACE_PORT_BYTES 32
+extern volatile UInt8 debugTracePorts[DEBUG_TRACE_PORT_BYTES];
+void   debugTracePortsHold(UInt8* held, const UInt8* want);
+void   debugTracePortsRelease(UInt8* held);
 
 /* Board: around anything that moves the clock or the state. ownThread makes
 ** the caller the emulator thread; STOP forgets it. Readers split on the epoch,

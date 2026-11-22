@@ -76,9 +76,7 @@ void ctrlSessionClose(CtrlClient client)
             if (sessions[i].hunt != NULL) {
                 ctrlHuntAbandon(sessions[i].hunt);
             }
-            if (sessions[i].traceMask != 0) {
-                debugTraceArm(sessions[i].traceMask, 0);
-            }
+            ctrlSessionTraceDrop(&sessions[i], sessions[i].traceMask);
             if (sessions[i].rasterHeld) {
                 vdpRasterArm(0);
             }
@@ -86,4 +84,17 @@ void ctrlSessionClose(CtrlClient client)
             return;
         }
     }
+}
+
+UInt32 ctrlSessionTraceDrop(CtrlSession* session, UInt32 mask)
+{
+    mask &= session->traceMask;
+    if (mask != 0) {
+        debugTraceArm(mask, 0);
+        session->traceMask &= ~mask;
+    }
+    if ((session->traceMask & DEBUG_TRACE_BIT(DEBUG_TRACE_IO)) == 0) {
+        debugTracePortsRelease(session->tracePorts);
+    }
+    return mask;
 }
