@@ -2,6 +2,8 @@
 **
 ** Key presses fed to the MSX keyboard matrix from outside the emulator.
 ** Copyright (C) 2026 madscient
+**
+** Modified 2026 by Hesoten for blueMSX+ fork.
 ** See https://github.com/Hesoten/blueMSX-plus for change history.
 **
 ** This program is free software; you can redistribute it and/or modify
@@ -36,7 +38,9 @@
 typedef enum {
     CMD_DOWN, CMD_UP, CMD_WAIT,
     /* row is unused; value holds an event code, or a count of frames. */
-    CMD_CODE_DOWN, CMD_CODE_UP, CMD_WAIT_FRAMES
+    CMD_CODE_DOWN, CMD_CODE_UP, CMD_WAIT_FRAMES,
+    /* Ends a rewind replay where it has got to, dropping the input recorded past it. */
+    CMD_TAKE_OVER
 } CommandType;
 
 typedef struct {
@@ -63,9 +67,37 @@ static Command     queue[QUEUE_SIZE];
 static int         head;
 static int         count;
 static int         waiting;
+static UInt32      waitEnd;
+static volatile int heldBack;
 static UInt8       held[MATRIX_ROWS];
 static UInt8       heldCode[CODES_MAX];
 static BoardTimer* timer;
+
+/* The commands done over the rewind window, by the 64-bit board time each left
+** the queue (a wait when it ended), so a take over can queue again those done
+** after the moment it takes over at. base* hold the keys down as of the oldest. */
+typedef struct {
+    UInt64  time;
+    UInt64  start;      /* a wait's start; time for the others */
+    UInt32  end;        /* a wait's end */
+    Command command;
+} Done;
+
+static Done        done[QUEUE_SIZE];
+static int         doneHead;
+static int         doneCount;
+static UInt64      waitStart;
+static UInt8       baseHeld[MATRIX_ROWS];
+static UInt8       baseHeldCode[CODES_MAX];
+/* The newest done folded into base*: a take over before it cannot be worked out. */
+static UInt64      doneCoveredFrom;
+
+/* The keys the requests dropped for a CMD_TAKE_OVER would have let go, and what it did;
+** the count tells a take over done from one queued since. */
+static UInt8       takeOverRelease[CODES_MAX];
+static int         tookOver;
+static UInt32      tookOverMs;
+static UInt32      takeOverSeq;
 
 static void takeLock(void)
 {
@@ -220,15 +252,19 @@ int keyMatrixInputRemaining(void)
     return n;
 }
 
-int keyMatrixInputSubmitEvents(const KeyMatrixEvent* events, int eventCount)
+int keyMatrixInputHeldBack(void)
+{
+    return heldBack && keyMatrixInputRemaining() > 0;
+}
+
+/* All or none: half a key press delivered is a key left down. */
+static int eventsValid(const KeyMatrixEvent* events, int eventCount)
 {
     int i;
 
     if (events == NULL || eventCount <= 0) {
         return 0;
     }
-
-    /* All or none: half a key press delivered is a key left down. */
     for (i = 0; i < eventCount; i++) {
         if (events[i].kind == KM_WAIT_FRAMES) {
             continue;
@@ -239,6 +275,25 @@ int keyMatrixInputSubmitEvents(const KeyMatrixEvent* events, int eventCount)
             return 0;
         }
     }
+    return 1;
+}
+
+static void eventCommand(const KeyMatrixEvent* event, Command* command)
+{
+    command->type  = (UInt8)(event->kind == KM_DOWN ? CMD_CODE_DOWN :
+                             event->kind == KM_UP   ? CMD_CODE_UP
+                                                    : CMD_WAIT_FRAMES);
+    command->row   = 0;
+    command->value = event->code;
+}
+
+int keyMatrixInputSubmitEvents(const KeyMatrixEvent* events, int eventCount)
+{
+    int i;
+
+    if (!eventsValid(events, eventCount)) {
+        return 0;
+    }
 
     takeLock();
     if (count + eventCount > QUEUE_SIZE) {
@@ -247,13 +302,7 @@ int keyMatrixInputSubmitEvents(const KeyMatrixEvent* events, int eventCount)
     }
 
     for (i = 0; i < eventCount; i++) {
-        Command* command = &queue[(head + count) % QUEUE_SIZE];
-
-        command->type  = (UInt8)(events[i].kind == KM_DOWN ? CMD_CODE_DOWN :
-                                 events[i].kind == KM_UP   ? CMD_CODE_UP
-                                                           : CMD_WAIT_FRAMES);
-        command->row   = 0;
-        command->value = events[i].code;
+        eventCommand(&events[i], &queue[(head + count) % QUEUE_SIZE]);
         count++;
     }
     dropLock();
@@ -261,24 +310,118 @@ int keyMatrixInputSubmitEvents(const KeyMatrixEvent* events, int eventCount)
     return 1;
 }
 
+/* Under the lock: the text commands queued, in order and without a wait under way, and
+** in release the event codes a queued command lets go. Returns the event-code key
+** events queued, which a cancel or a take over drops. */
+static int queuedText(Command* text, int* textCount, UInt8* release)
+{
+    int events = 0;
+    int i;
+
+    *textCount = 0;
+    for (i = 0; i < count; i++) {
+        const Command* c = &queue[(head + i) % QUEUE_SIZE];
+        if (c->type == CMD_CODE_UP) {
+            release[c->value] = 1;
+        }
+        if (c->type == CMD_CODE_DOWN || c->type == CMD_CODE_UP) {
+            events++;
+        }
+        else if ((c->type == CMD_DOWN || c->type == CMD_UP || c->type == CMD_WAIT) &&
+                 !(i == 0 && waiting)) {
+            text[(*textCount)++] = *c;
+        }
+    }
+    return events;
+}
+
+int keyMatrixInputSubmitTakeOver(const KeyMatrixEvent* events, int eventCount)
+{
+    static Command kept[QUEUE_SIZE];
+    static Command text[QUEUE_SIZE];
+    UInt8 release[CODES_MAX];
+    int textCount;
+    int dropped;
+    int n = 0;
+    int i;
+
+    if (!eventsValid(events, eventCount)) {
+        return -1;
+    }
+
+    takeLock();
+    /* The text commands stay, after these keys; a wait under way is given up. */
+    memset(release, 0, sizeof(release));
+    dropped = queuedText(text, &textCount, release);
+    if (1 + eventCount + textCount > QUEUE_SIZE) {
+        dropLock();
+        return -1;
+    }
+    for (i = 1; i < CODES_MAX; i++) {
+        takeOverRelease[i] |= release[i];
+    }
+    kept[n].type    = CMD_TAKE_OVER;
+    kept[n].row     = 0;
+    kept[n++].value = 0;
+    for (i = 0; i < eventCount; i++) {
+        eventCommand(&events[i], &kept[n++]);
+    }
+    memcpy(kept + n, text, textCount * sizeof(Command));
+    n += textCount;
+    memcpy(queue, kept, n * sizeof(Command));
+    head = 0;
+    count = n;
+    waiting = 0;
+    tookOver = 0;
+    takeOverSeq++;
+    dropLock();
+
+    return dropped;
+}
+
+int keyMatrixInputReleaseQueued(int code)
+{
+    int queued;
+    int i;
+
+    takeLock();
+    queued = code > 0 && code < CODES_MAX && takeOverRelease[code];
+    for (i = 0; i < count && !queued; i++) {
+        const Command* c = &queue[(head + i) % QUEUE_SIZE];
+        queued = c->type == CMD_CODE_UP && c->value == code;
+    }
+    dropLock();
+    return queued;
+}
+
+int keyMatrixInputTookOver(UInt32* droppedMs)
+{
+    int finished;
+
+    takeLock();
+    finished = tookOver;
+    *droppedMs = tookOverMs;
+    dropLock();
+    return finished;
+}
+
 /* Only event-code commands are dropped; the text commands of keyMatrixInputSubmit stay.
 ** The releases are queued, so the emulation thread still does every key change. */
 void keyMatrixInputCancel(void)
 {
     static Command kept[QUEUE_SIZE];
+    static Command text[QUEUE_SIZE];
     UInt8 release[CODES_MAX];
+    int   textCount;
     int   i;
     int   n = 0;
 
     takeLock();
-    /* A key is let go only if a dropped command would have let it go, so a how=press hold stays. */
-    memset(release, 0, sizeof(release));
-    for (i = 0; i < count; i++) {
-        const Command* c = &queue[(head + i) % QUEUE_SIZE];
-        if (c->type == CMD_CODE_UP) {
-            release[c->value] = heldCode[c->value];
-        }
-    }
+    /* A key is let go only if a dropped command would have let it go, so a how=press hold
+    ** stays; so is one that a dropped take over was to let go. */
+    memcpy(release, takeOverRelease, sizeof(release));
+    memset(takeOverRelease, 0, sizeof(takeOverRelease));
+    queuedText(text, &textCount, release);
     /* A text wait under way stays first, as onTimer ends the wait at the head. */
     if (waiting && queue[head].type == CMD_WAIT) {
         kept[n++] = queue[head];
@@ -287,18 +430,14 @@ void keyMatrixInputCancel(void)
         waiting = 0;
     }
     for (i = 1; i < CODES_MAX; i++) {
-        if (release[i]) {
+        if (release[i] && heldCode[i]) {
             kept[n].type    = CMD_CODE_UP;
             kept[n].row     = 0;
             kept[n++].value = (UInt16)i;
         }
     }
-    for (i = waiting; i < count; i++) {
-        const Command* c = &queue[(head + i) % QUEUE_SIZE];
-        if (c->type == CMD_DOWN || c->type == CMD_UP || c->type == CMD_WAIT) {
-            kept[n++] = *c;
-        }
-    }
+    memcpy(kept + n, text, textCount * sizeof(Command));
+    n += textCount;
     memcpy(queue, kept, n * sizeof(Command));
     head = 0;
     count = n;
@@ -317,28 +456,246 @@ static void press(int row, int mask, int down)
     held[row] = (UInt8)(down ? (held[row] | mask) : (held[row] & ~mask));
 }
 
+static void applyHeld(const Command* c, UInt8* rows, UInt8* codes)
+{
+    switch (c->type) {
+    case CMD_DOWN:      rows[c->row] |= (UInt8)c->value;    break;
+    case CMD_UP:        rows[c->row] &= (UInt8)~c->value;   break;
+    case CMD_CODE_DOWN: codes[c->value] = 1;                break;
+    case CMD_CODE_UP:   codes[c->value] = 0;                break;
+    }
+}
+
+static void foldOldestDone(void)
+{
+    doneCoveredFrom = done[doneHead].time;
+    applyHeld(&done[doneHead].command, baseHeld, baseHeldCode);
+    doneHead = (doneHead + 1) % QUEUE_SIZE;
+    doneCount--;
+}
+
+static void noteDone(UInt64 now, const Command* command)
+{
+    Done* d;
+
+    if (doneCount == QUEUE_SIZE) {
+        foldOldestDone();
+    }
+    d = &done[(doneHead + doneCount++) % QUEUE_SIZE];
+    d->time    = now;
+    d->start   = waiting ? waitStart : now;
+    d->end     = waitEnd;
+    d->command = *command;
+}
+
+/* A key let go or pressed outside the queue is noted as done, so the keys held come
+** out right when a later take over works them out again. */
+static void noteKey(UInt64 now, int type, int row, int value)
+{
+    Command c;
+
+    c.type  = (UInt8)type;
+    c.row   = (UInt8)row;
+    c.value = (UInt16)value;
+    noteDone(now, &c);
+}
+
+/* Under the lock: the command at the head leaves the queue. */
+static void takeHead(UInt64 now)
+{
+    noteDone(now, &queue[head]);
+    head = (head + 1) % QUEUE_SIZE;
+    count--;
+    waiting = 0;
+}
+
+static void forgetDone(void)
+{
+    doneCount = 0;
+    doneCoveredFrom = 0;
+    memcpy(baseHeld, held, sizeof(baseHeld));
+    memcpy(baseHeldCode, heldCode, sizeof(baseHeldCode));
+}
+
+void keyMatrixInputTrimDone(UInt64 before)
+{
+    takeLock();
+    while (doneCount > 0 && done[doneHead].time <= before) {
+        foldOldestDone();
+    }
+    dropLock();
+}
+
+UInt64 keyMatrixInputDoneCoveredFrom(void)
+{
+    UInt64 from;
+
+    takeLock();
+    from = doneCoveredFrom;
+    dropLock();
+    return from;
+}
+
+void keyMatrixInputForgetDone(void)
+{
+    takeLock();
+    forgetDone();
+    dropLock();
+}
+
+void keyMatrixInputTakeOver(UInt64 now, int requeue)
+{
+    static Command merged[QUEUE_SIZE];
+    UInt8 rows[MATRIX_ROWS];
+    UInt8 codes[CODES_MAX];
+    int   kept = 0;
+    int   n = 0;
+    int   i;
+
+    takeLock();
+    /* A take over asked by the agent is next: what it gives up is not queued again. */
+    if (count > 0 && queue[head].type == CMD_TAKE_OVER) {
+        requeue = 0;
+    }
+    memcpy(rows, baseHeld, sizeof(rows));
+    memcpy(codes, baseHeldCode, sizeof(codes));
+    while (kept < doneCount && done[(doneHead + kept) % QUEUE_SIZE].time <= now) {
+        applyHeld(&done[(doneHead + kept) % QUEUE_SIZE].command, rows, codes);
+        kept++;
+    }
+    /* Never at the cost of what is still queued, which may hold a key's release. */
+    if (requeue && doneCount - kept + count > QUEUE_SIZE) {
+        requeue = 0;
+    }
+    /* A wait under way now is under way again, to the end it had; one begun
+    ** after now starts again when it is reached. */
+    if (waiting && waitStart > now) {
+        waiting = 0;
+    }
+    /* Not queued again, the keys it would have let go are let go now. */
+    for (i = kept; !requeue && i < doneCount; i++) {
+        const Command* c = &done[(doneHead + i) % QUEUE_SIZE].command;
+        if (c->type == CMD_CODE_UP) {
+            codes[c->value] = 0;
+        }
+        if (c->type == CMD_UP) {
+            rows[c->row] &= (UInt8)~c->value;
+        }
+    }
+    for (i = kept; requeue && i < doneCount; i++) {
+        const Done* d = &done[(doneHead + i) % QUEUE_SIZE];
+        if (i == kept && d->start <= now &&
+            (d->command.type == CMD_WAIT || d->command.type == CMD_WAIT_FRAMES)) {
+            waiting = 1;
+            waitStart = d->start;
+            waitEnd = d->end;
+        }
+        merged[n++] = d->command;
+    }
+    for (i = 0; i < count && n < QUEUE_SIZE; i++) {
+        merged[n++] = queue[(head + i) % QUEUE_SIZE];
+    }
+    memcpy(queue, merged, n * sizeof(Command));
+    head = 0;
+    count = n;
+    doneCount = kept;
+
+    for (i = 0; i < MATRIX_ROWS; i++) {
+        if (held[i] & ~rows[i]) {
+            noteKey(now, CMD_UP, i, held[i] & ~rows[i]);
+            press(i, held[i] & ~rows[i], 0);
+        }
+        if (rows[i] & ~held[i]) {
+            noteKey(now, CMD_DOWN, i, rows[i] & ~held[i]);
+            press(i, rows[i] & ~held[i], 1);
+        }
+    }
+    for (i = 1; i < CODES_MAX; i++) {
+        if (heldCode[i] != codes[i]) {
+            noteKey(now, codes[i] ? CMD_CODE_DOWN : CMD_CODE_UP, 0, i);
+            inputEventInject(i, codes[i]);
+            heldCode[i] = codes[i];
+        }
+    }
+    dropLock();
+}
+
+void keyMatrixInputRunTakeOver(void)
+{
+    UInt8  release[CODES_MAX];
+    UInt32 seq;
+    UInt32 ms;
+    UInt64 now;
+    int    code;
+
+    /* Unlocked for the board, which puts the keys as they were at the moment taken over at;
+    ** what this take over lets go is taken out first, apart from one queued meanwhile. */
+    takeLock();
+    if (count == 0 || queue[head].type != CMD_TAKE_OVER) {
+        dropLock();
+        return;
+    }
+    head = (head + 1) % QUEUE_SIZE;
+    count--;
+    seq = takeOverSeq;
+    memcpy(release, takeOverRelease, sizeof(release));
+    memset(takeOverRelease, 0, sizeof(takeOverRelease));
+    dropLock();
+
+    ms = boardRewindTakeOver(0);
+    now = boardSystemTime64();
+
+    takeLock();
+    for (code = 1; code < CODES_MAX; code++) {
+        if (release[code] && heldCode[code]) {
+            noteKey(now, CMD_CODE_UP, 0, code);
+            inputEventInject(code, 0);
+            heldCode[code] = 0;
+        }
+    }
+    if (seq == takeOverSeq) {
+        tookOverMs = ms;
+        tookOver = 1;
+    }
+    dropLock();
+    /* The keys behind it go in now, not at the next look at the queue. */
+    keyMatrixInputBoardRearm(1);
+}
+
 /* Carries out commands until a wait or the end of the queue, and sleeps until
 ** the wait is over; with nothing queued it looks again every few
 ** milliseconds. */
 static void onTimer(void* ref, UInt32 time)
 {
     UInt32 next = time + boardFrequency() / 1000 * IDLE_POLL_MS;
+    UInt64 now64 = boardSystemTime64();
     UInt32 now;
 
     takeLock();
 
-    if (waiting) {
-        head = (head + 1) % QUEUE_SIZE;
-        count--;
-        waiting = 0;
+    /* Held back, nothing is taken: what was taken before the rewind is read back
+    ** from the rewind input log, and the rest follows from where the rewind began. */
+    heldBack = boardRewindReplaying();
+    /* A state load re-arms the timer at once, which would cut the wait short. */
+    if (!heldBack && waiting && (Int32)(waitEnd - time) > 0) {
+        next = waitEnd;
+    }
+    else if (!heldBack && waiting) {
+        takeHead(now64);
     }
 
-    while (count > 0) {
+    while (count > 0 && !waiting && !heldBack) {
         Command* c = &queue[head];
 
+        /* Carried out at a sync, where no rewind is under way. */
+        if (c->type == CMD_TAKE_OVER) {
+            break;
+        }
         if (c->type == CMD_WAIT) {
             waiting = 1;
+            waitStart = now64;
             next = time + boardFrequency() / 1000 * c->value;
+            waitEnd = next;
             break;
         }
         if (c->type == CMD_WAIT_FRAMES) {
@@ -347,8 +704,10 @@ static void onTimer(void* ref, UInt32 time)
                 refresh = 60;
             }
             waiting = 1;
+            waitStart = now64;
             /* Converted here, not when queued, so a 50/60 Hz switch mid string is honoured. */
             next = time + boardFrequency() / (UInt32)refresh * c->value;
+            waitEnd = next;
             break;
         }
         if (c->type == CMD_CODE_DOWN || c->type == CMD_CODE_UP) {
@@ -359,8 +718,7 @@ static void onTimer(void* ref, UInt32 time)
         else {
             press(c->row, c->value, c->type == CMD_DOWN);
         }
-        head = (head + 1) % QUEUE_SIZE;
-        count--;
+        takeHead(now64);
     }
 
     dropLock();
@@ -381,9 +739,15 @@ void keyMatrixInputBoardStart(void)
     boardTimerAdd(timer, boardSystemTime() + 1);
 }
 
-/* The timer is not part of a state, so a load leaves it unarmed and the queue stuck. */
-void keyMatrixInputBoardRearm(void)
+/* The timer is not part of a state, so a load leaves it unarmed and the queue stuck.
+** A load that is not a rewind can move the clock anywhere, so a wait's end means nothing. */
+void keyMatrixInputBoardRearm(int rewound)
 {
+    takeLock();
+    if (!rewound && waiting) {
+        waitEnd = boardSystemTime();
+    }
+    dropLock();
     if (timer != NULL) {
         boardTimerAdd(timer, boardSystemTime() + 1);
     }
@@ -415,5 +779,9 @@ void keyMatrixInputBoardStop(void)
     head = 0;
     count = 0;
     waiting = 0;
+    heldBack = 0;
+    memset(takeOverRelease, 0, sizeof(takeOverRelease));
+    tookOver = 0;
+    forgetDone();
     dropLock();
 }

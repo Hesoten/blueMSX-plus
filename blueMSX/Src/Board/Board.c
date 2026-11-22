@@ -56,6 +56,7 @@
 #include "RomLoader.h"
 #include "JoystickPort.h"
 #include "KeyMatrixInput.h"
+#include "RewindInput.h"
 #include "FileHistory.h"
 #include "Utf8Conv.h"
 
@@ -123,6 +124,8 @@ static int     ramMaxStates;
 static int     ramStateCur;
 static int     ramStateCount;
 static UInt32* ramStateTime;
+/* The same moments on the 64-bit clock, which the input log is kept by. */
+static UInt64* ramStateTime64;
 static int     stateFrequency;
 
 /* The "mem" prefix keeps it in memory, beside the rewind ring's memN states. */
@@ -658,18 +661,26 @@ int boardCaptureConsumePendingToast(char* out, int outSize) {
 }
 
 UInt8 boardCaptureUInt8(UInt8 logId, UInt8 value) {
+    /* Playback first, so the rewind log keeps what a .cap gave the machine. A
+    ** recording that runs full stops and never turns into playback. */
+    if (cap.state == CAPTURE_PLAY) {
+        if (!rleEncEof()) {
+            value= rleEncGet(logId);
+        }
+    }
+    value = rewindInputFilter(boardSystemTime64(), logId, value);
     if (cap.state == CAPTURE_REC) {
         rleEncAdd(logId, value);
         if (rleEncEof()) {
             boardCaptureStop();
         }
     }
-    if (cap.state == CAPTURE_PLAY) {
-        if (!rleEncEof()) {
-            value= rleEncGet(logId);
-        }
-    }
     return value;
+}
+
+UInt8 boardRewindInput(UInt8 logId, UInt8 value)
+{
+    return rewindInputFilter(boardSystemTime64(), logId, value);
 }
 
 static void boardCaptureSaveState()
@@ -1159,17 +1170,39 @@ static void onMixerSync(void* ref, UInt32 time)
     boardTimerAdd(mixerTimer, boardSystemTime() + boardFrequency() / 50);
 }
 
+static int boardRewindOldest(void)
+{
+    return (ramStateCur + ramMaxStates - (ramStateCount - 1)) % ramMaxStates;
+}
+
+/* A snapshot older than the input and key logs reach would run again with the wrong input. */
+static void boardRewindKeepCovered(void)
+{
+    UInt64 from = rewindInputCoveredFrom();
+    UInt64 keys = keyMatrixInputDoneCoveredFrom();
+
+    if (keys > from) {
+        from = keys;
+    }
+    while (ramStateCount > 0 && ramStateTime64[boardRewindOldest()] < from) {
+        ramStateCount--;
+    }
+}
+
 static void onStateSync(void* ref, UInt32 time)
 {
     /* A medium that cannot be taken back with the MSX leaves nothing to rewind to. */
     if (enableSnapshots && diskHasHostMedium()) {
         ramStateCount = 0;
+        rewindInputReset();
+        keyMatrixInputForgetDone();
     }
     else if (enableSnapshots) {
         char memFilename[16];
         int    prevCur   = ramStateCur;
         int    prevCount = ramStateCount;
         UInt32 prevTime;
+        UInt64 prevTime64;
 
         ramStateCur = (ramStateCur + 1) % ramMaxStates;
         if (ramStateCount < ramMaxStates) {
@@ -1181,15 +1214,23 @@ static void onStateSync(void* ref, UInt32 time)
         /* What the clock will read once this snapshot is restored; step back
         ** uses it to pick a snapshot instead of restoring them to find out. */
         prevTime = ramStateTime[ramStateCur];
+        prevTime64 = ramStateTime64[ramStateCur];
         ramStateTime[ramStateCur] = boardSystemTime();
+        ramStateTime64[ramStateCur] = boardSystemTime64();
 
         if (!boardSaveState(memFilename, 0)) {
             /* A partial snapshot would restore the parts left out as devices
             ** starting afresh. In a full ring the oldest it overwrote is gone too. */
             memZipFileDelete(memFilename);
             ramStateTime[ramStateCur] = prevTime;
+            ramStateTime64[ramStateCur] = prevTime64;
             ramStateCur   = prevCur;
             ramStateCount = prevCount == ramMaxStates ? prevCount - 1 : prevCount;
+        }
+        boardRewindKeepCovered();
+        if (ramStateCount > 0) {
+            rewindInputTrim(ramStateTime64[boardRewindOldest()]);
+            keyMatrixInputTrimDone(ramStateTime64[boardRewindOldest()]);
         }
     }
 
@@ -1284,6 +1325,7 @@ int boardRewindOne() {
     if (stateFrequency <= 0 || diskHasHostMedium()) {
         return 0;
     }
+    boardRewindKeepCovered();
     rewindTime = boardInfo.getTimeTrace(1);
     if (rewindTime == 0 || ramStateCount < 2) {
         return 0;
@@ -1334,6 +1376,7 @@ int boardRewindTo(UInt32 loadAt, UInt32 dropAfter)
     if (stateFrequency <= 0 || diskHasHostMedium()) {
         return 0;
     }
+    boardRewindKeepCovered();
     for (skip = 0; skip < ramStateCount; skip++) {
         int slot = (ramStateCur + ramMaxStates - skip) % ramMaxStates;
         if ((Int32)(ramStateTime[slot] - dropAfter) <= 0) {
@@ -1364,10 +1407,14 @@ int boardRewindTo(UInt32 loadAt, UInt32 dropAfter)
 int boardRewindReaches(UInt32 at)
 {
     int oldest;
-    if (stateFrequency <= 0 || diskHasHostMedium() || ramStateCount < 1) {
+    if (stateFrequency <= 0 || diskHasHostMedium()) {
         return 0;
     }
-    oldest = (ramStateCur + ramMaxStates - (ramStateCount - 1)) % ramMaxStates;
+    boardRewindKeepCovered();
+    if (ramStateCount < 1) {
+        return 0;
+    }
+    oldest = boardRewindOldest();
     return (Int32)(ramStateTime[oldest] - at) <= 0 && (Int32)(at - boardSystemTime()) <= 0;
 }
 
@@ -1378,6 +1425,25 @@ void boardRewindForget(UInt32 after)
     }
 }
 
+int boardRewindReplaying(void)
+{
+    return rewindInputReplaying(boardSystemTime64());
+}
+
+UInt32 boardRewindTakeOver(int requeue)
+{
+    UInt64 now = boardSystemTime64();
+    UInt64 dropped = rewindInputTakeOver(now);
+
+    if (dropped == 0) {
+        return 0;
+    }
+    /* Snapshots past now belong to the run given up. */
+    boardRewindForget(boardSystemTime());
+    keyMatrixInputTakeOver(now, requeue);
+    return (UInt32)(dropped / HIRES_CYCLES_PER_LORES_CYCLE * 1000 / boardFrequency()) + 1;
+}
+
 static int boardRewindLoad(int drop)
 {
     char stateFile[16];
@@ -1386,6 +1452,7 @@ static int boardRewindLoad(int drop)
     if (diskHasHostMedium()) {
         return 0;
     }
+    boardRewindKeepCovered();
     if (drop ? !boardRewindDrop() : ramStateCount < 1) {
         return 0;
     }
@@ -1415,6 +1482,8 @@ int boardSnapshotRestore(void)
     boardLoadStateInPlace(SNAPSHOT_STATE, DEBUG_TRACE_LOAD);
     /* The ring holds moments after the snapshot, so a step back would jump forward. */
     ramStateCount = 0;
+    rewindInputReset();
+    keyMatrixInputForgetDone();
     return BOARD_SNAPSHOT_OK;
 }
 
@@ -1423,6 +1492,8 @@ int boardSnapshotRestore(void)
 ** trace a rewind step from any other load. */
 static int boardLoadStateInPlace(const char* stateFile, int traceReason)
 {
+    UInt64 loadedFrom = boardSystemTime64();
+
     debugTraceBreak(traceReason);
     boardTimerCleanup();
     /* The cleanup drops fdcTimer without ever running onFdcDone, so the boost
@@ -1442,6 +1513,7 @@ static int boardLoadStateInPlace(const char* stateFile, int traceReason)
         SaveState* bs = saveStateOpenForRead("board");
         UInt64 stashedTime = (UInt64)saveStateGet(bs, "boardSysTime64Hi", 0) << 32
                            | (UInt64)saveStateGet(bs, "boardSysTime64Lo", 0);
+        UInt32 stashedOldTime = saveStateGet(bs, "oldTime", 0);
         UInt32 snapInt = saveStateGet(bs, "pendingInt", 0);
         saveStateClose(bs);
         /* boardLoadState is not called here, so this field is taken by hand. */
@@ -1450,14 +1522,23 @@ static int boardLoadStateInPlace(const char* stateFile, int traceReason)
         boardInfo.loadState();
         videoManagerLoadState();
         videoManagerApplyLoadedState();
-        if (stashedTime != 0) boardSysTime64 = stashedTime;
+        /* The 64-bit clock was saved as of the saved oldTime, which can be earlier than
+        ** the snapshot. Both are put back, before the tape below reads the clock;
+        ** otherwise the time between them is lost. */
+        if (stashedTime != 0) {
+            boardSysTime64 = stashedTime;
+            oldTime = stashedOldTime;
+        }
+        else {
+            oldTime = boardSystemTime();
+        }
     }
     /* The tape clock is anchored to boardSysTime64, which just went backwards.
     ** Without this the next update underflows and seeks to the end of the tape. */
     tapeSignalReset();
-    /* boardSystemTime64 accumulates from oldTime, so it has to follow the clock
-    ** back too. Left alone the next call adds a wrapped UInt32 delta. */
-    oldTime = boardSystemTime();
+    if (traceReason == DEBUG_TRACE_REWIND) {
+        rewindInputLoaded(loadedFrom, boardSystemTime64());
+    }
     boardCaptureLoadState();
 
 #if 1
@@ -1471,7 +1552,7 @@ static int boardLoadStateInPlace(const char* stateFile, int traceReason)
         boardTimerAdd(periodicTimer, boardSystemTime() + periodicInterval);
     }
 #endif
-    keyMatrixInputBoardRearm();
+    keyMatrixInputBoardRearm(traceReason == DEBUG_TRACE_REWIND);
     /* A hunt or a write journal kept by an agent was about the machine before this. */
     dbgNotifyMachineChanged();
     debugTraceResume(traceReason, boardSystemTime(), 0);
@@ -1697,6 +1778,8 @@ int boardRun(Machine* machine,
 
         if (stateFrequency > 0) {
             ramStateTime = calloc(ramMaxStates, sizeof(UInt32));
+            ramStateTime64 = calloc(ramMaxStates, sizeof(UInt64));
+            rewindInputCreate();
             stateTimer = boardTimerCreate(onStateSync, NULL);
             breakpointTimer = boardTimerCreate(onBreakpointSync, NULL); 
             boardTimerAdd(stateTimer, boardSystemTime() + stateFrequency);
@@ -1750,6 +1833,9 @@ int boardRun(Machine* machine,
             stateTimer = NULL;
             free(ramStateTime);
             ramStateTime = NULL;
+            free(ramStateTime64);
+            ramStateTime64 = NULL;
+            rewindInputDestroy();
         }
         memZipFileSystemDestroy();
     }

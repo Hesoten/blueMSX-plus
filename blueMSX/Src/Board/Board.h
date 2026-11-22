@@ -109,6 +109,13 @@ int boardRewindTo(UInt32 loadAt, UInt32 dropAfter);
 int boardRewindReaches(UInt32 at);
 /* Drops the snapshots taken after the board time given, keeping at least one. */
 void boardRewindForget(UInt32 after);
+/* Non-zero while the machine runs again, after a rewind, through time it has run
+** before, reading the input it read then. Emulation thread only. */
+int boardRewindReplaying(void);
+/* Ends such a replay now, dropping what was recorded after; requeue queues again the
+** agent's keys done after now. Returns the ms dropped (rounded up), 0 when nothing
+** was being replayed. Emulation thread. */
+UInt32 boardRewindTakeOver(int requeue);
 void boardEnableSnapshots(int enable);
 
 BoardType boardGetType();
@@ -165,6 +172,11 @@ void boardDeviceFilesFatal(RomType device);
 void boardNoteUserCartridge(int cartNo);
 
 UInt8 boardCaptureUInt8(UInt8 logId, UInt8 value);
+/* Input read outside boardCaptureUInt8, kept for rewind replay only: a .cap file
+** counts the reads it plays back, so these stay out of it. */
+#define BOARD_REWIND_ID_PAUSE 0xe0
+#define BOARD_REWIND_ID_COIN  0xe1
+UInt8 boardRewindInput(UInt8 logId, UInt8 value);
 
 /* Zero when the state could not be stored whole, as when a part did not fit. */
 int boardSaveState(const char* stateFile, int screenshot);

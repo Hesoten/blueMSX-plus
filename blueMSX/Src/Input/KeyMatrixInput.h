@@ -2,6 +2,8 @@
 **
 ** Key presses fed to the MSX keyboard matrix from outside the emulator.
 ** Copyright (C) 2026 madscient
+**
+** Modified 2026 by Hesoten for blueMSX+ fork.
 ** See https://github.com/Hesoten/blueMSX-plus for change history.
 **
 ** This program is free software; you can redistribute it and/or modify
@@ -59,14 +61,46 @@ typedef struct {
 
 int keyMatrixInputSubmitEvents(const KeyMatrixEvent* events, int count);
 
+/* As keyMatrixInputSubmitEvents, behind a take over that ends a rewind replay, so
+** they go in at once. Event codes still queued are dropped. Returns how many key
+** events were dropped, or -1 for invalid events or a queue too full. */
+int keyMatrixInputSubmitTakeOver(const KeyMatrixEvent* events, int count);
+
+/* Carries out a take over at the front of the queue. Emulation thread, at a sync. */
+void keyMatrixInputRunTakeOver(void);
+
+/* Non-zero when a queued command, or a take over still to come, lets go of the event code. */
+int keyMatrixInputReleaseQueued(int code);
+
+/* Non-zero once the take over queued last is done, with the ms of recorded input
+** it dropped: 0 when nothing was being replayed. */
+int keyMatrixInputTookOver(UInt32* droppedMs);
+
 /* Drops the event codes still queued and lets go of the keys the dropped
 ** commands would have let go, as soon as the wait under way ends. */
 void keyMatrixInputCancel(void);
 
+/* Non-zero while commands wait for the machine to run again through what it ran
+** before a rewind: what it was given then comes from the rewind input log. */
+int keyMatrixInputHeldBack(void);
+
+/* The commands done are kept over the rewind window, by 64-bit board time:
+** those done up to before are let go, or all of them. */
+void keyMatrixInputTrimDone(UInt64 before);
+void keyMatrixInputForgetDone(void);
+/* A take over at a moment before this cannot put the keys back. */
+UInt64 keyMatrixInputDoneCoveredFrom(void);
+
+/* Puts the keys held down as they were at now, which a rewind went back to.
+** With requeue, what was done after now is queued again, at the front; without,
+** it is dropped and the keys it would have let go are let go. */
+void keyMatrixInputTakeOver(UInt64 now, int requeue);
+
 /* Called by the board around a run, from the emulation thread. */
 void keyMatrixInputBoardStart(void);
 void keyMatrixInputBoardStop(void);
-/* After a state is loaded over the running machine, which drops every board timer. */
-void keyMatrixInputBoardRearm(void);
+/* After a state is loaded over the running machine, which drops every board timer.
+** A rewind keeps the wait under way to its end; another load ends it. */
+void keyMatrixInputBoardRearm(int rewound);
 
 #endif

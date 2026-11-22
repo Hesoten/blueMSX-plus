@@ -25,27 +25,39 @@
 
 #include "MsxTypes.h"
 
-/* Both refuse a paused machine or a queue still busy with earlier keys, take hold
-** and gap times in frames, and return once the keys have been delivered. They return
-** CTRL_INPUT_STOPPED when the machine paused first, the rest staying queued, or stopped. */
+/* Both refuse a paused machine or a busy queue (unless taking over), take hold and gap
+** in frames, and return once the keys are delivered, or CTRL_INPUT_STOPPED when the
+** machine paused first, the rest staying queued, or stopped. */
 
 #define CTRL_INPUT_PRESS   0
 #define CTRL_INPUT_RELEASE 1
 #define CTRL_INPUT_TAP     2
 
 #define CTRL_INPUT_STOPPED (-2)
+/* A take over asked for while paused: queued, and done once the machine runs. */
+#define CTRL_INPUT_QUEUED  (-3)
+
+/* take_over: after a rewind the machine replays the input it was given up to where
+** the rewind began; asked, the keys go first and the recorded input from the moment
+** they go in is dropped, with what was still queued. Filled in by the call. */
+typedef struct {
+    int    asked;
+    int    done;            /* a replay was ended */
+    UInt32 droppedMs;       /* recorded input dropped */
+    int    droppedEvents;   /* queued key events of earlier requests dropped */
+} CtrlTakeOver;
 
 /* keys: inputEventCodeToString names joined by '+', e.g. "ctrl+stop". how is CTRL_INPUT_*.
 ** Returns -1 when a name is not a key, and 0 when the machine cannot take the keys. */
 int ctrlInputKey(const char* keys, int how, int holdFrames, int gapFrames,
-                 char* err, int errLen);
+                 CtrlTakeOver* takeOver, char* err, int errLen);
 
 /* Every name ctrlInputKey accepts, separated by spaces. */
 void ctrlInputKeyNames(char* out, int outLen);
 
 /* Types characters on the layout the BIOS decodes; \n is return, \t tab. A character
 ** with no key fails the call. note gets a warning when a lock light is on. */
-int ctrlInputType(const char* text, int holdFrames, int gapFrames,
+int ctrlInputType(const char* text, int holdFrames, int gapFrames, CtrlTakeOver* takeOver,
                   int* keyEventsOut, int* framesOut, char* note, int noteLen,
                   char* err, int errLen);
 

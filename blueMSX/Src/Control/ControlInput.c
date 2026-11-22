@@ -235,9 +235,11 @@ static const KeyChar* machineLayout(int* cbios, char* err, int errLen)
 }
 
 /* The key queue drains on board time, which stops while the machine is paused. */
-static int requireRunning(char* err, int errLen)
+static int requireRunning(const CtrlTakeOver* takeOver, char* err, int errLen)
 {
-    if (emulatorGetState() == EMU_RUNNING) {
+    /* A take over can wait for the run: it is done at the moment the machine goes on. */
+    if (emulatorGetState() == EMU_RUNNING ||
+        (takeOver->asked && emulatorGetState() == EMU_PAUSED)) {
         return 1;
     }
     fail(err, errLen,
@@ -295,8 +297,9 @@ static int waitDrained(int longestWaitFrames, int* remaining, int* idleMs, int* 
             *dropped = state == EMU_STOPPED;
             return *remaining == 1 ? 1 : CTRL_INPUT_STOPPED;
         }
-        /* Only running time counts; a menu or a dragged window suspends the machine. */
-        if (*remaining != last || state == EMU_SUSPENDED) {
+        /* Only running time counts; a menu or a dragged window suspends the machine,
+        ** and a rewind holds the keys back until it is past where it began. */
+        if (*remaining != last || state == EMU_SUSPENDED || keyMatrixInputHeldBack()) {
             last = *remaining;
             since = archGetSystemUpTime(1000);
         }
@@ -310,15 +313,49 @@ static int waitDrained(int longestWaitFrames, int* remaining, int* idleMs, int* 
     return 1;
 }
 
-/* The trailing wait of an earlier request may still run; give it an emulated second. */
-static int queueFree(char* err, int errLen)
+/* Queues the events, behind a take over when asked. */
+static int submit(const KeyMatrixEvent* events, int count, CtrlTakeOver* takeOver,
+                  char* err, int errLen)
+{
+    if (takeOver->asked) {
+        takeOver->droppedEvents = keyMatrixInputSubmitTakeOver(events, count);
+        if (takeOver->droppedEvents >= 0) {
+            return 1;
+        }
+    }
+    else if (keyMatrixInputSubmitEvents(events, count)) {
+        return 1;
+    }
+    fail(err, errLen, "the key queue is full, or this machine has no keyboard");
+    return 0;
+}
+
+/* After the keys went in, or the machine stopped first: what the take over did. */
+static int tookOver(CtrlTakeOver* takeOver, int result)
+{
+    if (takeOver->asked) {
+        takeOver->done = keyMatrixInputTookOver(&takeOver->droppedMs);
+        if (!takeOver->done && result != 0 && emulatorGetState() == EMU_PAUSED) {
+            return CTRL_INPUT_QUEUED;
+        }
+        takeOver->done = takeOver->done && takeOver->droppedMs > 0;
+    }
+    return result;
+}
+
+/* The trailing wait of an earlier request may still run; give it an emulated second.
+** A take over drops it instead. */
+static int queueFree(const CtrlTakeOver* takeOver, char* err, int errLen)
 {
     char   message[200];
     UInt32 start = archGetSystemUpTime(1000);
     int    left;
 
+    if (takeOver->asked) {
+        return 1;
+    }
     while ((left = keyMatrixInputRemaining()) > 0 && emulatorGetState() == EMU_RUNNING &&
-           (int)(archGetSystemUpTime(1000) - start) < wallMs(refreshRate()) + 200) {
+           !keyMatrixInputHeldBack() && (int)(archGetSystemUpTime(1000) - start) < wallMs(refreshRate()) + 200) {
         archThreadSleep(2);
     }
     if (left == 0) {
@@ -332,7 +369,7 @@ static int queueFree(char* err, int errLen)
 }
 
 /* Names up to 4 held keys of one source, the agent's (1) or the emulator's (0). */
-static int heldNames(int byAgent, char* names, int namesLen)
+static int heldNames(int byAgent, int takingOver, char* names, int namesLen)
 {
     int length = 0;
     int count = 0;
@@ -344,6 +381,10 @@ static int heldNames(int byAgent, char* names, int namesLen)
 
         if (!inputEventIsKeyboard(code) ||
             !(byAgent ? eventInjected[code] : eventMap[code] && !eventInjected[code])) {
+            continue;
+        }
+        /* A take over lets go of what the requests it drops would have let go. */
+        if (byAgent && takingOver && keyMatrixInputReleaseQueued(code)) {
             continue;
         }
         if (count < 4) {
@@ -360,12 +401,12 @@ static int heldNames(int byAgent, char* names, int namesLen)
 }
 
 /* A key still down (shift, ctrl, graph...) changes what every typed key gives. */
-static int noKeyHeld(char* err, int errLen)
+static int noKeyHeld(const CtrlTakeOver* takeOver, char* err, int errLen)
 {
     char agent[80];
     char emulator[80];
-    int  byAgent = heldNames(1, agent, sizeof(agent));
-    int  byEmulator = heldNames(0, emulator, sizeof(emulator));
+    int  byAgent = heldNames(1, takeOver->asked, agent, sizeof(agent));
+    int  byEmulator = heldNames(0, 0, emulator, sizeof(emulator));
 
     if (byAgent == 0 && byEmulator == 0) {
         return 1;
@@ -538,7 +579,7 @@ static void explainKeysStopped(const char* keys, int how, int codeCount, int rem
 }
 
 int ctrlInputKey(const char* keys, int how, int holdFrames, int gapFrames,
-                 char* err, int errLen)
+                 CtrlTakeOver* takeOver, char* err, int errLen)
 {
     KeyMatrixEvent events[EVENTS_MAX];
     UInt8 codes[8];
@@ -556,17 +597,16 @@ int ctrlInputKey(const char* keys, int how, int holdFrames, int gapFrames,
     if ((result = keyCodes(keys, codes, &codeCount, err, errLen)) <= 0) {
         return result;
     }
-    if (!requireRunning(err, errLen) || !queueFree(err, errLen)) {
+    if (!requireRunning(takeOver, err, errLen) || !queueFree(takeOver, err, errLen)) {
         return 0;
     }
 
     at = keyEvents(events, codes, codeCount, how, holdFrames, gapFrames);
-    if (!keyMatrixInputSubmitEvents(events, at)) {
-        fail(err, errLen, "the key queue is full, or this machine has no keyboard");
+    if (!submit(events, at, takeOver, err, errLen)) {
         return 0;
     }
-    result = waitDrained(holdFrames > gapFrames ? holdFrames : gapFrames,
-                         &remaining, &idleMs, &dropped, err, errLen);
+    result = tookOver(takeOver, waitDrained(holdFrames > gapFrames ? holdFrames : gapFrames,
+                                            &remaining, &idleMs, &dropped, err, errLen));
     if (result == CTRL_INPUT_STOPPED) {
         explainKeysStopped(keys, how, codeCount, remaining, idleMs, dropped, err, errLen);
     }
@@ -786,7 +826,7 @@ static void explainTypeStopped(const char* text, const KeyChar* layout, int deli
     fail(err, errLen, message);
 }
 
-int ctrlInputType(const char* text, int holdFrames, int gapFrames,
+int ctrlInputType(const char* text, int holdFrames, int gapFrames, CtrlTakeOver* takeOver,
                   int* keyEventsOut, int* framesOut, char* note, int noteLen,
                   char* err, int errLen)
 {
@@ -803,8 +843,8 @@ int ctrlInputType(const char* text, int holdFrames, int gapFrames,
         fail(err, errLen, "nothing to type");
         return 0;
     }
-    if (!checkTypeable(text, err, errLen) || !requireRunning(err, errLen) ||
-        !queueFree(err, errLen) || !noKeyHeld(err, errLen)) {
+    if (!checkTypeable(text, err, errLen) || !requireRunning(takeOver, err, errLen) ||
+        !queueFree(takeOver, err, errLen) || !noKeyHeld(takeOver, err, errLen)) {
         return 0;
     }
     layout = machineLayout(&cbios, err, errLen);
@@ -818,8 +858,7 @@ int ctrlInputType(const char* text, int holdFrames, int gapFrames,
     }
     tellLockLights(keys.letters, note, noteLen);
 
-    if (!keyMatrixInputSubmitEvents(keys.events, keys.count)) {
-        fail(err, errLen, "the key queue is full, or this machine has no keyboard");
+    if (!submit(keys.events, keys.count, takeOver, err, errLen)) {
         return 0;
     }
     if (keyEventsOut != NULL) {
@@ -828,8 +867,8 @@ int ctrlInputType(const char* text, int holdFrames, int gapFrames,
     if (framesOut != NULL) {
         *framesOut = keys.frames;
     }
-    result = waitDrained(holdFrames > gapFrames ? holdFrames : gapFrames,
-                         &remaining, &idleMs, &dropped, err, errLen);
+    result = tookOver(takeOver, waitDrained(holdFrames > gapFrames ? holdFrames : gapFrames,
+                                            &remaining, &idleMs, &dropped, err, errLen));
     if (result == CTRL_INPUT_STOPPED) {
         explainTypeStopped(text, layout, keys.count - remaining, idleMs, dropped, err, errLen);
     }

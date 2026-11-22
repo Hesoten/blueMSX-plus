@@ -38,6 +38,7 @@
 #include "Led.h"
 #include "Machine.h"
 #include "InputEvent.h"
+#include "KeyMatrixInput.h"
 #include "Actions.h"
 #include "RomTypeList.h"
 #include "Language.h"
@@ -206,6 +207,8 @@ static volatile int      changeGaveUp;
 ** pause at the frame it shows; under emuStateLock, cleared by a pause or a stop. */
 static volatile int      holdFromPause;
 static volatile int      rwPauseReq;
+/* Reverse play begun while running has ended: the input from there on is new. */
+static volatile int      rwTakeOverReq;
 /* A step back from a pause: 1 one frame, 2 on to another picture, 3 to the display end at
 ** backTarget; frames it went back, why the last gave up (1 nothing older to stop at, 2 no other
 ** picture within the limit), that a replay of it arrived, and that it starts from one cut short. */
@@ -431,6 +434,7 @@ static void writeHeld(EmuState state, int setsDebugger)
         disarmChange();
         holdFromPause = 0;
         rwPauseReq = 0;
+        rwTakeOverReq = 0;
         endBackStep();
     }
     else if (state == EMU_RUNNING) {
@@ -1360,11 +1364,23 @@ void emulatorPlayReverse(int enable)
     if (enable) {
         archSoundSuspend();
         archMidiEnable(0);
+        rwTakeOverReq = 0;
     }
-    else if (emuState == EMU_RUNNING) {
+    else {
+        int running;
+
+        /* Only reverse play that ran, and not when it ends in a pause: begun from one under
+        ** another hold, or a stop is due. Read locked, so a pause made meanwhile clears it. */
+        archSemaphoreWait(emuStateLock, -1);
+        running = emuState == EMU_RUNNING;
+        rwTakeOverReq = (running || emuState == EMU_SUSPENDED) && emuPlayReverse &&
+                        !holdFromPause && !rwPauseReq && !frameStopReq && !frameStopNow;
+        archSemaphoreSignal(emuStateLock);
         /* A rewind while paused leaves the machine paused, and silent. */
-        archSoundResume();
-        archMidiEnable(1);
+        if (running) {
+            archSoundResume();
+            archMidiEnable(1);
+        }
     }
     emuPlayReverse = enable;
     /* A rewind does not reach the sync that takes a frame stop, so a pending one
@@ -1406,6 +1422,7 @@ void emulatorHoldBegin(int reverse)
     if (reverse) {
         archSoundSuspend();
         archMidiEnable(0);
+        rwTakeOverReq = 0;
         emuPlayReverse = 1;
     }
     archSemaphoreWait(emuStateLock, -1);
@@ -1959,6 +1976,15 @@ static int WaitForSync(int maxSpeed, int stopCause) {
     }
     if (rwPauseReq) {
         takeReversePause();
+    }
+    /* At the frame shown, once the replay to it is over; an agent's take over first, as
+    ** it drops what reverse play would queue again and reports what it ended. */
+    if (!emulatorDropsStops()) {
+        keyMatrixInputRunTakeOver();
+        if (rwTakeOverReq) {
+            rwTakeOverReq = 0;
+            boardRewindTakeOver(1);
+        }
     }
 
     /* Never a snapshot of a replay under way, nor of a frame reverse play shows. */

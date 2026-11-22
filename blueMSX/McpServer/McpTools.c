@@ -43,6 +43,14 @@
     "Addresses printed by these tools can be " \
     "sent straight back.\"}"
 
+/* bmsx_key and bmsx_type both take it. */
+#define TAKE_OVER_PROPERTY \
+    "\"take_over\":{\"type\":\"boolean\",\"default\":false,\"description\":" \
+    "\"after a step back, back frame or rewind the machine replays the input it was " \
+    "given before, up to the moment it was rewound from, and these keys wait for " \
+    "that; true drops the recorded input from now on and the keys still queued, " \
+    "and sends these at once. Accepted while paused: done when the machine runs\"}"
+
 #define READ_ONLY "\"readOnlyHint\":true,\"destructiveHint\":false," \
                   "\"idempotentHint\":true,\"openWorldHint\":false"
 #define CHANGES   "\"readOnlyHint\":false,\"destructiveHint\":false," \
@@ -458,7 +466,8 @@ const McpTool mcpTools[] = {
            "missed\"},"
            "\"gap\":{\"type\":\"integer\",\"default\":" CTRL_STR(CTRL_KEY_GAP_DEFAULT)
            ",\"minimum\":" CTRL_STR(CTRL_KEY_GAP_MIN) ",\"maximum\":" CTRL_STR(CTRL_KEY_GAP_MAX)
-           "}},"
+           "},"
+           TAKE_OVER_PROPERTY "},"
            "\"required\":[\"keys\"]"),
     CHANGES,
     "key",
@@ -482,7 +491,8 @@ const McpTool mcpTools[] = {
            "},"
            "\"gap\":{\"type\":\"integer\",\"default\":" CTRL_STR(CTRL_TYPE_GAP_DEFAULT)
            ",\"minimum\":" CTRL_STR(CTRL_TYPE_GAP_MIN) ",\"maximum\":" CTRL_STR(CTRL_TYPE_GAP_MAX)
-           "}},"
+           "},"
+           TAKE_OVER_PROPERTY "},"
            "\"required\":[\"text\"]"),
     CHANGES,
     "type",
