@@ -36,11 +36,16 @@ void rewindInputDestroy(void);
 /* Forgets everything, for when no snapshot on the ring can be restored. */
 void rewindInputReset(void);
 
-/* What the read at time gives the machine: value itself while recording. */
+/* What the read at time gives the machine: value itself while recording, the
+** value read the first time while the machine runs again after a rewind. */
 UInt8 rewindInputFilter(UInt64 time, UInt8 logId, UInt8 value);
 
-/* After a snapshot taken at time has been loaded in place over the machine. */
-void rewindInputLoaded(UInt64 time);
+/* After a snapshot taken at time has been loaded in place over the machine,
+** which had run until from. What follows is replayed until it is back there. */
+void rewindInputLoaded(UInt64 from, UInt64 time);
+
+/* Non-zero while what runs at now is replayed. */
+int rewindInputReplaying(UInt64 now);
 
 /* Folds what was read up to the oldest snapshot still kept into one record. */
 void rewindInputTrim(UInt64 oldestSnapshot);

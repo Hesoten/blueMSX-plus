@@ -1460,6 +1460,8 @@ int boardSnapshotRestore(void)
 ** trace a rewind step from any other load. */
 static int boardLoadStateInPlace(const char* stateFile, int traceReason)
 {
+    UInt64 loadedFrom = boardSystemTime64();
+
     debugTraceBreak(traceReason);
     boardTimerCleanup();
     /* The cleanup drops fdcTimer without ever running onFdcDone, so the boost
@@ -1503,7 +1505,7 @@ static int boardLoadStateInPlace(const char* stateFile, int traceReason)
     ** Without this the next update underflows and seeks to the end of the tape. */
     tapeSignalReset();
     if (traceReason == DEBUG_TRACE_REWIND) {
-        rewindInputLoaded(boardSystemTime64());
+        rewindInputLoaded(loadedFrom, boardSystemTime64());
     }
     boardCaptureLoadState();
 

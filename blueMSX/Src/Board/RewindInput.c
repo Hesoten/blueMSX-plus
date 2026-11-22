@@ -35,10 +35,15 @@ typedef struct {
 #define LOG_MASK (LOG_SIZE - 1)
 
 /* Entries are numbered from the start; tail is the oldest kept, head the next
-** free. base holds each logId's value as of tail, cur as of the newest entry. */
+** free. base holds each logId's value as of tail; cur as of the newest entry,
+** or while replaying as of cursor, the next entry the machine has not met. */
 static Entry* ring;
 static UInt64 head;
 static UInt64 tail;
+static UInt64 cursor;
+/* Replaying until the machine is back at the time the rewind started from. */
+static int    replaying;
+static UInt64 frontier;
 static UInt64 coveredFrom;
 static UInt8  base[256];
 static UInt8  baseValid[256];
@@ -57,12 +62,15 @@ void rewindInputDestroy(void)
 {
     free(ring);
     ring = NULL;
+    rewindInputReset();
 }
 
 void rewindInputReset(void)
 {
     head = 0;
     tail = 0;
+    cursor = 0;
+    replaying = 0;
     coveredFrom = 0;
     memset(baseValid, 0, sizeof(baseValid));
     memset(curValid, 0, sizeof(curValid));
@@ -78,7 +86,27 @@ UInt8 rewindInputFilter(UInt64 time, UInt8 logId, UInt8 value)
 {
     Entry* e;
 
-    if (ring == NULL || (curValid[logId] && cur[logId] == value)) {
+    if (ring == NULL) {
+        return value;
+    }
+    if (replaying) {
+        while (cursor < head && ring[cursor & LOG_MASK].time < time) {
+            apply(&ring[cursor++ & LOG_MASK], cur, curValid);
+        }
+        /* Reads at one moment keep their order: each takes its own entry of that moment. */
+        if (cursor < head && ring[cursor & LOG_MASK].time == time &&
+            ring[cursor & LOG_MASK].logId == logId) {
+            apply(&ring[cursor++ & LOG_MASK], cur, curValid);
+        }
+        if (time < frontier) {
+            return curValid[logId] ? cur[logId] : value;
+        }
+        while (cursor < head) {
+            apply(&ring[cursor++ & LOG_MASK], cur, curValid);
+        }
+        replaying = 0;
+    }
+    if (curValid[logId] && cur[logId] == value) {
         return value;
     }
     if (head - tail == LOG_SIZE) {
@@ -95,19 +123,26 @@ UInt8 rewindInputFilter(UInt64 time, UInt8 logId, UInt8 value)
     return value;
 }
 
-void rewindInputLoaded(UInt64 time)
+void rewindInputLoaded(UInt64 from, UInt64 time)
 {
-    UInt64 i;
-
     if (ring == NULL) {
         return;
     }
     memcpy(cur, base, sizeof(cur));
     memcpy(curValid, baseValid, sizeof(curValid));
-    for (i = tail; i < head && ring[i & LOG_MASK].time <= time; i++) {
-        apply(&ring[i & LOG_MASK], cur, curValid);
+    for (cursor = tail; cursor < head && ring[cursor & LOG_MASK].time <= time; cursor++) {
+        apply(&ring[cursor & LOG_MASK], cur, curValid);
     }
-    head = i;
+    /* A rewind made during the replay of an earlier one goes on to the same end. */
+    if (!replaying || from >= frontier) {
+        frontier = from;
+    }
+    replaying = 1;
+}
+
+int rewindInputReplaying(UInt64 now)
+{
+    return ring != NULL && replaying && now < frontier;
 }
 
 void rewindInputTrim(UInt64 oldestSnapshot)
@@ -116,6 +151,9 @@ void rewindInputTrim(UInt64 oldestSnapshot)
         return;
     }
     while (tail < head && ring[tail & LOG_MASK].time <= oldestSnapshot) {
+        if (replaying && cursor == tail) {
+            apply(&ring[cursor++ & LOG_MASK], cur, curValid);
+        }
         apply(&ring[tail & LOG_MASK], base, baseValid);
         tail++;
     }
