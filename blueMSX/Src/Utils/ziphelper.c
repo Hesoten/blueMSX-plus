@@ -79,6 +79,7 @@ typedef struct
 typedef struct
 {
     char       filename[MEM_FILENAME_SIZE];
+    int        refs;        /* zips holding this part */
     int        size;
     int        chunkCount;
     MemChunk** chunks;      /* NULL is a chunk of zeros */
@@ -111,6 +112,10 @@ static void memFileDestroy(MemFile* memFile)
 {
     int i;
 
+    if (--memFile->refs > 0)
+    {
+        return;
+    }
     for (i = 0; i < memFile->chunkCount; i++)
     {
         MemChunk* chunk = memFile->chunks[i];
@@ -130,18 +135,42 @@ static int memChunkIsZero(const unsigned char* data, int len)
     return memcmp(data, zeros, len) == 0;
 }
 
-static MemFile* memFileCreate(const char* filename, const unsigned char* data, int size, const MemFile* prev)
+static int memChunkHolds(const MemChunk* chunk, const unsigned char* data, int len)
 {
-    MemFile* memFile = malloc(sizeof(MemFile));
+    return chunk != NULL ? memcmp(chunk->data, data, len) == 0 : memChunkIsZero(data, len);
+}
+
+static MemFile* memFileCreate(const char* filename, const unsigned char* data, int size, MemFile* prev)
+{
+    MemFile* memFile;
+    int count = (size + MEM_CHUNK_SIZE - 1) / MEM_CHUNK_SIZE;
+    int same  = 0;
     int i;
 
+    /* Large parts often do not change at all; one of those shares the part
+    ** before as a whole instead of a table of its chunks. */
+    if (prev != NULL && prev->size == size)
+    {
+        while (same < count && memChunkHolds(prev->chunks[same], data + same * MEM_CHUNK_SIZE, memChunkLen(size, same)))
+        {
+            same++;
+        }
+        if (same == count)
+        {
+            prev->refs++;
+            return prev;
+        }
+    }
+
+    memFile = malloc(sizeof(MemFile));
     if (memFile == NULL)
     {
         return NULL;
     }
     strcpy(memFile->filename, filename);
+    memFile->refs       = 1;
     memFile->size       = size;
-    memFile->chunkCount = (size + MEM_CHUNK_SIZE - 1) / MEM_CHUNK_SIZE;
+    memFile->chunkCount = count;
     memFile->chunks     = calloc(memFile->chunkCount > 0 ? memFile->chunkCount : 1, sizeof(MemChunk*));
     if (memFile->chunks == NULL)
     {
@@ -155,6 +184,16 @@ static MemFile* memFileCreate(const char* filename, const unsigned char* data, i
         int len = memChunkLen(size, i);
         MemChunk* chunk = NULL;
 
+        if (i < same)
+        {
+            chunk = prev->chunks[i];
+            if (chunk != NULL)
+            {
+                chunk->refs++;
+            }
+            memFile->chunks[i] = chunk;
+            continue;
+        }
         /* Only the first len bytes of a chunk are ever read. Past the end of the
         ** part before, its chunk holds bytes never written. */
         if (prev != NULL && i < prev->chunkCount && memChunkLen(prev->size, i) >= len)
