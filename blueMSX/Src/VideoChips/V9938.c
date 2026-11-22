@@ -184,6 +184,9 @@ struct VdpCmdState {
     int    breakPendingMode;   /* the VRAM layout the matched write was made in */
     int    extCommands;
     int    fillTag;
+    /* The HMMV in flight is geo3d's one row face fill: it leaves DY and NY as the
+    ** LINE had them, or as the CPU has written them since. */
+    int    fillRun;
     int    xhr;
     int    VX;
     int    VY;
@@ -455,7 +458,7 @@ static int hsSetTiming(VdpCmdState* vdpCmd)
     /* A count of 0 runs to the edge, and to the last row. */
     int edge = vdpCmd->TX > 0 ? (vdpCmd->MX - vdpCmd->DX + ppb - 1) / ppb : vdpCmd->DX / ppb + 1;
     int nx   = vdpCmd->NX ? vdpCmd->NX : (edge < 1 ? 1 : edge);
-    int ny   = vdpCmd->NY ? vdpCmd->NY : vdpCmd->nyMask + 1;
+    int ny   = vdpCmd->fillRun ? 1 : vdpCmd->NY ? vdpCmd->NY : vdpCmd->nyMask + 1;
     int row  = 0;
     int rest = 0;
     int step = fast_timing_base;
@@ -1424,7 +1427,7 @@ static void HmmvEngine(VdpCmdState* vdpCmd)
     int TX=vdpCmd->TX;
     int TY=vdpCmd->TY;
     int NX=vdpCmd->NX;
-    int NY=vdpCmd->NY;
+    int NY=vdpCmd->fillRun ? 1 : vdpCmd->NY;
     int ADX=vdpCmd->ADX;
     int ANX=vdpCmd->ANX;
     UInt8 CL=vdpCmd->CL;
@@ -1456,12 +1459,19 @@ static void HmmvEngine(VdpCmdState* vdpCmd)
         /* Command execution done */
         vdpCmd->status &= ~VDPSTATUS_CE;
         vdpCmd->CM = 0;
-        vdpCmd->DY=DY & vdpCmd->nyMask;
-        vdpCmd->NY=NY & vdpCmd->nyMask;
+        if (vdpCmd->fillRun) {
+            vdpCmd->fillRun = 0;
+        }
+        else {
+            vdpCmd->DY=DY & vdpCmd->nyMask;
+            vdpCmd->NY=NY & vdpCmd->nyMask;
+        }
     }
     else {
-        vdpCmd->DY=DY;
-        vdpCmd->NY=NY;
+        if (!vdpCmd->fillRun) {
+            vdpCmd->DY=DY;
+            vdpCmd->NY=NY;
+        }
         vdpCmd->ANX=ANX;
         vdpCmd->ADX=ADX;
     }
@@ -1614,6 +1624,10 @@ void vdpCmdResetExtRegs(VdpCmdState* vdpCmd)
 void vdpCmdResetState(VdpCmdState* vdpCmd)
 {
     vdpCmd->sySub = 0;
+    /* A command left running across the reset by R#45 FG4 still needs its state. */
+    if (vdpCmd->CM == 0) {
+        vdpCmd->fillRun = 0;
+    }
 }
 
 /* R#45 MXS and MXD pick the expansion window, and R#30 a bank above it. */
@@ -1906,7 +1920,7 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
         vdpCmd->traceLink  = vdpCmd->traceIssueLink;
         vdpCmd->traceArgs  = vdpCmd->CM | (vdpCmd->LO << 4) | ((vdpCmd->fillTag != 0) << 8) |
                              ((UInt32)vdpCmd->ARG << 16) | ((UInt32)vdpCmd->CL << 24);
-        vdpCmd->traceSize  = (vdpCmd->kNX & 0xffff) | ((UInt32)vdpCmd->NY << 16);
+        vdpCmd->traceSize  = (vdpCmd->kNX & 0xffff) | ((UInt32)(vdpCmd->fillRun ? 1 : vdpCmd->NY) << 16);
         vdpCmd->tracePos   = (vdpCmd->DX & 0xffff) | ((UInt32)vdpCmd->DY << 16);
         /* geo3d's credit moves the start back after this; the end record has it right. */
         debugTraceEmit(vdpCmd->traceSource, VDPCMD_TRACE_CMD | DEBUG_TRACE_BEGIN, systemTime,
@@ -2080,9 +2094,10 @@ void vdpCmdWrite(VdpCmdState* vdpCmd, UInt8 reg, UInt8 value, UInt32 systemTime)
                           vdpCmd->DX < 256 && !(vdpCmd->ARG & 0x0d) && vdpCmd->NY == 0;
         if (vdpCmd->fillTag) {
             vdpCmd->CM = CM_HMMV;
-            vdpCmd->NY = 1;
         }
+        vdpCmd->fillRun = vdpCmd->fillTag;
 		vdpCmdSetCommand(vdpCmd, systemTime);
+        vdpCmd->fillRun = vdpCmd->fillRun && vdpCmd->CM == CM_HMMV;
         vdpCmd->fillTag = 0;
         /* One that never starts still counts as one that ended. */
         if (vdpCmd->CM == 0) {
@@ -2610,6 +2625,7 @@ void vdpCmdLoadState(VdpCmdState* vdpCmd)
     vdpCmd->cmdStartTime  =         saveStateGet(state, "cmdStartTime",
                                                  vdpCmd->systemTime * VDP_TIMING_SCALE);
     vdpCmd->hsModel       =         saveStateGet(state, "hsModel", 0);
+    vdpCmd->fillRun       =         saveStateGet(state, "fillRun", 0);
     /* A state without srchAsx holds a running SRCH's X in SX. */
     if (!saveStateGet(state, "srchAsx", 0) && vdpCmd->CM == CM_SRCH) {
         vdpCmd->ASX = vdpCmd->SX;
@@ -2692,6 +2708,7 @@ void vdpCmdSaveState(VdpCmdState* vdpCmd)
     saveStateSet(state, "cmdEndTime", vdpCmd->cmdEndTime);
     saveStateSet(state, "cmdStartTime", vdpCmd->cmdStartTime);
     saveStateSet(state, "hsModel", vdpCmd->hsModel);
+    saveStateSet(state, "fillRun", vdpCmd->fillRun);
     saveStateSet(state, "srchAsx", 1);
     saveStateSet(state, "hsStep", vdpCmd->hsStep);
     saveStateSet(state, "timingMode", vdpCmd->timingMode);
