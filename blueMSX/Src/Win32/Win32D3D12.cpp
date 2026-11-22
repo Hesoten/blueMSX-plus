@@ -1777,6 +1777,8 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
     // The previous frame does not line up with one of another width.
     bool prevSameWidth = g12_texFrameW == fb->maxWidth;
     g12_texFrameW = fb->maxWidth;
+    // Blend only after this frame's copy: until then (start, after a wipe) prev is zeros.
+    bool prevCopied = false;
 
     // -- Noise mask generation ------------------------------------------------
     // Mirrors DD's `rndVal *= 13; rnd *= 23` PRNG.  rndVal advances every
@@ -1838,7 +1840,8 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
         // Frame blend: save current frame to prev BEFORE uploading new.
         // blend+valid: PSR->COPY_SOURCE on texture, PSR->COPY_DEST on prev,
         // CopyResource, then prev back to PSR.  Otherwise: PSR->COPY_DEST only.
-        if (blendFramesEnable && g12_prevTextureValid) {
+        prevCopied = blendFramesEnable && g12_prevTextureValid;
+        if (prevCopied) {
             D3D12_RESOURCE_BARRIER rb2[2] = {};
             auto fill = [](D3D12_RESOURCE_BARRIER& r, ID3D12Resource* res,
                            D3D12_RESOURCE_STATES b, D3D12_RESOURCE_STATES a) {
@@ -2021,7 +2024,7 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
             cb.scanShapeP = (float)spct / 100.0f * 4.0f;
         }
         cb.scalingFilter = (float)props->scalingFilter;
-        cb.blendFramesEnable  = blendFramesEnable && prevSameWidth ? 1.0f : 0.0f;
+        cb.blendFramesEnable  = prevCopied && prevSameWidth ? 1.0f : 0.0f;
         cb.gammaExp           = (float)pVideo->gamma;
         cb.contrast           = (float)pVideo->contrast;
         cb.saturation         = (float)pVideo->saturation;
