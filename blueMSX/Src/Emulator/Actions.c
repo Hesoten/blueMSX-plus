@@ -1254,7 +1254,9 @@ void actionEmuBackToChange(void) {
 }
 
 void actionEmuStepBack() {
-    if (!dirGateActive && !dirInsertActive && emulatorGetState() == EMU_PAUSED && rewindAvailable()) {
+    /* Paused a moment ago, the thread may still run; the restore waits until it has stopped. */
+    if (!dirGateActive && !dirInsertActive && emulatorGetState() == EMU_PAUSED && rewindAvailable() &&
+        emulatorWaitParked(100)) {
         emulatorSetState(EMU_STEP_BACK);
     }
 }
