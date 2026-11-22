@@ -3357,6 +3357,14 @@ static void emuWindowDraw(int onlyOnVblank)
         return;
     }
 
+    /* A hidden run presents nothing: advance the view frame like the draw path
+    ** does, and report no present so the emulation stays paced by its timer. */
+    if (st.hidden) {
+        frameBufferFlipViewFrame(0);
+        st.diplayUpdated = 0;
+        return;
+    }
+
     if (lock == NULL) {
         lock = archSemaphoreCreate(1);
     }
