@@ -1051,16 +1051,41 @@ static void writeSrv(UINT slot, ID3D12Resource* res, DXGI_FORMAT fmt)
     g12_device->CreateShaderResourceView(res, &srvd, h);
 }
 
-// The previous frame is read only while blending. Swapping it rewrites SRV
-// slot 1, which frames still on the GPU may read, so the GPU is drained first.
-static void syncPrevTexture(bool want)
+// The previous frame (t1) is read only while blending, the noise mask (t2) only
+// for the noise palettes. Swapping them rewrites SRV slots that frames still on
+// the GPU may read, so the GPU is drained first.
+static void syncOptionalTextures(bool wantPrev, bool wantNoise)
 {
-    if (want == (g12_prevTexture != nullptr)) return;
-    ComPtr<ID3D12Resource> prev;
-    if (want && !createTex2D(TEX_W, DXGI_FORMAT_B8G8R8A8_UNORM, prev)) return;
+    bool prevChange  = wantPrev  != (g12_prevTexture  != nullptr);
+    bool noiseChange = wantNoise != (g12_noiseTexture != nullptr);
+    if (!prevChange && !noiseChange) return;
+
+    ComPtr<ID3D12Resource> prev, noise, noiseUp[FRAME_COUNT];
+    UINT8* noisePtr[FRAME_COUNT] = {};
+    if (prevChange && wantPrev &&
+        !createTex2D(TEX_W, DXGI_FORMAT_B8G8R8A8_UNORM, prev))
+        prevChange = false;
+    if (noiseChange && wantNoise) {
+        bool ok = createTex2D(TEX_W, DXGI_FORMAT_R8_UNORM, noise);
+        for (UINT i = 0; ok && i < FRAME_COUNT; i++)
+            ok = createUploadBuf(g12_noiseUploadRowPitch * TEX_H, noiseUp[i], &noisePtr[i]);
+        if (!ok) noiseChange = false;
+    }
+    if (!prevChange && !noiseChange) return;
+
     WaitForGpu();
-    g12_prevTexture = prev;
-    writeSrv(1, prev.Get(), DXGI_FORMAT_B8G8R8A8_UNORM);
+    if (prevChange) {
+        g12_prevTexture = prev;
+        writeSrv(1, prev.Get(), DXGI_FORMAT_B8G8R8A8_UNORM);
+    }
+    if (noiseChange) {
+        g12_noiseTexture = noise;
+        for (UINT i = 0; i < FRAME_COUNT; i++) {
+            g12_noiseUploadBuf[i] = noiseUp[i];
+            g12_noiseUploadPtr[i] = noisePtr[i];
+        }
+        writeSrv(2, noise.Get(), DXGI_FORMAT_R8_UNORM);
+    }
 }
 
 // --- cleanup -----------------------------------------------------------------
@@ -1463,25 +1488,21 @@ static bool bD3D12Init(HWND hWnd, int w, int h, int syncVblank)
         if (FAILED(hr)) return false;
     }
 
-    // -- Textures: t0 = current frame, t2 = noise mask (R8, SHARP_NOISE / BLUR_NOISE)
-    // t1 (previous frame) is created on demand while blending.
+    // -- Current-frame texture (t0); t1 (previous frame) and t2 (noise mask, R8)
+    // are created on demand by syncOptionalTextures.
     if (!createTex2D(TEX_W, DXGI_FORMAT_B8G8R8A8_UNORM, g12_texture)) return false;
     g12_texUsedW = TEX_W;
     writeSrv(0, g12_texture.Get(), DXGI_FORMAT_B8G8R8A8_UNORM);
     writeSrv(1, nullptr, DXGI_FORMAT_B8G8R8A8_UNORM);
+    writeSrv(2, nullptr, DXGI_FORMAT_R8_UNORM);
     g12_curValid = false;
-    if (!createTex2D(TEX_W, DXGI_FORMAT_R8_UNORM, g12_noiseTexture)) return false;
-    writeSrv(2, g12_noiseTexture.Get(), DXGI_FORMAT_R8_UNORM);
 
-    // -- Constant, upload and noise upload buffers (one per frame slot) --------
+    // -- Constant and upload buffers (one per frame slot) ----------------------
     g12_uploadRowPitch      = uploadPitch(TEX_W * 4);
     g12_noiseUploadRowPitch = uploadPitch(TEX_W);
     for (UINT i = 0; i < FRAME_COUNT; i++) {
         if (!createUploadBuf(CB_SIZE, g12_cbuf[i], &g12_cbufPtr[i])) return false;
         if (!createUploadBuf(g12_uploadRowPitch * TEX_H, g12_uploadBuf[i], &g12_uploadPtr[i]))
-            return false;
-        if (!createUploadBuf(g12_noiseUploadRowPitch * TEX_H,
-                             g12_noiseUploadBuf[i], &g12_noiseUploadPtr[i]))
             return false;
     }
 
@@ -1673,8 +1694,11 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
     // upstream via VDP.c interlaceRaster=1 (scanlines suppressed).
     Properties* globalProps = propGetGlobalProperties();
     int blendFramesEnable  = (globalProps && globalProps->video.blendFrames) ? 1 : 0;
-    syncPrevTexture(blendFramesEnable != 0);
-    if (!g12_prevTexture) blendFramesEnable = 0;
+    bool needsNoise = (pVideo->palMode == VIDEO_PAL_SHARP_NOISE ||
+                       pVideo->palMode == VIDEO_PAL_BLUR_NOISE);
+    syncOptionalTextures(blendFramesEnable != 0, needsNoise);
+    if (!g12_prevTexture)  blendFramesEnable = 0;
+    if (!g12_noiseTexture) needsNoise = false;
     // The previous frame does not line up with one of another width.
     bool prevSameWidth = g12_texFrameW == fb->maxWidth;
     g12_texFrameW = fb->maxWidth;
@@ -1686,8 +1710,6 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
     // frame so SHARP<->SHARP_NOISE toggle picks up a rolling state, not 51.
     static UINT32 g_dxNoiseRndVal = 51;
     g_dxNoiseRndVal *= 13;
-    bool needsNoise = (pVideo->palMode == VIDEO_PAL_SHARP_NOISE ||
-                       pVideo->palMode == VIDEO_PAL_BLUR_NOISE);
     if (needsNoise) {
         UINT32 rnd      = g_dxNoiseRndVal;
         UINT8* noiseDst = g12_noiseUploadPtr[g12_frameIndex];
