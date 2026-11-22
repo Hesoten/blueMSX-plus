@@ -494,9 +494,26 @@ static void RRC(R800* r800, UInt8* reg) {
     *reg = regVal;
 }
 
+/* The Z80 takes X and Y from xy; the R800 keeps S, V, C, X and Y, sets H
+** and computes only Z (openMSX). */
+static void bitFlags(R800* r800, UInt8 bit, UInt8 val, UInt8 xy) {
+    if (r800->cpuMode == CPU_R800) {
+        r800->regs.AF.B.l = (r800->regs.AF.B.l &
+            (S_FLAG | V_FLAG | C_FLAG | X_FLAG | Y_FLAG)) | H_FLAG |
+            ((val & (1 << bit)) ? 0 : Z_FLAG);
+    } else {
+        r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) |
+            (xy & (X_FLAG | Y_FLAG)) | ZSPHTable[val & (1 << bit)];
+    }
+}
+
 static void BIT(R800* r800, UInt8 bit, UInt8 reg) {
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) |
-        (reg & (X_FLAG | Y_FLAG)) | ZSPHTable[reg & (1 << bit)];
+    bitFlags(r800, bit, reg, reg);
+}
+
+/* BIT n,(HL) and BIT n,(IX+d): the Z80 takes X and Y from MEMPTR. */
+static void BITM(R800* r800, UInt8 bit, UInt8 val) {
+    bitFlags(r800, bit, val, r800->regs.SH.B.h);
 }
 
 static void RES(R800* r800, UInt8 bit, UInt8* reg) {
@@ -678,10 +695,14 @@ static void ld_sp_iy(R800* r800) {
 }
 
 static void ld_xbc_a(R800* r800) {
+    r800->regs.SH.B.l = r800->regs.BC.B.l + 1;
+    r800->regs.SH.B.h = r800->regs.AF.B.h;
     writeMem(r800, r800->regs.BC.W, r800->regs.AF.B.h);
 }
 
 static void ld_xde_a(R800* r800) {
+    r800->regs.SH.B.l = r800->regs.DE.B.l + 1;
+    r800->regs.SH.B.h = r800->regs.AF.B.h;
     writeMem(r800, r800->regs.DE.W, r800->regs.AF.B.h);
 }
 
@@ -691,10 +712,12 @@ static void ld_xhl_a(R800* r800) {
 
 static void ld_a_xbc(R800* r800) {
     r800->regs.AF.B.h = readMem(r800, r800->regs.BC.W);
+    r800->regs.SH.W = r800->regs.BC.W + 1;
 }
 
 static void ld_a_xde(R800* r800) {
     r800->regs.AF.B.h = readMem(r800, r800->regs.DE.W);
+    r800->regs.SH.W = r800->regs.DE.W + 1;
 }
 
 static void ld_xhl_byte(R800* r800) {
@@ -1723,7 +1746,8 @@ static void ld_xbyte_a(R800* r800) {
     RegisterPair addr;
     addr.B.l = readOpcode(r800, r800->regs.PC.W++);
     addr.B.h = readOpcode(r800, r800->regs.PC.W++);
-    r800->regs.SH.W = r800->regs.AF.B.h << 8;
+    r800->regs.SH.B.l = addr.B.l + 1;
+    r800->regs.SH.B.h = r800->regs.AF.B.h;
     writeMem(r800, addr.W, r800->regs.AF.B.h);
 }
 
@@ -3150,17 +3174,13 @@ static void bit_0_l(R800* r800) {
 
 static void bit_0_xhl(R800* r800) {
     delayBit(r800);
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) | 
-        ZSPHTable[readMem(r800, r800->regs.HL.W) & (1 << 0)];
+    BITM(r800, 0, readMem(r800, r800->regs.HL.W));
 }
 
 static void bit_0_xnn(R800* r800, UInt16 addr) { 
     delayBitIx(r800);           // white cat append
     r800->regs.SH.W   = addr;
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) |
-        ZSPHTable[readMem(r800, addr) & (1 << 0)];
+    BITM(r800, 0, readMem(r800, addr));
 }
 
 static void bit_1_a(R800* r800) {
@@ -3193,17 +3213,13 @@ static void bit_1_l(R800* r800) {
 
 static void bit_1_xhl(R800* r800) {
     delayBit(r800);
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) | 
-        ZSPHTable[readMem(r800, r800->regs.HL.W) & (1 << 1)];
+    BITM(r800, 1, readMem(r800, r800->regs.HL.W));
 }
 
 static void bit_1_xnn(R800* r800, UInt16 addr) { 
     delayBitIx(r800);           // white cat append
     r800->regs.SH.W   = addr;
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) |
-        ZSPHTable[readMem(r800, addr) & (1 << 1)];
+    BITM(r800, 1, readMem(r800, addr));
 }
 
 static void bit_2_a(R800* r800) {
@@ -3236,17 +3252,13 @@ static void bit_2_l(R800* r800) {
 
 static void bit_2_xhl(R800* r800) {
     delayBit(r800);
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) | 
-        ZSPHTable[readMem(r800, r800->regs.HL.W) & (1 << 2)];
+    BITM(r800, 2, readMem(r800, r800->regs.HL.W));
 }
 
 static void bit_2_xnn(R800* r800, UInt16 addr) { 
     delayBitIx(r800);           // white cat append
     r800->regs.SH.W   = addr;
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) |
-        ZSPHTable[readMem(r800, addr) & (1 << 2)];
+    BITM(r800, 2, readMem(r800, addr));
 }
 
 static void bit_3_a(R800* r800) {
@@ -3279,17 +3291,13 @@ static void bit_3_l(R800* r800) {
 
 static void bit_3_xhl(R800* r800) {
     delayBit(r800);
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) | 
-        ZSPHTable[readMem(r800, r800->regs.HL.W) & (1 << 3)];
+    BITM(r800, 3, readMem(r800, r800->regs.HL.W));
 }
 
 static void bit_3_xnn(R800* r800, UInt16 addr) { 
     delayBitIx(r800);           // white cat append
     r800->regs.SH.W   = addr;
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) |
-        ZSPHTable[readMem(r800, addr) & (1 << 3)];
+    BITM(r800, 3, readMem(r800, addr));
 }
 
 static void bit_4_a(R800* r800) {
@@ -3322,17 +3330,13 @@ static void bit_4_l(R800* r800) {
 
 static void bit_4_xhl(R800* r800) {
     delayBit(r800);
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) | 
-        ZSPHTable[readMem(r800, r800->regs.HL.W) & (1 << 4)];
+    BITM(r800, 4, readMem(r800, r800->regs.HL.W));
 }
 
 static void bit_4_xnn(R800* r800, UInt16 addr) { 
     delayBitIx(r800);           // white cat append
     r800->regs.SH.W   = addr;
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) |
-        ZSPHTable[readMem(r800, addr) & (1 << 4)];
+    BITM(r800, 4, readMem(r800, addr));
 }
 
 static void bit_5_a(R800* r800) {
@@ -3365,17 +3369,13 @@ static void bit_5_l(R800* r800) {
 
 static void bit_5_xhl(R800* r800) {
     delayBit(r800);
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) | 
-        ZSPHTable[readMem(r800, r800->regs.HL.W) & (1 << 5)];
+    BITM(r800, 5, readMem(r800, r800->regs.HL.W));
 }
 
 static void bit_5_xnn(R800* r800, UInt16 addr) { 
     delayBitIx(r800);           // white cat append
     r800->regs.SH.W   = addr;
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) |
-        ZSPHTable[readMem(r800, addr) & (1 << 5)];
+    BITM(r800, 5, readMem(r800, addr));
 }
 
 static void bit_6_a(R800* r800) { 
@@ -3408,17 +3408,13 @@ static void bit_6_l(R800* r800) {
 
 static void bit_6_xhl(R800* r800) {
     delayBit(r800);
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) | 
-        ZSPHTable[readMem(r800, r800->regs.HL.W) & (1 << 6)];
+    BITM(r800, 6, readMem(r800, r800->regs.HL.W));
 }
 
 static void bit_6_xnn(R800* r800, UInt16 addr) { 
     delayBitIx(r800);           // white cat append
     r800->regs.SH.W   = addr;
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) |
-        ZSPHTable[readMem(r800, addr) & (1 << 6)];
+    BITM(r800, 6, readMem(r800, addr));
 }
 
 static void bit_7_a(R800* r800) { 
@@ -3451,17 +3447,13 @@ static void bit_7_l(R800* r800) {
 
 static void bit_7_xhl(R800* r800) {
     delayBit(r800);
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) | 
-        ZSPHTable[readMem(r800, r800->regs.HL.W) & (1 << 7)];
+    BITM(r800, 7, readMem(r800, r800->regs.HL.W));
 }
 
 static void bit_7_xnn(R800* r800, UInt16 addr) { 
     delayBitIx(r800);           // white cat append
     r800->regs.SH.W   = addr;
-    r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
-        (r800->regs.SH.B.h & (X_FLAG | Y_FLAG)) |
-        ZSPHTable[readMem(r800, addr) & (1 << 7)];
+    BITM(r800, 7, readMem(r800, addr));
 }
 
 static void res_0_a(R800* r800) {
@@ -5216,6 +5208,9 @@ static void out_byte_a(R800* r800) {
     port.B.l = readOpcode(r800, r800->regs.PC.W++);
     port.B.h = r800->regs.AF.B.h;
     writePort(r800, port.W, r800->regs.AF.B.h);
+    /* The low byte wraps without carrying into A. */
+    r800->regs.SH.B.l = port.B.l + 1;
+    r800->regs.SH.B.h = port.B.h;
 }
 
 static void in_a_byte(R800* r800) {
@@ -5376,6 +5371,7 @@ static void cpi(R800* r800) {
     UInt8 rv = r800->regs.AF.B.h - val;
     delayBlock(r800);
 
+    r800->regs.SH.W++;
     r800->regs.BC.W--;
     r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
         ((r800->regs.AF.B.h ^ val ^ rv) & H_FLAG) | 
@@ -5388,8 +5384,9 @@ static void cpi(R800* r800) {
 static void cpir(R800* r800) { 
     cpi(r800);
     if (r800->regs.BC.W && !(r800->regs.AF.B.l & Z_FLAG)) {
-        delayBlock(r800); 
+        delayBlock(r800);
         r800->regs.PC.W -= 2;
+        r800->regs.SH.W = r800->regs.PC.W + 1;
         r800->instCnt--;
     }
 }
@@ -5399,6 +5396,7 @@ static void cpd(R800* r800) {
     UInt8 rv = r800->regs.AF.B.h - val;
     delayBlock(r800);
 
+    r800->regs.SH.W--;
     r800->regs.BC.W--;
     r800->regs.AF.B.l = (r800->regs.AF.B.l & C_FLAG) | 
         ((r800->regs.AF.B.h ^ val ^ rv) & H_FLAG) | 
@@ -5411,8 +5409,9 @@ static void cpd(R800* r800) {
 static void cpdr(R800* r800) { 
     cpd(r800);
     if (r800->regs.BC.W && !(r800->regs.AF.B.l & Z_FLAG)) {
-        delayBlock(r800); 
+        delayBlock(r800);
         r800->regs.PC.W -= 2;
+        r800->regs.SH.W = r800->regs.PC.W + 1;
         r800->instCnt--;
     }
 }
@@ -5432,7 +5431,8 @@ static void ldir(R800* r800) {
     ldi(r800);
     if (r800->regs.BC.W != 0) {
         delayBlockLd(r800);
-        r800->regs.PC.W -= 2; 
+        r800->regs.PC.W -= 2;
+        r800->regs.SH.W = r800->regs.PC.W + 1;
         r800->instCnt--;
     }
 }
@@ -5452,7 +5452,8 @@ static void lddr(R800* r800) {
     ldd(r800);
     if (r800->regs.BC.W != 0) {
         delayBlockLd(r800);
-        r800->regs.PC.W -= 2; 
+        r800->regs.PC.W -= 2;
+        r800->regs.SH.W = r800->regs.PC.W + 1;
         r800->instCnt--;
     }
 }
@@ -5461,8 +5462,10 @@ static void ini(R800* r800) {
     UInt8  val;
     UInt16 tmp;
     delayInOut(r800);
-    r800->regs.BC.B.h--;
+    /* INI reads before decrementing B; OUTI decrements B before the
+    ** write (Z80 manual, MAME, real hardware). */
     val = readPort(r800, r800->regs.BC.W);
+    r800->regs.BC.B.h--;
     writeMem(r800, r800->regs.HL.W++, val);
     if (r800->cpuMode == CPU_R800) {
         /* R800: only Z and N update; Z80 mode keeps the undocumented
@@ -5483,7 +5486,8 @@ static void inir(R800* r800) {
     ini(r800);
     if (r800->regs.BC.B.h != 0) {
         delayBlockIo(r800);
-        r800->regs.PC.W -= 2; 
+        r800->regs.PC.W -= 2;
+        r800->regs.SH.W = r800->regs.PC.W + 1;
         r800->instCnt--;
     }
 }
@@ -5493,8 +5497,9 @@ static void ind(R800* r800) {
     UInt8 val;
     UInt16 tmp;
     delayInOut(r800);
-    r800->regs.BC.B.h--;
     val = readPort(r800, r800->regs.BC.W);
+    r800->regs.SH.W = r800->regs.BC.W - 1;
+    r800->regs.BC.B.h--;
     writeMem(r800, r800->regs.HL.W--, val);
     if (r800->cpuMode == CPU_R800) {
         r800->regs.AF.B.l = (r800->regs.AF.B.l & ~Z_FLAG) |
@@ -5512,7 +5517,8 @@ static void indr(R800* r800) {
     ind(r800);
     if (r800->regs.BC.B.h != 0) {
         delayBlockIo(r800);
-        r800->regs.PC.W -= 2; 
+        r800->regs.PC.W -= 2;
+        r800->regs.SH.W = r800->regs.PC.W + 1;
         r800->instCnt--;
     }
 }
@@ -5522,8 +5528,8 @@ static void outi(R800* r800) {
     UInt16 tmp;
     delayInOut(r800);
     val = readMem(r800, r800->regs.HL.W++);
-    writePort(r800, r800->regs.BC.W, val);
     r800->regs.BC.B.h--;
+    writePort(r800, r800->regs.BC.W, val);
     if (r800->cpuMode == CPU_R800) {
         r800->regs.AF.B.l = (r800->regs.AF.B.l & ~Z_FLAG) |
             (r800->regs.BC.B.h ? 0 : Z_FLAG) | N_FLAG;
@@ -5540,7 +5546,8 @@ static void otir(R800* r800) {
     outi(r800);
     if (r800->regs.BC.B.h != 0) {
         delayBlockIo(r800);
-        r800->regs.PC.W -= 2; 
+        r800->regs.PC.W -= 2;
+        r800->regs.SH.W = r800->regs.PC.W + 1;
         r800->instCnt--;
     }
 }
@@ -5550,8 +5557,9 @@ static void outd(R800* r800) {
     UInt16 tmp;
     delayInOut(r800);
     val = readMem(r800, r800->regs.HL.W--);
-    writePort(r800, r800->regs.BC.W, val);
     r800->regs.BC.B.h--;
+    writePort(r800, r800->regs.BC.W, val);
+    r800->regs.SH.W = r800->regs.BC.W - 1;
     if (r800->cpuMode == CPU_R800) {
         r800->regs.AF.B.l = (r800->regs.AF.B.l & ~Z_FLAG) |
             (r800->regs.BC.B.h ? 0 : Z_FLAG) | N_FLAG;
@@ -5568,7 +5576,8 @@ static void otdr(R800* r800) {
     outd(r800);
     if (r800->regs.BC.B.h != 0) {
         delayBlockIo(r800);
-        r800->regs.PC.W -= 2; 
+        r800->regs.PC.W -= 2;
+        r800->regs.SH.W = r800->regs.PC.W + 1;
         r800->instCnt--;
     }
 }
@@ -6477,6 +6486,7 @@ void r800Execute(R800* r800) {
 	        r800->writeMemory(r800->ref, --r800->regs.SP.W, r800->regs.PC.B.l);
             r800->regs.PC.B.l = r800->fetchMemory(r800->ref, address++);
             r800->regs.PC.B.h = r800->fetchMemory(r800->ref, address);
+            r800->regs.SH.W = r800->regs.PC.W;
             M1_nodelay(r800);
             delayIm2(r800);
             break;
@@ -6575,6 +6585,7 @@ void r800ExecuteUntil(R800* r800, UInt32 endTime) {
 
             r800->regs.PC.B.l = r800->fetchMemory(r800->ref, address++);
             r800->regs.PC.B.h = r800->fetchMemory(r800->ref, address);
+            r800->regs.SH.W = r800->regs.PC.W;
             M1_nodelay(r800);
             delayIm2(r800);
             break;
@@ -6668,6 +6679,7 @@ void r800ExecuteInstruction(R800* r800) {
 
         r800->regs.PC.B.l = r800->fetchMemory(r800->ref, address++);
         r800->regs.PC.B.h = r800->fetchMemory(r800->ref, address);
+        r800->regs.SH.W = r800->regs.PC.W;
         M1_nodelay(r800);
         delayIm2(r800);
         break;
