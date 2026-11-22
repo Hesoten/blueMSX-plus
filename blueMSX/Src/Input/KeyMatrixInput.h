@@ -2,6 +2,8 @@
 **
 ** Key presses fed to the MSX keyboard matrix from outside the emulator.
 ** Copyright (C) 2026 madscient
+**
+** Modified 2026 by Hesoten for blueMSX+ fork.
 ** See https://github.com/Hesoten/blueMSX-plus for change history.
 **
 ** This program is free software; you can redistribute it and/or modify
@@ -66,7 +68,8 @@ void keyMatrixInputCancel(void);
 /* Called by the board around a run, from the emulation thread. */
 void keyMatrixInputBoardStart(void);
 void keyMatrixInputBoardStop(void);
-/* After a state is loaded over the running machine, which drops every board timer. */
-void keyMatrixInputBoardRearm(void);
+/* After a state is loaded over the running machine, which drops every board timer.
+** A rewind keeps the wait under way to its end; another load ends it. */
+void keyMatrixInputBoardRearm(int rewound);
 
 #endif

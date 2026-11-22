@@ -1478,7 +1478,7 @@ static int boardLoadStateInPlace(const char* stateFile, int traceReason)
         boardTimerAdd(periodicTimer, boardSystemTime() + periodicInterval);
     }
 #endif
-    keyMatrixInputBoardRearm();
+    keyMatrixInputBoardRearm(traceReason == DEBUG_TRACE_REWIND);
     /* A hunt or a write journal kept by an agent was about the machine before this. */
     dbgNotifyMachineChanged();
     debugTraceResume(traceReason, boardSystemTime(), 0);

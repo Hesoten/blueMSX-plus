@@ -2,6 +2,8 @@
 **
 ** Key presses fed to the MSX keyboard matrix from outside the emulator.
 ** Copyright (C) 2026 madscient
+**
+** Modified 2026 by Hesoten for blueMSX+ fork.
 ** See https://github.com/Hesoten/blueMSX-plus for change history.
 **
 ** This program is free software; you can redistribute it and/or modify
@@ -63,6 +65,7 @@ static Command     queue[QUEUE_SIZE];
 static int         head;
 static int         count;
 static int         waiting;
+static UInt32      waitEnd;
 static UInt8       held[MATRIX_ROWS];
 static UInt8       heldCode[CODES_MAX];
 static BoardTimer* timer;
@@ -327,18 +330,23 @@ static void onTimer(void* ref, UInt32 time)
 
     takeLock();
 
-    if (waiting) {
+    /* A state load re-arms the timer at once, which would cut the wait short. */
+    if (waiting && (Int32)(waitEnd - time) > 0) {
+        next = waitEnd;
+    }
+    else if (waiting) {
         head = (head + 1) % QUEUE_SIZE;
         count--;
         waiting = 0;
     }
 
-    while (count > 0) {
+    while (count > 0 && !waiting) {
         Command* c = &queue[head];
 
         if (c->type == CMD_WAIT) {
             waiting = 1;
             next = time + boardFrequency() / 1000 * c->value;
+            waitEnd = next;
             break;
         }
         if (c->type == CMD_WAIT_FRAMES) {
@@ -349,6 +357,7 @@ static void onTimer(void* ref, UInt32 time)
             waiting = 1;
             /* Converted here, not when queued, so a 50/60 Hz switch mid string is honoured. */
             next = time + boardFrequency() / (UInt32)refresh * c->value;
+            waitEnd = next;
             break;
         }
         if (c->type == CMD_CODE_DOWN || c->type == CMD_CODE_UP) {
@@ -381,9 +390,15 @@ void keyMatrixInputBoardStart(void)
     boardTimerAdd(timer, boardSystemTime() + 1);
 }
 
-/* The timer is not part of a state, so a load leaves it unarmed and the queue stuck. */
-void keyMatrixInputBoardRearm(void)
+/* The timer is not part of a state, so a load leaves it unarmed and the queue stuck.
+** A load that is not a rewind can move the clock anywhere, so a wait's end means nothing. */
+void keyMatrixInputBoardRearm(int rewound)
 {
+    takeLock();
+    if (!rewound && waiting) {
+        waitEnd = boardSystemTime();
+    }
+    dropLock();
     if (timer != NULL) {
         boardTimerAdd(timer, boardSystemTime() + 1);
     }
