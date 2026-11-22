@@ -144,11 +144,12 @@ static const CtrlArg devicesArgs[] = {
     { "device", CTRL_ARG_INT, 0 }, { NULL }
 };
 static const CtrlArg traceArmArgs[] = {
-    { "class", CTRL_ARG_TEXT, 63 }, { "ports", CTRL_ARG_TEXT, 255 }, { NULL }
+    { "class", CTRL_ARG_TEXT, 63 }, { "ports", CTRL_ARG_TEXT, 255 }, { "dir", CTRL_ARG_TEXT, 7 },
+    { NULL }
 };
 static const CtrlArg traceReadArgs[] = {
     { "class", CTRL_ARG_TEXT, 63 }, { "ports", CTRL_ARG_TEXT, 255 }, { "after", CTRL_ARG_INT, 0 },
-    { "count", CTRL_ARG_INT, 0 }, { NULL }
+    { "count", CTRL_ARG_INT, 0 }, { "dir", CTRL_ARG_TEXT, 7 }, { NULL }
 };
 
 /* An op's args in its row; an array longer than CTRL_OP_ARGS_MAX and its { NULL } fails to compile. */
@@ -289,12 +290,12 @@ static const CtrlOp opTable[] = {
     { "trace.arm",         CTRL_OP_LOOKS,   CTRL_OP_SELF, ctrlOpTraceArm, OP_ARGS(traceArmArgs),
       CTRL_ACT_DENIED,
       "  trace.arm    class = geo3d|vdpcmd|vdpreg|cpu|io (joined with commas; default\n"
-      "               " CTRL_TRACE_CLASS_DEFAULT "), ports (io only, and needed by it)\n"
-      "               (held by this connection)\n" },
+      "               " CTRL_TRACE_CLASS_DEFAULT "), ports (io only, and needed by it),\n"
+      "               dir = out|in|both (io only; default out) (held by this connection)\n" },
     { "trace.disarm",      CTRL_OP_LOOKS,   CTRL_OP_SELF, ctrlOpTraceDisarm, OP_ARGS(traceArmArgs),
       CTRL_ACT_DENIED,
       "  trace.disarm class         (default: every class this connection holds; io gives back\n"
-      "               all its ports; ports refused)\n" },
+      "               all its ports both ways; ports and dir refused)\n" },
     { "trace.read",        CTRL_OP_LOOKS,   CTRL_OP_SELF, ctrlOpTraceRead, OP_ARGS(traceReadArgs),
       CTRL_ACT_DENIED,
       "  trace.read   class (default: what this connection holds, else " CTRL_TRACE_CLASS_DEFAULT
