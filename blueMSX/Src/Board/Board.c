@@ -1442,6 +1442,7 @@ static int boardLoadStateInPlace(const char* stateFile, int traceReason)
         SaveState* bs = saveStateOpenForRead("board");
         UInt64 stashedTime = (UInt64)saveStateGet(bs, "boardSysTime64Hi", 0) << 32
                            | (UInt64)saveStateGet(bs, "boardSysTime64Lo", 0);
+        UInt32 stashedOldTime = saveStateGet(bs, "oldTime", 0);
         UInt32 snapInt = saveStateGet(bs, "pendingInt", 0);
         saveStateClose(bs);
         /* boardLoadState is not called here, so this field is taken by hand. */
@@ -1450,14 +1451,20 @@ static int boardLoadStateInPlace(const char* stateFile, int traceReason)
         boardInfo.loadState();
         videoManagerLoadState();
         videoManagerApplyLoadedState();
-        if (stashedTime != 0) boardSysTime64 = stashedTime;
+        /* The 64-bit clock was saved as of the saved oldTime, which can be earlier than
+        ** the snapshot. Both are put back, before the tape below reads the clock;
+        ** otherwise the time between them is lost. */
+        if (stashedTime != 0) {
+            boardSysTime64 = stashedTime;
+            oldTime = stashedOldTime;
+        }
+        else {
+            oldTime = boardSystemTime();
+        }
     }
     /* The tape clock is anchored to boardSysTime64, which just went backwards.
     ** Without this the next update underflows and seeks to the end of the tape. */
     tapeSignalReset();
-    /* boardSystemTime64 accumulates from oldTime, so it has to follow the clock
-    ** back too. Left alone the next call adds a wrapped UInt32 delta. */
-    oldTime = boardSystemTime();
     boardCaptureLoadState();
 
 #if 1
