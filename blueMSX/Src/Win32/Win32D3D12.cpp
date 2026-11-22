@@ -43,7 +43,11 @@ using Microsoft::WRL::ComPtr;
 
 // --- constants ---------------------------------------------------------------
 static const UINT  FRAME_COUNT = 2;
-static const UINT  TEX_W       = 2176;  // >= FB_MAX_LINE_WIDTH; a power-of-two multiple of 1088 keeps 272-wide UVs exact
+// The frame texture is TEX_W_MIN << 0..2 wide, as wide as the frames need. Widths
+// that are power-of-two multiples of 272 keep the UVs of 272-wide frames exact.
+static const UINT  TEX_W_MIN   = 544;   // widest V99x8 frame (SCREEN 6/7, 80 columns)
+static const UINT  TEX_W_MAX   = 2176;  // >= FB_MAX_LINE_WIDTH
+static const int   TEX_TIERS   = 3;
 static const UINT  TEX_H       = 480;   // matches FB_MAX_LINES
 static const float NTSC_AR     = 1.151f;
 static const float PAL_AR      = 1.151f * 60.0f / 50.0f;
@@ -94,7 +98,7 @@ cbuffer EffectParams : register(b0) {
     float2 srcUvMax;
     float srcWf;                // = (float)srcW (= maxWidth << the frame's widest line shift)
     float srcHf;                // = (float)fb->lines
-    float texWf;                // = (float)TEX_W (texture width)
+    float texWf;                // texture width
     float texHf;                // = (float)TEX_H (texture height)
     float doubleWidthFlag;      // 0=non-doubleWidth (1 src->2 dst), 1=doubleWidth (1 src->1 dst)
     float scanLinesBrightComp;  // multiplier (>=1.0) re-lifting average luminance after scanline mask
@@ -489,11 +493,21 @@ static ComPtr<ID3D12PipelineState>       g12_psoRecHdr; // RTV format = R10G10B1
 
 // Texture (GPU default heap; lives in PIXEL_SHADER_RESOURCE between frames)
 static ComPtr<ID3D12Resource>            g12_texture;
-// Previous-frame copy used by the blendFrames effect (same size/format as g12_texture)
+// A frame texture replaced while this frame slot's commands still copy from it.
+static ComPtr<ID3D12Resource>            g12_retiredTex[FRAME_COUNT];
+// Previous-frame copy used by the blendFrames effect (same size/format as g12_texture);
+// exists only while blending.
 static ComPtr<ID3D12Resource>            g12_prevTexture;
-static bool                              g12_prevTextureValid = false;
+// g12_texture holds an uploaded frame (not zeros), so copying it into prev is valid.
+static bool                              g12_curValid = false;
+// Width of g12_texture, its prev and noise textures, and the upload buffers.
+static UINT                              g12_texW = TEX_W_MIN;
+// Last time a frame needed each width (TEX_W_MIN << i), and the last failed allocations.
+static ULONGLONG                         g12_texTierTick[TEX_TIERS] = {};
+static ULONGLONG                         g12_allocFailTick = 0;
+static ULONGLONG                         g12_extraFailTick = 0;   // prev / noise
 // Columns of g12_texture that may be nonzero, and the maxWidth of its frame.
-static UINT                              g12_texUsedW = TEX_W;
+static UINT                              g12_texUsedW = TEX_W_MIN;
 static int                               g12_texFrameW = BASE_TEX_W;
 // Noise mask for SHARP_NOISE / BLUR_NOISE: R8 texture sized like g12_texture,
 // each texel holds the top-3-bit DD PRNG value (= same noise that
@@ -532,7 +546,7 @@ struct EffectCB12 {
     float srcUvMaxU, srcUvMaxV;
     float srcWf;               // = (float)srcW (= maxWidth << the frame's widest line shift)
     float srcHf;               // = (float)fb->lines
-    float texWf;               // = (float)TEX_W
+    float texWf;               // = (float)g12_texW
     float texHf;               // = (float)TEX_H
     float doubleWidthFlag;     // 1.0 if any line in this frame has doubleWidth set
     float scanLinesBrightComp; // multiplier (>=1.0) re-lifting average luminance after scanline mask
@@ -587,7 +601,7 @@ static UINT                              g12_recRowPitchAligned = 0;
 // Capture-owned source/noise textures + upload buffers, kept independent of
 // the live g12_texture / g12_noiseTexture state.
 static ComPtr<ID3D12Resource>            g12_recSrcTexture;
-static UINT                              g12_recTexUsedW = TEX_W;
+static UINT                              g12_recTexUsedW = TEX_W_MAX;
 static ComPtr<ID3D12Resource>            g12_recUploadBuf;
 static UINT8*                            g12_recUploadPtr = nullptr;
 static UINT                              g12_recUploadRowPitch = 0;
@@ -780,7 +794,7 @@ struct UvRender12 {
 };
 
 static UvRender12 computeUvForRender(int targetW, int targetH,
-                                     int srcW, int srcH, int frameW,
+                                     int srcW, int srcH, int frameW, UINT texW,
                                      D3DProperties* props)
 {
     UvRender12 o = {};
@@ -811,7 +825,7 @@ static UvRender12 computeUvForRender(int targetW, int targetH,
         break;
     }
 
-    const float fTexW = (float)TEX_W;
+    const float fTexW = (float)texW;
     const float fTexH = (float)TEX_H;
     const float fWs   = (float)targetW;
     const float fHs   = (float)targetH;
@@ -905,16 +919,16 @@ static FrameBuffer* narrowForTarget(FrameBuffer* fb, Video* pVideo,
 {
     if (frameShiftOf(fb) < 2) return fb;
     if (pVideo->palMode == VIDEO_PAL_FAST) {
-        UvRender12 uv = computeUvForRender(targetW, targetH,
-                                           fb->maxWidth << 2, fb->lines, fb->maxWidth, props);
-        if ((uv.u1 - uv.u0) * (float)TEX_W <= (float)targetW) return fb;
+        UvRender12 uv = computeUvForRender(targetW, targetH, fb->maxWidth << 2, fb->lines,
+                                           fb->maxWidth, TEX_W_MAX, props);
+        if ((uv.u1 - uv.u0) * (float)TEX_W_MAX <= (float)targetW) return fb;
     }
     return frameBufferNarrow(fb);
 }
 
 // ARGB1555 -> BGRA8 rows at the frame's width. Narrower lines (SM5->SM7 mid-
 // frame) repeat each pixel, so the right part doesn't sample the black tail.
-static void uploadFrameRows(FrameBuffer* fb, int frameShift, UINT8* dst, UINT rowPitch)
+static void uploadFrameRows(FrameBuffer* fb, int frameShift, UINT8* dst, UINT rowPitch, UINT texW)
 {
     int startLine = (fb->interlace == INTERLACE_ODD) ? 1 : 0;
 
@@ -934,7 +948,7 @@ static void uploadFrameRows(FrameBuffer* fb, int frameShift, UINT8* dst, UINT ro
             // DXGI_FORMAT_B8G8R8A8_UNORM: memory [B,G,R,A]
             // as uint32 LE: A<<24 | R<<16 | G<<8 | B
             UINT32 v = (0xFFu << 24) | (r << 16) | (g << 8) | b;
-            for (int k = 0; k < stride && x * stride + k < (int)TEX_W; k++) {
+            for (int k = 0; k < stride && x * stride + k < (int)texW; k++) {
                 d32[x * stride + k] = v;
             }
         }
@@ -944,11 +958,11 @@ static void uploadFrameRows(FrameBuffer* fb, int frameShift, UINT8* dst, UINT ro
 // Clears the upload rows as far as the copy into the texture reaches: the
 // frame, the zero column right of it, and what the previous frame left. The
 // texture then holds zeros right of the frame, as a full-width copy would.
-static UINT clearUploadColumns(UINT8* dst, UINT rowPitch, int srcW, UINT* usedW)
+static UINT clearUploadColumns(UINT8* dst, UINT rowPitch, int srcW, UINT* usedW, UINT texW)
 {
     UINT copyW = (UINT)srcW + 1;
     if (copyW < *usedW) copyW = *usedW;
-    if (copyW > TEX_W)  copyW = TEX_W;
+    if (copyW > texW)   copyW = texW;
     for (UINT y = 0; y < TEX_H; y++) {
         memset(dst + (size_t)y * rowPitch, 0, (size_t)copyW * 4);
     }
@@ -974,6 +988,201 @@ static void WaitForGpu()
     WaitForSingleObject(g12_fenceEvent, INFINITE);
 }
 
+// --- resource helpers ----------------------------------------------------------
+
+// Created in PIXEL_SHADER_RESOURCE, the state kept between frames.
+static bool createTex2D(UINT width, DXGI_FORMAT fmt, ComPtr<ID3D12Resource>& out)
+{
+    D3D12_RESOURCE_DESC td = {};
+    td.Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    td.Width            = width;
+    td.Height           = TEX_H;
+    td.DepthOrArraySize = 1;
+    td.MipLevels        = 1;
+    td.Format           = fmt;
+    td.SampleDesc.Count = 1;
+    td.Layout           = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+
+    D3D12_HEAP_PROPERTIES hp = {};
+    hp.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+    out.Reset();
+    return SUCCEEDED(g12_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &td,
+                                                          D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+                                                          nullptr, IID_PPV_ARGS(&out)));
+}
+
+// Upload-heap buffer, persistently mapped and zeroed.
+static bool createUploadBuf(UINT size, ComPtr<ID3D12Resource>& out, UINT8** ptr)
+{
+    D3D12_RESOURCE_DESC bd = {};
+    bd.Dimension        = D3D12_RESOURCE_DIMENSION_BUFFER;
+    bd.Width            = size;
+    bd.Height           = 1;
+    bd.DepthOrArraySize = 1;
+    bd.MipLevels        = 1;
+    bd.Format           = DXGI_FORMAT_UNKNOWN;
+    bd.SampleDesc.Count = 1;
+    bd.Layout           = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+
+    D3D12_HEAP_PROPERTIES hp = {};
+    hp.Type = D3D12_HEAP_TYPE_UPLOAD;
+    D3D12_RANGE readRange = { 0, 0 };
+
+    out.Reset();
+    *ptr = nullptr;
+    if (FAILED(g12_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &bd,
+                                                    D3D12_RESOURCE_STATE_GENERIC_READ,
+                                                    nullptr, IID_PPV_ARGS(&out))) ||
+        FAILED(out->Map(0, &readRange, (void**)ptr))) {
+        out.Reset();
+        *ptr = nullptr;
+        return false;
+    }
+    memset(*ptr, 0, size);
+    return true;
+}
+
+static UINT uploadPitch(UINT rowBytes)
+{
+    return (rowBytes + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1)
+         & ~(D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1);
+}
+
+// Without a resource, a null descriptor: the shader reads zeros. The format and
+// dimension must still match what the shader declares.
+static void writeSrv(UINT slot, ID3D12Resource* res, DXGI_FORMAT fmt)
+{
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvd = {};
+    srvd.Format                  = fmt;
+    srvd.ViewDimension           = D3D12_SRV_DIMENSION_TEXTURE2D;
+    srvd.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srvd.Texture2D.MipLevels     = 1;
+    D3D12_CPU_DESCRIPTOR_HANDLE h = g12_srvHeap->GetCPUDescriptorHandleForHeapStart();
+    h.ptr += (SIZE_T)slot * g12_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    g12_device->CreateShaderResourceView(res, &srvd, h);
+}
+
+// The previous frame (t1) is read only while blending, the noise mask (t2) only for
+// the noise palettes. Nothing changes unless every allocation succeeds; swapping
+// rewrites SRV slots frames still on the GPU may read, so the GPU is drained first.
+static bool syncSurfaceResources(UINT texW, bool wantPrev, bool wantNoise)
+{
+    bool resize      = texW != g12_texW;
+    bool prevChange  = resize || wantPrev  != (g12_prevTexture  != nullptr);
+    bool noiseChange = resize || wantNoise != (g12_noiseTexture != nullptr);
+    if (!prevChange && !noiseChange) return true;
+
+    ComPtr<ID3D12Resource> cur, prev, noise, up[FRAME_COUNT], noiseUp[FRAME_COUNT];
+    UINT8* upPtr[FRAME_COUNT]    = {};
+    UINT8* noisePtr[FRAME_COUNT] = {};
+    UINT   pitch      = uploadPitch(texW * 4);
+    UINT   noisePitch = uploadPitch(texW);
+    bool   ok         = true;
+    if (resize) {
+        ok = createTex2D(texW, DXGI_FORMAT_B8G8R8A8_UNORM, cur);
+        for (UINT i = 0; ok && i < FRAME_COUNT; i++)
+            ok = createUploadBuf(pitch * TEX_H, up[i], &upPtr[i]);
+    }
+    if (ok && prevChange && wantPrev)
+        ok = createTex2D(texW, DXGI_FORMAT_B8G8R8A8_UNORM, prev);
+    if (ok && noiseChange && wantNoise) {
+        ok = createTex2D(texW, DXGI_FORMAT_R8_UNORM, noise);
+        for (UINT i = 0; ok && i < FRAME_COUNT; i++)
+            ok = createUploadBuf(noisePitch * TEX_H, noiseUp[i], &noisePtr[i]);
+    }
+    if (!ok) return false;
+
+    WaitForGpu();
+    if (resize) {
+        // Carry the frame over (the frame's open command list copies it), so
+        // blending goes on across the resize. Columns from g12_texUsedW on are zero.
+        bool carry = g12_curValid && g12_texUsedW <= texW;
+        if (carry) {
+            D3D12_RESOURCE_BARRIER rb[2] = {};
+            for (int i = 0; i < 2; i++) {
+                rb[i].Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+                rb[i].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+            }
+            rb[0].Transition.pResource   = g12_texture.Get();
+            rb[0].Transition.StateBefore = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+            rb[0].Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_SOURCE;
+            rb[1].Transition.pResource   = cur.Get();
+            rb[1].Transition.StateBefore = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+            rb[1].Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_DEST;
+            g12_cmdList->ResourceBarrier(2, rb);
+            D3D12_TEXTURE_COPY_LOCATION dst = {}, src = {};
+            dst.pResource = cur.Get();
+            dst.Type      = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+            src.pResource = g12_texture.Get();
+            src.Type      = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+            D3D12_BOX box = { 0, 0, 0, g12_texUsedW, TEX_H, 1 };
+            if (g12_texUsedW > 0)
+                g12_cmdList->CopyTextureRegion(&dst, 0, 0, 0, &src, &box);
+            for (int i = 0; i < 2; i++) {
+                D3D12_RESOURCE_STATES t      = rb[i].Transition.StateBefore;
+                rb[i].Transition.StateBefore = rb[i].Transition.StateAfter;
+                rb[i].Transition.StateAfter  = t;
+            }
+            g12_cmdList->ResourceBarrier(2, rb);
+            g12_retiredTex[g12_frameIndex] = g12_texture;
+        } else {
+            g12_texUsedW = texW;
+        }
+        g12_texture = cur;
+        for (UINT i = 0; i < FRAME_COUNT; i++) {
+            g12_uploadBuf[i] = up[i];
+            g12_uploadPtr[i] = upPtr[i];
+        }
+        g12_uploadRowPitch      = pitch;
+        g12_noiseUploadRowPitch = noisePitch;
+        g12_texW                = texW;
+        g12_curValid            = carry;
+        writeSrv(0, cur.Get(), DXGI_FORMAT_B8G8R8A8_UNORM);
+    }
+    if (prevChange) {
+        g12_prevTexture = prev;
+        writeSrv(1, prev.Get(), DXGI_FORMAT_B8G8R8A8_UNORM);
+    }
+    if (noiseChange) {
+        g12_noiseTexture = noise;
+        for (UINT i = 0; i < FRAME_COUNT; i++) {
+            g12_noiseUploadBuf[i] = noiseUp[i];
+            g12_noiseUploadPtr[i] = noisePtr[i];
+        }
+        writeSrv(2, noise.Get(), DXGI_FORMAT_R8_UNORM);
+    }
+    return true;
+}
+
+// Widens at once for a frame of srcW, narrows to the widest width any frame needed
+// in the last 5 s. What failed to allocate (the width, or prev / noise) is not tried
+// again for 5 s; the width goes first, as a cut frame is worse than losing either.
+static void syncFrameResources(int srcW, bool wantPrev, bool wantNoise)
+{
+    const ULONGLONG holdMs = 5000;
+    ULONGLONG now  = GetTickCount64();
+    int       need = 0;
+    while (need < TEX_TIERS - 1 && (int)(TEX_W_MIN << need) < srcW) need++;
+    g12_texTierTick[need] = now;
+    int tier = TEX_TIERS - 1;
+    while (tier > need && now - g12_texTierTick[tier] >= holdMs) tier--;
+
+    UINT texW = TEX_W_MIN << tier;
+    if (g12_allocFailTick != 0 && now - g12_allocFailTick < holdMs) texW = g12_texW;
+    bool extraHeld = g12_extraFailTick != 0 && now - g12_extraFailTick < holdMs;
+    bool prev  = wantPrev  && (!extraHeld || g12_prevTexture);
+    bool noise = wantNoise && (!extraHeld || g12_noiseTexture);
+    if (syncSurfaceResources(texW, prev, noise)) return;
+
+    if (texW != g12_texW && !syncSurfaceResources(texW, false, false))
+        g12_allocFailTick = now;
+    if (!syncSurfaceResources(g12_texW, prev, noise)) {
+        g12_extraFailTick = now;
+        syncSurfaceResources(g12_texW, wantPrev && g12_prevTexture, wantNoise && g12_noiseTexture);
+    }
+}
+
 // --- cleanup -----------------------------------------------------------------
 
 static void vD3D12Cleanup()
@@ -994,9 +1203,14 @@ static void vD3D12Cleanup()
     }
 
     g12_prevTexture.Reset();
-    g12_prevTextureValid = false;
+    g12_curValid = false;
+    g12_texW = TEX_W_MIN;
+    memset(g12_texTierTick, 0, sizeof(g12_texTierTick));
+    g12_allocFailTick = 0;
+    g12_extraFailTick = 0;
     g12_noiseTexture.Reset();
     g12_texture.Reset();
+    for (UINT i = 0; i < FRAME_COUNT; i++) g12_retiredTex[i].Reset();
     g12_pso.Reset();
     g12_psoRec.Reset();
     g12_psoRecHdr.Reset();
@@ -1374,191 +1588,22 @@ static bool bD3D12Init(HWND hWnd, int w, int h, int syncVblank)
         if (FAILED(hr)) return false;
     }
 
-    // -- GPU texture (TEX_W x TEX_H, BGRA8) -------------------------------------
-    {
-        D3D12_RESOURCE_DESC td = {};
-        td.Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-        td.Width            = TEX_W;
-        td.Height           = TEX_H;
-        td.DepthOrArraySize = 1;
-        td.MipLevels        = 1;
-        td.Format           = DXGI_FORMAT_B8G8R8A8_UNORM;
-        td.SampleDesc.Count = 1;
-        td.Layout           = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+    // -- Current-frame texture (t0); t1 (previous frame) and t2 (noise mask, R8)
+    // are created on demand by syncFrameResources.
+    if (!createTex2D(g12_texW, DXGI_FORMAT_B8G8R8A8_UNORM, g12_texture)) return false;
+    g12_texUsedW = g12_texW;
+    writeSrv(0, g12_texture.Get(), DXGI_FORMAT_B8G8R8A8_UNORM);
+    writeSrv(1, nullptr, DXGI_FORMAT_B8G8R8A8_UNORM);
+    writeSrv(2, nullptr, DXGI_FORMAT_R8_UNORM);
+    g12_curValid = false;
 
-        D3D12_HEAP_PROPERTIES hp = {};
-        hp.Type = D3D12_HEAP_TYPE_DEFAULT;
-
-        hr = g12_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &td,
-                                                  D3D12_RESOURCE_STATE_COPY_DEST,
-                                                  nullptr, IID_PPV_ARGS(&g12_texture));
-        if (FAILED(hr)) return false;
-        g12_texUsedW = TEX_W;
-
-        D3D12_SHADER_RESOURCE_VIEW_DESC srvd = {};
-        srvd.Format                    = DXGI_FORMAT_B8G8R8A8_UNORM;
-        srvd.ViewDimension             = D3D12_SRV_DIMENSION_TEXTURE2D;
-        srvd.Shader4ComponentMapping   = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-        srvd.Texture2D.MipLevels       = 1;
-        g12_device->CreateShaderResourceView(g12_texture.Get(), &srvd,
-                                              g12_srvHeap->GetCPUDescriptorHandleForHeapStart());
-    }
-
-    // -- Previous-frame texture (for blendFrames effect) -----------------------
-    {
-        D3D12_RESOURCE_DESC td = {};
-        td.Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-        td.Width            = TEX_W;
-        td.Height           = TEX_H;
-        td.DepthOrArraySize = 1;
-        td.MipLevels        = 1;
-        td.Format           = DXGI_FORMAT_B8G8R8A8_UNORM;
-        td.SampleDesc.Count = 1;
-        td.Layout           = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-
-        D3D12_HEAP_PROPERTIES hp = {};
-        hp.Type = D3D12_HEAP_TYPE_DEFAULT;
-
-        // Start in COPY_DEST (we may initialize it first, or leave it until first copy).
-        // After initial transition block below it will live in PIXEL_SHADER_RESOURCE.
-        hr = g12_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &td,
-                                                  D3D12_RESOURCE_STATE_COPY_DEST,
-                                                  nullptr, IID_PPV_ARGS(&g12_prevTexture));
-        if (FAILED(hr)) return false;
-
-        UINT srvStride = g12_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-        D3D12_CPU_DESCRIPTOR_HANDLE h = g12_srvHeap->GetCPUDescriptorHandleForHeapStart();
-        h.ptr += srvStride; // slot 1 = previous frame
-
-        D3D12_SHADER_RESOURCE_VIEW_DESC srvd = {};
-        srvd.Format                    = DXGI_FORMAT_B8G8R8A8_UNORM;
-        srvd.ViewDimension             = D3D12_SRV_DIMENSION_TEXTURE2D;
-        srvd.Shader4ComponentMapping   = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-        srvd.Texture2D.MipLevels       = 1;
-        g12_device->CreateShaderResourceView(g12_prevTexture.Get(), &srvd, h);
-        g12_prevTextureValid = false;
-    }
-
-    // -- Noise texture (R8 mask, used by SHARP_NOISE / BLUR_NOISE) ------------
-    // Same TEX_W x TEX_H as colour, holds DD PRNG top-3-bits per (p,sy).
-    {
-        D3D12_RESOURCE_DESC td = {};
-        td.Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-        td.Width            = TEX_W;
-        td.Height           = TEX_H;
-        td.DepthOrArraySize = 1;
-        td.MipLevels        = 1;
-        td.Format           = DXGI_FORMAT_R8_UNORM;
-        td.SampleDesc.Count = 1;
-        td.Layout           = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-
-        D3D12_HEAP_PROPERTIES hp = {};
-        hp.Type = D3D12_HEAP_TYPE_DEFAULT;
-
-        hr = g12_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &td,
-                                                  D3D12_RESOURCE_STATE_COPY_DEST,
-                                                  nullptr, IID_PPV_ARGS(&g12_noiseTexture));
-        if (FAILED(hr)) return false;
-
-        UINT srvStride = g12_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-        D3D12_CPU_DESCRIPTOR_HANDLE h = g12_srvHeap->GetCPUDescriptorHandleForHeapStart();
-        h.ptr += srvStride * 2; // slot 2 = noise mask
-
-        D3D12_SHADER_RESOURCE_VIEW_DESC srvd = {};
-        srvd.Format                    = DXGI_FORMAT_R8_UNORM;
-        srvd.ViewDimension             = D3D12_SRV_DIMENSION_TEXTURE2D;
-        srvd.Shader4ComponentMapping   = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-        srvd.Texture2D.MipLevels       = 1;
-        g12_device->CreateShaderResourceView(g12_noiseTexture.Get(), &srvd, h);
-    }
-
-    // -- Constant buffers (CPU upload heap, persistently mapped) ---------------
-    {
-        D3D12_RESOURCE_DESC bd = {};
-        bd.Dimension        = D3D12_RESOURCE_DIMENSION_BUFFER;
-        bd.Width            = CB_SIZE;
-        bd.Height           = 1;
-        bd.DepthOrArraySize = 1;
-        bd.MipLevels        = 1;
-        bd.Format           = DXGI_FORMAT_UNKNOWN;
-        bd.SampleDesc.Count = 1;
-        bd.Layout           = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-
-        D3D12_HEAP_PROPERTIES hp = {};
-        hp.Type = D3D12_HEAP_TYPE_UPLOAD;
-        D3D12_RANGE readRange = { 0, 0 };
-
-        for (UINT i = 0; i < FRAME_COUNT; i++) {
-            hr = g12_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &bd,
-                                                      D3D12_RESOURCE_STATE_GENERIC_READ,
-                                                      nullptr, IID_PPV_ARGS(&g12_cbuf[i]));
-            if (FAILED(hr)) return false;
-            g12_cbuf[i]->Map(0, &readRange, (void**)&g12_cbufPtr[i]);
-            memset(g12_cbufPtr[i], 0, CB_SIZE);
-        }
-    }
-
-    // -- Upload buffers --------------------------------------------------------
-    {
-        UINT rawPitch = TEX_W * 4;
-        g12_uploadRowPitch = (rawPitch + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1)
-                           & ~(D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1);
-        UINT uploadSize = g12_uploadRowPitch * TEX_H;
-
-        D3D12_RESOURCE_DESC bd = {};
-        bd.Dimension        = D3D12_RESOURCE_DIMENSION_BUFFER;
-        bd.Width            = uploadSize;
-        bd.Height           = 1;
-        bd.DepthOrArraySize = 1;
-        bd.MipLevels        = 1;
-        bd.Format           = DXGI_FORMAT_UNKNOWN;
-        bd.SampleDesc.Count = 1;
-        bd.Layout           = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-
-        D3D12_HEAP_PROPERTIES hp = {};
-        hp.Type = D3D12_HEAP_TYPE_UPLOAD;
-        D3D12_RANGE readRange = { 0, 0 };
-
-        for (UINT i = 0; i < FRAME_COUNT; i++) {
-            hr = g12_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &bd,
-                                                      D3D12_RESOURCE_STATE_GENERIC_READ,
-                                                      nullptr, IID_PPV_ARGS(&g12_uploadBuf[i]));
-            if (FAILED(hr)) return false;
-            g12_uploadBuf[i]->Map(0, &readRange, (void**)&g12_uploadPtr[i]);
-            // Initialize to black so unwritten edge pixels are not garbage
-            memset(g12_uploadPtr[i], 0, uploadSize);
-        }
-    }
-
-    // -- Noise upload buffers (R8, one per frame slot) ------------------------
-    {
-        UINT rawPitch = TEX_W;  // R8 = 1 byte per texel
-        g12_noiseUploadRowPitch = (rawPitch + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1)
-                                & ~(D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1);
-        UINT noiseSize = g12_noiseUploadRowPitch * TEX_H;
-
-        D3D12_RESOURCE_DESC bd = {};
-        bd.Dimension        = D3D12_RESOURCE_DIMENSION_BUFFER;
-        bd.Width            = noiseSize;
-        bd.Height           = 1;
-        bd.DepthOrArraySize = 1;
-        bd.MipLevels        = 1;
-        bd.Format           = DXGI_FORMAT_UNKNOWN;
-        bd.SampleDesc.Count = 1;
-        bd.Layout           = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-
-        D3D12_HEAP_PROPERTIES hp = {};
-        hp.Type = D3D12_HEAP_TYPE_UPLOAD;
-        D3D12_RANGE readRange = { 0, 0 };
-
-        for (UINT i = 0; i < FRAME_COUNT; i++) {
-            hr = g12_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &bd,
-                                                      D3D12_RESOURCE_STATE_GENERIC_READ,
-                                                      nullptr, IID_PPV_ARGS(&g12_noiseUploadBuf[i]));
-            if (FAILED(hr)) return false;
-            g12_noiseUploadBuf[i]->Map(0, &readRange, (void**)&g12_noiseUploadPtr[i]);
-            memset(g12_noiseUploadPtr[i], 0, noiseSize);
-        }
+    // -- Constant and upload buffers (one per frame slot) ----------------------
+    g12_uploadRowPitch      = uploadPitch(g12_texW * 4);
+    g12_noiseUploadRowPitch = uploadPitch(g12_texW);
+    for (UINT i = 0; i < FRAME_COUNT; i++) {
+        if (!createUploadBuf(CB_SIZE, g12_cbuf[i], &g12_cbufPtr[i])) return false;
+        if (!createUploadBuf(g12_uploadRowPitch * TEX_H, g12_uploadBuf[i], &g12_uploadPtr[i]))
+            return false;
     }
 
     // -- Vertex buffers --------------------------------------------------------
@@ -1590,31 +1635,6 @@ static bool bD3D12Init(HWND hWnd, int w, int h, int syncVblank)
             g12_vtxView[i].SizeInBytes    = vtxSize;
             g12_vtxView[i].StrideInBytes  = sizeof(Vtx12);
         }
-    }
-
-    // -- Transition textures to PIXEL_SHADER_RESOURCE --------------------------
-    {
-        g12_cmdAlloc[0]->Reset();
-        g12_cmdList->Reset(g12_cmdAlloc[0].Get(), nullptr);
-
-        D3D12_RESOURCE_BARRIER rb[3] = {};
-        rb[0].Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        rb[0].Flags                  = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-        rb[0].Transition.pResource   = g12_texture.Get();
-        rb[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-        rb[0].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-        rb[0].Transition.StateAfter  = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-
-        rb[1]                        = rb[0];
-        rb[1].Transition.pResource   = g12_prevTexture.Get();
-        rb[2]                        = rb[0];
-        rb[2].Transition.pResource   = g12_noiseTexture.Get();
-        g12_cmdList->ResourceBarrier(3, rb);
-        g12_cmdList->Close();
-
-        ID3D12CommandList* lists[] = { g12_cmdList.Get() };
-        g12_cmdQueue->ExecuteCommandLists(1, lists);
-        WaitForGpu();
     }
 
     g12_hwnd       = hWnd;
@@ -1740,6 +1760,7 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
 
     // -- Wait for previous use of this frame slot ------------------------------
     WaitForFrame(g12_frameIndex);
+    g12_retiredTex[g12_frameIndex].Reset();
     g12_cmdAlloc[g12_frameIndex]->Reset();
     g12_cmdList->Reset(g12_cmdAlloc[g12_frameIndex].Get(), g12_pso.Get());
 
@@ -1758,33 +1779,47 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
     // noise generation, AR/UV math and the shader's clamp.
     int  frameShift       = frameShiftOf(fb);
     int  srcW             = fb->maxWidth << frameShift;
-    bool frameDoubleWidth = frameShift >= 1;
-    if (srcW > (int)TEX_W) srcW = (int)TEX_W;
-    int srcH = fb->lines;
-
-    // -- ARGB1555 -> BGRA8 -> upload buffer -------------------------------------
-    // Clear unused buffer rows/cols; otherwise stale pixels persist from
-    // the last frame in this slot (visible on deinterlace toggle).
-    UINT copyW = clearUploadColumns(g12_uploadPtr[g12_frameIndex], g12_uploadRowPitch,
-                                    srcW, &g12_texUsedW);
-    uploadFrameRows(fb, frameShift, g12_uploadPtr[g12_frameIndex], g12_uploadRowPitch);
 
     // -- Read blendFrames from global properties (not stored in Video struct) --
     // User-controlled only.  Mode 1 (software pseudo-interlace) is handled
     // upstream via VDP.c interlaceRaster=1 (scanlines suppressed).
     Properties* globalProps = propGetGlobalProperties();
     int blendFramesEnable  = (globalProps && globalProps->video.blendFrames) ? 1 : 0;
+    bool needsNoise = (pVideo->palMode == VIDEO_PAL_SHARP_NOISE ||
+                       pVideo->palMode == VIDEO_PAL_BLUR_NOISE);
+    syncFrameResources(srcW, blendFramesEnable != 0, needsNoise);
+    if (!g12_prevTexture)  blendFramesEnable = 0;
+    if (!g12_noiseTexture) needsNoise = false;
+    // The texture could not grow: halving a four-times-wide frame loses less than cutting it.
+    if (srcW > (int)g12_texW && frameShift == 2) {
+        fb         = frameBufferNarrow(fb);
+        frameShift = frameShiftOf(fb);
+        srcW       = fb->maxWidth << frameShift;
+    }
+    // A frame still too wide is cut on the right; its scale stays that of the whole frame.
+    int uvSrcW = srcW;
+    if (srcW > (int)g12_texW) srcW = (int)g12_texW;
+    bool frameDoubleWidth = frameShift >= 1;
+    int srcH = fb->lines;
+
+    // -- ARGB1555 -> BGRA8 -> upload buffer -------------------------------------
+    // Clear unused buffer rows/cols; otherwise stale pixels persist from
+    // the last frame in this slot (visible on deinterlace toggle).
+    UINT copyW = clearUploadColumns(g12_uploadPtr[g12_frameIndex], g12_uploadRowPitch,
+                                    srcW, &g12_texUsedW, g12_texW);
+    uploadFrameRows(fb, frameShift, g12_uploadPtr[g12_frameIndex], g12_uploadRowPitch, g12_texW);
+
     // The previous frame does not line up with one of another width.
     bool prevSameWidth = g12_texFrameW == fb->maxWidth;
     g12_texFrameW = fb->maxWidth;
+    // Blend only after this frame's copy: prev is stale while cur holds no frame yet.
+    bool prevCopied = false;
 
     // -- Noise mask generation ------------------------------------------------
     // Mirrors DD's `rndVal *= 13; rnd *= 23` PRNG.  rndVal advances every
     // frame so SHARP<->SHARP_NOISE toggle picks up a rolling state, not 51.
     static UINT32 g_dxNoiseRndVal = 51;
     g_dxNoiseRndVal *= 13;
-    bool needsNoise = (pVideo->palMode == VIDEO_PAL_SHARP_NOISE ||
-                       pVideo->palMode == VIDEO_PAL_BLUR_NOISE);
     if (needsNoise) {
         UINT32 rnd      = g_dxNoiseRndVal;
         UINT8* noiseDst = g12_noiseUploadPtr[g12_frameIndex];
@@ -1836,9 +1871,10 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
         };
 
         // Frame blend: save current frame to prev BEFORE uploading new.
-        // blend+valid: PSR->COPY_SOURCE on texture, PSR->COPY_DEST on prev,
+        // blend+curValid: PSR->COPY_SOURCE on texture, PSR->COPY_DEST on prev,
         // CopyResource, then prev back to PSR.  Otherwise: PSR->COPY_DEST only.
-        if (blendFramesEnable && g12_prevTextureValid) {
+        prevCopied = blendFramesEnable && g12_curValid;
+        if (prevCopied) {
             D3D12_RESOURCE_BARRIER rb2[2] = {};
             auto fill = [](D3D12_RESOURCE_BARRIER& r, ID3D12Resource* res,
                            D3D12_RESOURCE_STATES b, D3D12_RESOURCE_STATES a) {
@@ -1882,7 +1918,7 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
         src_loc.Type                                 = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
         src_loc.PlacedFootprint.Offset               = 0;
         src_loc.PlacedFootprint.Footprint.Format     = DXGI_FORMAT_B8G8R8A8_UNORM;
-        src_loc.PlacedFootprint.Footprint.Width      = TEX_W;
+        src_loc.PlacedFootprint.Footprint.Width      = g12_texW;
         src_loc.PlacedFootprint.Footprint.Height     = TEX_H;
         src_loc.PlacedFootprint.Footprint.Depth      = 1;
         src_loc.PlacedFootprint.Footprint.RowPitch   = g12_uploadRowPitch;
@@ -1900,9 +1936,7 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
         rbBack.Transition.StateAfter  = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
         g12_cmdList->ResourceBarrier(1, &rbBack);
 
-        // After this frame, g12_prevTexture holds the previous frame's image
-        // (if blendFramesEnable was on); it remains valid for subsequent frames.
-        if (blendFramesEnable) g12_prevTextureValid = true;
+        g12_curValid = true;
     }
 
     // -- Noise mask upload (only when a *_NOISE palMode is selected) ----------
@@ -1926,7 +1960,7 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
         srcN.Type                                 = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
         srcN.PlacedFootprint.Offset               = 0;
         srcN.PlacedFootprint.Footprint.Format     = DXGI_FORMAT_R8_UNORM;
-        srcN.PlacedFootprint.Footprint.Width      = TEX_W;
+        srcN.PlacedFootprint.Footprint.Width      = g12_texW;
         srcN.PlacedFootprint.Footprint.Height     = TEX_H;
         srcN.PlacedFootprint.Footprint.Depth      = 1;
         srcN.PlacedFootprint.Footprint.RowPitch   = g12_noiseUploadRowPitch;
@@ -1946,7 +1980,7 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
                            && !isInterlacedSource
                            && !fb->interlaceRaster;
 
-    UvRender12 uv = computeUvForRender(w, h, srcW, srcH, fb->maxWidth, props);
+    UvRender12 uv = computeUvForRender(w, h, uvSrcW, srcH, fb->maxWidth, g12_texW, props);
     /* AA mode (pxPerRow >= 2.5): period 1/TEX_H, offset 0; the shader
     ** integrates sin over each screen pixel's source-row footprint.
     ** Legacy (< 2.5): period (v1-v0)/srcH, offset v0, plain point-sample
@@ -2021,13 +2055,13 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
             cb.scanShapeP = (float)spct / 100.0f * 4.0f;
         }
         cb.scalingFilter = (float)props->scalingFilter;
-        cb.blendFramesEnable  = blendFramesEnable && prevSameWidth ? 1.0f : 0.0f;
+        cb.blendFramesEnable  = prevCopied && prevSameWidth ? 1.0f : 0.0f;
         cb.gammaExp           = (float)pVideo->gamma;
         cb.contrast           = (float)pVideo->contrast;
         cb.saturation         = (float)pVideo->saturation;
         cb.brightness         = (float)pVideo->brightness / 100.0f;
         cb.colorSatEnable     = pVideo->colorSaturationEnable ? 1.0f : 0.0f;
-        cb.colorSatWidth      = satW * (frameShift >= 2 ? 2.0f : 1.0f) / (float)TEX_W;
+        cb.colorSatWidth      = satW * (frameShift >= 2 ? 2.0f : 1.0f) / (float)g12_texW;
         cb.monitorColor       = gp ? (float)gp->video.monitorColor : 0.0f;
 
         /* Border colour: when extendBorderColor is set, use the MSX VDP
@@ -2049,12 +2083,15 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
            target aspect, pixels outside the crop region render as
            borderColor instead of leaking source rows that the crop was
            meant to remove.  No crop -> these match the texture's full
-           valid data region (= [0..srcW/TEX_W] x [0..srcH/TEX_H])
+           valid data region (= [0..srcW/texWf] x [0..srcH/TEX_H])
            after intersection with the source content layout. */
         cb.srcUvMinU = uv.cropU0;
         cb.srcUvMinV = uv.cropV0;
         cb.srcUvMaxU = uv.cropU1;
         cb.srcUvMaxV = uv.cropV1;
+        // A cut frame shows the cut-off part as border, not its last column smeared.
+        if (uvSrcW > srcW && cb.srcUvMaxU > (float)srcW / (float)g12_texW)
+            cb.srcUvMaxU = (float)srcW / (float)g12_texW;
 
         /* srcWf is the data extent (= maxWidth << the line width shift), not
            just maxWidth, so the shader's clamp doesn't repeat the rightmost
@@ -2062,7 +2099,7 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
         cb.palMode         = (float)(int)pVideo->palMode;
         cb.srcWf           = (float)srcW;
         cb.srcHf           = (float)fb->lines;
-        cb.texWf           = (float)TEX_W;
+        cb.texWf           = (float)g12_texW;
         cb.texHf           = (float)TEX_H;
         cb.doubleWidthFlag = frameDoubleWidth ? 1.0f : 0.0f;
 
@@ -2246,8 +2283,8 @@ void D3D12ExitFullscreenMode()
 extern "C" void D3D12ClearToBlack(HWND /*hwnd*/)
 {
     // Called before SW_NORMAL so the re-exposed emu hwnd doesn't flash the
-    // previous run: backbuffer + g12_texture/g12_prevTexture pixels +
-    // g12_prevTextureValid all need wiping.
+    // previous run: backbuffer + g12_texture pixels need wiping and g12_curValid
+    // a reset. prev needs neither: it is read only after this frame's copy.
     if (!g12_ready) return;
 
     UINT idx = g12_frameIndex;
@@ -2284,7 +2321,7 @@ extern "C" void D3D12ClearToBlack(HWND /*hwnd*/)
         src.Type                                 = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
         src.PlacedFootprint.Offset               = 0;
         src.PlacedFootprint.Footprint.Format     = DXGI_FORMAT_B8G8R8A8_UNORM;
-        src.PlacedFootprint.Footprint.Width      = TEX_W;
+        src.PlacedFootprint.Footprint.Width      = g12_texW;
         src.PlacedFootprint.Footprint.Height     = TEX_H;
         src.PlacedFootprint.Footprint.Depth      = 1;
         src.PlacedFootprint.Footprint.RowPitch   = g12_uploadRowPitch;
@@ -2293,10 +2330,9 @@ extern "C" void D3D12ClearToBlack(HWND /*hwnd*/)
                    D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
     };
     wipeTex(g12_texture.Get());
-    wipeTex(g12_prevTexture.Get());
 
-    // Skip blend-with-prev on the next frame so it doesn't sample old content.
-    g12_prevTextureValid = false;
+    // The next frame neither copies the wiped cur into prev nor blends.
+    g12_curValid = false;
 
     // Clear the current backbuffer.
     trans(g12_rt[idx].Get(), D3D12_RESOURCE_STATE_PRESENT,
@@ -2558,13 +2594,13 @@ static int allocRecordResources(int width, int height, int hdr)
         if (FAILED(hr) || !g12_recCbufPtr) { releaseRecordResources(); return 0; }
     }
 
-    // ---- Capture-owned source texture (TEX_W x TEX_H BGRA8) -----
+    // ---- Capture-owned source texture (TEX_W_MAX x TEX_H BGRA8) -----
     {
         D3D12_HEAP_PROPERTIES hp = {};
         hp.Type = D3D12_HEAP_TYPE_DEFAULT;
         D3D12_RESOURCE_DESC rd = {};
         rd.Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-        rd.Width            = TEX_W;
+        rd.Width            = TEX_W_MAX;
         rd.Height           = TEX_H;
         rd.DepthOrArraySize = 1;
         rd.MipLevels        = 1;
@@ -2576,12 +2612,12 @@ static int allocRecordResources(int width, int height, int hdr)
             D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, nullptr,
             IID_PPV_ARGS(&g12_recSrcTexture));
         if (FAILED(hr)) { releaseRecordResources(); return 0; }
-        g12_recTexUsedW = TEX_W;
+        g12_recTexUsedW = TEX_W_MAX;
     }
 
     // ---- Upload buffer for the source texture (CPU-mapped, 256-aligned rows) --
     g12_recUploadRowPitch =
-        (UINT)((TEX_W * 4 + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1)
+        (UINT)((TEX_W_MAX * 4 + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1)
                & ~(D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1));
     {
         D3D12_HEAP_PROPERTIES hp = {};
@@ -2610,7 +2646,7 @@ static int allocRecordResources(int width, int height, int hdr)
         hp.Type = D3D12_HEAP_TYPE_DEFAULT;
         D3D12_RESOURCE_DESC rd = {};
         rd.Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-        rd.Width            = TEX_W;
+        rd.Width            = TEX_W_MAX;
         rd.Height           = TEX_H;
         rd.DepthOrArraySize = 1;
         rd.MipLevels        = 1;
@@ -2626,7 +2662,7 @@ static int allocRecordResources(int width, int height, int hdr)
 
     // ---- Noise upload buffer -----
     g12_recNoiseUploadRowPitch =
-        (UINT)((TEX_W + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1)
+        (UINT)((TEX_W_MAX + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1)
                & ~(D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1));
     {
         D3D12_HEAP_PROPERTIES hp = {};
@@ -2710,13 +2746,13 @@ extern "C" int D3D12RecordCaptureFromFrame(FrameBuffer* fb, Video* pVideo,
     int  frameShift       = frameShiftOf(fb);
     int  srcW             = fb->maxWidth << frameShift;
     bool frameDoubleWidth = frameShift >= 1;
-    if (srcW > (int)TEX_W) srcW = (int)TEX_W;
+    if (srcW > (int)TEX_W_MAX) srcW = (int)TEX_W_MAX;
     int srcH = fb->lines;
 
     // 2) ARGB1555 -> BGRA8 into the capture-owned upload buffer.
     UINT copyW = clearUploadColumns(g12_recUploadPtr, g12_recUploadRowPitch,
-                                    srcW, &g12_recTexUsedW);
-    uploadFrameRows(fb, frameShift, g12_recUploadPtr, g12_recUploadRowPitch);
+                                    srcW, &g12_recTexUsedW, TEX_W_MAX);
+    uploadFrameRows(fb, frameShift, g12_recUploadPtr, g12_recUploadRowPitch, TEX_W_MAX);
 
     // 3) Noise mask (only when palMode requests it). Same PRNG mechanic as
     //    live render, but advanced by a capture-local counter so the live
@@ -2760,7 +2796,8 @@ extern "C" int D3D12RecordCaptureFromFrame(FrameBuffer* fb, Video* pVideo,
     //      (NTSC PAR / PAL PAR / 1:1 / Auto / Stretch) is honoured. The
     //      visible source region inside the record RT is letterboxed /
     //      pillarboxed by the shader's border-color clamp.
-    UvRender12 uv = computeUvForRender(g12_recW, g12_recH, srcW, srcH, fb->maxWidth, props);
+    UvRender12 uv = computeUvForRender(g12_recW, g12_recH, srcW, srcH, fb->maxWidth,
+                                       TEX_W_MAX, props);
     /* Mirror the live path's AA / legacy mode selection. */
     float vSpanRec = uv.v1 - uv.v0;
     float pxPerRowRec = (vSpanRec > 1e-6f)
@@ -2835,7 +2872,7 @@ extern "C" int D3D12RecordCaptureFromFrame(FrameBuffer* fb, Video* pVideo,
         cb.brightness         = (float)pVideo->brightness / 100.0f;
         cb.colorSatEnable     = pVideo->colorSaturationEnable ? 1.0f : 0.0f;
         float satW = (float)(pVideo->colorSaturationWidth < 1 ? 1 : pVideo->colorSaturationWidth);
-        cb.colorSatWidth      = satW * (frameShift >= 2 ? 2.0f : 1.0f) / (float)TEX_W;
+        cb.colorSatWidth      = satW * (frameShift >= 2 ? 2.0f : 1.0f) / (float)TEX_W_MAX;
 
         Properties* gp = propGetGlobalProperties();
         cb.monitorColor       = gp ? (float)gp->video.monitorColor : 0.0f;
@@ -2859,7 +2896,7 @@ extern "C" int D3D12RecordCaptureFromFrame(FrameBuffer* fb, Video* pVideo,
         cb.palMode         = (float)(int)pVideo->palMode;
         cb.srcWf           = (float)srcW;
         cb.srcHf           = (float)fb->lines;
-        cb.texWf           = (float)TEX_W;
+        cb.texWf           = (float)TEX_W_MAX;
         cb.texHf           = (float)TEX_H;
         cb.doubleWidthFlag = frameDoubleWidth ? 1.0f : 0.0f;
 
@@ -2916,7 +2953,7 @@ extern "C" int D3D12RecordCaptureFromFrame(FrameBuffer* fb, Video* pVideo,
         sl.pResource                          = g12_recUploadBuf.Get();
         sl.Type                               = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
         sl.PlacedFootprint.Footprint.Format   = DXGI_FORMAT_B8G8R8A8_UNORM;
-        sl.PlacedFootprint.Footprint.Width    = TEX_W;
+        sl.PlacedFootprint.Footprint.Width    = TEX_W_MAX;
         sl.PlacedFootprint.Footprint.Height   = TEX_H;
         sl.PlacedFootprint.Footprint.Depth    = 1;
         sl.PlacedFootprint.Footprint.RowPitch = g12_recUploadRowPitch;
@@ -2940,7 +2977,7 @@ extern "C" int D3D12RecordCaptureFromFrame(FrameBuffer* fb, Video* pVideo,
         sl.pResource                          = g12_recNoiseUploadBuf.Get();
         sl.Type                               = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
         sl.PlacedFootprint.Footprint.Format   = DXGI_FORMAT_R8_UNORM;
-        sl.PlacedFootprint.Footprint.Width    = TEX_W;
+        sl.PlacedFootprint.Footprint.Width    = TEX_W_MAX;
         sl.PlacedFootprint.Footprint.Height   = TEX_H;
         sl.PlacedFootprint.Footprint.Depth    = 1;
         sl.PlacedFootprint.Footprint.RowPitch = g12_recNoiseUploadRowPitch;
