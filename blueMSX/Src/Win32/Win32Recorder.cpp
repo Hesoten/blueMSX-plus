@@ -1465,13 +1465,15 @@ static int recorderEnsureDX12Driver(HWND owner, Properties* prop)
     if (rv != IDYES) return 0;
 
     prop->video.driver = P_VIDEO_DRVDIRECTX_D3D12;
-    // archUpdateWindow synchronously brings the DX12 device up via
-    // D3D12EnsureReady before returning, so the recorder's subsequent
-    // D3D12RecordBegin (and the offline render's CFF) sees g12_ready=true
-    // immediately -- the recording proceeds in the same call rather than
-    // silently failing and forcing the user to invoke the menu again.
     archUpdateWindow();
     return prop->video.driver == P_VIDEO_DRVDIRECTX_D3D12;
+}
+
+// A hidden run has no device until a recording needs one. Called on the UI
+// thread once the files are chosen, so cancelling the choice creates nothing.
+static int recorderEnsureDX12Device(void)
+{
+    return D3D12EnsureReady(getEmuHwnd(), 0);
 }
 
 // --- Public lifecycle (replaces aviStartRender / aviStopRender) --------------
@@ -1506,6 +1508,7 @@ extern "C" void recorderStartRender(HWND hwndOwner, Properties* prop, Video* vid
     // state is touched so the running session isn't stopped for nothing.
     char* filename = recorderPickFiles(prop);
     if (filename == NULL) return;
+    if (!recorderEnsureDX12Device()) return;
 
     actionEmuStop();
     if (emulatorGetState() != EMU_STOPPED) return;
@@ -1776,6 +1779,8 @@ extern "C" int recorderStartLive(HWND hwndOwner, Properties* prop, Video* vid,
         strncpy(g_liveFilename, fn, sizeof(g_liveFilename) - 1);
         g_liveFilename[sizeof(g_liveFilename) - 1] = 0;
     }
+
+    if (!recorderEnsureDX12Device()) return 0;
 
     // HDR recording requires live HDR to be active (the capture path reuses
     // the live HDR shader's PQ-encoding branch).  Falling back to SDR if the
