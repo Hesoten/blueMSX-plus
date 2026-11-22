@@ -99,6 +99,9 @@ static char* getIndexedFilename(const char* fileName)
             return indexedFileName;
         }
     }
+    if (tableCount == sizeof(saveFileTable) / sizeof(saveFileTable[0])) {
+        return NULL;
+    }
     strcpy(saveFileTable[tableCount].fileName, fileName);
     saveFileTable[tableCount++].count = 0;
 
@@ -130,7 +133,8 @@ void saveStateDestroy(void)
 SaveState* saveStateOpenForRead(const char* fileName) {
     SaveState* state = (SaveState*)malloc(sizeof(SaveState));
     Int32 size = 0;
-    void* buffer = zipLoadFile(stateFile, getIndexedFilename(fileName), &size);
+    char* name = getIndexedFilename(fileName);
+    void* buffer = name != NULL ? zipLoadFile(stateFile, name, &size) : NULL;
 
     state->allocSize = size;
     state->buffer = buffer;
@@ -143,13 +147,21 @@ SaveState* saveStateOpenForRead(const char* fileName) {
 
 SaveState* saveStateOpenForWrite(const char* fileName) {
     SaveState* state = (SaveState*)malloc(sizeof(SaveState));
+    char* name = getIndexedFilename(fileName);
 
     state->size      = 0;
     state->offset    = 0;
     state->buffer    = NULL;
     state->allocSize = 0;
 
-    strcpy(state->fileName, getIndexedFilename(fileName));
+    /* A part with no name left is not written, and the save as a whole fails. */
+    if (name != NULL) {
+        strcpy(state->fileName, name);
+    }
+    else {
+        state->fileName[0] = 0;
+        writeFailed = 1;
+    }
 
     return state;
 }

@@ -687,16 +687,17 @@ static void boardCaptureSaveState()
         saveStateSet(state, "endTime64Lo", (UInt32)cap.endTime64);
         saveStateSet(state, "startTime64Hi", (UInt32)(cap.startTime64 >> 32));
         saveStateSet(state, "startTime64Lo", (UInt32)cap.startTime64);
-        saveStateSet(state, "inputCnt", cap.inputCnt);
-        if (cap.inputCnt > 0) {
-            saveStateSetBuffer(state, "inputs", cap.inputs, cap.inputCnt * sizeof(RleData));
-        }
+        /* The log that grows goes last, so what stays the same while recording
+        ** keeps its place and a rewind snapshot shares it with the one before. */
         saveStateSet(state, "initStateSize", cap.initStateSize);
         if (cap.initStateSize > 0) {
             saveStateSetBuffer(state, "initState", cap.initState, cap.initStateSize);
         }
-        
         saveStateSetBuffer(state, "rleCache", rleCache, sizeof(rleCache));
+        saveStateSet(state, "inputCnt", cap.inputCnt);
+        if (cap.inputCnt > 0) {
+            saveStateSetBuffer(state, "inputs", cap.inputs, cap.inputCnt * sizeof(RleData));
+        }
 
         saveStateClose(state);
     }
@@ -1166,6 +1167,9 @@ static void onStateSync(void* ref, UInt32 time)
     }
     else if (enableSnapshots) {
         char memFilename[16];
+        int    prevCur   = ramStateCur;
+        int    prevCount = ramStateCount;
+        UInt32 prevTime;
 
         ramStateCur = (ramStateCur + 1) % ramMaxStates;
         if (ramStateCount < ramMaxStates) {
@@ -1176,9 +1180,17 @@ static void onStateSync(void* ref, UInt32 time)
         
         /* What the clock will read once this snapshot is restored; step back
         ** uses it to pick a snapshot instead of restoring them to find out. */
+        prevTime = ramStateTime[ramStateCur];
         ramStateTime[ramStateCur] = boardSystemTime();
 
-        boardSaveState(memFilename, 0);
+        if (!boardSaveState(memFilename, 0)) {
+            /* A partial snapshot would restore the parts left out as devices
+            ** starting afresh. In a full ring the oldest it overwrote is gone too. */
+            memZipFileDelete(memFilename);
+            ramStateTime[ramStateCur] = prevTime;
+            ramStateCur   = prevCur;
+            ramStateCount = prevCount == ramMaxStates ? prevCount - 1 : prevCount;
+        }
     }
 
     boardTimerAdd(stateTimer, boardSystemTime() + stateFrequency);

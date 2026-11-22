@@ -41,6 +41,7 @@ typedef void(*ZIP_EXTRACT_CB)(int, int);
 
 void memZipFileSystemCreate(int maxFiles);
 void memZipFileSystemDestroy();
+void memZipFileDelete(const char* zipName);
 
 void zipCacheReadOnlyZip(const char* zipName);
 void* zipLoadFile(const char* zipName, const char* fileName, int* size);
