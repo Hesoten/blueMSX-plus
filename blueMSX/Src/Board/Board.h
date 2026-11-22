@@ -112,6 +112,10 @@ void boardRewindForget(UInt32 after);
 /* Non-zero while the machine runs again, after a rewind, through time it has run
 ** before, reading the input it read then. Emulation thread only. */
 int boardRewindReplaying(void);
+/* Ends such a replay here, so the machine takes new input from now on: what was
+** recorded after now is dropped. Returns the ms dropped (rounded up), or 0 when
+** nothing was being replayed. Emulation thread. */
+UInt32 boardRewindTakeOver(void);
 void boardEnableSnapshots(int enable);
 
 BoardType boardGetType();

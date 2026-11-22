@@ -69,6 +69,17 @@ void keyMatrixInputCancel(void);
 ** before a rewind: what it was given then comes from the rewind input log. */
 int keyMatrixInputHeldBack(void);
 
+/* The commands done are kept over the rewind window, by 64-bit board time:
+** those done up to before are let go, or all of them. */
+void keyMatrixInputTrimDone(UInt64 before);
+void keyMatrixInputForgetDone(void);
+/* A take over at a moment before this cannot put the keys back. */
+UInt64 keyMatrixInputDoneCoveredFrom(void);
+
+/* Puts the queue and the keys held back as they were at now, which a rewind
+** went back to: what was done after now is queued again, at the front. */
+void keyMatrixInputTakeOver(UInt64 now);
+
 /* Called by the board around a run, from the emulation thread. */
 void keyMatrixInputBoardStart(void);
 void keyMatrixInputBoardStop(void);

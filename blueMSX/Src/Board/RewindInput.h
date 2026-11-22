@@ -47,6 +47,10 @@ void rewindInputLoaded(UInt64 from, UInt64 time);
 /* Non-zero while what runs at now is replayed. */
 int rewindInputReplaying(UInt64 now);
 
+/* Ends a replay at now and drops what was read after it, so the machine takes
+** new input from here; returns how much board time was dropped, 0 if none. */
+UInt64 rewindInputTakeOver(UInt64 now);
+
 /* Folds what was read up to the oldest snapshot still kept into one record. */
 void rewindInputTrim(UInt64 oldestSnapshot);
 

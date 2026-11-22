@@ -145,6 +145,28 @@ int rewindInputReplaying(UInt64 now)
     return ring != NULL && replaying && now < frontier;
 }
 
+UInt64 rewindInputTakeOver(UInt64 now)
+{
+    UInt64 dropped;
+
+    if (ring == NULL || !replaying) {
+        return 0;
+    }
+    /* Past the end with no read since: nothing recorded lies ahead. */
+    if (now >= frontier) {
+        while (cursor < head) {
+            apply(&ring[cursor++ & LOG_MASK], cur, curValid);
+        }
+        replaying = 0;
+        return 0;
+    }
+    /* What is left was read after now; the reads that follow are new input. */
+    dropped = frontier - now;
+    head = cursor;
+    replaying = 0;
+    return dropped;
+}
+
 void rewindInputTrim(UInt64 oldestSnapshot)
 {
     if (ring == NULL) {

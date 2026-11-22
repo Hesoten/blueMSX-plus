@@ -1170,10 +1170,15 @@ static int boardRewindOldest(void)
     return (ramStateCur + ramMaxStates - (ramStateCount - 1)) % ramMaxStates;
 }
 
-/* A snapshot older than the input log reaches would run again with the wrong input. */
+/* A snapshot older than the input and key logs reach would run again with the wrong input. */
 static void boardRewindKeepCovered(void)
 {
     UInt64 from = rewindInputCoveredFrom();
+    UInt64 keys = keyMatrixInputDoneCoveredFrom();
+
+    if (keys > from) {
+        from = keys;
+    }
     while (ramStateCount > 0 && ramStateTime64[boardRewindOldest()] < from) {
         ramStateCount--;
     }
@@ -1185,6 +1190,7 @@ static void onStateSync(void* ref, UInt32 time)
     if (enableSnapshots && diskHasHostMedium()) {
         ramStateCount = 0;
         rewindInputReset();
+        keyMatrixInputForgetDone();
     }
     else if (enableSnapshots) {
         char memFilename[16];
@@ -1219,6 +1225,7 @@ static void onStateSync(void* ref, UInt32 time)
         boardRewindKeepCovered();
         if (ramStateCount > 0) {
             rewindInputTrim(ramStateTime64[boardRewindOldest()]);
+            keyMatrixInputTrimDone(ramStateTime64[boardRewindOldest()]);
         }
     }
 
@@ -1418,6 +1425,20 @@ int boardRewindReplaying(void)
     return rewindInputReplaying(boardSystemTime64());
 }
 
+UInt32 boardRewindTakeOver(void)
+{
+    UInt64 now = boardSystemTime64();
+    UInt64 dropped = rewindInputTakeOver(now);
+
+    if (dropped == 0) {
+        return 0;
+    }
+    /* Snapshots past now belong to the run given up. */
+    boardRewindForget(boardSystemTime());
+    keyMatrixInputTakeOver(now);
+    return (UInt32)(dropped / HIRES_CYCLES_PER_LORES_CYCLE * 1000 / boardFrequency()) + 1;
+}
+
 static int boardRewindLoad(int drop)
 {
     char stateFile[16];
@@ -1457,6 +1478,7 @@ int boardSnapshotRestore(void)
     /* The ring holds moments after the snapshot, so a step back would jump forward. */
     ramStateCount = 0;
     rewindInputReset();
+    keyMatrixInputForgetDone();
     return BOARD_SNAPSHOT_OK;
 }
 
