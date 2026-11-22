@@ -172,6 +172,11 @@ void boardDeviceFilesFatal(RomType device);
 void boardNoteUserCartridge(int cartNo);
 
 UInt8 boardCaptureUInt8(UInt8 logId, UInt8 value);
+/* Input read outside boardCaptureUInt8, kept for rewind replay only: a .cap file
+** counts the reads it plays back, so these stay out of it. */
+#define BOARD_REWIND_ID_PAUSE 0xe0
+#define BOARD_REWIND_ID_COIN  0xe1
+UInt8 boardRewindInput(UInt8 logId, UInt8 value);
 
 /* Zero when the state could not be stored whole, as when a part did not fit. */
 int boardSaveState(const char* stateFile, int screenshot);

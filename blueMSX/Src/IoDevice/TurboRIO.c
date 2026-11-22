@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -50,9 +53,14 @@ static void write(TurboRIO* turboRIO, UInt16 ioPort, UInt8 value)
 	ledSetTurboR(value & 0x80);
 }
 
-static UInt8 read(TurboRIO* turboRIO, UInt16 ioPort)
+static UInt8 peek(TurboRIO* turboRIO, UInt16 ioPort)
 {
     return switchGetPause() ? 1 : 0;
+}
+
+static UInt8 read(TurboRIO* turboRIO, UInt16 ioPort)
+{
+    return boardRewindInput(BOARD_REWIND_ID_PAUSE, peek(turboRIO, ioPort));
 }
 
 static void destroy(TurboRIO* turboRIO)
@@ -70,7 +78,7 @@ static void getDebugInfo(TurboRIO* turboRIO, DbgDevice* dbgDevice)
     DbgIoPorts* ioPorts;
 
     ioPorts = dbgDeviceAddIoPorts(dbgDevice, langDbgDevTrPause(), 1);
-    dbgIoPortsAddPort(ioPorts, 0, 0xa7, DBG_IO_READWRITE, read(turboRIO, 0xa7));
+    dbgIoPortsAddPort(ioPorts, 0, 0xa7, DBG_IO_READWRITE, peek(turboRIO, 0xa7));
 }
 
 int romMapperTurboRIOCreate()

@@ -678,6 +678,11 @@ UInt8 boardCaptureUInt8(UInt8 logId, UInt8 value) {
     return value;
 }
 
+UInt8 boardRewindInput(UInt8 logId, UInt8 value)
+{
+    return rewindInputFilter(boardSystemTime64(), logId, value);
+}
+
 static void boardCaptureSaveState()
 {
     if (cap.state == CAPTURE_REC && !capSavingInitState) {
