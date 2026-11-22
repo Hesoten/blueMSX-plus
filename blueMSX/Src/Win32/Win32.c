@@ -3574,7 +3574,10 @@ static LRESULT CALLBACK emuWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
             st.bmInfo.bmiHeader.biBitCount = 32;
 		}
     case WM_PAINT:
-        if (pProperties->video.driver == P_VIDEO_DRVGDI && emulatorGetState() != EMU_STOPPED) 
+        /* A hidden window shows nothing, yet WM_WINDOWPOSCHANGED falls through
+        ** to here and would render a frame into a 64 MB bitmap. */
+        if (pProperties->video.driver == P_VIDEO_DRVGDI && emulatorGetState() != EMU_STOPPED &&
+            !st.hidden)
 		{
             PAINTSTRUCT ps;
             FrameBuffer* frameBuffer;
