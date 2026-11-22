@@ -489,9 +489,11 @@ static ComPtr<ID3D12PipelineState>       g12_psoRecHdr; // RTV format = R10G10B1
 
 // Texture (GPU default heap; lives in PIXEL_SHADER_RESOURCE between frames)
 static ComPtr<ID3D12Resource>            g12_texture;
-// Previous-frame copy used by the blendFrames effect (same size/format as g12_texture)
+// Previous-frame copy used by the blendFrames effect (same size/format as g12_texture);
+// exists only while blending.
 static ComPtr<ID3D12Resource>            g12_prevTexture;
-static bool                              g12_prevTextureValid = false;
+// g12_texture holds an uploaded frame (not zeros), so copying it into prev is valid.
+static bool                              g12_curValid = false;
 // Columns of g12_texture that may be nonzero, and the maxWidth of its frame.
 static UINT                              g12_texUsedW = TEX_W;
 static int                               g12_texFrameW = BASE_TEX_W;
@@ -976,7 +978,7 @@ static void WaitForGpu()
 
 // --- resource helpers ----------------------------------------------------------
 
-// Created in COPY_DEST; bD3D12Init moves the textures to PIXEL_SHADER_RESOURCE.
+// Created in PIXEL_SHADER_RESOURCE, the state kept between frames.
 static bool createTex2D(UINT width, DXGI_FORMAT fmt, ComPtr<ID3D12Resource>& out)
 {
     D3D12_RESOURCE_DESC td = {};
@@ -994,7 +996,7 @@ static bool createTex2D(UINT width, DXGI_FORMAT fmt, ComPtr<ID3D12Resource>& out
 
     out.Reset();
     return SUCCEEDED(g12_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &td,
-                                                          D3D12_RESOURCE_STATE_COPY_DEST,
+                                                          D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
                                                           nullptr, IID_PPV_ARGS(&out)));
 }
 
@@ -1035,7 +1037,8 @@ static UINT uploadPitch(UINT rowBytes)
          & ~(D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1);
 }
 
-// SRV slots: 0 = current frame, 1 = previous frame, 2 = noise mask.
+// Without a resource, a null descriptor: the shader reads zeros. The format and
+// dimension must still match what the shader declares.
 static void writeSrv(UINT slot, ID3D12Resource* res, DXGI_FORMAT fmt)
 {
     D3D12_SHADER_RESOURCE_VIEW_DESC srvd = {};
@@ -1046,6 +1049,18 @@ static void writeSrv(UINT slot, ID3D12Resource* res, DXGI_FORMAT fmt)
     D3D12_CPU_DESCRIPTOR_HANDLE h = g12_srvHeap->GetCPUDescriptorHandleForHeapStart();
     h.ptr += (SIZE_T)slot * g12_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     g12_device->CreateShaderResourceView(res, &srvd, h);
+}
+
+// The previous frame is read only while blending. Swapping it rewrites SRV
+// slot 1, which frames still on the GPU may read, so the GPU is drained first.
+static void syncPrevTexture(bool want)
+{
+    if (want == (g12_prevTexture != nullptr)) return;
+    ComPtr<ID3D12Resource> prev;
+    if (want && !createTex2D(TEX_W, DXGI_FORMAT_B8G8R8A8_UNORM, prev)) return;
+    WaitForGpu();
+    g12_prevTexture = prev;
+    writeSrv(1, prev.Get(), DXGI_FORMAT_B8G8R8A8_UNORM);
 }
 
 // --- cleanup -----------------------------------------------------------------
@@ -1068,7 +1083,7 @@ static void vD3D12Cleanup()
     }
 
     g12_prevTexture.Reset();
-    g12_prevTextureValid = false;
+    g12_curValid = false;
     g12_noiseTexture.Reset();
     g12_texture.Reset();
     g12_pso.Reset();
@@ -1448,14 +1463,13 @@ static bool bD3D12Init(HWND hWnd, int w, int h, int syncVblank)
         if (FAILED(hr)) return false;
     }
 
-    // -- Textures: t0 = current frame, t1 = previous frame (blendFrames),
-    // t2 = noise mask (R8, SHARP_NOISE / BLUR_NOISE)
+    // -- Textures: t0 = current frame, t2 = noise mask (R8, SHARP_NOISE / BLUR_NOISE)
+    // t1 (previous frame) is created on demand while blending.
     if (!createTex2D(TEX_W, DXGI_FORMAT_B8G8R8A8_UNORM, g12_texture)) return false;
     g12_texUsedW = TEX_W;
     writeSrv(0, g12_texture.Get(), DXGI_FORMAT_B8G8R8A8_UNORM);
-    if (!createTex2D(TEX_W, DXGI_FORMAT_B8G8R8A8_UNORM, g12_prevTexture)) return false;
-    writeSrv(1, g12_prevTexture.Get(), DXGI_FORMAT_B8G8R8A8_UNORM);
-    g12_prevTextureValid = false;
+    writeSrv(1, nullptr, DXGI_FORMAT_B8G8R8A8_UNORM);
+    g12_curValid = false;
     if (!createTex2D(TEX_W, DXGI_FORMAT_R8_UNORM, g12_noiseTexture)) return false;
     writeSrv(2, g12_noiseTexture.Get(), DXGI_FORMAT_R8_UNORM);
 
@@ -1500,31 +1514,6 @@ static bool bD3D12Init(HWND hWnd, int w, int h, int syncVblank)
             g12_vtxView[i].SizeInBytes    = vtxSize;
             g12_vtxView[i].StrideInBytes  = sizeof(Vtx12);
         }
-    }
-
-    // -- Transition textures to PIXEL_SHADER_RESOURCE --------------------------
-    {
-        g12_cmdAlloc[0]->Reset();
-        g12_cmdList->Reset(g12_cmdAlloc[0].Get(), nullptr);
-
-        D3D12_RESOURCE_BARRIER rb[3] = {};
-        rb[0].Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        rb[0].Flags                  = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-        rb[0].Transition.pResource   = g12_texture.Get();
-        rb[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-        rb[0].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-        rb[0].Transition.StateAfter  = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-
-        rb[1]                        = rb[0];
-        rb[1].Transition.pResource   = g12_prevTexture.Get();
-        rb[2]                        = rb[0];
-        rb[2].Transition.pResource   = g12_noiseTexture.Get();
-        g12_cmdList->ResourceBarrier(3, rb);
-        g12_cmdList->Close();
-
-        ID3D12CommandList* lists[] = { g12_cmdList.Get() };
-        g12_cmdQueue->ExecuteCommandLists(1, lists);
-        WaitForGpu();
     }
 
     g12_hwnd       = hWnd;
@@ -1684,10 +1673,12 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
     // upstream via VDP.c interlaceRaster=1 (scanlines suppressed).
     Properties* globalProps = propGetGlobalProperties();
     int blendFramesEnable  = (globalProps && globalProps->video.blendFrames) ? 1 : 0;
+    syncPrevTexture(blendFramesEnable != 0);
+    if (!g12_prevTexture) blendFramesEnable = 0;
     // The previous frame does not line up with one of another width.
     bool prevSameWidth = g12_texFrameW == fb->maxWidth;
     g12_texFrameW = fb->maxWidth;
-    // Blend only after this frame's copy: until then (start, after a wipe) prev is zeros.
+    // Blend only after this frame's copy: prev is stale while cur holds no frame yet.
     bool prevCopied = false;
 
     // -- Noise mask generation ------------------------------------------------
@@ -1748,9 +1739,9 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
         };
 
         // Frame blend: save current frame to prev BEFORE uploading new.
-        // blend+valid: PSR->COPY_SOURCE on texture, PSR->COPY_DEST on prev,
+        // blend+curValid: PSR->COPY_SOURCE on texture, PSR->COPY_DEST on prev,
         // CopyResource, then prev back to PSR.  Otherwise: PSR->COPY_DEST only.
-        prevCopied = blendFramesEnable && g12_prevTextureValid;
+        prevCopied = blendFramesEnable && g12_curValid;
         if (prevCopied) {
             D3D12_RESOURCE_BARRIER rb2[2] = {};
             auto fill = [](D3D12_RESOURCE_BARRIER& r, ID3D12Resource* res,
@@ -1813,9 +1804,7 @@ int D3D12UpdateSurface(HWND hWnd, Video* pVideo, int syncVblank, D3DProperties* 
         rbBack.Transition.StateAfter  = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
         g12_cmdList->ResourceBarrier(1, &rbBack);
 
-        // After this frame, g12_prevTexture holds the previous frame's image
-        // (if blendFramesEnable was on); it remains valid for subsequent frames.
-        if (blendFramesEnable) g12_prevTextureValid = true;
+        g12_curValid = true;
     }
 
     // -- Noise mask upload (only when a *_NOISE palMode is selected) ----------
@@ -2159,8 +2148,8 @@ void D3D12ExitFullscreenMode()
 extern "C" void D3D12ClearToBlack(HWND /*hwnd*/)
 {
     // Called before SW_NORMAL so the re-exposed emu hwnd doesn't flash the
-    // previous run: backbuffer + g12_texture/g12_prevTexture pixels +
-    // g12_prevTextureValid all need wiping.
+    // previous run: backbuffer + g12_texture pixels need wiping and g12_curValid
+    // a reset. prev needs neither: it is read only after this frame's copy.
     if (!g12_ready) return;
 
     UINT idx = g12_frameIndex;
@@ -2206,10 +2195,9 @@ extern "C" void D3D12ClearToBlack(HWND /*hwnd*/)
                    D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
     };
     wipeTex(g12_texture.Get());
-    wipeTex(g12_prevTexture.Get());
 
-    // Skip blend-with-prev on the next frame so it doesn't sample old content.
-    g12_prevTextureValid = false;
+    // The next frame neither copies the wiped cur into prev nor blends.
+    g12_curValid = false;
 
     // Clear the current backbuffer.
     trans(g12_rt[idx].Get(), D3D12_RESOURCE_STATE_PRESENT,
