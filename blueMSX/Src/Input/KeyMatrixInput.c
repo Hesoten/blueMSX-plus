@@ -289,24 +289,46 @@ int keyMatrixInputSubmitEvents(const KeyMatrixEvent* events, int eventCount)
     return 1;
 }
 
+/* Under the lock: the text commands queued, in order and without a wait under way, and
+** in release the event codes a queued command lets go. Returns the event-code key
+** events queued, which a cancel drops. */
+static int queuedText(Command* text, int* textCount, UInt8* release)
+{
+    int events = 0;
+    int i;
+
+    *textCount = 0;
+    for (i = 0; i < count; i++) {
+        const Command* c = &queue[(head + i) % QUEUE_SIZE];
+        if (c->type == CMD_CODE_UP) {
+            release[c->value] = 1;
+        }
+        if (c->type == CMD_CODE_DOWN || c->type == CMD_CODE_UP) {
+            events++;
+        }
+        else if ((c->type == CMD_DOWN || c->type == CMD_UP || c->type == CMD_WAIT) &&
+                 !(i == 0 && waiting)) {
+            text[(*textCount)++] = *c;
+        }
+    }
+    return events;
+}
+
 /* Only event-code commands are dropped; the text commands of keyMatrixInputSubmit stay.
 ** The releases are queued, so the emulation thread still does every key change. */
 void keyMatrixInputCancel(void)
 {
     static Command kept[QUEUE_SIZE];
+    static Command text[QUEUE_SIZE];
     UInt8 release[CODES_MAX];
+    int   textCount;
     int   i;
     int   n = 0;
 
     takeLock();
     /* A key is let go only if a dropped command would have let it go, so a how=press hold stays. */
     memset(release, 0, sizeof(release));
-    for (i = 0; i < count; i++) {
-        const Command* c = &queue[(head + i) % QUEUE_SIZE];
-        if (c->type == CMD_CODE_UP) {
-            release[c->value] = heldCode[c->value];
-        }
-    }
+    queuedText(text, &textCount, release);
     /* A text wait under way stays first, as onTimer ends the wait at the head. */
     if (waiting && queue[head].type == CMD_WAIT) {
         kept[n++] = queue[head];
@@ -315,18 +337,14 @@ void keyMatrixInputCancel(void)
         waiting = 0;
     }
     for (i = 1; i < CODES_MAX; i++) {
-        if (release[i]) {
+        if (release[i] && heldCode[i]) {
             kept[n].type    = CMD_CODE_UP;
             kept[n].row     = 0;
             kept[n++].value = (UInt16)i;
         }
     }
-    for (i = waiting; i < count; i++) {
-        const Command* c = &queue[(head + i) % QUEUE_SIZE];
-        if (c->type == CMD_DOWN || c->type == CMD_UP || c->type == CMD_WAIT) {
-            kept[n++] = *c;
-        }
-    }
+    memcpy(kept + n, text, textCount * sizeof(Command));
+    n += textCount;
     memcpy(queue, kept, n * sizeof(Command));
     head = 0;
     count = n;
