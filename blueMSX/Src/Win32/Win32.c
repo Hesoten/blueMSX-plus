@@ -3313,10 +3313,11 @@ void archUpdateWindow() {
                          r.bottom - r.top);
     }
 
-    // Bring the DX12 device up synchronously so recorderStartLive can
-    // allocate capture resources, and re-bind after a device reset.
+    // Bring the DX12 device up now so a live recording re-binds after the
+    // reset above. A hidden run draws nothing, so it waits for a recording.
     int dx12Ready = 1;
-    if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12 && !zoomOnly) {
+    if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12 && !zoomOnly &&
+        (!st.hidden || liveSurvivesTransition)) {
         dx12Ready = D3D12EnsureReady(st.emuHwnd, st.diplaySync);
     }
 
