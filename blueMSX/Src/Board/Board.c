@@ -1425,7 +1425,7 @@ int boardRewindReplaying(void)
     return rewindInputReplaying(boardSystemTime64());
 }
 
-UInt32 boardRewindTakeOver(void)
+UInt32 boardRewindTakeOver(int requeue)
 {
     UInt64 now = boardSystemTime64();
     UInt64 dropped = rewindInputTakeOver(now);
@@ -1435,7 +1435,7 @@ UInt32 boardRewindTakeOver(void)
     }
     /* Snapshots past now belong to the run given up. */
     boardRewindForget(boardSystemTime());
-    keyMatrixInputTakeOver(now);
+    keyMatrixInputTakeOver(now, requeue);
     return (UInt32)(dropped / HIRES_CYCLES_PER_LORES_CYCLE * 1000 / boardFrequency()) + 1;
 }
 

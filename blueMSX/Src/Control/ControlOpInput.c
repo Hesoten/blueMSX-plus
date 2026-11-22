@@ -27,6 +27,28 @@
 #include <stdio.h>
 #include <string.h>
 
+/* The line that says what take_over did, or would do once the machine runs. */
+static void noteTakeOver(CtrlCall* call, const CtrlTakeOver* takeOver, int queued)
+{
+    if (!takeOver->asked) {
+        return;
+    }
+    if (queued) {
+        ctrlTextAdd(&call->text, "queued: takes over when the machine runs again, dropping "
+                    "the recorded input from there and %d queued key events\n",
+                    takeOver->droppedEvents);
+    }
+    else if (takeOver->done) {
+        ctrlTextAdd(&call->text, "took over at the current moment; dropped %u ms of recorded "
+                    "input and %d queued key events\n", (unsigned)takeOver->droppedMs,
+                    takeOver->droppedEvents);
+    }
+    else {
+        ctrlTextAdd(&call->text, "nothing was being replayed; dropped %d queued key events\n",
+                    takeOver->droppedEvents);
+    }
+}
+
 int ctrlOpKey(CtrlCall* call)
 {
     const char* keys = ctrlCallText(call, "keys");
@@ -34,6 +56,7 @@ int ctrlOpKey(CtrlCall* call)
     char  err[240];
     Int32 hold = ctrlCallInt(call, "hold", CTRL_KEY_HOLD_DEFAULT);
     Int32 gap = ctrlCallInt(call, "gap", CTRL_KEY_GAP_DEFAULT);
+    CtrlTakeOver takeOver = { 0 };
     int   kind;
     int   result;
 
@@ -60,11 +83,16 @@ int ctrlOpKey(CtrlCall* call)
                               "\"how\" must be press, release or tap");
     }
 
-    result = ctrlInputKey(keys, kind, (int)hold, (int)gap, err, sizeof(err));
+    takeOver.asked = ctrlCallBool(call, "take_over", 0);
+    result = ctrlInputKey(keys, kind, (int)hold, (int)gap, &takeOver, err, sizeof(err));
     /* An interrupted press may have reached the machine in part, so it is logged as failed too. */
     ctrlActivityNoteOn(kind == CTRL_INPUT_PRESS ? CTRL_ACT_KEY_PRESS :
                        kind == CTRL_INPUT_RELEASE ? CTRL_ACT_KEY_RELEASE : CTRL_ACT_KEY_TAP,
-                       keys, NULL, result > 0 ? CTRL_ACT_DONE : CTRL_ACT_FAILED);
+                       keys, NULL, result > 0 || result == CTRL_INPUT_QUEUED ? CTRL_ACT_DONE : CTRL_ACT_FAILED);
+    if (result == CTRL_INPUT_QUEUED) {
+        noteTakeOver(call, &takeOver, 1);
+        return ctrlReplyDone(call);
+    }
     if (result == CTRL_INPUT_STOPPED) {
         return ctrlReplyError(call, "input_interrupted", err);
     }
@@ -88,6 +116,7 @@ int ctrlOpKey(CtrlCall* call)
     else {
         ctrlTextAdd(&call->text, "released %s\n", keys);
     }
+    noteTakeOver(call, &takeOver, 0);
     return ctrlReplyDone(call);
 }
 
@@ -107,6 +136,7 @@ int ctrlOpType(CtrlCall* call)
     char  err[320];
     Int32 hold = ctrlCallInt(call, "hold", CTRL_TYPE_HOLD_DEFAULT);
     Int32 gap = ctrlCallInt(call, "gap", CTRL_TYPE_GAP_DEFAULT);
+    CtrlTakeOver takeOver = { 0 };
     int   events = 0;
     int   frames = 0;
     int   result;
@@ -124,10 +154,16 @@ int ctrlOpType(CtrlCall* call)
                                CTRL_TYPE_HOLD_MAX);
     }
 
-    result = ctrlInputType(typed, (int)hold, (int)gap, &events, &frames,
+    takeOver.asked = ctrlCallBool(call, "take_over", 0);
+    result = ctrlInputType(typed, (int)hold, (int)gap, &takeOver, &events, &frames,
                            note, sizeof(note), err, sizeof(err));
     /* One activity line for the whole string, not one per key. */
-    noteTyped(typed, result > 0 ? CTRL_ACT_DONE : CTRL_ACT_FAILED);
+    noteTyped(typed, result > 0 || result == CTRL_INPUT_QUEUED ? CTRL_ACT_DONE : CTRL_ACT_FAILED);
+    if (result == CTRL_INPUT_QUEUED) {
+        noteTakeOver(call, &takeOver, 1);
+        jsonOutInt(&call->out, "key_events", events);
+        return ctrlReplyDone(call);
+    }
     if (result == CTRL_INPUT_STOPPED) {
         return ctrlReplyError(call, "input_interrupted", err);
     }
@@ -140,6 +176,7 @@ int ctrlOpType(CtrlCall* call)
                 "them is not checked, so read the screen back.\n%s",
                 (int)strlen(typed), strlen(typed) == 1 ? "" : "s", events, frames,
                 typed, note);
+    noteTakeOver(call, &takeOver, 0);
     jsonOutInt(&call->out, "key_events", events);
     return ctrlReplyDone(call);
 }

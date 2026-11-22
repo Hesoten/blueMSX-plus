@@ -38,6 +38,7 @@
 #include "Led.h"
 #include "Machine.h"
 #include "InputEvent.h"
+#include "KeyMatrixInput.h"
 #include "Actions.h"
 #include "RomTypeList.h"
 #include "Language.h"
@@ -1976,10 +1977,14 @@ static int WaitForSync(int maxSpeed, int stopCause) {
     if (rwPauseReq) {
         takeReversePause();
     }
-    /* At the frame shown, once the replay to it is over. */
-    if (rwTakeOverReq && !emulatorDropsStops()) {
-        rwTakeOverReq = 0;
-        boardRewindTakeOver();
+    /* At the frame shown, once the replay to it is over; an agent's take over first, as
+    ** it drops what reverse play would queue again and reports what it ended. */
+    if (!emulatorDropsStops()) {
+        keyMatrixInputRunTakeOver();
+        if (rwTakeOverReq) {
+            rwTakeOverReq = 0;
+            boardRewindTakeOver(1);
+        }
     }
 
     /* Never a snapshot of a replay under way, nor of a frame reverse play shows. */

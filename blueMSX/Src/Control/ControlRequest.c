@@ -126,10 +126,11 @@ static const CtrlArg symSearchArgs[] = {
 };
 static const CtrlArg keyArgs[] = {
     { "how", CTRL_ARG_TEXT, 15 }, { "keys", CTRL_ARG_TEXT, 95 }, { "hold", CTRL_ARG_INT, 0 },
-    { "gap", CTRL_ARG_INT, 0 }, { NULL }
+    { "gap", CTRL_ARG_INT, 0 }, { "take_over", CTRL_ARG_BOOL, 0 }, { NULL }
 };
 static const CtrlArg typeArgs[] = {
-    { "text", CTRL_ARG_TEXT, 511 }, { "hold", CTRL_ARG_INT, 0 }, { "gap", CTRL_ARG_INT, 0 }, { NULL }
+    { "text", CTRL_ARG_TEXT, 511 }, { "hold", CTRL_ARG_INT, 0 }, { "gap", CTRL_ARG_INT, 0 },
+    { "take_over", CTRL_ARG_BOOL, 0 }, { NULL }
 };
 static const CtrlArg screenArgs[] = {
     { "as", CTRL_ARG_TEXT, 11 }, { "path", CTRL_ARG_TEXT, CTRL_PATH_MAX - 1 }, { NULL }
@@ -268,10 +269,10 @@ static const CtrlOp opTable[] = {
       "  sym.clear\n" },
     { "key",               CTRL_OP_CHANGES, CTRL_OP_SELF, ctrlOpKey, OP_ARGS(keyArgs),
       CTRL_ACT_DENIED,
-      "  key          how = press|release|tap, keys, hold, gap\n" },
+      "  key          how = press|release|tap, keys, hold, gap, take_over\n" },
     { "type",              CTRL_OP_CHANGES, CTRL_OP_SELF, ctrlOpType, OP_ARGS(typeArgs),
       CTRL_ACT_TYPE,
-      "  type         text, hold, gap\n" },
+      "  type         text, hold, gap, take_over\n" },
     { "screen",            CTRL_OP_LOOKS,   CTRL_OP_HELD, ctrlOpScreen, OP_ARGS(screenArgs),
       CTRL_ACT_DENIED,
       "  screen       as = auto|text|png, path\n" },
