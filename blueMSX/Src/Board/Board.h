@@ -109,6 +109,9 @@ int boardRewindTo(UInt32 loadAt, UInt32 dropAfter);
 int boardRewindReaches(UInt32 at);
 /* Drops the snapshots taken after the board time given, keeping at least one. */
 void boardRewindForget(UInt32 after);
+/* Non-zero while the machine runs again, after a rewind, through time it has run
+** before, reading the input it read then. Emulation thread only. */
+int boardRewindReplaying(void);
 void boardEnableSnapshots(int enable);
 
 BoardType boardGetType();

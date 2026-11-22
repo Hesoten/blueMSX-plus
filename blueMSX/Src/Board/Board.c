@@ -1413,6 +1413,11 @@ void boardRewindForget(UInt32 after)
     }
 }
 
+int boardRewindReplaying(void)
+{
+    return rewindInputReplaying(boardSystemTime64());
+}
+
 static int boardRewindLoad(int drop)
 {
     char stateFile[16];

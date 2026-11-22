@@ -66,6 +66,7 @@ static int         head;
 static int         count;
 static int         waiting;
 static UInt32      waitEnd;
+static volatile int heldBack;
 static UInt8       held[MATRIX_ROWS];
 static UInt8       heldCode[CODES_MAX];
 static BoardTimer* timer;
@@ -223,6 +224,11 @@ int keyMatrixInputRemaining(void)
     return n;
 }
 
+int keyMatrixInputHeldBack(void)
+{
+    return heldBack && keyMatrixInputRemaining() > 0;
+}
+
 int keyMatrixInputSubmitEvents(const KeyMatrixEvent* events, int eventCount)
 {
     int i;
@@ -330,17 +336,20 @@ static void onTimer(void* ref, UInt32 time)
 
     takeLock();
 
+    /* Held back, nothing is taken: what was taken before the rewind is read back
+    ** from the rewind input log, and the rest follows from where the rewind began. */
+    heldBack = boardRewindReplaying();
     /* A state load re-arms the timer at once, which would cut the wait short. */
-    if (waiting && (Int32)(waitEnd - time) > 0) {
+    if (!heldBack && waiting && (Int32)(waitEnd - time) > 0) {
         next = waitEnd;
     }
-    else if (waiting) {
+    else if (!heldBack && waiting) {
         head = (head + 1) % QUEUE_SIZE;
         count--;
         waiting = 0;
     }
 
-    while (count > 0 && !waiting) {
+    while (count > 0 && !waiting && !heldBack) {
         Command* c = &queue[head];
 
         if (c->type == CMD_WAIT) {
@@ -430,5 +439,6 @@ void keyMatrixInputBoardStop(void)
     head = 0;
     count = 0;
     waiting = 0;
+    heldBack = 0;
     dropLock();
 }

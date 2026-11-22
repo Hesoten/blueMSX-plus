@@ -295,8 +295,9 @@ static int waitDrained(int longestWaitFrames, int* remaining, int* idleMs, int* 
             *dropped = state == EMU_STOPPED;
             return *remaining == 1 ? 1 : CTRL_INPUT_STOPPED;
         }
-        /* Only running time counts; a menu or a dragged window suspends the machine. */
-        if (*remaining != last || state == EMU_SUSPENDED) {
+        /* Only running time counts; a menu or a dragged window suspends the machine,
+        ** and a rewind holds the keys back until it is past where it began. */
+        if (*remaining != last || state == EMU_SUSPENDED || keyMatrixInputHeldBack()) {
             last = *remaining;
             since = archGetSystemUpTime(1000);
         }
@@ -318,7 +319,7 @@ static int queueFree(char* err, int errLen)
     int    left;
 
     while ((left = keyMatrixInputRemaining()) > 0 && emulatorGetState() == EMU_RUNNING &&
-           (int)(archGetSystemUpTime(1000) - start) < wallMs(refreshRate()) + 200) {
+           !keyMatrixInputHeldBack() && (int)(archGetSystemUpTime(1000) - start) < wallMs(refreshRate()) + 200) {
         archThreadSleep(2);
     }
     if (left == 0) {

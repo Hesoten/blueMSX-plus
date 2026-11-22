@@ -65,6 +65,10 @@ int keyMatrixInputSubmitEvents(const KeyMatrixEvent* events, int count);
 ** commands would have let go, as soon as the wait under way ends. */
 void keyMatrixInputCancel(void);
 
+/* Non-zero while commands wait for the machine to run again through what it ran
+** before a rewind: what it was given then comes from the rewind input log. */
+int keyMatrixInputHeldBack(void);
+
 /* Called by the board around a run, from the emulation thread. */
 void keyMatrixInputBoardStart(void);
 void keyMatrixInputBoardStop(void);
