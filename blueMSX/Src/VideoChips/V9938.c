@@ -918,7 +918,8 @@ static void srchLatchBorderX(VdpCmdState* vdpCmd)
 */
 static void LineEngine(VdpCmdState* vdpCmd)
 {
-    int DX=vdpCmd->DX;
+    /* The running X lives in ANX: a finished LINE leaves DX as it was set. */
+    int DX=vdpCmd->ANX;
     int DY=vdpCmd->DY;
     int TX=vdpCmd->TX;
     int TY=vdpCmd->TY;
@@ -1009,7 +1010,7 @@ static void LineEngine(VdpCmdState* vdpCmd)
         vdpCmd->DY=DY & vdpCmd->nyMask;
     }
     else {
-        vdpCmd->DX=DX;
+        vdpCmd->ANX=DX;
         vdpCmd->DY=DY;
         vdpCmd->ASX=ASX;
         vdpCmd->ADX=ADX;
@@ -1903,7 +1904,10 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
 
     switch (vdpCmd->CM) {
     case CM_SRCH: start = srch_start;  break;
-    case CM_LINE: start = line_start;  break;
+    case CM_LINE:
+        vdpCmd->ANX = vdpCmd->DX;
+        start = line_start;
+        break;
     case CM_YMMM:
     case CM_HMMM: start = copy_start;  break;
     case CM_LMMM: start = lmmm_start;  break;
