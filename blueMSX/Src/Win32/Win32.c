@@ -3245,7 +3245,8 @@ void archUpdateWindow() {
                                 WS_SYSMENU | WS_MINIMIZEBOX | (pProperties->video.maximizeIsFullscreen?WS_MAXIMIZEBOX:0));
         }
 
-        if (pProperties->video.driver != P_VIDEO_DRVGDI && !zoomOnly) {
+        /* A hidden run draws nothing, so it needs no DirectDraw surfaces. */
+        if (pProperties->video.driver != P_VIDEO_DRVGDI && !zoomOnly && !st.hidden) {
             int rv;
 
             if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12)
@@ -4018,7 +4019,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
                     D3D12UpdateWindowedMode(st.emuHwnd, zoom * WIDTH, zoom * HEIGHT,
                                               pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO, 
                                               pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO);
-                else
+                else if (!st.hidden)
                     DirectXUpdateWindowedMode(st.emuHwnd, zoom * WIDTH, zoom * HEIGHT,
                                               pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO, 
                                               pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO);
