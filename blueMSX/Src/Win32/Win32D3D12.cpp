@@ -974,6 +974,80 @@ static void WaitForGpu()
     WaitForSingleObject(g12_fenceEvent, INFINITE);
 }
 
+// --- resource helpers ----------------------------------------------------------
+
+// Created in COPY_DEST; bD3D12Init moves the textures to PIXEL_SHADER_RESOURCE.
+static bool createTex2D(UINT width, DXGI_FORMAT fmt, ComPtr<ID3D12Resource>& out)
+{
+    D3D12_RESOURCE_DESC td = {};
+    td.Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    td.Width            = width;
+    td.Height           = TEX_H;
+    td.DepthOrArraySize = 1;
+    td.MipLevels        = 1;
+    td.Format           = fmt;
+    td.SampleDesc.Count = 1;
+    td.Layout           = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+
+    D3D12_HEAP_PROPERTIES hp = {};
+    hp.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+    out.Reset();
+    return SUCCEEDED(g12_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &td,
+                                                          D3D12_RESOURCE_STATE_COPY_DEST,
+                                                          nullptr, IID_PPV_ARGS(&out)));
+}
+
+// Upload-heap buffer, persistently mapped and zeroed.
+static bool createUploadBuf(UINT size, ComPtr<ID3D12Resource>& out, UINT8** ptr)
+{
+    D3D12_RESOURCE_DESC bd = {};
+    bd.Dimension        = D3D12_RESOURCE_DIMENSION_BUFFER;
+    bd.Width            = size;
+    bd.Height           = 1;
+    bd.DepthOrArraySize = 1;
+    bd.MipLevels        = 1;
+    bd.Format           = DXGI_FORMAT_UNKNOWN;
+    bd.SampleDesc.Count = 1;
+    bd.Layout           = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+
+    D3D12_HEAP_PROPERTIES hp = {};
+    hp.Type = D3D12_HEAP_TYPE_UPLOAD;
+    D3D12_RANGE readRange = { 0, 0 };
+
+    out.Reset();
+    *ptr = nullptr;
+    if (FAILED(g12_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &bd,
+                                                    D3D12_RESOURCE_STATE_GENERIC_READ,
+                                                    nullptr, IID_PPV_ARGS(&out))) ||
+        FAILED(out->Map(0, &readRange, (void**)ptr))) {
+        out.Reset();
+        *ptr = nullptr;
+        return false;
+    }
+    memset(*ptr, 0, size);
+    return true;
+}
+
+static UINT uploadPitch(UINT rowBytes)
+{
+    return (rowBytes + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1)
+         & ~(D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1);
+}
+
+// SRV slots: 0 = current frame, 1 = previous frame, 2 = noise mask.
+static void writeSrv(UINT slot, ID3D12Resource* res, DXGI_FORMAT fmt)
+{
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvd = {};
+    srvd.Format                  = fmt;
+    srvd.ViewDimension           = D3D12_SRV_DIMENSION_TEXTURE2D;
+    srvd.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srvd.Texture2D.MipLevels     = 1;
+    D3D12_CPU_DESCRIPTOR_HANDLE h = g12_srvHeap->GetCPUDescriptorHandleForHeapStart();
+    h.ptr += (SIZE_T)slot * g12_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    g12_device->CreateShaderResourceView(res, &srvd, h);
+}
+
 // --- cleanup -----------------------------------------------------------------
 
 static void vD3D12Cleanup()
@@ -1374,191 +1448,27 @@ static bool bD3D12Init(HWND hWnd, int w, int h, int syncVblank)
         if (FAILED(hr)) return false;
     }
 
-    // -- GPU texture (TEX_W x TEX_H, BGRA8) -------------------------------------
-    {
-        D3D12_RESOURCE_DESC td = {};
-        td.Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-        td.Width            = TEX_W;
-        td.Height           = TEX_H;
-        td.DepthOrArraySize = 1;
-        td.MipLevels        = 1;
-        td.Format           = DXGI_FORMAT_B8G8R8A8_UNORM;
-        td.SampleDesc.Count = 1;
-        td.Layout           = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+    // -- Textures: t0 = current frame, t1 = previous frame (blendFrames),
+    // t2 = noise mask (R8, SHARP_NOISE / BLUR_NOISE)
+    if (!createTex2D(TEX_W, DXGI_FORMAT_B8G8R8A8_UNORM, g12_texture)) return false;
+    g12_texUsedW = TEX_W;
+    writeSrv(0, g12_texture.Get(), DXGI_FORMAT_B8G8R8A8_UNORM);
+    if (!createTex2D(TEX_W, DXGI_FORMAT_B8G8R8A8_UNORM, g12_prevTexture)) return false;
+    writeSrv(1, g12_prevTexture.Get(), DXGI_FORMAT_B8G8R8A8_UNORM);
+    g12_prevTextureValid = false;
+    if (!createTex2D(TEX_W, DXGI_FORMAT_R8_UNORM, g12_noiseTexture)) return false;
+    writeSrv(2, g12_noiseTexture.Get(), DXGI_FORMAT_R8_UNORM);
 
-        D3D12_HEAP_PROPERTIES hp = {};
-        hp.Type = D3D12_HEAP_TYPE_DEFAULT;
-
-        hr = g12_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &td,
-                                                  D3D12_RESOURCE_STATE_COPY_DEST,
-                                                  nullptr, IID_PPV_ARGS(&g12_texture));
-        if (FAILED(hr)) return false;
-        g12_texUsedW = TEX_W;
-
-        D3D12_SHADER_RESOURCE_VIEW_DESC srvd = {};
-        srvd.Format                    = DXGI_FORMAT_B8G8R8A8_UNORM;
-        srvd.ViewDimension             = D3D12_SRV_DIMENSION_TEXTURE2D;
-        srvd.Shader4ComponentMapping   = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-        srvd.Texture2D.MipLevels       = 1;
-        g12_device->CreateShaderResourceView(g12_texture.Get(), &srvd,
-                                              g12_srvHeap->GetCPUDescriptorHandleForHeapStart());
-    }
-
-    // -- Previous-frame texture (for blendFrames effect) -----------------------
-    {
-        D3D12_RESOURCE_DESC td = {};
-        td.Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-        td.Width            = TEX_W;
-        td.Height           = TEX_H;
-        td.DepthOrArraySize = 1;
-        td.MipLevels        = 1;
-        td.Format           = DXGI_FORMAT_B8G8R8A8_UNORM;
-        td.SampleDesc.Count = 1;
-        td.Layout           = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-
-        D3D12_HEAP_PROPERTIES hp = {};
-        hp.Type = D3D12_HEAP_TYPE_DEFAULT;
-
-        // Start in COPY_DEST (we may initialize it first, or leave it until first copy).
-        // After initial transition block below it will live in PIXEL_SHADER_RESOURCE.
-        hr = g12_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &td,
-                                                  D3D12_RESOURCE_STATE_COPY_DEST,
-                                                  nullptr, IID_PPV_ARGS(&g12_prevTexture));
-        if (FAILED(hr)) return false;
-
-        UINT srvStride = g12_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-        D3D12_CPU_DESCRIPTOR_HANDLE h = g12_srvHeap->GetCPUDescriptorHandleForHeapStart();
-        h.ptr += srvStride; // slot 1 = previous frame
-
-        D3D12_SHADER_RESOURCE_VIEW_DESC srvd = {};
-        srvd.Format                    = DXGI_FORMAT_B8G8R8A8_UNORM;
-        srvd.ViewDimension             = D3D12_SRV_DIMENSION_TEXTURE2D;
-        srvd.Shader4ComponentMapping   = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-        srvd.Texture2D.MipLevels       = 1;
-        g12_device->CreateShaderResourceView(g12_prevTexture.Get(), &srvd, h);
-        g12_prevTextureValid = false;
-    }
-
-    // -- Noise texture (R8 mask, used by SHARP_NOISE / BLUR_NOISE) ------------
-    // Same TEX_W x TEX_H as colour, holds DD PRNG top-3-bits per (p,sy).
-    {
-        D3D12_RESOURCE_DESC td = {};
-        td.Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-        td.Width            = TEX_W;
-        td.Height           = TEX_H;
-        td.DepthOrArraySize = 1;
-        td.MipLevels        = 1;
-        td.Format           = DXGI_FORMAT_R8_UNORM;
-        td.SampleDesc.Count = 1;
-        td.Layout           = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-
-        D3D12_HEAP_PROPERTIES hp = {};
-        hp.Type = D3D12_HEAP_TYPE_DEFAULT;
-
-        hr = g12_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &td,
-                                                  D3D12_RESOURCE_STATE_COPY_DEST,
-                                                  nullptr, IID_PPV_ARGS(&g12_noiseTexture));
-        if (FAILED(hr)) return false;
-
-        UINT srvStride = g12_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-        D3D12_CPU_DESCRIPTOR_HANDLE h = g12_srvHeap->GetCPUDescriptorHandleForHeapStart();
-        h.ptr += srvStride * 2; // slot 2 = noise mask
-
-        D3D12_SHADER_RESOURCE_VIEW_DESC srvd = {};
-        srvd.Format                    = DXGI_FORMAT_R8_UNORM;
-        srvd.ViewDimension             = D3D12_SRV_DIMENSION_TEXTURE2D;
-        srvd.Shader4ComponentMapping   = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-        srvd.Texture2D.MipLevels       = 1;
-        g12_device->CreateShaderResourceView(g12_noiseTexture.Get(), &srvd, h);
-    }
-
-    // -- Constant buffers (CPU upload heap, persistently mapped) ---------------
-    {
-        D3D12_RESOURCE_DESC bd = {};
-        bd.Dimension        = D3D12_RESOURCE_DIMENSION_BUFFER;
-        bd.Width            = CB_SIZE;
-        bd.Height           = 1;
-        bd.DepthOrArraySize = 1;
-        bd.MipLevels        = 1;
-        bd.Format           = DXGI_FORMAT_UNKNOWN;
-        bd.SampleDesc.Count = 1;
-        bd.Layout           = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-
-        D3D12_HEAP_PROPERTIES hp = {};
-        hp.Type = D3D12_HEAP_TYPE_UPLOAD;
-        D3D12_RANGE readRange = { 0, 0 };
-
-        for (UINT i = 0; i < FRAME_COUNT; i++) {
-            hr = g12_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &bd,
-                                                      D3D12_RESOURCE_STATE_GENERIC_READ,
-                                                      nullptr, IID_PPV_ARGS(&g12_cbuf[i]));
-            if (FAILED(hr)) return false;
-            g12_cbuf[i]->Map(0, &readRange, (void**)&g12_cbufPtr[i]);
-            memset(g12_cbufPtr[i], 0, CB_SIZE);
-        }
-    }
-
-    // -- Upload buffers --------------------------------------------------------
-    {
-        UINT rawPitch = TEX_W * 4;
-        g12_uploadRowPitch = (rawPitch + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1)
-                           & ~(D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1);
-        UINT uploadSize = g12_uploadRowPitch * TEX_H;
-
-        D3D12_RESOURCE_DESC bd = {};
-        bd.Dimension        = D3D12_RESOURCE_DIMENSION_BUFFER;
-        bd.Width            = uploadSize;
-        bd.Height           = 1;
-        bd.DepthOrArraySize = 1;
-        bd.MipLevels        = 1;
-        bd.Format           = DXGI_FORMAT_UNKNOWN;
-        bd.SampleDesc.Count = 1;
-        bd.Layout           = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-
-        D3D12_HEAP_PROPERTIES hp = {};
-        hp.Type = D3D12_HEAP_TYPE_UPLOAD;
-        D3D12_RANGE readRange = { 0, 0 };
-
-        for (UINT i = 0; i < FRAME_COUNT; i++) {
-            hr = g12_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &bd,
-                                                      D3D12_RESOURCE_STATE_GENERIC_READ,
-                                                      nullptr, IID_PPV_ARGS(&g12_uploadBuf[i]));
-            if (FAILED(hr)) return false;
-            g12_uploadBuf[i]->Map(0, &readRange, (void**)&g12_uploadPtr[i]);
-            // Initialize to black so unwritten edge pixels are not garbage
-            memset(g12_uploadPtr[i], 0, uploadSize);
-        }
-    }
-
-    // -- Noise upload buffers (R8, one per frame slot) ------------------------
-    {
-        UINT rawPitch = TEX_W;  // R8 = 1 byte per texel
-        g12_noiseUploadRowPitch = (rawPitch + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1)
-                                & ~(D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1);
-        UINT noiseSize = g12_noiseUploadRowPitch * TEX_H;
-
-        D3D12_RESOURCE_DESC bd = {};
-        bd.Dimension        = D3D12_RESOURCE_DIMENSION_BUFFER;
-        bd.Width            = noiseSize;
-        bd.Height           = 1;
-        bd.DepthOrArraySize = 1;
-        bd.MipLevels        = 1;
-        bd.Format           = DXGI_FORMAT_UNKNOWN;
-        bd.SampleDesc.Count = 1;
-        bd.Layout           = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-
-        D3D12_HEAP_PROPERTIES hp = {};
-        hp.Type = D3D12_HEAP_TYPE_UPLOAD;
-        D3D12_RANGE readRange = { 0, 0 };
-
-        for (UINT i = 0; i < FRAME_COUNT; i++) {
-            hr = g12_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &bd,
-                                                      D3D12_RESOURCE_STATE_GENERIC_READ,
-                                                      nullptr, IID_PPV_ARGS(&g12_noiseUploadBuf[i]));
-            if (FAILED(hr)) return false;
-            g12_noiseUploadBuf[i]->Map(0, &readRange, (void**)&g12_noiseUploadPtr[i]);
-            memset(g12_noiseUploadPtr[i], 0, noiseSize);
-        }
+    // -- Constant, upload and noise upload buffers (one per frame slot) --------
+    g12_uploadRowPitch      = uploadPitch(TEX_W * 4);
+    g12_noiseUploadRowPitch = uploadPitch(TEX_W);
+    for (UINT i = 0; i < FRAME_COUNT; i++) {
+        if (!createUploadBuf(CB_SIZE, g12_cbuf[i], &g12_cbufPtr[i])) return false;
+        if (!createUploadBuf(g12_uploadRowPitch * TEX_H, g12_uploadBuf[i], &g12_uploadPtr[i]))
+            return false;
+        if (!createUploadBuf(g12_noiseUploadRowPitch * TEX_H,
+                             g12_noiseUploadBuf[i], &g12_noiseUploadPtr[i]))
+            return false;
     }
 
     // -- Vertex buffers --------------------------------------------------------
