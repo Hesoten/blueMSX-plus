@@ -444,6 +444,7 @@ const ui::PixelArt* Geo3DPanel::tabArt()
 void Geo3DPanel::forget()
 {
     pic.forget();
+    VdpImage().swap(pages);
     heatPic.forget();
     heatShown = heatOnScreen = false;
     heatHeld = 0;

@@ -132,8 +132,10 @@ void VdpBankThumbs::forget()
 {
     for (int b = 0; b < VdpBankStore::BANKS; b++) {
         pic[b].forget();
-        pic[b].w = pic[b].h = 0;
     }
+    free(scratch);
+    scratch = NULL;
+    VdpImage().swap(page);
 }
 
 /* The registers a page decode reads: mode, colour 0, TP, lines, the V9968's layout, YJK. */
