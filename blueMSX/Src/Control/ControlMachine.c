@@ -161,7 +161,7 @@ static void tellResetLeftovers(const UInt8* keptFolder)
     for (i = 0; i < MAXDRIVES; i++) {
         char drive[64];
 
-        if (!diskIsDir(i) || !keptFolder[i]) {
+        if (!diskIsDir(i) || !keptFolder[i] || !boardDriveAttached(i)) {
             continue;
         }
         ctrlMachineDriveName(i, drive, sizeof(drive));

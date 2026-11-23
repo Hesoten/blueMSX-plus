@@ -382,7 +382,7 @@ void actionDirStateNotice(void)
         return;
     }
     for (i = 0; i < PROP_MAX_DISKS; i++) {
-        if (diskIsDir(i)) {
+        if (diskIsDir(i) && boardDriveAttached(i)) {
             dirStateTold = session;
             archShowDirStateLoaded();
             return;

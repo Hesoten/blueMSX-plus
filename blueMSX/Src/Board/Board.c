@@ -2296,6 +2296,42 @@ HdType boardGetHdType(int hdIndex)
     return hdType[hdIndex];
 }
 
+/* The drives each controller reads through Disk.c. Nowind hands its images to its
+** own DLL by name, so a folder in any of its drives never reaches the MSX. */
+static int hdUnitCount(HdType type)
+{
+    switch (type) {
+    case HD_BEERIDE:
+    case HD_GIDE:
+    case HD_RSIDE:
+    case HD_ROOKIEDRIVE:
+        return 1;
+    case HD_SUNRISEIDE:
+    case HD_MFRSD:
+        return 2;
+    case HD_MEGASCSI:
+    case HD_WAVESCSI:
+    case HD_GOUDASCSI:
+        return 8;
+    default:
+        return 0;
+    }
+}
+
+int boardDriveAttached(int driveId)
+{
+    int unit;
+
+    if (driveId < MAX_FDC_COUNT) {
+        return diskEnabled(driveId);
+    }
+    if (driveId >= MAXDRIVES) {
+        return 0;
+    }
+    unit = (driveId - MAX_FDC_COUNT) % MAX_DRIVES_PER_HD;
+    return unit < hdUnitCount(boardGetHdType((driveId - MAX_FDC_COUNT) / MAX_DRIVES_PER_HD));
+}
+
 void boardChangeCartridge(int cartNo, RomType romType, char* cart, char* cartZip)
 {
     if (cart && strlen(cart) == 0) {
