@@ -1281,6 +1281,11 @@ int boardInsertExternalDevices()
             boardChangeDiskette(i, boardDeviceInfo->disks[i].name,
                                 boardDeviceInfo->disks[i].inZipName);
         }
+        else {
+            /* Only drives 0 and 1 are emptied at a switch off: an empty hard disk
+            ** must not go on serving what it held before. A kept folder stays kept. */
+            diskChange(i, NULL, NULL);
+        }
     }
 
     if (boardDeviceInfo->tapes[0].inserted) {
