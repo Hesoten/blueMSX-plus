@@ -30,11 +30,10 @@
 ** Forked for the Y8960 cartridge, 2026 by madscient.
 **
 ** The cartridge's OPL2EX is a YM3812 with ADPCM-B bolted on, and its register
-** map is the Y8950's, so this is the Y8950 port with four changes: the four
+** map is the Y8950's, so this is the Y8950 port with three changes: the four
 ** waveforms a YM3812 has and a Y8950 does not, the MSX-AUDIO parts the
-** cartridge does not carry (keyboard connector, 13 bit DAC, periphery), a
-** sample RAM that lives outside the circuit so that two circuits can share it,
-** and PCM_BSY, which follows START here and so drops when a sample ends.
+** cartridge does not carry (keyboard connector, 13 bit DAC, periphery), and a
+** sample RAM that lives outside the circuit so that two circuits can share it.
 **
 ** It is a fork rather than an extension because the machine's own MSX-AUDIO
 ** keeps using the unmodified port; both end up in one binary. The namespace
@@ -199,15 +198,16 @@ void Y8950Adpcm::writeReg(uint8_t rg, uint8_t data, EmuTime time)
     case 0x07: {
         bool wasPlaying = isPlaying();
         reg7 = data;
-        /* RESET goes first, so 81h leaves PCM_BSY clear as the Y8960 does.
-        ** A Y8950 takes PCM_BSY from the written value and keeps it set. */
-        if (reg7 & R07_RESET) {
-            reg7 = 0;
-        }
+        /* PCM_BSY is START as written, ahead of RESET, so 81h sets it. Only
+        ** the next write here clears it, not the end of a sample: the
+        ** cartridge reads so, as a Y8950 does. */
         if (reg7 & R07_START) {
             y8950.setStatus(Y8950::STATUS_PCM_BSY);
         } else {
             y8950.resetStatus(Y8950::STATUS_PCM_BSY);
+        }
+        if (reg7 & R07_RESET) {
+            reg7 = 0;
         }
         if (reg7 & R07_START) {
             restart(emu);
@@ -467,9 +467,6 @@ int Y8950Adpcm::calcSample(bool doEmu)
             } else if (doEmu) {
                 removeSyncPoint();
                 reg7 = 0;
-                /* A Y8950 leaves PCM_BSY set here; the Y8960 drops it
-                ** together with START. */
-                y8950.resetStatus(Y8950::STATUS_PCM_BSY);
             }
         }
     } else {
