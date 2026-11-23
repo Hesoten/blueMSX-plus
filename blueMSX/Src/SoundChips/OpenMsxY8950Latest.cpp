@@ -668,9 +668,14 @@ void Y8950::generateChannels(std::span<float*> bufs, unsigned num)
             (void)ch[7].slot[MOD].calc_phase(lfo_pm);
             (void)ch[8].slot[CAR].calc_phase(lfo_pm);
 
+            /* BD: with connect = 1 only the carrier is heard, without FM, as
+            ** on a real Y8950 and a real YM3812. The modulator still runs. */
+            auto bd = [&] {
+                int mod = ch[6].slot[MOD].calc_slot_mod(lfo_pm, lfo_am);
+                return ch[6].slot[CAR].calc_slot_car(lfo_pm, lfo_am, ch[6].alg ? 0 : mod);
+            };
             bufs[ 9][sample] += (ch[6].slot[CAR].isActive())
-                ? float(2 * ch[6].slot[CAR].calc_slot_car(lfo_pm, lfo_am,
-                        ch[6].slot[MOD].calc_slot_mod(lfo_pm, lfo_am)))
+                ? float(2 * bd())
                 : 0.0f;
             bufs[10][sample] += (ch[7].slot[CAR].isActive())
                 ? float(2 * ch[7].slot[CAR].calc_slot_snare(lfo_pm, lfo_am, whiteNoise))
