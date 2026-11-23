@@ -102,14 +102,6 @@ static constexpr std::array<int8_t, LFO_AM_TAB_ELEMENTS> lfo_am_table = {
     4,4,4,4, 3,3,3,3, 2,2,2,2, 1,1,1,1
 };
 
-static constexpr unsigned DB_POS(int x) {
-    int result = int(x / DB_STEP);
-    return unsigned(result);
-}
-static constexpr unsigned DB_NEG(int x) {
-    return 2 * DB_MUTE + DB_POS(x);
-}
-
 /* Tables that need runtime math (std::log/pow/sin/exp2/log10) cannot be
 ** constexpr until C++26 -- materialise them once at static-init time. */
 static const std::array<unsigned, EG_MUTE> adjustAR = []{
@@ -365,9 +357,7 @@ Y8950::Y8950(const std::string& name_, const DeviceConfig& config,
     , timer2(EmuTimer::createOPL3_2(motherBoard.getScheduler(), *this))
     , irq(motherBoard, getName() + ".IRQ")
     , pm_phase(0), am_phase(0)
-    , noise_seed(0xffff)
-    , noiseA_phase(0), noiseB_phase(0)
-    , noiseA_dPhase(0), noiseB_dPhase(0)
+    , noise(1)
     , status(0), statusMask(0)
     , rythm_mode(false), am_mode(false), pm_mode(false)
     , enabled(true)
@@ -395,11 +385,7 @@ void Y8950::reset(EmuTime time)
     pm_mode = false;
     pm_phase = 0;
     am_phase = 0;
-    noise_seed = 0xffff;
-    noiseA_phase = 0;
-    noiseB_phase = 0;
-    noiseA_dPhase = 0;
-    noiseB_dPhase = 0;
+    noise = 1;
 
     updateStream(time);
     std::fill(reg.begin(), reg.end(), uint8_t(0));
@@ -569,26 +555,11 @@ int Y8950::Slot::calc_slot_tom(int lfo_pm, int lfo_am)
     return dB2LinTab[sinTable[pgout & PG_MASK] + egOut];
 }
 
-int Y8950::Slot::calc_slot_snare(int lfo_pm, int lfo_am, int whiteNoise)
+/* HH, SD and CYM: the phase is not the slot's own, see generateChannels(). */
+int Y8950::Slot::calc_slot_rhythm(int lfo_am, unsigned pgout)
 {
     unsigned egOut = calc_envelope(lfo_am);
-    unsigned pgout = calc_phase(lfo_pm);
-    unsigned tmp = (pgout & (1 << (PG_BITS - 1))) ? 0 : 2 * DB_MUTE;
-    return (dB2LinTab[tmp + egOut] + dB2LinTab[egOut + unsigned(whiteNoise)]) >> 1;
-}
-
-int Y8950::Slot::calc_slot_cym(int lfo_am, int a, int b)
-{
-    unsigned egOut = calc_envelope(lfo_am);
-    return (dB2LinTab[egOut + unsigned(a)] + dB2LinTab[egOut + unsigned(b)]) >> 1;
-}
-
-int Y8950::Slot::calc_slot_hat(int lfo_am, int a, int b, int whiteNoise)
-{
-    unsigned egOut = calc_envelope(lfo_am);
-    return (dB2LinTab[egOut + unsigned(whiteNoise)] +
-            dB2LinTab[egOut + unsigned(a)] +
-            dB2LinTab[egOut + unsigned(b)]) >> 2;
+    return dB2LinTab[sinTable[pgout & PG_MASK] + egOut];
 }
 
 float Y8950::getAmplificationFactorImpl() const
@@ -639,20 +610,14 @@ void Y8950::generateChannels(std::span<float*> bufs, unsigned num)
         pm_phase = (pm_phase + PM_DPHASE) & (PM_DP_WIDTH - 1);
         int lfo_pm = pmTable[pm_mode ? 1 : 0][pm_phase >> (PM_DP_BITS - PM_PG_BITS)];
 
-        if (noise_seed & 1) {
-            noise_seed ^= 0x24000;
+        /* The noise generator steps once per slot, as in Nuked-OPL3: 18
+        ** times a sample. HH reads it at slot 13 and SD at slot 16, which
+        ** is bit 13 and bit 16 of the state at the start of the sample. */
+        unsigned hhNoise = (noise >> 13) & 1;
+        unsigned sdNoise = (noise >> 16) & 1;
+        for (int i = 0; i < 2; ++i) { /* 9 steps at a time */
+            noise = (noise >> 9) | (((noise ^ (noise >> 14)) & 0x1ff) << 14);
         }
-        noise_seed >>= 1;
-        int whiteNoise = noise_seed & 1 ? int(DB_POS(6)) : int(DB_NEG(6));
-
-        noiseA_phase += noiseA_dPhase;
-        noiseA_phase &= (0x40 << 11) - 1;
-        if ((noiseA_phase >> 11) == 0x3f) noiseA_phase = 0;
-        int noiseA = noiseA_phase & (0x03 << 11) ? int(DB_POS(6)) : int(DB_NEG(6));
-
-        noiseB_phase += noiseB_dPhase;
-        noiseB_phase &= (0x10 << 11) - 1;
-        int noiseB = noiseB_phase & (0x0A << 11) ? int(DB_POS(6)) : int(DB_NEG(6));
 
         int upper = rythm_mode ? 6 : 9;
         for (int i = 0; i < upper; ++i) {
@@ -665,8 +630,24 @@ void Y8950::generateChannels(std::span<float*> bufs, unsigned num)
             }
         }
         if (rythm_mode) {
-            (void)ch[7].slot[MOD].calc_phase(lfo_pm);
-            (void)ch[8].slot[CAR].calc_phase(lfo_pm);
+            /* HH, SD and CYM don't play their own phase, but one built from
+            ** bits of the HH and CYM phase generators and the noise, as in
+            ** Nuked-OPL3, which matches a real Y8950 and YM3812 apart from
+            ** the CYM phase: these play CYM at 0x100 or 0x300, as in MAME,
+            ** where Nuked-OPL3 has 0x080 or 0x280. Nuked-OPL3 takes the CYM
+            ** bits for HH from the previous sample; here all bits come from
+            ** this sample. */
+            unsigned hh = ch[7].slot[MOD].calc_phase(lfo_pm);
+            unsigned cym = ch[8].slot[CAR].calc_phase(lfo_pm);
+            /* SD doesn't play its own phase, but its phase generator runs. */
+            (void)ch[7].slot[CAR].calc_phase(lfo_pm);
+            auto bit = [](unsigned v, unsigned n) { return (v >> n) & 1; };
+            unsigned rmXor = (bit(hh, 2) ^ bit(hh, 7)) |
+                             (bit(hh, 3) ^ bit(cym, 5)) |
+                             (bit(cym, 3) ^ bit(cym, 5));
+            unsigned hhPhase = (rmXor << 9) | ((rmXor ^ hhNoise) ? 0xd0 : 0x34);
+            unsigned sdPhase = (bit(hh, 8) << 9) | ((bit(hh, 8) ^ sdNoise) << 8);
+            unsigned cymPhase = (rmXor << 9) | 0x100;
 
             /* BD: with connect = 1 only the carrier is heard, without FM, as
             ** on a real Y8950 and a real YM3812. The modulator still runs. */
@@ -678,13 +659,13 @@ void Y8950::generateChannels(std::span<float*> bufs, unsigned num)
                 ? float(2 * bd())
                 : 0.0f;
             bufs[10][sample] += (ch[7].slot[CAR].isActive())
-                ? float(2 * ch[7].slot[CAR].calc_slot_snare(lfo_pm, lfo_am, whiteNoise))
+                ? float(2 * ch[7].slot[CAR].calc_slot_rhythm(lfo_am, sdPhase))
                 : 0.0f;
             bufs[11][sample] += (ch[8].slot[CAR].isActive())
-                ? float(2 * ch[8].slot[CAR].calc_slot_cym(lfo_am, noiseA, noiseB))
+                ? float(2 * ch[8].slot[CAR].calc_slot_rhythm(lfo_am, cymPhase))
                 : 0.0f;
             bufs[12][sample] += (ch[7].slot[MOD].isActive())
-                ? float(2 * ch[7].slot[MOD].calc_slot_hat(lfo_am, noiseA, noiseB, whiteNoise))
+                ? float(2 * ch[7].slot[MOD].calc_slot_rhythm(lfo_am, hhPhase))
                 : 0.0f;
             bufs[13][sample] += (ch[8].slot[MOD].isActive())
                 ? float(2 * ch[8].slot[MOD].calc_slot_tom(lfo_pm, lfo_am))
@@ -885,12 +866,6 @@ void Y8950::writeReg(uint8_t rg, uint8_t data, EmuTime time)
             freq = reg[rg - 0x10] | ((data & 0x1F) << 8);
         }
         ch[c].setFreq(freq);
-        unsigned fNum  = freq % 1024;
-        unsigned block = freq / 1024;
-        switch (c) {
-        case 7: noiseA_dPhase = fNum << block; break;
-        case 8: noiseB_dPhase = fNum << block; break;
-        }
         ch[c].slot[CAR].updateAll(freq);
         ch[c].slot[MOD].updateAll(freq);
         reg[rg] = data;
@@ -1021,11 +996,7 @@ void Y8950::blueMsxSaveStateImpl(SaveState* s)
     BMSAVE_BUF(s, "reg", reg.data(), reg.size());
     BMSAVE_INT(s, "pm_phase",     pm_phase);
     BMSAVE_INT(s, "am_phase",     am_phase);
-    BMSAVE_INT(s, "noise_seed",   noise_seed);
-    BMSAVE_INT(s, "noiseA_phase", noiseA_phase);
-    BMSAVE_INT(s, "noiseB_phase", noiseB_phase);
-    BMSAVE_INT(s, "noiseA_dPhase", noiseA_dPhase);
-    BMSAVE_INT(s, "noiseB_dPhase", noiseB_dPhase);
+    BMSAVE_INT(s, "noise",        noise);
     BMSAVE_INT(s, "status",       status);
     BMSAVE_INT(s, "statusMask",   statusMask);
     BMSAVE_INT(s, "rythm_mode",   rythm_mode);
@@ -1064,11 +1035,10 @@ bool Y8950::blueMsxLoadStateImpl(SaveState* s)
     BMLOAD_BUF(s, "reg", reg.data(), reg.size());
     pm_phase     =        BMLOAD_INT(s, "pm_phase",      pm_phase);
     am_phase     =        BMLOAD_INT(s, "am_phase",      am_phase);
-    noise_seed   = (int)  BMLOAD_INT(s, "noise_seed",    noise_seed);
-    noiseA_phase =        BMLOAD_INT(s, "noiseA_phase",  noiseA_phase);
-    noiseB_phase =        BMLOAD_INT(s, "noiseB_phase",  noiseB_phase);
-    noiseA_dPhase =       BMLOAD_INT(s, "noiseA_dPhase", noiseA_dPhase);
-    noiseB_dPhase =       BMLOAD_INT(s, "noiseB_dPhase", noiseB_dPhase);
+    /* A state from before the 23-bit noise generator has no "noise"; the
+    ** generator then starts from its reset value. It must not be 0. */
+    noise        =        BMLOAD_INT(s, "noise",         1) & 0x7fffff;
+    if (noise == 0) noise = 1;
     status       = (uint8_t)BMLOAD_INT(s, "status",       status);
     statusMask   = (uint8_t)BMLOAD_INT(s, "statusMask",   statusMask);
     rythm_mode   = (bool) BMLOAD_INT(s, "rythm_mode",    rythm_mode);
