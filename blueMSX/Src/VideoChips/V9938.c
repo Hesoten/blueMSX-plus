@@ -202,6 +202,8 @@ struct VdpCmdState {
     int    sySub;
     /* DY at the start, which LFMC and LFMM return to after each character. */
     int    cmdDY0;
+    /* The NY bytes the CPU has written since the command started, which LRMM keeps at its end. */
+    int    nyWritten;
     /* The 32-bit source word the last LRMM dot read, -1 for none yet. */
     int    lrmmSrcWord;
     int    textBackColor;
@@ -1106,6 +1108,12 @@ static void LfmmEngine(VdpCmdState* vdpCmd)
 **      Vram -> Vram, rotated and scaled
 **************************************************************
 */
+/* The bits of NY whose bytes the CPU wrote, from a two bit low/high flag. */
+static int vdpCmdWrittenMask(int written)
+{
+    return ((written & 1) ? 0x0ff : 0) | ((written & 2) ? 0x700 : 0);
+}
+
 static void LrmmEngine(VdpCmdState* vdpCmd)
 {
     int DX = vdpCmd->DX;
@@ -1113,7 +1121,8 @@ static void LrmmEngine(VdpCmdState* vdpCmd)
     int TY = vdpCmd->TY;
     int NX = vdpCmd->NX;
     int DY = vdpCmd->DY;
-    int NY = vdpCmd->NY;
+    /* Rows are counted in ASX, so a CPU write to NY does not change how many run. */
+    int NY = vdpCmd->ASX;
     int ADX = vdpCmd->ADX;
     int ANX = vdpCmd->ANX;
     UInt8 CL = vdpCmd->CL & Mask[vdpCmd->screenMode];
@@ -1173,11 +1182,12 @@ static void LrmmEngine(VdpCmdState* vdpCmd)
         vdpCmd->CM = 0;
         vdpCmd->sySub = 0;
         vdpCmd->DY = DY & vdpCmd->nyMask;
-        vdpCmd->NY = NY & vdpCmd->nyMask;
+        vdpCmd->NY = (vdpCmd->NY & vdpCmdWrittenMask(vdpCmd->nyWritten)) |
+                     (NY & vdpCmd->nyMask & ~vdpCmdWrittenMask(vdpCmd->nyWritten));
     }
     else {
         vdpCmd->DY  = DY;
-        vdpCmd->NY  = NY;
+        vdpCmd->ASX = NY;
         vdpCmd->ANX = ANX;
         vdpCmd->ADX = ADX;
     }
@@ -1630,6 +1640,7 @@ void vdpCmdResetState(VdpCmdState* vdpCmd)
     if (vdpCmd->CM == 0) {
         vdpCmd->fillRun = 0;
         vdpCmd->cmdDY0 = 0;
+        vdpCmd->nyWritten = 0;
     }
 }
 
@@ -1815,6 +1826,7 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
     int hsStart;
 
     vdpCmd->cmdStartTime = systemTime * VDP_TIMING_SCALE;
+    vdpCmd->nyWritten = 0;
 
     /* Taken with the screen mode it belongs to, so a mode change part way
     ** through cannot leave the two describing different layouts. */
@@ -1979,6 +1991,7 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
 
         vdpCmd->lrmmRowSX = vdpCmd->lrmmSX = ((vdpCmd->SX ^ 0x800) - 0x800) << 8;
         vdpCmd->lrmmRowSY = vdpCmd->lrmmSY = ((sy & 0x1fffff) ^ 0x100000) - 0x100000;
+        vdpCmd->ASX = vdpCmd->NY & vdpCmd->nyMask;
         start = lmmm_start;
         break;
     }
@@ -2000,13 +2013,11 @@ static void vdpCmdStopProgress(VdpCmdState* vdpCmd)
 {
     switch (vdpCmd->CM) {
     case CM_LFMC:
+    case CM_LRMM:
         vdpCmd->NY = vdpCmd->ASX & vdpCmd->nyMask;
         break;
     case CM_LFMM:
         vdpCmd->NY = vdpCmd->ANX & vdpCmd->nyMask;
-        break;
-    case CM_LRMM:
-        vdpCmd->NY &= vdpCmd->nyMask;
         break;
     }
 }
@@ -2034,19 +2045,30 @@ void vdpCmdWrite(VdpCmdState* vdpCmd, UInt8 reg, UInt8 value, UInt32 systemTime)
 	case 0x02:
         vdpCmd->SY = (vdpCmd->SY & 0xff00) | value;
         vdpCmd->sySub = 0;
+        /* A running LRMM takes SY into the reference it is stepping. */
+        if (vdpCmd->CM == CM_LRMM) {
+            vdpCmd->lrmmSY = (((vdpCmd->lrmmSY & 0x1f0000) | (value << 8)) ^ 0x100000) - 0x100000;
+        }
         vdpCmd->fontAddress = (vdpCmd->fontAddress & 0x0ffff) | ((value & 0x03) << 16);
         break;
     /* LRMM takes a signed thirteen bit SY, and every other command narrows it
     ** again when it starts, so all five bits are kept here. */
-	case 0x03: vdpCmd->SY = (vdpCmd->SY & 0x00ff) | ((value & (vdpCmd->isV9968 ? 0x1f : 0x03)) << 8); break;
+	case 0x03:
+        vdpCmd->SY = (vdpCmd->SY & 0x00ff) | ((value & (vdpCmd->isV9968 ? 0x1f : 0x03)) << 8);
+        if (vdpCmd->CM == CM_LRMM) {
+            vdpCmd->lrmmSY = (((vdpCmd->lrmmSY & 0xffff) | ((value & 0x1f) << 16)) ^ 0x100000) - 0x100000;
+        }
+        break;
 	case 0x04: vdpCmd->DX = (vdpCmd->DX & 0xff00) | value;                   break;
 	case 0x05: vdpCmd->DX = (vdpCmd->DX & 0x00ff) | ((value & 0x01) << 8);   break;
 	case 0x06: vdpCmd->DY = (vdpCmd->DY & 0xff00) | value;                   break;
 	case 0x07: vdpCmd->DY = (vdpCmd->DY & 0x00ff) | ((value & (vdpCmd->vram256 ? 0x07 : 0x03)) << 8); break;
 	case 0x08: vdpCmd->kNX = (vdpCmd->kNX & 0xff00) | value;                 break;
 	case 0x09: vdpCmd->kNX = (vdpCmd->kNX & 0x00ff) | ((value & 0x03) << 8); break;
-	case 0x0a: vdpCmd->NY = (vdpCmd->NY & 0xff00) | value;                   break;
-	case 0x0b: vdpCmd->NY = (vdpCmd->NY & 0x00ff) | ((value & (vdpCmd->vram256 ? 0x07 : 0x03)) << 8); break;
+	case 0x0a: vdpCmd->NY = (vdpCmd->NY & 0xff00) | value; vdpCmd->nyWritten |= 1; break;
+	case 0x0b: vdpCmd->NY = (vdpCmd->NY & 0x00ff) | ((value & (vdpCmd->vram256 ? 0x07 : 0x03)) << 8);
+        vdpCmd->nyWritten |= 2;
+        break;
 	case 0x0c: 
         vdpCmd->CL = value;
         vdpCmd->status &= ~VDPSTATUS_TR;
@@ -2626,6 +2648,7 @@ void vdpCmdLoadState(VdpCmdState* vdpCmd)
     vdpCmd->hsModel       =         saveStateGet(state, "hsModel", 0);
     vdpCmd->fillRun       =         saveStateGet(state, "fillRun", 0);
     vdpCmd->cmdDY0        =         saveStateGet(state, "cmdDY0", 0);
+    vdpCmd->nyWritten     =         saveStateGet(state, "nyWritten", 0) & 3;
     /* A state without srchAsx holds a running SRCH's X in SX. */
     if (!saveStateGet(state, "srchAsx", 0) && vdpCmd->CM == CM_SRCH) {
         vdpCmd->ASX = vdpCmd->SX;
@@ -2711,6 +2734,7 @@ void vdpCmdSaveState(VdpCmdState* vdpCmd)
     saveStateSet(state, "fillRun", vdpCmd->fillRun);
     saveStateSet(state, "srchAsx", 1);
     saveStateSet(state, "cmdDY0", vdpCmd->cmdDY0);
+    saveStateSet(state, "nyWritten", vdpCmd->nyWritten);
     saveStateSet(state, "hsStep", vdpCmd->hsStep);
     saveStateSet(state, "timingMode", vdpCmd->timingMode);
     
