@@ -1952,6 +1952,22 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
     vdpCmd->systemTime = systemTime;
 }
 
+/* A STOP leaves a running command's progress in the registers. */
+static void vdpCmdStopProgress(VdpCmdState* vdpCmd)
+{
+    switch (vdpCmd->CM) {
+    case CM_LFMM:
+    {
+        /* DX at the character in hand, DY at its row, NY its rows still to go. */
+        int strip = lfmmStripRows(vdpCmd);
+        vdpCmd->DX = vdpCmd->ADX & 0x1ff;
+        vdpCmd->DY = (vdpCmd->DY + vdpCmd->TY * (strip - vdpCmd->ANX)) & vdpCmd->nyMask;
+        vdpCmd->NY = vdpCmd->ANX & vdpCmd->nyMask;
+        break;
+    }
+    }
+}
+
 /*************************************************************
 ** vdpCmdWrite
 **
@@ -2015,6 +2031,11 @@ void vdpCmdWrite(VdpCmdState* vdpCmd, UInt8 reg, UInt8 value, UInt32 systemTime)
             vdpCmdTraceEnd(vdpCmd, systemTime * VDP_TIMING_SCALE, 1);
         }
         srchLatchBorderX(vdpCmd);
+        /* Codes the part cannot run, and any code where commands are off, act as STOP. */
+        if (vdpCmd->CM != 0 && ((value >> 4) == CM_ABRT || vdpCmd->newScrMode < 0 ||
+            ((value >> 4) <= CM_LRMM && !vdpCmd->extCommands))) {
+            vdpCmdStopProgress(vdpCmd);
+        }
 		vdpCmd->LO = value & 0x0F;
 		vdpCmd->CM = value >> 4;
         /* geo3d's one row face fill: the same bytes as LINE, written as HMMV. */
