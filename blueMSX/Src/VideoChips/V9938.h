@@ -65,6 +65,7 @@ void vdpCmdSetExpansionWindow(VdpCmdState* state, int enable);
 void vdpCmdSetV9968(VdpCmdState* state, int enable);
 void vdpCmdSetExtCommands(VdpCmdState* state, int enable);
 void vdpCmdResetExtRegs(VdpCmdState* state);
+void vdpCmdResetState(VdpCmdState* state);
 void vdpCmdSetTextBackColor(VdpCmdState* state, int color);
 
 int  vdpCmdGetEndFlag(VdpCmdState* state);

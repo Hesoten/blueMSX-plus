@@ -184,6 +184,9 @@ struct VdpCmdState {
     int    breakPendingMode;   /* the VRAM layout the matched write was made in */
     int    extCommands;
     int    fillTag;
+    /* The HMMV in flight is geo3d's one row face fill: it leaves DY and NY as the
+    ** LINE had them, or as the CPU has written them since. */
+    int    fillRun;
     int    xhr;
     int    VX;
     int    VY;
@@ -195,6 +198,12 @@ struct VdpCmdState {
     int    lrmmSY;
     int    lrmmRowSX;
     int    lrmmRowSY;
+    /* The fraction below SY a stopped LRMM reached; the next LRMM starts from it. */
+    int    sySub;
+    /* DY at the start, which LFMC and LFMM return to after each character. */
+    int    cmdDY0;
+    /* The NY bytes the CPU has written since the command started, which LRMM keeps at its end. */
+    int    nyWritten;
     /* The 32-bit source word the last LRMM dot read, -1 for none yet. */
     int    lrmmSrcWord;
     int    textBackColor;
@@ -453,7 +462,7 @@ static int hsSetTiming(VdpCmdState* vdpCmd)
     /* A count of 0 runs to the edge, and to the last row. */
     int edge = vdpCmd->TX > 0 ? (vdpCmd->MX - vdpCmd->DX + ppb - 1) / ppb : vdpCmd->DX / ppb + 1;
     int nx   = vdpCmd->NX ? vdpCmd->NX : (edge < 1 ? 1 : edge);
-    int ny   = vdpCmd->NY ? vdpCmd->NY : vdpCmd->nyMask + 1;
+    int ny   = vdpCmd->fillRun ? 1 : vdpCmd->NY ? vdpCmd->NY : vdpCmd->nyMask + 1;
     int row  = 0;
     int rest = 0;
     int step = fast_timing_base;
@@ -918,7 +927,8 @@ static void srchLatchBorderX(VdpCmdState* vdpCmd)
 */
 static void LineEngine(VdpCmdState* vdpCmd)
 {
-    int DX=vdpCmd->DX;
+    /* The running X lives in ANX: a finished LINE leaves DX as it was set. */
+    int DX=vdpCmd->ANX;
     int DY=vdpCmd->DY;
     int TX=vdpCmd->TX;
     int TY=vdpCmd->TY;
@@ -1009,7 +1019,7 @@ static void LineEngine(VdpCmdState* vdpCmd)
         vdpCmd->DY=DY & vdpCmd->nyMask;
     }
     else {
-        vdpCmd->DX=DX;
+        vdpCmd->ANX=DX;
         vdpCmd->DY=DY;
         vdpCmd->ASX=ASX;
         vdpCmd->ADX=ADX;
@@ -1031,7 +1041,6 @@ static int lfmmStripRows(VdpCmdState* vdpCmd)
 */
 static void LfmmEngine(VdpCmdState* vdpCmd)
 {
-    int NY = lfmmStripRows(vdpCmd);
     int NX = vdpCmd->NX;
     int TX = vdpCmd->TX;
     int TY = vdpCmd->TY;
@@ -1046,7 +1055,7 @@ static void LfmmEngine(VdpCmdState* vdpCmd)
     while (cnt > 0) {
         /* The font pointer is a CPU-view address, so it is interleaved like the CPU's. */
         UInt8 bits = *(vdpCmd->vramRead + (VDP_ILVA(vdpCmd, vdpCmd->fontAddress) & vdpCmd->maskRead));
-        int row = vdpCmd->DY + TY * (NY - ANX);
+        int row = vdpCmd->DY;
         int edge = 0;
         int i;
 
@@ -1063,9 +1072,11 @@ static void LfmmEngine(VdpCmdState* vdpCmd)
         ** font; cut by the edge on its last row, it ends the command. */
         if (ANX == 1 || (TY < 0 && row == 0)) {
             vdpCmd->fontAddress = (vdpCmd->fontAddress + ANX - 1) & 0x3ffff;
-            ANX = NY;
+            ANX = lfmmStripRows(vdpCmd);
+            vdpCmd->DY = vdpCmd->cmdDY0;
             if (i == 8) {
                 ADX += TX * 8;
+                vdpCmd->DX = ADX & 0x1ff;
             }
             if (edge || --NX <= 0) {
                 break;
@@ -1073,6 +1084,7 @@ static void LfmmEngine(VdpCmdState* vdpCmd)
         }
         else {
             ANX--;
+            vdpCmd->DY = (row + TY) & vdpCmd->nyMask;
         }
         cnt -= delta * i;
     }
@@ -1081,9 +1093,6 @@ static void LfmmEngine(VdpCmdState* vdpCmd)
         vdpCmd->status &= ~VDPSTATUS_CE;
         vdpCmd->CM = 0;
         vdpCmd->NX = 0;
-        /* DX passes the last character only if its last row reached bit 0; NY is left at one. */
-        vdpCmd->DX = ADX & 0x1ff;
-        vdpCmd->NY = 1;
     }
     else {
         vdpCmd->NX  = NX;
@@ -1099,6 +1108,12 @@ static void LfmmEngine(VdpCmdState* vdpCmd)
 **      Vram -> Vram, rotated and scaled
 **************************************************************
 */
+/* The bits of NY whose bytes the CPU wrote, from a two bit low/high flag. */
+static int vdpCmdWrittenMask(int written)
+{
+    return ((written & 1) ? 0x0ff : 0) | ((written & 2) ? 0x700 : 0);
+}
+
 static void LrmmEngine(VdpCmdState* vdpCmd)
 {
     int DX = vdpCmd->DX;
@@ -1106,7 +1121,8 @@ static void LrmmEngine(VdpCmdState* vdpCmd)
     int TY = vdpCmd->TY;
     int NX = vdpCmd->NX;
     int DY = vdpCmd->DY;
-    int NY = vdpCmd->NY;
+    /* Rows are counted in ASX, so a CPU write to NY does not change how many run. */
+    int NY = vdpCmd->ASX;
     int ADX = vdpCmd->ADX;
     int ANX = vdpCmd->ANX;
     UInt8 CL = vdpCmd->CL & Mask[vdpCmd->screenMode];
@@ -1164,12 +1180,14 @@ static void LrmmEngine(VdpCmdState* vdpCmd)
     if ((vdpCmd->VdpOpsCnt = cnt) > 0) {
         vdpCmd->status &= ~VDPSTATUS_CE;
         vdpCmd->CM = 0;
+        vdpCmd->sySub = 0;
         vdpCmd->DY = DY & vdpCmd->nyMask;
-        vdpCmd->NY = NY & vdpCmd->nyMask;
+        vdpCmd->NY = (vdpCmd->NY & vdpCmdWrittenMask(vdpCmd->nyWritten)) |
+                     (NY & vdpCmd->nyMask & ~vdpCmdWrittenMask(vdpCmd->nyWritten));
     }
     else {
         vdpCmd->DY  = DY;
-        vdpCmd->NY  = NY;
+        vdpCmd->ASX = NY;
         vdpCmd->ANX = ANX;
         vdpCmd->ADX = ADX;
     }
@@ -1369,7 +1387,8 @@ static void LfmcEngine(VdpCmdState* vdpCmd)
     UInt8 BG = vdpCmd->textBackColor & Mask[SM];
 
     /* A byte has to be drawn whole: only the dot counters survive between
-    ** calls, so a bit part way through one could not be picked up again. */
+    ** calls, so a bit part way through one could not be picked up again.
+    ** ASX counts the rows left, so a CPU write to NY does not change how many run. */
     while (!(vdpCmd->status & VDPSTATUS_TR) && vdpCmd->VdpOpsCnt > 0) {
         UInt8 bits = vdpCmd->CL;
         int i;
@@ -1379,13 +1398,19 @@ static void LfmcEngine(VdpCmdState* vdpCmd)
             vdpCmd->VdpOpsCnt -= vdpCmd->hsStep;
 
             if (!--vdpCmd->ANX || ((vdpCmd->ADX += vdpCmd->TX) & vdpCmd->MX)) {
-                vdpCmd->DY += vdpCmd->TY;
-                if (!(--vdpCmd->NY & vdpCmd->nyMask) || vdpCmd->DY == -1) {
+                if ((vdpCmd->ASX & vdpCmd->nyMask) == 1 || (vdpCmd->TY < 0 && vdpCmd->DY == 0)) {
+                    /* A row cut by the edge leaves DX where it was. */
+                    if (vdpCmd->ANX == 0) {
+                        vdpCmd->DX = (vdpCmd->ADX + vdpCmd->TX) & 0x1ff;
+                    }
+                    vdpCmd->DY = vdpCmd->cmdDY0;
                     vdpCmd->status &= ~VDPSTATUS_CE;
                     vdpCmd->CM = 0;
                     vdpCmd->status |= VDPSTATUS_TR;
                     return;
                 }
+                vdpCmd->ASX = (vdpCmd->ASX - 1) & vdpCmd->nyMask;
+                vdpCmd->DY = (vdpCmd->DY + vdpCmd->TY) & vdpCmd->nyMask;
                 vdpCmd->ADX = vdpCmd->DX;
                 vdpCmd->ANX = vdpCmd->NX;
                 break;
@@ -1414,7 +1439,7 @@ static void HmmvEngine(VdpCmdState* vdpCmd)
     int TX=vdpCmd->TX;
     int TY=vdpCmd->TY;
     int NX=vdpCmd->NX;
-    int NY=vdpCmd->NY;
+    int NY=vdpCmd->fillRun ? 1 : vdpCmd->NY;
     int ADX=vdpCmd->ADX;
     int ANX=vdpCmd->ANX;
     UInt8 CL=vdpCmd->CL;
@@ -1446,12 +1471,19 @@ static void HmmvEngine(VdpCmdState* vdpCmd)
         /* Command execution done */
         vdpCmd->status &= ~VDPSTATUS_CE;
         vdpCmd->CM = 0;
-        vdpCmd->DY=DY & vdpCmd->nyMask;
-        vdpCmd->NY=NY & vdpCmd->nyMask;
+        if (vdpCmd->fillRun) {
+            vdpCmd->fillRun = 0;
+        }
+        else {
+            vdpCmd->DY=DY & vdpCmd->nyMask;
+            vdpCmd->NY=NY & vdpCmd->nyMask;
+        }
     }
     else {
-        vdpCmd->DY=DY;
-        vdpCmd->NY=NY;
+        if (!vdpCmd->fillRun) {
+            vdpCmd->DY=DY;
+            vdpCmd->NY=NY;
+        }
         vdpCmd->ANX=ANX;
         vdpCmd->ADX=ADX;
     }
@@ -1599,6 +1631,17 @@ void vdpCmdResetExtRegs(VdpCmdState* vdpCmd)
     vdpCmd->WSY = 0;
     vdpCmd->WEX = 0x1ff;
     vdpCmd->WEY = 0x7ff;
+}
+
+void vdpCmdResetState(VdpCmdState* vdpCmd)
+{
+    vdpCmd->sySub = 0;
+    /* A command left running across the reset by R#45 FG4 still needs its state. */
+    if (vdpCmd->CM == 0) {
+        vdpCmd->fillRun = 0;
+        vdpCmd->cmdDY0 = 0;
+        vdpCmd->nyWritten = 0;
+    }
 }
 
 /* R#45 MXS and MXD pick the expansion window, and R#30 a bank above it. */
@@ -1783,6 +1826,7 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
     int hsStart;
 
     vdpCmd->cmdStartTime = systemTime * VDP_TIMING_SCALE;
+    vdpCmd->nyWritten = 0;
 
     /* Taken with the screen mode it belongs to, so a mode change part way
     ** through cannot leave the two describing different layouts. */
@@ -1891,7 +1935,7 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
         vdpCmd->traceLink  = vdpCmd->traceIssueLink;
         vdpCmd->traceArgs  = vdpCmd->CM | (vdpCmd->LO << 4) | ((vdpCmd->fillTag != 0) << 8) |
                              ((UInt32)vdpCmd->ARG << 16) | ((UInt32)vdpCmd->CL << 24);
-        vdpCmd->traceSize  = (vdpCmd->kNX & 0xffff) | ((UInt32)vdpCmd->NY << 16);
+        vdpCmd->traceSize  = (vdpCmd->kNX & 0xffff) | ((UInt32)(vdpCmd->fillRun ? 1 : vdpCmd->NY) << 16);
         vdpCmd->tracePos   = (vdpCmd->DX & 0xffff) | ((UInt32)vdpCmd->DY << 16);
         /* geo3d's credit moves the start back after this; the end record has it right. */
         debugTraceEmit(vdpCmd->traceSource, VDPCMD_TRACE_CMD | DEBUG_TRACE_BEGIN, systemTime,
@@ -1901,9 +1945,17 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
     /* Command execution started */
     vdpCmd->status |= VDPSTATUS_CE;
 
+    /* A command that steps SY drops the fraction a stopped LRMM left. */
+    if (vdpCmd->CM == CM_LMMM || vdpCmd->CM == CM_HMMM || vdpCmd->CM == CM_YMMM || vdpCmd->CM == CM_LMCM) {
+        vdpCmd->sySub = 0;
+    }
+
     switch (vdpCmd->CM) {
     case CM_SRCH: start = srch_start;  break;
-    case CM_LINE: start = line_start;  break;
+    case CM_LINE:
+        vdpCmd->ANX = vdpCmd->DX;
+        start = line_start;
+        break;
     case CM_YMMM:
     case CM_HMMM: start = copy_start;  break;
     case CM_LMMM: start = lmmm_start;  break;
@@ -1916,6 +1968,7 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
         /* NX counts characters on nine bits, and zero runs on to the edge. */
         vdpCmd->NX  = (vdpCmd->kNX & 0x1ff) ? (vdpCmd->kNX & 0x1ff) : 0x800;
         vdpCmd->ANX = lfmmStripRows(vdpCmd);
+        vdpCmd->cmdDY0 = vdpCmd->DY;
         vdpCmd->fontColor = vdpCmd->CL;
         start = lmmm_start;
         break;
@@ -1923,16 +1976,22 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
     ** so the first byte has to come from the CPU. */
     case CM_LFMC:
         vdpCmd->fontColor = vdpCmd->CL;
+        vdpCmd->cmdDY0 = vdpCmd->DY;
+        vdpCmd->ASX = vdpCmd->NY & vdpCmd->nyMask;
         vdpCmd->status |= VDPSTATUS_TR;
         start = 0;
         break;
     case CM_LRMM:
     {
         /* Both are signed, and XHR holds SY doubled so its top bit is lost. */
-        int sy = vdpCmd->xhr ? (vdpCmd->SY << 1) : vdpCmd->SY;
+        int sy = (vdpCmd->SY << 8) | vdpCmd->sySub;
+        if (vdpCmd->xhr) {
+            sy <<= 1;
+        }
 
         vdpCmd->lrmmRowSX = vdpCmd->lrmmSX = ((vdpCmd->SX ^ 0x800) - 0x800) << 8;
-        vdpCmd->lrmmRowSY = vdpCmd->lrmmSY = (((sy & 0x1fff) ^ 0x1000) - 0x1000) << 8;
+        vdpCmd->lrmmRowSY = vdpCmd->lrmmSY = ((sy & 0x1fffff) ^ 0x100000) - 0x100000;
+        vdpCmd->ASX = vdpCmd->NY & vdpCmd->nyMask;
         start = lmmm_start;
         break;
     }
@@ -1946,6 +2005,21 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
     }
 
     vdpCmd->systemTime = systemTime;
+}
+
+/* A STOP leaves the rows a running command still had to go in NY; DX and DY
+** already show how far it got. */
+static void vdpCmdStopProgress(VdpCmdState* vdpCmd)
+{
+    switch (vdpCmd->CM) {
+    case CM_LFMC:
+    case CM_LRMM:
+        vdpCmd->NY = vdpCmd->ASX & vdpCmd->nyMask;
+        break;
+    case CM_LFMM:
+        vdpCmd->NY = vdpCmd->ANX & vdpCmd->nyMask;
+        break;
+    }
 }
 
 /*************************************************************
@@ -1970,19 +2044,31 @@ void vdpCmdWrite(VdpCmdState* vdpCmd, UInt8 reg, UInt8 value, UInt32 systemTime)
         break;
 	case 0x02:
         vdpCmd->SY = (vdpCmd->SY & 0xff00) | value;
+        vdpCmd->sySub = 0;
+        /* A running LRMM takes SY into the reference it is stepping. */
+        if (vdpCmd->CM == CM_LRMM) {
+            vdpCmd->lrmmSY = (((vdpCmd->lrmmSY & 0x1f0000) | (value << 8)) ^ 0x100000) - 0x100000;
+        }
         vdpCmd->fontAddress = (vdpCmd->fontAddress & 0x0ffff) | ((value & 0x03) << 16);
         break;
     /* LRMM takes a signed thirteen bit SY, and every other command narrows it
     ** again when it starts, so all five bits are kept here. */
-	case 0x03: vdpCmd->SY = (vdpCmd->SY & 0x00ff) | ((value & (vdpCmd->isV9968 ? 0x1f : 0x03)) << 8); break;
+	case 0x03:
+        vdpCmd->SY = (vdpCmd->SY & 0x00ff) | ((value & (vdpCmd->isV9968 ? 0x1f : 0x03)) << 8);
+        if (vdpCmd->CM == CM_LRMM) {
+            vdpCmd->lrmmSY = (((vdpCmd->lrmmSY & 0xffff) | ((value & 0x1f) << 16)) ^ 0x100000) - 0x100000;
+        }
+        break;
 	case 0x04: vdpCmd->DX = (vdpCmd->DX & 0xff00) | value;                   break;
 	case 0x05: vdpCmd->DX = (vdpCmd->DX & 0x00ff) | ((value & 0x01) << 8);   break;
 	case 0x06: vdpCmd->DY = (vdpCmd->DY & 0xff00) | value;                   break;
 	case 0x07: vdpCmd->DY = (vdpCmd->DY & 0x00ff) | ((value & (vdpCmd->vram256 ? 0x07 : 0x03)) << 8); break;
 	case 0x08: vdpCmd->kNX = (vdpCmd->kNX & 0xff00) | value;                 break;
 	case 0x09: vdpCmd->kNX = (vdpCmd->kNX & 0x00ff) | ((value & 0x03) << 8); break;
-	case 0x0a: vdpCmd->NY = (vdpCmd->NY & 0xff00) | value;                   break;
-	case 0x0b: vdpCmd->NY = (vdpCmd->NY & 0x00ff) | ((value & (vdpCmd->vram256 ? 0x07 : 0x03)) << 8); break;
+	case 0x0a: vdpCmd->NY = (vdpCmd->NY & 0xff00) | value; vdpCmd->nyWritten |= 1; break;
+	case 0x0b: vdpCmd->NY = (vdpCmd->NY & 0x00ff) | ((value & (vdpCmd->vram256 ? 0x07 : 0x03)) << 8);
+        vdpCmd->nyWritten |= 2;
+        break;
 	case 0x0c: 
         vdpCmd->CL = value;
         vdpCmd->status &= ~VDPSTATUS_TR;
@@ -2011,6 +2097,17 @@ void vdpCmdWrite(VdpCmdState* vdpCmd, UInt8 reg, UInt8 value, UInt32 systemTime)
             vdpCmdTraceEnd(vdpCmd, systemTime * VDP_TIMING_SCALE, 1);
         }
         srchLatchBorderX(vdpCmd);
+        /* SY of a cut off LRMM is the reference row it reached, doubled under XHR. */
+        if (vdpCmd->CM == CM_LRMM) {
+            vdpCmd->SY = (vdpCmd->lrmmSY >> 8) & 0x1fff;
+            vdpCmd->sySub = vdpCmd->lrmmSY & 0xff;
+            vdpCmd->DY &= vdpCmd->nyMask;
+        }
+        /* Codes the part cannot run, and any code where commands are off, act as STOP. */
+        if (vdpCmd->CM != 0 && ((value >> 4) == CM_ABRT || vdpCmd->newScrMode < 0 ||
+            ((value >> 4) <= CM_LRMM && !vdpCmd->extCommands))) {
+            vdpCmdStopProgress(vdpCmd);
+        }
 		vdpCmd->LO = value & 0x0F;
 		vdpCmd->CM = value >> 4;
         /* geo3d's one row face fill: the same bytes as LINE, written as HMMV. */
@@ -2018,9 +2115,10 @@ void vdpCmdWrite(VdpCmdState* vdpCmd, UInt8 reg, UInt8 value, UInt32 systemTime)
                           vdpCmd->DX < 256 && !(vdpCmd->ARG & 0x0d) && vdpCmd->NY == 0;
         if (vdpCmd->fillTag) {
             vdpCmd->CM = CM_HMMV;
-            vdpCmd->NY = 1;
         }
+        vdpCmd->fillRun = vdpCmd->fillTag;
 		vdpCmdSetCommand(vdpCmd, systemTime);
+        vdpCmd->fillRun = vdpCmd->fillRun && vdpCmd->CM == CM_HMMV;
         vdpCmd->fillTag = 0;
         /* One that never starts still counts as one that ended. */
         if (vdpCmd->CM == 0) {
@@ -2537,6 +2635,7 @@ void vdpCmdLoadState(VdpCmdState* vdpCmd)
     vdpCmd->lrmmSY        =         saveStateGet(state, "lrmmSY",    0);
     vdpCmd->lrmmRowSX     =         saveStateGet(state, "lrmmRowSX", 0);
     vdpCmd->lrmmRowSY     =         saveStateGet(state, "lrmmRowSY", 0);
+    vdpCmd->sySub         =         saveStateGet(state, "sySub",     0) & 0xff;
     vdpCmd->vram256       =         saveStateGet(state, "vram256", 0) && vdpCmd->vramSize > 0x20000;
     vdpCmd->fontAddress   =         saveStateGet(state, "fontAddress", 0);
     /* A state without the latch carries the colour in CL. */
@@ -2547,6 +2646,9 @@ void vdpCmdLoadState(VdpCmdState* vdpCmd)
     vdpCmd->cmdStartTime  =         saveStateGet(state, "cmdStartTime",
                                                  vdpCmd->systemTime * VDP_TIMING_SCALE);
     vdpCmd->hsModel       =         saveStateGet(state, "hsModel", 0);
+    vdpCmd->fillRun       =         saveStateGet(state, "fillRun", 0);
+    vdpCmd->cmdDY0        =         saveStateGet(state, "cmdDY0", 0);
+    vdpCmd->nyWritten     =         saveStateGet(state, "nyWritten", 0) & 3;
     /* A state without srchAsx holds a running SRCH's X in SX. */
     if (!saveStateGet(state, "srchAsx", 0) && vdpCmd->CM == CM_SRCH) {
         vdpCmd->ASX = vdpCmd->SX;
@@ -2621,6 +2723,7 @@ void vdpCmdSaveState(VdpCmdState* vdpCmd)
     saveStateSet(state, "lrmmSY",     vdpCmd->lrmmSY);
     saveStateSet(state, "lrmmRowSX",  vdpCmd->lrmmRowSX);
     saveStateSet(state, "lrmmRowSY",  vdpCmd->lrmmRowSY);
+    saveStateSet(state, "sySub",      vdpCmd->sySub);
     saveStateSet(state, "vram256",    vdpCmd->vram256);
     saveStateSet(state, "fontAddress", vdpCmd->fontAddress);
     saveStateSet(state, "fontColor", vdpCmd->fontColor);
@@ -2628,7 +2731,10 @@ void vdpCmdSaveState(VdpCmdState* vdpCmd)
     saveStateSet(state, "cmdEndTime", vdpCmd->cmdEndTime);
     saveStateSet(state, "cmdStartTime", vdpCmd->cmdStartTime);
     saveStateSet(state, "hsModel", vdpCmd->hsModel);
+    saveStateSet(state, "fillRun", vdpCmd->fillRun);
     saveStateSet(state, "srchAsx", 1);
+    saveStateSet(state, "cmdDY0", vdpCmd->cmdDY0);
+    saveStateSet(state, "nyWritten", vdpCmd->nyWritten);
     saveStateSet(state, "hsStep", vdpCmd->hsStep);
     saveStateSet(state, "timingMode", vdpCmd->timingMode);
     
