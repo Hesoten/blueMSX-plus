@@ -141,6 +141,7 @@ static RomType currentRomType[2];
 
 static BoardType boardLoadState(void);
 static void boardUpdateDisketteInfo();
+static void boardForgetCartridge(int cartNo);
 
 /* Missing-file list populated by boardRun pre-validation; surfaced via
 ** boardGetMissingFile* in the failure dialog. */
@@ -1274,6 +1275,10 @@ int boardInsertExternalDevices()
                                  boardDeviceInfo->carts[i].name,
                                  boardDeviceInfo->carts[i].inZipName);
         }
+        else {
+            /* A slot left empty must not keep the type of what it held before. */
+            boardForgetCartridge(i);
+        }
     }
 
     for (i = 0; i < MAXDRIVES; i++) {
@@ -1626,6 +1631,8 @@ int boardRun(Machine* machine,
                 stashedInt = (UInt32)pendingInt;
 
                 machineLoadState(boardMachine);
+                /* The state's machine replaces the one the start was set up for. */
+                boardSetMachine(boardMachine);
             }
             free(version);
         }
@@ -2337,6 +2344,16 @@ int boardDriveAttached(int driveId)
     return unit < hdUnitCount(boardGetHdType((driveId - MAX_FDC_COUNT) / MAX_DRIVES_PER_HD));
 }
 
+static void boardForgetCartridge(int cartNo)
+{
+    useRom     -= romTypeIsRom(currentRomType[cartNo]);
+    useMegaRom -= romTypeIsMegaRom(currentRomType[cartNo]);
+    useMegaRam -= romTypeIsMegaRam(currentRomType[cartNo]);
+    useFmPac   -= romTypeIsFmPac(currentRomType[cartNo]);
+    hdType[cartNo] = HD_NONE;
+    currentRomType[cartNo] = ROM_UNKNOWN;
+}
+
 void boardChangeCartridge(int cartNo, RomType romType, char* cart, char* cartZip)
 {
     if (cart && strlen(cart) == 0) {
@@ -2369,12 +2386,7 @@ void boardChangeCartridge(int cartNo, RomType romType, char* cart, char* cartZip
         }
     }
 
-    useRom     -= romTypeIsRom(currentRomType[cartNo]);
-    useMegaRom -= romTypeIsMegaRom(currentRomType[cartNo]);
-    useMegaRam -= romTypeIsMegaRam(currentRomType[cartNo]);
-    useFmPac   -= romTypeIsFmPac(currentRomType[cartNo]);
-    hdType[cartNo] = HD_NONE;
-    currentRomType[cartNo] = ROM_UNKNOWN;
+    boardForgetCartridge(cartNo);
 
     if (cart != NULL) {
         currentRomType[cartNo] = romType;
