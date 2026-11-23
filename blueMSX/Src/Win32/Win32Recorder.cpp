@@ -802,7 +802,9 @@ static int startWorker(const char* filename, int fps, int width, int height, boo
     DWORD wr = WaitForSingleObject(g_initDoneEvent, 10000);
     if (wr != WAIT_OBJECT_0) {
         // Best-effort tear-down: signal stop and join.
+        std::unique_lock<std::mutex> stopLock(g_mtx);   /* see stopWorker */
         g_stopRequested = true;
+        stopLock.unlock();
         g_cv.notify_one();
         if (g_worker.joinable()) g_worker.join();
         recorderVideoPoolTeardown();
@@ -833,8 +835,12 @@ static int startWorker(const char* filename, int fps, int width, int height, boo
 static void stopWorker(void)
 {
     if (!g_worker.joinable()) return;
+    /* Under g_mtx: the worker and producers test these in their wait
+    ** predicates; a store between test and sleep would lose the wake-up. */
+    std::unique_lock<std::mutex> stopLock(g_mtx);
     g_recActive     = false;
     g_stopRequested = true;
+    stopLock.unlock();
     g_cv.notify_one();
     g_qSpace.notify_all();   // unblock any producer waiting for queue space
     g_worker.join();
@@ -1842,9 +1848,11 @@ extern "C" void recorderStopLive(void)
     HCURSOR oldC = SetCursor(LoadCursor(NULL, IDC_WAIT));
 
     if (g_worker.joinable()) {
+        std::unique_lock<std::mutex> stopLock(g_mtx);   /* see stopWorker */
         g_recActive     = false;
         g_abandonQueue  = true;   /* fast stop: drop pending, flush MF */
         g_stopRequested = true;
+        stopLock.unlock();
         g_cv.notify_one();
         g_qSpace.notify_all();   // unblock any producer waiting for queue space
 
