@@ -1198,19 +1198,16 @@ static RECT statusDlgPreviewRect(HWND hDlg)
     return r;
 }
 
+// A paint reads a seqlock snapshot into g_previewLocalBuf and promotes it to
+// g_previewStableBuf, so a paint inside the producer's copy redraws the last
+// frame. Main thread only; freed when the dialog closes.
+static std::vector<uint8_t> g_previewLocalBuf;
+static std::vector<uint8_t> g_previewStableBuf;
+static int g_previewStableW = 0, g_previewStableH = 0;
+
 static void statusDlgPaintPreview(HWND hDlg, HDC hdc)
 {
     RECT pr = statusDlgPreviewRect(hDlg);
-
-    // Consumer state. localBuf is the seqlock retry workspace; stableBuf is
-    // the most recent successfully-snapshotted frame. We always paint from
-    // stableBuf, only updating it when a seqlock read confirms a stable
-    // window. That way an unlucky paint that lands inside the producer's
-    // ~1 ms memcpy redraws the previous frame instead of flashing to black.
-    // Both buffers live across paints (main thread only).
-    static std::vector<uint8_t> localBuf;
-    static std::vector<uint8_t> stableBuf;
-    static int stableW = 0, stableH = 0;
 
     int w = 0, h = 0;
     bool got = false;
@@ -1225,8 +1222,8 @@ static void statusDlgPaintPreview(HWND hDlg, HDC hdc)
 
         size_t bytes = (size_t)w * (size_t)h * 4;
         if (bytes > g_previewBufBytes) break;
-        if (localBuf.size() < bytes) localBuf.resize(bytes);
-        memcpy(localBuf.data(), g_previewBuf.data(), bytes);
+        if (g_previewLocalBuf.size() < bytes) g_previewLocalBuf.resize(bytes);
+        memcpy(g_previewLocalBuf.data(), g_previewBuf.data(), bytes);
 
         uint64_t v2 = g_previewSeq.load(std::memory_order_acquire);
         if (v1 == v2) { got = true; break; }
@@ -1235,12 +1232,12 @@ static void statusDlgPaintPreview(HWND hDlg, HDC hdc)
     if (got) {
         // Promote the just-read frame to stable. std::swap is a constant-
         // time pointer swap, so this is essentially free.
-        std::swap(stableBuf, localBuf);
-        stableW = w;
-        stableH = h;
+        std::swap(g_previewStableBuf, g_previewLocalBuf);
+        g_previewStableW = w;
+        g_previewStableH = h;
     }
 
-    if (stableW <= 0 || stableH <= 0 || stableBuf.empty()) {
+    if (g_previewStableW <= 0 || g_previewStableH <= 0 || g_previewStableBuf.empty()) {
         // Never had a successful read yet -- fall back to black.
         FillRect(hdc, &pr, (HBRUSH)GetStockObject(BLACK_BRUSH));
         return;
@@ -1248,8 +1245,8 @@ static void statusDlgPaintPreview(HWND hDlg, HDC hdc)
 
     BITMAPINFO bmi = {};
     bmi.bmiHeader.biSize        = sizeof(BITMAPINFOHEADER);
-    bmi.bmiHeader.biWidth       = stableW;
-    bmi.bmiHeader.biHeight      = stableH;     // positive = bottom-up; matches our buffer
+    bmi.bmiHeader.biWidth       = g_previewStableW;
+    bmi.bmiHeader.biHeight      = g_previewStableH;     // positive = bottom-up; matches our buffer
     bmi.bmiHeader.biPlanes      = 1;
     bmi.bmiHeader.biBitCount    = 32;
     bmi.bmiHeader.biCompression = BI_RGB;
@@ -1258,8 +1255,8 @@ static void statusDlgPaintPreview(HWND hDlg, HDC hdc)
     SetBrushOrgEx(hdc, 0, 0, NULL);
     StretchDIBits(hdc,
                   pr.left, pr.top, pr.right - pr.left, pr.bottom - pr.top,
-                  0, 0, stableW, stableH,
-                  stableBuf.data(), &bmi,
+                  0, 0, g_previewStableW, g_previewStableH,
+                  g_previewStableBuf.data(), &bmi,
                   DIB_RGB_COLORS, SRCCOPY);
 }
 
@@ -1334,6 +1331,9 @@ static BOOL_DLG_RET CALLBACK statusDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, 
         }
         g_previewDlg = NULL;
         KillTimer(hDlg, 2);
+        std::vector<uint8_t>().swap(g_previewLocalBuf);
+        std::vector<uint8_t>().swap(g_previewStableBuf);
+        g_previewStableW = g_previewStableH = 0;
         return 0;
     case WM_INITDIALOG:
         SetWindowTextU(hDlg, langDlgRenderVideoCapture());

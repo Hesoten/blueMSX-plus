@@ -82,6 +82,8 @@ struct ViewPicture {
     void forget()
     {
         tex.release();
+        std::vector<uint32_t>().swap(img);
+        w = h = 0;
         version = ~0u;
         key[0] = 0;
     }

@@ -1030,8 +1030,12 @@ public:
         linePalShot = linePalRaster = ~0u;
         memset(sceneKey, 0xff, sizeof(sceneKey));
         spriteSrcKey = ~0u;
+        free(sprScratch);
+        free(pageScratch);
+        sprScratch = pageScratch = NULL;
         memset(sprScratchKey, 0xff, sizeof(sprScratchKey));
         memset(pageScratchKey, 0xff, sizeof(pageScratchKey));
+        VdpImage().swap(column);
         sprSrc = NULL;
         sprSrcBank = 0;
         sprPinLine = -1;
@@ -3388,6 +3392,8 @@ private:
         spriteLayer.forget();
         stripHoldGen = ~0u;
         stripParts = 0;
+        VdpImage().swap(stripPage);
+        std::vector<UInt8>().swap(stripPrev);
         stripPrevValid = false;
         stripDecodedVer = stripDecodedRaster = ~0u;
     }
