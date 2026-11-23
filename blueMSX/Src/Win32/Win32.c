@@ -3245,7 +3245,8 @@ void archUpdateWindow() {
                                 WS_SYSMENU | WS_MINIMIZEBOX | (pProperties->video.maximizeIsFullscreen?WS_MAXIMIZEBOX:0));
         }
 
-        if (pProperties->video.driver != P_VIDEO_DRVGDI && !zoomOnly) {
+        /* A hidden run draws nothing, so it needs no DirectDraw surfaces. */
+        if (pProperties->video.driver != P_VIDEO_DRVGDI && !zoomOnly && !st.hidden) {
             int rv;
 
             if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12)
@@ -3313,10 +3314,11 @@ void archUpdateWindow() {
                          r.bottom - r.top);
     }
 
-    // Bring the DX12 device up synchronously so recorderStartLive can
-    // allocate capture resources, and re-bind after a device reset.
+    // Bring the DX12 device up now so a live recording re-binds after the
+    // reset above. A hidden run draws nothing, so it waits for a recording.
     int dx12Ready = 1;
-    if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12 && !zoomOnly) {
+    if (pProperties->video.driver == P_VIDEO_DRVDIRECTX_D3D12 && !zoomOnly &&
+        (!st.hidden || liveSurvivesTransition)) {
         dx12Ready = D3D12EnsureReady(st.emuHwnd, st.diplaySync);
     }
 
@@ -3354,6 +3356,14 @@ static void emuWindowDraw(int onlyOnVblank)
     ** frames directly from the framebuffer; the main window stays covered by
     ** the modal progress dialog, so skip its render path to avoid GPU races. */
     if (st.renderVideo) {
+        return;
+    }
+
+    /* A hidden run presents nothing: advance the view frame like the draw path
+    ** does, and report no present so the emulation stays paced by its timer. */
+    if (st.hidden) {
+        frameBufferFlipViewFrame(0);
+        st.diplayUpdated = 0;
         return;
     }
 
@@ -3565,7 +3575,10 @@ static LRESULT CALLBACK emuWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM l
             st.bmInfo.bmiHeader.biBitCount = 32;
 		}
     case WM_PAINT:
-        if (pProperties->video.driver == P_VIDEO_DRVGDI && emulatorGetState() != EMU_STOPPED) 
+        /* A hidden window shows nothing, yet WM_WINDOWPOSCHANGED falls through
+        ** to here and would render a frame into a 64 MB bitmap. */
+        if (pProperties->video.driver == P_VIDEO_DRVGDI && emulatorGetState() != EMU_STOPPED &&
+            !st.hidden)
 		{
             PAINTSTRUCT ps;
             FrameBuffer* frameBuffer;
@@ -4006,7 +4019,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPar
                     D3D12UpdateWindowedMode(st.emuHwnd, zoom * WIDTH, zoom * HEIGHT,
                                               pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO, 
                                               pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO);
-                else
+                else if (!st.hidden)
                     DirectXUpdateWindowedMode(st.emuHwnd, zoom * WIDTH, zoom * HEIGHT,
                                               pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO, 
                                               pProperties->video.driver == P_VIDEO_DRVDIRECTX_VIDEO);
