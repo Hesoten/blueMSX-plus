@@ -1084,9 +1084,8 @@ static void LfmmEngine(VdpCmdState* vdpCmd)
         vdpCmd->status &= ~VDPSTATUS_CE;
         vdpCmd->CM = 0;
         vdpCmd->NX = 0;
-        /* DX passes the last character only if its last row reached bit 0; NY is left at one. */
+        /* DX passes the last character only if its last row reached bit 0. */
         vdpCmd->DX = ADX & 0x1ff;
-        vdpCmd->NY = 1;
     }
     else {
         vdpCmd->NX  = NX;
@@ -1373,18 +1372,25 @@ static void LfmcEngine(VdpCmdState* vdpCmd)
     UInt8 BG = vdpCmd->textBackColor & Mask[SM];
 
     /* A byte has to be drawn whole: only the dot counters survive between
-    ** calls, so a bit part way through one could not be picked up again. */
+    ** calls, so a bit part way through one could not be picked up again.
+    ** ASX counts the rows done, so DY and NY stay as set for the next character. */
     while (!(vdpCmd->status & VDPSTATUS_TR) && vdpCmd->VdpOpsCnt > 0) {
         UInt8 bits = vdpCmd->CL;
         int i;
 
         for (i = 0; i < 8; i++) {
-            setPixel(vdpCmd, SM, vdpCmd->ADX, vdpCmd->DY, (bits & (0x80 >> i)) ? CL : BG, vdpCmd->LO);
+            setPixel(vdpCmd, SM, vdpCmd->ADX, vdpCmd->DY + vdpCmd->TY * vdpCmd->ASX,
+                     (bits & (0x80 >> i)) ? CL : BG, vdpCmd->LO);
             vdpCmd->VdpOpsCnt -= vdpCmd->hsStep;
 
             if (!--vdpCmd->ANX || ((vdpCmd->ADX += vdpCmd->TX) & vdpCmd->MX)) {
-                vdpCmd->DY += vdpCmd->TY;
-                if (!(--vdpCmd->NY & vdpCmd->nyMask) || vdpCmd->DY == -1) {
+                vdpCmd->ASX++;
+                if (!((vdpCmd->NY - vdpCmd->ASX) & vdpCmd->nyMask) ||
+                    vdpCmd->DY + vdpCmd->TY * vdpCmd->ASX == -1) {
+                    /* A row cut by the edge leaves DX where it was. */
+                    if (vdpCmd->ANX == 0) {
+                        vdpCmd->DX = (vdpCmd->ADX + vdpCmd->TX) & 0x1ff;
+                    }
                     vdpCmd->status &= ~VDPSTATUS_CE;
                     vdpCmd->CM = 0;
                     vdpCmd->status |= VDPSTATUS_TR;
@@ -1940,6 +1946,7 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
     ** so the first byte has to come from the CPU. */
     case CM_LFMC:
         vdpCmd->fontColor = vdpCmd->CL;
+        vdpCmd->ASX = 0;
         vdpCmd->status |= VDPSTATUS_TR;
         start = 0;
         break;
@@ -1972,6 +1979,10 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
 static void vdpCmdStopProgress(VdpCmdState* vdpCmd)
 {
     switch (vdpCmd->CM) {
+    case CM_LFMC:
+        vdpCmd->DY = (vdpCmd->DY + vdpCmd->TY * vdpCmd->ASX) & vdpCmd->nyMask;
+        vdpCmd->NY = (vdpCmd->NY - vdpCmd->ASX) & vdpCmd->nyMask;
+        break;
     case CM_LFMM:
     {
         /* DX at the character in hand, DY at its row, NY its rows still to go. */
