@@ -1854,14 +1854,18 @@ extern "C" void recorderStopLive(void)
             SetEvent(done);
         });
 
-        for (;;) {
+        bool quit     = false;
+        int  quitCode = 0;
+        while (!quit) {
             DWORD wr = MsgWaitForMultipleObjects(1, &done, FALSE, INFINITE, QS_ALLEVENTS);
             if (wr == WAIT_OBJECT_0) break;
             MSG msg;
             while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
                 if (msg.message == WM_QUIT) {
-                    /* Re-post so the main loop sees it once we return. */
-                    PostQuitMessage((int)msg.wParam);
+                    /* Stop pumping: a pending WM_QUIT wakes the wait at once even
+                    ** after done is set. Re-posted below once the worker is joined. */
+                    quit     = true;
+                    quitCode = (int)msg.wParam;
                     break;
                 }
                 TranslateMessage(&msg);
@@ -1869,6 +1873,7 @@ extern "C" void recorderStopLive(void)
             }
         }
         if (joiner.joinable()) joiner.join();
+        if (quit) PostQuitMessage(quitCode);   /* for the main loop once we return */
         CloseHandle(done);
         recorderVideoPoolTeardown();
     }
