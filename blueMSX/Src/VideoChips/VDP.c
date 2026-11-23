@@ -4832,6 +4832,7 @@ static void reset(VDP* vdp)
     memcpy(vdp->paletteReg, defaultPaletteRegs, sizeof(vdp->paletteReg));
 
     onScrModeChange(vdp, boardSystemTime());
+    vdpCmdResetState(vdp->cmdEngine);
 
     onDisplay(vdp, boardSystemTime());
 }

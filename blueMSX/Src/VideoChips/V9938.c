@@ -195,6 +195,8 @@ struct VdpCmdState {
     int    lrmmSY;
     int    lrmmRowSX;
     int    lrmmRowSY;
+    /* The fraction below SY a stopped LRMM reached; the next LRMM starts from it. */
+    int    sySub;
     /* The 32-bit source word the last LRMM dot read, -1 for none yet. */
     int    lrmmSrcWord;
     int    textBackColor;
@@ -1165,6 +1167,7 @@ static void LrmmEngine(VdpCmdState* vdpCmd)
     if ((vdpCmd->VdpOpsCnt = cnt) > 0) {
         vdpCmd->status &= ~VDPSTATUS_CE;
         vdpCmd->CM = 0;
+        vdpCmd->sySub = 0;
         vdpCmd->DY = DY & vdpCmd->nyMask;
         vdpCmd->NY = NY & vdpCmd->nyMask;
     }
@@ -1602,6 +1605,11 @@ void vdpCmdResetExtRegs(VdpCmdState* vdpCmd)
     vdpCmd->WEY = 0x7ff;
 }
 
+void vdpCmdResetState(VdpCmdState* vdpCmd)
+{
+    vdpCmd->sySub = 0;
+}
+
 /* R#45 MXS and MXD pick the expansion window, and R#30 a bank above it. */
 static void vdpCmdSelectVram(VdpCmdState* vdpCmd)
 {
@@ -1902,6 +1910,11 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
     /* Command execution started */
     vdpCmd->status |= VDPSTATUS_CE;
 
+    /* A command that steps SY drops the fraction a stopped LRMM left. */
+    if (vdpCmd->CM == CM_LMMM || vdpCmd->CM == CM_HMMM || vdpCmd->CM == CM_YMMM || vdpCmd->CM == CM_LMCM) {
+        vdpCmd->sySub = 0;
+    }
+
     switch (vdpCmd->CM) {
     case CM_SRCH: start = srch_start;  break;
     case CM_LINE:
@@ -1933,10 +1946,13 @@ static void vdpCmdSetCommand(VdpCmdState* vdpCmd, UInt32 systemTime)
     case CM_LRMM:
     {
         /* Both are signed, and XHR holds SY doubled so its top bit is lost. */
-        int sy = vdpCmd->xhr ? (vdpCmd->SY << 1) : vdpCmd->SY;
+        int sy = (vdpCmd->SY << 8) | vdpCmd->sySub;
+        if (vdpCmd->xhr) {
+            sy <<= 1;
+        }
 
         vdpCmd->lrmmRowSX = vdpCmd->lrmmSX = ((vdpCmd->SX ^ 0x800) - 0x800) << 8;
-        vdpCmd->lrmmRowSY = vdpCmd->lrmmSY = (((sy & 0x1fff) ^ 0x1000) - 0x1000) << 8;
+        vdpCmd->lrmmRowSY = vdpCmd->lrmmSY = ((sy & 0x1fffff) ^ 0x100000) - 0x100000;
         start = lmmm_start;
         break;
     }
@@ -1965,6 +1981,9 @@ static void vdpCmdStopProgress(VdpCmdState* vdpCmd)
         vdpCmd->NY = vdpCmd->ANX & vdpCmd->nyMask;
         break;
     }
+    case CM_LRMM:
+        vdpCmd->NY &= vdpCmd->nyMask;
+        break;
     }
 }
 
@@ -1990,6 +2009,7 @@ void vdpCmdWrite(VdpCmdState* vdpCmd, UInt8 reg, UInt8 value, UInt32 systemTime)
         break;
 	case 0x02:
         vdpCmd->SY = (vdpCmd->SY & 0xff00) | value;
+        vdpCmd->sySub = 0;
         vdpCmd->fontAddress = (vdpCmd->fontAddress & 0x0ffff) | ((value & 0x03) << 16);
         break;
     /* LRMM takes a signed thirteen bit SY, and every other command narrows it
@@ -2031,6 +2051,12 @@ void vdpCmdWrite(VdpCmdState* vdpCmd, UInt8 reg, UInt8 value, UInt32 systemTime)
             vdpCmdTraceEnd(vdpCmd, systemTime * VDP_TIMING_SCALE, 1);
         }
         srchLatchBorderX(vdpCmd);
+        /* SY of a cut off LRMM is the reference row it reached, doubled under XHR. */
+        if (vdpCmd->CM == CM_LRMM) {
+            vdpCmd->SY = (vdpCmd->lrmmSY >> 8) & 0x1fff;
+            vdpCmd->sySub = vdpCmd->lrmmSY & 0xff;
+            vdpCmd->DY &= vdpCmd->nyMask;
+        }
         /* Codes the part cannot run, and any code where commands are off, act as STOP. */
         if (vdpCmd->CM != 0 && ((value >> 4) == CM_ABRT || vdpCmd->newScrMode < 0 ||
             ((value >> 4) <= CM_LRMM && !vdpCmd->extCommands))) {
@@ -2562,6 +2588,7 @@ void vdpCmdLoadState(VdpCmdState* vdpCmd)
     vdpCmd->lrmmSY        =         saveStateGet(state, "lrmmSY",    0);
     vdpCmd->lrmmRowSX     =         saveStateGet(state, "lrmmRowSX", 0);
     vdpCmd->lrmmRowSY     =         saveStateGet(state, "lrmmRowSY", 0);
+    vdpCmd->sySub         =         saveStateGet(state, "sySub",     0) & 0xff;
     vdpCmd->vram256       =         saveStateGet(state, "vram256", 0) && vdpCmd->vramSize > 0x20000;
     vdpCmd->fontAddress   =         saveStateGet(state, "fontAddress", 0);
     /* A state without the latch carries the colour in CL. */
@@ -2646,6 +2673,7 @@ void vdpCmdSaveState(VdpCmdState* vdpCmd)
     saveStateSet(state, "lrmmSY",     vdpCmd->lrmmSY);
     saveStateSet(state, "lrmmRowSX",  vdpCmd->lrmmRowSX);
     saveStateSet(state, "lrmmRowSY",  vdpCmd->lrmmRowSY);
+    saveStateSet(state, "sySub",      vdpCmd->sySub);
     saveStateSet(state, "vram256",    vdpCmd->vram256);
     saveStateSet(state, "fontAddress", vdpCmd->fontAddress);
     saveStateSet(state, "fontColor", vdpCmd->fontColor);
