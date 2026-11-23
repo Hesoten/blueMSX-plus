@@ -344,7 +344,7 @@ static void describeTake(CtrlCall* call, Int32 pc)
     for (i = 0; i < MAXDRIVES; i++) {
         char drive[64];
 
-        if (diskIsDir(i)) {
+        if (diskIsDir(i) && boardDriveAttached(i)) {
             ctrlMachineDriveName(i, drive, sizeof(drive));
             ctrlTextAdd(&call->text, "%s holds the folder %s: once the MSX writes to it, a "
                         "restore is refused until it is ejected.\n", drive, diskDirPath(i));
@@ -387,7 +387,7 @@ static void describeRestore(CtrlCall* call, Int32 pc, int pastTest, int hadHunt,
                 (unsigned)((archGetSystemUpTime(1000) - snapshotAtMs) / 1000),
                 (unsigned)(snapshotPc & 0xffff));
     for (i = 0; i < MAXDRIVES; i++) {
-        writableDisk |= diskPresent(i) && !diskReadOnly(i) && !diskIsDir(i);
+        writableDisk |= diskPresent(i) && !diskReadOnly(i) && !diskIsDir(i) && boardDriveAttached(i);
     }
     if (writableDisk) {
         ctrlTextAdd(&call->text, "disk images are not put back: if the MSX wrote to one after "

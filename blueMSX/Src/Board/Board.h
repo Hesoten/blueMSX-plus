@@ -281,6 +281,8 @@ typedef enum { HD_NONE, HD_SUNRISEIDE, HD_BEERIDE, HD_GIDE, HD_RSIDE,
                HD_MEGASCSI, HD_WAVESCSI, HD_GOUDASCSI, HD_NOWIND,
                HD_MFRSD, HD_ROOKIEDRIVE } HdType;
 HdType boardGetHdType(int hdIndex);
+/* Whether the machine has a drive at driveId: media in any other drive is out of the MSX's reach. */
+int boardDriveAttached(int driveId);
 
 const char* boardGetBaseDirectory();
 

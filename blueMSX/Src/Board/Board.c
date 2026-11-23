@@ -141,6 +141,7 @@ static RomType currentRomType[2];
 
 static BoardType boardLoadState(void);
 static void boardUpdateDisketteInfo();
+static void boardForgetCartridge(int cartNo);
 
 /* Missing-file list populated by boardRun pre-validation; surfaced via
 ** boardGetMissingFile* in the failure dialog. */
@@ -1274,12 +1275,21 @@ int boardInsertExternalDevices()
                                  boardDeviceInfo->carts[i].name,
                                  boardDeviceInfo->carts[i].inZipName);
         }
+        else {
+            /* A slot left empty must not keep the type of what it held before. */
+            boardForgetCartridge(i);
+        }
     }
 
     for (i = 0; i < MAXDRIVES; i++) {
         if (boardDeviceInfo->disks[i].inserted) {
             boardChangeDiskette(i, boardDeviceInfo->disks[i].name,
                                 boardDeviceInfo->disks[i].inZipName);
+        }
+        else {
+            /* Only drives 0 and 1 are emptied at a switch off: an empty hard disk
+            ** must not go on serving what it held before. A kept folder stays kept. */
+            diskChange(i, NULL, NULL);
         }
     }
 
@@ -1621,6 +1631,8 @@ int boardRun(Machine* machine,
                 stashedInt = (UInt32)pendingInt;
 
                 machineLoadState(boardMachine);
+                /* The state's machine replaces the one the start was set up for. */
+                boardSetMachine(boardMachine);
             }
             free(version);
         }
@@ -2296,6 +2308,52 @@ HdType boardGetHdType(int hdIndex)
     return hdType[hdIndex];
 }
 
+/* The drives each controller reads through Disk.c. Nowind hands its images to its
+** own DLL by name, so a folder in any of its drives never reaches the MSX. */
+static int hdUnitCount(HdType type)
+{
+    switch (type) {
+    case HD_BEERIDE:
+    case HD_GIDE:
+    case HD_RSIDE:
+    case HD_ROOKIEDRIVE:
+        return 1;
+    case HD_SUNRISEIDE:
+    case HD_MFRSD:
+        return 2;
+    case HD_MEGASCSI:
+    case HD_WAVESCSI:
+    case HD_GOUDASCSI:
+        return 8;
+    default:
+        return 0;
+    }
+}
+
+int boardDriveAttached(int driveId)
+{
+    int unit;
+
+    if (driveId < MAX_FDC_COUNT) {
+        return diskEnabled(driveId);
+    }
+    if (driveId >= MAXDRIVES) {
+        return 0;
+    }
+    unit = (driveId - MAX_FDC_COUNT) % MAX_DRIVES_PER_HD;
+    return unit < hdUnitCount(boardGetHdType((driveId - MAX_FDC_COUNT) / MAX_DRIVES_PER_HD));
+}
+
+static void boardForgetCartridge(int cartNo)
+{
+    useRom     -= romTypeIsRom(currentRomType[cartNo]);
+    useMegaRom -= romTypeIsMegaRom(currentRomType[cartNo]);
+    useMegaRam -= romTypeIsMegaRam(currentRomType[cartNo]);
+    useFmPac   -= romTypeIsFmPac(currentRomType[cartNo]);
+    hdType[cartNo] = HD_NONE;
+    currentRomType[cartNo] = ROM_UNKNOWN;
+}
+
 void boardChangeCartridge(int cartNo, RomType romType, char* cart, char* cartZip)
 {
     if (cart && strlen(cart) == 0) {
@@ -2328,12 +2386,7 @@ void boardChangeCartridge(int cartNo, RomType romType, char* cart, char* cartZip
         }
     }
 
-    useRom     -= romTypeIsRom(currentRomType[cartNo]);
-    useMegaRom -= romTypeIsMegaRom(currentRomType[cartNo]);
-    useMegaRam -= romTypeIsMegaRam(currentRomType[cartNo]);
-    useFmPac   -= romTypeIsFmPac(currentRomType[cartNo]);
-    hdType[cartNo] = HD_NONE;
-    currentRomType[cartNo] = ROM_UNKNOWN;
+    boardForgetCartridge(cartNo);
 
     if (cart != NULL) {
         currentRomType[cartNo] = romType;
