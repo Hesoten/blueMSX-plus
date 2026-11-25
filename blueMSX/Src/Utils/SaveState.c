@@ -247,6 +247,8 @@ UInt32 saveStateGet(SaveState* state, const char* tagName, UInt32 defValue)
         }
     } while (offset != startOffset && elemTag != tag);
 
+    /* Loads read mostly in the order they were saved: the next lookup starts here. */
+    state->offset = offset;
     return value;
 }
 
