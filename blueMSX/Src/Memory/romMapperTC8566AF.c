@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -185,7 +188,7 @@ static void write(RomMapperTC8566AF* rm, UInt16 address, UInt8 value)
 {
     address += 0x4000;
     
-    if ((address == 0x6000) || (address == 0x7ff0) || (address == 0x7ffe)) {
+    if (address == 0x7ff0) {
         rm->romMapper[0] =  value & rm->romMask;
         return;
     } 
