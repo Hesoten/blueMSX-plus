@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -171,8 +174,8 @@ static void write(RomMapperPhilipsFdc* rm, UInt16 address, UInt8 value)
 static void reset(RomMapperPhilipsFdc* rm)
 {
     wd2793Reset(rm->fdc);
-    write(rm, 0xffc, 0);
-    write(rm, 0xffd, 0);
+    write(rm, 0x3ffc, 0);
+    write(rm, 0x3ffd, 0);
 }
 
 int romMapperPhilipsFdcCreate(const char* filename, UInt8* romData, 

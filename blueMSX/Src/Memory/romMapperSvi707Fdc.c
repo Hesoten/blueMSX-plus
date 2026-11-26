@@ -182,8 +182,7 @@ static void write(RomMapperSvi707Fdc* rm, UInt16 address, UInt8 value)
 static void reset(RomMapperSvi707Fdc* rm)
 {
     wd2793Reset(rm->fdc);
-    write(rm, 0xffc, 0);
-    write(rm, 0xffd, 0);
+    write(rm, 0x3fbc, 0);
 }
 
 int romMapperSvi707FdcCreate(const char* filename, UInt8* romData, 
