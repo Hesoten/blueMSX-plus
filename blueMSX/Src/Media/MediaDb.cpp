@@ -787,6 +787,7 @@ extern "C" const char* romTypeToString(RomType romType)
     case ROM_EXTRAM2MB:   return langRomTypeExtRam2mb();
     case ROM_EXTRAM4MB:   return langRomTypeExtRam4mb();
     case ROM_MSXMUSIC:    return langRomTypeMsxMusic();
+    case ROM_MSXMUSIC_WX: return "MSX Music (FS-A1WX)";
     case ROM_MSXAUDIO:    return langRomTypeMsxAudio();
     case ROM_MOONSOUND:   return langRomTypeMoonsound();
     case ROM_SVI328CART:  return langRomTypeSvi328Cart();
@@ -975,6 +976,7 @@ extern "C" const char* romTypeToShortString(RomType romType)
     case ROM_EXTRAM2MB:   return "EXTRAM 2MB";
     case ROM_EXTRAM4MB:   return "EXTRAM 4MB";
     case ROM_MSXMUSIC:    return "MSXMUSIC";
+    case ROM_MSXMUSIC_WX: return "MSXMUSWX";
     case ROM_MSXAUDIO:    return "MSXAUDIO";
     case ROM_MOONSOUND:   return "MOONSOUND";
     case ROM_SVI328CART:  return "SVI328CART";

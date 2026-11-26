@@ -653,6 +653,7 @@ static void getAddressControl(HWND hDlg)
         editSlotInfo.romType == ROM_NORMAL       || 
         editSlotInfo.romType == ROM_DRAM         ||
         editSlotInfo.romType == ROM_MSXMUSIC     ||
+        editSlotInfo.romType == ROM_MSXMUSIC_WX  ||
         editSlotInfo.romType == ROM_DISKPATCH    || 
         editSlotInfo.romType == ROM_CASPATCH     ||
         editSlotInfo.romType == ROM_MICROSOL     ||
@@ -1034,7 +1035,7 @@ static void setEditControls(HWND hDlg)
     if (romType == RAM_NORMAL || romType == RAM_1KB_MIRRORED || romType == RAM_2KB_MIRRORED ||
         romType == ROM_NORMAL || romType == ROM_DISKPATCH || romType == ROM_CASPATCH ||
         romType == ROM_MICROSOL || romType == ROM_NATIONALFDC || romType == ROM_PHILIPSFDC || 
-        romType == ROM_SVI707FDC || romType == ROM_SVI738FDC || romType == ROM_MSXMUSIC || 
+        romType == ROM_SVI707FDC || romType == ROM_SVI738FDC || romType == ROM_MSXMUSIC || romType == ROM_MSXMUSIC_WX ||
 		romType == ROM_BEERIDE || romType == ROM_DRAM || romType == ROM_FMPAC || romType == ROM_PAC || 
 		romType == ROM_BUNSETU || romType == ROM_MICROSOL80)
     {
@@ -1233,6 +1234,7 @@ static void setEditControls(HWND hDlg)
     case ROM_FMPAC:
     case ROM_BUNSETU:
     case ROM_MSXMUSIC:
+    case ROM_MSXMUSIC_WX:
     case ROM_MICROSOL80:
         SetWindowTextU(GetDlgItem(hDlg, IDC_ROMIMAGE), editSlotInfo.name);
         break;
@@ -1483,6 +1485,7 @@ static RomType romTypeList[] = {
     ROM_MSXMIDI_EXTERNAL,
     ROM_MUPACK,
     ROM_MSXMUSIC,
+    ROM_MSXMUSIC_WX,
     ROM_MSXAUDIO,
     ROM_MSXAUDIODEV,
     ROM_MOONSOUND,

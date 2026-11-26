@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -46,6 +49,8 @@ typedef struct {
     int slot;
     int sslot;
     int startPage;
+    RomType romType;
+    UInt8 control;
 } MsxMusic;
 
 static void destroy(MsxMusic* rm)
@@ -67,6 +72,8 @@ static void destroy(MsxMusic* rm)
 
 static void reset(MsxMusic* rm) 
 {
+    rm->control = 0;
+
     if (rm->ym2413 != NULL) {
         ym2413Reset(rm->ym2413);
     }
@@ -74,6 +81,12 @@ static void reset(MsxMusic* rm)
 
 static void loadState(MsxMusic* rm)
 {
+    if (rm->romType == ROM_MSXMUSIC_WX) {
+        SaveState* state = saveStateOpenForRead("mapperMsxMusic");
+        rm->control = (UInt8)saveStateGet(state, "control", 0);
+        saveStateClose(state);
+    }
+
     if (rm->ym2413 != NULL) {
         ym2413LoadState(rm->ym2413);
     }
@@ -81,8 +94,38 @@ static void loadState(MsxMusic* rm)
 
 static void saveState(MsxMusic* rm)
 {
+    if (rm->romType == ROM_MSXMUSIC_WX) {
+        SaveState* state = saveStateOpenForWrite("mapperMsxMusic");
+        saveStateSet(state, "control", rm->control);
+        saveStateClose(state);
+    }
+
     if (rm->ym2413 != NULL) {
         ym2413SaveState(rm->ym2413);
+    }
+}
+
+/* FS-A1WX/WSX: a control register at 7FF0-7FFF reads back as value | FCh,
+** and while its bit 0 is set the ROM reads FFh, as openMSX models it. */
+static UInt8 readWx(MsxMusic* rm, UInt16 address)
+{
+    UInt16 absolute = address + 0x2000 * rm->startPage;
+
+    if (absolute >= 0x7ff0 && absolute < 0x8000) {
+        return rm->control | 0xfc;
+    }
+    if (rm->control & 1) {
+        return 0xff;
+    }
+    return rm->romData[address];
+}
+
+static void writeWx(MsxMusic* rm, UInt16 address, UInt8 value)
+{
+    UInt16 absolute = address + 0x2000 * rm->startPage;
+
+    if (absolute >= 0x7ff0 && absolute < 0x8000) {
+        rm->control = value & 3;
     }
 }
 
@@ -114,7 +157,8 @@ static void getDebugInfo(MsxMusic* rm, DbgDevice* dbgDevice)
 }
 
 int romMapperMsxMusicCreate(const char* filename, UInt8* romData, 
-                            int size, int slot, int sslot, int startPage) 
+                            int size, int slot, int sslot, int startPage,
+                            RomType romType)
 {
     DeviceCallbacks callbacks = { destroy, reset, saveState, loadState };
     DebugCallbacks dbgCallbacks = { getDebugInfo, NULL, NULL, NULL };
@@ -127,7 +171,7 @@ int romMapperMsxMusicCreate(const char* filename, UInt8* romData,
         return 0;
     }
 
-    rm->deviceHandle = deviceManagerRegister(ROM_MSXMUSIC, &callbacks, rm);
+    rm->deviceHandle = deviceManagerRegister(romType, &callbacks, rm);
     
     rm->ym2413 = NULL;
     if (boardGetYm2413Enable()) {
@@ -143,9 +187,15 @@ int romMapperMsxMusicCreate(const char* filename, UInt8* romData,
     rm->slot  = slot;
     rm->sslot = sslot;
     rm->startPage  = startPage;
+    rm->romType = romType;
+    rm->control = 0;
 
+    if (romType == ROM_MSXMUSIC_WX) {
+        slotRegister(slot, sslot, startPage, pages, readWx, readWx, writeWx, destroy, rm);
+    }
     for (i = 0; i < pages; i++) {
-        slotMapPage(slot, sslot, i + startPage, rm->romData + 0x2000 * i, 1, 0);
+        slotMapPage(slot, sslot, i + startPage, rm->romData + 0x2000 * i,
+                    romType != ROM_MSXMUSIC_WX, 0);
     }
 
     reset(rm);

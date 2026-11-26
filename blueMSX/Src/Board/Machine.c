@@ -1802,7 +1802,11 @@ int machineInitialize(Machine* machine, UInt8** mainRam, UInt32* mainRamSize, UI
             break;
             
         case ROM_MSXMUSIC:
-            success &= romMapperMsxMusicCreate(romName, buf, size, slot, subslot, startPage);
+            success &= romMapperMsxMusicCreate(romName, buf, size, slot, subslot, startPage, ROM_MSXMUSIC);
+            break;
+
+        case ROM_MSXMUSIC_WX:
+            success &= romMapperMsxMusicCreate(romName, buf, size, slot, subslot, startPage, ROM_MSXMUSIC_WX);
             break;
 
         case ROM_NORMAL:
