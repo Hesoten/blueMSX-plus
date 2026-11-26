@@ -115,6 +115,21 @@ static void reset(RomMapperTC8566AF* rm)
     }
 }
 
+/* Unused turbo R registers in 3FF0-3FFF do not show the ROM: on a real
+** FS-A1GT 3FFC-3FFF read FC FC FF 3F and the others read FF. */
+static UInt8 readUnusedRegister(UInt16 address)
+{
+    switch (address & 0x0f) {
+    case 0x0c:
+        return 0xfc;
+    case 0x0d:
+        return 0xfc;
+    case 0x0f:
+        return 0x3f;
+    }
+    return 0xff;
+}
+
 static UInt8 read(RomMapperTC8566AF* rm, UInt16 address) 
 {
     address += 0x4000;
@@ -138,6 +153,7 @@ static UInt8 read(RomMapperTC8566AF* rm, UInt16 address)
             case 0x05:
                 return tc8566afReadRegister(rm->fdc, 5);
             }
+            return readUnusedRegister(address);
         }
         return rm->romData[address & 0x3fff];
     } 
@@ -173,6 +189,7 @@ static UInt8 peek(RomMapperTC8566AF* rm, UInt16 address)
             case 0x05:
                 return 0xff; // Get from fdc
             }
+            return readUnusedRegister(address);
         }
         return rm->romData[address & 0x3fff];
     } 
