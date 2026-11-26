@@ -60,11 +60,11 @@ static void destroy(MsxMusic* rm)
 
     if (rm->ym2413 != NULL) {
         ym2413Destroy(rm->ym2413);
+        debugDeviceUnregister(rm->debugHandle);
     }
 
     slotUnregister(rm->slot, rm->sslot, rm->startPage);
     deviceManagerUnregister(rm->deviceHandle);
-    debugDeviceUnregister(rm->debugHandle);
 
     free(rm->romData);
     free(rm);

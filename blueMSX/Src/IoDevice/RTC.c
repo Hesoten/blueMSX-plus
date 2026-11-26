@@ -364,6 +364,8 @@ RTC* rtcCreate(int enable, char* cmosName)
         rtc->leapYear = tm->tm_year % 4;
     }
 
+    /* -1 names no debug device, so a disabled RTC unregisters nothing. */
+    rtc->debugHandle = -1;
     if (enable) {
         rtc->debugHandle = debugDeviceRegister(DBGTYPE_BIOS, langDbgDevRtc(), &dbgCallbacks, rtc);
         
