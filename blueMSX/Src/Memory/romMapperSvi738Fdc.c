@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik, Tomas Karlsson
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -82,16 +85,21 @@ static void destroy(RomMapperSvi738Fdc* rm)
 
 static UInt8 read(RomMapperSvi738Fdc* rm, UInt16 address) 
 {
-    switch (address & 0x3fff) {
-        case 0x3fb8:
+    /* Only A0-A2 and A6-A13 select a register, so 3FB8-3FBF repeats
+    ** every 8 bytes over 3F80-3FBF. */
+    switch (address & 0x3fc7) {
+        case 0x3f80:
             return wd2793GetStatusReg(rm->fdc);
-        case 0x3fb9:
+        case 0x3f81:
             return wd2793GetTrackReg(rm->fdc);
-        case 0x3fba:
+        case 0x3f82:
             return wd2793GetSectorReg(rm->fdc);
-        case 0x3fbb:
+        case 0x3f83:
             return wd2793GetDataReg(rm->fdc);
-        case 0x3fbc:
+        case 0x3f84:
+        case 0x3f85:
+        case 0x3f86:
+        case 0x3f87:
             return (wd2793GetIrq(rm->fdc)?0x80:0) | (wd2793GetDataRequest(rm->fdc)?0:0x40);
     }
     return address < 0x4000 ? rm->romData[address] : 0xff;
@@ -99,16 +107,19 @@ static UInt8 read(RomMapperSvi738Fdc* rm, UInt16 address)
 
 static UInt8 peek(RomMapperSvi738Fdc* rm, UInt16 address) 
 {
-    switch (address & 0x3fff) {
-        case 0x3fb8:
+    switch (address & 0x3fc7) {
+        case 0x3f80:
             return 0xff; // Get from fdc
-        case 0x3fb9:
+        case 0x3f81:
             return 0xff; // Get from fdc
-        case 0x3fba:
+        case 0x3f82:
             return 0xff; // Get from fdc
-        case 0x3fbb:
+        case 0x3f83:
             return 0xff; // Get from fdc
-        case 0x3fbc:
+        case 0x3f84:
+        case 0x3f85:
+        case 0x3f86:
+        case 0x3f87:
             return 0xff; // Get from fdc
     }
     return address < 0x4000 ? rm->romData[address] : 0xff;
@@ -116,20 +127,23 @@ static UInt8 peek(RomMapperSvi738Fdc* rm, UInt16 address)
 
 static void write(RomMapperSvi738Fdc* rm, UInt16 address, UInt8 value) 
 {
-    switch (address & 0x3fff) {
-        case 0x3fb8:
+    switch (address & 0x3fc7) {
+        case 0x3f80:
             wd2793SetCommandReg(rm->fdc, value);
             break;
-        case 0x3fb9:
+        case 0x3f81:
             wd2793SetTrackReg(rm->fdc, value);
             break;
-        case 0x3fba:
+        case 0x3f82:
             wd2793SetSectorReg(rm->fdc, value);
             break;
-        case 0x3fbb:
+        case 0x3f83:
             wd2793SetDataReg(rm->fdc, value);
             break;
-        case 0x3fbc:
+        case 0x3f84:
+        case 0x3f85:
+        case 0x3f86:
+        case 0x3f87:
             rm->drvSelect = value & 0x3f;
             wd2793SetSide(rm->fdc, value & 4);
             wd2793SetMotor(rm->fdc, value & 8);
