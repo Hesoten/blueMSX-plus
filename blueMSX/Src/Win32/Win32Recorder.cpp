@@ -118,15 +118,15 @@ static std::queue<QueuedFrame>    g_q;
 static std::vector<std::vector<uint8_t>> g_videoPool;
 static std::deque<int>                   g_videoFreeSlots;
 static const int                  VIDEO_POOL_SLOTS = 64;
-// Audio chunk backpressure: small per-chunk, but unbounded growth fills MF's
-// internal queue and blocks WriteSample so fast-stop never reaches the Flush.
+// Audio chunk cap (live): video is bounded by the pool, audio by this count,
+// so g_q cannot grow without limit when the encoder falls behind.
 static size_t                     g_audioQueuedCount = 0;
 static const size_t               AUDIO_QUEUE_MAX = 64;
 static std::atomic<bool>          g_recActive{false};   // producer pushes only while true
 static std::atomic<bool>          g_stopRequested{false};
-/* Live stop wants a fast exit (drop pending + Flush) since the SW HEVC
-** encoder can be slower than realtime. Offline leaves this false so the
-** worker drains the queue naturally. */
+/* Live stop wants a fast exit (drop what is still queued) since the SW
+** HEVC encoder can be slower than realtime. Offline leaves this false so
+** the worker drains the queue naturally. */
 static std::atomic<bool>          g_abandonQueue{false};
 static std::thread                g_worker;
 
@@ -640,13 +640,9 @@ static void mfWorkerThreadEntry(WorkerInit init)
         }
     }
 
-    /* On fast-stop (live), drop MF's internal pending samples so Finalize
-    ** doesn't sit on a slow encoder backlog. */
-    if (g_abandonQueue.load()) {
-        writer->Flush(MF_SINK_WRITER_ALL_STREAMS);
-    }
-    // 5) Finalize.  Always called, even with frameCount == 0; without
-    //    it the SinkWriter destructor hangs on dangling work.
+    /* 5) Finalize, always (even with 0 frames) or the writer's destructor hangs.
+    ** No Flush first: it would drop the end of the file that MF still holds, and
+    ** with throttling on that is too little to make a stop any faster. */
     writer->Finalize();
     writer.Reset();
     if (coOwned) CoUninitialize();
@@ -802,7 +798,9 @@ static int startWorker(const char* filename, int fps, int width, int height, boo
     DWORD wr = WaitForSingleObject(g_initDoneEvent, 10000);
     if (wr != WAIT_OBJECT_0) {
         // Best-effort tear-down: signal stop and join.
+        std::unique_lock<std::mutex> stopLock(g_mtx);   /* see stopWorker */
         g_stopRequested = true;
+        stopLock.unlock();
         g_cv.notify_one();
         if (g_worker.joinable()) g_worker.join();
         recorderVideoPoolTeardown();
@@ -833,8 +831,12 @@ static int startWorker(const char* filename, int fps, int width, int height, boo
 static void stopWorker(void)
 {
     if (!g_worker.joinable()) return;
+    /* Under g_mtx: the worker and producers test these in their wait
+    ** predicates; a store between test and sleep would lose the wake-up. */
+    std::unique_lock<std::mutex> stopLock(g_mtx);
     g_recActive     = false;
     g_stopRequested = true;
+    stopLock.unlock();
     g_cv.notify_one();
     g_qSpace.notify_all();   // unblock any producer waiting for queue space
     g_worker.join();
@@ -1842,9 +1844,11 @@ extern "C" void recorderStopLive(void)
     HCURSOR oldC = SetCursor(LoadCursor(NULL, IDC_WAIT));
 
     if (g_worker.joinable()) {
+        std::unique_lock<std::mutex> stopLock(g_mtx);   /* see stopWorker */
         g_recActive     = false;
-        g_abandonQueue  = true;   /* fast stop: drop pending, flush MF */
+        g_abandonQueue  = true;   /* fast stop: drop what is still queued */
         g_stopRequested = true;
+        stopLock.unlock();
         g_cv.notify_one();
         g_qSpace.notify_all();   // unblock any producer waiting for queue space
 
@@ -1854,14 +1858,18 @@ extern "C" void recorderStopLive(void)
             SetEvent(done);
         });
 
-        for (;;) {
+        bool quit     = false;
+        int  quitCode = 0;
+        while (!quit) {
             DWORD wr = MsgWaitForMultipleObjects(1, &done, FALSE, INFINITE, QS_ALLEVENTS);
             if (wr == WAIT_OBJECT_0) break;
             MSG msg;
             while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
                 if (msg.message == WM_QUIT) {
-                    /* Re-post so the main loop sees it once we return. */
-                    PostQuitMessage((int)msg.wParam);
+                    /* Stop pumping: a pending WM_QUIT wakes the wait at once even
+                    ** after done is set. Re-posted below once the worker is joined. */
+                    quit     = true;
+                    quitCode = (int)msg.wParam;
                     break;
                 }
                 TranslateMessage(&msg);
@@ -1869,6 +1877,7 @@ extern "C" void recorderStopLive(void)
             }
         }
         if (joiner.joinable()) joiner.join();
+        if (quit) PostQuitMessage(quitCode);   /* for the main loop once we return */
         CloseHandle(done);
         recorderVideoPoolTeardown();
     }
