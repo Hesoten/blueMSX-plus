@@ -9,6 +9,9 @@
 **
 ** Copyright (C) 2003-2006 Daniel Vik
 **
+** Modified 2026 by Hesoten for blueMSX+ fork.
+** See https://github.com/Hesoten/blueMSX-plus for change history.
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
 ** the Free Software Foundation; either version 2 of the License, or
@@ -112,6 +115,21 @@ static void reset(RomMapperTC8566AF* rm)
     }
 }
 
+/* Unused turbo R registers in 3FF0-3FFF do not show the ROM: on a real
+** FS-A1GT 3FFC-3FFF read FC FC FF 3F and the others read FF. */
+static UInt8 readUnusedRegister(UInt16 address)
+{
+    switch (address & 0x0f) {
+    case 0x0c:
+        return 0xfc;
+    case 0x0d:
+        return 0xfc;
+    case 0x0f:
+        return 0x3f;
+    }
+    return 0xff;
+}
+
 static UInt8 read(RomMapperTC8566AF* rm, UInt16 address) 
 {
     address += 0x4000;
@@ -135,6 +153,7 @@ static UInt8 read(RomMapperTC8566AF* rm, UInt16 address)
             case 0x05:
                 return tc8566afReadRegister(rm->fdc, 5);
             }
+            return readUnusedRegister(address);
         }
         return rm->romData[address & 0x3fff];
     } 
@@ -170,6 +189,7 @@ static UInt8 peek(RomMapperTC8566AF* rm, UInt16 address)
             case 0x05:
                 return 0xff; // Get from fdc
             }
+            return readUnusedRegister(address);
         }
         return rm->romData[address & 0x3fff];
     } 
@@ -185,7 +205,7 @@ static void write(RomMapperTC8566AF* rm, UInt16 address, UInt8 value)
 {
     address += 0x4000;
     
-    if ((address == 0x6000) || (address == 0x7ff0) || (address == 0x7ffe)) {
+    if (address == 0x7ff0) {
         rm->romMapper[0] =  value & rm->romMask;
         return;
     } 
