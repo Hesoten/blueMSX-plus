@@ -95,7 +95,7 @@ Windows 11 向けに UI や音声周りを中心にモダン化しています�
 1. [Releases](https://github.com/Hesoten/blueMSX-plus/releases) からリリースアーカイブをダウンロードする
    - 通常は 64bit 版のアーカイブ (`x64`) を、32bit 版が必要な場合は `Win32` のアーカイブをダウンロードしてください
 2. 好きな場所に展開する
-3. (オプション) お持ちの MSX 実機に対応した BIOS ファイルを、Machines フォルダの該当機種のフォルダに配置する (config.ini 内に記述された BIOS ファイル名と一致するよう配置)
+3. (オプション) お持ちの MSX 実機に対応した BIOS ファイルを、Machines フォルダの該当機種のフォルダに配置する (詳細は次のセクションを参照してください)
 4. 展開したフォルダ内の `blueMSX+.exe` を起動する
 
 
@@ -104,6 +104,19 @@ Windows 11 向けに UI や音声周りを中心にモダン化しています�
 引き継ぎたい設定ファイルがある既存の blueMSX / blueMSX+ フォルダをお持ちの場合は、リリースアーカイブの中身を **フォルダ構成を保ったまま** そのフォルダに上書きコピーし、`blueMSX+.exe` を起動してください。
 
 ※ `blueMSX+.exe` を起動すると、既存の blueMSX 用の設定ファイル (`*.ini`) は blueMSX+ 用にアップデートされます。この結果、同フォルダ内のオリジナル `blueMSX.exe` は正常に起動・動作しなくなる可能性があります。
+
+
+## 実機からの BIOS 吸い出しとインストール
+
+blueMSX+ を実機同等の環境で使うには、お手持ちの MSX から機種固有の BIOS 群(メイン BIOS、SUB ROM、漢字 ROM、DISK ROM、内蔵ソフト等)を吸い出して用意する必要があります。以下は手順の例です。
+
+1. **PC ↔ MSX 間のファイル転送手段を用意します。** フロッピーディスク (PC 側に 3モード FDD)、SD カード ([MegaFlashROM SCC+ SD](https://www.msxcartridgeshop.com) など)、WiFi ([ESERAMair](https://github.com/t-bucchi/ESERAMair) など) が使えます。
+2. **`Machines/<対象機種>/config.ini` の `[Slots]` に書かれた ROM を吸い出します。** 例えば以下のツールが利用可能です。
+   - **BIOSDUMP**: リリースアーカイブの `Tools/BIOSDUMP/` に収録しています。使い方は同じフォルダの `README.ja.txt` を参照してください。
+   - **[TINY SLOT CHECKER](https://tiny-yarou.com/slotchecker.html)** (TINY野郎さん制作): `config.ini` のスロット番号を見ながら、各スロットの ROM を 1 つずつ保存します。
+3. **ファイル名を `config.ini` の記述と一致させて `Machines/<対象機種>/` に配置し、メニュー `オプション` → `エミュレーション` → `マシン構成` でその機種を選択します。**
+
+> **法的注意**: BIOS ROM は各メーカー等の著作物です。**ご自身が所有する実機から吸い出し、個人利用の範囲内で使用してください**。吸い出した ROM ファイルの配布・共有・アップロードは行わないでください。
 
 
 ## おすすめ設定
