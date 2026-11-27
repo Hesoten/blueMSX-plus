@@ -154,9 +154,6 @@ static void write(RomMapperSvi707Fdc* rm, UInt16 address, UInt8 value)
         case 0x3fbc:
             rm->drvSelect = value & 0x3f;
             wd2793SetSide(rm->fdc, value & 4);
-            wd2793SetMotor(rm->fdc, value & 8);
-            if (diskEnabled(0)) ledSetFdd1(value & 1);
-            if (diskEnabled(1)) ledSetFdd2(value & 2);
             switch (value & 3) {
                 case 1:
                     wd2793SetDrive(rm->fdc, 0);
@@ -167,6 +164,10 @@ static void write(RomMapperSvi707Fdc* rm, UInt16 address, UInt8 value)
                 default:
                     wd2793SetDrive(rm->fdc, -1);
             }
+            /* Motor after the drive select so it acts on the new drive. */
+            wd2793SetMotor(rm->fdc, value & 8);
+            if (diskEnabled(0)) ledSetFdd1(value & 1);
+            if (diskEnabled(1)) ledSetFdd2(value & 2);
             break;
         case 0x3fbe:    // Set CP/M boot ROM
             rm->toCpm = value;

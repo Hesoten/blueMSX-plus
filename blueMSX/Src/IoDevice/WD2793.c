@@ -329,7 +329,7 @@ void wd2793SetMotor(WD2793* wd, int motorOn)
         break;
     }
 
-    fdcAudioSetMotor(wd->fdcAudio, diskEnabled(wd->drive));
+    fdcAudioSetMotor(wd->fdcAudio, motorOn && diskEnabled(wd->drive));
 }
 
 int wd2793DiskChanged(WD2793* wd, int drive)
